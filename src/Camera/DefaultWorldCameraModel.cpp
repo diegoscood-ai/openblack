@@ -261,7 +261,10 @@ void DefaultWorldCameraModel::UpdateFocusPointInteractionParameters(glm::vec3 or
 	_originFocusDistanceAtInteractionStart = glm::distance(origin, focus);
 	// TODO(#713): calculate a y-basis based on the projection on land of camera origin and hand
 	_originToHandPlaneNormal = glm::vec3(0.0f, 1.0f, 0.0f);
-	// TODO(#713): Calculate the with _originToHandPlaneNormal and the mouse hit point to put in _alignmentAtInteractionStart
+	// Drag plane through the grabbed point (was always sea level): the grabbed land stays under the hand on hills too.
+	_alignmentAtInteractionStart = _screenSpaceMouseRaycastHitAtClick.has_value()
+	                                   ? glm::dot(*_screenSpaceMouseRaycastHitAtClick, _originToHandPlaneNormal)
+	                                   : 0.0f;
 	_averageIslandDistance = GetVerticalLineInverseDistanceWeighingRayCast(camera);
 	{
 		const auto diff = _targetOrigin - _targetFocus;

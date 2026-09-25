@@ -125,6 +125,7 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 {
 	static bool leftMouseButton = false;
 	static bool middleMouseButton = false;
+	static bool rightMouseButton = false;
 
 	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_LEFT)
 	{
@@ -135,7 +136,13 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		middleMouseButton = !middleMouseButton;
 	}
 
+	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_RIGHT)
+	{
+		rightMouseButton = event.type == SDL_MOUSEBUTTONDOWN;
+	}
+
 	_handGripping = middleMouseButton || leftMouseButton;
+	_handAction = rightMouseButton;
 
 	auto& window = Locator::windowing::value();
 	auto& camera = Locator::camera::value();
@@ -217,14 +224,24 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		SDL_GetMouseState(&_mousePosition.x, &_mousePosition.y);
 		break;
 	}
+	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
 		switch (event.button.button)
 		{
 		case SDL_BUTTON_MIDDLE:
 		{
-			const glm::ivec2 screenSize = window.GetSize();
-			SDL_SetRelativeMouseMode((event.type == SDL_MOUSEBUTTONDOWN) ? SDL_TRUE : SDL_FALSE);
-			SDL_WarpMouseInWindow(static_cast<SDL_Window*>(window.GetHandle()), screenSize.x / 2, screenSize.y / 2);
+			// Relative mode while held: the cursor stays put and only the motion drives the camera.
+			static glm::ivec2 pressPosition {0, 0};
+			const bool pressed = event.type == SDL_MOUSEBUTTONDOWN;
+			if (pressed)
+			{
+				pressPosition = {event.button.x, event.button.y};
+			}
+			SDL_SetRelativeMouseMode(pressed ? SDL_TRUE : SDL_FALSE);
+			if (!pressed)
+			{
+				SDL_WarpMouseInWindow(static_cast<SDL_Window*>(window.GetHandle()), pressPosition.x, pressPosition.y);
+			}
 		}
 		break;
 		}
@@ -388,22 +405,18 @@ bool Game::Update() noexcept
 				intersectionTransform.scale = scale;
 			}
 
-			if (!_handGripping)
+			// Hand animation (hh.HBN): Cwiggle / Cgrip + L*_lr / L*_fb layers driven by the cursor motion.
 			{
-				const glm::vec3 handOffset(0, 1.5f, 0);
-				const glm::mat4 modelRotationCorrection = glm::eulerAngleX(glm::radians(90.0f));
-
-				const auto handEntity =
-				    Locator::handSystem::value()
-				        .GetPlayerHands()[static_cast<size_t>(ecs::systems::HandSystemInterface::Side::Left)];
-				auto& handTransform = Locator::entitiesRegistry::value().Get<ecs::components::Transform>(handEntity);
-				// TODO(#480): move using velocity rather than snapping hand to intersectionTransform
-				handTransform.position = intersectionTransform.position;
-				handTransform.rotation = glm::eulerAngleY(camera.GetRotation().y) * modelRotationCorrection;
-				handTransform.rotation = intersectionTransform.rotation * handTransform.rotation;
-				handTransform.position += intersectionTransform.rotation * handOffset;
-				Locator::entitiesRegistry::value().SetDirty();
+				static glm::ivec2 previousMousePosition = _mousePosition;
+				const auto mouseDelta = glm::vec2(_mousePosition - previousMousePosition);
+				previousMousePosition = _mousePosition;
+				Locator::handSystem::value().Update(deltaTime, mouseDelta, _handGripping, _handAction);
 			}
+
+			// Palm towards the ground, index fingertip on the point under the cursor, fingertips dug in while gripping.
+			const bool overLand = intersectionTransform.position != glm::zero<glm::vec3>();
+			Locator::handSystem::value().Place(overLand ? std::optional(intersectionTransform.position) : std::nullopt,
+			                                   camera.GetForward(), _handGripping, deltaTime);
 		}
 
 		// Update Entities

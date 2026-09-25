@@ -114,6 +114,7 @@ private:
 	uint32_t _turnCount {0};
 	bool _paused {true};
 	glm::ivec2 _mousePosition;
+	bool _handAction {false};
 	bool _handGripping;
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> _requestScreenshot;
 };

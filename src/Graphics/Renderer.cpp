@@ -28,9 +28,11 @@
 #include "3D/OceanInterface.h"
 #include "3D/SkyInterface.h"
 #include "Camera/Camera.h"
+#include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "EngineConfig.h"
 #include "Graphics/DebugLines.h"
@@ -667,7 +669,14 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 				submitDesc.instanceDesc =
 				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
-				if (mesh->IsBoned())
+				const auto* handBones = meshId == ecs::components::Hand::k_MeshId ? Locator::handSystem::value().GetBoneMatrices() : nullptr;
+				if (mesh->IsBoned() && handBones != nullptr && handBones->size() == mesh->GetBoneMatrices().size())
+				{
+					// Player hand: animated pose from hh.HBN
+					submitDesc.modelMatrices = handBones->data();
+					submitDesc.matrixCount = static_cast<uint8_t>(handBones->size());
+				}
+				else if (mesh->IsBoned())
 				{
 					submitDesc.modelMatrices = mesh->GetBoneMatrices().data();
 					submitDesc.matrixCount = static_cast<uint8_t>(mesh->GetBoneMatrices().size());
@@ -748,8 +757,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 					    _plane->GetVertexBuffer().Bind();
 
-					    bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-					                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
+					    const auto blend = sprite.additive
+					                           ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
+					                           : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+					    bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
 					                   BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
 
 					    bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(spriteShader->GetRawHandle()));

@@ -22,6 +22,8 @@ struct Sprite
 	glm::vec2 uvMin;
 	glm::vec2 uvExtent;
 	glm::vec4 tint;
+	/// Additive (glows, the default) or normal alpha blending with a premultiplied tint (e.g. dust).
+	bool additive {true};
 };
 
 } // namespace openblack::ecs::components

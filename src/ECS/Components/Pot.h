@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include "Common/Zoomer.h"
 #include "Enums.h"
 
 namespace openblack::ecs::components
@@ -24,20 +25,12 @@ struct Pot
 };
 
 // PileResource sink offset (+0x84..+0xB0): piles rise out of / sink into the ground instead of scaling. A change of
-// amount starts a 1 s move to the new target, a quartic with zero end velocity and acceleration.
+// amount moves the offset to its new target in 1 s (the same quartic as the LH3DLib Zoomer).
 struct PileSink
 {
 	float baseY;
 	float height = 1.0f;
-	float offset = 0.0f;
-	float velocity = 0.0f;
-	float target = 0.0f;
-	float startOffset = 0.0f;
-	float startVelocity = 0.0f;
-	float time = 1.0f;
-	float c2 = 0.0f; // coefficients of t^2/2, t^3/6, t^4/24
-	float c3 = 0.0f;
-	float c4 = 0.0f;
+	openblack::Zoomer offset {};
 };
 
 // Texture V offset of the object (LH3DObject vfunc 0xE8). PileFood::Draw scrolls the grain of the storage pit and

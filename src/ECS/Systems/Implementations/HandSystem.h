@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "3D/HandAnimator.h"
+#include "Common/Zoomer.h"
 #include "Enums.h"
 #include "ECS/Systems/HandSystemInterface.h"
 
@@ -94,6 +95,8 @@ private:
 	void UpdateThrown(float seconds) noexcept;
 	void EmitGripDust(glm::vec3 point) noexcept;
 	void UpdateGripDust(float seconds) noexcept;
+	/// Environment-variable test hooks (HandDebugHooks.cpp), run once when the landscape exists.
+	void RunDebugHooks() noexcept;
 	void UpdatePickupParticles(float seconds, bool emitting) noexcept;
 	[[nodiscard]] glm::vec3 ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept;
 	[[nodiscard]] glm::mat3 FrameRotation(glm::vec3 cameraForward) const noexcept;
@@ -227,27 +230,8 @@ private:
 	/// Nearest object whose triangles the ray origin + t * direction (unit) hits.
 	[[nodiscard]] std::optional<CursorHit> PickObjectAlongRay(const glm::vec3& origin, const glm::vec3& direction) const noexcept;
 
-	/// Zoomer (LH3DLib, SetDestinationWithSpeedAndTime 0x407D60 / Update 0x442720): moves to a destination in a given
-	/// time with a quartic that matches the start value and speed and ends with the destination speed and no acceleration.
-	struct Zoomer
-	{
-		float value = 0.0f;
-		float destination = 0.0f;
-		float destinationSpeed = 0.0f;
-		float speed = 0.0f;
-		float time = 0.0f;
-		float duration = 0.0f;
-		float startValue = 0.0f;
-		float startSpeed = 0.0f;
-		float c2 = 0.0f; // coefficients of t^2/2, t^3/6, t^4/24
-		float c3 = 0.0f;
-		float c4 = 0.0f;
-		void SetPosition(float position);
-		void SetDestinationWithSpeedAndTime(float target, float targetSpeed, float seconds);
-		void Update(float seconds);
-	};
 	/// g_HandDistZoomer: the hand's distance from the camera along the mouse ray.
-	Zoomer _handDistance;
+	openblack::Zoomer _handDistance;
 	/// HandStateNormal::Enter resets the zoomer to the current distance from view.
 	bool _handDistanceValid {false};
 	std::optional<glm::vec3> _gripPoint;

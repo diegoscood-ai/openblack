@@ -102,7 +102,7 @@ void PotArchetype::SetSize(entt::entity entity, bool animate)
 		                         ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z))
 		                         : transform.position.y;
 		sink = &registry.Assign<PileSink>(entity, ground);
-		sink->offset = -height;
+		sink->offset.SetPosition(-height);
 		// PileFood::Draw: only the storage pit food pile (info 2) and magic food (info 10) scroll their grain.
 		if (pot->type == PotInfo::StoragePitFoodPile || pot->type == PotInfo::MagicFood)
 		{
@@ -110,31 +110,21 @@ void PotArchetype::SetSize(entt::entity entity, bool animate)
 		}
 	}
 	sink->height = height;
-	sink->target = (proportion - 1.0f) * height;
-	if (!animate)
+	// The matrix of 0x66E900 is the Zoomer's for T = 1 s: end position = target, end velocity and acceleration = 0.
+	const float target = (proportion - 1.0f) * height;
+	if (animate)
 	{
-		sink->offset = sink->target;
-		sink->velocity = 0.0f;
-		sink->time = 1.0f;
+		sink->offset.SetDestinationWithSpeedAndTime(target, 0.0f, 1.0f);
 	}
 	else
 	{
-		// Solve [[1/24,1/6,1/2],[1/6,1/2,1],[1/2,1,1]] (c4,c3,c2) = (target - a0 - v0, 0 - v0, 0) for T = 1 s:
-		// end position = target, end velocity = 0, end acceleration = 0.
-		sink->startOffset = sink->offset;
-		sink->startVelocity = sink->velocity;
-		sink->time = 0.0f;
-		const float r1 = sink->target - sink->startOffset - sink->startVelocity;
-		const float r2 = -sink->startVelocity;
-		sink->c4 = 72.0f * r1 - 48.0f * r2;
-		sink->c3 = -2.0f * r2 - 2.0f * sink->c4 / 3.0f;
-		sink->c2 = 2.0f * r2 + sink->c4 / 6.0f;
+		sink->offset.SetPosition(target);
 	}
 	// Food piles keep MorphWithTerrain: the renderer passes the sink offset on to the height-map shader.
-	transform.position.y = sink->baseY + sink->offset;
+	transform.position.y = sink->baseY + sink->offset.value;
 	if (auto* scroll = registry.TryGet<UvScroll>(entity); scroll != nullptr)
 	{
-		scroll->v = 0.25f * (1.0f - std::clamp(sink->offset / std::max(sink->height, 1e-3f) + 1.0f, 0.0f, 1.0f));
+		scroll->v = 0.25f * (1.0f - std::clamp(sink->offset.value / std::max(sink->height, 1e-3f) + 1.0f, 0.0f, 1.0f));
 	}
 	registry.SetDirty();
 }
@@ -145,29 +135,16 @@ void PotArchetype::UpdateSizes(float seconds)
 	auto& registry = Locator::entitiesRegistry::value();
 	bool dirty = false;
 	registry.Each<PileSink, Transform>([&](entt::entity entity, PileSink& sink, Transform& transform) {
-		if (sink.time >= 1.0f)
+		if (!sink.offset.IsMoving())
 		{
 			return;
 		}
-		sink.time += seconds;
-		if (sink.time >= 1.0f)
-		{
-			sink.time = 1.0f;
-			sink.offset = sink.target;
-			sink.velocity = 0.0f;
-		}
-		else
-		{
-			const float t = sink.time;
-			sink.velocity = sink.startVelocity + sink.c2 * t + sink.c3 * t * t / 2.0f + sink.c4 * t * t * t / 6.0f;
-			sink.offset = sink.startOffset + sink.startVelocity * t + sink.c2 * t * t / 2.0f + sink.c3 * t * t * t / 6.0f +
-			              sink.c4 * t * t * t * t / 24.0f;
-		}
-		transform.position.y = sink.baseY + sink.offset;
+		sink.offset.Update(seconds);
+		transform.position.y = sink.baseY + sink.offset.value;
 		// fn 0x51C0A3: 0.25 * (1 - clamp(offset / H + 1, 0, 1)) passed to the Game3DObject as its texture V offset.
 		if (auto* scroll = registry.TryGet<UvScroll>(entity); scroll != nullptr)
 		{
-			scroll->v = 0.25f * (1.0f - std::clamp(sink.offset / std::max(sink.height, 1e-3f) + 1.0f, 0.0f, 1.0f));
+			scroll->v = 0.25f * (1.0f - std::clamp(sink.offset.value / std::max(sink.height, 1e-3f) + 1.0f, 0.0f, 1.0f));
 		}
 		dirty = true;
 	});

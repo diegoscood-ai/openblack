@@ -138,7 +138,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    if (const auto* sink = registry.TryGet<const PileSink>(entity);
 		        sink != nullptr && registry.AllOf<MorphWithTerrain>(entity))
 		    {
-			    _renderContext.instanceUniforms[idx][2][3] = sink->offset;
+			    _renderContext.instanceUniforms[idx][2][3] = sink->offset.value;
 		    }
 		    if (drawBoundingBox)
 		    {

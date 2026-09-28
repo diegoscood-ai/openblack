@@ -9,31 +9,14 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include "Enums.h"
-
 namespace openblack::ecs::components
 {
 
-enum class MagicTreeType
+/// Per-entity opacity of a mesh (0 = invisible, 1 = opaque), e.g. the roots and roots piles that fade out.
+/// Entities with this component are drawn in a separate alpha-blended pass after the opaque objects.
+struct Alpha
 {
-};
-
-struct Tree
-{
-	TreeInfo type;
-	float maxSize;
-	uint32_t forestId = 0;
-	/// Trees planted near a town are scenic: foresters leave them alone (Tree +0x5e bit 2 in the original).
-	bool isNonScenic = true;
-};
-
-/// A tree that was thrown or dropped where it cannot be replanted (DeadTree, a Rock subclass in the original):
-/// it keeps the tree mesh and the orientation it came to rest with, can be picked up again and gives wood.
-struct DeadTree
-{
-	TreeInfo type;
+	float value = 1.0f;
 };
 
 } // namespace openblack::ecs::components

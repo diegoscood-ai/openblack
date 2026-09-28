@@ -153,7 +153,72 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 
 float LandIsland::GetHeightAt(glm::vec2 vec) const
 {
-	return GetCell(vec * 0.1f).altitude * LandIsland::k_HeightUnit;
+	// LH3DIsland::GetAltitude (0x803090): the height of the landscape triangle under the point, in the original's
+	// integer arithmetic. MapCoords are 16.16 fixed point with 10 units per cell; each cell is split into two triangles
+	// along the diagonal chosen by its split bit, and the fourth corner is extrapolated from the other three so that
+	// the bilinear blend below is planar on that triangle.
+	const auto fixedX = static_cast<int64_t>(vec.x * 6553.6f);
+	const auto fixedZ = static_cast<int64_t>(vec.y * 6553.6f);
+	if (fixedX < 0 || fixedZ < 0 || (fixedX >> 16) >= 512 || (fixedZ >> 16) >= 512)
+	{
+		return 0.0f;
+	}
+	const auto cellX = static_cast<uint16_t>(fixedX >> 16);
+	const auto cellZ = static_cast<uint16_t>(fixedZ >> 16);
+	const auto fracX = static_cast<uint32_t>(fixedX & 0xFFFF);
+	const auto fracZ = static_cast<uint32_t>(fixedZ & 0xFFFF);
+
+	// The block stores 17 x 17 cells (one shared border row), so the neighbours are +1 (z) and +17 (x).
+	const auto mapCoordinates = glm::u16vec2(cellX, cellZ) >> static_cast<uint16_t>(0x4);
+	const uint8_t blockIndex = _blockIndexLookup.at(mapCoordinates.x << 5u | mapCoordinates.y);
+	if (blockIndex == 0)
+	{
+		return 0.0f;
+	}
+	const auto* cells = _landBlocks[blockIndex - 1].GetCells();
+	const auto* base = &cells[(cellX & 0xF) * 0x11u + (cellZ & 0xF)];
+	int v00 = base[0].altitude;
+	int v01 = base[1].altitude;
+	int v10 = base[0x11].altitude;
+	int v11 = base[0x12].altitude;
+	// Next to the sea (base corner at most 4) heights of 3 or less count as 0 (g 0xC37BF4, on by default).
+	if (v00 <= 4)
+	{
+		const auto sea = [](int v) { return v > 3 ? v : 0; };
+		v00 = sea(v00);
+		v01 = sea(v01);
+		v10 = sea(v10);
+		v11 = sea(v11);
+	}
+	int c00 = v00;
+	int c01 = v01;
+	int c10 = v10;
+	int c11 = v11;
+	if (base[0].properties.split)
+	{
+		if (fracZ > 0xFFFFu - fracX)
+		{
+			c00 = v10 + v01 - v11;
+		}
+		else
+		{
+			c11 = v10 + v01 - v00;
+		}
+	}
+	else if (fracX > fracZ)
+	{
+		c01 = v00 + v11 - v10;
+	}
+	else
+	{
+		c10 = v00 + v11 - v01;
+	}
+	const int fx = static_cast<int>(fracX >> 8);
+	const int fz = static_cast<int>(fracZ >> 8);
+	const int atX1 = (c11 - c10) * fz + (c10 << 8);
+	const int atX0 = (c01 - c00) * fz + (c00 << 8);
+	const int height = (((atX1 - atX0) * fx) >> 8) + atX0;
+	return static_cast<float>(height) * LandIsland::k_HeightUnit * (1.0f / 256.0f);
 }
 
 glm::vec3 LandIsland::GetNormalAt(glm::vec2 vec) const

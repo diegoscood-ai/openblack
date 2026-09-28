@@ -284,8 +284,11 @@ bool Game::GameLogicLoop() noexcept
 		Locator::livingActionSystem::value().Update();
 	}
 
-	auto& lhvm = Locator::vm::value();
-	lhvm.LookIn(lhvm::ScriptType::All);
+	{
+		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
+		auto& lhvm = Locator::vm::value();
+		lhvm.LookIn(lhvm::ScriptType::All);
+	}
 
 	_lastGameLoopTime = currentTime;
 	_turnDeltaTime = delta;
@@ -354,8 +357,11 @@ bool Game::Update() noexcept
 		}
 	}
 
-	camera.Update(deltaTime);
-	Locator::cameraBookmarkSystem::value().Update(deltaTime);
+	{
+		auto cameraSection = profiler.BeginScoped(Profiler::Stage::CameraUpdate);
+		camera.Update(deltaTime);
+		Locator::cameraBookmarkSystem::value().Update(deltaTime);
+	}
 
 	// Update Game Logic in Registry
 	{
@@ -378,6 +384,7 @@ bool Game::Update() noexcept
 			const auto scale = glm::vec3(50.0f, 50.0f, 50.0f);
 			if (screenSize.x > 0 && screenSize.y > 0)
 			{
+				auto rayCast = profiler.BeginScoped(Profiler::Stage::HandRayCast);
 				glm::vec3 rayOrigin;
 				glm::vec3 rayDirection;
 				camera.DeprojectScreenToWorld(static_cast<glm::vec2>(_mousePosition) / static_cast<glm::vec2>(screenSize),
@@ -401,12 +408,22 @@ bool Game::Update() noexcept
 							intersectionTransform.rotation = glm::mat3(1.0f);
 						}
 					}
+					// ObtainRequiredHandPosition: the hand goes along the mouse ray to the surface under the cursor
+					// (an object's mesh or the land), smoothed by the hand distance zoomer.
+					{
+						const bool land = intersectionTransform.position != glm::zero<glm::vec3>();
+						const auto point = Locator::handSystem::value().ResolveCursorPoint(
+						    rayOrigin, rayDirection, land ? std::optional(intersectionTransform.position) : std::nullopt,
+						    _handGripping, deltaTime);
+						intersectionTransform.position = point.value_or(glm::zero<glm::vec3>());
+					}
 				}
 				intersectionTransform.scale = scale;
 			}
 
 			// Hand animation (hh.HBN): Cwiggle / Cgrip + L*_lr / L*_fb layers driven by the cursor motion.
 			{
+				auto handUpdate = profiler.BeginScoped(Profiler::Stage::HandUpdate);
 				static glm::ivec2 previousMousePosition = _mousePosition;
 				const auto mouseDelta = glm::vec2(_mousePosition - previousMousePosition);
 				previousMousePosition = _mousePosition;
@@ -415,6 +432,7 @@ bool Game::Update() noexcept
 
 			// Palm towards the ground, index fingertip on the point under the cursor, fingertips dug in while gripping.
 			const bool overLand = intersectionTransform.position != glm::zero<glm::vec3>();
+			auto handPlace = profiler.BeginScoped(Profiler::Stage::HandPlace);
 			Locator::handSystem::value().Place(overLand ? std::optional(intersectionTransform.position) : std::nullopt,
 			                                   camera.GetForward(), _handGripping, deltaTime);
 		}

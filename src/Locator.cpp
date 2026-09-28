@@ -9,6 +9,9 @@
 
 #include "Locator.h"
 
+#include <algorithm>
+#include <cstdlib>
+
 #define LOCATOR_IMPLEMENTATIONS
 
 #include <spdlog/spdlog.h>
@@ -83,6 +86,11 @@ bool openblack::InitializeEngine(GraphicsBackend backend, bool vsync) noexcept
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), GLM_VERSION_COMPLETE);
 
 	Locator::profiler::emplace();
+	// OPENBLACK_PROFILE=<seconds>: log each stage's average / worst time per frame every <seconds>.
+	if (const char* profile = std::getenv("OPENBLACK_PROFILE"); profile != nullptr)
+	{
+		Locator::profiler::value().SetSummaryInterval(std::max(0.5f, static_cast<float>(std::atof(profile))));
+	}
 
 	Locator::rendererInterface::reset(RendererInterface::Create(backend, vsync).release());
 	if (!Locator::rendererInterface::has_value())

@@ -3,7 +3,7 @@ $input a_position, a_texcoord0, a_normal, a_indices, i_data0, i_data1, i_data2, 
 #else
 $input a_position, a_texcoord0, a_normal, a_indices
 #endif // USE_INSTANCING
-$output v_position, v_texcoord0, v_normal
+$output v_position, v_texcoord0, v_normal, v_color0
 
 #if BGFX_SHADER_LANGUAGE_HLSL == 3
 #define BGFX_CONFIG_MAX_BONES 48
@@ -35,10 +35,12 @@ void main()
 	v_position = mul(u_model[modelIndex], vec4(a_position.xyz, 1.0f));
 
 #ifdef USE_INSTANCING
+	// The w of the first column carries 1 - opacity for fading meshes (0 for the others).
+	float fade = i_data0.w;
 	mat4 model;
-	model[0] = i_data0;
-	model[1] = i_data1;
-	model[2] = i_data2;
+	model[0] = vec4(i_data0.xyz, 0.0f);
+	model[1] = vec4(i_data1.xyz, 0.0f);
+	model[2] = vec4(i_data2.xyz, 0.0f);
 	model[3] = i_data3;
 
 	v_position = instMul(model, v_position);
@@ -53,9 +55,22 @@ void main()
 	vec2 blockUv = (v_position.xz - extentMin) / (extentMax - extentMin);
 	float terrain_height = texture2DLod(s_heightmap, blockUv, 0.0f).r * 170.85f;
 	v_position.y += terrain_height - original_height;
+#ifdef USE_INSTANCING
+	// The w of the third column carries a vertical offset kept while morphing (piles rising / sinking).
+	v_position.y += i_data2.w;
+#endif // USE_INSTANCING
 #endif // USE_HEIGHT_MAP
 
 	v_texcoord0 = vec4(a_texcoord0, 0.0f, 0.0f);
+#ifdef USE_INSTANCING
+	// The w of the second column carries a texture V offset (scrolling food piles).
+	v_texcoord0.y += i_data1.w;
+#endif // USE_INSTANCING
+#ifdef USE_INSTANCING
+	v_color0 = vec4(1.0f, 1.0f, 1.0f, 1.0f - fade);
+#else
+	v_color0 = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+#endif // USE_INSTANCING
 	v_normal = a_normal;
 	gl_Position = mul(u_viewProj, v_position);
 }

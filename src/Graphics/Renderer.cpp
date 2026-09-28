@@ -45,6 +45,8 @@
 #include "Locator.h"
 #include "Profiler.h"
 #include "Renderer.h"
+
+#include <unordered_set>
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
 #include "Windowing/WindowingInterface.h"
@@ -289,6 +291,12 @@ void Renderer::ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolutio
 {
 	bgfx::setViewClear(static_cast<bgfx::ViewId>(viewId), BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clearColor, 0.0f, 0);
 	bgfx::setViewRect(static_cast<bgfx::ViewId>(viewId), 0, 0, resolution.x, resolution.y);
+	if (viewId == graphics::RenderPass::Main)
+	{
+		const auto blended = static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended);
+		bgfx::setViewClear(blended, BGFX_CLEAR_NONE);
+		bgfx::setViewRect(blended, 0, 0, resolution.x, resolution.y);
+	}
 }
 
 void Renderer::Reset(glm::u16vec2 resolution) const noexcept
@@ -317,9 +325,19 @@ const Texture2D* GetTexture(uint32_t skinID, const std::unordered_map<SkinId, st
 		{
 			texture = &*textureManager.Handle(skinID);
 		}
+		else if (!meshSkins.empty())
+		{
+			// Some modded packs embed a mesh's skin under a placeholder id (0x1001) while its material still names a
+			// pack texture that the pack does not have: use the mesh's own skin.
+			texture = meshSkins.begin()->second.get();
+		}
 		else
 		{
-			SPDLOG_LOGGER_ERROR(spdlog::get("graphics"), "Could not find the texture");
+			static std::unordered_set<uint32_t> reported;
+			if (reported.insert(skinID).second)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("graphics"), "Could not find the texture {:#x}", skinID);
+			}
 		}
 	}
 
@@ -694,6 +712,32 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 				// TODO(bwrsandman): choose the correct LOD
 				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+			}
+
+			// Fading meshes (components::Alpha): alpha blended, in their own view right after the main pass (same
+			// target and camera, no clear), so that nothing drawn in the main pass is sorted over them.
+			if (desc.viewId == graphics::RenderPass::Main && !renderCtx.translucentDrawDescs.empty())
+			{
+				_shaderManager->SetCamera(graphics::RenderPass::MainBlended, *desc.camera);
+				submitDesc.viewId = graphics::RenderPass::MainBlended;
+				auto translucent = submitDesc.state;
+				submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER |
+				                   BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
+				for (const auto& [meshId, placers] : renderCtx.translucentDrawDescs)
+				{
+					auto mesh = meshManager.Handle(meshId);
+					submitDesc.instanceDesc =
+					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
+					const static auto identity = glm::mat4(1.0f);
+					submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &identity;
+					submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
+					submitDesc.isSky = false;
+					submitDesc.morphWithTerrain = false;
+					submitDesc.program = objectShaderInstanced;
+					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				}
+				submitDesc.state = translucent;
+				submitDesc.viewId = desc.viewId;
 			}
 
 			// Debug

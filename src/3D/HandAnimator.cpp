@@ -245,6 +245,18 @@ std::vector<HandAnimator::ClipInfo> HandAnimator::ListClips() const noexcept
 	return out;
 }
 
+uint32_t HandAnimator::GetDurationMs(std::string_view name) const noexcept
+{
+	const auto it = _clips.find(std::string(name));
+	return it == _clips.end() ? 0 : it->second.info.durationMs;
+}
+
+uint32_t HandAnimator::GetFrameCount(std::string_view name) const noexcept
+{
+	const auto it = _clips.find(std::string(name));
+	return it == _clips.end() ? 0 : static_cast<uint32_t>(it->second.rotations.size());
+}
+
 bool HandAnimator::Play(std::string_view name, std::chrono::milliseconds blend) noexcept
 {
 	if (!Has(name))
@@ -409,6 +421,18 @@ void HandAnimator::Update(std::chrono::microseconds dt) noexcept
 		// 0% = Cphile, 100% = Chorn. special_hold has no L layers: reuse hold_fingers so the hand still reacts.
 		const auto base = BlendPoses(Sample(_clips.at("Cphile"), 0.0f), Sample(_clips.at("Chorn"), 0.0f), *_specialHold);
 		target = ApplyMotion(base, "Chold_fingers");
+	}
+	else if (_fixedTime)
+	{
+		target = ApplyMotion(Sample(it->second, *_fixedTime), _clipName);
+	}
+	else if (_frame && !it->second.rotations.empty())
+	{
+		const auto n = static_cast<uint32_t>(it->second.rotations.size());
+		const float f = std::clamp(*_frame, 0.0f, static_cast<float>(n - 1));
+		const auto i0 = static_cast<uint32_t>(f);
+		const auto i1 = std::min(n - 1, i0 + 1);
+		target = ApplyMotion(SampleFrames(it->second, i0, i1, f - static_cast<float>(i0)), _clipName);
 	}
 	else
 	{

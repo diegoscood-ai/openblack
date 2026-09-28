@@ -235,3 +235,53 @@ bool L3DMesh::LoadFromBuffer(const std::vector<uint8_t>& data) noexcept
 
 	return true;
 }
+
+std::optional<float> L3DMesh::RayIntersect(const glm::vec3& origin, const glm::vec3& direction) const noexcept
+{
+	std::optional<float> best;
+	for (const auto& subMesh : _subMeshes)
+	{
+		if (subMesh->IsPhysics())
+		{
+			continue;
+		}
+		const auto& positions = subMesh->GetCollisionPositions();
+		const auto& indices = subMesh->GetCollisionIndices();
+		for (size_t i = 0; i + 2 < indices.size(); i += 3)
+		{
+			if (indices[i] >= positions.size() || indices[i + 1] >= positions.size() || indices[i + 2] >= positions.size())
+			{
+				continue;
+			}
+			// Moller-Trumbore
+			const auto& a = positions[indices[i]];
+			const auto e1 = positions[indices[i + 1]] - a;
+			const auto e2 = positions[indices[i + 2]] - a;
+			const auto p = glm::cross(direction, e2);
+			const float det = glm::dot(e1, p);
+			if (std::abs(det) < 1e-12f)
+			{
+				continue;
+			}
+			const float inv = 1.0f / det;
+			const auto s0 = origin - a;
+			const float u = glm::dot(s0, p) * inv;
+			if (u < 0.0f || u > 1.0f)
+			{
+				continue;
+			}
+			const auto q = glm::cross(s0, e1);
+			const float v = glm::dot(direction, q) * inv;
+			if (v < 0.0f || u + v > 1.0f)
+			{
+				continue;
+			}
+			const float t = glm::dot(e2, q) * inv;
+			if (t > 0.0f && (!best || t < *best))
+			{
+				best = t;
+			}
+		}
+	}
+	return best;
+}

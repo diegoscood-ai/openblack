@@ -22,6 +22,8 @@ enum class RenderPass : uint8_t
 	Footprint,
 	Reflection,
 	Main,
+	/// Blended (fading) models, drawn over the finished main pass so the water cannot be sorted over them.
+	MainBlended,
 	ImGui,
 	MeshViewer,
 
@@ -32,6 +34,7 @@ static constexpr std::array<std::string_view, static_cast<uint8_t>(RenderPass::_
     "Footprint Pass",   //
     "Reflection Pass",  //
     "Main Pass",        //
+    "Main Blended Pass", //
     "ImGui Pass",       //
     "Mesh Viewer Pass", //
 };

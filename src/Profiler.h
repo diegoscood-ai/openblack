@@ -33,6 +33,11 @@ public:
 		UpdateAudio,
 		GuiLoop,
 		GameLogic,
+		ScriptsUpdate,
+		CameraUpdate,
+		HandRayCast,
+		HandUpdate,
+		HandPlace,
 		SceneDraw,
 		FootprintPass,
 		ReflectionPass,
@@ -63,6 +68,11 @@ public:
 	    "Audio",                //
 	    "GUI Loop",             //
 	    "Game Logic",           //
+	    "Scripts (LHVM)",       //
+	    "Camera",               //
+	    "Hand Ray Cast",        //
+	    "Hand Update",          //
+	    "Hand Placement",       //
 	    "Encode Draw Scene",    //
 	    "Footprint Pass",       //
 	    "Reflection Pass",      //
@@ -117,6 +127,10 @@ public:
 	void End(Stage stage);
 	inline ScopedSection BeginScoped(Stage stage) { return ScopedSection(this, stage); }
 
+	/// Every `seconds`, log the average and worst time of each stage per frame (0 turns it off).
+	/// Set from the OPENBLACK_PROFILE environment variable (seconds) at start-up.
+	void SetSummaryInterval(float seconds) { _summaryInterval = seconds; }
+
 	[[nodiscard]] uint8_t GetEntryIndex(int8_t offset) const { return (_currentEntry + k_BufferSize + offset) % k_BufferSize; }
 
 	constexpr static uint8_t k_BufferSize = 100;
@@ -127,6 +141,20 @@ private:
 	std::array<Entry, k_BufferSize> _entries;
 	uint8_t _currentEntry = k_BufferSize - 1;
 	uint8_t _currentLevel = 0;
+
+	void Accumulate(const Entry& entry);
+	float _summaryInterval = 0.0f;
+	struct StageTotals
+	{
+		double total = 0.0; // ms
+		double worst = 0.0; // ms
+		uint32_t runs = 0;
+	};
+	std::array<StageTotals, static_cast<uint8_t>(Stage::_count)> _totals {};
+	double _framesTotal = 0.0; // ms
+	double _framesWorst = 0.0; // ms
+	uint32_t _frames = 0;
+	std::chrono::system_clock::time_point _summaryStart {};
 };
 
 } // namespace openblack

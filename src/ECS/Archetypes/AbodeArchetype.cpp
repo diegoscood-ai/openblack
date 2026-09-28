@@ -9,6 +9,8 @@
 
 #include "AbodeArchetype.h"
 
+#include <algorithm>
+
 #include <glm/gtx/euler_angles.hpp>
 #include <spdlog/spdlog.h>
 
@@ -17,6 +19,7 @@
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
+#include "ECS/Components/Pot.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -49,13 +52,16 @@ void AddStoragePitComponents(entt::entity entity, const Mesh& pitMesh, const GAb
 	{
 		const auto& m = extraMetrics.at(i);
 		auto translation = static_cast<glm::vec3>(glm::eulerAngleY(-yAngleRadians) * m[3]);
-		pit.woodPiles.at(i) = PotArchetype::Create(position + translation, yAngleRadians, type, woodAmount);
+		pit.woodPiles.at(i) = PotArchetype::Create(position + translation, yAngleRadians, type, 0, true);
 		++i;
 	}
 	assert(i == pit.woodPiles.size());
 	const auto& m = extraMetrics.at(5);
 	auto translation = static_cast<glm::vec3>(glm::eulerAngleY(-yAngleRadians) * m[3]);
-	pit.foodPile = PotArchetype::Create(position + translation, yAngleRadians, info.potForResourceFood, foodAmount);
+	pit.foodPile = PotArchetype::Create(position + translation, yAngleRadians, info.potForResourceFood, 0, true);
+	// The store's totals are spread over its piles as StoragePit::AddResource does.
+	AbodeArchetype::AddToStoragePit(entity, ResourceType::Wood, woodAmount);
+	AbodeArchetype::AddToStoragePit(entity, ResourceType::Food, foodAmount);
 }
 
 entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, AbodeInfo type, float yAngleRadians,
@@ -124,4 +130,145 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	}
 
 	return entity;
+}
+
+namespace
+{
+void SyncStoreTotals(entt::entity store)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* abode = registry.TryGet<Abode>(store);
+	if (abode == nullptr)
+	{
+		return;
+	}
+	abode->woodAmount = AbodeArchetype::StoragePitAmount(store, ResourceType::Wood);
+	abode->foodAmount = AbodeArchetype::StoragePitAmount(store, ResourceType::Food);
+}
+
+Pot* StorePot(entt::entity pile)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	return pile != entt::null && registry.Valid(pile) ? registry.TryGet<Pot>(pile) : nullptr;
+}
+} // namespace
+
+uint32_t AbodeArchetype::AddToStoragePit(entt::entity store, ResourceType type, uint32_t amount)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* pit = registry.TryGet<const StoragePit>(store);
+	if (pit == nullptr || amount == 0)
+	{
+		return 0;
+	}
+	const auto& pots = Locator::infoConstants::value().pot;
+	uint32_t added = 0;
+	const auto fill = [&](entt::entity pile) {
+		auto* pot = StorePot(pile);
+		if (pot == nullptr || amount == 0)
+		{
+			return;
+		}
+		// Pot::JustAddResource 0x66D2B0 clips at maxAmountInPot only when nextPotForResource is set.
+		const auto& info = pots.at(static_cast<size_t>(pot->type));
+		const uint32_t cap = info.nextPotForResource != PotInfo::_COUNT ? info.maxAmountInPot : 65535u;
+		const uint32_t room = cap > pot->amount ? cap - pot->amount : 0u;
+		const uint32_t n = std::min(amount, room);
+		if (n == 0)
+		{
+			return;
+		}
+		pot->amount = static_cast<uint16_t>(pot->amount + n);
+		amount -= n;
+		added += n;
+		PotArchetype::SetSize(pile, true);
+	};
+	if (type == ResourceType::Wood)
+	{
+		for (const auto pile : pit->woodPiles)
+		{
+			fill(pile);
+		}
+	}
+	else
+	{
+		fill(pit->foodPile);
+	}
+	SyncStoreTotals(store);
+	return added;
+}
+
+uint32_t AbodeArchetype::RemoveFromStoragePit(entt::entity store, ResourceType type, uint32_t amount)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* pit = registry.TryGet<const StoragePit>(store);
+	if (pit == nullptr || amount == 0)
+	{
+		return 0;
+	}
+	uint32_t removed = 0;
+	const auto take = [&](entt::entity pile) {
+		auto* pot = StorePot(pile);
+		if (pot == nullptr || amount == 0 || pot->amount == 0)
+		{
+			return;
+		}
+		const uint32_t n = std::min<uint32_t>(amount, pot->amount);
+		pot->amount = static_cast<uint16_t>(pot->amount - n);
+		amount -= n;
+		removed += n;
+		PotArchetype::SetSize(pile, true);
+	};
+	if (type == ResourceType::Wood)
+	{
+		for (auto it = pit->woodPiles.rbegin(); it != pit->woodPiles.rend(); ++it)
+		{
+			take(*it);
+		}
+	}
+	else
+	{
+		take(pit->foodPile);
+	}
+	SyncStoreTotals(store);
+	return removed;
+}
+
+uint32_t AbodeArchetype::StoragePitAmount(entt::entity store, ResourceType type)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* pit = registry.TryGet<const StoragePit>(store);
+	if (pit == nullptr)
+	{
+		return 0;
+	}
+	uint32_t total = 0;
+	if (type == ResourceType::Wood)
+	{
+		for (const auto pile : pit->woodPiles)
+		{
+			if (const auto* pot = StorePot(pile); pot != nullptr)
+			{
+				total += pot->amount;
+			}
+		}
+	}
+	else if (const auto* pot = StorePot(pit->foodPile); pot != nullptr)
+	{
+		total += pot->amount;
+	}
+	return total;
+}
+
+entt::entity AbodeArchetype::StoragePitOfPile(entt::entity pile)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	entt::entity owner = entt::null;
+	registry.Each<const StoragePit>([&](entt::entity store, const StoragePit& pit) {
+		if (pit.foodPile == pile || std::find(pit.woodPiles.begin(), pit.woodPiles.end(), pile) != pit.woodPiles.end())
+		{
+			owner = store;
+		}
+	});
+	return owner;
 }

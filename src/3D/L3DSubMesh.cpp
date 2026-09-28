@@ -141,6 +141,12 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		}
 	}
 
+	_collisionPositions.resize(nVertices);
+	for (uint32_t i = 0; i < nVertices; ++i)
+	{
+		_collisionPositions[i] = verticesMemAccess[i].pos;
+	}
+
 	uint16_t startIndex = 0;
 	uint16_t startVertex = 0;
 	for (auto& primitive : primitiveSpan)
@@ -211,6 +217,14 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	decl.emplace_back(VertexAttrib::Attribute::Indices, static_cast<uint8_t>(2), VertexAttrib::Type::Int16);
 
 	// build our buffers
+	if (!_flags.hasBones)
+	{
+		_collisionIndices.assign(indices, indices + nIndices);
+	}
+	else
+	{
+		_collisionPositions.clear(); // boned meshes (the hand, creatures) are not picked from their bind pose
+	}
 	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
 	auto* indexBuffer = new IndexBuffer(_l3dMesh.GetDebugName(), indicesMem, IndexBuffer::Type::Uint16);
 	_mesh = std::make_unique<graphics::Mesh>(vertexBuffer, indexBuffer);

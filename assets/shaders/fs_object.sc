@@ -1,4 +1,4 @@
-$input v_position, v_texcoord0, v_normal
+$input v_position, v_texcoord0, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 
@@ -33,5 +33,7 @@ void main()
 	{
 		discard;
 	}
+	// Textures of primitives without alpha cut-out may carry no meaningful alpha: they are opaque before fading.
+	diffuseTex.a = (alphaThreshold > 0.0f ? diffuseTex.a : 1.0f) * v_color0.a;
 	gl_FragColor = diffuseTex;
 }

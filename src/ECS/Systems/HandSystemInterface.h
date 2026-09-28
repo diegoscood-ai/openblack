@@ -44,6 +44,13 @@ public:
 	virtual void Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraForward, bool gripping,
 	                   std::chrono::microseconds dt) noexcept = 0;
 
+	/// ObtainRequiredHandPosition (0x5B5E70): picks the object under the cursor ray (GInterface::SendObjectDrawCollision /
+	/// UpdateInterfaceCollide) and returns the point on the mouse ray where the hand goes this frame, at the distance of
+	/// the surface under the cursor smoothed by the hand distance Zoomer. land is the landscape (or sea) point under the
+	/// cursor. gripping: the land is held (camera drag), only the landscape counts.
+	virtual std::optional<glm::vec3> ResolveCursorPoint(const glm::vec3& origin, const glm::vec3& direction,
+	                                                    std::optional<glm::vec3> land, bool gripping,
+	                                                    std::chrono::microseconds dt) noexcept = 0;
 	/// Advances the hand animation (hh.HBN). mouseDelta is the cursor motion in pixels since the last frame.
 	/// actionHeld: the action (right) button; pressing it over an object picks it up, releasing drops it.
 	virtual void Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool gripping, bool actionHeld) noexcept = 0;

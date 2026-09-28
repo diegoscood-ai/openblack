@@ -59,6 +59,10 @@ public:
 	[[nodiscard]] graphics::Mesh& GetMesh() const;
 	[[nodiscard]] const AxisAlignedBoundingBox& GetBoundingBox() const { return _boundingBox; }
 	[[nodiscard]] const std::vector<Primitive>& GetPrimitives() const { return _primitives; }
+	/// Bind-pose positions and merged triangle indices, kept on the CPU for ray picking
+	/// (LH3DObject::CheckTriangleCollide).
+	[[nodiscard]] const std::vector<glm::vec3>& GetCollisionPositions() const { return _collisionPositions; }
+	[[nodiscard]] const std::vector<uint16_t>& GetCollisionIndices() const { return _collisionIndices; }
 
 private:
 	graphics::L3DMesh& _l3dMesh;
@@ -69,5 +73,7 @@ private:
 	std::vector<Primitive> _primitives;
 
 	AxisAlignedBoundingBox _boundingBox;
+	std::vector<glm::vec3> _collisionPositions;
+	std::vector<uint16_t> _collisionIndices;
 };
 } // namespace openblack::graphics

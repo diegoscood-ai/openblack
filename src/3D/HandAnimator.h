@@ -71,6 +71,13 @@ public:
 	/// Lhold_fingers layers on top. nullopt returns to the current C node.
 	void SetSpecialHold(std::optional<float> fill, std::chrono::milliseconds blend) noexcept;
 	[[nodiscard]] bool IsSpecialHold() const noexcept { return _specialHold.has_value(); }
+	/// Hold the current clip at a (fractional) frame index instead of playing it over time, like CHand does for
+	/// Chold_side / Chold_above (frame = numFrames / 2 * grip). nullopt plays the clip normally.
+	void SetFrame(std::optional<float> frame) noexcept { _frame = frame; }
+	/// Hold the current clip at a time in ms (the CAnim "frame" argument of HandStateHolding), sampled like Play.
+	void SetTime(std::optional<float> timeMs) noexcept { _fixedTime = timeMs; }
+	[[nodiscard]] uint32_t GetDurationMs(std::string_view name) const noexcept;
+	[[nodiscard]] uint32_t GetFrameCount(std::string_view name) const noexcept;
 
 	/// Directional motion in -1..+1 used to sample the L*_lr / L*_fb layers.
 	void SetMotion(float leftRight, float forwardBack) noexcept;
@@ -121,6 +128,8 @@ private:
 	float _layerTranslationScale {0.0f};
 	bool _rootLocked {false};
 	std::optional<float> _specialHold;
+	std::optional<float> _frame;
+	std::optional<float> _fixedTime;
 	std::vector<glm::mat4> _boneMatrices;
 };
 

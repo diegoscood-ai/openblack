@@ -49,6 +49,9 @@ struct RenderContext
 	std::vector<glm::mat4> instanceUniforms;
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
 	std::map<entt::id_type, const InstancedDrawDesc> instancedDrawDescs;
+	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
+	/// unused w of the first column of the model matrix, as 1 - alpha so that opaque instances keep 0 there.
+	std::map<entt::id_type, const InstancedDrawDesc> translucentDrawDescs;
 	/// Not an actual vertex buffer, but a dynamic general purpose buffer which
 	/// stores uniform data as a GPU-side copy of \ref _instanceUniforms and
 	/// which is populated in \ref PrepareDraw and consumed in \ref DrawModels.

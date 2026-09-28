@@ -109,6 +109,9 @@ public:
 	[[nodiscard]] const btConvexShape& GetPhysicsMesh() const { return *_physicsMesh; }
 	[[nodiscard]] float GetMass() const { return _physicsMass; }
 	[[nodiscard]] AxisAlignedBoundingBox GetBoundingBox() const { return _boundingBox; }
+	/// Nearest hit of the ray origin + t * direction (mesh space, direction need not be unit) with the triangles of the
+	/// drawn (non-physics) sub-meshes, both faces. Returns t.
+	[[nodiscard]] std::optional<float> RayIntersect(const glm::vec3& origin, const glm::vec3& direction) const noexcept;
 
 private:
 	l3d::L3DMeshFlags _flags;

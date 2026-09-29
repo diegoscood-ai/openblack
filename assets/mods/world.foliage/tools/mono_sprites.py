@@ -1,18 +1,29 @@
 """Turns the green parts of foliage sprites grey (the world.foliage mod tints grey texels with the ground colour);
 other colours (petals, cattail heads, seed heads) are kept. The grey is scaled so its mean is about 0.62, like the
 generated gen_* sprites.
-usage: mono_sprites.py <dir> <name.png>...   ->   <dir>/mono_<name>.png
+usage: mono_sprites.py [--min-hue=DEGREES] [--width=PIXELS] [--open=PIXELS] <dir> <name.png>...
+       ->   <dir>/mono_<name>.png
+--min-hue: lowest hue that counts as foliage (default 32; 50 keeps yellow petals and tan seed heads in colour;
+           0 turns everything grey)
+--width: scale wider images down to this width (the game scales every image to its 256 px layers anyway)
+--open: the coloured parts kept must be blobs wider than 2 x this (petals, cattail heads, plumes); thinner ones
+        (yellow-brown streaks and near-white highlights along the blades) turn grey too. Default 0 (off)
 """
 import colorsys
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
+
+
+MIN_HUE = 32
+WIDTH = 0
+OPEN = 0
 
 
 def is_foliage(r, g, b):
     h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-    return s > 0.12 and 0.09 <= h <= 0.47  # hue 32..170 degrees: yellow-green to green
+    return s > 0.12 and MIN_HUE / 360 <= h <= 0.47  # hue MIN_HUE..170 degrees: yellow-green to green
 
 
 def is_pale_leaf(r, g, b):
@@ -23,13 +34,33 @@ def is_pale_leaf(r, g, b):
 
 def convert(path, out):
     image = Image.open(path).convert('RGBA')
+    if WIDTH and image.width > WIDTH:
+        image = image.resize((WIDTH, round(image.height * WIDTH / image.width)), Image.LANCZOS)
     pixels = image.load()
-    greys = []
+    grey = set()
     for y in range(image.height):
         for x in range(image.width):
             r, g, b, a = pixels[x, y]
             if a > 0 and (is_foliage(r, g, b) or is_pale_leaf(r, g, b)):
-                greys.append((x, y, 0.299 * r + 0.587 * g + 0.114 * b))
+                grey.add((x, y))
+    if OPEN > 0:
+        # morphological opening of the coloured mask: what doesn't survive it is too thin to be a petal or a head
+        mask = Image.new('L', image.size, 0)
+        mask_pixels = mask.load()
+        for y in range(image.height):
+            for x in range(image.width):
+                if pixels[x, y][3] > 0 and (x, y) not in grey:
+                    mask_pixels[x, y] = 255
+        size = 2 * OPEN + 1
+        opened = mask.filter(ImageFilter.MinFilter(size)).filter(ImageFilter.MaxFilter(size)).load()
+        for y in range(image.height):
+            for x in range(image.width):
+                if mask_pixels[x, y] and not opened[x, y]:
+                    grey.add((x, y))
+    greys = []
+    for x, y in sorted(grey):
+        r, g, b, a = pixels[x, y]
+        greys.append((x, y, 0.299 * r + 0.587 * g + 0.114 * b))
     if not greys:
         return
     mean = sum(v for _, _, v in greys) / len(greys)
@@ -53,8 +84,18 @@ def convert(path, out):
 
 
 def main():
-    directory = Path(sys.argv[1])
-    for name in sys.argv[2:]:
+    global MIN_HUE, WIDTH, OPEN
+    args = sys.argv[1:]
+    while args and args[0].startswith('--'):
+        key, _, value = args.pop(0).partition('=')
+        if key == '--min-hue':
+            MIN_HUE = float(value)
+        elif key == '--width':
+            WIDTH = int(value)
+        elif key == '--open':
+            OPEN = int(value)
+    directory = Path(args[0])
+    for name in args[1:]:
         convert(directory / name, directory / f'mono_{name}')
 
 

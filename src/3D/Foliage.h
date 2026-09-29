@@ -64,6 +64,8 @@ public:
 		float sway {1.0f};             ///< wind sway scale
 		float lean {0.3f};             ///< random lean up to this much (so the plane also shows from above)
 		std::vector<uint8_t> nearWater; ///< only within waterDistance of these (Foliage::Water); empty: anywhere
+		std::vector<uint8_t> zones;     ///< only in cells with these ambient sound zones (Foliage::ZoneOf); empty: any
+		std::vector<uint8_t> notZones;  ///< never in cells with these zones
 		glm::vec2 waterDistance {0.0f, 8.0f};
 		Tint tint {Tint::Grey};
 	};
@@ -86,6 +88,10 @@ public:
 		Snow,
 	};
 	[[nodiscard]] static Look ClassifyTexture(glm::vec3 colour);
+
+	/// The cell's ambient sound zone, painted by the map's designer (LNDCell::flags >> 1): 8 jungle, 10 wind, 14 birds
+	/// (most land), 16 forest, 5 lake... The odd codes above 8 are variants of the even one below and count as it.
+	[[nodiscard]] static uint8_t ZoneOf(uint8_t cellFlags);
 
 	Foliage();
 	~Foliage();

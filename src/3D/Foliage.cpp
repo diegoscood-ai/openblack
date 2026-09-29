@@ -72,6 +72,26 @@ constexpr std::array<std::string_view, 32> k_TerrainNames = {
 
 constexpr std::array<std::string_view, 5> k_LookNames = {"green", "dry", "sand", "rock", "snow"};
 
+/// Ambient sound zones of the LND cells (LNDCell::flags >> 1, as BWLandEditor names them), the values foliage.cfg's
+/// "zone" lists use; "meadow" is the birds zone, the one most of the land has
+constexpr std::array<std::pair<std::string_view, uint8_t>, 15> k_ZoneNames = {{
+    {"none", 0},
+    {"splash", 2},
+    {"ocean", 3},
+    {"slow_waves", 4},
+    {"lake", 5},
+    {"coast", 6},
+    {"fast_waves", 7},
+    {"jungle", 8},
+    {"wind", 10},
+    {"desert", 12},
+    {"birds", 14},
+    {"meadow", 14},
+    {"forest", 16},
+    {"river", 18},
+    {"swamp", 4}, // the slow waves of the inland ponds
+}};
+
 std::string Trim(std::string_view text)
 {
 	const auto begin = text.find_first_not_of(" \t\r");
@@ -224,46 +244,46 @@ public:
 		}
 
 		// Water bodies: 4-connected water cells; the ones reaching the edge of the map (or a missing block) are the sea
-		constexpr int k_Cells = 512;
-		std::vector<int8_t> kind(static_cast<size_t>(k_Cells) * k_Cells, -1); // -1 land, 0 lake, 2 sea, 3 unvisited
+		const int cells = island.GetCellsPerSide();
+		std::vector<int8_t> kind(static_cast<size_t>(cells) * cells, -1); // -1 land, 0 lake, 2 sea, 3 unvisited
 		const auto isWater = [&island](int x, int z) {
 			const auto& cell = island.GetCell(glm::u16vec2(x, z));
 			return cell.properties.hasWater || cell.properties.fullWater;
 		};
-		for (int x = 0; x < k_Cells; ++x)
+		for (int x = 0; x < cells; ++x)
 		{
-			for (int z = 0; z < k_Cells; ++z)
+			for (int z = 0; z < cells; ++z)
 			{
 				if (isWater(x, z))
 				{
-					kind[static_cast<size_t>(x) * k_Cells + z] = 3;
+					kind[static_cast<size_t>(x) * cells + z] = 3;
 				}
 			}
 		}
 		std::vector<glm::ivec2> body;
-		for (int x = 0; x < k_Cells; ++x)
+		for (int x = 0; x < cells; ++x)
 		{
-			for (int z = 0; z < k_Cells; ++z)
+			for (int z = 0; z < cells; ++z)
 			{
-				if (kind[static_cast<size_t>(x) * k_Cells + z] != 3)
+				if (kind[static_cast<size_t>(x) * cells + z] != 3)
 				{
 					continue;
 				}
 				body.clear();
 				body.emplace_back(x, z);
-				kind[static_cast<size_t>(x) * k_Cells + z] = 0;
+				kind[static_cast<size_t>(x) * cells + z] = 0;
 				bool sea = false;
 				for (size_t i = 0; i < body.size(); ++i)
 				{
 					const auto cell = body[i];
-					sea = sea || cell.x == 0 || cell.y == 0 || cell.x == k_Cells - 1 || cell.y == k_Cells - 1;
+					sea = sea || cell.x == 0 || cell.y == 0 || cell.x == cells - 1 || cell.y == cells - 1;
 					for (const auto step : {glm::ivec2(1, 0), glm::ivec2(-1, 0), glm::ivec2(0, 1), glm::ivec2(0, -1)})
 					{
 						const auto next = cell + step;
-						if (next.x >= 0 && next.y >= 0 && next.x < k_Cells && next.y < k_Cells &&
-						    kind[static_cast<size_t>(next.x) * k_Cells + next.y] == 3)
+						if (next.x >= 0 && next.y >= 0 && next.x < cells && next.y < cells &&
+						    kind[static_cast<size_t>(next.x) * cells + next.y] == 3)
 						{
-							kind[static_cast<size_t>(next.x) * k_Cells + next.y] = 0;
+							kind[static_cast<size_t>(next.x) * cells + next.y] = 0;
 							body.push_back(next);
 						}
 					}
@@ -271,7 +291,7 @@ public:
 				const auto water = sea ? Foliage::Water::Sea : Foliage::Water::Lake;
 				for (const auto cell : body)
 				{
-					kind[static_cast<size_t>(cell.x) * k_Cells + cell.y] = static_cast<int8_t>(water);
+					kind[static_cast<size_t>(cell.x) * cells + cell.y] = static_cast<int8_t>(water);
 					Seed(water, glm::vec2(cell) * k_CellSize);
 				}
 				_bodies[static_cast<size_t>(water)] += 1;
@@ -559,6 +579,12 @@ void Foliage::Clear()
 	_plantCount = 0;
 }
 
+uint8_t Foliage::ZoneOf(uint8_t cellFlags)
+{
+	const auto zone = static_cast<uint8_t>(cellFlags >> 1u);
+	return zone > 8 && (zone & 1u) != 0 ? static_cast<uint8_t>(zone - 1) : zone;
+}
+
 bool Foliage::Load(const std::filesystem::path& directory)
 {
 	std::ifstream file(directory / "foliage.cfg");
@@ -778,6 +804,26 @@ bool Foliage::Load(const std::filesystem::path& directory)
 					}
 				}
 			}
+			else if (key == "zone" || key == "not_zone")
+			{
+				auto& list = key == "zone" ? species.zones : species.notZones;
+				for (const auto& name : SplitList(value))
+				{
+					const auto found = std::ranges::find(k_ZoneNames, name, &std::pair<std::string_view, uint8_t>::first);
+					if (found != k_ZoneNames.end())
+					{
+						list.push_back(found->second);
+					}
+					else if (std::isdigit(static_cast<unsigned char>(name.front())) != 0)
+					{
+						list.push_back(ZoneOf(static_cast<uint8_t>(std::stoi(name) << 1)));
+					}
+					else
+					{
+						SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown zone {} (line {})", name, lineNumber);
+					}
+				}
+			}
 			else if (key == "water_distance")
 			{
 				species.waterDistance = ParseRange(value);
@@ -928,8 +974,9 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 		{
 			const glm::ivec2 cellCoordinates = blockOffset + glm::ivec2(x, z);
 			const auto cellAt = [&island, cellCoordinates](int dx, int dz) -> const lnd::LNDCell& {
-				return island.GetCell(glm::u16vec2(std::clamp(cellCoordinates.x + dx, 0, 511),
-				                                   std::clamp(cellCoordinates.y + dz, 0, 511)));
+				const int last = island.GetCellsPerSide() - 1;
+				return island.GetCell(glm::u16vec2(std::clamp(cellCoordinates.x + dx, 0, last),
+				                                   std::clamp(cellCoordinates.y + dz, 0, last)));
 			};
 			const std::array<const lnd::LNDCell*, 4> corners = {&cellAt(0, 0), &cellAt(1, 0), &cellAt(0, 1), &cellAt(1, 1)};
 			const glm::vec2 cellOrigin = mapPosition + glm::vec2(x, z) * k_CellSize;
@@ -969,11 +1016,20 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					{
 						continue;
 					}
+					const auto zone = ZoneOf(cell.flags);
+					if ((!species.zones.empty() && std::ranges::find(species.zones, zone) == species.zones.end()) ||
+					    std::ranges::find(species.notZones, zone) != species.notZones.end())
+					{
+						continue;
+					}
 					const auto& country = countries.at(cell.properties.country);
 					const auto noiseCoordinates =
 					    glm::u8vec2(cellCoordinates + glm::ivec2(static_cast<int>(corner & 1), static_cast<int>(corner >> 1)));
+					const auto altitude = island.GetCellAltitude(cell);
 					const auto& mapMaterial =
-					    country.materials.at((cell.altitude + island.GetNoise(noiseCoordinates)) % country.materials.size());
+					    altitude > 255
+					        ? country.materials.back()
+					        : country.materials.at((altitude + island.GetNoise(noiseCoordinates)) % country.materials.size());
 					const auto materialIndex = pickMaterial * 255.0f < static_cast<float>(mapMaterial.coefficient)
 					                               ? mapMaterial.indices[1]
 					                               : mapMaterial.indices[0];

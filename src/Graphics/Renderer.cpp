@@ -1787,34 +1787,10 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	const glm::mat4 identity(1.0f);
 	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
 
-	// the box: SetupThing::DrawBox with LH3DAtmos::AdditiveMaterial in the text colour at alpha 0x80 / 3 (its 9-slice
-	// border is not reproduced: a plain rectangle)
-	{
-		struct BoxVertex
-		{
-			float x, y, z;
-			uint32_t abgr;
-		};
-		const uint32_t abgr = (42u << 24) | 0x0000FFFFu;
-		const auto a = toClip(x, y);
-		const auto b = toClip(x + boxWidth, y + h);
-		const std::array<BoxVertex, 6> box = {{{a.x, a.y, 0.5f, abgr}, {b.x, a.y, 0.5f, abgr}, {b.x, b.y, 0.5f, abgr},
-		                                       {a.x, a.y, 0.5f, abgr}, {b.x, b.y, 0.5f, abgr}, {a.x, b.y, 0.5f, abgr}}};
-		bgfx::VertexLayout layout;
-		layout.begin().add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float).add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true).end();
-		if (bgfx::getAvailTransientVertexBuffer(6, layout) >= 6)
-		{
-			bgfx::TransientVertexBuffer buffer;
-			bgfx::allocTransientVertexBuffer(&buffer, 6, layout);
-			std::memcpy(buffer.data, box.data(), sizeof(box));
-			bgfx::setVertexBuffer(0, &buffer);
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
-			bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
-		}
-	}
+	// no box: the text alone over the scene (transparent background)
 	// the text: DrawTextRaw three times, black copies 1 px to each side, then yellow (LH3DColor b0 g255 r255 a255)
 	std::vector<GameFont::Vertex> glyphs;
-	const float tx = x + h * 0.5f;
+	const float tx = x + h * 0.5f; // just right of the hand
 	const float ty = y + (h - size) * 0.5f;
 	_font->AddText(glyphs, text, tx - 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 	_font->AddText(glyphs, text, tx + 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));

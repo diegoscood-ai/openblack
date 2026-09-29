@@ -394,19 +394,18 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	UpdateMultiPickUp(seconds, actionHeld);
 	UpdatePickupSound(_pickSource.has_value() && _held.has_value());
-	// ProcessInInteract of piles, fields and fish farms: ForceToolTips(0xEEA, hand pot amount) every turn; it stays
-	// for ftol(afterFocus 0.5 / 0.4 x 10) = 12 turns after the last one
-	if (_pickSource && _held)
+	// The amount in the hand (0xEEA "Cantidad: %3.0f"): forced every turn while scooping from piles, fields and fish
+	// farms, and shown for as long as the hand holds the food or wood (as the original looks in play; the scooping
+	// code alone would drop it 12 turns after the last turn)
+	if (_held && (PotInfoOf(*_held) == PotInfo::HandFood || PotInfoOf(*_held) == PotInfo::HandWood))
 	{
-		if (const auto* pot = Locator::entitiesRegistry::value().TryGet<const Pot>(*_held); pot != nullptr)
-		{
-			_amountToolTip = static_cast<float>(pot->amount);
-			_amountToolTipTime = 1.2f;
-		}
+		const auto& pot = Locator::entitiesRegistry::value().Get<const Pot>(*_held);
+		_amountToolTip = static_cast<float>(pot.amount);
+		_amountToolTipTime = 1.2f;
 	}
 	else
 	{
-		_amountToolTipTime = std::max(0.0f, _amountToolTipTime - seconds);
+		_amountToolTipTime = 0.0f;
 	}
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateThrown(seconds);

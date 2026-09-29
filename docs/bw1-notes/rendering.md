@@ -397,9 +397,10 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
 - Mensaje de la cantidad en la mano: `ToolTips::ForceToolTips(0xEEA, cantidad)` cada turno de una selección bloqueada
   (montones, campos, piscifactorías) y 12 turnos después; texto 0xEEA de `Scripts\InfoScript2.txt` ("Cantidad:
   %3.0f"; el id es el orden de las líneas ADD_TEXT). `CameraHelp::DrawKeyOrMouse` 0x447EA0: junto a la mano en
-  pantalla, caja de H/25 (texto a 2/3), texto amarillo con dos copias negras a ±1 px, caja aditiva del color del
-  texto con alfa 42; pasa al otro lado de la mano pasado 2/3 de la pantalla.
+  pantalla, caja de H/25 (texto a 2/3), texto amarillo con dos copias negras a ±1 px; pasa al otro lado de la mano
+  pasado 2/3 de la pantalla. El usuario comprobó en el original que **no hay fondo** (la caja aditiva del código no
+  se ve) y que la cantidad **se muestra mientras la mano la sostiene**, hasta soltarla.
 - openblack: `Graphics/GameFont` (atlas R8 con la misma rasterización), `Common/HelpText`, `Renderer::DrawHandToolTip`
-  (vista `ScreenOverlay`), `fs_text`. Gancho `OPENBLACK_TEST_TOOLTIP=<n>`. **Aproximado**: la caja es un rectángulo
-  (el original usa un 9-slice de `SetupThing::DrawBox`) y el margen del texto dentro de la caja es una estimación.
+  (vista `ScreenOverlay`), `fs_text`. Gancho `OPENBLACK_TEST_TOOLTIP=<n>`. El margen del texto respecto a la mano
+  (media caja) es una estimación.
   Faltan los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...).

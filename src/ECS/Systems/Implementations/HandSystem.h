@@ -144,6 +144,9 @@ private:
 		float timer;
 	};
 	std::optional<TestAbode> _testAbode;
+	float _testActionDelay {0.0f};
+	float _testActionHold {0.0f};
+	float _testMouseMoveIn {-1.0f};
 	void UpdatePickupParticles(float seconds, bool emitting) noexcept;
 	[[nodiscard]] glm::vec3 ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept;
 	[[nodiscard]] glm::mat3 FrameRotation(glm::vec3 cameraForward) const noexcept;
@@ -198,7 +201,18 @@ private:
 	glm::mat3 _heldRotation {1.0f};
 	/// Tree being tugged out of the ground, the point where it was grabbed and its planted rotation.
 	std::optional<entt::entity> _tug;
-	glm::vec3 _tugPoint {0.0f};
+	// HandStateTug (Enter 0x5B7DF0, Update 0x5B8070)
+	glm::vec3 _tugPoint {0.0f};              ///< CHand+0x492C tugAnchor: the tree's base, the pivot
+	glm::vec3 _tugNormal {0.0f, 1.0f, 0.0f}; ///< the landscape normal under it: the drag plane's normal
+	glm::vec3 _tugPlanePoint {0.0f};         ///< the drag plane goes through it
+	glm::vec3 _tugOmega {0.0f};              ///< CHand+0x4920 tug angular velocity
+	float _tugLowering {0.0f};               ///< CHand+0x4944 the grip's height on the trunk
+	float _tugTime {0.0f};                   ///< since the state change (CHand+0x49B0, the forces wait 0.13 s)
+	openblack::Zoomer _tugStretch;           ///< the trunk stretches along its up axis while pulled
+	glm::mat3 _tugPlantedRotation {1.0f};    ///< as it stood, for a tug let go
+	glm::vec3 _mouseRayOrigin {0.0f};
+	glm::vec3 _mouseRayDirection {0.0f, 0.0f, 1.0f};
+	void BeginTug(entt::entity tree) noexcept;
 	glm::mat3 _tugRotation {1.0f};
 	/// Roots drawn under trees out of the map (tree -> roots entity).
 	std::vector<std::pair<entt::entity, entt::entity>> _roots;

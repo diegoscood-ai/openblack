@@ -87,6 +87,15 @@
 ## Árboles: reglas, fuego y sacrificio (investigado; fuego pendiente, tótem aplazado)
 
 Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`).
+- **Tirón** (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, en HandTrees.cpp): al empezar, el ancla es la base del
+  árbol y el plano de arrastre pasa por ella con la normal del terreno, a la altura de la mano vista a la distancia del
+  ancla. Tras 0,13 s (el fundido del cambio de estado), cada fotograma la mano va al corte del rayo del ratón con ese
+  plano; el agarre está en `base + arriba × bajada` (bajada = 0,1 × altura, mínimo 3,2 × escala de la mano × 0,3 al
+  empezar); un muelle `F = 1000 × (mano − agarre)` (tope 600000) lo inclina con par `(r × F)/1000` y rozamiento
+  cuadrático 4 alrededor de la base, y el tronco se estira hasta ×1,3 (Zoomer 0,3 s). Sale cuando `|F| > GetWeight`
+  (escala³ × peso de info.dat): agarrado lejos del punto de agarre, sale enseguida. Soltado antes, vuelve a su postura.
+  Gancho: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, el cursor se mueve 0,5 s
+  después), trazas con `OPENBLACK_HAND_TRACE=1`.
 - **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,
   setos, palmeras, bosquecillos, dentro o fuera de pueblos). Solo lo impiden la bandera 0x2000 (partidas guardadas y
   puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para

@@ -895,6 +895,11 @@ bool PhysicsObjects::InteractsWithPhysicsObjects(entt::entity entity)
 		// piles do not interact (fn_66ED40)
 		return pot->type == PotInfo::HandWood || pot->type == PotInfo::HandFood;
 	}
+	// fields are never hit (Field::InteractsWithPhysicsObjects 0x528020)
+	if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && abode->type == AbodeNumber::Field)
+	{
+		return false;
+	}
 	return registry.AnyOf<MobileStatic, MobileObject, Villager, Animal, DeadTree, Abode, StoragePit>(entity);
 }
 

@@ -19,6 +19,9 @@
 
 namespace openblack::ecs::physics
 {
+/// LH3DIsland::GetNormal (0x803630): the flat normal of the landscape triangle under the point.
+[[nodiscard]] glm::vec3 LandscapeNormal(glm::vec3 point);
+
 /// One row of Data\PhysicsConstants.txt (EditorPhysics::PhysicsConstants 0xCC63E0), indexed by the object's
 /// GetPhysicsConstantsType.
 struct PhysicsData

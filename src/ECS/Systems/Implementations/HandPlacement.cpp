@@ -562,6 +562,8 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 	_cursorObject.reset();
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
 	const auto mouseDir = glm::normalize(direction);
+	_mouseRayOrigin = origin;
+	_mouseRayDirection = mouseDir;
 	const std::optional<float> landDistance = land ? std::optional(glm::distance(origin, *land)) : std::nullopt;
 	if (gripping)
 	{
@@ -593,6 +595,11 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 		}
 	}
 
+	if (_tug && std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Cursor trace: hit {} t {:.2f} land {:.2f} zoomer {:.2f}", hit ? static_cast<int>(hit->entity) : -1,
+		                   hit ? hit->t : -1.0f, landDistance.value_or(-1.0f), _handDistance.value);
+	}
 	std::optional<glm::vec3> pos = land;
 	if (hit)
 	{

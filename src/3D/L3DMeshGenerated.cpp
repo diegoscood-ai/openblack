@@ -110,6 +110,15 @@ bool L3DMesh::LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& p
 	return true;
 }
 
+void L3DMesh::SetFootprintSource(std::shared_ptr<const L3DMesh> source) noexcept
+{
+	if (source && source->ContainsLandscapeFeature())
+	{
+		_flags = static_cast<l3d::L3DMeshFlags>(static_cast<uint32_t>(_flags) | static_cast<uint32_t>(l3d::L3DMeshFlags::ContainsLandscapeFeature));
+	}
+	_footprintSource = std::move(source);
+}
+
 resources::L3DLoader::result_type resources::L3DLoader::operator()(FromGeneratedTag, const std::string& debugName,
                                                                    const std::vector<L3DSubMesh::GeneratedPrimitive>& primitives) const
 {

@@ -396,13 +396,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 				// not tuggable: the grab takes a tree out of the forest straight into the hand
 				_pickPressHeld = TakeTreeFromForest(entity);
 			}
-			else if (Locator::entitiesRegistry::value().AllOf<Tree>(entity) && _interactionPoint)
+			else if (Locator::entitiesRegistry::value().AllOf<Tree>(entity) && _interactionPoint &&
+			         !physics::PhysicsObjects::Find(entity))
 			{
-				_tug = entity;
-				ComputeHoldParameters(entity);
-				_tugPoint = *_interactionPoint;
-				_tugRotation = Locator::entitiesRegistry::value().Get<Transform>(entity).rotation;
-				_hovered.reset();
+				// a standing tree is tugged; one in physics (thrown, not landed yet) is caught like any flying object
+				BeginTug(entity);
 			}
 			else
 			{

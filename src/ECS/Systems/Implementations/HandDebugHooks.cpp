@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <vector>
 #include <cstring>
 #include <fstream>
@@ -65,6 +66,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Rocks.h"
 #include "ECS/Components/AnimatedStatic.h"
@@ -241,6 +243,47 @@ void HandSystem::RunDebugHooks() noexcept
 			const auto at = registry.Get<const Transform>(*target).position;
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: throwing at abode {} at ({:.1f}, {:.1f}, {:.1f})",
 			                   static_cast<uint32_t>(*target), at.x, at.y, at.z);
+		}
+	}
+	// OPENBLACK_TEST_FRAGMESH=1: which buildings can be broken (FragMesh::FromEntity) and how many triangles they have
+	if (std::getenv("OPENBLACK_TEST_FRAGMESH") != nullptr)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		int ok = 0;
+		int failed = 0;
+		registry.Each<const Abode, const Transform>([&](entt::entity e, const Abode& abode, const Transform& t) {
+			const auto mesh = physics::FragMesh::FromEntity(e);
+			const auto* m = registry.TryGet<const Mesh>(e);
+			std::string subs;
+			if (m != nullptr && Locator::resources::value().GetMeshes().Contains(m->id))
+			{
+				for (const auto& sm : Locator::resources::value().GetMeshes().Handle(m->id)->GetSubMeshes())
+				{
+					subs += fmt::format(" [lod {} status {} phys {} tris {}]", sm->GetFlags().lodMask, sm->GetFlags().status,
+					                    sm->IsPhysics(), sm->GetCollisionIndices().size() / 3);
+				}
+			}
+			mesh ? ++ok : ++failed;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "FragMesh test: abode {} type {} at ({:.0f},{:.0f}) tris {}{}", static_cast<uint32_t>(e),
+			                   static_cast<int>(abode.type), t.position.x, t.position.z, mesh ? mesh->TriangleCount() : 0, subs);
+		});
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "FragMesh test: {} breakable, {} not", ok, failed);
+	}
+	// OPENBLACK_TEST_TUG="x,z,delay,hold": a beech at x,z, and the action button held for hold seconds after delay seconds
+	// (the mouse stays still: the tree must lean at most, not come out)
+	if (const char* tug = std::getenv("OPENBLACK_TEST_TUG"); tug != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		float delay = 2.0f;
+		float hold = 2.0f;
+		if (std::sscanf(tug, "%f,%f,%f,%f", &x, &z, &delay, &hold) >= 2)
+		{
+			const glm::vec3 at(x, Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)), z);
+			archetypes::TreeArchetype::Create(1, at, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			Locator::entitiesRegistry::value().SetDirty();
+			_testActionDelay = delay;
+			_testActionHold = hold;
 		}
 	}
 	// OPENBLACK_HAND_TEST_HOLD=<scale>: the hand starts holding a chalk boulder of that scale (reflection tests)
@@ -560,6 +603,28 @@ void HandSystem::RunDebugHooks() noexcept
 
 void HandSystem::UpdateTestAbode(float seconds) noexcept
 {
+	// OPENBLACK_TEST_TUG_MOUSE2="x,y": 0.5 s into the held action the fixed test cursor moves there
+	if (_testMouseMoveIn >= 0.0f)
+	{
+		_testMouseMoveIn -= seconds;
+		if (_testMouseMoveIn < 0.0f)
+		{
+			static std::string s_env;
+			s_env = std::string("OPENBLACK_MOUSE_AT=") + std::getenv("OPENBLACK_TEST_TUG_MOUSE2");
+			_putenv(s_env.c_str());
+		}
+	}
+	if (_testActionHold > 0.0f)
+	{
+		_testActionDelay -= seconds;
+		if (_testActionDelay <= 0.0f)
+		{
+			_testActionSeconds = _testActionHold;
+			_testActionHold = 0.0f;
+			_testMouseMoveIn = std::getenv("OPENBLACK_TEST_TUG_MOUSE2") != nullptr ? 0.5f : -1.0f;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: action held, hovered {}", _hovered.has_value());
+		}
+	}
 	if (!_testAbode || _testAbode->count <= 0)
 	{
 		return;

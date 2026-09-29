@@ -64,6 +64,8 @@
 #include "Graphics/Texture2D.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -234,6 +236,32 @@ glm::vec3 HandSystem::GripCentre() const noexcept
 	return 0.5f * (palm / static_cast<float>(palmCount) + tips / static_cast<float>(tipCount));
 }
 
+void HandSystem::BeginTug(entt::entity tree) noexcept
+{
+	// HandStateTug::Enter (0x5B7DF0)
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& transform = registry.Get<Transform>(tree);
+	_tug = tree;
+	ComputeHoldParameters(tree);
+	_tugPoint = transform.position;
+	_tugRotation = transform.rotation;
+	_tugPlantedRotation = transform.rotation;
+	_tugNormal = physics::LandscapeNormal(_tugPoint);
+	// the drag plane: through the anchor, at the hand's height seen at the anchor's horizontal distance from the camera
+	const auto hand = _interactionPoint.value_or(_tugPoint);
+	const auto camera = Locator::camera::has_value() ? Locator::camera::value().GetOrigin() : hand + glm::vec3(0.0f, 10.0f, 0.0f);
+	const float dHand = glm::length(glm::vec2(hand.x - camera.x, hand.z - camera.z));
+	const float dGrip = glm::length(glm::vec2(_tugPoint.x - camera.x, _tugPoint.z - camera.z));
+	const float y = dHand > 1e-4f ? camera.y - (camera.y - hand.y) * dGrip / dHand : hand.y;
+	_tugPlanePoint = glm::vec3(_tugPoint.x, y, _tugPoint.z);
+	// the grip height: GetHoldLoweringMultiplier x GetHeight, at least 3.2 x hand scale x 0.3
+	_tugLowering = std::max(_loweringMultiplier * _heldHeight, 3.2f * _handScale * 0.3f);
+	_tugOmega = glm::vec3(0.0f);
+	_tugTime = 0.0f;
+	_tugStretch.SetPosition(1.0f);
+	_hovered.reset();
+}
+
 void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 {
 	if (!_tug)
@@ -247,45 +275,77 @@ void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 		return;
 	}
 	auto& transform = registry.Get<Transform>(*_tug);
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (const auto* mesh = registry.TryGet<const Mesh>(*_tug); mesh != nullptr && meshes.Contains(mesh->id))
-	{
-		const auto& box = meshes.Handle(mesh->id)->GetBoundingBox();
-		_heldHeight = box.maxima.y * transform.scale.y;
-		_holdRadius = 0.2f * 0.5f * std::max(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z);
-	}
 	if (!actionHeld)
 	{
-		// Let go before it came out: it stays planted.
-		transform.rotation = _tugRotation;
+		// let go before it came out: the tug matrix was only its drawing, the tree stands as it was
+		transform.rotation = _tugPlantedRotation;
 		_tug.reset();
 		registry.SetDirty();
 		return;
 	}
-	// HandStateTug::Update: F = 1000 * (hand - grab point), the tree comes out once |F| > weight
-	// (GetMaxForce = 600000 always beats weight * 9.81 for trees), i.e. the hand is weight / 1000 away.
-	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(registry.Get<Tree>(*_tug).type));
-	const auto cursor = _interactionPoint.value_or(_tugPoint);
-	auto pull = glm::vec3(cursor.x - _tugPoint.x, 0.0f, cursor.z - _tugPoint.z);
-	const float distance = glm::length(pull);
-	const float threshold = std::max(0.01f, info.weight / 1000.0f);
-	// The tree leans towards the hand while pulled (the tug matrix copied into its G3D; the lean angle is a guess).
-	if (distance > 1e-3f)
+	// HandStateTug::Update (0x5B8070): no forces while the state blend runs (CHand+0x49B0 < 0.13)
+	_tugTime += seconds;
+	if (_tugTime < 0.13f || seconds <= 0.0f)
 	{
-		pull /= distance;
-		const float lean = 0.25f * std::min(1.0f, distance / threshold);
-		const auto axis = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), pull));
-		transform.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), lean, axis)) * _tugRotation;
+		return;
 	}
-	registry.SetDirty();
-	if (distance > threshold)
+	// 1. the hand follows the mouse ray on the drag plane
+	const float along = glm::dot(_mouseRayDirection, _tugNormal);
+	if (std::abs(along) < 1e-6f)
 	{
-		transform.rotation = _tugRotation;
+		return;
+	}
+	const float t = glm::dot(_tugPlanePoint - _mouseRayOrigin, _tugNormal) / along;
+	const auto handPosition = _mouseRayOrigin + _mouseRayDirection * t;
+	// 2. the grip on the trunk: base + up x lowering
+	glm::mat3 axes = _tugRotation;
+	for (int k = 0; k < 3; ++k)
+	{
+		axes[k] = glm::normalize(axes[k]);
+	}
+	const auto grip = _tugPoint + axes[1] * _tugLowering;
+	// 3. a spring from the grip to the hand, at most GetMaxForce ((1 + CHand+0xAC) x 600000; +0xAC taken as 0)
+	const auto d = handPosition - grip;
+	const float distance = glm::length(d);
+	constexpr float k_MaxForce = 600000.0f;
+	const auto force = k_MaxForce > 1000.0f * distance ? d * 1000.0f : d * (k_MaxForce / distance);
+	const float weight = physics::PhysicsObjects::Weight(*_tug); // GetWeight: scale^3 x info weight
+	// 4. the trunk stretches along its up axis (at most 1.3, in 0.3 s)
+	const float stretch = std::min((distance + _tugLowering) / _tugLowering, 1.3f);
+	_tugStretch.SetDestinationWithSpeedAndTime(stretch, 0.0f, 0.3f);
+	_tugStretch.Update(seconds);
+	// 5. it comes out once |F| > weight (GetMaxForce >= weight x g always holds for trees)
+	if (k_MaxForce >= weight * 9.81f && glm::length(force) > weight)
+	{
+		transform.rotation = _tugPlantedRotation;
 		const auto tree = *_tug;
 		_tug.reset();
 		Uproot(tree);
+		return;
 	}
-	static_cast<void>(seconds);
+	// 6. it turns about its base: torque (F x r) / 1000 with quadratic drag 4; the original's F x r and its rotation of
+	// the matrix rows flip the sign twice, so here r x F and a plain rotation give the same turn
+	const auto torque = glm::cross(grip - _tugPoint, force) / 1000.0f;
+	const float drag = glm::length(_tugOmega) * 4000.0f * seconds / 1000.0f;
+	_tugOmega += torque * seconds - _tugOmega * drag;
+	const auto step = _tugOmega * seconds;
+	const float angle = glm::length(step);
+	if (angle > 0.0f)
+	{
+		axes = glm::mat3(glm::rotate(glm::mat4(1.0f), angle, step / angle)) * axes;
+	}
+	_tugRotation = axes;
+	// the drawn matrix: up stretched (the hand sits on base + stretched up x lowering, HandPlacement)
+	transform.rotation = glm::mat3(axes[0], axes[1] * _tugStretch.value, axes[2]);
+	// 7. from here the grip height is GetHoldLoweringMultiplier x GetHeight, not clamped again
+	_tugLowering = _loweringMultiplier * _heldHeight;
+	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tug trace: hand ({:.2f},{:.2f},{:.2f}) grip ({:.2f},{:.2f},{:.2f}) |F| {:.0f} / {:.0f} tilt {:.3f}",
+		                   handPosition.x, handPosition.y, handPosition.z, grip.x, grip.y, grip.z, glm::length(force), weight,
+		                   std::acos(std::clamp(axes[1].y, -1.0f, 1.0f)));
+	}
+	registry.SetDirty();
 }
 
 void HandSystem::Uproot(entt::entity tree) noexcept

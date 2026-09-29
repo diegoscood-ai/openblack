@@ -92,6 +92,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	_lastHeldPosition.reset();
 	_handVelocity = glm::vec3(0.0f);
 	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)
+	const bool caught = physics::PhysicsObjects::Find(entity) != nullptr;
 	physics::PhysicsObjects::RemoveObject(entity);
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
@@ -167,7 +168,12 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 		_heldHeight = _heldTop;
 		_holdRadius = 0.2f * 0.5f * std::max(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z);
 	}
-	if (registry.AllOf<Tree>(entity))
+	if (registry.AllOf<Tree>(entity) && caught)
+	{
+		// a thrown tree caught again: already out of the ground, no uprooting
+		PlaySample(audio::SoundId::G_PickUpObject);
+	}
+	else if (registry.AllOf<Tree>(entity))
 	{
 		// Tree::InterfaceSetInMagicHand: uprooting cracks (LH_SAMPLE_G_TREEBREAK_01 + rand % 3). The player also
 		// loses alignment (GPlayerInfo.treePullPutAlignmentChange). TODO: alignment once players track it.

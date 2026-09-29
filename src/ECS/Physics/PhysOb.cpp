@@ -108,6 +108,11 @@ float LengthSquared(glm::vec3 v)
 }
 } // namespace
 
+glm::vec3 openblack::ecs::physics::LandscapeNormal(glm::vec3 point)
+{
+	return Normal(point);
+}
+
 void PhysOb::Initialise(float scale, float meshHeight)
 {
 	_scale = scale;

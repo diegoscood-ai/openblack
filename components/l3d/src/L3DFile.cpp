@@ -346,10 +346,22 @@ L3DResult L3DFile::ReadFile(std::istream& stream) noexcept
 		}
 		if (_header.skinOffsetsOffset + skinOffsets.size() * sizeof(skinOffsets[0]) > fsize)
 		{
-			return L3DResult::ErrBadSkinOffset;
+			// Data\WeatherSystem\sun.l3d: the file ends where its skin table should start (its header size says 4 bytes
+			// more than the file has); the original ignores the missing skin, so do the same
+			if (_header.skinOffsetsOffset == fsize)
+			{
+				skinOffsets.clear();
+			}
+			else
+			{
+				return L3DResult::ErrBadSkinOffset;
+			}
 		}
-		stream.seekg(_header.skinOffsetsOffset);
-		stream.read(reinterpret_cast<char*>(skinOffsets.data()), skinOffsets.size() * sizeof(skinOffsets[0]));
+		if (!skinOffsets.empty())
+		{
+			stream.seekg(_header.skinOffsetsOffset);
+			stream.read(reinterpret_cast<char*>(skinOffsets.data()), skinOffsets.size() * sizeof(skinOffsets[0]));
+		}
 	}
 	_extraPoints.resize(_header.extraDataCount);
 	if (!_extraPoints.empty() && _header.extraDataOffset != std::numeric_limits<uint32_t>::max())

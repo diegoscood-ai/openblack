@@ -42,6 +42,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Registry.h"
+#include "ECS/WaterRings.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "EngineConfig.h"
@@ -1330,6 +1331,79 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
+void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
+{
+	const auto& rings = ecs::GetWaterRings();
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Texture = entt::hashed_string("raw/smoke");
+	static const auto k_Alpha = entt::hashed_string("raw/smokea");
+	if (rings.empty() || !textures.Contains(k_Texture) || !textures.Contains(k_Alpha))
+	{
+		return;
+	}
+	const glm::vec3 seaLight = _landLight && _landLight->IsLoaded() ? _landLight->GetColour(255) : glm::vec3(1.0f);
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	std::vector<Vertex> vertices;
+	vertices.reserve(rings.size() * 6);
+	for (const auto& ring : rings)
+	{
+		// half size max(age * growth / 700, 0.0001), the z half size x aspect; alpha (255 - 0.364286 age) * A >> 8
+		const float half = std::max(static_cast<float>(ring.age) * ring.growth * 0.00142857f, 0.0001f);
+		const auto alpha = static_cast<uint32_t>(static_cast<int>((255.0f - static_cast<float>(ring.age % 700) * 0.364286f) *
+		                                                          static_cast<float>(ring.argb >> 24)) >> 8) & 0xFFu;
+		uint32_t r = (ring.argb >> 16) & 0xFFu;
+		uint32_t g = (ring.argb >> 8) & 0xFFu;
+		uint32_t b = ring.argb & 0xFFu;
+		if (ring.seaLight)
+		{
+			r = static_cast<uint32_t>(seaLight.r * 255.0f + 0.5f);
+			g = static_cast<uint32_t>(seaLight.g * 255.0f + 0.5f);
+			b = static_cast<uint32_t>(seaLight.b * 255.0f + 0.5f);
+		}
+		const uint32_t abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
+		const uint32_t cell = ring.cell & 0x3Fu;
+		const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>(cell / 8) / 8.0f);
+		const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / 8.0f);
+		// LH3DSprite flag 0x40: a flat quad turned about Y
+		const glm::vec3 along = glm::vec3(std::cos(ring.angle), 0.0f, std::sin(ring.angle)) * half;
+		const glm::vec3 across = glm::vec3(-std::sin(ring.angle), 0.0f, std::cos(ring.angle)) * (half * ring.aspect);
+		const auto& c = ring.position;
+		const std::array<glm::vec3, 4> p = {c - along - across, c + along - across, c + along + across, c - along + across};
+		const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
+		                                     glm::vec2(uv0.x, uv1.y)};
+		for (const int i : {0, 1, 2, 0, 2, 3})
+		{
+			vertices.push_back({p[i].x, p[i].y, p[i].z, uv[i].x, uv[i].y, abgr});
+		}
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	const auto* program = _shaderManager->GetShader("WorldQuad");
+	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
+	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
+	bgfx::setVertexBuffer(0, &buffer);
+	// mode 13: SRCALPHA / ONE, no Z write
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
+	               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+}
+
 void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 {
 	const auto& textures = Locator::resources::value().GetTextures();
@@ -1823,6 +1897,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
+				DrawWaterRings(desc.viewId);
 				DrawHumanShadows(desc.viewId);
 			}
 			const auto setMatrices = [&submitDesc](entt::id_type meshId, const L3DMesh& mesh) {

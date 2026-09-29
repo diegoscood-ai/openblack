@@ -68,6 +68,8 @@ class Renderer final: public RendererInterface
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
+	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13
+	void DrawWaterRings(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
 	/// FinishFrame (e) and (h): the cinema bars and the screen fade (fn_0081E590, fn_0086FEE0)

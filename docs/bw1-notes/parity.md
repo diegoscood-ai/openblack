@@ -30,7 +30,8 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | LOD de modelos | En este ejecutable la carga de `LevelOfDetail` está anulada (NOP en 0x823810 / 0x823B43): siempre LOD 1, sin fundido ni desaparición | Siempre LOD 1 | igual |
 | Ventanas | Color de ventana de noche | — | falta |
 | Mano | Z-sorter, luz ×1,5, muñeca con alfa | Igual | igual |
-| Anillos de agua, barcos | Anillos de nadadores, tiburones y cebo; barcos de las cinemáticas | — | falta |
+| Anillos de agua | `fn_005E5100`: `smoke.raw` horizontal, modo 13, 700 ms; del chapoteo de la mano, objetos que caen al agua, nadadores, tiburones y cebo | Igual (mano y objetos lanzados; no hay nadadores ni tiburones) | igual |
+| Barcos | `PetitNavire` de las cinemáticas | — | falta |
 | Partículas, hechizos, luciérnagas, destellos | PSys, todo en el Z-sorter | Solo polvo y partículas de coger | falta |
 | Lluvia, nieve, relámpagos | Por tormenta, en casillas de 80×80 | — | falta (sin clima) |
 | Correas, gestos, anillo de influencia | Modos 15, 13 y 6 | — | falta |

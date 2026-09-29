@@ -67,6 +67,8 @@ private:
 	bool TryPickUpFish(glm::vec3 point) noexcept;
 	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
 	bool UpdateFishPickUp(float seconds) noexcept;
+	/// Test hook OPENBLACK_TEST_SPLASH="x,z": a hand splash there every second
+	void UpdateTestSplash(float seconds) noexcept;
 	/// Pot::AddResourceToPos: a hand pot put down merges into a same-type pile or store nearby, else a new pile.
 	void PutDownHandPot(entt::entity pot) noexcept;
 	/// PileResource draw: a pile sinks into the ground as it empties (proportion of its maximum).

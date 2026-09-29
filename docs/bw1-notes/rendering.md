@@ -306,7 +306,14 @@ Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`.
     los ocultos ni se mueven ni se dibujan. El último argumento de `CREATE_TOWN_FISH_FARM` es el índice de GFishFarmInfo.
   - openblack: `ecs::SplashWater` / `ProcessFishFarmsTurn` / `FindFishFarmAt` / `RemoveFishFarmFood` (FishShoals.cpp),
     `HandFish.cpp` (`SplashHand`, `TryPickUpFish`, `UpdateFishPickUp`), salpicadura al aterrizar los objetos lanzados en
-    `UpdateThrown`. Faltan el anillo de agua, el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
+    `UpdateThrown`. Faltan el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
+- **Anillos de agua** (hechos, `fn_005E5100`, tras la tierra y antes de los modelos): por anillo, edad += (int)(ms de
+  juego · ritmo), fuera a 700; media anchura max(edad·crecimiento/700, 0,0001) (z × aspecto); alfa (int)((255 − 0,364286·
+  (edad % 700))·A) >> 8, RGB del color; giro en Y, celda & 63 de la hoja 8×8 de `smoke.raw`/`smokea.raw`, modo 13
+  (SRCALPHA/ONE, sin Z); deriva con el viento si +0x1C. Chapoteo de la mano: (x, 0,2, z), crecimiento 7, ángulo al azar,
+  celda 0x30, 0xB0 + tabla de luz[255]. Objeto físico en el agua (0x6466D2): (x, 0,1, z), crecimiento 2·radio, ritmo
+  1/radio, celda 0x3F, blanco. openblack: `ecs/WaterRings`, `Renderer::DrawWaterRings`; gancho `OPENBLACK_TEST_SPLASH="x,z"`
+  (un chapoteo por segundo; los anillos solo avanzan con el juego en marcha, `OPENBLACK_START_UNPAUSED=1`).
 - **DrawCutByPlane** (animado `fn_00811C70`; en estáticos es un `ret`): plano (0, −1, 0, 0) → queda lo de **y ≤ 0**, recorte
   por CPU por triángulo, luz 90 + N·L, color 0x303070 opaco, el modo del material. Solo lo usan los SuperVillagers con la
   animación `M_P_Swim2`, los tiburones (`MSH_SHARK_BONED`) y el cebo del puzle de peces (Land 4). **No aplica en Land1**.

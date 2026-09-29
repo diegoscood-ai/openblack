@@ -66,7 +66,8 @@ terreno físico y objetos cercanos), `OPENBLACK_MARK_LOWEST=1` (marca el vértic
 `OPENBLACK_DUMP_STATIC_GAPS=1`, `OPENBLACK_HAND_TRACE=1`, `OPENBLACK_HAND_TEST_ROCK="x,z"`
 (+ `_FOOD`, `_NO_BOULDER`), `OPENBLACK_HAND_TEST_TREE="x,z[,dead][,roots][,store]"`,
 `OPENBLACK_HAND_TEST_STORE_TAKE="madera,comida"`, `OPENBLACK_HAND_ANIM=<nodo>`, `OPENBLACK_NO_PICKUP_PSYS=1`,
-`OPENBLACK_HAND_TEST_HOLD=<escala>` (la mano empieza sosteniendo una roca), `OPENBLACK_HAND_TEST_FISH=1` (chapoteo y
+`OPENBLACK_HAND_TEST_HOLD=<escala>` (la mano empieza sosteniendo una roca), `OPENBLACK_TEST_SPLASH="x,z"` (un chapoteo de
+la mano por segundo), `OPENBLACK_HAND_TEST_FISH=1` (chapoteo y
 pesca en el primer banco con la acción mantenida 3 s; con `OPENBLACK_HAND_TRACE=1` escribe `Fish trace`), `OPENBLACK_START_UNPAUSED=1` (turnos y
 scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_WIDESCREEN=1`.
 

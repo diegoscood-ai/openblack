@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 
 #include <spdlog/spdlog.h>
@@ -24,6 +25,8 @@
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/FishShoals.h"
+#include "ECS/WaterRings.h"
+#include "Common/RandomNumberManager.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -46,11 +49,20 @@ constexpr std::array k_HandInWater = {
 void HandSystem::SplashHand(glm::vec3 point) noexcept
 {
 	// StartLandscapeGrip fn_005D1AB0: gripping the water (or off the map) splashes at (x, 0.2, z) with the next of the
-	// ten LH_SAMPLE_G_HANDINWATER samples in turn (counter 0xD18228). TODO: its water ring (growth 7) once rings exist.
+	// ten LH_SAMPLE_G_HANDINWATER samples in turn (counter 0xD18228) and a water ring: growth 7, a random angle,
+	// cell 0x30, colour 0xB0 alpha with the full light of the landscape light table
 	if (IsLand(point))
 	{
 		return;
 	}
+	ecs::WaterRing ring;
+	ring.position = glm::vec3(point.x, 0.2f, point.z);
+	ring.growth = 7.0f;
+	ring.angle = Locator::rng::value().NextValue(0.0f, 6.2831853f);
+	ring.cell = 0x30;
+	ring.argb = 0xB0FFFFFFu;
+	ring.seaLight = true;
+	ecs::AddWaterRing(ring);
 	static size_t next = 0;
 	PlaySample(k_HandInWater.at(next));
 	next = (next + 1) % k_HandInWater.size();
@@ -134,4 +146,22 @@ bool HandSystem::UpdateFishPickUp(float seconds) noexcept
 		                   farm != nullptr ? farm->food : -1.0f, farm != nullptr ? farm->VisibleFish() : 0);
 	}
 	return true;
+}
+
+void HandSystem::UpdateTestSplash(float seconds) noexcept
+{
+	static const char* at = std::getenv("OPENBLACK_TEST_SPLASH");
+	static float timer = 0.0f;
+	float x = 0.0f;
+	float z = 0.0f;
+	if (at == nullptr || std::sscanf(at, "%f,%f", &x, &z) != 2)
+	{
+		return;
+	}
+	timer -= seconds;
+	if (timer <= 0.0f)
+	{
+		timer = 1.0f;
+		SplashHand(glm::vec3(x, 0.0f, z));
+	}
 }

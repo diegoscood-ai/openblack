@@ -64,6 +64,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/FishShoals.h"
+#include "ECS/WaterRings.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -329,10 +330,25 @@ void HandSystem::UpdateThrown(float seconds) noexcept
 		if (transform.position.y <= ground + thrown.altitude && thrown.velocity.y < 0.0f)
 		{
 			transform.position.y = ground + thrown.altitude;
-			// PhysicsObject::AttemptToAddSoundEvent 0x646683 -> fn_0074F2D0: landing in the water scares the fish
+			// PhysicsObject::AttemptToAddSoundEvent 0x646683 -> fn_0074F2D0: landing in the water scares the fish, and
+			// leaves a white ring at y 0.1 that grows 2 x the object's radius, aging at 1 / radius (cell 0x3F)
 			if (!IsLand(transform.position))
 			{
 				ecs::SplashWater(transform.position);
+				float radius = 1.0f;
+				if (const auto* mesh = registry.TryGet<const Mesh>(thrown.entity);
+				    mesh != nullptr && Locator::resources::value().GetMeshes().Contains(mesh->id))
+				{
+					radius = 0.5f * glm::length(Locator::resources::value().GetMeshes().Handle(mesh->id)->GetBoundingBox().Size()) *
+					         transform.scale.x;
+				}
+				radius = std::max(radius, 0.01f);
+				ecs::WaterRing ring;
+				ring.position = glm::vec3(transform.position.x, 0.1f, transform.position.z);
+				ring.growth = 2.0f * radius;
+				ring.rate = 1.0f / radius;
+				ring.cell = 0x3F;
+				ecs::AddWaterRing(ring);
 			}
 			if (auto* fixed = registry.TryGet<Fixed>(thrown.entity); fixed != nullptr)
 			{

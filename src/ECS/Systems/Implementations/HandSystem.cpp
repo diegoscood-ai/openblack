@@ -389,6 +389,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	UpdateMultiPickUp(seconds, actionHeld);
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateThrown(seconds);
+	UpdateTestSplash(seconds);
 	UpdateRootsAndPiles(seconds);
 	archetypes::PotArchetype::UpdateSizes(seconds);
 

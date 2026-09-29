@@ -38,6 +38,7 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/FishShoals.h"
+#include "ECS/WaterRings.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/CameraBookmarkSystemInterface.h"
@@ -408,6 +409,9 @@ bool Game::Update() noexcept
 		}
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
+
+	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
+	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,

@@ -23,6 +23,7 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/DayNightClock.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
@@ -1144,16 +1145,16 @@ void RemoveReference() // 111 REMOVE_REFERENCE
 
 void SetGameTime() // 112 SET_GAME_TIME
 {
-	// const auto time = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::SetGameTime 0x710E20: ForceVisualTime(script -> visual time)
+	const auto time = Popf();
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "SET_GAME_TIME({})", time);
+	Game::Instance()->SetTime(time);
 }
 
 void GetGameTime() // 113 GET_GAME_TIME
 {
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	// GScript::GetGameTime 0x710E60: the visual time mapped back to script time
+	Pushf(Game::Instance()->GetDayNightClock().GetScriptTime());
 }
 
 void GetRealTime() // 114 GET_REAL_TIME
@@ -2649,17 +2650,19 @@ void MoveCameraPosFocLens() // 287 MOVE_CAMERA_POS_FOC_LENS
 
 void GameTimeOnOff() // 288 GAME_TIME_ON_OFF
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::GameTimeOnOff 0x710E90: SetVisualTimeScale(on ? 1 : 0)
+	const auto enable = Pop().intVal != 0;
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "GAME_TIME_ON_OFF({})", enable);
+	Game::Instance()->GetDayNightClock().SetScale(enable ? 1.0f : 0.0f);
 }
 
 void MoveGameTime() // 289 MOVE_GAME_TIME
 {
-	// const auto duration = Popf();
-	// const auto hourOfTheDay = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::MoveGameTime 0x710EC0: the visual time slides to the hour in `duration` seconds of game time
+	const auto duration = Popf();
+	const auto hourOfTheDay = Popf();
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "MOVE_GAME_TIME({}, {})", hourOfTheDay, duration);
+	Game::Instance()->GetDayNightClock().MoveScriptTime(hourOfTheDay, duration);
 }
 
 void SetHighGraphicsDetail() // 290 SET_HIGH_GRAPHICS_DETAIL
@@ -3674,17 +3677,19 @@ void RestartObject() // 406 RESTART_OBJECT
 
 void SetGameTimeProperties() // 407 SET_GAME_TIME_PROPERTIES
 {
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::SetGameTimeProperties 0x7114B0: SetVisualTimeCycle(duration, percentage night, percentage change)
+	const auto percentageChange = Popf();
+	const auto percentageNight = Popf();
+	const auto duration = Popf();
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "SET_GAME_TIME_PROPERTIES({}, {}, {})", duration, percentageNight, percentageChange);
+	Game::Instance()->GetDayNightClock().SetCycle(duration, percentageNight, percentageChange);
 }
 
 void ResetGameTimeProperties() // 408 RESET_GAME_TIME_PROPERTIES
 {
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::ResetGameTimeProperties 0x711520
+	Game::Instance()->GetDayNightClock().SetCycle(DayNightClock::k_DefaultDuration, DayNightClock::k_DefaultNight,
+	                                              DayNightClock::k_DefaultChange);
 }
 
 void SoundExists() // 409 SOUND_EXISTS

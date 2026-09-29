@@ -28,7 +28,9 @@
 #include "3D/L3DSubMesh.h"
 #include "3D/Clouds.h"
 #include "3D/Foliage.h"
+#include "3D/DayNightClock.h"
 #include "3D/LandLightTable.h"
+#include "3D/NightLights.h"
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
@@ -421,8 +423,12 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 	assert(&subMesh.GetMesh());
 	// meshes without bones use the variant of the program with a single model matrix (see vs_object.sc)
 	const auto* program = mesh.IsBoned() ? desc.program : StaticVariant(desc.program);
-	// We don't draw physics meshes, we haven't implemented statuses (building and graves) and modern GPUs can handle high lod
-	if (!desc.drawAll && (subMesh.IsPhysics() || subMesh.GetFlags().status != 0 || (subMesh.GetFlags().lodMask & 1) != 1))
+	// We don't draw physics meshes, we haven't implemented statuses (building and graves) and modern GPUs can handle high lod.
+	// Window submeshes have no LOD bits: the original draws them only at night, without the LOD test (Abode::Draw ->
+	// fn_00856D40); vs_object hides them on the instances whose windows are not lit.
+	const bool window = subMesh.GetFlags().isWindow && desc.instanceDesc != nullptr;
+	if (!desc.drawAll &&
+	    (subMesh.IsPhysics() || subMesh.GetFlags().status != 0 || ((subMesh.GetFlags().lodMask & 1) != 1 && !window)))
 	{
 		return;
 	}
@@ -507,6 +513,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
 				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
 				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
+				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+				program->SetUniformValue("u_window", &u_window);                      // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
 				if (desc.dynamicShadow != nullptr)
@@ -1057,7 +1065,9 @@ void Renderer::UpdateClouds() const
 	// game time: the clouds and their animation stop while the game is paused
 	static auto lastTime = std::chrono::steady_clock::now();
 	const auto now = std::chrono::steady_clock::now();
-	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count());
+	// g_game_time_inc: game time, faster or slower with the game speed
+	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
+	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
 	lastTime = now;
 	if (Game::Instance() != nullptr && !Game::Instance()->IsPaused())
 	{
@@ -1099,6 +1109,17 @@ void Renderer::UpdateClouds() const
 	static const std::vector<float> k_NoClouds;
 	_clouds->BuildShadowCap(_cloudShadowImage, island.GetExtent().minimum, size, detail.clouds ? _cloudAlpha : k_NoClouds,
 	                        _cloudShadowCap);
+	// Night lights (fn_005E5830): the hand light and the village lights go into the same luminosity cap
+	if (_landLight && _landLight->IsLoaded() && Game::Instance() != nullptr)
+	{
+		night_lights::LightCells cells;
+		cells.firstCell = glm::ivec2(glm::floor(island.GetExtent().minimum * 0.1f + 0.5f));
+		cells.size = glm::ivec2(size);
+		cells.cap = &_cloudShadowCap;
+		cells.fullLightGreen = static_cast<uint8_t>(std::lround(_landLight->GetColour(255).g * 255.0f));
+		night_lights::Update(Game::Instance()->IsPaused() ? 0.0f : milliseconds,
+		                     Game::Instance()->GetDayNightClock().GetScriptTime(), _landLight->GetBaseColour(), cells);
+	}
 	bgfx::updateTexture2D(_cloudShadowTexture, 0, 0, 0, 0, size.x, size.y,
 	                      bgfx::copy(_cloudShadowCap.data(), static_cast<uint32_t>(_cloudShadowCap.size())));
 }
@@ -1119,7 +1140,8 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	const auto origin = camera.GetOrigin();
 	// oriented with the camera: the dome's axis (local +Y) towards the camera, so each cloud shows as a soft puff
 	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	const auto rotation = glm::mat3(cameraBasis[0], cameraBasis[2], -cameraBasis[1]);
+	// UpdateWorldToCamera 0x819690: the dome's axis faces the camera, local x = screen right, local z = screen up
+	const auto rotation = glm::mat3(cameraBasis[0], cameraBasis[2], cameraBasis[1]);
 	std::vector<std::pair<float, size_t>> order;
 	order.reserve(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)

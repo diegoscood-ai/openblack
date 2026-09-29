@@ -23,6 +23,8 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/CreatureBody.h"
+#include "3D/DayNightClock.h"
+#include "3D/NightLights.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
@@ -38,6 +40,7 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
+#include "ECS/FireFlies.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -83,6 +86,7 @@ Game::Game(Arguments&& args) noexcept
     , _startMap(args.startLevel)
     , _requestScreenshot(args.requestScreenshot)
     , _screenFade(std::make_unique<ScreenFade>())
+    , _dayNightClock(std::make_unique<DayNightClock>())
 {
 	Locator::camera::emplace(glm::zero<glm::vec3>());
 	std::function<std::shared_ptr<spdlog::logger>(const std::string&)> createLogger;
@@ -332,6 +336,21 @@ bool Game::GameLogicLoop() noexcept
 		lhvm.LookIn(lhvm::ScriptType::All);
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
+		// GGame::ProcessTurn: GLandAlignement::UpdateTime once per turn
+		_dayNightClock->ProcessTurn();
+		// OPENBLACK_TIME_OF_DAY=<script hour> pins the clock there every turn (screenshots), over the scripts' times
+		if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr)
+		{
+			_dayNightClock->ForceScriptTime(std::clamp(static_cast<float>(std::atof(hour)), 0.0f, 24.0f));
+		}
+		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
+		ecs::ProcessFireFliesTurn(*_dayNightClock);
+		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
+			                   _dayNightClock->GetVisualTime(), _dayNightClock->GetScriptTime(),
+			                   _dayNightClock->GetSkyType());
+		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
 	}
@@ -425,6 +444,10 @@ bool Game::Update() noexcept
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
+
+	// Fireflies (FireFly::Draw): orbit and fade, in game time
+	ecs::UpdateFireFlies(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
+	                     camera.GetOrigin());
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
@@ -956,6 +979,16 @@ bool Game::Run() noexcept
 	{
 		_screenFade->SetWideScreen(true, Locator::infoConstants::value().helpSystem.wideScreenTime);
 	}
+	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
+	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)
+	{
+		float hour = 0.0f;
+		float seconds = 0.0f;
+		if (std::sscanf(move, "%f,%f", &hour, &seconds) == 2)
+		{
+			_dayNightClock->MoveScriptTime(hour, seconds);
+		}
+	}
 
 	// Initialize the Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
@@ -998,7 +1031,7 @@ bool Game::Run() noexcept
 			    .frameBuffer = nullptr,
 			    .entities = Locator::entitiesRegistry::value(),
 			    .time = milliseconds.count(), // TODO(#481): get actual time
-			    .timeOfDay = config.timeOfDay,
+			    .timeOfDay = Locator::skySystem::value().GetTime(),
 			    .bumpMapStrength = config.bumpMapStrength,
 			    .smallBumpMapStrength = config.smallBumpMapStrength,
 			    .viewId = graphics::RenderPass::Main,
@@ -1058,6 +1091,12 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Could not find script {}", path.generic_string());
 		return false;
 	}
+
+	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
+	_dayNightClock->Reset();
+	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
+	ecs::ClearFireFlies();
+	night_lights::Clear();
 
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());
@@ -1138,7 +1177,9 @@ void Game::LoadLandscape(const std::filesystem::path& path)
 
 void Game::SetTime(float time) noexcept
 {
-	Locator::skySystem::value().SetTime(time);
+	// SET_GAME_TIME: the clock keeps running from this script time
+	_dayNightClock->ForceScriptTime(time);
+	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 }
 
 void Game::RequestScreenshot(const std::filesystem::path& path) noexcept

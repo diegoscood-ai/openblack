@@ -40,6 +40,8 @@ public:
 	/// RGBA8 texels of the current table
 	[[nodiscard]] const std::array<uint32_t, k_Size>& GetTexels() const noexcept { return _texels; }
 	[[nodiscard]] glm::vec3 GetColour(size_t index) const noexcept;
+	/// The base colour of this frame ([0xFA26A4], after the overcast cap), 0..1
+	[[nodiscard]] glm::vec3 GetBaseColour() const noexcept;
 
 	/// Software distance haze of this frame (fn_00869850 0x869CB8..0x869F78 -> fn_007FEAA0 / fn_007FEAD0): at view
 	/// depth z, t = clamp((z - near) / (far - near), 0, 1); the diffuse is scaled by (256 - trunc((256 - k) * t)) / 256
@@ -58,6 +60,7 @@ public:
 private:
 	std::vector<uint32_t> _palette;     ///< 0xAARRGGBB, like the D3DCOLORs of the original
 	std::array<uint32_t, k_Size> _table {}; ///< 0xAARRGGBB
+	uint32_t _base {0xFFFFFFFFu};          ///< 0xAARRGGBB
 	std::array<uint32_t, k_Size> _texels {}; ///< same colours as little-endian RGBA8
 	Haze _haze;
 	glm::vec3 _moonColour {1.0f};

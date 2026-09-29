@@ -26,7 +26,7 @@ void main()
 	model[0] = vec4(i_data0.xyz, 0.0f);
 	model[1] = vec4(i_data1.xyz, 0.0f);
 	model[2] = vec4(i_data2.xyz, 0.0f);
-	model[3] = i_data3;
+	model[3] = vec4(i_data3.xyz, 1.0f); // w: the window light of houses (vs_object)
 	vec3 world = instMul(model, mul(u_model[modelIndex], vec4(a_position.xyz, 1.0f))).xyz;
 
 	vec3 light = u_shadowLight.xyz;

@@ -197,7 +197,8 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
 ## Cielo: sol, luna y nubes (original)
 
 Informe: `tmp_dis\render\sky_*.txt`.
-- Umbrales de hora en partida: 3,5 / 7,5 / 8 / 8,5 h (no 4,5 / 7 / 7,5 / 8,25, que son los del reloj visual).
+- La hora que usan el sol, la luna y el cielo es la **hora de guion** (umbrales fijos 3,5 / 7,5 / 8 / 8,5 h); el reloj
+  real del juego es la hora visual con los umbrales del ciclo. Ver [day-night-weather.md](day-night-weather.md).
 - **Sol** (`fn_0086C020` / `fn_0086C140`): `sun.l3d` (quad vertical 9928), `sun.raw`, modo 13 (aditivo SRCALPHA/ONE,
   sin Z), en (−30000, y, −30000) girado 3π/4, y = 7500·(clamp(min(T, 24−T), 6, 12) − 6)/6, color 0x957C63, alfa
   0 → 255 entre 3 y 6 h y 255 → 0 entre 18 y 21 h (÷(1 + 8·nubes)). **Resplandor** (`fn_0086BB60`, al final del

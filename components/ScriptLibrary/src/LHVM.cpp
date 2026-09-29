@@ -9,6 +9,7 @@
 
 #include "LHVM.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -858,6 +859,20 @@ void LHVM::Opcode05Sys(VMTask& /*task*/, const VMInstruction& instruction)
 			_currentStack->popCount = 0;
 			InvokeNativeCallEnterCallback(id);
 			func.impl();
+			// Unimplemented functions often leave their arguments on the stack, which shifts every later argument
+			// (the original's native functions always pop them): drop them from under whatever the function pushed
+			auto& stack = *_currentStack;
+			const auto in = static_cast<uint32_t>(std::max(func.stackIn, 0));
+			if (stack.popCount == 0 && in > 0 && stack.count >= in + stack.pushCount)
+			{
+				const auto top = stack.count - stack.pushCount;
+				for (uint32_t i = 0; i < stack.pushCount; ++i)
+				{
+					stack.values.at(top - in + i) = stack.values.at(top + i);
+					stack.types.at(top - in + i) = stack.types.at(top + i);
+				}
+				stack.count -= in;
+			}
 			InvokeNativeCallExitCallback(id);
 		}
 		else // if impl not provided, then just adjust the stack

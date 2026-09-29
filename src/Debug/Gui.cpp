@@ -43,6 +43,7 @@
 #include <SDL2/SDL_syswm.h>
 #endif
 
+#include "3D/DayNightClock.h"
 #include "3D/SkyInterface.h"
 #include "Audio.h"
 #include "Camera/Camera.h"
@@ -595,10 +596,12 @@ bool Gui::ShowMenu() noexcept
 
 		if (ImGui::BeginMenu("World"))
 		{
+			config.timeOfDay = Locator::skySystem::value().GetTime();
 			if (ImGui::SliderFloat("Time of Day", &config.timeOfDay, 0.0f, 24.0f, "%.3f"))
 			{
 				Game::Instance()->SetTime(fmodf(config.timeOfDay, 24.0f));
 			}
+			ImGui::Text("Visual time %.3f", Game::Instance()->GetDayNightClock().GetVisualTime());
 
 			ImGui::Text("Sky Type Index %f", Locator::skySystem::value().GetCurrentSkyType());
 			ImGui::SliderFloat("Sky alignment", &config.skyAlignment, -1.0f, 1.0f, "%.3f");

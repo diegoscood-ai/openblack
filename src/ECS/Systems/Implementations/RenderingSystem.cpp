@@ -13,7 +13,9 @@
 
 #include <glm/gtx/transform.hpp>
 
+#include "3D/DayNightClock.h"
 #include "3D/L3DMesh.h"
+#include "3D/NightLights.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Feature.h"
@@ -28,6 +30,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/AnimatedStatic.h"
+#include "ECS/Components/Fragment.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Stream.h"
@@ -39,6 +42,7 @@
 #include "Graphics/DebugLines.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
+#include "Game.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -241,6 +245,16 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    const auto packed = bits(tint->own) * 32768u + bits(tint->ground.r) * 1024u + bits(tint->ground.g) * 32u +
 			                        bits(tint->ground.b);
 			    _renderContext.instanceUniforms[idx][2][3] = (tint->dissolve ? 2e6f : 1e6f) + static_cast<float>(packed);
+		    }
+		    // The w of the fourth column: 2 + the grey of a house's lit windows at night (Abode::Draw), 1 otherwise
+		    if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && Game::Instance() != nullptr)
+		    {
+			    const float grey = night_lights::WindowGrey(Game::Instance()->GetDayNightClock(), transform.position,
+			                                                !abode->inhabitants.empty());
+			    if (grey >= 0.0f)
+			    {
+				    _renderContext.instanceUniforms[idx][3][3] = 2.0f + grey;
+			    }
 		    }
 		    if (drawBoundingBox)
 		    {

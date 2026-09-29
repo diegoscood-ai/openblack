@@ -86,6 +86,7 @@ uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (
                             // w > 0: no distance haze (the hand)
 uniform vec4 u_haze;        // x: near, y: far, z: k, w: on ("Fog" detail key)
 uniform vec4 u_hazeColour;  // rgb: fog colour 0..255
+uniform vec4 u_window;      // x > 0: a window submesh (L3D isWindow), lit at night by the instance (Abode::Draw)
 
 vec4 CellTexel(vec2 cell)
 {
@@ -126,7 +127,9 @@ void main()
 	model[0] = vec4(i_data0.xyz, 0.0f);
 	model[1] = vec4(i_data1.xyz, 0.0f);
 	model[2] = vec4(i_data2.xyz, 0.0f);
-	model[3] = i_data3;
+	model[3] = vec4(i_data3.xyz, 1.0f);
+	// The w of the fourth column: 2 + the grey of the house's windows at night (1 when they are lit normally)
+	float windowGrey = i_data3.w > 1.5f ? i_data3.w - 2.0f : -1.0f;
 
 	v_position = instMul(model, v_position);
 	normal = instMul(model, vec4(normal, 0.0f)).xyz;
@@ -182,6 +185,11 @@ void main()
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
 		objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
 		}
+		// Windows at night (fn_00856D40): unlit, the flat grey instead of the land light, the specular kept
+		if (u_window.x > 0.0f && windowGrey >= 0.0f)
+		{
+			objectColour = vec3_splat(windowGrey);
+		}
 	}
 	float opacity = 1.0f - fade;
 	// components::MeshTint: 1e6 (2e6 dissolving instead of blending) + 5 bits each of the ground colour and of `own`
@@ -218,6 +226,13 @@ void main()
 	// The specular colour rides in the unused texcoord z/w and position w: vs_object is shared with the sky (fs_sky)
 	// and a new varying broke its interface
 	gl_Position = mul(u_viewProj, v_position);
+#ifdef USE_INSTANCING
+	// Window submeshes exist only while the house's windows are lit (by day they fail the LOD test)
+	if (u_window.x > 0.0f && windowGrey < 0.0f)
+	{
+		gl_Position = vec4(2.0f, 2.0f, 2.0f, 1.0f);
+	}
+#endif // USE_INSTANCING
 	v_texcoord0.zw = specular.rg;
 	v_position.w = specular.b;
 }

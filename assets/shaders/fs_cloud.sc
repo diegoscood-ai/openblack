@@ -9,6 +9,7 @@ SAMPLER2D(s_alpha, 1);   // smokea.raw
 // diffuse alpha, SRCALPHA / INVSRCALPHA, two-sided
 void main()
 {
-	vec4 texel = vec4(texture2D(s_diffuse, v_texcoord0.xy).rgb, texture2D(s_alpha, v_texcoord0.xy).r);
+	// the base level only, like the original: lower mips of the atlas bleed the neighbour cells into a hard disc
+	vec4 texel = vec4(texture2DLod(s_diffuse, v_texcoord0.xy, 0.0f).rgb, texture2DLod(s_alpha, v_texcoord0.xy, 0.0f).r);
 	gl_FragColor = texel * v_color0;
 }

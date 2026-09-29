@@ -89,6 +89,7 @@ void LandLightTable::Build(float skyType, float alignment, float weather) noexce
 		capped |= std::min((base >> shift) & 0xFFu, limit) << shift;
 	}
 	base = capped;
+	_base = base;
 
 	// Haze (clear weather, no lightning): k from the base colour's luminance, fog colour = base / 3, near / far by sky
 	// type (400 -> 900 at noon and midnight, 100 -> 800 at dusk)
@@ -128,6 +129,11 @@ glm::vec3 LandLightTable::GetColour(size_t index) const noexcept
 {
 	const uint32_t c = _table.at(index);
 	return glm::vec3((c >> 16) & 0xFFu, (c >> 8) & 0xFFu, c & 0xFFu) / 255.0f;
+}
+
+glm::vec3 LandLightTable::GetBaseColour() const noexcept
+{
+	return glm::vec3((_base >> 16) & 0xFFu, (_base >> 8) & 0xFFu, _base & 0xFFu) / 255.0f;
 }
 
 } // namespace openblack

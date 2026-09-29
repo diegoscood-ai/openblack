@@ -69,6 +69,7 @@ struct Arguments
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> requestScreenshot;
 };
 
+class DayNightClock;
 class ScreenFade;
 
 class Game
@@ -104,6 +105,8 @@ public:
 
 	/// Script fade and cinema bars (SET_FADE, SET_WIDESCREEN)
 	[[nodiscard]] ScreenFade& GetScreenFade() { return *_screenFade; }
+	/// The original's day/night clock (GLandAlignement::UpdateTime)
+	[[nodiscard]] DayNightClock& GetDayNightClock() { return *_dayNightClock; }
 
 	static Game* Instance() { return sInstance; }
 
@@ -126,5 +129,6 @@ private:
 	bool _handGripping;
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> _requestScreenshot;
 	std::unique_ptr<ScreenFade> _screenFade;
+	std::unique_ptr<DayNightClock> _dayNightClock;
 };
 } // namespace openblack

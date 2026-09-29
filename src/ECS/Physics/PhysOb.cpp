@@ -121,7 +121,7 @@ void PhysOb::Initialise(float scale, float meshHeight)
 	angularMomentum = glm::vec3(0.0f);
 	velocity = glm::vec3(0.0f);
 	_speed = 0.0f;
-	restCounter = -static_cast<int>(scale * meshHeight * 500.0f);
+	restCounter = -static_cast<int>(scale * meshHeight * 1000.0f); // 0x7FB7D6: mesh+0x28 is the half height
 }
 
 void PhysOb::SetUpConstants(float mass, const PhysicsData& data, bool dynamic)
@@ -169,7 +169,7 @@ void PhysOb::Build(std::span<const glm::vec3> positions, std::span<const std::ar
 }
 
 void PhysOb::BuildShape(std::span<const glm::vec3> local, std::span<const std::array<uint32_t, 3>> triangles, glm::vec3 com,
-                        float radius, float dragFactor, const glm::mat3& rotation, glm::vec3 origin)
+                        float radius, float dragFactor, const glm::mat3& rotation, glm::vec3 origin, float inertiaFactor)
 {
 	_vertices.assign(local.size(), Vertex {});
 	for (size_t i = 0; i < local.size(); ++i)
@@ -185,6 +185,17 @@ void PhysOb::BuildShape(std::span<const glm::vec3> local, std::span<const std::a
 	_radius = radius;
 	SetUpMoi();
 	_drag *= dragFactor;
+	if (_dynamic && inertiaFactor != 1.0f)
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			for (int j = 0; j < 3; ++j)
+			{
+				_inertia[i][j] *= inertiaFactor;
+				_inverseInertia[i][j] /= inertiaFactor;
+			}
+		}
+	}
 	SetUpPos(rotation, origin);
 }
 

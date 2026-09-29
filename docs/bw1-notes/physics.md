@@ -19,8 +19,8 @@ direcciones en `C:\Users\diewgarc\dev\tmp_dis\physics\` (`physob.md`, `physicsob
 - **Mar**: si el suelo bajo el centro es < 0,0001, el centro está por debajo del radio y la celda no tiene tierra:
   flotación `frac·m·g/densidad`, arrastre ×100, y **ningún contacto con el fondo**. La densidad sube 6,67e-5 por
   subpaso sumergido (se empapa); por encima de 1 se hunde. Por debajo de −4R el objeto se borra.
-- **Reposo**: umbral 1 (4 si ya reposa), crece tras 15000 cuentas; el contador empieza en −GetHeight·500 y suma 5 por
-  subpaso, así que nada se para antes de GetHeight/2 segundos.
+- **Reposo**: umbral 1 (4 si ya reposa), crece tras 15000 cuentas; el contador empieza en −escala·media altura·1000
+  (0x7FB7D6) y suma 5 por subpaso.
 - `Data\PhysicsConstants.txt`: versión 3, 24 filas × 6 (densidad, k de contacto/masa, k de penetración/masa, µ,
   fracción angular conservada por segundo, arrastre), cada columna recortada a su rango. Filas por clase: 0 casas,
   3 rocas, 4/5 vasijas, 6 árboles, 7 aldeanos, 8 animales, 14–20 juguetes, 21–23 setas (tabla en `physob.md`).
@@ -72,6 +72,11 @@ Código: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, componentes `BuildingDamag
 - El edificio dañado se dibuja con su FragMesh: cada triángulo plano, con cara trasera 0,45 detrás y una pared en
   cada borde abierto (malla generada propia). Su cuerpo de física sigue con la malla intacta; si la misma roca
   vuelve a darle, dejan de chocar (la atraviesa en el tercer contacto).
+- **Trozos**: cuerpo = sus vértices distintos y una copia de cada uno 0,45 detrás (sin caras: nada choca con ellos),
+  alrededor de su origen; el ×2 del original (0x76F2DB) va al **arrastre**, no a la inercia; el contador de reposo usa
+  la media altura de la malla de la roca de info.dat. Se crean dentro de `FragMesh::Impact`, antes de leer lo que queda
+  (así un golpe que solo parte triángulos también suelta trozos). Un edificio olvida la roca que lo golpeó cuando esta
+  se para o se coge, o cuando su cuerpo se rehace (fn_646D60, Abode::SetUpPhysOb).
 - **Trozos**: fila 11, masa `30·área`, solo chocan con el suelo, no se pueden coger, duran 100 turnos por triángulo
   (sin fundido). Los finísimos (área < 0,4 R²) se borran al crearse. Uno grande (área > 9) que cae mientras el
   edificio sigue en pie se queda como escombro del edificio.

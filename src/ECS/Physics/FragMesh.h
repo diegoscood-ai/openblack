@@ -55,6 +55,7 @@ public:
 		glm::vec3 centre;
 		glm::vec3 velocity;
 		glm::vec3 angularVelocity;
+		size_t lifeTriangles {0}; ///< the triangles when the Fragment was constructed (its lifetime: 100 turns each)
 	};
 
 	/// FragMesh::FragMesh (0x7F6F00): the LOD 0 sub-meshes of the object's mesh through its world matrix.
@@ -73,6 +74,9 @@ public:
 	void Translate(glm::vec3 offset);
 	[[nodiscard]] float Area() const;
 	[[nodiscard]] size_t TriangleCount() const;
+	/// Fragment::SetUpPhysOb (0x76EC50): the triangles' distinct vertices (exact match), each with the normal of the
+	/// first triangle it was found in.
+	void UniqueVertices(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals) const;
 	/// Adds a landed piece back as rubble (Fragment::EndPhysics), its triangles through the matrix.
 	void Merge(const FragMesh& piece, const glm::mat4& transform);
 	/// The drawn mesh (FragMesh::Draw 0x7F7960): each triangle flat, with a back face 0.45 behind it and a side wall on

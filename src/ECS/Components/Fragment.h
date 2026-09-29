@@ -27,6 +27,7 @@ struct BuildingDamage
 	std::shared_ptr<physics::FragMesh> mesh;
 	entt::id_type intactMesh {0};    ///< the building's own mesh (its physics body keeps using it)
 	entt::id_type generatedMesh {0}; ///< the drawn FragMesh
+	bool morphed {false};            ///< it had MorphWithTerrain (the FragMesh bakes the morph in)
 };
 
 /// Fragment (a Rock subclass, 0x76EB20): a piece knocked off a building. It only hits the landscape, cannot be picked

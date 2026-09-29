@@ -10,6 +10,7 @@
 #include "PhysicsObjects.h"
 
 #include "Buildings.h"
+#include "FragMesh.h"
 
 #include <algorithm>
 #include <array>
@@ -249,6 +250,37 @@ bool SetUpBody(entt::entity entity, PhysOb& body, bool dynamic)
 	const auto size = mesh->GetBoundingBox().Size();
 	const float height = size.y * scale;                         // Object::GetHeight
 	const float radius = 0.5f * std::max(size.x, size.z) * scale; // Object::Get2DRadius
+	if (const auto* fragment = registry.TryGet<const Fragment>(entity); fragment != nullptr && fragment->mesh)
+	{
+		// Fragment::SetUpPhysOb (0x76EC50): the distinct vertices and a copy of each 0.45 behind along its normal (a
+		// slab), no faces (nothing is hit by a fragment), about the fragment's origin; mass 30 x area; drag x 2
+		// (0x76F2DB doubles PhysOb+0x14C, the drag)
+		std::vector<glm::vec3> points;
+		std::vector<glm::vec3> normals;
+		fragment->mesh->UniqueVertices(points, normals);
+		std::vector<glm::vec3> local;
+		float r = 0.0f;
+		for (size_t i = 0; i < points.size(); ++i)
+		{
+			local.push_back(points[i]);
+			local.push_back(points[i] - 0.45f * normals[i]);
+			r = std::max({r, glm::length(local[local.size() - 2]), glm::length(local.back())});
+		}
+		// Initialise takes the half height of the Rock info's mesh (GMobileStaticInfo[2], 0x76E9E4), not the piece's
+		float rockHalfHeight = 0.5f * size.y;
+		if (Locator::infoConstants::has_value())
+		{
+			const auto rockMesh = resources::HashIdentifier(Locator::infoConstants::value().mobileStatic.at(2).meshId);
+			if (auto& meshes = Locator::resources::value().GetMeshes(); meshes.Contains(rockMesh))
+			{
+				rockHalfHeight = 0.5f * meshes.Handle(rockMesh)->GetBoundingBox().Size().y;
+			}
+		}
+		body.Initialise(scale, rockHalfHeight);
+		body.SetUpConstants(PhysicsObjects::Weight(entity), PhysicsObjects::Constants(11), true);
+		body.BuildShape(local, {}, glm::vec3(0.0f), r, 2.0f, transform.rotation, transform.position);
+		return true;
+	}
 	const bool tree = registry.AllOf<Tree>(entity) || (registry.AllOf<DeadTree>(entity) && !MeshIs(entity, 406));
 	const bool living = registry.AnyOf<Villager, Animal>(entity);
 	if (tree || living)
@@ -457,6 +489,20 @@ entt::entity EndPhysics(PhysicsObject& po)
 	return entity;
 }
 
+/// fn_646D60 / RemoveObject: the object stops being a hitter: buildings forget it (FragMesh lastHitter) and bodies that
+/// had it as their thrower (the pass-through pair) collide with it again.
+void ForgetThrower(entt::entity entity)
+{
+	for (auto& other : g_Objects)
+	{
+		if (other->thrower == entity && other->entity != entity)
+		{
+			other->thrower = entt::null;
+		}
+	}
+	Buildings::ForgetHitter(entity);
+}
+
 void RemoveAt(size_t index)
 {
 	for (auto& other : g_Objects)
@@ -499,6 +545,7 @@ void AddProxy(entt::entity entity)
 	po->flags = PhysicsObject::Awake;
 	if (Locator::entitiesRegistry::value().AnyOf<Abode, StoragePit>(entity))
 	{
+		Buildings::ForgetHitter(entt::null, entity); // Abode::SetUpPhysOb 0x402DD0 clears the FragMesh's last hitter
 		po->flags |= PhysicsObject::NoObjectCollision; // Abode::ChecksVerticesVObjects is 0
 	}
 	g_Objects.push_back(std::move(po));
@@ -660,6 +707,7 @@ void Substep()
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: entity {} at rest at ({:.2f}, {:.2f}, {:.2f})",
 			                   static_cast<uint32_t>(po.entity), po.body.Centre().x, po.body.Centre().y, po.body.Centre().z);
+			ForgetThrower(po.entity); // fn_646D60
 			const auto kept = EndPhysics(po);
 			if (!stillAt(i, self))
 			{
@@ -895,10 +943,18 @@ bool PhysicsObjects::InteractsWithPhysicsObjects(entt::entity entity)
 		// piles do not interact (fn_66ED40)
 		return pot->type == PotInfo::HandWood || pot->type == PotInfo::HandFood;
 	}
-	// fields are never hit (Field::InteractsWithPhysicsObjects 0x528020)
+	// fields are never hit (Field::InteractsWithPhysicsObjects 0x528020); buildings only while standing
+	// (MultiMapFixed: GetPercentBuilt > 0.1 && life > 0.01)
 	if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && abode->type == AbodeNumber::Field)
 	{
 		return false;
+	}
+	if (registry.AnyOf<Abode, StoragePit>(entity))
+	{
+		if (const auto* life = registry.TryGet<const Life>(entity); life != nullptr && life->value <= 0.01f)
+		{
+			return false;
+		}
 	}
 	return registry.AnyOf<MobileStatic, MobileObject, Villager, Animal, DeadTree, Abode, StoragePit>(entity);
 }
@@ -990,6 +1046,7 @@ void PhysicsObjects::RemoveObject(entt::entity entity)
 		if (g_Objects[i]->entity == entity)
 		{
 			RemoveAt(i);
+			ForgetThrower(entity);
 			return;
 		}
 	}

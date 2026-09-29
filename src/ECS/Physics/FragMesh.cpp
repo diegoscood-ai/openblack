@@ -299,6 +299,27 @@ float FragMesh::Area() const
 	return area;
 }
 
+void FragMesh::UniqueVertices(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals) const
+{
+	for (const auto& p : _primitives)
+	{
+		for (const auto& t : p.triangles)
+		{
+			auto n = glm::cross(t.v[1].pos - t.v[0].pos, t.v[2].pos - t.v[0].pos);
+			const float len = glm::length(n);
+			n = len > 0.0f ? n / len : glm::vec3(0.0f);
+			for (const auto& v : t.v)
+			{
+				if (std::find(positions.begin(), positions.end(), v.pos) == positions.end())
+				{
+					positions.push_back(v.pos);
+					normals.push_back(n);
+				}
+			}
+		}
+	}
+}
+
 size_t FragMesh::TriangleCount() const
 {
 	size_t n = 0;
@@ -338,12 +359,13 @@ std::vector<FragMesh::Piece> FragMesh::Impact(glm::vec3 pos, glm::vec3 vel, floa
 			piece->_originalTriangleCount = static_cast<int>(piece->TriangleCount());
 			const auto c = piece->Centroid();
 			piece->Translate(-c);
+			const auto constructed = piece->TriangleCount(); // the Fragment's lifetime is counted before its split
 			auto parts = piece->SplitUnconnectedGroups(false, c);
 			if (piece->TriangleCount() > 0)
 			{
 				const auto c2 = piece->Centroid();
 				piece->Translate(-c2);
-				pieces.push_back({piece, c + c2, vel, RandomSpin(0.01f)});
+				pieces.push_back({piece, c + c2, vel, RandomSpin(0.01f), constructed});
 			}
 			for (auto& part : parts)
 			{
@@ -459,7 +481,7 @@ std::vector<FragMesh::Piece> FragMesh::SplitUnconnectedGroups(bool groundCheck, 
 			piece->_originalTriangleCount = static_cast<int>(piece->TriangleCount());
 			const auto c = piece->Centroid();
 			piece->Translate(-c);
-			pieces.push_back({piece, c + offset, glm::vec3(0.0f), RandomSpin(0.02f)});
+			pieces.push_back({piece, c + offset, glm::vec3(0.0f), RandomSpin(0.02f), piece->TriangleCount()});
 		}
 	}
 	// everything not anchored goes: the pieces above, and lone triangles (and groups past the 64th)
@@ -520,9 +542,13 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 		};
 		for (const auto& t : p.triangles)
 		{
+			// the original flushes every 256 vertices; here a primitive is cut before a sub-mesh's 16-bit limit
 			if (out.positions.size() + 18 > 0xFFFF)
 			{
-				break;
+				primitives.push_back(std::move(out));
+				out = graphics::L3DSubMesh::GeneratedPrimitive {};
+				out.material = p.material;
+				out.material.twoSided = true;
 			}
 			auto n = glm::cross(t.v[1].pos - t.v[0].pos, t.v[2].pos - t.v[0].pos);
 			n = LengthSquared(n) > 0.0f ? glm::normalize(n) : glm::vec3(0.0f, 1.0f, 0.0f);
@@ -543,15 +569,14 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 				{
 					continue;
 				}
+				// quad (k, k+3, k+1) (k+1, k+3, k+4): the front edge lit like the front, the back edge like the back
 				const auto& a = t.v.at(k);
 				const auto& b = t.v.at((k + 1) % 3);
-				auto side = glm::cross(b.pos - a.pos, n);
-				side = LengthSquared(side) > 0.0f ? glm::normalize(side) : n;
-				const auto s0 = add(a.pos, a.uv, side);
-				const auto s1 = add(b.pos, b.uv, side);
-				const auto s2 = add(b.pos + back, b.uv, side);
-				const auto s3 = add(a.pos + back, a.uv, side);
-				out.indices.insert(out.indices.end(), {s0, s1, s2, s0, s2, s3});
+				const auto s0 = add(a.pos, a.uv, n);
+				const auto s1 = add(b.pos, b.uv, n);
+				const auto s3 = add(a.pos + back, a.uv, -n);
+				const auto s4 = add(b.pos + back, b.uv, -n);
+				out.indices.insert(out.indices.end(), {s0, s3, s1, s1, s3, s4});
 			}
 		}
 		if (!out.indices.empty())

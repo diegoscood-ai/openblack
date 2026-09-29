@@ -80,7 +80,7 @@ public:
 		glm::vec3 worldNormal {0.0f};
 	};
 
-	/// Initialise (0x7FB780): restCounter = -(scale x mesh half height x 1000) = -GetHeight x 500.
+	/// Initialise (0x7FB780): restCounter = -(scale x mesh half height x 1000). meshHeight is the half height.
 	void Initialise(float scale, float meshHeight);
 	/// SetUpConstants (0x7FB810).
 	void SetUpConstants(float mass, const PhysicsData& data, bool dynamic);
@@ -91,7 +91,7 @@ public:
 	/// A hand-built body (SetUpPhysObAsATree 0x63A230, Villager/Animal::SetUpPhysOb): vertices already scaled and about
 	/// the centre of mass, the centre of mass in mesh units, the radius, and the drag factor applied after SetUpMoi.
 	void BuildShape(std::span<const glm::vec3> local, std::span<const std::array<uint32_t, 3>> triangles, glm::vec3 com,
-	                float radius, float dragFactor, const glm::mat3& rotation, glm::vec3 origin);
+	                float radius, float dragFactor, const glm::mat3& rotation, glm::vec3 origin, float inertiaFactor = 1.0f);
 	/// SetUpPos (0x7FC760) from the object's rotation (unit columns) and origin.
 	void SetUpPos(const glm::mat3& rotation, glm::vec3 origin);
 	/// AdjustToGroundLevel (0x7FCB80): optionally align to the slope, then lower (or raise) the body until its lowest

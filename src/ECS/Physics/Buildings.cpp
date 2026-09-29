@@ -86,11 +86,13 @@ void RedrawBuilding(entt::entity building, BuildingDamage& damage)
 	const auto old = damage.generatedMesh;
 	damage.generatedMesh = id;
 	mesh.id = id != 0 ? id : damage.intactMesh;
-	mesh.submeshId = 0;
+	// every sub-mesh of the generated one (a big building needs several)
+	mesh.submeshId = id != 0 && meshes.Handle(id)->GetNumSubMeshes() > 1 ? static_cast<int8_t>(-1) : static_cast<int8_t>(0);
 	EraseMesh(old);
 	// the FragMesh has the landscape morph baked in
 	if (registry.AllOf<MorphWithTerrain>(building))
 	{
+		damage.morphed = true;
 		registry.Remove<MorphWithTerrain>(building);
 	}
 	registry.SetDirty();
@@ -107,9 +109,14 @@ void CreateFragment(const FragMesh::Piece& piece, entt::entity parent)
 	{
 		return;
 	}
-	const auto mesh = Locator::resources::value().GetMeshes().Handle(id);
-	const auto box = mesh->GetBoundingBox();
-	const float radius = std::max(glm::length(box.minima), glm::length(box.maxima));
+	std::vector<glm::vec3> points;
+	std::vector<glm::vec3> normals;
+	piece.mesh->UniqueVertices(points, normals);
+	float radius = 0.0f;
+	for (size_t i = 0; i < points.size(); ++i)
+	{
+		radius = std::max({radius, glm::length(points[i]), glm::length(points[i] - 0.45f * normals[i])});
+	}
 	if (0.2f * radius > area / (2.0f * radius)) // a sliver goes at once
 	{
 		EraseMesh(id);
@@ -122,7 +129,7 @@ void CreateFragment(const FragMesh::Piece& piece, entt::entity parent)
 	fragment.mesh = piece.mesh;
 	fragment.parent = parent;
 	fragment.generatedMesh = id;
-	fragment.turnsLeft = 100 * static_cast<int>(piece.mesh->TriangleCount());
+	fragment.turnsLeft = 100 * static_cast<int>(piece.lifeTriangles); // Fragment ctor 0x76E9FB
 	fragment.area = area;
 	if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr)
 	{
@@ -264,9 +271,15 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 		auto pieces = damage->mesh->Impact(hit->body.Centre(), hit->body.velocity * 0.3f, hit->body.Radius() + 0.7f);
 		const float remaining = damage->mesh->GetRemaining();
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: impact p {:.0f}, {} pieces, {:.2f} left", p, pieces.size(), remaining);
+		// the Fragments are made inside FragMesh::Impact, before the remaining part is read
+		for (const auto& piece : pieces)
+		{
+			CreateFragment(piece, building);
+		}
 		if (remaining >= 1.0f)
 		{
-			// nothing lost (only halved): the building draws whole again
+			// nothing counted as lost (the broken part was only halved triangles): the FragMesh goes and the building
+			// draws whole again, with no damage and no sound
 			damage->mesh.reset();
 			if (registry.Get<const Mesh>(building).id != damage->intactMesh)
 			{
@@ -274,13 +287,15 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 				EraseMesh(damage->generatedMesh);
 				damage->generatedMesh = 0;
 				mesh.id = damage->intactMesh;
+				mesh.submeshId = 0;
+				if (damage->morphed && !registry.AllOf<MorphWithTerrain>(building))
+				{
+					registry.Assign<MorphWithTerrain>(building);
+				}
+				damage->morphed = false;
 				registry.SetDirty();
 			}
 			return true;
-		}
-		for (const auto& piece : pieces)
-		{
-			CreateFragment(piece, building);
 		}
 		RedrawBuilding(building, *damage);
 		return ApplyEffectsDueToPhysicalDestruction(building);
@@ -338,6 +353,25 @@ entt::id_type Buildings::BodyMesh(entt::entity entity, entt::id_type drawn)
 {
 	const auto* damage = Locator::entitiesRegistry::value().TryGet<const BuildingDamage>(entity);
 	return damage != nullptr && damage->intactMesh != 0 ? damage->intactMesh : drawn;
+}
+
+void Buildings::ForgetHitter(entt::entity hitter, entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (building != entt::null)
+	{
+		if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
+		{
+			damage->mesh->lastHitter = entt::null;
+		}
+		return;
+	}
+	registry.Each<BuildingDamage>([hitter](entt::entity, BuildingDamage& damage) {
+		if (damage.mesh && damage.mesh->lastHitter == hitter)
+		{
+			damage.mesh->lastHitter = entt::null;
+		}
+	});
 }
 
 void Buildings::DestroyFragment(entt::entity fragment)

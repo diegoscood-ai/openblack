@@ -99,15 +99,39 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 
 bool L3DMesh::LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& primitives) noexcept
 {
-	auto subMesh = std::make_unique<L3DSubMesh>(*this);
-	if (!subMesh->LoadGenerated(primitives))
-	{
-		return false;
-	}
-	_boundingBox = subMesh->GetBoundingBox();
+	// as many sub-meshes as the 16-bit indices need
 	_subMeshes.clear();
-	_subMeshes.emplace_back(std::move(subMesh));
-	return true;
+	_boundingBox.minima = glm::vec3(FLT_MAX);
+	_boundingBox.maxima = glm::vec3(-FLT_MAX);
+	std::vector<L3DSubMesh::GeneratedPrimitive> group;
+	size_t vertices = 0;
+	const auto flush = [&]() {
+		if (group.empty())
+		{
+			return true;
+		}
+		auto subMesh = std::make_unique<L3DSubMesh>(*this);
+		if (!subMesh->LoadGenerated(group))
+		{
+			return false;
+		}
+		_boundingBox.minima = glm::min(_boundingBox.minima, subMesh->GetBoundingBox().minima);
+		_boundingBox.maxima = glm::max(_boundingBox.maxima, subMesh->GetBoundingBox().maxima);
+		_subMeshes.emplace_back(std::move(subMesh));
+		group.clear();
+		vertices = 0;
+		return true;
+	};
+	for (const auto& p : primitives)
+	{
+		if (vertices + p.positions.size() > 0xFFFF && !flush())
+		{
+			return false;
+		}
+		vertices += p.positions.size();
+		group.push_back(p);
+	}
+	return flush() && !_subMeshes.empty();
 }
 
 void L3DMesh::SetFootprintSource(std::shared_ptr<const L3DMesh> source) noexcept

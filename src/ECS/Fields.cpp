@@ -35,9 +35,9 @@ void openblack::ecs::ProcessFieldsTurn(uint32_t turn)
 			return;
 		}
 		// d = 2 (0.5 alignment + 1) x (0.5 growing, 1.5 ripening; 1.5 in the rain). No land alignment or weather
-		// yet: alignment 0, dry.
+		// yet: alignment 0, dry. Mod world.crops: d times its speed.
 		const float multiplier = field.growth < Field::k_AgeGrowth ? 0.5f : 1.5f;
-		const float d = 2.0f * (0.5f * 0.0f + 1.0f) * multiplier;
+		const float d = 2.0f * (0.5f * 0.0f + 1.0f) * multiplier * Locator::config::value().fieldGrowthMultiplier;
 		field.growth += d;
 		field.food += d * Field::k_TotalFood / Field::k_AgeRecolt;
 	});
@@ -82,10 +82,22 @@ void openblack::ecs::UpdateFields(float seconds)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	registry.Each<Field, Transform, const Mesh>([&](entt::entity entity, Field& field, Transform& transform, const Mesh& mesh) {
-		// No farmers yet (Villager::FarmerPlantsCrop adds a crop at a time): an empty field is sown again at once
-		if (field.crops < Field::k_TimesToSow)
+		// Mod world.crops, standing in for the farmers (Villager::FarmerPlantsCrop sows a crop at a time): they would
+		// take what the hand leaves (a ripe field only clears when asked for more than it has, and the hand's halved,
+		// truncated amounts leave the last food unit there for good) and sow the field again. So a ripe field with less
+		// than it takes to be drawn (25) is cleared, and an empty field is sown again at once.
+		if (Locator::config::value().fieldsWithoutFarmers)
 		{
-			field.crops = Field::k_TimesToSow;
+			if (field.growth >= Field::k_AgeRecolt && field.food < 25.0f)
+			{
+				field.food = 0.0f;
+				field.crops = 0;
+				field.growth = 0.0f;
+			}
+			if (field.crops < Field::k_TimesToSow)
+			{
+				field.crops = Field::k_TimesToSow;
+			}
 		}
 		// v = food / 350 - 1, eased over 1 s; y += 2 v scale height (mesh +0x28, taken as the box height)
 		auto* sink = registry.TryGet<PileSink>(entity);

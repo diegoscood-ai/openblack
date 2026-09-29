@@ -70,8 +70,12 @@
   en 1 s (y += 2·v·escala·alto) y se desvanece por debajo de v = −0,8; color de oliva a verde claro creciendo, a
   blanco madurando; los maduros se mecen con el viento de los árboles.
 - openblack: `ecs/Fields`, `HandFish.cpp` (`TryPickUpField`, `UpdateFieldPickUp`), gancho `OPENBLACK_HAND_TEST_FIELD=1`.
-  **Diferencias**: no hay granjeros, así que los campos empiezan sembrados y maduros y se vuelven a sembrar solos al
-  vaciarse; faltan el tinte de color, el vaivén y la alineación/lluvia en el crecimiento. Con el mod world.foliage
+  **Diferencias**: el motor es fiel (el campo nace vacío y solo los granjeros lo siembran, y aún no hay oficios de
+  aldeano, así que los campos se quedan vacíos); el mod **`world.crops`** los sustituye: empiezan sembrados y maduros,
+  se vuelven a sembrar al vaciarse y crecen `speed` veces más rápido. Como la mano deja para siempre la última unidad
+  de comida de un campo maduro (sus cantidades a la mitad y truncadas llegan a 0, y `RemoveFood` solo lo borra si se le
+  pide más de lo que tiene), con el mod un campo maduro con menos de 25 (lo que necesita para dibujarse) cuenta como
+  vacío y se borra. Falta el tinte de color, el vaivén y la alineación/lluvia en el crecimiento. Con el mod world.foliage
   (`fields = wheat`) el campo se dibuja con plantas que crecen por etapas en vez de la malla (mod-library.md).
 
 ## Sonidos (informe `tmp_dis\sound\notes.txt`)

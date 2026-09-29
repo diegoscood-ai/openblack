@@ -497,7 +497,16 @@ void Gui::DrawModsMenu() noexcept
 			ImGui::Indent();
 			ImGui::BeginDisabled(!mod->IsEnabled());
 			ImGui::SetNextItemWidth(120.0f);
-			if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
+			if (option.slider)
+			{
+				auto choice = static_cast<int>(option.value);
+				if (ImGui::SliderInt(option.label.c_str(), &choice, 0, static_cast<int>(option.choices.size()) - 1,
+				                     option.choices.at(option.value).c_str(), ImGuiSliderFlags_NoInput))
+				{
+					registry.SetOption(*mod, i, static_cast<size_t>(choice));
+				}
+			}
+			else if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
 			{
 				for (size_t choice = 0; choice < option.choices.size(); ++choice)
 				{

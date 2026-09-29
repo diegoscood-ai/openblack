@@ -25,6 +25,7 @@ struct ModOption
 	std::string label;
 	std::vector<std::string> choices;
 	size_t value {0}; ///< index into choices
+	bool slider {false}; ///< shown as a slider over the choices instead of a drop-down (choices that are a scale)
 };
 
 /// Something that changes the original game, off by default. Built-in mods are C++ classes (src/Mods/*Mods.cpp);

@@ -76,6 +76,10 @@ struct EngineConfig
 	float foliageDistance {200.0f};
 	/// With the foliage: crop fields drawn as growing plants (foliage.cfg [field_stage] sections) instead of their mesh.
 	bool foliageFields {false};
+	/// Mod world.crops: fields sow themselves and are sown again once harvested (the original needs the town's farmers,
+	/// and openblack has no villager jobs yet, so its fields would stay empty forever), and grow this much faster.
+	bool fieldsWithoutFarmers {false};
+	float fieldGrowthMultiplier {1.0f};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};

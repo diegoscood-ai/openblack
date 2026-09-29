@@ -35,7 +35,7 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | Partículas, hechizos, luciérnagas, destellos | PSys, todo en el Z-sorter | Solo polvo y partículas de coger | falta |
 | Lluvia, nieve, relámpagos | Por tormenta, en casillas de 80×80 | — | falta (sin clima) |
 | Correas, gestos, anillo de influencia | Modos 15, 13 y 6 | — | falta |
-| Nombres, contadores, ayuda | Z-sorter y retrollamadas de fin de fotograma | Solo la GUI de depuración | falta |
+| Nombres, contadores, ayuda | Z-sorter y retrollamadas de fin de fotograma; fuentes `j0`/`f1`/`f3`; textos de `InfoScript2.txt` | Fuente `j0` original y el mensaje de la cantidad en la mano; faltan los demás mensajes, nombres y contadores | aprox. |
 | Sprites | `LH3DSprite` en el Z-sorter | Pasada de sprites sin ordenar | aprox. |
 | Fundido de pantalla y bandas | `SET_FADE`/`SET_FADE_IN` por turno; bandas de `SET_WIDESCREEN` en 2 s; quads en FinishFrame | Igual (vista `ScreenOverlay`); sin el negro inicial de `OnNewGame` porque la intro aún no llega a su `SET_FADE_IN` | aprox. |
 | Vídeo Bink | Superposición | — | falta |

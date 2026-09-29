@@ -82,3 +82,31 @@
   para lo demás) cuyo tono sube a 60 + 180·t² % por turno; se para al soltar o al acabarse. Dejar en un montón:
   G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound`,
   `AudioManager::SetEmitterPitch`.
+
+## Árboles: reglas, fuego y sacrificio (investigado; fuego pendiente, tótem aplazado)
+
+Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`).
+- **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,
+  setos, palmeras, bosquecillos, dentro o fuera de pueblos). Solo lo impiden la bandera 0x2000 (partidas guardadas y
+  puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para
+  árboles no hace nada. `BigForest`: no se tira; `InterfaceSetInMagicHand` 0x4393C0 quita 350 de madera al bosque y
+  pone en la mano un Conifer nuevo. DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
+  alineación malvada (`GAlignment::Update`); replantar, bueno.
+- Tabla GTreeInfo (info.dat, runtime = registro + 0x10, paso 0x140): madera 700 Beech/Cedar/Copse, 500 Birch/Olive,
+  350 Conifer/Pine, 800 Oak, 300 palmeras, 400 Cypress, 100 setos, 15 arbustos; peso 1000 (arbustos 20, setos 100);
+  capacidad calorífica 1000 (arbustos 100, setos 200); sacrificio 400/500/1000 (Oak)/250/350/100/200/110; temperatura
+  de combustión 110 para todos.
+- **Fuego** (`SpreadEffect.cpp` / FireEffect en Object+0x44; turno 0,1 s): temperatura T, Tc = max(110, 40); arde si
+  T ≥ Tc. Ardiendo T += 0,1·T/(2Tc) hasta 2Tc; enfriando (T ≤ anterior) T −= (T + 10 − amb)·4·H·R·0,1·k/capacidad
+  (k = 50 sobre agua con y < 2, 1 + 0,01·lluvia). Daño: vida −= (T − Tc)/Tc·0,001 por turno (muere en ~100 s);
+  carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
+  1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
+  arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
+  lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
+  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %), modo 230 + calor·25/255, escala × 5·vida por
+  debajo de 0,2; llamas `FireGraphic` (sprites `S_Fire.raw`, humo `S_SpriteSheet3.raw`, luz `S_LMFireBall.raw`),
+  2 llamas por árbol de 0,2·alto; sonido de fuego en bucle.
+- **Sacrificio** (aplazado por el usuario): soltar un árbol apuntando al **WorshipTotem** (CitadelPart del sitio de
+  culto; `ValidToApplyThisToObject` 0x74BD50): v = sacrificeValue·vida·(0,5 + 0,5·vida) al maná del sitio
+  (+0xF0) y al total (+0xF4), fantasma del árbol (`GoolooGooloo`), `G_SACRIFICE_01`, número flotante rojo "%3.0f".
+  Aldeanos ×1,25; comida, rocas y vasijas no. Necesita los sitios de culto (`CREATE_WORSHIP_SITE` aún no hace nada).

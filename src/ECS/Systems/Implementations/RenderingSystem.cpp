@@ -20,6 +20,7 @@
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Fields.h"
 #include "ECS/Components/MeshTint.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
@@ -246,6 +247,23 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    const auto packed = bits(tint->own) * 32768u + bits(tint->ground.r) * 1024u + bits(tint->ground.g) * 32u +
 			                        bits(tint->ground.b);
 			    _renderContext.instanceUniforms[idx][2][3] = (tint->dissolve ? 2e6f : 1e6f) + static_cast<float>(packed);
+		    }
+		    // Field::Draw 0x528570 (without the world.foliage tint): the object colour by growth in the w of the fourth
+		    // column, negative (-1 - r 65536 - g 256 - b), and the ripe field's sway, a shear of its up axis along world
+		    // z (only the drawn matrix: the original restores it after AddForDrawing)
+		    if (const auto* field = registry.TryGet<const Field>(entity);
+		        field != nullptr && !registry.AllOf<MeshTint>(entity))
+		    {
+			    const auto colour = ecs::FieldDrawColour(*field);
+			    _renderContext.instanceUniforms[idx][3][3] =
+			        -(1.0f + static_cast<float>(colour.r * 65536u + colour.g * 256u + colour.b));
+			    if (field->growth >= Field::k_AgeRecolt)
+			    {
+				    // slot: bits 16-19 of the field's address in the original, any stable per-field number here
+				    const auto slot = (static_cast<uint32_t>(entt::to_integral(entity)) * 2654435761u) >> 28u;
+				    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
+				    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * 1.75f * ecs::WindSway(slot);
+			    }
 		    }
 		    // The w of the fourth column: 2 + the grey of a house's lit windows at night (Abode::Draw), 1 otherwise
 		    if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && Game::Instance() != nullptr)

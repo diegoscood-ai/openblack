@@ -75,7 +75,17 @@
   se vuelven a sembrar al vaciarse y crecen `speed` veces más rápido. Como la mano deja para siempre la última unidad
   de comida de un campo maduro (sus cantidades a la mitad y truncadas llegan a 0, y `RemoveFood` solo lo borra si se le
   pide más de lo que tiene), con el mod un campo maduro con menos de 25 (lo que necesita para dibujarse) cuenta como
-  vacío y se borra. Falta el tinte de color, el vaivén y la alineación/lluvia en el crecimiento. Con el mod world.foliage
+  vacío y se borra. Falta la alineación/lluvia en el crecimiento.
+- **Color y vaivén de la malla** (`Field::Draw` 0x528570, detalle en `tmp_dis\field\draw_colour_sway_notes.txt`):
+  `BlendColor` 0x5284C0 (k = 0 da a, 255 da b, `(a(255−k) + b·k)/255` truncado): creciendo, oliva (121,145,25) →
+  verde claro (170,212,67) con k = 255·(1 − comida/350); madurando, oliva → blanco con k = 255·(crec − 80)/1120;
+  maduro, blanco. Multiplica byte a byte la luz del terreno del objeto, `(c·tinte) >> 8` (fn_0080BF10), antes de la
+  neblina y el N·L: en openblack va en el w de la cuarta columna de la instancia, negativo
+  (`−1 − r·65536 − g·256 − b`; las ventanas usan > 1,5), solo si el mod world.foliage no pone su `MeshTint`. Los
+  maduros se mecen: la columna 1 (eje arriba) se cizalla en z world con `1,75 × escala × T0[i]`, `T0 = −0,03·cos(fase)`
+  de 16 fases (`Tree::PreDraw` 0x74A7C0: velocidad Random(1, 2) cada 2 s, fase += ms·vel·0,00106061; el ángulo del
+  viento es siempre 0), `i` fijo por campo (en el original, bits de su dirección); solo la matriz dibujada.
+  `ecs::FieldDrawColour`, `ecs::WindSway` (los árboles del original usan la misma tabla con factor 1; openblack aún no). Con el mod world.foliage
   (`fields = wheat`) el campo se dibuja con plantas que crecen por etapas en vez de la malla (mod-library.md).
 
 ## Sonidos (informe `tmp_dis\sound\notes.txt`)

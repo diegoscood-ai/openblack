@@ -128,8 +128,17 @@ void main()
 	model[1] = vec4(i_data1.xyz, 0.0f);
 	model[2] = vec4(i_data2.xyz, 0.0f);
 	model[3] = vec4(i_data3.xyz, 1.0f);
-	// The w of the fourth column: 2 + the grey of the house's windows at night (1 when they are lit normally)
+	// The w of the fourth column: 2 + the grey of the house's windows at night (1 when they are lit normally), or
+	// negative: -1 - the object colour r 65536 + g 256 + b (Field::Draw, fn_0080BF10)
 	float windowGrey = i_data3.w > 1.5f ? i_data3.w - 2.0f : -1.0f;
+	vec3 drawColour = vec3_splat(-1.0f);
+	if (i_data3.w < -0.5f)
+	{
+		float packedColour = -i_data3.w - 1.0f;
+		float red = floor(packedColour / 65536.0f);
+		float green = floor((packedColour - red * 65536.0f) / 256.0f);
+		drawColour = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f);
+	}
 
 	v_position = instMul(model, v_position);
 	normal = instMul(model, vec4(normal, 0.0f)).xyz;
@@ -171,6 +180,11 @@ void main()
 		objectColour = mix(mix(LandLight(c00.a), LandLight(c01.a), w.y), mix(LandLight(c10.a), LandLight(c11.a), w.y), w.x);
 		specular = mix(mix(c00.rgb, c01.rgb, w.y), mix(c10.rgb, c11.rgb, w.y), w.x);
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
+		// the object colour multiplies the land light byte by byte, (c x tint) >> 8 (fn_0080BF10)
+		if (drawColour.r >= 0.0f)
+		{
+			objectColour = floor(floor(objectColour * 255.0f + 0.5f) * drawColour / 256.0f) / 255.0f;
+		}
 		// x = 3: only that colour and specular, as fn_00801C90 leaves them in the object (obj+0x4C / +0x50) for
 		// DrawUnderWater (reflections: no haze, no vertex lighting)
 		if (u_objectLight.x < 2.5f)

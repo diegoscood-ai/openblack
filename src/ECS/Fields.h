@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <entt/fwd.hpp>
+#include <glm/vec3.hpp>
 
 namespace openblack::ecs
 {
@@ -30,5 +31,18 @@ uint32_t RemoveFieldFood(entt::entity field, float amount);
 /// Field::Draw 0x528570: shown only with growth >= 0.25 x ageGrowth and food >= 25; sinks with its food over 1 s and
 /// fades out below 20 % (PileSink / Alpha); sown again at once when empty (no farmers yet)
 void UpdateFields(float seconds);
+
+namespace components
+{
+struct Field;
+}
+
+/// Field::Draw 0x528570: the object colour the field's land light is multiplied by (fn_0080BF10), from
+/// BlendColor 0x5284C0: growing, olive (full food) to light green; ripening, olive to white; ripe, white
+[[nodiscard]] glm::u8vec3 FieldDrawColour(const components::Field& field);
+
+/// The wind lean of the 16 sway slots (Tree::PreDraw 0x74A7C0: T0 = -0.03 cos(phase), the wind angle being always 0,
+/// so the lean is along world z only); ripe fields shear their up axis by 1.75 x scale x this, trees by 1 x
+[[nodiscard]] float WindSway(uint32_t slot);
 
 } // namespace openblack::ecs

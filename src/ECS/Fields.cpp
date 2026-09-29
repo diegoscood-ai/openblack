@@ -10,10 +10,15 @@
 #include "Fields.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+
+#include <glm/vec3.hpp>
 
 #include <glm/geometric.hpp>
 
 #include "3D/L3DMesh.h"
+#include "Common/RandomNumberManager.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "ECS/Components/Alpha.h"
@@ -26,6 +31,70 @@
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::components;
+
+namespace
+{
+/// Tree::PreDraw 0x74A7C0: 16 phases advancing at 1.06-2.12 rad/s, the speeds drawn again (Random(1, 2)) every 2 s
+struct WindSwaySlots
+{
+	std::array<float, 16> speed {1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f};
+	std::array<float, 16> phase {};
+	std::array<float, 16> lean {};
+	float sinceSpeeds {0.0f};
+	bool randomised {false};
+
+	void Update(float milliseconds)
+	{
+		sinceSpeeds += milliseconds;
+		if (sinceSpeeds > 2000.0f || !randomised)
+		{
+			for (auto& s : speed)
+			{
+				s = openblack::Locator::rng::value().NextValue<float>(1.0f, 2.0f);
+			}
+			sinceSpeeds = 0.0f;
+			randomised = true;
+		}
+		for (size_t i = 0; i < 16; ++i)
+		{
+			phase[i] += milliseconds * speed[i] * 0.00106061f;
+			lean[i] = -0.03f * std::cos(phase[i]);
+		}
+	}
+};
+
+WindSwaySlots g_windSway;
+
+/// BlendColor 0x5284C0: k = 0 gives a, 255 gives b, per channel (a (255 - k) + b k) / 255 truncated
+glm::u8vec3 BlendColour(int k, glm::ivec3 a, glm::ivec3 b)
+{
+	k = std::clamp(k, 0, 255);
+	return glm::u8vec3((a * (255 - k) + b * k) / 255);
+}
+} // namespace
+
+glm::u8vec3 openblack::ecs::FieldDrawColour(const Field& field)
+{
+	// the startup constants 0x528440 / 0x528470 / 0x5284A0
+	constexpr glm::ivec3 k_Olive(121, 145, 25);
+	constexpr glm::ivec3 k_LightGreen(170, 212, 67);
+	constexpr glm::ivec3 k_White(255, 255, 255);
+	if (field.growth < Field::k_AgeGrowth)
+	{
+		return BlendColour(static_cast<int>(255.0f * (1.0f - field.food / Field::k_TotalFood)), k_Olive, k_LightGreen);
+	}
+	if (field.growth < Field::k_AgeRecolt)
+	{
+		return BlendColour(static_cast<int>(255.0f * (field.growth - Field::k_AgeGrowth) / (Field::k_AgeRecolt - Field::k_AgeGrowth)),
+		                   k_Olive, k_White);
+	}
+	return glm::u8vec3(k_White);
+}
+
+float openblack::ecs::WindSway(uint32_t slot)
+{
+	return g_windSway.lean.at(slot & 15u);
+}
 
 void openblack::ecs::ProcessFieldsTurn(uint32_t turn)
 {
@@ -79,6 +148,8 @@ uint32_t openblack::ecs::RemoveFieldFood(entt::entity entity, float amount)
 
 void openblack::ecs::UpdateFields(float seconds)
 {
+	// the wind the ripe fields (and trees) sway in, once per frame like GLandscape::Draw -> Tree::PreDraw
+	g_windSway.Update(seconds * 1000.0f);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	registry.Each<Field, Transform, const Mesh>([&](entt::entity entity, Field& field, Transform& transform, const Mesh& mesh) {

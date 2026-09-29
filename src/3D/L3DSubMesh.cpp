@@ -332,7 +332,6 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 			}
 		}
 	}
-	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
 	// Mod graphics.hd-people (smooth): the villagers' meshes as curved PN triangles. The collision data built above stays
 	// the original's (the hand and the physics use it).
 	if (_flags.hasBones && IsSmoothedPerson(primitiveSpan))
@@ -340,6 +339,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		SmoothPerson(boneSpans, verticesMem, indicesMem, _primitives, nVertices, nIndices);
 	}
 
+	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
 	auto* indexBuffer = new IndexBuffer(_l3dMesh.GetDebugName(), indicesMem, IndexBuffer::Type::Uint16);
 	_mesh = std::make_unique<graphics::Mesh>(vertexBuffer, indexBuffer);
 

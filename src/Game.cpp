@@ -61,9 +61,9 @@
 #include "Mods/ModRegistry.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
+#include "Resources/HdTextures.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
-#include "Resources/HdTextures.h"
 #include "Serializer/FotFile.h"
 
 #ifdef __ANDROID__
@@ -685,6 +685,12 @@ bool Game::Initialize() noexcept
 		return false;
 	}
 
+	// mod graphics.hd-people: the villagers' textures come from the HD images in its folder, and their meshes (the ones
+	// with those textures) can be smoothed
+	const auto hdTextures = (config.hdPeopleTextures || config.hdPeopleSmoothLevel > 1) && Locator::mods::has_value()
+	                            ? resources::HdTextures(Locator::mods::value().GetModFilesDirectory("graphics.hd-people"))
+	                            : resources::HdTextures();
+	config.hdPeopleSkins = hdTextures.Ids();
 	const auto& meshes = pack.GetMeshes();
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& mesh : meshes)
@@ -697,6 +703,13 @@ bool Game::Initialize() noexcept
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
+		if (const auto image = config.hdPeopleTextures ? hdTextures.Find(g3dTexture.header.id, g3dTexture.ddsData)
+		                                               : std::filesystem::path();
+		    !image.empty())
+		{
+			textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromImageTag {}, name, image);
+			continue;
+		}
 		textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromPackTag {}, name, g3dTexture);
 	}
 
@@ -707,12 +720,6 @@ bool Game::Initialize() noexcept
 		SPDLOG_LOGGER_CRITICAL(spdlog::get("game"), "Unable to load AllAnims.anm: {}", pack::ResultToStr(packResult));
 		return false;
 	}
-	// mod graphics.hd-people: the villagers' textures come from the HD images in its folder, and their meshes (the ones
-	// with those textures) can be smoothed
-	const auto hdTextures = (config.hdPeopleTextures || config.hdPeopleSmoothLevel > 1) && Locator::mods::has_value()
-	                            ? resources::HdTextures(Locator::mods::value().GetModFilesDirectory("graphics.hd-people"))
-	                            : resources::HdTextures();
-	config.hdPeopleSkins = hdTextures.Ids();
 
 	const auto& animations = animationPack.GetAnimations();
 	// TODO (#749) use std::views::enumerate
@@ -725,13 +732,6 @@ bool Game::Initialize() noexcept
 		const auto& fileName = f.stem().string();
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading creature mesh: {}", fileName);
 		try
-		if (const auto image = config.hdPeopleTextures ? hdTextures.Find(g3dTexture.header.id, g3dTexture.ddsData)
-		                                               : std::filesystem::path();
-		    !image.empty())
-		{
-			textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromImageTag {}, name, image);
-			continue;
-		}
 		{
 			if (string_utils::BeginsWith(fileName, "Hand"))
 			{

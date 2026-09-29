@@ -86,6 +86,30 @@ Código: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, componentes `BuildingDamag
   "a medio construir" sobre los escombros), golpes de la criatura, alineamiento y agresor del pueblo, edificios en
   construcción (−0,2 por golpe).
 
+## Sonidos, polvo y aspecto de los golpes
+
+Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Informes `tmp_dis/physics/collision_sounds.md`
+(tabla completa en `snd/full_matrix.md`) y `building_visuals.md`.
+
+- **Sonido de choque** (`AttemptToAddSoundEvent` 0x6464F0), una vez por turno en cada cuerpo despierto con algo que lo
+  golpeó o `F > 0,5·m·g`: tipo de colisión de cada lado (info `collideSound`; trozo = BUSH; DeadTree malla 406 =
+  HOLLOW_WOOD; sin objeto = GROUND, o WATER en el mar), nivel por `g = impacto / (peso de info sin escalar · 9,81)`
+  (3 si < 1,25, 1 si > 3, si no 2), y la muestra de `editor.sad` de la tabla del original, en 3D sobre el objeto. Una
+  pareja no vuelve a sonar hasta dos turnos después. Una roca contra un edificio: suena el edificio.
+- **Edificios**: golpe medio 423–425 y flojo 426–430 (`G_Rock_V_Ground_M/S`), derrumbe 398–406 (`G_Crash_Abode`), en 3D.
+  (Corrige 431–447, que salían de leer la tabla del banco con una columna de desfase.)
+- **Polvo**: al caer al suelo, 6 bocanadas de `datalobs.raw` (filas 2–3), color 0x50806040, tamaño `min(2R, 5)`,
+  ±2 m/s, vida 1 s de juego, crecen en 0,125 s y encogen hasta 0; en el mar color 0x28C8F0F4 + chapoteo + anillo;
+  en celdas someras, anillo + polvo. Cada trozo de edificio suelta una por vértice (0x80706050, tamaño 2).
+- **Silbido** (G_ROCKPAST, `InGame.sad` 69–73): un cuerpo que entra a más de 20 m/s en la esfera de 10 m de la cámara.
+- **Edificio golpeado a medio construir**: sobre su FragMesh se dibuja el modelo intacto recortado a
+  `pos.y + pct·alto` (pct = `(vida − s)/(1 − s)`, s = 1,1·vida − 0,1 al golpear: 1/11), con pared interior a 0,35 (0,2 si
+  el material es de dos caras), tapa en el corte y el andamio (la submalla de mayor status) saliendo de la tierra; nada
+  si el corte queda por debajo de 0,2. Sin reparación por los aldeanos, se queda así.
+- **Sombras**: los trozos no proyectan; el edificio roto mantiene la sombra estática de su modelo intacto.
+- **Pendiente** (dependen de sistemas que aún no existen): nieve sobre la FragMesh (tormentas del clima, mapa de nieve)
+  y carbonizado/brillo por fuego; el color 0,75 de la tapa.
+
 ## Rocas que se parten (Rock::SplitInTwo 0x6E7560)
 
 - Una roca con radio 2D > 3,6 no se puede coger: **pulsar sobre ella la golpea al momento**. Una roca que sí se puede
@@ -103,9 +127,13 @@ Código: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, componentes `BuildingDamag
 
 ## Pendiente
 
-- Sonidos de choque (`AttemptToAddSoundEvent`: tablas por `SOUND_COLLISION_TYPE`), polvo al caer (6 partículas),
-  silbido al pasar cerca de la cámara (G_ROCKPAST).
+- Nieve sobre la FragMesh (necesita el clima: tormentas de nieve y el mapa de nieve 128×128) y carbonizado/brillo por
+  fuego (necesita el sistema de fuego); el color 0,75 de la tapa del "a medio construir".
+- Edificios: reparación por los aldeanos (sitio de construcción, madera), golpes de la criatura, alineamiento y agresor
+  del pueblo, que salgan los habitantes al bajar de 0,75, edificios a medio construir (−0,2 por golpe).
+- Aldeanos y animales al aterrizar: las tres posturas del original y los cadáveres (hoy se levantan o desaparecen).
 - Soltar suave con físicas (`AdjustToGroundLevel`, `RaiseUntilNotIntersecting`): hoy soltar coloca el objeto directamente.
-- Posturas de aterrizaje de aldeanos y animales, cadáver y estados de muerte; reacción de la criatura; empatía.
-- La física sigue al reloj del juego: se para en pausa y va con la velocidad del juego (el juego ya arranca sin pausa).
-- Tooltip "Golpear para Romper" (0xEF7) y comprobar la influencia del jugador antes de golpear.
+- La normal del terreno sin la cuantización del original.
+- Tooltip "Golpear para Romper" (0xEF7) y comprobar la influencia del jugador antes de golpear una roca.
+- Mod **better physics** (pedido por el usuario, desactivado por defecto): trozos de edificio con malla de colisión y que
+  se puedan agarrar; el motor sigue fiel al original.

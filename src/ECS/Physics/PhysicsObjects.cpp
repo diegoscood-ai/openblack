@@ -10,9 +10,12 @@
 #include "PhysicsObjects.h"
 
 #include "Buildings.h"
+#include "CollisionSounds.h"
+#include "Dust.h"
 #include "FragMesh.h"
 
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -25,6 +28,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "Camera/Camera.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
@@ -701,6 +705,20 @@ void Substep()
 		{
 			po.forceSum += po.body.force;
 		}
+		// the fly-by whoosh: a body entering the 10 m sphere round the camera at more than 20 m/s (G_ROCKPAST_01..05)
+		if (Locator::camera::has_value())
+		{
+			const auto d = po.body.Centre() - Locator::camera::value().GetOrigin();
+			const float d2 = glm::dot(d, d);
+			if (d2 < 100.0f && po.cameraDistance2 > 100.0f && glm::dot(po.body.velocity, po.body.velocity) > 400.0f)
+			{
+				const auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(
+				                       std::chrono::steady_clock::now().time_since_epoch())
+				                       .count();
+				CollisionSounds::PlaySample2D("InGame.sad", 69 + static_cast<int>(ticks % 5));
+			}
+			po.cameraDistance2 = d2;
+		}
 		switch (result)
 		{
 		case PhysOb::Result::Stopped:
@@ -760,10 +778,6 @@ void EndTurn()
 	{
 		po->body.externalForce = glm::vec3(0.0f);
 		po->body.externalTorque = glm::vec3(0.0f);
-		if (po->soundTurns > 0)
-		{
-			--po->soundTurns;
-		}
 		const float sum2 = glm::dot(po->forceSum, po->forceSum);
 		po->impact = sum2 > 0.0001f ? std::sqrt(sum2) * 0.05f : 0.0f;
 		if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr && !po->body.resting)
@@ -797,14 +811,10 @@ void EndTurn()
 		{
 			continue;
 		}
-		// AttemptToAddSoundEvent 0x6464F0: landing in the sea splashes (fn_74F2D0) and leaves a ring
-		// TODO(physics): the collision samples (SamplePlayAnimEffect by SOUND_COLLISION_TYPE) and the 6 dust particles
-		if (!po->body.resting && po->soundTurns == 0 &&
-		    (po->hitBy != nullptr || po->impact > po->body.Mass() * 4.905f) && po->body.inWater)
+		// AttemptToAddSoundEvent 0x6464F0: the collision sample, the ground dust or the splash
+		if (!po->body.resting && (po->hitBy != nullptr || po->impact > po->body.Mass() * 4.905f))
 		{
-			SplashWater(po->body.Centre());
-			AddRipple(*po);
-			po->soundTurns = 2;
+			CollisionSounds::AttemptToAddSoundEvent(*po);
 		}
 		hit.push_back(po->entity);
 	}
@@ -818,6 +828,7 @@ void EndTurn()
 			}
 		}
 	}
+	CollisionSounds::EndTurn();
 }
 } // namespace
 
@@ -969,6 +980,35 @@ bool PhysicsObjects::CanBecomeAPhysicsObject(entt::entity entity)
 	return registry.AnyOf<MobileStatic, MobileObject, Villager, Animal, Tree, DeadTree, Pot, Fragment>(entity);
 }
 
+const GObjectInfo* PhysicsObjects::ObjectInfo(entt::entity entity)
+{
+	if (const auto* info = InfoOf(entity))
+	{
+		return info;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	if (!Locator::infoConstants::has_value())
+	{
+		return nullptr;
+	}
+	const auto& constants = Locator::infoConstants::value();
+	if (const auto* animal = registry.TryGet<const Animal>(entity))
+	{
+		return &constants.animal.at(static_cast<size_t>(animal->type));
+	}
+	if (const auto* villager = registry.TryGet<const Villager>(entity))
+	{
+		for (const auto& info : constants.villager)
+		{
+			if (info.tribeType == villager->tribe && info.villagerNumber == villager->number)
+			{
+				return &info;
+			}
+		}
+	}
+	return nullptr;
+}
+
 float PhysicsObjects::Weight(entt::entity entity)
 {
 	const auto& registry = Locator::entitiesRegistry::value();
@@ -1072,6 +1112,7 @@ bool PhysicsObjects::IsFlying(entt::entity entity)
 
 void PhysicsObjects::Update(float seconds)
 {
+	Dust::Update(std::min(seconds, 0.25f));
 	// objects with timers of their own (fragments) count game turns even when nothing moves
 	static float s_TurnClock = 0.0f;
 	s_TurnClock += std::min(seconds, 0.25f);

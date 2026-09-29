@@ -81,7 +81,8 @@ public:
 	void Merge(const FragMesh& piece, const glm::mat4& transform);
 	/// The drawn mesh (FragMesh::Draw 0x7F7960): each triangle flat, with a back face 0.45 behind it and a side wall on
 	/// every open edge, in the space given by worldToLocal. Registers it in the mesh cache; returns its id.
-	[[nodiscard]] entt::id_type BuildMesh(const glm::mat4& worldToLocal, const std::string& name) const;
+	[[nodiscard]] entt::id_type BuildMesh(const glm::mat4& worldToLocal, const std::string& name,
+	                                      std::vector<graphics::L3DSubMesh::GeneratedPrimitive> extra = {}) const;
 
 	entt::entity lastHitter {entt::null};
 

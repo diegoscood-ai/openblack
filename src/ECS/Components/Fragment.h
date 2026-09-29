@@ -28,6 +28,9 @@ struct BuildingDamage
 	entt::id_type intactMesh {0};    ///< the building's own mesh (its physics body keeps using it)
 	entt::id_type generatedMesh {0}; ///< the drawn FragMesh
 	bool morphed {false};            ///< it had MorphWithTerrain (the FragMesh bakes the morph in)
+	/// the repair site's baseline (site +0x640 = 1.1 x life - 0.1, set by Abode::ReduceLife at every hit):
+	/// GetPercentForDrawBuilding = min(PercentBuilt, (life - s) / (1 - s))
+	float repairBase {0.0f};
 };
 
 /// Fragment (a Rock subclass, 0x76EB20): a piece knocked off a building. It only hits the landscape, cannot be picked

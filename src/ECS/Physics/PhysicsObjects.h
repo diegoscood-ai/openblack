@@ -18,6 +18,11 @@
 
 #include "PhysOb.h"
 
+namespace openblack
+{
+struct GObjectInfo;
+}
+
 namespace openblack::ecs::physics
 {
 /// PhysicsObject (0x1DC bytes, list at 0xD47814): one body of the physics system, thrown or knocked (awake) or a
@@ -42,8 +47,8 @@ struct PhysicsObject
 	glm::vec3 forceSum {0.0f}; ///< +0x0C: the force of the touched substeps of this turn
 	float impact {0.0f};       ///< +0x08: |forceSum| x 0.05, the mean force of the turn
 	PhysicsObject* hitBy {nullptr};
-	/// turns left before the next landing splash (AttemptToAddSoundEvent lists a pair for 2 turns)
-	int soundTurns {0};
+	/// the squared distance to the camera at the last substep (the fly-by whoosh)
+	float cameraDistance2 {1e9f};
 
 	/// G of the turn: impact / (mass x g), 1 while lying on the ground
 	[[nodiscard]] float GLoad() const { return impact / (body.Mass() * PhysOb::k_Gravity); }
@@ -76,6 +81,8 @@ public:
 	[[nodiscard]] static bool CanBecomeAPhysicsObject(entt::entity entity);
 	/// Object::GetWeight, at least 0.01
 	[[nodiscard]] static float Weight(entt::entity entity);
+	/// The object's info (GObjectInfo), or null.
+	[[nodiscard]] static const GObjectInfo* ObjectInfo(entt::entity entity);
 
 	/// AddObject (0x6443A0): the object flies from where its transform is.
 	static PhysicsObject* AddObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,

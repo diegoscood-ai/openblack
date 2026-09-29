@@ -134,7 +134,7 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	                                                                                        const Transform& /*unused*/) {
 		if (CastsStaticShadow(registry, entity))
 		{
-			++shadowCasterIds[mesh.id];
+			++shadowCasterIds[ShadowMeshOf(registry, entity, mesh.id)];
 			++instanceCount;
 		}
 	});
@@ -218,8 +218,9 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		                                               ReceivesDynamicShadow(registry, entity)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
-			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(mesh.id, 0));
-			    const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(mesh.id);
+			    const auto casterMesh = ShadowMeshOf(registry, entity, mesh.id);
+			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(casterMesh, 0));
+			    const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(casterMesh);
 			    if (casterDesc != _renderContext.shadowCasterDrawDescs.end())
 			    {
 				    _renderContext.instanceUniforms[casterDesc->second.offset + casterOffset.first->second] = modelMatrix;

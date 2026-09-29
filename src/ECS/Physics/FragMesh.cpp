@@ -524,7 +524,8 @@ void FragMesh::Merge(const FragMesh& piece, const glm::mat4& transform)
 	}
 }
 
-entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::string& name) const
+entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::string& name,
+                                  std::vector<graphics::L3DSubMesh::GeneratedPrimitive> extra) const
 {
 	const glm::mat3 normalMatrix(glm::transpose(glm::inverse(glm::mat3(worldToLocal))));
 	std::vector<graphics::L3DSubMesh::GeneratedPrimitive> primitives;
@@ -583,6 +584,20 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 		{
 			primitives.push_back(std::move(out));
 		}
+	}
+	// world-space extras (the partly built draw) in the same space
+	for (auto& e : extra)
+	{
+		for (auto& p : e.positions)
+		{
+			p = glm::vec3(worldToLocal * glm::vec4(p, 1.0f));
+		}
+		for (auto& n : e.normals)
+		{
+			const auto m = normalMatrix * n;
+			n = LengthSquared(m) > 0.0f ? glm::normalize(m) : glm::vec3(0.0f, 1.0f, 0.0f);
+		}
+		primitives.push_back(std::move(e));
 	}
 	if (primitives.empty())
 	{

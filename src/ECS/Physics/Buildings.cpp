@@ -33,7 +33,10 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Registry.h"
+#include "CollisionSounds.h"
+#include "Dust.h"
 #include "FragMesh.h"
+#include "PartialBuild.h"
 #include "Locator.h"
 #include "PhysicsObjects.h"
 #include "Resources/ResourceManager.h"
@@ -45,21 +48,6 @@ using namespace openblack::ecs::physics;
 
 namespace
 {
-/// editor.sad samples first..last, one at random
-void PlayEditorSample(int first, int last)
-{
-	if (!Locator::audio::has_value())
-	{
-		return;
-	}
-	const int sample = Locator::rng::value().NextValue(first, last);
-	const auto id = entt::hashed_string(fmt::format("editor.sad/{}", sample).c_str()).value();
-	if (Locator::resources::value().GetSounds().Contains(id))
-	{
-		Locator::audio::value().PlaySound(id, audio::PlayType::Once);
-	}
-}
-
 void EraseMesh(entt::id_type id)
 {
 	if (id != 0 && Locator::resources::value().GetMeshes().Contains(id))
@@ -75,7 +63,14 @@ void RedrawBuilding(entt::entity building, BuildingDamage& damage)
 	const auto& transform = registry.Get<const Transform>(building);
 	const auto toWorld = glm::translate(glm::mat4(1.0f), transform.position) * glm::mat4(transform.rotation) *
 	                     glm::scale(glm::mat4(1.0f), transform.scale);
-	const auto id = damage.mesh->BuildMesh(glm::inverse(toWorld), "fragmesh");
+	// Abode::Draw: the FragMesh, then the intact model partly built at GetPercentForDrawBuilding (no repair yet: the
+	// percent stays where the last hit left it, 1/11)
+	const auto* life = registry.TryGet<const Life>(building);
+	const float l = life != nullptr ? life->value : 1.0f;
+	const float percent = l >= 1.0f ? 1.0f : std::clamp((l - damage.repairBase) / (1.0f - damage.repairBase), 0.0f, 1.0f);
+	auto partial = percent < 1.0f ? PartialBuild::Build(building, damage.intactMesh, percent)
+	                              : std::vector<graphics::L3DSubMesh::GeneratedPrimitive> {};
+	const auto id = damage.mesh->BuildMesh(glm::inverse(toWorld), "fragmesh", std::move(partial));
 	auto& meshes = Locator::resources::value().GetMeshes();
 	if (id != 0 && meshes.Contains(damage.intactMesh))
 	{
@@ -137,7 +132,11 @@ void CreateFragment(const FragMesh::Piece& piece, entt::entity parent)
 		                   piece.mesh->TriangleCount(), area, piece.velocity.x, piece.velocity.y, piece.velocity.z,
 		                   glm::length(piece.angularVelocity));
 	}
-	// TODO(physics): one dust particle per vertex (fn_845C20, 0x80706050, size 2)
+	// one dust puff per distinct vertex (fn_845C20: 0x80706050, size 2, +-2 units per second)
+	for (const auto& p : points)
+	{
+		Dust::Emit(piece.centre + p, Dust::RandomVelocity(), 0x80706050u, 2.0f);
+	}
 	if (auto* po = PhysicsObjects::AddObject(entity, piece.velocity, piece.angularVelocity, parent))
 	{
 		po->flags |= PhysicsObject::NoObjectCollision;
@@ -197,12 +196,14 @@ void DestroyBuilding(entt::entity building)
 bool ApplyEffectsDueToPhysicalDestruction(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	PlayEditorSample(443, 447); // G_Crash_Tree_L_01..05
+	CollisionSounds::PlayEditorSample(398, 406, registry.Get<const Transform>(building).position); // G_Crash_Abode_01..09
 	auto& life = registry.AllOf<Life>(building) ? registry.Get<Life>(building) : registry.Assign<Life>(building);
 	const float before = life.value;
-	if (const auto* damage = registry.TryGet<const BuildingDamage>(building); damage != nullptr && damage->mesh)
+	if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
 	{
 		life.value = std::min(life.value, damage->mesh->Remaining());
+		// Abode::ReduceLife 0x405D90: a repair site whose baseline is 1.1 x life - 0.1
+		damage->repairBase = 1.1f * life.value - 0.1f;
 	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} hit, life {:.2f} -> {:.2f}", static_cast<uint32_t>(building), before,
 	                   life.value);
@@ -297,16 +298,22 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 			}
 			return true;
 		}
-		RedrawBuilding(building, *damage);
-		return ApplyEffectsDueToPhysicalDestruction(building);
+		// the life (and the repair baseline) first: the redraw's partly built percent comes from them
+		if (!ApplyEffectsDueToPhysicalDestruction(building))
+		{
+			return false;
+		}
+		RedrawBuilding(building, registry.Get<BuildingDamage>(building));
+		return true;
 	}
+	const auto at = registry.Get<const Transform>(building).position;
 	if (p > 1000.0f)
 	{
-		PlayEditorSample(431, 436); // G_Rock_V_Rock_01..06
+		CollisionSounds::PlayEditorSample(423, 425, at); // level 2: G_Rock_V_Ground_M
 	}
 	else if (p > 300.0f)
 	{
-		PlayEditorSample(437, 442); // the small-collision set
+		CollisionSounds::PlayEditorSample(426, 430, at); // level 3: G_Rock_V_Ground_S
 	}
 	return true;
 }

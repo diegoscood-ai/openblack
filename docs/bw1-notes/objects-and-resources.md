@@ -89,8 +89,13 @@ Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, 
 - **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,
   setos, palmeras, bosquecillos, dentro o fuera de pueblos). Solo lo impiden la bandera 0x2000 (partidas guardadas y
   puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para
-  árboles no hace nada. `BigForest`: no se tira; `InterfaceSetInMagicHand` 0x4393C0 quita 350 de madera al bosque y
-  pone en la mano un Conifer nuevo. DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
+  árboles no hace nada. `BigForest` (**hecho**): no se tira; al agarrar (225 ms) `InterfaceSetInMagicHand` 0x4393C0
+  hace `RemoveResource(WOOD, 350)` (madera del Conifer) y pone en la mano un Conifer nuevo (escala 1, ángulo 0).
+  `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, **inferido**) baja 350 y la
+  escala pasa a madera/woodValue; sin madera suficiente da lo que queda y el bosque se borra. `AddTreeAround`
+  0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto a menos de 4 (distancia + radio), un Pine de
+  escala 0,05, ángulo al azar y tamaño máximo 0,5 + azar(0,5). openblack: `HandSystem::TakeTreeFromForest`
+  (HandTrees.cpp), `BigForest::wood`, gancho `OPENBLACK_HAND_TEST_FOREST=1` (Land1: 15000 → 14650, escala 0,977). DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
   alineación malvada (`GAlignment::Update`); replantar, bueno.
 - Tabla GTreeInfo (info.dat, runtime = registro + 0x10, paso 0x140): madera 700 Beech/Cedar/Copse, 500 Birch/Olive,
   350 Conifer/Pine, 800 Oak, 300 palmeras, 400 Cypress, 100 setos, 15 arbustos; peso 1000 (arbustos 20, setos 100);

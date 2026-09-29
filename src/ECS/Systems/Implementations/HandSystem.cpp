@@ -49,6 +49,7 @@
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
@@ -65,8 +66,11 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
+#include "Game.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -112,6 +116,7 @@ bool HandSystem::Initialize() noexcept
 	    HandArchetype::Create(glm::vec3(0.0f), glm::half_pi<float>(), 0.0f, glm::half_pi<float>(), 0.01f, true);
 
 	LoadAnimations();
+	RegisterPhysicsHandlers();
 	return false;
 }
 
@@ -315,6 +320,15 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			PickUp(*_hovered);
 			_pickPressHeld = _held.has_value();
 		}
+		else if (Rocks::IsRock(*_hovered) && !Rocks::ValidForPlaceInHand(*_hovered))
+		{
+			// StartGrab 0x5D1740: an object that cannot be placed in the hand is tapped at once (Rock::InterfaceTap splits it)
+			if (Rocks::ValidToTap(*_hovered))
+			{
+				Rocks::Tap(*_hovered, _interactionPoint.value_or(glm::vec3(0.0f)));
+			}
+			_hovered.reset();
+		}
 		else
 		{
 			_pendingPick = _hovered;
@@ -356,19 +370,33 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	if (_pendingPick)
 	{
-		// The grab completes after 225 ms of holding the action button (fn_005D5250). Released earlier it is a
-		// tap, which does nothing for objects (Object::InterfaceValidToTap returns false).
+		// The grab completes after 225 ms of holding the action button (State_Grab 0x5D5250). Released earlier it is a
+		// tap, which does nothing for most objects (Object::InterfaceValidToTap returns false) and splits rocks taller
+		// than 0.7 (Rock::InterfaceTap).
 		constexpr float k_PickUpHoldSeconds = 0.225f;
 		_pendingPickTime += seconds;
-		if (!actionHeld || !Locator::entitiesRegistry::value().Valid(*_pendingPick))
+		if (!Locator::entitiesRegistry::value().Valid(*_pendingPick))
 		{
+			_pendingPick.reset();
+		}
+		else if (!actionHeld)
+		{
+			if (Rocks::IsRock(*_pendingPick) && Rocks::ValidToTap(*_pendingPick))
+			{
+				Rocks::Tap(*_pendingPick, _interactionPoint.value_or(glm::vec3(0.0f)));
+			}
 			_pendingPick.reset();
 		}
 		else if (_pendingPickTime >= k_PickUpHoldSeconds)
 		{
 			const auto entity = *_pendingPick;
 			_pendingPick.reset();
-			if (Locator::entitiesRegistry::value().AllOf<Tree>(entity) && _interactionPoint)
+			if (Locator::entitiesRegistry::value().AllOf<BigForest>(entity))
+			{
+				// not tuggable: the grab takes a tree out of the forest straight into the hand
+				_pickPressHeld = TakeTreeFromForest(entity);
+			}
+			else if (Locator::entitiesRegistry::value().AllOf<Tree>(entity) && _interactionPoint)
 			{
 				_tug = entity;
 				ComputeHoldParameters(entity);
@@ -409,7 +437,14 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateThrown(seconds);
+	// PhysicsObject::GameTurnUpdate runs with the game turns: stopped while paused, faster or slower with the game speed
+	if (Game::Instance() == nullptr || !Game::Instance()->IsPaused())
+	{
+		const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
+		physics::PhysicsObjects::Update(speed > 0.0f ? seconds / speed : seconds);
+	}
 	UpdateTestSplash(seconds);
+	UpdateTestAbode(seconds);
 	UpdateRootsAndPiles(seconds);
 	archetypes::PotArchetype::UpdateSizes(seconds);
 

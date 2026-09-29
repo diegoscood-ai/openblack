@@ -50,6 +50,7 @@
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
@@ -66,6 +67,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -636,27 +638,15 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	// picked up. FindObjectNearMapCoord (0x5D39E0, +-5 units) is only a fallback for a click that hit nothing, and it
 	// only takes an object nearer than the clicked point (it is not a hover reach).
 	std::optional<entt::entity> best;
-	if (_cursorObject && registry.Valid(*_cursorObject) && registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field>(*_cursorObject) &&
+	if (_cursorObject && registry.Valid(*_cursorObject) && registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field, BigForest>(*_cursorObject) &&
 	    _hands[0] != *_cursorObject && _hands[1] != *_cursorObject)
 	{
 		best = *_cursorObject;
-		// Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted. Rocks are taken to be the
-		// MobileStatic types Rock and Boulder* .. Squarerock* (the Rock class in the original).
-		if (const auto* statics = registry.TryGet<const MobileStatic>(*best); statics != nullptr)
+		// Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted, but they stay the target of the
+		// action button when they can be tapped (StartGrab 0x5D1740 goes straight to Tap).
+		if (Rocks::IsRock(*best) && !Rocks::ValidForPlaceInHand(*best) && !Rocks::ValidToTap(*best))
 		{
-			const auto type = static_cast<int>(statics->type);
-			const bool isRock = type == static_cast<int>(MobileStaticInfo::Rock) ||
-			                    (type >= static_cast<int>(MobileStaticInfo::Boulder1Chalk) &&
-			                     type <= static_cast<int>(MobileStaticInfo::SquarerockVolcanic));
-			const auto* mesh = registry.TryGet<const Mesh>(*best);
-			if (isRock && mesh != nullptr && meshes.Contains(mesh->id))
-			{
-				const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(*best).scale;
-				if (0.5f * std::max(size.x, size.z) > 3.6f)
-				{
-					best.reset();
-				}
-			}
+			best.reset();
 		}
 	}
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)

@@ -66,6 +66,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Registry.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -90,6 +91,8 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	_pickTurnAccumulator = 0.0f;
 	_lastHeldPosition.reset();
 	_handVelocity = glm::vec3(0.0f);
+	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)
+	physics::PhysicsObjects::RemoveObject(entity);
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
 	if (auto* pot = registry.TryGet<Pot>(entity); pot != nullptr)
@@ -296,9 +299,13 @@ void HandSystem::Throw(glm::vec3 velocity) noexcept
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.Valid(*_held))
 	{
-		// Some lift so a flick of the hand becomes an arc.
-		velocity.y = std::max(velocity.y, 0.35f * glm::length(glm::vec2(velocity.x, velocity.z)));
-		_thrown.push_back({*_held, velocity, _heldAltitude});
+		// ThrowObjectFromHand -> Object::InitialisePhysicsFromHand -> PhysicsObject::AddObject with the spring's velocity
+		// TODO(physics): the angular velocity InitialisePhysicsFromHand gives
+		if (physics::PhysicsObjects::AddObject(*_held, velocity, glm::vec3(0.0f), entt::null, true) == nullptr)
+		{
+			// no mesh to build a body from: the old ballistic flight
+			_thrown.push_back({*_held, velocity, _heldAltitude});
+		}
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: thrown at ({:.1f}, {:.1f}, {:.1f}) u/s", velocity.x, velocity.y, velocity.z);
 	}
 	_held.reset();

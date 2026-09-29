@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <vector>
 #include <cstring>
 #include <fstream>
 #include <tuple>
@@ -64,9 +65,12 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Rocks.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/StaticGrounding.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
@@ -107,6 +111,136 @@ void HandSystem::RunDebugHooks() noexcept
 			const bool food = std::getenv("OPENBLACK_HAND_TEST_FOOD") != nullptr;
 			archetypes::PotArchetype::Create(glm::vec3(px, py, z), 0.0f, food ? PotInfo::MagicFood : PotInfo::WoodPile_1, food ? 1000 : 4000);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: {} pile spawned at ({}, {}, {})", food ? "food" : "wood", px, py, z);
+		}
+	}
+	// OPENBLACK_HAND_TEST_SPLIT="x,z,scale,rounds": a chalk boulder of that scale, tapped (Rock::InterfaceTap), and its
+	// halves tapped again for the given rounds while they are taller than 0.7
+	if (const char* split = std::getenv("OPENBLACK_HAND_TEST_SPLIT"); split != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		float scale = 1.0f;
+		int rounds = 1;
+		if (std::sscanf(split, "%f,%f,%f,%d", &x, &z, &scale, &rounds) >= 2)
+		{
+			const auto rock = archetypes::MobileStaticArchetype::Create(
+			    glm::vec3(x, Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)), z), MobileStaticInfo::Boulder1Chalk, 0.0f,
+			    0.0f, 0.0f, 0.0f, scale);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: rock radius {:.2f} height {:.2f} liftable {}", Rocks::Radius2D(rock),
+			                   Rocks::Height(rock), Rocks::ValidForPlaceInHand(rock));
+			std::vector<entt::entity> rocks {rock};
+			for (int round = 0; round < rounds; ++round)
+			{
+				std::vector<entt::entity> next;
+				for (const auto r : rocks)
+				{
+					if (!Rocks::ValidToTap(r))
+					{
+						next.push_back(r);
+						continue;
+					}
+					const auto halves = Rocks::Tap(r, Locator::entitiesRegistry::value().Get<const Transform>(r).position);
+					next.insert(next.end(), halves.begin(), halves.end());
+				}
+				rocks = next;
+			}
+		}
+	}
+	// OPENBLACK_TEST_PHYSICS="x,z,height,vx,vy,vz[,scale[,count]]": chalk boulders put in physics at height over the land
+	// with that velocity (PhysicsObject::AddObject), one every 3 units along x
+	if (const char* test = std::getenv("OPENBLACK_TEST_PHYSICS"); test != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		float height = 10.0f;
+		glm::vec3 v(0.0f);
+		float scale = 0.5f;
+		int count = 1;
+		if (std::sscanf(test, "%f,%f,%f,%f,%f,%f,%f,%d", &x, &z, &height, &v.x, &v.y, &v.z, &scale, &count) >= 3)
+		{
+			for (int i = 0; i < count; ++i)
+			{
+				const glm::vec2 at(x + 3.0f * static_cast<float>(i), z);
+				const auto rock = archetypes::MobileStaticArchetype::Create(
+				    glm::vec3(at.x, Locator::terrainSystem::value().GetHeightAt(at) + height, at.y), MobileStaticInfo::Boulder1Chalk,
+				    0.0f, 0.3f, 0.7f * static_cast<float>(i), 0.2f, scale);
+				const auto* po = physics::PhysicsObjects::AddObject(rock, v, glm::vec3(0.0f), entt::null, true);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: rock {} in physics {} (mass {:.2f}, radius {:.2f}, {} vertices)",
+				                   i, po != nullptr, po != nullptr ? po->body.Mass() : 0.0f, po != nullptr ? po->body.Radius() : 0.0f,
+				                   po != nullptr ? po->body.Vertices().size() : 0);
+			}
+			Locator::entitiesRegistry::value().SetDirty();
+		}
+	}
+	// OPENBLACK_TEST_HIT_VILLAGER="speed[,scale[,index]]": a chalk boulder thrown at a villager from 8 units away
+	if (const char* hitTest = std::getenv("OPENBLACK_TEST_HIT_VILLAGER"); hitTest != nullptr)
+	{
+		float speed = 20.0f;
+		float scale = 0.5f;
+		int index = 0;
+		std::sscanf(hitTest, "%f,%f,%d", &speed, &scale, &index);
+		auto& registry = Locator::entitiesRegistry::value();
+		std::optional<entt::entity> target;
+		int seen = 0;
+		registry.Each<const Villager, const Transform>([&](entt::entity e, const Villager&, const Transform&) {
+			if (!target && seen++ == index)
+			{
+				target = e;
+			}
+		});
+		if (target)
+		{
+			const auto at = registry.Get<const Transform>(*target).position;
+			const glm::vec2 from(at.x - 8.0f, at.z);
+			const glm::vec3 start(from.x, Locator::terrainSystem::value().GetHeightAt(from) + 1.5f, from.y);
+			const auto rock = archetypes::MobileStaticArchetype::Create(start, MobileStaticInfo::Boulder1Chalk, 0.0f, 0.0f, 0.0f, 0.0f, scale);
+			const auto direction = glm::normalize(at + glm::vec3(0.0f, 0.8f, 0.0f) - start);
+			physics::PhysicsObjects::AddObject(rock, direction * speed, glm::vec3(0.0f), entt::null, true);
+			registry.SetDirty();
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: rock thrown at villager {} at ({:.1f}, {:.1f}, {:.1f}), health {}",
+			                   static_cast<uint32_t>(*target), at.x, at.y, at.z, registry.Get<const Villager>(*target).health);
+		}
+	}
+	// OPENBLACK_TEST_THROW_TREE="x,z,vx,vy,vz": a beech thrown from 3 units over the land (it lands as a DeadTree)
+	if (const char* treeTest = std::getenv("OPENBLACK_TEST_THROW_TREE"); treeTest != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		glm::vec3 v(0.0f);
+		if (std::sscanf(treeTest, "%f,%f,%f,%f,%f", &x, &z, &v.x, &v.y, &v.z) == 5)
+		{
+			const glm::vec3 at(x, Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) + 3.0f, z);
+			const auto tree = archetypes::TreeArchetype::Create(1, at, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			const auto* po = physics::PhysicsObjects::AddObject(tree, v, glm::vec3(0.0f), entt::null, true);
+			Locator::entitiesRegistry::value().SetDirty();
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: tree {} thrown (mass {:.1f}, radius {:.2f})", static_cast<uint32_t>(tree),
+			                   po != nullptr ? po->body.Mass() : 0.0f, po != nullptr ? po->body.Radius() : 0.0f);
+		}
+	}
+	// OPENBLACK_TEST_HIT_ABODE="speed[,scale[,index[,count]]]": chalk boulders thrown at a house from 15 units away, one
+	// every 1.5 s (Abode::ReactToPhysicsImpact / FragMesh)
+	if (const char* abodeTest = std::getenv("OPENBLACK_TEST_HIT_ABODE"); abodeTest != nullptr)
+	{
+		float speed = 25.0f;
+		float scale = 0.5f;
+		int index = 0;
+		int count = 1;
+		std::sscanf(abodeTest, "%f,%f,%d,%d", &speed, &scale, &index, &count);
+		auto& registry = Locator::entitiesRegistry::value();
+		std::optional<entt::entity> target;
+		int seen = 0;
+		registry.Each<const Abode, const Transform>([&](entt::entity e, const Abode&, const Transform&) {
+			if (!target && !registry.AllOf<StoragePit>(e) && seen++ == index)
+			{
+				target = e;
+			}
+		});
+		if (target)
+		{
+			_testAbode = {*target, speed, scale, count, 0.0f};
+			const auto at = registry.Get<const Transform>(*target).position;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: throwing at abode {} at ({:.1f}, {:.1f}, {:.1f})",
+			                   static_cast<uint32_t>(*target), at.x, at.y, at.z);
 		}
 	}
 	// OPENBLACK_HAND_TEST_HOLD=<scale>: the hand starts holding a chalk boulder of that scale (reflection tests)
@@ -156,6 +290,34 @@ void HandSystem::RunDebugHooks() noexcept
 			const float seconds = static_cast<float>(std::atof(fieldTest));
 			_testActionSeconds = seconds > 1.0f ? seconds : 3.0f;
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: field {}, taking {}", static_cast<uint32_t>(*field), taking);
+		}
+	}
+		// OPENBLACK_HAND_TEST_FOREST=1: take a tree from the first big forest
+	if (std::getenv("OPENBLACK_HAND_TEST_FOREST") != nullptr)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		std::optional<entt::entity> forest;
+		registry.Each<const BigForest>([&forest](entt::entity entity, const BigForest&) {
+			if (!forest)
+			{
+				forest = entity;
+			}
+		});
+		if (forest)
+		{
+			const auto before = registry.Get<BigForest>(*forest).wood;
+			const auto countTrees = [&registry]() {
+				size_t n = 0;
+				registry.Each<const Tree>([&n](const Tree&) { ++n; });
+				return n;
+			};
+			const auto trees = countTrees();
+			const bool taken = TakeTreeFromForest(*forest);
+			const bool left = registry.Valid(*forest);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: forest wood {} -> {}, scale {}, trees {} -> {}, holding a tree {}",
+			                   before, left ? registry.Get<BigForest>(*forest).wood : 0.0f,
+			                   left ? registry.Get<Transform>(*forest).scale.x : 0.0f, trees, countTrees(),
+			                   taken && _held && registry.AllOf<Tree>(*_held));
 		}
 	}
 		// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
@@ -394,4 +556,33 @@ void HandSystem::RunDebugHooks() noexcept
 			}
 		}
 	}
+}
+
+void HandSystem::UpdateTestAbode(float seconds) noexcept
+{
+	if (!_testAbode || _testAbode->count <= 0)
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(_testAbode->abode))
+	{
+		_testAbode.reset();
+		return;
+	}
+	_testAbode->timer -= seconds;
+	if (_testAbode->timer > 0.0f)
+	{
+		return;
+	}
+	_testAbode->timer = 1.5f;
+	--_testAbode->count;
+	const auto at = registry.Get<const Transform>(_testAbode->abode).position;
+	const glm::vec2 from(at.x - 15.0f, at.z + 2.0f * static_cast<float>(_testAbode->count % 3 - 1));
+	const glm::vec3 start(from.x, Locator::terrainSystem::value().GetHeightAt(from) + 3.0f, from.y);
+	const auto rock = archetypes::MobileStaticArchetype::Create(start, MobileStaticInfo::Boulder1Chalk, 0.0f, 0.0f, 0.0f, 0.0f,
+	                                                            _testAbode->scale);
+	const auto direction = glm::normalize(at + glm::vec3(0.0f, 3.0f, 0.0f) - start);
+	physics::PhysicsObjects::AddObject(rock, direction * _testAbode->speed, glm::vec3(0.0f), entt::null, true);
+	registry.SetDirty();
 }

@@ -57,6 +57,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
@@ -159,13 +160,22 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	                   nearTown ? "scenic (town)," : (forest ? "joined" : "new"), component.forestId);
 }
 
-void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction) noexcept
+void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& transform = registry.Get<Transform>(tree);
 	const auto type = registry.Get<Tree>(tree).type;
 	registry.Remove<Tree>(tree);
 	registry.Assign<DeadTree>(tree, type);
+	if (!placeLying)
+	{
+		registry.SetDirty();
+		UpdateRoots(tree, true);
+		DropRoots(tree, true);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree became a dead tree at ({:.1f}, {:.1f})", transform.position.x,
+		                   transform.position.z);
+		return;
+	}
 	// It keeps the tree mesh and comes to rest lying down, the crown towards where it was going.
 	direction.y = 0.0f;
 	direction = glm::length(direction) > 1e-4f ? glm::normalize(direction) : glm::vec3(0.0f, 0.0f, 1.0f);
@@ -433,4 +443,83 @@ void HandSystem::UpdateRootsAndPiles(float seconds) noexcept
 	{
 		registry.SetDirty();
 	}
+}
+
+bool HandSystem::TakeTreeFromForest(entt::entity forestEntity) noexcept
+{
+	// BigForest::InterfaceSetInMagicHand 0x4393C0: RemoveResource(WOOD, Conifer woodValue 350), then a Conifer
+	// (scale 1, angle 0, max size 1) is created at the hand and placed in it; the forest keeps no tug
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* forest = registry.TryGet<BigForest>(forestEntity);
+	if (forest == nullptr || !Locator::terrainSystem::has_value())
+	{
+		return false;
+	}
+	const auto& trees = Locator::infoConstants::value().tree;
+	const float amount = static_cast<float>(trees.at(static_cast<size_t>(TreeInfo::Conifer)).woodValue);
+	auto& forestTransform = registry.Get<Transform>(forestEntity);
+	const auto forestPosition = forestTransform.position;
+	const float forestRadius = [&]() {
+		const auto* mesh = registry.TryGet<const Mesh>(forestEntity);
+		auto& meshes = Locator::resources::value().GetMeshes();
+		if (mesh == nullptr || !meshes.Contains(mesh->id))
+		{
+			return 5.0f;
+		}
+		const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * forestTransform.scale;
+		return 0.5f * std::max(size.x, size.z);
+	}();
+	// RemoveResource 0x4390D0 (life 1): all that is left when it has no more, and the forest goes; otherwise it
+	// shrinks to wood / woodValue and a sapling grows at its edge (AddTreeAround 0x439220)
+	if (forest->wood <= amount)
+	{
+		registry.Destroy(forestEntity);
+	}
+	else
+	{
+		forest->wood -= amount;
+		forestTransform.scale = glm::vec3(forest->wood / forest->woodValue);
+		// AddTreeAround: up to 10 random angles at the forest's radius; on land and with no object whose distance plus
+		// radius is under 4, a Pine (scale 0.05, random angle, max size 0.5 + FloatRand(0.5)) of the forest
+		auto& rng = Locator::rng::value();
+		const auto& island = Locator::terrainSystem::value();
+		for (int attempt = 0; attempt < 10; ++attempt)
+		{
+			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
+			const glm::vec3 point(forestPosition.x + std::cos(angle) * forestRadius, 0.0f,
+			                      forestPosition.z + std::sin(angle) * forestRadius);
+			if (!IsLand(point))
+			{
+				continue;
+			}
+			bool blocked = false;
+			registry.Each<const Transform, const Mesh>([&](entt::entity other, const Transform& t, const Mesh&) {
+				if (blocked || other == forestEntity)
+				{
+					return;
+				}
+				const float d = glm::distance(glm::vec2(t.position.x, t.position.z), glm::vec2(point.x, point.z));
+				blocked = d < 4.0f;
+			});
+			if (blocked)
+			{
+				continue;
+			}
+			const float ground = island.GetHeightAt(glm::vec2(point.x, point.z));
+			archetypes::TreeArchetype::Create(0, glm::vec3(point.x, ground, point.z), TreeInfo::Pine, false,
+			                                  rng.NextValue(0.0f, glm::two_pi<float>()), 0.5f + rng.NextValue(0.0f, 0.5f), 0.05f);
+			break;
+		}
+	}
+	registry.SetDirty();
+	const auto point = _interactionPoint.value_or(forestPosition);
+	const float ground = Locator::terrainSystem::value().GetHeightAt(glm::vec2(point.x, point.z));
+	const auto tree =
+	    archetypes::TreeArchetype::Create(0, glm::vec3(point.x, ground, point.z), TreeInfo::Conifer, false, 0.0f, 1.0f, 1.0f);
+	if (tree == entt::null)
+	{
+		return false;
+	}
+	PickUp(tree);
+	return _held.has_value();
 }

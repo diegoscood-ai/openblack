@@ -142,9 +142,11 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	}
 
 	_collisionPositions.resize(nVertices);
+	_collisionUVs.resize(nVertices);
 	for (uint32_t i = 0; i < nVertices; ++i)
 	{
 		_collisionPositions[i] = verticesMemAccess[i].pos;
+		_collisionUVs[i] = verticesMemAccess[i].uv;
 	}
 
 	uint16_t startIndex = 0;

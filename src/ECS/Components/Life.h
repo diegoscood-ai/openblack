@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (c) 2018-2026 openblack developers
  *
  * For a complete list of all authors, please refer to contributors.md
@@ -11,18 +11,10 @@
 
 namespace openblack::ecs::components
 {
-
-struct BigForest
+/// Object life in 0..1 (Object::GetLife / SetLife) for the objects that have no other life yet: rocks, animals.
+/// Villagers keep theirs in Villager::health (percent).
+struct Life
 {
-	int type;
-	/// +0x84 (Tree::GetWoodValue): the wood left; the forest is scaled to wood / its info's woodValue
-	float wood {0.0f};
-	float woodValue {1.0f}; ///< the info's woodValue
+	float value {1.0f};
 };
-
-struct Forest
-{
-	int type;
-};
-
 } // namespace openblack::ecs::components

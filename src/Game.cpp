@@ -1093,8 +1093,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	_turnDeltaTime = 0ns;
 	SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 	_turnCount = 0;
-	// test hook: OPENBLACK_START_UNPAUSED=1 runs the game (turns, scripts) from the first frame
-	_paused = std::getenv("OPENBLACK_START_UNPAUSED") == nullptr;
+	// The original runs from the first frame; OPENBLACK_START_PAUSED=1 keeps openblack's old paused start (test hook)
+	_paused = std::getenv("OPENBLACK_START_PAUSED") != nullptr;
 
 	return true;
 }

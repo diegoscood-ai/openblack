@@ -14,6 +14,7 @@
 #include <PackFile.h>
 
 #include "3D/L3DAnim.h"
+#include "3D/L3DSubMesh.h"
 #include "3D/Light.h"
 #include "Audio/Sound.h"
 #include "Creature/CreatureMind.h"
@@ -49,6 +50,12 @@ struct BaseLoader
 
 struct L3DLoader final: BaseLoader<graphics::L3DMesh>
 {
+	struct FromGeneratedTag
+	{
+	};
+
+	[[nodiscard]] result_type operator()(FromGeneratedTag, const std::string& debugName,
+	                                     const std::vector<graphics::L3DSubMesh::GeneratedPrimitive>& primitives) const;
 	[[nodiscard]] result_type operator()(FromBufferTag, const std::string& debugName, const std::vector<uint8_t>& data) const;
 	[[nodiscard]] result_type operator()(FromDiskTag, const std::filesystem::path& path) const;
 };

@@ -17,6 +17,7 @@
 //   HandTrees.cpp       tug, uproot, roots, replant, dead trees
 //   HandEffects.cpp     grip dust, multi pick-up particles
 //   HandFish.cpp        splash of gripping the water, catching fish
+//   HandPhysics.cpp     trees, pots and stores in the physics system (ECS/Physics)
 //   HandDebugHooks.cpp  environment-variable test hooks
 
 #include <glm/vec3.hpp>

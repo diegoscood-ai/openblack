@@ -69,5 +69,5 @@ Cada estado tiene un "estado de cursor" (`GInterface+0x3AC`); IN THROW = **0x17*
 
 - Umbral de 225 ms entre tocar y coger. Los montones no se pueden tocar: la pulsación empieza a coger por tandas al
   momento.
-- Rocas con radio 2D > 3.6 no se pueden levantar (`Rock::ValidForPlaceInHand`).
+- Rocas con radio 2D > 3.6 no se pueden levantar (`Rock::ValidForPlaceInHand`). Pulsar sobre ellas las golpea y las parte en dos; ver [physics.md](physics.md).
 - La mano nunca llama a `CanBePickedUp`; la puerta es `GInterface::PlaceObjectInMagicHand` (0x5DA6F0).

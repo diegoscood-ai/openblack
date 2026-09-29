@@ -15,6 +15,8 @@
 #include <vector>
 
 #include <L3DFile.h>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 #include "AxisAlignedBoundingBox.h"
@@ -58,6 +60,17 @@ public:
 
 	bool Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept;
 
+	/// A primitive built at run time (L3DMeshGenerated.cpp): the material of an existing primitive and its triangles.
+	struct GeneratedPrimitive
+	{
+		Primitive material;
+		std::vector<glm::vec3> positions;
+		std::vector<glm::vec2> uvs;
+		std::vector<glm::vec3> normals;
+		std::vector<uint16_t> indices; ///< into this primitive's vertices
+	};
+	bool LoadGenerated(const std::vector<GeneratedPrimitive>& primitives) noexcept;
+
 	[[nodiscard]] openblack::l3d::L3DSubmeshHeader::Flags GetFlags() const { return _flags; }
 	[[nodiscard]] bool IsPhysics() const { return _flags.isPhysics; }
 	[[nodiscard]] graphics::Mesh& GetMesh() const;
@@ -67,6 +80,8 @@ public:
 	/// (LH3DObject::CheckTriangleCollide).
 	[[nodiscard]] const std::vector<glm::vec3>& GetCollisionPositions() const { return _collisionPositions; }
 	[[nodiscard]] const std::vector<uint16_t>& GetCollisionIndices() const { return _collisionIndices; }
+	/// Texture coordinates of the collision positions (FragMesh copies them)
+	[[nodiscard]] const std::vector<glm::vec2>& GetCollisionUVs() const { return _collisionUVs; }
 
 private:
 	graphics::L3DMesh& _l3dMesh;
@@ -79,5 +94,6 @@ private:
 	AxisAlignedBoundingBox _boundingBox;
 	std::vector<glm::vec3> _collisionPositions;
 	std::vector<uint16_t> _collisionIndices;
+	std::vector<glm::vec2> _collisionUVs;
 };
 } // namespace openblack::graphics

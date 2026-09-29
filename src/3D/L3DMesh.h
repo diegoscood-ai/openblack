@@ -22,6 +22,7 @@
 #include "AxisAlignedBoundingBox.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/ShaderProgram.h"
+#include "L3DSubMesh.h"
 
 class btConvexShape;
 
@@ -96,6 +97,8 @@ public:
 	bool LoadFromFilesystem(const std::filesystem::path& path) noexcept;
 	bool LoadFromFile(const std::filesystem::path& path) noexcept;
 	bool LoadFromBuffer(const std::vector<uint8_t>& data) noexcept;
+	/// One sub-mesh from run-time triangles (L3DMeshGenerated.cpp)
+	bool LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& primitives) noexcept;
 
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }

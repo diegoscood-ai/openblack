@@ -71,6 +71,8 @@ private:
 	void Drop() noexcept;
 	void UpdateHeldObject() noexcept;
 	void UpdateMultiPickUp(float seconds, bool actionHeld) noexcept;
+	/// HandTrees.cpp: BigForest::InterfaceSetInMagicHand 0x4393C0: the forest gives a Conifer to the hand
+	bool TakeTreeFromForest(entt::entity forest) noexcept;
 	/// HandFish.cpp: the splash of gripping the water (StartLandscapeGrip fn_005D1AB0)
 	void SplashHand(glm::vec3 point) noexcept;
 	/// HandFish.cpp: the action over the water next to a fish starts catching from its farm (FishFarm locked select)
@@ -93,7 +95,10 @@ private:
 	/// Tree released gently: replanted on land (Tree::EndPhysics), a DeadTree over water.
 	void ReleaseTree(entt::entity tree) noexcept;
 	void Replant(entt::entity tree) noexcept;
-	void MakeDeadTree(entt::entity tree, glm::vec3 direction) noexcept;
+	/// Tree -> DeadTree. With placeLying it is laid on the ground towards direction; a physics body keeps its pose.
+	void MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying = true) noexcept;
+	/// The hand's part of the physics system: EndPhysics and ReactToPhysicsImpact of trees, pots and stores.
+	void RegisterPhysicsHandlers() noexcept;
 	/// Wood store (village store pit) under the point, if any.
 	[[nodiscard]] std::optional<entt::entity> FindWoodStore(glm::vec3 point) const noexcept;
 	/// DeleteObjectAndTakeResource: the store takes the tree's wood and the tree is deleted.
@@ -129,6 +134,16 @@ private:
 	void UpdateGripDust(float seconds) noexcept;
 	/// Environment-variable test hooks (HandDebugHooks.cpp), run once when the landscape exists.
 	void RunDebugHooks() noexcept;
+	void UpdateTestAbode(float seconds) noexcept;
+	struct TestAbode
+	{
+		entt::entity abode;
+		float speed;
+		float scale;
+		int count;
+		float timer;
+	};
+	std::optional<TestAbode> _testAbode;
 	void UpdatePickupParticles(float seconds, bool emitting) noexcept;
 	[[nodiscard]] glm::vec3 ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept;
 	[[nodiscard]] glm::mat3 FrameRotation(glm::vec3 cameraForward) const noexcept;

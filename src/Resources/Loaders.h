@@ -65,9 +65,14 @@ struct Texture2DLoader final: BaseLoader<graphics::Texture2D>
 	struct FromPackTag
 	{
 	};
+	/// A PNG image (mod graphics.hd-people), RGBA8 with a full mip chain
+	struct FromImageTag
+	{
+	};
 
 	[[nodiscard]] result_type operator()(FromPackTag, const std::string& name, const pack::G3DTexture& g3dTexture) const;
 	[[nodiscard]] result_type operator()(FromDiskTag, const std::filesystem::path& rawTexturePath) const;
+	[[nodiscard]] result_type operator()(FromImageTag, const std::string& name, const std::filesystem::path& imagePath) const;
 };
 
 struct L3DAnimLoader final: BaseLoader<L3DAnim>

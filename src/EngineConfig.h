@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string_view>
+#include <vector>
 
 #include "Windowing/WindowingInterface.h"
 
@@ -83,6 +84,14 @@ struct EngineConfig
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};
+	/// Mod graphics.hd-people: the villagers' textures replaced by the HD images of Mods/graphics.hd-people (4x the
+	/// original's 256x256 atlases, Resources/HdTextures.h).
+	bool hdPeopleTextures {false};
+	/// Its smooth option: the villagers' meshes as curved PN triangles split into level² triangles (0 = off,
+	/// 3D/PnTessellation.h). They are the boned meshes whose textures are all in hdPeopleSkins (the mod's list, made
+	/// from the pack's own MSH_P_ meshes: openblack's mesh names don't follow every pack).
+	int hdPeopleSmoothLevel {0};
+	std::vector<uint32_t> hdPeopleSkins;
 
 	float timeOfDay {12.0f};
 	float skyAlignment {0.0f};

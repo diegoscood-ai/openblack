@@ -10,6 +10,7 @@
 #include "Resources/Loaders.h"
 
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <ranges>
 #include <utility>
@@ -18,6 +19,7 @@
 #include <PackFile.h>
 #include <bgfx/bgfx.h>
 #include <spdlog/spdlog.h>
+#include <stb_image.h>
 
 #include "3D/L3DMesh.h"
 #include "3D/Light.h"
@@ -105,6 +107,29 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromPackTag, const std:
 	texture2D->Create(static_cast<uint16_t>(g3dTexture.ddsHeader.width), static_cast<uint16_t>(g3dTexture.ddsHeader.height), 1,
 	                  internalFormat, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
 	                  bgfx::makeRef(g3dTexture.ddsData.data(), static_cast<uint32_t>(g3dTexture.ddsData.size())));
+	return texture2D;
+}
+
+Texture2DLoader::result_type Texture2DLoader::operator()(FromImageTag, const std::string& name,
+                                                         const std::filesystem::path& imagePath) const
+{
+	std::ifstream stream(imagePath, std::ios::binary);
+	const std::vector<uint8_t> file((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+	int width = 0;
+	int height = 0;
+	int channels = 0;
+	auto* pixels = stbi_load_from_memory(file.data(), static_cast<int>(file.size()), &width, &height, &channels, 4);
+	if (pixels == nullptr)
+	{
+		throw std::runtime_error("Unable to decode " + imagePath.string());
+	}
+	auto texture2D = std::make_shared<graphics::Texture2D>(name);
+	// always mipmapped: the images are 4 times the size of the originals, and without mip levels they would shimmer as
+	// soon as the villager is a few metres away
+	texture2D->Create(static_cast<uint16_t>(width), static_cast<uint16_t>(height), 1, graphics::TextureFormat::RGBA8,
+	                  graphics::Wrapping::Repeat, graphics::Filter::LinearMipmapLinear,
+	                  bgfx::copy(pixels, static_cast<uint32_t>(width * height * 4)));
+	stbi_image_free(pixels);
 	return texture2D;
 }
 

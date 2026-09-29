@@ -9,18 +9,31 @@
 
 #include "L3DSubMesh.h"
 
+#include <algorithm>
+#include <limits>
+#include <vector>
+
 #include <bgfx/bgfx.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 #include <spdlog/spdlog.h>
 
+#include "EngineConfig.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/VertexBuffer.h"
 #include "L3DMesh.h"
+#include "Locator.h"
+#include "PnTessellation.h"
 
 using namespace openblack::graphics;
+
+namespace bgfx
+{
+// Defined and exported by bgfx but not declared in bgfx.h: frees a Memory that is not handed to bgfx.
+void release(const Memory* _mem);
+} // namespace bgfx
 
 namespace openblack
 {
@@ -32,6 +45,78 @@ struct EnhancedL3DVertex
 	glm::vec3 norm;
 	glm::i16vec2 index;
 };
+
+namespace
+{
+// Mod graphics.hd-people (smooth): a boned mesh whose textures are all villager textures (EngineConfig::hdPeopleSkins)
+bool IsSmoothedPerson(const auto& primitiveSpan)
+{
+	const auto& config = Locator::config::value();
+	if (config.hdPeopleSmoothLevel < 2 || config.hdPeopleSkins.empty() || primitiveSpan.empty())
+	{
+		return false;
+	}
+	return std::ranges::all_of(primitiveSpan, [&config](const auto& primitive) {
+		return std::ranges::find(config.hdPeopleSkins, primitive.material.skinID) != config.hdPeopleSkins.end();
+	});
+}
+
+void SmoothPerson(const auto& boneSpans, const bgfx::Memory*& verticesMem, const bgfx::Memory*& indicesMem,
+                  std::vector<L3DSubMesh::Primitive>& primitives, uint32_t& nVertices, uint32_t& nIndices)
+{
+	// each bone's model matrix in the rest pose (the chain of its parents, as for the bounding box)
+	std::vector<glm::mat4> restBones(boneSpans.size(), glm::mat4(1.0f));
+	for (uint32_t b = 0; b < boneSpans.size(); ++b)
+	{
+		for (uint32_t parent = b; parent != std::numeric_limits<uint32_t>::max(); parent = boneSpans[parent].parent)
+		{
+			const auto& bone = boneSpans[parent];
+			const auto orientation = glm::make_mat3(bone.orientation.data());
+			const auto translation = glm::make_vec3(&bone.position.x) * orientation;
+			restBones[b] = glm::translate(glm::mat4(orientation), translation) * restBones[b];
+		}
+	}
+
+	const auto* source = reinterpret_cast<const EnhancedL3DVertex*>(verticesMem->data);
+	std::vector<PnVertex> vertices(nVertices);
+	for (uint32_t i = 0; i < nVertices; ++i)
+	{
+		vertices[i] = {source[i].pos, source[i].uv, source[i].norm, source[i].index.x};
+	}
+	const auto* sourceIndices = reinterpret_cast<const uint16_t*>(indicesMem->data);
+	std::vector<uint16_t> indices(sourceIndices, sourceIndices + nIndices);
+	std::vector<PnRange> ranges;
+	ranges.reserve(primitives.size());
+	for (const auto& primitive : primitives)
+	{
+		ranges.push_back({primitive.indicesOffset, primitive.indicesCount});
+	}
+	if (!TessellatePn(vertices, indices, ranges, restBones, Locator::config::value().hdPeopleSmoothLevel))
+	{
+		return;
+	}
+
+	const auto* newVertices = bgfx::alloc(static_cast<uint32_t>(sizeof(EnhancedL3DVertex) * vertices.size()));
+	auto* target = reinterpret_cast<EnhancedL3DVertex*>(newVertices->data);
+	for (size_t i = 0; i < vertices.size(); ++i)
+	{
+		target[i] = {vertices[i].position, vertices[i].uv, vertices[i].normal, glm::i16vec2(vertices[i].bone, -1)};
+	}
+	const auto* newIndices = bgfx::alloc(static_cast<uint32_t>(sizeof(uint16_t) * indices.size()));
+	std::copy(indices.begin(), indices.end(), reinterpret_cast<uint16_t*>(newIndices->data));
+	bgfx::release(verticesMem);
+	bgfx::release(indicesMem);
+	verticesMem = newVertices;
+	indicesMem = newIndices;
+	for (size_t i = 0; i < primitives.size(); ++i)
+	{
+		primitives[i].indicesOffset = ranges[i].indicesOffset;
+		primitives[i].indicesCount = ranges[i].indicesCount;
+	}
+	nVertices = static_cast<uint32_t>(vertices.size());
+	nIndices = static_cast<uint32_t>(indices.size());
+}
+} // namespace
 
 L3DSubMesh::L3DSubMesh(L3DMesh& mesh) noexcept
     : _l3dMesh(mesh)
@@ -247,6 +332,13 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		}
 	}
 	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
+	// Mod graphics.hd-people (smooth): the villagers' meshes as curved PN triangles. The collision data built above stays
+	// the original's (the hand and the physics use it).
+	if (_flags.hasBones && IsSmoothedPerson(primitiveSpan))
+	{
+		SmoothPerson(boneSpans, verticesMem, indicesMem, _primitives, nVertices, nIndices);
+	}
+
 	auto* indexBuffer = new IndexBuffer(_l3dMesh.GetDebugName(), indicesMem, IndexBuffer::Type::Uint16);
 	_mesh = std::make_unique<graphics::Mesh>(vertexBuffer, indexBuffer);
 

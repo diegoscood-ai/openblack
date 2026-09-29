@@ -378,6 +378,30 @@ void HandSystem::RunDebugHooks() noexcept
 			Locator::camera::value().GetModel().SetFlight(o, f);
 		}
 	}
+	// Debug: OPENBLACK_TEST_VIEW_VILLAGER="n[,distance[,angle]]" flies the camera to look at the n-th villager from that
+	// many metres (default 3), from that side (degrees around it, default 0 = +z), slightly above (villager close-ups).
+	if (const char* view = std::getenv("OPENBLACK_TEST_VIEW_VILLAGER"); view != nullptr && Locator::camera::has_value())
+	{
+		int wanted = 0;
+		float distance = 3.0f;
+		float angle = 0.0f;
+		std::sscanf(view, "%d,%f,%f", &wanted, &distance, &angle);
+		auto& registry = Locator::entitiesRegistry::value();
+		int index = 0;
+		registry.Each<const Villager, const Transform>([&](const Villager&, const Transform& t) {
+			if (index++ != wanted)
+			{
+				return;
+			}
+			const float radians = glm::radians(angle);
+			const glm::vec3 focus = t.position + glm::vec3(0.0f, 0.8f, 0.0f);
+			const glm::vec3 origin =
+			    focus + glm::vec3(std::sin(radians) * distance, distance * 0.35f, std::cos(radians) * distance);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager view: villager {} at ({}, {}, {})", wanted, t.position.x,
+			                   t.position.y, t.position.z);
+			Locator::camera::value().GetModel().SetFlight(origin, focus);
+		});
+	}
 	// Debug: OPENBLACK_PRINT_ALTITUDE="x,z" logs the landscape height there (LH3DIsland::GetAltitude).
 	if (const char* at = std::getenv("OPENBLACK_PRINT_ALTITUDE"); at != nullptr)
 	{

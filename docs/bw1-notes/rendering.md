@@ -223,7 +223,6 @@ Informe: `tmp_dis\render\sky_*.txt`.
 - **Arreglo general**: `HashIdentifier(hashed_string)` volvía a hacer hash del número; `Contains`/`Load` con
   `entt::hashed_string` no encontraban nada (era la causa de las "texturas raw/* que faltan").
 
-## Sombra dinámica de la mano (hecha)
 ## Repetición o recorte de texturas (hecho)
 
 - `fn_00850FC0` 0x851779: tras poner el modo, `SetD3DTillingOn` si `g_b_need_tilling` (0xECA614) o el bit 2 del byte
@@ -266,6 +265,7 @@ Informe: `tmp_dis\render\physshadow\`.
 - Prueba: `OPENBLACK_TEST_PHYSICS="1490,2140,760,0,0,0,0.6,3"` con la cámara `1450,60,2095,1492,6,2140` y `-n 4000`
   (las rocas caen a ~70 u/s; en la captura están a ~110 de altura y sus tres sombras se ven en el suelo).
 
+## Sombra dinámica de la mano (hecha)
 
 - Silueta de la mano (las dos instancias del mesh) en un R8 de 64×64 (`RenderPass::DynamicShadow`,
   `vs_dynamic_shadow_instanced`), proyectada desde la luz 200 unidades encima de la mano sobre el plano del suelo,

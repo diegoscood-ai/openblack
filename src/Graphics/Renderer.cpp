@@ -56,10 +56,10 @@
 #include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
-#include "Graphics/PhysicsShadows.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
@@ -313,10 +313,10 @@ std::unique_ptr<RendererInterface> RendererInterface::Create(GraphicsBackend bac
 
 Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallback) noexcept
     : _shaderManager(std::make_unique<ShaderManager>())
+    , _physicsShadows(std::make_unique<PhysicsShadows>())
     , _bgfxCallback(std::move(bgfxCallback))
     , _bgfxReset(bgfxReset)
 {
-    , _physicsShadows(std::make_unique<PhysicsShadows>())
 	_shaderManager->LoadShaders();
 	_plane = Primitive::CreatePlane();
 
@@ -339,10 +339,10 @@ Renderer::~Renderer() noexcept
 	_font.reset(); // its texture before bgfx::shutdown
 	_foliage.reset();
 	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
+	_physicsShadows.reset();
 	if (bgfx::isValid(_landLightTexture))
 	{
 		bgfx::destroy(_landLightTexture);
-	_physicsShadows.reset();
 	}
 	if (bgfx::isValid(_cloudShadowTexture))
 	{
@@ -1234,6 +1234,7 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
 	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
 	const glm::vec4 u_shadowParams(0.0f);
+	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
 	for (const auto& subMesh : mesh->GetSubMeshes())
 	{
 		if (subMesh->IsPhysics() || (subMesh->GetFlags().lodMask & 1) != 1)
@@ -1242,6 +1243,7 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 		}
 		for (const auto& prim : subMesh->GetPrimitives())
 		{
+			program->SetUniformValue("u_shadowSlot", &u_shadowSlot);
 			program->SetUniformValue("u_shadowLight", &light);
 			program->SetUniformValue("u_shadowBox", &_handShadowBox);
 			program->SetUniformValue("u_shadowParams", &u_shadowParams);
@@ -1257,7 +1259,6 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 			bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 		}
 	}
-	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
 }
 
 void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
@@ -1266,7 +1267,6 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	{
 		return;
 	}
-			program->SetUniformValue("u_shadowSlot", &u_shadowSlot);
 	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	const auto& registry = Locator::entitiesRegistry::value();
@@ -1679,6 +1679,11 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
 	UpdateLandLight();
 	DrawHandShadowPass(drawDesc);
+	if (drawDesc.drawIsland && drawDesc.drawEntities)
+	{
+		_physicsShadows->Update(*drawDesc.camera);
+		_physicsShadows->Draw(*_shaderManager);
+	}
 	if (drawDesc.drawIsland)
 	{
 		UpdateClouds();
@@ -1717,11 +1722,6 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 			drawPassDesc.cullBack = true;
 
 			DrawPass(drawPassDesc);
-	if (drawDesc.drawIsland && drawDesc.drawEntities)
-	{
-		_physicsShadows->Update(*drawDesc.camera);
-		_physicsShadows->Draw(*_shaderManager);
-	}
 		}
 	}
 
@@ -2076,6 +2076,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			const auto dynamicParams = desc.viewId == graphics::RenderPass::Main ? _handShadowParams : glm::vec4(0.0f);
 			terrainShader->SetUniformValue("u_dynamicShadowBox", &_handShadowBox);
 			terrainShader->SetUniformValue("u_dynamicShadow", &dynamicParams);
+			_physicsShadows->BindTerrain(*terrainShader,
+			                             desc.viewId == graphics::RenderPass::Main && desc.drawEntities);
 
 			terrainShader->SetUniformValue("u_skyAndBump", &u_skyAndBump);
 			terrainShader->SetUniformValue("u_smallBumpLine", &u_smallBumpLine);
@@ -2114,8 +2116,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				terrainShader->SetUniformValue("u_blockPositionAndSize", &mapPositionAndSize);
 
 				block.GetMesh().GetVertexBuffer().Bind();
-			_physicsShadows->BindTerrain(*terrainShader,
-			                             desc.viewId == graphics::RenderPass::Main && desc.drawEntities);
 
 				bgfx::setState(defaultState | (desc.cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW), 0);
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
@@ -2165,6 +2165,32 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// land. Here that frame is the reflection target, drawn with the mirrored camera, so they are mirrored too.
 			DrawFishShoals(desc.viewId);
 		}
+		const auto drawSprite = [this, &spriteShader](const ecs::components::Sprite& sprite,
+		                                              const ecs::components::Transform& transform, RenderPass viewId) {
+			glm::mat4 modelMatrix = glm::mat4(1.0f);
+			modelMatrix = glm::translate(modelMatrix, transform.position);
+			modelMatrix *= glm::mat4(transform.rotation);
+			modelMatrix = glm::scale(modelMatrix, transform.scale);
+
+			glm::vec4 u_sampleRect(sprite.uvExtent, sprite.uvMin);
+
+			bgfx::setTransform(glm::value_ptr(modelMatrix));
+			spriteShader->SetUniformValue("u_sampleRect", glm::value_ptr(u_sampleRect));
+			spriteShader->SetUniformValue("u_tint", glm::value_ptr(sprite.tint));
+			spriteShader->SetTextureSampler("s_diffuse", 0, sprite.texture);
+
+			_plane->GetVertexBuffer().Bind();
+
+			const auto blend = sprite.additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
+			                                   : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+			bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
+			               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
+		};
+		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
+		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
+
 		if (desc.drawEntities)
 		{
 			if (desc.viewId == graphics::RenderPass::Main)
@@ -2203,32 +2229,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				}
 				else
 				{
-		const auto drawSprite = [this, &spriteShader](const ecs::components::Sprite& sprite,
-		                                              const ecs::components::Transform& transform, RenderPass viewId) {
-			glm::mat4 modelMatrix = glm::mat4(1.0f);
-			modelMatrix = glm::translate(modelMatrix, transform.position);
-			modelMatrix *= glm::mat4(transform.rotation);
-			modelMatrix = glm::scale(modelMatrix, transform.scale);
-
-			glm::vec4 u_sampleRect(sprite.uvExtent, sprite.uvMin);
-
-			bgfx::setTransform(glm::value_ptr(modelMatrix));
-			spriteShader->SetUniformValue("u_sampleRect", glm::value_ptr(u_sampleRect));
-			spriteShader->SetUniformValue("u_tint", glm::value_ptr(sprite.tint));
-			spriteShader->SetTextureSampler("s_diffuse", 0, sprite.texture);
-
-			_plane->GetVertexBuffer().Bind();
-
-			const auto blend = sprite.additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-			                                   : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-			bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
-			               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
-
-			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
-		};
-		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
-		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
-
 					const static auto identity = glm::mat4(1.0f);
 					submitDesc.modelMatrices = &identity;
 					submitDesc.matrixCount = 1;
@@ -2244,6 +2244,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				uint32_t index;
 				bool morphWithTerrain;
 				bool fading;
+				entt::entity sprite {entt::null};
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2282,7 +2283,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				if (sortBlended && hasBlended(*mesh))
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
-				entt::entity sprite {entt::null};
 					{
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
 						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, false});
@@ -2306,6 +2306,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 				}
 			}
+			if (spritesSorted)
+			{
+				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
+				    [&sorted, &cameraOrigin](entt::entity entity, const auto&, const ecs::components::Transform& transform) {
+					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
+				    });
+			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
@@ -2314,8 +2321,16 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				const auto opaqueState = submitDesc.state;
 				submitDesc.viewId = graphics::RenderPass::MainBlended;
+				auto& spriteRegistry = Locator::entitiesRegistry::value();
 				for (const auto& instance : sorted)
 				{
+					if (instance.sprite != entt::null)
+					{
+						const auto& [sprite, transform] =
+						    spriteRegistry.Get<const ecs::components::Sprite, const ecs::components::Transform>(instance.sprite);
+						drawSprite(sprite, transform, graphics::RenderPass::MainBlended);
+						continue;
+					}
 					auto mesh = meshManager.Handle(instance.meshId);
 					submitDesc.instanceDesc =
 					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
@@ -2362,13 +2377,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(debugShaderInstanced->GetRawHandle()));
 				}
 				if (renderCtx.footpaths)
-			if (spritesSorted)
-			{
-				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
-				    [&sorted, &cameraOrigin](entt::entity entity, const auto&, const ecs::components::Transform& transform) {
-					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
-				    });
-			}
 				{
 					renderCtx.footpaths->GetVertexBuffer().Bind();
 					bgfx::setState(k_BgfxDefaultStateInvertedZ | BGFX_STATE_PT_LINES);
@@ -2377,16 +2385,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				if (renderCtx.streams)
 				{
 					renderCtx.streams->GetVertexBuffer().Bind();
-				auto& spriteRegistry = Locator::entitiesRegistry::value();
 					bgfx::setState(k_BgfxDefaultStateInvertedZ | BGFX_STATE_PT_LINES);
 					bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(debugShader->GetRawHandle()));
-					if (instance.sprite != entt::null)
-					{
-						const auto& [sprite, transform] =
-						    spriteRegistry.Get<const ecs::components::Sprite, const ecs::components::Transform>(instance.sprite);
-						drawSprite(sprite, transform, graphics::RenderPass::MainBlended);
-						continue;
-					}
 				}
 			}
 		}

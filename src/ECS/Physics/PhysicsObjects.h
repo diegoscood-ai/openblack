@@ -90,9 +90,9 @@ public:
 	static void Update(float seconds);
 	static void Clear();
 	static void SetHandlers(Handlers handlers);
+	/// Every physics object, read only (the renderer's shadows)
+	static void ForEach(const std::function<void(const PhysicsObject&)>& func);
 
 	PhysicsObjects() = delete;
 };
 } // namespace openblack::ecs::physics
-	/// Every physics object, read only (the renderer's shadows)
-	static void ForEach(const std::function<void(const PhysicsObject&)>& func);

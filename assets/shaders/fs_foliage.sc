@@ -7,7 +7,11 @@ SAMPLER2DARRAY(s0_foliage, 0);
 void main()
 {
 	vec4 texel = texture2DArray(s0_foliage, vec3(v_texcoord0.xy, floor(v_texcoord0.z + 0.5f)));
-	if (texel.a < 0.35f)
+	// a ragged base instead of the image's straight bottom edge: each column of texels starts a little higher, so
+	// the blades seem to come out of the ground
+	float column = floor(v_texcoord0.x * 96.0f);
+	float ragged = fract(sin(column * 12.9898f + v_texcoord0.z * 78.233f) * 43758.5453f);
+	if (texel.a < 0.35f || v_texcoord0.w < 0.09f * ragged)
 	{
 		discard;
 	}

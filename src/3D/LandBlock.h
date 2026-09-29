@@ -44,11 +44,11 @@ struct LandVertex
 	glm::u8vec4 firstMaterialID;          // force alignment 4 bytes to prevent packing
 	glm::u8vec4 secondMaterialID;         // force alignment 4 bytes to prevent packing
 	glm::u8vec4 materialBlendCoefficient; // force alignment 4 bytes to prevent packing
-	glm::u8vec4 lightLevel;               // aligned to 4 bytes
+	glm::u8vec4 lightLevel;               // x: luminosity, yzw: the cell colour as a D3DCOLOR (b, g, r) for the specular
 	float waterAlpha;
 
 	LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat, const glm::uvec3& blend,
-	           uint8_t lightLevel, float alpha);
+	           uint8_t lightLevel, glm::u8vec3 cellColour, float alpha);
 };
 
 class LandIslandInterface;

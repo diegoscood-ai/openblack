@@ -33,11 +33,20 @@ Sky::Sky() noexcept
 {
 	auto& fileSystem = Locator::filesystem::value();
 
-	SetDayNightTimes(4.5, 7.0, 7.5, 8.25);
+	// Game-hour thresholds in play: GLandAlignement::Open -> SetVisualTimeCycle(1700, .083, .07) and the game/visual
+	// time mapping (fn_0086A110 / fn_0086A160) put them at 3.5 / 7.5 / 8 / 8.5 h (4.5 / 7 / 7.5 / 8.25 are only the
+	// constructor defaults of the visual clock)
+	SetDayNightTimes(3.5, 7.5, 8.0, 8.5);
 
 	// load in the mesh
 	_mesh = std::make_unique<graphics::L3DMesh>("Sky");
 	_mesh->LoadFromFilesystem(fileSystem.GetPath<filesystem::Path::WeatherSystem>() / "sky.l3d");
+	_sunMesh = std::make_unique<graphics::L3DMesh>("Sun");
+	_sunMesh->LoadFromFilesystem(fileSystem.GetPath<filesystem::Path::WeatherSystem>() / "sun.l3d");
+	_moonMesh = std::make_unique<graphics::L3DMesh>("Moon");
+	_moonMesh->LoadFromFilesystem(fileSystem.GetPath<filesystem::Path::WeatherSystem>() / "moon.l3d");
+	_cloudMesh = std::make_unique<graphics::L3DMesh>("Mist");
+	_cloudMesh->LoadFromFilesystem(fileSystem.GetPath<filesystem::Path::Landscape>() / "mist.l3d");
 
 	// TODO (#749) Maybe use std::views::enumerate
 	for (uint32_t idx = 0; const auto& alignment : k_Alignments)

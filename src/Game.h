@@ -55,6 +55,9 @@ struct Arguments
 	int windowWidth;
 	int windowHeight;
 	bool vsync;
+	uint8_t detailLevel {4};
+	/// --mod values (and the older switches that stand for mods), applied after mods.cfg
+	std::vector<std::string> modArguments;
 	openblack::windowing::DisplayMode displayMode;
 	GraphicsBackend graphicsBackend;
 	std::string gamePath;

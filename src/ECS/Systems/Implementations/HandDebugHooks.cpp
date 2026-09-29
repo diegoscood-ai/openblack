@@ -64,9 +64,14 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Components/AnimatedStatic.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/StaticGrounding.h"
+#include "ECS/Systems/DynamicsSystemInterface.h"
 #include "ECS/StoragePitStore.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
+#include "Game.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -102,6 +107,11 @@ void HandSystem::RunDebugHooks() noexcept
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: {} pile spawned at ({}, {}, {})", food ? "food" : "wood", px, py, z);
 		}
 	}
+	// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
+	if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr && Game::Instance() != nullptr)
+	{
+		Game::Instance()->SetTime(std::clamp(static_cast<float>(std::atof(hour)), 0.0f, 24.0f));
+	}
 	// Debug: OPENBLACK_CAMERA_FLY="ox,oy,oz,fx,fy,fz" flies the camera there (close-up screenshots).
 	if (const char* fly = std::getenv("OPENBLACK_CAMERA_FLY"); fly != nullptr && Locator::camera::has_value())
 	{
@@ -121,6 +131,82 @@ void HandSystem::RunDebugHooks() noexcept
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Altitude at ({}, {}): {:.7f}", x, z,
 			                   Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)));
+			// Every mesh entity within 15 m: its kind and how far its lowest vertex is above the land.
+			{
+				auto& registry = Locator::entitiesRegistry::value();
+				registry.Each<const Transform, const Mesh>([&](entt::entity e, const Transform& t, const Mesh&) {
+					if (glm::distance(glm::vec2(t.position.x, t.position.z), glm::vec2(x, z)) > 15.0f)
+					{
+						return;
+					}
+					const char* kind = registry.AllOf<MobileStatic>(e) ? "MobileStatic"
+					                   : registry.AllOf<MobileObject>(e) ? "MobileObject"
+					                   : registry.AllOf<Feature>(e)      ? "Feature"
+					                   : registry.AllOf<Tree>(e)         ? "Tree"
+					                   : registry.AllOf<AnimatedStatic>(e) ? "AnimatedStatic"
+					                                                     : "other";
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "  near: {} at ({:.1f},{:.2f},{:.1f}) scale {:.2f} gap {:.3f}", kind,
+					                   t.position.x, t.position.y, t.position.z, t.scale.x, ecs::StaticGrounding::FloatingGap(e));
+				});
+			}
+			// OPENBLACK_MARK_LOWEST=1: a red dot at the lowest vertex of each mobile static nearby, and one on the land
+			// under it (checks that the CPU copy of the mesh matches what is drawn).
+			if (std::getenv("OPENBLACK_MARK_LOWEST") != nullptr)
+			{
+				auto& registry = Locator::entitiesRegistry::value();
+				auto& meshes = Locator::resources::value().GetMeshes();
+				auto& textures = Locator::resources::value().GetTextures();
+				const auto textureId = entt::hashed_string("raw/S_SpriteSheet1a");
+				if (!textures.Contains(textureId))
+				{
+					auto& fileSystem = Locator::filesystem::value();
+					textures.Load(textureId, resources::Texture2DLoader::FromDiskTag {},
+					              fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Textures>() / "S_SpriteSheet1a.raw"));
+				}
+				const auto texture = textures.Handle(textureId)->GetNativeHandle();
+				std::vector<glm::vec3> marks;
+				registry.Each<const Transform, const Mesh, const MobileStatic>(
+				    [&](entt::entity, const Transform& t, const Mesh& mesh, const MobileStatic&) {
+					    if (glm::distance(glm::vec2(t.position.x, t.position.z), glm::vec2(x, z)) > 15.0f || !meshes.Contains(mesh.id))
+					    {
+						    return;
+					    }
+					    glm::vec3 lowest(0.0f, std::numeric_limits<float>::max(), 0.0f);
+					    for (const auto& sub : meshes.Handle(mesh.id)->GetSubMeshes())
+					    {
+						    for (const auto& v : sub->GetCollisionPositions())
+						    {
+							    const auto w = t.position + t.rotation * (t.scale * v);
+							    if (w.y < lowest.y)
+							    {
+								    lowest = w;
+							    }
+						    }
+					    }
+					    marks.push_back(lowest);
+				    });
+				for (const auto& m : marks)
+				{
+					const auto e = registry.Create();
+					registry.Assign<Sprite>(e, texture, glm::vec2(0.0f), glm::vec2(1.0f / 8.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), false);
+					registry.Assign<Transform>(e, m, glm::mat3(1.0f), glm::vec3(0.35f));
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "  mark lowest ({:.2f},{:.2f},{:.2f}) land {:.2f}", m.x, m.y, m.z,
+					                   Locator::terrainSystem::value().GetHeightAt(glm::vec2(m.x, m.z)));
+				}
+				registry.SetDirty();
+			}
+			// Compare with the drawn landscape mesh (the Bullet land blocks are built from it) on a small grid.
+			for (int i = 0; i < 5; ++i)
+			{
+				for (int j = 0; j < 5; ++j)
+				{
+					const glm::vec2 p(x + static_cast<float>(i) * 2.5f, z + static_cast<float>(j) * 2.5f);
+					const auto hit = Locator::dynamicsSystem::value().RayCastClosestHit(glm::vec3(p.x, 500.0f, p.y),
+					                                                                  glm::vec3(0.0f, -1.0f, 0.0f), 1000.0f);
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "  ({:.1f},{:.1f}) GetHeightAt {:.3f} mesh {:.3f}", p.x, p.y,
+					                   Locator::terrainSystem::value().GetHeightAt(p), hit ? hit->first.position.y : -1.0f);
+				}
+			}
 		}
 	}
 	// Debug: OPENBLACK_DUMP_STATIC_GAPS=1 logs, for every MobileStatic, the gap between its lowest vertex and the

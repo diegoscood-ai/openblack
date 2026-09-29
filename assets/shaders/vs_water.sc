@@ -20,6 +20,7 @@ void main()
 	vec4 position = mul(u_viewProj, vertex);
 	gl_Position = position;
 
-	v_texcoord0 = vec4(vertex.x / 500.0f, vertex.z / 500.0f, viewSpacePos.z, 0.0f);
+	// world x/z and view depth; the fragment shader builds the UVs (tiling, ripple)
+	v_texcoord0 = vec4(vertex.x, vertex.z, viewSpacePos.z, 0.0f);
 	v_texcoord1 = ScreenSpacePosition(position);
 }

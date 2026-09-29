@@ -8,6 +8,7 @@
  *******************************************************************************/
 
 #include "Locator.h"
+#include "Mods/ModRegistry.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -192,6 +193,7 @@ void openblack::ShutDownServices()
 	Locator::windowing::reset();
 	Locator::events::reset();
 	Locator::camera::reset();
+	Locator::mods::reset();
 	Locator::config::reset();
 	Locator::infoConstants::reset();
 	Locator::profiler::reset();

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include <SDL.h>
+#include <bgfx/bgfx.h>
 #include <glm/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -32,6 +33,8 @@
 namespace openblack
 {
 struct BgfxCallback;
+class LandLightTable;
+class Clouds;
 class Game;
 
 namespace ecs
@@ -46,6 +49,23 @@ class Mesh;
 
 class Renderer final: public RendererInterface
 {
+	/// Rebuilds the landscape light table for this frame and uploads it (256x1 RGBA8, point sampled)
+	void UpdateLandLight() const;
+	/// Bakes the static object shadows into the island-wide shadow texture
+	void DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const;
+	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
+	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
+	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
+	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
+	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)
+	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
+	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
+	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
+	/// A mesh with the celestial shader: model matrix, texture, colour, render state
+	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
+	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),
+	                       const Texture2D* alpha = nullptr) const;
+
 public:
 	Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallback) noexcept;
 	~Renderer() noexcept final;
@@ -72,6 +92,22 @@ private:
 
 	std::unique_ptr<ShaderManager> _shaderManager;
 	std::unique_ptr<BgfxCallback> _bgfxCallback;
+	mutable std::unique_ptr<LandLightTable> _landLight;
+	mutable bgfx::TextureHandle _landLightTexture = BGFX_INVALID_HANDLE;
+	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
+	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
+	mutable std::unique_ptr<Clouds> _clouds;
+	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
+	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
+	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
+	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame
+	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw
+	mutable std::vector<uint8_t> _cloudShadowCap;
+	mutable bgfx::TextureHandle _cloudShadowTexture = BGFX_INVALID_HANDLE;
+	mutable glm::u16vec2 _cloudShadowSize {0, 0};
+	/// Moves the clouds, computes their colour / alpha and bakes their shadows into the luminosity cap texture
+	void UpdateClouds() const;
+	mutable glm::vec3 _cloudRgb {1.0f};
 	uint32_t _bgfxReset;
 	bool _bgfxDebug = false;
 	bool _bgfxProfile = false;

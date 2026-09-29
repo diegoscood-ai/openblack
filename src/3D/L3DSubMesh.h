@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <L3DFile.h>
+#include <glm/vec4.hpp>
 
 #include "AxisAlignedBoundingBox.h"
 
@@ -28,6 +29,7 @@ class ShaderProgram;
 
 class L3DSubMesh
 {
+public:
 	struct Primitive
 	{
 		enum class BlendMode : uint8_t
@@ -46,6 +48,8 @@ class L3DSubMesh
 		bool modulateAlpha;  ///< Multiply ouput alpha by a uniform
 		bool thresholdAlpha; ///< Dismiss fragments below a certain threshold
 		float alphaCutoutThreshold;
+		glm::vec4 colour; ///< material colour (used by untextured primitives)
+		bool twoSided;    ///< material byte +5 bit 0: D3DCULL_NONE, else back faces are culled (0x84C34A)
 	};
 
 public:

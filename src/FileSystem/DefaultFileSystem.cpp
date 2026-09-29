@@ -11,6 +11,8 @@
 
 #include "DefaultFileSystem.h"
 
+#include <map>
+
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -54,6 +56,15 @@ std::filesystem::path DefaultFileSystem::FindPath(const std::filesystem::path& p
 		if (std::filesystem::exists(path))
 		{
 			return path;
+		}
+
+		// data mods: files only, so that a mod with a few files in a folder doesn't hide the rest of that folder
+		for (auto it = _overridePaths.rbegin(); it != _overridePaths.rend(); ++it)
+		{
+			if (std::filesystem::is_regular_file(*it / path))
+			{
+				return *it / path;
+			}
 		}
 
 		// try relative to game directory
@@ -123,19 +134,60 @@ void DefaultFileSystem::Iterate(const std::filesystem::path& path, bool recursiv
                                 const std::function<void(const std::filesystem::path&)>& function) const
 {
 	const auto fixedPath = FindPath(path);
-	if (recursive)
+	if (_overridePaths.empty() || path.is_absolute())
 	{
-		for (const auto& f : std::filesystem::recursive_directory_iterator {fixedPath})
+		if (recursive)
 		{
-			function(f);
+			for (const auto& f : std::filesystem::recursive_directory_iterator {fixedPath})
+			{
+				function(f);
+			}
 		}
+		else
+		{
+			for (const auto& f : std::filesystem::directory_iterator {fixedPath})
+			{
+				function(f);
+			}
+		}
+		return;
 	}
-	else
-	{
-		for (const auto& f : std::filesystem::directory_iterator {fixedPath})
+
+	// Data mods: the folder's entries merged with the same folder in every mod; a mod's file replaces the game's file
+	// with the same relative path and files only a mod has are listed too (later mods win)
+	std::map<std::filesystem::path, std::filesystem::path> entries;
+	const auto collect = [&entries, recursive](const std::filesystem::path& directory) {
+		std::error_code error;
+		if (!std::filesystem::is_directory(directory, error))
 		{
-			function(f);
+			return;
 		}
+		const auto add = [&entries, &directory](const std::filesystem::path& entry) {
+			entries[entry.lexically_relative(directory)] = entry;
+		};
+		if (recursive)
+		{
+			for (const auto& f : std::filesystem::recursive_directory_iterator {directory, error})
+			{
+				add(f.path());
+			}
+		}
+		else
+		{
+			for (const auto& f : std::filesystem::directory_iterator {directory, error})
+			{
+				add(f.path());
+			}
+		}
+	};
+	collect(fixedPath);
+	for (const auto& overridePath : _overridePaths)
+	{
+		collect(overridePath / path);
+	}
+	for (const auto& [relative, entry] : entries)
+	{
+		function(entry);
 	}
 }
 

@@ -203,6 +203,10 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		    lutEntry.modulateAlpha,
 		    lutEntry.thresholdAlpha,
 		    primitive.material.alphaCutoutThreshold / 255.0f,
+		    glm::vec4(primitive.material.color.bgra.r, primitive.material.color.bgra.g, primitive.material.color.bgra.b,
+		              primitive.material.color.bgra.a) /
+		        255.0f,
+		    (primitive.material.cullMode & 1) != 0,
 		});
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);

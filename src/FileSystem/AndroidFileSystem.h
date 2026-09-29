@@ -35,6 +35,7 @@ public:
 	void SetGamePath(const std::filesystem::path& path) override { _gamePath = path; }
 	[[nodiscard]] const std::filesystem::path& GetGamePath() const override { return _gamePath; }
 	void AddAdditionalPath(const std::filesystem::path& path) override { _additionalPaths.push_back(path); }
+	void AddOverridePath([[maybe_unused]] const std::filesystem::path& path) override {} // data mods: not on Android yet
 	std::vector<uint8_t> ReadAll(const std::filesystem::path& path) override;
 	void Iterate(const std::filesystem::path& path, bool recursive,
 	             const std::function<void(const std::filesystem::path&)>& function) const override;

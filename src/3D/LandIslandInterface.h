@@ -36,7 +36,6 @@ public:
 	static const uint8_t k_CellCount;
 	static const float k_HeightUnit;
 	static const float k_CellSize;
-	static constexpr entt::hashed_string k_SmallBumpTextureId = entt::hashed_string("raw/smallbumpa");
 
 	[[nodiscard]] virtual float GetHeightAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual glm::vec3 GetNormalAt(glm::vec2) const = 0;
@@ -52,8 +51,16 @@ public:
 
 	[[nodiscard]] virtual const graphics::Texture2D& GetAlbedoArray() const = 0;
 	[[nodiscard]] virtual const graphics::Texture2D& GetBump() const = 0;
+	/// Detail texture blended over the land near the camera: rgb = smallbump.raw, a = smallbumpa.raw.
+	[[nodiscard]] virtual const graphics::Texture2D& GetSmallBump() const = 0;
 	[[nodiscard]] virtual const graphics::Texture2D& GetHeightMap() const = 0;
+	/// Per cell: rgb = the cell colour as the original reads it for model specular (a D3DCOLOR: R and B swapped), a =
+	/// luminosity; same layout as the height map, nearest filtering
+	[[nodiscard]] virtual const graphics::Texture2D& GetCellMap() const = 0;
 	[[nodiscard]] virtual const graphics::FrameBuffer& GetFootprintFramebuffer() const = 0;
+	/// Static object shadows over the whole island, same layout as the footprints (256 texels per block, like the
+	/// original's block textures); red = coverage
+	[[nodiscard]] virtual const graphics::FrameBuffer& GetStaticShadowFramebuffer() const = 0;
 
 	[[nodiscard]] virtual U16Extent2 GetIndexExtent() const = 0;
 	[[nodiscard]] virtual glm::mat4 GetOrthoView() const = 0;

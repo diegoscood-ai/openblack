@@ -52,6 +52,8 @@ struct RenderContext
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
 	/// unused w of the first column of the model matrix, as 1 - alpha so that opaque instances keep 0 there.
 	std::map<entt::id_type, const InstancedDrawDesc> translucentDrawDescs;
+	/// The objects that cast a static shadow (see RenderingSystem.cpp, CastsStaticShadow), again, in their own range
+	std::map<entt::id_type, const InstancedDrawDesc> shadowCasterDrawDescs;
 	/// Not an actual vertex buffer, but a dynamic general purpose buffer which
 	/// stores uniform data as a GPU-side copy of \ref _instanceUniforms and
 	/// which is populated in \ref PrepareDraw and consumed in \ref DrawModels.

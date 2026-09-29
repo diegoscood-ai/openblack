@@ -52,6 +52,8 @@
 #include "Input/GameActionMapInterface.h"
 #include "LHScriptX/Script.h"
 #include "Locator.h"
+#include "Mods/BuiltinMods.h"
+#include "Mods/ModRegistry.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
 #include "Resources/Loaders.h"
@@ -111,6 +113,30 @@ Game::Game(Arguments&& args) noexcept
 	config.displayMode = args.displayMode;
 	config.graphicsBackend = args.graphicsBackend;
 	config.vsync = args.vsync;
+	config.detailLevel = args.detailLevel;
+
+	// Mods: the built-in ones and the data mods of <executable>/Mods, with the state saved in mods.cfg next to the
+	// executable, then the command line for this session. Applied now so the engine starts with them.
+	{
+		auto& mods = Locator::mods::emplace();
+		mods::RegisterBuiltinMods(mods);
+		std::filesystem::path baseDirectory;
+		if (char* base = SDL_GetBasePath(); base != nullptr)
+		{
+			baseDirectory = base;
+			SDL_free(base);
+		}
+		mods.DiscoverDataMods(baseDirectory / "Mods");
+		mods.LoadSettings(baseDirectory / "mods.cfg");
+		for (const auto& argument : args.modArguments)
+		{
+			if (const auto error = mods.ApplyArgument(argument); !error.empty())
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "--mod {}: {}", argument, error);
+			}
+		}
+		mods.ApplyAll();
+	}
 	config.guiScale = args.guiScale;
 }
 
@@ -360,6 +386,20 @@ bool Game::Update() noexcept
 	{
 		auto cameraSection = profiler.BeginScoped(Profiler::Stage::CameraUpdate);
 		camera.Update(deltaTime);
+		// The original's near plane follows the camera height above the ground: 0.3 + 0.16 h, clamped to 0.3..3.5
+		if (Locator::terrainSystem::has_value() && Locator::windowing::has_value())
+		{
+			const auto origin = camera.GetOrigin();
+			const float height = origin.y - Locator::terrainSystem::value().GetHeightAt(glm::vec2(origin.x, origin.z));
+			const float nearClip = std::clamp(0.3f + 0.16f * height, 0.3f, 3.5f);
+			auto& config = Locator::config::value();
+			if (std::abs(nearClip - config.cameraNearClip) > 0.01f)
+			{
+				config.cameraNearClip = nearClip;
+				camera.SetProjectionMatrixPerspective(config.cameraXFov, Locator::windowing::value().GetAspectRatio(),
+				                                      config.cameraNearClip, config.cameraFarClip);
+			}
+		}
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
 
@@ -384,6 +424,15 @@ bool Game::Update() noexcept
 			const auto scale = glm::vec3(50.0f, 50.0f, 50.0f);
 			if (screenSize.x > 0 && screenSize.y > 0)
 			{
+				// Test hook: fixed cursor at a fraction of the window ("0.5,0.6"), for screenshots without the real mouse
+				if (const char* at = std::getenv("OPENBLACK_MOUSE_AT"); at != nullptr)
+				{
+					glm::vec2 fraction(0.5f);
+					if (std::sscanf(at, "%f,%f", &fraction.x, &fraction.y) == 2)
+					{
+						_mousePosition = glm::ivec2(glm::vec2(screenSize) * fraction);
+					}
+				}
 				auto rayCast = profiler.BeginScoped(Profiler::Stage::HandRayCast);
 				glm::vec3 rayOrigin;
 				glm::vec3 rayDirection;
@@ -501,6 +550,7 @@ bool Game::Initialize() noexcept
 	}
 
 	fileSystem.SetGamePath(_gamePath);
+	Locator::mods::value().MountDataMods(fileSystem);
 
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "The GamePath is \"{}\".", fileSystem.GetGamePath().generic_string());
 

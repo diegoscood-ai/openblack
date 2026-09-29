@@ -10,6 +10,8 @@
 #include <memory>
 #define LOCATOR_IMPLEMENTATIONS
 
+#include <chrono>
+#include <cmath>
 #include <cstdint>
 
 #include <SDL_video.h>
@@ -23,6 +25,8 @@
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
+#include "3D/Clouds.h"
+#include "3D/LandLightTable.h"
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
@@ -35,12 +39,15 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "EngineConfig.h"
+#include "FileSystem/FileSystemInterface.h"
 #include "Graphics/DebugLines.h"
+#include "Graphics/DetailLevel.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
+#include "Game.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
 #include "Profiler.h"
@@ -66,6 +73,35 @@ constexpr auto k_BgfxDefaultStateInvertedZ = 0 \
                                      | BGFX_STATE_DEPTH_TEST_GREATER \
                                      | BGFX_STATE_MSAA;
 // clang-format on
+
+/// Backbuffer reset flags for the graphics mods (MSAA, anisotropy); none by default, like the original.
+uint32_t GraphicsOptionResetFlags()
+{
+	const auto& config = Locator::config::value();
+	uint32_t flags = BGFX_RESET_NONE;
+	switch (config.msaa)
+	{
+	case 2:
+		flags |= BGFX_RESET_MSAA_X2;
+		break;
+	case 4:
+		flags |= BGFX_RESET_MSAA_X4;
+		break;
+	case 8:
+		flags |= BGFX_RESET_MSAA_X8;
+		break;
+	case 16:
+		flags |= BGFX_RESET_MSAA_X16;
+		break;
+	default:
+		break;
+	}
+	if (config.anisotropicFiltering)
+	{
+		flags |= BGFX_RESET_MAXANISOTROPY;
+	}
+	return flags;
+}
 
 struct BgfxCallback: public bgfx::CallbackI
 {
@@ -243,7 +279,7 @@ std::unique_ptr<RendererInterface> RendererInterface::Create(GraphicsBackend bac
 	{
 		bgfxReset |= BGFX_RESET_VSYNC;
 	}
-	init.resolution.reset = bgfxReset;
+	init.resolution.reset = bgfxReset | GraphicsOptionResetFlags();
 	init.callback = dynamic_cast<bgfx::CallbackI*>(bgfxCallback.get());
 
 	if (!bgfx::init(init))
@@ -270,6 +306,9 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 	_shaderManager->LoadShaders();
 	_plane = Primitive::CreatePlane();
 
+	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::Main), bgfx::ViewMode::Sequential);
+	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended), bgfx::ViewMode::Sequential);
+
 	// give debug names to views
 	// TODO (#749) use std::views::enumerate
 	for (bgfx::ViewId i = 0; const auto& name : k_RenderPassNames)
@@ -281,6 +320,16 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 
 Renderer::~Renderer() noexcept
 {
+	_clouds.reset();
+	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
+	if (bgfx::isValid(_landLightTexture))
+	{
+		bgfx::destroy(_landLightTexture);
+	}
+	if (bgfx::isValid(_cloudShadowTexture))
+	{
+		bgfx::destroy(_cloudShadowTexture);
+	}
 	_plane.reset();
 	_shaderManager.reset();
 	bgfx::frame();
@@ -301,7 +350,7 @@ void Renderer::ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolutio
 
 void Renderer::Reset(glm::u16vec2 resolution) const noexcept
 {
-	bgfx::reset(resolution.x, resolution.y, _bgfxReset);
+	bgfx::reset(resolution.x, resolution.y, _bgfxReset | GraphicsOptionResetFlags());
 }
 
 graphics::ShaderManager& Renderer::GetShaderManager() const noexcept
@@ -362,6 +411,9 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 
 	auto const& skins = mesh.GetSkins();
 	bool lastPreserveState = false;
+	// MSAA mod: smooth alpha cut-out edges in the multisampled opaque passes (not in blended ones)
+	const bool alphaToCoverage = Locator::config::value().msaa != 0 && desc.viewId != RenderPass::Reflection &&
+	                             (desc.state & BGFX_STATE_BLEND_MASK) == 0;
 	const auto& primitives = subMesh.GetPrimitives();
 	for (auto it = primitives.begin(); it != primitives.end(); ++it)
 	{
@@ -372,7 +424,15 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		const Texture2D* texture = GetTexture(prim.skinID, skins);
 		const Texture2D* nextTexture = !hasNext ? nullptr : GetTexture(std::next(it)->skinID, skins);
 
-		const bool primitivePreserveState = texture != nullptr && texture == nextTexture && (preserveState || hasNext);
+		// Material blending of the original (L3D material type): AlphaTextured & co. blend with the texture alpha, e.g.
+		// the fading wrist of the hand and the soft edges of buildings. Chroma materials stay alpha tested.
+		const bool blended = prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha;
+		const auto sameMaterial = [&prim](const L3DSubMesh::Primitive& other) {
+			return other.blend == prim.blend && other.thresholdAlpha == prim.thresholdAlpha &&
+			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold;
+		};
+		const bool primitivePreserveState = texture != nullptr && texture == nextTexture && sameMaterial(*std::next(it)) &&
+		                                    (preserveState || hasNext);
 
 		uint32_t skip = Mesh::SkipState::SkipNone;
 		if (!lastPreserveState)
@@ -392,11 +452,30 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			if (!desc.isSky)
 			{
+				const bool lit = _landLight && _landLight->IsLoaded();
+				const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
+				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
+				const glm::vec4 u_objectLight = {lit ? 1.0f : 0.0f, desc.lightBoost, 0.0f, 0.0f};
+				desc.program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
+				desc.program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
+				if (bgfx::isValid(_cloudShadowTexture))
+				{
+					desc.program->SetTextureSampler("s_cloudShadow", 4, fromBgfx(_cloudShadowTexture)); // vs
+				}
+				desc.program->SetUniformValue("u_cellMap", &u_cellMap);                    // vs
+				desc.program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
+				desc.program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
+				desc.program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
+				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
+				desc.program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
+			}
+			if (!desc.isSky)
+			{
 				const glm::vec4 u_skyAlphaThreshold = {
 				    Locator::skySystem::value().GetCurrentSkyType(),
 				    prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-				    0.0f,
-				    0.0f,
+				    alphaToCoverage && prim.thresholdAlpha ? 1.0f : 0.0f,
+				    blended ? 1.0f : 0.0f,
 				};
 				desc.program->SetUniformValue("u_skyAlphaThreshold", &u_skyAlphaThreshold);
 			}
@@ -421,12 +500,38 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			{
 				subMesh.GetMesh().GetVertexBuffer().Bind();
 			}
+			auto viewId = desc.viewId;
+			auto state = desc.state;
+			if (!desc.isSky && (state & BGFX_STATE_CULL_MASK) == 0 && !prim.twoSided)
+			{
+				// D3DCULL_CCW of the original (0x84C34A) is bgfx's CCW here; the mirrored reflection camera flips it
+				state |= viewId == RenderPass::Reflection ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
+			}
+			if (blended && (state & BGFX_STATE_BLEND_MASK) == 0)
+			{
+				// Drawn after every opaque model (MainBlended) so what lies behind is already in the target
+				state &= ~(BGFX_STATE_WRITE_A | (prim.depthWrite ? 0 : BGFX_STATE_WRITE_Z));
+				state |= prim.blend == L3DSubMesh::Primitive::BlendMode::Additive
+				             ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
+				             : BGFX_STATE_BLEND_ALPHA;
+				if (viewId == RenderPass::Main)
+				{
+					viewId = RenderPass::MainBlended;
+				}
+			}
+			if (prim.thresholdAlpha && !alphaToCoverage && (state & BGFX_STATE_BLEND_MASK) == 0)
+			{
+				// Chroma materials (fn_0082E080 & co.): alpha test and SRCALPHA / INVSRCALPHA blending, drawn in the
+				// normal (unsorted) model order like the original
+				state |= BGFX_STATE_BLEND_ALPHA;
+			}
 			if ((skip & Mesh::SkipState::SkipRenderState) == 0)
 			{
-				bgfx::setState(desc.state, desc.rgba);
+				const auto a2c = alphaToCoverage && prim.thresholdAlpha ? BGFX_STATE_BLEND_ALPHA_TO_COVERAGE : 0;
+				bgfx::setState(state | a2c, desc.rgba);
 			}
 
-			bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(desc.program->GetRawHandle()), 0,
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(desc.program->GetRawHandle()), 0,
 			             primitivePreserveState ? BGFX_DISCARD_NONE : BGFX_DISCARD_ALL);
 		}
 		lastPreserveState = primitivePreserveState;
@@ -507,8 +612,525 @@ void Renderer::DrawFootprintPass(const DrawSceneDesc& drawDesc) const
 	}
 }
 
+void Renderer::UpdateLandLight() const
+{
+	if (!_landLight)
+	{
+		_landLight = std::make_unique<LandLightTable>();
+		try
+		{
+			auto& fileSystem = Locator::filesystem::value();
+			const auto path = fileSystem.GetPath<filesystem::Path::WeatherSystem>() / "palette.raw";
+			if (!_landLight->Load(fileSystem.ReadAll(fileSystem.FindPath(path))))
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "palette.raw has an unexpected size");
+			}
+		}
+		catch (const std::exception& e)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "No landscape light table (palette.raw): {}", e.what());
+		}
+		_landLightTexture = bgfx::createTexture2D(LandLightTable::k_Size, 1, false, 1, bgfx::TextureFormat::RGBA8,
+		                                          BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+		bgfx::setName(_landLightTexture, "LandLightTable");
+	}
+	if (!_landLight->IsLoaded())
+	{
+		return;
+	}
+	// TODO: weather (the original caps the base colour with the overcast amount at the camera) and lightning flashes
+	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), Locator::config::value().skyAlignment, 0.0f);
+	const auto& texels = _landLight->GetTexels();
+	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
+	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(texels[0]))));
+}
+
+void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
+{
+	if (!drawDesc.drawIsland || !drawDesc.drawEntities)
+	{
+		return;
+	}
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::StaticShadow);
+	const auto& island = Locator::terrainSystem::value();
+	const auto& frameBuffer = island.GetStaticShadowFramebuffer();
+	frameBuffer.Bind(graphics::RenderPass::StaticShadow);
+	bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0x00000000);
+	bgfx::setViewRect(viewId, 0, 0, frameBuffer.GetColorAttachment().GetResolution().x,
+	                  frameBuffer.GetColorAttachment().GetResolution().y);
+	bgfx::touch(viewId);
+	const auto view = island.GetOrthoView();
+	const auto proj = island.GetOrthoProj();
+	bgfx::setViewTransform(viewId, &view, &proj);
+
+	const auto& meshManager = Locator::resources::value().GetMeshes();
+	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+	const auto* program = _shaderManager->GetShader("StaticShadowInstanced");
+	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
+	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
+	for (const auto& [meshId, placers] : renderCtx.shadowCasterDrawDescs)
+	{
+		const auto mesh = meshManager.Handle(meshId);
+		const auto& skins = mesh->GetSkins();
+		const glm::mat4 identity(1.0f);
+		const auto* matrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &identity;
+		const auto matrixCount = mesh->IsBoned() ? static_cast<uint16_t>(mesh->GetBoneMatrices().size()) : uint16_t {1};
+		for (const auto& subMesh : mesh->GetSubMeshes())
+		{
+			// LOD 0 only, like fn_00806DA0
+			if (subMesh->IsPhysics() || subMesh->GetFlags().status != 0 || (subMesh->GetFlags().lodMask & 1) != 1)
+			{
+				continue;
+			}
+			for (const auto& prim : subMesh->GetPrimitives())
+			{
+				const auto* texture = GetTexture(prim.skinID, skins);
+				const glm::vec4 u_shadowParams = {prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
+				                                  texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
+				program->SetUniformValue("u_shadowParams", &u_shadowParams);
+				if (texture != nullptr)
+				{
+					program->SetTextureSampler("s_diffuse", 0, *texture);
+				}
+				bgfx::setTransform(matrices, matrixCount);
+				bgfx::setInstanceDataBuffer(toBgfx(renderCtx.instanceUniformBuffer), placers.offset, placers.count);
+				if (subMesh->GetMesh().IsIndexed())
+				{
+					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
+				}
+				subMesh->GetMesh().GetVertexBuffer().Bind();
+				bgfx::setState(k_State);
+				bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
+			}
+		}
+	}
+}
+
+void Renderer::DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model,
+                                 const Texture2D& texture, const glm::vec4& colour, uint64_t state, const glm::vec4& celestial,
+                                 const Texture2D* alpha) const
+{
+	const auto* program = _shaderManager->GetShader("Celestial");
+	for (const auto& subMesh : mesh.GetSubMeshes())
+	{
+		for (const auto& prim : subMesh->GetPrimitives())
+		{
+			bgfx::setTransform(&model);
+			program->SetTextureSampler("s_diffuse", 0, texture);
+			program->SetUniformValue("u_colour", &colour);
+			program->SetUniformValue("u_celestial", &celestial);
+			program->SetTextureSampler("s_alpha", 1, alpha != nullptr ? *alpha : texture);
+			if (subMesh->GetMesh().IsIndexed())
+			{
+				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
+			}
+			subMesh->GetMesh().GetVertexBuffer().Bind();
+			bgfx::setState(state);
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+		}
+	}
+}
+
+void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const
+{
+	const auto& sky = Locator::skySystem::value();
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_SunTexture = entt::hashed_string("raw/sun");
+	if (!textures.Contains(k_SunTexture))
+	{
+		return;
+	}
+	// fn_0086C020: height by game hour T, alpha A [0xC395A8] fading in 3..6 h and out 18..21 h
+	const float t = sky.GetTime();
+	const float height = 7500.0f * (std::clamp(std::min(t, 24.0f - t), 6.0f, 12.0f) - 6.0f) / 6.0f;
+	float alpha = 255.0f;
+	if (t < 3.0f || t > 21.0f)
+	{
+		alpha = 0.0f;
+	}
+	else if (t < 6.0f)
+	{
+		alpha = (t - 3.0f) * 85.0f;
+	}
+	else if (t > 18.0f)
+	{
+		alpha = 255.0f - (t - 18.0f) * 85.0f;
+	}
+	if (alpha <= 0.0f)
+	{
+		return;
+	}
+	// A vertical quad at (-30000, y, -30000) turned by 3*pi/4 about Y, i.e. facing the island
+	const glm::vec3 position(-30000.0f, height, -30000.0f);
+	auto model = glm::translate(position) * glm::rotate(-3.0f * glm::pi<float>() / 4.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+	const auto& texture = *textures.Handle(k_SunTexture);
+	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none
+	const uint64_t additive = BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+	if (!glare)
+	{
+		const glm::vec4 colour(glm::vec3(0x95, 0x7C, 0x63) / 255.0f, alpha / 255.0f);
+		DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive | BGFX_STATE_DEPTH_TEST_GREATER);
+		return;
+	}
+
+	// Glare (fn_0086BB60 / fn_0086BD00): 5 samples around the sun, each hidden when the landscape is in the way; the
+	// visibility eases toward (1 - 0.2 * hidden) * 255 by 1 % per ms
+	int hidden = 0;
+	const auto origin = camera.GetOrigin();
+	const auto& island = Locator::terrainSystem::value();
+	const auto right = glm::vec3(model * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	for (const auto& offset : {glm::vec2(0.0f), glm::vec2(500.0f, 500.0f), glm::vec2(-500.0f, 500.0f),
+	                           glm::vec2(500.0f, -500.0f), glm::vec2(-500.0f, -500.0f)})
+	{
+		auto sample = position + right * offset.x + glm::vec3(0.0f, offset.y, 0.0f);
+		sample.y = std::max(sample.y, 10.0f);
+		const auto direction = sample - origin;
+		// march over the island (the landscape is at most a few thousand units across)
+		constexpr int k_Steps = 256;
+		for (int i = 1; i <= k_Steps; ++i)
+		{
+			const auto p = origin + direction * (static_cast<float>(i) / k_Steps * 0.25f);
+			if (p.y < island.GetHeightAt(glm::vec2(p.x, p.z)))
+			{
+				++hidden;
+				break;
+			}
+		}
+	}
+	static auto lastTime = std::chrono::steady_clock::now();
+	const auto now = std::chrono::steady_clock::now();
+	const float milliseconds = std::chrono::duration<float, std::milli>(now - lastTime).count();
+	lastTime = now;
+	const float target = (1.0f - 0.2f * static_cast<float>(hidden)) * 255.0f;
+	_sunGlare = std::clamp(_sunGlare + (target - _sunGlare) * std::min(1.0f, milliseconds * 0.01f), 0.0f, 255.0f);
+	if (_sunGlare <= 0.0f)
+	{
+		return;
+	}
+	model = model * glm::scale(glm::vec3(1.8f));
+	const glm::vec4 colour(glm::vec3(0xA0, 0x6A, 0x35) / 255.0f, _sunGlare * alpha / 255.0f / 255.0f);
+	DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive);
+}
+
+void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
+{
+	const auto& sky = Locator::skySystem::value();
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Weather = entt::hashed_string("raw/weather");
+	static const auto k_WeatherAlpha = entt::hashed_string("raw/weathera");
+	static const auto k_Atmos = entt::hashed_string("raw/ATMOS");
+	static const auto k_AtmosAlpha = entt::hashed_string("raw/ATMOSA");
+	if (!textures.Contains(k_Weather) || !textures.Contains(k_WeatherAlpha) || !textures.Contains(k_Atmos) ||
+	    !textures.Contains(k_AtmosAlpha))
+	{
+		return;
+	}
+	// Position relative to the camera, by game hour T; alpha m = min(200, 0.5 y - 110), so it shows about +-4.7 h
+	// around midnight
+	const float theta = sky.GetTime() * glm::pi<float>() / 12.0f;
+	const glm::vec3 offset(4000.0f, 1100.0f * std::cos(theta) - 150.0f, 800.0f * std::sin(theta));
+	const float m = std::min(200.0f, std::floor(0.5f * offset.y - 110.0f));
+	if (m <= 0.0f)
+	{
+		return;
+	}
+	const auto centre = camera.GetOrigin() + offset;
+	const auto inverseView = glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current));
+	const auto right = glm::vec3(inverseView[0]);
+	const auto up = glm::vec3(inverseView[1]);
+	const auto back = glm::vec3(inverseView[2]);
+	const auto colour = _landLight && _landLight->IsLoaded() ? _landLight->GetMoonColour() : glm::vec3(1.0f);
+
+	// Glow (fn_0086A930): a camera-facing 4000 x 4000 quad, atmos.raw UV 0.25..0.49375, additive (mode 13),
+	// colour (R/6, G/5, B/4, m)
+	{
+		struct Vertex
+		{
+			float x, y, z, u, v;
+		};
+		bgfx::VertexLayout layout;
+		layout.begin().add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float).add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float).end();
+		if (bgfx::getAvailTransientVertexBuffer(6, layout) == 6)
+		{
+			bgfx::TransientVertexBuffer buffer;
+			bgfx::allocTransientVertexBuffer(&buffer, 6, layout);
+			auto* vertices = reinterpret_cast<Vertex*>(buffer.data);
+			const std::array<glm::vec2, 6> corners = {{{-1, -1}, {1, -1}, {1, 1}, {-1, -1}, {1, 1}, {-1, 1}}};
+			for (size_t i = 0; i < corners.size(); ++i)
+			{
+				const auto p = centre + (right * corners[i].x + up * corners[i].y) * 2000.0f;
+				vertices[i] = {p.x, p.y, p.z, 0.25f + (corners[i].x * 0.5f + 0.5f) * 0.24375f,
+				               0.25f + (0.5f - corners[i].y * 0.5f) * 0.24375f};
+			}
+			const auto* program = _shaderManager->GetShader("Celestial");
+			const glm::mat4 identity(1.0f);
+			const glm::vec4 glowColour(colour.r / 6.0f, colour.g / 5.0f, colour.b / 4.0f, m / 255.0f);
+			const glm::vec4 celestial(0.0f, 0.0f, 0.0f, 1.0f);
+			bgfx::setTransform(&identity);
+			program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Atmos));
+			program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_AtmosAlpha));
+			program->SetUniformValue("u_colour", &glowColour);
+			program->SetUniformValue("u_celestial", &celestial);
+			bgfx::setVertexBuffer(0, &buffer);
+			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
+			               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+		}
+	}
+
+	// The moon (mode 4: SRCALPHA / INVSRCALPHA): billboard x4, tilted -7.5 degrees about Z, turned by the phase + pi
+	// about Y, x0.65. The phase follows the real clock: 2 pi (1 - frac((days since 1970 - 10962) / 29.5306))
+	const auto days = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(
+	                                          std::chrono::system_clock::now().time_since_epoch())
+	                                          .count()) /
+	                  86400.0;
+	const double cycles = (days - 10962.0) / 29.5306;
+	const auto phase = static_cast<float>(2.0 * glm::pi<double>() * (1.0 - (cycles - std::floor(cycles))));
+	const glm::mat4 billboard(glm::vec4(right * 4.0f, 0.0f), glm::vec4(up * 4.0f, 0.0f), glm::vec4(back * 4.0f, 0.0f),
+	                          glm::vec4(centre, 1.0f));
+	const auto model = billboard * glm::rotate(glm::radians(-7.5f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+	                   glm::rotate(phase + glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::vec3(0.65f));
+	const glm::vec4 moonColour(colour, m / 255.0f);
+	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
+	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
+	                  BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CCW, celestial,
+	                  &*textures.Handle(k_WeatherAlpha));
+}
+
+void Renderer::UpdateClouds() const
+{
+	const auto& detail = GetDetailLevel(Locator::config::value().detailLevel);
+	if (!_clouds)
+	{
+		_clouds = std::make_unique<Clouds>();
+		try
+		{
+			auto& fileSystem = Locator::filesystem::value();
+			_cloudShadowImage =
+			    fileSystem.ReadAll(fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Textures>() / "sclouds.raw"));
+		}
+		catch (const std::exception& e)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "No cloud shadows (sclouds.raw): {}", e.what());
+		}
+	}
+	// game time: the clouds and their animation stop while the game is paused
+	static auto lastTime = std::chrono::steady_clock::now();
+	const auto now = std::chrono::steady_clock::now();
+	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count());
+	lastTime = now;
+	if (Game::Instance() != nullptr && !Game::Instance()->IsPaused())
+	{
+		_clouds->Update(milliseconds);
+	}
+
+	// Colour and alpha from the land alignment (fn_005E1DE0): good 0x00FFFFFF, neutral 0xC8FFFFFF, evil 0xFFAAA066,
+	// lerped by the alignment, x light table[255], then c * 186 / 256 + 35
+	const float x = std::clamp(1.0f - Locator::config::value().skyAlignment, 0.0f, 2.0f);
+	const glm::vec4 good(1.0f, 1.0f, 1.0f, 0.0f);
+	const glm::vec4 neutral(1.0f, 1.0f, 1.0f, 200.0f / 255.0f);
+	const glm::vec4 evil(glm::vec3(0xAA, 0xA0, 0x66) / 255.0f, 1.0f);
+	const auto alignColour = x < 1.0f ? glm::mix(good, neutral, x) : glm::mix(neutral, evil, x - 1.0f);
+	const auto light = _landLight && _landLight->IsLoaded() ? _landLight->GetColour(255) : glm::vec3(1.0f);
+	_cloudRgb = (glm::vec3(alignColour) * light * 255.0f * 186.0f / 256.0f + 35.0f) / 255.0f;
+	_cloudAlpha.resize(_clouds->GetClouds().size());
+	for (size_t i = 0; i < _cloudAlpha.size(); ++i)
+	{
+		_cloudAlpha[i] = detail.clouds ? alignColour.a * Clouds::EdgeAlpha(_clouds->GetClouds()[i]) : 0.0f;
+	}
+
+	// shadows into the luminosity cap (same cell layout as the island's cell map)
+	if (!Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	const auto& island = Locator::terrainSystem::value();
+	const auto size = island.GetCellMap().GetResolution();
+	if (size != _cloudShadowSize)
+	{
+		if (bgfx::isValid(_cloudShadowTexture))
+		{
+			bgfx::destroy(_cloudShadowTexture);
+		}
+		_cloudShadowTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::R8,
+		                                            BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+		_cloudShadowSize = size;
+	}
+	static const std::vector<float> k_NoClouds;
+	_clouds->BuildShadowCap(_cloudShadowImage, island.GetExtent().minimum, size, detail.clouds ? _cloudAlpha : k_NoClouds,
+	                        _cloudShadowCap);
+	bgfx::updateTexture2D(_cloudShadowTexture, 0, 0, 0, 0, size.x, size.y,
+	                      bgfx::copy(_cloudShadowCap.data(), static_cast<uint32_t>(_cloudShadowCap.size())));
+}
+
+void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) const
+{
+	if (!_clouds || !GetDetailLevel(Locator::config::value().detailLevel).clouds)
+	{
+		return;
+	}
+	const auto rgb = _cloudRgb;
+
+	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
+	if (mesh.GetNumSubMeshes() == 0)
+	{
+		return;
+	}
+	const auto origin = camera.GetOrigin();
+	// oriented with the camera: the dome's axis (local +Y) towards the camera, so each cloud shows as a soft puff
+	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
+	const auto rotation = glm::mat3(cameraBasis[0], cameraBasis[2], -cameraBasis[1]);
+	std::vector<std::pair<float, size_t>> order;
+	order.reserve(_clouds->GetClouds().size());
+	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)
+	{
+		order.emplace_back(glm::distance(Clouds::WorldPosition(_clouds->GetClouds()[i]), origin), i);
+	}
+	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+
+	const int frame = _clouds->GetFrame();
+	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
+	                        210.0f / 256.0f, 0.0f);
+	const auto* program = _shaderManager->GetShader("Cloud");
+	// mist.l3d is loaded without skins; LH3DMist::Draw (fn_007FA300) uses the smoke material instead
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Smoke = entt::hashed_string("raw/smoke");
+	static const auto k_SmokeAlpha = entt::hashed_string("raw/smokea");
+	if (!textures.Contains(k_Smoke) || !textures.Contains(k_SmokeAlpha))
+	{
+		return;
+	}
+	const auto& smoke = *textures.Handle(k_Smoke);
+	const auto& smokeAlpha = *textures.Handle(k_SmokeAlpha);
+	for (const auto& [distance, index] : order)
+	{
+		const auto& cloud = _clouds->GetClouds()[index];
+		const auto position = Clouds::WorldPosition(cloud);
+		const auto toCloud = position - origin;
+		const float length = std::max(glm::length(toCloud), 1.0f);
+		// full size seen from below or above, size / k edge-on
+		const float scale = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
+		const auto model = glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(scale));
+		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
+		if (u_cloudColour.a <= 0.0f)
+		{
+			continue;
+		}
+		for (const auto& subMesh : mesh.GetSubMeshes())
+		{
+			for (const auto& prim : subMesh->GetPrimitives())
+			{
+				bgfx::setTransform(&model);
+				program->SetTextureSampler("s_diffuse", 0, smoke);
+				program->SetTextureSampler("s_alpha", 1, smokeAlpha);
+				program->SetUniformValue("u_cloud", &u_cloud);
+				program->SetUniformValue("u_cloudColour", &u_cloudColour);
+				if (subMesh->GetMesh().IsIndexed())
+				{
+					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
+				}
+				subMesh->GetMesh().GetVertexBuffer().Bind();
+				bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+				bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+			}
+		}
+	}
+}
+
+void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
+{
+	_handShadowParams = glm::vec4(0.0f);
+	if (!drawDesc.drawIsland || !drawDesc.drawEntities || !Locator::handSystem::has_value())
+	{
+		return;
+	}
+	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+	const auto desc = renderCtx.instancedDrawDescs.find(ecs::components::Hand::k_MeshId);
+	const auto* bones = Locator::handSystem::value().GetBoneMatrices();
+	if (desc == renderCtx.instancedDrawDescs.end() || desc->second.count == 0 || bones == nullptr ||
+	    desc->second.offset >= renderCtx.instanceUniforms.size())
+	{
+		return;
+	}
+	const auto mesh = Locator::resources::value().GetMeshes().Handle(ecs::components::Hand::k_MeshId);
+	if (mesh->GetBoneMatrices().size() != bones->size())
+	{
+		return;
+	}
+	if (!_handShadowFrameBuffer)
+	{
+		// the original's silhouette is 32 x 32 with 4 x 2 subsamples per texel; 64 x 64 sampled bilinearly is as soft
+		_handShadowFrameBuffer = std::make_unique<FrameBuffer>("HandShadow", 64, 64, TextureFormat::R8);
+	}
+	// the hand's transform (its pose is in the bone matrices, the instance only carries its scale and origin)
+	const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
+	const auto& handTransform = Locator::entitiesRegistry::value().Get<ecs::components::Transform>(hand);
+	const glm::vec3 position = handTransform.position;
+	const float scale = handTransform.scale.x;
+	const float radius = 0.5f * glm::length(mesh->GetBoundingBox().Size()) * scale;
+	const auto& island = Locator::terrainSystem::value();
+	const float ground = island.GetHeightAt(glm::vec2(position.x, position.z));
+
+	// fn_00874600: full up to 50 radii from the camera, gone at 80
+	const float q = glm::distance(drawDesc.camera->GetOrigin(), glm::vec3(position.x, ground, position.z)) /
+	                std::max(radius, 0.001f);
+	const float fade = q < 50.0f ? 1.0f : std::max(0.0f, 1.0f - (q - 50.0f) / 30.0f);
+	if (fade <= 0.0f)
+	{
+		return;
+	}
+	// the hand's light is straight above it (+200, CHand::PrepareForDrawing sets [obj+0xBC])
+	const glm::vec4 light(position + glm::vec3(0.0f, 200.0f, 0.0f), ground);
+	const float extent = radius * 2.0f;
+	_handShadowBox = glm::vec4(position.x - extent, position.z - extent, 1.0f / (2.0f * extent), 1.0f / (2.0f * extent));
+	_handShadowParams = glm::vec4(8.0f / 15.0f * fade, ground, 0.0f, 0.0f);
+
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::DynamicShadow);
+	_handShadowFrameBuffer->Bind(graphics::RenderPass::DynamicShadow);
+	bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0x00000000);
+	bgfx::setViewRect(viewId, 0, 0, 64, 64);
+	bgfx::touch(viewId);
+	const auto* program = _shaderManager->GetShader("DynamicShadowInstanced");
+	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
+	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
+	const glm::vec4 u_shadowParams(0.0f);
+	for (const auto& subMesh : mesh->GetSubMeshes())
+	{
+		if (subMesh->IsPhysics() || (subMesh->GetFlags().lodMask & 1) != 1)
+		{
+			continue;
+		}
+		for (const auto& prim : subMesh->GetPrimitives())
+		{
+			program->SetUniformValue("u_shadowLight", &light);
+			program->SetUniformValue("u_shadowBox", &_handShadowBox);
+			program->SetUniformValue("u_shadowParams", &u_shadowParams);
+			bgfx::setTransform(bones->data(), static_cast<uint16_t>(bones->size()));
+			// both player hands share the mesh; the one outside the box leaves nothing
+			bgfx::setInstanceDataBuffer(toBgfx(renderCtx.instanceUniformBuffer), desc->second.offset, desc->second.count);
+			if (subMesh->GetMesh().IsIndexed())
+			{
+				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
+			}
+			subMesh->GetMesh().GetVertexBuffer().Bind();
+			bgfx::setState(k_State);
+			bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
+		}
+	}
+}
+
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
+	UpdateLandLight();
+	DrawHandShadowPass(drawDesc);
+	if (drawDesc.drawIsland)
+	{
+		UpdateClouds();
+	}
+	{
+		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::FootprintPass);
+		DrawStaticShadowPass(drawDesc);
+	}
 	// TODO(bwrsandman): Footprint framebuffer doesn't need to be updated each frame
 	DrawFootprintPass(drawDesc);
 	// Reflection Pass
@@ -526,6 +1148,15 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 			drawPassDesc.frameBuffer = &frameBuffer;
 			drawPassDesc.drawWater = false;
 			drawPassDesc.drawBoundingBoxes = false;
+			// "LandRef" detail key: without it only the sky is mirrored
+			drawPassDesc.drawIsland = GetDetailLevel(Locator::config::value().detailLevel).landReflection;
+			// GLandscape::Draw (0x5E48B3, "LandRef"): the mirrored scene under the sea is only the sky and the land
+			// (fn_007FF4F0); models and sprites are not reflected unless the living water mod is on
+			if (!Locator::config::value().livingWater)
+			{
+				drawPassDesc.drawEntities = false;
+				drawPassDesc.drawSprites = false;
+			}
 			drawPassDesc.cullBack = true;
 
 			DrawPass(drawPassDesc);
@@ -565,6 +1196,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 	const auto skyType = Locator::skySystem::value().GetCurrentSkyType();
 
+	// Distance haze of this frame (LandLightTable::Haze), on with the "Fog" detail key
+	const bool hazeOn = _landLight && _landLight->IsLoaded() && GetDetailLevel(Locator::config::value().detailLevel).fog;
+	const auto haze = hazeOn ? _landLight->GetHaze() : LandLightTable::Haze {};
+	const glm::vec4 u_haze = {haze.nearDistance, haze.farDistance, haze.k, hazeOn ? 1.0f : 0.0f};
+	const glm::vec4 u_hazeColour = {haze.colour, 0.0f};
+	_hazeUniforms = {u_haze, u_hazeColour};
+
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawSky
 		                                                                          : Profiler::Stage::MainPassDrawSky);
@@ -590,6 +1228,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			submitDesc.isSky = true;
 
 			DrawMesh(Locator::skySystem::value().GetMesh(), submitDesc, 0);
+			if (desc.viewId == graphics::RenderPass::Main)
+			{
+				DrawMoon(desc.viewId, *desc.camera);
+				DrawSun(desc.viewId, *desc.camera, false);
+			}
 		}
 	}
 
@@ -602,7 +1245,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			const auto& mesh = ocean.GetMesh();
 			mesh.GetIndexBuffer().Bind(mesh.GetIndexBuffer().GetCount(), 0);
 			mesh.GetVertexBuffer().Bind();
-			bgfx::setState(k_BgfxDefaultStateInvertedZ);
+			// fn_00879930: no Z write (the original uses ZFUNC ALWAYS because it draws the land afterwards; bgfx may
+			// reorder the draws of a view, so keep the depth test)
+			bgfx::setState(k_BgfxDefaultStateInvertedZ & ~BGFX_STATE_WRITE_Z);
 			auto diffuse = Locator::resources::value().GetTextures().Handle(ocean.GetDiffuseTexture());
 			auto alpha = Locator::resources::value().GetTextures().Handle(ocean.GetAlphaTexture());
 			waterShader->SetTextureSampler("s_diffuse", 0, *diffuse);
@@ -610,6 +1255,30 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			waterShader->SetTextureSampler("s_reflection", 2, ocean.GetReflectionFramebuffer().GetColorAttachment());
 			const glm::vec4 u_sky = {skyType, 0.0f, 0.0f, 0.0f};
 			waterShader->SetUniformValue("u_sky", &u_sky); // fs
+			// Tiling period P = 2000 - 1800 * WaterTiling (0xC38228): 560 at the default detail level 4. The frame counter
+			// (0xFA938C) only advances while the game runs. The original also scrolls the UVs with the ambient wind
+			// (-1/330 per ms), which openblack does not simulate yet.
+			static uint32_t seaFrame = 0;
+			if (desc.viewId == graphics::RenderPass::Main && Game::Instance() != nullptr && !Game::Instance()->IsPaused())
+			{
+				++seaFrame;
+			}
+			const auto forward = desc.camera->GetForward();
+			const auto forwardXZ = glm::vec2(forward.x, forward.z) / std::max(glm::length(glm::vec2(forward.x, forward.z)), 1e-4f);
+			const float seaPeriod = GetDetailLevel(Locator::config::value().detailLevel).SeaPeriod();
+			const glm::vec4 u_seaParams = {seaPeriod, static_cast<float>(seaFrame % 16), forwardXZ};
+			// Living water mod: real time at a quarter speed (calm waves), also while paused; the shader time wraps at 1000 (every scroll
+			// speed in fs_water repeats the texture a whole number of times in that period, so the loop is seamless)
+			constexpr float k_WaveSpeed = 0.25f;
+			static const auto k_Start = std::chrono::steady_clock::now();
+			const float seconds = std::fmod(
+			    std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
+			const glm::vec4 u_waterMod = {Locator::config::value().livingWater ? 1.0f : 0.0f, seconds, 0.0f, 0.0f};
+			waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
+			waterShader->SetUniformValue("u_seaParams", &u_seaParams); // fs
+			const glm::vec4 u_seaColour =
+			    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(-1.0f);
+			waterShader->SetUniformValue("u_seaColour", &u_seaColour); // fs
 			bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(waterShader->GetRawHandle()));
 		}
 	}
@@ -622,15 +1291,46 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			auto& island = Locator::terrainSystem::value();
 			auto islandExtent = glm::vec4(island.GetExtent().minimum, island.GetExtent().maximum);
 
-			auto texture = Locator::resources::value().GetTextures().Handle(LandIslandInterface::k_SmallBumpTextureId);
-			const glm::vec4 u_skyAndBump = {skyType, desc.bumpMapStrength, desc.smallBumpMapStrength, 0.0f};
+			// Small bump fade line (fn_007FEE60): the plane perpendicular to the camera forward, 50 units ahead, meets
+			// the horizontal plane y = min(camera y, 0.67 * 165); the detail is full up to 20 units before that line and
+			// gone 20 units past it.
+			const auto cameraOrigin = desc.camera->GetOrigin();
+			const auto cameraForward = desc.camera->GetForward();
+			const glm::vec2 forwardXZ(cameraForward.x, cameraForward.z);
+			const float forwardLength = std::max(glm::length(forwardXZ), 1e-4f);
+			const float lineDistance =
+			    (50.0f + cameraForward.y * std::max(0.0f, cameraOrigin.y - 0.67f * 165.0f)) / forwardLength;
+			const glm::vec4 u_smallBumpLine = {cameraOrigin.x, cameraOrigin.z, forwardXZ / forwardLength};
+			const glm::vec4 u_skyAndBump = {skyType, desc.bumpMapStrength, desc.smallBumpMapStrength, lineDistance};
 
 			terrainShader->SetTextureSampler("s0_materials", 0, island.GetAlbedoArray());
 			terrainShader->SetTextureSampler("s1_bump", 1, island.GetBump());
-			terrainShader->SetTextureSampler("s2_smallBump", 2, *texture);
+			terrainShader->SetTextureSampler("s2_smallBump", 2, island.GetSmallBump());
 			terrainShader->SetTextureSampler("s3_footprints", 3, island.GetFootprintFramebuffer().GetColorAttachment());
+			terrainShader->SetTextureSampler("s4_landLight", 4, fromBgfx(_landLightTexture)); // vs
+			if (bgfx::isValid(_cloudShadowTexture))
+			{
+				terrainShader->SetTextureSampler("s6_cloudShadow", 6, fromBgfx(_cloudShadowTexture)); // vs
+			}
+			terrainShader->SetTextureSampler("s5_staticShadow", 5, island.GetStaticShadowFramebuffer().GetColorAttachment());
+			if (_handShadowFrameBuffer)
+			{
+				terrainShader->SetTextureSampler("s7_dynamicShadow", 7, _handShadowFrameBuffer->GetColorAttachment());
+			}
+			const auto dynamicParams = desc.viewId == graphics::RenderPass::Main ? _handShadowParams : glm::vec4(0.0f);
+			terrainShader->SetUniformValue("u_dynamicShadowBox", &_handShadowBox);
+			terrainShader->SetUniformValue("u_dynamicShadow", &dynamicParams);
 
 			terrainShader->SetUniformValue("u_skyAndBump", &u_skyAndBump);
+			terrainShader->SetUniformValue("u_smallBumpLine", &u_smallBumpLine);
+			terrainShader->SetUniformValue("u_haze", &u_haze);
+			terrainShader->SetUniformValue("u_hazeColour", &u_hazeColour);
+			// Static shadows darken the block texture by up to x0.5 (x0.75 with 128 px textures, fn_008721A0)
+			const float staticShadowStrength =
+			    GetDetailLevel(Locator::config::value().detailLevel).useHighTexture ? 0.5f : 0.25f;
+			const glm::vec4 u_terrainPass = {desc.viewId == graphics::RenderPass::Reflection ? 0.5f : 1.0f,
+			                                 Locator::config::value().terrainTextureDensity, staticShadowStrength, 0.0f};
+			terrainShader->SetUniformValue("u_terrainPass", &u_terrainPass);
 			terrainShader->SetUniformValue("u_islandExtent", &islandExtent);
 
 			// clang-format off
@@ -670,6 +1370,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		                                                                          : Profiler::Stage::MainPassDrawModels);
 		if (desc.drawEntities)
 		{
+			if (desc.viewId == graphics::RenderPass::Main)
+			{
+				_shaderManager->SetCamera(graphics::RenderPass::MainBlended, *desc.camera);
+			}
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = objectShaderInstanced;
@@ -707,6 +1411,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.matrixCount = 1;
 				}
 				submitDesc.isSky = false;
+				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = submitDesc.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
 
@@ -718,7 +1423,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// target and camera, no clear), so that nothing drawn in the main pass is sorted over them.
 			if (desc.viewId == graphics::RenderPass::Main && !renderCtx.translucentDrawDescs.empty())
 			{
-				_shaderManager->SetCamera(graphics::RenderPass::MainBlended, *desc.camera);
 				submitDesc.viewId = graphics::RenderPass::MainBlended;
 				auto translucent = submitDesc.state;
 				submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER |
@@ -811,6 +1515,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				    });
 			}
 		}
+	}
+
+	if (desc.drawSky && desc.viewId == graphics::RenderPass::Main)
+	{
+		DrawClouds(graphics::RenderPass::MainBlended, *desc.camera);
+		DrawSun(graphics::RenderPass::MainBlended, *desc.camera, true);
 	}
 
 	// Enable stats or debug text.

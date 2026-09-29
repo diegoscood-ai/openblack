@@ -71,6 +71,11 @@ namespace lhvm
 class LHVM;
 }
 
+namespace mods
+{
+class ModRegistry;
+}
+
 namespace resources
 {
 class ResourcesInterface;
@@ -109,6 +114,7 @@ void ShutDownServices();
 struct Locator
 {
 	using config = entt::locator<EngineConfig>;
+	using mods = entt::locator<mods::ModRegistry>;
 	using infoConstants = entt::locator<const InfoConstants>;
 	using profiler = entt::locator<Profiler>;
 	using events = entt::locator<EventManager>;

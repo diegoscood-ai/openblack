@@ -16,10 +16,25 @@
 #include <spdlog/spdlog.h>
 #include <stb_image_write.h>
 
+#include "EngineConfig.h"
 #include "GraphicsHandleBgfx.h"
+#include "Locator.h"
+#include "TextureMipmaps.h"
+
+namespace bgfx
+{
+// Defined and exported by bgfx but not declared in bgfx.h: frees a Memory that is not handed to bgfx.
+void release(const Memory* _mem);
+} // namespace bgfx
 
 namespace openblack::graphics
 {
+
+Filter SurfaceTextureFilter()
+{
+	const auto& config = Locator::config::value();
+	return config.textureMipmaps || config.anisotropicFiltering ? Filter::LinearMipmapLinear : Filter::Linear;
+}
 
 Texture2D::Texture2D(std::string name)
     : _name(std::move(name))
@@ -60,11 +75,27 @@ void Texture2D::Create(uint16_t width, uint16_t height, uint16_t layers, Texture
 		break;
 	case Filter::Linear:
 		break;
+	case Filter::LinearMipmapLinear:
+		// mipmap mod: trilinear (the default bgfx mip filter), optionally anisotropic
+		if (Locator::config::value().anisotropicFiltering)
+		{
+			flags |= BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC;
+		}
+		break;
 	default:
 		assert(false);
 	}
-	_handle = fromBgfx(bgfx::createTexture2D(width, height, false, layers, toBgfx(format), flags,
-	                                         reinterpret_cast<const bgfx::Memory*>(memory)));
+
+	const auto* bgfxMemory = reinterpret_cast<const bgfx::Memory*>(memory);
+	const bool hasMips = filter == Filter::LinearMipmapLinear && bgfxMemory != nullptr;
+	if (hasMips)
+	{
+		const auto chain = BuildRgba8MipChain(bgfxMemory->data, width, height, layers, toBgfx(format));
+		bgfx::release(bgfxMemory);
+		bgfxMemory = bgfx::copy(chain.data(), static_cast<uint32_t>(chain.size()));
+		format = TextureFormat::RGBA8;
+	}
+	_handle = fromBgfx(bgfx::createTexture2D(width, height, hasMips, layers, toBgfx(format), flags, bgfxMemory));
 	bgfx::setName(toBgfx(_handle), _name.c_str());
 	bgfx::frame();
 

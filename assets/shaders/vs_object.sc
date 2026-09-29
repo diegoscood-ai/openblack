@@ -18,6 +18,31 @@ SAMPLER2D(s_heightmap, 1);
 uniform vec4 u_islandExtent;
 #endif // USE_HEIGHT_MAP
 
+#ifdef USE_INSTANCING
+// Model lighting of the original (fn_00801C90 + fn_0084BA90): the object takes the landscape light of the ground it
+// stands on, table[cell luminosity] interpolated bilinearly over the 4 cells around its origin, and the cells' r, g, b
+// as specular; each vertex gets ambient 90/256 + 166/256 * N.L with the light at (-500000, 500000, -500000).
+SAMPLER2D(s_cellMap, 2);   // per cell: rgb = the cell colour read as a D3DCOLOR (R and B swapped), a = luminosity
+SAMPLER2D(s_landLight, 3); // landscape light table, 256x1
+SAMPLER2D(s_cloudShadow, 4); // cloud shadow luminosity cap per cell
+uniform vec4 u_cellMap;     // xy: world position of the map's first cell, zw: map size in cells
+uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (the hand: x1.5, CHand::AddDrawing)
+uniform vec4 u_haze;        // x: near, y: far, z: k, w: on ("Fog" detail key)
+uniform vec4 u_hazeColour;  // rgb: fog colour 0..255
+
+vec4 CellTexel(vec2 cell)
+{
+	vec4 texel = texture2DLod(s_cellMap, (cell + 0.5f) / u_cellMap.zw, 0.0f);
+	texel.a = min(texel.a, texture2DLod(s_cloudShadow, (cell + 0.5f) / u_cellMap.zw, 0.0f).r);
+	return texel;
+}
+
+vec3 LandLight(float luminosity)
+{
+	return texture2DLod(s_landLight, vec2((floor(luminosity * 255.0f + 0.5f) + 0.5f) / 256.0f, 0.5f), 0.0f).rgb;
+}
+#endif // USE_INSTANCING
+
 void main()
 {
 	// Unpack
@@ -33,6 +58,8 @@ void main()
 #endif
 
 	v_position = mul(u_model[modelIndex], vec4(a_position.xyz, 1.0f));
+	// Normals follow the bone / model rotation and then the instance rotation (uniform scales only, renormalised)
+	vec3 normal = mul(u_model[modelIndex], vec4(a_normal.xyz, 0.0f)).xyz;
 
 #ifdef USE_INSTANCING
 	// The w of the first column carries 1 - opacity for fading meshes (0 for the others).
@@ -44,6 +71,7 @@ void main()
 	model[3] = i_data3;
 
 	v_position = instMul(model, v_position);
+	normal = instMul(model, vec4(normal, 0.0f)).xyz;
 #endif // USE_INSTANCING
 
 #ifdef USE_HEIGHT_MAP
@@ -66,11 +94,37 @@ void main()
 	// The w of the second column carries a texture V offset (scrolling food piles).
 	v_texcoord0.y += i_data1.w;
 #endif // USE_INSTANCING
+	vec3 specular = vec3_splat(0.0f);
 #ifdef USE_INSTANCING
-	v_color0 = vec4(1.0f, 1.0f, 1.0f, 1.0f - fade);
+	vec3 objectColour = vec3_splat(1.0f);
+	if (u_objectLight.x > 0.0f)
+	{
+		vec2 cellPosition = (i_data3.xz - u_cellMap.xy) * 0.1f;
+		vec2 cell = floor(cellPosition);
+		vec2 w = cellPosition - cell;
+		vec4 c00 = CellTexel(cell);
+		vec4 c10 = CellTexel(cell + vec2(1.0f, 0.0f));
+		vec4 c01 = CellTexel(cell + vec2(0.0f, 1.0f));
+		vec4 c11 = CellTexel(cell + vec2(1.0f, 1.0f));
+		objectColour = mix(mix(LandLight(c00.a), LandLight(c01.a), w.y), mix(LandLight(c10.a), LandLight(c11.a), w.y), w.x);
+		specular = mix(mix(c00.rgb, c01.rgb, w.y), mix(c10.rgb, c11.rgb, w.y), w.x);
+		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
+		// Distance haze once per object at its origin (fn_007FEB30); none closer than near
+		float originDepth = mul(u_view, vec4(i_data3.xyz, 1.0f)).z;
+		float hazeT = originDepth < u_haze.x ? 0.0f : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
+		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
+		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
+		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
+	}
+	v_color0 = vec4(objectColour, 1.0f - fade);
 #else
 	v_color0 = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 #endif // USE_INSTANCING
-	v_normal = a_normal;
+	v_normal = normal; // not normalised here: the sky mesh has zero normals
+	// The specular colour rides in the unused texcoord z/w and position w: vs_object is shared with the sky (fs_sky)
+	// and a new varying broke its interface
 	gl_Position = mul(u_viewProj, v_position);
+	v_texcoord0.zw = specular.rg;
+	v_position.w = specular.b;
 }

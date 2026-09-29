@@ -82,6 +82,21 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_footprint
 #include "ShaderIncluder.h"
+
+#define SHADER_NAME vs_static_shadow_instanced
+#include "ShaderIncluder.h"
+#define SHADER_NAME vs_celestial
+#include "ShaderIncluder.h"
+#define SHADER_NAME vs_dynamic_shadow_instanced
+#include "ShaderIncluder.h"
+#define SHADER_NAME vs_cloud
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_cloud
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_celestial
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_static_shadow
+#include "ShaderIncluder.h"
 // clang-format on
 
 namespace openblack::graphics
@@ -94,7 +109,7 @@ struct ShaderDefinition
 	const std::string_view fragmentShaderName;
 };
 
-const std::array<bgfx::EmbeddedShader, 17> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 24> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_line), BGFX_EMBEDDED_SHADER(vs_line_instanced),                                                   //
     BGFX_EMBEDDED_SHADER(fs_line),                                                                                            //
     BGFX_EMBEDDED_SHADER(vs_object), BGFX_EMBEDDED_SHADER(vs_object_instanced), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced), //
@@ -103,6 +118,10 @@ const std::array<bgfx::EmbeddedShader, 17> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_water), BGFX_EMBEDDED_SHADER(fs_water),                                                           //
     BGFX_EMBEDDED_SHADER(vs_sprite), BGFX_EMBEDDED_SHADER(fs_sprite),                                                         //
     BGFX_EMBEDDED_SHADER(vs_footprint_instanced), BGFX_EMBEDDED_SHADER(fs_footprint),                                         //
+    BGFX_EMBEDDED_SHADER(vs_static_shadow_instanced), BGFX_EMBEDDED_SHADER(fs_static_shadow),                                 //
+    BGFX_EMBEDDED_SHADER(vs_celestial), BGFX_EMBEDDED_SHADER(fs_celestial),                                                   //
+    BGFX_EMBEDDED_SHADER(vs_cloud), BGFX_EMBEDDED_SHADER(fs_cloud),                                                           //
+    BGFX_EMBEDDED_SHADER(vs_dynamic_shadow_instanced),                                                                        //
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
 
@@ -117,6 +136,10 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"Water", "vs_water", "fs_water"},
     ShaderDefinition {"Sprite", "vs_sprite", "fs_sprite"},
     ShaderDefinition {"FootprintInstanced", "vs_footprint_instanced", "fs_footprint"},
+    ShaderDefinition {"StaticShadowInstanced", "vs_static_shadow_instanced", "fs_static_shadow"},
+    ShaderDefinition {"Celestial", "vs_celestial", "fs_celestial"},
+    ShaderDefinition {"Cloud", "vs_cloud", "fs_cloud"},
+    ShaderDefinition {"DynamicShadowInstanced", "vs_dynamic_shadow_instanced", "fs_static_shadow"},
 };
 
 ShaderManager::~ShaderManager()

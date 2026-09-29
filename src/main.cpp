@@ -46,11 +46,19 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 	options.add_options()
 		("h,help", "Display this help message.")
 		("g,game-path", "Path to the Data/ and Scripts/ directories of the original Black & White game. (Required)", cxxopts::value<std::string>())
-		("W,width", "Window resolution in the x axis.", cxxopts::value<uint16_t>()->default_value("1280"))
-		("H,height", "Window resolution in the y axis.", cxxopts::value<uint16_t>()->default_value("1024"))
+		("W,width", "Window resolution in the x axis (0: fit the desktop).", cxxopts::value<uint16_t>()->default_value("0"))
+		("H,height", "Window resolution in the y axis (0: fit the desktop).", cxxopts::value<uint16_t>()->default_value("0"))
 		("u,ui-scale", "Scaling of the GUI", cxxopts::value<float>()->default_value("1.0"))
 		("s,start-level", "Level that is loaded at start-up", cxxopts::value<std::string>()->default_value("Land1.txt"))
 		("V,vsync", "Enable Vertical Sync.")
+		("detail-level", "Graphics detail level of the original, 0..6 (4 is the original's default, 5 custom, 6 top).", cxxopts::value<uint16_t>()->default_value("4"))
+		("mod", "Turn a mod on or off for this session: <mod>, <mod>=off or <mod>.<option>=<choice> (see mods.cfg and the Mods menu). Repeatable.", cxxopts::value<std::vector<std::string>>())
+		("ground-static-objects", "Same as --mod world.ground-statics.")
+		("msaa", "Same as --mod graphics.msaa --mod graphics.msaa.samples=<N>x (2, 4, 8 or 16).", cxxopts::value<uint16_t>())
+		("mipmaps", "Same as --mod graphics.mipmaps.")
+		("anisotropic", "Same as --mod graphics.anisotropic.")
+		("enhanced-graphics", "Same as --msaa 4 --anisotropic.")
+		("living-water", "Same as --mod water.living.")
 		("m,window-mode", "Which mode to run window.", cxxopts::value<std::string>()->default_value("windowed"))
 		("b,backend-type", "Which backend to use for rendering.", cxxopts::value<std::string>())
 		("n,num-frames-to-simulate", "Number of frames to simulate before quitting.", cxxopts::value<uint32_t>()->default_value("0"))
@@ -177,6 +185,42 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 		args.windowHeight = result["height"].as<uint16_t>();
 		args.guiScale = result["ui-scale"].as<float>();
 		args.vsync = result["vsync"].as<bool>();
+		args.detailLevel = static_cast<uint8_t>(std::min<uint16_t>(result["detail-level"].as<uint16_t>(), 6));
+		// Mods (src/Mods): the older switches are shorthands for --mod
+		auto& mods = args.modArguments;
+		const bool enhancedGraphics = result["enhanced-graphics"].as<bool>();
+		if (result["ground-static-objects"].as<bool>())
+		{
+			mods.emplace_back("world.ground-statics");
+		}
+		if (result.count("msaa") != 0 || enhancedGraphics)
+		{
+			const auto samples = result.count("msaa") != 0 ? result["msaa"].as<uint16_t>() : uint16_t {4};
+			mods.emplace_back(samples == 0 ? "graphics.msaa=off" : "graphics.msaa");
+			if (samples != 0)
+			{
+				mods.push_back("graphics.msaa.samples=" + std::to_string(samples) + "x");
+			}
+		}
+		if (result["mipmaps"].as<bool>())
+		{
+			mods.emplace_back("graphics.mipmaps");
+		}
+		if (result["anisotropic"].as<bool>() || enhancedGraphics)
+		{
+			mods.emplace_back("graphics.anisotropic");
+		}
+		if (result["living-water"].as<bool>())
+		{
+			mods.emplace_back("water.living");
+		}
+		if (result.count("mod") != 0)
+		{
+			for (const auto& mod : result["mod"].as<std::vector<std::string>>())
+			{
+				mods.push_back(mod);
+			}
+		}
 		args.displayMode = displayMode;
 		args.graphicsBackend = graphicsBackend;
 		args.numFramesToSimulate = result["num-frames-to-simulate"].as<uint32_t>();

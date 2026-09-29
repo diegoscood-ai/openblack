@@ -14,8 +14,19 @@
 #include <glm/gtx/transform.hpp>
 
 #include "3D/L3DMesh.h"
-#include "ECS/Components/Alpha.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/Fixed.h"
+#include "ECS/Components/Forest.h"
+#include "ECS/Components/Hand.h"
+#include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Tree.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/Alpha.h"
+#include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Stream.h"
@@ -32,6 +43,19 @@ using namespace openblack::ecs::systems;
 using namespace openblack::ecs::components;
 
 RenderingSystem::~RenderingSystem() = default;
+
+namespace
+{
+/// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
+/// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
+/// ...); villagers and the creature have blob / dynamic shadows instead.
+bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity entity)
+{
+	return registry.AnyOf<Fixed, MobileStatic, MobileObject, Tree, Abode, Feature, BigForest>(entity) &&
+	       !registry.AnyOf<Pot, AnimatedStatic, DeadTree, Field, Villager, Creature, Hand, Alpha, TempleInteriorPart>(entity);
+}
+} // namespace
+
 
 void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 {
@@ -59,6 +83,16 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		    ++instanceCount;
 	    },
 	    entt::exclude<TempleInteriorPart>);
+
+	std::unordered_map<entt::id_type, uint32_t> shadowCasterIds;
+	registry.Each<const Mesh, const Transform>([&registry, &shadowCasterIds, &instanceCount](entt::entity entity, const Mesh& mesh,
+	                                                                                        const Transform& /*unused*/) {
+		if (CastsStaticShadow(registry, entity))
+		{
+			++shadowCasterIds[mesh.id];
+			++instanceCount;
+		}
+	});
 
 	if (drawBoundingBox)
 	{
@@ -101,6 +135,13 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		                                            std::forward_as_tuple(offset, count, false));
 		offset += count;
 	}
+	_renderContext.shadowCasterDrawDescs.clear();
+	for (const auto& [meshId, count] : shadowCasterIds)
+	{
+		_renderContext.shadowCasterDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
+		                                             std::forward_as_tuple(offset, count, false));
+		offset += count;
+	}
 }
 
 void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
@@ -110,11 +151,12 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	// Store offsets of uniforms for descs
 	std::map<entt::id_type, uint32_t> uniformOffsets;
 	std::map<entt::id_type, uint32_t> translucentOffsets;
+	std::map<entt::id_type, uint32_t> shadowCasterOffsets;
 
 	// Set transforms for instanced draw at offsets
 	registry.Each<const Mesh, const Transform>(
-	    [this, &registry, &uniformOffsets, &translucentOffsets, drawBoundingBox](entt::entity entity, const Mesh& mesh,
-	                                                                               const Transform& transform) {
+	    [this, &registry, &uniformOffsets, &translucentOffsets, &shadowCasterOffsets,
+	     drawBoundingBox](entt::entity entity, const Mesh& mesh, const Transform& transform) {
 		    const auto* alpha = registry.TryGet<const Alpha>(entity);
 		    auto offset = (alpha != nullptr ? translucentOffsets : uniformOffsets).insert(std::make_pair(mesh.id, 0));
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
@@ -125,6 +167,16 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;
 		    _renderContext.instanceUniforms[idx] = modelMatrix;
+		    if (CastsStaticShadow(registry, entity))
+		    {
+			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(mesh.id, 0));
+			    const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(mesh.id);
+			    if (casterDesc != _renderContext.shadowCasterDrawDescs.end())
+			    {
+				    _renderContext.instanceUniforms[casterDesc->second.offset + casterOffset.first->second] = modelMatrix;
+				    casterOffset.first->second++;
+			    }
+		    }
 		    if (alpha != nullptr)
 		    {
 			    _renderContext.instanceUniforms[idx][0][3] = 1.0f - glm::clamp(alpha->value, 0.0f, 1.0f);

@@ -25,3 +25,8 @@ vec3 v_materialBlend     : COLOR2;
 float v_lightLevel       : COLOR3;
 float v_waterAlpha       : COLOR4;
 float v_distToCamera     : DEPTH0;
+float v_smallBumpFade    : TEXCOORD3;
+vec3 v_landLight         : TEXCOORD4;
+vec3 v_landSpecular      : TEXCOORD6;
+vec2 v_worldXZ           : TEXCOORD7;
+float v_worldY           : TEXCOORD5;

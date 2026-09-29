@@ -100,7 +100,7 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromPackTag, const std:
 	}
 
 	texture2D->Create(static_cast<uint16_t>(g3dTexture.ddsHeader.width), static_cast<uint16_t>(g3dTexture.ddsHeader.height), 1,
-	                  internalFormat, graphics::Wrapping::Repeat, graphics::Filter::Linear,
+	                  internalFormat, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
 	                  bgfx::makeRef(g3dTexture.ddsData.data(), static_cast<uint32_t>(g3dTexture.ddsData.size())));
 	return texture2D;
 }
@@ -143,7 +143,7 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 	}
 
 	auto texture = std::make_shared<graphics::Texture2D>(("raw" / rawTexturePath.stem()).string());
-	texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::Filter::Linear,
+	texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
 	                bgfx::makeRef(data.data(), static_cast<uint32_t>(data.size())));
 
 	return texture;

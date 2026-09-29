@@ -11,6 +11,8 @@
 
 #include "Gui.h"
 
+#include <algorithm>
+#include <array>
 #include <cinttypes>
 #include <cmath>
 
@@ -55,10 +57,12 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/RendererInterface.h"
 #include "ImGuiUtils.h"
 #include "LHVMViewer.h"
 #include "LandIsland.h"
 #include "Locator.h"
+#include "Mods/ModRegistry.h"
 #include "MeshViewer.h"
 #include "PathFinding.h"
 #include "Profiler.h"
@@ -457,6 +461,69 @@ void Gui::Draw() noexcept
 	RenderDrawDataBgfx(ImGui::GetDrawData());
 }
 
+void Gui::DrawModsMenu() noexcept
+{
+	auto& registry = Locator::mods::value();
+	ImGui::TextDisabled("Changes to the original game, all off by default (saved in mods.cfg)");
+	std::string category;
+	bool anyRestart = false;
+	bool anyDataMod = false;
+	for (const auto& mod : registry.GetMods())
+	{
+		const auto& info = mod->GetInfo();
+		if (info.category != category)
+		{
+			category = info.category;
+			ImGui::Separator();
+			ImGui::TextUnformatted(category.c_str());
+		}
+		anyRestart |= info.restartRequired;
+		anyDataMod |= info.id.starts_with("data.");
+		ImGui::PushID(info.id.c_str());
+		bool enabled = mod->IsEnabled();
+		const auto label = info.restartRequired ? info.name + " *" : info.name;
+		if (ImGui::Checkbox(label.c_str(), &enabled))
+		{
+			registry.SetEnabled(*mod, enabled);
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("%s\n--mod %s", info.description.c_str(), info.id.c_str());
+		}
+		const auto& options = mod->GetOptions();
+		for (size_t i = 0; i < options.size(); ++i)
+		{
+			const auto& option = options[i];
+			ImGui::Indent();
+			ImGui::BeginDisabled(!mod->IsEnabled());
+			ImGui::SetNextItemWidth(120.0f);
+			if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
+			{
+				for (size_t choice = 0; choice < option.choices.size(); ++choice)
+				{
+					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
+					{
+						registry.SetOption(*mod, i, choice);
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::EndDisabled();
+			ImGui::Unindent();
+		}
+		ImGui::PopID();
+	}
+	ImGui::Separator();
+	if (!anyDataMod)
+	{
+		ImGui::TextDisabled("Data mods: folders in %s", registry.GetModsDirectory().generic_string().c_str());
+	}
+	if (anyRestart)
+	{
+		ImGui::TextDisabled("* takes effect after a restart");
+	}
+}
+
 bool Gui::ShowMenu() noexcept
 {
 	if (ImGui::BeginMainMenuBar())
@@ -526,7 +593,21 @@ bool Gui::ShowMenu() noexcept
 
 			ImGui::Text("Sky Type Index %f", Locator::skySystem::value().GetCurrentSkyType());
 			ImGui::SliderFloat("Sky alignment", &config.skyAlignment, -1.0f, 1.0f, "%.3f");
+			{
+				int detail = config.detailLevel;
+				if (ImGui::SliderInt("Detail level (original)", &detail, 0, 6))
+				{
+					config.detailLevel = static_cast<uint8_t>(detail);
+				}
+			}
 
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Mods"))
+		{
+			DrawModsMenu();
 			ImGui::EndMenu();
 		}
 

@@ -22,6 +22,8 @@ struct Mobile
 struct MobileStatic
 {
 	MobileStaticInfo type; ///< This is 32 bits but could be 8 bits if stored in uint8_t
+	/// openblack (StaticGrounding): how far the object was lowered onto the landscape, 0 when it is where the script put it.
+	float groundedDrop {0.0f};
 };
 
 struct MobileObject

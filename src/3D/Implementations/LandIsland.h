@@ -42,6 +42,7 @@ public:
 
 private:
 	[[nodiscard]] std::vector<uint8_t> CreateHeightMap() const;
+	[[nodiscard]] std::vector<uint8_t> CreateCellMap() const;
 	std::vector<LandBlock> _landBlocks;
 	std::vector<lnd::LNDCountry> _countries;
 
@@ -55,7 +56,10 @@ public:
 
 	[[nodiscard]] const graphics::Texture2D& GetAlbedoArray() const override { return *_materialArray; }
 	[[nodiscard]] const graphics::Texture2D& GetBump() const override { return *_textureBumpMap; }
+	[[nodiscard]] const graphics::Texture2D& GetSmallBump() const override { return *_smallBump; }
 	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const override { return *_heightMap; }
+	[[nodiscard]] const graphics::Texture2D& GetCellMap() const override { return *_cellMap; }
+	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const override { return *_staticShadowFrameBuffer; }
 	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const override { return *_footprintFrameBuffer; }
 
 	[[nodiscard]] glm::mat4 GetOrthoView() const override { return _view; }
@@ -70,8 +74,11 @@ private:
 	std::unique_ptr<graphics::Texture2D> _countryLookup;
 
 	std::unique_ptr<graphics::Texture2D> _heightMap;
+	std::unique_ptr<graphics::Texture2D> _cellMap;
+	std::unique_ptr<graphics::FrameBuffer> _staticShadowFrameBuffer;
 	std::unique_ptr<graphics::Texture2D> _textureNoiseMap;
 	std::unique_ptr<graphics::Texture2D> _textureBumpMap;
+	std::unique_ptr<graphics::Texture2D> _smallBump;
 
 	std::unique_ptr<graphics::FrameBuffer> _footprintFrameBuffer;
 	glm::mat4 _proj;

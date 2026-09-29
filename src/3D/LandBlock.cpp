@@ -25,13 +25,13 @@ using namespace openblack;
 using namespace openblack::graphics;
 
 LandVertex::LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat,
-                       const glm::uvec3& blend, uint8_t lightLevel, float alpha)
+                       const glm::uvec3& blend, uint8_t lightLevel, glm::u8vec3 cellColour, float alpha)
     : position {position}
     , weight {weight}
     , firstMaterialID {static_cast<uint8_t>(mat[0]), static_cast<uint8_t>(mat[1]), static_cast<uint8_t>(mat[2]), 0u}
     , secondMaterialID {static_cast<uint8_t>(mat[3]), static_cast<uint8_t>(mat[4]), static_cast<uint8_t>(mat[5]), 0u}
     , materialBlendCoefficient {blend, 0u}
-    , lightLevel {lightLevel}
+    , lightLevel {lightLevel, cellColour}
     , waterAlpha {alpha}
 {
 }
@@ -171,7 +171,9 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				const auto& cell = *cells[static_cast<size_t>(corner)];
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity, getAlpha(cell.properties)};
+				// vertex specular = the cell's first dword read as a D3DCOLOR (fn_00874AA0): r, g, b bytes -> blue, green, red
+				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity,
+				        glm::u8vec3(cell.b, cell.g, cell.r), getAlpha(cell.properties)};
 			};
 
 			auto makeTriangle = [&makeVert, &vertices, &index](const std::array<Corner, 3>& corners, bool forward) {

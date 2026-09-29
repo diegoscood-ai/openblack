@@ -47,6 +47,10 @@ public:
 	/// 2 -> Day (max value)
 	[[nodiscard]] float GetCurrentSkyType() const noexcept override;
 	[[nodiscard]] graphics::L3DMesh& GetMesh() const noexcept override { return *_mesh; }
+	[[nodiscard]] graphics::L3DMesh& GetSunMesh() const noexcept override { return *_sunMesh; }
+	[[nodiscard]] graphics::L3DMesh& GetMoonMesh() const noexcept override { return *_moonMesh; }
+	[[nodiscard]] graphics::L3DMesh& GetCloudMesh() const noexcept override { return *_cloudMesh; }
+	[[nodiscard]] float GetTime() const noexcept override { return _timeOfDay; }
 	[[nodiscard]] graphics::Texture2D& GetTexture() const noexcept override { return *_texture; }
 
 private:
@@ -67,6 +71,9 @@ private:
 	};
 
 	std::unique_ptr<graphics::L3DMesh> _mesh;
+	std::unique_ptr<graphics::L3DMesh> _sunMesh;
+	std::unique_ptr<graphics::L3DMesh> _moonMesh;
+	std::unique_ptr<graphics::L3DMesh> _cloudMesh;
 	std::unique_ptr<graphics::Texture2D> _texture; // TODO(bwrsandman): put in a resource manager and store look-up
 
 	std::array<uint16_t, k_TextureResolution[0] * k_TextureResolution[1] * k_TextureResolution[2]> _bitmaps;

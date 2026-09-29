@@ -77,7 +77,10 @@ class MockTerrain final: public openblack::LandIslandInterface
 	[[nodiscard]] const std::vector<openblack::lnd::LNDCountry>& GetCountries() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetAlbedoArray() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetBump() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetSmallBump() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetHeightMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetCellMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::FrameBuffer& GetStaticShadowFramebuffer() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::FrameBuffer& GetFootprintFramebuffer() const final { assert(false); }
 	[[nodiscard]] openblack::U16Extent2 GetIndexExtent() const final { assert(false); }
 	[[nodiscard]] glm::mat4 GetOrthoView() const final { assert(false); }

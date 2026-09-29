@@ -17,6 +17,8 @@
 #include <BulletDynamics/Dynamics/btRigidBody.h>
 #include <LNDFile.h>
 #include <bgfx/bgfx.h>
+#include <bimg/bimg.h>
+#include <bx/allocator.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
@@ -24,10 +26,12 @@
 
 #include "3D/LandBlock.h"
 #include "Dynamics/LandBlockBulletMeshInterface.h"
+#include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Texture2D.h"
+#include "Graphics/TextureUpscale.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -36,6 +40,53 @@ using namespace openblack::graphics;
 const uint8_t LandIslandInterface::k_CellCount = 16;
 const float LandIslandInterface::k_HeightUnit = 0.67f;
 const float LandIslandInterface::k_CellSize = 10.0f;
+
+namespace
+{
+/// Clamped like the original, or repeated when the terrain-x2 mod tiles the materials more than once per block
+Wrapping MaterialWrapping()
+{
+	return Locator::config::value().terrainTextureDensity > 1.0f ? Wrapping::Repeat : Wrapping::ClampEdge;
+}
+
+/// The small bump texture as the original builds it (fn_00804830 loads ".\data\Textures\smallbump.raw" with the
+/// alpha flag; fn_00837400 packs it to ARGB4444 and ORs in "smallbumpa.raw" as the alpha nibble).
+std::unique_ptr<Texture2D> CreateSmallBumpTexture()
+{
+	constexpr uint16_t k_Size = 256;
+	constexpr size_t k_Pixels = static_cast<size_t>(k_Size) * k_Size;
+	std::vector<uint8_t> rgba(k_Pixels * 4, 0);
+	try
+	{
+		auto& fileSystem = Locator::filesystem::value();
+		const auto directory = fileSystem.GetPath<filesystem::Path::Textures>();
+		const auto rgb = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbump.raw"));
+		const auto alpha = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbumpa.raw"));
+		if (rgb.size() != k_Pixels * 3 || alpha.size() != k_Pixels)
+		{
+			throw std::runtime_error("unexpected size");
+		}
+		// 4 bits per channel, expanded the way D3D samples an ARGB4444 surface
+		const auto quantise = [](uint8_t v) { return static_cast<uint8_t>((v & 0xF0) | (v >> 4)); };
+		for (size_t i = 0; i < k_Pixels; ++i)
+		{
+			rgba[i * 4 + 0] = quantise(rgb[i * 3 + 0]);
+			rgba[i * 4 + 1] = quantise(rgb[i * 3 + 1]);
+			rgba[i * 4 + 2] = quantise(rgb[i * 3 + 2]);
+			rgba[i * 4 + 3] = quantise(alpha[i]);
+		}
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_LOGGER_WARN(spdlog::get("game"), "[LandIsland] no small bump detail (smallbump.raw / smallbumpa.raw): {}",
+		                   e.what());
+	}
+	auto texture = std::make_unique<Texture2D>("LandIslandSmallBump");
+	texture->Create(k_Size, k_Size, 1, TextureFormat::RGBA8, Wrapping::Repeat, SurfaceTextureFilter(),
+	                bgfx::copy(rgba.data(), static_cast<uint32_t>(rgba.size())));
+	return texture;
+}
+} // namespace
 
 LandIsland::LandIsland(const std::filesystem::path& path)
 {
@@ -104,8 +155,15 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	                   Wrapping::ClampEdge, Filter::Linear,
 	                   bgfx::makeRef(heightMapData.data(), static_cast<uint32_t>(heightMapData.size())));
 
+	_cellMap = std::make_unique<Texture2D>("Cell Map");
+	const auto cellMapData = CreateCellMap();
+	_cellMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::RGBA8,
+	                 Wrapping::ClampEdge, Filter::Nearest,
+	                 bgfx::copy(cellMapData.data(), static_cast<uint32_t>(cellMapData.size())));
+
 	const auto res = indexSize * glm::u16vec2(lnd::LNDMaterial::k_Width, lnd::LNDMaterial::k_Height);
 	_footprintFrameBuffer = std::make_unique<FrameBuffer>("Footprints", res.x, res.y, graphics::TextureFormat::RGBA8);
+	_staticShadowFrameBuffer = std::make_unique<FrameBuffer>("StaticShadows", res.x, res.y, graphics::TextureFormat::R8);
 
 	_proj = glm::ortho(_extentMin.x, _extentMax.x, _extentMin.y, _extentMax.y);
 	_view = glm::rotate(glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -124,10 +182,30 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 		            sizeof(lnd.GetMaterials()[i].texels[0]) * lnd.GetMaterials()[i].texels.size());
 	}
 	_materialArray = std::make_unique<Texture2D>("LandIslandMaterialArray");
-	_materialArray->Create(
-	    lnd::LNDMaterial::k_Width, lnd::LNDMaterial::k_Height, materialCount, TextureFormat::BGR5A1, Wrapping::ClampEdge,
-	    Filter::Linear,
-	    bgfx::makeRef(rgba5TextureData.data(), static_cast<uint32_t>(rgba5TextureData.size() * sizeof(rgba5TextureData[0]))));
+	if (Locator::config::value().terrainTexturesX2)
+	{
+		// Mod graphics.terrain-x2: decode the 5-bit texels and upscale every material 2x
+		constexpr auto k_Width = lnd::LNDMaterial::k_Width;
+		constexpr auto k_Height = lnd::LNDMaterial::k_Height;
+		std::vector<uint8_t> rgba8(static_cast<size_t>(k_Width) * k_Height * 4 * materialCount);
+		bx::DefaultAllocator allocator;
+		for (uint16_t layer = 0; layer < materialCount; ++layer)
+		{
+			bimg::imageDecodeToRgba8(&allocator, &rgba8[static_cast<size_t>(k_Width) * k_Height * 4 * layer],
+			                         &rgba5TextureData[static_cast<size_t>(k_Width) * k_Height * layer], k_Width, k_Height,
+			                         k_Width * 4, bimg::TextureFormat::BGR5A1);
+		}
+		const auto upscaled = UpscaleRgba8Lanczos2x(rgba8.data(), k_Width, k_Height, materialCount);
+		_materialArray->Create(k_Width * 2, k_Height * 2, materialCount, TextureFormat::RGBA8, MaterialWrapping(),
+		                       SurfaceTextureFilter(), bgfx::copy(upscaled.data(), static_cast<uint32_t>(upscaled.size())));
+	}
+	else
+	{
+		_materialArray->Create(
+		    lnd::LNDMaterial::k_Width, lnd::LNDMaterial::k_Height, materialCount, TextureFormat::BGR5A1,
+		    MaterialWrapping(), SurfaceTextureFilter(),
+		    bgfx::makeRef(rgba5TextureData.data(), static_cast<uint32_t>(rgba5TextureData.size() * sizeof(rgba5TextureData[0]))));
+	}
 
 	// read noise map into Texture2D
 	_noiseMap = lnd.GetExtra().noise.texels;
@@ -139,9 +217,11 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	// read bump map into Texture2D
 	_textureBumpMap = std::make_unique<Texture2D>("LandIslandBumpMap");
 	_textureBumpMap->Create(
-	    lnd::LNDBumpMap::k_Width, lnd::LNDBumpMap::k_Height, 1, TextureFormat::R8, Wrapping::Repeat, Filter::Linear,
+	    lnd::LNDBumpMap::k_Width, lnd::LNDBumpMap::k_Height, 1, TextureFormat::R8, Wrapping::Repeat, SurfaceTextureFilter(),
 	    bgfx::makeRef(lnd.GetExtra().bump.texels.data(),
 	                  static_cast<uint32_t>(sizeof(lnd.GetExtra().bump.texels[0]) * lnd.GetExtra().bump.texels.size())));
+
+	_smallBump = CreateSmallBumpTexture();
 
 	// build the meshes (we could move this elsewhere)
 	for (auto& block : _landBlocks)
@@ -332,6 +412,38 @@ std::vector<uint8_t> LandIsland::CreateHeightMap() const
 				{
 					data.at((cellPos.y * resolution.x) + cellPos.x) = cell.altitude;
 				}
+			}
+		}
+	}
+	return data;
+}
+
+std::vector<uint8_t> LandIsland::CreateCellMap() const
+{
+	const auto extentSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
+	const auto resolution = extentSize * static_cast<uint16_t>(k_CellCount) + static_cast<uint16_t>(1);
+	std::vector<uint8_t> data(static_cast<size_t>(resolution.x) * resolution.y * 4, 0);
+	for (const auto& block : _landBlocks)
+	{
+		const auto blockOffset = static_cast<glm::u16vec2>(block.GetBlockPosition() * 16);
+		const auto mapPos = block.GetBlockPosition() - static_cast<glm::ivec2>(_extentIndexMin);
+		// 17 x 17: the last row and column are the first ones of the next block
+		for (int y = 0; y <= k_CellCount; y++)
+		{
+			for (int x = 0; x <= k_CellCount; x++)
+			{
+				const auto cellPos = mapPos * static_cast<int>(k_CellCount) + glm::ivec2(x, y);
+				if (cellPos.x >= resolution.x || cellPos.y >= resolution.y)
+				{
+					continue;
+				}
+				const auto& cell = GetCell(blockOffset + glm::u16vec2(x, y));
+				auto* texel = &data[(static_cast<size_t>(cellPos.y) * resolution.x + cellPos.x) * 4];
+				// fn_00801C90 reads the cell's first dword as a D3DCOLOR: bytes r, g, b -> blue, green, red
+				texel[0] = cell.b;
+				texel[1] = cell.g;
+				texel[2] = cell.r;
+				texel[3] = cell.luminosity;
 			}
 		}
 	}

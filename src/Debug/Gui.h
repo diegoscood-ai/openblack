@@ -52,6 +52,8 @@ private:
 	                                             const std::string& text, const glm::vec4& color, const ImVec2& pos,
 	                                             float arrowLength, std::function<void(void)> debugCallback) const noexcept;
 	bool ShowMenu() noexcept;
+	/// The Mods menu, generated from the mod library (Locator::mods)
+	void DrawModsMenu() noexcept;
 	void ShowVillagerNames() noexcept;
 	void ShowCameraPositionOverlay() noexcept;
 

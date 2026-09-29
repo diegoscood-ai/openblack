@@ -18,6 +18,8 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/StaticGrounding.h"
+#include "EngineConfig.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -52,6 +54,10 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 	registry.Assign<MobileStatic>(entity, type);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
+	if (Locator::config::has_value() && Locator::config::value().groundStaticObjects)
+	{
+		StaticGrounding::Ground(entity);
+	}
 
 	return entity;
 }

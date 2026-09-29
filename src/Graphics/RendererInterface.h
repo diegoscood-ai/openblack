@@ -77,6 +77,7 @@ public:
 		bool isSky;
 		bool drawAll; ///< For use in the mesh viewer
 		bool morphWithTerrain;
+		float lightBoost {1.0f}; ///< model colour multiplier (the hand: 1.5, CHand::AddDrawing 0x46D135)
 	};
 
 	static std::unique_ptr<RendererInterface> Create(GraphicsBackend backend, bool vsync) noexcept;

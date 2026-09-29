@@ -66,12 +66,27 @@ public:
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
+	[[nodiscard]] const graphics::Texture2D& GetSmallBump() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
 	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
+	[[nodiscard]] const graphics::Texture2D& GetCellMap() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
 	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
+	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}

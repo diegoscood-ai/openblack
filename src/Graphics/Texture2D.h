@@ -151,6 +151,10 @@ enum class Wrapping : uint8_t
 	MirroredRepeat,
 };
 
+/// Filter for surface textures (models, landscape, water): Linear like the original (no mip levels), or
+/// LinearMipmapLinear when the mipmap / anisotropic mods are on (Texture2D::Create builds the chain).
+Filter SurfaceTextureFilter();
+
 class FrameBuffer;
 
 class Texture2D

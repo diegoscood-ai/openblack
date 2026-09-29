@@ -50,7 +50,27 @@ struct EngineConfig
 	bool drawStreams {false};
 
 	bool vsync {false};
+	/// The original's graphics detail level 0..6 (Graphics/DetailLevel.h); 4 is the original's default
+	uint8_t detailLevel {4};
 	bool running {false};
+
+	// Mods: changes to the original behaviour, all off by default
+	/// Lower floating rocks and other mobile statics onto the landscape (StaticGrounding).
+	bool groundStaticObjects {false};
+	/// Multisample anti-aliasing of the backbuffer: 0 (off, as the original), 2, 4, 8 or 16 samples. With MSAA on, alpha
+	/// cut-outs (leaves, fences) use alpha to coverage for smooth edges.
+	uint8_t msaa {0};
+	/// Mip levels and trilinear filtering for model, landscape and water textures (the original had no mip levels).
+	bool textureMipmaps {false};
+	/// Anisotropic filtering of those textures (implies textureMipmaps).
+	bool anisotropicFiltering {false};
+	/// Landscape material textures upscaled 2x (Lanczos-3) when the island loads (the original's are 256x256).
+	bool terrainTexturesX2 {false};
+	/// Landscape material textures repeated this many times per block (the original: once).
+	float terrainTextureDensity {1.0f};
+	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
+	/// reflection ripples with moving waves in a loop (the original's reflection is static).
+	bool livingWater {false};
 
 	float timeOfDay {12.0f};
 	float skyAlignment {0.0f};

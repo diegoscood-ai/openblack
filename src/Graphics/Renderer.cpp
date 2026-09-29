@@ -59,6 +59,7 @@
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
+#include "Graphics/PhysicsShadows.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
@@ -315,6 +316,7 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
     , _bgfxCallback(std::move(bgfxCallback))
     , _bgfxReset(bgfxReset)
 {
+    , _physicsShadows(std::make_unique<PhysicsShadows>())
 	_shaderManager->LoadShaders();
 	_plane = Primitive::CreatePlane();
 
@@ -340,6 +342,7 @@ Renderer::~Renderer() noexcept
 	if (bgfx::isValid(_landLightTexture))
 	{
 		bgfx::destroy(_landLightTexture);
+	_physicsShadows.reset();
 	}
 	if (bgfx::isValid(_cloudShadowTexture))
 	{
@@ -450,7 +453,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		const bool blended = prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha;
 		const auto sameMaterial = [&prim](const L3DSubMesh::Primitive& other) {
 			return other.blend == prim.blend && other.thresholdAlpha == prim.thresholdAlpha &&
-			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold;
+			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold &&
+			       other.wrap == prim.wrap;
 		};
 		const bool primitivePreserveState = texture != nullptr && texture == nextTexture && sameMaterial(*std::next(it)) &&
 		                                    (preserveState || hasNext);
@@ -469,7 +473,13 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			if (texture != nullptr)
 			{
-				program->SetTextureSampler("s_diffuse", 0, *texture);
+				// Materials without the tiling bit are clamped (LH3DRender::SetD3DTillingOff; the global
+				// g_b_need_tilling is only set for particle meshes)
+				const uint32_t samplerFlags =
+				    prim.wrap ? UINT32_MAX
+				              : (texture->GetSamplerFlags() & ~(BGFX_SAMPLER_U_MASK | BGFX_SAMPLER_V_MASK)) |
+				                    BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+				program->SetTextureSampler("s_diffuse", 0, *texture, samplerFlags);
 			}
 			if (desc.morphWithTerrain)
 			{
@@ -1247,6 +1257,7 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 			bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 		}
 	}
+	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
 }
 
 void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
@@ -1255,6 +1266,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	{
 		return;
 	}
+			program->SetUniformValue("u_shadowSlot", &u_shadowSlot);
 	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	const auto& registry = Locator::entitiesRegistry::value();
@@ -1705,6 +1717,11 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 			drawPassDesc.cullBack = true;
 
 			DrawPass(drawPassDesc);
+	if (drawDesc.drawIsland && drawDesc.drawEntities)
+	{
+		_physicsShadows->Update(*drawDesc.camera);
+		_physicsShadows->Draw(*_shaderManager);
+	}
 		}
 	}
 
@@ -2097,6 +2114,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				terrainShader->SetUniformValue("u_blockPositionAndSize", &mapPositionAndSize);
 
 				block.GetMesh().GetVertexBuffer().Bind();
+			_physicsShadows->BindTerrain(*terrainShader,
+			                             desc.viewId == graphics::RenderPass::Main && desc.drawEntities);
 
 				bgfx::setState(defaultState | (desc.cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW), 0);
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
@@ -2184,6 +2203,32 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				}
 				else
 				{
+		const auto drawSprite = [this, &spriteShader](const ecs::components::Sprite& sprite,
+		                                              const ecs::components::Transform& transform, RenderPass viewId) {
+			glm::mat4 modelMatrix = glm::mat4(1.0f);
+			modelMatrix = glm::translate(modelMatrix, transform.position);
+			modelMatrix *= glm::mat4(transform.rotation);
+			modelMatrix = glm::scale(modelMatrix, transform.scale);
+
+			glm::vec4 u_sampleRect(sprite.uvExtent, sprite.uvMin);
+
+			bgfx::setTransform(glm::value_ptr(modelMatrix));
+			spriteShader->SetUniformValue("u_sampleRect", glm::value_ptr(u_sampleRect));
+			spriteShader->SetUniformValue("u_tint", glm::value_ptr(sprite.tint));
+			spriteShader->SetTextureSampler("s_diffuse", 0, sprite.texture);
+
+			_plane->GetVertexBuffer().Bind();
+
+			const auto blend = sprite.additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
+			                                   : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+			bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
+			               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
+		};
+		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
+		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
+
 					const static auto identity = glm::mat4(1.0f);
 					submitDesc.modelMatrices = &identity;
 					submitDesc.matrixCount = 1;
@@ -2237,6 +2282,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				if (sortBlended && hasBlended(*mesh))
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
+				entt::entity sprite {entt::null};
 					{
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
 						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, false});
@@ -2316,6 +2362,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(debugShaderInstanced->GetRawHandle()));
 				}
 				if (renderCtx.footpaths)
+			if (spritesSorted)
+			{
+				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
+				    [&sorted, &cameraOrigin](entt::entity entity, const auto&, const ecs::components::Transform& transform) {
+					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
+				    });
+			}
 				{
 					renderCtx.footpaths->GetVertexBuffer().Bind();
 					bgfx::setState(k_BgfxDefaultStateInvertedZ | BGFX_STATE_PT_LINES);
@@ -2324,8 +2377,16 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				if (renderCtx.streams)
 				{
 					renderCtx.streams->GetVertexBuffer().Bind();
+				auto& spriteRegistry = Locator::entitiesRegistry::value();
 					bgfx::setState(k_BgfxDefaultStateInvertedZ | BGFX_STATE_PT_LINES);
 					bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(debugShader->GetRawHandle()));
+					if (instance.sprite != entt::null)
+					{
+						const auto& [sprite, transform] =
+						    spriteRegistry.Get<const ecs::components::Sprite, const ecs::components::Transform>(instance.sprite);
+						drawSprite(sprite, transform, graphics::RenderPass::MainBlended);
+						continue;
+					}
 				}
 			}
 		}
@@ -2335,34 +2396,15 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			    profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawSprites
 			                                                               : Profiler::Stage::MainPassDrawSprites);
 
-			if (desc.drawSprites)
+			// In the main pass the sprites went through the back-to-front list with the blended models
+			if (desc.drawSprites && !spritesSorted)
 			{
 				using namespace ecs::components;
 
 				auto& registry = Locator::entitiesRegistry::value();
 				registry.Each<const Sprite, const Transform>(
-				    [this, &spriteShader, &desc](const Sprite& sprite, const Transform& transform) {
-					    glm::mat4 modelMatrix = glm::mat4(1.0f);
-					    modelMatrix = glm::translate(modelMatrix, transform.position);
-					    modelMatrix *= glm::mat4(transform.rotation);
-					    modelMatrix = glm::scale(modelMatrix, transform.scale);
-
-					    glm::vec4 u_sampleRect(sprite.uvExtent, sprite.uvMin);
-
-					    bgfx::setTransform(glm::value_ptr(modelMatrix));
-					    spriteShader->SetUniformValue("u_sampleRect", glm::value_ptr(u_sampleRect));
-					    spriteShader->SetUniformValue("u_tint", glm::value_ptr(sprite.tint));
-					    spriteShader->SetTextureSampler("s_diffuse", 0, sprite.texture);
-
-					    _plane->GetVertexBuffer().Bind();
-
-					    const auto blend = sprite.additive
-					                           ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-					                           : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-					    bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
-					                   BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
-
-					    bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(spriteShader->GetRawHandle()));
+				    [&drawSprite, &desc](const Sprite& sprite, const Transform& transform) {
+					    drawSprite(sprite, transform, desc.viewId);
 				    });
 			}
 		}

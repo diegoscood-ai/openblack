@@ -175,6 +175,8 @@ public:
 	[[nodiscard]] glm::u16vec2 GetResolution() const { return _resolution; }
 	[[nodiscard]] uint16_t GetLayerCount() const { return _numLayers; }
 	[[nodiscard]] TextureFormat GetFormat() const { return _format; }
+	/// The sampler flags given at creation (wrapping and filter)
+	[[nodiscard]] uint32_t GetSamplerFlags() const { return _samplerFlags; }
 
 	void DumpTexture() const;
 
@@ -186,6 +188,7 @@ protected:
 	uint16_t _numLayers;
 	TextureFormat _format;
 	uint32_t _storageSize;
+	uint32_t _samplerFlags = 0;
 
 	friend FrameBuffer;
 };

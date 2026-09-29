@@ -95,6 +95,7 @@ void Texture2D::Create(uint16_t width, uint16_t height, uint16_t layers, Texture
 		bgfxMemory = bgfx::copy(chain.data(), static_cast<uint32_t>(chain.size()));
 		format = TextureFormat::RGBA8;
 	}
+	_samplerFlags = static_cast<uint32_t>(flags & BGFX_SAMPLER_BITS_MASK);
 	_handle = fromBgfx(bgfx::createTexture2D(width, height, hasMips, layers, toBgfx(format), flags, bgfxMemory));
 	bgfx::setName(toBgfx(_handle), _name.c_str());
 	bgfx::frame();

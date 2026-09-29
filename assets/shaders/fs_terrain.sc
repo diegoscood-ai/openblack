@@ -13,6 +13,10 @@ SAMPLER2D(s7_dynamicShadow, 7);
 SAMPLER2D(s8_landAlpha, 8); // 1, or lower in the river channels (the sea drawn before the land shows through)
 uniform vec4 u_dynamicShadowBox; // xy: box minimum x/z, zw: 1 / size
 uniform vec4 u_dynamicShadow;    // x: opacity (8/15 x fade), y: the silhouette's plane height
+SAMPLER2D(s9_physicsShadow, 9);         // the physics objects' 32 x 32 shadows (PhysicsShadows), alpha n / 15
+uniform vec4 u_physicsShadowCount;      // x: how many
+uniform vec4 u_physicsShadowBox[16];    // xy: box minimum x/z, zw: 1 / size
+uniform vec4 u_physicsShadowSlot[16];   // xy: the shadow's corner in the atlas, z: its size, w: fade
 
 uniform vec4 u_skyAndBump;
 uniform vec4 u_terrainPass; // x: light scale (0.5 for the mirrored land in the reflection, like fn_007FF4F0),
@@ -101,6 +105,24 @@ void main()
 		    v_worldY > 0.67f)
 		{
 			col.rgb *= 1.0f - u_dynamicShadow.x * texture2D(s7_dynamicShadow, shadowUv).r;
+		}
+	}
+	// The physics objects' shadows (fn_00878350 per shadow and block, mode 6: each one blended over the last),
+	// draped vertically; the land projection's 1 + h/15000 magnification is left out
+	for (int i = 0; i < 16; ++i)
+	{
+		if (float(i) >= u_physicsShadowCount.x)
+		{
+			break;
+		}
+		vec2 uv = (v_worldXZ - u_physicsShadowBox[i].xy) * u_physicsShadowBox[i].zw;
+		if (all(greaterThanEqual(uv, vec2_splat(0.0f))) && all(lessThanEqual(uv, vec2_splat(1.0f))) && v_worldY > 0.67f)
+		{
+			vec2 atlasUv = u_physicsShadowSlot[i].xy + uv * u_physicsShadowSlot[i].z;
+			#if !BGFX_SHADER_LANGUAGE_GLSL
+				atlasUv.y = 1.0f - atlasUv.y; // render target rows start at the top outside OpenGL
+			#endif
+			col.rgb *= 1.0f - u_physicsShadowSlot[i].w * texture2DLod(s9_physicsShadow, atlasUv, 0.0f).r;
 		}
 	}
 

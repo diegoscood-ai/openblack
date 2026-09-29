@@ -11,6 +11,7 @@ $output v_texcoord0
 
 uniform vec4 u_shadowLight; // xyz: light position, w: y0 (the plane the silhouette is projected onto)
 uniform vec4 u_shadowBox;   // xy: projected box minimum x/z, zw: 1 / box width, 1 / box depth
+uniform vec4 u_shadowSlot;  // xy: the slot's corner in the target, z: its size (0, 0, 1: the whole target)
 
 // Dynamic shadow silhouette (fn_00806F60 / fn_00850900): each vertex projected from the light point onto the plane
 // y = y0, s = (y0 - Ly) / (y - Ly), then fitted into the shadow texture over the projected box
@@ -31,7 +32,7 @@ void main()
 	vec3 light = u_shadowLight.xyz;
 	float s = (u_shadowLight.w - light.y) / min(world.y - light.y, -0.001f);
 	vec2 projected = light.xz + (world.xz - light.xz) * s;
-	vec2 uv = (projected - u_shadowBox.xy) * u_shadowBox.zw;
+	vec2 uv = u_shadowSlot.xy + (projected - u_shadowBox.xy) * u_shadowBox.zw * u_shadowSlot.z;
 
 	v_texcoord0 = vec4(a_texcoord0, 0.0f, 0.0f);
 	gl_Position = vec4(uv * 2.0f - 1.0f, 0.0f, 1.0f);

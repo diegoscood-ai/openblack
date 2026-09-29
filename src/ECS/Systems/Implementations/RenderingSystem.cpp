@@ -36,7 +36,9 @@
 #include "ECS/Registry.h"
 #include "Graphics/DebugLines.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "Graphics/ShaderManager.h"
+#include "ECS/Systems/HandSystemInterface.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -52,8 +54,31 @@ namespace
 /// ...); villagers and the creature have blob / dynamic shadows instead.
 bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity entity)
 {
-	return registry.AnyOf<Fixed, MobileStatic, MobileObject, Tree, Abode, Feature, BigForest>(entity) &&
-	       !registry.AnyOf<Pot, AnimatedStatic, DeadTree, Field, Villager, Creature, Hand, Alpha, TempleInteriorPart>(entity);
+	if (!registry.AnyOf<Fixed, MobileStatic, MobileObject, Tree, Abode, Feature, BigForest>(entity) ||
+	    registry.AnyOf<Pot, AnimatedStatic, DeadTree, Field, Villager, Creature, Hand, Alpha, TempleInteriorPart>(entity))
+	{
+		return false;
+	}
+	// The baker (fn_008721A0) takes its casters from the map cells: an object in the hand (fn_005DC330) or in physics
+	// (Object::InitialisePhysics*) has left them until it lands (EndPhysics), so it casts none meanwhile. (The original
+	// re-bakes the blocks only for Fixed types; the old shadow of a tree or MobileObject lingers until something else
+	// re-bakes that block. Not reproduced: openblack redraws the static shadows every frame.)
+	if (openblack::Locator::handSystem::has_value())
+	{
+		const auto held = openblack::Locator::handSystem::value().GetHeldObject();
+		if (held.has_value() && *held == entity)
+		{
+			return false;
+		}
+	}
+	return !openblack::ecs::physics::PhysicsObjects::IsFlying(entity);
+}
+/// A broken building keeps the static shadow of its intact mesh (the FragMesh casts none); fragments cast none either
+/// (Fragment: SetShadowOnTexture(0)), which CastsStaticShadow already leaves out.
+entt::id_type ShadowMeshOf(const openblack::ecs::Registry& registry, entt::entity entity, entt::id_type drawn)
+{
+	const auto* damage = registry.TryGet<const openblack::ecs::components::BuildingDamage>(entity);
+	return damage != nullptr && damage->intactMesh != 0 ? damage->intactMesh : drawn;
 }
 /// Object::Create3DObject (0x6365F0) turns the dynamic shadow on for every game object; trees (0x749FA3), forests
 /// (0x439098), flowers, magic food (0x5FAAC8), the food in the hand (pot info 12, 0x66D180) and a few others turn it off.

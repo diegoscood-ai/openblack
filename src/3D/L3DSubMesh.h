@@ -52,6 +52,7 @@ public:
 		float alphaCutoutThreshold;
 		glm::vec4 colour; ///< material colour (used by untextured primitives)
 		bool twoSided;    ///< material byte +5 bit 0: D3DCULL_NONE, else back faces are culled (0x84C34A)
+		bool wrap;        ///< material byte +5 bit 2: D3DTADDRESS_WRAP, else CLAMP (0x851782)
 	};
 
 public:

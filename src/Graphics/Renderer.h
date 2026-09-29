@@ -48,6 +48,7 @@ namespace graphics
 {
 class L3DSubMesh;
 class Mesh;
+class PhysicsShadows;
 class GameFont;
 
 class Renderer final: public RendererInterface
@@ -131,6 +132,8 @@ private:
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
 	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
 	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
+	/// The physics objects' shadows on the land (fn_007FCE80)
+	std::unique_ptr<PhysicsShadows> _physicsShadows;
 	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
 	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame
 	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw

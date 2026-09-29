@@ -34,9 +34,12 @@ public:
 	ShaderProgram(const std::string& name, ShaderHandle vertexShader, ShaderHandle fragmentShader);
 	~ShaderProgram();
 
-	void SetTextureSampler(const char* samplerName, uint8_t bindPoint, const Texture2D& texture) const;
+	/// flags: bgfx sampler flags, UINT32_MAX = the texture's own
+	void SetTextureSampler(const char* samplerName, uint8_t bindPoint, const Texture2D& texture,
+	                       uint32_t flags = UINT32_MAX) const;
 	void SetTextureSampler(const char* samplerName, uint8_t bindPoint, const graphics::TextureHandle& texture) const;
-	void SetUniformValue(const char* uniformName, const void* value) const;
+	/// num: array elements (1 for plain uniforms)
+	void SetUniformValue(const char* uniformName, const void* value, uint16_t num = 1) const;
 
 	[[nodiscard]] ProgramHandle GetRawHandle() const { return _program; }
 

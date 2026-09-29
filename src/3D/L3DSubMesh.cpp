@@ -294,6 +294,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		              primitive.material.color.bgra.a) /
 		        255.0f,
 		    (primitive.material.cullMode & 1) != 0,
+		    (primitive.material.cullMode & 4) != 0,
 		});
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);

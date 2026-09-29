@@ -1127,3 +1127,11 @@ void PhysicsObjects::SetHandlers(Handlers handlers)
 {
 	g_Handlers = std::move(handlers);
 }
+
+void PhysicsObjects::ForEach(const std::function<void(const PhysicsObject&)>& func)
+{
+	for (const auto& object : g_Objects)
+	{
+		func(*object);
+	}
+}

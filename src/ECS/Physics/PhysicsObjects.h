@@ -94,3 +94,5 @@ public:
 	PhysicsObjects() = delete;
 };
 } // namespace openblack::ecs::physics
+	/// Every physics object, read only (the renderer's shadows)
+	static void ForEach(const std::function<void(const PhysicsObject&)>& func);

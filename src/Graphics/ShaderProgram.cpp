@@ -58,12 +58,12 @@ ShaderProgram::~ShaderProgram()
 	}
 }
 
-void ShaderProgram::SetTextureSampler(const char* samplerName, uint8_t bindPoint, const Texture2D& texture) const
+void ShaderProgram::SetTextureSampler(const char* samplerName, uint8_t bindPoint, const Texture2D& texture, uint32_t flags) const
 {
 	auto uniform = _uniforms.find(samplerName);
 	if (uniform != _uniforms.cend())
 	{
-		bgfx::setTexture(bindPoint, toBgfx(uniform->second), toBgfx(texture.GetNativeHandle()));
+		bgfx::setTexture(bindPoint, toBgfx(uniform->second), toBgfx(texture.GetNativeHandle()), flags);
 	}
 	else
 	{
@@ -84,12 +84,12 @@ void ShaderProgram::SetTextureSampler(const char* samplerName, uint8_t bindPoint
 	}
 }
 
-void ShaderProgram::SetUniformValue(const char* uniformName, const void* value) const
+void ShaderProgram::SetUniformValue(const char* uniformName, const void* value, uint16_t num) const
 {
 	auto uniform = _uniforms.find(uniformName);
 	if (uniform != _uniforms.cend())
 	{
-		bgfx::setUniform(toBgfx(uniform->second), value);
+		bgfx::setUniform(toBgfx(uniform->second), value, num);
 	}
 	else
 	{

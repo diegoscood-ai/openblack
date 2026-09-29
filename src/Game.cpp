@@ -25,6 +25,7 @@
 #include "3D/CreatureBody.h"
 #include "3D/DayNightClock.h"
 #include "3D/NightLights.h"
+#include "PSys/PSysManager.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
@@ -356,6 +357,9 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
+		// PSysGlobal: the particle effects, one step per turn of the turn's length
+		psys::manager::RunDebugHooks();
+		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
 	}
 
 	_lastGameLoopTime = currentTime;
@@ -1100,6 +1104,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 		return false;
 	}
 
+	psys::manager::Clear();
 	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());

@@ -25,6 +25,7 @@
 #include <glm/mat4x4.hpp>
 
 #include "Graphics/RenderPass.h"
+#include "PSys/PSysManager.h"
 #include "Graphics/RendererInterface.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -63,6 +64,8 @@ class Renderer final: public RendererInterface
 	void DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const;
 	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
 	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
+	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
+	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
 	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
 	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)

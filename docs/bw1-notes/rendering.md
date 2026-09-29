@@ -240,6 +240,39 @@ Informe: `tmp_dis\render\sky_*.txt`.
 destellos, luciérnagas...) entran en la lista de atrás a delante de `MainBlended` con los modelos transparentes, por la
 distancia a la cámara; antes se dibujaban antes que todos ellos y un modelo transparente detrás los tapaba.
 
+## Partículas (PSys, en curso)
+
+Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, tablas de efectos):
+`tmp_dis\psys\psys_report.md`; los 132 archivos descomprimidos en `tmp_dis\psys\zzz\`.
+- Archivos: `Data\Spells\ZSpellFiles\SF_X_txt.zzz` (u32 tamaño + zlib) con texto del editor: cabecera
+  `BEGINPROPERTIES` (DeleteOnCloseDown, Hierarchies[25], InitiallyCreated[25], MaxSpellAge) y bloques
+  `BEGINCLASS <Clase> <Nombre>`. Un `.txt` suelto con el mismo nombre tiene prioridad (`LHLoadData`): sirve para mods.
+- Modelo: cada modificador tiene `Group` (0..24) y `Condition`; una *colección* es una instancia viva de un grupo;
+  `InitiallyCreated` crea las raíces en el origen; `NextGroups` da a cada átomo nuevo sus subcolecciones; `Hierarchies`
+  pone los átomos hijos en el marco local del padre. Nada se mueve solo: solo las reglas.
+- Paso por turno (dt = 0,1 s) con el estado de dibujo anterior y actual, interpolado al dibujar con la fracción del turno.
+  Fin: sin átomos ni reglas de creación, o edad > MaxSpellAge; `CloseDown` activa `TrueOnCloseDown`, suelta las
+  reglas `RemoveOnCloseDown` y borra al momento si `DeleteOnCloseDown`.
+- Dibujo: cada efecto es un objeto del Z-sorter (`PSysManager::AddDrawing`), sus átomos en orden de lista; sprites de
+  `S_SpriteSheet{1,2,3}` (8×8 celdas de 32 px, celda = (FileOffset + fotograma) & 63), quad orientado a la pantalla
+  con giro atan2(M[0][2], M[0][0]) o plano XZ (`SetHorozontal`); modo 13 aditivo (102 de 137) o 6, sin escribir Z
+  salvo `MaterialUpdateZBuffer`; sin luz ni neblina salvo `UseLandscapeColor` (no hecho).
+- Guiones: `SPECIAL_EFFECT_POSITION` / `_OBJECT` (CHL 52/53) → `GParticleContainer` con la tabla `GSpotVisualInfo`
+  (50 entradas → PARTICLE_TYPE → archivo); duración en segundos (−1 siempre, 0 la vida de la tabla); sigue al objeto
+  y se cierra si desaparece; devuelve un objeto que el guion puede borrar.
+- openblack: `src/PSys/PSysFile` (lector), `PSys` (colecciones, átomos, reglas: CreateRuleAnAtom/Sphere, emisores
+  Simple/Disk/Conical, UR_WillowWisp, reglas de borrado, AR_FadeAlpha/FadeCollectionAlpha/FadeOutOnceConditionTrue,
+  UR_ChangeScale, SetScale, SetAtomAlpha, UpdateRuleGravity, UR_UpdatePosnFromVelocity, UR_GustyWind (con un ruido
+  propio: VLNoise3To1 sin portar), UpdateRuleRotatePrincipalAxis, FollowOrigin, UR_FollowParent, ForceConstant*,
+  UR_SphereSurfaceTracer, UR_OrientSpriteWithRandomAngle; condiciones y proveedores de float), `PSysManager`
+  (efectos, contenedores de guion, gancho de prueba) y `Graphics/RendererPSys.cpp`. Las clases sin portar se registran
+  una vez en el log ("not ported yet") y no hacen nada.
+- Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
+  (hoguera con llamas y humo); `OPENBLACK_PSYS_TRACE=1` escribe átomos y edad de cada efecto cada 20 turnos.
+- Pendiente: creadores de malla, niebla, cadenas, animación, mapas de luz (se estampan en la luz del terreno), las
+  reglas de hechizos y del pueblo (UR_TownCentreBelief...), `CreateRule_GameObjectRef` (el brillo de las llaves de la
+  puerta de Land1, SF_HighlightOnObject), los sonidos, y pasar a este motor los efectos de la mano de `HandEffects.cpp`.
+
 ## Sombras de los objetos físicos (hechas)
 
 Informe: `tmp_dis\render\physshadow\`.

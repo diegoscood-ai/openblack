@@ -32,7 +32,7 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | Mano | Z-sorter, luz ×1,5, muñeca con alfa | Igual | igual |
 | Anillos de agua | `fn_005E5100`: `smoke.raw` horizontal, modo 13, 700 ms; del chapoteo de la mano, objetos que caen al agua, nadadores, tiburones y cebo | Igual (mano y objetos lanzados; no hay nadadores ni tiburones) | igual |
 | Barcos | `PetitNavire` de las cinemáticas | — | falta |
-| Partículas, hechizos, luciérnagas, destellos | PSys, todo en el Z-sorter | Solo polvo y partículas de coger | falta |
+| Partículas, hechizos, luciérnagas, destellos | PSys, todo en el Z-sorter | Motor PSys genérico (`src/PSys`): los archivos de hechizo con las ~25 clases más usadas, sprites ordenados por efecto; efectos de guion (`SPECIAL_EFFECT_*`); luciérnagas. Faltan mallas, niebla, cadenas, mapas de luz, las reglas de hechizos concretos y pasar a este motor los efectos de la mano | aprox. |
 | Lluvia, nieve, relámpagos | Por tormenta, en casillas de 80×80 | — | falta (sin clima) |
 | Correas, gestos, anillo de influencia | Modos 15, 13 y 6 | — | falta |
 | Nombres, contadores, ayuda | Z-sorter y retrollamadas de fin de fotograma; fuentes `j0`/`f1`/`f3`; textos de `InfoScript2.txt` | Fuente `j0` original y el mensaje de la cantidad en la mano; faltan los demás mensajes, nombres y contadores | aprox. |

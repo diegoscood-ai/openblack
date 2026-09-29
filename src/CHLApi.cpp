@@ -24,6 +24,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/DayNightClock.h"
+#include "PSys/PSysManager.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
@@ -626,22 +627,28 @@ void CallNear() // 051 CALL_NEAR
 
 void SpecialEffectPosition() // 052 SPECIAL_EFFECT_POSITION
 {
-	// const auto duration = Popf();
-	// const auto position = PopVec();
-	// const auto effect = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	// GScript::SpecialEffectPosition 0x70C330 -> GParticleContainer::CreateSpotVisualWithSpecifiedDuration 0x63E580
+	const auto duration = Popf();
+	const auto position = PopVec();
+	const auto effect = Pop().intVal;
+	const auto object = psys::manager::CreateSpotVisual(effect, position, duration, entt::null);
+	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }
 
 void SpecialEffectObject() // 053 SPECIAL_EFFECT_OBJECT
 {
-	// const auto duration = Popf();
-	// const auto target = Pop().uintVal;
-	// const auto effect = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	// GScript::SpecialEffectObject 0x70C460: at the object, following it; its loss closes the effect
+	const auto duration = Popf();
+	const auto target = static_cast<entt::entity>(Pop().uintVal);
+	const auto effect = Pop().intVal;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* transform = registry.Valid(target) ? registry.TryGet<const Transform>(target) : nullptr;
+	entt::entity object = entt::null;
+	if (transform != nullptr)
+	{
+		object = psys::manager::CreateSpotVisual(effect, transform->position, duration, target);
+	}
+	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }
 
 void DanceCreate() // 054 DANCE_CREATE

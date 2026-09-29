@@ -2268,6 +2268,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				bool morphWithTerrain;
 				bool fading;
 				entt::entity sprite {entt::null};
+				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2347,6 +2348,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 				}
 			}
+			const auto effects = sortBlended ? psys::manager::Collect() : std::vector<psys::manager::Drawable>();
+			for (size_t i = 0; i < effects.size(); ++i)
+			{
+				sorted.push_back({glm::distance(effects[i].origin, cameraOrigin), 0, 0, false, false, entt::null, static_cast<int>(i)});
+			}
 			if (spritesSorted)
 			{
 				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
@@ -2365,6 +2371,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				auto& spriteRegistry = Locator::entitiesRegistry::value();
 				for (const auto& instance : sorted)
 				{
+					if (instance.effect >= 0)
+					{
+						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
+						continue;
+					}
 					if (instance.sprite != entt::null)
 					{
 						const auto& [sprite, transform] =

@@ -60,6 +60,8 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Animations.h"
+#include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "Graphics/Texture2D.h"
@@ -377,6 +379,28 @@ void HandSystem::RunDebugHooks() noexcept
 		{
 			Locator::camera::value().GetModel().SetFlight(o, f);
 		}
+	}
+	// Debug: OPENBLACK_TEST_ANIM="clip[,milliseconds]" plays that AllAnims.anm clip (index) in a loop on every villager,
+	// all at that time into it (default 0) and with speed 0 if a time is given (a still pose for screenshots).
+	if (const char* anim = std::getenv("OPENBLACK_TEST_ANIM"); anim != nullptr)
+	{
+		int clip = 0;
+		float time = -1.0f;
+		std::sscanf(anim, "%d,%f", &clip, &time);
+		auto& registry = Locator::entitiesRegistry::value();
+		std::vector<entt::entity> villagers;
+		registry.Each<const Villager>([&villagers](entt::entity e, const Villager&) { villagers.push_back(e); });
+		for (const auto e : villagers)
+		{
+			auto& animation = registry.AssignOrReplace<SkeletalAnimation>(e);
+			animation.clip = ecs::ClipId(static_cast<uint32_t>(clip));
+			animation.clipIndex = clip;
+			animation.locked = true;
+			animation.hasClip = true;
+			animation.time = std::max(0.0f, time);
+			animation.speed = time >= 0.0f ? 0.0f : 1.0f;
+		}
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animation test: clip {} on {} villagers", clip, villagers.size());
 	}
 	// Debug: OPENBLACK_TEST_VIEW_VILLAGER="n[,distance[,angle]]" flies the camera to look at the n-th villager from that
 	// many metres (default 3), from that side (degrees around it, default 0 = +z), slightly above (villager close-ups).

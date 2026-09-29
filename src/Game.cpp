@@ -40,6 +40,8 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
+#include "ECS/Animations.h"
+#include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
@@ -451,6 +453,10 @@ bool Game::Update() noexcept
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+
+	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
+	ecs::UpdateVillagerAnimations();
+	ecs::UpdateAnimations(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,

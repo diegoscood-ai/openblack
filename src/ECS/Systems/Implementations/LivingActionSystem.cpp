@@ -24,6 +24,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
+#include "ECS/VillagerAnimations.h"
 #include "Enums.h"
 #include "Locator.h"
 
@@ -492,7 +493,12 @@ void LivingActionSystem::Update()
 	// TODO(#476): same call but for other types of living
 
 	// TODO(bwrsandman): Store result of this call in vector or with tag component
-	registry.Each<const Villager, LivingAction>([this]([[maybe_unused]] const Villager& villager, LivingAction& action) {
+	registry.Each<const Villager, LivingAction>([this, &registry]([[maybe_unused]] const Villager& villager, LivingAction& action) {
+		// Villager::ProcessState (0x74FF70): no state logic while an into / out-of clip plays
+		if (ecs::VillagerWaitsForTransition(registry.ToEntity(action), action.turnsSinceStateChange))
+		{
+			return;
+		}
 		VillagerCallState(action, LivingAction::Index::Top);
 	});
 	// TODO(#476): same call but for other types of living
@@ -535,6 +541,11 @@ void LivingActionSystem::VillagerSetState(LivingAction& action, LivingAction::In
 	if (runTransition)
 	{
 		VillagerCallEntryState(action, index, previousState, state);
+	}
+	// Living::SetTopState: the clips of the change (ECS/VillagerAnimations.h)
+	if (index == LivingAction::Index::Top)
+	{
+		ecs::OnVillagerStateChanged(registry.ToEntity(action), previousState, state);
 	}
 }
 

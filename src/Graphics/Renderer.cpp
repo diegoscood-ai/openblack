@@ -37,6 +37,7 @@
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "Camera/Camera.h"
+#include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
@@ -2285,6 +2286,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				return false;
 			};
 
+			// the poses of the animated boned meshes (ecs/Animations.h), by instance
+			const auto poses = ecs::PosesByInstance(renderCtx.entityInstances);
+
 			// Instance meshes
 			for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
 			{
@@ -2301,7 +2305,22 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
 
 				// TODO(bwrsandman): choose the correct LOD
-				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				if (mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
+				{
+					// animated (ecs/Animations.h): each instance on its own, with its pose
+					for (uint32_t i = 0; i < placers.count; ++i)
+					{
+						submitDesc.instanceDesc =
+						    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset + i, 1);
+						setMatrices(meshId, *mesh);
+						ecs::UsePose(poses, placers.offset + i, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
+						DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+					}
+				}
+				else
+				{
+					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				}
 				if (sortBlended && hasBlended(*mesh))
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
@@ -2357,6 +2376,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.instanceDesc =
 					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
 					setMatrices(instance.meshId, *mesh);
+					ecs::UsePose(poses, instance.index, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
 					submitDesc.isSky = false;
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;

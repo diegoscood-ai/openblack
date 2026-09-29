@@ -41,14 +41,16 @@ struct LandVertex
 {
 	glm::vec3 position;
 	glm::vec3 weight;                     // interpolated
-	glm::u8vec4 firstMaterialID;          // force alignment 4 bytes to prevent packing
-	glm::u8vec4 secondMaterialID;         // force alignment 4 bytes to prevent packing
+	glm::u8vec4 firstMaterialID;          // w: bit i set = material i is drawn once per block (terrain-x2 mod)
+	glm::u8vec4 secondMaterialID;         // w: the same for the second materials
 	glm::u8vec4 materialBlendCoefficient; // force alignment 4 bytes to prevent packing
 	glm::u8vec4 lightLevel;               // x: luminosity, yzw: the cell colour as a D3DCOLOR (b, g, r) for the specular
 	float waterAlpha;
+	glm::vec3 normal; // smooth, from the neighbouring cell altitudes (triplanar cliffs of the terrain-x2 mod)
 
 	LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat, const glm::uvec3& blend,
-	           uint8_t lightLevel, glm::u8vec3 cellColour, float alpha);
+	           uint8_t lightLevel, glm::u8vec3 cellColour, float alpha, const glm::vec3& normal,
+	           const std::array<bool, 6>& single = {});
 };
 
 class LandIslandInterface;
@@ -66,7 +68,8 @@ public:
 	static constexpr uint16_t k_VertexCount = k_Resolution.x * k_Resolution.y * 2 * 3;
 
 	LandBlock() = default;
-	void BuildMesh(LandIslandInterface& island);
+	/// singleMaterials: materials drawn once per block even when the terrain-x2 mod repeats the others (pictures)
+	void BuildMesh(LandIslandInterface& island, std::span<const uint8_t> singleMaterials = {});
 
 	[[nodiscard]] const graphics::Mesh& GetMesh() const { return *_mesh; }
 	[[nodiscard]] const lnd::LNDCell* GetCells() const;
@@ -83,6 +86,6 @@ private:
 	std::unique_ptr<btBvhTriangleMeshShape> _physicsMesh;
 	std::unique_ptr<btRigidBody> _rigidBody;
 
-	void BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island);
+	void BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island, std::span<const uint8_t> singleMaterials);
 };
 } // namespace openblack

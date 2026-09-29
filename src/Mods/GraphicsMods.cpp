@@ -71,20 +71,23 @@ class TerrainX2Mod final: public Mod
 {
 public:
 	TerrainX2Mod()
-	    : Mod({"graphics.terrain-x2", "Landscape textures x2",
-	           "Sharper landscape: each texture repeated twice per block (density), upscaled 2x with Lanczos-3 when the "
-	           "island loads (upscale), or both",
+	    : Mod({"graphics.terrain-x2", "Sharper landscape textures",
+	           "Each landscape texture repeated 2, 3 or 4 times per block, optionally upscaled 2x with Lanczos-3 when the "
+	           "island loads; cliffs take the texture from the side instead of stretching it (triplanar)",
 	           "Graphics", true})
 	{
-		AddOption({"method", "Method", {"density", "upscale", "both"}, 0});
+		AddOption({"repeat", "Repeats per block", {"x1", "x2", "x3", "x4"}, 1});
+		AddOption({"upscale", "Lanczos 2x upscale", {"off", "on"}, 0});
+		AddOption({"cliffs", "Cliffs", {"triplanar", "stretched"}, 0});
 	}
 
 	void Apply() override
 	{
-		const auto& method = GetChoice("method");
 		auto& config = Locator::config::value();
-		config.terrainTexturesX2 = IsEnabled() && method != "density";
-		config.terrainTextureDensity = IsEnabled() && method != "upscale" ? 2.0f : 1.0f;
+		const auto& repeat = GetChoice("repeat");
+		config.terrainTextureDensity = IsEnabled() && repeat.size() == 2 ? static_cast<float>(repeat[1] - '0') : 1.0f;
+		config.terrainTexturesX2 = IsEnabled() && GetChoice("upscale") == "on";
+		config.terrainTriplanar = IsEnabled() && GetChoice("cliffs") == "triplanar";
 	}
 };
 } // namespace

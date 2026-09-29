@@ -82,7 +82,9 @@ void Pass(const std::vector<float>& src, int srcW, int srcH, std::vector<float>&
 			std::array<float, 4> accumulated {};
 			for (int tap = 0; tap < k_Taps; ++tap)
 			{
-				const int s = std::clamp(centre + phase.firstOffset + tap, 0, (horizontal ? srcW : srcH) - 1);
+				// Wrapped: the landscape materials tile (their first and last rows and columns match)
+				const int size = horizontal ? srcW : srcH;
+				const int s = ((centre + phase.firstOffset + tap) % size + size) % size;
 				const int sx = horizontal ? s : x;
 				const int sy = horizontal ? y : s;
 				const float* texel = &src[(static_cast<size_t>(sy) * srcW + sx) * 4];

@@ -12,6 +12,8 @@
 
 #include "LandIsland.h"
 
+#include <algorithm>
+#include <array>
 #include <stdexcept>
 
 #include <BulletDynamics/Dynamics/btRigidBody.h>
@@ -43,10 +45,27 @@ const float LandIslandInterface::k_CellSize = 10.0f;
 
 namespace
 {
-/// Clamped like the original, or repeated when the terrain-x2 mod tiles the materials more than once per block
+/// Clamped like the original, or repeated when the terrain-x2 mod tiles the materials more than once per block or
+/// projects them from the side on cliffs (world coordinates)
 Wrapping MaterialWrapping()
 {
-	return Locator::config::value().terrainTextureDensity > 1.0f ? Wrapping::Repeat : Wrapping::ClampEdge;
+	const auto& config = Locator::config::value();
+	return config.terrainTextureDensity > 1.0f || config.terrainTriplanar ? Wrapping::Repeat : Wrapping::ClampEdge;
+}
+
+/// Materials that are one picture per block rather than a tiling texture (the terrain-x2 mod draws them once): the
+/// figure geoglyph (Land1 material 10, Land5 material 5) and the maze (Land5 material 1), found by an FNV-1a hash of
+/// their texels because nothing in the LND marks them (their type is shared with ordinary grass)
+bool IsPictureMaterial(const lnd::LNDMaterial& material)
+{
+	constexpr std::array<uint64_t, 2> k_Pictures = {0xfa87f520ce8c6ff0, 0x75cf505eab6f1ecb};
+	uint64_t hash = 0xcbf29ce484222325;
+	const auto* bytes = reinterpret_cast<const uint8_t*>(material.texels.data());
+	for (size_t i = 0; i < sizeof(material.texels); ++i)
+	{
+		hash = (hash ^ bytes[i]) * 0x100000001b3;
+	}
+	return std::ranges::find(k_Pictures, hash) != k_Pictures.end();
 }
 
 /// The small bump texture as the original builds it (fn_00804830 loads ".\data\Textures\smallbump.raw" with the
@@ -223,10 +242,14 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 
 	_smallBump = CreateSmallBumpTexture();
 
+	std::vector<uint8_t> pictureMaterials(lnd.GetMaterials().size());
+	std::ranges::transform(lnd.GetMaterials(), pictureMaterials.begin(),
+	                       [](const auto& material) { return IsPictureMaterial(material) ? 1 : 0; });
+
 	// build the meshes (we could move this elsewhere)
 	for (auto& block : _landBlocks)
 	{
-		block.BuildMesh(*this);
+		block.BuildMesh(*this, pictureMaterials);
 	}
 	bgfx::frame();
 }

@@ -1731,7 +1731,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			const float staticShadowStrength =
 			    GetDetailLevel(Locator::config::value().detailLevel).useHighTexture ? 0.5f : 0.25f;
 			const glm::vec4 u_terrainPass = {desc.viewId == graphics::RenderPass::Reflection ? 0.5f : 1.0f,
-			                                 Locator::config::value().terrainTextureDensity, staticShadowStrength, 0.0f};
+			                                 Locator::config::value().terrainTextureDensity, staticShadowStrength,
+			                                 Locator::config::value().terrainTriplanar ? 1.0f : 0.0f};
 			terrainShader->SetUniformValue("u_terrainPass", &u_terrainPass);
 			terrainShader->SetUniformValue("u_islandExtent", &islandExtent);
 

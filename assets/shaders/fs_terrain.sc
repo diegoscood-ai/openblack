@@ -1,4 +1,4 @@
-$input v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_waterAlpha, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
+$input v_normal, v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_waterAlpha, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
 
 #include <bgfx_shader.sh>
 
@@ -15,8 +15,27 @@ uniform vec4 u_dynamicShadow;    // x: opacity (8/15 x fade), y: the silhouette'
 
 uniform vec4 u_skyAndBump;
 uniform vec4 u_terrainPass; // x: light scale (0.5 for the mirrored land in the reflection, like fn_007FF4F0),
-                            // y: material repeats per block (1 in the original; terrain-x2 mod),
-                            // z: static shadow strength (0.5, or 0.25 with low textures)
+                            // y: material repeats per block (1 in the original; terrain-x2 mod; pictures stay at 1),
+                            // z: static shadow strength (0.5, or 0.25 with low textures),
+                            // w: 1 = cliffs projected from the side too (triplanar; terrain-x2 mod)
+
+// The three corner materials of the triangle, each a blend of two; uv spans one block, repeat0/1 per material
+vec4 SampleMaterials(vec2 uv, vec3 id0, vec3 id1, vec3 repeat0, vec3 repeat1, vec3 blend, vec3 weight)
+{
+	return mix(texture2DArray(s0_materials, vec3(uv * repeat0.r, id0.r)),
+	           texture2DArray(s0_materials, vec3(uv * repeat1.r, id1.r)), blend.r) * weight.r +
+	       mix(texture2DArray(s0_materials, vec3(uv * repeat0.g, id0.g)),
+	           texture2DArray(s0_materials, vec3(uv * repeat1.g, id1.g)), blend.g) * weight.g +
+	       mix(texture2DArray(s0_materials, vec3(uv * repeat0.b, id0.b)),
+	           texture2DArray(s0_materials, vec3(uv * repeat1.b, id1.b)), blend.b) * weight.b;
+}
+
+// Repeats per block of the three materials: the mod's count, or 1 for pictures (bits 0-2 of the id's w)
+vec3 MaterialRepeats(float bits)
+{
+	vec3 single = mod(floor(vec3_splat(bits) / vec3(1.0f, 2.0f, 4.0f)), 2.0f);
+	return mix(vec3_splat(u_terrainPass.y), vec3_splat(1.0f), single);
+}
 
 void main()
 {
@@ -25,27 +44,27 @@ void main()
 	float bumpMapStrength = u_skyAndBump.y;
 	float smallBumpMapStrength = u_skyAndBump.z;
 
-	vec2 materialUv = v_texcoord0.xy * u_terrainPass.y;
-
 	// do each vert with both materials
-	vec4 colOne = mix(
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID0.r)),
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID1.r)),
-		v_materialBlend.r
-	) * v_weight.r;
-	vec4 colTwo = mix(
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID0.g)),
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID1.g)),
-		v_materialBlend.g
-	) * v_weight.g;
-	vec4 colThree = mix(
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID0.b)),
-		texture2DArray(s0_materials, vec3(materialUv, v_materialID1.b)),
-		v_materialBlend.b
-	) * v_weight.b;
+	vec3 id0 = vec3(v_materialID0.xyz);
+	vec3 id1 = vec3(v_materialID1.xyz);
+	vec3 repeat0 = MaterialRepeats(float(v_materialID0.w));
+	vec3 repeat1 = MaterialRepeats(float(v_materialID1.w));
+	vec4 col = SampleMaterials(v_texcoord0.xy, id0, id1, repeat0, repeat1, v_materialBlend, v_weight);
 
-	// add the 3 blended textures together
-	vec4 col = colOne + colTwo + colThree;
+	// Mod: on steep faces the top-down projection stretches the texture into streaks; blend in the materials
+	// projected along x and z (world units, one repeat per block like the top projection)
+	if (u_terrainPass.w > 0.5f)
+	{
+		vec3 axis = abs(normalize(v_normal));
+		vec3 projection = axis * axis;
+		projection = projection * projection;
+		projection /= projection.x + projection.y + projection.z;
+		vec2 uvX = vec2(v_worldXZ.y, -v_worldY) / 160.0f;
+		vec2 uvZ = vec2(v_worldXZ.x, -v_worldY) / 160.0f;
+		vec4 alongX = SampleMaterials(uvX, id0, id1, repeat0, repeat1, v_materialBlend, v_weight);
+		vec4 alongZ = SampleMaterials(uvZ, id0, id1, repeat0, repeat1, v_materialBlend, v_weight);
+		col = col * projection.y + alongX * projection.x + alongZ * projection.z;
+	}
 
 	// apply bump map (2x because it's half bright?)
 	float bump = mix(1.0f, texture2D(s1_bump, v_texcoord0.xy).r * 2.0f, bumpMapStrength);

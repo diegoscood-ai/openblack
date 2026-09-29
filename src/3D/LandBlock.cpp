@@ -9,6 +9,7 @@
 
 #include "LandBlock.h"
 
+#include <algorithm>
 #include <cassert>
 
 #include <ranges>
@@ -25,18 +26,22 @@ using namespace openblack;
 using namespace openblack::graphics;
 
 LandVertex::LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat,
-                       const glm::uvec3& blend, uint8_t lightLevel, glm::u8vec3 cellColour, float alpha)
+                       const glm::uvec3& blend, uint8_t lightLevel, glm::u8vec3 cellColour, float alpha,
+                       const glm::vec3& normal, const std::array<bool, 6>& single)
     : position {position}
     , weight {weight}
-    , firstMaterialID {static_cast<uint8_t>(mat[0]), static_cast<uint8_t>(mat[1]), static_cast<uint8_t>(mat[2]), 0u}
-    , secondMaterialID {static_cast<uint8_t>(mat[3]), static_cast<uint8_t>(mat[4]), static_cast<uint8_t>(mat[5]), 0u}
+    , firstMaterialID {static_cast<uint8_t>(mat[0]), static_cast<uint8_t>(mat[1]), static_cast<uint8_t>(mat[2]),
+                       static_cast<uint8_t>((single[0] ? 1u : 0u) | (single[1] ? 2u : 0u) | (single[2] ? 4u : 0u))}
+    , secondMaterialID {static_cast<uint8_t>(mat[3]), static_cast<uint8_t>(mat[4]), static_cast<uint8_t>(mat[5]),
+                        static_cast<uint8_t>((single[3] ? 1u : 0u) | (single[4] ? 2u : 0u) | (single[5] ? 4u : 0u))}
     , materialBlendCoefficient {blend, 0u}
     , lightLevel {lightLevel, cellColour}
     , waterAlpha {alpha}
+    , normal {normal}
 {
 }
 
-void LandBlock::BuildMesh(LandIslandInterface& island)
+void LandBlock::BuildMesh(LandIslandInterface& island, std::span<const uint8_t> singleMaterials)
 {
 	if (_mesh != nullptr)
 	{
@@ -44,26 +49,28 @@ void LandBlock::BuildMesh(LandIslandInterface& island)
 	}
 
 	VertexDecl decl;
-	decl.reserve(7);
+	decl.reserve(8);
 	decl.emplace_back(VertexAttrib::Attribute::Position, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
 	// weight
 	decl.emplace_back(VertexAttrib::Attribute::TexCoord1, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
-	// first material id
-	decl.emplace_back(VertexAttrib::Attribute::Color1, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8);
-	// second material id
-	decl.emplace_back(VertexAttrib::Attribute::Color2, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8);
+	// first material id, w: once-per-block bits
+	decl.emplace_back(VertexAttrib::Attribute::Color1, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8);
+	// second material id, w: once-per-block bits
+	decl.emplace_back(VertexAttrib::Attribute::Color2, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8);
 	// material blend coefficient
 	decl.emplace_back(VertexAttrib::Attribute::TexCoord2, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8, true);
 	// light level, align to 4 bytes
 	decl.emplace_back(VertexAttrib::Attribute::Color0, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8, true);
 	// water alpha
 	decl.emplace_back(VertexAttrib::Attribute::Color3, static_cast<uint8_t>(1), VertexAttrib::Type::Float, true);
+	// smooth normal
+	decl.emplace_back(VertexAttrib::Attribute::Normal, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
 
 	// reserve 16*16 quads of 2 tris with 3 verts = 1536
 	const bgfx::Memory* verticesMem = bgfx::alloc(sizeof(LandVertex) * k_VertexCount);
 	auto vertices = std::span(reinterpret_cast<LandVertex*>(verticesMem->data), k_VertexCount);
 
-	BuildVertexList(vertices, island);
+	BuildVertexList(vertices, island, singleMaterials);
 
 	auto* vertexBuffer = new VertexBuffer("LandBlock", verticesMem, decl);
 	_mesh = std::make_unique<Mesh>(vertexBuffer);
@@ -80,7 +87,8 @@ void LandBlock::BuildMesh(LandIslandInterface& island)
 	_rigidBody->setUserIndex(-1);
 }
 
-void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island)
+void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island,
+                                std::span<const uint8_t> singleMaterials)
 {
 	auto countries = island.GetCountries();
 
@@ -116,13 +124,25 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 			std::array<const lnd::LNDCell*, static_cast<size_t>(Corner::_COUNT)> cells;
 			// construct positions from cell altitudes
 			std::array<glm::vec3, static_cast<size_t>(Corner::_COUNT)> pos;
+			std::array<glm::vec3, static_cast<size_t>(Corner::_COUNT)> normals;
 			std::array<const lnd::LNDMapMaterial*, static_cast<size_t>(Corner::_COUNT)> materials;
-			for (auto [position, cell, material, offset] : std::views::zip(pos, cells, materials, offsets))
+			for (auto [position, normal, cell, material, offset] : std::views::zip(pos, normals, cells, materials, offsets))
 			{
-				cell = &island.GetCell(blockOffset + offset);
+				const auto coordinates = blockOffset + offset;
+				cell = &island.GetCell(coordinates);
 				position =
 				    glm::vec3(offset.x * LandIslandInterface::k_CellSize, cell->altitude * LandIslandInterface::k_HeightUnit,
 				              offset.y * LandIslandInterface::k_CellSize);
+
+				// central differences of the neighbouring altitudes (clamped at the map edge)
+				const auto height = [&island](int cx, int cz) {
+					const auto clamped = glm::u16vec2(std::clamp(cx, 0, 511), std::clamp(cz, 0, 511));
+					return island.GetCell(clamped).altitude * LandIslandInterface::k_HeightUnit;
+				};
+				const int cx = coordinates.x;
+				const int cz = coordinates.y;
+				normal = glm::normalize(glm::vec3(height(cx - 1, cz) - height(cx + 1, cz), 2.0f * LandIslandInterface::k_CellSize,
+				                                  height(cx, cz - 1) - height(cx, cz + 1)));
 
 				const auto& country = countries.at(cell->properties.country);
 				const auto noise = island.GetNoise(blockOffset + offset);
@@ -143,7 +163,7 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				}
 				return 1.0f;
 			};
-			auto makeVert = [&getAlpha, &pos, &cells, &materials](Corner corner, const glm::vec3& weight,
+			auto makeVert = [&getAlpha, &pos, &normals, &cells, &materials, singleMaterials](Corner corner, const glm::vec3& weight,
 			                                                      const std::array<Corner, 3>& m) -> LandVertex {
 				const std::array<uint32_t, 6> mat = {
 				    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -160,6 +180,11 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				    materials[static_cast<size_t>(m[2])]->indices[1],
 				};
+				std::array<bool, 6> single {};
+				for (size_t i = 0; i < single.size(); ++i)
+				{
+					single[i] = mat[i] < singleMaterials.size() && singleMaterials[mat[i]] != 0;
+				}
 				const glm::u32vec3 blend = {
 				    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				    materials[static_cast<size_t>(m[0])]->coefficient,
@@ -173,7 +198,9 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				// vertex specular = the cell's first dword read as a D3DCOLOR (fn_00874AA0): r, g, b bytes -> blue, green, red
 				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity,
-				        glm::u8vec3(cell.b, cell.g, cell.r), getAlpha(cell.properties)};
+				        glm::u8vec3(cell.b, cell.g, cell.r), getAlpha(cell.properties),
+				        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+				        normals[static_cast<size_t>(corner)], single};
 			};
 
 			auto makeTriangle = [&makeVert, &vertices, &index](const std::array<Corner, 3>& corners, bool forward) {

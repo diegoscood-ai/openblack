@@ -68,6 +68,8 @@ struct EngineConfig
 	bool terrainTexturesX2 {false};
 	/// Landscape material textures repeated this many times per block (the original: once).
 	float terrainTextureDensity {1.0f};
+	/// Steep landscape faces take the materials from the side (triplanar) instead of stretching the top-down projection.
+	bool terrainTriplanar {false};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};

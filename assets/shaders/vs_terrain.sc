@@ -1,12 +1,12 @@
-$input a_position, a_texcoord1, a_color1, a_color2, a_texcoord2, a_color0, a_color3
-$output v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_waterAlpha, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
+$input a_position, a_texcoord1, a_color1, a_color2, a_texcoord2, a_color0, a_color3, a_normal
+$output v_normal, v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_waterAlpha, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
 
 #include <bgfx_shader.sh>
 
 #if BGFX_SHADER_LANGUAGE_HLSL > 300 || BGFX_SHADER_LANGUAGE_SPIRV
 #   define materialIdFix(x) (floatBitsToInt(x))
 #else
-#   define materialIdFix(x) (ivec3(x))
+#   define materialIdFix(x) (ivec4(x))
 #endif
 
 SAMPLER2D(s4_landLight, 4);
@@ -52,6 +52,7 @@ void main()
 	float forwardDistance = dot(transformedPosition.xz - u_smallBumpLine.xy, u_smallBumpLine.zw);
 	v_smallBumpFade = clamp((u_skyAndBump.w - forwardDistance + 20.0f) / 40.0f, 0.0f, 1.0f);
 
+	v_normal = a_normal;
 	v_worldXZ = transformedPosition.xz;
 	v_worldY = transformedPosition.y;
 	vec4 cs_position = mul(u_view, vec4(transformedPosition, 1.0f));

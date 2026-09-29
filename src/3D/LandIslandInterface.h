@@ -51,6 +51,12 @@ public:
 	[[nodiscard]] virtual float GetUnflattenedHeightAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual glm::vec3 GetNormalAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const = 0;
+	/// Altitude bits of the loaded LND: 8 in the original, up to 16 in BWLandEditor maps (EXT0 chunk)
+	[[nodiscard]] virtual uint8_t GetAltitudeBits() const { return 8; }
+	/// Cells per side of the block grid: 512 (32 blocks of 16) in the original, up to 2048 in BWLandEditor maps
+	[[nodiscard]] virtual uint16_t GetCellsPerSide() const { return 512; }
+	/// The cell's altitude in height units (k_HeightUnit), with the extra altitude bits of BWLandEditor maps
+	[[nodiscard]] uint16_t GetCellAltitude(const lnd::LNDCell& cell) const;
 
 	// Debug
 	virtual void DumpTextures() const = 0;

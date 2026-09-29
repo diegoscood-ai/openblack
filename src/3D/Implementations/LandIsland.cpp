@@ -43,6 +43,11 @@ const uint8_t LandIslandInterface::k_CellCount = 16;
 const float LandIslandInterface::k_HeightUnit = 0.67f;
 const float LandIslandInterface::k_CellSize = 10.0f;
 
+uint16_t LandIslandInterface::GetCellAltitude(const lnd::LNDCell& cell) const
+{
+	return cell.Altitude(GetAltitudeBits());
+}
+
 namespace
 {
 /// Clamped like the original, or repeated when the terrain-x2 mod tiles the materials more than once per block or
@@ -127,14 +132,44 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 		throw lnd::ResultToStr(result);
 	}
 
-	_blockIndexLookup = lnd.GetHeader().lookUpTable;
-
 	const auto& lndBlocks = lnd.GetBlocks();
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "[LandIsland] loading {} blocks", lndBlocks.size());
+	// BWLandEditor maps can have up to 128 x 128 blocks, more than 255 of them and up to 16 altitude bits; the original
+	// ones have 32 x 32 and a header lookup table that matches the blocks' own coordinates (checked on all of them)
+	_altitudeBits = lnd.GetAltitudeBits();
+	_blocksPerSide = lnd.GetBlocksPerSide();
+	constexpr uint16_t k_MaxBlocksPerSide = 128;
+	if (_blocksPerSide > k_MaxBlocksPerSide || lndBlocks.size() >= std::numeric_limits<uint16_t>::max())
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "[LandIsland] {}: {} blocks per side (at most {}), {} blocks", path.string(),
+		                    _blocksPerSide, k_MaxBlocksPerSide, lndBlocks.size());
+		throw std::runtime_error("LND block grid too large");
+	}
+	if (_altitudeBits != 8 || _blocksPerSide != 32)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "[LandIsland] {}: BWLandEditor map, {} x {} blocks, {} altitude bits",
+		                   path.filename().string(), _blocksPerSide, _blocksPerSide, static_cast<int>(_altitudeBits));
+	}
+	_blockIndexLookup.assign(static_cast<size_t>(_blocksPerSide) * _blocksPerSide, 0);
 	_landBlocks.resize(lndBlocks.size());
 	for (size_t i = 0; i < _landBlocks.size(); i++)
 	{
-		_landBlocks[i].SetLndBlock(lndBlocks[i]);
+		auto block = lndBlocks[i];
+		// like BWLandEditor, the block coordinates win over a map position that doesn't match them
+		const auto expected = glm::vec2(block.blockX, block.blockZ) * (k_CellSize * k_CellCount);
+		if (block.mapX != expected.x || block.mapZ != expected.y)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("game"), "[LandIsland] block {} at ({}, {}) has map position ({}, {})", i,
+			                   block.blockX, block.blockZ, block.mapX, block.mapZ);
+			block.mapX = expected.x;
+			block.mapZ = expected.y;
+		}
+		_landBlocks[i].SetLndBlock(block);
+		auto& entry = _blockIndexLookup.at(static_cast<size_t>(block.blockX) * _blocksPerSide + block.blockZ);
+		if (entry == 0)
+		{
+			entry = static_cast<uint16_t>(i + 1);
+		}
 	}
 
 	_extentIndexMin.x = std::numeric_limits<uint16_t>::max();
@@ -170,9 +205,21 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 
 	_heightMap = std::make_unique<Texture2D>("Height Map");
 	const auto heightMapData = CreateHeightMap();
-	_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R8,
-	                   Wrapping::ClampEdge, Filter::Linear,
-	                   bgfx::copy(heightMapData.data(), static_cast<uint32_t>(heightMapData.size())));
+	if (_altitudeBits == 8)
+	{
+		const std::vector<uint8_t> bytes(heightMapData.begin(), heightMapData.end());
+		_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R8,
+		                   Wrapping::ClampEdge, Filter::Linear, bgfx::copy(bytes.data(), static_cast<uint32_t>(bytes.size())));
+	}
+	else
+	{
+		// more than 8 bits: the same scale as R8 (1 = altitude 255), so the shaders read it alike
+		std::vector<float> scaled(heightMapData.size());
+		std::ranges::transform(heightMapData, scaled.begin(), [](float altitude) { return altitude / 255.0f; });
+		_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R32F,
+		                   Wrapping::ClampEdge, Filter::Linear,
+		                   bgfx::copy(scaled.data(), static_cast<uint32_t>(scaled.size() * sizeof(scaled[0]))));
+	}
 
 	_cellMap = std::make_unique<Texture2D>("Cell Map");
 	const auto cellMapData = CreateCellMap();
@@ -180,7 +227,12 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	                 Wrapping::ClampEdge, Filter::Nearest,
 	                 bgfx::copy(cellMapData.data(), static_cast<uint32_t>(cellMapData.size())));
 
-	const auto res = indexSize * glm::u16vec2(lnd::LNDMaterial::k_Width, lnd::LNDMaterial::k_Height);
+	// 256 texels per block like the original's block textures, fewer on BWLandEditor maps wider than 32 blocks (the
+	// textures would pass 8192 texels)
+	constexpr uint16_t k_MaxIslandTexture = 8192;
+	const auto texelsPerBlock = static_cast<uint16_t>(
+	    std::min<int>(lnd::LNDMaterial::k_Width, k_MaxIslandTexture / std::max(indexSize.x, indexSize.y)));
+	const auto res = indexSize * texelsPerBlock;
 	_footprintFrameBuffer = std::make_unique<FrameBuffer>("Footprints", res.x, res.y, graphics::TextureFormat::RGBA8);
 	_staticShadowFrameBuffer = std::make_unique<FrameBuffer>("StaticShadows", res.x, res.y, graphics::TextureFormat::R8);
 	_landAlphaFrameBuffer = std::make_unique<FrameBuffer>("LandAlpha", res.x, res.y, graphics::TextureFormat::R8);
@@ -274,7 +326,8 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
 	// the bilinear blend below is planar on that triangle.
 	const auto fixedX = static_cast<int64_t>(vec.x * 6553.6f);
 	const auto fixedZ = static_cast<int64_t>(vec.y * 6553.6f);
-	if (fixedX < 0 || fixedZ < 0 || (fixedX >> 16) >= 512 || (fixedZ >> 16) >= 512)
+	const int64_t cellsPerSide = GetCellsPerSide();
+	if (fixedX < 0 || fixedZ < 0 || (fixedX >> 16) >= cellsPerSide || (fixedZ >> 16) >= cellsPerSide)
 	{
 		return 0.0f;
 	}
@@ -285,30 +338,31 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
 
 	// The block stores 17 x 17 cells (one shared border row), so the neighbours are +1 (z) and +17 (x).
 	const auto mapCoordinates = glm::u16vec2(cellX, cellZ) >> static_cast<uint16_t>(0x4);
-	const uint8_t blockIndex = _blockIndexLookup.at(mapCoordinates.x << 5u | mapCoordinates.y);
+	const auto blockIndex = BlockIndexAt(mapCoordinates);
 	if (blockIndex == 0)
 	{
 		return 0.0f;
 	}
 	const auto* cells = _landBlocks[blockIndex - 1].GetCells();
 	const auto* base = &cells[(cellX & 0xF) * 0x11u + (cellZ & 0xF)];
-	int v00 = base[0].altitude;
-	int v01 = base[1].altitude;
-	int v10 = base[0x11].altitude;
-	int v11 = base[0x12].altitude;
+	// (64 bits: with 16 altitude bits of BWLandEditor maps the products below overflow 32)
+	int64_t v00 = GetCellAltitude(base[0]);
+	int64_t v01 = GetCellAltitude(base[1]);
+	int64_t v10 = GetCellAltitude(base[0x11]);
+	int64_t v11 = GetCellAltitude(base[0x12]);
 	// Next to the sea (base corner at most 4) heights of 3 or less count as 0 (g 0xC37BF4, on by default).
 	if (seaFlattening && v00 <= 4)
 	{
-		const auto sea = [](int v) { return v > 3 ? v : 0; };
+		const auto sea = [](int64_t v) { return v > 3 ? v : int64_t {0}; };
 		v00 = sea(v00);
 		v01 = sea(v01);
 		v10 = sea(v10);
 		v11 = sea(v11);
 	}
-	int c00 = v00;
-	int c01 = v01;
-	int c10 = v10;
-	int c11 = v11;
+	int64_t c00 = v00;
+	int64_t c01 = v01;
+	int64_t c10 = v10;
+	int64_t c11 = v11;
 	if (base[0].properties.split)
 	{
 		if (fracZ > 0xFFFFu - fracX)
@@ -328,11 +382,11 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
 	{
 		c10 = v00 + v11 - v01;
 	}
-	const int fx = static_cast<int>(fracX >> 8);
-	const int fz = static_cast<int>(fracZ >> 8);
-	const int atX1 = (c11 - c10) * fz + (c10 << 8);
-	const int atX0 = (c01 - c00) * fz + (c00 << 8);
-	const int height = (((atX1 - atX0) * fx) >> 8) + atX0;
+	const int64_t fx = fracX >> 8;
+	const int64_t fz = fracZ >> 8;
+	const int64_t atX1 = (c11 - c10) * fz + (c10 << 8);
+	const int64_t atX0 = (c01 - c00) * fz + (c00 << 8);
+	const int64_t height = (((atX1 - atX0) * fx) >> 8) + atX0;
 	return static_cast<float>(height) * LandIsland::k_HeightUnit * (1.0f / 256.0f);
 }
 
@@ -368,15 +422,18 @@ uint8_t LandIsland::GetNoise(glm::u8vec2 pos)
 	return _noiseMap.at(pos.x * 256 + pos.y);
 }
 
+uint16_t LandIsland::BlockIndexAt(glm::u16vec2 blockCoordinates) const
+{
+	if (blockCoordinates.x >= _blocksPerSide || blockCoordinates.y >= _blocksPerSide)
+	{
+		return 0;
+	}
+	return _blockIndexLookup[static_cast<size_t>(blockCoordinates.x) * _blocksPerSide + blockCoordinates.y];
+}
+
 const LandBlock* LandIsland::GetBlock(const glm::u8vec2& coordinates) const
 {
-	// our blocks can only be between [0-31, 0-31]
-	if (coordinates.x > 32 || coordinates.y > 32)
-	{
-		return nullptr;
-	}
-
-	const uint8_t blockIndex = _blockIndexLookup.at(coordinates.x * 32 + coordinates.y);
+	const auto blockIndex = BlockIndexAt(glm::u16vec2(coordinates));
 	if (blockIndex == 0)
 	{
 		return nullptr;
@@ -396,17 +453,11 @@ constexpr lnd::LNDCell k_EmptyCell = EmptyCell();
 
 const lnd::LNDCell& LandIsland::GetCell(const glm::u16vec2& coordinates) const
 {
-	if (coordinates.x > 511 || coordinates.y > 511)
-	{
-		return k_EmptyCell;
-	}
-
 	const auto mapCoordinates = coordinates >> static_cast<uint16_t>(0x4);
 	const auto cellCoordinates = static_cast<glm::u8vec2>(coordinates) & static_cast<uint8_t>(0xF);
-	const auto lookupIndex = mapCoordinates.x << 5u | mapCoordinates.y;
 	const auto cellIndex = cellCoordinates.x * 0x11u + cellCoordinates.y;
 
-	const uint8_t blockIndex = _blockIndexLookup.at(lookupIndex);
+	const auto blockIndex = BlockIndexAt(mapCoordinates);
 
 	if (blockIndex == 0)
 	{
@@ -421,13 +472,12 @@ void LandIsland::DumpTextures() const
 	_materialArray->DumpTexture();
 }
 
-std::vector<uint8_t> LandIsland::CreateHeightMap() const
+std::vector<float> LandIsland::CreateHeightMap() const
 {
 	// 16x16 cells but the last is shared
-	// max of 32x32 block grid
-	// max of 512 x 512 pixels
+	// 32x32 block grid in the original maps (512 x 512 pixels), up to 128x128 in BWLandEditor ones
 	// extra pixel at the end of the map
-	std::vector<uint8_t> data;
+	std::vector<float> data;
 	const auto extentSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
 	const auto resolution = extentSize * static_cast<uint16_t>(k_CellCount) + static_cast<uint16_t>(1);
 	data.resize(resolution.x * resolution.y, 0);
@@ -445,7 +495,7 @@ std::vector<uint8_t> LandIsland::CreateHeightMap() const
 				const auto& cell = GetCell(blockOffset + offset);
 				if ((cellPos.y * resolution.x) + cellPos.x < static_cast<int>(data.size()))
 				{
-					data.at((cellPos.y * resolution.x) + cellPos.x) = cell.altitude;
+					data.at((cellPos.y * resolution.x) + cellPos.x) = GetCellAltitude(cell);
 				}
 			}
 		}
@@ -493,7 +543,9 @@ std::vector<uint8_t> LandIsland::CreateCellMap() const
 
 void LandIsland::DumpMaps() const
 {
-	auto data = CreateHeightMap();
+	const auto heights = CreateHeightMap();
+	std::vector<uint8_t> data(heights.size());
+	std::ranges::transform(heights, data.begin(), [](float h) { return static_cast<uint8_t>(std::min(h, 255.0f)); });
 	FILE* fptr = fopen("dump.raw", "wb");
 	fwrite(data.data(), data.size() * sizeof(data[0]), 1, fptr);
 	fclose(fptr);

@@ -37,19 +37,27 @@ public:
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const override;
 	[[nodiscard]] const LandBlock* GetBlock(const glm::u8vec2& coordinates) const;
 	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const override;
+	[[nodiscard]] uint8_t GetAltitudeBits() const override { return _altitudeBits; }
+	[[nodiscard]] uint16_t GetCellsPerSide() const override { return static_cast<uint16_t>(_blocksPerSide * k_CellCount); }
 
 	// Debug
 	void DumpTextures() const override;
 	void DumpMaps() const override;
 
 private:
-	[[nodiscard]] std::vector<uint8_t> CreateHeightMap() const;
+	[[nodiscard]] std::vector<float> CreateHeightMap() const;
+	/// Index + 1 of the block at these block coordinates, 0 where there is none
+	[[nodiscard]] uint16_t BlockIndexAt(glm::u16vec2 blockCoordinates) const;
 	[[nodiscard]] std::vector<uint8_t> CreateCellMap() const;
 	std::vector<LandBlock> _landBlocks;
 	std::vector<lnd::LNDCountry> _countries;
 	std::vector<LandMaterialInfo> _materialInfo;
 
-	std::array<uint8_t, 1024> _blockIndexLookup {0};
+	/// Index + 1 of the block at (x * _blocksPerSide + z), 0 where there is none; built from the blocks' own
+	/// coordinates because the header table only covers 32 x 32 blocks and 255 indices (BWLandEditor maps go beyond)
+	std::vector<uint16_t> _blockIndexLookup;
+	uint16_t _blocksPerSide {32};
+	uint8_t _altitudeBits {8};
 
 	// Renderer, Dynamics
 public:

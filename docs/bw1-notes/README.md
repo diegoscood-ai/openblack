@@ -8,7 +8,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 
 | Página | Contenido |
 |---|---|
-| [tooling.md](tooling.md) | Desensamblado, símbolos, herramientas de openblack, formatos de datos |
+| [tooling.md](tooling.md) | Desensamblado, símbolos, herramientas de openblack, formatos de datos, mapas de BWLandEditor |
 | [engine-math.md](engine-math.md) | Coordenadas, altura del terreno, matrices LH, Zoomer |
 | [hand-and-interface.md](hand-and-interface.md) | Mano: colocación, estados, agarre, lanzamiento, objeto bajo el cursor |
 | [objects-and-resources.md](objects-and-resources.md) | Montones, vasijas, almacén, árboles (reglas, fuego, sacrificio), rocas, partículas, campos, sonidos de coger |

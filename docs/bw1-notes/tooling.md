@@ -38,3 +38,37 @@
   parámetros (`A` posición, `N` entero, `F` float). Ej.: `CREATE_MOBILE_STATIC` = `ANFFFFF` =
   (pos, tipo, altitud, ángulo X, ángulo Y, ángulo Z, escala).
 - `Scripts\info.dat`: tablas de objetos (pots, trees, mobile statics...). openblack lo carga en `InfoConstants`.
+
+## LND y mapas de BWLandEditor
+
+`B&W\BWLandEditor-main` es el editor de mapas de Daniels118 (Java, GPL-3). Parte de su código está portado de openblack:
+InfoConstants, L3D/G3D y una versión antigua de `fs_terrain`.
+- **Cómo lee el LND.** Igual que openblack, más tres extensiones que openblack ya admite (`LNDFile`, `LandIsland`):
+  - Al final del fichero pueden venir los bloques `EXT0` (u32 tamaño del bloque entero = 10, u8 versión, u8 bits de
+    altitud 8-16) y `META` (u32 tamaño de los datos, datos del editor). Con más de 8 bits, los bits altos de la
+    altitud van en los bits bajos de `saveColor` (`LNDCell::Altitude`, `LandIslandInterface::GetCellAltitude`).
+  - La cuadrícula puede tener hasta 128×128 bloques y más de 255 bloques. La tabla de la cabecera solo cubre 32×32 e
+    índices < 256, así que `LandIsland` monta su tabla con `blockX`/`blockZ` de cada bloque. En los 21 `.lnd`
+    originales la tabla coincide con esos campos (`dev\lnd_check.py`).
+  - El editor corrige un `mapX`/`mapZ` que no cuadre con `blockX`/`blockZ`, y `LandIsland` hace lo mismo.
+- **Qué se adapta en openblack.** Con más de 8 bits el mapa de alturas pasa de R8 a R32F en la misma escala
+  (1 = altitud 255). Por encima de 255 se usa el último material del país, como hace el editor.
+  - Las texturas por isla (huellas, sombras estáticas, alfa) bajan de 256 texels por bloque en cuanto pasarían de 8192.
+  - El disco que limita la cámara (centro 2560, radio 5120) crece con el tamaño del mapa.
+  - Los mapas originales no cambian.
+- **Pruebas.** `dev\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
+  absoluta del `.txt`):
+  - `Land1_ext`: Land1 con los bloques del editor al final; idéntico a Land1, altura en (1788.4, 2710) = 28.9173050.
+  - `Land1_hi`: 10 bits y altitudes dobladas; altura 57.8346100.
+  - `Land5_x2`: Land5 dos veces, cuadrícula de 60, 374 bloques.
+- **Byte `flags` de la celda, según el editor.** Bit 0 = "transparent"; bits 1-7 = sonido ambiente: 0 nada,
+  2 chapoteo, 3 océano, 4 olas lentas, 5 lago, 6 costa, 7 olas rápidas, 8 jungla, 10 viento, 12 desierto, 14 pájaros,
+  16 bosque, 18 río. Los impares por encima de 8 son variantes del par anterior. openblack aún no lo usa.
+- **Texturas de baja resolución.** Atlas de 4×4 subtexturas de 64×64, una por bloque, 4 texels por celda, con X e Y
+  intercambiadas. El "unknown" de su cabecera es el número de bloques del atlas. `iu_lrs`/`iv_lrs` son enteros
+  (0/64/128/192). openblack no las usa.
+- **Diferencias sin comprobar en el original:**
+  - El editor elige el material con `min(altitud + ruido/4, 255)`; openblack usa `(altitud + ruido) % 256`.
+  - El lector L3D de openblack toma ancho y alto de huella de la cabecera; el editor los lee por entrada.
+  - El editor lee info.dat de Creature Isle (627250 bytes; tablas más largas en InfoConstants.java L23-33); openblack
+    todavía no.

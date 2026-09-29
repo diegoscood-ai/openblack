@@ -59,6 +59,7 @@ constexpr auto k_FlyingThresholdFactor = 1.5f;
 constexpr auto k_GroundDistanceMinimum = 10.0f;
 constexpr auto k_FlightHeightFactor = 0.1f;
 constexpr auto k_FlyingScoreAngles = MakeFlyingScoreAngles<float, 0x20>();
+// For the original 32 x 32 block maps: centred on the map, radius = its side (5120); BWLandEditor maps scale it
 constexpr auto k_ConstrainDiscCentre = glm::vec3(2560.0f, 0.0f, 2560.0f);
 constexpr auto k_ConstrainDiscRadius = 5120.0f;
 constexpr auto k_MaxAltitude = 30'000.0f;
@@ -234,12 +235,15 @@ bool DefaultWorldCameraModel::ConstrainDisc()
 {
 	bool hasBeenAdjusted = false;
 
-	const auto delta = _targetOrigin - k_ConstrainDiscCentre;
+	const float scale = static_cast<float>(Locator::terrainSystem::value().GetCellsPerSide()) / 512.0f;
+	const auto centre = k_ConstrainDiscCentre * scale;
+	const auto radius = k_ConstrainDiscRadius * scale;
+	const auto delta = _targetOrigin - centre;
 	const auto distance2 = glm::length2(delta);
 
-	if (distance2 > k_ConstrainDiscRadius * k_ConstrainDiscRadius)
+	if (distance2 > radius * radius)
 	{
-		_targetOrigin = k_ConstrainDiscCentre + delta * (k_ConstrainDiscRadius / glm::sqrt(distance2));
+		_targetOrigin = centre + delta * (radius / glm::sqrt(distance2));
 		hasBeenAdjusted = true;
 	}
 

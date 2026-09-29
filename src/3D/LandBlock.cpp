@@ -131,13 +131,15 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				const auto coordinates = blockOffset + offset;
 				cell = &island.GetCell(coordinates);
 				position =
-				    glm::vec3(offset.x * LandIslandInterface::k_CellSize, cell->altitude * LandIslandInterface::k_HeightUnit,
+				    glm::vec3(offset.x * LandIslandInterface::k_CellSize,
+				              static_cast<float>(island.GetCellAltitude(*cell)) * LandIslandInterface::k_HeightUnit,
 				              offset.y * LandIslandInterface::k_CellSize);
 
 				// central differences of the neighbouring altitudes (clamped at the map edge)
 				const auto height = [&island](int cx, int cz) {
-					const auto clamped = glm::u16vec2(std::clamp(cx, 0, 511), std::clamp(cz, 0, 511));
-					return island.GetCell(clamped).altitude * LandIslandInterface::k_HeightUnit;
+					const int last = island.GetCellsPerSide() - 1;
+					const auto clamped = glm::u16vec2(std::clamp(cx, 0, last), std::clamp(cz, 0, last));
+					return static_cast<float>(island.GetCellAltitude(island.GetCell(clamped))) * LandIslandInterface::k_HeightUnit;
 				};
 				const int cx = coordinates.x;
 				const int cz = coordinates.y;
@@ -147,7 +149,10 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				const auto& country = countries.at(cell->properties.country);
 				const auto noise = island.GetNoise(blockOffset + offset);
 
-				material = &country.materials.at((cell->altitude + noise) % country.materials.size());
+				// BWLandEditor maps above altitude 255 keep the top material (as the editor draws them)
+				const auto altitude = island.GetCellAltitude(*cell);
+				material = altitude > 255 ? &country.materials.back()
+				                          : &country.materials.at((altitude + noise) % country.materials.size());
 			}
 
 			// TODO(470): This is temporary way for drawing landscape, should be moved to a shader in the renderer

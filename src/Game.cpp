@@ -40,6 +40,7 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
+#include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
@@ -456,6 +457,7 @@ bool Game::Update() noexcept
 
 	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
 	ecs::UpdateVillagerAnimations();
+	ecs::UpdateAnimalAnimations();
 	ecs::UpdateAnimations(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time

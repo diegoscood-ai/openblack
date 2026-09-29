@@ -9,7 +9,8 @@ SAMPLER2D(s_reflection, 2);
 uniform vec4 u_sky;
 uniform vec4 u_seaColour; // rgb: landscape light table[255] (the sea vertex colour); negative if unavailable
 uniform vec4 u_seaParams; // x: tiling period, y: frame counter, zw: normalised horizontal camera forward
-uniform vec4 u_waterMod;  // living water mod: x on/off, y time in seconds (wraps at 1000)
+uniform vec4 u_waterMod;  // living water mod: x on/off, y time in seconds (wraps at 1000); z: sea texture repeats
+                          // (terrain-x2 mod; 1 in the original)
 
 void main()
 {	// unpack uniforms
@@ -24,7 +25,8 @@ void main()
 	float row = floor(gl_FragCoord.y / 2.0f);
 	float phase = mod(u_seaParams.y + 2.0f * (row + 1.0f), 16.0f);
 	float ripple = 0.9f * sin(phase * 3.14159265f / 8.0f) * saturate((depth - 30.0f) / 40.0f);
-	vec2 uv = (v_texcoord0.xy + u_seaParams.zw * ripple) / u_seaParams.x;
+	// (with the terrain-x2 mod's shorter period the ripple shrinks with it, so it moves the texture as much as before)
+	vec2 uv = (v_texcoord0.xy + u_seaParams.zw * ripple / u_waterMod.z) / u_seaParams.x;
 	if (u_waterMod.x > 0.0f)
 	{
 		// Living water mod: no per-row ripple (static lines while paused, a fast shimmer at modern frame rates);

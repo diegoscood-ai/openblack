@@ -25,7 +25,9 @@
 #include "Common/StringUtils.h"
 #include "Common/Zip.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "EngineConfig.h"
 #include "Graphics/Texture2D.h"
+#include "Graphics/TextureUpscale.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -144,8 +146,27 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 	}
 
 	auto texture = std::make_shared<graphics::Texture2D>(("raw" / rawTexturePath.stem()).string());
+	// Mod graphics.terrain-x2 (upscale option): the sea's sky.raw / skya.raw upscaled 2x with Lanczos-3, like the
+	// landscape materials
+	const auto stem = string_utils::LowerCase(rawTexturePath.stem().string());
+	if (Locator::config::value().terrainTexturesX2 && (stem == "sky" || stem == "skya"))
+	{
+		const size_t channels = format == graphics::TextureFormat::RGB8 ? 3 : 1;
+		std::vector<uint8_t> rgba(static_cast<size_t>(width) * height * 4, 255);
+		for (size_t i = 0; i < static_cast<size_t>(width) * height; ++i)
+		{
+			for (size_t c = 0; c < 3; ++c)
+			{
+				rgba[i * 4 + c] = data[i * channels + (channels == 3 ? c : 0)];
+			}
+		}
+		const auto upscaled = graphics::UpscaleRgba8Lanczos2x(rgba.data(), width, height, 1);
+		texture->Create(width * 2, height * 2, 1, graphics::TextureFormat::RGBA8, graphics::Wrapping::Repeat,
+		                graphics::SurfaceTextureFilter(), bgfx::copy(upscaled.data(), static_cast<uint32_t>(upscaled.size())));
+		return texture;
+	}
 	texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
-	                bgfx::makeRef(data.data(), static_cast<uint32_t>(data.size())));
+	                bgfx::copy(data.data(), static_cast<uint32_t>(data.size())));
 
 	return texture;
 }

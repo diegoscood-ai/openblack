@@ -22,8 +22,8 @@ class TerrainX2Mod final: public Mod
 public:
 	TerrainX2Mod()
 	    : Mod({"graphics.terrain-x2", "Sharper landscape textures",
-	           "Each landscape texture repeated 2, 3 or 4 times per block, optionally upscaled 2x with Lanczos-3 when the "
-	           "island loads; cliffs take the texture from the side instead of stretching it (triplanar)",
+	           "Each landscape and sea texture repeated 2, 3 or 4 times as often, optionally upscaled 2x with Lanczos-3 "
+	           "when loaded; cliffs take the texture from the side instead of stretching it (triplanar)",
 	           "Graphics", true})
 	{
 		AddOption({"repeat", "Repeats per block", {"x1", "x2", "x3", "x4"}, 1});

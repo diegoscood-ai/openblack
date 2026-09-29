@@ -1994,7 +1994,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			const auto forward = desc.camera->GetForward();
 			const auto forwardXZ = glm::vec2(forward.x, forward.z) / std::max(glm::length(glm::vec2(forward.x, forward.z)), 1e-4f);
-			const float seaPeriod = GetDetailLevel(Locator::config::value().detailLevel).SeaPeriod();
+			// the terrain-x2 mod repeats the sea texture too: a shorter period
+			const float seaPeriod = GetDetailLevel(Locator::config::value().detailLevel).SeaPeriod() /
+			                        Locator::config::value().terrainTextureDensity;
 			const glm::vec4 u_seaParams = {seaPeriod, static_cast<float>(seaFrame % 16), forwardXZ};
 			// Living water mod: real time at a quarter speed (calm waves), also while paused; the shader time wraps at 1000 (every scroll
 			// speed in fs_water repeats the texture a whole number of times in that period, so the loop is seamless)
@@ -2002,7 +2004,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			static const auto k_Start = std::chrono::steady_clock::now();
 			const float seconds = std::fmod(
 			    std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
-			const glm::vec4 u_waterMod = {Locator::config::value().livingWater ? 1.0f : 0.0f, seconds, 0.0f, 0.0f};
+			const glm::vec4 u_waterMod = {Locator::config::value().livingWater ? 1.0f : 0.0f, seconds,
+			                              Locator::config::value().terrainTextureDensity, 0.0f};
 			waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
 			waterShader->SetUniformValue("u_seaParams", &u_seaParams); // fs
 			const glm::vec4 u_seaColour =

@@ -7,7 +7,8 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
-// The hand and the fish farms: the splash of gripping the sea and catching fish (FishFarm locked select)
+// The hand and the farms: the splash of gripping the sea, catching fish (FishFarm locked select) and taking the
+// food of the fields (Field locked select)
 
 #define LOCATOR_IMPLEMENTATIONS
 
@@ -21,9 +22,13 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/LandIslandInterface.h"
 #include "ECS/Archetypes/PotArchetype.h"
+#include "ECS/Components/Field.h"
 #include "ECS/Components/FishFarm.h"
+#include "ECS/Fields.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/FishShoals.h"
 #include "ECS/WaterRings.h"
 #include "Common/RandomNumberManager.h"
@@ -132,8 +137,8 @@ bool HandSystem::UpdateFishPickUp(float seconds) noexcept
 		}
 		pile->amount = static_cast<uint16_t>(std::min<uint32_t>(pile->amount + take, 65535u));
 		changed = true;
-		// LH_SAMPLE_G_PICKUPFOOD (pitch 60 + 180 t^2 in the original; no pitch control here)
-		PlaySample(audio::SoundId::G_PickUpFood);
+		// UpdateMultiPickup(3, t^2): the looping G_PICKUPFOOD at 60 + 180 t^2 percent (UpdatePickupSound)
+		_pickupSoundFraction = std::min(t, 1.0f) * std::min(t, 1.0f);
 	}
 	if (changed)
 	{
@@ -164,4 +169,90 @@ void HandSystem::UpdateTestSplash(float seconds) noexcept
 		timer = 1.0f;
 		SplashHand(glm::vec3(x, 0.0f, z));
 	}
+}
+
+bool HandSystem::TryPickUpField(entt::entity field) noexcept
+{
+	// ValidForLockedSelectProcess 0x5299E0: growth > 0 and food > 1. NetworkFriendlyStartLockedSelect 0x529900:
+	// n = (int)min(25, food), halved when ripe, taken from the field (unlike the fish farm) into a HandFood pot
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* data = registry.TryGet<const Field>(field);
+	if (data == nullptr || data->growth <= 0.0f || data->food <= 1.0f)
+	{
+		return false;
+	}
+	auto n = static_cast<int>(std::min(Field::k_TakenWithHand, data->food));
+	if (ecs::IsFieldRipe(field))
+	{
+		n /= 2;
+	}
+	if (n <= 0)
+	{
+		return false;
+	}
+	ecs::RemoveFieldFood(field, static_cast<float>(n));
+	const auto point = _interactionPoint.value_or(registry.Get<Transform>(field).position);
+	const float ground = Locator::terrainSystem::value().GetHeightAt(glm::vec2(point.x, point.z));
+	const auto pile = archetypes::PotArchetype::Create(glm::vec3(point.x, ground, point.z), 0.0f, PotInfo::HandFood, n);
+	if (pile == entt::null)
+	{
+		return false;
+	}
+	PickUp(pile);
+	_pickSource = field;
+	_pickField = true;
+	_pickTurns = 0;
+	_pickTurnAccumulator = 0.0f;
+	_pickLock = glm::vec3(point.x, ground, point.z);
+	return true;
+}
+
+bool HandSystem::UpdateFieldPickUp(float seconds) noexcept
+{
+	// ProcessInInteract 0x529730, per game turn: n = (int)min(8 + 62 t^2, food), t = min(turns / 60, 1); at most the
+	// room under 20000 in the hand; halved when ripe; RemoveFood(n) and the hand gets n (the original's quirk)
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* pile = registry.TryGet<Pot>(*_held);
+	const auto* field = registry.TryGet<const Field>(*_pickSource);
+	if (pile == nullptr || field == nullptr)
+	{
+		return false;
+	}
+	constexpr float k_TurnSeconds = 0.1f;
+	_pickTime += seconds;
+	_pickTurnAccumulator += seconds;
+	bool changed = false;
+	while (_pickTurnAccumulator >= k_TurnSeconds)
+	{
+		_pickTurnAccumulator -= k_TurnSeconds;
+		++_pickTurns;
+		const float t = std::min(static_cast<float>(_pickTurns) / 60.0f, 1.0f);
+		_pickupSoundFraction = t * t;
+		auto n = static_cast<int>(std::min(8.0f + 62.0f * t * t, field->food));
+		n = std::min(n, 20000 - static_cast<int>(pile->amount));
+		if (ecs::IsFieldRipe(*_pickSource))
+		{
+			n /= 2;
+		}
+		if (n <= 0)
+		{
+			_pickSource.reset();
+			_pickField = false;
+			break;
+		}
+		ecs::RemoveFieldFood(*_pickSource, static_cast<float>(n));
+		pile->amount = static_cast<uint16_t>(std::min<uint32_t>(pile->amount + static_cast<uint32_t>(n), 65535u));
+		changed = true;
+		field = registry.TryGet<const Field>(*_pickSource);
+	}
+	if (changed)
+	{
+		registry.SetDirty();
+	}
+	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr && changed && field != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Field trace: turn {} hand {} field food {:.0f} growth {:.0f} crops {}", _pickTurns,
+		                   pile->amount, field->food, field->growth, field->crops);
+	}
+	return true;
 }

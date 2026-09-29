@@ -85,6 +85,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	auto& registry = Locator::entitiesRegistry::value();
 	_pickSource.reset();
 	_pickFish = false;
+	_pickField = false;
 	_pickTime = 0.0f;
 	_pickTurnAccumulator = 0.0f;
 	_lastHeldPosition.reset();

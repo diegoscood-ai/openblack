@@ -5,10 +5,14 @@ $input a_position, a_texcoord0, a_normal, a_indices
 #endif // USE_INSTANCING
 $output v_position, v_texcoord0, v_normal, v_color0
 
+// The *_static variants define 1: every draw copies the whole u_model array into the backend's per-frame uniform
+// scratch buffer (8 MB with Vulkan), so 128 bones for every static mesh overflowed it on the bigger maps
+#ifndef BGFX_CONFIG_MAX_BONES
 #if BGFX_SHADER_LANGUAGE_HLSL == 3
 #define BGFX_CONFIG_MAX_BONES 48
 #else
 #define BGFX_CONFIG_MAX_BONES 128
+#endif
 #endif
 
 #include <bgfx_shader.sh>
@@ -62,6 +66,7 @@ void main()
 #else
 	uint modelIndex = uint(max(0, a_indices.x));
 #endif
+	modelIndex = min(modelIndex, uint(BGFX_CONFIG_MAX_BONES - 1));
 
 	v_position = mul(u_model[modelIndex], vec4(a_position.xyz, 1.0f));
 	// Normals follow the bone / model rotation and then the instance rotation (uniform scales only, renormalised)

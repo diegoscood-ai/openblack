@@ -30,6 +30,7 @@ public:
 	void PlayEmitter([[maybe_unused]] entt::entity emitter) override {}
 	void PauseEmitter([[maybe_unused]] entt::entity emitter) override {}
 	void StopEmitter([[maybe_unused]] entt::entity emitter) override {}
+	void SetEmitterPitch([[maybe_unused]] entt::entity emitter, [[maybe_unused]] float percent) override {}
 	void DestroyEmitter([[maybe_unused]] entt::entity emitter) override {}
 	entt::entity CreateEmitter([[maybe_unused]] entt::id_type id, [[maybe_unused]] PlayType playType,
 	                           [[maybe_unused]] glm::vec3 position, [[maybe_unused]] glm::vec3 direction,

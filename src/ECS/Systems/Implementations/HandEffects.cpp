@@ -347,3 +347,45 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		}
 	}
 }
+
+void HandSystem::UpdatePickupSound(bool active) noexcept
+{
+	// UpdateMultiPickup fn_0068F930 plays 98 G_PickUpWood for a wood pile and 44 G_PickUpFood for everything else
+	// (food piles, fields, fish farms) every turn: a single looping channel (loops -1, play mode 2 "already playing:
+	// leave it"), so only LHSampleSetPitch(60 + 180 t^2) changes it. StopMultiPickup 0x68FA50 stops it at the end.
+	if (!Locator::audio::has_value())
+	{
+		return;
+	}
+	auto& audio = Locator::audio::value();
+	auto& registry = Locator::entitiesRegistry::value();
+	if (_pickupSound && !registry.Valid(*_pickupSound))
+	{
+		_pickupSound.reset();
+	}
+	if (!active)
+	{
+		if (_pickupSound)
+		{
+			audio.StopEmitter(*_pickupSound);
+			audio.DestroyEmitter(*_pickupSound);
+			_pickupSound.reset();
+		}
+		_pickupSoundFraction = 0.0f;
+		return;
+	}
+	if (!_pickupSound)
+	{
+		const bool wood = PotInfoOf(*_held) == PotInfo::HandWood;
+		const auto id = static_cast<entt::id_type>(wood ? audio::SoundId::G_PickUpWood : audio::SoundId::G_PickUpFood);
+		if (!Locator::resources::value().GetSounds().Contains(id))
+		{
+			return;
+		}
+		const auto& sound = audio.GetSound(id);
+		_pickupSound = audio.CreateEmitter(id, audio::PlayType::Repeat, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec2(0.0f),
+		                                   sound.volume, audio::AudioStatus::Playing, true);
+		audio.PlayEmitter(*_pickupSound);
+	}
+	audio.SetEmitterPitch(*_pickupSound, 60.0f + 180.0f * _pickupSoundFraction);
+}

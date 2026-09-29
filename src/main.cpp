@@ -22,6 +22,7 @@
 // clang-format on
 #endif
 
+#include "Common/CrashHandler.h"
 #include "EngineConfig.h"
 #include "Game.h"
 
@@ -242,6 +243,7 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 
 int main(int argc, char* argv[]) noexcept
 {
+	openblack::InstallCrashHandler();
 	// clang-format off
 	std::cout <<
 	    "==============================================================================\n"

@@ -48,6 +48,8 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Field.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
@@ -557,7 +559,7 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 	{
 		_cursorObject = hit->entity;
 		const auto& transform = registry.Get<const Transform>(hit->entity);
-		if (registry.AllOf<Villager>(hit->entity))
+		if (registry.AnyOf<Villager, Animal>(hit->entity))
 		{
 			// Living (not a creature): hover just in front of it, at the distance of its centre minus its 2D radius,
 			// then corrected for the height difference along the ray.
@@ -630,52 +632,33 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	const auto& registry = Locator::entitiesRegistry::value();
 	auto& meshes = Locator::resources::value().GetMeshes();
 	const glm::vec2 point(_interactionPoint->x, _interactionPoint->z);
+	// The interaction object is the one under the cursor (SendObjectDrawCollision: exact triangle pick) when it can be
+	// picked up. FindObjectNearMapCoord (0x5D39E0, +-5 units) is only a fallback for a click that hit nothing, and it
+	// only takes an object nearer than the clicked point (it is not a hover reach).
 	std::optional<entt::entity> best;
-	float bestDistance = std::numeric_limits<float>::max();
-	// The object under the cursor (triangle pick) is the interaction object when it can be picked up; otherwise the
-	// nearest pickable object around the point (FindObjectNearMapCoord 0x5D39E0 uses a +-5 unit square).
-	const bool cursorPickable = _cursorObject && registry.Valid(*_cursorObject) &&
-	                            registry.AnyOf<Mobile, Tree, DeadTree, Pot>(*_cursorObject);
-	registry.Each<const Transform, const Mesh>(
-	    [&](entt::entity entity, const Transform& transform, const Mesh& mesh) {
-		    // Pickable: mobile objects, trees and resource piles/pots (food, wood).
-		    if (!registry.AnyOf<Mobile, Tree, DeadTree, Pot>(entity) || _hands[0] == entity || _hands[1] == entity)
-		    {
-			    return;
-		    }
-		    // Generous reach: the fingertip only needs to be over (or next to) the object.
-		    float radius = 3.5f;
-		    float radius2D = 0.0f;
-		    if (meshes.Contains(mesh.id))
-		    {
-			    const auto size = meshes.Handle(mesh.id)->GetBoundingBox().Size() * transform.scale;
-			    radius2D = 0.5f * std::max(size.x, size.z);
-			    radius = std::max(3.5f, radius2D + 2.0f);
-		    }
-		    // Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted. Rocks are taken to be the
-		    // MobileStatic types Rock and Boulder* .. Squarerock* (the Rock class in the original).
-		    if (const auto* statics = registry.TryGet<const MobileStatic>(entity); statics != nullptr)
-		    {
-			    const auto type = static_cast<int>(statics->type);
-			    const bool isRock = type == static_cast<int>(MobileStaticInfo::Rock) ||
-			                        (type >= static_cast<int>(MobileStaticInfo::Boulder1Chalk) &&
-			                         type <= static_cast<int>(MobileStaticInfo::SquarerockVolcanic));
-			    if (isRock && radius2D > 3.6f)
-			    {
-				    return;
-			    }
-		    }
-		    float distance = glm::distance(point, glm::vec2(transform.position.x, transform.position.z));
-		    if (cursorPickable && entity == *_cursorObject)
-		    {
-			    distance = -1.0f; // wins over any proximity candidate
-		    }
-		    if (distance <= radius && distance < bestDistance)
-		    {
-			    best = entity;
-			    bestDistance = distance;
-		    }
-	    });
+	if (_cursorObject && registry.Valid(*_cursorObject) && registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field>(*_cursorObject) &&
+	    _hands[0] != *_cursorObject && _hands[1] != *_cursorObject)
+	{
+		best = *_cursorObject;
+		// Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted. Rocks are taken to be the
+		// MobileStatic types Rock and Boulder* .. Squarerock* (the Rock class in the original).
+		if (const auto* statics = registry.TryGet<const MobileStatic>(*best); statics != nullptr)
+		{
+			const auto type = static_cast<int>(statics->type);
+			const bool isRock = type == static_cast<int>(MobileStaticInfo::Rock) ||
+			                    (type >= static_cast<int>(MobileStaticInfo::Boulder1Chalk) &&
+			                     type <= static_cast<int>(MobileStaticInfo::SquarerockVolcanic));
+			const auto* mesh = registry.TryGet<const Mesh>(*best);
+			if (isRock && mesh != nullptr && meshes.Contains(mesh->id))
+			{
+				const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(*best).scale;
+				if (0.5f * std::max(size.x, size.z) > 3.6f)
+				{
+					best.reset();
+				}
+			}
+		}
+	}
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
 	{
 		static int frame = 0;

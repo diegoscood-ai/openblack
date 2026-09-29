@@ -29,7 +29,12 @@ Detalle completo en `C:\Users\diewgarc\dev\decomp_pickup` (hand.cpp, interface.c
   triángulos; gana el más cercano; se ignora lo que está en la mano.
 - `UpdateInterfaceCollide` (0x5D5A70): si el terreno queda delante, el objeto solo cuenta si el punto del terreno cae
   dentro de su huella XZ.
-- Si al hacer clic no hay nada: `FindObjectNearMapCoord` (0x5D39E0), el más cercano en ±5 unidades.
+- Si al hacer clic no hay nada: `FindObjectNearMapCoord` (0x5D39E0), el más cercano en ±5 unidades y solo si está
+  más cerca que el punto pulsado; primero los peces de una piscifactoría si es agua. **No es un alcance de hover**:
+  openblack usa solo el objeto del pick por triángulos (antes tenía un radio inventado de ≥3,5 unidades).
+- Las mallas con huesos (aldeanos, animales) se prueban en su pose de reposo, que es como se dibujan
+  (`L3DSubMesh`: posiciones de colisión × cadena de huesos del grupo). Los animales cuentan como Living al colocar la
+  mano (distancia al centro menos el radio 2D).
 - **Excluir todo lo que se mueve con la mano** (objeto sujetado, árbol arrancándose, raíces, partículas): si no, el
   rayo choca con ello y la mano sube hacia la cámara sin fin.
 

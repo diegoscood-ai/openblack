@@ -58,6 +58,12 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME vs_object_hm_instanced
 #include "ShaderIncluder.h"
+#define SHADER_NAME vs_object_instanced_static
+#include "ShaderIncluder.h"
+#define SHADER_NAME vs_object_hm_instanced_static
+#include "ShaderIncluder.h"
+#define SHADER_NAME vs_static_shadow_instanced_static
+#include "ShaderIncluder.h"
 #define SHADER_NAME fs_object
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_object_shadow
@@ -97,6 +103,8 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_world_quad
 #include "ShaderIncluder.h"
+#define SHADER_NAME fs_text
+#include "ShaderIncluder.h"
 #define SHADER_NAME vs_cloud
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_cloud
@@ -123,7 +131,7 @@ struct ShaderDefinition
 	const std::string_view fragmentShaderName;
 };
 
-const std::array<bgfx::EmbeddedShader, 31> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 35> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_line), BGFX_EMBEDDED_SHADER(vs_line_instanced),                                                   //
     BGFX_EMBEDDED_SHADER(fs_line),                                                                                            //
     BGFX_EMBEDDED_SHADER(vs_object), BGFX_EMBEDDED_SHADER(vs_object_instanced), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced), //
@@ -138,6 +146,9 @@ const std::array<bgfx::EmbeddedShader, 31> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_dynamic_shadow_instanced),                                                                        //
     BGFX_EMBEDDED_SHADER(vs_blob), BGFX_EMBEDDED_SHADER(fs_blob), BGFX_EMBEDDED_SHADER(fs_world_quad),                                                             //
     BGFX_EMBEDDED_SHADER(vs_foliage), BGFX_EMBEDDED_SHADER(fs_foliage), BGFX_EMBEDDED_SHADER(fs_land_alpha),                                                       //
+    BGFX_EMBEDDED_SHADER(vs_object_instanced_static), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced_static),
+    BGFX_EMBEDDED_SHADER(vs_static_shadow_instanced_static),
+    BGFX_EMBEDDED_SHADER(fs_text),
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
 
@@ -159,7 +170,13 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"Cloud", "vs_cloud", "fs_cloud"},
     ShaderDefinition {"DynamicShadowInstanced", "vs_dynamic_shadow_instanced", "fs_static_shadow"},
     ShaderDefinition {"Blob", "vs_blob", "fs_blob"},
+    ShaderDefinition {"ObjectInstancedStatic", "vs_object_instanced_static", "fs_object"},
+    ShaderDefinition {"ObjectHeightMapInstancedStatic", "vs_object_hm_instanced_static", "fs_object"},
+    ShaderDefinition {"ObjectShadowInstancedStatic", "vs_object_instanced_static", "fs_object_shadow"},
+    ShaderDefinition {"ObjectHeightMapShadowInstancedStatic", "vs_object_hm_instanced_static", "fs_object_shadow"},
+    ShaderDefinition {"StaticShadowInstancedStatic", "vs_static_shadow_instanced_static", "fs_static_shadow"},
     ShaderDefinition {"WorldQuad", "vs_blob", "fs_world_quad"},
+    ShaderDefinition {"Text", "vs_blob", "fs_text"},
     ShaderDefinition {"Foliage", "vs_foliage", "fs_foliage"},
     ShaderDefinition {"LandAlphaInstanced", "vs_footprint_instanced", "fs_land_alpha"},
 };

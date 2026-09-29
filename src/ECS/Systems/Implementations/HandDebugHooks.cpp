@@ -66,6 +66,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
+#include "ECS/Components/Field.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/StaticGrounding.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
@@ -138,7 +139,26 @@ void HandSystem::RunDebugHooks() noexcept
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: fish at ({:.1f}, {:.1f}), catching {}", point->x, point->z, caught);
 		}
 	}
-	// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
+	// OPENBLACK_HAND_TEST_FIELD=<seconds>: taking food from the first field with the action held that long (3 s if 1)
+	if (const char* fieldTest = std::getenv("OPENBLACK_HAND_TEST_FIELD"); fieldTest != nullptr)
+	{
+		std::optional<entt::entity> field;
+		Locator::entitiesRegistry::value().Each<const Field>([&field](entt::entity entity, const Field&) {
+			if (!field)
+			{
+				field = entity;
+			}
+		});
+		if (field)
+		{
+			const bool taking = TryPickUpField(*field);
+			_pickPressHeld = taking;
+			const float seconds = static_cast<float>(std::atof(fieldTest));
+			_testActionSeconds = seconds > 1.0f ? seconds : 3.0f;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: field {}, taking {}", static_cast<uint32_t>(*field), taking);
+		}
+	}
+		// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
 	if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr && Game::Instance() != nullptr)
 	{
 		Game::Instance()->SetTime(std::clamp(static_cast<float>(std::atof(hour)), 0.0f, 24.0f));

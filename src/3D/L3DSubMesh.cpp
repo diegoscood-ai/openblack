@@ -221,13 +221,28 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	decl.emplace_back(VertexAttrib::Attribute::Indices, static_cast<uint8_t>(2), VertexAttrib::Type::Int16);
 
 	// build our buffers
-	if (!_flags.hasBones)
+	_collisionIndices.assign(indices, indices + nIndices);
+	if (_flags.hasBones)
 	{
-		_collisionIndices.assign(indices, indices + nIndices);
-	}
-	else
-	{
-		_collisionPositions.clear(); // boned meshes (the hand, creatures) are not picked from their bind pose
+		// Boned meshes (villagers, animals) are drawn in their rest pose: pick them in it, each vertex moved by the chain
+		// of its vertex group's bone (the same transform as the bounding box above)
+		uint32_t vertex = 0;
+		for (const auto& vertexGroupSpan : vertexGroupSpans)
+		{
+			auto matrix = glm::identity<glm::mat4>();
+			for (uint32_t parent = vertexGroupSpan.boneIndex; parent != std::numeric_limits<uint32_t>::max();
+			     parent = boneSpans[parent].parent)
+			{
+				const auto& bone = boneSpans[parent];
+				const auto orientation = glm::make_mat3(bone.orientation.data());
+				const auto translation = glm::make_vec3(&bone.position.x) * orientation;
+				matrix = glm::translate(glm::mat4(orientation), translation) * matrix;
+			}
+			for (uint32_t j = 0; j < vertexGroupSpan.vertexCount && vertex < nVertices; ++j, ++vertex)
+			{
+				_collisionPositions[vertex] = glm::xyz(matrix * glm::vec4(_collisionPositions[vertex], 1.0f));
+			}
+		}
 	}
 	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
 	auto* indexBuffer = new IndexBuffer(_l3dMesh.GetDebugName(), indicesMem, IndexBuffer::Type::Uint16);

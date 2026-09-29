@@ -144,6 +144,15 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 		}
 		return;
 	}
+	if (_pickField)
+	{
+		if (!UpdateFieldPickUp(seconds))
+		{
+			_pickSource.reset();
+			_pickField = false;
+		}
+		return;
+	}
 	auto* source = registry.TryGet<Pot>(*_pickSource);
 	auto* pile = registry.TryGet<Pot>(*_held);
 	if (source == nullptr || pile == nullptr)
@@ -190,8 +199,8 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 		}
 		pile->amount = static_cast<uint16_t>(pile->amount + take);
 		changed = true;
-		// LH_SAMPLE_G_PICKUPWOOD / PICKUPFOOD every turn (pitch 60 + 180 t^2 in the original; no pitch control here).
-		PlaySample(wood ? audio::SoundId::G_PickUpWood : audio::SoundId::G_PickUpFood);
+		// UpdateMultiPickup(type, t^2): the looping pick-up sound's pitch, 60 + 180 t^2 percent (UpdatePickupSound)
+		_pickupSoundFraction = t * t;
 	}
 	if (changed && _pickSource)
 	{

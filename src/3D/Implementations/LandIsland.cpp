@@ -172,7 +172,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	const auto heightMapData = CreateHeightMap();
 	_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R8,
 	                   Wrapping::ClampEdge, Filter::Linear,
-	                   bgfx::makeRef(heightMapData.data(), static_cast<uint32_t>(heightMapData.size())));
+	                   bgfx::copy(heightMapData.data(), static_cast<uint32_t>(heightMapData.size())));
 
 	_cellMap = std::make_unique<Texture2D>("Cell Map");
 	const auto cellMapData = CreateCellMap();
@@ -224,7 +224,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 		_materialArray->Create(
 		    lnd::LNDMaterial::k_Width, lnd::LNDMaterial::k_Height, materialCount, TextureFormat::BGR5A1,
 		    MaterialWrapping(), SurfaceTextureFilter(),
-		    bgfx::makeRef(rgba5TextureData.data(), static_cast<uint32_t>(rgba5TextureData.size() * sizeof(rgba5TextureData[0]))));
+		    bgfx::copy(rgba5TextureData.data(), static_cast<uint32_t>(rgba5TextureData.size() * sizeof(rgba5TextureData[0]))));
 	}
 
 	// read noise map into Texture2D
@@ -238,7 +238,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	_textureBumpMap = std::make_unique<Texture2D>("LandIslandBumpMap");
 	_textureBumpMap->Create(
 	    lnd::LNDBumpMap::k_Width, lnd::LNDBumpMap::k_Height, 1, TextureFormat::R8, Wrapping::Repeat, SurfaceTextureFilter(),
-	    bgfx::makeRef(lnd.GetExtra().bump.texels.data(),
+	    bgfx::copy(lnd.GetExtra().bump.texels.data(),
 	                  static_cast<uint32_t>(sizeof(lnd.GetExtra().bump.texels[0]) * lnd.GetExtra().bump.texels.size())));
 
 	_smallBump = CreateSmallBumpTexture();

@@ -56,6 +56,9 @@ public:
 	virtual void Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool gripping, bool actionHeld) noexcept = 0;
 	/// Object currently held by the player hand, if any.
 	[[nodiscard]] virtual std::optional<entt::entity> GetHeldObject() const noexcept = 0;
+	/// ToolTips::ForceToolTips(0xEEA, amount) of a locked select: the amount in the hand while taking food or wood, and
+	/// for 12 turns after the last turn of it (afterFocus 0.5); nullopt when not shown
+	[[nodiscard]] virtual std::optional<float> GetAmountInHandToolTip() const noexcept = 0;
 	/// Objects thrown by the hand that are still in flight (the original's physics objects)
 	[[nodiscard]] virtual std::vector<entt::entity> GetThrownObjects() const noexcept = 0;
 	/// Animated global bone matrices of the player hand, or nullptr when hh.HBN is not loaded.

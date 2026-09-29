@@ -9,6 +9,7 @@
 
 #include "Resources/Loaders.h"
 
+#include <algorithm>
 #include <iostream>
 #include <ranges>
 #include <utility>
@@ -189,8 +190,12 @@ SoundLoader::result_type SoundLoader::operator()(BaseLoader<audio::Sound>::FromB
 	sound->priority = header.priority;
 	sound->sampleRate = static_cast<int>(header.sampleRate);
 	sound->bitRate = 0;
-	sound->volume = 1.f;
-	sound->pitch = header.pitch;
+	// LH_BankSample +0x244 (unknown10/11) are override flags: a field of the .sad only counts when its bit is set
+	// (LHaudiodllR 0x10011420): 0x1 pitch (+0x260, percent of the wav's rate), 0x20 volume (+0x25C, 0..127).
+	// Otherwise the game's values apply: pitch 100, volume 127. The pitch deviation (percent) always applies.
+	const uint32_t overrides = static_cast<uint32_t>(header.unknown10) | (static_cast<uint32_t>(header.unknown11) << 16);
+	sound->volume = (overrides & 0x20u) != 0 ? static_cast<float>(std::min<int>(header.volume, 127)) / 127.0f : 1.0f;
+	sound->pitch = (overrides & 0x1u) != 0 && header.pitch != 0 ? header.pitch : 100;
 	sound->pitchDeviation = header.pitchDeviation;
 	sound->playType = static_cast<audio::PlayType>(header.loopType);
 	sound->buffer = buffer;

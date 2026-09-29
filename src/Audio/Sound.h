@@ -223,9 +223,9 @@ public:
 	int sampleRate;
 	int priority;
 	int bitRate;
-	float volume;
-	int pitch;
-	int pitchDeviation;
+	float volume;       ///< gain 0..1 (the .sad volume / 127 when its override flag is set)
+	int pitch;          ///< percent of the sample rate (100 = as recorded)
+	int pitchDeviation; ///< +-percent, random at each start
 	ChannelLayout channelLayout;
 	PlayType playType;
 	BufferId bufferId;

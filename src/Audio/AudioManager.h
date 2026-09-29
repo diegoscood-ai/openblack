@@ -45,6 +45,7 @@ public:
 	void PlayEmitter(entt::entity emitter) override;
 	void PauseEmitter(entt::entity emitter) override;
 	void StopEmitter(entt::entity emitter) override;
+	void SetEmitterPitch(entt::entity emitter, float percent) override;
 	void DestroyEmitter(entt::entity emitter) override;
 	entt::entity CreateEmitter(entt::id_type id, PlayType playType, glm::vec3 position, glm::vec3 direction, glm::vec2 radius,
 	                           float volume, AudioStatus status, bool relative) override;

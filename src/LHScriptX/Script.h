@@ -9,12 +9,24 @@
 
 #pragma once
 
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "Lexer.h"
 
 namespace openblack::lhscriptx
 {
+
+/// A line the script reader cannot understand (syntax, unknown command, wrong arguments): the line is skipped
+class ScriptError: public std::runtime_error
+{
+public:
+	explicit ScriptError(const std::string& msg)
+	    : std::runtime_error(msg)
+	{
+	}
+};
 
 class Script
 {

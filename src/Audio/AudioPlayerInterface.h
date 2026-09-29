@@ -35,6 +35,8 @@ public:
 	virtual void QueueBuffer(SourceId sourceId, BufferId buffer) = 0;
 	virtual void DeleteBuffer(BufferId id) = 0;
 	[[nodiscard]] virtual SourceId CreateSource(float pitch, bool relative) = 0;
+	/// AL_PITCH, 1 = as recorded
+	virtual void SetSourcePitch(SourceId id, float pitch) = 0;
 	virtual void DeleteSource(SourceId id) = 0;
 	virtual void UpdateSource(SourceId id, glm::vec3 pos, float volume, bool loop) = 0;
 	virtual void UpdateSource(SourceId id, float volume, bool loop) = 0;

@@ -37,6 +37,7 @@
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
+#include "ECS/Fields.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -106,6 +107,11 @@ Game::Game(Arguments&& args) noexcept
 	{
 		auto logger = createLogger(subsystem.data());
 		logger->set_level(args.logLevels.at(i));
+		// test hook: OPENBLACK_FLUSH_LOG=1 writes every line at once (the last lines before a crash are kept)
+		if (std::getenv("OPENBLACK_FLUSH_LOG") != nullptr)
+		{
+			logger->flush_on(spdlog::level::trace);
+		}
 		++i;
 	}
 	sInstance = this;
@@ -322,6 +328,7 @@ bool Game::GameLogicLoop() noexcept
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
 		ecs::ProcessFishFarmsTurn(_turnCount);
+		ecs::ProcessFieldsTurn(_turnCount);
 	}
 
 	_lastGameLoopTime = currentTime;
@@ -410,6 +417,9 @@ bool Game::Update() noexcept
 		}
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
+
+	// Fields: visibility and sinking with their food (Field::Draw)
+	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
@@ -1047,7 +1057,15 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	                                                        config.cameraFarClip);
 
 	Script script;
-	script.Load(source);
+	try
+	{
+		script.Load(source);
+	}
+	catch (const std::exception& e)
+	{
+		// LoadMap is noexcept: a script it cannot read must not end the program
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "Error in the map script {}: {}", path.generic_string(), e.what());
+	}
 
 	// GStream::CreateAll 0x733FF0: the rivers' landscape footprints, once the script has placed their points
 	ecs::CreateRiverFootprints();

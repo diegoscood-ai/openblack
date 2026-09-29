@@ -9,6 +9,12 @@
 
 #include "Lexer.h"
 
+#include <limits>
+
+#include <cstdlib>
+
+#include <algorithm>
+
 #include <cctype>
 
 #include <utility>
@@ -244,7 +250,9 @@ Token Lexer::GatherNumber()
 		return Token::MakeFloatToken(value);
 	}
 
-	int value = std::stoi(std::string(numberStart, _current));
+	// saturated like strtol (some scripts give beliefs of 99999900000)
+	const auto wide = std::strtoll(std::string(numberStart, _current).c_str(), nullptr, 10);
+	int value = static_cast<int>(std::clamp<long long>(wide, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()));
 	if (isNeg)
 	{
 		value = -value;
@@ -256,13 +264,19 @@ Token Lexer::GatherString()
 {
 	auto stringStart = ++_current;
 
-	// todo: we should check for unterminated strings
-	while (HasMore() && *_current != '"')
+	// A string ends at its closing quote or at the end of the line: some playground scripts have a doubled quote
+	// (ADD_GAME_MESSAGE_LINE("Defeat the Norse God!"", 0)) that would otherwise swallow the lines after it
+	while (HasMore() && *_current != '"' && *_current != '\n')
 	{
 		_current++;
 	}
 
-	return Token::MakeStringToken(std::string(stringStart, _current++));
+	auto token = Token::MakeStringToken(std::string(stringStart, _current));
+	if (HasMore() && *_current == '"')
+	{
+		_current++;
+	}
+	return token;
 }
 
 void Token::Print(FILE* file) const

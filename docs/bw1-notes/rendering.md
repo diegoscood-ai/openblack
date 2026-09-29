@@ -382,3 +382,24 @@ Informe completo con direcciones y pseudo-C++: `C:\Users\diewgarc\dev\tmp_dis\st
   alfa de salida por ese valor.
 - Sin analizar: el sonido `ATMOS_TYPE_RUNNING_WATER` (`audio/sfx/atmos/stream.sad`) y las cascadas (`GWaterfall`,
   `waterfall3.l3d`).
+
+## Texto: fuentes del original y el mensaje de la mano (hecho)
+
+Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_numbers.md` (mensajes).
+- Fuentes `Data\j0` ("Ocean Sans MM", la de los mensajes), `f1`, `f3`: `.met` = u32 alto de celda 80, wchar[128]
+  nombre, u32 número, registros de 28 bytes {u16 código, u16 ancho del bitmap, s16, u16, f32 izquierda, f32 ancho,
+  f32 derecha, u32 desplazamiento y u32 tamaño en el `.fnt`}. `.fnt` (`CachePage::RenderChar` 0x830C10): longitudes de
+  tramos de 1 bit alternando 0/1 desde 0; un byte, o 0xFF + u16; bitmap de ancho × 80 por filas.
+- Caché de glifos: ARGB4444 blanco, alfa por bloques 2×2 con la tabla 0x9A3990 {0, 4, 8, 12, 15}/15, un texel
+  transparente a cada lado; filas 40..59 a un cuarto (tamaños < 26). `DrawTextRaw` 0x832C60: s = tamaño/80,
+  X0 = x + avance + izquierda·s, X1 = X0 + (ancho + 2)·s, alto = tamaño; avance += (izquierda + ancho + derecha)·s; sin
+  kerning; modo 16 (SRCALPHA/INVSRCALPHA, prueba de alfa ≥ 5, sin Z).
+- Mensaje de la cantidad en la mano: `ToolTips::ForceToolTips(0xEEA, cantidad)` cada turno de una selección bloqueada
+  (montones, campos, piscifactorías) y 12 turnos después; texto 0xEEA de `Scripts\InfoScript2.txt` ("Cantidad:
+  %3.0f"; el id es el orden de las líneas ADD_TEXT). `CameraHelp::DrawKeyOrMouse` 0x447EA0: junto a la mano en
+  pantalla, caja de H/25 (texto a 2/3), texto amarillo con dos copias negras a ±1 px, caja aditiva del color del
+  texto con alfa 42; pasa al otro lado de la mano pasado 2/3 de la pantalla.
+- openblack: `Graphics/GameFont` (atlas R8 con la misma rasterización), `Common/HelpText`, `Renderer::DrawHandToolTip`
+  (vista `ScreenOverlay`), `fs_text`. Gancho `OPENBLACK_TEST_TOOLTIP=<n>`. **Aproximado**: la caja es un rectángulo
+  (el original usa un 9-slice de `SetupThing::DrawBox`) y el margen del texto dentro de la caja es una estimación.
+  Faltan los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...).

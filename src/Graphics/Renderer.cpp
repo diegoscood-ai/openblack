@@ -51,7 +51,9 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/DebugLines.h"
 #include "Graphics/DetailLevel.h"
+#include "Common/HelpText.h"
 #include "Graphics/FrameBuffer.h"
+#include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Primitive.h"
@@ -331,6 +333,7 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 Renderer::~Renderer() noexcept
 {
 	_clouds.reset();
+	_font.reset(); // its texture before bgfx::shutdown
 	_foliage.reset();
 	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
 	if (bgfx::isValid(_landLightTexture))
@@ -412,6 +415,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
                            bool preserveState) const
 {
 	assert(&subMesh.GetMesh());
+	// meshes without bones use the variant of the program with a single model matrix (see vs_object.sc)
+	const auto* program = mesh.IsBoned() ? desc.program : StaticVariant(desc.program);
 	// We don't draw physics meshes, we haven't implemented statuses (building and graves) and modern GPUs can handle high lod
 	if (!desc.drawAll && (subMesh.IsPhysics() || subMesh.GetFlags().status != 0 || (subMesh.GetFlags().lodMask & 1) != 1))
 	{
@@ -463,12 +468,12 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			if (texture != nullptr)
 			{
-				desc.program->SetTextureSampler("s_diffuse", 0, *texture);
+				program->SetTextureSampler("s_diffuse", 0, *texture);
 			}
 			if (desc.morphWithTerrain)
 			{
-				desc.program->SetTextureSampler("s_heightmap", 1, heightMap);   // vs
-				desc.program->SetUniformValue("u_islandExtent", &islandExtent); // vs
+				program->SetTextureSampler("s_heightmap", 1, heightMap);   // vs
+				program->SetUniformValue("u_islandExtent", &islandExtent); // vs
 			}
 			if (!desc.isSky)
 			{
@@ -480,24 +485,24 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				                                 desc.lightBoost,
 				                                 desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
 				const glm::vec4 u_objectClip = {desc.clipBelowSea ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
-				desc.program->SetUniformValue("u_objectClip", &u_objectClip); // fs
-				desc.program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
-				desc.program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
+				program->SetUniformValue("u_objectClip", &u_objectClip); // fs
+				program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
+				program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
 				if (bgfx::isValid(_cloudShadowTexture))
 				{
-					desc.program->SetTextureSampler("s_cloudShadow", 4, fromBgfx(_cloudShadowTexture)); // vs
+					program->SetTextureSampler("s_cloudShadow", 4, fromBgfx(_cloudShadowTexture)); // vs
 				}
-				desc.program->SetUniformValue("u_cellMap", &u_cellMap);                    // vs
-				desc.program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
-				desc.program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
-				desc.program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
+				program->SetUniformValue("u_cellMap", &u_cellMap);                    // vs
+				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
+				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
+				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
-				desc.program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
+				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
 				if (desc.dynamicShadow != nullptr)
 				{
-					desc.program->SetTextureSampler("s_dynamicShadow", 5, *desc.dynamicShadow);
-					desc.program->SetUniformValue("u_dynamicShadowBox", &desc.dynamicShadowBox);
-					desc.program->SetUniformValue("u_dynamicShadow", &desc.dynamicShadowParams);
+					program->SetTextureSampler("s_dynamicShadow", 5, *desc.dynamicShadow);
+					program->SetUniformValue("u_dynamicShadowBox", &desc.dynamicShadowBox);
+					program->SetUniformValue("u_dynamicShadow", &desc.dynamicShadowParams);
 				}
 			}
 			if (!desc.isSky)
@@ -508,7 +513,7 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				    alphaToCoverage && prim.thresholdAlpha ? 1.0f : 0.0f,
 				    blended ? 1.0f : 0.0f,
 				};
-				desc.program->SetUniformValue("u_skyAlphaThreshold", &u_skyAlphaThreshold);
+				program->SetUniformValue("u_skyAlphaThreshold", &u_skyAlphaThreshold);
 			}
 		}
 		else
@@ -562,11 +567,24 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				bgfx::setState(state | a2c, desc.rgba);
 			}
 
-			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(desc.program->GetRawHandle()), 0,
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()), 0,
 			             primitivePreserveState ? BGFX_DISCARD_NONE : BGFX_DISCARD_ALL);
 		}
 		lastPreserveState = primitivePreserveState;
 	}
+}
+
+const graphics::ShaderProgram* Renderer::StaticVariant(const graphics::ShaderProgram* program) const
+{
+	if (_staticVariants.empty())
+	{
+		for (const auto* name : {"ObjectInstanced", "ObjectHeightMapInstanced", "ObjectShadowInstanced", "ObjectHeightMapShadowInstanced"})
+		{
+			_staticVariants.emplace(_shaderManager->GetShader(name), _shaderManager->GetShader(std::string(name) + "Static"));
+		}
+	}
+	const auto found = _staticVariants.find(program);
+	return found != _staticVariants.end() ? found->second : program;
 }
 
 void Renderer::DrawMesh(const graphics::L3DMesh& mesh, const L3DMeshSubmitDesc& desc, uint8_t subMeshIndex) const noexcept
@@ -768,12 +786,14 @@ void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
 
 	const auto& meshManager = Locator::resources::value().GetMeshes();
 	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
-	const auto* program = _shaderManager->GetShader("StaticShadowInstanced");
+	const auto* boned = _shaderManager->GetShader("StaticShadowInstanced");
+	const auto* single = _shaderManager->GetShader("StaticShadowInstancedStatic");
 	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
 	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
 	for (const auto& [meshId, placers] : renderCtx.shadowCasterDrawDescs)
 	{
 		const auto mesh = meshManager.Handle(meshId);
+		const auto* program = mesh->IsBoned() ? boned : single;
 		const auto& skins = mesh->GetSkins();
 		const glm::mat4 identity(1.0f);
 		const auto* matrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &identity;
@@ -1692,7 +1712,149 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::MainPass);
 		DrawPass(drawDesc);
 	}
+	DrawHandToolTip(*drawDesc.camera);
 	DrawScreenOverlay();
+}
+
+void Renderer::DrawHandToolTip(const Camera& camera) const
+{
+	if (!Locator::handSystem::has_value() || _resolution.x == 0 || _resolution.y == 0)
+	{
+		return;
+	}
+	const auto amount = Locator::handSystem::value().GetAmountInHandToolTip();
+	if (!amount)
+	{
+		return;
+	}
+	if (!_fontLoadTried)
+	{
+		_fontLoadTried = true;
+		auto font = std::make_unique<GameFont>();
+		auto& fileSystem = Locator::filesystem::value();
+		const auto base = fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / "j0.met").replace_extension();
+		if (font->Load(base))
+		{
+			_font = std::move(font);
+		}
+	}
+	if (!_font)
+	{
+		return;
+	}
+	const auto hands = Locator::handSystem::value().GetPlayerHands();
+	const auto& registry = Locator::entitiesRegistry::value();
+	if (hands.empty() || !registry.Valid(hands[0]))
+	{
+		return;
+	}
+	const float width = _resolution.x;
+	const float height = _resolution.y;
+	glm::vec3 screen;
+	if (!camera.ProjectWorldToScreen(registry.Get<ecs::components::Transform>(hands[0]).position,
+	                                 glm::vec4(0.0f, 0.0f, width, height), screen))
+	{
+		return;
+	}
+	// the anchor is the hand on screen, clamped to [0, W - h] x [0, H - h]; box height h = H / 25, text 2/3 of it,
+	// centred vertically; the text goes to the other side of the hand past 2/3 of the screen (and back below 1/3)
+	static bool leftSide = false;
+	const float h = height / 25.0f;
+	const float size = h * 2.0f / 3.0f;
+	const auto text = helptext::Format(helptext::k_ToolTipAmountInHand, static_cast<double>(*amount));
+	const float textWidth = _font->GetStringWidth(text, size);
+	const float boxWidth = textWidth + h;
+	float x = screen.x;
+	const float y = std::clamp(screen.y, 0.0f, height - h); // ProjectWorldToScreen: y from the top
+	if (x > 2.0f * width / 3.0f)
+	{
+		leftSide = true;
+	}
+	else if (x < width / 3.0f)
+	{
+		leftSide = false;
+	}
+	if (leftSide)
+	{
+		x -= boxWidth;
+	}
+	x = std::clamp(x, 0.0f, std::max(0.0f, width - boxWidth));
+
+	const auto toClip = [width, height](float px, float py) {
+		return glm::vec2(2.0f * px / width - 1.0f, 1.0f - 2.0f * py / height);
+	};
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
+	const glm::mat4 identity(1.0f);
+	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
+
+	// the box: SetupThing::DrawBox with LH3DAtmos::AdditiveMaterial in the text colour at alpha 0x80 / 3 (its 9-slice
+	// border is not reproduced: a plain rectangle)
+	{
+		struct BoxVertex
+		{
+			float x, y, z;
+			uint32_t abgr;
+		};
+		const uint32_t abgr = (42u << 24) | 0x0000FFFFu;
+		const auto a = toClip(x, y);
+		const auto b = toClip(x + boxWidth, y + h);
+		const std::array<BoxVertex, 6> box = {{{a.x, a.y, 0.5f, abgr}, {b.x, a.y, 0.5f, abgr}, {b.x, b.y, 0.5f, abgr},
+		                                       {a.x, a.y, 0.5f, abgr}, {b.x, b.y, 0.5f, abgr}, {a.x, b.y, 0.5f, abgr}}};
+		bgfx::VertexLayout layout;
+		layout.begin().add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float).add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true).end();
+		if (bgfx::getAvailTransientVertexBuffer(6, layout) >= 6)
+		{
+			bgfx::TransientVertexBuffer buffer;
+			bgfx::allocTransientVertexBuffer(&buffer, 6, layout);
+			std::memcpy(buffer.data, box.data(), sizeof(box));
+			bgfx::setVertexBuffer(0, &buffer);
+			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+			bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
+		}
+	}
+	// the text: DrawTextRaw three times, black copies 1 px to each side, then yellow (LH3DColor b0 g255 r255 a255)
+	std::vector<GameFont::Vertex> glyphs;
+	const float tx = x + h * 0.5f;
+	const float ty = y + (h - size) * 0.5f;
+	_font->AddText(glyphs, text, tx - 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	_font->AddText(glyphs, text, tx + 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	_font->AddText(glyphs, text, tx, ty, size, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+	if (glyphs.empty())
+	{
+		return;
+	}
+	struct TextVertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	std::vector<TextVertex> vertices;
+	vertices.reserve(glyphs.size());
+	for (const auto& g : glyphs)
+	{
+		const auto p = toClip(g.x, g.y);
+		vertices.push_back({p.x, p.y, 0.5f, g.u, g.v, g.abgr});
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(TextVertex));
+	const auto* program = _shaderManager->GetShader("Text");
+	program->SetTextureSampler("s_diffuse", 0, _font->GetTexture());
+	bgfx::setVertexBuffer(0, &buffer);
+	// mode 16: SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0)
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
 void Renderer::DrawScreenOverlay() const

@@ -21,6 +21,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "Common/RandomNumberManager.h"
 #include "Locator.h"
 #include "MpegAudioDecoder.h"
 #include "Resources/Resources.h"
@@ -111,6 +112,16 @@ void AudioManager::PauseEmitter(entt::entity emitter)
 	_audioPlayer->PauseSource(component.sourceId);
 }
 
+void AudioManager::SetEmitterPitch(entt::entity emitter, float percent)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(emitter) || !registry.AnyOf<AudioEmitter>(emitter))
+	{
+		return;
+	}
+	_audioPlayer->SetSourcePitch(registry.Get<AudioEmitter>(emitter).sourceId, std::max(percent, 1.0f) / 100.0f);
+}
+
 void AudioManager::StopEmitter(entt::entity emitter)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -134,7 +145,15 @@ entt::entity AudioManager::CreateEmitter(entt::id_type id, PlayType playType, gl
 	auto sound = Locator::resources::value().GetSounds().Handle(id);
 	auto& registry = Locator::entitiesRegistry::value();
 	auto entity = registry.Create();
-	auto sourceId = _audioPlayer->CreateSource(static_cast<float>(sound->pitch), relative);
+	// the start of a sample (LHaudiodllR 0x1001278B): p = pitch, d = p * deviation / 100, p = uniform in [p - d, p + d],
+	// played at rate * p / 100
+	float pitch = static_cast<float>(sound->pitch > 0 ? sound->pitch : 100);
+	if (sound->pitchDeviation > 0)
+	{
+		const float d = pitch * static_cast<float>(sound->pitchDeviation) / 100.0f;
+		pitch += Locator::rng::value().NextValue(-d, d);
+	}
+	auto sourceId = _audioPlayer->CreateSource(std::max(pitch, 1.0f) / 100.0f, relative);
 	if (!sound->buffer.empty())
 	{
 		CreateBuffer(sound);

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdlib>
 #include <memory>
 
 #include "3D/HandAnimator.h"
@@ -38,6 +39,15 @@ public:
 	                                            std::optional<glm::vec3> land, bool gripping,
 	                                            std::chrono::microseconds dt) noexcept override;
 	[[nodiscard]] std::optional<entt::entity> GetHeldObject() const noexcept override { return _held; }
+	[[nodiscard]] std::optional<float> GetAmountInHandToolTip() const noexcept override
+	{
+		// test hook OPENBLACK_TEST_TOOLTIP=<amount>: always shown
+		if (static const char* test = std::getenv("OPENBLACK_TEST_TOOLTIP"); test != nullptr)
+		{
+			return static_cast<float>(std::atof(test));
+		}
+		return _amountToolTipTime > 0.0f ? std::optional(_amountToolTip) : std::nullopt;
+	}
 	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override
 	{
 		std::vector<entt::entity> entities;
@@ -67,6 +77,10 @@ private:
 	bool TryPickUpFish(glm::vec3 point) noexcept;
 	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
 	bool UpdateFishPickUp(float seconds) noexcept;
+	/// HandFish.cpp: the action on a field starts taking its food (Field::NetworkFriendlyStartLockedSelect 0x529900)
+	bool TryPickUpField(entt::entity field) noexcept;
+	/// HandFish.cpp: Field::ProcessInInteract 0x529730 per game turn; false if the source is not a field
+	bool UpdateFieldPickUp(float seconds) noexcept;
 	/// Test hook OPENBLACK_TEST_SPLASH="x,z": a hand splash there every second
 	void UpdateTestSplash(float seconds) noexcept;
 	/// Pot::AddResourceToPos: a hand pot put down merges into a same-type pile or store nearby, else a new pile.
@@ -199,8 +213,18 @@ private:
 	bool _pickPressHeld {false};
 	/// The locked select is catching fish (_pickSource is a FishFarm)
 	bool _pickFish {false};
+	/// The locked select is taking food from a field (_pickSource is a Field)
+	bool _pickField {false};
 	/// Test hook (OPENBLACK_HAND_TEST_FISH): seconds the action button counts as held
 	float _testActionSeconds {0.0f};
+	/// UpdateMultiPickup fn_0068F930: the looping G_PICKUPFOOD / G_PICKUPWOOD of a multi pick-up and its pitch t^2
+	std::optional<entt::entity> _pickupSound;
+	/// The forced tooltip 0xEEA: the amount and how long it is still shown (1.2 s after the last pick-up turn)
+	float _amountToolTip {0.0f};
+	float _amountToolTipTime {0.0f};
+	float _pickupSoundFraction {0.0f};
+	/// HandEffects.cpp: starts / re-pitches / stops the multi pick-up loop
+	void UpdatePickupSound(bool active) noexcept;
 	/// A later press while holding: its release drops / throws (state 12).
 	bool _releaseArmed {false};
 	/// Hand velocity (world units/s), for throwing on release.

@@ -48,6 +48,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
+#include "ECS/Components/Field.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
@@ -300,7 +301,12 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	const bool actionPressed = actionHeld && !_actionWasHeld;
 	const bool actionReleased = !actionHeld && _actionWasHeld;
 	_actionWasHeld = actionHeld;
-	if (actionPressed && _hovered && !_held)
+	if (actionPressed && _hovered && !_held && Locator::entitiesRegistry::value().AllOf<Field>(*_hovered))
+	{
+		// fields are a locked select (ValidForLockedSelectProcess 0x5299E0): the scooping starts at once
+		_pickPressHeld = TryPickUpField(*_hovered);
+	}
+	else if (actionPressed && _hovered && !_held)
 	{
 		// Piles cannot be tapped, so the locked select (scooping) starts at once (StartGrab -> packet 0x1B).
 		const auto source = PotInfoOf(*_hovered);
@@ -387,6 +393,21 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		}
 	}
 	UpdateMultiPickUp(seconds, actionHeld);
+	UpdatePickupSound(_pickSource.has_value() && _held.has_value());
+	// ProcessInInteract of piles, fields and fish farms: ForceToolTips(0xEEA, hand pot amount) every turn; it stays
+	// for ftol(afterFocus 0.5 / 0.4 x 10) = 12 turns after the last one
+	if (_pickSource && _held)
+	{
+		if (const auto* pot = Locator::entitiesRegistry::value().TryGet<const Pot>(*_held); pot != nullptr)
+		{
+			_amountToolTip = static_cast<float>(pot->amount);
+			_amountToolTipTime = 1.2f;
+		}
+	}
+	else
+	{
+		_amountToolTipTime = std::max(0.0f, _amountToolTipTime - seconds);
+	}
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateThrown(seconds);
 	UpdateTestSplash(seconds);

@@ -50,6 +50,26 @@
   `receivesDynamicShadow`), para dibujar una entidad concreta (reflejos, sombra sobre objetos).
 - `LandIslandInterface::GetUnflattenedHeightAt`: `GetAltitude` sin el aplanado del mar (búsqueda de las piscifactorías).
 
+- **Trampa: búfer de uniformes de Vulkan.** bgfx copia en cada llamada todo el bloque de uniformes del vertex shader
+  a un búfer por fotograma de 128 B × 65535 = 8 MB, sin comprobarlo en Release. `vs_object` con `u_model[128]` son
+  ~8 KB por llamada: con ~1000 llamadas se desbordaba y caía en `ScratchBufferVK::write` (Kapa's Land1). Las mallas sin
+  huesos usan las variantes `*_static` (`BGFX_CONFIG_MAX_BONES 1`, `Renderer::StaticVariant`); al añadir shaders
+  de objetos, crear también su variante.
+- **Trampa: `bgfx::makeRef` sobre datos locales.** bgfx los lee más tarde; usar `bgfx::copy` salvo que el búfer viva
+  hasta después del siguiente `bgfx::frame()` (tres casos en `LandIsland::LoadFromFile`, ya corregidos).
+
+## Depurar un cierre
+
+- `Common/CrashHandler`: una excepción no atendida o `std::terminate` escriben la pila en stderr y en
+  `openblack_crash.txt` (directorio de trabajo). Con nombres y líneas solo si el `.pdb` está al lado: compilar
+  `RelWithDebInfo` con `C:\Users\diewgarc\dev\build_rwdi.bat` (sale en `bin\RelWithDebInfo`).
+- `OPENBLACK_FLUSH_LOG=1`: el registro se escribe línea a línea (no se pierden las últimas antes de un cierre).
+- Guiones: `LHScriptX::Script` salta la línea que no entiende (`ScriptError`, `LexerException`) y lo registra
+  ("line skipped"); los mapas de escaramuza traen erratas (comilla doble, argumento vacío, palabras sueltas) que el
+  original tolera. Un número entero vale donde se espera un decimal y viceversa; los enteros se saturan.
+  `CREATE_BASE_WITH_ANGLE` aún no existe (se salta). Los `.lnd` de los dioses guardan en `blockSize` el tamaño de todos
+  los bloques juntos.
+
 ## Mods
 
 Librería en `src/Mods/` ([mod-library.md](mod-library.md)). Los mods escriben interruptores de `EngineConfig`

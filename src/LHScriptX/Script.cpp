@@ -13,6 +13,7 @@
 #include <ranges>
 
 #include <glm/vec2.hpp>
+#include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
 #include "FeatureScriptCommands.h"
@@ -36,16 +37,19 @@ void Script::Load(const std::string& source)
 		if (token->IsIdentifier())
 		{
 			const std::string identifier = token->Identifier();
+			const int line = lexer.GetLine();
+			try
+			{
 
 			if (!IsCommand(identifier))
 			{
-				throw std::runtime_error("unknown command: " + identifier);
+				throw ScriptError("unknown command: " + identifier);
 			}
 
 			token = this->AdvanceToken(lexer);
 			if (!token->IsOP(Operator::LeftParentheses))
 			{
-				throw std::runtime_error("expected ( after identifier " + identifier);
+				throw ScriptError("expected ( after identifier " + identifier);
 			}
 
 			std::vector<Token> args;
@@ -72,13 +76,51 @@ void Script::Load(const std::string& source)
 
 			if (!token->IsOP(Operator::RightParentheses))
 			{
-				throw std::runtime_error("missing )");
+				throw ScriptError("missing )");
 			}
 
 			// move token to whatever is after ')'
 			this->AdvanceToken(lexer);
 
 			RunCommand(identifier, args);
+			}
+			catch (const std::runtime_error& e)
+			{
+				// only the reader's own errors; anything else (no landscape loaded...) still stops the script
+				if (dynamic_cast<const ScriptError*>(&e) == nullptr && dynamic_cast<const LexerException*>(&e) == nullptr)
+				{
+					throw;
+				}
+				// The original skips what it cannot read; a bad line (typos in the playground scripts: a doubled quote,
+				// an empty argument, a stray word) must not abort the whole map
+				SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "LHScriptX: line {}: {} ({}); line skipped", line, e.what(),
+				                   identifier);
+				while (!_token.IsEOL() && !_token.IsEOF())
+				{
+					try
+					{
+						this->AdvanceToken(lexer);
+					}
+					catch (const std::exception&)
+					{
+					}
+				}
+			}
+		}
+		else if (!token->IsEOL() && !token->IsEOF())
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "LHScriptX: line {}: unexpected text; line skipped", lexer.GetLine());
+			while (!_token.IsEOL() && !_token.IsEOF())
+			{
+				try
+				{
+					this->AdvanceToken(lexer);
+				}
+				catch (const std::exception&)
+				{
+				}
+			}
+			continue;
 		}
 
 		this->AdvanceToken(lexer);
@@ -99,11 +141,11 @@ ScriptCommandParameter GetParameter(Token& argument)
 	switch (type)
 	{
 	case Token::Type::Invalid:
-		throw std::runtime_error("Invalid token. Unable to proceed");
+		throw ScriptError("Invalid token. Unable to proceed");
 	case Token::Type::EndOfFile:
-		throw std::runtime_error("Unexpected EOF in script");
+		throw ScriptError("Unexpected EOF in script");
 	case Token::Type::EndOfLine:
-		throw std::runtime_error("Unexpected EOL in script");
+		throw ScriptError("Unexpected EOL in script");
 	case Token::Type::Identifier:
 		return ScriptCommandParameter(argument.Identifier());
 	case Token::Type::String:
@@ -133,7 +175,7 @@ ScriptCommandParameter GetParameter(Token& argument)
 	case Token::Type::Float:
 		return ScriptCommandParameter(*argument.FloatValue());
 	case Token::Type::Operator:
-		throw std::runtime_error("Operator token as an argument is currently not supported");
+		throw ScriptError("Operator token as an argument is currently not supported");
 	default:
 		throw std::runtime_error("Missing switch case for script token argument");
 	}
@@ -156,7 +198,7 @@ void Script::RunCommand(const std::string& identifier, const std::vector<Token>&
 
 	if (commandSignature == nullptr)
 	{
-		throw std::runtime_error("Missing script command signature");
+		throw ScriptError("Missing script command signature");
 	}
 
 	// Turn tokens into parameters
@@ -185,15 +227,24 @@ void Script::RunCommand(const std::string& identifier, const std::vector<Token>&
 	// Validate the number of given arguments against what is expected
 	if (parameters.size() != expectedSize)
 	{
-		throw std::runtime_error("Invalid number of script arguments");
+		throw ScriptError("Invalid number of script arguments");
 	}
 
-	// Validate the typing of the given arguments against what is expected
-	for (const auto& [param, expected] : std::views::zip(parameters, expectedParameters))
+	// Validate the typing of the given arguments against what is expected. A number is a number to the original: an
+	// integer where a float is expected (a scale written "1") and a float where an integer is expected are converted.
+	for (auto&& [param, expected] : std::views::zip(parameters, expectedParameters))
 	{
+		if (param.GetType() == ParameterType::Number && expected == ParameterType::Float)
+		{
+			param = ScriptCommandParameter(static_cast<float>(param.GetNumber()));
+		}
+		else if (param.GetType() == ParameterType::Float && expected == ParameterType::Number)
+		{
+			param = ScriptCommandParameter(static_cast<int32_t>(param.GetFloat()));
+		}
 		if (param.GetType() != expected)
 		{
-			throw std::runtime_error("Invalid script argument type");
+			throw ScriptError("Invalid script argument type");
 		}
 	}
 

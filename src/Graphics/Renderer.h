@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <memory>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <SDL.h>
@@ -47,6 +48,7 @@ namespace graphics
 {
 class L3DSubMesh;
 class Mesh;
+class GameFont;
 
 class Renderer final: public RendererInterface
 {
@@ -81,6 +83,10 @@ class Renderer final: public RendererInterface
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
 	/// FinishFrame (e) and (h): the cinema bars and the screen fade (fn_0081E590, fn_0086FEE0)
 	void DrawScreenOverlay() const;
+	/// HelpSystem::Draw3D -> CameraHelp::DrawKeyOrMouse 0x447EA0: the tooltip next to the hand (the amount in the hand)
+	void DrawHandToolTip(const Camera& camera) const;
+	mutable std::unique_ptr<GameFont> _font; ///< Data\j0, font 0 of the tooltips
+	mutable bool _fontLoadTried {false};
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),
@@ -108,6 +114,9 @@ public:
 private:
 	void DrawFootprintPass(const DrawSceneDesc& drawDesc) const;
 	void DrawSubMesh(const L3DMesh& mesh, const L3DSubMesh& subMesh, const L3DMeshSubmitDesc& desc, bool preserveState) const;
+	/// The *Static program (one model matrix) for the object programs, used for meshes without bones
+	[[nodiscard]] const ShaderProgram* StaticVariant(const ShaderProgram* program) const;
+	mutable std::unordered_map<const ShaderProgram*, const ShaderProgram*> _staticVariants;
 	void DrawPass(const DrawSceneDesc& desc) const;
 
 	std::unique_ptr<ShaderManager> _shaderManager;

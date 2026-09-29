@@ -151,6 +151,11 @@ SourceId AudioPlayer::CreateSource(float pitch, bool relative)
 	return id;
 }
 
+void AudioPlayer::SetSourcePitch(SourceId id, float pitch)
+{
+	alCheckCall(alSourcef(id, AL_PITCH, pitch));
+}
+
 void AudioPlayer::DeleteSource(SourceId id)
 {
 	alCheckCall(alDeleteSources(1, &id));

@@ -63,6 +63,7 @@
 #include "Graphics/Texture2D.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -82,6 +83,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	_pickSource.reset();
+	_pickFish = false;
 	_pickTime = 0.0f;
 	_pickTurnAccumulator = 0.0f;
 	_lastHeldPosition.reset();
@@ -327,6 +329,11 @@ void HandSystem::UpdateThrown(float seconds) noexcept
 		if (transform.position.y <= ground + thrown.altitude && thrown.velocity.y < 0.0f)
 		{
 			transform.position.y = ground + thrown.altitude;
+			// PhysicsObject::AttemptToAddSoundEvent 0x646683 -> fn_0074F2D0: landing in the water scares the fish
+			if (!IsLand(transform.position))
+			{
+				ecs::SplashWater(transform.position);
+			}
 			if (auto* fixed = registry.TryGet<Fixed>(thrown.entity); fixed != nullptr)
 			{
 				fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);

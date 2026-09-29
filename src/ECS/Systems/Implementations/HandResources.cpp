@@ -125,12 +125,23 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 	if (!_held || !_pickSource || !actionHeld)
 	{
 		_pickSource.reset();
+		_pickFish = false;
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(*_pickSource) || !registry.Valid(*_held))
 	{
 		_pickSource.reset();
+		_pickFish = false;
+		return;
+	}
+	if (_pickFish)
+	{
+		if (!UpdateFishPickUp(seconds))
+		{
+			_pickSource.reset();
+			_pickFish = false;
+		}
 		return;
 	}
 	auto* source = registry.TryGet<Pot>(*_pickSource);

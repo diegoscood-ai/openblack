@@ -16,6 +16,7 @@
 //   HandResources.cpp   piles, pots, multi pick-up, put down, stores
 //   HandTrees.cpp       tug, uproot, roots, replant, dead trees
 //   HandEffects.cpp     grip dust, multi pick-up particles
+//   HandFish.cpp        splash of gripping the water, catching fish
 //   HandDebugHooks.cpp  environment-variable test hooks
 
 #include <glm/vec3.hpp>

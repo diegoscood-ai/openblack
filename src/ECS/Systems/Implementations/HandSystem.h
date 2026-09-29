@@ -61,6 +61,12 @@ private:
 	void Drop() noexcept;
 	void UpdateHeldObject() noexcept;
 	void UpdateMultiPickUp(float seconds, bool actionHeld) noexcept;
+	/// HandFish.cpp: the splash of gripping the water (StartLandscapeGrip fn_005D1AB0)
+	void SplashHand(glm::vec3 point) noexcept;
+	/// HandFish.cpp: the action over the water next to a fish starts catching from its farm (FishFarm locked select)
+	bool TryPickUpFish(glm::vec3 point) noexcept;
+	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
+	bool UpdateFishPickUp(float seconds) noexcept;
 	/// Pot::AddResourceToPos: a hand pot put down merges into a same-type pile or store nearby, else a new pile.
 	void PutDownHandPot(entt::entity pot) noexcept;
 	/// PileResource draw: a pile sinks into the ground as it empties (proportion of its maximum).
@@ -189,6 +195,10 @@ private:
 	glm::vec3 _pickLock {0.0f};
 	/// The press that picked the object up is still held: its release does not drop it (state 7).
 	bool _pickPressHeld {false};
+	/// The locked select is catching fish (_pickSource is a FishFarm)
+	bool _pickFish {false};
+	/// Test hook (OPENBLACK_HAND_TEST_FISH): seconds the action button counts as held
+	float _testActionSeconds {0.0f};
 	/// A later press while holding: its release drops / throws (state 12).
 	bool _releaseArmed {false};
 	/// Hand velocity (world units/s), for throwing on release.
@@ -221,6 +231,8 @@ private:
 		glm::vec3 start;
 		glm::vec3 previous;
 		bool mesh;
+		uint32_t firstFrame {0}; ///< RandomiseInitFrame (fish)
+		int frameStep {1};       ///< RandomiseFrameDirection (fish): +1 or -1
 	};
 	std::vector<PickupParticle> _pickupParticles;
 	/// ER_MultiPickup collection data: atoms owed (+0x20, EmitRate * time) and atoms emitted (+0x24).

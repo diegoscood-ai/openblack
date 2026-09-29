@@ -474,7 +474,7 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection)
 				const glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
 				                                 desc.lightBoost,
-				                                 desc.unlitColour, 0.0f};
+				                                 desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
 				const glm::vec4 u_objectClip = {desc.clipBelowSea ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
 				desc.program->SetUniformValue("u_objectClip", &u_objectClip); // fs
 				desc.program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
@@ -1281,8 +1281,9 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 			return;
 		}
 		const uint32_t colour = (static_cast<uint32_t>(farm.shoal->alpha) << 24) | 0x00FFFFFFu;
-		for (const auto& fish : farm.shoal->fish)
+		for (size_t i = 0; i < std::min(farm.shoal->shown, farm.shoal->fish.size()); ++i)
 		{
+			const auto& fish = farm.shoal->fish[i];
 			// LH3DSprite::Draw 0x840530 with flag 0x40: a flat quad turned about Y, its local x along the heading;
 			// cells 8..23 of the 8 x 8 sheet
 			const int cell = 8 + (static_cast<int>(fish.frame) & 15);
@@ -1884,6 +1885,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				setMatrices(meshId, *mesh);
 				submitDesc.isSky = false;
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
+				submitDesc.noHaze = meshId == ecs::components::Hand::k_MeshId;
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = submitDesc.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
@@ -1926,6 +1928,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					setMatrices(instance.meshId, *mesh);
 					submitDesc.isSky = false;
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
+					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
 					submitDesc.program = instance.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
 					submitDesc.blendFilter = instance.fading ? 0 : 2;

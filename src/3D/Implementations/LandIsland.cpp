@@ -445,7 +445,13 @@ std::vector<uint8_t> LandIsland::CreateCellMap() const
 {
 	const auto extentSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
 	const auto resolution = extentSize * static_cast<uint16_t>(k_CellCount) + static_cast<uint16_t>(1);
+	// Where there is no block (the open sea) fn_00801C90 gives the full light, table[255] ([0xEDDD08]), and no
+	// specular (0x8020F8): colour 0, luminosity 255
 	std::vector<uint8_t> data(static_cast<size_t>(resolution.x) * resolution.y * 4, 0);
+	for (size_t i = 3; i < data.size(); i += 4)
+	{
+		data[i] = 255;
+	}
 	for (const auto& block : _landBlocks)
 	{
 		const auto blockOffset = static_cast<glm::u16vec2>(block.GetBlockPosition() * 16);

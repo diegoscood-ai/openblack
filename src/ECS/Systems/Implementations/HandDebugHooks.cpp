@@ -66,6 +66,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
+#include "ECS/Components/FishFarm.h"
 #include "ECS/StaticGrounding.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
 #include "ECS/StoragePitStore.h"
@@ -116,6 +117,26 @@ void HandSystem::RunDebugHooks() noexcept
 		Locator::entitiesRegistry::value().SetDirty();
 		PickUp(rock);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: holding a boulder of scale {}", scale);
+	}
+	// OPENBLACK_HAND_TEST_FISH=1: a splash next to the first shoal, then catching fish there with the action held 3 s
+	if (std::getenv("OPENBLACK_HAND_TEST_FISH") != nullptr)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		std::optional<glm::vec3> point;
+		registry.Each<const FishFarm>([&point](const FishFarm& farm) {
+			if (!point && farm.shoal)
+			{
+				point = farm.shoal->fish[0].position;
+			}
+		});
+		if (point)
+		{
+			SplashHand(*point);
+			const bool caught = TryPickUpFish(*point);
+			_pickPressHeld = caught;
+			_testActionSeconds = 3.0f;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: fish at ({:.1f}, {:.1f}), catching {}", point->x, point->z, caught);
+		}
 	}
 	// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
 	if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr && Game::Instance() != nullptr)

@@ -285,6 +285,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		ran = true;
 		RunDebugHooks();
 	}
+	if (_testActionSeconds > 0.0f)
+	{
+		actionHeld = true;
+		_testActionSeconds -= seconds;
+	}
 
 	// Pick up / drop with the action button (right). Only while not gripping the land.
 	if (_held && !Locator::entitiesRegistry::value().Valid(*_held))
@@ -309,6 +314,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			_pendingPick = _hovered;
 			_pendingPickTime = 0.0f;
 		}
+	}
+	else if (actionPressed && !_held && !_hovered && !gripping && _interactionPoint && TryPickUpFish(*_interactionPoint))
+	{
+		// fish: the locked select starts at once, like piles
+		_pickPressHeld = true;
 	}
 	else if (actionPressed && _held && !_pickPressHeld)
 	{

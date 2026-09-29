@@ -26,12 +26,18 @@ SAMPLER2D(s_cellMap, 2);   // per cell: rgb = the cell colour read as a D3DCOLOR
 SAMPLER2D(s_landLight, 3); // landscape light table, 256x1
 SAMPLER2D(s_cloudShadow, 4); // cloud shadow luminosity cap per cell
 uniform vec4 u_cellMap;     // xy: world position of the map's first cell, zw: map size in cells
-uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (the hand: x1.5, CHand::AddDrawing)
+uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (the hand: x1.5, CHand::AddDrawing),
+                            // w > 0: no distance haze (the hand)
 uniform vec4 u_haze;        // x: near, y: far, z: k, w: on ("Fog" detail key)
 uniform vec4 u_hazeColour;  // rgb: fog colour 0..255
 
 vec4 CellTexel(vec2 cell)
 {
+	// off the map: the full light and no specular, like the cells of missing blocks (fn_00801C90, 0x8020F8)
+	if (any(lessThan(cell, vec2_splat(0.0f))) || any(greaterThanEqual(cell, u_cellMap.zw)))
+	{
+		return vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	}
 	vec4 texel = texture2DLod(s_cellMap, (cell + 0.5f) / u_cellMap.zw, 0.0f);
 	texel.a = min(texel.a, texture2DLod(s_cloudShadow, (cell + 0.5f) / u_cellMap.zw, 0.0f).r);
 	return texel;
@@ -119,7 +125,9 @@ void main()
 		{
 		// Distance haze once per object at its origin (fn_007FEB30); none closer than near
 		float originDepth = mul(u_view, vec4(i_data3.xyz, 1.0f)).z;
-		float hazeT = originDepth < u_haze.x ? 0.0f : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
+		float hazeT = originDepth < u_haze.x || u_objectLight.w > 0.0f
+		                  ? 0.0f
+		                  : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
 		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
 		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);

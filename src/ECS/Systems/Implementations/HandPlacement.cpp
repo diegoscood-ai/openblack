@@ -310,6 +310,7 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 			_gripPoint = _interactionPoint ? _interactionPoint : groundPoint;
 			_gripRotation = transform.rotation;
 			EmitGripDust(*_gripPoint);
+			SplashHand(*_gripPoint);
 		}
 		glm::vec3 claw(0.0f);
 		for (const auto v : _tipVertices)

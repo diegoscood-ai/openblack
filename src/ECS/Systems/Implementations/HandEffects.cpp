@@ -196,6 +196,14 @@ constexpr uint32_t k_PickupGrainFrames = 32;
 // UseLandscapeColor: the original tints by the landscape light; the sprite shader only has the sheet's alpha, so
 // the grains take the mean colour of S_SpriteSheet1's first 32 frames instead.
 constexpr glm::vec3 k_PickupGrainColour {229.0f / 255.0f, 208.0f / 255.0f, 148.0f / 255.0f};
+// SF_MultiPickUpFoodFish_txt.zzz: ParticleSpriteCreator_Fish, S_Spangle_A.raw cells 48..63 at 40 fps, looped, from a
+// random frame in a random direction, InitialScale 1, colour 200 x the landscape colour (here the mean colour of those
+// cells, 96 142 133, x 200 / 255). RandomiseScale is on but its range is unknown: not randomised.
+constexpr float k_PickupFishScale = 1.0f;
+constexpr float k_PickupFishFrameRate = 40.0f;
+constexpr uint32_t k_PickupFishFirstCell = 48;
+constexpr uint32_t k_PickupFishFrames = 16;
+constexpr glm::vec3 k_PickupFishColour {96.0f * 200.0f / 65025.0f, 142.0f * 200.0f / 65025.0f, 133.0f * 200.0f / 65025.0f};
 } // namespace
 
 void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
@@ -221,6 +229,7 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		return;
 	}
 	const bool wood = PotInfoOf(*_held) == PotInfo::HandWood;
+	const bool fish = _pickFish;
 	// PSysManager::GetCurrentGesturePosn: the hand.
 	const auto hand = registry.Get<Transform>(_hands[static_cast<size_t>(Side::Left)]).position;
 
@@ -243,14 +252,15 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		else
 		{
 			auto& textures = Locator::resources::value().GetTextures();
-			const auto textureId = entt::hashed_string("raw/S_SpriteSheet1a");
+			const auto* sheet = fish ? "S_Spangle_Aa" : "S_SpriteSheet1a";
+			const auto textureId = fish ? entt::hashed_string("raw/S_Spangle_Aa") : entt::hashed_string("raw/S_SpriteSheet1a");
 			if (!textures.Contains(textureId))
 			{
 				try
 				{
 					auto& fileSystem = Locator::filesystem::value();
 					textures.Load(textureId, resources::Texture2DLoader::FromDiskTag {},
-					              fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Textures>() / "S_SpriteSheet1a.raw"));
+					              fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Textures>() / fmt::format("{}.raw", sheet)));
 				}
 				catch (const std::exception& e)
 				{
@@ -261,10 +271,18 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 			}
 			const auto texture = textures.Handle(textureId)->GetNativeHandle();
 			// UseAdditiveAlpha 0: normal blending with a premultiplied tint. InitFrame 0, not randomised.
-			registry.Assign<Sprite>(entity, texture, glm::vec2(0.0f), glm::vec2(1.0f / 8.0f), glm::vec4(k_PickupGrainColour, 1.0f), false);
-			registry.Assign<Transform>(entity, start, glm::mat3(1.0f), glm::vec3(k_PickupGrainScale));
+			registry.Assign<Sprite>(entity, texture, glm::vec2(0.0f), glm::vec2(1.0f / 8.0f),
+			                        glm::vec4(fish ? k_PickupFishColour : k_PickupGrainColour, 1.0f), false);
+			registry.Assign<Transform>(entity, start, glm::mat3(1.0f), glm::vec3(fish ? k_PickupFishScale : k_PickupGrainScale));
 		}
-		_pickupParticles.push_back({entity, 0.0f, start, start, wood});
+		PickupParticle particle {entity, 0.0f, start, start, wood};
+		if (fish)
+		{
+			auto& rng = Locator::rng::value();
+			particle.firstFrame = rng.NextValue<uint32_t>(0, k_PickupFishFrames - 1);
+			particle.frameStep = rng.NextValue<int>(0, 1) == 0 ? -1 : 1;
+		}
+		_pickupParticles.push_back(particle);
 	}
 
 	// Each atom: removed once its age passes RaiseTime; otherwise pos = start + (hand - start) * age / RaiseTime (the
@@ -298,7 +316,13 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		else
 		{
 			auto& sprite = registry.Get<Sprite>(particle.entity);
-			const auto frame = static_cast<uint32_t>(particle.age * k_PickupGrainFrameRate) % k_PickupGrainFrames;
+			auto frame = static_cast<uint32_t>(particle.age * k_PickupGrainFrameRate) % k_PickupGrainFrames;
+			if (fish)
+			{
+				const auto steps = static_cast<int>(particle.age * k_PickupFishFrameRate) * particle.frameStep;
+				const auto n = static_cast<int>(k_PickupFishFrames);
+				frame = k_PickupFishFirstCell + static_cast<uint32_t>(((static_cast<int>(particle.firstFrame) + steps) % n + n) % n);
+			}
 			sprite.uvMin = {static_cast<float>(frame % 8) / 8.0f, static_cast<float>(frame / 8) / 8.0f};
 		}
 	}

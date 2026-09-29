@@ -319,6 +319,7 @@ bool Game::GameLogicLoop() noexcept
 		lhvm.LookIn(lhvm::ScriptType::All);
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
+		ecs::ProcessFishFarmsTurn(_turnCount);
 	}
 
 	_lastGameLoopTime = currentTime;

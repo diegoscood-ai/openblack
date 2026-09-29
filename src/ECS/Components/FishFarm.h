@@ -41,12 +41,23 @@ struct FishShoal
 	std::array<Fish, k_FishCount> fish;
 	uint8_t alpha {255}; ///< this frame, from the camera distance
 	bool visible {false};
+	size_t shown {k_FishCount}; ///< fish shown this frame (FishFarm::VisibleFish)
 };
 
-/// A fish farm (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM). No shoal when no sea was found around it.
+/// A fish farm (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM, GFishFarmInfo 0). No shoal when no sea was found around it.
 struct FishFarm
 {
+	static constexpr float k_FoodValue = 1400.0f;   ///< GFishFarmInfo.foodValue: the full stock
+	static constexpr uint32_t k_GrowthTurns = 16;   ///< numGameTurnsAfterWhichFoodIsIncreased: +1 food
+
 	std::optional<FishShoal> shoal;
+	float food {k_FoodValue}; ///< +0x94, full when created
+
+	/// shoal +0x64 = food / foodValue; the first 15 x that fish are shown (and swim, and can be caught)
+	[[nodiscard]] size_t VisibleFish() const
+	{
+		return static_cast<size_t>(static_cast<float>(FishShoal::k_FishCount) * food / k_FoodValue);
+	}
 };
 
 } // namespace openblack::ecs::components

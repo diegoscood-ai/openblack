@@ -38,6 +38,7 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/FishShoals.h"
+#include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
@@ -1047,6 +1048,9 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 
 	Script script;
 	script.Load(source);
+
+	// GStream::CreateAll 0x733FF0: the rivers' landscape footprints, once the script has placed their points
+	ecs::CreateRiverFootprints();
 
 	// Each released map comes with an optional .fot file which contains the footpath information for the map
 	const auto stem = string_utils::LowerCase(path.stem().generic_string());

@@ -22,6 +22,8 @@ enum class RenderPass : uint8_t
 	Footprint,
 	/// Static object shadows baked into an island-wide texture (the original bakes them into the block textures)
 	StaticShadow,
+	/// Land alpha lowered by the river channels (the original's river footprints lower the block textures' alpha)
+	LandAlpha,
 	/// Dynamic shadow silhouettes (the hand)
 	DynamicShadow,
 	Reflection,
@@ -39,6 +41,7 @@ enum class RenderPass : uint8_t
 static constexpr std::array<std::string_view, static_cast<uint8_t>(RenderPass::_count)> k_RenderPassNames {
     "Footprint Pass",   //
     "Static Shadow Pass", //
+    "Land Alpha Pass",    //
     "Dynamic Shadow Pass", //
     "Reflection Pass",  //
     "Main Pass",        //

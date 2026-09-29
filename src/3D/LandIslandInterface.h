@@ -72,6 +72,9 @@ public:
 	/// Static object shadows over the whole island, same layout as the footprints (256 texels per block, like the
 	/// original's block textures); red = coverage
 	[[nodiscard]] virtual const graphics::FrameBuffer& GetStaticShadowFramebuffer() const = 0;
+	/// Island-wide land alpha, one texel per footprint texel: 1, or lower in the river channels (min of the river.l3d
+	/// footprints, like the alpha nibble of the original's block textures)
+	[[nodiscard]] virtual const graphics::FrameBuffer& GetLandAlphaFramebuffer() const = 0;
 
 	[[nodiscard]] virtual U16Extent2 GetIndexExtent() const = 0;
 	[[nodiscard]] virtual glm::mat4 GetOrthoView() const = 0;

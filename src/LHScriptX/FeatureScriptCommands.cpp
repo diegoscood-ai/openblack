@@ -673,8 +673,13 @@ void FeatureScriptCommands::CreateStreamPoint(int32_t streamId, glm::vec3 positi
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& registryContext = registry.Context();
 
-	Stream& stream = registry.Get<Stream>(registryContext.streams.at(streamId));
-	stream.nodes.emplace_back(position, stream.nodes);
+	// 0x717550: the point sits on the ground; appended at the tail (GStream::AddPoint 0x733B90)
+	auto point = position;
+	if (Locator::terrainSystem::has_value())
+	{
+		point.y = Locator::terrainSystem::value().GetHeightAt({position.x, position.z});
+	}
+	registry.Get<Stream>(registryContext.streams.at(streamId)).points.push_back(point);
 }
 
 void FeatureScriptCommands::CreateWaterfall([[maybe_unused]] glm::vec3 position)

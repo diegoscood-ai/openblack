@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
 #include <LNDFile.h>
 #include <glm/geometric.hpp>
@@ -34,6 +35,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Stream.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
@@ -54,6 +56,9 @@ constexpr uint16_t k_LayerHeight = 512;
 constexpr float k_BlockSize = 160.0f;
 constexpr float k_CellSize = 10.0f;
 constexpr float k_BlockedGrid = 5.0f; ///< resolution of the no-plants map around buildings
+/// No plants closer than this to a river's line: its water channel (river.l3d alpha < 15) is about 4 units wide and
+/// wanders a little inside the footprint
+constexpr float k_RiverClearance = 3.0f;
 
 /// TerrainMaterialType names (Enums.h), the values foliage.cfg's "terrain" lists use
 constexpr std::array<std::string_view, 32> k_TerrainNames = {
@@ -200,6 +205,238 @@ private:
 
 namespace
 {
+constexpr std::array<std::string_view, 3> k_WaterNames = {"lake", "stream", "sea"};
+} // namespace
+
+/// Distance from every point of the island to each kind of water (Foliage::Water), on a 5-unit grid
+class openblack::FoliageWaterMap
+{
+public:
+	explicit FoliageWaterMap(LandIslandInterface& island)
+	{
+		const auto extent = island.GetExtent();
+		_origin = extent.minimum;
+		_width = static_cast<int>((extent.maximum.x - extent.minimum.x) / k_BlockedGrid) + 1;
+		_height = static_cast<int>((extent.maximum.y - extent.minimum.y) / k_BlockedGrid) + 1;
+		for (auto& distances : _distance)
+		{
+			distances.assign(static_cast<size_t>(_width) * _height, k_Far);
+		}
+
+		// Water bodies: 4-connected water cells; the ones reaching the edge of the map (or a missing block) are the sea
+		constexpr int k_Cells = 512;
+		std::vector<int8_t> kind(static_cast<size_t>(k_Cells) * k_Cells, -1); // -1 land, 0 lake, 2 sea, 3 unvisited
+		const auto isWater = [&island](int x, int z) {
+			const auto& cell = island.GetCell(glm::u16vec2(x, z));
+			return cell.properties.hasWater || cell.properties.fullWater;
+		};
+		for (int x = 0; x < k_Cells; ++x)
+		{
+			for (int z = 0; z < k_Cells; ++z)
+			{
+				if (isWater(x, z))
+				{
+					kind[static_cast<size_t>(x) * k_Cells + z] = 3;
+				}
+			}
+		}
+		std::vector<glm::ivec2> body;
+		for (int x = 0; x < k_Cells; ++x)
+		{
+			for (int z = 0; z < k_Cells; ++z)
+			{
+				if (kind[static_cast<size_t>(x) * k_Cells + z] != 3)
+				{
+					continue;
+				}
+				body.clear();
+				body.emplace_back(x, z);
+				kind[static_cast<size_t>(x) * k_Cells + z] = 0;
+				bool sea = false;
+				for (size_t i = 0; i < body.size(); ++i)
+				{
+					const auto cell = body[i];
+					sea = sea || cell.x == 0 || cell.y == 0 || cell.x == k_Cells - 1 || cell.y == k_Cells - 1;
+					for (const auto step : {glm::ivec2(1, 0), glm::ivec2(-1, 0), glm::ivec2(0, 1), glm::ivec2(0, -1)})
+					{
+						const auto next = cell + step;
+						if (next.x >= 0 && next.y >= 0 && next.x < k_Cells && next.y < k_Cells &&
+						    kind[static_cast<size_t>(next.x) * k_Cells + next.y] == 3)
+						{
+							kind[static_cast<size_t>(next.x) * k_Cells + next.y] = 0;
+							body.push_back(next);
+						}
+					}
+				}
+				const auto water = sea ? Foliage::Water::Sea : Foliage::Water::Lake;
+				for (const auto cell : body)
+				{
+					kind[static_cast<size_t>(cell.x) * k_Cells + cell.y] = static_cast<int8_t>(water);
+					Seed(water, glm::vec2(cell) * k_CellSize);
+				}
+				_bodies[static_cast<size_t>(water)] += 1;
+			}
+		}
+
+		// Rivers: every segment between a stream point and the points it links to
+		if (Locator::entitiesRegistry::has_value())
+		{
+			Locator::entitiesRegistry::value().Each<const ecs::components::Stream>(
+			    [this](const ecs::components::Stream& stream) {
+				    for (size_t p = 0; p < stream.points.size(); ++p)
+				    {
+					    const glm::vec2 from(stream.points[p].x, stream.points[p].z);
+					    Seed(Foliage::Water::Stream, from);
+					    if (p + 1 < stream.points.size())
+					    {
+						    const glm::vec2 to(stream.points[p + 1].x, stream.points[p + 1].z);
+						    AddSegment(from, to);
+						    const int steps = static_cast<int>(glm::distance(from, to) / (k_BlockedGrid * 0.5f)) + 1;
+						    for (int i = 0; i <= steps; ++i)
+						    {
+							    Seed(Foliage::Water::Stream, glm::mix(from, to, static_cast<float>(i) / static_cast<float>(steps)));
+						    }
+					    }
+					    _bodies[static_cast<size_t>(Foliage::Water::Stream)] += 1;
+				    }
+			    });
+		}
+
+		for (auto& distances : _distance)
+		{
+			Propagate(distances);
+		}
+	}
+
+	/// Distance in world units from the point to the nearest water of that kind (large if there is none); exact to
+	/// the river segments up to k_SegmentCell units, from the 5-unit distance map beyond
+	[[nodiscard]] float DistanceTo(Foliage::Water water, glm::vec2 point) const
+	{
+		if (water == Foliage::Water::Stream)
+		{
+			const glm::ivec2 bucket = glm::floor(point / k_SegmentCell);
+			float nearest = 1e9f;
+			for (int dz = -1; dz <= 1; ++dz)
+			{
+				for (int dx = -1; dx <= 1; ++dx)
+				{
+					const auto found = _segments.find(Key(bucket + glm::ivec2(dx, dz)));
+					if (found == _segments.end())
+					{
+						continue;
+					}
+					for (const auto& [a, b] : found->second)
+					{
+						const glm::vec2 ab = b - a;
+						const float t = std::clamp(glm::dot(point - a, ab) / std::max(glm::dot(ab, ab), 1e-6f), 0.0f, 1.0f);
+						nearest = std::min(nearest, glm::distance(point, a + ab * t));
+					}
+				}
+			}
+			if (nearest <= k_SegmentCell)
+			{
+				return nearest;
+			}
+		}
+		const glm::ivec2 cell = glm::floor((point - _origin) / k_BlockedGrid + 0.5f);
+		if (cell.x < 0 || cell.y < 0 || cell.x >= _width || cell.y >= _height)
+		{
+			return 1e9f;
+		}
+		const auto value = _distance.at(static_cast<size_t>(water))[static_cast<size_t>(cell.y) * _width + cell.x];
+		return static_cast<float>(value) * k_BlockedGrid / 3.0f;
+	}
+
+	[[nodiscard]] std::string Describe() const
+	{
+		return fmt::format("{} lake cells groups, {} sea, {} stream points", _bodies[0], _bodies[2], _bodies[1]);
+	}
+
+private:
+	static constexpr uint16_t k_Far = 60000;
+	static constexpr float k_SegmentCell = 20.0f;
+
+	static uint64_t Key(glm::ivec2 bucket)
+	{
+		return (static_cast<uint64_t>(static_cast<uint32_t>(bucket.x)) << 32u) | static_cast<uint32_t>(bucket.y);
+	}
+
+	/// A river segment, in every 20-unit bucket its bounding box touches
+	void AddSegment(glm::vec2 from, glm::vec2 to)
+	{
+		const glm::ivec2 low = glm::floor(glm::min(from, to) / k_SegmentCell);
+		const glm::ivec2 high = glm::floor(glm::max(from, to) / k_SegmentCell);
+		for (int z = low.y; z <= high.y; ++z)
+		{
+			for (int x = low.x; x <= high.x; ++x)
+			{
+				_segments[Key({x, z})].emplace_back(from, to);
+			}
+		}
+	}
+
+	std::unordered_map<uint64_t, std::vector<std::pair<glm::vec2, glm::vec2>>> _segments;
+
+	/// A cell of the land (its 10 x 10 square) or a point on a river is water of that kind
+	void Seed(Foliage::Water water, glm::vec2 corner)
+	{
+		auto& distances = _distance.at(static_cast<size_t>(water));
+		const bool square = water != Foliage::Water::Stream;
+		const glm::ivec2 low = glm::floor((corner - _origin) / k_BlockedGrid + (square ? 0.0f : 0.5f));
+		const int size = square ? static_cast<int>(k_CellSize / k_BlockedGrid) : 1;
+		for (int z = low.y; z < low.y + size; ++z)
+		{
+			for (int x = low.x; x < low.x + size; ++x)
+			{
+				if (x >= 0 && z >= 0 && x < _width && z < _height)
+				{
+					distances[static_cast<size_t>(z) * _width + x] = 0;
+				}
+			}
+		}
+	}
+
+	/// Two-pass 3-4 chamfer distance (in thirds of a grid step)
+	void Propagate(std::vector<uint16_t>& d) const
+	{
+		const auto at = [&](int x, int z) -> uint16_t& { return d[static_cast<size_t>(z) * _width + x]; };
+		const auto relax = [&](int x, int z, int nx, int nz, int cost) {
+			if (nx >= 0 && nz >= 0 && nx < _width && nz < _height)
+			{
+				at(x, z) = static_cast<uint16_t>(std::min<int>(at(x, z), at(nx, nz) + cost));
+			}
+		};
+		for (int z = 0; z < _height; ++z)
+		{
+			for (int x = 0; x < _width; ++x)
+			{
+				relax(x, z, x - 1, z, 3);
+				relax(x, z, x, z - 1, 3);
+				relax(x, z, x - 1, z - 1, 4);
+				relax(x, z, x + 1, z - 1, 4);
+			}
+		}
+		for (int z = _height - 1; z >= 0; --z)
+		{
+			for (int x = _width - 1; x >= 0; --x)
+			{
+				relax(x, z, x + 1, z, 3);
+				relax(x, z, x, z + 1, 3);
+				relax(x, z, x + 1, z + 1, 4);
+				relax(x, z, x - 1, z + 1, 4);
+			}
+		}
+	}
+
+	glm::vec2 _origin {0.0f};
+	int _width {0};
+	int _height {0};
+	std::array<std::vector<uint16_t>, 3> _distance;
+	std::array<int, 3> _bodies {};
+};
+
+namespace
+{
 std::unique_ptr<FoliageBlockedMap> BuildBlockedMap(const LandIslandInterface& island)
 {
 	const auto extent = island.GetExtent();
@@ -289,6 +526,7 @@ Foliage::Foliage()
 	    .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
 	    .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
 	    .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
 	    .end();
 }
 
@@ -316,6 +554,7 @@ void Foliage::Clear()
 	}
 	_chunks.clear();
 	_blocked.reset();
+	_water.reset();
 	_looks.clear();
 	_plantCount = 0;
 }
@@ -524,6 +763,25 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			{
 				species.sway = std::stof(value);
 			}
+			else if (key == "near")
+			{
+				for (const auto& name : SplitList(value))
+				{
+					const auto found = std::ranges::find(k_WaterNames, name);
+					if (found != k_WaterNames.end())
+					{
+						species.nearWater.push_back(static_cast<uint8_t>(found - k_WaterNames.begin()));
+					}
+					else
+					{
+						SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown water {} (line {})", name, lineNumber);
+					}
+				}
+			}
+			else if (key == "water_distance")
+			{
+				species.waterDistance = ParseRange(value);
+			}
 			else if (key == "lean")
 			{
 				species.lean = std::stof(value);
@@ -605,6 +863,8 @@ void Foliage::Update(LandIslandInterface& island, float density, glm::vec3 camer
 		Clear();
 		_placementKey = key;
 		_blocked = BuildBlockedMap(island);
+		_water = std::make_unique<FoliageWaterMap>(island);
+		SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: water {}", _water->Describe());
 		for (const auto& material : materials)
 		{
 			_looks.push_back(static_cast<uint8_t>(ClassifyTexture(material.colour)));
@@ -702,7 +962,10 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 						accumulated += weights[++corner];
 					}
 					const auto& cell = *corners.at(corner);
-					if (cell.properties.hasWater || cell.properties.fullWater)
+					// nothing on the coast or next to water: those cells are drawn see-through over the sea
+					if (std::ranges::any_of(corners, [](const lnd::LNDCell* c) {
+						    return c->properties.hasWater || c->properties.fullWater || c->properties.coastLine;
+					    }))
 					{
 						continue;
 					}
@@ -735,6 +998,17 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					{
 						continue;
 					}
+					if (_water->DistanceTo(Water::Stream, point) < k_RiverClearance)
+					{
+						continue;
+					}
+					if (!species.nearWater.empty() && std::ranges::none_of(species.nearWater, [&](uint8_t water) {
+						    const float away = _water->DistanceTo(static_cast<Water>(water), point);
+						    return away >= species.waterDistance.x && away <= species.waterDistance.y;
+					    }))
+					{
+						continue;
+					}
 					const float luminosity = (corners[0]->luminosity * weights[0] + corners[1]->luminosity * weights[1] +
 					                          corners[2]->luminosity * weights[2] + corners[3]->luminosity * weights[3]) /
 					                         255.0f;
@@ -743,13 +1017,18 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					const float width = species.size.x + (species.size.y - species.size.x) * pickSize;
 					// the terrain's texture coordinates: (local z, local x) / block size (vs_terrain)
 					const glm::vec2 local = point - mapPosition;
-					// sunk a little so the image's flat bottom edge stays under the ground when it leans
+					// the bottom edge follows the ground under the plane's two ends (on a slope one end would be buried),
+					// sunk a little so the image's flat bottom edge doesn't show when it leans
 					const float plantHeight = width * _layerAspect[layer];
-					instances.push_back({{point.x, height - 0.12f * plantHeight, point.y, width},
+					const glm::vec2 across = glm::vec2(std::cos(yaw), std::sin(yaw)) * (0.5f * width);
+					const float left = island.GetHeightAt(point - across) - height;
+					const float right = island.GetHeightAt(point + across) - height;
+					instances.push_back({{point.x, height - 0.06f * plantHeight, point.y, width},
 					                     {plantHeight, static_cast<float>(layer), luminosity, yaw},
 					                     {_layerTop[layer], species.sway, static_cast<float>(materialIndex),
 					                      static_cast<float>(species.tint)},
-					                     {local.y / k_BlockSize, local.x / k_BlockSize, lean, phase}});
+					                     {local.y / k_BlockSize, local.x / k_BlockSize, lean, phase},
+					                     {left, right, 0.0f, 0.0f}});
 				}
 			}
 		}

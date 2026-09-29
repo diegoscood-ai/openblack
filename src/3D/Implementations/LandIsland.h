@@ -64,6 +64,7 @@ public:
 	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const override { return *_heightMap; }
 	[[nodiscard]] const graphics::Texture2D& GetCellMap() const override { return *_cellMap; }
 	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const override { return *_staticShadowFrameBuffer; }
+	[[nodiscard]] const graphics::FrameBuffer& GetLandAlphaFramebuffer() const override { return *_landAlphaFrameBuffer; }
 	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const override { return *_footprintFrameBuffer; }
 
 	[[nodiscard]] glm::mat4 GetOrthoView() const override { return _view; }
@@ -80,6 +81,7 @@ private:
 	std::unique_ptr<graphics::Texture2D> _heightMap;
 	std::unique_ptr<graphics::Texture2D> _cellMap;
 	std::unique_ptr<graphics::FrameBuffer> _staticShadowFrameBuffer;
+	std::unique_ptr<graphics::FrameBuffer> _landAlphaFrameBuffer;
 	std::unique_ptr<graphics::Texture2D> _textureNoiseMap;
 	std::unique_ptr<graphics::Texture2D> _textureBumpMap;
 	std::unique_ptr<graphics::Texture2D> _smallBump;

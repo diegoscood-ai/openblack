@@ -54,6 +54,10 @@ class Renderer final: public RendererInterface
 	void UpdateLandLight() const;
 	/// Bakes the static object shadows into the island-wide shadow texture
 	void DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const;
+	/// The rivers' footprints (ECS/Rivers): river2.l3d into the footprint target (drawRiverBeds) or river.l3d into the
+	/// land alpha target with MIN blending
+	void DrawRiverFootprints(bgfx::ViewId viewId, bool channel) const;
+	void DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const;
 	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
 	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)

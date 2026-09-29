@@ -25,6 +25,7 @@ namespace openblack
 {
 class LandIslandInterface;
 class FoliageBlockedMap;
+class FoliageWaterMap;
 
 namespace graphics
 {
@@ -61,8 +62,18 @@ public:
 		glm::vec2 slope {0.0f, 90.0f}; ///< degrees
 		float patches {0.0f};          ///< 0: even cover, 1: only in patches
 		float sway {1.0f};             ///< wind sway scale
-		float lean {0.3f};             ///< how far the two crossed planes lean apart (seen from above)
+		float lean {0.3f};             ///< random lean up to this much (so the plane also shows from above)
+		std::vector<uint8_t> nearWater; ///< only within waterDistance of these (Foliage::Water); empty: anywhere
+		glm::vec2 waterDistance {0.0f, 8.0f};
 		Tint tint {Tint::Grey};
+	};
+
+	/// Kinds of water a plant can be required to grow near
+	enum class Water : uint8_t
+	{
+		Lake,   ///< water cells not connected to the open sea (the edge of the map)
+		Stream, ///< the island's rivers (CREATE_STREAM / CREATE_STREAM_POINT)
+		Sea,
 	};
 
 	/// What a landscape texture looks like, from its average colour
@@ -109,13 +120,14 @@ public:
 	[[nodiscard]] size_t GetPlantCount() const noexcept { return _plantCount; }
 
 private:
-	/// Per-plant instance data, 4 x vec4 (i_data0..3)
+	/// Per-plant instance data, 5 x vec4 (i_data0..4)
 	struct Instance
 	{
 		glm::vec4 positionWidth;       ///< base x, y, z; width
 		glm::vec4 heightLayerLightYaw; ///< height; texture layer; land luminosity 0..1; yaw
 		glm::vec4 textureGround;       ///< v of the image's top; sway; ground material; tint mode
 		glm::vec4 groundUvLeanPhase;   ///< ground texture uv (one block = 0..1); lean; sway phase
+		glm::vec4 groundEnds;          ///< ground height at the plane's left and right ends, relative to the base
 	};
 
 	/// The plants of one land block
@@ -140,6 +152,7 @@ private:
 
 	std::vector<Chunk> _chunks; ///< one per land block
 	std::unique_ptr<FoliageBlockedMap> _blocked;
+	std::unique_ptr<FoliageWaterMap> _water;
 	std::vector<uint8_t> _looks; ///< per island material: its Look
 	size_t _plantCount {0};
 	uint64_t _placementKey {0}; ///< what the chunks were placed for

@@ -10,6 +10,7 @@ SAMPLER2D(s2_smallBump, 2);
 SAMPLER2D(s3_footprints, 3);
 SAMPLER2D(s5_staticShadow, 5);
 SAMPLER2D(s7_dynamicShadow, 7);
+SAMPLER2D(s8_landAlpha, 8); // 1, or lower in the river channels (the sea drawn before the land shows through)
 uniform vec4 u_dynamicShadowBox; // xy: box minimum x/z, zw: 1 / size
 uniform vec4 u_dynamicShadow;    // x: opacity (8/15 x fade), y: the silhouette's plane height
 
@@ -103,7 +104,7 @@ void main()
 		}
 	}
 
-	gl_FragColor = vec4(col.rgb, v_waterAlpha);
+	gl_FragColor = vec4(col.rgb, v_waterAlpha * texture2D(s8_landAlpha, v_texcoord1.xy).r);
 
 	//gl_FragColor.r = v_distToCamera / 200.0f;
 

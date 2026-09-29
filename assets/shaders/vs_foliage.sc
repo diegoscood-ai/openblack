@@ -1,9 +1,9 @@
-$input a_position, i_data0, i_data1, i_data2, i_data3
+$input a_position, i_data0, i_data1, i_data2, i_data3, i_data4
 $output v_texcoord0, v_color0, v_landLight, v_landSpecular
 
 // Mod world.foliage: one plane per plant (3D/Foliage.cpp). i_data0: base xyz, width; i_data1: height, texture
 // layer, land luminosity 0..1, yaw; i_data2: v of the image's top, sway, ground material, tint mode; i_data3: ground
-// texture uv (one block = 0..1), lean, sway phase.
+// texture uv (one block = 0..1), lean, sway phase; i_data4: ground height at the left / right end.
 
 #include <bgfx_shader.sh>
 
@@ -38,7 +38,9 @@ void main()
 	// wind from one side, the tips bending the most
 	float gust = sin(u_foliageParams.x * 1.6f + i_data3.w + base.x * 0.05f + base.z * 0.03f);
 	vec3 sway = vec3(0.7f, 0.0f, 0.7f) * (gust * 0.12f * i_data2.y * corner.y * corner.y * height);
-	vec3 position = base + across * (corner.x * width) + up * (corner.y * height) + sway;
+	// sheared to follow the ground under the two ends (the plant stays upright)
+	float groundEnd = mix(i_data4.x, i_data4.y, corner.x + 0.5f) * grow;
+	vec3 position = base + across * (corner.x * width) + up * (corner.y * height) + sway + vec3(0.0f, groundEnd, 0.0f);
 
 	v_texcoord0 = vec4(corner.x + 0.5f, mix(1.0f, i_data2.x, corner.y), i_data1.y, corner.y);
 

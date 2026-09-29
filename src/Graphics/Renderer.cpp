@@ -42,6 +42,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
+#include "ECS/Components/Stream.h"
 #include "ECS/Registry.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -639,7 +640,79 @@ void Renderer::DrawFootprintPass(const DrawSceneDesc& drawDesc) const
 			bgfx::setState(state);
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(footprintShaderInstanced->GetRawHandle()));
 		}
+		DrawRiverFootprints(static_cast<bgfx::ViewId>(viewId), false);
 	}
+}
+
+void Renderer::DrawRiverFootprints(bgfx::ViewId viewId, bool channel) const
+{
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const auto meshId = entt::hashed_string(channel ? "river" : "river2");
+	if (!meshes.Contains(meshId))
+	{
+		return;
+	}
+	const auto mesh = meshes.Handle(meshId);
+	if (mesh->GetFootprints().empty())
+	{
+		return;
+	}
+	std::vector<glm::mat4> matrices;
+	Locator::entitiesRegistry::value().Each<const ecs::components::StreamFootprint, const ecs::components::Transform>(
+	    [&matrices, channel](const ecs::components::StreamFootprint& footprint, const ecs::components::Transform& transform) {
+		    if (footprint.channel == channel)
+		    {
+			    matrices.push_back(glm::translate(transform.position) * glm::mat4(transform.rotation) *
+			                       glm::scale(transform.scale));
+		    }
+	    });
+	const auto count = static_cast<uint32_t>(matrices.size());
+	constexpr uint16_t k_Stride = sizeof(glm::mat4);
+	if (count == 0 || bgfx::getAvailInstanceDataBuffer(count, k_Stride) < count)
+	{
+		return;
+	}
+	bgfx::InstanceDataBuffer instances;
+	bgfx::allocInstanceDataBuffer(&instances, count, k_Stride);
+	std::memcpy(instances.data, matrices.data(), matrices.size() * sizeof(glm::mat4));
+
+	const auto& footprint = mesh->GetFootprints()[0];
+	const auto* program = _shaderManager->GetShader(channel ? "LandAlphaInstanced" : "FootprintInstanced");
+	program->SetTextureSampler("s_footprint", 0, *footprint.texture);
+	if (channel)
+	{
+		const auto size = footprint.texture->GetResolution();
+		const glm::vec4 u_footprintSize(size.x, size.y, 0.0f, 0.0f);
+		program->SetUniformValue("u_footprintSize", &u_footprintSize);
+	}
+	footprint.mesh->GetVertexBuffer().Bind();
+	bgfx::setInstanceDataBuffer(&instances);
+	// the bed blends its colour like any footprint (fn_008728A0); the channel keeps the lowest alpha (fn_00872AB0)
+	const uint64_t state = channel ? BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
+	                                     BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN)
+	                               : BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA;
+	bgfx::setState(state);
+	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
+}
+
+void Renderer::DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const
+{
+	if (!drawDesc.drawIsland)
+	{
+		return;
+	}
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::LandAlpha);
+	const auto& island = Locator::terrainSystem::value();
+	const auto& frameBuffer = island.GetLandAlphaFramebuffer();
+	frameBuffer.Bind(graphics::RenderPass::LandAlpha);
+	bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0xFFFFFFFF);
+	bgfx::setViewRect(viewId, 0, 0, frameBuffer.GetColorAttachment().GetResolution().x,
+	                  frameBuffer.GetColorAttachment().GetResolution().y);
+	bgfx::touch(viewId);
+	const auto view = island.GetOrthoView();
+	const auto proj = island.GetOrthoProj();
+	bgfx::setViewTransform(viewId, &view, &proj);
+	DrawRiverFootprints(viewId, true);
 }
 
 void Renderer::UpdateLandLight() const
@@ -1583,6 +1656,7 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 	}
 	// TODO(bwrsandman): Footprint framebuffer doesn't need to be updated each frame
 	DrawFootprintPass(drawDesc);
+	DrawLandAlphaPass(drawDesc);
 	// Reflection Pass
 	{
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::ReflectionPass);
@@ -1835,6 +1909,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				terrainShader->SetTextureSampler("s6_cloudShadow", 6, fromBgfx(_cloudShadowTexture)); // vs
 			}
 			terrainShader->SetTextureSampler("s5_staticShadow", 5, island.GetStaticShadowFramebuffer().GetColorAttachment());
+			terrainShader->SetTextureSampler("s8_landAlpha", 8, island.GetLandAlphaFramebuffer().GetColorAttachment());
 			if (_handShadowFrameBuffer)
 			{
 				terrainShader->SetTextureSampler("s7_dynamicShadow", 7, _handShadowFrameBuffer->GetColorAttachment());

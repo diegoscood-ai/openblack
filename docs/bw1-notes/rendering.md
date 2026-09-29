@@ -361,3 +361,24 @@ Informe: `tmp_dis\render\fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.
 - openblack: `3D/ScreenFade`, vista `RenderPass::ScreenOverlay`, `Renderer::DrawScreenOverlay`. **No** se aplica el negro
   de `OnNewGame`: la intro de openblack aún se queda antes de su `SET_FADE_IN` (`START_CAMERA_CONTROL` y otros son stubs)
   y la pantalla quedaría negra.
+
+## Ríos (hechos, original)
+
+Informe completo con direcciones y pseudo-C++: `C:\Users\diewgarc\dev\tmp_dis\streams\streams.md`.
+
+- **No hay renderizador de ríos.** `GStream` (GameThing 0x47, Stream.cpp) guarda sus puntos en orden de script
+  (`CREATE_STREAM_POINT` 0x717550 pone y = altura del suelo y añade al final); los tramos son p[i] → p[i+1]
+  (openblack enlazaba cada punto con el más cercano anterior: corregido, `Stream::points`).
+- `GStream::CreateAll` 0x733FF0 (tras el script) → `CreateRiver` 0x7341E0: por tramo, ángulo θ = atan2(dz, dx),
+  posición p[i], escala solo en X local = longitud 3D / 30, y dos huellas de terreno (fn_0081E9E0):
+  `data\river2.l3d` (cauce marrón, se mezcla en el color del bloque como la huella de un edificio, fn_008728A0) y
+  `data\river.l3d` (bandera +0x38 = 1: solo su alfa, que **baja** el nibble de alfa del bloque: min(dst, src),
+  fn_00872AB0; orillas 15/15, canal 10-14/15). Huellas de 32×64 ARGB4444, 10,6 × 30 unidades.
+- El agua visible es **el mar**: se dibuja antes de la tierra (ZFUNC ALWAYS) y la tierra (modo 14, SRCALPHA) deja
+  verlo en el canal. Sin textura, scroll, partículas ni LOD propios; el "flujo" es el movimiento del mar.
+- openblack: `ECS/Rivers` crea al cargar el mapa dos entidades `StreamFootprint` + `Transform` por tramo; el cauce va
+  en la pasada de huellas (`Renderer::DrawRiverFootprints`) y el canal en `RenderPass::LandAlpha`, un R8 de toda la
+  isla borrado a 1 con mezcla MIN (`fs_land_alpha`, texel más cercano, cuantizado a 1/15); `fs_terrain` multiplica su
+  alfa de salida por ese valor.
+- Sin analizar: el sonido `ATMOS_TYPE_RUNNING_WATER` (`audio/sfx/atmos/stream.sad`) y las cascadas (`GWaterfall`,
+  `waterfall3.l3d`).

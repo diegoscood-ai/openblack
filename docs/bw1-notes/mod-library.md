@@ -84,6 +84,13 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   terreno). Nada en celdas de agua, en materiales dibujo (geoglifo), fuera de la altura o pendiente, ni a menos de 1
   unidad de entidades `Fixed` que no sean árboles, ni de campos, rocas móviles, pilas, almacén, templo o piscifactoría
   (caja de la malla). Todo se rehace al cambiar de isla o densidad y cuando existen los objetos.
+- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver rendering.md "Ríos"); las celdas de costa (`coastLine`, altitud 2-3 en Land1) se dibujan con alfa 0,5
+  sobre el mar y las de agua con alfa 0, así que nada crece en una celda con alguna esquina de agua o costa. `near =
+  lake, stream, sea` + `water_distance` limitan una planta a esa distancia de agua (mapa de distancias 3-4 chamfer a
+  5 unidades, `FoliageWaterMap`): lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1: una
+  charca de 10 celdas en x 2130-2160, z 2400-2450 y una celda suelta); río = segmentos entre los puntos de cada
+  `Stream` (Land1: 11 ríos, 187 puntos). En B&W1 no hay agua a otra altura: los ríos son esos caminos (openblack aún no
+  los dibuja). Los juncos usan `near = lake, stream` a 3-9 unidades. Ninguna planta a menos de 3 unidades de la línea de un río (el canal de river.l3d mide unas 4; distancia exacta a los tramos en cubos de 20 unidades). La base de cada planta sigue el suelo: altura en sus dos extremos (i_data4) y cizalla en el vertex shader, hundida un 6 %.
 - Dibujo: un plano por planta con orientación fija al azar (no mira a cámara) e inclinado al azar hasta `lean` para
   que se vea desde arriba (dos planos cruzados se veían como cruces desde arriba); hundido un 12 % de su alto para que
   no se vea el borde inferior; las plantas se hunden en el último 20 % de la distancia (120/200/320); luz = tabla de

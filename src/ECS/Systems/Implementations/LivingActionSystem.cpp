@@ -125,6 +125,23 @@ uint32_t VillagerMoveToPos(LivingAction& action)
 	}
 	return 0;
 }
+// FLYING / IN_HAND: the physics and the hand move the villager; nothing to decide meanwhile
+uint32_t VillagerCarried([[maybe_unused]] LivingAction& action)
+{
+	return 0;
+}
+
+// Villager LANDED: PlayAnimThenSetState (0x5ECAC0), the landing clip and then deciding again. openblack has no final
+// state for it yet, so DECIDE_WHAT_TO_DO.
+uint32_t VillagerLanded(LivingAction& action)
+{
+	if (ecs::VillagerAnimationDone(Locator::entitiesRegistry::value().ToEntity(action), action.turnsSinceStateChange))
+	{
+		Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top, VillagerStates::DecideWhatToDo,
+		                                                      true);
+	}
+	return 0;
+}
 } // namespace
 
 struct VillagerStateTableEntry
@@ -220,8 +237,8 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* LOOKING_AT_OBJECT_REACTION */ k_TodoEntry,
     /* FOLLOWING_OBJECT_REACTION */ k_TodoEntry,
     /* INSPECT_OBJECT_REACTION */ k_TodoEntry,
-    /* FLYING */ k_TodoEntry,
-    /* LANDED */ k_TodoEntry,
+    /* FLYING */ {.state = &VillagerCarried},
+    /* LANDED */ {.state = &VillagerLanded},
     /* LOOK_AT_FLYING_OBJECT_REACTION */ k_TodoEntry,
     /* SET_DYING */ k_TodoEntry,
     /* DYING */ k_TodoEntry,
@@ -234,7 +251,7 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GOTO_WOOD_REACTION */ k_TodoEntry,
     /* ARRIVES_AT_WOOD_REACTION */ k_TodoEntry,
     /* WAIT_FOR_ANIMATION */ k_TodoEntry,
-    /* IN_HAND */ k_TodoEntry,
+    /* IN_HAND */ {.state = &VillagerCarried},
     /* GOTO_PICKUP_BALL_REACTION */ k_TodoEntry,
     /* ARRIVES_AT_PICKUP_BALL_REACTION */ k_TodoEntry,
     /* MOVE_IN_FLOCK */ k_TodoEntry,

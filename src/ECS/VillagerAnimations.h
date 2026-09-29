@@ -33,6 +33,13 @@ void OnVillagerStateChanged(entt::entity villager, VillagerStates previous, Vill
 /// wait this turn; once the clip is over it switches to the state's own clip (FinishedIntoOutOfAnimation 0x750060).
 bool VillagerWaitsForTransition(entt::entity villager, uint16_t turnsSinceStateChange);
 
+/// Living::IsReadyForNewAnimation (0x5EC960): the current clip has played once (turns in the state * 100 ms)
+bool VillagerAnimationDone(entt::entity villager, uint16_t turnsSinceStateChange);
+
+/// A new top state for a villager from outside its state logic (the hand, the physics): IN_HAND when picked up,
+/// FLYING when thrown, LANDED when it comes to rest. The villager stops walking.
+void SetVillagerState(entt::entity villager, VillagerStates state);
+
 /// Per frame: gives new villagers their clip and feeds the walk sync (the speed of the moving states).
 void UpdateVillagerAnimations();
 

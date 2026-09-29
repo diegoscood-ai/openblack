@@ -59,6 +59,7 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/VillagerAnimations.h"
 #include "ECS/Components/Sprite.h"
 #include "Graphics/Texture2D.h"
 #include "ECS/Components/Transform.h"
@@ -94,6 +95,8 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)
 	const bool caught = physics::PhysicsObjects::Find(entity) != nullptr;
 	physics::PhysicsObjects::RemoveObject(entity);
+	// Living::PlaceInHand: IN_HAND (its clip SCARED_STIFF, ECS/VillagerAnimations)
+	ecs::SetVillagerState(entity, VillagerStates::InHand);
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
 	if (auto* pot = registry.TryGet<Pot>(entity); pot != nullptr)
@@ -244,6 +247,8 @@ void HandSystem::Drop() noexcept
 		{
 			fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
 		}
+		// put down gently (openblack places it at once): it lands on its feet
+		ecs::SetVillagerState(*_held, VillagerStates::Landed);
 		registry.SetDirty();
 	}
 	_held.reset();

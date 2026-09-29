@@ -22,6 +22,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/VillagerAnimationTable.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -202,7 +203,8 @@ int32_t MoveToPosAnimation(entt::entity entity, const Villager& villager)
 	// SPEED_THRESHOLD_VILLAGER_MAN / _NORMAL
 	const auto& threshold = info.speedThreshold.at(IsMale(villager) ? 1 : 0);
 	const auto* wallHug = Locator::entitiesRegistry::value().TryGet<const WallHug>(entity);
-	const float speed = wallHug != nullptr ? wallHug->speed : 0.0f;
+	// WallHug::speed is per turn (0.1 s)
+	const float speed = wallHug != nullptr ? wallHug->speed * 10.0f : 0.0f;
 	if (speed <= GetSpeedStateSpeed(threshold.speedMaxWalk))
 	{
 		return carrying ? k_CarryAxe : IsMale(villager) ? k_WalkMan : k_WalkWoman;
@@ -530,6 +532,30 @@ bool VillagerWaitsForTransition(entt::entity entity, uint16_t turnsSinceStateCha
 		action->turnsSinceStateChange = 0;
 	}
 	return true;
+}
+
+bool VillagerAnimationDone(entt::entity entity, uint16_t turnsSinceStateChange)
+{
+	const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(entity);
+	auto& animations = Locator::resources::value().GetAnimations();
+	if (animation == nullptr || !animation->hasClip || !animations.Contains(animation->clip))
+	{
+		return true;
+	}
+	return static_cast<int32_t>(turnsSinceStateChange) * 100 >= animations.Handle(animation->clip)->GetDurationMs();
+}
+
+void SetVillagerState(entt::entity entity, VillagerStates state)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* action = registry.TryGet<LivingAction>(entity);
+	if (action == nullptr || !registry.AllOf<Villager>(entity))
+	{
+		return;
+	}
+	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
+	                MoveStateFinalStepTag, MoveStateArrivedTag>(entity);
+	Locator::livingActionSystem::value().VillagerSetState(*action, LivingAction::Index::Top, state, true);
 }
 
 void UpdateVillagerAnimations()

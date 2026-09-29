@@ -46,6 +46,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
@@ -480,6 +481,8 @@ entt::entity EndPhysics(PhysicsObject& po)
 			Kill(entity, "landed dead");
 			return entt::null;
 		}
+		// Villager::EndPhysics: LANDED, its landing clip, then deciding what to do
+		ecs::SetVillagerState(entity, VillagerStates::Landed);
 	}
 	if (registry.AllOf<Fragment>(entity))
 	{
@@ -1069,6 +1072,11 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	if (!SetUpBody(entity, po->body, true))
 	{
 		return nullptr;
+	}
+	if (po->villager)
+	{
+		// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
+		ecs::SetVillagerState(entity, VillagerStates::Flying);
 	}
 	po->body.SetAngularVelocity(angularVelocity);
 	const float speed = glm::length(velocity);

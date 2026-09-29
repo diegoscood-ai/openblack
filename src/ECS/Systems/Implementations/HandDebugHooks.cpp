@@ -402,6 +402,26 @@ void HandSystem::RunDebugHooks() noexcept
 		}
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animation test: clip {} on {} villagers", clip, villagers.size());
 	}
+	// Debug: OPENBLACK_TEST_THROW_VILLAGER="n,vx,vy,vz" throws the n-th villager with that velocity (FLYING, LANDED clips)
+	if (const char* throwTest = std::getenv("OPENBLACK_TEST_THROW_VILLAGER"); throwTest != nullptr)
+	{
+		int wanted = 0;
+		glm::vec3 velocity(0.0f, 6.0f, 3.0f);
+		std::sscanf(throwTest, "%d,%f,%f,%f", &wanted, &velocity.x, &velocity.y, &velocity.z);
+		auto& registry = Locator::entitiesRegistry::value();
+		std::optional<entt::entity> target;
+		int seen = 0;
+		registry.Each<const Villager>([&](entt::entity e, const Villager&) {
+			if (!target && seen++ == wanted)
+			{
+				target = e;
+			}
+		});
+		if (target && physics::PhysicsObjects::AddObject(*target, velocity, glm::vec3(0.0f), entt::null, true) != nullptr)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animation test: villager {} thrown", wanted);
+		}
+	}
 	// Debug: OPENBLACK_TEST_VIEW_VILLAGER="n[,distance[,angle]]" flies the camera to look at the n-th villager from that
 	// many metres (default 3), from that side (degrees around it, default 0 = +z), slightly above (villager close-ups).
 	if (const char* view = std::getenv("OPENBLACK_TEST_VIEW_VILLAGER"); view != nullptr && Locator::camera::has_value())

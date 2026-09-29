@@ -43,6 +43,15 @@ la misma carpeta (`anm.py`, `pack.py`, `l3d.py`, `gen_state_fns.py`).
   `LivingActionSystem::VillagerSetState` y `Update`. Las funciones que necesitan lo que aún no existe (tipo de
   aterrizaje, agua, bailes, peleas, fútbol, criaturas) toman la rama del original para su ausencia.
 
+## Velocidad de marcha
+
+`dev	mp_disnim\speed_units.md`: 1 unidad del mundo = 1 m (MapCoords 6553,6 por metro). El u16 de velocidad
+(+0x5A) es lo que avanza **por turno** en MapCoords (`GetSpeedInMetres` 0x60C070 = u16 / 6553,6), y las tablas de
+info.dat (speedGroup) están en esas unidades: 1475 = 0,225 m/turno = 2,25 m/s. openblack movía `WallHug::speed` =
+2,25 por turno (10 veces demasiado rápido): ahora es m/s × 0,1. Un hombre normal da 2,25 / 1,16 ≈ 1,94 ciclos de
+paso por segundo, con los pies sincronizados (el clip avanza con la misma distancia). Falta el resto de
+`SetStateSpeed` / `SetSpeed` (±16 % por aldeano, creencia, necesidades del pueblo, sexo, edad).
+
 ## Render
 
 Cada aldeano con pose (`components::SkeletalAnimation`) se dibuja por separado con sus huesos (`ecs::PosesByInstance`

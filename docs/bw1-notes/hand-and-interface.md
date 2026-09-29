@@ -1,0 +1,66 @@
+# La mano y la interfaz
+
+Detalle completo en `C:\Users\diewgarc\dev\decomp_pickup` (hand.cpp, interface.cpp y sus NOTES).
+
+## Animación y malla
+
+- Animaciones `Data\CTR\hh.HBN` (pack Lionhead, bloque de morph en 0x2C). Especificación `Data\hndspec5.txt`
+  (69 nodos, 26 presentes). Nodos C = poses centrales; L*_lr / L*_fb = capas direccionales −1..+1.
+- Malla `Data\CreatureMesh\Hand_Boned_Base2.l3d`: 22 huesos (0 palma, 8–19 dedos, puntas 10/13/16/19, índice = 19,
+  20/21 pulgar). El origen del modelo **es el punto de agarre** en los estados de sujetar.
+- Escala: `3.2 * handScale / 555.294`; `CHand::SetDistanceFromView` (0x46C0D0): d<10 → (d/10)^0.8; d>150 →
+  ×(d/150)·(1 − 0.3·(d−150)/1650).
+
+## Dónde se pone la mano: `ObtainRequiredHandPosition` (0x5B5E70)
+
+1. Objeto bajo el cursor (ver abajo). Si no hay, el terreno.
+2. Con objeto:
+   - aldeanos (Living que no son criatura): distancia = |centro − cámara| − radio 2D, corregida por la altura;
+   - resto: el punto donde el rayo corta la malla;
+   - si llevas algo: el rayo de búsqueda apunta al punto del terreno + 0.6·altura de agarre, y el punto final se
+     separa hacia la cámara la mitad del radio 2D del objeto sujetado.
+3. La distancia a la cámara se suaviza con el Zoomer: **0.1 s** si se acerca, **0.28 s** si se aleja (2.0 s al dar a
+   la criatura o en un modo de cámara concreto: no implementado). Nunca más lejos que el terreno bajo el cursor.
+4. `HandStateNormal` pone la mano exactamente ahí (sin más suavizado).
+
+## Objeto bajo el cursor
+
+- `GInterface::SendObjectDrawCollision` (0x5D56C0): cada objeto dibujado se prueba con colisión exacta por
+  triángulos; gana el más cercano; se ignora lo que está en la mano.
+- `UpdateInterfaceCollide` (0x5D5A70): si el terreno queda delante, el objeto solo cuenta si el punto del terreno cae
+  dentro de su huella XZ.
+- Si al hacer clic no hay nada: `FindObjectNearMapCoord` (0x5D39E0), el más cercano en ±5 unidades.
+- **Excluir todo lo que se mueve con la mano** (objeto sujetado, árbol arrancándose, raíces, partículas): si no, el
+  rayo choca con ello y la mano sube hacia la cámara sin fin.
+
+## Estados de acción de la interfaz (`GInterface+0x44`, tabla 0x5D7960)
+
+| Estado | Nombre en el exe | Uso |
+|---|---|---|
+| 0 | NORMAL | reposo |
+| 2 | LANDSCAPE LOCK | agarrar el terreno (cámara) |
+| 3–6 | LOCKED SELECT… | coger de un montón por tandas |
+| 7 | WAIT FOR PLACE IN HAND | tras coger, espera al paquete |
+| 12 | **IN THROW** | segunda pulsación con la mano llena: soltar/lanzar al soltar |
+| 13 | grab (225 ms) | pulsación de coger |
+
+Cada estado tiene un "estado de cursor" (`GInterface+0x3AC`); IN THROW = **0x17**.
+
+## Sujetar, muelle y lanzamiento (`HandStateHolding::Update` 0x5B3C70)
+
+- Tipos de agarre (jump table 0x5B568C), altura base h: ABOVE 0.2; MAGIC 3.2·escala; GRAIN/TREE/SIDE/VILLAGER
+  max(lowering, 1.9); +0.1·altura si el objeto está enraizado. `lowering = GetHeight·GetHoldLoweringMultiplier`.
+- Poses: ABOVE = Chold_above en dur·0.5·(1−grip), grip = min(1, R/(3.2·s·1.2)); SIDE/TREE/VILLAGER = Chold_side en
+  (dur>>1)·grip, grip = min(1, R/(3.2·s)). R = GetHoldRadius (en madera es constante; la comida se abre con la cantidad).
+- **Muelle (inercia)**: pasos de 10 ms, a = 260·d − 40·v, |v| ≤ 124. **Solo se activa en el estado IN THROW**
+  (comprobación `0x3AC == 0x17` en 0x5B4603). Tras coger y soltar el botón, la mano sigue al cursor sin inercia.
+- Al soltar en IN THROW: lanza si |v_xz|² > 4, si no, deja el objeto. La velocidad es la del muelle.
+- Balanceo: hasta 0.3 rad según el suavizado del ratón (±80 px, referencia 1024 de ancho). El giro ±π/2 de lado solo
+  ocurre mientras hay una entrega a la criatura pendiente.
+
+## Coger
+
+- Umbral de 225 ms entre tocar y coger. Los montones no se pueden tocar: la pulsación empieza a coger por tandas al
+  momento.
+- Rocas con radio 2D > 3.6 no se pueden levantar (`Rock::ValidForPlaceInHand`).
+- La mano nunca llama a `CanBePickedUp`; la puerta es `GInterface::PlaceObjectInMagicHand` (0x5DA6F0).

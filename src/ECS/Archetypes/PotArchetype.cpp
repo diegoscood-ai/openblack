@@ -120,7 +120,8 @@ void PotArchetype::SetSize(entt::entity entity, bool animate)
 	{
 		sink->offset.SetPosition(target);
 	}
-	// Food piles keep MorphWithTerrain: the renderer passes the sink offset on to the height-map shader.
+	// Food piles keep MorphWithTerrain: the height-map shader raises each vertex by the land under it minus the land
+	// under the origin, so the sink in the origin's y is kept.
 	transform.position.y = sink->baseY + sink->offset.value;
 	if (auto* scroll = registry.TryGet<UvScroll>(entity); scroll != nullptr)
 	{

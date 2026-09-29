@@ -2255,7 +2255,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 							continue;
 						}
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
-						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, false, true});
+						sorted.push_back(
+						    {glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, true});
 					}
 				}
 			}

@@ -204,22 +204,11 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	const auto indexSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
 
 	_heightMap = std::make_unique<Texture2D>("Height Map");
+	// per cell: altitude (height units) and split bit, point sampled: vs_object computes GetAltitude from them exactly
 	const auto heightMapData = CreateHeightMap();
-	if (_altitudeBits == 8)
-	{
-		const std::vector<uint8_t> bytes(heightMapData.begin(), heightMapData.end());
-		_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R8,
-		                   Wrapping::ClampEdge, Filter::Linear, bgfx::copy(bytes.data(), static_cast<uint32_t>(bytes.size())));
-	}
-	else
-	{
-		// more than 8 bits: the same scale as R8 (1 = altitude 255), so the shaders read it alike
-		std::vector<float> scaled(heightMapData.size());
-		std::ranges::transform(heightMapData, scaled.begin(), [](float altitude) { return altitude / 255.0f; });
-		_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::R32F,
-		                   Wrapping::ClampEdge, Filter::Linear,
-		                   bgfx::copy(scaled.data(), static_cast<uint32_t>(scaled.size() * sizeof(scaled[0]))));
-	}
+	_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::RG32F,
+	                   Wrapping::ClampEdge, Filter::Nearest,
+	                   bgfx::copy(heightMapData.data(), static_cast<uint32_t>(heightMapData.size() * sizeof(heightMapData[0]))));
 
 	_cellMap = std::make_unique<Texture2D>("Cell Map");
 	const auto cellMapData = CreateCellMap();
@@ -501,26 +490,31 @@ std::vector<float> LandIsland::CreateHeightMap() const
 	// 16x16 cells but the last is shared
 	// 32x32 block grid in the original maps (512 x 512 pixels), up to 128x128 in BWLandEditor ones
 	// extra pixel at the end of the map
+	// Two floats per cell (x along the texture's u, z along v): the altitude in height units and the split bit. All
+	// 17 x 17 cells of each block, so the last row and column of the map are there too (0 where there is no block,
+	// as GetAltitude gives over the sea).
 	std::vector<float> data;
 	const auto extentSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
 	const auto resolution = extentSize * static_cast<uint16_t>(k_CellCount) + static_cast<uint16_t>(1);
-	data.resize(resolution.x * resolution.y, 0);
+	data.resize(static_cast<size_t>(resolution.x) * resolution.y * 2, 0.0f);
 
 	for (const auto& block : _landBlocks)
 	{
-		const auto blockOffset = static_cast<glm::u16vec2>(block.GetBlockPosition() * 16);
+		const auto* cells = block.GetCells();
 		const auto mapPos = block.GetBlockPosition() - static_cast<glm::ivec2>(_extentIndexMin);
-		for (int y = 0; y < k_CellCount; y++)
+		for (int z = 0; z <= k_CellCount; z++)
 		{
-			for (int x = 0; x < k_CellCount; x++)
+			for (int x = 0; x <= k_CellCount; x++)
 			{
-				const auto offset = glm::u16vec2(x, y);
-				const auto cellPos = mapPos * static_cast<int>(k_CellCount) + static_cast<glm::ivec2>(offset);
-				const auto& cell = GetCell(blockOffset + offset);
-				if ((cellPos.y * resolution.x) + cellPos.x < static_cast<int>(data.size()))
+				const auto cellPos = mapPos * static_cast<int>(k_CellCount) + glm::ivec2(x, z);
+				if (cellPos.x >= resolution.x || cellPos.y >= resolution.y)
 				{
-					data.at((cellPos.y * resolution.x) + cellPos.x) = GetCellAltitude(cell);
+					continue;
 				}
+				const auto& cell = cells[x * (k_CellCount + 1) + z];
+				auto* texel = &data[(static_cast<size_t>(cellPos.y) * resolution.x + cellPos.x) * 2];
+				texel[0] = static_cast<float>(GetCellAltitude(cell));
+				texel[1] = cell.properties.split ? 1.0f : 0.0f;
 			}
 		}
 	}

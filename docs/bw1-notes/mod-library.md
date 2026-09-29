@@ -104,6 +104,11 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   pierden el desplazamiento de hundirse, que con el mod no usan). vs_object lo pasa a fs_object en `v_normal`
   (fs_object no ilumina con la normal): 1000 + 2·own en x y el color en las fracciones. Tras tocar vs_object hay que
   hacer `touch` de los vs_object_*instanced*.sc (openblack-internals.md).
+  **Ojo**: la malla del campo (MSH_T_WHEAT) tiene huella propia, y `vs_footprint_instanced` usaba las columnas de la
+  instancia enteras: el w del tinte (> 1e6) rompía la proyección y su huella tapaba toda la textura de huellas (terreno
+  verde oliva liso, sin caminos ni huellas de edificios, solo con la malla del campo opaca, de lejos). Ahora ese
+  sombreador toma solo xyz de las tres primeras columnas, como vs_object (le pasaba igual al alfa de una malla con huella
+  que se desvanece).
 - **Suelo oscuro o sin color**: el tinte toma la textura del material a baja resolución, y algunas tienen manchas muy
   oscuras (Land1 material 5, brezo, tipo 25: 46 % de sus texeles de 32×32 con brillo < 0,3) o grises (material 10
   un 13 % con saturación < 0,3), que daban plantas grises. `LandMaterialInfo::small` guarda cada material en 32×32

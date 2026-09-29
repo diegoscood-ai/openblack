@@ -35,9 +35,14 @@
 - Matriz de instancia (mat4 por objeto): se aprovechan las `w` de las columnas de rotación:
   - `[0][3]` = 1 − opacidad (`components::Alpha`; esos objetos van en la vista `RenderPass::MainBlended`);
   - `[1][3]` = desplazamiento de textura V (`components::UvScroll`);
-  - `[2][3]` = desplazamiento vertical que respeta el shader de terreno (`PileSink` con `MorphWithTerrain`).
-- `MorphWithTerrain`: el shader pega el objeto al terreno (`y += altura_terreno − y_original`); anula cualquier
-  desplazamiento vertical salvo el de `[2][3]`.
+  - `[2][3]` = `components::MeshTint` (1e6 y más; ver mod-library.md). El shader de huellas usa solo xyz de esas columnas.
+- `MorphWithTerrain` (el original: `LH3DObject::UpdateMelting` 0x8168F0; objetos de tipo 3D 1 = morphable, ver
+  `dev\tmp_dis\morph\morph_notes.txt`): cada vértice sube `GetAltitude(xz del vértice) − GetAltitude(xz del origen)`,
+  así que la altura propia del objeto (hundirse una pila o un campo) se conserva. vs_object calcula GetAltitude exacto
+  (las 4 esquinas de la celda sin filtrar, su diagonal `split` y el aplanado junto al mar) con el mapa de alturas RG32F
+  (altitud, split; las 17×17 celdas de cada bloque). Antes era bilineal y desalineado media celda (errores de 8-50
+  unidades en los bordes del mapa: huecos bajo campos y edificios). Los objetos que se desvanecen (`Alpha`) siguen
+  pegados al terreno (en el original pasan por el mismo `Draw`).
 - El búfer de instancias crece con margen y se sube con `bgfx::copy` (con `makeRef` y un `resize` se leía memoria
   liberada: artefactos al crear y destruir mallas cada fotograma).
 - `L3DSubMesh` guarda en CPU posiciones e índices (`GetCollisionPositions/Indices`) para picking y medidas;

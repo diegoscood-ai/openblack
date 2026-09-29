@@ -77,6 +77,8 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	uint32_t instanceCount = 0;
 	std::unordered_map<entt::id_type, std::pair<uint32_t, bool>> meshIds;
 	std::unordered_map<entt::id_type, uint32_t> translucentIds;
+	// fading meshes that follow the land (fields, piles) keep doing it while they fade (per mesh: any of its entities)
+	std::unordered_map<entt::id_type, bool> translucentMorph;
 
 	auto prep = [&meshIds, &instanceCount](const Mesh& mesh, bool morphWithTerrain) {
 		auto count = meshIds.insert(std::make_pair(mesh.id, std::make_pair(mesh.submeshId, morphWithTerrain)));
@@ -90,8 +92,10 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	    [&prep](const Mesh& mesh, const Transform& /*unused*/, const MorphWithTerrain& /*unused*/) { prep(mesh, true); },
 	    entt::exclude<Alpha>);
 	registry.Each<const Mesh, const Transform, const Alpha>(
-	    [&translucentIds, &instanceCount](const Mesh& mesh, const Transform& /*unused*/, const Alpha& /*unused*/) {
+	    [&registry, &translucentIds, &translucentMorph, &instanceCount](entt::entity entity, const Mesh& mesh,
+	                                                                    const Transform& /*unused*/, const Alpha& /*unused*/) {
 		    ++translucentIds[mesh.id];
+		    translucentMorph[mesh.id] = translucentMorph[mesh.id] || registry.AllOf<MorphWithTerrain>(entity);
 		    ++instanceCount;
 	    },
 	    entt::exclude<TempleInteriorPart>);
@@ -144,7 +148,7 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	for (const auto& [meshId, count] : translucentIds)
 	{
 		_renderContext.translucentDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
-		                                            std::forward_as_tuple(offset, count, false));
+		                                            std::forward_as_tuple(offset, count, translucentMorph[meshId]));
 		offset += count;
 	}
 	_renderContext.shadowCasterDrawDescs.clear();
@@ -181,7 +185,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    const uint32_t idx = desc->second.offset + offset.first->second;
 		    _renderContext.instanceUniforms[idx] = modelMatrix;
 		    _renderContext.entityInstances.insert_or_assign(
-		        entity, RenderContext::EntityInstance {mesh.id, idx, alpha == nullptr && registry.AllOf<MorphWithTerrain>(entity),
+		        entity, RenderContext::EntityInstance {mesh.id, idx, registry.AllOf<MorphWithTerrain>(entity),
 		                                               ReceivesDynamicShadow(registry, entity)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
@@ -202,14 +206,8 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    {
 			    _renderContext.instanceUniforms[idx][1][3] = scroll->v;
 		    }
-		    // The w of the third column: the pile sink offset, which the height-map shader would otherwise undo.
-		    if (const auto* sink = registry.TryGet<const PileSink>(entity);
-		        sink != nullptr && registry.AllOf<MorphWithTerrain>(entity))
-		    {
-			    _renderContext.instanceUniforms[idx][2][3] = sink->offset.value;
-		    }
-		    // components::MeshTint in the same w, far above any sink offset: 1e6 (2e6 dissolving) + 5 bits each of the
-		    // ground colour (r, g, b from the bottom) and of `own` (bits 15-19)
+		    // The w of the third column: components::MeshTint, 1e6 (2e6 dissolving) + 5 bits each of the ground colour
+		    // (r, g, b from the bottom) and of `own` (bits 15-19)
 		    if (const auto* tint = registry.TryGet<const MeshTint>(entity); tint != nullptr)
 		    {
 			    const auto bits = [](float value) {

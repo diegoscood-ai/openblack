@@ -38,6 +38,8 @@ public:
 	[[nodiscard]] const LandBlock* GetBlock(const glm::u8vec2& coordinates) const;
 	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const override;
 	[[nodiscard]] uint8_t GetAltitudeBits() const override { return _altitudeBits; }
+	void SetCellAltitude(glm::u16vec2 cell, uint16_t altitude) override;
+	void RebuildAltitudes() override;
 	[[nodiscard]] uint16_t GetCellsPerSide() const override { return static_cast<uint16_t>(_blocksPerSide * k_CellCount); }
 
 	// Debug
@@ -58,6 +60,8 @@ private:
 	std::vector<uint16_t> _blockIndexLookup;
 	uint16_t _blocksPerSide {32};
 	uint8_t _altitudeBits {8};
+	std::vector<uint8_t> _pictureMaterials; ///< per material: a picture, not a tiling texture (LandBlock::BuildMesh)
+	std::vector<size_t> _changedBlocks;     ///< blocks whose altitudes changed since the last RebuildAltitudes
 
 	// Renderer, Dynamics
 public:

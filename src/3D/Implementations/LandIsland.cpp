@@ -34,6 +34,7 @@
 #include "Graphics/Mesh.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/TextureUpscale.h"
+#include "ECS/Systems/DynamicsSystemInterface.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -324,6 +325,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	}
 
 	// build the meshes (we could move this elsewhere)
+	_pictureMaterials = pictureMaterials;
 	for (auto& block : _landBlocks)
 	{
 		block.BuildMesh(*this, pictureMaterials);
@@ -463,6 +465,92 @@ constexpr lnd::LNDCell EmptyCell() noexcept
 }
 
 constexpr lnd::LNDCell k_EmptyCell = EmptyCell();
+
+void LandIsland::SetCellAltitude(glm::u16vec2 cell, uint16_t altitude)
+{
+	// the corner is in its own block at (x & 15, z & 15) and, on a block border, also in the blocks before it as
+	// their shared row / column 16
+	for (int dx = 0; dx <= 1; ++dx)
+	{
+		for (int dz = 0; dz <= 1; ++dz)
+		{
+			if ((dx == 1 && (cell.x & 0xF) != 0) || (dz == 1 && (cell.y & 0xF) != 0))
+			{
+				continue;
+			}
+			const int blockX = (cell.x >> 4) - dx;
+			const int blockZ = (cell.y >> 4) - dz;
+			if (blockX < 0 || blockZ < 0)
+			{
+				continue;
+			}
+			const auto blockIndex = BlockIndexAt(glm::u16vec2(blockX, blockZ));
+			if (blockIndex == 0)
+			{
+				continue;
+			}
+			auto& block = *_landBlocks[blockIndex - 1].GetLndBlock();
+			auto& target = block.cells.at(((cell.x & 0xF) + 16 * dx) * 17 + (cell.y & 0xF) + 16 * dz);
+			target.altitude = static_cast<uint8_t>(altitude & 0xFFu);
+			if (_altitudeBits > 8)
+			{
+				const auto highMask = static_cast<uint8_t>(0xFFu >> (16u - _altitudeBits));
+				target.saveColor = static_cast<uint8_t>((target.saveColor & ~highMask) | ((altitude >> 8u) & highMask));
+			}
+			if (std::ranges::find(_changedBlocks, blockIndex - 1u) == _changedBlocks.end())
+			{
+				_changedBlocks.push_back(blockIndex - 1u);
+			}
+		}
+	}
+}
+
+void LandIsland::RebuildAltitudes()
+{
+	if (_changedBlocks.empty())
+	{
+		return;
+	}
+	for (size_t i = 0; i < _landBlocks.size(); ++i)
+	{
+		const auto position = _landBlocks[i].GetBlockPosition();
+		const bool near = std::ranges::any_of(_changedBlocks, [&](size_t changed) {
+			const auto delta = glm::abs(_landBlocks[changed].GetBlockPosition() - position);
+			return delta.x <= 1 && delta.y <= 1;
+		});
+		if (!near)
+		{
+			continue;
+		}
+		// BuildMesh makes a new rigid body: the old one leaves the physics world first (if it is already in it) and the
+		// new one takes its place with the same identity (DynamicsSystem::RegisterIslandRigidBodies)
+		auto& body = _landBlocks[i].GetRigidBody();
+		const bool inWorld = body != nullptr && body->getBroadphaseHandle() != nullptr && Locator::dynamicsSystem::has_value();
+		const int userIndex = inWorld ? body->getUserIndex() : -1;
+		const int userIndex2 = inWorld ? body->getUserIndex2() : -1;
+		void* userPointer = inWorld ? body->getUserPointer() : nullptr;
+		if (inWorld)
+		{
+			Locator::dynamicsSystem::value().RemoveRigidBody(body.get());
+		}
+		_landBlocks[i].BuildMesh(*this, _pictureMaterials);
+		if (inWorld)
+		{
+			auto& rebuilt = _landBlocks[i].GetRigidBody();
+			rebuilt->setUserIndex(userIndex);
+			rebuilt->setUserIndex2(userIndex2);
+			rebuilt->setUserPointer(userPointer);
+			Locator::dynamicsSystem::value().AddRigidBody(rebuilt.get());
+		}
+	}
+	_changedBlocks.clear();
+	const auto indexSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
+	const auto heightMapData = CreateHeightMap();
+	_heightMap = std::make_unique<Texture2D>("Height Map");
+	_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::RG32F,
+	                   Wrapping::ClampEdge, Filter::Nearest,
+	                   bgfx::copy(heightMapData.data(), static_cast<uint32_t>(heightMapData.size() * sizeof(heightMapData[0]))));
+}
 
 const lnd::LNDCell& LandIsland::GetCell(const glm::u16vec2& coordinates) const
 {

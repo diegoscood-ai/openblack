@@ -9,21 +9,78 @@
 
 #include "CitadelArchetype.h"
 
+#include <algorithm>
+#include <cmath>
+
+#include <spdlog/spdlog.h>
+
 #include <entt/fwd.hpp>
 
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "3D/LandIslandInterface.h"
 #include "Locator.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 
+namespace
+{
+/// CitadelHeart's creation (0x882730) flattens the land under the temple: the 17 x 17 cell corners around its cell
+/// take that cell's altitude, all of it within 35 units of the centre and blending back to their own by 70
+/// (fn_008826C0), truncated to whole altitude units. The temple keeps the y it had before (and stays rigid once
+/// built: the finished temple is drawn static, 0x882A40).
+void FlattenLandUnderTemple(const glm::vec3& position)
+{
+	if (!Locator::terrainSystem::has_value() || Locator::terrainSystem::value().GetMaterialInfo().empty())
+	{
+		return; // no island loaded (tests)
+	}
+	auto& island = Locator::terrainSystem::value();
+	const glm::ivec2 centre(static_cast<int>(position.x * 0.1f), static_cast<int>(position.z * 0.1f));
+	const int last = island.GetCellsPerSide() - 1;
+	if (centre.x < 0 || centre.y < 0 || centre.x > last || centre.y > last)
+	{
+		return;
+	}
+	const auto centreAltitude = static_cast<float>(island.GetCellAltitude(island.GetCell(glm::u16vec2(centre))));
+	int changed = 0;
+	float largest = 0.0f;
+	for (int dx = -8; dx <= 8; ++dx)
+	{
+		for (int dz = -8; dz <= 8; ++dz)
+		{
+			const auto cell = centre + glm::ivec2(dx, dz);
+			if (cell.x < 0 || cell.y < 0 || cell.x > last || cell.y > last)
+			{
+				continue;
+			}
+			const float distance = 10.0f * std::sqrt(static_cast<float>(dx * dx + dz * dz));
+			const float t = distance < 35.0f ? 0.0f : distance > 70.0f ? 1.0f : (distance - 35.0f) / 35.0f;
+			const auto altitude = static_cast<float>(island.GetCellAltitude(island.GetCell(glm::u16vec2(cell))));
+			const auto flattened = static_cast<uint16_t>(std::max(0, static_cast<int>(altitude * t + centreAltitude * (1.0f - t))));
+			if (static_cast<float>(flattened) != altitude)
+			{
+				island.SetCellAltitude(glm::u16vec2(cell), flattened);
+				++changed;
+				largest = std::max(largest, std::abs(static_cast<float>(flattened) - altitude));
+			}
+		}
+	}
+	island.RebuildAltitudes();
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Temple at ({:.0f}, {:.0f}): land flattened to {} ({} cells changed, up to {} units)",
+	                    position.x, position.z, centreAltitude, changed, largest);
+}
+} // namespace
+
 entt::entity CitadelArchetype::Create(const glm::vec3& position, PlayerNames playerOwner, const glm::mat4& rotation,
                                       const glm::vec3& size)
 {
+	FlattenLandUnderTemple(position);
+
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
 	registry.Assign<Transform>(entity, position, rotation, size);

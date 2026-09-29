@@ -91,6 +91,14 @@ public:
 	[[nodiscard]] virtual glm::mat4 GetOrthoProj() const = 0;
 	[[nodiscard]] virtual Extent2 GetExtent() const = 0;
 	virtual uint8_t GetNoise(glm::u8vec2 pos) = 0;
+
+	/// Changes a cell's altitude (height units) in every block that stores it, the shared border row and column too
+	/// (fn_00800DA0); the land follows once RebuildAltitudes runs
+	virtual void SetCellAltitude(glm::u16vec2 /*cell*/, uint16_t /*altitude*/) {}
+	/// Rebuilds the meshes and physics shapes of the blocks whose altitudes changed (and their neighbours, whose
+	/// smooth normals read across the border) and the height map. Before DynamicsSystem::RegisterIslandRigidBodies
+	/// only: the blocks get new rigid bodies.
+	virtual void RebuildAltitudes() {}
 	/// One entry per material of the LND (empty while no island is loaded)
 	[[nodiscard]] virtual const std::vector<LandMaterialInfo>& GetMaterialInfo() const
 	{

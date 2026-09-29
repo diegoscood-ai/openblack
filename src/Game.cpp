@@ -126,8 +126,8 @@ Game::Game(Arguments&& args) noexcept
 	config.vsync = args.vsync;
 	config.detailLevel = args.detailLevel;
 
-	// Mods: the built-in ones and the data mods of <executable>/Mods, with the state saved in mods.cfg next to the
-	// executable, then the command line for this session. Applied now so the engine starts with them.
+	// Mods: the built-in ones and the data mods of <executable>/Mods, with the state saved in each Mods/<mod>/settings.cfg,
+	// then the command line for this session. Applied now so the engine starts with them.
 	{
 		auto& mods = Locator::mods::emplace();
 		mods::RegisterBuiltinMods(mods);
@@ -137,8 +137,12 @@ Game::Game(Arguments&& args) noexcept
 			baseDirectory = base;
 			SDL_free(base);
 		}
+		// everything about mods lives in <executable>/Mods, a folder per mod with its settings.cfg (and its files); the
+		// old single mods.cfg (next to the executable, or in Mods) is split into them once
 		mods.DiscoverDataMods(baseDirectory / "Mods");
-		mods.LoadSettings(baseDirectory / "mods.cfg");
+		mods.ImportLegacySettings(baseDirectory / "mods.cfg");
+		mods.ImportLegacySettings(baseDirectory / "Mods" / "mods.cfg");
+		mods.LoadSettings();
 		for (const auto& argument : args.modArguments)
 		{
 			if (const auto error = mods.ApplyArgument(argument); !error.empty())

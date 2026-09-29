@@ -1,19 +1,32 @@
 # Librería de mods
 
 Todo lo que cambia el juego original es un **mod**, desactivado por defecto. La librería (`src/Mods/`) los registra,
-genera el menú **Mods**, guarda su estado en `mods.cfg` y los activa desde la línea de comandos.
+genera el menú **Mods**, guarda el estado de cada uno en su carpeta `Mods/<mod>/settings.cfg` y los activa desde la
+línea de comandos.
 
 ## Para el jugador
 
 - Menú **Mods** del juego: una casilla por mod (con descripción al pasar el ratón), agrupadas por categoría; las
   opciones (p. ej. muestras de MSAA) debajo. `*` = hace falta reiniciar.
-- `mods.cfg` junto al ejecutable (se crea al cambiar algo en el menú):
+- Todo lo de los mods está en la carpeta `Mods/` junto al ejecutable, **una carpeta por mod**:
   ```
-  graphics.msaa = on
-  graphics.msaa.samples = 4x
-  water.living = on
-  data.MiPackDeTexturas = on
+  Mods/
+    graphics.msaa/settings.cfg
+    graphics.terrain-x2/settings.cfg
+    water.living/settings.cfg
+    world.foliage/settings.cfg + foliage.cfg + imágenes   (los archivos del mod, si los tiene)
+    world.ground-statics/settings.cfg
+    MiPackDeTexturas/settings.cfg + mod.cfg + Data/...    (un mod de datos)
   ```
+  Las carpetas con el id de un mod integrado son de ese mod; las demás son mods de datos. Cada mod escribe su
+  `settings.cfg` al arrancar si no lo tiene (con su estado por defecto) y al cambiarlo en el menú:
+  ```
+  # Anti-aliasing (MSAA) (graphics.msaa). For one session only: --mod graphics.msaa[=off], --mod graphics.msaa.<option>=<choice>
+  enabled = on
+  samples = 4x  # Samples: 2x, 4x, 8x, 16x
+  ```
+- El antiguo `mods.cfg` único (junto al ejecutable o en `Mods/`) se reparte solo en los `settings.cfg` al arrancar y se
+  borra (`ModRegistry::ImportLegacySettings`).
 - Línea de comandos, solo para esa sesión (no se guarda): `--mod water.living`, `--mod graphics.msaa=off`,
   `--mod graphics.msaa.samples=8x`. Los interruptores anteriores siguen como atajos: `--msaa N`, `--mipmaps`,
   `--anisotropic`, `--enhanced-graphics` (= MSAA 4× + anisótropo), `--living-water`, `--ground-static-objects`.
@@ -28,13 +41,13 @@ genera el menú **Mods**, guarda su estado en `mods.cfg` y los activa desde la l
 | `graphics.terrain-x2` (+ `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched) | Terreno más nítido: cada material repetido 1-4 veces por bloque (por defecto x2; wrap Repeat), escalado ×2 con Lanczos-3 al cargar (`Graphics/TextureUpscale`, con wrap: los materiales del LND son tileables, primera y última fila/columna idénticas) y acantilados triplanares: el original proyecta todo desde arriba (uv = posición xz del bloque) y en las pendientes la textura se estira en rayas; con `triplanar` se mezclan también las proyecciones a lo largo de x y z (pesos \|n\|⁴, normal suave por vértice de diferencias centrales de altitud, `LandVertex::normal`). Los materiales que son un dibujo único por bloque y no una textura (el geoglifo de la figura: Land1 material 10 y Land5 material 5; el laberinto: Land5 material 1) se quedan en ×1. Nada en el LND los marca (su `type` 18/11 lo comparten hierbas normales, y la métrica de contraste a gran escala no los separa de una roca nevada), así que se reconocen por hash FNV-1a de sus texels (`IsPictureMaterial` en LandIsland.cpp) y viajan en el byte `w` de los ids de material del vértice (bits 0-2). Si un mod de datos trae otro dibujo, hay que añadir su hash (`dev\lnd_hash.py`). Solo escalar apenas se nota: cada material de 256 px cubre un bloque de 160 unidades | sí |
 | `water.living` | El mar refleja todo, el reflejo ondula despacio en bucle y la superficie deriva (sin la ondulación por filas) | no |
 | `world.ground-statics` | Baja las rocas y objetos estáticos que flotan hasta el suelo | no |
-| `world.foliage` (+ `density` low/medium/high/very high = ×0.5/1/2/4, `distance` near/medium/far = 120/200/320) | Hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`). Reglas e imágenes en `<exe>/ModAssets/Foliage/` (`foliage.cfg`; plantilla en el repo `assets/mods/Foliage/foliage.cfg`; imágenes originales del usuario en `B&W/Asstes_mods`). Detalles abajo | no |
+| `world.foliage` (+ `density` low/medium/high/very high = ×0.5/1/2/4, `distance` near/medium/far = 120/200/320) | Hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`). Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.cfg`; en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&W/Asstes_mods`). Detalles abajo | no |
 
 Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](openblack-internals.md).
 
 ## Mods de datos
 
-- Una carpeta por mod en `Mods/` junto al ejecutable, con la misma estructura que el juego (`Data/...`,
+- Una carpeta por mod en `Mods/` (salvo las que se llaman como un mod integrado), con la misma estructura que el juego (`Data/...`,
   `Scripts/...`) y un `mod.cfg` opcional:
   ```
   name = Agua azul
@@ -48,12 +61,13 @@ Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](
 
 ## Para programar un mod integrado
 
-1. Una clase derivada de `mods::Mod` en el archivo de su categoría (`GraphicsMods.cpp`, `WaterMods.cpp`,
-   `WorldMods.cpp`, o uno nuevo con su `Register…Mods` en `BuiltinMods.h`).
+1. Un archivo propio en `src/Mods/Builtin/<Nombre>Mod.cpp` con una clase derivada de `mods::Mod` y una función
+   `Register<Nombre>Mod`, declarada y llamada en `BuiltinMods.h`. Sus archivos van en el repo en `assets/mods/<id>/`
+   y en el juego en `Mods/<id>/` (junto a su `settings.cfg`); los lee con `ModRegistry::GetModFilesDirectory(id)`.
 2. `Info`: id estable (`categoria.nombre`), nombre, descripción, categoría, `restartRequired`.
 3. Opciones con `AddOption({"id", "Etiqueta", {"elección1", "elección2"}, índicePorDefecto})`; se leen con
    `GetChoice("id")`.
-4. `Apply()`: pone en marcha el estado actual. Se llama al arrancar (después de `mods.cfg` y la línea de comandos) y
+4. `Apply()`: pone en marcha el estado actual. Se llama al arrancar (después de los `settings.cfg` y la línea de comandos) y
    cada vez que el mod o una opción cambia. Lo normal es escribir un interruptor de `EngineConfig` que lee el motor.
 5. El motor nunca decide por su cuenta: todo lo que no es original mira un interruptor que solo pone un mod.
 
@@ -70,9 +84,9 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   planta: el vertex shader muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque ×
   repeticiones del mod terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta.
   Los texeles de color (pétalos, espigas) no cambian. `tint = all` tinta toda la imagen; `none` usa sus colores.
-- Sprites: `gen_*` (en el repo, `assets/mods/Foliage/`) los genera `assets/mods/Foliage/tools/gen_grass_sprites.py` (hojas grises curvas y afinadas, flores de pétalos
+- Sprites: `gen_*` (en el repo, `assets/mods/world.foliage/`) los genera `assets/mods/world.foliage/tools/gen_grass_sprites.py` (hojas grises curvas y afinadas, flores de pétalos
   saturados); `mono_*` son los del usuario (`B&W/Asstes_mods`) con lo verde (tono 32-170°) pasado a gris con media
-  0,62; los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten (`assets/mods/Foliage/tools/mono_sprites.py`; las imágenes de partida del usuario no están en el repo). La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto. El trigo queda en color.
+  0,62; los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten (`assets/mods/world.foliage/tools/mono_sprites.py`; las imágenes de partida del usuario no están en el repo). La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto. El trigo queda en color.
 - **El `type` del LND no describe el aspecto**: en Land1 las texturas 0 y 8 son hierba verde con tipo 5 `Earth` y la 11
   es arena con tipo `Earth`; sirve para sonidos/pasos. Por eso `texture` clasifica cada material por su color medio
   (`Foliage::ClassifyTexture`, medido en Land1-5): verde = tono 50-100° y saturación ≥ 0,55; nieve = saturación < 0,15

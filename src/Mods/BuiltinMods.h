@@ -13,17 +13,26 @@ namespace openblack::mods
 {
 class ModRegistry;
 
-// The built-in mods, one file per category. A new mod: derive from Mod, fill its Info, apply its state in Apply()
-// (usually an EngineConfig switch the engine reads), and register it in the matching function.
-void RegisterGraphicsMods(ModRegistry& registry);
-void RegisterWaterMods(ModRegistry& registry);
-void RegisterWorldMods(ModRegistry& registry);
+// The built-in mods, one file each in Mods/Builtin/. A new mod: a new file there with a class derived from Mod (its
+// Info, options, and Apply(), which usually sets an EngineConfig switch the engine reads) and a Register<Name>
+// function, declared and called here. Its files in the game folder go in Mods/<its id>/ (next to its settings.cfg).
+void RegisterMsaaMod(ModRegistry& registry);
+void RegisterMipmapsMod(ModRegistry& registry);
+void RegisterAnisotropicMod(ModRegistry& registry);
+void RegisterTerrainX2Mod(ModRegistry& registry);
+void RegisterLivingWaterMod(ModRegistry& registry);
+void RegisterGroundStaticsMod(ModRegistry& registry);
+void RegisterFoliageMod(ModRegistry& registry);
 
 inline void RegisterBuiltinMods(ModRegistry& registry)
 {
-	RegisterGraphicsMods(registry);
-	RegisterWaterMods(registry);
-	RegisterWorldMods(registry);
+	RegisterMsaaMod(registry);
+	RegisterMipmapsMod(registry);
+	RegisterAnisotropicMod(registry);
+	RegisterTerrainX2Mod(registry);
+	RegisterLivingWaterMod(registry);
+	RegisterGroundStaticsMod(registry);
+	RegisterFoliageMod(registry);
 }
 
 } // namespace openblack::mods

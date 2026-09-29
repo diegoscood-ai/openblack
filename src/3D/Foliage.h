@@ -34,7 +34,7 @@ class Texture2D;
 } // namespace graphics
 
 /// Mod world.foliage: grass, flowers and bushes over the landscape (the original has none).
-/// Each plant kind has rules in <executable>/ModAssets/Foliage/foliage.cfg: the landscape textures it grows on (by
+/// Each plant kind has rules in <executable>/Mods/world.foliage/foliage.cfg: the landscape textures it grows on (by
 /// look or LND material type), an altitude range, a slope range, how many per cell and how patchy. Grey texels of the
 /// images take the colour of the ground texture under each plant. Plants are placed deterministically, one land block
 /// at a time near the camera, and never under buildings, features or fields.

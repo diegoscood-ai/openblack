@@ -7,10 +7,11 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
-#include "BuiltinMods.h"
+#include "Mods/BuiltinMods.h"
+
 #include "EngineConfig.h"
 #include "Locator.h"
-#include "ModRegistry.h"
+#include "Mods/ModRegistry.h"
 
 namespace openblack::mods
 {
@@ -30,7 +31,7 @@ public:
 };
 } // namespace
 
-void RegisterWaterMods(ModRegistry& registry)
+void RegisterLivingWaterMod(ModRegistry& registry)
 {
 	registry.Register(std::make_unique<LivingWaterMod>());
 }

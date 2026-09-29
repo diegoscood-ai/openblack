@@ -53,7 +53,7 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 		("s,start-level", "Level that is loaded at start-up", cxxopts::value<std::string>()->default_value("Land1.txt"))
 		("V,vsync", "Enable Vertical Sync.")
 		("detail-level", "Graphics detail level of the original, 0..6 (4 is the original's default, 5 custom, 6 top).", cxxopts::value<uint16_t>()->default_value("4"))
-		("mod", "Turn a mod on or off for this session: <mod>, <mod>=off or <mod>.<option>=<choice> (see mods.cfg and the Mods menu). Repeatable.", cxxopts::value<std::vector<std::string>>())
+		("mod", "Turn a mod on or off for this session: <mod>, <mod>=off or <mod>.<option>=<choice> (see Mods/<mod>/settings.cfg and the Mods menu). Repeatable.", cxxopts::value<std::vector<std::string>>())
 		("ground-static-objects", "Same as --mod world.ground-statics.")
 		("msaa", "Same as --mod graphics.msaa --mod graphics.msaa.samples=<N>x (2, 4, 8 or 16).", cxxopts::value<uint16_t>())
 		("mipmaps", "Same as --mod graphics.mipmaps.")

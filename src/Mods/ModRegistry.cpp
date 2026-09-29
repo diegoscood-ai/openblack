@@ -95,7 +95,8 @@ private:
 
 struct ModRegistry::SavedState
 {
-	std::map<std::string, std::string> values;
+	/// mod id -> "enabled" / option id -> value
+	std::map<std::string, std::map<std::string, std::string>> values;
 };
 
 ModRegistry::ModRegistry()
@@ -134,8 +135,12 @@ void ModRegistry::DiscoverDataMods(const std::filesystem::path& modsDirectory)
 	std::sort(folders.begin(), folders.end());
 	for (const auto& folder : folders)
 	{
-		const auto manifest = ReadKeyValues(folder / "mod.cfg");
 		const auto folderName = folder.filename().string();
+		if (Find(folderName) != nullptr)
+		{
+			continue; // Mods/<built-in mod id>: that mod's own files (e.g. Mods/world.foliage)
+		}
+		const auto manifest = ReadKeyValues(folder / "mod.cfg");
 		Mod::Info info;
 		info.id = "data." + folderName;
 		info.name = manifest.contains("name") ? manifest.at("name") : folderName;
@@ -147,31 +152,112 @@ void ModRegistry::DiscoverDataMods(const std::filesystem::path& modsDirectory)
 	}
 }
 
-void ModRegistry::LoadSettings(const std::filesystem::path& settingsPath)
+std::filesystem::path ModRegistry::GetModDirectory(const Mod& mod) const
 {
-	_settingsPath = settingsPath;
-	_saved->values = ReadKeyValues(settingsPath);
-	for (const auto& [key, value] : _saved->values)
+	if (const auto* dataMod = dynamic_cast<const DataMod*>(&mod); dataMod != nullptr)
 	{
-		const auto error = ApplyArgument(key + "=" + value);
-		if (!error.empty())
+		return dataMod->GetRoot();
+	}
+	return _modsDirectory / mod.GetInfo().id;
+}
+
+void ModRegistry::ImportLegacySettings(const std::filesystem::path& legacyPath)
+{
+	std::error_code error;
+	if (!std::filesystem::exists(legacyPath, error))
+	{
+		return;
+	}
+	for (const auto& [key, value] : ReadKeyValues(legacyPath))
+	{
+		// "<mod>" or "<mod>.<option>"; the id itself may contain dots, so try the whole key first
+		if (Find(key) != nullptr)
 		{
-			SPDLOG_LOGGER_WARN(spdlog::get("game"), "{}: {}", settingsPath.generic_string(), error);
+			_saved->values[key]["enabled"] = value;
+			continue;
+		}
+		for (auto dot = key.rfind('.'); dot != std::string::npos && dot > 0; dot = key.rfind('.', dot - 1))
+		{
+			if (Find(std::string_view(key).substr(0, dot)) != nullptr)
+			{
+				_saved->values[key.substr(0, dot)][key.substr(dot + 1)] = value;
+				break;
+			}
+		}
+	}
+	for (const auto& [id, values] : _saved->values)
+	{
+		if (const auto* mod = Find(id); mod != nullptr && !std::filesystem::exists(GetModDirectory(*mod) / "settings.cfg", error))
+		{
+			SaveSettings(*mod);
+		}
+	}
+	std::filesystem::remove(legacyPath, error);
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Split {} into the mods' settings.cfg files", legacyPath.generic_string());
+}
+
+void ModRegistry::LoadSettings()
+{
+	for (const auto& mod : _mods)
+	{
+		const auto path = GetModDirectory(*mod) / "settings.cfg";
+		std::error_code error;
+		if (!std::filesystem::exists(path, error))
+		{
+			SaveSettings(*mod); // every mod gets its folder, with its current (default) state
+			continue;
+		}
+		auto& saved = _saved->values[mod->GetInfo().id];
+		saved = ReadKeyValues(path);
+		for (const auto& [key, value] : saved)
+		{
+			const auto argument = key == "enabled" ? mod->GetInfo().id + "=" + value : mod->GetInfo().id + "." + key + "=" + value;
+			if (const auto message = ApplyArgument(argument); !message.empty())
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("game"), "{}: {}", path.generic_string(), message);
+			}
 		}
 	}
 }
 
-void ModRegistry::SaveSettings() const
+void ModRegistry::SaveSettings(const Mod& mod) const
 {
-	if (_settingsPath.empty())
+	if (_modsDirectory.empty())
 	{
 		return;
 	}
-	std::ofstream file(_settingsPath, std::ios::trunc);
-	file << "# openblack mods: <mod> = on|off, <mod>.<option> = <choice>. Also: --mod <mod>[=off], --mod <mod>.<option>=<choice>\n";
-	for (const auto& [key, value] : _saved->values)
+	const auto directory = GetModDirectory(mod);
+	std::error_code error;
+	std::filesystem::create_directories(directory, error);
+	const auto found = _saved->values.find(mod.GetInfo().id);
+	const auto saved = [&](const std::string& key, const std::string& fallback) {
+		if (found != _saved->values.end())
+		{
+			if (const auto value = found->second.find(key); value != found->second.end())
+			{
+				return value->second;
+			}
+		}
+		return fallback;
+	};
+	std::ofstream file(directory / "settings.cfg", std::ios::trunc);
+	file << "# " << mod.GetInfo().name << " (" << mod.GetInfo().id << "). For one session only: --mod " << mod.GetInfo().id
+	     << "[=off]";
+	if (!mod.GetOptions().empty())
 	{
-		file << key << " = " << value << '\n';
+		file << ", --mod " << mod.GetInfo().id << ".<option>=<choice>";
+	}
+	file << '\n';
+	file << "enabled = " << saved("enabled", mod.IsEnabled() ? "on" : "off") << '\n';
+	for (const auto& option : mod.GetOptions())
+	{
+		std::string choices;
+		for (const auto& choice : option.choices)
+		{
+			choices += (choices.empty() ? "" : ", ") + choice;
+		}
+		file << option.id << " = " << saved(option.id, option.choices.at(option.value)) << "  # " << option.label << ": "
+		     << choices << '\n';
 	}
 }
 
@@ -234,18 +320,18 @@ void ModRegistry::ApplyAll()
 void ModRegistry::SetEnabled(Mod& mod, bool enabled)
 {
 	mod._enabled = enabled;
-	_saved->values[mod.GetInfo().id] = enabled ? "on" : "off";
+	_saved->values[mod.GetInfo().id]["enabled"] = enabled ? "on" : "off";
 	mod.Apply();
-	SaveSettings();
+	SaveSettings(mod);
 }
 
 void ModRegistry::SetOption(Mod& mod, size_t optionIndex, size_t choice)
 {
 	auto& option = mod._options.at(optionIndex);
 	option.value = std::min(choice, option.choices.size() - 1);
-	_saved->values[mod.GetInfo().id + "." + option.id] = option.choices[option.value];
+	_saved->values[mod.GetInfo().id][option.id] = option.choices[option.value];
 	mod.Apply();
-	SaveSettings();
+	SaveSettings(mod);
 }
 
 void ModRegistry::MountDataMods(filesystem::FileSystemInterface& fileSystem) const

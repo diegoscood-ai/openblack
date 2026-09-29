@@ -25,12 +25,13 @@ class FileSystemInterface;
 namespace openblack::mods
 {
 
-/// The mod library: every mod registers here once and gets a menu entry, a line in mods.cfg and a --mod switch.
+/// The mod library: every mod registers here once and gets a menu entry, a folder with its settings and a --mod switch.
 ///
-/// mods.cfg (next to the executable) holds "<mod> = on|off" and "<mod>.<option> = <choice>" lines. Data mods are the
-/// folders of <executable>/Mods: each has a mod.cfg ("name = ...", "description = ...") and replacement files in the
-/// game's layout (Data/..., Scripts/...). Enabled data mods replace the game's files; with two of them replacing the
-/// same file, the folder that comes later alphabetically wins.
+/// Everything lives in <executable>/Mods, one folder per mod: Mods/<built-in mod id>/ for the built-in mods (their
+/// files, e.g. Mods/world.foliage/foliage.cfg) and Mods/<name>/ for the data mods. Each folder has a settings.cfg with
+/// "enabled = on|off" and "<option> = <choice>" lines. A data mod folder also has a mod.cfg ("name = ...",
+/// "description = ...") and replacement files in the game's layout (Data/..., Scripts/...). Enabled data mods replace
+/// the game's files; with two of them replacing the same file, the folder that comes later alphabetically wins.
 class ModRegistry
 {
 public:
@@ -41,9 +42,15 @@ public:
 	/// Registers a DataMod for each folder of modsDirectory
 	void DiscoverDataMods(const std::filesystem::path& modsDirectory);
 
-	/// Reads mods.cfg; later saves go to the same file
-	void LoadSettings(const std::filesystem::path& settingsPath);
-	void SaveSettings() const;
+	/// Reads every mod's settings.cfg (call after DiscoverDataMods) and writes the missing ones, so every mod has its
+	/// folder
+	void LoadSettings();
+	/// The old single file ("<mod> = on|off", "<mod>.<option> = <choice>"): split into the mods' settings.cfg files,
+	/// then deleted
+	void ImportLegacySettings(const std::filesystem::path& legacyPath);
+	void SaveSettings(const Mod& mod) const;
+	/// Folder of a mod: Mods/<id>/ for a built-in mod, its own folder for a data mod
+	[[nodiscard]] std::filesystem::path GetModDirectory(const Mod& mod) const;
 
 	/// Applies "<mod>", "<mod>=on|off" or "<mod>.<option>=<choice>" (the --mod switch). For this session only: the
 	/// menu saves what it changes, the command line does not.
@@ -53,7 +60,7 @@ public:
 	/// Applies every mod (start-up)
 	void ApplyAll();
 
-	/// Menu changes: apply the mod and save mods.cfg
+	/// Menu changes: apply the mod and save its settings.cfg
 	void SetEnabled(Mod& mod, bool enabled);
 	void SetOption(Mod& mod, size_t optionIndex, size_t choice);
 
@@ -63,14 +70,15 @@ public:
 	[[nodiscard]] const std::vector<std::unique_ptr<Mod>>& GetMods() const noexcept { return _mods; }
 	[[nodiscard]] Mod* Find(std::string_view id) const noexcept;
 	[[nodiscard]] const std::filesystem::path& GetModsDirectory() const noexcept { return _modsDirectory; }
+	/// Files of a built-in mod: Mods/<its id>/ (never listed as a data mod)
+	[[nodiscard]] std::filesystem::path GetModFilesDirectory(std::string_view id) const { return _modsDirectory / id; }
 
 private:
 	struct SavedState;
 
 	std::vector<std::unique_ptr<Mod>> _mods;
-	std::filesystem::path _settingsPath;
 	std::filesystem::path _modsDirectory;
-	/// What mods.cfg says, so that command line changes are not saved along with a menu change
+	/// What the settings files say, so that command line changes are not saved along with a menu change
 	std::unique_ptr<SavedState> _saved;
 };
 

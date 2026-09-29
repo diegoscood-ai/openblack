@@ -61,6 +61,7 @@
 #include "Game.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
+#include "Mods/ModRegistry.h"
 #include "Profiler.h"
 #include "Renderer.h"
 
@@ -1436,14 +1437,8 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	if (!_foliageLoadTried)
 	{
 		_foliageLoadTried = true;
-		std::filesystem::path baseDirectory;
-		if (char* base = SDL_GetBasePath(); base != nullptr)
-		{
-			baseDirectory = base;
-			SDL_free(base);
-		}
 		auto foliage = std::make_unique<Foliage>();
-		if (foliage->Load(baseDirectory / "ModAssets" / "Foliage"))
+		if (Locator::mods::has_value() && foliage->Load(Locator::mods::value().GetModFilesDirectory("world.foliage")))
 		{
 			_foliage = std::move(foliage);
 		}

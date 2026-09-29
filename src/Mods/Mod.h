@@ -18,7 +18,7 @@
 namespace openblack::mods
 {
 
-/// A choice setting of a mod: shown in the Mods menu, saved in mods.cfg, set with --mod <mod>.<option>=<choice>
+/// A choice setting of a mod: shown in the Mods menu, saved in Mods/<mod>/settings.cfg, set with --mod <mod>.<option>=<choice>
 struct ModOption
 {
 	std::string id;
@@ -35,7 +35,7 @@ class Mod
 public:
 	struct Info
 	{
-		std::string id;          ///< stable key for mods.cfg and --mod, e.g. "graphics.msaa"
+		std::string id;          ///< stable key: its folder Mods/<id>/ and --mod, e.g. "graphics.msaa"
 		std::string name;        ///< menu label
 		std::string description; ///< tooltip
 		std::string category;    ///< menu section, e.g. "Graphics"

@@ -75,7 +75,7 @@ class Renderer final: public RendererInterface
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
-	/// Mod world.foliage: loads ModAssets/Foliage on first use, places the plants for the island and draws them
+	/// Mod world.foliage: loads Mods/world.foliage on first use, places the plants for the island and draws them
 	void DrawFoliage(const DrawSceneDesc& desc) const;
 	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13
 	void DrawWaterRings(graphics::RenderPass viewId) const;

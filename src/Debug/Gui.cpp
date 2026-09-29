@@ -464,7 +464,7 @@ void Gui::Draw() noexcept
 void Gui::DrawModsMenu() noexcept
 {
 	auto& registry = Locator::mods::value();
-	ImGui::TextDisabled("Changes to the original game, all off by default (saved in mods.cfg)");
+	ImGui::TextDisabled("Changes to the original game, all off by default (saved in Mods/<mod>/settings.cfg)");
 	std::string category;
 	bool anyRestart = false;
 	bool anyDataMod = false;

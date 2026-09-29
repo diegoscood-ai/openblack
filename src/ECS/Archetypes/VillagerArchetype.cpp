@@ -10,9 +10,11 @@
 #include "VillagerArchetype.h"
 
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include "Common/RandomNumberManager.h"
+#include "ECS/Components/Abode.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -30,7 +32,7 @@ using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 
-entt::entity VillagerArchetype::Create([[maybe_unused]] const glm::vec3& abodePosition, const glm::vec3& position,
+entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm::vec3& position,
                                        VillagerInfo type, uint32_t age)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -52,7 +54,25 @@ entt::entity VillagerArchetype::Create([[maybe_unused]] const glm::vec3& abodePo
 	entt::entity abode = entt::null;
 	if (town != entt::null)
 	{
-		abode = Locator::townSystem::value().FindAbodeWithSpace(town);
+		// the villager lives in the house at the script's abode position (the nearest one), else any with space
+		float nearest = 1.0f;
+		registry.Each<const Abode, const Transform>([&](entt::entity candidate, const Abode& /*unused*/, const Transform& transform) {
+			const glm::vec2 d(transform.position.x - abodePosition.x, transform.position.z - abodePosition.z);
+			const float distance2 = glm::dot(d, d);
+			if (distance2 < nearest)
+			{
+				nearest = distance2;
+				abode = candidate;
+			}
+		});
+		if (abode == entt::null)
+		{
+			abode = Locator::townSystem::value().FindAbodeWithSpace(town);
+		}
+		if (abode != entt::null)
+		{
+			registry.Get<Abode>(abode).inhabitants.insert(entity);
+		}
 	}
 
 	registry.Assign<Villager>(entity, health, static_cast<uint32_t>(age), hunger, lifeStage, sex, info.tribeType,

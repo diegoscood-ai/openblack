@@ -70,9 +70,9 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   planta: el vertex shader muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque ×
   repeticiones del mod terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta.
   Los texeles de color (pétalos, espigas) no cambian. `tint = all` tinta toda la imagen; `none` usa sus colores.
-- Sprites: `gen_*` los genera `dev\gen_grass_sprites.py` (hojas grises curvas y afinadas, flores de pétalos
+- Sprites: `gen_*` (en el repo, `assets/mods/Foliage/`) los genera `assets/mods/Foliage/tools/gen_grass_sprites.py` (hojas grises curvas y afinadas, flores de pétalos
   saturados); `mono_*` son los del usuario (`B&W/Asstes_mods`) con lo verde (tono 32-170°) pasado a gris con media
-  0,62; los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten (`dev\mono_sprites.py`). La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto. El trigo queda en color.
+  0,62; los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten (`assets/mods/Foliage/tools/mono_sprites.py`; las imágenes de partida del usuario no están en el repo). La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto. El trigo queda en color.
 - **El `type` del LND no describe el aspecto**: en Land1 las texturas 0 y 8 son hierba verde con tipo 5 `Earth` y la 11
   es arena con tipo `Earth`; sirve para sonidos/pasos. Por eso `texture` clasifica cada material por su color medio
   (`Foliage::ClassifyTexture`, medido en Land1-5): verde = tono 50-100° y saturación ≥ 0,55; nieve = saturación < 0,15

@@ -28,6 +28,7 @@ genera el menú **Mods**, guarda su estado en `mods.cfg` y los activa desde la l
 | `graphics.terrain-x2` (+ `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched) | Terreno más nítido: cada material repetido 1-4 veces por bloque (por defecto x2; wrap Repeat), escalado ×2 con Lanczos-3 al cargar (`Graphics/TextureUpscale`, con wrap: los materiales del LND son tileables, primera y última fila/columna idénticas) y acantilados triplanares: el original proyecta todo desde arriba (uv = posición xz del bloque) y en las pendientes la textura se estira en rayas; con `triplanar` se mezclan también las proyecciones a lo largo de x y z (pesos \|n\|⁴, normal suave por vértice de diferencias centrales de altitud, `LandVertex::normal`). Los materiales que son un dibujo único por bloque y no una textura (el geoglifo de la figura: Land1 material 10 y Land5 material 5; el laberinto: Land5 material 1) se quedan en ×1. Nada en el LND los marca (su `type` 18/11 lo comparten hierbas normales, y la métrica de contraste a gran escala no los separa de una roca nevada), así que se reconocen por hash FNV-1a de sus texels (`IsPictureMaterial` en LandIsland.cpp) y viajan en el byte `w` de los ids de material del vértice (bits 0-2). Si un mod de datos trae otro dibujo, hay que añadir su hash (`dev\lnd_hash.py`). Solo escalar apenas se nota: cada material de 256 px cubre un bloque de 160 unidades | sí |
 | `water.living` | El mar refleja todo, el reflejo ondula despacio en bucle y la superficie deriva (sin la ondulación por filas) | no |
 | `world.ground-statics` | Baja las rocas y objetos estáticos que flotan hasta el suelo | no |
+| `world.foliage` (+ `density` low/medium/high/very high = ×0.5/1/2/4, `distance` near/medium/far = 120/200/320) | Hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`). Reglas e imágenes en `<exe>/ModAssets/Foliage/` (`foliage.cfg`; plantilla en el repo `assets/mods/Foliage/foliage.cfg`; imágenes originales del usuario en `B&W/Asstes_mods`). Detalles abajo | no |
 
 Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](openblack-internals.md).
 
@@ -57,3 +58,35 @@ Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](
 5. El motor nunca decide por su cuenta: todo lo que no es original mira un interruptor que solo pone un mod.
 
 Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
+
+## world.foliage: plantas sobre el terreno
+
+- Una sección `[nombre]` por planta en `foliage.cfg`: `images` (png, uno al azar por planta), `texture` (aspecto de la
+  textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10
+  con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope` (grados),
+  `patches` (0 uniforme .. 1 solo en manchas, ruido de valor a escala 45), `sway` (viento), `lean` (inclinación máxima
+  al azar) y `tint` (grey/all/none). Crece si cumple `texture` o `terrain`.
+- **Tinte por el suelo**: los texeles grises (saturación < 0,1-0,2) toman el color de la textura del terreno bajo la
+  planta: el vertex shader muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque ×
+  repeticiones del mod terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta.
+  Los texeles de color (pétalos, espigas) no cambian. `tint = all` tinta toda la imagen; `none` usa sus colores.
+- Sprites: `gen_*` los genera `dev\gen_grass_sprites.py` (hojas grises curvas y afinadas, flores de pétalos
+  saturados); `mono_*` son los del usuario (`B&W/Asstes_mods`) con lo verde (tono 32-170°) pasado a gris con media
+  0,62 y los blancos con un toque crema para que no se tinten (`dev\mono_sprites.py`). El trigo queda en color.
+- **El `type` del LND no describe el aspecto**: en Land1 las texturas 0 y 8 son hierba verde con tipo 5 `Earth` y la 11
+  es arena con tipo `Earth`; sirve para sonidos/pasos. Por eso `texture` clasifica cada material por su color medio
+  (`Foliage::ClassifyTexture`, medido en Land1-5): verde = tono 50-100° y saturación ≥ 0,55; nieve = saturación < 0,15
+  y valor > 0,55; arena = valor ≥ 0,6; seca = tono < 50° y saturación ≥ 0,5; el resto roca (misma gama de tono que la
+  hierba pero saturación 0,29-0,45). La isla expone tipo, "dibujo" y color medio con `LandIslandInterface::GetMaterialInfo`.
+- Colocación determinista por bloque de terreno, **solo cerca de la cámara** (hasta 6 bloques por fotograma; se liberan
+  al alejarse un bloque más allá): por celda y planta, `per_cell × densidad` candidatos; en cada punto se elige una
+  esquina de la celda por su peso bilineal y uno de sus dos materiales por el coeficiente de mezcla (como el shader del
+  terreno). Nada en celdas de agua, en materiales dibujo (geoglifo), fuera de la altura o pendiente, ni a menos de 1
+  unidad de entidades `Fixed` que no sean árboles, ni de campos, rocas móviles, pilas, almacén, templo o piscifactoría
+  (caja de la malla). Todo se rehace al cambiar de isla o densidad y cuando existen los objetos.
+- Dibujo: un plano por planta con orientación fija al azar (no mira a cámara) e inclinado al azar hasta `lean` para
+  que se vea desde arriba (dos planos cruzados se veían como cruces desde arriba); hundido un 12 % de su alto para que
+  no se vea el borde inferior; las plantas se hunden en el último 20 % de la distancia (120/200/320); luz = tabla de
+  luz del terreno[luminosidad de la celda] y la misma neblina; alpha test con borde nítido (alpha to coverage con
+  MSAA). Solo en la pasada principal (no en el reflejo). Capas de 256×512 apoyadas abajo, con mipmaps; el color de los
+  texeles transparentes es la media de los opacos.

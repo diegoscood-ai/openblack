@@ -30,6 +30,15 @@ namespace lnd
 struct LNDCell;
 struct LNDCountry;
 } // namespace lnd
+
+/// What the engine knows about one landscape material (LND texture)
+struct LandMaterialInfo
+{
+	uint16_t type {0};    ///< the LND material type: a TerrainMaterialType (18 grass, 7 sand, 15 solid rock...)
+	bool picture {false}; ///< one picture per block rather than a tiling texture (see the terrain-x2 mod)
+	glm::vec3 colour {0.0f}; ///< average texel colour 0..1 (the type often doesn't match the look: green "Earth")
+};
+
 class LandIslandInterface
 {
 public:
@@ -69,5 +78,11 @@ public:
 	[[nodiscard]] virtual glm::mat4 GetOrthoProj() const = 0;
 	[[nodiscard]] virtual Extent2 GetExtent() const = 0;
 	virtual uint8_t GetNoise(glm::u8vec2 pos) = 0;
+	/// One entry per material of the LND (empty while no island is loaded)
+	[[nodiscard]] virtual const std::vector<LandMaterialInfo>& GetMaterialInfo() const
+	{
+		static const std::vector<LandMaterialInfo> k_None;
+		return k_None;
+	}
 };
 } // namespace openblack

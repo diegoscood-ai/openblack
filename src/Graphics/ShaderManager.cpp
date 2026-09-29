@@ -105,6 +105,10 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_static_shadow
 #include "ShaderIncluder.h"
+#define SHADER_NAME vs_foliage
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_foliage
+#include "ShaderIncluder.h"
 // clang-format on
 
 namespace openblack::graphics
@@ -117,7 +121,7 @@ struct ShaderDefinition
 	const std::string_view fragmentShaderName;
 };
 
-const std::array<bgfx::EmbeddedShader, 28> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 30> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_line), BGFX_EMBEDDED_SHADER(vs_line_instanced),                                                   //
     BGFX_EMBEDDED_SHADER(fs_line),                                                                                            //
     BGFX_EMBEDDED_SHADER(vs_object), BGFX_EMBEDDED_SHADER(vs_object_instanced), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced), //
@@ -131,6 +135,7 @@ const std::array<bgfx::EmbeddedShader, 28> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_cloud), BGFX_EMBEDDED_SHADER(fs_cloud),                                                           //
     BGFX_EMBEDDED_SHADER(vs_dynamic_shadow_instanced),                                                                        //
     BGFX_EMBEDDED_SHADER(vs_blob), BGFX_EMBEDDED_SHADER(fs_blob), BGFX_EMBEDDED_SHADER(fs_world_quad),                                                             //
+    BGFX_EMBEDDED_SHADER(vs_foliage), BGFX_EMBEDDED_SHADER(fs_foliage),                                                       //
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
 
@@ -153,6 +158,7 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"DynamicShadowInstanced", "vs_dynamic_shadow_instanced", "fs_static_shadow"},
     ShaderDefinition {"Blob", "vs_blob", "fs_blob"},
     ShaderDefinition {"WorldQuad", "vs_blob", "fs_world_quad"},
+    ShaderDefinition {"Foliage", "vs_foliage", "fs_foliage"},
 };
 
 ShaderManager::~ShaderManager()

@@ -35,6 +35,7 @@ namespace openblack
 struct BgfxCallback;
 class LandLightTable;
 class Clouds;
+class Foliage;
 class Game;
 
 namespace ecs
@@ -68,6 +69,8 @@ class Renderer final: public RendererInterface
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
+	/// Mod world.foliage: loads ModAssets/Foliage on first use, places the plants for the island and draws them
+	void DrawFoliage(const DrawSceneDesc& desc) const;
 	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13
 	void DrawWaterRings(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
@@ -110,6 +113,8 @@ private:
 	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
+	mutable std::unique_ptr<Foliage> _foliage;
+	mutable bool _foliageLoadTried {false};
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
 	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
 	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size

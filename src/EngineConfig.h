@@ -70,6 +70,10 @@ struct EngineConfig
 	float terrainTextureDensity {1.0f};
 	/// Steep landscape faces take the materials from the side (triplanar) instead of stretching the top-down projection.
 	bool terrainTriplanar {false};
+	/// Grass, flowers and bushes over the landscape (3D/Foliage, rules in ModAssets/Foliage/foliage.cfg): plants per
+	/// cell multiplier, 0 = none, and the distance they are drawn to.
+	float foliageDensity {0.0f};
+	float foliageDistance {200.0f};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};

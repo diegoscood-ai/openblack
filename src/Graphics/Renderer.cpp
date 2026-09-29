@@ -27,6 +27,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/Clouds.h"
+#include "3D/Foliage.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
@@ -329,6 +330,7 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 Renderer::~Renderer() noexcept
 {
 	_clouds.reset();
+	_foliage.reset();
 	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
 	if (bgfx::isValid(_landLightTexture))
 	{
@@ -1331,6 +1333,49 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
+void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
+{
+	const auto& config = Locator::config::value();
+	if (config.foliageDensity <= 0.0f || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	if (!_foliageLoadTried)
+	{
+		_foliageLoadTried = true;
+		std::filesystem::path baseDirectory;
+		if (char* base = SDL_GetBasePath(); base != nullptr)
+		{
+			baseDirectory = base;
+			SDL_free(base);
+		}
+		auto foliage = std::make_unique<Foliage>();
+		if (foliage->Load(baseDirectory / "ModAssets" / "Foliage"))
+		{
+			_foliage = std::move(foliage);
+		}
+	}
+	if (!_foliage)
+	{
+		return;
+	}
+	auto& island = Locator::terrainSystem::value();
+	_foliage->Update(island, config.foliageDensity, desc.camera->GetOrigin(), config.foliageDistance);
+	Foliage::DrawDesc foliageDesc {};
+	foliageDesc.viewId = static_cast<bgfx::ViewId>(desc.viewId);
+	foliageDesc.program = _shaderManager->GetShader("Foliage");
+	foliageDesc.cameraPosition = desc.camera->GetOrigin();
+	foliageDesc.distance = config.foliageDistance;
+	foliageDesc.landLight = _landLightTexture;
+	foliageDesc.materials = &island.GetAlbedoArray();
+	foliageDesc.materialRepeats = config.terrainTextureDensity;
+	foliageDesc.haze = _hazeUniforms[0];
+	foliageDesc.hazeColour = _hazeUniforms[1];
+	foliageDesc.alphaToCoverage = config.msaa != 0;
+	foliageDesc.seconds = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+	_foliage->Draw(foliageDesc);
+}
+
 void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 {
 	const auto& rings = ecs::GetWaterRings();
@@ -1840,6 +1885,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
 			}
 			bgfx::discard(BGFX_DISCARD_BINDINGS);
+
+			if (desc.viewId == graphics::RenderPass::Main)
+			{
+				DrawFoliage(desc);
+			}
 		}
 	}
 

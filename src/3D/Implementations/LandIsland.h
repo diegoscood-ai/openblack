@@ -47,6 +47,7 @@ private:
 	[[nodiscard]] std::vector<uint8_t> CreateCellMap() const;
 	std::vector<LandBlock> _landBlocks;
 	std::vector<lnd::LNDCountry> _countries;
+	std::vector<LandMaterialInfo> _materialInfo;
 
 	std::array<uint8_t, 1024> _blockIndexLookup {0};
 
@@ -55,6 +56,7 @@ public:
 	[[nodiscard]] std::vector<LandBlock>& GetBlocks() override { return _landBlocks; }
 	[[nodiscard]] const std::vector<LandBlock>& GetBlocks() const override { return _landBlocks; }
 	[[nodiscard]] const std::vector<lnd::LNDCountry>& GetCountries() const override { return _countries; }
+	[[nodiscard]] const std::vector<LandMaterialInfo>& GetMaterialInfo() const override { return _materialInfo; }
 
 	[[nodiscard]] const graphics::Texture2D& GetAlbedoArray() const override { return *_materialArray; }
 	[[nodiscard]] const graphics::Texture2D& GetBump() const override { return *_textureBumpMap; }

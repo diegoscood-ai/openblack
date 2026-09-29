@@ -243,8 +243,19 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	_smallBump = CreateSmallBumpTexture();
 
 	std::vector<uint8_t> pictureMaterials(lnd.GetMaterials().size());
-	std::ranges::transform(lnd.GetMaterials(), pictureMaterials.begin(),
-	                       [](const auto& material) { return IsPictureMaterial(material) ? 1 : 0; });
+	_materialInfo.clear();
+	for (size_t i = 0; i < lnd.GetMaterials().size(); ++i)
+	{
+		const auto& material = lnd.GetMaterials()[i];
+		pictureMaterials[i] = IsPictureMaterial(material) ? 1 : 0;
+		glm::vec3 sum(0.0f);
+		for (const auto& texel : material.texels)
+		{
+			sum += glm::vec3(texel.r, texel.g, texel.b);
+		}
+		const auto colour = sum / (31.0f * static_cast<float>(material.texels.size()));
+		_materialInfo.push_back({material.type, pictureMaterials[i] != 0, colour});
+	}
 
 	// build the meshes (we could move this elsewhere)
 	for (auto& block : _landBlocks)

@@ -39,11 +39,36 @@ public:
 		}
 	}
 };
+
+class FoliageMod final: public Mod
+{
+public:
+	FoliageMod()
+	    : Mod({"world.foliage", "Grass and flowers",
+	           "Grass, flowers, rushes and bushes over the landscape, chosen by the ground's material, altitude and slope "
+	           "(rules and images in ModAssets/Foliage)",
+	           "World"})
+	{
+		AddOption({"density", "Density", {"low", "medium", "high", "very high"}, 1});
+		AddOption({"distance", "Draw distance", {"near", "medium", "far"}, 1});
+	}
+
+	void Apply() override
+	{
+		auto& config = Locator::config::value();
+		const auto& density = GetChoice("density");
+		const float amount = density == "low" ? 0.5f : density == "high" ? 2.0f : density == "very high" ? 4.0f : 1.0f;
+		config.foliageDensity = IsEnabled() ? amount : 0.0f;
+		const auto& distance = GetChoice("distance");
+		config.foliageDistance = distance == "near" ? 120.0f : distance == "far" ? 320.0f : 200.0f;
+	}
+};
 } // namespace
 
 void RegisterWorldMods(ModRegistry& registry)
 {
 	registry.Register(std::make_unique<GroundStaticsMod>());
+	registry.Register(std::make_unique<FoliageMod>());
 }
 
 } // namespace openblack::mods

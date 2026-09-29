@@ -97,7 +97,11 @@ void main()
 	vec3 specular = vec3_splat(0.0f);
 #ifdef USE_INSTANCING
 	vec3 objectColour = vec3_splat(1.0f);
-	if (u_objectLight.x > 0.0f)
+	if (u_objectLight.x > 1.5f)
+	{
+		objectColour = vec3_splat(u_objectLight.z);
+	}
+	else if (u_objectLight.x > 0.0f)
 	{
 		vec2 cellPosition = (i_data3.xz - u_cellMap.xy) * 0.1f;
 		vec2 cell = floor(cellPosition);

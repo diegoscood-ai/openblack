@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 #include <SDL_video.h>
 #include <bgfx/platform.h>
@@ -34,6 +35,8 @@
 #include "Camera/Camera.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -433,6 +436,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		};
 		const bool primitivePreserveState = texture != nullptr && texture == nextTexture && sameMaterial(*std::next(it)) &&
 		                                    (preserveState || hasNext);
+		// the main pass draws the opaque primitives; the blended ones go through the back-to-front list (Z-sorter)
+		if ((desc.blendFilter == 1 && blended) || (desc.blendFilter == 2 && !blended))
+		{
+			continue;
+		}
 
 		uint32_t skip = Mesh::SkipState::SkipNone;
 		if (!lastPreserveState)
@@ -455,7 +463,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				const bool lit = _landLight && _landLight->IsLoaded();
 				const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
-				const glm::vec4 u_objectLight = {lit ? 1.0f : 0.0f, desc.lightBoost, 0.0f, 0.0f};
+				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection)
+				const glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? 1.0f : 0.0f), desc.lightBoost,
+				                                 desc.unlitColour, 0.0f};
+				const glm::vec4 u_objectClip = {desc.clipBelowSea ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+				desc.program->SetUniformValue("u_objectClip", &u_objectClip); // fs
 				desc.program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
 				desc.program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
 				if (bgfx::isValid(_cloudShadowTexture))
@@ -1119,6 +1131,93 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 	}
 }
 
+void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
+{
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Texture = entt::hashed_string("raw/human_shadow");
+	if (!textures.Contains(k_Texture) || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	const auto& island = Locator::terrainSystem::value();
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	std::vector<Vertex> vertices;
+	// fn_0081FAA0 constants: half width U = 0.2 * norm(1, 0, -1), the light offset O = 2 * norm(1, 0, 1), lift 0.2
+	const glm::vec3 u(0.14142136f, 0.0f, -0.14142136f);
+	const glm::vec3 w = -u;
+	const glm::vec3 o(1.41421356f, 0.0f, 1.41421356f);
+	constexpr float k_Lift = 0.2f;
+	const auto addQuad = [&vertices, &u, &w](const glm::vec3& c, const glm::vec3& v) {
+		// fn_0081FE50: v0 = C - 0.02V + U, v1 = C - 0.02V + W, v2 = C + V + W, v3 = C + V + U; opaque at the feet
+		const std::array<glm::vec3, 4> p = {c - 0.02f * v + u, c - 0.02f * v + w, c + v + w, c + v + u};
+		const std::array<glm::vec2, 4> uv = {glm::vec2(0, 0), glm::vec2(1, 0), glm::vec2(1, 1), glm::vec2(0, 1)};
+		const std::array<uint32_t, 4> colour = {0xFFFFFFFFu, 0xFFFFFFFFu, 0x00FFFFFFu, 0x00FFFFFFu};
+		for (const int i : {0, 1, 2, 0, 2, 3})
+		{
+			vertices.push_back({p[i].x, p[i].y, p[i].z, uv[i].x, uv[i].y, colour[i]});
+		}
+	};
+	auto& registry = Locator::entitiesRegistry::value();
+	registry.Each<const ecs::components::Villager, const ecs::components::Transform, const ecs::components::Mesh>(
+	    [&](const ecs::components::Villager&, const ecs::components::Transform& transform, const ecs::components::Mesh& mesh) {
+		    // none for villagers in the water (y <= 0.2)
+		    if (transform.position.y <= 0.2f || !meshes.Contains(mesh.id))
+		    {
+			    return;
+		    }
+		    const auto l3d = meshes.Handle(mesh.id);
+		    const auto& bones = l3d->GetBoneMatrices();
+		    if (bones.size() <= 21)
+		    {
+			    return;
+		    }
+		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2
+		    auto model = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		    const auto foot = [&](size_t bone) {
+			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			    p.y = island.GetHeightAt(glm::vec2(p.x, p.z)) + k_Lift;
+			    return p;
+		    };
+		    const auto a = foot(21);
+		    const auto b = foot(18);
+		    // the light offset projected onto the land's plane: D = O s - ((O s) . n) n
+		    const auto n = island.GetNormalAt(glm::vec2(transform.position.x, transform.position.z));
+		    const auto os = o * transform.scale.x;
+		    const auto d = os - glm::dot(os, n) * n;
+		    addQuad(a, d + (b - a) * 0.5f);
+		    addQuad(b, d + (a - b) * 0.5f);
+	    });
+	if (vertices.empty())
+	{
+		return;
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	const auto* program = _shaderManager->GetShader("Blob");
+	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
+	bgfx::setVertexBuffer(0, &buffer);
+	// mode 6, no Z write, cull none
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+}
+
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
 	UpdateLandLight();
@@ -1368,6 +1467,32 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawModels
 		                                                                          : Profiler::Stage::MainPassDrawModels);
+		// The original's "underwater" stage (GLandscape::Draw 0x5E490F): the hand mirrored in the sea, unlit grey
+		// 0xA0A0A0, only its part above the water (CHand DrawUnderWater, vt+0x118)
+		if (!desc.drawEntities && desc.viewId == graphics::RenderPass::Reflection)
+		{
+			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+			const auto handDesc = renderCtx.instancedDrawDescs.find(ecs::components::Hand::k_MeshId);
+			const auto* bones = Locator::handSystem::has_value() ? Locator::handSystem::value().GetBoneMatrices() : nullptr;
+			if (handDesc != renderCtx.instancedDrawDescs.end() && bones != nullptr)
+			{
+				const auto mesh = meshManager.Handle(ecs::components::Hand::k_MeshId);
+				if (mesh->GetBoneMatrices().size() == bones->size())
+				{
+					L3DMeshSubmitDesc handSubmit = {};
+					handSubmit.viewId = desc.viewId;
+					handSubmit.program = objectShaderInstanced;
+					handSubmit.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+					handSubmit.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer,
+					                                                                   handDesc->second.offset, handDesc->second.count);
+					handSubmit.modelMatrices = bones->data();
+					handSubmit.matrixCount = static_cast<uint8_t>(bones->size());
+					handSubmit.unlitColour = 160.0f / 255.0f;
+					handSubmit.clipBelowSea = true;
+					DrawMesh(*mesh, handSubmit, std::numeric_limits<uint8_t>::max());
+				}
+			}
+		}
 		if (desc.drawEntities)
 		{
 			if (desc.viewId == graphics::RenderPass::Main)
@@ -1384,24 +1509,23 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			    ;
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 
-			// Instance meshes
-			for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
+			if (desc.viewId == graphics::RenderPass::Main)
 			{
-				auto mesh = meshManager.Handle(meshId);
-
-				submitDesc.instanceDesc =
-				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
-				const auto* handBones = meshId == ecs::components::Hand::k_MeshId ? Locator::handSystem::value().GetBoneMatrices() : nullptr;
-				if (mesh->IsBoned() && handBones != nullptr && handBones->size() == mesh->GetBoneMatrices().size())
+				DrawHumanShadows(desc.viewId);
+			}
+			const auto setMatrices = [&submitDesc](entt::id_type meshId, const L3DMesh& mesh) {
+				const auto* handBones =
+				    meshId == ecs::components::Hand::k_MeshId ? Locator::handSystem::value().GetBoneMatrices() : nullptr;
+				if (mesh.IsBoned() && handBones != nullptr && handBones->size() == mesh.GetBoneMatrices().size())
 				{
 					// Player hand: animated pose from hh.HBN
 					submitDesc.modelMatrices = handBones->data();
 					submitDesc.matrixCount = static_cast<uint8_t>(handBones->size());
 				}
-				else if (mesh->IsBoned())
+				else if (mesh.IsBoned())
 				{
-					submitDesc.modelMatrices = mesh->GetBoneMatrices().data();
-					submitDesc.matrixCount = static_cast<uint8_t>(mesh->GetBoneMatrices().size());
+					submitDesc.modelMatrices = mesh.GetBoneMatrices().data();
+					submitDesc.matrixCount = static_cast<uint8_t>(mesh.GetBoneMatrices().size());
 					// TODO(bwrsandman): Get animation frame instead of default
 				}
 				else
@@ -1410,38 +1534,99 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.modelMatrices = &identity;
 					submitDesc.matrixCount = 1;
 				}
+			};
+			// The original draws opaque meshes at once and sends meshes with alpha to the Z-sorter, drawn back to front
+			// at the end of the frame (fn_0082F280); here every instance with blended primitives, and every fading
+			// one, is drawn on its own in that order in the blended view
+			struct SortedInstance
+			{
+				float distance;
+				entt::id_type meshId;
+				uint32_t index;
+				bool morphWithTerrain;
+				bool fading;
+			};
+			std::vector<SortedInstance> sorted;
+			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
+			const auto cameraOrigin = desc.camera->GetOrigin();
+			const auto hasBlended = [](const L3DMesh& mesh) {
+				for (const auto& subMesh : mesh.GetSubMeshes())
+				{
+					for (const auto& prim : subMesh->GetPrimitives())
+					{
+						if (prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha)
+						{
+							return true;
+						}
+					}
+				}
+				return false;
+			};
+
+			// Instance meshes
+			for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
+			{
+				auto mesh = meshManager.Handle(meshId);
+
+				submitDesc.instanceDesc =
+				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
+				setMatrices(meshId, *mesh);
 				submitDesc.isSky = false;
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = submitDesc.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+				submitDesc.blendFilter = sortBlended ? 1 : 0;
 
 				// TODO(bwrsandman): choose the correct LOD
 				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				if (sortBlended && hasBlended(*mesh))
+				{
+					for (uint32_t i = 0; i < placers.count; ++i)
+					{
+						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
+						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, false});
+					}
+				}
 			}
-
-			// Fading meshes (components::Alpha): alpha blended, in their own view right after the main pass (same
-			// target and camera, no clear), so that nothing drawn in the main pass is sorted over them.
-			if (desc.viewId == graphics::RenderPass::Main && !renderCtx.translucentDrawDescs.empty())
+			if (sortBlended)
 			{
-				submitDesc.viewId = graphics::RenderPass::MainBlended;
-				auto translucent = submitDesc.state;
-				submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER |
-				                   BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
 				for (const auto& [meshId, placers] : renderCtx.translucentDrawDescs)
 				{
-					auto mesh = meshManager.Handle(meshId);
+					for (uint32_t i = 0; i < placers.count; ++i)
+					{
+						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
+						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, false, true});
+					}
+				}
+			}
+			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
+
+			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
+			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
+			if (!sorted.empty())
+			{
+				const auto opaqueState = submitDesc.state;
+				submitDesc.viewId = graphics::RenderPass::MainBlended;
+				for (const auto& instance : sorted)
+				{
+					auto mesh = meshManager.Handle(instance.meshId);
 					submitDesc.instanceDesc =
-					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
-					const static auto identity = glm::mat4(1.0f);
-					submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &identity;
-					submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
+					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
+					setMatrices(instance.meshId, *mesh);
 					submitDesc.isSky = false;
-					submitDesc.morphWithTerrain = false;
-					submitDesc.program = objectShaderInstanced;
+					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
+					submitDesc.morphWithTerrain = instance.morphWithTerrain;
+					submitDesc.program = instance.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+					submitDesc.blendFilter = instance.fading ? 0 : 2;
+					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
+					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
+					                                      BGFX_STATE_MSAA)
+					                                   : opaqueState;
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
-				submitDesc.state = translucent;
+				submitDesc.state = opaqueState;
 				submitDesc.viewId = desc.viewId;
+				submitDesc.blendFilter = 0;
 			}
 
 			// Debug

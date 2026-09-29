@@ -5,6 +5,7 @@ $input v_position, v_texcoord0, v_normal, v_color0
 SAMPLER2D(s_diffuse, 0);
 uniform vec4 u_skyAlphaThreshold; // x: sky type, y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
+uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water)
 
 // The original lights models on the CPU (fn_0084BA90, D3DTLVERTEX): the vertex diffuse is computed in vs_object and
 // the D3D stage is COLOROP = MODULATE(TEXTURE, DIFFUSE) with the specular colour added afterwards (SPECULARENABLE).
@@ -14,6 +15,10 @@ void main()
 	bool alphaToCoverage = u_skyAlphaThreshold.z > 0.0f;
 	bool blendedMaterial = u_skyAlphaThreshold.w > 0.0f;
 
+	if (u_objectClip.x > 0.0f && v_position.y < 0.0f)
+	{
+		discard;
+	}
 	vec4 diffuseTex = texture2D(s_diffuse, v_texcoord0.xy);
 	if (u_materialColour.w > 0.0f)
 	{

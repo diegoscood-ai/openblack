@@ -78,6 +78,9 @@ public:
 		bool drawAll; ///< For use in the mesh viewer
 		bool morphWithTerrain;
 		float lightBoost {1.0f}; ///< model colour multiplier (the hand: 1.5, CHand::AddDrawing 0x46D135)
+		uint8_t blendFilter {0}; ///< 0: every primitive, 1: the opaque ones only, 2: the blended ones only
+		float unlitColour {-1.0f}; ///< >= 0: unlit grey instead of the land light (reflections)
+		bool clipBelowSea {false}; ///< discard the fragments below y = 0 (reflections: only the part above the water)
 	};
 
 	static std::unique_ptr<RendererInterface> Create(GraphicsBackend backend, bool vsync) noexcept;

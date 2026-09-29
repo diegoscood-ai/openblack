@@ -229,3 +229,23 @@ Informe: `tmp_dis\render\sky_*.txt`.
   `vs_dynamic_shadow_instanced`), proyectada desde la luz 200 unidades encima de la mano sobre el plano del suelo,
   en una caja de ±2 radios; `fs_terrain` la cuelga vertical (sin la cara de mar, altura > 0,67) y oscurece
   × (1 − 8/15 · cobertura · fundido), fundido entre 50 y 80 radios desde la cámara.
+
+## Manchas de aldeanos, reflejos de objetos y LOD (original)
+
+Informe: `tmp_dis\render\misc_*` (con emulación Unicorn de `fn_0081FFF0`).
+- **Manchas** (`fn_0081FFF0`, desde el Draw de objetos animados `fn_00812170`): pies = huesos 21 y 18 (fin de las dos
+  piernas), en el suelo + 0,2; D = O·s − ((O·s)·n)·n con O = (√2, 0, √2), s = escala, n = normal del terreno;
+  quad 1 desde el pie 21 con V = D + (P18 − P21)/2, quad 2 simétrico; esquinas C − 0,02V ± U y C + V ± U con
+  U = 0,2·norm(1, 0, −1) (ancho fijo 0,4); UV (0,0)(1,0)(1,1)(0,1), alfa 1 en los pies y 0 en la punta; modo 6, sin
+  Z, dos caras, `human_shadow.raw` (byte & 0xF0 como alfa). No si y ≤ 0,2 (en el agua), muerto o en la mano de la
+  criatura. Animales: puntos de sus datos EBone (2 o 4 quads). openblack: `Renderer::DrawHumanShadows`.
+- **Reflejos en el mar** (`GLandscape::Draw` 0x5E490F): `DrawUnderWater` dibuja el objeto espejado en y = 0, sin luz,
+  recortado para que solo se refleje lo que está sobre el agua: la mano (0x65A0A0A0), lo que lleva la criatura
+  (0x65A0A0D0 + especular 0x30), barcos (0xFF303070), objetos físicos (su color). Ballenas, peces de piscifactoría y
+  nadadores se dibujan **cortados bajo el agua** (`DrawCutByPlane`, 0xFF303070). openblack: la mano en la pasada de
+  reflejo (`unlitColour`, `clipBelowSea`).
+- **LOD**: `g_last_distance` es la profundidad lineal del centro de la esfera; S = min((importancia + 1) · radio ·
+  LevelOfDetail, 100000). En este ejecutable las dos cargas de LevelOfDetail están anuladas con NOP, S = 100000:
+  **siempre LOD 1**, sin fundido ni impostores (con el valor de diseño 0,5, un aldeano cambiaría a 11,5 / 33 / 43 u).
+- Trampa de las pruebas: `OPENBLACK_MOUSE_AT` en un borde de la ventana activa el desplazamiento por borde y mueve la
+  cámara; usar puntos interiores.

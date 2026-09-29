@@ -61,6 +61,8 @@ class Renderer final: public RendererInterface
 	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
+	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
+	void DrawHumanShadows(graphics::RenderPass viewId) const;
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),

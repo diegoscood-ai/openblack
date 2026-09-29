@@ -45,6 +45,10 @@
 - **Trampa**: ninja no recompila `vs_object_instanced.sc` / `vs_object_hm_instanced.sc` al cambiar `vs_object.sc`:
   hay que tocarlos (`touch`). Con shaders viejos desaparecen todos los objetos.
 
+- `RenderContext::entityInstances`: entidad → (malla, índice de instancia, `morphWithTerrain`,
+  `receivesDynamicShadow`), para dibujar una entidad concreta (reflejos, sombra sobre objetos).
+- `LandIslandInterface::GetUnflattenedHeightAt`: `GetAltitude` sin el aplanado del mar (búsqueda de las piscifactorías).
+
 ## Mods
 
 Librería en `src/Mods/` ([mod-library.md](mod-library.md)). Los mods escriben interruptores de `EngineConfig`
@@ -60,7 +64,9 @@ tarda unos miles de fotogramas: usar `-n 8000 --screenshot-frame 7900`), `OPENBL
 terreno físico y objetos cercanos), `OPENBLACK_MARK_LOWEST=1` (marca el vértice más bajo de las rocas cercanas),
 `OPENBLACK_DUMP_STATIC_GAPS=1`, `OPENBLACK_HAND_TRACE=1`, `OPENBLACK_HAND_TEST_ROCK="x,z"`
 (+ `_FOOD`, `_NO_BOULDER`), `OPENBLACK_HAND_TEST_TREE="x,z[,dead][,roots][,store]"`,
-`OPENBLACK_HAND_TEST_STORE_TAKE="madera,comida"`, `OPENBLACK_HAND_ANIM=<nodo>`, `OPENBLACK_NO_PICKUP_PSYS=1`.
+`OPENBLACK_HAND_TEST_STORE_TAKE="madera,comida"`, `OPENBLACK_HAND_ANIM=<nodo>`, `OPENBLACK_NO_PICKUP_PSYS=1`,
+`OPENBLACK_HAND_TEST_HOLD=<escala>` (la mano empieza sosteniendo una roca), `OPENBLACK_START_UNPAUSED=1` (turnos y
+scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_WIDESCREEN=1`.
 
 Puntos útiles de Land1: playa de inicio `1464,2016` (agua poco profunda); arena seca `1478,2129`; almacén del pueblo
 `1826.8,2641.4` (cámara `1818,75,2612,1824,44,2636`).

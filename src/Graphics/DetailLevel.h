@@ -26,18 +26,19 @@ struct DetailLevel
 	bool clouds;           ///< "Clouds" and "CloudShadows"
 	bool useHighTexture;   ///< 256 px landscape textures (else 128)
 	uint8_t rainSplash;    ///< "RainSplash"
+	bool shadowsOnObjects; ///< "ShadowsOnObjects" (startup only): the hand's dynamic shadow also falls on objects
 
 	[[nodiscard]] float SeaPeriod() const { return 2000.0f - 1800.0f * waterTiling; }
 };
 
 inline constexpr std::array<DetailLevel, 7> k_DetailLevels = {{
-    {0.0f, false, false, false, false, 0},
-    {0.2f, false, false, false, false, 0},
-    {0.4f, false, false, false, false, 3},
-    {0.6f, true, true, true, false, 5},
-    {0.8f, true, true, true, true, 8},
-    {0.5f, true, true, true, true, 8},
-    {1.0f, true, true, true, true, 8},
+    {0.0f, false, false, false, false, 0, false},
+    {0.2f, false, false, false, false, 0, false},
+    {0.4f, false, false, false, false, 3, false},
+    {0.6f, true, true, true, false, 5, true},
+    {0.8f, true, true, true, true, 8, true},
+    {0.5f, true, true, true, true, 8, true},
+    {1.0f, true, true, true, true, 8, true},
 }};
 
 inline constexpr uint8_t k_DefaultDetailLevel = 4;

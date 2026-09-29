@@ -38,6 +38,16 @@ public:
 	                                            std::optional<glm::vec3> land, bool gripping,
 	                                            std::chrono::microseconds dt) noexcept override;
 	[[nodiscard]] std::optional<entt::entity> GetHeldObject() const noexcept override { return _held; }
+	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override
+	{
+		std::vector<entt::entity> entities;
+		entities.reserve(_thrown.size());
+		for (const auto& thrown : _thrown)
+		{
+			entities.push_back(thrown.entity);
+		}
+		return entities;
+	}
 	[[nodiscard]] const std::vector<glm::mat4>* GetBoneMatrices() const noexcept override;
 	[[nodiscard]] std::vector<std::string> GetAnimationNames() const noexcept override;
 	[[nodiscard]] const std::string& GetCurrentAnimation() const noexcept override;

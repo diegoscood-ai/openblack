@@ -56,6 +56,8 @@ public:
 	virtual void Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool gripping, bool actionHeld) noexcept = 0;
 	/// Object currently held by the player hand, if any.
 	[[nodiscard]] virtual std::optional<entt::entity> GetHeldObject() const noexcept = 0;
+	/// Objects thrown by the hand that are still in flight (the original's physics objects)
+	[[nodiscard]] virtual std::vector<entt::entity> GetThrownObjects() const noexcept = 0;
 	/// Animated global bone matrices of the player hand, or nullptr when hh.HBN is not loaded.
 	[[nodiscard]] virtual const std::vector<glm::mat4>* GetBoneMatrices() const noexcept = 0;
 	[[nodiscard]] virtual std::vector<std::string> GetAnimationNames() const noexcept = 0;

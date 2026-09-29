@@ -10,6 +10,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
@@ -52,6 +53,16 @@ struct RenderContext
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
 	/// unused w of the first column of the model matrix, as 1 - alpha so that opaque instances keep 0 there.
 	std::map<entt::id_type, const InstancedDrawDesc> translucentDrawDescs;
+	/// Where each entity's model matrix is this frame
+	struct EntityInstance
+	{
+		entt::id_type meshId;
+		uint32_t index;
+		bool morphWithTerrain;
+		/// LH3DObject Flags1 0x40 (Object::Create3DObject; off for trees, forests, some pots...): the hand's shadow
+		bool receivesDynamicShadow;
+	};
+	std::unordered_map<entt::entity, EntityInstance> entityInstances;
 	/// The objects that cast a static shadow (see RenderingSystem.cpp, CastsStaticShadow), again, in their own range
 	std::map<entt::id_type, const InstancedDrawDesc> shadowCasterDrawDescs;
 	/// Not an actual vertex buffer, but a dynamic general purpose buffer which

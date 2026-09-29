@@ -721,6 +721,40 @@ L3DResult L3DFile::ReadFile(std::istream& stream) noexcept
 		}
 	}
 
+	// EBone data: after the footprint, UV2, name and extra metrics blocks, each starting with its size
+	// (GetSizeEBone 0x4038E0; the footprint block keeps its size at +8)
+	if ((headerFlags & static_cast<uint32_t>(L3DMeshFlags::ContainsEBone)) != 0u)
+	{
+		stream.seekg(0x48, std::istream::beg);
+		stream.read(reinterpret_cast<char*>(&additionalDataOffset), sizeof(additionalDataOffset));
+		const auto readSize = [&stream](uint32_t at) {
+			uint32_t size = 0;
+			stream.seekg(at, std::istream::beg);
+			stream.read(reinterpret_cast<char*>(&size), sizeof(size));
+			return size;
+		};
+		uint32_t offset = additionalDataOffset;
+		if ((headerFlags & static_cast<uint32_t>(L3DMeshFlags::ContainsLandscapeFeature)) != 0u)
+		{
+			offset += readSize(offset + 8);
+		}
+		for (const auto flag : {L3DMeshFlags::ContainsUV2, L3DMeshFlags::ContainsNameData, L3DMeshFlags::ContainsExtraMetrics})
+		{
+			if ((headerFlags & static_cast<uint32_t>(flag)) != 0u)
+			{
+				offset += readSize(offset);
+			}
+		}
+		L3DEBone eBone {};
+		stream.seekg(offset, std::istream::beg);
+		stream.read(reinterpret_cast<char*>(&eBone), sizeof(eBone));
+		if (stream && eBone.size == sizeof(L3DEBone))
+		{
+			_eBone = eBone;
+		}
+		stream.clear();
+	}
+
 	// Create spans per submesh
 	_primitiveSpans.reserve(_submeshHeaders.size());
 	_boneSpans.reserve(_submeshHeaders.size());

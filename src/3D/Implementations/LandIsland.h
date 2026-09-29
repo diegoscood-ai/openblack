@@ -31,7 +31,9 @@ public:
 
 	void LoadFromFile(const std::filesystem::path& path);
 
-	[[nodiscard]] float GetHeightAt(glm::vec2) const override;
+	[[nodiscard]] float GetHeightAt(glm::vec2 vec) const override { return HeightAt(vec, true); }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2 vec) const override { return HeightAt(vec, false); }
+	[[nodiscard]] float HeightAt(glm::vec2 vec, bool seaFlattening) const;
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const override;
 	[[nodiscard]] const LandBlock* GetBlock(const glm::u8vec2& coordinates) const;
 	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const override;

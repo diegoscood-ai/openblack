@@ -19,12 +19,14 @@
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
+#include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
 #include "ECS/Archetypes/BigForestArchetype.h"
 #include "ECS/Archetypes/BonfireArchetype.h"
 #include "ECS/Archetypes/CitadelArchetype.h"
 #include "ECS/Archetypes/CreatureArchetype.h"
 #include "ECS/Archetypes/FeatureArchetype.h"
+#include "ECS/Archetypes/FishFarmArchetype.h"
 #include "ECS/Archetypes/FieldArchetype.h"
 #include "ECS/Archetypes/MobileObjectArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
@@ -398,16 +400,17 @@ void FeatureScriptCommands::CreatePlannedWorshipSite([[maybe_unused]] glm::vec3 
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateAnimal([[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t)
+void FeatureScriptCommands::CreateAnimal(glm::vec3 position, int32_t type, int32_t flock, [[maybe_unused]] int32_t townId)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// command 24 "ANNN" (0x71649F): type, flock id, town id (no town yet); age 0 -> random
+	AnimalArchetype::Create(position, static_cast<AnimalInfo>(type), flock, 0);
 }
 
-void FeatureScriptCommands::CreateNewAnimal([[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t, int32_t)
+void FeatureScriptCommands::CreateNewAnimal(glm::vec3 position, int32_t type, int32_t flock, [[maybe_unused]] int32_t townId,
+                                            int32_t age)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// command 25 "ANNNN" (0x716543): type, flock id, town id, age
+	AnimalArchetype::Create(position, static_cast<AnimalInfo>(type), flock, static_cast<uint32_t>(std::max(age, 0)));
 }
 
 void FeatureScriptCommands::CreateForest([[maybe_unused]] int32_t forestId, [[maybe_unused]] glm::vec3 position)
@@ -444,16 +447,15 @@ void FeatureScriptCommands::CreateTownField(int32_t townId, glm::vec3 position, 
 	CreateNewTownField(townId, position, type, 0.0f);
 }
 
-void FeatureScriptCommands::CreateFishFarm([[maybe_unused]] glm::vec3 position, int32_t)
+void FeatureScriptCommands::CreateFishFarm(glm::vec3 position, int32_t)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	FishFarmArchetype::Create(position);
 }
 
-void FeatureScriptCommands::CreateTownFishFarm([[maybe_unused]] int32_t townId, [[maybe_unused]] glm::vec3 position, int32_t)
+void FeatureScriptCommands::CreateTownFishFarm([[maybe_unused]] int32_t townId, glm::vec3 position, int32_t)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// the farm's town (its food) is not simulated yet; the shoal is the same
+	FishFarmArchetype::Create(position);
 }
 
 void FeatureScriptCommands::CreateFeature(glm::vec3 position, FeatureInfo type, int32_t rotation, int32_t scale, int32_t)

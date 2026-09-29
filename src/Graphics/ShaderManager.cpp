@@ -60,6 +60,8 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_object
 #include "ShaderIncluder.h"
+#define SHADER_NAME fs_object_shadow
+#include "ShaderIncluder.h"
 #define SHADER_NAME fs_sky
 #include "ShaderIncluder.h"
 
@@ -93,6 +95,8 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_blob
 #include "ShaderIncluder.h"
+#define SHADER_NAME fs_world_quad
+#include "ShaderIncluder.h"
 #define SHADER_NAME vs_cloud
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_cloud
@@ -113,11 +117,11 @@ struct ShaderDefinition
 	const std::string_view fragmentShaderName;
 };
 
-const std::array<bgfx::EmbeddedShader, 26> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 28> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_line), BGFX_EMBEDDED_SHADER(vs_line_instanced),                                                   //
     BGFX_EMBEDDED_SHADER(fs_line),                                                                                            //
     BGFX_EMBEDDED_SHADER(vs_object), BGFX_EMBEDDED_SHADER(vs_object_instanced), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced), //
-    BGFX_EMBEDDED_SHADER(fs_object), BGFX_EMBEDDED_SHADER(fs_sky),                                                            //
+    BGFX_EMBEDDED_SHADER(fs_object), BGFX_EMBEDDED_SHADER(fs_sky), BGFX_EMBEDDED_SHADER(fs_object_shadow),                                                            //
     BGFX_EMBEDDED_SHADER(vs_terrain), BGFX_EMBEDDED_SHADER(fs_terrain),                                                       //
     BGFX_EMBEDDED_SHADER(vs_water), BGFX_EMBEDDED_SHADER(fs_water),                                                           //
     BGFX_EMBEDDED_SHADER(vs_sprite), BGFX_EMBEDDED_SHADER(fs_sprite),                                                         //
@@ -126,7 +130,7 @@ const std::array<bgfx::EmbeddedShader, 26> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_celestial), BGFX_EMBEDDED_SHADER(fs_celestial),                                                   //
     BGFX_EMBEDDED_SHADER(vs_cloud), BGFX_EMBEDDED_SHADER(fs_cloud),                                                           //
     BGFX_EMBEDDED_SHADER(vs_dynamic_shadow_instanced),                                                                        //
-    BGFX_EMBEDDED_SHADER(vs_blob), BGFX_EMBEDDED_SHADER(fs_blob),                                                             //
+    BGFX_EMBEDDED_SHADER(vs_blob), BGFX_EMBEDDED_SHADER(fs_blob), BGFX_EMBEDDED_SHADER(fs_world_quad),                                                             //
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
 
@@ -137,6 +141,8 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"Object", "vs_object", "fs_object"},
     ShaderDefinition {"ObjectInstanced", "vs_object_instanced", "fs_object"},
     ShaderDefinition {"ObjectHeightMapInstanced", "vs_object_hm_instanced", "fs_object"},
+    ShaderDefinition {"ObjectShadowInstanced", "vs_object_instanced", "fs_object_shadow"},
+    ShaderDefinition {"ObjectHeightMapShadowInstanced", "vs_object_hm_instanced", "fs_object_shadow"},
     ShaderDefinition {"Sky", "vs_object", "fs_sky"},
     ShaderDefinition {"Water", "vs_water", "fs_water"},
     ShaderDefinition {"Sprite", "vs_sprite", "fs_sprite"},
@@ -146,6 +152,7 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"Cloud", "vs_cloud", "fs_cloud"},
     ShaderDefinition {"DynamicShadowInstanced", "vs_dynamic_shadow_instanced", "fs_static_shadow"},
     ShaderDefinition {"Blob", "vs_blob", "fs_blob"},
+    ShaderDefinition {"WorldQuad", "vs_blob", "fs_world_quad"},
 };
 
 ShaderManager::~ShaderManager()

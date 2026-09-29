@@ -80,7 +80,12 @@ public:
 		float lightBoost {1.0f}; ///< model colour multiplier (the hand: 1.5, CHand::AddDrawing 0x46D135)
 		uint8_t blendFilter {0}; ///< 0: every primitive, 1: the opaque ones only, 2: the blended ones only
 		float unlitColour {-1.0f}; ///< >= 0: unlit grey instead of the land light (reflections)
+		bool landColourOnly {false}; ///< the land light colour and specular without vertex lighting or haze (reflections)
 		bool clipBelowSea {false}; ///< discard the fragments below y = 0 (reflections: only the part above the water)
+		/// The dynamic shadow drawn on the object (programs *ShadowInstanced): texture, box and opacity
+		const graphics::Texture2D* dynamicShadow {nullptr};
+		glm::vec4 dynamicShadowBox {0.0f};
+		glm::vec4 dynamicShadowParams {0.0f};
 	};
 
 	static std::unique_ptr<RendererInterface> Create(GraphicsBackend backend, bool vsync) noexcept;

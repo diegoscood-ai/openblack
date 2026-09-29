@@ -38,6 +38,8 @@ public:
 	static const float k_CellSize;
 
 	[[nodiscard]] virtual float GetHeightAt(glm::vec2) const = 0;
+	/// GetAltitude with the sea flattening off ([0xC37BF4] = 0, as FishFarm::CallVirtualFunctionsForCreation sets it)
+	[[nodiscard]] virtual float GetUnflattenedHeightAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual glm::vec3 GetNormalAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const = 0;
 

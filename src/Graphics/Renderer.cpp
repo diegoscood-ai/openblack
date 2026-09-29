@@ -31,8 +31,11 @@
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
+#include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "Camera/Camera.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
@@ -311,6 +314,7 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::Main), bgfx::ViewMode::Sequential);
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended), bgfx::ViewMode::Sequential);
+	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay), bgfx::ViewMode::Sequential);
 
 	// give debug names to views
 	// TODO (#749) use std::views::enumerate
@@ -348,6 +352,10 @@ void Renderer::ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolutio
 		const auto blended = static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended);
 		bgfx::setViewClear(blended, BGFX_CLEAR_NONE);
 		bgfx::setViewRect(blended, 0, 0, resolution.x, resolution.y);
+		const auto overlay = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
+		bgfx::setViewClear(overlay, BGFX_CLEAR_NONE);
+		bgfx::setViewRect(overlay, 0, 0, resolution.x, resolution.y);
+		_resolution = resolution;
 	}
 }
 
@@ -464,7 +472,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
 				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection)
-				const glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? 1.0f : 0.0f), desc.lightBoost,
+				const glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
+				                                 desc.lightBoost,
 				                                 desc.unlitColour, 0.0f};
 				const glm::vec4 u_objectClip = {desc.clipBelowSea ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
 				desc.program->SetUniformValue("u_objectClip", &u_objectClip); // fs
@@ -480,6 +489,12 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				desc.program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				desc.program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
+				if (desc.dynamicShadow != nullptr)
+				{
+					desc.program->SetTextureSampler("s_dynamicShadow", 5, *desc.dynamicShadow);
+					desc.program->SetUniformValue("u_dynamicShadowBox", &desc.dynamicShadowBox);
+					desc.program->SetUniformValue("u_dynamicShadow", &desc.dynamicShadowParams);
+				}
 			}
 			if (!desc.isSky)
 			{
@@ -1131,6 +1146,189 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 	}
 }
 
+void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
+{
+	if (!Locator::handSystem::has_value())
+	{
+		return;
+	}
+	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto& hand = Locator::handSystem::value();
+	// DrawUnderWater of the held object (CHand, after the hand, in its own colour) and of the physics objects
+	// (fn_00646FE0, while not wholly under water: y > -r, r = the farthest vertex). "Own colour" is obj+0x4C / +0x50 as
+	// the last Draw left them: the land light and cell specular of fn_00801C90 (PhysicsObject::DrawAll 0x646F9F)
+	std::vector<std::pair<entt::entity, bool>> objects;
+	if (const auto held = hand.GetHeldObject(); held.has_value())
+	{
+		objects.emplace_back(*held, false);
+	}
+	for (const auto entity : hand.GetThrownObjects())
+	{
+		objects.emplace_back(entity, true);
+	}
+	L3DMeshSubmitDesc submitDesc = {};
+	submitDesc.viewId = viewId;
+	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.landColourOnly = true;
+	submitDesc.clipBelowSea = true;
+	for (const auto& [entity, thrown] : objects)
+	{
+		const auto instance = renderCtx.entityInstances.find(entity);
+		if (!registry.Valid(entity) || instance == renderCtx.entityInstances.end() || !meshes.Contains(instance->second.meshId))
+		{
+			continue;
+		}
+		const auto mesh = meshes.Handle(instance->second.meshId);
+		if (thrown)
+		{
+			const auto& transform = registry.Get<ecs::components::Transform>(entity);
+			const float radius = 0.5f * glm::length(mesh->GetBoundingBox().Size()) * transform.scale.x;
+			if (transform.position.y <= -radius)
+			{
+				continue;
+			}
+		}
+		submitDesc.instanceDesc =
+		    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance->second.index, 1);
+		static const auto k_Identity = glm::mat4(1.0f);
+		submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &k_Identity;
+		submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
+		submitDesc.morphWithTerrain = instance->second.morphWithTerrain;
+		submitDesc.program = _shaderManager->GetShader(submitDesc.morphWithTerrain ? "ObjectHeightMapInstanced" : "ObjectInstanced");
+		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+	}
+}
+
+void Renderer::DrawHandShadowOnObjects() const
+{
+	// "ShadowsOnObjects" detail key; only the hand's (and the creature's) shadow holder falls on objects (si+0xC == 0)
+	if (_handShadowParams.x <= 0.0f || !_handShadowFrameBuffer ||
+	    !GetDetailLevel(Locator::config::value().detailLevel).shadowsOnObjects)
+	{
+		return;
+	}
+	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto held = Locator::handSystem::value().GetHeldObject();
+	// si+0x2C: the shadow box {x0, z0, x1, z1}
+	const glm::vec2 boxMin(_handShadowBox.x, _handShadowBox.y);
+	const glm::vec2 boxMax = boxMin + 1.0f / glm::vec2(_handShadowBox.z, _handShadowBox.w);
+	L3DMeshSubmitDesc submitDesc = {};
+	submitDesc.viewId = graphics::RenderPass::MainBlended;
+	// fn_0080B050: mode 6 (no Z write) with ZFUNC EQUAL over the object as it was drawn
+	submitDesc.state = BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
+	submitDesc.dynamicShadow = &_handShadowFrameBuffer->GetColorAttachment();
+	submitDesc.dynamicShadowBox = _handShadowBox;
+	submitDesc.dynamicShadowParams = _handShadowParams;
+	for (const auto& [entity, instance] : renderCtx.entityInstances)
+	{
+		if (!instance.receivesDynamicShadow || (held.has_value() && *held == entity) || !meshes.Contains(instance.meshId))
+		{
+			continue;
+		}
+		const auto mesh = meshes.Handle(instance.meshId);
+		// ContainsThisBoundingBox (fn_007F9E80): the mesh box centre +- half its size, moved to the object, x and z only
+		const auto& box = mesh->GetBoundingBox();
+		const auto& transform = registry.Get<ecs::components::Transform>(entity);
+		const glm::vec2 centre =
+		    glm::vec2(box.Center().x, box.Center().z) + glm::vec2(transform.position.x, transform.position.z);
+		const glm::vec2 half = glm::vec2(box.Size().x, box.Size().z) * 0.5f;
+		if (centre.x + half.x < boxMin.x || centre.x - half.x > boxMax.x || centre.y + half.y < boxMin.y ||
+		    centre.y - half.y > boxMax.y)
+		{
+			continue;
+		}
+		submitDesc.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
+		if (mesh->IsBoned())
+		{
+			submitDesc.modelMatrices = mesh->GetBoneMatrices().data();
+			submitDesc.matrixCount = static_cast<uint8_t>(mesh->GetBoneMatrices().size());
+		}
+		else
+		{
+			static const auto k_Identity = glm::mat4(1.0f);
+			submitDesc.modelMatrices = &k_Identity;
+			submitDesc.matrixCount = 1;
+		}
+		submitDesc.morphWithTerrain = instance.morphWithTerrain;
+		submitDesc.program =
+		    _shaderManager->GetShader(instance.morphWithTerrain ? "ObjectHeightMapShadowInstanced" : "ObjectShadowInstanced");
+		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+	}
+}
+
+void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
+{
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Texture = entt::hashed_string("raw/misc0");
+	static const auto k_Alpha = entt::hashed_string("raw/misc0a");
+	if (!textures.Contains(k_Texture) || !textures.Contains(k_Alpha))
+	{
+		return;
+	}
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	std::vector<Vertex> vertices;
+	Locator::entitiesRegistry::value().Each<const ecs::components::FishFarm>([&vertices](const ecs::components::FishFarm& farm) {
+		if (!farm.shoal.has_value() || !farm.shoal->visible)
+		{
+			return;
+		}
+		const uint32_t colour = (static_cast<uint32_t>(farm.shoal->alpha) << 24) | 0x00FFFFFFu;
+		for (const auto& fish : farm.shoal->fish)
+		{
+			// LH3DSprite::Draw 0x840530 with flag 0x40: a flat quad turned about Y, its local x along the heading;
+			// cells 8..23 of the 8 x 8 sheet
+			const int cell = 8 + (static_cast<int>(fish.frame) & 15);
+			const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>(cell / 8) / 8.0f);
+			const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / 8.0f);
+			const glm::vec3 along = glm::vec3(std::cos(fish.heading), 0.0f, std::sin(fish.heading)) * fish.halfSize;
+			const glm::vec3 across = glm::vec3(-std::sin(fish.heading), 0.0f, std::cos(fish.heading)) * fish.halfSize;
+			// mirrored in y = 0 for the reflection target (see DrawPass)
+			const glm::vec3 centre(fish.position.x, -fish.position.y, fish.position.z);
+			const std::array<glm::vec3, 4> p = {centre - along - across, centre + along - across, centre + along + across,
+			                                    centre - along + across};
+			const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
+			                                     glm::vec2(uv0.x, uv1.y)};
+			for (const int i : {0, 1, 2, 0, 2, 3})
+			{
+				vertices.push_back({p[i].x, p[i].y, p[i].z, uv[i].x, uv[i].y, colour});
+			}
+		}
+	});
+	if (vertices.empty())
+	{
+		return;
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	const auto* program = _shaderManager->GetShader("WorldQuad");
+	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
+	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
+	bgfx::setVertexBuffer(0, &buffer);
+	// mode 6: SRCALPHA / INVSRCALPHA, no Z write; two-sided. The mirrored land under them wrote no Z in the original.
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+}
+
 void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 {
 	const auto& textures = Locator::resources::value().GetTextures();
@@ -1191,6 +1389,39 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    const auto d = os - glm::dot(os, n) * n;
 		    addQuad(a, d + (b - a) * 0.5f);
 		    addQuad(b, d + (a - b) * 0.5f);
+	    });
+	// Animals (IsHumanShadowed, flag 0x4000000): the points of their mesh's EBone block, 2 or 4 quads. The original passes
+	// the first quad of each pair V = D (it builds D + (P1 - P0) / 2 but hands over &D); the second gets D + (P0 - P1) / 2.
+	registry.Each<const ecs::components::Animal, const ecs::components::Transform, const ecs::components::Mesh>(
+	    [&](const ecs::components::Animal& animal, const ecs::components::Transform& transform, const ecs::components::Mesh& mesh) {
+		    if (!animal.humanShadowed || transform.position.y <= 0.2f || !meshes.Contains(mesh.id))
+		    {
+			    return;
+		    }
+		    const auto l3d = meshes.Handle(mesh.id);
+		    const auto& points = l3d->GetBlobPoints();
+		    const auto& bones = l3d->GetBoneMatrices();
+		    if (points.empty())
+		    {
+			    return;
+		    }
+		    const auto model = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		    const auto n = island.GetNormalAt(glm::vec2(transform.position.x, transform.position.z));
+		    const auto os = o * transform.scale.x;
+		    const auto d = os - glm::dot(os, n) * n;
+		    std::array<glm::vec3, 4> p {};
+		    for (size_t k = 0; k < points.size(); ++k)
+		    {
+			    const auto& [bone, position] = points[k];
+			    const auto boneMatrix = bone < bones.size() ? bones[bone] : glm::mat4(1.0f);
+			    p[k] = glm::vec3(model * boneMatrix * glm::vec4(position, 1.0f));
+			    p[k].y = island.GetHeightAt(glm::vec2(p[k].x, p[k].z)) + k_Lift;
+		    }
+		    for (size_t k = 0; k + 1 < points.size(); k += 2)
+		    {
+			    addQuad(p[k], d);
+			    addQuad(p[k + 1], d + (p[k] - p[k + 1]) * 0.5f);
+		    }
 	    });
 	if (vertices.empty())
 	{
@@ -1267,6 +1498,78 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::MainPass);
 		DrawPass(drawDesc);
 	}
+	DrawScreenOverlay();
+}
+
+void Renderer::DrawScreenOverlay() const
+{
+	if (Game::Instance() == nullptr || _resolution.x == 0 || _resolution.y == 0)
+	{
+		return;
+	}
+	const auto& fade = Game::Instance()->GetScreenFade();
+	const uint32_t colour = fade.GetColour();
+	const int width = _resolution.x;
+	const int height = _resolution.y;
+	const int bar = ScreenFade::LetterboxHeight(width, height, fade.GetWideScreenFraction());
+	if ((colour >> 24) == 0 && bar == 0)
+	{
+		return;
+	}
+	struct Vertex
+	{
+		float x, y, z;
+		uint32_t abgr;
+	};
+	std::vector<Vertex> vertices;
+	// pre-transformed rectangles in pixels (FVF 0x1C4, rhw 1), here straight to clip space
+	const auto addRect = [&vertices, width, height](int x0, int y0, int x1, int y1, uint32_t argb) {
+		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+		const float l = 2.0f * static_cast<float>(x0) / static_cast<float>(width) - 1.0f;
+		const float r = 2.0f * static_cast<float>(x1) / static_cast<float>(width) - 1.0f;
+		const float t = 1.0f - 2.0f * static_cast<float>(y0) / static_cast<float>(height);
+		const float b = 1.0f - 2.0f * static_cast<float>(y1) / static_cast<float>(height);
+		for (const auto& [x, y] : {std::pair {l, t}, {r, t}, {r, b}, {l, t}, {r, b}, {l, b}})
+		{
+			vertices.push_back({x, y, 0.5f, abgr});
+		}
+	};
+	// (e) the bars, 0xFF000000, at the top and the bottom
+	const auto addBars = [&]() {
+		if (bar > 0)
+		{
+			addRect(0, 0, width, bar, 0xFF000000u);
+			addRect(0, height - bar, width, height, 0xFF000000u);
+		}
+	};
+	addBars();
+	if ((colour >> 24) != 0)
+	{
+		// (h) fn_0086FEE0: x 0..W-1, y h'..H-1-h' with h' = h ? h - 1 : 0, then the bars again so the fade never tints them
+		const int inset = bar > 0 ? bar - 1 : 0;
+		addRect(0, inset, width - 1, height - 1 - inset, colour);
+		addBars();
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
+	const glm::mat4 identity(1.0f);
+	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
+	bgfx::setVertexBuffer(0, &buffer);
+	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS, no Z write
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
 }
 
 void Renderer::DrawPass(const DrawSceneDesc& desc) const
@@ -1492,6 +1795,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					DrawMesh(*mesh, handSubmit, std::numeric_limits<uint8_t>::max());
 				}
 			}
+			DrawObjectReflections(desc.viewId);
+		}
+		if (desc.viewId == graphics::RenderPass::Reflection)
+		{
+			// GLandscape::Draw 0x5E4B26..: the parts under the water go into the frame before the sea, over the mirrored
+			// land. Here that frame is the reflection target, drawn with the mirrored camera, so they are mirrored too.
+			DrawFishShoals(desc.viewId);
 		}
 		if (desc.drawEntities)
 		{
@@ -1627,6 +1937,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.state = opaqueState;
 				submitDesc.viewId = desc.viewId;
 				submitDesc.blendFilter = 0;
+			}
+			if (desc.viewId == graphics::RenderPass::Main)
+			{
+				DrawHandShadowOnObjects();
 			}
 
 			// Debug

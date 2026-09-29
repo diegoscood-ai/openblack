@@ -188,11 +188,11 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   openblack: `RenderPass::StaticShadow`, `vs_static_shadow_instanced`/`fs_static_shadow` (MAX), textura R8 de la isla
   (`LandIsland::GetStaticShadowFramebuffer`), rango propio de instancias (`CastsStaticShadow` en
   `RenderingSystem.cpp`), aplicada en `fs_terrain` tras las huellas.
-- **Dinámicas** (pendiente): `ShadowInfo` 0x4AC bytes, lista 0xFAA7E0; creature y mano (las únicas que caen sobre
+- **Dinámicas** (la mano, hecha; ver abajo): `ShadowInfo` 0x4AC bytes, lista 0xFAA7E0; creature y mano (las únicas que caen sobre
   objetos), objetos lanzados, barcos, SuperVillagers. Silueta 32×32 ARGB4444 (alfa n/15, máx. 53 %), luz: creature
   a ≥45°, mano vertical (+200), SuperVillager el sol; se desvanece entre 50 y 80 radios de distancia; sobre la tierra
   por bloque (`fn_00878350`, modo 6, sin Z, nada en celdas de altitud ≤ 1); sobre objetos con ZFUNC EQUAL.
-- **Manchas de aldeanos** (pendiente): `human_shadow.raw` 32×32 entre dos huesos (`fn_0081FFF0`), modo 6.
+- **Manchas de aldeanos y animales** (hechas): `human_shadow.raw` 32×32 entre dos huesos (`fn_0081FFF0`), modo 6.
 
 ## Cielo: sol, luna y nubes (original)
 
@@ -240,12 +240,99 @@ Informe: `tmp_dis\render\misc_*` (con emulación Unicorn de `fn_0081FFF0`).
   Z, dos caras, `human_shadow.raw` (byte & 0xF0 como alfa). No si y ≤ 0,2 (en el agua), muerto o en la mano de la
   criatura. Animales: puntos de sus datos EBone (2 o 4 quads). openblack: `Renderer::DrawHumanShadows`.
 - **Reflejos en el mar** (`GLandscape::Draw` 0x5E490F): `DrawUnderWater` dibuja el objeto espejado en y = 0, sin luz,
-  recortado para que solo se refleje lo que está sobre el agua: la mano (0x65A0A0A0), lo que lleva la criatura
-  (0x65A0A0D0 + especular 0x30), barcos (0xFF303070), objetos físicos (su color). Ballenas, peces de piscifactoría y
-  nadadores se dibujan **cortados bajo el agua** (`DrawCutByPlane`, 0xFF303070). openblack: la mano en la pasada de
-  reflejo (`unlitColour`, `clipBelowSea`).
+  recortado para que solo se refleje lo que está sobre el agua: la mano (0x65A0A0A0) y lo que sostiene, **el cuerpo de
+  la criatura** (0x65A0A0D0 + especular 0x30; no lo que lleva), barcos (0xFF303070), objetos físicos (su color).
+  Tiburones y SuperVillagers nadando se dibujan **cortados bajo el agua** (`DrawCutByPlane`, 0xFF303070); los peces
+  de piscifactoría son sprites. Detalle en la sección siguiente.
 - **LOD**: `g_last_distance` es la profundidad lineal del centro de la esfera; S = min((importancia + 1) · radio ·
   LevelOfDetail, 100000). En este ejecutable las dos cargas de LevelOfDetail están anuladas con NOP, S = 100000:
   **siempre LOD 1**, sin fundido ni impostores (con el valor de diseño 0,5, un aldeano cambiaría a 11,5 / 33 / 43 u).
 - Trampa de las pruebas: `OPENBLACK_MOUSE_AT` en un borde de la ventana activa el desplazamiento por borde y mueve la
   cámara; usar puntos interiores.
+
+## Reflejos de objetos, sombra de la mano sobre objetos y bajo el agua (hechos)
+
+Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`.
+- **DrawUnderWater** (estático 0x811010 → `fn_00850FC0` por primitiva; animado 0x810E20; complejo 0x813300): mundo =
+  objeto × vértice, clip = W2C·(x, −y, z), orden de índices invertido, plano (0, 1, 0, 0) que quita lo que tenía y < 0.
+  Difuso = obj+0x4C y especular = obj+0x50, **sin luz**. La tabla de modos alternativa 0xC387C8 solo con Flags1 & 0x80
+  (la mano no la usa: el alfa 0x65 no tiene efecto con su material modo 4).
+  - Mano: omitida si hand+0xAC; 0x65A0A0A0; después lo que sostiene (hand+0x8C) **con su propio color**.
+  - Criatura: su cuerpo LH3D si su bloque se ve, y < 6 y obj+0xA0 < 0,2 (campo sin identificar); 0x65A0A0D0, especular 0x30.
+  - Objetos físicos (`fn_00646FE0`, array 0xD47814, paso 0x1DC): si y > −r (r = distancia máxima de un vértice al
+    centro de masas), sin límite de distancia.
+  - El "color propio" es lo que `fn_00801C90` dejó en obj+0x4C/+0x50 en su último Draw (lo llaman `PhysicsObject::DrawAll`
+    0x646F9F, `MobileObject::Draw`, `Rock::Draw`...): la luz de tierra bilineal y el especular de las celdas, sin N·L ni neblina.
+  - Barcos (`PetitNavire::PreDraw`): matriz × diag(−1, 1, 1), 0xFF303070, y una segunda parte girada π/2.
+  - openblack: `Renderer::DrawObjectReflections` en la pasada de reflejo (lo que sostiene la mano y `HandSystem::GetThrownObjects`),
+    `landColourOnly` (modo 3 de `u_objectLight` en `vs_object`) y `clipBelowSea`.
+- **Sombra dinámica sobre objetos**: al final de cada Draw (estático 0x80E457, animado 0x81311A, morfable 0x80E74B...),
+  si el objeto tiene Flags1 0x40, para cada `ShadowInfo` con alfa ≠ 0, si+0xC = 0 (solo la mano y la criatura; barcos,
+  objetos físicos y SuperVillagers ponen 1: solo tierra), que no sea el emisor, y cuya caja si+0x2C {x0, z0, x1, z1}
+  toque la caja XZ de la malla (centro ± mitad + posición, sin giro ni escala; `fn_007F9E80`): ZFUNC EQUAL y `fn_0080B050`
+  (modo 6, color blanco, u = (Wx − x0)/(x1 − x0), v = (Wz − z0)/(z1 − z0): **proyección vertical**; todo el oscurecimiento
+  va en el alfa de la textura, con el mismo fundido de 50–80 radios).
+  - Reciben (Flags1 0x40, `Object::Create3DObject` 0x6365F0 si ShadowsOnObjects): todos los objetos salvo árboles
+    (0x749FA3), bosques (0x439098), flores, comida mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), cultivos,
+    credos, escudos, semillas... Al coger un objeto se guarda y se quita; al lanzarlo se restaura.
+  - openblack: `Renderer::DrawHandShadowOnObjects` al final de `MainBlended` (tras los transparentes, para que EQUAL
+    encuentre su profundidad), `fs_object_shadow`, `RenderContext::entityInstances` (índice de instancia por entidad y
+    `receivesDynamicShadow`). Clave de detalle `shadowsOnObjects` (niveles 3–6).
+- **Piscifactorías** (`FishFarm::CallVirtualFunctionsForCreation` 0x52CC10): anillos de radio 2, 4... < 50 × 32
+  direcciones, con el aplanado del mar **desactivado** (`[0xC37BF4]` = 0); la primera dirección con altitud 0 en dos
+  radios seguidos da el centro (x', y de la granja, z'). 15 peces (`fn_00824740`): sprite `misc0.raw` horizontal (flag
+  0x40: quad girado en Y con su x local según el rumbo), media anchura 0,8–1,2, posición centro + (±5, −1..0, ±5), rumbo
+  ±π, velocidad 0,5–1,5, giro velocidad·(1 ± 0,1)·0,6283; celdas 8–23 (fotograma += dt·velocidad·25, módulo 15).
+  Movimiento `fn_008248E0` (dt ≤ 0,1 s), objetivo del banco `fn_00824DA0` (centro ± 7, temporizador 0,5·distancia);
+  a más de 300 no se dibuja, alfa desde 200 (con el desbordamiento de byte del original). Dibujo modo 6 antes del mar.
+  - openblack: `FishFarmArchetype`, `ecs::UpdateFishShoals` (tiempo de juego del fotograma), `Renderer::DrawFishShoals`.
+    Como `fs_water` compone el mar opaco con la textura de reflejo, "lo que hay detrás del mar" es la pasada de reflejo:
+    los peces se dibujan ahí **espejados** (y → −y) y sin prueba de Z, sobre la tierra reflejada (que en el original no
+    escribe Z). Lo mismo valdría para los cortes bajo el agua. Falta el chapoteo de la mano (huida de los peces).
+- **DrawCutByPlane** (animado `fn_00811C70`; en estáticos es un `ret`): plano (0, −1, 0, 0) → queda lo de **y ≤ 0**, recorte
+  por CPU por triángulo, luz 90 + N·L, color 0x303070 opaco, el modo del material. Solo lo usan los SuperVillagers con la
+  animación `M_P_Swim2`, los tiburones (`MSH_SHARK_BONED`) y el cebo del puzle de peces (Land 4). **No aplica en Land1**.
+  Anillos de agua (`fn_005E5100`, 1024 × 0x38 en 0xEAB7C8): viven 700, media anchura edad·crecimiento/700, alfa
+  (255 − 0,364·edad)·A, `smoke.raw` modo 13 horizontal; pendientes hasta que haya nadadores o tiburones.
+
+## Manchas de los animales (hechas)
+
+Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
+- En `fn_00812170`: si no es humano, con `IsHumanShadowed` (flag 0x4000000, `SetHumanShadowed(1)` en el Create de cada
+  especie; 0 mientras la criatura lo sostiene), y > 0,2 y malla con `ContainsEBone` → `fn_0081FFF0(obj, normal, ebone)`.
+- Bloque EBone (836 bytes) tras los de huella (tamaño en +8), UV2, nombre y métricas extra: `u32 tamaño; float m[16][12];
+  int32 hueso[16]`. Se usan las posiciones de m[0..3] en el espacio de su hueso: P = objeto × hueso × pos, y = suelo + 0,2.
+  Par (0, 1) siempre, par (2, 3) si hueso[2] ≠ −1 (todos los cuadrúpedos: 4 quads). Aves y murciélagos no tienen EBone.
+- **Rareza del original**: el primer quad de cada par recibe V = D (construye D + (P1 − P0)/2 pero pasa &D); el segundo
+  D + (P0 − P1)/2.
+- openblack: `L3DFile::GetEBone`, `L3DMesh::GetBlobPoints`, bucle de animales en `Renderer::DrawHumanShadows`.
+
+## Animales (base mínima para las manchas)
+
+- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`; edad 0 →
+  GameRand(20) + 5. Malla: la alta de `GAnimalInfo` (LOD siempre 1). Escala (`InitialiseScale` 0x417B20): jóvenes
+  ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
+- Land1 crea 116 (palomas 40, gaviotas 22, golondrinas 14, caballos 12, vacas 10, cerdos 7, tortugas 6, murciélagos 5).
+  openblack crea solo los terrestres (`altitudeNormal` = 0): los voladores quedarían en el suelo sin su vuelo.
+  Están quietos en la pose de reposo, como los aldeanos (sin IA ni animación de animales todavía).
+- openblack: `components::Animal`, `AnimalArchetype`.
+
+## Fundido de pantalla y bandas de cine (hechos)
+
+Informe: `tmp_dis\render\fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
+- Estado GScript (g_game+0x250090): +0xB0 paso de alfa por turno, +0xB4 alfa, +0xB8 color ARGB.
+  - `SET_FADE(r, g, b, t)` (0x6FCD70 → `SetupScreenFadeTo` 0x6EBA90; todo truncado, t como char): t ≤ 0 → A = 255 al
+    instante; si no, alfa 0 y paso 255/(10t) (el byte A no cambia hasta el turno siguiente).
+  - `SET_FADE_IN(t)` (0x6FCE00 → 0x6EBB00): t ≤ 0 → A = 0; si no, alfa 255 y paso −255/(10t).
+  - `FADE_FINISHED` = paso == 0. `ProcessFade` 0x6EB9D0 una vez por turno de juego (100 ms): no avanza en pausa.
+- Dibujo `fn_0086FEE0` (FinishFrame, justo antes de EndScene, tras la ayuda y los rectángulos 2D): si A ≠ 0, quad de
+  color x 0..W−1, y h'..H−1−h' (h' = h − 1 con bandas), modo 1, ZFUNC ALWAYS; luego las bandas otra vez encima; el color
+  se pone a 0 cada fotograma.
+- Bandas `[0xEB9950]` = f: altura `trunc((H − 0,5625·W)·f)/2` (16:9 con f = 1; nada en pantallas más anchas),
+  negras. `SET_WIDESCREEN` (32, `HelpSystem::SetWideScreen` 0x5C6AD0) desliza f linealmente en
+  `HelpSystemInfo.wideScreenTime` = 2 s de tiempo de juego, continuando desde donde esté; `WIDESCREEN_TRANSISTION_FINISHED` (132).
+- Otras fuentes: `OnNewGame` 0x553980 pone negro al instante en Land 1 (la intro `FollowUs` lo quita con
+  `SET_FADE_IN(12)`); `Temple::UpdateFade` 0x794280 en la ciudadela (tiempo real, 1/s), sin portar.
+- openblack: `3D/ScreenFade`, vista `RenderPass::ScreenOverlay`, `Renderer::DrawScreenOverlay`. **No** se aplica el negro
+  de `OnNewGame`: la intro de openblack aún se queda antes de su `SET_FADE_IN` (`START_CAMERA_CONTROL` y otros son stubs)
+  y la pantalla quedaría negra.

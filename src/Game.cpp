@@ -26,6 +26,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
+#include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AudioManagerInterface.h"
@@ -36,6 +37,7 @@
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
+#include "ECS/FishShoals.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/CameraBookmarkSystemInterface.h"
@@ -76,6 +78,7 @@ Game::Game(Arguments&& args) noexcept
     : _gamePath(args.gamePath)
     , _startMap(args.startLevel)
     , _requestScreenshot(args.requestScreenshot)
+    , _screenFade(std::make_unique<ScreenFade>())
 {
 	Locator::camera::emplace(glm::zero<glm::vec3>());
 	std::function<std::shared_ptr<spdlog::logger>(const std::string&)> createLogger;
@@ -314,6 +317,8 @@ bool Game::GameLogicLoop() noexcept
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
 		auto& lhvm = Locator::vm::value();
 		lhvm.LookIn(lhvm::ScriptType::All);
+		// GScript::Process: ProcessFade(false) once per turn
+		_screenFade->ProcessTurn();
 	}
 
 	_lastGameLoopTime = currentTime;
@@ -402,6 +407,13 @@ bool Game::Update() noexcept
 		}
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
+
+	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
+	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
+	                      camera.GetOrigin());
+
+	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
+	_screenFade->UpdateWideScreen(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// Update Game Logic in Registry
 	{
@@ -894,6 +906,23 @@ bool Game::Run() noexcept
 		return false;
 	}
 
+	// Test hooks: OPENBLACK_TEST_FADE="r,g,b,seconds" runs SET_FADE, OPENBLACK_TEST_WIDESCREEN=1 SET_WIDESCREEN(1)
+	if (const char* fade = std::getenv("OPENBLACK_TEST_FADE"); fade != nullptr)
+	{
+		float r = 0.0f;
+		float g = 0.0f;
+		float b = 0.0f;
+		float seconds = 0.0f;
+		if (std::sscanf(fade, "%f,%f,%f,%f", &r, &g, &b, &seconds) == 4)
+		{
+			_screenFade->FadeTo(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), seconds);
+		}
+	}
+	if (std::getenv("OPENBLACK_TEST_WIDESCREEN") != nullptr)
+	{
+		_screenFade->SetWideScreen(true, Locator::infoConstants::value().helpSystem.wideScreenTime);
+	}
+
 	// Initialize the Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
 
@@ -1033,7 +1062,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	_turnDeltaTime = 0ns;
 	SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 	_turnCount = 0;
-	_paused = true;
+	// test hook: OPENBLACK_START_UNPAUSED=1 runs the game (turns, scripts) from the first frame
+	_paused = std::getenv("OPENBLACK_START_UNPAUSED") == nullptr;
 
 	return true;
 }

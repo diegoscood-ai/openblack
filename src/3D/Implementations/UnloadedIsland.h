@@ -22,6 +22,11 @@ public:
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");

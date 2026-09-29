@@ -13,6 +13,7 @@
 #include <limits>
 #include <optional>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <L3DFile.h>
@@ -104,6 +105,8 @@ public:
 	[[nodiscard]] const std::vector<glm::mat4>& GetBoneMatrices() const { return _bonesDefaultMatrices; }
 	[[nodiscard]] const std::optional<glm::vec3>& GetDoorPos() const { return _doorPos; }
 	[[nodiscard]] const std::vector<glm::mat4>& GetExtraMetrics() const { return _extraMetrics; }
+	/// Ground blob points of the EBone block (animals): bone index and position in that bone's space, 2 or 4 of them
+	[[nodiscard]] const std::vector<std::pair<uint32_t, glm::vec3>>& GetBlobPoints() const { return _blobPoints; }
 	[[nodiscard]] bool HasPhysicsMesh() const { return _physicsMesh != nullptr; }
 	[[nodiscard]] btConvexShape& GetPhysicsMesh() { return *_physicsMesh; }
 	[[nodiscard]] const btConvexShape& GetPhysicsMesh() const { return *_physicsMesh; }
@@ -124,6 +127,7 @@ private:
 	std::vector<glm::mat4> _bonesDefaultMatrices;
 	std::optional<glm::vec3> _doorPos;
 	std::vector<glm::mat4> _extraMetrics;
+	std::vector<std::pair<uint32_t, glm::vec3>> _blobPoints;
 	/// Bounding box if no physics mesh was found
 	std::unique_ptr<btConvexShape> _physicsMesh;
 	float _physicsMass {1.0f}; // TODO(bwrsandman): Find somewhere in file a value

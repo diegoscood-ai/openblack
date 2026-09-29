@@ -68,6 +68,7 @@ class MockWindowingSystem final: public openblack::windowing::WindowingInterface
 class MockTerrain final: public openblack::LandIslandInterface
 {
 	[[nodiscard]] float GetHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const final { return 0.0f; }
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const final { return {0.0f, 1.0f, 0.0f}; }
 	[[nodiscard]] const openblack::lnd::LNDCell& GetCell(const glm::u16vec2&) const final { assert(false); }
 	void DumpTextures() const final { assert(false); }

@@ -61,8 +61,17 @@ class Renderer final: public RendererInterface
 	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
+	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
+	void DrawObjectReflections(graphics::RenderPass viewId) const;
+	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)
+	void DrawHandShadowOnObjects() const;
+	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
+	/// mirrored into the reflection target, which is what shows through the sea here
+	void DrawFishShoals(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
+	/// FinishFrame (e) and (h): the cinema bars and the screen fade (fn_0081E590, fn_0086FEE0)
+	void DrawScreenOverlay() const;
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),
@@ -99,6 +108,7 @@ private:
 	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
+	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
 	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
 	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
 	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height

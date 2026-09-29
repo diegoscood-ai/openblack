@@ -69,6 +69,8 @@ struct Arguments
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> requestScreenshot;
 };
 
+class ScreenFade;
+
 class Game
 {
 public:
@@ -100,6 +102,9 @@ public:
 
 	void RequestScreenshot(const std::filesystem::path& path) noexcept;
 
+	/// Script fade and cinema bars (SET_FADE, SET_WIDESCREEN)
+	[[nodiscard]] ScreenFade& GetScreenFade() { return *_screenFade; }
+
 	static Game* Instance() { return sInstance; }
 
 private:
@@ -120,5 +125,6 @@ private:
 	bool _handAction {false};
 	bool _handGripping;
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> _requestScreenshot;
+	std::unique_ptr<ScreenFade> _screenFade;
 };
 } // namespace openblack

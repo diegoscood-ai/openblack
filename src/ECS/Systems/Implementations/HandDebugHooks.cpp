@@ -107,6 +107,16 @@ void HandSystem::RunDebugHooks() noexcept
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: {} pile spawned at ({}, {}, {})", food ? "food" : "wood", px, py, z);
 		}
 	}
+	// OPENBLACK_HAND_TEST_HOLD=<scale>: the hand starts holding a chalk boulder of that scale (reflection tests)
+	if (const char* hold = std::getenv("OPENBLACK_HAND_TEST_HOLD"); hold != nullptr)
+	{
+		const float scale = std::max(0.05f, static_cast<float>(std::atof(hold)));
+		const auto rock = archetypes::MobileStaticArchetype::Create(glm::vec3(0.0f), MobileStaticInfo::Boulder1Chalk, 0.0f, 0.0f,
+		                                                            0.0f, 0.0f, scale);
+		Locator::entitiesRegistry::value().SetDirty();
+		PickUp(rock);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: holding a boulder of scale {}", scale);
+	}
 	// Debug: OPENBLACK_TIME_OF_DAY=<hour> sets the game time (night / dusk screenshots).
 	if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr && Game::Instance() != nullptr)
 	{

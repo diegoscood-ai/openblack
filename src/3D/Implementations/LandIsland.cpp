@@ -231,7 +231,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	bgfx::frame();
 }
 
-float LandIsland::GetHeightAt(glm::vec2 vec) const
+float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
 {
 	// LH3DIsland::GetAltitude (0x803090): the height of the landscape triangle under the point, in the original's
 	// integer arithmetic. MapCoords are 16.16 fixed point with 10 units per cell; each cell is split into two triangles
@@ -262,7 +262,7 @@ float LandIsland::GetHeightAt(glm::vec2 vec) const
 	int v10 = base[0x11].altitude;
 	int v11 = base[0x12].altitude;
 	// Next to the sea (base corner at most 4) heights of 3 or less count as 0 (g 0xC37BF4, on by default).
-	if (v00 <= 4)
+	if (seaFlattening && v00 <= 4)
 	{
 		const auto sea = [](int v) { return v > 3 ? v : 0; };
 		v00 = sea(v00);

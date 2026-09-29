@@ -54,6 +54,17 @@ bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity en
 	return registry.AnyOf<Fixed, MobileStatic, MobileObject, Tree, Abode, Feature, BigForest>(entity) &&
 	       !registry.AnyOf<Pot, AnimatedStatic, DeadTree, Field, Villager, Creature, Hand, Alpha, TempleInteriorPart>(entity);
 }
+/// Object::Create3DObject (0x6365F0) turns the dynamic shadow on for every game object; trees (0x749FA3), forests
+/// (0x439098), flowers, magic food (0x5FAAC8), the food in the hand (pot info 12, 0x66D180) and a few others turn it off.
+bool ReceivesDynamicShadow(const openblack::ecs::Registry& registry, entt::entity entity)
+{
+	if (registry.AnyOf<Tree, DeadTree, BigForest, Forest, Hand, TempleInteriorPart>(entity))
+	{
+		return false;
+	}
+	const auto* pot = registry.TryGet<const Pot>(entity);
+	return pot == nullptr || (pot->type != openblack::PotInfo::HandFood && pot->type != openblack::PotInfo::MagicFood);
+}
 } // namespace
 
 
@@ -152,6 +163,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	std::map<entt::id_type, uint32_t> uniformOffsets;
 	std::map<entt::id_type, uint32_t> translucentOffsets;
 	std::map<entt::id_type, uint32_t> shadowCasterOffsets;
+	_renderContext.entityInstances.clear();
 
 	// Set transforms for instanced draw at offsets
 	registry.Each<const Mesh, const Transform>(
@@ -167,6 +179,9 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;
 		    _renderContext.instanceUniforms[idx] = modelMatrix;
+		    _renderContext.entityInstances.insert_or_assign(
+		        entity, RenderContext::EntityInstance {mesh.id, idx, alpha == nullptr && registry.AllOf<MorphWithTerrain>(entity),
+		                                               ReceivesDynamicShadow(registry, entity)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
 			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(mesh.id, 0));

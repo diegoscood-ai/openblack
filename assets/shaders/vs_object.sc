@@ -97,7 +97,7 @@ void main()
 	vec3 specular = vec3_splat(0.0f);
 #ifdef USE_INSTANCING
 	vec3 objectColour = vec3_splat(1.0f);
-	if (u_objectLight.x > 1.5f)
+	if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
 	{
 		objectColour = vec3_splat(u_objectLight.z);
 	}
@@ -113,6 +113,10 @@ void main()
 		objectColour = mix(mix(LandLight(c00.a), LandLight(c01.a), w.y), mix(LandLight(c10.a), LandLight(c11.a), w.y), w.x);
 		specular = mix(mix(c00.rgb, c01.rgb, w.y), mix(c10.rgb, c11.rgb, w.y), w.x);
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
+		// x = 3: only that colour and specular, as fn_00801C90 leaves them in the object (obj+0x4C / +0x50) for
+		// DrawUnderWater (reflections: no haze, no vertex lighting)
+		if (u_objectLight.x < 2.5f)
+		{
 		// Distance haze once per object at its origin (fn_007FEB30); none closer than near
 		float originDepth = mul(u_view, vec4(i_data3.xyz, 1.0f)).z;
 		float hazeT = originDepth < u_haze.x ? 0.0f : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
@@ -120,6 +124,7 @@ void main()
 		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
 		objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
+		}
 	}
 	v_color0 = vec4(objectColour, 1.0f - fade);
 #else

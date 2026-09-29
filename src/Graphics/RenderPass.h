@@ -28,6 +28,8 @@ enum class RenderPass : uint8_t
 	Main,
 	/// Blended (fading) models, drawn over the finished main pass so the water cannot be sorted over them.
 	MainBlended,
+	/// Screen-space quads at the end of the frame (LH3DRender::FinishFrame): cinema bars and the screen fade
+	ScreenOverlay,
 	ImGui,
 	MeshViewer,
 
@@ -41,6 +43,7 @@ static constexpr std::array<std::string_view, static_cast<uint8_t>(RenderPass::_
     "Reflection Pass",  //
     "Main Pass",        //
     "Main Blended Pass", //
+    "Screen Overlay Pass", //
     "ImGui Pass",       //
     "Mesh Viewer Pass", //
 };

@@ -24,6 +24,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
@@ -31,6 +32,8 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Enums.h"
+#include "Game.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
@@ -459,9 +462,10 @@ void EndCameraControl() // 031 END_CAMERA_CONTROL
 
 void SetWidescreen() // 032 SET_WIDESCREEN
 {
-	// const auto enabled = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// 0x6F7BF0 -> HelpSystem::SetWideScreen 0x5C6AD0; the bars slide in HelpSystemInfo.wideScreenTime seconds (2.0)
+	const auto enabled = static_cast<bool>(Pop().intVal);
+	const float time = Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
+	Game::Instance()->GetScreenFade().SetWideScreen(enabled, time);
 }
 
 void MoveGameThing() // 033 MOVE_GAME_THING
@@ -1295,9 +1299,7 @@ void SetAffectedByWind() // 131 SET_AFFECTED_BY_WIND
 
 void WidescreenTransistionFinished() // 132 WIDESCREEN_TRANSISTION_FINISHED
 {
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	Pushb(Game::Instance()->GetScreenFade().IsWideScreenTransitionFinished());
 }
 
 void GetResource() // 133 GET_RESOURCE
@@ -2239,26 +2241,26 @@ void CreateRewardInTown() // 240 CREATE_REWARD_IN_TOWN
 
 void SetFade() // 241 SET_FADE
 {
-	// const auto time = Popf();
-	// const auto blue = Popf();
-	// const auto green = Popf();
-	// const auto red = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// 0x6FCD70 -> SetupScreenFadeTo 0x6EBA90 (every argument truncated; colour 0..255, time in seconds)
+	const auto time = Popf();
+	const auto blue = Popf();
+	const auto green = Popf();
+	const auto red = Popf();
+	const auto channel = [](float value) { return static_cast<uint8_t>(static_cast<int>(value)); };
+	Game::Instance()->GetScreenFade().FadeTo(channel(red), channel(green), channel(blue), time);
 }
 
 void SetFadeIn() // 242 SET_FADE_IN
 {
-	// const auto duration = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// 0x6FCE00 -> SetupScreenFadeBackToNormal 0x6EBB00
+	const auto duration = Popf();
+	Game::Instance()->GetScreenFade().FadeBackToNormal(duration);
 }
 
 void FadeFinished() // 243 FADE_FINISHED
 {
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	// 0x6FCE40: no fade in progress
+	Pushb(Game::Instance()->GetScreenFade().IsFinished());
 }
 
 void SetPlayerMagic() // 244 SET_PLAYER_MAGIC

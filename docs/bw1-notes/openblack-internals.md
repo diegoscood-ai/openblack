@@ -43,6 +43,13 @@
   (altitud, split; las 17×17 celdas de cada bloque). Antes era bilineal y desalineado media celda (errores de 8-50
   unidades en los bordes del mapa: huecos bajo campos y edificios). Los objetos que se desvanecen (`Alpha`) siguen
   pegados al terreno (en el original pasan por el mismo `Draw`).
+- Los edificios que **no** siguen el terreno (casas de todas las tribus, molino, dispensador, tótem, maravillas de las
+  tribus 1, 2, 5 y 6) se hunden al crearse (`Abode::CallVirtualFunctionsForCreation` 0x403270, en
+  `AbodeArchetype::Create`): hasta el suelo más bajo bajo las 4 esquinas xz de la caja de su malla
+  (`GetAltitudeFondation` 0x63ABC0, nunca por encima del origen), como mucho `max(0,2·radio 2D, 0,8)` (radio =
+  escala × la mayor semiextensión en x o z, 0x638180). Sustituye a la altitud del script. Solo con una isla cargada
+  (`UnloadedIsland` lanza en `GetHeightAt`). Pendiente: el templo aplana el terreno a su alrededor al crearse
+  (0x882730: plano hasta 35 unidades, mezcla hasta 70) y su entrada (`Entrance.l3d`) sigue el terreno.
 - El búfer de instancias crece con margen y se sube con `bgfx::copy` (con `makeRef` y un `resize` se leía memoria
   liberada: artefactos al crear y destruir mallas cada fotograma).
 - `L3DSubMesh` guarda en CPU posiciones e índices (`GetCollisionPositions/Indices`) para picking y medidas;

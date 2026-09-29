@@ -15,6 +15,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
@@ -114,6 +115,29 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	if (morphsWithTerrain)
 	{
 		registry.Assign<MorphWithTerrain>(entity);
+	}
+	// (only with an island loaded: the placeholder UnloadedIsland throws, and has no materials)
+	else if (Locator::terrainSystem::has_value() && !Locator::terrainSystem::value().GetMaterialInfo().empty() &&
+	         Locator::resources::value().GetMeshes().Contains(resourceId))
+	{
+		// Abode::CallVirtualFunctionsForCreation (0x403270): an abode that doesn't follow the land sinks to the lowest
+		// ground under the corners of its mesh box (Game3DObject::GetAltitudeFondation 0x63ABC0, never above the
+		// origin's), but by at most max(0.2 x its 2D radius, 0.8) (Object::Get2DRadius 0x638180: scale x the larger
+		// half-extent in x or z). It replaces the script's altitude.
+		const auto& island = Locator::terrainSystem::value();
+		const auto box = Locator::resources::value().GetMeshes().Handle(resourceId)->GetBoundingBox();
+		const glm::vec2 origin(position.x, position.z);
+		const float ground = island.GetHeightAt(origin);
+		float lowest = 0.0f;
+		for (const auto& corner : {glm::vec3(box.minima.x, 0.0f, box.minima.z), glm::vec3(box.maxima.x, 0.0f, box.minima.z),
+		                           glm::vec3(box.minima.x, 0.0f, box.maxima.z), glm::vec3(box.maxima.x, 0.0f, box.maxima.z)})
+		{
+			const glm::vec3 world = position + transform.rotation * (corner * transform.scale);
+			lowest = std::min(lowest, island.GetHeightAt(glm::vec2(world.x, world.z)) - ground);
+		}
+		const auto half = box.Size() * 0.5f;
+		const float radius = scale * std::max(half.x, half.z);
+		registry.Get<Transform>(entity).position.y = ground + std::max(lowest, -std::max(0.2f * radius, 0.8f));
 	}
 
 	// Create Fixed component with a 2d bounding circle

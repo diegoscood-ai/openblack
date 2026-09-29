@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <bgfx/bgfx.h>
@@ -70,6 +71,19 @@ public:
 		Tint tint {Tint::Grey};
 	};
 
+	/// One growth stage of the plants of a crop field (a [field_stage ...] section of foliage.cfg)
+	struct FieldStage
+	{
+		std::string name;
+		std::vector<uint16_t> layers;
+		glm::vec2 growth {0.0f, 1200.0f}; ///< field growth (0..1200, Field::k_AgeRecolt = ripe) it covers
+		glm::vec2 size {1.0f, 1.0f};      ///< width at the start and at the end of the stage
+		glm::vec3 colourFrom {0.5f};      ///< tint (0..1) at the start and at the end: grey texels take it
+		glm::vec3 colourTo {0.5f};
+		float sway {1.0f};
+		float lean {0.2f};
+	};
+
 	/// Kinds of water a plant can be required to grow near
 	enum class Water : uint8_t
 	{
@@ -100,10 +114,12 @@ public:
 	bool Load(const std::filesystem::path& directory);
 	[[nodiscard]] bool IsLoaded() const noexcept { return _texture != nullptr; }
 	[[nodiscard]] const std::vector<Species>& GetSpecies() const noexcept { return _species; }
+	[[nodiscard]] const std::vector<FieldStage>& GetFieldStages() const noexcept { return _fieldStages; }
 
 	/// Starts over for another island, density or once the scene's objects exist; then places the plants of the
-	/// blocks that came within `distance` of the camera and frees the ones left far behind
-	void Update(LandIslandInterface& island, float density, glm::vec3 cameraPosition, float distance);
+	/// blocks that came within `distance` of the camera and frees the ones left far behind. With `fields`, the crop
+	/// fields within the distance get their plants for their current growth and food.
+	void Update(LandIslandInterface& island, float density, glm::vec3 cameraPosition, float distance, bool fields);
 
 	struct DrawDesc
 	{
@@ -145,10 +161,31 @@ private:
 		uint32_t count {0};
 	};
 
+	/// One plant of a crop field, placed once per field
+	struct FieldPlant
+	{
+		glm::vec3 position;
+		float luminosity;
+		float yaw;
+		float lean;
+		float phase;
+		float groundSlope; ///< height change per unit along the plane
+		float stagger;     ///< -1..1: grows a little ahead of or behind the field
+		float keep;        ///< 0..1: still there while the field keeps more than this share of its food
+		float pickImage;
+		float pickSize;
+	};
+
 	void Clear();
 	void BuildChunk(LandIslandInterface& island, size_t blockIndex, float density);
+	void UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition, float distance);
 
 	std::vector<Species> _species;
+	std::vector<FieldStage> _fieldStages;
+	float _fieldSpacing {1.0f};  ///< [field] spacing: units between the plants of a field
+	float _fieldStagger {60.0f}; ///< [field] stagger: growth units a plant may be ahead of or behind its field
+	std::unordered_map<uint32_t, std::vector<FieldPlant>> _fieldPlants; ///< per field entity
+	std::vector<Instance> _fieldInstances;                             ///< this frame's field plants
 	std::vector<float> _layerTop;    ///< per layer: v of the image's top edge (images sit on the bottom of the layer)
 	std::vector<float> _layerAspect; ///< per layer: image height / width
 	std::unique_ptr<graphics::Texture2D> _texture;

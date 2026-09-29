@@ -1448,7 +1448,7 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 		return;
 	}
 	auto& island = Locator::terrainSystem::value();
-	_foliage->Update(island, config.foliageDensity, desc.camera->GetOrigin(), config.foliageDistance);
+	_foliage->Update(island, config.foliageDensity, desc.camera->GetOrigin(), config.foliageDistance, config.foliageFields);
 	Foliage::DrawDesc foliageDesc {};
 	foliageDesc.viewId = static_cast<bgfx::ViewId>(desc.viewId);
 	foliageDesc.program = _shaderManager->GetShader("Foliage");
@@ -2243,6 +2243,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
+						// fully faded out (alpha 0, kept in [0][3] as 1 - alpha): not drawn, it would still write depth
+						if (renderCtx.instanceUniforms[placers.offset + i][0][3] >= 1.0f)
+						{
+							continue;
+						}
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
 						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, false, true});
 					}

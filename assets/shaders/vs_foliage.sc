@@ -3,7 +3,8 @@ $output v_texcoord0, v_color0, v_landLight, v_landSpecular
 
 // Mod world.foliage: one plane per plant (3D/Foliage.cpp). i_data0: base xyz, width; i_data1: height, texture
 // layer, land luminosity 0..1, yaw; i_data2: v of the image's top, sway, ground material, tint mode; i_data3: ground
-// texture uv (one block = 0..1), lean, sway phase; i_data4: ground height at the left / right end.
+// texture uv (one block = 0..1), lean, sway phase; i_data4: ground height at the left / right end, colour source
+// (0 the ground texture, 1 the colour in w), colour r * 65536 + g * 256 + b (field crops).
 
 #include <bgfx_shader.sh>
 
@@ -46,6 +47,13 @@ void main()
 
 	// the ground colour under the plant: its material texture at that spot, a few mip levels down (local average)
 	vec3 ground = texture2DArrayLod(s2_materials, vec3(i_data3.xy * u_foliageParams.y, i_data2.z), 3.0f).rgb;
+	if (i_data4.z > 0.5f)
+	{
+		float packedColour = i_data4.w;
+		float red = floor(packedColour / 65536.0f);
+		float green = floor((packedColour - red * 65536.0f) / 256.0f);
+		ground = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f) / 255.0f;
+	}
 	v_color0 = vec4(ground, i_data2.w);
 
 	// lit like the land under it: landscape light table[luminosity], then the distance haze

@@ -23,11 +23,12 @@ public:
 	FoliageMod()
 	    : Mod({"world.foliage", "Grass and flowers",
 	           "Grass, flowers, rushes and bushes over the landscape, chosen by the ground's material, altitude and slope "
-	           "(rules and images in Mods/world.foliage)",
+	           "(rules and images in Mods/world.foliage); crop fields can grow wheat plants instead of their mesh",
 	           "World"})
 	{
 		AddOption({"density", "Density", {"low", "medium", "high", "very high"}, 1});
 		AddOption({"distance", "Draw distance", {"near", "medium", "far"}, 1});
+		AddOption({"fields", "Crop fields", {"wheat", "original"}, 0});
 	}
 
 	void Apply() override
@@ -38,6 +39,7 @@ public:
 		config.foliageDensity = IsEnabled() ? amount : 0.0f;
 		const auto& distance = GetChoice("distance");
 		config.foliageDistance = distance == "near" ? 120.0f : distance == "far" ? 320.0f : 200.0f;
+		config.foliageFields = IsEnabled() && GetChoice("fields") == "wheat";
 	}
 };
 } // namespace

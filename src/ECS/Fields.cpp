@@ -12,6 +12,7 @@
 #include <algorithm>
 
 #include "3D/L3DMesh.h"
+#include "EngineConfig.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Mesh.h"
@@ -108,6 +109,12 @@ void openblack::ecs::UpdateFields(float seconds)
 		}
 		// not drawn at all below a quarter of the growing age or 25 food
 		if (field.growth < 0.25f * Field::k_AgeGrowth || field.food < 25.0f)
+		{
+			alpha = 0.0f;
+		}
+		// mod world.foliage, fields = wheat: the plants of 3D/Foliage stand in for the mesh (still there for the hand)
+		const auto& config = Locator::config::value();
+		if (config.foliageFields && config.foliageDensity > 0.0f)
 		{
 			alpha = 0.0f;
 		}

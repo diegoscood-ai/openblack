@@ -71,7 +71,8 @@
   blanco madurando; los maduros se mecen con el viento de los árboles.
 - openblack: `ecs/Fields`, `HandFish.cpp` (`TryPickUpField`, `UpdateFieldPickUp`), gancho `OPENBLACK_HAND_TEST_FIELD=1`.
   **Diferencias**: no hay granjeros, así que los campos empiezan sembrados y maduros y se vuelven a sembrar solos al
-  vaciarse; faltan el tinte de color, el vaivén y la alineación/lluvia en el crecimiento.
+  vaciarse; faltan el tinte de color, el vaivén y la alineación/lluvia en el crecimiento. Con el mod world.foliage
+  (`fields = wheat`) el campo se dibuja con plantas que crecen por etapas en vez de la malla (mod-library.md).
 
 ## Sonidos (informe `tmp_dis\sound\notes.txt`)
 

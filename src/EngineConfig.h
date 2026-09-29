@@ -74,6 +74,8 @@ struct EngineConfig
 	/// cell multiplier, 0 = none, and the distance they are drawn to.
 	float foliageDensity {0.0f};
 	float foliageDistance {200.0f};
+	/// With the foliage: crop fields drawn as growing plants (foliage.cfg [field_stage] sections) instead of their mesh.
+	bool foliageFields {false};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};

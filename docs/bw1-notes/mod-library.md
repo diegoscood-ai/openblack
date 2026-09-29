@@ -75,6 +75,18 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
 
 ## world.foliage: plantas sobre el terreno
 
+- **Campos de cultivo** (opción `fields` = wheat, por defecto; `original` = la malla): la malla del campo se oculta
+  (`Alpha` 0 en `ecs::UpdateFields`; sigue ahí para la mano y los instantes con alfa 0 ya no se dibujan: escribían
+  profundidad) y `Foliage::UpdateFields` pone en su huella (caja de la malla con su giro y escala) una rejilla con
+  ruido cada `[field] spacing` unidades. Cada fotograma, por campo al alcance: nada sin sembrar; la etapa
+  `[field_stage ...]` según el crecimiento (0-1200) ± `stagger` al azar por planta (cambio gradual); ancho y tinte
+  interpolados dentro de la etapa (el tinte sustituye al color del suelo: `i_data4.z` = 1, `w` = r·65536 + g·256 + b);
+  solo quedan las plantas con `keep` < comida / comida esperada a ese crecimiento, así que la cosecha lo aclara.
+  Etapas actuales: brote (hierba baja, 0-80), hierba alta (80-350), trigo verde (350-750), trigo secándose hasta
+  marrón maduro (750-1200). Instancias transitorias cada fotograma. Gancho `OPENBLACK_TEST_FIELD_GROWTH=0..1200`
+  (todos los campos empiezan con ese crecimiento y su comida).
+- Tamaños: el 29-09-2026 todos los `size` se redujeron un 25 % (el usuario las veía muy grandes).
+
 - Una sección `[nombre]` por planta en `foliage.cfg`: `images` (png, uno al azar por planta), `texture` (aspecto de la
   textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10
   con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope` (grados),
@@ -89,7 +101,7 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   Land5 noreste), 4 olas lentas (`swamp`: charcas interiores, muchas en Land5) y 5 lago (Land2 centro). 12 desierto
   no lo usa ningún mapa original. Mapas en `dev\tmp_dis\biomes\Land*_snd.png` (`dev\lnd_zones.py`; `dev\lnd_countries.py`
   para los country). Uso actual: `water_plant` en jungla, lago y charcas; `jungle_grass` en la jungla; `wildflowers`
-  en prado y bosque; `poppies` en prado; `wheat` en manchas sueltas del prado y en suelos `Corn`; `dead_bush_barren` en viento/desierto (solo roca, tierra seca o arena). Todas con `tint = grey`.
+  en prado y bosque; `poppies` en prado; `dead_bush_barren` en viento/desierto (solo roca, tierra seca o arena). Todas con `tint = grey`.
 - **Tinte por el suelo**: los texeles grises (saturación < 0,1-0,2) toman el color de la textura del terreno bajo la
   planta: el vertex shader muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque ×
   repeticiones del mod terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta.

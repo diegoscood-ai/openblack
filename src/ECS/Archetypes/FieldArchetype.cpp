@@ -9,6 +9,9 @@
 
 #include "FieldArchetype.h"
 
+#include <algorithm>
+#include <cstdlib>
+
 #include "AbodeArchetype.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Field.h"
@@ -43,6 +46,12 @@ entt::entity FieldArchetype::Create(int townId, const glm::vec3& position, Field
 	field.growth = Field::k_AgeRecolt;
 	field.food = Field::k_TotalFood;
 	field.turnOffset = static_cast<uint8_t>(Locator::rng::value().NextValue<int>(0, 9));
+	// test hook: every field starts at this growth, with the food it would have (OPENBLACK_TEST_FIELD_GROWTH=0..1200)
+	if (const char* growth = std::getenv("OPENBLACK_TEST_FIELD_GROWTH"); growth != nullptr)
+	{
+		field.growth = std::clamp(std::strtof(growth, nullptr), 0.0f, Field::k_AgeRecolt);
+		field.food = field.growth * Field::k_TotalFood / Field::k_AgeRecolt;
+	}
 
 	return entity;
 }

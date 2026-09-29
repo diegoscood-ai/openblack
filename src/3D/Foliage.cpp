@@ -577,6 +577,8 @@ void Foliage::Clear()
 	_water.reset();
 	_looks.clear();
 	_plantCount = 0;
+	_fieldPlants.clear();
+	_fieldInstances.clear();
 }
 
 uint8_t Foliage::ZoneOf(uint8_t cellFlags)
@@ -686,10 +688,27 @@ bool Foliage::Load(const std::filesystem::path& directory)
 	};
 
 	_species.clear();
+	_fieldStages.clear();
 	_layerTop.clear();
 	_layerAspect.clear();
 	std::string line;
 	int lineNumber = 0;
+	// what the key = value lines belong to: a plant kind, the [field] settings or a [field_stage ...]
+	enum class Section : uint8_t
+	{
+		None,
+		Species,
+		Field,
+		FieldStage,
+	} section = Section::None;
+	const auto parseColour = [](const std::string& text) {
+		const auto parts = SplitList(text);
+		if (parts.size() != 3)
+		{
+			throw std::invalid_argument("colour");
+		}
+		return glm::vec3(std::stof(parts[0]), std::stof(parts[1]), std::stof(parts[2])) / 255.0f;
+	};
 	while (std::getline(file, line))
 	{
 		++lineNumber;
@@ -704,18 +723,107 @@ bool Foliage::Load(const std::filesystem::path& directory)
 		}
 		if (line.front() == '[' && line.back() == ']')
 		{
-			_species.push_back({});
-			_species.back().name = Trim(std::string_view(line).substr(1, line.size() - 2));
+			const auto name = Trim(std::string_view(line).substr(1, line.size() - 2));
+			if (name == "field")
+			{
+				section = Section::Field;
+			}
+			else if (name.starts_with("field_stage"))
+			{
+				section = Section::FieldStage;
+				_fieldStages.push_back({});
+				_fieldStages.back().name = Trim(std::string_view(name).substr(11));
+			}
+			else
+			{
+				section = Section::Species;
+				_species.push_back({});
+				_species.back().name = name;
+			}
 			continue;
 		}
 		const auto equals = line.find('=');
-		if (equals == std::string::npos || _species.empty())
+		if (equals == std::string::npos || section == Section::None)
 		{
 			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: foliage.cfg line {} ignored", lineNumber);
 			continue;
 		}
 		const auto key = Trim(std::string_view(line).substr(0, equals));
 		const auto value = Trim(std::string_view(line).substr(equals + 1));
+		if (section == Section::Field)
+		{
+			try
+			{
+				if (key == "spacing")
+				{
+					_fieldSpacing = std::max(std::stof(value), 0.2f);
+				}
+				else if (key == "stagger")
+				{
+					_fieldStagger = std::max(std::stof(value), 0.0f);
+				}
+				else
+				{
+					SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown key {} (line {})", key, lineNumber);
+				}
+			}
+			catch (const std::exception&)
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: bad value {} (line {})", value, lineNumber);
+			}
+			continue;
+		}
+		if (section == Section::FieldStage)
+		{
+			auto& stage = _fieldStages.back();
+			try
+			{
+				if (key == "images")
+				{
+					for (const auto& image : SplitList(value))
+					{
+						if (const int layer = layerOf(image); layer >= 0)
+						{
+							stage.layers.push_back(static_cast<uint16_t>(layer));
+						}
+					}
+				}
+				else if (key == "growth")
+				{
+					stage.growth = ParseRange(value);
+				}
+				else if (key == "size")
+				{
+					// start-end, in this order (not sorted like the other ranges: a stage may shrink)
+					const auto dash = value.find('-', 1);
+					stage.size.x = std::stof(value.substr(0, dash));
+					stage.size.y = dash == std::string::npos ? stage.size.x : std::stof(value.substr(dash + 1));
+				}
+				else if (key == "colour")
+				{
+					const auto dash = value.find('-');
+					stage.colourFrom = parseColour(value.substr(0, dash));
+					stage.colourTo = dash == std::string::npos ? stage.colourFrom : parseColour(value.substr(dash + 1));
+				}
+				else if (key == "sway")
+				{
+					stage.sway = std::stof(value);
+				}
+				else if (key == "lean")
+				{
+					stage.lean = std::stof(value);
+				}
+				else
+				{
+					SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown key {} (line {})", key, lineNumber);
+				}
+			}
+			catch (const std::exception&)
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: bad value {} (line {})", value, lineNumber);
+			}
+			continue;
+		}
 		auto& species = _species.back();
 		try
 		{
@@ -849,7 +957,9 @@ bool Foliage::Load(const std::filesystem::path& directory)
 	std::erase_if(_species, [](const Species& species) {
 		return species.layers.empty() || (species.terrains.empty() && species.looks.empty());
 	});
-	if (layers.empty() || _species.empty())
+	std::erase_if(_fieldStages, [](const FieldStage& stage) { return stage.layers.empty(); });
+	std::ranges::sort(_fieldStages, {}, [](const FieldStage& stage) { return stage.growth.x; });
+	if (layers.empty() || (_species.empty() && _fieldStages.empty()))
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: nothing to draw in {}", directory.string());
 		return false;
@@ -875,11 +985,12 @@ bool Foliage::Load(const std::filesystem::path& directory)
 	_quad = bgfx::createVertexBuffer(bgfx::makeRef(k_Quad.data(), sizeof(k_Quad)), quadLayout);
 	_quadIndices = bgfx::createIndexBuffer(bgfx::makeRef(k_Indices.data(), sizeof(k_Indices)));
 
-	SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: {} plant kinds, {} images", _species.size(), layers.size());
+	SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: {} plant kinds, {} field stages, {} images", _species.size(),
+	                   _fieldStages.size(), layers.size());
 	return true;
 }
 
-void Foliage::Update(LandIslandInterface& island, float density, glm::vec3 cameraPosition, float distance)
+void Foliage::Update(LandIslandInterface& island, float density, glm::vec3 cameraPosition, float distance, bool fields)
 {
 	if (!IsLoaded())
 	{
@@ -955,6 +1066,112 @@ void Foliage::Update(LandIslandInterface& island, float density, glm::vec3 camer
 			chunk.built = false;
 		}
 	}
+
+	_fieldInstances.clear();
+	if (fields && !_fieldStages.empty())
+	{
+		UpdateFields(island, cameraPosition, distance);
+	}
+}
+
+void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition, float distance)
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	using namespace ecs::components;
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const glm::vec2 eye(cameraPosition.x, cameraPosition.z);
+	const float firstGrowth = _fieldStages.front().growth.x;
+	const float lastGrowth = _fieldStages.back().growth.y;
+	registry.Each<const Field, const Transform, const Mesh>([&](entt::entity entity, const Field& field,
+	                                                            const Transform& transform, const Mesh& mesh) {
+		if (!meshes.Contains(mesh.id))
+		{
+			return;
+		}
+		const auto box = meshes.Handle(mesh.id)->GetBoundingBox();
+		const glm::vec3 centre = transform.position + transform.rotation * (box.Center() * transform.scale);
+		const float radius = 0.5f * glm::length(glm::vec2(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z));
+		if (glm::distance(glm::vec2(centre.x, centre.z), eye) > distance + radius)
+		{
+			return;
+		}
+		// placed once per field: a jittered grid over the mesh's footprint, on the ground
+		auto& plants = _fieldPlants[static_cast<uint32_t>(entt::to_integral(entity))];
+		if (plants.empty())
+		{
+			const auto seed = static_cast<uint32_t>(entt::to_integral(entity)) * 7919u + 13u;
+			const glm::vec2 step = glm::vec2(_fieldSpacing) / glm::max(glm::vec2(transform.scale.x, transform.scale.z), 0.01f);
+			const auto columns = static_cast<int>(std::max(1.0f, std::floor(box.Size().x / step.x)));
+			const auto rows = static_cast<int>(std::max(1.0f, std::floor(box.Size().z / step.y)));
+			for (int i = 0; i < columns; ++i)
+			{
+				for (int j = 0; j < rows; ++j)
+				{
+					Random random(Hash(static_cast<uint32_t>(i), static_cast<uint32_t>(j), seed));
+					const glm::vec3 local(box.minima.x + (static_cast<float>(i) + 0.15f + 0.7f * random.Next()) * step.x,
+					                      box.Center().y,
+					                      box.minima.z + (static_cast<float>(j) + 0.15f + 0.7f * random.Next()) * step.y);
+					const glm::vec3 world = transform.position + transform.rotation * (local * transform.scale);
+					const glm::vec2 point(world.x, world.z);
+					FieldPlant plant {};
+					plant.yaw = random.Next() * 3.1415927f;
+					const glm::vec2 along(std::cos(plant.yaw), std::sin(plant.yaw));
+					plant.position = glm::vec3(point.x, island.GetHeightAt(point), point.y);
+					plant.groundSlope = 0.5f * (island.GetHeightAt(point + along) - island.GetHeightAt(point - along));
+					const int last = island.GetCellsPerSide() - 1;
+					const auto cell = glm::clamp(glm::ivec2(glm::floor(point / k_CellSize)), 0, last);
+					plant.luminosity = static_cast<float>(island.GetCell(glm::u16vec2(cell)).luminosity) / 255.0f;
+					plant.lean = random.Next() * 2.0f - 1.0f;
+					plant.phase = random.Next() * 6.2831853f;
+					plant.stagger = random.Next() * 2.0f - 1.0f;
+					plant.keep = random.Next();
+					plant.pickImage = random.Next();
+					plant.pickSize = random.Next();
+					plants.push_back(plant);
+				}
+			}
+		}
+		// nothing until it is sown; the harvest thins it: the share of the food it would have at this growth
+		if (field.crops < Field::k_TimesToSow)
+		{
+			return;
+		}
+		const float expectedFood = std::min(field.growth, Field::k_AgeRecolt) * Field::k_TotalFood / Field::k_AgeRecolt;
+		const float kept = expectedFood > 0.0f ? std::clamp(field.food / expectedFood, 0.0f, 1.0f) : 0.0f;
+		for (const auto& plant : plants)
+		{
+			const float growth = std::min(field.growth, lastGrowth) + plant.stagger * _fieldStagger;
+			if (plant.keep >= kept || growth < firstGrowth)
+			{
+				continue;
+			}
+			const auto found = std::ranges::find_if(_fieldStages, [growth](const FieldStage& stage) { return growth < stage.growth.y; });
+			const auto& stage = found != _fieldStages.end() ? *found : _fieldStages.back();
+			if (growth < stage.growth.x)
+			{
+				continue; // between two stages that don't meet
+			}
+			const float t = std::clamp((growth - stage.growth.x) / std::max(stage.growth.y - stage.growth.x, 1.0f), 0.0f, 1.0f);
+			const auto layer =
+			    stage.layers[std::min(static_cast<size_t>(plant.pickImage * stage.layers.size()), stage.layers.size() - 1)];
+			const float width = glm::mix(stage.size.x, stage.size.y, t) * (0.85f + 0.3f * plant.pickSize);
+			const float plantHeight = width * _layerAspect[layer];
+			const auto colour = glm::clamp(glm::mix(stage.colourFrom, stage.colourTo, t), 0.0f, 1.0f);
+			const auto packed = static_cast<float>(static_cast<uint32_t>(colour.r * 255.0f + 0.5f) * 65536u +
+			                                       static_cast<uint32_t>(colour.g * 255.0f + 0.5f) * 256u +
+			                                       static_cast<uint32_t>(colour.b * 255.0f + 0.5f));
+			const float end = plant.groundSlope * 0.5f * width;
+			_fieldInstances.push_back({{plant.position.x, plant.position.y - 0.06f * plantHeight, plant.position.z, width},
+			                           {plantHeight, static_cast<float>(layer), plant.luminosity, plant.yaw},
+			                           {_layerTop[layer], stage.sway, 0.0f, static_cast<float>(Tint::Grey)},
+			                           {0.0f, 0.0f, stage.lean * plant.lean, plant.phase},
+			                           {-end, end, 1.0f, packed}});
+		}
+	});
 }
 
 void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float density)
@@ -1100,7 +1317,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 
 void Foliage::Draw(const DrawDesc& desc) const
 {
-	if (!IsLoaded() || _chunks.empty() || !bgfx::isValid(desc.landLight) || desc.materials == nullptr)
+	if (!IsLoaded() || (_chunks.empty() && _fieldInstances.empty()) || !bgfx::isValid(desc.landLight) ||
+	    desc.materials == nullptr)
 	{
 		return;
 	}
@@ -1129,6 +1347,19 @@ void Foliage::Draw(const DrawDesc& desc) const
 		bgfx::setVertexBuffer(0, _quad);
 		bgfx::setIndexBuffer(_quadIndices, 0, 6); // one plane: crossed planes show as little crosses from above
 		bgfx::setInstanceDataBuffer(chunk.instances, 0, chunk.count);
+		bgfx::setState(state);
+		bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+	}
+	// the crop fields' plants change with the fields: rebuilt every frame (a few thousand at most)
+	const auto fieldCount = static_cast<uint32_t>(_fieldInstances.size());
+	if (fieldCount > 0 && bgfx::getAvailInstanceDataBuffer(fieldCount, sizeof(Instance)) == fieldCount)
+	{
+		bgfx::InstanceDataBuffer buffer;
+		bgfx::allocInstanceDataBuffer(&buffer, fieldCount, sizeof(Instance));
+		std::memcpy(buffer.data, _fieldInstances.data(), fieldCount * sizeof(Instance));
+		bgfx::setVertexBuffer(0, _quad);
+		bgfx::setIndexBuffer(_quadIndices, 0, 6);
+		bgfx::setInstanceDataBuffer(&buffer);
 		bgfx::setState(state);
 		bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
 	}

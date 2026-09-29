@@ -12,6 +12,21 @@ uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflec
 void main()
 {
 	float alphaThreshold = u_skyAlphaThreshold.y;
+	// Dissolving fade (components::MeshTint, vs_object: alpha -1 - opacity): a screen pattern of crosses that grow
+	// from a point in every 8 x 8 pixel cell until they cover it, instead of alpha blending
+	float opacity = v_color0.a;
+	if (opacity < -0.5f)
+	{
+		opacity = -opacity - 1.0f;
+		vec2 cell = abs(fract(gl_FragCoord.xy / 8.0f) - 0.5f);
+		float arm = max(cell.x, cell.y);
+		float thickness = min(cell.x, cell.y);
+		if (opacity < 0.999f && (arm > saturate(opacity * 2.0f) * 0.5f || thickness > opacity * 0.5f))
+		{
+			discard;
+		}
+		opacity = 1.0f;
+	}
 	bool alphaToCoverage = u_skyAlphaThreshold.z > 0.0f;
 	bool blendedMaterial = u_skyAlphaThreshold.w > 0.0f;
 
@@ -24,6 +39,15 @@ void main()
 	{
 		// untextured primitive: material colour x object colour (fn_007ACF70, 0x84BAA3)
 		diffuseTex = vec4(u_materialColour.rgb, 1.0f);
+	}
+	// components::MeshTint (vs_object puts it in the normal): grey texels x the ground colour like the world.foliage
+	// plants (0.5 grey = the ground itself), mixed back towards the texture's own colour
+	if (v_normal.y > 500.0f)
+	{
+		vec3 ground = fract(v_normal);
+		float own = floor((v_normal.x - 1000.0f) / 2.0f) / 31.0f;
+		float grey = dot(diffuseTex.rgb, vec3(0.299f, 0.587f, 0.114f));
+		diffuseTex.rgb = mix(ground * grey * 2.0f, diffuseTex.rgb, own);
 	}
 
 	if (alphaToCoverage)
@@ -41,7 +65,7 @@ void main()
 		discard;
 	}
 	// Textures of primitives without alpha cut-out may carry no meaningful alpha: they are opaque before fading.
-	diffuseTex.a = (alphaThreshold > 0.0f || blendedMaterial ? diffuseTex.a : 1.0f) * v_color0.a;
+	diffuseTex.a = (alphaThreshold > 0.0f || blendedMaterial ? diffuseTex.a : 1.0f) * opacity;
 	vec3 specular = vec3(v_texcoord0.zw, v_position.w); // see vs_object
 	diffuseTex.rgb = diffuseTex.rgb * v_color0.rgb + specular;
 	gl_FragColor = diffuseTex;

@@ -37,6 +37,10 @@ struct LandMaterialInfo
 	uint16_t type {0};    ///< the LND material type: a TerrainMaterialType (18 grass, 7 sand, 15 solid rock...)
 	bool picture {false}; ///< one picture per block rather than a tiling texture (see the terrain-x2 mod)
 	glm::vec3 colour {0.0f}; ///< average texel colour 0..1 (the type often doesn't match the look: green "Earth")
+	/// k_SmallSize x k_SmallSize box averages of the texels, rgb 0..255 by rows (row = texture v): the ground colour a
+	/// few mip levels down, like the foliage shader samples it
+	std::vector<uint8_t> small;
+	static constexpr int k_SmallSize = 32;
 };
 
 class LandIslandInterface

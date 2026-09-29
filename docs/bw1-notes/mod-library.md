@@ -86,6 +86,30 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   marrón maduro (750-1200). Instancias transitorias cada fotograma. Gancho `OPENBLACK_TEST_FIELD_GROWTH=0..1200`
   (todos los campos empiezan con ese crecimiento y su comida).
 - Tamaños: el 29-09-2026 todos los `size` se redujeron un 25 % (el usuario las veía muy grandes).
+- **Tierra de cultivo**: `[field] soil` (`field_soil.png`, de `tools/gen_field_soil.py`: surcos marrones con borde
+  irregular que se desvanece) se pinta en la textura de huellas (`Foliage::DrawFieldFootprints`, desde
+  `Renderer::DrawFootprintPass`, con el programa FootprintInstanced) sobre la caja del campo + `soil_margin` por lado.
+- **De lejos**: la malla del campo vuelve con alfa `(d − 0,8·D) / (0,2·D)` (d = distancia a la cámara, D =
+  `foliageDistance`), el mismo tramo en que las plantas se hunden en el suelo, sin hundirse con la comida (en el
+  original un campo joven casi no se ve) y solo si está sembrado y con comida. Aparece **disolviéndose**: una trama
+  de pantalla de cruces que crecen en celdas de 8×8 píxeles (fs_object, descarta en vez de mezclar).
+- **Tinte de la malla** (`components::MeshTint`, puesto por `Foliage::UpdateFields`): como las plantas, sus texeles
+  pasan a gris × color medio del suelo bajo el campo (`GroundColourAt`, 9 puntos, color medio de los materiales de
+  la celda para su altitud), mezclado hacia su propio color según `[field] ripening` (350-1200). Viaja en el w de la
+  tercera columna de la instancia: 1e6 (2e6 disolviendo) + 5 bits por canal del suelo y de `own`; el sombreador de
+  mapa de alturas ya no suma ese w como desplazamiento si pasa de 500000 (los campos son MorphWithTerrain, así que
+  pierden el desplazamiento de hundirse, que con el mod no usan). vs_object lo pasa a fs_object en `v_normal`
+  (fs_object no ilumina con la normal): 1000 + 2·own en x y el color en las fracciones. Tras tocar vs_object hay que
+  hacer `touch` de los vs_object_*instanced*.sc (openblack-internals.md).
+- **Suelo oscuro o sin color**: el tinte toma la textura del material a baja resolución, y algunas tienen manchas muy
+  oscuras (Land1 material 5, brezo, tipo 25: 46 % de sus texeles de 32×32 con brillo < 0,3) o grises (material 10
+  un 13 % con saturación < 0,3), que daban plantas grises. `LandMaterialInfo::small` guarda cada material en 32×32
+  (media de cajas de 8×8, como el mip 3 que muestrea el shader) y `ground_value` / `ground_saturation` filtran por el
+  color de ese texel (mismo uv que el terreno, con las repeticiones de terrain-x2). Las plantas tintadas piden
+  brillo ≥ 0,28 y saturación ≥ 0,3; `dead_bush_dark` / `dead_bush_grey` (con sus colores, `tint = none`) ocupan las
+  manchas.
+- `cross = on`: la especie se dibuja con los dos planos cruzados (los matorrales secos); en cada bloque esas
+  instancias van al final (`Chunk::crossStart`) y se dibujan con los 12 índices del quad.
 
 - Una sección `[nombre]` por planta en `foliage.cfg`: `images` (png, uno al azar por planta), `texture` (aspecto de la
   textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10

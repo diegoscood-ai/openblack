@@ -95,8 +95,12 @@ void main()
 	float terrain_height = texture2DLod(s_heightmap, blockUv, 0.0f).r * 170.85f;
 	v_position.y += terrain_height - original_height;
 #ifdef USE_INSTANCING
-	// The w of the third column carries a vertical offset kept while morphing (piles rising / sinking).
-	v_position.y += i_data2.w;
+	// The w of the third column carries a vertical offset kept while morphing (piles rising / sinking), or a tint
+	// (components::MeshTint, 1e6 and up).
+	if (i_data2.w < 500000.0f)
+	{
+		v_position.y += i_data2.w;
+	}
 #endif // USE_INSTANCING
 #endif // USE_HEIGHT_MAP
 
@@ -139,11 +143,38 @@ void main()
 		objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
 		}
 	}
-	v_color0 = vec4(objectColour, 1.0f - fade);
+	float opacity = 1.0f - fade;
+	// components::MeshTint: 1e6 (2e6 dissolving instead of blending) + 5 bits each of the ground colour and of `own`
+	float tintMarker = 0.0f;
+	vec3 tintGround = vec3_splat(0.0f);
+	float tintOwn = 0.0f;
+	if (i_data2.w > 500000.0f)
+	{
+		bool dissolve = i_data2.w > 1500000.0f;
+		float packedTint = i_data2.w - (dissolve ? 2000000.0f : 1000000.0f);
+		tintOwn = floor(packedTint / 32768.0f);
+		packedTint -= tintOwn * 32768.0f;
+		float red = floor(packedTint / 1024.0f);
+		float green = floor((packedTint - red * 1024.0f) / 32.0f);
+		float blue = packedTint - red * 1024.0f - green * 32.0f;
+		tintGround = min(vec3(red, green, blue) / 31.0f, vec3_splat(0.99f));
+		tintMarker = 1000.0f;
+		// fs_object reads a negative alpha -1 - opacity as a dissolve
+		opacity = dissolve ? -1.0f - opacity : opacity;
+	}
+	v_color0 = vec4(objectColour, opacity);
 #else
 	v_color0 = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 #endif // USE_INSTANCING
 	v_normal = normal; // not normalised here: the sky mesh has zero normals
+#ifdef USE_INSTANCING
+	// fs_object doesn't light with the normal: a tinted mesh (MeshTint) carries its tint there instead, 1000 + 2 own
+	// in x plus the ground colour in the fractions (the same at every vertex, so it survives interpolation)
+	if (tintMarker > 0.0f)
+	{
+		v_normal = vec3(tintMarker + 2.0f * tintOwn, tintMarker, tintMarker) + tintGround;
+	}
+#endif // USE_INSTANCING
 	// The specular colour rides in the unused texcoord z/w and position w: vs_object is shared with the sky (fs_sky)
 	// and a new varying broke its interface
 	gl_Position = mul(u_viewProj, v_position);

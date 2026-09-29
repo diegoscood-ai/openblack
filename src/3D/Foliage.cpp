@@ -15,10 +15,12 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <tuple>
 #include <unordered_map>
 
 #include <LNDFile.h>
 #include <glm/geometric.hpp>
+#include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -31,6 +33,7 @@
 #include "ECS/Components/Field.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Fixed.h"
+#include "ECS/Components/MeshTint.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -557,6 +560,10 @@ Foliage::~Foliage()
 	{
 		bgfx::destroy(_quad);
 	}
+	if (bgfx::isValid(_soilQuad))
+	{
+		bgfx::destroy(_soilQuad);
+	}
 	if (bgfx::isValid(_quadIndices))
 	{
 		bgfx::destroy(_quadIndices);
@@ -579,6 +586,28 @@ void Foliage::Clear()
 	_plantCount = 0;
 	_fieldPlants.clear();
 	_fieldInstances.clear();
+	_fieldGround.clear();
+}
+
+glm::vec3 Foliage::GroundColourAt(LandIslandInterface& island, glm::vec2 point)
+{
+	// the cell's material pair for its altitude (as the terrain shader and BuildChunk pick it), mixed by the
+	// coefficient
+	const auto& materials = island.GetMaterialInfo();
+	const auto& countries = island.GetCountries();
+	const int last = island.GetCellsPerSide() - 1;
+	const auto cellCoordinates = glm::clamp(glm::ivec2(glm::floor(point / k_CellSize)), 0, last);
+	const auto& cell = island.GetCell(glm::u16vec2(cellCoordinates));
+	const auto& country = countries.at(cell.properties.country);
+	const auto altitude = island.GetCellAltitude(cell);
+	const auto& mapMaterial =
+	    altitude > 255 ? country.materials.back()
+	                   : country.materials.at((altitude + island.GetNoise(glm::u8vec2(cellCoordinates))) % country.materials.size());
+	const auto colourOf = [&materials](uint32_t index) {
+		return index < materials.size() ? materials[index].colour : glm::vec3(0.5f);
+	};
+	return glm::mix(colourOf(mapMaterial.indices[0]), colourOf(mapMaterial.indices[1]),
+	                static_cast<float>(mapMaterial.coefficient) / 255.0f);
 }
 
 uint8_t Foliage::ZoneOf(uint8_t cellFlags)
@@ -762,6 +791,33 @@ bool Foliage::Load(const std::filesystem::path& directory)
 				{
 					_fieldStagger = std::max(std::stof(value), 0.0f);
 				}
+				else if (key == "soil")
+				{
+					int width = 0;
+					int height = 0;
+					int channels = 0;
+					auto* pixels = stbi_load((directory / value).string().c_str(), &width, &height, &channels, 4);
+					if (pixels == nullptr)
+					{
+						SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", value);
+					}
+					else
+					{
+						_fieldSoil = std::make_unique<graphics::Texture2D>("FieldSoil");
+						_fieldSoil->Create(static_cast<uint16_t>(width), static_cast<uint16_t>(height), 1,
+						                   graphics::TextureFormat::RGBA8, graphics::Wrapping::ClampEdge, graphics::Filter::Linear,
+						                   bgfx::copy(pixels, static_cast<uint32_t>(width * height * 4)));
+						stbi_image_free(pixels);
+					}
+				}
+				else if (key == "ripening")
+				{
+					_fieldRipening = ParseRange(value);
+				}
+				else if (key == "soil_margin")
+				{
+					_fieldSoilMargin = std::clamp(std::stof(value), 0.0f, 1.0f);
+				}
 				else
 				{
 					SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown key {} (line {})", key, lineNumber);
@@ -944,6 +1000,18 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			{
 				species.tint = value == "none" ? Tint::None : value == "all" ? Tint::All : Tint::Grey;
 			}
+			else if (key == "ground_value")
+			{
+				species.groundValue = ParseRange(value);
+			}
+			else if (key == "ground_saturation")
+			{
+				species.groundSaturation = ParseRange(value);
+			}
+			else if (key == "cross")
+			{
+				species.cross = value == "on" || value == "yes" || value == "true" || value == "1";
+			}
 			else
 			{
 				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown key {} (line {})", key, lineNumber);
@@ -983,6 +1051,15 @@ bool Foliage::Load(const std::filesystem::path& directory)
 	                                                 -0.5f, 0.0f, 1.0f, 0.5f, 0.0f, 1.0f, 0.5f, 1.0f, 1.0f, -0.5f, 1.0f, 1.0f};
 	static constexpr std::array<uint16_t, 12> k_Indices = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
 	_quad = bgfx::createVertexBuffer(bgfx::makeRef(k_Quad.data(), sizeof(k_Quad)), quadLayout);
+	// the field soil: x, z -0.5..0.5 and uv, like the footprints of the meshes (vs_footprint_instanced)
+	bgfx::VertexLayout soilLayout;
+	soilLayout.begin()
+	    .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .end();
+	static constexpr std::array<float, 24> k_Soil = {-0.5f, -0.5f, 0.0f, 0.0f, 0.5f, -0.5f, 1.0f, 0.0f, 0.5f, 0.5f, 1.0f, 1.0f,
+	                                                 -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.5f,  1.0f, 1.0f, -0.5f, 0.5f, 0.0f, 1.0f};
+	_soilQuad = bgfx::createVertexBuffer(bgfx::makeRef(k_Soil.data(), sizeof(k_Soil)), soilLayout);
 	_quadIndices = bgfx::createIndexBuffer(bgfx::makeRef(k_Indices.data(), sizeof(k_Indices)));
 
 	SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: {} plant kinds, {} field stages, {} images", _species.size(),
@@ -1072,7 +1149,21 @@ void Foliage::Update(LandIslandInterface& island, float density, glm::vec3 camer
 	{
 		UpdateFields(island, cameraPosition, distance);
 	}
+	else if (Locator::entitiesRegistry::has_value())
+	{
+		// the option turned off: the field meshes back to their own colour
+		auto& registry = Locator::entitiesRegistry::value();
+		std::vector<entt::entity> tinted;
+		registry.Each<const ecs::components::MeshTint, const ecs::components::Field>(
+		    [&tinted](entt::entity entity, const ecs::components::MeshTint& /*unused*/,
+		               const ecs::components::Field& /*unused*/) { tinted.push_back(entity); });
+		for (const auto entity : tinted)
+		{
+			registry.Remove<ecs::components::MeshTint>(entity);
+		}
+	}
 }
+
 
 void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition, float distance)
 {
@@ -1081,7 +1172,7 @@ void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition
 		return;
 	}
 	using namespace ecs::components;
-	const auto& registry = Locator::entitiesRegistry::value();
+	auto& registry = Locator::entitiesRegistry::value();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	const glm::vec2 eye(cameraPosition.x, cameraPosition.z);
 	const float firstGrowth = _fieldStages.front().growth.x;
@@ -1093,6 +1184,36 @@ void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition
 			return;
 		}
 		const auto box = meshes.Handle(mesh.id)->GetBoundingBox();
+		// the field mesh (seen far away) is tinted like the plants: the average ground colour under it while young,
+		// its texture's own colour once ripe
+		const auto key = static_cast<uint32_t>(entt::to_integral(entity));
+		auto ground = _fieldGround.find(key);
+		if (ground == _fieldGround.end())
+		{
+			glm::vec3 sum(0.0f);
+			for (int i = 0; i < 3; ++i)
+			{
+				for (int j = 0; j < 3; ++j)
+				{
+					const glm::vec3 local(glm::mix(box.minima.x, box.maxima.x, 0.2f + 0.3f * static_cast<float>(i)), 0.0f,
+					                      glm::mix(box.minima.z, box.maxima.z, 0.2f + 0.3f * static_cast<float>(j)));
+					const glm::vec3 world = transform.position + transform.rotation * (local * transform.scale);
+					sum += GroundColourAt(island, glm::vec2(world.x, world.z));
+				}
+			}
+			ground = _fieldGround.emplace(key, sum / 9.0f).first;
+		}
+		const float own = std::clamp((field.growth - _fieldRipening.x) / std::max(_fieldRipening.y - _fieldRipening.x, 1.0f),
+		                             0.0f, 1.0f);
+		if (auto* tint = registry.TryGet<MeshTint>(entity); tint != nullptr)
+		{
+			tint->ground = ground->second;
+			tint->own = own;
+		}
+		else
+		{
+			registry.Assign<MeshTint>(entity, ground->second, own, true);
+		}
 		const glm::vec3 centre = transform.position + transform.rotation * (box.Center() * transform.scale);
 		const float radius = 0.5f * glm::length(glm::vec2(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z));
 		if (glm::distance(glm::vec2(centre.x, centre.z), eye) > distance + radius)
@@ -1183,6 +1304,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 	chunk.built = true;
 
 	std::vector<Instance> instances;
+	std::vector<Instance> crossInstances;
+	const float repeats = Locator::config::value().terrainTextureDensity;
 	const glm::vec2 mapPosition = block.GetMapPosition();
 	const auto blockOffset = glm::ivec2(block.GetBlockPosition() * 16);
 	for (int x = 0; x < 16; ++x)
@@ -1271,9 +1394,34 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					{
 						continue;
 					}
-					if (_water->DistanceTo(Water::Stream, point) < k_RiverClearance)
+						if (_water->DistanceTo(Water::Stream, point) < k_RiverClearance)
 					{
 						continue;
+					}
+					// the ground colour the tint takes (the material a few mip levels down at the terrain's uv):
+					// very dark or colourless spots would give grey plants
+					if (species.groundValue != glm::vec2(0.0f, 1.0f) || species.groundSaturation != glm::vec2(0.0f, 1.0f))
+					{
+						const auto& small = materials[materialIndex].small;
+						if (small.empty())
+						{
+							continue;
+						}
+						constexpr int k_Small = LandMaterialInfo::k_SmallSize;
+						const glm::vec2 local = (point - mapPosition) / k_BlockSize * repeats;
+						const auto wrap = [](float t) {
+							return static_cast<int>(std::floor((t - std::floor(t)) * k_Small)) % k_Small;
+						};
+						// texture u = local z, v = local x (vs_terrain), rows are v
+						const auto* texel = &small[(static_cast<size_t>(wrap(local.x)) * k_Small + wrap(local.y)) * 3];
+						const float high = std::max({texel[0], texel[1], texel[2]}) / 255.0f;
+						const float low = std::min({texel[0], texel[1], texel[2]}) / 255.0f;
+						const float saturation = high > 0.0f ? (high - low) / high : 0.0f;
+						if (high < species.groundValue.x || high > species.groundValue.y ||
+						    saturation < species.groundSaturation.x || saturation > species.groundSaturation.y)
+						{
+							continue;
+						}
 					}
 					if (!species.nearWater.empty() && std::ranges::none_of(species.nearWater, [&](uint8_t water) {
 						    const float away = _water->DistanceTo(static_cast<Water>(water), point);
@@ -1296,7 +1444,7 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					const glm::vec2 across = glm::vec2(std::cos(yaw), std::sin(yaw)) * (0.5f * width);
 					const float left = island.GetHeightAt(point - across) - height;
 					const float right = island.GetHeightAt(point + across) - height;
-					instances.push_back({{point.x, height - 0.06f * plantHeight, point.y, width},
+					(species.cross ? crossInstances : instances).push_back({{point.x, height - 0.06f * plantHeight, point.y, width},
 					                     {plantHeight, static_cast<float>(layer), luminosity, yaw},
 					                     {_layerTop[layer], species.sway, static_cast<float>(materialIndex),
 					                      static_cast<float>(species.tint)},
@@ -1306,6 +1454,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 			}
 		}
 	}
+	chunk.crossStart = static_cast<uint32_t>(instances.size());
+	instances.insert(instances.end(), crossInstances.begin(), crossInstances.end());
 	chunk.count = static_cast<uint32_t>(instances.size());
 	if (!instances.empty())
 	{
@@ -1313,6 +1463,43 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 		    bgfx::copy(instances.data(), static_cast<uint32_t>(instances.size() * sizeof(Instance))), _instanceLayout);
 	}
 	_plantCount += instances.size();
+}
+
+void Foliage::DrawFieldFootprints(bgfx::ViewId viewId, const graphics::ShaderProgram& program) const
+{
+	if (!_fieldSoil || !bgfx::isValid(_soilQuad) || !Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	using namespace ecs::components;
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	std::vector<glm::mat4> matrices;
+	Locator::entitiesRegistry::value().Each<const Field, const Transform, const Mesh>(
+	    [&](const Field& /*unused*/, const Transform& transform, const Mesh& mesh) {
+		    if (!meshes.Contains(mesh.id))
+		    {
+			    return;
+		    }
+		    const auto box = meshes.Handle(mesh.id)->GetBoundingBox();
+		    const auto size = glm::vec3(box.Size().x, 1.0f, box.Size().z) * (1.0f + 2.0f * _fieldSoilMargin);
+		    matrices.push_back(glm::translate(glm::vec3(transform.position.x, 0.0f, transform.position.z)) *
+		                       glm::mat4(transform.rotation) * glm::scale(transform.scale) *
+		                       glm::translate(glm::vec3(box.Center().x, 0.0f, box.Center().z)) * glm::scale(size));
+	    });
+	const auto count = static_cast<uint32_t>(matrices.size());
+	constexpr uint16_t k_Stride = sizeof(glm::mat4);
+	if (count == 0 || bgfx::getAvailInstanceDataBuffer(count, k_Stride) < count)
+	{
+		return;
+	}
+	bgfx::InstanceDataBuffer buffer;
+	bgfx::allocInstanceDataBuffer(&buffer, count, k_Stride);
+	std::memcpy(buffer.data, matrices.data(), matrices.size() * sizeof(glm::mat4));
+	program.SetTextureSampler("s_footprint", 0, *_fieldSoil);
+	bgfx::setVertexBuffer(0, _soilQuad);
+	bgfx::setInstanceDataBuffer(&buffer);
+	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA);
+	bgfx::submit(viewId, graphics::toBgfx(program.GetRawHandle()));
 }
 
 void Foliage::Draw(const DrawDesc& desc) const
@@ -1344,11 +1531,20 @@ void Foliage::Draw(const DrawDesc& desc) const
 		{
 			continue;
 		}
-		bgfx::setVertexBuffer(0, _quad);
-		bgfx::setIndexBuffer(_quadIndices, 0, 6); // one plane: crossed planes show as little crosses from above
-		bgfx::setInstanceDataBuffer(chunk.instances, 0, chunk.count);
-		bgfx::setState(state);
-		bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+		// one plane (crossed planes show as little crosses from above), both for the species with cross = on
+		for (const auto& [first, count, indices] : {std::tuple {0u, chunk.crossStart, 6u},
+		                                            std::tuple {chunk.crossStart, chunk.count - chunk.crossStart, 12u}})
+		{
+			if (count == 0)
+			{
+				continue;
+			}
+			bgfx::setVertexBuffer(0, _quad);
+			bgfx::setIndexBuffer(_quadIndices, 0, indices);
+			bgfx::setInstanceDataBuffer(chunk.instances, first, count);
+			bgfx::setState(state);
+			bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+		}
 	}
 	// the crop fields' plants change with the fields: rebuilt every frame (a few thousand at most)
 	const auto fieldCount = static_cast<uint32_t>(_fieldInstances.size());

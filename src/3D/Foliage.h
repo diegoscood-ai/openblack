@@ -69,6 +69,9 @@ public:
 		std::vector<uint8_t> notZones;  ///< never in cells with these zones
 		glm::vec2 waterDistance {0.0f, 8.0f};
 		Tint tint {Tint::Grey};
+		glm::vec2 groundValue {0.0f, 1.0f};      ///< brightness range of the ground colour under the plant (0..1)
+		glm::vec2 groundSaturation {0.0f, 1.0f}; ///< saturation range of that colour
+		bool cross {false};                      ///< two crossed planes instead of one
 	};
 
 	/// One growth stage of the plants of a crop field (a [field_stage ...] section of foliage.cfg)
@@ -138,6 +141,9 @@ public:
 	/// Draws the plants within the distance (alpha tested, in the opaque pass)
 	void Draw(const DrawDesc& desc) const;
 
+	/// Draws the crop fields' soil ([field] soil image) into the island's footprint texture (view already bound)
+	void DrawFieldFootprints(bgfx::ViewId viewId, const graphics::ShaderProgram& program) const;
+
 	/// Plants currently placed (for the log)
 	[[nodiscard]] size_t GetPlantCount() const noexcept { return _plantCount; }
 
@@ -159,6 +165,7 @@ private:
 		bool built {false};
 		bgfx::VertexBufferHandle instances {BGFX_INVALID_HANDLE};
 		uint32_t count {0};
+		uint32_t crossStart {0}; ///< the instances from here on draw two crossed planes
 	};
 
 	/// One plant of a crop field, placed once per field
@@ -179,16 +186,24 @@ private:
 	void Clear();
 	void BuildChunk(LandIslandInterface& island, size_t blockIndex, float density);
 	void UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition, float distance);
+	/// The average colour of the landscape texture at a point (its cell's materials for the altitude)
+	[[nodiscard]] static glm::vec3 GroundColourAt(LandIslandInterface& island, glm::vec2 point);
 
 	std::vector<Species> _species;
 	std::vector<FieldStage> _fieldStages;
 	float _fieldSpacing {1.0f};  ///< [field] spacing: units between the plants of a field
 	float _fieldStagger {60.0f}; ///< [field] stagger: growth units a plant may be ahead of or behind its field
+	/// [field] ripening: the growth over which the far field mesh goes from the ground colour to its own
+	glm::vec2 _fieldRipening {350.0f, 1200.0f};
+	std::unordered_map<uint32_t, glm::vec3> _fieldGround; ///< per field entity: the average ground colour under it
 	std::unordered_map<uint32_t, std::vector<FieldPlant>> _fieldPlants; ///< per field entity
 	std::vector<Instance> _fieldInstances;                             ///< this frame's field plants
 	std::vector<float> _layerTop;    ///< per layer: v of the image's top edge (images sit on the bottom of the layer)
 	std::vector<float> _layerAspect; ///< per layer: image height / width
 	std::unique_ptr<graphics::Texture2D> _texture;
+	std::unique_ptr<graphics::Texture2D> _fieldSoil;    ///< [field] soil: drawn under the fields like a footprint
+	float _fieldSoilMargin {0.1f};                      ///< [field] soil_margin: share of the field added on each side
+	bgfx::VertexBufferHandle _soilQuad {BGFX_INVALID_HANDLE};
 	bgfx::VertexBufferHandle _quad {BGFX_INVALID_HANDLE};
 	bgfx::IndexBufferHandle _quadIndices {BGFX_INVALID_HANDLE};
 	bgfx::VertexLayout _instanceLayout;

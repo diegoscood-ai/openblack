@@ -660,6 +660,12 @@ void Renderer::DrawFootprintPass(const DrawSceneDesc& drawDesc) const
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(footprintShaderInstanced->GetRawHandle()));
 		}
 		DrawRiverFootprints(static_cast<bgfx::ViewId>(viewId), false);
+		// mod world.foliage, fields = wheat: tilled soil under the crop fields
+		const auto& config = Locator::config::value();
+		if (_foliage && config.foliageFields && config.foliageDensity > 0.0f)
+		{
+			_foliage->DrawFieldFootprints(static_cast<bgfx::ViewId>(viewId), *footprintShaderInstanced);
+		}
 	}
 }
 

@@ -18,6 +18,7 @@
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/MeshTint.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
@@ -206,6 +207,17 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		        sink != nullptr && registry.AllOf<MorphWithTerrain>(entity))
 		    {
 			    _renderContext.instanceUniforms[idx][2][3] = sink->offset.value;
+		    }
+		    // components::MeshTint in the same w, far above any sink offset: 1e6 (2e6 dissolving) + 5 bits each of the
+		    // ground colour (r, g, b from the bottom) and of `own` (bits 15-19)
+		    if (const auto* tint = registry.TryGet<const MeshTint>(entity); tint != nullptr)
+		    {
+			    const auto bits = [](float value) {
+				    return static_cast<uint32_t>(std::clamp(value * 31.0f + 0.5f, 0.0f, 31.0f));
+			    };
+			    const auto packed = bits(tint->own) * 32768u + bits(tint->ground.r) * 1024u + bits(tint->ground.g) * 32u +
+			                        bits(tint->ground.b);
+			    _renderContext.instanceUniforms[idx][2][3] = (tint->dissolve ? 2e6f : 1e6f) + static_cast<float>(packed);
 		    }
 		    if (drawBoundingBox)
 		    {

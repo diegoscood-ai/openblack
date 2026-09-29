@@ -307,7 +307,31 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 			sum += glm::vec3(texel.r, texel.g, texel.b);
 		}
 		const auto colour = sum / (31.0f * static_cast<float>(material.texels.size()));
-		_materialInfo.push_back({material.type, pictureMaterials[i] != 0, colour});
+		constexpr int k_Small = LandMaterialInfo::k_SmallSize;
+		constexpr int k_Box = lnd::LNDMaterial::k_Width / k_Small;
+		std::vector<uint8_t> small(static_cast<size_t>(k_Small) * k_Small * 3);
+		for (int y = 0; y < k_Small; ++y)
+		{
+			for (int x = 0; x < k_Small; ++x)
+			{
+				glm::vec3 box(0.0f);
+				for (int dy = 0; dy < k_Box; ++dy)
+				{
+					for (int dx = 0; dx < k_Box; ++dx)
+					{
+						const auto& texel = material.texels[static_cast<size_t>(y * k_Box + dy) * lnd::LNDMaterial::k_Width +
+						                                    static_cast<size_t>(x * k_Box + dx)];
+						box += glm::vec3(texel.r, texel.g, texel.b);
+					}
+				}
+				box *= 255.0f / (31.0f * k_Box * k_Box);
+				for (int c = 0; c < 3; ++c)
+				{
+					small[(static_cast<size_t>(y) * k_Small + x) * 3 + c] = static_cast<uint8_t>(box[c] + 0.5f);
+				}
+			}
+		}
+		_materialInfo.push_back({material.type, pictureMaterials[i] != 0, colour, std::move(small)});
 	}
 
 	// build the meshes (we could move this elsewhere)

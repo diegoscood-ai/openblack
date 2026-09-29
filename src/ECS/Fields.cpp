@@ -11,7 +11,10 @@
 
 #include <algorithm>
 
+#include <glm/geometric.hpp>
+
 #include "3D/L3DMesh.h"
+#include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Field.h"
@@ -91,7 +94,11 @@ void openblack::ecs::UpdateFields(float seconds)
 			const float height = meshes.Contains(mesh.id) ? meshes.Handle(mesh.id)->GetBoundingBox().Size().y : 1.0f;
 			sink = &registry.Assign<PileSink>(entity, transform.position.y, height);
 		}
-		const float v = field.food / Field::k_TotalFood - 1.0f;
+		// mod world.foliage, fields = wheat: the mesh is only the far view of the plants, whole and tinted by the
+		// growth (Foliage::UpdateFields), so it doesn't sink with the food
+		const auto& config = Locator::config::value();
+		const bool plants = config.foliageFields && config.foliageDensity > 0.0f;
+		const float v = plants ? 0.0f : field.food / Field::k_TotalFood - 1.0f;
 		if (std::abs(v - field.sinkTarget) > 1e-4f || !field.sinkStarted)
 		{
 			field.sinkTarget = v;
@@ -108,15 +115,23 @@ void openblack::ecs::UpdateFields(float seconds)
 			shown = -0.8f;
 		}
 		// not drawn at all below a quarter of the growing age or 25 food
-		if (field.growth < 0.25f * Field::k_AgeGrowth || field.food < 25.0f)
+		if (!plants && (field.growth < 0.25f * Field::k_AgeGrowth || field.food < 25.0f))
 		{
 			alpha = 0.0f;
 		}
-		// mod world.foliage, fields = wheat: the plants of 3D/Foliage stand in for the mesh (still there for the hand)
-		const auto& config = Locator::config::value();
-		if (config.foliageFields && config.foliageDensity > 0.0f)
+		// mod world.foliage, fields = wheat: the plants of 3D/Foliage stand in for the mesh (still there for the hand);
+		// far away, where the plants shrink into the ground (the last fifth of the draw distance), the mesh fades in
+		// (nothing while unsown or emptied)
+		if (plants)
 		{
-			alpha = 0.0f;
+			alpha = field.crops >= Field::k_TimesToSow && field.food >= 1.0f ? 1.0f : 0.0f;
+			float far = 0.0f;
+			if (Locator::camera::has_value())
+			{
+				const float away = glm::distance(Locator::camera::value().GetOrigin(), transform.position);
+				far = std::clamp((away - 0.8f * config.foliageDistance) / (0.2f * config.foliageDistance), 0.0f, 1.0f);
+			}
+			alpha = std::min(alpha, far);
 		}
 		sink->offset.SetPosition(2.0f * shown * transform.scale.y * sink->height);
 		transform.position.y = sink->baseY + sink->offset.value;

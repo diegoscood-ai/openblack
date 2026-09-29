@@ -454,10 +454,22 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::vec3& origin, const glm::vec3& dir) const noexcept
 {
 	// GInterface::SendObjectDrawCollision 0x5D56C0: every drawn object is tested with an exact triangle collide
-	// (LH3DObject::CheckTriangleCollide) and the nearest wins; objects in the hand are skipped.
+	// (LH3DObject::CheckTriangleCollide) and the nearest wins; objects in the hand are skipped. Villagers (the LH3D
+	// "human" flag, set only by Villager::CallVirtualFunctionsForCreation 0x74FC70) have no triangle test: they count
+	// when the mouse is inside the screen circle of their bounding sphere (LH3DBoundingBox::CheckRegionOnScreen
+	// 0x868C80), at the distance |centre - camera| - (R + near clip).
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& meshes = Locator::resources::value().GetMeshes();
 	const auto& terrain = Locator::terrainSystem::value();
+	glm::vec3 forward = dir;
+	float nearClip = 0.3f;
+	if (Locator::camera::has_value())
+	{
+		forward = glm::normalize(Locator::camera::value().GetForward());
+		// LandFeature::GetNearClipping 0x5E2F30: 0.3 + 0.16 x the camera's height over the land, 0.3..3.5
+		const float h = origin.y - terrain.GetHeightAt(glm::vec2(origin.x, origin.z));
+		nearClip = h <= 0.0f ? 0.3f : h > 20.0f ? 3.5f : 0.3f + 0.16f * h;
+	}
 	std::optional<CursorHit> best;
 	float bestT = std::numeric_limits<float>::max();
 	const auto skip = [&](entt::entity entity) {
@@ -492,9 +504,34 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 			const auto* sink = registry.TryGet<const PileSink>(entity);
 			position.y = terrain.GetHeightAt(glm::vec2(position.x, position.z)) + (sink != nullptr ? sink->offset.value : 0.0f);
 		}
-		// Cheap reject: the ray against the bounding sphere.
 		const auto centre = position + transform.rotation * (transform.scale * box.Center());
 		const float radius = 0.5f * glm::length(transform.scale * box.Size());
+		if (registry.AllOf<Villager>(entity))
+		{
+			// the mouse ray at the view depth of the centre, against the sphere there (the projected circle)
+			const float depth = glm::dot(centre - origin, forward);
+			const float along = glm::dot(dir, forward);
+			if (depth + radius < nearClip || along <= 0.0f)
+			{
+				return;
+			}
+			const auto onPlane = origin + dir * (depth / along);
+			if (glm::distance(onPlane, centre) > radius && glm::distance(origin, centre) > radius)
+			{
+				return;
+			}
+			const glm::vec3 top(position.x, position.y + 0.5f * box.Size().y * transform.scale.y, position.z);
+			const float d = glm::distance(top, origin) - (radius + nearClip);
+			if (d < bestT)
+			{
+				bestT = d;
+				const auto lo = position + transform.rotation * (transform.scale * box.minima);
+				const auto hi = position + transform.rotation * (transform.scale * box.maxima);
+				best = CursorHit {entity, d, glm::min(lo, hi), glm::max(lo, hi)};
+			}
+			return;
+		}
+		// Cheap reject: the ray against the bounding sphere.
 		const auto oc = origin - centre;
 		const float b = glm::dot(oc, dir);
 		const float c = glm::dot(oc, oc) - radius * radius;
@@ -544,10 +581,10 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 		dir = glm::normalize(*land - origin + glm::vec3(0.0f, h * 0.6f, 0.0f));
 	}
 
-	// UpdateInterfaceCollide 0x5D5A70: when the land is nearer than the object, the object is kept only if the land
-	// point lies inside its XZ bounding-box footprint.
+	// UpdateInterfaceCollide 0x5D5A70: the land pick counts 2.3 further than it is (fn_005D5980); when it is still
+	// nearer than the object, the object is kept only if the land point lies inside its XZ bounding-box footprint.
 	auto hit = PickObjectAlongRay(origin, dir);
-	if (hit && landDistance && *landDistance < hit->t)
+	if (hit && landDistance && *landDistance + 2.3f < hit->t)
 	{
 		const auto& l = *land;
 		if (l.x < hit->boxMin.x || l.x > hit->boxMax.x || l.z < hit->boxMin.z || l.z > hit->boxMax.z)

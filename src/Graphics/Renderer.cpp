@@ -1198,6 +1198,11 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	const int frame = _clouds->GetFrame();
 	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
 	                        210.0f / 256.0f, 0.0f);
+	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
+	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above. TODO: the two
+	// corrections proven for the mists (the object matrix is the transpose of (right, -forward, up), and the shrink
+	// only scales local Y and Z) apply to the clouds too; that is a task of its own, the sky changes everywhere.
+	const glm::vec4 u_cloudSpecular(0.0f);
 	const auto* program = _shaderManager->GetShader("Cloud");
 	// mist.l3d is loaded without skins; LH3DMist::Draw (fn_007FA300) uses the smoke material instead
 	const auto& textures = Locator::resources::value().GetTextures();
@@ -1223,6 +1228,9 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		{
 			continue;
 		}
+		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
+		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
+		                             0.0f);
 		for (const auto& subMesh : mesh.GetSubMeshes())
 		{
 			for (const auto& prim : subMesh->GetPrimitives())
@@ -1232,6 +1240,8 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 				program->SetTextureSampler("s_alpha", 1, smokeAlpha);
 				program->SetUniformValue("u_cloud", &u_cloud);
 				program->SetUniformValue("u_cloudColour", &u_cloudColour);
+				program->SetUniformValue("u_cloudLight", &u_cloudLight);
+				program->SetUniformValue("u_cloudSpecular", &u_cloudSpecular);
 				if (subMesh->GetMesh().IsIndexed())
 				{
 					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
@@ -2218,6 +2228,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		}
 	}
 
+	bool mistsSorted = false; ///< the mists went through the back-to-front list of the blended models
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawModels
 		                                                                          : Profiler::Stage::MainPassDrawModels);
@@ -2279,6 +2290,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		};
 		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
 		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
+		// LH3DMist::AddDrawing 0x7FA7F0 sends every mist on screen to the same Z-sorter (key |pos - camera|^2)
+		mistsSorted = desc.drawEntities && desc.drawSky && desc.viewId == graphics::RenderPass::Main;
 
 		if (desc.drawEntities)
 		{
@@ -2335,6 +2348,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				bool fading;
 				entt::entity sprite {entt::null};
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
+				entt::entity mist {entt::null};
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2438,6 +2452,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
 				    });
 			}
+			if (mistsSorted)
+			{
+				for (const auto& [distance, entity] : CollectMists(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, entity});
+				}
+			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
@@ -2452,6 +2473,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.effect >= 0)
 					{
 						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
+						continue;
+					}
+					if (instance.mist != entt::null)
+					{
+						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, instance.mist);
 						continue;
 					}
 					if (instance.sprite != entt::null)
@@ -2544,7 +2570,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	if (desc.drawSky && desc.viewId == graphics::RenderPass::Main)
 	{
 		DrawClouds(graphics::RenderPass::MainBlended, *desc.camera);
-		DrawMists(graphics::RenderPass::MainBlended, *desc.camera);
+		if (!mistsSorted)
+		{
+			DrawMists(graphics::RenderPass::MainBlended, *desc.camera);
+		}
 		DrawSun(graphics::RenderPass::MainBlended, *desc.camera, true);
 	}
 

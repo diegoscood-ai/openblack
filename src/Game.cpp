@@ -35,6 +35,7 @@
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/LanternSounds.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -373,6 +374,8 @@ bool Game::GameLogicLoop() noexcept
 		}
 		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
+		// GGame::EndTurn: SoundTag::ProcessSoundTags 0x71E5F0, the street lanterns' looping sample
+		audio::lantern_sounds::ProcessTurn();
 		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
@@ -1172,6 +1175,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	ecs::ClearFireFlies();
 	ecs::ClearForests();
 	night_lights::Clear();
+	// before the registry reset: it destroys the emitters without freeing their sources, and a looping one would go on
+	audio::lantern_sounds::Clear();
 
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());

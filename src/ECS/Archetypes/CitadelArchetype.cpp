@@ -18,6 +18,7 @@
 
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "3D/LandIslandInterface.h"
@@ -90,8 +91,16 @@ entt::entity CitadelArchetype::Create(const glm::vec3& position, PlayerNames pla
 	return entity;
 }
 
-entt::entity CitadelArchetype::CreatePlan(int32_t /*townId*/, const glm::vec3& position, PlayerNames playerOwner,
-                                          const glm::mat4& rotation, const glm::vec3& size)
+/// CREATE_PLANNED_CITADEL (0x715E91) makes, in the original, only a PlannedTownCitadelHeart on the town's planned list
+/// (invisible, no land flattening). The temple appears when the plan is converted
+/// (PlannedTownCitadelHeart::CreatePlannedNoFixedCheck 0x467EF0) by BUILD_BUILDING in Land 1 or by the villagers'
+/// civic building requests in the other lands, at 0 % built and then built by the villagers. None of that exists in
+/// openblack yet (town desires, building sites, partial drawing), so, not to lose the temple, it is made here already
+/// built. What does follow the conversion: the owner is the town's player (town->GetPlayer), not the script's, and the
+/// temple is drawn at scale 1 (CallVirtualFunctionsForCreation 0x4675A0 pushes 1.0; the plan's scale is only the
+/// heart's).
+entt::entity CitadelArchetype::CreatePlan(entt::entity town, const glm::vec3& position, const glm::mat4& rotation)
 {
-	return Create(position, playerOwner, rotation, size);
+	const auto owner = Locator::entitiesRegistry::value().Get<Town>(town).owner;
+	return Create(position, owner, rotation, glm::vec3(1.0f));
 }

@@ -69,7 +69,8 @@ entt::entity StreetLanternArchetype::Create(const glm::vec3& position, MobileSta
 	ecs::object_index::Assign(entity);
 	// +0x58 = (info != GMobileStaticInfo[7]); CallVirtualFunctionsForCreation 0x734810: mesh 148 (MSH_B_CAMPFIRE) for a
 	// country lantern, else 398 (MSH_O_TOWNLIGHT), LH3DObject::SetPosition((x, GetAltitude + y, z), angle 0, scale 1)
-	// and the light fn_00823240(that point, +0x58). TODO: the sound 0x93 (fn_0071E8C0) of a town lantern.
+	// and the light fn_00823240(that point, +0x58). It also creates the sound tag of sample 0x93 (fn_0071E8C0), for
+	// either kind of lantern: the looping G_Lantern_01 that audio::lantern_sounds::ProcessTurn starts at night.
 	const bool country = info != MobileStaticInfo::StreetLantern;
 	registry.Assign<Transform>(entity, position, glm::mat3(1.0f), glm::vec3(1.0f));
 	const auto resourceId = resources::HashIdentifier(country ? MeshId::BuildingCampfire : MeshId::ObjectTownLight);

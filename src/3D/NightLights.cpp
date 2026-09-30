@@ -18,6 +18,7 @@
 #include <entt/entity/entity.hpp>
 #include <spdlog/spdlog.h>
 
+#include "Audio/LanternSounds.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"
@@ -400,6 +401,8 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 	const float mean = (std::floor(baseColour.r * 255.0f + 0.5f) + std::floor(baseColour.g * 255.0f + 0.5f) +
 	                    std::floor(baseColour.b * 255.0f + 0.5f)) /
 	                   3.0f;
+	// fn_007349E0(dark): the lanterns' looping sample is heard only while it is dark (both branches of 0x5E5921 call it)
+	audio::lantern_sounds::SetOn(mean < 120.0f);
 	float villageAlpha = 0.0f; // [0xEB99BC]
 	if (mean < 120.0f)
 	{

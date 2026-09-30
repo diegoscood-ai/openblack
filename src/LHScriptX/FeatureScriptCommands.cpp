@@ -44,10 +44,12 @@
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Flock.h"
 #include "ECS/Components/Footpath.h"
+#include "ECS/Components/Mesh.h"
 #include "ECS/Components/MapSimData.h"
 #include "ECS/Components/Stream.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCollide.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -165,6 +167,21 @@ Climate* FindClimate(int32_t id)
 		}
 	}
 	return nullptr;
+}
+
+/// MultiMapFixed::InsertMapObject 0x52E650 for an object the script made: its collide data (the mesh's, with the
+/// script's angle and scale, not openblack's transform, which has the altitude and the x/z angles) for the
+/// IsOkToCreateAtPos of the trees, pots and mobile objects after it
+void RegisterFixed(entt::entity entity, const glm::vec3& position, float yAngle, float scale, std::string_view what)
+{
+	if (entity == entt::null)
+	{
+		return;
+	}
+	if (const auto* mesh = Locator::entitiesRegistry::value().TryGet<Mesh>(entity); mesh != nullptr)
+	{
+		ecs::map_collide::RegisterFixed(mesh->id, position, yAngle, scale, what);
+	}
 }
 
 } // namespace
@@ -366,8 +383,9 @@ void FeatureScriptCommands::CreateAbode(int32_t townId, glm::vec3 position, cons
 	{
 		return; // openblack: the original has no check (see GAbodeInfo::Find)
 	}
-	AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f, static_cast<uint32_t>(foodAmount),
-	                       static_cast<uint32_t>(woodAmount));
+	const auto abode = AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f,
+	                                          static_cast<uint32_t>(foodAmount), static_cast<uint32_t>(woodAmount));
+	RegisterFixed(abode, position, rotation * 0.001f, size * 0.001f, abodeInfo);
 }
 
 void FeatureScriptCommands::CreatePlannedAbode(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
@@ -403,6 +421,7 @@ void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position,
 	}
 	const auto centre = AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f,
 	                                           static_cast<uint32_t>(0), static_cast<uint32_t>(0));
+	RegisterFixed(centre, position, rotation * 0.001f, size * 0.001f, abodeInfo);
 	if (centre == entt::null || type == AbodeInfo::None ||
 	    Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).abodeType != AbodeType::TownCentre)
 	{
@@ -483,17 +502,27 @@ void FeatureScriptCommands::CreateVillagerPos(glm::vec3 abodePosition, glm::vec3
 }
 
 void FeatureScriptCommands::CreateCitadel(glm::vec3 position, int32_t, const std::string& playerOwner, int32_t rotation,
-                                          int32_t size)
+                                          int32_t /*size*/)
 {
-	CitadelArchetype::Create(position, GetPlayerName(playerOwner), GetRotation(rotation), GetSize(size));
+	// Citadel::CreateCitadel 0x463240 passes (angle, scale 1.0, life 1.0, 0) to CitadelHeart::Create: the script's size is
+	// ignored (some lands pass 0, 300 or 4121) and the temple is made built
+	CitadelArchetype::Create(position, GetPlayerName(playerOwner), GetRotation(rotation), glm::vec3(1.0f));
 	// CitadelHeart, its visual object and the TempleLeash (the worship sites of the player's towns are not made yet)
 	ecs::object_index::Skip(3);
 }
 
 void FeatureScriptCommands::CreatePlannedCitadel(int32_t townId, glm::vec3 position, int32_t, const std::string& playerOwner,
-                                                 int32_t rotation, int32_t size)
+                                                 int32_t rotation, int32_t /*size*/)
 {
-	CitadelArchetype::CreatePlan(townId, position, GetPlayerName(playerOwner), GetRotation(rotation), GetSize(size));
+	// 0x715E91: needs the town (FindTownWithID) and a valid player string (GetPlayerFromText, only checked), else nothing
+	const auto town = FindTown(townId);
+	if (town == entt::null || !k_PlayerLookup.contains(playerOwner))
+	{
+		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), R"(LHScriptX: CREATE_PLANNED_CITADEL: no town {} or player "{}", skipped)",
+		                   townId, playerOwner);
+		return;
+	}
+	CitadelArchetype::CreatePlan(town, position, GetRotation(rotation));
 }
 
 void FeatureScriptCommands::CreateCreaturePen([[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t, int32_t, int32_t)
@@ -548,13 +577,20 @@ void FeatureScriptCommands::CreateDeadTree(glm::vec3 position, [[maybe_unused]] 
 {
 	// case 43 (0x716E64): fn_00510BB0(pos, GTreeInfo[type], GetPlayerFromText(player), F3 life, F4, F5, F6, 0): a DeadTree
 	// with the type's normal mesh, SetLife(F3) and SetXYZAnglesAndScale(F4, F5, F6, 1). The player is not drawn.
-	DeadTreeArchetype::Create(position, treeType, life, xAngle, yAngle, zAngle);
+	const auto deadTree = DeadTreeArchetype::Create(position, treeType, life, xAngle, yAngle, zAngle);
+	RegisterFixed(deadTree, position, yAngle, 1.0f, "dead tree");
 }
 
 void FeatureScriptCommands::CreateNewTree(int32_t forestId, glm::vec3 position, TreeInfo treeType, int32_t isNonScenic,
                                           float rotation, float currentSize, float maxSize)
 {
+	// cases 27 and 28 (0x716235 / 0x7162EE): nothing on top of another object (no log; the script goes on)
+	if (!ecs::map_collide::IsOkToCreateAtPos(position, "CREATE_NEW_TREE"))
+	{
+		return;
+	}
 	TreeArchetype::Create(forestId, position, treeType, static_cast<bool>(isNonScenic), rotation, maxSize, currentSize);
+	ecs::map_collide::RegisterTree(position);
 }
 
 void FeatureScriptCommands::CreateField(glm::vec3 position, FieldTypeInfo type)
@@ -586,7 +622,8 @@ void FeatureScriptCommands::CreateTownFishFarm(int32_t townId, glm::vec3 positio
 
 void FeatureScriptCommands::CreateFeature(glm::vec3 position, FeatureInfo type, int32_t rotation, int32_t scale, int32_t)
 {
-	FeatureArchetype::Create(position, type, rotation * 0.001f, scale * 0.001f);
+	const auto feature = FeatureArchetype::Create(position, type, rotation * 0.001f, scale * 0.001f);
+	RegisterFixed(feature, position, rotation * 0.001f, scale * 0.001f, "feature");
 }
 
 void FeatureScriptCommands::CreateFlowers([[maybe_unused]] glm::vec3 position, int32_t, float, float)
@@ -615,8 +652,8 @@ void FeatureScriptCommands::CreatePitch([[maybe_unused]] glm::vec3 position, int
 
 void FeatureScriptCommands::CreatePot(glm::vec3 position, PotInfo type, int32_t /*unused*/, int32_t amount)
 {
-	// case 38 (0x716B19): nothing for an amount <= 0
-	if (amount <= 0)
+	// case 38: nothing on top of another object (0x716B0C), then nothing for an amount <= 0 (0x716B19)
+	if (!ecs::map_collide::IsOkToCreateAtPos(position, "CREATE_POT") || amount <= 0)
 	{
 		return;
 	}
@@ -631,20 +668,28 @@ void FeatureScriptCommands::CreateTownTemporaryPots(int32_t, int32_t, int32_t)
 
 void FeatureScriptCommands::CreateMobileObject(glm::vec3 position, MobileObjectInfo type, int32_t rotation, int32_t scale)
 {
+	// case 40 (0x716C71): nothing on top of another object
+	if (!ecs::map_collide::IsOkToCreateAtPos(position, "CREATE_MOBILEOBJECT"))
+	{
+		return;
+	}
 	MobileObjectArchetype::Create(position, type, rotation * 0.001f, scale * 0.001f);
 }
 
 void FeatureScriptCommands::CreateMobileStatic(glm::vec3 position, MobileStaticInfo type, float yRotation, float scale)
 {
 	// CREATE_MOBILESTATIC "ANFF", case 41 (0x716D46): fn_00608770(pos, info, 0, 0, F2, F3)
-	MobileStaticArchetype::CreateFromInfo(position, type, 0.0f, yRotation, scale);
+	const auto object = MobileStaticArchetype::CreateFromInfo(position, type, 0.0f, yRotation, scale);
+	RegisterFixed(object, position, yRotation, scale, "mobile static");
 }
 
 void FeatureScriptCommands::CreateMobileUStatic(glm::vec3 position, MobileStaticInfo type, float verticalOffset,
                                                 float xRotation, float yRotation, float zRotation, float scale)
 {
 	// CREATE_MOBILE_STATIC "ANFFFFF", case 42 (0x716DC1): fn_00608840(pos with relY = F2, info, 0, 0, F3, F4, F5, F6)
-	MobileStaticArchetype::CreateWithXYZAngles(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
+	const auto object =
+	    MobileStaticArchetype::CreateWithXYZAngles(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
+	RegisterFixed(object, position, yRotation, scale, "mobile static");
 }
 
 void FeatureScriptCommands::CreateScaffold(int32_t, [[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t)
@@ -716,6 +761,7 @@ void FeatureScriptCommands::CreateFlock(int32_t flockId, glm::vec3 position, glm
 void FeatureScriptCommands::LoadLandscape(const std::string& path)
 {
 	Game::Instance()->LoadLandscape(path);
+	ecs::map_collide::Clear();
 }
 
 void FeatureScriptCommands::Version(float version)
@@ -904,7 +950,7 @@ void FeatureScriptCommands::LinkFootpath(int32_t footpathId)
 void FeatureScriptCommands::CreateBonfire(glm::vec3 position, [[maybe_unused]] float temperature, float yAngle, float scale)
 {
 	// case 73 (0x7176AE): fn_00439850(pos, F1 temperature, F2 Y angle, F3 scale); the ctor 0x4395C0 ignores F1
-	BonfireArchetype::Create(position, yAngle, scale);
+	RegisterFixed(BonfireArchetype::Create(position, yAngle, scale), position, yAngle, scale, "bonfire");
 }
 
 void FeatureScriptCommands::CreateBase([[maybe_unused]] glm::vec3 position, int32_t)
@@ -928,7 +974,8 @@ void FeatureScriptCommands::CreateNewFeature(glm::vec3 position, const std::stri
 	{
 		return; // openblack: the original has no check (see GFeatureInfo::Find)
 	}
-	FeatureArchetype::Create(position, info, rotation * 0.001f, scale * 0.001f);
+	RegisterFixed(FeatureArchetype::Create(position, info, rotation * 0.001f, scale * 0.001f), position, rotation * 0.001f,
+	              scale * 0.001f, type);
 }
 
 void FeatureScriptCommands::SetInteractDesire(float)
@@ -1004,7 +1051,8 @@ void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::
 	{
 		return; // openblack: the original has no check (see GAnimatedStaticInfo::Find)
 	}
-	AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f);
+	RegisterFixed(AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f), position,
+	              rotation * 0.001f, scale * 0.001f, type);
 }
 
 void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, float probability)
@@ -1041,14 +1089,21 @@ void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, flo
 void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 position, FieldTypeInfo townFieldType, float rotation)
 {
 	// Rotation is in radians and not scaled
-	FieldArchetype::Create(townId, position, townFieldType, rotation);
+	// the town's ABODE_FIELD abode (mesh 594), angle F3, scale 1
+	RegisterFixed(FieldArchetype::Create(townId, position, townFieldType, rotation), position, rotation, 1.0f, "field");
 }
 
-void FeatureScriptCommands::CreateSpellDispenser(int32_t, [[maybe_unused]] glm::vec3 position, const std::string&,
-                                                 const std::string&, float, float, float)
+void FeatureScriptCommands::CreateSpellDispenser(int32_t, glm::vec3 position, const std::string& abodeInfo,
+                                                 const std::string&, float yAngle, float scale, float)
 {
 	// not implemented; the dispenser and its spell seed are counted
 	ecs::object_index::Skip(2);
+	// it is a MultiMapFixed with the abode's mesh, the angle F4 and the scale F5: it blocks the trees made after it
+	if (const auto type = GAbodeInfo::Find(abodeInfo); type != AbodeInfo::None)
+	{
+		const auto meshId = Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).meshId;
+		ecs::map_collide::RegisterFixed(resources::HashIdentifier(meshId), position, yAngle, scale, abodeInfo);
+	}
 	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
 	// __func__);
 }

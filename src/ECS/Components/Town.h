@@ -37,6 +37,9 @@ struct PlannedAbode
 struct Town
 {
 	uint32_t id;
+	/// +0x2C, Town::GetPlayer: the player given to CREATE_TOWN (the neutral player when none, Town ctor 0x739545).
+	/// Planned citadels belong to it, not to the player named in CREATE_PLANNED_CITADEL (0x467EF0).
+	PlayerNames owner {PlayerNames::NEUTRAL};
 	std::unordered_map<std::string, float> beliefs;
 	bool uninhabitable = false; ///< +0x5F4, SET_TOWN_UNINHABITABLE (0x715542)
 	std::set<entt::entity> homelessVillagers;

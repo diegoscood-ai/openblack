@@ -18,10 +18,12 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <SDL.h>
 #include <bgfx/bgfx.h>
+#include <entt/entity/fwd.hpp>
 #include <glm/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -73,8 +75,14 @@ class Renderer final: public RendererInterface
 	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
-	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front after the clouds (RendererMists.cpp)
+	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front on their own (RendererMists.cpp);
+	/// only when they cannot go through the main pass's back-to-front list
 	void DrawMists(graphics::RenderPass viewId, const Camera& camera) const;
+	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen with their distance to the camera (their Z-sorter key), and
+	/// their animation counters advanced (once per frame)
+	std::vector<std::pair<float, entt::entity>> CollectMists(const Camera& camera) const;
+	/// One mist, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
+	void DrawMist(graphics::RenderPass viewId, const Camera& camera, entt::entity entity) const;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
 	void DrawObjectReflections(graphics::RenderPass viewId) const;
 	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)

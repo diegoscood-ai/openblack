@@ -89,6 +89,42 @@ original, hasta el sexto decimal.
   - Falta el quad aditivo de la mano sobre el agua (±60, `atmos.raw`) y las dos luces de la puerta nórdica
     (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta).
   - Informe: `night_visuals.txt`, secciones 3 y 5.
+- **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`; informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
+  `d_soundtag.txt`, `d_gaudio_sfx.txt`, `d_5e5830.txt`, `d_streetlantern.txt`, script `sadhdr.py`):
+  - **Creación**: `GStreetLantern::CallVirtualFunctionsForCreation` 0x734810 crea un `SoundTag` (`fn_0071E8C0`,
+    +0x60) con desplazamiento (0, `Object::GetHeight` 0x638120, 0), muestra 0x93, 3D, modo 2, bucles −1, banco 1
+    (`Audio\SFX\Game\InGame.sad`) y luego `SetActive([0xDA0A10])`. **Las dos clases de farolillo** lo tienen (no mira
+    +0x58); no lo tiene el objeto con la marca UNAVAILABLE (+0xA & 1).
+  - **Muestra**: 0x93 = LH_SAMPLE_G_LANTERN_01 (147) = `G_Lantern_01.wav`, 22050 Hz, ~4,1 s, prioridad 200, marcas de
+    sustitución 0x7C0: bucles −1, minDist 3, maxDist 5, escala 4, modo 2. Sin marca de volumen ni de tono, así que
+    volumen 127 (ganancia 1) y tono 100 % con la desviación del ±15 % de siempre. Modo 2 = un canal por farola: si ya
+    suena, no hace nada.
+  - **Interruptor día/noche**: `fn_007349E0(on)` guarda [0xDA0A10] y hace `SoundTag::SetActive` en cada farola. Único
+    llamador `fn_005E5830` (`GLandscape::Draw`, cada fotograma): 1 cuando la media de la base de la tabla de luz es
+    **< 120** (la misma prueba que la mano y las luces del pueblo, sin prueba de hora), 0 si no. `SetActive(0)` llama a
+    `StopPlayingSoundEffect`: corte seco.
+  - **Por turno**: `SoundTag::ProcessSoundTags` 0x71E5F0 desde `GGame::EndTurn`; cada tag activo llama a
+    `GAudio::PlaySoundEffect` 0x42A100 con (x, altitud + y, z) más el desplazamiento. 0x429E30 **no arranca** la muestra
+    si la cámara está a más de maxDist (5 unidades) de ese punto; una vez arrancada el bucle sigue donde vaya la cámara.
+    Si la farola deja de estar disponible, `CreateSoundTagForDeadObject` llama a `LHSampleReleaseLoop`: acaba la pasada
+    en curso y el tag se borra.
+  - openblack: `audio::lantern_sounds::SetOn` desde `night_lights::Update` (la misma media < 120),
+    `ProcessTurn` en el bloque de turno de `Game.cpp` y `Clear` junto a `night_lights::Clear` al cargar mapa (antes del
+    `Registry::Reset`, que borraría las entidades del emisor sin liberar la fuente de OpenAL y el bucle seguiría
+    sonando). El emisor se crea con `PlayType::Repeat` y se suelta poniéndole `PlayType::Once` (= `LHSampleReleaseLoop`:
+    `AudioManager::Update` le quita `AL_LOOPING` y lo destruye al acabar la pasada).
+  - **No portado** (sin verificar): la curva de atenuación de QMixer para {min 3, max 5, escala 4}
+    (`QSWaveMixSetDistanceMapping`, está en la DLL externa). openblack deja el modelo por defecto de OpenAL como en
+    todos los sonidos 3D; un cambio general de audio podría poner `AL_REFERENCE_DISTANCE` / `AL_MAX_DISTANCE` por
+    fuente desde el `.sad`, pero solo tras descifrar QMixer.
+  - Por los 5 unidades de los datos, en juego normal solo se oye con la cámara casi encima de la farola.
+  - Comprobado en juego (`OPENBLACK_LANTERN_SOUND_TRACE=1`): con `OPENBLACK_TIME_OF_DAY=22` y la cámara en la farola de
+    pueblo de Land1 `2493,2534` arranca a 1,7 unidades y no se repite (modo 2); en el farolillo de campo `1365,2571`
+    arranca igual (las dos clases); a mediodía nunca arranca; al cambiar de mapa (`OPENBLACK_TEST_MAP_CYCLE`) el corte de
+    `Clear` no deja el bucle suelto. El paso noche → día **no se pudo provocar en juego**: el guion CHL de Land1 fija la
+    hora de guion en 7,3 cada turno (por encima del umbral de oscuridad, que está entre 7,2 y 7,3), así que
+    `OPENBLACK_TEST_MOVE_TIME` no la mueve y `OPENBLACK_TIME_OF_DAY` la clava sin transición; el corte seco se verificó
+    por el mismo camino de código (`Clear`).
 - **Luciérnagas** (hecho; `src/ECS/FireFlies.*`):
   - Cuándo: con hora visual > 12 y tipo de cielo > 1 aparecen hasta 50, la mitad en árboles y la mitad en rocas
     al azar. Cada turno una vuela a la casa o farola más cercana a menos de 300 m, a +(altura + 2). Por la mañana

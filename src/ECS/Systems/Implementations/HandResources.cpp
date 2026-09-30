@@ -67,6 +67,7 @@
 #include "ECS/StoragePitStore.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
+#include "LandBalance.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -342,10 +343,11 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// Object::DoDeleteObjectAndTakeResource: AddResource(WOOD, GetDefaultResource()), with
-	// Tree::GetWoodValue = life (1 for a fresh tree) * woodValue * scale * GLandBalance::Values[5] (1 by default).
+	// Tree::GetWoodValue = life (1 for a fresh tree) * woodValue * scale * GLandBalance::Values[5] (2 in Land2).
 	const auto type = registry.AllOf<Tree>(object) ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
-	auto wood = static_cast<uint32_t>(static_cast<float>(info.woodValue) * registry.Get<Transform>(object).scale.x);
+	auto wood = static_cast<uint32_t>(static_cast<float>(info.woodValue) * registry.Get<Transform>(object).scale.x *
+	                                  land_balance::Get(5));
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
 	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {

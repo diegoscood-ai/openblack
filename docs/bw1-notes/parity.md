@@ -1,6 +1,6 @@
 # Paridad del motor gráfico: original frente a openblack
 
-Mapa completo del fotograma original (inglés, con direcciones): [original-frame.md](original-frame.md). Detalles de
+Mapa completo del fotograma original (con direcciones): [original-frame.md](original-frame.md). Detalles de
 lo ya hecho: [rendering.md](rendering.md). Las mejoras que no son del original van como mods
 ([mod-library.md](mod-library.md)).
 
@@ -28,7 +28,7 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | Materiales L3D | Tipo = modo; chroma con prueba de alfa (ref − 5) **y** mezcla | Igual, con culling por material (bit 0 del byte +5; D3DCULL_CCW = CCW en bgfx) y wrap/clamp (bit 2) | igual |
 | Orden de transparentes | Z-sorter de atrás a delante (máx. 2048) | Opacos juntos; cada instancia con primitivas mezcladas o que se desvanece, por separado de atrás a delante en `MainBlended` (secuencial) | igual |
 | LOD de modelos | En este ejecutable la carga de `LevelOfDetail` está anulada (NOP en 0x823810 / 0x823B43): siempre LOD 1, sin fundido ni desaparición | Siempre LOD 1 | igual |
-| Ventanas | Color de ventana de noche | — | falta |
+| Ventanas | `Abode::Draw` 0x515F70: submallas `isWindow` sin luz, gris 224..252 que parpadea, con alguien en casa y de noche | `night_lights::WindowGrey` (967d4c54); "alguien en casa" = la casa tiene habitantes ([day-night-weather.md](day-night-weather.md)) | aprox. |
 | Mano | Z-sorter, luz ×1,5, muñeca con alfa | Igual | igual |
 | Anillos de agua | `fn_005E5100`: `smoke.raw` horizontal, modo 13, 700 ms; del chapoteo de la mano, objetos que caen al agua, nadadores, tiburones y cebo | Igual (mano y objetos lanzados; no hay nadadores ni tiburones) | igual |
 | Barcos | `PetitNavire` de las cinemáticas | — | falta |

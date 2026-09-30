@@ -126,14 +126,66 @@ private:
 	std::filesystem::path _root;
 };
 
-/// A folder of files for another mod to read (mod.cfg "module_of = <mod id>"), e.g. more plants for world.foliage
+/// A folder of files for another mod to read (mod.cfg "module_of = <mod id>"), e.g. more plants for world.foliage.
+/// Its mod.cfg may add options for the parent to read: "option.<id> = <label> | <choice>, <choice>... | <default>
+/// [| slider]" (GetModules)
 class ModuleMod final: public Mod
 {
 public:
-	ModuleMod(Info info, std::filesystem::path root)
+	ModuleMod(Info info, std::filesystem::path root, const std::map<std::string, std::string>& manifest)
 	    : Mod(std::move(info))
 	    , _root(std::move(root))
 	{
+		for (const auto& [key, value] : manifest)
+		{
+			if (!key.starts_with("option."))
+			{
+				continue;
+			}
+			std::vector<std::string> parts;
+			for (size_t start = 0;;)
+			{
+				const auto bar = value.find('|', start);
+				parts.push_back(Trim(std::string_view(value).substr(start, bar == std::string::npos ? bar : bar - start)));
+				if (bar == std::string::npos)
+				{
+					break;
+				}
+				start = bar + 1;
+			}
+			ModOption option;
+			option.id = key.substr(7);
+			option.label = parts[0].empty() ? option.id : parts[0];
+			if (parts.size() > 1)
+			{
+				for (size_t start = 0;;)
+				{
+					const auto comma = parts[1].find(',', start);
+					auto choice = Trim(std::string_view(parts[1]).substr(start, comma == std::string::npos ? comma : comma - start));
+					if (!choice.empty())
+					{
+						option.choices.push_back(std::move(choice));
+					}
+					if (comma == std::string::npos)
+					{
+						break;
+					}
+					start = comma + 1;
+				}
+			}
+			if (option.choices.empty())
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("game"), "Module option '{}' has no choices", key);
+				continue;
+			}
+			if (parts.size() > 2)
+			{
+				const auto found = std::ranges::find(option.choices, parts[2]);
+				option.value = found == option.choices.end() ? 0 : static_cast<size_t>(found - option.choices.begin());
+			}
+			option.slider = parts.size() > 3 && parts[3] == "slider";
+			AddOption(std::move(option));
+		}
 	}
 
 	void Apply() override {} // its parent reads GetModuleDirectories
@@ -212,7 +264,7 @@ void ModRegistry::DiscoverDataMods(const std::filesystem::path& modsDirectory)
 			info.description = manifest.contains("description") ? manifest.at("description") : "Module of " + parent;
 			info.category = parentMod->GetInfo().category;
 			info.parent = parent;
-			Register(std::make_unique<ModuleMod>(std::move(info), folder));
+			Register(std::make_unique<ModuleMod>(std::move(info), folder, manifest));
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Found module '{}' of {}", folderName, parent);
 			continue;
 		}
@@ -253,14 +305,29 @@ bool ModRegistry::IsActive(const Mod& mod) const
 std::vector<std::filesystem::path> ModRegistry::GetModuleDirectories(std::string_view parentId) const
 {
 	std::vector<std::filesystem::path> directories;
+	for (const auto& module : GetModules(parentId))
+	{
+		directories.push_back(module.directory);
+	}
+	return directories;
+}
+
+std::vector<ModRegistry::Module> ModRegistry::GetModules(std::string_view parentId) const
+{
+	std::vector<Module> modules;
 	for (const auto& mod : _mods)
 	{
 		if (mod->GetInfo().parent == parentId && IsActive(*mod))
 		{
-			directories.push_back(GetModDirectory(*mod));
+			Module module {GetModDirectory(*mod), {}};
+			for (const auto& option : mod->GetOptions())
+			{
+				module.options[option.id] = option.choices.at(option.value);
+			}
+			modules.push_back(std::move(module));
 		}
 	}
-	return directories;
+	return modules;
 }
 
 void ModRegistry::ImportLegacySettings(const std::filesystem::path& legacyPath)

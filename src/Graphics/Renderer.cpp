@@ -1553,18 +1553,28 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 		return;
 	}
 	const auto& mods = Locator::mods::value();
-	const auto modules = mods.GetModuleDirectories("world.foliage");
+	// and when a module's density option changes (as the mod's own: low 0.5, medium 1, high 2, very high 4)
+	std::vector<std::filesystem::path> modules;
+	std::vector<float> moduleDensities;
 	std::string loadKey = "loaded";
-	for (const auto& module : modules)
+	for (const auto& module : mods.GetModules("world.foliage"))
 	{
-		loadKey += "|" + module.generic_string();
+		const auto found = module.options.find("density");
+		const std::string density = found == module.options.end() ? "" : found->second;
+		modules.push_back(module.directory);
+		moduleDensities.push_back(density == "very low" ? 0.25f
+		                          : density == "low"    ? 0.5f
+		                          : density == "high"   ? 2.0f
+		                          : density == "very high" ? 4.0f
+		                                                   : 1.0f);
+		loadKey += "|" + module.directory.generic_string() + ":" + density;
 	}
 	if (loadKey != _foliageLoadKey)
 	{
 		_foliageLoadKey = loadKey;
 		_foliage.reset();
 		auto foliage = std::make_unique<Foliage>();
-		if (foliage->Load(mods.GetModFilesDirectory("world.foliage"), modules))
+		if (foliage->Load(mods.GetModFilesDirectory("world.foliage"), modules, moduleDensities))
 		{
 			_foliage = std::move(foliage);
 		}
@@ -2367,6 +2377,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				entt::entity sprite {entt::null};
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
 				int mist {-1}; ///< an index of _frameMists
+				int smoke {-1}; ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2477,6 +2488,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, static_cast<int>(index)});
 				}
 			}
+			if (spritesSorted)
+			{
+				for (const auto& [distance, index] : CollectChimneySmoke(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, static_cast<int>(index)});
+				}
+			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
@@ -2496,6 +2514,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.mist >= 0)
 					{
 						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.mist));
+						continue;
+					}
+					if (instance.smoke >= 0)
+					{
+						DrawChimneySmoke(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.smoke));
 						continue;
 					}
 					if (instance.sprite != entt::null)

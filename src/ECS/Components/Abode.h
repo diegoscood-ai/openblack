@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <set>
 
 #include "Enums.h"
@@ -26,6 +27,10 @@ struct Abode
 	uint32_t woodAmount;
 	/// Villager
 	std::set<entt::entity> inhabitants;
+	/// PresentAtHome (+0xB6): villagers inside now; only Abode::ArriveHome 0x405FA0 (++) and Abode::LeaveHome 0x405FB0 (--)
+	/// change it (from Villager::ArrivesHome 0x760A93 and Villager::ExitAtHome 0x761B5F). Lights the chimney smoke
+	/// (Abode::Draw 0x516288) and the night windows. Nothing sets it yet: the villagers never go home in openblack
+	uint8_t presentAtHome {0};
 };
 
 } // namespace openblack::ecs::components

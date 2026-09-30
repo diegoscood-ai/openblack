@@ -56,6 +56,13 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		_doorPos = glm::vec3(l3d.GetExtraPoints()[0].x, l3d.GetExtraPoints()[0].y, l3d.GetExtraPoints()[0].z);
 	}
 
+	// LH3DStaticObject::GetChimneyPos 0x7F9F10: with flag 0x400 the chimney is always the second extra point (mesh+0x44
+	// + 0xC), the first being the door; the original reads it without checking the count
+	if (HasChimney() && l3d.GetExtraPoints().size() >= 2)
+	{
+		_chimneyPos = glm::vec3(l3d.GetExtraPoints()[1].x, l3d.GetExtraPoints()[1].y, l3d.GetExtraPoints()[1].z);
+	}
+
 	if (ContainsLandscapeFeature() && l3d.GetFootprint().has_value())
 	{
 		struct FootprintVertex

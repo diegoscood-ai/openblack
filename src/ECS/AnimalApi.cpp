@@ -67,6 +67,14 @@ void SetStateRaw(entt::entity entity, AnimalState state)
 	}
 }
 
+void SetFinalDestination(entt::entity entity, glm::vec2 position)
+{
+	if (auto* brain = detail::BrainOf(entity); brain != nullptr)
+	{
+		brain->finalDestination = position;
+	}
+}
+
 std::optional<glm::vec3> Destination(entt::entity entity)
 {
 	const auto* brain = detail::BrainOf(entity);

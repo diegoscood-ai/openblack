@@ -137,12 +137,11 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 - La guarida del tigre es el árbol de bosque más cercano (el original puntúa los bosques con una sigmoide de la
   distancia y toma el primer árbol del mejor). Los animales de script (flags 0x400 / 0x4000, bandada +0x5C) se tratan
   como normales.
-- Aves: el valor inicial de flock+0x78 (antes del primer tramo del líder) se supone FOLLOW_FLOCK; tras cada clip
+- Aves: el valor inicial de flock+0x78 es DECIDE (0x2B, los constructores de Flock); tras cada clip
   completo en FOLLOW_FLOCK se vuelve a tirar la moneda y se reinicia la cuenta [supuesto]; el seguimiento del miembro
   siguiente (modo 2) y el aterrizaje no se portan (no se usan).
-- Sin hacer: aldeanos como presa, fusión de bandadas tras aterrizar, crecer con
-  la edad, las demás reacciones (huir de la mano...), pastores, el humo del cadáver, animal lanzado a un almacén de
-  comida → comida.
+- Sin hacer: pastores, animal lanzado a un almacén de comida → comida, el cadáver de los aldeanos, las reacciones de
+  hechizos / criatura / fuego, rodear obstáculos al moverse (van rectos con giro limitado).
 
 ## Ganchos de prueba
 

@@ -56,6 +56,7 @@
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
@@ -294,6 +295,8 @@ void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 		if (pile != entt::null)
 		{
 			SinkPile(pile);
+			// Pot::ApplyThisToMapCoord (0x66DED8): the food reaction, once (the hungry grazers come to eat)
+			ecs::animal_ai::SpreadFoodReaction(pile);
 		}
 	}
 	using audio::SoundId;

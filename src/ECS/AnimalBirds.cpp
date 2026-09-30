@@ -54,12 +54,6 @@ float FlockAltitude(const Context& ctx)
 	return flock != nullptr && flock->altitude != 0.0f ? flock->altitude : ctx.info.altitudeNormal;
 }
 
-/// flock+0x78, before the leader's first leg set it [its initial value is not decoded: FOLLOW_FLOCK assumed]
-uint8_t FollowState(const Flock& flock)
-{
-	return flock.followState != 0 ? flock.followState : static_cast<uint8_t>(AnimalState::FollowFlock);
-}
-
 /// Living::SetupMoveToPos with the goal's MapCoords altitude
 void SetupMoveTo(Context& ctx, glm::vec2 p, float altitude, AnimalState final)
 {
@@ -239,7 +233,8 @@ void BirdDecideWhatToDo(Context& ctx)
 	const auto p = CalcRandomPos(FlockPos(ctx), 0.0f, static_cast<float>(flock->flockDistance), false);
 	SetupMoveTo(ctx, p, leaderBrain != nullptr ? leaderBrain->altitude : ctx.brain.altitude, AnimalState::DecideWhatToDo);
 	SetSpeed(ctx, SpeedDefault(ctx));
-	SetStateRaw(ctx, static_cast<AnimalState>(FollowState(*flock)));
+	// before the leader's first leg the flock's state is still DECIDE (the Flock constructors set +0x78 = 0x2B)
+	SetStateRaw(ctx, static_cast<AnimalState>(flock->followState));
 }
 
 void BirdStartWander(Context& ctx)
@@ -307,7 +302,7 @@ void FollowFlock(Context& ctx)
 		return;
 	}
 	const auto* flock = FlockOf(ctx.animal);
-	if (flock == nullptr || ctx.brain.topState != FollowState(*flock))
+	if (flock == nullptr || ctx.brain.topState != flock->followState)
 	{
 		return;
 	}
@@ -321,7 +316,7 @@ void FollowFlock(Context& ctx)
 		return;
 	}
 	// fn_0041E130: each time the clip has played once, flap or glide again [the clip timer restarted: inferred]
-	if (ctx.brain.topState == FollowState(*flock) && VillagerAnimationDone(ctx.entity, ctx.brain.turnsSinceStateChange))
+	if (ctx.brain.topState == flock->followState && VillagerAnimationDone(ctx.entity, ctx.brain.turnsSinceStateChange))
 	{
 		SetAnimalStateAnim(ctx.entity);
 		ctx.brain.turnsSinceStateChange = 0;

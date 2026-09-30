@@ -1111,6 +1111,11 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
 	po->byPlayer = fromHand;
 	g_Objects.push_back(std::move(po));
+	if (fromHand)
+	{
+		// Object::InitialisePhysicsFromHand (0x637412): the flying-object reaction, once (the predators flee from it)
+		ecs::animal_ai::SpreadFlyingObjectReaction(entity);
+	}
 	return g_Objects.back().get();
 }
 

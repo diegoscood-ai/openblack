@@ -37,6 +37,8 @@ enum class AnimalState : uint8_t
 	MoveToPos = 1,
 	InScript = 4,
 	FleeingFromObjectReaction = 6,
+	GotoFoodReaction = 19,
+	ArrivesAtFoodReaction = 20,
 	LookingAtObjectReaction = 7,
 	Flying = 10,
 	Landed = 11,
@@ -78,6 +80,13 @@ enum class AnimalState : uint8_t
 /// `visualTime`: GGameInfo::GetVisualTime in hours (the big cats go to bed after 22:00, wolves hunt after 23:00)
 void ProcessAnimalsTurn(float visualTime);
 
+/// Reaction 7 (Pot::SetupReaction 0x66D660): a food pile put down or landed offers itself once to the hungry grazers
+/// within 35 m, which walk to it and eat 50 of it
+void SpreadFoodReaction(entt::entity food);
+/// Reaction 9 (Object::InitialisePhysicsFromHand 0x637412): anything the hand throws or drops offers itself once to the
+/// predators within 25 m, which flee when it comes fast enough
+void SpreadFlyingObjectReaction(entt::entity object);
+
 /// Reaction::CreateReaction(predator, 28) at a predator's construction (fn_0041FD30 0x41FD5C): the flee-from-predator
 /// reaction is spread once, then, to the animals within 25 m (the per-turn re-spreading is off in the shipped game)
 void SpreadPredatorReaction(entt::entity predator);
@@ -116,6 +125,8 @@ void MoveTo(entt::entity entity, glm::vec2 position, float altitude, AnimalState
 void SetState(entt::entity entity, AnimalState state);
 /// Living::SetState(0, state) (vt+0x938): the top state only, the clip stays
 void SetStateRaw(entt::entity entity, AnimalState state);
+/// the SpellWolf's final destination (+0x148): it runs there (SetRunToFinalDest) and dies
+void SetFinalDestination(entt::entity entity, glm::vec2 position);
 /// the final state (vt+0x860 GetDestPos): the goal of its move, x / altitude over the land / z
 [[nodiscard]] std::optional<glm::vec3> Destination(entt::entity entity);
 /// Living::SetDying (vt+0x6A4) calls this first, once per death

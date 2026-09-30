@@ -36,7 +36,7 @@ struct Flock
 	/// the birds' flight (Dove, dev\tmp_dis\animals\birds_ai.md): +0x54 the flock altitude (0: info.altitudeNormal),
 	/// +0x78 the followers' state, +0x7C the state after a leg, +0x80 the follow mode (2 next member, 3 formation, 7 landing)
 	float altitude {0.0f};
-	uint8_t followState {0};
+	uint8_t followState {43};
 	uint8_t afterMove {0};
 	uint8_t followMode {0};
 	/// +0x4C: the leader's turns since it last moved the herd (Animal::ProcessNeeds; KeepLeaderWithinDomain vs stayTime)

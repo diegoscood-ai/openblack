@@ -31,11 +31,15 @@
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Flock.h"
 #include "ECS/Components/Life.h"
+#include "ECS/Components/LivingAction.h"
+#include "ECS/Components/Mesh.h"
+#include "ECS/Components/Villager.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Map.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -47,6 +51,9 @@ using components::AnimalBrain;
 using components::Fixed;
 using components::Flock;
 using components::Life;
+using components::LivingAction;
+using components::Mesh;
+using components::Villager;
 using components::Transform;
 
 namespace detail
@@ -211,13 +218,19 @@ glm::vec2 SquarePos(glm::vec2 c, float size)
 	return c + glm::vec2(half - x, half - z);
 }
 
-/// Object::IsAvailable [inferred]: still there, not in the hand and not flying
+/// Object::IsAvailable [inferred]: still there, not in the hand and not flying (a villager: not inside a building)
 bool Available(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(entity) || !registry.AllOf<Transform>(entity) || physics::PhysicsObjects::IsFlying(entity))
 	{
 		return false;
+	}
+	if (const auto* villager = registry.TryGet<const Villager>(entity); villager != nullptr)
+	{
+		const auto* action = registry.TryGet<const LivingAction>(entity);
+		return villager->health > 0 && registry.AllOf<Mesh>(entity) &&
+		       (action == nullptr || static_cast<VillagerStates>(action->states[0]) != VillagerStates::InHand);
 	}
 	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
 	return brain == nullptr || static_cast<AnimalState>(brain->topState) != AnimalState::InHand;
@@ -367,6 +380,11 @@ void PlayAnimThenSetState(Context& ctx, AnimalState state)
 /// Animal::SetSpeed (0x417FE0): MobileWallHug::SetSpeed (0..0xFFFF), then the clip for it without a restart
 void SetSpeed(Context& ctx, uint32_t speed)
 {
+	// SpellWolf::SetSpeed (vt+0x864, 0x4209B0) does nothing: only SetRunToFinalDest sets its speed
+	if (ctx.animal.type == AnimalInfo::SpellWolf)
+	{
+		return;
+	}
 	ctx.brain.speed = static_cast<uint16_t>(std::min<uint32_t>(speed, 0xFFFF));
 	SetAnimalAnim(ctx.entity, AnimalAnimId(ctx.entity), false);
 }
@@ -554,6 +572,29 @@ bool IsLeader(const Context& ctx)
 	return flock != nullptr && LeaderOf(*flock) == ctx.entity;
 }
 
+uint32_t AgeOf(const AnimalBrain& brain)
+{
+	// GGameInfo +0x0C: 1500 game turns per year
+	const int32_t turns = static_cast<int32_t>(g_Turn) - brain.birthTurn;
+	return turns > 0 ? static_cast<uint32_t>(turns / 1500) : 0;
+}
+
+/// Animal::SetScaleForAge (0x417A40) for a young one: a random part of the way to the next age's scale
+void SetScaleForAge(Context& ctx, uint32_t age)
+{
+	const auto& values = ctx.info.ageToScale.values;
+	if (age + 1 >= values.size())
+	{
+		return;
+	}
+	const float step = 0.75f * (values[age + 1] - ctx.transform.scale.x);
+	if (step > 0.0f)
+	{
+		const float scale = ctx.transform.scale.x + Locator::rng::value().NextValue(0.0f, step);
+		ctx.transform.scale = glm::vec3(scale);
+	}
+}
+
 /// Animal::ProcessNeeds (0x417DC0)
 void ProcessNeeds(Context& ctx)
 {
@@ -710,6 +751,96 @@ int ReactToAnimalNeeds(Context& ctx)
 	return HunterOf(ctx.animal.type) != Hunter::None ? PredatorReactToAnimalNeeds(ctx) : CowReactToAnimalNeeds(ctx);
 }
 
+/// fn_00530210: the keeper takes every member of the other flock
+void TakeAllMembers(Flock& keeper, entt::entity keeperEntity, Flock& other, uint32_t maxMembers)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	for (const auto member : other.members)
+	{
+		if (!registry.Valid(member) || !registry.AllOf<Animal>(member))
+		{
+			continue;
+		}
+		keeper.members.push_back(member);
+		registry.Get<Animal>(member).flock = keeperEntity;
+		// the quirk: the other's max is added once per member moved, then clamped to the species' maxFlockSize
+		keeper.maxMembers = std::min(keeper.maxMembers + other.maxMembers, maxMembers);
+	}
+	other.members.clear();
+}
+
+/// Animal::LookForFlocksAtPos (0x41A790) + fn_005302A0: the bigger flock keeps everyone
+void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
+{
+	if (!merge)
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mine = FlockOf(ctx.animal);
+	// a town's flock (a shepherded herd) never merges
+	if (mine == nullptr || mine->town != entt::null)
+	{
+		return;
+	}
+	const auto mineEntity = ctx.animal.flock;
+	const glm::vec2 me = Xz(ctx.transform);
+	const int cells = std::max(1, static_cast<int>((radius / 10.0f) * (radius / 10.0f)));
+	// the spiral's cells, in order, looking for another flock of my species
+	int x = 0;
+	int y = 0;
+	int dx = 0;
+	int dy = -1;
+	for (int i = 0; i < cells; ++i)
+	{
+		const glm::vec2 c = me + 10.0f * glm::vec2(static_cast<float>(x), static_cast<float>(y));
+		if (InBounds(c))
+		{
+			for (const auto entity : Locator::entitiesMap::value().GetMobileInGridCell(CellOf(c)))
+			{
+				if (entity == ctx.entity || !registry.Valid(entity) || !registry.AllOf<Animal>(entity))
+				{
+					continue;
+				}
+				const auto& other = registry.Get<const Animal>(entity);
+				if (other.type != ctx.animal.type || other.flock == entt::null || other.flock == mineEntity ||
+				    !registry.Valid(other.flock))
+				{
+					continue;
+				}
+				const auto* brain = registry.TryGet<const AnimalBrain>(entity);
+				if (brain != nullptr && (brain->status & 1) != 0)
+				{
+					continue; // dead
+				}
+				auto& theirs = registry.Get<Flock>(other.flock);
+				if (mine->members.size() + theirs.members.size() > ctx.info.maxFlockSize)
+				{
+					continue;
+				}
+				// fn_005302A0: the flock with more members keeps them all
+				if (mine->members.size() >= theirs.members.size())
+				{
+					TakeAllMembers(*mine, mineEntity, theirs, ctx.info.maxFlockSize);
+				}
+				else
+				{
+					TakeAllMembers(theirs, other.flock, *mine, ctx.info.maxFlockSize);
+				}
+				return;
+			}
+		}
+		if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y))
+		{
+			const int t = dx;
+			dx = -dy;
+			dy = t;
+		}
+		x += dx;
+		y += dy;
+	}
+}
+
 /// Living::KeepLeaderWithinDomain (0x41AAD0): the leader takes the herd to a new place every stayTime turns
 int KeepLeaderWithinDomain(Context& ctx)
 {
@@ -771,6 +902,11 @@ void DecideWhatToDo(Context& ctx)
 	if (IsBird(ctx.animal.type))
 	{
 		BirdDecideWhatToDo(ctx);
+		return;
+	}
+	if (ctx.animal.type == AnimalInfo::SpellWolf)
+	{
+		SetRunToFinalDest(ctx);
 		return;
 	}
 	if (!IsGrazer(ctx.animal.type))
@@ -942,11 +1078,18 @@ void SetDying(entt::entity entity, AnimalBrain& brain)
 	brain.counter = k_TurnsToDieOver;
 }
 
-/// Living::StateDead (0x5EC400): off the flock; the corpse lies 600 turns, then (CreateSmokyStuff, not done) goes
+/// Living::StateDead (0x5EC400): off the flock; the corpse lies 600 turns, then its smoke puff and it goes
 bool Dead(Context& ctx)
 {
 	LeaveFlock(ctx.entity, ctx.animal);
-	return ctx.brain.counter-- == 0;
+	if (ctx.brain.counter-- != 0)
+	{
+		return false;
+	}
+	// Object::CreateSmokyStuff(0, 1.0, white) at half its height
+	const float height = 0.5f * ctx.transform.scale.y * 2.0f;
+	SmokyStuff::Create(ctx.transform.position + glm::vec3(0.0f, height, 0.0f), 1.0f);
+	return true;
 }
 
 /// Animal::ProcessState (0x417EE0) and the state table; true when the animal is to be deleted
@@ -959,6 +1102,13 @@ bool ProcessState(Context& ctx)
 	if (StateInfo(ctx.brain.topState).field0xa4 != 0)
 	{
 		ProcessNeeds(ctx);
+		// fn_004179F0: a young one grows four times a year (every 1500 / 4 turns)
+		const auto age = AgeOf(ctx.brain);
+		if (age < ctx.info.grownUpAge && g_Turn % 375 == 0)
+		{
+			ctx.animal.age = age;
+			SetScaleForAge(ctx, age);
+		}
 	}
 	// what it was eating has gone
 	if (ctx.brain.foodTarget != entt::null && !Available(ctx.brain.foodTarget))
@@ -1047,6 +1197,12 @@ bool ProcessState(Context& ctx)
 	case AnimalState::FleeingFromPredatorReaction:
 		FleeingFromPredatorReaction(ctx);
 		break;
+	case AnimalState::GotoFoodReaction:
+		GotoFoodReaction(ctx);
+		break;
+	case AnimalState::ArrivesAtFoodReaction:
+		ArrivesAtFoodReaction(ctx);
+		break;
 	case AnimalState::FleeingFromObjectReaction:
 		FleeingFromObjectReaction(ctx);
 		break;
@@ -1054,7 +1210,14 @@ bool ProcessState(Context& ctx)
 		FleeingAndLookingReaction(ctx);
 		break;
 	case AnimalState::Wander:
-		Wander(ctx);
+		if (ctx.animal.type == AnimalInfo::SpellWolf)
+		{
+			SetRunToFinalDest(ctx); // SpellWolf::Wander 0x420A10
+		}
+		else
+		{
+			Wander(ctx);
+		}
 		break;
 	case AnimalState::Eat:
 		Eat(ctx);
@@ -1075,7 +1238,8 @@ bool ProcessState(Context& ctx)
 		DecideWhatToDo(ctx);
 		break;
 	case AnimalState::InteractDecideWhatToDo:
-		// LookForFlocksInSpiral(merge = 1) (flock merging not done), then StartWander
+		// Animal::InteractDecideWhatToDo (0x417D80): LookForFlocksInSpiral(2 x domainRadius, merge = 1), then StartWander
+		LookForFlocksInSpiral(ctx, 2.0f * static_cast<float>(ctx.info.domainRadius), true);
 		if (IsBird(ctx.animal.type))
 		{
 			BirdStartWander(ctx);
@@ -1108,6 +1272,8 @@ AnimalBrain& Initialise(entt::entity entity, const Animal& animal, const Transfo
 	auto& brain = registry.Assign<AnimalBrain>(entity);
 	brain.speed = static_cast<uint16_t>(std::min<uint32_t>(static_cast<uint32_t>(info.speedGroup.speedDefault), 0xFFFF));
 	brain.angle = AngleOfRotation(transform.rotation);
+	// Living::SetAge (0x5ED2C0): BirthTurn = the turn it would have been born to be this old
+	brain.birthTurn = static_cast<int32_t>(g_Turn) - static_cast<int32_t>(animal.age) * 1500;
 	// the Dove constructor's altitude (the archetype put it at the land + altitudeNormal)
 	if (IsBird(animal.type) && Locator::terrainSystem::has_value())
 	{
@@ -1183,6 +1349,7 @@ void ProcessAnimalsTurn(float visualTime)
 	{
 		Delete(entity);
 	}
+	ProcessDownedVillagers();
 	RunDebugHooks(g_Turn++);
 }
 

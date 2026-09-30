@@ -112,10 +112,16 @@ int CheckNeeds(Context& ctx);
 int KeepLeaderWithinDomain(Context& ctx);
 int KeepFlockMemberWithinFlockArea(Context& ctx);
 void StartWander(Context& ctx);
+/// Animal::LookForFlocksInSpiral (0x41A690) with merge: the bigger flock of the same species and player keeps everyone
+void LookForFlocksInSpiral(Context& ctx, float radius, bool merge);
+/// Living::GetAge (0x5ECAF0): (turn - birth) / 1500 turns per year
+[[nodiscard]] uint32_t AgeOf(const components::AnimalBrain& brain);
 
 // fleeing from predators (ECS/AnimalFlee.cpp)
 void ProcessReaction(Context& ctx);
 void FleeingFromPredatorReaction(Context& ctx);
+void GotoFoodReaction(Context& ctx);
+void ArrivesAtFoodReaction(Context& ctx);
 void FleeingFromObjectReaction(Context& ctx);
 void FleeingAndLookingReaction(Context& ctx);
 components::AnimalBrain* BrainOf(entt::entity entity);
@@ -133,6 +139,9 @@ float TimeToBank(AnimalInfo type);
 float BankAngle(AnimalInfo type);
 
 // the predators (ECS/AnimalPredators.cpp)
+void SetRunToFinalDest(Context& ctx);
+/// the villagers a predator caught: DOWNED, BEING_EATEN 300 turns, dead
+void ProcessDownedVillagers();
 void PredatorDecideWhatToDo(Context& ctx);
 int PredatorReactToAnimalNeeds(Context& ctx);
 void HuntingMoveToPos(Context& ctx);

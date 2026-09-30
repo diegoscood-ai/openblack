@@ -45,6 +45,7 @@
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
 #include "ECS/AnimalAI.h"
+#include "ECS/SmokyStuff.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
@@ -491,6 +492,8 @@ bool Game::Update() noexcept
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	// The smoke an object leaves when it goes (ecs/SmokyStuff.h), in game seconds
+	ecs::SmokyStuff::Update(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
 	ecs::UpdateMobileDrawing(GetTurnFraction(),

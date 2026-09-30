@@ -19,6 +19,7 @@
 #include "3D/L3DAnim.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/AnimalAIDetail.h"
+#include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
@@ -28,8 +29,16 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/LivingAction.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/VillagerAnimations.h"
+#include "ECS/VillagerSpeed.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
+#include <spdlog/spdlog.h>
+
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -47,6 +56,10 @@ using components::Life;
 using components::Town;
 using components::Transform;
 using components::Tree;
+using components::Abode;
+using components::DownedVillager;
+using components::LivingAction;
+using components::Villager;
 
 namespace
 {
@@ -97,6 +110,12 @@ float Scale(const Context& ctx)
 	return ctx.transform.scale.x > 0.0f ? ctx.transform.scale.x : 1.0f;
 }
 
+/// Animal::SetSpeed's clip part: the state's clip at the new speed, not restarted
+void SetAnimalAnimHelper(Context& ctx)
+{
+	SetAnimalAnim(ctx.entity, AnimalAnimId(ctx.entity), false);
+}
+
 /// Animal::IsPosValidForTurnAngle (0x41B210): outside both of its turning circles (radius 2 x speed / turnAngle,
 /// centred that far to its left and right)
 bool IsPosValidForTurnAngle(const Context& ctx, glm::vec2 p)
@@ -113,6 +132,44 @@ bool IsPosValidForTurnAngle(const Context& ctx, glm::vec2 p)
 	return glm::distance(p, me + side * radius) >= radius && glm::distance(p, me - side * radius) >= radius;
 }
 
+bool IsDowned(entt::entity entity);
+
+/// fn_004196D0 for a villager (info type 2): outside (in the map, drawn), with meat, not already caught or dying
+bool IsVillagerPrey(const Context& ctx, entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& transform = registry.Get<const Transform>(entity);
+	const auto* info = VillagerInfoOf(entity);
+	if (info == nullptr || AltitudeAboveLand(transform) > 2.0f || FlockOf(ctx.animal) == nullptr)
+	{
+		return false;
+	}
+	if ((static_cast<uint32_t>(info->foodType) & static_cast<uint32_t>(ctx.info.needsFoodTypes)) == 0 || info->foodValue == 0.0f)
+	{
+		return false;
+	}
+	if (const auto* action = registry.TryGet<const LivingAction>(entity); action != nullptr)
+	{
+		const auto state = action->states[0];
+		if (state >= static_cast<uint8_t>(VillagerStates::SetDying) && state <= static_cast<uint8_t>(VillagerStates::BeingEaten))
+		{
+			return false;
+		}
+	}
+	const glm::vec2 p = Xz(transform);
+	if (!IsPosValidForTurnAngle(ctx, p) || (IsChild(ctx) && !IsDowned(entity)))
+	{
+		return false;
+	}
+	const glm::vec2 me = Xz(ctx.transform);
+	if (ctx.brain.preyCell != glm::vec2(0.0f) && !(2.0f * glm::distance(me, p) < glm::distance(me, ctx.brain.preyCell)))
+	{
+		return false;
+	}
+	ctx.brain.preyCell = MapInterface::GetCellCenter(CellOf(p));
+	return true;
+}
+
 /// fn_004196D0: is it prey? Another species' animal with meat, on the ground, alive, reachable...
 bool IsPrey(const Context& ctx, entt::entity entity)
 {
@@ -120,6 +177,10 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 	if (entity == ctx.entity || !Available(entity))
 	{
 		return false;
+	}
+	if (registry.AllOf<Villager>(entity))
+	{
+		return IsVillagerPrey(ctx, entity);
 	}
 	const auto* animal = registry.TryGet<const Animal>(entity);
 	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
@@ -214,6 +275,11 @@ AnimalBrain* PreyBrain(entt::entity entity)
 
 bool IsDowned(entt::entity entity)
 {
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.Valid(entity) && registry.AllOf<DownedVillager>(entity))
+	{
+		return true;
+	}
 	const auto* brain = PreyBrain(entity);
 	return brain != nullptr && (brain->status & 0x80) != 0;
 }
@@ -325,6 +391,15 @@ std::optional<glm::vec3> Nearest(glm::vec2 from, Accept accept)
 	return best;
 }
 } // namespace
+
+void SetRunToFinalDest(Context& ctx)
+{
+	// SpellWolf::SetRunToFinalDest (0x4209C0): Animal::SetSpeed(scale x speed4 x 1.1), then to the spell's final
+	// destination and dead there (SET_DYING)
+	ctx.brain.speed = static_cast<uint16_t>(std::min(Scale(ctx) * static_cast<float>(Speed(ctx.info, 4)) * 1.1f, 65535.0f));
+	SetAnimalAnimHelper(ctx);
+	SetupMoveToPos(ctx, ctx.brain.finalDestination, AnimalState::SetDying);
+}
 
 void CalculeLairPos(Context& ctx)
 {
@@ -505,7 +580,15 @@ void TargetPounce(Context& ctx)
 	if (glm::distance(Xz(ctx.transform), at) <= 1.0f && !IsDowned(target))
 	{
 		// fn_005EC480: the prey falls, with 0.05 of its life
-		if (auto* prey = PreyBrain(target); prey != nullptr)
+		if (auto* villager = registry.TryGet<Villager>(target); villager != nullptr)
+		{
+			villager->health = 5;
+			registry.AssignOrReplace<DownedVillager>(target);
+			SetVillagerState(target, VillagerStates::Downed);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} downed by animal {}", static_cast<uint32_t>(target),
+			                   static_cast<uint32_t>(ctx.entity));
+		}
+		else if (auto* prey = PreyBrain(target); prey != nullptr)
 		{
 			prey->status |= 0x80;
 			(registry.AllOf<Life>(target) ? registry.Get<Life>(target) : registry.Assign<Life>(target)).value = 0.05f;
@@ -521,6 +604,60 @@ void TargetPounce(Context& ctx)
 		}
 		// missed: after it again
 		SetupMoveToTarget(ctx, target);
+	}
+}
+
+void ProcessDownedVillagers()
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	std::vector<entt::entity> caught;
+	registry.Each<const DownedVillager>([&caught](entt::entity entity, const DownedVillager&) { caught.push_back(entity); });
+	for (const auto entity : caught)
+	{
+		auto* action = registry.TryGet<LivingAction>(entity);
+		auto* villager = registry.TryGet<Villager>(entity);
+		if (action == nullptr || villager == nullptr)
+		{
+			registry.Remove<DownedVillager>(entity);
+			continue;
+		}
+		const auto state = static_cast<VillagerStates>(action->states[0]);
+		auto& downed = registry.Get<DownedVillager>(entity);
+		if (state == VillagerStates::Downed)
+		{
+			// Living::Downed (0x5EC4B0): its clip (P_ATTACKED_BY_LION), then being eaten for 300 turns
+			if (VillagerAnimationDone(entity, action->turnsSinceStateChange))
+			{
+				SetVillagerState(entity, VillagerStates::BeingEaten);
+				downed.counter = 300;
+			}
+			continue;
+		}
+		if (state != VillagerStates::BeingEaten)
+		{
+			// picked up, thrown...: no longer caught
+			registry.Remove<DownedVillager>(entity);
+			continue;
+		}
+		if (--downed.counter > 0)
+		{
+			continue;
+		}
+		// Villager::BeingEaten (0x76B380): dead (VillagerDead, reason ANIMAL). openblack has no villager corpse yet: it
+		// goes, as the physics' villager deaths
+		villager->health = 0;
+		if (auto* abode = registry.TryGet<Abode>(villager->abode))
+		{
+			abode->inhabitants.erase(entity);
+		}
+		if (auto* town = registry.TryGet<Town>(villager->town))
+		{
+			town->homelessVillagers.erase(entity);
+		}
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} eaten", static_cast<uint32_t>(entity));
+		physics::PhysicsObjects::RemoveObject(entity);
+		registry.Destroy(entity);
+		registry.SetDirty();
 	}
 }
 

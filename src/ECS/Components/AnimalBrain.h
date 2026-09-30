@@ -58,6 +58,8 @@ struct AnimalBrain
 	/// +0xBC: the predator it flees from (reaction 28), +0x94 reacting, the turn it started, the state to go back to
 	/// (+0x8E, StorePreviousState)
 	entt::entity predator {entt::null};
+	/// the reaction it is taking (its type; 28 predator, 7 food, 9 flying object)
+	uint8_t reactionType {0};
 	bool reacting {false};
 	uint32_t reactStart {0};
 	uint8_t previousState {0};
@@ -66,8 +68,20 @@ struct AnimalBrain
 	float goalAltitude {0.0f};
 	/// +0x110..+0x13C: the bank zoomer (roll in radians; Dove::Draw rolls the drawn matrix by it)
 	Zoomer bank;
+	/// +0x148: the SpellWolf's final destination (SetRunToFinalDest); set by the spell
+	glm::vec2 finalDestination {0.0f};
+	/// +0xA0: the turn it was born (Living::GetAge = (turn - it) / 1500; there is no stored age). Negative for the
+	/// animals a map creates already grown (SetAge at turn 0).
+	int32_t birthTurn {0};
 	/// the ground covered in the last turn (Object::IsMoving: the clip advances by distance while it moves)
 	float movedLastTurn {0.0f};
+};
+
+/// A villager downed by a predator (fn_005EC480: status 0x80, life 0.05): DOWNED, then BEING_EATEN for 300 turns, then
+/// dead (Villager::BeingEaten 0x76B380); the animal AI drives it (ECS/AnimalPredators.cpp)
+struct DownedVillager
+{
+	int16_t counter {0};
 };
 
 } // namespace openblack::ecs::components

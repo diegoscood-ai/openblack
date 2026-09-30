@@ -19,7 +19,9 @@
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
+#include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -37,10 +39,26 @@ using components::Transform;
 namespace
 {
 constexpr size_t k_FleeFromPredator = 28;
+constexpr size_t k_ReactToFood = 7;
+constexpr size_t k_ReactToFlyingObject = 9;
 
-const ReactionInfo& Reaction()
+const ReactionInfo& Reaction(size_t type = k_FleeFromPredator)
 {
-	return Locator::infoConstants::value().reaction.at(k_FleeFromPredator);
+	return Locator::infoConstants::value().reaction.at(type);
+}
+
+/// GLivingInfo.isReacting[type] for the reaction types animals take
+bool IsReactingTo(const GAnimalInfo& info, size_t type)
+{
+	switch (type)
+	{
+	case k_ReactToFood:
+		return info.isReacting.isReactingToFood != 0;
+	case k_ReactToFlyingObject:
+		return info.isReacting.isReactingToFlyingObject != 0;
+	default:
+		return info.isReacting.isFleeingFromPredator != 0;
+	}
 }
 
 bool IsPredator(AnimalInfo type)
@@ -56,7 +74,8 @@ uint32_t SpeedOf(entt::entity predator)
 	{
 		return brain->speed;
 	}
-	return static_cast<uint32_t>(detail::InfoOf(registry.Get<const Animal>(predator)).speedGroup.speedDefault);
+	const auto* animal = registry.TryGet<const Animal>(predator);
+	return animal != nullptr ? static_cast<uint32_t>(detail::InfoOf(*animal).speedGroup.speedDefault) : 0;
 }
 
 /// its movement direction per turn (GetMovementDirection, vt+0x168): the step while it moves
@@ -152,6 +171,7 @@ void StopReacting(detail::Context& ctx)
 	const auto& info = Locator::infoConstants::value().animalStateTable.at(std::min<size_t>(ctx.brain.previousState, 52));
 	const auto back = info.field0x1c != 0 ? static_cast<AnimalState>(info.field0x1c) : AnimalState::DecideWhatToDo;
 	ctx.brain.reacting = false;
+	ctx.brain.reactionType = 0;
 	ctx.brain.predator = entt::null;
 	detail::SetTopState(ctx, back);
 }
@@ -166,6 +186,117 @@ glm::vec2 PredatorPos(const detail::Context& ctx)
 	return detail::Xz(Locator::entitiesRegistry::value().Get<const Transform>(ctx.brain.predator));
 }
 } // namespace
+
+namespace
+{
+/// SpreadReaction (0x6E3E10) + ApplyReactionToLivingObjectsAtSquare (0x6E3F90): the animals of the reaction's block of
+/// map cells that are available, react to that type and pass its priority; `start` takes each one
+void Spread(entt::entity initiator, size_t type, const std::function<bool(entt::entity, const GAnimalInfo&, float)>& start)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!Locator::infoConstants::has_value() || !registry.AllOf<Transform>(initiator))
+	{
+		return;
+	}
+	const auto& reaction = Reaction(type);
+	const glm::vec2 at = detail::Xz(registry.Get<const Transform>(initiator));
+	const auto centre = detail::CellOf(at);
+	const int side = std::max(1, static_cast<int>(reaction.maxReactionDistance * 0.2f));
+	std::vector<entt::entity> candidates;
+	registry.Each<const Animal, const Transform>([&](entt::entity entity, const Animal&, const Transform& transform) {
+		if (entity == initiator)
+		{
+			return;
+		}
+		const auto cell = detail::CellOf(detail::Xz(transform));
+		const int dx = static_cast<int>(cell.x) - static_cast<int>(centre.x);
+		const int dz = static_cast<int>(cell.y) - static_cast<int>(centre.y);
+		if (std::abs(dx) > side / 2 || std::abs(dz) > side / 2 ||
+		    glm::distance(MapInterface::GetCellCenter(cell), at) > reaction.maxReactionDistance)
+		{
+			return;
+		}
+		candidates.push_back(entity);
+	});
+	for (const auto entity : candidates)
+	{
+		const auto& info = detail::InfoOf(registry.Get<const Animal>(entity));
+		// d = half the Manhattan distance, as ApplyReactionToLivingObjectsAtSquare
+		const glm::vec2 p = detail::Xz(registry.Get<const Transform>(entity));
+		const float d = (std::abs(p.x - at.x) + std::abs(p.y - at.y)) * 0.5f;
+		if (!IsReactingTo(info, type) || d > reaction.maxReactionDistance)
+		{
+			continue;
+		}
+		auto* brain = detail::BrainOf(entity);
+		if (brain == nullptr || brain->reacting || !IsAvailableForReaction(*brain))
+		{
+			continue;
+		}
+		if (start(entity, info, glm::distance(p, at)))
+		{
+			brain->reacting = true;
+			brain->reactionType = static_cast<uint8_t>(type);
+			brain->predator = initiator;
+			brain->reactStart = detail::g_Turn;
+			brain->previousState = brain->topState;
+		}
+	}
+}
+} // namespace
+
+void SpreadFoodReaction(entt::entity food)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// ReactToFoodPriority (0x5F1710) / Animal::IsInterestedInFoodObject (0x419BC0): a pile of food with something in it
+	const auto* pot = registry.Valid(food) ? registry.TryGet<components::Pot>(food) : nullptr;
+	if (pot == nullptr || pot->amount == 0 || pot->type == PotInfo::_COUNT || physics::PhysicsObjects::IsFlying(food))
+	{
+		return;
+	}
+	const auto& potInfo = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
+	Spread(food, k_ReactToFood, [&potInfo](entt::entity entity, const GAnimalInfo& info, float) {
+		// only a hungry animal whose needsFoodTypes takes that food (the grazers' 6 & the piles' 2)
+		auto* brain = detail::BrainOf(entity);
+		if (brain == nullptr || info.hunger == 0 || brain->hunger < static_cast<int32_t>(info.hunger))
+		{
+			return false;
+		}
+		if ((static_cast<uint32_t>(potInfo.foodType) & static_cast<uint32_t>(info.needsFoodTypes)) == 0)
+		{
+			return false;
+		}
+		// SetupReactToFood (0x5F14C0): AddReaction(GOTO_FOOD 19)
+		detail::SetTopState(entity, *brain, AnimalState::GotoFoodReaction);
+		return true;
+	});
+}
+
+void SpreadFlyingObjectReaction(entt::entity object)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* po = physics::PhysicsObjects::Find(object);
+	if (po == nullptr || !registry.Valid(object))
+	{
+		return;
+	}
+	const float speed = glm::length(po->body.velocity);
+	Spread(object, k_ReactToFlyingObject, [speed](entt::entity entity, const GAnimalInfo&, float distance) {
+		// Animal::SetupReactToFlyingObject (0x4204A0): it flees only when 2 x the object's speed beats the distance
+		if (2.0f * speed <= distance)
+		{
+			return false;
+		}
+		auto* brain = detail::BrainOf(entity);
+		if (brain == nullptr || static_cast<AnimalState>(brain->topState) == AnimalState::Flying ||
+		    static_cast<AnimalState>(brain->topState) == AnimalState::Landed)
+		{
+			return false;
+		}
+		detail::SetTopState(entity, *brain, AnimalState::FleeingFromObjectReaction);
+		return true;
+	});
+}
 
 void SpreadPredatorReaction(entt::entity predator)
 {
@@ -219,6 +350,7 @@ void SpreadPredatorReaction(entt::entity predator)
 		// Animal::SetupFleeFromPredator (0x420410) -> Living::AddReaction (0x5F0F30): StorePreviousState, state 49
 		brain->previousState = brain->topState;
 		brain->reacting = true;
+		brain->reactionType = static_cast<uint8_t>(k_FleeFromPredator);
 		brain->predator = predator;
 		brain->reactStart = detail::g_Turn;
 		detail::SetTopState(entity, *brain, AnimalState::FleeingFromPredatorReaction);
@@ -234,6 +366,17 @@ void ProcessReaction(Context& ctx)
 	{
 		return;
 	}
+	if (ctx.brain.reactionType == k_ReactToFood)
+	{
+		// the food went (taken, picked up): back to deciding
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto* pot = registry.Valid(ctx.brain.predator) ? registry.TryGet<components::Pot>(ctx.brain.predator) : nullptr;
+		if (pot == nullptr || pot->amount == 0)
+		{
+			StopReacting(ctx);
+		}
+		return;
+	}
 	if (PredatorGone(ctx))
 	{
 		StopReacting(ctx);
@@ -247,6 +390,31 @@ void ProcessReaction(Context& ctx)
 	{
 		StopReacting(ctx);
 	}
+}
+
+void GotoFoodReaction(Context& ctx)
+{
+	// Living::GotoFoodReaction (0x5F2550): to the food, then ARRIVES_AT_FOOD
+	if (PredatorGone(ctx))
+	{
+		StopReacting(ctx);
+		return;
+	}
+	SetupMoveToPos(ctx, PredatorPos(ctx), AnimalState::ArrivesAtFoodReaction);
+}
+
+void ArrivesAtFoodReaction(Context& ctx)
+{
+	// Animal::ArrivesAtFoodReaction (0x41A0A0): hunger 0 and up to 50 out of the pile
+	auto& registry = Locator::entitiesRegistry::value();
+	if (auto* pot = registry.Valid(ctx.brain.predator) ? registry.TryGet<components::Pot>(ctx.brain.predator) : nullptr;
+	    pot != nullptr)
+	{
+		ctx.brain.hunger = 0;
+		pot->amount = static_cast<uint16_t>(pot->amount > 50 ? pot->amount - 50 : 0);
+		registry.SetDirty();
+	}
+	StopReacting(ctx);
 }
 
 void FleeingFromPredatorReaction(Context& ctx)
@@ -287,13 +455,16 @@ void FleeingFromObjectReaction(Context& ctx)
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 at = PredatorPos(ctx);
 	const float d = glm::distance(me, at);
-	if (d > Reaction().maxDistanceToRunAwayFromObject)
+	const auto& reaction = Reaction(ctx.brain.reactionType);
+	if (d > reaction.maxDistanceToRunAwayFromObject)
 	{
 		StopReacting(ctx);
 		return;
 	}
 	const auto movement = MovementOf(ctx.brain.predator);
-	if (d > 30.0f && !ComingTowards(me, at, movement))
+	// FleeFromObjectIfComingTowardsMe(pred, 30, 30) 0x5F1D90: the 30s are the states (FLEEING_AND_LOOKING), the distance
+	// is the reaction's minDistanceToRunAwayFromObject
+	if (d > reaction.minDistanceToRunAwayFromObject && !ComingTowards(me, at, movement))
 	{
 		SetTopState(ctx, AnimalState::FleeingAndLookingAtObjectReaction);
 		ctx.brain.angle = AngleOf(at - me);
@@ -303,7 +474,7 @@ void FleeingFromObjectReaction(Context& ctx)
 	const auto p = FleeingPosition(me, at, movement, 10.0f);
 	if (InBounds(p))
 	{
-		SetupMoveToPos(ctx, p, AnimalState::FleeingFromObjectReaction);
+		SetupMoveToPos(ctx, p, AnimalState::FleeingAndLookingAtObjectReaction);
 	}
 }
 

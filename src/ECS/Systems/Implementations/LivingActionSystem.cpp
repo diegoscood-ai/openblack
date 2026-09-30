@@ -244,8 +244,8 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* DYING */ k_TodoEntry,
     /* DEAD */ k_TodoEntry,
     /* DROWNING */ k_TodoEntry,
-    /* DOWNED */ k_TodoEntry,
-    /* BEING_EATEN */ k_TodoEntry,
+    /* DOWNED */ {.state = &VillagerCarried},      // caught by a predator: the animal AI drives it (ECS/AnimalPredators)
+    /* BEING_EATEN */ {.state = &VillagerCarried},
     /* GOTO_FOOD_REACTION */ k_TodoEntry,
     /* ARRIVES_AT_FOOD_REACTION */ k_TodoEntry,
     /* GOTO_WOOD_REACTION */ k_TodoEntry,

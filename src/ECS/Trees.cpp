@@ -184,7 +184,9 @@ std::vector<entt::entity> openblack::ecs::GrownTreesByDistance(uint32_t forestId
 	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
 		    if (forestId != 0 && tree.forestId == forestId && (!tree.growing || transform.scale.x >= tree.maxSize))
 		    {
-			    grown.emplace_back(glm::distance(transform.position, centre), entity);
+			    // SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
+			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
+			                       entity);
 		    }
 	    });
 	std::ranges::stable_sort(grown, [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
@@ -1352,7 +1354,9 @@ void ProcessForests(uint32_t turn)
 			++count;
 			if (!tree.growing || transform.scale.x >= tree.maxSize)
 			{
-				grown.emplace_back(glm::distance(transform.position, centre), entity);
+				// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
+			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
+			                       entity);
 			}
 		});
 		// empty: no BigForest (+0x38) and no trees in either list

@@ -291,6 +291,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		ran = true;
 		RunDebugHooks();
 	}
+	hand_detail::DumpEntityCounts();
 	if (_testActionSeconds > 0.0f)
 	{
 		actionHeld = true;

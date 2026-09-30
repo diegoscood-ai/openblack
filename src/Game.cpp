@@ -9,9 +9,11 @@
 
 #include "Game.h"
 
+#include <sstream>
 #include <string>
 
 #include <LHVM.h>
+#include <bgfx/bgfx.h>
 #include <SDL.h>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -1085,6 +1087,36 @@ bool Game::Run() noexcept
 			else
 			{
 				Locator::debugGui::value().Draw();
+			}
+		}
+
+		if (std::getenv("OPENBLACK_DRAW_STATS") != nullptr && (_frameCount % 30 == 0 || _frameCount < 8))
+		{
+			const auto* stats = bgfx::getStats();
+			SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "DRAWSTATS frame {} draws {}", _frameCount, stats->numDraw);
+		}
+
+		// Test hook: "<frames>:<script>,<script>..." loads the next script every <frames> frames, at the point where the
+		// debug menu's "Load Island" does (a check that changing maps doesn't crash)
+		if (static const char* cycle = std::getenv("OPENBLACK_TEST_MAP_CYCLE"); cycle != nullptr)
+		{
+			static const auto parsed = [](const std::string& text) {
+				std::vector<std::string> scripts;
+				const auto colon = text.find(':');
+				const int frames = colon == std::string::npos ? 300 : std::max(1, std::atoi(text.substr(0, colon).c_str()));
+				std::stringstream list(colon == std::string::npos ? text : text.substr(colon + 1));
+				for (std::string script; std::getline(list, script, ',');)
+				{
+					scripts.push_back(script);
+				}
+				return std::make_pair(static_cast<uint32_t>(frames), scripts);
+			}(cycle);
+			const auto& [frames, scripts] = parsed;
+			if (_frameCount > 0 && _frameCount % frames == 0 && _frameCount / frames <= scripts.size())
+			{
+				const auto& script = scripts[_frameCount / frames - 1];
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Map cycle: loading {}", script);
+				LoadMap(Locator::filesystem::value().GetPath<filesystem::Path::Scripts>() / script);
 			}
 		}
 

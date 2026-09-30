@@ -249,3 +249,62 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt` (casos 24, 25 y 49).
   altura exactamente 0 en dos radios seguidos da el centro. openblack ya lo hacía igual (`GetUnflattenedHeightAt`), así
   que los 9 de Land1 sin banco (los del lago del pueblo 2 y otros) salen igual que en el original con los mismos
   datos; no se cambió la búsqueda.
+
+## Objetos del guion del mapa (farolas, hogueras, árboles muertos, puertas)
+
+Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` y `d_animstatic_cvffc.txt`.
+- **Parámetros**: en el bloque de argumentos del guion, el entero del parámetro i está en +0x6000 + 4i y el float en
+  +0x6030 + 4i. `GMobileStaticInfo` ocupa 300 bytes en memoria (0xD3A6D8 + 300·i: MS[6] = 0xD3ADE0, MS[7] = 0xD3AF0C,
+  MS[8] = 0xD3B038) y 284 en `info.dat`: en memoria el registro de info.dat empieza en +0x10 (el tipo de objeto está en
+  info +0x10 y el clip de un AnimatedStatic en +0x128, que es +0x118 en `GAnimatedStaticInfo` de openblack). Las 61
+  infos de MobileStatic tienen el tipo de objeto 0x1C (MOBILE_STATIC).
+- **CREATE_STREET_LANTERN** (caso 80, 0x717720) → `GStreetLantern::Create` 0x7346E0(pos, &MS[N1]): no crea nada si en la
+  celda del mapa de la posición (`MapCoords::FindType` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0; celdas de 10
+  unidades) hay un objeto de tipo 0x1C a menos de 0,5 m en x/z (`GUtils::GetDistanceInMetres` 0x74CD70); cualquier
+  cosa hecha con una info de MobileStatic: rocas, hogueras, farolas, árboles muertos. +0x58 = (info ≠ MS[7]).
+  `CallVirtualFunctionsForCreation` 0x734810: malla 148 (MSH_B_CAMPFIRE) si +0x58, si no 398 (MSH_O_TOWNLIGHT);
+  `SetPosition((x, GetAltitude + y, z), ángulo 0, escala 1)` (sin giro de 180°), la luz `fn_00823240`(ese punto,
+  +0x58) en +0x5C y, solo en la de pueblo, el sonido 0x93 (`fn_0071E8C0`, pendiente). Land1: 8 de tipo 7 y 4 de tipo 59
+  (farolillos de campo con la malla de la hoguera, **no** hogueras). El CREATE de CHL con 7 o 59 va por el mismo sitio.
+  openblack: `StreetLanternArchetype`, `components::StreetLantern` / `LanternLight`; `night_lights` pone las luces
+  según `LanternLight` (antes por la malla, y las hogueras de verdad salían con luz de farolillo).
+- **CREATE_BONFIRE** "AFFF" (caso 73, 0x7176AE) → `fn_00439850`(pos, F1 temperatura, F2 ángulo Y, F3 escala) → ctor
+  0x4395C0: `Rock`(pos, MS[8], ángulo, escala) y `CreateSpotVisualWithSpecifiedDuration`(pos, 25 SF_Bonfire, 1,0, −1 =
+  siempre, la hoguera); la temperatura no se usa al crear (Land1 trae 24,7, que openblack tomaba por el ángulo). Sin
+  luz de farolillo. openblack: `BonfireArchetype`.
+- **MobileStatic**: `CREATE_MOBILESTATIC` "ANFF" (caso 41) → `fn_00608770`(pos, info, 0, 0, F2 ángulo, F3 escala):
+  MS[8] → `Bonfire::Create` con temperatura 100; info +0x128 = 2 → `Rock`; MS[6] → nada; el resto `MobileStatic`.
+  `CREATE_MOBILE_STATIC` "ANFFFFF" (caso 42) → `fn_00608840`(pos con relY = F2, info, 0, 0, F3, F4, F5, F6): MS[6] →
+  GBaseOnly `fn_00609340`; MS[7] → nada; el resto `fn_00608770`(…, F4, F6); después `SetXYZAnglesAndScale`(F3, F4, F5,
+  F6) sobre lo creado (también la base y la hoguera). openblack: `MobileStaticArchetype::CreateFromInfo` /
+  `CreateWithXYZAngles`.
+- **CREATE_DEAD_TREE** "ALNFFFF" (caso 43, 0x716E64) → `fn_00510BB0`(pos, GTreeInfo[N2], jugador, F3, F4, F5, F6, 0):
+  ctor 0x510A30 = `Rock`(MS[3], ángulo 0, escala 1) + `SetLife`(F3); con 0xCC5F10 = 0, `GetDeadTreeMesh` 0x510C60 es la
+  malla normal del tipo; luego `SetXYZAnglesAndScale`(F4, F5, F6, 1), la matriz de MobileStatic (x = F4, y = F5,
+  z = F6). Land1: 3 (tipos 12, 4 y 4, vida 1, ángulos pequeños). openblack hacía un árbol quemado vivo; ahora
+  `DeadTreeArchetype` (`components::DeadTree`, sin Tree ni bosque, se puede coger).
+- **CREATE_POT** (caso 38): `IsOkToCreateAtPos` y, si la cantidad N3 ≤ 0 (0x716B19), nada. Quita los 4 montones de
+  madera vacíos de Land1.
+- **CREATE_NEW_FEATURE** (caso 75): con N5 ≠ 0 crea un `PlannedFeature` 0x527440 (no se dibuja); ninguna tierra lo usa.
+- **Nombres**: features `fn_00527740` y animated statics `fn_00422600` comparan con `_stricmp` (si no hay, devuelven el
+  número de infos, 0x4C / 0x10); `GAbodeInfo::GetInfoFromText` 0x405A70 recorre las 9 tribus, compara el prefijo con
+  `_strnicmp`, exige '_' y la descripción con `_stricmp` (16 por tribu); si no, −1. El original usa el resultado sin
+  comprobarlo; openblack registra el fallo y se salta el comando (desviación de robustez deliberada; antes lanzaba).
+- **AnimatedStatic** (`CallVirtualFunctionsForCreation` 0x422300): pone el clip de info +0x128 (Norse Gate 191, Gate
+  Stone Plinth 195, Piper Cave Entrance 189); `Draw` 0x422770 lo avanza o retrocede según esté abierta, limitado a su
+  duración: cerrada es t = 0 (openblack: `SkeletalAnimation` parada en 0). Con malla 212 (Norse Gate, `fn_004230D0`)
+  crea 2 `Game3DObject` con la malla 398 en (∓15, 30, 0) de la matriz de la puerta (filas con escala + traslación),
+  ángulo 0 y escala 1, cada uno con la luz `fn_00823240`(su posición, 0).
+- **CREATE_PLANNED_CITADEL** (caso 20): pueblo y jugador obligatorios; `fn_00467DD0` (PlannedTownCitadelHeart en el
+  pueblo) y guarda la posición en 0xC5E258. El templo de verdad sale de `PlannedTownCitadelHeart::CreatePlannedNoFixedCheck`
+  0x467EF0 (vtable +0x504: la `Citadel` del jugador si no tiene, `fn_00462B10`, y `CitadelHeart::Create` 0x464E20), que
+  llama `Town::AddBuildingSiteNoFixedCheck` 0x73B8A0 desde `Town::RequestBestPlanned`, `Town::ForceBuildingOfPlannedAtPos`
+  0x73E560 (`GScript::BuildBuilding` 0x6FAB30 de CHL, y 0x641774 tras `StartPlaygroundGame` con 0xC5E258) y
+  `Scaffold::TryToBuildPlannedBuilding`. `GGame::Birthday` → `GPlayer::Birthday` → `Town::Birthday` solo rehace
+  estadísticas. Falta ver qué lo dispara en Land1 (probablemente el CHL de la introducción): openblack sigue creando el
+  templo visible.
+- **IsOkToCreateAtPos** 0x638C40: falla si `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe`
+  0x601D10 da el bit 8 y la celda no es agua. El bit 8 sale de un círculo `NewCollide::Obj` de radio 0,5 (0x82AD90)
+  contra el `GetCollideData` (vtable +0x858) de cada objeto fijo de la lista +4 de la celda (`Obj::Collide` 0x829140);
+  los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Sin portar:
+  hace falta NewCollide y las listas de fijos por celda.

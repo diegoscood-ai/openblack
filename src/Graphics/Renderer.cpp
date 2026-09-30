@@ -10,6 +10,7 @@
 #include <memory>
 #define LOCATOR_IMPLEMENTATIONS
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include <bgfx/platform.h>
 #include <bimg/bimg.h>
 #include <bx/file.h>
+#include <glm/geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
@@ -424,8 +426,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
                            bool preserveState) const
 {
 	assert(&subMesh.GetMesh());
-	// meshes without bones use the variant of the program with a single model matrix (see vs_object.sc)
-	const auto* program = mesh.IsBoned() ? desc.program : StaticVariant(desc.program);
+	// meshes without bones use the variant of the program with a single model matrix, meshes with up to 32 bones the one
+	// with 32 (see vs_object.sc)
+	const auto* program = !mesh.IsBoned()                          ? StaticVariant(desc.program)
+	                      : mesh.GetBoneMatrices().size() <= 32 ? BonesVariant32(desc.program)
+	                                                             : desc.program;
 	// We don't draw physics meshes, we haven't implemented statuses (building and graves) and modern GPUs can handle high lod.
 	// Window submeshes have no LOD bits: the original draws them only at night, without the LOD test (Abode::Draw ->
 	// fn_00856D40); vs_object hides them on the instances whose windows are not lit.
@@ -600,6 +605,37 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		}
 		lastPreserveState = primitivePreserveState;
 	}
+}
+
+namespace
+{
+/// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann)
+bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
+{
+	const glm::mat4 rows = glm::transpose(viewProjection);
+	for (int plane = 0; plane < 6; ++plane)
+	{
+		const glm::vec4 p = rows[3] + (plane % 2 == 0 ? 1.0f : -1.0f) * rows[plane / 2];
+		if (glm::dot(glm::vec3(p), centre) + p.w < -radius * glm::length(glm::vec3(p)))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+} // namespace
+
+const graphics::ShaderProgram* Renderer::BonesVariant32(const graphics::ShaderProgram* program) const
+{
+	if (_bonesVariants32.empty())
+	{
+		for (const auto* name : {"ObjectInstanced", "ObjectHeightMapInstanced", "ObjectShadowInstanced", "ObjectHeightMapShadowInstanced"})
+		{
+			_bonesVariants32.emplace(_shaderManager->GetShader(name), _shaderManager->GetShader(std::string(name) + "B32"));
+		}
+	}
+	const auto found = _bonesVariants32.find(program);
+	return found != _bonesVariants32.end() ? found->second : program;
 }
 
 const graphics::ShaderProgram* Renderer::StaticVariant(const graphics::ShaderProgram* program) const
@@ -2338,9 +2374,21 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				// TODO(bwrsandman): choose the correct LOD
 				if (mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
 				{
-					// animated (ecs/Animations.h): each instance on its own, with its pose
+					// animated (ecs/Animations.h): each instance on its own, with its pose. Only the ones in the view: every
+					// draw copies the bones into the backend's per-frame uniform buffer (see vs_object.sc)
+					const auto viewProjection = desc.camera->GetViewProjectionMatrix();
+					const auto box = mesh->GetBoundingBox();
+					const auto boxCentre = box.Center();
+					const float boxRadius = glm::length(box.Size()) * 0.5f;
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
+						const auto& model = renderCtx.instanceUniforms[placers.offset + i];
+						const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
+						                              glm::length(glm::vec3(model[2]))});
+						if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(boxCentre, 1.0f)), boxRadius * scale))
+						{
+							continue;
+						}
 						submitDesc.instanceDesc =
 						    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset + i, 1);
 						setMatrices(meshId, *mesh);

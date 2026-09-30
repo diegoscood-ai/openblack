@@ -124,6 +124,9 @@ private:
 	/// The *Static program (one model matrix) for the object programs, used for meshes without bones
 	[[nodiscard]] const ShaderProgram* StaticVariant(const ShaderProgram* program) const;
 	mutable std::unordered_map<const ShaderProgram*, const ShaderProgram*> _staticVariants;
+	/// The variant with 32 bones of an object program, for the posed villagers and animals (drawn one by one)
+	[[nodiscard]] const ShaderProgram* BonesVariant32(const ShaderProgram* program) const;
+	mutable std::unordered_map<const ShaderProgram*, const ShaderProgram*> _bonesVariants32;
 	void DrawPass(const DrawSceneDesc& desc) const;
 
 	std::unique_ptr<ShaderManager> _shaderManager;

@@ -77,6 +77,15 @@
   ~8 KB por llamada: con ~1000 llamadas se desbordaba y caía en `ScratchBufferVK::write` (Kapa's Land1). Las mallas sin
   huesos usan las variantes `*_static` (`BGFX_CONFIG_MAX_BONES 1`, `Renderer::StaticVariant`); al añadir shaders
   de objetos, crear también su variante.
+  Las mallas con hasta 32 huesos (aldeanos 22, casi todos los animales) usan las variantes `*B32`
+  (`Renderer::BonesVariant32`): cada aldeano o animal con pose es su propio draw, y los que quedan fuera de la vista
+  no se dibujan (`SphereInView` en el bucle de instancias). Además bgfx va parcheado (overlay de vcpkg
+  `vcpkg-overlay-ports/bgfx`, `raise-vulkan-limits.patch`, activado en `CMakePresets.json` con
+  `VCPKG_OVERLAY_PORTS`): el pool de descriptor sets pasa de 1024 a 8192 por frame en vuelo (con ~2000-2700 draws
+  se agotaba y caía en `getDescriptorSet` dentro del driver: Greek, Tibetan, Demon, Kapa's Land1, Ultimate Sandbox)
+  y el búfer de uniformes de 128 a 512 B por draw (32 MB). Ganchos: `OPENBLACK_DRAW_STATS=1` (draws por frame en el
+  log) y `OPENBLACK_TEST_MAP_CYCLE="<frames>:<guion>,<guion>..."` (carga el siguiente guion cada N frames, como el
+  menú "Load Island"; rutas relativas a Scripts, p. ej. `Playgrounds/TwoGods.txt`).
 - **Trampa: `bgfx::makeRef` sobre datos locales.** bgfx los lee más tarde; usar `bgfx::copy` salvo que el búfer viva
   hasta después del siguiente `bgfx::frame()` (tres casos en `LandIsland::LoadFromFile`, ya corregidos).
 

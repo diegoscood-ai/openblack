@@ -76,6 +76,17 @@
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/FishFarm.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Flock.h"
+#include "ECS/Components/MapSimData.h"
+#include "ECS/Components/Mist.h"
+#include "ECS/Components/StreetLantern.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Stream.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/Temple.h"
+#include "ECS/Components/TotemStatue.h"
+#include <map>
 #include "ECS/StaticGrounding.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
 #include "ECS/StoragePitStore.h"
@@ -731,4 +742,48 @@ void HandSystem::UpdateTestAbode(float seconds) noexcept
 	const auto direction = glm::normalize(at + glm::vec3(0.0f, 3.0f, 0.0f) - start);
 	physics::PhysicsObjects::AddObject(rock, direction * _testAbode->speed, glm::vec3(0.0f), entt::null, true);
 	registry.SetDirty();
+}
+
+// Debug: OPENBLACK_DUMP_ENTITY_COUNTS=<hand updates> logs, once after that many hand updates, how many entities there are
+// of each kind (map loading audit).
+void openblack::ecs::systems::hand_detail::DumpEntityCounts()
+{
+	static const char* env = std::getenv("OPENBLACK_DUMP_ENTITY_COUNTS");
+	static int updates = 0;
+	if (env == nullptr || updates < 0 || ++updates < std::atoi(env))
+	{
+		return;
+	}
+	updates = -1;
+	auto& registry = Locator::entitiesRegistry::value();
+	auto log = spdlog::get("game");
+	SPDLOG_LOGGER_INFO(log, "Entity counts: Tree {} DeadTree {} MobileStatic {} MobileObject {} Feature {} AnimatedStatic {} "
+	                        "Animal {} Flock {} Villager {} Creature {} Abode {} Town {} Field {} FishFarm {} Forest {} "
+	                        "BigForest {} Pot {} Mist {} StreetLantern {} LanternLight {} Arena {} Climate {} DrinkWaypoint {} "
+	                        "Stream {} Temple {} TotemStatue {} Mesh {}",
+	                   registry.Size<Tree>(), registry.Size<DeadTree>(), registry.Size<MobileStatic>(),
+	                   registry.Size<MobileObject>(), registry.Size<Feature>(), registry.Size<AnimatedStatic>(),
+	                   registry.Size<Animal>(), registry.Size<Flock>(), registry.Size<Villager>(), registry.Size<Creature>(),
+	                   registry.Size<Abode>(), registry.Size<Town>(), registry.Size<Field>(), registry.Size<FishFarm>(),
+	                   registry.Size<Forest>(), registry.Size<BigForest>(), registry.Size<Pot>(), registry.Size<Mist>(),
+	                   registry.Size<StreetLantern>(), registry.Size<LanternLight>(), registry.Size<Arena>(),
+	                   registry.Size<Climate>(), registry.Size<DrinkWaypoint>(), registry.Size<Stream>(),
+	                   registry.Size<Temple>(), registry.Size<TotemStatue>(), registry.Size<Mesh>());
+	int bare = 0;
+	registry.Each<const Transform>([&](entt::entity, const Transform&) { ++bare; }, entt::exclude<Mesh>);
+	size_t planned = 0;
+	registry.Each<const Town>([&](entt::entity, const Town& t) { planned += t.plannedAbodes.size(); });
+	SPDLOG_LOGGER_INFO(log, "Entity counts: Transform without Mesh {} planned abodes {}", bare, planned);
+	std::map<int, int> animals;
+	registry.Each<const Animal>([&](entt::entity, const Animal& a) { ++animals[static_cast<int>(a.type)]; });
+	for (const auto& [type, n] : animals)
+	{
+		SPDLOG_LOGGER_INFO(log, "Entity counts: Animal type {} x{}", type, n);
+	}
+	std::map<int, int> statics;
+	registry.Each<const MobileStatic>([&](entt::entity, const MobileStatic& m) { ++statics[static_cast<int>(m.type)]; });
+	for (const auto& [type, n] : statics)
+	{
+		SPDLOG_LOGGER_INFO(log, "Entity counts: MobileStatic type {} x{}", type, n);
+	}
 }

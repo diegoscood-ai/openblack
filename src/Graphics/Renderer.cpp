@@ -514,7 +514,13 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
 				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
 				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
-				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+				// y, z: mod graphics.hd-people on villagers lit like the original (lighting mode, mip bias; fs_object)
+				const auto& config = Locator::config::value();
+				const bool person = subMesh.IsPerson() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
+				                    desc.unlitColour < 0.0f;
+				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f,
+				                            person ? static_cast<float>(config.hdPeopleLighting) : 0.0f,
+				                            person ? config.hdPeopleMipBias : 0.0f, 0.0f};
 				program->SetUniformValue("u_window", &u_window);                      // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs

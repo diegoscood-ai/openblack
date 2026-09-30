@@ -25,11 +25,14 @@ public:
 	HdPeopleMod()
 	    : Mod({"graphics.hd-people", "HD villagers",
 	           "Better looking villagers: their textures upscaled 4x (images in Mods/graphics.hd-people, made with its "
-	           "tools) and rounder bodies (each triangle curved and split in 4 or 9)",
+	           "tools), rounder bodies (each triangle curved and split in 4 or 9), light per pixel with a rim on the "
+	           "silhouette, and textures kept sharp far away",
 	           "Graphics", false})
 	{
 		AddOption({"textures", "Textures", {"hd", "original"}, 0});
 		AddOption({"smooth", "Rounder shapes", {"off", "soft", "round"}, 2});
+		AddOption({"light", "Lighting", {"rim", "smooth", "original"}, 0});
+		AddOption({"sharp", "Sharp far away", {"on", "off"}, 0});
 	}
 
 	void Apply() override
@@ -38,6 +41,9 @@ public:
 		config.hdPeopleTextures = IsEnabled() && GetChoice("textures") == "hd";
 		const auto& smooth = GetChoice("smooth");
 		config.hdPeopleSmoothLevel = !IsEnabled() ? 0 : smooth == "round" ? 3 : smooth == "soft" ? 2 : 0;
+		const auto& light = GetChoice("light");
+		config.hdPeopleLighting = !IsEnabled() ? 0 : light == "rim" ? 2 : light == "smooth" ? 1 : 0;
+		config.hdPeopleMipBias = IsEnabled() && GetChoice("sharp") == "on" ? -1.0f : 0.0f;
 	}
 };
 } // namespace

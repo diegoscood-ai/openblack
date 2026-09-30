@@ -48,11 +48,11 @@ struct EnhancedL3DVertex
 
 namespace
 {
-// Mod graphics.hd-people (smooth): a boned mesh whose textures are all villager textures (EngineConfig::hdPeopleSkins)
-bool IsSmoothedPerson(const auto& primitiveSpan)
+// Mod graphics.hd-people: a boned mesh whose textures are all villager textures (EngineConfig::hdPeopleSkins)
+bool AllPersonSkins(const auto& primitiveSpan)
 {
 	const auto& config = Locator::config::value();
-	if (config.hdPeopleSmoothLevel < 2 || config.hdPeopleSkins.empty() || primitiveSpan.empty())
+	if (config.hdPeopleSkins.empty() || primitiveSpan.empty())
 	{
 		return false;
 	}
@@ -334,7 +334,8 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	}
 	// Mod graphics.hd-people (smooth): the villagers' meshes as curved PN triangles. The collision data built above stays
 	// the original's (the hand and the physics use it).
-	if (_flags.hasBones && IsSmoothedPerson(primitiveSpan))
+	_person = _flags.hasBones && AllPersonSkins(primitiveSpan);
+	if (_person && Locator::config::value().hdPeopleSmoothLevel >= 2)
 	{
 		SmoothPerson(boneSpans, verticesMem, indicesMem, _primitives, nVertices, nIndices);
 	}

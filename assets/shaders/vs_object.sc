@@ -197,7 +197,11 @@ void main()
 		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
 		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
+		// mod graphics.hd-people (u_window.y > 0): fs_object does this per pixel on the villager
+		if (u_window.y <= 0.0f)
+		{
+			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
+		}
 		}
 		// Windows at night (fn_00856D40): unlit, the flat grey instead of the land light, the specular kept
 		if (u_window.x > 0.0f && windowGrey >= 0.0f)

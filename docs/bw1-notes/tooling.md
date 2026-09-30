@@ -49,21 +49,31 @@ InfoConstants, L3D/G3D y una versión antigua de `fs_terrain`.
     altitud van en los bits bajos de `saveColor` (`LNDCell::Altitude`, `LandIslandInterface::GetCellAltitude`).
   - La cuadrícula puede tener hasta 128×128 bloques y más de 255 bloques. La tabla de la cabecera solo cubre 32×32 e
     índices < 256, así que `LandIsland` monta su tabla con `blockX`/`blockZ` de cada bloque. En los 21 `.lnd`
-    originales la tabla coincide con esos campos (`dev\lnd_check.py`).
+    originales la tabla coincide con esos campos (`dev\tools\lnd\lnd_check.py`).
   - El editor corrige un `mapX`/`mapZ` que no cuadre con `blockX`/`blockZ`, y `LandIsland` hace lo mismo.
 - **Qué se adapta en openblack.** Con más de 8 bits el mapa de alturas pasa de R8 a R32F en la misma escala
   (1 = altitud 255). Por encima de 255 se usa el último material del país, como hace el editor.
   - Las texturas por isla (huellas, sombras estáticas, alfa) bajan de 256 texels por bloque en cuanto pasarían de 8192.
   - El disco que limita la cámara (centro 2560, radio 5120) crece con el tamaño del mapa.
   - Los mapas originales no cambian.
-- **Pruebas.** `dev\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
+- **Pruebas.** `dev\tools\lnd\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
   absoluta del `.txt`):
   - `Land1_ext`: Land1 con los bloques del editor al final; idéntico a Land1, altura en (1788.4, 2710) = 28.9173050.
   - `Land1_hi`: 10 bits y altitudes dobladas; altura 57.8346100.
   - `Land5_x2`: Land5 dos veces, cuadrícula de 60, 374 bloques.
 - **Byte `flags` de la celda, según el editor.** Bit 0 = "transparent"; bits 1-7 = sonido ambiente: 0 nada,
   2 chapoteo, 3 océano, 4 olas lentas, 5 lago, 6 costa, 7 olas rápidas, 8 jungla, 10 viento, 12 desierto, 14 pájaros,
-  16 bosque, 18 río. Los impares por encima de 8 son variantes del par anterior. openblack aún no lo usa.
+  16 bosque, 18 río. Los impares por encima de 8 son variantes del par anterior. openblack lo usa en los filtros `zone`/`not_zone`
+  de `world.foliage` (1579a51c, ver [mod-library.md](mod-library.md)).
+- **Byte `properties` de la celda (+6).** Bits 0-3 = country, bit 4 (0x10) = hasWater, bit 5 (0x20) = coastLine,
+  bit 6 (0x40) = fullWater, bit 7 (0x80) = split (diagonal, ver [engine-math.md](engine-math.md)). Para separar el
+  mar abierto del agua interior, `lnd_water.py` agrupa las celdas conectadas con agua o sin bloque: las que tocan el
+  borde del mapa o el vacío son mar; las demás, lagos o charcas.
+- **Scripts de análisis de `.lnd`** (`dev\tools\lnd\`): `lnd_check` (tabla de bloques frente a blockX/blockZ),
+  `lnd_make_tests` (mapas de prueba), `lnd_beaches` (arena junto al agua, materiales 6 y 11), `lnd_zones` /
+  `lnd_countries` / `lnd_find_country <lnd> <n>` (zonas de sonido, countries y posición mediana de un country),
+  `lnd_materials` / `lnd_colours` / `lnd_tile_check` / `lnd_decal_metric` (materiales RGB555 de 256×256),
+  `lnd_water` (cuerpos de agua), `lnd_hash` (FNV-1a de los materiales).
 - **Texturas de baja resolución.** Atlas de 4×4 subtexturas de 64×64, una por bloque, 4 texels por celda, con X e Y
   intercambiadas. El "unknown" de su cabecera es el número de bloques del atlas. `iu_lrs`/`iv_lrs` son enteros
   (0/64/128/192). openblack no las usa.

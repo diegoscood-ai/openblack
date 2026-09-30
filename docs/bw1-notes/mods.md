@@ -89,7 +89,7 @@ Todo se aplica **en vivo** (sin reiniciar), desactivado por defecto como todo mo
 - **Carpeta antigua**: si aparece `Mods/graphics.hd-people` (un exe viejo o una copia de `Mods`), `ModRegistry`
   (`MigrateRenamedFolder`) pasa a `graphics.hd-tweaks` lo que le falte y la borra; nunca sale como mod de datos.
 - **Pruebas**: `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` cambia las opciones a mitad de partida;
-  `dev\shot_villager.sh`, `dev\shot_hand.sh` y `dev\shot_animal.sh <n,distancia,ángulo,1>` (copia privada en
+  `dev\tools\shot_villager.sh`, `dev\tools\shot_hand.sh` y `dev\tools\shot_animal.sh <n,distancia,ángulo,1>` (copia privada en
   `dev\hdp_run`; los animales solo se siguen con el juego en marcha, sin START_PAUSED); `OPENBLACK_START_PAUSED=1` deja a los
   aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una pose (sentado 369, rezar 343). Las
   capturas en el fotograma 2900 fallan a veces: repetir.

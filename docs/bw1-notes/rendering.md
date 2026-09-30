@@ -53,11 +53,12 @@ openblack ya coincide por defecto: bilineal, sin mips y sin MSAA.
 
 ### Verificación
 
-Capturas en `dev\gfx\`:
+Capturas (estaban en `dev\gfx\`, borradas en la limpieza del 2026-09-30; se regeneran con estas cámaras y
+opciones):
 - `base_*` frente a `enh_*` / `enh2_*`: aldea `1818,75,2612,1824,44,2636` y panorámica
   `1600,160,2350,1900,40,2750`, con `-n 14000 --screenshot-frame 13900`. Con mips la carga es más lenta y a 8000
   fotogramas el vuelo aún no ha terminado.
-- `crop_trees_zoom.png`, rejilla de cuatro: original, mips, MSAA y todo.
+- [img/crop_trees_zoom.png](img/crop_trees_zoom.png), rejilla de cuatro: original, mips, MSAA y todo.
 
 ## Mezcla de materiales L3D (original, no es un mod)
 
@@ -67,7 +68,7 @@ Capturas en `dev\gfx\`:
   `SRCALPHA/INVSRCALPHA` (o `SRCALPHA/ONE` los aditivos), sin escribir Z en los `Nz`, en la vista `MainBlended`
   (después de todo lo opaco). Los `TexturedChroma` siguen con prueba de alfa.
 - La mano (`Hand_Boned_Base2`, material `AlphaTextured`) tiene en su piel un degradado de alfa en las filas de abajo:
-  la muñeca se desvanece. Antes acababa en un borde blanco duro (`dev\gfx\hand_zoom.png`).
+  la muñeca se desvanece. Antes acababa en un borde blanco duro ([img/hand_zoom.png](img/hand_zoom.png)).
 - Mallas de `AllMeshes.g3d` por tipo de material: `Textured` 512, `TexturedChroma` 217, `Smooth` 181,
   `AlphaTextured` 116 (casi todos los edificios `MSH_B_*`), `TexturedChromaAlpha` 6 (arbustos, palmeras).
 - Gancho de pruebas `OPENBLACK_MOUSE_AT="fx,fy"`: cursor fijo en fracción de la ventana (la mano aparece en capturas
@@ -312,9 +313,9 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   una vez en el log ("not ported yet") y no hacen nada.
 - Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
   (hoguera con llamas y humo); `OPENBLACK_PSYS_TRACE=1` escribe átomos y edad de cada efecto cada 20 turnos.
-- **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `tmp_dis\psys	owncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
+- **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `tmp_dis\psys\towncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
 - Pendiente: creadores de malla, niebla, cadenas, animación, mapas de luz (se estampan en la luz del terreno), las
-  reglas de hechizos y del pueblo (UR_TownCentreBelief...), `CreateRule_GameObjectRef` (el brillo de las llaves de la
+  reglas de hechizos y del pueblo (`UR_TownCentreBelief` ya está: ver arriba), `CreateRule_GameObjectRef` (el brillo de las llaves de la
   puerta de Land1, SF_HighlightOnObject), los sonidos, y pasar a este motor los efectos de la mano de `HandEffects.cpp`.
 
 ## Sombras de los objetos físicos (hechas)

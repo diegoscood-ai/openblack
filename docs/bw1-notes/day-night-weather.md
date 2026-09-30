@@ -71,6 +71,9 @@ original, hasta el sexto decimal.
   casa tiene su desfase de hora: la parte fraccionaria de |x + z|·0,1 + y. openblack: `night_lights::WindowGrey`
   (`src/3D/NightLights.*`). Como openblack todavía no manda a los aldeanos a casa, cuenta "alguien en casa" como
   que la casa tiene habitantes **(aproximado)**.
+- **Casa de los aldeanos del guion**: al crear un aldeano con CREATE_VILLAGER, openblack (b8657f1d) le da la casa
+  más cercana a la posición de abode del guion (a 1 unidad o menos) o, si no hay, cualquiera con sitio, y lo añade
+  a sus habitantes. Regla propia, sin contrastar con el original **(aproximado)**.
 - **Luz de la mano y de las farolas** (hecho; `night_lights::Update`, llamado desde `Renderer::UpdateClouds`):
   - Mecanismo (`fn_008229B0`): una imagen de 8 bits, remapeada al cargar a min(47, v·48/255 + 0,5), se estampa en
     la luminosidad de las celdas con una bilineal que el original desplaza un texel. v = r·trunc(I·255)/255. Si

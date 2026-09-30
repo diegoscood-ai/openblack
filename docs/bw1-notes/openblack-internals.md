@@ -93,7 +93,10 @@
 
 - `Common/CrashHandler`: una excepción no atendida o `std::terminate` escriben la pila en stderr y en
   `openblack_crash.txt` (directorio de trabajo). Con nombres y líneas solo si el `.pdb` está al lado: compilar
-  `RelWithDebInfo` con `C:\Users\diewgarc\dev\build_rwdi.bat` (sale en `bin\RelWithDebInfo`).
+  `RelWithDebInfo` con `C:\Users\diewgarc\dev\tools\build_rwdi.bat` (sale en `bin\RelWithDebInfo`).
+- Cierre sin aclarar (30-09-2026): una build RelWithDebInfo cayó al cargar Land1 con 0xC0000005 en
+  `btCollisionWorld::updateSingleAabb` (`stepSimulation`, desde `Game::Update`). No se sabe la causa ni si ya está
+  arreglado; si reaparece, buscar un `btCollisionObject` liberado sin `removeCollisionObject`.
 - `OPENBLACK_FLUSH_LOG=1`: el registro se escribe línea a línea (no se pierden las últimas antes de un cierre).
 - Guiones: `LHScriptX::Script` salta la línea que no entiende (`ScriptError`, `LexerException`) y lo registra
   ("line skipped"); los mapas de escaramuza traen erratas (comilla doble, argumento vacío, palabras sueltas) que el
@@ -124,7 +127,7 @@ o queda muerto),
 `OPENBLACK_HAND_TEST_HOLD=<escala>` (la mano empieza sosteniendo una roca), `OPENBLACK_TEST_SPLASH="x,z"` (un chapoteo de
 la mano por segundo), `OPENBLACK_HAND_TEST_FISH=1` (chapoteo y
 pesca en el primer banco con la acción mantenida 3 s; con `OPENBLACK_HAND_TRACE=1` escribe `Fish trace`), `OPENBLACK_START_PAUSED=1` (arranca en pausa como el openblack de antes; por defecto el juego corre desde el primer fotograma, como el original: turnos y
-scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_VIEW_VILLAGER="n[,distancia[,ángulo]]"` (la cámara mira al aldeano n desde esa distancia y lado; `dev\shot_villager.sh` lo lanza desde una copia en `dev\hdp_run` para no bloquear el exe de las demás sesiones; los aldeanos caminan, así que de lejos pueden salir del encuadre), `OPENBLACK_TEST_WIDESCREEN=1`, `OPENBLACK_CLOUD_SEED=<n>` (semilla fija del `rand()` de las nubes del cielo; sin ella, la hora como el original), `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (objetivo de la alineación del cielo: −1 mala, 0 neutral, 1 buena; en vez del deslizador de depuración), `OPENBLACK_LOG_ISOK=1` (una línea `isok:` en el log por cada árbol, vasija u objeto móvil del guion que `IsOkToCreateAtPos` no deja crear, con lo que lo tapa; ver [objects-and-resources.md](objects-and-resources.md)), `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` (cambia el mod HD-Tweaks en ese fotograma, como el menú; `dev\shot_hand.sh` para la mano), `OPENBLACK_LANTERN_SOUND_TRACE=1` (escribe `Lantern sound:` en el log: arranque, corte y suelta del bucle de cada farola con su distancia, y cada 50 turnos el número de farolas, si es de noche y la distancia de la más cercana; probarlo con `OPENBLACK_TIME_OF_DAY=22` y la cámara a menos de 5 unidades de la punta de una farola). Físicas: ver [physics.md](physics.md#ganchos-de-prueba).
+scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_VIEW_VILLAGER="n[,distancia[,ángulo]]"` (la cámara mira al aldeano n desde esa distancia y lado; `dev\tools\shot_villager.sh` lo lanza desde una copia en `dev\hdp_run` para no bloquear el exe de las demás sesiones; los aldeanos caminan, así que de lejos pueden salir del encuadre), `OPENBLACK_TEST_WIDESCREEN=1`, `OPENBLACK_CLOUD_SEED=<n>` (semilla fija del `rand()` de las nubes del cielo; sin ella, la hora como el original), `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (objetivo de la alineación del cielo: −1 mala, 0 neutral, 1 buena; en vez del deslizador de depuración), `OPENBLACK_LOG_ISOK=1` (una línea `isok:` en el log por cada árbol, vasija u objeto móvil del guion que `IsOkToCreateAtPos` no deja crear, con lo que lo tapa; ver [objects-and-resources.md](objects-and-resources.md)), `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` (cambia el mod HD-Tweaks en ese fotograma, como el menú; `dev\tools\shot_hand.sh` para la mano), `OPENBLACK_LANTERN_SOUND_TRACE=1` (escribe `Lantern sound:` en el log: arranque, corte y suelta del bucle de cada farola con su distancia, y cada 50 turnos el número de farolas, si es de noche y la distancia de la más cercana; probarlo con `OPENBLACK_TIME_OF_DAY=22` y la cámara a menos de 5 unidades de la punta de una farola). Físicas: ver [physics.md](physics.md#ganchos-de-prueba).
 
 Puntos útiles de Land1: playa de inicio `1464,2016` (agua poco profunda); arena seca `1478,2129`; almacén del pueblo
 `1826.8,2641.4` (cámara `1818,75,2612,1824,44,2636`).
@@ -133,6 +136,15 @@ Puntos útiles de Land1: playa de inicio `1464,2016` (agua poco profunda); arena
 
 - El terreno de prueba lo genera `lndtool` en `test/mock/CMakeLists.txt`. Se corrigió un fallo que borraba los puntos
   anteriores del mismo bloque; la celda bajo la cámara de `test_set_camera_pos` ahora es llana.
+
+## Commits con varias sesiones
+
+El protocolo está en `C:\Users\diewgarc\dev\BUILD_PROTOCOL.md` (candado de build, turno en `commit_queue.txt`).
+Para commitear solo tus hunks de un archivo que también tocan otras sesiones, **no** usar
+`git apply --unidiff-zero`: coloca las inserciones según las líneas del árbol de trabajo y no las de HEAD, y rompió
+HEAD dos veces (f9c0b08c, arreglado en 6fde22cf; 09fc3b05, arreglado en 6a0b1a4b). Usar
+`dev\hunks2.py list|build <base> <archivo> <picks>` y `dev\commit_build.py <config.json>`, que montan el commit
+en un índice temporal sobre HEAD.
 
 ## Pruebas con ratón
 

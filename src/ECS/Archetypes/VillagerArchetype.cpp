@@ -45,11 +45,6 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
 	ecs::object_index::Assign(entity);
-	if (std::getenv("OPENBLACK_OBJECT_INDEX_TRACE") != nullptr)
-	{
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Object index: villager {} at ({:.2f}, {:.2f})", ecs::object_index::Of(entity),
-		                   position.x, position.z);
-	}
 
 	const auto& info = Locator::infoConstants::value().villager.at(static_cast<size_t>(type));
 
@@ -104,6 +99,12 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	const auto resourceId =
 	    resources::HashIdentifier(ecs::detail_meshes::Villager(info, lifeStage == Villager::LifeStage::Child));
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
+	if (std::getenv("OPENBLACK_OBJECT_INDEX_TRACE") != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Object index: villager {} at ({:.2f}, {:.2f}) type {} age {} meshes {} {}",
+		                   ecs::object_index::Of(entity), position.x, position.z, static_cast<int>(type), age,
+		                   static_cast<int>(info.highDetail), static_cast<int>(info.childMeshHigh));
+	}
 	auto turnsSinceStateChange = Locator::rng::value().NextValue<uint16_t>(1, 500);
 	registry.Assign<LivingAction>(entity, VillagerStates::Created, turnsSinceStateChange);
 	ecs::SetVillagerStateSpeed(entity);

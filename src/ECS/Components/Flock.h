@@ -21,7 +21,7 @@ namespace openblack::ecs::components
 
 /// A flock of animals (Flock, 0x90 bytes, list g_game+0x205C44; invisible, only simulation data). Made by CREATE_FLOCK
 /// (0x71634A -> Flock::Flock 0x52F780) or, for an animal created without one, its own (Flock::Flock(Living*)
-/// 0x52F950 in fn_00419C20). There is no flocking AI in openblack yet: the animals don't move.
+/// 0x52F950 in fn_00419C20). The herd's AI is in ECS/AnimalAI.h: the leader is the first member.
 struct Flock
 {
 	/// +0x8C: the script's id (CREATE_ANIMAL / CREATE_NEW_ANIMAL look flocks up by it); an animal's own flock has none
@@ -33,6 +33,8 @@ struct Flock
 	entt::entity town {entt::null};     ///< +0x34
 	std::vector<entt::entity> members;  ///< +0x3C/+0x48 (fn_0052FA50 keeps it sorted by the living's +0xD4, not ported)
 	uint32_t maxMembers {0};            ///< +0x88: the most members it has had
+	/// +0x4C: the leader's turns since it last moved the herd (Animal::ProcessNeeds; KeepLeaderWithinDomain vs stayTime)
+	uint32_t leaderTurns {0};
 };
 
 } // namespace openblack::ecs::components

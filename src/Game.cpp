@@ -43,6 +43,7 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
@@ -352,6 +353,8 @@ bool Game::GameLogicLoop() noexcept
 	{
 		auto actions = profiler.BeginScoped(Profiler::Stage::LivingActionUpdate);
 		Locator::livingActionSystem::value().Update();
+		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
+		ecs::animal_ai::ProcessAnimalsTurn();
 	}
 
 	{

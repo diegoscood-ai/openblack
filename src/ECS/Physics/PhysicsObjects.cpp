@@ -46,6 +46,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
@@ -372,6 +373,7 @@ void Kill(entt::entity entity, const char* reason)
 			town->homelessVillagers.erase(entity);
 		}
 	}
+	ecs::animal_ai::Forget(entity);
 	PhysicsObjects::RemoveObject(entity);
 	registry.Destroy(entity);
 	registry.SetDirty();
@@ -397,6 +399,12 @@ void ReduceLife(entt::entity entity, float damage)
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: animal hurt {:.3f}, life {:.2f}", damage, life.value);
 	if (life.value <= 0.0f)
 	{
+		if (registry.AllOf<Animal>(entity))
+		{
+			// Object::ApplyEffect -> Animal::DestroyedByEffect: SetDying (nothing while it flies, EndPhysics does it)
+			ecs::animal_ai::DestroyedByEffect(entity);
+			return;
+		}
 		Kill(entity, "impact");
 	}
 }
@@ -459,6 +467,20 @@ entt::entity EndPhysics(PhysicsObject& po)
 	auto& registry = Locator::entitiesRegistry::value();
 	SyncTransform(po);
 	auto entity = po.entity;
+	if (registry.AllOf<Animal>(entity))
+	{
+		// Animal::EndPhysics (0x5F0D80): the landType from the body, back on the land (altitude 0) and out of the
+		// physics; LANDED, or dying / dead. There is no drowning for animals (only a sunk corpse goes, HasSunk).
+		const auto rotation = po.body.Rotation();
+		auto& transform = registry.Get<Transform>(entity);
+		if (Locator::terrainSystem::has_value())
+		{
+			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
+		}
+		ecs::animal_ai::EndPhysics(entity, rotation);
+		registry.SetDirty();
+		return entt::null;
+	}
 	if (registry.AnyOf<Villager, Animal>(entity))
 	{
 		// Villager/Animal::EndPhysics: stands up where it landed (the three landing poses are not done yet)
@@ -1077,6 +1099,11 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	{
 		// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
 		ecs::SetVillagerState(entity, VillagerStates::Flying);
+	}
+	else if (registry.AllOf<Animal>(entity))
+	{
+		// Living::InitialisePhysicsFromHand: FLYING, the species' THROWN clip
+		ecs::animal_ai::InitialisePhysics(entity);
 	}
 	po->body.SetAngularVelocity(angularVelocity);
 	const float speed = glm::length(velocity);

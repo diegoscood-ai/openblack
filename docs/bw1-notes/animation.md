@@ -126,9 +126,8 @@ en el bucle de instancias de `Renderer.cpp`); el resto sigue instanciado. Gancho
 ese clip en todos los aldeanos (bloqueado; con ms, quieto en ese instante; con `OPENBLACK_START_PAUSED=1` no se
 mueven). Traza: `OPENBLACK_ANIM_TRACE=1`.
 
-Animales: aún no tienen estados en openblack y están quietos, así que tocan el `StandAnimation` de su especie
-(`ECS/AnimalAnimations`: vaca 42, oveja 142, cerdo 126, caballo 57, león 106, tigre 164, leopardo 80, lobo 184,
-tortuga 171; cabra y cebra devuelven −1 y se quedan en reposo).
+Animales: su IA, sus estados y el clip de cada estado por especie están en [animals.md](animals.md) (`ECS/AnimalAI`,
+`ECS/AnimalAnimations`); usan la misma reproducción, sincronía por distancia y sonidos que los aldeanos.
 
 Pendiente: el resto de funciones de los animales (tabla en `animal_table.txt`), sonidos de los clips
 (`Data\SmallSounds.SAS`), objetos en la mano (hacha, bolsa...), sombras dinámicas y reflejo con la pose.

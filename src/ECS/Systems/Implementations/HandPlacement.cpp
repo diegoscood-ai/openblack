@@ -48,6 +48,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Forest.h"
@@ -689,6 +690,11 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 		// Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted, but they stay the target of the
 		// action button when they can be tapped (StartGrab 0x5D1740 goes straight to Tap).
 		if (Rocks::IsRock(*best) && !Rocks::ValidForPlaceInHand(*best) && !Rocks::ValidToTap(*best))
+		{
+			best.reset();
+		}
+		// Animal::ValidForPlaceInHand (0x419B40): the species' playerCanPickUp
+		else if (registry.AllOf<Animal>(*best) && !ecs::animal_ai::ValidForPlaceInHand(*best))
 		{
 			best.reset();
 		}

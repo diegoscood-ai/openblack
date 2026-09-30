@@ -205,16 +205,15 @@ void Foliage::UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition
 			const auto frames = animation.ends.size();
 			const auto frame = std::min(
 			    static_cast<size_t>(std::ranges::upper_bound(animation.ends, at) - animation.ends.begin()), frames - 1);
-			auto layer = static_cast<uint16_t>(animation.first + frame);
-			// folding: always the widest frame, its halves folded up as much as this frame looks narrower, easing
-			// into the next frame's fold (i_data4.z = 3, w = the fold)
+			const auto layer = static_cast<uint16_t>(animation.first + frame);
+			// folding, on top of the image's own frames: its halves turned up about the body by fold times the fold
+			// that matches this frame's width, easing into the next frame's (i_data4.z = 3, w = the fold)
 			float fold = 0.0f;
-			if (flyer.fold)
+			if (flyer.fold > 0.0f)
 			{
-				layer = animation.open;
 				const float start = frame > 0 ? animation.ends[frame - 1] : 0.0f;
 				const float u = std::clamp((at - start) / std::max(animation.ends[frame] - start, 1e-3f), 0.0f, 1.0f);
-				fold = glm::mix(animation.folds[frame], animation.folds[(frame + 1) % frames], u);
+				fold = flyer.fold * glm::mix(animation.folds[frame], animation.folds[(frame + 1) % frames], u);
 			}
 
 			const auto cell = glm::clamp(glm::ivec2(glm::floor(glm::vec2(position.x, position.z) / k_CellSize)), 0, last);
@@ -226,7 +225,7 @@ void Foliage::UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition
 			                           {width * _layerAspect[layer], static_cast<float>(layer), luminosity, yaw},
 			                           {_layerTop[layer], 0.0f, 0.0f, static_cast<float>(Tint::None)},
 			                           {0.0f, 0.0f, 0.0f, 0.0f},
-			                           {0.0f, 0.0f, flyer.fold ? 3.0f : 2.0f, fold}});
+			                           {0.0f, 0.0f, flyer.fold > 0.0f ? 3.0f : 2.0f, fold}});
 		}
 	}
 }

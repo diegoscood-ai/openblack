@@ -97,7 +97,7 @@ public:
 		float speed {1.0f};             ///< flight and wing beat speed scale
 		float flee {5.0f};              ///< flies away from the hand closer than this (0: never)
 		bool night {false};             ///< also at night (otherwise they go one by one at dusk)
-		bool fold {true};               ///< the wings fold along the body instead of the image changing
+		float fold {0.7f};              ///< how much the wings fold along the body with the image's beats (0: flat)
 	};
 
 	/// One growth stage of the plants of a crop field (a [field_stage ...] section of foliage.cfg)
@@ -210,9 +210,8 @@ private:
 	{
 		uint16_t first;
 		std::vector<float> ends; ///< seconds at the end of each frame, from the image's frame delays
-		/// folding flyers: the frame with the widest wings, drawn on the two halves of a folding quad, and per frame
-		/// the fold that makes it look as wide as that frame (acos of its width over the widest)
-		uint16_t open {0};
+		/// folding flyers, per frame: the fold (radians) that would make the widest frame look as wide as this one
+		/// (acos of its width over the widest): the wings' beat, in time with the image
 		std::vector<float> folds;
 	};
 

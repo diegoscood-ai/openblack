@@ -770,7 +770,6 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 		stbi_image_free(pixels);
 		STBI_FREE(delays);
 		const auto widest = std::ranges::max_element(halfWidths);
-		animation.open = static_cast<uint16_t>(animation.first + (widest - halfWidths.begin()));
 		for (const float halfWidth : halfWidths)
 		{
 			animation.folds.push_back(*widest > 0.0f ? std::acos(std::clamp(halfWidth / *widest, 0.0f, 1.0f)) : 0.0f);
@@ -1044,7 +1043,10 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 				}
 				else if (key == "fold")
 				{
-					flyer.fold = value == "on" || value == "yes" || value == "true" || value == "1";
+					flyer.fold = value == "on" || value == "yes" || value == "true" ? 1.0f
+					             : value == "off" || value == "no" || value == "false"
+					                 ? 0.0f
+					                 : std::clamp(std::stof(value), 0.0f, 1.5f);
 				}
 				else if (key == "night")
 				{

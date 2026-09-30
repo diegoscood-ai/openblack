@@ -14,6 +14,8 @@
 #include <entt/entity/entity.hpp>
 #include <glm/vec2.hpp>
 
+#include "Common/Zoomer.h"
+
 namespace openblack::ecs::components
 {
 
@@ -59,6 +61,11 @@ struct AnimalBrain
 	bool reacting {false};
 	uint32_t reactStart {0};
 	uint8_t previousState {0};
+	/// +0x1C: the MapCoords altitude, metres above the land (the birds; 0 on the ground) and the goal's (+0x88)
+	float altitude {0.0f};
+	float goalAltitude {0.0f};
+	/// +0x110..+0x13C: the bank zoomer (roll in radians; Dove::Draw rolls the drawn matrix by it)
+	Zoomer bank;
 	/// the ground covered in the last turn (Object::IsMoving: the clip advances by distance while it moves)
 	float movedLastTurn {0.0f};
 };

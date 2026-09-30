@@ -87,7 +87,7 @@ uint32_t RandomAge(uint32_t range)
 	return Locator::rng::value().NextValue<uint32_t>(0, range - 1) + 5;
 }
 
-/// The class factory and CallVirtualFunctionsForCreation of a ground animal
+/// The class factory and CallVirtualFunctionsForCreation of an animal
 entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnimalInfo& info, uint32_t age)
 {
 	auto& rng = Locator::rng::value();
@@ -114,6 +114,11 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	if (Locator::terrainSystem::has_value())
 	{
 		ground.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z));
+	}
+	// the Dove constructor 0x41DCF0: MapCoords altitude (+0x1C) = info.altitudeNormal, drawn at GetAltitude + it
+	if (ClassOf(info) == AnimalClass::Flying)
+	{
+		ground.y += info.altitudeNormal;
 	}
 	registry.Assign<Transform>(entity, ground, glm::mat3(1.0f), glm::vec3(scale));
 	registry.Assign<Mobile>(entity);
@@ -146,14 +151,6 @@ entt::entity CreateAlone(const glm::vec3& position, AnimalInfo type, const GAnim
 	const auto animalClass = ClassOf(info);
 	if (animalClass == AnimalClass::None)
 	{
-		return entt::null;
-	}
-	if (animalClass == AnimalClass::Flying)
-	{
-		// The Dove constructor 0x41DCF0 sets its MapCoords altitude (+0x1C) to info.altitudeNormal, so it starts at
-		// GetAltitude + altitudeNormal (Game3DObject::SetPosition 0x63B680), but its flight (the living states and the
-		// flap/glide clips) isn't decoded yet: not made. It is still an Object of the creation counter.
-		ecs::object_index::Skip(1);
 		return entt::null;
 	}
 	const auto entity = MakeAnimal(position, type, info, age);
@@ -209,12 +206,6 @@ entt::entity AnimalArchetype::Create(const glm::vec3& position, AnimalInfo type,
 			std::erase(flockTown->flocks, flock);
 		}
 		flockData.town = entt::null;
-	}
-	if (animalClass == AnimalClass::Flying)
-	{
-		// see CreateAlone: the flyers are not made yet
-		ecs::object_index::Skip(1);
-		return entt::null;
 	}
 	const auto entity = MakeAnimal(position, type, info, age);
 	JoinFlock(flock, flockData, entity);

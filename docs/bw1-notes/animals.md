@@ -2,12 +2,12 @@
 
 Investigación con direcciones: `C:\Users\diewgarc\dev\tmp_dis\animals\grazing_ai.md` (IA de los herbívoros),
 `hand_death.md` (mano, vuelo, aterrizaje, muerte), `predator_ai.md` (depredadores), `hunting.md` (la caza),
-`flee.md` (la huida) y `openblack_plumbing.md` (qué reutiliza openblack). Scripts en la
+`flee.md` (la huida), `birds_ai.md` y `birds_draw.md` (las aves) y `openblack_plumbing.md` (qué reutiliza openblack). Scripts en la
 misma carpeta (`dumpanimals.py` valores de info.dat, `vtd.py` vtables, `a.txt` desensamblado de Animal.cpp).
 bw1-decomp solo tiene stubs vacíos de Animal*.cpp: todo sale de runblack.exe.
 
 En openblack: `ECS/AnimalAI.*` (estados por turno, herbívoros, mano, muerte), `ECS/AnimalPredators.cpp` (depredadores
-y caza), `ECS/AnimalFlee.cpp` (huida), `ECS/AnimalAIDetail.h` (lo que comparten), `ECS/AnimalAnimations.*` (clip por
+y caza), `ECS/AnimalFlee.cpp` (huida), `ECS/AnimalBirds.cpp` (aves), `ECS/AnimalAIDetail.h` (lo que comparten), `ECS/AnimalAnimations.*` (clip por
 estado y especie),
 `components::AnimalBrain` (los campos de Living / MobileWallHug / Animal que usa la IA), `Flock::leaderTurns`.
 
@@ -69,6 +69,28 @@ crían y aterrizan con las funciones de los herbívoros.
 - **Comer**: START_TO_EAT → EAT 15..24 ciclos; si la presa desaparece vuelve a decidir (`Lion::Eat` 0x41FE40; también
   al final de la comida, así que el clip de levantarse no llega a verse).
 
+## Aves (cuervo, paloma, golondrina, paloma bravía, gaviota, murciélago)
+
+Todas son la clase Dove (constructor 0x41DCF0); solo cambian los clips y los valores de info.dat. Nacen a
+`altitudeNormal` sobre el suelo (20 o 40 m), a 8-10 m/s.
+
+- **Líder** (`Dove::DecideWhatToDo` 0x41DE40 → `StartWander` 0x41DF50 → SPECIAL_MOVE_TO_POS 44): un tramo hasta un
+  punto al azar a 80 m (domainRadius) **de donde está** (la bandada deriva por la isla), a su altura ± altitudeVariance
+  dentro de altitudeNormal + [altitudeMin, altitudeMax]; otro tramo al llegar o cada stayTime (100 turnos).
+- **Seguidores** (FOLLOW_FLOCK 45): un punto a 10 m del líder, luego un hueco de formación (`fn_0041E890`, leído
+  literalmente) y MOVE_TO_POS en 2D a altura constante sobre el suelo; vuelta a empezar.
+- **Altura** (`Animal::MoveTo3D` 0x418AA0): en vuelo mantienen su altura absoluta (no siguen las colinas) y suben o
+  bajan como mucho altitudeMovementChange por turno (0,2-0,6 m), nunca a menos de 2 m del suelo.
+- **Alabeo**: al girar se inclinan ±0,5 rad en 2 s (el Zoomer, `Animal::SetTowardsAngle`) y vuelven a nivel en 2 s;
+  `Dove::Draw` 0x41F680 gira la matriz dibujada alrededor de su eje de avance (en openblack, en `MobileDrawing`).
+- **Nunca se posan** en el juego original: info.sleep es 0 en todas, así que LAND_AT_POS / SLEEPS no se alcanzan. No
+  tienen hambre, cría ni día / noche (los murciélagos vuelan de día).
+- **Clips**: el de moverse (y el de decidir) es una moneda entre batir alas y planear en cada cambio de estado y en cada
+  SetSpeed (la golondrina entre tres, el murciélago siempre bate); su SetAnim nunca reinicia el clip. Tabla en
+  `ECS/AnimalAnimations.cpp` (`BirdClip`).
+- No se pueden coger ni golpear (playerCanPickUp 0) y no son presa (a más de 2 m). Muertas caen con la física a la
+  velocidad del vuelo (`Dove::Dying` 0x41F1B0) y quedan en el suelo como cadáver.
+
 ## Huida (reacción 28)
 
 Cada depredador crea al nacer la reacción "huir del depredador" y la reparte **una sola vez**: a los animales que en
@@ -115,7 +137,10 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 - La guarida del tigre es el árbol de bosque más cercano (el original puntúa los bosques con una sigmoide de la
   distancia y toma el primer árbol del mejor). Los animales de script (flags 0x400 / 0x4000, bandada +0x5C) se tratan
   como normales.
-- Sin hacer: aldeanos como presa, vuelo de las aves (siguen sin crearse), fusión de bandadas tras aterrizar, crecer con
+- Aves: el valor inicial de flock+0x78 (antes del primer tramo del líder) se supone FOLLOW_FLOCK; tras cada clip
+  completo en FOLLOW_FLOCK se vuelve a tirar la moneda y se reinicia la cuenta [supuesto]; el seguimiento del miembro
+  siguiente (modo 2) y el aterrizaje no se portan (no se usan).
+- Sin hacer: aldeanos como presa, fusión de bandadas tras aterrizar, crecer con
   la edad, las demás reacciones (huir de la mano...), pastores, el humo del cadáver, animal lanzado a un almacén de
   comida → comida.
 
@@ -125,5 +150,6 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 `OPENBLACK_TEST_VIEW_ANIMAL="n[,distancia[,ángulo[,cada]]]"`, `OPENBLACK_TEST_THROW_ANIMAL="n,turno[,vx,vy,vz]"`,
 `OPENBLACK_TEST_KILL_ANIMAL="n,turno"`, `OPENBLACK_TEST_ANIMAL_SPECIES=<AnimalInfo>` (n cuenta solo esa especie),
 `OPENBLACK_TEST_HUNGRY=<AnimalInfo>` (esa especie con hambre en el turno 1), `OPENBLACK_TEST_SPREAD_REACTIONS=<turno>`
-(los depredadores reparten otra vez su reacción de huida). Land2 (`-s Land2.txt`) tiene leones, tigres y lobos. `dev\shot_animal.sh <nombre> <fotogramas> <captura> [VAR=valor...]` lanza una
+(los depredadores reparten otra vez su reacción de huida), `OPENBLACK_TEST_VIEW_LOCK=1` (la cámara se coloca cada turno
+junto al animal, para las aves). Land2 (`-s Land2.txt`) tiene leones, tigres y lobos. `dev\shot_animal.sh <nombre> <fotogramas> <captura> [VAR=valor...]` lanza una
 copia privada en `dev\animales_run`.

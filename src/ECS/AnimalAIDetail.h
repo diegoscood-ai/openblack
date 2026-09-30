@@ -84,7 +84,7 @@ void FaceAngle(components::Transform& transform, uint16_t angle);
 bool InBounds(glm::vec2 p);
 bool Collides(glm::vec2 p);
 glm::vec2 SquarePos(glm::vec2 c, float size);
-glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax);
+glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax, bool collide = true);
 bool Available(entt::entity entity);
 
 // the flock
@@ -114,6 +114,18 @@ void FleeingFromPredatorReaction(Context& ctx);
 void FleeingFromObjectReaction(Context& ctx);
 void FleeingAndLookingReaction(Context& ctx);
 components::AnimalBrain* BrainOf(entt::entity entity);
+
+// the birds (ECS/AnimalBirds.cpp)
+bool IsBird(AnimalInfo type);
+void BirdDecideWhatToDo(Context& ctx);
+void BirdStartWander(Context& ctx);
+int BirdReactToAnimalNeeds(Context& ctx);
+void SpecialMoveToPos(Context& ctx);
+void FollowFlock(Context& ctx);
+void BirdDying(Context& ctx);
+/// GetTimeToBank / GetBankAngle (vt+0xBDC / +0xBE0): Dove 2 s / 0.5 rad, the spell birds 0.5 s; 0 for the ground ones
+float TimeToBank(AnimalInfo type);
+float BankAngle(AnimalInfo type);
 
 // the predators (ECS/AnimalPredators.cpp)
 void PredatorDecideWhatToDo(Context& ctx);

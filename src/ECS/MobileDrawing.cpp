@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/L3DAnim.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/SkeletalAnimation.h"
@@ -174,6 +175,18 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 			draw.yaw = Wrap(draw.yaw);
 			// the same rotation the pathfinding gives the transform (InitializeStep: eulerAngleY(-angle - 90 degrees))
 			draw.rotation = glm::mat3(glm::eulerAngleY(-draw.yaw - glm::half_pi<float>()));
+		}
+		// Dove::Draw (0x41F680): the bank zoomer advances by the frame's game time and rolls the drawn matrix about its
+		// forward axis (rows 0 and 1 rotated by the bank)
+		if (auto* brain = registry.TryGet<AnimalBrain>(entity); brain != nullptr && (brain->bank.value != 0.0f || brain->bank.IsMoving()))
+		{
+			brain->bank.Update(milliseconds * 0.001f);
+			const float c = std::cos(brain->bank.value);
+			const float s = std::sin(brain->bank.value);
+			const glm::vec3 x = draw.rotation[0];
+			const glm::vec3 y = draw.rotation[1];
+			draw.rotation[0] = c * x - s * y;
+			draw.rotation[1] = s * x + c * y;
 		}
 		// slope: fn_0051B220 shears the object on the land (altitude <= 0.2): the rise one unit along its x and z axes,
 		// each clamped to +-0.3

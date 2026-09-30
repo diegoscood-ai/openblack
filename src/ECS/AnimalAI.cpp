@@ -224,7 +224,7 @@ bool Available(entt::entity entity)
 }
 
 /// Living::CalcRandomPos (0x5ED080): up to 25 tries in the ring rMin..rMax around c, in bounds and free
-glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax)
+glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax, bool collide)
 {
 	auto& rng = Locator::rng::value();
 	for (int i = 0; i < 25; ++i)
@@ -232,7 +232,7 @@ glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax)
 		const float a = rng.NextValue(0.0f, glm::two_pi<float>());
 		const float r = rMin + (rMax > rMin ? rng.NextValue(0.0f, rMax - rMin) : 0.0f);
 		const glm::vec2 p = c + r * glm::vec2(std::cos(a), std::sin(a));
-		if (InBounds(p) && !Collides(p))
+		if (InBounds(p) && (!collide || !Collides(p)))
 		{
 			return p;
 		}
@@ -393,7 +393,7 @@ bool MoveBy(Context& ctx, glm::ivec2 step)
 	{
 		return false;
 	}
-	ctx.transform.position = glm::vec3(to.x, Locator::terrainSystem::value().GetHeightAt(to), to.y);
+	ctx.transform.position = glm::vec3(to.x, Locator::terrainSystem::value().GetHeightAt(to) + ctx.brain.altitude, to.y);
 	ctx.brain.movedLastTurn += glm::distance(from, to);
 	return CellOf(from) != CellOf(to);
 }
@@ -533,6 +533,17 @@ void SetTowardsAngle(Context& ctx, uint16_t target, float distance)
 		}
 	}
 	ctx.brain.angle = static_cast<uint16_t>((ctx.brain.angle + (diff < 0 ? -turn : turn)) & 0x7FF);
+	// the bank zoomer: level again when it needs no turn, else +-GetBankAngle, over GetTimeToBank
+	const float time = TimeToBank(ctx.animal.type);
+	const float bankTarget = diff == 0 ? 0.0f : (diff < 0 ? -BankAngle(ctx.animal.type) : BankAngle(ctx.animal.type));
+	if (time < 0.001f)
+	{
+		ctx.brain.bank.SetPosition(bankTarget);
+	}
+	else
+	{
+		ctx.brain.bank.SetDestinationWithSpeedAndTime(bankTarget, 0.0f, time);
+	}
 }
 
 // ---- needs ----
@@ -689,9 +700,13 @@ int CowReactToAnimalNeeds(Context& ctx)
 	return k_Nothing;
 }
 
-/// vt+0xBBC: the grazers' (Cow) or the predators' (Animal / Wolf) ReactToAnimalNeeds
+/// vt+0xBBC: the grazers' (Cow), the predators' (Animal / Wolf) or the birds' (Dove) ReactToAnimalNeeds
 int ReactToAnimalNeeds(Context& ctx)
 {
+	if (IsBird(ctx.animal.type))
+	{
+		return BirdReactToAnimalNeeds(ctx);
+	}
 	return HunterOf(ctx.animal.type) != Hunter::None ? PredatorReactToAnimalNeeds(ctx) : CowReactToAnimalNeeds(ctx);
 }
 
@@ -751,6 +766,11 @@ void DecideWhatToDo(Context& ctx)
 	if (HunterOf(ctx.animal.type) != Hunter::None)
 	{
 		PredatorDecideWhatToDo(ctx);
+		return;
+	}
+	if (IsBird(ctx.animal.type))
+	{
+		BirdDecideWhatToDo(ctx);
 		return;
 	}
 	if (!IsGrazer(ctx.animal.type))
@@ -814,7 +834,8 @@ void MoveToPos(Context& ctx)
 	{
 		if (InBounds(ctx.brain.goal))
 		{
-			ctx.transform.position = glm::vec3(ctx.brain.goal.x, Locator::terrainSystem::value().GetHeightAt(ctx.brain.goal), ctx.brain.goal.y);
+			ctx.transform.position =
+			    glm::vec3(ctx.brain.goal.x, Locator::terrainSystem::value().GetHeightAt(ctx.brain.goal) + ctx.brain.altitude, ctx.brain.goal.y);
 			ctx.brain.movedLastTurn += distance;
 		}
 		// SetTopStateToFinal (0x5ECA80)
@@ -964,7 +985,15 @@ bool ProcessState(Context& ctx)
 		break;
 	case AnimalState::Dying:
 	case AnimalState::Drowning:
-		PlayAnimThenSetState(ctx, AnimalState::Dead);
+		// Dove::Dying (0x41F1B0): a bird falls into the physics with its flight
+		if (IsBird(ctx.animal.type) && ctx.brain.altitude > 0.0f)
+		{
+			BirdDying(ctx);
+		}
+		else
+		{
+			PlayAnimThenSetState(ctx, AnimalState::Dead);
+		}
 		break;
 	case AnimalState::Dead:
 		return Dead(ctx);
@@ -977,10 +1006,20 @@ bool ProcessState(Context& ctx)
 		break;
 	case AnimalState::MoveInFlock:
 	case AnimalState::StartWander:
-		if (walker)
+		if (IsBird(ctx.animal.type))
+		{
+			BirdStartWander(ctx);
+		}
+		else if (walker)
 		{
 			StartWander(ctx);
 		}
+		break;
+	case AnimalState::SpecialMoveToPos:
+		SpecialMoveToPos(ctx);
+		break;
+	case AnimalState::FollowFlock:
+		FollowFlock(ctx);
 		break;
 	case AnimalState::HuntingMoveToPos:
 		HuntingMoveToPos(ctx);
@@ -1031,7 +1070,11 @@ bool ProcessState(Context& ctx)
 		break;
 	case AnimalState::InteractDecideWhatToDo:
 		// LookForFlocksInSpiral(merge = 1) (flock merging not done), then StartWander
-		if (walker)
+		if (IsBird(ctx.animal.type))
+		{
+			BirdStartWander(ctx);
+		}
+		else if (walker)
 		{
 			StartWander(ctx);
 		}
@@ -1059,6 +1102,12 @@ AnimalBrain& Initialise(entt::entity entity, const Animal& animal, const Transfo
 	auto& brain = registry.Assign<AnimalBrain>(entity);
 	brain.speed = static_cast<uint16_t>(std::min<uint32_t>(static_cast<uint32_t>(info.speedGroup.speedDefault), 0xFFFF));
 	brain.angle = AngleOfRotation(transform.rotation);
+	// the Dove constructor's altitude (the archetype put it at the land + altitudeNormal)
+	if (IsBird(animal.type) && Locator::terrainSystem::has_value())
+	{
+		brain.altitude = std::max(0.0f, transform.position.y - Locator::terrainSystem::value().GetHeightAt(Xz(transform)));
+		brain.goalAltitude = brain.altitude;
+	}
 	if (const auto* flock = FlockOf(animal); flock != nullptr)
 	{
 		brain.sleepCell = CellOf({flock->domainCentre.x, flock->domainCentre.z});
@@ -1220,6 +1269,9 @@ void EndPhysics(entt::entity entity, const glm::mat3& rotation)
 	// from the drawn rotation, so the drawn yaw is kept as it is.
 	brain->angle = AngleOfRotation(rotation);
 	brain->step = glm::ivec2(0);
+	// altitude(+0x1C) = 0: on the land
+	brain->altitude = 0.0f;
+	brain->bank.SetPosition(0.0f);
 	auto& transform = registry.Get<Transform>(entity);
 	FaceAngle(transform, brain->angle);
 	// Object::EndPhysics: coords = Pos, no slide from where it was

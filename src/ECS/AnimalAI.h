@@ -21,7 +21,7 @@ namespace openblack::ecs::animal_ai
 /// hand_death.md): Animal::ProcessState (0x417EE0) and the states of g_AnimalStateTable (0xD12108). The grazing
 /// species (sheep, tortoise, cow, horse, pig) wander in their herd, graze, sleep and breed; the predators (lion, tiger,
 /// leopard, wolf; ECS/AnimalPredators.cpp) also stalk, chase, pounce on and eat other animals; the hand, the physics and
-/// death work for every ground species. The birds' flight is not done yet.
+/// death work for every ground species; the birds (ECS/AnimalBirds.cpp) fly in flocks and never land.
 
 /// g_AnimalStateTable's states: 0..30 are LivingStates, 31..52 the animal ones
 enum class AnimalState : uint8_t

@@ -83,14 +83,24 @@ void RunDebugHooks(uint32_t turn)
 		float angle = 0.0f;
 		unsigned every = 0;
 		std::sscanf(view, "%d,%f,%f,%u", &wanted, &distance, &angle, &every);
-		const bool aim = turn == 0 || (every != 0 && turn % every == 0);
+		// OPENBLACK_TEST_VIEW_LOCK=1: the camera is put there every turn (no flight), for fast animals such as birds
+		static const bool lock = std::getenv("OPENBLACK_TEST_VIEW_LOCK") != nullptr;
+		const bool aim = lock || turn == 0 || (every != 0 && turn % every == 0);
 		if (const auto e = NthAnimal(wanted); e && aim)
 		{
 			const auto& t = registry.Get<const Transform>(*e);
 			const float radians = glm::radians(angle);
 			const glm::vec3 focus = t.position + glm::vec3(0.0f, 0.8f, 0.0f);
 			const glm::vec3 origin = focus + glm::vec3(std::sin(radians) * distance, distance * 0.35f, std::cos(radians) * distance);
-			Locator::camera::value().GetModel().SetFlight(origin, focus);
+			if (lock)
+			{
+				Locator::camera::value().SetOrigin(origin).SetFocus(focus);
+			}
+			else
+			{
+				Locator::camera::value().GetModel().SetFlight(origin, focus);
+			}
+			if (!lock || turn % 50 == 0)
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal view: animal {} (entity {}) at ({:.1f}, {:.1f}, {:.1f}) state {}",
 				                   wanted, static_cast<uint32_t>(*e), t.position.x, t.position.y, t.position.z,

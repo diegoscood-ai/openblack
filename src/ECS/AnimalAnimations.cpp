@@ -217,6 +217,107 @@ int32_t MoveClip(AnimalInfo species, const GAnimalInfo& info, uint32_t speed)
 	}
 }
 
+bool IsBird(AnimalInfo type)
+{
+	switch (type)
+	{
+	case AnimalInfo::Crow:
+	case AnimalInfo::Dove:
+	case AnimalInfo::Swallow:
+	case AnimalInfo::Pigeon:
+	case AnimalInfo::Seagull:
+	case AnimalInfo::Bat:
+	case AnimalInfo::SpellDove:
+	case AnimalInfo::SpellBat:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/// The birds' slots (AnimalAnimation.cpp 0x41BD20..0x41C080; dev\tmp_dis\animals\birds_draw.md §1): Move (and Decide)
+/// is a coin between flap and glide (the swallow three ways, the bat always flap); Stand, Dead, Eat, Sleep, Thrown are
+/// fixed ids (the odd ones, e.g. the crow's stand = TAKEOFF, are what the code returns); every other slot -1
+int32_t BirdClip(AnimalInfo type, Slot slot, AnimalState state)
+{
+	auto& rng = Locator::rng::value();
+	if (state == AnimalState::DecideWhatToDo)
+	{
+		slot = Slot::Move; // Animal::DecideAnimation 0x41BD20 = the Move function
+	}
+	const auto coin = [&rng](int32_t heads, int32_t tails) { return rng.NextValue<uint32_t>(0, 1) == 0 ? heads : tails; };
+	struct Fixed
+	{
+		int32_t stand, dead, eat, sleep, thrown;
+	};
+	Fixed fixed {};
+	switch (type)
+	{
+	case AnimalInfo::Crow:
+		if (slot == Slot::Move)
+		{
+			return coin(3, 4);
+		}
+		fixed = {7, 4, 5, 6, 7};
+		break;
+	case AnimalInfo::Dove:
+		if (slot == Slot::Move)
+		{
+			return coin(8, 9);
+		}
+		fixed = {8, 8, 8, 8, 8};
+		break;
+	case AnimalInfo::Pigeon:
+		if (slot == Slot::Move)
+		{
+			return coin(13, 14);
+		}
+		fixed = {17, 14, 15, 16, 17};
+		break;
+	case AnimalInfo::Seagull:
+		if (slot == Slot::Move)
+		{
+			return coin(18, 20);
+		}
+		fixed = {22, 19, 20, 21, 22};
+		break;
+	case AnimalInfo::Swallow:
+		if (slot == Slot::Move)
+		{
+			const auto third = rng.NextValue<uint32_t>(0, 2);
+			return third == 0 ? 27 : (third == 1 ? 26 : 25);
+		}
+		fixed = {27, 26, 27, 27, 27};
+		break;
+	case AnimalInfo::SpellDove:
+		return 23;
+	case AnimalInfo::Bat:
+	case AnimalInfo::SpellBat:
+	default:
+		if (slot == Slot::Move)
+		{
+			return 1;
+		}
+		fixed = {2, 2, 2, 2, 2};
+		break;
+	}
+	switch (slot)
+	{
+	case Slot::Stand:
+		return fixed.stand;
+	case Slot::Dead:
+		return fixed.dead;
+	case Slot::Eat:
+		return fixed.eat;
+	case Slot::Sleep:
+		return fixed.sleep;
+	case Slot::Thrown:
+		return fixed.thrown;
+	default:
+		return -1;
+	}
+}
+
 SkeletalAnimation& AnimationOf(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -236,6 +337,12 @@ int32_t AnimalAnimId(entt::entity entity)
 	{
 		return -1;
 	}
+	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
+	const auto state = brain != nullptr ? static_cast<AnimalState>(brain->topState) : AnimalState::DecideWhatToDo;
+	if (IsBird(animal->type))
+	{
+		return BirdClip(animal->type, SlotOf(state), state);
+	}
 	const auto species = BaseSpecies(animal->type);
 	const auto* clips = ClipsOf(species);
 	if (clips == nullptr)
@@ -243,8 +350,6 @@ int32_t AnimalAnimId(entt::entity entity)
 		return -1;
 	}
 	const auto& info = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type));
-	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
-	const auto state = brain != nullptr ? static_cast<AnimalState>(brain->topState) : AnimalState::DecideWhatToDo;
 	const uint32_t speed = brain != nullptr ? brain->speed : static_cast<uint32_t>(info.speedGroup.speedDefault);
 	const uint16_t landType = brain != nullptr ? (brain->status >> 4) & 3 : 3;
 	switch (SlotOf(state))
@@ -309,8 +414,9 @@ void SetAnimalAnim(entt::entity entity, int32_t clip, bool reset)
 
 void SetAnimalStateAnim(entt::entity entity)
 {
-	// Living::SetStateAnim (0x5ECB10): the state's clip from the start
-	SetAnimalAnim(entity, AnimalAnimId(entity), true);
+	// Living::SetStateAnim (0x5ECB10): the state's clip from the start; the birds' SetAnim (fn_0041E7E0) never restarts it
+	const auto* animal = Locator::entitiesRegistry::value().TryGet<const Animal>(entity);
+	SetAnimalAnim(entity, AnimalAnimId(entity), animal == nullptr || !IsBird(animal->type));
 }
 
 void UpdateAnimalAnimations()

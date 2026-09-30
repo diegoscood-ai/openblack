@@ -2377,6 +2377,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				entt::entity sprite {entt::null};
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
 				int mist {-1}; ///< an index of _frameMists
+				int smoke {-1}; ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2487,6 +2488,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, static_cast<int>(index)});
 				}
 			}
+			if (spritesSorted)
+			{
+				for (const auto& [distance, index] : CollectChimneySmoke(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, static_cast<int>(index)});
+				}
+			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
@@ -2506,6 +2514,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.mist >= 0)
 					{
 						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.mist));
+						continue;
+					}
+					if (instance.smoke >= 0)
+					{
+						DrawChimneySmoke(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.smoke));
 						continue;
 					}
 					if (instance.sprite != entt::null)

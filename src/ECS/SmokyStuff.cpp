@@ -40,7 +40,9 @@ namespace
 constexpr size_t k_MaxSprites = 512;
 /// SmokyStuff type 0: life 1 falling by dt / 3 (three seconds)
 constexpr float k_Life = 3.0f;
-constexpr uint32_t k_Frames = 16; ///< a 4 x 4 sheet of smoke.raw
+/// frames 0..15: LH3DSprite::SetToZero leaves 8 cells per row (+0x30) and SmokyStuff::Create 0x823C90 does not change
+/// it, so they are rows 0-1 of smoke.raw's 8 x 8 sheet (LH3DSprite::Draw 0x840530: u = (c & 7) / 8, v = (c >> 3) / 8)
+constexpr uint32_t k_Frames = 16;
 
 struct Sprite2
 {
@@ -76,7 +78,7 @@ std::optional<graphics::TextureHandle> Texture()
 glm::vec2 FrameUv(uint32_t frame)
 {
 	const uint32_t f = std::min(frame, k_Frames - 1);
-	return glm::vec2(static_cast<float>(f % 4), static_cast<float>(f / 4)) * 0.25f;
+	return glm::vec2(static_cast<float>(f & 7), static_cast<float>(f >> 3)) * 0.125f;
 }
 
 /// grey 0x808080 with alpha = trunc(life x 100) of 255
@@ -105,7 +107,7 @@ void SmokyStuff::Create(glm::vec3 at, float size)
 		glm::vec3 direction(random(), random(), random());
 		direction = glm::length(direction) > 0.0f ? glm::normalize(direction) : glm::vec3(0.0f, 1.0f, 0.0f);
 		const glm::vec3 velocity = direction * rng.NextValue(0.3f, 1.0f) * size;
-		registry.Assign<Sprite>(entity, *texture, FrameUv(k_Frames - 1), glm::vec2(0.25f), Colour(1.0f), false);
+		registry.Assign<Sprite>(entity, *texture, FrameUv(k_Frames - 1), glm::vec2(0.125f), Colour(1.0f), false);
 		registry.Assign<Transform>(entity, at + offset, glm::mat3(1.0f), glm::vec3(size * 0.5f));
 		g_Sprites.push_back({entity, velocity, size, 1.0f});
 	}

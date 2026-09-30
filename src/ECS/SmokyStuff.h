@@ -15,7 +15,7 @@ namespace openblack::ecs
 {
 
 /// The puff an object leaves when it goes (Object::CreateSmokyStuff 0x63A810 -> SmokyStuff::Create 0x823C90; research
-/// dev\tmp_dis\animals\misc.md §3): 15 sprites of Data\Textures\smoke.raw (a 4 x 4 sheet) around the point, each with a
+/// dev\tmp_dis\animals\misc.md §3): 15 sprites of Data\Textures\smoke.raw (frames 0-15: rows 0-1 of its 8 x 8 sheet) around the point, each with a
 /// random direction at 0.3..1 x size, grey (0x808080) fading over 3 seconds while they grow from 0.5 to 1.5 x size.
 /// Used by the animal corpses that time out; the original also uses it for villagers, buildings and spells.
 class SmokyStuff

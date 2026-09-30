@@ -727,7 +727,9 @@ void HandSystem::RunDebugHooks() noexcept
 			auto& registry = Locator::entitiesRegistry::value();
 			const auto& land = Locator::terrainSystem::value();
 			const glm::vec3 position(x, land.GetHeightAt(glm::vec2(x, z)), z);
-			const auto tree = archetypes::TreeArchetype::Create(0, position, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			// a yaw other than 0: the spin is in the tree's body space
+			const float yaw = std::getenv("OPENBLACK_TEST_FELL_YAW") != nullptr ? static_cast<float>(std::atof(std::getenv("OPENBLACK_TEST_FELL_YAW"))) : 0.0f;
+			const auto tree = archetypes::TreeArchetype::Create(0, position, TreeInfo::Beech, true, yaw, 1.0f, 1.0f);
 			const auto forester = registry.Create();
 			registry.Assign<Transform>(forester, position - glm::vec3(3.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
 			const auto log = ecs::FellTree(tree, forester);

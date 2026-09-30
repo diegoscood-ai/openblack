@@ -417,6 +417,7 @@ void openblack::ecs::DeleteForest(uint32_t forestId)
 		DeleteTree(tree);
 	}
 	g_forests.erase(forestId);
+	// fn_0053AE10: every town (g_game +0x205C84) drops the forest from its list Town +0x608 (fn_00741A70)
 	std::erase_if(g_townForests, [forestId](const auto& pair) { return pair.second == forestId; });
 }
 
@@ -471,8 +472,8 @@ uint32_t openblack::ecs::RemoveWood(entt::entity entity, uint32_t amount)
 	{
 		return 0;
 	}
-	// GetResource(WOOD) of a dead tree: taken as its default resource, the wood its scale stands for (inferido: the
-	// resource field is not traced, but RemoveResource's SetScale keeps the two equal)
+	// Object::GetResource 0x639520: GetDefaultResource() when the type is the object's GetResourceType() (WOOD for a
+	// dead tree), 0 otherwise
 	const uint32_t have = TreeWood(entity);
 	if (have <= amount)
 	{
@@ -527,22 +528,32 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	}
 	const auto& transform = registry.Get<const Transform>(tree);
 	const auto from = registry.Get<const Transform>(chopper).position;
-	// k = 0.4 x GetHeight() x 0.5
+	// k = 0.4 (0x8C7A44) x GetHeight() x 0.5 (0x8AA3B4); Object::GetHeight 0x638120 = 2 x LH3DMesh +0x28 (half height)
+	// x scale, here the mesh box height x scale (the same, the repo's convention)
 	const float height = meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform.scale.y;
 	const float k = 0.4f * height * 0.5f;
 	// the direction from the forester to the tree (y 0) and its angle a = fn_007FAA50 = atan2(x, -z) (0 when shorter than
 	// sqrt(0.001)): velocity (sin a, 0, -cos a) k = k along that direction; spin (cos a, 0, sin a) x 0.4 rad/s
 	const glm::vec3 d(transform.position.x - from.x, 0.0f, transform.position.z - from.z);
-	const float a = glm::dot(d, d) < 0.001f ? 0.0f : std::atan2(d.x, -d.z);
+	// 0x51179E: |d|^2 <= 0.001 (0x8AA3B0) gives a = 0
+	const float a = glm::dot(d, d) <= 0.001f ? 0.0f : std::atan2(d.x, -d.z);
 	const glm::vec3 velocity(std::sin(a) * k, 0.0f, -std::cos(a) * k);
-	// The original spins about (cos a, 0, sin a) = d x up; its rotations turn the other way round from openblack's
-	// PhysOb (the tree tug, HandTrees.cpp, found the same flip), so here the axis is negated: the crown falls away from
-	// the forester, along the velocity (inferido from that sign analysis).
-	const glm::vec3 spin = -0.4f * glm::vec3(std::cos(a), 0.0f, std::sin(a));
+	// The spin is a BODY-space angular velocity: PhysicsObject::AddObject 0x6443A0 (0x6445DB-0x644691) builds the angular
+	// momentum as (w I) summed over the body matrix rows, the tree's matrix with its yaw (SetUpPos 0x63A603), so in world
+	// it is R x (cos a, 0, sin a) x 0.4. And PhysOb::Integrate 0x7FE260 turns the rows by R(w, angle), which is a turn by
+	// -angle in openblack's right-handed PhysOb (tmp_dis/physics/physob.md, "Sign convention"), so the axis is negated.
+	const glm::vec3 spin = -(transform.rotation * (0.4f * glm::vec3(std::cos(a), 0.0f, std::sin(a))));
 
 	// DeadTree::DeadTree 0x510880 takes over the tree's 3D object (mesh, matrix, scale) and info; the roots do not break
 	// off (only Tree::EndPhysics sets that flag)
 	const auto type = treeComponent->type;
+	// Villager::ForesterChopsTree 0x75FAE7 then calls tree->ToBeDeleted(0): the tree leaves its forest and whoever
+	// listens (hand, reactions) lets go of it. Its fire (+0x44) moves to the DeadTree (fn_00730960): kept here because it
+	// is the same entity.
+	for (const auto& listener : g_treeDeletedListeners)
+	{
+		listener(tree);
+	}
 	registry.Remove<Tree>(tree);
 	registry.Assign<DeadTree>(tree, type);
 	registry.AssignOrReplace<FelledTree>(tree, chopper);
@@ -552,8 +563,9 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	{
 		// PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80
 		po->body.AdjustToGroundLevel(false, true);
-		// TODO: po->flags |= 2, PhysicsObject::RaiseUntilNotIntersecting 0x644800, po +0x1A4 = 2 and
-		// Reaction::CreateReaction(REACTION 0x0C "wood here") (not ported: flag 2 and +0x1A4 unidentified)
+		// TODO: po->flags |= 2, PhysicsObject::RaiseUntilNotIntersecting 0x644800, po +0x1A4 = 2 (flag 2 and +0x1A4
+		// unidentified), and the two REACTION 0x0C "wood here" (one from the DeadTree ctor 0x510957, one from
+		// FelledTree::Create 0x511889): reactions not ported for trees
 	}
 	return tree;
 }

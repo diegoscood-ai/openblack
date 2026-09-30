@@ -131,7 +131,8 @@ uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
 
 /// FelledTree::Create 0x5116A0 (called only by Villager::ForesterChopsTree 0x75FAC0): the tree becomes a felled
 /// DeadTree with its mesh, thrown into the physics by the forester: velocity 0.2 x its height along the direction from
-/// the forester to the tree, spin 0.4 rad/s about the horizontal axis across it (the crown falls away from him),
+/// the forester to the tree, spin 0.4 rad/s about the tree's own axis (cos a, 0, sin a) (body space: the fall depends on
+/// its yaw),
 /// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
 entt::entity FellTree(entt::entity tree, entt::entity chopper);
 

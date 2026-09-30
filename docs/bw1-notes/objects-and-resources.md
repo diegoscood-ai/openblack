@@ -102,8 +102,8 @@
   `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × escala), lo
   que recibe un almacén (`DepositInStore` lo usa).
 - **Quitar madera a un tronco** (`RemoveWood` = `DeadTree::RemoveResource` 0x511370): si le quedan ≤ n, se borra y da lo
-  que tenía; si no, **encoge**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Que su recurso sea la madera que
-  marca su escala es (inferido): `GetResource` no está trazado, pero `SetScale` mantiene las dos iguales. Comprobado:
+  que tenía; si no, **encoge**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Su recurso es su
+  `GetDefaultResource` (`Object::GetResource` 0x639520: el suyo si el tipo coincide, 0 si no). Comprobado:
   haya muerta de escala 1, 700 → quitar 100 → 600, escala 0,857.
 - **Tipo de tronco al cargarlo** (`TreeCarriedType`): `Tree::GetCarriedTreeType` 0x55D900 = `carriedType` de info.dat;
   `DeadTree::GetCarriedTreeType` 0x511A20 = 0-3 si su malla es uno de los 4 troncos de `CarriedObject::Init` 0x462600
@@ -112,11 +112,15 @@
   pasa a `DeadTree` + `FelledTree` con su malla (sin soltar las raíces: esa bandera solo la pone `Tree::EndPhysics`) y
   entra en las físicas lanzado por el leñador: `k = 0,4 × altura × 0,5`, `a = atan2(x, −z)` de la dirección
   leñador→árbol (fn_007FAA50; 0 si mide menos de √0,001), velocidad `(sin a, 0, −cos a)·k` (a lo largo de esa
-  dirección), giro `0,4·(cos a, 0, sin a)` rad/s; en openblack el eje va **negado** porque las rotaciones del original giran
-  al revés que las de `PhysOb` (la misma inversión que se vio en el tirón), así la copa cae alejándose del leñador
-  (inferido de ese análisis de signos; comprobado en captura). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
+  dirección), giro `0,4·(cos a, 0, sin a)` rad/s **en espacio del cuerpo** (`PhysicsObject::AddObject` 0x6443A0 hace
+  `L = Σ (w·I)_i · fila_i` con la matriz del árbol, con su giro Y): en mundo `R·(cos a, 0, sin a)·0,4`, así que cómo cae
+  depende de la orientación del árbol. En openblack el eje va **negado**: `PhysOb::Integrate` 0x7FE260 gira las filas con
+  `R(ŵ, ángulo)`, que en el `PhysOb` diestro de openblack es girar −ángulo (`tmp_dis\physics\physob.md`, «Sign
+  convention»). Después `Villager::ForesterChopsTree` borra el árbol (`ToBeDeleted`): en openblack es la misma entidad,
+  así que se avisa a los oyentes de borrado y el fuego pasa al tronco (fn_00730960). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
   **Sin portar**: `flags |= 2` y `+0x1A4 = 2` del objeto físico (sin identificar), `RaiseUntilNotIntersecting` 0x644800 y
-  la reacción 0x0C («aquí hay madera»; `FelledTree::EndPhysics` 0x511970 se la salta al posarse). `FelledTree::Draw`
+  las dos reacciones 0x0C («aquí hay madera»: una del constructor de DeadTree 0x510957 y otra de `FelledTree::Create`
+  0x511889; `FelledTree::EndPhysics` 0x511970 no añade la del posarse). `FelledTree::Draw`
   0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
   Gancho `OPENBLACK_TEST_FELL="x,z"`.
 

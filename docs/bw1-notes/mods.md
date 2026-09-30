@@ -53,3 +53,39 @@ Referencias de mallas originales: el paquete de Creature Isle (`...\CreatureIsle
   la malla (`NORS_F_A_1`, 498) y el clip (`M_P_Walk_Woman`) son los correctos. Las texturas HD de graphics.hd-tweaks
   salieron de ese atlas. Comparación en `dev\tmp_dis\hdpeople\tex\norse_cmp.png`.
 - Scripts: `C:\Users\diewgarc\dev\tmp_dis\hdpeople\` (compare.py, anims.py, summary.txt).
+
+## Mod HD-Tweaks (`graphics.hd-tweaks`, 2026-09-29/30)
+
+Antes `graphics.hd-people`; renombrado porque ya no es solo para aldeanos. Tabla de opciones en mod-library.md.
+Todo se aplica **en vivo** (sin reiniciar), desactivado por defecto como todo mod.
+
+- **Qué hace cada opción**
+  - `textures` hd/original: los 18 atlas de aldeanos ×4 (Real-ESRGAN), `Resources/HdTextures` + `textures.cfg` (hash
+    FNV-1a del DDS de origen: con otro AllMeshes.g3d no se usan).
+  - `smooth` off/soft/round: triángulos PN (`3D/PnTessellation`, Vlachos 2001) partidos en 4 o 9 sobre las mallas de
+    aldeanos (con huesos y todas sus texturas en la lista) **y la mano** (`Hand_Boned_Base2`). `L3DSubMesh::IsHdTweaked`.
+    Los **triángulos de articulación** (esquinas en huesos distintos) no se curvan por dentro: son un abanico sobre su
+    arista de un solo hueso y se estiran como los del original (con puntos interiores pegados a un hueso se doblaban al
+    animar). La colisión (mano, físicas) sigue siendo la malla original.
+  - `light` smooth/original: la luz del original (ambiente 90/256 + 166/256 N·L) calculada por píxel en `fs_object` con
+    las normales suaves (`u_window.y`), solo en instancias iluminadas como el original (no reflejos ni sombras).
+    **Probado y descartado**: un borde de luz en la silueta, 0,8·(1−N·V)² ("rim"); al usuario le pareció feo.
+  - `sharp` on/off: sesgo de mip −1 en esas texturas (`u_window.z`); a comprobar en juego si parpadea en movimiento.
+  - `detail` high/original: aldeanos y animales con su malla alta (`ECS/DetailMeshes`). El original dibuja siempre el
+    LOD 1 (las cargas de LevelOfDetail están anuladas): `stdDetail` / `childMeshMedium` para aldeanos (unos 5,7 KB de
+    malla frente a 12 KB de la alta) y `std` para animales. Sin el mod, openblack hace eso.
+- **Recarga en vivo** (`resources::hd_tweaks::Update`, al principio de `Game::Update`): si cambian las opciones relee
+  AllMeshes.g3d y recarga solo las texturas de aldeanos, las mallas con huesos que las usan y la mano (~0,6 s al activar,
+  ~0,15 s al desactivar; las PNG se decodifican en paralelo, también al arrancar). `detail_meshes::Update` cambia la
+  malla de los aldeanos y animales que ya existen.
+- **Visibilidad a distancia**: a 20-40 m un aldeano mide 40-70 px y las texturas ×4 solas casi no se notan; lo que se
+  nota es la forma redonda + luz por píxel + `sharp`.
+- **Variantes de shader de 32 huesos** (sesión mapa, `vs_object_instanced_b32.sc`): incluyen `vs_object.sc` y usan
+  `fs_object`, así que el mod funciona igual por ese camino (comprobado con capturas).
+- **Carpeta antigua**: si aparece `Mods/graphics.hd-people` (un exe viejo o una copia de `Mods`), `ModRegistry`
+  (`MigrateRenamedFolder`) pasa a `graphics.hd-tweaks` lo que le falte y la borra; nunca sale como mod de datos.
+- **Pruebas**: `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` cambia las opciones a mitad de partida;
+  `dev\shot_villager.sh` y `dev\shot_hand.sh` (copia privada en `dev\hdp_run`); `OPENBLACK_START_PAUSED=1` deja a los
+  aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una pose (sentado 369, rezar 343). Las
+  capturas en el fotograma 2900 fallan a veces: repetir.
+- **Pendiente**: que el usuario confirme en juego que las animaciones con `round` ya no se rompen y si `sharp` parpadea.

@@ -35,7 +35,8 @@ Referencias de mallas originales: el paquete de Creature Isle (`...\CreatureIsle
 - Esqueleto: 110 de las 112 mallas tienen la misma jerarquía de 22 huesos (EGPT_M_B_2 tiene 21), y todas las
   animaciones `M_P_*` de AllAnims.anm (232) son de 22 huesos. Las poses de reposo varían un poco (grupos: 85 mallas,
   12 femeninas, 10, CULT_PRIEST+INTRO_M).
-- openblack: los aldeanos usan solo `highDetail` (sin LOD) y se dibujan en pose de reposo (Renderer.cpp, "Get animation
+- openblack usaba `highDetail`; desde 2026-09-30 usa la `stdDetail` / `childMeshMedium` como el original (LOD 1 siempre; la high,
+  el doble de triángulos, con el mod hd-people `detail = high`, `ECS/DetailMeshes`). Antes: los aldeanos usaban solo `highDetail` (sin LOD) y se dibujan en pose de reposo (Renderer.cpp, "Get animation
   frame instead of default"); L3DAnim carga AllAnims pero no hay reproducción.
 - Texturas (hoja de contacto en `dev\tmp_dis\hdpeople\tex\sheet.png`): todas son atlas de 256² **nativos**. Las
   que el paquete del usuario tiene a 512 o 1024 son ampliaciones con píxeles duplicados (el error frente a doblar su

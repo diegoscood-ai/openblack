@@ -16,6 +16,7 @@
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/DetailMeshes.h"
 #include "ECS/Components/Flock.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -117,8 +118,10 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	registry.Assign<Mobile>(entity);
 	registry.Assign<Animal>(entity, type, age, entt::null, true);
 	// Object::CallVirtualFunctionsForCreation 0x636BE0 gives the LH3DObject GetDetailMesh(2, 1, 0) (info +0x1FC + 4k:
-	// high, std, low), and the LevelOfDetail loads are NOPed (always LOD 1): the std mesh, which is also GetMesh
-	registry.Assign<Mesh>(entity, resources::HashIdentifier(info.std), static_cast<int8_t>(0), static_cast<int8_t>(0));
+	// high, std, low), and the LevelOfDetail loads are NOPed (always LOD 1): the std mesh, which is also GetMesh (or the
+	// high one, mod graphics.hd-people)
+	registry.Assign<Mesh>(entity, resources::HashIdentifier(ecs::detail_meshes::Animal(info)), static_cast<int8_t>(0),
+	                      static_cast<int8_t>(0));
 	return entity;
 }
 

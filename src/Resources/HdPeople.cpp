@@ -22,6 +22,7 @@
 #include "3D/AllMeshes.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
+#include "ECS/DetailMeshes.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
@@ -152,6 +153,7 @@ void LoadTexture(const HdTextures& hdTextures, const std::string& name, const pa
 void Update()
 {
 	RunTestHook();
+	ecs::detail_meshes::Update();
 	const auto& config = Locator::config::value();
 	if (!s_begun || (config.hdPeopleTextures == s_loadedTextures && config.hdPeopleSmoothLevel == s_loadedSmoothLevel))
 	{

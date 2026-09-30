@@ -12,6 +12,7 @@
 #include <cmath>
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <map>
 #include <tuple>
@@ -169,6 +170,38 @@ bool TessellatePn(std::vector<PnVertex>& vertices, std::vector<uint16_t>& indice
 			const uint32_t a = indices[t];
 			const uint32_t b = indices[t + 1];
 			const uint32_t c = indices[t + 2];
+			// A joint triangle (corners on different bones) stretches when the limb bends: a new vertex inside it, stuck
+			// to one bone, folded the surface. Only an edge with both corners on one bone is curved and split (its
+			// points move rigidly with that bone); a joint triangle is a fan from its other corner onto that edge, or
+			// stays as it is when no edge has a single bone.
+			const auto sameBone = [&vertices](uint32_t p, uint32_t q) { return vertices[p].bone == vertices[q].bone; };
+			if (!(sameBone(a, b) && sameBone(b, c)))
+			{
+				const std::array<uint32_t, 3> corners = {a, b, c};
+				int edge = -1; // the corner the single-bone edge starts at, in the triangle's order
+				for (int e = 0; e < 3; ++e)
+				{
+					if (sameBone(corners[e], corners[(e + 1) % 3]))
+					{
+						edge = e;
+					}
+				}
+				if (edge < 0)
+				{
+					newIndices.insert(newIndices.end(), {a, b, c});
+					continue;
+				}
+				const uint32_t x = corners[edge];
+				const uint32_t y = corners[(edge + 1) % 3];
+				const uint32_t z = corners[(edge + 2) % 3];
+				for (int j = 0; j < level; ++j)
+				{
+					const uint32_t p = j == 0 ? x : edgePoint(x, y, j);
+					const uint32_t q = j + 1 == level ? y : edgePoint(x, y, j + 1);
+					newIndices.insert(newIndices.end(), {p, q, z});
+				}
+				continue;
+			}
 			// grid point (i, j): i steps towards a, j towards b, the rest towards c
 			std::vector<uint32_t> grid(static_cast<size_t>((level + 1) * (level + 1)), 0);
 			const auto at = [&](int i, int j) -> uint32_t& { return grid[static_cast<size_t>(i * (level + 1) + j)]; };

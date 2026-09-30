@@ -96,6 +96,9 @@ struct EngineConfig
 	int hdPeopleLighting {0};
 	/// Mod graphics.hd-people (sharp): texture mip bias of the villagers (negative: sharper far away)
 	float hdPeopleMipBias {0.0f};
+	/// Mod graphics.hd-people (detail): villagers and animals with their high detail mesh instead of the std one, the
+	/// only LOD the original draws (ECS/DetailMeshes.h)
+	bool hdPeopleHighDetail {false};
 	std::vector<uint32_t> hdPeopleSkins;
 
 	float timeOfDay {12.0f};

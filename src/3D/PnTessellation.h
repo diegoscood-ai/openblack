@@ -24,7 +24,8 @@ namespace openblack::graphics
 /// corners and normals (Vlachos et al. 2001, "Curved PN Triangles") and is split into level² triangles.
 /// Vertices are in the space of their bone (rigid skin, one bone per vertex, like the L3D vertex groups): the surface is
 /// built in the rest pose (restBones = each bone's model matrix) and every new vertex goes back to the bone of the
-/// nearest corner, so an animated mesh bends at the same joints as the original's.
+/// nearest corner, so an animated mesh bends at the same joints as the original's. Joint triangles (corners on
+/// several bones) are not curved inside: they are a fan onto their single-bone edge, and stretch like the original's.
 /// Corners that share a rest position (UV seams, bone borders) are welded and share one averaged normal, and the points
 /// of an edge only depend on its two welded corners, so the surface has no cracks.
 struct PnVertex

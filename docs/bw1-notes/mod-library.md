@@ -160,6 +160,7 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
     bilineal y los dos materiales de cada una por su mezcla, como el shader). El material elegido al azar para el
     punto (una esquina y uno de sus dos materiales) puede ser arena aunque casi todo lo que se ve sea roca: con
     `share = 0.8` la playa solo sale donde casi todo es arena (el usuario veía manchas y huellas en suelo gris).
+  - `opacity` (0-1, 1 por defecto): las planas se mezclan con esa opacidad (`i_data4.w`, que antes era 1 = mezclada; 0 sigue siendo con alfa probado). Las huellas de la playa van a 0,45 y la arena mojada a 0,6.
   - `shade`: con `tint` all/grey, escala del color del suelo que toma (va en `i_data3.z` de las planas): la arena
     mojada (`tint = all`, `shade = 0.7`) es la arena de debajo, más oscura, en vez del naranja de la imagen.
 - **`[flyer nombre]`** (`FoliageFlyers.cpp`): voladores sobre las plantas de las especies de `over` (por nombre, de
@@ -172,7 +173,10 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
 - **Módulo `world.foliage.beach`** ("Beach"): algas, arena mojada, conchas, estrellas de mar, coral y huellas,
   todas `flat` y `coast` en arena (`texture = sand`, `terrain = Sand, WetSand`). La orilla la marca la altura dibujada:
   algas 1,1-2 y arena mojada 0,9-1,7 (la fila de costa), el resto hasta 2,2-6. `water_distance` mide desde las
-  esquinas de las celdas con agua, así que la orilla visible queda a 6-10 unidades: algas 7-16, conchas 10-30. En Land1,
+  esquinas de las celdas con agua, así que la orilla visible queda a 6-10 unidades. Dos franjas (30-09-2026, el
+  usuario: la orilla cargada y la arena limpia): la orilla (`coast`, hasta ~20: algas 7-16, arena mojada, estrellas,
+  conchas) con poca densidad, y la arena seca detrás (`sand_*`, coral y huellas, 14-80, altura hasta 40, `share` 0,7,
+  sin `coast`) con más (conchas 3, piedras 1,6 por celda); las huellas solo ahí, desde 20. En Land1,
   playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\lnd_beaches.py` lista la arena junto al agua).
 - **Módulo `world.foliage.butterflies`** ("Butterflies"): los 3 gif del usuario sobre `wildflowers` y `poppies`,
   0,04 por flor, 0,7-1 de ancho (más grandes que de verdad para que se vean junto a la hierba de 0,7-1,2). En Land1

@@ -5,7 +5,8 @@ $output v_texcoord0, v_color0, v_landLight, v_landSpecular
 // layer, land luminosity 0..1, yaw; i_data2: v of the image's top, sway, ground material, tint mode; i_data3: ground
 // texture uv (one block = 0..1), lean, sway phase; i_data4: ground height at the left / right end, colour source
 // (0 the ground texture, 1 the colour in w, 2 flat), colour r * 65536 + g * 256 + b (field crops). Flat ones: i_data3.z
-// = shade of the ground colour, i_data4.xy = ground slope across / along, i_data4.w = 1 blended.
+// = shade of the ground colour, i_data4.xy = ground slope across / along, i_data4.w = the opacity when blended (0:
+// alpha tested).
 
 #include <bgfx_shader.sh>
 
@@ -48,8 +49,8 @@ void main()
 
 	// flat (i_data4.z = 2: the beach's things, the flyers): lying on the ground, centred on the base, the image's top
 	// along the side; tilted by the ground's slope across and along it (i_data4.xy). Full size; the blended ones
-	// (i_data4.w = 1) fade out instead of shrinking. The fragment shader tells them by v_texcoord0.w: 2..3 blended
-	// (2 + fade), 5 alpha tested. Folding (i_data4.z = 3, the flyers, alpha tested): the quad split down the middle
+	// (i_data4.w > 0, their opacity) fade out instead of shrinking. The fragment shader tells them by v_texcoord0.w:
+	// 2..3 blended (2 + fade times opacity), 5 alpha tested. Folding (i_data4.z = 3, the flyers, alpha tested): the quad split down the middle
 	// (x = 0, the body), each half turned up about it by i_data4.w radians.
 	if (i_data4.z > 1.5f)
 	{
@@ -58,7 +59,7 @@ void main()
 		position = base + across * (corner.x * i_data0.w * cos(fold)) + side * (along * i_data1.x) +
 		           vec3(0.0f, corner.x * i_data0.w * i_data4.x + along * i_data1.x * i_data4.y +
 		                          abs(corner.x) * i_data0.w * sin(fold), 0.0f);
-		v_texcoord0.w = i_data4.z < 2.5f && i_data4.w > 0.5f ? 2.0f + grow : 5.0f;
+		v_texcoord0.w = i_data4.z < 2.5f && i_data4.w > 0.001f ? 2.0f + grow * min(i_data4.w, 1.0f) : 5.0f;
 	}
 
 	// the ground colour under the plant: its material texture at that spot, a few mip levels down (local average)

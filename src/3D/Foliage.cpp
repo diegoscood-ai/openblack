@@ -1200,6 +1200,10 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 			{
 				species.lift = std::stof(value);
 			}
+			else if (key == "opacity")
+			{
+				species.opacity = std::clamp(std::stof(value), 0.01f, 1.0f);
+			}
 			else if (key == "shade")
 			{
 				species.shade = std::max(std::stof(value), 0.0f);
@@ -1714,7 +1718,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 						                         {_layerTop[layer], 0.0f, static_cast<float>(materialIndex),
 						                          static_cast<float>(species.tint)},
 						                         {local.y / k_BlockSize, local.x / k_BlockSize, species.shade, phase},
-						                         {glm::dot(gradient, across), glm::dot(gradient, along), 2.0f, 1.0f}});
+						                         {glm::dot(gradient, across), glm::dot(gradient, along), 2.0f,
+						                          species.opacity}});
 						continue;
 					}
 					const glm::vec2 across = glm::vec2(std::cos(yaw), std::sin(yaw)) * (0.5f * width);

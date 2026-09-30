@@ -78,6 +78,7 @@ public:
 		bool coast {false}; ///< may also grow in the coast cells and next to water (above `altitude`)
 		float lift {0.04f}; ///< flat: height over the ground
 		float shade {1.0f}; ///< flat and tinted: scale of the ground colour it takes (below 1 darker)
+		float opacity {1.0f}; ///< flat: its alpha is scaled by this (0-1)
 		float share {0.0f}; ///< least share of the ground drawn at the point made of its textures (0..1)
 	};
 

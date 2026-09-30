@@ -49,6 +49,7 @@
 #include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "ECS/Alignment.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
 namespace openblack::chlapi
@@ -833,18 +834,23 @@ void Snapshot() // 057 SNAPSHOT
 
 void GetAlignment() // 058 GET_ALIGNMENT
 {
-	// const auto zero = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetAlignment 0x6F9A60: the player's GAlignment value (GPlayer::GetAlignmentValue 0x64D6A0)
+	const auto player = Pop().intVal;
+	Pushf(ecs::alignment::Get(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL)))));
 }
 
 void SetAlignment() // 059 SET_ALIGNMENT
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetAlignment 0x6F99C0: the player first, then the value; out of -1..1 it is an error and nothing
+	// happens, otherwise CrudeUpdate: the value is ADDED to the player's alignment (clamped), despite the name
+	const auto player = Pop().intVal;
+	const auto value = Pop().floatVal;
+	if (value < -1.0f || value > 1.0f)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_ALIGNMENT: Alignment out of range ({})", value);
+		return;
+	}
+	ecs::alignment::AddNow(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL))), value);
 }
 
 void InfluenceObject() // 060 INFLUENCE_OBJECT

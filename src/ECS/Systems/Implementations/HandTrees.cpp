@@ -68,6 +68,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
+#include "ECS/Alignment.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -196,8 +197,9 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
 	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
 	// so the effect runs for its own life from the data).
-	// TODO: StartImmersion(0x2E), ConsiderMakingCreatureMimicPlayer and the good alignment
-	// (+treePullPutAlignmentChange) once players track one.
+	// GAlignment::Update(the dropper's player, tree, true) 0x74BBB6: planting is good. TODO: StartImmersion(0x2E) and
+	// ConsiderMakingCreatureMimicPlayer.
+	ecs::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, true);
 	EmitGripDust(transform.position);
 	if (!inTown)
 	{

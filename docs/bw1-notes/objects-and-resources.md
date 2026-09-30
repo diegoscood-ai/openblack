@@ -64,13 +64,32 @@
   cualquier otro; si no, hereda el bosque del árbol con bosque más cercano (sin límite propio, solo los 35 m de la
   búsqueda); sin ninguno y fuera de pueblo, crea un bosque nuevo. Efectos: humo blanco `SmokyStuff` en el suelo (en
   openblack, el polvo del agarre), `SPOT_VISUAL_FOREST_CREATED` (0x2C) **siempre que no sea en pueblo**,
-  `StartImmersion(0x2E)`, mímica de criatura y alineación buena (estos tres sin portar).
+  `StartImmersion(0x2E)` y mímica de criatura (sin portar) y alineación buena (ver «Alineación»).
   *Desviación*: el original saca el bosque del pueblo de una lista que el pueblo guarda (Town +0x608) y openblack no
   modela esa lista: el primer árbol plantado en un pueblo crea su bosque (`ecs::TownForestId`).
 - Sobre un almacén = madera `woodValue·escala·GLandBalance[5]` (`Tree::GetDefaultResource` 0x74B7A0, × vida). Un **árbol
   muerto** da menos: `DeadTree::GetDefaultResource` 0x511330 = `woodValue·escala` sin vida ni balance de tierra.
 - Valores de madera (info.dat): roble 800, haya/cedro 700, abedul/olivo 500, ciprés 400, conífera/pino 350,
   palmera 300, seto 100, arbusto 15.
+
+### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Alignment.*`)
+
+- Valor de −1 (malvado) a +1 (bueno) en +0x08 y un cambio pendiente en +0x0C. Partida nueva: 0 (`GGame::Init`
+  0x54FEA0 toma el del perfil, 0 sin él). Vive con el jugador, no con la tierra (no se borra al cargar mapa).
+- **Actos** (`GAlignment::Update` 0x4145A0 para árboles): ±`GPlayerInfo::treePullPutAlignmentChange` (0,005), pesado por
+  la alineación actual (fn_00414660): hacia donde ya se inclina cuenta `v·(1 − |a|/2)`, en contra `v·(1 + |a|/2)`; se suma
+  al pendiente. Arrancar con la mano (`Tree::InterfaceSetInMagicHand`) es malo; replantar (`Tree::EndPhysics`) y el árbol
+  que planta el agua (`Tree::ApplyWaterSpell`) son buenos.
+- **Cada turno** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140): el pendiente, limitado a −1..1,
+  por `maxAlignmentChangePerGameTurn` (0,0019444 = 0,7 por hora de juego) se suma (`CrudeUpdate`, limitado a −1..1) y el
+  pendiente vuelve a 0. O sea, el pendiente es una **fracción del ritmo máximo** de ese turno: un árbol arrancado mueve la
+  alineación unas 10⁻⁵ (−0,005 × 0,0019444). Es lo que dice el código; otros actos (efectos, milagros, muertes) aportan
+  mucho más.
+- Guion: `GET_ALIGNMENT(jugador)` devuelve el valor; `SET_ALIGNMENT(jugador, v)` **suma** v (`CrudeUpdate`, pese al
+  nombre) y fuera de −1..1 da el error «Alignment out of range» sin hacer nada (`GScript::SetAlignment` 0x6F99C0).
+- Sin portar: el historial (`CAlignmentHistory::Add` 0x415260, que leen los consejeros y la vista bueno/malo) y
+  `GGuidance::HelpSpritesAlignmentProcess`. La alineación del **terreno** (`MapCoords::GetAlignment`, la del crecimiento y
+  los campos) es otra cosa, de la influencia de cada celda, y sigue sin portar. Traza: `OPENBLACK_ALIGNMENT_TRACE=1`.
 
 ### Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
 
@@ -105,7 +124,7 @@
   que crece crece `waterMultiplier·growAmt`; con el subtipo de hechizo 0x17 también uno adulto, la mitad por
   `GetDistanceModifier(tamaño, 3)` (= `SigmoidThreshold(0,5, 1 − min(tamaño,3)/3)`, tabla de 41 pasos en 0xC23284), por
   encima de su máximo. Uno adulto de un bosque regado sin 0x17, pasados 40 turnos del último árbol del mundo, planta
-  otro a su lado (el llamador da la alineación buena y la estadística 0xE). Falta el sonido 0x78 + tick%9.
+  otro a su lado (el llamador da la alineación buena y la estadística 0xE). Suena 0x78 + tick%9 (`G_TreeGrow`).
 
 ### Dibujado (además del mecido, ver «Campos»)
 

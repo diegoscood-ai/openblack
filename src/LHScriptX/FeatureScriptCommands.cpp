@@ -41,6 +41,7 @@
 #include "ECS/Components/Stream.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -261,6 +262,8 @@ void FeatureScriptCommands::CreateTown(int32_t townId, glm::vec3 position, const
 	}
 
 	TownArchetype::Create(townId, position, GetPlayerName(playerOwner), tribe);
+	// the town is not an Object, but its 7 TownDesireFlags are
+	ecs::object_index::Skip(7);
 }
 
 void FeatureScriptCommands::SetTownBelief(int32_t townId, const std::string& playerOwner, float belief)
@@ -321,8 +324,8 @@ void FeatureScriptCommands::CreateTownSpell(int32_t townId, const std::string& s
 
 void FeatureScriptCommands::CreateNewTownSpell(int32_t townId, const std::string& spellName)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, townId, spellName);
+	// the spells themselves are not implemented; the town centre's spell icon they make is counted
+	ecs::object_index::AddTownSpell(static_cast<uint32_t>(townId), spellName);
 }
 
 void FeatureScriptCommands::CreateTownCentreSpellIcon(int32_t param1, const std::string& param2)
@@ -374,6 +377,8 @@ void FeatureScriptCommands::CreateCitadel(glm::vec3 position, int32_t, const std
                                           int32_t size)
 {
 	CitadelArchetype::Create(position, GetPlayerName(playerOwner), GetRotation(rotation), GetSize(size));
+	// CitadelHeart, its visual object and the TempleLeash (the worship sites of the player's towns are not made yet)
+	ecs::object_index::Skip(3);
 }
 
 void FeatureScriptCommands::CreatePlannedCitadel(int32_t townId, glm::vec3 position, int32_t, const std::string& playerOwner,
@@ -831,6 +836,8 @@ void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 positio
 void FeatureScriptCommands::CreateSpellDispenser(int32_t, [[maybe_unused]] glm::vec3 position, const std::string&,
                                                  const std::string&, float, float, float)
 {
+	// not implemented; the dispenser and its spell seed are counted
+	ecs::object_index::Skip(2);
 	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
 	// __func__);
 }

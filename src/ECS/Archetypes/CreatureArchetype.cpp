@@ -16,6 +16,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "Enums.h"
 #include "Locator.h"
 
@@ -29,6 +30,7 @@ entt::entity CreatureArchetype::Create(const glm::vec3& position, PlayerNames pl
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 	auto meshId = creature::GetIdFromType(creatureType, CreatureBody::Appearance::Base);
 	registry.Assign<Creature>(entity, playerName, creatureType, creatureMindId);
 	registry.Assign<Mesh>(entity, meshId);

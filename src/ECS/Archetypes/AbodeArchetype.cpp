@@ -26,6 +26,7 @@
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Systems/TownSystemInterface.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "PotArchetype.h"
@@ -102,6 +103,7 @@ void CreateTotemStatue(entt::entity townCentre, const GAbodeInfo& info, float yA
 	const auto rotation = glm::mat3(glm::eulerAngleY(-yAngleRadians));
 
 	const auto plinth = registry.Create();
+	ecs::object_index::Assign(plinth); // TotemStatue is one Object (the hand on top is part of it)
 	registry.Assign<Transform>(plinth, point, rotation, glm::vec3(scale));
 	registry.Assign<Mesh>(plinth, resources::HashIdentifier(statues.at(tribe).plinth), static_cast<int8_t>(0),
 	                      static_cast<int8_t>(0));
@@ -135,6 +137,7 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	}
 
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().abode.at(static_cast<size_t>(type));
 	bool morphsWithTerrain = false;
@@ -199,9 +202,24 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 		break;
 	case AbodeType::TownCentre:
 		CreateTotemStatue(entity, info, yAngleRadians, scale);
+		// MakeFunctional: then one spell icon per spell seed the town already has (at most 6)
+		ecs::object_index::OnTownCentre(townId);
+		break;
+	case AbodeType::Workshop:
+		// its ShowNeedsVisuals and wood pile (openblack doesn't make them yet)
+		ecs::object_index::Skip(2);
 		break;
 	default:
 		break;
+	}
+	// the ScriptHighlight of the civic buildings with a did-you-know (all tribes but the African one's meshes have the
+	// entrance point it needs)
+	const bool civic = info.abodeType == AbodeType::StoragePit || info.abodeType == AbodeType::Creche ||
+	                   info.abodeType == AbodeType::Workshop || info.abodeType == AbodeType::Wonder ||
+	                   info.abodeType == AbodeType::Graveyard;
+	if (civic && info.tribeType != Tribe::AFRICAN)
+	{
+		ecs::object_index::Skip(1);
 	}
 
 	return entity;

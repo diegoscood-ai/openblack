@@ -16,6 +16,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -30,6 +31,7 @@ entt::entity TreeArchetype::Create(uint32_t forestId, const glm::vec3& position,
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
 

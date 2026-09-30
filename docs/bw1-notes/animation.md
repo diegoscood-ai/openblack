@@ -53,11 +53,23 @@ paso por segundo, con los pies sincronizados (el clip avanza con la misma distan
 (`SetStateSpeed` 0x753760) la velocidad sale de la entrada del speedGroup que pide el estado final (índice en
 `villagerStateTable.field0x24`), × 0,85 si tiene pueblo (base de las necesidades del pueblo; openblack aún no tiene sus
 deseos) × las cargas de leña y comida (sin carga: 1); herido: 0,4-0,6 × speed4 o 0,5-0,75 × speedDefault. Luego
-`SetSpeed` (0x750ED0) la multiplica por f = 1 + ((índice de creación × 47) % 31 − 16) × 0,01 (openblack usa el índice de
-la entidad), menos: niño min((13 − edad) × 0,02, 0,4); viejo (> 60) min((edad − 60) × 0,02, 0,4); adulto 0,1 × vida
+`SetSpeed` (0x750ED0) la multiplica por f = 1 + ((índice de creación × 47) % 31 − 16) × 0,01, menos: niño min((13 − edad) × 0,02, 0,4); viejo (> 60) min((edad − 60) × 0,02, 0,4); adulto 0,1 × vida
 (y el hambre al cubo, que aún no existe) y 0,2 las mujeres; se trunca a u16. Un hombre normal va a ~1,7-1,9 m/s y una
 mujer a ~1,4-1,6. Sin hacer: la creencia del pueblo en el jugador, el bonus de maravilla del jugador. La escala del mapa
 (`GLandBalance::Values[4]`, `SET_GLOBAL_LAND_BALANCE`, `LandBalance.h`: 1,5 en Land2, 1,25 en Land3) multiplica todo.
+
+## Índice de creación
+
+`ECS/ObjectCreationIndex` (investigación `dev\tmp_dis\anim\creation_index.md`, simulador `creation_sim.py`): el contador
+de `Object::Object` (0x636520, g_game+0x205A48) que usa `SetSpeed`. Cada cosa derivada de Object toma el siguiente
+número al crearse (edificios, árboles, rasgos, rocas, aldeanos, animales, vasijas, la criatura, faroles; el
+TotemStatue es uno); no cuentan pueblos, bosques, nieblas, caminos, ríos, planos ni la mano. Lo que openblack aún no crea
+reserva su número: 7 TownDesireFlags por CREATE_TOWN, el ScriptHighlight de almacén / guardería / taller / maravilla /
+cementerio (salvo los africanos), ShowNeedsVisuals y montón de leña del taller, los iconos de hechizo del centro del
+pueblo (uno por semilla distinta, hasta 6), dispensador + semilla, y corazón + objeto visual + TempleLeash del templo
+(sus lugares de culto aún no). Vuelve a 0 al cargar un mapa (ClearMap → GData::Reset 0x510750) y empieza en 2 en el
+primero de la sesión (dos HelpSpirits). Comprobado: los 55 aldeanos de Land1 tienen el mismo índice que el simulador.
+Traza `OPENBLACK_OBJECT_INDEX_TRACE=1`.
 
 ## Tamaño y malla por edad
 

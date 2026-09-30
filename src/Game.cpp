@@ -58,6 +58,7 @@
 #include "ECS/Systems/PathfindingSystemInterface.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
@@ -1102,6 +1103,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	psys::manager::Clear();
 	// GSetup::LoadMapFeatures -> GLandBalance::Init: every land balance value back to 1 before the script
 	land_balance::Reset();
+	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)
+	ecs::object_index::OnLoadMap();
 	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());

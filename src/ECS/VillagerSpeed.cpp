@@ -19,6 +19,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
 #include "Locator.h"
@@ -113,7 +114,8 @@ void SetVillagerStateSpeed(entt::entity entity)
 		speed = static_cast<float>(SpeedGroupEntry(group, states[final].field0x24)) * food * wood * townNeeds * m;
 	}
 	// Villager::SetSpeed: the factor of the villager (its creation index), age, and for adults food, life and sex
-	const auto index = static_cast<int32_t>(entt::to_entity(static_cast<entt::entity>(entity)));
+	// ObjectCreationIndex (+0x3C), a signed int in the original's multiplication
+	const auto index = static_cast<int32_t>(std::max<int64_t>(object_index::Of(entity), 0));
 	float f = static_cast<float>((index * 47) % 31 - 16) * 0.01f + 1.0f;
 	const auto age = static_cast<int32_t>(villager->age);
 	const auto grownUp = static_cast<int32_t>(info->grownUpAge);

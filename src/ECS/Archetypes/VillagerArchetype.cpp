@@ -10,10 +10,12 @@
 #include "VillagerArchetype.h"
 
 #include <algorithm>
+#include <cstdlib>
 
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <spdlog/spdlog.h>
 
 #include "Common/RandomNumberManager.h"
 #include "ECS/VillagerSpeed.h"
@@ -26,6 +28,7 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/TownSystemInterface.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -40,6 +43,12 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
+	if (std::getenv("OPENBLACK_OBJECT_INDEX_TRACE") != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Object index: villager {} at ({:.2f}, {:.2f})", ecs::object_index::Of(entity),
+		                   position.x, position.z);
+	}
 
 	const auto& info = Locator::infoConstants::value().villager.at(static_cast<size_t>(type));
 

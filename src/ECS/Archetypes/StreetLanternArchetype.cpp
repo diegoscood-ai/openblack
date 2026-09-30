@@ -15,6 +15,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
 
@@ -26,6 +27,7 @@ entt::entity StreetLanternArchetype::Create(const glm::vec3& position)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 	registry.Assign<Transform>(entity, position, glm::eulerAngleY(glm::radians(180.0f)), glm::vec3(1.0f));
 	const auto resourceId = resources::HashIdentifier(MeshId::ObjectTownLight);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));

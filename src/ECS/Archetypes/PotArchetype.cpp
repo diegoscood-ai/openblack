@@ -20,6 +20,7 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "3D/LandIslandInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -43,6 +44,7 @@ entt::entity PotArchetype::Create(const glm::vec3& position, float yAngleRadians
 
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(type));
 

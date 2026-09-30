@@ -19,6 +19,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/StaticGrounding.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "EngineConfig.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -33,6 +34,7 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().mobileStatic.at(static_cast<size_t>(type));
 

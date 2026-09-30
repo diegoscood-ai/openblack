@@ -19,6 +19,7 @@
 #include "ECS/Components/RigidBody.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -32,6 +33,7 @@ entt::entity FeatureArchetype::Create(const glm::vec3& position, FeatureInfo typ
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().feature.at(static_cast<size_t>(type));
 

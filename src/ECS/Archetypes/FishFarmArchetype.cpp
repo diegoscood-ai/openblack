@@ -21,6 +21,7 @@
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -35,6 +36,7 @@ entt::entity FishFarmArchetype::Create(const glm::vec3& position)
 
 	const float y = island.GetHeightAt(glm::vec2(position.x, position.z));
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 	registry.Assign<Transform>(entity, glm::vec3(position.x, y, position.z), glm::mat3(1.0f), glm::vec3(1.0f));
 	auto& farm = registry.Assign<FishFarm>(entity);
 

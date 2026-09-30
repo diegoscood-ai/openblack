@@ -18,6 +18,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -60,6 +61,7 @@ entt::entity AnimalArchetype::Create(const glm::vec3& position, AnimalInfo type,
 
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 	// no start angle in the Object / Living constructors; standing on the land
 	glm::vec3 ground = position;
 	if (Locator::terrainSystem::has_value())

@@ -70,7 +70,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Registry.h"
-#include "ECS/Alignment.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
@@ -197,7 +197,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	{
 		// Tree::InterfaceSetInMagicHand 0x74B730: uprooting cracks (LH_SAMPLE_G_TREEBREAK_01 + rand % 3) and is evil:
 		// GAlignment::Update(the hand's player, tree, false), -treePullPutAlignmentChange weighed by the alignment.
-		ecs::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, false);
+		ecs::effects::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, false);
 		static constexpr auto k_TreeBreak = std::array<audio::SoundId, 3> {
 		    audio::SoundId::G_TreeBreak_01_1, audio::SoundId::G_TreeBreak_02_1, audio::SoundId::G_TreeBreak_03_1};
 		PlaySample(Locator::rng::value().Choose(k_TreeBreak));

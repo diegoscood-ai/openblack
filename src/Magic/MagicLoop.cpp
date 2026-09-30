@@ -20,6 +20,7 @@
 #include "Spells/SpellShield.h"
 #include "Objects/MagicTeleport.h"
 #include "ECS/Components/SpellSeed.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fire/FireDebugHooks.h"
 #include "ECS/Fire/FireEffect.h"
@@ -71,7 +72,9 @@ void magic::ProcessTurn(uint32_t turn)
 	//  2 InfluenceRing::ProcessRings 0x5CDB90 (+ the towns' influence)       [M1i influence]
 	influence::ProcessTurn();
 	influence::RunDebugHooks(); // OPENBLACK_TEST_INFLUENCE (ECS/Influence/InfluenceDebugHooks.cpp)
-	//  3 GPlayer::ProcessPlayers 0x649A20: of GPlayer::Process only fn_005FCC70, the teleport stones' travellers
+	//  3 GPlayer::ProcessPlayers 0x649A20: of GPlayer::Process the alignment (0x6496C5 -> GAlignment::ProcessForPlayer
+	//    0x4141A0) and fn_005FCC70, the teleport stones' travellers
+	ecs::effects::alignment::ProcessPlayers(); // ECS/Effects/Alignment.cpp
 	teleport::ProcessPlayers(); // Objects/MagicTeleport.cpp
 	teleport::RunDebugHooks();  // OPENBLACK_TEST_TELEPORT (Objects/TeleportDebugHooks.cpp)
 	//  4 Dance::ProcessDances 0x50BB60                                      [M7]

@@ -12,8 +12,11 @@
 #include <entt/entity/entity.hpp>
 
 #include "ECS/Components/PlayerAlignment.h"
+#include "Enums.h"
 
-// GAlignment (Alignment.cpp 0x414410..0x4146AD): how an applied effect moves the caster's alignment.
+// GAlignment (Alignment.cpp 0x414140..0x4146F0): the players' alignment, good (+1) to evil (-1): what applied effects
+// and trees add to the change pending this turn, and the player's turn that folds it in. The one API for it (the
+// "arboles" session's ECS/Alignment was folded in here). Wiki: docs/bw1-notes/magic.md, objects-and-resources.md.
 
 namespace openblack::ecs::effects
 {
@@ -31,5 +34,23 @@ namespace alignment
 /// and fly away, and ScaleChange(ConvertTemperatureToDamage(burn) x GAlignmentInfo[0][col] x K). The alignment history
 /// (CAlignmentHistory 0xC4CD40, fn_00414E10) is not kept.
 void Update(components::PlayerAlignment& alignment, entt::entity object, const EffectValues& values, float lifeBefore);
+
+/// The player's GAlignment (GPlayer +0x60): the player entity's components::PlayerAlignment (Magic/Core/Players)
+[[nodiscard]] components::PlayerAlignment& Of(PlayerNames player);
+/// GPlayer::GetAlignmentValue 0x64D6A0: +8, -1..1 (0 for a new game: GGame::Init 0x54FEA0 takes the profile's)
+[[nodiscard]] float Get(PlayerNames player);
+/// GAlignment::CrudeSet 0x4146F0: +8 = the value clamped to -1..1
+void CrudeSet(PlayerNames player, float value);
+/// GAlignment::CrudeUpdate 0x4146B0: +8 += the change, clamped to -1..1 at once (SET_ALIGNMENT, the network packets)
+void CrudeUpdate(PlayerNames player, float change);
+/// GAlignment::Update (player, tree, good) 0x4145A0: +-GPlayerInfo::treePullPutAlignmentChange, ScaleChange-d, into
+/// `pending`. Uprooting with the hand is evil (Tree::InterfaceSetInMagicHand 0x74B730), planting good
+/// (Tree::EndPhysics 0x74BBB6). TODO: CAlignmentHistory::Add 0x415260.
+void UpdateForTree(PlayerNames player, bool good);
+/// GAlignment::ProcessForPlayer 0x4141A0 -> GAlignment::Process 0x414140: the pending change clamped to -1..1, times
+/// GPlayerInfo::maxAlignmentChangePerGameTurn, is CrudeUpdate-d and the pending change goes back to 0
+void ProcessForPlayer(PlayerNames player);
+/// GPlayer::Process 0x6496C5, once per turn for every player (Magic/MagicLoop.cpp, slot 3 GPlayer::ProcessPlayers)
+void ProcessPlayers();
 } // namespace alignment
 } // namespace openblack::ecs::effects

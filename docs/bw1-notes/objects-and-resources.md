@@ -72,15 +72,18 @@
 - Valores de madera (info.dat): roble 800, haya/cedro 700, abedul/olivo 500, ciprés 400, conífera/pino 350,
   palmera 300, seto 100, arbusto 15.
 
-### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Alignment.*`)
+### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
 
 - Valor de −1 (malvado) a +1 (bueno) en +0x08 y un cambio pendiente en +0x0C. Partida nueva: 0 (`GGame::Init`
-  0x54FEA0 toma el del perfil, 0 sin él). Vive con el jugador, no con la tierra (no se borra al cargar mapa).
+  0x54FEA0 toma el del perfil, 0 sin él). En el original vive con el jugador, no con la tierra; en openblack está en la
+  entidad del jugador (`components::PlayerAlignment`, la misma que usan los milagros con `GAlignment::Update` 0x414410),
+  que se rehace con cada mapa, así que de momento **sí** vuelve a 0 al cargar otra tierra.
 - **Actos** (`GAlignment::Update` 0x4145A0 para árboles): ±`GPlayerInfo::treePullPutAlignmentChange` (0,005), pesado por
   la alineación actual (fn_00414660): hacia donde ya se inclina cuenta `v·(1 − |a|/2)`, en contra `v·(1 + |a|/2)`; se suma
   al pendiente. Arrancar con la mano (`Tree::InterfaceSetInMagicHand`) es malo; replantar (`Tree::EndPhysics`) y el árbol
   que planta el agua (`Tree::ApplyWaterSpell`) son buenos.
-- **Cada turno** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140): el pendiente, limitado a −1..1,
+- **Cada turno** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140; en openblack la ranura 3 de
+  `Magic/MagicLoop.cpp`, `GPlayer::ProcessPlayers`): el pendiente, limitado a −1..1,
   por `maxAlignmentChangePerGameTurn` (0,0019444 = 0,7 por hora de juego) se suma (`CrudeUpdate`, limitado a −1..1) y el
   pendiente vuelve a 0. O sea, el pendiente es una **fracción del ritmo máximo** de ese turno: un árbol arrancado mueve la
   alineación unas 10⁻⁵ (−0,005 × 0,0019444). Es lo que dice el código; otros actos (efectos, milagros, muertes) aportan

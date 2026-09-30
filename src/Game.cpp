@@ -52,7 +52,6 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/Trees.h"
-#include "ECS/Alignment.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -391,8 +390,6 @@ bool Game::GameLogicLoop() noexcept
 		ecs::ProcessFieldsTurn(_turnCount);
 		// Tree::Process 0x74A290 through Forest::Process: the trees of a forest grow
 		ecs::ProcessTreesTurn(_turnCount);
-		// GPlayer::Process -> GAlignment::ProcessForPlayer: the turn's alignment change, capped
-		ecs::alignment::ProcessTurn();
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();

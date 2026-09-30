@@ -54,7 +54,7 @@
 #include "Magic/Script/CHLSpells.h"
 #include "Magic/Script/CHLWeather.h"
 #include "Magic/Script/CHLWorship.h"
-#include "ECS/Alignment.h"
+#include "ECS/Effects/Alignment.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
 namespace openblack::chlapi
@@ -849,7 +849,7 @@ void GetAlignment() // 058 GET_ALIGNMENT
 {
 	// GScript::GetAlignment 0x6F9A60: the player's GAlignment value (GPlayer::GetAlignmentValue 0x64D6A0)
 	const auto player = Pop().intVal;
-	Pushf(ecs::alignment::Get(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL)))));
+	Pushf(ecs::effects::alignment::Get(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL)))));
 }
 
 void SetAlignment() // 059 SET_ALIGNMENT
@@ -863,7 +863,7 @@ void SetAlignment() // 059 SET_ALIGNMENT
 		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_ALIGNMENT: Alignment out of range ({})", value);
 		return;
 	}
-	ecs::alignment::AddNow(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL))), value);
+	ecs::effects::alignment::CrudeUpdate(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL))), value);
 }
 
 void InfluenceObject() // 060 INFLUENCE_OBJECT

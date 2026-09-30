@@ -9,13 +9,18 @@
 
 #include "Alignment.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
+
+#include <spdlog/spdlog.h>
 
 #include "ECS/Life.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "EffectValues.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/Players.h"
 
 using namespace openblack;
 using namespace openblack::ecs::effects;
@@ -63,6 +68,10 @@ float AlignmentFactor(const InfoConstants& info, size_t effect, AlignmentType ty
 	}
 	return 0.0f;
 }
+bool Trace()
+{
+	return std::getenv("OPENBLACK_ALIGNMENT_TRACE") != nullptr;
+}
 } // namespace
 
 float alignment::ScaleChange(const ecs::components::PlayerAlignment& alignment, float change)
@@ -96,4 +105,74 @@ void alignment::Update(ecs::components::PlayerAlignment& alignment, entt::entity
 	}
 	const float burn = ConvertTemperatureToDamage(object, values.numbers[EffectValues::Burn]);
 	alignment.pending += ScaleChange(alignment, burn * AlignmentFactor(info, EffectValues::Burn, type) * k);
+}
+
+ecs::components::PlayerAlignment& alignment::Of(PlayerNames player)
+{
+	return magic::players::AlignmentOf(player);
+}
+
+float alignment::Get(PlayerNames player)
+{
+	return Of(player).value;
+}
+
+void alignment::CrudeSet(PlayerNames player, float value)
+{
+	Of(player).value = std::clamp(value, -1.0f, 1.0f);
+}
+
+void alignment::CrudeUpdate(PlayerNames player, float change)
+{
+	auto& alignment = Of(player);
+	alignment.value = std::clamp(alignment.value + change, -1.0f, 1.0f);
+}
+
+void alignment::UpdateForTree(PlayerNames player, bool good)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return;
+	}
+	const float change = Locator::infoConstants::value().player.treePullPutAlignmentChange;
+	auto& alignment = Of(player);
+	const float weighed = ScaleChange(alignment, good ? change : -change);
+	alignment.pending += weighed;
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Alignment: player {} tree {} {:+.5f} (pending {:+.5f}, alignment {:+.4f})",
+		                   static_cast<int>(player), good ? "planted" : "uprooted", weighed, alignment.pending,
+		                   alignment.value);
+	}
+}
+
+void alignment::ProcessForPlayer(PlayerNames player)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return;
+	}
+	auto& alignment = Of(player);
+	if (alignment.pending == 0.0f)
+	{
+		return;
+	}
+	// TODO: GGuidance::HelpSpritesAlignmentProcess for the local player (the good and evil advisors)
+	const float cap = Locator::infoConstants::value().player.maxAlignmentChangePerGameTurn;
+	const float change = cap * std::clamp(alignment.pending, -1.0f, 1.0f);
+	CrudeUpdate(player, change);
+	alignment.pending = 0.0f;
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Alignment: player {} {:+.5f} -> {:+.4f}", static_cast<int>(player), change,
+		                   alignment.value);
+	}
+}
+
+void alignment::ProcessPlayers()
+{
+	for (size_t i = 0; i < static_cast<size_t>(PlayerNames::_COUNT); ++i)
+	{
+		ProcessForPlayer(static_cast<PlayerNames>(i));
+	}
 }

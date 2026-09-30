@@ -13,8 +13,9 @@ namespace openblack::ecs::components
 {
 
 /// GAlignment (GPlayer +0x60 points at it): the player's alignment, -1 evil .. 1 good (+8), and the change gathered
-/// this turn (+0xC) that the player's update folds in (GPlayerInfo.maxAlignmentChangePerGameTurn; not ported yet).
-/// GAlignment::Update 0x414410 adds to `pending` (ECS/Effects/Alignment.h).
+/// this turn (+0xC) that the player's turn folds in (GAlignment::Process 0x414140, capped by
+/// GPlayerInfo.maxAlignmentChangePerGameTurn). GAlignment::Update 0x414410 / 0x4145A0 add to `pending`
+/// (ECS/Effects/Alignment.h).
 struct PlayerAlignment
 {
 	float value {0.0f};   ///< +8

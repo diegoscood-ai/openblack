@@ -25,6 +25,7 @@
 #include "3D/L3DMesh.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -163,20 +164,32 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 			return;
 		}
 		const auto& beliefs = registry.Get<const Town>(town->second).beliefs;
-		// the totem (TownCentre::GetTotemPos 0x743F20: the town centre mesh's special point 6) + its height + HeightAt1;
-		// openblack has no separate TotemStatue yet, so its height is the top of the town centre's mesh (inf)
-		float top = 0.0f;
-		glm::vec3 totem = transform.position;
-		if (meshes.Contains(mesh.id))
-		{
-			const auto handle = meshes.Handle(mesh.id);
-			top = handle->GetBoundingBox().maxima.y * transform.scale.y;
-			if (const auto& extra = handle->GetExtraMetrics(); extra.size() > 6)
+		// the totem (TotemStatue, TownCentre::GetTotemPos 0x743F20) + its height (Object::GetHeight 0x638120 of the icon
+		// on the plinth, GBelief::DrawBelief 0x438800) + HeightAt1; without a totem, the top of the town centre's mesh
+		glm::vec3 base = transform.position;
+		bool found = false;
+		registry.Each<const TotemStatue, const Transform>([&](const TotemStatue& statue, const Transform& plinth) {
+			if (found || statue.townCentre != entity)
 			{
-				totem = transform.position + transform.rotation * (glm::vec3(extra[6][3]) * transform.scale);
+				return;
 			}
+			float height = 0.0f;
+			if (registry.Valid(statue.top))
+			{
+				const auto* topMesh = registry.TryGet<const Mesh>(statue.top);
+				const auto* topTransform = registry.TryGet<const Transform>(statue.top);
+				if (topMesh != nullptr && topTransform != nullptr && meshes.Contains(topMesh->id))
+				{
+					height = meshes.Handle(topMesh->id)->GetBoundingBox().Size().y * topTransform->scale.y;
+				}
+			}
+			base = glm::vec3(plinth.position.x, statue.baseY + height + k_HeightAt1, plinth.position.z);
+			found = true;
+		});
+		if (!found && meshes.Contains(mesh.id))
+		{
+			base.y += meshes.Handle(mesh.id)->GetBoundingBox().maxima.y * transform.scale.y + k_HeightAt1;
 		}
-		const glm::vec3 base = glm::vec3(totem.x, transform.position.y + top + k_HeightAt1, totem.z);
 		const float s = std::clamp(glm::distance(camera, base) * 0.01f, 1.0f, 10.0f);
 		auto& centre = g_Centres[entity];
 

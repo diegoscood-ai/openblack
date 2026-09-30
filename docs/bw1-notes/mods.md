@@ -60,10 +60,14 @@ Antes `graphics.hd-people`; renombrado porque ya no es solo para aldeanos. Tabla
 Todo se aplica **en vivo** (sin reiniciar), desactivado por defecto como todo mod.
 
 - **Qué hace cada opción**
-  - `textures` hd/original: los 18 atlas de aldeanos ×4 (Real-ESRGAN), `Resources/HdTextures` + `textures.cfg` (hash
-    FNV-1a del DDS de origen: con otro AllMeshes.g3d no se usan).
+  - `textures` hd/original: los 18 atlas de aldeanos y los 5 de animales (0x2-0x5, 0x64; 2026-09-30) ×4 (Real-ESRGAN),
+    `Resources/HdTextures` + `textures.cfg` (hash FNV-1a del DDS de origen: con otro AllMeshes.g3d no se usan). Los
+    atlas de animales los comparten algunos objetos (lápidas, una puerta, un tipi...), que también salen en HD. El
+    generador lee las mallas `MSH_P_*` y `MSH_A_*` del AllMeshes.h del juego y reutiliza las imágenes ya hechas cuyo
+    hash sigue siendo el del paquete.
   - `smooth` off/soft/round: triángulos PN (`3D/PnTessellation`, Vlachos 2001) partidos en 4 o 9 sobre las mallas de
-    aldeanos (con huesos y todas sus texturas en la lista) **y la mano** (`Hand_Boned_Base2`). `L3DSubMesh::IsHdTweaked`.
+    aldeanos y animales (con huesos y todas sus texturas en la lista) **y la mano** (`Hand_Boned_Base2`).
+    `L3DSubMesh::IsHdTweaked`.
     Los **triángulos de articulación** (esquinas en huesos distintos) no se curvan por dentro: son un abanico sobre su
     arista de un solo hueso y se estiran como los del original (con puntos interiores pegados a un hueso se doblaban al
     animar). La colisión (mano, físicas) sigue siendo la malla original.
@@ -85,7 +89,8 @@ Todo se aplica **en vivo** (sin reiniciar), desactivado por defecto como todo mo
 - **Carpeta antigua**: si aparece `Mods/graphics.hd-people` (un exe viejo o una copia de `Mods`), `ModRegistry`
   (`MigrateRenamedFolder`) pasa a `graphics.hd-tweaks` lo que le falte y la borra; nunca sale como mod de datos.
 - **Pruebas**: `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` cambia las opciones a mitad de partida;
-  `dev\shot_villager.sh` y `dev\shot_hand.sh` (copia privada en `dev\hdp_run`); `OPENBLACK_START_PAUSED=1` deja a los
+  `dev\shot_villager.sh`, `dev\shot_hand.sh` y `dev\shot_animal.sh <n,distancia,ángulo,1>` (copia privada en
+  `dev\hdp_run`; los animales solo se siguen con el juego en marcha, sin START_PAUSED); `OPENBLACK_START_PAUSED=1` deja a los
   aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una pose (sentado 369, rezar 343). Las
   capturas en el fotograma 2900 fallan a veces: repetir.
 - **Pendiente**: que el usuario confirme en juego que las animaciones con `round` ya no se rompen y si `sharp` parpadea.

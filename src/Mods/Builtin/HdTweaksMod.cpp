@@ -24,10 +24,10 @@ class HdTweaksMod final: public Mod
 public:
 	HdTweaksMod()
 	    : Mod({"graphics.hd-tweaks", "HD-Tweaks",
-	           "Better looking villagers, animals and hand: villager textures upscaled 4x (images in "
-	           "Mods/graphics.hd-tweaks, made with its tools), rounder villagers and hand (each triangle curved and split "
-	           "in 4 or 9), the original's light per pixel on those smooth shapes, textures kept sharp far away, and the "
-	           "high detail meshes of villagers and animals (the original only draws the standard ones)",
+	           "Better looking villagers, animals and hand: villager and animal textures upscaled 4x (images in "
+	           "Mods/graphics.hd-tweaks, made with its tools), rounder villagers, animals and hand (each triangle curved "
+	           "and split in 4 or 9), the original's light per pixel on those smooth shapes, textures kept sharp far "
+	           "away, and the high detail meshes of villagers and animals (the original only draws the standard ones)",
 	           "Graphics", false})
 	{
 		AddOption({"textures", "Textures", {"hd", "original"}, 0});

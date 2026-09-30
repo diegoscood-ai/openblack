@@ -18,6 +18,7 @@
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/Fire/FireEffect.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Trees.h"
@@ -50,6 +51,9 @@ entt::entity magic_tree::Create(const glm::vec3& position, entt::entity spell, T
 		player = registry.Get<const Spell>(spell).player;
 	}
 	registry.Assign<MagicTree>(tree, player, woodValueMultiplier);
+	// +0x70: MagicTree::GetWoodValueMultiplier 0x5FD0C0 (Tree::GetWoodValue 0x74B7B0 reads it through vt 0x868; ECS/Trees
+	// keeps it in Tree::woodValueMultiplier, 1 for a plain tree)
+	registry.Get<Tree>(tree).woodValueMultiplier = woodValueMultiplier;
 	ecs::effects::reactions::CreateReaction(tree, Reaction::ReactToMagicTree, player, false);
 	return tree;
 }
@@ -96,19 +100,33 @@ namespace
 /// last tree", done by SpellForest::Process; ECS/Trees' listener runs while the tree is still in its forest)
 std::vector<uint32_t> g_ForestsThatLostAMagicTree;
 
-/// The rest of Object::ToBeDeleted 0x636670 for a tree ECS/Trees deletes (DeleteTree, ShrinkAllTrees, FellTree): its
-/// reactions (RemoveAllReactionsInitiatedByObject 0x6E4750; a MagicTree's REACT_TO_MAGIC_TREE with them) and the hand
-/// lets go of it (inf). Its fire is not touched here: FellTree keeps it on the same entity (fn_00730960), and a deleted
-/// object's fire goes at its next FireEffect::Process (ECS/Fire).
-void OnTreeDeleted(entt::entity tree)
+/// The rest of Tree::ToBeDeleted 0x74A210 / Object::ToBeDeleted 0x636670 (MagicTree::ToBeDeleted 0x5FD070 for a magic
+/// tree) for a tree ECS/Trees takes away (DeleteTree, ShrinkAllTrees, FellTree, the hand's MakeDeadTree): its reactions
+/// go (RemoveAllReactionsInitiatedByObject 0x6E4750; a MagicTree's REACT_TO_MAGIC_TREE with them) and a magic tree's
+/// forest is noted ("the forest goes with its last tree", SpellForest). Only when the entity is destroyed (Removed):
+/// its fire goes (FireEffect::ToBeDeleted 0x72EBE0) and the hand lets go of it (inf). BecameDeadTree: the entity stays
+/// as the DeadTree that took over the tree's 3D object and fire (ctor 0x510880, fn_00730960), which is not a MagicTree.
+void OnTreeDeleted(entt::entity tree, ecs::TreeDeletion how)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (const auto* component = registry.TryGet<const Tree>(tree);
-	    component != nullptr && component->forestId != 0 && registry.AllOf<MagicTree>(tree))
+	const bool magic = registry.AllOf<MagicTree>(tree);
+	if (const auto* component = registry.TryGet<const Tree>(tree); component != nullptr && component->forestId != 0 && magic)
 	{
 		g_ForestsThatLostAMagicTree.push_back(component->forestId);
 	}
 	ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
+	if (how == ecs::TreeDeletion::BecameDeadTree)
+	{
+		if (magic)
+		{
+			registry.Remove<MagicTree>(tree); // the DeadTree is another object (inf: the same entity in openblack)
+		}
+		return;
+	}
+	if (auto* fire = ecs::fire::Find(tree); fire != nullptr)
+	{
+		ecs::fire::ToBeDeleted(*fire);
+	}
 	if (Locator::handSystem::has_value())
 	{
 		const auto held = Locator::handSystem::value().GetHeldObject();

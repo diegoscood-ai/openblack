@@ -132,6 +132,8 @@ void PlayAnimThenSetState(Context& ctx, AnimalState state);
 void SetSpeed(Context& ctx, uint32_t speed);
 uint32_t SpeedDefault(const Context& ctx);
 void SetupMoveToPos(Context& ctx, glm::vec2 p, AnimalState final);
+/// Living's SetCurrentAndDestinationState(info.moveState, final) (0x5F2980): false when the exit test refuses it
+bool SetCurrentAndDestinationState(Context& ctx, AnimalState final);
 /// MobileWallHug::SetupMobileMoveToPos (0x60AAD0, one argument): the goal, InitStepsXZ, ARRIVED or STEP_THROUGH
 void SetupMobileMoveToPos(Context& ctx, glm::vec2 p);
 /// MobileWallHug::MoveTo for ARRIVED / FINAL_STEP / STEP_THROUGH: 6 or 7 when it stepped (same / new map cell), 0xA
@@ -142,6 +144,9 @@ constexpr uint8_t k_MoveFinalStep = 4;
 constexpr uint8_t k_MoveWander = 5;
 constexpr uint8_t k_MoveStepThrough = 0xB;
 bool MoveBy(Context& ctx, glm::ivec2 step);
+/// MobileWallHug::AreWeThere(0) (0x60AD40) and InitStepsXZ (0x60BFA0): re-aim with the species' turn limit
+bool AreWeThere(const Context& ctx);
+void InitStepsXZ(Context& ctx);
 void SetTowardsAngle(Context& ctx, uint16_t target, float distance);
 int CheckNeeds(Context& ctx);
 int KeepLeaderWithinDomain(Context& ctx);
@@ -188,5 +193,7 @@ void TargetPounce(Context& ctx);
 void BeingEaten(Context& ctx);
 void HideInLair(Context& ctx);
 void CalculeLairPos(Context& ctx);
+/// test hook OPENBLACK_TEST_LAIRS: logs the forest list, then every predator flock leader recomputes its lair
+void TestLairs();
 
 } // namespace openblack::ecs::animal_ai::detail

@@ -1475,9 +1475,11 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     el de los milagros (`MagicTree.cpp`, `AddTreeDeletedListener`) quita sus reacciones (0x6E4750), suelta la mano y
     apunta el bosque de un MagicTree borrado. `SpellForest::Process` borra entonces ese bosque si se quedó sin árboles
     (`DeleteForest` = Forest::ToBeDeleted 0x539C60; la última parte de MagicTree::ToBeDeleted 0x5FD070) y cierra al
-    turno siguiente, como el original. `SpellForest::ToBeDeleted` borra el bosque con `DeleteForest`. El fuego del
-    árbol no lo toca el oyente: `FellTree` lo conserva en la misma entidad (fn_00730960) y el de un objeto borrado se va
-    en su siguiente FireEffect::Process. El jugador del Forest (solo para el alineamiento de los árboles nuevos
+    turno siguiente, como el original. `SpellForest::ToBeDeleted` borra el bosque con `DeleteForest`. El oyente
+    recibe cómo se va el árbol: `Removed` (la entidad se destruye: también se van su fuego, FireEffect::ToBeDeleted
+    0x72EBE0, y la mano lo suelta) o `BecameDeadTree` (`FellTree` o el árbol muerto de la mano: el DeadTree se queda la
+    malla y el fuego, fn_00730960 en su ctor 0x510880, y deja de ser MagicTree). El multiplicador de madera del MagicTree
+    (0,25 × poder tribal, +0x70, 0x5FD0C0) va en `Tree::woodValueMultiplier` y el DeadTree lo copia (+0x9C, 0x5108F7). El jugador del Forest (solo para el alineamiento de los árboles nuevos
     naturales) no se guarda.
 - **El efecto SF_Forest sin la escena** (lo que se ve): la semilla `Seed.L3D` (escala 0,207) cae desde 9,4 m con
   gravedad 1,6 (máx. 3,35 m/s) girando, con SOUND_SPELL_FOREST_1 y un disco de manchas azules; al tocar tierra (turno

@@ -38,9 +38,22 @@ struct AnimalBrain
 	glm::ivec2 step {0};
 	/// +0x80: MOVE_TO_POS's goal (metres)
 	glm::vec2 goal {0.0f};
-	/// +0x5E: MobileWallHug's move state (1 ARRIVED, 4 FINAL_STEP, 5 WANDER, 0xB STEP_THROUGH; dev\tmp_dis\animals\
-	/// wallhug.md)
+	/// +0x5E: MobileWallHug's move state (1 ARRIVED, 4 FINAL_STEP, 5 WANDER, 0xB STEP_THROUGH, 0xC..0x12 the circle hug of
+	/// ECS/AnimalWallHug.h; dev\tmp_dis\animals\wallhug.md)
 	uint8_t moveState {0};
+	/// +0x70 CircleHugInfo: the collide circle it walks round (a copy of the NewCollide::Obj: centre and radius, the
+	/// fixed object it belongs to, none for a water cell's; set = GetObjectPtr() != NULL), +0x74 TurnsToObj (the turns
+	/// until it reaches it, 0xFF none) and +0x76 the distance to the goal when the orbit began (x 128)
+	struct HugCircle
+	{
+		glm::vec2 centre {0.0f};
+		float radius {0.0f};
+		entt::entity owner {entt::null};
+		bool set {false};
+	};
+	HugCircle hugCircle;
+	uint8_t turnsToObj {0xFF};
+	uint32_t hugGoalDistance {0};
 	/// +0x58: the eat counter; also the corpse counter (GetNumTurnsToDieOver, 600 turns) in DEAD
 	int16_t counter {0};
 	/// +0xE4 / +0xE8 / +0xEA: the hunger, sleep and breed counters (ProcessNeeds)

@@ -53,7 +53,6 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
-#include "Magic/Objects/MagicTree.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
@@ -306,12 +305,8 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// Object::DoDeleteObjectAndTakeResource: AddResource(WOOD, GetDefaultResource()) (ecs::TreeWood: Tree 0x74B7A0 or
-	// DeadTree 0x511330). A MagicTree's GetWoodValueMultiplier (vt 0x868, +0x70) replaces the Tree's 1 inside
-	// Tree::GetWoodValue 0x74B7B0 (ECS/Trees takes it as 1)
-	const float multiplier = magic::magic_tree::WoodValueMultiplier(object);
-	auto wood = multiplier != 1.0f && registry.AllOf<Tree>(object)
-	                ? static_cast<uint32_t>(ecs::TreeWoodValue(object) * multiplier)
-	                : ecs::TreeWood(object);
+	// DeadTree 0x511330; a MagicTree's GetWoodValueMultiplier is its Tree::woodValueMultiplier)
+	auto wood = ecs::TreeWood(object);
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
 	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {

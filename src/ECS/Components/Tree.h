@@ -50,6 +50,8 @@ struct Tree
 	/// 0x52DEA0 puts it at the HEAD): MapCell::FindTypeOnMap finds the tree inserted last first. Set at creation and when
 	/// it is planted again.
 	uint32_t mapInsertion = 0;
+	/// Tree::GetWoodValueMultiplier 0x74B810: 1.0 for a Tree; a class that overrides it (MagicTree) sets its own
+	float woodValueMultiplier = 1.0f;
 };
 
 /// A tree that was thrown or dropped where it cannot be replanted (DeadTree, a Rock subclass in the original):
@@ -57,6 +59,8 @@ struct Tree
 struct DeadTree
 {
 	TreeInfo type;
+	/// DeadTree +0x9C: the GetWoodValueMultiplier of the tree it was (DeadTree ctor 0x5108F7)
+	float woodValueMultiplier = 1.0f;
 };
 
 /// A tree a forester felled (FelledTree, a DeadTree whose vtable FelledTree::Create 0x5116A0 swaps in): it falls with

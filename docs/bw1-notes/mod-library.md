@@ -177,7 +177,7 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   usuario: la orilla cargada y la arena limpia): la orilla (`coast`, hasta ~20: algas 7-16, arena mojada, estrellas,
   conchas) con poca densidad, y la arena seca detrás (`sand_*`, coral y huellas, 14-80, altura hasta 40, `share` 0,7,
   sin `coast`) con más (conchas 3, piedras 1,6 por celda); las huellas solo ahí, desde 20. En Land1,
-  playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\lnd_beaches.py` lista la arena junto al agua).
+  playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\tools\lnd\lnd_beaches.py` lista la arena junto al agua).
 - **Módulo `world.foliage.butterflies`** ("Butterflies"): los 3 gif del usuario sobre `wildflowers` y `poppies`,
   0,04 por flor, 0,7-1 de ancho (más grandes que de verdad para que se vean junto a la hierba de 0,7-1,2). En Land1
   hay unas 70 cerca de `1434,57.8,2232` (cámara `1428,61.5,2226,1434,57.5,2233`, `OPENBLACK_TIME_OF_DAY=13`).
@@ -188,14 +188,14 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   todo), 6 costa (franja junto al mar), 8 jungla (manchas compactas: Land1 noroeste ~1620,2290 y este ~2550,2550;
   Land5 5-6 manchas), 16 bosque (Land1 ~2160,3100), 10 viento = nieve y montaña (Land2 todo el suroeste, Land3,
   Land5 noreste), 4 olas lentas (`swamp`: charcas interiores, muchas en Land5) y 5 lago (Land2 centro). 12 desierto
-  no lo usa ningún mapa original. Mapas en `dev\tmp_dis\biomes\Land*_snd.png` (`dev\lnd_zones.py`; `dev\lnd_countries.py`
+  no lo usa ningún mapa original. Mapas en `dev\tmp_dis\biomes\Land*_snd.png` (`dev\tools\lnd\lnd_zones.py`; `dev\tools\lnd\lnd_countries.py`
   para los country). Uso actual: `water_plant` en jungla, lago y charcas; `jungle_grass` en la jungla; `wildflowers`
   en prado y bosque; `poppies` en prado; `dead_bush_barren` en viento/desierto (solo roca, tierra seca o arena). Todas con `tint = grey`.
 - **Tinte por el suelo**: los texeles grises (saturación < 0,1-0,2) toman el color de la textura del terreno bajo la
   planta: el vertex shader muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque ×
   repeticiones del mod terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta.
   Los texeles de color (pétalos, espigas) no cambian. `tint = all` tinta toda la imagen; `none` usa sus colores.
-- Sprites: solo los `mono_*`, las imágenes del usuario (`B&W/Asstes_mods/Plantsv2`; las de la primera versión en `B&W/Asstes_mods/Plantsv1`) pasadas a gris con `assets/mods/world.foliage/tools/mono_sprites.py --width=128`: hierba, hierba alta, matorrales y trigo con `--min-hue=0` (todo a gris); juncos, plantas de agua y flores con `--min-hue=50 --open=1`: lo verde (tono 50-170°) a gris con media 0,62 y del resto solo quedan en color las manchas que sobreviven a una apertura morfológica de 3×3 (pétalos, cabezas de los juncos, penachos); las vetas finas amarillo-marrón y los brillos casi blancos de las hojas también a gris (con `--min-hue=50` sin apertura salían vetas naranjas sin tintar). Los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten. Los `gen_*` generados por `tools/gen_grass_sprites.py` (en el repo) ya no se usan. La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto.
+- Sprites: solo los `mono_*`, las imágenes del usuario (`B&W/Asstes_mods/Plants`, las de la v2; los `mono_*` actuales están en `B&W/BnW_openblack/Mods/world.foliage`) pasadas a gris con `assets/mods/world.foliage/tools/mono_sprites.py --width=128`: hierba, hierba alta, matorrales y trigo con `--min-hue=0` (todo a gris); juncos, plantas de agua y flores con `--min-hue=50 --open=1`: lo verde (tono 50-170°) a gris con media 0,62 y del resto solo quedan en color las manchas que sobreviven a una apertura morfológica de 3×3 (pétalos, cabezas de los juncos, penachos); las vetas finas amarillo-marrón y los brillos casi blancos de las hojas también a gris (con `--min-hue=50` sin apertura salían vetas naranjas sin tintar). Los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con un toque crema para que no se tinten. Los `gen_*` generados por `tools/gen_grass_sprites.py` (en el repo) ya no se usan. La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto.
 - **El `type` del LND no describe el aspecto**: en Land1 las texturas 0 y 8 son hierba verde con tipo 5 `Earth` y la 11
   es arena con tipo `Earth`; sirve para sonidos/pasos. Por eso `texture` clasifica cada material por su color medio
   (`Foliage::ClassifyTexture`, medido en Land1-5): verde = tono 50-100° y saturación ≥ 0,55; nieve = saturación < 0,15

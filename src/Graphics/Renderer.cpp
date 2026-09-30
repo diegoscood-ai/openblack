@@ -2366,7 +2366,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				bool fading;
 				entt::entity sprite {entt::null};
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
-				entt::entity mist {entt::null};
+				int mist {-1}; ///< an index of _frameMists
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2472,9 +2472,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (mistsSorted)
 			{
-				for (const auto& [distance, entity] : CollectMists(*desc.camera))
+				for (const auto& [distance, index] : CollectMists(*desc.camera))
 				{
-					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, entity});
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, static_cast<int>(index)});
 				}
 			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
@@ -2493,9 +2493,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
 						continue;
 					}
-					if (instance.mist != entt::null)
+					if (instance.mist >= 0)
 					{
-						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, instance.mist);
+						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.mist));
 						continue;
 					}
 					if (instance.sprite != entt::null)

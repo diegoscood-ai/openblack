@@ -30,13 +30,14 @@ namespace openblack::magic::magic_tree
 entt::entity Create(const glm::vec3& position, entt::entity spell, TreeInfo type, uint32_t forestId, float angle,
                     float scale, float woodValueMultiplier);
 
-/// MagicTree::ToBeDeleted 0x5FD070: its reactions go, then Tree::ToBeDeleted 0x74A210 (out of the forest, the entity
-/// goes). The forest going with its last tree is done by SpellForest (the forests of ECS/Trees are never deleted by a
-/// tree).
+/// MagicTree::ToBeDeleted 0x5FD070: Tree::ToBeDeleted 0x74A210 (ECS/Trees' DeleteTree); its reactions go in the
+/// tree-deleted listener (MagicTree.cpp), and "the forest goes with its last tree" is SpellForest's
+/// (ForestLostAMagicTree)
 void ToBeDeleted(entt::entity tree);
-/// A magic tree that went without ToBeDeleted (ECS/Trees' ShrinkAllTrees destroys the entity, fire, the hand) or left
-/// its forest: its reactions go as MagicTree::ToBeDeleted would have done; `gone` = the entity is no longer a tree
-void Forget(entt::entity tree, bool gone);
+/// True once (then forgotten) when a magic tree of that forest was deleted since the last call
+[[nodiscard]] bool ForestLostAMagicTree(uint32_t forestId);
+/// A land is loaded
+void Clear();
 
 /// MagicTree::StartOnFire 0x5FD0D0: its REACT_TO_MAGIC_TREE goes
 void StartOnFire(entt::entity tree);

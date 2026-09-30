@@ -19,6 +19,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -46,6 +47,9 @@ entt::entity BigForestArchetype::Create(const glm::vec3& position, BigForestInfo
 	auto& forest = registry.Assign<BigForest>(entity);
 	forest.woodValue = static_cast<float>(std::max<uint32_t>(info.woodValue, 1));
 	forest.wood = forest.woodValue * scale;
+	// BigForest ctor 0x438CE0: `new Forest` into +0x80, whose +0x38 points back at the BigForest
+	forest.forestId = ecs::CreateForest(0, position);
+	ecs::SetForestBigForest(forest.forestId, entity);
 	registry.Assign<MorphWithTerrain>(entity);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));

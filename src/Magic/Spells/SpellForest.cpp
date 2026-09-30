@@ -76,45 +76,23 @@ bool HasForest(const SpellForestData& data)
 	return data.forestId != 0 && !data.forestDeleted && ecs::IsInForest(data.forestId);
 }
 
-/// The trees of the spell's forest (both of the original's lists, +0x48 and +0x50): ECS/Trees keeps the forest in each
-/// tree's forestId
-std::vector<entt::entity> ForestTrees(uint32_t forestId)
-{
-	std::vector<entt::entity> trees;
-	Locator::entitiesRegistry::value().Each<const Tree>([&](entt::entity entity, const Tree& tree) {
-		if (forestId != 0 && tree.forestId == forestId)
-		{
-			trees.push_back(entity);
-		}
-	});
-	return trees;
-}
-
-/// Forest +0x4C + +0x54: its trees
+/// Forest +0x4C + +0x54: its trees (ECS/Trees ForestTreeCount, fn_0053AD00)
 uint32_t TreeCountOf(const SpellForestData& data)
 {
-	return HasForest(data) ? static_cast<uint32_t>(ForestTrees(data.forestId).size()) : 0;
+	return HasForest(data) ? static_cast<uint32_t>(ecs::ForestTreeCount(data.forestId)) : 0;
 }
 
-/// MagicTree::ToBeDeleted 0x5FD070 for the magic trees that went another way (ShrinkAllTrees destroys them, fire, the
-/// hand) or left the forest: their reactions go. Its last part, "the forest goes with its last tree", is here too:
-/// true when a magic tree went and the forest has no tree left (ECS/Trees has no forest deletion: the spell forgets the
-/// forest, which ECS/Trees drops 2000 turns later as an empty one).
-bool PruneTrees(SpellForestData& data)
+/// MagicTree::ToBeDeleted 0x5FD070's last part: a magic tree of the forest went (ECS/Trees' DeleteTree told
+/// MagicTree.cpp) and the forest has no tree left -> the forest is deleted (Forest::ToBeDeleted 0x539C60, DeleteForest)
+bool ForestWentWithItsLastTree(const SpellForestData& data)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	bool removed = false;
-	std::erase_if(data.trees, [&](entt::entity tree) {
-		const bool valid = registry.Valid(tree) && registry.AllOf<Tree>(tree);
-		const bool stays = valid && data.forestId != 0 && registry.Get<const Tree>(tree).forestId == data.forestId;
-		if (!stays)
-		{
-			removed = true;
-			magic_tree::Forget(tree, !valid);
-		}
-		return !stays;
-	});
-	return removed && data.forestId != 0 && ForestTrees(data.forestId).empty();
+	if (data.forestId == 0 || !magic_tree::ForestLostAMagicTree(data.forestId) ||
+	    ecs::ForestTreeCount(data.forestId) != 0)
+	{
+		return false;
+	}
+	ecs::DeleteForest(data.forestId);
+	return true;
 }
 
 /// fn_00725790 on a spell
@@ -250,7 +228,6 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 	const auto tree = magic_tree::Create(position, entity, type, data.forestId, angle, 0.0f, woodMultiplier);
 	if (tree != entt::null)
 	{
-		data.trees.push_back(tree);
 		const auto& castPos = registry.Get<const Spell>(entity).originalCastPos;
 		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(castPos.x, castPos.z));
 		registry.Get<Tree>(tree).maxSize = spell_forest::TargetScale(distance); // +0x64
@@ -328,12 +305,11 @@ int Process(entt::entity entity)
 	auto& data = DataFor(entity);
 	auto& registry = Locator::entitiesRegistry::value();
 	// the forest was deleted (+0xA bit 0): +0xEC = 0 and CloseDown (vt 0x530). It is deleted with its last magic tree
-	// (MagicTree::ToBeDeleted 0x5FD070, PruneTrees) or, empty, by ECS/Trees' forest turn.
-	if (data.forestId != 0 && (data.forestDeleted || PruneTrees(data) || !ecs::IsInForest(data.forestId)))
+	// (MagicTree::ToBeDeleted 0x5FD070, ForestWentWithItsLastTree) or, empty, by ECS/Trees' forest turn.
+	if (data.forestId != 0 && (data.forestDeleted || ForestWentWithItsLastTree(data) || !ecs::IsInForest(data.forestId)))
 	{
 		data.forestId = 0;
 		data.forestDeleted = false;
-		data.trees.clear();
 		magic::CloseDown(entity);
 	}
 	if (data.forestId == 0)
@@ -348,10 +324,10 @@ int Process(entt::entity entity)
 	const bool decay = static_cast<uint32_t>(wanted) < count;
 	if (decay)
 	{
-		// fn_00725B00 -> fn_0053A490 (ECS/Trees): a tree reaching 0 goes (its MagicTree::ToBeDeleted part: PruneTrees)
+		// fn_00725B00 -> fn_0053A490 (ECS/Trees): a tree reaching 0 is ToBeDeleted (DeleteTree)
 		change = ecs::ShrinkAllTrees(data.forestId, info.decaySpeed);
 		// the last tree took the forest with it: CloseDown on the next turn, as the original
-		data.forestDeleted = PruneTrees(data);
+		data.forestDeleted = ForestWentWithItsLastTree(data);
 	}
 	else
 	{
@@ -382,18 +358,12 @@ void ForestCloseDown(entt::entity entity)
 void ToBeDeleted(entt::entity entity)
 {
 	// SpellForest::ToBeDeleted 0x725500: the forest (if not already going) goes with its trees (Forest::ToBeDeleted
-	// 0x539C60: each tree's ToBeDeleted), then Spell::ToBeDeleted. ECS/Trees has no forest deletion: the emptied forest
-	// is dropped by its own turn 2000 turns later.
+	// 0x539C60: ECS/Trees' DeleteForest, each tree's Tree::ToBeDeleted), then Spell::ToBeDeleted
 	auto& data = DataFor(entity);
 	if (HasForest(data))
 	{
-		PruneTrees(data);
-		for (const auto tree : ForestTrees(data.forestId))
-		{
-			magic_tree::ToBeDeleted(tree);
-		}
+		ecs::DeleteForest(data.forestId);
 	}
-	data.trees.clear();
 	data.forestId = 0;
 }
 

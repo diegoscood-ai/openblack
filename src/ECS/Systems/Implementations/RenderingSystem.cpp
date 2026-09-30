@@ -343,11 +343,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 				    instance[3][3] = -(1.0f + static_cast<float>(grey * 65536u + grey * 256u + grey));
 			    }
 		    }
-		    else if (const auto* tree = registry.TryGet<const Tree>(entity);
-		        tree != nullptr && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
+		    else if (const auto* swayTree = registry.TryGet<const Tree>(entity);
+		        swayTree != nullptr && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
 		    {
 			    // the tree's own slot, round(yAngle x 16 / 2pi) & 15 (0x74A0E7): trees facing the same way sway together
-			    const auto slot = static_cast<uint32_t>(tree->windSlot);
+			    const auto slot = static_cast<uint32_t>(swayTree->windSlot);
 			    // Tree::Draw 0x74B077: every RGB channel of the tree's colour times the frame's brightness / 256
 			    // (ecs::TreeBrightness), as an own colour in the w of the fourth column like the fields' tint
 			    if (!registry.AllOf<MeshTint>(entity))

@@ -9,13 +9,15 @@
 
 #include "MagicTree.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "3D/LandIslandInterface.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Components/MagicTree.h"
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/Reactions.h"
-#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Trees.h"
@@ -52,49 +54,7 @@ entt::entity magic_tree::Create(const glm::vec3& position, entt::entity spell, T
 	return tree;
 }
 
-void magic_tree::ToBeDeleted(entt::entity tree)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(tree))
-	{
-		return;
-	}
-	// MagicTree::ToBeDeleted 0x5FD070: its reactions go, then Tree::ToBeDeleted. (The forest going with its last tree is
-	// SpellForest's side: ECS/Trees has no forest deletion, see Magic/Spells/SpellForest.cpp.)
-	if (registry.AllOf<MagicTree>(tree))
-	{
-		ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
-	}
-	// Tree::ToBeDeleted 0x74A210: out of its forest (fn_0053A220), then Object::ToBeDeleted 0x636670 (inf: it also
-	// leaves the hand and the physics; the global tree list g_game +0x205CDC is the registry here)
-	ecs::SetTreeForest(tree, 0);
-	if (Locator::handSystem::has_value())
-	{
-		const auto held = Locator::handSystem::value().GetHeldObject();
-		if (held.has_value() && *held == tree)
-		{
-			Locator::handSystem::value().ForceDropHeld();
-		}
-	}
-	ecs::physics::PhysicsObjects::RemoveObject(tree);
-	registry.Destroy(tree);
-	registry.SetDirty();
-}
 
-void magic_tree::Forget(entt::entity tree, bool gone)
-{
-	// what MagicTree::ToBeDeleted 0x5FD070 does for a tree another system took out of the world (burnt, put in a
-	// store, a dead tree now) or out of its forest: gone, all its reactions; a tree that stays (a DeadTree keeps the
-	// entity) loses only REACT_TO_MAGIC_TREE and its MagicTree part (inf)
-	auto& registry = Locator::entitiesRegistry::value();
-	if (gone || !registry.Valid(tree))
-	{
-		ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
-		return;
-	}
-	ecs::effects::reactions::RemoveAllReactionsOfTypeInitiatedBy(tree, Reaction::ReactToMagicTree);
-	registry.Remove<MagicTree>(tree);
-}
 
 void magic_tree::StartOnFire(entt::entity tree)
 {
@@ -121,4 +81,62 @@ float magic_tree::WoodValueMultiplier(entt::entity tree)
 		return magic->woodValueMultiplier;
 	}
 	return 1.0f;
+}
+
+void magic_tree::ToBeDeleted(entt::entity tree)
+{
+	// MagicTree::ToBeDeleted 0x5FD070 -> Tree::ToBeDeleted 0x74A210: ECS/Trees' DeleteTree (out of its forest and the
+	// physics, gone); its reactions and the rest go in the tree-deleted listener below
+	ecs::DeleteTree(tree);
+}
+
+namespace
+{
+/// the forests that lost a magic tree since the spells last looked (MagicTree::ToBeDeleted's "the forest goes with its
+/// last tree", done by SpellForest::Process; ECS/Trees' listener runs while the tree is still in its forest)
+std::vector<uint32_t> g_ForestsThatLostAMagicTree;
+
+/// The rest of Object::ToBeDeleted 0x636670 for a tree ECS/Trees deletes (DeleteTree, ShrinkAllTrees, FellTree): its
+/// reactions (RemoveAllReactionsInitiatedByObject 0x6E4750; a MagicTree's REACT_TO_MAGIC_TREE with them) and the hand
+/// lets go of it (inf). Its fire is not touched here: FellTree keeps it on the same entity (fn_00730960), and a deleted
+/// object's fire goes at its next FireEffect::Process (ECS/Fire).
+void OnTreeDeleted(entt::entity tree)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* component = registry.TryGet<const Tree>(tree);
+	    component != nullptr && component->forestId != 0 && registry.AllOf<MagicTree>(tree))
+	{
+		g_ForestsThatLostAMagicTree.push_back(component->forestId);
+	}
+	ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
+	if (Locator::handSystem::has_value())
+	{
+		const auto held = Locator::handSystem::value().GetHeldObject();
+		if (held.has_value() && *held == tree)
+		{
+			Locator::handSystem::value().ForceDropHeld();
+		}
+	}
+}
+
+const bool k_TreeListenerRegistered = [] {
+	ecs::AddTreeDeletedListener(&OnTreeDeleted);
+	return true;
+}();
+} // namespace
+
+bool magic_tree::ForestLostAMagicTree(uint32_t forestId)
+{
+	const auto it = std::find(g_ForestsThatLostAMagicTree.begin(), g_ForestsThatLostAMagicTree.end(), forestId);
+	if (it == g_ForestsThatLostAMagicTree.end())
+	{
+		return false;
+	}
+	std::erase(g_ForestsThatLostAMagicTree, forestId);
+	return true;
+}
+
+void magic_tree::Clear()
+{
+	g_ForestsThatLostAMagicTree.clear();
 }

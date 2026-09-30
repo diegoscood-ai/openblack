@@ -1471,13 +1471,14 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     nuevo en uno de ellos hace que haya más árboles que N y el bosque entero mengua, como haría el original. +0x38 y +0x3C no se sabe qué son (0 en el ctor).
   - `ToBeDeleted` 0x539C60: `ToBeDeleted` de cada árbol de las dos listas y sale de la lista.
   - **No hay unión de bosques**: el milagro siempre hace un Forest nuevo (`CreateForest(0, punto del primer árbol)`).
-  - Diferencias de `ECS/Trees` que el hechizo compensa: no hay borrado de bosques (solo el de un bosque vacío tras 2000
-    turnos), así que `SpellForest` guarda sus MagicTree y, cuando se va el último, da el bosque por borrado y cierra al
-    turno siguiente como el original; `ShrinkAllTrees` destruye la entidad sin `ToBeDeleted`, así que las reacciones de
-    los MagicTree que llegan a 0 (o que otros sistemas quitan: quemados, al almacén, árbol muerto, replantados en otro
-    bosque) se quitan en `SpellForest` justo después (`magic_tree::Forget`). El jugador del Forest (solo para el
-    alineamiento de los árboles nuevos naturales) no se guarda. `Forest::ToBeDeleted` del hechizo borra cada árbol con
-    `magic_tree::ToBeDeleted`; el id vacío lo quita `ECS/Trees` 2000 turnos después.
+  - Con `ECS/Trees`: `ShrinkAllTrees` borra con `DeleteTree` (Tree::ToBeDeleted 0x74A210) y avisa a los oyentes;
+    el de los milagros (`MagicTree.cpp`, `AddTreeDeletedListener`) quita sus reacciones (0x6E4750), suelta la mano y
+    apunta el bosque de un MagicTree borrado. `SpellForest::Process` borra entonces ese bosque si se quedó sin árboles
+    (`DeleteForest` = Forest::ToBeDeleted 0x539C60; la última parte de MagicTree::ToBeDeleted 0x5FD070) y cierra al
+    turno siguiente, como el original. `SpellForest::ToBeDeleted` borra el bosque con `DeleteForest`. El fuego del
+    árbol no lo toca el oyente: `FellTree` lo conserva en la misma entidad (fn_00730960) y el de un objeto borrado se va
+    en su siguiente FireEffect::Process. El jugador del Forest (solo para el alineamiento de los árboles nuevos
+    naturales) no se guarda.
 - **El efecto SF_Forest sin la escena** (lo que se ve): la semilla `Seed.L3D` (escala 0,207) cae desde 9,4 m con
   gravedad 1,6 (máx. 3,35 m/s) girando, con SOUND_SPELL_FOREST_1 y un disco de manchas azules; al tocar tierra (turno
   41, 4,1 s) salen los 18 árboles. **Todo lo demás cuelga del átomo de la cámara** (grupo 2,

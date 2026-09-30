@@ -717,6 +717,103 @@ void HandSystem::RunDebugHooks() noexcept
 			registry.SetDirty();
 		}
 	}
+	// Debug: OPENBLACK_TEST_FELL="x,z": a beech at x,z felled by a stand-in forester 3 m west of it (FellTree), then 100
+	// wood taken off another dead beech 8 m north (RemoveWood: it shrinks), logged.
+	if (const char* at = std::getenv("OPENBLACK_TEST_FELL"); at != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			const auto& land = Locator::terrainSystem::value();
+			const glm::vec3 position(x, land.GetHeightAt(glm::vec2(x, z)), z);
+			// a yaw other than 0: the spin is in the tree's body space
+			const float yaw = std::getenv("OPENBLACK_TEST_FELL_YAW") != nullptr ? static_cast<float>(std::atof(std::getenv("OPENBLACK_TEST_FELL_YAW"))) : 0.0f;
+			const auto tree = archetypes::TreeArchetype::Create(0, position, TreeInfo::Beech, true, yaw, 1.0f, 1.0f);
+			const auto forester = registry.Create();
+			registry.Assign<Transform>(forester, position - glm::vec3(3.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+			const auto log = ecs::FellTree(tree, forester);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: felled {} -> {} (in physics {}, carried type {}, wood {})",
+			                   static_cast<uint32_t>(tree), static_cast<uint32_t>(log),
+			                   physics::PhysicsObjects::Find(log) != nullptr, static_cast<int>(ecs::TreeCarriedType(log)),
+			                   ecs::TreeWood(log));
+			const glm::vec3 p2(x, land.GetHeightAt(glm::vec2(x, z + 8.0f)), z + 8.0f);
+			const auto dead = archetypes::TreeArchetype::Create(0, p2, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			MakeDeadTree(dead, glm::vec3(1.0f, 0.0f, 0.0f));
+			const auto before = ecs::TreeWood(dead);
+			const auto taken = ecs::RemoveWood(dead, 100);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: dead tree wood {} -> took {}, left {} (scale {:.3f})", before,
+			                   taken, registry.Valid(dead) ? ecs::TreeWood(dead) : 0u,
+			                   registry.Valid(dead) ? registry.Get<const Transform>(dead).scale.x : 0.0f);
+			registry.SetDirty();
+		}
+	}
+	// Debug: OPENBLACK_TEST_TREE_QUERIES="x,z": a stand-in villager at x,z; logs the tree FindTreeNearVillager picks and
+	// its working position, then for every town: MakeScenicForest + AssignForestsToTown (from its centre) and the
+	// forest FindNearestForestToPos gives, and the forest list with wood and BigForest; then takes 100 wood from the
+	// first BigForest (BigForestRemoveWood) and logs its arrive position.
+	if (const char* at = std::getenv("OPENBLACK_TEST_TREE_QUERIES"); at != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			const glm::vec3 position(x, Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)), z);
+			const auto villager = registry.Create();
+			registry.Assign<Transform>(villager, position, glm::mat3(1.0f), glm::vec3(1.0f));
+			const auto tree = ecs::FindTreeNearVillager(villager);
+			if (tree != entt::null)
+			{
+				const auto& t = registry.Get<const Transform>(tree).position;
+				const auto w = ecs::TreeWorkingPos(tree, villager);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: nearest tree {} at ({:.1f}, {:.1f}), working pos ({:.2f}, {:.2f})",
+				                   static_cast<uint32_t>(tree), t.x, t.z, w.x, w.z);
+			}
+			else
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: no tree in the 9 cells");
+			}
+			registry.Each<const Town>([&](entt::entity, const Town& town) {
+				glm::vec3 centre = position;
+				if (town.centre != entt::null && registry.Valid(town.centre) && registry.AllOf<Transform>(town.centre))
+				{
+					centre = registry.Get<const Transform>(town.centre).position;
+				}
+				ecs::MakeScenicForest(town.id, centre);
+				ecs::AssignForestsToTown(town.id, centre);
+				const auto nearest = ecs::FindNearestForestToPos(town.id, centre);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: town {} has {} forests, nearest {} (scenic {})", town.id,
+				                   ecs::TownForests(town.id).size(), nearest.value_or(0),
+				                   nearest && ecs::IsScenicForest(*nearest));
+			});
+			for (const auto id : ecs::ForestsNewestFirst())
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: forest {} trees {} wood {:.0f} big forest {} scenic {}", id,
+				                   ecs::ForestTreeCount(id), ecs::ForestWood(id),
+				                   static_cast<uint32_t>(ecs::ForestBigForest(id)), ecs::IsScenicForest(id));
+			}
+			entt::entity firstBig = entt::null;
+			registry.Each<const BigForest>([&](entt::entity e, const BigForest&) {
+				if (firstBig == entt::null)
+				{
+					firstBig = e;
+				}
+			});
+			if (firstBig != entt::null)
+			{
+				const auto arrive = ecs::BigForestArrivePos(firstBig, villager);
+				const float before = registry.Get<const BigForest>(firstBig).wood;
+				const auto taken = ecs::BigForestRemoveWood(firstBig, 100);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: big forest {} arrive ({:.1f}, {:.1f}), wood {:.0f} -> took {} -> {:.0f}",
+				                   static_cast<uint32_t>(firstBig), arrive.x, arrive.z, before, taken,
+				                   registry.Valid(firstBig) ? registry.Get<const BigForest>(firstBig).wood : 0.0f);
+			}
+			registry.Destroy(villager);
+			registry.SetDirty();
+		}
+	}
 	// Debug: OPENBLACK_TEST_REPLANT="x,z,tilt" drops a beech there tilted by `tilt` degrees about x, straight through
 	// ReleaseTree: upright and on flat ground it is replanted, leaning or on a slope it falls (DeadTree).
 	if (const char* at = std::getenv("OPENBLACK_TEST_REPLANT"); at != nullptr)

@@ -143,6 +143,8 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	auto& transform = registry.Get<Transform>(tree);
 	auto& component = registry.Get<Tree>(tree);
 	DropRoots(tree, false);
+	// Fixed::EndPhysics puts it back in its map cell (InsertMapObject: at the head of the cell's list)
+	component.mapInsertion = ecs::NextMapInsertion();
 	transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 	if (auto* fixed = registry.TryGet<Fixed>(tree); fixed != nullptr)
 	{
@@ -155,8 +157,9 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	// means the tree was planted "in a town" and it joins that town's forest, which beats any other. Otherwise the
 	// nearest tree that has a forest lends its forest (with no distance limit of its own, only the 35 m of the search),
 	// and a tree with neither, outside a town, starts a new forest.
-	// Deviation: the original takes the town's forest from a list the town keeps (Town +0x608); openblack does not
-	// model that list, so the first tree planted in a town starts the town's forest (ecs::TownForestId).
+	// The town's forest is the last scenic one of the town's list (Town +0x608, ecs::TownForestId); with none the best
+	// forest found so far stays (0x74BA9C-0x74BAAE only overwrite it for a scenic forest), and a tree in a town with no
+	// forest at all stays without one.
 	constexpr float k_SearchRadius = 35.0f;
 	constexpr float k_TownRadius = 25.0f;
 	bool inTown = false;
@@ -194,8 +197,11 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	});
 	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
 	component.isNonScenic = inTown;
-	component.forestId = inTown ? ecs::TownForestId(townId, transform.position)
-	                             : forest.value_or(0u) != 0 ? *forest : ecs::CreateForest(0, transform.position);
+	const auto townForest = inTown ? ecs::TownForestId(townId, transform.position) : 0u;
+	component.forestId = townForest != 0            ? townForest
+	                     : forest.value_or(0u) != 0 ? *forest
+	                     : inTown                   ? 0u
+	                                                : ecs::CreateForest(0, transform.position);
 	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
 	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
 	// so the effect runs for its own life from the data).
@@ -532,63 +538,15 @@ bool HandSystem::TakeTreeFromForest(entt::entity forestEntity) noexcept
 	const float amount = static_cast<float>(trees.at(static_cast<size_t>(TreeInfo::Conifer)).woodValue);
 	auto& forestTransform = registry.Get<Transform>(forestEntity);
 	const auto forestPosition = forestTransform.position;
-	const float forestRadius = [&]() {
-		const auto* mesh = registry.TryGet<const Mesh>(forestEntity);
-		auto& meshes = Locator::resources::value().GetMeshes();
-		if (mesh == nullptr || !meshes.Contains(mesh->id))
-		{
-			return 5.0f;
-		}
-		const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * forestTransform.scale;
-		return 0.5f * std::max(size.x, size.z);
-	}();
-	// RemoveResource 0x4390D0 (life 1): all that is left when it has no more, and the forest goes; otherwise it
-	// shrinks to wood / woodValue and a sapling grows at its edge (AddTreeAround 0x439220)
-	if (forest->wood <= amount)
-	{
-		registry.Destroy(forestEntity);
-	}
-	else
-	{
-		forest->wood -= amount;
-		forestTransform.scale = glm::vec3(forest->wood / forest->woodValue);
-		// AddTreeAround: up to 10 random angles at the forest's radius; on land and with no object whose distance plus
-		// radius is under 4, a Pine (scale 0.05, random angle, max size 0.5 + FloatRand(0.5)) of the forest
-		auto& rng = Locator::rng::value();
-		const auto& island = Locator::terrainSystem::value();
-		for (int attempt = 0; attempt < 10; ++attempt)
-		{
-			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
-			const glm::vec3 point(forestPosition.x + std::cos(angle) * forestRadius, 0.0f,
-			                      forestPosition.z + std::sin(angle) * forestRadius);
-			if (!IsLand(point))
-			{
-				continue;
-			}
-			bool blocked = false;
-			registry.Each<const Transform, const Mesh>([&](entt::entity other, const Transform& t, const Mesh&) {
-				if (blocked || other == forestEntity)
-				{
-					return;
-				}
-				const float d = glm::distance(glm::vec2(t.position.x, t.position.z), glm::vec2(point.x, point.z));
-				blocked = d < 4.0f;
-			});
-			if (blocked)
-			{
-				continue;
-			}
-			const float ground = island.GetHeightAt(glm::vec2(point.x, point.z));
-			archetypes::TreeArchetype::Create(0, glm::vec3(point.x, ground, point.z), TreeInfo::Pine, false,
-			                                  rng.NextValue(0.0f, glm::two_pi<float>()), 0.5f + rng.NextValue(0.0f, 0.5f), 0.05f);
-			break;
-		}
-	}
+	// RemoveResource 0x4390D0 (ecs::BigForestRemoveWood: the forest shrinks, a Pine sapling at its edge, or it goes)
+	const auto forestId = forest->forestId;
+	ecs::BigForestRemoveWood(forestEntity, static_cast<uint32_t>(amount));
 	registry.SetDirty();
 	const auto point = _interactionPoint.value_or(forestPosition);
 	const float ground = Locator::terrainSystem::value().GetHeightAt(glm::vec2(point.x, point.z));
 	const auto tree =
-	    archetypes::TreeArchetype::Create(0, glm::vec3(point.x, ground, point.z), TreeInfo::Conifer, false, 0.0f, 1.0f, 1.0f);
+	    archetypes::TreeArchetype::Create(forestId, glm::vec3(point.x, ground, point.z), TreeInfo::Conifer, false, 0.0f, 1.0f,
+	                                      1.0f);
 	if (tree == entt::null)
 	{
 		return false;

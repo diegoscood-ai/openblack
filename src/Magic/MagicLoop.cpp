@@ -22,6 +22,7 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Trees.h"
+#include "Magic/Objects/MagicTree.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fire/FireDebugHooks.h"
 #include "ECS/Fire/FireEffect.h"
@@ -55,6 +56,7 @@ void magic::OnLoadMap()
 	spell_shield::Clear(); // Magic/Spells/SpellShield
 	ecs::villager_fire::Clear();          // also registers the REACT_TO_FIRE spread
 	spell_grid::Clear();
+	magic_tree::Clear(); // Magic/Objects/MagicTree (the forests that lost a magic tree)
 	ecs::systems::hand_grain::Reset();
 	weather::OnLoadMap(); // ECS/Weather/WeatherLoop.cpp
 	hand_casting::OnLoadMap(); // Hand/HandCasting.cpp: the gestures, the hand FX, the utility effects

@@ -226,6 +226,8 @@ public:
 	float volume;       ///< gain 0..1 (the .sad volume / 127 when its override flag is set)
 	int pitch;          ///< percent of the sample rate (100 = as recorded)
 	int pitchDeviation; ///< +-percent, random at each start
+	/// .sad +0x26C: LHSamplePlay does not start the sample farther than this from the camera (animation sounds)
+	float maxDistance {0.0f};
 	ChannelLayout channelLayout;
 	PlayType playType;
 	BufferId bufferId;

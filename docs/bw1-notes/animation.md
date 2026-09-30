@@ -52,6 +52,18 @@ info.dat (speedGroup) están en esas unidades: 1475 = 0,225 m/turno = 2,25 m/s. 
 paso por segundo, con los pies sincronizados (el clip avanza con la misma distancia). Falta el resto de
 `SetStateSpeed` / `SetSpeed` (±16 % por aldeano, creencia, necesidades del pueblo, sexo, edad).
 
+## Sonidos de los clips
+
+`Audio/AnimationSounds` (investigación `dev	mp_disnim\sounds_props.md`): `Data\SmallSounds.SAS` da a 115 clips un
+grupo de sonido (1 personas, 18 vaca, 36 cerdo, 39 oveja, 40 caballo...) y eventos `ms soundId acción`. Al cruzar un
+evento, la clave {voz (1 hombre, 2 mujer, 3 niño), 2, grupo, superficie, soundId} elige una fila de la
+`LHAudioAnimArrayTable` de editor.sad (la de más columnas exactas; empate: la última) y una muestra al azar de su lista
+de `LHAudioWaveNumTable`. Solo suena a menos del `maxDist` de la muestra desde la cámara (pasos: 20 m; los NULL.wav de
+relleno tienen 0 y nunca suenan). Superficie: 7 bajo el agua; si no, el `surfaceSound` de info.dat del segundo
+material de la celda a su altitud (1 hierba, 2 grava, 3 duro, 4 barro, 5 nieve, 8 hojarasca). Los gritos de THROWN
+solo en los primeros 15 turnos (10 en el vórtice). Falta: los de VillagersBanter.sad (0x92-0x94), parar la sierra
+(acción 1) y que el sonido siga al objeto.
+
 ## Render
 
 Cada aldeano con pose (`components::SkeletalAnimation`) se dibuja por separado con sus huesos (`ecs::PosesByInstance`

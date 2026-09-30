@@ -243,6 +243,7 @@ SoundLoader::result_type SoundLoader::operator()(BaseLoader<audio::Sound>::FromB
 	sound->volume = (overrides & 0x20u) != 0 ? static_cast<float>(std::min<int>(header.volume, 127)) / 127.0f : 1.0f;
 	sound->pitch = (overrides & 0x1u) != 0 && header.pitch != 0 ? header.pitch : 100;
 	sound->pitchDeviation = header.pitchDeviation;
+	sound->maxDistance = header.maxDist;
 	sound->playType = static_cast<audio::PlayType>(header.loopType);
 	sound->buffer = buffer;
 	return sound;

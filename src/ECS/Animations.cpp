@@ -22,6 +22,7 @@
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/SkeletalPose.h"
+#include "Audio/AnimationSounds.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
@@ -88,7 +89,23 @@ void UpdateAnimations(float milliseconds)
 			const float metres = animation.distanceSpeed * milliseconds / 1000.0f / scale;
 			advance = metres / clip->GetCycleDistance() * duration;
 		}
+		const float before = animation.time;
 		animation.time += advance;
+		// the clip's sound events crossed this frame (fn_00516510), both sides of a wrap
+		if (advance > 0.0f)
+		{
+			const auto from = static_cast<int32_t>(before);
+			const auto to = static_cast<int32_t>(animation.time);
+			if (clip->IsLooping() && duration > 0.0f && animation.time >= duration)
+			{
+				audio::AnimationSounds::Fire(entity, animation.clipIndex, from, static_cast<int32_t>(duration));
+				audio::AnimationSounds::Fire(entity, animation.clipIndex, 0, static_cast<int32_t>(std::fmod(animation.time, duration)));
+			}
+			else
+			{
+				audio::AnimationSounds::Fire(entity, animation.clipIndex, from, to);
+			}
+		}
 		if (duration > 0.0f)
 		{
 			animation.time = clip->IsLooping() ? std::fmod(animation.time, duration) : std::min(animation.time, duration);

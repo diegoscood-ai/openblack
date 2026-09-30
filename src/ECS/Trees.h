@@ -11,7 +11,9 @@
 
 #include <cstdint>
 
+#include <cstddef>
 #include <optional>
+#include <vector>
 
 #include <entt/fwd.hpp>
 #include <glm/vec3.hpp>
@@ -79,6 +81,20 @@ float ShrinkAllTrees(uint32_t forestId, float amount);
 
 /// fn_0053A740: the height (Object::GetHeight, mesh height x scale) of the forest's tallest tree, 0 if it has none.
 [[nodiscard]] float TallestTreeHeight(uint32_t forestId);
+
+/// The forests in the order of the original's list (g_game +0x205BB4, head insertion in the ctor 0x539BD0): the newest
+/// first (Tiger/Wolf::CalculeLairPos walk it)
+[[nodiscard]] std::vector<uint32_t> ForestsNewestFirst();
+
+/// Forest +0x14: its centre (the position it was created at)
+[[nodiscard]] glm::vec3 ForestCentre(uint32_t forestId);
+
+/// Forest +0x4C + +0x54: how many trees it has, grown and growing (fn_0053AD00 counts both)
+[[nodiscard]] size_t ForestTreeCount(uint32_t forestId);
+
+/// Forest +0x48: its full grown trees, nearest its centre first (Forest::AddTree 0x53A310 keeps the list sorted by
+/// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890; equal distances keep the order they joined in)
+[[nodiscard]] std::vector<entt::entity> GrownTreesByDistance(uint32_t forestId);
 
 /// On map load: the forests go with the map.
 void ClearForests();

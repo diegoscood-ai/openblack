@@ -65,7 +65,9 @@ struct ForestData
 	glm::vec3 centre;
 	uint16_t emptyTimer {0};
 	uint16_t attempts {0};
+	uint32_t created {0}; ///< creation order (the original's list is newest first)
 };
+uint32_t g_forestsCreated = 0;
 std::map<uint32_t, ForestData> g_forests;
 /// 0xBEA238: the next free forest id
 uint32_t g_nextForestId = 1;
@@ -130,8 +132,59 @@ uint32_t openblack::ecs::CreateForest(uint32_t id, glm::vec3 centre)
 	{
 		g_nextForestId = std::max(g_nextForestId, id + 1);
 	}
-	g_forests.insert_or_assign(id, ForestData {centre});
+	g_forests.insert_or_assign(id, ForestData {centre, 0, 0, ++g_forestsCreated});
 	return id;
+}
+
+std::vector<uint32_t> openblack::ecs::ForestsNewestFirst()
+{
+	std::vector<std::pair<uint32_t, uint32_t>> order;
+	for (const auto& [id, forest] : g_forests)
+	{
+		order.emplace_back(forest.created, id);
+	}
+	std::ranges::sort(order, [](const auto& lhs, const auto& rhs) { return lhs.first > rhs.first; });
+	std::vector<uint32_t> ids;
+	for (const auto& [created, id] : order)
+	{
+		ids.push_back(id);
+	}
+	return ids;
+}
+
+glm::vec3 openblack::ecs::ForestCentre(uint32_t forestId)
+{
+	const auto it = g_forests.find(forestId);
+	return it != g_forests.end() ? it->second.centre : glm::vec3(0.0f);
+}
+
+size_t openblack::ecs::ForestTreeCount(uint32_t forestId)
+{
+	size_t count = 0;
+	Locator::entitiesRegistry::value().Each<const Tree>([&](const Tree& tree) {
+		count += forestId != 0 && tree.forestId == forestId ? 1 : 0;
+	});
+	return count;
+}
+
+std::vector<entt::entity> openblack::ecs::GrownTreesByDistance(uint32_t forestId)
+{
+	std::vector<std::pair<float, entt::entity>> grown;
+	const auto centre = ForestCentre(forestId);
+	Locator::entitiesRegistry::value().Each<const Tree, const Transform>(
+	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
+		    if (forestId != 0 && tree.forestId == forestId && (!tree.growing || transform.scale.x >= tree.maxSize))
+		    {
+			    grown.emplace_back(glm::distance(transform.position, centre), entity);
+		    }
+	    });
+	std::ranges::stable_sort(grown, [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+	std::vector<entt::entity> trees;
+	for (const auto& [distance, entity] : grown)
+	{
+		trees.push_back(entity);
+	}
+	return trees;
 }
 
 bool openblack::ecs::IsInForest(uint32_t forestId)

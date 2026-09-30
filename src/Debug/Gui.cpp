@@ -469,34 +469,27 @@ void Gui::DrawModsMenu() noexcept
 	std::string category;
 	bool anyRestart = false;
 	bool anyDataMod = false;
-	for (const auto& mod : registry.GetMods())
-	{
-		const auto& info = mod->GetInfo();
-		if (info.category != category)
-		{
-			category = info.category;
-			ImGui::Separator();
-			ImGui::TextUnformatted(category.c_str());
-		}
+	const auto drawMod = [&registry, &anyRestart, &anyDataMod](auto& mod) {
+		const auto& info = mod.GetInfo();
 		anyRestart |= info.restartRequired;
 		anyDataMod |= info.id.starts_with("data.");
 		ImGui::PushID(info.id.c_str());
-		bool enabled = mod->IsEnabled();
+		bool enabled = mod.IsEnabled();
 		const auto label = info.restartRequired ? info.name + " *" : info.name;
 		if (ImGui::Checkbox(label.c_str(), &enabled))
 		{
-			registry.SetEnabled(*mod, enabled);
+			registry.SetEnabled(mod, enabled);
 		}
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip("%s\n--mod %s", info.description.c_str(), info.id.c_str());
 		}
-		const auto& options = mod->GetOptions();
+		const auto& options = mod.GetOptions();
 		for (size_t i = 0; i < options.size(); ++i)
 		{
 			const auto& option = options[i];
 			ImGui::Indent();
-			ImGui::BeginDisabled(!mod->IsEnabled());
+			ImGui::BeginDisabled(!mod.IsEnabled());
 			ImGui::SetNextItemWidth(120.0f);
 			if (option.slider)
 			{
@@ -504,7 +497,7 @@ void Gui::DrawModsMenu() noexcept
 				if (ImGui::SliderInt(option.label.c_str(), &choice, 0, static_cast<int>(option.choices.size()) - 1,
 				                     option.choices.at(option.value).c_str(), ImGuiSliderFlags_NoInput))
 				{
-					registry.SetOption(*mod, i, static_cast<size_t>(choice));
+					registry.SetOption(mod, i, static_cast<size_t>(choice));
 				}
 			}
 			else if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
@@ -513,7 +506,7 @@ void Gui::DrawModsMenu() noexcept
 				{
 					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
 					{
-						registry.SetOption(*mod, i, choice);
+						registry.SetOption(mod, i, choice);
 					}
 				}
 				ImGui::EndCombo();
@@ -522,6 +515,32 @@ void Gui::DrawModsMenu() noexcept
 			ImGui::Unindent();
 		}
 		ImGui::PopID();
+	};
+	for (const auto& mod : registry.GetMods())
+	{
+		const auto& info = mod->GetInfo();
+		if (!info.parent.empty())
+		{
+			continue; // a module: drawn under its parent
+		}
+		if (info.category != category)
+		{
+			category = info.category;
+			ImGui::Separator();
+			ImGui::TextUnformatted(category.c_str());
+		}
+		drawMod(*mod);
+		for (const auto& module : registry.GetMods())
+		{
+			if (module->GetInfo().parent == info.id)
+			{
+				ImGui::Indent();
+				ImGui::BeginDisabled(!registry.IsActive(*mod));
+				drawMod(*module);
+				ImGui::EndDisabled();
+				ImGui::Unindent();
+			}
+		}
 	}
 	ImGui::Separator();
 	if (!anyDataMod)

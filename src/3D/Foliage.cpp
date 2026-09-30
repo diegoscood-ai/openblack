@@ -25,6 +25,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
+#define STBI_ONLY_GIF
 #include <stb_image.h>
 
 #include "3D/L3DMesh.h"
@@ -174,6 +175,15 @@ float ValueNoise(glm::vec2 p, uint32_t seed)
 	const float c = corner(0, 1);
 	const float d = corner(1, 1);
 	return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y;
+}
+
+/// The normal of the ground as it is drawn (GetUnflattenedHeightAt: GetHeightAt and GetNormalAt flatten the
+/// altitudes of 3 or less next to the sea to 0, the landscape mesh does not)
+static glm::vec3 GroundNormal(const LandIslandInterface& island, glm::vec2 point)
+{
+	const float dx = island.GetUnflattenedHeightAt(point + glm::vec2(1.0f, 0.0f)) - island.GetUnflattenedHeightAt(point - glm::vec2(1.0f, 0.0f));
+	const float dz = island.GetUnflattenedHeightAt(point + glm::vec2(0.0f, 1.0f)) - island.GetUnflattenedHeightAt(point - glm::vec2(0.0f, 1.0f));
+	return glm::normalize(glm::vec3(-dx, 2.0f, -dz));
 }
 
 } // namespace
@@ -568,6 +578,14 @@ Foliage::~Foliage()
 	{
 		bgfx::destroy(_quadIndices);
 	}
+	if (bgfx::isValid(_foldQuad))
+	{
+		bgfx::destroy(_foldQuad);
+	}
+	if (bgfx::isValid(_foldIndices))
+	{
+		bgfx::destroy(_foldIndices);
+	}
 }
 
 void Foliage::Clear()
@@ -587,6 +605,7 @@ void Foliage::Clear()
 	_fieldPlants.clear();
 	_fieldInstances.clear();
 	_fieldGround.clear();
+	_flyerInstances.clear();
 }
 
 glm::vec3 Foliage::GroundColourAt(LandIslandInterface& island, glm::vec2 point)
@@ -616,31 +635,16 @@ uint8_t Foliage::ZoneOf(uint8_t cellFlags)
 	return zone > 8 && (zone & 1u) != 0 ? static_cast<uint8_t>(zone - 1) : zone;
 }
 
-bool Foliage::Load(const std::filesystem::path& directory)
+bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules)
 {
-	std::ifstream file(directory / "foliage.cfg");
-	if (!file)
+	if (!std::filesystem::exists(directory / "foliage.cfg"))
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: no {}", (directory / "foliage.cfg").string());
 		return false;
 	}
 
 	std::vector<std::vector<uint8_t>> layers;
-	std::vector<std::string> layerFiles;
-	const auto layerOf = [&](const std::string& image) -> int {
-		if (const auto found = std::ranges::find(layerFiles, image); found != layerFiles.end())
-		{
-			return static_cast<int>(found - layerFiles.begin());
-		}
-		int width = 0;
-		int height = 0;
-		int channels = 0;
-		auto* pixels = stbi_load((directory / image).string().c_str(), &width, &height, &channels, 4);
-		if (pixels == nullptr)
-		{
-			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", image);
-			return -1;
-		}
+	const auto addLayer = [&](const uint8_t* pixels, int width, int height) {
 		// Scaled to the layer width (bilinear), sitting on the bottom of the layer. The colour of the transparent
 		// texels is the average of the opaque ones, so the mip levels don't get dark fringes.
 		const float scale = static_cast<float>(k_LayerWidth) / static_cast<float>(width);
@@ -695,7 +699,6 @@ bool Foliage::Load(const std::filesystem::path& directory)
 				out[3] = static_cast<uint8_t>(std::clamp(texel[3], 0.0f, 255.0f));
 			}
 		}
-		stbi_image_free(pixels);
 		if (sumWeight > 0.0)
 		{
 			for (size_t i = 0; i < layer.size(); i += 4)
@@ -710,26 +713,114 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			}
 		}
 		layers.push_back(std::move(layer));
-		layerFiles.push_back(image);
 		_layerTop.push_back(1.0f - static_cast<float>(scaledHeight) / k_LayerHeight);
 		_layerAspect.push_back(static_cast<float>(height) / static_cast<float>(width));
-		return static_cast<int>(layers.size() - 1);
+	};
+	// the images by path: a .png is one layer, an animated .gif one layer per frame (an entry of _animations)
+	std::vector<std::pair<std::string, int>> layerFiles;
+	std::vector<std::pair<std::string, int>> animationFiles;
+	const auto animationOf = [&](const std::filesystem::path& path) -> int {
+		const auto key = path.generic_string();
+		if (const auto found = std::ranges::find(animationFiles, key, &std::pair<std::string, int>::first);
+		    found != animationFiles.end())
+		{
+			return found->second;
+		}
+		std::ifstream stream(path, std::ios::binary);
+		const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+		int* delays = nullptr;
+		int width = 0;
+		int height = 0;
+		int frames = 0;
+		int channels = 0;
+		auto* pixels = bytes.empty() ? nullptr
+		                             : stbi_load_gif_from_memory(bytes.data(), static_cast<int>(bytes.size()), &delays, &width,
+		                                                         &height, &frames, &channels, 4);
+		if (pixels == nullptr || frames <= 0)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", path.string());
+			animationFiles.emplace_back(key, -1);
+			return -1;
+		}
+		Animation animation {static_cast<uint16_t>(layers.size()), {}};
+		float time = 0.0f;
+		// each frame's half width: the furthest opaque pixel from the middle column (the body)
+		std::vector<float> halfWidths;
+		for (int frame = 0; frame < frames; ++frame)
+		{
+			const auto* image = pixels + static_cast<size_t>(frame) * width * height * 4;
+			float halfWidth = 0.0f;
+			for (int y = 0; y < height; ++y)
+			{
+				for (int x = 0; x < width; ++x)
+				{
+					if (image[(static_cast<size_t>(y) * width + x) * 4 + 3] > 128)
+					{
+						halfWidth = std::max(halfWidth, std::abs(static_cast<float>(x) + 0.5f - 0.5f * static_cast<float>(width)));
+					}
+				}
+			}
+			halfWidths.push_back(halfWidth);
+			addLayer(image, width, height);
+			// browsers draw delays under 20 ms as 100 ms
+			const int delay = delays != nullptr && delays[frame] >= 20 ? delays[frame] : 100;
+			time += static_cast<float>(delay) / 1000.0f;
+			animation.ends.push_back(time);
+		}
+		stbi_image_free(pixels);
+		STBI_FREE(delays);
+		const auto widest = std::ranges::max_element(halfWidths);
+		animation.open = static_cast<uint16_t>(animation.first + (widest - halfWidths.begin()));
+		for (const float halfWidth : halfWidths)
+		{
+			animation.folds.push_back(*widest > 0.0f ? std::acos(std::clamp(halfWidth / *widest, 0.0f, 1.0f)) : 0.0f);
+		}
+		_animations.push_back(std::move(animation));
+		animationFiles.emplace_back(key, static_cast<int>(_animations.size() - 1));
+		return animationFiles.back().second;
+	};
+	const auto layerOf = [&](const std::filesystem::path& path) -> int {
+		if (path.extension() == ".gif")
+		{
+			const int animation = animationOf(path); // a plant shows the first frame
+			return animation < 0 ? -1 : _animations[static_cast<size_t>(animation)].first;
+		}
+		const auto key = path.generic_string();
+		if (const auto found = std::ranges::find(layerFiles, key, &std::pair<std::string, int>::first); found != layerFiles.end())
+		{
+			return found->second;
+		}
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		auto* pixels = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+		if (pixels == nullptr)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", path.string());
+			layerFiles.emplace_back(key, -1);
+			return -1;
+		}
+		addLayer(pixels, width, height);
+		stbi_image_free(pixels);
+		layerFiles.emplace_back(key, static_cast<int>(layers.size() - 1));
+		return layerFiles.back().second;
 	};
 
 	_species.clear();
 	_fieldStages.clear();
+	_flyers.clear();
+	_animations.clear();
 	_layerTop.clear();
 	_layerAspect.clear();
-	std::string line;
-	int lineNumber = 0;
-	// what the key = value lines belong to: a plant kind, the [field] settings or a [field_stage ...]
+	// what the key = value lines belong to: a plant kind, the [field] settings, a [field_stage ...] or a [flyer ...]
 	enum class Section : uint8_t
 	{
 		None,
 		Species,
 		Field,
 		FieldStage,
-	} section = Section::None;
+		Flyer,
+	};
 	const auto parseColour = [](const std::string& text) {
 		const auto parts = SplitList(text);
 		if (parts.size() != 3)
@@ -738,6 +829,20 @@ bool Foliage::Load(const std::filesystem::path& directory)
 		}
 		return glm::vec3(std::stof(parts[0]), std::stof(parts[1]), std::stof(parts[2])) / 255.0f;
 	};
+	// the mod's own foliage.cfg, then each module's, with its images next to it
+	std::vector<std::filesystem::path> sources = {directory};
+	sources.insert(sources.end(), modules.begin(), modules.end());
+	for (const auto& source : sources)
+	{
+	std::ifstream file(source / "foliage.cfg");
+	if (!file)
+	{
+		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: no {}", (source / "foliage.cfg").string());
+		continue;
+	}
+	std::string line;
+	int lineNumber = 0;
+	auto section = Section::None;
 	while (std::getline(file, line))
 	{
 		++lineNumber;
@@ -762,6 +867,12 @@ bool Foliage::Load(const std::filesystem::path& directory)
 				section = Section::FieldStage;
 				_fieldStages.push_back({});
 				_fieldStages.back().name = Trim(std::string_view(name).substr(11));
+			}
+			else if (name.starts_with("flyer"))
+			{
+				section = Section::Flyer;
+				_flyers.push_back({});
+				_flyers.back().name = Trim(std::string_view(name).substr(5));
 			}
 			else
 			{
@@ -796,7 +907,7 @@ bool Foliage::Load(const std::filesystem::path& directory)
 					int width = 0;
 					int height = 0;
 					int channels = 0;
-					auto* pixels = stbi_load((directory / value).string().c_str(), &width, &height, &channels, 4);
+					auto* pixels = stbi_load((source / value).string().c_str(), &width, &height, &channels, 4);
 					if (pixels == nullptr)
 					{
 						SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", value);
@@ -838,7 +949,7 @@ bool Foliage::Load(const std::filesystem::path& directory)
 				{
 					for (const auto& image : SplitList(value))
 					{
-						if (const int layer = layerOf(image); layer >= 0)
+						if (const int layer = layerOf(source / image); layer >= 0)
 						{
 							stage.layers.push_back(static_cast<uint16_t>(layer));
 						}
@@ -880,6 +991,76 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			}
 			continue;
 		}
+		if (section == Section::Flyer)
+		{
+			auto& flyer = _flyers.back();
+			try
+			{
+				if (key == "images")
+				{
+					for (const auto& image : SplitList(value))
+					{
+						if (const int animation = animationOf(source / image); animation >= 0)
+						{
+							flyer.animations.push_back(static_cast<uint16_t>(animation));
+						}
+					}
+				}
+				else if (key == "over")
+				{
+					flyer.over = SplitList(value);
+				}
+				else if (key == "per_plant")
+				{
+					flyer.perPlant = std::max(std::stof(value), 0.0f);
+				}
+				else if (key == "size")
+				{
+					flyer.size = ParseRange(value);
+				}
+				else if (key == "height")
+				{
+					flyer.height = ParseRange(value);
+				}
+				else if (key == "range")
+				{
+					flyer.range = ParseRange(value);
+				}
+				else if (key == "flight")
+				{
+					flyer.flight = glm::max(ParseRange(value), 0.5f);
+				}
+				else if (key == "rest")
+				{
+					flyer.rest = glm::max(ParseRange(value), 0.0f);
+				}
+				else if (key == "speed")
+				{
+					flyer.speed = std::max(std::stof(value), 0.01f);
+				}
+				else if (key == "flee")
+				{
+					flyer.flee = std::max(std::stof(value), 0.0f);
+				}
+				else if (key == "fold")
+				{
+					flyer.fold = value == "on" || value == "yes" || value == "true" || value == "1";
+				}
+				else if (key == "night")
+				{
+					flyer.night = value == "on" || value == "yes" || value == "true" || value == "1";
+				}
+				else
+				{
+					SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: unknown key {} (line {})", key, lineNumber);
+				}
+			}
+			catch (const std::exception&)
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: bad value {} (line {})", value, lineNumber);
+			}
+			continue;
+		}
 		auto& species = _species.back();
 		try
 		{
@@ -887,7 +1068,7 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			{
 				for (const auto& image : SplitList(value))
 				{
-					if (const int layer = layerOf(image); layer >= 0)
+					if (const int layer = layerOf(source / image); layer >= 0)
 					{
 						species.layers.push_back(static_cast<uint16_t>(layer));
 					}
@@ -1008,9 +1189,22 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			{
 				species.groundSaturation = ParseRange(value);
 			}
-			else if (key == "cross")
+			else if (key == "cross" || key == "flat" || key == "coast")
 			{
-				species.cross = value == "on" || value == "yes" || value == "true" || value == "1";
+				(key == "cross" ? species.cross : key == "flat" ? species.flat : species.coast) =
+				    value == "on" || value == "yes" || value == "true" || value == "1";
+			}
+			else if (key == "lift")
+			{
+				species.lift = std::stof(value);
+			}
+			else if (key == "shade")
+			{
+				species.shade = std::max(std::stof(value), 0.0f);
+			}
+			else if (key == "share")
+			{
+				species.share = std::clamp(std::stof(value), 0.0f, 1.0f);
 			}
 			else
 			{
@@ -1022,9 +1216,35 @@ bool Foliage::Load(const std::filesystem::path& directory)
 			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: bad value {} (line {})", value, lineNumber);
 		}
 	}
+	}
 	std::erase_if(_species, [](const Species& species) {
 		return species.layers.empty() || (species.terrains.empty() && species.looks.empty());
 	});
+	// the flyers find their plants by name, in any foliage.cfg
+	_flyersOver.assign(_species.size(), {});
+	for (auto& flyer : _flyers)
+	{
+		for (const auto& name : flyer.over)
+		{
+			const auto found = std::ranges::find(_species, name, &Species::name);
+			if (found != _species.end())
+			{
+				flyer.overSpecies.push_back(static_cast<uint16_t>(found - _species.begin()));
+			}
+			else
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: flyer {} over unknown plant {}", flyer.name, name);
+			}
+		}
+	}
+	std::erase_if(_flyers, [](const Flyer& flyer) { return flyer.animations.empty() || flyer.overSpecies.empty(); });
+	for (size_t f = 0; f < _flyers.size(); ++f)
+	{
+		for (const auto species : _flyers[f].overSpecies)
+		{
+			_flyersOver[species].push_back(static_cast<uint16_t>(f));
+		}
+	}
 	std::erase_if(_fieldStages, [](const FieldStage& stage) { return stage.layers.empty(); });
 	std::ranges::sort(_fieldStages, {}, [](const FieldStage& stage) { return stage.growth.x; });
 	if (layers.empty() || (_species.empty() && _fieldStages.empty()))
@@ -1061,9 +1281,14 @@ bool Foliage::Load(const std::filesystem::path& directory)
 	                                                 -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.5f,  1.0f, 1.0f, -0.5f, 0.5f, 0.0f, 1.0f};
 	_soilQuad = bgfx::createVertexBuffer(bgfx::makeRef(k_Soil.data(), sizeof(k_Soil)), soilLayout);
 	_quadIndices = bgfx::createIndexBuffer(bgfx::makeRef(k_Indices.data(), sizeof(k_Indices)));
+	static constexpr std::array<float, 18> k_Fold = {-0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f,
+	                                                 -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 1.0f, 0.0f};
+	static constexpr std::array<uint16_t, 12> k_FoldIndices = {0, 1, 4, 0, 4, 3, 1, 2, 5, 1, 5, 4};
+	_foldQuad = bgfx::createVertexBuffer(bgfx::makeRef(k_Fold.data(), sizeof(k_Fold)), quadLayout);
+	_foldIndices = bgfx::createIndexBuffer(bgfx::makeRef(k_FoldIndices.data(), sizeof(k_FoldIndices)));
 
-	SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: {} plant kinds, {} field stages, {} images", _species.size(),
-	                   _fieldStages.size(), layers.size());
+	SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Foliage: {} plant kinds, {} field stages, {} flyers, {} images ({} modules)",
+	                   _species.size(), _fieldStages.size(), _flyers.size(), layers.size(), modules.size());
 	return true;
 }
 
@@ -1241,8 +1466,8 @@ void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition
 					FieldPlant plant {};
 					plant.yaw = random.Next() * 3.1415927f;
 					const glm::vec2 along(std::cos(plant.yaw), std::sin(plant.yaw));
-					plant.position = glm::vec3(point.x, island.GetHeightAt(point), point.y);
-					plant.groundSlope = 0.5f * (island.GetHeightAt(point + along) - island.GetHeightAt(point - along));
+					plant.position = glm::vec3(point.x, island.GetUnflattenedHeightAt(point), point.y);
+					plant.groundSlope = 0.5f * (island.GetUnflattenedHeightAt(point + along) - island.GetUnflattenedHeightAt(point - along));
 					const int last = island.GetCellsPerSide() - 1;
 					const auto cell = glm::clamp(glm::ivec2(glm::floor(point / k_CellSize)), 0, last);
 					plant.luminosity = static_cast<float>(island.GetCell(glm::u16vec2(cell)).luminosity) / 255.0f;
@@ -1305,6 +1530,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 
 	std::vector<Instance> instances;
 	std::vector<Instance> crossInstances;
+	std::vector<Instance> flatInstances;
+	chunk.homes.clear();
 	const float repeats = Locator::config::value().terrainTextureDensity;
 	const glm::vec2 mapPosition = block.GetMapPosition();
 	const auto blockOffset = glm::ivec2(block.GetBlockPosition() * 16);
@@ -1349,8 +1576,9 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 						accumulated += weights[++corner];
 					}
 					const auto& cell = *corners.at(corner);
-					// nothing on the coast or next to water: those cells are drawn see-through over the sea
-					if (std::ranges::any_of(corners, [](const lnd::LNDCell* c) {
+					// nothing on the coast or next to water: those cells are drawn see-through over the sea (except for
+					// the beach's things, coast = on, kept above the water by their altitude)
+					if (!species.coast && std::ranges::any_of(corners, [](const lnd::LNDCell* c) {
 						    return c->properties.hasWater || c->properties.fullWater || c->properties.coastLine;
 					    }))
 					{
@@ -1373,23 +1601,53 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					const auto materialIndex = pickMaterial * 255.0f < static_cast<float>(mapMaterial.coefficient)
 					                               ? mapMaterial.indices[1]
 					                               : mapMaterial.indices[0];
-					if (materialIndex >= materials.size() || materials[materialIndex].picture ||
-					    (std::ranges::find(species.terrains, materials[materialIndex].type) == species.terrains.end() &&
-					     std::ranges::find(species.looks, _looks[materialIndex]) == species.looks.end()))
+					const auto grows = [&](uint32_t index) {
+						return index < materials.size() && !materials[index].picture &&
+						       (std::ranges::find(species.terrains, materials[index].type) != species.terrains.end() ||
+						        std::ranges::find(species.looks, _looks[index]) != species.looks.end());
+					};
+					if (!grows(materialIndex))
 					{
 						continue;
+					}
+					// share: how much of the ground drawn at the point is made of its materials (the four corners by their
+					// bilinear weight, each corner's two materials by its blend), so that it doesn't show where another
+					// texture covers most of it
+					if (species.share > 0.0f)
+					{
+						float share = 0.0f;
+						for (size_t c = 0; c < corners.size(); ++c)
+						{
+							const auto& cornerCell = *corners.at(c);
+							const auto cornerAltitude = island.GetCellAltitude(cornerCell);
+							const auto& cornerCountry = countries.at(cornerCell.properties.country);
+							const auto& blend =
+							    cornerAltitude > 255
+							        ? cornerCountry.materials.back()
+							        : cornerCountry.materials.at(
+							              (cornerAltitude + island.GetNoise(glm::u8vec2(cellCoordinates + glm::ivec2(
+							                                                    static_cast<int>(c & 1), static_cast<int>(c >> 1))))) %
+							              cornerCountry.materials.size());
+							const float second = static_cast<float>(blend.coefficient) / 255.0f;
+							share += weights[c] * ((grows(blend.indices[0]) ? 1.0f - second : 0.0f) +
+							                       (grows(blend.indices[1]) ? second : 0.0f));
+						}
+						if (share < species.share)
+						{
+							continue;
+						}
 					}
 					if (species.patches > 0.0f &&
 					    ValueNoise(point / 45.0f, static_cast<uint32_t>(s) + 17u) < species.patches * 0.6f)
 					{
 						continue;
 					}
-					const float height = island.GetHeightAt(point);
+					const float height = island.GetUnflattenedHeightAt(point);
 					if (height < species.altitude.x || height > species.altitude.y)
 					{
 						continue;
 					}
-					const float slope = glm::degrees(std::acos(std::clamp(island.GetNormalAt(point).y, -1.0f, 1.0f)));
+					const float slope = glm::degrees(std::acos(std::clamp(GroundNormal(island, point).y, -1.0f, 1.0f)));
 					if (slope < species.slope.x || slope > species.slope.y || _blocked->IsBlocked(point))
 					{
 						continue;
@@ -1441,21 +1699,58 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					// the bottom edge follows the ground under the plane's two ends (on a slope one end would be buried),
 					// sunk a little so the image's flat bottom edge doesn't show when it leans
 					const float plantHeight = width * _layerAspect[layer];
+					if (species.flat)
+					{
+						// lying on the ground: centred on the point, tilted like the ground (its slope across the
+						// image and along it, from the normal), the image's top pointing along the yaw's side
+						const auto normal = GroundNormal(island, point);
+						const glm::vec2 gradient = -glm::vec2(normal.x, normal.z) / std::max(normal.y, 0.2f);
+						const glm::vec2 across(std::cos(yaw), std::sin(yaw));
+						const glm::vec2 along(-across.y, across.x);
+						flatInstances.push_back({{point.x, height + species.lift, point.y, width},
+						                         {plantHeight, static_cast<float>(layer), luminosity, yaw},
+						                         {_layerTop[layer], 0.0f, static_cast<float>(materialIndex),
+						                          static_cast<float>(species.tint)},
+						                         {local.y / k_BlockSize, local.x / k_BlockSize, species.shade, phase},
+						                         {glm::dot(gradient, across), glm::dot(gradient, along), 2.0f, 1.0f}});
+						continue;
+					}
 					const glm::vec2 across = glm::vec2(std::cos(yaw), std::sin(yaw)) * (0.5f * width);
-					const float left = island.GetHeightAt(point - across) - height;
-					const float right = island.GetHeightAt(point + across) - height;
+					const float left = island.GetUnflattenedHeightAt(point - across) - height;
+					const float right = island.GetUnflattenedHeightAt(point + across) - height;
 					(species.cross ? crossInstances : instances).push_back({{point.x, height - 0.06f * plantHeight, point.y, width},
 					                     {plantHeight, static_cast<float>(layer), luminosity, yaw},
 					                     {_layerTop[layer], species.sway, static_cast<float>(materialIndex),
 					                      static_cast<float>(species.tint)},
 					                     {local.y / k_BlockSize, local.x / k_BlockSize, lean, phase},
 					                     {left, right, 0.0f, 0.0f}});
+					// the flyers that live on this kind of plant: a few of its plants get one
+					for (const auto f : _flyersOver[s])
+					{
+						const auto& flyer = _flyers[f];
+						Random pick(Hash(static_cast<uint32_t>(i) * 131u + f, static_cast<uint32_t>(cellCoordinates.x) * 977u,
+						                 static_cast<uint32_t>(cellCoordinates.y) * 613u + static_cast<uint32_t>(s)));
+						if (pick.Next() >= flyer.perPlant)
+						{
+							continue;
+						}
+						const auto animation = flyer.animations[std::min(static_cast<size_t>(pick.Next() * flyer.animations.size()),
+						                                                 flyer.animations.size() - 1)];
+						chunk.homes.push_back({{point.x, height + 0.8f * plantHeight, point.y},
+						                       luminosity,
+						                       f,
+						                       animation,
+						                       glm::mix(flyer.size.x, flyer.size.y, pick.Next()),
+						                       pick.Next()});
+					}
 				}
 			}
 		}
 	}
 	chunk.crossStart = static_cast<uint32_t>(instances.size());
 	instances.insert(instances.end(), crossInstances.begin(), crossInstances.end());
+	chunk.flatStart = static_cast<uint32_t>(instances.size());
+	instances.insert(instances.end(), flatInstances.begin(), flatInstances.end());
 	chunk.count = static_cast<uint32_t>(instances.size());
 	if (!instances.empty())
 	{
@@ -1504,7 +1799,7 @@ void Foliage::DrawFieldFootprints(bgfx::ViewId viewId, const graphics::ShaderPro
 
 void Foliage::Draw(const DrawDesc& desc) const
 {
-	if (!IsLoaded() || (_chunks.empty() && _fieldInstances.empty()) || !bgfx::isValid(desc.landLight) ||
+	if (!IsLoaded() || (_chunks.empty() && _fieldInstances.empty() && _flyerInstances.empty()) || !bgfx::isValid(desc.landLight) ||
 	    desc.materials == nullptr)
 	{
 		return;
@@ -1523,6 +1818,8 @@ void Foliage::Draw(const DrawDesc& desc) const
 	// two-sided: the crossed planes are seen from both faces
 	const uint64_t state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA |
 	                       (desc.alphaToCoverage ? BGFX_STATE_BLEND_ALPHA_TO_COVERAGE : 0);
+	// the flat ones blend over the ground by their alpha, without writing depth (the plants still hide them)
+	const uint64_t flatState = BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
 	const float reach = desc.distance + k_BlockSize * 0.75f;
 	const glm::vec2 eye(desc.cameraPosition.x, desc.cameraPosition.z);
 	for (const auto& chunk : _chunks)
@@ -1532,8 +1829,10 @@ void Foliage::Draw(const DrawDesc& desc) const
 			continue;
 		}
 		// one plane (crossed planes show as little crosses from above), both for the species with cross = on
-		for (const auto& [first, count, indices] : {std::tuple {0u, chunk.crossStart, 6u},
-		                                            std::tuple {chunk.crossStart, chunk.count - chunk.crossStart, 12u}})
+		for (const auto& [first, count, indices, drawState] :
+		     {std::tuple {0u, chunk.crossStart, 6u, state},
+		      std::tuple {chunk.crossStart, chunk.flatStart - chunk.crossStart, 12u, state},
+		      std::tuple {chunk.flatStart, chunk.count - chunk.flatStart, 6u, flatState}})
 		{
 			if (count == 0)
 			{
@@ -1542,19 +1841,25 @@ void Foliage::Draw(const DrawDesc& desc) const
 			bgfx::setVertexBuffer(0, _quad);
 			bgfx::setIndexBuffer(_quadIndices, 0, indices);
 			bgfx::setInstanceDataBuffer(chunk.instances, first, count);
-			bgfx::setState(state);
+			bgfx::setState(drawState);
 			bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
 		}
 	}
-	// the crop fields' plants change with the fields: rebuilt every frame (a few thousand at most)
-	const auto fieldCount = static_cast<uint32_t>(_fieldInstances.size());
-	if (fieldCount > 0 && bgfx::getAvailInstanceDataBuffer(fieldCount, sizeof(Instance)) == fieldCount)
+	// the crop fields' plants change with the fields, the flyers move: rebuilt every frame (a few thousand at most)
+	for (const auto* transient : {&_fieldInstances, &_flyerInstances})
 	{
+		const auto count = static_cast<uint32_t>(transient->size());
+		if (count == 0 || bgfx::getAvailInstanceDataBuffer(count, sizeof(Instance)) != count)
+		{
+			continue;
+		}
 		bgfx::InstanceDataBuffer buffer;
-		bgfx::allocInstanceDataBuffer(&buffer, fieldCount, sizeof(Instance));
-		std::memcpy(buffer.data, _fieldInstances.data(), fieldCount * sizeof(Instance));
-		bgfx::setVertexBuffer(0, _quad);
-		bgfx::setIndexBuffer(_quadIndices, 0, 6);
+		bgfx::allocInstanceDataBuffer(&buffer, count, sizeof(Instance));
+		std::memcpy(buffer.data, transient->data(), count * sizeof(Instance));
+		// the flyers on the folding quad (flat with no fold for those with fold = off)
+		const bool flyers = transient == &_flyerInstances;
+		bgfx::setVertexBuffer(0, flyers ? _foldQuad : _quad);
+		bgfx::setIndexBuffer(flyers ? _foldIndices : _quadIndices, 0, flyers ? 12 : 6);
 		bgfx::setInstanceDataBuffer(&buffer);
 		bgfx::setState(state);
 		bgfx::submit(desc.viewId, graphics::toBgfx(program.GetRawHandle()), 0, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);

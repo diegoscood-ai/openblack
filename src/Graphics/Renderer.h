@@ -15,6 +15,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -131,7 +132,7 @@ private:
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
 	mutable std::unique_ptr<Foliage> _foliage;
-	mutable bool _foliageLoadTried {false};
+	mutable std::string _foliageLoadKey; ///< what _foliage was loaded with (its modules), empty: not tried yet
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
 	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
 	/// The physics objects' shadows on the land (fn_007FCE80)

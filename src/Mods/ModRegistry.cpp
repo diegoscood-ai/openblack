@@ -91,6 +91,24 @@ public:
 private:
 	std::filesystem::path _root;
 };
+
+/// A folder of files for another mod to read (mod.cfg "module_of = <mod id>"), e.g. more plants for world.foliage
+class ModuleMod final: public Mod
+{
+public:
+	ModuleMod(Info info, std::filesystem::path root)
+	    : Mod(std::move(info))
+	    , _root(std::move(root))
+	{
+	}
+
+	void Apply() override {} // its parent reads GetModuleDirectories
+
+	[[nodiscard]] const std::filesystem::path& GetRoot() const noexcept { return _root; }
+
+private:
+	std::filesystem::path _root;
+};
 } // namespace
 
 struct ModRegistry::SavedState
@@ -141,6 +159,25 @@ void ModRegistry::DiscoverDataMods(const std::filesystem::path& modsDirectory)
 			continue; // Mods/<built-in mod id>: that mod's own files (e.g. Mods/world.foliage)
 		}
 		const auto manifest = ReadKeyValues(folder / "mod.cfg");
+		if (manifest.contains("module_of"))
+		{
+			const auto& parent = manifest.at("module_of");
+			const auto* parentMod = Find(parent);
+			if (parentMod == nullptr)
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("game"), "Module '{}' is for an unknown mod '{}'", folderName, parent);
+				continue;
+			}
+			Mod::Info info;
+			info.id = folderName;
+			info.name = manifest.contains("name") ? manifest.at("name") : folderName;
+			info.description = manifest.contains("description") ? manifest.at("description") : "Module of " + parent;
+			info.category = parentMod->GetInfo().category;
+			info.parent = parent;
+			Register(std::make_unique<ModuleMod>(std::move(info), folder));
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Found module '{}' of {}", folderName, parent);
+			continue;
+		}
 		Mod::Info info;
 		info.id = "data." + folderName;
 		info.name = manifest.contains("name") ? manifest.at("name") : folderName;
@@ -158,7 +195,34 @@ std::filesystem::path ModRegistry::GetModDirectory(const Mod& mod) const
 	{
 		return dataMod->GetRoot();
 	}
+	if (const auto* module = dynamic_cast<const ModuleMod*>(&mod); module != nullptr)
+	{
+		return module->GetRoot();
+	}
 	return _modsDirectory / mod.GetInfo().id;
+}
+
+bool ModRegistry::IsActive(const Mod& mod) const
+{
+	if (!mod.IsEnabled())
+	{
+		return false;
+	}
+	const auto* parent = mod.GetInfo().parent.empty() ? nullptr : Find(mod.GetInfo().parent);
+	return mod.GetInfo().parent.empty() || (parent != nullptr && IsActive(*parent));
+}
+
+std::vector<std::filesystem::path> ModRegistry::GetModuleDirectories(std::string_view parentId) const
+{
+	std::vector<std::filesystem::path> directories;
+	for (const auto& mod : _mods)
+	{
+		if (mod->GetInfo().parent == parentId && IsActive(*mod))
+		{
+			directories.push_back(GetModDirectory(*mod));
+		}
+	}
+	return directories;
 }
 
 void ModRegistry::ImportLegacySettings(const std::filesystem::path& legacyPath)

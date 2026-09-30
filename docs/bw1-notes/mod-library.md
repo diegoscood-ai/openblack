@@ -61,6 +61,21 @@ Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](
 - Cómo funciona: `FileSystemInterface::AddOverridePath`; `FindPath` mira primero los mods (solo archivos, nunca
   carpetas) y `Iterate` mezcla la carpeta del juego con la de cada mod.
 
+## Módulos (enchufables a otro mod)
+
+- Una carpeta de `Mods/` cuyo `mod.cfg` dice `module_of = <id de un mod>` es un **módulo** de ese mod, no un mod de
+  datos: no sustituye archivos, trae más archivos del tipo que lee el mod padre, con sus mismas reglas. Id = el nombre
+  de la carpeta (`world.foliage.beach`), `name` / `description` del `mod.cfg`, misma categoría que el padre.
+- En el menú sale debajo del padre, sangrado y deshabilitado si el padre está apagado. Solo cuenta si él y su padre
+  están encendidos (`ModRegistry::IsActive`). Tiene su `settings.cfg` en su carpeta, apagado por defecto, y
+  `--mod <id>` como cualquier mod.
+- El padre pide las carpetas con `ModRegistry::GetModuleDirectories("<su id>")` (orden alfabético). Hoy solo
+  `world.foliage` tiene módulos: lee el `foliage.cfg` de cada uno, con las imágenes junto a él, y se recarga al
+  encender o apagar un módulo (`Renderer::DrawFoliage`, `_foliageLoadKey`). Módulos del repo en
+  `assets/mods/world.foliage.beach` y `assets/mods/world.foliage.butterflies` (solo los `.cfg`; las imágenes del usuario
+  están en `B&W/Asstes_mods/Beach` y `Buterfly` y se copian a la carpeta del juego). Detalles en la sección de
+  world.foliage.
+
 ## Para programar un mod integrado
 
 1. Un archivo propio en `src/Mods/Builtin/<Nombre>Mod.cpp` con una clase derivada de `mods::Mod` y una función
@@ -125,6 +140,43 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope` (grados),
   `patches` (0 uniforme .. 1 solo en manchas, ruido de valor a escala 45), `sway` (viento), `lean` (inclinación máxima
   al azar) y `tint` (grey/all/none). Crece si cumple `texture` o `terrain`.
+- **Altura** (29-09-2026, estudio en `dev\tmp_dis\heights`): `GetHeightAt` y `GetNormalAt` **aplanan** junto al mar
+  (si la esquina base de la celda vale ≤ 4, las esquinas ≤ 3 cuentan como 0: lo que usan las físicas y vs_object),
+  pero la malla del terreno que se dibuja no. Las plantas usan `GetUnflattenedHeightAt` y una normal por diferencias
+  centrales de esa altura (`GroundNormal`): antes quedaban hasta 2 unidades bajo el suelo dibujado en la primera
+  franja de tierra y toda la playa daba altura 0. Byte de altitud × 0,67; en Land1-5 las celdas con agua valen 0-1
+  (0-0,67, terreno transparente), las de costa siempre 2 (1,34, alfa 0,5) y la tierra opaca empieza en 3 (2,01); el
+  máximo es 255 (170,85). Por eso todas las `altitude` de las plantas pasan a `0-175` (los mínimos 1-2 ya no hacen
+  falta: la costa está excluida; los máximos 120/150 cortaban los prados altos de Land3).
+- **Módulos** (sección "Módulos" arriba): su `foliage.cfg` se lee después del del mod con el mismo parser; las
+  imágenes se buscan junto a cada `foliage.cfg`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las
+  plantas muestran el primero). Claves nuevas para las especies:
+  - `flat = on`: la imagen va **tumbada en el suelo**, centrada en el punto, con lo alto de la imagen a lo largo del
+    `side` del giro e inclinada como el suelo (pendiente a lo ancho y a lo largo en `i_data4.xy`, `i_data4.z = 2`). Se
+    mezcla por su alfa sin escribir profundidad (las plantas la tapan igual) y se desvanece con la distancia en vez de
+    encogerse. En cada bloque van al final (`Chunk::flatStart`). `lift` = altura sobre el suelo (0,04).
+  - `coast = on`: puede estar en las celdas de costa o con agua (la `altitude` la deja fuera del agua).
+  - `share = 0..1`: parte mínima del suelo dibujado en el punto que es de sus texturas (las cuatro esquinas por su peso
+    bilineal y los dos materiales de cada una por su mezcla, como el shader). El material elegido al azar para el
+    punto (una esquina y uno de sus dos materiales) puede ser arena aunque casi todo lo que se ve sea roca: con
+    `share = 0.8` la playa solo sale donde casi todo es arena (el usuario veía manchas y huellas en suelo gris).
+  - `shade`: con `tint` all/grey, escala del color del suelo que toma (va en `i_data3.z` de las planas): la arena
+    mojada (`tint = all`, `shade = 0.7`) es la arena de debajo, más oscura, en vez del naranja de la imagen.
+- **`[flyer nombre]`** (`FoliageFlyers.cpp`): voladores sobre las plantas de las especies de `over` (por nombre, de
+  cualquier `foliage.cfg`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
+  (`Chunk::homes`). Cada fotograma, hasta 110 unidades de la cámara: vuela `flight` s en un lazo de dos senos por eje
+  alrededor de su flor (radio `range`, altura `height` sobre la flor, aleteo de ±0,12 rad), despega de la flor y
+  vuelve a ella, y luego se posa `rest` s aleteando a 1/4 de velocidad. Fotograma según los tiempos del gif (los de
+  menos de 20 ms cuentan 100 ms, como los navegadores). Planas y con alpha test (escriben profundidad, `v_texcoord0.w
+  = 5`), en instancias transitorias como las de los campos. Todo sale del tiempo real y de la semilla de la planta. Solo guarda su huida (`FlyerHome::fleeTime/away/offset`), como los peces con un chapoteo (`FishShoals.cpp`) pero por cercanía: con la mano (`HandSystemInterface::GetPlayerHandPositions`) a menos de `flee` (5) en horizontal y de `2·flee` en altura sale disparada en línea recta lejos de ella 2 s, ×4 su velocidad (`0,6·range·speed`, mínimo 1) y frenando en el último segundo, subiendo `0,4` de lo que avanza; si la mano sigue cerca cuando frena, vuelve a salir. Luego regresa a su camino a su velocidad normal, mirando hacia él, y espera donde está mientras la mano siga a menos de `1,5·flee` (`OPENBLACK_HAND_TRACE=1` escribe `Flyer trace`). Alas plegables (`fold = on`, por defecto): se dibuja siempre el fotograma más ancho del gif (`Animation::open`) sobre un cuadrado partido por el cuerpo (`_foldQuad`, x = -0,5/0/0,5), y cada mitad sube girando sobre él `acos(ancho del fotograma / el más ancho)` (`Animation::folds`, medido por el píxel opaco más alejado de la columna central), interpolando al del fotograma siguiente; en el shader `i_data4.z = 3`, `w` = el pliegue. De día solamente (`night = off`): con la hora del juego (`SkyInterface::GetTime`) la luz del día va de 0 a las 20:00-5:30 a 1 a las 7:00-18:30 y cada mariposa se va cuando baja de su umbral al azar, así que desaparecen una a una.
+- **Módulo `world.foliage.beach`** ("Beach"): algas, arena mojada, conchas, estrellas de mar, coral y huellas,
+  todas `flat` y `coast` en arena (`texture = sand`, `terrain = Sand, WetSand`). La orilla la marca la altura dibujada:
+  algas 1,1-2 y arena mojada 0,9-1,7 (la fila de costa), el resto hasta 2,2-6. `water_distance` mide desde las
+  esquinas de las celdas con agua, así que la orilla visible queda a 6-10 unidades: algas 7-16, conchas 10-30. En Land1,
+  playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\lnd_beaches.py` lista la arena junto al agua).
+- **Módulo `world.foliage.butterflies`** ("Butterflies"): los 3 gif del usuario sobre `wildflowers` y `poppies`,
+  0,04 por flor, 0,7-1 de ancho (más grandes que de verdad para que se vean junto a la hierba de 0,7-1,2). En Land1
+  hay unas 70 cerca de `1434,57.8,2232` (cámara `1428,61.5,2226,1434,57.5,2233`, `OPENBLACK_TIME_OF_DAY=13`).
 - **Zonas (biomas)**: `zone` / `not_zone` filtran por la zona de ambiente de la celda, el código de sonido que el
   diseñador pintó en cada celda (`LNDCell::flags >> 1`, los impares > 8 cuentan como el par anterior; `Foliage::ZoneOf`).
   Es lo único del LND que forma regiones limpias: los `country` son solo la paleta de texturas por altura y están

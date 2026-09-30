@@ -41,6 +41,8 @@ public:
 		std::string description; ///< tooltip
 		std::string category;    ///< menu section, e.g. "Graphics"
 		bool restartRequired {false};
+		/// A module of another mod (its id): listed under it in the menu, and only in effect while that mod is on
+		std::string parent;
 	};
 
 	explicit Mod(Info info);

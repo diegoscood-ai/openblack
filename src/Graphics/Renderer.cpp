@@ -1475,11 +1475,24 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	{
 		return;
 	}
-	if (!_foliageLoadTried)
+	// loaded again when a module of the mod is turned on or off
+	if (!Locator::mods::has_value())
 	{
-		_foliageLoadTried = true;
+		return;
+	}
+	const auto& mods = Locator::mods::value();
+	const auto modules = mods.GetModuleDirectories("world.foliage");
+	std::string loadKey = "loaded";
+	for (const auto& module : modules)
+	{
+		loadKey += "|" + module.generic_string();
+	}
+	if (loadKey != _foliageLoadKey)
+	{
+		_foliageLoadKey = loadKey;
+		_foliage.reset();
 		auto foliage = std::make_unique<Foliage>();
-		if (Locator::mods::has_value() && foliage->Load(Locator::mods::value().GetModFilesDirectory("world.foliage")))
+		if (foliage->Load(mods.GetModFilesDirectory("world.foliage"), modules))
 		{
 			_foliage = std::move(foliage);
 		}
@@ -1490,6 +1503,8 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	}
 	auto& island = Locator::terrainSystem::value();
 	_foliage->Update(island, config.foliageDensity, desc.camera->GetOrigin(), config.foliageDistance, config.foliageFields);
+	const float seconds = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+	_foliage->UpdateFlyers(island, desc.camera->GetOrigin(), config.foliageDistance, seconds);
 	Foliage::DrawDesc foliageDesc {};
 	foliageDesc.viewId = static_cast<bgfx::ViewId>(desc.viewId);
 	foliageDesc.program = _shaderManager->GetShader("Foliage");
@@ -1501,7 +1516,7 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	foliageDesc.haze = _hazeUniforms[0];
 	foliageDesc.hazeColour = _hazeUniforms[1];
 	foliageDesc.alphaToCoverage = config.msaa != 0;
-	foliageDesc.seconds = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+	foliageDesc.seconds = seconds;
 	_foliage->Draw(foliageDesc);
 }
 

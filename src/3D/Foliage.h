@@ -39,6 +39,8 @@ class Texture2D;
 /// look or LND material type), an altitude range, a slope range, how many per cell and how patchy. Grey texels of the
 /// images take the colour of the ground texture under each plant. Plants are placed deterministically, one land block
 /// at a time near the camera, and never under buildings, features or fields.
+/// Modules of the mod (Mods/<name>/ with "module_of = world.foliage" in its mod.cfg) add their own foliage.cfg, read
+/// with the same rules, e.g. things lying on the beach or butterflies over the flowers.
 class Foliage
 {
 public:
@@ -72,6 +74,30 @@ public:
 		glm::vec2 groundValue {0.0f, 1.0f};      ///< brightness range of the ground colour under the plant (0..1)
 		glm::vec2 groundSaturation {0.0f, 1.0f}; ///< saturation range of that colour
 		bool cross {false};                      ///< two crossed planes instead of one
+		bool flat {false};  ///< lying on the ground (shells, seaweed, tracks), blended by its alpha instead of upright
+		bool coast {false}; ///< may also grow in the coast cells and next to water (above `altitude`)
+		float lift {0.04f}; ///< flat: height over the ground
+		float shade {1.0f}; ///< flat and tinted: scale of the ground colour it takes (below 1 darker)
+		float share {0.0f}; ///< least share of the ground drawn at the point made of its textures (0..1)
+	};
+
+	/// Something flying around a kind of plant (a [flyer ...] section): butterflies over the flowers
+	struct Flyer
+	{
+		std::string name;
+		std::vector<uint16_t> animations; ///< indices into _animations (animated .gif images), one picked per flyer
+		std::vector<std::string> over;    ///< species it lives on, by name (from any foliage.cfg)
+		std::vector<uint16_t> overSpecies;
+		float perPlant {0.02f};         ///< flyers per plant of those species
+		glm::vec2 size {0.4f, 0.6f};    ///< width range
+		glm::vec2 height {0.5f, 1.5f};  ///< flight height over its plant
+		glm::vec2 range {2.0f, 6.0f};   ///< how far it wanders from its plant
+		glm::vec2 flight {6.0f, 14.0f}; ///< seconds in the air, then
+		glm::vec2 rest {2.0f, 6.0f};    ///< seconds sitting on its plant (slow wing beats)
+		float speed {1.0f};             ///< flight and wing beat speed scale
+		float flee {5.0f};              ///< flies away from the hand closer than this (0: never)
+		bool night {false};             ///< also at night (otherwise they go one by one at dusk)
+		bool fold {true};               ///< the wings fold along the body instead of the image changing
 	};
 
 	/// One growth stage of the plants of a crop field (a [field_stage ...] section of foliage.cfg)
@@ -113,16 +139,20 @@ public:
 	Foliage();
 	~Foliage();
 
-	/// Reads foliage.cfg and the images next to it; false (and nothing drawn) if they are missing
-	bool Load(const std::filesystem::path& directory);
+	/// Reads foliage.cfg and the images next to it, then the foliage.cfg of each module folder (its images next to it);
+	/// false (and nothing drawn) if there is nothing to draw
+	bool Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules = {});
 	[[nodiscard]] bool IsLoaded() const noexcept { return _texture != nullptr; }
 	[[nodiscard]] const std::vector<Species>& GetSpecies() const noexcept { return _species; }
 	[[nodiscard]] const std::vector<FieldStage>& GetFieldStages() const noexcept { return _fieldStages; }
+	[[nodiscard]] const std::vector<Flyer>& GetFlyers() const noexcept { return _flyers; }
 
 	/// Starts over for another island, density or once the scene's objects exist; then places the plants of the
 	/// blocks that came within `distance` of the camera and frees the ones left far behind. With `fields`, the crop
 	/// fields within the distance get their plants for their current growth and food.
 	void Update(LandIslandInterface& island, float density, glm::vec3 cameraPosition, float distance, bool fields);
+	/// Moves the flyers of the placed blocks within the distance ([flyer] sections; FoliageFlyers.cpp)
+	void UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition, float distance, float seconds);
 
 	struct DrawDesc
 	{
@@ -146,6 +176,8 @@ public:
 
 	/// Plants currently placed (for the log)
 	[[nodiscard]] size_t GetPlantCount() const noexcept { return _plantCount; }
+	/// Flyers drawn this frame
+	[[nodiscard]] size_t GetFlyerCount() const noexcept { return _flyerInstances.size(); }
 
 private:
 	/// Per-plant instance data, 5 x vec4 (i_data0..4)
@@ -155,7 +187,33 @@ private:
 		glm::vec4 heightLayerLightYaw; ///< height; texture layer; land luminosity 0..1; yaw
 		glm::vec4 textureGround;       ///< v of the image's top; sway; ground material; tint mode
 		glm::vec4 groundUvLeanPhase;   ///< ground texture uv (one block = 0..1); lean; sway phase
-		glm::vec4 groundEnds;          ///< ground height at the plane's left and right ends, relative to the base
+		glm::vec4 groundEnds;          ///< ground height at the plane's left and right ends, relative to the base;
+		                               ///< colour source; colour. Flat: the ground's slope across and along, 2, blended
+	};
+
+	/// Where a flyer lives: on one plant of the species it is over
+	struct FlyerHome
+	{
+		glm::vec3 top; ///< the plant's top
+		float luminosity;
+		uint16_t flyer;     ///< index into _flyers
+		uint16_t animation; ///< index into _animations
+		float width;
+		float seed;          ///< 0..1
+		float fleeTime {0.0f};       ///< seconds left darting away from the hand (like the fish from a splash)
+		glm::vec2 away {1.0f, 0.0f}; ///< the way it darts: away from the hand when it came close
+		glm::vec3 offset {0.0f};     ///< how far it is from its path: grows while it flees, then it flies back
+	};
+
+	/// The frames of an animated image: consecutive texture layers
+	struct Animation
+	{
+		uint16_t first;
+		std::vector<float> ends; ///< seconds at the end of each frame, from the image's frame delays
+		/// folding flyers: the frame with the widest wings, drawn on the two halves of a folding quad, and per frame
+		/// the fold that makes it look as wide as that frame (acos of its width over the widest)
+		uint16_t open {0};
+		std::vector<float> folds;
 	};
 
 	/// The plants of one land block
@@ -166,6 +224,8 @@ private:
 		bgfx::VertexBufferHandle instances {BGFX_INVALID_HANDLE};
 		uint32_t count {0};
 		uint32_t crossStart {0}; ///< the instances from here on draw two crossed planes
+		uint32_t flatStart {0};  ///< and from here on lie on the ground
+		std::vector<FlyerHome> homes;
 	};
 
 	/// One plant of a crop field, placed once per field
@@ -190,6 +250,11 @@ private:
 	[[nodiscard]] static glm::vec3 GroundColourAt(LandIslandInterface& island, glm::vec2 point);
 
 	std::vector<Species> _species;
+	std::vector<Flyer> _flyers;
+	std::vector<Animation> _animations;
+	std::vector<std::vector<uint16_t>> _flyersOver; ///< per species: the flyers living on it
+	std::vector<Instance> _flyerInstances;         ///< this frame's flyers
+	float _flyerSeconds {0.0f};                    ///< the time of the last UpdateFlyers
 	std::vector<FieldStage> _fieldStages;
 	float _fieldSpacing {1.0f};  ///< [field] spacing: units between the plants of a field
 	float _fieldStagger {60.0f}; ///< [field] stagger: growth units a plant may be ahead of or behind its field
@@ -206,6 +271,9 @@ private:
 	bgfx::VertexBufferHandle _soilQuad {BGFX_INVALID_HANDLE};
 	bgfx::VertexBufferHandle _quad {BGFX_INVALID_HANDLE};
 	bgfx::IndexBufferHandle _quadIndices {BGFX_INVALID_HANDLE};
+	/// the flyers: a quad split down the middle (x -0.5, 0, 0.5), each half folding up about the centre line
+	bgfx::VertexBufferHandle _foldQuad {BGFX_INVALID_HANDLE};
+	bgfx::IndexBufferHandle _foldIndices {BGFX_INVALID_HANDLE};
 	bgfx::VertexLayout _instanceLayout;
 
 	std::vector<Chunk> _chunks; ///< one per land block

@@ -4,7 +4,8 @@ $output v_texcoord0, v_color0, v_landLight, v_landSpecular
 // Mod world.foliage: one plane per plant (3D/Foliage.cpp). i_data0: base xyz, width; i_data1: height, texture
 // layer, land luminosity 0..1, yaw; i_data2: v of the image's top, sway, ground material, tint mode; i_data3: ground
 // texture uv (one block = 0..1), lean, sway phase; i_data4: ground height at the left / right end, colour source
-// (0 the ground texture, 1 the colour in w), colour r * 65536 + g * 256 + b (field crops).
+// (0 the ground texture, 1 the colour in w, 2 flat), colour r * 65536 + g * 256 + b (field crops). Flat ones: i_data3.z
+// = shade of the ground colour, i_data4.xy = ground slope across / along, i_data4.w = 1 blended.
 
 #include <bgfx_shader.sh>
 
@@ -45,14 +46,34 @@ void main()
 
 	v_texcoord0 = vec4(corner.x + 0.5f, mix(1.0f, i_data2.x, corner.y), i_data1.y, corner.y);
 
+	// flat (i_data4.z = 2: the beach's things, the flyers): lying on the ground, centred on the base, the image's top
+	// along the side; tilted by the ground's slope across and along it (i_data4.xy). Full size; the blended ones
+	// (i_data4.w = 1) fade out instead of shrinking. The fragment shader tells them by v_texcoord0.w: 2..3 blended
+	// (2 + fade), 5 alpha tested. Folding (i_data4.z = 3, the flyers, alpha tested): the quad split down the middle
+	// (x = 0, the body), each half turned up about it by i_data4.w radians.
+	if (i_data4.z > 1.5f)
+	{
+		float along = corner.y - 0.5f;
+		float fold = i_data4.z > 2.5f ? i_data4.w : 0.0f;
+		position = base + across * (corner.x * i_data0.w * cos(fold)) + side * (along * i_data1.x) +
+		           vec3(0.0f, corner.x * i_data0.w * i_data4.x + along * i_data1.x * i_data4.y +
+		                          abs(corner.x) * i_data0.w * sin(fold), 0.0f);
+		v_texcoord0.w = i_data4.z < 2.5f && i_data4.w > 0.5f ? 2.0f + grow : 5.0f;
+	}
+
 	// the ground colour under the plant: its material texture at that spot, a few mip levels down (local average)
 	vec3 ground = texture2DArrayLod(s2_materials, vec3(i_data3.xy * u_foliageParams.y, i_data2.z), 3.0f).rgb;
-	if (i_data4.z > 0.5f)
+	if (i_data4.z > 0.5f && i_data4.z < 1.5f)
 	{
 		float packedColour = i_data4.w;
 		float red = floor(packedColour / 65536.0f);
 		float green = floor((packedColour - red * 65536.0f) / 256.0f);
 		ground = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f) / 255.0f;
+	}
+	// flat ones: i_data3.z scales the ground colour they take (shade, e.g. darker wet sand)
+	if (i_data4.z > 1.5f && i_data3.z > 0.0f)
+	{
+		ground *= i_data3.z;
 	}
 	v_color0 = vec4(ground, i_data2.w);
 

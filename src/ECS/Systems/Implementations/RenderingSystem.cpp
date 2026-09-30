@@ -21,6 +21,7 @@
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Fields.h"
+#include "ECS/Trees.h"
 #include "ECS/Components/MeshTint.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Fixed.h"
@@ -279,10 +280,18 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    // z = scale x the lean of the tree's slot (bits 2-5 of +0x5C), only the drawn matrix. Not while the tree is
 		    // tilted (pulled or held by the hand); the bending around creatures and physics objects (bits 6-9 of +0x5C,
 		    // table 0xD19A48) is not ported.
-		    if (registry.AllOf<Tree>(entity) && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
+		    if (const auto* tree = registry.TryGet<const Tree>(entity);
+		        tree != nullptr && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
 		    {
-			    // slot: any stable per-tree number 0..15
-			    const auto slot = (static_cast<uint32_t>(entt::to_integral(entity)) * 2654435761u) >> 28u;
+			    // the tree's own slot, round(yAngle x 16 / 2pi) & 15 (0x74A0E7): trees facing the same way sway together
+			    const auto slot = static_cast<uint32_t>(tree->windSlot);
+			    // Tree::Draw 0x74B077: every RGB channel of the tree's colour times the frame's brightness / 256
+			    // (ecs::TreeBrightness), as an own colour in the w of the fourth column like the fields' tint
+			    if (!registry.AllOf<MeshTint>(entity))
+			    {
+				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
+				    _renderContext.instanceUniforms[idx][3][3] = -(1.0f + static_cast<float>(grey * 65536u + grey * 256u + grey));
+			    }
 			    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
 			    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * ecs::WindSway(slot);
 		    }

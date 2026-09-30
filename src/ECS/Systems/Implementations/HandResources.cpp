@@ -343,11 +343,14 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// Object::DoDeleteObjectAndTakeResource: AddResource(WOOD, GetDefaultResource()), with
-	// Tree::GetWoodValue = life (1 for a fresh tree) * woodValue * scale * GLandBalance::Values[5] (2 in Land2).
-	const auto type = registry.AllOf<Tree>(object) ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
+	// Tree::GetDefaultResource 0x74B7A0 = Tree::GetWoodValue 0x74B7B0 = life (1 for a fresh tree) * woodValue * scale *
+	// GLandBalance::Values[5] (2 in Land2). A dead tree gives less: DeadTree::GetDefaultResource 0x511330 is only
+	// woodValue * its wood multiplier (1) * scale, with no life and no land balance.
+	const bool living = registry.AllOf<Tree>(object);
+	const auto type = living ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
 	auto wood = static_cast<uint32_t>(static_cast<float>(info.woodValue) * registry.Get<Transform>(object).scale.x *
-	                                  land_balance::Get(5));
+	                                  (living ? land_balance::Get(5) : 1.0f));
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
 	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {

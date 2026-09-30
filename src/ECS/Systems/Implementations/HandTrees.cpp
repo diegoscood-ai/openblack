@@ -32,6 +32,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "3D/AllMeshes.h"
@@ -67,9 +68,11 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "PSys/PSysManager.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -91,8 +94,28 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(tree);
+	// Object::InitialisePhysicsFromHand 0x636F00: a released tree only counts as "gently put down" (the physics object's
+	// flag 8, the one Tree::EndPhysics asks for) when the landscape normal under it points up (y >= 0.7, a slope under
+	// about 45 degrees) and the tree comes down almost upright: the x and z angles of its YXZ matrix within 0.2 rad
+	// (about 11.5 degrees). A held tree takes the hand's up axis, which follows the surface, so it leans on a slope.
+	// Anything else falls with physics and ends up a DeadTree (the handler in HandPhysics.cpp).
+	float yAngle = 0.0f;
+	float xAngle = 0.0f;
+	float zAngle = 0.0f;
+	glm::extractEulerAngleYXZ(glm::mat4(transform.rotation), yAngle, xAngle, zAngle);
+	constexpr float k_UprightAngle = 0.2f;
+	constexpr float k_FlatNormal = 0.7f;
+	if (physics::LandscapeNormal(transform.position).y < k_FlatNormal || std::abs(xAngle) > k_UprightAngle ||
+	    std::abs(zAngle) > k_UprightAngle)
+	{
+		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: tree dropped on a slope or leaning (x {:.2f} z {:.2f}): it falls",
+		                    xAngle, zAngle);
+		physics::PhysicsObjects::AddObject(tree, glm::vec3(0.0f), glm::vec3(0.0f), entt::null, true);
+		return;
+	}
 	// Tree::EndPhysics: planted again only on dry land (and not burning, TODO: fire); otherwise a DeadTree.
-	if (IsLand(transform.position))
+	const bool land = IsLand(transform.position);
+	if (land)
 	{
 		Replant(tree);
 	}
@@ -100,6 +123,14 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 	{
 		const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>());
 		MakeDeadTree(tree, glm::vec3(std::sin(angle), 0.0f, std::cos(angle)));
+	}
+	// PhysicsObject::RemoveObject 0x646B44 calls Tree::DropSfx 0x74BC60 for every gentle release that ends on land,
+	// replanted or not (the original picks the sample by GetTickCount() % 3).
+	if (land)
+	{
+		static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
+		    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
+		PlaySample(Locator::rng::value().Choose(k_PlantTree));
 	}
 }
 
@@ -116,50 +147,65 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	}
 	const glm::vec2 at(transform.position.x, transform.position.z);
 
-	// Within 25 m of a town building the tree becomes scenic (foresters leave it alone) and joins no forest.
+	// Tree::EndPhysics 0x74B8BF: a spiral over the map cells, stopping at 25 + 10 m. For every fixed object in those
+	// cells d = its distance minus its own 2D radius; an object that belongs to a town (or a citadel part) within 25 m
+	// means the tree was planted "in a town" and it joins that town's forest, which beats any other. Otherwise the
+	// nearest tree that has a forest lends its forest (with no distance limit of its own, only the 35 m of the search),
+	// and a tree with neither, outside a town, starts a new forest.
+	// Deviation: the original takes the town's forest from a list the town keeps (Town +0x608); openblack does not
+	// model that list, so the first tree planted in a town starts the town's forest (ecs::TownForestId).
+	constexpr float k_SearchRadius = 35.0f;
 	constexpr float k_TownRadius = 25.0f;
-	bool nearTown = false;
-	registry.Each<const Abode, const Transform>([&](entt::entity, const Abode&, const Transform& abode) {
-		nearTown = nearTown || glm::distance(at, glm::vec2(abode.position.x, abode.position.z)) < k_TownRadius;
-	});
-	// Otherwise it joins the forest of the nearest tree within 25 + 10 m, or starts a new forest.
-	constexpr float k_ForestRadius = 35.0f;
+	bool inTown = false;
+	uint32_t townId = 0;
 	std::optional<uint32_t> forest;
-	uint32_t maxForest = 0;
-	float nearest = k_ForestRadius;
-	registry.Each<const Tree, const Transform>([&](entt::entity other, const Tree& t, const Transform& position) {
-		// Scripts create scenic trees with forest -1 (and 0): no forest.
-		const bool inForest = t.forestId != 0 && t.forestId != std::numeric_limits<uint32_t>::max();
-		if (!inForest)
+	float nearest = std::numeric_limits<float>::max();
+	registry.Each<const Transform>([&](entt::entity other, const Transform& position) {
+		if (other == tree)
 		{
 			return;
 		}
-		maxForest = std::max(maxForest, t.forestId);
-		const float distance = glm::distance(at, glm::vec2(position.position.x, position.position.z));
-		if (other != tree && distance < nearest)
+		const float cellDistance = glm::distance(at, glm::vec2(position.position.x, position.position.z));
+		if (cellDistance > k_SearchRadius)
 		{
-			nearest = distance;
-			forest = t.forestId;
+			return;
+		}
+		const auto* fixed = registry.TryGet<const Fixed>(other);
+		const float d = cellDistance - (fixed != nullptr ? fixed->boundingRadius : 0.0f);
+		if (d < k_TownRadius)
+		{
+			// Object::GetTown: every town building is an Abode here (storage pits and town centres included).
+			if (const auto* abode = registry.TryGet<const Abode>(other); abode != nullptr)
+			{
+				inTown = true;
+				townId = abode->townId;
+				return;
+			}
+		}
+		const auto* other_tree = registry.TryGet<const Tree>(other);
+		if (other_tree != nullptr && ecs::IsInForest(other_tree->forestId) && d < nearest)
+		{
+			nearest = d;
+			forest = other_tree->forestId;
 		}
 	});
-	component.isNonScenic = !nearTown;
-	if (nearTown)
+	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
+	component.isNonScenic = inTown;
+	component.forestId = inTown ? ecs::TownForestId(townId) : forest.value_or(ecs::NewForestId());
+	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
+	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
+	// so the effect runs for its own life from the data).
+	// TODO: StartImmersion(0x2E), ConsiderMakingCreatureMimicPlayer and the good alignment
+	// (+treePullPutAlignmentChange) once players track one.
+	EmitGripDust(transform.position);
+	if (!inTown)
 	{
-		component.forestId = 0;
+		psys::manager::CreateSpotVisual(static_cast<int>(SpotVisualType::ForestCreated), transform.position, 0.0f,
+		                                entt::null);
 	}
-	else
-	{
-		// TODO: SPOT_VISUAL_FOREST_CREATED when a new forest is started.
-		component.forestId = forest.value_or(maxForest + 1);
-	}
-	// Tree::DropSfx: LH_SAMPLE_G_PLANTTREE_01 + GetTickCount() % 3.
-	// TODO: SmokyStuff, alignment (+treePullPutAlignmentChange).
-	static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
-	    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
-	PlaySample(Locator::rng::value().Choose(k_PlantTree));
 	registry.SetDirty();
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree replanted at ({:.1f}, {:.1f}), {} forest {}", at.x, at.y,
-	                   nearTown ? "scenic (town)," : (forest ? "joined" : "new"), component.forestId);
+	                   inTown ? "town" : (forest ? "joined" : "new"), component.forestId);
 }
 
 void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying) noexcept

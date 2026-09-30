@@ -25,8 +25,17 @@ struct Tree
 	TreeInfo type;
 	float maxSize;
 	uint32_t forestId = 0;
-	/// Trees planted near a town are scenic: foresters leave them alone (Tree +0x5e bit 2 in the original).
+	/// Tree +0x5E bit 1: the script's own flag (CREATE_NEW_TREE 0x716324); the hand sets it to "inside a town" when it
+	/// replants the tree (Tree::EndPhysics 0x74BB5A).
 	bool isNonScenic = true;
+	/// Tree +0x5E bit 0: still growing. Set in the ctor 0x749E00 when maxSize differs from the size it is created at,
+	/// cleared once it reaches maxSize.
+	bool growing = false;
+	/// Tree +0x60: turns left until the next growth step (info growTurns, randomised at creation)
+	uint16_t growCounter = 0;
+	/// Tree +0x5C bits 2-5: which of the 16 wind sway slots it uses, round(yAngle x 16 / 2pi) & 15 at creation
+	/// (0x74A0E7), so that trees facing the same way sway together
+	uint8_t windSlot = 0;
 };
 
 /// A tree that was thrown or dropped where it cannot be replanted (DeadTree, a Rock subclass in the original):

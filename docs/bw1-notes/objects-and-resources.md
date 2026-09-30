@@ -51,11 +51,65 @@
   (malla 593, 15 s) y raíces colgando (malla 592).
 - El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
   vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
-- Soltar suave en tierra = replantar (PlantTree, bosque cercano en 25 m o bosque nuevo). Lanzado o en el agua =
-  árbol muerto (DeadTree).
-- Sobre un almacén = madera `woodValue·escala`.
+- **Soltar** (`Object::InitialisePhysicsFromHand` 0x636F00 + `Tree::EndPhysics` 0x74B830): el árbol cuenta como «dejado
+  con cuidado» (bandera 8 del objeto físico) solo si la normal del terreno bajo él apunta arriba (y ≥ 0,7, pendiente
+  menor de unos 45°) **y** llega casi derecho (los ángulos x y z de su matriz YXZ ≤ 0,2 rad ≈ 11,5°; un árbol en la mano
+  toma el «arriba» de la mano, que sigue la superficie, así que en una ladera va inclinado). Entonces: en tierra y sin
+  arder, se replanta; en agua, árbol muerto. Si no cumple, cae con físicas y acaba como árbol muerto. El sonido
+  (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) lo lanza `PhysicsObject::RemoveObject` 0x646B44 en **todo** soltado
+  con cuidado que acabe en tierra, replantado o no. Lanzado = árbol muerto siempre.
+- **Bosque al replantar** (0x74B8BF): espiral por las celdas del mapa hasta 25 + 10 m; por cada objeto fijo
+  `d = distancia − su radio 2D`. Un objeto de un pueblo (o parte del templo) a menos de 25 m ⇒ el árbol es «de pueblo»
+  (bit 1 de +0x5E = `isNonScenic`, ¡se pone a **1** dentro del pueblo!) y se une al bosque **del pueblo**, que gana a
+  cualquier otro; si no, hereda el bosque del árbol con bosque más cercano (sin límite propio, solo los 35 m de la
+  búsqueda); sin ninguno y fuera de pueblo, crea un bosque nuevo. Efectos: humo blanco `SmokyStuff` en el suelo (en
+  openblack, el polvo del agarre), `SPOT_VISUAL_FOREST_CREATED` (0x2C) **siempre que no sea en pueblo**,
+  `StartImmersion(0x2E)`, mímica de criatura y alineación buena (estos tres sin portar).
+  *Desviación*: el original saca el bosque del pueblo de una lista que el pueblo guarda (Town +0x608) y openblack no
+  modela esa lista: el primer árbol plantado en un pueblo crea su bosque (`ecs::TownForestId`).
+- Sobre un almacén = madera `woodValue·escala·GLandBalance[5]` (`Tree::GetDefaultResource` 0x74B7A0, × vida). Un **árbol
+  muerto** da menos: `DeadTree::GetDefaultResource` 0x511330 = `woodValue·escala` sin vida ni balance de tierra.
 - Valores de madera (info.dat): roble 800, haya/cedro 700, abedul/olivo 500, ciprés 400, conífera/pino 350,
   palmera 300, seto 100, arbusto 15.
+
+### Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
+
+- Solo crecen los árboles **de un bosque**: en el original únicamente `Forest::Process` 0x539DA0 recorre sus árboles, así
+  que los árboles sueltos del guion (todos los de Land 1 y Land 2, que llevan bosque −1) no crecen nunca. Los de Land 3
+  (65), Land 4 (82) y Land 5 (164) sí.
+- Un árbol nace «creciendo» (bit 0 de +0x5E) solo si su `maxSize` es distinto del tamaño con el que se crea, y su
+  contador (+0x60) arranca en un turno al azar de [0, growTurns) (ctor 0x749E00).
+- Cada `growTurns` turnos (10 en los 22 tipos, o sea 1 s): `amt = growAmt · (1 + 0,01·rainMultiplier·lluvia) ·
+  (1 + 0,5·alineación del terreno)`, y `escala = min(escala + amt, maxSize)`. `growAmt` 0,01 (0,02 conífera/pino, 0,005
+  roble/olivo/palmera). Al llegar al máximo deja de crecer. `SetScale` es virtual y rehace la colisión: el círculo de
+  obstáculo sigue al tamaño.
+- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), llamado desde `Game::Update` con los campos. **Sin
+  clima ni alineación de terreno todavía**: lluvia 0 y alineación 0, así que `amt = growAmt`. Ganchos
+  `OPENBLACK_TEST_TREE_GROWTH="x,z"` (dos brotes, uno con bosque y otro sin), `OPENBLACK_TREE_TRACE=1` (cada paso
+  de crecimiento y el brillo) y `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"` (suelta un árbol ahí y dice si se
+  replanta, cae o queda muerto).
+- **Sin portar**: el bosque como objeto (centro, listas por distancia, borrado a los ~200 s vacío) y la aparición de
+  árboles nuevos (`Forest::Process`: `c·min(1, 0,05·nCrecidos)·T/300 > azar(2000,3000)`, plantado en anillos de 5-10 m
+  con `maxSize` en [0,8, 1,2) y tamaño 0,1). Informe: `tmp_dis\trees2\gap_life_draw.md`.
+
+### Dibujado (además del mecido, ver «Campos»)
+
+- **Ranura de viento**: `round(yAngle·16/2π) & 15` (0x74A0E7), guardada al crear el árbol, así que los árboles orientados
+  igual se mecen juntos (`components::Tree::windSlot`; antes openblack usaba un hash de la entidad).
+- **Brillo por cámara** (`Tree::PreDraw` 0x74A883 → global 0xC22FA0, leído solo por código de árboles):
+  `d = normalize(foco de la cámara − posición de la luz)`, `v = normalize_xz(dirección de vista)`,
+  `b = dot < 0 ? 200 : 200 + 55·dot`, y `Tree::Draw` 0x74B077 multiplica cada canal RGB del color del árbol por `b/256`
+  (0,781 … 0,996). **Rareza del original**: LH3D tiene una sola luz puntual y de día su único `setter` es código muerto,
+  así que la luz se queda en el origen del mapa (0,0,0); los árboles se oscurecen un 22 % cuando la cámara mira hacia esa
+  esquina. Al amanecer/atardecer el original mueve la luz a un foco pegado a la cámara (sin portar).
+  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
+  instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
+- **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
+  suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
+  `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.
+- **Curvado junto a la mano, la criatura y los objetos físicos** (bits 6-9 de +0x5C, tabla 0xD19A48, hasta 0,471239 rad
+  = 27°, con sonido `G_Crash_Tree_M_01..08`, «rubbing trees»): **sin portar**. Informes
+  `tmp_dis\trees2\gap_life_draw.md` y `gap_brightness_sound.md`.
 
 ## Campos (Field, informe `tmp_dis\field\field_notes.txt`)
 
@@ -281,7 +335,9 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtre
   cosa hecha con una info de MobileStatic: rocas, hogueras, farolas, árboles muertos. +0x58 = (info ≠ MS[7]).
   `CallVirtualFunctionsForCreation` 0x734810: malla 148 (MSH_B_CAMPFIRE) si +0x58, si no 398 (MSH_O_TOWNLIGHT);
   `SetPosition((x, GetAltitude + y, z), ángulo 0, escala 1)` (sin giro de 180°), la luz `fn_00823240`(ese punto,
-  +0x58) en +0x5C y, solo en la de pueblo, el sonido 0x93 (`fn_0071E8C0`, pendiente). Land1: 8 de tipo 7 y 4 de tipo 59
+  +0x58) en +0x5C y, **en las dos clases** (no mira +0x58, corregido: antes esta nota decía "solo en la de pueblo"), el
+  sonido 0x93 en +0x60 (`fn_0071E8C0` = `SoundTag::Create`), salvo si el objeto lleva la marca UNAVAILABLE (+0xA & 1);
+  detalle del sonido en [day-night-weather.md](day-night-weather.md). Land1: 8 de tipo 7 y 4 de tipo 59
   (farolillos de campo con la malla de la hoguera, **no** hogueras). El CREATE de CHL con 7 o 59 va por el mismo sitio.
   openblack: `StreetLanternArchetype`, `components::StreetLantern` / `LanternLight`; `night_lights` pone las luces
   según `LanternLight` (antes por la malla, y las hogueras de verdad salían con luz de farolillo).
@@ -318,10 +374,59 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtre
   llama `Town::AddBuildingSiteNoFixedCheck` 0x73B8A0 desde `Town::RequestBestPlanned`, `Town::ForceBuildingOfPlannedAtPos`
   0x73E560 (`GScript::BuildBuilding` 0x6FAB30 de CHL, y 0x641774 tras `StartPlaygroundGame` con 0xC5E258) y
   `Scaffold::TryToBuildPlannedBuilding`. `GGame::Birthday` → `GPlayer::Birthday` → `Town::Birthday` solo rehace
-  estadísticas. Falta ver qué lo dispara en Land1 (probablemente el CHL de la introducción): openblack sigue creando el
-  templo visible.
+  estadísticas. Al cargar el mapa **no hay templo**, solo el plan (GameThingWithPos 0x4C, sin malla, sin celda, sin
+  índice de creación, sin aplanado; `Draw` 0x648930 = `ret`). Info "Citadel Heart" (info.dat 0x115C0): madera 5,
+  timeToBuild 150, desireToBeBuilt 1,0, malla 564 BuildingDummyCitadel; tipo de abode del plan 0x804 (cívico).
+  - Conversión 0x467EF0 (arg `float life`): el jugador es el **dueño del pueblo** (`Town+0x2C`, el de CREATE_TOWN o el
+    neutral), no el del script (ese solo se valida). `CitadelHeart::Create`(pos, info, citadel, ángulo del plan, escala
+    del plan, life, 1): el 1 marca "en construcción" (MultiMapFixed 0x52E1E0, +0x58 bit 1, +0x5C = 0).
+    `CallVirtualFunctionsForCreation` 0x4675A0 crea el LH3D tipo 8 a **escala 1** con y = altitud(origen) + alt y llama
+    0x882730 (malla B_FIRST_TEMPLE, % construido, **aplana la tierra**): el aplanado es al convertir. Lugares de culto
+    (`fn_00464F50`) solo si life ≥ 1. Luego heart+0x94 = pueblo, `PostCreatePlanned` 0x648C50 y se borra el plan.
+  - `AddBuildingSiteNoFixedCheck` pasa siempre life 0,0 y crea un `CitadelBuildingSite` (0x468DC0 → 0x43D1E0); lo
+    terminan los aldeanos (`CitadelHeart::Built` 0x465000). Con vida < 1 `Draw` 0x882A40 usa `DrawPartialyBuilt`
+    0x816AD0 (sin decodificar).
+  - Disparadores: **Land 1** = CHL `FollowUs`: `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)` (la pos del plan de
+    Land1.txt:95; `GetPlannedAtPos` 0x73E4C0 coge el plan más cercano a menos de radio de la malla 564 × escala + 1 m),
+    luego `CALL_NEAR(Citadel 18)` + `SET_PROPERTY(22, 0.375)`; `PreventCitadelCompletion` lo limita a 0,9 y
+    `CheckCitadel` espera 1. **Lands 2-5** = IA: `Villager::CheckSatisfyCivicBuildings` 0x758E90 (deseo del pueblo
+    FOR_CIVIC_BUILDING 6, 0x748330) → `RequestBestPlanned` 0x73A650 → `GetBestPlanned` 0x73A140 (máscara 4).
+  - **CREATE_CITADEL** (`Citadel::CreateCitadel` 0x463240) pasa (ángulo, 1,0, 1,0, 0) a `CitadelHeart::Create`: la
+    escala del script se **ignora** (Kapa's Land1 Playground pasa 0, otros mapas 300 o 4121) y sale construido.
+  - openblack: CREATE_CITADEL dibuja a escala 1 (antes usaba la del script: en Kapa's Land1 Playground el templo era
+    invisible). CREATE_PLANNED_CITADEL exige pueblo y jugador válidos (si no, nada), el templo es del dueño del pueblo
+    (`Town::owner`) y se dibuja a escala 1. **Desviación pendiente**: como no hay deseos de pueblo, sitios de
+    construcción, BUILD_BUILDING/SET_PROPERTY 22/CALL_NEAR ni dibujo parcial, el templo se sigue creando ya construido
+    (y aplanando) al cargar, para que no desaparezca de Land 1-5. Hacerlo fiel requiere portar todo lo anterior.
 - **IsOkToCreateAtPos** 0x638C40: falla si `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe`
   0x601D10 da el bit 8 y la celda no es agua. El bit 8 sale de un círculo `NewCollide::Obj` de radio 0,5 (0x82AD90)
   contra el `GetCollideData` (vtable +0x858) de cada objeto fijo de la lista +4 de la celda (`Obj::Collide` 0x829140);
-  los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Sin portar:
-  hace falta NewCollide y las listas de fijos por celda.
+  los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Informe
+  completo: `tmp_dis\mapa\flecos_isok.md` (simulación `isok\sim.py`).
+  - **Quién lo llama**: solo CREATE_TREE (27, 0x716235), CREATE_NEW_TREE (28, 0x7162EE), CREATE_POT (38, 0x716B0C, antes
+    de mirar la cantidad) y CREATE_MOBILEOBJECT (40, 0x716C71). Si falla, no crea nada, no escribe nada y el guion sigue.
+    Ángulo y escala no se usan. Los handlers CHL no lo llaman. CREATE_TOWN_CENTRE usa otro (`GAbodeInfo::IsOkToCreateAtPos`
+    0x404B10, sin portar: en Land1-5 no rechaza ninguno). Abodes, campos, features, mobile statics, hogueras y árboles
+    muertos se crean sin mirar nada.
+  - **La prueba**: círculo de 0,5 en (x, z) del guion (la altura no cuenta, `MapCoords(char*)` deja y = 0) contra los
+    objetos de **su celda**; prueba 2D `dx² + dz² <= (ra + rb)²` y luego los hijos. Con agua en la celda (bit 0x10,
+    `hasWater`) se crea siempre; fuera del mapa (o en un bloque vacío) también.
+  - **Formas**: árbol = círculo de 0,3 en su posición, solo en su celda (0x74C5F0). MultiMapFixed (abode, centro,
+    campo 594, feature, animated static, mobile static, roca, hoguera, árbol muerto, dispensador) = `NewCollide(LH3DObject)`
+    0x829390 desde el bbox de la malla: centro del bbox girado con `x' = x·cos a − z·sin a`, `z' = x·sin a + z·cos a`;
+    semiejes `max(1, escala·mitad)` en x y z; si largo/corto > 1,4, círculo exterior `sqrt(ex²+ez²)` con
+    `int(largo/corto)+1` hijos de radio corto en fila por el eje largo (0x82ADD0 / 0x828F40); si no, un círculo de
+    `max(ex, ez)`. Se mete en cada celda cuyo círculo (centro de la celda, 7,1) la toca. El bbox (0x8081B0) pasa las
+    mallas con huesos (flag 0x100) por `LH3DAnim::SetTransform`, como el de openblack. Sin collide data: BigForest,
+    vasijas, mobile objects, aldeanos, animales, farolas y planificados.
+  - **openblack** (`ECS/MapCollide.h/.cpp`, `openblack::ecs::map_collide`): rejilla de celdas que se vacía en
+    LOAD_LANDSCAPE y se llena con los parámetros del guion (malla del `Mesh` del objeto creado, ángulo Y y escala del
+    guion, no el Transform). Sin registrar aún: piscifactorías, CitadelHeart (0x468FB0) y WorshipSite (0x77E490), sin
+    decodificar. `OPENBLACK_LOG_ISOK=1` escribe una línea por rechazo (orden, posición, qué lo tapa).
+  - **Resultado** (comprobado con `OPENBLACK_DUMP_ENTITY_COUNTS`): Land1 1395 → 1351 árboles (44 rechazos: los 43 de
+    `sim.py` − 2 bajo la Piper Cave Entrance + 3 bajo los árboles muertos), mobile objects 51; Land2 921 → 915 (+1
+    vasija); Land3 1397 → 1373 y 26 → 20 mobile objects; Land4 799 → 764 y 1 → 0 (+1 vasija); Land5 804 → 782 y
+    19 → 13; LandT 341 → 316. Diferencias con `sim.py`: la Piper Cave Entrance es una malla con huesos y `sim.py` usaba
+    los vértices sin transformar; los árboles muertos `sim.py` no los modelaba (son Rock con la malla normal del tipo,
+    creados con ángulo 0 y escala 1, y los ángulos del guion son casi 0). Captura: Land1 junto al Boulder1 Lime
+    (2120, 2494), ya sin los árboles de encima.

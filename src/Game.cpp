@@ -49,6 +49,7 @@
 #include "ECS/CarriedProps.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
+#include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -380,6 +381,8 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
+		// Tree::Process 0x74A290 through Forest::Process: the trees of a forest grow
+		ecs::ProcessTreesTurn(_turnCount);
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
@@ -476,6 +479,8 @@ bool Game::Update() noexcept
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
+	// Tree::PreDraw / Tree::Draw: the trees' brightness this frame and the rustle of the tall ones by the camera
+	ecs::UpdateTrees(std::chrono::duration<float>(deltaTime).count());
 
 	// Fireflies (FireFly::Draw): orbit and fade, in game time
 	ecs::UpdateFireFlies(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
@@ -1165,6 +1170,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 	ecs::ClearFireFlies();
+	ecs::ClearForests();
 	night_lights::Clear();
 
 	const auto data = fileSystem.ReadAll(path);

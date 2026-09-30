@@ -34,6 +34,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "3D/AllMeshes.h"
@@ -689,6 +690,54 @@ void HandSystem::RunDebugHooks() noexcept
 					dump("after");
 				}
 			}
+		}
+	}
+	// Debug: OPENBLACK_TEST_TREE_GROWTH="x,z" plants two beech saplings (size 0.1, max 1.2) there, one in a forest and
+	// one without (the original only grows the trees of a forest). With OPENBLACK_TREE_TRACE=1 every step is logged.
+	if (const char* at = std::getenv("OPENBLACK_TEST_TREE_GROWTH"); at != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			for (const auto& [dx, forest] : {std::pair {0.0f, 1u}, std::pair {10.0f, 0u}})
+			{
+				const glm::vec2 point(x + dx, z);
+				const glm::vec3 position(point.x, Locator::terrainSystem::value().GetHeightAt(point), point.y);
+				const auto tree =
+				    archetypes::TreeArchetype::Create(forest, position, TreeInfo::Beech, true, 0.0f, 1.2f, 0.1f);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: sapling {} at ({:.1f}, {:.1f}) forest {} growing {}",
+				                   static_cast<uint32_t>(tree), point.x, point.y, forest,
+				                   registry.Get<const Tree>(tree).growing);
+			}
+			registry.SetDirty();
+		}
+	}
+	// Debug: OPENBLACK_TEST_REPLANT="x,z,tilt" drops a beech there tilted by `tilt` degrees about x, straight through
+	// ReleaseTree: upright and on flat ground it is replanted, leaning or on a slope it falls (DeadTree).
+	if (const char* at = std::getenv("OPENBLACK_TEST_REPLANT"); at != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		float tilt = 0.0f;
+		if (std::sscanf(at, "%f,%f,%f", &x, &z, &tilt) >= 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			const glm::vec2 point(x, z);
+			const glm::vec3 position(x, Locator::terrainSystem::value().GetHeightAt(point), z);
+			const auto tree = archetypes::TreeArchetype::Create(0, position, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			registry.Get<Transform>(tree).rotation =
+			    glm::mat3(glm::eulerAngleX(glm::radians(tilt))) * registry.Get<const Transform>(tree).rotation;
+			registry.SetDirty();
+			ReleaseTree(tree);
+			const bool alive = registry.Valid(tree);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: dropped tilted {:.0f} deg at ({:.1f}, {:.1f}) -> {}", tilt,
+			                   x, z, !alive                                   ? "gone"
+			                          : registry.AllOf<DeadTree>(tree)        ? "dead tree"
+			                          : physics::PhysicsObjects::Find(tree)   ? "falling (physics)"
+			                                                                  : "replanted, forest " +
+			                                std::to_string(registry.Get<const Tree>(tree).forestId));
 		}
 	}
 }

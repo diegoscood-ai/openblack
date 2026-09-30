@@ -1548,7 +1548,7 @@ void ProcessAnimalsTurn(float visualTime)
 		Delete(entity);
 	}
 	ProcessDownedVillagers();
-	PruneReactions();
+	// (the reactions whose initiator went are pruned at the start of the turn: ECS/Effects/Reactions BeginTurn)
 	RunDebugHooks(g_Turn++);
 }
 

@@ -154,8 +154,6 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge);
 
 // the reactions (ECS/AnimalFlee.cpp)
 void ProcessReaction(Context& ctx);
-/// the reactions whose initiator was deleted go
-void PruneReactions();
 /// the states whose exit function is Animal::ExitReaction (0x41B170)
 bool IsReactionState(uint8_t state);
 /// Animal::ExitReaction: leaving the reaction states the reaction is dropped (the state kept)

@@ -71,15 +71,9 @@ PlayerMagic& magic::players::MagicOf(PlayerNames player)
 
 PlayerAlignment& magic::players::AlignmentOf(PlayerNames player)
 {
-	const auto entity = EntityOf(player);
-	if (entity != entt::null)
-	{
-		auto& registry = Locator::entitiesRegistry::value();
-		if (auto* alignment = registry.TryGet<PlayerAlignment>(entity); alignment != nullptr)
-		{
-			return *alignment;
-		}
-	}
+	// GPlayer +0x60 (GAlignment): 0 for a new game (GGame::Init 0x54FEA0 takes the profile's, esi+0xF4 -> +0x1C, 0 without
+	// one; GPlayer::LoadPlayerAlignment 0x64D355 reads the registry's, clamped -1..1: no profile in openblack); loading
+	// another land does not touch it, so it is kept per PlayerNames, outside the land's registry
 	return g_Alignment[IndexOf(player)];
 }
 
@@ -131,5 +125,5 @@ bool magic::players::HasMagicTypeEverBeenEnabled(PlayerNames player, MagicType t
 void magic::players::Reset()
 {
 	g_Magic.fill(PlayerMagic {});
-	g_Alignment.fill(PlayerAlignment {});
+	// the alignment is not reset: it lives with the player, not with the land (AlignmentOf)
 }

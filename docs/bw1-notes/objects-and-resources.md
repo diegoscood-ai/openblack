@@ -75,9 +75,9 @@
 ### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
 
 - Valor de −1 (malvado) a +1 (bueno) en +0x08 y un cambio pendiente en +0x0C. Partida nueva: 0 (`GGame::Init`
-  0x54FEA0 toma el del perfil, 0 sin él). En el original vive con el jugador, no con la tierra; en openblack está en la
-  entidad del jugador (`components::PlayerAlignment`, la misma que usan los milagros con `GAlignment::Update` 0x414410),
-  que se rehace con cada mapa, así que de momento **sí** vuelve a 0 al cargar otra tierra.
+  0x54FEA0 toma el del perfil, 0 sin él). Vive con el jugador, no con la tierra (no se borra al cargar
+  mapa): en openblack, un `components::PlayerAlignment` por `PlayerNames` fuera del registro de la tierra
+  (`Magic/Core/Players`, `AlignmentOf`), el mismo que usan los milagros con `GAlignment::Update` 0x414410.
 - **Actos** (`GAlignment::Update` 0x4145A0 para árboles): ±`GPlayerInfo::treePullPutAlignmentChange` (0,005), pesado por
   la alineación actual (fn_00414660): hacia donde ya se inclina cuenta `v·(1 − |a|/2)`, en contra `v·(1 + |a|/2)`; se suma
   al pendiente. Arrancar con la mano (`Tree::InterfaceSetInMagicHand`) es malo; replantar (`Tree::EndPhysics`) y el árbol

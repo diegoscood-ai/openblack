@@ -39,6 +39,8 @@ namespace
 std::vector<reactions::Reaction> g_Reactions;
 uint32_t g_NextId = 1;
 uint32_t g_Turn = 0;
+/// between BeginTurn and EndTurn the map cells were rebuilt at the start of the turn (Game::GameLogicLoop)
+bool g_InTurn = false;
 std::array<reactions::LivingReactionHandler, 3> g_Handlers {};
 
 reactions::Reaction* FindMutable(uint32_t id)
@@ -151,8 +153,12 @@ void reactions::SpreadReaction(uint32_t id)
 		return;
 	}
 	const Reaction reaction = *found;
-	// the map cells as they are now (a spread at map load runs before the turn's rebuild)
-	Locator::entitiesMap::value().Rebuild();
+	// outside the turn (the map script at load, the debug hooks) the cells are rebuilt first; inside it they are the
+	// turn's (Game::GameLogicLoop rebuilds them before the Living)
+	if (!g_InTurn)
+	{
+		Locator::entitiesMap::value().Rebuild();
+	}
 	const glm::vec2 at = PosOf(reaction.initiator);
 	const int side = std::max(1, static_cast<int>(reaction.radius * 0.2f));
 	const int cells = side * side;
@@ -371,13 +377,22 @@ uint32_t reactions::Turn()
 	return g_Turn;
 }
 
-void reactions::SetTurn(uint32_t turn)
+void reactions::BeginTurn(uint32_t turn)
 {
 	g_Turn = turn;
+	g_InTurn = true;
+	Prune();
+}
+
+void reactions::EndTurn()
+{
+	g_InTurn = false;
 }
 
 void reactions::Clear()
 {
 	g_Reactions.clear();
 	g_NextId = 1;
+	g_Turn = 0;
+	g_InTurn = false;
 }

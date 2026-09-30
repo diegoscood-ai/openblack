@@ -38,7 +38,7 @@
 /// each animal of a cell to this handler): the animal's score, its records (common to the Living, in the reactions
 /// module) and the rule to switch from the reaction it already takes. Ported types: 28 flee from predator (a predator's construction),
 /// 7 food (a food pile: the map's CREATE_POT, a pot the hand puts down), 9 flying object (every throw from the hand).
-/// openblack's villagers don't take reactions yet.
+/// The villagers take theirs through the same module (VillagerReactions.cpp: fire and teleport).
 namespace openblack::ecs::animal_ai
 {
 using components::Animal;
@@ -49,7 +49,6 @@ namespace
 {
 constexpr uint8_t k_ReactToFood = 7;
 constexpr uint8_t k_ReactToFlyingObject = 9;
-constexpr uint8_t k_ReactToHandPickUp = 16;
 constexpr uint8_t k_FleeFromPredator = 28;
 
 namespace reactions = effects::reactions;
@@ -320,7 +319,7 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	{
 		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::g_Turn))
 		{
-			reactions::MarkStarted(reaction.id, reactions::Turn());
+			reactions::MarkStarted(reaction.id, detail::g_Turn);
 			StartReacting(entity, *brain, reaction);
 		}
 		return;
@@ -344,16 +343,34 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	StartReacting(entity, *brain, reaction);
 }
 
-/// Reaction::CreateReaction (0x6E3D70) of an animal-side initiator (a predator, a pot, a thrown object): made and
-/// spread once (ECS/Effects/Reactions); their GetPlayer is taken as the neutral one
-uint32_t CreateReaction(entt::entity initiator, uint8_t type)
+/// Reaction::CreateReaction (0x6E3D70) of an animal-side initiator: made and spread once (ECS/Effects/Reactions), with
+/// the player the original passes (+0x38): the predator's GetPlayer (fn_0041FD30, 0x41FD5C), the pot's GetPlayer
+/// (Pot::SetupReaction 0x66D660), the thrower's GInterfaceStatus::GetPlayer (0x637405)
+uint32_t CreateReaction(entt::entity initiator, uint8_t type, PlayerNames player)
 {
 	if (!Locator::infoConstants::has_value() || !Locator::entitiesRegistry::value().Valid(initiator))
 	{
 		return 0;
 	}
-	return reactions::CreateReaction(initiator, static_cast<openblack::Reaction>(type), PlayerNames::NEUTRAL, false);
+	return reactions::CreateReaction(initiator, static_cast<openblack::Reaction>(type), player, false);
 }
+
+/// Animal::GetPlayer: the player of a spell's animal, else none (the neutral player, inf)
+PlayerNames PlayerOfAnimal(entt::entity animal)
+{
+	const auto* component = Locator::entitiesRegistry::value().TryGet<const Animal>(animal);
+	if (component == nullptr || component->player < 0 || component->player >= static_cast<int32_t>(PlayerNames::_COUNT))
+	{
+		return PlayerNames::NEUTRAL;
+	}
+	return static_cast<PlayerNames>(component->player);
+}
+
+/// The Animal handler from the start (before any map load too)
+const bool k_AnimalHandlerRegistered = [] {
+	reactions::SetLivingReactionHandler(reactions::LivingClass::Animal, &AnimalReaction);
+	return true;
+}();
 
 /// Reaction::RemoveAllReactionsInitiatedByObject [of one type, or all]
 void RemoveReactions(entt::entity initiator, int type)
@@ -449,14 +466,15 @@ void SetupPotReaction(entt::entity pot)
 	{
 		return;
 	}
-	for (const auto& reaction : reactions::All())
+	// the pot's own flag (+0x74 & 2): its associatedReaction is there already (not the other types it may start, the
+	// fire's REACT_TO_FIRE)
+	if (reactions::GetReactionOfTypeInitiatedBy(pot, static_cast<openblack::Reaction>(potInfo->associatedReaction)) != 0)
 	{
-		if (reaction.initiator == pot && reaction.available)
-		{
-			return;
-		}
+		return;
 	}
-	CreateReaction(pot, static_cast<uint8_t>(potInfo->associatedReaction));
+	// Pot::GetPlayer: the pile's owner (MagicFood +0xBC / MagicWood +0xB4; a map pot keeps the default, inf)
+	const auto* data = Locator::entitiesRegistry::value().TryGet<const components::Pot>(pot);
+	CreateReaction(pot, static_cast<uint8_t>(potInfo->associatedReaction), data != nullptr ? data->owner : PlayerNames::NEUTRAL);
 }
 
 void RemovePotReaction(entt::entity pot)
@@ -465,9 +483,9 @@ void RemovePotReaction(entt::entity pot)
 	RemoveReactions(pot, -1);
 }
 
-void SpreadFlyingObjectReaction(entt::entity object)
+void SpreadFlyingObjectReaction(entt::entity object, PlayerNames thrower)
 {
-	CreateReaction(object, k_ReactToFlyingObject);
+	CreateReaction(object, k_ReactToFlyingObject, thrower);
 }
 
 void EndReactionsOf(entt::entity object)
@@ -484,7 +502,7 @@ void SpreadPredatorReaction(entt::entity predator)
 		return;
 	}
 	// fn_0041FD30: the predator's permanent reaction 28
-	CreateReaction(predator, k_FleeFromPredator);
+	CreateReaction(predator, k_FleeFromPredator, PlayerOfAnimal(predator));
 }
 
 void ClearReactions()
@@ -495,11 +513,6 @@ void ClearReactions()
 
 namespace detail
 {
-void PruneReactions()
-{
-	// a deleted initiator takes its reactions with it (Object::ToBeDeleted)
-	effects::reactions::Prune();
-}
 } // namespace detail
 
 namespace detail

@@ -51,6 +51,7 @@
 #include "ECS/CarriedProps.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
+#include "ECS/Effects/Reactions.h"
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
@@ -344,6 +345,8 @@ bool Game::GameLogicLoop() noexcept
 
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
+	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
+	ecs::effects::reactions::BeginTurn(static_cast<uint32_t>(_turnCount));
 
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();
@@ -388,8 +391,6 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
-		// Tree::Process 0x74A290 through Forest::Process: the trees of a forest grow
-		ecs::ProcessTreesTurn(_turnCount);
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
@@ -397,6 +398,7 @@ bool Game::GameLogicLoop() noexcept
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
+	ecs::effects::reactions::EndTurn();
 
 	_lastGameLoopTime = currentTime;
 	_turnDeltaTime = delta;

@@ -25,9 +25,9 @@ entt::entity PlayerArchetype::Create(PlayerNames name)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
 	registry.Assign<Player>(entity, name);
-	// the GPlayer magic fields and its GAlignment; PLAYER_ONE is the human at this interface (+0x8E0 = 1, inf)
+	// the GPlayer magic fields; PLAYER_ONE is the human at this interface (+0x8E0 = 1, inf). Its GAlignment (+0x60)
+	// is not on the entity: it lives with the player across lands (Magic/Core/Players, AlignmentOf)
 	auto& magic = registry.Assign<PlayerMagic>(entity);
 	magic.playerType = name == PlayerNames::PLAYER_ONE ? 1 : 0;
-	registry.Assign<PlayerAlignment>(entity);
 	return entity;
 }

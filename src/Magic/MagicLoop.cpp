@@ -21,6 +21,7 @@
 #include "Objects/MagicTeleport.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/Trees.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fire/FireDebugHooks.h"
 #include "ECS/Fire/FireEffect.h"
@@ -80,15 +81,16 @@ void magic::ProcessTurn(uint32_t turn)
 	//  4 Dance::ProcessDances 0x50BB60                                      [M7]
 	//    (and the first turn's GPlayer::PostLoadCleanup, the worship test hooks, the spell dispensers)
 	worship::ProcessTurn(turn); // Worship/Worship.cpp
-	//  5 Forest::ProcessForests 0x539D70: ecs::ProcessTreesTurn (ECS/Trees.cpp, the "arboles" session), called by Game.cpp
-	//    after the scripts block (the forests are ids there; the spell forests are made by Magic/Spells/SpellForest)
+	//  5 Forest::ProcessForests 0x539D70 -> Forest::Process 0x539DA0 (Tree::Process 0x74A290 of their trees): ECS/Trees.cpp
+	//    of the "arboles" session (the spell forests are made by Magic/Spells/SpellForest)
+	ecs::ProcessTreesTurn(turn);
 	// --- Living: openblack's livingActionSystem, already run
 	//  6 FireEffect::ProcessList 0x730760                                   [M5 fire]
 	ecs::fire::RunDebugHooks(turn); // OPENBLACK_TEST_FIRE (ECS/Fire/FireDebugHooks.cpp)
 	ecs::fire::graphic::SetTurn(turn);
 	ecs::fire::ProcessList(); // ECS/Fire/FireEffect.cpp
 	//  7 Reaction::ProcessReactions 0x6E3B50 (the data only: the turn stamp)
-	ecs::effects::reactions::SetTurn(turn);
+	// (the reactions' clock is set at the start of the turn: Game.cpp, reactions::BeginTurn)
 	//  8 Spell::ProcessSpells 0x720300
 	ProcessSpells(turn);
 	fireball::ProcessTurn(turn); // Magic/Objects/MagicFireBall: the balls whose atoms are gone

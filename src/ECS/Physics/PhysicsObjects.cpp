@@ -1135,7 +1135,8 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	if (fromHand)
 	{
 		// Object::InitialisePhysicsFromHand (0x637412): the flying-object reaction, once (the predators flee from it)
-		ecs::animal_ai::SpreadFlyingObjectReaction(entity);
+		// the thrower: the hand's player (GInterfaceStatus::GetPlayer, 0x637405; PLAYER_ONE's interface here)
+		ecs::animal_ai::SpreadFlyingObjectReaction(entity, PlayerNames::PLAYER_ONE);
 	}
 	return g_Objects.back().get();
 }

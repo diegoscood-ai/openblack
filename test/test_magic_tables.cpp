@@ -7,6 +7,7 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -256,6 +257,12 @@ TEST(MagicTables, realInfoDat)
 	EXPECT_EQ(storm.holderParticle, ParticleType::LightningStormOnHolder);
 	EXPECT_FLOAT_EQ(storm.unknown0x15C, 0.1f);
 	EXPECT_EQ(GetPowerUpLevel(*info, MagicType::Tornado), 1);
+	// Reaction::Reaction 0x6E39D0's radius: whetherReactionGrows ? 1 : maxReactionDistance (REACT_TO_FIRE 10,
+	// REACT_TO_TELEPORT)
+	const auto& fire = info->reaction.at(static_cast<size_t>(Reaction::ReactToFire));
+	// REACT_TO_FIRE does not grow: its spread reaches 35 m, the maxReactionDistance
+	EXPECT_EQ(fire.whetherReactionGrows, 0u);
+	EXPECT_FLOAT_EQ(fire.maxReactionDistance, 35.0f);
 	EXPECT_EQ(GetSpellSeedFromText(*info, "Heal"), 7);
 	EXPECT_EQ(psys::ParticleTypeFile(GetMagicInfo(*info, MagicType::Forest).particleType), "SF_Forest");
 	// a villager's starting life (Living::Living 0x5EBEC0: SetLife(GLivingInfo::life))

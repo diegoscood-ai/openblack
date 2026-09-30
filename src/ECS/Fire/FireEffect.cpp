@@ -589,6 +589,12 @@ void Process(FireEffect& fire)
 	// the fire's reaction (not for objects in the hand or thrown, Object +0x24 & 0x44)
 	if (!traits::InHand(fire.object))
 	{
+		// a reaction removed with the rest of its object's (Pot::RemoveReaction 0x66D6A0 takes them all): the id is
+		// forgotten, and a new one made while it burns (inf: the original keeps a pointer there)
+		if (fire.reaction != 0 && effects::reactions::Find(fire.reaction) == nullptr)
+		{
+			fire.reaction = 0;
+		}
 		if (fire.reaction == 0)
 		{
 			if (fire.IsAboveReactionTemperature() && !traits::IsVillager(fire.object))

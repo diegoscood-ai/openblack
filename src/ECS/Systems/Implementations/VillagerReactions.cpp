@@ -33,6 +33,12 @@ void VillagerReaction(entt::entity villager, const effects::reactions::Reaction&
 		break;
 	}
 }
+
+/// The Villager handler from the start (before any map load too); Register() sets it again at each load
+const bool k_VillagerHandlerRegistered = [] {
+	effects::reactions::SetLivingReactionHandler(effects::reactions::LivingClass::Villager, &VillagerReaction);
+	return true;
+}();
 } // namespace
 
 void villager_reactions::Register()

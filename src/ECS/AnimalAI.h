@@ -89,7 +89,7 @@ void RemovePotReaction(entt::entity pot);
 void ClearReactions();
 /// Reaction 9 (Object::InitialisePhysicsFromHand 0x637412): anything the hand throws or drops offers itself once to the
 /// predators within 25 m, which flee when it comes fast enough
-void SpreadFlyingObjectReaction(entt::entity object);
+void SpreadFlyingObjectReaction(entt::entity object, PlayerNames thrower);
 
 /// Reaction::CreateReaction(predator, 28) at a predator's construction (fn_0041FD30 0x41FD5C): the flee-from-predator
 /// reaction is spread once, then, to the animals within 25 m (the per-turn re-spreading is off in the shipped game)

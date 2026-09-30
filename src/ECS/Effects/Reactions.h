@@ -23,7 +23,7 @@
 // to the Living there, each class with its own handler (the animals' in ECS/AnimalFlee.cpp, the villagers' in
 // ECS/Systems/Implementations/VillagerReactions.cpp). The per-turn re-spreading (Reaction::ProcessReactions) is behind a
 // debug flag the shipped game never sets. The parts every Living shares are here: its records (Living +0x98), the score
-// fn_006E4620 and the rule to switch from the reaction it takes. Research: dev	mp_disnimalslee.md, reactions.md;
+// fn_006E4620 and the rule to switch from the reaction it takes. Research: dev/tmp_dis/animals/flee.md, reactions.md;
 // wiki docs/bw1-notes/animals.md and magic.md.
 
 namespace openblack::ecs::effects::reactions
@@ -60,7 +60,10 @@ void SetLivingReactionHandler(LivingClass living, LivingReactionHandler handler)
 uint32_t CreateReaction(entt::entity initiator, openblack::Reaction type, PlayerNames player, bool stamp);
 
 /// SpreadReaction 0x6E3E10: (max(1, trunc(radius x 0.2)))^2 x GetReactionPower (1) map cells of GUtils::Spiral from
-/// the initiator's cell, the ones within the radius; each cell's Living, in the cell's order, to its class's handler
+/// the initiator's cell, the ones within the radius; each cell's Living, in the cell's order, to its class's handler.
+/// (aproximado) The cells are openblack's map grid, rebuilt once per turn (and before a spread outside the turn), not
+/// the original's lists that follow every move; a cell's order is the grid's (the registry's), not the original's
+/// insertion order.
 void SpreadReaction(uint32_t reaction);
 
 /// Reaction::RemoveAllReactionsInitiatedByObject 0x6E4750
@@ -111,10 +114,15 @@ void RefreshRecord(entt::entity living, uint8_t type, uint32_t now);
 /// second if the current one is 16 REACT_TO_HAND_PICK_UP); `seconds` = (turn - its record's turn) / 10
 [[nodiscard]] bool MaySwitch(float currentScore, float newScore, float seconds, uint8_t currentType);
 
-/// The game turn of the last SetTurn
+/// The game turn (GGame +0x205A40, Game's turn count) as BeginTurn set it: the one clock of the reactions' stamps and
+/// the villagers' records (the animals' records still run on their own animal_ai turn, the "animales" session's)
 [[nodiscard]] uint32_t Turn();
-/// The game turn (for the created stamp)
-void SetTurn(uint32_t turn);
-/// A land is loaded (the handlers stay)
+/// The start of a game turn (Game::GameLogicLoop, before the Living): the turn for the stamps, and the reactions whose
+/// initiator was deleted go (Object::ToBeDeleted -> RemoveAllReactionsInitiatedByObject; here once per turn, inf)
+void BeginTurn(uint32_t turn);
+/// The end of the game turn's logic: from here to the next BeginTurn a spread rebuilds the map cells first (the map
+/// script and the debug hooks create reactions outside the turn, when the cells are not up to date)
+void EndTurn();
+/// A land is loaded: no reactions, turn 0, outside a turn (the handlers stay)
 void Clear();
 } // namespace openblack::ecs::effects::reactions

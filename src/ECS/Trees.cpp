@@ -16,11 +16,13 @@
 #include <limits>
 #include <array>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
 #include <spdlog/spdlog.h>
 
+#include <fmt/format.h>
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
@@ -28,6 +30,7 @@
 #include <glm/vec3.hpp>
 
 #include "Audio/AnimationSounds.h"
+#include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Archetypes/TreeArchetype.h"
@@ -226,6 +229,100 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 	return entt::null;
 }
 
+namespace
+{
+/// GAudio::PlaySoundEffect at a position: a one-shot 3D emitter, within the sample's max distance of the camera
+void PlayAt(const std::string& name, glm::vec3 position)
+{
+	if (!Locator::audio::has_value() || !Locator::camera::has_value())
+	{
+		return;
+	}
+	const auto id = entt::hashed_string(name.c_str()).value();
+	if (!Locator::resources::value().GetSounds().Contains(id))
+	{
+		return;
+	}
+	auto& audio = Locator::audio::value();
+	const auto& sound = audio.GetSound(id);
+	if (glm::distance(position, Locator::camera::value().GetOrigin()) > sound.maxDistance)
+	{
+		return;
+	}
+	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f),
+	                                         sound.volume, audio::AudioStatus::Playing, false);
+	Locator::entitiesRegistry::value().Get<Transform>(emitter).position = position;
+	audio.PlayEmitter(emitter);
+}
+
+/// The trees of a forest (both of the original's lists)
+std::vector<entt::entity> ForestTrees(uint32_t forestId)
+{
+	std::vector<entt::entity> trees;
+	Locator::entitiesRegistry::value().Each<const Tree>([&](entt::entity entity, const Tree& tree) {
+		if (forestId != 0 && tree.forestId == forestId)
+		{
+			trees.push_back(entity);
+		}
+	});
+	return trees;
+}
+} // namespace
+
+float openblack::ecs::GrowAllTrees(uint32_t forestId, float amount)
+{
+	float total = 0.0f;
+	for (const auto tree : ForestTrees(forestId))
+	{
+		total += std::max(0.0f, GrowTree(tree, amount, false));
+	}
+	return total;
+}
+
+float openblack::ecs::ShrinkAllTrees(uint32_t forestId, float amount)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	float total = 0.0f;
+	for (const auto tree : ForestTrees(forestId))
+	{
+		auto& transform = registry.Get<Transform>(tree);
+		const float size = transform.scale.x - amount;
+		if (size <= 0.0f)
+		{
+			registry.Destroy(tree);
+			continue;
+		}
+		transform.scale = glm::vec3(size);
+		if (auto* fixed = registry.TryGet<Fixed>(tree); fixed != nullptr)
+		{
+			const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(registry.Get<const Tree>(tree).type));
+			const auto [point, radius] = archetypes::GetFixedObstacleBoundingCircle(info.normal, transform);
+			fixed->boundingCenter = point;
+			fixed->boundingRadius = radius;
+		}
+		total += amount;
+	}
+	registry.SetDirty();
+	return total;
+}
+
+float openblack::ecs::TallestTreeHeight(uint32_t forestId)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& meshes = Locator::resources::value().GetMeshes();
+	float tallest = 0.0f;
+	for (const auto tree : ForestTrees(forestId))
+	{
+		const auto* mesh = registry.TryGet<const Mesh>(tree);
+		if (mesh == nullptr || !meshes.Contains(mesh->id))
+		{
+			continue;
+		}
+		tallest = std::max(tallest, meshes.Handle(mesh->id)->GetBoundingBox().Size().y * registry.Get<const Transform>(tree).scale.y);
+	}
+	return tallest;
+}
+
 entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaximum)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -248,7 +345,8 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 		if (GrowTree(entity, amount, raiseMaximum) != 0.0f)
 		{
 			tree->growing = true;
-			// TODO: sample 0x78 + GetTickCount() % 9 at the tree
+			// sample 0x78 + GetTickCount() % 9 (InGame.sad 120-128, G_TreeGrow) at the tree
+			PlayAt(fmt::format("InGame.sad/{}", 120 + Locator::rng::value().NextValue<uint32_t>(0, 8)), transform->position);
 		}
 	}
 	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && g_currentTurn - g_lastTreeCreatedTurn > 40)

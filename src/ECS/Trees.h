@@ -69,6 +69,17 @@ entt::entity PlantTreeNear(uint32_t forestId, entt::entity parent);
 /// alignment and the 0xE statistic).
 entt::entity ApplyWaterSpell(entt::entity tree, bool raiseMaximum);
 
+/// fn_0053A520 (SpellForest::ProcessTrees 0x725A30): every tree of the forest gets Tree::Grow(amount, false, false);
+/// returns the sum of what they grew.
+float GrowAllTrees(uint32_t forestId, float amount);
+
+/// fn_0053A490: every tree of the forest shrinks by `amount` (fn_0074A3A0: a tree that would reach 0 is deleted and adds
+/// nothing); returns the sum of what they shrank.
+float ShrinkAllTrees(uint32_t forestId, float amount);
+
+/// fn_0053A740: the height (Object::GetHeight, mesh height x scale) of the forest's tallest tree, 0 if it has none.
+[[nodiscard]] float TallestTreeHeight(uint32_t forestId);
+
 /// On map load: the forests go with the map.
 void ClearForests();
 

@@ -9,6 +9,10 @@
 
 #include "ShaderProgram.h"
 
+#include <mutex>
+#include <string>
+#include <unordered_set>
+
 #include <spdlog/spdlog.h>
 
 #include "FileSystem/FileSystemInterface.h"
@@ -17,6 +21,17 @@
 
 namespace openblack::graphics
 {
+namespace
+{
+// A missing uniform is set every frame: warning each time filled the log with gigabytes. Once per shader and name.
+bool FirstMissing(const std::string& shader, std::string_view name)
+{
+	static std::mutex mutex;
+	static std::unordered_set<std::string> warned;
+	const std::lock_guard lock(mutex);
+	return warned.insert(shader + '/' + std::string(name)).second;
+}
+} // namespace
 
 ShaderProgram::ShaderProgram(const std::string& name, ShaderHandle vertexShader, ShaderHandle fragmentShader)
     : _name(name)
@@ -67,7 +82,11 @@ void ShaderProgram::SetTextureSampler(const char* samplerName, uint8_t bindPoint
 	}
 	else
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find texture sampler {}", samplerName);
+		if (FirstMissing(_name, samplerName))
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find texture sampler {} in {} Shader (warned once)",
+			                   samplerName, _name);
+		}
 	}
 }
 
@@ -80,7 +99,11 @@ void ShaderProgram::SetTextureSampler(const char* samplerName, uint8_t bindPoint
 	}
 	else
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find texture sampler {}", samplerName);
+		if (FirstMissing(_name, samplerName))
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find texture sampler {} in {} Shader (warned once)",
+			                   samplerName, _name);
+		}
 	}
 }
 
@@ -93,7 +116,11 @@ void ShaderProgram::SetUniformValue(const char* uniformName, const void* value, 
 	}
 	else
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find uniform {} in {} Shader", uniformName, _name);
+		if (FirstMissing(_name, uniformName))
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Could not find uniform {} in {} Shader (warned once)", uniformName,
+			                   _name);
+		}
 	}
 }
 

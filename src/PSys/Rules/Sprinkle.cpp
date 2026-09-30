@@ -77,13 +77,15 @@ public:
 			auto& atom = effect.NewAtom(collection, source, nextGroups);
 			atom.position = target;
 		}
-		// TODO(M2): this computer's interface casting clears the collection's interpolation flag (bit 1 of +0x38) and gives
-		// each atom a DrawOffsetLT (0x6C75A0) that draws it at the hand between turns
+		// not ported: this computer's interface casting clears the collection's interpolation flag (bit 1 of +0x38) and
+		// gives each atom a DrawOffsetLT (0x6C75A0) that draws it at the hand between turns (here: where the step
+		// left it)
 		const float dt = effect.GetDt();
 		const float extra = effect.IsHumanPlayerCasting() ? initSpeedYHuman : 0.0f;
 		for (auto& atom : collection.atoms)
 		{
 			// vel = (0, (target.y - y) x (1 / dt) (0xD4E0F0) + InitSpeedYHumanPlayerCasting for a human caster, 0); pos = target
+			// the max(dt, eps) is a port guard: the original multiplies by [0xD4E0F0] = 1/dt directly
 			atom->velocity = glm::vec3(0.0f, (target.y - atom->position.y) / std::max(dt, 1e-4f) + extra, 0.0f);
 			atom->position = target;
 		}

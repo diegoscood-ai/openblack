@@ -8,6 +8,8 @@
  *******************************************************************************/
 
 #include "VillagerTeleport.h"
+#include "VillagerFire.h"
+#include "VillagerMove.h"
 #include "VillagerReactions.h"
 
 #include <cmath>
@@ -105,13 +107,18 @@ VillagerStates FinalState(const LivingAction& action)
 	return info != nullptr && info->isFinalState != 0 ? top : Get(action, LivingAction::Index::Final);
 }
 
-/// Villager::SetTopState (vt 0x8E8), as VillagerFire.cpp does it (the move ends, no destination state)
+/// Villager::SetTopState (vt 0x8E8), as VillagerFire.cpp does it (the move ends, no destination state): the old final
+/// state's exit (VillagerFire.cpp) runs with the new state; the teleport states have no entry function
 void SetTopState(entt::entity villager, VillagerStates state)
 {
 	auto* action = ActionOf(villager);
 	if (action == nullptr)
 	{
 		return;
+	}
+	if (const auto previous = FinalState(*action); previous != state)
+	{
+		villager_fire::CallFinalStateExit(villager, previous, state);
 	}
 	RemoveMoveTags(villager);
 	System().VillagerSetState(*action, LivingAction::Index::Final, VillagerStates::InvalidState, true);
@@ -151,23 +158,10 @@ void PopFromPrevious(entt::entity villager)
 	action->states.at(static_cast<size_t>(LivingAction::Index::Previous)) = 0;
 }
 
-/// Living::SetupMoveToWithHug 0x5F2890: MOVE_TO_POS with `final` as the destination state
+/// Living::SetupMoveToWithHug 0x5F2890: the villagers' shared one (VillagerMove.cpp: TOP, then FINAL)
 void SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, VillagerStates final)
 {
-	auto* action = ActionOf(villager);
-	auto& registry = Reg();
-	auto* wallHug = registry.TryGet<WallHug>(villager);
-	if (action == nullptr || wallHug == nullptr)
-	{
-		return;
-	}
-	wallHug->goal = goal;
-	wallHug->step = glm::vec2(0.0f);
-	RemoveMoveTags(villager);
-	registry.Remove<WallHugObjectReference>(villager);
-	registry.Assign<MoveStateLinearTag>(villager);
-	System().VillagerSetState(*action, LivingAction::Index::Final, final, true);
-	System().VillagerSetState(*action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
+	villager::SetupMoveToWithHug(villager, goal, final);
 }
 
 /// fn_006E4340 on the villager's records (Living +0x98, common to the Living: ECS/Effects/Reactions): may it react to
@@ -223,14 +217,11 @@ void ApplyTeleportReaction(entt::entity villager, const effects::reactions::Reac
 	{
 		return;
 	}
-	const auto priority = static_cast<float>(villager_teleport::ReactToTeleportPriority(villager, reaction.id));
-	float score = info.maxReactionDistance > 0.0f
-	                  ? priority * (0.5f * (info.howImportantIsDistance * (info.maxReactionDistance - distance) /
-	                                        info.maxReactionDistance) +
-	                                1.0f)
-	                  : priority;
-	score = score < 255.0f ? score : 255.0f;
-	if (static_cast<uint8_t>(score) == 0 ||
+	// fn_006E4620 (ECS/Effects/Reactions: Score)
+	const auto priority = villager_teleport::ReactToTeleportPriority(villager, reaction.id);
+	const auto score =
+	    effects::reactions::Score(static_cast<uint8_t>(openblack::Reaction::ReactToTeleport), true, priority, distance);
+	if (score == 0 ||
 	    !MayReactAgain(villager, openblack::Reaction::ReactToTeleport, info.numGameTurnsForNormalThingsBeforeReactingAgain))
 	{
 		return;
@@ -349,6 +340,8 @@ uint32_t villager_teleport::TeleportReaction(LivingAction& action)
 {
 	auto& registry = Reg();
 	const auto villager = registry.ToEntity(action);
+	// 0x7663FB / 0x76641C: no reaction, or its initiator not a MagicTeleport: nothing (the state stays, as in the
+	// original)
 	const auto it = g_States.find(villager);
 	if (it == g_States.end())
 	{
@@ -389,7 +382,8 @@ void villager_teleport::LandAt(entt::entity villager, const glm::vec3& mapPositi
 		return;
 	}
 	// fn_005DA0C0: the interface puts the villager down at the stone; FLYING then LANDED are its landing, and then
-	// DecideWhatToDo (vt 0x8C8) chooses where it goes
+	// DecideWhatToDo (vt 0x8C8) chooses where it goes. (aproximado) FLYING and LANDED are not run: it is put at the
+	// stone and decides at once
 	transform->position = magic::ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
 	DecideWhatToDo(villager);
 	Reg().SetDirty();

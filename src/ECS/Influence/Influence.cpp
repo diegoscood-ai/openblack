@@ -32,7 +32,8 @@ namespace
 /// g_game+0x14 & 0x2000 (not part of a land: set once at start in the original)
 bool g_everywhere = false;
 
-/// fn_005CDBD0 + the `obj+0x24 & 4` test in CalculatePlayerRawInfluence: the ring's object is held in a hand
+/// fn_005CDBD0 + the `obj+0x24 & 4` test in CalculatePlayerRawInfluence: the ring's object is held in a hand.
+/// (aproximado): any hand in the original; only openblack's local hand is checked
 bool IsAttachedObjectInHand(const InfluenceRing& ring)
 {
 	if (ring.attached == entt::null || !Locator::handSystem::has_value())

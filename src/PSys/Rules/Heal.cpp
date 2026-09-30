@@ -192,6 +192,7 @@ public:
 				continue;
 			}
 			auto& data = *std::static_pointer_cast<ChakraData>(found->second);
+			// 0x6A0D28..0x6A0D51: the first atom, sound not started (+0x2E) and GetAtomAge > 0 -> StartSound
 			if (index == 0 && !data.soundStarted && effect.AtomAge(atom) > 0.0f)
 			{
 				data.soundStarted = true;

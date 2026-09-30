@@ -93,7 +93,8 @@ glm::vec3 OrbPosition(entt::entity dispenser)
 	return Registry().Get<const Transform>(dispenser).position + glm::vec3(0.0f, HeightOf(dispenser) * k_OrbHeight, 0.0f);
 }
 
-/// Object::IsTouching 0x637E00 (orb, 0.001): (inf) the orb still stands where the dispenser made it
+/// Object::IsTouching 0x637E00 (orb, 0.001 = 0x3A83126F): (inf) the orb still stands where the dispenser made it.
+/// (inferido): IsTouching is not ported; the extra 0.5 m and the xz-only test are openblack's
 bool OrbStillThere(entt::entity dispenser, entt::entity orb)
 {
 	auto& registry = Registry();
@@ -294,7 +295,7 @@ bool dispenser::ApplySeed(entt::entity dispenser, entt::entity seedEntity)
 		return false;
 	}
 	auto& seed = registry.Get<SpellSeed>(seedEntity);
-	// fn_00728C50: only a seed that has not cast (+0x98 == 0)
+	// fn_00728C50: only a seed that has not cast (+0x98 == 0); (inferido): +0x98 taken as openblack's lastMagic
 	if (seed.lastMagic != MagicType::None)
 	{
 		return false;

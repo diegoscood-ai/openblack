@@ -82,7 +82,8 @@ struct Spell
 	entt::entity seed {entt::null};          ///< +0xAC the SpellSeed that cast it
 	uint32_t psys {0};                       ///< +0xB0 PSysInterface (psys::manager id), 0 none
 	float age {0.0f};                        ///< +0xB8 seconds
-	float magnitude {1.0f};                  ///< +0xBC the radius (castData.magnitude, 40 without cast data)
+	/// +0xBC the radius: set by InitWithPos 0x71FE50 (castData.magnitude; 40, 0x8CF300, with no cast data)
+	float magnitude {1.0f};
 	glm::vec3 originalCastPos {0.0f};        ///< +0xC0
 	glm::vec3 castPos {0.0f};                ///< +0xCC follows the hand for in-hand spells
 	glm::vec3 direction {0.0f};              ///< +0xD8 = processInfo.direction at init

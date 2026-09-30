@@ -25,12 +25,14 @@ constexpr size_t k_Players = static_cast<size_t>(PlayerNames::_COUNT);
 std::array<PlayerMagic, k_Players> g_Magic {};
 std::array<PlayerAlignment, k_Players> g_Alignment {};
 
+/// (inferido: guard) the original indexes directly; a bad player falls to the neutral one
 size_t IndexOf(PlayerNames player)
 {
 	const auto index = static_cast<size_t>(player);
 	return index < k_Players ? index : static_cast<size_t>(PlayerNames::NEUTRAL);
 }
 
+/// (inferido: guard) the original indexes directly; a bad MAGIC_TYPE falls to 0
 size_t TypeIndex(MagicType type)
 {
 	const auto index = static_cast<size_t>(type);

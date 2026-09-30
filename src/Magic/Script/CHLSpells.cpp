@@ -28,6 +28,7 @@
 #include "Magic/Core/Spell.h"
 #include "Magic/Core/SpellCreator.h"
 #include "Magic/MagicTables.h"
+#include "Magic/Script/ScriptPlayer.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -44,18 +45,11 @@ glm::vec3 PopPosition(lhvm::LHVM& vm)
 	return {x, y, z};
 }
 
-/// GScript::ConvertScriptPlayerToGamePlayer 0x6EB9A0 + GGame::GetPlayer 0x5509B0: script player n is game player n - 1,
-/// 0 the neutral player; none from 9 on
+/// ftol, then ConvertScriptPlayerToGamePlayer 0x6EB9A0 (Magic/Script/ScriptPlayer.h): 0 the neutral player (the byte
+/// g_game +0x205A5B), n game player n - 1; none from 9 on
 bool ScriptPlayer(float value, PlayerNames& player)
 {
-	const auto script = static_cast<int32_t>(value); // ftol
-	const int32_t game = script == 0 ? static_cast<int32_t>(PlayerNames::NEUTRAL) : script - 1;
-	if (game < 0 || game >= static_cast<int32_t>(PlayerNames::_COUNT))
-	{
-		return false;
-	}
-	player = static_cast<PlayerNames>(game);
-	return true;
+	return magic::ScriptPlayerToGamePlayer(static_cast<int32_t>(value), player); // ftol
 }
 
 bool ValidMagic(int32_t magic)

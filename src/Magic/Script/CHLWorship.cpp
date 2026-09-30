@@ -24,6 +24,7 @@
 #include "Locator.h"
 #include "Magic/Core/OneOffSpellSeed.h"
 #include "Magic/Core/Players.h"
+#include "Magic/Script/ScriptPlayer.h"
 #include "Worship/Citadel.h"
 #include "Worship/PlayerSpellIcons.h"
 #include "Worship/SpellDispenser.h"
@@ -54,18 +55,11 @@ entt::entity ScriptThing(uint32_t id)
 	return entity;
 }
 
-/// GScript::ConvertScriptPlayerToGamePlayer 0x6EB9A0 + GGame::GetPlayer: script player n is game player n - 1, 0 the
-/// neutral one
+/// ftol, then ConvertScriptPlayerToGamePlayer 0x6EB9A0 (Magic/Script/ScriptPlayer.h): 0 the neutral player (the byte
+/// g_game +0x205A5B), n game player n - 1
 bool ScriptPlayer(float value, PlayerNames& player)
 {
-	const auto script = static_cast<int32_t>(value);
-	const int32_t game = script == 0 ? static_cast<int32_t>(PlayerNames::NEUTRAL) : script - 1;
-	if (game < 0 || game >= static_cast<int32_t>(PlayerNames::_COUNT))
-	{
-		return false;
-	}
-	player = static_cast<PlayerNames>(game);
-	return true;
+	return magic::ScriptPlayerToGamePlayer(static_cast<int32_t>(value), player); // ftol
 }
 
 bool IsTown(entt::entity thing)
@@ -288,7 +282,8 @@ entt::entity script::CreateOneShotSpell(uint32_t seed, const glm::vec3& position
 
 entt::entity script::CreateOneShotSpellInHand(uint32_t seed)
 {
-	// GGame::MyInterface()->+0x39C: the local player's status
+	// GGame::MyInterface()->+0x39C: the local player's status (inferido: the local interface is the first human player;
+	// the original reads its interface pointer)
 	for (int p = 0; p < static_cast<int>(PlayerNames::_COUNT); ++p)
 	{
 		if (players::IsHuman(static_cast<PlayerNames>(p)))

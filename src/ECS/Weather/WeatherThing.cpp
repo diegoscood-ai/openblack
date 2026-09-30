@@ -92,6 +92,7 @@ entt::entity weather_thing::Create(const glm::vec3& position, uint32_t weatherIn
 	if (Locator::infoConstants::has_value())
 	{
 		const auto& infos = Locator::infoConstants::value().weather;
+		// (port) an out-of-range subtype is clamped to the last row; the original indexes GWeatherInfo[subtype] directly
 		const auto& info = infos[std::min<size_t>(weatherInfo, infos.size() - 1)];
 		d.weather.temperature = static_cast<int8_t>(info.temperature);
 		d.weather.rain = static_cast<int8_t>(info.wetness);

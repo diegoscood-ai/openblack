@@ -62,6 +62,7 @@ void creator::UpdateSpellInfo(const SpellCreator& creator, entt::entity spell, p
 	// GPlayer::UpdateSpellInfo 0x64C470: not for the neutral player; only a spell with an interface status (a hand
 	// cast, DoPostCastThings) -> GInterfaceStatus::UpdateSpellInfo 0x5DC8F0
 	// WorshipSpellIcon::UpdateSpellInfo 0x77F750: the icon's player's (vt 0x5C) when it is +0x8E0 == 1
+	// TODO(M8): Creature::UpdateSpellInfo 0x4F8750 (Kind::Creature returns here)
 	const bool icon = creator.kind == Kind::WorshipSpellIcon && players::IsHuman(creator.player);
 	if ((creator.kind != Kind::Player && !icon) || creator.player == PlayerNames::NEUTRAL)
 	{
@@ -86,7 +87,8 @@ bool creator::IsFunctional(const SpellCreator& creator)
 	case Kind::Player:
 		return true; // GameThing::IsFunctional 0x405240 -> IsAvailable
 	default:
-		return creator.entity == entt::null || Locator::entitiesRegistry::value().Valid(creator.entity);
+		// GameThing::IsFunctional 0x405240 -> IsAvailable of the object: a creator with no object is not functional
+		return creator.entity != entt::null && Locator::entitiesRegistry::value().Valid(creator.entity);
 	}
 }
 

@@ -99,7 +99,7 @@ int32_t RelativeHour()
 	auto* game = Game::Instance();
 	if (game == nullptr)
 	{
-		return 12;
+		return 12; // (port: tests only, no Game)
 	}
 	const auto& clock = game->GetDayNightClock();
 	const auto visual = static_cast<float>(static_cast<int32_t>(clock.GetVisualTime()));
@@ -483,20 +483,20 @@ void climate::CreateStorm(Climate& climate, uint32_t turn)
 		const auto centre = climate.Centre();
 		size = static_cast<uint32_t>(static_cast<int32_t>(std::hypot(place.x - centre.x, place.z - centre.z)));
 	}
-	size = std::clamp<uint32_t>(size, 160, 900);
+	size = std::clamp<uint32_t>(size, 160, 900); // 0xA0 / 0x384 (0x772EFE..0x772F15)
 
 	storms::StormDescriptor d;
 	// fn_0083F4A0(pos, inner, outer): the 10 m cell at a height of 300
-	d.position = glm::vec3(place.x, 300.0f, place.z);
+	d.position = glm::vec3(place.x, 300.0f, place.z); // 0x43960000 (0x772F5B)
 	d.innerRadius = static_cast<float>(size);
-	d.outerRadius = static_cast<float>(static_cast<int32_t>(static_cast<double>(size) * 1.1));
-	d.fadeInTime = 10.0f;
+	d.outerRadius = static_cast<float>(static_cast<int32_t>(static_cast<double>(size) * 1.1)); // [0x900AE8] (0x772F6A)
+	d.fadeInTime = 10.0f; // 0x41200000 (0x772FAF)
 	d.lifeTime = rainMax * 10.0f * 10.0f;
 	if (!(rainMin < days * 0.01f))
 	{
 		d.lifeTime = (rainMax * 100.0f - days) * 10.0f;
 	}
-	if (d.lifeTime < 20.0f)
+	if (d.lifeTime < 20.0f) // [0x8C7658] (0x773001), 0x41A00000 (0x77300E)
 	{
 		d.lifeTime = 20.0f;
 	}
@@ -536,7 +536,7 @@ void climate::CreateStorm(Climate& climate, uint32_t turn)
 	d.weather.windZ = static_cast<int8_t>(static_cast<int32_t>(climate.windZ));
 	if (d.lifeTime > 0.0f)
 	{
-		if (d.lifeTime < 8.0f)
+		if (d.lifeTime < 8.0f) // [0x8C2C70] (0x773155), then 20 (0x773162)
 		{
 			d.lifeTime = 20.0f;
 		}

@@ -50,6 +50,11 @@ int worship::interface::PlaceSeedInMagicHand(PlayerNames player, entt::entity se
 		return 0;
 	}
 	// 0x5DA6F0: InterfaceSetInMagicHand (vt 0x700) first; the hand takes it when that returns 1
-	Locator::handSystem::value().PlaceObjectInMagicHand(seed);
-	return magic::seed::InterfaceSetInMagicHand(seed);
+	// (0x5DA77C vt 0x700; cmp ebp 1 at 0x5DA7A4 before the hand's part)
+	const int result = magic::seed::InterfaceSetInMagicHand(seed);
+	if (result == 1)
+	{
+		Locator::handSystem::value().PlaceObjectInMagicHand(seed);
+	}
+	return result;
 }

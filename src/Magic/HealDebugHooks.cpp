@@ -46,7 +46,7 @@ struct HurtVillager
 	int glow;
 };
 std::vector<HurtVillager> g_Hurt;
-/// the parsed hook
+/// the parsed hook; its defaults (and the 30 m / radius 10 cast below) are test harness values, not from the original
 struct Test
 {
 	float x {0.0f};

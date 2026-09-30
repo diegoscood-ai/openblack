@@ -77,12 +77,17 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 				continue;
 			}
 			// the side vector of each end: the segment direction crossed with the direction to the camera
+			// (fn_0067B3F0).
+			// Not ported (part_render.md §10): the midpoint smoothing of the joints, UseDynamicLighting (colour x
+			// clamp(0.6 + 0.4 n.L)), the UV v-scroll (chain +0x3C) and the joint jitter of ChainJoint::DrawAt 0x679E80
 			const auto sideHead = glm::cross(glm::normalize(along), glm::normalize(head.position - eye));
 			const auto sideTail = glm::cross(glm::normalize(along), glm::normalize(tail.position - eye));
 			if (glm::length(sideHead) < 1e-4f || glm::length(sideTail) < 1e-4f)
 			{
 				continue;
 			}
+			// (inferido) the half-width 0.5 x scale: the notes give side = normalize(cross) x scale but not whether the
+			// strip (fn_0081C780) puts its vertices at the joint +- side
 			const auto offsetHead = glm::normalize(sideHead) * (0.5f * head.scale);
 			const auto offsetTail = glm::normalize(sideTail) * (0.5f * tail.scale);
 			const auto u = creator->SegmentU(i, segments);
@@ -122,7 +127,8 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 		program->SetTextureSampler("s_alpha", 1,
 		                           textures.Contains(alphaTexture) ? *textures.Handle(alphaTexture) : *textures.Handle(texture));
 		bgfx::setVertexBuffer(0, &buffer);
-		// material fn_006AA860: the chain is additive by default, always two-sided, Z test on and no Z write
+		// material fn_006AA860 (not read, inferido): additive when the creator says so, Z test on, Z write only with
+		// writeDepth; no cull state, so MaterialSetDoubleSided (+0x4E) is ignored and every chain draws two-sided
 		const uint64_t blend = creator->additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
 		                                         : BGFX_STATE_BLEND_ALPHA;
 		bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | blend |

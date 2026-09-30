@@ -59,12 +59,14 @@ namespace openblack::weather
 		return true;
 	}
 	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
-	lnd::LNDCell empty {}; // LandIsland's answer where there is no block
+	// (aproximado) LandIsland's answer where there is no block: a real cell with the same bytes counts as none too
+	lnd::LNDCell empty {};
 	empty.properties.fullWater = true;
 	return std::memcmp(&cell, &empty, sizeof(empty)) == 0;
 }
 
-/// GRand::GameFloatRand 0x6DE530: 0 for 0, else a float in [0, x) (GData::FloatRand, the game's seeded generator)
+/// GRand::GameFloatRand 0x6DE530: 0 for 0, else a float in [0, x) (GData::FloatRand, the game's seeded generator).
+/// (aproximado: openblack's RandomNumberManager, not GRand's sequence: storm places and rain desire differ)
 [[nodiscard]] inline float GameFloatRand(float x)
 {
 	if (x == 0.0f || !Locator::rng::has_value())
@@ -75,7 +77,7 @@ namespace openblack::weather
 	return x < 0.0f ? -value : value;
 }
 
-/// GRand::GameRand 0x6DE510: 0 .. n - 1
+/// GRand::GameRand 0x6DE510: 0 .. n - 1 (aproximado: not GRand's sequence, as above)
 [[nodiscard]] inline uint32_t GameRand(uint32_t n)
 {
 	if (n == 0 || !Locator::rng::has_value())

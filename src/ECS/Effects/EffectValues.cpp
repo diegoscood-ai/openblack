@@ -233,7 +233,9 @@ float effects::ApplyEffect(entt::entity object, EffectValues& values)
 	if (damage > 0.0f)
 	{
 		result += life0 / damage;
-		life::ReduceLife(object, damage); // vt 0x5B8 (TODO: Abode::ReduceLife 0x405D90's repair site)
+		// vt 0x5B8. (aproximado) Object::ReduceLife 0x637810 for every class: MultiMapFixed 0x52F5E0 (the building-damage
+		// path), Abode 0x405D90 (the repair site) and Creature 0x47DD00 are not ported (destructive.md 7.3)
+		life::ReduceLife(object, damage);
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const bool killed = registry.Valid(object) && life::LifeOf(object) == 0.0f && life0 != 0.0f;
@@ -249,6 +251,8 @@ float effects::ApplyEffect(entt::entity object, EffectValues& values)
 	// TODO(belief): the town's aggressor (Town::UpdateAggressor 0x73C9B0) with ConvertTemperatureToDamage(burn) + damage
 	// Whose alignment moves: the creature's (creature +0x168, M8) or the caster player's (+0x60). The per-player damage
 	// statistic (+0x94[caster]) is not kept.
+	// TODO(M8): Object::ApplyEffect 0x637980's creature(AppliedBy) +0x11C0 kill counter on a kill, and the creature's own
+	// GAlignment (+0x168) when a creature applies the effect: today a creature-applied effect moves no alignment
 	// (openblack deletes a dead villager at once, so the alignment is read before DestroyedByEffect)
 	if (!values.appliedByCreature && values.hasPlayer)
 	{
@@ -283,6 +287,8 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 			objects.insert(objects.end(), map.GetFixedInGridCell(cell).begin(), map.GetFixedInGridCell(cell).end());
 			for (const auto object : objects)
 			{
+				// (inferido) once per object: 0x525100 was not read for a per-object "done" flag; openblack's grid puts a
+				// fixed object in every cell it touches, so without this it would be hit once per cell
 				if (!seen.insert(object).second || !registry.Valid(object) || !IsEffectReceiver(object, *this))
 				{
 					continue;

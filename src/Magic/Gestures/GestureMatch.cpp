@@ -366,7 +366,8 @@ Packet openblack::magic::gestures::PacketFromResult(const std::vector<GestureDat
 	const glm::vec2 centre(box.minX + (box.maxX - box.minX + 1.0f) * 0.5f, box.minZ + (box.maxZ - box.minZ + 1.0f) * 0.5f);
 	const float width = std::max(box.maxX - box.minX + 1.0f, box.maxZ - box.minZ + 1.0f);
 	const auto pixel = glm::vec2(glm::ivec2(centre));
-	// fn_005E5620's result is not checked: off the land the point stays as it was (here the camera's)
+	// fn_005E5620's result is not checked: off the land the point stays as it was (inferido: the original keeps the
+	// output buffer's previous contents; the camera's position here gives distance 0, so size 0)
 	const glm::vec3 p = projection.screenToLand(pixel).value_or(projection.cameraPosition);
 	const float distance = glm::distance(p, projection.cameraPosition); // fn_00442D50
 	// fn_0074CAF0: the point at that distance on the ray through (centre.x + width / 2, centre.y)

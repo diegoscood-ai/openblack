@@ -41,7 +41,7 @@ struct CitadelWorship
 /// 0x77B9D0); its special points (the mesh's extra metrics) place the dance, the totem and the icons.
 struct WorshipSite
 {
-	entt::entity citadel {entt::null};         ///< the Citadel (CitadelPart +0x..., vt 0x114 GetCitadel)
+	entt::entity citadel {entt::null};         ///< the Citadel (CitadelPart +0x80, vt 0x114 GetCitadel 0x464A80)
 	PlayerNames player {PlayerNames::NEUTRAL}; ///< the citadel's player (vt 0x1C)
 	uint8_t infoIndex {0};                     ///< +0x28 GWorshipSiteInfo = worshipSiteInfo[tribe]
 	Tribe tribe {Tribe::NORSE};                ///< +0x8C the tribe
@@ -58,10 +58,13 @@ struct WorshipSite
 	std::vector<entt::entity> dancers;
 	uint8_t danceState {0};
 	float danceSpeed {0.0f};
-	/// Dance +0x114: villagers on their way to the dance
+	/// Dance +0x114: villagers on their way to the dance (up in GotoWorshipSiteForWorship 0x76BCC0, down only in
+	/// WorshippingAtWorshipSite 0x76C680: no decrement was found for those that hide instead (213))
 	int32_t dancersOnWay {0};
 	/// +0xC8 the villagers at the site (dancing and hiding)
 	int32_t villagersAtSite {0};
+	/// +0xD4 / +0xD8 the list of those villagers (newest first; fn_0077D040 adds, fn_0077D110 finds)
+	std::vector<entt::entity> villagers;
 	/// +0x120 / +0x124 the villagers requesting to go home, sorted by their desire for life (fn_0077E0C0)
 	std::vector<entt::entity> goHomeRequests;
 

@@ -74,6 +74,7 @@ void CreateBand(entt::entity graphicEntity)
 	{
 		return;
 	}
+	// (aproximado): CreatePUBand 0x727080 gives only the mesh; the band on the graphic's own matrix is openblack's
 	const auto& transform = registry.Get<const Transform>(graphicEntity);
 	graphic.band = registry.Create();
 	registry.Assign<Transform>(graphic.band, transform);

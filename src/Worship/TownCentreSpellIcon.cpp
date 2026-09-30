@@ -92,7 +92,8 @@ entt::entity CreateIcon(entt::entity townCentre, uint8_t slot, const SpecialPoin
 	const auto& centreTransform = registry.Get<const Transform>(townCentre);
 	const auto& iconInfo = Locator::infoConstants::value().spellIcon.at(1); // 0xD9D514 "TownSpell Icon"
 
-	// the town centre morphs with the land: the point is raised like its totem (AbodeArchetype CreateTotemStatue)
+	// the town centre morphs with the land: the point is raised like its totem (AbodeArchetype CreateTotemStatue).
+	// (inferido): an openblack adaptation, not in 0x744050 / 0x748CB0
 	glm::vec3 position = point.position;
 	position.y += GroundAt(position) - GroundAt(centreTransform.position);
 
@@ -177,6 +178,8 @@ bool town_centre::AddSpell(entt::entity townCentre, SpellSeedType seed)
 				                   "Worship: town centre {} has no special point {} (its mesh has {} extra metrics)",
 				                   static_cast<uint32_t>(townCentre), slot, ExtraMetricCount(townCentre));
 			}
+			// the loop goes on (0x7440A5), but fn_00743F60 always tries the first free slot again (0x743F68), so every
+			// later try fails too and AddSpell returns 0 (0x7440AE)
 			return false;
 		}
 		const auto icon = CreateIcon(townCentre, static_cast<uint8_t>(slot), *point, seed);

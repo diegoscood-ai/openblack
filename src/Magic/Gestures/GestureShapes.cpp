@@ -122,6 +122,8 @@ bool openblack::magic::gestures::ParseShape(const std::vector<uint8_t>& bytes, S
 		return false;
 	}
 	shape = Shape {};
+	// (inferido: the +-1e7 box start, the 1e-4 aspect guard and the 1 / count resampling step are not read; the
+	// resampling belongs to fn_0068C650 / fn_0068C340, not decoded)
 	shape.maxX = -1e7f;
 	shape.minX = 1e7f;
 	shape.maxZ = -1e7f;

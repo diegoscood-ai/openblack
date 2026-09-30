@@ -158,6 +158,9 @@ std::string BuildAtlas(const std::string& path, int pitch, int framesInFile)
 			{
 				const auto colour = Sample(bitmap, frame, (static_cast<float>(x) + 0.5f) / k_AtlasCell,
 				                           (static_cast<float>(y) + 0.5f) / k_AtlasCell);
+				// (aproximado) the port's quad: alpha = max(R, G, B), the frame bilinearly upscaled to 32 x 32, and the
+				// global light-map level 0xECA664 = clamp(fade) x 190 of AddDrawing 0x6CA6E0 is not applied
+				// (part_render.md §8)
 				const auto luminance = static_cast<uint8_t>(std::clamp(std::max({colour.r, colour.g, colour.b}), 0.0f, 255.0f));
 				const auto offset = (static_cast<size_t>(cellY + y) * side + static_cast<size_t>(cellX + x)) * 4;
 				for (int c = 0; c < 3; ++c)
@@ -211,7 +214,8 @@ void LightMapCreator::InitAtom(Effect& effect, Atom& atom) const
 {
 	if (useRandJitter && randJitter != 0.0f)
 	{
-		// DrawAt 0x67B220: LocalFloatRand(RandJitter) per axis
+		// DrawAt 0x67B220: LocalFloatRand(RandJitter) per axis. (aproximado) the original adds it on every draw (the
+		// light flickers); here it is added once, when the atom is made
 		atom.position += glm::vec3(effect.Random(randJitter), effect.Random(randJitter), effect.Random(randJitter));
 	}
 }

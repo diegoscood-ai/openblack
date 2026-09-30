@@ -72,7 +72,8 @@ std::optional<glm::vec3> sampling::ScreenToLand(glm::vec2 pixel)
 	{
 		return std::nullopt;
 	}
-	// as Game::Update finds the point under the cursor: the island, else the sea plane
+	// as Game::Update finds the point under the cursor: the island, else the sea plane (inferido: openblack's picking,
+	// the 1e10 range and the y = 0 sea plane are not the original's; fn_005E5620's land ray is not ported)
 	if (const auto hit = Locator::dynamicsSystem::value().RayCastClosestHit(origin, direction, 1e10f); hit)
 	{
 		return hit->first.position;
@@ -154,14 +155,15 @@ void sampling::Update(float realSeconds)
 	const auto mouse = Game::Instance()->GetMousePosition();
 	const bool moved = !g_LastMouse.has_value() || *g_LastMouse != mouse;
 	g_LastMouse = mouse;
+	// (aproximado: a frame in which the mouse moved stands for a mouse event, and its time for the event's int ms)
 	if (!moved)
 	{
 		return; // no mouse event, no message
 	}
-	g_MouseMs += realSeconds * 1000.0f;
+	g_MouseMs += realSeconds * 1000.0f; // [0xD019CC] += the event's ms (0x55001B)
 	if (g_MouseMs > k_MessageMs)
 	{
-		g_MouseMs = 0.0f;
+		g_MouseMs = 0.0f; // reset, not subtracted (0x55006C)
 		FeedSample(mouse);
 	}
 }

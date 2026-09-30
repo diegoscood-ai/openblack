@@ -123,6 +123,7 @@ void magic::ProcessTurnEnd()
 		         influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, ecs::fire::traits::FireCentre(*held)) > 0.0f)
 		{
 			// Object::ProcessInHand 0x639AD0: inside the holder's influence it catches the fires it is held over
+			// (inferido: openblack has only the local player's hand, taken as PLAYER_ONE)
 			ecs::fire::CheckToSeeIfObjectIsNearOnFireObject(*held);
 		}
 	}

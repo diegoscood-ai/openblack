@@ -39,6 +39,7 @@
 #include "Magic/Core/SpellCreator.h"
 #include "Magic/Script/CHLSpells.h"
 #include "MagicTeleport.h"
+#include "ECS/Systems/Implementations/VillagerMove.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -139,20 +140,7 @@ void teleport::RunDebugHooks()
 		if (std::strcmp(g_Test.mode, "walk") == 0 && g_Test.villager != entt::null)
 		{
 			// the villager walks towards B (MOVE_TO_POS, then deciding again)
-			auto* wallHug = registry.TryGet<WallHug>(g_Test.villager);
-			auto* action = registry.TryGet<LivingAction>(g_Test.villager);
-			if (wallHug != nullptr && action != nullptr)
-			{
-				wallHug->goal = g_Test.b;
-				wallHug->step = glm::vec2(0.0f);
-				registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
-				                MoveStateFinalStepTag, MoveStateArrivedTag>(g_Test.villager);
-				registry.Remove<WallHugObjectReference>(g_Test.villager);
-				registry.Assign<MoveStateLinearTag>(g_Test.villager);
-				auto& system = Locator::livingActionSystem::value();
-				system.VillagerSetState(*action, LivingAction::Index::Final, VillagerStates::DecideWhatToDo, true);
-				system.VillagerSetState(*action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
-			}
+			ecs::villager::SetupMoveToWithHug(g_Test.villager, g_Test.b, VillagerStates::DecideWhatToDo);
 		}
 		if (g_Test.villager != entt::null)
 		{

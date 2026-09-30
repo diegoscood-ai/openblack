@@ -40,8 +40,24 @@ namespace
 {
 /// ArrivesAtWorshipSiteForWorship 0x76BE00: the arrive point is reached within 10 m (0x8AB414)
 constexpr float k_ArriveDistance = 10.0f;
-/// HidingAtWorshipSite 0x76C5E0: vt 0x85C IsNear(hide point, 1.0)
+/// HidingAtWorshipSite 0x76C5E0: vt 0x85C AreWeThere(hide point, 1.0) (the 1.0 is the immediate at 0x76C621)
 constexpr float k_HideDistance = 1.0f;
+
+/// The state's row of info.dat villagerStateTable
+const GVillagerStateTableInfo* TableOf(VillagerStates state)
+{
+	const auto& table = Locator::infoConstants::value().villagerStateTable;
+	const auto i = static_cast<size_t>(state);
+	return i < table.size() ? &table[i] : nullptr;
+}
+
+/// Villager::IsStateExitFunctionSameAs (vt 0x96C) 0x752530 for an exit shared by `a` and `b`: the next state leaves by
+/// the same exit function, or it is not a final state (table +0x0C: a move on the way)
+bool IsStateExitFunctionSameAs(VillagerStates next, VillagerStates a, VillagerStates b)
+{
+	const auto* info = TableOf(next);
+	return next == a || next == b || info == nullptr || info->isFinalState == 0;
+}
 
 /// (not named Registry: with `using namespace openblack::ecs` in scope, outside this anonymous namespace `Registry()`
 /// would be a functional cast that builds an empty ecs::Registry instead of calling the helper)
@@ -151,7 +167,9 @@ glm::vec3 PositionOf(entt::entity villager)
 	return Entities().Get<const Transform>(villager).position;
 }
 
-/// Villager::GetLifeDesireFromLife 0x75BBC0: 1 - ((life - min(life, threshold)) / (1 - threshold))^2
+/// Villager::GetLifeDesireFromLife 0x75BBC0: 1 - ((life - min(life, threshold)) / (1 - threshold))^2. The info row is
+/// always 0 here and below: damageThresholdToGoHome (0.3) and chantLifeRate (5e-6) are the same in every villager row
+/// (sources.md §2.5)
 float DesireForLife(entt::entity villager)
 {
 	const float threshold = Locator::infoConstants::value().villager.at(0).damageThresholdToGoHome;
@@ -170,9 +188,25 @@ void AddVillagerToWorshipSite(entt::entity villager, entt::entity siteEntity)
 		state.atSite = true;
 		state.requestedGoHome = false; // +0x118 = 0
 	}
-	// fn_0077D040: the site's list of villagers (+0xD4), counted in +0xC8 when new
+	// fn_0077D040: into the site's list of villagers (+0xD4, at the head), counted in +0xC8 only when new
 	auto& site = Entities().Get<WorshipSite>(siteEntity);
-	++site.villagersAtSite;
+	if (std::ranges::find(site.villagers, villager) == site.villagers.end())
+	{
+		site.villagers.insert(site.villagers.begin(), villager);
+		++site.villagersAtSite;
+	}
+}
+
+/// WorshipSite::RemoveVillagerFromWorshipCount 0x77D0A0: with a count (+0xC8), off the list (if it is there) and the
+/// count one down
+void RemoveVillagerFromWorshipCount(WorshipSite& site, entt::entity villager)
+{
+	if (site.villagersAtSite == 0)
+	{
+		return;
+	}
+	std::erase(site.villagers, villager);
+	--site.villagersAtSite;
 }
 
 /// Villager::RemoveVillagerFromWorshipSite 0x76C440
@@ -186,11 +220,11 @@ void RemoveVillagerFromWorshipSite(entt::entity villager)
 	}
 	if (const auto siteEntity = SiteOf(villager); siteEntity != entt::null)
 	{
-		// fn_0077D110 (the villager is one of the site's) -> RemoveVillagerFromWorshipCount 0x77D0A0
+		// fn_0077D110 (the villager is in the site's list) -> RemoveVillagerFromWorshipCount 0x77D0A0
 		auto& site = Entities().Get<WorshipSite>(siteEntity);
-		if (state.atSite && site.villagersAtSite > 0)
+		if (std::ranges::find(site.villagers, villager) != site.villagers.end())
 		{
-			--site.villagersAtSite;
+			RemoveVillagerFromWorshipCount(site, villager);
 		}
 		// vt 0x978 / 0xB08(1): out of the dance group
 		worship::site::RemoveDancer(siteEntity, villager);
@@ -260,14 +294,16 @@ void CheckRequestGoHome(entt::entity villager)
 	}
 }
 
-/// The town's centre is functional and built (vt 0x2C, vt 0x890): openblack's are
+/// The town's centre is functional and built (vt 0x2C, vt 0x890). (inferido) both tests are skipped: a town centre
+/// that exists counts as ready
 bool TownCentreReady(entt::entity town)
 {
 	return worship::town::TownCentreOf(town) != entt::null;
 }
 
 /// Villager::CanIGetToTheWorshipSite 0x76BC20: within maxDistanceThatVillagersWillGoToWorship of the site; farther only
-/// by fn_0064D6B0 (the player's teleport: not ported)
+/// by fn_0064D6B0. (aproximado) that second test is not ported (what it finds is UNVERIFIED, sources.md §4.2): a site
+/// farther than the distance is never reachable
 bool CanIGetToTheWorshipSite(entt::entity villager, entt::entity siteEntity)
 {
 	const float maximum = Locator::infoConstants::value().town.maxDistanceThatVillagersWillGoToWorship;
@@ -342,7 +378,7 @@ bool StartHidingAtWorshipSite(entt::entity villager)
 }
 
 /// Villager::CheckVillagerGoBackToTownFromWorship 0x76BEC0: the site gone or not the town's player's -> 163; fewer
-/// needed and first in the go-home queue (fn_0077E0A0) -> 248. 1 when it left.
+/// needed and first in the go-home queue (fn_0077E0A0: an empty queue counts as first, read) -> 248. 1 when it left.
 bool CheckVillagerGoBackToTownFromWorship(entt::entity villager)
 {
 	const auto town = TownOf(villager);
@@ -466,7 +502,7 @@ bool villager_worship::CheckWorshipActivity(entt::entity villager, bool requireR
 	{
 		return false;
 	}
-	// CheckNeededForWorshipSiteBuilding 0x76C930: openblack's sites are built
+	// CheckNeededForWorshipSiteBuilding 0x76C930 is skipped. (inferido) openblack's sites are always built
 	return GotoWorshipSiteForWorship(villager);
 }
 
@@ -569,6 +605,7 @@ uint32_t villager_worship::HidingAtWorshipSite(LivingAction& action)
 		return 0;
 	}
 	const auto hide = worship::site::GetSpecialPos(siteEntity, worship::site::Point::Hide);
+	// (inferido) the + 1 m stands in for AreWeThere: the WallHug stops within its arrive step of the point
 	if (!hide || FlatDistance(PositionOf(villager), *hide) <= k_HideDistance + 1.0f)
 	{
 		ProcessInWorship(villager);
@@ -580,7 +617,8 @@ uint32_t villager_worship::HidingAtWorshipSite(LivingAction& action)
 
 uint32_t villager_worship::GoHomeFromWorship(LivingAction& action)
 {
-	// DoGoingHome(249, 250) 0x760280: home (ArrivesHome 0x760930 is not ported: the villager decides again there)
+	// DoGoingHome(249, 250) 0x760280: home (ArrivesHome 0x760930 is not ported: the villager decides again there).
+	// (inferido) the walk is set up on the state's first turn only; after it, or without a home, DECIDE_WHAT_TO_DO
 	const auto villager = EntityOf(action);
 	if (Walking(villager))
 	{
@@ -598,12 +636,27 @@ uint32_t villager_worship::GoHomeFromWorship(LivingAction& action)
 	return 0;
 }
 
-bool villager_worship::ExitMoveToWorshipSite(LivingAction& action)
+bool villager_worship::ExitMoveToWorshipSite(LivingAction& action, VillagerStates next)
 {
-	// Villager::ExitMoveToWorshipSite 0x76C170: leaving for any state but the site's own (vt 0x96C) -> off the town's
-	// list of villagers on the way, the flag 0x10 cleared
+	// Villager::ExitMoveToWorshipSite 0x76C170: leaving for a state with another exit (vt 0x96C) that is not a teleport
+	// reaction (0x76C197: exit ExitReactToTeleport 0x766390, states 201, 202, 251) -> off the town's list of villagers
+	// on the way, the flag 0x10 cleared
+	if (IsStateExitFunctionSameAs(next, VillagerStates::GotoWorshipSiteForWorship,
+	                              VillagerStates::ArrivesAtWorshipSiteForWorship) ||
+	    next == VillagerStates::GoTowardsTeleportReaction || next == VillagerStates::TeleportReaction ||
+	    next == VillagerStates::GoTowardsTeleportReactionQuickly)
+	{
+		return false;
+	}
 	const auto villager = EntityOf(action);
 	auto& state = StateOf(villager);
+	// (aproximado) the original reaches 60 / 213 through SetupMoveToPos / SetupMoveToOnFootpath's move state (not a
+	// final one, so this exit does nothing then) and WorshippingAtWorshipSite 0x76C680 later clears the flag with Dance
+	// +0x114; openblack enters 60 / 213 at once, so the flag is kept for them
+	if (next != VillagerStates::WorshippingAtWorshipSite && next != VillagerStates::HidingAtWorshipSite)
+	{
+		state.onWay = false;
+	}
 	if (state.onWayInTown)
 	{
 		if (const auto town = TownOf(villager); town != entt::null)
@@ -615,12 +668,30 @@ bool villager_worship::ExitMoveToWorshipSite(LivingAction& action)
 	return false;
 }
 
-bool villager_worship::ExitAtWorshipSite(LivingAction& action)
+bool villager_worship::ExitAtWorshipSite(LivingAction& action, VillagerStates next)
 {
-	// Villager::ExitAtWorshipSite 0x76C1F0: off the go-home queue; leaving for a state that is not a reaction (and not
-	// 241, eating at the site) -> RemoveVillagerFromWorshipSite
+	// Villager::ExitAtWorshipSite 0x76C1F0: leaving for a state with another exit (vt 0x96C): off the go-home queue;
+	// for a state that is not a reactive one (table +0xB8, IsReactiveState 0x7525B0) and not 241 (eating at the site)
+	// -> RemoveVillagerFromWorshipSite; else only off the site's count (0x77D0A0) and out of the dance (vt 0x978
+	// IsDancing / vt 0xB08 RemoveFromDance(1)): it stays counted in the town's worshippers (+0xE0 0x2)
+	if (IsStateExitFunctionSameAs(next, VillagerStates::WorshippingAtWorshipSite, VillagerStates::HidingAtWorshipSite))
+	{
+		return false;
+	}
 	const auto villager = EntityOf(action);
-	RemoveGoHomeRequest(SiteOf(villager), villager);
+	const auto siteEntity = SiteOf(villager);
+	RemoveGoHomeRequest(siteEntity, villager);
+	const auto* info = TableOf(next);
+	if ((info != nullptr && info->field0xb8 != 0) || next == VillagerStates::GetFoodAtWorshipSite)
+	{
+		if (siteEntity != entt::null)
+		{
+			RemoveVillagerFromWorshipCount(Entities().Get<WorshipSite>(siteEntity), villager);
+			worship::site::RemoveDancer(siteEntity, villager);
+		}
+		StateOf(villager).dancing = false;
+		return false;
+	}
 	RemoveVillagerFromWorshipSite(villager);
 	return false;
 }

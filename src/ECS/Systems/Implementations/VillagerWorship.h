@@ -46,6 +46,6 @@ uint32_t ArrivesAtWorshipSiteForWorship(components::LivingAction& action); ///< 
 uint32_t WorshippingAtWorshipSite(components::LivingAction& action);       ///< 60, 0x76C680
 uint32_t HidingAtWorshipSite(components::LivingAction& action);            ///< 213, 0x76C5E0
 uint32_t GoHomeFromWorship(components::LivingAction& action);              ///< 248, 0x761B70 (DoGoingHome 249, 250)
-bool ExitMoveToWorshipSite(components::LivingAction& action);              ///< 58, 59: 0x76C170
-bool ExitAtWorshipSite(components::LivingAction& action);                  ///< 60, 213: 0x76C1F0
+bool ExitMoveToWorshipSite(components::LivingAction& action, VillagerStates next); ///< 58, 59: 0x76C170
+bool ExitAtWorshipSite(components::LivingAction& action, VillagerStates next);     ///< 60, 213: 0x76C1F0
 } // namespace openblack::ecs::villager_worship

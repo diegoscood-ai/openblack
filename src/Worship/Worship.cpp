@@ -241,9 +241,13 @@ int worship::ApplySeedToPosition(entt::entity seedEntity, const glm::vec3& posit
 	// SpellSeed::RemoveFromHand 0x728F00: MapCoords::FindWorshipSite -> ApplyToWorshipSite 0x7289C0 (3), else 0x17
 	const auto site = site::FindAt(position);
 	auto& registry = Registry();
-	if (site == entt::null || !registry.Valid(seedEntity) || !registry.AllOf<SpellSeed>(seedEntity))
+	if (site == entt::null)
 	{
-		return 0;
+		return 0x17; // 0x728F1C
+	}
+	if (!registry.Valid(seedEntity) || !registry.AllOf<SpellSeed>(seedEntity))
+	{
+		return 0; // openblack's guard
 	}
 	auto& seed = registry.Get<SpellSeed>(seedEntity);
 	registry.Get<WorshipSite>(site).battery += seed.chantStore;

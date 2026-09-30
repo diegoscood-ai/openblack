@@ -1522,7 +1522,7 @@ struct GSpellSeedInfo: GObjectInfo
 	SpellCastType castType;       ///< 0x100: SpellSeed::IsSpellCastInHand 0x729820, ApplyOnlyAfterRecSystem 0x7286B0
 	uint32_t isKeptInHand;        ///< 0x104: IsSpellKeptInHand 0x729840
 	uint32_t castOnObject;        ///< 0x108: 1 = InitWithObject (CanCast(Object) 0x729190)
-	uint32_t unknown0x10C;        ///< 0 for NATURE and TELEPORT, else 1
+	uint32_t unknown0x10C;        ///< 0 for NATURE and TELEPORT, else 1 (UNVERIFIED: no reader found)
 	uint32_t seedFollowsSpell;    ///< 0x110: the seed is bound to the live spell (fn_00728FC0)
 	/// 0x114: the magic of POWER_UP_TYPE_NONE (-1), then of PU 0, 1, 2 (GetMagicTypeFromPULevel 0x72AFC0)
 	std::array<MagicType, 4> magicTypes;
@@ -1530,24 +1530,24 @@ struct GSpellSeedInfo: GObjectInfo
 	std::array<GestureType, 3> powerUpGestures;
 	MeshId mesh;                     ///< 0x130: SpellSeed::GetMesh 0x729850
 	float scale;                     ///< 0x134: the seed's scale (SpellSeed ctors)
-	float unknown0x138;              ///< equals scale except for the flocks
+	float unknown0x138;              ///< equals scale except for the flocks (UNVERIFIED: no reader found)
 	float holdLoweringMultiplier;    ///< 0x13C (0x728660)
 	float holdRadius;                ///< 0x140: x the scale (0x728640)
 	float holdYRotate;               ///< 0x144 (0x728670)
 	HoldType holdType;               ///< 0x148: MAGIC (2) is forced until the seed is ready (0x728680)
 	uint32_t attachInHandEffectToBone; ///< 0x14C: copied to CHand+0x4954 with the in-hand PSys (fn_0046E7B0)
-	float unknown0x150;              ///< -1.5 in most entries
-	float unknown0x154;
+	float unknown0x150;              ///< -1.5 in most entries (UNVERIFIED: no reader found)
+	float unknown0x154;              ///< (UNVERIFIED: no reader found)
 	uint32_t deleteSeedOnceCast;     ///< 0x158: IsThisSeedDeletedOnceCast 0x7281F0
-	float unknown0x15C;              ///< 0.1 in every entry
-	uint32_t unknown0x160;           ///< 1 in every entry
+	float unknown0x15C;              ///< 0.1 in every entry (UNVERIFIED: no reader found)
+	uint32_t unknown0x160;           ///< 1 in every entry (UNVERIFIED: no reader found)
 	ParticleType holderParticle;     ///< 0x164: the effect on the worship icon's holder
 	uint32_t useMesh;                ///< 0x168 (inf)
 	uint32_t exists;                 ///< 0x16C: 1 = a real spell, 0 = unused slot (fn_004E1E20)
 	uint32_t iconIndex;              ///< 0x170: looked up by fn_0072B0D0 (icon slot, inf)
 	HelpText tooltip;                ///< 0x174
-	uint32_t unknown0x178;
-	uint32_t unknown0x17C;           ///< 1 for FIRE, LIGHTNING_BOLT, HEAL, WEAK, STRONG
+	uint32_t unknown0x178;           ///< (UNVERIFIED: no reader found)
+	uint32_t unknown0x17C;           ///< 1 for FIRE, LIGHTNING_BOLT, HEAL, WEAK, STRONG (UNVERIFIED: no reader found)
 };
 
 struct GCitadelHeartInfo: GCitadelPartInfo

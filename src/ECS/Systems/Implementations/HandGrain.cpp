@@ -148,7 +148,8 @@ void hand_grain::Start(bool clampHand, float totalTime, float heightToRaise, flo
 	g_State.heightToRaise = heightToRaise;
 	g_State.angleToRaise = angleToRaise;
 	g_State.clampHand = clampHand;
-	// CHand +0x78: the hand's point (openblack's left hand transform: the grip point while it holds something)
+	// CHand +0x78: the hand's point. (aproximado) openblack's left hand transform stands in for it (the grip point
+	// while it holds something)
 	if (Locator::handSystem::has_value() && Locator::entitiesRegistry::has_value())
 	{
 		const auto hand = Locator::handSystem::value().GetPlayerHands()[0];

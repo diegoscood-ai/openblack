@@ -58,17 +58,19 @@ bool CanBeHealedByHealSpell(entt::entity object)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.AllOf<ecs::components::Villager>(object))
 	{
-		return true; // dead villagers are gone from openblack's world
+		return true; // (inferido: dead villagers taken as gone from openblack's world; no IsDead test)
 	}
-	// TODO(M4c): the Dove (Animal SpellDove) answers 0
+	// TODO(M4c): the Dove (Animal SpellDove) answers 0. (inferido: no IsDead test for animals either)
 	return registry.AllOf<ecs::components::Animal>(object);
 }
 } // namespace
 
 bool cast_rules::InBounds(const glm::vec3& position)
 {
+	// (inferido: 512 cells per side when there is no terrain, an openblack fallback)
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out
+	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out. 6553.6 = 65536 / 10 m, the
+	// MapCoords fixed point (castPos = (int)(x * 6553.6) in Spell::ProcessMaintainRequest 0x7204D0)
 	const auto cellX = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.x * 6553.6f)) >> 16);
 	const auto cellZ = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.z * 6553.6f)) >> 16);
 	return cellX < side && cellZ < side;
@@ -179,9 +181,13 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 			std::sort(objects.begin(), objects.end());
 			for (const auto object : objects)
 			{
-				if (healed >= maximum || !registry.Valid(object))
+				if (healed >= maximum)
 				{
 					break;
+				}
+				if (!registry.Valid(object))
+				{
+					continue; // openblack only: the original walks the cell's list
 				}
 				const auto* transform = registry.TryGet<const ecs::components::Transform>(object);
 				if (transform == nullptr)

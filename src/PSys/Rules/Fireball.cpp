@@ -39,6 +39,7 @@
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
+#include "PSys/Rules/Shield.h"
 #include "PSys/SoundAction.h"
 
 using namespace openblack;
@@ -138,10 +139,13 @@ bool FireBallSteam(const Effect& effect, const Object& /*object*/, const Atom* a
 /// its own +0x34 DampingHorozontalBounce, +0x38 DampingVerticalBounce, +0x3C GroundDrag, +0x44 ImpactSound, +0x5C its
 /// condition, +0x60..+0x68 ImpactSpeed{Small,Medium,Large}, +0x6C MinAlphaForImpactSoundOrRipple, +0x70
 /// UseSurfaceForBounce, +0x72 CheckShieldDeflections)
+/// (inferido) the property defaults below: the ctor was not read (the fireball files set the values they use)
 class GravityWithFloor final: public Modifier
 {
 public:
 	explicit GravityWithFloor(const Object& object)
+	    // (inferido) the Gravity default: DefineProperties 0x6AC1B0 registers it late and the ctor was not read; 30
+	    // is only the fallback of CreateWithInitialDirection when the group has no UpdateRuleGravity (0x69E9A0)
 	    : gravity(object.Float("Gravity", 10.0f))
 	    , maxSpeed(object.Float("MaxSpeed", 100.0f))
 	    , damping(object.Float("Damping", 0.0f))
@@ -208,6 +212,7 @@ public:
 					glm::vec3 tangent = v - normalPart;
 					glm::vec3 direction = tangent;
 					float length = glm::length(tangent);
+					// 0x6A1D3F (0x8BF518 = 1e-4); the fallback (1e-4, 0, 0) at 0x6A1D4C
 					if (glm::dot(tangent, tangent) < 0.0001f)
 					{
 						direction = glm::vec3(0.0001f, 0.0f, 0.0f);
@@ -230,8 +235,11 @@ public:
 				}
 			}
 			atom.velocity = v;
-			// TODO(M6): CheckShieldDeflections -> DoAnyShieldDeflections 0x6A1FA0 (type-4 events to the shields)
-			static_cast<void>(checkShields);
+			if (checkShields)
+			{
+				// 0x6A1F48: DoAnyShieldDeflections 0x6A1FA0 from the global position taken before the move (0x6A1903)
+				shields::DoAnyShieldDeflections(effect, atom, global);
+			}
 		}
 		return true;
 	}
@@ -303,6 +311,7 @@ float SpeedFromHand(float speed)
 }
 
 /// CreateWithInitialDirection::ModifyAtomCollection 0x69E950 (a OnceOnlyCreateRule; DefineProperties 0x6B1230)
+/// (inferido) the property defaults below: the ctor was not read
 class CreateWithInitialDirection final: public Modifier
 {
 public:
@@ -337,7 +346,9 @@ public:
 		if (!human)
 		{
 			// a script, computer or creature cast: a ballistic arc from the gesture position to 0.8 of the way to the origin,
-			// in max(0.025 D, 0.5) s, or at 30 degrees (0x9375F0: 0.5237 rad) when that would be steeper
+			// in max(0.025 D, 0.5) s, or at 30 degrees (0x9375F0: 0.5237 rad) when that would be steeper (cwid.txt;
+			// the algebra between the addresses below is UNVERIFIED, destructive.md §3.4). g = the group's
+			// UpdateRuleGravity +0x24, 30 without one (0x69E9A0)
 			float g = 30.0f;
 			for (const auto& slot : collection.modifiers)
 			{
@@ -349,7 +360,7 @@ public:
 			}
 			glm::vec3 origin = effect.GetOrigin();
 			const glm::vec3 flat(origin.x - gesture.x, 0.0f, origin.z - gesture.z);
-			if (flat.x * flat.x + flat.z * flat.z < 0.1f)
+			if (flat.x * flat.x + flat.z * flat.z < 0.1f) // 0x69EA5C / 0x69EA6E / 0x69EA81 (0x8AB22C = 0.1)
 			{
 				origin = glm::vec3(gesture.x + 0.1f, gesture.y, gesture.z + 0.1f);
 			}
@@ -363,13 +374,14 @@ public:
 			}
 			glm::vec3 v = delta / time - glm::vec3(0.0f, -g * 0.5f * time, 0.0f);
 			const float horizontal2 = v.x * v.x + v.z * v.z;
-			if (horizontal2 + v.y * v.y > 0.01f)
+			// the re-solve only for a launch faster than 298.5 (|v|^2 > 89129, double 0x8C7620 at 0x69EC60)
+			if (horizontal2 + v.y * v.y > 89129.0f)
 			{
 				const float slope = std::tan(0.5237035155296326f);
 				if (v.y / std::sqrt(horizontal2) > slope)
 				{
 					float time2 = (delta.y - distance * slope) * (-2.0f / g);
-					if (time2 < 0.0f)
+					if (time2 < 0.0f) // 0x69ECAC: 0.1 (0x8AB22C), then fsqrt 0x69ECC1
 					{
 						time2 = 0.1f;
 					}
@@ -422,7 +434,8 @@ public:
 			}
 			atom.position = start;
 			atom.velocity = d * s;
-			// TODO(M2): this computer's cast draws it from the hand first (DrawOffset fn_006C7840)
+			// not ported: for the local interface's cast the atom gets a DrawOffset (fn_006C7840) that draws it from
+			// the hand to the start (destructive.md §3.4), so here the ball appears at the gesture point
 			audio::spell_sounds::StartSound(effect, atom, action);
 		}
 		return false; // once only
@@ -493,7 +506,8 @@ public:
 	}
 
 	/// The whoosh (0x683184..): the drawn position within 40 m of the camera now and not the step before, and faster
-	/// than 20: G_FireballPast_01..05 (sample 0x40 + GetTickCount() % 5)
+	/// than 20: G_FireballPast_01..05 (sample 0x40 + GetTickCount() % 5). (aproximado): a round-robin counter stands
+	/// for GetTickCount() % 5, and the sample plays non-positionally (no emitter at the ball)
 	static void FlyBySound(const Atom& atom)
 	{
 		if (!Locator::camera::has_value() || !Locator::audio::has_value() || !atom.drawn)
@@ -550,7 +564,8 @@ public:
 
 /// UR_SideSpin::ModifyAtomCore 0x69E300 (+0x20 ScaleAngularVelocity, +0x24 MaxAngularVelocity, +0x28 TimeToFade): the
 /// first time, with a player behind the effect, w = curl (mgr +0x58) x scale, clamped to +-max, then w (w / max)^2; every
-/// step the velocity turns about y by w (1 - age / TimeToFade) dt
+/// step the velocity turns about y by w (1 - age / TimeToFade) dt. (inferido) the defaults: the ctor was not read (the
+/// fireball file sets Scale 0.5, Max 1.2, TimeToFade 1.5, destructive.md §3.4)
 class SideSpin final: public Modifier
 {
 public:
@@ -586,7 +601,7 @@ public:
 };
 
 /// AR_FadeAlphaWithHeightAboveLandscape::ModifyAtomCore 0x6A4DE0: alpha from AlphaAtZero on the land to
-/// AlphaAtRefHeight at RefHeight above it (and beyond)
+/// AlphaAtRefHeight at RefHeight above it (and beyond). (inferido) the defaults: the ctor was not read
 class FadeAlphaWithHeight final: public Modifier
 {
 public:
@@ -640,6 +655,7 @@ public:
 /// atom along the history of its last NumGameTurnsToSpreadOver positions (a ring, +0x24 of the collection data),
 /// covering at most MaxTrailLength (x the parent's scale), spaced 0.5 k^2 (UseNonLinearSpacing) or evenly, the newest
 /// last. The first and last atoms take the HeadGroup / TrailGroup init (-1: no creator, not drawn).
+/// (inferido) the property defaults below: the ctor / DefineProperties of UR_Trail were not read
 class Trail final: public Modifier
 {
 public:

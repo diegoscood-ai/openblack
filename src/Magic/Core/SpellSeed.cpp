@@ -93,7 +93,9 @@ void DoPostCastThings(entt::entity entity, entt::entity spellEntity)
 	{
 		worship::icon::CancelCharge(seed.icon, seed.creator.player);
 	}
-	spell.castFromInterface = seed.inInterface; // Spell::SetInterfaceStatus 0x7201F0
+	// Spell::SetInterfaceStatus 0x7201F0 stores the GInterfaceStatus*; "my interface" is iface == MyInterfaceStatus
+	// (inferido: one local interface, both taken from the seed's inInterface flag)
+	spell.castFromInterface = seed.inInterface;
 	spell.isMyInterfaceCasting = seed.inInterface;
 	seed.lastMagic = spell.magicType;
 	if (seed.storedChants >= 0.0f)
@@ -137,6 +139,8 @@ entt::entity seed::Create(const glm::vec3& worldPosition, SpellSeedType seedType
 	seed.castMultiplier = multiplier;
 	seed.inInterface = true;
 	seed.creator = creator::OfPlayer(player); // iface->GetPlayer()
+	// fn_00728140 (the common init) zeroes +0x7C / +0x80 / +0x84 / +0x74 / +0x78; ctor 0x7280A0 then stores 0 in +0x7C,
+	// +0x84, +0x74, +0x78 and -1 in +0x80 (+0x7C = -1 "none" is only written by StoreChantsAndAgeFromSpell 0x728780)
 	seed.storedAge = 0.0f;
 	seed.storedChants = 0.0f;
 	seed.chantStoreCopy = 0.0f;
@@ -160,6 +164,8 @@ float seed::GetChantNeeded(const SpellSeed& seed, int powerUp)
 float seed::GetPower(const SpellSeed& seed)
 {
 	const float cost = GetChantsRequiredToCreate(Locator::infoConstants::value(), MagicTypeOf(seed));
+	// 0x7298B0 divides without a test: store / 0 is inf or NaN on the x87, and the min against 1.0 [0x8AA390] then
+	// gives 1
 	const float power = cost > 0.0f ? seed.chantStore / cost : 1.0f;
 	return power < 1.0f ? power : 1.0f;
 }
@@ -366,7 +372,7 @@ int seed::ProcessFromSpell(entt::entity entity)
 	auto& seed = SeedOf(entity);
 	const auto& info = InfoOf(seed);
 	// fn_00728FC0: not in the map (IsObjectInMap: openblack's seeds never are), not cast in hand, not kept in hand,
-	// seedFollowsSpell, the spell (if any) still open, and linked to an icon (M7: none yet)
+	// seedFollowsSpell, the spell (if any: a NULL +0x60 goes on, 0x728FF6) still open, and linked to an icon
 	const bool spellOpen = !ValidSpell(seed.spell) || !Locator::entitiesRegistry::value().Get<Spell>(seed.spell).closedDown;
 	const bool follows = !IsSpellCastInHand(seed) && info.isKeptInHand == 0 && info.seedFollowsSpell != 0 && spellOpen &&
 	                     seed.icon != entt::null;

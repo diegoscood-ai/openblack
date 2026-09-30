@@ -88,7 +88,8 @@ int SpellEvent(entt::entity entity, const psys::SpellEventInfo& event)
 		return result; // paid for, but nothing lands (water, the edge of the map, no chants left)
 	}
 	const auto amount = static_cast<uint32_t>(GetTribalPower(entity) * static_cast<float>(cost.units)); // __ftol
-	// fn_00724CE0 / fn_00724D30: IS = the spell's player's leader interface (only a human player has one)
+	// fn_00724CE0 / fn_00724D30: IS = the spell's player's leader interface (only a human player has one).
+	// (inferido: single player, so every human player is the local interface, isMyInterface = IS == MyInterfaceStatus)
 	ecs::pot_resource::Dropper dropper;
 	if (spell.hasPlayer && players::IsHuman(spell.player))
 	{

@@ -71,7 +71,8 @@ struct Spiral
 	}
 };
 
-/// In the map (the land's extent)
+/// In the map (the land's extent). (aproximado) The original tests MapCoords::InBounds 0x6042C0 (the cell under the
+/// map size in cells, g_game +0x59C8); this land-extent test with a strict ">" is openblack's.
 bool InBounds(glm::vec2 p)
 {
 	if (!Locator::terrainSystem::has_value())
@@ -168,8 +169,8 @@ void reactions::SpreadReaction(uint32_t id)
 	{
 		if (InBounds(cell) && glm::distance(cell, at) <= reaction.radius)
 		{
-			// the cell's list [the mobile one, its order as openblack keeps it]: every Living of it, whatever its class,
-			// in that order
+			// the cell's list (inferido: the mobile one, animals/audit_r3.md; its order as openblack keeps it): every
+			// Living of it, whatever its class, in that order
 			const auto& list =
 			    Locator::entitiesMap::value().GetMobileInGridCell(MapInterface::GetGridCell(glm::max(cell, glm::vec2(0.0f))));
 			const std::vector<entt::entity> livings(list.begin(), list.end());
@@ -356,6 +357,7 @@ uint32_t reactions::Score(uint8_t type, bool reactsToType, uint32_t priority, fl
 		return 0;
 	}
 	const float max = reaction.maxReactionDistance;
+	// std::max(max, 0.0001f): openblack's divide-by-zero guard, not in 0x6E4620
 	const float score = static_cast<float>(priority) *
 	                    (1.0f + 0.5f * reaction.howImportantIsDistance * (max - distance) / std::max(max, 0.0001f));
 	return static_cast<uint32_t>(std::trunc(std::min(255.0f, score)));

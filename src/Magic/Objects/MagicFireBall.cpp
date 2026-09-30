@@ -66,7 +66,7 @@ entt::entity fireball::Create(const glm::vec3& position, int infoRow, uint32_t e
 	ecs::object_index::Assign(entity);
 	registry.Assign<Transform>(entity, position, glm::mat3(1.0f), glm::vec3(1.0f));
 	auto& ball = registry.Assign<MagicFireBall>(entity);
-	ball.infoRow = std::clamp(infoRow, 0, 2);
+	ball.infoRow = std::clamp(infoRow, 0, 2); // openblack's guard (not in 0x682970): GMagicFireBallInfo has 3 rows
 	ball.effect = effect;
 	ball.atomKey = atomKey;
 	ball.hasPlayer = hasPlayer;
@@ -74,7 +74,9 @@ entt::entity fireball::Create(const glm::vec3& position, int infoRow, uint32_t e
 	ball.seen = true;
 	g_FireBalls.insert(g_FireBalls.begin(), entity);
 	// SetTemperature(mgr.Strength (+0x54) x info.initialTemperature, the spell's creator): the new fire takes the
-	// ball's player (MagicFireBall::GetPlayer 0x682BF0: its manager's)
+	// ball's player (MagicFireBall::GetPlayer 0x682BF0: its manager's). (inferido) The fire is made here rather than
+	// through fire::SetTemperature (0x639A60 -> 0x72EF10), whose player lookup does not know the ball; unlike 0x72EF10
+	// it is also made when t is not above the object's temperature (then it keeps that temperature)
 	const float temperature = Strength(entity) * InfoOf(ball).initialTemperature;
 	if (auto* fire = ecs::fire::Create(entity, hasPlayer, player, source); fire != nullptr && fire->temperature < temperature)
 	{
@@ -109,6 +111,7 @@ bool fireball::FollowAtom(entt::entity fireball, const glm::vec3& position, floa
 
 float fireball::Strength(entt::entity fireball)
 {
+	// (inferido) 1 without the ball or its effect: in the original the manager (+0x54) is always there
 	const auto* ball = Locator::entitiesRegistry::value().TryGet<const MagicFireBall>(fireball);
 	if (ball == nullptr)
 	{

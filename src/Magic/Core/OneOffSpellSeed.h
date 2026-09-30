@@ -23,8 +23,9 @@ namespace openblack::magic::one_off
 entt::entity Create(const glm::vec3& worldPosition, SpellSeedType seedType, int powerUp, float scale);
 
 /// OneOffSpellSeed::CreateSpellIntoHand 0x72A730 (iface, seed, pu, multiplier): if the hand is free, a seed at the hand
-/// (linked to the player's best worship icon for it: M7, none yet) charged for free with its full cost, the magic
-/// marked ever enabled, placed in the magic hand and ready at once (fn_00729900(0)). The seed, or entt::null.
+/// (linked to the player's best worship icon for it, GPlayer::FindBestSpellIconForSpellSeed 0x64BF40) charged for free
+/// with its full cost, the magic marked ever enabled, placed in the magic hand and ready at once (fn_00729900(0)). The
+/// seed, or entt::null.
 entt::entity CreateSpellIntoHand(PlayerNames player, SpellSeedType seedType, int powerUp, float multiplier);
 
 /// OneOffSpellSeed::InterfaceTap 0x72A640: CreateSpellIntoHand with the orb's seed, then immersion 0xE (M2), sample

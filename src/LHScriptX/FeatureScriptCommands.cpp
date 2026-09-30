@@ -817,7 +817,8 @@ void FeatureScriptCommands::CreateNewBigForest(glm::vec3 position, BigForestInfo
 
 void FeatureScriptCommands::CreateInfluenceRing(glm::vec3 position, int32_t player, float radius, int32_t anti)
 {
-	// case 59 (0x7171A3): InfluenceRing::Create(pos, GGame::GetPlayer(player), radius, anti)
+	// case 59 (0x7171A3): InfluenceRing::Create(pos, GGame::GetPlayer(player), radius, anti). (inferido) the range
+	// check is openblack's: GetPlayer does not test the index
 	if (player >= 0 && player < static_cast<int32_t>(PlayerNames::_COUNT))
 	{
 		influence::CreateRing(position, static_cast<PlayerNames>(player), radius, anti != 0);

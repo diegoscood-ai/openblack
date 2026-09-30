@@ -20,6 +20,7 @@
 #include "ECS/Influence/Influence.h"
 #include "Enums.h"
 #include "Locator.h"
+#include "Magic/Script/ScriptPlayer.h"
 
 using namespace openblack;
 
@@ -94,14 +95,14 @@ void InfluencePosition()
 void GetInfluence()
 {
 	// GScript::GetInfluence 0x6F9C60: position, raw, player (a float; ConvertScriptPlayerToGamePlayer 0x6EB9A0: 0 = the
-	// local player, n = game player n - 1) -> CalculatePlayerInfluence(pos, player, 0, 0, allies = raw == 0)
+	// neutral player, the byte g_game +0x205A5B; n = game player n - 1) -> CalculatePlayerInfluence(pos, player, 0, 0,
+	// allies = raw == 0)
 	auto& vm = Locator::vm::value();
 	const auto position = PopPosition(vm);
 	const auto raw = vm.Pop().intVal;
 	const auto scriptPlayer = static_cast<int32_t>(vm.Popf());
-	const int32_t gamePlayer = scriptPlayer == 0 ? static_cast<int32_t>(PlayerNames::PLAYER_ONE) : scriptPlayer - 1;
 	PlayerNames player {};
-	if (!GamePlayer(gamePlayer, player))
+	if (!magic::ScriptPlayerToGamePlayer(scriptPlayer, player))
 	{
 		vm.Pushf(0.0f); // no player: 0
 		return;

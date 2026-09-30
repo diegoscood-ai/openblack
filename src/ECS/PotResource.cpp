@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <vector>
 
 #include <entt/core/hashed_string.hpp>
@@ -27,7 +28,6 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/AudioManagerInterface.h"
-#include "Common/RandomNumberManager.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
@@ -181,7 +181,7 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	{
 		add = info.maxAmountInPot > pot->amount ? info.maxAmountInPot - pot->amount : 0u;
 	}
-	add = std::min<uint32_t>(add, 65535u - pot->amount);
+	add = std::min<uint32_t>(add, 65535u - pot->amount); // openblack's guard: Pot::amount is a uint16 here
 	pot->amount = static_cast<uint16_t>(pot->amount + add);
 	pot->poisoned = poisoned || pot->poisoned;
 	archetypes::PotArchetype::SetSize(object, true);
@@ -286,12 +286,14 @@ int pot_resource::PileSoundSample(ResourceType type, uint32_t amount, uint32_t t
 
 void pot_resource::PlayPileSound(const glm::vec3& position, ResourceType type, uint32_t amount)
 {
-	// fn_0066D1A0: GetTickCount picks the sample (here the game's generator), 3D at the pile (InGame bank, Global +0x3AC)
+	// fn_0066D1A0: GetTickCount picks the sample (here the process's millisecond clock, not the game's generator), 3D at
+	// the pile (InGame bank, Global +0x3AC)
 	if (!Locator::audio::has_value() || !Locator::resources::has_value())
 	{
 		return;
 	}
-	const auto t = static_cast<uint32_t>(Locator::rng::value().NextValue(0, 65535));
+	const auto t = static_cast<uint32_t>(
+	    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 	const auto id = entt::hashed_string(fmt::format("InGame.sad/{}", PileSoundSample(type, amount, t)).c_str()).value();
 	if (!Locator::resources::value().GetSounds().Contains(id))
 	{

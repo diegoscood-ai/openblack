@@ -246,6 +246,7 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 	}
 	const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>()); // GameFloatRand(2 pi)
 	const float woodMultiplier = ForestInfoOf(entity).woodValueMultiplier * GetTribalPower(entity);
+	// fn_00725600 -> fn_005FD000(pos, spell, info, forest, angle, scale 0, woodMul) (resources.md)
 	const auto tree = magic_tree::Create(position, entity, type, data.forestId, angle, 0.0f, woodMultiplier);
 	if (tree != entt::null)
 	{

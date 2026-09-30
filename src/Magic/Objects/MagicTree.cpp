@@ -20,6 +20,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Trees.h"
 #include "Locator.h"
+#include "Magic/Script/ScriptPlayer.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -38,9 +39,11 @@ entt::entity magic_tree::Create(const glm::vec3& position, entt::entity spell, T
 	{
 		return entt::null;
 	}
-	// the spell's GetPlayer (vt 0x1C, +0xA4); none: the player at g_game +0x205A5B
-	PlayerNames player = PlayerNames::NEUTRAL;
-	if (spell != entt::null && registry.Valid(spell))
+	// 0x5FCF91..0x5FCFC8: +0x6C = GetPlayerNumber 0x64A790 of the spell's GetPlayer (vt 0x1C, +0xA4); no spell: the
+	// player at g_game +0x205A5B, the neutral one (Magic/Script/ScriptPlayer.h). A spell with a NULL +0xA4 would make the
+	// original read +0xB5 of NULL; here it stays neutral (inferido: no caller does that)
+	PlayerNames player = k_NeutralPlayerSlot;
+	if (spell != entt::null && registry.Valid(spell) && registry.Get<const Spell>(spell).hasPlayer)
 	{
 		player = registry.Get<const Spell>(spell).player;
 	}

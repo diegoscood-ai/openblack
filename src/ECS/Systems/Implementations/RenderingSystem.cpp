@@ -64,7 +64,8 @@ namespace
 /// The mesh atoms of the particle effects this frame (PSys/Creators/Mesh.h), drawn as instances of their mesh
 std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
 
-/// The texture offset in the w of an instance's second column: v + 4 x u in 1/256 steps (vs_object.sc)
+/// The texture offset in the w of an instance's second column: v + 4 x u in 1/256 steps (vs_object.sc). (openblack
+/// encoding) u is quantised to 1/256, enough for the orbs' 0.25 steps
 float PackUvOffset(float u, float v)
 {
 	const float steps = std::round((u - std::floor(u)) * 256.0f);
@@ -389,7 +390,8 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    }
 		    }
 		    // Living +0xD0 (components::SpecularColour, the heal chakra's glow): 3e6 + 7 bits each of r, g, b in the same w,
-		    // added to the land light's specular (fn_0080BF10)
+		    // added to the land light's specular (fn_0080BF10). (aproximado) 7 bits per channel to fit the float, where
+		    // fn_0080BF10 adds 8
 		    if (const auto* specular = registry.TryGet<const SpecularColour>(entity); specular != nullptr)
 		    {
 			    const auto bits = [](uint8_t value) { return static_cast<uint32_t>(value) >> 1u; };

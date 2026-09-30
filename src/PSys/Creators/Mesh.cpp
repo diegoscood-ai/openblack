@@ -121,6 +121,7 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	creator->faceCamera = object.Bool("FaceCamera", false);
 	creator->faceCameraSprite = object.Bool("FaceCameraSprite", false);
 	creator->heightStretch = object.Float("HeightStretch", 1.0f);
+	// (inferido) the default of MeshChangeMaterialProps (+0x58) and the additive alpha only with it: not read
 	creator->changeMaterialProps = object.Bool("MeshChangeMaterialProps", creator->animTextured);
 	creator->additive = creator->changeMaterialProps && object.Bool("UseAdditiveAlpha", false);
 	creator->neverClip = object.Bool("NeverClip", false);
@@ -183,7 +184,8 @@ glm::vec2 MeshCreator::UvOffset(int frame) const
 {
 	if (!slideU && !slideV)
 	{
-		// the frames tile a 256 x 256 texture in rows of 256 / W
+		// (inferido) the frames tile a 256 x 256 texture in rows of 256 / W: the layout of
+		// Particle3DObjAnimTextured::DrawAt 0x67A530 was not read offset by offset
 		const int perRow = std::max(1, 256 / textureWidth);
 		const auto f = static_cast<unsigned>(frame);
 		return {static_cast<float>(textureWidth) / 256.0f * static_cast<float>(f % static_cast<unsigned>(perRow)),
@@ -205,8 +207,9 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			{
 				continue;
 			}
-			// fn_00679920: the PSR matrix (rotation x scale, the Y axis x the stretch); TODO: FaceCamera /
-			// FaceCameraSprite / HeightStretch (0x679FD0) and the colour (SetColour) are not drawn
+			// fn_00679920: the PSR matrix (rotation x scale, the Y axis x the stretch). Not ported (part_render.md §7,
+			// 0x679FD0): FaceCamera / FaceCameraSprite / HeightStretch, the colour (SetColour), DrawWithLandscapeColor,
+			// UseScriptHightlightPulse and the Z-sort by object position (fn_00679F60)
 			glm::mat3 axes = atom.rotation * atom.scale;
 			axes[1] *= atom.stretch;
 			glm::mat4 model(axes);
@@ -221,6 +224,7 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 				uv = creator->UvOffset(static_cast<int>(frame));
 			}
 			const float alpha = std::clamp(atom.alpha / 255.0f, 0.0f, 1.0f);
+			// (inferido: port routing) translucent when additive or not fully opaque
 			result.push_back({creator->meshId, model, alpha, uv, creator->additive || alpha < 1.0f});
 		}
 	}

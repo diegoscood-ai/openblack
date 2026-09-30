@@ -175,14 +175,15 @@ void ProcessMaintainRequest(entt::entity entity)
 	}
 }
 
-/// Spell::ProcessSpellSeed 0x721370: the seed follows the spell (SpellSeed::ProcessFromSpell 0x728F70)
+/// Spell::ProcessSpellSeed 0x721370: the seed follows the spell (SpellSeed::ProcessFromSpell 0x728F70); returns 1
 int ProcessSpellSeed(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& spell = SpellOf(entity);
 	if (spell.seed != entt::null && registry.Valid(spell.seed) && registry.AllOf<SpellSeed>(spell.seed))
 	{
-		return seed::ProcessFromSpell(spell.seed);
+		seed::ProcessFromSpell(spell.seed);
+		return 1;
 	}
 	spell.seed = entt::null;
 	return 1;
@@ -237,8 +238,19 @@ const SpellOps& magic::OpsOf(SpellClass spellClass)
 {
 	EnsureOps();
 	const auto& ops = g_Ops[static_cast<size_t>(spellClass)];
-	// a class nobody registered yet runs as a plain Spell
-	return ops.initWithPos != nullptr ? ops : g_Ops[static_cast<size_t>(SpellClass::General)];
+	if (ops.initWithPos != nullptr)
+	{
+		return ops;
+	}
+	// (inferido: placeholder until the class is ported) a class nobody registered yet (StormAndTornado, Water,
+	// FlockFlying, FlockGround, Creature: their own vtables in the original) runs as a plain Spell
+	static std::array<bool, static_cast<size_t>(SpellClass::_COUNT)> logged {};
+	if (auto logger = spdlog::get("game"); logger != nullptr && !logged[static_cast<size_t>(spellClass)])
+	{
+		logged[static_cast<size_t>(spellClass)] = true;
+		SPDLOG_LOGGER_WARN(logger, "Spell: class {} not ported, run as a plain Spell", static_cast<int>(spellClass));
+	}
+	return g_Ops[static_cast<size_t>(SpellClass::General)];
 }
 
 void magic::RegisterOps(SpellClass spellClass, const SpellOps& ops)
@@ -278,7 +290,7 @@ SpellClass magic::ClassOf(MagicType type)
 	case S::_COUNT:
 		break;
 	}
-	return SpellClass::General;
+	return SpellClass::General; // (inferido: unreachable guard for _COUNT)
 }
 
 const GMagicInfo& magic::MagicInfoOf(entt::entity spell)
@@ -349,7 +361,8 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	spell.originalCastPos = position;
 	if (spell.hasPlayer)
 	{
-		// the player's statistics +0xA44 (fn_0056A4D0): one more spell of the type
+		// the player's statistics +0xA44 (fn_0056A4D0, a jump table of `inc`): one more spell of the type; the modulo
+		// is an openblack guard (inferido: the original indexes by the type directly)
 		auto& counts = players::MagicOf(spell.player).castCount;
 		++counts[static_cast<size_t>(spell.magicType) % counts.size()];
 	}
@@ -361,6 +374,7 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	const glm::vec3 point = ToWorld(position);
 	spell.processInfo = info;
 	spell.direction = info.direction;
+	// 40.0 = *(float*)0x8CF300 (0x71FE50 step 5); castData is dereferenced above without a test, as in step 3
 	spell.magnitude = castData != nullptr ? castData->magnitude : 40.0f;
 	const auto particleType = OpsOf(spell.spellClass).particleType(entity);
 	const auto file = psys::ParticleTypeFile(particleType);
@@ -382,9 +396,10 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	}
 	else if (MagicInfoOf(entity).particleType != ParticleType::None)
 	{
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell: {} has no PSys for particle type {} ({}): not cast",
+		// 0x71FE50 step 8 has no failure path: without a PSys the spell goes on (base Process 0x720710 then returns
+		// 5). Here it happens when openblack has no .psys for the type.
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell: {} has no PSys for particle type {} ({}): cast without one",
 		                   EffectInfoOf(entity).debugString.data(), static_cast<int>(particleType), file);
-		return 0;
 	}
 	else
 	{
@@ -444,6 +459,7 @@ float base::CoreProcess(entt::entity entity)
 
 int base::Process(entt::entity spell)
 {
+	// Spell::Process 0x720710
 	CoreProcess(spell);
 	return SpellOf(spell).psys != 0 ? 1 : 5;
 }
@@ -498,7 +514,7 @@ void base::ToBeDeleted(entt::entity entity)
 
 bool base::HasEnoughChantsAndLifeForRecast(entt::entity /*spell*/)
 {
-	return true;
+	return true; // Spell::HasEnoughChantsAndLifeForRecast 0x55CE00 (vt 0x548): mov al, 1
 }
 
 ParticleType base::GetParticleType(entt::entity spell)

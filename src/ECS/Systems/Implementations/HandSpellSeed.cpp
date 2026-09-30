@@ -122,8 +122,9 @@ bool ValidToApplyThisToMapCoord(entt::entity seed, const glm::vec3& mapPosition)
 }
 
 /// SpellSeed::CanCast(Object, GPlayer) 0x729190: a return point of the seed's player (a spell dispenser fn_00728C50 or
-/// a worship site fn_00728A50: M7), a MagicFireBall (ValidToApplyToMagicFireBall 0x728A20: M5), else a seed with
-/// castOnObject, the cast rule at the object and the class's object check (vt 0x2C)
+/// a worship site fn_00728A50), a MagicFireBall (ValidToApplyToMagicFireBall 0x728A20), else a seed with
+/// castOnObject, the cast rule at the object and the class's object check (vt 0x2C).
+/// TODO(magic): the MagicFireBall target (ValidToApplyToMagicFireBall 0x728A20) is not ported
 bool CanCastOnObject(entt::entity seed, entt::entity object)
 {
 	const auto& component = SeedOf(seed);
@@ -152,7 +153,8 @@ bool CanCastOnObject(entt::entity seed, entt::entity object)
 	return magic::cast_rules::CanCastOn(type, object);
 }
 
-/// SpellSeed::ValidToApplyThisToObject 0x7286D0: ready, the target not highlighted by the script, CanCast(object)
+/// SpellSeed::ValidToApplyThisToObject 0x7286D0: ready, the target not highlighted by the script, CanCast(object).
+/// (aproximado) the highlight test (vt 0x48C IsScriptHighlight, 0 for GameThingWithPos 0x4023A0) is not ported
 bool ValidToApplyThisToObject(entt::entity seed, entt::entity target)
 {
 	return SeedOf(seed).ready && CanCastOnObject(seed, target);
@@ -378,6 +380,8 @@ void HandSystem::SeedActionPressed() noexcept
 	{
 		return;
 	}
+	// (inferido) the original always has the hand's map point (GInterface +0x3F0); with no point under the hand
+	// openblack tries (0, 0, 0)
 	const auto point = _interactionPoint.value_or(glm::vec3(0.0f));
 	const auto position = magic::ToMap(point);
 	if (ApplyOnlyAfterRecSystem(seed))
@@ -485,6 +489,8 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 				const auto at = spell != entt::null && registry.Valid(spell)
 				                    ? magic::ToWorld(registry.Get<const ecs::components::Spell>(spell).position)
 				                    : point;
+				// CreateSpotVisual(pos, 3, 1.0, spell) 0x728E8B: the 1.0 is the effect's strength (PSys Start's
+				// 1.0), the duration is the entry's own (+0x44, 0x63E55F), which 0 seconds selects here
 				psys::manager::CreateSpotVisual(k_SpotVisualSucceedCast, at, 0.0f, spell);
 				result = k_ResultRemoved;
 			}
@@ -545,8 +551,9 @@ int HandSystem::SendSeedApplyToObject() noexcept
 			state.gesture.gesture = level;
 		}
 		_applySentTurn = turn;
-		// packet 0x11 -> 0x5DA1A0 -> SpellSeed::ApplyThisToObject 0x728D10: a spell dispenser, a worship site (M7), a
-		// MagicFireBall (M5), else the object cast fn_00729690 (the keep / remove rule of ApplyThisToMapCoord)
+		// packet 0x11 -> 0x5DA1A0 -> SpellSeed::ApplyThisToObject 0x728D10: a spell dispenser, a worship site (above),
+		// a MagicFireBall, else the object cast fn_00729690 (the keep / remove rule of ApplyThisToMapCoord).
+		// TODO(magic): ApplyToMagicFireBall 0x728AE0 (0x728D9A) is not ported
 		int result = 0;
 		glm::vec3 interfacePos;
 		glm::vec3 handPos;
@@ -562,7 +569,17 @@ int HandSystem::SendSeedApplyToObject() noexcept
 		entt::entity spell = entt::null;
 		if (magic::seed::Cast(seed, position, &spell, state.gesture.size, handInfo) != 0)
 		{
-			result = spell != entt::null && IsSpellKeptInHand(seed) ? 1 : k_ResultRemoved;
+			if (spell != entt::null && IsSpellKeptInHand(seed))
+			{
+				result = 1;
+			}
+			else
+			{
+				// 0x728DEF: CreateSpotVisual(the object's pos, 3, 1.0, spell), as on the land
+				const auto at = registry.Get<const Transform>(target).position;
+				psys::manager::CreateSpotVisual(k_SpotVisualSucceedCast, at, 0.0f, spell);
+				result = k_ResultRemoved;
+			}
 		}
 		HandleSeedApplyResult(result, seed);
 	}
@@ -646,9 +663,11 @@ void HandSystem::UpdateSeedAction(bool actionHeld) noexcept
 			}
 			break;
 		}
-		// 0x5D4C10 / 0x5D4D00: the apply again every tick (one packet per turn)
+		// 0x5D4C10 / 0x5D4D00: the apply again every tick (one packet per turn); on the land only when the point is
+		// InBounds (0x5D4C82) and ValidToApplyThisToMapCoord (vt 0x724, 0x5D4C97), with no FailApply otherwise
 		if (_seedAction == SeedAction::LockedApplyMap)
 		{
+			// (inferido) (0, 0, 0) with no point under the hand, as in SeedActionPressed
 			const auto position = magic::ToMap(_interactionPoint.value_or(glm::vec3(0.0f)));
 			if (magic::cast_rules::InBounds(position) && ValidToApplyThisToMapCoord(seed, position))
 			{

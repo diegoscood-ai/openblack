@@ -32,7 +32,8 @@ std::array<Drop, k_Drops> g_drops;
 float g_elevation = 160.0f; ///< 0xC38E10
 float g_fallSpeed = 1.0f;   ///< 0xC38E14
 bool g_drawn = false;       ///< 0xEDC300
-/// Random@@YAMMM 0x81D180 is the 3D engine's own generator, not the game's: a separate one here too
+/// Random@@YAMMM 0x81D180 is the 3D engine's own generator, not the game's: a separate one here too. (aproximado: the
+/// generator, its seed and the distribution are the port's, not 0x81D180's)
 std::minstd_rand g_random(12345);
 
 float Random(float min, float max)
@@ -170,8 +171,10 @@ std::vector<Tile> rain::CollectTiles(const glm::vec3& camera)
 		// The Z-sorter's user data packs the tile (x / 80, z / 80) and this alpha in its three low bytes (fn_008341B0),
 		// which is what fn_00833F80 unpacks for fn_00834370(x, z, 0, 0x80, alpha); over 0x2C it also spawns the water
 		// drops on the ground (g_water_drop_cb, not ported)
+		// Render3D 0x836431..0x83645D: 88 x max / 100 (imul 0x51EB851F); fn_008341B0 clamps it to 0xFF (0x8341B8) and
+		// drops only a negative one (0x8341CC)
 		int32_t alpha = std::min(wettest * 88 / 100, 0xFF);
-		if (alpha <= 5)
+		if (alpha < 0)
 		{
 			continue;
 		}

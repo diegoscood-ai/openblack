@@ -34,6 +34,8 @@ float openblack::ecs::life::LifeOf(entt::entity entity)
 	{
 		return life->value;
 	}
+	// (inferido) no Life component yet = full life: every object has its life at Object +0x48 (0x402600), and openblack
+	// only assigns the component on the first change
 	return 1.0f;
 }
 

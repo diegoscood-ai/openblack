@@ -53,14 +53,16 @@ struct Climate
 	int32_t maxStorms {10};           ///< +0x58 10 for the world, else int(radius2 x 0.001 + 1)
 	std::list<storms::StormId> storms; ///< +0x5C its natural storms, newest first
 	bool world {false};               ///< +0x64 bit 0
-	int32_t stormElevation {500};     ///< +0x68 (0x1F4)
-	float fallSpeed {0.5f};           ///< +0x6C windMax[current season] / 30 + 0.5
-	float unknown0x70 {1.0f};         ///< +0x70
+	int32_t stormElevation {500};     ///< +0x68 (0x1F4; ctor 0x77113E, fn_00771170 0x7712C6)
+	float fallSpeed {0.5f};           ///< +0x6C windMax[season] x 1/30 [0x980518] + 0.5 [0x8AB260] (0x77114B)
+	float unknown0x70 {1.0f};         ///< +0x70 (ctor 0x771137, fn_00771170 0x7712B6)
+	// +0x74..+0x80: 5 / 60 (0x40A00000 / 0x42700000) stored at 0x77111B..0x771134 and 0x7712A6..0x7712C3
 	float sheetMin {5.0f};            ///< +0x74 the lightning of its hot storms
 	float sheetMax {60.0f};           ///< +0x78
 	float forkMin {5.0f};             ///< +0x7C
 	float forkMax {60.0f};            ///< +0x80
-	uint8_t lightning {0};            ///< +0x84 lightning below 30 degrees too; no writer found (UNVERIFIED, 0 assumed)
+	/// +0x84 lightning below 30 degrees too; fn_00771170 zeroes it (0x7712E0), no other writer found (UNVERIFIED)
+	uint8_t lightning {0};
 
 	/// The centre as ComputeWeather reads it (fild x 0.000152588)
 	[[nodiscard]] glm::vec3 Centre() const;

@@ -65,7 +65,7 @@ constexpr uint8_t k_TemporaryAlpha0 = 20;     ///< +0x35
 constexpr uint8_t k_PermanentAlpha1 = 130;    ///< +0x36
 constexpr uint8_t k_PermanentAlpha0 = 20;     ///< +0x37
 constexpr float k_BandDuration = 0.85f;       ///< +0x38
-constexpr float k_FlyScale = 4.0f;            ///< +0x3C: the distance in front of the camera (at least near + 0.2)
+constexpr float k_FlyScale = 4.0f;            ///< +0x3C: the distance in front of the camera (inf; no near + 0.2 clamp)
 constexpr float k_FlyShrink = 0.5f;           ///< +0x40
 constexpr float k_GlowAlpha = 0.8f;           ///< the +0x54 target
 constexpr float k_GlowRate = -20.0f;          ///< +0x5C frames per second
@@ -220,7 +220,8 @@ glm::mat4 HandBoneMatrix()
 	return hand.GetHandMatrix() * bone;
 }
 
-/// LH3D's camera matrix 0xEA1CF8 (inf: the camera's world matrix) with the band 4 m in front, at half its size
+/// LH3D's camera matrix 0xEA1CF8 (inf: the camera's world matrix) with the band 4 m in front, at half its size. The
+/// handedness (right = up x forward) and the column order are also inferido: they decide the side the bands fly from.
 glm::mat4 CameraFlyMatrix()
 {
 	if (!Locator::camera::has_value())
@@ -383,7 +384,8 @@ void hand_fx::Update(float seconds)
 {
 	auto& s = g_State;
 	auto& registry = Locator::entitiesRegistry::value();
-	// the glow: a Magic / MagicLiving object (info class 3 / 10) or a spell seed in the hand
+	// the glow (0x68D0C0 step 1): a Magic / MagicLiving object (info class 3 / 10) or a spell seed in the hand
+	// TODO(hand): the info class 3 / 10 test of 0x68D0C0 (only IsSpellSeed, vt +0x4C4, is ported)
 	s.glowAlpha = 0.0f;
 	if (Locator::handSystem::has_value())
 	{
@@ -402,7 +404,7 @@ void hand_fx::Update(float seconds)
 	if (s.charging)
 	{
 		s.chargeTimer += seconds;
-		const float charge = std::clamp(icons->MaxChargeFraction(), 0.0f, 1.0f);
+		const float charge = std::clamp(icons->MaxChargeFraction(), 0.0f, 1.0f); // clamped in 0x68D0C0 step 2
 		if (started || s.chargeTimer >= k_ChargeIntervalFrom + (k_ChargeIntervalTo - k_ChargeIntervalFrom) * charge)
 		{
 			s.chargeTimer = 0.0f;
@@ -410,7 +412,7 @@ void hand_fx::Update(float seconds)
 		}
 	}
 	// the flowing texture's frame: += dt x -20 in [0, 64), the cell (frame % 32) of an 8 x 4 atlas
-	if (s.glowAlpha > 0.01f)
+	if (s.glowAlpha > 0.01f) // 0x68D0C0 step 3
 	{
 		s.glowFrame += seconds * k_GlowRate;
 		const float wrap = static_cast<float>(k_GlowFrames * 2);
@@ -422,7 +424,7 @@ void hand_fx::Update(float seconds)
 		{
 			s.glowFrame = std::fmod(s.glowFrame, wrap) + wrap;
 		}
-		const int frame = static_cast<int>(std::lround(s.glowFrame)) % k_GlowFrames;
+		const int frame = static_cast<int>(s.glowFrame) % k_GlowFrames; // int(+0x58) % 32: truncated (0x68D0C0)
 		s.glowUv = glm::vec2(static_cast<float>(frame % 8) * 0.125f, static_cast<float>(frame / 8) * 0.125f);
 	}
 	// the bands on the hand's root bone: the permanent ones, then the temporary ones (a finished one goes)
@@ -463,7 +465,7 @@ void hand_fx::CreateInHandEffect(entt::entity seed)
 	// fn_007285E0: the level's GMagicInfo.particleTypeInHand
 	const auto type = GetMagicInfoFromPULevel(Locator::infoConstants::value(), info, component.powerUp).particleTypeInHand;
 	g_State.inHandSeed = seed;
-	g_State.inHandAtBone = info.attachInHandEffectToBone == 1;
+	g_State.inHandAtBone = info.attachInHandEffectToBone == 1; // (inferido: read, but the bone is not applied yet)
 	const auto file = psys::ParticleTypeFile(type);
 	if (file.empty())
 	{
@@ -510,7 +512,7 @@ void hand_fx::UpdateInHandEffect(float milliseconds)
 	const auto& hand = Locator::handSystem::value();
 	psys::ProcessInfo info;
 	// +0x4964 (info +0x0C): the hand bone's position with attachInHandEffectToBone (bone CHand +0xB4 + 4 x CHand +0x98,
-	// UNVERIFIED which), else the hand (+0x78)
+	// UNVERIFIED which), else the hand (+0x78). (inferido: inHandAtBone is ignored, the hand origin is always used)
 	info.handPos = glm::vec3(hand.GetHandMatrix()[3]);
 	info.interfacePos = info.handPos;
 	info.power = seed != nullptr ? seed->psysPower : 1.0f; // SpellSeed::GetPSysPower 0x7298F0

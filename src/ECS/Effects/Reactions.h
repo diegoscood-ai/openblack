@@ -61,6 +61,11 @@ uint32_t CreateReaction(entt::entity initiator, openblack::Reaction type, Player
 
 /// SpreadReaction 0x6E3E10: (max(1, trunc(radius x 0.2)))^2 x GetReactionPower (1) map cells of GUtils::Spiral from
 /// the initiator's cell, the ones within the radius; each cell's Living, in the cell's order, to its class's handler.
+/// (inferido) GetReactionPower (vt+0x4F4) is 1 for every initiator: GameThingWithPos 0x4024D0 is 1.0, but the overrides
+/// Spell 0x55CF10 (= Spell::GetSpellStrength 0x720750) and Tree 0x55D8D0 (vt+0x11C, GetLife: ECS/Life.h) are not
+/// ported, so a spell or tree initiator (MagicTree) spreads over the unscaled count.
+/// TODO(reactions): the stealth branch of 0x6E3E10 (+0x20 set and the cell's first object another Living:
+/// GameRand(1000) > stealthRandomChance skips the cell, else stealth is cleared) is not ported; no creator sets +0x20.
 /// (aproximado) The cells are openblack's map grid, rebuilt once per turn (and before a spread outside the turn), not
 /// the original's lists that follow every move; a cell's order is the grid's (the registry's), not the original's
 /// insertion order.

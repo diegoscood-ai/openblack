@@ -162,7 +162,7 @@ struct VillagerStateTableEntry
 {
 	std::function<uint32_t(LivingAction&)> state = nullptr;
 	std::function<bool(LivingAction&, VillagerStates, VillagerStates)> entryState = nullptr;
-	std::function<bool(LivingAction&)> exitState = nullptr;
+	std::function<bool(LivingAction&, VillagerStates)> exitState = nullptr; ///< (the next state)
 	std::function<bool(LivingAction&)> saveState = nullptr;
 	std::function<bool(LivingAction&)> loadState = nullptr;
 	std::function<bool(LivingAction&)> field0x50 = nullptr;
@@ -186,7 +186,7 @@ static const VillagerStateTableEntry k_TodoEntry = {
 	                       k_VillagerStateStrings.at(static_cast<size_t>(dst)));
 	    return false;
     },
-    .exitState = [](LivingAction& action) -> bool {
+    .exitState = [](LivingAction& action, VillagerStates /*next*/) -> bool {
 	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented exit state function)",
 	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)));
 	    return false;
@@ -300,7 +300,8 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FISHING */ k_TodoEntry,
     /* WAIT_FOR_COUNTER */ k_TodoEntry,
     // the worship states (VillagerWorship.cpp). 58 is the original's footpath walk (SetupMoveToOnFootpath): openblack
-    // walks with the WallHug inside 59, so GotoWorshipSiteForWorship sets 59 straight away and 58 is never entered.
+    // walks with the WallHug inside 59, so GotoWorshipSiteForWorship sets 59 straight away and 58 is never entered
+    // (aproximado: the footpath walk is not ported).
     /* GOTO_WORSHIP_SITE_FOR_WORSHIP */ {.exitState = &ecs::villager_worship::ExitMoveToWorshipSite},
     /* ARRIVES_AT_WORSHIP_SITE_FOR_WORSHIP */ {.state = &ecs::villager_worship::ArrivesAtWorshipSiteForWorship,
                                               .exitState = &ecs::villager_worship::ExitMoveToWorshipSite},
@@ -568,7 +569,7 @@ void LivingActionSystem::VillagerSetState(LivingAction& action, LivingAction::In
 
 	// Exit the previous state before switching. A truthy return means it isn't ready to be
 	// left yet, so abort the transition without changing state.
-	if (runTransition && VillagerCallExitState(action, index))
+	if (runTransition && VillagerCallExitState(action, index, state))
 	{
 		return;
 	}
@@ -615,7 +616,8 @@ bool LivingActionSystem::VillagerCallEntryState(LivingAction& action, LivingActi
 	return callback(action, src, dst);
 }
 
-bool LivingActionSystem::VillagerCallExitState(LivingAction& action, LivingAction::Index index) const
+bool LivingActionSystem::VillagerCallExitState(LivingAction& action, LivingAction::Index index,
+                                               VillagerStates next) const
 {
 	const auto& state = action.states.at(static_cast<size_t>(index));
 	const auto& entry = k_VillagerStateTable.at(static_cast<size_t>(state));
@@ -624,7 +626,7 @@ bool LivingActionSystem::VillagerCallExitState(LivingAction& action, LivingActio
 	{
 		return false;
 	}
-	return callback(action);
+	return callback(action, next);
 }
 
 int LivingActionSystem::VillagerCallOutOfAnimation(LivingAction& action, LivingAction::Index index) const

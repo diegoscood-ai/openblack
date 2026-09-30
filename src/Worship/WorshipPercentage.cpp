@@ -188,9 +188,11 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Worship trace: pass {}, {} of {} villagers available", pass,
 				                   candidates.size(), villagers.size());
 			}
-			// the highest score first (a new one goes before the first whose score is lower)
+			// the highest score (the farthest) first: a new one goes before the first whose score is lower (0x73C190)
 			std::stable_sort(candidates.begin(), candidates.end(),
 			                 [](const auto& a, const auto& b) { return a.first > b.first; });
+			// 0x73C2DE: [info +0x35C] of each villager's own GVillagerInfo; (aproximado): openblack keeps no info per
+			// villager and takes info 0 (every villager info has 0.3 today)
 			const float threshold = Locator::infoConstants::value().villager.at(0).damageThresholdToGoHome;
 			for (const auto& [distance, villager] : candidates)
 			{
@@ -222,7 +224,7 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 					candidates.emplace_back(WorshipScore(villager), villager);
 				}
 			}
-			// the lowest score first (a new one goes before the first whose score is higher)
+			// the lowest score (the nearest) first: a new one goes before the first whose score is higher (0x73C3AE)
 			std::stable_sort(candidates.begin(), candidates.end(),
 			                 [](const auto& a, const auto& b) { return a.first < b.first; });
 			for (const auto& [distance, villager] : candidates)
@@ -231,7 +233,8 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 				{
 					break;
 				}
-				// vt 0x8E8 SetState(163), then vt 0x8C8 (1 when it left)
+				// vt 0x8E8 SetState(163), then ++n only when vt 0x8C8 returns 1 (0x73C505..0x73C510). (aproximado):
+				// vt 0x8C8 is not identified yet, so every villager sent back counts
 				ecs::villager_worship::SendBackToTown(villager);
 				++count;
 			}

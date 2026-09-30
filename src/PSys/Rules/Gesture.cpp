@@ -40,7 +40,8 @@ using namespace openblack::psys;
 namespace
 {
 /// GPlayer::GetPlayerColour 0x64D800 of this interface's player: 0xBFF0B8[GetRemapedPlayer(player number)] (the remap is
-/// the identity here, as in PSys/TownBelief.cpp; the local player is number 0)
+/// the identity here, as in PSys/TownBelief.cpp; the local player is number 0). (inf) every record is drawn in this
+/// colour: the record's own player and GetRemapedPlayer 0x64D790 are not used
 constexpr uint32_t k_LocalPlayerColour = 0xFF4646;
 /// fn_0068DE90 / fn_0068DEA0: when the collection's pulse starts, and how long it lasts
 constexpr float k_PulseStart = 2.4f;
@@ -78,6 +79,7 @@ public:
 	    , goToIdeal(object.Bool("GoToIdeal", false))                               // +0x90
 	    , doTransition(object.Bool("DoTransition", false))                         // +0x91
 	{
+		// (inferido) the defaults above: the ctor was not read (SF_Gesture sets DieAge, TimeToIdeal and the rest)
 		// HeightOffset (+0x34), ExplodeFactor (+0x68), ExplodePause (+0x6C) and HandPulseDuration (+0x7C) are properties
 		// too; the first three are not used by the rule, the last one only by the hand pulse (not ported)
 	}
@@ -98,7 +100,8 @@ public:
 			data.record = std::move(pending.back());
 			pending.pop_back();
 			// fn_006882F0 (the record is this computer's interface's): LH_SAMPLE_G_SPELLGESTURERECOGNISE (0x24), IN_GAME;
-			// another interface's one plays at its hand position
+			// another interface's one plays at its hand position: not ported (record.fromInterface / handPosition are
+			// ignored, the sound is always non-positional)
 			PlayRecognisedSound();
 		}
 		// the atoms older than DieAge go (with their sprites)
@@ -123,7 +126,8 @@ public:
 				if (sub->group == sparkleGroup && data.initialised)
 				{
 					// the sparkle group (none in SF_Gesture): the atom runs along the ideal once every 2 s and fades out in
-					// its last 2 s
+					// its last 2 s (age / 2 [0xC02648] at 0x68872D, < 2 [0x8AB478] at 0x68877E, x 127.5 [0x92B6EC] at
+					// 0x68878B)
 					atom->position = data.record.ideal.At(std::fmod(effect.AtomAge(*atom) / 2.0f, 1.0f));
 					const float left = dieAge - effect.AtomAge(*atom);
 					if (left < 2.0f)
@@ -268,6 +272,7 @@ private:
 			sub.alpha = static_cast<float>(static_cast<uint8_t>(static_cast<int>(static_cast<float>(collectionAlphaPulse) * f)));
 		}
 		const float step = sub.atoms.size() > 1 ? 1.0f / static_cast<float>(sub.atoms.size() - 1) : 0.0f;
+		// the max(dt, eps) is a port guard: the original multiplies by [0xD4E0F0] = 1/dt directly
 		const float perSecond = 1.0f / std::max(effect.GetDt(), 1e-4f); // [0xD4E0F0]
 		for (size_t i = 0; i < sub.atoms.size(); ++i)
 		{
@@ -294,7 +299,8 @@ private:
 			{
 				position = goToIdeal ? ideal.At(u) : stroke.At(u);
 			}
-			// the wiggle: value noise at the atom's shuffled phase, x and z by the ideal's box, y upwards only
+			// the wiggle: value noise at the atom's shuffled phase, x and z by the ideal's box, y upwards only (the
+			// phase offsets +0.3 [0x8AB23C] at 0x6892D3 and +0.7 [0x8AB238] at 0x689308)
 			const float phase = static_cast<float>(i < data.order.size() ? data.order[i] : 0) * step;
 			const float nx = noise::VSNoise1To1(phase * wiggleFreq + age * wiggleSpeed) * width * wiggleMag;
 			const float nz = noise::VSNoise1To1((phase + 0.3f) * wiggleFreq + age * wiggleSpeed) * depth * wiggleMag;
@@ -348,6 +354,7 @@ public:
 	    , adjustInitialScale(object.String("AdjustInitialScale"))     // +0x34
 	    , inTestMode(object.Bool("InTestMode", false))                // +0x3A
 	{
+		// (inferido) the defaults above: the ctor was not read
 		// PredictNextPosition (+0x38) and DrawOnFirstUpdate (+0x39) are properties too; this rule does not read them
 	}
 
@@ -377,7 +384,7 @@ public:
 		{
 			auto& atom = **it;
 			auto& data = _data[&atom];
-			if (!data.emitting && effect.AtomAge(atom) - data.stopTime > 5.0f)
+			if (!data.emitting && effect.AtomAge(atom) - data.stopTime > 5.0f) // (inferido) the 0x68A080 offset of 5 s
 			{
 				_data.erase(&atom);
 				it = collection.atoms.erase(it);
@@ -508,7 +515,7 @@ class MakeChain final: public Modifier
 public:
 	explicit MakeChain(const Object& object)
 	    : creator(object.String("PCreator"))
-	    , numAtoms(object.Int("NumAtoms", 0))
+	    , numAtoms(object.Int("NumAtoms", 0)) // (inferido) default: the ctor was not read
 	{
 	}
 	[[nodiscard]] bool Creates() const override { return true; }

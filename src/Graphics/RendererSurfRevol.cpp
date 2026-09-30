@@ -115,7 +115,8 @@ void Renderer::DrawPSysSurfaces(RenderPass viewId, [[maybe_unused]] const Camera
 			program->SetTextureSampler("s_alpha", 1, alpha, 0);
 			bgfx::setVertexBuffer(0, &vertices);
 			bgfx::setIndexBuffer(&indices);
-			// mode 6 (MaterialUpdateZBuffer: Z write), Z test on; the specular goes on top additively
+			// mode 6 (MaterialUpdateZBuffer: Z write), Z test on; the specular goes on top additively. Not ported: no
+			// cull state, so Surface::doubleSided (MaterialSetDoubleSided) is ignored and every surface draws two-sided
 			const uint64_t blend = pass == 1 || surface.additive
 			                           ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
 			                           : BGFX_STATE_BLEND_ALPHA;

@@ -85,7 +85,8 @@ int InitWithPos(entt::entity spell, const glm::vec3& position, SpellCastData* ca
 {
 	const auto& shieldInfo = ShieldInfoOf(spell);
 	auto& data = DataOf(spell);
-	// the radius (castData +0) clamped to [minRadius, maxRadius] and written back
+	// the radius (castData +0) clamped to [minRadius, maxRadius] and written back. 0x72B5F0 reads castData +0
+	// directly; the fallback for a NULL castData (radius 40, no chants, time -1) is openblack's (inferido)
 	SpellCastData fallback {40.0f, 0.0f, -1.0f, -1};
 	SpellCastData* cast = castData != nullptr ? castData : &fallback;
 	const float radius = ClampShieldRadius(shieldInfo, cast->magnitude);
@@ -97,7 +98,7 @@ int InitWithPos(entt::entity spell, const glm::vec3& position, SpellCastData* ca
 	reactions::SetRadius(data.shieldReaction, radius + k_ReactionRadiusAdd);
 	data.town = NearestTown(position, k_TownRadius);
 	// an anti-influence ring of the spell's magnitude for every other active player (GGame::GetNextActivePlayer
-	// 0x5508D0: the seven players' slots in use; here the players the land made)
+	// 0x5508D0: the seven players' slots in use; aproximado: here the players the land made an entity for)
 	const float magnitude = component.magnitude; // GetSpellMagnitude 0x7202C0
 	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::NEUTRAL); ++p)
 	{

@@ -376,12 +376,14 @@ void gestures::ClearBuffer()
 
 void gestures::FeedSample(glm::ivec2 mouse)
 {
-	// g_game +0x14 & 4 (the game is paused), and the cooldown
+	// g_game +0x14 & 4 (casting.md: a restricted input mode; inferido: taken as the pause, g_game +0x59A4), and the
+	// cooldown +0x378
 	if (g_Hand.paused || g_State.cooldown > 0.0f)
 	{
 		return;
 	}
 	const auto world = sampling::ScreenToLand(glm::vec2(mouse));
+	// (0, 0, 0) means off the land: |c| <= [0x8C79D8] (double 1e-4), as GestureBuffer's k_Zero
 	if (world && !(std::abs(world->x) <= 1e-4f && std::abs(world->y) <= 1e-4f && std::abs(world->z) <= 1e-4f))
 	{
 		g_State.system.AddSample(*world, mouse);
@@ -587,6 +589,7 @@ void gestures::ProcessPowerUpSystem(float dt)
 				}
 			}
 		}
+		// TODO(M8): the leash scribble (status->leash +0x14 && !+0x24 -> packet 0x5F, casting.md §2.3 (b))
 		else if (g_Icons != nullptr && g_Icons->AnyIconChargingForHand())
 		{
 			lf[k_Scribble].type = 0;
@@ -616,7 +619,9 @@ void gestures::ProcessPowerUpSystem(float dt)
 			}
 			if (Recognise(category) && category != k_None)
 			{
-				if (s.selection.Open(category, *g_Icons, SelectionTables::FromInfo()))
+				const bool opened = s.selection.Open(category, *g_Icons, SelectionTables::FromInfo());
+				s.currentPowerUpGesture = k_None; // OpenSelection 0x5CF010: currentPUGesture (+0x178) = 0
+				if (opened)
 				{
 					s.heldFlag8 = true;
 					Success(true);

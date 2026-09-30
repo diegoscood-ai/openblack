@@ -14,6 +14,7 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
+#include "Magic/Script/ScriptPlayer.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -30,8 +31,9 @@ entt::entity objects::CreateMagicWood(const glm::vec3& position, std::optional<P
 	                                                        PotInfo::MagicWood, static_cast<int32_t>(amount));
 	if (pile != entt::null)
 	{
-		// +0xB4: the owner, NULL -> the local player
-		Locator::entitiesRegistry::value().Get<ecs::components::Pot>(pile).owner = player.value_or(PlayerNames::PLAYER_ONE);
+		// +0xB4 (0x600E64..0x600E8A): the owner, NULL -> g_game +0x18 + byte g_game[0x205A5B] * 0xA60, the neutral player
+		// (ScriptPlayer.h)
+		Locator::entitiesRegistry::value().Get<ecs::components::Pot>(pile).owner = player.value_or(k_NeutralPlayerSlot);
 	}
 	return pile;
 }

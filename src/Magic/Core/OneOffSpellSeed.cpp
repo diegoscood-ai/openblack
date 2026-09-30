@@ -31,6 +31,7 @@
 #include "Magic/MagicTables.h"
 #include "Players.h"
 #include "Resources/ResourcesInterface.h"
+#include "Spell.h"
 #include "SpellSeed.h"
 #include "Worship/PlayerSpellIcons.h"
 #include "Worship/SpellSeedGraphic.h"
@@ -66,10 +67,12 @@ entt::entity one_off::CreateSpellIntoHand(PlayerNames player, SpellSeedType seed
 	}
 	// at the interface's hand position (+0xC8, +0xD0; altitude 0): GPlayer::FindBestSpellIconForSpellSeed 0x64BF40, and
 	// with an icon of that seed fn_007282A0 (a seed of the icon, its creator the icon: Worship/WorshipSpellIcon.cpp),
-	// else fn_00728300 (a free seed of that type)
+	// else fn_00728300 (a free seed of that type). (inferido: openblack's right hand stands for the interface's; no
+	// hand gives (0, 0))
 	using Side = ecs::systems::HandSystemInterface::Side;
 	const auto hands = hand.GetPlayerHandPositions();
-	const glm::vec3 handPosition = hands[static_cast<size_t>(Side::Right)].value_or(glm::vec3(0.0f));
+	const glm::vec3 hand3d = hands[static_cast<size_t>(Side::Right)].value_or(glm::vec3(0.0f));
+	const glm::vec3 handPosition = magic::ToWorld(glm::vec3(hand3d.x, 0.0f, hand3d.z)); // altitude 0: on the land
 	const auto icon = worship::player::FindBestSpellIconForSpellSeed(player, seedType);
 	const auto entity = icon != entt::null ? worship::icon::CreateSeed(icon, handPosition, player, powerUp, multiplier)
 	                                       : seed::Create(handPosition, seedType, player, powerUp, multiplier);

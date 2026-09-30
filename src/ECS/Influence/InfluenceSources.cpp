@@ -40,7 +40,7 @@ float StoryInfluence(const std::array<float, 5>& story, float after, int32_t lan
 	{
 		return story.at(static_cast<size_t>(land - 1));
 	}
-	return after; // land 6; nothing else is used by a map
+	return after; // land 6; (inferido) for a land < 0 or >= 7, which no map sets
 }
 
 /// Town::GetBaseInfluence 0x73FD40 (GTownInfo, the single info at 0xDA2780)
@@ -56,7 +56,8 @@ float BaseInfluence(const TownInfluence& town)
 }
 
 /// The abode's own info record: its abode number and mesh (GAbodeInfo::Find would take the tribeless ark and totem
-/// records that come last), or the tribe's
+/// records that come last), or the tribe's. (inferido): the original reads the abode's own info pointer; openblack
+/// keeps none, so this lookup is its own
 const GAbodeInfo* AbodeInfoOf(const Abode& abode, entt::id_type mesh, Tribe tribe)
 {
 	const GAbodeInfo* byTribe = nullptr;
@@ -91,6 +92,7 @@ float AbodeInfluence(entt::entity entity, const Abode& abode, Tribe tribe)
 		return 0.0f;
 	}
 	const auto* transform = registry.TryGet<const Transform>(entity);
+	// GetScale (+0x50); (inferido): taken as openblack's Transform x scale
 	const float scale = transform != nullptr ? transform->scale.x : 1.0f;
 	constexpr float k_PercentBuilt = 1.0f;
 	const float fixedInfluence = k_PercentBuilt * scale * ecs::life::LifeOf(entity) * info->influence;
@@ -133,7 +135,8 @@ void ProcessTowns()
 		{
 			influence.radius += abodes[town.id];
 		}
-		influence.radius *= multiplier; // every town has a player (NEUTRAL included)
+		// 0x747380 multiplies only `if town->GetPlayer()`; (inferido): every town has a player (NEUTRAL included)
+		influence.radius *= multiplier;
 	});
 }
 
@@ -160,9 +163,9 @@ float CitadelRadius(entt::entity temple)
 	{
 		const auto& info = Locator::infoConstants::value().citadelHeart;
 		const auto land = LandNumber();
-		const auto* transform = registry.TryGet<const Transform>(temple);
-		// (CREATE_CITADEL passes 1 whatever its size; every map's citadel has size 1000, i.e. scale 1)
-		const float scale = transform != nullptr ? transform->scale.x : 1.0f;
+		// M2: CREATE_CITADEL passes 1 whatever its size (0x463240). TODO(influence): a planned citadel's M2 is the
+		// plan's scale (0x467EF0); openblack does not keep it (CitadelArchetype::CreatePlan) and uses 1 for it too
+		constexpr float scale = 1.0f;
 		const float story =
 		    land != 0 ? StoryInfluence(info.storyInfluence, info.transferedDamageMultiplier, land) : info.influence;
 		stored = &registry.Assign<CitadelInfluence>(temple, scale * story);

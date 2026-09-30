@@ -28,7 +28,7 @@ constexpr Gesture k_InverseSpiral = 2;
 constexpr Gesture k_Circle = 4;
 constexpr Gesture k_Scribble = 5;
 constexpr Gesture k_RShape = 14;
-constexpr size_t k_GestureCount = 24; ///< LookingFor tables have one entry per gesture
+constexpr size_t k_GestureCount = 24; ///< one entry per gesture: GInterface activeGesture[24] +0x346, LookingFor lf[24]
 
 constexpr size_t k_MaxSamples = 80;
 

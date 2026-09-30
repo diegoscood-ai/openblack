@@ -348,7 +348,8 @@ void spell_sounds::ProcessTurn(float turnSeconds)
 			}
 			if (sound.action.fadeStep != 0)
 			{
-				// LHSampleSetVolume(vol - FadeStep, not below 0): the volume in 0..127 units
+				// LHSampleSetVolume(vol - FadeStep, not below 0): the volume in 0..127 units. (inferido) the LH volume
+				// 0..127 mapped onto the emitter's 0..1
 				auto& registry = Locator::entitiesRegistry::value();
 				for (const auto emitter : sound.emitters)
 				{
@@ -406,6 +407,8 @@ size_t spell_sounds::Count()
 	return g_Sounds.size();
 }
 
+// (inferido) SizeFromRadius / SizeFromImpactSpeed: strict "<" at the thresholds; the compares of 0x69F410 and
+// fn_006A1630 were not noted
 int32_t spell_sounds::SizeFromRadius(float radius, float small, float medium)
 {
 	if (radius < small)

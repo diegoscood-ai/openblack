@@ -53,7 +53,7 @@ constexpr float k_SlotAngle = 0.8975979f;
 /// WorshipSite::GetSpellIconPos 0x77B080: the rings (7.5 m apart, 0x8C2C40) up to 30 m (0x8BF51C)
 constexpr float k_IconRingStep = 7.5f;
 constexpr float k_IconRingMax = 30.0f;
-/// the dance ring (see DancePosition)
+/// the dance ring (see DancePosition); (inferido): 6 m has no source, the .DAN rings are not ported
 constexpr float k_DanceRadius = 6.0f;
 
 WorshipSite& SiteOf(entt::entity site)
@@ -101,7 +101,8 @@ float SlotAngle(const CitadelWorship& citadel, int slot)
 	return citadel.heartYAngle + static_cast<float>(slot) * k_SlotAngle;
 }
 
-/// The site's matrix at a slot: the citadel's origin (on the land), turned to the slot's angle, scale 1
+/// The site's matrix at a slot: the citadel's origin (fn_0077A960), turned to the slot's angle, scale 1.
+/// (inferido): the snap to the land's height is openblack's
 Transform SiteTransform(const glm::vec3& citadelPosition, float yAngle)
 {
 	glm::vec3 origin = citadelPosition;
@@ -109,7 +110,8 @@ Transform SiteTransform(const glm::vec3& citadelPosition, float yAngle)
 	return Transform {origin, glm::mat3(glm::eulerAngleY(-yAngle)), glm::vec3(1.0f)};
 }
 
-/// fn_00467890(heart, 9, angle): the heart's B_WORSHIP special point 9 turned to the angle
+/// fn_00467890(heart, 9, angle) (called at 0x463587): the heart's B_WORSHIP special point 9 turned to the angle.
+/// UNVERIFIED (sources.md §10.3): fn_00467890 is not read; its radius may be info.radiusFromCitadel (37.5)
 std::optional<glm::vec3> HeartRingPoint(const glm::vec3& citadelPosition, float yAngle)
 {
 	if (!Locator::resources::has_value() || !Locator::resources::value().GetMeshes().Contains(k_SiteMesh))
@@ -190,6 +192,7 @@ glm::vec3 FindIconPosition(entt::entity site, int16_t& slot)
 	{
 		for (int s = static_cast<int>(site::Point::FirstIcon); s <= static_cast<int>(site::Point::LastIcon); ++s)
 		{
+			// (inferido): without the mesh's point the candidate is the site's origin (the original has no fallback)
 			candidate = IconPositionFromSlot(site, s, ring).value_or(registry.Get<const Transform>(site).position);
 			const bool taken = std::ranges::any_of(icons, [&](entt::entity icon) {
 				const auto& at = registry.Get<const Transform>(icon).position;
@@ -300,7 +303,8 @@ entt::entity site::Create(entt::entity citadelEntity, Tribe tribe, const glm::ve
 	created.totem = CreateTotem(entity);
 	if (created.totem != entt::null)
 	{
-		// fn_0077AEE0: the Dance of GDanceInfo[19 + slot] (0xCC4B80 + (19 + slot) x 0xB0) at point 8; fn_0077B8D0(0.5)
+		// only with a totem (0x77AD5D); fn_0077AEE0: the Dance of GDanceInfo[19 + slot] (0xCC4B80 + (19 + slot) x 0xB0)
+		// at point 8; fn_0077B8D0(0.5) 0x77AF5B; CreateFoodPot 0x77AF62 (AddResource 0x77C638 remakes it when gone)
 		SetDanceIntensity(entity, 0.5f);
 		SiteOf(entity).foodPot = CreateFoodPot(entity);
 	}
@@ -549,7 +553,7 @@ void site::ProcessSpellIcons(entt::entity siteEntity)
 			{
 				const float available = AvailableForIcons(site, seedsOut);
 				const float share = (available < needed ? available : needed) / count;
-				if (share != 0.0f)
+				if (share != 0.0f) // 0x77B602..0x77B60D (count != 0: 0x77B5C0)
 				{
 					for (const auto icon : std::vector<entt::entity>(site.icons))
 					{
@@ -672,6 +676,8 @@ entt::entity site::FindAt(const glm::vec3& position)
 	{
 		return found;
 	}
+	// the MapCoords cell: 10 units (16.16 coordinate x 0.1, see LandIsland.cpp / SoundMap.cpp); (inferido): an icon is
+	// only in the cell of its position (its collide footprint is not ported)
 	registry.Each<const WorshipSpellIcon, const Transform>(
 	    [&](entt::entity, const WorshipSpellIcon& icon, const Transform& transform) {
 		    if (found == entt::null && std::floor(transform.position.x * 0.1f) == std::floor(position.x * 0.1f) &&
@@ -710,6 +716,7 @@ glm::vec3 site::DancePosition(entt::entity siteEntity, entt::entity villager)
 	const auto it = std::ranges::find(site.dancers, villager);
 	const auto index = static_cast<float>(it - site.dancers.begin());
 	const auto count = static_cast<float>(std::max<size_t>(site.dancers.size(), 1));
+	// (inferido): the ring starting at the site's yAngle and the cos/sin order are not from 0x597F20
 	const float angle = index / count * glm::two_pi<float>() + site.yAngle;
 	glm::vec3 position = centre + glm::vec3(std::cos(angle), 0.0f, std::sin(angle)) * k_DanceRadius;
 	position.y = GroundAt(position);

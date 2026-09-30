@@ -35,7 +35,7 @@ PlayerNames InterfacePlayer()
 			return static_cast<PlayerNames>(p);
 		}
 	}
-	return PlayerNames::PLAYER_ONE;
+	return PlayerNames::PLAYER_ONE; // (inferido): the original has no interface status then and does nothing
 }
 
 class WorshipIconProvider final: public magic::gestures::IconProvider
@@ -82,7 +82,9 @@ public:
 
 	void RepeatLast(int lastSeedType) override
 	{
-		// packet 0x26 (0x5DABF0 -> fn_0064BD50) with the interface's last seed type
+		// packet 0x26 (0x5DABF0 -> fn_0064BD50) with the interface's last seed type (fn_005DCA40, the argument).
+		// (aproximado): openblack keeps a second copy per player (player::SetLastSeedType), overwritten here so that
+		// RepeatLastSpell reads the interface's value; the original has no such copy to overwrite
 		const auto playerName = InterfacePlayer();
 		player::SetLastSeedType(playerName, static_cast<SpellSeedType>(lastSeedType));
 		player::RepeatLastSpell(playerName);

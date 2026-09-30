@@ -27,7 +27,7 @@ using namespace openblack::ecs::components;
 entt::entity OneOffSpellSeedArchetype::Create(const glm::vec3& position, SpellSeedType seedType, int powerUp, float scale)
 {
 	const auto index = static_cast<int>(seedType);
-	if (index <= -1 || index >= 30)
+	if (index <= -1 || index >= 30) // OneOffSpellSeed::Create 0x72A2F8 / 0x72A301 (cmp -1, cmp 0x1E)
 	{
 		return entt::null;
 	}

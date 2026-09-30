@@ -27,7 +27,7 @@ namespace openblack::ecs::components
 struct PlayerMagic
 {
 	static constexpr size_t k_MagicTypes = 42;
-	static constexpr size_t k_Tribes = 9;
+	static constexpr size_t k_Tribes = 9; ///< GPlayer +0x68..+0x88 float[9] (ctor loop of 9 at 0x649396), Tribe::_COUNT
 
 	/// +0x970 MagicRemainder: how many holders enable the magic type (towns, the script); SetMagicTypeEnabled 0x64C300
 	std::array<int32_t, k_MagicTypes> remainder {};

@@ -91,8 +91,8 @@ entt::entity CitadelArchetype::Create(const glm::vec3& position, PlayerNames pla
 	const auto meshId = entt::hashed_string("temple/b_first_temple_l3d");
 	registry.Assign<Mesh>(entity, meshId, static_cast<int8_t>(0), static_cast<int8_t>(0));
 	// CitadelHeart's creation also gives the citadel its worship part: six free slots around the heart's Y angle, which
-	// Citadel::AddTown fills with a WorshipSite per tribe (Worship/Citadel.cpp). A planned citadel gets it too, because
-	// openblack draws it as a finished temple and has no building sites.
+	// Citadel::AddTown fills with a WorshipSite per tribe (Worship/Citadel.cpp). (inferido, openblack deviation) A
+	// planned citadel gets it too, because openblack draws it as a finished temple and has no building sites.
 	worship::citadel::Initialise(entity, worship::YAngleOf(glm::mat3(rotation)));
 	return entity;
 }

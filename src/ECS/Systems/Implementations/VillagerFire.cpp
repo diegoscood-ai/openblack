@@ -8,7 +8,9 @@
  *******************************************************************************/
 
 #include "VillagerFire.h"
+#include "VillagerMove.h"
 #include "VillagerReactions.h"
+#include "VillagerWorship.h"
 
 #include <cmath>
 
@@ -26,6 +28,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fire/FireEffect.h"
@@ -38,6 +41,9 @@
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/Spell.h"
+#include "Magic/Objects/MapShield.h"
+#include "Worship/WorshipPercentage.h"
 
 using namespace openblack;
 using namespace openblack::ecs;
@@ -107,8 +113,10 @@ float GameFloatRand(float max)
 	return Locator::rng::value().NextValue(0.0f, max);
 }
 
-/// The fire's state functions, by the state they belong to (the entry and exit of a final state change)
-bool CallExit(entt::entity villager, VillagerStates state)
+/// The fire's state functions, by the state they belong to (the entry and exit of a final state change), and the
+/// worship exits a reaction leaves (58, 59, 60, 213: VillagerWorship.cpp); the exit functions take the next state, as
+/// the original's (ExitPutOutFire(E) 0x75AE80)
+bool CallExit(entt::entity villager, VillagerStates state, VillagerStates next)
 {
 	auto* action = ActionOf(villager);
 	if (action == nullptr)
@@ -121,9 +129,15 @@ bool CallExit(entt::entity villager, VillagerStates state)
 	case VillagerStates::PutOutFireWithWater:
 	case VillagerStates::GetWaterToPutOutFire:
 	case VillagerStates::MoveAroundFire:
-		return villager_fire::ExitPutOutFire(*action);
+		return villager_fire::ExitPutOutFire(*action, next);
 	case VillagerStates::OnFire:
 		return villager_fire::ExitOnFire(*action);
+	case VillagerStates::GotoWorshipSiteForWorship:
+	case VillagerStates::ArrivesAtWorshipSiteForWorship:
+		return villager_worship::ExitMoveToWorshipSite(*action, next);
+	case VillagerStates::WorshippingAtWorshipSite:
+	case VillagerStates::HidingAtWorshipSite:
+		return villager_worship::ExitAtWorshipSite(*action, next);
 	default:
 		return false;
 	}
@@ -164,7 +178,7 @@ void SetTopState(entt::entity villager, VillagerStates state)
 	const auto previous = FinalState(*action);
 	if (previous != state)
 	{
-		CallExit(villager, previous);
+		CallExit(villager, previous, state);
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
@@ -222,25 +236,10 @@ void PopFromPrevious(entt::entity villager)
 	action->states.at(static_cast<size_t>(LivingAction::Index::Previous)) = 0;
 }
 
-/// Living::SetupMoveToWithHug 0x5F2890: the move state (GLivingInfo +0x124: MOVE_TO_POS) with `final` as the
-/// destination state (SetCurrentAndDestinationState), then MobileWallHug::SetupMobileMoveToPos
+/// Living::SetupMoveToWithHug 0x5F2890: the villagers' shared one (VillagerMove.cpp: TOP, then FINAL)
 void SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, VillagerStates final)
 {
-	auto* action = ActionOf(villager);
-	auto& registry = Locator::entitiesRegistry::value();
-	auto* wallHug = registry.TryGet<WallHug>(villager);
-	if (action == nullptr || wallHug == nullptr)
-	{
-		return;
-	}
-	wallHug->goal = goal;
-	wallHug->step = glm::vec2(0.0f);
-	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
-	                MoveStateFinalStepTag, MoveStateArrivedTag>(villager);
-	registry.Remove<WallHugObjectReference>(villager);
-	registry.Assign<MoveStateLinearTag>(villager);
-	System().VillagerSetState(*action, LivingAction::Index::Final, final, true);
-	System().VillagerSetState(*action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
+	villager::SetupMoveToWithHug(villager, goal, final);
 }
 
 /// Living::GetFleeingPositionFromStationaryObject 0x5F2010: `distance` from the object, on its side away from the
@@ -317,11 +316,26 @@ bool SetupMoveAroundFire(entt::entity villager, const glm::vec2& destination, Vi
 	SetTopState(villager, VillagerStates::MoveAroundFire);
 	StateOf(villager).savedDestination = destination;
 	SetStoredState(*action, after);
-	// (state 59, a worshipper on its way: Town::AddVillagerOnWayToWorshipSite, M7)
+	// 0x75A7A7: going on to ARRIVES_AT_WORSHIP_SITE_FOR_WORSHIP (59), it is on its town's way list again
+	// (Town::AddVillagerOnWayToWorshipSite 0x73E300) with the flag +0xE0 0x10
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* v = registry.TryGet<const Villager>(villager);
+	if (after == VillagerStates::ArrivesAtWorshipSiteForWorship && v != nullptr && registry.Valid(v->town))
+	{
+		worship::percentage::AddVillagerOnWay(v->town, villager);
+		auto* worshipper = registry.TryGet<WorshipVillager>(villager);
+		if (worshipper == nullptr)
+		{
+			worshipper = &registry.Assign<WorshipVillager>(villager);
+		}
+		worshipper->onWayInTown = true;
+		worshipper->onWay = true;
+	}
 	return true;
 }
 
-/// fn_0075ABA0: the villager stands in the band just outside the fire (its radius plus the fire's) and 2 m further
+/// fn_0075ABA0: the villager stands in the band just outside the fire (its radius plus the fire's) and 2 m further. The
+/// fire's part is max(safe radius, the object's radius) (read at 0x75ABE0..0x75ABFB), unlike GetFireFightingPos' min
 bool IsBesideFire(entt::entity villager, const fire::FireEffect& fire, float band)
 {
 	if (fire.object == entt::null)
@@ -414,9 +428,13 @@ void ApplyFireReaction(entt::entity villager, const effects::reactions::Reaction
 	{
 		return;
 	}
-	// TODO(M6): not inside a magic shield (fn_0072B990)
 	const auto at = PositionOf(villager);
 	const auto from = PositionOf(reaction.initiator);
+	// fn_0072B990 (0x6E4031): not under a shield the fire is not inside
+	if (magic::map_shield::IsReactionBlockedByShield(magic::ToMap(at), magic::ToMap(from)))
+	{
+		return;
+	}
 	const float distance = 0.5f * (std::abs(at.x - from.x) + std::abs(at.z - from.z));
 	auto& state = StateOf(villager);
 	if (effects::reactions::Find(state.reaction) != nullptr)
@@ -561,7 +579,8 @@ uint8_t villager_fire::ReactToFirePriority(entt::entity villager, uint32_t react
 	const float ratio = fire->FireRadius() / fire->MaxFireRadius();
 	const float value = (ratio * 0.5f + 1.0f) * static_cast<float>(info.priority);
 	const auto priority = static_cast<uint8_t>(value < 255.0f ? value : 255.0f);
-	// recent (under 25 turns) and too near, or inside the safe radius: at that priority (it flees)
+	// recent (under 25 turns: the immediate 0x19 at 0x76571C) and too near, or inside the safe radius: at that priority
+	// (it flees)
 	if ((effects::reactions::Turn() - found->turnCreated < 25 && distance < info.minDistanceToRunAwayFromObject) ||
 	    fire->SafeFireRadius() > distance)
 	{
@@ -616,7 +635,6 @@ void villager_fire::SetupReactToFire(entt::entity villager, entt::entity object,
 	// AddReaction (vt 0x990 -> Living::AddReaction 0x5F0F30): the reaction is kept and the state stored, then REACT_TO_FIRE
 	StorePreviousState(*action);
 	SetTopState(villager, VillagerStates::ReactToFire);
-	// (a worshipper, +0xE0 bit 4, also goes around the fire towards its destination: M7)
 	if (fire::TraceEnabled())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fire: villager {} reacts to the fire of object {}", static_cast<int>(villager),
@@ -645,19 +663,37 @@ uint32_t villager_fire::ReactToFire(LivingAction& action)
 	const auto& info = FireReactionInfo();
 	const float distance = Distance2D(PositionOf(villager), PositionOf(state.object));
 	const auto* reaction = effects::reactions::Find(state.reaction);
-	const bool recent = reaction != nullptr && effects::reactions::Turn() - reaction->turnCreated < 25;
+	const bool recent = reaction != nullptr && effects::reactions::Turn() - reaction->turnCreated < 25; // 0x7658FC
 	if ((recent && distance < info.minDistanceToRunAwayFromObject) || !(fire->SafeFireRadius() <= distance))
 	{
-		// too near: away from it, and then look again
+		// too near: away from it, and then look again (0x765937: in the run-away band if recent, else the safe radius
+		// plus GameFloatRand(2.0), the immediate at 0x76599C)
 		const float away = recent ? GameFloatRand(info.maxDistanceToRunAwayFromObject - info.minDistanceToRunAwayFromObject) +
 		                                info.minDistanceToRunAwayFromObject
 		                          : fire->SafeFireRadius() + GameFloatRand(2.0f);
 		SetupMoveToWithHug(villager, FleeingPosition(villager, state.object, away), VillagerStates::ReactToFire);
 		return 1;
 	}
-	// its town's villagers may fight it: the score is the group's burning priority x the room left around it x the town
-	// distance term (400 m); above 0.1 it goes to beat the fire
-	if (const auto* v = registry.TryGet<const Villager>(villager); v != nullptr && registry.Valid(v->town))
+	// 0x765A05: its final state already fights a fire (exit ExitPutOutFire 0x75AE80): StopReactingAndSetState (vt 0x99C
+	// 0x5F11C0: ResetStateAfterReacting, then StopReacting)
+	if (const auto final = FinalState(action);
+	    final == VillagerStates::PutOutFireByBeating || final == VillagerStates::PutOutFireWithWater ||
+	    final == VillagerStates::GetWaterToPutOutFire || final == VillagerStates::MoveAroundFire)
+	{
+		PopFromPrevious(villager);
+		state.reaction = 0;
+		return 1;
+	}
+	// 0x765A5B: a villager with a town that is not on its way to worship (+0xE0 0x10) may fight it. The score is the
+	// group's burning priority (fn_007302E0) x the room left around it x the town distance term (GetDistanceModifier
+	// 0x74F290, 400 m: the immediate at 0x765A77); above 0.1 (0x8AB22C) it goes to beat the fire. The room is
+	// fn_00730290 x 2pi (0x8AB210) / (GetRadius (vt 0x60) x 4 (0x8AB418)), 0 when 0, else (room - the firemen count,
+	// GetFirstCaused +0x4C) / room. No random term (fn_00730360 IsOnFire is called at 0x765B09, its result unused).
+	// (aproximado): fn_00730290, fn_007302E0 and the +0x4C count are taken as GroupBurningRadius, GroupBurningPriority
+	// and the size of the firemen list without tracing them; destructive.md §2.5 lists the decision as UNVERIFIED.
+	const auto* worshipper = registry.TryGet<const WorshipVillager>(villager);
+	if (const auto* v = registry.TryGet<const Villager>(villager);
+	    v != nullptr && registry.Valid(v->town) && (worshipper == nullptr || !worshipper->onWay))
 	{
 		const float townModifier = DistanceModifier(Distance2D(PositionOf(v->town), PositionOf(villager)), 400.0f);
 		float room = fire->GroupBurningRadius() * glm::two_pi<float>() / (4.0f * Radius2D(villager));
@@ -737,7 +773,7 @@ uint32_t villager_fire::OnFire(LivingAction& action)
 		auto* other = fire::Get(state.fire);
 		if (other == nullptr || other->object == entt::null)
 		{
-			return 0;
+			return 0; // 0x75B22A: the fire's object is gone: nothing this turn (no FinishBeingOnFire)
 		}
 		float distance = 0.0f;
 		if (own->IsOnFire())
@@ -779,7 +815,8 @@ uint32_t villager_fire::MoveAroundFire(LivingAction& action)
 	const auto villager = registry.ToEntity(action);
 	const auto destination = StateOf(villager).savedDestination;
 	const auto at = PositionOf(villager);
-	// AreWeThere (vt 0x85C): arrived -> the stored state, and DECIDE_WHAT_TO_DO after it
+	// AreWeThere (vt 0x85C): arrived -> the stored state, and DECIDE_WHAT_TO_DO after it. (inferido) the 1 m radius
+	// stands in for AreWeThere, as in VillagerTeleport.cpp
 	if (glm::length(glm::vec2(at.x, at.z) - destination) < 1.0f)
 	{
 		PopFromPrevious(villager);
@@ -791,7 +828,8 @@ uint32_t villager_fire::MoveAroundFire(LivingAction& action)
 	{
 		return 0;
 	}
-	// TODO(M5): GetViaPoint 0x75A440 (a point around each burning member of the group, up to 1000 tries); straight on
+	// (aproximado) GetViaPoint 0x75A440 (a point around each burning member of the group, up to 1000 tries) is not
+	// ported: it walks straight on to the destination
 	SetupMoveToWithHug(villager, destination, VillagerStates::MoveAroundFire);
 	return 1;
 }
@@ -823,18 +861,45 @@ bool villager_fire::EnterPutOutFire(LivingAction& action, VillagerStates from, V
 	return false;
 }
 
-bool villager_fire::ExitPutOutFire(LivingAction& action)
+bool villager_fire::ExitPutOutFire(LivingAction& action, VillagerStates next)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto villager = registry.ToEntity(action);
 	auto& state = StateOf(villager);
-	if (auto* fire = fire::Get(state.fire); fire != nullptr && IsFireman(*fire, villager))
+	const auto* nextInfo = TableOf(next);
+	// IsStateExitFunctionSameAs (vt 0x96C) 0x752530: into another fire-fighting state (216..218, 220: the same exit) or
+	// into a state that is not a final one (table +0x0C) it stays a fireman
+	const bool same = next == VillagerStates::PutOutFireByBeating || next == VillagerStates::PutOutFireWithWater ||
+	                  next == VillagerStates::GetWaterToPutOutFire || next == VillagerStates::MoveAroundFire ||
+	                  nextInfo == nullptr || nextInfo->isFinalState == 0;
+	if (!same)
 	{
-		RemoveFireman(*fire, villager);
+		if (auto* fire = fire::Get(state.fire); fire != nullptr)
+		{
+			if (!IsFireman(*fire, villager))
+			{
+				state.fire = 0; // 0x75AEC0: not in the list: nothing more (no ExitReaction)
+				return true;
+			}
+			RemoveFireman(*fire, villager);
+		}
+		state.fire = 0;
+		// 0x75AEEE: off its town's way list (Town::RemoveVillagerOnWayToWorshipSite 0x73E360)
+		if (const auto* v = registry.TryGet<const Villager>(villager); v != nullptr && registry.Valid(v->town))
+		{
+			worship::percentage::RemoveVillagerOnWay(v->town, villager);
+			if (auto* worshipper = registry.TryGet<WorshipVillager>(villager))
+			{
+				worshipper->onWayInTown = false;
+			}
+		}
 	}
-	state.fire = 0;
-	// ExitReaction 0x7527A0: the reaction ends unless the next state is a fire-fighting one (table +0xB8)
-	state.reaction = 0;
+	// ExitReaction (vt 0x910) 0x7527A0: the reaction ends (StopReacting, vt 0x998) unless the next state is a reactive
+	// one (table +0xB8, IsReactiveState 0x7525B0)
+	if (nextInfo == nullptr || nextInfo->field0xb8 == 0)
+	{
+		state.reaction = 0;
+	}
 	return true;
 }
 
@@ -861,6 +926,11 @@ bool villager_fire::ExitOnFire(LivingAction& action)
 	}
 	state.fire = 0;
 	return true;
+}
+
+void villager_fire::CallFinalStateExit(entt::entity villager, VillagerStates state, VillagerStates next)
+{
+	CallExit(villager, state, next);
 }
 
 void villager_fire::ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction)

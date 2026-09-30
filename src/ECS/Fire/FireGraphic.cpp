@@ -25,6 +25,7 @@
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Life.h"
@@ -62,7 +63,7 @@ struct SpritePos
 struct Graphic
 {
 	entt::entity object {entt::null};
-	/// +0xB5: bit 0 a rock, bit 1 flames, bit 2 smoke when it goes out, bit 3 steam while cooled, bit 4 light map
+	/// +0xB5: bit 0 the 3D object morphs with the land, bit 1 flames, bit 2 smoke when it goes out, bit 3 steam while cooled, bit 4 light map
 	uint8_t flags {0x1E};
 	float flameAccumulator {0.0f}; ///< +0x38
 	int flameCount {0};            ///< +0x3C
@@ -86,10 +87,10 @@ struct Graphic
 
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
 uint32_t g_Turn = 0;
-std::mt19937 g_Random(0x5EED);
+std::mt19937 g_Random(0x5EED); // (aproximado: not GRand::LocalRand 0x6DE590's generator nor its seed)
 bool g_SourceAdded = false;
 
-/// GRand::LocalRand / LocalFloatRand
+/// GRand::LocalRand / LocalFloatRand (aproximado: another generator, so the sequences differ from the original)
 float LocalFloatRand(float max)
 {
 	return std::uniform_real_distribution<float>(0.0f, 1.0f)(g_Random) * max;
@@ -105,8 +106,10 @@ psys::Creator MakeCreator(const char* texture, bool additive, bool centreAtBase,
 	creator.kind = psys::Creator::Kind::Sprite;
 	creator.className = "FireGraphic";
 	creator.texture = texture;
+	// (inferido) the sheet layout of S_Fire / S_SpriteSheet3 is not read from the original: 8 x 8 cells; the frame is
+	// the cell (the sprite flags' low 6 bits), and the flame frames (fmod(.., 32) + 32) need at least 64
 	creator.spritesPerRow = 8;
-	creator.numFrames = 64; // the frame is the cell (the sprite flags' low 6 bits)
+	creator.numFrames = 64;
 	creator.additive = additive;
 	creator.centreAtBase = centreAtBase;
 	creator.stretch = stretch;
@@ -148,7 +151,9 @@ const graphics::L3DMesh* MeshOf(entt::entity object)
 }
 
 /// Object::GetPSysFireLocalRndFlamePos 0x732770 (the plain object path, fn_00590460): a random point of a random
-/// triangle of the mesh, in the mesh's own coordinates; trees x 0.5. False without a mesh.
+/// triangle of the mesh, in the mesh's own coordinates; trees x 0.5. False without a mesh. (inferido: fn_00590460's
+/// sampling is not read step by step: the triangle choice, the a + b > 1 fold and the box-centre fallback are the
+/// port's)
 bool LocalRandomFlamePosition(entt::entity object, glm::vec3& position, int& index)
 {
 	const auto* mesh = MeshOf(object);
@@ -259,9 +264,9 @@ void UpdateFlames(Graphic& graphic, const FireEffect& fire, float dt)
 			it = graphic.flames.erase(it);
 			continue;
 		}
-		it->scale = (fraction + 1.0f) * 0.5f * graphic.localScale;
+		it->scale = (fraction + 1.0f) * 0.5f * graphic.localScale; // 0.5 [0x8AA3B4] (fn_007317F0 0x7319D0)
 		float alpha = it->age < k_FlameFadeIn ? (1.0f / k_FlameFadeIn) * it->age : 1.0f - (it->age - k_FlameFadeIn) * fadeOut;
-		alpha = std::clamp(alpha, 0.0f, 1.0f) * 250.0f;
+		alpha = std::clamp(alpha, 0.0f, 1.0f) * 250.0f; // 250 [0x8C7B2C] (0x731A34)
 		it->alpha = static_cast<uint8_t>(std::clamp(alpha, 0.0f, 255.0f));
 		++it;
 	}
@@ -283,8 +288,10 @@ void UpdatePuffs(std::list<SpritePos>& puffs, float dt, float alpha0, float rise
 			continue;
 		}
 		const float t = inverseLife * it->age;
+		// 2.6 / 0.2: steam [0x999688] / [0x999684] (0x731D2D), smoke [0x9996A8] / [0x9996A4] (0x73209A)
 		it->scale = ((2.6f - 0.2f) * t + 0.2f) * it->baseScale;
 		it->alpha = static_cast<uint8_t>(std::lrint((0.0f - alpha0) * t + alpha0)); // fistp
+		// fn_00731AB0 0x731D71..0x731DB9 (smoke 0x7320DE..0x732126): 0.5 [0x999674], 0.1 [0x999678]
 		const glm::vec3 pull = (wind * 0.5f - it->velocity) * 0.1f * dt;
 		it->velocity += pull;
 		it->velocity.y += rise * dt;
@@ -309,7 +316,8 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 {
 	if (graphic.steamStart == 0)
 	{
-		if ((fire.flags & FireEffect::Cooling) != 0 && fire.temperature > 75.0f && fire.temperature > graphic.steamTemperature)
+		if ((fire.flags & FireEffect::Cooling) != 0 && fire.temperature > 75.0f && // 75 [0x999638] (0x731AD9)
+		    fire.temperature > graphic.steamTemperature)
 		{
 			graphic.steamStart = g_Turn;
 			graphic.steamCount = 0;
@@ -324,7 +332,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 	}
 	else
 	{
-		graphic.steamAccumulator += 4.0f * dt;
+		graphic.steamAccumulator += 4.0f * dt; // 4 [0x999670] (0x731B50)
 		while (static_cast<float>(graphic.steamCount) < graphic.steamAccumulator)
 		{
 			++graphic.steamCount;
@@ -336,7 +344,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 			}
 		}
 	}
-	UpdatePuffs(graphic.steam, dt, 100.0f, 1.0f, ObjectPosition(graphic.object));
+	UpdatePuffs(graphic.steam, dt, 100.0f, 1.0f, ObjectPosition(graphic.object)); // alpha [0x999690], rise [0x99967C]
 }
 
 void UpdateSmoke(Graphic& graphic, const FireEffect& fire, float dt)
@@ -357,7 +365,7 @@ void UpdateSmoke(Graphic& graphic, const FireEffect& fire, float dt)
 	}
 	else
 	{
-		graphic.smokeAccumulator += 4.0f * dt;
+		graphic.smokeAccumulator += 4.0f * dt; // 4 [0x9996A0] (0x731ED7)
 		while (static_cast<float>(graphic.smokeCount) < graphic.smokeAccumulator)
 		{
 			++graphic.smokeCount;
@@ -365,7 +373,7 @@ void UpdateSmoke(Graphic& graphic, const FireEffect& fire, float dt)
 			    NewPuff(graphic, WorldFlamePosition(graphic.object, graphic.smokeLocal), graphic.smokeIndex));
 		}
 	}
-	UpdatePuffs(graphic.smoke, dt, 180.0f, 2.0f, ObjectPosition(graphic.object));
+	UpdatePuffs(graphic.smoke, dt, 180.0f, 2.0f, ObjectPosition(graphic.object)); // alpha [0x9996B0], rise [0x9996B8]
 }
 
 /// fn_00732200 through the renderer's PSys sprite path: one Z object per fire at the object (fn_007325D0)
@@ -401,7 +409,7 @@ void CollectFires(std::vector<psys::manager::Drawable>& out)
 			drawable.atoms.push_back({&SteamCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
 			                          static_cast<float>(puff.alpha), frame, {0xFF, 0xFF, 0xFF}});
 		}
-		for (const auto& puff : graphic->smoke)
+		for (const auto& puff : graphic->smoke) // grey: or 0x707070 (0x732593)
 		{
 			const float frame = static_cast<float>(static_cast<int>(std::fmod(25.0f * puff.age, 32.0f)));
 			drawable.atoms.push_back({&SmokeCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
@@ -429,11 +437,13 @@ void graphic::Create(FireEffect& fire)
 	auto graphic = std::make_unique<Graphic>();
 	graphic->object = fire.object;
 	auto& registry = Locator::entitiesRegistry::value();
-	// fn_00731460 defaults bits 1-4; bit 0 IsRock; GetFireGPHXDrawn (vt 0x5E8) may clear them: MagicFireBall (0, 1, 0, 0)
+	// fn_00731460 defaults bits 1-4; bit 0 = the 3D object (Object +0x40, Game3DObject) IsMorphWithLand (its vt 0x1F0,
+	// 0x7311FB; bw1-decomp LH3DObject.h); GetFireGPHXDrawn (vt 0x5E8) may clear them: MagicFireBall (0, 1, 0, 0).
+	// (inf: openblack's MorphWithTerrain component stands for IsMorphWithLand)
 	uint8_t flags = 0x1E;
-	if (registry.AllOf<components::DeadTree>(fire.object))
+	if (registry.AllOf<components::MorphWithTerrain>(fire.object))
 	{
-		flags |= 1; // a DeadTree is a Rock subclass
+		flags |= 1;
 	}
 	if (fire::traits::IsObjectInMap(fire.object) == false)
 	{
@@ -467,7 +477,8 @@ void graphic::Update(float seconds)
 		{
 			continue;
 		}
-		// fn_00731560 (the catch-up of a fire not drawn for 10 turns is not needed: every fire is updated)
+		// fn_00731560. (aproximado: the original updates a FireGraphic only when it is drawn, FireEffect::Draw 0x730330,
+		// with a catch-up after 10 turns; here every fire is updated, so off-screen fires keep their flames and puffs)
 		if ((graphic->flags & 2) != 0)
 		{
 			UpdateFlames(*graphic, *fire, seconds);
@@ -543,6 +554,7 @@ glm::u8vec3 graphic::CharringGlow(const FireEffect& fire, float turnTime)
 {
 	// VLNoise 0x590C30 at 0.6 x (turn + fraction) + (address & 0xFFFF): a smooth noise (inf, the id instead of the address)
 	const float x = 0.6f * turnTime + static_cast<float>(fire.id & 0xFFFF);
+	// (aproximado: two sines instead of VLNoise 0x590C30; the formula and its coefficients are the port's)
 	const float noise = std::sin(x * 1.7f) * 0.6f + std::sin(x * 3.1f + 1.3f) * 0.4f;
 	float value = 0.001f * fire.temperature * (1.0f + 0.2f * noise);
 	value = std::clamp(value, 0.0f, 1.0f);

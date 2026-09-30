@@ -165,7 +165,7 @@ entt::entity player::FindBestSpellIconForSpellSeed(PlayerNames player, SpellSeed
 	{
 		return entt::null;
 	}
-	float best = -1.0f;
+	float best = -1.0f; // 0x64BF64; strictly more wins (0x64BFBD), so the first site wins a tie
 	entt::entity found = entt::null;
 	for (const auto site : SitesOf(player))
 	{
@@ -221,6 +221,8 @@ bool player::SetChargingPowerUp(entt::entity icon, PlayerNames player, int power
 
 bool player::CancelMostRecentCharge(PlayerNames player)
 {
+	// (inferido): fn_0064BCC0 is not read; its start value and tie rule are openblack's (a charge started on turn 0
+	// is never the most recent)
 	entt::entity latest = entt::null;
 	uint32_t latestTurn = 0;
 	for (const auto icon : Icons(player))

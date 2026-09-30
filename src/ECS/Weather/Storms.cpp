@@ -68,7 +68,7 @@ void Update(Storm& storm, float seconds)
 		const float dx = storm.drawPosition.x - storm.target.x;
 		const float dz = storm.drawPosition.z - storm.target.z;
 		const float distance = std::sqrt(dx * dx + dz * dz);
-		if (distance > 0.001f)
+		if (distance > 0.001f) // [0x8AA3B0] (0x83FA11)
 		{
 			const float f = step < distance ? step / distance : 1.0f;
 			storm.drawPosition.x += (storm.target.x - storm.drawPosition.x) * f;

@@ -159,6 +159,8 @@ void utility::GestureRecognised(const magic::gestures::GestureSystem& system, co
 	for (int i = 0; i < system.Count(); ++i)
 	{
 		const auto& world = system.At(i).world;
+		// (aproximado) fn_00689790 0x68989E..0x6898C2 compares fabs(x), fabs(y), fabs(z) with the double at 0x8C79D8,
+		// whose value the notes do not decode; 1e-4 stands for it
 		if (std::abs(world.x) > 1e-4f || std::abs(world.y) > 1e-4f || std::abs(world.z) > 1e-4f)
 		{
 			stroke.push_back(world);
@@ -203,7 +205,8 @@ void utility::GestureRecognised(const magic::gestures::GestureSystem& system, co
 		return projection.cameraPosition + direction * 400.0f; // fn_0074CAF0
 	};
 	// the shape is squashed vertically on the screen (x 0.75 each time) until its depth on the land is no more than
-	// twice its width, at most 15 times
+	// twice its width, at most 15 times (fn_00689790: 0.75 [0xC02650] at 0x689C20, 15 [0xC0264C] at 0x689C26, the
+	// ratio against 2 [0x8AB478] at 0x689C37)
 	std::vector<glm::vec3> ideal;
 	float squash = 1.0f;
 	for (int iteration = 1;; ++iteration)
@@ -286,7 +289,8 @@ void utility::Update(float seconds, const glm::vec3& handPosition, float handSca
 		g_Utility.trailActive = TrailWanted();
 		Step(trail, handPosition, g_Utility.trailActive, handScale * TrailScale(cameraDistance), seconds);
 	}
-	// the selection (28): while the selection (or the leash selection) is open (immersion 9)
+	// the selection (28): while the selection (or the leash selection) is open (immersion 9). Not ported: the leash
+	// selection case, only the normal selection is tested
 	if (const auto selection = CreateOnce(g_Utility.selection, ParticleType::SpellSelection); selection != 0)
 	{
 		const auto& state = gestures::State();

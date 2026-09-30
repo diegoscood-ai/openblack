@@ -266,7 +266,7 @@ SurfMesh surf_revol::Build(int numU, int numV, int functionIndex, bool fadeAlpha
                            bool changeSpecColour, uint32_t playerColour)
 {
 	SurfMesh mesh;
-	mesh.numU = std::max(numU, 2);
+	mesh.numU = std::max(numU, 2); // (port guard) at least two rows each way; the ctor defaults are 10
 	mesh.numV = std::max(numV, 2);
 	const float du = 1.0f / static_cast<float>(mesh.numU - 1);
 	const float dv = 1.0f / static_cast<float>(mesh.numV - 1);

@@ -111,7 +111,8 @@ void PlayTapSound(int placement)
 	{
 		return;
 	}
-	constexpr std::array<float, 7> k_Pitch = {100.0f, 115.0f, 130.0f, 145.0f, 155.0f, 175.0f, 190.0f};
+	// the table of fn_00726490 (sources.md §5.1), the index clamped to 0..5
+	constexpr std::array<float, 6> k_Pitch = {100.0f, 115.0f, 130.0f, 145.0f, 155.0f, 175.0f};
 	const int index = std::clamp(placement, 0, 5);
 	auto& audio = Locator::audio::value();
 	const auto id = entt::hashed_string("InGame.sad/42").value();
@@ -711,6 +712,7 @@ void icon::UpdateChargingVisual(entt::entity iconEntity, float phase)
 	}
 	auto& ring = registry.Get<Transform>(spellIcon.chargeRing);
 	const float scale = 3.0f * (1.0f - t);
+	// (aproximado): on the icon's matrix, without the 0.1 x twice-the-height raise and without the player's colour
 	ring = transform;
 	ring.scale = transform.scale * scale;
 	registry.Get<Alpha>(spellIcon.chargeRing).value = 1.0f - t;

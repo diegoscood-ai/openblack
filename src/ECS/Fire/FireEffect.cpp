@@ -32,6 +32,7 @@
 #include "ECS/Influence/Influence.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerFire.h"
 #include "ECS/Weather/Weather.h"
@@ -84,7 +85,7 @@ glm::ivec2 Spiral(int& direction, int& count)
 	return k_Steps[direction & 3];
 }
 
-/// MapCoords::InBounds 0x6042C0: the 10 m cell inside the map
+/// MapCoords::InBounds 0x6042C0: the 10 m cell inside the map ((port) 512 cells when no land is loaded: tests only)
 bool InBounds(const glm::vec3& position)
 {
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
@@ -108,6 +109,8 @@ bool CellProperties(const glm::vec3& position, lnd::LNDCell::Properties& propert
 		return false;
 	}
 	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
+	// (aproximado) MapCoords' "no block" test (0x6035B0) stands as LandIsland's default cell (all zero but fullWater):
+	// a real cell with those same bytes would count as no block too
 	lnd::LNDCell empty {};
 	empty.properties.fullWater = true;
 	if (std::memcmp(&cell, &empty, sizeof(empty)) == 0)
@@ -483,6 +486,8 @@ void Process(FireEffect& fire)
 	if (fire.temperature >= tc)
 	{
 		// burning: damage and charring
+		// 0.1 [0x999630] (0x72F418); 0.6 [0x999658] (0x72F428); +0.04 [0x999654] (0x72F435); 1 / 0.6 [0xDA09C0] (made
+		// at 0x72EA16, used at 0x72F467)
 		const float damage = (fire.temperature - tc) / (fire.Tmax() - tc) * defenceBurn * 0.1f;
 		const float life = life::LifeOf(fire.object);
 		if (life < 0.6f)
@@ -507,6 +512,8 @@ void Process(FireEffect& fire)
 						SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fire: object {} burnt down (T {:.0f})",
 						                   static_cast<int>(fire.object), fire.temperature);
 					}
+					// vt 0x5F8 (0x72F510) gets the fire's GetPlayer (0x72F509). (aproximado: the player is not passed:
+					// VillagerDead and the abode/animal handlers lose who burnt it)
 					traits::DestroyedByEffect(fire.object);
 					if (!registry.Valid(fire.object))
 					{
@@ -525,7 +532,7 @@ void Process(FireEffect& fire)
 		const float life = life::LifeOf(fire.object);
 		if (fire.charring != 0.0f && life != 0.0f)
 		{
-			const float charring = std::max(fire.charring - 0.02f, 0.0f);
+			const float charring = std::max(fire.charring - 0.02f, 0.0f); // 0.02 [0x999650] (0x72F558); 0.6 0x72F57F
 			const float limit = std::max((0.6f - life) * (1.0f / 0.6f), 0.0f);
 			fire.charring = charring < limit ? charring : limit;
 		}
@@ -538,7 +545,9 @@ void Process(FireEffect& fire)
 		bool search = true;
 		if (traits::InHand(fire.object))
 		{
-			// held: only inside the holder's influence (GetPlayerHoldingThis 0x63A190: the hand's player)
+			// held: only inside the holder's influence (0x72F61C: GetPlayerHoldingThis 0x63A190, then
+			// CalculatePlayerInfluence 0x5CD170 with 1, 0, 0). (inferido: one local hand, PLAYER_ONE; openblack has no
+			// holder-player accessor)
 			search = influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, glm::vec3(centre.x, 0.0f, centre.z)) > 0.0f;
 		}
 		if (search)
@@ -586,8 +595,9 @@ void Process(FireEffect& fire)
 			}
 		}
 	}
-	// the fire's reaction (not for objects in the hand or thrown, Object +0x24 & 0x44)
-	if (!traits::InHand(fire.object))
+	// the fire's reaction (0x72F729: not for objects in the hand or flying, Object +0x24 & 0x44; bit 0x40 is FLYING,
+	// GScript::GetProperty 0x70DAE0. inf: PhysicsObjects::IsFlying stands for bit 0x40)
+	if (!traits::InHand(fire.object) && !physics::PhysicsObjects::IsFlying(fire.object))
 	{
 		// a reaction removed with the rest of its object's (Pot::RemoveReaction 0x66D6A0 takes them all): the id is
 		// forgotten, and a new one made while it burns (inf: the original keeps a pointer there)
@@ -769,7 +779,9 @@ FireEffect* FireEffect::NearestFireToFight(const glm::vec3& position) const
 		const float objectRadius = traits::DefaultFireRadius(member->object);
 		const float safe = member->SafeFireRadius();
 		const float keep = safe < objectRadius ? objectRadius : safe;
-		// fn_0074CD50 (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire centre
+		// fn_0074CD50 (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire centre.
+		// (aproximado: the original takes the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters
+		// 0x74DCC0; this is the float distance)
 		const float distance = Distance2D(position, centre) - keep;
 		if (distance < bestDistance && member->IsAboveReactionTemperature())
 		{
@@ -822,6 +834,7 @@ bool fire::IsOnFire(entt::entity object)
 FireEffect* fire::Create(entt::entity object, bool hasPlayer, PlayerNames player, entt::entity source)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	// (port) registry.Valid stands for the original's "being deleted" test (Object +0x0A bit 0)
 	if (!registry.Valid(object) || !traits::IsBurnReceiver(object, 100.0f) || traits::CannotBeSetOnFire(object) ||
 	    traits::CombustionTemperature(object) == 0.0f)
 	{
@@ -874,7 +887,7 @@ void fire::ToBeDeleted(FireEffect& fire)
 		if (registry.Valid(fire.object))
 		{
 			traits::EndOnFire(fire.object);
-			if (fire.reaction != 0)
+			if (fire.reaction != 0) // 0x72EC3E: only with a reaction (+0x28)
 			{
 				fire.reaction = 0;
 				RemoveReactions(fire.object, Reaction::ReactToFire);

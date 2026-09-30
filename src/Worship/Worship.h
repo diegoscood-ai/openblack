@@ -64,7 +64,7 @@ void OnPlacedInMagicHand(entt::entity object);
 
 /// A spell seed put down, thrown or given (SpellSeed::RemoveFromHand 0x728F00 on a site's ground, ApplyToWorshipSite
 /// 0x728B30 on a totem or an icon, fn_00728C80 on a dispenser): 3 when the seed went (its chants back in the battery),
-/// 0 when the point / object is none of those
+/// 0 when the object is none of those (ApplySeedToPosition: 0x17 off a site, 0x728F1C)
 int ApplySeedToObject(entt::entity seed, entt::entity object);
 int ApplySeedToPosition(entt::entity seed, const glm::vec3& position);
 /// SpellSeed::ApplyToWorshipSite 0x729A80 (a forced throw, SpellSeed::ThrowObjectFromHand 0x72ACD0): the charge back to

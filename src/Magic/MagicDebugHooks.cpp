@@ -74,6 +74,7 @@ float Ground(float x, float z)
 	return Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z));
 }
 
+/// The defaults below (radius 10, duration -2 = the magic's own timer) are test harness values, not from the original
 void TestSpell(const char* value)
 {
 	char name[64] = {};

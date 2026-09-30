@@ -141,7 +141,8 @@ struct Data
 };
 
 /// The data of a live collection, keyed as the fireball's balls are: a float in the slot names it, so nothing dangles
-/// when the collection goes, and an entry no step touched for ten seconds is dropped
+/// when the collection goes, and an entry no step touched for ten seconds is dropped (port bookkeeping, wall clock: a
+/// pause longer than that resets a live bolt's targets and cooldowns)
 uint32_t g_NextKey = 1;
 std::unordered_map<uint32_t, Data> g_Data;
 
@@ -238,7 +239,12 @@ public:
 				CreateForkStructure(effect, collection, data);
 			}
 		}
-		UpdateForkStructure(effect, collection, data);
+		// 0x691601..0x691691: UpdateForkStructure only while the manager IsInState(2) (PSysProcessInfo +0x38, enabled);
+		// otherwise the forks stay as the last step left them
+		if (effect.GetProcessInfo().enabled)
+		{
+			UpdateForkStructure(effect, collection, data);
+		}
 		return true;
 	}
 
@@ -261,12 +267,17 @@ private:
 		return renewSearchEvery > 0.0f && data.sinceSearch >= renewSearchEvery;
 	}
 
-	/// fn_00690F50: the three target modes. fn_006901E0 from the hand, fn_00690C70 from the manager's SpellTargets and
-	/// fn_00690880 around the parent atom (the storm); the last two only differ in the cone, which they do not apply.
+	/// fn_00690F50: the three target modes, tested in this order (0x690F88 CastingFromHand +0x75, 0x690F9E
+	/// TakeTargetsFromManager +0x74): fn_006901E0 from the hand (the cone), fn_00690C70 from the manager's SpellTargets
+	/// and fn_00690880 around the parent atom (the storm: no cone, a circle of the radius)
 	void FindTargets(Effect& effect, Data& data) const
 	{
 		data.targets.clear();
-		if (takeTargetsFromManager)
+		if (castingFromHand)
+		{
+			SearchAround(effect, data, true);
+		}
+		else if (takeTargetsFromManager)
 		{
 			for (const auto target : effect.GetTargets())
 			{
@@ -282,14 +293,16 @@ private:
 		}
 		else
 		{
-			SearchAround(effect, data);
+			SearchAround(effect, data, false);
 		}
-		AddGroundPoints(effect, data);
+		// (inferido) the manager mode gets the ground points too: fn_00690C70 was not read
+		AddGroundPoints(effect, data, castingFromHand || takeTargetsFromManager);
 	}
 
 	/// fn_006901E0: the spiral of 4 ceil(R/10)^2 cells around the origin; an object counts when it is available, not a
-	/// spell seed, and its horizontal direction is inside the cone of half-angle SplitAngle about the heading
-	void SearchAround(Effect& effect, Data& data) const
+	/// spell seed, and its horizontal direction is inside the cone of half-angle SplitAngle about the heading.
+	/// fn_00690880 (`cone` false): the same spiral, but an object counts when dx^2 + dz^2 < R^2 (0x6909E5..0x690A1D)
+	void SearchAround(Effect& effect, Data& data, bool cone) const
 	{
 		const float radius = SearchRadius(effect);
 		const auto side = static_cast<int>(std::ceil(radius / 10.0f));
@@ -317,7 +330,9 @@ private:
 				const auto& transform = Locator::entitiesRegistry::value().Get<const ecs::components::Transform>(object);
 				const glm::vec2 offset(transform.position.x - data.origin.x, transform.position.z - data.origin.z);
 				const float length = glm::length(offset);
-				if (length > 0.0f && glm::dot(offset / length, heading) <= limit)
+				const bool outside = cone ? length > 0.0f && glm::dot(offset / length, heading) <= limit
+				                          : !(length * length < radius * radius);
+				if (outside)
 				{
 					continue;
 				}
@@ -328,13 +343,15 @@ private:
 	}
 
 	/// fn_006901E0's tail: when fewer than MinLightningObjects were found, the rest are ground points at
-	/// heading + rand(pi/4) and rand(0.6 R) away, two metres above the land
-	void AddGroundPoints(Effect& effect, Data& data) const
+	/// heading + rand(pi/4) and rand(0.6 R) away, two metres above the land. fn_00690880's tail (0x690B0B..0x690BF2,
+	/// `aimed` false): at rand(2 pi) (0x40C90FDB) instead
+	void AddGroundPoints(Effect& effect, Data& data, bool aimed) const
 	{
 		const float radius = SearchRadius(effect);
 		while (static_cast<int>(data.targets.size()) < minObjects)
 		{
-			const float angle = data.heading + effect.Random(std::numbers::pi_v<float> / 4.0f);
+			const float angle = aimed ? data.heading + effect.Random(std::numbers::pi_v<float> / 4.0f)
+			                          : effect.Random(2.0f * std::numbers::pi_v<float>);
 			const float distance = effect.Random(0.6f * radius);
 			const glm::vec3 point(data.origin.x + distance * std::cos(angle), 0.0f,
 			                      data.origin.z + distance * std::sin(angle));
@@ -350,7 +367,7 @@ private:
 		collection.atoms.clear();
 		const std::vector<int> groups(2 * data.targets.size(), forkGroup);
 		auto& root = effect.NewAtom(collection, effect.FindCreator(creator), {});
-		root.visible = false; // the root itself is not drawn: it only carries the forks
+		root.visible = false; // (inferido) the root itself is not drawn: it only carries the forks
 		effect.AddSubCollections(root, groups);
 		const auto* joints = effect.FindCreator(creator);
 		for (auto& fork : root.subCollections)
@@ -385,7 +402,10 @@ private:
 		{
 			return;
 		}
-		// each target with probability min(AtOnce, (N + 1) / 2) / N, at most that many
+		// each target with probability min(AtOnce, (N + 1) / 2) / N, at most that many (0x691C5B..0x691CF3)
+		// TODO(M5): the other branch, 0x691C3F / 0x691CF5: when collection data +0x24 or +0x20 is set, ONE target
+		// is picked, the first active one from PSysRand(N) on (a random rotation). Which renew path sets those flags
+		// is not read, so every step takes this branch.
 		const int limit = std::min(atOnce, (total + 1) / 2);
 		const float probability = static_cast<float>(limit) / static_cast<float>(total);
 		for (int i = 0; i < total && static_cast<int>(data.striking.size()) < limit; ++i)
@@ -412,7 +432,11 @@ private:
 				continue;
 			}
 			const auto tip = target.Tip();
-			// the main fork reaches the target, the second one splits off it (SplitAngle) and ends short
+			// (aproximado) the main fork reaches the target and a second one ends at a random point
+			// tan(SplitAngle) x distance around the tip. The original's recursive fork tree (fn_00691F30) is not
+			// ported, and these offsets (2 spread in x/z, + spread in y) are the port's (wiki_section.md m5).
+			// TODO(M6): the segment shield test fn_006D0BC0(point, 2.5) -> SpellEvent 4 to the shield, fork cut there
+			// (destructive.md §4.2; shields::FindShieldContainingPoint is the port's fn_006D0BC0)
 			LayOutFork(effect, *data.root->subCollections[next++], data, data.origin, tip, true);
 			const float spread = std::tan(splitAngle) * glm::distance(data.origin, tip);
 			const glm::vec3 side(tip.x + effect.Random(2.0f * spread) - spread, tip.y + effect.Random(spread),
@@ -456,13 +480,14 @@ private:
 				position.z += (effect.Random(2.0f * randomFrac) - randomFrac) * length;
 			}
 			atom.position = position;
-			atom.ruleScale = data.forkScale * (1.0f - t) + data.forkScale * t * 0.25f;
+			atom.ruleScale = data.forkScale * (1.0f - t) + data.forkScale * t * 0.25f; // (inferido) the tip's 0.25
 			atom.colour[3] = hasTarget ? 255 : static_cast<uint8_t>(128 + static_cast<int>(effect.Random(127.0f)));
 			atom.visible = true;
 		}
 		if (commonGlowGroup >= 0 && fork.atoms.back()->subCollections.empty())
 		{
-			// CommonGlowGroup: the glow sprite of the tip follows its joint (UR_FollowParent)
+			// (inferido) CommonGlowGroup: the glow sprite of the tip follows its joint (UR_FollowParent); where and
+			// when the original attaches it is not read
 			effect.AddSubCollections(*fork.atoms.back(), {commonGlowGroup});
 		}
 	}
@@ -472,6 +497,7 @@ private:
 	void StrikeTarget(Effect& effect, Data& data, Target& target, const glm::vec3& tip) const
 	{
 		// the target waits rand(AverageLightmapLife / dt) steps before it may be struck again
+		// the max(dt, eps) is a port guard: the original multiplies by [0xD4E0F0] = 1/dt directly
 		const auto steps = static_cast<int>(averageLightmapLife / std::max(effect.GetDt(), 1e-3f));
 		target.cooldown = steps > 0 ? static_cast<int>(effect.Random(static_cast<float>(steps))) : 0;
 		if (lightMapGroup >= 0)
@@ -480,7 +506,7 @@ private:
 			{
 				// the original blits the light map into the landscape's light texture under the tip, so it always ends up
 				// on the ground however high the tip is (part_render.md §8)
-				atom->position = glm::vec3(tip.x, LandAt(tip.x, tip.z) + 0.1f, tip.z);
+				atom->position = glm::vec3(tip.x, LandAt(tip.x, tip.z) + 0.1f, tip.z); // (inferido: port offset) +0.1
 			}
 		}
 		if (!target.lightMapDone && data.life > 0.2f)
@@ -496,6 +522,8 @@ private:
 		{
 			effect.SendSpellEvent(event);
 		}
+		// TODO(M5): the event also goes to the struck object's own manager when it has one (fn_00690070,
+		// destructive.md §4.2)
 		// TODO(M5): without a spell (a script / climate strike, global 0xC029D0) the original applies the static
 		// EffectValues of info 0xCC9704 at the tip. UNVERIFIED which GEffectInfo row that is.
 	}

@@ -32,7 +32,8 @@ constexpr size_t k_Magic = 42;
 std::array<float, k_Magic> g_Probabilities {}; ///< 0xCCFBAC
 std::array<float, k_Magic> g_Sums {};          ///< 0xCCFB04..0xCCFBA8
 
-/// GRand::GameFloatRand 0x6DE530: 0 for 0, else [0, x)
+/// GRand::GameFloatRand 0x6DE530: 0 for 0, else [0, x). (aproximado): openblack's RNG, whose end point (r == x) is
+/// not checked against the original's generator
 float GameFloatRand(float x)
 {
 	if (x == 0.0f || !Locator::rng::has_value())

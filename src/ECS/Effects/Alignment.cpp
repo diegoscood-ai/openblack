@@ -157,7 +157,7 @@ void alignment::ProcessForPlayer(PlayerNames player)
 	{
 		return;
 	}
-	// TODO: GGuidance::HelpSpritesAlignmentProcess for the local player (the good and evil advisors)
+	// TODO(pendiente): GGuidance::HelpSpritesAlignmentProcess 0x71CEB0 for the local player (the good and evil advisors)
 	const float cap = Locator::infoConstants::value().player.maxAlignmentChangePerGameTurn;
 	const float change = cap * std::clamp(alignment.pending, -1.0f, 1.0f);
 	CrudeUpdate(player, change);

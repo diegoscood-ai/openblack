@@ -41,6 +41,7 @@ constexpr float k_HiddenTime = 0.5f;
 constexpr float k_GrowTime = 1.5f;
 constexpr float k_SpinDownTime = 6.0f;
 constexpr float k_FadeTime = 1.5f;
+constexpr float k_DieTimeFactor = 1.5f; ///< 0x9828C8: deleted once dieTime > k_FadeTime x this (2.25 s)
 constexpr float k_EndSpin = 0.15f;
 constexpr float k_BobSpeed = 1.3f;
 constexpr double k_RescaleDelta = 0.3; ///< 0x900C70

@@ -73,7 +73,8 @@ void SetNotHurtByFire(entt::entity object, bool value);
 /// ReduceLifeDueToBurning (vt 0x5C4): Object 0x637C20 (ReduceLife unless +0x0A bit 2; the town's aggressor is not
 /// ported), Field 0x52A050 (RemoveFood(damage x info +0x130), returns 1). Returns the life after it.
 float ReduceLifeDueToBurning(entt::entity object, float damage, bool hasPlayer, PlayerNames player);
-/// DestroyedByEffect (vt 0x5F8): Object 0x6378E0 = ToBeDeleted; Villager 0x7502D0 dies; Field 0x52A010 empties;
+/// DestroyedByEffect (vt 0x5F8): Object 0x6378E0 = ToBeDeleted (features too); Villager 0x7502D0 dies; Field 0x52A010
+/// empties and deletes its fire;
 /// Abode 0x403F80 (building site, ghost) is not ported yet (the abode stays at life 0)
 void DestroyedByEffect(entt::entity object);
 /// StartOnFire (vt 0x6BC): MultiMapFixed 0x52EC60 / DeadTree 0x510E20 drop their reactions; Pot 0x66D6C0 its own

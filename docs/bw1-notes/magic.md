@@ -1833,3 +1833,70 @@ tamaño de ese círculo (hasta 10, 40 m). Con `SPELL_AT_POS` la magnitud es el r
   (`review2_land2_cast.png`, `review2_land2_seed.log`). Con 3000 cánticos el icono se queda cargando con la batería a 0
   (`review2_land2_charge.log`). Una bola de un uso tocada con cánticos en el lugar sale atada al icono 3081
   (`review2_land2_oneshot_icon.log`).
+
+## Suposiciones auditadas (2026-10-01)
+
+Auditoría de TEAM_GUIDELINES §1.7 sobre todo lo que añade local/magic: 245 hallazgos, 41 corregidos para igualar el
+original, 52 con la fuente añadida, 139 marcados en el código y 13 sin cambio (ya fieles o de otra sesión). Tabla por
+fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema:
+
+- **Corregido para igualar el original:**
+  - Hechizos: un hechizo sin PSys se lanza igual y acaba al turno siguiente (0x71FE50, paso 8).
+  - Semillas y lanzadores: `ProcessSpellSeed` devuelve siempre 1 (0x721370); un creador sin objeto no es funcional
+    (0x405240); la selección de milagro pone a 0 el gesto de potenciación (0x5CF010).
+  - Mano: el fotograma del brillo se trunca (0x68D0C0).
+  - Teletransporte: los destellos SPOT_VISUAL 14 duran lo que su entrada.
+  - Jugador del guion: el byte g_game+0x205A5B es el hueco del **jugador neutral** (7; GGame::SetupPlayers 0x550458,
+    GPlayer::IsNeutral 0x64AC00). Por eso el jugador 0 del guion y una pila mágica sin dueño son neutrales.
+  - Bola de fuego: la bola rebota en los escudos (DoAnyShieldDeflections 0x6A1FA0 desde GravityWithFloor 0x6A1F48);
+    el lanzamiento no humano se vuelve a resolver solo si v² > 89129 (0x69EC60).
+  - Rayo: los modos van por orden (mano, gestor, padre; 0x690F88) y el del padre usa un círculo, sin cono; las
+    horquillas solo se actualizan con el efecto activo.
+  - UR_WillowWisp: la edad de cada átomo es fracción·dt (0x6A70CC).
+  - Fuego:
+    - La reacción de fuego no sale ni en la mano ni en vuelo (+0x24 & 0x44, 0x72F729).
+    - Una Feature quemada se borra (0x6378E0); un campo quemado pone T = 0 y borra su fuego (0x52A010).
+    - StartOnFire incluye campo, estático móvil, estático animado y fragmento (0x52EC60).
+    - El bit 0 del gráfico de fuego es IsMorphWithLand.
+    - La lluvia se corta solo por debajo de 0 (fn_008341B0).
+  - Aldeanos:
+    - Las funciones de salida reciben el estado siguiente (ExitPutOutFire 0x752530, ExitReaction 0x7527A0,
+      ExitMoveToWorshipSite, ExitAtWorshipSite 0x76C1F0).
+    - El escudo bloquea la reacción de fuego (fn_0072B990).
+    - Un aldeano que va a adorar no lucha contra el fuego (0x765A6A).
+    - Ya no se cuenta dos veces a quien adora: el lugar de culto lleva la lista de sus aldeanos (+0xD4, fn_0077D040).
+    - `SetupMoveToWithHug` (0x5F2890) pone TOP y luego FINAL (0x752440) en una sola función compartida
+      (`VillagerMove.cpp`).
+  - Culto: la semilla entra en la mano solo si `InterfaceSetInMagicHand` devuelve 1 (0x5DA77C); la ciudadela influye
+    con factor 1 (0x463240).
+- **(aproximado):**
+  - Reacciones: la rejilla de celdas de openblack y su orden; `InBounds` usa la extensión de la tierra, no
+    MapCoords::InBounds 0x6042C0.
+  - EffectValues: `ReduceLife` de Object para todas las clases.
+  - Rayo: la segunda horquilla en lugar del árbol fn_00691F30.
+  - Mapas de luz: alfa = máximo RGB, sin nivel ×190.
+  - Gráfico de fuego: el ruido del carbonizado es de dos senos (no VLNoise 0x590C30); se actualizan todos los fuegos.
+  - Números aleatorios: los de openblack, no GameRand (tormentas, luciérnagas, lluvia).
+  - Aldeanos: MOVE_AROUND_FIRE va recto (GetViaPoint 0x75A440 sin portar); la decisión de luchar contra el fuego
+    (0x765870: fórmula leída, sin término aleatorio) toma fn_00730290 / fn_007302E0 sin trazar; FLYING / LANDED no se
+    ejecutan al aterrizar tras un teletransporte.
+  - Gestos: los fotogramas con ratón hacen de mensajes de ratón.
+  - Culto: la cuenta de los que vuelven a casa (vt 0x8C8 sin identificar).
+- **(inferido):**
+  - Reacciones: GetReactionPower = 1 para todos (Spell 0x55CF10 y Tree 0x55D8D0 sin portar).
+  - EffectValues: un golpe por objeto en ApplyEffectToMapPos 0x525100.
+  - Semillas: la mano derecha para la semilla de un uso; el jugador local para comprobar la influencia de lo que
+    se lleva en la mano.
+  - Valores por defecto de las reglas de PSys cuyo ctor no se leyó (Gravity 10, giros, rastro, malla, gesto 5 s,
+    cadena de 0,5·escala).
+  - Escudo: el castData por defecto (40).
+  - Culto: el anillo de baile de 6 m y el punto de icono de reserva.
+  - Muchos valores de defensa de openblack: índices fuera de rango, topes, 0,0001.
+- **Pendiente (TODO con dirección en el código):**
+  - Rayo: la rama de un solo objetivo (0x691CF5), el corte por escudo fn_006D0BC0 y el sonido por estado.
+  - Reacciones: la rama sigilosa de 0x6E3E10.
+  - Criatura: contador de muertes y alineamiento (+0x11C0, +0x168).
+  - Semillas: el objetivo MagicFireBall (0x728A20).
+  - Culto: el camino por sendero (58).
+  - Fuego: la ruta alrededor del fuego.
+  - Clases de hechizo sin portar (tormenta, agua, bandadas, criatura) que corren como un Spell simple.

@@ -2551,8 +2551,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
-				// fn_0067B3F0: the chain ribbons of the effects, drawn as one group after the sorted sprites
-				// (RendererChain.cpp)
+				// (inferido: draw order) the chains, the surfaces and the rain are drawn as groups after the sorted
+				// sprites; the original's order against them is not read.
+				// fn_0067B3F0: the chain ribbons of the effects (RendererChain.cpp)
 				DrawPSysChains(graphics::RenderPass::MainBlended, *desc.camera);
 				// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0: the teleport pools (RendererSurfRevol.cpp)
 				DrawPSysSurfaces(graphics::RenderPass::MainBlended, *desc.camera);

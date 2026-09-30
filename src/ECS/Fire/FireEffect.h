@@ -104,9 +104,9 @@ void AddToFireGroup(FireEffect& self, FireEffect& other);
 [[nodiscard]] FireEffect* Get(uint32_t id);
 
 /// fn_0072ECF0, FireEffect::Create: none if the object refuses a burn (IsEffectReceiver of the static EffectValues
-/// 0xDA0980 = BURN 100), can't be set on fire (+0x0A bit 3), has Tc 0 or is being deleted. Its T starts at the object's
-/// temperature, it joins the head of the list (g_game +0x205C14) as the root of its own group, gets its graphic and
-/// the object StartOnFire.
+/// 0xDA0980 = BURN 100), can't be set on fire (+0x0A bit 3), has Tc 0 or is being deleted ((port) the entity is no
+/// longer valid). Its T starts at the object's temperature, it joins the head of the list (g_game +0x205C14) as the
+/// root of its own group, gets its graphic and the object StartOnFire.
 FireEffect* Create(entt::entity object, bool hasPlayer, PlayerNames player, entt::entity source);
 /// FireEffect::ToBeDeleted 0x72EBE0
 void ToBeDeleted(FireEffect& fire);

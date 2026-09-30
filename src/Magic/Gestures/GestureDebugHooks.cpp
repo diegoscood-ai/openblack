@@ -38,6 +38,8 @@
 using namespace openblack;
 using namespace openblack::magic::gestures;
 
+// The sizes, times and window below (1600 x 900, 200 px, 0.5 s, max(5, L / 50) px) are test harness values, not from
+// the original.
 namespace
 {
 /// The GESTURE_TYPE names (the Gestures.jty records use 1..23)

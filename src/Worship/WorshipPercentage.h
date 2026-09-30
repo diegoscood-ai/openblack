@@ -28,9 +28,9 @@ void SetWorshipPercentage(entt::entity town, float percentage);
 [[nodiscard]] int GetWorshipersNeeded(entt::entity town, bool countOnWay, bool countGoHome, bool* out);
 
 /// Town::AdjustWorshipersWorshipping 0x73C0F0 (n, skipLifeCheck, requireReachable): two passes (the second also takes the
-/// villagers flagged 0x200); n > 0: the available villagers nearest the site's centre first go (CheckWorshipActivity,
-/// with life above damageThresholdToGoHome unless skipLifeCheck); n < 0: those at or on the way to the site, the
-/// farthest first, are sent back (state 163)
+/// villagers flagged 0x200); n > 0: the available villagers, the highest WorshipScore (the farthest) first (fcomp
+/// 0x73C190), go (CheckWorshipActivity, with life above damageThresholdToGoHome unless skipLifeCheck); n < 0: those at
+/// or on the way to the site, the lowest score (the nearest) first (fcomp 0x73C3AE), are sent back (state 163)
 void AdjustWorshipersWorshipping(entt::entity town, int count, bool skipLifeCheck, bool requireReachable);
 
 /// Town::AddVillagerOnWayToWorshipSite 0x73E300 / RemoveVillagerOnWayToWorshipSite 0x73E360, fn_0073E3E0 / fn_0073E3F0
@@ -52,6 +52,8 @@ void UpdateTotems(float seconds);
 
 /// The totem drag (TotemStatue::ValidForLockedSelectProcess 0x738500, NetworkUnfriendlyLockedSelect 0x7386A0:
 /// pct = clamp(pct + dy x 0.1, 0, 1)), for the hand: the town of a totem statue it may drag (same player, the statue,
-/// the player's citadel heart and the town's worship site built), or entt::null
+/// the player's citadel heart and the town's worship site built), or entt::null.
+/// TODO(worship): only the site test is done here; the same-player, statue-built and heart-built tests of 0x738500
+/// are missing (no caller does them yet)
 [[nodiscard]] entt::entity TotemTown(entt::entity statue);
 } // namespace openblack::worship::percentage

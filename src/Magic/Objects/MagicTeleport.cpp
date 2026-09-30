@@ -424,10 +424,12 @@ int teleport::DoTeleport(entt::entity stone, entt::entity living, bool force)
 			}
 		}
 	}
-	// GParticleContainer::CreateSpotVisual(pos, SPOT_VISUAL 14, 1.0, NULL) where it is and where it goes
+	// GParticleContainer::CreateSpotVisual 0x63E540 (pos, SPOT_VISUAL 14, 1.0, NULL) where it is and where it goes. The
+	// plain CreateSpotVisual passes its float on to 0x63E4B0 with the duration of the SV entry itself (entry +0x44), so
+	// the 1.0 is not a duration: here 0 = the entry's own life
 	const auto targetPosition = MapPositionOf(target);
-	psys::manager::CreateSpotVisual(k_SpotVisualVillagerTeleport, ToWorld(at), 1.0f, entt::null);
-	psys::manager::CreateSpotVisual(k_SpotVisualVillagerTeleport, ToWorld(targetPosition), 1.0f, entt::null);
+	psys::manager::CreateSpotVisual(k_SpotVisualVillagerTeleport, ToWorld(at), 0.0f, entt::null);
+	psys::manager::CreateSpotVisual(k_SpotVisualVillagerTeleport, ToWorld(targetPosition), 0.0f, entt::null);
 	if (TraceEnabled())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"),

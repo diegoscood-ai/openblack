@@ -30,7 +30,7 @@ entt::entity CreateMagicResourcePile(const glm::vec3& position, std::optional<Pl
                                      uint32_t amount);
 
 /// MagicFood::MagicFood 0x5FA9F0: a PileFood of GPotInfo 10 "Magic Food" (MSH_S_GRAIN_PILE), owner +0xBC (NULL -> the
-/// local player), SetScale(0.3) (fn_005FAAE0)
+/// neutral player, byte g_game +0x205A5B), SetScale(0.3) (fn_005FAAE0)
 entt::entity CreateMagicFood(const glm::vec3& position, std::optional<PlayerNames> player, uint32_t amount);
 
 /// MagicWood::MagicWood 0x600E20: a PileWood of GPotInfo 9 "Magic Wood" (MSH_B_WOOD_01), owner +0xB4, SetScale(0.7)

@@ -46,7 +46,8 @@ bool IsCitadel(entt::entity citadel)
 	return citadel != entt::null && Registry().Valid(citadel) && Registry().AllOf<CitadelWorship, Temple, Transform>(citadel);
 }
 
-/// Town::GetNearestTownToPos 0x73B170 (pos, tribe, 0x7FFF, FLT_MAX): the nearest town of that tribe
+/// Town::GetNearestTownToPos 0x73B170 (pos, tribe, 0x7FFF, FLT_MAX): the nearest town of that tribe.
+/// (inferido): 0x7FFF is taken as "any player" and the distance as x/z; 0x73B170 is not read
 entt::entity NearestTownOfTribe(const glm::vec3& position, Tribe tribe)
 {
 	entt::entity best = entt::null;

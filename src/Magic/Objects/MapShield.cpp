@@ -147,7 +147,7 @@ void ProcessPhysical(entt::entity entity, MapShield& shield)
 	if (shield.dying)
 	{
 		shield.dieTime += dt;
-		if (shield.dieTime > map_shield::k_FadeTime * 1.5f)
+		if (shield.dieTime > map_shield::k_FadeTime * map_shield::k_DieTimeFactor)
 		{
 			map_shield::ToBeDeleted(entity); // vt 0xC (0)
 			return;
@@ -320,7 +320,7 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 	shield.startSpin = std::clamp(curl * 1.0f, -k_MaxStartSpin, k_MaxStartSpin);
 	shield.endSpin = (shield.startSpin < 0.0f ? -1.0f : 1.0f) * k_EndSpin;
 	const float finalScale = k_ScalePerRadius * radius;
-	shield.startScale = finalScale * 0.01f;
+	shield.startScale = finalScale * 0.01f; // fn_0072C9F0 0x72CAC6: x 0.01 (0x8C5840)
 	shield.finalScale = finalScale; // fn_0072D5E0
 	SetScale(entity, shield, finalScale);
 	// CallVirtualFunctionsForCreation 0x72CCB0: the SingleMapFixed base, 3D object flags (fn_0057E220 with (5, 0xD) and

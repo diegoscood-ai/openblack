@@ -97,6 +97,10 @@ void sound::RefreshDistances()
 
 void sound::Consider(FireEffect& fire, bool loud)
 {
+	// fn_0072EFB0's end, 0x72F7C6..0x72F875: nearer than the farthest slot (or no slot yet), the fire takes the first
+	// slot that is empty or not nearer than that one, then the farthest distance (0xDA09C8) is recomputed. As in the
+	// original a fire already in a slot can take the other one too (no check there). (aproximado: the original also
+	// stops the slot's sound when it is this same fire, fn_0072EDC0 at 0x72F82C; the port keeps it playing)
 	if (loud)
 	{
 		const float distance = CameraDistance(fire);

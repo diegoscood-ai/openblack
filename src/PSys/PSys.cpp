@@ -157,7 +157,8 @@ public:
 			}
 			if (i == 0)
 			{
-				openblack::audio::spell_sounds::StartSound(effect, atom, sound); // the first atom only
+				// (inferido) the first atom only: the 0x69E160 offset of the call was not noted
+				openblack::audio::spell_sounds::StartSound(effect, atom, sound);
 			}
 		}
 		return false;
@@ -307,7 +308,7 @@ public:
 	    , deleteAtDieAge(object.Bool("DeleteAtomsAtDieAge", false))
 	    , moving(object.Bool("EmitDueToMoving", false))
 	    , movingDistance(object.Float("EmitDueToMovingDist", 1.0f))
-	    , movingMaxRate(object.Float("EmitDueToMovingMaxRate", 0.0f))
+	    , movingMaxRate(object.Float("EmitDueToMovingMaxRate", 0.0f)) // (inferido) default; 0 = no cap (0x6A6FB6)
 	    , randomiseOrientation(object.Bool("RandomiseInitOrientation", false))
 	    , useParentScale(object.Bool("UseParentScale", false))
 	    , addCastVelocity(object.Bool("AddCastVelToInitPos", false))
@@ -337,8 +338,9 @@ public:
 		}
 		const glm::vec3 last(slot.state);
 		const float dt = effect.GetDt();
+		// 0x6A6F08: fild +0x4C MaxAtoms, fdiv +0x40 DieAge (the original has no guard either)
 		const float rate = static_cast<float>(maxAtoms) / dieAge;
-		// EmitConditionOfParent: tested on the parent atom (none: nothing is emitted)
+		// EmitConditionOfParent: tested on the parent atom (none: nothing is emitted, 0x6A6F28..0x6A6F46)
 		const bool emit = emitCondition.empty() ||
 		                  (collection.parent != nullptr && effect.ConditionForAtom(emitCondition, *collection.parent));
 		if (emit)
@@ -364,10 +366,11 @@ public:
 				glm::vec3 position = parent;
 				if (after != before)
 				{
-					// along last -> P, and born that much earlier (fn_00673CE0)
+					// along last -> P (0x6A7075), and aged fraction x dt: fn_00673CE0((made - before) x dt /
+					// (after - before)) at 0x6A70CC..0x6A70F7 (it sets the age: birth = time - x; part_modifiers.md)
 					const float fraction = (slot.extra.y - before) / (after - before);
 					position = last + (parent - last) * fraction;
-					atom.birth -= (slot.extra.y - before) * dt / rate;
+					atom.birth -= fraction * dt;
 				}
 				if (randomRadiusMax > 0.0f)
 				{
@@ -464,7 +467,7 @@ public:
 };
 
 /// RemoveRuleAfterConditionTrue: once ConditionForRemove holds (or there is none) the time is kept, and Delay after it
-/// the atom goes
+/// the atom goes. (inferido) the latch and the delay: its ModifyAtomCore was not read (no address in the notes)
 class RemoveAfterConditionTrue final: public Modifier
 {
 public:
@@ -1435,6 +1438,7 @@ void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition,
 		auto& draw = atom->current;
 		draw.rotation = collection.hierarchy ? parentRotation * atom->rotation : atom->rotation;
 		draw.position = collection.hierarchy ? parentPosition + parentRotation * (parentScale * atom->position) : atom->position;
+		// (aproximado) the drawn size takes the parents' scale from x only: a Y stretch of theirs does not reach it
 		draw.scale = atom->baseScale * atom->ruleScale * (collection.hierarchy ? parentScale.x : 1.0f);
 		draw.stretch = atom->stretch;
 		draw.alpha = static_cast<float>(atom->colour[3]) * collection.alpha / 255.0f;

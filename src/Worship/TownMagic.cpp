@@ -195,6 +195,8 @@ void town::CheckAddWorshipSite(entt::entity townEntity)
 	}
 }
 
+// (inferido): the original keeps the centre's pointer (Town +0x9A4); here, the first Abode of the town whose info is
+// TOWN_CENTRE
 entt::entity town::TownCentreOf(entt::entity townEntity)
 {
 	auto& registry = Locator::entitiesRegistry::value();

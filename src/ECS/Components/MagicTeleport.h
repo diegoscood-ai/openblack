@@ -38,7 +38,7 @@ struct MagicTeleport
 	entt::entity spell {entt::null}; ///< +0x9C the SpellTeleport
 	bool hasPlayer {false};          ///< +0xA0 != NULL
 	PlayerNames player {PlayerNames::NEUTRAL}; ///< +0xA0 the spell's player (GetPlayer 0x5FC430)
-	float scale {1.0f};              ///< GameThingWithPos +0x? scale: GetScale() x 0.01 at Create
+	float scale {1.0f};              ///< Object +0x50 (GetScale 0x402520): x 0.01 (0x8C5840) at Create 0x5FC239
 };
 
 } // namespace openblack::ecs::components

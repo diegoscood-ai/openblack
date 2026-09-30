@@ -56,9 +56,12 @@ uint32_t PutOutFireWithWater(components::LivingAction& action);  ///< 217 0x75AF
 uint32_t OnFire(components::LivingAction& action);               ///< 219, 0x75B1E0
 uint32_t MoveAroundFire(components::LivingAction& action);       ///< 220, 0x75A7E0
 bool EnterPutOutFire(components::LivingAction& action, VillagerStates from, VillagerStates to); ///< 0x75ADC0
-bool ExitPutOutFire(components::LivingAction& action);           ///< 0x75AE80
+bool ExitPutOutFire(components::LivingAction& action, VillagerStates next); ///< 0x75AE80
 bool EnterOnFire(components::LivingAction& action, VillagerStates from, VillagerStates to); ///< 0x75AF30
 bool ExitOnFire(components::LivingAction& action);               ///< 0x75AF80
+/// The exit function of the final state `state` (the fire's and the worship ones, none for the others), told the next
+/// state: for the other files' SetTopState (the entry and exit functions go with the final state, as here)
+void CallFinalStateExit(entt::entity villager, VillagerStates state, VillagerStates next);
 
 /// The REACT_TO_FIRE part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for a villager of a cell the reaction
 /// reaches (ECS/Effects/Reactions spreads it once, when it is made; ProcessReactions' respreading is off: its flag

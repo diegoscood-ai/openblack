@@ -141,9 +141,9 @@ public:
 	bool magical; ///< read; the code does not look at it
 };
 
-/// CheckShieldDeflections::ModifyAtomCore 0x6A2570 (DefineProperties 0x6AF540): an atom not yet deflected (flags +0x94
-/// bit 8) that is inside a shield sparks there and sends SpellEvent 4 {its position, the last move, 1, the shield's
-/// spell}; on 0 it takes the reflected velocity and, per its properties, the deflected flag, another group
+/// CheckShieldDeflections::ModifyAtomCore 0x6A2570 (DefineProperties 0x6AF540): an atom not yet deflected (flags
+/// +0x94 bit 3, 0x08) that is inside a shield sparks there and sends SpellEvent 4 {its position, the last move, 1, the
+/// shield's spell}; on 0 it takes the reflected velocity and, per its properties, the deflected flag, another group
 /// (MoveToBaseGroup) and the close down of its effect (SetState 1). No ported spell file uses the class.
 class CheckShieldDeflections final: public Modifier
 {
@@ -184,7 +184,7 @@ public:
 		{
 			atom.flags |= 8u;
 		}
-		// TODO: GroupToMoveToIfDeflected (AtomCore::MoveToBaseGroup 0x673BD0) is not ported
+		// not ported: GroupToMoveToIfDeflected (AtomCore::MoveToBaseGroup 0x673BD0); the property is read and ignored
 		if (closeDownIfDeflected)
 		{
 			effect.CloseDown(); // PSysManager::SetState(1)
@@ -288,6 +288,7 @@ public:
 			const glm::vec3 p = m[0] * (r * w1) + m[1] * (u * r) + m[2] * (r * w2);
 			// (the code then tests LocalToGlobal(p) against the land at the atom's scale and writes back the same point)
 			atom.ruleScale = scale;
+			// the max(dt, eps) is a port guard: the original multiplies by [0xD4E0F0] = 1/dt directly
 			atom.velocity = (p - atom.position) / std::max(effect.GetDt(), 1e-4f);
 			atom.position = p;
 			atom.colour[3] = static_cast<uint8_t>(alpha);
@@ -307,7 +308,7 @@ public:
 /// UR_InitialSpin::ModifyAtomCore 0x69E490 (DefineProperties 0x6B1520: +0x20 ScaleAngularVelocity, +0x24
 /// MaxAngularVelocity, +0x28 TimeToFade). Once the effect has a player: spin = PSysProcessInfo curl (manager +0x58,
 /// fn_00673640) x ScaleAngularVelocity, clamped to +-MaxAngularVelocity. Every step the atom turns about its own Y axis
-/// by spin (1 - clamp(age / TimeToFade, 0, 1)) dt.
+/// by spin (1 - clamp(age / TimeToFade, 0, 1)) dt. (inferido) the defaults: the ctor was not read.
 class InitialSpin final: public Modifier
 {
 public:

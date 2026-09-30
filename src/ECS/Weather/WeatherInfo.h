@@ -19,7 +19,7 @@ namespace openblack::weather
 struct WeatherInfo
 {
 	int8_t temperature {0}; ///< +0 degrees
-	int8_t rain {0};        ///< +1 0..100 (a storm: 100 x strength)
+	int8_t rain {0};        ///< +1 signed byte, added with a clamp: 0..127 in practice (a storm adds 100 x strength)
 	int8_t snow {0};        ///< +2
 	int8_t overcast {0};    ///< +3
 	int8_t windX {0};       ///< +4 (x 1/8 = metres per second, fn_00771B10)

@@ -47,6 +47,7 @@ public:
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
 		const auto local = GlobalToLocal(effect, atom, effect.GetProcessInfo().handPos);
+		// the max(dt, eps) is a port guard: the original multiplies by [0xD4E0F0] = 1/dt directly
 		atom.velocity = (local - atom.position) * (1.0f / std::max(effect.GetDt(), 1e-4f));
 		atom.position = local;
 		return true;

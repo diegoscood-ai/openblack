@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include <entt/entity/fwd.hpp>
+#include <glm/vec3.hpp>
 
 namespace openblack::audio
 {
@@ -27,6 +29,10 @@ class AnimationSounds
 public:
 	/// Plays the events of the clip (an ANM_ index) with from <= time < to, for that villager or animal.
 	static void Fire(entt::entity entity, int32_t clip, int32_t from, int32_t to);
+	/// GAudio::SamplePlayAnimEffect 0x42A4B0 with no animation behind it (trees rustling, a tree rubbed by the hand):
+	/// one random sample of the editor.sad row the key {voice, 2, group, surface, soundId} picks (-1 = any), heard at
+	/// `position` and following `owner`. Does nothing when the row has no samples or the camera is out of range.
+	static void PlayFromTable(entt::entity owner, glm::vec3 position, const std::array<int32_t, 5>& key);
 	/// Per frame: the playing samples follow their object (the game's 3D callback 0x427200, Get3DSoundPos).
 	static void Update();
 	AnimationSounds() = delete;

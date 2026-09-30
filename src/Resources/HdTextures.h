@@ -18,7 +18,7 @@
 namespace openblack::resources
 {
 
-/// Mod graphics.hd-people: pack textures replaced by bigger images from the mod's folder. Its textures.cfg lists
+/// Mod graphics.hd-tweaks: pack textures replaced by bigger images from the mod's folder. Its textures.cfg lists
 /// `<texture id (hex)> = <FNV-1a of the pack's DDS data>`, and the image is textures/<id>.png. The hash ties each image
 /// to the texture it was made from, so a different AllMeshes.g3d (another mod pack) keeps its own textures.
 class HdTextures

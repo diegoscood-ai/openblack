@@ -211,10 +211,53 @@ Informe: `tmp_dis\render\sky_*.txt`.
   (2π(1 − frac((días − 10962)/29,5306))) y regenera las UV. Culling normal (bit 0 = 0).
 - **Nubes** (`CloudInSky::Open` 0x5E23F0, `fn_005E25C0`): 70 + 2 fijas, x ∈ ±8000 (viento a 70 u/s, ángulo 3π/4,
   alrededor de (1280, 1280)), y 300–500, z ±5000, tamaño 13–50, k 2,5–5; alfa de borde por encima de ±6000.
-  `mist.l3d` sin skins: material de humo `smoke.raw` + `smokea.raw` (modo 6, dos caras, `fn_0080BBD0`), orientada
-  con la cámara, escala tamaño/(1 + (k − 1)(1 − |dy|/|d|)), atlas 8×8 animado (fotograma (contador/20) & 15, UV
-  ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de alineación × tabla[255] · 186/256 + 35;
+  `mist.l3d` sin skins: material de humo `smoke.raw` + `smokea.raw` (modo 6, dos caras, `fn_0080BBD0`). Son
+  objetos LH3DMist (+0x80 |= 2, rama efecto), así que usan el mismo `fn_007FA300`: el **billboard**
+  mat3(derecha, −delante, arriba) de la sección "Niebla del mapa" y la **escala no uniforme** s = tamaño/(1 + (k − 1)
+  (1 − |dy|/|d|)) con el tamaño en la fila 0 (ancho en pantalla) y s en las filas 1 y 2 (profundidad y alto). Cerca del
+  horizonte |dy|/|d| ≈ 0,05–0,2, luego cada nube es una **elipse horizontal ~k veces más ancha que alta** (2,5–5; las
+  dos fijas, tamaño 300 y k 20, bandas casi planas); solo se ven redondas justo debajo. Atlas 8×8 animado
+  (fotograma (contador/20) & 15, UV ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de
+  alineación × tabla[255] · 186/256 + 35;
   alfa 0 en tierra buena, 200 neutral, 255 mala.
+  - **Colocación** (`CloudInSky::Open` 0x5E2439..0x5E24F4, informe `tmp_dis\mapa\clouds_placement.md`): cinco
+    `Random` por nube en este orden (x, y, z, tamaño, k), también las nubes 0 y 1, cada una por su cuenta y uniforme en
+    la caja: **las nubes del cielo no van en grupos**. Los grupos que se ven salen del azar (≈1500 u de media entre
+    68 nubes, con rachas y huecos) y de la perspectiva; los grupos de verdad del original son las nubes de tormenta
+    (`GWeather::DrawClouds` 0x83FC90: hasta 16 bolas por tormenta alrededor de su centro, oscurecidas y con neblina;
+    openblack no las tiene aún, ver [day-night-weather.md](day-night-weather.md)).
+  - `Random` 0x81D180 = min + (max − min)·(rand()·3,0518509e−05f) con el `rand()` de la CRT de MSVC (0x7C8837,
+    s = s·214013 + 2531011, (s >> 16) & 0x7FFF), sembrado una vez con `srand(time(NULL))` (0x577721), no el GRand
+    sincronizado: **otro cielo en cada sesión y en cada tierra**. `GLandscape::Open` → `GLandAlignement::Open` 0x5E1D10
+    → `CloudInSky::Open` rehace las 70 nubes en cada carga de tierra. openblack: `Clouds` (el mismo generador; semilla
+    fija con `OPENBLACK_CLOUD_SEED=<n>`; `Clouds::OnLandscapeOpened` desde `InitializeLevel`).
+  - Paso (`fn_005E25C0`): x += inc·70·0,001; pasado 8000, t = x + 8000, x = t − ftol(t/16000)·16000 − 8000 (solo x:
+    cada nube vuelve por la misma línea a la misma altura); borde = fistp((x ± 8000)·0,1275) (redondeo), fijas 192;
+    alfa = borde·A/255 en enteros.
+  - **Color** (`fn_005E1DE0`, cada fotograma desde `GLandAlignement::DrawSky`; informe
+    `tmp_dis\mapa\clouds_colour.md`): i = trunc(X), f = trunc((X − i)·256), cada byte a + floor((b − a)·f/256) entre
+    00FFFFFF / C8FFFFFF / FFAAA066 (0xBF339C), RGB·tabla[255] (c·t >> 8), luego c + floor((8960 − 70c)/256) (255 →
+    **220**: el original nunca las pinta blancas). Luz por vértice (`fn_0084BA90`): I = fistp(255·N·L),
+    f = 210 + (45·I >> 8) (210..**254**), difuso (c·f) >> 8. La hora entra solo por la tabla (filas 0-2 de
+    `palette.raw`) y el tiempo solo por su tope de nublado. Mediodía neutral ≈ (172..208, 179..217, 177..214), gris
+    claro que con α ≈ 0,7 sobre el azul se ve blanquecino; al atardecer salmón; mala: ocre opaca; buena: ninguna.
+    **Land1 empieza a las 7,3 h de guion** (casi pleno atardecer) con el reloj parado: de ahí las nubes pardas; con
+    `OPENBLACK_TIME_OF_DAY=12` salen gris claro como en el original.
+  - **Alineación del cielo** [0xBF3378] (0 buena, 1 neutral, 2 mala; empieza en 1 y cargar tierra no la toca):
+    objetivo [0xBF337C] = (1 − clamp((v + 1)/2, 0, 1))·2 (`fn_005E2240`), con v = `GetAlignmentValue` del jugador con
+    más influencia en la posición de la interfaz (`fn_0064AC30` desde `GPlayer::ProcessPlayers` 0x64A697, cada turno;
+    `DoCitadelMultiplayer` fuerza 0,5). `DrawSky` 0x5E2160 la mueve 0,001 por ms (inc·0,01·0,1) y la ajusta al pasarse;
+    la usan las nubes, la tabla de luz y el cielo. openblack: `SkyAlignment` (Renderer), objetivo
+    `Clouds::InfluentialPlayerAlignment()` (hoy neutral o el deslizador de depuración; `OPENBLACK_TEST_SKY_ALIGNMENT`
+    de −1 mala a 1 buena) y nublado `Clouds::WeatherOvercastAtCamera()` (hoy 0): los dos esperan la alineación de
+    jugadores (`GAlignment::Update` 0x414410) y el tiempo (`GWeather`/`LH3DAtmos`) de la otra rama.
+  - **Animación**: cada nube es un LH3DMist con su propio contador +0x84; `LH3DMist::AddDrawing` 0x7FA7F0 (vt+0x100)
+    solo la manda al Z-sorter si su esfera (semidiagonal de la malla × tamaño × 0,55) toca la pantalla, y solo entonces
+    avanza el contador en el Draw: las nubes se desfasan entre sí. **No hay fundido entre fotogramas**: `fn_007FA300`
+    calcula fotograma = (contador·45)/900 en enteros (0x7FA3F4..0x7FA41B, sin fracción), pone un solo desplazamiento de
+    UV (vt+0xE8 = 0x7F9B70: +0x68/+0x6C) y dibuja una vez (`fn_0080DB30`); el modo 6 (`fn_0082DF10`) solo configura la
+    etapa 0 (MODULATE textura × difuso). El cambio es de golpe cada 20 cuentas (≈78 ms, 16 fotogramas en ≈3,5 s);
+    lo mismo para la niebla del mapa.
 - **Sombras de nubes**: `sclouds.raw` 40×40, un texel por celda desde la esquina de la nube,
   `lum = min(lum, max(48, 255 − (255 − s)·α/255))`; openblack: `Clouds::BuildShadowCap` → textura R8 por celda que
   usan `vs_terrain` y `vs_object` antes de la tabla de luz.
@@ -411,11 +454,13 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
 
 ## Animales (base mínima para las manchas)
 
-- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`; edad 0 →
-  GameRand(20) + 5. Malla: la alta de `GAnimalInfo` (LOD siempre 1). Escala (`InitialiseScale` 0x417B20): jóvenes
+- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
+  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
+  LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
+  `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
   ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
 - Land1 crea 116 (palomas 40, gaviotas 22, golondrinas 14, caballos 12, vacas 10, cerdos 7, tortugas 6, murciélagos 5).
-  openblack crea solo los terrestres (`altitudeNormal` = 0): los voladores quedarían en el suelo sin su vuelo.
+  openblack crea solo los terrestres: los voladores faltan hasta decodificar su vuelo (ver objects-and-resources.md).
   Están quietos en la pose de reposo, como los aldeanos (sin IA ni animación de animales todavía).
 - openblack: `components::Animal`, `AnimalArchetype`.
 
@@ -481,3 +526,45 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
   (vista `ScreenOverlay`), `fs_text`. Gancho `OPENBLACK_TEST_TOOLTIP=<n>`. El margen del texto respecto a la mano
   (media caja) es una estimación.
   Faltan los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...).
+
+## Niebla del mapa (LH3DMist, `fn_007FA300`)
+
+- Misma malla `mist.l3d` (cúpula de radio 20, base en el origen), material de humo 0xEA1ABC (`fn_0080BBD0`, modo 6:
+  mezcla SRCALPHA/INVSRCALPHA, color y alfa = textura × difuso, sin escritura de Z, dos caras) y atlas 8×8 que las
+  nubes. Creación (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 siempre; si F4 ≠ 1, +0x8C = F4 y
+  +0x80 |= 2 (rama "efecto"). Color N2 en +0x4C (ARGB), +0x50 (especular) = 0.
+- **Rotación** (clave): 0x7FA38F copia a la matriz del objeto la 0xEA1C98, que `UpdateCamera` 0x819A62 monta en dos
+  pasos. Primero permuta las columnas de la mundo→cámara A = 0xEA1D28: fila i = (A[3i], −A[3i+2], A[3i+1]),
+  traslación 0. Y **después** (0x819AC5 `mov ecx, 0xEA1C98`, 0x819AF3 `call fn_007FB3F0`; la otra copia de
+  `UpdateCamera`, 0x81A1AD, hace lo mismo en 0x81A265) la **invierte en su sitio**: `fn_007FB3F0` es la inversa de
+  la matriz 4×3 (cofactores / determinante, traslación = −t·M⁻¹). Al ser ortonormal, la inversa es la transpuesta, así
+  que las filas finales son derecha, −delante y arriba. A usa vectores fila y la matriz del objeto se aplica igual
+  (x' = m0 x + m3 y + m6 z, `fn_0084BA90`), luego la fila k es la imagen del eje local k: en glm
+  **mat3(derecha, −delante, arriba)**, es decir un **billboard**. X local = derecha de la pantalla, Y local (el eje de
+  la cúpula) hacia la cámara, Z local = arriba, así que la cúpula siempre se ve de cara, como un disco del humo, y
+  nunca de canto (comprobado emulando 0x819690 + la permutación + 0x7FB3F0 con varias cámaras,
+  `tmp_dis\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
+  en el original).
+- **Rama efecto** (bit 2; en Land1 todas tienen k = 1, en Land4/Land5 k = 3,78 / 2,64): s = tamaño/(1 + (k − 1)
+  (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 escalan la fila 0 (X local) por el tamaño y las filas 1 y 2 (Y, Z) por s: **escala
+  no uniforme**. Luz en (0, 500000, 0), ambiente 0xD2, sin luz de la tierra, atlas V + 0,25 (0x7FA44D: filas 2-3).
+- **Rama normal** (0x7FA5B0): las 9 celdas × tamaño. `fn_00801C90` da la luz (tabla[lum] bilineal de las 4 celdas)
+  y deja en +0x50 el RGB bilineal de esas celdas (el primer dword leído como D3DCOLOR: rojo = byte azul). `fn_007FEB30`
+  aplica la neblina: luz × (256 − trunc((256 − k) t)) >> 8 y especular += round(color de neblina × t). Luego cada
+  canal = floor(N2 × luz / 255), alfa = alfa de N2, y la luz de los modelos (luz en (−500000, 500000, −500000),
+  ambiente 90). **Sin** el + 0,25 del atlas (0x7FA675: filas 0-1 de `smokea.raw`, picos 171-197; las filas 2-3 llegan
+  a 228-248).
+- Luz por vértice (`fn_0084BA90`): I = round(255 · n_local · L_local), L_local = normalize(M⁻¹ (Lpos − pos)); con
+  escala no uniforme no es la luz de la normal girada.
+- Contador +0x84 += ftol(g_game_time_inc · 0,255), módulo 900 solo si pasa de 900; fotograma (contador/20) & 15. Solo
+  avanza dentro de Draw, es decir, con la niebla en pantalla.
+- Orden: `LH3DMist::AddDrawing` 0x7FA7F0 descarta con `CheckRegionOnScreen` (radio = radio de la malla × tamaño ×
+  0,55) y manda la niebla al `LH3DZSorter` (clave |pos − cámara|², callback 0x7FA980), junto a los modelos
+  transparentes y los sprites.
+- openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) entran en la lista de atrás adelante de la
+  pasada principal (`DrawPass`, `SortedInstance::mist`); `DrawMists` solo si esa lista no se usa. `vs_cloud`
+  recibe `u_cloudLight` (L_local) y `fs_cloud` suma `u_cloudSpecular` (0 en las nubes y en la rama efecto).
+  Desviaciones: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
+  el paso truncado del original sería 0; la textura alfa no se cuantiza a 4 bits (el original la carga en ARGB4444,
+  `a.raw` 0x8375C1: 228 → 238/255), porque cuantizar tras filtrar en el shader haría bandas y `raw/smokea` se
+  comparte con otros sistemas.

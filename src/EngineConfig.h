@@ -84,19 +84,22 @@ struct EngineConfig
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};
-	/// Mod graphics.hd-people: the villagers' textures replaced by the HD images of Mods/graphics.hd-people (4x the
+	/// Mod graphics.hd-tweaks: the villagers' textures replaced by the HD images of Mods/graphics.hd-tweaks (4x the
 	/// original's 256x256 atlases, Resources/HdTextures.h).
-	bool hdPeopleTextures {false};
+	bool hdTweaksTextures {false};
 	/// Its smooth option: the villagers' meshes as curved PN triangles split into level^2 triangles (0 = off,
-	/// 3D/PnTessellation.h). They are the boned meshes whose textures are all in hdPeopleSkins (the mod's list, made
+	/// 3D/PnTessellation.h). They are the boned meshes whose textures are all in hdTweaksSkins (the mod's list, made
 	/// from the pack's own MSH_P_ meshes: openblack's mesh names don't follow every pack).
-	int hdPeopleSmoothLevel {0};
-	/// Mod graphics.hd-people (light): 0 the original's vertex lighting, 1 the same light per pixel on the smooth normals,
-	/// 2 also a rim of light on the silhouette (they stand out from the ground). Applied by the shader every frame.
-	int hdPeopleLighting {0};
-	/// Mod graphics.hd-people (sharp): texture mip bias of the villagers (negative: sharper far away)
-	float hdPeopleMipBias {0.0f};
-	std::vector<uint32_t> hdPeopleSkins;
+	int hdTweaksSmoothLevel {0};
+	/// Mod graphics.hd-tweaks (light): 0 the original's vertex lighting, 1 the same light per pixel on the smooth normals.
+	/// Applied by the shader every frame.
+	int hdTweaksLighting {0};
+	/// Mod graphics.hd-tweaks (sharp): texture mip bias of the villagers (negative: sharper far away)
+	float hdTweaksMipBias {0.0f};
+	/// Mod graphics.hd-tweaks (detail): villagers and animals with their high detail mesh instead of the std one, the
+	/// only LOD the original draws (ECS/DetailMeshes.h)
+	bool hdTweaksHighDetail {false};
+	std::vector<uint32_t> hdTweaksSkins;
 
 	float timeOfDay {12.0f};
 	float skyAlignment {0.0f};

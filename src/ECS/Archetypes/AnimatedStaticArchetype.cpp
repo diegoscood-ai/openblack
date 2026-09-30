@@ -9,12 +9,18 @@
 
 #include "AnimatedStaticArchetype.h"
 
+#include <cstddef>
+
 #include <ECS/Components/Feature.h>
 #include <glm/gtx/euler_angles.hpp>
 
+#include "3D/AllMeshes.h"
+#include "ECS/Animations.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/SkeletalAnimation.h"
+#include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -26,6 +32,30 @@
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
+
+// CallVirtualFunctionsForCreation 0x42241F reads the clip at info +0x128; in memory the info.dat record starts at +0x10
+static_assert(offsetof(GAnimatedStaticInfo, defaultAnim) == 0x128 - 0x10);
+
+namespace
+{
+/// fn_004230D0 / 0x42246B-0x422571: a Norse Gate (mesh 212) gets two Game3DObjects with MSH_O_TOWNLIGHT at
+/// (-15, 30, 0) and (+15, 30, 0) in the gate's matrix (rows with the scale, plus the translation), with angle 0 and
+/// scale 1, each with the light fn_00823240(its position, 0). They are not map objects. (The gate by value: creating
+/// the lamps can move the Transform storage.)
+void CreateNorseGateLamps(const Transform gate)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto mesh = resources::HashIdentifier(MeshId::ObjectTownLight);
+	for (const float side : {-15.0f, 15.0f})
+	{
+		const glm::vec3 position = gate.position + side * gate.rotation[0] * gate.scale.x + 30.0f * gate.rotation[1] * gate.scale.y;
+		const auto lamp = registry.Create();
+		registry.Assign<Transform>(lamp, position, glm::mat3(1.0f), glm::vec3(1.0f));
+		registry.Assign<Mesh>(lamp, mesh, static_cast<int8_t>(0), static_cast<int8_t>(1));
+		registry.Assign<LanternLight>(lamp, static_cast<uint8_t>(0));
+	}
+}
+} // namespace
 
 entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, AnimatedStaticInfo type, float yAngleRadians,
                                              float scale)
@@ -45,6 +75,25 @@ entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, Animated
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
 
 	registry.Assign<AnimatedStatic>(entity, type);
+
+	// 0x42241F-0x422446: the object plays the info's clip (Norse Gate 191, Gate Stone Plinth 195, Piper Cave Entrance
+	// 189). Draw 0x422770 moves its time forwards or backwards with the open state, clamped to the clip: closed is t = 0,
+	// and nothing opens a gate yet.
+	const auto clip = static_cast<int32_t>(info.defaultAnim);
+	if (clip >= 0)
+	{
+		auto& animation = registry.Assign<SkeletalAnimation>(entity);
+		animation.clip = ecs::ClipId(static_cast<uint32_t>(clip));
+		animation.clipIndex = clip;
+		animation.hasClip = true;
+		animation.time = 0.0f;
+		animation.speed = 0.0f;
+	}
+
+	if (info.meshId == MeshId::BuildingNorseGate)
+	{
+		CreateNorseGateLamps(transform);
+	}
 
 	return entity;
 }

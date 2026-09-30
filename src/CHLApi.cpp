@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -20,6 +21,8 @@
 #include <LHVMTypes.h>
 #include <entt/entity/entity.hpp>
 #include <entt/entity/fwd.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
@@ -29,7 +32,16 @@
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Camera/Camera.h"
+#include "ECS/Archetypes/AnimalArchetype.h"
+#include "ECS/Archetypes/AnimatedStaticArchetype.h"
+#include "ECS/Archetypes/BonfireArchetype.h"
+#include "ECS/Archetypes/FeatureArchetype.h"
+#include "ECS/Archetypes/MarkerArchetype.h"
+#include "ECS/Archetypes/MobileObjectArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
+#include "ECS/Archetypes/StreetLanternArchetype.h"
+#include "ECS/Archetypes/TreeArchetype.h"
+#include "ECS/Archetypes/VillagerArchetype.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -42,6 +54,7 @@
 #include "Magic/Script/CHLSpells.h"
 #include "Magic/Script/CHLWeather.h"
 #include "Magic/Script/CHLWorship.h"
+#include "ECS/Alignment.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
 namespace openblack::chlapi
@@ -65,6 +78,18 @@ using openblack::script::ObjectType;
 const std::vector<lhvm::NativeFunction>& CHLApi::GetFunctionsTable()
 {
 	return _functionsTable;
+}
+
+/// The scripts call some unimplemented functions every frame (GAME_THING_CLICKED: 37k lines): logged once per function
+void NotImplemented(const char* function)
+{
+	static std::mutex mutex;
+	static std::unordered_set<std::string> warned;
+	const std::lock_guard lock(mutex);
+	if (warned.insert(function).second)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented (logged once).", function);
+	}
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -114,16 +139,116 @@ std::vector<float> PopVarArg(const int32_t argc)
 	return vals;
 }
 
-entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const glm::vec3& position, float altitude,
-                                float xAngleRadians, float yAngleRadians, const float zAngleRadians, const float scale)
+/// The ground position of a script vector: MapCoords::Set 0x603340 keeps y relative to the land, and after the
+/// creation PhysicsEditorCreate (GameThingWithPos 0x401980, MobileStatic 0x55D720, Bonfire...) resets it to 0, so
+/// everything but a marker stands on the land (the CHL vectors come with y = 0)
+glm::vec3 OnGround(glm::vec3 position)
 {
-	// TODO(Daniels118): handle all types
+	if (Locator::terrainSystem::has_value())
+	{
+		position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z));
+	}
+	return position;
+}
+
+/// GScript's create switch fn_006F11A0 (table 0x6F1A70), from CREATE 027 (angle 0, scale 1) and
+/// CREATE_WITH_ANGLE_AND_SCALE 252. The common step after it (0x6F1591-0x6F1A42) rebuilds the 3D object's matrix at
+/// GetAltitude(pos) + relY with only its own Y angle and scale (no X/Z tilt), which the archetypes below already give.
+/// @return entt::null when nothing is created (the script then gets 0)
+entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const glm::vec3& position, float yAngleRadians,
+                                float scale)
+{
+	const auto& info = Locator::infoConstants::value();
+	// 0x6F11BD: sub_type 5000 is only for the types that ignore it
+	if (subtype == 5000 && type != ObjectType::Timer && type != ObjectType::SpellDispenser && type != ObjectType::Whale &&
+	    type != ObjectType::Ark && type != ObjectType::Marker && type != ObjectType::Ball && type != ObjectType::Poo &&
+	    type != ObjectType::Scaffold)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHL CREATE: trying to create an invalid sub_type");
+		return entt::null;
+	}
+	const auto ground = OnGround(position);
 	switch (type)
 	{
-	case ObjectType::MobileStatic:
-	case ObjectType::Rock: // TODO(Daniels118): add a Rock archetype
-		return MobileStaticArchetype::Create(position, static_cast<MobileStaticInfo>(subtype), altitude, xAngleRadians,
-		                                     yAngleRadians, zAngleRadians, scale);
+	case ObjectType::Marker: // fn_0070D8D0: a ScriptMarker at the vector as given
+		return MarkerArchetype::Create(position);
+	case ObjectType::Feature: // fn_00527350(pos, GFeatureInfo, angle, scale, 1, 0)
+		if (subtype < info.feature.size())
+		{
+			return FeatureArchetype::Create(ground, static_cast<FeatureInfo>(subtype), yAngleRadians, scale);
+		}
+		break;
+	case ObjectType::Villager:      // Villager::Create 0x74FBE0(pos, info, info.grownUpAge + 1): an adult
+	case ObjectType::VillagerChild: // Villager::Create(pos, info, 10): a child
+		if (subtype < info.villager.size())
+		{
+			const auto age = type == ObjectType::Villager ? info.villager.at(subtype).grownUpAge + 1 : 10u;
+			return VillagerArchetype::Create(ground, ground, static_cast<VillagerInfo>(subtype), age, false);
+		}
+		break;
+	case ObjectType::Animal: // fn_00419C20(pos, GAnimalInfo, 0, 0), birds too
+	case ObjectType::Bird:
+		if (subtype < info.animal.size())
+		{
+			return AnimalArchetype::Create(ground, static_cast<AnimalInfo>(subtype), 0, 0);
+		}
+		break;
+	case ObjectType::MobileStatic: // 0x6F141E
+	case ObjectType::Rock:
+		if (subtype >= info.mobileStatic.size())
+		{
+			break;
+		}
+		if (subtype == static_cast<uint32_t>(MobileStaticInfo::SingingStoneBase))
+		{
+			// fn_00609340(pos, info): a GBaseOnly, without angle or scale
+			return MobileStaticArchetype::Create(ground, MobileStaticInfo::SingingStoneBase, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+		}
+		if (subtype == static_cast<uint32_t>(MobileStaticInfo::StreetLantern) || subtype == 59)
+		{
+			// GStreetLantern::Create 0x7346E0(pos, info), the same as the map script's CREATE_STREET_LANTERN (59 is a
+			// country lantern)
+			return StreetLanternArchetype::Create(ground, static_cast<MobileStaticInfo>(subtype));
+		}
+		// fn_00608770(pos, info, 0, 0, angle, scale): a Rock (info +0x128 == 2), a MobileStatic, or for info 8 a Bonfire
+		return MobileStaticArchetype::CreateFromInfo(ground, static_cast<MobileStaticInfo>(subtype), 0.0f, yAngleRadians,
+		                                             scale);
+	case ObjectType::MobileObject: // 0x607000(pos, GMobileObjectInfo, 0, angle, scale)
+		if (subtype < info.mobileObject.size())
+		{
+			return MobileObjectArchetype::Create(ground, static_cast<MobileObjectInfo>(subtype), yAngleRadians, scale);
+		}
+		break;
+	case ObjectType::Poo: // 0x607000 with GMobileObjectInfo 5
+		return MobileObjectArchetype::Create(ground, MobileObjectInfo::LumpOfPoo, yAngleRadians, scale);
+	case ObjectType::Ark: // 0x607000 with GMobileObjectInfo 23
+		return MobileObjectArchetype::Create(ground, MobileObjectInfo::Ark, yAngleRadians, scale);
+	case ObjectType::Tree: // Tree::Create 0x749EE0(pos, info, no forest, scale, angle, scale)
+		if (subtype < info.tree.size())
+		{
+			return TreeArchetype::Create(0, ground, static_cast<TreeInfo>(subtype), true, yAngleRadians, scale, scale);
+		}
+		break;
+	case ObjectType::AnimatedStatic: // 0x421F50(pos, GAnimatedStaticInfo, angle, scale, 1, 0)
+		if (subtype < info.animatedStatic.size())
+		{
+			return AnimatedStaticArchetype::Create(ground, static_cast<AnimatedStaticInfo>(subtype), yAngleRadians, scale);
+		}
+		break;
+	case ObjectType::Abode: // "Invalid create type" (0x6F191D) in the original too
+	case ObjectType::Town:
+	case ObjectType::Dance:
+	case ObjectType::Flock:
+	case ObjectType::InfluenceRing:
+	case ObjectType::Citadel:
+	case ObjectType::WorshipSite:
+	case ObjectType::SpellSeed:
+	case ObjectType::Mist:
+	case ObjectType::Field:
+	case ObjectType::ComputerPlayer:
+	case ObjectType::TotemStatue:
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHL CREATE: invalid create type {}", static_cast<int>(type));
+		return entt::null;
 	case ObjectType::WeatherThing:
 		return magic::script::CreateWeatherThing(subtype, position); // Magic/Script/CHLWeather.cpp
 	// GScript 0x6F1010's miracle cases (Magic/Script/CHLWorship.cpp)
@@ -134,9 +259,12 @@ entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const g
 	case ObjectType::SpellDispenser:
 		return magic::script::CreateSpellDispenser(subtype, position, yAngleRadians, scale);
 	default:
+		// TODO: Reward, Creature, DeadTree, Store, Timer, Vortex, Whale, Ball, PuzzleGame, Totem, Highlight, Scaffold
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "CreateScriptObject not implemented for type {}", static_cast<int>(type));
+		return entt::null;
 	}
-	return static_cast<entt::entity>(0);
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHL CREATE: invalid sub_type {} for type {}", subtype, static_cast<int>(type));
+	return entt::null;
 }
 
 VMValue Pop(DataType& type)
@@ -226,7 +354,7 @@ void MoveCameraPosition() // 003 MOVE_CAMERA_POSITION
 	// const auto time = Popf();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MoveCameraFocus() // 004 MOVE_CAMERA_FOCUS
@@ -234,7 +362,7 @@ void MoveCameraFocus() // 004 MOVE_CAMERA_FOCUS
 	// const auto time = Popf();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetCameraPosition() // 005 GET_CAMERA_POSITION
@@ -255,14 +383,14 @@ void SpiritEject() // 007 SPIRIT_EJECT
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SpiritHome() // 008 SPIRIT_HOME
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SpiritPointPos() // 009 SPIRIT_POINT_POS
@@ -271,7 +399,7 @@ void SpiritPointPos() // 009 SPIRIT_POINT_POS
 	// const auto position = PopVec();
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SpiritPointGameThing() // 010 SPIRIT_POINT_GAME_THING
@@ -280,14 +408,14 @@ void SpiritPointGameThing() // 010 SPIRIT_POINT_GAME_THING
 	// const auto target = Pop().uintVal;
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameThingFieldOfView() // 011 GAME_THING_FIELD_OF_VIEW
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -295,7 +423,7 @@ void PosFieldOfView() // 012 POS_FIELD_OF_VIEW
 {
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -305,7 +433,7 @@ void RunText() // 013 RUN_TEXT
 	// const auto textID = Pop().intVal;
 	// const auto singleLine = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void TempText() // 014 TEMP_TEXT
@@ -314,13 +442,13 @@ void TempText() // 014 TEMP_TEXT
 	// const auto string = PopString();
 	// const auto singleLine = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void TextRead() // 015 TEXT_READ
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -328,7 +456,7 @@ void GameThingClicked() // 016 GAME_THING_CLICKED
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -337,7 +465,7 @@ void SetScriptState() // 017 SET_SCRIPT_STATE
 	// const auto state = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetScriptStatePos() // 018 SET_SCRIPT_STATE_POS
@@ -345,7 +473,7 @@ void SetScriptStatePos() // 018 SET_SCRIPT_STATE_POS
 	// const auto position = PopVec();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetScriptFloat() // 019 SET_SCRIPT_FLOAT
@@ -353,7 +481,7 @@ void SetScriptFloat() // 019 SET_SCRIPT_FLOAT
 	// const auto value = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetScriptUlong() // 020 SET_SCRIPT_ULONG
@@ -362,7 +490,7 @@ void SetScriptUlong() // 020 SET_SCRIPT_ULONG
 	// const auto animation = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetProperty() // 021 GET_PROPERTY
@@ -370,7 +498,7 @@ void GetProperty() // 021 GET_PROPERTY
 	// const auto object = Pop().uintVal;
 	// const auto prop = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -380,17 +508,18 @@ void SetProperty() // 022 SET_PROPERTY
 	// const auto object = Pop().uintVal;
 	// const auto prop = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetPosition() // 023 GET_POSITION
 {
 	const auto objId = Pop().uintVal;
 
+	// GScript::GetPosition 0x6F88A0: GetAltitude(pos) + relY, the object's world position; (0, 0, 0) for a lost object
 	glm::vec3 position(0.0f);
-	if (objId != 0)
+	auto& registry = Locator::entitiesRegistry::value();
+	if (objId != 0 && registry.Valid(static_cast<entt::entity>(objId)))
 	{
-		auto& registry = Locator::entitiesRegistry::value();
 		auto* transform = registry.TryGet<Transform>(static_cast<entt::entity>(objId));
 		if (transform != nullptr)
 		{
@@ -434,7 +563,7 @@ void Call() // 026 CALL
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -444,9 +573,12 @@ void Create() // 027 CREATE
 	const auto subtype = Pop().intVal;
 	const auto type = static_cast<ObjectType>(Pop().intVal);
 
-	const auto object = CreateScriptObject(type, subtype, position, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	// GScript::CreateThing 0x6F1B20: types 1..41 only, angle 0, scale 1; 0 when nothing is made
+	const auto object = type > ObjectType::None && type <= ObjectType::AnimatedStatic
+	                        ? CreateScriptObject(type, subtype, position, 0.0f, 1.0f)
+	                        : entt::null;
 
-	Pusho(static_cast<uint32_t>(object));
+	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }
 
 void Random() // 028 RANDOM
@@ -466,14 +598,14 @@ void DllGettime() // 029 DLL_GETTIME
 void StartCameraControl() // 030 START_CAMERA_CONTROL
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void EndCameraControl() // 031 END_CAMERA_CONTROL
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetWidescreen() // 032 SET_WIDESCREEN
@@ -490,7 +622,7 @@ void MoveGameThing() // 033 MOVE_GAME_THING
 	// const auto position = PopVec();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetFocus() // 034 SET_FOCUS
@@ -498,13 +630,13 @@ void SetFocus() // 034 SET_FOCUS
 	// const auto position = PopVec();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void HasCameraArrived() // 035 HAS_CAMERA_ARRIVED
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -512,7 +644,7 @@ void FlockCreate() // 036 FLOCK_CREATE
 {
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -522,7 +654,7 @@ void FlockAttach() // 037 FLOCK_ATTACH
 	// const auto flock = Pop().uintVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -531,7 +663,7 @@ void FlockDetach() // 038 FLOCK_DETACH
 	// const auto flock = Pop().uintVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -539,14 +671,14 @@ void FlockDisband() // 039 FLOCK_DISBAND
 {
 	// const auto flock = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IdSize() // 040 ID_SIZE
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -555,7 +687,7 @@ void FlockMember() // 041 FLOCK_MEMBER
 	// const auto flock = Pop().uintVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -574,20 +706,20 @@ void PlaySoundEffect() // 043 PLAY_SOUND_EFFECT
 	// const auto soundbank = Pop().intVal;
 	// const auto sound = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartMusic() // 044 START_MUSIC
 {
 	// const auto music = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StopMusic() // 045 STOP_MUSIC
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AttachMusic() // 046 ATTACH_MUSIC
@@ -595,14 +727,14 @@ void AttachMusic() // 046 ATTACH_MUSIC
 	// const auto target = Pop().uintVal;
 	// const auto music = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DetachMusic() // 047 DETACH_MUSIC
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ObjectDelete() // 048 OBJECT_DELETE
@@ -610,21 +742,21 @@ void ObjectDelete() // 048 OBJECT_DELETE
 	// const auto withFade = Pop().intVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void FocusFollow() // 049 FOCUS_FOLLOW
 {
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PositionFollow() // 050 POSITION_FOLLOW
 {
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CallNear() // 051 CALL_NEAR
@@ -635,7 +767,7 @@ void CallNear() // 051 CALL_NEAR
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -672,7 +804,7 @@ void DanceCreate() // 054 DANCE_CREATE
 	// const auto type = Pop().intVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -683,7 +815,7 @@ void CallIn() // 055 CALL_IN
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -694,7 +826,7 @@ void ChangeInnerOuterProperties() // 056 CHANGE_INNER_OUTER_PROPERTIES
 	// const auto inner = Popf();
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void Snapshot() // 057 SNAPSHOT
@@ -710,23 +842,28 @@ void Snapshot() // 057 SNAPSHOT
 	// const auto position = PopVec();
 	// const auto quest = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetAlignment() // 058 GET_ALIGNMENT
 {
-	// const auto zero = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	// GScript::GetAlignment 0x6F9A60: the player's GAlignment value (GPlayer::GetAlignmentValue 0x64D6A0)
+	const auto player = Pop().intVal;
+	Pushf(ecs::alignment::Get(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL)))));
 }
 
 void SetAlignment() // 059 SET_ALIGNMENT
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	// GScript::SetAlignment 0x6F99C0: the player first, then the value; out of -1..1 it is an error and nothing
+	// happens, otherwise CrudeUpdate: the value is ADDED to the player's alignment (clamped), despite the name
+	const auto player = Pop().intVal;
+	const auto value = Pop().floatVal;
+	if (value < -1.0f || value > 1.0f)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_ALIGNMENT: Alignment out of range ({})", value);
+		return;
+	}
+	ecs::alignment::AddNow(static_cast<PlayerNames>(std::clamp(player, 0, static_cast<int>(PlayerNames::NEUTRAL))), value);
 }
 
 void InfluenceObject() // 060 INFLUENCE_OBJECT
@@ -748,14 +885,14 @@ void SetInterfaceInteraction() // 063 SET_INTERFACE_INTERACTION
 {
 	// const auto level = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void Played() // 064 PLAYED
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -764,7 +901,7 @@ void RandomUlong() // 065 RANDOM_ULONG
 	// const auto max = Pop().intVal;
 	// const auto min = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -772,7 +909,7 @@ void SetGamespeed() // 066 SET_GAMESPEED
 {
 	// const auto speed = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CallInNear() // 067 CALL_IN_NEAR
@@ -784,7 +921,7 @@ void CallInNear() // 067 CALL_IN_NEAR
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -793,7 +930,7 @@ void OverrideStateAnimation() // 068 OVERRIDE_STATE_ANIMATION
 	// const auto animType = Pop().intVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureCreateRelativeToCreature() // 069 CREATURE_CREATE_RELATIVE_TO_CREATURE
@@ -803,7 +940,7 @@ void CreatureCreateRelativeToCreature() // 069 CREATURE_CREATE_RELATIVE_TO_CREAT
 	// const auto scale = Popf();
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -811,7 +948,7 @@ void CreatureLearnEverything() // 070 CREATURE_LEARN_EVERYTHING
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSetKnowsAction() // 071 CREATURE_SET_KNOWS_ACTION
@@ -821,7 +958,7 @@ void CreatureSetKnowsAction() // 071 CREATURE_SET_KNOWS_ACTION
 	// const auto typeOfAction = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSetAgendaPriority() // 072 CREATURE_SET_AGENDA_PRIORITY
@@ -829,14 +966,14 @@ void CreatureSetAgendaPriority() // 072 CREATURE_SET_AGENDA_PRIORITY
 	// const auto priority = Popf();
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureTurnOffAllDesires() // 073 CREATURE_TURN_OFF_ALL_DESIRES
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureLearnDistinctionAboutActivityObject() // 074 CREATURE_LEARN_DISTINCTION_ABOUT_ACTIVITY_OBJECT
@@ -846,7 +983,7 @@ void CreatureLearnDistinctionAboutActivityObject() // 074 CREATURE_LEARN_DISTINC
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureDoAction() // 075 CREATURE_DO_ACTION
@@ -856,7 +993,7 @@ void CreatureDoAction() // 075 CREATURE_DO_ACTION
 	// const auto unk1 = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void InCreatureHand() // 076 IN_CREATURE_HAND
@@ -864,7 +1001,7 @@ void InCreatureHand() // 076 IN_CREATURE_HAND
 	// const auto creature = Pop().uintVal;
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -874,7 +1011,7 @@ void CreatureSetDesireValue() // 077 CREATURE_SET_DESIRE_VALUE
 	// const auto desire = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSetDesireActivated78() // 078 CREATURE_SET_DESIRE_ACTIVATED
@@ -883,7 +1020,7 @@ void CreatureSetDesireActivated78() // 078 CREATURE_SET_DESIRE_ACTIVATED
 	// const auto desire = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSetDesireActivated79() // 079 CREATURE_SET_DESIRE_ACTIVATED
@@ -891,7 +1028,7 @@ void CreatureSetDesireActivated79() // 079 CREATURE_SET_DESIRE_ACTIVATED
 	// const auto active = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSetDesireMaximum() // 080 CREATURE_SET_DESIRE_MAXIMUM
@@ -900,14 +1037,14 @@ void CreatureSetDesireMaximum() // 080 CREATURE_SET_DESIRE_MAXIMUM
 	// const auto desire = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ConvertCameraPosition() // 081 CONVERT_CAMERA_POSITION
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -917,7 +1054,7 @@ void ConvertCameraFocus() // 082 CONVERT_CAMERA_FOCUS
 {
 	// const auto camera_enum = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -927,14 +1064,14 @@ void CreatureSetPlayer() // 083 CREATURE_SET_PLAYER
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartCountdownTimer() // 084 START_COUNTDOWN_TIMER
 {
 	// const auto timeout = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureInitialiseNumTimesPerformedAction() // 085 CREATURE_INITIALISE_NUM_TIMES_PERFORMED_ACTION
@@ -942,7 +1079,7 @@ void CreatureInitialiseNumTimesPerformedAction() // 085 CREATURE_INITIALISE_NUM_
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureGetNumTimesActionPerformed() // 086 CREATURE_GET_NUM_TIMES_ACTION_PERFORMED
@@ -950,21 +1087,21 @@ void CreatureGetNumTimesActionPerformed() // 086 CREATURE_GET_NUM_TIMES_ACTION_P
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void RemoveCountdownTimer() // 087 REMOVE_COUNTDOWN_TIMER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectDropped() // 088 GET_OBJECT_DROPPED
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -972,7 +1109,7 @@ void ClearDroppedByObject() // 089 CLEAR_DROPPED_BY_OBJECT
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreateReaction() // 090 CREATE_REACTION
@@ -980,20 +1117,20 @@ void CreateReaction() // 090 CREATE_REACTION
 	// const auto reaction = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void RemoveReaction() // 091 REMOVE_REACTION
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetCountdownTimer() // 092 GET_COUNTDOWN_TIMER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1002,7 +1139,7 @@ void StartDualCamera() // 093 START_DUAL_CAMERA
 	// const auto obj2 = Pop().uintVal;
 	// const auto obj1 = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void UpdateDualCamera() // 094 UPDATE_DUAL_CAMERA
@@ -1010,27 +1147,27 @@ void UpdateDualCamera() // 094 UPDATE_DUAL_CAMERA
 	// const auto obj2 = Pop().uintVal;
 	// const auto obj1 = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ReleaseDualCamera() // 095 RELEASE_DUAL_CAMERA
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureHelp() // 096 SET_CREATURE_HELP
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetTargetObject() // 097 GET_TARGET_OBJECT
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1039,14 +1176,14 @@ void CreatureDesireIs() // 098 CREATURE_DESIRE_IS
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
 void CountdownTimerExists() // 099 COUNTDOWN_TIMER_EXISTS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1055,14 +1192,14 @@ void LookGameThing() // 100 LOOK_GAME_THING
 	// const auto target = Pop().uintVal;
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectDestination() // 101 GET_OBJECT_DESTINATION
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -1072,20 +1209,20 @@ void CreatureForceFinish() // 102 CREATURE_FORCE_FINISH
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void HideCountdownTimer() // 103 HIDE_COUNTDOWN_TIMER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetActionTextForObject() // 104 GET_ACTION_TEXT_FOR_OBJECT
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -1094,7 +1231,7 @@ void CreateDualCameraWithPoint() // 105 CREATE_DUAL_CAMERA_WITH_POINT
 	// const auto position = PopVec();
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCameraToFaceObject() // 106 SET_CAMERA_TO_FACE_OBJECT
@@ -1102,7 +1239,7 @@ void SetCameraToFaceObject() // 106 SET_CAMERA_TO_FACE_OBJECT
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MoveCameraToFaceObject() // 107 MOVE_CAMERA_TO_FACE_OBJECT
@@ -1111,13 +1248,13 @@ void MoveCameraToFaceObject() // 107 MOVE_CAMERA_TO_FACE_OBJECT
 	// const auto distance = Popf();
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetMoonPercentage() // 108 GET_MOON_PERCENTAGE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1128,14 +1265,14 @@ void PopulateContainer() // 109 POPULATE_CONTAINER
 	// const auto quantity = Popf();
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AddReference() // 110 ADD_REFERENCE
 {
 	const auto objId = Pop().uintVal;
 	// TODO(Daniels118): implement this - HIGH PRIORITY
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(objId);
 }
 
@@ -1143,7 +1280,7 @@ void RemoveReference() // 111 REMOVE_REFERENCE
 {
 	const auto objId = Pop().uintVal;
 	// TODO(Daniels118): implement this - HIGH PRIORITY
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(objId);
 }
 
@@ -1164,35 +1301,35 @@ void GetGameTime() // 113 GET_GAME_TIME
 void GetRealTime() // 114 GET_REAL_TIME
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void GetRealDay115() // 115 GET_REAL_DAY
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void GetRealDay116() // 116 GET_REAL_DAY
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void GetRealMonth() // 117 GET_REAL_MONTH
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void GetRealYear() // 118 GET_REAL_YEAR
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1200,26 +1337,26 @@ void RunCameraPath() // 119 RUN_CAMERA_PATH
 {
 	// const auto cameraEnum = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartDialogue() // 120 START_DIALOGUE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void EndDialogue() // 121 END_DIALOGUE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsDialogueReady() // 122 IS_DIALOGUE_READY
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1249,19 +1386,19 @@ void SetHeadingAndSpeed() // 127 SET_HEADING_AND_SPEED
 	// const auto position = PopVec();
 	// const auto unk0 = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartGameSpeed() // 128 START_GAME_SPEED
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void EndGameSpeed() // 129 END_GAME_SPEED
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void BuildBuilding() // 130 BUILD_BUILDING
@@ -1269,7 +1406,7 @@ void BuildBuilding() // 130 BUILD_BUILDING
 	// const auto desire = Popf();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetAffectedByWind() // 131 SET_AFFECTED_BY_WIND
@@ -1277,7 +1414,7 @@ void SetAffectedByWind() // 131 SET_AFFECTED_BY_WIND
 	// const auto object = Pop().uintVal;
 	// const auto enabled = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void WidescreenTransistionFinished() // 132 WIDESCREEN_TRANSISTION_FINISHED
@@ -1290,7 +1427,7 @@ void GetResource() // 133 GET_RESOURCE
 	// const auto container = Pop().uintVal;
 	// const auto resource = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1300,7 +1437,7 @@ void AddResource() // 134 ADD_RESOURCE
 	// const auto quantity = Popf();
 	// const auto resource = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1310,7 +1447,7 @@ void RemoveResource() // 135 REMOVE_RESOURCE
 	// const auto quantity = Popf();
 	// const auto resource = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1321,7 +1458,7 @@ void GetTargetRelativePos() // 136 GET_TARGET_RELATIVE_POS
 	// const auto to = PopVec();
 	// const auto from = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -1331,14 +1468,14 @@ void StopPointing() // 137 STOP_POINTING
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StopLooking() // 138 STOP_LOOKING
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void LookAtPosition() // 139 LOOK_AT_POSITION
@@ -1346,7 +1483,7 @@ void LookAtPosition() // 139 LOOK_AT_POSITION
 	// const auto position = PopVec();
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PlaySpiritAnim() // 140 PLAY_SPIRIT_ANIM
@@ -1357,7 +1494,7 @@ void PlaySpiritAnim() // 140 PLAY_SPIRIT_ANIM
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CallInNotNear() // 141 CALL_IN_NOT_NEAR
@@ -1369,7 +1506,7 @@ void CallInNotNear() // 141 CALL_IN_NOT_NEAR
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1377,21 +1514,21 @@ void SetCameraZone() // 142 SET_CAMERA_ZONE
 {
 	// const auto filename = PopString();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectState() // 143 GET_OBJECT_STATE
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
 void RevealCountdownTimer() // 144 REVEAL_COUNTDOWN_TIMER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetTimerTime() // 145 SET_TIMER_TIME
@@ -1401,7 +1538,7 @@ void SetTimerTime() // 145 SET_TIMER_TIME
 	// 0x711280 also takes a spell dispenser (its period); the timers themselves are not ported
 	if (timer == 0 || !magic::script::SetDispenserTimerTime(static_cast<entt::entity>(timer), time))
 	{
-		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+		NotImplemented(__func__);
 	}
 }
 
@@ -1409,7 +1546,7 @@ void CreateTimer() // 146 CREATE_TIMER
 {
 	// const auto timeout = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1417,7 +1554,7 @@ void GetTimerTimeRemaining() // 147 GET_TIMER_TIME_REMAINING
 {
 	// const auto timer = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1425,7 +1562,7 @@ void GetTimerTimeSinceSet() // 148 GET_TIMER_TIME_SINCE_SET
 {
 	// const auto timer = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1434,13 +1571,13 @@ void MoveMusic() // 149 MOVE_MUSIC
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetInclusionDistance() // 150 GET_INCLUSION_DISTANCE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1497,13 +1634,13 @@ void StopScript() // 155 STOP_SCRIPT
 void ClearClickedObject() // 156 CLEAR_CLICKED_OBJECT
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ClearClickedPosition() // 157 CLEAR_CLICKED_POSITION
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PositionClicked() // 158 POSITION_CLICKED
@@ -1513,7 +1650,7 @@ void PositionClicked() // 158 POSITION_CLICKED
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1521,13 +1658,13 @@ void ReleaseFromScript() // 159 RELEASE_FROM_SCRIPT
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectHandIsOver() // 160 GET_OBJECT_HAND_IS_OVER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1535,7 +1672,7 @@ void IdPoisonedSize() // 161 ID_POISONED_SIZE
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1543,7 +1680,7 @@ void IsPoisoned() // 162 IS_POISONED
 {
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1554,7 +1691,7 @@ void CallPoisonedIn() // 163 CALL_POISONED_IN
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1565,7 +1702,7 @@ void CallNotPoisonedIn() // 164 CALL_NOT_POISONED_IN
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1573,7 +1710,7 @@ void SpiritPlayed() // 165 SPIRIT_PLAYED
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1583,7 +1720,7 @@ void ClingSpirit() // 166 CLING_SPIRIT
 	// const auto xPercent = Popf();
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void FlySpirit() // 167 FLY_SPIRIT
@@ -1592,7 +1729,7 @@ void FlySpirit() // 167 FLY_SPIRIT
 	// const auto xPercent = Popf();
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetIdMoveable() // 168 SET_ID_MOVEABLE
@@ -1600,7 +1737,7 @@ void SetIdMoveable() // 168 SET_ID_MOVEABLE
 	// const auto obj = Pop().uintVal;
 	// const auto moveable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetIdPickupable() // 169 SET_ID_PICKUPABLE
@@ -1608,7 +1745,7 @@ void SetIdPickupable() // 169 SET_ID_PICKUPABLE
 	// const auto obj = Pop().uintVal;
 	// const auto pickupable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsOnFire() // 170 IS_ON_FIRE
@@ -1637,7 +1774,7 @@ void SetPoisoned() // 173 SET_POISONED
 	// const auto obj = Pop().uintVal;
 	// const auto poisoned = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetTemperature() // 174 SET_TEMPERATURE
@@ -1656,7 +1793,7 @@ void SetTarget() // 176 SET_TARGET
 	// const auto position = PopVec();
 	// const auto obj = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void WalkPath() // 177 WALK_PATH
@@ -1667,7 +1804,7 @@ void WalkPath() // 177 WALK_PATH
 	// const auto forward = static_cast<bool>(Pop().intVal);
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void FocusAndPositionFollow() // 178 FOCUS_AND_POSITION_FOLLOW
@@ -1675,14 +1812,14 @@ void FocusAndPositionFollow() // 178 FOCUS_AND_POSITION_FOLLOW
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetWalkPathPercentage() // 179 GET_WALK_PATH_PERCENTAGE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1693,7 +1830,7 @@ void CameraProperties() // 180 CAMERA_PROPERTIES
 	// const auto speed = Popf();
 	// const auto distance = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void EnableDisableMusic() // 181 ENABLE_DISABLE_MUSIC
@@ -1701,14 +1838,14 @@ void EnableDisableMusic() // 181 ENABLE_DISABLE_MUSIC
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetMusicObjDistance() // 182 GET_MUSIC_OBJ_DISTANCE
 {
 	// const auto source = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1716,7 +1853,7 @@ void GetMusicEnumDistance() // 183 GET_MUSIC_ENUM_DISTANCE
 {
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1727,7 +1864,7 @@ void SetMusicPlayPosition() // 184 SET_MUSIC_PLAY_POSITION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AttachObjectLeashToObject() // 185 ATTACH_OBJECT_LEASH_TO_OBJECT
@@ -1735,21 +1872,21 @@ void AttachObjectLeashToObject() // 185 ATTACH_OBJECT_LEASH_TO_OBJECT
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AttachObjectLeashToHand() // 186 ATTACH_OBJECT_LEASH_TO_HAND
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DetachObjectLeash() // 187 DETACH_OBJECT_LEASH
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureOnlyDesire() // 188 SET_CREATURE_ONLY_DESIRE
@@ -1758,28 +1895,28 @@ void SetCreatureOnlyDesire() // 188 SET_CREATURE_ONLY_DESIRE
 	// const auto desire = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureOnlyDesireOff() // 189 SET_CREATURE_ONLY_DESIRE_OFF
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void RestartMusic() // 190 RESTART_MUSIC
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MusicPlayed191() // 191 MUSIC_PLAYED
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -1789,21 +1926,21 @@ void IsOfType() // 192 IS_OF_TYPE
 	// const auto type = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void ClearHitObject() // 193 CLEAR_HIT_OBJECT
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameThingHit() // 194 GAME_THING_HIT
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1821,7 +1958,7 @@ void CallPlayerCreature() // 197 CALL_PLAYER_CREATURE
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1829,21 +1966,21 @@ void GetSlowestSpeed() // 198 GET_SLOWEST_SPEED
 {
 	// const auto flock = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
 void GetObjectHeld199() // 199 GET_OBJECT_HELD
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
 void HelpSystemOn() // 200 HELP_SYSTEM_ON
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -1854,7 +1991,7 @@ void ShakeCamera() // 201 SHAKE_CAMERA
 	// const auto radius = Popf();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetAnimationModify() // 202 SET_ANIMATION_MODIFY
@@ -1862,7 +1999,7 @@ void SetAnimationModify() // 202 SET_ANIMATION_MODIFY
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetAviSequence() // 203 SET_AVI_SEQUENCE
@@ -1870,7 +2007,7 @@ void SetAviSequence() // 203 SET_AVI_SEQUENCE
 	// const auto aviSequence = Pop().intVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PlayGesture() // 204 PLAY_GESTURE
@@ -1881,27 +2018,27 @@ void PlayGesture() // 204 PLAY_GESTURE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DevFunction() // 205 DEV_FUNCTION
 {
 	// const auto func = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void HasMouseWheel() // 206 HAS_MOUSE_WHEEL
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void NumMouseButtons() // 207 NUM_MOUSE_BUTTONS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -1910,7 +2047,7 @@ void SetCreatureDevStage() // 208 SET_CREATURE_DEV_STAGE
 	// const auto stage = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetFixedCamRotation() // 209 SET_FIXED_CAM_ROTATION
@@ -1920,7 +2057,7 @@ void SetFixedCamRotation() // 209 SET_FIXED_CAM_ROTATION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SwapCreature() // 210 SWAP_CREATURE
@@ -1928,7 +2065,7 @@ void SwapCreature() // 210 SWAP_CREATURE
 	// const auto toCreature = Pop().uintVal;
 	// const auto fromCreature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetArena() // 211 GET_ARENA
@@ -1939,7 +2076,7 @@ void GetArena() // 211 GET_ARENA
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1947,7 +2084,7 @@ void GetFootballPitch() // 212 GET_FOOTBALL_PITCH
 {
 	// const auto town = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -1955,7 +2092,7 @@ void StopAllGames() // 213 STOP_ALL_GAMES
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AttachToGame() // 214 ATTACH_TO_GAME
@@ -1964,7 +2101,7 @@ void AttachToGame() // 214 ATTACH_TO_GAME
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DetachFromGame() // 215 DETACH_FROM_GAME
@@ -1973,7 +2110,7 @@ void DetachFromGame() // 215 DETACH_FROM_GAME
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DetachUndefinedFromGame() // 216 DETACH_UNDEFINED_FROM_GAME
@@ -1981,7 +2118,7 @@ void DetachUndefinedFromGame() // 216 DETACH_UNDEFINED_FROM_GAME
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetOnlyForScripts() // 217 SET_ONLY_FOR_SCRIPTS
@@ -1989,7 +2126,7 @@ void SetOnlyForScripts() // 217 SET_ONLY_FOR_SCRIPTS
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartMatchWithReferee() // 218 START_MATCH_WITH_REFEREE
@@ -1997,7 +2134,7 @@ void StartMatchWithReferee() // 218 START_MATCH_WITH_REFEREE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameTeamSize() // 219 GAME_TEAM_SIZE
@@ -2005,14 +2142,14 @@ void GameTeamSize() // 219 GAME_TEAM_SIZE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameType() // 220 GAME_TYPE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -2020,7 +2157,7 @@ void GameSubType() // 221 GAME_SUB_TYPE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -2028,7 +2165,7 @@ void IsLeashed() // 222 IS_LEASHED
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2037,20 +2174,20 @@ void SetCreatureHome() // 223 SET_CREATURE_HOME
 	// const auto position = PopVec();
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetHitObject() // 224 GET_HIT_OBJECT
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
 void GetObjectWhichHit() // 225 GET_OBJECT_WHICH_HIT
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2062,7 +2199,7 @@ void GetNearestTownOfPlayer() // 226 GET_NEAREST_TOWN_OF_PLAYER
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2076,14 +2213,14 @@ void SetAttackOwnTown() // 228 SET_ATTACK_OWN_TOWN
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsFighting() // 229 IS_FIGHTING
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2092,7 +2229,7 @@ void SetMagicRadius() // 230 SET_MAGIC_RADIUS
 	// const auto radius = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void TempTextWithNumber() // 231 TEMP_TEXT_WITH_NUMBER
@@ -2102,7 +2239,7 @@ void TempTextWithNumber() // 231 TEMP_TEXT_WITH_NUMBER
 	// const auto format = PopString();
 	// const auto singleLine = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void RunTextWithNumber() // 232 RUN_TEXT_WITH_NUMBER
@@ -2112,7 +2249,7 @@ void RunTextWithNumber() // 232 RUN_TEXT_WITH_NUMBER
 	// const auto string = Pop().intVal;
 	// const auto singleLine = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureSpellReversion() // 233 CREATURE_SPELL_REVERSION
@@ -2120,7 +2257,7 @@ void CreatureSpellReversion() // 233 CREATURE_SPELL_REVERSION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetDesire() // 234 GET_DESIRE
@@ -2128,7 +2265,7 @@ void GetDesire() // 234 GET_DESIRE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2136,7 +2273,7 @@ void GetEventsPerSecond() // 235 GET_EVENTS_PER_SECOND
 {
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2144,7 +2281,7 @@ void GetTimeSince() // 236 GET_TIME_SINCE
 {
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2152,7 +2289,7 @@ void GetTotalEvents() // 237 GET_TOTAL_EVENTS
 {
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2166,7 +2303,7 @@ void UpdateSnapshot() // 238 UPDATE_SNAPSHOT
 	// const auto alignment = Popf();
 	// const auto success = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreateReward() // 239 CREATE_REWARD
@@ -2175,7 +2312,7 @@ void CreateReward() // 239 CREATE_REWARD
 	// const auto position = PopVec();
 	// const auto reward = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2186,7 +2323,7 @@ void CreateRewardInTown() // 240 CREATE_REWARD_IN_TOWN
 	// const auto town = Pop().uintVal;
 	// const auto reward = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2229,7 +2366,7 @@ void SpiritSpeaks() // 246 SPIRIT_SPEAKS
 	// const auto textID = Pop().intVal;
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2238,7 +2375,7 @@ void BeliefForPlayer() // 247 BELIEF_FOR_PLAYER
 	// const auto player = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2246,7 +2383,7 @@ void GetHelp() // 248 GET_HELP
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2255,14 +2392,14 @@ void SetLeashWorks() // 249 SET_LEASH_WORKS
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void LoadMyCreature() // 250 LOAD_MY_CREATURE
 {
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ObjectRelativeBelief() // 251 OBJECT_RELATIVE_BELIEF
@@ -2271,7 +2408,7 @@ void ObjectRelativeBelief() // 251 OBJECT_RELATIVE_BELIEF
 	// const auto player = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreateWithAngleAndScale() // 252 CREATE_WITH_ANGLE_AND_SCALE
@@ -2282,16 +2419,19 @@ void CreateWithAngleAndScale() // 252 CREATE_WITH_ANGLE_AND_SCALE
 	const auto scale = Popf();
 	const auto angle = Popf();
 
-	const entt::entity object = CreateScriptObject(type, subtype, position, 0.0f, 0.0f, angle, 0.0f, scale);
+	// GScript::CreateWithAngleAndScale 0x6F2E10: the angle is in degrees (x 0.0174533)
+	const entt::entity object = type > ObjectType::None && type <= ObjectType::AnimatedStatic
+	                                ? CreateScriptObject(type, subtype, position, glm::radians(angle), scale)
+	                                : entt::null;
 
-	Pusho(static_cast<uint32_t>(object));
+	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }
 
 void SetHelpSystem() // 253 SET_HELP_SYSTEM
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetVirtualInfluence() // 254 SET_VIRTUAL_INFLUENCE
@@ -2299,7 +2439,7 @@ void SetVirtualInfluence() // 254 SET_VIRTUAL_INFLUENCE
 	// const auto player = Popf();
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetActive() // 255 SET_ACTIVE
@@ -2309,7 +2449,7 @@ void SetActive() // 255 SET_ACTIVE
 	// GameThing vt 0x1C0 SetActive: only the spell dispensers are ported (Magic/Script/CHLWorship.cpp)
 	if (object == 0 || !magic::script::SetDispenserActive(static_cast<entt::entity>(object), active))
 	{
-		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+		NotImplemented(__func__);
 	}
 }
 
@@ -2330,7 +2470,7 @@ void VortexFadeOut() // 257 VORTEX_FADE_OUT
 {
 	// const auto vortex = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void RemoveReactionOfType() // 258 REMOVE_REACTION_OF_TYPE
@@ -2338,7 +2478,7 @@ void RemoveReactionOfType() // 258 REMOVE_REACTION_OF_TYPE
 	// const auto reaction = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureLearnEverythingExcluding() // 259 CREATURE_LEARN_EVERYTHING_EXCLUDING
@@ -2346,14 +2486,14 @@ void CreatureLearnEverythingExcluding() // 259 CREATURE_LEARN_EVERYTHING_EXCLUDI
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PlayedPercentage() // 260 PLAYED_PERCENTAGE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2362,7 +2502,7 @@ void ObjectCastByObject() // 261 OBJECT_CAST_BY_OBJECT
 	// const auto caster = Pop().uintVal;
 	// const auto spellInstance = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2370,7 +2510,7 @@ void IsWindMagicAtPos() // 262 IS_WIND_MAGIC_AT_POS
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2384,7 +2524,7 @@ void CreateMist() // 263 CREATE_MIST
 	// const auto scale = Popf();
 	// const auto pos = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2397,14 +2537,14 @@ void SetMistFade() // 264 SET_MIST_FADE
 	// const auto startScale = Popf();
 	// const auto mist = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectFade() // 265 GET_OBJECT_FADE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2414,13 +2554,13 @@ void PlayHandDemo() // 266 PLAY_HAND_DEMO
 	// const auto withPause = static_cast<bool>(Pop().intVal);
 	// const auto string = PopString();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsPlayingHandDemo() // 267 IS_PLAYING_HAND_DEMO
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2428,7 +2568,7 @@ void GetArsePosition() // 268 GET_ARSE_POSITION
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -2439,7 +2579,7 @@ void IsLeashedToObject() // 269 IS_LEASHED_TO_OBJECT
 	// const auto target = Pop().uintVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2447,7 +2587,7 @@ void GetInteractionMagnitude() // 270 GET_INTERACTION_MAGNITUDE
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2455,7 +2595,7 @@ void IsCreatureAvailable() // 271 IS_CREATURE_AVAILABLE
 {
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2465,7 +2605,7 @@ void CreateHighlight() // 272 CREATE_HIGHLIGHT
 	// const auto position = PopVec();
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2473,7 +2613,7 @@ void GetObjectHeld273() // 273 GET_OBJECT_HELD
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2482,7 +2622,7 @@ void GetActionCount() // 274 GET_ACTION_COUNT
 	// const auto creature = Pop().uintVal;
 	// const auto action = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2490,7 +2630,7 @@ void GetObjectLeashType() // 275 GET_OBJECT_LEASH_TYPE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -2498,14 +2638,14 @@ void SetFocusFollow() // 276 SET_FOCUS_FOLLOW
 {
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetPositionFollow() // 277 SET_POSITION_FOLLOW
 {
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetFocusAndPositionFollow() // 278 SET_FOCUS_AND_POSITION_FOLLOW
@@ -2513,14 +2653,14 @@ void SetFocusAndPositionFollow() // 278 SET_FOCUS_AND_POSITION_FOLLOW
 	// const auto distance = Popf();
 	// const auto target = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCameraLens() // 279 SET_CAMERA_LENS
 {
 	// const auto lens = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MoveCameraLens() // 280 MOVE_CAMERA_LENS
@@ -2528,7 +2668,7 @@ void MoveCameraLens() // 280 MOVE_CAMERA_LENS
 	// const auto time = Popf();
 	// const auto lens = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureReaction() // 281 CREATURE_REACTION
@@ -2536,7 +2676,7 @@ void CreatureReaction() // 281 CREATURE_REACTION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureInDevScript() // 282 CREATURE_IN_DEV_SCRIPT
@@ -2544,26 +2684,26 @@ void CreatureInDevScript() // 282 CREATURE_IN_DEV_SCRIPT
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StoreCameraDetails() // 283 STORE_CAMERA_DETAILS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void RestoreCameraDetails() // 284 RESTORE_CAMERA_DETAILS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartAngleSound285() // 285 START_ANGLE_SOUND
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCameraPosFocLens() // 286 SET_CAMERA_POS_FOC_LENS
@@ -2576,7 +2716,7 @@ void SetCameraPosFocLens() // 286 SET_CAMERA_POS_FOC_LENS
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MoveCameraPosFocLens() // 287 MOVE_CAMERA_POS_FOC_LENS
@@ -2590,7 +2730,7 @@ void MoveCameraPosFocLens() // 287 MOVE_CAMERA_POS_FOC_LENS
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameTimeOnOff() // 288 GAME_TIME_ON_OFF
@@ -2615,7 +2755,7 @@ void SetHighGraphicsDetail() // 290 SET_HIGH_GRAPHICS_DETAIL
 	// const auto object = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetSkeleton() // 291 SET_SKELETON
@@ -2623,14 +2763,14 @@ void SetSkeleton() // 291 SET_SKELETON
 	// const auto object = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsSkeleton() // 292 IS_SKELETON
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2654,7 +2794,7 @@ void AddSpotVisualTargetPos() // 296 ADD_SPOT_VISUAL_TARGET_POS
 	// const auto position = PopVec();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void AddSpotVisualTargetObject() // 297 ADD_SPOT_VISUAL_TARGET_OBJECT
@@ -2662,7 +2802,7 @@ void AddSpotVisualTargetObject() // 297 ADD_SPOT_VISUAL_TARGET_OBJECT
 	// const auto target = Pop().uintVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetIndestructable() // 298 SET_INDESTRUCTABLE
@@ -2670,7 +2810,7 @@ void SetIndestructable() // 298 SET_INDESTRUCTABLE
 	// const auto object = Pop().uintVal;
 	// const auto indestructible = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetGraphicsClipping() // 299 SET_GRAPHICS_CLIPPING
@@ -2678,21 +2818,21 @@ void SetGraphicsClipping() // 299 SET_GRAPHICS_CLIPPING
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SpiritAppear() // 300 SPIRIT_APPEAR
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SpiritDisappear() // 301 SPIRIT_DISAPPEAR
 {
 	// const auto spirit = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetFocusOnObject() // 302 SET_FOCUS_ON_OBJECT
@@ -2700,20 +2840,20 @@ void SetFocusOnObject() // 302 SET_FOCUS_ON_OBJECT
 	// const auto target = Pop().uintVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ReleaseObjectFocus() // 303 RELEASE_OBJECT_FOCUS
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ImmersionExists() // 304 IMMERSION_EXISTS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2721,14 +2861,14 @@ void SetDrawLeash() // 305 SET_DRAW_LEASH
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetDrawHighlight() // 306 SET_DRAW_HIGHLIGHT
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetOpenClose() // 307 SET_OPEN_CLOSE
@@ -2736,14 +2876,14 @@ void SetOpenClose() // 307 SET_OPEN_CLOSE
 	// const auto object = Pop().uintVal;
 	// const auto open = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetIntroBuilding() // 308 SET_INTRO_BUILDING
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureForceFriends() // 309 CREATURE_FORCE_FRIENDS
@@ -2752,7 +2892,7 @@ void CreatureForceFriends() // 309 CREATURE_FORCE_FRIENDS
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MoveComputerPlayerPosition() // 310 MOVE_COMPUTER_PLAYER_POSITION
@@ -2762,7 +2902,7 @@ void MoveComputerPlayerPosition() // 310 MOVE_COMPUTER_PLAYER_POSITION
 	// const auto position = PopVec();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void EnableDisableComputerPlayer311() // 311 ENABLE_DISABLE_COMPUTER_PLAYER
@@ -2770,14 +2910,14 @@ void EnableDisableComputerPlayer311() // 311 ENABLE_DISABLE_COMPUTER_PLAYER
 	// const auto player = Popf();
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetComputerPlayerPosition() // 312 GET_COMPUTER_PLAYER_POSITION
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -2789,13 +2929,13 @@ void SetComputerPlayerPosition() // 313 SET_COMPUTER_PLAYER_POSITION
 	// const auto position = PopVec();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetStoredCameraPosition() // 314 GET_STORED_CAMERA_POSITION
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -2804,7 +2944,7 @@ void GetStoredCameraPosition() // 314 GET_STORED_CAMERA_POSITION
 void GetStoredCameraFocus() // 315 GET_STORED_CAMERA_FOCUS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -2819,7 +2959,7 @@ void CallNearInState() // 316 CALL_NEAR_IN_STATE
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2827,7 +2967,7 @@ void SetCreatureSound() // 317 SET_CREATURE_SOUND
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CreatureInteractingWith() // 318 CREATURE_INTERACTING_WITH
@@ -2835,7 +2975,7 @@ void CreatureInteractingWith() // 318 CREATURE_INTERACTING_WITH
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2843,14 +2983,14 @@ void SetSunDraw() // 319 SET_SUN_DRAW
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ObjectInfoBits() // 320 OBJECT_INFO_BITS
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -2867,21 +3007,21 @@ void ConfinedObject() // 322 CONFINED_OBJECT
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ClearConfinedObject() // 323 CLEAR_CONFINED_OBJECT
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectFlock() // 324 GET_OBJECT_FLOCK
 {
 	// const auto member = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -2891,21 +3031,21 @@ void SetPlayerBelief() // 325 SET_PLAYER_BELIEF
 	// const auto player = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PlayJcSpecial() // 326 PLAY_JC_SPECIAL
 {
 	// const auto feature = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsPlayingJcSpecial() // 327 IS_PLAYING_JC_SPECIAL
 {
 	// const auto feature = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2918,7 +3058,7 @@ void VortexParameters() // 328 VORTEX_PARAMETERS
 	// const auto town = Pop().uintVal;
 	// const auto vortex = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void LoadCreature() // 329 LOAD_CREATURE
@@ -2928,7 +3068,7 @@ void LoadCreature() // 329 LOAD_CREATURE
 	// const auto mindFilename = PopString();
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsSpellCharging() // 330 IS_SPELL_CHARGING
@@ -2945,7 +3085,7 @@ void OpposingCreature() // 332 OPPOSING_CREATURE
 {
 	// const auto god = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -2953,7 +3093,7 @@ void FlockWithinLimits() // 333 FLOCK_WITHIN_LIMITS
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2963,21 +3103,21 @@ void HighlightProperties() // 334 HIGHLIGHT_PROPERTIES
 	// const auto text = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void LastMusicLine() // 335 LAST_MUSIC_LINE
 {
 	// const auto line = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void HandDemoTrigger() // 336 HAND_DEMO_TRIGGER
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -2985,7 +3125,7 @@ void GetBellyPosition() // 337 GET_BELLY_POSITION
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -2999,7 +3139,7 @@ void SetCreatureCreedProperties() // 338 SET_CREATURE_CREED_PROPERTIES
 	// const auto handGlow = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameThingCanViewCamera() // 339 GAME_THING_CAN_VIEW_CAMERA
@@ -3007,7 +3147,7 @@ void GameThingCanViewCamera() // 339 GAME_THING_CAN_VIEW_CAMERA
 	// const auto degrees = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3018,7 +3158,7 @@ void GamePlaySaySoundEffect() // 340 GAME_PLAY_SAY_SOUND_EFFECT
 	// const auto sound = Pop().intVal;
 	// const auto extra = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
@@ -3027,14 +3167,14 @@ void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
 	// const auto desire = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsLockedInteraction() // 342 IS_LOCKED_INTERACTION
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3043,14 +3183,14 @@ void SetCreatureName() // 343 SET_CREATURE_NAME
 	// const auto textID = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ComputerPlayerReady() // 344 COMPUTER_PLAYER_READY
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3059,14 +3199,14 @@ void EnableDisableComputerPlayer345() // 345 ENABLE_DISABLE_COMPUTER_PLAYER
 	// const auto player = Popf();
 	// const auto pause = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ClearActorMind() // 346 CLEAR_ACTOR_MIND
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void EnterExitCitadel() // 347 ENTER_EXIT_CITADEL
@@ -3098,7 +3238,7 @@ void StartAngleSound348() // 348 START_ANGLE_SOUND
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ThingJcSpecial() // 349 THING_JC_SPECIAL
@@ -3107,14 +3247,14 @@ void ThingJcSpecial() // 349 THING_JC_SPECIAL
 	// const auto feature = Pop().intVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MusicPlayed350() // 350 MUSIC_PLAYED
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3128,7 +3268,7 @@ void UpdateSnapshotPicture() // 351 UPDATE_SNAPSHOT_PICTURE
 	// const auto focus = PopVec();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StopScriptsInFilesExcluding() // 352 STOP_SCRIPTS_IN_FILES_EXCLUDING
@@ -3149,7 +3289,7 @@ void CreateRandomVillagerOfTribe() // 353 CREATE_RANDOM_VILLAGER_OF_TRIBE
 	// const auto position = PopVec();
 	// const auto tribe = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3157,7 +3297,7 @@ void ToggleLeash() // 354 TOGGLE_LEASH
 {
 	// const auto player = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameSetMana() // 355 GAME_SET_MANA
@@ -3174,14 +3314,14 @@ void SetGameSound() // 357 SET_GAME_SOUND
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SexIsMale() // 358 SEX_IS_MALE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3189,7 +3329,7 @@ void GetFirstHelp() // 359 GET_FIRST_HELP
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3197,7 +3337,7 @@ void GetLastHelp() // 360 GET_LAST_HELP
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3205,7 +3345,7 @@ void IsActive() // 361 IS_ACTIVE
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3216,7 +3356,7 @@ void SetBookmarkPosition() // 362 SET_BOOKMARK_POSITION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetScaffoldProperties() // 363 SET_SCAFFOLD_PROPERTIES
@@ -3226,7 +3366,7 @@ void SetScaffoldProperties() // 363 SET_SCAFFOLD_PROPERTIES
 	// const auto type = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetComputerPlayerPersonality() // 364 SET_COMPUTER_PLAYER_PERSONALITY
@@ -3235,7 +3375,7 @@ void SetComputerPlayerPersonality() // 364 SET_COMPUTER_PLAYER_PERSONALITY
 	// const auto aspect = PopString();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetComputerPlayerSuppression() // 365 SET_COMPUTER_PLAYER_SUPPRESSION
@@ -3244,7 +3384,7 @@ void SetComputerPlayerSuppression() // 365 SET_COMPUTER_PLAYER_SUPPRESSION
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ForceComputerPlayerAction() // 366 FORCE_COMPUTER_PLAYER_ACTION
@@ -3254,7 +3394,7 @@ void ForceComputerPlayerAction() // 366 FORCE_COMPUTER_PLAYER_ACTION
 	// const auto action = PopString();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void QueueComputerPlayerAction() // 367 QUEUE_COMPUTER_PLAYER_ACTION
@@ -3264,14 +3404,14 @@ void QueueComputerPlayerAction() // 367 QUEUE_COMPUTER_PLAYER_ACTION
 	// const auto action = PopString();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetTownWithId() // 368 GET_TOWN_WITH_ID
 {
 	// const auto id = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3281,14 +3421,14 @@ void SetDisciple() // 369 SET_DISCIPLE
 	// const auto discipleType = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ReleaseComputerPlayer() // 370 RELEASE_COMPUTER_PLAYER
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetComputerPlayerSpeed() // 371 SET_COMPUTER_PLAYER_SPEED
@@ -3296,28 +3436,28 @@ void SetComputerPlayerSpeed() // 371 SET_COMPUTER_PLAYER_SPEED
 	// const auto speed = Popf();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetFocusFollowComputerPlayer() // 372 SET_FOCUS_FOLLOW_COMPUTER_PLAYER
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetPositionFollowComputerPlayer() // 373 SET_POSITION_FOLLOW_COMPUTER_PLAYER
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CallComputerPlayer() // 374 CALL_COMPUTER_PLAYER
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3328,7 +3468,7 @@ void CallBuildingInTown() // 375 CALL_BUILDING_IN_TOWN
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3341,7 +3481,7 @@ void GetFacingCameraPosition() // 377 GET_FACING_CAMERA_POSITION
 {
 	// const auto distance = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -3353,7 +3493,7 @@ void SetComputerPlayerAttitude() // 378 SET_COMPUTER_PLAYER_ATTITUDE
 	// const auto player2 = Popf();
 	// const auto player1 = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetComputerPlayerAttitude() // 379 GET_COMPUTER_PLAYER_ATTITUDE
@@ -3361,7 +3501,7 @@ void GetComputerPlayerAttitude() // 379 GET_COMPUTER_PLAYER_ATTITUDE
 	// const auto player2 = Popf();
 	// const auto player1 = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3370,7 +3510,7 @@ void LoadComputerPlayerPersonality() // 380 LOAD_COMPUTER_PLAYER_PERSONALITY
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SaveComputerPlayerPersonality() // 381 SAVE_COMPUTER_PLAYER_PERSONALITY
@@ -3378,7 +3518,7 @@ void SaveComputerPlayerPersonality() // 381 SAVE_COMPUTER_PLAYER_PERSONALITY
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetPlayerAlly() // 382 SET_PLAYER_ALLY
@@ -3387,7 +3527,7 @@ void SetPlayerAlly() // 382 SET_PLAYER_ALLY
 	// const auto player2 = Popf();
 	// const auto player1 = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CallFlying() // 383 CALL_FLYING
@@ -3398,7 +3538,7 @@ void CallFlying() // 383 CALL_FLYING
 	// const auto subtype = Pop().intVal;
 	// const auto type = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3407,14 +3547,14 @@ void SetObjectFadeIn() // 384 SET_OBJECT_FADE_IN
 	// const auto time = Popf();
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsAffectedBySpell() // 385 IS_AFFECTED_BY_SPELL
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3427,7 +3567,7 @@ void IdAdultSize() // 387 ID_ADULT_SIZE
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3435,7 +3575,7 @@ void ObjectCapacity() // 388 OBJECT_CAPACITY
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3443,7 +3583,7 @@ void ObjectAdultCapacity() // 389 OBJECT_ADULT_CAPACITY
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3452,14 +3592,14 @@ void SetCreatureAutoFighting() // 390 SET_CREATURE_AUTO_FIGHTING
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void IsAutoFighting() // 391 IS_AUTO_FIGHTING
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3468,7 +3608,7 @@ void SetCreatureQueueFightMove() // 392 SET_CREATURE_QUEUE_FIGHT_MOVE
 	// const auto move = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureQueueFightSpell() // 393 SET_CREATURE_QUEUE_FIGHT_SPELL
@@ -3476,7 +3616,7 @@ void SetCreatureQueueFightSpell() // 393 SET_CREATURE_QUEUE_FIGHT_SPELL
 	// const auto spell = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureQueueFightStep() // 394 SET_CREATURE_QUEUE_FIGHT_STEP
@@ -3484,14 +3624,14 @@ void SetCreatureQueueFightStep() // 394 SET_CREATURE_QUEUE_FIGHT_STEP
 	// const auto step = Pop().intVal;
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetCreatureFightAction() // 395 GET_CREATURE_FIGHT_ACTION
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3499,7 +3639,7 @@ void CreatureFightQueueHits() // 396 CREATURE_FIGHT_QUEUE_HITS
 {
 	// const auto creature = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3519,7 +3659,7 @@ void GetPlayerAlly() // 398 GET_PLAYER_ALLY
 	// const auto player2 = Popf();
 	// const auto player1 = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3528,7 +3668,7 @@ void SetPlayerWindResistance() // 399 SET_PLAYER_WIND_RESISTANCE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3537,7 +3677,7 @@ void GetPlayerWindResistance() // 400 GET_PLAYER_WIND_RESISTANCE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3564,7 +3704,7 @@ void KillStormsInArea() // 404 KILL_STORMS_IN_AREA
 void InsideTemple() // 405 INSIDE_TEMPLE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3572,7 +3712,7 @@ void RestartObject() // 406 RESTART_OBJECT
 {
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetGameTimeProperties() // 407 SET_GAME_TIME_PROPERTIES
@@ -3595,7 +3735,7 @@ void ResetGameTimeProperties() // 408 RESET_GAME_TIME_PROPERTIES
 void SoundExists() // 409 SOUND_EXISTS
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3607,19 +3747,19 @@ void GetTownWorshipDeaths() // 410 GET_TOWN_WORSHIP_DEATHS
 void GameClearDialogue() // 411 GAME_CLEAR_DIALOGUE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameCloseDialogue() // 412 GAME_CLOSE_DIALOGUE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetHandState() // 413 GET_HAND_STATE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushi(0);
 }
 
@@ -3627,20 +3767,20 @@ void SetInterfaceCitadel() // 414 SET_INTERFACE_CITADEL
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void MapScriptFunction() // 415 MAP_SCRIPT_FUNCTION
 {
 	// const auto command = PopString();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void WithinRotation() // 416 WITHIN_ROTATION
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3648,7 +3788,7 @@ void GetPlayerTownTotal() // 417 GET_PLAYER_TOWN_TOTAL
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3658,14 +3798,14 @@ void SpiritScreenPoint() // 418 SPIRIT_SCREEN_POINT
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void KeyDown() // 419 KEY_DOWN
 {
 	// const auto key = Pop().intVal;
 	// TODO(Daniels118): implement this (translate key to physical key code)
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3673,13 +3813,13 @@ void SetFightExit() // 420 SET_FIGHT_EXIT
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetObjectClicked() // 421 GET_OBJECT_CLICKED
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3699,14 +3839,14 @@ void StopSoundEffect() // 424 STOP_SOUND_EFFECT
 	// const auto sound = Pop().intVal;
 	// const auto alwaysFalse = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetTotemStatue() // 425 GET_TOTEM_STATUE
 {
 	// const auto town = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3720,7 +3860,7 @@ void SetLandBalance() // 427 SET_LAND_BALANCE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetObjectBeliefScale() // 428 SET_OBJECT_BELIEF_SCALE
@@ -3728,34 +3868,34 @@ void SetObjectBeliefScale() // 428 SET_OBJECT_BELIEF_SCALE
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StartImmersion() // 429 START_IMMERSION
 {
 	// const auto effect = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StopImmersion() // 430 STOP_IMMERSION
 {
 	// const auto effect = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void StopAllImmersion() // 431 STOP_ALL_IMMERSION
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetCreatureInTemple() // 432 SET_CREATURE_IN_TEMPLE
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameDrawText() // 433 GAME_DRAW_TEXT
@@ -3768,7 +3908,7 @@ void GameDrawText() // 433 GAME_DRAW_TEXT
 	// const auto across = Popf();
 	// const auto textID = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GameDrawTempText() // 434 GAME_DRAW_TEMP_TEXT
@@ -3781,14 +3921,14 @@ void GameDrawTempText() // 434 GAME_DRAW_TEMP_TEXT
 	// const auto across = Popf();
 	// const auto string = PopString();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void FadeAllDrawText() // 435 FADE_ALL_DRAW_TEXT
 {
 	// const auto time = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetDrawTextColour() // 436 SET_DRAW_TEXT_COLOUR
@@ -3797,7 +3937,7 @@ void SetDrawTextColour() // 436 SET_DRAW_TEXT_COLOUR
 	// const auto green = Popf();
 	// const auto red = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetClippingWindow() // 437 SET_CLIPPING_WINDOW
@@ -3808,21 +3948,21 @@ void SetClippingWindow() // 437 SET_CLIPPING_WINDOW
 	// const auto down = Popf();
 	// const auto across = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void ClearClippingWindow() // 438 CLEAR_CLIPPING_WINDOW
 {
 	// const auto time = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SaveGameInSlot() // 439 SAVE_GAME_IN_SLOT
 {
 	// const auto slot = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void SetObjectCarrying() // 440 SET_OBJECT_CARRYING
@@ -3830,14 +3970,14 @@ void SetObjectCarrying() // 440 SET_OBJECT_CARRYING
 	// const auto carriedObj = Pop().intVal;
 	// const auto object = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void PosValidForCreature() // 441 POS_VALID_FOR_CREATURE
 {
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3846,7 +3986,7 @@ void GetTimeSinceObjectAttacked() // 442 GET_TIME_SINCE_OBJECT_ATTACKED
 	// const auto town = Pop().uintVal;
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3854,7 +3994,7 @@ void GetTownAndVillagerHealthTotal() // 443 GET_TOWN_AND_VILLAGER_HEALTH_TOTAL
 {
 	// const auto town = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3863,14 +4003,14 @@ void GameAddForBuilding() // 444 GAME_ADD_FOR_BUILDING
 	// const auto unk1 = Pop().intVal;
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void EnableDisableAlignmentMusic() // 445 ENABLE_DISABLE_ALIGNMENT_MUSIC
 {
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetDeadLiving() // 446 GET_DEAD_LIVING
@@ -3878,7 +4018,7 @@ void GetDeadLiving() // 446 GET_DEAD_LIVING
 	// const auto radius = Popf();
 	// const auto position = PopVec();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3889,7 +4029,7 @@ void AttachSoundTag() // 447 ATTACH_SOUND_TAG
 	// const auto sound = Pop().intVal;
 	// const auto threeD = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void DetachSoundTag() // 448 DETACH_SOUND_TAG
@@ -3898,14 +4038,14 @@ void DetachSoundTag() // 448 DETACH_SOUND_TAG
 	// const auto soundbank = Pop().intVal;
 	// const auto sound = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetSacrificeTotal() // 449 GET_SACRIFICE_TOTAL
 {
 	// const auto worshipSite = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushf(0.0f);
 }
 
@@ -3914,7 +4054,7 @@ void GameSoundPlaying() // 450 GAME_SOUND_PLAYING
 	// const auto soundbank = Pop().intVal;
 	// const auto sound = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3922,7 +4062,7 @@ void GetTemplePosition() // 451 GET_TEMPLE_POSITION
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -3934,7 +4074,7 @@ void CreatureAutoscale() // 452 CREATURE_AUTOSCALE
 	// const auto creature = Pop().uintVal;
 	// const auto enable = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetSpellIconInTemple() // 453 GET_SPELL_ICON_IN_TEMPLE
@@ -3946,14 +4086,14 @@ void GameClearComputerPlayerActions() // 454 GAME_CLEAR_COMPUTER_PLAYER_ACTIONS
 {
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void GetFirstInContainer() // 455 GET_FIRST_IN_CONTAINER
 {
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3962,7 +4102,7 @@ void GetNextInContainer() // 456 GET_NEXT_IN_CONTAINER
 	// const auto after = Pop().uintVal;
 	// const auto container = Pop().uintVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pusho(0);
 }
 
@@ -3972,7 +4112,7 @@ void GetTempleEntrancePosition() // 457 GET_TEMPLE_ENTRANCE_POSITION
 	// const auto radius = Popf();
 	// const auto player = Popf();
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushv(0.0f); // x
 	Pushv(0.0f); // y
 	Pushv(0.0f); // z
@@ -3983,7 +4123,7 @@ void SaySoundEffectPlaying() // 458 SAY_SOUND_EFFECT_PLAYING
 	// const auto sound = Pop().intVal;
 	// const auto alwaysFalse = static_cast<bool>(Pop().intVal);
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
@@ -3991,34 +4131,34 @@ void SetHandDemoKeys() // 459 SET_HAND_DEMO_KEYS
 {
 	// const auto unk0 = Pop().intVal;
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 }
 
 void CanSkipTutorial() // 460 CAN_SKIP_TUTORIAL
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void CanSkipCreatureTraining() // 461 CAN_SKIP_CREATURE_TRAINING
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void IsKeepingOldCreature() // 462 IS_KEEPING_OLD_CREATURE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 
 void CurrentProfileHasCreature() // 463 CURRENT_PROFILE_HAS_CREATURE
 {
 	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	NotImplemented(__func__);
 	Pushb(false);
 }
 

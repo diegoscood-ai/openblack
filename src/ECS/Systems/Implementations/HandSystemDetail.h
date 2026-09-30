@@ -30,4 +30,6 @@ namespace openblack::ecs::systems::hand_detail
 void PlaySample(audio::SoundId id);
 /// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit.
 bool IsLand(glm::vec3 point);
+/// OPENBLACK_DUMP_ENTITY_COUNTS (HandDebugHooks.cpp): entity counts per kind, once.
+void DumpEntityCounts();
 } // namespace openblack::ecs::systems::hand_detail

@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <entt/entity/entity.hpp>
+#include <glm/vec2.hpp>
 
 #include "Enums.h"
 
@@ -29,12 +30,25 @@ struct Tree
 	/// the Transform's.
 	float maxSize;
 	uint32_t forestId = 0;
-	/// Trees planted near a town are scenic: foresters leave them alone (Tree +0x5e bit 2 in the original).
+	/// Tree +0x5E bit 1: the script's own flag (CREATE_NEW_TREE 0x716324); the hand sets it to "inside a town" when it
+	/// replants the tree (Tree::EndPhysics 0x74BB5A).
 	bool isNonScenic = true;
-	/// +0x5E bit 0: made with a scale other than maxSize, so it grows (Tree ctor 0x749E00). ECS/TreeGrowth.
+	/// Tree +0x5E bit 0: still growing. Set in the ctor 0x749E00 when maxSize differs from the size it is created at,
+	/// cleared once it reaches maxSize.
 	bool growing = false;
-	/// +0x60 (int16): the turns to its next growth step, GameRand(growsAfterNumGameTurns) at creation (Tree::Process
-	/// 0x74A290 counts it down)
+	/// Tree +0x60: turns left until the next growth step (info growTurns, randomised at creation)
+	uint16_t growCounter = 0;
+	/// Tree +0x5C bits 2-5: which of the 16 wind sway slots it uses, round(yAngle x 16 / 2pi) & 15 at creation
+	/// (0x74A0E7), so that trees facing the same way sway together
+	uint8_t windSlot = 0;
+	/// Tree::Draw 0x74AB8B: this frame's bend away from the object carried by the hand, a physics object or a
+	/// creature (the entry of table 0xD19A48 its bits 6-9 of +0x5C point at), only the drawn matrix: the angle (0 = not
+	/// bent) and the horizontal direction from that object to the tree the crown leans towards
+	float bendAngle = 0.0f;
+	glm::vec2 bendDirection {0.0f, 1.0f};
+	/// bent last frame too: the rubbing sound plays when a bend starts
+	bool wasBent = false;
+	/// +0x60 (int16) as ECS/TreeGrowth (lane m4b) counts it: the turns to its next growth step
 	int16_t growCountdown = 0;
 	/// +0x68 the Forest container it is in (ECS/Forests; only the forest miracle makes them yet), entt::null none
 	entt::entity forest {entt::null};

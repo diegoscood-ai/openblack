@@ -106,6 +106,19 @@ mazo 378, guadaña 384, pala 390, leña 406, ramas 347-349) pegada al hueso 15 d
 (Transform + Mesh + `CarriedProp`) que se mueve cada fotograma. No se dibuja en la mano ni en los estados ocultos.
 Gancho `OPENBLACK_TEST_CARRY=<tipo>`. Hoy casi ningún estado de openblack pone objeto (faltan los oficios).
 
+## Dibujo entre turnos
+
+`ECS/MobileDrawing` (investigación `dev\tmp_dis\anim\draw_interp.md`): la simulación mueve a aldeanos y animales una
+vez por turno; cada fotograma el original los dibuja entre su posición al empezar el turno (Living +0x2C, copiada en
+`Living::ProcessLiving` 0x5EC810) y la del final, con la fracción del turno (0..0,99; fn_0051AF00): un turno por
+detrás, sin extrapolar, con las dos alturas interpoladas. Solo en los estados que se mueven para la animación y con
+clip de zancada (los animales: si se movieron). El aldeano gira su yaw dibujado hacia el real a 0,003 rad/ms (más de
+90°: 0,012·|d|/π rad/ms; `Villager::Draw` +0x108); los animales giran por turno. En el suelo (altitud ≤ 0,2) se
+cizalla con la pendiente: fila0 += a·fila1, fila2 += b·fila1 con a, b la subida del terreno a una unidad por sus ejes
+x, z (±0,3; fn_0051B220). `components::DrawPosition` solo cambia el dibujo (RenderingSystem, objeto en la mano,
+sombras de los pies con la pose animada); la lógica usa el Transform. Al coger o aterrizar se ajusta sin deslizar.
+Traza `OPENBLACK_DRAW_TRACE=1`. Falta: el alabeo de los pájaros y el giro limitado de los animales (sin IA aún).
+
 ## Render
 
 Cada aldeano con pose (`components::SkeletalAnimation`) se dibuja por separado con sus huesos (`ecs::PosesByInstance`
@@ -113,9 +126,8 @@ en el bucle de instancias de `Renderer.cpp`); el resto sigue instanciado. Gancho
 ese clip en todos los aldeanos (bloqueado; con ms, quieto en ese instante; con `OPENBLACK_START_PAUSED=1` no se
 mueven). Traza: `OPENBLACK_ANIM_TRACE=1`.
 
-Animales: aún no tienen estados en openblack y están quietos, así que tocan el `StandAnimation` de su especie
-(`ECS/AnimalAnimations`: vaca 42, oveja 142, cerdo 126, caballo 57, león 106, tigre 164, leopardo 80, lobo 184,
-tortuga 171; cabra y cebra devuelven −1 y se quedan en reposo).
+Animales: su IA, sus estados y el clip de cada estado por especie están en [animals.md](animals.md) (`ECS/AnimalAI`,
+`ECS/AnimalAnimations`); usan la misma reproducción, sincronía por distancia y sonidos que los aldeanos.
 
 Pendiente: el resto de funciones de los animales (tabla en `animal_table.txt`), sonidos de los clips
 (`Data\SmallSounds.SAS`), objetos en la mano (hacha, bolsa...), sombras dinámicas y reflejo con la pose.

@@ -32,6 +32,40 @@ std::string Trim(std::string_view text)
 	return std::string(text.substr(first, last - first + 1));
 }
 
+/// Mods/<old id> of a renamed built-in mod (an older exe, or a copied Mods folder, makes it again): what the new folder
+/// lacks moves there, the rest goes, so it never shows up as a data mod. Returns true if the folder was one of those.
+bool MigrateRenamedFolder(const std::filesystem::path& folder)
+{
+	static const std::map<std::string, std::string, std::less<>> k_Renamed = {
+	    {"graphics.hd-people", "graphics.hd-tweaks"}, // 2026-09-30, it does more than villagers now
+	};
+	const auto renamed = k_Renamed.find(folder.filename().string());
+	if (renamed == k_Renamed.end())
+	{
+		return false;
+	}
+	std::error_code error;
+	const auto target = folder.parent_path() / renamed->second;
+	std::filesystem::create_directories(target, error);
+	for (const auto& entry : std::filesystem::directory_iterator(folder, error))
+	{
+		const auto destination = target / entry.path().filename();
+		std::ifstream settings(entry.path());
+		std::string header;
+		// a settings.cfg the older exe wrote for it as a data mod carries no settings of the mod
+		const bool dataModStub = entry.path().filename() == "settings.cfg" && std::getline(settings, header) &&
+		                         header.find("(data.") != std::string::npos;
+		settings.close();
+		if (!dataModStub && !std::filesystem::exists(destination, error))
+		{
+			std::filesystem::rename(entry.path(), destination, error);
+		}
+	}
+	std::filesystem::remove_all(folder, error);
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Mods/{} is now Mods/{}: moved and removed", renamed->first, renamed->second);
+	return true;
+}
+
 /// "key = value" lines; '#' starts a comment
 std::map<std::string, std::string> ReadKeyValues(const std::filesystem::path& path)
 {
@@ -157,6 +191,10 @@ void ModRegistry::DiscoverDataMods(const std::filesystem::path& modsDirectory)
 		if (Find(folderName) != nullptr)
 		{
 			continue; // Mods/<built-in mod id>: that mod's own files (e.g. Mods/world.foliage)
+		}
+		if (MigrateRenamedFolder(folder))
+		{
+			continue;
 		}
 		const auto manifest = ReadKeyValues(folder / "mod.cfg");
 		if (manifest.contains("module_of"))

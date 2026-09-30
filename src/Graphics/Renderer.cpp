@@ -10,6 +10,7 @@
 #include <memory>
 #define LOCATOR_IMPLEMENTATIONS
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include <bgfx/platform.h>
 #include <bimg/bimg.h>
 #include <bx/file.h>
+#include <glm/geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
@@ -39,6 +41,8 @@
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/DrawPosition.h"
+#include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
@@ -422,8 +426,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
                            bool preserveState) const
 {
 	assert(&subMesh.GetMesh());
-	// meshes without bones use the variant of the program with a single model matrix (see vs_object.sc)
-	const auto* program = mesh.IsBoned() ? desc.program : StaticVariant(desc.program);
+	// meshes without bones use the variant of the program with a single model matrix, meshes with up to 32 bones the one
+	// with 32 (see vs_object.sc)
+	const auto* program = !mesh.IsBoned()                          ? StaticVariant(desc.program)
+	                      : mesh.GetBoneMatrices().size() <= 32 ? BonesVariant32(desc.program)
+	                                                             : desc.program;
 	// We don't draw physics meshes, we haven't implemented statuses (building and graves) and modern GPUs can handle high lod.
 	// Window submeshes have no LOD bits: the original draws them only at night, without the LOD test (Abode::Draw ->
 	// fn_00856D40); vs_object hides them on the instances whose windows are not lit.
@@ -514,13 +521,13 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
 				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
 				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
-				// y, z: mod graphics.hd-people on villagers lit like the original (lighting mode, mip bias; fs_object)
+				// y, z: mod graphics.hd-tweaks on villagers lit like the original (lighting mode, mip bias; fs_object)
 				const auto& config = Locator::config::value();
-				const bool person = subMesh.IsPerson() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
+				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
 				                    desc.unlitColour < 0.0f;
 				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f,
-				                            person ? static_cast<float>(config.hdPeopleLighting) : 0.0f,
-				                            person ? config.hdPeopleMipBias : 0.0f, 0.0f};
+				                            person ? static_cast<float>(config.hdTweaksLighting) : 0.0f,
+				                            person ? config.hdTweaksMipBias : 0.0f, 0.0f};
 				program->SetUniformValue("u_window", &u_window);                      // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
@@ -598,6 +605,37 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		}
 		lastPreserveState = primitivePreserveState;
 	}
+}
+
+namespace
+{
+/// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann)
+bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
+{
+	const glm::mat4 rows = glm::transpose(viewProjection);
+	for (int plane = 0; plane < 6; ++plane)
+	{
+		const glm::vec4 p = rows[3] + (plane % 2 == 0 ? 1.0f : -1.0f) * rows[plane / 2];
+		if (glm::dot(glm::vec3(p), centre) + p.w < -radius * glm::length(glm::vec3(p)))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+} // namespace
+
+const graphics::ShaderProgram* Renderer::BonesVariant32(const graphics::ShaderProgram* program) const
+{
+	if (_bonesVariants32.empty())
+	{
+		for (const auto* name : {"ObjectInstanced", "ObjectHeightMapInstanced", "ObjectShadowInstanced", "ObjectHeightMapShadowInstanced"})
+		{
+			_bonesVariants32.emplace(_shaderManager->GetShader(name), _shaderManager->GetShader(std::string(name) + "B32"));
+		}
+	}
+	const auto found = _bonesVariants32.find(program);
+	return found != _bonesVariants32.end() ? found->second : program;
 }
 
 const graphics::ShaderProgram* Renderer::StaticVariant(const graphics::ShaderProgram* program) const
@@ -791,8 +829,8 @@ void Renderer::UpdateLandLight() const
 	{
 		return;
 	}
-	// TODO: weather (the original caps the base colour with the overcast amount at the camera) and lightning flashes
-	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), Locator::config::value().skyAlignment, 0.0f);
+	// TODO: lightning flashes (the table lerps to white); the overcast at the camera caps the base colour
+	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(), Clouds::WeatherOvercastAtCamera());
 	const auto& texels = _landLight->GetTexels();
 	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
 	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(texels[0]))));
@@ -1055,9 +1093,14 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 void Renderer::UpdateClouds() const
 {
 	const auto& detail = GetDetailLevel(Locator::config::value().detailLevel);
-	if (!_clouds)
+	// GLandscape::Open -> CloudInSky::Open: a new layout for every land
+	if (!_clouds || _cloudsGeneration != Clouds::GetLandscapeGeneration())
 	{
 		_clouds = std::make_unique<Clouds>();
+		_cloudsGeneration = Clouds::GetLandscapeGeneration();
+	}
+	if (_cloudShadowImage.empty())
+	{
 		try
 		{
 			auto& fileSystem = Locator::filesystem::value();
@@ -1076,24 +1119,27 @@ void Renderer::UpdateClouds() const
 	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
 	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
 	lastTime = now;
-	if (Game::Instance() != nullptr && !Game::Instance()->IsPaused())
+	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
+	if (running)
 	{
 		_clouds->Update(milliseconds);
 	}
+	// DrawClouds advances the animation counters of the clouds it draws by this step
+	_cloudMilliseconds = running ? milliseconds : 0.0f;
+	// GLandAlignement::DrawSky 0x5E2160: the sky's alignment moves towards the most influential player's
+	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), running ? milliseconds : 0.0f);
 
-	// Colour and alpha from the land alignment (fn_005E1DE0): good 0x00FFFFFF, neutral 0xC8FFFFFF, evil 0xFFAAA066,
-	// lerped by the alignment, x light table[255], then c * 186 / 256 + 35
-	const float x = std::clamp(1.0f - Locator::config::value().skyAlignment, 0.0f, 2.0f);
-	const glm::vec4 good(1.0f, 1.0f, 1.0f, 0.0f);
-	const glm::vec4 neutral(1.0f, 1.0f, 1.0f, 200.0f / 255.0f);
-	const glm::vec4 evil(glm::vec3(0xAA, 0xA0, 0x66) / 255.0f, 1.0f);
-	const auto alignColour = x < 1.0f ? glm::mix(good, neutral, x) : glm::mix(neutral, evil, x - 1.0f);
-	const auto light = _landLight && _landLight->IsLoaded() ? _landLight->GetColour(255) : glm::vec3(1.0f);
-	_cloudRgb = (glm::vec3(alignColour) * light * 255.0f * 186.0f / 256.0f + 35.0f) / 255.0f;
+	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
+	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t colour = Clouds::Colour(_skyAlignment.Get(), table255);
+	_cloudRgb = glm::vec3((colour >> 16) & 0xFFu, (colour >> 8) & 0xFFu, colour & 0xFFu) / 255.0f;
+	const auto alignAlpha = static_cast<int>(colour >> 24);
 	_cloudAlpha.resize(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _cloudAlpha.size(); ++i)
 	{
-		_cloudAlpha[i] = detail.clouds ? alignColour.a * Clouds::EdgeAlpha(_clouds->GetClouds()[i]) : 0.0f;
+		// fn_005E25C0: alpha = edge * A / 255 in integers (0x80808081), drawn only when it is not 0
+		_cloudAlpha[i] =
+		    detail.clouds ? static_cast<float>(Clouds::EdgeAlpha(_clouds->GetClouds()[i]) * alignAlpha / 255) : 0.0f;
 	}
 
 	// shadows into the luminosity cap (same cell layout as the island's cell map)
@@ -1145,10 +1191,11 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		return;
 	}
 	const auto origin = camera.GetOrigin();
-	// oriented with the camera: the dome's axis (local +Y) towards the camera, so each cloud shows as a soft puff
+	// the same billboard as the map mists (Renderer::DrawMist): 0xEA1C98 after its in-place inverse fn_007FB3F0
+	// (0x819AF3), in glm mat3(right, -forward, up): local X = screen right, local Y (the dome's axis) towards the
+	// camera, local Z = screen up
 	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	// UpdateWorldToCamera 0x819690: the dome's axis faces the camera, local x = screen right, local z = screen up
-	const auto rotation = glm::mat3(cameraBasis[0], cameraBasis[2], cameraBasis[1]);
+	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
 	std::vector<std::pair<float, size_t>> order;
 	order.reserve(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)
@@ -1157,9 +1204,15 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	}
 	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
 
-	const int frame = _clouds->GetFrame();
-	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
-	                        210.0f / 256.0f, 0.0f);
+	// LH3DMist::AddDrawing 0x7FA7F0 (vt+0x100 of the cloud objects, called by fn_005E25C0): only a cloud whose sphere
+	// (the mesh's bounding-box half diagonal x size x 0.55) touches the screen is drawn and advances its counter
+	const float meshRadius = glm::length(mesh.GetBoundingBox().Size()) * 0.5f;
+	const auto viewProjection = camera.GetViewProjectionMatrix(Camera::Interpolation::Current);
+	const float milliseconds = _cloudMilliseconds;
+	_cloudMilliseconds = 0.0f;
+	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
+	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above.
+	const glm::vec4 u_cloudSpecular(0.0f);
 	const auto* program = _shaderManager->GetShader("Cloud");
 	// mist.l3d is loaded without skins; LH3DMist::Draw (fn_007FA300) uses the smoke material instead
 	const auto& textures = Locator::resources::value().GetTextures();
@@ -1177,14 +1230,25 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		const auto position = Clouds::WorldPosition(cloud);
 		const auto toCloud = position - origin;
 		const float length = std::max(glm::length(toCloud), 1.0f);
-		// full size seen from below or above, size / k edge-on
-		const float scale = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
-		const auto model = glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(scale));
+		// 0x7FA4DC..0x7FA539: row 0 (local X, the screen width) is scaled by the size and rows 1-2 (local Y = depth,
+		// local Z = screen height) by the shrunk one, so a cloud is round only straight overhead and near the horizon
+		// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall
+		const float shrunk = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
+		const auto model =
+		    glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
 		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
-		if (u_cloudColour.a <= 0.0f)
+		if (u_cloudColour.a <= 0.0f || !SphereInView(viewProjection, position, meshRadius * cloud.size * 0.55f))
 		{
 			continue;
 		}
+		_clouds->AdvanceAnimation(index, milliseconds);
+		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step)
+		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
+		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
+		                        210.0f / 256.0f, 0.0f);
+		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
+		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
+		                             0.0f);
 		for (const auto& subMesh : mesh.GetSubMeshes())
 		{
 			for (const auto& prim : subMesh->GetPrimitives())
@@ -1194,6 +1258,8 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 				program->SetTextureSampler("s_alpha", 1, smokeAlpha);
 				program->SetUniformValue("u_cloud", &u_cloud);
 				program->SetUniformValue("u_cloudColour", &u_cloudColour);
+				program->SetUniformValue("u_cloudLight", &u_cloudLight);
+				program->SetUniformValue("u_cloudSpecular", &u_cloudSpecular);
 				if (subMesh->GetMesh().IsIndexed())
 				{
 					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
@@ -1632,20 +1698,27 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	};
 	auto& registry = Locator::entitiesRegistry::value();
 	registry.Each<const ecs::components::Villager, const ecs::components::Transform, const ecs::components::Mesh>(
-	    [&](const ecs::components::Villager&, const ecs::components::Transform& transform, const ecs::components::Mesh& mesh) {
+	    [&](entt::entity entity, const ecs::components::Villager&, const ecs::components::Transform& transform,
+	        const ecs::components::Mesh& mesh) {
 		    // none for villagers in the water (y <= 0.2)
 		    if (transform.position.y <= 0.2f || !meshes.Contains(mesh.id))
 		    {
 			    return;
 		    }
 		    const auto l3d = meshes.Handle(mesh.id);
-		    const auto& bones = l3d->GetBoneMatrices();
+		    // the feet of the drawn pose (ecs/Animations.h) where the villager is drawn (ecs/MobileDrawing.h)
+		    const auto* animation = registry.TryGet<const ecs::components::SkeletalAnimation>(entity);
+		    const auto& bones = animation != nullptr && animation->pose.size() == l3d->GetBoneMatrices().size()
+		                            ? animation->pose
+		                            : l3d->GetBoneMatrices();
 		    if (bones.size() <= 21)
 		    {
 			    return;
 		    }
+		    const auto* draw = registry.TryGet<const ecs::components::DrawPosition>(entity);
 		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2
-		    auto model = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		    auto model = glm::translate(draw != nullptr ? draw->position : transform.position) *
+		                 glm::mat4(draw != nullptr ? draw->rotation : transform.rotation) * glm::scale(transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 			    p.y = island.GetHeightAt(glm::vec2(p.x, p.z)) + k_Lift;
@@ -2005,7 +2078,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		if (desc.drawSky)
 		{
 			const auto modelMatrix = glm::mat4(1.0f);
-			const glm::vec4 u_typeAlignment = {skyType, Locator::config::value().skyAlignment + 1.0f, 0.0f, 0.0f};
+			const glm::vec4 u_typeAlignment = {skyType, _skyAlignment.Get() + 1.0f, 0.0f, 0.0f};
 
 			skyShader->SetTextureSampler("s_diffuse", 0, Locator::skySystem::value().GetTexture());
 			skyShader->SetUniformValue("u_typeAlignment", &u_typeAlignment);
@@ -2173,6 +2246,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		}
 	}
 
+	bool mistsSorted = false; ///< the mists went through the back-to-front list of the blended models
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawModels
 		                                                                          : Profiler::Stage::MainPassDrawModels);
@@ -2234,6 +2308,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		};
 		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
 		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
+		// LH3DMist::AddDrawing 0x7FA7F0 sends every mist on screen to the same Z-sorter (key |pos - camera|^2)
+		mistsSorted = desc.drawEntities && desc.drawSky && desc.viewId == graphics::RenderPass::Main;
 
 		if (desc.drawEntities)
 		{
@@ -2290,6 +2366,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				bool fading;
 				entt::entity sprite {entt::null};
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
+				entt::entity mist {entt::null};
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2329,9 +2406,21 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				// TODO(bwrsandman): choose the correct LOD
 				if (mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
 				{
-					// animated (ecs/Animations.h): each instance on its own, with its pose
+					// animated (ecs/Animations.h): each instance on its own, with its pose. Only the ones in the view: every
+					// draw copies the bones into the backend's per-frame uniform buffer (see vs_object.sc)
+					const auto viewProjection = desc.camera->GetViewProjectionMatrix();
+					const auto box = mesh->GetBoundingBox();
+					const auto boxCentre = box.Center();
+					const float boxRadius = glm::length(box.Size()) * 0.5f;
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
+						const auto& model = renderCtx.instanceUniforms[placers.offset + i];
+						const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
+						                              glm::length(glm::vec3(model[2]))});
+						if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(boxCentre, 1.0f)), boxRadius * scale))
+						{
+							continue;
+						}
 						submitDesc.instanceDesc =
 						    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset + i, 1);
 						setMatrices(meshId, *mesh);
@@ -2381,6 +2470,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
 				    });
 			}
+			if (mistsSorted)
+			{
+				for (const auto& [distance, entity] : CollectMists(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, entity});
+				}
+			}
 			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
@@ -2395,6 +2491,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.effect >= 0)
 					{
 						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
+						continue;
+					}
+					if (instance.mist != entt::null)
+					{
+						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, instance.mist);
 						continue;
 					}
 					if (instance.sprite != entt::null)
@@ -2494,6 +2595,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	if (desc.drawSky && desc.viewId == graphics::RenderPass::Main)
 	{
 		DrawClouds(graphics::RenderPass::MainBlended, *desc.camera);
+		if (!mistsSorted)
+		{
+			DrawMists(graphics::RenderPass::MainBlended, *desc.camera);
+		}
 		DrawSun(graphics::RenderPass::MainBlended, *desc.camera, true);
 	}
 

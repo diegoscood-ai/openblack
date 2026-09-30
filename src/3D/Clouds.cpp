@@ -11,8 +11,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 
-#include <random>
+#include "EngineConfig.h"
+#include "Locator.h"
 
 namespace openblack
 {
@@ -21,27 +24,149 @@ namespace
 constexpr int k_CloudCount = 70;     // [0xBF33A8]
 constexpr float k_TrackHalf = 8000.0f;
 constexpr float k_Speed = 70.0f;     // units per second along the track
-constexpr float k_WindCos = -0.70710678f; // cos(3 pi / 4)
+constexpr float k_WindCos = -0.70710678f; // cos(3 pi / 4), [0x92B2A0] = 2.35619455575943
 constexpr float k_WindSin = 0.70710678f;
+
+uint32_t s_landscapeGeneration = 0;
+
+/// The MSVC CRT rand() 0x7C8837 that Random 0x81D180 uses (not the game's synced GRand): s = s * 214013 + 2531011,
+/// (s >> 16) & 0x7FFF. The game seeds it once with srand(time(NULL)) (fn_005776E0 0x577721), so the sky is different
+/// in every session; OPENBLACK_CLOUD_SEED=<n> fixes the seed (tests, screenshots). Other CRT rand() users of the
+/// original share the stream, which openblack cannot reproduce; the stream here only serves the clouds and goes on
+/// from land to land.
+class CrtRandom
+{
+public:
+	CrtRandom()
+	{
+		const char* seed = std::getenv("OPENBLACK_CLOUD_SEED");
+		_state = seed != nullptr ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10))
+		                         : static_cast<uint32_t>(std::time(nullptr));
+	}
+	int Rand() noexcept
+	{
+		_state = _state * 214013u + 2531011u;
+		return static_cast<int>((_state >> 16) & 0x7FFFu);
+	}
+	/// Random 0x81D180: min + (max - min) * (rand() * 3.0518509e-05f), the float 1/32767, so max can come out
+	float Random(float min, float max) noexcept
+	{
+		return min + (max - min) * (static_cast<float>(Rand()) * 3.0518509e-05f);
+	}
+
+private:
+	uint32_t _state;
+};
+
+CrtRandom& Crt()
+{
+	static CrtRandom random;
+	return random;
+}
+
+/// fn_005E1DE0's lerp of two D3DCOLORs: every byte a + floor((b - a) * f / 256), modulo 256
+uint32_t LerpColour(uint32_t a, uint32_t b, int f) noexcept
+{
+	uint32_t result = 0;
+	for (const uint32_t shift : {24u, 16u, 8u, 0u})
+	{
+		const int ca = static_cast<int>((a >> shift) & 0xFFu);
+		const int cb = static_cast<int>((b >> shift) & 0xFFu);
+		const int c = ca + static_cast<int>(std::floor(static_cast<float>((cb - ca) * f) / 256.0f));
+		result |= (static_cast<uint32_t>(c) & 0xFFu) << shift;
+	}
+	return result;
+}
 } // namespace
+
+void SkyAlignment::Update(float target, float milliseconds) noexcept
+{
+	// GLandAlignement::DrawSky 0x5E2160: step = g_game_time_inc * 0.01 * 0.1 in X (the same size in these units)
+	const float step = milliseconds * 0.01f * 0.1f;
+	if (target < _value)
+	{
+		_value = std::max(target, _value - step);
+	}
+	else if (target > _value)
+	{
+		_value = std::min(target, _value + step);
+	}
+}
 
 Clouds::Clouds()
 {
-	// CloudInSky::Open: x in [-8000, 8000], y in [300, 500], z in [-5000, 5000], size in [13, 50], k in [2.5, 5]
-	std::mt19937 random(0x5E23F0);
-	std::uniform_real_distribution<float> x(-k_TrackHalf, k_TrackHalf);
-	std::uniform_real_distribution<float> y(300.0f, 500.0f);
-	std::uniform_real_distribution<float> z(-5000.0f, 5000.0f);
-	std::uniform_real_distribution<float> size(13.0f, 50.0f);
-	std::uniform_real_distribution<float> k(2.5f, 5.0f);
+	// CloudInSky::Open 0x5E2439..0x5E24F4: 5 Random calls per cloud, in this order, clouds 0 and 1 too: x in
+	// [-8000, 8000], y in [300, 500], z in [-5000, 5000], size +0x88 in [13, 50], k +0x8C in [2.5, 5]. Each cloud on its
+	// own, uniform in the box: the sky's clouds are not placed in groups (the grouped ones are the storms' puffs,
+	// GWeather::DrawClouds 0x83FC90)
+	auto& random = Crt();
 	_clouds.reserve(k_CloudCount);
 	for (int i = 0; i < k_CloudCount; ++i)
 	{
-		_clouds.push_back({{x(random), y(random), z(random)}, size(random), k(random), false});
+		Cloud cloud {};
+		cloud.local.x = random.Random(-k_TrackHalf, k_TrackHalf);
+		cloud.local.y = random.Random(300.0f, 500.0f);
+		cloud.local.z = random.Random(-5000.0f, 5000.0f);
+		cloud.size = random.Random(13.0f, 50.0f);
+		cloud.k = random.Random(2.5f, 5.0f);
+		cloud.pinned = false;
+		_clouds.push_back(cloud);
 	}
-	// clouds 0 and 1: huge domes pinned at both ends of the track
-	_clouds[0] = {{k_TrackHalf, 500.0f, 0.0f}, 300.0f, 20.0f, true};
-	_clouds[1] = {{-k_TrackHalf, 500.0f, 0.0f}, 300.0f, 20.0f, true};
+	// clouds 0 and 1: huge domes pinned at both ends of the track (fn_005E25C0 writes them again after every move)
+	_clouds[0].local = {k_TrackHalf, 500.0f, 0.0f};
+	_clouds[0].size = 300.0f;
+	_clouds[0].k = 20.0f;
+	_clouds[0].pinned = true;
+	_clouds[1].local = {-k_TrackHalf, 500.0f, 0.0f};
+	_clouds[1].size = 300.0f;
+	_clouds[1].k = 20.0f;
+	_clouds[1].pinned = true;
+}
+
+void Clouds::OnLandscapeOpened() noexcept
+{
+	++s_landscapeGeneration;
+}
+
+uint32_t Clouds::GetLandscapeGeneration() noexcept
+{
+	return s_landscapeGeneration;
+}
+
+float Clouds::InfluentialPlayerAlignment() noexcept
+{
+	// TODO: the most influential player's alignment at the hand (GAlignment::Update 0x414410) once it is merged
+	// test hook: OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1> instead of the debug slider
+	static const char* k_Test = std::getenv("OPENBLACK_TEST_SKY_ALIGNMENT");
+	if (k_Test != nullptr)
+	{
+		return std::clamp(std::strtof(k_Test, nullptr), -1.0f, 1.0f);
+	}
+	return Locator::config::has_value() ? std::clamp(Locator::config::value().skyAlignment, -1.0f, 1.0f) : 0.0f;
+}
+
+float Clouds::WeatherOvercastAtCamera() noexcept
+{
+	// TODO: the weather's overcast at the camera (GWeather / LH3DAtmos) once it is merged
+	return 0.0f;
+}
+
+uint32_t Clouds::Colour(float alignment, uint32_t table255) noexcept
+{
+	static constexpr uint32_t k_Table[3] = {0x00FFFFFFu, 0xC8FFFFFFu, 0xFFAAA066u}; // 0xBF339C
+	const float x = std::clamp(1.0f - alignment, 0.0f, 2.0f);
+	const int i = static_cast<int>(x);
+	const int f = static_cast<int>((x - static_cast<float>(i)) * 256.0f);
+	const uint32_t lerped = LerpColour(k_Table[i], k_Table[std::min(i + 1, 2)], f);
+	uint32_t result = lerped & 0xFF000000u;
+	for (const uint32_t shift : {16u, 8u, 0u})
+	{
+		int c = static_cast<int>((((lerped >> shift) & 0xFFu) * ((table255 >> shift) & 0xFFu)) >> 8);
+		// 0x5E1F28..0x5E1FB4: c + ((35 << 8) - 70 c) >> 8, a floor
+		c = c + static_cast<int>(std::floor(static_cast<float>(8960 - 70 * c) / 256.0f));
+		result |= (static_cast<uint32_t>(c) & 0xFFu) << shift;
+	}
+	return result;
 }
 
 void Clouds::Update(float milliseconds)
@@ -55,14 +180,27 @@ void Clouds::Update(float milliseconds)
 		cloud.local.x += k_Speed * milliseconds * 0.001f;
 		if (cloud.local.x > k_TrackHalf)
 		{
-			cloud.local.x -= 2.0f * k_TrackHalf;
+			// fn_005E25C0: t = x + 8000; x = t - ftol(t / 16000) * 16000 - 8000 (only x: the same line and height)
+			const float t = cloud.local.x + k_TrackHalf;
+			cloud.local.x = t - static_cast<float>(static_cast<int>(t * 6.25e-5f)) * 16000.0f - k_TrackHalf;
 		}
 	}
-	// the animation counter: += int(time_inc * 0.255), modulo 900
-	_counterRemainder += milliseconds * 0.255f;
-	const int step = static_cast<int>(_counterRemainder);
-	_counterRemainder -= static_cast<float>(step);
-	_counter = (_counter + step) % 900;
+}
+
+void Clouds::AdvanceAnimation(size_t index, float milliseconds)
+{
+	// fn_007FA300: counter += ftol(g_game_time_inc * 0.255), the modulo only once it passes 900. The original truncates
+	// every frame and loses the fraction; it is kept here so the animation does not slow down at openblack's uncapped
+	// frame rates (as the map mists, RendererMists.cpp)
+	auto& cloud = _clouds[index];
+	cloud.counterRemainder += milliseconds * 0.255f;
+	const int step = static_cast<int>(cloud.counterRemainder);
+	cloud.counterRemainder -= static_cast<float>(step);
+	cloud.counter += step;
+	if (cloud.counter > 900)
+	{
+		cloud.counter %= 900;
+	}
 }
 
 void Clouds::BuildShadowCap(const std::vector<uint8_t>& shadowImage, glm::vec2 origin, glm::u16vec2 size,
@@ -124,21 +262,22 @@ glm::vec3 Clouds::WorldPosition(const Cloud& cloud)
 	        cloud.local.x * k_WindSin + cloud.local.z * k_WindCos + 1280.0f};
 }
 
-float Clouds::EdgeAlpha(const Cloud& cloud)
+int Clouds::EdgeAlpha(const Cloud& cloud)
 {
 	if (cloud.pinned)
 	{
-		return 192.0f;
+		return 192;
 	}
+	// fistp: rounded to the nearest
 	if (cloud.local.x < -6000.0f)
 	{
-		return (cloud.local.x + k_TrackHalf) * 0.1275f;
+		return static_cast<int>(std::lrint((cloud.local.x + k_TrackHalf) * 0.1275f));
 	}
 	if (cloud.local.x > 6000.0f)
 	{
-		return (k_TrackHalf - cloud.local.x) * 0.1275f;
+		return static_cast<int>(std::lrint((k_TrackHalf - cloud.local.x) * 0.1275f));
 	}
-	return 255.0f;
+	return 255;
 }
 
 } // namespace openblack

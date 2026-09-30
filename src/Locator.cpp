@@ -17,6 +17,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/Clouds.h"
 #include "3D/Implementations/LandIsland.h"
 #include "3D/Implementations/Ocean.h"
 #include "3D/Implementations/Sky.h"
@@ -148,6 +149,8 @@ void openblack::InitializeLevel(const std::filesystem::path& path)
 	Locator::pathfindingSystem::emplace<PathfindingSystem>();
 	Locator::cameraBookmarkSystem::emplace<CameraBookmarkSystem>();
 	Locator::terrainSystem::emplace<LandIsland>(path);
+	// GLandscape::Open 0x5E5510 -> GLandAlignement::Open -> CloudInSky::Open: a new sky of clouds for every land
+	Clouds::OnLandscapeOpened();
 }
 
 void openblack::ShutDownServices()

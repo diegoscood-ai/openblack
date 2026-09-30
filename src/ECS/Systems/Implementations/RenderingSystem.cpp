@@ -21,7 +21,9 @@
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Fields.h"
+#include "ECS/Trees.h"
 #include "ECS/Components/MeshTint.h"
+#include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
@@ -244,14 +246,23 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    auto offset = (alpha != nullptr ? translucentOffsets : uniformOffsets).insert(std::make_pair(mesh.id, 0));
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
 
-		    auto modelMatrix = glm::mat4(transform.rotation);
-		    modelMatrix = glm::translate(modelMatrix, transform.position * transform.rotation);
+		    // villagers and animals are drawn where ECS/MobileDrawing puts them this frame (between turns, turning, on the slope)
+		    const auto* draw = registry.TryGet<const DrawPosition>(entity);
+		    const auto& drawRotation = draw != nullptr ? draw->rotation : transform.rotation;
+		    const auto& drawPosition = draw != nullptr ? draw->position : transform.position;
+		    auto modelMatrix = glm::mat4(drawRotation);
+		    modelMatrix = glm::translate(modelMatrix, drawPosition * drawRotation);
 		    modelMatrix = glm::scale(modelMatrix, transform.scale);
 		    // the one-shot orb is drawn turned to the camera (fn_00518720, Magic/Core/OneOffSpellSeed.cpp)
 		    if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
 		    {
 			    modelMatrix = glm::scale(glm::translate(transform.position + orb->facingOffset) * glm::mat4(orb->facing),
 			                             transform.scale);
+		    }
+		    else if (draw != nullptr)
+		    {
+			    modelMatrix[0] += draw->shearX * modelMatrix[1];
+			    modelMatrix[2] += draw->shearZ * modelMatrix[1];
 		    }
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;
@@ -306,6 +317,45 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 				    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
 				    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * 1.75f * ecs::WindSway(slot);
 			    }
+		    }
+		    // Tree::Draw 0x74B016 (the tables of Tree::PreDraw 0x74A7C0): the wind sway, the up axis's x = scale x 0 and
+		    // z = scale x the lean of the tree's slot (bits 2-5 of +0x5C), only the drawn matrix. Not while the tree is
+		    // tilted (pulled or held by the hand). A tree bent away from a passing object (bits 6-9 of +0x5C, table
+		    // 0xD19A48, worked out in ecs::UpdateTrees) draws that bend instead of the sway: the drawn matrix turned about
+		    // its base, the crown leaning along the bend direction.
+		    if (const auto* tree = registry.TryGet<const Tree>(entity);
+		        tree != nullptr && tree->bendAngle != 0.0f && transform.rotation[1].x == 0.0f &&
+		        transform.rotation[1].z == 0.0f)
+		    {
+			    const glm::vec3 away(tree->bendDirection.x, 0.0f, tree->bendDirection.y);
+			    const auto bend =
+			        glm::mat3(glm::rotate(glm::mat4(1.0f), tree->bendAngle, glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), away)));
+			    auto& instance = _renderContext.instanceUniforms[idx];
+			    for (int column = 0; column < 3; ++column)
+			    {
+				    const auto turned = bend * glm::vec3(instance[column]);
+				    instance[column] = glm::vec4(turned, instance[column][3]);
+			    }
+			    if (!registry.AllOf<MeshTint>(entity))
+			    {
+				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
+				    instance[3][3] = -(1.0f + static_cast<float>(grey * 65536u + grey * 256u + grey));
+			    }
+		    }
+		    else if (const auto* tree = registry.TryGet<const Tree>(entity);
+		        tree != nullptr && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
+		    {
+			    // the tree's own slot, round(yAngle x 16 / 2pi) & 15 (0x74A0E7): trees facing the same way sway together
+			    const auto slot = static_cast<uint32_t>(tree->windSlot);
+			    // Tree::Draw 0x74B077: every RGB channel of the tree's colour times the frame's brightness / 256
+			    // (ecs::TreeBrightness), as an own colour in the w of the fourth column like the fields' tint
+			    if (!registry.AllOf<MeshTint>(entity))
+			    {
+				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
+				    _renderContext.instanceUniforms[idx][3][3] = -(1.0f + static_cast<float>(grey * 65536u + grey * 256u + grey));
+			    }
+			    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
+			    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * ecs::WindSway(slot);
 		    }
 		    // Tree::Draw's fire part fn_0074B3A0 (a tree with a FireEffect, ECS/Fire/FireGraphic): its colour x the burnt
 		    // grey (the object colour, as the field's), and below 0.2 life it shrinks to 5 x life across (the matrix rows

@@ -14,6 +14,7 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "AbodeArchetype.h"
+#include "BonfireArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
@@ -40,18 +41,9 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 
 	glm::vec3 offset(0.0f, altitude, 0.0f);
 
-	// MobileStatic::GetWorldMatrix (0x608DE0): position (x, GetAltitude + altitude, z) and
-	// LHMatrix::SetYXZMatrixOnly(yAngle, xAngle, zAngle) (0x7FAC10), whose rows are openblack's rotation columns.
-	const float ca = std::cos(yAngleRadians);
-	const float sa = std::sin(yAngleRadians);
-	const float cb = std::cos(xAngleRadians);
-	const float sb = std::sin(xAngleRadians);
-	const float cc = std::cos(zAngleRadians);
-	const float sc = std::sin(zAngleRadians);
-	const glm::mat3 rotation(glm::vec3(ca * cc - sa * sb * sc, -cb * sc, sa * cc + ca * sb * sc),
-	                         glm::vec3(sa * sb * cc + ca * sc, cb * cc, sa * sc - ca * sb * cc),
-	                         glm::vec3(-sa * cb, sb, ca * cb));
-	registry.Assign<Transform>(entity, position + offset, rotation, glm::vec3(scale));
+	// MobileStatic::GetWorldMatrix (0x608DE0): position (x, GetAltitude + altitude, z)
+	registry.Assign<Transform>(entity, position + offset, XYZRotation(xAngleRadians, yAngleRadians, zAngleRadians),
+	                           glm::vec3(scale));
 	registry.Assign<Mobile>(entity);
 	registry.Assign<MobileStatic>(entity, type);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
@@ -62,4 +54,54 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 	}
 
 	return entity;
+}
+
+glm::mat3 MobileStaticArchetype::XYZRotation(float xAngleRadians, float yAngleRadians, float zAngleRadians)
+{
+	const float ca = std::cos(yAngleRadians);
+	const float sa = std::sin(yAngleRadians);
+	const float cb = std::cos(xAngleRadians);
+	const float sb = std::sin(xAngleRadians);
+	const float cc = std::cos(zAngleRadians);
+	const float sc = std::sin(zAngleRadians);
+	return {glm::vec3(ca * cc - sa * sb * sc, -cb * sc, sa * cc + ca * sb * sc),
+	        glm::vec3(sa * sb * cc + ca * sc, cb * cc, sa * sc - ca * sb * cc), glm::vec3(-sa * cb, sb, ca * cb)};
+}
+
+entt::entity MobileStaticArchetype::CreateFromInfo(const glm::vec3& position, MobileStaticInfo type, float altitude,
+                                                   float yAngleRadians, float scale)
+{
+	switch (type)
+	{
+	case MobileStaticInfo::Bonfire: // fn_00439850(pos, 100.0, angle, scale); the ctor ignores the temperature
+		return BonfireArchetype::Create(position + glm::vec3(0.0f, altitude, 0.0f), yAngleRadians, scale);
+	case MobileStaticInfo::SingingStoneBase: // 0x6087E1: nothing
+		return entt::null;
+	default: // a Rock (info +0x128 == 2) or a MobileStatic, both drawn the same here
+		return Create(position, type, altitude, 0.0f, yAngleRadians, 0.0f, scale);
+	}
+}
+
+entt::entity MobileStaticArchetype::CreateWithXYZAngles(const glm::vec3& position, MobileStaticInfo type, float altitude,
+                                                        float xAngleRadians, float yAngleRadians, float zAngleRadians,
+                                                        float scale)
+{
+	switch (type)
+	{
+	case MobileStaticInfo::StreetLantern: // 0x608869: nothing (lanterns come from CREATE_STREET_LANTERN)
+		return entt::null;
+	case MobileStaticInfo::Bonfire:
+	{
+		// fn_00608770 -> Bonfire::Create(pos, 100.0, yAngle, scale), then Object::SetXYZAnglesAndScale (vtable +0x518)
+		const auto entity = CreateFromInfo(position, type, altitude, yAngleRadians, scale);
+		auto& transform = Locator::entitiesRegistry::value().Get<Transform>(entity);
+		transform.rotation = XYZRotation(xAngleRadians, yAngleRadians, zAngleRadians);
+		transform.scale = glm::vec3(scale);
+		return entity;
+	}
+	default:
+		// info 6: fn_00609340(pos, info), a GBaseOnly with the info's mesh; the rest fn_00608770 (a Rock or a
+		// MobileStatic). SetXYZAnglesAndScale then gives both the three angles and the scale.
+		return Create(position, type, altitude, xAngleRadians, yAngleRadians, zAngleRadians, scale);
+	}
 }

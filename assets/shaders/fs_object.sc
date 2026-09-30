@@ -6,7 +6,7 @@ SAMPLER2D(s_diffuse, 0);
 uniform vec4 u_skyAlphaThreshold; // x: sky type, y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
 uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water)
-uniform vec4 u_window;            // y: mod graphics.hd-people lighting (1 per pixel, 2 + rim), z: its mip bias
+uniform vec4 u_window;            // y: mod graphics.hd-tweaks lighting (1 per pixel), z: its mip bias
 
 // The original lights models on the CPU (fn_0084BA90, D3DTLVERTEX): the vertex diffuse is computed in vs_object and
 // the D3D stage is COLOROP = MODULATE(TEXTURE, DIFFUSE) with the specular colour added afterwards (SPECULARENABLE).
@@ -72,18 +72,10 @@ void main()
 	vec3 light = v_color0.rgb;
 	if (u_window.y > 0.0f && v_normal.y < 500.0f)
 	{
-		// mod graphics.hd-people: vs_object's vertex light of the original (ambient 90/256 + 166/256 N.L), per pixel on
-		// the smooth normals; mode 2 adds a rim of the object's light where the surface turns away from the eye
-		vec3 normal = normalize(v_normal);
+		// mod graphics.hd-tweaks: vs_object's vertex light of the original (ambient 90/256 + 166/256 N.L), per pixel on
+		// the smooth normals (a rim of light on the silhouette was tried and looked bad, 2026-09-30)
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		vec3 lit = light * (90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normal, lightDirection)));
-		if (u_window.y > 1.5f)
-		{
-			vec3 eye = mul(u_invView, vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
-			float facing = saturate(dot(normal, normalize(eye - v_position.xyz)));
-			lit += light * 0.8f * pow(1.0f - facing, 2.0f);
-		}
-		light = lit;
+		light *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(v_normal), lightDirection));
 	}
 	diffuseTex.rgb = diffuseTex.rgb * light + specular;
 	gl_FragColor = diffuseTex;

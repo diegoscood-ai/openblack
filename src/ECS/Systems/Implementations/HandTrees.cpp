@@ -32,6 +32,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "3D/AllMeshes.h"
@@ -68,9 +69,12 @@
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
 #include "ECS/Fire/FireEffect.h"
+#include "ECS/Alignment.h"
+#include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "PSys/PSysManager.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -92,9 +96,29 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(tree);
+	// Object::InitialisePhysicsFromHand 0x636F00: a released tree only counts as "gently put down" (the physics object's
+	// flag 8, the one Tree::EndPhysics asks for) when the landscape normal under it points up (y >= 0.7, a slope under
+	// about 45 degrees) and the tree comes down almost upright: the x and z angles of its YXZ matrix within 0.2 rad
+	// (about 11.5 degrees). A held tree takes the hand's up axis, which follows the surface, so it leans on a slope.
+	// Anything else falls with physics and ends up a DeadTree (the handler in HandPhysics.cpp).
+	float yAngle = 0.0f;
+	float xAngle = 0.0f;
+	float zAngle = 0.0f;
+	glm::extractEulerAngleYXZ(glm::mat4(transform.rotation), yAngle, xAngle, zAngle);
+	constexpr float k_UprightAngle = 0.2f;
+	constexpr float k_FlatNormal = 0.7f;
+	if (physics::LandscapeNormal(transform.position).y < k_FlatNormal || std::abs(xAngle) > k_UprightAngle ||
+	    std::abs(zAngle) > k_UprightAngle)
+	{
+		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: tree dropped on a slope or leaning (x {:.2f} z {:.2f}): it falls",
+		                    xAngle, zAngle);
+		physics::PhysicsObjects::AddObject(tree, glm::vec3(0.0f), glm::vec3(0.0f), entt::null, true);
+		return;
+	}
 	// Tree::EndPhysics 0x74B830: planted again only on dry land and with no FireEffect (+0x44, hot or burning, ECS/Fire);
 	// otherwise a DeadTree (the same entity keeps its fire: fn_00730960 moves it in the DeadTree ctor 0x510880).
-	if (IsLand(transform.position) && fire::Find(tree) == nullptr)
+	const bool land = IsLand(transform.position);
+	if (land && fire::Find(tree) == nullptr)
 	{
 		Replant(tree);
 	}
@@ -102,6 +126,14 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 	{
 		const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>());
 		MakeDeadTree(tree, glm::vec3(std::sin(angle), 0.0f, std::cos(angle)));
+	}
+	// PhysicsObject::RemoveObject 0x646B44 calls Tree::DropSfx 0x74BC60 for every gentle release that ends on land,
+	// replanted or not (the original picks the sample by GetTickCount() % 3).
+	if (land)
+	{
+		static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
+		    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
+		PlaySample(Locator::rng::value().Choose(k_PlantTree));
 	}
 }
 
@@ -118,50 +150,67 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	}
 	const glm::vec2 at(transform.position.x, transform.position.z);
 
-	// Within 25 m of a town building the tree becomes scenic (foresters leave it alone) and joins no forest.
+	// Tree::EndPhysics 0x74B8BF: a spiral over the map cells, stopping at 25 + 10 m. For every fixed object in those
+	// cells d = its distance minus its own 2D radius; an object that belongs to a town (or a citadel part) within 25 m
+	// means the tree was planted "in a town" and it joins that town's forest, which beats any other. Otherwise the
+	// nearest tree that has a forest lends its forest (with no distance limit of its own, only the 35 m of the search),
+	// and a tree with neither, outside a town, starts a new forest.
+	// Deviation: the original takes the town's forest from a list the town keeps (Town +0x608); openblack does not
+	// model that list, so the first tree planted in a town starts the town's forest (ecs::TownForestId).
+	constexpr float k_SearchRadius = 35.0f;
 	constexpr float k_TownRadius = 25.0f;
-	bool nearTown = false;
-	registry.Each<const Abode, const Transform>([&](entt::entity, const Abode&, const Transform& abode) {
-		nearTown = nearTown || glm::distance(at, glm::vec2(abode.position.x, abode.position.z)) < k_TownRadius;
-	});
-	// Otherwise it joins the forest of the nearest tree within 25 + 10 m, or starts a new forest.
-	constexpr float k_ForestRadius = 35.0f;
+	bool inTown = false;
+	uint32_t townId = 0;
 	std::optional<uint32_t> forest;
-	uint32_t maxForest = 0;
-	float nearest = k_ForestRadius;
-	registry.Each<const Tree, const Transform>([&](entt::entity other, const Tree& t, const Transform& position) {
-		// Scripts create scenic trees with forest -1 (and 0): no forest.
-		const bool inForest = t.forestId != 0 && t.forestId != std::numeric_limits<uint32_t>::max();
-		if (!inForest)
+	float nearest = std::numeric_limits<float>::max();
+	registry.Each<const Transform>([&](entt::entity other, const Transform& position) {
+		if (other == tree)
 		{
 			return;
 		}
-		maxForest = std::max(maxForest, t.forestId);
-		const float distance = glm::distance(at, glm::vec2(position.position.x, position.position.z));
-		if (other != tree && distance < nearest)
+		const float cellDistance = glm::distance(at, glm::vec2(position.position.x, position.position.z));
+		if (cellDistance > k_SearchRadius)
 		{
-			nearest = distance;
-			forest = t.forestId;
+			return;
+		}
+		const auto* fixed = registry.TryGet<const Fixed>(other);
+		const float d = cellDistance - (fixed != nullptr ? fixed->boundingRadius : 0.0f);
+		if (d < k_TownRadius)
+		{
+			// Object::GetTown: every town building is an Abode here (storage pits and town centres included).
+			if (const auto* abode = registry.TryGet<const Abode>(other); abode != nullptr)
+			{
+				inTown = true;
+				townId = abode->townId;
+				return;
+			}
+		}
+		const auto* other_tree = registry.TryGet<const Tree>(other);
+		if (other_tree != nullptr && ecs::IsInForest(other_tree->forestId) && d < nearest)
+		{
+			nearest = d;
+			forest = other_tree->forestId;
 		}
 	});
-	component.isNonScenic = !nearTown;
-	if (nearTown)
+	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
+	component.isNonScenic = inTown;
+	component.forestId = inTown ? ecs::TownForestId(townId, transform.position)
+	                             : forest.value_or(0u) != 0 ? *forest : ecs::CreateForest(0, transform.position);
+	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
+	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
+	// so the effect runs for its own life from the data).
+	// GAlignment::Update(the dropper's player, tree, true) 0x74BBB6: planting is good. TODO: StartImmersion(0x2E) and
+	// ConsiderMakingCreatureMimicPlayer.
+	ecs::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, true);
+	EmitGripDust(transform.position);
+	if (!inTown)
 	{
-		component.forestId = 0;
+		psys::manager::CreateSpotVisual(static_cast<int>(SpotVisualType::ForestCreated), transform.position, 0.0f,
+		                                entt::null);
 	}
-	else
-	{
-		// TODO: SPOT_VISUAL_FOREST_CREATED when a new forest is started.
-		component.forestId = forest.value_or(maxForest + 1);
-	}
-	// Tree::DropSfx: LH_SAMPLE_G_PLANTTREE_01 + GetTickCount() % 3.
-	// TODO: SmokyStuff, alignment (+treePullPutAlignmentChange).
-	static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
-	    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
-	PlaySample(Locator::rng::value().Choose(k_PlantTree));
 	registry.SetDirty();
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree replanted at ({:.1f}, {:.1f}), {} forest {}", at.x, at.y,
-	                   nearTown ? "scenic (town)," : (forest ? "joined" : "new"), component.forestId);
+	                   inTown ? "town" : (forest ? "joined" : "new"), component.forestId);
 }
 
 void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying) noexcept
@@ -240,32 +289,21 @@ glm::vec3 HandSystem::GripCentre() const noexcept
 
 void HandSystem::BeginTug(entt::entity tree) noexcept
 {
-	// HandStateTug::Enter (0x5B7DF0)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(tree);
 	_tug = tree;
 	ComputeHoldParameters(tree);
 	_tugPoint = transform.position;
 	_tugRotation = transform.rotation;
-	_tugPlantedRotation = transform.rotation;
-	_tugNormal = physics::LandscapeNormal(_tugPoint);
-	// the drag plane: through the anchor, at the hand's height seen at the anchor's horizontal distance from the camera
-	const auto hand = _interactionPoint.value_or(_tugPoint);
-	const auto camera = Locator::camera::has_value() ? Locator::camera::value().GetOrigin() : hand + glm::vec3(0.0f, 10.0f, 0.0f);
-	const float dHand = glm::length(glm::vec2(hand.x - camera.x, hand.z - camera.z));
-	const float dGrip = glm::length(glm::vec2(_tugPoint.x - camera.x, _tugPoint.z - camera.z));
-	const float y = dHand > 1e-4f ? camera.y - (camera.y - hand.y) * dGrip / dHand : hand.y;
-	_tugPlanePoint = glm::vec3(_tugPoint.x, y, _tugPoint.z);
-	// the grip height: GetHoldLoweringMultiplier x GetHeight, at least 3.2 x hand scale x 0.3
-	_tugLowering = std::max(_loweringMultiplier * _heldHeight, 3.2f * _handScale * 0.3f);
-	_tugOmega = glm::vec3(0.0f);
-	_tugTime = 0.0f;
-	_tugStretch.SetPosition(1.0f);
+	// where the hand took hold of it, and how far along the mouse ray it was
+	_tugGrab = _interactionPoint.value_or(_tugPoint);
+	_tugDepth = glm::distance(_mouseRayOrigin, _tugGrab);
 	_hovered.reset();
 }
 
 void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 {
+	static_cast<void>(seconds);
 	if (!_tug)
 	{
 		return;
@@ -279,73 +317,43 @@ void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 	auto& transform = registry.Get<Transform>(*_tug);
 	if (!actionHeld)
 	{
-		// let go before it came out: the tug matrix was only its drawing, the tree stands as it was
-		transform.rotation = _tugPlantedRotation;
+		// let go before it came out: it stays planted as it stood
+		transform.rotation = _tugRotation;
 		_tug.reset();
 		registry.SetDirty();
 		return;
 	}
-	// HandStateTug::Update (0x5B8070): no forces while the state blend runs (CHand+0x49B0 < 0.13)
-	_tugTime += seconds;
-	if (_tugTime < 0.13f || seconds <= 0.0f)
+	// The tug as it was before the physics port (user, 2026-09-30: grabbed anywhere, the tree only leans until it is
+	// pulled away): the pull is how far the hand has moved sideways since it took hold (the mouse ray at the depth of
+	// the grab), and the tree comes out once it is over weight / 1000 (HandStateTug::Update: F = 1000 x distance against
+	// GetWeight = scale^3 x info weight). The literal port of the spring (drag plane at the cursor's height, grip at
+	// 0.1 x height) made a tree grabbed higher up come out at once; see the wiki.
+	const float weight = physics::PhysicsObjects::Weight(*_tug);
+	const auto hand = _mouseRayOrigin + _mouseRayDirection * _tugDepth;
+	auto pull = glm::vec3(hand.x - _tugGrab.x, 0.0f, hand.z - _tugGrab.z);
+	const float distance = glm::length(pull);
+	const float threshold = std::max(0.01f, weight / 1000.0f);
+	if (distance > threshold)
 	{
-		return;
-	}
-	// 1. the hand follows the mouse ray on the drag plane
-	const float along = glm::dot(_mouseRayDirection, _tugNormal);
-	if (std::abs(along) < 1e-6f)
-	{
-		return;
-	}
-	const float t = glm::dot(_tugPlanePoint - _mouseRayOrigin, _tugNormal) / along;
-	const auto handPosition = _mouseRayOrigin + _mouseRayDirection * t;
-	// 2. the grip on the trunk: base + up x lowering
-	glm::mat3 axes = _tugRotation;
-	for (int k = 0; k < 3; ++k)
-	{
-		axes[k] = glm::normalize(axes[k]);
-	}
-	const auto grip = _tugPoint + axes[1] * _tugLowering;
-	// 3. a spring from the grip to the hand, at most GetMaxForce ((1 + CHand+0xAC) x 600000; +0xAC taken as 0)
-	const auto d = handPosition - grip;
-	const float distance = glm::length(d);
-	constexpr float k_MaxForce = 600000.0f;
-	const auto force = k_MaxForce > 1000.0f * distance ? d * 1000.0f : d * (k_MaxForce / distance);
-	const float weight = physics::PhysicsObjects::Weight(*_tug); // GetWeight: scale^3 x info weight
-	// 4. the trunk stretches along its up axis (at most 1.3, in 0.3 s)
-	const float stretch = std::min((distance + _tugLowering) / _tugLowering, 1.3f);
-	_tugStretch.SetDestinationWithSpeedAndTime(stretch, 0.0f, 0.3f);
-	_tugStretch.Update(seconds);
-	// 5. it comes out once |F| > weight (GetMaxForce >= weight x g always holds for trees)
-	if (k_MaxForce >= weight * 9.81f && glm::length(force) > weight)
-	{
-		transform.rotation = _tugPlantedRotation;
+		transform.rotation = _tugRotation;
 		const auto tree = *_tug;
 		_tug.reset();
 		Uproot(tree);
 		return;
 	}
-	// 6. it turns about its base: torque (F x r) / 1000 with quadratic drag 4; the original's F x r and its rotation of
-	// the matrix rows flip the sign twice, so here r x F and a plain rotation give the same turn
-	const auto torque = glm::cross(grip - _tugPoint, force) / 1000.0f;
-	const float drag = glm::length(_tugOmega) * 4000.0f * seconds / 1000.0f;
-	_tugOmega += torque * seconds - _tugOmega * drag;
-	const auto step = _tugOmega * seconds;
-	const float angle = glm::length(step);
-	if (angle > 0.0f)
+	// it leans towards the hand, up to 0.25 rad at the threshold
+	transform.rotation = _tugRotation;
+	if (distance > 1e-3f)
 	{
-		axes = glm::mat3(glm::rotate(glm::mat4(1.0f), angle, step / angle)) * axes;
+		pull /= distance;
+		const float lean = 0.25f * distance / threshold;
+		const auto axis = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), pull));
+		transform.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), lean, axis)) * _tugRotation;
 	}
-	_tugRotation = axes;
-	// the drawn matrix: up stretched (the hand sits on base + stretched up x lowering, HandPlacement)
-	transform.rotation = glm::mat3(axes[0], axes[1] * _tugStretch.value, axes[2]);
-	// 7. from here the grip height is GetHoldLoweringMultiplier x GetHeight, not clamped again
-	_tugLowering = _loweringMultiplier * _heldHeight;
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
 	{
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tug trace: hand ({:.2f},{:.2f},{:.2f}) grip ({:.2f},{:.2f},{:.2f}) |F| {:.0f} / {:.0f} tilt {:.3f}",
-		                   handPosition.x, handPosition.y, handPosition.z, grip.x, grip.y, grip.z, glm::length(force), weight,
-		                   std::acos(std::clamp(axes[1].y, -1.0f, 1.0f)));
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tug trace: hand ({:.2f},{:.2f}) pull {:.2f} / {:.2f}", hand.x, hand.z,
+		                   distance, threshold);
 	}
 	registry.SetDirty();
 }
@@ -373,6 +381,9 @@ void HandSystem::Uproot(entt::entity tree) noexcept
 		const float scale = (extentX + extentZ) * transform.scale.x * 0.3f;
 		registry.Assign<Transform>(pile, transform.position, transform.rotation, glm::vec3(scale));
 		registry.Assign<Mesh>(pile, pileMesh, static_cast<int8_t>(0), static_cast<int8_t>(-1));
+		// fn_00825240: LH3DObject::Create(1), a morphable object whose deltas UpdateMelting takes once (vt+0x1E8), so
+		// the crater follows the land under it
+		registry.Assign<MorphWithTerrain>(pile);
 		_rootsPiles.emplace_back(pile, 15.0f);
 	}
 	EmitGripDust(transform.position);

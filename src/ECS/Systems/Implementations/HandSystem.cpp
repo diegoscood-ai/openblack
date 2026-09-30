@@ -292,6 +292,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		ran = true;
 		RunDebugHooks();
 	}
+	hand_detail::DumpEntityCounts();
 	if (_testActionSeconds > 0.0f)
 	{
 		actionHeld = true;
@@ -338,6 +339,13 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			// once (Worship/Worship.cpp -> SpellIcon::InterfaceTap 0x726430, OneOffSpellSeed::InterfaceTap 0x72A640)
 			worship::InterfaceTap(*_hovered, PlayerNames::PLAYER_ONE);
 			_hovered.reset();
+		}
+		else if (Locator::entitiesRegistry::value().AllOf<Tree>(*_hovered) && _interactionPoint &&
+		         !physics::PhysicsObjects::Find(*_hovered))
+		{
+			// StartGrab 0x5D1740: a tuggable object goes to CHand::PickUp(obj, needsTug) at the press, so the tug starts
+			// at once, not after the 225 ms grab threshold (State_Grab picks it up once the tug lets it go)
+			BeginTug(*_hovered);
 		}
 		else
 		{

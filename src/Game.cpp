@@ -9,9 +9,11 @@
 
 #include "Game.h"
 
+#include <sstream>
 #include <string>
 
 #include <LHVM.h>
+#include <bgfx/bgfx.h>
 #include <SDL.h>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -33,6 +35,7 @@
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/LanternSounds.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -41,11 +44,15 @@
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Fields.h"
+#include "ECS/AnimalAI.h"
+#include "ECS/SmokyStuff.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
+#include "ECS/Trees.h"
+#include "ECS/Alignment.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -58,6 +65,7 @@
 #include "ECS/Systems/PathfindingSystemInterface.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -72,7 +80,7 @@
 #include "Mods/ModRegistry.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
-#include "Resources/HdPeople.h"
+#include "Resources/HdTweaks.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
@@ -305,6 +313,17 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 	return true;
 }
 
+float Game::GetTurnFraction() const
+{
+	if (_paused)
+	{
+		return 0.0f;
+	}
+	const auto turnDuration = std::chrono::duration<float, std::milli>(k_TurnDuration * _gameSpeedMultiplier).count();
+	const auto elapsed = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - _lastGameLoopTime).count();
+	return turnDuration > 0.0f ? std::clamp(elapsed / turnDuration, 0.0f, 0.99f) : 0.0f;
+}
+
 bool Game::GameLogicLoop() noexcept
 {
 	using namespace ecs::components;
@@ -327,6 +346,9 @@ bool Game::GameLogicLoop() noexcept
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
 
+	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
+	ecs::BeginMobileTurn();
+
 	auto& profiler = Locator::profiler::value();
 
 	{
@@ -336,6 +358,8 @@ bool Game::GameLogicLoop() noexcept
 	{
 		auto actions = profiler.BeginScoped(Profiler::Stage::LivingActionUpdate);
 		Locator::livingActionSystem::value().Update();
+		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
+		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
 	// The miracles' part of GGame::ProcessTurn (Magic/MagicLoop.cpp: fire, reactions, spells, the seed in the hand...)
 	magic::ProcessTurn(static_cast<uint32_t>(_turnCount));
@@ -355,6 +379,8 @@ bool Game::GameLogicLoop() noexcept
 		}
 		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
+		// GGame::EndTurn: SoundTag::ProcessSoundTags 0x71E5F0, the street lanterns' looping sample
+		audio::lantern_sounds::ProcessTurn();
 		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
@@ -363,6 +389,10 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
+		// Tree::Process 0x74A290 through Forest::Process: the trees of a forest grow
+		ecs::ProcessTreesTurn(_turnCount);
+		// GPlayer::Process -> GAlignment::ProcessForPlayer: the turn's alignment change, capped
+		ecs::alignment::ProcessTurn();
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
@@ -397,8 +427,8 @@ bool Game::Update() noexcept
 	auto deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(current - previous);
 
 	Locator::debugGui::value().SetScale(config.guiScale);
-	// mod graphics.hd-people changed in the Mods menu: its villager textures and meshes, before anything uses them
-	resources::hd_people::Update();
+	// mod graphics.hd-tweaks changed in the Mods menu: its villager textures and meshes, before anything uses them
+	resources::hd_tweaks::Update();
 
 	// Physics
 	{
@@ -462,6 +492,8 @@ bool Game::Update() noexcept
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
+	// Tree::PreDraw / Tree::Draw: the trees' brightness this frame and the rustle of the tall ones by the camera
+	ecs::UpdateTrees(std::chrono::duration<float>(deltaTime).count());
 
 	// Fireflies (FireFly::Draw): orbit and fade, in game time
 	ecs::UpdateFireFlies(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
@@ -469,7 +501,12 @@ bool Game::Update() noexcept
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	// The smoke an object leaves when it goes (ecs/SmokyStuff.h), in game seconds
+	ecs::SmokyStuff::Update(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier);
 
+	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
+	ecs::UpdateMobileDrawing(GetTurnFraction(),
+	                         _paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
 	ecs::UpdateVillagerAnimations();
 	ecs::UpdateAnimalAnimations();
@@ -734,9 +771,9 @@ bool Game::Initialize() noexcept
 		return false;
 	}
 
-	// mod graphics.hd-people: the villagers' textures come from the HD images in its folder, and their meshes (the ones
+	// mod graphics.hd-tweaks: the villagers' textures come from the HD images in its folder, and their meshes (the ones
 	// with those textures) can be smoothed
-	const auto hdTextures = resources::hd_people::Begin();
+	const auto hdTextures = resources::hd_tweaks::Begin();
 	const auto& meshes = pack.GetMeshes();
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& mesh : meshes)
@@ -749,7 +786,7 @@ bool Game::Initialize() noexcept
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
-		resources::hd_people::LoadTexture(hdTextures, name, g3dTexture);
+		resources::hd_tweaks::LoadTexture(hdTextures, name, g3dTexture);
 	}
 
 	pack::PackFile animationPack;
@@ -1089,6 +1126,36 @@ bool Game::Run() noexcept
 			}
 		}
 
+		if (std::getenv("OPENBLACK_DRAW_STATS") != nullptr && (_frameCount % 30 == 0 || _frameCount < 8))
+		{
+			const auto* stats = bgfx::getStats();
+			SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "DRAWSTATS frame {} draws {}", _frameCount, stats->numDraw);
+		}
+
+		// Test hook: "<frames>:<script>,<script>..." loads the next script every <frames> frames, at the point where the
+		// debug menu's "Load Island" does (a check that changing maps doesn't crash)
+		if (static const char* cycle = std::getenv("OPENBLACK_TEST_MAP_CYCLE"); cycle != nullptr)
+		{
+			static const auto parsed = [](const std::string& text) {
+				std::vector<std::string> scripts;
+				const auto colon = text.find(':');
+				const int frames = colon == std::string::npos ? 300 : std::max(1, std::atoi(text.substr(0, colon).c_str()));
+				std::stringstream list(colon == std::string::npos ? text : text.substr(colon + 1));
+				for (std::string script; std::getline(list, script, ',');)
+				{
+					scripts.push_back(script);
+				}
+				return std::make_pair(static_cast<uint32_t>(frames), scripts);
+			}(cycle);
+			const auto& [frames, scripts] = parsed;
+			if (_frameCount > 0 && _frameCount % frames == 0 && _frameCount / frames <= scripts.size())
+			{
+				const auto& script = scripts[_frameCount / frames - 1];
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Map cycle: loading {}", script);
+				LoadMap(Locator::filesystem::value().GetPath<filesystem::Path::Scripts>() / script);
+			}
+		}
+
 		{
 			auto section = profiler.BeginScoped(Profiler::Stage::RendererFrame);
 			Locator::rendererInterface::value().Frame();
@@ -1125,11 +1192,19 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)
 	ecs::object_index::OnLoadMap();
+	// GGame::Init 0x54F66F: both influence multipliers back to 1 before the map script
+	_mapScriptGlobals.townInfluenceMultiplier = 1.0f;
+	_mapScriptGlobals.playerInfluenceMultiplier = 1.0f;
 	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 	ecs::ClearFireFlies();
+	ecs::ClearForests();
+	ecs::animal_ai::ClearReactions();
+	ecs::SmokyStuff::Clear();
 	night_lights::Clear();
+	// before the registry reset: it destroys the emitters without freeing their sources, and a looping one would go on
+	audio::lantern_sounds::Clear();
 
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());

@@ -24,7 +24,7 @@ void RegisterLivingWaterMod(ModRegistry& registry);
 void RegisterGroundStaticsMod(ModRegistry& registry);
 void RegisterFoliageMod(ModRegistry& registry);
 void RegisterCropsMod(ModRegistry& registry);
-void RegisterHdPeopleMod(ModRegistry& registry);
+void RegisterHdTweaksMod(ModRegistry& registry);
 
 inline void RegisterBuiltinMods(ModRegistry& registry)
 {
@@ -36,7 +36,7 @@ inline void RegisterBuiltinMods(ModRegistry& registry)
 	RegisterGroundStaticsMod(registry);
 	RegisterFoliageMod(registry);
 	RegisterCropsMod(registry);
-	RegisterHdPeopleMod(registry);
+	RegisterHdTweaksMod(registry);
 }
 
 } // namespace openblack::mods

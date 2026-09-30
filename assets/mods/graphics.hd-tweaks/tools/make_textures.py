@@ -1,10 +1,10 @@
-"""HD villager textures for the mod graphics.hd-people.
+"""HD villager and animal textures for the mod graphics.hd-tweaks.
 
-Every texture used by a person mesh (MSH_P_* in AllMeshes.h) is decoded, brought back to its real resolution (some packs
+Every texture used by a person or animal mesh (MSH_P_* and MSH_A_* in AllMeshes.h) is decoded, brought back to its real resolution (some packs
 store 256x256 art doubled with nearest pixels, which the upscaler would keep as blocks), upscaled x4 with Real-ESRGAN
 (realesrgan-x4plus: keeps the painted detail; the anime model flattens it) and written as textures/<id hex>.png.
 textures.cfg records the FNV-1a hash of each source DDS: the engine only uses an HD texture while the pack still has
-that same texture.
+that same texture. An image already in <out dir> whose hash is still the pack's is kept (no new upscale).
 
 usage: python make_textures.py <AllMeshes.g3d> <AllMeshes.h> <out dir> [--tools <openblack bin>] [--esrgan <dir>]
 """
@@ -33,10 +33,10 @@ def run(args):
     return subprocess.run(args, capture_output=True, text=True, check=False).stdout
 
 
-def person_skins(tools, pack, header, tmp):
+def mesh_skins(tools, pack, header, tmp):
     names = {}
     for line in open(header, encoding="latin-1"):
-        m = re.match(r"\s*(MSH_P_\w+)\s*=\s*(\d+)", line)
+        m = re.match(r"\s*(MSH_[PA]_\w+)\s*=\s*(\d+)", line)
         if m:
             names[int(m[2])] = m[1]
     skins = set()
@@ -72,7 +72,15 @@ def main():
     os.makedirs(os.path.join(args.out, "textures"), exist_ok=True)
     tmp = tempfile.mkdtemp()
     try:
-        skins = person_skins(args.tools, args.pack, args.header, tmp)
+        skins = mesh_skins(args.tools, args.pack, args.header, tmp)
+        # the images already made, kept while their source texture is the same
+        made = {}
+        cfg_path = os.path.join(args.out, "textures.cfg")
+        if os.path.exists(cfg_path):
+            for line in open(cfg_path, encoding="utf-8"):
+                m = re.match(r"\s*([0-9a-f]+)\s*=\s*([0-9a-f]{8})", line)
+                if m:
+                    made[int(m[1], 16)] = m[2]
         entries = []
         for skin in skins:
             dds = os.path.join(tmp, f"{skin:x}.dds")
@@ -83,6 +91,11 @@ def main():
             data = open(dds, "rb").read()
             # the pack's DDS data after the 4-byte magic and the 124-byte header (G3DTexture::ddsData in openblack)
             source_hash = fnv1a(data[128:])
+            image_path = os.path.join(args.out, "textures", f"{skin:x}.png")
+            if made.get(skin) == f"{source_hash:08x}" and os.path.exists(image_path):
+                entries.append(f"{skin:x} = {source_hash:08x}")
+                print(f"texture {skin:#x}: kept")
+                continue
             rgba = Image.open(dds).convert("RGBA")
             size = rgba.size[0]
             rgb = native_size(rgba.convert("RGB"))
@@ -95,11 +108,11 @@ def main():
             alpha = rgba.getchannel("A")
             if alpha.getextrema() != (255, 255):
                 hd.putalpha(alpha.resize(hd.size, Image.LANCZOS))
-            hd.save(os.path.join(args.out, "textures", f"{skin:x}.png"), optimize=True)
+            hd.save(image_path, optimize=True)
             entries.append(f"{skin:x} = {source_hash:08x}")
             print(f"texture {skin:#x}: {size} px in the pack, {rgb.size[0]} px native -> {hd.size[0]} px")
         with open(os.path.join(args.out, "textures.cfg"), "w", encoding="utf-8") as cfg:
-            cfg.write("# HD textures of the villagers: <texture id (hex)> = <FNV-1a of the pack's DDS data>. The engine\n"
+            cfg.write("# HD textures of the villagers and animals: <texture id (hex)> = <FNV-1a of the pack's DDS data>. The engine\n"
                       "# only uses textures/<id>.png while the pack's texture still has that hash.\n"
                       "# Made by tools/make_textures.py (Real-ESRGAN x4plus).\n")
             cfg.write("\n".join(entries) + "\n")

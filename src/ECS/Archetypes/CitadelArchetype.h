@@ -21,8 +21,8 @@ class CitadelArchetype
 public:
 	static entt::entity Create(const glm::vec3& position, PlayerNames playerOwner, const glm::mat4& rotation,
 	                           const glm::vec3& size);
-	static entt::entity CreatePlan(int32_t townId, const glm::vec3& position, PlayerNames playerOwner,
-	                               const glm::mat4& rotation, const glm::vec3& size);
+	/// Stand-in for CREATE_PLANNED_CITADEL: see the .cpp (the original only makes an invisible plan here)
+	static entt::entity CreatePlan(entt::entity town, const glm::vec3& position, const glm::mat4& rotation);
 	CitadelArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

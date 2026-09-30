@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <entt/fwd.hpp>
 #include <glm/fwd.hpp>
 
@@ -17,8 +19,9 @@ namespace openblack::ecs::archetypes
 class FishFarmArchetype
 {
 public:
-	/// FishFarm::CallVirtualFunctionsForCreation 0x52CC10: the farm and, if there is sea around it, its shoal of fish
-	static entt::entity Create(const glm::vec3& position);
+	/// 0x52C7B0(pos, GFishFarmInfo[info], town) -> FishFarm::FishFarm 0x52C360 (the nearest town) and
+	/// CallVirtualFunctionsForCreation 0x52CC10: the farm and, if there is sea around it, its shoal of fish
+	static entt::entity Create(const glm::vec3& position, uint32_t info);
 	FishFarmArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

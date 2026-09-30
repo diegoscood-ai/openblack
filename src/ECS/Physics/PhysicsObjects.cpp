@@ -47,6 +47,8 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/AnimalAI.h"
+#include "ECS/StoragePitStore.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Life.h"
@@ -364,6 +366,12 @@ void HurtByImpact(entt::entity entity, float damage)
 	                   life);
 	if (life <= 0.0f)
 	{
+		if (Locator::entitiesRegistry::value().AllOf<Animal>(entity))
+		{
+			// Object::ApplyEffect -> Animal::DestroyedByEffect: SetDying (nothing while it flies, EndPhysics does it)
+			ecs::animal_ai::DestroyedByEffect(entity);
+			return;
+		}
 		Kill(entity, "impact");
 	}
 }
@@ -387,6 +395,20 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 		return Buildings::ReactToPhysicsImpact(entity, po);
 	}
 	const float g = po.GLoad();
+	// Animal::ReactToPhysicsImpact (0x41BC10): landing on an available food store it becomes food (info.foodValue)
+	if (const auto* animal = registry.TryGet<const Animal>(entity);
+	    animal != nullptr && po.hitBy != nullptr && registry.Valid(po.hitBy->entity) && registry.AllOf<StoragePit>(po.hitBy->entity) &&
+	    Locator::infoConstants::has_value())
+	{
+		const auto& info = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type));
+		const auto food = static_cast<uint32_t>(info.foodValue);
+		if (food > 0)
+		{
+			StoragePitStore::AddResource(po.hitBy->entity, ResourceType::Food, food);
+			ecs::animal_ai::Remove(entity);
+			return false;
+		}
+	}
 	if (registry.AnyOf<Villager, Animal>(entity))
 	{
 		// Living::ReactToPhysicsImpact 0x5ED3E0
@@ -431,6 +453,23 @@ entt::entity EndPhysics(PhysicsObject& po)
 	auto& registry = Locator::entitiesRegistry::value();
 	SyncTransform(po);
 	auto entity = po.entity;
+	// Object::EndPhysics (0x6375A0): its own flying-object reactions go (the predators fleeing from it stop)
+	ecs::animal_ai::EndReactionsOf(entity);
+	if (registry.AllOf<Animal>(entity))
+	{
+		// Animal::EndPhysics (0x5F0D80): the landType from the body, back on the land (altitude 0) and out of the
+		// physics; LANDED, or dying / dead. There is no drowning for animals (only a sunk corpse goes, HasSunk).
+		// the landType is read from the turn-start matrix (po+0xD8), the heading from the current one
+		const auto rotation = po.body.Rotation();
+		auto& transform = registry.Get<Transform>(entity);
+		if (Locator::terrainSystem::has_value())
+		{
+			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
+		}
+		ecs::animal_ai::EndPhysics(entity, rotation, po.turnStartRotation);
+		registry.SetDirty();
+		return entt::null;
+	}
 	if (registry.AnyOf<Villager, Animal>(entity))
 	{
 		// Villager/Animal::EndPhysics: stands up where it landed (the three landing poses are not done yet)
@@ -546,6 +585,7 @@ void BeginTurn()
 			po.body.density += 0.01f; // corpses sink
 		}
 		po.forceSum = glm::vec3(0.0f);
+		po.turnStartRotation = po.body.Rotation();
 		po.body.lastHit = nullptr;
 		po.hitBy = nullptr;
 		++i;
@@ -1079,6 +1119,11 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 		// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
 		ecs::SetVillagerState(entity, VillagerStates::Flying);
 	}
+	else if (registry.AllOf<Animal>(entity))
+	{
+		// Living::InitialisePhysicsFromHand: FLYING, the species' THROWN clip
+		ecs::animal_ai::InitialisePhysics(entity);
+	}
 	po->body.SetAngularVelocity(angularVelocity);
 	const float speed = glm::length(velocity);
 	po->body.velocity = speed > PhysOb::k_MaxSpeed ? velocity * (PhysOb::k_MaxSpeed / speed) : velocity;
@@ -1087,6 +1132,11 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	g_Objects.push_back(std::move(po));
 	// Object::InitialisePhysics 0x637480: a burning object leaves its fire group (FireEffect::StartedMoving(0), ECS/Fire)
 	fire::StartedMoving(entity, false);
+	if (fromHand)
+	{
+		// Object::InitialisePhysicsFromHand (0x637412): the flying-object reaction, once (the predators flee from it)
+		ecs::animal_ai::SpreadFlyingObjectReaction(entity);
+	}
 	return g_Objects.back().get();
 }
 

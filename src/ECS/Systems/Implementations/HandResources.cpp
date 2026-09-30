@@ -57,6 +57,7 @@
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
@@ -269,7 +270,13 @@ void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 	}
 	const auto resource = wood ? ResourceType::Wood : ResourceType::Food;
 	const pot_resource::Dropper dropper {true, PlayerNames::PLAYER_ONE, true};
-	const auto put = pot_resource::AddResourceToPos(position, dropper, resource, amount, poisoned, false);
+	entt::entity pile = entt::null;
+	const auto put = pot_resource::AddResourceToPos(position, dropper, resource, amount, poisoned, false, &pile);
+	if (pile != entt::null)
+	{
+		// Pot::ApplyThisToMapCoord (0x66DED8): the food reaction, once (the hungry grazers come to eat)
+		ecs::animal_ai::SetupPotReaction(pile);
+	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: put down {} {} ({} into stores or pots there)", amount, wood ? "wood" : "food", put);
 }
 
@@ -298,12 +305,15 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// Object::DoDeleteObjectAndTakeResource: AddResource(WOOD, GetDefaultResource()), with
-	// Tree::GetWoodValue = life (1 for a fresh tree) * woodValue * scale * GLandBalance::Values[5] (2 in Land2).
-	const auto type = registry.AllOf<Tree>(object) ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
+	// Tree::GetDefaultResource 0x74B7A0 = Tree::GetWoodValue 0x74B7B0 = life (1 for a fresh tree) * woodValue * scale *
+	// GLandBalance::Values[5] (2 in Land2). A dead tree gives less: DeadTree::GetDefaultResource 0x511330 is only
+	// woodValue * its wood multiplier (1) * scale, with no life and no land balance.
+	const bool living = registry.AllOf<Tree>(object);
+	const auto type = living ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
 	// x GetWoodValueMultiplier (vt 0x868): a MagicTree's +0x70 (woodValueMultiplier x tribal power), else 1
 	auto wood = static_cast<uint32_t>(static_cast<float>(info.woodValue) * registry.Get<Transform>(object).scale.x *
-	                                  land_balance::Get(5) * magic::magic_tree::WoodValueMultiplier(object));
+	                                  (living ? land_balance::Get(5) : 1.0f) * magic::magic_tree::WoodValueMultiplier(object));
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
 	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {

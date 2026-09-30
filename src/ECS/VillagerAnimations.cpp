@@ -19,6 +19,7 @@
 #include "ECS/Animations.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
@@ -579,6 +580,8 @@ void SetVillagerState(entt::entity entity, VillagerStates state)
 	}
 	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
 	                MoveStateFinalStepTag, MoveStateArrivedTag>(entity);
+	// Object::EndPhysics / the hand: coords = Pos, no slide from where it was
+	SnapDrawPosition(entity);
 	Locator::livingActionSystem::value().VillagerSetState(*action, LivingAction::Index::Top, state, true);
 }
 

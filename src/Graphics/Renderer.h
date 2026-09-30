@@ -18,13 +18,16 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <SDL.h>
 #include <bgfx/bgfx.h>
+#include <entt/entity/fwd.hpp>
 #include <glm/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/Clouds.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
 #include "Graphics/RendererInterface.h"
@@ -79,6 +82,14 @@ class Renderer final: public RendererInterface
 	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
+	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front on their own (RendererMists.cpp);
+	/// only when they cannot go through the main pass's back-to-front list
+	void DrawMists(graphics::RenderPass viewId, const Camera& camera) const;
+	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen with their distance to the camera (their Z-sorter key), and
+	/// their animation counters advanced (once per frame)
+	std::vector<std::pair<float, entt::entity>> CollectMists(const Camera& camera) const;
+	/// One mist, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
+	void DrawMist(graphics::RenderPass viewId, const Camera& camera, entt::entity entity) const;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
 	void DrawObjectReflections(graphics::RenderPass viewId) const;
 	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)
@@ -128,6 +139,9 @@ private:
 	/// The *Static program (one model matrix) for the object programs, used for meshes without bones
 	[[nodiscard]] const ShaderProgram* StaticVariant(const ShaderProgram* program) const;
 	mutable std::unordered_map<const ShaderProgram*, const ShaderProgram*> _staticVariants;
+	/// The variant with 32 bones of an object program, for the posed villagers and animals (drawn one by one)
+	[[nodiscard]] const ShaderProgram* BonesVariant32(const ShaderProgram* program) const;
+	mutable std::unordered_map<const ShaderProgram*, const ShaderProgram*> _bonesVariants32;
 	void DrawPass(const DrawSceneDesc& desc) const;
 
 	std::unique_ptr<ShaderManager> _shaderManager;
@@ -153,6 +167,9 @@ private:
 	/// Moves the clouds, computes their colour / alpha and bakes their shadows into the luminosity cap texture
 	void UpdateClouds() const;
 	mutable glm::vec3 _cloudRgb {1.0f};
+	mutable SkyAlignment _skyAlignment;       ///< [0xBF3378], moved towards the target every frame
+	mutable uint32_t _cloudsGeneration {0};  ///< Clouds::GetLandscapeGeneration of _clouds
+	mutable float _cloudMilliseconds {0.0f}; ///< this frame's game time step for the clouds' animation counters
 	uint32_t _bgfxReset;
 	bool _bgfxDebug = false;
 	bool _bgfxProfile = false;

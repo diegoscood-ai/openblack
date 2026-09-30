@@ -263,6 +263,43 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 	}
 }
 
+void AnimationSounds::PlayFromTable(entt::entity owner, glm::vec3 position, const std::array<int32_t, 5>& key)
+{
+	if (!Locator::audio::has_value() || !Locator::camera::has_value())
+	{
+		return;
+	}
+	const auto& bank = Load().editor;
+	const auto list = FindList(bank, key);
+	if (list.empty())
+	{
+		return;
+	}
+	const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
+	const auto id = SampleSoundId(bank, sample);
+	if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
+	{
+		return;
+	}
+	auto& audio = Locator::audio::value();
+	const auto& sound = audio.GetSound(id);
+	// LHSamplePlay: not beyond the sample's max distance from the camera
+	if (glm::distance(position, Locator::camera::value().GetOrigin()) > sound.maxDistance)
+	{
+		return;
+	}
+	const auto emitter = audio.CreateEmitter(id, PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f), sound.volume,
+	                                         AudioStatus::Playing, false);
+	Locator::entitiesRegistry::value().Get<ecs::components::Transform>(emitter).position = position;
+	audio.PlayEmitter(emitter);
+	g_Playing.push_back({emitter, owner, id});
+	if (std::getenv("OPENBLACK_ANIM_TRACE") != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: key {},{},{},{},{} -> editor.sad/{} ({})", key[0], key[1],
+		                   key[2], key[3], key[4], sample, sound.name);
+	}
+}
+
 void AnimationSounds::Update()
 {
 	auto& registry = Locator::entitiesRegistry::value();

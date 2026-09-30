@@ -60,6 +60,8 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/AnimalAI.h"
+#include "ECS/Components/Animal.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Components/Sprite.h"
 #include "Graphics/Texture2D.h"
@@ -68,6 +70,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Registry.h"
+#include "ECS/Alignment.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
@@ -101,6 +104,16 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	physics::PhysicsObjects::RemoveObject(entity);
 	// Living::PlaceInHand: IN_HAND (its clip SCARED_STIFF, ECS/VillagerAnimations)
 	ecs::SetVillagerState(entity, VillagerStates::InHand);
+	// Animal::InterfaceSetInMagicHand: off its flock, IN_HAND
+	if (registry.AllOf<Animal>(entity))
+	{
+		ecs::animal_ai::PlaceInHand(entity);
+	}
+	// Pot / PileResource::InterfaceSetInMagicHand: Pot::RemoveReaction
+	if (registry.AllOf<Pot>(entity))
+	{
+		ecs::animal_ai::RemovePotReaction(entity);
+	}
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
 	if (auto* pot = registry.TryGet<Pot>(entity); pot != nullptr)
@@ -182,8 +195,9 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	}
 	else if (registry.AllOf<Tree>(entity))
 	{
-		// Tree::InterfaceSetInMagicHand: uprooting cracks (LH_SAMPLE_G_TREEBREAK_01 + rand % 3). The player also
-		// loses alignment (GPlayerInfo.treePullPutAlignmentChange). TODO: alignment once players track it.
+		// Tree::InterfaceSetInMagicHand 0x74B730: uprooting cracks (LH_SAMPLE_G_TREEBREAK_01 + rand % 3) and is evil:
+		// GAlignment::Update(the hand's player, tree, false), -treePullPutAlignmentChange weighed by the alignment.
+		ecs::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, false);
 		static constexpr auto k_TreeBreak = std::array<audio::SoundId, 3> {
 		    audio::SoundId::G_TreeBreak_01_1, audio::SoundId::G_TreeBreak_02_1, audio::SoundId::G_TreeBreak_03_1};
 		PlaySample(Locator::rng::value().Choose(k_TreeBreak));
@@ -260,6 +274,12 @@ void HandSystem::Drop() noexcept
 		}
 		// put down gently (openblack places it at once): it lands on its feet
 		ecs::SetVillagerState(*_held, VillagerStates::Landed);
+		ecs::animal_ai::PutDown(*_held);
+		// Pot::ApplyThisToMapCoord (0x66DED8): a pot put down offers its reaction again
+		if (registry.AllOf<Pot>(*_held))
+		{
+			ecs::animal_ai::SetupPotReaction(*_held);
+		}
 		registry.SetDirty();
 	}
 	_held.reset();
@@ -485,8 +505,9 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 		_holdRadius = radius2D;
 		_loweringMultiplier = 0.7f;
 	}
-	else if (registry.AllOf<Villager>(entity))
+	else if (registry.AnyOf<Villager, Animal>(entity))
 	{
+		// the Living hold class: villagers and animals alike
 		_holdType = HoldType::Villager;
 		_holdRadius = radius2D;
 		_loweringMultiplier = 0.65f;

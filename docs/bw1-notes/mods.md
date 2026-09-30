@@ -93,4 +93,5 @@ Todo se aplica **en vivo** (sin reiniciar), desactivado por defecto como todo mo
   `dev\hdp_run`; los animales solo se siguen con el juego en marcha, sin START_PAUSED); `OPENBLACK_START_PAUSED=1` deja a los
   aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una pose (sentado 369, rezar 343). Las
   capturas en el fotograma 2900 fallan a veces: repetir.
-- **Pendiente**: que el usuario confirme en juego que las animaciones con `round` ya no se rompen y si `sharp` parpadea.
+- **Comprobado por el usuario** (2026-09-30): con `round` las animaciones ya no se rompen, tampoco las de los animales.
+- **Pendiente**: comprobar en juego si `sharp` parpadea en movimiento.

@@ -45,8 +45,12 @@
 
 ## Árboles
 
-- Arrancar: tras 225 ms el árbol se inclina hacia la mano y sale al alejar el cursor peso/1000 m. Sonido TreeBreak,
-  montón de raíces (malla 593, 15 s) y raíces colgando (malla 592).
+- Arrancar: el tirón empieza **al pulsar** (StartGrab 0x5D1740 llama a `CHand::PickUp(obj, 1)` en el momento; el umbral
+  de 225 ms es solo para los demás objetos); el árbol se inclina hacia la mano y sale cuando la mano se ha movido más de
+  peso/1000 m en horizontal desde donde lo agarró (detalle y diferencia con el original en «Tirón», abajo). Sonido TreeBreak, montón de raíces
+  (malla 593, 15 s) y raíces colgando (malla 592).
+- El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
+  vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
 - Soltar suave en tierra = replantar (PlantTree, bosque cercano en 25 m o bosque nuevo). Lanzado o en el agua =
   árbol muerto (DeadTree).
 - Sobre un almacén = madera `woodValue·escala`.
@@ -108,6 +112,19 @@ Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, 
   empezar); un muelle `F = 1000 × (mano − agarre)` (tope 600000) lo inclina con par `(r × F)/1000` y rozamiento
   cuadrático 4 alrededor de la base, y el tronco se estira hasta ×1,3 (Zoomer 0,3 s). Sale cuando `|F| > GetWeight`
   (escala³ × peso de info.dat): agarrado lejos del punto de agarre, sale enseguida. Soltado antes, vuelve a su postura.
+  Al final de cada Update (también en los primeros 0,13 s) la mano se coloca en el agarre del tronco estirado
+  (`CHand+0x78 = matriz × (0, bajada, 0)`); solo se dibuja ahí, el siguiente Update la vuelve a poner en el plano.
+  **Consecuencia (2026-09-30, por confirmar con el original)**: como la mano antes de pulsar está sobre el rayo del
+  ratón, el plano queda a la altura a la que ese rayo cruza el eje del árbol, así que el primer tirón es esa altura menos
+  la bajada: una haya de escala 1 (18 m, agarre a 1,8 m, peso 1000) solo se inclina si se pulsa a menos de ~1 m del
+  agarre (de 0,8 a 2,8 m sobre la base); pulsada en la copa sale a los 0,13 s. El openblack de antes de las físicas
+  medía solo la distancia horizontal del cursor a la base y se inclinaba pulsara donde pulsara.
+  **Lo que hace openblack (2026-09-30, a petición del usuario, que recuerda el original así)**: no se usa el muelle
+  literal (además el estirado ×1,3 hacía que el árbol subiera y bajara). Al pulsar se guarda el punto agarrado y su
+  distancia en el rayo del ratón; el tirón es cuánto se ha movido en horizontal la mano (el rayo a esa distancia) desde
+  entonces. El árbol se inclina hacia ella hasta 0,25 rad y sale cuando pasa de peso/1000 m (escala³ × peso de
+  info.dat). Agarrado en cualquier sitio y sin mover el ratón, no sale. Si algún día se puede probar el original, se
+  puede comprobar con `tmp_dis\trees2\tugwatch.py` (lee la memoria de runblack.exe: plano, mano, agarre, estado).
   Gancho: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, el cursor se mueve 0,5 s
   después), trazas con `OPENBLACK_HAND_TRACE=1`.
 - **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,

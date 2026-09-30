@@ -29,6 +29,7 @@ namespace openblack::ecs::components
 /// * TODO: PhysicalShield (not magic)
 /// * TownCentre
 /// * Field
+/// * the roots pile (crater) left by an uprooted tree (fn_00825240)
 struct MorphWithTerrain
 {
 	int dummy;

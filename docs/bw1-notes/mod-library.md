@@ -69,6 +69,11 @@ Detalles de cada uno en [rendering.md](rendering.md) y [openblack-internals.md](
 - En el menú sale debajo del padre, sangrado y deshabilitado si el padre está apagado. Solo cuenta si él y su padre
   están encendidos (`ModRegistry::IsActive`). Tiene su `settings.cfg` en su carpeta, apagado por defecto, y
   `--mod <id>` como cualquier mod.
+- Opciones de un módulo: su `mod.cfg` las declara con `option.<id> = <etiqueta> | <opción>, <opción>... | <por
+  defecto> [| slider]` (`ModuleMod`); salen en el menú y en su `settings.cfg` como las de cualquier mod, y el padre las
+  lee con `ModRegistry::GetModules` (carpeta + opciones). `world.foliage` lee `density` de cada módulo (very low 0,25,
+  low 0,5, medium 1, high 2, very high 4, como su propia densidad): multiplica los `per_cell` de ese módulo
+  (`Foliage::Load`, `moduleDensities`) y recarga al cambiarla. Beach la tiene (deslizador).
 - El padre pide las carpetas con `ModRegistry::GetModuleDirectories("<su id>")` (orden alfabético). Hoy solo
   `world.foliage` tiene módulos: lee el `foliage.cfg` de cada uno, con las imágenes junto a él, y se recarga al
   encender o apagar un módulo (`Renderer::DrawFoliage`, `_foliageLoadKey`). Módulos del repo en
@@ -176,7 +181,7 @@ Pendiente (nivel 3): mods externos (Lua o DLL) sobre esta misma API.
   esquinas de las celdas con agua, así que la orilla visible queda a 6-10 unidades. Dos franjas (30-09-2026, el
   usuario: la orilla cargada y la arena limpia): la orilla (`coast`, hasta ~20: algas 7-16, arena mojada, estrellas,
   conchas) con poca densidad, y la arena seca detrás (`sand_*`, coral y huellas, 14-80, altura hasta 40, `share` 0,7,
-  sin `coast`) con más (conchas 3, piedras 1,6 por celda); las huellas solo ahí, desde 20. En Land1,
+  sin `coast`) con más (conchas 1,1, piedras 0,6 por celda en medium); las huellas solo ahí, desde 20. En Land1,
   playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\tools\lnd\lnd_beaches.py` lista la arena junto al agua).
 - **Módulo `world.foliage.butterflies`** ("Butterflies"): los 3 gif del usuario sobre `wildflowers` y `poppies`,
   0,04 por flor, 0,7-1 de ancho (más grandes que de verdad para que se vean junto a la hierba de 0,7-1,2). En Land1

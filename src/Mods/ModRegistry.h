@@ -10,6 +10,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -59,6 +60,14 @@ public:
 	/// Folders of the active modules of a mod: Mods/<name>/ folders whose mod.cfg says "module_of = <parentId>", in
 	/// alphabetical order. The parent reads its own kind of files there (e.g. world.foliage a foliage.cfg).
 	[[nodiscard]] std::vector<std::filesystem::path> GetModuleDirectories(std::string_view parentId) const;
+	/// An active module: its folder and the choices of the options its mod.cfg declares ("option.<id> = ...")
+	struct Module
+	{
+		std::filesystem::path directory;
+		std::map<std::string, std::string> options;
+	};
+	/// The active modules of a mod, as GetModuleDirectories, with their options
+	[[nodiscard]] std::vector<Module> GetModules(std::string_view parentId) const;
 
 	/// Applies "<mod>", "<mod>=on|off" or "<mod>.<option>=<choice>" (the --mod switch). For this session only: the
 	/// menu saves what it changes, the command line does not.

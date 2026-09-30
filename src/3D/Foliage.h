@@ -141,8 +141,10 @@ public:
 	~Foliage();
 
 	/// Reads foliage.cfg and the images next to it, then the foliage.cfg of each module folder (its images next to it);
-	/// false (and nothing drawn) if there is nothing to draw
-	bool Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules = {});
+	/// moduleDensities scale the per_cell of each module's plants (1 if missing). False (and nothing drawn) if there is
+	/// nothing to draw
+	bool Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules = {},
+	          const std::vector<float>& moduleDensities = {});
 	[[nodiscard]] bool IsLoaded() const noexcept { return _texture != nullptr; }
 	[[nodiscard]] const std::vector<Species>& GetSpecies() const noexcept { return _species; }
 	[[nodiscard]] const std::vector<FieldStage>& GetFieldStages() const noexcept { return _fieldStages; }

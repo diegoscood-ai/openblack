@@ -1183,10 +1183,11 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		return;
 	}
 	const auto origin = camera.GetOrigin();
-	// oriented with the camera: the dome's axis (local +Y) towards the camera, so each cloud shows as a soft puff
+	// the same billboard as the map mists (Renderer::DrawMist): 0xEA1C98 after its in-place inverse fn_007FB3F0
+	// (0x819AF3), in glm mat3(right, -forward, up): local X = screen right, local Y (the dome's axis) towards the
+	// camera, local Z = screen up
 	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	// UpdateWorldToCamera 0x819690: the dome's axis faces the camera, local x = screen right, local z = screen up
-	const auto rotation = glm::mat3(cameraBasis[0], cameraBasis[2], cameraBasis[1]);
+	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
 	std::vector<std::pair<float, size_t>> order;
 	order.reserve(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)
@@ -1199,9 +1200,7 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
 	                        210.0f / 256.0f, 0.0f);
 	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
-	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above. TODO: the two
-	// corrections proven for the mists (the object matrix is the transpose of (right, -forward, up), and the shrink
-	// only scales local Y and Z) apply to the clouds too; that is a task of its own, the sky changes everywhere.
+	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above.
 	const glm::vec4 u_cloudSpecular(0.0f);
 	const auto* program = _shaderManager->GetShader("Cloud");
 	// mist.l3d is loaded without skins; LH3DMist::Draw (fn_007FA300) uses the smoke material instead
@@ -1220,9 +1219,12 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		const auto position = Clouds::WorldPosition(cloud);
 		const auto toCloud = position - origin;
 		const float length = std::max(glm::length(toCloud), 1.0f);
-		// full size seen from below or above, size / k edge-on
-		const float scale = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
-		const auto model = glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(scale));
+		// 0x7FA4DC..0x7FA539: row 0 (local X, the screen width) is scaled by the size and rows 1-2 (local Y = depth,
+		// local Z = screen height) by the shrunk one, so a cloud is round only straight overhead and near the horizon
+		// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall
+		const float shrunk = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
+		const auto model =
+		    glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
 		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
 		if (u_cloudColour.a <= 0.0f)
 		{

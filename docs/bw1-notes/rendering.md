@@ -211,9 +211,14 @@ Informe: `tmp_dis\render\sky_*.txt`.
   (2π(1 − frac((días − 10962)/29,5306))) y regenera las UV. Culling normal (bit 0 = 0).
 - **Nubes** (`CloudInSky::Open` 0x5E23F0, `fn_005E25C0`): 70 + 2 fijas, x ∈ ±8000 (viento a 70 u/s, ángulo 3π/4,
   alrededor de (1280, 1280)), y 300–500, z ±5000, tamaño 13–50, k 2,5–5; alfa de borde por encima de ±6000.
-  `mist.l3d` sin skins: material de humo `smoke.raw` + `smokea.raw` (modo 6, dos caras, `fn_0080BBD0`), orientada
-  con la cámara, escala tamaño/(1 + (k − 1)(1 − |dy|/|d|)), atlas 8×8 animado (fotograma (contador/20) & 15, UV
-  ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de alineación × tabla[255] · 186/256 + 35;
+  `mist.l3d` sin skins: material de humo `smoke.raw` + `smokea.raw` (modo 6, dos caras, `fn_0080BBD0`). Son
+  objetos LH3DMist (+0x80 |= 2, rama efecto), así que usan el mismo `fn_007FA300`: el **billboard**
+  mat3(derecha, −delante, arriba) de la sección "Niebla del mapa" y la **escala no uniforme** s = tamaño/(1 + (k − 1)
+  (1 − |dy|/|d|)) con el tamaño en la fila 0 (ancho en pantalla) y s en las filas 1 y 2 (profundidad y alto). Cerca del
+  horizonte |dy|/|d| ≈ 0,05–0,2, luego cada nube es una **elipse horizontal ~k veces más ancha que alta** (2,5–5; las
+  dos fijas, tamaño 300 y k 20, bandas casi planas); solo se ven redondas justo debajo. Atlas 8×8 animado
+  (fotograma (contador/20) & 15, UV ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de
+  alineación × tabla[255] · 186/256 + 35;
   alfa 0 en tierra buena, 200 neutral, 255 mala.
 - **Sombras de nubes**: `sclouds.raw` 40×40, un texel por celda desde la esquina de la nube,
   `lum = min(lum, max(48, 255 − (255 − s)·α/255))`; openblack: `Clouds::BuildShadowCap` → textura R8 por celda que
@@ -490,13 +495,18 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
   mezcla SRCALPHA/INVSRCALPHA, color y alfa = textura × difuso, sin escritura de Z, dos caras) y atlas 8×8 que las
   nubes. Creación (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 siempre; si F4 ≠ 1, +0x8C = F4 y
   +0x80 |= 2 (rama "efecto"). Color N2 en +0x4C (ARGB), +0x50 (especular) = 0.
-- **Rotación** (clave): 0x7FA38F copia a la matriz del objeto la 0xEA1C98, que `UpdateCamera` 0x819A62 monta con la
-  mundo→cámara A = 0xEA1D28 permutando columnas: fila i = (A[3i], −A[3i+2], A[3i+1]). A usa vectores fila y sus columnas
-  son derecha, arriba y delante de la cámara; la matriz del objeto se aplica igual (x' = m0 x + m3 y + m6 z,
-  `fn_0084BA90`). En glm es **transpose(mat3(derecha, −delante, arriba))**, no un billboard: el eje de la cúpula
-  queda en (0, sen pitch, cos pitch) sea cual sea la guiñada, siempre inclinado hacia +Z. Solo mira a la cámara si
-  esta mira hacia −Z; desde otras direcciones se ve de lado y un rayo cruza dos veces la capa (más densa). Como la y
-  del eje es sen pitch > 0, no se hunde en la tierra.
+- **Rotación** (clave): 0x7FA38F copia a la matriz del objeto la 0xEA1C98, que `UpdateCamera` 0x819A62 monta en dos
+  pasos. Primero permuta las columnas de la mundo→cámara A = 0xEA1D28: fila i = (A[3i], −A[3i+2], A[3i+1]),
+  traslación 0. Y **después** (0x819AC5 `mov ecx, 0xEA1C98`, 0x819AF3 `call fn_007FB3F0`; la otra copia de
+  `UpdateCamera`, 0x81A1AD, hace lo mismo en 0x81A265) la **invierte en su sitio**: `fn_007FB3F0` es la inversa de
+  la matriz 4×3 (cofactores / determinante, traslación = −t·M⁻¹). Al ser ortonormal, la inversa es la transpuesta, así
+  que las filas finales son derecha, −delante y arriba. A usa vectores fila y la matriz del objeto se aplica igual
+  (x' = m0 x + m3 y + m6 z, `fn_0084BA90`), luego la fila k es la imagen del eje local k: en glm
+  **mat3(derecha, −delante, arriba)**, es decir un **billboard**. X local = derecha de la pantalla, Y local (el eje de
+  la cúpula) hacia la cámara, Z local = arriba, así que la cúpula siempre se ve de cara, como un disco del humo, y
+  nunca de canto (comprobado emulando 0x819690 + la permutación + 0x7FB3F0 con varias cámaras,
+  `tmp_dis\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
+  en el original).
 - **Rama efecto** (bit 2; en Land1 todas tienen k = 1, en Land4/Land5 k = 3,78 / 2,64): s = tamaño/(1 + (k − 1)
   (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 escalan la fila 0 (X local) por el tamaño y las filas 1 y 2 (Y, Z) por s: **escala
   no uniforme**. Luz en (0, 500000, 0), ambiente 0xD2, sin luz de la tierra, atlas V + 0,25 (0x7FA44D: filas 2-3).
@@ -519,5 +529,4 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
   Desviaciones: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
   el paso truncado del original sería 0; la textura alfa no se cuantiza a 4 bits (el original la carga en ARGB4444,
   `a.raw` 0x8375C1: 228 → 238/255), porque cuantizar tras filtrar en el shader haría bandas y `raw/smokea` se
-  comparte con otros sistemas. Pendiente (otra tarea): `DrawClouds` necesita las mismas dos correcciones
-  (transpuesta y escala no uniforme).
+  comparte con otros sistemas.

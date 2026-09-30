@@ -188,16 +188,16 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 	const auto* program = _shaderManager->GetShader("Cloud");
 	const auto origin = camera.GetOrigin();
 
-	// The matrix of every LH3DMist is 0xEA1C98 (0x7FA38F copies its 9 cells into the object's), which UpdateCamera
-	// builds at 0x819A62 from the world-to-camera matrix A = 0xEA1D28 with its columns swizzled: row i of it is
-	// (A[3i], -A[3i+2], A[3i+1]). A holds the row-vector convention and its columns are the camera's right, up and
-	// forward, and the object matrix is used the same way (x' = m0 x + m3 y + m6 z, fn_0084BA90), so in glm terms the
-	// rotation is the transpose of (right, -forward, up) and not a billboard: the dome's axis (local +Y) ends up at
-	// (0, sin pitch, cos pitch) whatever the camera's yaw, always leaning towards +Z. It only faces the camera when
-	// the camera looks towards -Z; from any other yaw the dome is seen from the side, so a ray crosses its two-sided
-	// shell twice and the bank looks denser.
+	// The matrix of every LH3DMist is 0xEA1C98 (0x7FA38F copies its 9 cells into the object's). UpdateCamera builds it
+	// at 0x819A62 from the world-to-camera matrix A = 0xEA1D28 with its columns swizzled (row i = (A[3i], -A[3i+2],
+	// A[3i+1])) and then inverts it in place with fn_007FB3F0 (ecx = 0xEA1C98, call at 0x819AF3; the other camera path
+	// does the same at 0x81A265). The inverse of that orthonormal matrix is its transpose, whose rows are right,
+	// -forward and up; with row vectors (x' = m0 x + m3 y + m6 z, fn_0084BA90) row k is the image of local axis k, so in
+	// glm it is mat3(right, -forward, up): a billboard. Local X = screen right, local Y (the dome's axis) towards the
+	// camera, local Z = screen up, so the dome always shows face-on as a disc of the smoke frame and is never seen
+	// edge-on (checked by emulating 0x819690 + the swizzle + 0x7FB3F0 for several cameras)
 	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	const auto rotation = glm::transpose(glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]));
+	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
 	const bool landLight = _landLight && _landLight->IsLoaded() && Locator::terrainSystem::has_value();
 	const auto view = camera.GetViewMatrix(Camera::Interpolation::Current);
 	const auto& [mist, transform] = registry.Get<const ecs::components::Mist, const ecs::components::Transform>(entity);
@@ -211,14 +211,14 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 	glm::vec3 specular(0.0f);
 	// 0x7FA5B0 and 0x7FA4DC: the matrix cells are scaled by the size, except that with the effect flag only row 0
 	// (the image of local X) keeps the size and rows 1 and 2 (local Y and Z) take the shrunk one, so the dome is
-	// squashed along its own axis and depth, not uniformly
+	// squashed along its own axis (depth) and screen height, not uniformly: it keeps its width
 	glm::vec3 scale(mist.size);
 	float atlasV = 0.0f;
 	float ambient = 90.0f;
 	auto lightPosition = glm::vec3(-500000.0f, 500000.0f, -500000.0f);
 	if (mist.edgeShrink)
 	{
-		// effect branch 0x7FA3B1: full size seen from below or above, size / k edge-on; lit from straight above
+		// effect branch 0x7FA3B1: round seen from straight below or above, k times wider than tall near the horizon; lit from straight above
 		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D; the normal branch has no
 		// such offset at 0x7FA675, so it uses rows 0-1)
 		const auto toMist = transform.position - origin;

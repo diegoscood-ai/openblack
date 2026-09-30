@@ -65,6 +65,7 @@ void UpdateAnimations(float milliseconds)
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Anim trace:{}", line);
 	}
 
+	audio::AnimationSounds::Update();
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& resources = Locator::resources::value();
 	const auto& animations = resources.GetAnimations();

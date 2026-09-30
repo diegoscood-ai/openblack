@@ -20,12 +20,15 @@ namespace openblack::audio
 /// axe chops, screams... Data\SmallSounds.SAS gives each clip its sound group and events {ms, soundId, action}
 /// (LoadAllAnimations 0x550180). When the clip time crosses an event (fn_00516510) the key {voice, group, surface,
 /// soundId} picks a list of editor.sad samples in its LHAudioAnimArrayTable / LHAudioWaveNumTable (LHaudiodllR.dll), one
-/// at random, heard only within the sample's max distance of the camera.
+/// at random, heard only within the sample's max distance of the camera. Banter (0x92-0x94) comes from VillagersBanter.sad,
+/// 0x92 at the villager's house; action 1 stops the list's samples playing for the object (the saw).
 class AnimationSounds
 {
 public:
 	/// Plays the events of the clip (an ANM_ index) with from <= time < to, for that villager or animal.
 	static void Fire(entt::entity entity, int32_t clip, int32_t from, int32_t to);
+	/// Per frame: the playing samples follow their object (the game's 3D callback 0x427200, Get3DSoundPos).
+	static void Update();
 	AnimationSounds() = delete;
 };
 

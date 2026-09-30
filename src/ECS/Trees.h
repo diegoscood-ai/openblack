@@ -100,9 +100,22 @@ float ShrinkAllTrees(uint32_t forestId, float amount);
 /// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890; equal distances keep the order they joined in)
 [[nodiscard]] std::vector<entt::entity> GrownTreesByDistance(uint32_t forestId);
 
-/// Called with each tree (or dead tree) just before DeleteTree removes it: fire, reactions, the hand and the like clean
-/// up after it (the rest of Object::ToBeDeleted).
-using TreeDeletedListener = std::function<void(entt::entity)>;
+/// How a tree goes: Removed, the entity is destroyed (DeleteTree); BecameDeadTree, the Tree object is deleted but the
+/// entity stays as the DeadTree that took over its 3D object, fire included (FellTree: FelledTree::Create then
+/// ForesterChopsTree's ToBeDeleted; a tree that falls: Tree::EndPhysics's DeadTree, then ToBeDeleted). The DeadTree ctor
+/// 0x510880 hands the fire over (fn_00730960), so a listener keeps it for BecameDeadTree.
+enum class TreeDeletion
+{
+	Removed,
+	BecameDeadTree,
+};
+
+/// Called with each tree (or dead tree) just before it goes: fire, reactions, the hand and the like clean up after it
+/// (the rest of Object::ToBeDeleted).
+using TreeDeletedListener = std::function<void(entt::entity, TreeDeletion)>;
+
+/// Tells the listeners (for code that turns a Tree into a DeadTree itself, like the hand's MakeDeadTree)
+void NotifyTreeDeleted(entt::entity tree, TreeDeletion how);
 void AddTreeDeletedListener(TreeDeletedListener listener);
 
 /// Tree::ToBeDeleted 0x74A210 / DeadTree::ToBeDeleted 0x510C90: out of its forest (Forest::RemoveTree), out of the

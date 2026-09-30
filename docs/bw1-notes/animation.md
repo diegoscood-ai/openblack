@@ -56,8 +56,8 @@ deseos) × las cargas de leña y comida (sin carga: 1); herido: 0,4-0,6 × speed
 `SetSpeed` (0x750ED0) la multiplica por f = 1 + ((índice de creación × 47) % 31 − 16) × 0,01 (openblack usa el índice de
 la entidad), menos: niño min((13 − edad) × 0,02, 0,4); viejo (> 60) min((edad − 60) × 0,02, 0,4); adulto 0,1 × vida
 (y el hambre al cubo, que aún no existe) y 0,2 las mujeres; se trunca a u16. Un hombre normal va a ~1,7-1,9 m/s y una
-mujer a ~1,4-1,6. Sin hacer: la creencia del pueblo en el jugador, el bonus de maravilla del jugador y la escala del
-mapa (`SET_GLOBAL_LAND_BALANCE`).
+mujer a ~1,4-1,6. Sin hacer: la creencia del pueblo en el jugador, el bonus de maravilla del jugador. La escala del mapa
+(`GLandBalance::Values[4]`, `SET_GLOBAL_LAND_BALANCE`, `LandBalance.h`: 1,5 en Land2, 1,25 en Land3) multiplica todo.
 
 ## Tamaño y malla por edad
 

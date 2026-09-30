@@ -64,6 +64,7 @@
 #include "Graphics/RendererInterface.h"
 #include "Input/GameActionMapInterface.h"
 #include "LHScriptX/Script.h"
+#include "LandBalance.h"
 #include "Locator.h"
 #include "Mods/BuiltinMods.h"
 #include "Mods/ModRegistry.h"
@@ -1107,6 +1108,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	}
 
 	psys::manager::Clear();
+	// GSetup::LoadMapFeatures -> GLandBalance::Init: every land balance value back to 1 before the script
+	land_balance::Reset();
 	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());

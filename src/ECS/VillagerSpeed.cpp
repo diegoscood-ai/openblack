@@ -20,6 +20,7 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
+#include "LandBalance.h"
 #include "Locator.h"
 
 namespace openblack::ecs
@@ -88,9 +89,9 @@ void SetVillagerStateSpeed(entt::entity entity)
 	{
 		return;
 	}
-	// m: the land balance speed scale (1 unless the land script changes it) * the player's wonder bonus (1) * the town's
-	// belief term (openblack has no belief in the player yet: 1)
-	const float m = 1.0f;
+	// m: the land balance speed scale (GLandBalance::Values[4]: 1.5 in Land2, 1.25 in Land3) * the player's wonder bonus
+	// (1) * the town's belief term (openblack has no belief in the player yet: 1)
+	const float m = land_balance::Get(4);
 	const float life = static_cast<float>(villager->health) / 100.0f;
 	const auto& group = info->speedGroup;
 	float speed = 0.0f;

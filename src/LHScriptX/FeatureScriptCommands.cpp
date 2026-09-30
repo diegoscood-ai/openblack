@@ -44,6 +44,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "LandBalance.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "ScriptingBindingUtils.h"
@@ -846,10 +847,9 @@ void FeatureScriptCommands::SetComputerPlayerPersonality(const std::string&, glm
 	// __func__);
 }
 
-void FeatureScriptCommands::SetGlobalLandBalance(int32_t, float)
+void FeatureScriptCommands::SetGlobalLandBalance(int32_t index, float value)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	land_balance::Set(index, value);
 }
 
 void FeatureScriptCommands::SetLandBalance(const std::string&, int32_t, float)

@@ -31,6 +31,7 @@
 #include "ECS/Life.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -337,7 +338,7 @@ void fire::traits::DestroyedByEffect(entt::entity object)
 	}
 	if (registry.AllOf<Animal>(object))
 	{
-		life::Kill(object, "burnt"); // Animal 0x41B1B0 (the dying states belong to the animal AI)
+		ecs::animal_ai::DestroyedByEffect(object); // Animal 0x41B1B0 -> Living::SetDying (ECS/AnimalAI)
 		return;
 	}
 	if (registry.AllOf<Field>(object))

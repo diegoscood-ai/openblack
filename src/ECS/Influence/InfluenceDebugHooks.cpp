@@ -78,7 +78,7 @@ void LogSources()
 	registry.Each<const Town, const TownInfluence, const Transform>(
 	    [](const Town& town, const TownInfluence& influence, const Transform& transform) {
 		    SPDLOG_LOGGER_INFO(spdlog::get("game"), "Influence: town {} of player {} at ({:.1f}, {:.1f}): radius {:.2f}",
-		                       town.id, static_cast<int>(influence.owner), transform.position.x, transform.position.z,
+		                       town.id, static_cast<int>(town.owner), transform.position.x, transform.position.z,
 		                       influence.radius);
 	    });
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Influence: land {}, town x{:.2f}, player x{:.2f}, {} rings",

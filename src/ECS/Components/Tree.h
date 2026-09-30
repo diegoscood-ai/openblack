@@ -11,7 +11,6 @@
 
 #include <cstdint>
 
-#include <entt/entity/entity.hpp>
 #include <glm/vec2.hpp>
 
 #include "Enums.h"
@@ -26,8 +25,6 @@ enum class MagicTreeType
 struct Tree
 {
 	TreeInfo type;
-	/// +0x64 the scale it grows to (the Tree ctor 0x749E00's maxScale; a magic tree's target scale). The scale itself is
-	/// the Transform's.
 	float maxSize;
 	uint32_t forestId = 0;
 	/// Tree +0x5E bit 1: the script's own flag (CREATE_NEW_TREE 0x716324); the hand sets it to "inside a town" when it
@@ -48,10 +45,6 @@ struct Tree
 	glm::vec2 bendDirection {0.0f, 1.0f};
 	/// bent last frame too: the rubbing sound plays when a bend starts
 	bool wasBent = false;
-	/// +0x60 (int16) as ECS/TreeGrowth (lane m4b) counts it: the turns to its next growth step
-	int16_t growCountdown = 0;
-	/// +0x68 the Forest container it is in (ECS/Forests; only the forest miracle makes them yet), entt::null none
-	entt::entity forest {entt::null};
 };
 
 /// A tree that was thrown or dropped where it cannot be replanted (DeadTree, a Rock subclass in the original):

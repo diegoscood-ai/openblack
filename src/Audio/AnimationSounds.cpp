@@ -270,13 +270,13 @@ void AnimationSounds::PlayFromTable(entt::entity owner, glm::vec3 position, cons
 		return;
 	}
 	const auto& bank = Load().editor;
-	const auto list = FindList(bank, key);
+	const auto list = bank.FindList(key);
 	if (list.empty())
 	{
 		return;
 	}
 	const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
-	const auto id = SampleSoundId(bank, sample);
+	const auto id = bank.SoundId(sample);
 	if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
 	{
 		return;

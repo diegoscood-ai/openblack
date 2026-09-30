@@ -11,6 +11,8 @@
 
 #include <cstdint>
 
+#include <vector>
+
 #include <entt/entity/entity.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -29,9 +31,14 @@ namespace openblack::magic
 /// SpellForest +0xEC..+0xF4
 struct SpellForestData
 {
-	entt::entity forest {entt::null}; ///< +0xEC the Forest it made (fn_00725600)
-	bool forestCreated {false};       ///< +0xF0 (fn_007254F0 clears it at allocation)
-	int maxTrees {-1};                ///< +0xF4 SetMaxObjectsToCreate 0x7256C0 (-1 -> finalNoTrees)
+	uint32_t forestId {0};      ///< +0xEC the Forest it made (fn_00725600): an ECS/Trees forest id, 0 none
+	bool forestCreated {false}; ///< +0xF0 (fn_007254F0 clears it at allocation)
+	int maxTrees {-1};          ///< +0xF4 SetMaxObjectsToCreate 0x7256C0 (-1 -> finalNoTrees)
+	/// the MagicTrees it made (not in the original: ECS/Trees' forests keep no lists, and MagicTree::ToBeDeleted has to
+	/// be done for the ones that went another way)
+	std::vector<entt::entity> trees;
+	/// the forest went with its last magic tree (its +0xA bit 0, ToBeDeleted), seen by the next Process
+	bool forestDeleted {false};
 };
 
 namespace spell_forest

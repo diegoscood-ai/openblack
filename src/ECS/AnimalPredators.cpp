@@ -576,7 +576,7 @@ void TargetPounce(Context& ctx)
 		// fn_005EC480: the prey falls, with 0.05 of its life
 		if (auto* villager = registry.TryGet<Villager>(target); villager != nullptr)
 		{
-			villager->health = 5;
+			villager->life = 0.05f;
 			registry.AssignOrReplace<DownedVillager>(target);
 			SetVillagerState(target, VillagerStates::Downed);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} downed by animal {}", static_cast<uint32_t>(target),
@@ -639,7 +639,7 @@ void ProcessDownedVillagers()
 		}
 		// Villager::BeingEaten (0x76B380): dead (VillagerDead, reason ANIMAL). openblack has no villager corpse yet: it
 		// goes, as the physics' villager deaths
-		villager->health = 0;
+		villager->life = 0.0f;
 		if (auto* abode = registry.TryGet<Abode>(villager->abode))
 		{
 			abode->inhabitants.erase(entity);

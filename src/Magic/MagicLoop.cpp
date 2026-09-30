@@ -25,7 +25,6 @@
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/Fire/FireObjectTraits.h"
-#include "ECS/Forests.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -54,7 +53,6 @@ void magic::OnLoadMap()
 	spell_shield::Clear(); // Magic/Spells/SpellShield
 	ecs::villager_fire::Clear();          // also registers the REACT_TO_FIRE spread
 	spell_grid::Clear();
-	ecs::forests::Clear(); // ECS/Forests (the containers go with the registry)
 	ecs::systems::hand_grain::Reset();
 	weather::OnLoadMap(); // ECS/Weather/WeatherLoop.cpp
 	hand_casting::OnLoadMap(); // Hand/HandCasting.cpp: the gestures, the hand FX, the utility effects
@@ -79,8 +77,8 @@ void magic::ProcessTurn(uint32_t turn)
 	//  4 Dance::ProcessDances 0x50BB60                                      [M7]
 	//    (and the first turn's GPlayer::PostLoadCleanup, the worship test hooks, the spell dispensers)
 	worship::ProcessTurn(turn); // Worship/Worship.cpp
-	//  5 Forest::ProcessForests 0x539D70                                    [M4b]
-	ecs::forests::ProcessForests(); // ECS/Forests.cpp (the natural growth is postponed)
+	//  5 Forest::ProcessForests 0x539D70: ecs::ProcessTreesTurn (ECS/Trees.cpp, the "arboles" session), called by Game.cpp
+	//    after the scripts block (the forests are ids there; the spell forests are made by Magic/Spells/SpellForest)
 	// --- Living: openblack's livingActionSystem, already run
 	//  6 FireEffect::ProcessList 0x730760                                   [M5 fire]
 	ecs::fire::RunDebugHooks(turn); // OPENBLACK_TEST_FIRE (ECS/Fire/FireDebugHooks.cpp)

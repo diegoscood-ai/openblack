@@ -27,10 +27,10 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
-#include "ECS/Forests.h"
 #include "ECS/Map.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "ECS/Weather/Weather.h"
 #include "InfoConstants.h"
 #include "Common/RandomNumberManager.h"
@@ -70,15 +70,51 @@ SpellForestData& DataFor(entt::entity spell)
 	return registry.Assign<SpellForestData>(spell);
 }
 
-/// The forest the spell points at (+0xEC), when it still exists
+/// The forest the spell points at (+0xEC), when it still exists (ECS/Trees drops an empty forest after 2000 turns)
 bool HasForest(const SpellForestData& data)
 {
-	return data.forest != entt::null && ecs::forests::Exists(data.forest);
+	return data.forestId != 0 && !data.forestDeleted && ecs::IsInForest(data.forestId);
 }
 
+/// The trees of the spell's forest (both of the original's lists, +0x48 and +0x50): ECS/Trees keeps the forest in each
+/// tree's forestId
+std::vector<entt::entity> ForestTrees(uint32_t forestId)
+{
+	std::vector<entt::entity> trees;
+	Locator::entitiesRegistry::value().Each<const Tree>([&](entt::entity entity, const Tree& tree) {
+		if (forestId != 0 && tree.forestId == forestId)
+		{
+			trees.push_back(entity);
+		}
+	});
+	return trees;
+}
+
+/// Forest +0x4C + +0x54: its trees
 uint32_t TreeCountOf(const SpellForestData& data)
 {
-	return HasForest(data) ? ecs::forests::TreeCount(data.forest) : 0;
+	return HasForest(data) ? static_cast<uint32_t>(ForestTrees(data.forestId).size()) : 0;
+}
+
+/// MagicTree::ToBeDeleted 0x5FD070 for the magic trees that went another way (ShrinkAllTrees destroys them, fire, the
+/// hand) or left the forest: their reactions go. Its last part, "the forest goes with its last tree", is here too:
+/// true when a magic tree went and the forest has no tree left (ECS/Trees has no forest deletion: the spell forgets the
+/// forest, which ECS/Trees drops 2000 turns later as an empty one).
+bool PruneTrees(SpellForestData& data)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	bool removed = false;
+	std::erase_if(data.trees, [&](entt::entity tree) {
+		const bool valid = registry.Valid(tree) && registry.AllOf<Tree>(tree);
+		const bool stays = valid && data.forestId != 0 && registry.Get<const Tree>(tree).forestId == data.forestId;
+		if (!stays)
+		{
+			removed = true;
+			magic_tree::Forget(tree, !valid);
+		}
+		return !stays;
+	});
+	return removed && data.forestId != 0 && ForestTrees(data.forestId).empty();
 }
 
 /// fn_00725790 on a spell
@@ -201,19 +237,19 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& data = DataFor(entity);
-	if (data.forest == entt::null)
+	if (data.forestId == 0)
 	{
-		// new Forest (0x58) -> fn_005399E0(pos, creator): the creator's GetPlayer, if there is a creator
-		const auto& spell = registry.Get<const Spell>(entity);
-		const bool hasCreator = spell.creator.kind != SpellCreator::Kind::None;
-		data.forest = ecs::forests::Create(position, hasCreator, spell.creator.player);
+		// new Forest (0x58) -> fn_005399E0(pos, creator): a new forest for every cast (ECS/Trees; its creator's player,
+		// only for the natural new trees' alignment, is not kept there)
+		data.forestId = ecs::CreateForest(0, glm::vec3(position.x, 0.0f, position.z));
 		data.forestCreated = true;
 	}
 	const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>()); // GameFloatRand(2 pi)
 	const float woodMultiplier = ForestInfoOf(entity).woodValueMultiplier * GetTribalPower(entity);
-	const auto tree = magic_tree::Create(position, entity, type, data.forest, angle, 0.0f, woodMultiplier);
+	const auto tree = magic_tree::Create(position, entity, type, data.forestId, angle, 0.0f, woodMultiplier);
 	if (tree != entt::null)
 	{
+		data.trees.push_back(tree);
 		const auto& castPos = registry.Get<const Spell>(entity).originalCastPos;
 		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(castPos.x, castPos.z));
 		registry.Get<Tree>(tree).maxSize = spell_forest::TargetScale(distance); // +0x64
@@ -239,7 +275,7 @@ int InitWithPos(entt::entity spell, const glm::vec3& position, SpellCastData* ca
 /// SpellForest::SpellEvent 0x725830: the seed has landed (type 3): the whole forest at once
 int SpellEvent(entt::entity entity, const psys::SpellEventInfo& event)
 {
-	if (event.type == psys::SpellEventInfo::Started || DataFor(entity).forest != entt::null)
+	if (event.type == psys::SpellEventInfo::Started || DataFor(entity).forestId != 0)
 	{
 		return 1;
 	}
@@ -290,29 +326,35 @@ int Process(entt::entity entity)
 	forest_debug::OnTurn(entity, CurrentTurn()); // OPENBLACK_TEST_FOREST_SHOT
 	auto& data = DataFor(entity);
 	auto& registry = Locator::entitiesRegistry::value();
-	// the forest was deleted (+0xA bit 0): +0xEC = 0 and CloseDown (vt 0x530)
-	if (data.forest != entt::null && !ecs::forests::Exists(data.forest))
+	// the forest was deleted (+0xA bit 0): +0xEC = 0 and CloseDown (vt 0x530). It is deleted with its last magic tree
+	// (MagicTree::ToBeDeleted 0x5FD070, PruneTrees) or, empty, by ECS/Trees' forest turn.
+	if (data.forestId != 0 && (data.forestDeleted || PruneTrees(data) || !ecs::IsInForest(data.forestId)))
 	{
-		data.forest = entt::null;
+		data.forestId = 0;
+		data.forestDeleted = false;
+		data.trees.clear();
 		magic::CloseDown(entity);
 	}
-	if (data.forest == entt::null)
+	if (data.forestId == 0)
 	{
 		return registry.Get<const Spell>(entity).psys != 0 ? 1 : 5;
 	}
 	const auto& info = ForestInfoOf(entity);
 	const int wanted = TreesWanted(entity);
-	const uint32_t count = ecs::forests::TreeCount(data.forest);
+	const uint32_t count = TreeCountOf(data);
 	float change = 0.0f;
 	// cmp wanted, count; jae (unsigned)
 	const bool decay = static_cast<uint32_t>(wanted) < count;
 	if (decay)
 	{
-		change = ecs::forests::DecayTrees(data.forest, info.decaySpeed); // fn_00725B00 -> fn_0053A490
+		// fn_00725B00 -> fn_0053A490 (ECS/Trees): a tree reaching 0 goes (its MagicTree::ToBeDeleted part: PruneTrees)
+		change = ecs::ShrinkAllTrees(data.forestId, info.decaySpeed);
+		// the last tree took the forest with it: CloseDown on the next turn, as the original
+		data.forestDeleted = PruneTrees(data);
 	}
 	else
 	{
-		change = ecs::forests::GrowTrees(data.forest, info.growSpeed); // fn_00725AD0 -> fn_0053A520
+		change = ecs::GrowAllTrees(data.forestId, info.growSpeed); // fn_00725AD0 -> fn_0053A520
 	}
 	if (TraceEnabled())
 	{
@@ -338,13 +380,20 @@ void ForestCloseDown(entt::entity entity)
 
 void ToBeDeleted(entt::entity entity)
 {
-	// SpellForest::ToBeDeleted 0x725500: the forest (if not already going) goes with its trees, then Spell::ToBeDeleted
+	// SpellForest::ToBeDeleted 0x725500: the forest (if not already going) goes with its trees (Forest::ToBeDeleted
+	// 0x539C60: each tree's ToBeDeleted), then Spell::ToBeDeleted. ECS/Trees has no forest deletion: the emptied forest
+	// is dropped by its own turn 2000 turns later.
 	auto& data = DataFor(entity);
 	if (HasForest(data))
 	{
-		ecs::forests::ToBeDeleted(data.forest);
+		PruneTrees(data);
+		for (const auto tree : ForestTrees(data.forestId))
+		{
+			magic_tree::ToBeDeleted(tree);
+		}
 	}
-	data.forest = entt::null;
+	data.trees.clear();
+	data.forestId = 0;
 }
 
 bool HasEnoughChantsAndLifeForRecast(entt::entity spell)

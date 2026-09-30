@@ -115,8 +115,8 @@ uint32_t TownIdFor(int townId)
 		return static_cast<uint32_t>(townId);
 	}
 	uint32_t found = 0xFFFFFFFFu;
-	Registry().Each<const Town, const TownInfluence>([&](const Town& town, const TownInfluence& influence) {
-		if (found == 0xFFFFFFFFu && influence.owner == PlayerNames::PLAYER_ONE)
+	Registry().Each<const Town>([&](const Town& town) {
+		if (found == 0xFFFFFFFFu && town.owner == PlayerNames::PLAYER_ONE)
 		{
 			found = town.id;
 		}

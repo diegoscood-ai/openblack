@@ -93,9 +93,9 @@ protected:
 	{
 		auto& registry = Locator::entitiesRegistry::value();
 		const auto town = registry.Create();
-		registry.Assign<Town>(town, id);
+		registry.Assign<Town>(town, id).owner = PlayerNames::PLAYER_ONE;
 		registry.Assign<Transform>(town, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
-		registry.Assign<TownInfluence>(town, PlayerNames::PLAYER_ONE);
+		registry.Assign<TownInfluence>(town);
 		auto& magic = registry.Assign<TownMagic>(town);
 		magic.worshipPercentage = percentage;
 		const auto site = registry.Create();

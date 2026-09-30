@@ -29,7 +29,7 @@ entt::entity TownArchetype::Create(int id, const glm::vec3& position, PlayerName
 
 	registry.Assign<Town>(entity, static_cast<uint32_t>(id)).owner = playerOwner;
 	registry.Assign<Tribe>(entity, tribe);
-	registry.Assign<TownInfluence>(entity, playerOwner); // Town +0x2C (the owner) and its influence (ECS/Influence)
+	registry.Assign<TownInfluence>(entity); // its influence (ECS/Influence); the owner is Town +0x2C above
 	// the magic types the town holds, its spell icons and its worship site (src/Worship, Town.cpp 0x73D1C0..)
 	registry.Assign<TownMagic>(entity);
 	registry.Assign<Transform>(entity, position, glm::mat3(1.0f), glm::vec3(1.0f));

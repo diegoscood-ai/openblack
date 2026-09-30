@@ -337,8 +337,12 @@ void pot_resource::SetSpeedUp(entt::entity pile, bool on)
 }
 
 uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper& dropper, ResourceType type, uint32_t amount,
-                                        bool poisoned, bool speedUp)
+                                        bool poisoned, bool speedUp, entt::entity* newPile)
 {
+	if (newPile != nullptr)
+	{
+		*newPile = entt::null;
+	}
 	if (!Locator::entitiesRegistry::has_value() || !Locator::infoConstants::has_value() || position.x < 0.0f || position.z < 0.0f)
 	{
 		return 0;
@@ -378,6 +382,10 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 	if (pile == entt::null)
 	{
 		return amount - left;
+	}
+	if (newPile != nullptr)
+	{
+		*newPile = pile;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	PlayPileSound(registry.Get<const Transform>(pile).position, type, left);

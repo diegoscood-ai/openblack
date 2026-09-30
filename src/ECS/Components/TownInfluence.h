@@ -13,11 +13,10 @@
 
 namespace openblack::ecs::components
 {
-/// The influence fields of a Town (kept apart from components::Town). Town::Process 0x747380 recomputes the radius
-/// every turn (influence::ProcessTowns).
+/// The influence fields of a Town (kept apart from components::Town, whose `owner`, Town +0x2C, is the only player whose
+/// influence counts it). Town::Process 0x747380 recomputes the radius every turn (influence::ProcessTowns).
 struct TownInfluence
 {
-	PlayerNames owner;       ///< Town +0x2C (GetPlayer): only the owner's influence counts it
 	float radius {0.0f};     ///< +0x5C8: base + abodes, x townInfluenceMultiplier; inside it the town gives 1
 	bool noInfluence {false}; ///< +0x5F8, the Town ctor's last argument (0 for CREATE_TOWN): no base, no abodes
 };

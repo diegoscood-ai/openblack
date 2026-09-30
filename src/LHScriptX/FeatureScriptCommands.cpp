@@ -62,6 +62,7 @@
 #include "LandBalance.h"
 #include "Magic/Script/MapScriptMagic.h"
 #include "Magic/Script/MapScriptWeather.h"
+#include "Worship/WorshipPercentage.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "ScriptingBindingUtils.h"
@@ -447,6 +448,9 @@ void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position,
 		townData.centre = centre;
 	}
 	townData.worshipPercentage = static_cast<float>(worshipPercentage) * 0.001f;
+	// the real Town::SetWorshipPercentage 0x73C060 (Worship/WorshipPercentage.cpp: kept only with a worship site, the
+	// totem statue, the villagers sent)
+	worship::percentage::SetWorshipPercentage(town, townData.worshipPercentage);
 }
 
 void FeatureScriptCommands::CreateTownSpell(int32_t townId, const std::string& spellName)

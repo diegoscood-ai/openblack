@@ -21,6 +21,8 @@
 #include "3D/LandIslandInterface.h"
 #include "Alignment.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
@@ -30,6 +32,7 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/AnimalAI.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Players.h"
@@ -104,7 +107,7 @@ PlayerNames PlayerOf(entt::entity object)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (const auto* villager = registry.TryGet<const Villager>(object); villager != nullptr && registry.Valid(villager->town))
 	{
-		if (const auto* town = registry.TryGet<const TownInfluence>(villager->town); town != nullptr)
+		if (const auto* town = registry.TryGet<const Town>(villager->town); town != nullptr)
 		{
 			return town->owner;
 		}
@@ -112,14 +115,18 @@ PlayerNames PlayerOf(entt::entity object)
 	return PlayerNames::NEUTRAL;
 }
 
-/// Object::DestroyedByEffect (vt 0x5F8): Villager -> its death (no corpse or death states yet: life::Kill).
-/// TODO(M5/M6): Abode::DestroyedByEffect 0x403F80 and the other classes.
+/// Object::DestroyedByEffect (vt 0x5F8): Villager -> its death (no corpse or death states yet: life::Kill); Animal
+/// 0x41B1B0 -> Living::SetDying (ECS/AnimalAI). TODO(M5/M6): Abode::DestroyedByEffect 0x403F80 and the other classes.
 void DestroyedByEffect(entt::entity object)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.AllOf<Villager>(object))
 	{
 		life::Kill(object, "spell effect");
+	}
+	else if (registry.AllOf<Animal>(object))
+	{
+		ecs::animal_ai::DestroyedByEffect(object);
 	}
 }
 } // namespace

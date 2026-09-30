@@ -37,9 +37,9 @@ struct Dropper
 /// fire centre is within Get2DRadius x GetRadiusMultiplierForApplyingPotToPos of pos takes what it accepts. What is
 /// left, on land, makes a new MagicFood / MagicWood pile (fn_005FA8B0) with the pile sound, SetPoisoned(poisoned) and
 /// SetSpeedUp(speedUp). Returns amount - left, what went into the stores and pots already there (a new pile's part
-/// is not counted, as in the original).
+/// is not counted, as in the original). `newPile`, when given, gets the new pile (entt::null when none was made).
 uint32_t AddResourceToPos(const glm::vec3& position, const Dropper& dropper, ResourceType type, uint32_t amount,
-                          bool poisoned, bool speedUp);
+                          bool poisoned, bool speedUp, entt::entity* newPile = nullptr);
 
 /// fn_0066D1A0: the pile sound at pos, by type and amount (food < 200: G_PileFoodSmall_01..06 (77 + t % 6), else
 /// G_PileFood_01/02 (75 + (t & 1)); wood < 200: G_PileWoodSmall_01..06 (92 + t % 6), else G_PileWood_01..06 (86 + t % 6))

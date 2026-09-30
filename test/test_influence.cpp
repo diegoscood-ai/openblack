@@ -64,10 +64,10 @@ protected:
 	{
 		auto& registry = Locator::entitiesRegistry::value();
 		const auto town = registry.Create();
-		registry.Assign<Town>(town, id);
+		registry.Assign<Town>(town, id).owner = owner;
 		registry.Assign<Tribe>(town, Tribe::NORSE);
 		registry.Assign<Transform>(town, position, glm::mat3(1.0f), glm::vec3(1.0f));
-		registry.Assign<TownInfluence>(town, owner);
+		registry.Assign<TownInfluence>(town);
 		registry.Context().towns.insert({id, town});
 		return town;
 	}

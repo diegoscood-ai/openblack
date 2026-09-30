@@ -1373,7 +1373,7 @@ donde llega, y `MoveMapObject`.
     +50..60 m);
   - `teleport_jump.log`: un salto forzado (soltar) con `PayFor(6, forzado)` y SV 14 en los dos extremos.
 
-## Bosque (M4b, `Magic/Spells/SpellForest`, `Magic/Objects/MagicTree`, `ECS/Forests`, `ECS/TreeGrowth`)
+## Bosque (M4b, `Magic/Spells/SpellForest`, `Magic/Objects/MagicTree`, `ECS/Trees`)
 
 Informe: `resources.md` §3; lo de abajo está releído en el exe (W120, `tmp_dis\miracles\impl\m4b\`) y corrige varias
 cosas del informe. La escena de la diosa de los árboles (toma de la cámara) está aplazada.
@@ -1436,18 +1436,21 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     +0x14 & 0x8000 (sin identificar: se toma como apagada).
   - `GetWoodValueMultiplier` (vt 0x868) = +0x70; el de Tree 0x74B810 da 1. `Tree::GetWoodValue` 0x74B7B0 = vida × eso
     × woodValue × escala × [0xD1A294]; `HandSystem::DepositInStore` ya lo multiplica. `GetImpressiveType` 14.
-- **Tree** (`ECS/TreeGrowth`, `components::Tree`): el ctor 0x749E00 recibe (pos, info, bosque, maxScale → +0x64,
+- **Tree** (`ECS/Trees` de la sesión «arboles», `components::Tree`): el ctor 0x749E00 recibe (pos, info, bosque, maxScale → +0x64,
   ángulo, escala); si maxScale ≠ escala marca «creciendo» (+0x5E bit 0) y la cuenta +0x60 (int16) =
-  GameRand(growsAfterNumGameTurns); luego `Forest::AddTree` y +0x5E | 2. `TreeArchetype::Create` hace ahora lo mismo.
+  GameRand(growsAfterNumGameTurns); luego `Forest::AddTree` y +0x5E | 2. `TreeArchetype::Create(forestId, pos, info,
+  noEscénico, ángulo, maxSize, size)` hace lo mismo; `MagicTree` lo llama con el id de su bosque, maxSize 1 y size 0.
   - `Tree::Grow` 0x74A3F0 (cantidad, setScale, subirMax): con subirMax, maxScale = max(maxScale, escala + cantidad);
     nada si la escala ya es maxScale; si no, min(escala + cantidad, maxScale) con `SetScale` (vt 0x124) o con
     `SetJustScale` (vt 0x51C) y la matriz 3D rehecha con la escala, el ángulo Y y la posición. Devuelve lo que creció.
   - `Tree::Process` 0x74A290 (vt 0x5FC, lista de los que crecen): baja la cuenta; en 0 vuelve a
     growsAfterNumGameTurns y, si crece por debajo de maxScale, `Grow(growthAmount × (1 + GetMaxRainingOrSnowing × 0,01
     × rainingAcceleratorMultiplier) × (1 + alineamiento del sitio × 0,5), 0, 0)`; devuelve 1 si sigue creciendo.
-    **El crecimiento natural está aplazado** (no se llama a Grow); la cuenta y el paso a la lista de crecidos, sí.
+    En openblack es `ecs::ProcessTreesTurn` (sin lluvia ni alineamiento todavía) y alcanza también a los árboles del
+    milagro, como en el original (su bosque es uno más de la lista).
   - `Tree::ToBeDeleted` 0x74A210: sale de su bosque (fn_0053A220) y de la lista global de árboles g_game +0x205CDC.
-- **Forest** (`ECS/Forests`, `components::ForestTrees`; 0x58 bytes: id +0x40, siguiente +0x44, `Trees0` +0x48/+0x4C
+- **Forest** (en openblack, los ids de `ECS/Trees`: `CreateForest`, `IsInForest`, `GrowAllTrees`, `ShrinkAllTrees`,
+  `TallestTreeHeight`; los árboles guardan el id en `forestId` y no hay listas; 0x58 bytes: id +0x40, siguiente +0x44, `Trees0` +0x48/+0x4C
   los crecidos, `Trees1` +0x50/+0x54 los que crecen):
   - `AddTree` 0x53A310: árbol +0x68 = bosque; a `Trees1` si crece por debajo de maxScale, si no a `Trees0`; cada
     lista ordenada por `DistanceToForest` 0x53A890 (distancia al bosque, 0 sin bosque): el nuevo va delante del primero
@@ -1456,12 +1459,17 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     0) pone +0x34 = 2000 y lo baja cada turno; por debajo de 2 se borra. Si no, y con +0x3C ≠ 1, `Tree::Process` de
     cada árbol que crece; los que devuelven 0 pasan a `Trees0`. Luego los árboles nuevos naturales (cada 2000 +
     GameFloatRand(1000) × 0,05 × crecidos, junto a uno al azar, fn_00539FD0 / fn_0053A010, y FUN_0064da80(14, 1) al
-    jugador más influyente) están aplazados. +0x38 y +0x3C no se sabe qué son (0 en el ctor).
+    jugador más influyente) los hace `ECS/Trees` (sin el alineamiento) también en los bosques del milagro: un árbol
+    nuevo en uno de ellos hace que haya más árboles que N y el bosque entero mengua, como haría el original. +0x38 y +0x3C no se sabe qué son (0 en el ctor).
   - `ToBeDeleted` 0x539C60: `ToBeDeleted` de cada árbol de las dos listas y sale de la lista.
-  - **No hay unión de bosques**: el milagro siempre hace un Forest nuevo. Los bosques de los guiones siguen siendo los
-    números `forestId` de openblack (el id nuevo es uno más que el mayor en uso, inf).
-  - En openblack, los árboles que otros sistemas quitan sin `ToBeDeleted` (quemados, al almacén, árbol muerto) salen
-    de las listas en el siguiente acceso, con sus reacciones, y el bosque se va con el último (inf).
+  - **No hay unión de bosques**: el milagro siempre hace un Forest nuevo (`CreateForest(0, punto del primer árbol)`).
+  - Diferencias de `ECS/Trees` que el hechizo compensa: no hay borrado de bosques (solo el de un bosque vacío tras 2000
+    turnos), así que `SpellForest` guarda sus MagicTree y, cuando se va el último, da el bosque por borrado y cierra al
+    turno siguiente como el original; `ShrinkAllTrees` destruye la entidad sin `ToBeDeleted`, así que las reacciones de
+    los MagicTree que llegan a 0 (o que otros sistemas quitan: quemados, al almacén, árbol muerto, replantados en otro
+    bosque) se quitan en `SpellForest` justo después (`magic_tree::Forget`). El jugador del Forest (solo para el
+    alineamiento de los árboles nuevos naturales) no se guarda. `Forest::ToBeDeleted` del hechizo borra cada árbol con
+    `magic_tree::ToBeDeleted`; el id vacío lo quita `ECS/Trees` 2000 turnos después.
 - **El efecto SF_Forest sin la escena** (lo que se ve): la semilla `Seed.L3D` (escala 0,207) cae desde 9,4 m con
   gravedad 1,6 (máx. 3,35 m/s) girando, con SOUND_SPELL_FOREST_1 y un disco de manchas azules; al tocar tierra (turno
   41, 4,1 s) salen los 18 árboles. **Todo lo demás cuelga del átomo de la cámara** (grupo 2,

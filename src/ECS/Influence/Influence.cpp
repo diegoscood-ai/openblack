@@ -15,6 +15,7 @@
 #include "ECS/Components/InfluenceRing.h"
 #include "ECS/Components/Player.h"
 #include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -68,12 +69,13 @@ float TownsInfluenceAt(PlayerNames player, const glm::vec3& position)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	float sum = 0.0f;
-	registry.Each<const TownInfluence, const Transform>([&](const TownInfluence& town, const Transform& transform) {
-		if (town.owner == player && influence::detail::DistanceXZ(transform.position, position) < town.radius)
-		{
-			sum += town.radius;
-		}
-	});
+	registry.Each<const Town, const TownInfluence, const Transform>(
+	    [&](const Town& town, const TownInfluence& influence, const Transform& transform) {
+		    if (town.owner == player && influence::detail::DistanceXZ(transform.position, position) < influence.radius)
+		    {
+			    sum += influence.radius;
+		    }
+	    });
 	return sum;
 }
 } // namespace

@@ -18,6 +18,7 @@
 #include <glm/vec2.hpp>
 
 #include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
@@ -50,8 +51,8 @@ entt::entity NearestTownOfTribe(const glm::vec3& position, Tribe tribe)
 {
 	entt::entity best = entt::null;
 	float bestDistance = std::numeric_limits<float>::max();
-	Registry().Each<const TownInfluence, const Tribe, const Transform>(
-	    [&](entt::entity town, const TownInfluence&, const Tribe& t, const Transform& transform) {
+	Registry().Each<const Town, const Tribe, const Transform>(
+	    [&](entt::entity town, const Town&, const Tribe& t, const Transform& transform) {
 		    if (t != tribe)
 		    {
 			    return;
@@ -70,8 +71,8 @@ entt::entity NearestTownOfTribe(const glm::vec3& position, Tribe tribe)
 std::vector<entt::entity> TownsOf(PlayerNames player)
 {
 	std::vector<entt::entity> towns;
-	Registry().Each<const TownInfluence>([&](entt::entity town, const TownInfluence& influence) {
-		if (influence.owner == player)
+	Registry().Each<const Town>([&](entt::entity town, const Town& data) {
+		if (data.owner == player)
 		{
 			towns.push_back(town);
 		}

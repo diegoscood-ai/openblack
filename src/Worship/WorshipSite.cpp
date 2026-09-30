@@ -23,6 +23,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
@@ -75,8 +76,8 @@ Tribe TribeOfTown(entt::entity town)
 
 PlayerNames OwnerOfTown(entt::entity town)
 {
-	const auto* influence = Locator::entitiesRegistry::value().TryGet<const TownInfluence>(town);
-	return influence != nullptr ? influence->owner : PlayerNames::NEUTRAL;
+	const auto* data = Locator::entitiesRegistry::value().TryGet<const Town>(town); // Town +0x2C
+	return data != nullptr ? data->owner : PlayerNames::NEUTRAL;
 }
 
 /// fn_0073D2E0: the town has a TownSpellIcon of that seed
@@ -285,8 +286,8 @@ entt::entity site::Create(entt::entity citadelEntity, Tribe tribe, const glm::ve
 
 	// WorshipSite::AssignTownsToWorshipSite 0x77AF70: the player's towns (GPlayer +0xA50) of the site's tribe
 	std::vector<entt::entity> towns;
-	registry.Each<const TownInfluence, const Tribe>([&](entt::entity town, const TownInfluence& influence, const Tribe& t) {
-		if (influence.owner == site.player && t == tribe)
+	registry.Each<const Town, const Tribe>([&](entt::entity town, const Town& data, const Tribe& t) {
+		if (data.owner == site.player && t == tribe)
 		{
 			towns.push_back(town);
 		}

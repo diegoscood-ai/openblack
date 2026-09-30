@@ -15,29 +15,29 @@
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/Reactions.h"
-#include "ECS/Forests.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
-#include "ECS/TreeGrowth.h"
+#include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Trees.h"
 #include "Locator.h"
 
 using namespace openblack;
 using namespace openblack::magic;
 using namespace openblack::ecs::components;
 
-entt::entity magic_tree::Create(const glm::vec3& position, entt::entity spell, TreeInfo type, entt::entity forest,
+entt::entity magic_tree::Create(const glm::vec3& position, entt::entity spell, TreeInfo type, uint32_t forestId,
                                 float angle, float scale, float woodValueMultiplier)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const float ground = Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z));
-	// Tree(pos, info, forest, 1.0, angle, scale): the growing flag and countdown (TreeArchetype -> trees::InitGrowth),
-	// then Forest::AddTree
-	const auto tree =
-	    ecs::archetypes::TreeArchetype::Create(0, glm::vec3(position.x, ground, position.z), type, true, angle, 1.0f, scale);
+	// Tree(pos, info, forest, 1.0, angle, scale) 0x749E00: in the forest (Forest::AddTree), growing since maxScale 1.0 is
+	// not the scale, with its random growth counter (ECS/Trees: TreeArchetype::Create)
+	const auto tree = ecs::archetypes::TreeArchetype::Create(forestId, glm::vec3(position.x, ground, position.z), type, true,
+	                                                         angle, 1.0f, scale);
 	if (tree == entt::null)
 	{
 		return entt::null;
 	}
-	ecs::forests::AddTree(forest, tree);
 	// the spell's GetPlayer (vt 0x1C, +0xA4); none: the player at g_game +0x205A5B
 	PlayerNames player = PlayerNames::NEUTRAL;
 	if (spell != entt::null && registry.Valid(spell))
@@ -56,14 +56,41 @@ void magic_tree::ToBeDeleted(entt::entity tree)
 	{
 		return;
 	}
-	const auto forest = registry.AllOf<Tree>(tree) ? registry.Get<Tree>(tree).forest : entt::null;
-	ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
-	ecs::trees::BaseToBeDeleted(tree);
-	// the forest is still available and has no tree left (+0x4C + +0x54 == 0): it goes too
-	if (forest != entt::null && ecs::forests::Exists(forest) && ecs::forests::TreeCount(forest) == 0)
+	// MagicTree::ToBeDeleted 0x5FD070: its reactions go, then Tree::ToBeDeleted. (The forest going with its last tree is
+	// SpellForest's side: ECS/Trees has no forest deletion, see Magic/Spells/SpellForest.cpp.)
+	if (registry.AllOf<MagicTree>(tree))
 	{
-		ecs::forests::ToBeDeleted(forest);
+		ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
 	}
+	// Tree::ToBeDeleted 0x74A210: out of its forest (fn_0053A220), then Object::ToBeDeleted 0x636670 (inf: it also
+	// leaves the hand and the physics; the global tree list g_game +0x205CDC is the registry here)
+	ecs::SetTreeForest(tree, 0);
+	if (Locator::handSystem::has_value())
+	{
+		const auto held = Locator::handSystem::value().GetHeldObject();
+		if (held.has_value() && *held == tree)
+		{
+			Locator::handSystem::value().ForceDropHeld();
+		}
+	}
+	ecs::physics::PhysicsObjects::RemoveObject(tree);
+	registry.Destroy(tree);
+	registry.SetDirty();
+}
+
+void magic_tree::Forget(entt::entity tree, bool gone)
+{
+	// what MagicTree::ToBeDeleted 0x5FD070 does for a tree another system took out of the world (burnt, put in a
+	// store, a dead tree now) or out of its forest: gone, all its reactions; a tree that stays (a DeadTree keeps the
+	// entity) loses only REACT_TO_MAGIC_TREE and its MagicTree part (inf)
+	auto& registry = Locator::entitiesRegistry::value();
+	if (gone || !registry.Valid(tree))
+	{
+		ecs::effects::reactions::RemoveAllReactionsInitiatedByObject(tree);
+		return;
+	}
+	ecs::effects::reactions::RemoveAllReactionsOfTypeInitiatedBy(tree, Reaction::ReactToMagicTree);
+	registry.Remove<MagicTree>(tree);
 }
 
 void magic_tree::StartOnFire(entt::entity tree)

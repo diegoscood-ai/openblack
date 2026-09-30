@@ -17,6 +17,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/AnimalAI.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -88,6 +89,7 @@ void openblack::ecs::life::Kill(entt::entity entity, const char* reason)
 			town->homelessVillagers.erase(entity);
 		}
 	}
+	ecs::animal_ai::Forget(entity);
 	physics::PhysicsObjects::RemoveObject(entity);
 	registry.Destroy(entity);
 	registry.SetDirty();

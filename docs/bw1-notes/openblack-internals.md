@@ -185,7 +185,7 @@ dibuja» de «en ese fotograma no había ninguna» (el rayo parpadea: una horqui
 
 Teletransporte ([magic.md](magic.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)): `OPENBLACK_TEST_TELEPORT="x0,z0,x1,z1[,jugador[,modo]]"` planta dos piedras de teletransporte como `SPELL_AT_POS` (la B en x1,z1 y la A en x0,z0; jugador 7 = neutral y gratis, 0 = PLAYER_ONE gasta cánticos). `modo`: `walk` (por defecto, el aldeano más cercano a A anda hacia B dos turnos antes y la reacción de A lo desvía por las piedras), `drop` (un segundo después se suelta el aldeano sobre A, salto forzado como `fn_005FC4F0`), `none` (solo las piedras). `OPENBLACK_TEST_TELEPORT_TURN=<n>` retrasa el inicio (el vuelo de una captura tarda ~160 turnos). `OPENBLACK_TELEPORT_TRACE=1` (o `OPENBLACK_SPELL_TRACE=1`) escribe las piedras, el reparto de la reacción, los saltos (de qué piedra a cuál, el ahorro en metros) y el `PayFor` del hechizo (un salto útil suma cánticos, uno forzado hacia atrás cuesta, R13). Los discos usan `ZR_SurfRevol` (`RendererSurfRevol.cpp`).
 
-Bosque ([magic.md](magic.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecsforests-ecstreegrowth)):
+Bosque ([magic.md](magic.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)):
 `OPENBLACK_TEST_MAGIC_TURN=<n>` hace que `OPENBLACK_TEST_SPELL`, `_SEED` y `_ONESHOT` esperen al turno de juego n (para
 que la cámara de `OPENBLACK_CAMERA_FLY` ya esté allí); `OPENBLACK_TEST_FOREST_SHOT="<turnos>,<ruta.png>[;<turnos>,<ruta>...]"`
 pide una captura esos turnos después de que la semilla del bosque toque tierra (el número de fotograma de

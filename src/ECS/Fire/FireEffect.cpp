@@ -25,6 +25,7 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Effects/Reactions.h"
@@ -145,7 +146,7 @@ bool PlayerOfObject(entt::entity object, PlayerNames& player)
 	if (const auto* villager = registry.TryGet<const components::Villager>(object);
 	    villager != nullptr && registry.Valid(villager->town))
 	{
-		if (const auto* town = registry.TryGet<const components::TownInfluence>(villager->town); town != nullptr)
+		if (const auto* town = registry.TryGet<const components::Town>(villager->town); town != nullptr)
 		{
 			player = town->owner;
 			return true;

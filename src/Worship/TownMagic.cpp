@@ -241,8 +241,8 @@ PlayerNames town::OwnerOf(entt::entity townEntity)
 	{
 		return PlayerNames::NEUTRAL;
 	}
-	const auto* influence = registry.TryGet<const TownInfluence>(townEntity);
-	return influence != nullptr ? influence->owner : PlayerNames::NEUTRAL;
+	const auto* town = registry.TryGet<const Town>(townEntity); // Town +0x2C
+	return town != nullptr ? town->owner : PlayerNames::NEUTRAL;
 }
 
 entt::entity town::FromId(uint32_t id)

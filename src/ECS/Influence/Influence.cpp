@@ -96,6 +96,12 @@ InfluenceGlobals& Globals()
 	return registry.Get<InfluenceGlobals>(entity);
 }
 
+MapScriptGlobals& MapGlobals()
+{
+	static MapScriptGlobals s_WithoutGame;
+	return Game::Instance() != nullptr ? Game::Instance()->GetMapScriptGlobals() : s_WithoutGame;
+}
+
 const InfluenceGlobals& GlobalsOrDefault()
 {
 	static const InfluenceGlobals k_Defaults {};
@@ -240,34 +246,19 @@ void ProcessTurn()
 	ProcessRings();
 }
 
-void SetLandNumber(int32_t land)
-{
-	detail::Globals().landNumber = land;
-}
-
 int32_t LandNumber()
 {
-	return detail::GlobalsOrDefault().landNumber;
-}
-
-void SetTownInfluenceMultiplier(float multiplier)
-{
-	detail::Globals().townMultiplier = multiplier;
-}
-
-void SetPlayerInfluenceMultiplier(float multiplier)
-{
-	detail::Globals().playerMultiplier = multiplier;
+	return detail::MapGlobals().landNumber;
 }
 
 float TownInfluenceMultiplier()
 {
-	return detail::GlobalsOrDefault().townMultiplier;
+	return detail::MapGlobals().townInfluenceMultiplier;
 }
 
 float PlayerInfluenceMultiplier()
 {
-	return detail::GlobalsOrDefault().playerMultiplier;
+	return detail::MapGlobals().playerInfluenceMultiplier;
 }
 
 void SetInfluenceEverywhere(bool on)

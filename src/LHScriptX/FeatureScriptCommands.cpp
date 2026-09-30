@@ -149,32 +149,6 @@ entt::entity FindNearestTown(const glm::vec3& position)
 	return nearest;
 }
 
-/// fn_007731B0: the newest climate with that id (0 is the world's climate, g_game+0x250534, made on demand by
-/// fn_00771300 with everything 0)
-Climate* FindClimate(int32_t id)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	auto& context = registry.Context();
-	if (id == 0)
-	{
-		if (context.worldClimate == entt::null)
-		{
-			context.worldClimate = registry.Create();
-			registry.Assign<Climate>(context.worldClimate, 0);
-			context.climates.push_back(context.worldClimate);
-		}
-		return &registry.Get<Climate>(context.worldClimate);
-	}
-	for (auto it = context.climates.rbegin(); it != context.climates.rend(); ++it)
-	{
-		if (auto* climate = registry.TryGet<Climate>(*it); climate != nullptr && climate->id == id)
-		{
-			return climate;
-		}
-	}
-	return nullptr;
-}
-
 /// MultiMapFixed::InsertMapObject 0x52E650 for an object the script made: its collide data (the mesh's, with the
 /// script's angle and scale, not openblack's transform, which has the altitude and the x/z angles) for the
 /// IsOkToCreateAtPos of the trees, pots and mobile objects after it
@@ -853,58 +827,28 @@ void FeatureScriptCommands::CreateInfluenceRing(glm::vec3 position, int32_t play
 void FeatureScriptCommands::CreateWeatherClimate(int32_t id, int32_t info, glm::vec3 position, float radius1,
                                                  float radius2)
 {
-	// the weather simulation's GClimate (Magic/Script/MapScriptWeather.cpp -> ECS/Weather/Climate)
+	// case 60 (0x7171F5) -> fn_00771300(pos, &GClimateInfo[N1], F3, F4, 0, id N0): Magic/Script/MapScriptWeather.cpp ->
+	// ECS/Weather/Climate (id 0: GClimate(0), which ignores the rest; otherwise GClimate 0x771170, radii in order)
 	magic::map_script::CreateWeatherClimate(id, info, position, radius1, radius2);
-	// and the map-loading record of it: case 60 (0x7171F5) -> fn_00771300(pos, &GClimateInfo[N1], F3, F4, 0, id N0):
-	// id 0 makes a GClimate(0) that ignores the rest; otherwise GClimate 0x771170, radii in order
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto entity = registry.Create();
-	auto& climate = registry.Assign<Climate>(entity, id);
-	if (id != 0)
-	{
-		climate.info = info;
-		climate.position = position;
-		climate.innerRadius = std::min(radius1, radius2);
-		climate.outerRadius = std::max(radius1, radius2);
-	}
-	registry.Context().climates.push_back(entity);
 }
 
 void FeatureScriptCommands::CreateWeatherClimateRain(int32_t id, float desire, int32_t dryDays, int32_t rainingDays,
                                                      int32_t flags)
 {
-	magic::map_script::CreateWeatherClimateRain(id, desire, dryDays, rainingDays, flags);
 	// case 61 (0x717250) -> 0x773200: the climate's +0x34.. = {F1, N2, N3, (uint8_t)N4}; nothing for an unknown id
-	if (auto* climate = FindClimate(id))
-	{
-		climate->rain = desire;
-		climate->rainN2 = dryDays;
-		climate->rainN3 = rainingDays;
-		climate->rainN4 = static_cast<uint8_t>(flags);
-	}
+	magic::map_script::CreateWeatherClimateRain(id, desire, dryDays, rainingDays, flags);
 }
 
 void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t id, float temperature, float target)
 {
-	magic::map_script::CreateWeatherClimateTemp(id, temperature, target);
 	// case 62 (0x7172A2) -> 0x773290: +0x44 = F1, +0x48 = F2
-	if (auto* climate = FindClimate(id))
-	{
-		climate->temperature1 = temperature;
-		climate->temperature2 = target;
-	}
+	magic::map_script::CreateWeatherClimateTemp(id, temperature, target);
 }
 
 void FeatureScriptCommands::CreateWeatherClimateWind(int32_t id, float windX, float windZ, float angle)
 {
-	magic::map_script::CreateWeatherClimateWind(id, windX, windZ, angle);
 	// case 63 (0x7172E0) -> 0x7732D0: +0x4C.. = {F1, F2, F3}
-	if (auto* climate = FindClimate(id))
-	{
-		climate->wind1 = windX;
-		climate->wind2 = windZ;
-		climate->wind3 = angle;
-	}
+	magic::map_script::CreateWeatherClimateWind(id, windX, windZ, angle);
 }
 
 void FeatureScriptCommands::CreateWeatherStorm(int32_t climate, glm::vec3 position, float age, int32_t numClouds,
@@ -1052,8 +996,7 @@ void FeatureScriptCommands::CreateStreetLight(glm::vec3 position)
 void FeatureScriptCommands::SetLandNumber(int32_t number)
 {
 	// case 82 (0x7177A4): g_game+0x205A08 (read by the influence and the worship sites, and kept in the map globals)
-	influence::SetLandNumber(number);
-	Game::Instance()->GetMapScriptGlobals().landNumber = number;
+	Game::Instance()->GetMapScriptGlobals().landNumber = number; // read by ECS/Influence and the worship sites
 }
 
 void FeatureScriptCommands::CreateOneShotSpell(glm::vec3 position, const std::string& seed)
@@ -1176,15 +1119,13 @@ void FeatureScriptCommands::CreateDrinkWaypoint(glm::vec3 position)
 void FeatureScriptCommands::SetTownInfluenceMultiplier(float multiplier)
 {
 	// case 96 (0x717B5C): g_game+0x250078
-	influence::SetTownInfluenceMultiplier(multiplier);
-	Game::Instance()->GetMapScriptGlobals().townInfluenceMultiplier = multiplier;
+	Game::Instance()->GetMapScriptGlobals().townInfluenceMultiplier = multiplier; // read by ECS/Influence
 }
 
 void FeatureScriptCommands::SetPlayerInfluenceMultiplier(float multiplier)
 {
 	// case 97 (0x717B7B): g_game+0x25007C
-	influence::SetPlayerInfluenceMultiplier(multiplier);
-	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier;
+	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier; // read by ECS/Influence
 }
 
 void FeatureScriptCommands::SetTownBalanceBeliefScale([[maybe_unused]] int32_t townId, [[maybe_unused]] float scale)

@@ -83,12 +83,10 @@ void ProcessTurn();
 
 // ---- the land's globals (GGame fields) ----
 
-/// g_game+0x205A08, SET_LAND_NUMBER (0 = no story land)
-void SetLandNumber(int32_t land);
+/// g_game+0x205A08, SET_LAND_NUMBER (0 = no story land): Game::GetMapScriptGlobals().landNumber
 [[nodiscard]] int32_t LandNumber();
-/// g_game+0x250078 / +0x25007C, SET_TOWN_INFLUENCE_MULTIPLIER / SET_PLAYER_INFLUENCE_MULTIPLIER (default 1)
-void SetTownInfluenceMultiplier(float multiplier);
-void SetPlayerInfluenceMultiplier(float multiplier);
+/// g_game+0x250078 / +0x25007C, SET_TOWN_INFLUENCE_MULTIPLIER / SET_PLAYER_INFLUENCE_MULTIPLIER (1 before each map
+/// script): Game::GetMapScriptGlobals()
 [[nodiscard]] float TownInfluenceMultiplier();
 [[nodiscard]] float PlayerInfluenceMultiplier();
 /// g_game+0x14 & 0x2000, set at start from the registry value "GatheringFlag" (start_system 0x6433B1): every player

@@ -69,6 +69,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Weather/Climate.h"
 #include "ECS/Trees.h"
 #include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -797,6 +798,17 @@ void HandSystem::UpdateTestAbode(float seconds) noexcept
 
 // Debug: OPENBLACK_DUMP_ENTITY_COUNTS=<hand updates> logs, once after that many hand updates, how many entities there are
 // of each kind (map loading audit).
+namespace
+{
+/// The GClimates of ECS/Weather/Climate (the world's one too)
+size_t ClimateCount()
+{
+	size_t count = 0;
+	openblack::weather::climate::ForEach([&count](const openblack::weather::climate::Climate&) { ++count; });
+	return count;
+}
+} // namespace
+
 void openblack::ecs::systems::hand_detail::DumpEntityCounts()
 {
 	static const char* env = std::getenv("OPENBLACK_DUMP_ENTITY_COUNTS");
@@ -818,7 +830,7 @@ void openblack::ecs::systems::hand_detail::DumpEntityCounts()
 	                   registry.Size<Abode>(), registry.Size<Town>(), registry.Size<Field>(), registry.Size<FishFarm>(),
 	                   registry.Size<Forest>(), registry.Size<BigForest>(), registry.Size<Pot>(), registry.Size<Mist>(),
 	                   registry.Size<StreetLantern>(), registry.Size<LanternLight>(), registry.Size<Arena>(),
-	                   registry.Size<Climate>(), registry.Size<DrinkWaypoint>(), registry.Size<Stream>(),
+	                   ClimateCount(), registry.Size<DrinkWaypoint>(), registry.Size<Stream>(),
 	                   registry.Size<Temple>(), registry.Size<TotemStatue>(), registry.Size<Mesh>());
 	int bare = 0;
 	registry.Each<const Transform>([&](entt::entity, const Transform&) { ++bare; }, entt::exclude<Mesh>);

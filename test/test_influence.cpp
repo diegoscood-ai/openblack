@@ -20,6 +20,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/Influence/InfluenceState.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -38,8 +39,13 @@ GInfluenceInfo ShippedInfluenceInfo()
 class InfluenceTest: public ::testing::Test
 {
 protected:
+	static void SetLand(int32_t land) { influence::detail::MapGlobals().landNumber = land; }
+	static void SetTownMultiplier(float value) { influence::detail::MapGlobals().townInfluenceMultiplier = value; }
+	static void SetPlayerMultiplier(float value) { influence::detail::MapGlobals().playerInfluenceMultiplier = value; }
+
 	void SetUp() override
 	{
+		influence::detail::MapGlobals() = MapScriptGlobals {};
 		auto info = std::make_unique<InfoConstants>();
 		info->influence = ShippedInfluenceInfo();
 		info->town.influence = 25.0f;
@@ -92,8 +98,8 @@ TEST(Influence, rangeGradient)
 TEST_F(InfluenceTest, townRadiusAndPlayer)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	influence::SetLandNumber(4);
-	influence::SetTownInfluenceMultiplier(0.8f);
+	SetLand(4);
+	SetTownMultiplier(0.8f);
 	const auto town = MakeTown(0, glm::vec3(1000.0f, 0.0f, 1000.0f), PlayerNames::PLAYER_ONE);
 	// a house of scale 2 with no villagers: 5 x 2 x 1 x (0 + 0 + 1) = 10
 	const auto house = registry.Create();
@@ -113,13 +119,13 @@ TEST_F(InfluenceTest, townRadiusAndPlayer)
 TEST_F(InfluenceTest, citadelStoryInfluence)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	influence::SetLandNumber(1);
+	SetLand(1);
 	const auto temple = registry.Create();
 	registry.Assign<Temple>(temple, PlayerNames::PLAYER_ONE);
 	registry.Assign<Transform>(temple, glm::vec3(2000.0f, 0.0f, 2000.0f), glm::mat3(1.0f), glm::vec3(1.0f));
 	EXPECT_FLOAT_EQ(influence::CitadelRadius(temple), 750.0f);
 	// fixed with the heart: a later multiplier only scales it (Citadel::GetInfluence)
-	influence::SetPlayerInfluenceMultiplier(0.5f);
+	SetPlayerMultiplier(0.5f);
 	EXPECT_FLOAT_EQ(influence::CitadelRadius(temple), 375.0f);
 	EXPECT_FLOAT_EQ(influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, glm::vec3(2000.0f, 0.0f, 2374.0f)), 1.0f);
 	EXPECT_FLOAT_EQ(influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, glm::vec3(2000.0f, 0.0f, 2376.0f)), 0.0f);

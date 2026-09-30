@@ -29,9 +29,5 @@ struct RegistryContext
 	/// CREATE_FLOCK's flocks by their script id (+0x8C). The original's list is newest first, so a repeated id finds
 	/// the last one made.
 	std::unordered_map<int32_t, entt::entity> flocks;
-	/// the GClimates in the order they were made (components::Climate); lookups go from the back
-	std::vector<entt::entity> climates;
-	/// g_game+0x250534: the world's climate that the _RAIN/_TEMP/_WIND commands with id 0 use (made on demand)
-	entt::entity worldClimate {entt::null};
 };
 } // namespace openblack::ecs

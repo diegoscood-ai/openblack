@@ -124,6 +124,52 @@
   0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
   Gancho `OPENBLACK_TEST_FELL="x,z"`.
 
+### Búsquedas de árboles y bosques para los aldeanos (informe `tmp_dis\trees2\villager_queries.md`)
+
+- **Árboles de una celda** (`TreesInCell`; `MapCoords::FindType(6)` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0): el
+  tipo 6 (`OBJECT_TYPE_FOREST_TREE`) va en la lista de **fijos** de la celda (MapCell +4), y `Fixed::InsertMapObjectToCell`
+  0x52DEA0 mete cada objeto **en cabeza**: el primero es el último insertado. openblack no tiene listas por celda:
+  `Tree::mapInsertion` guarda ese orden (al crear el árbol y al replantarlo, `InsertMapObject` en `Fixed::EndPhysics`).
+- **Buscar árbol para talar** (`FindTreeNearVillager` = `Villager::FindTreeNearVillager` 0x75FD00): las 9 celdas de
+  alrededor en el orden de `GUtils::Spiral` (tabla 0xDA59FC), en cada una **solo el primer árbol** que no sea
+  INDESTRUCTIBLE (bit 0x4000 de +0x24: solo lo ponen los objetos de puzle y `LandscapeVortexOut`; ningún árbol en una
+  partida normal); el más cercano por `Dist2D(aldeano, posición de trabajo)` desde 99999. Sin más reglas: ni distancia
+  máxima, ni el bit «de pueblo» (+0x5E & 2), ni tamaño, ni bosque. El original devuelve 0/1/10 (10 = ya lo toca,
+  `IsTouching`): eso lo decide el lado del aldeano.
+- **Posición de trabajo** (`TreeWorkingPos` = `Tree::GetWorkingPos` 0x74C040): la del árbol más, hacia el aldeano,
+  `Get2DRadius(aldeano) + 0,9` (0x8C5844). El radio es el **del aldeano**. `Object2DRadius` = `Object::Get2DRadius`
+  0x638180 = escala × max(semiejes x, z de su caja).
+- **Bosques** (Forest, 0x58 bytes): +0x34 cuenta atrás de vacío, +0x38 BigForest, +0x3C = 1 bosque «de pueblo»
+  (escénico), +0x40 id. Un **BigForest** tiene su Forest (su ctor 0x438CE0 lo crea en +0x80 y le pone +0x38): ahora en
+  openblack también, así que el Conifer que da al cogerlo y el Pine que planta en su borde son de ese bosque.
+  `Forest::Process`: solo cuenta como vacío sin BigForest y sin árboles; **un bosque escénico no se procesa** (sus árboles
+  no crecen y no planta).
+- **Bosque escénico del pueblo** (`MakeScenicForest` = `Town::MakeScenicForest` 0x741B40): toma los árboles a menos de
+  250 + 10 m del centro del pueblo que no tienen bosque, o cuyo bosque es escénico y están más cerca del centro del
+  pueblo que del de ese bosque; si el pueblo no tenía, lo crea en el centro. (aproximado: el original recorre una espiral de
+  celdas que para en la primera más lejana que R; aquí, los árboles cuya celda está a menos de R.)
+- **Lista de bosques del pueblo** (`AssignForestsToTown` = `Town::AssignForestsToTown` 0x73EB00, Town +0x608): se vacía y se
+  llena con cada bosque cuyo punto más cercano (el borde de su BigForest o su centro, fn_0053ADB0) está a menos de
+  `GTownInfo::maxDistanceForTownForest` (250, +0x164) del almacén (o del punto temporal) y que tiene madera
+  (`ForestWood` = fn_0053B280: la de su BigForest más la de cada árbol). La llama `Town::AsssignTownFeature` 0x73EAC0 (para
+  cada pueblo, tras `MakeScenicForest`) y `Scaffold::BuildBuilding`; no se toca al crear o replantar árboles.
+  `BigForest::GetNearestEdgeToPos` (vt+0x83C) se toma como el punto de su círculo de radio 2D hacia `pos` (inferido).
+- **Replantar en un pueblo** (`TownForestId`): el árbol se une al **último bosque escénico** de la lista del pueblo
+  (`Tree::EndPhysics` 0x74BA2B); si el pueblo no tiene ninguno, **se queda sin bosque** (antes openblack creaba uno).
+- **Bosque más cercano** (`FindNearestForestToPos` = `Town::FindNearestForestToPos` 0x73EC10): en la lista del pueblo, el
+  de punto más cercano (0 si se está dentro del radio del BigForest) a menos de 250; gana uno no escénico, el escénico solo
+  si no hay otro. `FindForest(pos, max, soloVacíos)` = fn_0053A1A0: por la lista global, el de **centro** más cercano
+  (vacío = sin árboles y sin BigForest). `ForestCentreTree` = `Forest::GetForestCentreTree` 0x53ABF0.
+- **BigForest para los leñadores**: `BigForestArrivePos` = `GetArrivePos` 0x439360 (su posición más, hacia el aldeano,
+  0,5 × su radio 2D); `BigForestRemoveWood` = `RemoveResource` 0x4390D0: pide n / vida; si no llega, da lo que tiene y
+  se borra; si llega, resta y **solo cuando** su madera se aleja más de 250,0 (0x8C6210) de vida × escala × woodValue se
+  reescala y planta un Pine en el borde (`AddTreeAround` 0x439220: tamaño 0,05, máximo **0,75** (0x8AC3F8) + azar(0,5);
+  antes openblack ponía 0,5). La mano usa lo mismo (350 por árbol, así que siempre reescala). Ganchos
+  `OPENBLACK_TEST_TREE_QUERIES="x,z"` y `OPENBLACK_HAND_TEST_FOREST=1`.
+- **Quién llama a `MakeScenicForest` y `AssignForestsToTown`**: en el original, `Town::AsssignTownFeature` (carga del mapa) y
+  los edificios terminados; en openblack, de momento nadie (la sesión de aldeanos lo enganchará): hasta entonces los
+  pueblos no tienen lista de bosques y un árbol replantado en un pueblo queda sin bosque.
+
 ### Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
 
 - Solo crecen los árboles **de un bosque**: en el original únicamente `Forest::Process` 0x539DA0 recorre sus árboles, así

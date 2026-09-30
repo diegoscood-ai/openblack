@@ -19,6 +19,7 @@
 #include <entt/fwd.hpp>
 
 #include "Enums.h"
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 namespace openblack::ecs
@@ -135,6 +136,76 @@ uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
 /// its yaw),
 /// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
 entt::entity FellTree(entt::entity tree, entt::entity chopper);
+
+/// Object::Get2DRadius 0x638180: scale x max(LH3DMesh +0x24, +0x2C) (the half extents x and z of its mesh box)
+[[nodiscard]] float Object2DRadius(entt::entity object);
+
+/// The next map insertion stamp (Tree::mapInsertion): trees inserted later come first in their cell's list
+[[nodiscard]] uint32_t NextMapInsertion();
+
+/// MapCoords::FindType(6) 0x6045C0 -> MapCell::FindTypeOnMap 0x6015E0 on the cell of 10 x 10 units at `cell`: the
+/// OBJECT_TYPE_FOREST_TREE (6) objects of the cell's fixed list (MapCell +4), first the one inserted last
+[[nodiscard]] std::vector<entt::entity> TreesInCell(glm::ivec2 cell);
+
+/// Tree::GetWorkingPos 0x74C040: where `who` stands to work on the tree: the tree's position plus, towards `who`,
+/// who->Get2DRadius() + 0.9 (0x8C5844)
+[[nodiscard]] glm::vec3 TreeWorkingPos(entt::entity tree, entt::entity who);
+
+/// Villager::FindTreeNearVillager 0x75FD00: the 9 cells around `who` in the order of GUtils::Spiral (table 0xDA59FC:
+/// the centre, then (1,0), (0,1), (-1,0), (0,-1) steps), in each only the FIRST tree of the cell (see TreesInCell) that
+/// is not INDESTRUCTIBLE (Object +0x24 bit 0x4000; set only by puzzle objects: no tree has it in a normal game); the
+/// nearest by Dist2D(who, its working position), from 99999 (0x47C34F80). No other rule (no distance limit, no scenic
+/// bit, no size, no forest). entt::null when none; the caller tells "touching" (10) from "found" (1) with IsTouching.
+[[nodiscard]] entt::entity FindTreeNearVillager(entt::entity who);
+
+/// Forest +0x38 and +0x3C: the BigForest it belongs to (entt::null if none) and whether it is its town's scenic forest
+[[nodiscard]] entt::entity ForestBigForest(uint32_t forestId);
+void SetForestBigForest(uint32_t forestId, entt::entity bigForest);
+[[nodiscard]] bool IsScenicForest(uint32_t forestId);
+
+/// fn_0053B280: the forest's wood: its BigForest's GetWoodValue (life x wood) plus every tree's GetWoodValue
+[[nodiscard]] float ForestWood(uint32_t forestId);
+
+/// Forest::GetForestCentreTree 0x53ABF0: of the heads of its two lists (grown +0x48, growing +0x50, each sorted by
+/// distance to the centre) the one nearer the centre; the grown one on a tie. entt::null when it has none.
+[[nodiscard]] entt::entity ForestCentreTree(uint32_t forestId);
+
+/// fn_0053A1A0(pos, max, onlyEmpty): over the forest list, the forest whose CENTRE is nearest `at` within `max` (max
+/// shrinks to the best so far); onlyEmpty: no trees and no BigForest; otherwise at least one tree (BigForest and scenic
+/// not looked at)
+[[nodiscard]] std::optional<uint32_t> FindForest(glm::vec3 at, float max, bool onlyEmpty);
+
+/// Town::MakeScenicForest 0x741B40: the town's scenic forest (Forest +0x3C = 1; made at `townCentre` if the town has
+/// none) takes every tree within 250 + 10 m of the town centre (a spiral over the cells that stops at the first cell
+/// farther than that) that has no forest, or whose forest is scenic and whose tree is nearer the town centre than that
+/// forest's centre. It does not add the forest to the town list (AssignForestsToTown does).
+void MakeScenicForest(uint32_t townId, glm::vec3 townCentre);
+
+/// Town::AssignForestsToTown 0x73EB00: the town's forest list (Town +0x608) cleared and filled again with every forest
+/// whose nearest point (a BigForest's nearest edge, otherwise its centre; fn_0053ADB0) is within
+/// GTownInfo::maxDistanceForTownForest (250, +0x164) of `reference` (the town's storage pit, or its temporary store
+/// point) and that has wood (fn_0053B280 > 0). Called by Town::AsssignTownFeature 0x73EAC0 (after MakeScenicForest, for
+/// every town) and Scaffold::BuildBuilding 0x6E932C; not when trees are made or planted.
+void AssignForestsToTown(uint32_t townId, glm::vec3 reference);
+
+/// Town +0x608: the town's forests (head first: fn_00741AF0 inserts at the head)
+[[nodiscard]] std::vector<uint32_t> TownForests(uint32_t townId);
+
+/// Town::FindNearestForestToPos 0x73EC10: over the town's list, the forest nearest `at` (a BigForest's nearest edge,
+/// 0 when `at` is inside its 2D radius, else its centre) within 250 (GTownInfo +0x164); a non-scenic one wins, the
+/// scenic forest only when there is no other. No wood check here.
+[[nodiscard]] std::optional<uint32_t> FindNearestForestToPos(uint32_t townId, glm::vec3 at);
+
+/// BigForest::GetArrivePos 0x439360: its position plus, towards `who`, 0.5 x its Get2DRadius
+[[nodiscard]] glm::vec3 BigForestArrivePos(entt::entity bigForest, entt::entity who);
+
+/// BigForest::RemoveResource 0x4390D0 (WOOD only): n / life wood taken; when it has no more than that, it gives what
+/// it had (ftol of GetWoodValue) and is deleted; otherwise its wood (+0x84) goes down, and once its GetWoodValue is more
+/// than 250.0 (0x8C6210) away from life x scale x woodValue it is rescaled to GetWoodValue / (life x woodValue) and a
+/// sapling is planted at its edge (AddTreeAround 0x439220: up to 10 random angles at its radius, on land with no object
+/// nearer than 4; a Pine (GTreeInfo 0xDA49D8) of its forest, size 0.05, maximum 0.75 + rand(0.5), random angle).
+/// Returns what was taken (n, or what it had).
+uint32_t BigForestRemoveWood(entt::entity bigForest, uint32_t amount);
 
 /// On map load: the forests go with the map.
 void ClearForests();

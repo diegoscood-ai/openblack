@@ -18,6 +18,8 @@ struct BigForest
 	/// +0x84 (Tree::GetWoodValue): the wood left; the forest is scaled to wood / its info's woodValue
 	float wood {0.0f};
 	float woodValue {1.0f}; ///< the info's woodValue
+	/// +0x80: its Forest (made in the ctor; that forest's +0x38 points back at the BigForest)
+	uint32_t forestId {0};
 };
 
 struct Forest

@@ -35,6 +35,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/Utils.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -68,7 +69,12 @@ struct ForestData
 	uint16_t emptyTimer {0};
 	uint16_t attempts {0};
 	uint32_t created {0}; ///< creation order (the original's list is newest first)
+	entt::entity bigForest {entt::null}; ///< +0x38
+	bool scenic {false};                 ///< +0x3C: the town's scenic forest (Town::MakeScenicForest)
 };
+/// Town +0x608: each town's forests, head first
+std::unordered_map<uint32_t, std::vector<uint32_t>> g_townForestLists;
+uint32_t g_mapInsertions = 0;
 uint32_t g_forestsCreated = 0;
 std::map<uint32_t, ForestData> g_forests;
 /// 0xBEA238: the next free forest id
@@ -202,21 +208,29 @@ uint32_t openblack::ecs::ResolveForestId(int32_t scriptForestId)
 
 void openblack::ecs::ClearForests()
 {
+	g_townForestLists.clear();
 	g_forests.clear();
 	g_townForests.clear();
 	g_nextForestId = 1;
 	g_lastTreeCreatedTurn = 0;
 }
 
-uint32_t openblack::ecs::TownForestId(uint32_t townId, glm::vec3 at)
+uint32_t openblack::ecs::TownForestId(uint32_t townId, glm::vec3 /*at*/)
 {
-	if (const auto it = g_townForests.find(townId); it != g_townForests.end() && IsInForest(it->second))
+	// Tree::EndPhysics 0x74BA2B: over the town's list (Town +0x608), every forest with +0x3C != 0 (the scenic one)
+	// becomes the best at distance 0, so the last of them wins; with none the tree stays without a forest
+	uint32_t best = 0;
+	if (const auto it = g_townForestLists.find(townId); it != g_townForestLists.end())
 	{
-		return it->second;
+		for (const auto id : it->second)
+		{
+			if (IsScenicForest(id))
+			{
+				best = id;
+			}
+		}
 	}
-	const auto forest = CreateForest(0, at);
-	g_townForests.insert_or_assign(townId, forest);
-	return forest;
+	return best;
 }
 
 std::optional<uint32_t> openblack::ecs::NearestForest(glm::vec3 at, float radius)
@@ -419,6 +433,10 @@ void openblack::ecs::DeleteForest(uint32_t forestId)
 	g_forests.erase(forestId);
 	// fn_0053AE10: every town (g_game +0x205C84) drops the forest from its list Town +0x608 (fn_00741A70)
 	std::erase_if(g_townForests, [forestId](const auto& pair) { return pair.second == forestId; });
+	for (auto& [town, list] : g_townForestLists)
+	{
+		std::erase(list, forestId);
+	}
 }
 
 float openblack::ecs::TreeWoodValue(entt::entity entity)
@@ -568,6 +586,398 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 		// FelledTree::Create 0x511889): reactions not ported for trees
 	}
 	return tree;
+}
+
+float openblack::ecs::Object2DRadius(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* mesh = registry.TryGet<const Mesh>(entity);
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	auto& meshes = Locator::resources::value().GetMeshes();
+	if (mesh == nullptr || transform == nullptr || !meshes.Contains(mesh->id))
+	{
+		return 0.0f;
+	}
+	const auto half = 0.5f * meshes.Handle(mesh->id)->GetBoundingBox().Size();
+	return transform->scale.x * std::max(half.x, half.z);
+}
+
+uint32_t openblack::ecs::NextMapInsertion()
+{
+	return ++g_mapInsertions;
+}
+
+std::vector<entt::entity> openblack::ecs::TreesInCell(glm::ivec2 cell)
+{
+	std::vector<std::pair<uint32_t, entt::entity>> found;
+	Locator::entitiesRegistry::value().Each<const Tree, const Transform>(
+	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
+		    const glm::ivec2 at(static_cast<int>(std::floor(transform.position.x * 0.1f)),
+		                        static_cast<int>(std::floor(transform.position.z * 0.1f)));
+		    if (at == cell)
+		    {
+			    found.emplace_back(tree.mapInsertion, entity);
+		    }
+	    });
+	// the list is filled at its head: the tree inserted last is first
+	std::ranges::sort(found, [](const auto& lhs, const auto& rhs) { return lhs.first > rhs.first; });
+	std::vector<entt::entity> trees;
+	for (const auto& [stamp, entity] : found)
+	{
+		trees.push_back(entity);
+	}
+	return trees;
+}
+
+glm::vec3 openblack::ecs::TreeWorkingPos(entt::entity tree, entt::entity who)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& at = registry.Get<const Transform>(tree).position;
+	const auto& from = registry.Get<const Transform>(who).position;
+	const glm::vec2 towards(from.x - at.x, from.z - at.z);
+	const float length = glm::length(towards);
+	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
+	// 0.9: 0x8C5844
+	const float reach = Object2DRadius(who) + 0.9f;
+	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * reach;
+	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
+	return {point.x, ground, point.y};
+}
+
+entt::entity openblack::ecs::FindTreeNearVillager(entt::entity who)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(who) || !registry.AllOf<Transform>(who))
+	{
+		return entt::null;
+	}
+	const auto& from = registry.Get<const Transform>(who).position;
+	glm::ivec2 cell(static_cast<int>(std::floor(from.x * 0.1f)), static_cast<int>(std::floor(from.z * 0.1f)));
+	// GUtils::Spiral 0x74D7E0 with the step table 0xDA59FC {(1,0), (0,1), (-1,0), (0,-1)}: the centre, then 1 step,
+	// 1 step, 2, 2 over the 3 x 3 cells
+	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
+	                                                      glm::ivec2(0, -1)};
+	std::vector<glm::ivec2> cells {cell};
+	int run = 1;
+	size_t step = 0;
+	while (cells.size() < 9)
+	{
+		for (int twice = 0; twice < 2 && cells.size() < 9; ++twice)
+		{
+			for (int i = 0; i < run && cells.size() < 9; ++i)
+			{
+				cell += k_Steps.at(step % 4);
+				cells.push_back(cell);
+			}
+			++step;
+		}
+		++run;
+	}
+	entt::entity best = entt::null;
+	float nearest = 99999.0f; // 0x47C34F80
+	for (const auto& c : cells)
+	{
+		const auto trees = TreesInCell(c);
+		if (trees.empty())
+		{
+			continue;
+		}
+		// only the first of the cell (INDESTRUCTIBLE 0x4000 never set on a tree outside puzzles)
+		const auto tree = trees.front();
+		const auto working = TreeWorkingPos(tree, who);
+		const float d = glm::distance(glm::vec2(from.x, from.z), glm::vec2(working.x, working.z));
+		if (d < nearest)
+		{
+			nearest = d;
+			best = tree;
+		}
+	}
+	return best;
+}
+
+entt::entity openblack::ecs::ForestBigForest(uint32_t forestId)
+{
+	const auto it = g_forests.find(forestId);
+	return it != g_forests.end() ? it->second.bigForest : entt::entity {entt::null};
+}
+
+void openblack::ecs::SetForestBigForest(uint32_t forestId, entt::entity bigForest)
+{
+	if (const auto it = g_forests.find(forestId); it != g_forests.end())
+	{
+		it->second.bigForest = bigForest;
+	}
+}
+
+bool openblack::ecs::IsScenicForest(uint32_t forestId)
+{
+	const auto it = g_forests.find(forestId);
+	return it != g_forests.end() && it->second.scenic;
+}
+
+float openblack::ecs::ForestWood(uint32_t forestId)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	float wood = 0.0f;
+	if (const auto bigForest = ForestBigForest(forestId); bigForest != entt::null && registry.Valid(bigForest))
+	{
+		// BigForest::GetWoodValue 0x4390B0 = life x +0x84
+		if (const auto* forest = registry.TryGet<const BigForest>(bigForest); forest != nullptr)
+		{
+			const auto* life = registry.TryGet<const Life>(bigForest);
+			wood += (life != nullptr ? life->value : 1.0f) * forest->wood;
+		}
+	}
+	for (const auto tree : ForestTrees(forestId))
+	{
+		wood += TreeWoodValue(tree);
+	}
+	return wood;
+}
+
+entt::entity openblack::ecs::ForestCentreTree(uint32_t forestId)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto centre = ForestCentre(forestId);
+	std::optional<std::pair<float, entt::entity>> grown;
+	std::optional<std::pair<float, entt::entity>> growing;
+	for (const auto tree : ForestTrees(forestId))
+	{
+		const auto& t = registry.Get<const Tree>(tree);
+		const auto& transform = registry.Get<const Transform>(tree);
+		const float d = glm::distance(transform.position, centre);
+		auto& head = (t.growing && transform.scale.x < t.maxSize) ? growing : grown;
+		if (!head || d < head->first)
+		{
+			head = std::make_pair(d, tree);
+		}
+	}
+	if (grown && (!growing || grown->first <= growing->first))
+	{
+		return grown->second;
+	}
+	return growing ? growing->second : entt::entity {entt::null};
+}
+
+std::optional<uint32_t> openblack::ecs::FindForest(glm::vec3 at, float max, bool onlyEmpty)
+{
+	std::optional<uint32_t> best;
+	for (const auto id : ForestsNewestFirst())
+	{
+		const auto& forest = g_forests.at(id);
+		const float d = glm::distance(glm::vec2(at.x, at.z), glm::vec2(forest.centre.x, forest.centre.z));
+		if (d >= max)
+		{
+			continue;
+		}
+		const size_t trees = ForestTreeCount(id);
+		const bool fits = onlyEmpty ? (trees == 0 && forest.bigForest == entt::null) : trees > 0;
+		if (fits)
+		{
+			max = d;
+			best = id;
+		}
+	}
+	return best;
+}
+
+namespace
+{
+/// fn_0053ADB0 and Town::FindNearestForestToPos: the forest's point nearest `at`: a BigForest's nearest edge (or `at`
+/// itself when inside its 2D radius, FindNearestForestToPos only), else its centre. BigForest::GetNearestEdgeToPos
+/// (vt+0x83C) is taken as the point of its 2D-radius circle towards `at` (inferido).
+glm::vec2 ForestNearestPoint(uint32_t forestId, glm::vec3 at, bool insideIsZero)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const glm::vec2 target(at.x, at.z);
+	const auto bigForest = openblack::ecs::ForestBigForest(forestId);
+	if (bigForest != entt::null && registry.Valid(bigForest) && registry.AllOf<Transform>(bigForest))
+	{
+		const auto& p = registry.Get<const Transform>(bigForest).position;
+		const glm::vec2 centre(p.x, p.z);
+		const float radius = openblack::ecs::Object2DRadius(bigForest);
+		const float d = glm::distance(centre, target);
+		if (insideIsZero && d <= radius)
+		{
+			return target;
+		}
+		return d > 1e-6f ? centre + (target - centre) / d * radius : centre;
+	}
+	const auto c = openblack::ecs::ForestCentre(forestId);
+	return {c.x, c.z};
+}
+} // namespace
+
+void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& list = g_townForestLists[townId];
+	std::optional<uint32_t> scenic;
+	for (const auto id : list)
+	{
+		if (IsScenicForest(id))
+		{
+			scenic = id;
+			break;
+		}
+	}
+	// R = 250 (GTownInfo +0x164) + 10 (0x8AB414)
+	const float radius = Locator::infoConstants::value().town.maxDistanceForTownForest + 10.0f;
+	std::vector<entt::entity> taken;
+	registry.Each<const Tree, const Transform>([&](entt::entity entity, const Tree& tree, const Transform& transform) {
+		// the spiral stops at the first CELL farther than R: taken as every tree whose cell centre is within R
+		// (aproximado: the spiral's corners)
+		const glm::vec2 cellCentre = (glm::floor(glm::vec2(transform.position.x, transform.position.z) * 0.1f) +
+		                              glm::vec2(0.5f)) * 10.0f;
+		if (glm::distance(cellCentre, glm::vec2(townCentre.x, townCentre.z)) > radius)
+		{
+			return;
+		}
+		if (!IsInForest(tree.forestId))
+		{
+			taken.push_back(entity);
+			return;
+		}
+		if (IsScenicForest(tree.forestId))
+		{
+			const auto centre = ForestCentre(tree.forestId);
+			if (glm::distance(transform.position, townCentre) < glm::distance(transform.position, centre))
+			{
+				taken.push_back(entity);
+			}
+		}
+	});
+	if (!scenic)
+	{
+		scenic = CreateForest(0, townCentre);
+		g_forests.at(*scenic).scenic = true;
+	}
+	for (const auto tree : taken)
+	{
+		SetTreeForest(tree, *scenic);
+	}
+}
+
+void openblack::ecs::AssignForestsToTown(uint32_t townId, glm::vec3 reference)
+{
+	auto& list = g_townForestLists[townId];
+	list.clear();
+	const float maxDistance = Locator::infoConstants::value().town.maxDistanceForTownForest;
+	// the global list, newest first; fn_00741AF0 inserts at the head (no duplicates)
+	for (const auto id : ForestsNewestFirst())
+	{
+		const auto point = ForestNearestPoint(id, reference, false);
+		if (glm::distance(point, glm::vec2(reference.x, reference.z)) < maxDistance && ForestWood(id) != 0.0f)
+		{
+			list.insert(list.begin(), id);
+		}
+	}
+}
+
+std::vector<uint32_t> openblack::ecs::TownForests(uint32_t townId)
+{
+	const auto it = g_townForestLists.find(townId);
+	return it != g_townForestLists.end() ? it->second : std::vector<uint32_t> {};
+}
+
+std::optional<uint32_t> openblack::ecs::FindNearestForestToPos(uint32_t townId, glm::vec3 at)
+{
+	const float maxDistance = Locator::infoConstants::value().town.maxDistanceForTownForest;
+	float bestNormal = maxDistance;
+	float bestScenic = maxDistance;
+	std::optional<uint32_t> normal;
+	std::optional<uint32_t> scenic;
+	for (const auto id : TownForests(townId))
+	{
+		const float d = glm::distance(ForestNearestPoint(id, at, true), glm::vec2(at.x, at.z));
+		if (IsScenicForest(id))
+		{
+			if (d < bestScenic)
+			{
+				bestScenic = d;
+				scenic = id;
+			}
+		}
+		else if (d < bestNormal)
+		{
+			bestNormal = d;
+			normal = id;
+		}
+	}
+	return normal ? normal : scenic;
+}
+
+glm::vec3 openblack::ecs::BigForestArrivePos(entt::entity bigForest, entt::entity who)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& at = registry.Get<const Transform>(bigForest).position;
+	const auto& from = registry.Get<const Transform>(who).position;
+	const glm::vec2 towards(from.x - at.x, from.z - at.z);
+	const float length = glm::length(towards);
+	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
+	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * (0.5f * Object2DRadius(bigForest));
+	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
+	return {point.x, ground, point.y};
+}
+
+uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t amount)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* forest = registry.TryGet<BigForest>(bigForest);
+	if (forest == nullptr)
+	{
+		return 0;
+	}
+	const auto* life = registry.TryGet<const Life>(bigForest);
+	const float lifeValue = life != nullptr ? life->value : 1.0f;
+	const float wanted = static_cast<float>(amount) / lifeValue;
+	const float woodValue = lifeValue * forest->wood; // GetWoodValue 0x4390B0
+	if (woodValue <= wanted)
+	{
+		const auto had = static_cast<uint32_t>(woodValue);
+		forest->wood = 0.0f;
+		registry.Destroy(bigForest);
+		registry.SetDirty();
+		return had;
+	}
+	forest->wood -= wanted;
+	auto& transform = registry.Get<Transform>(bigForest);
+	const float drawn = lifeValue * transform.scale.x * forest->woodValue;
+	if (std::abs(lifeValue * forest->wood - drawn) > 250.0f)
+	{
+		transform.scale = glm::vec3(lifeValue * forest->wood / (lifeValue * forest->woodValue));
+		// AddTreeAround 0x439220
+		const auto position = transform.position;
+		const float radius = Object2DRadius(bigForest);
+		auto& rng = Locator::rng::value();
+		for (int attempt = 0; attempt < 10 && Locator::terrainSystem::has_value(); ++attempt)
+		{
+			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
+			const glm::vec2 point(position.x + std::cos(angle) * radius, position.z + std::sin(angle) * radius);
+			const float ground = Locator::terrainSystem::value().GetHeightAt(point);
+			if (ground <= 0.0f)
+			{
+				continue;
+			}
+			bool blocked = false;
+			registry.Each<const Transform, const Mesh>([&](entt::entity other, const Transform& t, const Mesh&) {
+				blocked = blocked || (other != bigForest &&
+				                      glm::distance(glm::vec2(t.position.x, t.position.z), point) < 4.0f);
+			});
+			if (blocked)
+			{
+				continue;
+			}
+			// Tree::Create(pos, GTreeInfo 0xDA49D8 = Pine, the BigForest's forest, maxSize 0.75 (0x8AC3F8) +
+			// GameFloatRand(0.5), yAngle GameFloatRand(2pi), size 0.05)
+			const float maxSize = 0.75f + rng.NextValue(0.0f, 0.5f);
+			archetypes::TreeArchetype::Create(forest->forestId, glm::vec3(point.x, ground, point.y), TreeInfo::Pine, false,
+			                                  rng.NextValue(0.0f, glm::two_pi<float>()), maxSize, 0.05f);
+			break;
+		}
+	}
+	registry.SetDirty();
+	return amount;
 }
 
 entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaximum)
@@ -864,7 +1274,8 @@ void ProcessForests(uint32_t turn)
 				grown.emplace_back(glm::distance(transform.position, centre), entity);
 			}
 		});
-		if (count == 0)
+		// empty: no BigForest (+0x38) and no trees in either list
+		if (count == 0 && forest.bigForest == entt::null)
 		{
 			if (forest.emptyTimer == 0)
 			{
@@ -877,6 +1288,11 @@ void ProcessForests(uint32_t turn)
 			continue;
 		}
 		forest.emptyTimer = 0;
+		// +0x3C == 1: a town's scenic forest is not processed (its trees do not grow, it plants none)
+		if (forest.scenic)
+		{
+			continue;
+		}
 		const float r = 2000.0f + rng.NextValue(0.0f, 1000.0f);
 		const float f = std::min(1.0f, 0.05f * static_cast<float>(grown.size()));
 		const float t = static_cast<float>(turn - g_lastTreeCreatedTurn);
@@ -909,7 +1325,7 @@ void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 	std::vector<std::pair<entt::entity, float>> growing;
 	registry.Each<Tree, const Transform>([&constants, &growing](entt::entity entity, Tree& tree, const Transform& transform) {
 		// Only a tree in a forest is processed at all: the forest walks its own list (Forest::Process 0x539DA0).
-		if (!IsInForest(tree.forestId))
+		if (!IsInForest(tree.forestId) || IsScenicForest(tree.forestId))
 		{
 			return;
 		}

@@ -21,6 +21,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -51,7 +52,8 @@ entt::entity TreeArchetype::Create(uint32_t forestId, const glm::vec3& position,
 	    growing ? Locator::rng::value().NextValue<uint32_t>(0, std::max(1u, info.growsAfterNumGameTurns)) : 0u);
 	const auto slot =
 	    static_cast<uint8_t>(static_cast<int>(std::floor(yAngleRadians * 16.0f / glm::two_pi<float>() + 0.5f)) & 0xF);
-	registry.Assign<Tree>(entity, type, maxSize, forestId, isNonScenic, growing, turns, slot);
+	auto& tree = registry.Assign<Tree>(entity, type, maxSize, forestId, isNonScenic, growing, turns, slot);
+	tree.mapInsertion = ecs::NextMapInsertion();
 	const auto resourceId = resources::HashIdentifier(info.normal);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(-1));
 

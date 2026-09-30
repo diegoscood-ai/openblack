@@ -1,120 +1,174 @@
-# Original B&W (runblack.exe W120, D3D7, LH3D): one in-game frame
+# El fotograma original de B&W (runblack.exe W120, D3D7, LH3D)
 
-"(inf)" = inference. Scratch dumps: render\frame_*.txt; frame_A_modes.py/txt; frame_B_*.txt; frame_C_*.
+Mapa de un fotograma de juego del original, con direcciones: cómo se lanza el fotograma, el orden de dibujo de cada
+etapa, los 19 modos de render (estados D3D por tipo de material L3D) y el estado global (proyección, neblina,
+borrado, niveles de detalle). El estado de cada etapa en openblack está en [parity.md](parity.md) y los detalles de lo
+hecho en [rendering.md](rendering.md).
 
-## 0. Frame driver
-GGame::Loop 0x54CF20 (decomp src/Black/Game.cpp) per iteration:
-ProcessGraphicsEngine 0x54D850 → [mouse, camera->Update (sets FOV + dynamic near), GInterface::PreDrawProcess 0x5CE9E0 (hand collide, disciple icon), **Process3dEngine 0x54DA80**, debug BMan/camera editor, GInterface::PostDrawProcess (leash/collide update only, no drawing), HelpSystem::PostDrawProcess (flag)] → ScriptedScreenShot → **GGame::FlipScreen 0x54D800 → LHScreen::Flip 0x7DE090** (timing text, software LHMouse::Draw, LHFlip 0x7DE580, then the frame *clear* fn_0082EE70, see §3).
+Todo es **fiel** (leído en el ejecutable) salvo lo marcado **(inferido)**. Volcados de trabajo en
+`C:\Users\diewgarc\dev\tmp_dis\render\`: `frame_map.md`, `frame_*.txt`, `frame_A_modes.py/txt`, `frame_B_*.txt`,
+`frame_C_*` (y `objlight_*` para la luz de los modelos).
 
-Process3dEngine: LH3DRender::StartFrame 0x82F0E0 → video (Bink) → switch field_0x205a28 (0 = world, 1 = citadel/temple, 2 = falling-spell video) → fade / help / influence → **LH3DRender::FinishFrame 0x82F460** (Z-sort flush + callbacks + EndScene) → debug 2D (CreatureMentalEditor, leash info, DisplayHowImpressed, computer players, countdown text) → LH3DAtmos::Render2D (debug weather map via Lock, inf).
+- [1. Bucle del fotograma](#1-bucle-del-fotograma)
+- [2. Etapas de dibujo en orden](#2-etapas-de-dibujo-en-orden)
+  - [Otros casos: templo, vídeo y 2D](#otros-casos-templo-vídeo-y-2d)
+- [3. Modos de render](#3-modos-de-render)
+- [4. Estado global](#4-estado-global)
+- [5. Comparación con openblack](#5-comparación-con-openblack)
 
-StartFrame: fninit/FPU control, delta time (g_delta_time 0xC38134, smoothed fps 0xEC7FC0), **BeginScene** (vt+0x14), g_frame++, g_started_frame=1, **zsorter reset fn_0083F3B0**, fn_00813770, fn_0085BF00, SetLight/SetProjMatrix only if HW TnL (never: [0xC386E4]=1 forced by start_system), fn_00821270.
+## 1. Bucle del fotograma
 
-## 1. Draw stages in order (case 0 = world)
-| # | Stage | Function | What / states | Sort / cull |
+`GGame::Loop` 0x54CF20 (decomp `src/Black/Game.cpp`), en cada vuelta:
+
+- ProcessGraphicsEngine 0x54D850 → [ratón, camera->Update (fija el FOV y el plano cercano dinámico),
+  GInterface::PreDrawProcess 0x5CE9E0 (colisión de la mano, icono del discípulo), **Process3dEngine 0x54DA80**,
+  BMan/editor de cámara de depuración, GInterface::PostDrawProcess (solo actualiza correa y colisión, no dibuja),
+  HelpSystem::PostDrawProcess (marca)] → ScriptedScreenShot → **GGame::FlipScreen 0x54D800 → LHScreen::Flip
+  0x7DE090** (texto de tiempos, LHMouse::Draw por software, LHFlip 0x7DE580 y luego el *borrado* del fotograma
+  fn_0082EE70, ver [4. Estado global](#4-estado-global)).
+- Process3dEngine: LH3DRender::StartFrame 0x82F0E0 → vídeo (Bink) → switch field_0x205a28 (0 = mundo,
+  1 = ciudadela/templo, 2 = vídeo del hechizo que cae) → fundido / ayuda / influencia → **LH3DRender::FinishFrame
+  0x82F460** (vaciado del Z-sort + retrollamadas + EndScene) → 2D de depuración (CreatureMentalEditor, info de correa,
+  DisplayHowImpressed, jugadores de la CPU, texto de cuenta atrás) → LH3DAtmos::Render2D (mapa de clima de depuración
+  con Lock, **(inferido)**).
+- StartFrame: fninit/control de la FPU, tiempo delta (g_delta_time 0xC38134, fps suavizados 0xEC7FC0),
+  **BeginScene** (vt+0x14), g_frame++, g_started_frame=1, **reinicio del zsorter fn_0083F3B0**, fn_00813770,
+  fn_0085BF00, SetLight/SetProjMatrix solo con T&L por hardware (nunca: start_system fuerza [0xC386E4]=1),
+  fn_00821270.
+
+## 2. Etapas de dibujo en orden
+
+Caso 0 = mundo.
+
+| # | Etapa | Función | Qué hace / estados | Orden / recorte |
 |---|---|---|---|---|
-| 1 | landscape.PreDraw | GLandscape::PreDraw 0x5E3F60 → LH3DIsland::PreDraw 0x7FF2D0 → fn_00877210 | builds visible block list (32×32 blocks of 160), per-block fog class +0x940 | frustum+near cull per block bbox; list 0xFAA?/0xFA92D8 sorted by distance +0x9BC **front to back** |
-| 2 | shadow textures | TemporaryShadow::UpdateAll 0x825190 (and fn_00874850 per SuperVillager) | CPU-rasterised silhouettes into per-object shadow textures (fn_008801D0, inf), list 0xFAA7E0 | — |
-| 3 | prep | LH3DCreature::PrepareForDrawing 0x4ED320 per creature, CHand::PrepareForDrawing 0x46C550, PSysLightMaps::AddDrawing 0x6CA6E0, LH3DLandscape::TextureUpdateThread 0x871F00 (block textures: footprints/decals fn_008721A0/fn_00872FA0), LH3DAtmos::Update3D | no draws | — |
-| 4 | GLandscape::Draw 0x5E42E0 | (details below 4a–4q) | | |
-| 4a | setup | 3D cursor (Get3DPointFromScreen), fn_00802550, Windmill::PreDraw, Tree::PreDraw (wind sway), fn_008296D0 (8 s fade timer, mode 0xF), fn_005E5830 (hand pos; night hand light fn_00823460/fn_0086D360; clouds fn_005E25C0 if Clouds key) | | |
-| 4b | **sky** | GLandAlignement::DrawSky 0x5E2160 (skipped in wireframe) → fn_0086A330 → light table fn_00869850 + fog params, fn_0086B7F0 (sky_{good,ntrl,evil}_{day,dusk,night}.555 → 3 textures, mode 2) → fn_0086B010 | **moon** moon.l3d + additive glow quad 500 (AdditiveMaterial mode 13), also a Y-mirrored copy (inf reflection); **sky dome** sky.l3d with ZFUNC ALWAYS, 2 passes (base alignment texture α255, then 2nd alignment with global alpha (alignment−1)·255), darkened by storm, lerp to white on lightning; **sun** sun.l3d fn_0086C140 colour 0x957C63, visible 6–18 h, ÷(1+8·cloud). **No stars.** | sky covers whole screen (colour buffer not cleared) |
-| 4c | **reflected land** (LandRef key) | fn_007FF4F0, ZWRITEENABLE off around it (0x5E48B3–0x5E4900) | heights ×−1, light table ×0.5, small bump forced off | mirrored block list |
-| 4d | underwater parts | PetitNavire::PreDraw 0x5DFF20 (boats); hand DrawUnderWater vt+0x118 with specular 0x65A0A0A0 via **alt mode table 0xC387C8**; creature hand object; fn_00646FE0 (physics objects), fn_00775120 (?), fn_00824B90 (FishFarm fish), fn_005DFCE0 (footprint UV2, inf) | drawn before sea (inf: parts below sea level) | |
-| 4e | SuperVillagers | list 0xEB9A08: vt+0x610 Draw + fn_00874850 shadow; swim villagers spawn water rings | | |
-| 4f | night hand glow | fn_005E3F70: additive ground quad ±60, ZFUNC ALWAYS | | |
-| 4g | **sea** | fn_00879930 (skip if [0xECA664] or wireframe): sky.raw/skya.raw mode 5, 2-px rows, ZFUNC ALWAYS, no Z write, colour = light table[255], alpha 255→80 at 7000–14000, P = 2000−1800·WaterTiling | | |
-| 4h | vortex | fn_005FF310 → fn_005FFBB0 (LandscapeVortex, inf) | | |
-| 4i | **landscape** | fn_007FF610: per visible block front→back, transition blocks fn_00877D20, block fn_00874AA0 / SSE fn_007A1800 (mode 14 blocks, light table per vertex, software haze, small bump 2nd pass mode 14), then **projected dynamic shadows** per block fn_00878350 (shadow material mode 6) | front→back |
-| 4j | debug | fn_0081F820 script field-of-view triangles | | |
-| 4k | citadel heart | fn_00467360 → CitadelHeart::DrawNow 0x4670D0 | | |
-| 4l | water rings | fn_005E5100 over 1024×0x38 at 0xEAB7C8 (GWater sprite circle, LH3DSprite::Draw direct) | | |
-| 4m | **models** | fn_005E5CD0 object draw list (≤3000, GLandscape::DrawObjects 0xD1D28C) from visible blocks (dist < VanishObjectDist 100000) + global list; rebuilt on DrawListRebuildCount/10 turns/land change; camera-still frames only redraw last-on-screen objects. Object Draw (e.g. MobileObject::Draw 0x518150): lighting fn_00801C90 (other agent), fog fn_007FEB30, Game3DObject::AddForDrawing 0x63B5D0 → LH3DObject::AddDrawing fn_00815A70: frustum CheckRegionOnScreen 0x868C80, **LOD** by distance (23.3f/66.7f/86.7f → LOD 1/2/4, fade 86.7f–173.3f, cull beyond if IsDisappear; far humans → sprite impostor), IsGlowing → glow sprite, **NeedSorting (alpha mesh, flag 0x200) → Z-sorter, else Draw immediately** | opaque: block order, unsorted; alpha: Z-sorter |
-| 4n | extra in 5E5CD0 | SuperVillager list 0xEB9A10 (OverrideMaterial with alpha-ref override 0xA), game list vt+0x610, bookmarks, Reward sprites, PetitNavire::PostDraw, hand_intro, sprite emitters fn_008274A0/fn_00823570/fn_00827B90/fn_00828E50 | | |
-| 4o | tail | storage pit / LandFeature::DrawWorm | | |
-| 5 | creature fight sparkles | LH3DCreature::DrawFightSparkles 0x48DD70 | | |
-| 6 | leashes | GInterface::DrawAllLeashes 0x5D9310 (fn_008491B0; leash material mode 15) | | |
-| 7 | physics objects | PhysicsObject::DrawAll 0x646DE0 (AddForDrawing, DrawOutOfMap) | as models | |
-| 8 | hand | CHand::UpdateHeldObject; **CHand::AddDrawing 0x46D100 → Z-sorter** (lighting ×1.5); other players' held objects DrawInHand | Z-sorted | |
-| 9 | interface | GInterface::Draw 0x518640 → fn_005FAF80 (magic hand), status vt+0x500 (gesture trail etc., mode 13 gestures) | | |
-| 10 | liquid particles | DrawLiquidParticles 0x845C50 → Z-sorter | Z-sorted | |
-| 11 | debug overlay | GGame::Draw 0x5533B0 (only if g_game->field_0x14 & 0x4000: alignment/belief bars) | | |
-| 12 | misc | CreatureLessonChooser::UpdateDraw, EditorIconBase::DrawMouseOver | | |
-| 13 | particles | PSysGlobal::DrawLoop 0x68F5E0 (PSys managers → PSysManager::AddDrawing 0x6797D0 → Z-sorter), FireFly::DrawAll, Spell::DrawSpells 0x7203F0, GParticleContainer::DrawParticleContainers, GPlayer::DrawPlayers (player sparkles blobs.raw mode 13), TownCentre::DrawAll (DrawPSys) | Z-sorted | |
-| 14 | value spinners | ValueSpinner::Update/AddDrawing (not during help cutscene) | Z-sorted (inf) | |
-| 15 | debug | LH3DStorm::DebugDrawAll, LH3DAtmos::DrawWindField | | |
-| 16 | **weather** | LH3DAtmos::Render3D 0x836250: per storm (list 0xFA92D8… storm dist < 560) per 80×80 tile, intensity from GetWeather at 4 corners, if >5: rain fn_008341B0 → Z-sorter callback 0x833F80 (streaks, AtmosMaterial mode 6 atmos.raw, splashes g_water_drop_cb, count RainSplash key); snow fn_00834290 → callback 0x834120 (snow.raw mode 9). Lightning: LightSheet::DoTheDrawing 0x83E8C0 (mode 13) via GLightSheet::Draw → Z-sorter. Rain colour = (light-table base/2 & 0x7f7f7f)+0x7f7f7f. | Z-sorted by tile distance² | |
-| 17 | camera force field | CameraModeNew3 ForceField (only when flagged) | | |
-| 18 | villager names | VillagerName::AddDrawing → Z-sorter | | |
-| 19 | fade | GScript::ProcessFade 0x6EB9D0 or Temple::UpdateFade 0x794280 → sets screen fade colour [0xFA51D8] (drawn in FinishFrame) | | |
-| 20 | help 3D | HelpSystem::Draw3D 0x5C59A0 (help dude / arrows) | | |
-| 21 | ClearLight 0x5E57B0 | removes the hand light (fn_00822F90/fn_00823780/fn_0086D460) | | |
-| 22 | power spins | PowerSpinRunner → Z-sorter (PowerSpin::Draw) | | |
-| 23 | influence ring | InfluenceCircle::Draw 0x826C90 (in world only if cam height>100: alpha 0→120 at 100–200 height; mode 6, cull none, wrap, UV scroll 0.0001/−0.0002 per ms) Draw3DWorldTriangle **immediate** | | |
-| 24 | **FinishFrame 0x82F460** | (a) **Z-sorter flush fn_0082F280** back→front (key = dist² to camera, max 2048 entries); (b) "before" callbacks (prio ascending, 0xEC8130): FallingSpell (0x526480), HelpDude 0x5C2E30 (100), CameraModeNew3 0x4562E0 (1000); (c) fn_0086BB60 sky post (sun/lens-glare, inf); (d) **Z reset quad**: full-screen FVF 0x1C4 quad z=1, rhw=0, colour 0, material [0xEDD494] mode 1, ZFUNC ALWAYS → Z=1 everywhere; (e) letterbox bars if [0xEB9950] (queued 2D rects fn_0081E590, height fn_0081E8B0); (f) "after" callbacks: HelpDude 0x5C2E10 (100), **2D rect queue flush 0x81E7D0→fn_0081E3C0 (10000; mode 1, ZFUNC ALWAYS, no Z write)**, HelpText 0x5CD020 (20000: help text boxes), LHVideoPlayer::thedraw 0x844E30 (0x8000), start_system 0x6424E0 (0xA0000); (g) fn_00836200 debug weather; (h) **screen fade fn_0086FEE0**: full-screen quad colour [0xFA51D8] mode 1 ZFUNC ALWAYS if alpha≠0, then letterbox rects, fade reset; (i) EndScene (vt+0x18) | | |
+| 1 | landscape.PreDraw | GLandscape::PreDraw 0x5E3F60 → LH3DIsland::PreDraw 0x7FF2D0 → fn_00877210 | lista de bloques visibles (32×32 bloques de 160), clase de niebla por bloque +0x940 | recorte por frustum y plano cercano con la caja de cada bloque; lista 0xFAA?/0xFA92D8 ordenada por distancia +0x9BC **de delante a atrás** |
+| 2 | texturas de sombra | TemporaryShadow::UpdateAll 0x825190 (y fn_00874850 por SuperVillager) | siluetas rasterizadas por CPU en texturas de sombra por objeto (fn_008801D0, **(inferido)**), lista 0xFAA7E0 | — |
+| 3 | preparación | LH3DCreature::PrepareForDrawing 0x4ED320 por criatura, CHand::PrepareForDrawing 0x46C550, PSysLightMaps::AddDrawing 0x6CA6E0, LH3DLandscape::TextureUpdateThread 0x871F00 (texturas de bloque: huellas y calcomanías fn_008721A0/fn_00872FA0), LH3DAtmos::Update3D | no dibuja | — |
+| 4 | GLandscape::Draw 0x5E42E0 | (detalle en 4a–4o) | | |
+| 4a | preparación | cursor 3D (Get3DPointFromScreen), fn_00802550, Windmill::PreDraw, Tree::PreDraw (vaivén por el viento), fn_008296D0 (temporizador de fundido de 8 s, modo 0xF), fn_005E5830 (posición de la mano; luz nocturna de la mano fn_00823460/fn_0086D360; nubes fn_005E25C0 con la clave Clouds) | | |
+| 4b | **cielo** | GLandAlignement::DrawSky 0x5E2160 (no en alambre) → fn_0086A330 → tabla de luz fn_00869850 + parámetros de niebla, fn_0086B7F0 (sky_{good,ntrl,evil}_{day,dusk,night}.555 → 3 texturas, modo 2) → fn_0086B010 | **luna** moon.l3d + quad de resplandor aditivo 500 (AdditiveMaterial modo 13), y una copia espejada en Y (reflejo, **(inferido)**); **cúpula** sky.l3d con ZFUNC ALWAYS, 2 pasadas (textura de la alineación base con α255, luego la 2.ª alineación con alfa global (alineación−1)·255), oscurecida por la tormenta, hacia blanco con el relámpago; **sol** sun.l3d fn_0086C140, color 0x957C63, visible de 6 a 18 h, ÷(1+8·nubes). **Sin estrellas.** | el cielo cubre toda la pantalla (el búfer de color no se borra) |
+| 4c | **tierra reflejada** (clave LandRef) | fn_007FF4F0, ZWRITEENABLE apagado alrededor (0x5E48B3–0x5E4900) | alturas ×−1, tabla de luz ×0.5, small bump forzado a apagado; solo tierra, sin modelos | lista de bloques espejada |
+| 4d | reflejos en el mar | PetitNavire::PreDraw 0x5DFF20 (barcos); DrawUnderWater de la mano vt+0x118 con especular 0x65A0A0A0 mediante la **tabla de modos alternativa 0xC387C8**; objeto en la mano de la criatura; fn_00646FE0 (objetos físicos), fn_00775120 (?), fn_00824B90 (peces de FishFarm), fn_005DFCE0 (UV2 de las huellas, **(inferido)**) | antes del mar. La mano, lo que sostiene, los objetos físicos y los barcos son **reflejos**: `DrawUnderWater` los dibuja espejados en y = 0 y recortados a lo que está sobre el agua (ver [rendering.md](rendering.md); antes se había supuesto que eran sus partes bajo el agua); los peces de FishFarm son sprites bajo el agua | |
+| 4e | SuperVillagers | lista 0xEB9A08: Draw vt+0x610 + sombra fn_00874850; los aldeanos que nadan generan anillos de agua | | |
+| 4f | resplandor nocturno de la mano | fn_005E3F70: quad aditivo en el suelo de ±60, ZFUNC ALWAYS | | |
+| 4g | **mar** | fn_00879930 (se salta si [0xECA664] o en alambre): sky.raw/skya.raw modo 5, filas de 2 px, ZFUNC ALWAYS, sin escribir Z, color = tabla de luz[255], alfa 255→80 entre 7000 y 14000, periodo P = 2000−1800·WaterTiling | | |
+| 4h | vórtice | fn_005FF310 → fn_005FFBB0 (LandscapeVortex, **(inferido)**) | | |
+| 4i | **tierra** | fn_007FF610: por bloque visible de delante a atrás, bloques de transición fn_00877D20, bloque fn_00874AA0 / SSE fn_007A1800 (bloques en modo 14, tabla de luz por vértice, neblina por software, 2.ª pasada de small bump en modo 14), luego **sombras dinámicas proyectadas** por bloque fn_00878350 (material de sombra modo 6) | de delante a atrás |
+| 4j | depuración | fn_0081F820: triángulos del campo de visión de los guiones | | |
+| 4k | corazón de la ciudadela | fn_00467360 → CitadelHeart::DrawNow 0x4670D0 | | |
+| 4l | anillos de agua | fn_005E5100 sobre 1024×0x38 en 0xEAB7C8 (círculo sprite de GWater, LH3DSprite::Draw directo) | | |
+| 4m | **modelos** | fn_005E5CD0: lista de dibujo de objetos (≤3000, GLandscape::DrawObjects 0xD1D28C) de los bloques visibles (dist < VanishObjectDist 100000) + lista global; se rehace según DrawListRebuildCount / 10 turnos / cambio de tierra; con la cámara quieta solo se redibujan los últimos objetos en pantalla. Draw de un objeto (p. ej. MobileObject::Draw 0x518150): luz fn_00801C90 ([rendering.md](rendering.md#luz-de-los-modelos-original-no-es-un-mod)), niebla fn_007FEB30, Game3DObject::AddForDrawing 0x63B5D0 → LH3DObject::AddDrawing fn_00815A70: frustum CheckRegionOnScreen 0x868C80, **LOD** por distancia (23.3f/66.7f/86.7f → LOD 1/2/4, fundido 86.7f–173.3f, recorte más allá si IsDisappear; humanos lejanos → sprite impostor; **inactivo en este ejecutable**: las cargas de LevelOfDetail están anuladas, siempre LOD 1, ver rendering.md), IsGlowing → sprite de resplandor, **NeedSorting (malla con alfa, flag 0x200) → Z-sorter; si no, Draw inmediato** | opacos: orden de bloques, sin ordenar; con alfa: Z-sorter |
+| 4n | resto de 5E5CD0 | lista de SuperVillagers 0xEB9A10 (OverrideMaterial con alpha-ref forzado 0xA), lista del juego vt+0x610, marcadores, sprites de Reward, PetitNavire::PostDraw, hand_intro, emisores de sprites fn_008274A0/fn_00823570/fn_00827B90/fn_00828E50 | | |
+| 4o | final | fosa de almacén / LandFeature::DrawWorm | | |
+| 5 | destellos de pelea de criaturas | LH3DCreature::DrawFightSparkles 0x48DD70 | | |
+| 6 | correas | GInterface::DrawAllLeashes 0x5D9310 (fn_008491B0; material de correa modo 15) | | |
+| 7 | objetos físicos | PhysicsObject::DrawAll 0x646DE0 (AddForDrawing, DrawOutOfMap) | como los modelos | |
+| 8 | mano | CHand::UpdateHeldObject; **CHand::AddDrawing 0x46D100 → Z-sorter** (luz ×1.5); objetos en la mano de otros jugadores con DrawInHand | Z-sorter | |
+| 9 | interfaz | GInterface::Draw 0x518640 → fn_005FAF80 (mano mágica), estado vt+0x500 (rastro de gestos, etc.; gestos en modo 13) | | |
+| 10 | partículas líquidas | DrawLiquidParticles 0x845C50 → Z-sorter | Z-sorter | |
+| 11 | superposición de depuración | GGame::Draw 0x5533B0 (solo si g_game->field_0x14 & 0x4000: barras de alineación y creencia) | | |
+| 12 | varios | CreatureLessonChooser::UpdateDraw, EditorIconBase::DrawMouseOver | | |
+| 13 | partículas | PSysGlobal::DrawLoop 0x68F5E0 (gestores PSys → PSysManager::AddDrawing 0x6797D0 → Z-sorter), FireFly::DrawAll, Spell::DrawSpells 0x7203F0, GParticleContainer::DrawParticleContainers, GPlayer::DrawPlayers (destellos del jugador, blobs.raw modo 13), TownCentre::DrawAll (DrawPSys) | Z-sorter | |
+| 14 | contadores | ValueSpinner::Update/AddDrawing (no durante la cinemática de ayuda) | Z-sorter (**(inferido)**) | |
+| 15 | depuración | LH3DStorm::DebugDrawAll, LH3DAtmos::DrawWindField | | |
+| 16 | **clima** | LH3DAtmos::Render3D 0x836250: por tormenta (lista 0xFA92D8…, tormentas a dist < 560) y por casilla de 80×80, intensidad de GetWeather en las 4 esquinas; si >5: lluvia fn_008341B0 → retrollamada del Z-sorter 0x833F80 (trazos, AtmosMaterial modo 6 atmos.raw, salpicaduras g_water_drop_cb, cantidad según la clave RainSplash); nieve fn_00834290 → retrollamada 0x834120 (snow.raw modo 9). Relámpagos: LightSheet::DoTheDrawing 0x83E8C0 (modo 13) vía GLightSheet::Draw → Z-sorter. Color de la lluvia = (base de la tabla de luz/2 & 0x7f7f7f)+0x7f7f7f. | Z-sorter por distancia² de la casilla | |
+| 17 | campo de fuerza de la cámara | ForceField de CameraModeNew3 (solo con la marca) | | |
+| 18 | nombres de aldeanos | VillagerName::AddDrawing → Z-sorter | | |
+| 19 | fundido | GScript::ProcessFade 0x6EB9D0 o Temple::UpdateFade 0x794280 → fija el color de fundido de pantalla [0xFA51D8] (se dibuja en FinishFrame) | | |
+| 20 | ayuda 3D | HelpSystem::Draw3D 0x5C59A0 (personaje de ayuda, flechas) | | |
+| 21 | ClearLight 0x5E57B0 | quita la luz de la mano (fn_00822F90/fn_00823780/fn_0086D460) | | |
+| 22 | giros de poder | PowerSpinRunner → Z-sorter (PowerSpin::Draw) | | |
+| 23 | anillo de influencia | InfluenceCircle::Draw 0x826C90 (en el mundo solo si la cámara está a más de 100 de altura: alfa 0→120 entre 100 y 200; modo 6, sin culling, wrap, desplazamiento UV 0.0001/−0.0002 por ms), Draw3DWorldTriangle **inmediato** | | |
+| 24 | **FinishFrame 0x82F460** | (a) **vaciado del Z-sorter fn_0082F280** de atrás a delante (clave = dist² a la cámara, máx. 2048 entradas); (b) retrollamadas "antes" (prioridad ascendente, 0xEC8130): FallingSpell (0x526480), HelpDude 0x5C2E30 (100), CameraModeNew3 0x4562E0 (1000); (c) fn_0086BB60 posproceso del cielo (sol y destello de lente, **(inferido)**); (d) **quad que reinicia la Z**: quad de pantalla completa FVF 0x1C4, z=1, rhw=0, color 0, material [0xEDD494] modo 1, ZFUNC ALWAYS → Z=1 en toda la pantalla; (e) bandas de cine si [0xEB9950] (rectángulos 2D en cola fn_0081E590, altura fn_0081E8B0); (f) retrollamadas "después": HelpDude 0x5C2E10 (100), **vaciado de la cola de rectángulos 2D 0x81E7D0→fn_0081E3C0 (10000; modo 1, ZFUNC ALWAYS, sin escribir Z)**, HelpText 0x5CD020 (20000: cuadros de texto de ayuda), LHVideoPlayer::thedraw 0x844E30 (0x8000), start_system 0x6424E0 (0xA0000); (g) fn_00836200 clima de depuración; (h) **fundido de pantalla fn_0086FEE0**: quad de pantalla completa de color [0xFA51D8], modo 1, ZFUNC ALWAYS, si alfa≠0; luego los rectángulos de las bandas y el reinicio del fundido; (i) EndScene (vt+0x18) | | |
 
-Case 1 (citadel/temple): Update3D, LH3DSky::g_b_we_are_inside_citadel=1, TemporaryShadow::UpdateAll, DrawSky (no sun), Temple::Draw 0x794370 (own lights via fn_0081E1F0 SetLight, rooms; Citadel* detail keys), Temple::Update, liquid particles. Case 2: FallingSpell video + liquid particles. Video: LHVideoPlayer::DrawToScreen (letterboxed 16:9, alpha fade; FallingSpell 80).
+### Otros casos: templo, vídeo y 2D
 
-HUD/2D: B&W has no classic HUD; 2D = help text boxes (callback), tooltips/text via GatheringText (fonts mode 6), queued rects, fade, letterbox, software cursor in Flip (inf: cursor usually the 3D hand).
+- Caso 1 (ciudadela/templo): Update3D, LH3DSky::g_b_we_are_inside_citadel=1, TemporaryShadow::UpdateAll, DrawSky
+  (sin sol), Temple::Draw 0x794370 (luces propias con fn_0081E1F0 SetLight, salas; claves de detalle Citadel*),
+  Temple::Update, partículas líquidas.
+- Caso 2: vídeo de FallingSpell + partículas líquidas.
+- Vídeo: LHVideoPlayer::DrawToScreen (bandas 16:9, fundido de alfa; FallingSpell 80).
+- HUD y 2D: B&W no tiene HUD clásico; el 2D son los cuadros de texto de ayuda (retrollamada), tooltips y texto con
+  GatheringText (fuentes en modo 6), rectángulos en cola, fundido, bandas y el cursor por software en Flip
+  (**(inferido)**: el cursor suele ser la mano 3D).
 
-## 2. Render modes (table 0xC38728, 19 entries {fn, flag}; L3D material type == mode index)
-Common: colour = TEXTURE×DIFFUSE; ALPHAFUNC GREATEREQUAL set once (0x82CBA6); ALPHAREF = mat+4 (or override [0xECA65C] if [0xECA658]); material +5 bit0 cull NONE else CCW, bit2/g_b_need_tilling → WRAP else CLAMP; mode cache [0xC38718] (reset 0x14 each frame). No mode touches fog/specular/lighting/stage 1.
-| # | fn | states | L3D type / users |
+## 3. Modos de render
+
+Tabla 0xC38728, 19 entradas {fn, flag}; el tipo de material L3D es el índice del modo.
+
+Común a todos: color = TEXTURE×DIFFUSE; ALPHAFUNC GREATEREQUAL fijado una sola vez (0x82CBA6); ALPHAREF = mat+4 (o el
+forzado [0xECA65C] si [0xECA658]); bit 0 del byte +5 del material → cull NONE, si no CCW; bit 2 o g_b_need_tilling →
+WRAP, si no CLAMP; caché de modo [0xC38718] (se reinicia a 0x14 cada fotograma). Ningún modo toca niebla, especular,
+luz ni la etapa 1.
+
+| # | fn | Estados | Tipo L3D / usos |
 |---|---|---|---|
-| 0 | 82D470 | untextured, opaque, Z write | Smooth |
-| 1 | 82D5C0 | untextured, SA/ISA, Z write, stage 0 untouched | SmoothAlpha; 2D rects, fade, Z-reset quad |
-| 2 | 82D820 | textured opaque, α=tex | Textured; sky domes |
-| 3 | 82D920 | SA/ISA, α=tex×diff, Z write | TexturedAlpha |
-| 4 | 82DC20 | SA/ISA, α=tex, Z write | AlphaTextured (buildings, hand) |
-| 5 | 82DD90 | SA/ISA, α=tex×diff, Z write | AlphaTexturedAlpha; sea |
-| 6 | 82DF10 | as 5, no Z write | …AlphaNz; fonts, influence, human_shadow, dynamic shadows, atmos rain, video |
-| 7 | 82D6F0 | untextured SA/ISA, no Z write | SmoothAlphaNz |
-| 8 | 82DAA0 | as 6 | TexturedAlphaNz |
-| 9 | 82E080 | SA/ISA **+ alpha test**, α=tex, Z write | TexturedChroma (trees 0x96), snow |
-| 10 | 82E830 | additive SA/ONE + alpha test, α=tex×diff, Z write | …AdditiveChroma |
-| 11 | 82E9C0 | as 10, no Z write | …AdditiveChromaNz |
-| 12 | 82EB50 | additive SA/ONE, Z write | …Additive |
-| 13 | 82ECD0 | additive SA/ONE, no Z write | …AdditiveNz: gestures, lightning, moon glow, sparkles, fire, smoke |
-| 14 | 82DD90 | = 5 (flag 0) | terrain blocks, small bump |
-| 15 | 82E470 | SA/ISA + alpha test, α=tex×diff, Z write | TexturedChromaAlpha; leash |
-| 16 | 82E6A0 | as 15, no Z write | text cache |
+| 0 | 82D470 | sin textura, opaco, escribe Z | Smooth |
+| 1 | 82D5C0 | sin textura, SA/ISA, escribe Z, etapa 0 sin tocar | SmoothAlpha; rectángulos 2D, fundido, quad que reinicia la Z |
+| 2 | 82D820 | con textura, opaco, α=tex | Textured; cúpulas del cielo |
+| 3 | 82D920 | SA/ISA, α=tex×diff, escribe Z | TexturedAlpha |
+| 4 | 82DC20 | SA/ISA, α=tex, escribe Z | AlphaTextured (edificios, mano; la muñeca se desvanece con el alfa) |
+| 5 | 82DD90 | SA/ISA, α=tex×diff, escribe Z | AlphaTexturedAlpha; mar |
+| 6 | 82DF10 | como 5, sin escribir Z | …AlphaNz; fuentes, influencia, human_shadow, sombras dinámicas, lluvia atmos, vídeo |
+| 7 | 82D6F0 | sin textura, SA/ISA, sin escribir Z | SmoothAlphaNz |
+| 8 | 82DAA0 | como 6 | TexturedAlphaNz |
+| 9 | 82E080 | SA/ISA **+ prueba de alfa**, α=tex, escribe Z | TexturedChroma (árboles 0x96), nieve |
+| 10 | 82E830 | aditivo SA/ONE + prueba de alfa, α=tex×diff, escribe Z | …AdditiveChroma |
+| 11 | 82E9C0 | como 10, sin escribir Z | …AdditiveChromaNz |
+| 12 | 82EB50 | aditivo SA/ONE, escribe Z | …Additive |
+| 13 | 82ECD0 | aditivo SA/ONE, sin escribir Z | …AdditiveNz: gestos, relámpagos, resplandor de la luna, destellos, fuego, humo |
+| 14 | 82DD90 | = 5 (flag 0) | bloques de tierra, small bump |
+| 15 | 82E470 | SA/ISA + prueba de alfa, α=tex×diff, escribe Z | TexturedChromaAlpha; correa |
+| 16 | 82E6A0 | como 15, sin escribir Z | caché de texto |
 | 17 | 82D820 | = 2 | — |
-| 18 | 82E2A0 | Z only (ZERO/ONE) + alpha test | ChromaJustZ; vortex, fizz |
-Alt table 0xC387C8 (object fade / DrawWithGlobalAlpha, underwater hand): 0,1→D5C0; 2,3,17→D920; 4,5→DD90; 9→E470 (ref scaled by object alpha); rest same. Flag word: no reader found.
+| 18 | 82E2A0 | solo Z (ZERO/ONE) + prueba de alfa | ChromaJustZ; vórtice, burbujeo (fizz) |
 
-## 3. Global state
-- No HW T&L; CPU transform to XYZRHW. Horizontal FOV [0xEA1DD0] default 70° (1.22173), aspect w/h [0xE839EC]; sz = 1−near/z, rhw = near/z, **no far plane**. Near [0xE839E0] dynamic from camera height above ground: 0.3 + 0.16·h clamped [0.3, 3.5] (0.1 path cams, 0.2 citadel with fov 90°).
-- Fog: no D3D fog. Software haze (Fog key [0xC37204]): start/end from sky type (noon/midnight 400→900, dusk 100→800; storm →15/350), colour = light-table base/3, per-vertex darken diffuse toward "dark" and add fog RGB to specular (inf); landscape per block +0x940, objects fn_007FEB30.
-- Clear: in Flip after present, only every ~2000 ms (2 frames) in play, black 0xFF000000, z=1; Z reset each frame by FinishFrame quad. Colour buffer relies on sky.
-- Gamma: none. LightBoost (custom only) changes light-table divisor.
-- Filtering bilinear, no mips, no AA, dither on (rendering.md).
-- Detail: fn_00823AD0 from start_system 0x643026, level = registry detailidx (<5) else **4**; 5 = custom (fn_008237B0 reads each key). Table 0x9A3704 (L0..L6): LevelOfDetail (dead), UseSmallBump 1 all, Clouds/CloudShadows 0001111, WaterTiling 0/.2/.4/.6/**.8**/.5/1 (level 4 → sea period **560**), LandRef 0001111, CitadelReflections 0000111, CitadelLightmaps 0111111, CitadelGlows/People 0011111, CitadelVolumeLight 0001111, RainSplash 0,0,3,5,8,8,8, LightBoost 0, Fog 0001111; startup-only: Weather 0001111, Light 0011111 (object dynamic light flag 0x20), ShadowsOnObjects 0001111 (flag 0x40), UseHighTexture 0000111 (256 vs 128 px land textures), UseMultiLayerOnLandscape inverted (1 only at L0), FixeLand. HardwareTnL/MaxObjectDistance read but ignored. Landscape detail distances 0xE9C508 depend on VRAM texture count. VanishObjectDist 100000 (script).
+Tabla alternativa 0xC387C8 (fundido de objetos / DrawWithGlobalAlpha, reflejo de la mano con DrawUnderWater):
+0,1→D5C0; 2,3,17→D920; 4,5→DD90; 9→E470 (ref escalada por el alfa del objeto); el resto igual. Palabra de flags: no se
+encontró quién la lee.
 
-## 4. Parity checklist (openblack Renderer::DrawScene/DrawPass: footprint, reflection(sky, land), main(sky, water, island, models, blended, sprites, debug))
-- original: colour buffer not cleared, sky dome covers screen with ZFUNC ALWAYS → openblack: clears to 0x274659 — approx (harmless).
-- original: horizontal FOV 70°, infinite far, near 0.3–3.5 by camera height → openblack: check Camera (approx/unknown).
-- original: sky 3 alignment textures × day/dusk/night blended by 2 passes, storm darkening, lightning white → openblack: sky shader with type/alignment — approx (no storm/lightning).
-- original: sun (sun.l3d, 6–18 h) and moon (moon.l3d + additive glow, mirrored copy) → openblack: missing.
-- original: no stars → openblack: n/a.
-- original: clouds + cloud shadows (detail ≥3) → openblack: missing.
-- original: reflected land only (no models), Z write off, half light, no small bump → openblack: has.
-- original: underwater parts of hand/boats/physics objects drawn before the sea (alt table) → openblack: missing (inf).
-- original: sea mode 5, period 560 at default detail (200 only at L6), wind scroll, row wobble, alpha 255→80 → openblack: approx (P=200, no wind).
-- original: landscape blocks front→back, mode 14, light table, software haze (Fog), small bump → openblack: has, **haze missing**.
-- original: dynamic projected shadows (CPU silhouettes, mode 6) on terrain and objects (ShadowsOnObjects) → openblack: missing.
-- original: footprints/decals baked into block textures → openblack: has (Footprint pass) approx.
-- original: models: opaque immediate unsorted; alpha meshes Z-sorted back→front; LOD 1/2/4 by distance with fade 86.7f–173.3f and human sprite impostors → openblack: opaque + MainBlended (no back-to-front sort), LOD TODO — approx.
-- original: TexturedChroma = alpha test ≥0x96 **plus** SA/ISA blending → openblack: alpha test only — approx.
-- original: model lighting fn_00801C90 + per-vertex (see objlight_ notes) → openblack: see other agent.
-- original: software haze on models (fn_007FEB30) → openblack: missing.
-- original: water rings for swimming villagers, fish farm fish, boats → openblack: missing/unknown.
-- original: hand Z-sorted with lighting ×1.5, AlphaTextured wrist fade → openblack: has (approx).
-- original: particles (PSys), spells, player sparkles, town centre PSys, fireflies, liquid particles — all Z-sorted → openblack: missing.
-- original: rain/snow per storm tile (atmos.raw mode 6 / snow.raw mode 9), splashes, lightning sheets (mode 13) → openblack: missing.
-- original: leashes (mode 15), gestures (mode 13), influence ring (mode 6, >100 height) → openblack: missing.
-- original: villager names, value spinners, help 3D, help text boxes (finish-frame callback) → openblack: missing (debug GUI only).
-- original: sprites/billboards through LH3DSprite Z-sorted → openblack: sprites pass (unsorted) — approx.
-- original: screen fade colour quad + letterbox bars in FinishFrame → openblack: missing.
-- original: Bink video overlay/letterbox → openblack: missing.
-- original: citadel/temple interior path (own lights, Citadel* keys) → openblack: TempleInterior — approx.
-- original: no gamma, no post effects, no D3D fog → openblack: none — has.
+## 4. Estado global
+
+- **Proyección.** Sin T&L por hardware: transformación por CPU a XYZRHW. FOV horizontal [0xEA1DD0], por defecto 70°
+  (1.22173), aspecto ancho/alto [0xE839EC]; sz = 1−near/z, rhw = near/z, **sin plano lejano**. Plano cercano
+  [0xE839E0] dinámico según la altura de la cámara sobre el suelo: 0.3 + 0.16·h limitado a [0.3, 3.5] (0.1 en las
+  cámaras de trayectoria, 0.2 en la ciudadela con fov 90°).
+- **Niebla.** Sin niebla D3D. Neblina por software (clave Fog [0xC37204]): inicio y fin según el tipo de cielo
+  (mediodía/medianoche 400→900, atardecer 100→800; tormenta →15/350), color = base de la tabla de luz/3; por vértice
+  oscurece el difuso hacia "dark" y suma el RGB de la niebla al especular (**(inferido)**); tierra por bloque +0x940,
+  objetos fn_007FEB30.
+- **Borrado.** En Flip, después de presentar, solo cada ~2000 ms (2 fotogramas) en juego: negro 0xFF000000, z=1. La Z
+  se reinicia cada fotograma con el quad de FinishFrame; el búfer de color depende del cielo.
+- **Gamma y filtrado.** Sin gamma. LightBoost (solo en detalle personalizado) cambia el divisor de la tabla de luz.
+  Filtrado bilineal, sin mips, sin AA, tramado activo ([rendering.md](rendering.md)).
+- **Nivel de detalle.** fn_00823AD0 desde start_system 0x643026; nivel = detailidx del registro (<5), si no **4**;
+  5 = personalizado (fn_008237B0 lee cada clave). Tabla 0x9A3704 (L0..L6):
+  - En vivo: LevelOfDetail (muerta), UseSmallBump 1 en todos, Clouds/CloudShadows 0001111, WaterTiling
+    0/.2/.4/.6/**.8**/.5/1 (nivel 4 → periodo del mar **560**; 200 solo en L6), LandRef 0001111, CitadelReflections
+    0000111, CitadelLightmaps 0111111, CitadelGlows/People 0011111, CitadelVolumeLight 0001111, RainSplash
+    0,0,3,5,8,8,8, LightBoost 0, Fog 0001111.
+  - Solo al arrancar: Weather 0001111, Light 0011111 (flag de luz dinámica de objeto 0x20), ShadowsOnObjects 0001111
+    (flag 0x40), UseHighTexture 0000111 (texturas de tierra de 256 frente a 128 px), UseMultiLayerOnLandscape
+    invertida (1 solo en L0), FixeLand.
+  - HardwareTnL/MaxObjectDistance se leen pero se ignoran. Las distancias de detalle de la tierra 0xE9C508 dependen
+    del número de texturas en VRAM. VanishObjectDist 100000 (guion).
+
+## 5. Comparación con openblack
+
+La tabla de paridad al día es [parity.md](parity.md). La lista que había aquí (2026-09-29) se ha quitado porque buena
+parte ya no era cierta: daba como ausentes en openblack el sol y la luna, las nubes, los reflejos de objetos en el mar,
+la neblina, las sombras dinámicas, las partículas, el fundido y las bandas y los anillos de agua, y como distintos el
+FOV, el orden de transparentes y sprites, el LOD y la prueba de alfa de TexturedChroma; hoy todo eso está hecho (igual
+o aproximado al original) según parity.md (commits 967d4c54, ac58688b, 5712a06f, cd6e99be, 1217d68f).
+
+Sigue igual la única diferencia inofensiva: openblack borra el color a 0x274659 (el original no lo borra; no se ve).
+Lo que falta según parity.md: lluvia, nieve y relámpagos; correas, gestos y anillo de influencia; vídeo Bink; barcos;
+la criatura (reflejos y sombras).
+
+Datos del original que solo estaban en esa lista:
+
+- TexturedChroma = prueba de alfa ≥0x96 **y** mezcla SA/ISA.
+- Las sombras dinámicas caen sobre la tierra y, con ShadowsOnObjects, sobre los objetos.
+- Huellas y calcomanías horneadas en las texturas de bloque.
+- Nubes y sombras de nubes desde el detalle 3.

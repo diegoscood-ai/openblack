@@ -1,13 +1,22 @@
 # Coordenadas, terreno, matrices y Zoomer
 
+Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, la
+altura exacta del terreno, la convención de las matrices LH y el interpolador `Zoomer`. Todo es **fiel** (verificado
+en el ejecutable) y está portado.
+
+- [MapCoords](#mapcoords)
+- [Altura del terreno](#altura-del-terreno)
+- [Matrices LH](#matrices-lh)
+- [Zoomer (LH3DLib)](#zoomer-lh3dlib)
+
 ## MapCoords
 
 - Punto fijo 16.16: `fixed = mundo * 6553.6` (1 celda = 10 unidades = 65536). Mundo = `fixed * 0.000152588`.
 - Estructura `{x int, z int, altitude float}`; la altura final de un objeto suele ser `GetAltitude(pos) + altitude`.
 
-## Altura del terreno: `LH3DIsland::GetAltitude` (0x803090)
+## Altura del terreno
 
-Portado exacto en `LandIsland::GetHeightAt`:
+`LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
 
 1. Celda `(x>>16, z>>16)`, fracciones `fx, fz` de 16 bits (se usan `>>8`, 0..255).
 2. Bloques de 17×17 celdas (fila compartida): vecinos `+1` = z+1, `+17` = x+1. Altura de celda en `cell.altitude`.
@@ -46,5 +55,5 @@ c2 = c/T²; c3 = d/T³; c4 = e/T⁴
 valor(t) = v0 + s0 t + c2 t²/2 + c3 t³/6 + c4 t⁴/24
 ```
 
-T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan la distancia de la mano
+T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan, entre otros, la distancia de la mano
 (g_HandDistZoomer) y el hundimiento de los montones (T = 1 s).

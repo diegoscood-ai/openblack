@@ -9,6 +9,8 @@
 
 #include "PSysManager.h"
 
+#include "TownBelief.h"
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -21,6 +23,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "Camera/Camera.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
@@ -278,6 +281,7 @@ void manager::Clear()
 	g_Effects.clear();
 	g_Containers.clear();
 	g_DebugDone = false;
+	town_belief::Clear();
 }
 
 std::vector<manager::Drawable> manager::Collect()
@@ -293,6 +297,10 @@ std::vector<manager::Drawable> manager::Collect()
 		{
 			result.push_back(std::move(drawable));
 		}
+	}
+	if (Locator::camera::has_value() && Locator::entitiesRegistry::has_value())
+	{
+		town_belief::Collect(Locator::camera::value().GetOrigin(), result);
 	}
 	return result;
 }

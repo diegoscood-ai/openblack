@@ -1553,18 +1553,28 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 		return;
 	}
 	const auto& mods = Locator::mods::value();
-	const auto modules = mods.GetModuleDirectories("world.foliage");
+	// and when a module's density option changes (as the mod's own: low 0.5, medium 1, high 2, very high 4)
+	std::vector<std::filesystem::path> modules;
+	std::vector<float> moduleDensities;
 	std::string loadKey = "loaded";
-	for (const auto& module : modules)
+	for (const auto& module : mods.GetModules("world.foliage"))
 	{
-		loadKey += "|" + module.generic_string();
+		const auto found = module.options.find("density");
+		const std::string density = found == module.options.end() ? "" : found->second;
+		modules.push_back(module.directory);
+		moduleDensities.push_back(density == "very low" ? 0.25f
+		                          : density == "low"    ? 0.5f
+		                          : density == "high"   ? 2.0f
+		                          : density == "very high" ? 4.0f
+		                                                   : 1.0f);
+		loadKey += "|" + module.directory.generic_string() + ":" + density;
 	}
 	if (loadKey != _foliageLoadKey)
 	{
 		_foliageLoadKey = loadKey;
 		_foliage.reset();
 		auto foliage = std::make_unique<Foliage>();
-		if (foliage->Load(mods.GetModFilesDirectory("world.foliage"), modules))
+		if (foliage->Load(mods.GetModFilesDirectory("world.foliage"), modules, moduleDensities))
 		{
 			_foliage = std::move(foliage);
 		}

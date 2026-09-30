@@ -635,7 +635,8 @@ uint8_t Foliage::ZoneOf(uint8_t cellFlags)
 	return zone > 8 && (zone & 1u) != 0 ? static_cast<uint8_t>(zone - 1) : zone;
 }
 
-bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules)
+bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules,
+                   const std::vector<float>& moduleDensities)
 {
 	if (!std::filesystem::exists(directory / "foliage.cfg"))
 	{
@@ -831,8 +832,11 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 	// the mod's own foliage.cfg, then each module's, with its images next to it
 	std::vector<std::filesystem::path> sources = {directory};
 	sources.insert(sources.end(), modules.begin(), modules.end());
-	for (const auto& source : sources)
+	for (size_t sourceIndex = 0; sourceIndex < sources.size(); ++sourceIndex)
 	{
+	const auto& source = sources[sourceIndex];
+	// a module's own density (its option in the Mods menu) on top of the mod's
+	const float sourceDensity = sourceIndex > 0 && sourceIndex - 1 < moduleDensities.size() ? moduleDensities[sourceIndex - 1] : 1.0f;
 	std::ifstream file(source / "foliage.cfg");
 	if (!file)
 	{
@@ -1114,7 +1118,7 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 			}
 			else if (key == "per_cell")
 			{
-				species.perCell = std::stof(value);
+				species.perCell = std::stof(value) * sourceDensity;
 			}
 			else if (key == "size")
 			{

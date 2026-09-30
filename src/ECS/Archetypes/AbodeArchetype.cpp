@@ -21,6 +21,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/StoragePit.h"
+#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
@@ -64,6 +65,53 @@ void AddStoragePitComponents(entt::entity entity, const Mesh& pitMesh, const GAb
 	ecs::StoragePitStore::AddResource(entity, ResourceType::Wood, woodAmount);
 	ecs::StoragePitStore::AddResource(entity, ResourceType::Food, foodAmount);
 }
+
+namespace
+{
+/// TownCentre::CreateTotemIfNecessary 0x743DA0 (a built town centre of a town, as MakeFunctional 0x743E80 calls it) ->
+/// TotemStatue::Create 0x737CC0: the tribe's plinth (GTotemStatueInfo, table 0xDA1D18 by Abode::GetTribeType) at the
+/// town centre's special point 6 (TownCentre::GetTotemPos 0x743F20, through its full matrix; raised like the
+/// morphing town centre, by the land under the point minus the land under the origin), with its Y angle and scale
+/// (0x737B20), and the icon on the plinth's top. Both static, no foundation sink (not an Abode). Facing the worship
+/// site (AddToPlayer 0x738130) and the creature's icon (SetPlayersCreature 0x7381C0) wait for those systems: the
+/// icon is the hand (BuildingSpellHand) of a player without a creature.
+void CreateTotemStatue(entt::entity townCentre, const GAbodeInfo& info, float yAngleRadians, float scale)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto tribe = static_cast<size_t>(info.tribeType);
+	const auto& statues = Locator::infoConstants::value().totemStatue;
+	if (tribe >= statues.size() || !Locator::terrainSystem::has_value() ||
+	    Locator::terrainSystem::value().GetMaterialInfo().empty())
+	{
+		return;
+	}
+	const auto& transform = registry.Get<Transform>(townCentre);
+	glm::vec3 point = transform.position;
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const auto centreMesh = resources::HashIdentifier(info.meshId);
+	if (meshes.Contains(centreMesh))
+	{
+		if (const auto& extra = meshes.Handle(centreMesh)->GetExtraMetrics(); extra.size() > 6)
+		{
+			point = transform.position + transform.rotation * (glm::vec3(extra[6][3]) * transform.scale);
+			const auto& island = Locator::terrainSystem::value();
+			point.y += island.GetHeightAt(glm::vec2(point.x, point.z)) -
+			           island.GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
+		}
+	}
+	const auto rotation = glm::mat3(glm::eulerAngleY(-yAngleRadians));
+
+	const auto plinth = registry.Create();
+	registry.Assign<Transform>(plinth, point, rotation, glm::vec3(scale));
+	registry.Assign<Mesh>(plinth, resources::HashIdentifier(statues.at(tribe).plinth), static_cast<int8_t>(0),
+	                      static_cast<int8_t>(0));
+	const auto top = registry.Create();
+	registry.Assign<Transform>(top, point + glm::vec3(0.0f, TotemStatue::k_PlinthTop, 0.0f), rotation, glm::vec3(scale));
+	registry.Assign<Mesh>(top, resources::HashIdentifier(MeshId::BuildingSpellHand), static_cast<int8_t>(0),
+	                      static_cast<int8_t>(0));
+	registry.Assign<TotemStatue>(plinth, townCentre, top, point.y, 0.0f);
+}
+} // namespace
 
 entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, AbodeInfo type, float yAngleRadians,
                                     float scale, uint32_t foodAmount, uint32_t woodAmount)
@@ -148,6 +196,9 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	{
 	case AbodeType::StoragePit:
 		AddStoragePitComponents(entity, mesh, info, position, yAngleRadians, foodAmount, woodAmount);
+		break;
+	case AbodeType::TownCentre:
+		CreateTotemStatue(entity, info, yAngleRadians, scale);
 		break;
 	default:
 		break;

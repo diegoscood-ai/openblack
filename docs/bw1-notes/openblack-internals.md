@@ -49,7 +49,17 @@
   (`GetAltitudeFondation` 0x63ABC0, nunca por encima del origen), como mucho `max(0,2·radio 2D, 0,8)` (radio =
   escala × la mayor semiextensión en x o z, 0x638180). Sustituye a la altitud del script. Solo con una isla cargada
   (`UnloadedIsland` lanza en `GetHeightAt`). Pendiente: el templo aplana el terreno a su alrededor al crearse
-  (0x882730: plano hasta 35 unidades, mezcla hasta 70) y su entrada (`Entrance.l3d`) sigue el terreno.
+  (0x882730: plano hasta 35 unidades, mezcla hasta 70; hecho en `CitadelArchetype`) y su entrada (`Entrance.l3d`)
+  sigue el terreno (pendiente).
+- **Tótem del centro del pueblo** (`components::TotemStatue`, `CreateTotemStatue` en AbodeArchetype.cpp; notas en
+  `dev\tmp_dis\totem\totem_notes.txt`): `TownCentre::CreateTotemIfNecessary` 0x743DA0 → `TotemStatue::Create`
+  0x737CC0. Dos mallas estáticas sin hundimiento: el pedestal de la tribu (`InfoConstants.totemStatue[tribu].plinth`,
+  BuildingPlayerIconPlinth*) en el punto especial 6 del centro (`GetTotemPos` 0x743F20, con la matriz del centro y
+  subido como su morph), con su ángulo Y y escala; encima (+2,729, 0x999A9C) el icono: la criatura del jugador
+  (BuildingPlayerIcon<Especie>) o, sin criatura, la mano (BuildingSpellHand, lo único que hay ahora). Suben
+  `8 × fracción de culto` (Draw 0x738960; aún sin culto: 0). Las creencias (GBelief::DrawBelief 0x438800) van a
+  `y del punto 6 + alto de la malla del icono × escala` (Object::GetHeight 0x638120). Pendiente: mirar al lugar de
+  culto (AddToPlayer 0x738130) y el icono de la criatura.
 - El búfer de instancias crece con margen y se sube con `bgfx::copy` (con `makeRef` y un `resize` se leía memoria
   liberada: artefactos al crear y destruir mallas cada fotograma).
 - `L3DSubMesh` guarda en CPU posiciones e índices (`GetCollisionPositions/Indices`) para picking y medidas;

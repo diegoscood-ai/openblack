@@ -32,6 +32,7 @@
 #include "PotArchetype.h"
 #include "Resources/ResourcesInterface.h"
 #include "Utils.h"
+#include "Worship/TownCentreSpellIcon.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
@@ -204,6 +205,9 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 		CreateTotemStatue(entity, info, yAngleRadians, scale);
 		// MakeFunctional: then one spell icon per spell seed the town already has (at most 6)
 		ecs::object_index::OnTownCentre(townId);
+		// TownCentre::MakeFunctional 0x743E80's spell part (Worship/TownCentreSpellIcon.cpp): those icons and the
+		// town's worship site. The icons take no creation index of their own (object_index counts them above).
+		worship::town_centre::MakeFunctional(entity);
 		break;
 	case AbodeType::Workshop:
 		// its ShowNeedsVisuals and wood pile (openblack doesn't make them yet)

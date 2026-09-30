@@ -75,6 +75,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
+#include "Worship/Worship.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
@@ -296,6 +297,8 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		actionHeld = true;
 		_testActionSeconds -= seconds;
 	}
+	// OPENBLACK_TEST_CAST: the synthetic presses of the action button (HandSpellSeed.cpp)
+	actionHeld = TestCastActionHeld(seconds, actionHeld);
 
 	// Pick up / drop with the action button (right). Only while not gripping the land.
 	if (_held && !Locator::entitiesRegistry::value().Valid(*_held))
@@ -329,6 +332,13 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			}
 			_hovered.reset();
 		}
+		else if (worship::InterfaceValidToTap(*_hovered, PlayerNames::PLAYER_ONE))
+		{
+			// the same StartGrab branch: spell icons and one-shot orbs cannot go in the hand, so they are tapped at
+			// once (Worship/Worship.cpp -> SpellIcon::InterfaceTap 0x726430, OneOffSpellSeed::InterfaceTap 0x72A640)
+			worship::InterfaceTap(*_hovered, PlayerNames::PLAYER_ONE);
+			_hovered.reset();
+		}
 		else
 		{
 			_pendingPick = _hovered;
@@ -340,12 +350,21 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// fish: the locked select starts at once, like piles
 		_pickPressHeld = true;
 	}
+	else if (actionPressed && IsHoldingSeed())
+	{
+		// ActionPressedHolding 0x5D1560 with a spell seed: armed until the release (HAND_GESTURE), cast at once
+		// (HAND_POSITION) or kept casting while held (IN_HAND); HandSpellSeed.cpp
+		SeedActionPressed();
+	}
 	else if (actionPressed && _held && !_pickPressHeld)
 	{
 		// GInterface: with an object in the hand, press the action button again, move and release to put it down or
 		// hurl it (state 12, 0x5D4DB0).
 		_releaseArmed = true;
 	}
+	// the seed's apply states 8..11, and what the gesture system is told about the hand (HandSpellSeed.cpp)
+	UpdateSeedAction(actionHeld);
+	UpdateSeedInHand(actionHeld);
 	if (actionReleased && _pickPressHeld)
 	{
 		// Releasing the press that picked it up ends the grab / scooping (packet 0x1C); the object stays in the hand.
@@ -462,7 +481,13 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		_holdRadius *= 1.0f - (1.0f - p) * (1.0f - p);
 	}
 	_animator->SetFrame(std::nullopt);
-	if (holding && _holdType == HoldType::Above && _animator->Has("Chold_above"))
+	if (holding && _holdType == HoldType::Magic && _animator->Has("Cwiggle"))
+	{
+		// MAGIC (0x5B50B0, a spell seed until it is ready): GetAnim(0, 0) = Cwiggle held at half its length
+		clip = "Cwiggle";
+		_animator->SetTime(static_cast<float>(_animator->GetDurationMs(clip) >> 1));
+	}
+	else if (holding && _holdType == HoldType::Above && _animator->Has("Chold_above"))
 	{
 		clip = "Chold_above";
 		const float grip = std::min(1.0f, _holdRadius / (3.2f * _handScale * 1.2f));

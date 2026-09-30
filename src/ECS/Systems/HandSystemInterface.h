@@ -56,6 +56,23 @@ public:
 	virtual void Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool gripping, bool actionHeld) noexcept = 0;
 	/// Object currently held by the player hand, if any.
 	[[nodiscard]] virtual std::optional<entt::entity> GetHeldObject() const noexcept = 0;
+	/// GInterfaceStatus::PlaceObjectInMagicHand 0x5DC870: the hand takes the object (a spell seed from the magic code)
+	virtual void PlaceObjectInMagicHand(entt::entity entity) noexcept = 0;
+	/// GInterfaceStatus::IsHandReadyForObject 0x5DC890: space in the hand (and no hand action locked)
+	[[nodiscard]] virtual bool IsHandReadyForObject() const noexcept = 0;
+	/// GInterface::ForceDropHeld 0x5D4350: the held object leaves the hand with no velocity (packet 0x1D,
+	/// ThrowObjectFromHand(status, 1)); a spell seed goes back to its worship site or is deleted
+	virtual void ForceDropHeld() noexcept = 0;
+	/// GInterface fn_005D1260 (EndAction): the action in progress ends (a seed that becomes ready ends its press)
+	virtual void EndAction() noexcept = 0;
+	/// GInterfaceStatus::UpdateSpellInfo 0x5DC8F0 (for a spell cast from this hand): the point under the hand (+0x00),
+	/// the hand (+0x0C), the camera's forward (+0x18) and the hand's velocity (+0x24)
+	virtual void GetSpellInfo(glm::vec3& interfacePos, glm::vec3& handPos, glm::vec3& cameraForward,
+	                          glm::vec3& velocity) const noexcept = 0;
+	/// The hand's scale (CHand +0x4834, SetDistanceFromView)
+	[[nodiscard]] virtual float GetHandScale() const noexcept = 0;
+	/// The player hand's model position (CHand +0x78) and matrix
+	[[nodiscard]] virtual glm::mat4 GetHandMatrix() const noexcept = 0;
 	/// ToolTips::ForceToolTips(0xEEA, amount) of a locked select: the amount in the hand while taking food or wood, and
 	/// for 12 turns after the last turn of it (afterFocus 0.5); nullopt when not shown
 	[[nodiscard]] virtual std::optional<float> GetAmountInHandToolTip() const noexcept = 0;

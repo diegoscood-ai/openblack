@@ -979,7 +979,7 @@ void Gui::ShowVillagerNames() noexcept
 		    const std::string name = "Villager #" + std::to_string(i);
 		    const std::string stateHelpText = "TODO: STATE HELP TEXT";
 		    std::string details =
-		        fmt::format("{}\nA:{} L:{}%, H:{}%", stateHelpText, villager.age, villager.health, villager.hunger);
+		        fmt::format("{}\nA:{} L:{:.0f}%, H:{}%", stateHelpText, villager.age, villager.life * 100.0f, villager.hunger);
 		    const auto& actionSystem = Locator::livingActionSystem::value();
 		    if (config.debugVillagerStates)
 		    {
@@ -1007,7 +1007,7 @@ void Gui::ShowVillagerNames() noexcept
 				    {
 					    ImGui::Text("Homeless");
 				    }
-				    ImGui::InputInt("Health", reinterpret_cast<int*>(&villager.health));
+				    ImGui::SliderFloat("Life", &villager.life, 0.0f, 1.0f);
 				    ImGui::InputInt("Age", reinterpret_cast<int*>(&villager.age));
 				    ImGui::InputInt("Hunger", reinterpret_cast<int*>(&villager.hunger));
 				    ImGui::Combo("Life Stage", &villager.lifeStage, Villager::k_LifeStageStrs);

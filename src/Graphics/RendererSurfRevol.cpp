@@ -1,0 +1,127 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#define LOCATOR_IMPLEMENTATIONS
+
+// The surfaces of revolution of the particle effects (ZR_SurfRevol: the teleport pool, the dispensers' discs):
+// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 sets the scrolled UV offset and draws the GJ mesh
+// (RenderParticleGJMesh::DrawAt 0x67C150) in render mode 6: colour = texture x diffuse + specular, alpha = texture alpha x
+// diffuse alpha. Here two passes with the WorldQuad program: the textured one blended, then the specular added with a
+// white texture and the same alpha (alpha x specular is what the specular adds under that blend). Unlit (UseLighting is
+// not ported). PSys/Rules/SurfRevol.h.
+
+#include <cstring>
+
+#include <memory>
+#include <string>
+
+#include <bgfx/bgfx.h>
+#include <entt/core/hashed_string.hpp>
+
+#include "Camera/Camera.h"
+#include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/ShaderManager.h"
+#include "Graphics/Texture2D.h"
+#include "Locator.h"
+#include "PSys/Rules/SurfRevol.h"
+#include "Renderer.h"
+#include "Resources/ResourcesInterface.h"
+
+using namespace openblack;
+using namespace openblack::graphics;
+
+namespace
+{
+/// A 1 x 1 white texture for the specular pass (made once; bgfx owns it until the end)
+const Texture2D& White()
+{
+	static Texture2D* white = [] {
+		auto* texture = new Texture2D("surfrevol_white"); // NOLINT(cppcoreguidelines-owning-memory): lives as long as bgfx
+		static constexpr uint8_t k_Pixel[4] = {255, 255, 255, 255};
+		texture->Create(1, 1, 1, TextureFormat::RGBA8, Wrapping::Repeat, Filter::Linear, bgfx::copy(k_Pixel, sizeof(k_Pixel)));
+		return texture;
+	}();
+	return *white;
+}
+} // namespace
+
+void Renderer::DrawPSysSurfaces(RenderPass viewId, [[maybe_unused]] const Camera& camera) const
+{
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	const auto surfaces = psys::surf_revol::Collect();
+	if (surfaces.empty())
+	{
+		return;
+	}
+	const auto& textures = Locator::resources::value().GetTextures();
+	const auto* program = _shaderManager->GetShader("WorldQuad");
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	for (const auto& surface : surfaces)
+	{
+		const auto texture = entt::hashed_string(("raw/" + surface.texture).c_str());
+		if (!textures.Contains(texture))
+		{
+			continue;
+		}
+		// the alpha file is <name>a.raw (S_TileLandscapeA.raw has a capital A)
+		auto alphaTexture = entt::hashed_string(("raw/" + surface.texture + "a").c_str()).value();
+		if (!textures.Contains(alphaTexture))
+		{
+			alphaTexture = entt::hashed_string(("raw/" + surface.texture + "A").c_str()).value();
+		}
+		const auto& alpha = textures.Contains(alphaTexture) ? *textures.Handle(alphaTexture) : *textures.Handle(texture);
+		const auto vertexCount = static_cast<uint32_t>(surface.vertices.size());
+		const auto indexCount = static_cast<uint32_t>(surface.indices.size());
+		for (int pass = 0; pass < 2; ++pass)
+		{
+			if (bgfx::getAvailTransientVertexBuffer(vertexCount, layout) < vertexCount ||
+			    bgfx::getAvailTransientIndexBuffer(indexCount) < indexCount)
+			{
+				return;
+			}
+			bgfx::TransientVertexBuffer vertices;
+			bgfx::TransientIndexBuffer indices;
+			bgfx::allocTransientVertexBuffer(&vertices, vertexCount, layout);
+			bgfx::allocTransientIndexBuffer(&indices, indexCount);
+			auto* out = reinterpret_cast<Vertex*>(vertices.data);
+			for (const auto& v : surface.vertices)
+			{
+				*out++ = {v.position.x, v.position.y, v.position.z, v.uv.x, v.uv.y, pass == 0 ? v.abgr : v.specular};
+			}
+			std::memcpy(indices.data, surface.indices.data(), surface.indices.size() * sizeof(uint16_t));
+			if (pass == 0)
+			{
+				program->SetTextureSampler("s_diffuse", 0, *textures.Handle(texture), 0);
+			}
+			else
+			{
+				program->SetTextureSampler("s_diffuse", 0, White(), 0);
+			}
+			program->SetTextureSampler("s_alpha", 1, alpha, 0);
+			bgfx::setVertexBuffer(0, &vertices);
+			bgfx::setIndexBuffer(&indices);
+			// mode 6 (MaterialUpdateZBuffer: Z write), Z test on; the specular goes on top additively
+			const uint64_t blend = pass == 1 || surface.additive
+			                           ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
+			                           : BGFX_STATE_BLEND_ALPHA;
+			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | blend |
+			               (surface.writeDepth && pass == 0 ? BGFX_STATE_WRITE_Z : 0));
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+		}
+	}
+}

@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <memory>
 
+#include <entt/entity/entity.hpp>
+
 #include "3D/HandAnimator.h"
 #include "Common/Zoomer.h"
 #include "Enums.h"
@@ -39,6 +41,15 @@ public:
 	                                            std::optional<glm::vec3> land, bool gripping,
 	                                            std::chrono::microseconds dt) noexcept override;
 	[[nodiscard]] std::optional<entt::entity> GetHeldObject() const noexcept override { return _held; }
+	void PlaceObjectInMagicHand(entt::entity entity) noexcept override { PickUp(entity); }
+	// HandSpellSeed.cpp
+	[[nodiscard]] bool IsHandReadyForObject() const noexcept override;
+	void ForceDropHeld() noexcept override;
+	void EndAction() noexcept override;
+	void GetSpellInfo(glm::vec3& interfacePos, glm::vec3& handPos, glm::vec3& cameraForward,
+	                  glm::vec3& velocity) const noexcept override;
+	[[nodiscard]] float GetHandScale() const noexcept override { return _handScale; }
+	[[nodiscard]] glm::mat4 GetHandMatrix() const noexcept override;
 	[[nodiscard]] std::optional<float> GetAmountInHandToolTip() const noexcept override
 	{
 		// test hook OPENBLACK_TEST_TOOLTIP=<amount>: always shown
@@ -104,6 +115,51 @@ private:
 	/// DeleteObjectAndTakeResource: the store takes the tree's wood and the tree is deleted.
 	void DepositInStore(entt::entity object, entt::entity store) noexcept;
 	[[nodiscard]] bool IsHoldingTree() const noexcept;
+
+	// ---- HandSpellSeed.cpp: a spell seed in the hand (GInterface's apply states, SpellSeed's interface virtuals) ----
+	/// GInterface action states with a seed: 8/9 apply on release (to the land / an object), 10/11 locked apply
+	enum class SeedAction : uint8_t
+	{
+		None = 0,
+		ApplyOnReleaseMap = 8,
+		ApplyOnReleaseObject = 9,
+		LockedApplyMap = 10,
+		LockedApplyObject = 11,
+	};
+	[[nodiscard]] bool IsHoldingSeed() const noexcept;
+	/// ActionPressedHolding 0x5D1560, the seed branches
+	void SeedActionPressed() noexcept;
+	/// States 8..11 (0x5D48D0, 0x5D4C10, 0x5D4D00) every frame: release applies / unlocks
+	void UpdateSeedAction(bool actionHeld) noexcept;
+	/// BeginApplyOnRelease fn_005D2730 / EndApplyOnRelease 0x5D27B0: the buffer reseeded, the G_HANDGESTURE_02 loop
+	void BeginApplyOnRelease(SeedAction state) noexcept;
+	void EndApplyOnRelease() noexcept;
+	/// SendApplyToMapCoord 0x5D3340 (the seed part) -> packet 0x12 -> SpellSeed::ApplyThisToMapCoord 0x728E20
+	int SendSeedApplyToMapCoord() noexcept;
+	/// SendApplyToObject 0x5D30D0 (the seed part) -> packet 0x11 -> SpellSeed::ApplyThisToObject 0x728D10
+	int SendSeedApplyToObject() noexcept;
+	/// FailApply fn_005D18F0: SPOT_VISUAL 4 (SF_FailedApply) at the point and G_SpellCastFailure
+	int FailApply(glm::vec3 point) noexcept;
+	/// HandleApplyResult fn_005DA100: 0x16 -> the seed leaves the hand, 3 -> consumed
+	void HandleSeedApplyResult(int result, entt::entity seed) noexcept;
+	/// Every frame: the hold parameters (MAGIC until ready), the seed's own mesh (IsG3DObjectDrawnInHand), its coming in
+	/// and out of the hand, and what the gesture system is told (magic::gestures::SetHandStatus)
+	void UpdateSeedInHand(bool actionHeld) noexcept;
+	/// SpellSeed::InterfaceSetOutMagicHand 0x728940 (and the seed is not drawn outside the hand: Spell::DrawSpellSeed)
+	void SeedLeftHand(entt::entity seed) noexcept;
+	/// Test hooks OPENBLACK_TEST_CAST / OPENBLACK_TEST_CAST_PATH / OPENBLACK_TEST_THROW_VEL (HandSpellSeed.cpp)
+	bool TestCastActionHeld(float seconds, bool actionHeld) noexcept;
+	[[nodiscard]] std::optional<glm::vec3> TestCastPathPoint() const noexcept;
+	SeedAction _seedAction {SeedAction::None};
+	/// the object under the cursor when the apply started (m_ActionCollide.object)
+	entt::entity _seedTarget {entt::null};
+	/// m_ApplySentTurn: one apply packet per game turn
+	std::optional<uint32_t> _applySentTurn;
+	/// the SoundTag of LH_SAMPLE_G_HANDGESTURE_02 while a HAND_GESTURE seed is armed
+	std::optional<entt::entity> _seedLoopSound;
+	/// the seed the hand held last frame (to see it come and go)
+	entt::entity _seedInHand {entt::null};
+	float _testCastTime {-1.0f};
 	/// HOLD_TYPE of the original (Enum.h): what Object::GetHoldType returns for each class.
 	enum class HoldType
 	{

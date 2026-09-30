@@ -10,6 +10,7 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+#include "HandGrain.h"
 #include "HandSystemDetail.h"
 
 #include <glm/gtc/constants.hpp>
@@ -52,8 +53,10 @@
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
+#include "ECS/Components/HandFxPart.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/SpellSeed.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Components/Fixed.h"
@@ -360,6 +363,9 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), _roll, forward)) * rotation;
 		position = *groundPoint + glm::vec3(0.0f, _tipClearance, 0.0f) - rotation * (_hotspot * scale);
 	}
+	// Hand state 8 (CHand::GetRequiredState 0x46CD10: the held object IsSpellSeed) is HandStateGrain (HandGrain.cpp)
+	const bool seedHeld = _held && registry.Valid(*_held) && registry.AllOf<SpellSeed>(*_held);
+	hand_grain::SetHoldingSeed(seedHeld);
 	if ((_held || _tug) && _holdType != HoldType::None)
 	{
 		// HandStateHolding::Update: the hand model origin IS the grip point (CHand+0x78); the hold animation
@@ -368,7 +374,9 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		// Height above the ground (jump table 0x5B568C): ABOVE 0.2, TREE/SIDE/VILLAGER max(lowering, 1.9), plus
 		// 0.1 * height for rooted objects.
 		const float lowering = _loweringMultiplier * _heldHeight; // GetHeight() * GetHoldLoweringMultiplier()
-		const float height = (_holdType == HoldType::Above ? 0.2f : std::max(lowering, 1.9f)) + (_rooted ? 0.1f * _heldHeight : 0.0f);
+		// MAGIC (a spell seed before it is ready): fn_0046C040 (3.2) x the hand's scale
+		const float base = _holdType == HoldType::Above ? 0.2f : _holdType == HoldType::Magic ? 3.2f * _handScale : std::max(lowering, 1.9f);
+		const float height = base + (_rooted ? 0.1f * _heldHeight : 0.0f);
 		auto grip = _tug ? registry.Get<Transform>(*_tug).position +
 		                       registry.Get<Transform>(*_tug).rotation * glm::vec3(0.0f, lowering, 0.0f)
 		                 : *groundPoint + glm::vec3(0.0f, height, 0.0f);
@@ -385,6 +393,16 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 			                 Locator::terrainSystem::value().GetHeightAt(glm::vec2(_pickLock.x, _pickLock.z)) + pileHeight,
 			                 _pickLock.z);
 		}
+		if (seedHeld)
+		{
+			// HandStateHolding::Update 0x5B3FD4: HandStateGrain vt 0x1C (with ClampHand the required position is the
+			// point the raise started from), then vt 0x18 adds the raise's height
+			if (const auto clamped = hand_grain::ClampedPosition(); clamped)
+			{
+				grip = *clamped;
+			}
+			grip.y += hand_grain::Height();
+		}
 		glm::vec3 back(0.0f, 0.0f, 1.0f);
 		if (Locator::camera::has_value())
 		{
@@ -394,7 +412,18 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 				back = -glm::normalize(glm::vec3(ray.x, 0.0f, ray.z));
 			}
 		}
-		const auto up = HeldSway(grip) * glm::vec3(0.0f, 1.0f, 0.0f);
+		auto up = HeldSway(grip) * glm::vec3(0.0f, 1.0f, 0.0f);
+		if (const float tilt = seedHeld ? hand_grain::Tilt() : 0.0f; tilt != 0.0f && Locator::camera::has_value())
+		{
+			// ObtainRequiredHandPosition 0x5B6DE0 with HandStateGrain's tilt (vt 0x14): the hand's up turns by the tilt
+			// about the hand-to-camera direction (fn_007FB180). The original eases the up vector there with 0.4 s
+			// Zoomers (0xD13FB0..); the sign of the turn is UNVERIFIED.
+			const auto toCamera = Locator::camera::value().GetOrigin() - grip;
+			if (glm::length(toCamera) > 1e-4f)
+			{
+				up = glm::mat3(glm::rotate(glm::mat4(1.0f), tilt, glm::normalize(toCamera))) * up;
+			}
+		}
 		const auto side = glm::normalize(glm::cross(back, up));
 		rotation = glm::mat3(side, glm::cross(side, up), -up);
 		position = grip;
@@ -473,7 +502,8 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 	std::optional<CursorHit> best;
 	float bestT = std::numeric_limits<float>::max();
 	const auto skip = [&](entt::entity entity) {
-		if (entity == _hands[0] || entity == _hands[1] || (_held && entity == *_held) || (_tug && entity == *_tug))
+		if (entity == _hands[0] || entity == _hands[1] || (_held && entity == *_held) || (_tug && entity == *_tug) ||
+		    registry.AllOf<HandFxPart>(entity))
 		{
 			return true;
 		}
@@ -561,7 +591,13 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 {
 	_cursorObject.reset();
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
-	const auto mouseDir = glm::normalize(direction);
+	auto mouseDir = glm::normalize(direction);
+	// OPENBLACK_TEST_CAST_PATH: during the test press the hand is dragged along a line (HandSpellSeed.cpp)
+	if (const auto path = TestCastPathPoint(); path)
+	{
+		land = *path;
+		mouseDir = glm::normalize(*path - origin);
+	}
 	_mouseRayOrigin = origin;
 	_mouseRayDirection = mouseDir;
 	const std::optional<float> landDistance = land ? std::optional(glm::distance(origin, *land)) : std::nullopt;
@@ -579,7 +615,8 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 	if ((_held || _tug) && land)
 	{
 		const float lowering = _loweringMultiplier * _heldHeight;
-		const float h = (_holdType == HoldType::Above ? 0.2f : std::max(lowering, 1.9f)) + (_rooted ? 0.1f * _heldHeight : 0.0f);
+		const float base = _holdType == HoldType::Above ? 0.2f : _holdType == HoldType::Magic ? 3.2f * _handScale : std::max(lowering, 1.9f);
+		const float h = base + (_rooted ? 0.1f * _heldHeight : 0.0f);
 		dir = glm::normalize(*land - origin + glm::vec3(0.0f, h * 0.6f, 0.0f));
 	}
 

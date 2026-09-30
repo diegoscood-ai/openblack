@@ -64,7 +64,7 @@ struct Villager
 
 	using Type = std::tuple<Tribe, Villager::LifeStage, Villager::Sex, VillagerNumber>;
 
-	uint32_t health;
+	float life; ///< Object +0x48, 0..1 (Object::GetLife; ecs::life has the setters)
 	uint32_t age;
 	uint32_t hunger;
 	LifeStage lifeStage;

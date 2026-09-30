@@ -42,10 +42,13 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/Influence/Influence.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
+#include "Magic/Script/MapScriptMagic.h"
+#include "Magic/Script/MapScriptWeather.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "ScriptingBindingUtils.h"
@@ -318,34 +321,37 @@ void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position,
 
 void FeatureScriptCommands::CreateTownSpell(int32_t townId, const std::string& spellName)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, townId, spellName);
+	magic::script::CreateTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateNewTownSpell(int32_t townId, const std::string& spellName)
 {
-	// the spells themselves are not implemented; the town centre's spell icon they make is counted
+	// the town centre's spell icon this makes is counted by the object index (TownCentreSpellIcon takes no index of its own)
 	ecs::object_index::AddTownSpell(static_cast<uint32_t>(townId), spellName);
+	magic::script::CreateNewTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
-void FeatureScriptCommands::CreateTownCentreSpellIcon(int32_t param1, const std::string& param2)
+void FeatureScriptCommands::CreateTownCentreSpellIcon(int32_t townId, const std::string& spellName)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, param1, param2);
+	// command 12, the same handler as CREATE_TOWN_SPELL (0x715B4A)
+	magic::script::CreateTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateSpellIcon(glm::vec3 position, const std::string& param2, int32_t param3, int32_t param4,
                                             int32_t param5)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, glm::to_string(position), param2, param3, param4, param5);
+	// command 13 does nothing in the original either (0x715B7C)
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "LHScriptX: CREATE_SPELL_ICON({}, {}, {}, {}, {}) does nothing.",
+	                    glm::to_string(position), param2, param3, param4, param5);
 }
 
-void FeatureScriptCommands::CreatePlannedSpellIcon(int32_t param1, glm::vec3 position, const std::string& param3,
+void FeatureScriptCommands::CreatePlannedSpellIcon(int32_t townId, glm::vec3 position, const std::string& spellName,
                                                    int32_t param4, int32_t param5, int32_t param6)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, param1, glm::to_string(position), param3, param4, param5, param6);
+	// command 14: only the town's magic type (the planned icon itself is not made)
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "LHScriptX: CREATE_PLANNED_SPELL_ICON({}, {}, {}, {}, {}, {})", townId,
+	                    glm::to_string(position), spellName, param4, param5, param6);
+	magic::script::CreatePlannedSpellIcon(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateVillager(glm::vec3 param1, glm::vec3 param2, const std::string& param3)
@@ -393,11 +399,20 @@ void FeatureScriptCommands::CreateCreaturePen([[maybe_unused]] glm::vec3 positio
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string&,
-                                              const std::string&, int32_t, int32_t)
+void FeatureScriptCommands::CreateWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string& playerOwner,
+                                              const std::string& tribeType, int32_t, int32_t)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// command 19 (0x7160C8): only the player and the tribe are used; the site's place comes from its citadel slot
+	Tribe tribe;
+	try
+	{
+		tribe = k_TribeLookup.at(tribeType);
+	}
+	catch (...)
+	{
+		std::throw_with_nested(std::runtime_error("Could not recognize worship site tribe"));
+	}
+	magic::script::CreateWorshipSite(GetPlayerName(playerOwner), tribe); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreatePlannedWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string&,
@@ -622,41 +637,42 @@ void FeatureScriptCommands::CreateNewBigForest(glm::vec3 position, BigForestInfo
 	BigForestArchetype::Create(position, type, unknown, rotation, scale);
 }
 
-void FeatureScriptCommands::CreateInfluenceRing([[maybe_unused]] glm::vec3 position, int32_t, float, int32_t)
+void FeatureScriptCommands::CreateInfluenceRing(glm::vec3 position, int32_t player, float radius, int32_t anti)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 59 (0x7171A3): InfluenceRing::Create(pos, GGame::GetPlayer(player), radius, anti)
+	if (player >= 0 && player < static_cast<int32_t>(PlayerNames::_COUNT))
+	{
+		influence::CreateRing(position, static_cast<PlayerNames>(player), radius, anti != 0);
+	}
 }
 
-void FeatureScriptCommands::CreateWeatherClimate(int32_t, int32_t, glm::vec3, float, float)
+void FeatureScriptCommands::CreateWeatherClimate(int32_t id, int32_t info, glm::vec3 position, float radius1,
+                                                 float radius2)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherClimate(id, info, position, radius1, radius2); // Magic/Script/MapScriptWeather.cpp
 }
 
-void FeatureScriptCommands::CreateWeatherClimateRain(int32_t, float, int32_t, int32_t, int32_t)
+void FeatureScriptCommands::CreateWeatherClimateRain(int32_t id, float desire, int32_t dryDays, int32_t rainingDays,
+                                                     int32_t flags)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherClimateRain(id, desire, dryDays, rainingDays, flags);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t, float, float)
+void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t id, float temperature, float target)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherClimateTemp(id, temperature, target);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateWind(int32_t, float, float, float)
+void FeatureScriptCommands::CreateWeatherClimateWind(int32_t id, float windX, float windZ, float angle)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherClimateWind(id, windX, windZ, angle);
 }
 
-void FeatureScriptCommands::CreateWeatherStorm(int32_t, glm::vec3, float, int32_t, const std::string&, const std::string&,
-                                               const std::string&, float, glm::vec3)
+void FeatureScriptCommands::CreateWeatherStorm(int32_t climate, glm::vec3 position, float age, int32_t numClouds,
+                                               const std::string& shape, const std::string& clouds,
+                                               const std::string& weather, float speed, glm::vec3 target)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherStorm(climate, position, age, numClouds, shape, clouds, weather, speed, target);
 }
 
 void FeatureScriptCommands::BrushSize(float, float)
@@ -786,20 +802,17 @@ void FeatureScriptCommands::CreateStreetLight([[maybe_unused]] glm::vec3 positio
 
 void FeatureScriptCommands::SetLandNumber(int32_t number)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}) not implemented.", __FILE__, __LINE__,
-	                    __func__, number);
+	influence::SetLandNumber(number); // g_game+0x205A08 (read by the influence, and the worship sites later)
 }
 
-void FeatureScriptCommands::CreateOneShotSpell([[maybe_unused]] glm::vec3 position, const std::string&)
+void FeatureScriptCommands::CreateOneShotSpell(glm::vec3 position, const std::string& seed)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::script::CreateOneShotSpell(position, seed); // Magic/Script/MapScriptMagic.cpp
 }
 
-void FeatureScriptCommands::CreateOneShotSpellPu([[maybe_unused]] glm::vec3 position, const std::string&)
+void FeatureScriptCommands::CreateOneShotSpellPu(glm::vec3 position, const std::string& magicName)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::script::CreateOneShotSpellPu(position, magicName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateFireFly([[maybe_unused]] glm::vec3 position)
@@ -820,11 +833,9 @@ void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::
 	AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f);
 }
 
-void FeatureScriptCommands::FireFlySpellRewardProb([[maybe_unused]] const std::string& spell,
-                                                   [[maybe_unused]] float probability)
+void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, float probability)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::script::FireFlySpellRewardProb(spell, probability); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 position, FieldTypeInfo townFieldType, float rotation)
@@ -833,13 +844,12 @@ void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 positio
 	FieldArchetype::Create(townId, position, townFieldType, rotation);
 }
 
-void FeatureScriptCommands::CreateSpellDispenser(int32_t, [[maybe_unused]] glm::vec3 position, const std::string&,
-                                                 const std::string&, float, float, float)
+void FeatureScriptCommands::CreateSpellDispenser(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
+                                                 const std::string& magicName, float yAngle, float scale, float period)
 {
-	// not implemented; the dispenser and its spell seed are counted
-	ecs::object_index::Skip(2);
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// the dispenser Abode and its one-shot orb take their own creation indices
+	magic::script::CreateSpellDispenser(townId, position, GAbodeInfo::Find(abodeInfo), magicName, yAngle, scale,
+	                                    period); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::LoadComputerPlayerPersonality(int32_t, glm::vec3)
@@ -871,16 +881,14 @@ void FeatureScriptCommands::CreateDrinkWaypoint([[maybe_unused]] glm::vec3 posit
 	// __func__);
 }
 
-void FeatureScriptCommands::SetTownInfluenceMultiplier([[maybe_unused]] float multiplier)
+void FeatureScriptCommands::SetTownInfluenceMultiplier(float multiplier)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	influence::SetTownInfluenceMultiplier(multiplier); // case 96: g_game+0x250078
 }
 
-void FeatureScriptCommands::SetPlayerInfluenceMultiplier([[maybe_unused]] float multiplier)
+void FeatureScriptCommands::SetPlayerInfluenceMultiplier(float multiplier)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	influence::SetPlayerInfluenceMultiplier(multiplier); // case 97: g_game+0x25007C
 }
 
 void FeatureScriptCommands::SetTownBalanceBeliefScale([[maybe_unused]] int32_t townId, [[maybe_unused]] float scale)

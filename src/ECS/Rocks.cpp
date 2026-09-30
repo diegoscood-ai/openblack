@@ -26,6 +26,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Fire/FireEffect.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -127,10 +128,15 @@ std::array<entt::entity, 2> Rocks::SplitInTwo(entt::entity entity, glm::vec3 vel
 	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Rock: split type {} scale {:.2f} -> 2 x {:.2f}", static_cast<int>(type),
 	                   transform.scale.x, scale);
+	// Rock::SplitInTwo: the fire passes on to both halves (fn_007308F0, ECS/Fire), then the old rock goes
+	for (const auto half : halves)
+	{
+		fire::CopyFire(entity, half);
+	}
 	physics::PhysicsObjects::RemoveObject(entity);
 	registry.Destroy(entity);
 	registry.SetDirty();
-	// Object::InitialisePhysics (vt 0x784): they fall and settle, or fly on. TODO: the fire passes on (fn_007308F0)
+	// Object::InitialisePhysics (vt 0x784): they fall and settle, or fly on
 	for (const auto half : halves)
 	{
 		if (auto* po = physics::PhysicsObjects::AddObject(half, velocity, glm::vec3(0.0f)))

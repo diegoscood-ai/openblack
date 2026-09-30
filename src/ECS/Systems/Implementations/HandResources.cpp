@@ -53,12 +53,15 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
+#include "Magic/Objects/MagicTree.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Influence/Influence.h"
+#include "ECS/PotResource.h"
 #include "ECS/Components/Sprite.h"
 #include "Graphics/Texture2D.h"
 #include "ECS/Components/Transform.h"
@@ -162,7 +165,7 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 		return;
 	}
 	// PileResource::ProcessInInteract (0x66E520), once per game turn while the locked select lasts (no distance
-	// check; TODO: stop outside the player's influence). The values come from the hand pot's info:
+	// check). The values come from the hand pot's info:
 	//   ticks = (1000 / msPerTurn) * multiPickUpRampTime, t = clamp(n / ticks, 0, 1)
 	//   amount = (int)(perTurn + (perTurnEnd - perTurn) * t^2), limited by the source and maxAmountCanBePickedUp.
 	const auto handType = PotInfoOf(*_held);
@@ -177,6 +180,13 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 	while (_pickTurnAccumulator >= k_TurnSeconds)
 	{
 		_pickTurnAccumulator -= k_TurnSeconds;
+		// GInterfaceStatus::Process 0x5DC558: the locked select ends where the hand (status+0xC8; here the x,z it is
+		// frozen at) is out of the player's influence (CalculatePlayerInfluence(.., 0, 0, allies) <= 0)
+		if (influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, _pickLock) <= 0.0f)
+		{
+			_pickSource.reset();
+			break;
+		}
 		++_pickTurns;
 		const float ticks = std::max(1.0f, info.multiPickUpRampTime / k_TurnSeconds);
 		const float t = std::clamp(static_cast<float>(_pickTurns) / ticks, 0.0f, 1.0f);
@@ -239,12 +249,16 @@ void HandSystem::SinkPile(entt::entity pile) noexcept
 
 void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 {
-	// Pot::AddResourceToPos: merge into a same-resource pile or store within a 9-cell spiral (taken as 15 m), else a
-	// new MagicWood / MagicFood pile; PILE*SMALL sounds below 200, PILE* otherwise.
+	// Pot::ApplyThisToObject 0x66DDD0 on the land: Pot::AddResourceToPos 0x66F270 (ECS/PotResource) at the pot's position
+	// with its amount, IsPoisoned and no speed-up, from the local player's interface. It merges into the stores and
+	// same-resource pots of the 3x3 cells around (each within 2 x its 2D radius, 1.2 for a store), else it makes a
+	// MagicWood / MagicFood pile.
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto type = PotInfoOf(pot);
 	const bool wood = type == PotInfo::HandWood;
-	const auto amount = registry.Get<Pot>(pot).amount;
+	const auto& held = registry.Get<Pot>(pot);
+	const auto amount = held.amount;
+	const bool poisoned = held.poisoned;
 	auto position = registry.Get<Transform>(pot).position;
 	position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z));
 	registry.Destroy(pot);
@@ -253,69 +267,10 @@ void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 	{
 		return;
 	}
-	const auto& pots = Locator::infoConstants::value().pot;
 	const auto resource = wood ? ResourceType::Wood : ResourceType::Food;
-	constexpr float k_MergeRadius = 15.0f;
-	std::optional<entt::entity> target;
-	float best = k_MergeRadius;
-	registry.Each<const Pot, const Transform>([&](entt::entity entity, const Pot&, const Transform& transform) {
-		const auto other = PotInfoOf(entity);
-		if (other == PotInfo::_COUNT || other == PotInfo::HandWood || other == PotInfo::HandFood ||
-		    pots[static_cast<size_t>(other)].resourceType != resource)
-		{
-			return;
-		}
-		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(transform.position.x, transform.position.z));
-		if (distance < best)
-		{
-			best = distance;
-			target = entity;
-		}
-	});
-	// A store pile, or a store with no pile in range: the store takes it (StoragePit::AddResource).
-	auto intoStore = target ? StoragePitStore::OwnerOf(*target) : entt::null;
-	if (const auto store = wood ? FindWoodStore(position) : std::nullopt; store && !target)
-	{
-		intoStore = *store;
-	}
-	if (intoStore != entt::null)
-	{
-		StoragePitStore::AddResource(intoStore, resource, amount);
-	}
-	else if (target && registry.Valid(*target))
-	{
-		auto& into = registry.Get<Pot>(*target);
-		into.amount = static_cast<uint16_t>(std::min<uint32_t>(65535u, into.amount + amount));
-		SinkPile(*target);
-	}
-	else
-	{
-		const auto pile = archetypes::PotArchetype::Create(position, 0.0f, wood ? PotInfo::MagicWood : PotInfo::MagicFood, amount);
-		if (pile != entt::null)
-		{
-			SinkPile(pile);
-		}
-	}
-	using audio::SoundId;
-	static constexpr auto k_FoodSmall = std::array<SoundId, 6> {SoundId::G_PileFoodSmall_01, SoundId::G_PileFoodSmall_02,
-	                                                            SoundId::G_PileFoodSmall_03, SoundId::G_PileFoodSmall_04,
-	                                                            SoundId::G_PileFoodSmall_05, SoundId::G_PileFoodSmall_06};
-	static constexpr auto k_Food = std::array<SoundId, 2> {SoundId::G_PileFood_01, SoundId::G_PileFood_02};
-	static constexpr auto k_WoodSmall = std::array<SoundId, 6> {SoundId::G_PileWoodSmall_01, SoundId::G_PileWoodSmall_02,
-	                                                            SoundId::G_PileWoodSmall_03, SoundId::G_PileWoodSmall_04,
-	                                                            SoundId::G_PileWoodSmall_05, SoundId::G_PileWoodSmall_06};
-	static constexpr auto k_Wood = std::array<SoundId, 6> {SoundId::G_PileWood_01, SoundId::G_PileWood_02, SoundId::G_PileWood_03,
-	                                                       SoundId::G_PileWood_04, SoundId::G_PileWood_05, SoundId::G_PileWood_06};
-	if (wood)
-	{
-		PlaySample(amount < 200 ? Locator::rng::value().Choose(k_WoodSmall) : Locator::rng::value().Choose(k_Wood));
-	}
-	else
-	{
-		PlaySample(amount < 200 ? Locator::rng::value().Choose(k_FoodSmall) : Locator::rng::value().Choose(k_Food));
-	}
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: put down {} {} ({})", amount, wood ? "wood" : "food",
-	                   target ? "merged" : "new pile");
+	const pot_resource::Dropper dropper {true, PlayerNames::PLAYER_ONE, true};
+	const auto put = pot_resource::AddResourceToPos(position, dropper, resource, amount, poisoned, false);
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: put down {} {} ({} into stores or pots there)", amount, wood ? "wood" : "food", put);
 }
 
 std::optional<entt::entity> HandSystem::FindWoodStore(glm::vec3 point) const noexcept
@@ -346,8 +301,9 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 	// Tree::GetWoodValue = life (1 for a fresh tree) * woodValue * scale * GLandBalance::Values[5] (2 in Land2).
 	const auto type = registry.AllOf<Tree>(object) ? registry.Get<Tree>(object).type : registry.Get<DeadTree>(object).type;
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
+	// x GetWoodValueMultiplier (vt 0x868): a MagicTree's +0x70 (woodValueMultiplier x tribal power), else 1
 	auto wood = static_cast<uint32_t>(static_cast<float>(info.woodValue) * registry.Get<Transform>(object).scale.x *
-	                                  land_balance::Get(5));
+	                                  land_balance::Get(5) * magic::magic_tree::WoodValueMultiplier(object));
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
 	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {

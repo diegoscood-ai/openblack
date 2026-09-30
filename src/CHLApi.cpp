@@ -37,6 +37,11 @@
 #include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Script/CHLInfluence.h"
+#include "Magic/Script/CHLFire.h"
+#include "Magic/Script/CHLSpells.h"
+#include "Magic/Script/CHLWeather.h"
+#include "Magic/Script/CHLWorship.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
 namespace openblack::chlapi
@@ -119,6 +124,15 @@ entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const g
 	case ObjectType::Rock: // TODO(Daniels118): add a Rock archetype
 		return MobileStaticArchetype::Create(position, static_cast<MobileStaticInfo>(subtype), altitude, xAngleRadians,
 		                                     yAngleRadians, zAngleRadians, scale);
+	case ObjectType::WeatherThing:
+		return magic::script::CreateWeatherThing(subtype, position); // Magic/Script/CHLWeather.cpp
+	// GScript 0x6F1010's miracle cases (Magic/Script/CHLWorship.cpp)
+	case ObjectType::OneShotSpell:
+		return magic::script::CreateOneShotSpell(subtype, position);
+	case ObjectType::OneShotSpellInHand:
+		return magic::script::CreateOneShotSpellInHand(subtype);
+	case ObjectType::SpellDispenser:
+		return magic::script::CreateSpellDispenser(subtype, position, yAngleRadians, scale);
 	default:
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "CreateScriptObject not implemented for type {}", static_cast<int>(type));
 	}
@@ -717,34 +731,17 @@ void SetAlignment() // 059 SET_ALIGNMENT
 
 void InfluenceObject() // 060 INFLUENCE_OBJECT
 {
-	// const auto anti = Pop().intVal;
-	// const auto zero = Pop().intVal;
-	// const auto radius = Popf();
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::InfluenceObject(); // Magic/Script/CHLInfluence.cpp
 }
 
 void InfluencePosition() // 061 INFLUENCE_POSITION
 {
-	// const auto anti = Pop().intVal;
-	// const auto zero = Pop().intVal;
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::InfluencePosition(); // Magic/Script/CHLInfluence.cpp
 }
 
 void GetInfluence() // 062 GET_INFLUENCE
 {
-	// const auto position = PopVec();
-	// const auto raw = static_cast<bool>(Pop().intVal);
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	magic::script::GetInfluence(); // Magic/Script/CHLInfluence.cpp
 }
 
 void SetInterfaceInteraction() // 063 SET_INTERFACE_INTERACTION
@@ -1228,44 +1225,22 @@ void IsDialogueReady() // 122 IS_DIALOGUE_READY
 
 void ChangeWeatherProperties() // 123 CHANGE_WEATHER_PROPERTIES
 {
-	// const auto fallspeed = Popf();
-	// const auto overcast = Popf();
-	// const auto snowfall = Popf();
-	// const auto rainfall = Popf();
-	// const auto temperature = Popf();
-	// const auto storm = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::ChangeWeatherProperties(); // Magic/Script/CHLWeather.cpp
 }
 
 void ChangeLightningProperties() // 124 CHANGE_LIGHTNING_PROPERTIES
 {
-	// const auto forkmax = Popf();
-	// const auto forkmin = Popf();
-	// const auto sheetmax = Popf();
-	// const auto sheetmin = Popf();
-	// const auto storm = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::ChangeLightningProperties(); // Magic/Script/CHLWeather.cpp
 }
 
 void ChangeTimeFadeProperties() // 125 CHANGE_TIME_FADE_PROPERTIES
 {
-	// const auto fadeTime = Popf();
-	// const auto duration = Popf();
-	// const auto storm = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::ChangeTimeFadeProperties(); // Magic/Script/CHLWeather.cpp
 }
 
 void ChangeCloudProperties() // 126 CHANGE_CLOUD_PROPERTIES
 {
-	// const auto elevation = Popf();
-	// const auto blackness = Popf();
-	// const auto numClouds = Popf();
-	// const auto storm = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::ChangeCloudProperties(); // Magic/Script/CHLWeather.cpp
 }
 
 void SetHeadingAndSpeed() // 127 SET_HEADING_AND_SPEED
@@ -1421,10 +1396,13 @@ void RevealCountdownTimer() // 144 REVEAL_COUNTDOWN_TIMER
 
 void SetTimerTime() // 145 SET_TIMER_TIME
 {
-	// const auto time = Popf();
-	// const auto timer = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	const auto time = Popf();
+	const auto timer = Pop().uintVal;
+	// 0x711280 also takes a spell dispenser (its period); the timers themselves are not ported
+	if (timer == 0 || !magic::script::SetDispenserTimerTime(static_cast<entt::entity>(timer), time))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	}
 }
 
 void CreateTimer() // 146 CREATE_TIMER
@@ -1635,19 +1613,12 @@ void SetIdPickupable() // 169 SET_ID_PICKUPABLE
 
 void IsOnFire() // 170 IS_ON_FIRE
 {
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	magic::script::IsOnFire(); // Magic/Script/CHLFire.cpp
 }
 
 void IsFireNear() // 171 IS_FIRE_NEAR
 {
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	magic::script::IsFireNear(); // Magic/Script/CHLFire.cpp
 }
 
 void StopScriptsInFiles() // 172 STOP_SCRIPTS_IN_FILES
@@ -1671,19 +1642,12 @@ void SetPoisoned() // 173 SET_POISONED
 
 void SetTemperature() // 174 SET_TEMPERATURE
 {
-	// const auto temperature = Popf();
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetTemperature(); // Magic/Script/CHLFire.cpp
 }
 
 void SetOnFire() // 175 SET_ON_FIRE
 {
-	// const auto burnSpeed = Popf();
-	// const auto object = Pop().uintVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetOnFire(); // Magic/Script/CHLFire.cpp
 }
 
 void SetTarget() // 176 SET_TARGET
@@ -1845,28 +1809,12 @@ void GameThingHit() // 194 GAME_THING_HIT
 
 void SpellAtThing() // 195 SPELL_AT_THING
 {
-	// const auto curl = Popf();
-	// const auto duration = Popf();
-	// const auto radius = Popf();
-	// const auto from = PopVec();
-	// const auto target = Pop().uintVal;
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::SpellAtThing(); // Magic/Script/CHLSpells.cpp
 }
 
 void SpellAtPos() // 196 SPELL_AT_POS
 {
-	// const auto curl = Popf();
-	// const auto duration = Popf();
-	// const auto radius = Popf();
-	// const auto from = PopVec();
-	// const auto target = PopVec();
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::SpellAtPos(); // Magic/Script/CHLSpells.cpp
 }
 
 void CallPlayerCreature() // 197 CALL_PLAYER_CREATURE
@@ -2120,12 +2068,7 @@ void GetNearestTownOfPlayer() // 226 GET_NEAREST_TOWN_OF_PLAYER
 
 void SpellAtPoint() // 227 SPELL_AT_POINT
 {
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::SpellAtPoint(); // Magic/Script/CHLSpells.cpp
 }
 
 void SetAttackOwnTown() // 228 SET_ATTACK_OWN_TOWN
@@ -2273,20 +2216,12 @@ void FadeFinished() // 243 FADE_FINISHED
 
 void SetPlayerMagic() // 244 SET_PLAYER_MAGIC
 {
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetPlayerMagic(); // Magic/Script/CHLSpells.cpp
 }
 
 void HasPlayerMagic() // 245 HAS_PLAYER_MAGIC
 {
-	// const auto player = Popf();
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	magic::script::HasPlayerMagic(); // Magic/Script/CHLSpells.cpp
 }
 
 void SpiritSpeaks() // 246 SPIRIT_SPEAKS
@@ -2369,10 +2304,13 @@ void SetVirtualInfluence() // 254 SET_VIRTUAL_INFLUENCE
 
 void SetActive() // 255 SET_ACTIVE
 {
-	// const auto object = Pop().uintVal;
-	// const auto active = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	const auto object = Pop().uintVal;
+	const auto active = static_cast<bool>(Pop().intVal);
+	// GameThing vt 0x1C0 SetActive: only the spell dispensers are ported (Magic/Script/CHLWorship.cpp)
+	if (object == 0 || !magic::script::SetDispenserActive(static_cast<entt::entity>(object), active))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	}
 }
 
 void ThingValid() // 256 THING_VALID
@@ -2698,28 +2636,17 @@ void IsSkeleton() // 292 IS_SKELETON
 
 void PlayerSpellCastTime() // 293 PLAYER_SPELL_CAST_TIME
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	magic::script::PlayerSpellCastTime(); // Magic/Script/CHLSpells.cpp
 }
 
 void PlayerSpellLastCast() // 294 PLAYER_SPELL_LAST_CAST
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushi(0);
+	magic::script::PlayerSpellLastCast(); // Magic/Script/CHLSpells.cpp
 }
 
 void GetLastSpellCastPos() // 295 GET_LAST_SPELL_CAST_POS
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	magic::script::GetLastSpellCastPos(); // Magic/Script/CHLSpells.cpp
 }
 
 void AddSpotVisualTargetPos() // 296 ADD_SPOT_VISUAL_TARGET_POS
@@ -2929,10 +2856,7 @@ void ObjectInfoBits() // 320 OBJECT_INFO_BITS
 
 void SetHurtByFire() // 321 SET_HURT_BY_FIRE
 {
-	// const auto object = Pop().uintVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetHurtByFire(); // Magic/Script/CHLFire.cpp
 }
 
 void ConfinedObject() // 322 CONFINED_OBJECT
@@ -3009,19 +2933,12 @@ void LoadCreature() // 329 LOAD_CREATURE
 
 void IsSpellCharging() // 330 IS_SPELL_CHARGING
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	magic::script::IsSpellCharging(); // Magic/Script/CHLWorship.cpp
 }
 
 void IsThatSpellCharging() // 331 IS_THAT_SPELL_CHARGING
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushb(false);
+	magic::script::IsThatSpellCharging(); // Magic/Script/CHLWorship.cpp
 }
 
 void OpposingCreature() // 332 OPPOSING_CREATURE
@@ -3245,19 +3162,12 @@ void ToggleLeash() // 354 TOGGLE_LEASH
 
 void GameSetMana() // 355 GAME_SET_MANA
 {
-	// const auto mana = Popf();
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::GameSetMana(); // Magic/Script/CHLWorship.cpp
 }
 
 void SetMagicProperties() // 356 SET_MAGIC_PROPERTIES
 {
-	// const auto duration = Popf();
-	// const auto magicType = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetMagicProperties(); // Magic/Script/CHLWorship.cpp
 }
 
 void SetGameSound() // 357 SET_GAME_SOUND
@@ -3424,10 +3334,7 @@ void CallBuildingInTown() // 375 CALL_BUILDING_IN_TOWN
 
 void SetCanBuildWorshipsite() // 376 SET_CAN_BUILD_WORSHIPSITE
 {
-	// const auto object = Pop().uintVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetCanBuildWorshipsite(); // Magic/Script/CHLWorship.cpp
 }
 
 void GetFacingCameraPosition() // 377 GET_FACING_CAMERA_POSITION
@@ -3513,11 +3420,7 @@ void IsAffectedBySpell() // 385 IS_AFFECTED_BY_SPELL
 
 void SetMagicInObject() // 386 SET_MAGIC_IN_OBJECT
 {
-	// const auto object = Pop().uintVal;
-	// const auto MAGIC_TYPE = Pop().intVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetMagicInObject(); // Magic/Script/CHLWorship.cpp
 }
 
 void IdAdultSize() // 387 ID_ADULT_SIZE
@@ -3640,32 +3543,22 @@ void GetPlayerWindResistance() // 400 GET_PLAYER_WIND_RESISTANCE
 
 void PauseUnpauseClimateSystem() // 401 PAUSE_UNPAUSE_CLIMATE_SYSTEM
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::PauseUnpauseClimateSystem(); // Magic/Script/CHLWeather.cpp
 }
 
 void PauseUnpauseStormCreationInClimateSystem() // 402 PAUSE_UNPAUSE_STORM_CREATION_IN_CLIMATE_SYSTEM
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::PauseUnpauseStormCreationInClimateSystem(); // Magic/Script/CHLWeather.cpp
 }
 
 void GetManaForSpell() // 403 GET_MANA_FOR_SPELL
 {
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	magic::script::GetManaForSpell(); // Magic/Script/CHLSpells.cpp
 }
 
 void KillStormsInArea() // 404 KILL_STORMS_IN_AREA
 {
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::KillStormsInArea(); // Magic/Script/CHLWeather.cpp
 }
 
 void InsideTemple() // 405 INSIDE_TEMPLE
@@ -3708,10 +3601,7 @@ void SoundExists() // 409 SOUND_EXISTS
 
 void GetTownWorshipDeaths() // 410 GET_TOWN_WORSHIP_DEATHS
 {
-	// const auto town = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	magic::script::GetTownWorshipDeaths(); // Magic/Script/CHLWorship.cpp
 }
 
 void GameClearDialogue() // 411 GAME_CLEAR_DIALOGUE
@@ -3795,17 +3685,12 @@ void GetObjectClicked() // 421 GET_OBJECT_CLICKED
 
 void GetMana() // 422 GET_MANA
 {
-	// const auto worshipSite = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pushf(0.0f);
+	magic::script::GetMana(); // Magic/Script/CHLWorship.cpp
 }
 
 void ClearPlayerSpellCharging() // 423 CLEAR_PLAYER_SPELL_CHARGING
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::ClearPlayerSpellCharging(); // Magic/Script/CHLWorship.cpp
 }
 
 void StopSoundEffect() // 424 STOP_SOUND_EFFECT
@@ -3827,10 +3712,7 @@ void GetTotemStatue() // 425 GET_TOTEM_STATUE
 
 void SetSetOnFire() // 426 SET_SET_ON_FIRE
 {
-	// const auto object = Pop().uintVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
+	magic::script::SetSetOnFire(); // Magic/Script/CHLFire.cpp
 }
 
 void SetLandBalance() // 427 SET_LAND_BALANCE
@@ -4057,11 +3939,7 @@ void CreatureAutoscale() // 452 CREATURE_AUTOSCALE
 
 void GetSpellIconInTemple() // 453 GET_SPELL_ICON_IN_TEMPLE
 {
-	// const auto temple = Pop().uintVal;
-	// const auto spell = Pop().intVal;
-	// TODO(Daniels118): implement this
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented.", __func__);
-	Pusho(0);
+	magic::script::GetSpellIconInTemple(); // Magic/Script/CHLWorship.cpp
 }
 
 void GameClearComputerPlayerActions() // 454 GAME_CLEAR_COMPUTER_PLAYER_ACTIONS

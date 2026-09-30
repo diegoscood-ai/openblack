@@ -19,6 +19,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima |
 | [rendering.md](rendering.md) | Estados D3D, luz, mar, sombras, cielo, reflejos, peces, anillos, fundido, fuentes y texto del original |
 | [mod-library.md](mod-library.md) | Librería de mods: menú, `mods.cfg`, `--mod`, mods de datos, cómo programar uno |
+| [magic.md](magic.md) | Milagros: tablas de info.dat, semillas, tipos de partícula, registro de PSys, vida de los objetos, núcleo de los hechizos (cánticos, eventos, efectos, reglas de lanzamiento, milagros de un uso, orden en el turno), sonido de las partículas, influencia, tiempo y clima |
 | [mods.md](mods.md) | Paquetes modificados (`AllMeshes.g3d`) y sus diferencias con el original |
 
 ## Filosofía

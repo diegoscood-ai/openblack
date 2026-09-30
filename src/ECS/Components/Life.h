@@ -12,7 +12,7 @@
 namespace openblack::ecs::components
 {
 /// Object life in 0..1 (Object::GetLife / SetLife) for the objects that have no other life yet: rocks, animals.
-/// Villagers keep theirs in Villager::health (percent).
+/// Villagers keep theirs in Villager::life. The getters and setters are ecs::life (ECS/Life.h).
 struct Life
 {
 	float value {1.0f};

@@ -57,6 +57,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/VillagerAnimations.h"
@@ -69,12 +70,15 @@
 #include "ECS/Registry.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
+#include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/SpellSeed.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
+#include "Worship/Worship.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
@@ -192,6 +196,12 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	ComputeHoldParameters(entity);
 	_held = entity;
 	_hovered.reset();
+	// GInterface::PlaceObjectInMagicHand 0x5DA6F0: a burning object leaves its group; held (not a villager) it is
+	// REACT_TO_BURNING_OBJECT_IN_HAND (FireEffect::StartedMoving, ECS/Fire)
+	fire::StartedMoving(entity, !registry.AllOf<Villager>(entity));
+	// the same tail, fn_0052B600: a firefly sleeping on the object is freed and may leave a one-shot miracle
+	// (Worship/FireFlyReward.cpp, Land 1's FIRE_FLY_SPELL_REWARD_PROB)
+	worship::OnPlacedInMagicHand(entity);
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: picked up entity {}", static_cast<uint32_t>(entity));
 }
 
@@ -202,6 +212,7 @@ void HandSystem::Drop() noexcept
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
+	fire::SetOutMagicHand(*_held); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
 	if (registry.Valid(*_held) && registry.AnyOf<Tree, DeadTree>(*_held))
 	{
 		const auto entity = *_held;
@@ -308,6 +319,7 @@ void HandSystem::Throw(glm::vec3 velocity) noexcept
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
+	fire::SetOutMagicHand(*_held); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
 	if (registry.Valid(*_held))
 	{
 		// ThrowObjectFromHand -> Object::InitialisePhysicsFromHand -> PhysicsObject::AddObject with the spring's velocity
@@ -446,7 +458,22 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 	_holdRadius = 0.75f * _heldHeight;
 	_loweringMultiplier = 0.0f;
 	_rooted = registry.AllOf<Tree>(entity);
-	if (registry.AnyOf<Tree, DeadTree>(entity))
+	if (const auto* seed = registry.TryGet<const SpellSeed>(entity); seed != nullptr)
+	{
+		// SpellSeed 0x728640..0x728680: MAGIC until ready, then the seed info's hold type; R = holdRadius x scale. The
+		// height is its mesh's even when the seed is not drawn in the hand.
+		const auto& info = magic::seed::InfoOf(*seed);
+		const auto id = resources::HashIdentifier(info.mesh);
+		if (meshes.Contains(id))
+		{
+			_heldHeight = meshes.Handle(id)->GetBoundingBox().Size().y * transform.scale.y;
+		}
+		_holdType = seed->ready ? static_cast<HoldType>(info.holdType) : HoldType::Magic;
+		_holdRadius = info.holdRadius * transform.scale.x;
+		_loweringMultiplier = info.holdLoweringMultiplier;
+		_rooted = false;
+	}
+	else if (registry.AnyOf<Tree, DeadTree>(entity))
 	{
 		_holdType = HoldType::Tree;
 		_holdRadius = 0.2f * radius2D;

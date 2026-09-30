@@ -1,0 +1,455 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "SurfRevol.h"
+
+#include <cmath>
+
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <numbers>
+#include <unordered_map>
+
+#include "3D/LandIslandInterface.h"
+#include "Locator.h"
+#include "PSys/PSysFile.h"
+#include "PSys/PSysManager.h"
+#include "PSys/PSysRegistry.h"
+
+using namespace openblack;
+using namespace openblack::psys;
+
+namespace
+{
+/// The per-collection data (ZR_SurfRevol::CollectionData, 0x60 bytes) and the draw object (+0x128, the
+/// RenderParticleGJMeshRotatingUV) of the one atom it makes. It is the atom's creator, so the draw finds its mesh.
+struct SurfRevolCreator final: Creator
+{
+	SurfMesh mesh;
+	std::vector<glm::vec2> savedUVs;       ///< CollectionData +0x2C
+	std::vector<glm::vec3> savedPositions; ///< CollectionData +0x40
+	glm::vec2 uvOffset {0.0f};             ///< the draw object +0x34 / +0x38 (kept within the tile, GameUpdate 0x6C8BC0)
+	glm::vec2 tile {1.0f};                 ///< +0x3C / +0x40: TextureWidth / 256, TextureHeight / 256
+	float parentScale {1.0f};              ///< the hierarchy's scales above the atom (PostUpdateAtoms fn_00673EA0)
+	bool raiseAboveLandscape {false};
+	bool doubleSided {false};
+};
+
+/// The creators, by the effect that owns them (freed once the effect is gone)
+std::unordered_map<uint32_t, std::vector<std::unique_ptr<SurfRevolCreator>>> g_Creators;
+
+/// ZR_SurfRevol +0x68 (ctor 0x686200)
+constexpr float k_WobbleFrequency = 1.0f;
+
+uint32_t Pack(uint8_t a, uint8_t r, uint8_t g, uint8_t b)
+{
+	return (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | b;
+}
+
+/// __ftol of a positive float
+uint8_t ToByte(float value)
+{
+	return static_cast<uint8_t>(static_cast<int>(value));
+}
+
+class SurfRevol final: public Modifier
+{
+public:
+	/// the defaults are the ctor's (0x686200)
+	explicit SurfRevol(const Object& object)
+	    : nextGroups(object.Array("NextGroups"))
+	    , texture(TextureBaseName(object.String("TextureFileName")))
+	    , additive(object.Bool("UseAdditiveAlpha", false))
+	    , writeDepth(object.Bool("MaterialUpdateZBuffer", false))
+	    , doubleSided(object.Bool("MaterialSetDoubleSided", true))
+	    , textureHeight(object.Int("TextureHeight", 256))
+	    , textureWidth(object.Int("TextureWidth", 256))
+	    , speedU(object.Float("SpeedU", 0.1f))
+	    , speedV(object.Float("SpeedV", 0.1f))
+	    , numU(object.Int("NumU", 10))
+	    , numV(object.Int("NumV", 10))
+	    , fadeAlphas(object.Bool("FadeAlphas", false))
+	    , changeSpecColour(object.Bool("ChangeSpecColor", true))
+	    , maxUVChange(object.Float("MaxUVChange", 1.0f))
+	    , maxVertexChange(object.Float("MaxVertexChange", 1.0f))
+	    , raiseAboveLandscape(object.Bool("DoRaiseAboveLandscape", false))
+	    , alphaFadeIn(object.Float("AlphaFadeIn", 0.4f))
+	    , alphaFadeOut(object.Float("AlphaFadeOut", 0.4f))
+	    , scale(object.Float("Scale", 1.0f))
+	    , functionIndex(object.Int("FunctionIndex", 0))
+	    , colour {static_cast<uint8_t>(object.Int("ColorR", 255)), static_cast<uint8_t>(object.Int("ColorG", 255)),
+	              static_cast<uint8_t>(object.Int("ColorB", 255)), static_cast<uint8_t>(object.Int("ColorA", 255))}
+	{
+		// ClampToLandscape (+0x6C, the draw object's +0x22), UseLighting (+0x88: the normals, fn_006C9340), UseSphere
+		// (+0x5C) and MaterialUseTextureAlpha are not used here: the pool is drawn unlit with the texture's alpha.
+		// HeightAboveLandscape and RaiseAboveLandscapeRadius are defined (0x6B30EF, 0x6B312A) but nothing reads them.
+	}
+
+	[[nodiscard]] bool Creates() const override { return true; } // an AtomCreateRule (DefineProperties 0x6AF6F0 first)
+
+	bool ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& slot) const override
+	{
+		auto* creator = CreatorOf(collection);
+		if (slot.first)
+		{
+			slot.first = false;
+			creator = MakeSurface(effect, collection);
+		}
+		if (creator == nullptr)
+		{
+			return false;
+		}
+		// The disc is a NextGroup child of the group-2 point atom, whose UR_ChangeScale grows it to 5 (visuals_sound.md
+		// §4.5 "scale 5 via UR_ChangeScale"): the unit-radius mesh takes that parent atom's drawn scale (baseScale x
+		// ruleScale). Deeper parents up a hierarchy multiply on top (fn_00673EA0). UNVERIFIED which scales the original
+		// draws the surface at; this is the documented size.
+		float inherited = collection.parent != nullptr ? collection.parent->baseScale * collection.parent->ruleScale : 1.0f;
+		for (const Collection* c = &collection; c != nullptr && c->hierarchy && c->parent != nullptr;
+		     c = c->parent->collection)
+		{
+			inherited *= c->parent->current.scale;
+		}
+		creator->parentScale = inherited;
+		// !DoRaiseAboveLandscape: the twists breathe with sin(fmod(collection age x +0x68, 2 pi)); +0x68 has no property
+		// (1.0 from the ctor 0x686200)
+		if (!raiseAboveLandscape)
+		{
+			const float amount =
+			    std::sin(std::fmod(effect.CollectionAge(collection) * k_WobbleFrequency, 2.0f * std::numbers::pi_v<float>));
+			if (maxVertexChange != 0.0f)
+			{
+				surf_revol::TwistVertices(creator->mesh, creator->savedPositions, maxVertexChange, amount);
+			}
+			if (maxUVChange != 0.0f)
+			{
+				surf_revol::TwistUVs(creator->mesh, creator->savedUVs, maxUVChange, amount);
+			}
+		}
+		// the UV scroll: +0x34 += dt x SpeedU, +0x38 += dt x SpeedV (dt = [0xD4E0EC], the step); GameUpdate keeps it in
+		// [-2 tile, 2 tile] and the draw wraps it into [0, tile)
+		const float dt = effect.GetDt();
+		creator->uvOffset += glm::vec2(dt * speedU, dt * speedV);
+		for (int k = 0; k < 2; ++k)
+		{
+			auto& o = creator->uvOffset[k];
+			const float t = creator->tile[k];
+			if (t > 0.0f)
+			{
+				o = std::fmod(o, t);
+				if (o < 0.0f)
+				{
+					o += t;
+				}
+			}
+		}
+		return true;
+	}
+
+private:
+	SurfRevolCreator* CreatorOf(const Collection& collection) const
+	{
+		for (const auto& atom : collection.atoms)
+		{
+			if (auto* creator = dynamic_cast<const SurfRevolCreator*>(atom->creator); creator != nullptr)
+			{
+				return const_cast<SurfRevolCreator*>(creator);
+			}
+		}
+		return nullptr;
+	}
+
+	/// The first step of the collection (CollectionData +0x20 set): material, atom, mesh
+	SurfRevolCreator* MakeSurface(Effect& effect, Collection& collection) const
+	{
+		const auto id = manager::IdOf(&effect);
+		auto owned = std::make_unique<SurfRevolCreator>();
+		auto* creator = owned.get();
+		creator->kind = Creator::Kind::Other;
+		creator->className = "ZR_SurfRevol";
+		creator->texture = texture;
+		creator->additive = additive; // LH3DRender::CreateMaterial(mode 6, texture) + SetMaterialProperties(+0x3C)
+		creator->writeDepth = writeDepth;
+		creator->doubleSided = doubleSided;
+		creator->raiseAboveLandscape = raiseAboveLandscape;
+		creator->initialScale = 1.0f;
+		creator->r = colour[0];
+		creator->g = colour[1];
+		creator->b = colour[2];
+		creator->a = colour[3];
+		g_Creators[id].push_back(std::move(owned));
+		// AtomCore::Create, the draw object, fn_00674DD0 (into the collection, with NextGroups); scale x= Scale; colour
+		// +0x8C = ColorA/R/G/B; specular +0x90 = SpecColorR/G/B
+		auto& atom = effect.NewAtom(collection, creator, nextGroups);
+		atom.baseScale *= scale;
+		atom.colour = {colour[0], colour[1], colour[2], colour[3]};
+		// ChangeSpecColor: the effect's player (vt 0x1C) colour (GetPlayer3DColor), else 0xFFFFFFFF
+		uint32_t player = 0xFFFFFFFFu;
+		if (changeSpecColour && effect.GetPlayer() >= 0)
+		{
+			player = surf_revol::PlayerColour(effect.GetPlayer());
+		}
+		creator->mesh =
+		    surf_revol::Build(numU, numV, functionIndex, fadeAlphas, alphaFadeIn, alphaFadeOut, changeSpecColour, player);
+		creator->tile = glm::vec2(static_cast<float>(textureWidth) / 256.0f, static_cast<float>(textureHeight) / 256.0f);
+		surf_revol::ScaleUVs(creator->mesh, creator->tile.x, creator->tile.y);
+		creator->savedUVs = creator->mesh.uvs;
+		creator->savedPositions = creator->mesh.positions;
+		// DoRaiseAboveLandscape: the twists once with amount 1, then the mesh is draped over the land (fn_00686980, done
+		// at draw time here: see Collect)
+		if (raiseAboveLandscape)
+		{
+			if (maxVertexChange != 0.0f)
+			{
+				surf_revol::TwistVertices(creator->mesh, creator->savedPositions, maxVertexChange, 1.0f);
+			}
+			if (maxUVChange != 0.0f)
+			{
+				surf_revol::TwistUVs(creator->mesh, creator->savedUVs, maxUVChange, 1.0f);
+			}
+		}
+		return creator;
+	}
+
+	std::vector<int> nextGroups;
+	std::string texture;
+	bool additive;
+	bool writeDepth;
+	bool doubleSided;
+	int textureHeight;
+	int textureWidth;
+	float speedU;
+	float speedV;
+	int numU;
+	int numV;
+	bool fadeAlphas;
+	bool changeSpecColour;
+	float maxUVChange;
+	float maxVertexChange;
+	bool raiseAboveLandscape;
+	float alphaFadeIn;
+	float alphaFadeOut;
+	float scale;
+	int functionIndex;
+	std::array<uint8_t, 4> colour;
+};
+
+float LandHeight(float x, float z)
+{
+	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
+}
+} // namespace
+
+glm::vec2 surf_revol::Profile(int functionIndex, float t)
+{
+	switch (static_cast<SurfProfile>(functionIndex))
+	{
+	case SurfProfile::Funnel:
+		return {t, (std::sqrt(t) - 1.0f) * 3.0f};
+	case SurfProfile::FunnelSpout:
+		return {1.5f * t, (std::sqrt(2.0f * t) - 1.0f) * 3.0f};
+	case SurfProfile::FunnelParab:
+		return {t, (t * t - 1.0f) * 3.0f};
+	case SurfProfile::Disk:
+	default:
+		return {t, 0.0f};
+	}
+}
+
+SurfMesh surf_revol::Build(int numU, int numV, int functionIndex, bool fadeAlphas, float fadeIn, float fadeOut,
+                           bool changeSpecColour, uint32_t playerColour)
+{
+	SurfMesh mesh;
+	mesh.numU = std::max(numU, 2);
+	mesh.numV = std::max(numV, 2);
+	const float du = 1.0f / static_cast<float>(mesh.numU - 1);
+	const float dv = 1.0f / static_cast<float>(mesh.numV - 1);
+	const auto count = static_cast<size_t>(mesh.numU * mesh.numV);
+	mesh.positions.reserve(count);
+	mesh.uvs.reserve(count);
+	mesh.colours.reserve(count);
+	mesh.speculars.reserve(count);
+	for (int j = 0; j < mesh.numV; ++j)
+	{
+		const float t = static_cast<float>(j) * dv;
+		const auto profile = Profile(functionIndex, t);
+		uint32_t colour = 0xFFFFFFFFu;
+		uint32_t specular = 0; // (esi from the xor at 0x685AA6)
+		if (fadeAlphas)
+		{
+			float rgb = 1.0f;   // [esp+0x24]
+			float alpha = 1.0f; // left on the FPU stack
+			if (t < fadeIn)
+			{
+				rgb = t < 0.0f ? 0.0f : t / fadeIn;
+			}
+			else
+			{
+				const float limit = 1.0f - fadeOut;
+				if (t > limit)
+				{
+					alpha = t > 1.0f ? 0.0f : 1.0f - (t - limit) / (1.0f - limit);
+				}
+			}
+			const uint8_t c = ToByte(rgb * 255.0f);
+			colour = Pack(ToByte(alpha * 255.0f), c, c, c);
+			if (changeSpecColour)
+			{
+				// the player colour's channels x (255 (1 - rgb)) >> 8, its own alpha
+				const uint32_t f = ToByte((1.0f - rgb) * 255.0f);
+				const uint32_t red = (((playerColour & 0xFF0000u) * f) & 0xFF0000FFu) >> 8;
+				const uint32_t green = (((playerColour & 0xFF00u) * f) & 0xFF0000u) >> 8;
+				const uint32_t blue = (((playerColour & 0xFFu) * f) & 0xFF00u) >> 8;
+				specular = ((red | green | blue) & 0x00FFFFFFu) | (playerColour & 0xFF000000u);
+			}
+		}
+		for (int i = 0; i < mesh.numU; ++i)
+		{
+			const float u = static_cast<float>(i) * du;
+			const float angle = u * 6.28319f; // 0x8AB210
+			// the Y rotation LHMatrix rows (c, 0, s), (0, 1, 0), (-s, 0, c) applied to (r, y, 0)
+			mesh.positions.emplace_back(profile.x * std::cos(angle), profile.y, profile.x * std::sin(angle));
+			mesh.uvs.emplace_back(u, t);
+			mesh.colours.push_back(colour);
+			mesh.speculars.push_back(specular);
+		}
+	}
+	for (int j = 0; j + 1 < mesh.numV; ++j)
+	{
+		const int b = j * mesh.numU;
+		for (int i = 0; i + 1 < mesh.numU; ++i)
+		{
+			const auto U = mesh.numU;
+			for (const int k : {b + U + i, b + i, b + U + 1 + i, b + U + 1 + i, b + i, b + i + 1})
+			{
+				mesh.indices.push_back(static_cast<uint16_t>(k));
+			}
+		}
+	}
+	return mesh;
+}
+
+void surf_revol::ScaleUVs(SurfMesh& mesh, float u, float v)
+{
+	for (auto& uv : mesh.uvs)
+	{
+		uv.x *= u;
+		uv.y *= v;
+	}
+}
+
+void surf_revol::TwistUVs(SurfMesh& mesh, const std::vector<glm::vec2>& original, float maxUVChange, float amount)
+{
+	if (original.size() != mesh.uvs.size() || mesh.numV < 2)
+	{
+		return;
+	}
+	size_t k = 0;
+	for (int j = 0; j < mesh.numV; ++j)
+	{
+		const float f = 1.0f - static_cast<float>(j) / static_cast<float>(mesh.numV - 1);
+		const float change = f * f * maxUVChange * amount;
+		for (int i = 0; i < mesh.numU; ++i, ++k)
+		{
+			mesh.uvs[k].x = original[k].x + change;
+		}
+	}
+}
+
+void surf_revol::TwistVertices(SurfMesh& mesh, const std::vector<glm::vec3>& original, float maxVertexChange, float amount)
+{
+	if (original.size() != mesh.positions.size() || mesh.numV < 2)
+	{
+		return;
+	}
+	size_t k = 0;
+	for (int j = 0; j < mesh.numV; ++j)
+	{
+		const float angle = static_cast<float>(j) / static_cast<float>(mesh.numV - 1) * maxVertexChange * amount;
+		const float c = std::cos(angle);
+		const float s = std::sin(angle);
+		for (int i = 0; i < mesh.numU; ++i, ++k)
+		{
+			const auto& p = original[k];
+			mesh.positions[k] = glm::vec3(c * p.x - s * p.z, p.y, c * p.z + s * p.x);
+		}
+	}
+}
+
+uint32_t surf_revol::PlayerColour(int player)
+{
+	// 0xBFF0B8: the seven player colours and the neutral one; GetRemapedPlayer 0x64D790 swaps them by land for the
+	// story's opponents (land 1: player 1 -> 6; land 2: 1 -> 4, 2 -> 5; land 3: 1 -> 5; lands 4, 5: 1 -> 6). (inf) The
+	// port's PlayerNames are the player numbers; the land remap is not applied (the town belief sprites do the same).
+	static constexpr std::array<uint32_t, 8> k_Colours = {0xFFFF4646, 0xFF47FF54, 0xFFE347FF, 0xFF47F9FF,
+	                                                      0xFFFFFD47, 0xFF4777FF, 0xFFFFA247, 0xFF000000};
+	return k_Colours[static_cast<size_t>(std::clamp(player, 0, 7))] | 0xFF000000u; // GetPlayer3DColor: alpha 0xFF
+}
+
+std::vector<surf_revol::Surface> surf_revol::Collect()
+{
+	// the creators of the effects that are gone go with them
+	for (auto it = g_Creators.begin(); it != g_Creators.end();)
+	{
+		it = manager::Find(it->first) == nullptr ? g_Creators.erase(it) : std::next(it);
+	}
+	std::vector<Surface> result;
+	for (const auto& drawable : manager::Collect(Creator::Kind::Other))
+	{
+		for (const auto& atom : drawable.atoms)
+		{
+			const auto* creator = dynamic_cast<const SurfRevolCreator*>(atom.creator);
+			if (creator == nullptr || creator->mesh.positions.empty())
+			{
+				continue;
+			}
+			Surface surface;
+			surface.texture = creator->texture;
+			surface.additive = creator->additive;
+			surface.writeDepth = creator->writeDepth;
+			surface.doubleSided = creator->doubleSided;
+			surface.indices = creator->mesh.indices;
+			const float scale = atom.scale * creator->parentScale;
+			const float centreLand = LandHeight(atom.position.x, atom.position.z);
+			const float atomAlpha = std::clamp(atom.alpha, 0.0f, 255.0f) / 255.0f;
+			const auto& mesh = creator->mesh;
+			surface.vertices.reserve(mesh.positions.size());
+			for (size_t k = 0; k < mesh.positions.size(); ++k)
+			{
+				glm::vec3 p = atom.position + atom.rotation * (mesh.positions[k] * scale);
+				// fn_00686980: to world space, cut along the 10 m cells (fn_00686D90, not ported: each vertex is draped
+				// on its own), y += the land under the vertex - the land at the atom's centre, back
+				if (creator->raiseAboveLandscape)
+				{
+					p.y += LandHeight(p.x, p.z) - centreLand;
+				}
+				const uint32_t argb = mesh.colours[k];
+				const float a = static_cast<float>(argb >> 24) * atomAlpha;
+				const auto channel = [&](int shift, uint8_t atomChannel) {
+					return static_cast<uint32_t>(static_cast<float>((argb >> shift) & 0xFFu) * static_cast<float>(atomChannel) / 255.0f);
+				};
+				const uint32_t alpha = static_cast<uint32_t>(std::clamp(a, 0.0f, 255.0f));
+				const uint32_t abgr = (alpha << 24) | (channel(0, atom.colour[2]) << 16) | (channel(8, atom.colour[1]) << 8) |
+				                      channel(16, atom.colour[0]);
+				const uint32_t spec = mesh.speculars[k];
+				const uint32_t specAbgr =
+				    (alpha << 24) | ((spec & 0xFFu) << 16) | (spec & 0xFF00u) | ((spec >> 16) & 0xFFu);
+				const glm::vec2 uv = mesh.uvs[k] + creator->uvOffset;
+				surface.vertices.push_back({p, uv, abgr, specAbgr});
+			}
+			result.push_back(std::move(surface));
+		}
+	}
+	return result;
+}
+
+void openblack::psys::RegisterSurfRevolRules()
+{
+	RegisterModifier("ZR_SurfRevol", MakeModifierOf<SurfRevol>);
+}

@@ -23,24 +23,40 @@
 #include <glm/vec4.hpp>
 
 #include "PSysFile.h"
+#include "SpellLink.h"
 
 // The original's generic particle system (PSysManager, AtomCollection, AtomCore, the modifier classes of the spell
 // files). Report: dev\tmp_dis\psys\psys_report.md; wiki: rendering.md, "Partículas".
 
+namespace openblack::audio
+{
+struct PSysSound;
+}
+
 namespace openblack::psys
 {
 class Effect;
+struct Atom;
 struct Collection;
 class Modifier;
 
 /// ParticleCreator (fn_006A85E0) and its sprite form (ParticleSpriteCreator, 0x6AA0D0); the other kinds (point, mesh,
-/// mist, chain, light map...) are not drawn yet.
+/// mist, chain, light map...) are not drawn yet. Those derive from it in their own files (PSysRegistry.h).
 struct Creator
 {
+	Creator() = default;
+	Creator(const Creator&) = default;
+	Creator(Creator&&) = default;
+	Creator& operator=(const Creator&) = default;
+	Creator& operator=(Creator&&) = default;
+	virtual ~Creator() = default;
+
 	enum class Kind
 	{
 		Point,
 		Sprite,
+		Mesh,  ///< ParticleMeshCreator / ParticleMeshCreatorAnimTextured (Creators/Mesh.cpp)
+		Chain, ///< ParticleChainCreator: the joints of one collection are drawn as a ribbon (Creators/Chain.cpp)
 		Other,
 	};
 	Kind kind {Kind::Point};
@@ -67,6 +83,9 @@ struct Creator
 	bool centreAtBase {false};
 	bool ignoreRotation {false};
 	float originX {0.0f}, originY {0.0f};
+
+	/// The creator's part of a new atom (after CommonInitNewAtom), for the classes that have one
+	virtual void InitAtom(Effect& /*effect*/, Atom& /*atom*/) const {}
 };
 
 /// PosScaleRotation of the last two steps, lerped at draw time (fn_00679920)
@@ -83,6 +102,14 @@ struct DrawState
 /// AtomCore (0x130 bytes)
 struct Atom
 {
+	Atom() = default;
+	Atom(const Atom&) = delete;
+	Atom(Atom&&) = delete;
+	Atom& operator=(const Atom&) = delete;
+	Atom& operator=(Atom&&) = delete;
+	/// Its sounds lose their atom (AtomCore::StopSound 0x674500 on each; defined in Audio/SpellSounds.cpp)
+	~Atom();
+
 	Collection* collection {nullptr};
 	const Creator* creator {nullptr};
 	glm::vec3 position {0.0f}; ///< +0x80, local to the parent atom in a hierarchy
@@ -98,12 +125,18 @@ struct Atom
 	float frameRate {0.0f};
 	float gravity {1.0f}; ///< +0x11C
 	uint32_t random {0};  ///< +0x12C
+	uint32_t flags {0};   ///< +0x94 (bit 3: deflected, SetAtomHasBeenDeflected 0x6A26C0)
 	DrawState previous;
 	DrawState current;
 	bool drawn {false};
 	std::vector<std::unique_ptr<Collection>> subCollections;
 	/// per-modifier data of this atom (latches, phases)
 	std::unordered_map<const Modifier*, glm::vec4> data;
+	/// +0x24 as the original keeps it: a modifier's own data object (BaseAtomModifierData, +0x1C its modifier),
+	/// destroyed with the atom (UR_HealSpellChakra::AtomData lets go of its target there)
+	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
+	/// +0x2C: the sounds it started, newest first (Audio/SpellSounds.h)
+	std::vector<std::shared_ptr<audio::PSysSound>> sounds;
 };
 
 /// AtomCollection (0x54 bytes): one live instance of a group
@@ -120,6 +153,7 @@ struct Collection
 		const Modifier* modifier {nullptr};
 		bool attached {true};
 		glm::vec4 state {0.0f}; ///< per-collection data (+0x24): emitter timing and counts
+		glm::vec4 extra {0.0f}; ///< more of it (UR_WillowWisp: the amount emitted and the atoms made)
 		bool first {true};
 	};
 	std::vector<Slot> modifiers;
@@ -135,6 +169,11 @@ public:
 	std::string condition;
 	/// true while it creates atoms (a create rule or emitter: `finished()` waits for them, mask 4)
 	[[nodiscard]] virtual bool Creates() const { return false; }
+	/// a class the port doesn't run yet (a spell's effect counts it as a creator until it closes, see AnyCreatorLeft)
+	[[nodiscard]] virtual bool Unported() const { return false; }
+	/// modifier flag 2 (+0x10) without 4: an effect with no atoms is not finished while it is attached and the effect
+	/// is not closing (fn_00673290; UR_HealSpellChakra's ctor 0x6A0810 sets 6 and clears 4: it waits for targets)
+	[[nodiscard]] virtual bool KeepsAlive() const { return false; }
 	/// ModifyAtomCollection; false detaches it from this collection
 	virtual bool ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& slot) const;
 	/// ModifyAtomCore; false deletes the atom (remove rules)
@@ -157,12 +196,68 @@ public:
 	[[nodiscard]] bool DeleteOnCloseDown() const { return _deleteOnCloseDown; }
 
 	void SetOrigin(glm::vec3 origin) { _origin = origin; }
+	/// vt 0x11C SetMagnitude (CHand::DrawSpellInHand gives the in-hand effect the hand's scale every frame)
+	void SetMagnitude(float magnitude) { _magnitude = magnitude; }
 	[[nodiscard]] glm::vec3 GetOrigin() const { return _origin; }
 	[[nodiscard]] float GetAge() const { return _age; }
 	[[nodiscard]] float GetCloseAge() const { return _closeAge; }
 	[[nodiscard]] float GetMagnitude() const { return _magnitude; }
 	[[nodiscard]] float GetDt() const { return _dt; }
 	[[nodiscard]] const File& GetFile() const { return *_file; }
+
+	// ---- the spell link (SpellLink.h) ----
+	/// PSysInterface::Create 0x68E910 with a Spell: the rules' events go to it; sends event 1 (fn_00673070)
+	void SetSink(SpellSink* sink);
+	[[nodiscard]] SpellSink* GetSink() const { return _sink; }
+	/// PSysProcessInfo of this step (Spell::CoreProcess passes the spell's +0x64 to vt 0x100)
+	void SetProcessInfo(const ProcessInfo& info) { _info = info; }
+	[[nodiscard]] const ProcessInfo& GetProcessInfo() const { return _info; }
+	/// PSysManager::SpellEvent 0x6734C0: to the spell, 0 without one
+	int SendSpellEvent(const SpellEventInfo& event) const;
+	/// PSysManager::GetPowerUpLevel 0x673510: the spell's level, -1 without one
+	[[nodiscard]] int PowerUpLevel() const { return _sink != nullptr ? _sink->PowerUpLevel() : -1; }
+	/// PSysManager::NetUnsafeIsMyInterfaceCasting 0x673540: the spell's +0x44, and 1 for an effect without a spell
+	[[nodiscard]] bool IsMyInterfaceCasting() const { return _sink == nullptr || _sink->IsMyInterfaceCasting(); }
+	/// PSysManager::IsHumanPlayerCasting 0x673580: the spell's +0x4C, 0 without a spell
+	[[nodiscard]] bool IsHumanPlayerCasting() const { return _sink != nullptr && _sink->IsHumanPlayerCasting(); }
+	/// AddTarget_ (vt 0x114): SpellTargets, read by the target rules (heal chakra, flocks)
+	void AddTarget(entt::entity target) { _targets.push_back(target); }
+	/// SpellTargets::TakeTargetObject 0x671030: the last one added, taken out (entt::null when there is none)
+	entt::entity TakeTarget()
+	{
+		if (_targets.empty())
+		{
+			return entt::null;
+		}
+		const auto target = _targets.back();
+		_targets.pop_back();
+		return target;
+	}
+	[[nodiscard]] const std::vector<entt::entity>& GetTargets() const { return _targets; }
+	/// SpellTargets' points (+0x14, 12 bytes each: the AddTarget 0x670CF0 that takes an LHPoint), e.g. a shield's
+	/// impacts (fn_006D0AF0) for its sparks. fn_006710B0 counts points + objects; fn_00670F00 takes a point first.
+	void AddTargetPoint(const glm::vec3& point) { _targetPoints.push_back(point); }
+	bool TakeTargetPoint(glm::vec3& out)
+	{
+		if (_targetPoints.empty())
+		{
+			return false;
+		}
+		out = _targetPoints.back();
+		_targetPoints.pop_back();
+		return true;
+	}
+	[[nodiscard]] size_t TargetPointCount() const { return _targetPoints.size(); }
+	/// PSysInterface::Create's direction argument (the spell's +0xD8; mgr +0x84..)
+	void SetDirection(glm::vec3 direction) { _direction = direction; }
+	[[nodiscard]] glm::vec3 GetDirection() const { return _direction; }
+	/// vt 0x20: the casting player (the good/evil creators and colours read it)
+	void SetPlayer(int player) { _player = player; }
+	[[nodiscard]] int GetPlayer() const { return _player; }
+	/// The draw's alpha (PSysManager +0x14 -> +0x6C, 0..255; PhysicalShield::DrawShield 0x72CED0 sets it): the drawn atoms'
+	/// alpha x this / 255
+	void SetGlobalAlpha(float alpha) { _globalAlpha = alpha; }
+	[[nodiscard]] float GetGlobalAlpha() const { return _globalAlpha; }
 
 	// used by the modifiers
 	[[nodiscard]] float Random(float max);            ///< PSysFloatRand, [0, max)
@@ -173,8 +268,20 @@ public:
 	[[nodiscard]] const Creator* FindCreator(const std::string& name) const;
 	/// CommonInitNewAtom 0x674C60 + the creator's init: a new atom in the collection, its NextGroups sub-collections
 	Atom& NewAtom(Collection& collection, const Creator* creator, const std::vector<int>& nextGroups);
+	/// AtomCore::AddSubCollections 0x673B70: new sub-collections of these groups under the atom
+	void AddSubCollections(Atom& atom, const std::vector<int>& groups);
+	/// PSysManager::fn_006731B0: a new atom in the first root collection of that group (the lightning's light maps go
+	/// into their InitiallyCreated group, not under the fork). nullptr when that group has no root collection.
+	Atom* NewAtomInGroup(int group, const Creator* creator);
 	[[nodiscard]] glm::vec3 SpawnPosition(const Collection& collection) const;
 	[[nodiscard]] glm::vec3 GlobalPosition(const Atom& atom) const;
+	/// AtomCollection::LocalToGlobal 0x6751D0 / GlobalToLocal 0x675410: a point of the collection's frame. In a hierarchy
+	/// the frame is the product of the local matrices (fn_00673DB0: rotation, scale, position) of the ancestor atoms whose
+	/// group is flagged in Hierarchies (fn_006752D0); outside one, the world.
+	[[nodiscard]] glm::vec3 LocalToGlobal(const Collection& collection, const glm::vec3& local) const;
+	[[nodiscard]] glm::vec3 GlobalToLocal(const Collection& collection, const glm::vec3& global) const;
+	/// fn_00673DB0's scale of an atom's frame: baseScale x ruleScale, the Y axis also x the stretch
+	[[nodiscard]] static glm::vec3 FrameScale(const Atom& atom);
 	[[nodiscard]] float AtomAge(const Atom& atom) const { return _age - atom.birth; }
 	[[nodiscard]] float CollectionAge(const Collection& collection) const { return _age - collection.birth; }
 
@@ -190,14 +297,25 @@ public:
 		float frame;
 		std::array<uint8_t, 3> colour;
 	};
-	void Collect(float t, std::vector<DrawAtom>& out) const;
+	/// kind: the sprites (RendererPSys.cpp) or the meshes (Creators/Mesh.cpp, drawn as instances)
+	void Collect(float t, std::vector<DrawAtom>& out, Creator::Kind kind = Creator::Kind::Sprite) const;
+	/// One chain collection: its joints in list order, the ribbon fn_0067B3F0 draws them as a strip (Creators/Chain.h)
+	struct DrawChain
+	{
+		const Creator* creator;
+		std::vector<DrawAtom> joints;
+	};
+	/// Every collection made of Kind::Chain atoms, interpolated as Collect does
+	void CollectChains(float t, std::vector<DrawChain>& out) const;
 	[[nodiscard]] size_t AtomCount() const { return _atomCount; }
 
 private:
 	void CreateCollection(int group, Atom* parent, std::vector<std::unique_ptr<Collection>>& into);
 	void UpdateCollection(Collection& collection);
-	void PostUpdate(Collection& collection, const glm::vec3& parentPosition, const glm::mat3& parentRotation);
-	void CollectCollection(const Collection& collection, float t, std::vector<DrawAtom>& out) const;
+	void PostUpdate(Collection& collection, const glm::vec3& parentPosition, const glm::mat3& parentRotation,
+	                const glm::vec3& parentScale);
+	void CollectCollection(const Collection& collection, float t, std::vector<DrawAtom>& out, Creator::Kind kind) const;
+	void CollectChainsOf(const Collection& collection, float t, std::vector<DrawChain>& out) const;
 	[[nodiscard]] bool AnyCreatorLeft(const Collection& collection) const;
 
 	std::shared_ptr<const File> _file;
@@ -217,6 +335,13 @@ private:
 	float _maxSpellAge {-1.0f};
 	size_t _atomCount {0};
 	std::mt19937 _random;
+	SpellSink* _sink {nullptr};
+	ProcessInfo _info {};
+	std::vector<entt::entity> _targets;
+	std::vector<glm::vec3> _targetPoints;
+	int _player {-1};
+	float _globalAlpha {255.0f};
+	glm::vec3 _direction {0.0f};
 };
 
 } // namespace openblack::psys

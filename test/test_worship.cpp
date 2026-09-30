@@ -1,0 +1,273 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The worship economy of M7 (docs/bw1-notes/magic.md, research dev\tmp_dis\miracles\sources.md §1-§4): the site's
+// capacity and battery, its per-turn accounting, the icons' chant store with the original's excess quirk, how many
+// villagers a town needs, and the fireflies' weighted draw. No world is needed beyond a registry.
+
+#include <cstdlib>
+#include <memory>
+
+#include <gtest/gtest.h>
+
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/TownInfluence.h"
+#include "ECS/Components/TownMagic.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/Registry.h"
+#include "Enums.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+#include "Worship/FireFlyReward.h"
+#include "Worship/WorshipPercentage.h"
+#include "Worship/WorshipSite.h"
+#include "Worship/WorshipSpellIcon.h"
+
+using namespace openblack;
+using namespace openblack::ecs::components;
+
+namespace
+{
+/// GWorshipSiteInfo of a Norse site as info.dat ships it (sources.md §2.1). chantsToReserveForMaintaining is the int 500
+/// read as a float, which is what the exe does (fn_0077A950).
+GWorshipSiteInfo ShippedNorseSiteInfo()
+{
+	GWorshipSiteInfo info {};
+	info.radiusFromCitadel = 37.5f;
+	info.chantsPerVillager = 3.0f;
+	info.prayerSiteDistance = 44.0f;
+	info.maxDancersVisible = 20;
+	info.chantsToFillBattery = 9000.0f;
+	info.eachVillagerAddToFillBattery = 300.0f;
+	info.chantsToReserveForMaintaining = 7.0e-43f;
+	info.artifactPowerupMultiplier = 1e-5f;
+	return info;
+}
+
+class WorshipTest: public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		auto info = std::make_unique<InfoConstants>();
+		info->worshipSite.at(static_cast<size_t>(Tribe::NORSE)) = ShippedNorseSiteInfo();
+		info->villager.at(0).damageThresholdToGoHome = 0.3f;
+		info->villager.at(0).chantLifeRate = 5e-6f;
+		// the FIRE seed and its rows: base magic FIREBALL, costToCreate 3500 (sources.md §2.4)
+		info->spellSeed.at(static_cast<size_t>(SpellSeedType::Fire)).magicTypes = {MagicType::Fireball, MagicType::None,
+		                                                                          MagicType::None, MagicType::None};
+		info->magicEffect.at(static_cast<size_t>(MagicType::Fireball)).costToCreate = 3500.0f;
+		// the GMagicInfo rows live in per-class sections: types 0..9 are magicGeneral (SlotOf 0x5FB700)
+		info->magicGeneral.at(static_cast<size_t>(MagicType::Fireball)).magicType = MagicType::Fireball;
+		Locator::infoConstants::reset(info.release());
+		Locator::entitiesRegistry::emplace<ecs::Registry>();
+	}
+
+	void TearDown() override
+	{
+		Locator::entitiesRegistry::reset();
+		Locator::infoConstants::reset();
+	}
+
+	/// A bare site: only the fields the accounting reads (the real one comes from WorshipSite::Create)
+	static WorshipSite NorseSite(int dancers)
+	{
+		WorshipSite site;
+		site.infoIndex = static_cast<uint8_t>(Tribe::NORSE);
+		site.tribe = Tribe::NORSE;
+		site.player = PlayerNames::NEUTRAL;
+		site.dancers.assign(static_cast<size_t>(dancers), entt::null);
+		return site;
+	}
+
+	static entt::entity MakeTown(uint32_t id, float percentage, int villagers)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto town = registry.Create();
+		registry.Assign<Town>(town, id);
+		registry.Assign<Transform>(town, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+		registry.Assign<TownInfluence>(town, PlayerNames::PLAYER_ONE);
+		auto& magic = registry.Assign<TownMagic>(town);
+		magic.worshipPercentage = percentage;
+		const auto site = registry.Create();
+		registry.Assign<Transform>(site, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+		registry.Assign<WorshipSite>(site, NorseSite(0));
+		magic.worshipSite = site;
+		for (int i = 0; i < villagers; ++i)
+		{
+			const auto villager = registry.Create();
+			auto& component = registry.Assign<Villager>(villager);
+			component.town = town;
+			registry.Assign<Transform>(villager, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+		}
+		return town;
+	}
+
+	/// An icon with no site: its store is its own (WorshipSpellIcon::AddToChantStore reads only the requirement)
+	static entt::entity MakeIcon(SpellSeedType seed)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto icon = registry.Create();
+		auto& spellIcon = registry.Assign<SpellIcon>(icon);
+		spellIcon.seedType = seed;
+		spellIcon.player = PlayerNames::PLAYER_ONE;
+		registry.Assign<WorshipSpellIcon>(icon);
+		return icon;
+	}
+};
+} // namespace
+
+TEST_F(WorshipTest, CapacityAndBattery)
+{
+	// fn_0077E060: N x chantsPerVillager x the player's tribal power (1 by default). fn_0077E780: 9000 + N x 300.
+	const auto empty = NorseSite(0);
+	EXPECT_FLOAT_EQ(worship::site::Capacity(empty), 0.0f);
+	EXPECT_FLOAT_EQ(worship::site::MaxBattery(empty), 9000.0f);
+	const auto full = NorseSite(11);
+	EXPECT_FLOAT_EQ(worship::site::Capacity(full), 33.0f);
+	EXPECT_FLOAT_EQ(worship::site::MaxBattery(full), 12300.0f);
+	EXPECT_EQ(worship::site::DancerCount(full), 11);
+}
+
+TEST_F(WorshipTest, ReserveForMaintainingIsTheInfoDatBug)
+{
+	// the file holds the int 500 and the exe reads it with fld: the reserve is ~0, so seeds out change nothing
+	auto site = NorseSite(0);
+	site.available = 1000.0f;
+	site.used = 0.0f;
+	EXPECT_FLOAT_EQ(worship::site::Available(site), 1000.0f);
+	EXPECT_FLOAT_EQ(worship::site::AvailableForIcons(site, false), 1000.0f);
+	EXPECT_NEAR(worship::site::AvailableForIcons(site, true), 1000.0f, 1e-3f);
+}
+
+TEST_F(WorshipTest, InfiniteChantsCheat)
+{
+	auto site = NorseSite(0);
+	site.infiniteChants = true;
+	EXPECT_FLOAT_EQ(worship::site::Available(site), 1e6f);
+	EXPECT_FLOAT_EQ(worship::site::TotalChantsAvailable(site), 1e6f);
+}
+
+TEST_F(WorshipTest, UseChantsTakesAtMostWhatIsAvailable)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	auto site = NorseSite(0);
+	site.available = 100.0f;
+	registry.Assign<WorshipSite>(entity, site);
+	EXPECT_FLOAT_EQ(worship::site::UseChants(entity, 40.0f), 40.0f);
+	EXPECT_FLOAT_EQ(worship::site::UseChants(entity, 100.0f), 60.0f); // WorshipSite::UseChants 0x77BBB0 clamps
+	EXPECT_FLOAT_EQ(registry.Get<const WorshipSite>(entity).used, 100.0f);
+	EXPECT_FLOAT_EQ(registry.Get<const WorshipSite>(entity).requested, 140.0f);
+	EXPECT_FLOAT_EQ(worship::site::UseChants(entity, -5.0f), 0.0f);
+}
+
+TEST_F(WorshipTest, EndOfTurnDanceIntensityAndBattery)
+{
+	// fn_0077B6A0 with 11 dancers, an empty battery and nothing used: the boost is 0.5, so k = 0.5 and the battery
+	// gains capacity x k
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	registry.Assign<Transform>(entity, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	registry.Assign<WorshipSite>(entity, NorseSite(11));
+	worship::site::ProcessSpellIcons(entity);
+	const auto& site = registry.Get<const WorshipSite>(entity);
+	EXPECT_FLOAT_EQ(site.danceSpeed, 0.5f);
+	EXPECT_FLOAT_EQ(site.battery, 16.5f); // 33 x 0.5
+	EXPECT_FLOAT_EQ(site.chantDamage, 16.5f / 11.0f);
+	EXPECT_FLOAT_EQ(site.available, 16.5f + 33.0f);
+	EXPECT_FLOAT_EQ(site.strain, -1.0f); // nothing asked and the dancers make 33: (0 - 33) / 33
+	EXPECT_EQ(site.danceState, 1); // fn_0077B8D0: k > 0 starts the dance
+}
+
+TEST_F(WorshipTest, StrainIsDemandOverCapacity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	registry.Assign<Transform>(entity, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	auto site = NorseSite(10);       // capacity 30
+	site.requested = 90.0f;          // three times what the dancers make
+	site.available = 90.0f;
+	site.used = 90.0f;
+	registry.Assign<WorshipSite>(entity, site);
+	worship::site::ProcessSpellIcons(entity);
+	// (90 - 30) / 30 = 2; with the strain positive the charging icons get nothing
+	EXPECT_FLOAT_EQ(registry.Get<const WorshipSite>(entity).strain, 2.0f);
+}
+
+TEST_F(WorshipTest, ChantStoreKeepsTheExcessQuirk)
+{
+	// WorshipSpellIcon::AddToChantStore 0x77FDA0 with no site: below the requirement it returns what it took, above it
+	// returns the excess and the store stops at the requirement
+	const auto icon = MakeIcon(SpellSeedType::Fire);
+	const float required = worship::icon::GetChantRequired(icon);
+	ASSERT_FLOAT_EQ(required, 3500.0f);
+	EXPECT_FLOAT_EQ(worship::icon::AddToChantStore(icon, required * 0.25f), required * 0.25f);
+	EXPECT_FLOAT_EQ(worship::icon::GetChantNeeded(icon), required * 0.75f);
+	const float excess = worship::icon::AddToChantStore(icon, required);
+	EXPECT_FLOAT_EQ(excess, required - required * 0.75f);
+	EXPECT_FLOAT_EQ(worship::icon::GetChantNeeded(icon), 0.0f);
+	EXPECT_FLOAT_EQ(worship::icon::ChargeFraction(icon), 1.0f);
+	// RemoveFromChantStore 0x77FE10 takes at most the store
+	EXPECT_FLOAT_EQ(worship::icon::RemoveFromChantStore(icon, required * 2.0f), required);
+	EXPECT_FLOAT_EQ(worship::icon::ChargeFraction(icon), 0.0f);
+}
+
+TEST_F(WorshipTest, WorshipersNeeded)
+{
+	// Town::GetWorshipersNeeded 0x73C860: target = max(1, int(pop x pct + 0.5)), result = target - current + go-homes
+	const auto town = MakeTown(1, 0.5f, 22);
+	bool reachable = false;
+	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, &reachable), 11);
+	EXPECT_FALSE(reachable); // result > 0 but nobody is there yet
+	worship::percentage::AddWorshipper(town);
+	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, nullptr), 10);
+	// a percentage that rounds to 0 still asks for one villager
+	auto& magic = Locator::entitiesRegistry::value().Get<TownMagic>(town);
+	magic.worshipPercentage = 0.01f;
+	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, nullptr), 0); // max(1, 0) - 1
+	// no percentage, no target
+	magic.worshipPercentage = 0.0f;
+	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, nullptr), -1);
+}
+
+TEST_F(WorshipTest, SigmoidThreshold)
+{
+	// GUtils::SigmoidThreshold 0x74F170 and its 41-step table: 1 gives 0, the threshold itself lands on the middle
+	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(1.0f, 0.5f), 0.0f);
+	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.5f, 0.5f), 0.5f);
+	// the table's steps, not a smooth curve: 0.5 - x = 0.5 lands on step 30 and -0.4 on step 13
+	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.0f, 0.5f), 0.99996f); // far away: it goes
+	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.9f, 0.5f), 0.00028f); // close by: it stays
+	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(-2.0f, 0.5f), 1.0f); // clamped
+}
+
+TEST_F(WorshipTest, FireFlyRewardProbabilities)
+{
+	// fn_0052B630: the running sums; Land1.txt gives HEAL 20 and six miracles 1 each
+	worship::fire_fly::Reset();
+	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 0.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Fireball, 1.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Heal, 20.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Food, 1.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Wood, 1.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Water, 1.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Forest, 1.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::LightningBolt, 1.0f);
+	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 26.0f);
+	// FireFly::OnClearMap 0x52A1E0 zeroes the probabilities but not the running sums: the total of the land before
+	// stays until the next FIRE_FLY_SPELL_REWARD_PROB (the original's quirk, kept)
+	worship::fire_fly::Reset();
+	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 26.0f);
+	worship::fire_fly::SetRewardProbability(MagicType::Heal, 5.0f);
+	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 5.0f);
+}

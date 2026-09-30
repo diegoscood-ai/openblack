@@ -17,6 +17,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/TreeGrowth.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -39,6 +40,8 @@ entt::entity TreeArchetype::Create(uint32_t forestId, const glm::vec3& position,
 	const auto [point, radius] = GetFixedObstacleBoundingCircle(info.normal, transform);
 	registry.Assign<Fixed>(entity, point, radius);
 	registry.Assign<Tree>(entity, type, maxSize, forestId, isNonScenic);
+	// Tree ctor 0x749E00: maxScale != scale -> growing, with its GameRand countdown (ECS/TreeGrowth)
+	ecs::trees::InitGrowth(entity);
 	const auto resourceId = resources::HashIdentifier(info.normal);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(-1));
 

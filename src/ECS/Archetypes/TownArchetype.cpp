@@ -10,6 +10,8 @@
 #include "TownArchetype.h"
 
 #include "ECS/Components/Town.h"
+#include "ECS/Components/TownInfluence.h"
+#include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
@@ -18,7 +20,7 @@ using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 
-entt::entity TownArchetype::Create(int id, const glm::vec3& position, [[maybe_unused]] PlayerNames playerOwner, Tribe tribe)
+entt::entity TownArchetype::Create(int id, const glm::vec3& position, PlayerNames playerOwner, Tribe tribe)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
@@ -27,6 +29,9 @@ entt::entity TownArchetype::Create(int id, const glm::vec3& position, [[maybe_un
 
 	registry.Assign<Town>(entity, static_cast<uint32_t>(id));
 	registry.Assign<Tribe>(entity, tribe);
+	registry.Assign<TownInfluence>(entity, playerOwner); // Town +0x2C (the owner) and its influence (ECS/Influence)
+	// the magic types the town holds, its spell icons and its worship site (src/Worship, Town.cpp 0x73D1C0..)
+	registry.Assign<TownMagic>(entity);
 	registry.Assign<Transform>(entity, position, glm::mat3(1.0f), glm::vec3(1.0f));
 	auto& registryContext = registry.Context();
 	registryContext.towns.insert({id, entity});

@@ -201,8 +201,8 @@ void HandSystem::RunDebugHooks() noexcept
 			const auto direction = glm::normalize(at + glm::vec3(0.0f, 0.8f, 0.0f) - start);
 			physics::PhysicsObjects::AddObject(rock, direction * speed, glm::vec3(0.0f), entt::null, true);
 			registry.SetDirty();
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: rock thrown at villager {} at ({:.1f}, {:.1f}, {:.1f}), health {}",
-			                   static_cast<uint32_t>(*target), at.x, at.y, at.z, registry.Get<const Villager>(*target).health);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics test: rock thrown at villager {} at ({:.1f}, {:.1f}, {:.1f}), life {:.2f}",
+			                   static_cast<uint32_t>(*target), at.x, at.y, at.z, registry.Get<const Villager>(*target).life);
 		}
 	}
 	// OPENBLACK_TEST_THROW_TREE="x,z,vx,vy,vz": a beech thrown from 3 units over the land (it lands as a DeadTree)

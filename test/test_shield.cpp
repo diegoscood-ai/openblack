@@ -1,0 +1,296 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The shields (M6): SpellShield's radius clamp and upkeep, PhysicalShield::ProcessShield's curves, the DefensiveSphere
+// helpers (GJUtils) and registry, the fireball's DoAnyShieldDeflections, and the PSys hierarchy frame the magic
+// shield's dome relies on (the flagged ancestors' matrices, with their scale).
+
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "InfoConstants.h"
+#include "Magic/MagicTables.h"
+#include "Magic/Objects/MapShield.h"
+#include "Magic/Spells/SpellShield.h"
+#include "PSys/PSys.h"
+#include "PSys/PSysFile.h"
+#include "PSys/Rules/Shield.h"
+
+using namespace openblack;
+
+namespace
+{
+GMagicShieldInfo ShieldInfo()
+{
+	GMagicShieldInfo info {};
+	info.minRadius = 5.0f;
+	info.maxRadius = 1000.0f;
+	info.radiusForNormalCost = 30.0f;
+	return info;
+}
+
+/// UR_AddDefensiveSphere on the root, its radius the magnitude x 1.11062 (SF_DefenseSphere's provider)
+constexpr std::string_view k_Sphere = R"(BEGINPROPERTIES
+PROPERTY DeleteOnCloseDown BOOL 0
+PROPERTY Hierarchies ARRAY SIZE 25 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY InitiallyCreated ARRAY SIZE 25 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY MaxSpellAge FLOAT -1
+ENDPROPERTIES
+BEGINCLASS MagnitudeFloatProvider MagnitudeFloatProvider0
+BEGINPROPERTIES
+PROPERTY Maximum FLOAT 1000
+PROPERTY Minimum FLOAT 0
+PROPERTY ScaleBy FLOAT 1.11062
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS ParticlePointCreator ParticlePointCreator0
+BEGINPROPERTIES
+PROPERTY InitialScale FLOAT 1
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS CreateRuleAnAtom CreateRuleAnAtom_Root
+BEGINPROPERTIES
+PROPERTY Group INTEGER 0
+PROPERTY NextGroups ARRAY SIZE 0
+PROPERTY PCreator PERSIS_PNTR ParticlePointCreator0
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS UR_AddDefensiveSphere UR_AddDefensiveSphere0
+BEGINPROPERTIES
+PROPERTY Group INTEGER 0
+PROPERTY IsMagical BOOL 1
+PROPERTY SphereRadius PERSIS_PNTR MagnitudeFloatProvider0
+ENDPROPERTIES
+ENDCLASS
+)";
+
+/// Three levels under a flagged root of scale 2: group 1 at (1, 0, 0) in the root's frame, group 2 made under it at
+/// its parent's point + (0, 1, 0), in the same (root) frame
+constexpr std::string_view k_Frames = R"(BEGINPROPERTIES
+PROPERTY DeleteOnCloseDown BOOL 0
+PROPERTY Hierarchies ARRAY SIZE 25 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY InitiallyCreated ARRAY SIZE 25 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY MaxSpellAge FLOAT -1
+ENDPROPERTIES
+BEGINCLASS ParticlePointCreator Root
+BEGINPROPERTIES
+PROPERTY InitialScale FLOAT 2
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS ParticlePointCreator Child
+BEGINPROPERTIES
+PROPERTY InitialScale FLOAT 1
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS CreateRuleAnAtom CreateRuleAnAtom0
+BEGINPROPERTIES
+PROPERTY Group INTEGER 0
+PROPERTY NextGroups ARRAY SIZE 1 1
+PROPERTY PCreator PERSIS_PNTR Root
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS CreateRuleAnAtom CreateRuleAnAtom1
+BEGINPROPERTIES
+PROPERTY Group INTEGER 1
+PROPERTY NextGroups ARRAY SIZE 1 2
+PROPERTY OffsetX FLOAT 1
+PROPERTY PCreator PERSIS_PNTR Child
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS CreateRuleAnAtom CreateRuleAnAtom2
+BEGINPROPERTIES
+PROPERTY Group INTEGER 2
+PROPERTY NextGroups ARRAY SIZE 0
+PROPERTY OffsetY FLOAT 1
+PROPERTY PCreator PERSIS_PNTR Child
+ENDPROPERTIES
+ENDCLASS
+)";
+
+std::shared_ptr<const psys::File> Parse(std::string_view text, const char* name)
+{
+	auto file = psys::File::Parse(text, name);
+	return file.has_value() ? std::make_shared<const psys::File>(*file) : nullptr;
+}
+} // namespace
+
+TEST(Shield, radiusClamp)
+{
+	// SpellShield::InitWithPos 0x72B5F0: max first, then min
+	const auto info = ShieldInfo();
+	EXPECT_FLOAT_EQ(magic::ClampShieldRadius(info, 3.0f), 5.0f);
+	EXPECT_FLOAT_EQ(magic::ClampShieldRadius(info, 5.0f), 5.0f);
+	EXPECT_FLOAT_EQ(magic::ClampShieldRadius(info, 40.0f), 40.0f);
+	EXPECT_FLOAT_EQ(magic::ClampShieldRadius(info, 1000.0f), 1000.0f);
+	EXPECT_FLOAT_EQ(magic::ClampShieldRadius(info, 2500.0f), 1000.0f);
+}
+
+TEST(Shield, upkeepGrowsWithTheSquareOfTheRadius)
+{
+	// SpellShield::CalculateCostToMaintain 0x72B7F0: costPerGameTurn x (r / radiusForNormalCost)^2
+	EXPECT_FLOAT_EQ(magic::ShieldCostToMaintain(20.0f, 30.0f, 30.0f), 20.0f);
+	EXPECT_FLOAT_EQ(magic::ShieldCostToMaintain(20.0f, 60.0f, 30.0f), 80.0f);
+	EXPECT_NEAR(magic::ShieldCostToMaintain(22.0f, 40.0f, 30.0f), 22.0f * 16.0f / 9.0f, 1e-4f);
+	EXPECT_FLOAT_EQ(magic::ShieldCostToMaintain(20.0f, 5.0f, 30.0f), 20.0f / 36.0f);
+}
+
+TEST(Shield, physicalShieldCurves)
+{
+	// PhysicalShield::ProcessShield 0x72D190
+	using magic::map_shield::CurvesAt;
+	EXPECT_FLOAT_EQ(CurvesAt(0.0f).grow, 1.0f); // primed at full size, then shrunk while hidden
+	EXPECT_FLOAT_EQ(CurvesAt(0.25f).grow, 0.5f);
+	EXPECT_FALSE(CurvesAt(0.25f).spinning);
+	EXPECT_FLOAT_EQ(CurvesAt(0.5f).grow, 0.0f);
+	EXPECT_TRUE(CurvesAt(0.5f).spinning);
+	EXPECT_FLOAT_EQ(CurvesAt(0.5f).spinDown, 0.0f);
+	// x = 0.75 / 1.5 = 0.5: 0.5 + 0.25 - 0.125; y = 0.75 / 6 = 0.125
+	EXPECT_NEAR(CurvesAt(1.25f).grow, 0.625f, 1e-6f);
+	EXPECT_NEAR(CurvesAt(1.25f).spinDown, 0.125f + 0.015625f - 0.001953125f, 1e-6f);
+	EXPECT_FLOAT_EQ(CurvesAt(2.0f).grow, 1.0f); // grown after 0.5 + 1.5 s
+	EXPECT_LT(CurvesAt(6.0f).spinDown, 1.0f);
+	EXPECT_FLOAT_EQ(CurvesAt(6.5f).spinDown, 1.0f); // spun down after 0.5 + 6 s
+}
+
+TEST(Shield, sphereHelpers)
+{
+	psys::shields::DefensiveSphere sphere;
+	sphere.centre = glm::vec3(0.0f);
+	sphere.radius = 10.0f;
+	// PointIsInSphere 0x57C9F0: strictly inside (r + margin)
+	EXPECT_TRUE(psys::shields::IsPointInShield(sphere, glm::vec3(9.9f, 0.0f, 0.0f), 0.0f));
+	EXPECT_FALSE(psys::shields::IsPointInShield(sphere, glm::vec3(10.0f, 0.0f, 0.0f), 0.0f));
+	EXPECT_TRUE(psys::shields::IsPointInShield(sphere, glm::vec3(10.0f, 0.0f, 0.0f), 0.5f));
+	EXPECT_TRUE(psys::shields::HasCrossedIntoShield(sphere, glm::vec3(-20.0f, 0.0f, 0.0f), glm::vec3(-5.0f, 0.0f, 0.0f), 0.0f));
+	EXPECT_FALSE(psys::shields::HasCrossedIntoShield(sphere, glm::vec3(-5.0f, 0.0f, 0.0f), glm::vec3(-4.0f, 0.0f, 0.0f), 0.0f));
+	// FindIntersect 0x57CCD0: the first root along the move
+	glm::vec3 hit;
+	EXPECT_TRUE(psys::shields::FindIntersect(sphere, glm::vec3(-20.0f, 0.0f, 0.0f), glm::vec3(-5.0f, 0.0f, 0.0f), 1.0f, hit));
+	EXPECT_NEAR(hit.x, -11.0f, 1e-4f);
+	EXPECT_FALSE(psys::shields::FindIntersect(sphere, glm::vec3(-20.0f, 20.0f, 0.0f), glm::vec3(20.0f, 20.0f, 0.0f), 0.0f, hit));
+	// DeflectOffSphere 0x57CFD0: v -= 2 (v.n) n
+	glm::vec3 v(3.0f, -1.0f, 0.0f);
+	psys::shields::DeflectOffShield(sphere, glm::vec3(-10.0f, 0.0f, 0.0f), v);
+	EXPECT_NEAR(v.x, -3.0f, 1e-5f);
+	EXPECT_NEAR(v.y, -1.0f, 1e-5f);
+}
+
+TEST(Shield, defensiveSphereRegistryAndDeflection)
+{
+	const auto file = Parse(k_Sphere, "SF_DefenseSphereTest");
+	ASSERT_NE(file, nullptr);
+	{
+		psys::Effect effect(file, glm::vec3(100.0f, 20.0f, 200.0f), 40.0f, 7);
+		effect.Step(0.1f);
+		// UR_AddDefensiveSphere 0x6A2A60: at the parent position (the effect's origin for the root collection)
+		ASSERT_EQ(psys::shields::All().size(), 1u);
+		const auto sphere = psys::shields::All().front();
+		EXPECT_EQ(sphere.owner, &effect);
+		EXPECT_NEAR(sphere.radius, 40.0f * 1.11062f, 1e-3f);
+		EXPECT_EQ(sphere.centre, glm::vec3(100.0f, 20.0f, 200.0f));
+		// the radius follows the provider, the centre stays
+		effect.SetMagnitude(20.0f);
+		effect.SetOrigin(glm::vec3(0.0f));
+		effect.Step(0.1f);
+		EXPECT_NEAR(psys::shields::All().front().radius, 20.0f * 1.11062f, 1e-3f);
+		EXPECT_EQ(psys::shields::All().front().centre, glm::vec3(100.0f, 20.0f, 200.0f));
+		// DoAnyShieldDeflections 0x6A1FA0: an atom (scale 1: margin 1.25) that moved in from the outside is put on the
+		// sphere and reflected (no spell to let it through: the event answers 0), with a spark target for the shield
+		psys::Atom atom;
+		atom.position = glm::vec3(100.0f, 20.0f, 200.0f + 10.0f);
+		atom.velocity = glm::vec3(0.0f, 0.0f, -30.0f);
+		const glm::vec3 old(100.0f, 20.0f, 250.0f);
+		const size_t sparks = effect.TargetPointCount();
+		EXPECT_TRUE(psys::shields::DoAnyShieldDeflections(effect, atom, old));
+		EXPECT_NEAR(atom.position.z, 200.0f + 20.0f * 1.11062f + 1.25f, 1e-3f);
+		EXPECT_NEAR(atom.velocity.z, 30.0f, 1e-4f);
+		EXPECT_EQ(effect.TargetPointCount(), sparks + 1);
+		// already inside: nothing
+		EXPECT_FALSE(psys::shields::DoAnyShieldDeflections(effect, atom, atom.position));
+	}
+	// the sphere goes with its effect
+	EXPECT_TRUE(psys::shields::All().empty());
+}
+
+TEST(Shield, hierarchyFrameIsTheFlaggedAncestorsWithTheirScale)
+{
+	// AtomCollection ctor 0x6748B0 (hierarchical under any flagged ancestor), CommonInitNewAtom 0x674C60 (the parent's
+	// point unless the parent is flagged), fn_006752D0 / fn_00673DB0 (the frame: the flagged atoms' rotation x scale)
+	const auto file = Parse(k_Frames, "SF_FramesTest");
+	ASSERT_NE(file, nullptr);
+	psys::Effect effect(file, glm::vec3(10.0f, 0.0f, 0.0f), 1.0f, 7);
+	effect.Step(0.1f);
+	effect.Step(0.1f);
+	std::vector<psys::Effect::DrawAtom> atoms;
+	effect.Collect(1.0f, atoms, psys::Creator::Kind::Point);
+	ASSERT_EQ(atoms.size(), 3u);
+	// the root at the origin, scale 2; group 1 at 2 x (1, 0, 0) from it; group 2 at 2 x ((1, 0, 0) + (0, 1, 0))
+	std::vector<glm::vec3> positions;
+	for (const auto& atom : atoms)
+	{
+		positions.push_back(atom.position);
+	}
+	const auto has = [&positions](const glm::vec3& p) {
+		for (const auto& q : positions)
+		{
+			if (glm::length(q - p) < 1e-4f)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	EXPECT_TRUE(has(glm::vec3(10.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(has(glm::vec3(12.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(has(glm::vec3(12.0f, 2.0f, 0.0f)));
+}
+
+/// With OPENBLACK_GAME_PATH set to the install: the real shield rows (protect_creature.md section 0)
+TEST(Shield, realInfoDat)
+{
+	const char* game = std::getenv("OPENBLACK_GAME_PATH");
+	if (game == nullptr)
+	{
+		GTEST_SKIP() << "OPENBLACK_GAME_PATH not set";
+	}
+	std::ifstream in(std::filesystem::path(game) / "Scripts" / "info.dat", std::ios::binary);
+	ASSERT_TRUE(in.is_open());
+	const std::vector<char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	ASSERT_EQ(data.size(), 0x2C + sizeof(InfoConstants));
+	auto info = std::make_unique<InfoConstants>();
+	std::memcpy(info.get(), data.data() + 0x2C, sizeof(InfoConstants));
+	const auto* shield = magic::GetMagicInfoAs<GMagicShieldInfo>(*info, MagicType::Shield);
+	const auto* physical = magic::GetMagicInfoAs<GMagicShieldInfo>(*info, MagicType::PhysicalShield);
+	ASSERT_NE(shield, nullptr);
+	ASSERT_NE(physical, nullptr);
+	EXPECT_EQ(shield->particleType, ParticleType::Shield);
+	EXPECT_FLOAT_EQ(shield->minRadius, 5.0f);
+	EXPECT_FLOAT_EQ(shield->maxRadius, 1000.0f);
+	EXPECT_FLOAT_EQ(shield->radiusForNormalCost, 30.0f);
+	EXPECT_FLOAT_EQ(physical->chantCostPerImpactMomentum, 25.0f);
+	EXPECT_FLOAT_EQ(physical->shieldHeight, 0.0f);
+	EXPECT_FLOAT_EQ(physical->raiseWithScale, -2.0f);
+	EXPECT_FLOAT_EQ(physical->bobMagnitude, 3.0f);
+	EXPECT_FLOAT_EQ(magic::GetMagicEffectInfo(*info, MagicType::Shield).costPerGameTurn, 20.0f);
+	EXPECT_FLOAT_EQ(magic::GetMagicEffectInfo(*info, MagicType::PhysicalShield).costPerGameTurn, 22.0f);
+	EXPECT_FLOAT_EQ(magic::GetTimerWhenPlayerCasting(*info, MagicType::Shield), -1.0f);
+	// GMapShieldInfo (Object::GetWeight 0x638480 x scale^3: the physical shield's body mass)
+	EXPECT_FLOAT_EQ(info->mapShield[1].weight, 50000.0f);
+	// 40 m: 20 x (40 / 30)^2 = 35.6 chants a turn
+	EXPECT_NEAR(magic::ShieldCostToMaintain(20.0f, 40.0f, shield->radiusForNormalCost), 35.556f, 1e-3f);
+}

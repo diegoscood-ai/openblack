@@ -1,0 +1,86 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <array>
+
+#include <entt/entity/entity.hpp>
+#include <glm/vec3.hpp>
+
+#include "Enums.h"
+
+namespace openblack
+{
+struct GEffectInfo;
+} // namespace openblack
+
+// The generic effect system the miracles hurt, heal and sway alignment with (Effect.cpp 0x524EF0..0x525910 and
+// Object::ApplyEffect 0x637980). Wiki: docs/bw1-notes/magic.md.
+
+namespace openblack::ecs::effects
+{
+
+/// EffectValues (0x40 bytes)
+struct EffectValues
+{
+	enum Number : size_t
+	{
+		Burn,
+		Crush,
+		Hit,
+		Heal,
+		FlyAway,
+		Alignment,
+		Belief,
+
+		_COUNT
+	};
+	/// +0x08 EffectNumbers: the GEffectInfo amounts
+	std::array<float, _COUNT> numbers {};
+	float radius {0.0f}; ///< +0x24 metres
+	/// +0x28 the GameThing that applies it (a spell's creator); its player is the EffectValues' player
+	entt::entity appliedBy {entt::null};
+	bool appliedByCreature {false};
+	/// +0x3C / GetPlayer 0x5254C0 (the applier's player)
+	bool hasPlayer {false};
+	PlayerNames player {PlayerNames::NEUTRAL};
+
+	/// fn_005250A0 -> fn_005250D0: the 7 numbers and the radius of a GEffectInfo (GMagicEffectInfo's base)
+	static EffectValues FromEffectInfo(const GEffectInfo& info);
+
+	/// operator*= 0x525720 via fn_00525670 (skipped for 1): the 7 numbers, not the radius
+	void Scale(float factor);
+
+	/// EffectNumbers::IsDestructive 0x5258C0: burn, crush, hit or fly away above 0
+	[[nodiscard]] bool IsDestructive() const;
+
+	/// EffectValues::ApplyEffectToMapPos 0x525100: every available effect receiver of the 10 m map cells over pos +- R
+	/// whose fire centre is within R + its fire radius and whose altitude is within its height + R gets ApplyEffect.
+	/// No falloff. pos: x, z metres, y the altitude above the land. Returns the last object hit (entt::null: none).
+	entt::entity ApplyEffectToMapPos(const glm::vec3& position);
+};
+
+/// Object::IsEffectReceiver (vt 0x774): 1 for Object (0x4029E0); Villager 0x751D70 refuses a heal when dead
+[[nodiscard]] bool IsEffectReceiver(entt::entity object, const EffectValues& values);
+
+/// Object::ApplyEffect 0x637980: crush and hit (x the info's defence multipliers) reduce the life, heal increases it,
+/// a kill is DestroyedByEffect, a crush creates REACT_TO_OBJECT_CRUSHED, and the caster's alignment moves
+/// (GAlignment::Update). Returns the original's "effectiveness": (1 - life0) / heal + life0 / damage.
+float ApplyEffect(entt::entity object, EffectValues& values);
+
+/// FireEffect::ConvertTemperatureToDamage 0x72EEC0: 0 below the combustion temperature Tc, else
+/// (T - Tc) / Tc x defenceMultiplierBurn x 0.1
+[[nodiscard]] float ConvertTemperatureToDamage(entt::entity object, float temperature);
+
+/// Object::GetHeight 0x638120 (the mesh's height x scale) and Get2DRadius 0x638180 / GetDefaultFireRadius 0x639AC0
+[[nodiscard]] float ObjectHeight(entt::entity object);
+[[nodiscard]] float Object2DRadius(entt::entity object);
+
+} // namespace openblack::ecs::effects

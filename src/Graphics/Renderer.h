@@ -67,6 +67,12 @@ class Renderer final: public RendererInterface
 	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
+	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp)
+	void DrawPSysChains(RenderPass viewId, const Camera& camera) const;
+	/// The effects' surfaces of revolution (ZR_SurfRevol: the teleport pool; RendererSurfRevol.cpp)
+	void DrawPSysSurfaces(RenderPass viewId, const Camera& camera) const;
+	/// The rain streaks where the weather grid rains (LH3DAtmos::Render3D 0x836250; RendererRain.cpp)
+	void DrawRain(RenderPass viewId, const Camera& camera) const;
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
 	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
 	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)

@@ -67,6 +67,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
+#include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -91,8 +92,9 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(tree);
-	// Tree::EndPhysics: planted again only on dry land (and not burning, TODO: fire); otherwise a DeadTree.
-	if (IsLand(transform.position))
+	// Tree::EndPhysics 0x74B830: planted again only on dry land and with no FireEffect (+0x44, hot or burning, ECS/Fire);
+	// otherwise a DeadTree (the same entity keeps its fire: fn_00730960 moves it in the DeadTree ctor 0x510880).
+	if (IsLand(transform.position) && fire::Find(tree) == nullptr)
 	{
 		Replant(tree);
 	}

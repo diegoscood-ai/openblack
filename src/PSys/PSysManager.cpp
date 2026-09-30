@@ -23,6 +23,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "Audio/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -96,6 +97,8 @@ constexpr std::array<SpotVisual, 50> k_SpotVisuals = {{
 struct Running
 {
 	std::unique_ptr<Effect> effect;
+	bool ownedBySpell {false}; ///< stepped by its spell (StartForSpell), not by ProcessTurn
+	bool perFrame {false};     ///< stepped every frame (the hand's and the interface's effects): drawn as last stepped
 };
 
 struct Container
@@ -126,6 +129,70 @@ uint32_t manager::Start(const std::string& file, glm::vec3 origin, float magnitu
 	const uint32_t id = g_NextId++;
 	g_Effects[id].effect = std::make_unique<Effect>(std::move(data), origin, magnitude, g_Seed++ * 2654435761u);
 	return id;
+}
+
+uint32_t manager::StartForSpell(const std::string& file, glm::vec3 origin, glm::vec3 direction, float magnitude,
+                                SpellSink* sink)
+{
+	const uint32_t id = Start(file, origin, magnitude);
+	if (id == 0)
+	{
+		return 0;
+	}
+	auto& running = g_Effects[id];
+	running.ownedBySpell = true;
+	running.effect->SetDirection(direction);
+	running.effect->SetSink(sink);
+	return id;
+}
+
+bool manager::ProcessForSpell(uint32_t id, const ProcessInfo& info, float dt)
+{
+	const auto it = g_Effects.find(id);
+	if (it == g_Effects.end())
+	{
+		return false;
+	}
+	auto& effect = *it->second.effect;
+	effect.SetProcessInfo(info);
+	effect.Step(dt);
+	if (effect.Finished() || (effect.Closing() && effect.DeleteOnCloseDown()))
+	{
+		g_Effects.erase(it);
+		return false;
+	}
+	return true;
+}
+
+void manager::Delete(uint32_t id)
+{
+	g_Effects.erase(id);
+}
+
+void manager::SetPerFrame(uint32_t id)
+{
+	if (const auto it = g_Effects.find(id); it != g_Effects.end())
+	{
+		it->second.perFrame = true;
+	}
+}
+
+Effect* manager::Find(uint32_t id)
+{
+	const auto it = g_Effects.find(id);
+	return it == g_Effects.end() ? nullptr : it->second.effect.get();
+}
+
+uint32_t manager::IdOf(const Effect* effect)
+{
+	for (const auto& [id, running] : g_Effects)
+	{
+		if (running.effect.get() == effect)
+		{
+			return id;
+		}
+	}
+	return 0;
 }
 
 void manager::CloseDown(uint32_t id)
@@ -226,6 +293,11 @@ void manager::ProcessTurn(float turnSeconds)
 	++turn;
 	for (auto it = g_Effects.begin(); it != g_Effects.end();)
 	{
+		if (it->second.ownedBySpell)
+		{
+			++it;
+			continue;
+		}
 		auto& effect = *it->second.effect;
 		effect.Step(turnSeconds);
 		if (trace && turn % 20 == 0)
@@ -282,9 +354,19 @@ void manager::Clear()
 	g_Containers.clear();
 	g_DebugDone = false;
 	town_belief::Clear();
+	audio::spell_sounds::Clear();
 }
 
-std::vector<manager::Drawable> manager::Collect()
+namespace
+{
+std::vector<manager::DrawableSource>& DrawableSources()
+{
+	static std::vector<manager::DrawableSource> sources;
+	return sources;
+}
+} // namespace
+
+std::vector<manager::Drawable> manager::Collect(Creator::Kind kind)
 {
 	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_LastTurn).count();
 	const float t = std::clamp(elapsed / std::max(g_TurnSeconds, 1e-3f), 0.0f, 1.0f);
@@ -292,15 +374,36 @@ std::vector<manager::Drawable> manager::Collect()
 	for (const auto& [id, running] : g_Effects)
 	{
 		Drawable drawable {running.effect->GetOrigin(), {}};
-		running.effect->Collect(t, drawable.atoms);
+		running.effect->Collect(running.perFrame ? 1.0f : t, drawable.atoms, kind);
 		if (!drawable.atoms.empty())
 		{
 			result.push_back(std::move(drawable));
 		}
 	}
-	if (Locator::camera::has_value() && Locator::entitiesRegistry::has_value())
+	if (kind == Creator::Kind::Sprite && Locator::camera::has_value() && Locator::entitiesRegistry::has_value())
 	{
 		town_belief::Collect(Locator::camera::value().GetOrigin(), result);
 	}
+	for (const auto source : DrawableSources())
+	{
+		source(result);
+	}
 	return result;
+}
+
+std::vector<Effect::DrawChain> manager::CollectChains()
+{
+	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_LastTurn).count();
+	const float t = std::clamp(elapsed / std::max(g_TurnSeconds, 1e-3f), 0.0f, 1.0f);
+	std::vector<Effect::DrawChain> result;
+	for (const auto& [id, running] : g_Effects)
+	{
+		running.effect->CollectChains(running.perFrame ? 1.0f : t, result);
+	}
+	return result;
+}
+
+void manager::AddDrawableSource(DrawableSource source)
+{
+	DrawableSources().push_back(source);
 }

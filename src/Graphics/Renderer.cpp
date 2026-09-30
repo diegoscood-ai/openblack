@@ -2427,6 +2427,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
+				// fn_0067B3F0: the chain ribbons of the effects, drawn as one group after the sorted sprites
+				// (RendererChain.cpp)
+				DrawPSysChains(graphics::RenderPass::MainBlended, *desc.camera);
+				// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0: the teleport pools (RendererSurfRevol.cpp)
+				DrawPSysSurfaces(graphics::RenderPass::MainBlended, *desc.camera);
+				// LH3DAtmos::Render3D 0x836250: the rain streaks (RendererRain.cpp)
+				DrawRain(graphics::RenderPass::MainBlended, *desc.camera);
 				DrawHandShadowOnObjects();
 			}
 

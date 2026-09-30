@@ -126,19 +126,25 @@ bool ReadProperties(std::istringstream& in, Object& object)
 			int count = 0;
 			in >> size >> count;
 			value.array.resize(static_cast<size_t>(std::max(count, 0)));
-			for (auto& element : value.array)
+			value.numbers.resize(value.array.size());
+			for (size_t k = 0; k < value.array.size(); ++k)
 			{
+				// one token each: some arrays hold floats (KeyPoints "0 0 0.2 1 ..."), where an int read would stop
+				std::string element;
 				in >> element;
+				value.numbers[k] = std::strtof(element.c_str(), nullptr);
+				value.array[k] = static_cast<int>(value.numbers[k]);
 			}
 		}
 		else if (type == "SOUND_ACTION")
 		{
-			// <SOUND> LOOPING b ONLYONE b SOFTRELEASE b USESURFACE b
+			// <SOUND> LOOPING b ONLYONE b SOFTRELEASE b USESURFACE b: the name, then the four values in that order
+			// (SoundActionProperty::ReadProperty 0x585A70; psys::ReadSoundAction turns them into a PSysSoundAction)
 			value.type = Value::Type::Sound;
 			in >> value.text;
 			std::string key;
-			int flag = 0;
-			for (int i = 0; i < 4; ++i)
+			value.array.assign(4, 0);
+			for (auto& flag : value.array)
 			{
 				in >> key >> flag;
 			}

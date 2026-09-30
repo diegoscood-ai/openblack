@@ -160,7 +160,7 @@ bool IsWomanOrChild(const Villager& villager)
 
 float Life(const Villager& villager)
 {
-	return static_cast<float>(villager.health) / 100.0f;
+	return villager.life;
 }
 
 /// Villager::SetStateCarriedObject (0x7501A0), the part openblack has: what the states force (villagers carry no wood or

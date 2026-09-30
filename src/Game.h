@@ -120,6 +120,8 @@ public:
 	[[nodiscard]] uint32_t GetTurn() const { return _turnCount; }
 	[[nodiscard]] bool IsPaused() const { return _paused; }
 	[[nodiscard]] std::chrono::duration<float, std::milli> GetDeltaTime() const { return _turnDeltaTime; }
+	/// How far the current game turn is, 0..1 (GGame::Loop's remainder / 100 ms, g_game+0x205D64): 0 while paused
+	[[nodiscard]] float GetTurnFraction() const;
 	[[nodiscard]] const glm::ivec2& GetMousePosition() const { return _mousePosition; }
 
 	void RequestScreenshot(const std::filesystem::path& path) noexcept;

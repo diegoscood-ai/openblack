@@ -22,6 +22,7 @@
 #include "ECS/Components/Field.h"
 #include "ECS/Fields.h"
 #include "ECS/Components/MeshTint.h"
+#include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
@@ -208,9 +209,18 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    auto offset = (alpha != nullptr ? translucentOffsets : uniformOffsets).insert(std::make_pair(mesh.id, 0));
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
 
-		    auto modelMatrix = glm::mat4(transform.rotation);
-		    modelMatrix = glm::translate(modelMatrix, transform.position * transform.rotation);
+		    // villagers and animals are drawn where ECS/MobileDrawing puts them this frame (between turns, turning, on the slope)
+		    const auto* draw = registry.TryGet<const DrawPosition>(entity);
+		    const auto& drawRotation = draw != nullptr ? draw->rotation : transform.rotation;
+		    const auto& drawPosition = draw != nullptr ? draw->position : transform.position;
+		    auto modelMatrix = glm::mat4(drawRotation);
+		    modelMatrix = glm::translate(modelMatrix, drawPosition * drawRotation);
 		    modelMatrix = glm::scale(modelMatrix, transform.scale);
+		    if (draw != nullptr)
+		    {
+			    modelMatrix[0] += draw->shearX * modelMatrix[1];
+			    modelMatrix[2] += draw->shearZ * modelMatrix[1];
+		    }
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;
 		    _renderContext.instanceUniforms[idx] = modelMatrix;

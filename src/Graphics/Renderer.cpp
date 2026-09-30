@@ -39,6 +39,8 @@
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/DrawPosition.h"
+#include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
@@ -1632,20 +1634,27 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	};
 	auto& registry = Locator::entitiesRegistry::value();
 	registry.Each<const ecs::components::Villager, const ecs::components::Transform, const ecs::components::Mesh>(
-	    [&](const ecs::components::Villager&, const ecs::components::Transform& transform, const ecs::components::Mesh& mesh) {
+	    [&](entt::entity entity, const ecs::components::Villager&, const ecs::components::Transform& transform,
+	        const ecs::components::Mesh& mesh) {
 		    // none for villagers in the water (y <= 0.2)
 		    if (transform.position.y <= 0.2f || !meshes.Contains(mesh.id))
 		    {
 			    return;
 		    }
 		    const auto l3d = meshes.Handle(mesh.id);
-		    const auto& bones = l3d->GetBoneMatrices();
+		    // the feet of the drawn pose (ecs/Animations.h) where the villager is drawn (ecs/MobileDrawing.h)
+		    const auto* animation = registry.TryGet<const ecs::components::SkeletalAnimation>(entity);
+		    const auto& bones = animation != nullptr && animation->pose.size() == l3d->GetBoneMatrices().size()
+		                            ? animation->pose
+		                            : l3d->GetBoneMatrices();
 		    if (bones.size() <= 21)
 		    {
 			    return;
 		    }
+		    const auto* draw = registry.TryGet<const ecs::components::DrawPosition>(entity);
 		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2
-		    auto model = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		    auto model = glm::translate(draw != nullptr ? draw->position : transform.position) *
+		                 glm::mat4(draw != nullptr ? draw->rotation : transform.rotation) * glm::scale(transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 			    p.y = island.GetHeightAt(glm::vec2(p.x, p.z)) + k_Lift;

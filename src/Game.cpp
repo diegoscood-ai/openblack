@@ -58,6 +58,7 @@
 #include "ECS/Systems/PathfindingSystemInterface.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -304,6 +305,17 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 	return true;
 }
 
+float Game::GetTurnFraction() const
+{
+	if (_paused)
+	{
+		return 0.0f;
+	}
+	const auto turnDuration = std::chrono::duration<float, std::milli>(k_TurnDuration * _gameSpeedMultiplier).count();
+	const auto elapsed = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - _lastGameLoopTime).count();
+	return turnDuration > 0.0f ? std::clamp(elapsed / turnDuration, 0.0f, 0.99f) : 0.0f;
+}
+
 bool Game::GameLogicLoop() noexcept
 {
 	using namespace ecs::components;
@@ -325,6 +337,9 @@ bool Game::GameLogicLoop() noexcept
 
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
+
+	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
+	ecs::BeginMobileTurn();
 
 	auto& profiler = Locator::profiler::value();
 
@@ -464,6 +479,9 @@ bool Game::Update() noexcept
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
+	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
+	ecs::UpdateMobileDrawing(GetTurnFraction(),
+	                         _paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
 	ecs::UpdateVillagerAnimations();
 	ecs::UpdateAnimalAnimations();

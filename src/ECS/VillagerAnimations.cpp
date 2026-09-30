@@ -244,21 +244,32 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	case AnimFn::Building:
 	{
 		// BuildingAnimation (0x423E20): the working clip after its into clip, else one of the three at random
+		// and it sets the carried object: hammer, saw or heavy mallet
 		const auto current = CurrentClip(entity);
+		int32_t clip = k_Hammering;
 		if (current == k_IntoHammering)
 		{
-			return k_Hammering;
+			clip = k_Hammering;
 		}
-		if (current == k_IntoSawWood)
+		else if (current == k_IntoSawWood)
 		{
-			return k_SawWood;
+			clip = k_SawWood;
 		}
-		if (current == k_IntoSledgehammer)
+		else if (current == k_IntoSledgehammer)
 		{
-			return k_Sledgehammer;
+			clip = k_Sledgehammer;
 		}
-		const std::array<int32_t, 3> clips = {k_Hammering, k_SawWood, k_Sledgehammer};
-		return clips.at(static_cast<size_t>(Random(3)));
+		else
+		{
+			const std::array<int32_t, 3> clips = {k_Hammering, k_SawWood, k_Sledgehammer};
+			clip = clips.at(static_cast<size_t>(Random(3)));
+		}
+		if (auto* animation = Locator::entitiesRegistry::value().TryGet<SkeletalAnimation>(entity);
+		    animation != nullptr && !animation->carriedLocked)
+		{
+			animation->carriedObject = clip == k_Hammering ? k_CarriedHammer : clip == k_SawWood ? k_CarriedSaw : k_CarriedMalletHeavy;
+		}
+		return clip;
 	}
 	case AnimFn::Dance:        // no dance group
 	case AnimFn::WatchFight:   // no arena
@@ -447,6 +458,12 @@ void SetStateAnim(entt::entity entity)
 
 int32_t VillagerAnimId(entt::entity entity)
 {
+	// Villager::SetStateCarriedObject (0x7501A0) first
+	if (auto* animation = Locator::entitiesRegistry::value().TryGet<SkeletalAnimation>(entity);
+	    animation != nullptr && !animation->carriedLocked)
+	{
+		animation->carriedObject = CarriedObject(entity);
+	}
 	const auto state = TopState(entity);
 	if (state == VillagerStates::InvalidState || static_cast<size_t>(state) >= 255)
 	{

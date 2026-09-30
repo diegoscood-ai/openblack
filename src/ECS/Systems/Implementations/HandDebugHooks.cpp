@@ -402,6 +402,19 @@ void HandSystem::RunDebugHooks() noexcept
 		}
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animation test: clip {} on {} villagers", clip, villagers.size());
 	}
+	// Debug: OPENBLACK_TEST_CARRY=<CARRIED_OBJECT> every villager carries that (2 axe ... 15 tree 3; ECS/CarriedProps)
+	if (const char* carry = std::getenv("OPENBLACK_TEST_CARRY"); carry != nullptr)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		std::vector<entt::entity> villagers;
+		registry.Each<const Villager>([&villagers](entt::entity e, const Villager&) { villagers.push_back(e); });
+		for (const auto e : villagers)
+		{
+			auto& animation = registry.AllOf<SkeletalAnimation>(e) ? registry.Get<SkeletalAnimation>(e) : registry.Assign<SkeletalAnimation>(e);
+			animation.carriedObject = std::atoi(carry);
+			animation.carriedLocked = true;
+		}
+	}
 	// Debug: OPENBLACK_TEST_THROW_VILLAGER="n,vx,vy,vz" throws the n-th villager with that velocity (FLYING, LANDED clips)
 	if (const char* throwTest = std::getenv("OPENBLACK_TEST_THROW_VILLAGER"); throwTest != nullptr)
 	{

@@ -36,6 +36,10 @@ struct SkeletalAnimation
 	uint16_t transitionFlags {0};
 	/// test hook OPENBLACK_TEST_ANIM: the clip stays whatever the villager does
 	bool locked {false};
+	/// Villager +0xF1, the CARRIED_OBJECT drawn in its hand (ECS/CarriedProps.h): 1 none, 2 axe ... 15 tree 3
+	int32_t carriedObject {1};
+	/// test hook OPENBLACK_TEST_CARRY: the carried object stays
+	bool carriedLocked {false};
 	/// the bones' model matrices for the current time (empty until the first update)
 	std::vector<glm::mat4> pose;
 };

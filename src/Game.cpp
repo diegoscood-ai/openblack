@@ -43,6 +43,7 @@
 #include "ECS/Fields.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
+#include "ECS/CarriedProps.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/FishShoals.h"
@@ -463,6 +464,7 @@ bool Game::Update() noexcept
 	ecs::UpdateVillagerAnimations();
 	ecs::UpdateAnimalAnimations();
 	ecs::UpdateAnimations(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::UpdateCarriedProps();
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,

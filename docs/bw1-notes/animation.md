@@ -64,6 +64,16 @@ material de la celda a su altitud (1 hierba, 2 grava, 3 duro, 4 barro, 5 nieve, 
 solo en los primeros 15 turnos (10 en el vórtice). Falta: los de VillagersBanter.sad (0x92-0x94), parar la sierra
 (acción 1) y que el sonido siga al objeto.
 
+## Objetos en la mano
+
+`ECS/CarriedProps`: el `CARRIED_OBJECT` del aldeano (+0xF1, `SkeletalAnimation::carriedObject`, puesto por
+`SetStateCarriedObject` y por `BuildingAnimation`: martillo, sierra o mazo) se dibuja con su malla (tabla de
+`CarriedObject::Init` 0x462530: hacha 342, caña 355, cayado 354, sierra 383, bolsa 343, pelota 344, martillo 367,
+mazo 378, guadaña 384, pala 390, leña 406, ramas 347-349) pegada al hueso 15 de la pose (el agarre al final del brazo
+−X), con los ejes −X, −Z, −Y del hueso y sin desplazamiento (`SetLinkedPosition` 0x815FC0). Es una entidad propia
+(Transform + Mesh + `CarriedProp`) que se mueve cada fotograma. No se dibuja en la mano ni en los estados ocultos.
+Gancho `OPENBLACK_TEST_CARRY=<tipo>`. Hoy casi ningún estado de openblack pone objeto (faltan los oficios).
+
 ## Render
 
 Cada aldeano con pose (`components::SkeletalAnimation`) se dibuja por separado con sus huesos (`ecs::PosesByInstance`

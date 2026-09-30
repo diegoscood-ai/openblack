@@ -60,11 +60,11 @@ bool ExitPutOutFire(components::LivingAction& action);           ///< 0x75AE80
 bool EnterOnFire(components::LivingAction& action, VillagerStates from, VillagerStates to); ///< 0x75AF30
 bool ExitOnFire(components::LivingAction& action);               ///< 0x75AF80
 
-/// Reaction::SpreadReaction 0x6E3E10 of a new REACT_TO_FIRE (CreateReaction spreads a reaction once, when it is made;
-/// ProcessReactions' respreading is off: its flag 0xD00DD4 is never set): the villagers of the cells within its
-/// radius may react to it
-void SpreadReaction(const effects::reactions::Reaction& reaction);
+/// The REACT_TO_FIRE part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for a villager of a cell the reaction
+/// reaches (ECS/Effects/Reactions spreads it once, when it is made; ProcessReactions' respreading is off: its flag
+/// 0xD00DD4 is never set)
+void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction);
 
-/// A land is loaded (also registers SpreadReaction for REACT_TO_FIRE)
+/// A land is loaded (also registers the villagers' reaction handler)
 void Clear();
 } // namespace openblack::ecs::villager_fire

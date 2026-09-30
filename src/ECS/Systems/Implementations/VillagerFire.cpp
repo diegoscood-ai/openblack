@@ -8,6 +8,7 @@
  *******************************************************************************/
 
 #include "VillagerFire.h"
+#include "VillagerReactions.h"
 
 #include <cmath>
 
@@ -377,34 +378,11 @@ const ReactionInfo& FireReactionInfo()
 	return Locator::infoConstants::value().reaction.at(static_cast<size_t>(openblack::Reaction::ReactToFire));
 }
 
-/// Living +0x98: the reactions it reacted to lately, {type, turn} (fn_006E4340 forgets the others after 1800 turns and
-/// keeps at most 3)
-std::unordered_map<entt::entity, std::vector<std::pair<openblack::Reaction, uint32_t>>> g_Memory;
-
-/// fn_006E4340: may it react to this type again (more than `again` turns since the last time)? Remembers it.
+/// fn_006E4340 on the villager's records (Living +0x98, common to the Living: ECS/Effects/Reactions): may it react to
+/// this type again (more than `again` turns since the last time)? Remembers it.
 bool MayReactAgain(entt::entity villager, openblack::Reaction type, uint32_t again)
 {
-	const uint32_t turn = effects::reactions::Turn();
-	auto& memory = g_Memory[villager];
-	std::erase_if(memory, [turn, type](const auto& entry) { return entry.first != type && turn - entry.second > 0x708; });
-	for (auto& entry : memory)
-	{
-		if (entry.first == type)
-		{
-			if (turn - entry.second > again)
-			{
-				entry.second = turn;
-				return true;
-			}
-			return false;
-		}
-	}
-	if (memory.size() >= 3)
-	{
-		memory.erase(memory.begin());
-	}
-	memory.emplace_back(type, turn);
-	return true;
+	return effects::reactions::Records(villager, static_cast<uint8_t>(type), again, effects::reactions::Turn());
 }
 
 /// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC), and it is not held or
@@ -450,12 +428,10 @@ void ApplyFireReaction(entt::entity villager, const effects::reactions::Reaction
 	{
 		return;
 	}
-	const auto priority = static_cast<float>(villager_fire::ReactToFirePriority(villager, reaction.id, 0));
-	float score = priority * (0.5f * (info.howImportantIsDistance * (info.maxReactionDistance - distance) /
-	                                  info.maxReactionDistance) +
-	                          1.0f);
-	score = score < 255.0f ? score : 255.0f;
-	if (static_cast<uint8_t>(score) == 0 ||
+	// fn_006E4620 (ECS/Effects/Reactions: Score)
+	const auto score = effects::reactions::Score(static_cast<uint8_t>(openblack::Reaction::ReactToFire), true,
+	                                             villager_fire::ReactToFirePriority(villager, reaction.id, 0), distance);
+	if (score == 0 ||
 	    !MayReactAgain(villager, openblack::Reaction::ReactToFire, info.numGameTurnsForNormalThingsBeforeReactingAgain))
 	{
 		return;
@@ -887,55 +863,13 @@ bool villager_fire::ExitOnFire(LivingAction& action)
 	return true;
 }
 
-void villager_fire::SpreadReaction(const effects::reactions::Reaction& reaction)
+void villager_fire::ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	if (!Locator::entitiesMap::has_value() || !registry.Valid(reaction.initiator))
-	{
-		return;
-	}
-	const auto& info = FireReactionInfo();
-	// Reaction::GetRadius (vt 0x60, +0x3C; inf: the info's maxReactionDistance) and GetMapCellSpiralSizeFromRadius
-	// 0x74F520 (max(int(0.2 R), 1)^2 cells) x GetReactionPower (1)
-	const float radius = info.maxReactionDistance;
-	int count = std::max(static_cast<int>(0.2f * radius), 1);
-	count *= count;
-	const auto origin = PositionOf(reaction.initiator); // Reaction::GetPos 0x6E45C0 (inf: the initiator's position)
-	const auto start = glm::ivec2(MapInterface::GetGridCell(glm::vec2(origin.x, origin.z)));
-	glm::ivec2 cell = start;
-	int direction = 1;
-	int steps = 1;
-	const auto& map = Locator::entitiesMap::value();
-	for (int i = 0; i < count; ++i)
-	{
-		const glm::vec3 at(origin.x + static_cast<float>(cell.x - start.x) * 10.0f, 0.0f,
-		                   origin.z + static_cast<float>(cell.y - start.y) * 10.0f);
-		if (cell.x >= 0 && cell.y >= 0 && cell.x < MapInterface::k_GridSize.x && cell.y < MapInterface::k_GridSize.y &&
-		    !(radius < Distance2D(origin, at)))
-		{
-			// ApplyReactionToLivingObjectsAtSquare 0x6E3F90: the villagers of the cell
-			const MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-			std::vector<entt::entity> living(map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-			std::sort(living.begin(), living.end());
-			for (const auto villager : living)
-			{
-				ApplyFireReaction(villager, reaction);
-			}
-		}
-		// GUtils::Spiral 0x74D7E0
-		static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-		if (--steps == 0)
-		{
-			++direction;
-			steps = direction / 2;
-		}
-		cell += k_Steps[direction & 3];
-	}
+	ApplyFireReaction(villager, reaction);
 }
 
 void villager_fire::Clear()
 {
 	g_States.clear();
-	g_Memory.clear();
-	effects::reactions::SetSpreadHandler(openblack::Reaction::ReactToFire, &SpreadReaction);
+	villager_reactions::Register(); // the Villager handler of ECS/Effects/Reactions
 }

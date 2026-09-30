@@ -8,6 +8,7 @@
  *******************************************************************************/
 
 #include "VillagerTeleport.h"
+#include "VillagerReactions.h"
 
 #include <cmath>
 
@@ -47,9 +48,6 @@ struct TeleportState
 	uint32_t reaction {0};
 };
 std::unordered_map<entt::entity, TeleportState> g_States;
-/// Living +0x98 (fn_006E4340): the reaction types it reacted to lately, {type, turn}
-std::unordered_map<entt::entity, std::vector<std::pair<openblack::Reaction, uint32_t>>> g_Memory;
-
 auto& Reg()
 {
 	return Locator::entitiesRegistry::value();
@@ -172,30 +170,11 @@ void SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, VillagerSt
 	System().VillagerSetState(*action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
 }
 
-/// fn_006E4340: may it react to this type again (more than `again` turns since the last time)? Remembers it.
+/// fn_006E4340 on the villager's records (Living +0x98, common to the Living: ECS/Effects/Reactions): may it react to
+/// this type again (more than `again` turns since the last time)? Remembers it.
 bool MayReactAgain(entt::entity villager, openblack::Reaction type, uint32_t again)
 {
-	const uint32_t turn = effects::reactions::Turn();
-	auto& memory = g_Memory[villager];
-	std::erase_if(memory, [turn, type](const auto& entry) { return entry.first != type && turn - entry.second > 0x708; });
-	for (auto& entry : memory)
-	{
-		if (entry.first == type)
-		{
-			if (turn - entry.second > again)
-			{
-				entry.second = turn;
-				return true;
-			}
-			return false;
-		}
-	}
-	if (memory.size() >= 3)
-	{
-		memory.erase(memory.begin());
-	}
-	memory.emplace_back(type, turn);
-	return true;
+	return effects::reactions::Records(villager, static_cast<uint8_t>(type), again, effects::reactions::Turn());
 }
 
 /// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC), not held or thrown
@@ -387,57 +366,19 @@ uint32_t villager_teleport::TeleportReaction(LivingAction& action)
 	return 1;
 }
 
-void villager_teleport::SpreadReaction(const effects::reactions::Reaction& reaction)
+void villager_teleport::ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
-	auto& registry = Reg();
-	if (!Locator::entitiesMap::has_value() || !registry.Valid(reaction.initiator))
-	{
-		return;
-	}
-	const auto& info = TeleportReactionInfo();
-	// Reaction::GetRadius (vt 0x60: +0x3C = maxReactionDistance, 1 when it grows) and GetMapCellSpiralSizeFromRadius
-	// 0x74F520 (max(int(0.2 R), 1)^2 cells) x the initiator's GetReactionPower (1)
-	const float radius = info.whetherReactionGrows != 0 ? 1.0f : info.maxReactionDistance;
-	int count = std::max(static_cast<int>(0.2f * radius), 1);
-	count *= count;
-	const auto origin = PositionOf(reaction.initiator);
-	const auto start = glm::ivec2(MapInterface::GetGridCell(glm::vec2(origin.x, origin.z)));
-	glm::ivec2 cell = start;
-	int direction = 1;
-	int steps = 1;
-	const auto& map = Locator::entitiesMap::value();
 	if (magic::teleport::TraceEnabled())
 	{
+		const auto& info = TeleportReactionInfo();
 		SPDLOG_LOGGER_INFO(spdlog::get("game"),
-		                   "Teleport: REACT_TO_TELEPORT {} of stone {}: priority {} radius {:.1f} ({} cells) distance weight {:.2f} "
-		                   "again {}",
-		                   reaction.id, static_cast<uint32_t>(reaction.initiator), info.priority, radius, count,
-		                   info.howImportantIsDistance, info.numGameTurnsForNormalThingsBeforeReactingAgain);
+		                   "Teleport: REACT_TO_TELEPORT {} of stone {} to villager {}: priority {} radius {:.1f} distance "
+		                   "weight {:.2f} again {}",
+		                   reaction.id, static_cast<uint32_t>(reaction.initiator), static_cast<uint32_t>(villager),
+		                   info.priority, reaction.radius, info.howImportantIsDistance,
+		                   info.numGameTurnsForNormalThingsBeforeReactingAgain);
 	}
-	for (int i = 0; i < count; ++i)
-	{
-		const glm::vec3 at(origin.x + static_cast<float>(cell.x - start.x) * 10.0f, 0.0f,
-		                   origin.z + static_cast<float>(cell.y - start.y) * 10.0f);
-		if (cell.x >= 0 && cell.y >= 0 && cell.x < MapInterface::k_GridSize.x && cell.y < MapInterface::k_GridSize.y &&
-		    !(radius < Distance2D(origin, at)))
-		{
-			const MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-			std::vector<entt::entity> living(map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-			std::sort(living.begin(), living.end());
-			for (const auto villager : living)
-			{
-				ApplyTeleportReaction(villager, reaction);
-			}
-		}
-		// GUtils::Spiral 0x74D7E0
-		static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-		if (--steps == 0)
-		{
-			++direction;
-			steps = direction / 2;
-		}
-		cell += k_Steps[direction & 3];
-	}
+	ApplyTeleportReaction(villager, reaction);
 }
 
 void villager_teleport::LandAt(entt::entity villager, const glm::vec3& mapPosition)
@@ -475,6 +416,5 @@ void villager_teleport::OnMoved(entt::entity living)
 void villager_teleport::Clear()
 {
 	g_States.clear();
-	g_Memory.clear();
-	effects::reactions::SetSpreadHandler(openblack::Reaction::ReactToTeleport, &SpreadReaction);
+	villager_reactions::Register(); // the Villager handler of ECS/Effects/Reactions
 }

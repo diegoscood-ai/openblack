@@ -181,9 +181,14 @@ Verificado instrucción a instrucción:
   signo del cambio con el de A** (0 cuenta como positivo): mismo signo `v(1 − |A|/2)`, signo contrario `v(1 + |A|/2)`
   (leído de nuevo en 0x414660..0x4146AD: `je 0x414696` si A ≥ 0; en cada rama `jne` si v < 0; corregido el
   2026-09-30, la primera lectura de M1 decía que solo miraba el signo de v).
-- Reacciones (`ECS/Effects/Reactions`): solo los datos. `CreateReaction` 0x6E3D70 crea el objeto de 0x44 bytes y lo
-  reparte por las celdas (`SpreadReaction` 0x6E3E10, radio `GetRadius` × potencia, con `GameRand` para los vivos). El
-  reparto y las respuestas de los aldeanos no están portados: R8 queda para la IA de los aldeanos.
+- Reacciones (`ECS/Effects/Reactions`, el único módulo, unido al de los animales): `CreateReaction` 0x6E3D70 crea
+  el objeto de 0x44 bytes (radio del ctor 0x6E39D0: 1 si la reacción crece, si no `maxReactionDistance`) y lo reparte
+  una vez (`SpreadReaction` 0x6E3E10, la espiral de [animals.md](animals.md#reacciones)): cada vivo de la celda, en el
+  orden de la celda, va al manejador de su clase (`SetLivingReactionHandler`: animales en `ECS/AnimalFlee.cpp`,
+  aldeanos en `VillagerReactions.cpp`, que despacha fuego y teletransporte). Lo común a los vivos también está ahí:
+  los registros (+0x98, `components::ReactionRecords`), la puntuación fn_006E4620 y la regla de cambio. Antes el
+  fuego repartía con `maxReactionDistance` siempre (inf) y ordenaba los aldeanos de la celda por entidad; ahora usa el
+  radio del ctor y el orden de la celda, como los animales.
 
 ### Reglas de lanzamiento (`Magic/CastRules`)
 

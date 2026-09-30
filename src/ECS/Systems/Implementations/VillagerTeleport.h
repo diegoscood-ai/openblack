@@ -56,9 +56,10 @@ void SetupReactToTeleport(entt::entity villager, entt::entity stone, uint32_t re
 uint32_t GoToTeleportReaction(components::LivingAction& action); ///< 201 0x7662F0 (251 is a jmp to it: 0x766380)
 uint32_t TeleportReaction(components::LivingAction& action);     ///< 202 0x7663F0
 
-/// Reaction::SpreadReaction 0x6E3E10 of a new REACT_TO_TELEPORT (spread once, when the stone is made: ProcessReactions'
-/// respreading flag 0xD00DD4 is never set): the villagers of the cells within its radius may react to it
-void SpreadReaction(const effects::reactions::Reaction& reaction);
+/// The REACT_TO_TELEPORT part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for a villager of a cell the reaction
+/// reaches (spread once by ECS/Effects/Reactions, when the stone is made: ProcessReactions' respreading flag 0xD00DD4
+/// is never set)
+void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction);
 
 /// fn_005FC4F0's villager side before the jump: put down at the stone (fn_005DA0C0), LANDED, DecideWhatToDo
 void LandAt(entt::entity villager, const glm::vec3& mapPosition);
@@ -67,6 +68,6 @@ void DecideWhatToDo(entt::entity villager);
 /// After Living::MoveByTeleport's MoveMapObject: a walk in progress goes on from the new position
 void OnMoved(entt::entity living);
 
-/// A land is loaded (also registers SpreadReaction for REACT_TO_TELEPORT)
+/// A land is loaded (also registers the villagers' reaction handler)
 void Clear();
 } // namespace openblack::ecs::villager_teleport

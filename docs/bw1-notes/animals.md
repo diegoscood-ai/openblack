@@ -121,6 +121,10 @@ reacción (sigue en su estado). Salir a un estado que no es de reacción (la man
 reacción sin cambiar el estado (`Animal::ExitReaction` 0x41B170). Los animales reaccionan a objeto (0), mirar (1),
 hechizo (3), criatura (6), comida (7), fuego (10), árbol cayendo (27, que nadie crea) y depredador (28); los
 depredadores también a objeto volador (9). Tortuga y aves no reaccionan. **Ningún animal reacciona a la mano**.
+En openblack el reparto, los registros, la puntuación y la regla de cambio son comunes a todos los vivos
+(`ECS/Effects/Reactions`, `components::ReactionRecords`); lo propio de los animales (prioridades 28/7/9, StartReacting,
+turnos de 28, estados 49/6/30/19/20) es su manejador en `ECS/AnimalFlee.cpp`. Los aldeanos reciben las mismas
+reacciones en el mismo reparto (fuego y teletransporte portados).
 
 - **Depredador (28):** lo crea cada depredador al nacer (fn_0041FD30). Huyen los que tengan `isFleeingFromPredator` a
   25 m, si el depredador no acecha (a su speed2 o menos pasa inadvertido); un depredador solo de uno más fuerte. Huir:

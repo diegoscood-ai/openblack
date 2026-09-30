@@ -322,7 +322,10 @@ void BirdDying(Context& ctx)
 	const float theta = static_cast<float>(ctx.brain.angle) * glm::two_pi<float>() / k_Circle;
 	const float speed = Metres(ctx.brain.speed) * 10.0f;
 	const glm::vec3 velocity(std::cos(theta) * speed, 0.0f, std::sin(theta) * speed);
-	if (physics::PhysicsObjects::AddObject(ctx.entity, velocity, glm::vec3(5.0f, 0.0f, 0.0f)) == nullptr)
+	// the spin (5, 0, 0) is about the BODY's x axis: PhysicsObject::AddObject 0x6443A0 adds (w I) through the matrix rows,
+	// and PhysOb::Integrate 0x7FE260 turns the other way to openblack's PhysOb, so here it is -(R (5, 0, 0))
+	const glm::vec3 spin = -(ctx.transform.rotation * glm::vec3(5.0f, 0.0f, 0.0f));
+	if (physics::PhysicsObjects::AddObject(ctx.entity, velocity, spin) == nullptr)
 	{
 		PlayAnimThenSetState(ctx, AnimalState::Dead);
 	}

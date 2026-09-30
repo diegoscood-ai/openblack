@@ -7,10 +7,12 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
 #include <array>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -24,9 +26,15 @@
 #include "Camera/Camera.h"
 #include "Camera/CameraModel.h"
 #include "ECS/AnimalAI.h"
+#include "ECS/AnimalAIDetail.h"
+#include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/Fixed.h"
 #include "ECS/Components/Life.h"
+#include "ECS/Components/Tree.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Flock.h"
 #include "ECS/Components/Villager.h"
@@ -34,6 +42,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "ECS/SmokyStuff.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -66,6 +75,165 @@ std::optional<entt::entity> NthAnimal(int wanted)
 	});
 	return found;
 }
+
+/// OPENBLACK_TEST_FOOD_BEHIND (RunDebugHooks)
+void FoodBehindObstacle(const char* spec, uint32_t turn)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	static entt::entity tracked = entt::null;
+	int wanted = 8;
+	unsigned when = 3;
+	int kind = 0;
+	float behind = 6.0f;
+	std::sscanf(spec, "%d,%u,%d,%f", &wanted, &when, &kind, &behind);
+	if (turn == when)
+	{
+		std::optional<entt::entity> target;
+		registry.Each<const Animal, const Transform>([&](entt::entity e, const Animal& animal, const Transform&) {
+			if (!target && static_cast<int>(animal.type) == wanted)
+			{
+				target = e;
+			}
+		});
+		if (!target)
+		{
+			return;
+		}
+		const glm::vec3 from = registry.Get<const Transform>(*target).position;
+		std::optional<entt::entity> obstacle;
+		float nearest = std::numeric_limits<float>::max();
+		registry.Each<const components::Fixed, const Transform>([&](entt::entity e, const components::Fixed& fixed,
+		                                                            const Transform&) {
+			const bool sized = fixed.boundingRadius >= 2.0f && fixed.boundingRadius <= 8.0f;
+			const bool right = kind == 1   ? registry.AllOf<components::Tree>(e)
+			                   : kind == 2 ? registry.AllOf<components::Feature>(e) && sized
+			                               : registry.AllOf<components::Abode>(e) && !registry.AllOf<components::Field>(e) && sized;
+			const float d = glm::distance(fixed.boundingCenter, glm::vec2(from.x, from.z));
+			if (right && d < nearest)
+			{
+				nearest = d;
+				obstacle = e;
+			}
+		});
+		if (!obstacle)
+		{
+			return;
+		}
+		const auto& fixed = registry.Get<const components::Fixed>(*obstacle);
+		const glm::vec2 centre = kind == 1 ? glm::vec2(registry.Get<const Transform>(*obstacle).position.x,
+		                                               registry.Get<const Transform>(*obstacle).position.z)
+		                                   : fixed.boundingCenter;
+		const float radius = kind == 1 ? 0.3f : fixed.boundingRadius;
+		for (int k = 0; k < 8; ++k)
+		{
+			const float a = glm::radians(45.0f * static_cast<float>(k));
+			const glm::vec2 dir(std::cos(a), std::sin(a));
+			const glm::vec2 animalAt = centre - dir * (radius + 8.0f);
+			const glm::vec2 pileAt = centre + dir * (radius + behind);
+			if (!detail::InBounds(animalAt) || !detail::InBounds(pileAt) || detail::Collides(animalAt, 1u) ||
+			    detail::Collides(pileAt, 1u))
+			{
+				continue;
+			}
+			auto& transform = registry.Get<Transform>(*target);
+			const auto& island = Locator::terrainSystem::value();
+			transform.position = glm::vec3(animalAt.x, island.GetHeightAt(animalAt), animalAt.y);
+			auto& brain = registry.Get<AnimalBrain>(*target);
+			brain.hunger = static_cast<int16_t>(Locator::infoConstants::value().animal.at(static_cast<size_t>(wanted)).hunger);
+			brain.altitude = 0.0f;
+			if (auto* flock = registry.Valid(registry.Get<const Animal>(*target).flock)
+			                      ? registry.TryGet<components::Flock>(registry.Get<const Animal>(*target).flock)
+			                      : nullptr;
+			    flock != nullptr)
+			{
+				flock->domainCentre = transform.position;
+				flock->savedDomainCentre = flock->domainCentre;
+				flock->leaderTurns = 0;
+			}
+			registry.SetDirty();
+			const auto pile = archetypes::PotArchetype::Create(glm::vec3(pileAt.x, island.GetHeightAt(pileAt), pileAt.y), 0.0f,
+			                                                   PotInfo::FoodPile, 1000);
+			if (pile != entt::null)
+			{
+				SetupPotReaction(pile);
+			}
+			tracked = *target;
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Animal test: animal {} at ({:.1f}, {:.1f}), obstacle {} at ({:.1f}, {:.1f}) r {:.1f}, "
+			                   "food at ({:.1f}, {:.1f})",
+			                   static_cast<uint32_t>(*target), animalAt.x, animalAt.y, static_cast<uint32_t>(*obstacle), centre.x,
+			                   centre.y, radius, pileAt.x, pileAt.y);
+			break;
+		}
+	}
+	if (tracked != entt::null && registry.Valid(tracked) && turn > when && turn <= when + 600 && turn % 2 == 0)
+	{
+		const auto& t = registry.Get<const Transform>(tracked);
+		const auto& brain = registry.Get<const AnimalBrain>(tracked);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"),
+		                   "Animal track {}: turn {} ({:.2f}, {:.2f}) state {} move {:#x} turnsToObj {} angle {}",
+		                   static_cast<uint32_t>(tracked), turn, t.position.x, t.position.z, brain.topState, brain.moveState,
+		                   brain.turnsToObj, brain.angle);
+	}
+}
+
+/// OPENBLACK_TEST_SCRIPT_HELD / OPENBLACK_TEST_CANNOT_BE_EATEN (RunDebugHooks)
+void ScriptHeldTest(uint32_t turn)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	static entt::entity held = entt::null;
+	if (const char* spec = std::getenv("OPENBLACK_TEST_SCRIPT_HELD"); spec != nullptr)
+	{
+		int wanted = 0;
+		unsigned when = 5;
+		unsigned release = 0;
+		std::sscanf(spec, "%d,%u,%u", &wanted, &when, &release);
+		if (turn == when)
+		{
+			if (const auto e = NthAnimal(wanted); e)
+			{
+				// as a CREATE whose result a script variable keeps (0x6F1BCD, then the VM's reference)
+				held = *e;
+				script_held::AddScriptThing(held, true);
+				script_held::IncrementReference(held);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: animal {} (entity {}) held by a script, controlled {}", wanted,
+				                   static_cast<uint32_t>(held), script_held::IsControlledByScript(held));
+			}
+		}
+		if (release != 0 && turn == release && held != entt::null)
+		{
+			script_held::DecrementReference(held);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: script reference of entity {} dropped", static_cast<uint32_t>(held));
+		}
+		if (held != entt::null && turn % 25 == 0)
+		{
+			if (!registry.Valid(held) || !registry.AllOf<AnimalBrain>(held))
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: held entity {} gone by turn {}", static_cast<uint32_t>(held), turn);
+				held = entt::null;
+			}
+			else
+			{
+				const auto& brain = registry.Get<const AnimalBrain>(held);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: held entity {} turn {} state {} counter {} inScript {} controlled {}",
+				                   static_cast<uint32_t>(held), turn, brain.topState, brain.counter, script_held::IsInScript(held),
+				                   script_held::IsControlledByScript(held));
+			}
+		}
+	}
+	if (const char* spec = std::getenv("OPENBLACK_TEST_CANNOT_BE_EATEN"); spec != nullptr && turn == static_cast<uint32_t>(std::atoi(spec)))
+	{
+		int count = 0;
+		registry.Each<const Transform>([&count, &registry](entt::entity e, const Transform&) {
+			if (registry.AnyOf<Animal, components::Villager>(e))
+			{
+				script_held::SetCannotBeEaten(e);
+				++count;
+			}
+		});
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: {} animals and villagers cannot be eaten", count);
+	}
+}
 } // namespace
 
 /// Test hooks, once per turn (docs/bw1-notes/animals.md):
@@ -80,7 +248,15 @@ std::optional<entt::entity> NthAnimal(int wanted)
 /// - OPENBLACK_TEST_HUNT_VILLAGER="<AnimalInfo>,<turn>": that species' first animal is put next to the first villager,
 ///   hungry.
 /// - OPENBLACK_TEST_CORPSE_TURNS=<n>: with KILL_ANIMAL, the corpse lasts that many turns instead of 600.
+/// - OPENBLACK_TEST_SCRIPT_HELD="n,turn[,release]": at that turn the n-th animal is held by a script as if a CREATE had
+///   made it (controlled by the script); at `release` the reference goes. Its state, counter and flags every 25 turns.
+/// - OPENBLACK_TEST_CANNOT_BE_EATEN=<turn>: at that turn every animal and villager gets the vortex's +0x25 & 0x40.
 /// - OPENBLACK_TEST_FOOD_PILE="<AnimalInfo>,<turn>": a food pile next to that species, all of them hungry.
+/// - OPENBLACK_TEST_FOOD_BEHIND="<AnimalInfo>,<turn>[,<kind>[,<m>]]": that species' first animal, hungry, is put 8 m in
+///   front of the nearest building (kind 0, not a field: the circle iterator skips fields) or feature (2) of 2..8 m
+///   radius, or tree (1), and a food pile m (6) behind it
+///   (within the food reaction's 7 x 7 cells), to see the circle hug of GOTO_FOOD; its track (position, states,
+///   TurnsToObj) is logged every 2 turns for 600 turns.
 /// - OPENBLACK_TEST_SMOKE=<n>: the corpse smoke over the n-th animal every 30 turns.
 /// - OPENBLACK_ANIMAL_TRACE=1: every state change, and every 50 turns how many animals are in each state.
 void RunDebugHooks(uint32_t turn)
@@ -269,6 +445,10 @@ void RunDebugHooks(uint32_t turn)
 			}
 		}
 	}
+	if (const char* behind = std::getenv("OPENBLACK_TEST_FOOD_BEHIND"); behind != nullptr)
+	{
+		FoodBehindObstacle(behind, turn);
+	}
 	// OPENBLACK_TEST_SMOKE=<n>: the corpse puff (ecs/SmokyStuff.h) over the n-th animal every 30 turns
 	if (const char* smoke = std::getenv("OPENBLACK_TEST_SMOKE"); smoke != nullptr && turn % 30 == 5)
 	{
@@ -278,6 +458,12 @@ void RunDebugHooks(uint32_t turn)
 			SmokyStuff::Create(transform.position + glm::vec3(0.0f, transform.scale.y, 0.0f), 1.0f);
 		}
 	}
+	// OPENBLACK_TEST_LAIRS=<turn>: every predator flock leader recomputes its lair (CalculeLairPos) and logs it
+	if (const char* lairs = std::getenv("OPENBLACK_TEST_LAIRS"); lairs != nullptr && turn == static_cast<uint32_t>(std::atoi(lairs)))
+	{
+		detail::TestLairs();
+	}
+	ScriptHeldTest(turn);
 	if (std::getenv("OPENBLACK_ANIMAL_TRACE") != nullptr && turn % 50 == 0)
 	{
 		std::map<int, int> states;

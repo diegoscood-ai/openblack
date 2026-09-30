@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <vector>
 
 #include <glm/gtc/constants.hpp>
@@ -28,6 +29,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalAnimations.h"
+#include "ECS/AnimalWallHug.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
@@ -42,6 +44,7 @@
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
@@ -523,20 +526,26 @@ uint32_t SpeedDefault(const Context& ctx)
 /// SetupMobileMoveToPos(p): a STEP_THROUGH walk (no obstacle hugging)
 void SetupMoveToPos(Context& ctx, glm::vec2 p, AnimalState final)
 {
+	if (SetCurrentAndDestinationState(ctx, final))
+	{
+		SetupMobileMoveToPos(ctx, p);
+	}
+}
+
+bool SetCurrentAndDestinationState(Context& ctx, AnimalState final)
+{
 	// SetCurrentAndDestinationState (0x5F2980): the exit test against the destination, then both states and the clip
 	if (!CallExitStateFunction(ctx.brain, final))
 	{
-		return;
+		return false;
 	}
 	ctx.brain.topState = static_cast<uint8_t>(ctx.info.moveState);
 	ctx.brain.finalState = static_cast<uint8_t>(final);
 	ctx.brain.turnsSinceStateChange = 0;
 	SetAnimalStateAnim(ctx.entity);
-	SetupMobileMoveToPos(ctx, p);
+	return true;
 }
 
-namespace
-{
 /// MobileWallHug::AreWeThere(0) (0x60AD40): within one turn's step of the goal
 bool AreWeThere(const Context& ctx)
 {
@@ -554,6 +563,8 @@ void InitStepsXZ(Context& ctx)
 	FaceAngle(ctx.transform, ctx.brain.angle);
 }
 
+namespace
+{
 /// the ARRIVED / FINAL_STEP snap: Pos = goal
 int SnapToGoal(Context& ctx)
 {
@@ -571,7 +582,18 @@ void SetupMobileMoveToPos(Context& ctx, glm::vec2 p)
 {
 	ctx.brain.goal = p;
 	InitStepsXZ(ctx);
-	ctx.brain.moveState = AreWeThere(ctx) ? k_MoveArrived : k_MoveStepThrough;
+	// +0x76 = 0 (0x60AB7D writes it only with a g_CircleHugStateInfo entry; unobserved: only ORBIT reads it). Not
+	// kept: +0x78 = 1 with STEP_THROUGH (0x60ABA4; field not identified [inferred: not read on the animals' path])
+	ctx.brain.hugGoalDistance = 0;
+	if (AreWeThere(ctx))
+	{
+		ctx.brain.moveState = k_MoveArrived;
+		return;
+	}
+	// CircleHugInfo::Reset (0x60A9F0): no circle, TurnsToObj 0xFF
+	ctx.brain.hugCircle.set = false;
+	ctx.brain.turnsToObj = 0xFF;
+	ctx.brain.moveState = k_MoveStepThrough;
 }
 
 int MoveTo(Context& ctx)
@@ -600,7 +622,8 @@ int MoveTo(Context& ctx)
 	case k_MoveFinalStep:
 		return SnapToGoal(ctx);
 	default:
-		return 0;
+		// LINEAR / ORBIT / EXIT_CIRCLE (0xC..0x12): the circle hug of SetupMoveToWithHug (ECS/AnimalWallHug.cpp)
+		return IsHugMoveState(ctx.brain.moveState) ? HugMoveTo(ctx) : 0;
 	}
 }
 
@@ -741,18 +764,25 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 	}
 }
 
-/// Animal::SetTowardsAngle (0x418560): turns at most turnAngle a turn, less inside its turning circle
+/// Animal::SetTowardsAngle (0x418560): turns at most turnAngle a turn; with the goal inside its turning circle
+/// (R = 2 x speed / turnAngle in radians) it turns |diff| - turnAngle x d / R instead, nearly all the way when close
 void SetTowardsAngle(Context& ctx, uint16_t target, float distance)
 {
 	const int32_t diff = AngleDiff(ctx.brain.angle, target);
+	const int32_t absDiff = std::abs(diff);
 	const auto turnAngle = static_cast<int32_t>(ctx.info.turnAngle);
-	int32_t turn = std::min(std::abs(diff), turnAngle);
-	if (std::abs(diff) > turnAngle && turnAngle > 0)
+	int32_t turn = std::min(absDiff, turnAngle);
+	if (absDiff > turnAngle)
 	{
-		const float radius = 2.0f * Metres(ctx.brain.speed) / (static_cast<float>(turnAngle) * glm::two_pi<float>() / k_Circle);
+		// 0x418681: a turnAngle of 0 gives an infinite R (the x87 division), so the turn is the whole |diff|
+		const float radians = static_cast<float>(turnAngle) * glm::two_pi<float>() / k_Circle;
+		const float radius = turnAngle > 0 ? 2.0f * Metres(ctx.brain.speed) / radians : std::numeric_limits<float>::infinity();
 		if (distance < radius)
 		{
-			turn = static_cast<int32_t>(static_cast<float>(turnAngle) * (1.0f - distance / radius));
+			// 0x4186B4..0x4186FC: max(turnAngle, |diff|) - turnAngle x d / R, truncated, at most |diff|
+			const float reduced = static_cast<float>(std::max(turnAngle, absDiff)) -
+			                      (turnAngle > 0 ? static_cast<float>(turnAngle) * distance / radius : 0.0f);
+			turn = std::min(static_cast<int32_t>(reduced), absDiff);
 		}
 	}
 	ctx.brain.angle = static_cast<uint16_t>((ctx.brain.angle + (diff < 0 ? -turn : turn)) & 0x7FF);
@@ -977,7 +1007,8 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	auto* mine = FlockOf(ctx.animal);
-	// a town's flock (a shepherded herd) never merges
+	// 0x41A6BE / 0x41A6CF: a flock with a town or a shepherd (+0x30, the villager of VillagerBecomesShepherd
+	// 0x768C1C) never merges. openblack has no shepherds, so only the town is tested
 	if (mine == nullptr || mine->town != entt::null)
 	{
 		return;
@@ -1012,12 +1043,21 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 					continue; // dead
 				}
 				auto& theirs = registry.Get<Flock>(other.flock);
+				// LookForFlocksAtPos 0x41A790: both flocks' GetPlayer equal (0x41A810..0x41A828; openblack's Flock
+				// has no player: not tested [approximated]) and theirs without a shepherd (+0x30, 0x41A82A: none in
+				// openblack); 0x41A837: not two script flocks (+0x24 & 0x400)
+				const bool theirsScript = script_held::IsControlledByScript(other.flock);
+				if (theirsScript && script_held::IsControlledByScript(mineEntity))
+				{
+					continue;
+				}
 				if (mine->members.size() + theirs.members.size() > ctx.info.maxFlockSize)
 				{
 					continue;
 				}
-				// fn_005302A0: the flock with more members keeps them all
-				if (mine->members.size() >= theirs.members.size())
+				// fn_005302A0(mine, theirs): the flock with more members keeps them all; a script flock of theirs
+				// (0x5302B4) always keeps them
+				if (mine->members.size() >= theirs.members.size() && !theirsScript)
 				{
 					TakeAllMembers(*mine, mineEntity, theirs, ctx.info.maxFlockSize);
 				}
@@ -1150,7 +1190,7 @@ void Wander(Context& ctx)
 }
 
 /// Animal::MoveToPos (0x41BAF0) -> Living::MoveToPos (0x5EC270): MobileWallHug::MoveTo; arrived (0xA) ->
-/// SetTopStateToFinal (0x5ECA80). Like the original, a goal inside its turning circle can be circled for ever.
+/// SetTopStateToFinal (0x5ECA80). Inside its turning circle SetTowardsAngle turns nearly straight at the goal.
 void MoveToPos(Context& ctx)
 {
 	if (MoveTo(ctx) == 0xA)
@@ -1267,11 +1307,12 @@ void SetDying(entt::entity entity, AnimalBrain& brain)
 	brain.counter = k_TurnsToDieOver;
 }
 
-/// Living::StateDead (0x5EC400): off the flock; the corpse lies 600 turns, then its smoke puff and it goes
+/// Living::StateDead (0x5EC400): off the flock; the corpse lies 600 turns, then its smoke puff and it goes. A
+/// script-controlled one (+0x25 & 4, 0x5EC41E) never times out (the death reason SACRIFICE 7 is not tracked).
 bool Dead(Context& ctx)
 {
 	LeaveFlock(ctx.entity, ctx.animal);
-	if (ctx.brain.counter-- != 0)
+	if (script_held::IsControlledByScript(ctx.entity) || ctx.brain.counter-- != 0)
 	{
 		return false;
 	}
@@ -1603,8 +1644,15 @@ void PlaceInHand(entt::entity entity)
 		const auto oldEntity = animal.flock;
 		const uint16_t radius = old->domainRadius;
 		const uint16_t distance = old->flockDistance;
+		// 0x419B75: a script flock (+0x25 & 4) gives up the script reference FlockAttach took for the animal
+		// (GScript::DecrementScriptReference 0x70CFD0) and is kept even empty (SeperateLivingIntoNewFlock arg 0)
+		const bool scriptFlock = script_held::IsControlledByScript(oldEntity);
+		if (scriptFlock)
+		{
+			script_held::DecrementReference(entity);
+		}
 		LeaveFlock(entity, animal);
-		if (old->members.empty())
+		if (old->members.empty() && !scriptFlock)
 		{
 			registry.Destroy(oldEntity);
 		}

@@ -18,6 +18,7 @@
 #include "3D/L3DMesh.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/AnimalAIDetail.h"
+#include "ECS/AnimalWallHug.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
@@ -27,6 +28,7 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -143,9 +145,10 @@ uint8_t FinalStateOf(const AnimalBrain& brain)
 }
 
 /// Living::IsAvailableForReaction (0x5F11F0)
-bool IsAvailableForReaction(const AnimalBrain& brain)
+bool IsAvailableForReaction(entt::entity entity, const AnimalBrain& brain)
 {
-	if ((brain.status & 1) != 0)
+	// 0x5F120C: not while a script controls it (+0x24 & 0x400)
+	if ((brain.status & 1) != 0 || script_held::IsControlledByScript(entity))
 	{
 		return false;
 	}
@@ -386,7 +389,7 @@ void StartReacting(entt::entity entity, AnimalBrain& brain, const ReactionObject
 void Apply(entt::entity entity, ReactionObject& reaction)
 {
 	auto* brain = detail::BrainOf(entity);
-	if (brain == nullptr || !IsAvailableForReaction(*brain))
+	if (brain == nullptr || !IsAvailableForReaction(entity, *brain))
 	{
 		return;
 	}
@@ -746,9 +749,8 @@ void FleeingFromObjectReaction(Context& ctx)
 	const auto p = FleeingPosition(me, at, movement, 10.0f);
 	if (InBounds(p))
 	{
-		// SetupMoveToWithHug (0x5F2890): a LINEAR walk round obstacles in the original [the circle hug is not ported for
-		// animals: a STEP_THROUGH walk]
-		SetupMoveToPos(ctx, p, AnimalState::FleeingAndLookingAtObjectReaction);
+		// SetupMoveToWithHug (0x5F2890, called at 0x5F1E3F): a LINEAR walk round the obstacles (ECS/AnimalWallHug.cpp)
+		SetupMoveToWithHug(ctx, p, AnimalState::FleeingAndLookingAtObjectReaction);
 	}
 }
 
@@ -779,8 +781,8 @@ void GotoFoodReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	// SetupMoveToWithHug in the original [a STEP_THROUGH walk here, as the flee]
-	SetupMoveToPos(ctx, WorkingPos(ctx.brain.predator, ctx.entity), AnimalState::ArrivesAtFoodReaction);
+	// SetupMoveToWithHug (0x5F2890, called at 0x5F259A): a LINEAR walk round the obstacles (ECS/AnimalWallHug.cpp)
+	SetupMoveToWithHug(ctx, WorkingPos(ctx.brain.predator, ctx.entity), AnimalState::ArrivesAtFoodReaction);
 }
 
 void ArrivesAtFoodReaction(Context& ctx)

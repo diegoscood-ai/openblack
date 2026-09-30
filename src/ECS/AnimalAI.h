@@ -141,6 +141,10 @@ void SetDeathCallback(DeathCallback callback);
 /// killed (SetDying: its dying and dead clips, the corpse) or gone at once (off its flock, out of the physics, deleted)
 void Kill(entt::entity entity);
 void Remove(entt::entity entity);
+/// fn_0041AA00 (GScript::ReleaseScriptThingIntoTheGame 0x70F6B1): the last script reference of a script-controlled
+/// animal has gone (ECS/ScriptHeld.h): a flock of its own if it has none, then dying if dead, else
+/// INTERACT_DECIDE_WHAT_TO_DO (ECS/AnimalScript.cpp)
+void ReleaseFromScript(entt::entity entity);
 /// per-instance opacity (components::Alpha, the alpha-blended pass); 1 takes it off
 void SetAlpha(entt::entity entity, float alpha);
 

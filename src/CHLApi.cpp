@@ -44,6 +44,7 @@
 #include "ECS/Archetypes/VillagerArchetype.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Enums.h"
 #include "Game.h"
@@ -564,6 +565,8 @@ void Create() // 027 CREATE
 	const auto object = type > ObjectType::None && type <= ObjectType::AnimatedStatic
 	                        ? CreateScriptObject(type, subtype, position, 0.0f, 1.0f)
 	                        : entt::null;
+	// 0x6F1BCD: AddScriptGameThing(thing, 1), a thing the script created
+	ecs::script_held::AddScriptThing(object, true);
 
 	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }
@@ -1274,17 +1277,24 @@ void PopulateContainer() // 109 POPULATE_CONTAINER
 
 void AddReference() // 110 ADD_REFERENCE
 {
+	// GScript::AddReference 0x6FA450: IncrementScriptReference (the original pushes nothing; the binding's one output
+	// is kept as the object)
 	const auto objId = Pop().uintVal;
-	// TODO(Daniels118): implement this - HIGH PRIORITY
-	NotImplemented(__func__);
+	if (objId != 0)
+	{
+		ecs::script_held::IncrementReference(static_cast<entt::entity>(objId));
+	}
 	Pusho(objId);
 }
 
 void RemoveReference() // 111 REMOVE_REFERENCE
 {
+	// GScript::RemoveReference 0x6FA470: DecrementScriptReference
 	const auto objId = Pop().uintVal;
-	// TODO(Daniels118): implement this - HIGH PRIORITY
-	NotImplemented(__func__);
+	if (objId != 0)
+	{
+		ecs::script_held::DecrementReference(static_cast<entt::entity>(objId));
+	}
 	Pusho(objId);
 }
 
@@ -2489,6 +2499,8 @@ void CreateWithAngleAndScale() // 252 CREATE_WITH_ANGLE_AND_SCALE
 	const entt::entity object = type > ObjectType::None && type <= ObjectType::AnimatedStatic
 	                                ? CreateScriptObject(type, subtype, position, glm::radians(angle), scale)
 	                                : entt::null;
+	// 0x6F2F01: AddScriptGameThing(thing, 1), a thing the script created
+	ecs::script_held::AddScriptThing(object, true);
 
 	Pusho(object == entt::null ? 0 : static_cast<uint32_t>(object));
 }

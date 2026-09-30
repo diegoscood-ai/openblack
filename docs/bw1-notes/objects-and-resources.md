@@ -116,7 +116,14 @@
   `b = dot < 0 ? 200 : 200 + 55·dot`, y `Tree::Draw` 0x74B077 multiplica cada canal RGB del color del árbol por `b/256`
   (0,781 … 0,996). **Rareza del original**: LH3D tiene una sola luz puntual y de día su único `setter` es código muerto,
   así que la luz se queda en el origen del mapa (0,0,0); los árboles se oscurecen un 22 % cuando la cámara mira hacia esa
-  esquina. Al amanecer/atardecer el original mueve la luz a un foco pegado a la cámara (sin portar).
+  esquina. Al ocaso y de noche (tipo de cielo > 0; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así
+  que los árboles usan la del fotograma anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano
+  subida al menos a 10 sobre el terreno: entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros
+  (Land1, cámara típica: 200 a mediodía, 242 a las 20 h).
+- **Color propio del árbol** (`fn_00802120` en `Tree::Draw`): es la misma luz bilineal de las 4 celdas bajo el origen
+  que usan los demás objetos (`fn_00801C90`, mismas tablas 0xEDD90C y celdas +3/+0xB/+0x88/+0x90), solo que en entero
+  (fracción de MapCoords >> 8) en vez de float; la neblina (`fn_007FEB30`) es la de todos los modelos. openblack ya lo
+  hace igual en `vs_object`: no hay nada propio que portar.
   openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
   instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
 - **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)

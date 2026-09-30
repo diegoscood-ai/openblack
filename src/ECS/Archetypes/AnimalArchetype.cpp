@@ -103,7 +103,14 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	}
 	else
 	{
-		scale = 1.05f - rng.NextValue<float>(0.0f, 0.1f);
+		// InitialiseScale: 0.9; SetScaleForAge's adult branch: t = 1.05 - FloatRand(0.1), and if the scale is under it a
+		// second roll 1.05 - FloatRand(0.1)
+		scale = 0.9f;
+		const float t = 1.05f - rng.NextValue<float>(0.0f, 0.1f);
+		if (scale < t)
+		{
+			scale = 1.05f - rng.NextValue<float>(0.0f, 0.1f);
+		}
 	}
 
 	auto& registry = Locator::entitiesRegistry::value();

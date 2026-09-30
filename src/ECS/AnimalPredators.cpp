@@ -116,23 +116,24 @@ void SetAnimalAnimHelper(Context& ctx)
 	SetAnimalAnim(ctx.entity, AnimalAnimId(ctx.entity), false);
 }
 
-/// Animal::IsPosValidForTurnAngle (0x41B210): outside both of its turning circles (radius 2 x speed / turnAngle,
-/// centred that far to its left and right)
-bool IsPosValidForTurnAngle(const Context& ctx, glm::vec2 p)
+bool IsDowned(entt::entity entity);
+
+/// fn_004196D0's "nearer than the stored candidate": 2 x Chebyshev(me, prey) (raw MapCoords) against Chebyshev of my
+/// CELL indices and the stored raw MapCoords (fn_0074CF30; the original's unit mix-up: in practice always nearer)
+bool NearerThanStored(const Context& ctx, glm::vec2 p)
 {
-	const float turn = static_cast<float>(ctx.info.turnAngle) * glm::two_pi<float>() / k_Circle;
-	if (turn <= 0.0f)
+	if (ctx.brain.preyCell == glm::vec2(0.0f))
 	{
 		return true;
 	}
-	const float radius = 2.0f * Metres(ctx.brain.speed) / turn;
-	const float a = static_cast<float>(ctx.brain.angle) * glm::two_pi<float>() / k_Circle;
-	const glm::vec2 side(-std::sin(a), std::cos(a));
-	const glm::vec2 me = Xz(ctx.transform);
-	return glm::distance(p, me + side * radius) >= radius && glm::distance(p, me - side * radius) >= radius;
+	const glm::ivec2 me(Xz(ctx.transform) * k_MapCoordsPerMetre);
+	const glm::ivec2 prey(p * k_MapCoordsPerMetre);
+	const glm::ivec2 stored(ctx.brain.preyCell * k_MapCoordsPerMetre);
+	const glm::ivec2 myCell(me.x >> 16, me.y >> 16);
+	const int64_t lhs = 2 * static_cast<int64_t>(std::max(std::abs(me.x - prey.x), std::abs(me.y - prey.y)));
+	const int64_t rhs = std::max(std::abs(static_cast<int64_t>(stored.x) - myCell.x), std::abs(static_cast<int64_t>(stored.y) - myCell.y));
+	return lhs < rhs;
 }
-
-bool IsDowned(entt::entity entity);
 
 /// fn_004196D0 for a villager (info type 2): outside (in the map, drawn), with meat, not already caught or dying
 bool IsVillagerPrey(const Context& ctx, entt::entity entity)
@@ -161,12 +162,12 @@ bool IsVillagerPrey(const Context& ctx, entt::entity entity)
 	{
 		return false;
 	}
-	const glm::vec2 me = Xz(ctx.transform);
-	if (ctx.brain.preyCell != glm::vec2(0.0f) && !(2.0f * glm::distance(me, p) < glm::distance(me, ctx.brain.preyCell)))
+	if (!NearerThanStored(ctx, p))
 	{
 		return false;
 	}
-	ctx.brain.preyCell = MapInterface::GetCellCenter(CellOf(p));
+	// JustWholeMapXZ::Init: the prey's exact x, z
+	ctx.brain.preyCell = p;
 	return true;
 }
 
@@ -200,7 +201,8 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 		return false;
 	}
 	const glm::vec2 p = Xz(transform);
-	if (!IsPosValidForTurnAngle(ctx, p) || (brain->status & 1) != 0)
+	// Living::IsSkeleton (0x416FF0): status bit 0x40 (never set for animals: their corpses are prey too)
+	if (!IsPosValidForTurnAngle(ctx, p) || (brain->status & 0x40) != 0)
 	{
 		return false;
 	}
@@ -209,12 +211,12 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 	{
 		return false;
 	}
-	const glm::vec2 me = Xz(ctx.transform);
-	if (ctx.brain.preyCell != glm::vec2(0.0f) && !(2.0f * glm::distance(me, p) < glm::distance(me, ctx.brain.preyCell)))
+	if (!NearerThanStored(ctx, p))
 	{
 		return false;
 	}
-	ctx.brain.preyCell = MapInterface::GetCellCenter(CellOf(p));
+	// JustWholeMapXZ::Init: the prey's exact x, z
+	ctx.brain.preyCell = p;
 	return true;
 }
 
@@ -223,13 +225,12 @@ bool FindPrey(Context& ctx, int cells)
 {
 	const auto& map = Locator::entitiesMap::value();
 	const glm::vec2 me = Xz(ctx.transform);
-	int x = 0;
-	int y = 0;
-	int dx = 0;
-	int dy = -1;
+	// GUtils::Spiral (0x74D7E0), from its own cell
+	Spiral spiral;
+	glm::ivec2 spiralCell(0);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(static_cast<float>(x), static_cast<float>(y));
+		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
 		if (InBounds(c))
 		{
 			for (const auto entity : map.GetMobileInGridCell(CellOf(c)))
@@ -241,14 +242,7 @@ bool FindPrey(Context& ctx, int cells)
 				}
 			}
 		}
-		if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y))
-		{
-			const int t = dx;
-			dx = -dy;
-			dy = t;
-		}
-		x += dx;
-		y += dy;
+		spiralCell += spiral.Next();
 	}
 	return false;
 }
@@ -310,7 +304,8 @@ void SetupMoveToTarget(Context& ctx, entt::entity target)
 		SetSpeed(ctx, Speed(ctx.info, 4));
 		return;
 	}
-	// Living::SetState (0x5F2A80): raw
+	// MobileWallHug::SetupMobileMoveToObject (0x60ACD0): STEP_THROUGH at it; then Living::SetState (0x5F2A80), raw
+	SetupMobileMoveToPos(ctx, Xz(Locator::entitiesRegistry::value().Get<const Transform>(target)));
 	ctx.brain.topState = static_cast<uint8_t>(AnimalState::HuntingMoveToPos);
 	ctx.brain.turnsSinceStateChange = 0;
 }
@@ -349,24 +344,16 @@ void Abandon(Context& ctx)
 	SetTopState(ctx, AnimalState::StartWander);
 }
 
-/// one step at its speed towards the point, turning like SetTowardsAngle (openblack: no wall hug round obstacles)
-void StepTowards(Context& ctx, glm::vec2 goal)
+/// fn_0060ADC0: SetupMobileMoveToObject's STEP_THROUGH walk at the object, whose position is the goal each turn
+/// [inferred: the goal follows the object]
+int StepTowards(Context& ctx, glm::vec2 goal)
 {
-	const glm::vec2 d = goal - Xz(ctx.transform);
-	const float distance = glm::length(d);
-	if (distance <= Metres(ctx.brain.speed))
+	ctx.brain.goal = goal;
+	if (ctx.brain.moveState != k_MoveFinalStep && ctx.brain.moveState != k_MoveArrived)
 	{
-		if (InBounds(goal))
-		{
-			ctx.transform.position = glm::vec3(goal.x, Locator::terrainSystem::value().GetHeightAt(goal), goal.y);
-			ctx.brain.movedLastTurn += distance;
-		}
-		return;
+		ctx.brain.moveState = k_MoveStepThrough;
 	}
-	SetTowardsAngle(ctx, AngleOf(d), distance);
-	ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
-	FaceAngle(ctx.transform, ctx.brain.angle);
-	MoveBy(ctx, ctx.brain.step);
+	return MoveTo(ctx);
 }
 
 /// the nearest of the entities with a Transform that `accept` takes (-1: none)
@@ -433,7 +420,7 @@ void CalculeLairPos(Context& ctx)
 	default:
 		break; // Lion::CalculeLairPos (0x420010): where it is
 	}
-	flock->domainCentre = lair.value_or(ctx.transform.position);
+	SetDomainCentre(*flock, lair.value_or(ctx.transform.position));
 }
 
 int PredatorReactToAnimalNeeds(Context& ctx)
@@ -530,7 +517,10 @@ void HuntingMoveToPos(Context& ctx)
 		// fn_00418CD0(pos, 0x100): the prey within +-22.5 degrees of its heading
 		if (std::abs(AngleDiff(ctx.brain.angle, AngleOf(at - me))) <= 0x80)
 		{
+			// saved and restored round the exit from the move state, which drops it
+			const auto kept = ctx.brain.target;
 			SetTopState(ctx, AnimalState::TargetPounce);
+			ctx.brain.target = kept;
 		}
 		else
 		{
@@ -576,7 +566,11 @@ void TargetPounce(Context& ctx)
 		return;
 	}
 	const glm::vec2 at = Xz(registry.Get<const Transform>(target));
-	StepTowards(ctx, at);
+	// fn_005EC240: the current move, and on arrival SetTopStateToFinal
+	if (StepTowards(ctx, at) == 0xA)
+	{
+		SetTopState(ctx, static_cast<AnimalState>(ctx.brain.finalState));
+	}
 	if (glm::distance(Xz(ctx.transform), at) <= 1.0f && !IsDowned(target))
 	{
 		// fn_005EC480: the prey falls, with 0.05 of its life

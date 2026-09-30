@@ -40,6 +40,8 @@ struct PhysicsObject
 	entt::entity entity {entt::null};
 	entt::entity thrower {entt::null};
 	PhysOb body;
+	/// the body's rotation at the start of the turn (po+0xBC.. / +0xD8, what Animal::EndPhysics reads the landType from)
+	glm::mat3 turnStartRotation {1.0f};
 	uint32_t flags {0};
 	bool villager {false};
 	/// the player's hand threw it, directly or through what it hit (GInterfaceStatus +0x24, inherited by proxies)

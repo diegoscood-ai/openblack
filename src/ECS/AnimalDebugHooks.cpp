@@ -263,7 +263,7 @@ void RunDebugHooks(uint32_t turn)
 				const auto pile = archetypes::PotArchetype::Create(position, 0.0f, PotInfo::FoodPile, 1000);
 				if (pile != entt::null)
 				{
-					SpreadFoodReaction(pile);
+					SetupPotReaction(pile);
 					SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: food pile at ({:.1f}, {:.1f})", position.x, position.z);
 				}
 			}

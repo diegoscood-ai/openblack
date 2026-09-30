@@ -91,16 +91,49 @@ Todas son la clase Dove (constructor 0x41DCF0); solo cambian los clips y los val
 - No se pueden coger ni golpear (playerCanPickUp 0) y no son presa (a más de 2 m). Muertas caen con la física a la
   velocidad del vuelo (`Dove::Dying` 0x41F1B0) y quedan en el suelo como cadáver.
 
-## Huida (reacción 28)
+## Moverse (MobileWallHug, `dev\tmp_dis\animals\wallhug.md`)
 
-Cada depredador crea al nacer la reacción "huir del depredador" y la reparte **una sola vez**: a los animales que en
-ese momento estén a 25 m o menos (5 × 5 celdas; distancia = media distancia Manhattan), si su especie tiene
-`isFleeingFromPredator`, no están muertos / derribados / esperando un clip y el depredador no acecha (a su speed2 o
-menos pasa inadvertido); un depredador solo huye de uno más fuerte. `Reaction::ProcessReactions`, que la repartiría cada
-turno, depende de un interruptor de depuración que el juego no activa nunca: en el original los herbívoros casi nunca
-huyen. Huir: estado 49 a su velocidad de huida (vaca, oveja, cerdo 4 m/s; caballo 9) ~10 m hacia un lado de la
-trayectoria del depredador; luego estado 6 (otra vez si viene hacia él o está a menos de 30 m) o 30 (quieto
-mirándolo); termina a los ~80-88 turnos o a más de 75 m, y vuelve a DECIDE.
+`Living::SetupMoveToPos` (0x5F2830) usa la versión de un argumento de `SetupMobileMoveToPos`: **STEP_THROUGH**, un paseo
+recto sin rodear obstáculos que en los animales re-apunta cada turno con su `SetTowardsAngle` (giro limitado por
+turnAngle). Al paso que queda a una zancada pasa a FINAL_STEP y llega (0xA) al turno siguiente; como en el original, un
+destino dentro de su círculo de giro puede rodearse para siempre. El rodeo de obstáculos (LINEAR → ORBIT →
+EXIT_CIRCLE) solo lo usa `SetupMoveToWithHug`: ir a la comida (19) y volver a huir (6); **ese rodeo no está portado
+para animales** (van rectos también ahí). `GUtils::Spiral` (dir 1, cuenta 1: (−1, 0), (0, −1), (+1, 0) × 2, (0, +1) × 2...)
+en todas las espirales; `Collide(1)` es solo agua (el bit `hasWater` de la celda de terreno) o fuera del mapa,
+`Collide(0)` nada; `CalcRandomPos` (0x5ED080): dos puntos al azar, cada uno con una espiral de 25 celdas, aceptando si
+está en el mapa, sin choque, fuera de los círculos de giro y (aves) sobre un bloque de terreno; si no, el centro si está
+fuera de sus círculos de giro, y si no, su propia posición. Ángulos con las tablas trunc(65536 cos) y `LHArcTan`.
+Rumbo inicial 0 (+x). La lista de la bandada está en orden inverso de creación: el líder es el primero que entró; la
+formación de las aves cuenta desde el más nuevo. Los animales se procesan del más nuevo al más viejo.
+
+## Reacciones
+
+`Reaction::ProcessReactions`, que las repartiría cada turno, depende de un interruptor de depuración que el juego no
+activa nunca, así que **cada reacción se ofrece una sola vez**, al crearse (`Reaction::CreateReaction` → `SpreadReaction`
+0x6E3E10: (maxReactionDistance × 0,2)² celdas de `GUtils::Spiral` dentro del radio; `ApplyReactionToLivingObjectsAtSquare`
+0x6E3F90 para cada animal: disponible (`IsAvailableForReaction`), distancia = media distancia Manhattan, puntuación
+min(255, prioridad × (1 + 0,5 × howImportantIsDistance × (max − d) / max)), y sus **registros** (3 como mucho, {tipo,
+turno}: no vuelve a tomar un tipo antes de NumGameTurnsBeforeReactingAgain; caducan a los 1800 turnos). Un animal que ya
+reacciona solo cambia si la nueva puntúa más y la actual dura ya 10 s (1 s si era coger con la mano). Cada tipo acaba
+por su propio número de turnos (`Living::ProcessReaction` 0x5F1270), si desaparece el iniciador (y entonces vuelve al
+estado guardado: DECIDE, o el estado 0 si venía de moverse, y allí se queda como el original) o si desaparece la
+reacción (sigue en su estado). Salir a un estado que no es de reacción (la mano, morir, una necesidad) suelta la
+reacción sin cambiar el estado (`Animal::ExitReaction` 0x41B170). Los animales reaccionan a objeto (0), mirar (1),
+hechizo (3), criatura (6), comida (7), fuego (10), árbol cayendo (27, que nadie crea) y depredador (28); los
+depredadores también a objeto volador (9). Tortuga y aves no reaccionan. **Ningún animal reacciona a la mano**.
+
+- **Depredador (28):** lo crea cada depredador al nacer (fn_0041FD30). Huyen los que tengan `isFleeingFromPredator` a
+  25 m, si el depredador no acecha (a su speed2 o menos pasa inadvertido); un depredador solo de uno más fuerte. Huir:
+  estado 49 a su velocidad de huida (vaca, oveja, cerdo 4 m/s; caballo 9) ~10 m hacia un lado de su trayectoria; luego
+  6 (otra vez si viene hacia él o está a menos de 30 m) o 30 (quieto mirándolo); ~80-88 turnos o a más de 75 m.
+- **Comida (7, `Pot::SetupReaction` 0x66D660):** las pilas de comida del mapa (CREATE_POT) al cargar, y una vasija que la
+  mano deja; se quita al cogerla o vaciarla. Los herbívoros **hambrientos** a 35 m van al borde de la pila (la suma de
+  los dos radios), le quitan 50 (la pila encoge; vacía desaparece) y su hambre queda a 0. Las pilas que hace la mano
+  (MagicFood) tienen foodType 0: ningún animal va a ellas, tampoco en el original.
+- **Objeto volador (9, `Object::InitialisePhysicsFromHand` 0x637412):** lo que la mano lanza hace huir a los
+  depredadores a 25 m si 2 × su velocidad pasa de su distancia; la reacción se quita al aterrizar el objeto.
+- Sin portar (necesitan sistemas que openblack no tiene): hechizos (0, 3), artefactos del pueblo (1), criatura (6),
+  fuego (10).
 
 ## Mano, vuelo y muerte
 
@@ -128,20 +161,46 @@ Umbrales: `speedThreshold` entrada 2 (vaca, oveja y cerdo) y 3 (caballo). Depred
 acecho bajo speedDefault, andar, correr sobre la entrada 6..9; en la tabla de `ECS/AnimalAnimations.cpp`. El clip
 avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el tiempo si no.
 
+## Bandadas, edad y humo
+
+- **Coger un animal** (`Flock::SeperateLivingIntoNewFlock` 0x52FE10): siempre pasa a una bandada propia donde lo
+  cogieron, con el radio y la distancia de la vieja, sin pueblo y máximo 0; la vieja, si queda vacía, se borra.
+- **Fusión** (`Animal::LookForFlocksInSpiral` 0x41A690): solo tras aterrizar (±80 m), porque `flocksCanMerge` es 0 en
+  todas; la más grande se queda con todos si son de la misma especie y la suma no pasa de `maxFlockSize`; una bandada
+  con pueblo no se fusiona. Rareza: el máximo de la que se queda suma el de la otra una vez por miembro, recortado.
+- **Edad** (`Living::GetAge` 0x5ECAF0): 1500 turnos por año desde su turno de nacimiento. Los jóvenes crecen cada 375
+  turnos (`escala += aleatorio(0,75 × (ageToScale[edad + 1] − escala))`) hasta `grownUpAge`; un adulto nace a 0,9 y dos
+  tiradas lo dejan en (0,95, 1,05]. **Los animales no mueren de viejos**: comprobado en todo el ejecutable
+  (`dev\tmp_dis\animals\old_age.md`): `oldAge` / `retirementAge` solo los lee `Villager::CheckDeathFromOldAge`
+  (0x760CA0) y el motivo de muerte OLD_AGE (9) solo es de aldeanos.
+- **Nacer** (GIVES_BIRTH): el recién nacido decide al momento, antes de que la madre vuelva a pasear.
+- **Animal lanzado a un almacén de comida:** se convierte en comida (su foodValue: vaca y caballo 1200, oveja 800,
+  león y tigre 900, lobo 700, cerdo 290) y desaparece (`Animal::ReactToPhysicsImpact` 0x41BC10).
+- **Humo del cadáver** (`Object::CreateSmokyStuff` 0x63A810, `ECS/SmokyStuff.*`): 15 sprites de `Data\Textures\smoke.raw`,
+  cada uno con dirección al azar a 0,3..1 × tamaño, gris con opacidad vida × 100 / 255, 3 s, de 0,5 a 1,5 × tamaño.
+- **En la mano** los animales tienen el agarre de los aldeanos (radio 2D, bajada 0,65). El landType se lee de la matriz
+  del cuerpo al empezar el turno.
+
+## Aldeanos cazados
+
+Los aldeanos son presa como los animales (tipo 2, con carne) si están fuera de casa. Derribados, su salud queda en 5 %
+y pasan a DOWNED (clip `P_ATTACKED_BY_LION`), luego BEING_EATEN 300 turnos (`P_DYING`) y mueren (`Villager::BeingEaten`
+0x76B380). Los conduce la IA de animales (`components::DownedVillager`).
+
 ## Diferencias y pendiente
 
-- MOVE_TO_POS va recto con el giro limitado: el wall-hug alrededor de obstáculos no está portado para animales, y tras
-  1000 turnos sin llegar se da por llegado (seguro de openblack). `Collide(collideType)` se aproxima con el agua y la
-  huella de los objetos fijos [supuesto]. El orden de la espiral de pastoreo y el sitio al azar para dormir son
-  supuestos.
-- La guarida del tigre es el árbol de bosque más cercano (el original puntúa los bosques con una sigmoide de la
-  distancia y toma el primer árbol del mejor). Los animales de script (flags 0x400 / 0x4000, bandada +0x5C) se tratan
-  como normales.
-- Aves: el valor inicial de flock+0x78 es DECIDE (0x2B, los constructores de Flock); tras cada clip
-  completo en FOLLOW_FLOCK se vuelve a tirar la moneda y se reinicia la cuenta [supuesto]; el seguimiento del miembro
-  siguiente (modo 2) y el aterrizaje no se portan (no se usan).
-- Sin hacer: pastores, animal lanzado a un almacén de comida → comida, el cadáver de los aldeanos, las reacciones de
-  hechizos / criatura / fuego, rodear obstáculos al moverse (van rectos con giro limitado).
+- El rodeo de obstáculos de ir a la comida y volver a huir (`SetupMoveToWithHug`): no portado para animales. El port de
+  openblack para aldeanos (`PathfindingSystem`) tiene fallos propios (wallhug.md §7).
+- Guaridas del tigre y el lobo: el original toma el segundo bosque más nuevo (todos los bosques a más de 0,15 m puntúan
+  igual) y su árbol crecido más cercano al centro (audit_r4.md); openblack aún no tiene la lista de bosques en ese
+  orden, así que se usa el árbol de bosque más cercano.
+- Aldeano comido: desaparece (sin cadáver, alineamiento, avisos del pueblo ni duelo de los vecinos); los aldeanos no
+  huyen de los depredadores ni toman reacciones.
+- Pastores, las ramas `IsInScript` y las marcas de script (0x400 / 0x4000 / +0x25 & 0x40: presa que sobrevive), la
+  prioridad de líder de FLOCK_ATTACH, el aterrizaje de las aves (inalcanzable en el juego: info.sleep 0), el orden
+  exacto de las listas de cada celda del mapa y el turno intercalado con los aldeanos.
+- Los números aleatorios son los de openblack (mt19937), no el GameRand del original.
+- Dejar un objeto suave con la mano lo coloca al momento; el original lo suelta en la física (mano, Tareas.txt).
 
 ## Ganchos de prueba
 
@@ -149,6 +208,8 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 `OPENBLACK_TEST_VIEW_ANIMAL="n[,distancia[,ángulo[,cada]]]"`, `OPENBLACK_TEST_THROW_ANIMAL="n,turno[,vx,vy,vz]"`,
 `OPENBLACK_TEST_KILL_ANIMAL="n,turno"`, `OPENBLACK_TEST_ANIMAL_SPECIES=<AnimalInfo>` (n cuenta solo esa especie),
 `OPENBLACK_TEST_HUNGRY=<AnimalInfo>` (esa especie con hambre en el turno 1), `OPENBLACK_TEST_SPREAD_REACTIONS=<turno>`
-(los depredadores reparten otra vez su reacción de huida), `OPENBLACK_TEST_VIEW_LOCK=1` (la cámara se coloca cada turno
+(los depredadores reparten otra vez su reacción de huida), `OPENBLACK_TEST_HUNT_VILLAGER="<especie>,<turno>"`,
+`OPENBLACK_TEST_FOOD_PILE="<especie>,<turno>"`, `OPENBLACK_TEST_SMOKE=<n>`, `OPENBLACK_TEST_CORPSE_TURNS=<n>`,
+`OPENBLACK_TEST_VIEW_LOCK=1` (la cámara se coloca cada turno
 junto al animal, para las aves). Land2 (`-s Land2.txt`) tiene leones, tigres y lobos. `dev\shot_animal.sh <nombre> <fotogramas> <captura> [VAR=valor...]` lanza una
 copia privada en `dev\animales_run`.

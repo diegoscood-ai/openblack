@@ -1180,6 +1180,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 	ecs::ClearFireFlies();
 	ecs::ClearForests();
+	ecs::animal_ai::ClearReactions();
+	ecs::SmokyStuff::Clear();
 	night_lights::Clear();
 	// before the registry reset: it destroys the emitters without freeing their sources, and a looping one would go on
 	audio::lantern_sounds::Clear();

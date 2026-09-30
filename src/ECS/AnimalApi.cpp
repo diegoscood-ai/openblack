@@ -106,6 +106,11 @@ void Remove(entt::entity entity)
 	}
 }
 
+bool IsFlyingSpecies(AnimalInfo type)
+{
+	return detail::IsBird(type);
+}
+
 void SetAlpha(entt::entity entity, float alpha)
 {
 	auto& registry = Locator::entitiesRegistry::value();

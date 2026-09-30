@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include <entt/entity/entity.hpp>
@@ -37,6 +38,9 @@ struct AnimalBrain
 	glm::ivec2 step {0};
 	/// +0x80: MOVE_TO_POS's goal (metres)
 	glm::vec2 goal {0.0f};
+	/// +0x5E: MobileWallHug's move state (1 ARRIVED, 4 FINAL_STEP, 5 WANDER, 0xB STEP_THROUGH; dev\tmp_dis\animals\
+	/// wallhug.md)
+	uint8_t moveState {0};
 	/// +0x58: the eat counter; also the corpse counter (GetNumTurnsToDieOver, 600 turns) in DEAD
 	int16_t counter {0};
 	/// +0xE4 / +0xE8 / +0xEA: the hunger, sleep and breed counters (ProcessNeeds)
@@ -55,14 +59,19 @@ struct AnimalBrain
 	uint32_t chaseStart {0};
 	/// +0xFC: what it eats (a predator's downed prey)
 	entt::entity foodTarget {entt::null};
-	/// +0xBC: the predator it flees from (reaction 28), +0x94 reacting, the turn it started, the state to go back to
-	/// (+0x8E, StorePreviousState)
+	/// +0xBC: the object of its reaction (the predator, the food, the thrown object); +0x94 the reaction (an id of
+	/// ECS/AnimalFlee's list, 0 none); +0x8E the state to go back to (StorePreviousState: its final state)
 	entt::entity predator {entt::null};
-	/// the reaction it is taking (its type; 28 predator, 7 food, 9 flying object)
-	uint8_t reactionType {0};
-	bool reacting {false};
-	uint32_t reactStart {0};
+	uint32_t reaction {0};
 	uint8_t previousState {0};
+	/// +0x98: the reaction records {type, turn}, at most 3 (fn_006E4340)
+	struct ReactionRecord
+	{
+		uint8_t type;
+		uint32_t turn;
+	};
+	std::array<ReactionRecord, 3> records {};
+	uint8_t recordCount {0};
 	/// +0x1C: the MapCoords altitude, metres above the land (the birds; 0 on the ground) and the goal's (+0x88)
 	float altitude {0.0f};
 	float goalAltitude {0.0f};

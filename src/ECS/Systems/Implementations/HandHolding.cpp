@@ -105,6 +105,11 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	{
 		ecs::animal_ai::PlaceInHand(entity);
 	}
+	// Pot / PileResource::InterfaceSetInMagicHand: Pot::RemoveReaction
+	if (registry.AllOf<Pot>(entity))
+	{
+		ecs::animal_ai::RemovePotReaction(entity);
+	}
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
 	if (auto* pot = registry.TryGet<Pot>(entity); pot != nullptr)
@@ -259,6 +264,11 @@ void HandSystem::Drop() noexcept
 		// put down gently (openblack places it at once): it lands on its feet
 		ecs::SetVillagerState(*_held, VillagerStates::Landed);
 		ecs::animal_ai::PutDown(*_held);
+		// Pot::ApplyThisToMapCoord (0x66DED8): a pot put down offers its reaction again
+		if (registry.AllOf<Pot>(*_held))
+		{
+			ecs::animal_ai::SetupPotReaction(*_held);
+		}
 		registry.SetDirty();
 	}
 	_held.reset();
@@ -468,8 +478,9 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 		_holdRadius = radius2D;
 		_loweringMultiplier = 0.7f;
 	}
-	else if (registry.AllOf<Villager>(entity))
+	else if (registry.AnyOf<Villager, Animal>(entity))
 	{
+		// the Living hold class: villagers and animals alike
 		_holdType = HoldType::Villager;
 		_holdRadius = radius2D;
 		_loweringMultiplier = 0.65f;

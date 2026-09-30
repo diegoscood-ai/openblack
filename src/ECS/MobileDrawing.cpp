@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/L3DAnim.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
@@ -193,7 +194,9 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 		draw.shearX = 0.0f;
 		draw.shearZ = 0.0f;
 		const float ground = Ground(island, draw.position.x, draw.position.z);
-		if (draw.position.y - ground <= 0.2f)
+		const auto* animal = registry.TryGet<const Animal>(entity);
+		const bool bird = animal != nullptr && ecs::animal_ai::IsFlyingSpecies(animal->type);
+		if (draw.position.y - ground <= 0.2f && !bird)
 		{
 			// the object matrix's rows, with its scale
 			const glm::vec3 x = draw.rotation[0] * transform.scale.x;

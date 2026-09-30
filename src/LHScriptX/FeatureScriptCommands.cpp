@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
 #include "ECS/Archetypes/BigForestArchetype.h"
@@ -660,7 +661,9 @@ void FeatureScriptCommands::CreatePot(glm::vec3 position, PotInfo type, int32_t 
 	{
 		return;
 	}
-	PotArchetype::Create(position, 0.0f, type, amount);
+	// the handler's Pot::Create with its int 1 (0x716B39): the pot spreads its reaction at creation (food: the hungry
+	// grazers come and eat)
+	ecs::animal_ai::SetupPotReaction(PotArchetype::Create(position, 0.0f, type, amount));
 }
 
 void FeatureScriptCommands::CreateTownTemporaryPots(int32_t, int32_t, int32_t)

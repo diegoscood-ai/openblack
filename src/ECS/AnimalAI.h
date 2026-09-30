@@ -80,9 +80,13 @@ enum class AnimalState : uint8_t
 /// `visualTime`: GGameInfo::GetVisualTime in hours (the big cats go to bed after 22:00, wolves hunt after 23:00)
 void ProcessAnimalsTurn(float visualTime);
 
-/// Reaction 7 (Pot::SetupReaction 0x66D660): a food pile put down or landed offers itself once to the hungry grazers
-/// within 35 m, which walk to it and eat 50 of it
-void SpreadFoodReaction(entt::entity food);
+/// Pot::SetupReaction (0x66D660): a pot's reaction (food 7: the hungry grazers within 35 m come and eat 50 of it),
+/// once until Pot::RemoveReaction (picked up, emptied, deleted). Called for the map's CREATE_POT, a pot the hand puts
+/// down and the hand's new piles.
+void SetupPotReaction(entt::entity pot);
+void RemovePotReaction(entt::entity pot);
+/// the map is unloaded
+void ClearReactions();
 /// Reaction 9 (Object::InitialisePhysicsFromHand 0x637412): anything the hand throws or drops offers itself once to the
 /// predators within 25 m, which flee when it comes fast enough
 void SpreadFlyingObjectReaction(entt::entity object);
@@ -104,7 +108,9 @@ void PlaceInHand(entt::entity entity);
 void InitialisePhysics(entt::entity entity);
 /// Animal::EndPhysics (0x5F0D80) at rest: the landType from the body's right row, LANDED or dying. `rotation` is
 /// the body's (openblack columns = LHMatrix rows).
-void EndPhysics(entt::entity entity, const glm::mat3& rotation);
+void EndPhysics(entt::entity entity, const glm::mat3& rotation, const glm::mat3& turnStartRotation);
+/// Object::EndPhysics (0x6375A0): the object's own reactions end (the animals reacting to it stop, their state kept)
+void EndReactionsOf(entt::entity object);
 /// openblack's hand puts things down at once (the original drops them into physics): lands on its feet
 void PutDown(entt::entity entity);
 /// Animal::DestroyedByEffect (0x41B1B0) -> Living::SetDying (0x5EC390), when an effect took its last life. Nothing
@@ -137,6 +143,9 @@ void Kill(entt::entity entity);
 void Remove(entt::entity entity);
 /// per-instance opacity (components::Alpha, the alpha-blended pass); 1 takes it off
 void SetAlpha(entt::entity entity, float alpha);
+
+/// the Dove class (crows, doves, swallows, pigeons, seagulls, bats and the spell ones)
+[[nodiscard]] bool IsFlyingSpecies(AnimalInfo type);
 
 /// Test hooks, once per turn (ECS/AnimalDebugHooks.cpp)
 void RunDebugHooks(uint32_t turn);

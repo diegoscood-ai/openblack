@@ -296,7 +296,7 @@ void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 		{
 			SinkPile(pile);
 			// Pot::ApplyThisToMapCoord (0x66DED8): the food reaction, once (the hungry grazers come to eat)
-			ecs::animal_ai::SpreadFoodReaction(pile);
+			ecs::animal_ai::SetupPotReaction(pile);
 		}
 	}
 	using audio::SoundId;

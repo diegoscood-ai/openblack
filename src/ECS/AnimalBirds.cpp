@@ -75,9 +75,6 @@ bool MoveTo3D(Context& ctx)
 	const float change = ctx.info.altitudeMovementChange;
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 goal = ctx.brain.goal;
-	const float distance = glm::distance(me, goal);
-	// openblack's safety, as MoveToPos: a goal it keeps circling round (the turning limit) counts as reached
-	const bool arrived = distance <= Metres(ctx.brain.speed) || ctx.brain.turnsSinceStateChange > 300;
 	const float destination = ctx.brain.goalAltitude;
 	const float before = Height(me) + ctx.brain.altitude;
 	if (destination < 2.0f)
@@ -91,22 +88,13 @@ bool MoveTo3D(Context& ctx)
 			ctx.brain.altitude += change;
 		}
 	}
-	if (arrived)
+	// MobileWallHug::MoveTo, and FINAL_STEP counts as arrived at once (no snap)
+	int r = MoveTo(ctx);
+	if (ctx.brain.moveState == k_MoveFinalStep)
 	{
-		if (InBounds(goal))
-		{
-			ctx.transform.position.x = goal.x;
-			ctx.transform.position.z = goal.y;
-			ctx.brain.movedLastTurn += distance;
-		}
+		r = 0xA;
 	}
-	else
-	{
-		SetTowardsAngle(ctx, AngleOf(goal - me), distance);
-		ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
-		FaceAngle(ctx.transform, ctx.brain.angle);
-		MoveBy(ctx, ctx.brain.step);
-	}
+	const bool arrived = r == 0xA;
 	const glm::vec2 now = Xz(ctx.transform);
 	if (destination >= 2.0f)
 	{
@@ -126,10 +114,15 @@ bool MoveTo3D(Context& ctx)
 	return arrived;
 }
 
+/// its index from the list's head (+0x3C): the newest member is 0, the leader (the tail, the first added) the last
 int IndexInFlock(const Flock& flock, entt::entity entity)
 {
 	const auto found = std::find(flock.members.begin(), flock.members.end(), entity);
-	return found == flock.members.end() ? 0 : static_cast<int>(std::distance(flock.members.begin(), found));
+	if (found == flock.members.end())
+	{
+		return 0;
+	}
+	return static_cast<int>(flock.members.size()) - 1 - static_cast<int>(std::distance(flock.members.begin(), found));
 }
 
 /// fn_0041E890: the formation. On reaching the last goal, a slot by its place in the member list, turned to face the
@@ -166,7 +159,7 @@ bool Formation(Context& ctx, const Flock& flock)
 	const int row = b - 5;
 	const glm::vec2 at = Xz(registry.Get<const Transform>(leader));
 	const auto a = static_cast<uint16_t>(
-	    (AngleOf(glm::vec2(static_cast<float>(row), static_cast<float>(column))) + AngleOf(at - Xz(ctx.transform)) + 0x400) & 0x7FF);
+	    (AngleOfMapCoords(row, column) + AngleOf(at - Xz(ctx.transform)) + 0x400) & 0x7FF);
 	const float radians = static_cast<float>(a) * glm::two_pi<float>() / k_Circle;
 	const glm::vec2 goal = at + glm::vec2(std::cos(radians) * static_cast<float>(row) * 10.0f,
 	                                      std::sin(radians) * static_cast<float>(column) * 10.0f);
@@ -230,7 +223,7 @@ void BirdDecideWhatToDo(Context& ctx)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto leader = LeaderOf(*flock);
 	const auto* leaderBrain = leader != entt::null ? registry.TryGet<const AnimalBrain>(leader) : nullptr;
-	const auto p = CalcRandomPos(FlockPos(ctx), 0.0f, static_cast<float>(flock->flockDistance), false);
+	const auto p = CalcRandomPos(ctx, FlockPos(ctx), 0.0f, static_cast<float>(flock->flockDistance));
 	SetupMoveTo(ctx, p, leaderBrain != nullptr ? leaderBrain->altitude : ctx.brain.altitude, AnimalState::DecideWhatToDo);
 	SetSpeed(ctx, SpeedDefault(ctx));
 	// before the leader's first leg the flock's state is still DECIDE (the Flock constructors set +0x78 = 0x2B)
@@ -246,7 +239,7 @@ void BirdStartWander(Context& ctx)
 		return;
 	}
 	SetSpeed(ctx, SpeedDefault(ctx));
-	const auto p = CalcRandomPos(FlockPos(ctx), static_cast<float>(ctx.info.domainInnerRadius), static_cast<float>(flock->domainRadius), false);
+	const auto p = CalcRandomPos(ctx, FlockPos(ctx), static_cast<float>(ctx.info.domainInnerRadius), static_cast<float>(flock->domainRadius));
 	const float variance = ctx.info.altitudeVariance;
 	const float altitude = ctx.brain.altitude + variance - Locator::rng::value().NextValue(0.0f, 2.0f * variance);
 	const float base = FlockAltitude(ctx);
@@ -315,11 +308,11 @@ void FollowFlock(Context& ctx)
 		// mode 2 (the next member) is not set by the shipped birds; any other mode: nothing
 		return;
 	}
-	// fn_0041E130: each time the clip has played once, flap or glide again [the clip timer restarted: inferred]
+	// fn_0041E130: once the clip has played, flap or glide again, every turn until the state changes (the counter is
+	// not restarted)
 	if (ctx.brain.topState == flock->followState && VillagerAnimationDone(ctx.entity, ctx.brain.turnsSinceStateChange))
 	{
 		SetAnimalStateAnim(ctx.entity);
-		ctx.brain.turnsSinceStateChange = 0;
 	}
 }
 

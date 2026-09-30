@@ -13,6 +13,7 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 #include <glm/gtc/constants.hpp>
@@ -20,6 +21,8 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
+
+#include <LNDFile.h>
 
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
@@ -39,6 +42,7 @@
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
@@ -111,13 +115,14 @@ uint32_t g_Turn = 0;
 // ---- MapCoords and the angle tables ----
 
 /// COS / SIN tables 0xC31E14 / 0xC31614: 2048 entries per circle, 65536 = 1
+/// the static tables: trunc(65536 cos), trunc(65536 sin) (not rounded: 976 entries of each differ)
 int32_t Cos(uint16_t a)
 {
-	return static_cast<int32_t>(std::lround(65536.0 * std::cos(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
+	return static_cast<int32_t>(std::trunc(65536.0 * std::cos(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
 }
 int32_t Sin(uint16_t a)
 {
-	return static_cast<int32_t>(std::lround(65536.0 * std::sin(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
+	return static_cast<int32_t>(std::trunc(65536.0 * std::sin(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
 }
 
 /// the step of that speed along the angle: ((speed >> 4) * COS[a]) >> 12, MapCoords per turn
@@ -127,11 +132,57 @@ glm::ivec2 Step(uint16_t angle, uint32_t speed)
 	return {(s * Cos(angle)) >> 12, (s * Sin(angle)) >> 12};
 }
 
-/// GUtils::GetAngleFromDXDZ (0x74D200)
+/// LHArcTan (0x74D0C0): the octant rules on the 257-entry table 0xC2307C = trunc(atan(i / 256) x 2048 / 2 pi)
+uint16_t AngleOfMapCoords(int32_t dx, int32_t dz)
+{
+	static const auto k_Table = []() {
+		std::array<uint16_t, 257> table {};
+		for (size_t i = 0; i < table.size(); ++i)
+		{
+			table[i] = static_cast<uint16_t>(std::trunc(std::atan(static_cast<double>(i) / 256.0) * k_Circle / glm::two_pi<double>()));
+		}
+		return table;
+	}();
+	const auto t = [](uint32_t num, uint32_t den) { return static_cast<int32_t>(k_Table[std::min<uint32_t>((num << 8) / den, 256)]); };
+	const int32_t x = -dx;
+	const int32_t z = dz;
+	if (z == 0 && x == 0)
+	{
+		return 0;
+	}
+	int32_t a;
+	if (z >= 0)
+	{
+		if (x >= 0)
+		{
+			a = z >= x ? 0x200 + t(static_cast<uint32_t>(x), static_cast<uint32_t>(z)) : 0x400 - t(static_cast<uint32_t>(z), static_cast<uint32_t>(x));
+		}
+		else
+		{
+			const int32_t nx = -x;
+			a = z >= nx ? 0x200 - t(static_cast<uint32_t>(nx), static_cast<uint32_t>(z)) : t(static_cast<uint32_t>(z), static_cast<uint32_t>(nx));
+		}
+	}
+	else
+	{
+		const int32_t nz = -z;
+		if (x >= 0)
+		{
+			a = nz >= x ? 0x600 - t(static_cast<uint32_t>(x), static_cast<uint32_t>(nz)) : 0x400 + t(static_cast<uint32_t>(nz), static_cast<uint32_t>(x));
+		}
+		else
+		{
+			const int32_t nx = -x;
+			a = nz >= nx ? 0x600 + t(static_cast<uint32_t>(nx), static_cast<uint32_t>(nz)) : 0x800 - t(static_cast<uint32_t>(nz), static_cast<uint32_t>(nx));
+		}
+	}
+	return static_cast<uint16_t>(a & 0x7FF);
+}
+
+/// GUtils::GetAngleFromDXDZ (0x74D200) of a vector in metres (as MapCoords, 6553.6 per metre)
 uint16_t AngleOf(glm::vec2 d)
 {
-	const double a = std::atan2(static_cast<double>(d.y), static_cast<double>(d.x)) * k_Circle / glm::two_pi<double>();
-	return static_cast<uint16_t>(static_cast<int32_t>(std::lround(a)) & 0x7FF);
+	return AngleOfMapCoords(static_cast<int32_t>(d.x * k_MapCoordsPerMetre), static_cast<int32_t>(d.y * k_MapCoordsPerMetre));
 }
 
 /// the shortest signed difference b - a in 2048ths
@@ -190,22 +241,21 @@ bool InBounds(glm::vec2 p)
 }
 
 /// Object::Collide(info.collideType) [inferred]: the sea or a fixed object's footprint
-bool Collides(glm::vec2 p)
+bool Collides(glm::vec2 p, uint32_t collideType)
 {
-	if (Locator::terrainSystem::value().GetHeightAt(p) <= 0.0f)
+	// MapCoords::Collide (0x6033C0): no map cell -> everything; else MapCell::Collide 0x601BD0: 1 water (the land cell's
+	// hasWater bit, or no land block), 2 dry land, | 0x20 forest trees, | 4 fields; & collideType. Fixed objects' own
+	// footprints do not count.
+	if (!InBounds(p))
 	{
-		return true;
+		return collideType != 0;
 	}
-	const auto& registry = Locator::entitiesRegistry::value();
-	for (const auto fixedEntity : Locator::entitiesMap::value().GetFixedInGridCell(CellOf(p)))
-	{
-		if (const auto* fixed = registry.TryGet<const Fixed>(fixedEntity);
-		    fixed != nullptr && glm::distance(fixed->boundingCenter, p) < fixed->boundingRadius)
-		{
-			return true;
-		}
-	}
-	return false;
+	const auto cellCoords = glm::u16vec2(glm::max(p, glm::vec2(0.0f)) / 10.0f);
+	const auto& cell = Locator::terrainSystem::value().GetCell(cellCoords);
+	// the empty cell of a missing block (fullWater only) is water, as the original's missing LandCell
+	const bool missing = cell.properties.fullWater && cell.r == 0 && cell.g == 0 && cell.b == 0 && cell.properties.country == 0;
+	const uint32_t bits = cell.properties.hasWater || missing ? 1u : 2u;
+	return (bits & collideType) != 0;
 }
 
 /// fn_0074F310: uniform in a square of that side around c (half - GameFloatRand(size) per axis)
@@ -218,39 +268,88 @@ glm::vec2 SquarePos(glm::vec2 c, float size)
 	return c + glm::vec2(half - x, half - z);
 }
 
-/// Object::IsAvailable [inferred]: still there, not in the hand and not flying (a villager: not inside a building)
+/// GameThing::IsAvailable (0x401810): only "not being deleted" (held or flying animals are available);
+/// Villager::IsAvailable (0x751D50): and not DYING
 bool Available(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(entity) || !registry.AllOf<Transform>(entity) || physics::PhysicsObjects::IsFlying(entity))
+	if (!registry.Valid(entity) || !registry.AllOf<Transform>(entity))
 	{
 		return false;
 	}
-	if (const auto* villager = registry.TryGet<const Villager>(entity); villager != nullptr)
+	if (registry.AllOf<Villager>(entity))
 	{
 		const auto* action = registry.TryGet<const LivingAction>(entity);
-		return villager->health > 0 && registry.AllOf<Mesh>(entity) &&
-		       (action == nullptr || static_cast<VillagerStates>(action->states[0]) != VillagerStates::InHand);
+		return action == nullptr || static_cast<VillagerStates>(action->states[0]) != VillagerStates::Dying;
 	}
-	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
-	return brain == nullptr || static_cast<AnimalState>(brain->topState) != AnimalState::InHand;
+	return true;
 }
 
-/// Living::CalcRandomPos (0x5ED080): up to 25 tries in the ring rMin..rMax around c, in bounds and free
-glm::vec2 CalcRandomPos(glm::vec2 c, float rMin, float rMax, bool collide)
+/// Dove::IsPosValidForMapCellExistance (0x41F840) [the tie rules not read]: a land block under the point
+bool IsPosValidForMapCellExistance(const Context& ctx, glm::vec2 p)
+{
+	if (!IsBird(ctx.animal.type))
+	{
+		return true; // Living: 1
+	}
+	const auto cellCoords = glm::u16vec2(glm::max(p, glm::vec2(0.0f)) / 10.0f);
+	const auto& cell = Locator::terrainSystem::value().GetCell(cellCoords);
+	return !(cell.properties.fullWater && cell.r == 0 && cell.g == 0 && cell.b == 0 && cell.properties.country == 0);
+}
+
+bool IsPosValidForTurnAngle(const Context& ctx, glm::vec2 p)
+{
+	const float turn = static_cast<float>(ctx.info.turnAngle) * glm::two_pi<float>() / k_Circle;
+	if (turn <= 0.0f)
+	{
+		return true;
+	}
+	// R = ConvertWholeDistanceToMeters(ftol(2 x speed / turn)): the speed in MapCoords per turn
+	const float radius = std::trunc(2.0f * static_cast<float>(ctx.brain.speed) / turn) / k_MapCoordsPerMetre;
+	const glm::vec2 me = Xz(ctx.transform);
+	const auto left = static_cast<uint16_t>((ctx.brain.angle + 0x200) & 0x7FF);
+	const auto right = static_cast<uint16_t>((ctx.brain.angle - 0x200) & 0x7FF);
+	const glm::vec2 a = me + glm::vec2(Step(left, static_cast<uint32_t>(radius * k_MapCoordsPerMetre) << 4)) / k_MapCoordsPerMetre / 16.0f;
+	const glm::vec2 b = me + glm::vec2(Step(right, static_cast<uint32_t>(radius * k_MapCoordsPerMetre) << 4)) / k_MapCoordsPerMetre / 16.0f;
+	return glm::distance(p, a) > radius && glm::distance(p, b) > radius;
+}
+
+glm::vec2 CalcRandomPos(const Context& ctx, glm::vec2 c, float rMin, float rMax)
 {
 	auto& rng = Locator::rng::value();
-	for (int i = 0; i < 25; ++i)
+	const auto collideType = static_cast<uint32_t>(ctx.info.collideType);
+	// two random points, each followed by a 25-cell spiral from it
+	for (int attempt = 0; attempt < 2; ++attempt)
 	{
 		const float a = rng.NextValue(0.0f, glm::two_pi<float>());
-		const float r = rMin + (rMax > rMin ? rng.NextValue(0.0f, rMax - rMin) : 0.0f);
-		const glm::vec2 p = c + r * glm::vec2(std::cos(a), std::sin(a));
-		if (InBounds(p) && (!collide || !Collides(p)))
+		const float range = rMax - rMin;
+		const float r = (range > 0.0f ? rng.NextValue(0.0f, range) : 0.0f) + rMin;
+		glm::vec2 p = c + r * glm::vec2(std::cos(a), std::sin(a));
+		Spiral spiral;
+		for (int i = 0; i < 25; ++i)
 		{
-			return p;
+			if (InBounds(p) && !Collides(p, collideType) && IsPosValidForTurnAngle(ctx, p) && IsPosValidForMapCellExistance(ctx, p))
+			{
+				return p;
+			}
+			p += 10.0f * glm::vec2(spiral.Next());
 		}
 	}
-	return c;
+	// the centre if it is outside its turning circles, else its own position
+	return IsPosValidForTurnAngle(ctx, c) ? c : Xz(ctx.transform);
+}
+
+void SetDomainCentre(Flock& flock, glm::vec3 position)
+{
+	const auto leader = LeaderOf(flock);
+	if (leader != entt::null)
+	{
+		if (auto* brain = Locator::entitiesRegistry::value().TryGet<AnimalBrain>(leader); brain != nullptr)
+		{
+			brain->goal = glm::vec2(position.x, position.z);
+		}
+	}
+	flock.domainCentre = position;
 }
 
 // ---- the flock ----
@@ -325,18 +424,42 @@ void LeaveFlock(entt::entity entity, Animal& animal)
 
 // ---- states ----
 
-bool ExitAllows(uint8_t from, AnimalState to)
+/// Animal::GetFinalState (0x41A240): the top state if it is final, else the destination
+uint8_t FinalStateOf(const AnimalBrain& brain)
+{
+	return StateInfo(brain.topState).field0xc != 0 ? brain.topState : brain.finalState;
+}
+
+/// Animal::CallExitStateFunction (0x41A2C0): the exit function of its FINAL state, with the new state
+bool CallExitStateFunction(AnimalBrain& brain, AnimalState to)
 {
 	const bool death = to >= AnimalState::SetDying && to <= AnimalState::Downed;
-	switch (static_cast<AnimalState>(from))
+	const auto from = FinalStateOf(brain);
+	switch (from)
 	{
-	case AnimalState::InHand:
+	case 24:
 		// Living::ExitInHand (0x5ED500): only thrown, landed or dying while held
 		return to == AnimalState::Flying || to == AnimalState::Landed || death;
-	case AnimalState::Flying:
+	case 10:
 		// Living::ExitInFlying (0x5ED540): caught, landed or dying
 		return to == AnimalState::InHand || to == AnimalState::Landed || death;
+	case 1:
+	case 2:
+	case 3:
+	case 27:
+	case 28:
+	case 29:
+	case 41:
+	case 42:
+	case 44:
+		// Living::ExitMoveToPos (0x5EDDA0): the target (+0x60) is dropped
+		brain.target = entt::null;
+		return true;
 	default:
+		if (IsReactionState(from))
+		{
+			ExitReaction(brain, static_cast<uint8_t>(to));
+		}
 		return true;
 	}
 }
@@ -345,7 +468,8 @@ bool ExitAllows(uint8_t from, AnimalState to)
 /// (Animal::SetStateSpeed 0x41A2B0 is empty; there are no into / out-of clips)
 void SetTopState(entt::entity entity, AnimalBrain& brain, AnimalState state)
 {
-	if (!ExitAllows(brain.topState, state))
+	// Living::SetTopState (0x5F28E0): the exit test (refused: 0x2E); the entry functions all accept
+	if (!CallExitStateFunction(brain, state))
 	{
 		return;
 	}
@@ -368,7 +492,8 @@ void SetTopState(Context& ctx, AnimalState state)
 /// Living::PlayAnimThenSetState (0x5ECAC0): WAIT_FOR_ANIMATION with the clip unchanged, then the state
 void PlayAnimThenSetState(Context& ctx, AnimalState state)
 {
-	if (!ExitAllows(ctx.brain.topState, AnimalState::WaitForAnimation))
+	// the exit of its final state tested with the new final state, then raw sets
+	if (!CallExitStateFunction(ctx.brain, state))
 	{
 		return;
 	}
@@ -394,12 +519,89 @@ uint32_t SpeedDefault(const Context& ctx)
 	return static_cast<uint32_t>(ctx.info.speedGroup.speedDefault);
 }
 
-/// Living::SetupMoveToPos (0x5F2830): the info's move state (MOVE_TO_POS) towards p, then `final`
+/// Living::SetupMoveToPos (0x5F2830): SetCurrentAndDestinationState(the info's move state, final), then
+/// SetupMobileMoveToPos(p): a STEP_THROUGH walk (no obstacle hugging)
 void SetupMoveToPos(Context& ctx, glm::vec2 p, AnimalState final)
 {
-	ctx.brain.goal = p;
+	// SetCurrentAndDestinationState (0x5F2980): the exit test against the destination, then both states and the clip
+	if (!CallExitStateFunction(ctx.brain, final))
+	{
+		return;
+	}
+	ctx.brain.topState = static_cast<uint8_t>(ctx.info.moveState);
 	ctx.brain.finalState = static_cast<uint8_t>(final);
-	SetTopState(ctx, static_cast<AnimalState>(static_cast<uint8_t>(ctx.info.moveState)));
+	ctx.brain.turnsSinceStateChange = 0;
+	SetAnimalStateAnim(ctx.entity);
+	SetupMobileMoveToPos(ctx, p);
+}
+
+namespace
+{
+/// MobileWallHug::AreWeThere(0) (0x60AD40): within one turn's step of the goal
+bool AreWeThere(const Context& ctx)
+{
+	const glm::vec2 d = ctx.brain.goal - Xz(ctx.transform);
+	const float step = Metres(ctx.brain.speed);
+	return glm::dot(d, d) <= step * step;
+}
+
+/// InitStepsXZ (0x60BFA0): SetTowardsAngle at the goal (the species' turn limit) and the step along the new heading
+void InitStepsXZ(Context& ctx)
+{
+	const glm::vec2 d = ctx.brain.goal - Xz(ctx.transform);
+	SetTowardsAngle(ctx, AngleOf(d), glm::length(d));
+	ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
+	FaceAngle(ctx.transform, ctx.brain.angle);
+}
+
+/// the ARRIVED / FINAL_STEP snap: Pos = goal
+int SnapToGoal(Context& ctx)
+{
+	const glm::vec2 goal = ctx.brain.goal;
+	if (InBounds(goal))
+	{
+		ctx.brain.movedLastTurn += glm::distance(Xz(ctx.transform), goal);
+		ctx.transform.position = glm::vec3(goal.x, Locator::terrainSystem::value().GetHeightAt(goal) + ctx.brain.altitude, goal.y);
+	}
+	return 0xA;
+}
+} // namespace
+
+void SetupMobileMoveToPos(Context& ctx, glm::vec2 p)
+{
+	ctx.brain.goal = p;
+	InitStepsXZ(ctx);
+	ctx.brain.moveState = AreWeThere(ctx) ? k_MoveArrived : k_MoveStepThrough;
+}
+
+int MoveTo(Context& ctx)
+{
+	switch (ctx.brain.moveState)
+	{
+	case k_MoveArrived:
+		// 0x60AFC0: there already, else on through STEP_THROUGH
+		if (AreWeThere(ctx))
+		{
+			return SnapToGoal(ctx);
+		}
+		ctx.brain.moveState = k_MoveStepThrough;
+		[[fallthrough]];
+	case k_MoveStepThrough:
+	{
+		// STEP_THROUGH 0x60B02A: an animal re-aims every turn and walks straight, no obstacle handling
+		InitStepsXZ(ctx);
+		const int r = MoveBy(ctx, ctx.brain.step) ? 7 : 6;
+		if (AreWeThere(ctx))
+		{
+			ctx.brain.moveState = k_MoveFinalStep;
+		}
+		return r;
+	}
+	case k_MoveFinalStep:
+		return SnapToGoal(ctx);
+	default:
+		return 0;
+	}
 }
 
 /// Object::MoveMapObject: one step; true when it entered another 10 m map cell (7) rather than staying in its own (6)
@@ -449,8 +651,10 @@ bool FlockSteer(const Context& ctx, glm::ivec2& out)
 	int32_t count = 0;
 	int32_t nearestDistance = 0x7FFFFFFF;
 	entt::entity nearest = entt::null;
-	for (const auto member : flock->members)
+	// the list from its head: the newest member first
+	for (auto it = flock->members.rbegin(); it != flock->members.rend(); ++it)
 	{
+		const auto member = *it;
 		if (member == ctx.entity || !registry.Valid(member) || !registry.AllOf<Transform>(member))
 		{
 			continue;
@@ -472,7 +676,8 @@ bool FlockSteer(const Context& ctx, glm::ivec2& out)
 	}
 	const int32_t speed = ctx.brain.speed;
 	// cohesion: a fifth of the speed towards the others' centre
-	const auto toCentre = Step(AngleOf(glm::vec2(sum / count - me)), ctx.brain.speed);
+	const auto centre = sum / count - me;
+	const auto toCentre = Step(AngleOfMapCoords(centre.x, centre.y), ctx.brain.speed);
 	glm::ivec2 v(Scale(toCentre.x, speed / 5, speed), Scale(toCentre.y, speed / 5, speed));
 	if (AddSteer(ctx.brain, out, v))
 	{
@@ -531,7 +736,7 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 	// fn_0060C000: the heading follows the step at once
 	if (out != glm::ivec2(0))
 	{
-		ctx.brain.angle = AngleOf(glm::vec2(out));
+		ctx.brain.angle = AngleOfMapCoords(out.x, out.y);
 		FaceAngle(ctx.transform, ctx.brain.angle);
 	}
 }
@@ -629,13 +834,12 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 	const auto* flock = FlockOf(ctx.animal);
 	const int cells = (DomainRadius(ctx) / 10) * (DomainRadius(ctx) / 10);
 	// the square spiral from its own cell [inferred order]
-	int x = 0;
-	int y = 0;
-	int dx = 0;
-	int dy = -1;
+	// GUtils::Spiral (0x74D7E0), from its own cell
+	Spiral spiral;
+	glm::ivec2 spiralCell(0);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(static_cast<float>(x), static_cast<float>(y));
+		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
 		const auto cell = CellOf(c);
 		bool ok = cell != myCell && PosWithinDomain(ctx, c) && InBounds(c);
 		// fn_00418CD0: within viewAngle / 2 of its heading
@@ -658,19 +862,12 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 				}
 			}
 		}
-		if (ok && !Collides(c))
+		if (ok && !Collides(c, static_cast<uint32_t>(ctx.info.collideType)))
 		{
 			out = c;
 			return true;
 		}
-		if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y))
-		{
-			const int t = dx;
-			dx = -dy;
-			dy = t;
-		}
-		x += dx;
-		y += dy;
+		spiralCell += spiral.Next();
 	}
 	return false;
 }
@@ -755,8 +952,10 @@ int ReactToAnimalNeeds(Context& ctx)
 void TakeAllMembers(Flock& keeper, entt::entity keeperEntity, Flock& other, uint32_t maxMembers)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	for (const auto member : other.members)
+	// from the other's head (its newest), each one added at the keeper's head
+	for (auto it = other.members.rbegin(); it != other.members.rend(); ++it)
 	{
+		const auto member = *it;
 		if (!registry.Valid(member) || !registry.AllOf<Animal>(member))
 		{
 			continue;
@@ -787,13 +986,12 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 	const glm::vec2 me = Xz(ctx.transform);
 	const int cells = std::max(1, static_cast<int>((radius / 10.0f) * (radius / 10.0f)));
 	// the spiral's cells, in order, looking for another flock of my species
-	int x = 0;
-	int y = 0;
-	int dx = 0;
-	int dy = -1;
+	// GUtils::Spiral (0x74D7E0), from its own cell
+	Spiral spiral;
+	glm::ivec2 spiralCell(0);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(static_cast<float>(x), static_cast<float>(y));
+		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
 		if (InBounds(c))
 		{
 			for (const auto entity : Locator::entitiesMap::value().GetMobileInGridCell(CellOf(c)))
@@ -830,14 +1028,7 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 				return;
 			}
 		}
-		if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y))
-		{
-			const int t = dx;
-			dx = -dy;
-			dy = t;
-		}
-		x += dx;
-		y += dy;
+		spiralCell += spiral.Next();
 	}
 }
 
@@ -851,7 +1042,7 @@ int KeepLeaderWithinDomain(Context& ctx)
 	}
 	if (!PosWithinDomain(ctx, FlockPos(ctx)) || flock->leaderTurns >= ctx.info.stayTime)
 	{
-		const auto p = CalcRandomPos({flock->domainCentre.x, flock->domainCentre.z}, static_cast<float>(ctx.info.domainInnerRadius),
+		const auto p = CalcRandomPos(ctx, {flock->domainCentre.x, flock->domainCentre.z}, static_cast<float>(ctx.info.domainInnerRadius),
 		                             static_cast<float>(flock->domainRadius));
 		SetupMoveToPos(ctx, p, AnimalState::DecideWhatToDo);
 		flock->leaderTurns = 0;
@@ -870,7 +1061,7 @@ int KeepFlockMemberWithinFlockArea(Context& ctx)
 	{
 		return 1;
 	}
-	const auto p = CalcRandomPos(leader, 0.0f, flockDistance);
+	const auto p = CalcRandomPos(ctx, leader, 0.0f, flockDistance);
 	if (PosWithinDomain(ctx, p) || !PosWithinDomain(ctx, leader))
 	{
 		SetupMoveToPos(ctx, p, AnimalState::DecideWhatToDo);
@@ -883,6 +1074,7 @@ int KeepFlockMemberWithinFlockArea(Context& ctx)
 /// Animal::StartWander (0x417C90)
 void StartWander(Context& ctx)
 {
+	ctx.brain.moveState = k_MoveWander;
 	ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
 	SetSpeed(ctx, SpeedDefault(ctx));
 	SetTopState(ctx, AnimalState::Wander);
@@ -957,31 +1149,14 @@ void Wander(Context& ctx)
 	}
 }
 
-/// Animal::MoveToPos (0x41BAF0) -> Living::MoveToPos (0x5EC270) with MobileWallHug::MoveTo. openblack's animals go
-/// straight at the goal, turning like SetTowardsAngle (the wall hug round obstacles is not ported for them).
+/// Animal::MoveToPos (0x41BAF0) -> Living::MoveToPos (0x5EC270): MobileWallHug::MoveTo; arrived (0xA) ->
+/// SetTopStateToFinal (0x5ECA80). Like the original, a goal inside its turning circle can be circled for ever.
 void MoveToPos(Context& ctx)
 {
-	const glm::vec2 me = Xz(ctx.transform);
-	const glm::vec2 d = ctx.brain.goal - me;
-	const float distance = glm::length(d);
-	const float stepLength = Metres(ctx.brain.speed);
-	// openblack's safety: a goal it keeps circling (the turning limit) is reached after 100 s
-	if (distance <= stepLength || ctx.brain.turnsSinceStateChange > 1000)
+	if (MoveTo(ctx) == 0xA)
 	{
-		if (InBounds(ctx.brain.goal))
-		{
-			ctx.transform.position =
-			    glm::vec3(ctx.brain.goal.x, Locator::terrainSystem::value().GetHeightAt(ctx.brain.goal) + ctx.brain.altitude, ctx.brain.goal.y);
-			ctx.brain.movedLastTurn += distance;
-		}
-		// SetTopStateToFinal (0x5ECA80)
 		SetTopState(ctx, static_cast<AnimalState>(ctx.brain.finalState));
-		return;
 	}
-	SetTowardsAngle(ctx, AngleOf(d), distance);
-	ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
-	FaceAngle(ctx.transform, ctx.brain.angle);
-	MoveBy(ctx, ctx.brain.step);
 }
 
 /// Animal::StartToEat (0x418280): 15..24 eat clips; the grazers' Cow::StartToEat (0x41D4A0) then makes it 20..34
@@ -1045,14 +1220,28 @@ void Sleeps(Context& ctx)
 }
 
 /// Animal::GivesBirth (0x418230): a young one (age 1) of its kind joins the flock
+AnimalBrain& Initialise(entt::entity entity, const Animal& animal, const Transform& transform);
+void DecideWhatToDo(Context& ctx);
+
 void GivesBirth(Context& ctx)
 {
 	const auto position = ctx.transform.position;
 	const auto type = ctx.animal.type;
 	const auto town = ctx.animal.town;
 	const auto flock = ctx.animal.flock;
-	SetTopState(ctx, AnimalState::StartWander);
-	archetypes::AnimalArchetype::Create(position, type, town, flock, 1);
+	// fn_00419D10: the newborn (age 1) runs DecideWhatToDo at once, then the mother goes to START_WANDER
+	const auto born = archetypes::AnimalArchetype::Create(position, type, town, flock, 1);
+	auto& registry = Locator::entitiesRegistry::value();
+	if (born != entt::null && registry.AllOf<Animal, Transform>(born))
+	{
+		auto& bornAnimal = registry.Get<Animal>(born);
+		auto& bornTransform = registry.Get<Transform>(born);
+		auto& bornBrain = Initialise(born, bornAnimal, bornTransform);
+		Context child {born, bornAnimal, bornBrain, bornTransform, InfoOf(bornAnimal)};
+		DecideWhatToDo(child);
+	}
+	auto& mother = registry.Get<AnimalBrain>(ctx.entity);
+	SetTopState(ctx.entity, mother, AnimalState::StartWander);
 }
 
 /// Living::SetDying (0x5EC390): nothing while it flies
@@ -1099,6 +1288,11 @@ bool ProcessState(Context& ctx)
 	ctx.brain.movedLastTurn = 0.0f;
 	// Living::ProcessReaction (0x5F1270): the flight from a predator ends after its turns or when it has gone
 	ProcessReaction(ctx);
+	// fn_00417E90: a target that is no longer available is dropped
+	if (ctx.brain.target != entt::null && !Available(ctx.brain.target))
+	{
+		ctx.brain.target = entt::null;
+	}
 	if (StateInfo(ctx.brain.topState).field0xa4 != 0)
 	{
 		ProcessNeeds(ctx);
@@ -1132,7 +1326,7 @@ bool ProcessState(Context& ctx)
 		}
 		else if (auto* flock = FlockOf(ctx.animal); flock != nullptr)
 		{
-			flock->domainCentre = ctx.transform.position;
+			SetDomainCentre(*flock, ctx.transform.position);
 		}
 		PlayAnimThenSetState(ctx, AnimalState::InteractDecideWhatToDo);
 		break;
@@ -1271,7 +1465,8 @@ AnimalBrain& Initialise(entt::entity entity, const Animal& animal, const Transfo
 	const auto& info = InfoOf(animal);
 	auto& brain = registry.Assign<AnimalBrain>(entity);
 	brain.speed = static_cast<uint16_t>(std::min<uint32_t>(static_cast<uint32_t>(info.speedGroup.speedDefault), 0xFFFF));
-	brain.angle = AngleOfRotation(transform.rotation);
+	// MobileWallHug::SetToZero (0x60F760): game angle 0, facing +x; nothing at creation sets another
+	brain.angle = 0;
 	// Living::SetAge (0x5ED2C0): BirthTurn = the turn it would have been born to be this old
 	brain.birthTurn = static_cast<int32_t>(g_Turn) - static_cast<int32_t>(animal.age) * 1500;
 	// the Dove constructor's altitude (the archetype put it at the land + altitudeNormal)
@@ -1317,6 +1512,9 @@ void ProcessAnimalsTurn(float visualTime)
 	std::vector<entt::entity> animals;
 	registry.Each<const Animal, const Transform>(
 	    [&animals](entt::entity entity, const Animal&, const Transform&) { animals.push_back(entity); });
+	// the living list is walked newest first (the creation order; openblack's villagers still take their turn apart)
+	std::sort(animals.begin(), animals.end(),
+	          [](entt::entity a, entt::entity b) { return object_index::Of(a) > object_index::Of(b); });
 	std::vector<entt::entity> gone;
 	for (const auto entity : animals)
 	{
@@ -1350,6 +1548,7 @@ void ProcessAnimalsTurn(float visualTime)
 		Delete(entity);
 	}
 	ProcessDownedVillagers();
+	PruneReactions();
 	RunDebugHooks(g_Turn++);
 }
 
@@ -1397,21 +1596,25 @@ void PlaceInHand(entt::entity entity)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& animal = registry.Get<Animal>(entity);
-	// Flock::SeperateLivingIntoNewFlock (0x52FE10): a flock of its own with the old one's domain and distances,
-	// centred where it was picked up [inferred details]
-	if (auto* old = FlockOf(animal); old != nullptr && old->members.size() > 1)
+	// Flock::SeperateLivingIntoNewFlock (0x52FE10): RemoveLivingFromFlock (an emptied flock is deleted), then
+	// Flock::Flock(Living*) 0x52F950 where it was picked up with the old radius and distance: no town, max 0
+	if (auto* old = FlockOf(animal); old != nullptr)
 	{
-		const Flock copy = *old;
+		const auto oldEntity = animal.flock;
+		const uint16_t radius = old->domainRadius;
+		const uint16_t distance = old->flockDistance;
 		LeaveFlock(entity, animal);
+		if (old->members.empty())
+		{
+			registry.Destroy(oldEntity);
+		}
 		const auto flockEntity = registry.Create();
 		auto& flock = registry.Assign<Flock>(flockEntity);
 		flock.domainCentre = registry.Get<const Transform>(entity).position;
 		flock.savedDomainCentre = flock.domainCentre;
-		flock.domainRadius = copy.domainRadius;
-		flock.flockDistance = copy.flockDistance;
-		flock.town = copy.town;
+		flock.domainRadius = radius;
+		flock.flockDistance = distance;
 		flock.members.push_back(entity);
-		flock.maxMembers = 1;
 		animal.flock = flockEntity;
 	}
 	SetTopState(entity, *brain, AnimalState::InHand);
@@ -1427,7 +1630,7 @@ void InitialisePhysics(entt::entity entity)
 	}
 }
 
-void EndPhysics(entt::entity entity, const glm::mat3& rotation)
+void EndPhysics(entt::entity entity, const glm::mat3& rotation, const glm::mat3& turnStartRotation)
 {
 	auto* brain = BrainOf(entity);
 	if (brain == nullptr)
@@ -1435,8 +1638,8 @@ void EndPhysics(entt::entity entity, const glm::mat3& rotation)
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	// the landType from the body's right row y (po+0xD8): on its right side, its left side or its feet
-	const float right = rotation[0].y;
+	// the landType from the turn-start matrix's right row y (po+0xD8): on its right side, its left side or its feet
+	const float right = turnStartRotation[0].y;
 	const uint16_t landType = right > 0.5f ? 1 : (right < -0.5f ? 2 : 0);
 	// the heading of the body's forward row. The original adds pi to GetYAngle of that row; openblack builds the body
 	// from the drawn rotation, so the drawn yaw is kept as it is.
@@ -1487,7 +1690,7 @@ void PutDown(entt::entity entity)
 	auto& transform = registry.Get<Transform>(entity);
 	const float yaw = std::atan2(transform.rotation[2].x, transform.rotation[2].z);
 	transform.rotation = glm::mat3(glm::eulerAngleY(yaw));
-	EndPhysics(entity, transform.rotation);
+	EndPhysics(entity, transform.rotation, transform.rotation);
 }
 
 void DestroyedByEffect(entt::entity entity)

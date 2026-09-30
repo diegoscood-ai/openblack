@@ -47,6 +47,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/AnimalAI.h"
+#include "ECS/StoragePitStore.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
@@ -423,6 +424,20 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 		return Buildings::ReactToPhysicsImpact(entity, po);
 	}
 	const float g = po.GLoad();
+	// Animal::ReactToPhysicsImpact (0x41BC10): landing on an available food store it becomes food (info.foodValue)
+	if (const auto* animal = registry.TryGet<const Animal>(entity);
+	    animal != nullptr && po.hitBy != nullptr && registry.Valid(po.hitBy->entity) && registry.AllOf<StoragePit>(po.hitBy->entity) &&
+	    Locator::infoConstants::has_value())
+	{
+		const auto& info = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type));
+		const auto food = static_cast<uint32_t>(info.foodValue);
+		if (food > 0)
+		{
+			StoragePitStore::AddResource(po.hitBy->entity, ResourceType::Food, food);
+			ecs::animal_ai::Remove(entity);
+			return false;
+		}
+	}
 	if (registry.AnyOf<Villager, Animal>(entity))
 	{
 		// Living::ReactToPhysicsImpact 0x5ED3E0
@@ -467,17 +482,20 @@ entt::entity EndPhysics(PhysicsObject& po)
 	auto& registry = Locator::entitiesRegistry::value();
 	SyncTransform(po);
 	auto entity = po.entity;
+	// Object::EndPhysics (0x6375A0): its own flying-object reactions go (the predators fleeing from it stop)
+	ecs::animal_ai::EndReactionsOf(entity);
 	if (registry.AllOf<Animal>(entity))
 	{
 		// Animal::EndPhysics (0x5F0D80): the landType from the body, back on the land (altitude 0) and out of the
 		// physics; LANDED, or dying / dead. There is no drowning for animals (only a sunk corpse goes, HasSunk).
+		// the landType is read from the turn-start matrix (po+0xD8), the heading from the current one
 		const auto rotation = po.body.Rotation();
 		auto& transform = registry.Get<Transform>(entity);
 		if (Locator::terrainSystem::has_value())
 		{
 			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 		}
-		ecs::animal_ai::EndPhysics(entity, rotation);
+		ecs::animal_ai::EndPhysics(entity, rotation, po.turnStartRotation);
 		registry.SetDirty();
 		return entt::null;
 	}
@@ -596,6 +614,7 @@ void BeginTurn()
 			po.body.density += 0.01f; // corpses sink
 		}
 		po.forceSum = glm::vec3(0.0f);
+		po.turnStartRotation = po.body.Rotation();
 		po.body.lastHit = nullptr;
 		po.hitBy = nullptr;
 		++i;

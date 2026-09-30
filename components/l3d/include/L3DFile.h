@@ -65,7 +65,7 @@ enum class L3DMeshFlags : uint32_t
 	Unknown8 = 1U << 7U,                  // 0x80     (24)
 	HasBones = 1U << 8U,                  // 0x100    (23)
 	Unknown10 = 1U << 9U,                 // 0x200    (22)
-	Unknown11 = 1U << 10U,                // 0x400    (21)
+	HasChimney = 1U << 10U,               // 0x400    (21) extra point [1] (LH3DStaticObject::GetChimneyPos 0x7F9F10)
 	HasDoorPosition = 1U << 11U,          // 0x800    (20)
 	Packed = 1U << 12U,                   // 0x1000   (19)
 	NoDraw = 1U << 13U,                   // 0x2000   (18)

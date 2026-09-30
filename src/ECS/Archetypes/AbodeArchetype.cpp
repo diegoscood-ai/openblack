@@ -16,6 +16,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "ECS/ChimneySmoke.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
@@ -189,6 +190,13 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 		const auto half = box.Size() * 0.5f;
 		const float radius = scale * std::max(half.x, half.z);
 		registry.Get<Transform>(entity).position.y = ground + std::max(lowest, -std::max(0.2f * radius, 0.8f));
+	}
+
+	// Abode::CallVirtualFunctionsForCreation 0x403200: the smoke of a mesh with a chimney, at its final place
+	if (const auto& meshes = Locator::resources::value().GetMeshes(); meshes.Contains(resourceId))
+	{
+		ecs::chimney_smoke::Attach(entity, *meshes.Handle(resourceId), registry.Get<Transform>(entity),
+		                           info.abodeType == AbodeType::Workshop);
 	}
 
 	// Create Fixed component with a 2d bounding circle

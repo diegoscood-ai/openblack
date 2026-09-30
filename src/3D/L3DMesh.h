@@ -44,7 +44,7 @@ constexpr std::array<std::string_view, 32> k_L3DMeshFlagNames {
     "Unknown8",
     "HasBones",
     "Unknown10",
-    "Unknown11",
+    "HasChimney",
     "HasDoorPosition",
     "Packed",
     "NoDraw",
@@ -112,6 +112,8 @@ public:
 	[[nodiscard]] const std::vector<uint32_t>& GetBoneParents() const { return _bonesParents; }
 	[[nodiscard]] const std::vector<glm::mat4>& GetBoneMatrices() const { return _bonesDefaultMatrices; }
 	[[nodiscard]] const std::optional<glm::vec3>& GetDoorPos() const { return _doorPos; }
+	/// The chimney (flag HasChimney 0x400): extra point [1] in the mesh space (LH3DStaticObject::GetChimneyPos 0x7F9F10)
+	[[nodiscard]] const std::optional<glm::vec3>& GetChimneyPos() const { return _chimneyPos; }
 	[[nodiscard]] const std::vector<glm::mat4>& GetExtraMetrics() const { return _extraMetrics; }
 	/// Ground blob points of the EBone block (animals): bone index and position in that bone's space, 2 or 4 of them
 	[[nodiscard]] const std::vector<std::pair<uint32_t, glm::vec3>>& GetBlobPoints() const { return _blobPoints; }
@@ -135,6 +137,7 @@ private:
 	std::vector<uint32_t> _bonesParents;
 	std::vector<glm::mat4> _bonesDefaultMatrices;
 	std::optional<glm::vec3> _doorPos;
+	std::optional<glm::vec3> _chimneyPos;
 	std::vector<glm::mat4> _extraMetrics;
 	std::vector<std::pair<uint32_t, glm::vec3>> _blobPoints;
 	/// Bounding box if no physics mesh was found
@@ -154,6 +157,7 @@ public:
 
 	[[nodiscard]] bool IsBoned() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::HasBones); }
 	[[nodiscard]] bool HasDoorPosition() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::HasDoorPosition); }
+	[[nodiscard]] bool HasChimney() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::HasChimney); }
 	[[nodiscard]] bool IsPacked() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::Packed); }
 	[[nodiscard]] bool IsNoDraw() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::NoDraw); }
 	[[nodiscard]] bool ContainsLandscapeFeature() const

@@ -45,7 +45,7 @@ la misma carpeta (`anm.py`, `pack.py`, `l3d.py`, `gen_state_fns.py`).
 
 ## Velocidad de marcha
 
-`dev	mp_disnim\speed_units.md`: 1 unidad del mundo = 1 m (MapCoords 6553,6 por metro). El u16 de velocidad
+`dev\tmp_dis\anim\speed_units.md`: 1 unidad del mundo = 1 m (MapCoords 6553,6 por metro). El u16 de velocidad
 (+0x5A) es lo que avanza **por turno** en MapCoords (`GetSpeedInMetres` 0x60C070 = u16 / 6553,6), y las tablas de
 info.dat (speedGroup) están en esas unidades: 1475 = 0,225 m/turno = 2,25 m/s. openblack movía `WallHug::speed` =
 2,25 por turno (10 veces demasiado rápido): ahora es m/s × 0,1. Un hombre normal da 2,25 / 1,16 ≈ 1,94 ciclos de
@@ -54,7 +54,7 @@ paso por segundo, con los pies sincronizados (el clip avanza con la misma distan
 
 ## Sonidos de los clips
 
-`Audio/AnimationSounds` (investigación `dev	mp_disnim\sounds_props.md`): `Data\SmallSounds.SAS` da a 115 clips un
+`Audio/AnimationSounds` (investigación `dev\tmp_dis\anim\sounds_props.md`): `Data\SmallSounds.SAS` da a 115 clips un
 grupo de sonido (1 personas, 18 vaca, 36 cerdo, 39 oveja, 40 caballo...) y eventos `ms soundId acción`. Al cruzar un
 evento, la clave {voz (1 hombre, 2 mujer, 3 niño), 2, grupo, superficie, soundId} elige una fila de la
 `LHAudioAnimArrayTable` de editor.sad (la de más columnas exactas; empate: la última) y una muestra al azar de su lista

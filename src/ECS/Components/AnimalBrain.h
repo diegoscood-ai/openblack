@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include <entt/entity/entity.hpp>
 #include <glm/vec2.hpp>
 
 namespace openblack::ecs::components
@@ -42,8 +43,22 @@ struct AnimalBrain
 	int16_t breed {0};
 	/// +0x104 / +0x106: the sleep place, the flock's domain centre cell at creation; (0, 0) = none
 	glm::u16vec2 sleepCell {0};
-	/// +0xB4: bit 0 dying / dead, bits 4-5 the landType of the last landing (Animal::EndPhysics)
+	/// +0xB4: bit 0 dying / dead, bits 4-5 the landType of the last landing (Animal::EndPhysics), 0x80 downed by a predator
 	uint16_t status {0};
+	/// +0x60: the hunting target (a predator's prey)
+	entt::entity target {entt::null};
+	/// +0xF4 / +0xF8: the cell (centre) of a prey seen, (0, 0) = none
+	glm::vec2 preyCell {0.0f};
+	/// +0xF0: the game turn the chase started (chaseTime)
+	uint32_t chaseStart {0};
+	/// +0xFC: what it eats (a predator's downed prey)
+	entt::entity foodTarget {entt::null};
+	/// +0xBC: the predator it flees from (reaction 28), +0x94 reacting, the turn it started, the state to go back to
+	/// (+0x8E, StorePreviousState)
+	entt::entity predator {entt::null};
+	bool reacting {false};
+	uint32_t reactStart {0};
+	uint8_t previousState {0};
 	/// the ground covered in the last turn (Object::IsMoving: the clip advances by distance while it moves)
 	float movedLastTurn {0.0f};
 };

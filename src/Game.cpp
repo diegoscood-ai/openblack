@@ -354,7 +354,7 @@ bool Game::GameLogicLoop() noexcept
 		auto actions = profiler.BeginScoped(Profiler::Stage::LivingActionUpdate);
 		Locator::livingActionSystem::value().Update();
 		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
-		ecs::animal_ai::ProcessAnimalsTurn();
+		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
 
 	{

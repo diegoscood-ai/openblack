@@ -23,6 +23,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
+#include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Components/Animal.h"
@@ -48,25 +49,8 @@ using components::Flock;
 using components::Life;
 using components::Transform;
 
-namespace
+namespace detail
 {
-constexpr float k_MapCoordsPerMetre = 6553.6f;
-constexpr int32_t k_Circle = 2048;
-/// the returns of the original's "did something" tests (ReactToAnimalNeeds, KeepLeaderWithinDomain...)
-constexpr int k_Started = 0x23;
-constexpr int k_Nothing = 0x24;
-/// Living::GetNumTurnsToDieOver (0x5EC3E0)
-constexpr int16_t k_TurnsToDieOver = 600;
-
-struct Context
-{
-	entt::entity entity;
-	Animal& animal;
-	AnimalBrain& brain;
-	Transform& transform;
-	const GAnimalInfo& info;
-};
-
 const GAnimalInfo& InfoOf(const Animal& animal)
 {
 	return Locator::infoConstants::value().animal.at(static_cast<size_t>(animal.type));
@@ -93,6 +77,29 @@ bool IsGrazer(AnimalInfo type)
 		return false;
 	}
 }
+
+Hunter HunterOf(AnimalInfo type)
+{
+	switch (type)
+	{
+	case AnimalInfo::Lion:
+	case AnimalInfo::Leopard:
+	case AnimalInfo::PuzzleLion:
+		return Hunter::Cat;
+	case AnimalInfo::Tiger:
+		return Hunter::Tiger;
+	case AnimalInfo::Wolf:
+	case AnimalInfo::PuzzleWolf:
+		return Hunter::Wolf;
+	default:
+		return Hunter::None;
+	}
+}
+
+/// GGameInfo::GetVisualTime (hours) of this turn
+float g_VisualTime = 12.0f;
+/// g_game+0x205A40, the game turn
+uint32_t g_Turn = 0;
 
 // ---- MapCoords and the angle tables ----
 
@@ -192,6 +199,28 @@ bool Collides(glm::vec2 p)
 		}
 	}
 	return false;
+}
+
+/// fn_0074F310: uniform in a square of that side around c (half - GameFloatRand(size) per axis)
+glm::vec2 SquarePos(glm::vec2 c, float size)
+{
+	auto& rng = Locator::rng::value();
+	const float half = size * 0.5f;
+	const float x = size > 0.0f ? rng.NextValue(0.0f, size) : 0.0f;
+	const float z = size > 0.0f ? rng.NextValue(0.0f, size) : 0.0f;
+	return c + glm::vec2(half - x, half - z);
+}
+
+/// Object::IsAvailable [inferred]: still there, not in the hand and not flying
+bool Available(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(entity) || !registry.AllOf<Transform>(entity) || physics::PhysicsObjects::IsFlying(entity))
+	{
+		return false;
+	}
+	const auto* brain = registry.TryGet<const AnimalBrain>(entity);
+	return brain == nullptr || static_cast<AnimalState>(brain->topState) != AnimalState::InHand;
 }
 
 /// Living::CalcRandomPos (0x5ED080): up to 25 tries in the ring rMin..rMax around c, in bounds and free
@@ -594,8 +623,32 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 	return false;
 }
 
+/// Animal::CheckNeeds (0x418450): 3 ready to breed (else the breed counter restarts when the flock is full), 1 hungry,
+/// 2 sleepy, 0 none
+int CheckNeeds(Context& ctx)
+{
+	if (ctx.info.needToBreed != 0 && ctx.brain.breed >= static_cast<int32_t>(ctx.info.needToBreed))
+	{
+		const auto* flock = FlockOf(ctx.animal);
+		if (flock != nullptr && flock->maxMembers > flock->members.size())
+		{
+			return 3;
+		}
+		ctx.brain.breed = 0;
+	}
+	if (ctx.info.hunger != 0 && ctx.brain.hunger >= static_cast<int32_t>(ctx.info.hunger))
+	{
+		return 1;
+	}
+	if (ctx.info.sleep != 0 && ctx.brain.sleep >= static_cast<int32_t>(ctx.info.sleep))
+	{
+		return 2;
+	}
+	return 0;
+}
+
 /// Cow::ReactToAnimalNeeds (0x41D310): breeding, then hunger, then sleep
-int ReactToAnimalNeeds(Context& ctx)
+int CowReactToAnimalNeeds(Context& ctx)
 {
 	const auto* flock = FlockOf(ctx.animal);
 	if (ctx.info.needToBreed != 0 && ctx.animal.age >= ctx.info.grownUpAge)
@@ -634,6 +687,12 @@ int ReactToAnimalNeeds(Context& ctx)
 		return k_Started;
 	}
 	return k_Nothing;
+}
+
+/// vt+0xBBC: the grazers' (Cow) or the predators' (Animal / Wolf) ReactToAnimalNeeds
+int ReactToAnimalNeeds(Context& ctx)
+{
+	return HunterOf(ctx.animal.type) != Hunter::None ? PredatorReactToAnimalNeeds(ctx) : CowReactToAnimalNeeds(ctx);
 }
 
 /// Living::KeepLeaderWithinDomain (0x41AAD0): the leader takes the herd to a new place every stayTime turns
@@ -689,20 +748,21 @@ void StartWander(Context& ctx)
 /// Cow::DecideWhatToDo (0x41D1B0)
 void DecideWhatToDo(Context& ctx)
 {
+	if (HunterOf(ctx.animal.type) != Hunter::None)
+	{
+		PredatorDecideWhatToDo(ctx);
+		return;
+	}
 	if (!IsGrazer(ctx.animal.type))
 	{
-		return; // the predators' own DecideWhatToDo (hunting) is not done yet: they stand
+		return;
 	}
 	// Animal::CheckNeeds (0x418450) == 3: ready to breed
-	if (ctx.info.needToBreed != 0 && ctx.brain.breed >= static_cast<int32_t>(ctx.info.needToBreed))
+	if (CheckNeeds(ctx) == 3)
 	{
-		const auto* flock = FlockOf(ctx.animal);
 		ctx.brain.breed = 0;
-		if (flock != nullptr && flock->maxMembers > flock->members.size())
-		{
-			SetTopState(ctx, AnimalState::GivesBirth);
-			return;
-		}
+		SetTopState(ctx, AnimalState::GivesBirth);
+		return;
 	}
 	// LookForFlocksInSpiral with the info's flocksCanMerge: 0 for every grazer, nothing
 	if (FlockOf(ctx.animal) != nullptr)
@@ -767,12 +827,15 @@ void MoveToPos(Context& ctx)
 	MoveBy(ctx, ctx.brain.step);
 }
 
-/// Cow::StartToEat (0x41D4A0) over Animal::StartToEat (0x418280): 20..34 eat clips
+/// Animal::StartToEat (0x418280): 15..24 eat clips; the grazers' Cow::StartToEat (0x41D4A0) then makes it 20..34
 void StartToEat(Context& ctx)
 {
 	auto& rng = Locator::rng::value();
 	ctx.brain.counter = static_cast<int16_t>(rng.NextValue<uint32_t>(0, 9) + 15);
-	ctx.brain.counter = static_cast<int16_t>(rng.NextValue<uint32_t>(0, 14) + 20);
+	if (IsGrazer(ctx.animal.type))
+	{
+		ctx.brain.counter = static_cast<int16_t>(rng.NextValue<uint32_t>(0, 14) + 20);
+	}
 	SetSpeed(ctx, SpeedDefault(ctx));
 	PlayAnimThenSetState(ctx, AnimalState::Eat);
 }
@@ -784,14 +847,22 @@ void Eat(Context& ctx)
 	{
 		PlayAnimThenSetState(ctx, AnimalState::FinishEating);
 		ctx.brain.hunger = 0;
+		ctx.brain.foodTarget = entt::null;
 	}
 	else
 	{
 		PlayAnimThenSetState(ctx, AnimalState::Eat);
 	}
+	// Lion::Eat (0x41FE40), every predator: its prey is gone (also once the meal is over: then the up-from-eat clip
+	// never shows, straight to DECIDE)
+	if (HunterOf(ctx.animal.type) != Hunter::None && !Available(ctx.brain.foodTarget))
+	{
+		ctx.brain.counter = 0;
+		SetTopState(ctx, AnimalState::DecideWhatToDo);
+	}
 }
 
-/// Animal::SeekSleep (0x4180D0): to a spot around its sleep cell, 2 m per flock member [inferred: fn_0074F310 random]
+/// Animal::SeekSleep (0x4180D0): to a spot in a square around its sleep cell, 2 m per flock member (fn_0074F310)
 void SeekSleep(Context& ctx)
 {
 	if (ctx.brain.sleepCell == glm::u16vec2(0))
@@ -800,9 +871,9 @@ void SeekSleep(Context& ctx)
 		return;
 	}
 	const auto* flock = FlockOf(ctx.animal);
-	const float radius = 2.0f * static_cast<float>(flock != nullptr ? flock->members.size() : 1);
+	const float size = 2.0f * static_cast<float>(flock != nullptr ? flock->members.size() : 1);
 	const auto centre = MapInterface::GetCellCenter(ctx.brain.sleepCell);
-	SetupMoveToPos(ctx, CalcRandomPos(centre, 0.0f, radius), AnimalState::Sleeps);
+	SetupMoveToPos(ctx, SquarePos(centre, size), AnimalState::Sleeps);
 }
 
 /// Animal::Sleeps (0x418330): the sleep counter runs down by 2 a turn (ProcessNeeds adds 1)
@@ -856,18 +927,33 @@ bool ProcessState(Context& ctx)
 {
 	++ctx.brain.turnsSinceStateChange;
 	ctx.brain.movedLastTurn = 0.0f;
+	// Living::ProcessReaction (0x5F1270): the flight from a predator ends after its turns or when it has gone
+	ProcessReaction(ctx);
 	if (StateInfo(ctx.brain.topState).field0xa4 != 0)
 	{
 		ProcessNeeds(ctx);
 	}
+	// what it was eating has gone
+	if (ctx.brain.foodTarget != entt::null && !Available(ctx.brain.foodTarget))
+	{
+		ctx.brain.foodTarget = entt::null;
+		ctx.brain.counter = 0;
+		SetTopState(ctx, AnimalState::DecideWhatToDo);
+		return false;
+	}
+	const bool walker = IsGrazer(ctx.animal.type) || HunterOf(ctx.animal.type) != Hunter::None;
 	switch (static_cast<AnimalState>(ctx.brain.topState))
 	{
 	case AnimalState::MoveToPos:
 		MoveToPos(ctx);
 		break;
 	case AnimalState::Landed:
-		// Animal::Landed (0x417D50): CalculeLairPos, the flock now centres where it landed
-		if (auto* flock = FlockOf(ctx.animal); flock != nullptr)
+		// Animal::Landed (0x417D50): CalculeLairPos, the flock now centres where it landed (the predators: their lair)
+		if (HunterOf(ctx.animal.type) != Hunter::None)
+		{
+			CalculeLairPos(ctx);
+		}
+		else if (auto* flock = FlockOf(ctx.animal); flock != nullptr)
 		{
 			flock->domainCentre = ctx.transform.position;
 		}
@@ -891,10 +977,36 @@ bool ProcessState(Context& ctx)
 		break;
 	case AnimalState::MoveInFlock:
 	case AnimalState::StartWander:
-		if (IsGrazer(ctx.animal.type))
+		if (walker)
 		{
 			StartWander(ctx);
 		}
+		break;
+	case AnimalState::HuntingMoveToPos:
+		HuntingMoveToPos(ctx);
+		break;
+	case AnimalState::TargetPounce:
+		TargetPounce(ctx);
+		break;
+	case AnimalState::Downed:
+		// Living::Downed (0x5EC4B0): the Dying clip, then being eaten for 300 turns
+		PlayAnimThenSetState(ctx, AnimalState::BeingEaten);
+		ctx.brain.counter = 300;
+		break;
+	case AnimalState::BeingEaten:
+		BeingEaten(ctx);
+		break;
+	case AnimalState::HideInLair:
+		HideInLair(ctx);
+		break;
+	case AnimalState::FleeingFromPredatorReaction:
+		FleeingFromPredatorReaction(ctx);
+		break;
+	case AnimalState::FleeingFromObjectReaction:
+		FleeingFromObjectReaction(ctx);
+		break;
+	case AnimalState::FleeingAndLookingAtObjectReaction:
+		FleeingAndLookingReaction(ctx);
 		break;
 	case AnimalState::Wander:
 		Wander(ctx);
@@ -919,7 +1031,7 @@ bool ProcessState(Context& ctx)
 		break;
 	case AnimalState::InteractDecideWhatToDo:
 		// LookForFlocksInSpiral(merge = 1) (flock merging not done), then StartWander
-		if (IsGrazer(ctx.animal.type))
+		if (walker)
 		{
 			StartWander(ctx);
 		}
@@ -969,14 +1081,17 @@ void Delete(entt::entity entity)
 	registry.Destroy(entity);
 	registry.SetDirty();
 }
-} // namespace
+} // namespace detail
 
-void ProcessAnimalsTurn()
+using namespace detail;
+
+void ProcessAnimalsTurn(float visualTime)
 {
 	if (!Locator::infoConstants::has_value() || !Locator::terrainSystem::has_value())
 	{
 		return;
 	}
+	g_VisualTime = visualTime;
 	auto& registry = Locator::entitiesRegistry::value();
 	std::vector<entt::entity> animals;
 	registry.Each<const Animal, const Transform>(
@@ -991,11 +1106,19 @@ void ProcessAnimalsTurn()
 		auto& animal = registry.Get<Animal>(entity);
 		auto& transform = registry.Get<Transform>(entity);
 		auto* brain = registry.TryGet<AnimalBrain>(entity);
-		if (brain == nullptr)
+		const bool fresh = brain == nullptr;
+		if (fresh)
 		{
 			brain = &Initialise(entity, animal, transform);
 		}
 		Context ctx {entity, animal, *brain, transform, InfoOf(animal)};
+		// fn_00419C20: a predator made without a flock gets its lair (CalculeLairPos), which is also its sleep place
+		if (const auto* flock = FlockOf(animal);
+		    fresh && flock != nullptr && flock->id < 0 && flock->members.size() == 1 && HunterOf(animal.type) != Hunter::None)
+		{
+			CalculeLairPos(ctx);
+			brain->sleepCell = CellOf({flock->domainCentre.x, flock->domainCentre.z});
+		}
 		if (ProcessState(ctx))
 		{
 			gone.push_back(entity);
@@ -1005,8 +1128,7 @@ void ProcessAnimalsTurn()
 	{
 		Delete(entity);
 	}
-	static uint32_t turn = 0;
-	RunDebugHooks(turn++);
+	RunDebugHooks(g_Turn++);
 }
 
 AnimalState TopState(entt::entity entity)
@@ -1027,7 +1149,7 @@ bool ValidForPlaceInHand(entt::entity entity)
 	return animal == nullptr || !Locator::infoConstants::has_value() || InfoOf(*animal).playerCanPickUp != 0;
 }
 
-namespace
+namespace detail
 {
 AnimalBrain* BrainOf(entt::entity entity)
 {
@@ -1042,7 +1164,7 @@ AnimalBrain* BrainOf(entt::entity entity)
 	}
 	return &Initialise(entity, registry.Get<const Animal>(entity), registry.Get<const Transform>(entity));
 }
-} // namespace
+} // namespace detail
 
 void PlaceInHand(entt::entity entity)
 {

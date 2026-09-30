@@ -14,6 +14,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <fmt/format.h>
 
@@ -29,6 +30,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 
 namespace openblack::ecs::animal_ai
@@ -45,7 +47,13 @@ std::optional<entt::entity> NthAnimal(int wanted)
 	auto& registry = Locator::entitiesRegistry::value();
 	std::optional<entt::entity> found;
 	int index = 0;
-	registry.Each<const Animal, const Transform>([&](entt::entity e, const Animal&, const Transform&) {
+	// OPENBLACK_TEST_ANIMAL_SPECIES=<AnimalInfo>: count only that species
+	static const char* species = std::getenv("OPENBLACK_TEST_ANIMAL_SPECIES");
+	registry.Each<const Animal, const Transform>([&](entt::entity e, const Animal& animal, const Transform&) {
+		if (species != nullptr && static_cast<int>(animal.type) != std::atoi(species))
+		{
+			return;
+		}
 		if (!found && index++ == wanted)
 		{
 			found = e;
@@ -60,6 +68,10 @@ std::optional<entt::entity> NthAnimal(int wanted)
 ///   metres (default 6), from that side (degrees around it, 0 = +z), slightly above; again every that many turns.
 /// - OPENBLACK_TEST_THROW_ANIMAL="n,turn[,vx,vy,vz]": at that turn the n-th animal is thrown with that velocity.
 /// - OPENBLACK_TEST_KILL_ANIMAL="n,turn": at that turn the n-th animal loses its life (DestroyedByEffect).
+/// - OPENBLACK_TEST_ANIMAL_SPECIES=<AnimalInfo>: n counts only the animals of that species (4 sheep, 8 cow...).
+/// - OPENBLACK_TEST_HUNGRY=<AnimalInfo>: at turn 1 every animal of that species is hungry (0 lion, 1 tiger, 2 wolf).
+/// - OPENBLACK_TEST_SPREAD_REACTIONS=<turn>: at that turn every predator spreads its flee reaction again (what the
+///   original's disabled Reaction::ProcessReactions would do).
 /// - OPENBLACK_ANIMAL_TRACE=1: every state change, and every 50 turns how many animals are in each state.
 void RunDebugHooks(uint32_t turn)
 {
@@ -117,6 +129,27 @@ void RunDebugHooks(uint32_t turn)
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: animal {} (entity {}) killed", wanted, static_cast<uint32_t>(*e));
 			}
 		}
+	}
+	if (const char* hungry = std::getenv("OPENBLACK_TEST_HUNGRY"); hungry != nullptr && turn == 1)
+	{
+		const int wanted = std::atoi(hungry);
+		registry.Each<const Animal, AnimalBrain>([wanted](entt::entity, const Animal& animal, AnimalBrain& brain) {
+			if (static_cast<int>(animal.type) == wanted)
+			{
+				brain.hunger = static_cast<int16_t>(Locator::infoConstants::value().animal.at(static_cast<size_t>(wanted)).hunger);
+			}
+		});
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: species {} hungry", wanted);
+	}
+	if (const char* spread = std::getenv("OPENBLACK_TEST_SPREAD_REACTIONS"); spread != nullptr && turn == static_cast<uint32_t>(std::atoi(spread)))
+	{
+		std::vector<entt::entity> animals;
+		registry.Each<const Animal>([&animals](entt::entity e, const Animal&) { animals.push_back(e); });
+		for (const auto e : animals)
+		{
+			SpreadPredatorReaction(e);
+		}
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animal test: predator reactions spread");
 	}
 	if (std::getenv("OPENBLACK_ANIMAL_TRACE") != nullptr && turn % 50 == 0)
 	{

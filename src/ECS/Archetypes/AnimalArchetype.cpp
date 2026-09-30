@@ -15,6 +15,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/DetailMeshes.h"
 #include "ECS/Components/Flock.h"
@@ -122,6 +123,8 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	// high one, mod graphics.hd-tweaks)
 	registry.Assign<Mesh>(entity, resources::HashIdentifier(ecs::detail_meshes::Animal(info)), static_cast<int8_t>(0),
 	                      static_cast<int8_t>(0));
+	// fn_0041FD30: a predator's flee-from-predator reaction, spread once to the animals already around it
+	ecs::animal_ai::SpreadPredatorReaction(entity);
 	return entity;
 }
 

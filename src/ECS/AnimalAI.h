@@ -19,8 +19,9 @@ namespace openblack::ecs::animal_ai
 
 /// The animals' per-turn AI like the original (docs/bw1-notes/animals.md; research dev\tmp_dis\animals\grazing_ai.md,
 /// hand_death.md): Animal::ProcessState (0x417EE0) and the states of g_AnimalStateTable (0xD12108). The grazing
-/// species (sheep, tortoise, cow, horse, pig) wander in their herd, graze, sleep and breed; the hand, the physics and
-/// death work for every ground species. The predators' hunting and the birds' flight are not done yet.
+/// species (sheep, tortoise, cow, horse, pig) wander in their herd, graze, sleep and breed; the predators (lion, tiger,
+/// leopard, wolf; ECS/AnimalPredators.cpp) also stalk, chase, pounce on and eat other animals; the hand, the physics and
+/// death work for every ground species. The birds' flight is not done yet.
 
 /// g_AnimalStateTable's states: 0..30 are LivingStates, 31..52 the animal ones
 enum class AnimalState : uint8_t
@@ -28,6 +29,8 @@ enum class AnimalState : uint8_t
 	Invalid = 0,
 	MoveToPos = 1,
 	InScript = 4,
+	FleeingFromObjectReaction = 6,
+	LookingAtObjectReaction = 7,
 	Flying = 10,
 	Landed = 11,
 	SetDying = 13,
@@ -37,6 +40,7 @@ enum class AnimalState : uint8_t
 	Downed = 17,
 	BeingEaten = 18,
 	WaitForAnimation = 23,
+	FleeingAndLookingAtObjectReaction = 30,
 	InHand = 24,
 	MoveInFlock = 27,
 	StartWander = 31,
@@ -63,8 +67,13 @@ enum class AnimalState : uint8_t
 	SeekFood = 52,
 };
 
-/// One game turn for every animal (Living::ProcessLiving -> Animal::ProcessState), after the villagers
-void ProcessAnimalsTurn();
+/// One game turn for every animal (Living::ProcessLiving -> Animal::ProcessState), after the villagers.
+/// `visualTime`: GGameInfo::GetVisualTime in hours (the big cats go to bed after 22:00, wolves hunt after 23:00)
+void ProcessAnimalsTurn(float visualTime);
+
+/// Reaction::CreateReaction(predator, 28) at a predator's construction (fn_0041FD30 0x41FD5C): the flee-from-predator
+/// reaction is spread once, then, to the animals within 25 m (the per-turn re-spreading is off in the shipped game)
+void SpreadPredatorReaction(entt::entity predator);
 
 /// The top state (DECIDE_WHAT_TO_DO before the animal's first turn)
 [[nodiscard]] AnimalState TopState(entt::entity entity);

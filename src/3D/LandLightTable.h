@@ -40,6 +40,8 @@ public:
 	/// RGBA8 texels of the current table
 	[[nodiscard]] const std::array<uint32_t, k_Size>& GetTexels() const noexcept { return _texels; }
 	[[nodiscard]] glm::vec3 GetColour(size_t index) const noexcept;
+	/// table[index] as the original's D3DCOLOR 0xAARRGGBB (the clouds read table[255], [0xEDDD08], as integers)
+	[[nodiscard]] uint32_t GetRaw(size_t index) const noexcept { return _table[index]; }
 	/// The base colour of this frame ([0xFA26A4], after the overcast cap), 0..1
 	[[nodiscard]] glm::vec3 GetBaseColour() const noexcept;
 

@@ -140,6 +140,16 @@ original, hasta el sexto decimal.
 
 ## Clima
 
-Pendiente (siguiente tema): nubes (`CloudInSky`, hecho en parte; ver rendering.md), `GClimate` (temperatura, lluvia,
+- Nubes del cielo (`CloudInSky`): hechas, ver [rendering.md](rendering.md) (colocación, color por hora y alineación,
+  alineación del cielo suavizada 0,001/ms). Lo que depende del tiempo va por `Clouds::WeatherOvercastAtCamera()` (hoy 0).
+- **Nubes de tormenta** (sin hacer; informe `tmp_dis\daynight\gweather_drawclouds.txt`,
+  `tmp_dis\mapa\clouds_placement.md`): `GClimate::CreateStorm` 0x772E00 → `GWeather` 0x83F590 → `DrawClouds`
+  0x83FC90, un grupo de hasta 16 bolas (8 por defecto, `CHANGE_CLOUD_PROPERTIES` cambia número, negrura y altura) en
+  lx, lz ∈ −1..1, ly ∈ −10..10 + altura; cada 400 fotogramas un objetivo nuevo (ly 0..20 + altura), 1/400 del camino
+  por fotograma; mundo X = R·lx/2 + cx, Z = R·lz/2 + cz, Y = suelo + ly con R = radio(t) + radio2; tamaño R·2·Random(0,01,
+  0,015); color [0xFA26A4]·(1 − 0,5·negrura), alfa·intensidad·0,75, con neblina; no se dibujan con alfa ≤ 5. Son los
+  únicos grupos de nubes del original.
+
+Pendiente (siguiente tema): `GClimate` (temperatura, lluvia,
 nieve y tormentas), `LH3DAtmos::Render3D` (lluvia/nieve por casillas de 80×80), relámpagos, tiempo nublado en la tabla
 de luz y la neblina.

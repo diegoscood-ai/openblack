@@ -829,8 +829,8 @@ void Renderer::UpdateLandLight() const
 	{
 		return;
 	}
-	// TODO: weather (the original caps the base colour with the overcast amount at the camera) and lightning flashes
-	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), Locator::config::value().skyAlignment, 0.0f);
+	// TODO: lightning flashes (the table lerps to white); the overcast at the camera caps the base colour
+	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(), Clouds::WeatherOvercastAtCamera());
 	const auto& texels = _landLight->GetTexels();
 	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
 	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(texels[0]))));
@@ -1093,9 +1093,14 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 void Renderer::UpdateClouds() const
 {
 	const auto& detail = GetDetailLevel(Locator::config::value().detailLevel);
-	if (!_clouds)
+	// GLandscape::Open -> CloudInSky::Open: a new layout for every land
+	if (!_clouds || _cloudsGeneration != Clouds::GetLandscapeGeneration())
 	{
 		_clouds = std::make_unique<Clouds>();
+		_cloudsGeneration = Clouds::GetLandscapeGeneration();
+	}
+	if (_cloudShadowImage.empty())
+	{
 		try
 		{
 			auto& fileSystem = Locator::filesystem::value();
@@ -1114,24 +1119,27 @@ void Renderer::UpdateClouds() const
 	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
 	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
 	lastTime = now;
-	if (Game::Instance() != nullptr && !Game::Instance()->IsPaused())
+	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
+	if (running)
 	{
 		_clouds->Update(milliseconds);
 	}
+	// DrawClouds advances the animation counters of the clouds it draws by this step
+	_cloudMilliseconds = running ? milliseconds : 0.0f;
+	// GLandAlignement::DrawSky 0x5E2160: the sky's alignment moves towards the most influential player's
+	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), running ? milliseconds : 0.0f);
 
-	// Colour and alpha from the land alignment (fn_005E1DE0): good 0x00FFFFFF, neutral 0xC8FFFFFF, evil 0xFFAAA066,
-	// lerped by the alignment, x light table[255], then c * 186 / 256 + 35
-	const float x = std::clamp(1.0f - Locator::config::value().skyAlignment, 0.0f, 2.0f);
-	const glm::vec4 good(1.0f, 1.0f, 1.0f, 0.0f);
-	const glm::vec4 neutral(1.0f, 1.0f, 1.0f, 200.0f / 255.0f);
-	const glm::vec4 evil(glm::vec3(0xAA, 0xA0, 0x66) / 255.0f, 1.0f);
-	const auto alignColour = x < 1.0f ? glm::mix(good, neutral, x) : glm::mix(neutral, evil, x - 1.0f);
-	const auto light = _landLight && _landLight->IsLoaded() ? _landLight->GetColour(255) : glm::vec3(1.0f);
-	_cloudRgb = (glm::vec3(alignColour) * light * 255.0f * 186.0f / 256.0f + 35.0f) / 255.0f;
+	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
+	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t colour = Clouds::Colour(_skyAlignment.Get(), table255);
+	_cloudRgb = glm::vec3((colour >> 16) & 0xFFu, (colour >> 8) & 0xFFu, colour & 0xFFu) / 255.0f;
+	const auto alignAlpha = static_cast<int>(colour >> 24);
 	_cloudAlpha.resize(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _cloudAlpha.size(); ++i)
 	{
-		_cloudAlpha[i] = detail.clouds ? alignColour.a * Clouds::EdgeAlpha(_clouds->GetClouds()[i]) : 0.0f;
+		// fn_005E25C0: alpha = edge * A / 255 in integers (0x80808081), drawn only when it is not 0
+		_cloudAlpha[i] =
+		    detail.clouds ? static_cast<float>(Clouds::EdgeAlpha(_clouds->GetClouds()[i]) * alignAlpha / 255) : 0.0f;
 	}
 
 	// shadows into the luminosity cap (same cell layout as the island's cell map)
@@ -1196,9 +1204,12 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	}
 	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
 
-	const int frame = _clouds->GetFrame();
-	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
-	                        210.0f / 256.0f, 0.0f);
+	// LH3DMist::AddDrawing 0x7FA7F0 (vt+0x100 of the cloud objects, called by fn_005E25C0): only a cloud whose sphere
+	// (the mesh's bounding-box half diagonal x size x 0.55) touches the screen is drawn and advances its counter
+	const float meshRadius = glm::length(mesh.GetBoundingBox().Size()) * 0.5f;
+	const auto viewProjection = camera.GetViewProjectionMatrix(Camera::Interpolation::Current);
+	const float milliseconds = _cloudMilliseconds;
+	_cloudMilliseconds = 0.0f;
 	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
 	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above.
 	const glm::vec4 u_cloudSpecular(0.0f);
@@ -1226,10 +1237,15 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		const auto model =
 		    glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
 		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
-		if (u_cloudColour.a <= 0.0f)
+		if (u_cloudColour.a <= 0.0f || !SphereInView(viewProjection, position, meshRadius * cloud.size * 0.55f))
 		{
 			continue;
 		}
+		_clouds->AdvanceAnimation(index, milliseconds);
+		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step)
+		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
+		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
+		                        210.0f / 256.0f, 0.0f);
 		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
 		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
 		                             0.0f);
@@ -2062,7 +2078,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		if (desc.drawSky)
 		{
 			const auto modelMatrix = glm::mat4(1.0f);
-			const glm::vec4 u_typeAlignment = {skyType, Locator::config::value().skyAlignment + 1.0f, 0.0f, 0.0f};
+			const glm::vec4 u_typeAlignment = {skyType, _skyAlignment.Get() + 1.0f, 0.0f, 0.0f};
 
 			skyShader->SetTextureSampler("s_diffuse", 0, Locator::skySystem::value().GetTexture());
 			skyShader->SetUniformValue("u_typeAlignment", &u_typeAlignment);

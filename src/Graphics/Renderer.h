@@ -27,6 +27,7 @@
 #include <glm/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/Clouds.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
 #include "Graphics/RendererInterface.h"
@@ -160,6 +161,9 @@ private:
 	/// Moves the clouds, computes their colour / alpha and bakes their shadows into the luminosity cap texture
 	void UpdateClouds() const;
 	mutable glm::vec3 _cloudRgb {1.0f};
+	mutable SkyAlignment _skyAlignment;       ///< [0xBF3378], moved towards the target every frame
+	mutable uint32_t _cloudsGeneration {0};  ///< Clouds::GetLandscapeGeneration of _clouds
+	mutable float _cloudMilliseconds {0.0f}; ///< this frame's game time step for the clouds' animation counters
 	uint32_t _bgfxReset;
 	bool _bgfxDebug = false;
 	bool _bgfxProfile = false;

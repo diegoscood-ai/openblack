@@ -220,6 +220,44 @@ Informe: `tmp_dis\render\sky_*.txt`.
   (fotograma (contador/20) & 15, UV ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de
   alineación × tabla[255] · 186/256 + 35;
   alfa 0 en tierra buena, 200 neutral, 255 mala.
+  - **Colocación** (`CloudInSky::Open` 0x5E2439..0x5E24F4, informe `tmp_dis\mapa\clouds_placement.md`): cinco
+    `Random` por nube en este orden (x, y, z, tamaño, k), también las nubes 0 y 1, cada una por su cuenta y uniforme en
+    la caja: **las nubes del cielo no van en grupos**. Los grupos que se ven salen del azar (≈1500 u de media entre
+    68 nubes, con rachas y huecos) y de la perspectiva; los grupos de verdad del original son las nubes de tormenta
+    (`GWeather::DrawClouds` 0x83FC90: hasta 16 bolas por tormenta alrededor de su centro, oscurecidas y con neblina;
+    openblack no las tiene aún, ver [day-night-weather.md](day-night-weather.md)).
+  - `Random` 0x81D180 = min + (max − min)·(rand()·3,0518509e−05f) con el `rand()` de la CRT de MSVC (0x7C8837,
+    s = s·214013 + 2531011, (s >> 16) & 0x7FFF), sembrado una vez con `srand(time(NULL))` (0x577721), no el GRand
+    sincronizado: **otro cielo en cada sesión y en cada tierra**. `GLandscape::Open` → `GLandAlignement::Open` 0x5E1D10
+    → `CloudInSky::Open` rehace las 70 nubes en cada carga de tierra. openblack: `Clouds` (el mismo generador; semilla
+    fija con `OPENBLACK_CLOUD_SEED=<n>`; `Clouds::OnLandscapeOpened` desde `InitializeLevel`).
+  - Paso (`fn_005E25C0`): x += inc·70·0,001; pasado 8000, t = x + 8000, x = t − ftol(t/16000)·16000 − 8000 (solo x:
+    cada nube vuelve por la misma línea a la misma altura); borde = fistp((x ± 8000)·0,1275) (redondeo), fijas 192;
+    alfa = borde·A/255 en enteros.
+  - **Color** (`fn_005E1DE0`, cada fotograma desde `GLandAlignement::DrawSky`; informe
+    `tmp_dis\mapa\clouds_colour.md`): i = trunc(X), f = trunc((X − i)·256), cada byte a + floor((b − a)·f/256) entre
+    00FFFFFF / C8FFFFFF / FFAAA066 (0xBF339C), RGB·tabla[255] (c·t >> 8), luego c + floor((8960 − 70c)/256) (255 →
+    **220**: el original nunca las pinta blancas). Luz por vértice (`fn_0084BA90`): I = fistp(255·N·L),
+    f = 210 + (45·I >> 8) (210..**254**), difuso (c·f) >> 8. La hora entra solo por la tabla (filas 0-2 de
+    `palette.raw`) y el tiempo solo por su tope de nublado. Mediodía neutral ≈ (172..208, 179..217, 177..214), gris
+    claro que con α ≈ 0,7 sobre el azul se ve blanquecino; al atardecer salmón; mala: ocre opaca; buena: ninguna.
+    **Land1 empieza a las 7,3 h de guion** (casi pleno atardecer) con el reloj parado: de ahí las nubes pardas; con
+    `OPENBLACK_TIME_OF_DAY=12` salen gris claro como en el original.
+  - **Alineación del cielo** [0xBF3378] (0 buena, 1 neutral, 2 mala; empieza en 1 y cargar tierra no la toca):
+    objetivo [0xBF337C] = (1 − clamp((v + 1)/2, 0, 1))·2 (`fn_005E2240`), con v = `GetAlignmentValue` del jugador con
+    más influencia en la posición de la interfaz (`fn_0064AC30` desde `GPlayer::ProcessPlayers` 0x64A697, cada turno;
+    `DoCitadelMultiplayer` fuerza 0,5). `DrawSky` 0x5E2160 la mueve 0,001 por ms (inc·0,01·0,1) y la ajusta al pasarse;
+    la usan las nubes, la tabla de luz y el cielo. openblack: `SkyAlignment` (Renderer), objetivo
+    `Clouds::InfluentialPlayerAlignment()` (hoy neutral o el deslizador de depuración; `OPENBLACK_TEST_SKY_ALIGNMENT`
+    de −1 mala a 1 buena) y nublado `Clouds::WeatherOvercastAtCamera()` (hoy 0): los dos esperan la alineación de
+    jugadores (`GAlignment::Update` 0x414410) y el tiempo (`GWeather`/`LH3DAtmos`) de la otra rama.
+  - **Animación**: cada nube es un LH3DMist con su propio contador +0x84; `LH3DMist::AddDrawing` 0x7FA7F0 (vt+0x100)
+    solo la manda al Z-sorter si su esfera (semidiagonal de la malla × tamaño × 0,55) toca la pantalla, y solo entonces
+    avanza el contador en el Draw: las nubes se desfasan entre sí. **No hay fundido entre fotogramas**: `fn_007FA300`
+    calcula fotograma = (contador·45)/900 en enteros (0x7FA3F4..0x7FA41B, sin fracción), pone un solo desplazamiento de
+    UV (vt+0xE8 = 0x7F9B70: +0x68/+0x6C) y dibuja una vez (`fn_0080DB30`); el modo 6 (`fn_0082DF10`) solo configura la
+    etapa 0 (MODULATE textura × difuso). El cambio es de golpe cada 20 cuentas (≈78 ms, 16 fotogramas en ≈3,5 s);
+    lo mismo para la niebla del mapa.
 - **Sombras de nubes**: `sclouds.raw` 40×40, un texel por celda desde la esquina de la nube,
   `lum = min(lum, max(48, 255 − (255 − s)·α/255))`; openblack: `Clouds::BuildShadowCap` → textura R8 por celda que
   usan `vs_terrain` y `vs_object` antes de la tabla de luz.

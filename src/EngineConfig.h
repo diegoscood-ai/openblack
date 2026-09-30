@@ -91,8 +91,8 @@ struct EngineConfig
 	/// 3D/PnTessellation.h). They are the boned meshes whose textures are all in hdPeopleSkins (the mod's list, made
 	/// from the pack's own MSH_P_ meshes: openblack's mesh names don't follow every pack).
 	int hdPeopleSmoothLevel {0};
-	/// Mod graphics.hd-people (light): 0 the original's vertex lighting, 1 the same light per pixel on the smooth normals,
-	/// 2 also a rim of light on the silhouette (they stand out from the ground). Applied by the shader every frame.
+	/// Mod graphics.hd-people (light): 0 the original's vertex lighting, 1 the same light per pixel on the smooth normals.
+	/// Applied by the shader every frame.
 	int hdPeopleLighting {0};
 	/// Mod graphics.hd-people (sharp): texture mip bias of the villagers (negative: sharper far away)
 	float hdPeopleMipBias {0.0f};

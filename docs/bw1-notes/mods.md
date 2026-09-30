@@ -46,4 +46,10 @@ Referencias de mallas originales: el paquete de Creature Isle (`...\CreatureIsle
   la pintura) desde la resolución nativa. Se generan con
   `python assets\mods\graphics.hd-tweaks\tools\make_textures.py <AllMeshes.g3d> <AllMeshes.h> <carpeta del mod>`
   (Real-ESRGAN portable en `C:\Users\diewgarc\dev\tools\realesrgan`, ~3 min con la GPU); no están en git.
+- **El atlas de los nórdicos del paquete del usuario (0x5A, 1024 px) no es el original**: tiene pintados los personajes
+  de la intro (la cara de la mujer rubia de INTRO_F, el hombre de barba, uno con camisa roja y vaqueros). El atlas
+  nórdico de Creature Isle (skin 0x74 de su paquete, `MSH_P_NORS_F_A_1` = 580 allí) tiene la ropa original (vestido
+  oscuro, hombres de negro con cinturón). Por eso las aldeanas de Land1 (pueblo nórdico) parecen "las de la intro":
+  la malla (`NORS_F_A_1`, 498) y el clip (`M_P_Walk_Woman`) son los correctos. Las texturas HD de graphics.hd-tweaks
+  salieron de ese atlas. Comparación en `dev\tmp_dis\hdpeople\tex\norse_cmp.png`.
 - Scripts: `C:\Users\diewgarc\dev\tmp_dis\hdpeople\` (compare.py, anims.py, summary.txt).

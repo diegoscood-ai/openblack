@@ -30,6 +30,9 @@ public:
 	/// The image that replaces this pack texture, or an empty path.
 	[[nodiscard]] std::filesystem::path Find(uint32_t id, const std::vector<uint8_t>& ddsData) const;
 
+	/// Where the image of this texture id is (it may not exist)
+	[[nodiscard]] std::filesystem::path ImagePath(uint32_t id) const;
+
 	/// The pack textures this list replaces (the villagers' ones)
 	[[nodiscard]] std::vector<uint32_t> Ids() const;
 

@@ -70,7 +70,7 @@
 #include "Mods/ModRegistry.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
-#include "Resources/HdTextures.h"
+#include "Resources/HdPeople.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
@@ -390,6 +390,8 @@ bool Game::Update() noexcept
 	auto deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(current - previous);
 
 	Locator::debugGui::value().SetScale(config.guiScale);
+	// mod graphics.hd-people changed in the Mods menu: its villager textures and meshes, before anything uses them
+	resources::hd_people::Update();
 
 	// Physics
 	{
@@ -725,10 +727,7 @@ bool Game::Initialize() noexcept
 
 	// mod graphics.hd-people: the villagers' textures come from the HD images in its folder, and their meshes (the ones
 	// with those textures) can be smoothed
-	const auto hdTextures = (config.hdPeopleTextures || config.hdPeopleSmoothLevel > 1) && Locator::mods::has_value()
-	                            ? resources::HdTextures(Locator::mods::value().GetModFilesDirectory("graphics.hd-people"))
-	                            : resources::HdTextures();
-	config.hdPeopleSkins = hdTextures.Ids();
+	const auto hdTextures = resources::hd_people::Begin();
 	const auto& meshes = pack.GetMeshes();
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& mesh : meshes)
@@ -741,14 +740,7 @@ bool Game::Initialize() noexcept
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
-		if (const auto image = config.hdPeopleTextures ? hdTextures.Find(g3dTexture.header.id, g3dTexture.ddsData)
-		                                               : std::filesystem::path();
-		    !image.empty())
-		{
-			textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromImageTag {}, name, image);
-			continue;
-		}
-		textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromPackTag {}, name, g3dTexture);
+		resources::hd_people::LoadTexture(hdTextures, name, g3dTexture);
 	}
 
 	pack::PackFile animationPack;

@@ -110,8 +110,7 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromPackTag, const std:
 	return texture2D;
 }
 
-Texture2DLoader::result_type Texture2DLoader::operator()(FromImageTag, const std::string& name,
-                                                         const std::filesystem::path& imagePath) const
+Texture2DLoader::DecodedImage Texture2DLoader::Decode(const std::filesystem::path& imagePath)
 {
 	std::ifstream stream(imagePath, std::ios::binary);
 	const std::vector<uint8_t> file((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
@@ -123,13 +122,27 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromImageTag, const std
 	{
 		throw std::runtime_error("Unable to decode " + imagePath.string());
 	}
+	DecodedImage image {static_cast<uint16_t>(width), static_cast<uint16_t>(height),
+	                    std::vector<uint8_t>(pixels, pixels + static_cast<size_t>(width) * height * 4)};
+	stbi_image_free(pixels);
+	return image;
+}
+
+Texture2DLoader::result_type Texture2DLoader::operator()(FromImageTag tag, const std::string& name,
+                                                         const std::filesystem::path& imagePath) const
+{
+	return (*this)(tag, name, Decode(imagePath));
+}
+
+Texture2DLoader::result_type Texture2DLoader::operator()(FromImageTag, const std::string& name,
+                                                         const DecodedImage& image) const
+{
 	auto texture2D = std::make_shared<graphics::Texture2D>(name);
 	// always mipmapped: the images are 4 times the size of the originals, and without mip levels they would shimmer as
 	// soon as the villager is a few metres away
-	texture2D->Create(static_cast<uint16_t>(width), static_cast<uint16_t>(height), 1, graphics::TextureFormat::RGBA8,
-	                  graphics::Wrapping::Repeat, graphics::Filter::LinearMipmapLinear,
-	                  bgfx::copy(pixels, static_cast<uint32_t>(width * height * 4)));
-	stbi_image_free(pixels);
+	texture2D->Create(image.width, image.height, 1, graphics::TextureFormat::RGBA8, graphics::Wrapping::Repeat,
+	                  graphics::Filter::LinearMipmapLinear,
+	                  bgfx::copy(image.rgba.data(), static_cast<uint32_t>(image.rgba.size())));
 	return texture2D;
 }
 

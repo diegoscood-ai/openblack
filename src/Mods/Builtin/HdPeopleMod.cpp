@@ -26,7 +26,7 @@ public:
 	    : Mod({"graphics.hd-people", "HD villagers",
 	           "Better looking villagers: their textures upscaled 4x (images in Mods/graphics.hd-people, made with its "
 	           "tools) and rounder bodies (each triangle curved and split in 4 or 9)",
-	           "Graphics", true})
+	           "Graphics", false})
 	{
 		AddOption({"textures", "Textures", {"hd", "original"}, 0});
 		AddOption({"smooth", "Rounder shapes", {"off", "soft", "round"}, 2});

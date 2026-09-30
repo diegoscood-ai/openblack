@@ -69,10 +69,19 @@ struct Texture2DLoader final: BaseLoader<graphics::Texture2D>
 	struct FromImageTag
 	{
 	};
+	/// An image file decoded to RGBA8 (thread-safe, so several can be decoded at once)
+	struct DecodedImage
+	{
+		uint16_t width {0};
+		uint16_t height {0};
+		std::vector<uint8_t> rgba;
+	};
+	[[nodiscard]] static DecodedImage Decode(const std::filesystem::path& imagePath);
 
 	[[nodiscard]] result_type operator()(FromPackTag, const std::string& name, const pack::G3DTexture& g3dTexture) const;
 	[[nodiscard]] result_type operator()(FromDiskTag, const std::filesystem::path& rawTexturePath) const;
 	[[nodiscard]] result_type operator()(FromImageTag, const std::string& name, const std::filesystem::path& imagePath) const;
+	[[nodiscard]] result_type operator()(FromImageTag, const std::string& name, const DecodedImage& image) const;
 };
 
 struct L3DAnimLoader final: BaseLoader<L3DAnim>

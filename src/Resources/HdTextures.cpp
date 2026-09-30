@@ -56,7 +56,7 @@ std::filesystem::path HdTextures::Find(uint32_t id, const std::vector<uint8_t>& 
 	{
 		return {};
 	}
-	const auto image = _directory / fmt::format("{:x}.png", id);
+	const auto image = ImagePath(id);
 	if (Hash(ddsData) != entry->second)
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("game"), "HD textures: {:#x} was made from another texture, not used", id);
@@ -68,6 +68,11 @@ std::filesystem::path HdTextures::Find(uint32_t id, const std::vector<uint8_t>& 
 		return {};
 	}
 	return image;
+}
+
+std::filesystem::path HdTextures::ImagePath(uint32_t id) const
+{
+	return _directory / fmt::format("{:x}.png", id);
 }
 
 std::vector<uint32_t> HdTextures::Ids() const

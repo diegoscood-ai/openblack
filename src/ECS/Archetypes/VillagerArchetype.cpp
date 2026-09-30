@@ -39,7 +39,7 @@ using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 
 entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm::vec3& position,
-                                       VillagerInfo type, uint32_t age)
+                                       VillagerInfo type, uint32_t age, bool joinTown)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
@@ -69,7 +69,7 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	const auto task = Villager::Task::IDLE;
 
 	// TODO(bwrsandman): Might be better to make a FindClosestAbode
-	const entt::entity town = Locator::townSystem::value().FindClosestTown(abodePosition);
+	const entt::entity town = joinTown ? Locator::townSystem::value().FindClosestTown(abodePosition) : entt::null;
 	entt::entity abode = entt::null;
 	if (town != entt::null)
 	{

@@ -1105,6 +1105,9 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)
 	ecs::object_index::OnLoadMap();
+	// GGame::Init 0x54F66F: both influence multipliers back to 1 before the map script
+	_mapScriptGlobals.townInfluenceMultiplier = 1.0f;
+	_mapScriptGlobals.playerInfluenceMultiplier = 1.0f;
 	// GLandAlignement::Open: default cycle at noon; the Land script may change it (SET_NIGHTTIME)
 	_dayNightClock->Reset();
 	Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());

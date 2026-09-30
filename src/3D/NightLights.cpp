@@ -18,10 +18,9 @@
 #include <entt/entity/entity.hpp>
 #include <spdlog/spdlog.h>
 
-#include "3D/AllMeshes.h"
 #include "DayNightClock.h"
-#include "ECS/Components/Mesh.h"
 #include "ECS/Components/Sprite.h"
+#include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -330,19 +329,16 @@ void DestroySprites(VillageLight& light)
 	}
 }
 
-/// GStreetLantern (MSH_O_TOWNLIGHT, type 0; MSH_B_CAMPFIRE, type 1): the light at the object's point
+/// fn_00823240(pos, type): the lights of GStreetLantern (type = +0x58: 0 town, 1 country) and of the Norse Gate's lamps
+/// (type 0), at the object's point. Keyed on the light, not on the mesh: a Bonfire has the campfire mesh and no light.
 void Rescan()
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto townLight = resources::HashIdentifier(MeshId::ObjectTownLight);
-	const auto campfire = resources::HashIdentifier(MeshId::BuildingCampfire);
 	std::vector<std::pair<glm::vec3, int>> found;
-	registry.Each<const Mesh, const Transform>([&](entt::entity /*unused*/, const Mesh& mesh, const Transform& transform) {
-		if (mesh.id == townLight || mesh.id == campfire)
-		{
-			found.emplace_back(transform.position, mesh.id == campfire ? 1 : 0);
-		}
-	});
+	registry.Each<const LanternLight, const Transform>(
+	    [&](entt::entity /*unused*/, const LanternLight& light, const Transform& transform) {
+		    found.emplace_back(transform.position, static_cast<int>(light.type));
+	    });
 	const bool same = found.size() == g_state.lights.size() &&
 	                  std::equal(found.begin(), found.end(), g_state.lights.begin(), [](const auto& f, const VillageLight& l) {
 		                  return f.first == l.position && f.second == l.type;

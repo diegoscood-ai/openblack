@@ -12,6 +12,7 @@
 #include <array>
 #include <optional>
 
+#include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
 namespace openblack::ecs::components
@@ -52,6 +53,10 @@ struct FishFarm
 
 	std::optional<FishShoal> shoal;
 	float food {k_FoodValue}; ///< +0x94, full when created
+	uint32_t info {0};        ///< the script's GFishFarmInfo index (0xCCFC78 + 0x128 i; info.dat only has 0)
+	/// +0x8C: the ctor 0x52C360 always takes the nearest town (Town::GetNearestTownToPos, any tribe), whatever town the
+	/// script gave
+	entt::entity town {entt::null};
 
 	/// shoal +0x64 = food / foodValue; the first 15 x that fish are shown (and swim, and can be caught)
 	[[nodiscard]] size_t VisibleFish() const

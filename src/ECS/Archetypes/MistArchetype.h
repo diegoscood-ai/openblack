@@ -16,12 +16,16 @@
 
 namespace openblack::ecs::archetypes
 {
-class FishFarmArchetype
+class MistArchetype
 {
 public:
-	/// 0x52C7B0(pos, GFishFarmInfo[info], town) -> FishFarm::FishFarm 0x52C360 (the nearest town) and
-	/// CallVirtualFunctionsForCreation 0x52CC10: the farm and, if there is sea around it, its shoal of fish
-	static entt::entity Create(const glm::vec3& position, uint32_t info);
-	FishFarmArchetype() = delete;
+	/// Map script CREATE_MIST "AFNFF" (handler 0x7155C9 -> Mist::Create 0x6063D0)
+	/// @param position x and z of the mist (y is ignored)
+	/// @param altitude height above the land (MapCoords relY: the mist is at GetAltitude(x, z) + altitude)
+	/// @param colour ARGB, the alpha in the top byte
+	/// @param size the mesh scale (LH3DObject +0x88)
+	/// @param k the edge-on shrink factor; 1 turns it off (+0x80 bit 2 is only set when k != 1)
+	static entt::entity Create(const glm::vec3& position, float altitude, uint32_t colour, float size, float k);
+	MistArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

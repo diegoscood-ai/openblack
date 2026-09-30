@@ -73,6 +73,8 @@ class Renderer final: public RendererInterface
 	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
+	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front after the clouds (RendererMists.cpp)
+	void DrawMists(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
 	void DrawObjectReflections(graphics::RenderPass viewId) const;
 	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)

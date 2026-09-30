@@ -11,6 +11,8 @@
 
 #include <cstdint>
 
+#include <entt/entity/entity.hpp>
+
 #include "Enums.h"
 
 namespace openblack::ecs::components
@@ -22,8 +24,11 @@ struct Animal
 {
 	AnimalInfo type;
 	uint32_t age;
-	int32_t flock;
+	entt::entity flock {entt::null}; ///< Living::SetFlock: its components::Flock
 	bool humanShadowed {true};
+	/// +0xE0 (fn_00417C50, which also puts it on the town's list +0x984): only the animals that can be shepherded
+	/// (IsOkToBeShepherd, vtable +0xBA4: sheep, goat, tortoise, zebra, cow, horse, pig) keep the script's town
+	entt::entity town {entt::null};
 };
 
 } // namespace openblack::ecs::components

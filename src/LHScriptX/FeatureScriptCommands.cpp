@@ -9,8 +9,10 @@
 
 #include "FeatureScriptCommands.h"
 
+#include <cctype>
 #include <tuple>
 
+#include <glm/geometric.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/polar_coordinates.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -25,10 +27,12 @@
 #include "ECS/Archetypes/BigForestArchetype.h"
 #include "ECS/Archetypes/BonfireArchetype.h"
 #include "ECS/Archetypes/CitadelArchetype.h"
+#include "ECS/Archetypes/DeadTreeArchetype.h"
 #include "ECS/Archetypes/CreatureArchetype.h"
 #include "ECS/Archetypes/FeatureArchetype.h"
 #include "ECS/Archetypes/FishFarmArchetype.h"
 #include "ECS/Archetypes/FieldArchetype.h"
+#include "ECS/Archetypes/MistArchetype.h"
 #include "ECS/Archetypes/MobileObjectArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
@@ -37,8 +41,13 @@
 #include "ECS/Archetypes/TownArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/VillagerArchetype.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Flock.h"
 #include "ECS/Components/Footpath.h"
+#include "ECS/Components/MapSimData.h"
 #include "ECS/Components/Stream.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -104,6 +113,58 @@ PlayerNames GetPlayerName(const std::string& name)
 		std::throw_with_nested(std::runtime_error(fmt::format("Could not recognize player name: {}", name)));
 	}
 	return player;
+}
+
+/// GGame::FindTownWithID 0x552FA0
+entt::entity FindTown(int32_t townId)
+{
+	const auto& towns = Locator::entitiesRegistry::value().Context().towns;
+	const auto town = towns.find(static_cast<uint32_t>(townId));
+	return town != towns.end() ? town->second : entt::null;
+}
+
+/// fn_00552FF0: the town nearest (in x and z) to the position, or none
+entt::entity FindNearestTown(const glm::vec3& position)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	entt::entity nearest = entt::null;
+	float best = 0.0f;
+	registry.Each<const Town, const Transform>([&](entt::entity entity, const Town&, const Transform& transform) {
+		const glm::vec2 delta(transform.position.x - position.x, transform.position.z - position.z);
+		const float distance2 = glm::dot(delta, delta);
+		if (nearest == entt::null || distance2 < best)
+		{
+			nearest = entity;
+			best = distance2;
+		}
+	});
+	return nearest;
+}
+
+/// fn_007731B0: the newest climate with that id (0 is the world's climate, g_game+0x250534, made on demand by
+/// fn_00771300 with everything 0)
+Climate* FindClimate(int32_t id)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& context = registry.Context();
+	if (id == 0)
+	{
+		if (context.worldClimate == entt::null)
+		{
+			context.worldClimate = registry.Create();
+			registry.Assign<Climate>(context.worldClimate, 0);
+			context.climates.push_back(context.worldClimate);
+		}
+		return &registry.Get<Climate>(context.worldClimate);
+	}
+	for (auto it = context.climates.rbegin(); it != context.climates.rend(); ++it)
+	{
+		if (auto* climate = registry.TryGet<Climate>(*it); climate != nullptr && climate->id == id)
+		{
+			return climate;
+		}
+	}
+	return nullptr;
 }
 
 } // namespace
@@ -235,8 +296,8 @@ void FeatureScriptCommands::SetATownInfluenceMultiplier(int32_t townId, float mu
 
 void FeatureScriptCommands::CreateMist(glm::vec3 position, float param2, int32_t param3, float param4, float param5)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, glm::to_string(position), param2, param3, param4, param5);
+	// command "AFNFF" (0x7155C9): Mist::Create 0x6063D0(pos with relY = F1, size F3, ARGB colour N2, k F4)
+	MistArchetype::Create(position, param2, static_cast<uint32_t>(param3), param4, param5);
 }
 
 void FeatureScriptCommands::CreatePath(int32_t param1, int32_t param2, int32_t param3, int32_t param4)
@@ -283,8 +344,11 @@ void FeatureScriptCommands::SetTownBeliefCap(int32_t townId, const std::string& 
 
 void FeatureScriptCommands::SetTownUninhabitable(int32_t townId)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}) not implemented.", __FILE__, __LINE__,
-	                    __func__, townId);
+	// case 5 (0x715542): town +0x5F4 = 1; nothing without the town
+	if (const auto town = FindTown(townId); town != entt::null)
+	{
+		Locator::entitiesRegistry::value().Get<Town>(town).uninhabitable = true;
+	}
 }
 
 void FeatureScriptCommands::SetTownCongregationPos(int32_t townId, glm::vec3 position)
@@ -297,23 +361,68 @@ void FeatureScriptCommands::CreateAbode(int32_t townId, glm::vec3 position, cons
                                         int32_t size, int32_t foodAmount, int32_t woodAmount)
 {
 	// Does not use 3d angle to game angle
-	AbodeArchetype::Create(townId, position, GAbodeInfo::Find(abodeInfo), rotation * 0.001f, size * 0.001f,
-	                       static_cast<uint32_t>(foodAmount), static_cast<uint32_t>(woodAmount));
+	const auto type = GAbodeInfo::Find(abodeInfo);
+	if (type == AbodeInfo::None)
+	{
+		return; // openblack: the original has no check (see GAbodeInfo::Find)
+	}
+	AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f, static_cast<uint32_t>(foodAmount),
+	                       static_cast<uint32_t>(woodAmount));
 }
 
 void FeatureScriptCommands::CreatePlannedAbode(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
-                                               int32_t rotation, int32_t size, int32_t foodAmount, int32_t woodAmount)
+                                               int32_t rotation, int32_t size, [[maybe_unused]] int32_t foodAmount,
+                                               [[maybe_unused]] int32_t woodAmount)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, townId, glm::to_string(position), abodeInfo, rotation, size, foodAmount,
-	                    woodAmount);
+	// case 8 (0x715629, shared with CREATE_ABODE): the town, else the nearest one (fn_00552FF0), else nothing; the food
+	// and wood are not used. Abode type 0x404 (TownCentre) -> PlannedTownCentre::Create 0x7444D0, otherwise
+	// PlannedAbode::Create 0x405600; both go on the town's planned list and are never drawn.
+	auto town = FindTown(townId);
+	if (town == entt::null)
+	{
+		town = FindNearestTown(position);
+	}
+	const auto type = GAbodeInfo::Find(abodeInfo);
+	if (town == entt::null || type == AbodeInfo::None)
+	{
+		return;
+	}
+	const auto& info = Locator::infoConstants::value().abode.at(static_cast<size_t>(type));
+	Locator::entitiesRegistry::value().Get<Town>(town).plannedAbodes.push_back(
+	    PlannedAbode {type, position, rotation * 0.001f, size * 0.001f, info.abodeType == AbodeType::TownCentre});
 }
 
 void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position, const std::string& abodeInfo, int32_t rotation,
-                                             int32_t size, [[maybe_unused]] int32_t worshipPercentage)
+                                             int32_t size, int32_t worshipPercentage)
 {
-	AbodeArchetype::Create(townId, position, GAbodeInfo::Find(abodeInfo), rotation * 0.001f, size * 0.001f,
-	                       static_cast<uint32_t>(0), static_cast<uint32_t>(0));
+	// case 9 (0x71577C)
+	const auto type = GAbodeInfo::Find(abodeInfo);
+	if (type == AbodeInfo::None)
+	{
+		return; // openblack: the original has no check (see GAbodeInfo::Find)
+	}
+	const auto centre = AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f,
+	                                           static_cast<uint32_t>(0), static_cast<uint32_t>(0));
+	if (centre == entt::null || type == AbodeInfo::None ||
+	    Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).abodeType != AbodeType::TownCentre)
+	{
+		return;
+	}
+	// the town's centre (+0x9A4) if it had none, and Town::SetWorshipPercentage(N5 * 0.001) on the centre's town (the
+	// branch for a centre without a town, TotemStatue::SetWorshipPercentage, can't happen here: openblack always gives
+	// the abode a town)
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = FindTown(static_cast<int32_t>(registry.Get<Abode>(centre).townId));
+	if (town == entt::null)
+	{
+		return;
+	}
+	auto& townData = registry.Get<Town>(town);
+	if (townData.centre == entt::null)
+	{
+		townData.centre = centre;
+	}
+	townData.worshipPercentage = static_cast<float>(worshipPercentage) * 0.001f;
 }
 
 void FeatureScriptCommands::CreateTownSpell(int32_t townId, const std::string& spellName)
@@ -407,17 +516,20 @@ void FeatureScriptCommands::CreatePlannedWorshipSite([[maybe_unused]] glm::vec3 
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateAnimal(glm::vec3 position, int32_t type, int32_t flock, [[maybe_unused]] int32_t townId)
+void FeatureScriptCommands::CreateAnimal(glm::vec3 position, int32_t type, int32_t flock, int32_t townId)
 {
-	// command 24 "ANNN" (0x71649F): type, flock id, town id (no town yet); age 0 -> random
-	AnimalArchetype::Create(position, static_cast<AnimalInfo>(type), flock, 0);
+	// command 24 "ANNN" (0x71649F): type, flock id, town id; age 0 -> random
+	CreateNewAnimal(position, type, flock, townId, 0);
 }
 
-void FeatureScriptCommands::CreateNewAnimal(glm::vec3 position, int32_t type, int32_t flock, [[maybe_unused]] int32_t townId,
-                                            int32_t age)
+void FeatureScriptCommands::CreateNewAnimal(glm::vec3 position, int32_t type, int32_t flock, int32_t townId, int32_t age)
 {
-	// command 25 "ANNNN" (0x716543): type, flock id, town id, age
-	AnimalArchetype::Create(position, static_cast<AnimalInfo>(type), flock, static_cast<uint32_t>(std::max(age, 0)));
+	// command 25 "ANNNN" (0x716543): type, flock id, town id, age. The flock is the one made by CREATE_FLOCK with that id
+	// (g_game+0x205C44 searched by +0x8C); with none, fn_00419D10 takes the path without a flock
+	const auto& flocks = Locator::entitiesRegistry::value().Context().flocks;
+	const auto found = flocks.find(flock);
+	AnimalArchetype::Create(position, static_cast<AnimalInfo>(type), FindTown(townId),
+	                        found != flocks.end() ? found->second : entt::null, static_cast<uint32_t>(std::max(age, 0)));
 }
 
 void FeatureScriptCommands::CreateForest([[maybe_unused]] int32_t forestId, [[maybe_unused]] glm::vec3 position)
@@ -431,11 +543,12 @@ void FeatureScriptCommands::CreateTree(int32_t forestId, glm::vec3 position, Tre
 	CreateNewTree(forestId, position, treeType, 1, rotation * 0.001f, scale * 0.001f, scale * 0.001f);
 }
 
-void FeatureScriptCommands::CreateDeadTree(glm::vec3 position, [[maybe_unused]] const std::string& player,
-                                           [[maybe_unused]] TreeInfo treeType, float scale, [[maybe_unused]] float roll,
-                                           float yaw, [[maybe_unused]] float pitch)
+void FeatureScriptCommands::CreateDeadTree(glm::vec3 position, [[maybe_unused]] const std::string& player, TreeInfo treeType,
+                                           float life, float xAngle, float yAngle, float zAngle)
 {
-	CreateNewTree(-1, position, TreeInfo::Burnt, 1, yaw, scale, scale);
+	// case 43 (0x716E64): fn_00510BB0(pos, GTreeInfo[type], GetPlayerFromText(player), F3 life, F4, F5, F6, 0): a DeadTree
+	// with the type's normal mesh, SetLife(F3) and SetXYZAnglesAndScale(F4, F5, F6, 1). The player is not drawn.
+	DeadTreeArchetype::Create(position, treeType, life, xAngle, yAngle, zAngle);
 }
 
 void FeatureScriptCommands::CreateNewTree(int32_t forestId, glm::vec3 position, TreeInfo treeType, int32_t isNonScenic,
@@ -454,15 +567,21 @@ void FeatureScriptCommands::CreateTownField(int32_t townId, glm::vec3 position, 
 	CreateNewTownField(townId, position, type, 0.0f);
 }
 
-void FeatureScriptCommands::CreateFishFarm(glm::vec3 position, int32_t)
+void FeatureScriptCommands::CreateFishFarm(glm::vec3 position, int32_t info)
 {
-	FishFarmArchetype::Create(position);
+	// case 31 (0x7166E1): 0x52C7B0(pos, GFishFarmInfo[N1], no town)
+	FishFarmArchetype::Create(position, static_cast<uint32_t>(info));
 }
 
-void FeatureScriptCommands::CreateTownFishFarm([[maybe_unused]] int32_t townId, glm::vec3 position, int32_t)
+void FeatureScriptCommands::CreateTownFishFarm(int32_t townId, glm::vec3 position, int32_t info)
 {
-	// the farm's town (its food) is not simulated yet; the shoal is the same
-	FishFarmArchetype::Create(position);
+	// case 32 (0x716722): nothing without the town; then the same as CREATE_FISH_FARM with it (the farm's ctor takes the
+	// nearest town anyway)
+	if (FindTown(townId) == entt::null)
+	{
+		return;
+	}
+	FishFarmArchetype::Create(position, static_cast<uint32_t>(info));
 }
 
 void FeatureScriptCommands::CreateFeature(glm::vec3 position, FeatureInfo type, int32_t rotation, int32_t scale, int32_t)
@@ -496,6 +615,11 @@ void FeatureScriptCommands::CreatePitch([[maybe_unused]] glm::vec3 position, int
 
 void FeatureScriptCommands::CreatePot(glm::vec3 position, PotInfo type, int32_t /*unused*/, int32_t amount)
 {
+	// case 38 (0x716B19): nothing for an amount <= 0
+	if (amount <= 0)
+	{
+		return;
+	}
 	PotArchetype::Create(position, 0.0f, type, amount);
 }
 
@@ -512,13 +636,15 @@ void FeatureScriptCommands::CreateMobileObject(glm::vec3 position, MobileObjectI
 
 void FeatureScriptCommands::CreateMobileStatic(glm::vec3 position, MobileStaticInfo type, float yRotation, float scale)
 {
-	CreateMobileUStatic(position, type, 0.0f, 0.0f, yRotation, 0.0f, scale);
+	// CREATE_MOBILESTATIC "ANFF", case 41 (0x716D46): fn_00608770(pos, info, 0, 0, F2, F3)
+	MobileStaticArchetype::CreateFromInfo(position, type, 0.0f, yRotation, scale);
 }
 
 void FeatureScriptCommands::CreateMobileUStatic(glm::vec3 position, MobileStaticInfo type, float verticalOffset,
                                                 float xRotation, float yRotation, float zRotation, float scale)
 {
-	MobileStaticArchetype::Create(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
+	// CREATE_MOBILE_STATIC "ANFFFFF", case 42 (0x716DC1): fn_00608840(pos with relY = F2, info, 0, 0, F3, F4, F5, F6)
+	MobileStaticArchetype::CreateWithXYZAngles(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
 }
 
 void FeatureScriptCommands::CreateScaffold(int32_t, [[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t)
@@ -561,10 +687,30 @@ void FeatureScriptCommands::CreateCreatureFromFile(const std::string& playerName
 	                          scale);
 }
 
-void FeatureScriptCommands::CreateFlock(int32_t, glm::vec3, glm::vec3, int32_t, int32_t, int32_t)
+void FeatureScriptCommands::CreateFlock(int32_t flockId, glm::vec3 position, glm::vec3 domainCentre, int32_t domainRadius,
+                                        int32_t param5, int32_t param6)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 49 "NAANNN" (0x71634A): Flock::Flock 0x52F780(A1, the current player, id N0), SetDomainCentrePos(A2), domain
+	// radius N3 (0 -> 0x50). From VERSION 2.1 on, the flock distance is N4 and the town N5; before, the town is N4 and
+	// the distance stays 0x1E. The town gets it on its flock list.
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	auto& flock = registry.Assign<Flock>(entity);
+	flock.id = flockId;
+	flock.savedDomainCentre = position;
+	flock.domainCentre = domainCentre;
+	flock.domainRadius = domainRadius != 0 ? static_cast<uint16_t>(domainRadius) : static_cast<uint16_t>(0x50);
+	const bool newVersion = !(Game::Instance()->GetMapScriptGlobals().version < 2.1f);
+	if (newVersion)
+	{
+		flock.flockDistance = static_cast<uint16_t>(param5);
+	}
+	if (const auto town = FindTown(newVersion ? param6 : param5); town != entt::null)
+	{
+		flock.town = town;
+		registry.Get<Town>(town).flocks.push_back(entity);
+	}
+	registry.Context().flocks.insert_or_assign(flockId, entity);
 }
 
 void FeatureScriptCommands::LoadLandscape(const std::string& path)
@@ -572,8 +718,10 @@ void FeatureScriptCommands::LoadLandscape(const std::string& path)
 	Game::Instance()->LoadLandscape(path);
 }
 
-void FeatureScriptCommands::Version([[maybe_unused]] float version)
+void FeatureScriptCommands::Version(float version)
 {
+	// case 51 (0x716FF9): 0xD9957C
+	Game::Instance()->GetMapScriptGlobals().version = version;
 	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "LHScriptX: Land version set to: {}", version);
 }
 
@@ -628,28 +776,54 @@ void FeatureScriptCommands::CreateInfluenceRing([[maybe_unused]] glm::vec3 posit
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateWeatherClimate(int32_t, int32_t, glm::vec3, float, float)
+void FeatureScriptCommands::CreateWeatherClimate(int32_t id, int32_t info, glm::vec3 position, float radius1, float radius2)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 60 (0x7171F5) -> fn_00771300(pos, &GClimateInfo[N1], F3, F4, 0, id N0): id 0 makes a GClimate(0) that
+	// ignores the rest; otherwise GClimate 0x771170, radii in order. Only data (no weather simulation yet).
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	auto& climate = registry.Assign<Climate>(entity, id);
+	if (id != 0)
+	{
+		climate.info = info;
+		climate.position = position;
+		climate.innerRadius = std::min(radius1, radius2);
+		climate.outerRadius = std::max(radius1, radius2);
+	}
+	registry.Context().climates.push_back(entity);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateRain(int32_t, float, int32_t, int32_t, int32_t)
+void FeatureScriptCommands::CreateWeatherClimateRain(int32_t id, float rain, int32_t param3, int32_t param4, int32_t param5)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 61 (0x717250) -> 0x773200: the climate's +0x34.. = {F1, N2, N3, (uint8_t)N4}; nothing for an unknown id
+	if (auto* climate = FindClimate(id))
+	{
+		climate->rain = rain;
+		climate->rainN2 = param3;
+		climate->rainN3 = param4;
+		climate->rainN4 = static_cast<uint8_t>(param5);
+	}
 }
 
-void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t, float, float)
+void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t id, float temperature1, float temperature2)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 62 (0x7172A2) -> 0x773290: +0x44 = F1, +0x48 = F2
+	if (auto* climate = FindClimate(id))
+	{
+		climate->temperature1 = temperature1;
+		climate->temperature2 = temperature2;
+	}
 }
 
-void FeatureScriptCommands::CreateWeatherClimateWind(int32_t, float, float, float)
+void FeatureScriptCommands::CreateWeatherClimateWind(int32_t id, float wind1, float wind2, float wind3)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 63 (0x7172E0) -> 0x7732D0: +0x4C.. = {F1, F2, F3}
+	if (auto* climate = FindClimate(id))
+	{
+		climate->wind1 = wind1;
+		climate->wind2 = wind2;
+		climate->wind3 = wind3;
+	}
 }
 
 void FeatureScriptCommands::CreateWeatherStorm(int32_t, glm::vec3, float, int32_t, const std::string&, const std::string&,
@@ -695,10 +869,11 @@ void FeatureScriptCommands::CreateWaterfall([[maybe_unused]] glm::vec3 position)
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateArena([[maybe_unused]] glm::vec3 position, float)
+void FeatureScriptCommands::CreateArena(glm::vec3 position, float radius)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 69 (0x7175FA) -> fn_00424820: a GArena, not drawn until a creature fight is on
+	auto& registry = Locator::entitiesRegistry::value();
+	registry.Assign<Arena>(registry.Create(), position, radius);
 }
 
 void FeatureScriptCommands::CreateFootpath(int32_t footpathId)
@@ -726,9 +901,10 @@ void FeatureScriptCommands::LinkFootpath(int32_t footpathId)
 	                    __func__, footpathId);
 }
 
-void FeatureScriptCommands::CreateBonfire(glm::vec3 position, float rotation, [[maybe_unused]] float param3, float scale)
+void FeatureScriptCommands::CreateBonfire(glm::vec3 position, [[maybe_unused]] float temperature, float yAngle, float scale)
 {
-	CreateMobileStatic(position, MobileStaticInfo::Bonfire, rotation, scale);
+	// case 73 (0x7176AE): fn_00439850(pos, F1 temperature, F2 Y angle, F3 scale); the ctor 0x4395C0 ignores F1
+	BonfireArchetype::Create(position, yAngle, scale);
 }
 
 void FeatureScriptCommands::CreateBase([[maybe_unused]] glm::vec3 position, int32_t)
@@ -738,9 +914,21 @@ void FeatureScriptCommands::CreateBase([[maybe_unused]] glm::vec3 position, int3
 }
 
 void FeatureScriptCommands::CreateNewFeature(glm::vec3 position, const std::string& type, int32_t rotation, int32_t scale,
-                                             [[maybe_unused]] int32_t param5)
+                                             int32_t param5)
 {
-	FeatureArchetype::Create(position, GFeatureInfo::Find(type), rotation * 0.001f, scale * 0.001f);
+	// case 75 (0x716973): with N5 != 0 a PlannedFeature 0x527440, which is never drawn (PlannedMultiMapFixed::Draw
+	// 0x648930 is a ret) and only matters to the town's building plans (not simulated yet): nothing is made here.
+	// No land uses it.
+	if (param5 != 0)
+	{
+		return;
+	}
+	const auto info = GFeatureInfo::Find(type);
+	if (info == FeatureInfo::None)
+	{
+		return; // openblack: the original has no check (see GFeatureInfo::Find)
+	}
+	FeatureArchetype::Create(position, info, rotation * 0.001f, scale * 0.001f);
 }
 
 void FeatureScriptCommands::SetInteractDesire(float)
@@ -766,28 +954,23 @@ void FeatureScriptCommands::MultiplayerDebug(int32_t, int32_t)
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateStreetLantern([[maybe_unused]] glm::vec3 position, int32_t type)
+void FeatureScriptCommands::CreateStreetLantern(glm::vec3 position, int32_t type)
 {
-	// In the retail game, any value other than 7 creates a bonfire
-	if (type == 7)
-	{
-		StreetLanternArchetype::Create(position);
-	}
-	else
-	{
-		BonfireArchetype::Create(position);
-	}
+	// case 80 (0x717720): GStreetLantern::Create 0x7346E0(pos, &GMobileStaticInfo[N1]); any info other than 7 (Land1: 59,
+	// Country Lantern) is a country lantern with the campfire mesh, not a Bonfire
+	StreetLanternArchetype::Create(position, static_cast<MobileStaticInfo>(type));
 }
 
-void FeatureScriptCommands::CreateStreetLight([[maybe_unused]] glm::vec3 position)
+void FeatureScriptCommands::CreateStreetLight(glm::vec3 position)
 {
-	StreetLanternArchetype::Create(position);
+	// TODO: case 81 (0x717763) makes a GStreetLight (0x734E60), not decoded yet; no land uses it. Drawn as a town lantern.
+	StreetLanternArchetype::Create(position, MobileStaticInfo::StreetLantern);
 }
 
 void FeatureScriptCommands::SetLandNumber(int32_t number)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}) not implemented.", __FILE__, __LINE__,
-	                    __func__, number);
+	// case 82 (0x7177A4): g_game+0x205A08
+	Game::Instance()->GetMapScriptGlobals().landNumber = number;
 }
 
 void FeatureScriptCommands::CreateOneShotSpell([[maybe_unused]] glm::vec3 position, const std::string&)
@@ -817,14 +1000,42 @@ void FeatureScriptCommands::TownDesireBoost([[maybe_unused]] int32_t townId, con
 void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::string& type, int32_t rotation, int32_t scale)
 {
 	auto animatedStaticType = GAnimatedStaticInfo::Find(type);
+	if (animatedStaticType == AnimatedStaticInfo::None)
+	{
+		return; // openblack: the original has no check (see GAnimatedStaticInfo::Find)
+	}
 	AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f);
 }
 
-void FeatureScriptCommands::FireFlySpellRewardProb([[maybe_unused]] const std::string& spell,
-                                                   [[maybe_unused]] float probability)
+void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, float probability)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 88 (0x717998): GMagicInfo::GetInfoFromText 0x5FB3B0 (the first of the 42 magic effect names equal without
+	// case, else 42) -> 0x52B630: out of range does nothing; else the table entry and the running sums
+	auto& globals = Game::Instance()->GetMapScriptGlobals();
+	const auto& effects = Locator::infoConstants::value().magicEffect;
+	size_t index = MapScriptGlobals::k_MagicCount;
+	for (size_t i = 0; i < effects.size() && i < MapScriptGlobals::k_MagicCount; ++i)
+	{
+		const std::string_view name(effects[i].debugString.data());
+		if (name.size() == spell.size() && std::equal(name.begin(), name.end(), spell.begin(), [](char a, char b) {
+			    return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+		    }))
+		{
+			index = i;
+			break;
+		}
+	}
+	if (index >= MapScriptGlobals::k_MagicCount)
+	{
+		return;
+	}
+	globals.fireFlySpellRewardProbability.at(index) = probability;
+	float sum = 0.0f;
+	for (size_t i = 0; i < MapScriptGlobals::k_MagicCount; ++i)
+	{
+		sum += globals.fireFlySpellRewardProbability.at(i);
+		globals.fireFlySpellRewardCumulative.at(i) = sum;
+	}
 }
 
 void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 position, FieldTypeInfo townFieldType, float rotation)
@@ -865,22 +1076,23 @@ void FeatureScriptCommands::SetLandBalance(const std::string&, int32_t, float)
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateDrinkWaypoint([[maybe_unused]] glm::vec3 position)
+void FeatureScriptCommands::CreateDrinkWaypoint(glm::vec3 position)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 95 (0x716616) -> 0x770BC0: an invisible waypoint
+	auto& registry = Locator::entitiesRegistry::value();
+	registry.Assign<DrinkWaypoint>(registry.Create(), position);
 }
 
-void FeatureScriptCommands::SetTownInfluenceMultiplier([[maybe_unused]] float multiplier)
+void FeatureScriptCommands::SetTownInfluenceMultiplier(float multiplier)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 96 (0x717B5C): g_game+0x250078
+	Game::Instance()->GetMapScriptGlobals().townInfluenceMultiplier = multiplier;
 }
 
-void FeatureScriptCommands::SetPlayerInfluenceMultiplier([[maybe_unused]] float multiplier)
+void FeatureScriptCommands::SetPlayerInfluenceMultiplier(float multiplier)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 97 (0x717B7B): g_game+0x25007C
+	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier;
 }
 
 void FeatureScriptCommands::SetTownBalanceBeliefScale([[maybe_unused]] int32_t townId, [[maybe_unused]] float scale)

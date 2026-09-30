@@ -10,7 +10,9 @@
 #pragma once
 
 #include <unordered_map>
+#include <vector>
 
+#include <entt/entity/entity.hpp>
 #include <entt/entity/fwd.hpp>
 
 #include "Components/Footpath.h"
@@ -24,5 +26,12 @@ struct RegistryContext
 	std::unordered_map<components::Footpath::Id, entt::entity> footpaths;
 	std::unordered_map<components::Stream::Id, entt::entity> streams;
 	std::unordered_map<uint32_t, entt::entity> towns;
+	/// CREATE_FLOCK's flocks by their script id (+0x8C). The original's list is newest first, so a repeated id finds
+	/// the last one made.
+	std::unordered_map<int32_t, entt::entity> flocks;
+	/// the GClimates in the order they were made (components::Climate); lookups go from the back
+	std::vector<entt::entity> climates;
+	/// g_game+0x250534: the world's climate that the _RAIN/_TEMP/_WIND commands with id 0 use (made on demand)
+	entt::entity worldClimate {entt::null};
 };
 } // namespace openblack::ecs

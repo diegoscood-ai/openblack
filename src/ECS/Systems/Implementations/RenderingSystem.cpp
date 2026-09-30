@@ -265,6 +265,17 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 				    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * 1.75f * ecs::WindSway(slot);
 			    }
 		    }
+		    // Tree::Draw 0x74B016 (the tables of Tree::PreDraw 0x74A7C0): the wind sway, the up axis's x = scale x 0 and
+		    // z = scale x the lean of the tree's slot (bits 2-5 of +0x5C), only the drawn matrix. Not while the tree is
+		    // tilted (pulled or held by the hand); the bending around creatures and physics objects (bits 6-9 of +0x5C,
+		    // table 0xD19A48) is not ported.
+		    if (registry.AllOf<Tree>(entity) && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
+		    {
+			    // slot: any stable per-tree number 0..15
+			    const auto slot = (static_cast<uint32_t>(entt::to_integral(entity)) * 2654435761u) >> 28u;
+			    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
+			    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * ecs::WindSway(slot);
+		    }
 		    // The w of the fourth column: 2 + the grey of a house's lit windows at night (Abode::Draw), 1 otherwise
 		    if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && Game::Instance() != nullptr)
 		    {

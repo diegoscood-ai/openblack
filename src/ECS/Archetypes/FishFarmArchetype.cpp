@@ -11,14 +11,18 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
+#include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/FishFarm.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -28,7 +32,7 @@ using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 
-entt::entity FishFarmArchetype::Create(const glm::vec3& position)
+entt::entity FishFarmArchetype::Create(const glm::vec3& position, uint32_t info)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& island = Locator::terrainSystem::value();
@@ -39,6 +43,19 @@ entt::entity FishFarmArchetype::Create(const glm::vec3& position)
 	ecs::object_index::Assign(entity);
 	registry.Assign<Transform>(entity, glm::vec3(position.x, y, position.z), glm::mat3(1.0f), glm::vec3(1.0f));
 	auto& farm = registry.Assign<FishFarm>(entity);
+	farm.info = info;
+	// FishFarm::FishFarm 0x52C360: Town::GetNearestTownToPos(pos, any tribe, any abode, FLT_MAX) 0x73B170, in x and z,
+	// replaces the script's town
+	float nearest = std::numeric_limits<float>::max();
+	registry.Each<const Town, const Transform>([&](entt::entity town, const Town&, const Transform& transform) {
+		const glm::vec2 delta(transform.position.x - position.x, transform.position.z - position.z);
+		const float distance2 = glm::dot(delta, delta);
+		if (distance2 < nearest)
+		{
+			nearest = distance2;
+			farm.town = town;
+		}
+	});
 
 	// Rings of radius 2, 4, ... < 50, 32 directions each: the first direction with sea (altitude 0) at two radii in a
 	// row gives the shoal centre, at the second of them

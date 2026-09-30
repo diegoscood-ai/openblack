@@ -2487,6 +2487,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	if (desc.drawSky && desc.viewId == graphics::RenderPass::Main)
 	{
 		DrawClouds(graphics::RenderPass::MainBlended, *desc.camera);
+		DrawMists(graphics::RenderPass::MainBlended, *desc.camera);
 		DrawSun(graphics::RenderPass::MainBlended, *desc.camera, true);
 	}
 

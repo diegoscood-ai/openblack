@@ -12,16 +12,15 @@
 #include <entt/fwd.hpp>
 #include <glm/fwd.hpp>
 
-#include "Enums.h"
-
 namespace openblack::ecs::archetypes
 {
-class StreetLanternArchetype
+/// A script marker (ScriptMarker, created by CHL CREATE type Marker, fn_0070D8D0): only a position, no mesh and no
+/// obstacle. MapCoords::Set 0x603340 keeps y relative to the ground and ScriptMarker::PhysicsEditorCreate 0x561030
+/// does not reset it, so GET_POSITION gives back exactly the position it was made at (y = 0 for a 2D [x, z]).
+class MarkerArchetype
 {
 public:
-	/// GStreetLantern::Create 0x7346E0(pos, GMobileStaticInfo[info]) (CREATE_STREET_LANTERN, CHL CREATE 7 and 59)
-	/// @return entt::null when another MobileStatic is within 0.5 m
-	static entt::entity Create(const glm::vec3& position, MobileStaticInfo info);
-	StreetLanternArchetype() = delete;
+	static entt::entity Create(const glm::vec3& position);
+	MarkerArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

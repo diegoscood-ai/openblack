@@ -411,11 +411,13 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
 
 ## Animales (base mínima para las manchas)
 
-- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`; edad 0 →
-  GameRand(20) + 5. Malla: la alta de `GAnimalInfo` (LOD siempre 1). Escala (`InitialiseScale` 0x417B20): jóvenes
+- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
+  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
+  LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
+  `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
   ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
 - Land1 crea 116 (palomas 40, gaviotas 22, golondrinas 14, caballos 12, vacas 10, cerdos 7, tortugas 6, murciélagos 5).
-  openblack crea solo los terrestres (`altitudeNormal` = 0): los voladores quedarían en el suelo sin su vuelo.
+  openblack crea solo los terrestres: los voladores faltan hasta decodificar su vuelo (ver objects-and-resources.md).
   Están quietos en la pose de reposo, como los aldeanos (sin IA ni animación de animales todavía).
 - openblack: `components::Animal`, `AnimalArchetype`.
 
@@ -481,3 +483,17 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
   (vista `ScreenOverlay`), `fs_text`. Gancho `OPENBLACK_TEST_TOOLTIP=<n>`. El margen del texto respecto a la mano
   (media caja) es una estimación.
   Faltan los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...).
+
+## Niebla del mapa (LH3DMist, `fn_007FA300`)
+
+- Misma malla `mist.l3d`, material de humo y atlas 8×8 que las nubes; la rotación es la matriz de cámara 0xEA1C98.
+  Contador +0x84 += int(time_inc · 0,255) módulo 900, fotograma (contador/20) & 15.
+- Con el bit 2 (+0x8C ≠ 1): escala = tamaño/(1 + (k − 1)(1 − |dy|/|d|)) y luz desde arriba con ambiente 210/256,
+  como las nubes. Sin él: escala = tamaño, color = N2 × luz de la tierra bajo ella (`fn_00801C90`, byte a byte
+  /255), neblina `fn_007FEB30` y luz de los modelos. openblack: `Renderer::DrawMists` (RendererMists.cpp) tras las
+  nubes, `vs_cloud` con `u_cloud.w` = 1 para la luz de los modelos. Falta la neblina de distancia en las nieblas.
+- **Eje de la cúpula**: `mist.l3d` es una cúpula de radio 20 con la base en el origen; 0xEA1C98 pone su eje (+Y local)
+  hacia la cámara. En openblack la tercera columna de la inversa de la vista apunta **hacia delante** (lejos de la
+  cámara), así que `DrawMists` la niega; sin eso, una niebla a ras de suelo se hunde en la tierra y no se ve.
+  `DrawClouds` usa la columna sin negar (en el cielo da igual). Las de Land1 son sutiles: gris 0x80808080 al 50 %
+  × el alfa del humo × la luz de la tierra.

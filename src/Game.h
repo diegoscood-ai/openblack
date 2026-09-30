@@ -72,6 +72,27 @@ struct Arguments
 class DayNightClock;
 class ScreenFade;
 
+/// Values the map script sets that live in g_game or in statics of runblack.exe (only data so far)
+struct MapScriptGlobals
+{
+	static constexpr size_t k_MagicCount = 42;
+
+	/// VERSION (0x716FF9 -> 0xD9957C); CREATE_FLOCK reads its town from N5 from 2.1 on, else from N4
+	float version {0.0f};
+	/// SET_LAND_NUMBER (0x7177A4): g_game+0x205A08, 0 in the GGame ctor
+	int32_t landNumber {0};
+	/// SET_TOWN_INFLUENCE_MULTIPLIER / SET_PLAYER_INFLUENCE_MULTIPLIER: g_game+0x250078 / +0x25007C, back to 1 in
+	/// GGame::Init before the map script runs (read by Town::Process and Citadel::GetInfluence)
+	float townInfluenceMultiplier {1.0f};
+	float playerInfluenceMultiplier {1.0f};
+	/// FIRE_FLY_SPELL_REWARD_PROB (0x717998 -> 0x52B630): 0xCCFBAC, by magic type (GMagicInfo::GetInfoFromText 0x5FB3B0,
+	/// the first magic effect whose name matches without case; an unknown name gives 42 and is dropped). Not reset
+	/// between lands.
+	std::array<float, k_MagicCount> fireFlySpellRewardProbability {};
+	/// 0xCCFB04: the running sums of the table above, remade on every change
+	std::array<float, k_MagicCount> fireFlySpellRewardCumulative {};
+};
+
 class Game
 {
 public:
@@ -107,6 +128,8 @@ public:
 	[[nodiscard]] ScreenFade& GetScreenFade() { return *_screenFade; }
 	/// The original's day/night clock (GLandAlignement::UpdateTime)
 	[[nodiscard]] DayNightClock& GetDayNightClock() { return *_dayNightClock; }
+	/// Globals set by the map script (VERSION, SET_LAND_NUMBER, influence multipliers, firefly rewards)
+	[[nodiscard]] MapScriptGlobals& GetMapScriptGlobals() { return _mapScriptGlobals; }
 
 	static Game* Instance() { return sInstance; }
 
@@ -130,5 +153,6 @@ private:
 	std::optional<std::pair</* frame number */ uint32_t, /* output */ std::filesystem::path>> _requestScreenshot;
 	std::unique_ptr<ScreenFade> _screenFade;
 	std::unique_ptr<DayNightClock> _dayNightClock;
+	MapScriptGlobals _mapScriptGlobals;
 };
 } // namespace openblack

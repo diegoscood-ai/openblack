@@ -88,9 +88,24 @@
   `OPENBLACK_TEST_TREE_GROWTH="x,z"` (dos brotes, uno con bosque y otro sin), `OPENBLACK_TREE_TRACE=1` (cada paso
   de crecimiento y el brillo) y `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"` (suelta un árbol ahí y dice si se
   replanta, cae o queda muerto).
-- **Sin portar**: el bosque como objeto (centro, listas por distancia, borrado a los ~200 s vacío) y la aparición de
-  árboles nuevos (`Forest::Process`: `c·min(1, 0,05·nCrecidos)·T/300 > azar(2000,3000)`, plantado en anillos de 5-10 m
-  con `maxSize` en [0,8, 1,2) y tamaño 0,1). Informe: `tmp_dis\trees2\gap_life_draw.md`.
+- **Bosques** (`Forest`, ctor 0x539BD0; `ECS/Trees.cpp`): un bosque es un objeto con centro e id (CREATE_FOREST, o
+  `new Forest(pos, 0)` al replantar fuera de todo bosque; id 0 = el siguiente libre). CREATE_TREE y CREATE_NEW_TREE
+  buscan el id del guion en la lista de bosques y, si no existe, el árbol **no tiene bosque** (0x7162BE): los ids 0-6
+  de Land5 y el −1 de Land1/Land2 quedan sin bosque. Cada turno (`Forest::Process` 0x539DA0): un bosque vacío espera
+  2000 turnos y se borra; si no, crecen sus árboles y puede plantar uno nuevo: `r = 2000 + azar(1000)`,
+  `f = min(1, 0,05·crecidos)`, `T` = turnos desde el último árbol que plantó cualquier bosque (global 0xCD04C8),
+  `c` = intentos del bosque (+1 por turno); si `c·f·T/300 > r`, planta junto a uno de los `azar(n/2+1)` crecidos más
+  cercanos a su centro (`Forest::CreateNewTree` 0x539FD0) y `c` vuelve a 0. **Plantar junto a un árbol**
+  (fn_0053A010): 32 ángulos desde uno al azar (2π/32 entre ellos) × 5 radios (entero 5-9 al azar, luego `(r+2) % 10`),
+  el primer sitio libre; el árbol nuevo es del tipo del padre, tamaño 0,1, máximo `0,8 + azar(0,4)` y ángulo al azar.
+  «Libre» (fn_0074C180) = sin objeto fijo (círculo de 0,5) y en tierra; el original lee `(collide & 8) == 0 || IsWater`,
+  la parte del agua parece invertida y se ha tomado como «no en agua» [supuesto]. Con un bosque de 20 árboles crecidos
+  sale más o menos un árbol nuevo en el mundo cada minuto y medio (comprobado en Land3: el bosque 19 plantó uno).
+- **Agua sobre un árbol** (`Tree::ApplyWaterSpell` 0x74C390, `ecs::ApplyWaterSpell`, para la sesión de milagros): uno
+  que crece crece `waterMultiplier·growAmt`; con el subtipo de hechizo 0x17 también uno adulto, la mitad por
+  `GetDistanceModifier(tamaño, 3)` (= `SigmoidThreshold(0,5, 1 − min(tamaño,3)/3)`, tabla de 41 pasos en 0xC23284), por
+  encima de su máximo. Uno adulto de un bosque regado sin 0x17, pasados 40 turnos del último árbol del mundo, planta
+  otro a su lado (el llamador da la alineación buena y la estadística 0xE). Falta el sonido 0x78 + tick%9.
 
 ### Dibujado (además del mecido, ver «Campos»)
 
@@ -107,9 +122,18 @@
 - **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
   suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
   `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.
-- **Curvado junto a la mano, la criatura y los objetos físicos** (bits 6-9 de +0x5C, tabla 0xD19A48, hasta 0,471239 rad
-  = 27°, con sonido `G_Crash_Tree_M_01..08`, «rubbing trees»): **sin portar**. Informes
-  `tmp_dis\trees2\gap_life_draw.md` y `gap_brightness_sound.md`.
+- **Curvado junto a lo que pasa cerca** (`Tree::Draw` 0x74AB8B, `fn_005DF1B0`, tabla 0xD19A48): cada fotograma se apuntan
+  en la tabla el objeto que lleva la mano (ranura 1: todo objeto en la mano se «dibuja en la mano»), los objetos físicos
+  en vuelo (ranuras 3-13 por turno, `fn_00646FE0`) y la criatura del jugador (ranura 2; aún no hay), cada uno con su
+  posición y un radio = escala × la semidiagonal de su malla (LH3DMesh +0x30). Cada fuente marca los árboles de las 3 × 3
+  celdas de 10 m a su alrededor (gana la última). Un árbol marcado se curva si su copa no está por debajo de la fuente
+  (base + altura ≥ y de la fuente) y la distancia horizontal `d` es menor que el radio `r`:
+  `ángulo = 0,471239 · (1 − ((r − 0,75)·d/r + 0,75)/r)` (27° como mucho), alrededor del eje horizontal perpendicular a la
+  dirección fuente→árbol, la copa **alejándose** de la fuente; solo la matriz dibujada, y en ese fotograma sin vaivén.
+  Sonido al empezar a curvarse: clave `{c, *, *, 10, 75}` de `editor.sad` con `c = 3` si la curva es < 0,3 (sin
+  muestras), 2 si < 0,67, 1 si no: `G_Crash_Tree_M_01..08` («rubbing trees»). openblack: `ecs::UpdateTrees`
+  (`UpdateTreeBends`, `Tree::bendAngle/bendDirection`) y `RenderingSystem.cpp`. Comprobado con una roca en la mano
+  (`OPENBLACK_HAND_TEST_HOLD=1.5`): los árboles cercanos se apartan y suenan `G_Crash_Tree_M_05/07`.
 
 ## Campos (Field, informe `tmp_dis\field\field_notes.txt`)
 

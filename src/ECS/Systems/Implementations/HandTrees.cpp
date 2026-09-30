@@ -191,7 +191,8 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	});
 	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
 	component.isNonScenic = inTown;
-	component.forestId = inTown ? ecs::TownForestId(townId) : forest.value_or(ecs::NewForestId());
+	component.forestId = inTown ? ecs::TownForestId(townId, transform.position)
+	                             : forest.value_or(0u) != 0 ? *forest : ecs::CreateForest(0, transform.position);
 	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
 	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
 	// so the effect runs for its own life from the data).

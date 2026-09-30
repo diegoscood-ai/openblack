@@ -69,6 +69,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Rocks.h"
@@ -701,7 +702,8 @@ void HandSystem::RunDebugHooks() noexcept
 		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
 		{
 			auto& registry = Locator::entitiesRegistry::value();
-			for (const auto& [dx, forest] : {std::pair {0.0f, 1u}, std::pair {10.0f, 0u}})
+			const auto testForest = ecs::CreateForest(0, glm::vec3(x, 0.0f, z));
+			for (const auto& [dx, forest] : {std::pair {0.0f, testForest}, std::pair {10.0f, 0u}})
 			{
 				const glm::vec2 point(x + dx, z);
 				const glm::vec3 position(point.x, Locator::terrainSystem::value().GetHeightAt(point), point.y);

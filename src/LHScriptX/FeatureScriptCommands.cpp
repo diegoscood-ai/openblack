@@ -50,6 +50,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/MapCollide.h"
+#include "ECS/Trees.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -561,10 +562,10 @@ void FeatureScriptCommands::CreateNewAnimal(glm::vec3 position, int32_t type, in
 	                        found != flocks.end() ? found->second : entt::null, static_cast<uint32_t>(std::max(age, 0)));
 }
 
-void FeatureScriptCommands::CreateForest([[maybe_unused]] int32_t forestId, [[maybe_unused]] glm::vec3 position)
+void FeatureScriptCommands::CreateForest(int32_t forestId, glm::vec3 position)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// Forest ctor 0x539BD0 with the script's id (0 takes the next free one): the forest its trees are looked up in
+	ecs::CreateForest(static_cast<uint32_t>(forestId), position);
 }
 
 void FeatureScriptCommands::CreateTree(int32_t forestId, glm::vec3 position, TreeInfo treeType, int32_t rotation, int32_t scale)
@@ -589,7 +590,9 @@ void FeatureScriptCommands::CreateNewTree(int32_t forestId, glm::vec3 position, 
 	{
 		return;
 	}
-	TreeArchetype::Create(forestId, position, treeType, static_cast<bool>(isNonScenic), rotation, maxSize, currentSize);
+	// the script's forest id is looked up in the forest list (0x7162BE): a tree whose forest does not exist has none
+	TreeArchetype::Create(ecs::ResolveForestId(forestId), position, treeType, static_cast<bool>(isNonScenic), rotation,
+	                      maxSize, currentSize);
 	ecs::map_collide::RegisterTree(position);
 }
 

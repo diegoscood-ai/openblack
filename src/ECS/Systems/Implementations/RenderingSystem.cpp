@@ -278,9 +278,29 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    }
 		    // Tree::Draw 0x74B016 (the tables of Tree::PreDraw 0x74A7C0): the wind sway, the up axis's x = scale x 0 and
 		    // z = scale x the lean of the tree's slot (bits 2-5 of +0x5C), only the drawn matrix. Not while the tree is
-		    // tilted (pulled or held by the hand); the bending around creatures and physics objects (bits 6-9 of +0x5C,
-		    // table 0xD19A48) is not ported.
+		    // tilted (pulled or held by the hand). A tree bent away from a passing object (bits 6-9 of +0x5C, table
+		    // 0xD19A48, worked out in ecs::UpdateTrees) draws that bend instead of the sway: the drawn matrix turned about
+		    // its base, the crown leaning along the bend direction.
 		    if (const auto* tree = registry.TryGet<const Tree>(entity);
+		        tree != nullptr && tree->bendAngle != 0.0f && transform.rotation[1].x == 0.0f &&
+		        transform.rotation[1].z == 0.0f)
+		    {
+			    const glm::vec3 away(tree->bendDirection.x, 0.0f, tree->bendDirection.y);
+			    const auto bend =
+			        glm::mat3(glm::rotate(glm::mat4(1.0f), tree->bendAngle, glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), away)));
+			    auto& instance = _renderContext.instanceUniforms[idx];
+			    for (int column = 0; column < 3; ++column)
+			    {
+				    const auto turned = bend * glm::vec3(instance[column]);
+				    instance[column] = glm::vec4(turned, instance[column][3]);
+			    }
+			    if (!registry.AllOf<MeshTint>(entity))
+			    {
+				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
+				    instance[3][3] = -(1.0f + static_cast<float>(grey * 65536u + grey * 256u + grey));
+			    }
+		    }
+		    else if (const auto* tree = registry.TryGet<const Tree>(entity);
 		        tree != nullptr && transform.rotation[1].x == 0.0f && transform.rotation[1].z == 0.0f)
 		    {
 			    // the tree's own slot, round(yAngle x 16 / 2pi) & 15 (0x74A0E7): trees facing the same way sway together

@@ -11,6 +11,8 @@
 
 #include <cstdint>
 
+#include <glm/vec2.hpp>
+
 #include "Enums.h"
 
 namespace openblack::ecs::components
@@ -36,6 +38,13 @@ struct Tree
 	/// Tree +0x5C bits 2-5: which of the 16 wind sway slots it uses, round(yAngle x 16 / 2pi) & 15 at creation
 	/// (0x74A0E7), so that trees facing the same way sway together
 	uint8_t windSlot = 0;
+	/// Tree::Draw 0x74AB8B: this frame's bend away from the object carried by the hand, a physics object or a
+	/// creature (the entry of table 0xD19A48 its bits 6-9 of +0x5C point at), only the drawn matrix: the angle (0 = not
+	/// bent) and the horizontal direction from that object to the tree the crown leans towards
+	float bendAngle = 0.0f;
+	glm::vec2 bendDirection {0.0f, 1.0f};
+	/// bent last frame too: the rubbing sound plays when a bend starts
+	bool wasBent = false;
 };
 
 /// A tree that was thrown or dropped where it cannot be replanted (DeadTree, a Rock subclass in the original):

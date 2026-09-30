@@ -11,7 +11,10 @@
 
 #include <cstdint>
 
+#include <optional>
+
 #include <entt/fwd.hpp>
+#include <glm/vec3.hpp>
 
 namespace openblack::ecs
 {
@@ -33,17 +36,40 @@ void UpdateTrees(float seconds);
 /// obstacle circle like the original's SetScale. Returns how much it actually grew.
 float GrowTree(entt::entity tree, float amount, bool raiseMax);
 
-/// The forest a town's replanted trees join (the original keeps a list of forests per town, Town +0x608, and
-/// Tree::EndPhysics joins the last of them). Creates one the first time the town needs it.
-uint32_t TownForestId(uint32_t townId);
+/// Forest ctor 0x539BD0: a forest at `centre` with that id (0 takes the next free id, a given id raises the counter
+/// past it; CREATE_FOREST and Tree::EndPhysics's `new Forest(pos, 0)`). Returns its id.
+uint32_t CreateForest(uint32_t id, glm::vec3 centre);
 
-/// The id for a brand new forest (`new Forest(pos, 0)` in Tree::EndPhysics): one past the highest in use.
-uint32_t NewForestId();
-
-/// Whether that forest id means "in a forest" (the scripts use 0 and -1 for scenic trees).
+/// Whether a forest with that id exists (CREATE_TREE / CREATE_NEW_TREE look the script's id up in the forest list and
+/// pass no forest when there is none, 0x7162BE).
 [[nodiscard]] bool IsInForest(uint32_t forestId);
 
-/// On map load: the towns' forests go with the map.
+/// The id to store in a tree for the script's forest id: the id itself if that forest exists, else 0 (no forest).
+[[nodiscard]] uint32_t ResolveForestId(int32_t scriptForestId);
+
+/// The forest a town's replanted trees join (the original keeps a list of forests per town, Town +0x608, and
+/// Tree::EndPhysics joins the last of them). Creates one at `at` the first time the town needs it.
+uint32_t TownForestId(uint32_t townId, glm::vec3 at);
+
+/// The nearest forest whose centre is within `radius` of `at` (for the forest miracle), if any.
+[[nodiscard]] std::optional<uint32_t> NearestForest(glm::vec3 at, float radius);
+
+/// Moves a tree into a forest (Forest::RemoveTree of the old one, Forest::AddTree 0x53A310 of the new one; 0 = none).
+void SetTreeForest(entt::entity tree, uint32_t forestId);
+
+/// fn_0053A010: plants a sapling of `parent`'s type next to it: 32 angles (from a random one, 2pi/32 apart) x 5 radii
+/// (a random whole 5-9 m, then (r + 2) mod 10), the first free spot on land; the new tree is size 0.1, grows to
+/// 0.8 + rand(0.4), at a random angle, in the forest. Returns the tree or entt::null when nothing fits.
+entt::entity PlantTreeNear(uint32_t forestId, entt::entity parent);
+
+/// Tree::ApplyWaterSpell 0x74C390 (the tree's side of the water miracle): a growing tree grows by waterMultiplier x
+/// growAmount; with `raiseMaximum` (the spell subtype 0x17) a full grown one also grows, by half that times
+/// GetDistanceModifier(size, 3), past its maximum. A full grown tree of a forest watered without it, more than 40 turns
+/// after the last new tree of the world, plants a sapling next to itself (returned; the caller gives the player the good
+/// alignment and the 0xE statistic).
+entt::entity ApplyWaterSpell(entt::entity tree, bool raiseMaximum);
+
+/// On map load: the forests go with the map.
 void ClearForests();
 
 } // namespace openblack::ecs

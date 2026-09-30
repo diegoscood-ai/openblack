@@ -7,7 +7,7 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
-#include "HdPeople.h"
+#include "HdTweaks.h"
 
 #include <algorithm>
 #include <chrono>
@@ -22,6 +22,7 @@
 #include "3D/AllMeshes.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
+#include "ECS/Components/Hand.h"
 #include "ECS/DetailMeshes.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -30,7 +31,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 
-namespace openblack::resources::hd_people
+namespace openblack::resources::hd_tweaks
 {
 namespace
 {
@@ -56,12 +57,12 @@ bool IsPersonMesh(const graphics::L3DMesh& mesh, const std::vector<uint32_t>& sk
 		              });
 	       });
 }
-// hook OPENBLACK_TEST_HD_PEOPLE=<frame>:<textures>,<smooth> (e.g. 600:hd,round): at that frame the options change as in
+// hook OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth> (e.g. 600:hd,round): at that frame the options change as in
 // the Mods menu (the mod on), to check the reload
 void RunTestHook()
 {
 	static int frame = 0;
-	const char* test = std::getenv("OPENBLACK_TEST_HD_PEOPLE");
+	const char* test = std::getenv("OPENBLACK_TEST_HD_TWEAKS");
 	if (test == nullptr || !Locator::mods::has_value())
 	{
 		return;
@@ -74,7 +75,7 @@ void RunTestHook()
 		return;
 	}
 	auto& registry = Locator::mods::value();
-	auto* mod = registry.Find("graphics.hd-people");
+	auto* mod = registry.Find("graphics.hd-tweaks");
 	if (mod == nullptr)
 	{
 		return;
@@ -90,7 +91,7 @@ void RunTestHook()
 			registry.SetOption(*mod, i, static_cast<size_t>(choice - option.choices.begin()));
 		}
 	}
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "HD villagers test: options set to {} at frame {}", value.substr(colon + 1),
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "HD-Tweaks test: options set to {} at frame {}", value.substr(colon + 1),
 	                   frame);
 }
 } // namespace
@@ -100,16 +101,16 @@ HdTextures Begin()
 	auto& config = Locator::config::value();
 	// the list is read even with the mod off, so that it can be turned on later
 	auto hdTextures = Locator::mods::has_value()
-	                      ? HdTextures(Locator::mods::value().GetModFilesDirectory("graphics.hd-people"))
+	                      ? HdTextures(Locator::mods::value().GetModFilesDirectory("graphics.hd-tweaks"))
 	                      : HdTextures();
-	config.hdPeopleSkins = hdTextures.Ids();
-	s_loadedTextures = config.hdPeopleTextures;
-	s_loadedSmoothLevel = config.hdPeopleSmoothLevel;
+	config.hdTweaksSkins = hdTextures.Ids();
+	s_loadedTextures = config.hdTweaksTextures;
+	s_loadedSmoothLevel = config.hdTweaksSmoothLevel;
 	s_begun = true;
 	s_decoding.clear();
-	if (config.hdPeopleTextures)
+	if (config.hdTweaksTextures)
 	{
-		for (const auto id : config.hdPeopleSkins)
+		for (const auto id : config.hdTweaksSkins)
 		{
 			if (const auto image = hdTextures.ImagePath(id); std::filesystem::exists(image))
 			{
@@ -123,7 +124,7 @@ HdTextures Begin()
 void LoadTexture(const HdTextures& hdTextures, const std::string& name, const pack::G3DTexture& g3dTexture)
 {
 	auto& textureManager = Locator::resources::value().GetTextures();
-	if (const auto image = Locator::config::value().hdPeopleTextures ? hdTextures.Find(g3dTexture.header.id, g3dTexture.ddsData)
+	if (const auto image = Locator::config::value().hdTweaksTextures ? hdTextures.Find(g3dTexture.header.id, g3dTexture.ddsData)
 	                                                                 : std::filesystem::path();
 	    !image.empty())
 	{
@@ -155,13 +156,13 @@ void Update()
 	RunTestHook();
 	ecs::detail_meshes::Update();
 	const auto& config = Locator::config::value();
-	if (!s_begun || (config.hdPeopleTextures == s_loadedTextures && config.hdPeopleSmoothLevel == s_loadedSmoothLevel))
+	if (!s_begun || (config.hdTweaksTextures == s_loadedTextures && config.hdTweaksSmoothLevel == s_loadedSmoothLevel))
 	{
 		return;
 	}
 	const auto start = std::chrono::steady_clock::now();
-	const bool texturesChanged = config.hdPeopleTextures != s_loadedTextures;
-	const bool meshesChanged = config.hdPeopleSmoothLevel != s_loadedSmoothLevel;
+	const bool texturesChanged = config.hdTweaksTextures != s_loadedTextures;
+	const bool meshesChanged = config.hdTweaksSmoothLevel != s_loadedSmoothLevel;
 	const auto hdTextures = Begin();
 
 	auto& fileSystem = Locator::filesystem::value();
@@ -170,14 +171,14 @@ void Update()
 	    pack.ReadFile(*fileSystem.GetData(fileSystem.GetPath<filesystem::Path::Data>() / "AllMeshes.g3d"));
 	if (result != pack::PackResult::Success)
 	{
-		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "HD villagers: unable to reload AllMeshes.g3d: {}",
+		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "HD-Tweaks: unable to reload AllMeshes.g3d: {}",
 		                    pack::ResultToStr(result));
 		return;
 	}
 
 	const auto packRead = std::chrono::steady_clock::now();
 	auto& resources = Locator::resources::value();
-	const auto& skins = config.hdPeopleSkins;
+	const auto& skins = config.hdTweaksSkins;
 	int textures = 0;
 	if (texturesChanged)
 	{
@@ -214,15 +215,23 @@ void Update()
 			meshManager.Load(meshId, L3DLoader::FromBufferTag {}, k_MeshNames.at(i), packMeshes[i]);
 			++meshes;
 		}
+		// the hand (Game: Hand_Boned_Base2.l3d)
+		if (meshManager.Contains(ecs::components::Hand::k_MeshId))
+		{
+			meshManager.Erase(ecs::components::Hand::k_MeshId);
+			meshManager.Load(ecs::components::Hand::k_MeshId, L3DLoader::FromDiskTag {},
+			                 fileSystem.GetPath<filesystem::Path::CreatureMesh>() / "Hand_Boned_Base2.l3d");
+			++meshes;
+		}
 	}
 
 	const auto ms = [](auto from, auto to) {
 		return std::chrono::duration_cast<std::chrono::milliseconds>(to - from).count();
 	};
 	SPDLOG_LOGGER_INFO(spdlog::get("game"),
-	                   "HD villagers: {} textures and {} meshes reloaded in {} ms (pack {} ms, textures {} ms, meshes {} ms)",
+	                   "HD-Tweaks: {} textures and {} meshes reloaded in {} ms (pack {} ms, textures {} ms, meshes {} ms)",
 	                   textures, meshes, ms(start, std::chrono::steady_clock::now()), ms(start, packRead),
 	                   ms(packRead, texturesDone), ms(texturesDone, std::chrono::steady_clock::now()));
 }
 
-} // namespace openblack::resources::hd_people
+} // namespace openblack::resources::hd_tweaks

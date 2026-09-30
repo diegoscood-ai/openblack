@@ -20,7 +20,7 @@
 namespace openblack::graphics
 {
 
-/// Mod graphics.hd-people (smooth): rounder low-poly boned meshes. Each triangle becomes the cubic PN triangle of its
+/// Mod graphics.hd-tweaks (smooth): rounder low-poly boned meshes. Each triangle becomes the cubic PN triangle of its
 /// corners and normals (Vlachos et al. 2001, "Curved PN Triangles") and is split into level² triangles.
 /// Vertices are in the space of their bone (rigid skin, one bone per vertex, like the L3D vertex groups): the surface is
 /// built in the rest pose (restBones = each bone's model matrix) and every new vertex goes back to the bone of the

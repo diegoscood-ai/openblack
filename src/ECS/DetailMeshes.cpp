@@ -46,7 +46,7 @@ void SetMesh(components::Mesh& mesh, std::initializer_list<MeshId> detailMeshes,
 
 MeshId Villager(const GVillagerInfo& info, bool child)
 {
-	if (Locator::config::value().hdPeopleHighDetail)
+	if (Locator::config::value().hdTweaksHighDetail)
 	{
 		return child ? info.childMeshHigh : info.highDetail;
 	}
@@ -55,12 +55,12 @@ MeshId Villager(const GVillagerInfo& info, bool child)
 
 MeshId Animal(const GAnimalInfo& info)
 {
-	return Locator::config::value().hdPeopleHighDetail ? info.high : info.std;
+	return Locator::config::value().hdTweaksHighDetail ? info.high : info.std;
 }
 
 void Update()
 {
-	const bool high = Locator::config::value().hdPeopleHighDetail;
+	const bool high = Locator::config::value().hdTweaksHighDetail;
 	if (high == s_appliedHigh || !Locator::entitiesRegistry::has_value() || !Locator::infoConstants::has_value())
 	{
 		s_appliedHigh = high;

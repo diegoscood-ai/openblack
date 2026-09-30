@@ -197,7 +197,7 @@ void main()
 		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
 		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
 		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		// mod graphics.hd-people (u_window.y > 0): fs_object does this per pixel on the villager
+		// mod graphics.hd-tweaks (u_window.y > 0): fs_object does this per pixel on the villager
 		if (u_window.y <= 0.0f)
 		{
 			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));

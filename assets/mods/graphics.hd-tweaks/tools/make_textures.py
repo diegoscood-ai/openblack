@@ -1,4 +1,4 @@
-"""HD villager textures for the mod graphics.hd-people.
+"""HD villager textures for the mod graphics.hd-tweaks.
 
 Every texture used by a person mesh (MSH_P_* in AllMeshes.h) is decoded, brought back to its real resolution (some packs
 store 256x256 art doubled with nearest pixels, which the upscaler would keep as blocks), upscaled x4 with Real-ESRGAN

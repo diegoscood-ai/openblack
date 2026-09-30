@@ -72,7 +72,7 @@
 #include "Mods/ModRegistry.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
-#include "Resources/HdPeople.h"
+#include "Resources/HdTweaks.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
@@ -406,8 +406,8 @@ bool Game::Update() noexcept
 	auto deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(current - previous);
 
 	Locator::debugGui::value().SetScale(config.guiScale);
-	// mod graphics.hd-people changed in the Mods menu: its villager textures and meshes, before anything uses them
-	resources::hd_people::Update();
+	// mod graphics.hd-tweaks changed in the Mods menu: its villager textures and meshes, before anything uses them
+	resources::hd_tweaks::Update();
 
 	// Physics
 	{
@@ -744,9 +744,9 @@ bool Game::Initialize() noexcept
 		return false;
 	}
 
-	// mod graphics.hd-people: the villagers' textures come from the HD images in its folder, and their meshes (the ones
+	// mod graphics.hd-tweaks: the villagers' textures come from the HD images in its folder, and their meshes (the ones
 	// with those textures) can be smoothed
-	const auto hdTextures = resources::hd_people::Begin();
+	const auto hdTextures = resources::hd_tweaks::Begin();
 	const auto& meshes = pack.GetMeshes();
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& mesh : meshes)
@@ -759,7 +759,7 @@ bool Game::Initialize() noexcept
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
-		resources::hd_people::LoadTexture(hdTextures, name, g3dTexture);
+		resources::hd_tweaks::LoadTexture(hdTextures, name, g3dTexture);
 	}
 
 	pack::PackFile animationPack;

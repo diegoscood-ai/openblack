@@ -48,16 +48,16 @@ struct EnhancedL3DVertex
 
 namespace
 {
-// Mod graphics.hd-people: a boned mesh whose textures are all villager textures (EngineConfig::hdPeopleSkins)
+// Mod graphics.hd-tweaks: a boned mesh whose textures are all villager textures (EngineConfig::hdTweaksSkins)
 bool AllPersonSkins(const auto& primitiveSpan)
 {
 	const auto& config = Locator::config::value();
-	if (config.hdPeopleSkins.empty() || primitiveSpan.empty())
+	if (config.hdTweaksSkins.empty() || primitiveSpan.empty())
 	{
 		return false;
 	}
 	return std::ranges::all_of(primitiveSpan, [&config](const auto& primitive) {
-		return std::ranges::find(config.hdPeopleSkins, primitive.material.skinID) != config.hdPeopleSkins.end();
+		return std::ranges::find(config.hdTweaksSkins, primitive.material.skinID) != config.hdTweaksSkins.end();
 	});
 }
 
@@ -91,7 +91,7 @@ void SmoothPerson(const auto& boneSpans, const bgfx::Memory*& verticesMem, const
 	{
 		ranges.push_back({primitive.indicesOffset, primitive.indicesCount});
 	}
-	if (!TessellatePn(vertices, indices, ranges, restBones, Locator::config::value().hdPeopleSmoothLevel))
+	if (!TessellatePn(vertices, indices, ranges, restBones, Locator::config::value().hdTweaksSmoothLevel))
 	{
 		return;
 	}
@@ -332,10 +332,11 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 			}
 		}
 	}
-	// Mod graphics.hd-people (smooth): the villagers' meshes as curved PN triangles. The collision data built above stays
+	// Mod graphics.hd-tweaks (smooth): the villagers' meshes as curved PN triangles. The collision data built above stays
 	// the original's (the hand and the physics use it).
-	_person = _flags.hasBones && AllPersonSkins(primitiveSpan);
-	if (_person && Locator::config::value().hdPeopleSmoothLevel >= 2)
+	// ... and the hand (Game loads it from Hand_Boned_Base2.l3d, rigid bones like the villagers)
+	_hdTweaked = _flags.hasBones && (AllPersonSkins(primitiveSpan) || _l3dMesh.GetDebugName() == "Hand_Boned_Base2");
+	if (_hdTweaked && Locator::config::value().hdTweaksSmoothLevel >= 2)
 	{
 		SmoothPerson(boneSpans, verticesMem, indicesMem, _primitives, nVertices, nIndices);
 	}

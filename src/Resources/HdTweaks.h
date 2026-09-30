@@ -21,11 +21,11 @@ struct G3DTexture;
 namespace openblack::resources
 {
 
-/// Mod graphics.hd-people: the villagers' textures and meshes of AllMeshes.g3d as the mod's options say, also when they
-/// change during the game (no restart): Update reloads only the villager textures and the villagers' boned meshes.
-namespace hd_people
+/// Mod graphics.hd-tweaks: the villagers' textures and meshes of AllMeshes.g3d as the mod's options say, also when they
+/// change during the game (no restart): Update reloads only the villager textures, their boned meshes and the hand.
+namespace hd_tweaks
 {
-/// Before AllMeshes.g3d is loaded: the mod's image list (EngineConfig::hdPeopleSkins gets its ids) and the options in
+/// Before AllMeshes.g3d is loaded: the mod's image list (EngineConfig::hdTweaksSkins gets its ids) and the options in
 /// effect from now on
 HdTextures Begin();
 
@@ -35,6 +35,6 @@ void LoadTexture(const HdTextures& hdTextures, const std::string& name, const pa
 /// Once a frame, before anything is drawn: when the options differ from the ones the resources were loaded with, reloads
 /// the villager textures and meshes from AllMeshes.g3d
 void Update();
-} // namespace hd_people
+} // namespace hd_tweaks
 
 } // namespace openblack::resources

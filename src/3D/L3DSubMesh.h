@@ -74,8 +74,9 @@ public:
 
 	[[nodiscard]] openblack::l3d::L3DSubmeshHeader::Flags GetFlags() const { return _flags; }
 	[[nodiscard]] bool IsPhysics() const { return _flags.isPhysics; }
-	/// Mod graphics.hd-people: a villager's sub-mesh (boned, all its textures in EngineConfig::hdPeopleSkins)
-	[[nodiscard]] bool IsPerson() const { return _person; }
+	/// Mod graphics.hd-tweaks: a sub-mesh it smooths and lights per pixel, a villager's (boned, all its textures in
+	/// EngineConfig::hdTweaksSkins) or the hand's
+	[[nodiscard]] bool IsHdTweaked() const { return _hdTweaked; }
 	[[nodiscard]] graphics::Mesh& GetMesh() const;
 	[[nodiscard]] const AxisAlignedBoundingBox& GetBoundingBox() const { return _boundingBox; }
 	[[nodiscard]] const std::vector<Primitive>& GetPrimitives() const { return _primitives; }
@@ -90,7 +91,7 @@ private:
 	graphics::L3DMesh& _l3dMesh;
 
 	openblack::l3d::L3DSubmeshHeader::Flags _flags;
-	bool _person {false};
+	bool _hdTweaked {false};
 
 	std::unique_ptr<graphics::Mesh> _mesh;
 	std::vector<Primitive> _primitives;

@@ -19,15 +19,15 @@ namespace openblack::mods
 {
 namespace
 {
-class HdPeopleMod final: public Mod
+class HdTweaksMod final: public Mod
 {
 public:
-	HdPeopleMod()
-	    : Mod({"graphics.hd-people", "HD villagers",
-	           "Better looking villagers: their textures upscaled 4x (images in Mods/graphics.hd-people, made with its "
-	           "tools), rounder bodies (each triangle curved and split in 4 or 9), the original's light per pixel on "
-	           "the smooth shapes, textures kept sharp far away, and the high detail meshes of villagers and animals (the "
-	           "original only draws the standard ones)",
+	HdTweaksMod()
+	    : Mod({"graphics.hd-tweaks", "HD-Tweaks",
+	           "Better looking villagers, animals and hand: villager textures upscaled 4x (images in "
+	           "Mods/graphics.hd-tweaks, made with its tools), rounder villagers and hand (each triangle curved and split "
+	           "in 4 or 9), the original's light per pixel on those smooth shapes, textures kept sharp far away, and the "
+	           "high detail meshes of villagers and animals (the original only draws the standard ones)",
 	           "Graphics", false})
 	{
 		AddOption({"textures", "Textures", {"hd", "original"}, 0});
@@ -40,20 +40,20 @@ public:
 	void Apply() override
 	{
 		auto& config = Locator::config::value();
-		config.hdPeopleTextures = IsEnabled() && GetChoice("textures") == "hd";
+		config.hdTweaksTextures = IsEnabled() && GetChoice("textures") == "hd";
 		const auto& smooth = GetChoice("smooth");
-		config.hdPeopleSmoothLevel = !IsEnabled() ? 0 : smooth == "round" ? 3 : smooth == "soft" ? 2 : 0;
+		config.hdTweaksSmoothLevel = !IsEnabled() ? 0 : smooth == "round" ? 3 : smooth == "soft" ? 2 : 0;
 		const auto& light = GetChoice("light");
-		config.hdPeopleLighting = IsEnabled() && light == "smooth" ? 1 : 0;
-		config.hdPeopleMipBias = IsEnabled() && GetChoice("sharp") == "on" ? -1.0f : 0.0f;
-		config.hdPeopleHighDetail = IsEnabled() && GetChoice("detail") == "high";
+		config.hdTweaksLighting = IsEnabled() && light == "smooth" ? 1 : 0;
+		config.hdTweaksMipBias = IsEnabled() && GetChoice("sharp") == "on" ? -1.0f : 0.0f;
+		config.hdTweaksHighDetail = IsEnabled() && GetChoice("detail") == "high";
 	}
 };
 } // namespace
 
-void RegisterHdPeopleMod(ModRegistry& registry)
+void RegisterHdTweaksMod(ModRegistry& registry)
 {
-	registry.Register(std::make_unique<HdPeopleMod>());
+	registry.Register(std::make_unique<HdTweaksMod>());
 }
 
 } // namespace openblack::mods

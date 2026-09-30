@@ -19,7 +19,7 @@ struct GAnimalInfo;
 
 /// The detail meshes of villagers and animals (info: high, std, low). The original gives the LH3DObject the three
 /// (GetDetailMesh(2, 1, 0), Villager::SetAge 0x7528C0), but its LevelOfDetail loads are NOPed: always LOD 1, the std
-/// mesh (docs/bw1-notes/rendering.md, "LOD"). Mod graphics.hd-people (detail = high): the high mesh, twice the triangles.
+/// mesh (docs/bw1-notes/rendering.md, "LOD"). Mod graphics.hd-tweaks (detail = high): the high mesh, twice the triangles.
 namespace openblack::ecs::detail_meshes
 {
 [[nodiscard]] MeshId Villager(const GVillagerInfo& info, bool child);

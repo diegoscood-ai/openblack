@@ -65,7 +65,7 @@ struct Texture2DLoader final: BaseLoader<graphics::Texture2D>
 	struct FromPackTag
 	{
 	};
-	/// A PNG image (mod graphics.hd-people), RGBA8 with a full mip chain
+	/// A PNG image (mod graphics.hd-tweaks), RGBA8 with a full mip chain
 	struct FromImageTag
 	{
 	};

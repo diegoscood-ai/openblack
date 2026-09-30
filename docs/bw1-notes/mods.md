@@ -36,14 +36,14 @@ Referencias de mallas originales: el paquete de Creature Isle (`...\CreatureIsle
   animaciones `M_P_*` de AllAnims.anm (232) son de 22 huesos. Las poses de reposo varían un poco (grupos: 85 mallas,
   12 femeninas, 10, CULT_PRIEST+INTRO_M).
 - openblack usaba `highDetail`; desde 2026-09-30 usa la `stdDetail` / `childMeshMedium` como el original (LOD 1 siempre; la high,
-  el doble de triángulos, con el mod hd-people `detail = high`, `ECS/DetailMeshes`). Antes: los aldeanos usaban solo `highDetail` (sin LOD) y se dibujan en pose de reposo (Renderer.cpp, "Get animation
+  el doble de triángulos, con el mod hd-tweaks `detail = high`, `ECS/DetailMeshes`). Antes: los aldeanos usaban solo `highDetail` (sin LOD) y se dibujan en pose de reposo (Renderer.cpp, "Get animation
   frame instead of default"); L3DAnim carga AllAnims pero no hay reproducción.
 - Texturas (hoja de contacto en `dev\tmp_dis\hdpeople\tex\sheet.png`): todas son atlas de 256² **nativos**. Las
   que el paquete del usuario tiene a 512 o 1024 son ampliaciones con píxeles duplicados (el error frente a doblar su
   mitad es < 1,5 niveles), salvo 0x5A y 0x47 (512 nativas). INTRO_M/F se ven más finos porque su textura de 256² es
   de **un solo** personaje (los aldeanos: 4 por atlas). Ningún paquete (base, Creature Isle, Ultimate) trae mejores.
-- Mod `graphics.hd-people` (mod-library.md): texturas ×4 con Real-ESRGAN `realesrgan-x4plus` (el modelo anime aplana
+- Mod `graphics.hd-tweaks` (mod-library.md): texturas ×4 con Real-ESRGAN `realesrgan-x4plus` (el modelo anime aplana
   la pintura) desde la resolución nativa. Se generan con
-  `python assets\mods\graphics.hd-people\tools\make_textures.py <AllMeshes.g3d> <AllMeshes.h> <carpeta del mod>`
+  `python assets\mods\graphics.hd-tweaks\tools\make_textures.py <AllMeshes.g3d> <AllMeshes.h> <carpeta del mod>`
   (Real-ESRGAN portable en `C:\Users\diewgarc\dev\tools\realesrgan`, ~3 min con la GPU); no están en git.
 - Scripts: `C:\Users\diewgarc\dev\tmp_dis\hdpeople\` (compare.py, anims.py, summary.txt).

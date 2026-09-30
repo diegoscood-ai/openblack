@@ -28,6 +28,7 @@
 #include <glm/mat4x4.hpp>
 
 #include "3D/Clouds.h"
+#include "Graphics/Mists.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
 #include "Graphics/RendererInterface.h"
@@ -79,11 +80,14 @@ class Renderer final: public RendererInterface
 	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front on their own (RendererMists.cpp);
 	/// only when they cannot go through the main pass's back-to-front list
 	void DrawMists(graphics::RenderPass viewId, const Camera& camera) const;
-	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen with their distance to the camera (their Z-sorter key), and
-	/// their animation counters advanced (once per frame)
-	std::vector<std::pair<float, entt::entity>> CollectMists(const Camera& camera) const;
-	/// One mist, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
-	void DrawMist(graphics::RenderPass viewId, const Camera& camera, entt::entity entity) const;
+	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen (the map's and the ones of mists::Submit) with their distance
+	/// to the camera (their Z-sorter key) and their index in _frameMists; the map mists' counters advanced (once per
+	/// frame)
+	std::vector<std::pair<float, uint32_t>> CollectMists(const Camera& camera) const;
+	/// One mist of _frameMists, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
+	void DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
+	/// The mists of this frame, filled by CollectMists
+	mutable std::vector<mists::MistDesc> _frameMists;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
 	void DrawObjectReflections(graphics::RenderPass viewId) const;
 	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)

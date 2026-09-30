@@ -530,6 +530,11 @@ Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_number
 
 ## Niebla del mapa (LH3DMist, `fn_007FA300`)
 
+- **Otras nieblas** (API `mists::Submit(const MistDesc&)`, `src/Graphics/Mists.h`): quien tenga sus propios objetos
+  LH3DMist (las bocanadas de tormenta de `GWeather::DrawClouds` 0x83FC90) los envía cada fotograma con posición,
+  tamaño, color ARGB, rama efecto/normal, k y su contador; `CollectMists` los recorta con la misma esfera y van a la
+  misma lista de atrás adelante que las del mapa y los modelos con mezcla (`_frameMists`, `DrawMist(índice)`).
+
 - Misma malla `mist.l3d` (cúpula de radio 20, base en el origen), material de humo 0xEA1ABC (`fn_0080BBD0`, modo 6:
   mezcla SRCALPHA/INVSRCALPHA, color y alfa = textura × difuso, sin escritura de Z, dos caras) y atlas 8×8 que las
   nubes. Creación (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 siempre; si F4 ≠ 1, +0x8C = F4 y

@@ -39,6 +39,7 @@
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Mists.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -51,6 +52,8 @@ using namespace openblack::graphics;
 
 namespace
 {
+/// mists::Submit: the other LH3DMist objects of this frame
+std::vector<mists::MistDesc> g_submitted;
 /// What fn_00801C90 leaves in the object: the land light in +0x4C and the cells' own colour in +0x50 (the specular)
 struct LandLightSample
 {
@@ -110,7 +113,12 @@ bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, floa
 }
 } // namespace
 
-std::vector<std::pair<float, entt::entity>> Renderer::CollectMists(const Camera& camera) const
+void mists::Submit(const MistDesc& mist)
+{
+	g_submitted.push_back(mist);
+}
+
+std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& camera) const
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// game time (g_game_time_inc): the animation stops while the game is paused
@@ -122,7 +130,10 @@ std::vector<std::pair<float, entt::entity>> Renderer::CollectMists(const Camera&
 	    paused ? 0.0f : std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
 	lastTime = now;
 
-	std::vector<std::pair<float, entt::entity>> order;
+	std::vector<std::pair<float, uint32_t>> order;
+	_frameMists.clear();
+	const auto submitted = std::move(g_submitted);
+	g_submitted.clear();
 	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
 	const auto& textures = Locator::resources::value().GetTextures();
 	static const auto k_Smoke = entt::hashed_string("raw/smoke");
@@ -157,8 +168,17 @@ std::vector<std::pair<float, entt::entity>> Renderer::CollectMists(const Camera&
 			    mist.counter %= 900;
 		    }
 		    // the Z-sorter key is |pos - camera|^2 (LH3DZSorter::NewZObject); the distance sorts the same way
-		    order.emplace_back(glm::distance(transform.position, origin), entity);
+		    order.emplace_back(glm::distance(transform.position, origin), static_cast<uint32_t>(_frameMists.size()));
+		    _frameMists.push_back({transform.position, mist.size, mist.colour, mist.edgeShrink, mist.k, mist.counter});
 	    });
+	for (const auto& mist : submitted)
+	{
+		if (SphereInView(viewProjection, mist.position, meshRadius * mist.size * 0.55f))
+		{
+			order.emplace_back(glm::distance(mist.position, origin), static_cast<uint32_t>(_frameMists.size()));
+			_frameMists.push_back(mist);
+		}
+	}
 	return order;
 }
 
@@ -166,15 +186,19 @@ void Renderer::DrawMists(graphics::RenderPass viewId, const Camera& camera) cons
 {
 	auto order = CollectMists(camera);
 	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-	for (const auto& [distance, entity] : order)
+	for (const auto& [distance, index] : order)
 	{
-		DrawMist(viewId, camera, entity);
+		DrawMist(viewId, camera, index);
 	}
 }
 
-void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt::entity entity) const
+void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const
 {
-	auto& registry = Locator::entitiesRegistry::value();
+	if (index >= _frameMists.size())
+	{
+		return;
+	}
+	const auto& mist = _frameMists[index];
 	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
 	const auto& textures = Locator::resources::value().GetTextures();
 	static const auto k_Smoke = entt::hashed_string("raw/smoke");
@@ -200,7 +224,6 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
 	const bool landLight = _landLight && _landLight->IsLoaded() && Locator::terrainSystem::has_value();
 	const auto view = camera.GetViewMatrix(Camera::Interpolation::Current);
-	const auto& [mist, transform] = registry.Get<const ecs::components::Mist, const ecs::components::Transform>(entity);
 	const auto alpha = static_cast<float>(mist.colour >> 24u);
 	if (alpha <= 0.0f)
 	{
@@ -221,7 +244,7 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 		// effect branch 0x7FA3B1: round seen from straight below or above, k times wider than tall near the horizon; lit from straight above
 		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D; the normal branch has no
 		// such offset at 0x7FA675, so it uses rows 0-1)
-		const auto toMist = transform.position - origin;
+		const auto toMist = mist.position - origin;
 		const float length = std::max(glm::length(toMist), 1.0f);
 		scale.y = scale.z = mist.size / (1.0f + (mist.k - 1.0f) * (1.0f - std::abs(toMist.y) / length));
 		atlasV = 0.25f;
@@ -233,11 +256,11 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 		// 0x7FA6A4: fn_00801C90 gives the land light and the cells' colour, then fn_007FEB30 darkens that light
 		// with the distance haze and adds the haze colour to the colour (the object's specular)
 		const auto sample = LandLightAt(Locator::terrainSystem::value(), *_landLight, _cloudShadowCap, _cloudShadowSize,
-		                                glm::vec2(transform.position.x, transform.position.z));
+		                                glm::vec2(mist.position.x, mist.position.z));
 		auto light = glm::floor(sample.light * 255.0f + 0.5f);
 		// _hazeUniforms: x near, y far, z k, w on; the depth is the origin's, like vs_object
 		const auto& haze = _hazeUniforms[0];
-		const float depth = (view * glm::vec4(transform.position, 1.0f)).z;
+		const float depth = (view * glm::vec4(mist.position, 1.0f)).z;
 		const float t = depth < haze.x ? 0.0f : haze.w * glm::clamp((depth - haze.x) / (haze.y - haze.x), 0.0f, 1.0f);
 		light = glm::floor(light * (256.0f - std::trunc((256.0f - haze.z) * t)) / 256.0f);
 		specular = glm::min(sample.specular + glm::floor(glm::vec3(_hazeUniforms[1]) * t + 0.5f), glm::vec3(255.0f));
@@ -249,11 +272,11 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, entt:
 	                        ambient / 256.0f, 0.0f);
 	const glm::vec4 u_cloudColour(rgb / 255.0f, alpha / 255.0f);
 	const glm::vec4 u_cloudSpecular(specular / 255.0f, 0.0f);
-	const auto model = glm::translate(transform.position) * glm::mat4(rotation) * glm::scale(scale);
+	const auto model = glm::translate(mist.position) * glm::mat4(rotation) * glm::scale(scale);
 	// fn_00855340: the light of a vertex is the local normal against the light's position brought into the mesh's
 	// own space, so a non-uniform scale tilts it
 	const glm::vec4 u_cloudLight(
-	    glm::normalize(glm::inverse(glm::mat3(model)) * (lightPosition - transform.position)), 0.0f);
+	    glm::normalize(glm::inverse(glm::mat3(model)) * (lightPosition - mist.position)), 0.0f);
 	for (const auto& subMesh : mesh.GetSubMeshes())
 	{
 		for (const auto& prim : subMesh->GetPrimitives())

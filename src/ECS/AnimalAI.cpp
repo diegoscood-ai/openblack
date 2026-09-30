@@ -920,11 +920,17 @@ void GivesBirth(Context& ctx)
 }
 
 /// Living::SetDying (0x5EC390): nothing while it flies
+DeathCallback g_DeathCallback;
+
 void SetDying(entt::entity entity, AnimalBrain& brain)
 {
 	if (physics::PhysicsObjects::IsFlying(entity))
 	{
 		return;
+	}
+	if (g_DeathCallback && (brain.status & 1) == 0)
+	{
+		g_DeathCallback(entity);
 	}
 	if ((brain.status & 1) == 0)
 	{

@@ -29,6 +29,8 @@ struct Animal
 	/// +0xE0 (fn_00417C50, which also puts it on the town's list +0x984): only the animals that can be shepherded
 	/// (IsOkToBeShepherd, vtable +0xBA4: sheep, goat, tortoise, zebra, cow, horse, pig) keep the script's town
 	entt::entity town {entt::null};
+	/// the player it belongs to (GetPlayer; the spells' animals), -1 none
+	int32_t player {-1};
 };
 
 } // namespace openblack::ecs::components

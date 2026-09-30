@@ -11,8 +11,15 @@
 
 #include <cstdint>
 
+#include <functional>
+#include <optional>
+
 #include <entt/entity/fwd.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+
+#include "Enums.h"
 
 namespace openblack::ecs::animal_ai
 {
@@ -96,6 +103,29 @@ void PutDown(entt::entity entity);
 void DestroyedByEffect(entt::entity entity);
 /// The animal goes (sunk, deleted): off its flock's list
 void Forget(entt::entity entity);
+
+// ---- for the spells and scripts (ECS/AnimalApi.cpp; the Flock miracle, session Milagros) ----
+
+/// AnimalArchetype::Create (fn_00419D10 with a flock, fn_00419C20 without; age 0 = the random one) and the player
+/// that owns it (Animal::player; -1 none). entt::null for the species the original doesn't make.
+entt::entity CreateAnimal(const glm::vec3& position, AnimalInfo type, entt::entity flock, uint32_t age, int32_t player);
+/// Living::SetupMoveToPos: the info's move state towards the point (the birds at that altitude over the land), then
+/// `final`
+void MoveTo(entt::entity entity, glm::vec2 position, float altitude, AnimalState final);
+/// Living::SetTopState: the state with its clip
+void SetState(entt::entity entity, AnimalState state);
+/// Living::SetState(0, state) (vt+0x938): the top state only, the clip stays
+void SetStateRaw(entt::entity entity, AnimalState state);
+/// the final state (vt+0x860 GetDestPos): the goal of its move, x / altitude over the land / z
+[[nodiscard]] std::optional<glm::vec3> Destination(entt::entity entity);
+/// Living::SetDying (vt+0x6A4) calls this first, once per death
+using DeathCallback = std::function<void(entt::entity)>;
+void SetDeathCallback(DeathCallback callback);
+/// killed (SetDying: its dying and dead clips, the corpse) or gone at once (off its flock, out of the physics, deleted)
+void Kill(entt::entity entity);
+void Remove(entt::entity entity);
+/// per-instance opacity (components::Alpha, the alpha-blended pass); 1 takes it off
+void SetAlpha(entt::entity entity, float alpha);
 
 /// Test hooks, once per turn (ECS/AnimalDebugHooks.cpp)
 void RunDebugHooks(uint32_t turn);

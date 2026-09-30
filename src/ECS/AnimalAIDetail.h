@@ -94,6 +94,11 @@ glm::vec2 FlockPos(const Context& ctx);
 bool PosWithinDomain(const Context& ctx, glm::vec2 p);
 bool IsLeader(const Context& ctx);
 
+// Living::SetDying (vt+0x6A4) and the hook the spells use (AnimalAI.h SetDeathCallback)
+void SetDying(entt::entity entity, components::AnimalBrain& brain);
+void Delete(entt::entity entity);
+extern DeathCallback g_DeathCallback;
+
 // states and moving
 void SetTopState(entt::entity entity, components::AnimalBrain& brain, AnimalState state);
 void SetTopState(Context& ctx, AnimalState state);

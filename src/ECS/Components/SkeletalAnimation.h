@@ -40,6 +40,9 @@ struct SkeletalAnimation
 	int32_t carriedObject {1};
 	/// test hook OPENBLACK_TEST_CARRY: the carried object stays
 	bool carriedLocked {false};
+	/// Villager::Draw skips the body while the state's info.dat clip is -4 (ANM_DONT_DRAW: inside the house): the mesh
+	/// is taken off meanwhile (then nothing draws or picks it) and kept here
+	entt::id_type hiddenMesh {0};
 	/// the bones' model matrices for the current time (empty until the first update)
 	std::vector<glm::mat4> pose;
 };

@@ -49,8 +49,28 @@ la misma carpeta (`anm.py`, `pack.py`, `l3d.py`, `gen_state_fns.py`).
 (+0x5A) es lo que avanza **por turno** en MapCoords (`GetSpeedInMetres` 0x60C070 = u16 / 6553,6), y las tablas de
 info.dat (speedGroup) están en esas unidades: 1475 = 0,225 m/turno = 2,25 m/s. openblack movía `WallHug::speed` =
 2,25 por turno (10 veces demasiado rápido): ahora es m/s × 0,1. Un hombre normal da 2,25 / 1,16 ≈ 1,94 ciclos de
-paso por segundo, con los pies sincronizados (el clip avanza con la misma distancia). Falta el resto de
-`SetStateSpeed` / `SetSpeed` (±16 % por aldeano, creencia, necesidades del pueblo, sexo, edad).
+paso por segundo, con los pies sincronizados (el clip avanza con la misma distancia). `ECS/VillagerSpeed` (investigación `dev\tmp_dis\anim\speed_exact.md`): en cada cambio de estado
+(`SetStateSpeed` 0x753760) la velocidad sale de la entrada del speedGroup que pide el estado final (índice en
+`villagerStateTable.field0x24`), × 0,85 si tiene pueblo (base de las necesidades del pueblo; openblack aún no tiene sus
+deseos) × las cargas de leña y comida (sin carga: 1); herido: 0,4-0,6 × speed4 o 0,5-0,75 × speedDefault. Luego
+`SetSpeed` (0x750ED0) la multiplica por f = 1 + ((índice de creación × 47) % 31 − 16) × 0,01 (openblack usa el índice de
+la entidad), menos: niño min((13 − edad) × 0,02, 0,4); viejo (> 60) min((edad − 60) × 0,02, 0,4); adulto 0,1 × vida
+(y el hambre al cubo, que aún no existe) y 0,2 las mujeres; se trunca a u16. Un hombre normal va a ~1,7-1,9 m/s y una
+mujer a ~1,4-1,6. Sin hacer: la creencia del pueblo en el jugador, el bonus de maravilla del jugador y la escala del
+mapa (`SET_GLOBAL_LAND_BALANCE`).
+
+## Tamaño y malla por edad
+
+`Villager::SetAge` (0x7528C0): niño si la edad es menor que `grownUpAge` (13; openblack usaba 18), con las mallas
+`childMeshHigh..Low`; un adulto tiene al menos 18 años. Escala (`InitialiseScale` + `SetScaleForAge`): adulto 0,9 y luego
+1,05 − rand(0,1) (en (0,95, 1,05]); niño `ageToScale[edad − 1]` + rand(0,75 × la distancia a `ageToScale[edad + 1]`).
+Sin hacer: el crecimiento cada 375 turnos (openblack no envejece a los aldeanos).
+
+## Aldeanos ocultos
+
+`Villager::Draw` no dibuja al aldeano si el clip de info.dat de su estado actual es −4 (`ANM_DONT_DRAW`, p. ej.
+AT_HOME) ni con la marca de estar en casa (+0xE0 & 4, `ArriveHome` / `LeaveHome`): openblack le quita la malla mientras
+tanto (`SkeletalAnimation::hiddenMesh`), así tampoco se puede coger.
 
 ## Sonidos de los clips
 

@@ -18,12 +18,14 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/Mesh.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/VillagerAnimationTable.h"
+#include "ECS/VillagerSpeed.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -480,6 +482,11 @@ int32_t VillagerAnimId(entt::entity entity)
 
 void OnVillagerStateChanged(entt::entity entity, VillagerStates previous, VillagerStates next)
 {
+	// SetTopState: the new state's speed before its clips (not while dancing)
+	if (next != VillagerStates::InDance)
+	{
+		SetVillagerStateSpeed(entity);
+	}
 	auto& animation = AnimationOf(entity);
 	int32_t out = -1;
 	if (StateInfo(next).field0xf0 == 0 && static_cast<size_t>(previous) < 255)
@@ -590,6 +597,32 @@ void UpdateVillagerAnimations()
 	{
 		registry.Assign<SkeletalAnimation>(entity);
 		SetStateAnim(entity);
+	}
+	// not drawn in the states whose clip is -4 (Villager::Draw 0x51B940, the current state)
+	std::vector<entt::entity> hide;
+	std::vector<entt::entity> show;
+	registry.Each<const Villager, const SkeletalAnimation>([&](entt::entity entity, const Villager&, const SkeletalAnimation& animation) {
+		const auto state = TopState(entity);
+		const bool hidden = static_cast<size_t>(state) < 255 && static_cast<int32_t>(StateInfo(state).field0x0) == k_DontDraw;
+		if (hidden && animation.hiddenMesh == 0 && registry.AllOf<Mesh>(entity))
+		{
+			hide.push_back(entity);
+		}
+		else if (!hidden && animation.hiddenMesh != 0)
+		{
+			show.push_back(entity);
+		}
+	});
+	for (const auto entity : hide)
+	{
+		registry.Get<SkeletalAnimation>(entity).hiddenMesh = registry.Get<Mesh>(entity).id;
+		registry.Remove<Mesh>(entity);
+	}
+	for (const auto entity : show)
+	{
+		auto& animation = registry.Get<SkeletalAnimation>(entity);
+		registry.Assign<Mesh>(entity, animation.hiddenMesh, static_cast<int8_t>(0), static_cast<int8_t>(0));
+		animation.hiddenMesh = 0;
 	}
 	// moving states (info field0x14, Villager::IsMovingForAnimation) advance the clip with the ground covered
 	registry.Each<const Villager, SkeletalAnimation>([&registry](entt::entity entity, const Villager&, SkeletalAnimation& animation) {

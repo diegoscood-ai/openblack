@@ -9,11 +9,14 @@
 
 #include "VillagerArchetype.h"
 
+#include <algorithm>
+
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include "Common/RandomNumberManager.h"
+#include "ECS/VillagerSpeed.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
@@ -45,7 +48,14 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	const uint32_t health = 100;
 	const uint32_t hunger = 100;
 
-	const auto lifeStage = age < 18 ? Villager::LifeStage::Child : Villager::LifeStage::Adult;
+	// Villager::SetAge (0x7528C0): a child below grownUpAge (13), else an adult of at least 18
+	const auto lifeStage = age < info.grownUpAge ? Villager::LifeStage::Child : Villager::LifeStage::Adult;
+	if (lifeStage == Villager::LifeStage::Adult)
+	{
+		age = std::max<uint32_t>(age, 18);
+	}
+	// its size (InitialiseScale + SetScaleForAge)
+	registry.Get<Transform>(entity).scale = glm::vec3(ecs::VillagerScaleForAge(info, age));
 	const auto sex = info.villagerNumber == VillagerNumber::Housewife ? Villager::Sex::FEMALE : Villager::Sex::MALE;
 	const auto task = Villager::Task::IDLE;
 
@@ -80,10 +90,13 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	// WallHug::speed is the distance moved per game turn (the u16 at +0x5A in MapCoords, GetSpeedInMetres 0x60C070), and
 	// the speed groups are in m/s: a turn is 0.1 s
 	registry.Assign<WallHug>(entity, glm::vec2(), glm::vec2(), 0.0f, GetSpeedStateSpeed(info.speedGroup.speedDefault) * 0.1f);
-	const auto resourceId = resources::HashIdentifier(info.highDetail);
+	// children have their own meshes (childMeshHigh..Low)
+	const auto resourceId =
+	    resources::HashIdentifier(lifeStage == Villager::LifeStage::Child ? info.childMeshHigh : info.highDetail);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
 	auto turnsSinceStateChange = Locator::rng::value().NextValue<uint16_t>(1, 500);
 	registry.Assign<LivingAction>(entity, VillagerStates::Created, turnsSinceStateChange);
+	ecs::SetVillagerStateSpeed(entity);
 
 	return entity;
 }

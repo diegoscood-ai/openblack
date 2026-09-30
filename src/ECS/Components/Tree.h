@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include <entt/entity/entity.hpp>
 #include <glm/vec2.hpp>
 
 #include "Enums.h"
@@ -52,6 +53,14 @@ struct Tree
 struct DeadTree
 {
 	TreeInfo type;
+};
+
+/// A tree a forester felled (FelledTree, a DeadTree whose vtable FelledTree::Create 0x5116A0 swaps in): it falls with
+/// physics away from the forester and has no "wood here" reaction when it lands (FelledTree::EndPhysics 0x511970 goes
+/// straight to Fixed::EndPhysics). The entity also keeps its DeadTree.
+struct FelledTree
+{
+	entt::entity chopper {entt::null};
 };
 
 } // namespace openblack::ecs::components

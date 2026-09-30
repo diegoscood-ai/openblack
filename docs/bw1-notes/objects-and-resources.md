@@ -91,6 +91,35 @@
   `GGuidance::HelpSpritesAlignmentProcess`. La alineación del **terreno** (`MapCoords::GetAlignment`, la del crecimiento y
   los campos) es otra cosa, de la influencia de cada celda, y sigue sin portar. Traza: `OPENBLACK_ALIGNMENT_TRACE=1`.
 
+### Árboles para los oficios de aldeano (API `src/ECS/Trees.h`, para la sesión de aldeanos)
+
+- **Borrar** (`DeleteTree` = `Tree::ToBeDeleted` 0x74A210 / `DeadTree::ToBeDeleted` 0x510C90): fuera del bosque y de las
+  físicas, avisa a los oyentes (`AddTreeDeletedListener`: fuego, reacciones, mano) y se borra. `DeleteForest` =
+  `Forest::ToBeDeleted` 0x539C60: borra cada árbol de sus dos listas y sale de la lista de bosques (también el bosque
+  vacío a los 2000 turnos). `ShrinkAllTrees` usa `DeleteTree` para el árbol que llegaría a 0 (fn_0074A3A0).
+- **Madera**: `TreeWoodValue` = `Tree::GetWoodValue` 0x74B7B0 (vida × 1 × woodValue × escala × GLandBalance[5]) o
+  `DeadTree::GetWoodValue` 0x511AD0 (vida × woodValue × escala³: el original eleva la escala al cubo ahí); `TreeWood` =
+  `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × escala), lo
+  que recibe un almacén (`DepositInStore` lo usa).
+- **Quitar madera a un tronco** (`RemoveWood` = `DeadTree::RemoveResource` 0x511370): si le quedan ≤ n, se borra y da lo
+  que tenía; si no, **encoge**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Que su recurso sea la madera que
+  marca su escala es (inferido): `GetResource` no está trazado, pero `SetScale` mantiene las dos iguales. Comprobado:
+  haya muerta de escala 1, 700 → quitar 100 → 600, escala 0,857.
+- **Tipo de tronco al cargarlo** (`TreeCarriedType`): `Tree::GetCarriedTreeType` 0x55D900 = `carriedType` de info.dat;
+  `DeadTree::GetCarriedTreeType` 0x511A20 = 0-3 si su malla es uno de los 4 troncos de `CarriedObject::Init` 0x462600
+  (MeshPack 406, 347, 348, 349), si no el `carriedType` de su árbol (haya = 3, madera dura).
+- **Talar** (`FellTree` = `FelledTree::Create` 0x5116A0, que solo llama `Villager::ForesterChopsTree` 0x75FAC0): el árbol
+  pasa a `DeadTree` + `FelledTree` con su malla (sin soltar las raíces: esa bandera solo la pone `Tree::EndPhysics`) y
+  entra en las físicas lanzado por el leñador: `k = 0,4 × altura × 0,5`, `a = atan2(x, −z)` de la dirección
+  leñador→árbol (fn_007FAA50; 0 si mide menos de √0,001), velocidad `(sin a, 0, −cos a)·k` (a lo largo de esa
+  dirección), giro `0,4·(cos a, 0, sin a)` rad/s; en openblack el eje va **negado** porque las rotaciones del original giran
+  al revés que las de `PhysOb` (la misma inversión que se vio en el tirón), así la copa cae alejándose del leñador
+  (inferido de ese análisis de signos; comprobado en captura). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
+  **Sin portar**: `flags |= 2` y `+0x1A4 = 2` del objeto físico (sin identificar), `RaiseUntilNotIntersecting` 0x644800 y
+  la reacción 0x0C («aquí hay madera»; `FelledTree::EndPhysics` 0x511970 se la salta al posarse). `FelledTree::Draw`
+  0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
+  Gancho `OPENBLACK_TEST_FELL="x,z"`.
+
 ### Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
 
 - Solo crecen los árboles **de un bosque**: en el original únicamente `Forest::Process` 0x539DA0 recorre sus árboles, así

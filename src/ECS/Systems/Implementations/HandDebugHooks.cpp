@@ -716,6 +716,36 @@ void HandSystem::RunDebugHooks() noexcept
 			registry.SetDirty();
 		}
 	}
+	// Debug: OPENBLACK_TEST_FELL="x,z": a beech at x,z felled by a stand-in forester 3 m west of it (FellTree), then 100
+	// wood taken off another dead beech 8 m north (RemoveWood: it shrinks), logged.
+	if (const char* at = std::getenv("OPENBLACK_TEST_FELL"); at != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			const auto& land = Locator::terrainSystem::value();
+			const glm::vec3 position(x, land.GetHeightAt(glm::vec2(x, z)), z);
+			const auto tree = archetypes::TreeArchetype::Create(0, position, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			const auto forester = registry.Create();
+			registry.Assign<Transform>(forester, position - glm::vec3(3.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+			const auto log = ecs::FellTree(tree, forester);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: felled {} -> {} (in physics {}, carried type {}, wood {})",
+			                   static_cast<uint32_t>(tree), static_cast<uint32_t>(log),
+			                   physics::PhysicsObjects::Find(log) != nullptr, static_cast<int>(ecs::TreeCarriedType(log)),
+			                   ecs::TreeWood(log));
+			const glm::vec3 p2(x, land.GetHeightAt(glm::vec2(x, z + 8.0f)), z + 8.0f);
+			const auto dead = archetypes::TreeArchetype::Create(0, p2, TreeInfo::Beech, true, 0.0f, 1.0f, 1.0f);
+			MakeDeadTree(dead, glm::vec3(1.0f, 0.0f, 0.0f));
+			const auto before = ecs::TreeWood(dead);
+			const auto taken = ecs::RemoveWood(dead, 100);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: dead tree wood {} -> took {}, left {} (scale {:.3f})", before,
+			                   taken, registry.Valid(dead) ? ecs::TreeWood(dead) : 0u,
+			                   registry.Valid(dead) ? registry.Get<const Transform>(dead).scale.x : 0.0f);
+			registry.SetDirty();
+		}
+	}
 	// Debug: OPENBLACK_TEST_REPLANT="x,z,tilt" drops a beech there tilted by `tilt` degrees about x, straight through
 	// ReleaseTree: upright and on flat ground it is replanted, leaning or on a slope it falls (DeadTree).
 	if (const char* at = std::getenv("OPENBLACK_TEST_REPLANT"); at != nullptr)

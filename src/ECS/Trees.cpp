@@ -35,6 +35,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/Utils.h"
+#include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -47,6 +48,7 @@
 #include "3D/DayNightClock.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "LandBalance.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -98,7 +100,7 @@ float SigmoidThreshold(float threshold, float x)
 }
 
 /// fn_0074C180: nothing fixed in the way (a 0.5 circle against the fixed objects' circles) and on land. The original
-/// reads `(collide & 8) == 0 || IsWater(p)`; the water half looks inverted and is taken as "not in water" [guess].
+/// reads `(collide & 8) == 0 || IsWater(p)`; the water half looks inverted and is taken as "not in water" (inferido).
 bool IsFreeForTree(glm::vec3 point)
 {
 	if (!Locator::terrainSystem::has_value())
@@ -344,7 +346,8 @@ float openblack::ecs::ShrinkAllTrees(uint32_t forestId, float amount)
 		const float size = transform.scale.x - amount;
 		if (size <= 0.0f)
 		{
-			registry.Destroy(tree);
+			// fn_0074A3A0: a tree that would reach 0 is ToBeDeleted and adds nothing
+			DeleteTree(tree);
 			continue;
 		}
 		transform.scale = glm::vec3(size);
@@ -376,6 +379,183 @@ float openblack::ecs::TallestTreeHeight(uint32_t forestId)
 		tallest = std::max(tallest, meshes.Handle(mesh->id)->GetBoundingBox().Size().y * registry.Get<const Transform>(tree).scale.y);
 	}
 	return tallest;
+}
+
+namespace
+{
+std::vector<openblack::ecs::TreeDeletedListener> g_treeDeletedListeners;
+} // namespace
+
+void openblack::ecs::AddTreeDeletedListener(TreeDeletedListener listener)
+{
+	g_treeDeletedListeners.push_back(std::move(listener));
+}
+
+void openblack::ecs::DeleteTree(entt::entity tree)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(tree))
+	{
+		return;
+	}
+	for (const auto& listener : g_treeDeletedListeners)
+	{
+		listener(tree);
+	}
+	if (ecs::physics::PhysicsObjects::Find(tree) != nullptr)
+	{
+		ecs::physics::PhysicsObjects::RemoveObject(tree);
+	}
+	registry.Destroy(tree);
+	registry.SetDirty();
+}
+
+void openblack::ecs::DeleteForest(uint32_t forestId)
+{
+	for (const auto tree : ForestTrees(forestId))
+	{
+		DeleteTree(tree);
+	}
+	g_forests.erase(forestId);
+	std::erase_if(g_townForests, [forestId](const auto& pair) { return pair.second == forestId; });
+}
+
+float openblack::ecs::TreeWoodValue(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	if (transform == nullptr)
+	{
+		return 0.0f;
+	}
+	const auto* life = registry.TryGet<const Life>(entity);
+	const float lifeValue = life != nullptr ? life->value : 1.0f;
+	const float scale = transform->scale.x;
+	if (const auto* tree = registry.TryGet<const Tree>(entity); tree != nullptr)
+	{
+		const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(tree->type));
+		return lifeValue * 1.0f * static_cast<float>(info.woodValue) * scale * openblack::land_balance::Get(5);
+	}
+	if (const auto* dead = registry.TryGet<const DeadTree>(entity); dead != nullptr)
+	{
+		const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type));
+		return lifeValue * static_cast<float>(info.woodValue) * scale * scale * scale;
+	}
+	return 0.0f;
+}
+
+uint32_t openblack::ecs::TreeWood(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<Tree>(entity))
+	{
+		return static_cast<uint32_t>(TreeWoodValue(entity));
+	}
+	const auto* dead = registry.TryGet<const DeadTree>(entity);
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	if (dead == nullptr || transform == nullptr)
+	{
+		return 0;
+	}
+	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type));
+	// DeadTree +0x9C: Tree::GetWoodValueMultiplier 0x74B810 of the tree it was, 1.0
+	constexpr float k_WoodMultiplier = 1.0f;
+	return static_cast<uint32_t>(static_cast<float>(info.woodValue) * k_WoodMultiplier * transform->scale.x);
+}
+
+uint32_t openblack::ecs::RemoveWood(entt::entity entity, uint32_t amount)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* dead = registry.TryGet<const DeadTree>(entity);
+	if (dead == nullptr)
+	{
+		return 0;
+	}
+	// GetResource(WOOD) of a dead tree: taken as its default resource, the wood its scale stands for (inferido: the
+	// resource field is not traced, but RemoveResource's SetScale keeps the two equal)
+	const uint32_t have = TreeWood(entity);
+	if (have <= amount)
+	{
+		DeleteTree(entity);
+		return have;
+	}
+	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type));
+	constexpr float k_WoodMultiplier = 1.0f;
+	auto& transform = registry.Get<Transform>(entity);
+	transform.scale = glm::vec3(static_cast<float>(have - amount) / (static_cast<float>(info.woodValue) * k_WoodMultiplier));
+	registry.SetDirty();
+	return amount;
+}
+
+CarriedTreeType openblack::ecs::TreeCarriedType(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* tree = registry.TryGet<const Tree>(entity); tree != nullptr)
+	{
+		return Locator::infoConstants::value().tree.at(static_cast<size_t>(tree->type)).carriedType;
+	}
+	const auto* dead = registry.TryGet<const DeadTree>(entity);
+	if (dead == nullptr)
+	{
+		return CarriedTreeType::None;
+	}
+	if (const auto* mesh = registry.TryGet<const Mesh>(entity); mesh != nullptr)
+	{
+		// CarriedObject::Init 0x462600: the four carried logs, MeshPack 0x196 / 0x15B / 0x15C / 0x15D
+		constexpr std::array<uint32_t, 4> k_Logs = {0x196, 0x15B, 0x15C, 0x15D};
+		for (size_t i = 0; i < k_Logs.size(); ++i)
+		{
+			if (mesh->id == resources::HashIdentifier(static_cast<MeshId>(k_Logs[i])))
+			{
+				return static_cast<CarriedTreeType>(i);
+			}
+		}
+	}
+	return Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type)).carriedType;
+}
+
+entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* treeComponent = registry.TryGet<const Tree>(tree);
+	const auto* mesh = registry.TryGet<const Mesh>(tree);
+	auto& meshes = Locator::resources::value().GetMeshes();
+	if (treeComponent == nullptr || mesh == nullptr || !meshes.Contains(mesh->id) || !registry.Valid(chopper) ||
+	    !registry.AllOf<Transform>(chopper))
+	{
+		return entt::null;
+	}
+	const auto& transform = registry.Get<const Transform>(tree);
+	const auto from = registry.Get<const Transform>(chopper).position;
+	// k = 0.4 x GetHeight() x 0.5
+	const float height = meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform.scale.y;
+	const float k = 0.4f * height * 0.5f;
+	// the direction from the forester to the tree (y 0) and its angle a = fn_007FAA50 = atan2(x, -z) (0 when shorter than
+	// sqrt(0.001)): velocity (sin a, 0, -cos a) k = k along that direction; spin (cos a, 0, sin a) x 0.4 rad/s
+	const glm::vec3 d(transform.position.x - from.x, 0.0f, transform.position.z - from.z);
+	const float a = glm::dot(d, d) < 0.001f ? 0.0f : std::atan2(d.x, -d.z);
+	const glm::vec3 velocity(std::sin(a) * k, 0.0f, -std::cos(a) * k);
+	// The original spins about (cos a, 0, sin a) = d x up; its rotations turn the other way round from openblack's
+	// PhysOb (the tree tug, HandTrees.cpp, found the same flip), so here the axis is negated: the crown falls away from
+	// the forester, along the velocity (inferido from that sign analysis).
+	const glm::vec3 spin = -0.4f * glm::vec3(std::cos(a), 0.0f, std::sin(a));
+
+	// DeadTree::DeadTree 0x510880 takes over the tree's 3D object (mesh, matrix, scale) and info; the roots do not break
+	// off (only Tree::EndPhysics sets that flag)
+	const auto type = treeComponent->type;
+	registry.Remove<Tree>(tree);
+	registry.Assign<DeadTree>(tree, type);
+	registry.AssignOrReplace<FelledTree>(tree, chopper);
+	registry.SetDirty();
+	auto* po = ecs::physics::PhysicsObjects::AddObject(tree, velocity, spin, chopper, false);
+	if (po != nullptr)
+	{
+		// PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80
+		po->body.AdjustToGroundLevel(false, true);
+		// TODO: po->flags |= 2, PhysicsObject::RaiseUntilNotIntersecting 0x644800, po +0x1A4 = 2 and
+		// Reaction::CreateReaction(REACTION 0x0C "wood here") (not ported: flag 2 and +0x1A4 unidentified)
+	}
+	return tree;
 }
 
 entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaximum)
@@ -703,7 +883,7 @@ void ProcessForests(uint32_t turn)
 	}
 	for (const auto id : empty)
 	{
-		g_forests.erase(id);
+		openblack::ecs::DeleteForest(id);
 	}
 }
 } // namespace

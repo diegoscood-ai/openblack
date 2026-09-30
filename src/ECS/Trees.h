@@ -12,10 +12,13 @@
 #include <cstdint>
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <vector>
 
 #include <entt/fwd.hpp>
+
+#include "Enums.h"
 #include <glm/vec3.hpp>
 
 namespace openblack::ecs
@@ -95,6 +98,42 @@ float ShrinkAllTrees(uint32_t forestId, float amount);
 /// Forest +0x48: its full grown trees, nearest its centre first (Forest::AddTree 0x53A310 keeps the list sorted by
 /// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890; equal distances keep the order they joined in)
 [[nodiscard]] std::vector<entt::entity> GrownTreesByDistance(uint32_t forestId);
+
+/// Called with each tree (or dead tree) just before DeleteTree removes it: fire, reactions, the hand and the like clean
+/// up after it (the rest of Object::ToBeDeleted).
+using TreeDeletedListener = std::function<void(entt::entity)>;
+void AddTreeDeletedListener(TreeDeletedListener listener);
+
+/// Tree::ToBeDeleted 0x74A210 / DeadTree::ToBeDeleted 0x510C90: out of its forest (Forest::RemoveTree), out of the
+/// physics, the listeners told, and gone.
+void DeleteTree(entt::entity tree);
+
+/// Forest::ToBeDeleted 0x539C60: every tree of both its lists deleted (Tree::ToBeDeleted), then the forest itself
+/// leaves the forest list.
+void DeleteForest(uint32_t forestId);
+
+/// Tree::GetWoodValue 0x74B7B0 = life x GetWoodValueMultiplier (1) x woodValue x scale x GLandBalance::Values[5];
+/// DeadTree::GetWoodValue 0x511AD0 = life x woodValue x scale^3 (the original cubes the scale there).
+[[nodiscard]] float TreeWoodValue(entt::entity tree);
+
+/// GetDefaultResource(WOOD): Tree 0x74B7A0 = (int)GetWoodValue; DeadTree 0x511330 = (int)(woodValue x its wood
+/// multiplier (1, copied from the tree) x scale): no life, no land balance. What a store gets for it.
+[[nodiscard]] uint32_t TreeWood(entt::entity tree);
+
+/// DeadTree::RemoveResource 0x511370: n wood taken from a dead tree; with no more than n left it is deleted and gives
+/// what it had, otherwise it SHRINKS: SetScale((wood - n) / (woodValue x multiplier)). Returns what was taken.
+uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
+
+/// GetCarriedTreeType (Tree 0x55D900: info carriedType; DeadTree 0x511A20: 0-3 when its mesh is one of the four
+/// CarriedObject::Init 0x462600 logs, MeshPack 406 / 347 / 348 / 349, else the tree info's carriedType): the log a
+/// villager carries it as.
+[[nodiscard]] CarriedTreeType TreeCarriedType(entt::entity tree);
+
+/// FelledTree::Create 0x5116A0 (called only by Villager::ForesterChopsTree 0x75FAC0): the tree becomes a felled
+/// DeadTree with its mesh, thrown into the physics by the forester: velocity 0.2 x its height along the direction from
+/// the forester to the tree, spin 0.4 rad/s about the horizontal axis across it (the crown falls away from him),
+/// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
+entt::entity FellTree(entt::entity tree, entt::entity chopper);
 
 /// On map load: the forests go with the map.
 void ClearForests();

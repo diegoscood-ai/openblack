@@ -137,7 +137,8 @@ uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
 /// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
 entt::entity FellTree(entt::entity tree, entt::entity chopper);
 
-/// Object::Get2DRadius 0x638180: scale x max(LH3DMesh +0x24, +0x2C) (the half extents x and z of its mesh box)
+/// Object::Get2DRadius 0x638180: scale x max(LH3DMesh +0x24, +0x2C), taken as the half extents x and z of its mesh
+/// box (inferido: LH3DMesh::ComputeBoundingBox 0x808180 stores half sizes there)
 [[nodiscard]] float Object2DRadius(entt::entity object);
 
 /// The next map insertion stamp (Tree::mapInsertion): trees inserted later come first in their cell's list
@@ -151,8 +152,8 @@ entt::entity FellTree(entt::entity tree, entt::entity chopper);
 /// who->Get2DRadius() + 0.9 (0x8C5844)
 [[nodiscard]] glm::vec3 TreeWorkingPos(entt::entity tree, entt::entity who);
 
-/// Villager::FindTreeNearVillager 0x75FD00: the 9 cells around `who` in the order of GUtils::Spiral (table 0xDA59FC:
-/// the centre, then (1,0), (0,1), (-1,0), (0,-1) steps), in each only the FIRST tree of the cell (see TreesInCell) that
+/// Villager::FindTreeNearVillager 0x75FD00: the 9 cells around `who` in the order of GUtils::Spiral (0x74D7E0, table
+/// 0xDA59FC, dir 1 steps 1: (0,0) (-1,0) (-1,-1) (0,-1) (1,-1) (1,0) (1,1) (0,1) (-1,1)), in each only the FIRST tree of the cell (see TreesInCell) that
 /// is not INDESTRUCTIBLE (Object +0x24 bit 0x4000; set only by puzzle objects: no tree has it in a normal game); the
 /// nearest by Dist2D(who, its working position), from 99999 (0x47C34F80). No other rule (no distance limit, no scenic
 /// bit, no size, no forest). entt::null when none; the caller tells "touching" (10) from "found" (1) with IsTouching.

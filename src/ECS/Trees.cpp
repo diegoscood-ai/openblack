@@ -16,6 +16,7 @@
 #include <limits>
 #include <array>
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,6 +40,7 @@
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Transform.h"
@@ -84,8 +86,6 @@ uint32_t g_nextForestId = 1;
 uint32_t g_lastTreeCreatedTurn = 0;
 uint32_t g_currentTurn = 0;
 
-/// The original's per-town forest list (Town +0x608): every tree replanted in the same town joins the same forest.
-std::unordered_map<uint32_t, uint32_t> g_townForests;
 
 /// GUtils::SigmoidThreshold 0x74F170's table (0xC23284, 41 steps of a logistic curve, 0 to 1)
 constexpr std::array<float, 41> k_Sigmoid = {
@@ -114,7 +114,8 @@ bool IsFreeForTree(glm::vec3 point)
 		return false;
 	}
 	const glm::vec2 at(point.x, point.z);
-	if (Locator::terrainSystem::value().GetHeightAt(at) <= 0.0f)
+	// MapCoords::IsWater 0x6035B0: the cell's water bit (the negation of MapCoords::IsLand 0x603720)
+	if (!openblack::ecs::systems::hand_detail::IsLand(point))
 	{
 		return false;
 	}
@@ -210,7 +211,6 @@ void openblack::ecs::ClearForests()
 {
 	g_townForestLists.clear();
 	g_forests.clear();
-	g_townForests.clear();
 	g_nextForestId = 1;
 	g_lastTreeCreatedTurn = 0;
 }
@@ -432,7 +432,6 @@ void openblack::ecs::DeleteForest(uint32_t forestId)
 	}
 	g_forests.erase(forestId);
 	// fn_0053AE10: every town (g_game +0x205C84) drops the forest from its list Town +0x608 (fn_00741A70)
-	std::erase_if(g_townForests, [forestId](const auto& pair) { return pair.second == forestId; });
 	for (auto& [town, list] : g_townForestLists)
 	{
 		std::erase(list, forestId);
@@ -447,6 +446,8 @@ float openblack::ecs::TreeWoodValue(entt::entity entity)
 	{
 		return 0.0f;
 	}
+	// Object +0x48 GetLife: openblack gives trees no Life component yet; without one it is taken as 1 (inferido: a tree
+	// starts at startLife 1 and only fire lowers it)
 	const auto* life = registry.TryGet<const Life>(entity);
 	const float lifeValue = life != nullptr ? life->value : 1.0f;
 	const float scale = transform->scale.x;
@@ -588,6 +589,53 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	return tree;
 }
 
+namespace
+{
+/// GUtils::Spiral 0x74D7E0 with the step table 0xDA59FC {(1,0), (0,1), (-1,0), (0,-1)}, started with dir 1 and steps 1
+/// (Villager::FindTreeNearVillager 0x75FD1A, Town::MakeScenicForest 0x741BB9): each call does `if (--steps == 0)
+/// { ++dir; steps = dir / 2; }` and moves by table[dir & 3]. The offsets it visits, the centre first:
+/// (0,0) (-1,0) (-1,-1) (0,-1) (1,-1) (1,0) (1,1) (0,1) (-1,1) ...
+std::vector<glm::ivec2> SpiralOffsets(size_t count)
+{
+	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
+	                                                      glm::ivec2(0, -1)};
+	std::vector<glm::ivec2> offsets {glm::ivec2(0)};
+	glm::ivec2 at(0);
+	int dir = 1;
+	int steps = 1;
+	while (offsets.size() < count)
+	{
+		if (--steps == 0)
+		{
+			++dir;
+			steps = dir / 2;
+		}
+		at += k_Steps.at(static_cast<size_t>(dir & 3));
+		offsets.push_back(at);
+	}
+	return offsets;
+}
+
+/// Whether the object is on the map, i.e. in its cell's lists: not in the hand and not flying (in the original both are
+/// taken out of the map cells, RemoveMapObject)
+bool IsOnMap(entt::entity entity)
+{
+	if (openblack::Locator::handSystem::has_value())
+	{
+		if (const auto held = openblack::Locator::handSystem::value().GetHeldObject(); held && *held == entity)
+		{
+			return false;
+		}
+	}
+	return openblack::ecs::physics::PhysicsObjects::Find(entity) == nullptr;
+}
+
+glm::ivec2 CellOf(glm::vec3 position)
+{
+	return {static_cast<int>(std::floor(position.x * 0.1f)), static_cast<int>(std::floor(position.z * 0.1f))};
+}
+} // namespace
+
 float openblack::ecs::Object2DRadius(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -614,7 +662,7 @@ std::vector<entt::entity> openblack::ecs::TreesInCell(glm::ivec2 cell)
 	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
 		    const glm::ivec2 at(static_cast<int>(std::floor(transform.position.x * 0.1f)),
 		                        static_cast<int>(std::floor(transform.position.z * 0.1f)));
-		    if (at == cell)
+		    if (at == cell && IsOnMap(entity))
 		    {
 			    found.emplace_back(tree.mapInsertion, entity);
 		    }
@@ -637,7 +685,8 @@ glm::vec3 openblack::ecs::TreeWorkingPos(entt::entity tree, entt::entity who)
 	const glm::vec2 towards(from.x - at.x, from.z - at.z);
 	const float length = glm::length(towards);
 	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
-	// 0.9: 0x8C5844
+	// 0.9: 0x8C5844. (aproximado: the original's angle goes through GetAngleFromDXDZ, quantised to 2048 steps, and
+	// the point's height is the land's here, the tree's altitude plus GetPosFromAngle's y = 0 there)
 	const float reach = Object2DRadius(who) + 0.9f;
 	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * reach;
 	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
@@ -652,26 +701,11 @@ entt::entity openblack::ecs::FindTreeNearVillager(entt::entity who)
 		return entt::null;
 	}
 	const auto& from = registry.Get<const Transform>(who).position;
-	glm::ivec2 cell(static_cast<int>(std::floor(from.x * 0.1f)), static_cast<int>(std::floor(from.z * 0.1f)));
-	// GUtils::Spiral 0x74D7E0 with the step table 0xDA59FC {(1,0), (0,1), (-1,0), (0,-1)}: the centre, then 1 step,
-	// 1 step, 2, 2 over the 3 x 3 cells
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
-	                                                      glm::ivec2(0, -1)};
-	std::vector<glm::ivec2> cells {cell};
-	int run = 1;
-	size_t step = 0;
-	while (cells.size() < 9)
+	const auto cell = CellOf(from);
+	std::vector<glm::ivec2> cells;
+	for (const auto& offset : SpiralOffsets(9))
 	{
-		for (int twice = 0; twice < 2 && cells.size() < 9; ++twice)
-		{
-			for (int i = 0; i < run && cells.size() < 9; ++i)
-			{
-				cell += k_Steps.at(step % 4);
-				cells.push_back(cell);
-			}
-			++step;
-		}
-		++run;
+		cells.push_back(cell + offset);
 	}
 	entt::entity best = entt::null;
 	float nearest = 99999.0f; // 0x47C34F80
@@ -745,7 +779,8 @@ entt::entity openblack::ecs::ForestCentreTree(uint32_t forestId)
 	{
 		const auto& t = registry.Get<const Tree>(tree);
 		const auto& transform = registry.Get<const Transform>(tree);
-		const float d = glm::distance(transform.position, centre);
+		// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890 / 0x53AC20: GetDistanceInMetres 0x74CD70, 2D
+		const float d = glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z));
 		auto& head = (t.growing && transform.scale.x < t.maxSize) ? growing : grown;
 		if (!head || d < head->first)
 		{
@@ -784,8 +819,8 @@ std::optional<uint32_t> openblack::ecs::FindForest(glm::vec3 at, float max, bool
 namespace
 {
 /// fn_0053ADB0 and Town::FindNearestForestToPos: the forest's point nearest `at`: a BigForest's nearest edge (or `at`
-/// itself when inside its 2D radius, FindNearestForestToPos only), else its centre. BigForest::GetNearestEdgeToPos
-/// (vt+0x83C) is taken as the point of its 2D-radius circle towards `at` (inferido).
+/// itself when inside its 2D radius, FindNearestForestToPos only), else its centre. BigForest's vt+0x83C is
+/// Object::GetNearestEdgeToPos 0x636DA0 = pos + GetPosFromAngle(the angle towards `at`, Get2DRadius).
 glm::vec2 ForestNearestPoint(uint32_t forestId, glm::vec3 at, bool insideIsZero)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -821,15 +856,40 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 			break;
 		}
 	}
-	// R = 250 (GTownInfo +0x164) + 10 (0x8AB414)
+	// R = 250 (GTownInfo +0x164) + 10 (0x8AB414). The spiral (0x741BB9) from the town centre's cell stops at the first
+	// cell farther than R (|offset| x 10 > R): 1369 cells, a Chebyshev radius of 18, not the whole disc.
 	const float radius = Locator::infoConstants::value().town.maxDistanceForTownForest + 10.0f;
+	const auto centreCell = CellOf(townCentre);
+	std::vector<glm::ivec2> cells;
+	glm::ivec2 walked(0);
+	int dir = 1;
+	int steps = 1;
+	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
+	                                                      glm::ivec2(0, -1)};
+	for (int n = 0; n < 99999; ++n)
+	{
+		if (glm::length(glm::vec2(walked)) * 10.0f > radius)
+		{
+			break;
+		}
+		cells.push_back(centreCell + walked);
+		if (--steps == 0)
+		{
+			++dir;
+			steps = dir / 2;
+		}
+		walked += k_Steps.at(static_cast<size_t>(dir & 3));
+	}
+	std::set<std::pair<int, int>> inside;
+	for (const auto& c : cells)
+	{
+		inside.emplace(c.x, c.y);
+	}
+	const glm::vec2 centre2(townCentre.x, townCentre.z);
 	std::vector<entt::entity> taken;
 	registry.Each<const Tree, const Transform>([&](entt::entity entity, const Tree& tree, const Transform& transform) {
-		// the spiral stops at the first CELL farther than R: taken as every tree whose cell centre is within R
-		// (aproximado: the spiral's corners)
-		const glm::vec2 cellCentre = (glm::floor(glm::vec2(transform.position.x, transform.position.z) * 0.1f) +
-		                              glm::vec2(0.5f)) * 10.0f;
-		if (glm::distance(cellCentre, glm::vec2(townCentre.x, townCentre.z)) > radius)
+		const auto cell = CellOf(transform.position);
+		if (!inside.contains({cell.x, cell.y}) || !IsOnMap(entity))
 		{
 			return;
 		}
@@ -840,13 +900,20 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 		}
 		if (IsScenicForest(tree.forestId))
 		{
-			const auto centre = ForestCentre(tree.forestId);
-			if (glm::distance(transform.position, townCentre) < glm::distance(transform.position, centre))
+			// fn_00605CD0 = GetDistanceInMetres 0x74CD70: 2D
+			const auto forestCentre = ForestCentre(tree.forestId);
+			const glm::vec2 at(transform.position.x, transform.position.z);
+			if (glm::distance(at, centre2) < glm::distance(at, glm::vec2(forestCentre.x, forestCentre.z)))
 			{
 				taken.push_back(entity);
 			}
 		}
 	});
+	// the scenic forest is made only before its first tree (0x741C52-0x741C8C): no trees, no forest
+	if (taken.empty())
+	{
+		return;
+	}
 	if (!scenic)
 	{
 		scenic = CreateForest(0, townCentre);
@@ -915,6 +982,7 @@ glm::vec3 openblack::ecs::BigForestArrivePos(entt::entity bigForest, entt::entit
 	const glm::vec2 towards(from.x - at.x, from.z - at.z);
 	const float length = glm::length(towards);
 	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
+	// (aproximado: the angle is not quantised to the 2048 game angles, the height is the land's)
 	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * (0.5f * Object2DRadius(bigForest));
 	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
 	return {point.x, ground, point.y};
@@ -936,6 +1004,8 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 	{
 		const auto had = static_cast<uint32_t>(woodValue);
 		forest->wood = 0.0f;
+		// BigForest::ToBeDeleted 0x438EA7: forest +0x38 = 0, the Forest stays
+		SetForestBigForest(forest->forestId, entt::null);
 		registry.Destroy(bigForest);
 		registry.SetDirty();
 		return had;
@@ -955,21 +1025,29 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
 			const glm::vec2 point(position.x + std::cos(angle) * radius, position.z + std::sin(angle) * radius);
 			const float ground = Locator::terrainSystem::value().GetHeightAt(point);
-			if (ground <= 0.0f)
+			// MapCoords::IsLand 0x603720
+			if (!systems::hand_detail::IsLand(glm::vec3(point.x, ground, point.y)))
 			{
 				continue;
 			}
+			// 0x4392A1-0x4392B5: over the objects of p's cell (FindType(-1): the fixed list, then the mobile one), none
+			// with Dist2D(object, p) + its radius under 4 (the BigForest itself counts too)
+			const auto pointCell = CellOf(glm::vec3(point.x, 0.0f, point.y));
 			bool blocked = false;
 			registry.Each<const Transform, const Mesh>([&](entt::entity other, const Transform& t, const Mesh&) {
-				blocked = blocked || (other != bigForest &&
-				                      glm::distance(glm::vec2(t.position.x, t.position.z), point) < 4.0f);
+				if (blocked || CellOf(t.position) != pointCell || !IsOnMap(other))
+				{
+					return;
+				}
+				blocked = glm::distance(glm::vec2(t.position.x, t.position.z), point) + Object2DRadius(other) < 4.0f;
 			});
 			if (blocked)
 			{
 				continue;
 			}
-			// Tree::Create(pos, GTreeInfo 0xDA49D8 = Pine, the BigForest's forest, maxSize 0.75 (0x8AC3F8) +
-			// GameFloatRand(0.5), yAngle GameFloatRand(2pi), size 0.05)
+			// Tree::Create(pos, GTreeInfo 0xDA49D8 = Pine (the GTreeInfo array: base 0xDA3AD8, stride 0x140, filled at
+			// 0x749D30; index 12), the BigForest's forest, maxSize 0.75 (0x8AC3F8) + GameFloatRand(0.5), yAngle
+			// GameFloatRand(2pi), size 0.05; the ctor keeps arg 4 as +0x64 maxSize, 0x749E4A)
 			const float maxSize = 0.75f + rng.NextValue(0.0f, 0.5f);
 			archetypes::TreeArchetype::Create(forest->forestId, glm::vec3(point.x, ground, point.y), TreeInfo::Pine, false,
 			                                  rng.NextValue(0.0f, glm::two_pi<float>()), maxSize, 0.05f);
@@ -1287,7 +1365,6 @@ void ProcessForests(uint32_t turn)
 			}
 			continue;
 		}
-		forest.emptyTimer = 0;
 		// +0x3C == 1: a town's scenic forest is not processed (its trees do not grow, it plants none)
 		if (forest.scenic)
 		{

@@ -155,8 +155,9 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	// means the tree was planted "in a town" and it joins that town's forest, which beats any other. Otherwise the
 	// nearest tree that has a forest lends its forest (with no distance limit of its own, only the 35 m of the search),
 	// and a tree with neither, outside a town, starts a new forest.
-	// Deviation: the original takes the town's forest from a list the town keeps (Town +0x608); openblack does not
-	// model that list, so the first tree planted in a town starts the town's forest (ecs::TownForestId).
+	// The town's forest is the last scenic one of the town's list (Town +0x608, ecs::TownForestId); with none the best
+	// forest found so far stays (0x74BA9C-0x74BAAE only overwrite it for a scenic forest), and a tree in a town with no
+	// forest at all stays without one.
 	constexpr float k_SearchRadius = 35.0f;
 	constexpr float k_TownRadius = 25.0f;
 	bool inTown = false;
@@ -194,8 +195,11 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	});
 	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
 	component.isNonScenic = inTown;
-	component.forestId = inTown ? ecs::TownForestId(townId, transform.position)
-	                             : forest.value_or(0u) != 0 ? *forest : ecs::CreateForest(0, transform.position);
+	const auto townForest = inTown ? ecs::TownForestId(townId, transform.position) : 0u;
+	component.forestId = townForest != 0            ? townForest
+	                     : forest.value_or(0u) != 0 ? *forest
+	                     : inTown                   ? 0u
+	                                                : ecs::CreateForest(0, transform.position);
 	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
 	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
 	// so the effect runs for its own life from the data).

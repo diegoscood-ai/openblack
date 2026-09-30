@@ -131,7 +131,8 @@
   0x52DEA0 mete cada objeto **en cabeza**: el primero es el último insertado. openblack no tiene listas por celda:
   `Tree::mapInsertion` guarda ese orden (al crear el árbol y al replantarlo, `InsertMapObject` en `Fixed::EndPhysics`).
 - **Buscar árbol para talar** (`FindTreeNearVillager` = `Villager::FindTreeNearVillager` 0x75FD00): las 9 celdas de
-  alrededor en el orden de `GUtils::Spiral` (tabla 0xDA59FC), en cada una **solo el primer árbol** que no sea
+  alrededor en el orden de `GUtils::Spiral` (0x74D7E0, tabla 0xDA59FC, empezando con dir 1 y pasos 1: (0,0) (−1,0)
+  (−1,−1) (0,−1) (1,−1) (1,0) (1,1) (0,1) (−1,1)), en cada una **solo el primer árbol** que no sea
   INDESTRUCTIBLE (bit 0x4000 de +0x24: solo lo ponen los objetos de puzle y `LandscapeVortexOut`; ningún árbol en una
   partida normal); el más cercano por `Dist2D(aldeano, posición de trabajo)` desde 99999. Sin más reglas: ni distancia
   máxima, ni el bit «de pueblo» (+0x5E & 2), ni tamaño, ni bosque. El original devuelve 0/1/10 (10 = ya lo toca,
@@ -146,22 +147,26 @@
   no crecen y no planta).
 - **Bosque escénico del pueblo** (`MakeScenicForest` = `Town::MakeScenicForest` 0x741B40): toma los árboles a menos de
   250 + 10 m del centro del pueblo que no tienen bosque, o cuyo bosque es escénico y están más cerca del centro del
-  pueblo que del de ese bosque; si el pueblo no tenía, lo crea en el centro. (aproximado: el original recorre una espiral de
-  celdas que para en la primera más lejana que R; aquí, los árboles cuya celda está a menos de R.)
+  pueblo que del de ese bosque (distancias 2D); si el pueblo no tenía, lo crea en el centro **solo si hay algún árbol**. Las
+  celdas son las de la espiral de `GUtils::Spiral` desde la celda del centro, que para en la primera celda a más de R
+  (1369 celdas, radio de Chebyshev 18: no todo el disco de 260 m).
 - **Lista de bosques del pueblo** (`AssignForestsToTown` = `Town::AssignForestsToTown` 0x73EB00, Town +0x608): se vacía y se
   llena con cada bosque cuyo punto más cercano (el borde de su BigForest o su centro, fn_0053ADB0) está a menos de
   `GTownInfo::maxDistanceForTownForest` (250, +0x164) del almacén (o del punto temporal) y que tiene madera
   (`ForestWood` = fn_0053B280: la de su BigForest más la de cada árbol). La llama `Town::AsssignTownFeature` 0x73EAC0 (para
   cada pueblo, tras `MakeScenicForest`) y `Scaffold::BuildBuilding`; no se toca al crear o replantar árboles.
-  `BigForest::GetNearestEdgeToPos` (vt+0x83C) se toma como el punto de su círculo de radio 2D hacia `pos` (inferido).
+  El borde es `Object::GetNearestEdgeToPos` 0x636DA0 (vt+0x83C de BigForest): pos + GetPosFromAngle(ángulo hacia
+  `pos`, Get2DRadius).
 - **Replantar en un pueblo** (`TownForestId`): el árbol se une al **último bosque escénico** de la lista del pueblo
-  (`Tree::EndPhysics` 0x74BA2B); si el pueblo no tiene ninguno, **se queda sin bosque** (antes openblack creaba uno).
+  (`Tree::EndPhysics` 0x74BA2B); si no hay ninguno se queda con el bosque del árbol más cercano ya encontrado, y sin
+  ninguno de los dos, **sin bosque** (antes openblack creaba uno).
 - **Bosque más cercano** (`FindNearestForestToPos` = `Town::FindNearestForestToPos` 0x73EC10): en la lista del pueblo, el
   de punto más cercano (0 si se está dentro del radio del BigForest) a menos de 250; gana uno no escénico, el escénico solo
   si no hay otro. `FindForest(pos, max, soloVacíos)` = fn_0053A1A0: por la lista global, el de **centro** más cercano
   (vacío = sin árboles y sin BigForest). `ForestCentreTree` = `Forest::GetForestCentreTree` 0x53ABF0.
 - **BigForest para los leñadores**: `BigForestArrivePos` = `GetArrivePos` 0x439360 (su posición más, hacia el aldeano,
-  0,5 × su radio 2D); `BigForestRemoveWood` = `RemoveResource` 0x4390D0: pide n / vida; si no llega, da lo que tiene y
+  0,5 × su radio 2D); los árboles en la mano o en vuelo no están en ninguna celda (en el original salen del mapa);
+  `BigForestRemoveWood` = `RemoveResource` 0x4390D0: pide n / vida; si no llega, da lo que tiene y
   se borra; si llega, resta y **solo cuando** su madera se aleja más de 250,0 (0x8C6210) de vida × escala × woodValue se
   reescala y planta un Pine en el borde (`AddTreeAround` 0x439220: tamaño 0,05, máximo **0,75** (0x8AC3F8) + azar(0,5);
   antes openblack ponía 0,5). La mano usa lo mismo (350 por árbol, así que siempre reescala). Ganchos
@@ -315,10 +320,11 @@ Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, 
   puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para
   árboles no hace nada. `BigForest` (**hecho**): no se tira; al agarrar (225 ms) `InterfaceSetInMagicHand` 0x4393C0
   hace `RemoveResource(WOOD, 350)` (madera del Conifer) y pone en la mano un Conifer nuevo (escala 1, ángulo 0).
-  `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, **inferido**) baja 350 y la
-  escala pasa a madera/woodValue; sin madera suficiente da lo que queda y el bosque se borra. `AddTreeAround`
-  0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto a menos de 4 (distancia + radio), un Pine de
-  escala 0,05, ángulo al azar y tamaño máximo 0,5 + azar(0,5). openblack: `HandSystem::TakeTreeFromForest`
+  `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, `Create` 0x438EC0) baja 350 y
+  **solo** cuando su madera se aleja más de 250 de vida × escala × woodValue se reescala a madera/woodValue y planta en el
+  borde; sin madera suficiente da lo que queda y el bosque se borra (detalle en «Búsquedas de árboles y bosques»).
+  `AddTreeAround` 0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto de la celda con distancia + radio
+  menor de 4, un Pine de su bosque (+0x80), escala 0,05, ángulo al azar y tamaño máximo 0,75 + azar(0,5). openblack: `HandSystem::TakeTreeFromForest`
   (HandTrees.cpp), `BigForest::wood`, gancho `OPENBLACK_HAND_TEST_FOREST=1` (Land1: 15000 → 14650, escala 0,977). DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
   alineación malvada (`GAlignment::Update`); replantar, bueno.
 - Tabla GTreeInfo (info.dat, runtime = registro + 0x10, paso 0x140): madera 700 Beech/Cedar/Copse, 500 Birch/Olive,

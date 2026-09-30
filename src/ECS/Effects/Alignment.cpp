@@ -67,8 +67,10 @@ float AlignmentFactor(const InfoConstants& info, size_t effect, AlignmentType ty
 
 float alignment::ScaleChange(const ecs::components::PlayerAlignment& alignment, float change)
 {
+	// the same sign as the alignment (0 counts as positive) is damped, the opposite sign boosted
 	const float a = std::abs(alignment.value * 0.5f);
-	return change >= 0.0f ? (a + 1.0f) * change : (1.0f - a) * change;
+	const bool sameSign = (alignment.value < 0.0f) == (change < 0.0f);
+	return sameSign ? (1.0f - a) * change : (a + 1.0f) * change;
 }
 
 void alignment::Update(ecs::components::PlayerAlignment& alignment, entt::entity object, const EffectValues& values,

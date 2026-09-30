@@ -267,13 +267,16 @@ TEST(SpellChants, strengthEdges)
 
 TEST(SpellChants, alignmentScale)
 {
-	// fn_00414660: v >= 0 -> v (1 + |A| / 2), v < 0 -> v (1 - |A| / 2)
+	// fn_00414660: v of A's sign (0 counts as positive) -> v (1 - |A| / 2), the opposite sign -> v (1 + |A| / 2)
 	ecs::components::PlayerAlignment alignment {0.5f, 0.0f};
-	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, 1.0f), 1.25f);
-	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, -1.0f), -0.75f);
+	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, 1.0f), 0.75f);
+	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, -1.0f), -1.25f);
 	alignment.value = -0.5f;
 	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, 1.0f), 1.25f);
 	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, -1.0f), -0.75f);
+	alignment.value = 0.0f;
+	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, 1.0f), 1.0f);
+	EXPECT_FLOAT_EQ(ecs::effects::alignment::ScaleChange(alignment, -1.0f), -1.0f);
 }
 
 /// With OPENBLACK_GAME_PATH: the real lightning and shield rows

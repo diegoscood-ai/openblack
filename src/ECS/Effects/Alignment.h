@@ -21,7 +21,8 @@ struct EffectValues;
 
 namespace alignment
 {
-/// fn_00414660: a change v scaled by the current alignment A (+8): v >= 0 -> v (1 + |A| / 2), v < 0 -> v (1 - |A| / 2)
+/// fn_00414660: a change v scaled by the current alignment A (+8): v of A's sign (0 counts as positive) -> v (1 - |A| / 2),
+/// of the opposite sign -> v (1 + |A| / 2)
 [[nodiscard]] float ScaleChange(const components::PlayerAlignment& alignment, float change);
 
 /// GAlignment::Update 0x414410 (object, values, life before): nothing unless the life changed. With

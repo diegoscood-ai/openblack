@@ -177,9 +177,10 @@ Verificado instrucción a instrucción:
 - `GAlignment::Update` 0x414410 (R7 resuelta): nada si la vida no cambió. `K = |Δvida| +
   GPlayerInfo.applyEffectAlignmentChangeAddition`: el jugador 0 guarda en +0x64 el puntero a `GPlayerInfo` 0xD47988,
   y +0x1C en memoria es el archivo +0x0C. Para aplastar, golpear, curar y empujar, `pendiente += f(v ×
-  GAlignmentInfo[i][col] × K)`; para quemar, lo mismo con `ConvertTemperatureToDamage`. **fn_00414660 solo mira el
-  signo del cambio**: `v ≥ 0 → v(1 + |A|/2)`, `v < 0 → v(1 − |A|/2)`; el informe decía que dependía de coincidir con
-  el signo de A.
+  GAlignmentInfo[i][col] × K)`; para quemar, lo mismo con `ConvertTemperatureToDamage`. **fn_00414660 compara el
+  signo del cambio con el de A** (0 cuenta como positivo): mismo signo `v(1 − |A|/2)`, signo contrario `v(1 + |A|/2)`
+  (leído de nuevo en 0x414660..0x4146AD: `je 0x414696` si A ≥ 0; en cada rama `jne` si v < 0; corregido el
+  2026-09-30, la primera lectura de M1 decía que solo miraba el signo de v).
 - Reacciones (`ECS/Effects/Reactions`): solo los datos. `CreateReaction` 0x6E3D70 crea el objeto de 0x44 bytes y lo
   reparte por las celdas (`SpreadReaction` 0x6E3E10, radio `GetRadius` × potencia, con `GameRand` para los vivos). El
   reparto y las respuestas de los aldeanos no están portados: R8 queda para la IA de los aldeanos.

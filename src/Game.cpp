@@ -961,6 +961,13 @@ bool Game::Initialize() noexcept
 		{
 			meshManager.Load("O_Bibble_up", LFromDiskTag {},
 			                 fileSystem.GetPath<Path::Data>() / "Spells" / "Meshes" / "O_bibble_up.l3d");
+			// GetSharedMesh 0x72A490 with MaterialProperties {1, 1, 0, 1, 1} (0x72A474..0x72A485): +3 = 1 makes
+			// PGetSharedMesh 0x57DF18 rewrite every primitive (GJUtils::SetMaterialProperties 0x57E120): the cap's
+			// AlphaTextured (4) -> 6 -> additive 13 -> with Z write 12 (SRCALPHA / ONE, alpha = texture x diffuse), and the
+			// double-sided bit cleared. The object alpha's mode table 0xC387C8 keeps mode 12, so the bubble ADDS its
+			// texture x 0x95 to what is behind it: the bright, pearly bubble of the original
+			meshManager.Handle(entt::hashed_string("O_Bibble_up"))
+			    ->SetMaterialProperties({.additive = true, .zWrite = true, .doubleSided = false, .change = true, .alpha = true});
 		}
 		catch (std::runtime_error& err)
 		{

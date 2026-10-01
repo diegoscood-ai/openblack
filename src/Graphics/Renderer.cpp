@@ -608,6 +608,18 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 					viewId = RenderPass::MainBlended;
 				}
 			}
+			else if (blended && prim.blend == L3DSubMesh::Primitive::BlendMode::Additive &&
+			         (state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ALPHA)
+			{
+				// An object drawn with its own alpha (components::Alpha: SetGlobalAlpha, mode table 0xC387C8) keeps the
+				// additive modes 10..13 of its additive primitives (SRCALPHA / ONE), 11 and 13 without Z write: the one-shot
+				// orb's bubble (mode 12 by GJUtils::SetMaterialProperties, Game.cpp)
+				state = (state & ~BGFX_STATE_BLEND_MASK) | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+				if (!prim.depthWrite)
+				{
+					state &= ~BGFX_STATE_WRITE_Z;
+				}
+			}
 			if (prim.thresholdAlpha && !alphaToCoverage && (state & BGFX_STATE_BLEND_MASK) == 0)
 			{
 				// Chroma materials (fn_0082E080 & co.): alpha test and SRCALPHA / INVSRCALPHA blending, drawn in the

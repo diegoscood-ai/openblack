@@ -771,9 +771,12 @@ public:
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
+		// a = dt x AngularVel; every row turned about the axis: Z (x, y) -> (c x + s y, c y - s x) (0x6A116B..0x6A1211),
+		// Y (x, z) -> (c x - s z, c z + s x) (0x6A1218..0x6A12C0), X (y, z) -> (c y + s z, c z - s y) (fn_006A12F0). With
+		// the rows as columns that is glm::rotate(-a, axis) on the left (billboard.h: LH3D turns the other way from glm)
 		glm::vec3 a(0.0f);
 		a[axis] = 1.0f;
-		atom.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), speed * effect.GetDt(), a)) * atom.rotation;
+		atom.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), -(effect.GetDt() * speed), a)) * atom.rotation;
 		return true;
 	}
 	int axis;
@@ -881,7 +884,8 @@ public:
 	glm::vec3 scale;
 };
 
-/// UR_OrientSpriteWithRandomAngle 0x6A2100: a fixed yaw per atom
+/// UR_OrientSpriteWithRandomAngle 0x6A2100: a fixed yaw per atom (DefineProperties 0x6AC660: +0x20 RandomAngle, +0x24
+/// DefaultAngle)
 class RandomAngle final: public Modifier
 {
 public:
@@ -895,10 +899,15 @@ public:
 		auto& data = atom.data[this];
 		if (data.x == 0.0f)
 		{
+			// the AtomData's first flag (+0x20): yaw = (1 - PSysFloatRand(2)) RandomAngle + DefaultAngle (0x6A2187..0x6A21A3)
 			data.x = 1.0f;
-			const float yaw = angle + effect.Random(2.0f * range) - range;
-			atom.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f)));
+			data.y = (1.0f - effect.Random(2.0f)) * range + angle;
 		}
+		// AtomCore::SetAngleY(yaw) every time (0x6A21AC): rows (c, 0, s), (0, 1, 0), (-s, 0, c), the rows being the columns
+		// here, i.e. glm::rotate(-yaw, Y)
+		const float c = std::cos(data.y);
+		const float s = std::sin(data.y);
+		atom.rotation = glm::mat3(glm::vec3(c, 0.0f, s), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-s, 0.0f, c));
 		return true;
 	}
 	float angle, range;

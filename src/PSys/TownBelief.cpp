@@ -262,6 +262,8 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 			                                       static_cast<uint8_t>(rgb)};
 			const glm::mat3 still(1.0f);
 			const float spin = seconds * 2.0f;
+			// the second glow's +0x14 += g_game_time_inc x 0.002 (0x69D855..0x69D88B, 0x69D8C5): rotate(-spin, Y) is
+			// SetAngleY(spin), whose roll atan2(M[0][2], M[0][0]) = +spin (billboard::Screen turns it clockwise)
 			const glm::mat3 spun = glm::mat3(glm::rotate(glm::mat4(1.0f), -spin, glm::vec3(0.0f, 1.0f, 0.0f)));
 			drawable.atoms.push_back({&GlowCreator(), position, still, 1.5f * size, 1.0f, 99.0f, -seconds * 20.0f, colour});
 			drawable.atoms.push_back({&GlowCreator(), position, spun, 1.5f * size, 1.0f, 99.0f, -seconds * 23.0f, {255, 255, 255}});

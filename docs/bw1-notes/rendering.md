@@ -324,15 +324,18 @@ Informe: `tmp_dis\render\sky_*.txt`.
   fotograma): la misma malla ×1,8, color 0xA06A35, sin prueba de Z, visibilidad por 5 muestras ocultas por el
   terreno, suavizada 1 %/ms.
 - **Luna** (`LH3DAtmos::UpdateGame` 0x8356E0): cámara + (4000, 1100·cos θ − 150, 800·sin θ), θ = T·π/12; alfa
-  m = min(200, 0,5·y − 110); color = fila 5 de `palette.raw` por alineación. Halo (`fn_0086A930`): quad de 4000 hacia
-  la cámara, `atmos.raw` UV 0,25–0,49375, aditivo, color (R/6, G/5, B/4, m). Malla: `moon.l3d` (cargada sin skins,
-  textura `weather.raw` por código), billboard ×4, −7,5° en Z, fase + π en Y, ×0,65; la fase sale del **reloj real**
+  m = min(200, 0,5·y − 110); color = fila 5 de `palette.raw` por alineación. Halo (`fn_0086A930`): quad de 4000 en la
+  base de `fn_0086AC60` (+Z del ojo a la luna, X horizontal en la vista), `atmos.raw` UV 0,25–0,49375 (v0 abajo a la
+  izquierda = 0,25), aditivo, color (R/6, G/5, B/4, m). Malla: `moon.l3d` (cargada sin skins, textura `weather.raw`
+  por código), esa base ×4, `fn_0086AFA0`(−0,1309) = Rz(+7,5°) en glm, RotateY(fase + π) = Ry(−(fase + π)) en glm,
+  ×0,65 (detalle en [rendering-objects.md](rendering-objects.md#objetos-que-miran-a-la-cámara-billboards)); la fase sale del **reloj real**
   (2π(1 − frac((días − 10962)/29,5306))) y regenera las UV. Culling normal (bit 0 = 0).
   **Reflejo** (`fn_0086B010` 0x86B61D; hecho, W8): la primera llamada dibuja halo + malla + la `DrawUnderWater` de la
   malla (vt+0x118: la luna espejada en y = 0, sin luz); la segunda, con `pos.y = −pos.y` y `[0xFA2774]` = 1, solo el
   halo. Mismo m y mismo color, en la etapa del cielo (la tierra reflejada lo tapa). En openblack, `DrawMoon(…,
-  mirrored)` en la pasada de reflejo: el halo con los ejes de la cámara espejada y la malla con los de la principal
-  (sale volteada, como `DrawUnderWater`, con el culling invertido). El sol **no** se refleja (`fn_0086C140` se llama
+  mirrored)` en la pasada de reflejo: el halo con la vista de la cámara espejada y la malla con la de la principal
+  (sale volteada, como `DrawUnderWater`, con el culling invertido). La inclinación k = −1 de la segunda llamada no se
+  ve nunca: esa llamada no dibuja la malla (`fn_0086A930` 0x86AC0F). El sol **no** se refleja (`fn_0086C140` se llama
   una sola vez).
 - **Brillo de la mano de noche sobre el agua** (hecho, W9; `3D/HandWaterGlow`, `Renderer::DrawHandWaterGlow`):
   `GLandscape::Draw` 0x5E4D89, si k = `[0xD20184]` > 0,01 (k = clamp((120 − media del color base)/15, 0, 1), la misma

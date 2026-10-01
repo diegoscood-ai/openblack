@@ -17,6 +17,7 @@
 #include <glm/vec4.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/Billboard.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Transform.h"
@@ -70,7 +71,7 @@ std::optional<graphics::TextureHandle> Texture()
 
 glm::vec2 CellUv(uint32_t cell)
 {
-	return glm::vec2(static_cast<float>(cell % 8), static_cast<float>(cell / 8)) / 8.0f;
+	return graphics::billboard::CellUv(static_cast<uint8_t>(cell), 8)[0];
 }
 } // namespace
 

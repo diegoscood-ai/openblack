@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/LanternSounds.h"
+#include "Billboard.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"
@@ -457,7 +458,7 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 			if (i < 2)
 			{
 				const int frame = (10 * static_cast<int>(i) + 31 - ((light.startFrame[i] + a) & 31)) & 31;
-				sprite.uvMin = glm::vec2(static_cast<float>(frame % 8) / 8.0f, static_cast<float>(frame / 8) / 8.0f);
+				sprite.uvMin = graphics::billboard::CellUv(static_cast<uint8_t>(frame), 8)[0];
 			}
 			else
 			{

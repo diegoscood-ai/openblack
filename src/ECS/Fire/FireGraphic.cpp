@@ -100,7 +100,7 @@ int LocalRand(int count)
 	return count > 0 ? static_cast<int>(g_Random() % static_cast<uint32_t>(count)) : 0;
 }
 
-psys::Creator MakeCreator(const char* texture, bool additive, bool centreAtBase, float stretch)
+psys::Creator MakeCreator(const char* texture, bool additive, float originY, float stretch)
 {
 	psys::Creator creator;
 	creator.kind = psys::Creator::Kind::Sprite;
@@ -111,26 +111,35 @@ psys::Creator MakeCreator(const char* texture, bool additive, bool centreAtBase,
 	creator.spritesPerRow = 8;
 	creator.numFrames = 64;
 	creator.additive = additive;
-	creator.centreAtBase = centreAtBase;
+	creator.originY = originY;
 	creator.stretch = stretch;
 	return creator;
 }
 
 /// The materials 0xDA09EC (S_Fire, mode 13), 0xDA09F0 (S_SpriteSheet3, 13), 0xDA09F4 (S_SpriteSheet3, 6); the shared
-/// LH3DSprite 0xDA09E8 has height 2 (+0x10), and the flames put their base at the point (originY = -2 x size)
+/// LH3DSprite 0xDA09E8 has size 1 and height 2 (Create 0x73130F / 0x731316). Each flame sets +0x18 = 0 and +0x1C =
+/// height x size x -1 ([0x8AB678]) = -2 x size (0x732382..0x732395): LH3DSprite::Draw subtracts it, so the flame's
+/// local y runs from 0 to 4 x size on the screen's up and its base stays on the point. As a PSys creator that is
+/// SpriteOriginY = -1 (oy = OriginY x size x stretch).
 const psys::Creator& FlameCreator()
 {
-	static const auto creator = MakeCreator("S_Fire", true, true, 2.0f);
+	static const auto creator = MakeCreator("S_Fire", true, -1.0f, 2.0f);
 	return creator;
 }
+/// (aproximado) The steam and smoke are drawn centred (origin 0). The original's fn_007323F0 / fn_007324E0 never write
+/// +0x18 / +0x1C of the shared sprite 0xDA09E8, so they keep the oy = -2 x size of the last flame drawn with it:
+/// fn_00732200 draws a fire's flames (fn_00732220, newest first, so the oldest last), then its steam, then its smoke,
+/// and a fire with no flame takes the last flame of the fire drawn before it. In the original they sit 2 x that size
+/// higher on the screen's up. Not ported: psys::manager::DrawAtom has no per-atom origin, and the order of the fires
+/// between them is not read
 const psys::Creator& SteamCreator()
 {
-	static const auto creator = MakeCreator("S_SpriteSheet3", true, false, 2.0f);
+	static const auto creator = MakeCreator("S_SpriteSheet3", true, 0.0f, 2.0f);
 	return creator;
 }
 const psys::Creator& SmokeCreator()
 {
-	static const auto creator = MakeCreator("S_SpriteSheet3", false, false, 2.0f);
+	static const auto creator = MakeCreator("S_SpriteSheet3", false, 0.0f, 2.0f);
 	return creator;
 }
 

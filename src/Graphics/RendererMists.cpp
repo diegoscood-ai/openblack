@@ -27,6 +27,7 @@
 #include <glm/matrix.hpp>
 #include <LNDFile.h>
 
+#include "3D/Billboard.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
@@ -219,9 +220,9 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	// -forward and up; with row vectors (x' = m0 x + m3 y + m6 z, fn_0084BA90) row k is the image of local axis k, so in
 	// glm it is mat3(right, -forward, up): a billboard. Local X = screen right, local Y (the dome's axis) towards the
 	// camera, local Z = screen up, so the dome always shows face-on as a disc of the smoke frame and is never seen
-	// edge-on (checked by emulating 0x819690 + the swizzle + 0x7FB3F0 for several cameras)
-	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
+	// edge-on (checked by emulating 0x819690 + the swizzle + 0x7FB3F0 for several cameras): billboard::MistBasis
+	const auto cameraFrame = billboard::CameraFrame::From(camera);
+	const auto& rotation = billboard::MistBasis(cameraFrame);
 	const bool landLight = _landLight && _landLight->IsLoaded() && Locator::terrainSystem::has_value();
 	const auto view = camera.GetViewMatrix(Camera::Interpolation::Current);
 	const auto alpha = static_cast<float>(mist.colour >> 24u);
@@ -244,9 +245,7 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 		// effect branch 0x7FA3B1: round seen from straight below or above, k times wider than tall near the horizon; lit from straight above
 		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D; the normal branch has no
 		// such offset at 0x7FA675, so it uses rows 0-1)
-		const auto toMist = mist.position - origin;
-		const float length = std::max(glm::length(toMist), 1.0f);
-		scale.y = scale.z = mist.size / (1.0f + (mist.k - 1.0f) * (1.0f - std::abs(toMist.y) / length));
+		scale.y = scale.z = billboard::MistShrunkSize(mist.size, mist.k, mist.position - origin);
 		atlasV = 0.25f;
 		ambient = 210.0f;
 		lightPosition = glm::vec3(0.0f, 500000.0f, 0.0f);

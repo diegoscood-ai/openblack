@@ -558,7 +558,7 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
 - (aproximado) `graphics::lh3d::Random` (src/3D/LH3DRandom.h) es Random 0x81D180 con un `rand()` de MSVC propio que
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
   la serie de `rand()` de todo el programa, sembrada con srand(time).
-- (aproximado) TownBelief toma g_game_time_inc como el tiempo real entre dos fotogramas.
+- TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
 - (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
 - (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
 - HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en

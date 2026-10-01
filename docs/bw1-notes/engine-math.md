@@ -1,8 +1,8 @@
-# Coordenadas, terreno, tamaño de los objetos, matrices y Zoomer
+# Coordenadas, terreno, tamaño de los objetos, reloj del juego, matrices y Zoomer
 
 Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, con sus
-celdas y su espiral; las distancias y sigmoides de `GUtils`; la altura exacta del terreno; la convención de las
-matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
+celdas y su espiral; las distancias y sigmoides de `GUtils`; el reloj del juego; la altura exacta del terreno; la
+convención de las matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
 en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendiente).
 
 - [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
@@ -10,6 +10,8 @@ en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendien
   `FastDistance` y las sigmoides (`gutils`)
 - [Tamaño de los objetos](#tamaño-de-los-objetos): radio 2D, radio y altura, con las redefiniciones de las clases y
   las derivadas, a nivel de malla y de objeto (`ecs::object`)
+- [Reloj del juego](#reloj-del-juego): el turno, los ms del turno, la fracción, el dt del fotograma, la pausa y la
+  velocidad (`game_clock`)
 - [Altura del terreno](#altura-del-terreno)
 - [Matrices LH](#matrices-lh)
 - [Zoomer (LH3DLib)](#zoomer-lh3dlib)
@@ -351,6 +353,114 @@ con la malla de su info por `Object::GetHeight` 0x638120; el radio por vt+0x64 c
 `effects::ObjectHeight` / `Object2DRadius` quedan como envoltorios de `ObjectGetHeight` / `ObjectGet2DRadius` (la rutina de
 `Object` **sin** redefiniciones, como hacían) solo para los llamadores aplazados.
 
+## Reloj del juego
+
+✅ Fiel y portado en `src/GameClock.{h,cpp}`, namespace `openblack::game_clock` (sesión «sistemas2», 2026-10-02).
+Game lo mueve: lo pone en marcha en `LoadMap`, decide los turnos en `Update` y calcula el reloj del fotograma justo
+después. El original **no tiene una función «dame el tiempo»**: `GGame::Loop` 0x54CF20 calcula el reloj una vez por
+vuelta y lo deja en campos de GGame que cientos de lectores leen en línea (379 referencias al turno, 157 a
+`g_game_time_inc`, 29 a la fracción). openblack lo tenía escrito unas 37 veces, con fidelidades distintas.
+
+**El temporizador de la partida** es un `LHTimer` en g_game +0x205D68 (+0x100 base, +0x104 ms acumulados, +0x108
+factor de velocidad, 0 = parado, +0x10C factor guardado). `MSeconds` 0x43EB70 = `ftol((GetTickCount − base) · factor +
+acumulado)`; `Stop` 0x43E9C0 acumula y pone el factor a 0; `SetSpeedUpFactor` 0x43EBC0 rebasa si está en marcha y, si
+está parado, solo guarda el factor. Para arrancarlo (inicio de Loop 0x54CF93, `ResetLocalGameTimer` 0x54C690, quitar
+la pausa) se pone el factor a 1e-5 (0x3727C5AC) y luego `SetSpeedUpFactor(guardado)`: así se rebasa y **el tiempo
+parado no cuenta**. Todo en float (FPU a 24 bits).
+
+**Cuándo hay turno** (`LocalTimerSaysDoATurn` 0x54C4A0, llamado desde `ProcessNetworkPackets` 0x54CD45):
+- toca cuando `MSeconds ≥ turno · 100`, con el 100 escrito a mano (0x54C4F0). La comparación es **absoluta**, así que
+  el sobrante de un turno pasa al siguiente;
+- en pausa (un jugador) nunca (0x54C528);
+- con más de 2000 ms (0x7D0) de retraso llama a `ResetLocalGameTimer` 0x54C570, que pone el temporizador en
+  `turno · 100` desde ahora (0x54C615). La respuesta de esa llamada es la de la muestra de antes (`setge` 0x54C567);
+- como mucho **1 turno por fotograma** en un jugador (10 en red): `neg; sbb; and 9; inc` en 0x54CD0F..0x54CD18. El
+  bucle pregunta primero al temporizador y luego el tope (0x54CD52), así que tras el último turno del fotograma el
+  temporizador se consulta una vez más.
+
+**El turno** g_game +0x205A40 sube **al empezar** el turno y solo sin pausa (`GGame::StartTurn` 0x54E4FD..0x54E507),
+antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el juego lee ya el número nuevo.
+
+**El reloj del fotograma** (`GGame::Loop` 0x54D2A8..0x54D3A6, después de los turnos y antes de dibujar):
+- sin pausa: `Δ = MSeconds − muestra anterior`; con el mismo turno `resto += Δ`; con turno nuevo
+  `resto += Δ − 100` (0x54D316); luego `resto` se limita a 0..99 (0x54D325..0x54D337);
+- `visual = turno · 100 + resto` (0x54D343); si es menor que el anterior, el anterior baja y `resto = 0` (nunca va
+  hacia atrás);
+- `g_game_time_inc` [0xEA9EC0] = g+0x250540 = g+0x205D48 = `visual − anterior` (0x54D366/0x54D374/0x54D380): **ms
+  enteros**, como mucho 199, que siguen la velocidad;
+- la **fracción** g+0x205D64 = `resto · 0,01` [0x8C4B10] (0x54D392): va de 0 a 0,99 y va un turno por detrás;
+- en pausa solo el dt vale 0 (0x54D39A); **la fracción se conserva**;
+- `NetworkTurnsThisFrame` vuelve a 0 después de dibujar (0x54D3C3).
+
+**El reloj de pared** `g_delta_time` [0xC38134] es otro `LHTimer` (`LH3DTech::g_timer` 0xEA1B78), leído en
+`LH3DRender::StartFrame` 0x82F14E: ms del fotograma, 1 si sale ≤ 0 (0x82F195), y no se para en pausa.
+
+| API (`game_clock`) | Original | Qué hace |
+|---|---|---|
+| `k_MsPerTurn` = 100, `MsPerTurn()`, `SetMsPerTurn()` | [0xD01A38]: `GGame::Init` 0x54F4A5, `SET_GAME_TICK_TIME` 0x714DBE | los ms del turno que lee la lógica |
+| `k_SchedulerMsPerTurn` = 100 | literales 0x54C4F0, 0x54D316, 0x54D343, 0x54C615, 0x5550A3, 0x553810 | el 100 del planificador y del reloj del fotograma (no lee [0xD01A38]) |
+| `k_TurnSeconds` = 0,1f | `push 0x3DCCCCCD` en `ProcessTurn` 0x54E5D1, 0x54E6C3, 0x54E775 | los segundos de turno que se pasan a mano |
+| `k_MaxLagMs`, `k_MaxTurnsPerFrame` | 0x54C553, 0x54CD0F | 2000 ms; 1 turno por fotograma |
+| `Timer` (`MSeconds`, `Stop`, `SetSpeedUpFactor`, `Start`) | LHTimer 0x43EB70 / 0x43E9C0 / 0x43EBC0; arranque 0x54CF93 | el temporizador |
+| `Turn()`, `SetTurn()` | g+0x205A40 | el turno |
+| `TimerSaysDoATurn()`, `TurnDue()`, `StartTurn()`, `ResetLocalTimer()` | 0x54C4A0, 0x54CD45, 0x54CE58 + 0x54E507, 0x54C570 | el planificador |
+| `Start(paused)` | Loop 0x54CF6B..0x54D003 y 0x54D1F7 | temporizador desde 0, dt y fracción a 0, `ResetLocalGameTimer` |
+| `OnLoad()` | `ResolveLoad` 0x555080 | dt y fracción a 0, `visual = turno · 100` (los estáticos de Loop no se tocan) |
+| `Pause(bool)`, `IsPaused()` | `PauseGame` 0x54AE20 (0x54AE7C..0x54AEE7) | la bandera g+0x14 bit 2 y el temporizador parado / rearrancado |
+| `SetSpeed(v)`, `Speed()` | `GGame::SetSpeed` 0x5537F0 (0x553800; `SetSpeedUpFactor` en línea en 0x553835) | el factor de velocidad; el tiempo ya pasado se queda con la velocidad de antes |
+| `UpdateFrameClock()` | `GGame::Loop` 0x54D2A8..0x54D3A6, 0x54D3C3 | resto, reloj visual, dt y fracción |
+| `FrameGameMs()`, `FrameGameSeconds()` | [0xEA9EC0]; `· 0,001` [0x8AA3B0] | ms enteros de juego del fotograma |
+| `TurnFraction()` | g+0x205D64 | la fracción del turno |
+| `VisualMs()` | g+0x25053C | el reloj visual |
+| `UpdateRealClock()`, `FrameRealMs()`, `EngineMs()` | `StartFrame` 0x82F14E..0x82F195; `g_timer` 0xEA1C78..0xEA1C80 | el reloj de pared |
+| `CameraFrameMs(playingBack)` | `GetCameraTimeInc` 0x555820 | dt de juego al reproducir la interfaz grabada, si no el de pared |
+| `ClampedFrameMs(inTemple)` | fn_005557E0 | pared en el templo, de juego fuera; ≤ 0 → 0, tope 500 |
+| `TicksForSeconds(s)` | `ftol(1000 / [0xD01A38] · s)` (división entera): `NumGameTicksPerSecond` 0x711630 y en línea en 0x70CCDE, 0x711338, 0x5C61F6 y `GetTicksToChangeOver` 0x66CD00 | segundos → turnos |
+
+Ojo con el nombre de 0x711630: en realidad es el `SetTime` de un temporizador del guion (guarda el turno en +0x28 y los
+turnos en +0x2C, fn_00711610); la conversión es la misma que la de las otras cuatro.
+
+Velocidad de openblack: `Game::SetGameSpeed(m)` sigue recibiendo el multiplicador de la duración del turno (2 lento,
+0,5 rápido) y llama a `SetSpeed(1 / m)`.
+
+**Lo que se arregló** (antes cada cosa llevaba su reloj):
+- **El sobrante del turno.** `GameLogicLoop` hacía un turno si habían pasado 100 ms desde el anterior y ponía la marca
+  en el fotograma del turno: a 30 fps los turnos duraban 133 ms (un 25 % más lentos). Ahora 3 s a 33 ms por fotograma
+  dan 30 turnos.
+- **El turno sube al empezar.** `_turnCount` subía al final; durante el turno se leía uno menos que en el original.
+- **La pausa.** No paraba el reloj: al quitarla hacía un turno en el mismo fotograma y la fracción saltaba a 0,99. La
+  fracción valía 0 en pausa; ahora se congela.
+- **El orden del fotograma.** Los turnos van antes que el reloj del fotograma y que todo lo que se mueve por
+  fotograma (aldeanos, animales, tiburones, barco, anillos, peces, luciérnagas, la pantalla ancha, la magia), como en
+  `GGame::Loop`. Las diez copias de `_paused ? 0 : dt / mult` de Game.cpp leen `FrameGameMs()` / `FrameGameSeconds()`:
+  ms enteros, 0 en pausa, ≤ 199.
+- **El mar.** `RendererSea.cpp` tomaba como dt el tiempo desde el arranque (`desc.time`, que no se rebasa nunca) y
+  `ScrollRows` lo acumulaba otra vez: el mar se desplazaba cada vez más deprisa. Ahora lee `g_game_time_inc`
+  (0x879963, 0x87A130).
+- **Fracciones propias.** HandGrain (0x5B2D41/0x5B2D61), el PSys (0x67370D) y las luciérnagas (0x52ADF6) usaban el
+  reloj de pared o uno propio, sin velocidad ni pausa y con tope 1. Ahora leen `TurnFraction()`.
+- **Relojes propios.** HandFish y HandResources (`ProcessInInteract` una vez por turno) contaban turnos con el dt real
+  de la mano; ahora cuentan los turnos del juego. Los fragmentos de los edificios rotos (`Fragment::ProcessTimer`) van
+  con el turno, y el dt de la física es el de juego. TownBelief usaba el reloj de pared donde el original suma
+  `g_game_time_inc · 0,002` (0x69D855). PetitNavire (`g_carry`) y los tiburones (`s_Clock`) reconstruían los ms
+  enteros: ya llegan enteros.
+- **Conversiones.** Los dispensadores (0x70CCDE, 0x711338), el final de los textos de ayuda (0x5C61F6) y la rampa de
+  coger de un montón (0x66CD00, antes en float y sin truncar) usan `TicksForSeconds`. Cánticos y ayuda leen
+  `MsPerTurn()`. `SET_GAME_TICK_TIME` (antes lanzaba una excepción) escribe [0xD01A38] y nada más.
+- **Las copias del turno** (`reactions::Turn`, `magic::CurrentTurn`, la de la bola de fuego, que no leía nadie, el
+  clima y su bucle, los árboles, los animales, los aldeanos y el humo de chimenea, que no miraba si había Game) leen
+  `Turn()`. `magic::k_TurnMs`, `Chants.h`, `DayNightClock.cpp`, `FireFlies.cpp`, `ChimneySmoke.cpp` y `HelpSystem`
+  toman sus constantes del reloj.
+- **El reloj de los textos de ayuda** (`queries.nowMs`) era un reloj propio aproximado; ahora es `EngineMs()`, el
+  `g_timer` que lee el original en 0x5C6250.
+
+**Cambios que se ven y hay que comprobar con captura:** a 30 fps la partida va un 25 % más deprisa (los turnos duran
+100 ms); el primer turno se juega en el primer fotograma; al quitar la pausa no hay salto; con la pausa puesta los
+aldeanos y animales se quedan donde estaban (antes volvían a la posición del principio del turno); el mar se desplaza a
+velocidad constante; las pilas que se recogen de piscifactorías, campos y montones siguen la velocidad del juego y se
+paran en pausa; el grano de la mano, las luciérnagas y los efectos de partículas interpolan con la fracción del juego
+(se paran en pausa y siguen la velocidad); los símbolos de creencia de los pueblos se paran en pausa.
+
 ## Altura del terreno
 
 `LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
@@ -579,6 +689,53 @@ milagros; una pila de comida mide según lo llena que está (y vacía, 0) para e
 ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 × su escala; una pila de comida cogida
 del mapa (PileFood, MagicFood, PuzzleGrain) abre la mano según lo llena que está, y la HandFood vacía la cierra del todo.
 
+### Reloj del juego
+
+Estado a 2026-10-02, rama `local/sistemas2`.
+
+**Aplazadas, porque milagros2 está editando esos archivos:**
+- `Magic/Objects/MapShield.cpp:58, :387, :408-409`: su fracción propia (`g_LastTurn`, reloj de pared, tope 1) →
+  `game_clock::TurnFraction()` (`PhysicalShield::DrawShield` 0x72CEEC/0x72CF01 es un lerp con la fracción).
+- `PSys/Rules/Explosion.cpp:82, :262`: el `k_BeamFxTurns · 0,1f` → `game_clock::k_TurnSeconds` y el
+  `ftol(1000/[0xD01A38]·4)` del comentario → `TicksForSeconds(4)`.
+- `ECS/Systems/Implementations/HandSpellSeed.cpp:194-197`: el envoltorio `CurrentTurn()` → `game_clock::Turn()`.
+
+**Abiertos por «sistemas»** (no imprescindibles; se dejan para cuando fusione):
+- `Magic/MagicLoop.cpp:117, :123`: `k_TurnMs · 0,001f` → `game_clock::k_TurnSeconds` (`MusicMood`/`SpellSounds` y
+  `CHand::GameTurnUpdate`; falta leer si el original lee ahí [0xD01A38] o el 0,1f a mano).
+- `ECS/Fire/FireGraphic.cpp:91, :510`: el `g_Turn` que pone `graphic::SetTurn` → `game_clock::Turn()` (ya recibe el
+  mismo valor).
+- `Worship/SpellSeedGraphic.cpp:479`: el turno leído en línea.
+- `Graphics/Renderer.cpp:1030` (brillo del sol, reloj de pared sin pausa ni velocidad: qué dt usa el original es
+  **(inferido)**), `Renderer.cpp:1157-1162`, `RendererSmoke.cpp:99-105` y `RendererMists.cpp:147` (este, de
+  milagros2): sus `static lastTime` con tope de 100 ms → `FrameGameMs()` (el humo fn_007F8E00 recorta a 100 **s**).
+- `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
+  `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
+
+**De audio (hito B11):** `Audio/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
+0x54F4A5) → `game_clock::MsPerTurn()`; la copia doble de `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
+
+**Sin portar o dudosos:**
+- **La física por turno.** `PhysicsObject::GameTurnUpdate` (0x646046) hace los 20 subpasos dentro del turno. openblack
+  los reparte entre los fotogramas con un acumulador (`PhysicsObjects.cpp:1317`), ahora con el dt de juego. Pasarlos
+  al turno pide dibujar los objetos interpolados con la fracción (fn_00646FE0 0x647096 lo hace con sus reflejos).
+- **TownBelief** avanza fase, ángulos y temporizador de pelea con un paso fijo de 0,1 por **fotograma**
+  (`k_Step`, `TownBelief.cpp:53`): debería ser por turno o con el dt, falta leer `PlayerSymbolSprite` /
+  fn_0069D3D0.
+- **La cámara** va con el dt del perfilador (µs reales); el original elige con `GetCameraTimeInc` 0x555820
+  (`CameraFrameMs()`, ms enteros de pared). No se ha cambiado.
+- `PSysManager.cpp:242` (`seconds · 1000 / [0xD01A38]`, ahora con `MsPerTurn()`): no se ha leído en qué orden redondea
+  el original al crear un efecto visual puntual; se deja la fórmula.
+- `CHLApi.cpp:802` `DllGettime` (029 DLL_GETTIME) sigue vacía: falta leer qué empuja.
+- La bandera g+0x14 bit 0x400000 («haz turno siempre», **(inferido)**), el segundo `ProcessNetworkPackets` tras dibujar
+  si g+0x205D58 (0x54D3C9) y el turno propio de 100 ms del templo y la cinemática en pausa (0x54CCA9): no los hay en
+  openblack.
+- `LoadMap` hace a la vez de partida nueva y de `ResolveLoad` (**(inferido)**: openblack no carga partidas guardadas).
+- `ECS/AnimalAnimations.cpp:441` (`movedLastTurn · 10`): los 10 turnos por segundo van implícitos; falta leer el
+  original.
+- `Magic/Objects/ShieldDebugHooks.h:23` dice que el PSys no sigue la velocidad: ya no es así (su fracción es la del
+  juego).
+
 ## Ganchos de prueba
 
 - `test_map_coords` (`test/test_map_coords.cpp`) comprueba:
@@ -622,6 +779,19 @@ del mapa (PileFood, MagicFood, PuzzleGrain) abre la mano según lo llena que est
     escudo, la altura de la mano sobre la piscifactoría, el radio de ruta del `CitadelHeart` y la distancia y el
     `IsTouching` del lugar de culto con su `WorshipSiteCentre`.
 - `test_food_wood`: `PileFoodProportionRaised(0, 1000)` es 0.
+- `test_game_clock` (`test/test_game_clock.cpp`) mueve el reloj con un `GetTickCount` de prueba
+  (`game_clock::SetTickSource`) y fotogramas de 33 ms. Comprueba:
+  - el primer turno en el primer fotograma, con el turno ya subido, `visual = 100` y dt 100;
+  - 3 s a 33 ms dan 30 turnos (no 22), en los fotogramas 4, 7, 10… con huecos de 3 o 4;
+  - el resto, la fracción y el dt fotograma a fotograma (33, 0,33… 0,99 y, con el turno 2, 32);
+  - el tope de 99 del resto, el dt de 199 y un solo turno por fotograma;
+  - el retraso de más de 2 s: se tira y el siguiente turno espera a `turno · 100`;
+  - la pausa: ningún turno, dt 0, la fracción congelada, y al quitarla el tiempo parado no cuenta (sin turno extra);
+  - la velocidad: el tiempo ya pasado conserva la de antes, el dt la sigue, y en pausa solo se guarda;
+  - `OnLoad` (`visual = turno · 100`) y `Start` (el turno siguiente toca enseguida);
+  - `TicksForSeconds` (trunca; con `SetMsPerTurn(300)`, 1000 / 300 = 3 por segundo);
+  - el reloj de pared (≥ 1), `EngineMs` y los dos selectores (tope de 500).
+- Variable de entorno: `OPENBLACK_START_PAUSED=1` empieza la partida en pausa (`game_clock::Start(true)`).
 - No tienen variables de entorno propias.
 
 ## Fuentes
@@ -642,6 +812,11 @@ del mapa (PileFood, MagicFood, PuzzleGrain) abre la mano según lo llena que est
   `gutils_distance_original.md` (con su «Verificación adversaria») y `gutils_distance_openblack.md`.
 - bw1-decomp para las distancias: `src/Black/Utils.h` (solo firmas; `GetDistance` aparece como `void`),
   `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.
+- Reloj del juego: desensamblado de 0x54C4A0, 0x54C570, 0x54CC30 (0x54CD0F..0x54CD58), 0x54D2A8..0x54D3D3, 0x54AE60:90,
+  0x5557E0:60, 0x555820, 0x82F14E:50, 0x711630:30, 0x711610, 0x711280:F0, 0x70CC30:140, 0x66CD00, 0x66CD30:B0,
+  0x5C6250:50 y 0x714DB0. Informes: `dev\tmp_dis\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
+  adversaria») y `game_clock_openblack.md`. bw1-decomp: `src/Black/Game.cpp` (`PauseGame`, `SetSpeed`,
+  `LocalTimerSaysDoATurn`, `ResetLocalGameTimer`, `ProcessNetworkPackets`, `Loop` l. 1834-1996, `ResolveLoad`).
 - Tamaño de los objetos: desensamblado de 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,
   0x47B190, 0x4EF4F0, 0x638C00, 0x74B610, 0x5110E0, 0x728640, 0x639AC0, 0x510E10, 0x77DE10, 0x77DDD0, 0x4026B0,
   0x74A1A0, 0x74A140, 0x6384C0, 0x637730, 0x637FB0, 0x5702B0, 0x4027C0, 0x637E00, 0x636D30; los sitios migrados

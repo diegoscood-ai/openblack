@@ -433,6 +433,14 @@ float spell_forest::AdjustSpellSeedAltitude(bool hasForest, float tallestTree, f
 	return altitude > tallestTree ? altitude : tallestTree;
 }
 
+float spell_forest::AdjustSpellSeedPos(entt::entity spell, float altitude)
+{
+	// 0x725750: +0xEC (the Forest) == 0 -> -5; else fcomp against fn_0053A740 (the tallest tree, ECS/Trees)
+	const auto& data = DataFor(spell);
+	const bool hasForest = HasForest(data);
+	return AdjustSpellSeedAltitude(hasForest, hasForest ? ecs::TallestTreeHeight(data.forestId) : 0.0f, altitude);
+}
+
 bool spell_forest::CanCastAt(const glm::vec3& position)
 {
 	return cast_rules::InBounds(position) && cast_rules::IsLand(position) && NoAbodeCovers(position) &&

@@ -336,6 +336,52 @@ TEST(Storm, gatherRegistersOneStorm)
 	weather::storms::Clear();
 }
 
+/// The clouds as ParticleMistCreator atoms: their own LH3DMist atlas counter, seeded like the ctor 0x7F9560
+/// (ftol(Random(0, 16)) & 15), and the specular +0x90 (0xFF000000 from fn_006D4880 0x6D48E5 until a strike) carried
+/// by the draw atoms (DrawData +0xC, 0x679BF4) for RenderParticleMist::DrawAt's SetColour 0x7F9770
+TEST(Storm, cloudMistAtoms)
+{
+	ASSERT_NE(psys::FindCreatorFactory("ParticleMistCreator"), nullptr);
+	weather::storms::Clear();
+	std::string text(k_Gather);
+	text += R"(BEGINCLASS ParticleMistCreator Mist
+BEGINPROPERTIES
+PROPERTY ColorA INTEGER 144
+PROPERTY InitialScale FLOAT 12
+PROPERTY InitialScaleMin FLOAT 8
+PROPERTY RandomiseScale BOOL 1
+PROPERTY TakeRatioFromMatrix BOOL 1
+ENDPROPERTIES
+ENDCLASS
+)";
+	const auto at = text.find("PROPERTY PCreator PERSIS_PNTR Point\nPROPERTY RadiusFloatProvider");
+	ASSERT_NE(at, std::string::npos);
+	text.replace(at, std::strlen("PROPERTY PCreator PERSIS_PNTR Point"), "PROPERTY PCreator PERSIS_PNTR Mist");
+	const auto file = Parse(text, "SF_GatherMistTest");
+	ASSERT_NE(file, nullptr);
+	{
+		psys::Effect effect(file, glm::vec3(500.0f, 0.0f, 700.0f), 60.0f, 3);
+		for (int i = 0; i < 40; ++i)
+		{
+			effect.Step(0.1f);
+		}
+		std::vector<psys::Effect::DrawAtom> atoms;
+		effect.Collect(1.0f, atoms, psys::Creator::Kind::Other);
+		ASSERT_FALSE(atoms.empty());
+		for (const auto& atom : atoms)
+		{
+			EXPECT_EQ(atom.specular, 0xFF000000u);
+			ASSERT_NE(atom.atom, nullptr);
+			EXPECT_EQ(atom.atom->specular, 0xFF000000u);
+			const float counter = atom.atom->mistCounter;
+			EXPECT_GE(counter, 0.0f);
+			EXPECT_LE(counter, 15.0f);
+			EXPECT_EQ(counter, std::floor(counter));
+		}
+	}
+	weather::storms::Clear();
+}
+
 TEST(Storm, lightningFlash)
 {
 	weather::storms::Storm::Flash flash;

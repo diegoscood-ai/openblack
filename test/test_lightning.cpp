@@ -113,17 +113,40 @@ TEST(Lightning, chainCreatorProperties)
 
 TEST(Lightning, chainSegmentUv)
 {
+	// fn_006C8920 with the ctor's defaults (0x6AA739..0x6AA747: 64 high, 32 wide) and SF_LightningBolt's 4 repeats on
+	// a 10 joint fork: U across the ribbon is frame 0 (texels 0..32), V along it is 64 texels per repeat
 	psys::ChainCreator chain;
+	EXPECT_EQ(chain.frameHeight, 64);
+	EXPECT_EQ(chain.frameWidth, 32);
+	EXPECT_EQ(chain.numTexturesForWholeChain, -1);
 	chain.numTexturesForWholeChain = 4;
-	// the texture is repeated 4 times over the whole chain: 8 segments give half a tile each
-	EXPECT_FLOAT_EQ(chain.SegmentU(0, 8).x, 0.0f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(0, 8).y, 0.5f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(7, 8).x, 3.5f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(7, 8).y, 4.0f);
-	// -1: one tile per segment
+	auto uv = chain.SegmentUvOf(0, 9); // repeat 0 holds segments 0..1
+	EXPECT_FLOAT_EQ(uv.u0, 0.0f);
+	EXPECT_FLOAT_EQ(uv.u1, 0.125f);
+	EXPECT_FLOAT_EQ(uv.v0, 0.0f);
+	EXPECT_FLOAT_EQ(uv.v1, 0.125f);
+	uv = chain.SegmentUvOf(1, 9);
+	EXPECT_FLOAT_EQ(uv.v0, 0.125f);
+	EXPECT_FLOAT_EQ(uv.v1, 0.25f);
+	uv = chain.SegmentUvOf(2, 9); // repeat 1 starts again at the frame's top
+	EXPECT_FLOAT_EQ(uv.v0, 0.0f);
+	uv = chain.SegmentUvOf(8, 9); // repeat 3 holds segments 6..8
+	EXPECT_FLOAT_EQ(uv.v0, 64.0f * 2.0f / 3.0f / 256.0f);
+	EXPECT_FLOAT_EQ(uv.v1, 0.25f);
+	// SF_GestureChain: FrameOfTail 1 in the first repeat, FrameOfHead 2 in the last, 0 between, all + FileOffset 5
+	chain.numTexturesForWholeChain = 5;
+	chain.frameOfHead = 2;
+	chain.frameOfTail = 1;
+	chain.fileOffset = 5;
+	EXPECT_FLOAT_EQ(chain.SegmentUvOf(0, 9).u0, 6.0f * 32.0f / 256.0f);
+	EXPECT_FLOAT_EQ(chain.SegmentUvOf(4, 9).u0, 5.0f * 32.0f / 256.0f);
+	EXPECT_FLOAT_EQ(chain.SegmentUvOf(8, 9).u0, 7.0f * 32.0f / 256.0f);
+	EXPECT_FLOAT_EQ(chain.SegmentUvOf(8, 9).u1, 1.0f);
+	// -1: one repeat per segment (CreateChain 0x6AA8DF)
 	chain.numTexturesForWholeChain = -1;
-	EXPECT_FLOAT_EQ(chain.SegmentU(3, 8).x, 3.0f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(3, 8).y, 4.0f);
+	uv = chain.SegmentUvOf(3, 8);
+	EXPECT_FLOAT_EQ(uv.v0, 0.0f);
+	EXPECT_FLOAT_EQ(uv.v1, 0.25f);
 }
 
 TEST(Lightning, lightMapCreatorProperties)

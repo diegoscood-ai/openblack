@@ -129,6 +129,12 @@ struct Atom
 	float ruleScale {1.0f};    ///< +0x78
 	float stretch {1.0f};      ///< +0x7C
 	std::array<uint8_t, 4> colour {255, 255, 255, 255}; ///< +0x8C ARGB as r, g, b, a
+	/// +0x90 the specular, D3DCOLOR ARGB: fn_006A85E0 0x6A8748..0x6A875B puts SpecColorR/G/B there, alpha 0
+	/// (pendiente: not read from the creator yet, 0 in every dumped spell file); copied raw to DrawData +0xC (0x679BF4)
+	uint32_t specular {0};
+	/// LH3DMist +0x84 of a ParticleMistCreator atom (its render object, CreateLH3DMist 0x6AA5A0): the atlas counter,
+	/// seeded by the ctor 0x7F9560 and advanced by its draw fn_007FA300 (Creators/Mist.cpp); unused by other atoms
+	mutable float mistCounter {0.0f};
 	float birth {0.0f};
 	bool visible {true}; ///< flag 0x10 (EventConditionAtomInUse)
 	float frame {0.0f};
@@ -156,6 +162,10 @@ struct Collection
 	Atom* parent {nullptr};
 	float birth {0.0f};
 	float alpha {255.0f}; ///< +0x50
+	/// +0x38 flags (AtomCollection ctor 0x675CA2: 3). Bit 0x02: the atoms are drawn interpolated between the last two
+	/// steps (fn_00679920 0x67999E; without it the current PSR is drawn as is). UR_Lightning clears it on its forks
+	/// (0x6912A1, 0x691B42, 0x692B1D)
+	uint8_t flags {3};
 	bool hierarchy {false};
 	std::vector<std::unique_ptr<Atom>> atoms;
 	struct Slot
@@ -318,6 +328,8 @@ public:
 		float alpha;
 		float frame;
 		std::array<uint8_t, 3> colour;
+		uint32_t specular {0}; ///< the atom's +0x90 (DrawData +0xC, 0x679BF4), not interpolated
+		const Atom* atom {nullptr}; ///< DrawData +0 (0x679C0C): its atom
 	};
 	/// kind: the sprites (RendererPSys.cpp) or the meshes (Creators/Mesh.cpp, drawn as instances)
 	void Collect(float t, std::vector<DrawAtom>& out, Creator::Kind kind = Creator::Kind::Sprite) const;

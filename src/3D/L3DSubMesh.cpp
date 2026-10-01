@@ -399,6 +399,33 @@ void L3DSubMesh::SetMaterialProperties(const MaterialProperties& properties) noe
 	}
 }
 
+void L3DSubMesh::ReplaceMaterialType(uint32_t from, uint32_t to) noexcept
+{
+	// fn_0057E220 writes any value in the type dword; openblack only knows the 19 modes of the table 0xC38728. Never hit:
+	// the only caller in the image (PhysicalShield 0x72CCCD / 0x72CCE5) uses (5, 13) and (4, 13)
+	if (to >= k_MaterialTypeLut.size())
+	{
+		return;
+	}
+	for (auto& primitive : _primitives)
+	{
+		// fn_0057E220 0x57E252: cmp [material], from; jne; 0x57E256: mov [material], to
+		if (primitive.materialType != from)
+		{
+			continue;
+		}
+		// the D3D states of the new type's mode (the type picks the mode in the tables 0xC38728 / 0xC387C8); twoSided,
+		// wrap, uvOffset and alphaCutoutThreshold come from the other material bytes, which fn_0057E220 does not touch
+		const auto& entry = k_MaterialTypeLut.at(to);
+		primitive.materialType = to;
+		primitive.depthWrite = entry.depthWrite;
+		primitive.alphaTest = entry.alphaTest;
+		primitive.blend = entry.blend;
+		primitive.modulateAlpha = entry.modulateAlpha;
+		primitive.thresholdAlpha = entry.thresholdAlpha;
+	}
+}
+
 Mesh& L3DSubMesh::GetMesh() const
 {
 	return *_mesh;

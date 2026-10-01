@@ -226,7 +226,10 @@ Bandadas ([miracles.md](miracles.md#bandadas-m4c-magicspellsspellflock-psysrules
 
 Escudos ([miracles.md](miracles.md#escudos-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)):
 `OPENBLACK_TEST_SHIELD_SHOT="<turnos>,<ruta.png>[;...]"` pide una captura esos turnos de juego después de crearse el
-primer MapShield (como la del bosque). Con `OPENBLACK_SPELL_TRACE=1` se escriben `SpellShield::InitWithPos` (radio,
+primer MapShield (como la del bosque). `OPENBLACK_TEST_SHIELD_FRAMES="<turnos>,<n>,<prefijo>[@<lento>]"` hace n capturas
+en fotogramas seguidos (`<prefijo>_<i>.png`, turno y fracción en el log; `@<lento>` alarga el turno pero **no** la
+interpolación del PSys, ver [miracles.md](miracles.md#ganchos-y-capturas)). Con `OPENBLACK_SPELL_TRACE=1` se escriben
+`SpellShield::InitWithPos` (radio,
 anillos anti, reacción, ciudad, coste por turno), cada turno el escudo físico (`t`, curva de crecer, escala dibujada y
 la del objeto, ángulo, altura, muriendo y si tiene cuerpo en las físicas) y cada golpe físico (momento y cánticos
 pagados). Ejemplo del escudo físico creciendo: `OPENBLACK_TEST_MAGIC_TURN=300
@@ -239,7 +242,8 @@ Explosión de rayo ([miracles.md](miracles.md#explosión-de-rayo-y-clases-de-psy
 `OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"`, que pide capturas esos turnos de juego después del primer
 paso de la primera explosión (como la del escudo). Con `OPENBLACK_SPELL_TRACE=1` se escriben `Explosion: started ...`
 (centro, margen del escudo, radio de búsqueda y celdas de la espiral) con cada objetivo (distancia, radio y clase), cada
-objeto destruido (anillo, explotados y borrados) y lo que no está portado (las mallas en pedazos y la marca del suelo).
+objeto destruido (anillo, explotados y borrados), el cráter (`Explosion: the crater (RootsPile ...)`) y lo que no está
+portado (las mallas en pedazos).
 Ejemplo: `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION_PU2,1790,2600"
 OPENBLACK_CAMERA_FLY=1700,140,2480,1790,40,2600 OPENBLACK_TEST_EXPLOSION_SHOT="12,a.png;40,b.png;80,c.png"` con
 `-n 16000`.

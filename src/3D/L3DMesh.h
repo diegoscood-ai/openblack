@@ -109,6 +109,16 @@ public:
 			subMesh->SetMaterialProperties(properties);
 		}
 	}
+	/// fn_0057E220 0x57E220 (only PhysicalShield::CallVirtualFunctionsForCreation 0x72CCCD / 0x72CCE5 calls it): every
+	/// sub-mesh (LH3DMesh +0xC count, +0x10 table, the physics one included), every primitive (+4 count, +8 table) of
+	/// material type `from` becomes type `to`
+	void ReplaceMaterialType(uint32_t from, uint32_t to) noexcept
+	{
+		for (auto& subMesh : _subMeshes)
+		{
+			subMesh->ReplaceMaterialType(from, to);
+		}
+	}
 
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }

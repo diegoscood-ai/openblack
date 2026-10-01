@@ -249,6 +249,10 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 		atlasV = 0.25f;
 		ambient = 210.0f;
 		lightPosition = glm::vec3(0.0f, 500000.0f, 0.0f);
+		// the effect branch (0x7FA3B1..0x7FA5AF) leaves +0x50 as SetColour 0x7F9770 put it: fn_0080DB30 0x80DEF5 draws
+		// it as the vertices' specular ([0xE9FE2C], 0x84D645), added after the texture stage (the storm clouds' glow)
+		specular = glm::vec3(static_cast<float>((mist.specular >> 16u) & 0xFFu),
+		                     static_cast<float>((mist.specular >> 8u) & 0xFFu), static_cast<float>(mist.specular & 0xFFu));
 	}
 	else if (landLight)
 	{

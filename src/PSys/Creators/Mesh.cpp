@@ -126,10 +126,10 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	// ParticleBaseMeshCreator ctor 0x6A87C0: MeshEnum -1, HeightStretch 1, FaceCamera / FaceCameraSprite / the pulse 0
 	creator->heightStretch = object.Float("HeightStretch", 1.0f);
 	creator->scriptHighlightPulse = object.Bool("UseScriptHightlightPulse", false);
-	// ParticleMeshCreator ctor 0x6A8960 (AnimTextured's 0x6A8BB0 calls it): MeshChangeMaterialProps 1, double-sided 1,
-	// the rest 0. With MeshChangeMaterialProps, fn_0057E1D0 gives every material of the mesh
-	// GJUtils::SetMaterialProperties 0x57E120 (+0x55 additive, +0x56 Z write, +0x57 double-sided); without it the L3D
-	// materials are drawn as they are (opaque).
+	// ParticleMeshCreator ctor 0x6A8960: MeshChangeMaterialProps 1, double-sided 1, the rest 0 (AnimTextured's ctor
+	// 0x6A8BB0 calls the base 0x6A87C0 and sets the same, 0x6A8BBD..0x6A8BF6). With MeshChangeMaterialProps,
+	// fn_0057E1D0 gives every material of the mesh GJUtils::SetMaterialProperties 0x57E120 (+0x55 additive, +0x56 Z
+	// write, +0x57 double-sided); without it the L3D materials are drawn as they are (opaque).
 	creator->changeMaterialProps = object.Bool("MeshChangeMaterialProps", true);
 	if (object.className == "ParticleAnimCreator")
 	{
@@ -144,6 +144,11 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", true);
 	creator->neverClip = object.Bool("NeverClip", false);
+	// DrawWithLandscapeColor: ParticleMeshCreator's DefineProperties 0x6B38B0 reads it into +0x5E (0x6B390E; CreateParticle
+	// 0x6A8B82 puts it in the particle's +0x24 bit 1, which Particle3DObj::DrawAt 0x67A00C tests for fn_0080BEC0), and
+	// ParticleMeshCreatorAnimTextured's DefineProperties 0x6B3970 reads it too, into its own +0x84 (its last property,
+	// 0x6B3AEF..0x6B3AFD; ctor default 0 at 0x6A8BF6), which its CreateParticle 0x6A8F0D..0x6A8F20 puts in the same
+	// bit 1. So the tornado funnel's DrawWithLandscapeColor=1 is honoured
 	creator->drawWithLandscapeColour = object.Bool("DrawWithLandscapeColor", false);
 	creator->drawCutByPlane = object.Bool("DrawCutByPlane", false);
 	if (creator->animTextured)

@@ -1673,13 +1673,17 @@ void Effect::CollectCollection(const Collection& collection, float t, std::vecto
 		{
 			const auto& a = atom->previous;
 			const auto& b = atom->current;
-			const float k = std::clamp(t, 0.0f, 1.0f);
+			// fn_00679920 0x67999E: interpolated only when the collection's +0x38 bit 2 is set, else the current PSR
+			const float k = (collection.flags & 2) != 0 ? std::clamp(t, 0.0f, 1.0f) : 1.0f;
 			const float alpha = (a.alpha + (b.alpha - a.alpha) * k) * _globalAlpha / 255.0f;
 			if (alpha >= 1.0f)
 			{
-				out.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
+				// fn_00679C30: the whole 3x4 frame, rotation included, is blended element by element
+				out.push_back({atom->creator, a.position + (b.position - a.position) * k,
+				               a.rotation + (b.rotation - a.rotation) * k,
 				               a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k, alpha,
-				               a.frame + (b.frame - a.frame) * k, {atom->colour[0], atom->colour[1], atom->colour[2]}});
+				               a.frame + (b.frame - a.frame) * k, {atom->colour[0], atom->colour[1], atom->colour[2]},
+				               atom->specular, atom.get()});
 			}
 		}
 		for (const auto& sub : atom->subCollections)
@@ -1708,9 +1712,11 @@ void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<
 		{
 			const auto& a = atom->previous;
 			const auto& b = atom->current;
-			const float k = std::clamp(t, 0.0f, 1.0f);
+			// fn_00679920 0x67999E (the joints' DrawAt goes through it too): no interpolation without +0x38 bit 2
+			const float k = (collection.flags & 2) != 0 ? std::clamp(t, 0.0f, 1.0f) : 1.0f;
 			chain.creator = atom->creator;
-			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
+			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k,
+			                        a.rotation + (b.rotation - a.rotation) * k,
 			                        a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k,
 			                        a.alpha + (b.alpha - a.alpha) * k, a.frame + (b.frame - a.frame) * k,
 			                        {atom->colour[0], atom->colour[1], atom->colour[2]}});

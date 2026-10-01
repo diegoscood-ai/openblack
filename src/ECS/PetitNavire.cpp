@@ -35,6 +35,7 @@
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/RootsPile.h"
 #include "ECS/SmokyStuff.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
@@ -464,7 +465,9 @@ void Step(int32_t dt)
 	{
 		PreDraw(dt);
 	}
-	// fn_005E5CD0: fn_00824140 (0x5E619C), then PostDraw of whatever boat there is now (0x5E6250)
+	// fn_005E5CD0: RootsPile::DrawAll fn_00825350 (0x5E6197), fn_00824140 (0x5E619C), then PostDraw of whatever boat
+	// there is now (0x5E6250)
+	RootsPile::DrawAll(dt);
 	smoky_stuff::Update(static_cast<float>(dt) * 0.001f);
 	if (g_boat.has_value())
 	{

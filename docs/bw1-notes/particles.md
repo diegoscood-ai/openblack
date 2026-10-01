@@ -97,12 +97,22 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 
 - **`ParticleChainCreator`** 0x6AA900: los átomos de una colección son las articulaciones de **una** cinta. El dibujo
   por colección (fn_0067B3F0) la orienta a la cámara: en cada articulación el vector lateral es
-  `normalize(cross(dirección del tramo, dirección a la cámara)) · escala`, y la U recorre la cadena repitiendo la
-  textura `NumTexturesForWholeChain` veces (`S_Lightning.raw`, 4 veces en el rayo). Para esto el `Effect` tiene un
-  `CollectChains` nuevo que devuelve las colecciones de tipo cadena con sus articulaciones **en orden** (el `Collect`
-  normal las aplana). Se dibuja después de los sprites ordenados, en `MainBlended`.
-  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`), el desplazamiento vertical de la UV con el
-    tiempo y el suavizado por puntos medios.
+  `normalize(cross(cámara − articulación, dirección del tramo)) · escala` y los vértices son `articulación ± lado`
+  (semiancho = escala del PSR, 0x67BA3B..0x67BB0D; un lado exactamente nulo, p. ej. un tramo de longitud 0, se queda
+  nulo, 0x67BA04..0x67BA39). Donde se juntan dos tramos, los vértices se mueven a su punto medio
+  (0x67BD2D..0x67BE82). UV (fn_006C8920): la **U va a lo ancho**, `[(cuadro+FileOffset)·FrameWidth, +FrameWidth]/256`,
+  con cuadro `FrameOfHead` en la última repetición, `FrameOfTail` en la primera y 0 en las demás. La **V va a lo
+  largo**, `FrameHeight/256` por repetición; hay `NumTexturesForWholeChain` repeticiones, −1 = una por tramo.
+  - Valores por defecto del creador: 64 de alto, 32 de ancho, −1 (ctor 0x6AA739..0x6AA747).
+  - Así el rayo usa la tira 0 de `S_Lightning.raw` (núcleo blanco y halo cian), 4 veces.
+  - Antes el port tenía 256×256 y los ejes cambiados, y la cinta salía casi transparente.
+
+  Para esto el `Effect` tiene un `CollectChains` nuevo que devuelve las colecciones de tipo cadena con sus
+  articulaciones **en orden** (el `Collect` normal las aplana). Se dibuja después de los sprites ordenados, en
+  `MainBlended`. Una colección sin el bit 2 de +0x38 (las horquillas del rayo) se dibuja sin interpolar
+  (fn_00679920 0x67999E).
+  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`). El desplazamiento de V con el tiempo
+    (0x67BE91, `fmod` por `FrameHeight/256`) es 0 porque chain +0x4C = 0 (inferido).
   - `OPENBLACK_PSYS_CHAIN_TRACE=1` escribe por fotograma cuántas cintas hay, con cuántas articulaciones, su textura y de
     dónde a dónde van: sirve para separar «no se dibuja» de «no hay ninguna en ese fotograma».
 - **`ParticleLightMapCreator`** 0x6A9D80: `GJBitmap::LoadBitmapFromFile(nombre, Pitch, 3, NumFramesInFile,
@@ -262,8 +272,8 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   punto visual BEAM_EXPLOSION_FX (magnitud 1, 60 turnos); > SmokeDelay: **SMOKE en tierra seca, STEAM sobre el agua**
   (`IsDryLand`), magnitud 8, 4 s. El 3.er argumento de `CreateSpotVisualWithSpecifiedDuration` es la magnitud del
   efecto (`GJPSysInterface::Create` 0x68F3A1 `SetScale`). El daño a los objetos, el `SpellEvent` 2 y el escudo los
-  hace la de Milagros; sin portar: el chamuscado (`TemporaryShadow` `fn_008251C0`, textura 0x251, tamaño 8) y los
-  escombros de malla.
+  hace la de Milagros. El cráter en tierra seca es `RootsPile` (fn_008251C0, malla 0x251 de escala 8, `ECS/RootsPile`;
+  no es `TemporaryShadow`). Sin portar: los escombros de malla.
   Prueba: `OPENBLACK_TEST_PSYS="SF_BeamExplosionSingle,1464,2016,0,1"`, cámara `1452,14,2002,1464,0,2016`, captura en
   el fotograma 272 de 300 (anillos) o 360 de 400 (vapor); `OPENBLACK_PSYS_TRACE=1` escribe la explosión.
 - Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
@@ -315,7 +325,7 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 
 - Sonido: el alineamiento del dueño, el temblor de cámara, los filtros de estado de juego, las repeticiones finitas
   y el tope global de distancia (ver [Sonido de las partículas](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp)).
-- Cadenas: `UseDynamicLighting`, el desplazamiento vertical de la UV y el suavizado por puntos medios; mapas de luz
+- Cadenas: `UseDynamicLighting` (el desplazamiento de V es 0 en todos los datos); mapas de luz
   estampados en una textura de luz dinámica del terreno (no existe en el port).
 - Mallas: `UseScriptHightlightPulse`, `CastHumanShadow`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
   objeto, `FaceCameraSprite` y el .anm de `ParticleAnimCreator`.

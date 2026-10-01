@@ -243,7 +243,6 @@ struct CloudAtomData
 	bool flashing {false};  ///< +0x2C the cloud lit by its lightning
 	float flashStart {0.0f}; ///< +0x30 the atom age at the strike
 	float height {0.0f};    ///< +0x34 rand(HeightVaryAmount)
-	uint32_t specular {0xFF000000u}; ///< the atom's +0x90 (its LH3DMist's specular; not drawn, see below)
 };
 
 /// CollectionData@UR_CloudGather (0x58, ctor 0x560AF0; its dtor fn_006D4900)
@@ -476,19 +475,21 @@ public:
 			position.y = atom->baseScale * ad.height * atom->ruleScale + cloudHeight;
 			atom->position = position;
 			// 0x6D5205: the lightning's light on its cloud, SpecLife long: +0x90 = (A, R, G, B) = (v, 200v/256, 200v/256,
-			// v) >> 8 with v = ftol((1 - t / SpecLife) x 255) (bytes 0x6D524C..0x6D5283). The LH3DMist effect branch
-			// that draws the clouds has no specular (fn_007FA300), so it is kept and not drawn.
+			// v) >> 8 with v = ftol((1 - t / SpecLife) x 255) (bytes 0x6D524C..0x6D5283). It is drawn: DrawData +0xC
+			// (0x679BF4) -> RenderParticleMist::DrawAt 0x67A6D6 -> SetColour 0x7F9770 (mist +0x50, which the effect branch
+			// of fn_007FA300 leaves alone) -> fn_0080DB30 0x80DEF5 [0xE9FE2C] -> the vertices' specular (0x84D645), added
+			// with D3DRS_SPECULARENABLE on (fn_0082C8F0 0x82CC45..0x82CC54, off only on a Voodoo): Creators/Mist.cpp
 			if (ad.flashing && age - ad.flashStart > specLife)
 			{
 				ad.flashing = false;
-				ad.specular = 0xFF000000u;
+				atom->specular = 0xFF000000u;
 			}
 			if (ad.flashing)
 			{
 				const auto v = static_cast<uint32_t>(static_cast<int>((1.0f - (age - ad.flashStart) * invSpecLife) * 255.0f)) & 0xFFu;
 				const uint32_t a = (v * 255u) >> 8u;
 				const uint32_t rg = (v * 200u) >> 8u;
-				ad.specular = (a << 24u) | (rg << 16u) | (rg << 8u) | a;
+				atom->specular = (a << 24u) | (rg << 16u) | (rg << 8u) | a;
 			}
 		}
 		// 0x6D52A0: the next strike
@@ -592,7 +593,7 @@ private:
 		atom.birth = effect.GetAge(); // fn_00673CE0(0): the atom's age is 0
 		ad.flashing = false;
 		ad.height = effect.Random(heightVaryAmount);
-		ad.specular = 0xFF000000u;
+		atom.specular = 0xFF000000u; // 0x6D48E5
 	}
 
 	/// fn_006D4970: NumAtoms clouds at once, each at a random age up to TimeToForm

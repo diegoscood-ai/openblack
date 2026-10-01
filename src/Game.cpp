@@ -58,6 +58,7 @@
 #include "ECS/Fields.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
+#include "ECS/RootsPile.h"
 #include "ECS/ScriptHeld.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
@@ -1433,6 +1434,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	ecs::ClearForests();
 	ecs::animal_ai::ClearReactions();
 	ecs::SmokyStuff::Clear();
+	ecs::RootsPile::Clear(); // ClearAllStuff 0x82AEFD
 	night_lights::Clear();
 	// GGame::Init: GAudio::Reset 0x426CA0 (call 0x54F474) with the map's SoundTags and street lanterns, before the
 	// registry reset (it destroys the lanterns' emitters without freeing their sources); then GScript::Reset 0x6EB2D0

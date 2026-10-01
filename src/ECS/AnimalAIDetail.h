@@ -63,9 +63,10 @@ enum class Hunter
 	Wolf,
 };
 
-/// GGameInfo::GetVisualTime (hours) of this turn and g_game+0x205A40, the game turn
+/// GGameInfo::GetVisualTime (hours) of this turn
 extern float g_VisualTime;
-extern uint32_t g_Turn;
+/// g_game+0x205A40, the game turn: the common clock of ECS/Effects/Reactions (Game's turn count, 0 at a land's load)
+uint32_t Turn();
 
 const GAnimalInfo& InfoOf(const components::Animal& animal);
 bool IsGrazer(AnimalInfo type);

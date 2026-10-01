@@ -40,6 +40,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Effects/Reactions.h"
 #include "ECS/Map.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -112,8 +113,10 @@ Hunter HunterOf(AnimalInfo type)
 
 /// GGameInfo::GetVisualTime (hours) of this turn
 float g_VisualTime = 12.0f;
-/// g_game+0x205A40, the game turn
-uint32_t g_Turn = 0;
+uint32_t Turn()
+{
+	return effects::reactions::Turn();
+}
 
 // ---- MapCoords and the angle tables ----
 
@@ -810,7 +813,7 @@ bool IsLeader(const Context& ctx)
 uint32_t AgeOf(const AnimalBrain& brain)
 {
 	// GGameInfo +0x0C: 1500 game turns per year
-	const int32_t turns = static_cast<int32_t>(g_Turn) - brain.birthTurn;
+	const int32_t turns = static_cast<int32_t>(Turn()) - brain.birthTurn;
 	return turns > 0 ? static_cast<uint32_t>(turns / 1500) : 0;
 }
 
@@ -1339,7 +1342,7 @@ bool ProcessState(Context& ctx)
 		ProcessNeeds(ctx);
 		// fn_004179F0: a young one grows four times a year (every 1500 / 4 turns)
 		const auto age = AgeOf(ctx.brain);
-		if (age < ctx.info.grownUpAge && g_Turn % 375 == 0)
+		if (age < ctx.info.grownUpAge && Turn() % 375 == 0)
 		{
 			ctx.animal.age = age;
 			SetScaleForAge(ctx, age);
@@ -1509,7 +1512,7 @@ AnimalBrain& Initialise(entt::entity entity, const Animal& animal, const Transfo
 	// MobileWallHug::SetToZero (0x60F760): game angle 0, facing +x; nothing at creation sets another
 	brain.angle = 0;
 	// Living::SetAge (0x5ED2C0): BirthTurn = the turn it would have been born to be this old
-	brain.birthTurn = static_cast<int32_t>(g_Turn) - static_cast<int32_t>(animal.age) * 1500;
+	brain.birthTurn = static_cast<int32_t>(Turn()) - static_cast<int32_t>(animal.age) * 1500;
 	// the Dove constructor's altitude (the archetype put it at the land + altitudeNormal)
 	if (IsBird(animal.type) && Locator::terrainSystem::has_value())
 	{
@@ -1590,7 +1593,7 @@ void ProcessAnimalsTurn(float visualTime)
 	}
 	ProcessDownedVillagers();
 	// (the reactions whose initiator went are pruned at the start of the turn: ECS/Effects/Reactions BeginTurn)
-	RunDebugHooks(g_Turn++);
+	RunDebugHooks(Turn());
 }
 
 AnimalState TopState(entt::entity entity)

@@ -325,7 +325,7 @@ int ReactToAnimalFoodNeeds(Context& ctx)
 	if (CurrentTargetOk(ctx))
 	{
 		SetSpeed(ctx, Speed(ctx.info, 4));
-		ctx.brain.chaseStart = g_Turn;
+		ctx.brain.chaseStart = Turn();
 		SetupMoveToTarget(ctx, ctx.brain.target);
 		return k_Started;
 	}
@@ -478,7 +478,7 @@ void HuntingMoveToPos(Context& ctx)
 	const auto target = ctx.brain.target;
 	// the script test at 0x418DD7 (script_held::MayTarget)
 	if (target == entt::null || !Available(target) || !script_held::MayTarget(ctx.entity, target) ||
-	    g_Turn - ctx.brain.chaseStart >= ctx.info.chaseTime)
+	    Turn() - ctx.brain.chaseStart >= ctx.info.chaseTime)
 	{
 		Abandon(ctx);
 		return;
@@ -516,7 +516,7 @@ void HuntingMoveToPos(Context& ctx)
 	}
 	else
 	{
-		speed = (g_Turn % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
+		speed = (Turn() % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
 	}
 	SetSpeed(ctx, speed);
 	if (d >= ctx.info.huntingDistance)

@@ -146,7 +146,13 @@ portado en `ECS/AnimalWallHug.*` (investigación `wallhug_circle.md`):
   LINEAR_CW / CCW.
 - Consecuencia del original: como LINEAR solo re-apunta al cambiar de celda y con turnAngle (6° la vaca), un animal cuyo
   rumbo no apunta ya al destino (o que sale de una órbita hacia fuera) se aleja y no llega [el código; no visto en el
-  juego original]; si el destino queda dentro del círculo rodeado, llega por el STEP_THROUGH final.
+  juego original]; si el destino queda dentro del círculo rodeado, llega por el STEP_THROUGH final. Con números: la oveja
+  gira como mucho 64 (11°) por re-apunte (`Animal::SetTowardsAngle` 0x418560; el giro casi entero solo dentro de su
+  círculo de giro, R = 2 × 0,075 m / 0,196 = 0,77 m) y anda 0,075 m por turno, así que re-apunta una vez cada ~133 turnos;
+  en Land2 con una pila al lado (`OPENBLACK_TEST_FOOD_PILE`) de 25 ovejas hambrientas solo 2 llegan a comer, y la
+  reacción de comida dura 2000 turnos. Comprobado contra el código 2026-10-01 (MoveTo 0x60B095, MoveToCircleHug
+  0x60D800, InitStepsXZ 0x60BFA0, SetupMobileMoveToPos 0x60ABC0, AreWeThere 0x60AD60, Living::MoveToPos 0x5EC270,
+  ProcessReaction 0x5F1270: nada más re-apunta).
 
 `GUtils::Spiral` (dir 1, cuenta 1: (−1, 0), (0, −1), (+1, 0) × 2, (0, +1) × 2...)
 en todas las espirales; `Collide(1)` es solo agua (el bit `hasWater` de la celda de terreno) o fuera del mapa,

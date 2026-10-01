@@ -744,13 +744,15 @@ que corre la función nativa), `GetCurrentTaskScriptType` (0x6F6A90) y `GetTaskS
   vuelve a mirar el dueño.
 - `END_DIALOGUE`: solo la tarea dueña. `SpiritHome(1/2, es Help)`, fn_005C6800 (suelta el diálogo, quita la pantalla
   ancha, consejeros a casa, borra el texto) y +0x84 = 1, +0x9C = 0.
-- `SET_WIDESCREEN`: solo la dueña o cualquiera si no hay dueña; con el mismo dueño avisa y sigue.
+- `SET_WIDESCREEN`: solo la dueña o cualquiera si no hay dueña; si la dueña la vuelve a encender (valor != 0)
+  avisa y sigue (0x6F7C23..0x6F7C32).
 - `START_CAMERA_CONTROL`: en la ciudadela (g_game+0x205A28 == 1) solo tareas TempleHelp/TempleSpecial (0x18), sin
   modo de cámara. Fuera, si se crea el modo `CameraModeScript` (fn_00461140; no si `CantExitCurrentMode`).
 - `END_CAMERA_CONTROL`: si la tarea la tiene, fn_006ECD70: modo `CameraModeNew3`, FOV 70° (0x8C762C) en 0.5 s,
   +0xA8 = 0, +0x84 = +0x80 = +0x78 = 1, fn_0042A5F0(1), SuperVillagers fuera, +0x7C = 0.
 - Al **parar una tarea** (callback 0x6EC6D0, el `stopTaskCallback` de LHVM): fn_005C6800(tarea) y fn_006ECF20(tarea)
-  devuelven el diálogo y la cámara.
+  devuelven el diálogo y la cámara. ScriptLibraryR.dll lo llama antes de sacar la tarea de la lista (0x100065CD,
+  la baja desde 0x10006612): fn_005C6800 aún ve su tipo, igual que en LHVM.
 
 En openblack falta lo visual: no hay modos de cámara (se toma siempre **(inferido)**, y la cámara no cambia), ni FOV
 de salida, ni consejeros (`SpiritHome`, fn_005C6720 son ganchos vacíos), ni `DialogBoxBase::HideAll` /

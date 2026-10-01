@@ -665,6 +665,8 @@ void SetWidescreen() // 032 SET_WIDESCREEN
 	}
 	else
 	{
+		// openblack only (no original equivalent: GScript always has g_game+0x25005C; here a VM without a HelpSystem,
+		// e.g. tools): the bars move without any owner. 2.0 is the default of ScreenFade::_wideTime (no source)
 		const float time =
 		    Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
 		Game::Instance()->GetScreenFade().SetWideScreen(on != 0, time);
@@ -1436,14 +1438,16 @@ void RunCameraPath() // 119 RUN_CAMERA_PATH
 
 void StartDialogue() // 120 START_DIALOGUE
 {
-	// GScript::StartDialogue 0x710690 (Help/ScriptControl.cpp); the advisors going home are HelpSystem hooks (not ported)
+	// GScript::StartDialogue 0x710690 (Help/ScriptControl.cpp); the advisors going home are HelpSystem hooks (not ported).
+	// Without a HelpSystem (openblack only, the original always has g_game+0x25005C): false
 	auto* helpSystem = help::Get();
 	Pushb(helpSystem != nullptr && help::script_control::StartDialogue(*helpSystem, ScriptVm()));
 }
 
 void EndDialogue() // 121 END_DIALOGUE
 {
-	// GScript::EndDialogue 0x710780 (Help/ScriptControl.cpp): only for the task that has the dialogue
+	// GScript::EndDialogue 0x710780 (Help/ScriptControl.cpp): only for the task that has the dialogue (nothing without a
+	// HelpSystem: openblack only)
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{
 		help::script_control::EndDialogue(*helpSystem, audio::GetScriptAudioState(), ScriptVm());
@@ -1452,7 +1456,8 @@ void EndDialogue() // 121 END_DIALOGUE
 
 void IsDialogueReady() // 122 IS_DIALOGUE_READY
 {
-	// GScript::IsSpiritReady 0x710830: !HelpSystem::IsDialogueControlled 0x5C6740, a bool (type 6)
+	// GScript::IsSpiritReady 0x710830: !HelpSystem::IsDialogueControlled 0x5C6740, a bool (type 6). Without a
+	// HelpSystem (openblack only, no original equivalent): true, nothing controls the dialogue
 	const auto* helpSystem = help::Get();
 	Pushb(helpSystem == nullptr || help::script_control::IsSpiritReady(*helpSystem));
 }

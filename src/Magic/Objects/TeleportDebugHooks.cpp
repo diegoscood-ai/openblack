@@ -22,14 +22,26 @@
 //                    hand; a later OPENBLACK_TEST_CAST press over A applies it (HandApplyToObject.cpp), and a press held
 //                    225 ms over A afterwards picks the pool up (its seed back in the hand, the stone gone). The stones
 //                    are logged every 10 turns.
+//   worship        - the villagers' own use of the stones (Villager::CanIGetToTheWorshipSite 0x76BC20): a villager is put
+//                    too far from the worship site of OPENBLACK_TEST_WORSHIP_SITE to walk to it
+//                    (maxDistanceThatVillagersWillGoToWorship, 500 m), and two stones make it reachable again. x1,z1 are
+//                    ignored; x0,z0 (if not 0,0) say where stone A goes, else the hook looks for the place itself: a
+//                    land point about 1.15 x that distance from the site (up to 1.6 x). Stone B goes 20 m from the
+//                    site, and the nearest villager of PLAYER_ONE is moved 80 m past A
+//                    (away from the site, so it stays out of reach without the stones).
+//                    Then Villager::CheckWorshipActivity 0x76BAE0 is called on it: it should walk to A
+//                    (GO_TOWARDS_TELEPORT_REACTION 201 or _QUICKLY 251), come out at B and go on to the site (59).
+//                    Its state and position are logged every 10 turns. Use with OPENBLACK_TEST_WORSHIP_SITE="NORSE".
 // OPENBLACK_TEST_TELEPORT_TURN=<n>: start at game turn n (the camera fly of a screenshot takes ~160 turns).
 // OPENBLACK_TELEPORT_TRACE=1 (or OPENBLACK_SPELL_TRACE) logs the stones, the reaction, the jumps and the chants.
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 #include <limits>
+#include <numbers>
 #include <optional>
 #include <string>
 
@@ -40,13 +52,17 @@
 
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/Implementations/VillagerTeleport.h"
+#include "ECS/Systems/Implementations/VillagerWorship.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
 #include "Magic/Core/SpellCreator.h"
@@ -68,6 +84,7 @@ enum class Phase
 	WaitForHandStone,
 	Holding,
 	Watching,
+	WorshipCheck,
 	Done,
 };
 
@@ -85,6 +102,7 @@ struct Test
 	entt::entity villager {entt::null};
 	entt::entity stoneA {entt::null};
 	unsigned int watchUntil {0};
+	entt::entity site {entt::null};
 };
 Test g_Test;
 
@@ -143,6 +161,37 @@ void LogStones(const char* when)
 	                   CurrentTurn(), stones.size(), list, held ? static_cast<int>(*held) : -1);
 }
 
+/// The worship site of PLAYER_ONE's first town with one (test hook)
+entt::entity FirstWorshipSite()
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	entt::entity found = entt::null;
+	registry.Each<const WorshipSite, const Transform>([&](entt::entity entity, const WorshipSite& site, const Transform&) {
+		if (found == entt::null && site.player == PlayerNames::PLAYER_ONE)
+		{
+			found = entity;
+		}
+	});
+	return found;
+}
+
+/// A point about `distance` metres from `from` whose land is above the sea: the first of 36 directions (test hook, no
+/// original behind it)
+std::optional<glm::vec2> LandPointAround(const glm::vec2& from, float distance)
+{
+	const auto& terrain = Locator::terrainSystem::value();
+	for (int i = 0; i < 36; ++i)
+	{
+		const auto angle = static_cast<float>(i) * 10.0f * std::numbers::pi_v<float> / 180.0f;
+		const glm::vec2 point = from + distance * glm::vec2(std::cos(angle), std::sin(angle));
+		if (terrain.GetHeightAt(point) > 2.0f)
+		{
+			return point;
+		}
+	}
+	return std::nullopt;
+}
+
 entt::entity Cast(const glm::vec2& at)
 {
 	const float y = Locator::terrainSystem::value().GetHeightAt(at);
@@ -189,6 +238,67 @@ void teleport::RunDebugHooks()
 	case Phase::Start:
 		if (turn < g_Test.startTurn)
 		{
+			break;
+		}
+		if (std::strcmp(g_Test.mode, "worship") == 0)
+		{
+			// the site, a stone A past maxDistanceThatVillagersWillGoToWorship from it, a stone B next to it, and the
+			// nearest villager of PLAYER_ONE moved to A: the only way to the site is through the two stones
+			g_Test.site = FirstWorshipSite();
+			if (g_Test.site == entt::null)
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("game"), "Teleport test (worship): no worship site of PLAYER_ONE "
+				                                        "(OPENBLACK_TEST_WORSHIP_SITE=\"NORSE\"?)");
+				g_Test.phase = Phase::Done;
+				break;
+			}
+			const auto& sitePosition = registry.Get<const Transform>(g_Test.site).position;
+			const glm::vec2 site(sitePosition.x, sitePosition.z);
+			const float maximum = Locator::infoConstants::value().town.maxDistanceThatVillagersWillGoToWorship;
+			std::optional<glm::vec2> far;
+			if (g_Test.a != glm::vec2(0.0f))
+			{
+				far = g_Test.a; // x0,z0 given: stone A goes there (it must be farther than `maximum` from the site)
+			}
+			for (float factor = 1.15f; factor <= 1.6f && !far.has_value(); factor += 0.15f)
+			{
+				far = LandPointAround(site, maximum * factor);
+			}
+			if (!far.has_value())
+			{
+				SPDLOG_LOGGER_WARN(spdlog::get("game"), "Teleport test (worship): no land around {:.0f} m from the site",
+				                   maximum * 1.15f);
+				g_Test.phase = Phase::Done;
+				break;
+			}
+			g_Test.a = *far;
+			const glm::vec2 toSite = glm::normalize(site - g_Test.a);
+			g_Test.b = site - toSite * 20.0f;
+			const auto spellB = Cast(g_Test.b);
+			const auto spellA = Cast(g_Test.a);
+			const auto& stones = StonesOf(PlayerNames::PLAYER_ONE);
+			g_Test.stoneA = stones.empty() ? entt::null : stones.front();
+			g_Test.villager = NearestOwnVillager(site);
+			if (g_Test.villager != entt::null)
+			{
+				// 80 m past A, away from the site, so that the villager stays beyond maxDistance and the walk to A lasts
+				// long enough to be seen (about 0.37 m a turn); its height comes from the land
+				glm::vec2 start = g_Test.a - toSite * 80.0f;
+				if (Locator::terrainSystem::value().GetHeightAt(start) <= 2.0f)
+				{
+					start = g_Test.a;
+				}
+				MoveByTeleport(g_Test.villager, glm::vec3(start.x, 0.0f, start.y));
+			}
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Teleport test (worship): site {} at ({:.1f}, {:.1f}), max {:.0f} m; spells {} (B at "
+			                   "{:.1f}, {:.1f}) and {} (A at {:.1f}, {:.1f}); villager {} moved next to A",
+			                   static_cast<uint32_t>(g_Test.site), site.x, site.y, maximum,
+			                   spellB == entt::null ? -1 : static_cast<int>(spellB), g_Test.b.x, g_Test.b.y,
+			                   spellA == entt::null ? -1 : static_cast<int>(spellA), g_Test.a.x, g_Test.a.y,
+			                   g_Test.villager == entt::null ? -1 : static_cast<int>(g_Test.villager));
+			g_Test.castTurn = turn + 5;
+			g_Test.phase = Phase::WorshipCheck;
 			break;
 		}
 		if (std::strcmp(g_Test.mode, "hand") == 0)
@@ -283,6 +393,29 @@ void teleport::RunDebugHooks()
 		g_Test.watchUntil = turn + 600;
 		g_Test.phase = Phase::Watching;
 		break;
+	case Phase::WorshipCheck:
+	{
+		if (turn < g_Test.castTurn)
+		{
+			break;
+		}
+		if (g_Test.villager == entt::null || !registry.Valid(g_Test.villager))
+		{
+			g_Test.phase = Phase::Done;
+			break;
+		}
+		const auto& at = registry.Get<const Transform>(g_Test.villager).position;
+		const auto& sitePosition = registry.Get<const Transform>(g_Test.site).position;
+		const float distance = glm::distance(glm::vec2(at.x, at.z), glm::vec2(sitePosition.x, sitePosition.z));
+		// Villager::CheckWorshipActivity 0x76BAE0, the caller of CanIGetToTheWorshipSite
+		const bool went = ecs::villager_worship::CheckWorshipActivity(g_Test.villager, true);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"),
+		                   "Teleport test (worship): villager {} is {:.0f} m from the site; CheckWorshipActivity -> {}",
+		                   static_cast<uint32_t>(g_Test.villager), distance, went);
+		g_Test.watchUntil = turn + 900;
+		g_Test.phase = Phase::Watching;
+		break;
+	}
 	case Phase::Watching:
 		if (turn % 10 == 0)
 		{
@@ -290,8 +423,12 @@ void teleport::RunDebugHooks()
 			if (g_Test.villager != entt::null && registry.Valid(g_Test.villager))
 			{
 				const auto& p = registry.Get<const Transform>(g_Test.villager).position;
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Teleport test: villager {} at ({:.1f}, {:.1f})",
-				                   static_cast<uint32_t>(g_Test.villager), p.x, p.z);
+				const auto* action = registry.TryGet<const LivingAction>(g_Test.villager);
+				const int state = action != nullptr
+				                      ? static_cast<int>(action->states.at(static_cast<size_t>(LivingAction::Index::Top)))
+				                      : -1;
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Teleport test: villager {} at ({:.1f}, {:.1f}), state {}",
+				                   static_cast<uint32_t>(g_Test.villager), p.x, p.z, state);
 			}
 		}
 		if (turn >= g_Test.watchUntil)

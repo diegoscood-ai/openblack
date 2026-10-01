@@ -29,6 +29,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/HandSystemInterface.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
@@ -54,6 +55,21 @@ bool Available(entt::entity object)
 	return object != entt::null && Locator::entitiesRegistry::has_value() &&
 	       Locator::entitiesRegistry::value().Valid(object) &&
 	       Locator::entitiesRegistry::value().AllOf<ecs::components::Transform>(object);
+}
+
+/// 0x6A0D8B: the chakra also ends when its target has the GameThingWithPos flag 1 << 2 set (Object +0x24,
+/// UNAVAILABLE_FOR_STATE_CHANGE in bw1-decomp/src/Black/GameThingWithPos.h, read inverted by
+/// IsAvailableForStateChange). The one place that sets it is GInterface::PlaceObjectInMagicHand (0x5DA7C1 ->
+/// fn_005DC330 -> fn_005DC2A0 -> fn_005FAFC0, the `or byte [esi+0x24], 4` at 0x5FB014), so it is the villager the
+/// player has picked up. (aproximado) openblack has no such flag: the hand's held object stands for it.
+bool UnavailableForStateChange(entt::entity object)
+{
+	if (!Locator::handSystem::has_value())
+	{
+		return false;
+	}
+	const auto held = Locator::handSystem::value().GetHeldObject();
+	return held.has_value() && *held == object;
 }
 
 /// Living::SetSpecularColor 0x417480 (vt 0x5A0; Object 0x4025C0 does nothing): Living +0xD0
@@ -180,9 +196,8 @@ public:
 			atom.modifierData.insert_or_assign(this, data);
 			atom.position = position;
 		}
-		// every chakra follows its target and fades with the burst under it; the first atom plays the heal sound
-		int index = 0;
-		for (size_t i = 0; i < collection.atoms.size(); ++index)
+		// every chakra follows its target and fades with the burst under it; the newest atom plays the heal sound
+		for (size_t i = 0; i < collection.atoms.size();)
 		{
 			auto& atom = *collection.atoms[i];
 			const auto found = atom.modifierData.find(this);
@@ -192,18 +207,22 @@ public:
 				continue;
 			}
 			auto& data = *std::static_pointer_cast<ChakraData>(found->second);
-			// 0x6A0D28..0x6A0D51: the first atom, sound not started (+0x2E) and GetAtomAge > 0 -> StartSound
-			if (index == 0 && !data.soundStarted && effect.AtomAge(atom) > 0.0f)
+			// 0x6A0D28..0x6A0D51: the collection's first atom, sound not started (+0x2E) and GetAtomAge > 0 ->
+			// StartSound. The original's list grows at its head (AtomCollection +0x40, fn_00674BD0 at 0x674BEE), so
+			// its first atom is the newest one; openblack's vector grows at the back (PSys.cpp NewAtom), so the newest
+			// is the last. A brand new atom has age 0, so the sound waits for the next step either way
+			if (i + 1 == collection.atoms.size() && !data.soundStarted && effect.AtomAge(atom) > 0.0f)
 			{
 				data.soundStarted = true;
 				audio::spell_sounds::StartSound(effect, atom, soundHeal);
 			}
 			if (data.target != entt::null && !Available(data.target))
 			{
-				data.target = entt::null;
+				data.target = entt::null; // 0x6A0D7D: gone, and the atom forgets it
 			}
-			// TODO: the target's flag 4 (Object +0x24, UNVERIFIED meaning: off the map?) also ends the chakra
-			if (data.target != entt::null)
+			// 0x6A0D8B: picked up by the hand ends the chakra (0x6A0DCB), but the target is kept, so the destructor
+			// still takes its glow away
+			if (data.target != entt::null && !UnavailableForStateChange(data.target))
 			{
 				atom.position = TargetPosition(data.target, takeCentre);
 				if (scaleToObject)

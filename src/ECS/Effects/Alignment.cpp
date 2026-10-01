@@ -208,6 +208,26 @@ PlayerNames alignment::MostInfluentialPlayer(const glm::vec3& position)
 	return best;
 }
 
+float alignment::LandAlignmentAt(const glm::vec3& position)
+{
+	// MapCoords::GetAlignment 0x6057B0: 0 to start with (0x6057BF), then for every player GGame::GetNextPlayer hands
+	// back (0x6057C7 / 0x605800) add influence x GetAlignmentValue (0x6057DA .. 0x6057F8)
+	float sum = 0.0f;
+	for (size_t i = 0; i < static_cast<size_t>(PlayerNames::_COUNT); ++i)
+	{
+		const auto player = static_cast<PlayerNames>(i);
+		// GGame::GetNextPlayer 0x5508A0 walks only the seven-slot array g_game +0x18 .. +0x48B8 (stride 0xA60): the
+		// neutral player (g_game +0x205A5B) is not one of them
+		if (player == PlayerNames::NEUTRAL || magic::players::EntityOf(player) == entt::null)
+		{
+			continue;
+		}
+		sum += influence::CalculatePlayerInfluence(player, position, influence::CalcType::Default, true) * Get(player);
+	}
+	// 0x60580F: below -1 -> -1; 0x60582C: above 1 -> 1
+	return std::clamp(sum, -1.0f, 1.0f);
+}
+
 float alignment::InterfaceAlignmentAt(const glm::vec3& position)
 {
 	// fn_0064AC30: GetAlignmentValue 0x64D6A0 of that player, + 1 (0x8AA390), x 0.5 (0x8AA3B4); fn_005E2240 clamps it

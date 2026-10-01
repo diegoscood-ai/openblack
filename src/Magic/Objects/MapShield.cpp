@@ -26,11 +26,13 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Spell.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -559,6 +561,29 @@ bool map_shield::GetPlayer(entt::entity shield, PlayerNames& player)
 	return spell.hasPlayer;
 }
 
+bool map_shield::CreatureMustAvoid(entt::entity shield, entt::entity creature, std::optional<PlayerNames> creaturePlayer)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x72C177..0x72C17F: no creature, or one controlled by a script (+0x24 & 0x400) -> 0
+	if (creature == entt::null || !registry.Valid(creature) || ecs::script_held::IsControlledByScript(creature))
+	{
+		return false;
+	}
+	// 0x72C184..0x72C193: the creature's player (vt 0x1C) against the shield's (MapShield::GetPlayer 0x72C150), as
+	// pointers: the same player (two null ones included) -> 0, anything else 1. A shield whose spell is gone (+0x60 0,
+	// 0x72C155) takes GameThing::GetPlayer 0x570130: the interface's player (g_game +0x205A5B), openblack's PLAYER_ONE;
+	// a live spell with no player gives NULL
+	PlayerNames shieldPlayer = PlayerNames::PLAYER_ONE;
+	const auto* component = registry.TryGet<const MapShield>(shield);
+	const bool spellGone = component == nullptr || !SpellAlive(component->spell);
+	const bool hasShieldPlayer = spellGone || GetPlayer(shield, shieldPlayer);
+	if (hasShieldPlayer != creaturePlayer.has_value())
+	{
+		return true;
+	}
+	return hasShieldPlayer && *creaturePlayer != shieldPlayer;
+}
+
 bool map_shield::InteractsWithPhysicsObjects(entt::entity shield)
 {
 	const auto* component = Locator::entitiesRegistry::value().TryGet<const MapShield>(shield);
@@ -608,8 +633,19 @@ void map_shield::ReactToPhysicsImpact(entt::entity shield, const ecs::physics::P
 	{
 		chants::PayFor(registry.Get<ecs::components::Spell>(spell), ChantContextOf(spell), cost, true);
 	}
-	// TODO(towns): the spell's town (+0xFC) -> Town::UpdateAggressor(EffectValues(type 2, 0, hitter, 1.0, the thrower's
-	// player), 0): the town aggression record is not ported
+	// 0x72D74F..0x72D788: with a town (the spell's +0xFC), Town::UpdateAggressor(EffectValues(EFFECT_TYPE 2, 0, the
+	// hitter, 1.0, PhysicsObject::GetPlayer 0x647460 of it), 0) 0x73C9B0. Only its record is ported (+0xEAC the
+	// aggressor, +0xEB0 the turn: 0x73CA82 / 0x73CA98); TODO(towns): the per-player aggression slots (fn_0073E0F0 on
+	// town + n x 0x80 + 0x9F4, with the value plus GTownInfo +0xAC when the slot is 0 and x the +0xEB4 / +0xEB8 weight
+	// that then decays by 0.9), the guidance TownAttackSFX 0x71B7C0 and the creature mimic of 0x73CAAA..0x73CB29
+	if (const auto town = spell_shield::TownOf(spell); registry.Valid(town))
+	{
+		auto& townComponent = registry.Get<ecs::components::Town>(town);
+		// PhysicsObject::GetPlayer: the player's hand threw it (po.byPlayer), else no player, and UpdateAggressor then
+		// takes the interface's own (g_game +0x205A5B, 0x73C9C7): both are openblack's PLAYER_ONE
+		townComponent.aggressor = PlayerNames::PLAYER_ONE;
+		townComponent.aggressorTurn = CurrentTurn();
+	}
 	const float strength = GetSpellStrength(spell);
 	if (TraceEnabled())
 	{

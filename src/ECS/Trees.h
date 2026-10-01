@@ -30,6 +30,12 @@ namespace openblack::ecs
 /// script's forest-less trees (every tree of Land 1 and Land 2) never grow.
 void ProcessTreesTurn(uint32_t turn);
 
+/// How much a tree grows on its grow turn (the argument of Tree::Grow 0x74A3F0, built in 0x74A2D7..0x74A33E):
+/// growthAmount (info +0x11C) x (1 + 0.01 [0x8C5840] x rainMultiplier (info +0x130) x GClimate::GetMaxRainingOrSnowing
+/// 0x771600) x (1 + 0.5 [0x8AA3B4] x MapCoords::GetAlignment 0x6057B0), rain and alignment both taken at the tree. Rain
+/// is the 0..127 byte and the land alignment is -1..1, so the worst land halves the growth and the best adds half.
+[[nodiscard]] float TreeGrowthAmount(float growthAmount, float rainMultiplier, float rain, float landAlignment);
+
 /// Per frame (Tree::PreDraw 0x74A7C0 and the tail of Tree::Draw 0x74B111): the brightness of every tree this frame and
 /// the leaf rustle of the tall ones next to the camera.
 void UpdateTrees(float seconds);

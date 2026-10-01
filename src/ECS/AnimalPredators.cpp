@@ -31,6 +31,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
@@ -171,10 +172,10 @@ bool NearerThanStored(const Context& ctx, glm::vec2 p)
 	{
 		return true;
 	}
-	const glm::ivec2 me(Xz(ctx.transform) * k_MapCoordsPerMetre);
-	const glm::ivec2 prey(p * k_MapCoordsPerMetre);
-	const glm::ivec2 stored(ctx.brain.preyCell * k_MapCoordsPerMetre);
-	const glm::ivec2 myCell(me.x >> 16, me.y >> 16);
+	const glm::ivec2 me(map_coords::ToFixed(ctx.transform.position.x), map_coords::ToFixed(ctx.transform.position.z));
+	const glm::ivec2 prey(map_coords::ToFixed(p.x), map_coords::ToFixed(p.y));
+	const glm::ivec2 stored(map_coords::ToFixed(ctx.brain.preyCell.x), map_coords::ToFixed(ctx.brain.preyCell.y));
+	const glm::ivec2 myCell(map_coords::CellOf(me.x), map_coords::CellOf(me.y)); // the high words
 	const int64_t lhs = 2 * static_cast<int64_t>(std::max(std::abs(me.x - prey.x), std::abs(me.y - prey.y)));
 	const int64_t rhs = std::max(std::abs(static_cast<int64_t>(stored.x) - myCell.x), std::abs(static_cast<int64_t>(stored.y) - myCell.y));
 	return lhs < rhs;
@@ -281,12 +282,13 @@ bool FindPrey(Context& ctx, int cells)
 {
 	const auto& map = Locator::entitiesMap::value();
 	const glm::vec2 me = Xz(ctx.transform);
-	// GUtils::Spiral (0x74D7E0), from its own cell
+	// GUtils::Spiral (0x74D7E0 at 0x41953E) over a copy of its own MapCoords (0x41949A..0x4194B6): InBounds 0x4194D6, the
+	// cell's object list 0x4194E9, and += 0x41954B (whole cells on the high words, the fraction kept)
 	Spiral spiral;
-	glm::ivec2 spiralCell(0);
+	map_coords::MapCoords coords = map_coords::FromMetres(me);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
+		const glm::vec2 c = map_coords::ToMetres(coords);
 		if (InBounds(c))
 		{
 			for (const auto entity : map.GetMobileInGridCell(CellOf(c)))
@@ -298,7 +300,7 @@ bool FindPrey(Context& ctx, int cells)
 				}
 			}
 		}
-		spiralCell += spiral.Next();
+		spiral.Advance(coords);
 	}
 	return false;
 }
@@ -311,7 +313,8 @@ bool CurrentTargetOk(Context& ctx)
 	// the script test at 0x419376 (script_held::MayTarget)
 	if (target != entt::null && Available(target) && script_held::MayTarget(ctx.entity, target) &&
 	    AltitudeAboveLand(registry.Get<const Transform>(target)) <= 2.0f &&
-	    glm::distance(Xz(ctx.transform), Xz(registry.Get<const Transform>(target))) < ctx.info.huntingDistance)
+	    // fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 (HuntingMoveToPos 0x418DB0 / fn_00419340)
+	    gutils::GetDistanceInMetres(Xz(ctx.transform), Xz(registry.Get<const Transform>(target))) < ctx.info.huntingDistance)
 	{
 		return true;
 	}

@@ -19,20 +19,23 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
+#include "Advisor.h"
 #include "AnimEffects.h"
 #include "AudioSystem.h"
 #include "BankTables.h"
 #include "SamplePlay.h"
+#include "Voices.h"
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No
-// argument has a default: each caller passes what the original caller passes. Milestones B1..B4 and B6
-// (docs/bw1-notes/audio.md); the parts of later milestones are declared at the end and are not defined yet. The script's
+// argument has a default: each caller passes what the original caller passes. Milestones B1..B7
+// (docs/bw1-notes/audio.md). The script's
 // sound effects (B6: PLAY / STOP_SOUND_EFFECT, GAME_SOUND_PLAYING, ATTACH / DETACH_SOUND_TAG) are in ScriptSound.h.
 //
 // Rules for the callers (PLAN §2.1, §8.6):
-//  - nobody outside src/Audio calls OpenAL, AudioManager::CreateEmitter / PlayEmitter / PlaySound (the old path: since
-//    B4 only the miracles' files of milestone B5 still use it, and no new caller may be added);
+//  - nobody outside src/Audio calls OpenAL; since B5 every sample plays on the 16 channels through this header (the old
+//    emitters of AudioManager, CreateEmitter / PlayEmitter / PlaySound / PlayMusic, and the AudioEmitter component are
+//    gone);
 //  - the audio includes no ECS component: the positions of the owners come from GameQueries (things) and from
 //    RegisterObject (other objects).
 
@@ -67,6 +70,11 @@ using ObjectPositionFn = std::function<std::optional<glm::vec3>()>;
 /// Owner::Object(id) gets its position from `position` (UpdateChannels, once a turn)
 void RegisterObject(uint32_t id, ObjectPositionFn position);
 void UnregisterObject(uint32_t id);
+/// (openblack) A new id for Owner::Object, never given before: the original compares the owners' pointers (PSysSound,
+/// FireEffect, PHandFX, the gesture's atom data...), openblack gives each such object a number of its own
+/// An id whose channels are never tracked (track 0: the PHandFX, the FireGraphic's steam, the gesture's atom data)
+/// needs no RegisterObject: UpdateChannels only asks the tracked ones for their point.
+[[nodiscard]] uint32_t NewObjectId();
 
 // ---- GAudio::PlaySoundEffect and its family (0x429D60..0x42A100) ---------------------------------------------------
 
@@ -120,8 +128,13 @@ void ReleaseLoop(Owner owner, int sample, BankId bank);
 void SetPitch(BankId bank, Owner owner, int sample, int percent);
 /// LHSampleSetVolume 0x10013400 on a channel the caller keeps (LHAtmos, PSysSound fn_006D1110 0x6D1239)
 void SetVolume(Channel channel, int volume);
-/// LHSampleIsPlaying(LH_SampleInfo*) 0x10014070 on a channel the caller keeps (PSysSound 0x6D120A)
+/// LHSampleIsPlaying(LH_SampleInfo*) 0x10014070 on a channel the caller keeps
 [[nodiscard]] bool IsPlaying(Channel channel);
+/// LHSampleIsPlaying(bank, owner, LH_SampleInfo**) 0x10014010, called straight by PSysSound fn_006D11A0 (0x6D120A): the
+/// first channel of the bank and owner (any sample) when it is in use, else k_NoChannel (also while switched off)
+[[nodiscard]] Channel PlayingChannel(Owner owner, BankId bank);
+/// LH_SampleInfo +0x38: the volume 0..127 of a channel the caller got (PSysSound's fade 0x6D1223), 0 for none
+[[nodiscard]] int Volume(Channel channel);
 
 /// The global cyclic counters some callers add to a first sample (sfx_inventory.md "contador cíclico"): the sample is
 /// base + counter, then the counter goes up and back to 0 at its count (Abode::InterfaceTap 0x4068F4..0x40690F and the
@@ -270,32 +283,11 @@ void Delete(TagId tag);
 /// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
 [[nodiscard]] bool SoundExists();
 
-// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
-
-/// (B7) The voices on the channels (today only the table: Voices.h, milestone A10)
-namespace voices
-{
-/// fn_005C5F90: the advisor (narrators 2 / 3: HelpDude, owner k_OwnerAdvisor, 0..500 ms delay) or 2D with k_OwnerVoice
-Channel RunTextVoice(int helpTextId, int narrator);
-/// SaySoundEffect 0x70F8E0 (SAY_SOUND 0x70F9B0: owner k_OwnerVoiceAlt / k_OwnerVoice, track 0, 3D when `at`)
-Channel Say(int helpTextId, bool alt, std::optional<glm::vec3> at);
-/// SAY_SOUND_EFFECT_PLAYING 0x710280
-[[nodiscard]] bool IsSaying(int helpTextId, bool alt);
-/// STOP_SOUND_EFFECT 0x70FA50 with isSay (k_OwnerAdvisor / k_OwnerVoiceStop + k_OwnerVoiceAlt; not k_OwnerVoice)
-void StopSay(bool isSay, int id, SfxBank bank);
-/// The click 0x5C69B0 -> GAudio 0x42A210(0, k_OwnerVoice, Villagers)
-void CutByClick();
-} // namespace voices
-
-/// (B7) HelpDude 0x5BB340..0x5BB840 without its visual part
-namespace advisor
-{
-void Say(int dude, Sample sample, bool onlyIfSilent);
-[[nodiscard]] bool IsTalking(int dude);
-void Stop(int dude);
-/// AutoVoiceParams::CalcKey 0x428850 (the PCM of PlayOptions::keepPcm)
-[[nodiscard]] int LipSyncKey(int dude);
-} // namespace advisor
+// ---- voices (B7) ----------------------------------------------------------------------------------------------------
+// The voices of the texts and of the script (RUN_TEXT's fn_005C5F90, SAY_SOUND 0x70F8E0, SAY_SOUND_EFFECT_PLAYING
+// 0x710280, the click's cut 0x5C6AAD): Voices.h, audio::voices. The advisors (HelpDudeControl / HelpDude, owner 0x270C,
+// the lip-sync of AutoVoiceParams::CalcKey 0x428850): Advisor.h, audio::advisor. STOP_SOUND_EFFECT with isSay
+// (0x70FA50): ScriptSound.h.
 
 // The music (LHMusic + GAudio: milestones A3..A9) has its own headers: MusicEngine.h / MusicStream.h (LHMusic),
 // GameMusic.h (ProcessMusic, the script's music, the master volume), ThingMusic.h (ThingMusicInfo).

@@ -9,12 +9,12 @@
 
 #include "MistArchetype.h"
 
-#include <random>
-
 #include <glm/mat3x3.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include "3D/FrameAnim.h"
+#include "3D/LH3DRandom.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Mist.h"
 #include "ECS/Components/Transform.h"
@@ -44,10 +44,9 @@ entt::entity MistArchetype::Create(const glm::vec3& position, float altitude, ui
 	mist.colour = colour;
 	mist.edgeShrink = k != 1.0f;
 	mist.k = mist.edgeShrink ? k : 3.0f;
-	// LH3DMist ctor 0x7F9560: the animation counter starts at Random(0, 16) & 15, LH3D's own random (0x81D180), not
-	// the game's, so the game's random sequence is left alone
-	static std::minstd_rand s_random;
-	mist.counter = static_cast<int>(std::uniform_real_distribution<float>(0.0f, 16.0f)(s_random)) & 15;
+	// LH3DMist ctor 0x7F9560 (0x7F95DC..0x7F95FB): the animation counter starts at ftol(Random(0, 16)) & 15, LH3D's own
+	// random (graphics::lh3d::Random), not the game's
+	mist.counter = graphics::frame_anim::MistStartCounter(graphics::lh3d::Random(0.0f, 16.0f));
 	mist.counterRemainder = 0.0f;
 	registry.Assign<Mist>(entity, mist);
 	return entity;

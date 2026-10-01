@@ -93,8 +93,11 @@ original, hasta el sexto decimal.
   - Farolas: `CREATE_STREET_LANTERN` (tipo 7 = MSH_O_TOWNLIGHT, llamas a +5) y hogueras (MSH_B_CAMPFIRE, +1).
     Estampa `village_diffuse.raw` (14×14) desde pos − 50, con ±0,5 de temblor cada 30 ms. Fuerza I/255 de
     `fn_0086C220` por hora de guion: se enciende de 16,5 a 17,5 y se apaga de 6 a 7.
-  - Sprites aditivos: dos llamas `S_Fire` (fotogramas 0..31 al revés en 700 ms, semitamaño 1 ± 0,1) y un halo
-    `smoke` fotograma 56 (semitamaño 3 ± 0,1). Color 0xF38421 con alfa trunc(I/2).
+  - Sprites aditivos: dos llamas `S_Fire` (fotogramas 0..31 al revés en 700 ms con un reloj global entero, que solo
+    corre con alfa ≠ 0; la llama i empieza en la tabla global 0xC383BC, que cada luz nueva reescribe con
+    ftol(Random(0, 31)) (fn_00823240 0x8233E4..0x8233F8), así que todas van en fase con la última creada;
+    fn_00823570, `frame_anim::LanternCell`; semitamaño 1 ± 0,1) y un halo
+    `smoke` celda 56 ((flags & ~7) | 0x38, 0x8233BC..0x8233EB; semitamaño 3 ± 0,1). Color 0xF38421 con alfa trunc(I/2).
   - Aproximado: el shader de sprites solo usa la máscara alfa, sin el RGB de la textura.
   - El quad aditivo de la mano sobre el agua (±60, `atmos.raw`) está hecho (W9, `src/3D/HandWaterGlow.*`, ver
     [rendering.md](rendering.md#cielo-sol-luna-y-nubes-original)). Las dos luces de la puerta nórdica

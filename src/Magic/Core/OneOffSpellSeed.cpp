@@ -16,8 +16,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include "Audio/AudioManagerInterface.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/OneOffSpellSeedArchetype.h"
 #include "ECS/Components/OneOffSpellSeed.h"
@@ -106,10 +107,25 @@ int one_off::InterfaceTap(entt::entity orb, PlayerNames player)
 		return 0;
 	}
 	// TODO(M2): GInterface::StartImmersion(0xE, 0x80000000)
-	if (Locator::audio::has_value())
+	// 0x72A6A5..0x72A6F4: LH_SamplePlayOptions with bank +0x04 GGlobal+0x3AC (InGame), owner +0x20 the orb, sample +0x24
+	// 0x6D (G_SpellBubblePop_04), is3D +0x08 1, track +0x0C 0, the point +0x30 the interface status' +0xC8 (the hand's
+	// position), then GAudio::PlaySoundEffect 0x429E30. (aproximado) the left hand's interaction point stands for
+	// GInterfaceStatus +0xC8.
 	{
-		Locator::audio::value().PlaySound(static_cast<entt::id_type>(audio::SoundId::G_SpellBubblePop_04),
-		                                  audio::PlayType::Once); // sample 0x6D
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 0x6D};
+		options.owner = audio::Owner::Thing(orb);
+		options.is3D = true;
+		options.track = false;
+		if (Locator::handSystem::has_value())
+		{
+			const auto left = static_cast<size_t>(ecs::systems::HandSystemInterface::Side::Left);
+			const auto hand = Locator::handSystem::value().GetPlayerHandPositions()[left];
+			const auto* transform = registry.TryGet<const ecs::components::Transform>(
+			    Locator::handSystem::value().GetPlayerHands()[left]);
+			options.position = hand.value_or(transform != nullptr ? transform->position : glm::vec3(0.0f));
+		}
+		audio::PlaySoundEffect(options);
 	}
 	worship::seed_graphic::Delete(component.graphic); // ToBeDeleted 0x72A420: the seed graphic inside goes with it
 	registry.Destroy(orb);
@@ -129,10 +145,10 @@ void one_off::UpdateFrames(float milliseconds)
 	auto& registry = Locator::entitiesRegistry::value();
 	bool any = false;
 	registry.Each<OneOffSpellSeed, UvScroll>([&](entt::entity /*orb*/, OneOffSpellSeed& orb, UvScroll& scroll) {
-		orb.phase = std::fmod(orb.phase + milliseconds * 18.0f * 0.001f, 16.0f);
-		const int frame = static_cast<int>(orb.phase);
-		scroll.u = static_cast<float>(frame % 4) * 0.25f;
-		scroll.v = static_cast<float>(frame / 4) * 0.25f;
+		// UpdateFrame 0x72A570: 18 frames a second over the 4 x 4 sheet (frame_anim::OneOffFrame)
+		const auto uv = graphics::frame_anim::OneOffFrame(orb.phase, milliseconds);
+		scroll.u = uv.x;
+		scroll.v = uv.y;
 		any = true;
 	});
 	// Draw 0x518E90 -> fn_00518720 (on while the byte [0xBE8E8D] is set, 1): the mesh is turned about the centre c of

@@ -16,6 +16,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
@@ -37,42 +38,36 @@ std::unique_ptr<Creator> MakeChainCreator(const Object& object)
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", false);
 	creator->dynamicLighting = object.Bool("UseDynamicLighting", false);
+	creator->fileOffset = object.Int("FileOffset", 0); // +0x54 (chain +0x34)
 	creator->frameOfHead = object.Int("FrameOfHead", 0);
 	creator->frameOfTail = object.Int("FrameOfTail", 0);
-	// the ctor's defaults (0x6AA739..0x6AA747): FrameHeight 64, FrameWidth 32, NumTexturesForWholeChain -1
+	// ctor 0x6AA739..0x6AA747: FrameHeight 0x40, FrameWidth 0x20, NumTexturesForWholeChain -1 (DefineProperties ranges
+	// [1, 256] and [-1, 32])
 	creator->numTexturesForWholeChain = object.Int("NumTexturesForWholeChain", -1);
-	creator->frameWidth = object.Int("FrameWidth", 32);
-	creator->frameHeight = object.Int("FrameHeight", 64);
+	creator->frameWidth = std::max(1, object.Int("FrameWidth", 32));
+	creator->frameHeight = std::max(1, object.Int("FrameHeight", 64));
 	return creator;
 }
 } // namespace
 
-ChainCreator::SegmentUv ChainCreator::SegmentUvOf(int segment, int segments, float scroll) const
+std::array<glm::vec2, 4> ChainCreator::SegmentUv(int index, int segments, float scroll) const
 {
-	// fn_006C8920 (called from fn_0067B3F0 at 0x67BEFD with frame 0): the chain is cut in T repeats (chain +0x30,
-	// NumTexturesForWholeChain, -1 -> joints - 1 at 0x6AA8DF); segment s falls in repeat k = ((s + 1) T - 1) / (n - 1)
-	// (integer division), which starts at segment k (n - 1) / T and holds (k + 1)(n - 1) / T - that of them
-	const int n1 = std::max(1, segments);
-	const int repeats = numTexturesForWholeChain == -1 ? n1 : numTexturesForWholeChain;
-	if (repeats <= 0)
-	{
-		return {0.0f, 0.0f, 0.0f, 0.0f}; // (port guard) the original divides by zero here; no spell file does it
-	}
-	const int k = ((segment + 1) * repeats - 1) / n1;
-	const int first = k * n1 / repeats;
-	const int count = (k + 1) * n1 / repeats - first;
-	const int local = segment - first;
-	// the frame: FrameOfHead in the last repeat, FrameOfTail in the first, else the argument (0); + FileOffset
-	// (chain +0x34). With a single repeat the head wins (the k == T - 1 test comes first)
-	const int frame = (k == repeats - 1 ? frameOfHead : k == 0 ? frameOfTail : 0) + fileOffset;
-	// U across: [frame W, frame W + W] / 256; V along: H x local / count / 256 (+ chain +0x3C); 0.00390625 = 1/256
-	// (0x938EBC). A repeat holding no segment (T > n - 1) divides by zero as the original does
-	const float u0 = static_cast<float>(frame * frameWidth) / 256.0f;
-	const float u1 = static_cast<float>(frame * frameWidth + frameWidth) / 256.0f;
-	const float v0 = static_cast<float>(frameHeight) * (static_cast<float>(local) / static_cast<float>(count)) / 256.0f;
-	const float v1 =
-	    static_cast<float>(frameHeight) * (static_cast<float>(local + 1) / static_cast<float>(count)) / 256.0f;
-	return {u0, u1, v0 + scroll, v1 + scroll};
+	// fn_006C8920 (called from fn_0067B3F0 at 0x67BEFD with frame 0): the chain is cut in T repeats (chain +0x30);
+	// segment s falls in repeat k = ((s + 1) T - 1) / (n - 1) (integer division), which starts at segment
+	// k (n - 1) / T and holds (k + 1)(n - 1) / T - that of them; FrameOfHead in the last repeat, FrameOfTail in the
+	// first (with a single repeat the head wins, the k == T - 1 test comes first), else 0, + FileOffset (chain +0x34)
+	// CreateChain 0x6AA880: chain +0x30 = NumTexturesForWholeChain, or joints - 1 when -1 (0x6AA8DC..0x6AA8EB).
+	// (aproximado) the joints drawn now, where the original counts the ones the chain was made with
+	graphics::frame_anim::ChainSheet sheet;
+	sheet.frameWidth = frameWidth;
+	sheet.frameHeight = frameHeight;
+	sheet.frameOfHead = frameOfHead;
+	sheet.frameOfTail = frameOfTail;
+	sheet.fileOffset = fileOffset;
+	// only -1 is replaced; 0 (which DefineProperties allows) is left to ChainSegmentUv's openblack guard, where the
+	// original would divide by zero (idiv 0x6C893E)
+	sheet.textures = numTexturesForWholeChain == -1 ? segments : numTexturesForWholeChain;
+	return graphics::frame_anim::ChainSegmentUv(index, segments, sheet, scroll);
 }
 
 std::vector<chain_atoms::Ribbon> chain_atoms::Collect()
@@ -95,6 +90,20 @@ std::vector<chain_atoms::Ribbon> chain_atoms::Collect()
 		                   first.joints.front().alpha);
 	}
 	return chains;
+}
+
+void chain_atoms::AdvanceScroll(float milliseconds)
+{
+	for (const auto& chain : manager::CollectChains())
+	{
+		const auto* creator = dynamic_cast<const ChainCreator*>(chain.creator);
+		// [0xC029B8] (1): the scroll and the offset are on
+		if (creator != nullptr && chain.collection != nullptr)
+		{
+			(void)graphics::frame_anim::ChainScroll(chain.collection->chainScroll, milliseconds,
+			                                        chain.collection->chainScrollRate, creator->frameHeight);
+		}
+	}
 }
 
 void openblack::psys::RegisterChainCreator()

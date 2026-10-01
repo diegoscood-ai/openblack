@@ -19,7 +19,6 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/LanternSounds.h"
-#include "Billboard.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"
@@ -27,6 +26,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "FrameAnim.h"
 #include "Graphics/Texture2D.h"
 #include "LandIslandInterface.h"
 #include "Locator.h"
@@ -248,7 +248,7 @@ void night_lights::StampLight(const LightImage& image, float x, float z, float i
 namespace
 {
 constexpr float k_JitterMs = 30.0f;     // fn_00823460
-constexpr float k_FlameLoopMs = 700.0f; // [0xC383C8]
+constexpr int k_GlowCell = 56;          // fn_00823240 0x8233BC..0x8233EB: (flags & ~7) | 0x38
 constexpr glm::vec3 k_LightColour {0xF3 / 255.0f, 0x84 / 255.0f, 0x21 / 255.0f};
 
 /// A village light (fn_00823240): a street lantern (type 0) or a campfire (type 1)
@@ -260,7 +260,6 @@ struct VillageLight
 	glm::vec2 offset {0.0f};
 	std::array<entt::entity, 3> sprites {entt::null, entt::null, entt::null}; // 2 flames, 1 glow
 	std::array<float, 2> flameSize {1.0f, 1.0f};
-	std::array<int, 2> startFrame {0, 0};
 	float glowSize {3.0f};
 };
 
@@ -273,7 +272,11 @@ struct State
 	graphics::TextureHandle glow {};  // smokea
 	std::vector<VillageLight> lights;
 	float rescanMs {0.0f};
-	float flameMs {0.0f}; // [0xEB99C4]
+	int flameMs {0};               // [0xEB99C4], one clock for every light (frame_anim::LanternAdvance)
+	float flameMsRemainder {0.0f}; // (openblack) the fraction of the frame's milliseconds
+	// 0xC383BC: the start of each sprite's cells, one table for every light, rewritten by every new light
+	// (frame_anim::LanternStarts); kept from land to land as the original's global
+	graphics::frame_anim::LanternStarts flameStarts {graphics::frame_anim::k_LanternFileStarts};
 	std::mt19937 random {0x4C414E54u};
 };
 State g_state;
@@ -360,19 +363,23 @@ void Rescan()
 		light.position = position;
 		light.type = type;
 		light.timer = Random(0.0f, k_JitterMs);
-		for (size_t i = 0; i < 2; ++i)
-		{
-			light.flameSize[i] = 1.0f + Random(-0.1f, 0.1f);
-			light.startFrame[i] = std::uniform_int_distribution<int>(0, 31)(g_state.random);
-		}
 		const glm::vec3 at = position + glm::vec3(0.0f, type == 1 ? 1.0f : 5.0f, 0.0f);
 		for (size_t i = 0; i < light.sprites.size(); ++i)
 		{
 			const bool flame = i < 2;
+			// fn_00823240 0x823355..0x823368: a flame's size 1 + Random(-0.1, 0.1)
+			if (flame)
+			{
+				light.flameSize[i] = 1.0f + Random(-0.1f, 0.1f);
+			}
+			// 0x8233E4..0x8233F8: every sprite, the glow too, rewrites its entry of the global start table
+			g_state.flameStarts.at(i) = graphics::frame_anim::LanternStart(Random(0.0f, 31.0f));
 			const auto sprite = registry.Create();
-			// the glow: smoke.raw frame 56 (column 0, row 7)
-			registry.Assign<Sprite>(sprite, flame ? g_state.fire : g_state.glow, flame ? glm::vec2(0.0f) : glm::vec2(0.0f, 7.0f / 8.0f),
-			                        glm::vec2(1.0f / 8.0f), glm::vec4(0.0f), true);
+			// the flames start at cell 0 ((flags & ~0x3F), 0x823397); the glow is smoke.raw cell 56 ((flags & ~7) | 0x38,
+			// 0x8233BC..0x8233EB)
+			registry.Assign<Sprite>(sprite, flame ? g_state.fire : g_state.glow,
+			                        graphics::frame_anim::SpriteCellUv(flame ? 0 : k_GlowCell)[0], glm::vec2(1.0f / 8.0f),
+			                        glm::vec4(0.0f), true);
 			registry.Assign<Transform>(sprite, at, glm::mat3(1.0f), glm::vec3(flame ? light.flameSize[i] : light.glowSize));
 			light.sprites[i] = sprite;
 		}
@@ -433,9 +440,12 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 		}
 	}
 
-	// fn_00823460 / fn_00823570: jitter every 30 ms, the flames play backwards over 700 ms
-	g_state.flameMs = std::fmod(g_state.flameMs + milliseconds, k_FlameLoopMs);
-	const int a = static_cast<int>(g_state.flameMs * 31.0f / k_FlameLoopMs);
+	// fn_00823460 / fn_00823570: jitter every 30 ms, the flames play backwards over 700 ms. 0x82357A..0x823593: the
+	// clock only runs while the village light alpha [0xEB99BC] is not 0 and there are lights (frame_anim::LanternAdvance,
+	// g_game_time_inc in whole milliseconds)
+	const uint32_t wholeMs = graphics::frame_anim::WholeMilliseconds(g_state.flameMsRemainder, milliseconds);
+	const bool running = villageAlpha != 0.0f && !g_state.lights.empty();
+	const int a = graphics::frame_anim::LanternAdvance(g_state.flameMs, running ? wholeMs : 0u);
 	const float alpha = std::trunc(villageAlpha) / 255.0f;
 	auto& registry = Locator::entitiesRegistry::value();
 	for (auto& light : g_state.lights)
@@ -457,8 +467,9 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 			sprite.tint = glm::vec4(k_LightColour, alpha);
 			if (i < 2)
 			{
-				const int frame = (10 * static_cast<int>(i) + 31 - ((light.startFrame[i] + a) & 31)) & 31;
-				sprite.uvMin = graphics::billboard::CellUv(static_cast<uint8_t>(frame), 8)[0];
+				// fn_00823570 0x8235E8..0x823632: the start of flame i from the global table 0xC383BC
+				sprite.uvMin = graphics::frame_anim::SpriteCellUv(
+				    graphics::frame_anim::LanternCell(a, static_cast<int>(i), g_state.flameStarts))[0];
 			}
 			else
 			{

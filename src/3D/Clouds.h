@@ -17,6 +17,8 @@
 #include <glm/vec3.hpp>
 #include <glm/ext/vector_uint2_sized.hpp>
 
+#include "3D/FrameAnim.h"
+
 namespace openblack
 {
 
@@ -91,7 +93,7 @@ public:
 	[[nodiscard]] static int EdgeAlpha(const Cloud& cloud);
 	/// Animation frame 0..15 of the mist texture atlas: counter * 45 / 900 in integers, & 15. A whole cell each time:
 	/// the original sets one UV offset (vt+0xE8, 0x7F9B70) and draws once, so frames switch without a blend
-	[[nodiscard]] static int GetFrame(const Cloud& cloud) noexcept { return (cloud.counter / 20) & 15; }
+	[[nodiscard]] static int GetFrame(const Cloud& cloud) noexcept { return graphics::frame_anim::MistCell(cloud.counter); }
 
 	/// Cloud shadows ("CloudShadows" key, fn_0086CFF0 -> fn_0086D360 / fn_00878C70): every cloud stamps
 	/// Data\Textures\sclouds.raw (40 x 40, one texel per 10-unit cell, placed by its top-left corner at the cloud's

@@ -10,13 +10,13 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 #include <entt/fwd.hpp>
 
 #include "AudioDecoderInterface.h"
 #include "AudioPlayerInterface.h"
 #include "SampleOutput.h"
-#include "ECS/Components/AudioEmitter.h"
 #include "Sound.h"
 #include "SoundGroup.h"
 
@@ -26,51 +26,27 @@ namespace openblack
 namespace audio
 {
 
+/// The audio device of openblack (Locator::audio): the OpenAL context, the listener, the 16 channels' sources and the
+/// list of the registered banks. It plays nothing itself: every sample goes through audio:: (Audio.h) onto the
+/// channels of audio::sample_play, the music through audio::music (MusicStream.h). Since audio milestone B5 there is no
+/// emitter left: no AudioEmitter component, no CreateEmitter / PlayEmitter / PlaySound / PlayMusic.
 class AudioManagerInterface
 {
 public:
+	/// The channels' sources released (Locator shutting the audio down)
 	virtual void Stop() = 0;
+	/// Once a frame: the channels' finite loops (QMixer counts them as it mixes)
 	virtual void Update() = 0;
 	/// LHListenerUpdate from fn_004270D0, once a game turn: QMixer's listener goes to the camera (position, forward, up)
 	virtual void UpdateListener() = 0;
-	virtual BufferId CreateBuffer(ChannelLayout layout, const std::vector<int16_t>& buffer, int sampleRate) = 0;
-	virtual void CreateBuffer(Sound& sound) = 0;
-	virtual void PlayEmitter(entt::entity emitter) = 0;
-	virtual void PauseEmitter(entt::entity emitter) = 0;
-	virtual void StopEmitter(entt::entity emitter) = 0;
-	/// LHSampleSetPitch: the emitter's pitch in percent of the sample rate (no deviation)
-	virtual void SetEmitterPitch(entt::entity emitter, float percent) = 0;
-	virtual void DestroyEmitter(entt::entity emitter) = 0;
-	/// Every emitter but the music's destroyed with its OpenAL source (GAudio::Reset 0x426CA0 LHSampleStopAll for the
-	/// old players: the registry reset of a new map would drop them with their sources still playing)
-	virtual void DestroyAllEmitters() = 0;
-	virtual entt::entity CreateEmitter(entt::id_type id, PlayType playType, glm::vec3 position, glm::vec3 direction,
-	                                   glm::vec2 radius, float volume, AudioStatus status, bool relative) = 0;
-	virtual bool EmitterExists(entt::entity emitter) = 0;
-	[[nodiscard]] virtual float GetProgress(entt::entity emitter) = 0;
-	[[nodiscard]] virtual AudioStatus GetStatus(entt::entity emitter) = 0;
-	virtual void SetGlobalVolume(float volume) = 0;
-	virtual void SetSfxVolume(float volume) = 0;
-	virtual void SetMusicVolume(float volume) = 0;
-	[[nodiscard]] virtual float GetGlobalVolume() = 0;
-	[[nodiscard]] virtual float GetSfxVolume() = 0;
-	[[nodiscard]] virtual float GetMusicVolume() = 0;
-	virtual void PlayMusic(const std::string& packPath, PlayType type) = 0;
-	virtual void StopMusic() = 0;
-	virtual void PlaySound(entt::id_type id, PlayType type) = 0;
-	/// GAudio::PlaySoundEffect 0x429E30 with a 3D position: not started when the camera is farther than the sample's
-	/// max distance (.sad +0x26C, or the mapping max when that is 0); otherwise a one-shot world emitter at `position`.
-	/// Returns the emitter, entt::null when culled.
-	virtual entt::entity PlayAt(entt::id_type id, glm::vec3 position) = 0;
 	virtual const Sound& GetSound(entt::id_type id) = 0;
+	/// The samples of each registered .sad bank by its file name (the debug panel's list)
 	virtual void CreateSoundGroup(const std::string& name) = 0;
 	virtual void AddToSoundGroup(const std::string& name, entt::id_type id) = 0;
 	virtual const SoundGroup& GetSoundGroup(const std::string& name) = 0;
 	virtual const std::map<std::string, SoundGroup>& GetSoundGroups() = 0;
-	virtual void AddMusicEntry(const std::string& name) = 0;
 	/// The 16 sample channels' device side (audio::sample_play), on this manager's OpenAL context
 	[[nodiscard]] virtual SampleOutput& GetSampleOutput() = 0;
-	[[nodiscard]] virtual const std::vector<std::string>& GetMusicTracks() const = 0;
 };
 } // namespace audio
 } // namespace openblack

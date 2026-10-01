@@ -373,10 +373,9 @@ ENDCLASS
 			EXPECT_EQ(atom.specular, 0xFF000000u);
 			ASSERT_NE(atom.atom, nullptr);
 			EXPECT_EQ(atom.atom->specular, 0xFF000000u);
-			const float counter = atom.atom->mistCounter;
-			EXPECT_GE(counter, 0.0f);
-			EXPECT_LE(counter, 15.0f);
-			EXPECT_EQ(counter, std::floor(counter));
+			const int counter = atom.atom->mist.counter;
+			EXPECT_GE(counter, 0);
+			EXPECT_LE(counter, 15);
 		}
 	}
 	weather::storms::Clear();

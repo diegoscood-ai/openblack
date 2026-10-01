@@ -31,7 +31,9 @@ struct Puff
 	int frames {0};            ///< +0x28 frames left to the target
 	float size {0.0f};         ///< +0x2C x (outer + inner): the mist's size
 	float k {2.5f};            ///< the mist's +0x8C, Random(2.5, 5.0)
-	int counter {0};           ///< the mist's +0x84 (its atlas frame)
+	/// the mist's +0x84 (its atlas frame, frame_anim::MistCell). (aproximado) it starts at 0, not at the LH3DMist ctor's
+	/// ftol(Random(0, 16)) & 15 (0x7F95F8): the same cell 0, a few counts of phase apart
+	int counter {0};
 	float counterRemainder {0.0f};
 };
 

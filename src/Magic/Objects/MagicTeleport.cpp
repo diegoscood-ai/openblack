@@ -87,8 +87,9 @@ int32_t ToUnits(float metres)
 	return static_cast<int32_t>(metres * k_UnitsPerMetre); // MapCoords(LHPoint) 0x603160: ftol
 }
 
-/// Living::MoveByTeleport 0x5EC358 / 0x5EC372: SoundTag::Create(MapCoords, sample, track 0, mode 2, loops 0, +0x40 0,
-/// 3D 1, AUDIO_SFX_BANK_TYPE 1 = InGame, delay 0) 0x71EB60, a one-off 3D sample at a point (Audio/SoundTags.cpp)
+/// Living::MoveByTeleport 0x5EC342..0x5EC372: SoundTag::Create(MapCoords&, sample, track 0, mode 2, loops 0, +0x10 0,
+/// is3D 1, AUDIO_SFX_BANK_TYPE 1 = IN_GAME, delay 0) 0x71EB60, a point tag at (x, the land + the MapCoords' height, z)
+/// that plays once. `mapPosition` is a map position (x, height above the land, z), as magic::ToMap gives.
 void PlayInGameSample(int sample, const glm::vec3& mapPosition)
 {
 	audio::tags::CreateAtMapCoords(mapPosition.x, mapPosition.z, mapPosition.y, sample, false, 2, 0, false, true,
@@ -472,11 +473,11 @@ void teleport::MoveByTeleport(entt::entity living, const glm::vec3& mapPosition)
 	{
 		return;
 	}
-	// 0x5EC352..0x5EC372: a sound tag where it was (its own MapCoords +0x14, sample 0x27 G_SpellTeleportEnergiseGo) and
-	// one where it goes (the argument's MapCoords, 0x26 G_SpellTeleportEnergiseArrive), both InGame
+	// SoundTag::Create(the living's MapCoords +0x14, 0x27 G_SpellTeleportEnergiseGo, ...) 0x5EC358 and (the argument's
+	// MapCoords, 0x26 G_SpellTeleportEnergiseArrive, ...) 0x5EC372, bank IN_GAME
 	PlayInGameSample(39, ToMap(transform->position));
-	const auto world = ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
 	PlayInGameSample(38, mapPosition);
+	const auto world = ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
 	// MoveMapObject (vt 0x55C): the new position, at the land
 	transform->position = world;
 	ecs::villager_teleport::OnMoved(living);

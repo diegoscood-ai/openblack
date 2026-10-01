@@ -16,8 +16,8 @@ namespace openblack::audio
 
 /// The miracles' name of the anim effect tables of a .sad bank: the audio core's AnimEffectTable (AnimEffects.h,
 /// milestone B2), unchanged (the same members, Load, FindList, SoundId and FindSample). The core reads the tables of
-/// every bank once as it is registered (anim_effects::Tables(bank)); SpellSounds still reads spells.sad's own copy
-/// until milestone B5 moves it to audio::SamplePlayAnimEffect.
+/// every bank once as it is registered (anim_effects::Tables(bank)); since milestone B5 SpellSounds plays through
+/// audio::SamplePlayAnimEffect on those tables (this name stays for the miracles' tests, test_spell_sounds).
 using AnimEffectBank = AnimEffectTable;
 
 } // namespace openblack::audio

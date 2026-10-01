@@ -27,6 +27,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
@@ -680,8 +681,7 @@ entt::entity site::FindAt(const glm::vec3& position)
 	// only in the cell of its position (its collide footprint is not ported)
 	registry.Each<const WorshipSpellIcon, const Transform>(
 	    [&](entt::entity, const WorshipSpellIcon& icon, const Transform& transform) {
-		    if (found == entt::null && std::floor(transform.position.x * 0.1f) == std::floor(position.x * 0.1f) &&
-		        std::floor(transform.position.z * 0.1f) == std::floor(position.z * 0.1f))
+		    if (found == entt::null && ecs::map_coords::CellOf(transform.position) == ecs::map_coords::CellOf(position))
 		    {
 			    found = icon.site;
 		    }

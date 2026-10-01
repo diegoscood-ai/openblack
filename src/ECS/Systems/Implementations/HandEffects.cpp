@@ -35,7 +35,7 @@
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "3D/AllMeshes.h"
-#include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
@@ -93,11 +93,24 @@ constexpr float k_DustStopAlpha = 2.0f;      //
 constexpr glm::vec3 k_DustColour {255.0f / 255.0f, 182.0f / 255.0f, 198.0f / 255.0f}; // ColorR/G/B
 constexpr float k_DustColourAlpha = 154.0f / 255.0f;                                  // ColorA
 
-glm::vec2 DustFrameUv(uint32_t frame)
+/// The cell of a looped PSys sprite (fn_00679920, frame_anim::PSysFrameIndex), FileOffset + f (0x67B0A2)
+glm::vec2 PSysSpriteUv(int fileOffset, float frame, uint32_t frames)
 {
-	frame %= k_DustFrames;
-	// S_SpriteSheet3 is an 8x8 grid; the dust animation is the first 4 rows (the rest are other effects).
-	return graphics::billboard::CellUv(static_cast<uint8_t>(frame), 8)[0];
+	const int f = graphics::frame_anim::PSysFrameIndex(frame, static_cast<int>(frames), true);
+	return graphics::frame_anim::SpriteCellUv(fileOffset + f, 8)[0];
+}
+
+/// S_SpriteSheet3 is an 8x8 grid; the dust animation is the first 4 rows (the rest are other effects). FileOffset 0
+glm::vec2 DustFrameUv(float frame)
+{
+	return PSysSpriteUv(0, frame, k_DustFrames);
+}
+
+/// The frame step of a PSys atom, fn_00673EA0 (frame_anim::PSysFrameAdvance); PlayAnim is 1 in these .zzz files
+void StepFrame(float& frame, float seconds, float rate, uint32_t frames)
+{
+	float previous = frame;
+	graphics::frame_anim::PSysFrameAdvance(previous, frame, seconds, rate, static_cast<int>(frames), true);
 }
 } // namespace
 
@@ -143,7 +156,7 @@ void HandSystem::EmitGripDust(glm::vec3 point) noexcept
 		const float d = k_DustRadius * std::cbrt(random());
 		const glm::vec3 offset(std::cos(a) * r * d, u * d * 0.5f, std::sin(a) * r * d);
 		const auto entity = registry.Create();
-		const auto frame = static_cast<uint32_t>(random() * k_DustFrames); // RandomiseInitFrame
+		const auto frame = std::floor(random() * static_cast<float>(k_DustFrames)); // RandomiseInitFrame
 		// UseAdditiveAlpha 0 in SF_GripLandscape: normal blending (tint premultiplied by alpha each frame).
 		registry.Assign<Sprite>(entity, texture, DustFrameUv(frame), glm::vec2(1.0f / 8.0f), glm::vec4(k_DustColour, 0.0f), false);
 		registry.Assign<Transform>(entity, point + offset, glm::mat3(1.0f), glm::vec3(k_DustStartScale));
@@ -172,7 +185,8 @@ void HandSystem::UpdateGripDust(float seconds) noexcept
 		}
 		const float t = particle.age / k_DustDieAge;
 		auto& sprite = registry.Get<Sprite>(particle.entity);
-		sprite.uvMin = DustFrameUv(particle.initialFrame + static_cast<uint32_t>(particle.age * k_DustFrameRate));
+		StepFrame(particle.frame, seconds, k_DustFrameRate, k_DustFrames);
+		sprite.uvMin = DustFrameUv(particle.frame);
 		sprite.tint.a = (k_DustStartAlpha + (k_DustStopAlpha - k_DustStartAlpha) * t) / 255.0f * k_DustColourAlpha;
 		sprite.tint = glm::vec4(k_DustColour * sprite.tint.a, sprite.tint.a); // premultiplied
 		registry.Get<Transform>(particle.entity).scale = glm::vec3(k_DustStartScale + (k_DustStopScale - k_DustStartScale) * t);
@@ -277,8 +291,12 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		if (fish)
 		{
 			auto& rng = Locator::rng::value();
-			particle.firstFrame = rng.NextValue<uint32_t>(0, k_PickupFishFrames - 1);
-			particle.frameStep = rng.NextValue<int>(0, 1) == 0 ? -1 : 1;
+			particle.frame = static_cast<float>(rng.NextValue<uint32_t>(0, k_PickupFishFrames - 1));
+			particle.frameRate = rng.NextValue<int>(0, 1) == 0 ? -k_PickupFishFrameRate : k_PickupFishFrameRate;
+		}
+		else
+		{
+			particle.frameRate = k_PickupGrainFrameRate;
 		}
 		_pickupParticles.push_back(particle);
 	}
@@ -314,14 +332,9 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		else
 		{
 			auto& sprite = registry.Get<Sprite>(particle.entity);
-			auto frame = static_cast<uint32_t>(particle.age * k_PickupGrainFrameRate) % k_PickupGrainFrames;
-			if (fish)
-			{
-				const auto steps = static_cast<int>(particle.age * k_PickupFishFrameRate) * particle.frameStep;
-				const auto n = static_cast<int>(k_PickupFishFrames);
-				frame = k_PickupFishFirstCell + static_cast<uint32_t>(((static_cast<int>(particle.firstFrame) + steps) % n + n) % n);
-			}
-			sprite.uvMin = graphics::billboard::CellUv(static_cast<uint8_t>(frame), 8)[0];
+			const uint32_t frames = fish ? k_PickupFishFrames : k_PickupGrainFrames;
+			StepFrame(particle.frame, seconds, particle.frameRate, frames);
+			sprite.uvMin = PSysSpriteUv(fish ? static_cast<int>(k_PickupFishFirstCell) : 0, particle.frame, frames);
 		}
 	}
 	std::erase_if(_pickupParticles, [](const PickupParticle& particle) { return particle.entity == entt::null; });

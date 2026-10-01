@@ -205,15 +205,12 @@ void Clouds::AdvanceAnimation(size_t index, float milliseconds)
 	// fn_007FA300: counter += ftol(g_game_time_inc * 0.255), the modulo only once it passes 900. The original truncates
 	// every frame and loses the fraction; it is kept here so the animation does not slow down at openblack's uncapped
 	// frame rates (as the map mists, RendererMists.cpp)
+	// (frame_anim::MistAdvance)
 	auto& cloud = _clouds[index];
-	cloud.counterRemainder += milliseconds * 0.255f;
-	const int step = static_cast<int>(cloud.counterRemainder);
-	cloud.counterRemainder -= static_cast<float>(step);
-	cloud.counter += step;
-	if (cloud.counter > 900)
-	{
-		cloud.counter %= 900;
-	}
+	graphics::frame_anim::MistClock clock {cloud.counter, cloud.counterRemainder};
+	graphics::frame_anim::MistAdvance(clock, milliseconds);
+	cloud.counter = clock.counter;
+	cloud.counterRemainder = clock.remainder;
 }
 
 void Clouds::BuildShadowCap(const std::vector<uint8_t>& shadowImage, glm::vec2 origin, glm::u16vec2 size,

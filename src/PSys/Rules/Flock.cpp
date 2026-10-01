@@ -32,6 +32,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -427,17 +428,13 @@ bool AtomNearVillagers(const Effect& /*effect*/, const Object& /*object*/, const
 	{
 		return false;
 	}
-	const auto x = static_cast<int32_t>(static_cast<double>(atom->position.x) * static_cast<double>(6553.6f));
-	const auto z = static_cast<int32_t>(static_cast<double>(atom->position.z) * static_cast<double>(6553.6f));
-	const auto cellX = static_cast<uint16_t>(static_cast<uint32_t>(x) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<uint32_t>(z) >> 16);
-	const auto side = Locator::terrainSystem::value().GetCellsPerSide();
-	if (cellX >= side || cellZ >= side)
+	const auto cell = ecs::map_coords::CellOf(atom->position); // ftol(x * 6553.6f), the high words
+	if (!ecs::map_coords::InBounds(cell, Locator::terrainSystem::value().GetCellsPerSide()))
 	{
 		return false; // MapCoords::InBounds 0x6042C0
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	for (const auto object : Locator::entitiesMap::value().GetMobileInGridCell(ecs::MapInterface::CellId(cellX, cellZ)))
+	for (const auto object : Locator::entitiesMap::value().GetMobileInGridCell(ecs::MapInterface::CellId(cell)))
 	{
 		if (registry.Valid(object) && registry.AllOf<ecs::components::Villager>(object))
 		{

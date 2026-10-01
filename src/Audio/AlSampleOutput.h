@@ -28,6 +28,9 @@ public:
 	~AlSampleOutput() override;
 	bool Play(size_t channel, Sound& sound, const Start& start) override;
 	void Stop(size_t channel) override;
+	/// The 20 ms ramp of QMixer's pan rate as four gain steps of 5 ms (approximated), then the stop
+	void StopRamped(size_t channel) override;
+	[[nodiscard]] int64_t PlayPositionMs(size_t channel) const override;
 	[[nodiscard]] bool Playing(size_t channel) const override;
 	void SetGain(size_t channel, float gain) override;
 	void SetPitch(size_t channel, float ratio) override;

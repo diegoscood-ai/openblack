@@ -10,11 +10,12 @@
 #include "Mist.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include <algorithm>
 #include <memory>
-#include <random>
 
+#include "3D/LH3DRandom.h"
 #include "3D/LandLightTable.h"
 #include "Graphics/Mists.h"
 #include "PSys/PSysFile.h"
@@ -26,10 +27,6 @@ using namespace openblack::psys;
 
 namespace
 {
-/// The ctor 0x7F9560's ?Random@@YAMMM (0x81D180, the LH3D one, not the PSys generator) for the atlas counter's start:
-/// (aproximado) its own generator here, the same range but not the original's sequence
-std::mt19937 g_counterRandom {0x7F9560u};
-
 std::unique_ptr<Creator> MakeMistCreator(const Object& object)
 {
 	auto creator = std::make_unique<MistCreator>();
@@ -59,13 +56,14 @@ void MistCreator::InitAtom(Effect& effect, Atom& atom) const
 	// CreateParticleMist 0x6AA610: RandomiseScale ? PSysFloatRand(InitialScaleMin (+0x70), InitialScale (+0x30)) :
 	// InitialScale -> atom +0x74 (it replaces fn_006A85E0's)
 	atom.baseScale = randomiseScale ? initialScaleMin + effect.Random(initialScale - initialScaleMin) : initialScale;
-	// atom +0x110 = 1.0, +0x114 = 1, +0x118 = LoopAnim (+0x0C): one frame at 1 fps
+	// 0x6AA683..0x6AA6AF: atom +0x110 = 1.0, +0x114 = 1, +0x118 PlayAnim = 0, +0x119 LoopAnim = the creator's +0x0C:
+	// one frame that never steps
 	atom.frame = 0.0f;
-	atom.frameRate = 0.0f;
-	// CreateLH3DMist 0x6AA5A0 makes the atom's LH3DMist; its ctor 0x7F9560 sets +0x84 = ftol(Random(0, 16)) & 15
-	// (0x7F95DC..0x7F95FB)
-	atom.mistCounter = static_cast<float>(
-	    static_cast<int>(std::uniform_real_distribution<float>(0.0f, 16.0f)(g_counterRandom)) & 15);
+	atom.frameRate = 1.0f;
+	atom.playAnim = false;
+	// CreateLH3DMist 0x6AA5A0 makes the atom's own LH3DMist: its ctor 0x7F9560 starts +0x84 at ftol(Random(0, 16)) & 15
+	// (0x7F95DC..0x7F95FB), LH3D's generator (graphics::lh3d::Random), not the PSys one
+	atom.mist = {graphics::frame_anim::MistStartCounter(graphics::lh3d::Random(0.0f, 16.0f)), 0.0f};
 }
 
 uint32_t mist_atoms::MistColour(uint32_t atomArgb, uint32_t baseArgb)
@@ -108,19 +106,16 @@ void mist_atoms::SubmitFrame(float milliseconds)
 			const uint32_t argb = (alpha << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) |
 			                      (static_cast<uint32_t>(atom.colour[1]) << 8) | static_cast<uint32_t>(atom.colour[2]);
 			mist.colour = MistColour(argb, LandLightTable::Current().GetRawBase());
-			// fn_007FA300 0x7FA3BE..0x7FA3EE: the atom's own LH3DMist counter += ftol(g_game_time_inc x 0.255), modulo
-			// 900 once past it (the fraction kept, as the map mists do in RendererMists.cpp, so that high frame rates do
-			// not stop the animation). (aproximado) advanced for every submitted mist: the original only draws (and
-			// advances) the ones LH3DMist::AddDrawing 0x7FA7F0 finds on screen, mists::Submit culls without telling
+			// fn_007FA300: every LH3DMist its own counter += ftol(g_game_time_inc x 0.255), modulo 900 once past it, run
+			// only for a mist on screen (AddDrawing 0x7FA7F0, mists::InView); the fraction kept as the map mists do
+			// (frame_anim::MistAdvance)
 			if (atom.atom != nullptr)
 			{
-				float& counter = atom.atom->mistCounter;
-				counter += milliseconds * 0.255f;
-				if (counter > 900.0f)
+				if (mists::InView(mist.position, mist.size))
 				{
-					counter = std::fmod(counter, 900.0f);
+					graphics::frame_anim::MistAdvance(atom.atom->mist, milliseconds);
 				}
-				mist.counter = static_cast<int>(counter);
+				mist.counter = atom.atom->mist.counter;
 			}
 			// DrawData +0xC, the atom's +0x90 (0x679BF4), to SetColour 0x7F9770 as the specular (0x67A6C4/0x67A6D6)
 			mist.specular = atom.specular;

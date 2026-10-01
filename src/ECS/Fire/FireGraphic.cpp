@@ -21,10 +21,12 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h"
+#include "Audio/Audio.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
@@ -84,6 +86,8 @@ struct Graphic
 	std::list<SpritePos> flames;   ///< +0xB8, newest first
 	std::list<SpritePos> steam;    ///< +0xC0
 	std::list<SpritePos> smoke;    ///< +0xC8
+	/// the FireGraphic as a channel owner (fn_007314E0 0x73152A: owner +0x20 = this), given at its first sizzle
+	uint32_t soundOwner {0};
 };
 
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
@@ -107,8 +111,9 @@ psys::Creator MakeCreator(const char* texture, bool additive, float originY, flo
 	creator.kind = psys::Creator::Kind::Sprite;
 	creator.className = "FireGraphic";
 	creator.texture = texture;
-	// (inferido) the sheet layout of S_Fire / S_SpriteSheet3 is not read from the original: 8 x 8 cells; the frame is
-	// the cell (the sprite flags' low 6 bits), and the flame frames (fmod(.., 32) + 32) need at least 64
+	// the frame is the cell (the sprite flags' low 6 bits, 0x7323B7..0x7323CA), 8 cells a row (LH3DSprite +0x30, 8 by
+	// SetToZero 0x8404F0); (inferido) that S_Fire is drawn 8 x 8 like S_SpriteSheet3. The flame cells (fmod(.., 32) +
+	// 32, frame_anim::FireCell) need 64 frames: PSysFrameIndex then keeps them as they are
 	creator.spritesPerRow = 8;
 	creator.numFrames = 64;
 	creator.additive = additive;
@@ -328,7 +333,21 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 			graphic.steamCount = 0;
 			graphic.steamAccumulator = 0.0f;
 			graphic.steamTemperature = fire.temperature;
-			// fn_007314E0: the sizzle (GGlobal +0x3AC, options 0x35) TODO(sound)
+			// fn_007314E0 (0x731B0F): the sizzle, LH_SamplePlayOptions with bank +0x04 GGlobal+0x3AC (InGame), sample +0x24
+			// 0x35 (G_Steam_01), owner +0x20 the FireGraphic, is3D +0x08 1, track +0x0C 0, the point +0x30 its +0x98,
+			// then GAudio::PlaySoundEffect 0x429E30. (inferido) +0x98 (copied to +0x20 by fn_00731560 0x7316FD, its
+			// writer not read) is the burning object's position.
+			if (graphic.soundOwner == 0)
+			{
+				graphic.soundOwner = audio::NewObjectId();
+			}
+			audio::PlayOptions options;
+			options.sample = {audio::Bank(audio::SfxBank::InGame), 0x35};
+			options.owner = audio::Owner::Object(graphic.soundOwner);
+			options.is3D = true;
+			options.track = false;
+			options.position = ObjectPosition(graphic.object);
+			audio::PlaySoundEffect(options);
 		}
 	}
 	else if (g_Turn > graphic.steamStart + k_BurstTurns)
@@ -393,7 +412,8 @@ void CollectFires(std::vector<psys::manager::Drawable>& out)
 			continue;
 		}
 		psys::manager::Drawable drawable {transform->position, {}};
-		// fn_00732220: flames, orange 0xFF713C, cell = int(fmod(-25 age, 32) + 32) (fn_007321B0)
+		// fn_00732220: flames, orange 0xFF713C, cell = int(fmod(-25 age, 32) + 32) (fn_007321B0, frame_anim::FireCell;
+		// the age is SpritePos +0x2C, cell 32 at age 0)
 		// flag bit 0 (+0xB5 & 1): the flames follow the land like the morphed object (land_morph::Raised): H0 at the
 		// graphic's +0x98 / +0xA0 (0x7322A9..0x7322D2; (inferido) the object's position), y = (H(flame) - H0) + y
 		// (0x73230A..0x732366)
@@ -407,21 +427,21 @@ void CollectFires(std::vector<psys::manager::Drawable>& out)
 			{
 				position.y = land_morph::Raised(ground, position, rockGround);
 			}
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(-25.0f * flame.age, 32.0f) + 32.0f));
+			const auto frame = static_cast<float>(graphics::frame_anim::FireCell(flame.age));
 			drawable.atoms.push_back({&FlameCreator(), position, glm::mat3(1.0f), flame.scale * graphic->scaleMultiplier,
 			                          2.0f, static_cast<float>(flame.alpha), frame, {0xFF, 0x71, 0x3C}});
 		}
 		// fn_007323F0 / fn_007324E0: white steam (additive), grey smoke (alpha 6), cell = int(fmod(25 age, 32))
-		// (SteamGetOffsetFromAge 0x7321E0)
+		// (SteamGetOffsetFromAge 0x7321E0 at 0x7324B2 and fn_0073250A 0x7325A2, frame_anim::SteamCell)
 		for (const auto& puff : graphic->steam)
 		{
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(25.0f * puff.age, 32.0f)));
+			const auto frame = static_cast<float>(graphics::frame_anim::SteamCell(puff.age));
 			drawable.atoms.push_back({&SteamCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
 			                          static_cast<float>(puff.alpha), frame, {0xFF, 0xFF, 0xFF}});
 		}
 		for (const auto& puff : graphic->smoke) // grey: or 0x707070 (0x732593)
 		{
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(25.0f * puff.age, 32.0f)));
+			const auto frame = static_cast<float>(graphics::frame_anim::SteamCell(puff.age));
 			drawable.atoms.push_back({&SmokeCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
 			                          static_cast<float>(puff.alpha), frame, {0x70, 0x70, 0x70}});
 		}

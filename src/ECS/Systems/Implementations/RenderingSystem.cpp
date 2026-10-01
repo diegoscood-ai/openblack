@@ -14,6 +14,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include "3D/DayNightClock.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/NightLights.h"
 #include "ECS/Components/Abode.h"
@@ -64,14 +65,6 @@ namespace
 {
 /// The mesh atoms of the particle effects this frame (PSys/Creators/Mesh.h), drawn as instances of their mesh
 std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
-
-/// The texture offset in the w of an instance's second column: v + 4 x u in 1/256 steps (vs_object.sc). (openblack
-/// encoding) u is quantised to 1/256, enough for the orbs' 0.25 steps
-float PackUvOffset(float u, float v)
-{
-	const float steps = std::round((u - std::floor(u)) * 256.0f);
-	return v + 4.0f * (steps >= 256.0f ? 0.0f : steps);
-}
 
 /// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
 /// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
@@ -296,7 +289,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    // The w of the second column carries the texture offset (components::UvScroll): v + 4 x u in 1/256 steps
 		    if (const auto* scroll = registry.TryGet<const UvScroll>(entity); scroll != nullptr)
 		    {
-			    _renderContext.instanceUniforms[idx][1][3] = PackUvOffset(scroll->u, scroll->v);
+			    _renderContext.instanceUniforms[idx][1][3] = openblack::graphics::frame_anim::PackUvOffset(scroll->u, scroll->v);
 		    }
 		    // components::ObjectColour, SetColour 0x7F9770 (the power-up bands: DrawSpellGraphic 0x51A3BE with
 		    // GetPlayerColour 0x64D800, PHandFX Band::Draw 0x68D86D..0x68D8B1): -1 - (r 65536 + g 256 + b) in the w of the
@@ -453,7 +446,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		_renderContext.instanceUniforms[idx][atom.landscapeColour ? 3 : 2][3] = packed;
 		if (atom.uv != glm::vec2(0.0f))
 		{
-			_renderContext.instanceUniforms[idx][1][3] = PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));
+			_renderContext.instanceUniforms[idx][1][3] = openblack::graphics::frame_anim::PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));
 		}
 		offset.first->second++;
 	}

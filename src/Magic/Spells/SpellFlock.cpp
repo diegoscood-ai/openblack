@@ -31,7 +31,9 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -172,9 +174,7 @@ float LandHeight(glm::vec2 metres)
 bool InBoundsMapCoords(glm::ivec2 p)
 {
 	const uint32_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	const auto cellX = static_cast<uint16_t>(static_cast<uint32_t>(p.x) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<uint32_t>(p.y) >> 16);
-	return cellX < side && cellZ < side;
+	return ecs::map_coords::InBounds(ecs::map_coords::MapCoords {p.x, p.y, 0.0f}, side);
 }
 
 /// MapCoords (x, z with a height above the land) -> the world point (MapCoords::GetLHPoint 0x605C40)
@@ -877,9 +877,10 @@ glm::ivec2 spell_flock::DestinationAt(glm::ivec2 spawn, glm::vec2 direction, flo
 		d *= distance / length;
 	}
 	const auto move = [](int32_t coordinate, float delta) {
-		// fild the high word (movzx); fmul 10 (0x9819A4); fadd d; fdiv 10; ftol; the word stored back
-		const auto cell = static_cast<uint16_t>(static_cast<uint32_t>(coordinate) >> 16);
-		const auto moved = static_cast<int32_t>((static_cast<double>(cell) * 10.0 + static_cast<double>(delta)) / 10.0);
+		// 0x7238E2..0x723905: "xor edx, edx; mov dx, [esi+2]" (the high word, unsigned = map_coords::CellOf), fild,
+		// fmul 10 [0x9819A4], fadd d, fdiv 10, __ftol, and the word stored back. All of it in float (FPU at 24 bits)
+		const auto cell = ecs::map_coords::CellOf(coordinate);
+		const auto moved = static_cast<int32_t>((static_cast<float>(cell) * 10.0f + delta) / 10.0f);
 		const uint32_t low = static_cast<uint32_t>(coordinate) & 0xFFFFu;
 		return static_cast<int32_t>((static_cast<uint32_t>(static_cast<uint16_t>(moved)) << 16) | low);
 	};
@@ -897,15 +898,13 @@ glm::ivec2 spell_flock::SpawnPoint(glm::ivec2 from, glm::ivec2 to, float f)
 glm::ivec2 spell_flock::ToMapCoords(glm::vec2 metres)
 {
 	// fld x; fmul 6553.6 (0x8AC400, a float); __ftol (truncation)
-	return {static_cast<int32_t>(static_cast<double>(metres.x) * static_cast<double>(6553.6f)),
-	        static_cast<int32_t>(static_cast<double>(metres.y) * static_cast<double>(6553.6f))};
+	return {ecs::map_coords::ToFixed(metres.x), ecs::map_coords::ToFixed(metres.y)};
 }
 
 glm::vec2 spell_flock::ToMetres(glm::ivec2 mapCoords)
 {
 	// fild; fmul 10 / 65536 (0x8AA3A4)
-	return {static_cast<float>(static_cast<double>(mapCoords.x) * static_cast<double>(10.0f / 65536.0f)),
-	        static_cast<float>(static_cast<double>(mapCoords.y) * static_cast<double>(10.0f / 65536.0f))};
+	return {ecs::map_coords::ToMetres(mapCoords.x), ecs::map_coords::ToMetres(mapCoords.y)};
 }
 
 void spell_flock::SetupCorridor(SpellFlockAnimal& wolf, glm::vec2 start, glm::vec2 destination, float halfWidth)
@@ -931,9 +930,9 @@ void spell_flock::SetupCorridor(SpellFlockAnimal& wolf, glm::vec2 start, glm::ve
 
 bool spell_flock::WolfArrived(const SpellFlockAnimal& wolf, glm::vec2 position)
 {
-	// fcomp 30 (0x8BF51C); test ah, 1: below
-	const glm::vec2 d = position - wolf.destination;
-	return std::sqrt(d.x * d.x + d.y * d.y) < k_WolfArrive;
+	// GUtils::GetDistanceInMetres 0x74CD70 (the table hypotenuse 0x74F680 on the two MapCoords), then fcomp 30
+	// (0x8BF51C); test ah, 1: below
+	return gutils::GetDistanceInMetres(position, wolf.destination) < k_WolfArrive;
 }
 
 bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPosition, glm::vec2 point)
@@ -944,10 +943,12 @@ bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPo
 	{
 		return false;
 	}
-	// along the corridor (u = (-normal.z, normal.x)) from the wolf's cell corner (the high words x 10)
-	const auto cell = ToMapCoords(wolfPosition);
-	const glm::vec2 corner(static_cast<float>(static_cast<uint16_t>(static_cast<uint32_t>(cell.x) >> 16)) * 10.0f,
-	                       static_cast<float>(static_cast<uint16_t>(static_cast<uint32_t>(cell.y) >> 16)) * 10.0f);
+	// along the corridor (u = (-normal.z, normal.x)) from the wolf's cell corner: SpellWolf::IsPosOnCorridor 0x420E67
+	// reads the high words unsigned ("xor eax, eax; mov ax, [ecx+0x16]" = map_coords::CellOf) and multiplies by 10
+	// [0x8BE8D4]
+	const auto coords = ToMapCoords(wolfPosition);
+	const glm::vec2 corner(static_cast<float>(ecs::map_coords::CellOf(coords.x)) * 10.0f,
+	                       static_cast<float>(ecs::map_coords::CellOf(coords.y)) * 10.0f);
 	const float ux = -wolf.normal.y;
 	const float uz = wolf.normal.x;
 	const float along = (ux * point.x + uz * point.y) - (ux * corner.x + uz * corner.y);

@@ -617,6 +617,9 @@ del original.
 - `dev\tmp_dis\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
   `sea_render.md`; scripts de RE en `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
   `scan_tree5c.py`) y `re\NOTES.md`.
+- `dev\tmp_dis\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
+  `map_around.py`: el alfa costero frente a las celdas 0x02 en las 6 tierras) y `HANDOVER.md` (cómo continuar el área
+  del agua: worktree `dev\openblack-agua`, rama `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` y `agua_shot.sh`).
 - `dev\tmp_dis\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
 - `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca), `dev\tmp_dis\render\cut_notes.txt` y `objshadow_notes.txt`.
 - `bw1-decomp` (`src/Black/Object.cpp`, `include/chlasm/ScriptEnums.h`).

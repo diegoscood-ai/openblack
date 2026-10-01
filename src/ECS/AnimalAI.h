@@ -154,6 +154,12 @@ void Remove(entt::entity entity);
 /// animal has gone (ECS/ScriptHeld.h): a flock of its own if it has none, then dying if dead, else
 /// INTERACT_DECIDE_WHAT_TO_DO (ECS/AnimalScript.cpp)
 void ReleaseFromScript(entt::entity entity);
+/// GScript::SetScriptState (0x6F82E0) for an animal: the previous state kept, the exit function, the state with its
+/// clip, the counter 0
+void SetScriptState(entt::entity entity, AnimalState state);
+/// The script's MOVE_GAME_THING on an animal (GScript 0x6F8F6C, Living branch): there already -> SetScriptState(IN_SCRIPT),
+/// else SetupMoveToPos(pos, IN_SCRIPT); nothing while it is in the hand
+void ScriptMoveTo(entt::entity entity, glm::vec2 position);
 /// per-instance opacity (components::Alpha, the alpha-blended pass); 1 takes it off
 void SetAlpha(entt::entity entity, float alpha);
 

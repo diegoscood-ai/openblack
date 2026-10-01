@@ -156,8 +156,8 @@ uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
 /// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
 entt::entity FellTree(entt::entity tree, entt::entity chopper);
 
-/// Object::Get2DRadius 0x638180: scale x max(LH3DMesh +0x24, +0x2C), taken as the half extents x and z of its mesh
-/// box (inferido: LH3DMesh::ComputeBoundingBox 0x808180 stores half sizes there)
+/// Get2DRadius vt +0x64 (Object 0x638180: GetScale x max(LH3DMesh +0x24, +0x2C), the half extents x and z that
+/// LH3DMesh::ComputeBoundingBox 0x8081B0 stores): ecs::object::Get2DRadius, with the class overrides
 [[nodiscard]] float Object2DRadius(entt::entity object);
 
 /// The next map insertion stamp (Tree::mapInsertion): trees inserted later come first in their cell's list

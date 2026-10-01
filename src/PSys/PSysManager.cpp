@@ -27,6 +27,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -114,8 +115,6 @@ std::unordered_map<uint32_t, Running> g_Effects;
 std::vector<Container> g_Containers;
 uint32_t g_NextId = 1;
 uint32_t g_Seed = 12345;
-std::chrono::steady_clock::time_point g_LastTurn = std::chrono::steady_clock::now();
-float g_TurnSeconds = 0.1f;
 bool g_DebugDone = false;
 } // namespace
 
@@ -240,7 +239,7 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 	}
 	else if (seconds > 0.0f)
 	{
-		turns = static_cast<int>(seconds * 1000.0f / 100.0f);
+		turns = static_cast<int>(seconds * 1000.0f / static_cast<float>(game_clock::MsPerTurn()));
 	}
 	g_Containers.push_back({id, object, owner, turns, owner != entt::null});
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys: spot visual {} ({}) at ({:.1f}, {:.1f}, {:.1f}) for {} turns", spotVisual,
@@ -324,8 +323,6 @@ void manager::ProcessTurn(float turnSeconds)
 		}
 		++it;
 	}
-	g_TurnSeconds = turnSeconds;
-	g_LastTurn = std::chrono::steady_clock::now();
 }
 
 void manager::RunDebugHooks()
@@ -354,7 +351,7 @@ void manager::RunDebugHooks()
 			auto& registry = Locator::entitiesRegistry::value();
 			const auto object = registry.Create();
 			registry.Assign<ecs::components::Transform>(object, glm::vec3(x, ground + height, z), glm::mat3(1.0f), glm::vec3(1.0f));
-			g_Containers.push_back({id, object, entt::null, static_cast<int>(seconds * 10.0f), false});
+			g_Containers.push_back({id, object, entt::null, game_clock::TicksForSeconds(seconds), false});
 		}
 	}
 }
@@ -379,8 +376,8 @@ std::vector<manager::DrawableSource>& DrawableSources()
 
 std::vector<manager::Drawable> manager::Collect(Creator::Kind kind)
 {
-	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_LastTurn).count();
-	const float t = std::clamp(elapsed / std::max(g_TurnSeconds, 1e-3f), 0.0f, 1.0f);
+	// g_game +0x205D64, the fraction of the turn GJPSysInterface::Draw_ 0x67370D passes on
+	const float t = game_clock::TurnFraction();
 	std::vector<Drawable> result;
 	for (const auto& [id, running] : g_Effects)
 	{
@@ -404,8 +401,8 @@ std::vector<manager::Drawable> manager::Collect(Creator::Kind kind)
 
 std::vector<Effect::DrawChain> manager::CollectChains()
 {
-	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_LastTurn).count();
-	const float t = std::clamp(elapsed / std::max(g_TurnSeconds, 1e-3f), 0.0f, 1.0f);
+	// g_game +0x205D64, the fraction of the turn GJPSysInterface::Draw_ 0x67370D passes on
+	const float t = game_clock::TurnFraction();
 	std::vector<Effect::DrawChain> result;
 	for (const auto& [id, running] : g_Effects)
 	{

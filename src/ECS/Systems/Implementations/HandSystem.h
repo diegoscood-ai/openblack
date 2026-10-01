@@ -313,7 +313,9 @@ private:
 	/// Resource being gathered into the hand pile (HandWood / HandFood) while the action is held over it.
 	std::optional<entt::entity> _pickSource;
 	float _pickTime {0.0f};
-	float _pickTurnAccumulator {0.0f};
+	/// The game turn (game_clock::Turn) the multi pick-up has done its turn's work for: ProcessInInteract runs once per
+	/// game turn (CHand::GameTurnUpdate)
+	uint32_t _pickTurn {0};
 	/// Game turns since the locked select started (GInterfaceStatus::Process counter).
 	uint32_t _pickTurns {0};
 	/// Hand x,z frozen over the pile while scooping (HandStateHolding::Update, locked interact).

@@ -14,6 +14,7 @@
 #include "Camera/Camera.h"
 #include "Climate.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "LightningFlash.h"
 #include "Rain.h"
@@ -22,11 +23,6 @@
 
 using namespace openblack;
 using namespace openblack::weather;
-
-namespace
-{
-uint32_t g_turn = 0;
-}
 
 void weather::OnLoadMap()
 {
@@ -38,12 +34,11 @@ void weather::OnLoadMap()
 	ResetDebugHooks();
 }
 
-void weather::ProcessTurnStart(uint32_t turn)
+void weather::ProcessTurnStart([[maybe_unused]] uint32_t turn)
 {
-	g_turn = turn;
 	auto* game = Game::Instance();
 	const float visualTime = game != nullptr ? game->GetDayNightClock().GetVisualTime() : 12.0f; // (port: tests only)
-	atmos::UpdateGame(visualTime, 0.1f);
+	atmos::UpdateGame(visualTime, game_clock::k_TurnSeconds); // 0x54E5D1: push 0x3DCCCCCD
 	// then GGame::ProcessTurn sets LH3DTech::g_ambient_wind_direction from the ambient weather's wind (normalised; 0
 	// in a game): no reader in openblack
 }
@@ -51,8 +46,8 @@ void weather::ProcessTurnStart(uint32_t turn)
 void weather::ProcessTurnEnd()
 {
 	weather_thing::ProcessWeatherThings();
-	climate::ProcessAll(g_turn);
-	RunDebugHooks(g_turn);
+	climate::ProcessAll(game_clock::Turn());
+	RunDebugHooks(game_clock::Turn());
 }
 
 void weather::UpdateFrame(float seconds)

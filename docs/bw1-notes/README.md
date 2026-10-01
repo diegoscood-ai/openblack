@@ -19,7 +19,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [tooling.md](tooling.md) | Desensamblado, símbolos, herramientas de openblack, formatos de datos, LND y mapas de BWLandEditor |
-| [engine-math.md](engine-math.md) | Coordenadas (MapCoords 16.16, celdas, InBounds, espiral: `ecs::map_coords`), distancias y sigmoides de GUtils (`gutils`), altura del terreno, matrices LH, Zoomer |
+| [engine-math.md](engine-math.md) | Coordenadas (MapCoords 16.16, celdas, InBounds, espiral: `ecs::map_coords`), distancias y sigmoides de GUtils (`gutils`), tamaño de los objetos (radio 2D, altura y redefiniciones: `ecs::object`), reloj del juego (turno, fracción, dt, pausa: `game_clock`), altura del terreno, matrices LH, Zoomer |
 | [openblack-internals.md](openblack-internals.md) | Dónde está cada cosa en el código, compilar, tests, ganchos de prueba, depurar cierres, trampas (Vulkan, makeRef), commits con varias sesiones |
 
 **La mano y los objetos**
@@ -75,7 +75,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Tema | Página |
 |---|---|
 | Una dirección o símbolo de `runblack.exe`, los scripts de desensamblado | [tooling.md](tooling.md) |
-| Altura del terreno, coordenadas, matrices | [engine-math.md](engine-math.md) |
+| Altura del terreno, coordenadas, matrices, radio y altura de los objetos, el turno y el dt del fotograma | [engine-math.md](engine-math.md) |
 | Coger, soltar, lanzar, el cursor | [hand-and-interface.md](hand-and-interface.md) |
 | Comida y madera, almacén, campos | [objects-and-resources.md](objects-and-resources.md) |
 | Árboles y bosques (tirón, replantar, crecimiento, fuego, sacrificio) | [trees.md](trees.md) |

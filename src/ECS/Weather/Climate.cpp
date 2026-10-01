@@ -25,6 +25,7 @@
 #include "Calendar.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "WeatherLand.h"
 
@@ -51,8 +52,7 @@ int32_t g_nextId = 1;          ///< 0xC2475C
 
 uint32_t Turn()
 {
-	const auto* game = Game::Instance();
-	return game != nullptr ? game->GetTurn() : 0;
+	return game_clock::Turn(); // g_game +0x205A40
 }
 
 const GClimateInfo* Info(int32_t index)

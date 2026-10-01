@@ -40,6 +40,7 @@
 #include "ECS/Systems/Implementations/PlayerSystem.h"
 #include "ECS/Systems/Implementations/RenderingSystem.h"
 #include "ECS/Systems/Implementations/TownSystem.h"
+#include "GameClock.h"
 #include "Graphics/RendererInterface.h"
 #include "Input/GameActionMap.h"
 #include "LHVM.h"
@@ -100,6 +101,8 @@ bool openblack::InitializeEngine(GraphicsBackend backend, bool vsync) noexcept
 		SPDLOG_LOGGER_CRITICAL(spdlog::get("graphics"), "Failed to create renderer");
 		return false;
 	}
+	// LH3DRender::Open 0x82B540: LH3DTech::RenderInitialization starts the engine timer (g_delta_time, EngineMs)
+	game_clock::StartEngineTimer();
 	Locator::debugGui::reset(DebugGuiInterface::Create(graphics::RenderPass::ImGui).release());
 	Locator::events::emplace<EventManager>();
 

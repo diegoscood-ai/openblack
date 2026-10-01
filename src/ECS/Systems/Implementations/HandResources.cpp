@@ -71,6 +71,7 @@
 #include "InfoConstants.h"
 #include "LandBalance.h"
 #include "ECS/Trees.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -171,15 +172,14 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 	const auto handType = PotInfoOf(*_held);
 	const bool wood = handType == PotInfo::HandWood;
 	const auto& info = Locator::infoConstants::value().pot[static_cast<size_t>(wood ? PotInfo::HandWood : PotInfo::HandFood)];
-	constexpr float k_TurnSeconds = 0.1f;
 	const auto store = StoragePitStore::OwnerOf(*_pickSource);
 	const auto resource = wood ? ResourceType::Wood : ResourceType::Food;
 	_pickTime += seconds;
-	_pickTurnAccumulator += seconds;
 	bool changed = false;
-	while (_pickTurnAccumulator >= k_TurnSeconds)
+	// once per game turn (at most one a frame)
+	while (_pickTurn != game_clock::Turn())
 	{
-		_pickTurnAccumulator -= k_TurnSeconds;
+		_pickTurn = game_clock::Turn();
 		// GInterfaceStatus::Process 0x5DC558: the locked select ends where the hand (status+0xC8; here the x,z it is
 		// frozen at) is out of the player's influence (CalculatePlayerInfluence(.., 0, 0, allies) <= 0)
 		if (influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, _pickLock) <= 0.0f)
@@ -188,8 +188,11 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 			break;
 		}
 		++_pickTurns;
-		const float ticks = std::max(1.0f, info.multiPickUpRampTime / k_TurnSeconds);
-		const float t = std::clamp(static_cast<float>(_pickTurns) / ticks, 0.0f, 1.0f);
+		// fn_0066CD30: t = n / GPotInfo::GetTicksToChangeOver 0x66CD00 (ftol(1000 / [0xD01A38] * ramp time), the
+		// NumGameTicksPerSecond conversion), <= 0 (or NaN) gives 0 and >= 1 gives 1
+		const auto ticks = static_cast<float>(game_clock::TicksForSeconds(info.multiPickUpRampTime));
+		const float ratio = static_cast<float>(_pickTurns) / ticks;
+		const float t = ratio > 0.0f ? std::min(ratio, 1.0f) : 0.0f;
 		auto take = static_cast<uint32_t>(static_cast<float>(info.amountPickedUpPerTurn) +
 		                                  static_cast<float>(info.amountPickedUpPerTurnEnd - info.amountPickedUpPerTurn) * t * t);
 		const uint32_t room = info.maxAmountCanBePickedUp > pile->amount ? info.maxAmountCanBePickedUp - pile->amount : 0u;

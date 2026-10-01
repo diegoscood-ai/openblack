@@ -46,6 +46,7 @@
 #include "ECS/Influence/Influence.h"
 #include "ECS/MapCollide.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "EngineConfig.h"
@@ -113,19 +114,11 @@ PlayerNames HumanPlayer()
 	return PlayerNames::PLAYER_ONE;
 }
 
-/// The larger half extent in x or z of the entity's mesh x its scale (Object::Get2DRadius 0x638180's formula), 0
-/// without a mesh
+/// Get2DRadius vt +0x64 (ecs::object::Get2DRadius: Object 0x638180, the larger half extent in x or z of the mesh x
+/// its scale, and the class overrides), 0 without a mesh
 float RadiusOf(entt::entity entity)
 {
-	const auto* mesh = Registry().TryGet<const Mesh>(entity);
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	const auto half = meshes.Handle(mesh->id)->GetBoundingBox().Size() * 0.5f;
-	const auto& scale = Registry().Get<const Transform>(entity).scale;
-	return std::max(half.x * scale.x, half.z * scale.z);
+	return ecs::object::Get2DRadius(entity);
 }
 
 struct Obstacle

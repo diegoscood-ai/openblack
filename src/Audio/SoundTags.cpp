@@ -39,7 +39,10 @@ struct Tag
 	/// +0x1C: added by the channel (options +0x3C)
 	glm::vec3 offset {0.0f};
 	int sample {0};                ///< +0x28
-	SfxBank bank {SfxBank::None};  ///< +0x2C (the type; +0x34 = 0 from every Create: GAudio+0x3A8 + 4 * type)
+	/// +0x2C (the type). +0x34 = 0 from every ported Create, so GetBank 0x71E610 is GAudio+0x3A8 + 4 * type; only the
+	/// atmos point tag fn_0071E920 (ctor fn_0071E460, the weather's thunder, not ported: Audio.h) sets it, for
+	/// GAudio+0x194 + 4 * type
+	SfxBank bank {SfxBank::None};
 	bool track {false};            ///< +0x30: only with a thing (0x71E55D)
 	int mode {3};                  ///< +0x38
 	int loops {0};                 ///< +0x3C

@@ -230,7 +230,13 @@ TagId Create(entt::entity thing, glm::vec3 offset, int sample, bool track, int m
 TagId Create(glm::vec3 point, int sample, bool track, int mode, int loops, bool flag10, bool is3D, SfxBank bank,
              int delay);
 /// SoundTag::Create(MapCoords&, ...) 0x71EB60: the point (x, LH3DIsland::GetAltitude + the height above the land, z)
-/// (0x71EB71..0x71EBBF; the altitude from GameQueries::landAltitude), then fn_0071EA40
+/// (0x71EB71..0x71EBBF; the altitude from GameQueries::landAltitude), then fn_0071EA40. x / z are world units: the
+/// original's MapCoords keeps them as integers that it scales by 1/6553.6 ([0x8AA3A4], 0x71EB8A / 0x71EBA6), a
+/// caller holding a MapCoords converts it first.
+/// (Not ported: fn_0071E920, the same point tag in an atmos bank (ctor fn_0071E460 sets +0x34, so GetBank 0x71E610
+/// takes GAudio+0x194 + 4 * type), played at once through 0x429E30 unless 3D with a delay; its only caller is the
+/// thunder of GWeather::Update 0x83FC62 through the callback [0xEEA388] = 0x429CE0: sample 2 + GetTickCount() % 11,
+/// mode 2, 3D, type 12, delay 1. Pending with the weather's thunder.)
 TagId CreateAtMapCoords(float x, float z, float heightAboveLand, int sample, bool track, int mode, int loops, bool flag10,
                         bool is3D, SfxBank bank, int delay);
 /// fn_0071E640 (SoundTag::SetActive): an active tag (+0x4C == 1) turned off stops its sample (GAudio 0x42A210); +0x4C

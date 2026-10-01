@@ -981,8 +981,13 @@ gancho (fiel) solo suenan los creaks 320/321. Los rechazos del núcleo (800, max
 | (interno) `ProcessSoundTags` | 0x71E5F0 desde `GGame::EndTurn` 0x54E989, del más nuevo al más viejo; fn_0071E680: con cosa, no funcional / sin punto → ToBeDeleted, inactivo → nada, si no 0x42A100 (punto, +0x1C, muestra, +0x30, modo, vueltas, +0x40, is3D, banco) cada turno; sin cosa: el retardo (`CheckDelay` 0x71E760: suena cuando 347 ([0x980530]) · turnos · [0xD01A38] ms ≥ la distancia, si está dentro del maxDist y activo; el retardo se acaba igual) o se borra cuando su muestra para |
 | (interno) `Get3DSoundPos` | 0x71EC90: la de su cosa; sin cosa responde 1 sin escribir, así que el canal conserva su punto (`SamplePlay::UpdateChannels`) |
 
-`SoundTag::Set` 0x71E4F0: activo 1, track solo con cosa (0x71E55D), retardo solo si is3D (0x71E56B), +0x34 = 0 en todos
-(banco = GAudio+0x3A8 + 4·tipo, GetBank 0x71E610). Los nombres de agua (`sound_tags::Create(TagDesc)`, la cascada de
+`SoundTag::Set` 0x71E4F0: activo 1, track solo con cosa (0x71E55D), retardo solo si is3D (0x71E56B), +0x34 = 0 en todas
+las formas portadas (banco = GAudio+0x3A8 + 4·tipo, GetBank 0x71E610). Hay una cuarta forma **sin portar**: fn_0071E920
+(ctor fn_0071E460, +0x34 = 1 → banco de ambiente GAudio+0x194 + 4·tipo), un tag de punto que suena ya por 0x429E30 salvo
+3D con retardo; su único llamador es el trueno de `GWeather::Update` 0x83FC62 por el callback [0xEEA388] = 0x429CE0
+(muestra 2 + GetTickCount() % 11, modo 2, 3D, tipo 12, retardo 1). Queda pendiente con el trueno. `CreateAtMapCoords`
+recibe x/z en unidades del mundo: el MapCoords del original los guarda enteros y los escala por 1/6553,6 ([0x8AA3A4],
+0x71EB8A/0x71EBA6). Los nombres de agua (`sound_tags::Create(TagDesc)`, la cascada de
 `DesignedScenery`) siguen encima: un `TagDesc` sin cosa es el ScriptMarker de la cascada (un GameThingWithPos que no se
 va), que se repite como un tag de cosa.
 
@@ -1047,7 +1052,9 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - `IsInScript` (vt +0x448) siempre falso: openblack no tiene aldeanos de guion **(inferido)**;
   - `GameThing::IsFunctional` y `Get3DSoundPos` ≠ 1 de la cosa de un tag = la entidad ya no tiene posición **(inferido)**;
   - [0xD01A38] = 100 ms por turno en `CheckDelay` **(inferido**, `villager_anims.md`);
-  - el punto de un tag sin cosa en un arranque nuevo es su propio punto (la info de un canal libre, 0x427209) **(inferido)**;
+  - el punto de un tag sin cosa en un arranque nuevo de un anim-effect: el original lee el +0x50 del canal recién
+    asignado (0x427209, antes de que LHSamplePlay escriba el punto), un valor viejo; openblack da el punto del tag
+    **(aproximado**; ningún llamador arranca un anim-effect con un tag de dueño);
   - las vueltas del canal (+0x40 de `LHSampleGetInfo`) son las del arranque y 0 tras `ReleaseLoop` (no se lee el contador de pasadas del DLL) **(inferido)**;
   - `LH_AudioSystem::Rand(n)` con Rand() = 32767 daría n (una más allá de la lista): se queda dentro **(aproximado)**;
     `GRand::LocalRand` de `RandomSample` con el generador de openblack **(aproximado)**;
@@ -1055,7 +1062,15 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - `PlayFromTable` no tiene argumento track: el sitio (doblar 0 / susurro 1) se distingue por el soundId de la clave (openblack).
 - **B2/B3, pendiente**: `SpellSounds` por `SamplePlayAnimEffect` (B5); `CollisionSounds` con su clave en vez de
   `PlayAnimEffectSample`, `Buildings.cpp` (`PlayEditorSample` sin dueño), rocas, woosh, G_RockPast y la mano (B4);
-  los llamadores originales de `tags::Create`/`Remove` (B4, C3) y los CHL de tags (B6).
+  los llamadores originales de `tags::Create`/`Remove` (B4, C3) y los CHL de tags (B6); el tag de punto de ambiente
+  fn_0071E920 (el trueno de GWeather, ver B3).
+- **Auditoría B2-B3** (2026-10-01): comprobadas en el desensamblado 0x42A4B0, fn_00516510 (0x5165BC, 0x5166A4,
+  0x51675D, 0x5167A8), Tree::Draw 0x74AFE1/0x74B1FA, 0x10014A20, 0x100146F0 (0x1001491C/0x10014990), 0x10015710,
+  fn_10014610, 0x71E300, 0x71E4F0, 0x71E5F0, 0x71E640, fn_0071E680, 0x71E760, 0x71EA40, 0x71EB60, 0x71EBE0/0x71EC30,
+  0x71EC90, 0x71ECB0/0x71ECD0, 0x71ED40, 0x734920/0x734965: cuadran. Corregidos solo comentarios (la forma de ambiente
+  fn_0071E920 que faltaba, la escala de MapCoords, el punto viejo de 0x427209). Nota para arboles: `Trees.cpp` pasa
+  la columna 1 de la clave = 2 y el original 0 (ebp = 0, 0x74AB6A); sin efecto audible, todas las filas de editor.sad
+  tienen comodín en esa columna.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
 - **A9 en juego**: falta quién da el alineamiento en la cámara (GAudio+0x190, fn_005E2240 desde fn_0064AC30) y la tribu
   de los pueblos (Town +0x5B8). Hoy suena la genérica neutral.

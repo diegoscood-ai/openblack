@@ -274,7 +274,9 @@ std::optional<glm::vec3> audio::Get3DSoundPos(const Owner& owner)
 		return std::nullopt;
 	case Owner::Kind::SoundTag:
 		// 0x4272D5: a Base's Get3DSoundPos; a tag without a thing answers 1 with the point it was given (the info's
-		// +0x50, 0x427209), which for a new start is the tag's own point (inferred: the info of a free channel)
+		// +0x50, 0x427209). For a new start (LHSamplePlayAnimEffect 0x10014B91 asks it on the channel just allocated,
+		// before LHSamplePlay writes the options' point) that +0x50 is the channel's previous point, a stale value:
+		// openblack gives the tag's own point (approximated; no caller starts an anim effect owned by a tag)
 		if (const auto at = tags::Get3DSoundPos(owner.id))
 		{
 			return at;

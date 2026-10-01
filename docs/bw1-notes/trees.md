@@ -126,6 +126,8 @@ turno, los guiones y lo que falta están en
   físicas, avisa a los oyentes (`AddTreeDeletedListener`: fuego, reacciones, mano) y se borra. `DeleteForest` =
   `Forest::ToBeDeleted` 0x539C60: borra cada árbol de sus dos listas y sale de la lista de bosques (también el bosque
   vacío a los 2000 turnos). `ShrinkAllTrees` usa `DeleteTree` para el árbol que llegaría a 0 (fn_0074A3A0).
+  El borrado genérico `ecs::ToBeDeleted` (`src/ECS/ToBeDeleted.cpp`; lo usan las físicas, p. ej. código 4 = hundido
+  en el mar) también manda Tree y DeadTree a `DeleteTree` (b6cbcc74).
 - **Madera**: `TreeWoodValue` = `Tree::GetWoodValue` 0x74B7B0 (vida × 1 × woodValue × escala × GLandBalance[5]) o
   `DeadTree::GetWoodValue` 0x511AD0 (vida × woodValue × escala³: el original eleva la escala al cubo ahí); `TreeWood` =
   `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × escala), lo

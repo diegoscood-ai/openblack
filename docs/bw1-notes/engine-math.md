@@ -1,13 +1,15 @@
-# Coordenadas, terreno, matrices y Zoomer
+# Coordenadas, terreno, tamaño de los objetos, matrices y Zoomer
 
 Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, con sus
 celdas y su espiral; las distancias y sigmoides de `GUtils`; la altura exacta del terreno; la convención de las
-matrices LH, y el interpolador `Zoomer`. Todo es **fiel** (verificado en el ejecutable) y está portado, salvo lo que se
-marca en [Pendiente](#pendiente).
+matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
+en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendiente).
 
 - [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
 - [Distancias de GUtils](#distancias-de-gutils): raíz de tabla, `hypotenuse`, `GetDistanceInMetres`,
   `FastDistance` y las sigmoides (`gutils`)
+- [Tamaño de los objetos](#tamaño-de-los-objetos): radio 2D, radio y altura, con las redefiniciones de las clases y
+  las derivadas, a nivel de malla y de objeto (`ecs::object`)
 - [Altura del terreno](#altura-del-terreno)
 - [Matrices LH](#matrices-lh)
 - [Zoomer (LH3DLib)](#zoomer-lh3dlib)
@@ -249,6 +251,93 @@ gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cua
   en 0x73470C) y `FeatureScriptCommands::FindNearestTown` (fn_00552FF0). Ojo: `GStreetLantern::IsALaternWithinDistance`
   0x734A30 es **otra** rutina (la lista global de faroles g_game+0x205C34 y `d <= r`, `test ah, 0x41`), sin portar.
 
+## Tamaño de los objetos
+
+✅ Fiel y portado en `src/ECS/ObjectMetrics.{h,cpp}`, namespace `openblack::ecs::object` (sesión «sistemas2»,
+2026-10-01). Son las funciones virtuales de `Object` que dan el radio 2D, el radio y la altura de un objeto a partir de
+la caja de su malla: unas **540 llamadas** en el original (151 a vt+0x64, 48 a vt+0x60 y 343 a vt+0x42C, recuento
+heurístico). openblack las tenía escritas a mano 33 veces, con 6 envoltorios, y cada copia conocía como mucho una de las
+redefiniciones de las clases.
+
+**La caja de la malla.** `LH3DMesh::ComputeBoundingBox` **0x8081B0** (al cargar) une las cajas de todas las submallas y
+guarda en +0x18..+0x20 el centro, en **+0x24 / +0x28 / +0x2C las semiextensiones** `(max − min) × 0,5` [0x8AA3B4]
+(0x80831C..0x80835B) y en **+0x30 la semidiagonal** `√((hz² + hy²) + hx²)` (0x80835E..0x808379). Una malla animada
+(flag +4 bit 0x100) pasa antes por `LH3DAnim::SetTransform` 0x83A1D0; openblack no lo hace (ver Pendiente).
+
+**Dos niveles.** El original tiene las dos cosas, y no dan lo mismo:
+- **Nivel de malla**: lee los campos en línea, sin pasar por la vtable, así que **no ve ninguna redefinición**.
+  `IsSuitableForFixed` 0x603E1E..0x603E5B, fn_00604020 0x604042, `Scaffold` 0x6E956A y 0x6EAC14..0x6EAC56, 0x7350A5,
+  la criatura 0x4778E9..0x4779B1; semialturas en `Field::Draw` 0x5287B9..0x5287D3, `PhysOb::Initialise` 0x7FB7D9,
+  `Tree::Draw` 0x74ABB0, `WorshipTotem::Create` 0x780995, `CitadelHeart` 0x4653FE / 0x467777,
+  `Abode::DrawPercentFull` 0x407111, `TownArtifact::Draw` 0x51C9A3 y otros. Ahí un campo mide lo que su malla.
+- **Nivel de objeto**: la llamada virtual, con la tabla de redefiniciones sacada de todas las `??_7` de symbols.txt.
+
+Cada sitio se porta **al nivel que usa el original en ese punto**: una API de un solo nivel metería un campo de 5 m en
+`IsSuitableForFixed` o en las obras. Todo va en float (FPU a 24 bits, fn_007DEE00), sin double ni FMA.
+
+| API (`ecs::object`) | Original | Qué hace |
+|---|---|---|
+| **Nivel de malla** | | |
+| `HalfExtents(box)`, `MeshHalfExtents(meshId)` | +0x24/+0x28/+0x2C, 0x80831C..0x80835B | `(max − min) × 0,5`; sin malla, nada |
+| `HalfDiagonal(half)`, `MeshHalfDiagonal(meshId)` | +0x30, 0x80835E..0x808379 | `√((hz² + hy²) + hx²)`, en ese orden |
+| `Radius2D(half, s)`, `MeshRadius2D(meshId, s)` | 0x6381B1..0x6381E2; en línea en 0x603E1E, 0x604042, 0x6E956A, 0x6EAC22, 0x7350A5 | `s × max(hx, hz)` (el `fcompp` toma hx si hz < hx) |
+| `Height(half, s)`, `MeshHeight(meshId, s)` | 0x638136..0x63813D; en línea en `Tree::Draw` 0x74ABA2..0x74ABC0 | `2 × (hy × s)` (`fmul` y luego `fadd st0, st0`) |
+| `MeshHalfHeight(meshId)` | 0x5287C5, 0x7FB7D9, 0x74ABB0 | +0x28, sin escala |
+| **Nivel de objeto** | | |
+| `GetScale(e)` | vt+0x120: Object 0x402520 = el campo +0x50; Creature 0x47B190 → `GetUserSize` 0x4EF4F0 | la escala uniforme del `Transform` (x); la de un `MapShield` es su `objectScale` (`SetScale` 0x639200), no la dibujada. La de la criatura es la del `Transform` **(inferido)** |
+| `GetScaleField(e)` | el campo +0x50 que lee `GetHeight` (0x638139) | no la virtual |
+| `ObjectGet2DRadius(e)` | `Object::Get2DRadius` 0x638180 en sí (la llama directa `PileFood` en 0x66F192) | `GetScale × max(+0x24, +0x2C)`; sin malla 0 (0x6381E9) |
+| `ObjectGetHeight(e)` | `Object::GetHeight` 0x638120 en sí | `2 × +0x28 × [+0x50]`; sin malla 0 (0x638140) |
+| `Get2DRadius(e)` | vt+0x64 | Field 0x528E80 y FishFarm 0x52C470 = **5** [0x8AB6E4]; MagicTeleport 0x5FCCB0 → 0x5FCCA0 = **6** [0x92C108]; MagicFireBall 0x682D20 = `GetScale × 1` [0x935910]; PileFood / MagicFood / PuzzleGrain 0x66F180 = `GetProportionRaised × Object::Get2DRadius`; Creature 0x477F40 (sin portar: ver Pendiente); el resto, 0x638180 |
+| `GetRadius(e)` | vt+0x60: Object 0x638110 = `jmp [vt+0x64]` | igual que `Get2DRadius` (Creature 0x4792C0 repite su lectura) |
+| `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = tamaño × **15** [0x8C2C40]; el resto 0x638120 (Field, FishFarm y PileFood **no** la cambian) |
+| `GetTopPos(e)` | 0x638160 | `altitud (+0x1C, sobre el suelo) + GetHeight` |
+| `GetHeightForHandAboveInteractObject(e)` | 0x638150 = `jmp [vt+0x42C]` | |
+| `GetMeshRadius(e)` | vt+0x568: Object 0x636BD0 = +0x30 sin escala; Field 0x528A30 / FishFarm 0x52C480 = 5 | |
+| `PileFoodProportionRaised`, `PileWoodProportionRaised`, `GetProportionRaised(e)` | vt+0x86C: PileFood 0x66EB60, PileWood 0x66F1B0 | ver abajo |
+| **Derivadas** (rutinas propias encima de la API) | | |
+| `GetHoldRadius(e, above)` | Object 0x638C00: ABOVE (`GetHoldType` = 1) → `GetHeight × 0,75` [0x8AB274], si no `Get2DRadius`; Tree 0x74B610 / DeadTree 0x5110E0 = `Get2DRadius × 0,2` [0x8AB244] | el tipo de agarre lo sabe la mano; SpellSeed 0x728640 (`GetScale × info+0x150`) lo pone quien llama |
+| `GetDefaultFireRadius(e)` | Object 0x639AC0 = `jmp [vt+0x64]`; DeadTree 0x510E10 = `GetHeight × 0,35` [0x8D6974]; WorshipSite 0x77DE10 → 0x77DDD0 = **14** [0x99C9EC] | |
+| `GetVillagerHugRadius(e)` | Object 0x4026B0 = `Get2DRadius × 1,05 + 0,0005` [0x8AA3A0] [0x8AA39C]; Tree 0x74A1A0 = `min(Get2DRadius × 0,1, 0,25)` [0x8AB22C] [0x8AB3D4] | |
+| `GetRoutePlanRadius(e)` | Object 0x6384C0 sin criatura = `Get2DRadius` (0x6384CF); Tree 0x74A140 (copia de 0x74A1A0) | la rama con criatura, sin portar |
+| `GetDistanceFromObject(a, b)` | 0x637FB0 | `GetDistanceInMetres − (R2D(b) + R2D(a))` |
+| `GetDistanceFromObject(a, punto)` | 0x5702B0 (Object 0x4027C0 la llama) | `GetDistanceInMetres − GetRadius` |
+| `IsTouching(a, b, m)`, `IsTouching(a, punto)` | 0x637E00 (`≤ m`), 0x637E30 (`≤ 0`) | |
+| `GetBoundingSphere(e)` | 0x637730 | `h = GetHeight × 0,5`; `r = √(R2D² + h²)`; centro = el del MapCoords con `y = (GetAltitude + altitud) + h`. El suelo es el de la isla (`LandIsland::HeightAt`, la U3 de «sistemas», por `map_coords::ToWorld`) |
+
+**GetProportionRaised** (0x66EB60, comida): `p = cantidad / maxAmountInPot` (`fild` de 64 bits sin signo, `fidiv`);
+p < 0 → 0 sin suelo; p > 1 → 1; **p = 0 se queda en 0** (0x66EBB7..0x66EBC2); si no, `p = (1 − 0,05)·p + 0,05`
+[0x933014]. Devuelve `1 − (1 − p)²` recortado a 0..1. La de la madera (0x66F1B0) aplica el suelo si p > 0 y recorta, sin
+el cuadrado. Con `maxAmountInPot = 0` el original da inf (→ 1) o NaN (→ 0), lo mismo que dividir por 1.
+
+**Qué se arregló** (los 8 arreglos de fidelidad del plan, §4):
+1. **Field = 5 m** en el fuego (`fire::traits`, y con él FireEffect, FireGraphic, Explosion y VillagerFire), los
+   animales (`GetWorkingPos` 0x639550 usa vt+0x60), el pueblo (`CheckForClearArea` 0x741457), la curación (Heal), los
+   bosques (`AddTreeAround` 0x439220, vt+0x60) y SpellFlock / SpellWater (que ya lo tenía aparte).
+2. **FishFarm = 5 m**: no estaba en ningún sitio.
+3. **PileFood × proporción** en todas las consultas de objeto (antes solo en `pot_resource`).
+4. **MagicFireBall** (radio y altura = escala) fuera del fuego: Heal y todo lo que pasa por la API.
+5. **La pila vacía da 0**, no 0,0975 (`PotResource.cpp`, y su test `test_food_wood`).
+6. **El campo se hundía el doble**: `Fields.cpp` guardaba la altura entera; el original suma `2·v·escala·[m+0x28]` con la
+   **semi**altura (0x5287C2..0x5287D1). Ahora es la semialtura del nivel de malla.
+7. **Sin malla, 0**: la mano (0,5 / 1,0), la pila al hundirse (1,0) y el campo (1,0) daban tamaños inventados.
+8. **El MapShield con una sola escala**: `GetScale` de un escudo es su `objectScale` en todas las consultas.
+
+Además: `Trees.h` citaba `ComputeBoundingBox` en 0x808180 (es **0x8081B0**). `Tree::Draw` (la copa al doblarse,
+0x74ABA2..0x74ABC2) se porta al nivel de malla; la altura del árbol más alto (fn_0053A740, 0x53A75D), el árbol talado
+(0x5116C2) y el susurro de más de 10 m (0x74B1CF) al de objeto. `GetDefaultFireRadius` de un lugar de culto es 14 m.
+
+Migrados al nivel de objeto: `EffectValues` (ver abajo), `FireObjectTraits`, `PotResource`, `PotArchetype::SetSize`
+(0x66E90A / 0x66E918), `SpellWater`, `SpellFlock` (`fn_006D0C20` con vt+0x60), `Heal` (incluida la escala de regla,
+vt+0x64 en 0x6A0DC3), `OneOffSpellSeed` (el adelanto del Z-sorter, vt+0x60), `SpellDispenser` (0x722B46),
+`TestDispensers`, `TownQueries`, `Trees`, `Rocks` (y con él `LanternSounds` y la física de rocas), `AnimalFlee`,
+`AbodeArchetype` (0x40327E / 0x40329A) y `HandHolding::ComputeHoldParameters` (la altura por vt+0x42C; el radio con
+`ObjectGet2DRadius`, porque la proporción de la comida de la mano la pone `HandSystem` aparte). Al nivel de malla:
+`Fields` y la copa de `Trees`.
+
+`effects::ObjectHeight` / `Object2DRadius` quedan como envoltorios de `ObjectGetHeight` / `ObjectGet2DRadius` (la rutina de
+`Object` **sin** redefiniciones, como hacían) solo para los llamadores aplazados.
+
 ## Altura del terreno
 
 `LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
@@ -393,6 +482,73 @@ agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la 
 **Siguen con `glm::length` (para migrar cuando milagros2 suba su tanda 2a):** MagicTeleport.cpp:81-83 (cita
 fn_00605CD0), SpellShield.cpp:73/239/258, SpellForest.cpp:167/232, MapShield.cpp:517 y SpellStormAndTornado.cpp:198.
 
+### Tamaño de los objetos
+
+Estado a 2026-10-01, rama `local/sistemas2`. La regla ha sido migrar **solo** donde se ha leído qué nivel usa el
+original (la llamada virtual o la lectura en línea).
+
+**Aplazadas, porque milagros2 está editando esos archivos** (usan todavía `effects::Object2DRadius` / `ObjectHeight`,
+la rutina de `Object` sin redefiniciones):
+- `PSys/Rules/Storm.cpp:1265, :1336` → `object::Get2DRadius` (vt+0x64).
+- `PSys/Rules/Lightning.cpp:126` → `object::GetHeight` (vt+0x42C).
+- `Magic/Spells/SpellForest.cpp:169` → `object::Get2DRadius` (el comentario de :161 dice que Field 0x528E80 no está
+  portado: ya lo está).
+- `Magic/Core/SpellSeed.cpp:137, :143` → `object::GetHeight` / `Get2DRadius` (falta leer el original).
+- `Magic/Objects/MapShield.cpp:526-547` (`map_shield::Get2DRadius` / `GetHeight`, ya con `objectScale`) →
+  `object::Get2DRadius` / `GetHeight`; `CollisionScale` (:568) es `object::GetScale`.
+- `Magic/Objects/MagicTeleport.h:31` (`k_Radius = 6`) → `object::k_MagicTeleportRadius` / `Get2DRadius`.
+- `PSys/Rules/Explosion.cpp:392, :425, :504` usa `fire::traits::Radius`, que ya es la API; no hace falta tocarlo.
+- Cuando se muevan todos, se borran los dos envoltorios de `EffectValues`.
+
+**De «sistemas» (tiene los archivos abiertos):**
+- `HandPlacement.cpp:409-416` (pila bloqueada, 0x5B3EA8: 1,0 sin malla), `:683-690` (radio del ser vivo bajo la mano) y
+  `:708-716` (radio de lo sostenido).
+- `HandTrees.cpp:202-207` (el tronco del árbol talado: `0,2 × Get2DRadius` = `GetHoldRadius` de Tree, 0,3 sin malla) y
+  `:331-341` (el polvo de las raíces: otra fórmula, semiejes sin escala).
+- `3D/Foliage.cpp:506-508` (mod `world.foliage`): no porta nada del original, pero debería usar `object::Get2DRadius`
+  (con el campo de 5 m).
+
+**De «audio» (hito B11):** `Audio/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
+`object::GetHeight`: el valor ya es el de la API; solo falta llamar a la API directamente.
+
+**PLAUSIBLES sin cerrar, no tocados:**
+- `Physics/PhysicsObjects.cpp:282-284` (`SetUpBody`, R5/H4): el original mezcla la semialtura en línea de
+  `PhysOb::Initialise` 0x7FB7D9 (`escala·[m+0x28]·1000`) con vt+0x42C (`SetUpPhysOb@Villager` 0x5F0007).
+- `HandHolding.cpp:187-192` (coger un árbol: `maxima.y`, no max − min) y `PSys/TownBelief.cpp:191` (`maxima.y` del
+  centro del pueblo): falta leer `UR_TownCentreBelief` 0x69C17A.
+- `HandSystem.cpp:513-519`: la proporción de la comida de la mano con 1600 fijo en vez de `maxAmountInPot`, y sin el
+  0 de la mano vacía. Por eso `ComputeHoldParameters` usa `ObjectGet2DRadius` (si usara `Get2DRadius`, la proporción
+  se aplicaría dos veces). Al cerrarlo, pasar a `object::GetHoldRadius`.
+- MagicFireBall en la física y en Storm: depende de si la bola es una entidad con `Mesh` en esas consultas.
+
+**Dudosas, no migradas** (no consta qué hace el original en ese sitio):
+- `Physics/PhysicsObjects.cpp:554-563` (`Radius2D`, usado en :638 y :1227): la fase ancha de openblack, sin dirección.
+- `PSys/TownBelief.cpp:183-196` (la altura de la cima del tótem): sin dirección.
+- `ECS/FireFlies.cpp:98-108` (`MeshHeight` + 2 de casas y farolas): fn_0052B1D0 solo es el filtro (`IsAbode` /
+  `IsStreetLight`); no se ha leído dónde se suma la altura.
+- `Physics/PartialBuild.cpp:148` (el corte de la obra): está en fn_00816AD0, sin leer.
+- `ECS/Trees.cpp:1104-1114` (`MeshHalfDiagonal` de las fuentes que doblan árboles): escala × +0x30, y `GetMeshRadius`
+  0x636BD0 no lleva escala; sin dirección.
+
+**Sin portar:**
+- `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 leen el LH3DCreature (`[[+0x160]+0x58]+0x5228`), que openblack
+  no tiene: por ahora una criatura usa la fórmula de `Object` **(inferido)**. La altura (0x477F50 = tamaño × 15) sí está,
+  tomando la escala del `Transform` como el `GetUserSize` 0x4EF4F0 **(inferido)**.
+- La rama con criatura de `GetRoutePlanRadius` 0x6384D8 (necesita `NavRadius` 0x480A60).
+- `GetNearestPosOfObject` 0x636D30 (necesita `Get3DAngleFromXZ` 0x74D270 y `GetPosFromAngle` 0x74D580 en `gutils`; no
+  hay llamador).
+- Los otros `GetScale`: `ShowNeedsVisuals` 0x55DD80 (+0x58), `PlannedMultiMapFixed` 0x4050C0 y `SpellSeedGraphic`
+  0x727340.
+- Los sitios del nivel de malla que openblack aún no tiene (`IsSuitableForFixed` 0x603E1E, `Scaffold` 0x6E956A /
+  0x6EAC14, 0x7350A5, `PhysOb::Initialise` 0x7FB7D9...): la API está lista para ellos.
+- La caja de una malla animada: el original la calcula después de `LH3DAnim::SetTransform` 0x83A1D0 (bit 0x100);
+  openblack une las cajas de los vértices tal cual. Aldeanos y animales podrían tener semiejes algo distintos (sin medir).
+
+**Cambios que se ven y hay que comprobar con captura:** el campo se hunde la mitad al vaciarse (con el mod de plantas
+apagado); un campo o una piscifactoría miden 5 m para el fuego, el pueblo (dónde caben los edificios), los animales y los
+milagros; una pila de comida mide según lo llena que está (y vacía, 0) para el fuego y el pueblo; un lugar de culto
+ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 × su escala.
+
 ## Ganchos de prueba
 
 - `test_map_coords` (`test/test_map_coords.cpp`) comprueba:
@@ -422,6 +578,17 @@ fn_00605CD0), SpellShield.cpp:73/239/258, SpellForest.cpp:167/232, MapShield.cpp
 - `test_worship` llama a `worship::percentage::WorshipScore` de verdad: un aldeano con vida 0,5 en el centro del
   lugar de culto da 0,5³ · 0,99996 y uno con vida 1 a más de d2 da 3,6e-5 (con los argumentos al revés o con vida²
   falla).
+- `test_object_metrics` (`test/test_object_metrics.cpp`) comprueba, con cajas de malla de prueba
+  (`object::detail::SetMeshBoxProviderForTests`):
+  - los campos de la caja (semiejes, semidiagonal), `Radius2D` y `Height`;
+  - que el nivel de malla no ve redefiniciones y da 0 sin malla;
+  - la base de `Object` y el 0 sin malla o sin `Mesh`;
+  - Field y FishFarm = 5 (radio y `GetMeshRadius`, la altura sigue siendo la de la malla), MagicTeleport = 6,
+    MagicFireBall = escala en radio y altura, la escala de objeto del MapShield y la altura de la criatura;
+  - `GetProportionRaised` de comida y de madera, con la pila vacía a 0, y el radio de la pila de comida;
+  - `GetHoldRadius`, `GetDefaultFireRadius` (árbol muerto, lugar de culto), `GetVillagerHugRadius` y
+    `GetRoutePlanRadius` de árbol, las dos distancias, `IsTouching`, `GetBoundingSphere` y `GetTopPos`.
+- `test_food_wood`: `PileFoodProportionRaised(0, 1000)` es 0.
 - No tienen variables de entorno propias.
 
 ## Fuentes
@@ -442,3 +609,10 @@ fn_00605CD0), SpellShield.cpp:73/239/258, SpellForest.cpp:167/232, MapShield.cpp
   `gutils_distance_original.md` (con su «Verificación adversaria») y `gutils_distance_openblack.md`.
 - bw1-decomp para las distancias: `src/Black/Utils.h` (solo firmas; `GetDistance` aparece como `void`),
   `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.
+- Tamaño de los objetos: desensamblado de 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,
+  0x47B190, 0x4EF4F0, 0x638C00, 0x74B610, 0x5110E0, 0x728640, 0x639AC0, 0x510E10, 0x77DE10, 0x77DDD0, 0x4026B0,
+  0x74A1A0, 0x74A140, 0x6384C0, 0x637730, 0x637FB0, 0x5702B0, 0x4027C0, 0x637E00, 0x636D30; los sitios migrados
+  0x53A740, 0x5116A0, 0x74AB80, 0x74B12F, 0x439220, 0x639550, 0x66E900, 0x722B30, 0x403270, 0x6A0D51 y 0x5287A0.
+  Informes: `dev\tmp_dis\unify2\PLAN.md` §4, `object_radius_height_original.md` (con su «Verificación adversaria»)
+  y `object_radius_height_openblack.md`. bw1-decomp: `src/Black/Object.cpp:1062-1104`; decomp_pickup:
+  `multi.cpp:285-330`.

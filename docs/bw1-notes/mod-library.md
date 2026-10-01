@@ -88,7 +88,7 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
 | [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
-| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores) | Un dispensador de cada milagro junto al templo, para probarlos | no |
+| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores), `seed` **on**/off | Un dispensador de cada milagro junto al templo (más uno vacío) y una bola de fuego en la mano, para probarlos | no |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 
 Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
@@ -542,6 +542,18 @@ los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luci
   BEAM_EXPLOSION ×3; el resto ×1). El orbe sale con el nivel de su magia (`GetPowerUpGesture`, como el original).
 - **Opción `recharge`** (deslizador): segundos hasta el siguiente orbe (`SET_MAGIC_PROPERTIES` en segundos × 10
   turnos); el original usa 300 turnos (`timeEachMobileObjectTakesToProduce`).
+- **Máquina vacía** (siempre): un dispensador más en el siguiente sitio libre del anillo (en Land 1 con `base`,
+  (1878,0, 2515,4)), creado solo con `dispenser::Create`, como un `CREATE(SPELL_DISPENSER)` sin
+  `SET_MAGIC_PROPERTIES` ni `SET_ACTIVE`: queda inactivo y sin magia, así que nunca da orbe
+  (`SpellDispenser::Process` 0x722A70 solo produce si está activo). Sirve para comparar la máquina sola con las que
+  tienen orbe. Registro: `Mod test.miracle-dispensers: empty dispenser <entidad> at (x, z)`.
+- **Opción `seed`** (`on` por defecto): 10 turnos después de poner los dispensadores (para que el guion de la tierra
+  y su intro ya hayan empezado) pone una semilla de FIRE (bola de fuego, sin power-up) en la mano del jugador humano
+  por el camino de un uso, `OneOffSpellSeed::CreateSpellIntoHand` 0x72A730 (el mismo que `OPENBLACK_TEST_SEED`). Si la
+  mano está ocupada lo reintenta cada turno (hasta 600). Así se comparan la transparencia de un orbe, la de la
+  máquina vacía y la de la semilla en la mano. `--mod test.miracle-dispensers.seed=off` la quita. Registro:
+  `Mod test.miracle-dispensers: fire seed into the hand -> <entidad>`. Turnos y reintentos elegidos por openblack
+  (mod).
 - **Orden de creación**: los dispensadores y sus orbes no existen en el original, así que se crean dentro de un
   `ecs::object_index::ModScope`: toman índices de un rango aparte (desde `k_ModBase` = 0x40000000) y el contador del
   original no se mueve (las velocidades de los aldeanos, `Villager::SetSpeed`, y los órdenes de animales y bosques
@@ -576,6 +588,17 @@ los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luci
   la bola de fuego en el suelo y su dispensador vacío) y `dispmod_all.png` (`level = all`, 25 dispensadores). A los
   10 s del toque el dispensador hace otro orbe. Gancho de cámara: `OPENBLACK_CAMERA_LOCK=1960,85,2580,1915,32,2508`
   (ver [Ganchos de prueba](#ganchos-de-prueba)).
+- **Probado** (2026-10-01, máquina vacía y semilla): `prism_empty.png` (la máquina vacía en primer plano, sin orbe;
+  `OPENBLACK_CAMERA_LOCK=1872,40,2528,1878,33,2515.4`), `prism_seed_hand.png` / `prism_seed_hand2.png` (la semilla
+  de fuego en la mano junto al orbe de FIRE; `seed 2752 (FIRE, pu -1) in the hand with 3500 chants`).
+- **El «prisma» oscuro junto a un dispensador** (captura del usuario, 2026-10-01 12:41): no es la submalla de física
+  de la malla 557 (ningún camino de dibujo la pinta, ver
+  [rendering-objects.md](rendering-objects.md#submallas-de-física-y-de-lod-0)). El registro de esa partida dice que el
+  usuario rompió con una roca lanzada los dispensadores de TELEPORT y BEAM_EXPLOSION (`Buildings: 2602 hit, life 1.00
+  -> 0.00`, `4 pieces`, `2602 destroyed`, y lo mismo 2606): el orbe de BEAM_EXPLOSION (la estrella de `I_Blast`) se
+  quedó flotando y lo de alrededor son los trozos (`Fragment`) de la máquina rota. **(inferido)** En el original
+  `SpellDispenser::Draw` 0x722940 llama a `MultiMapFixed::Draw` 0x518090 y no a `Abode::Draw`, así que nunca dibuja la
+  FragMesh de un dispensador dañado; falta leer si `Abode::ReactToPhysicsImpact` 0x406240 lo rompe (pendiente).
 
 ## Pendiente
 

@@ -15,7 +15,9 @@
 // EngineConfig switches): once a land's script has run and the human player has a citadel, one miracle dispenser
 // (the original's SpellDispenser, as the Land 1 challenge script's GiveSpellDispenserReward makes one) per player
 // miracle seed on open dry land in a ring around the temple, with a short recharge period. They and their orbs take
-// their creation index from object_index's mods range, so the original's objects keep theirs.
+// their creation index from object_index's mods range, so the original's objects keep theirs. One more, empty
+// (inactive, no magic: it never makes an orb), goes in the next place of the ring, and with the "seed" option a fire
+// seed goes into the player's hand a few turns later (OneOffSpellSeed::CreateSpellIntoHand 0x72A730).
 // Wiki: docs/bw1-notes/mod-library.md#testmiracle-dispensers
 
 namespace openblack::worship::test_dispensers

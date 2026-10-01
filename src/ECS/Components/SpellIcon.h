@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <entt/entity/entity.hpp>
+#include <glm/vec3.hpp>
 
 #include "Enums.h"
 
@@ -68,13 +69,22 @@ struct TownCentreIcons
 struct SpellSeedGraphic
 {
 	SpellSeedType seedType {SpellSeedType::None};
-	PlayerNames player {PlayerNames::NEUTRAL}; ///< +0x2C
+	PlayerNames player {PlayerNames::NEUTRAL}; ///< GameThing::GetPlayer (vt 0x1C); the mesh (Game3DObject) is +0x2C
 	float scale {1.0f};                        ///< +0x54
-	float alpha {1.0f};                        ///< +0x58 (0.5 on a worship icon, UpdateGraphicsWithPULevels 0x77F320)
+	/// +0x58: the power-up band's size (DrawSpellGraphic 0x51A70C: band scale = 0.2 x +0x58 x +0x54); 1 (fn_00726F10),
+	/// 0.5 on a worship icon (UpdateGraphicsWithPULevels 0x77F320). Not an alpha: nothing else reads it.
+	float bandScale {1.0f};
 	bool autoUpdate {true};                    ///< +0x5C: the holder PSys is stepped by the list every turn
 	int powerUp {-1};                          ///< +0x60 (SetPowerUpType 0x727060; the band when != -1)
 	uint32_t psys {0};                         ///< +0x50 the holder effect (psys::manager)
-	entt::entity band {entt::null};            ///< the power-up band (CreatePUBand 0x727080)
+	entt::entity band {entt::null};            ///< +0x30 the power-up band (CreatePUBand 0x727080)
+	std::vector<entt::entity> extraBands;      ///< the band drawn again for PU 1, 2 (the loop 0x51A3D4 draws pu + 1)
+	glm::vec3 point {0.0f};                    ///< +0x64 the point given (fn_007270E0): the bands' centre
+	glm::vec3 meshPosition {0.0f};             ///< +0x14 (MapCoords) = point + unknown0x150 x scale: the mesh
+	glm::vec3 effectPosition {0.0f};           ///< point + unknown0x154 x scale: the holder effect
+	float spin {0.0f};                         ///< +0x3C the mesh's y angle (+2 rad/s, DrawSpellGraphic 0x519B20)
+	float bandSpin {0.0f};                     ///< +0x44 the bands' angle (+10.3 rad/s [0xBE8E94], 0x51A2EA)
+	float bandSpin2 {0.0f};                    ///< +0x40 (+1 rad/s [0xBE8E90], 0x51A305; no reader found)
 };
 
 } // namespace openblack::ecs::components

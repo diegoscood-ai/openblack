@@ -57,6 +57,9 @@ struct RenderContext
 	/// The instances (indices of instanceUniforms) of those that are PSys mesh atoms with UseAdditiveAlpha: material mode
 	/// 13 (GJUtils::SetMaterialProperties 0x57E120: SRCALPHA / ONE, no Z write), PSys/Creators/Mesh.h
 	std::unordered_set<uint32_t> additiveInstances;
+	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
+	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
+	std::unordered_map<uint32_t, glm::vec3> sortPoints;
 	/// Where each entity's model matrix is this frame
 	struct EntityInstance
 	{

@@ -266,7 +266,7 @@ void icon::UpdateGraphicsWithPULevels(entt::entity icon)
 		}
 	}
 	seed_graphic::SetPowerUpType(spellIcon.graphic, level);
-	seed_graphic::SetAlpha(spellIcon.graphic, 0.5f); // graphic +0x58 = 0.5
+	seed_graphic::SetBandScale(spellIcon.graphic, 0.5f); // graphic +0x58 = 0.5 (the band size)
 }
 
 int icon::Process(entt::entity iconEntity)

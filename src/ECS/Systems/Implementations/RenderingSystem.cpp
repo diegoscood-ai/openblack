@@ -239,6 +239,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	std::map<entt::id_type, uint32_t> translucentOffsets;
 	std::map<entt::id_type, uint32_t> shadowCasterOffsets;
 	_renderContext.entityInstances.clear();
+	_renderContext.sortPoints.clear();
 
 	// Set transforms for instanced draw at offsets
 	registry.Each<const Mesh, const Transform>(
@@ -260,6 +261,10 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    {
 			    modelMatrix = glm::scale(glm::translate(transform.position + orb->facingOffset) * glm::mat4(orb->facing),
 			                             transform.scale);
+			    if (alpha != nullptr)
+			    {
+				    _renderContext.sortPoints.insert_or_assign(desc->second.offset + offset.first->second, orb->sortPoint);
+			    }
 		    }
 		    else if (draw != nullptr)
 		    {

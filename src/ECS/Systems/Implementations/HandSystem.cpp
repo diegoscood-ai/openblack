@@ -53,6 +53,8 @@
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/OneOffSpellSeed.h"
+#include "ECS/Influence/Influence.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Components/Fixed.h"
@@ -314,6 +316,13 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	const bool actionPressed = actionHeld && !_actionWasHeld;
 	const bool actionReleased = !actionHeld && _actionWasHeld;
 	_actionWasHeld = actionHeld;
+	// GInterface +0x48 m_InInfluence (InterfaceActionProcess fn_005D1120: CalculatePlayerInfluence(action position, type
+	// 1, allies) > 0), which taps and pick-ups of objects with InterfaceMustBeInInfluenceForInteraction need
+	const auto TapInInfluence = [this]() {
+		return _interactionPoint.has_value() &&
+		       influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, *_interactionPoint, influence::CalcType::Interface) >
+		           0.0f;
+	};
 	if (actionPressed && _hovered && !_held && Locator::entitiesRegistry::value().AllOf<Field>(*_hovered))
 	{
 		// fields are a locked select (ValidForLockedSelectProcess 0x5299E0): the scooping starts at once
@@ -337,11 +346,21 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			}
 			_hovered.reset();
 		}
-		else if (worship::InterfaceValidToTap(*_hovered, PlayerNames::PLAYER_ONE))
+		else if (!Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_hovered) &&
+		         worship::InterfaceValidToTap(*_hovered, PlayerNames::PLAYER_ONE))
 		{
-			// the same StartGrab branch: spell icons and one-shot orbs cannot go in the hand, so they are tapped at
-			// once (Worship/Worship.cpp -> SpellIcon::InterfaceTap 0x726430, OneOffSpellSeed::InterfaceTap 0x72A640)
-			worship::InterfaceTap(*_hovered, PlayerNames::PLAYER_ONE);
+			// the same StartGrab branch: a spell icon cannot go in the hand (Object::ValidForPlaceInHand 0x402870 = 0), so
+			// it is tapped at once (Tap 0x5D3930 -> 0x5D38A0, packet 0x20 -> 0x5DA650 -> SpellIcon::InterfaceTap 0x726430)
+			// if the hand is in the player's influence (InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1)
+			if (TapInInfluence())
+			{
+				worship::InterfaceTap(*_hovered, PlayerNames::PLAYER_ONE);
+			}
+			_hovered.reset();
+		}
+		else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_hovered) && !TapInInfluence())
+		{
+			// StartGrab 0x5D1740 out of the influence: Tap 0x5D3930, which 0x5D38A0 refuses (vt 0x714 = 1): nothing
 			_hovered.reset();
 		}
 		else if (Locator::entitiesRegistry::value().AllOf<Tree>(*_hovered) && _interactionPoint &&
@@ -408,6 +427,12 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			{
 				Rocks::Tap(*_pendingPick, _interactionPoint.value_or(glm::vec3(0.0f)));
 			}
+			else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_pendingPick) && TapInInfluence())
+			{
+				// a one-shot orb clicked (released within the 225 ms): Tap 0x5D3930 -> packet 0x20 -> 0x5DA650 ->
+				// OneOffSpellSeed::InterfaceTap 0x72A640, the fully charged seed in the hand and the orb gone
+				worship::InterfaceTap(*_pendingPick, PlayerNames::PLAYER_ONE);
+			}
 			_pendingPick.reset();
 		}
 		else if (_pendingPickTime >= k_PickUpHoldSeconds)
@@ -425,8 +450,14 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 				// a standing tree is tugged; one in physics (thrown, not landed yet) is caught like any flying object
 				BeginTug(entity);
 			}
+			else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(entity) && !TapInInfluence())
+			{
+				// GenericPickup 0x5D2800 out of the influence (vt 0x714 = 1): not picked up
+			}
 			else
 			{
+				// a one-shot orb held for 225 ms is picked up itself (GenericPickup 0x5D2800, packet 0x13 ->
+				// PlaceObjectInMagicHand -> OneOffSpellSeed::InterfaceSetInMagicHand 0x72A530; Worship.cpp)
 				PickUp(entity);
 				_pickPressHeld = _held.has_value();
 			}

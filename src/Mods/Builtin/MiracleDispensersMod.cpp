@@ -35,11 +35,14 @@ public:
 	           "No existe en el original: para probar los milagros. Al cargar una tierra en la que el jugador tiene "
 	           "templo, pone junto a él un dispensador de milagros (el del desafío de Land 1) por cada milagro del "
 	           "jugador: fuego, rayo, agua, comida, madera, curar, bosque, bandadas, escudos, teletransporte, tormenta "
-	           "y explosión de rayo. Cada uno da otro orbe a los pocos segundos de cogerlo",
+	           "y explosión de rayo. Cada uno da otro orbe a los pocos segundos de cogerlo. Además pone una máquina vacía que "
+	           "nunca da orbe y, si se quiere, una semilla de bola de fuego en la mano al empezar (para comparar la "
+	           "transparencia del orbe, de la máquina y de la semilla)",
 	           "Test"})
 	{
 		AddOption({"level", "Nivel (base, PU 1, PU 2, todos)", {"base", "pu1", "pu2", "all"}, 0, true});
 		AddOption({"recharge", "Recarga del orbe", {"2s", "5s", "10s", "20s", "30s", "60s"}, 2, true});
+		AddOption({"seed", "Bola de fuego en la mano al empezar", {"on", "off"}, 0, true});
 	}
 
 	void Apply() override
@@ -59,6 +62,7 @@ public:
 		int seconds = 10;
 		std::from_chars(recharge.data(), recharge.data() + recharge.size(), seconds); // "10s" -> 10
 		config.testDispensersSeconds = static_cast<float>(seconds);
+		config.testDispensersSeed = GetChoice("seed") == "on";
 	}
 };
 } // namespace

@@ -19,7 +19,7 @@
 
 #include "ECS/DetailMeshes.h"
 #include "ECS/VillagerSpeed.h"
-#include "ECS/PotResource.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/LivingAction.h"
@@ -73,7 +73,7 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	// SetScaleForAge draw here), food, lastCheckTurn, the state counter and the water rule (MapCoords::IsWater 0x6035B0:
 	// 16 DROWNING, else 85 CREATED)
 	const uint32_t turn = ecs::villager::CurrentTurn(); // g_game +0x205A40
-	ecs::villager::Construct(entity, info, age, turn, ecs::pot_resource::IsWater(position), [&](uint32_t setAge) {
+	ecs::villager::Construct(entity, info, age, turn, ecs::sea_cells::IsWater(position) /* MapCoords::IsWater 0x6035B0 */, [&](uint32_t setAge) {
 		registry.Get<Transform>(entity).scale = glm::vec3(ecs::VillagerScaleForAge(info, setAge));
 		age = setAge;
 	});

@@ -915,9 +915,18 @@ donde llega, y `MoveMapObject`.
   (`fn_00686980`) cada vértice sube al terreno bajo él menos el del centro (aquí al dibujar).
   `RenderParticleGJMeshRotatingUV::GameUpdate` 0x6C8BC0 desplaza las UV (SpeedU/V) dentro de la baldosa; `DrawAt`
   0x67CBA0 dibuja en modo 6 (color = textura×difuso + especular, alfa = textura×difuso).
-  - openblack: la regla `ZR_SurfRevol` guarda la malla en un `SurfRevolCreator` (tipo `Other`) por átomo; el disco
-    hereda la escala del átomo padre (UR_ChangeScale = 5, **sin verificar** cuál escala aplica el original, es la
-    documentada). `RendererSurfRevol.cpp` la dibuja con el programa `WorldQuad` en dos pasadas (la textura mezclada y el
+  - **Tamaño (fiel, verificado):** la malla tiene radio 1 y solo pasa por la matriz dibujada del átomo
+    (`RenderParticleGJMesh::DrawAt` 0x67C150 multiplica cada vértice por `DrawData+4`, la PSR de atom+0xD0). Esa PSR
+    ya lleva la jerarquía: `PostUpdateAtoms` fn_00673EA0 hace `cur = PSR del padre × local` (fn_00673DB0, fn_007FAE60) y
+    `escala = +0x74 × +0x78 × la del padre`. El átomo del disco nace con +0x74 = 1 (ctor `AtomCore` 0x673830) ×
+    `Scale` 1 (0x68649E) y es hijo (Hierarchies[2] = 1) del átomo del grupo 2. Radio = 1 × `InitialScale` del grupo 2 ×
+    `UR_ChangeScale`: **6 m en `SF_SpellDispenserVortex`** (InitialScale 6, sin UR_ChangeScale; magnitud 1,0 en
+    `SpellDispenser::CallVirtualFunctionsForCreation` 0x722840) y **10 m en `SF_TeleportVortex`** (2 × 5).
+    `fn_00686980` (DoRaiseAboveLandscape) pasa la malla al mundo con esa misma matriz (fn_00673E40) y la devuelve con
+    su inversa (0x686D6C), así que no cambia el tamaño. Error corregido (2026-10-01): el puerto multiplicaba otra vez
+    por la escala del padre (36 m de radio el dispensador, 100 m la piedra de teletransporte).
+  - openblack: la regla `ZR_SurfRevol` guarda la malla en un `SurfRevolCreator` (tipo `Other`) por átomo; el radio es
+    `atom.scale` (que `Effect::PostUpdate` ya multiplica por el padre en una jerarquía). `RendererSurfRevol.cpp` la dibuja con el programa `WorldQuad` en dos pasadas (la textura mezclada y el
     especular sumado con una textura blanca 1×1). La `S_TileLandscape.raw` de esta instalación está fechada en 2021
     (reemplazada por un parche/mod). **Lo comparte la lane m7** para los discos de los dispensadores.
 - `SF_TeleportInHand` (sprite, le falta `UR_FollowLocalHand`) y `SF_TeleportOnHolder` son de M2/M7; el destello del
@@ -933,6 +942,10 @@ donde llega, y `MoveMapObject`.
   cercano hacia B; en `drop`, lo suelta forzado sobre A; `none` solo las piedras.
 - Capturas en `dev\_audit\magic\`:
   - `teleport_discs.png`: las dos piscinas `S_TileLandscape` translúcidas sobre el suelo del pueblo de Land1;
+  - `disc_dispenser_before.png` / `disc_dispenser_after.png` (`OPENBLACK_TEST_DISPENSER=NORSE_ABODE_SPELL_DISPENSER,1812,2652,1`,
+    `OPENBLACK_CAMERA_LOCK=1800,75,2600,1812,30,2652`, `-n 8000 --screenshot-frame 7800`): el disco de estrellas del
+    dispensador de 36 m de radio (antes) y de 6 m, al pie de la máquina (después); `disc_teleport_after.png`
+    (`OPENBLACK_TEST_TELEPORT=1790,2640,1835,2660,7,none`, misma cámara): las dos piscinas de 10 m;
   - `teleport_react.log`: los aldeanos 47/80/33 reaccionan a la piedra A, andan hasta ella y saltan a B (ahorros
     +50..60 m);
   - `teleport_jump.log`: un salto forzado (soltar) con `PayFor(6, forzado)` y SV 14 en los dos extremos.

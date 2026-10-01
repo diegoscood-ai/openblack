@@ -100,12 +100,13 @@ void main()
 	float skyBightness = skyType / 2.0f;
 	col.rgb = col.rgb * v_landLight * u_terrainPass.x;
 
-	// Small bump (render mode 0xE, fn_0082DD90): a second pass over the lit land, blended SRCALPHA / INVSRCALPHA
-	// with the unlit texture colour (vertex diffuse is white) and alpha = smallbumpa * fade; 12 repeats per block.
-	// It skips the triangles whose three vertices are at altitude 1 or less (specular alpha 0, SSE 0x7A31A0) and is
-	// not modulated by the coast alpha (its texture is smallbump), so near the camera it also shows over shallow water.
+	// Small bump (render mode 0xE, fn_0082DD90: TEXTURE * DIFFUSE in colour and alpha): a second pass over the lit
+	// land, blended SRCALPHA / INVSRCALPHA, 12 repeats per block. Its vertex diffuse (vs_terrain) is white or black
+	// with alpha = fade, 0 at the vertices of altitude 1 or less, so it fades out towards the water; the triangles
+	// with all three at 0 are skipped (SSE 0x7A31A0), which changes nothing. It does not use the coast alpha.
 	vec4 smallBump = texture2D(s2_smallBump, v_texcoord0.xy * 12.0f);
-	float bumpAlpha = v_shoreFade > 0.0f ? smallBump.a * v_smallBumpFade * smallBumpMapStrength : 0.0f;
+	smallBump.rgb *= v_smallBumpFade.x;
+	float bumpAlpha = smallBump.a * v_smallBumpFade.y * smallBumpMapStrength;
 
 	// The land's alpha (render mode 14, SRCALPHA / INVSRCALPHA over the sea already drawn): the coast alpha of the
 	// block texture (fn_008732C0), lowered by the rivers with min (fn_00872AB0). Z is written even where it is 0.

@@ -86,9 +86,15 @@ glm::vec3 PositionOf(entt::entity object)
 	return transform != nullptr ? transform->position : glm::vec3(0.0f);
 }
 
-float Distance2D(const glm::vec3& a, const glm::vec3& b)
+/// MobileWallHug::AreWeThere(pos, extra 0) 0x60AD60 (Living vt 0x85C): d^2 < (the wall hug's step +0x5A + extra)^2,
+/// strictly (0x60ADAB `test ah, 0x41`); the step is RebuildMoveByStep 0x609D10's, openblack's WallHug::speed
+bool AreWeThere(entt::entity villager, const glm::vec3& goal)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
+	const auto* wallHug = Reg().TryGet<const WallHug>(villager);
+	const float step = wallHug != nullptr ? wallHug->speed : 0.0f;
+	const auto at = PositionOf(villager);
+	const glm::vec2 d(at.x - goal.x, at.z - goal.z);
+	return glm::dot(d, d) < step * step;
 }
 
 void RemoveMoveTags(entt::entity villager)
@@ -205,6 +211,12 @@ bool villager_teleport::IsReacting(entt::entity villager)
 {
 	const auto it = g_States.find(villager);
 	return it != g_States.end() && it->second.reaction != 0;
+}
+
+entt::entity villager_teleport::ReactionObject(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	return it != g_States.end() ? it->second.stone : entt::entity(entt::null);
 }
 
 void villager_teleport::StopReacting(entt::entity villager)
@@ -334,16 +346,17 @@ uint32_t villager_teleport::GoToTeleportReaction(LivingAction& action)
 	auto& registry = Reg();
 	const auto villager = registry.ToEntity(action);
 	const auto it = g_States.find(villager);
-	if (it == g_States.end() || !registry.Valid(it->second.stone) || effects::reactions::Find(it->second.reaction) == nullptr)
+	// 0x7662F0 checks nothing: the validate slot (+0x80) of 201/202/251, villager_reactions::ReactionValidate 0x756A00,
+	// pops the state (PopFromPrevious 0x751E50) once the stone goes, before the state runs (ProcessState 0x74FF91).
+	// 0x7662F6 GetReaction 0x5ECA60 -> its object's position, which the original reads with no null test; here, with
+	// no stone kept, the state only returns 0 (a guard against reading nothing; ReactionValidate has popped by then)
+	if (it == g_States.end() || !registry.Valid(it->second.stone))
 	{
-		// (inferido) the stone (and its reaction) went: Living::StopReactingAndSetState 0x5F11C0 (in the original the
-		// validate slot ReactionValidate 0x756A00 pops the state when the object goes; not ported)
-		villager_reactions::StopReactingAndSetState(villager);
 		return 0;
 	}
 	const auto stone = PositionOf(it->second.stone);
-	// AreWeThere(stone pos, 0) (vt 0x85C): (inf) where MOVE_TO_POS left it, within the wall hug's arrive step
-	if (Distance2D(PositionOf(villager), stone) < 1.0f)
+	// 0x76632E AreWeThere(the reaction's object position, 0) (vt 0x85C) -> TELEPORT_REACTION (0x766341)
+	if (AreWeThere(villager, stone))
 	{
 		SetTopState(villager, VillagerStates::TeleportReaction);
 		return 1;

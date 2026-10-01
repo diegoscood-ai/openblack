@@ -26,6 +26,7 @@
 #include "PlayerSpellIcons.h"
 #include "SpellDispenser.h"
 #include "SpellSeedGraphic.h"
+#include "TestDispensers.h"
 #include "WorshipPercentage.h"
 #include "WorshipSite.h"
 #include "WorshipSpellIcon.h"
@@ -51,6 +52,7 @@ void worship::OnLoadMap()
 	fire_fly::Reset(); // FireFly::OnClearMap 0x52A1E0
 	gesture_icons::Register();
 	ResetDebugHooks();
+	test_dispensers::Reset();
 }
 
 void worship::ProcessSpellIcons()
@@ -72,6 +74,7 @@ void worship::ProcessTurn(uint32_t turn)
 		citadel::PostLoadCleanup();
 	}
 	RunDebugHooks(turn);
+	test_dispensers::ProcessTurn(turn); // mod test.miracle-dispensers (not in the original)
 	dispenser::ProcessTurn();
 }
 
@@ -83,6 +86,7 @@ void worship::Update(float seconds)
 	}
 	const float milliseconds = seconds * 1000.0f;
 	seed_graphic::UpdatePhase(milliseconds);
+	seed_graphic::UpdateIconGraphics(milliseconds); // SpellIcon::DrawSpellSeedGraphic 0x726D30 (site and town icons)
 	auto& registry = Registry();
 	std::vector<entt::entity> icons;
 	registry.Each<const WorshipSpellIcon>([&](entt::entity icon, const WorshipSpellIcon&) { icons.push_back(icon); });
@@ -128,6 +132,12 @@ int worship::InterfaceTap(entt::entity object, PlayerNames player)
 
 void worship::OnPlacedInMagicHand(entt::entity object)
 {
+	// GInterfaceStatus::PlaceObjectInMagicHand -> vt 0x700: a one-shot orb picked up itself (held past the 225 ms of
+	// State_Grab 0x5D5250) only marks its magic ever enabled (OneOffSpellSeed::InterfaceSetInMagicHand 0x72A530)
+	if (object != entt::null && Registry().Valid(object) && Registry().AllOf<OneOffSpellSeed>(object))
+	{
+		magic::one_off::InterfaceSetInMagicHand(object, PlayerNames::PLAYER_ONE);
+	}
 	fire_fly::OnPlacedInMagicHand(object);
 }
 

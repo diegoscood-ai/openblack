@@ -46,6 +46,15 @@ void StopReactingAndSetState(entt::entity villager);
 /// Villager::StopReacting 0x7637D0 (vt +0x998) -> Living::StopReacting 0x5F1140: the reaction's record gets the turn,
 /// +0x94 = 0, +0xBC = 0
 void StopReacting(entt::entity villager);
+/// Villager::ReactionValidate 0x756A00, the validate slot (+0x80) of the state table 0xD09198 for the reaction rows
+/// (201, 202, 251, 215-218, 220, 6-30, 140-146; Villager::ProcessState 0x74FF91 / 0x74FFD9 runs it each turn for the
+/// TOP (+0x8C) and the stored (+0x8D) state, before CallState). PopFromPrevious 0x751E50 when the reaction's object
+/// (+0xBC) is none or not available (GameThing::IsAvailable 0x401810, vt 0x2C), or when the reaction's info row
+/// (Reaction::GetInfo 0x6E4709, 0xD4F6B0) says whetherReactionFinishesIfInitiatorInHand (+0x28, 0xD4F6D8) and the
+/// object is in the hand (+0x24 & 4). The original returns nothing; this returns false when it popped. The signature
+/// is the table's `validate` column (ECS/Villager/VillagerStateTable.h); LivingActionSystem::VillagerCallValidate
+/// calls it for every row with no validate of its own whose original validate is 0x756A00 (VillagerOriginalFns.h).
+bool ReactionValidate(components::LivingAction& action);
 /// Villager::ExitReaction 0x7527A0 (vt +0x910; the rows hold the thunk 0x5B0100 = jmp [vt +0x910]): the circle hug
 /// reset, and StopReacting unless `next` is a reactive state. Always 1 (it may leave)
 uint32_t ExitReaction(components::LivingAction& action, VillagerStates next);

@@ -47,6 +47,10 @@ void OnVillagerStateChanged(entt::entity villager, VillagerStates previous, Vill
 /// wait this turn; once the clip is over it switches to the state's own clip (FinishedIntoOutOfAnimation 0x750060).
 bool VillagerWaitsForTransition(entt::entity villager, uint16_t turnsSinceStateChange);
 
+/// Living::SetAnim(GetAnimId(), n) (0x5ECBA0, from Living::SetAnim(n) 0x5ECB80): the state's clip if it is another
+/// one; `reset` (n != 0 and not dancing) starts it from the beginning
+void VillagerSetStateClip(entt::entity villager, bool reset);
+
 /// Living::IsReadyForNewAnimation (0x5EC960): the current clip has played once (turns in the state * 100 ms)
 bool VillagerAnimationDone(entt::entity villager, uint16_t turnsSinceStateChange);
 

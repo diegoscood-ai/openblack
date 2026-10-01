@@ -206,10 +206,10 @@ reacciones en el mismo reparto (fuego y teletransporte portados).
   nunca se para, su densidad sube y a los **~75 turnos (7,5 s)** pasa de 1 y `Living::HasSunk` 0x5ED370 lo mata y lo
   borra (`SetDying`, estado 15, `ToBeDeleted(0)`) — vivo o cadáver. En una celda somera con agua de altitud ≥ 2
   aterriza **vivo** (a diferencia del aldeano, que se ahoga); ver
-  [physics.md](physics.md#hundirse-ahogarse-y-borrarse-srcecsvillagerdrowninghcpp-srcecstobedeletedhcpp). Soltar suave
+  [water.md](water.md#hundirse-ahogarse-y-borrarse). Soltar suave
   sobre el mar ya lo mete en física como el original; en tierra openblack sigue colocándolo de pie.
 - Muerte (`Living::SetDying` 0x5EC390, nada mientras vuela): DYING (clip de caer) → DEAD (tumbado según landType; los
-  depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → desaparece (el humo `CreateSmokyStuff` aún no). Un cadáver lanzado
+  depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → su humo (`CreateSmokyStuff`, abajo) y desaparece. Un cadáver lanzado
   vuelve a DEAD con otros 600.
 
 ## Clips por especie (AnimalAnimation.cpp 0x41C0E0..)
@@ -243,8 +243,10 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 - **Nacer** (GIVES_BIRTH): el recién nacido decide al momento, antes de que la madre vuelva a pasear.
 - **Animal lanzado a un almacén de comida:** se convierte en comida (su foodValue: vaca y caballo 1200, oveja 800,
   león y tigre 900, lobo 700, cerdo 290) y desaparece (`Animal::ReactToPhysicsImpact` 0x41BC10).
-- **Humo del cadáver** (`Object::CreateSmokyStuff` 0x63A810, `ECS/SmokyStuff.*`): 15 sprites de `Data\Textures\smoke.raw`,
-  cada uno con dirección al azar a 0,3..1 × tamaño, gris con opacidad vida × 100 / 255, 3 s, de 0,5 a 1,5 × tamaño.
+- **Humo del cadáver** (`Object::CreateSmokyStuff` 0x63A810 → `SmokyStuff::Create` 0x823C90 modo 0, tamaño 1): 15
+  sprites de `Data\Textures\smoke.raw` con dirección al azar a 0,3..1 × tamaño, gris 0x808080 con opacidad vida × 100,
+  3 s, de 0,5 a 1,5 × tamaño. El motor es `ecs::smoky_stuff` (`ECS/SmokyStuff.*`, de la sesión agua, el mismo del polvo
+  y las salpicaduras del barco; se dibuja con los sprites del barco); los animales solo llaman a `SmokyStuff::Create`.
 - **En la mano** los animales tienen el agarre de los aldeanos (radio 2D, bajada 0,65). El landType se lee de la matriz
   del cuerpo al empezar el turno.
 
@@ -252,7 +254,9 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 
 Los aldeanos son presa como los animales (tipo 2, con carne) si están fuera de casa. Derribados, su salud queda en 5 %
 y pasan a DOWNED (clip `P_ATTACKED_BY_LION`), luego BEING_EATEN 300 turnos (`P_DYING`) y mueren (`Villager::BeingEaten`
-0x76B380). Los conduce la IA de animales (`components::DownedVillager`). El que no se puede comer (+0x25 & 0x40) se
+0x76B380: l = GetLife(); SetLife(0); `VillagerDead(ANIMAL 3, su jugador (el dueño de su pueblo), l, 1)`, en
+openblack `ecs::villager::VillagerDead` de la sesión mapas, que lo mata al final del turno). Los conduce la IA de
+animales (`components::DownedVillager`). El que no se puede comer (+0x25 & 0x40) se
 levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 turnos, sin esperar al clip (aproximado).
 
 ## Scripts y marcas (`dev\tmp_dis\animals\script_flags.md`)
@@ -293,7 +297,7 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
 ### Creación: malla y escala
 
 - `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
-  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
+  (rebaños y clases en [map-loading.md](map-loading.md#animales-y-rebaños-create_flock-create_new_animal)). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
   LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
   `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
   ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
@@ -321,7 +325,8 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
   original. El orden de los árboles crecidos de un bosque (`GrownTreesByDistance`, de "arboles") usa la distancia 3D al
   centro; el original (`DistanceToForest` 0x53A890 = `GetDistanceInMetres`) la mide solo en x / z: en laderas puede
   cambiar qué árbol es la guarida.
-- Aldeano comido: desaparece (sin cadáver, alineamiento, avisos del pueblo ni duelo de los vecinos); los aldeanos no
+- Aldeano comido: muere por `VillagerDead`, pero hasta el hito V12 de mapas sin cadáver, alineamiento, avisos del pueblo
+  ni duelo de los vecinos; los aldeanos no
   huyen de los depredadores ni toman reacciones.
 - Scripts (script_flags.md): el vórtice no existe en openblack, así que nada tiene aún la marca «no se puede comer»
   (necesita Milagros: `script_held::SetCannotBeEaten` en lo que sale del vórtice); no hay bandadas de script

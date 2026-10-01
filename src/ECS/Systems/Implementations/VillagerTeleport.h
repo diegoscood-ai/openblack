@@ -60,6 +60,8 @@ uint32_t TeleportReaction(components::LivingAction& action);     ///< 202 0x7663
 uint32_t ExitReactToTeleport(components::LivingAction& action, VillagerStates next);
 /// Living +0x94 != 0 for the teleport's reaction (REACT_TO_TELEPORT)
 [[nodiscard]] bool IsReacting(entt::entity villager);
+/// Living +0xBC for the teleport's reaction: the stone it goes to (entt::null when none)
+[[nodiscard]] entt::entity ReactionObject(entt::entity villager);
 /// Living::StopReacting 0x5F1140 for the teleport's reaction kept here: its record gets the turn, +0x94 = 0, +0xBC = 0
 /// (villager_reactions::StopReacting calls it)
 void StopReacting(entt::entity villager);

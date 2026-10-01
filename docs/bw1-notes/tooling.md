@@ -128,7 +128,7 @@ Scripts de análisis de `.lnd` (`dev\tools\lnd\`): `lnd_check` (tabla de bloques
 ### Diferencias sin comprobar en el original
 
 - El editor elige el material con `min(altitud + ruido/4, 255)`; el original lo hace **por texel** con
-  `min((h >> 8) + ruido, 255)` y la altitud pesada con conos (resuelto, rendering.md "Costa"), y openblack
+  `min((h >> 8) + ruido, 255)` y la altitud pesada con conos (resuelto, [rendering.md](rendering.md#costa)), y openblack
   ya lo sigue (`3D/BlockTexture`).
 - El lector L3D de openblack toma ancho y alto de huella de la cabecera; el editor los lee por entrada.
 - El editor lee info.dat de Creature Isle (627250 bytes; tablas más largas en InfoConstants.java L23-33); openblack

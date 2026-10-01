@@ -13,9 +13,11 @@
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "Locator.h"
 
 namespace openblack::ecs
@@ -27,6 +29,12 @@ void ToBeDeleted(entt::entity entity)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(entity))
 	{
+		return;
+	}
+	if (registry.AnyOf<Tree, DeadTree>(entity))
+	{
+		// Tree::ToBeDeleted 0x74A210 / DeadTree::ToBeDeleted 0x510C90: out of its forest, the deletion listeners told
+		DeleteTree(entity);
 		return;
 	}
 	if (const auto* villager = registry.TryGet<const Villager>(entity))

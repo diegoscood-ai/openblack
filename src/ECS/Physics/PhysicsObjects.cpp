@@ -42,6 +42,7 @@
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
+#include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Town.h"
@@ -154,6 +155,12 @@ const GObjectInfo* InfoOf(entt::entity entity)
 	if (const auto* c = registry.TryGet<const MobileObject>(entity))
 	{
 		return &info.mobileObject.at(static_cast<size_t>(c->type));
+	}
+	if (registry.AllOf<OneOffSpellSeed>(entity))
+	{
+		// OneOffSpellSeed::Create 0x72A3BE: MobileObject(pos, 0xD39F3C, ...), the GMobileObjectInfo after WHALE's
+		// 0xD39E28 (stride 0x114): ONE_OFF_SPELL_SEED 25 (inferido: WHALE's address is not checked either)
+		return &info.mobileObject.at(static_cast<size_t>(MobileObjectInfo::OneOffSpellSeed));
 	}
 	if (const auto* c = registry.TryGet<const Tree>(entity))
 	{
@@ -489,6 +496,7 @@ entt::entity EndPhysics(PhysicsObject& po)
 		// 0x5F0BAF: MapCoords::IsWater of Pos (the cell's water bit, the shallow shore too; not the body's inWater)
 		if (ecs::sea_cells::IsWater(transform.position))
 		{
+			ecs::RememberLastPlayerToInteract(entity, po.byPlayer);
 			ecs::VillagerEndPhysicsInWater(entity);
 			return entt::null;
 		}
@@ -728,6 +736,7 @@ void Substep()
 		if (!po.body.resting && po.body.Centre().y < po.body.Radius() * 0.5f)
 		{
 			// 0x645A01: HasSunk (vt +0x7B8, ECS/VillagerDrowning) stops the body and ends its physics as if at rest
+			ecs::RememberLastPlayerToInteract(po.entity, po.byPlayer);
 			if (po.body.density > 1.0f && ecs::HasSunk(po.entity))
 			{
 				if (!stillAt(i, self)) // Living::HasSunk: the animal went (ToBeDeleted)
@@ -927,6 +936,10 @@ int PhysicsObjects::ConstantsType(entt::entity entity)
 	{
 		return magic::map_shield::k_PhysicsConstantsType; // PhysicalShield::GetPhysicsConstantsType 0x72D7E0
 	}
+	if (registry.AllOf<OneOffSpellSeed>(entity))
+	{
+		return 9; // OneOffSpellSeed::GetPhysicsConstantsType 0x72A920 (a one-shot orb thrown from the hand)
+	}
 	if (registry.AnyOf<Abode, StoragePit>(entity))
 	{
 		return 0;
@@ -1026,7 +1039,8 @@ bool PhysicsObjects::CanBecomeAPhysicsObject(entt::entity entity)
 	{
 		return false;
 	}
-	return registry.AnyOf<MobileStatic, MobileObject, Villager, Animal, Tree, DeadTree, Pot, Fragment>(entity);
+	// a one-shot orb is a MobileObject too (0x72A3BE)
+	return registry.AnyOf<MobileStatic, MobileObject, Villager, Animal, Tree, DeadTree, Pot, Fragment, OneOffSpellSeed>(entity);
 }
 
 const GObjectInfo* PhysicsObjects::ObjectInfo(entt::entity entity)

@@ -46,6 +46,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/SeaCells.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
@@ -249,19 +250,14 @@ bool InBounds(glm::vec2 p)
 /// Object::Collide(info.collideType) [inferred]: the sea or a fixed object's footprint
 bool Collides(glm::vec2 p, uint32_t collideType)
 {
-	// MapCoords::Collide (0x6033C0): no map cell -> everything; else MapCell::Collide 0x601BD0: 1 water (the land cell's
-	// hasWater bit, or no land block), 2 dry land, | 0x20 forest trees, | 4 fields; & collideType. Fixed objects' own
-	// footprints do not count.
+	// MapCoords::Collide (0x6033C0): no map cell -> everything; else MapCell::Collide 0x601BD0 (ECS/SeaCells: 0x10 off
+	// the game map, 1 water, 2 land) & collideType. Fixed objects' own footprints do not count; the object bits (fields,
+	// forest trees) are not in openblack's map cells yet
 	if (!InBounds(p))
 	{
 		return collideType != 0;
 	}
-	const auto cellCoords = glm::u16vec2(glm::max(p, glm::vec2(0.0f)) / 10.0f);
-	const auto& cell = Locator::terrainSystem::value().GetCell(cellCoords);
-	// the empty cell of a missing block (fullWater only) is water, as the original's missing LandCell
-	const bool missing = cell.properties.fullWater && cell.r == 0 && cell.g == 0 && cell.b == 0 && cell.properties.country == 0;
-	const uint32_t bits = cell.properties.hasWater || missing ? 1u : 2u;
-	return (bits & collideType) != 0;
+	return (sea_cells::CollideLandscape(glm::vec3(p.x, 0.0f, p.y)) & collideType) != 0;
 }
 
 /// fn_0074F310: uniform in a square of that side around c (half - GameFloatRand(size) per axis)

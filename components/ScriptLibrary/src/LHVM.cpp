@@ -1364,7 +1364,34 @@ void LHVM::Opcode23Cast(VMTask& task, const VMInstruction& instruction)
 	}
 	else // Mode::CAST
 	{
-		Push(Pop(), instruction.type);
+		// The original's INTCAST (Plug Ins\ScriptLibraryR.dll, opcode 23 = 0x10008EE0, switch table 0x100090E4 on type - 1)
+		// converts the value for two types and only retags it for the others:
+		switch (instruction.type)
+		{
+		case DataType::Int:
+		{
+			// 0x10008F0A: the bits read as a float, __ftol 0x1001568C (fistp qword with truncation, the low dword)
+			const auto f = Pop().floatVal;
+			int32_t i = 0;
+			if (std::isfinite(f) && std::fabs(f) < 9.2233720368547758e18f)
+			{
+				i = static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(f))));
+			}
+			Push(VMValue(i), DataType::Int);
+			break;
+		}
+		case DataType::Float:
+			// 0x10008F6F: the bits read as an unsigned 32-bit integer (fild qword with a zero high dword)
+			Push(VMValue(static_cast<float>(Pop().uintVal)), DataType::Float);
+			break;
+		case DataType::Unk5:
+			// 0x100090DE: nothing, the value stays as it was
+			break;
+		default:
+			// 0x10008F32 / 0x10008FA2 / 0x10008F57 (vector, object, boolean): the same bits, the new type
+			Push(Pop(), instruction.type);
+			break;
+		}
 	}
 }
 

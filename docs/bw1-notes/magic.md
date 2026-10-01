@@ -224,7 +224,9 @@ Verificado instrucción a instrucción:
     - Para ordenarla en el Z-sorter, `Draw` adelanta su posición hacia la cámara su radio (vt 0x60) y luego la
       restaura. Así la bola se pinta después de la semilla de dentro. `DrawSpellGraphic` recibe como alfa el byte alto
       del difuso (0x95). openblack: `components::Alpha` = 149/255 en `OneOffSpellSeedArchetype` (pasada `MainBlended`).
-      El adelanto por el radio no está hecho (M7 lo necesitará para la semilla).
+      El adelanto por el radio sí está (lane «seed»): `one_off::UpdateFrames` guarda `OneOffSpellSeed::sortPoint` = centro de
+      la caja + normalize(cámara − centro) × radio (`Get2DRadius`: media extensión mayor en x/z × escala, 2,3 m) y
+      `RenderingSystem` / `Renderer` ordenan la bola por ese punto (`RenderContext::sortPoints`).
   - **La bola mira siempre a la cámara.** `Draw` llama cada fotograma a fn_00518720, activa mientras el byte
     [0xBE8E8D] valga 1 (lo vale). Esta gira la matriz 3D del objeto alrededor del centro `c` de la caja de la malla
     (`LH3DMesh::ComputeBoundingBox` 0x8081B0 al cargar, todas las submallas; aquí (0; 2,23; 0)):
@@ -244,6 +246,31 @@ Verificado instrucción a instrucción:
       Capturas `orb_face_low.png` (de lado) y `orb_face_top.png` (desde arriba).
 - `InterfaceTap` 0x72A640: `CreateSpellIntoHand`, inmersión 0xE, muestra 0x6D (`G_SpellBubblePop_04`) y la bola se
   borra (3).
+- **Con la mano de verdad** (fiel, lane «grab», `HandSystem.cpp` / `HandPlacement.cpp`):
+  - El objeto bajo el cursor (`SendObjectDrawCollision` 0x5D56C0, triángulo exacto) llega a `ActionPressed`
+    fn_005D1330 → `StartGrab` 0x5D1740 si `ValidForPlaceInHand` (vt 0x6FC) o `InterfaceValidToTap` (vt 0x740). La bola
+    tiene las dos: es un `MobileObject` (`Mobile::ValidForPlaceInHand` 0x425B00 = 1) y `InterfaceValidToTap` 0x72A630 = 1.
+  - Pulsar sobre ella empieza el agarre (estado 13). Si se suelta antes de 225 ms (`State_Grab` 0x5D5250, 0xE1) es un
+    **toque**: `Tap` 0x5D3930 → 0x5D38A0 → paquete 0x20 → 0x5DA650 → `InterfaceTap`, y la semilla cargada pasa a la mano.
+  - Si se mantiene pulsado, **se coge la bola misma**: `GenericPickup` 0x5D2800 (paquete 0x13) → `PlaceObjectInMagicHand`
+    → `InterfaceSetInMagicHand` 0x72A530 (solo marca la magia como habilitada). Se lleva como un `MobileObject`
+    (`GetHoldType` 0x607120 = 6, `Object::GetHoldRadius` 0x638C00) y se suelta o se lanza con física: constantes 9
+    (`GetPhysicsConstantsType` 0x72A920) y la info `GMobileObjectInfo` 25 (0xD39F3C; **(inferido)** que sea la 25, por
+    el paso 0x114 desde la de WHALE). El dispensador ya no la ve en su sitio y hace otra al recargar.
+  - El toque y el agarre piden la mano dentro de la influencia del jugador (`InterfaceMustBeInInfluenceForInteraction`
+    0x4028A0 = 1; `m_InInfluence` de fn_005D1120, tipo 1). Fuera de ella no pasa nada.
+  - Volumen de selección: la malla tal como se dibuja, girada hacia la cámara (fn_00518720), así que vale la cúpula
+    que se ve desde cualquier lado. **(inferido)**: si el rayo da en la semilla de dentro (`SpellSeedGraphic`, que no es
+    un `Object`), cuenta como si diera en su bola o icono.
+  - Los iconos de los lugares de culto y de los centros de pueblo (`Object::ValidForPlaceInHand` 0x402870 = 0) se tocan
+    al pulsar (`StartGrab` → `Tap` al momento), con la misma regla de influencia.
+  - **Pendiente**: el texto de ayuda al pasar por encima (fn_005D6D70: en una bola, `GetOverwritePickUpToolTip` 0x72AC50
+    = el texto de su magia +0x110; el de tocar es 0xEF7). Tampoco están `GInterface::StartImmersion(0xE)` ni el registro
+    `GameThingClicked` de fn_005D36D0.
+  - Gancho: `OPENBLACK_MOUSE_AT=0.5,0.5 OPENBLACK_CAMERA_LOCK=1948,40,2550,1939.2,33,2537.7` con
+    `--mod test.miracle-dispensers` (la bola de FUEGO en el centro). Toque: `OPENBLACK_TEST_CAST="press@5,release@5.1"`.
+    Coger la bola: `"press@5,release@5.6"`. Dejarla: añadir `",press@7,release@7.2"`. Capturas `grab_tap.png`,
+    `grab_hold.png` y `grab_drop.png` en `dev\_audit\magic`.
 - Guion del mapa (fn_00715150):
   - caso 83, `CREATE_ONE_SHOT_SPELL(pos, semilla)` → Create(pos, la semilla por nombre, −1, 1);
   - caso 84, `CREATE_ONE_SHOT_SPELL_PU(pos, magia)` → la primera semilla de esa magia y su nivel
@@ -532,7 +559,58 @@ huecos (`sites[6]`); el ángulo del hueco *n* es **el ángulo del corazón + n �
 
 - `WorshipSpellIcon::Create` 0x77F2B0 pone la malla 203 en el hueco 10..15 con la escala y el ángulo del lugar, y su
   `SpellSeedGraphic` encima (`SpellIcon::Create3DSpellObject` 0x726210). `UpdateGraphicsWithPULevels` 0x77F320 muestra
-  el nivel de mejora más alto que el jugador tiene habilitado, con alfa 0,5.
+  el nivel de mejora más alto que el jugador tiene habilitado y pone +0x58 = 0,5. **+0x58 no es un alfa**: solo lo lee
+  `DrawSpellGraphic` 0x51A712 como tamaño de la banda (0,2 × +0x58 × escala). La semilla del icono se pinta opaca
+  (el icono pasa alfa 0xFF). Antes openblack la pintaba a medias: corregido.
+
+### SpellSeedGraphic: la semilla que flota en la bola y en los iconos (`Worship/SpellSeedGraphic.cpp`, fiel salvo lo marcado)
+
+Objeto de `SpellIcon.cpp` (no es un `Object`; lista 0xD9D3D0). Campos: +0x14 MapCoords de la malla, +0x2C la malla
+(Game3DObject), +0x30 la banda, +0x34/+0x38 fases de las fiolas, +0x3C ángulo y, +0x40/+0x44 ángulos de la banda,
++0x48 semilla, +0x50 PSys de soporte, +0x54 escala, +0x58 tamaño de la banda, +0x5C auto-update, +0x60 PU, +0x64 el
+punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fichero + 0x10).
+
+- `Create` 0x726F60 → fn_00727190: la malla `GSpellSeedInfo.mesh` (+0x130 del fichero) y `ReplaceMeshGivenSeedType`
+  0x728450 (tabla 0x72854C por semilla − 3): FLYING_FLOCK pone la malla 1 (AnimalBat1) si la alineación del jugador
+  (GPlayer+0x60 → +8) < `alignmentSwitch` (fn_00723140), si no la 11 (AnimalSpellDove), y fn_00727440 lo rehace cada
+  30 turnos (`g_game +0x205A40 % 0x1E` en fn_00727350; openblack usa `Game::GetTurn`, **(inferido)** que ese campo
+  sea el contador de turnos); FOOD y las fiolas de criatura llevan el envmap 0 (`envmap.raw`) y BEAM_EXPLOSION propiedades
+  {1,0,1,1,0}: **no portado** (openblack no tiene envmap por objeto). El PSys de soporte (+0x164 del fichero) se crea
+  en el punto + `unknown0x154` × escala con magnitud = escala; la banda (`CreatePUBand` 0x727080) si pu ≠ −1.
+- fn_007270E0: +0x64 = punto, malla en punto + `unknown0x150` × escala (−1,5 casi siempre: las mallas I_* tienen el
+  origen abajo y ~3 m de alto, así quedan centradas), efecto en punto + `unknown0x154` × escala.
+- La bola (`OneOffSpellSeed::Draw` 0x518E90), cada fotograma que se ve: `GetSpellGraphicPos` 0x72A840 = la matriz
+  dibujada aplicada al punto de malla `ResolveLoad()+0x18` (el centro de la caja, **(inferido)** por ser el punto en
+  que gira fn_00518720) y escala = escala del objeto 3D × 0,6 ([0x8C7BDC]); `DrawUpdateAtPos` 0x727630 (+0x54 =
+  escala, fn_007270E0, fn_007274D0: PSys a su punto, magnitud = escala, `Process_` con la info a cero, poder 1,
+  activo) y `DrawSpellGraphic(bola, 0, 1, 0x95)`.
+- Los iconos (`SpellIcon::Draw` 0x5198D2, `TownCentre::Draw` 0x5164D4 → `DrawSpellSeedGraphic` 0x726D30):
+  `UpdateOnly(ms)` y `DrawSpellGraphic(icono, 0, 1, 0xFF)` (los dos tiñen el icono con 0xFFFFFFFF). La semilla queda
+  donde la creó `Create3DSpellObject` (punto especial 0 + 1, escala 1).
+- `DrawSpellGraphic` 0x519AD0 (leído entero en la parte de semillas del jugador):
+  - solo si `useMesh` (+0x168 del fichero, fn_00727690) vale 1. **STORM, FIRE, LIGHTNING_BOLT, WATER y TELEPORT tienen
+    0**: en la bola y en el icono solo se ve su efecto de soporte (LIGHTNING_STORM / FIREBALL / LIGHTNING_BOLT / WATER /
+    TELEPORT_ON_HOLDER). openblack pintaba sus mallas (I_Lightning2, I_Blast, I_Lightning, el cuerno para el agua y
+    el escudo para el teletransporte): eran los «iconos equivocados».
+  - tamaño = `GSpellSeedInfo.scale` (+0x134) × +0x54; ángulo +0x3C += 2 rad/s × dt ([0x8D8700]), fmod 2π (double
+    [0x8D45D8]); `SetPosition` 0x423140: filas X = (cos, 0, sin), Z = (−sin, 0, cos). **Sin bote ni pulso** para las
+    semillas del jugador: `AsMagicCreatureSpellInfo` (vt 0x38) de su magia base es NULL y salta a 0x51A0B3. El bote
+    (+0x38 a 0,35/0,5 por s, `0,5(1 + sin 2π f)`), los cuadros UV 8×4 a −15 por s (+0x34) y los aplastamientos
+    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27: no portados.
+  - alfa difuso = el del dueño y `SetGlobalAlpha(alfa ≠ 0xFF)`: en la bola la semilla es translúcida (0x95).
+  - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
+    **no portado** (aproximado).
+  - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.
+  - la banda si pu ≠ −1: +0x44 += 10,3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 dibujos en +0x64 con tamaño
+    0,2 × +0x58 × +0x54, filas: identidad con la fila 1 y la 2 cambiadas (la vieja 1 negada), giro (x, z) por base
+    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. **(aproximado)**:
+    fn_0051A830 (gira la banda con la cámara cuando [0xBE8E8E]) y el color del jugador no están.
+- openblack: `seed_graphic::DrawUpdateAtPos` / `UpdateOnly` / `DrawSpellGraphic` / `UpdateIconGraphics`;
+  `one_off::UpdateFrames` (bola) y `worship::Update` (iconos) los llaman cada fotograma. **(inferido)**: también
+  cuando no están en pantalla.
+- Capturas (`dev\_audit\magic\`, `--mod test.miracle-dispensers` con `level=all`): `seed_<semilla>_a/_b.png` (dos
+  cuadros, 10 fotogramas de diferencia) y `seed_grid1.png` / `seed_grid2.png` (recortes aclarados), y
+  `seed_land2_icons_650/660.png` (iconos del lugar de culto de Land 2).
 - `TownCentre::AddSpell` 0x744050 crea un icono por semilla en el primer hueco libre 0..5 del centro del pueblo;
   `TownCentre::MakeFunctional` 0x743E80 lo hace para toda la magia que la ciudad ya tenía y luego llama a
   `WorshipSite::AddTownSpells`. Cada icono del pueblo pide al lugar de culto un icono de su semilla
@@ -870,6 +948,24 @@ más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por 
   (fn_0072F980). `SetupOnFire` 0x75B170 guarda el estado y el destino anteriores y pasa a `ON_FIRE` con el fuego que lo
   calienta. **R10** (la decisión de 0x765870) queda leída en `ReactToFire`: el aldeano busca el fuego del grupo más
   cercano a él que esté por encima de la temperatura de reacción (`fn_00730070`).
+  - Sitio del bombero (`GetFireFightingPos` 0x75AA90): en la recta del fuego al aldeano, a `max(radio seguro, radio
+    del objeto)` (0x75AAF2..0x75AB16; antes el port tomaba el mínimo, y el aldeano iba y venía 216 ⇄ 220 cada turno) +
+    el radio del aldeano (0x75AB23) + `GameFloatRand(1)`. La llegada de `MOVE_AROUND_FIRE` y de `GO_TOWARDS_TELEPORT`
+    es `MobileWallHug::AreWeThere` 0x60AD60: `d² < (paso +0x5A + extra)²` estricto, el paso de `RebuildMoveByStep`
+    0x609D10 = `WallHug::speed` (antes, 1 m). Comprobado: Land1, `OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`,
+    `OPENBLACK_VILLAGER_TRACE=1` (`dev\_audit\magic\fix_firemen.log`): 13 cambios 216 → 220 y 25 220 → 216 en toda la
+    vida del fuego (antes 3213 en 650 turnos), cada aldeano decenas de turnos en cada estado.
+  - `Villager::ReactionValidate` 0x756A00 (`villager_reactions::ReactionValidate`): la columna «validate» (+0x80) de la
+    tabla de estados 0xD09198 en las filas de reacción (201, 202, 251, 215-218, 220, 6-30, 140-146), que
+    `Villager::ProcessState` 0x74FF91/0x74FFD9 corre cada turno para el estado de arriba (+0x8C) y el guardado (+0x8D)
+    antes del estado: `PopFromPrevious` 0x751E50 si el objeto de la reacción (+0xBC) no existe o no está disponible
+    (`GameThing::IsAvailable` 0x401810, vt 0x2C), o si la fila de `ReactionInfo` (0xD4F6B0, `Reaction::GetInfo`
+    0x6E4709) pide `whetherReactionFinishesIfInitiatorInHand` (+0x28) y el objeto está en la mano (+0x24 & 4).
+    `ReactToFire` 0x765870 y `GoToTeleportReaction` 0x7662F0 no comprueban nada más (el primero solo devuelve 0 si el
+    objeto no es un `Object` o no tiene fuego, sin cambiar de estado). Conectada (2026-10-01, fusión de V2):
+    `LivingActionSystem::VillagerCallValidate` la llama en toda fila sin validate propio cuyo validate original es
+    0x756A00 (`VillagerOriginalFns.h`); las salidas propias (inferido) de `ReactToFire` y `GoToTeleportReaction` ya no
+    están (detalle en [villagers.md](villagers.md)).
 
 ### Natives CHL (`Magic/Script/CHLFire.cpp`)
 
@@ -939,28 +1035,33 @@ Comprobado contra el ejecutable (`dev\tmp_dis\miracles\impl\review2\`) y con las
 - La semilla de un uso se ata al mejor icono del jugador (`CreateSpellIntoHand` 0x72A730 → fn_007282A0), como arriba.
 - La bola de un uso tiene su `SpellSeedGraphic` dentro (0x72A450) y se borra con ella.
 
-### Pregunta abierta: el tamaño de la bola de fuego lanzada con la mano
+### El tamaño de la bola de fuego lanzada con la mano (inferido, recuerdo del usuario)
 
-`Spell::InitWithPos` 0x71FE50 da al PSys la magnitud `SpellCastData[0]` sin comprobar si es 0, y ese valor es el
-tamaño del paquete de gesto de la interfaz (`m_Gesture` +0x1B8, fn_0071FA10). **Solo lo escribe el círculo** (la rama de
-los gestos de tamaño de `ProcessPowerUpSystem`, 0x5CF559, único llamador de 0x57A5E0, y la copia del círculo pendiente
-en 0x5D33BA); la selección por gesto y los demás reconocimientos no lo tocan, y el `GInterface` nace a cero
-(`Base::operator new` 0x4366F0 borra la memoria). `SF_FireBallThrow` pone la escala del átomo con
-`MagnitudeFloatProvider` (mín 0,01, máx 10, `UpdateParams` 0x69DA90) y `SetScale` 0x6A2700 (+0x78), y de esa escala
-salen el radio y la capacidad de calor de la `MagicFireBall`. Así, en el port igual que (según lo leído) en el
-original, una bola de fuego lanzada sin haber dibujado nunca un círculo sale con escala 0,01 (unos 4 cm, casi no
-calienta: `review2_disp_fireball_t33.png`, `review2_land2_cast.png`), y tras un círculo de escudo o tormenta sale con el
-tamaño de ese círculo (hasta 10, 40 m). Con `SPELL_AT_POS` la magnitud es el radio del guion (10 en
-`m5_fireball.png`). No cuadra con cómo se recuerda el juego: queda **UNVERIFIED** si hay otro escritor que no se ve
-(p. ej. una copia de la estructura entera) antes de cambiar nada.
+`Spell::InitWithPos` 0x71FE50 da al PSys la magnitud `SpellCastData[0]` sin comprobar si es 0 (`PSysInterface::Create`
+0x68E910 → `GJPSysInterface::Create` 0x68F3DA la guarda en el manager +0xA0, que lee `MagnitudeFloatProvider`
+0x69DA90). En `SpellSeed::Cast` 0x729520 ese valor sale del paquete de gesto (+0x14, fn_0071FA10), que es
+`GInterface` +0x1B8 copiado entero en el paquete 0x12 (`SendApplyToMapCoord` 0x5D362D → fn_00550E90 → formato 15 de
+`SendPacketCompressed`, un bloque de 0x18 bytes, sin cuantizar) y que **solo escribe el círculo** (0x5CF57A y 0x5D33BA;
+el `GInterface` nace a cero). Pero justo después, `SpellSeed::DoPreCastThings` 0x729460 hace
+`if (magicInfo.spellSeedType == FIRE) castData.magnitude = 1.0` (0x729502..0x72950B): los programadores fijaron la
+bola de fuego a magnitud 1 fuera cual fuera el gesto. Leído al pie de la letra esa rama está muerta: info.dat deja
+`GMagicInfo` +0x28 (`spellSeedType`) a −1 en todas las filas y nada lo escribe en el juego, así que la bola saldría con
+el tamaño del último círculo, o 0 → 0,01 (4 cm, casi no calienta) si nunca se dibujó uno. El usuario recuerda (2026-10-01)
+que una bola lanzada desde la mano salía **siempre grande**, con cualquier gesto: manda su recuerdo, y el port aplica la
+rama con el tipo de la propia semilla (`GSpellSeedInfo`, semilla +0x6C) cuando la fila deja el campo a −1
+(**inferido**, `SpellSeed.cpp` `DoPreCastThings`). Resultado: escala de átomo 1 × 4,0168 del sprite raíz, la bola se ve
+en vuelo y prende la casa y el árbol donde cae (`fix_fireball_flight.png`, `fix_fireball_hut.png`). Con `SPELL_AT_POS` la
+magnitud sigue siendo el radio del guion (10 en `m5_fireball.png`), porque no pasa por la semilla.
 
 ### Cadenas probadas en el juego (capturas en `dev\_audit\magic\`)
 
 - Land1, dispensador → bola → semilla → lanzar: `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1812,2652,1"`,
   `OPENBLACK_TEST_TAP="1812,2652,200"`, `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"`,
   `OPENBLACK_TEST_THROW_VEL`: la bola da la semilla FIRE lista (3500 cánticos), se arma (estado 8) y al soltar sale el
-  hechizo con su `MagicFireBall` (T 6000, fuego 2 en el granero 52, que no llega a prender con una bola de 0,01).
-  `review2_disp_fireball.log`.
+  hechizo con su `MagicFireBall` (T 6000). Con la bola de 0,01 de antes el granero no llegaba a prender
+  (`review2_disp_fireball.log`); con la magnitud 1 de la semilla FIRE arden la casa, un árbol y los aldeanos de al lado
+  (`fix_fireball_hut.png`, con `OPENBLACK_CAMERA_FLY=1800,75,2600,1826,30,2641`, `OPENBLACK_MOUSE_AT=0.5,0.55` y
+  `OPENBLACK_TEST_THROW_VEL=0,2,6`).
 - Land1, comida junto al almacén: el mismo dispensador con `FOOD`: dentro del radio del almacén (18,5 m) todo entra en
   él (`review2_disp_food.log`); un poco más allá (`review2_disp_food_pour.png`) hace una `MagicFood` de 200 que crece
   18 por grano, con la mano alzada 16 m y el chorro de 4 s.
@@ -1071,7 +1172,7 @@ Lo que falta está en cada tema, al final de su sección:
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
 - Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
-- Lo marcado en el código por la auditoría y la pregunta abierta de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [Pregunta abierta: el tamaño de la bola de fuego lanzada con la mano](magic.md#pregunta-abierta-el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano).
+- Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 
 Lo pendiente de cada milagro está en [Pendiente](miracles.md#pendiente).
 

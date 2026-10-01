@@ -112,8 +112,8 @@ void ProcessReaction(entt::entity villager);
 uint32_t ProcessState(entt::entity villager, uint32_t turn);
 /// Villager::CheckEveryTime 0x750410
 uint32_t CheckEveryTime(entt::entity villager, uint32_t turn);
-/// CheckEveryTime's hurt rule (0x750557..0x7505C3) enters 36 GO_HOME only when enabled. TODO(V4): off in the game
-/// until GO_HOME 0x760270 is ported (a row without its state function would freeze the villager); the tests enable it
+/// CheckEveryTime's hurt rule (0x750557..0x7505C3) enters 36 GO_HOME only when enabled: on since V2 (36 has its state
+/// function, VillagerHome.cpp); the tests may switch it off
 void SetGoHomeEnabledForTests(bool enabled);
 /// Villager::ProcessFoodSpeedup 0x753430
 void ProcessFoodSpeedup(entt::entity villager, uint32_t turn);
@@ -155,6 +155,12 @@ void SetTopStateToFinal(entt::entity villager);
 /// MOVE_TO_POS, final) first and, only if it returns 1, MobileWallHug::SetupMobileMoveToPos(pos, 0xC) (openblack: the
 /// WallHug goal, a fresh step and a LINEAR move). Returns 1 if the walk was set up, else 0.
 uint32_t SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, VillagerStates final);
+
+/// Living::LookAtPos 0x5EC550 (pos as MapCoords x / z, ecs::town_queries): one turning step towards pos, of at most
+/// 0x40 / 0x80 / 0x100 (mode 0 / 1 / 2) or the mode itself (any other mode) 2048ths, the short way; 1 when it faces it.
+/// Two arguments only (ret 8 at 0x5EC5BF / 0x5EC5E4). The angle (Living +0x5C) is WallHug::yAngle in openblack
+/// (aproximado: kept in radians, rounded to 2048ths)
+uint32_t LookAtPos(entt::entity villager, glm::ivec2 pos, uint32_t mode);
 
 /// State 85 CREATED: Villager::VillagerCreated 0x753DD0
 uint32_t VillagerCreated(components::LivingAction& action);

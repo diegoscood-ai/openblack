@@ -7,12 +7,9 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
-#include <cmath>
 #include <cstdlib>
 
 #include <algorithm>
-#include <array>
-#include <bit>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -28,6 +25,7 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
@@ -45,63 +43,11 @@ using components::Flock;
 using components::Transform;
 using components::Tree;
 
-/// GUtils::SigmoidThreshold's static table 0xC23284: 41 floats, a logistic around index 20
-constexpr std::array<float, 41> k_Sigmoid = {
-    0.0f,          3.6e-9f,       1e-8f,         2.8e-8f,       7.78e-8f,      2.163e-7f,     6.018e-7f,
-    1.674e-6f,     4.6568e-6f,    1.29542e-5f,   3.60351e-5f,   0.000100235899f, 0.000278786494f, 0.000775143097f,
-    0.00215331907f, 0.00596720818f, 0.0164249446f, 0.0443917401f, 0.114437282f,  0.264424354f,   0.5f,
-    0.735575676f,  0.885562718f,  0.955608249f,  0.983575046f,  0.9940328f,    0.997846663f,  0.999224842f,
-    0.999721229f,  0.999899745f,  0.999963939f,  0.999987066f,  0.999995351f,  0.999998331f,  0.999999404f,
-    0.999999762f,  0.99999994f,   1.0f,          1.0f,          1.0f,          1.0f};
-
-/// GUtils::SigmoidThreshold (0x74F170): a == 1 -> 0; T[min(ftol((clamp(clamp(b) - a) + 1) x 20.5), 40)]
-float SigmoidThreshold(float a, float b)
+/// GUtils::GetDistance 0x74CCB0 of two positions in metres (each truncated to a MapCoords first, 0x603160): whole
+/// 16.16 units, through the shared hypotenuse 0x74F680 (ECS/GUtilsDistance)
+int32_t MapDistance(glm::vec2 a, glm::vec2 b)
 {
-	if (a == 1.0f)
-	{
-		return 0.0f;
-	}
-	// x87: the clamps, the subtraction and (v + 1) x 20.5 stay in extended precision until ftol (double here)
-	const double v = std::clamp(static_cast<double>(std::clamp(b, -1.0f, 1.0f)) - a, -1.0, 1.0);
-	const auto i = static_cast<uint32_t>(static_cast<int32_t>((v + 1.0) * 20.5));
-	return k_Sigmoid.at(std::min(i, 40u));
-}
-
-/// The 1/sqrt table 0xDA5A10 (1024 entries, filled once by 0x74F590, called from GGame::InitOneTimeOnly): entry i keeps
-/// the top 10 mantissa bits (& 0x7FE000) of 1/sqrt(f), f the float 0x3F000000 | i << 14 (the exponent's low bit and 9
-/// mantissa bits); an exact 1 stores 0x7FE000
-const std::array<uint32_t, 1024>& InvSqrtTable()
-{
-	static const auto table = [] {
-		std::array<uint32_t, 1024> t {};
-		for (uint32_t i = 0; i < t.size(); ++i)
-		{
-			const auto f = std::bit_cast<float>((0x3F800000u & 0xFF003FFFu) | (i << 14));
-			const double r = 1.0 / std::sqrt(static_cast<double>(f));
-			t.at(i) = r == 1.0 ? 0x7FE000u : (std::bit_cast<uint32_t>(static_cast<float>(r)) & 0x7FE000u);
-		}
-		return t;
-	}();
-	return table;
-}
-
-/// _FUN_0074f620: the table's approximate 1/sqrt: exponent ((0xBE000000 - exponent bits) >> 1), mantissa from the table
-float InvSqrtApprox(float x)
-{
-	const auto bits = std::bit_cast<uint32_t>(x);
-	const uint32_t exponent = ((0xBE000000u - (bits & 0x7F800000u)) >> 1) & 0x7F800000u;
-	return std::bit_cast<float>(exponent | InvSqrtTable().at((bits >> 14) & 0x3FFu));
-}
-
-/// GUtils::GetDistance (0x74CCB0) = hypotenuse (0x74F680) of the MapCoords (6553.6 per metre) difference on x / z:
-/// s = (float)((dx / 65536)^2 + (dz / 65536)^2), then ftol(65536 / InvSqrtApprox(s)) (a ~0.1% approximate length)
-uint32_t MapDistance(glm::vec2 a, glm::vec2 b)
-{
-	const auto mx = [](float metres) { return map_coords::ToFixed(metres); }; // MapCoords(LHPoint) 0x603160
-	const double dx = static_cast<double>(mx(b.x) - mx(a.x)) / 65536.0;
-	const double dz = static_cast<double>(mx(b.y) - mx(a.y)) / 65536.0;
-	const auto s = static_cast<float>(dx * dx + dz * dz);
-	return static_cast<uint32_t>(static_cast<int64_t>(65536.0 / static_cast<double>(InvSqrtApprox(s))));
+	return gutils::GetDistance(map_coords::FromMetres(a), map_coords::FromMetres(b));
 }
 
 /// fn_0053AD00(forest, d, scale): SigmoidThreshold(-0.9, (grown + growing) / 20) is computed and discarded, the score
@@ -109,8 +55,8 @@ uint32_t MapDistance(glm::vec2 a, glm::vec2 b)
 float ForestScore(uint32_t forestId, float distance, float scale)
 {
 	[[maybe_unused]] const float discarded =
-	    SigmoidThreshold(-0.9f, static_cast<float>(static_cast<uint32_t>(ForestTreeCount(forestId)) / 20u));
-	return SigmoidThreshold(-0.9f, -(distance / scale));
+	    gutils::SigmoidThreshold(-0.9f, static_cast<float>(static_cast<uint32_t>(ForestTreeCount(forestId)) / 20u));
+	return gutils::SigmoidThreshold(-0.9f, -(distance / scale));
 }
 
 /// The forest loop shared by Tiger (0x4214D2) and Wolf (0x42181A): the forest list newest first (g_game +0x205BB4,
@@ -157,10 +103,10 @@ std::optional<glm::vec3> NearestNewestFirst(glm::vec2 from)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	std::optional<glm::vec3> best;
-	uint32_t bestDistance = std::numeric_limits<uint32_t>::max();
+	int32_t bestDistance = std::numeric_limits<int32_t>::max();
 	int64_t bestIndex = -1;
 	registry.Each<const Component, const Transform>([&](entt::entity entity, const Component&, const Transform& transform) {
-		const uint32_t d = MapDistance(from, Xz(transform));
+		const int32_t d = MapDistance(from, Xz(transform));
 		const int64_t index = object_index::Of(entity);
 		if (!best || d < bestDistance || (d == bestDistance && index > bestIndex))
 		{

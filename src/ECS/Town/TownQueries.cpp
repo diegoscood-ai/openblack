@@ -29,6 +29,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -155,10 +156,9 @@ glm::ivec2 PosOf(entt::entity object)
 
 float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b)
 {
-	// 0x74CCB0: hypotenuse(b.x - a.x, b.z - a.z) (whole MapCoords); 0x74DCC0: 10 x 1/65536 x that
-	const auto d = static_cast<double>(std::hypot(static_cast<double>(b.x - a.x), static_cast<double>(b.y - a.y)));
-	const auto whole = static_cast<int32_t>(d);
-	return 10.0f * (1.0f / 65536.0f) * static_cast<float>(whole);
+	// 0x74CD70 = ConvertWholeDistanceToMeters 0x74DCC0(GetDistance 0x74CCB0): the shared table hypotenuse 0x74F680,
+	// not std::hypot (the table is 0.024 % long at 100 m), and the whole units are multiplied exactly (`fimul`)
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b)

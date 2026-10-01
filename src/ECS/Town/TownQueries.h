@@ -37,7 +37,7 @@ namespace openblack::ecs::town_queries
 [[nodiscard]] glm::ivec2 PosOf(entt::entity object);
 
 /// GUtils::GetDistanceInMetres 0x74CD70: GetDistance 0x74CCB0 (hypotenuse 0x74F680 of dx, dz) x 10 / 65536
-/// (ConvertWholeDistanceToMeters 0x74DCC0). (aproximado) hypotenuse is a table square root (~0.1 %); here std::hypot
+/// (ConvertWholeDistanceToMeters 0x74DCC0), through ECS/GUtilsDistance (gutils::GetDistanceInMetres)
 [[nodiscard]] float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b);
 /// GUtils::GetAngleFromXZ 0x74D240 = GetAngleFromDXDZ 0x74D200(b - a) = LHArcTan 0x74D0C0: 2048ths, from a towards b
 [[nodiscard]] uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b);

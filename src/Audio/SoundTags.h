@@ -11,54 +11,65 @@
 
 #include <cstdint>
 
+#include <optional>
+
 #include <entt/core/fwd.hpp>
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
+#include "Audio.h"
+
+// SoundTag (SoundTag.cpp 0x71E300..0x71ED90, milestone B3): the public part is audio::tags in Audio.h; this header has
+// what the rest of src/Audio calls (the turn, the map change, the channels' 3D function) and agua's sound_tags names.
+// Research: dev\tmp_dis\mapa\flecos_lantern-sound.md and d_soundtag.txt (the dump of SoundTag.cpp).
+
+namespace openblack::audio::tags
+{
+
+/// SoundTag::ProcessSoundTags 0x71E5F0, once a game turn from GGame::EndTurn (0x54E989): every tag, newest first
+/// (the list g_game+0x205C1C is pushed at its head, 0x71E31F..0x71E339), through fn_0071E680
+void ProcessSoundTags();
+/// Every tag stopped and forgotten (GGame::ClearMap deletes them with the map's objects; openblack also stops their
+/// samples, which GAudio::Reset's LHSampleStopAll does right after)
+void Clear();
+/// SoundTag::Get3DSoundPos 0x71EC90 for the channels: its thing's Get3DSoundPos (nullopt: no thing, or the thing is
+/// gone in openblack, so the channel keeps its point)
+[[nodiscard]] std::optional<glm::vec3> Get3DSoundPos(TagId tag);
+/// The tag's own point (+0x10), nullopt for an unknown tag
+[[nodiscard]] std::optional<glm::vec3> Point(TagId tag);
+
+} // namespace openblack::audio::tags
+
 namespace openblack::audio::sound_tags
 {
 
-/// The original's SoundTag (SoundTag.cpp 0x71E300..0x71ED90, `new(0x54)`, linked in g_game+0x205C1C): a looping 3D
-/// sample tied to a thing or a fixed point, (re)started by `ProcessSoundTags` every game turn. Only what the ported
-/// users need: play mode 2 (a playing channel is left alone), 3D, not tracked, the InGame bank, no delay. The sample
-/// plays on one of LHaudio's 16 channels (audio::sample_play) with the tag itself as the channel's owner (0x71E6F1).
-/// Research: dev\tmp_dis\mapa\flecos_lantern-sound.md (SoundTag, GAudio::PlaySoundEffect) and dev\tmp_dis\agua\audio.md
-/// §6 (the designed waterfall's tag).
-using TagId = uint32_t;
-inline constexpr TagId k_NoTag = 0;
+/// agua's names (DesignedScenery's waterfall), kept until milestone B4 moves their caller to audio::tags. A desc
+/// without a thing is a tag of a ScriptMarker at `point` (DesignedWaterFall 0x5E3921 / 0x5E3BD5: SoundTag::Create on
+/// the marker, a GameThingWithPos that never goes away): it replays like a tag of a thing, not like a point tag.
+using TagId = tags::TagId;
+inline constexpr TagId k_NoTag = tags::k_NoTag;
 
 struct TagDesc
 {
 	/// The sample (an InGame.sad SoundId)
 	entt::id_type sample {0};
-	/// The tag's thing (+0xC). entt::null: a fixed point (a ScriptMarker; `point` is where it sounds)
+	/// The tag's thing (+0xC). entt::null: a ScriptMarker at `point`
 	entt::entity thing {entt::null};
-	/// With a thing: added to its position (+0x1C, e.g. (0, Object::GetHeight, 0)). Without: the absolute point.
-	/// (ScriptMarker = GameThingWithPos::Get3DSoundPos 0x56FE20: (x, altitude + y above the land, z); a marker made
-	/// with MapCoords(LHPoint) keeps y - altitude, so it sounds at the LHPoint's y itself.)
+	/// With a thing: its offset (+0x1C). Without: the marker's point (ScriptMarker = GameThingWithPos::Get3DSoundPos
+	/// 0x56FE20: (x, altitude + y above the land, z); a marker made with MapCoords(LHPoint) keeps y - altitude, so it
+	/// sounds at the LHPoint's y itself.)
 	glm::vec3 point {0.0f};
-	/// loops (+0x3C): -1 = for ever
+	/// loops (+0x3C): -1 = for ever, else 0
 	bool loop {true};
 	/// +0x4C: SoundTag::SetActive
 	bool active {true};
 };
 
-/// SoundTag::Create 0x71E840 / 0x71E8C0
+/// SoundTag::Create 0x71E840 / 0x71E8C0 with track 0, mode 2, +0x40 0, is3D 1, InGame, delay 0
 TagId Create(const TagDesc& desc);
-
-/// SoundTag::SetActive 0x71E640: turning it off stops the sample at once (GAudio::StopPlayingSoundEffect)
+/// tags::SetActive
 void SetActive(TagId tag, bool active);
-
-/// SoundTag::ToBeDeleted 0x71ECB0 -> CreateSoundTagForDeadObject: a playing loop is released (LHSampleReleaseLoop, it
-/// ends with the current pass) and the tag dies when it stops; one that is not playing goes at once.
+/// tags::Delete
 void Delete(TagId tag);
-
-/// SoundTag::ProcessSoundTags 0x71E5F0, once per game turn from GGame::EndTurn. Per tag (fn_0071E680): a thing that is
-/// gone deletes the tag; an active tag calls GAudio::PlaySoundEffect 0x42A100, which starts the sample only when the
-/// camera is within the sample's max distance (.sad +0x26C) of the point, and does nothing while it plays (mode 2).
-void ProcessTurn();
-
-/// Every tag stopped and forgotten (a new map: the registry reset destroys the emitters, so their AL sources go first)
-void Clear();
 
 } // namespace openblack::audio::sound_tags

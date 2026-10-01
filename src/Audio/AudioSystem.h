@@ -55,6 +55,16 @@ BankId RegisterBank(const std::filesystem::path& path, std::string_view group);
 /// other kinds or a gone one
 [[nodiscard]] std::optional<glm::vec3> OwnerSoundPosition(const Owner& owner);
 
+/// fn_00427200, the game's 3D function of LHaudio (LHSampleRegister3DObjectFunction 0x426E6B) as the anim effects ask
+/// it: no owner = the camera (0x4272F9); the atmos owner gives 0 (0x42726D); a GameThing gives 0 when not available
+/// (0x4272AD), else its Get3DSoundPos; any other Base its own Get3DSoundPos (a SoundTag's: SoundTag::Get3DSoundPos
+/// 0x71EC90). nullopt = 0 (nothing plays).
+[[nodiscard]] std::optional<glm::vec3> Get3DSoundPos(const Owner& owner);
+/// The listener's point (GGame::GetCamera / LH3DTech::g_camera), nullopt without a camera
+[[nodiscard]] std::optional<glm::vec3> ListenerPoint();
+/// GameQueries::landAltitude (LH3DIsland::GetAltitude 0x803090), 0 when unset
+[[nodiscard]] float IslandAltitude(float x, float z);
+
 /// GAudio::PlaySoundEffect(LH_SamplePlayOptions*) 0x429E30 on a sound id: nothing without a game (g_game, its
 /// HelpSystem g_game+0x25005C: openblack always has them once the audio is initialised); a 3D sample (with a sample
 /// number, +0x24) not started when the camera's squared distance to pos + offset is more than the squared max distance
@@ -67,7 +77,9 @@ BankId RegisterBank(const std::filesystem::path& path, std::string_view group);
 /// (The original returns nothing, 0x429FE8; openblack returns the channel.)
 Channel PlaySoundEffectOptions(const sample_play::Options& options);
 
-/// GAudio::SamplePlayAnimEffect 0x42A4B0 for a sample already looked up (its action-0 path after
+/// (agua's CollisionSounds, until milestone B4 gives it its key) GAudio::SamplePlayAnimEffect 0x42A4B0 for a sample
+/// already looked up and a point of the caller's (the original passes a key, and the point is the owner's): its
+/// action-0 path after
 /// LHSampleGetAnimEffectNumber 0x42A4F9): the same user-parameter and bank filters (0x42A51B..0x42A59F, no camera cull),
 /// an unavailable owner when tracking (0x42A5A1..0x42A5B8, without the is3D test of 0x429FBA), then
 /// LHSamplePlayAnimEffect 0x100146F0: not started farther from the camera than the sample's max distance (.sad +0x26C
@@ -78,6 +90,8 @@ Channel PlayAnimEffectSample(entt::id_type sound, Owner owner, glm::vec3 positio
 void SetGameSound(bool enabled);
 /// HelpSystem::SetWideScreen 0x5C6AD0 from a script (+0x45E8 with the owning task +0x45EC)
 void SetScriptWideScreen(bool on);
+/// HelpSystem +0x45E8 && +0x45EC (g_game+0x25005C), as SetScriptWideScreen left it
+[[nodiscard]] bool IsScriptWideScreen();
 /// GameQueries::insideCitadel (g_game+0x205A28 == 1, 0x4282F0)
 [[nodiscard]] bool IsInsideCitadel();
 /// GameQueries::videoPlaying (g_game+0x250188)

@@ -169,6 +169,11 @@ mazo 378, guadaña 384, pala 390, leña 406, ramas 347-349) pegada al hueso 15 d
 - Los gritos de THROWN solo en los primeros 15 turnos (10 en el vórtice).
 - También hechos (08b51da4): los de VillagersBanter.sad (0x92-0x94; 0x92 suena en la casa del aldeano), parar la
   sierra (acción 1) y que el sonido siga al objeto.
+- Desde B2 del audio ([audio.md](audio.md#b2-los-anim-effects-en-el-núcleo)) van por `audio::SamplePlayAnimEffect`
+  0x42A4B0 en los 16 canales, como fn_00516510: la distancia y la superficie son siempre las del aldeano (también para
+  el banter que suena en su casa; sin casa, en la cámara), la distancia tope 800 y los filtros de GAudio (el banter y
+  los susurros de árbol son de userParam 1: callan con la pantalla ancha del guion), y un paso (4) con esa pantalla
+  ancha descarta el resto de los eventos del clip.
 
 ## Render y ganchos de prueba
 

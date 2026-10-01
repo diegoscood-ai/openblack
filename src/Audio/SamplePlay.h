@@ -149,7 +149,8 @@ struct Backend
 	std::function<int()> rand;
 	/// the listener's point (the camera), for a tracked channel without owner and the 3D culls
 	std::function<std::optional<glm::vec3>()> camera;
-	/// fn_00427200 for a Thing or Object owner: its Get3DSoundPos, nullopt = gone (LHSampleStop 0x1001439D)
+	/// fn_00427200 for a Thing or Object owner: its Get3DSoundPos, nullopt = gone (LHSampleStop 0x1001439D); for a
+	/// SoundTag owner its thing's point, nullopt = the channel keeps its point (SoundTag::Get3DSoundPos 0x71EC90)
 	std::function<std::optional<glm::vec3>(const Owner&)> ownerPosition;
 };
 
@@ -202,6 +203,13 @@ void StopAll();
 /// LHSampleReleaseLoop 0x10012F20: the first channel of (bank, owner, sample) ends with its current pass (its remaining
 /// loops go to 0); if that first one is not in use, nothing (no further search); nothing while switched off
 void ReleaseLoop(entt::id_type sound, Owner owner);
+/// LHSampleGetInfo 0x10013F60 +0x40 (GAudio's fn_0042A460): the loops of the first channel of (bank, owner, sample), in
+/// use or not; 0 for none
+[[nodiscard]] int Loops(entt::id_type sound, Owner owner);
+/// The sound id of the channel of a start (0 when that start is no longer on its channel)
+[[nodiscard]] entt::id_type SoundOf(Channel channel);
+/// LH_AudioSystem::Rand(count) 0x10015710 on the channels' random generator (Backend::rand): 0..count - 1
+[[nodiscard]] int Random(int count);
 /// LHSampleSetPitch 0x10013520: the first channel of (bank, owner, sample) in use gets rate * percent / 100 (integers,
 /// no deviation); nothing for 0, while switched off (unless an atmos channel) or when its pitch is already that
 void SetPitch(entt::id_type sound, Owner owner, int percent);

@@ -38,14 +38,15 @@ sample_play::Options Variant(Owner owner, glm::vec3 position, int sample, int mo
 	return options;
 }
 
-/// Get3DSoundPos of the owner of 0x429DA0 (vtable +0x10): a thing or a registered object; nothing for the others (a key
-/// or a tag passed as a GameThingWithPos would be a bad pointer in the original)
+/// Get3DSoundPos of the owner of 0x429DA0 (vtable +0x10): a thing, a registered object or a tag; nothing for the others
+/// (a key passed as a GameThingWithPos would be a bad pointer in the original)
 std::optional<glm::vec3> SoundPosition(const Owner& owner)
 {
 	switch (owner.kind)
 	{
 	case Owner::Kind::Thing:
 	case Owner::Kind::Object:
+	case Owner::Kind::SoundTag: // SoundTag::Get3DSoundPos 0x71EC90 (its thing's)
 		return OwnerSoundPosition(owner);
 	default:
 		return std::nullopt;

@@ -47,6 +47,8 @@ struct ChannelState
 	bool atmos {false};    ///< +0x00 AtmosInfo
 	bool is3D {false};     ///< +0x48
 	bool track {false};    ///< +0x4C
+	int loops {0};         ///< +0x40: the loops it started with, 0 after LHSampleReleaseLoop (inferred: the DLL's pass count is not read)
+	glm::vec3 position {}; ///< +0x50: the point the owner gave (without the offset)
 	glm::vec3 offset {};   ///< +0x5C
 	float maxDistance {0}; ///< +0x6C
 	int priority {0};      ///< +0x70
@@ -411,6 +413,8 @@ Channel sample_play::Start(const Options& options)
 	channel->atmos = options.atmos;
 	channel->is3D = options.is3D;
 	channel->track = options.track;
+	channel->loops = loops;
+	channel->position = options.position;
 	channel->offset = options.offset;
 	channel->maxDistance = start.maxDistance;
 	channel->ownerGone = false;
@@ -536,6 +540,38 @@ void sample_play::ReleaseLoop(entt::id_type sound, Owner owner)
 		return;
 	}
 	Output()->ReleaseLoop(IndexOf(*channel));
+	channel->loops = 0;
+}
+
+int sample_play::Loops(entt::id_type sound, Owner owner)
+{
+	// LHSampleGetInfo 0x10013F60 (the first channel of the three, in use or not) +0x40
+	const auto* info = Lookup(sound);
+	if (info == nullptr)
+	{
+		return 0;
+	}
+	const auto* channel = First(info->bank, owner, info->id);
+	return channel != nullptr ? channel->loops : 0;
+}
+
+entt::id_type sample_play::SoundOf(Channel handle)
+{
+	const auto* channel = Find(handle);
+	return channel != nullptr ? channel->sound : 0;
+}
+
+int sample_play::Random(int count)
+{
+	// LH_AudioSystem::Rand(n) 0x10015710: Rand() 0x10015740 (0..32767) * n / 32767 (the magic 0x20005, 0x10015717..
+	// 0x1001572B). A Rand() of 32767 gives n itself, one past a list (the DLL then reads the next word): (approximated)
+	// kept inside the list here.
+	if (count <= 0)
+	{
+		return 0;
+	}
+	const int value = static_cast<int>((static_cast<int64_t>(Rand()) * count) / 32767);
+	return std::min(value, count - 1);
 }
 
 void sample_play::SetPitch(entt::id_type sound, Owner owner, int percent)
@@ -629,10 +665,17 @@ void sample_play::UpdateChannels()
 			channel.owner = {};
 			continue;
 		case Owner::Kind::SoundTag:
+		{
+			// a SoundTag is a Base, not a GameThing (fn_00427200 0x4272D5): SoundTag::Get3DSoundPos 0x71EC90 is its
+			// thing's, and with no thing (a point tag, or one whose thing has died) it answers 1 without writing, so the
+			// channel keeps its point (+0x50, read first at 0x427209); it never stops the channel
+			const auto position = g_State.backend.ownerPosition ? g_State.backend.ownerPosition(channel.owner)
+			                                                    : std::optional<glm::vec3> {};
+			at = position ? *position : channel.position;
+			break;
+		}
 		case Owner::Kind::Key:
-			// a SoundTag is a Base, not a GameThing, so its own Get3DSoundPos (vt +0x10) would be asked; the tags only
-			// track with a thing (SoundTag::Set 0x71E55D) and the ported ones pass false; a key is never tracked (the
-			// voices pass track 0, 0x70F931): not moved (inferred)
+			// a key is never tracked (the voices pass track 0, 0x70F931): not moved (inferred)
 			continue;
 		case Owner::Kind::Thing:
 		case Owner::Kind::Object:
@@ -654,6 +697,7 @@ void sample_play::UpdateChannels()
 			break;
 		}
 		}
+		channel.position = at;
 		at += channel.offset;
 		// 0x100143BC: the camera at or beyond the channel's max distance stops it
 		if (glm::distance(at, *camera) >= channel.maxDistance)

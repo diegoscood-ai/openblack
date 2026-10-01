@@ -35,6 +35,7 @@
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/AnimationSounds.h"
 #include "Audio/AtmosBanks.h"
 #include "Audio/Audio.h"
 #include "Audio/AudioManagerInterface.h"
@@ -151,6 +152,10 @@ audio::GameQueries MakeMusicQueries(Game& game)
 			return std::nullopt;
 		}
 		return transform->position;
+	};
+	// LH3DIsland::GetAltitude 0x803090 (SoundTag::Create(MapCoords&) 0x71EB71)
+	queries.landAltitude = [](float x, float z) {
+		return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 	};
 	// HelpSystem +0x45E8 && +0x45EC (ProcessAlignmentMusic 0x4279E9..0x427A01)
 	queries.scriptWideScreen = []() {
@@ -490,6 +495,7 @@ bool Game::GameLogicLoop() noexcept
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
 		audio::ProcessTurn(_dayNightClock->GetSkyType(), _turnCount);
+		audio::AnimationSounds::RunTestHooks(_turnCount); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -1067,6 +1073,8 @@ bool Game::Initialize() noexcept
 			    audioManager.CreateSoundGroup(groupName);
 			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)
 			    const auto bankId = audio::RegisterBank(f, groupName);
+			    // 0x10002778..0x100029AB: its anim effect tables, read once here (audio::anim_effects)
+			    audio::anim_effects::RegisterTables(bankId, soundPack);
 			    for (size_t i = 0; i < audioHeaders.size(); i++)
 			    {
 				    soundName = std::filesystem::path(audioHeaders[i].name.data());

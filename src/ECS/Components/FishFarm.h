@@ -27,8 +27,9 @@ struct Fish
 	float heading;  ///< radians, the direction (cos, 0, sin)
 	float speed;    ///< units per second
 	float turnRate; ///< radians per second
-	float frame;    ///< animation phase 0..15
+	float frame;    ///< +0x1C animation phase 0..15 (fn_008248E0, frame_anim::FishFrame)
 	float fleeTime; ///< seconds left fleeing a splash
+	uint8_t cell {8}; ///< the sprite's cell (+0x28 & 0x3F), 8..23, set from the frame before it wraps
 };
 
 /// The shoal of a fish farm (FishFarm::CallVirtualFunctionsForCreation 0x52CC10, 0x68 bytes, list 0xEB99F4)

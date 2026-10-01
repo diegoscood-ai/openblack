@@ -89,9 +89,10 @@ int DoTeleport(entt::entity stone, entt::entity living, bool force);
 /// MagicTeleport::ValidToApplyVillagerDirectlyToTeleport fn_005FC4B0 (a villager in the hand over a stone): the
 /// villager's player is the stone's and that player has more than one stone (count != 1)
 [[nodiscard]] bool ValidToApplyVillagerDirectly(entt::entity stone, entt::entity villager);
-/// fn_005FC4F0 (Villager::ApplyThisToObject 0x752D40 on a stone): FLYING, the interface lets it go at the stone
-/// (fn_005DA0C0), LANDED, DecideWhatToDo (vt 0x8C8); then its final destination is registered and it jumps at once
-/// (forced), and decides again. 1 when it jumped, else 0x17.
+/// fn_005FC4F0 (Villager::ApplyThisToObject 0x752C40 on a stone, the call at 0x752FF8): FLYING, the interface lets it go
+/// at the stone (fn_005DA0C0), LANDED, DecideWhatToDo (vt 0x8C8); then its final destination is registered and it jumps
+/// at once (forced), and decides again. 1 when it jumped, else 0x17. The hand takes it out first (fn_005DA0C0's
+/// RemoveFirstFromHand: HandApplyToObject.cpp).
 int ApplyVillagerDirectly(entt::entity stone, entt::entity villager);
 
 /// Living::MoveByTeleport 0x5EC340: G_SpellTeleportEnergiseGo (InGame 39) where it was, G_SpellTeleportEnergiseArrive
@@ -108,7 +109,8 @@ void ProcessPlayers();
 /// MagicTeleport::Draw 0x5FCCC0, every frame: the vortex follows the stone and is stepped with the frame time
 void UpdateFrame(float seconds);
 
-/// The stones whose hand collision is on (the spell still has its seed: Draw's SendInvisibleDrawCollision), for the hand
+/// The stones whose hand collision is on (the spell still has its seed, 0x5FCD03: Draw's SendInvisibleDrawCollision
+/// 0x5FCD18 with k_HandCollisionRadius), for the hand's pick (HandPlacement.cpp PickObjectAlongRay)
 [[nodiscard]] std::vector<entt::entity> HandCollisionStones();
 /// The TELEPORT seed a stone gives the hand: MagicTeleport::ValidForPlaceInHand 0x5FC440 / InterfaceSetInMagicHand
 /// 0x5FC470 forward to the spell's seed (Spell +0xAC); entt::null if the spell has none

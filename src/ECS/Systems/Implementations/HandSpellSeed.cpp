@@ -696,7 +696,9 @@ void HandSystem::SeedLeftHand(entt::entity seed) noexcept
 		// 0x77F9A0 (Worship/Worship.cpp keeps the player's own copy of the last type, for the R gesture)
 		gestures::State().lastSeedType = static_cast<int>(SeedOf(seed).seedType);
 		worship::OnSeedOutOfHand(seed, SeedOf(seed).creator.player);
-		// Spell::DrawSpellSeed 0x721360 draws nothing: out of the hand the seed is not seen
+		// out of the hand only Spell::DrawSpellSeed 0x721360 -> 0x729020 draws it, while it follows its spell (a forest
+		// seed cast from an icon): seed::DrawSpells (Magic/Core/SpellSeed.cpp) puts the mesh back over the spell in the
+		// same frame
 		ShowSeedMesh(seed, false);
 	}
 	// the local hand: fn_0046E890 (the in-hand effect), PHandFX SetPULevel(0, 0), StopTribalPowerRing

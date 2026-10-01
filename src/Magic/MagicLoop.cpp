@@ -17,6 +17,7 @@
 #include "Core/SpellSeed.h"
 #include "Objects/MagicFireBall.h"
 #include "Objects/MapShield.h"
+#include "Objects/ShieldDebugHooks.h"
 #include "Spells/SpellShield.h"
 #include "Spells/SpellStormAndTornado.h"
 #include "Objects/MagicTeleport.h"
@@ -37,6 +38,7 @@
 #include "ECS/Weather/WeatherLoop.h"
 #include "Hand/HandCasting.h"
 #include "Locator.h"
+#include "PSys/Creators/Chain.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/Creators/Mist.h"
 #include "PSys/Rules/Storm.h"
@@ -151,6 +153,8 @@ void magic::Update(float seconds)
 	}
 	// RenderParticleMist::DrawAt 0x67A670: the PSys mists (the water cloud) go to mists::Submit (PSys/Creators/Mist.cpp)
 	psys::mist_atoms::SubmitFrame(seconds * 1000.0f);
+	// fn_0067B3F0 0x67BE88: the chains' v-scroll with g_game_time_inc (PSys/Creators/Chain.cpp)
+	psys::chain_atoms::AdvanceScroll(seconds * 1000.0f);
 	// RenderParticleGameObject::DrawAt 0x67B170: what the tornados carry follows its atom (PSys/Rules/Storm.cpp)
 	psys::storm::UpdateCarriedObjects();
 	// FireEffect::Draw 0x730330 -> fn_00731560 with g_game_time_inc: the flames, steam and smoke (ECS/Fire/FireGraphic)
@@ -162,6 +166,10 @@ void magic::Update(float seconds)
 	worship::Update(seconds);
 	// Spell::DrawSpells -> fn_0072BF50: the physical shields' DrawShield (the matrix lerped over the turn, the alpha)
 	map_shield::DrawShields();
+	// Spell::DrawSpells 0x7203F0 -> Spell::Draw 0x720430 -> DrawSpellSeed 0x721360 -> 0x729020: the seeds that follow
+	// their spell, over it (Core/SpellSeed.cpp)
+	seed::DrawSpells();
+	shield_debug::OnFrame(); // OPENBLACK_TEST_SHIELD_FRAMES (test hook, ShieldDebugHooks.cpp)
 	// MagicTeleport::Draw 0x5FCCC0: the stones' vortex, stepped with the frame time (Objects/MagicTeleport.cpp)
 	teleport::UpdateFrame(seconds);
 }

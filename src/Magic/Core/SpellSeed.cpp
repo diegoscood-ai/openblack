@@ -9,16 +9,27 @@
 
 #include "SpellSeed.h"
 
+#include <algorithm>
+#include <cmath>
+#include <optional>
+#include <vector>
+
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
+#include "3D/L3DMesh.h"
 #include "Audio/AudioManagerInterface.h"
 
 #include "Magic/CastRules.h"
 #include "Magic/Gestures/PowerUpSystem.h"
 #include "Magic/Hand/HandMagicFX.h"
 #include "ECS/Archetypes/SpellSeedArchetype.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Effects/EffectValues.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -32,6 +43,7 @@
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/WorshipSite.h"
 #include "Worship/WorshipSpellIcon.h"
+#include "Magic/Spells/SpellForest.h"
 #include "Spell.h"
 #include "SpellCreator.h"
 
@@ -56,6 +68,150 @@ bool ValidSpell(entt::entity spell)
 bool IsSpellCastInHand(const SpellSeed& seed)
 {
 	return seed::InfoOf(seed).castType == SpellCastType::SpellCastInHand;
+}
+
+/// Object::Get2DRadius 0x638180 of the seed: max(mesh +0x24, +0x2C) x GetScale, from SpellSeed::GetMesh 0x729850 (the
+/// info's mesh, which the Game3DObject +0x40 keeps even while the seed is not drawn). (aproximado) the mesh's +0x24 /
+/// +0x2C are not mapped to openblack's L3DMesh: half the larger horizontal side of its bounding box stands in, as
+/// ecs::effects::Object2DRadius does for the other objects
+float SeedRadius(entt::entity entity, const SpellSeed& seed)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	if (transform == nullptr || !Locator::resources::has_value())
+	{
+		return 0.0f;
+	}
+	auto& meshes = Locator::resources::value().GetMeshes();
+	const auto id = resources::HashIdentifier(seed::InfoOf(seed).mesh);
+	if (!meshes.Contains(id))
+	{
+		return 0.0f;
+	}
+	const auto size = meshes.Handle(id)->GetBoundingBox().Size();
+	return 0.5f * std::max(size.x * transform->scale.x, size.z * transform->scale.z);
+}
+
+/// The MapCoords' low word of a coordinate (fixed point, 6553.6 a metre: the offset in its 10 m cell) back in metres
+/// (fn_006022C0: movzx word ptr [obj+0x14] x 1/65536 x 10)
+float CellOffset(float metres)
+{
+	const auto fixed = static_cast<int32_t>(static_cast<double>(metres) * static_cast<double>(6553.6f)); // __ftol
+	return static_cast<float>(static_cast<uint32_t>(fixed) & 0xFFFFu) * 1.52588e-05f * 10.0f;
+}
+
+/// fn_006022C0 (MapCoords this = the seed's, obj = the seed, 1): the highest GetTopPos (Object 0x638160: the MapCoords
+/// altitude above the land +0x1C plus GetHeight 0x638120) of the objects in the seed's map cell (its list +4, then +0)
+/// that are not the seed, not living (vt 0x3C4) and not moving (vt 0x174), and whose circle overlaps the seed's: the
+/// squared distance of their in-cell offsets below r_obj^2 + r_seed^2 (0x6023E9..0x60241E). 0 if none or out of bounds.
+float TopOfObjectsUnder(entt::entity entity, const SpellSeed& seed, const glm::vec3& position)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!cast_rules::InBounds(position))
+	{
+		return 0.0f; // MapCoords::InBounds 0x6042C0
+	}
+	const float seedRadius = SeedRadius(entity, seed);
+	const glm::vec2 seedOffset(CellOffset(position.x), CellOffset(position.z));
+	// MapCoords::ToMap 0x603430: the cell of x >> 16, z >> 16
+	const int cellX = static_cast<int>(static_cast<double>(position.x) * static_cast<double>(6553.6f)) >> 16;
+	const int cellZ = static_cast<int>(static_cast<double>(position.z) * static_cast<double>(6553.6f)) >> 16;
+	float best = 0.0f;
+	for (const auto object : ecs::effects::ObjectsInMapCell(cellX, cellZ))
+	{
+		if (object == entity || !registry.Valid(object))
+		{
+			continue;
+		}
+		// IsLiving vt 0x3C4 (the villagers and animals here); IsMoving vt 0x174 (Object 0x402710: the position is not the
+		// last turn's). (aproximado) openblack keeps no last position for a fixed object: one in physics is the moving one
+		if (registry.AnyOf<Villager, Animal>(object) || ecs::physics::PhysicsObjects::Find(object) != nullptr)
+		{
+			continue;
+		}
+		const auto* transform = registry.TryGet<const Transform>(object);
+		if (transform == nullptr)
+		{
+			continue;
+		}
+		const float top = ToMap(transform->position).y + ecs::effects::ObjectHeight(object);
+		if (!(top > best)) // fcomp; test ah, 0x41; jne
+		{
+			continue;
+		}
+		const glm::vec2 d = seedOffset - glm::vec2(CellOffset(transform->position.x), CellOffset(transform->position.z));
+		const float radius = ecs::effects::Object2DRadius(object);
+		if (d.x * d.x + d.y * d.y < radius * radius + seedRadius * seedRadius)
+		{
+			best = top;
+		}
+	}
+	return best;
+}
+
+/// The seed's Game3DObject drawn or not this frame (openblack: its Mesh, which the renderer and the hand's pick see)
+void ShowMesh(entt::entity entity, const SpellSeed& seed, bool show)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const bool has = registry.AllOf<Mesh>(entity);
+	if (show && !has)
+	{
+		registry.Assign<Mesh>(entity, resources::HashIdentifier(seed::InfoOf(seed).mesh), static_cast<int8_t>(0),
+		                      static_cast<int8_t>(0));
+		registry.SetDirty();
+	}
+	else if (!show && has)
+	{
+		registry.Remove<Mesh>(entity);
+		registry.SetDirty();
+	}
+}
+
+/// SpellSeed's draw from its spell 0x729020 (DrawSpellSeed 0x721360 with +0xAC set)
+void DrawFromSpell(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& seed = SeedOf(entity);
+	// fn_00728FC0, then the seed's own spell (+0x60) must be set (0x729033)
+	if (!seed::FollowsSpell(seed) || !ValidSpell(seed.spell))
+	{
+		// not drawn: out of the hand nothing else draws it (the hand draws the one it holds, HandSpellSeed.cpp)
+		const auto held = Locator::handSystem::has_value() ? Locator::handSystem::value().GetHeldObject() : std::nullopt;
+		if (!held.has_value() || *held != entity)
+		{
+			ShowMesh(entity, seed, false);
+		}
+		return;
+	}
+	auto* transform = registry.TryGet<Transform>(entity);
+	if (transform == nullptr)
+	{
+		return;
+	}
+	const auto& spell = registry.Get<const Spell>(seed.spell);
+	// a copy of the seed's MapCoords (+0x14); its altitude = fn_006022C0(seed, 1); vt 0x540 of the seed's spell on it
+	// (call at 0x72906E). Of the spell vtables only SpellForest's has its own (0x725750, the only pointer to it, slot
+	// 0x540 of 0x8F4FE4); all the others keep Spell::AdjustSpellSeedPos 0x55CE60, a bare `ret 4`.
+	float altitude = TopOfObjectsUnder(entity, seed, transform->position);
+	if (spell.spellClass == SpellClass::Forest)
+	{
+		altitude = spell_forest::AdjustSpellSeedPos(seed.spell, altitude);
+	}
+	// LHPoint (x, GetAltitudeAndSetColorSpecular 0x803340 + altitude, z) -> LHMatrix::Translation 0x403530 on the
+	// Game3DObject's matrix (the rotation stays); +0x44 = 1.0 and +0x48 = 0 (inferido: the Game3DObject's draw alpha and
+	// flags; not the scale, which is +0x50); AddForDrawing(seed) 0x63B5D0, which sends the object draw collision
+	const glm::vec3 at = ToWorld(glm::vec3(transform->position.x, altitude, transform->position.z));
+	if (TraceEnabled() && (!registry.AllOf<Mesh>(entity) || std::abs(transform->position.y - at.y) > 0.25f))
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell trace: seed {} drawn over spell {} at ({:.1f}, {:.2f}, {:.1f}), altitude {:.2f}",
+		                   static_cast<uint32_t>(entity), static_cast<uint32_t>(seed.spell), at.x, at.y, at.z, altitude);
+	}
+	if (transform->position != at)
+	{
+		transform->position = at;
+		registry.SetDirty();
+	}
+	ShowMesh(entity, seed, true);
 }
 
 /// SpellSeed::DoPreCastThings 0x729460
@@ -381,16 +537,67 @@ void seed::ApplyUnlockProcess(entt::entity entity)
 	}
 }
 
+bool seed::FollowsSpell(const SpellSeed& seed)
+{
+	const auto& info = InfoOf(seed);
+	// fn_00728FC0: not in the map (IsObjectInMap vt 0x178: SpellSeed::InsertMapObject 0x728F30 is empty, so never), not
+	// cast in hand (0x729820), not kept in hand (0x729840), seedFollowsSpell (info +0x120), the spell (if any: a NULL
+	// +0x60 goes on, 0x728FF6) still open (+0x40), and linked to an icon (+0x5C). The icon link survives the cast: only
+	// ClearSpellIconLink 0x7281D0, from ToBeDeleted 0x728280, clears it.
+	const bool spellOpen = !ValidSpell(seed.spell) || !Locator::entitiesRegistry::value().Get<Spell>(seed.spell).closedDown;
+	return !IsSpellCastInHand(seed) && info.isKeptInHand == 0 && info.seedFollowsSpell != 0 && spellOpen &&
+	       seed.icon != entt::null;
+}
+
+bool seed::ValidForPlaceInHand(entt::entity entity, PlayerNames handPlayer)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(entity) || !registry.AllOf<SpellSeed>(entity))
+	{
+		return false;
+	}
+	const auto& seed = SeedOf(entity);
+	// GetPlayer 0x729800: the interface status's (+0x64) player, NULL without one (openblack: inInterface, the creator)
+	const bool hasPlayer = seed.inInterface;
+	// g_game +0x14 & 0x2000 (test ch, 0x20) and GPlayer::IsNeutral 0x64AC00
+	if (influence::IsInfluenceEverywhere() && hasPlayer && seed.creator.player == PlayerNames::NEUTRAL)
+	{
+		return true;
+	}
+	// the status's GetPlayer (vt 0x1C) == the seed's, and IsAvailable (GameThing 0x401810: a seed being deleted is gone
+	// from openblack's registry)
+	return hasPlayer && seed.creator.player == handPlayer;
+}
+
+void seed::DrawSpells()
+{
+	// Spell::DrawSpells 0x7203F0 first calls fn_0064AF20 (each player and the neutral one: player +0xA48's six slots
+	// +0x34, fn_0077B3B0 each; not identified, not ported), fn_00725FE0 (a bare ret), fn_0072BF50 (the physical
+	// shields' DrawShield: map_shield::DrawShields, MagicLoop.cpp) and fn_00682950 (the PSysFireball list g_game
+	// +0x205C9C: fn_00682F30 sends each catchable ball's invisible draw collision; not ported here). Then Spell::Draw
+	// 0x720430 (vt 0x50C) of each spell of g_game +0x205BC4: vt 0x108(1) of the spell's +0xB0 object (not identified)
+	// and DrawSpellSeed vt 0x508 (0x721360 in every spell class: with a seed +0xAC, jmp 0x729020).
+	auto& registry = Locator::entitiesRegistry::value();
+	std::vector<entt::entity> seeds;
+	registry.Each<const Spell>([&](entt::entity, const Spell& spell) {
+		if (spell.seed != entt::null && registry.Valid(spell.seed) && registry.AllOf<SpellSeed>(spell.seed))
+		{
+			seeds.push_back(spell.seed);
+		}
+	});
+	for (const auto entity : seeds)
+	{
+		if (registry.Valid(entity) && registry.AllOf<SpellSeed>(entity))
+		{
+			DrawFromSpell(entity);
+		}
+	}
+}
+
 int seed::ProcessFromSpell(entt::entity entity)
 {
 	auto& seed = SeedOf(entity);
-	const auto& info = InfoOf(seed);
-	// fn_00728FC0: not in the map (IsObjectInMap: openblack's seeds never are), not cast in hand, not kept in hand,
-	// seedFollowsSpell, the spell (if any: a NULL +0x60 goes on, 0x728FF6) still open, and linked to an icon
-	const bool spellOpen = !ValidSpell(seed.spell) || !Locator::entitiesRegistry::value().Get<Spell>(seed.spell).closedDown;
-	const bool follows = !IsSpellCastInHand(seed) && info.isKeptInHand == 0 && info.seedFollowsSpell != 0 && spellOpen &&
-	                     seed.icon != entt::null;
-	if (!follows)
+	if (!FollowsSpell(seed))
 	{
 		return 1;
 	}

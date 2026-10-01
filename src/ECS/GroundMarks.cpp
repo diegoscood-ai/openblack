@@ -21,6 +21,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/SmokyStuff.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -45,6 +46,9 @@ float g_Carry = 0.0f;
 
 entt::entity ecs::ground_marks::Create(const glm::vec3& position, const glm::mat3& rotation, float scale)
 {
+	// 0x8252EB: SmokyStuff::Create(point, 1, 1.0f, 0xFFFFFFFF), the dust of mode 1 (0x823DA7), made whether the mark's
+	// object could be drawn or not (both makers: the explosion's crater and the uprooted tree's)
+	smoky_stuff::Create(position, 1, 1.0f, 0xFFFFFFFFu);
 	auto& meshes = Locator::resources::value().GetMeshes();
 	const auto mesh = resources::HashIdentifier(MeshId::TreeRootsPile); // MeshPack 0x251
 	if (!meshes.Contains(mesh))

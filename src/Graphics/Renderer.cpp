@@ -26,6 +26,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
@@ -1280,10 +1281,10 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 			continue;
 		}
 		_clouds->AdvanceAnimation(index, milliseconds);
-		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step)
-		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
-		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
-		                        210.0f / 256.0f, 0.0f);
+		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step;
+		// frame_anim::MistCellUv of the effect branch)
+		const auto cell = frame_anim::MistCellUv(Clouds::GetFrame(_clouds->GetClouds()[index]), true);
+		const glm::vec4 u_cloud(cell.x, cell.y, 210.0f / 256.0f, 0.0f);
 		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
 		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
 		                             0.0f);
@@ -1556,7 +1557,7 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 			sprite.position = glm::vec3(fish.position.x, -fish.position.y, fish.position.z);
 			sprite.size = fish.halfSize;
 			sprite.angle = fish.heading;
-			sprite.cell = static_cast<uint8_t>(8 + (static_cast<int>(fish.frame) & 15));
+			sprite.cell = fish.cell; // fn_008248E0 0x824993..0x8249A4, taken before the frame's wrap (frame_anim::FishFrame)
 			sprite.horizontal = true;
 			const auto quad = billboard::Horizontal(sprite);
 			for (const int k : billboard::k_SpriteTriangles)
@@ -1691,7 +1692,7 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		sprite.size = half;
 		sprite.height = ring.aspect;
 		sprite.angle = ring.angle;
-		sprite.cell = static_cast<uint8_t>(ring.cell & 0x3Fu);
+		sprite.cell = frame_anim::SpriteCell(ring.cell); // fixed at creation (fn_005E5100)
 		sprite.horizontal = true;
 		const auto quad = billboard::Horizontal(sprite);
 		for (const int k : billboard::k_SpriteTriangles)

@@ -60,8 +60,12 @@ constexpr float k_TurnsPerTree = 17.0f / 13.0f;
 /// SpellForest::CalculateCostToMaintain 0x7259E0: costPerGameTurn + trees x costPerEvent
 [[nodiscard]] float CostToMaintain(float costPerGameTurn, float costPerEvent, uint32_t trees);
 /// SpellForest::AdjustSpellSeedPos 0x725750: the seed's altitude (MapCoords y) is at least the tallest tree's height
-/// (fn_0053A740), or -5 without a forest. No caller found in W120 (no call through vt 0x540 of a spell).
+/// (fn_0053A740), or -5 without a forest (+0xEC == 0: until SpellEvent 3 made it). Called through vt 0x540 by the seed's
+/// draw 0x729020 (call at 0x72906E), every frame: the seed sits under the land while the PSys seed falls, then on the
+/// ground in the middle of the new forest, then on top of its tallest tree as the trees grow.
 [[nodiscard]] float AdjustSpellSeedAltitude(bool hasForest, float tallestTree, float altitude);
+/// vt 0x540 of a forest spell (SpellForest::AdjustSpellSeedPos 0x725750) on the seed's altitude
+[[nodiscard]] float AdjustSpellSeedPos(entt::entity spell, float altitude);
 
 /// GMagicForestInfo::CanCast 0x5FAE80 (vt 0x30, the check at a position): in bounds, land, no Abode of the cell there
 /// whose Get2DRadius reaches the point (fn_005FADF0), and ValidPlaceForTree

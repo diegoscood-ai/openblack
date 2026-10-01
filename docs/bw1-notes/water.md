@@ -569,11 +569,13 @@ plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
 - Puzle de los peces: el pescador y el pergamino del reto (`FishPuzzle.txt`); el resto de tipos de `PuzzleGame`.
 
 **En manos de otra sesión:**
-- «sistemas»: los anillos de agua, los peces de piscifactoría y los sprites del barco pasan a su sistema unificado
-  de fotogramas y orientación (mismas celdas y fórmulas; cualquier fundido entre fotogramas que el original no
-  haga irá como mod). También arregla el signo de la inclinación y de la fase de la luna, la V del halo (0xEDC304),
-  la celda de los peces (8 + (ftol(frame) & 15), dt ≤ 0,1 s, `fn_008248E0`) y el morfado al suelo del arca y el
-  dinosaurio (`UpdateMelting` 0x5E3C55 / 0x5E3DBE; hecho en U3, `MorphWithTerrain` en `ECS/DesignedScenery`).
+- «sistemas»: los anillos de agua, los peces de piscifactoría y los sprites del barco ya van por `graphics::billboard`
+  y `graphics::frame_anim` (mismas celdas y fórmulas, sin fundido entre fotogramas; U1 y U2). La luna (signo de la
+  inclinación y de la fase, V del halo 0xEDC304) está hecha en U1, y la celda de los peces (8 + (ftol(frame) & 15),
+  tomada antes de la vuelta, dt ≤ 0,1 s, `fn_008248E0`) en U2. El morfado al suelo del arca y el dinosaurio
+  (`UpdateMelting` 0x5E3C55 / 0x5E3DBE) está en U3 (`MorphWithTerrain` en `ECS/DesignedScenery`). Además, leído en U2 y sin tocar: `fn_008248E0` descuenta el tiempo de
+  huida con el dt sin limitar y calcula el empuje después de restarlo (0x82490D..0x82495A); openblack lo hace con
+  el dt limitado y antes de restar.
 - «audio»: los sonidos que aún no van por los 16 canales (AnimationSounds, rocas, el silbido de la cámara,
   `G_RockPast`, los `PlaySample` de la mano) y la unión de `LanternSounds` con `SoundTags`.
 

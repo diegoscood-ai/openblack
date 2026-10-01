@@ -15,11 +15,13 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <entt/core/hashed_string.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "Common/StringUtils.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
@@ -38,21 +40,12 @@ constexpr int k_AtlasCell = 32; ///< one frame upscaled to 32 x 32 in an 8 x 8 a
 constexpr int k_AtlasSide = 8;
 
 /// GJBitmap::LoadBitmapFromFile(name, Pitch, 3, NumFramesInFile, NumFramesInUse) (GetBitmap 0x6A9D40): Pitch x Pitch
-/// square frames stacked in the file, RGB (3 B/px) or grey (1 B/px) depending on its size
-struct Bitmap
+/// square frames stacked in the file (frame_anim::LoadStackedFrames)
+std::optional<graphics::frame_anim::StackedFrames> LoadBitmap(const std::string& path, int pitch, int framesInFile)
 {
-	int pitch {0};
-	int frames {0};
-	int channels {0};
-	std::vector<uint8_t> data;
-};
-
-Bitmap LoadBitmap(const std::string& path, int pitch, int framesInFile)
-{
-	Bitmap bitmap;
 	if (!Locator::filesystem::has_value() || pitch <= 0 || framesInFile <= 0)
 	{
-		return bitmap;
+		return std::nullopt;
 	}
 	auto name = path;
 	std::replace(name.begin(), name.end(), '\\', '/');
@@ -67,50 +60,20 @@ Bitmap LoadBitmap(const std::string& path, int pitch, int framesInFile)
 	try
 	{
 		auto& fileSystem = Locator::filesystem::value();
-		auto bytes = fileSystem.ReadAll(fileSystem.GetPath<filesystem::Path::Data>() / name);
-		const auto pixels = static_cast<size_t>(pitch) * static_cast<size_t>(pitch) * static_cast<size_t>(framesInFile);
-		bitmap.channels = bytes.size() >= pixels * 3 ? 3 : 1;
-		if (bytes.size() < pixels * static_cast<size_t>(bitmap.channels))
+		const auto bytes = fileSystem.ReadAll(fileSystem.GetPath<filesystem::Path::Data>() / name);
+		auto stacked = graphics::frame_anim::LoadStackedFrames(bytes, pitch, framesInFile);
+		if (!stacked.has_value())
 		{
 			SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: light map {}: {} bytes, {} x {} x {} expected", name, bytes.size(),
 			                   pitch, pitch, framesInFile);
-			return bitmap;
 		}
-		bitmap.pitch = pitch;
-		bitmap.frames = framesInFile;
-		bitmap.data = std::move(bytes);
+		return stacked;
 	}
 	catch (const std::exception& e)
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: light map {}: {}", name, e.what());
 	}
-	return bitmap;
-}
-
-/// Bilinear sample of one frame (the frames are 5 x 5 or so: they are drawn upscaled, as the blit's stretch does)
-glm::vec3 Sample(const Bitmap& bitmap, int frame, float u, float v)
-{
-	const auto at = [&bitmap, frame](int x, int y) {
-		const auto index = (static_cast<size_t>(frame) * static_cast<size_t>(bitmap.pitch) * static_cast<size_t>(bitmap.pitch) +
-		                    static_cast<size_t>(y) * static_cast<size_t>(bitmap.pitch) + static_cast<size_t>(x)) *
-		                   static_cast<size_t>(bitmap.channels);
-		if (bitmap.channels == 3)
-		{
-			return glm::vec3(bitmap.data[index], bitmap.data[index + 1], bitmap.data[index + 2]);
-		}
-		return glm::vec3(bitmap.data[index]);
-	};
-	const float fx = std::clamp(u * static_cast<float>(bitmap.pitch) - 0.5f, 0.0f, static_cast<float>(bitmap.pitch - 1));
-	const float fy = std::clamp(v * static_cast<float>(bitmap.pitch) - 0.5f, 0.0f, static_cast<float>(bitmap.pitch - 1));
-	const int x0 = static_cast<int>(fx);
-	const int y0 = static_cast<int>(fy);
-	const int x1 = std::min(x0 + 1, bitmap.pitch - 1);
-	const int y1 = std::min(y0 + 1, bitmap.pitch - 1);
-	const float tx = fx - static_cast<float>(x0);
-	const float ty = fy - static_cast<float>(y0);
-	const auto top = at(x0, y0) * (1.0f - tx) + at(x1, y0) * tx;
-	const auto bottom = at(x0, y1) * (1.0f - tx) + at(x1, y1) * tx;
-	return top * (1.0f - ty) + bottom * ty;
+	return std::nullopt;
 }
 
 /// The frames of the .raw as one 8 x 8 atlas of 32 x 32 cells, registered under "raw/<name>" and "raw/<name>a" so that
@@ -140,7 +103,7 @@ std::string BuildAtlas(const std::string& path, int pitch, int framesInFile)
 		return id;
 	}
 	const auto bitmap = LoadBitmap(path, pitch, framesInFile);
-	if (bitmap.frames == 0)
+	if (!bitmap.has_value())
 	{
 		return id;
 	}
@@ -148,7 +111,7 @@ std::string BuildAtlas(const std::string& path, int pitch, int framesInFile)
 	resources::Texture2DLoader::DecodedImage diffuse {static_cast<uint16_t>(side), static_cast<uint16_t>(side),
 	                                                 std::vector<uint8_t>(static_cast<size_t>(side) * side * 4, 0)};
 	auto alpha = diffuse;
-	for (int frame = 0; frame < std::min(bitmap.frames, k_AtlasSide * k_AtlasSide); ++frame)
+	for (int frame = 0; frame < std::min(bitmap->frames, k_AtlasSide * k_AtlasSide); ++frame)
 	{
 		const int cellX = (frame % k_AtlasSide) * k_AtlasCell;
 		const int cellY = (frame / k_AtlasSide) * k_AtlasCell;
@@ -156,8 +119,8 @@ std::string BuildAtlas(const std::string& path, int pitch, int framesInFile)
 		{
 			for (int x = 0; x < k_AtlasCell; ++x)
 			{
-				const auto colour = Sample(bitmap, frame, (static_cast<float>(x) + 0.5f) / k_AtlasCell,
-				                           (static_cast<float>(y) + 0.5f) / k_AtlasCell);
+				const auto colour = graphics::frame_anim::SampleStackedFrame(*bitmap, frame, (static_cast<float>(x) + 0.5f) / k_AtlasCell,
+				                                                             (static_cast<float>(y) + 0.5f) / k_AtlasCell);
 				// (aproximado) the port's quad: alpha = max(R, G, B), the frame bilinearly upscaled to 32 x 32, and the
 				// global light-map level 0xECA664 = clamp(fade) x 190 of AddDrawing 0x6CA6E0 is not applied
 				// (part_render.md §8)

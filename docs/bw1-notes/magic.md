@@ -626,15 +626,19 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
     [0x8D45D8]); `SetPosition` 0x423140: filas X = (cos, 0, sin), Z = (−sin, 0, cos). **Sin bote ni pulso** para las
     semillas del jugador: `AsMagicCreatureSpellInfo` (vt 0x38) de su magia base es NULL y salta a 0x51A0B3. El bote
     (+0x38 a 0,35/0,5 por s, `0,5(1 + sin 2π f)`), los cuadros UV 8×4 a −15 por s (+0x34) y los aplastamientos
-    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27: no portados.
+    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27. Portados solo los
+    cuadros UV (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, ver
+    [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas)); el bote y los aplastamientos no.
   - alfa difuso = el del dueño y `SetGlobalAlpha(alfa ≠ 0xFF)`: en la bola la semilla es translúcida (0x95).
   - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
     **no portado** (aproximado).
   - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.
   - la banda si pu ≠ −1: +0x44 += 10,3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 dibujos en +0x64 con tamaño
     0,2 × +0x58 × +0x54, filas: identidad con la fila 1 y la 2 cambiadas (la vieja 1 negada), giro (x, z) por base
-    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. **(aproximado)**:
-    fn_0051A830 (gira la banda con la cámara cuando [0xBE8E8E]) y el color del jugador no están.
+    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. Después
+    fn_0051A830 la gira hacia la cámara ([0xBE8E8E] = 1; `billboard::BandToEye`, ver
+    [rendering-objects.md](rendering-objects.md#objetos-que-miran-a-la-cámara-billboards)). **(aproximado)**: el color
+    del jugador no está.
 - openblack: `seed_graphic::DrawUpdateAtPos` / `UpdateOnly` / `DrawSpellGraphic` / `UpdateIconGraphics`;
   `one_off::UpdateFrames` (bola) y `worship::Update` (iconos) los llaman cada fotograma. **(inferido)**: también
   cuando no están en pantalla.
@@ -1118,7 +1122,7 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
   - Hechizos: un hechizo sin PSys se lanza igual y acaba al turno siguiente (0x71FE50, paso 8).
   - Semillas y lanzadores: `ProcessSpellSeed` devuelve siempre 1 (0x721370); un creador sin objeto no es funcional
     (0x405240); la selección de milagro pone a 0 el gesto de potenciación (0x5CF010).
-  - Mano: el fotograma del brillo se trunca (0x68D0C0).
+  - Mano: el fotograma del brillo se redondea (`fistp` 0x68D323, no `__ftol`) y la vuelta es «> 64» (0x68D0C0).
   - Teletransporte: los destellos SPOT_VISUAL 14 duran lo que su entrada.
   - Jugador del guion: el byte g_game+0x205A5B es el hueco del **jugador neutral** (7; GGame::SetupPlayers 0x550458,
     GPlayer::IsNeutral 0x64AC00). Por eso el jugador 0 del guion y una pila mágica sin dueño son neutrales.

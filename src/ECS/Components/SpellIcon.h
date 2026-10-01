@@ -83,6 +83,9 @@ struct SpellSeedGraphic
 	glm::vec3 meshPosition {0.0f};             ///< +0x14 (MapCoords) = point + unknown0x150 x scale: the mesh
 	glm::vec3 effectPosition {0.0f};           ///< point + unknown0x154 x scale: the holder effect
 	float spin {0.0f};                         ///< +0x3C the mesh's y angle (+2 rad/s, DrawSpellGraphic 0x519B20)
+	/// +0x34 the creature spell phials' frame, 0..32 at -15 a second (0x519B89, frame_anim::SpellIconFrame); 0 from
+	/// fn_00726F10 (0x726F4B)
+	float uvPhase {0.0f};
 	float bandSpin {0.0f};                     ///< +0x44 the bands' angle (+10.3 rad/s [0xBE8E94], 0x51A2EA)
 	float bandSpin2 {0.0f};                    ///< +0x40 (+1 rad/s [0xBE8E90], 0x51A305; no reader found)
 };

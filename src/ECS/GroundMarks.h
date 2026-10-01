@@ -30,8 +30,8 @@ constexpr float k_FadeAlphaPerMs = 0.255f; ///< [0x9A2BA8]
 constexpr float k_ExplosionScale = 8.0f;   ///< [0x9357D4]
 
 /// fn_00825240 with LH3DObject::SetPosition 0x423140 (vt+0x20: the position, a turn about Y and a uniform scale) done by
-/// the caller's rotation. The SmokyStuff::Create(pos, 1, 1.0, 0xFFFFFFFF) at 0x8252EB is not made: its mode 1
-/// (0x823DA7) is not ported (ecs/SmokyStuff.h). entt::null without the mesh.
+/// the caller's rotation, and the SmokyStuff::Create(pos, 1, 1.0, 0xFFFFFFFF) at 0x8252EB (mode 1, 0x823DA7). The Mac
+/// symbols name the class RootsPile (__ct__9RootsPileFRC7LHPointffl, DrawAll__9RootsPileFv). entt::null without the mesh.
 entt::entity Create(const glm::vec3& position, const glm::mat3& rotation, float scale);
 
 /// fn_008251C0 (UR_Explosion::InitCollection 0x67E37A..0x67E395): angle = PSysFloatRand(2 pi), scale 8; SetPosition's

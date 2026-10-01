@@ -21,9 +21,18 @@
 #include <memory>
 #include <vector>
 
+#include <PackFile.h>
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
 #include <gtest/gtest.h>
+#include <spdlog/sinks/null_sink.h>
+#include <spdlog/spdlog.h>
 
+#include "3D/L3DMesh.h"
+#include "3D/L3DSubMesh.h"
+#include "EngineConfig.h"
 #include "InfoConstants.h"
+#include "Locator.h"
 #include "Magic/MagicTables.h"
 #include "Magic/Objects/MapShield.h"
 #include "Magic/Spells/SpellShield.h"
@@ -293,4 +302,84 @@ TEST(Shield, realInfoDat)
 	EXPECT_FLOAT_EQ(info->mapShield[1].weight, 50000.0f);
 	// 40 m: 20 x (40 / 30)^2 = 35.6 chants a turn
 	EXPECT_NEAR(magic::ShieldCostToMaintain(20.0f, 40.0f, shield->radiusForNormalCost), 35.556f, 1e-3f);
+}
+
+/// With OPENBLACK_GAME_PATH set to the install: PhysicalShield::CallVirtualFunctionsForCreation 0x72CCB0 runs
+/// fn_0057E220 (5, 0xD) then (4, 0xD) on MSH_S_SOLID_SHIELD (AllMeshes.g3d mesh 554): the inner layer (sub-mesh 1,
+/// AlphaTextured) becomes additive without Z write, the outer one (sub-mesh 0, TexturedChroma, ALPHAREF 200) stays
+TEST(Shield, physicalShieldMaterialTypes)
+{
+	const char* game = std::getenv("OPENBLACK_GAME_PATH");
+	if (game == nullptr)
+	{
+		GTEST_SKIP() << "OPENBLACK_GAME_PATH not set";
+	}
+	for (const auto* name : {"game", "graphics"})
+	{
+		if (spdlog::get(name) == nullptr)
+		{
+			spdlog::create<spdlog::sinks::null_sink_mt>(name);
+		}
+	}
+	if (!Locator::config::has_value())
+	{
+		Locator::config::emplace();
+	}
+	pack::PackFile pack;
+	ASSERT_EQ(pack.Open(std::filesystem::path(game) / "Data" / "AllMeshes.g3d"), pack::PackResult::Success);
+	// the sub-meshes and skins build bgfx buffers and textures
+	bgfx::renderFrame(); // single-threaded
+	bgfx::Init init {};
+	init.type = bgfx::RendererType::Noop;
+	ASSERT_TRUE(bgfx::init(init));
+	{
+		using Type = l3d::L3DMaterial::Type;
+		using Blend = graphics::L3DSubMesh::Primitive::BlendMode;
+		graphics::L3DMesh mesh("MSH_S_SOLID_SHIELD");
+		ASSERT_TRUE(mesh.LoadFromBuffer(pack.GetMesh(static_cast<uint32_t>(magic::map_shield::k_Mesh))));
+		ASSERT_EQ(mesh.GetNumSubMeshes(), 3);
+		const auto& outer = mesh.GetSubMeshes()[0]->GetPrimitives();
+		const auto& inner = mesh.GetSubMeshes()[1]->GetPrimitives();
+		ASSERT_EQ(outer.size(), 1);
+		ASSERT_EQ(inner.size(), 1);
+		// fn_0057E220 walks every sub-mesh, the physics one (2) included: no primitive of the mesh is of type 5, and only
+		// the inner layer is of type 4 (checked in the audit, so that the (5, 13) call really is a no-op)
+		for (uint8_t i = 0; i < mesh.GetNumSubMeshes(); ++i)
+		{
+			for (const auto& primitive : mesh.GetSubMeshes()[i]->GetPrimitives())
+			{
+				EXPECT_NE(primitive.materialType, 5u) << "sub-mesh " << static_cast<int>(i);
+				EXPECT_TRUE(primitive.materialType != 4u || i == 1) << "sub-mesh " << static_cast<int>(i);
+			}
+		}
+		// as loaded: inner AlphaTextured (SA / ISA, writes Z), outer TexturedChroma with ALPHAREF 200
+		EXPECT_EQ(inner[0].materialType, static_cast<uint32_t>(Type::AlphaTextured));
+		EXPECT_EQ(inner[0].blend, Blend::Standard);
+		EXPECT_TRUE(inner[0].depthWrite);
+
+		mesh.ReplaceMaterialType(5, 13); // 0x72CCCD: no primitive of type 5
+		EXPECT_EQ(inner[0].materialType, static_cast<uint32_t>(Type::AlphaTextured));
+		mesh.ReplaceMaterialType(4, 13); // 0x72CCE5
+
+		// mode 13 fn_0082ECD0: SRCALPHA / ONE, no alpha test, no Z write; the byte +5 bits stay (5: two-sided, wrap)
+		EXPECT_EQ(inner[0].materialType, static_cast<uint32_t>(Type::AlphaTexturedAlphaAdditiveNz));
+		EXPECT_EQ(inner[0].blend, Blend::Additive);
+		EXPECT_FALSE(inner[0].depthWrite);
+		EXPECT_FALSE(inner[0].alphaTest);
+		EXPECT_FALSE(inner[0].thresholdAlpha);
+		EXPECT_TRUE(inner[0].twoSided);
+		EXPECT_TRUE(inner[0].wrap);
+		// the outer layer is untouched: type 9, alpha test at 200 / 255, writes Z, two-sided
+		EXPECT_EQ(outer[0].materialType, static_cast<uint32_t>(Type::TexturedChroma));
+		EXPECT_EQ(outer[0].blend, Blend::Standard);
+		EXPECT_TRUE(outer[0].depthWrite);
+		EXPECT_TRUE(outer[0].thresholdAlpha);
+		EXPECT_FLOAT_EQ(outer[0].alphaCutoutThreshold, 200.0f / 255.0f);
+		EXPECT_TRUE(outer[0].twoSided);
+
+		// idempotent, as the original's second shield on the shared mesh
+		mesh.ReplaceMaterialType(4, 13);
+		EXPECT_EQ(inner[0].materialType, static_cast<uint32_t>(Type::AlphaTexturedAlphaAdditiveNz));
+	}
+	bgfx::shutdown();
 }

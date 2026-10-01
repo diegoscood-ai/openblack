@@ -60,7 +60,7 @@ struct MeshCreator: Creator
 	/// fn_006A85E0's atom part is Effect::NewAtom's; this is CreateParticle's (0x6A8DA0: frame, frame rate, StretchY)
 	void InitAtom(Effect& effect, Atom& atom) const override;
 	/// The frame count of an atom (+0x114): NumFrames, or 1000 for the sliding textures
-	[[nodiscard]] int FramesPerAtom() const { return slideU || slideV ? 1000 : std::max(1, numFrames); }
+	[[nodiscard]] int FramesPerAtom() const override { return slideU || slideV ? 1000 : std::max(1, numFrames); }
 	/// Particle3DObjAnimTextured::DrawAt 0x67A530: the UV offset (vt 0xE8) of a frame
 	[[nodiscard]] glm::vec2 UvOffset(int frame) const;
 };

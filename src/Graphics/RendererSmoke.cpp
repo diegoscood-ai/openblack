@@ -26,6 +26,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "ECS/ChimneySmoke.h"
@@ -176,7 +177,7 @@ void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camer
 		}
 		const glm::mat4 model = billboard::ScreenSpriteModel(puff.position, glm::vec2(puff.halfWidth), puff.angle);
 		// 8 cells per row (LH3DSprite +0x30): the cell's corners v0 (top left) and v2 (bottom right), 1/8 wide
-		const auto uv = billboard::CellUv(static_cast<uint8_t>(puff.cell), 8);
+		const auto uv = frame_anim::SpriteCellUv(static_cast<int>(puff.cell), 8);
 		const glm::vec4 sampleRect(uv[2] - uv[0], uv[0]);
 		// mode 6 (SRCALPHA / INVSRCALPHA, no light, no fog): the sprite shader's normal blend is ONE / INVSRCALPHA with
 		// the tint premultiplied by its alpha

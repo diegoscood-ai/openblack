@@ -17,6 +17,7 @@
 #include <numbers>
 #include <unordered_map>
 
+#include "3D/FrameAnim.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h" // (and glm::inverse, through glm/mat4x4.hpp)
 #include "Locator.h"
@@ -455,6 +456,11 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 			const float centreLand = creator->clampToLandscape ? ground(glm::vec2(atom.position.x, atom.position.z)) : 0.0f;
 			const float atomAlpha = std::clamp(atom.alpha, 0.0f, 255.0f) / 255.0f;
 			const auto& mesh = creator->mesh;
+			// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 (frame_anim::RotatingUv): the offset between two steps, the
+			// period taken off while above it. (aproximado) both ends are this step's offset, so nothing is interpolated:
+			// the rule wraps it into [0, tile) every step, where the original keeps the previous one (+0x24 / +0x28) and
+			// lets GameUpdate 0x6C8BC0 hold both within two periods (who copies +0x2C to +0x24 is not read)
+			const auto uvOffset = graphics::frame_anim::RotatingUv(creator->uvOffset, creator->uvOffset, 1.0f, creator->tile);
 			surface.vertices.reserve(mesh.positions.size());
 			for (size_t k = 0; k < mesh.positions.size(); ++k)
 			{
@@ -476,7 +482,7 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 				const uint32_t spec = mesh.speculars[k];
 				const uint32_t specAbgr =
 				    (alpha << 24) | ((spec & 0xFFu) << 16) | (spec & 0xFF00u) | ((spec >> 16) & 0xFFu);
-				const glm::vec2 uv = mesh.uvs[k] + creator->uvOffset;
+				const glm::vec2 uv = mesh.uvs[k] + uvOffset;
 				surface.vertices.push_back({p, uv, abgr, specAbgr});
 			}
 			result.push_back(std::move(surface));

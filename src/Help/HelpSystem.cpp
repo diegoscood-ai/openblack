@@ -437,9 +437,85 @@ void HelpSystem::ClearAllText()
 
 void HelpSystem::Reset()
 {
-	ClearAllText();    // 0x5C558D
-	_historyCount = 0; // 0x5C55EA
-	_historyNext = 0;  // 0x5C55F0
+	ClearAllText();      // 0x5C558D
+	SetWideScreen(0, 0); // 0x5C55D6
+	_historyCount = 0;   // 0x5C55EA
+	_historyNext = 0;    // 0x5C55F0
+}
+
+bool HelpSystem::DialogueControlRequest(uint32_t task)
+{
+	if (IsDialogueControlled()) // 0x5C6793
+	{
+		return false;
+	}
+	SetCurrentControl(task); // 0x5C67A9
+	ClearAllText();          // 0x5C67B0
+	if (Tracing())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Text: dialogue control to task {}", task);
+	}
+	return true;
+}
+
+void HelpSystem::ClearDialogueControl()
+{
+	_dialogueOwner = 0; // 0x5C67E0
+	// 0x5C67EA..0x5C67F1: HelpText (+0x14) fn_005CB010, display only (not ported)
+}
+
+void HelpSystem::ReleaseDialogueControl(uint32_t task)
+{
+	if (_dialogueOwner != task) // 0x5C6807
+	{
+		return;
+	}
+	// 0x5C681B..0x5C682B: the advisors go home at once (arg 1) when the task is a Help script (VMScriptType 2)
+	const uint32_t type = _queries.taskScriptType ? _queries.taskScriptType(task) : 1;
+	const int32_t helpScript = type == 2 ? 1 : 0;
+	ClearDialogueControl(); // 0x5C682C
+	// 0x5C6831 / 0x5C683B: fn_005C5200(0) on the spirits +0xC (type 1) and +8 (type 2), as SpiritHome(1 / 2, 0)
+	SpiritHome(1, 0);
+	SpiritHome(2, 0);
+	SetWideScreen(0, 0); // 0x5C684B
+	if (_hooks.spiritStop) // 0x5C6856 / 0x5C6861
+	{
+		_hooks.spiritStop(1, 1);
+		_hooks.spiritStop(2, 1);
+	}
+	SpiritHome(1, helpScript); // 0x5C6874
+	SpiritHome(2, helpScript); // 0x5C6888
+	ClearAllText();            // 0x5C688F
+	if (Tracing())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Text: dialogue control of task {} released", task);
+	}
+}
+
+void HelpSystem::SpiritHome(int32_t spirit, int32_t arg)
+{
+	if (_hooks.spiritHome)
+	{
+		_hooks.spiritHome(spirit, arg);
+	}
+}
+
+void HelpSystem::SetWideScreen(int32_t on, uint32_t owner)
+{
+	if (_wideScreen == on) // 0x5C6ADE
+	{
+		return;
+	}
+	_wideScreen = on;                       // 0x5C6B17
+	_wideScreenOwner = on != 0 ? owner : 0; // 0x5C6B23 / 0x5C6B31
+	if (_hooks.wideScreen)
+	{
+		_hooks.wideScreen(on != 0);
+	}
+	if (Tracing())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Text: wide screen {} (task {})", on, _wideScreenOwner);
+	}
 }
 
 void HelpSystem::ClearTextDisplayed()
@@ -495,7 +571,7 @@ int HelpSystem::ProcessInterface(bool click)
 		_clickPending = false;
 		return k_ClickTaken;
 	}
-	if ((_queries.scriptWideScreen && _queries.scriptWideScreen()) || key) // 0x5C6A2E..0x5C6A44
+	if (IsScriptWideScreen() || key) // 0x5C6A2E..0x5C6A44
 	{
 		if (_texts[0] != 0 && _hooks.stopVoicesOnClick) // 0x5C6A7E
 		{

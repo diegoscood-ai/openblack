@@ -1226,6 +1226,42 @@ G_HandGesture_02 3D en el canal de la etiqueta mientras se pulsa; al soltar se a
 2D; la voz PU 10 la filtra la pantalla ancha de la intro, como el original), `b5_tap.log` (icono de FIRE tocado:
 G_ClickOnSpell_01 con tono 100 y la voz HELP_TEXT_ANNOUNCER_VOICE_FIREBALL_01 al cargarse).
 
+### Auditoría de suposiciones de B5 (TEAM_GUIDELINES §1.7)
+
+Repasado el commit 69715e9f contra el desensamblado: 0x726490 (la tabla de tonos {0x64, 0x73, 0x82, 0x91, 0x9B, 0xAF,
+0xBE} y el recorte 0..5 de 0x7264B7..0x726513, el tono en +0x48 tras el `push`), 0x6882F0 y 0x6885BB..0x68865B (2D con
+modo 3 / opciones 3D con dueño los datos del átomo y track 0), 0x68CE90..0x68CEE1 y 0x68DE69..0x68DE7D, 0x72A660..0x72A6F4
+(dueño el orbe, 3D, track 0, el punto +0xC8, y el `ToBeDeleted` justo después), 0x5EC340..0x5EC372 (los nueve argumentos
+de `SoundTag::Create`), 0x72EDC0/0x72EDE0 (el bit 0x20 antes del disparo, track 1) y 0x72EC79..0x72ECE4 (solo la primera
+ranura, y el máximo recalculado), 0x5D274D..0x5D275E y 0x5D27C3..0x5D27C8, 0x6D1000 y 0x6D11A0..0x6D137A (la clave
+{+0x24, +0x28, 1, +0x20, +0x1C} en los dos sitios, la acción `1 + SoftRelease`, el fundido `max(+0x38 − FadeStep, 0)`,
+el `< 1200²` estricto), 0x674740..0x6747B4 (el retardo distancia/347), 0x683184..0x68327F, 0x7314E0/0x731B0F,
+0x77F4E0..0x77F5EE (`> 0x1D` → 8) y, en el DLL, 0x10014010 (el primer canal del banco y dueño, +0x8C == 1, nada con
++0x14 a 0). Todos coinciden. Los `.sad` confirman lo que el commit afirma: la 42 tiene FLAGS 0x402 (sin el bit de tono
+0x1, así que la máscara +0x1C a 0 es lo correcto) y las voces 10/11/12 de SpellDialogue tienen userParam 1 (las quita la
+pantalla ancha, como dice el commit). No hay dependencias de componentes ECS en `src/Audio` nuevas, ningún
+`CreateEmitter`/`PlayEmitter`/`AudioEmitter` fuera, y cada `RegisterObject` se deshace: PSysSound en `ProcessTurn`/`Clear`
+(el `shared_ptr` sigue vivo en `g_Sounds` hasta el `UnregisterObject`), FireEffect en `sound::Free` (que `ToBeDeleted`
+llama siempre, antes de que `g_Pool` lo libere) y en `sound::Clear` (antes de `g_Pool.clear()`); el mapa nuevo pasa
+`psys::manager::Clear` y `magic::OnLoadMap` → `ecs::fire::Clear` antes de `audio::ClearMap`.
+
+Arreglado en la auditoría:
+
+- B5 no dejó ningún test. `test_sample_play` tiene tres nuevos (15 en total): `OwnerChannelAndTheFadeOfAPSysSound`
+  (el primer canal del banco y dueño, otro banco o dueño → ninguno, el fundido 127 → 97 → 0 con su ganancia, y al
+  acabar la onda ya no hay canal: el PSysSound se borra), `OwnerChannelNeedsActive` (0x10014018) y
+  `TapSoundKeepsTheOptionsPitch`, que con la 42 real comprueba el **tono 175 de la colocación 5** de la verificación del
+  PLAN (lo que no se pudo ver en juego) y que con el bit 0x1 del `.sad` ganaría el tono del banco.
+- `PSysSoundPosition` pide `atom->drawn`, que 0x6D1000 no mira: el comentario lo marca ahora como de openblack (el +0xF4
+  solo se escribe al dibujar el átomo).
+- `Audio.h`: un `Owner::Object` que solo toca canales sin track no necesita `RegisterObject` (PHandFX, vapor, gesto).
+- `ECS/Trees.cpp` (sin dueño): el crecer del árbol regado sorteaba la muestra con `Locator::rng` aunque su comentario
+  citaba `GetTickCount() % 9`; ahora usa `audio::TickCount()` como 0x74C4B3..0x74C4C0.
+
+En juego (Land 1, `audit_fire.log`): con `OPENBLACK_TEST_FIRE` y la cámara al lado, G_Fire_01 se queda en **un** canal
+(índice 2) 72 turnos seguidos sin reiniciarse (modo 2) con `owner object 1`; el único cambio de asa fue al principio, con
+la cámara de la intro rozando el máximo de 80 de la muestra. Eso cierra el «el fuego ocupa un canal» del PLAN.
+
 ### (Aproximado), (inferido) y pendiente de B5
 
 - (Aproximado) el bucle del gesto usa la entidad de la mano izquierda en vez de `GInterface`; el orbe de un uso suena en
@@ -1247,7 +1283,7 @@ G_ClickOnSpell_01 con tono 100 y la voz HELP_TEXT_ANNOUNCER_VOICE_FIREBALL_01 al
 | B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); desde B5 `SpellSounds` también va por `SamplePlayAnimEffect` |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
 | B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); falta el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene); el vapor (`FireGraphic` 0x731542) entró con B5 |
-| B5 | **hecho** ([arriba](#fase-b-b5-implementado-los-milagros-en-canal)); los modificadores de PSys de F3 (`AddSoundToAtom` 0x69DCA0, `RemoveSoundFromAtom` 0x69DDD0, `StartStopSoundOnCondition` 0x69DC40) ya los tenía Milagros (`PSys/Rules/Sound.cpp`) |
+| B5 | **hecho** y **auditado** ([arriba](#fase-b-b5-implementado-los-milagros-en-canal), [auditoría](#auditoría-de-suposiciones-de-b5-team_guidelines-17)); los modificadores de PSys de F3 (`AddSoundToAtom` 0x69DCA0, `RemoveSoundFromAtom` 0x69DDD0, `StartStopSoundOnCondition` 0x69DC40) ya los tenía Milagros (`PSys/Rules/Sound.cpp`) |
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, orden aceptada 1, llamar a la puerta 110+c%9, influencia 52/129 (los gritos 180/187/194+rand7 ya están, B4) |

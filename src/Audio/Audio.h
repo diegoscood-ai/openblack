@@ -72,6 +72,8 @@ void RegisterObject(uint32_t id, ObjectPositionFn position);
 void UnregisterObject(uint32_t id);
 /// (openblack) A new id for Owner::Object, never given before: the original compares the owners' pointers (PSysSound,
 /// FireEffect, PHandFX, the gesture's atom data...), openblack gives each such object a number of its own
+/// An id whose channels are never tracked (track 0: the PHandFX, the FireGraphic's steam, the gesture's atom data)
+/// needs no RegisterObject: UpdateChannels only asks the tracked ones for their point.
 [[nodiscard]] uint32_t NewObjectId();
 
 // ---- GAudio::PlaySoundEffect and its family (0x429D60..0x42A100) ---------------------------------------------------

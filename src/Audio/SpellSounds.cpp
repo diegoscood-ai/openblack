@@ -76,6 +76,8 @@ Owner OwnerOf(const PSysSound& sound)
 /// PSysSound::Get3DSoundPos 0x6D1000: with an atom, its position (+0xF4) with the land's height under it when
 /// SnapToGround (+0x30 & 0x20: LH3DIsland::GetAltitude 0x6D1068); it answers 1 even without an atom, leaving the point
 /// as it was (0x6D107E), so the channel keeps the last one
+/// (openblack, Milagros') the original reads +0xF4 without asking whether the atom was drawn: that field is only
+/// written when it is (Atom::Draw), so a never drawn atom would give it a stale point; `drawn` stands for that.
 glm::vec3 PSysSoundPosition(PSysSound& sound)
 {
 	if (sound.atom != nullptr && sound.atom->drawn)

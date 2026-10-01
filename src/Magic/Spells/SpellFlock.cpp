@@ -31,6 +31,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
@@ -917,9 +918,9 @@ void spell_flock::SetupCorridor(SpellFlockAnimal& wolf, glm::vec2 start, glm::ve
 
 bool spell_flock::WolfArrived(const SpellFlockAnimal& wolf, glm::vec2 position)
 {
-	// fcomp 30 (0x8BF51C); test ah, 1: below
-	const glm::vec2 d = position - wolf.destination;
-	return std::sqrt(d.x * d.x + d.y * d.y) < k_WolfArrive;
+	// GUtils::GetDistanceInMetres 0x74CD70 (the table hypotenuse 0x74F680 on the two MapCoords), then fcomp 30
+	// (0x8BF51C); test ah, 1: below
+	return gutils::GetDistanceInMetres(position, wolf.destination) < k_WolfArrive;
 }
 
 bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPosition, glm::vec2 point)

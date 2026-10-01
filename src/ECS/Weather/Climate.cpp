@@ -20,6 +20,7 @@
 
 #include "3D/DayNightClock.h"
 #include "Atmos.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "Calendar.h"
 #include "Game.h"
@@ -230,7 +231,9 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 			for (const auto& other : g_climates)
 			{
 				const auto centre = other.Centre();
-				if (std::hypot(place.x - centre.x, place.z - centre.z) < other.outerRadius)
+				// GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0 = hypotenuse(float, float) 0x74F6C0, the table root
+				// (FindWhereToCreateStorm 0x772D86 / 0x772D97)
+				if (gutils::Hypotenuse(place.x - centre.x, place.z - centre.z) < other.outerRadius)
 				{
 					outside = false;
 					break;
@@ -475,7 +478,8 @@ void climate::CreateStorm(Climate& climate, uint32_t turn)
 	else
 	{
 		const auto centre = climate.Centre();
-		size = static_cast<uint32_t>(static_cast<int32_t>(std::hypot(place.x - centre.x, place.z - centre.z)));
+		// CreateStorm 0x772ED6: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0, then truncated
+		size = static_cast<uint32_t>(static_cast<int32_t>(gutils::Hypotenuse(place.x - centre.x, place.z - centre.z)));
 	}
 	size = std::clamp<uint32_t>(size, 160, 900); // 0xA0 / 0x384 (0x772EFE..0x772F15)
 
@@ -596,7 +600,8 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 				for (const auto& other : g_climates)
 				{
 					const auto centre = other.Centre();
-					if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
+					// fn_00772330 0x7724E2: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
+					if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
 					    fadeOutAge > storm->age)
 					{
 						storm->age = fadeOutAge;
@@ -608,7 +613,8 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			else
 			{
 				const auto centre = climate.Centre();
-				if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
+				// fn_00772330 0x77254C: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
+				if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
 				    fadeOutAge > storm->age)
 				{
 					storm->age = fadeOutAge;

@@ -24,6 +24,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
@@ -192,8 +193,11 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 				}
 				++looked;
 				const glm::vec2 d(transform->position.x - position.x, transform->position.z - position.z);
-				// GetDistanceInMetres < R, available, IsEffectReceiver, a Living that can be healed, dx^2 + dz^2 < R^2
-				if (!(glm::length(d) < radius) || !ecs::effects::IsEffectReceiver(object, values) ||
+				// GetDistanceInMetres 0x74CD70 < R, available, IsEffectReceiver, a Living that can be healed, and then
+				// dx^2 + dz^2 < R^2 (the second test is an exact square: it is not the first one again)
+				if (!(gutils::GetDistanceInMetres(glm::vec2(transform->position.x, transform->position.z),
+				                                  glm::vec2(position.x, position.z)) < radius) ||
+				    !ecs::effects::IsEffectReceiver(object, values) ||
 				    !CanBeHealedByHealSpell(object) || !(glm::dot(d, d) < radius * radius))
 				{
 					continue;

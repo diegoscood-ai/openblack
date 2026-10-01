@@ -33,6 +33,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
 #include "ECS/Fire/FireEffect.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
@@ -203,7 +204,8 @@ int Process(entt::entity entity)
 	// the spiral walks the drop's MapCoords (0x7250A2..0x7250BB): GetFirstIterator / GetMapChild on it, Spiral 0x74D7E0
 	// (0x725166) and operator+= 0x605470 (0x725173), which adds the step to the high words only (the fraction stays and
 	// the 16-bit add wraps at the map's edge)
-	auto coords = ecs::map_coords::FromMetres(glm::vec2(drop.x, drop.z));
+	const auto dropCoords = ecs::map_coords::FromMetres(glm::vec2(drop.x, drop.z));
+	auto coords = dropCoords;
 	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, direction 1 and count 1 (0x7250BF..0x7250C3)
 	std::string watered;            // the trace's list
 	for (int i = 0; i < 9; ++i)
@@ -220,9 +222,10 @@ int Process(entt::entity entity)
 			{
 				continue;
 			}
-			// (aproximado) exact float distance: the original's hypotenuse goes through an inverse square root
-			// (FUN_0074F620) on 16.16 map coordinates, a sub-millimetre difference
-			const float distance = glm::length(glm::vec2(transform->position.x - drop.x, transform->position.z - drop.z));
+			// GUtils::GetDistanceInMetres 0x74CD70: the table hypotenuse 0x74F680 on the 16.16 map coordinates
+			// (ECS/GUtilsDistance)
+			const float distance = gutils::GetDistanceInMetres(
+			    dropCoords, ecs::map_coords::FromMetres(glm::vec2(transform->position.x, transform->position.z)));
 			if (water::InReach(distance, ObjectRadius(object)))
 			{
 				water::ApplyWaterSpell(object, entity);

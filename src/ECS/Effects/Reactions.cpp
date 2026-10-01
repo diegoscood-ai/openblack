@@ -25,6 +25,7 @@
 #include "ECS/Components/ReactionRecords.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
@@ -143,12 +144,14 @@ void reactions::SpreadReaction(uint32_t id)
 	}
 	const glm::vec2 at = PosOf(reaction.initiator);
 	const int cells = ecs::map_coords::CellSpiralSize(reaction.radius); // GetMapCellSpiralSizeFromRadius 0x74F520
-	auto coords = ecs::map_coords::FromMetres(at);
+	const auto atCoords = ecs::map_coords::FromMetres(at);
+	auto coords = atCoords;
 	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, dir = count = 1 (0x6E3E51..0x6E3E5E)
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 cell = ecs::map_coords::ToMetres(coords);
-		if (InMap(coords) && glm::distance(cell, at) <= reaction.radius)
+		// 0x6E3E91 fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 from the reaction to the cell, then the radius is
+		// compared against it (fcomp; test ah, 1 at 0x6E3EA4: the cell is kept while radius >= d)
+		if (InMap(coords) && gutils::GetDistanceInMetres(atCoords, coords) <= reaction.radius)
 		{
 			// the cell's list (inferido: the mobile one, animals/audit_r3.md; its order as openblack keeps it): every
 			// Living of it, whatever its class, in that order

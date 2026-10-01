@@ -35,6 +35,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [animation.md](animation.md) | Aldeanos y animales: clips ANM, qué clip por estado, velocidad, tamaño, índice de creación, sonidos de los clips, objetos en la mano, dibujo entre turnos |
+| [villagers.md](villagers.md) | Aldeanos: campos del original, flags +0xE0, creación, cambios de estado (SetTopState / SetCurrentAndDestinationState), saltos de la velocidad, supuestos |
 | [animals.md](animals.md) | Animales: IA completa del original (herbívoros, depredadores y caza, aves, reacciones, bandadas, edad, mano, física, muerte, aldeanos como presa), clips por especie, diferencias que quedan |
 
 **Mundo, tiempo y gráficos**
@@ -75,6 +76,7 @@ ciudades), `villagers.md` (oficios de los aldeanos), `audio.md` (motor de audio)
 | Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas | [objects-and-resources.md](objects-and-resources.md) |
 | Golpes, daño, edificios que se rompen | [physics.md](physics.md) |
 | Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
+| Datos y estados de los aldeanos | [villagers.md](villagers.md) |
 | Comportamiento de los animales | [animals.md](animals.md) |
 | Hora del día, ventanas iluminadas, clima | [day-night-weather.md](day-night-weather.md) |
 | Cómo se dibuja algo; si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |

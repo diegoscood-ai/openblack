@@ -54,6 +54,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerAge.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
@@ -948,8 +949,9 @@ void Gui::ShowVillagerNames() noexcept
 	    glm::vec4(ImGui::GetStyle().WindowPadding.x, 0, displaySize.x - ImGui::GetStyle().WindowPadding.x, displaySize.y);
 	std::vector<glm::vec4> coveredAreas;
 	coveredAreas.reserve(Locator::entitiesRegistry::value().Size<Villager>());
+	const uint32_t turn = Game::Instance() != nullptr ? Game::Instance()->GetTurn() : 0;
 	Locator::entitiesRegistry::value().Each<const Transform, Villager, LivingAction>(
-	    [this, &i, &coveredAreas, &camera, config, viewport] //
+	    [this, &i, &coveredAreas, &camera, config, viewport, turn] //
 	    (const Transform& transform, Villager& villager, LivingAction& action) {
 		    ++i;
 		    const float height = 2.0f * transform.scale.y; // TODO(bwrsandman): get from bounding box max y
@@ -979,7 +981,8 @@ void Gui::ShowVillagerNames() noexcept
 		    const std::string name = "Villager #" + std::to_string(i);
 		    const std::string stateHelpText = "TODO: STATE HELP TEXT";
 		    std::string details =
-		        fmt::format("{}\nA:{} L:{:.0f}%, H:{}%", stateHelpText, villager.age, villager.life * 100.0f, villager.hunger);
+		        fmt::format("{}\nA:{} L:{:.0f}%, F:{:.2f}", stateHelpText,
+		                    ecs::villager::AgeFromBirthTurn(villager.birthTurn, turn), villager.life * 100.0f, villager.food);
 		    const auto& actionSystem = Locator::livingActionSystem::value();
 		    if (config.debugVillagerStates)
 		    {
@@ -1002,14 +1005,16 @@ void Gui::ShowVillagerNames() noexcept
 		    std::function<void(void)> debugCallback;
 		    if (config.debugVillagerNames)
 		    {
-			    debugCallback = [&villager, &action, &actionSystem] {
+			    debugCallback = [&villager, &action, &actionSystem, turn] {
 				    if (villager.abode == entt::null)
 				    {
 					    ImGui::Text("Homeless");
 				    }
 				    ImGui::SliderFloat("Life", &villager.life, 0.0f, 1.0f);
-				    ImGui::InputInt("Age", reinterpret_cast<int*>(&villager.age));
-				    ImGui::InputInt("Hunger", reinterpret_cast<int*>(&villager.hunger));
+				    ImGui::Text("Age: %u (born on turn %d)", ecs::villager::AgeFromBirthTurn(villager.birthTurn, turn),
+				                villager.birthTurn);
+				    ImGui::InputFloat("Food", &villager.food);
+				    ImGui::Text("Flags: 0x%04X, last check turn %u", villager.flags, villager.lastCheckTurn);
 				    ImGui::Combo("Life Stage", &villager.lifeStage, Villager::k_LifeStageStrs);
 				    ImGui::Combo("Sex", &villager.sex, Villager::k_SexStrs);
 				    ImGui::Combo("Tribe", &villager.tribe, k_TribeStrs);

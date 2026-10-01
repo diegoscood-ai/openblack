@@ -57,6 +57,7 @@ openblack_setup_and_add_test(test_lightning test_lightning.cpp)
 openblack_setup_and_add_test(test_shield test_shield.cpp)
 openblack_setup_and_add_test(test_heal test_heal.cpp)
 openblack_setup_and_add_test(test_worship test_worship.cpp)
+openblack_setup_and_add_test(test_villager_core test_villager_core.cpp)
 openblack_setup_and_add_test(test_set_camera_pos camera/test_set_camera_pos.cpp)
 openblack_setup_and_add_json_test(
   test_mobile_wall_hug mobile_wall_hug/test_mobile_wall_hug.cpp

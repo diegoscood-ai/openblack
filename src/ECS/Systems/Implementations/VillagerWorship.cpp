@@ -25,6 +25,7 @@
 #include "ECS/Life.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Worship/TownMagic.h"
@@ -402,8 +403,9 @@ bool CheckVillagerGoBackToTownFromWorship(entt::entity villager)
 	{
 		return false;
 	}
-	SetState(villager, VillagerStates::GoHomeFromWorship);
-	return StateNow(villager) == VillagerStates::GoHomeFromWorship;
+	// 0x76BF59..0x76BF6D: SetTopState(0xF8) (vt +0x8E8) == 1 -> 1. Its code, not the TOP: a pause first (239 with
+	// FINAL 248, Villager::SetTopState 0x7520A2) also returns 1 and the villager has left
+	return ecs::villager::SetTopState(villager, VillagerStates::GoHomeFromWorship) == ecs::villager::k_Done;
 }
 
 /// Villager::ReduceVillagerLifeByChant 0x76C800: life - chantDamage x chantLifeRate (vt 0x5B8); at 0 VillagerDead

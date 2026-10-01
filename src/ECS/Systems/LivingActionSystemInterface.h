@@ -24,11 +24,12 @@ public:
 	virtual void VillagerSetState(components::LivingAction& action, components::LivingAction::Index index, VillagerStates state,
 	                              bool skipTransition) const = 0;
 	virtual uint32_t VillagerCallState(components::LivingAction& action, components::LivingAction::Index index) const = 0;
-	virtual bool VillagerCallEntryState(components::LivingAction& action, components::LivingAction::Index index,
-	                                    VillagerStates src, VillagerStates dst) const = 0;
-	/// the exit function of the state at `index`, told the state that follows (the original's exit functions take it)
-	virtual bool VillagerCallExitState(components::LivingAction& action, components::LivingAction::Index index,
-	                                   VillagerStates next) const = 0;
+	/// The entry function (+0x10) of the table row `row`, told the final state from before the change and the state
+	/// entered: 1 = accepted, 0x23 = accepted and the states set by it, else refused. An empty slot is 1 (no function)
+	virtual uint32_t VillagerCallEntry(components::LivingAction& action, VillagerStates row, VillagerStates final,
+	                                  VillagerStates next) const = 0;
+	/// The exit function (+0x20) of the table row `row`, told the state that follows: 1 = it may leave. Empty: 1
+	virtual uint32_t VillagerCallExit(components::LivingAction& action, VillagerStates row, VillagerStates next) const = 0;
 	virtual int VillagerCallOutOfAnimation(components::LivingAction& action, components::LivingAction::Index index) const = 0;
 	virtual bool VillagerCallValidate(components::LivingAction& action, components::LivingAction::Index index) const = 0;
 };

@@ -32,7 +32,8 @@ struct SkeletalAnimation
 	float speed {1.0f};
 	/// > 0: the clip advances with the ground covered at this many m/s (a moving state, fn_0051AF00), not with time
 	float distanceSpeed {0.0f};
-	/// Living flags +0xE0 of the original: 0x800 an into / out-of clip plays, 0x1000 an out-of clip plays first
+	/// Villager +0xE0 (Villager::flags) bits 0x800 / 0x1000 of the original, kept here: 0x800 an into / out-of clip
+	/// plays, 0x1000 an out-of clip plays first
 	uint16_t transitionFlags {0};
 	/// test hook OPENBLACK_TEST_ANIM: the clip stays whatever the villager does
 	bool locked {false};

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -34,6 +35,16 @@ struct PlannedAbode
 	bool townCentre;     ///< PlannedTownCentre
 };
 
+/// TownDesire (Town +0x34). V1 has only what Villager::AdjustTownModifier 0x753560 writes: per town desire
+/// (TownDesireInfo), the villagers serving it now
+struct TownDesire
+{
+	/// +0x4DC (town +0x510): the sum of +-amount (state table file 0x08) of the villagers' final states serving it
+	std::array<float, 17> doingNow {};
+	/// +0x520 (town +0x554): +-1 per state, a float as in the original (fadd)
+	std::array<float, 17> doingNowCount {};
+};
+
 struct Town
 {
 	uint32_t id;
@@ -53,6 +64,7 @@ struct Town
 	/// +0xF08/+0xF0C: CREATE_FLOCK's flocks for this town; fn_00419D10 takes a flock off when an animal that can't be
 	/// shepherded joins it
 	std::vector<entt::entity> flocks;
+	TownDesire desire; ///< +0x34
 };
 
 } // namespace openblack::ecs::components

@@ -11,6 +11,8 @@
 
 #include "LivingActionSystem.h"
 
+#include <bitset>
+
 #include <glm/common.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
@@ -25,6 +27,9 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
 #include "ECS/VillagerAnimations.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerOriginalFns.h"
+#include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
 #include "VillagerTeleport.h"
 #include "VillagerWorship.h"
@@ -40,20 +45,6 @@ uint32_t VillagerInvalidState(LivingAction& action)
 	SPDLOG_LOGGER_ERROR(spdlog::get("ai"), "Villager #{}: Stuck in an invalid state",
 	                    static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)));
 	assert(false);
-	return 0;
-}
-
-uint32_t VillagerCreated(LivingAction& action)
-{
-	if (action.turnsUntilStateChange > 0)
-	{
-		--action.turnsUntilStateChange;
-	}
-	else
-	{
-		Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top, VillagerStates::DecideWhatToDo,
-		                                                      false);
-	}
 	return 0;
 }
 
@@ -130,12 +121,21 @@ uint32_t VillagerMoveToPos(LivingAction& action)
 	if (!stillMoving)
 	{
 		registry.Remove<MoveStateFinalStepTag, MoveStateArrivedTag>(entity);
-		// Living::SetupMoveToWithHug's destination state (index Final: the fire's states set it), else deciding again
+		// Living::MoveToPos 0x5EC270: MobileWallHug::MoveTo == 0xA (arrived) -> SetTopStateToFinal (0x5EC28E;
+		// Living::SetTopStateToFinal 0x5ECA80 = Villager::SetTopState(FINAL), vt +0x8E8): the pause roll, the exit of
+		// MOVE_TO_POS (ExitMoveToPos 0x5EDDA0, CircleHugInfo::Reset; not ported: taken as 1) and FINAL's exit / entry
 		const auto final = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(LivingAction::Index::Final)));
-		action.states.at(static_cast<size_t>(LivingAction::Index::Final)) = static_cast<uint8_t>(VillagerStates::InvalidState);
-		Locator::livingActionSystem::value().VillagerSetState(
-		    action, LivingAction::Index::Top, final != VillagerStates::InvalidState ? final : VillagerStates::DecideWhatToDo,
-		    true);
+		if (final != VillagerStates::InvalidState)
+		{
+			ecs::villager::SetTopStateToFinal(entity);
+		}
+		else
+		{
+			// (inventado, puente hasta V2) openblack's idle wander (VillagerDecideWhatToDo above, not the original's)
+			// leaves FINAL 0, where the original would SetTopState(0): back to deciding through the compat path
+			Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top,
+			                                                      VillagerStates::DecideWhatToDo, true);
+		}
 	}
 	return 0;
 }
@@ -158,39 +158,38 @@ uint32_t VillagerLanded(LivingAction& action)
 }
 } // namespace
 
-struct VillagerStateTableEntry
+using ecs::villager::VillagerStateTableEntry;
+
+namespace
 {
-	std::function<uint32_t(LivingAction&)> state = nullptr;
-	std::function<bool(LivingAction&, VillagerStates, VillagerStates)> entryState = nullptr;
-	std::function<bool(LivingAction&, VillagerStates)> exitState = nullptr; ///< (the next state)
-	std::function<bool(LivingAction&)> saveState = nullptr;
-	std::function<bool(LivingAction&)> loadState = nullptr;
-	std::function<bool(LivingAction&)> field0x50 = nullptr;
-	std::function<bool(LivingAction&)> field0x60 = nullptr;
-	std::function<int(LivingAction&)> transitionAnimation = nullptr;
-	std::function<bool(LivingAction&)> validate = nullptr;
-};
+/// A table row the original has and openblack has not ported: its state function does nothing (0) and warns once per
+/// state; the entry, exit and validate slots are empty (as "no function": 1), and LivingActionSystem::VillagerCallEntry
+/// / VillagerCallExit / VillagerCallValidate warn once if the original has one there (VillagerOriginalFns.h)
+uint32_t TodoState(LivingAction& action)
+{
+	static std::bitset<256> warned;
+	const auto state = static_cast<size_t>(action.states.at(static_cast<size_t>(LivingAction::Index::Top)));
+	if (!warned.test(state))
+	{
+		warned.set(state);
+		SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented state function: {} {} (0x{:X})",
+		                   static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)), state,
+		                   k_VillagerStateStrings.at(std::min<size_t>(state, k_VillagerStateStrings.size() - 1)),
+		                   ecs::villager::k_OriginalStateFns.at(std::min<size_t>(state, 254)).state);
+	}
+	return 0;
+}
+
+/// Milagros' worship exits keep the old convention (false = it may leave): the row adapts them to the original's
+/// (1 = it may leave)
+uint32_t OldExit(bool refused)
+{
+	return refused ? 0u : 1u;
+}
+} // namespace
 
 static const VillagerStateTableEntry k_TodoEntry = {
-    .state = [](LivingAction& action) -> uint32_t {
-	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented state function: {}",
-	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)),
-	                       k_VillagerStateStrings.at(static_cast<size_t>(
-	                           Locator::livingActionSystem::value().VillagerGetState(action, LivingAction::Index::Top))));
-	    return 0;
-    },
-    .entryState = [](LivingAction& action, VillagerStates src, VillagerStates dst) -> bool {
-	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented entry state function ({} -> {})",
-	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)),
-	                       k_VillagerStateStrings.at(static_cast<size_t>(src)),
-	                       k_VillagerStateStrings.at(static_cast<size_t>(dst)));
-	    return false;
-    },
-    .exitState = [](LivingAction& action, VillagerStates /*next*/) -> bool {
-	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented exit state function)",
-	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)));
-	    return false;
-    },
+    .state = &TodoState,
     .saveState = [](LivingAction& action) -> bool {
 	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented save state function: {}",
 	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)),
@@ -226,13 +225,6 @@ static const VillagerStateTableEntry k_TodoEntry = {
 	                           Locator::livingActionSystem::value().VillagerGetState(action, LivingAction::Index::Top))));
 	    return -1;
     },
-    .validate = [](LivingAction& action) -> bool {
-	    SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented validate function: {}",
-	                       static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)),
-	                       k_VillagerStateStrings.at(static_cast<size_t>(
-	                           Locator::livingActionSystem::value().VillagerGetState(action, LivingAction::Index::Top))));
-	    return false;
-    },
 };
 
 const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerStates::_COUNT)> k_VillagerStateTable = {
@@ -257,7 +249,11 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* SET_DYING */ k_TodoEntry,
     /* DYING */ k_TodoEntry,
     /* DEAD */ k_TodoEntry,
-    /* DROWNING */ k_TodoEntry,
+    // the water's state (local/agua: Villager::Drowning 0x76A780). EnterDrowning 0x767410 (`mov eax, 1; ret 8`) and
+    // ExitDrowning 0x767420 (`mov eax, 1; ret 4`) only accept
+    /* DROWNING */ {.state = &TodoState,
+                    .entryState = [](LivingAction&, VillagerStates, VillagerStates) -> uint32_t { return 1; },
+                    .exitState = [](LivingAction&, VillagerStates) -> uint32_t { return 1; }},
     /* DOWNED */ {.state = &VillagerCarried},      // caught by a predator: the animal AI drives it (ECS/AnimalPredators)
     /* BEING_EATEN */ {.state = &VillagerCarried},
     /* GOTO_FOOD_REACTION */ k_TodoEntry,
@@ -302,11 +298,15 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     // the worship states (VillagerWorship.cpp). 58 is the original's footpath walk (SetupMoveToOnFootpath): openblack
     // walks with the WallHug inside 59, so GotoWorshipSiteForWorship sets 59 straight away and 58 is never entered
     // (aproximado: the footpath walk is not ported).
-    /* GOTO_WORSHIP_SITE_FOR_WORSHIP */ {.exitState = &ecs::villager_worship::ExitMoveToWorshipSite},
-    /* ARRIVES_AT_WORSHIP_SITE_FOR_WORSHIP */ {.state = &ecs::villager_worship::ArrivesAtWorshipSiteForWorship,
-                                              .exitState = &ecs::villager_worship::ExitMoveToWorshipSite},
-    /* WORSHIPPING_AT_WORSHIP_SITE */ {.state = &ecs::villager_worship::WorshippingAtWorshipSite,
-                                       .exitState = &ecs::villager_worship::ExitAtWorshipSite},
+    // (their exits keep the old convention, false = it may leave: OldExit adapts them)
+    /* GOTO_WORSHIP_SITE_FOR_WORSHIP */
+    {.exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitMoveToWorshipSite(a, n)); }},
+    /* ARRIVES_AT_WORSHIP_SITE_FOR_WORSHIP */
+    {.state = &ecs::villager_worship::ArrivesAtWorshipSiteForWorship,
+     .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitMoveToWorshipSite(a, n)); }},
+    /* WORSHIPPING_AT_WORSHIP_SITE */
+    {.state = &ecs::villager_worship::WorshippingAtWorshipSite,
+     .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitAtWorshipSite(a, n)); }},
     /* GOTO_ALTAR_FOR_REST */ k_TodoEntry,
     /* ARRIVES_AT_ALTAR_FOR_REST */ k_TodoEntry,
     /* AT_ALTAR_REST */ k_TodoEntry,
@@ -331,9 +331,9 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FOOTBALL_MATCH_PAUSED */ k_TodoEntry,
     /* FOOTBALL_WATCH_MATCH */ k_TodoEntry,
     /* FOOTBALL_MEXICAN_WAVE */ k_TodoEntry,
-    /* CREATED */
+    /* CREATED: Villager::VillagerCreated 0x753DD0 (no entry or exit; +0x50 AlwaysReactToTownEmergency) */
     VillagerStateTableEntry {
-        .state = &VillagerCreated,
+        .state = &ecs::villager::VillagerCreated,
         .field0x50 = k_TodoEntry.field0x50,
     },
     /* ARRIVES_IN_ABODE_TO_TRADE */ k_TodoEntry,
@@ -467,8 +467,9 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* ARRIVES_AT_WORKSHOP_FOR_DROP_OFF */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_WORKSHOP_MATERIALS */ k_TodoEntry,
     /* SHOW_POISONED */ k_TodoEntry,
-    /* HIDING_AT_WORSHIP_SITE */ {.state = &ecs::villager_worship::HidingAtWorshipSite,
-                                  .exitState = &ecs::villager_worship::ExitAtWorshipSite},
+    /* HIDING_AT_WORSHIP_SITE */
+    {.state = &ecs::villager_worship::HidingAtWorshipSite,
+     .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitAtWorshipSite(a, n)); }},
     /* CROWD_REACTION */ k_TodoEntry,
     // the fire's states (VillagerFire.cpp); their entry / exit functions go with the final state there
     /* REACT_TO_FIRE */ {.state = &ecs::villager_fire::ReactToFire},
@@ -495,7 +496,13 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GO_AND_HIDE_IN_NEARBY_BUILDING */ k_TodoEntry,
     /* LOOK_TO_SEE_IF_IT_IS_SAFE */ k_TodoEntry,
     /* SLEEP_IN_TENT */ k_TodoEntry,
-    /* PAUSE_FOR_A_SECOND */ k_TodoEntry,
+    /* PAUSE_FOR_A_SECOND: Villager::PauseForASecond 0x76B0B0 (no entry, exit, save or load; +0x50
+       AlwaysReactToTownEmergency; its clip function +0x60 PauseForASecondAnimation 0x424080 is in
+       VillagerAnimationTable.h) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::PauseForASecond,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* PANIC_REACTION */ k_TodoEntry,
     /* GET_FOOD_AT_WORSHIP_SITE */ k_TodoEntry,
     /* GOTO_CONGREGATE_IN_TOWN_AFTER_EMERGENCY */ k_TodoEntry,
@@ -504,46 +511,41 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GO_AND_CHILLOUT_OUTSIDE_HOME */ k_TodoEntry,
     /* SIT_AND_CHILLOUT */ k_TodoEntry,
     /* SCRIPT_GO_AND_MOVE_ALONG_PATH */ k_TodoEntry,
-    // slot 248 is VillagerStates::GoHomeFromWorship (the table is indexed by the enum); k_VillagerStateStrings
-    // mislabels 248..254, which is where these stale comments come from
-    /* GO_HOME_FROM_WORSHIP */ {.state = &ecs::villager_worship::GoHomeFromWorship},
-    /* GOTO_ABODE_BURNING_REACTION */ k_TodoEntry,
-    /* ARRIVES_AT_ABODE_BURNING_REACTION */ k_TodoEntry,
-    /* REPAIRS_ABODE (251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY, 0x766380 = a jmp to 201's) */
+    // (k_VillagerStateStrings mislabels 248..254; the names here are the enum's / info.dat's)
+    /* 248 GO_HOME_FROM_WORSHIP */ {.state = &ecs::villager_worship::GoHomeFromWorship},
+    /* 249 ARRIVES_HOME_FROM_WORSHIP */ k_TodoEntry,
+    /* 250 SLEEP_IN_TENT_FROM_WORSHIP */ k_TodoEntry,
+    /* 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY (0x766380 = a jmp to 201's) */
     {.state = &ecs::villager_teleport::GoToTeleportReaction},
-    /* ARRIVES_AT_SCAFFOLD_FOR_PICKUP */ k_TodoEntry,
-    /* ARRIVES_AT_BUILDING_SITE_WITH_SCAFFOLD */ k_TodoEntry,
-    /* MOVE_SCAFFOLD_TO_BUILDING_SITE */ k_TodoEntry,
+    /* 252 GO_AND_CHILLOUT_IN_TOWN */ k_TodoEntry,
+    /* 253 WAIT_FOR_ARTIFACT_DANCE */ k_TodoEntry,
+    /* 254 BREEDER_JUST_LANDED */ k_TodoEntry,
 };
 
 void LivingActionSystem::Update()
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	const uint32_t turn = ecs::villager::CurrentTurn(); // g_game +0x205A40
+	ecs::villager::RunDebugHooks(turn);
 
-	registry.Each<LivingAction>([](LivingAction& action) { ++action.turnsSinceStateChange; });
-
-	// TODO(#475): process food speedup
-
-	registry.Each<const Villager, LivingAction>([this]([[maybe_unused]] const Villager& villager, LivingAction& action) {
-		VillagerCallValidate(action, LivingAction::Index::Top);
-	});
-	// TODO(#476): same call but for other types of living
-
-	registry.Each<const Villager, LivingAction>([this]([[maybe_unused]] const Villager& villager, LivingAction& action) {
-		VillagerCallValidate(action, LivingAction::Index::Final);
-	});
-	// TODO(#476): same call but for other types of living
-
-	// TODO(bwrsandman): Store result of this call in vector or with tag component
-	registry.Each<const Villager, LivingAction>([this, &registry]([[maybe_unused]] const Villager& villager, LivingAction& action) {
-		// Villager::ProcessState (0x74FF70): no state logic while an into / out-of clip plays
-		if (ecs::VillagerWaitsForTransition(registry.ToEntity(action), action.turnsSinceStateChange))
+	// Living::ProcessLiving 0x5EC810 for the villagers: ProcessReaction 0x5F1270 and ProcessState (vt +0x620) one by one.
+	// (aproximado) the original runs one list of villagers and animals (g_game +0x205BBC); openblack runs the villagers
+	// here in the registry's order and the animals after them (ecs::animal_ai), and the walk of all of them before
+	// (PathfindingSystem, the original's MoveToPos state function)
+	std::vector<entt::entity> villagers;
+	registry.Each<const Villager, const LivingAction>(
+	    [&villagers](entt::entity entity, const Villager&, const LivingAction&) { villagers.push_back(entity); });
+	for (const auto entity : villagers)
+	{
+		if (!registry.Valid(entity) || !registry.AllOf<Villager, LivingAction>(entity))
 		{
-			return;
+			continue;
 		}
-		VillagerCallState(action, LivingAction::Index::Top);
-	});
-	// TODO(#476): same call but for other types of living
+		ecs::villager::ProcessReaction(entity);
+		ecs::villager::ProcessState(entity, turn);
+	}
+	// the deaths of the turn (TODO(V12): VillagerDead keeps them alive in the dying states)
+	ecs::villager::FlushDeaths();
 }
 
 VillagerStates LivingActionSystem::VillagerGetState(const LivingAction& action, LivingAction::Index index) const
@@ -554,41 +556,36 @@ VillagerStates LivingActionSystem::VillagerGetState(const LivingAction& action, 
 void LivingActionSystem::VillagerSetState(LivingAction& action, LivingAction::Index index, VillagerStates state,
                                           bool skipTransition) const
 {
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.ToEntity(action);
 	const auto previousState = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(index)));
+	SPDLOG_LOGGER_TRACE(spdlog::get("ai"), "Villager #{}: Setting state {} -> {}", static_cast<int>(entity),
+	                    k_VillagerStateStrings.at(static_cast<size_t>(previousState)),
+	                    k_VillagerStateStrings.at(static_cast<size_t>(state)));
+
+	if (index != LivingAction::Index::Top)
+	{
+		// Villager::SetState 0x753690 (the PREVIOUS rule and AdjustTownModifier)
+		ecs::villager::SetState(entity, index, state);
+		return;
+	}
+	if (!skipTransition)
+	{
+		// Villager::SetTopState 0x752010 (the pause, the exits, the entry, 0x2E / 0x2F, the speed and the clips)
+		ecs::villager::SetTopState(entity, state);
+		return;
+	}
+	// The changes that bypass the exit and entry functions (the hand, the physics, the animals, the water, MOVE_TO_POS
+	// and LANDED, the miracles' local SetTopState): Villager::SetState(0, s) (FINAL cleared with its town modifier,
+	// +0x90 = 0) and the clips and speed as before. (aproximado) in the original those go through SetTopState with
+	// their own entry / exit functions (EnterInHand 0x76AFE0, ExitInHand 0x76B000, ...), not ported yet. Repeating the
+	// same order changes nothing, as openblack had it
 	if (previousState == state)
 	{
 		return;
 	}
-
-	[[maybe_unused]] auto& registry = Locator::entitiesRegistry::value();
-	SPDLOG_LOGGER_TRACE(spdlog::get("ai"), "Villager #{}: Setting state {} -> {}", static_cast<int>(registry.ToEntity(action)),
-	                    k_VillagerStateStrings.at(static_cast<size_t>(previousState)),
-	                    k_VillagerStateStrings.at(static_cast<size_t>(state)));
-
-	const bool runTransition = index == LivingAction::Index::Top && !skipTransition;
-
-	// Exit the previous state before switching. A truthy return means it isn't ready to be
-	// left yet, so abort the transition without changing state.
-	if (runTransition && VillagerCallExitState(action, index, state))
-	{
-		return;
-	}
-
-	if (index == LivingAction::Index::Top)
-	{
-		action.turnsSinceStateChange = 0;
-	}
-	action.states.at(static_cast<size_t>(index)) = static_cast<uint8_t>(state);
-
-	if (runTransition)
-	{
-		VillagerCallEntryState(action, index, previousState, state);
-	}
-	// Living::SetTopState: the clips of the change (ECS/VillagerAnimations.h)
-	if (index == LivingAction::Index::Top)
-	{
-		ecs::OnVillagerStateChanged(registry.ToEntity(action), previousState, state);
-	}
+	ecs::villager::SetState(entity, LivingAction::Index::Top, state);
+	ecs::OnVillagerStateChanged(entity, previousState, state);
 }
 
 uint32_t LivingActionSystem::VillagerCallState(LivingAction& action, LivingAction::Index index) const
@@ -603,28 +600,54 @@ uint32_t LivingActionSystem::VillagerCallState(LivingAction& action, LivingActio
 	return callback(action);
 }
 
-bool LivingActionSystem::VillagerCallEntryState(LivingAction& action, LivingAction::Index index, VillagerStates src,
-                                                VillagerStates dst) const
+namespace
 {
-	const auto state = action.states.at(static_cast<size_t>(index));
-	const auto& entry = k_VillagerStateTable.at(static_cast<size_t>(state));
-	const auto& callback = entry.entryState;
-	if (!callback)
-	{
-		return false;
-	}
-	return callback(action, src, dst);
-}
+enum class Slot : uint8_t
+{
+	Entry,
+	Exit,
+	Validate,
+};
 
-bool LivingActionSystem::VillagerCallExitState(LivingAction& action, LivingAction::Index index,
+/// One warning per state and slot when the original has a function there and the row has none
+void WarnMissing(LivingAction& action, VillagerStates row, Slot slot)
+{
+	static std::array<std::bitset<256>, 3> warned;
+	const auto index = std::min<size_t>(static_cast<size_t>(row), 254);
+	const auto& original = ecs::villager::k_OriginalStateFns.at(index);
+	const uint32_t address = slot == Slot::Entry ? original.entry : slot == Slot::Exit ? original.exit : original.validate;
+	auto& bits = warned.at(static_cast<size_t>(slot));
+	if (address == 0 || bits.test(index))
+	{
+		return;
+	}
+	bits.set(index);
+	SPDLOG_LOGGER_WARN(spdlog::get("ai"), "Villager #{}: TODO: Unimplemented {} function of {} {} (0x{:X}): taken as 1",
+	                   static_cast<uint32_t>(Locator::entitiesRegistry::value().ToEntity(action)),
+	                   slot == Slot::Entry ? "entry" : slot == Slot::Exit ? "exit" : "validate", index,
+	                   k_VillagerStateStrings.at(index), address);
+}
+} // namespace
+
+uint32_t LivingActionSystem::VillagerCallEntry(LivingAction& action, VillagerStates row, VillagerStates final,
                                                VillagerStates next) const
 {
-	const auto& state = action.states.at(static_cast<size_t>(index));
-	const auto& entry = k_VillagerStateTable.at(static_cast<size_t>(state));
-	const auto& callback = entry.exitState;
+	const auto& callback = k_VillagerStateTable.at(static_cast<size_t>(row)).entryState;
 	if (!callback)
 	{
-		return false;
+		WarnMissing(action, row, Slot::Entry);
+		return 1;
+	}
+	return callback(action, final, next);
+}
+
+uint32_t LivingActionSystem::VillagerCallExit(LivingAction& action, VillagerStates row, VillagerStates next) const
+{
+	const auto& callback = k_VillagerStateTable.at(static_cast<size_t>(row)).exitState;
+	if (!callback)
+	{
+		WarnMissing(action, row, Slot::Exit);
+		return 1;
 	}
 	return callback(action, next);
 }
@@ -643,11 +666,11 @@ int LivingActionSystem::VillagerCallOutOfAnimation(LivingAction& action, LivingA
 
 bool LivingActionSystem::VillagerCallValidate(LivingAction& action, LivingAction::Index index) const
 {
-	const auto state = action.states.at(static_cast<size_t>(index));
-	const auto& entry = k_VillagerStateTable.at(static_cast<size_t>(state));
-	const auto& callback = entry.validate;
+	const auto state = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(index)));
+	const auto& callback = k_VillagerStateTable.at(static_cast<size_t>(state)).validate;
 	if (!callback)
 	{
+		WarnMissing(action, state, Slot::Validate);
 		return false;
 	}
 	return callback(action);

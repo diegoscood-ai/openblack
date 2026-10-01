@@ -29,10 +29,12 @@ public:
 	void VillagerSetState(components::LivingAction& action, components::LivingAction::Index index, VillagerStates state,
 	                      bool skipTransition) const override;
 	uint32_t VillagerCallState(components::LivingAction& action, components::LivingAction::Index index) const override;
-	bool VillagerCallEntryState(components::LivingAction& action, components::LivingAction::Index index, VillagerStates src,
-	                            VillagerStates dst) const override;
-	bool VillagerCallExitState(components::LivingAction& action, components::LivingAction::Index index,
-	                           VillagerStates next) const override;
+	/// The entry function (+0x10) of the table row `row`, told the final state from before the change and the state
+	/// entered: 1 = accepted, 0x23 = accepted and the states set by it, else refused. An empty slot is 1 (no function)
+	uint32_t VillagerCallEntry(components::LivingAction& action, VillagerStates row, VillagerStates final,
+	                                  VillagerStates next) const override;
+	/// The exit function (+0x20) of the table row `row`, told the state that follows: 1 = it may leave. Empty: 1
+	uint32_t VillagerCallExit(components::LivingAction& action, VillagerStates row, VillagerStates next) const override;
 	int VillagerCallOutOfAnimation(components::LivingAction& action, components::LivingAction::Index index) const override;
 	bool VillagerCallValidate(components::LivingAction& action, components::LivingAction::Index index) const override;
 };

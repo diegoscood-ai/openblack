@@ -215,6 +215,16 @@ bool audio::IsPlaying(Channel channel)
 	return sample_play::IsPlaying(channel);
 }
 
+Channel audio::PlayingChannel(Owner owner, BankId bank)
+{
+	return sample_play::OwnerChannel(bank, owner);
+}
+
+int audio::Volume(Channel channel)
+{
+	return sample_play::Volume(channel);
+}
+
 int audio::NextCounter(Counter counter)
 {
 	const auto index = static_cast<size_t>(counter);

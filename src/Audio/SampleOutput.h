@@ -53,6 +53,13 @@ public:
 	virtual bool Play(size_t channel, Sound& sound, const Start& start) = 0;
 	/// QSWaveMixFlushChannel: the channel stops at once
 	virtual void Stop(size_t channel) = 0;
+	/// LHSampleStop's stop (0x10012CC1..0x10012D09, 0x10012D79..0x10012DCB, 0x10012E6E..): QSWaveMixSetPanRate(20 ms),
+	/// QSWaveMixSetVolume(0) (a 20 ms ramp to silence), Sleep(20), SetPanRate(100), QSWaveMixFlushChannel. The caller
+	/// waits those 20 ms, as the original does. Default: Stop.
+	virtual void StopRamped(size_t channel) { Stop(channel); }
+	/// QSWaveMixGetPlayPosition(..., 2) of LHSampleGetPlayPosition 0x10014C00: the channel's play position in
+	/// milliseconds, -1 when it is not playing (0x10014C6E). Default: -1.
+	[[nodiscard]] virtual int64_t PlayPositionMs(size_t /*channel*/) const { return -1; }
 	/// The channel's wave is still sounding (+0x8C is cleared by the end callback 0x100108C0)
 	[[nodiscard]] virtual bool Playing(size_t channel) const = 0;
 	/// QSWaveMixSetVolume

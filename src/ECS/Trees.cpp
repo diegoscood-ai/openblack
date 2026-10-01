@@ -1076,8 +1076,9 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 		if (GrowTree(entity, amount, raiseMaximum) != 0.0f)
 		{
 			tree->growing = true;
-			// sample 0x78 + GetTickCount() % 9 (InGame.sad 120-128, G_TreeGrow) at the tree
-			PlayAt(fmt::format("InGame.sad/{}", 120 + Locator::rng::value().NextValue<uint32_t>(0, 8)), transform->position);
+			// sample 0x78 + GetTickCount() % 9 (InGame.sad 120-128, G_TreeGrow) at the tree: the real clock, not the
+			// random generator (0x74C4B3..0x74C4C0, audio::TickCount)
+			PlayAt(fmt::format("InGame.sad/{}", 120 + audio::TickCount() % 9), transform->position);
 		}
 	}
 	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && g_currentTurn - g_lastTreeCreatedTurn > 40)

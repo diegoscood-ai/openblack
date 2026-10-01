@@ -262,6 +262,33 @@ VoiceRoute RouteOf(int32_t narrator, audio::TextVoice voice)
 	return voice.sample != 0 && voice.bank != audio::SfxBank::None ? VoiceRoute::Narration : VoiceRoute::None; // 0x5C609C
 }
 
+int32_t SpiritWhoTalks(int32_t narrator)
+{
+	// 0x5C6E45..0x5C6E5C
+	if (narrator == helptext::k_NarratorGoodSpirit)
+	{
+		return 1;
+	}
+	return narrator == helptext::k_NarratorEvilSpirit ? 2 : 0;
+}
+
+int32_t ConvertScriptSpiritToHelpSpirit(int32_t type, int discreteAlignment, const std::function<int()>& rand100)
+{
+	switch (type) // 0x710354: type - 2, 0..3 through 0x710400
+	{
+	case 2: // 0x710367
+		return 2;
+	case 3: // 0x71036D..0x7103A7: setl, inc
+		return discreteAlignment < 3 ? 2 : 1;
+	case 4: // 0x7103A8..0x7103E2: setge, inc
+		return discreteAlignment >= 3 ? 2 : 1;
+	case 5: // 0x7103E3..0x7103F8: LocalRand(100) > 0x32
+		return (rand100 ? rand100() : 0) > 50 ? 2 : 1;
+	default: // 0x7103F9
+		return 1;
+	}
+}
+
 HelpSystem::HelpSystem(Info info, Queries queries, Hooks hooks)
     : _info(info)
     , _queries(std::move(queries))
@@ -573,9 +600,17 @@ int HelpSystem::ProcessInterface(bool click)
 	}
 	if (IsScriptWideScreen() || key) // 0x5C6A2E..0x5C6A44
 	{
-		if (_texts[0] != 0 && _hooks.stopVoicesOnClick) // 0x5C6A7E
+		if (_texts[0] != 0) // 0x5C6A7E
 		{
-			_hooks.stopVoicesOnClick();
+			if (_hooks.spiritStop) // 0x5C6A88 / 0x5C6A93: fn_005C6720(1, 1), fn_005C6720(2, 1)
+			{
+				_hooks.spiritStop(1, 1);
+				_hooks.spiritStop(2, 1);
+			}
+			if (_hooks.stopVoicesOnClick) // 0x5C6AAD
+			{
+				_hooks.stopVoicesOnClick();
+			}
 		}
 		ClearTextDisplayed(); // 0x5C6AB4
 		if (Tracing())

@@ -496,6 +496,7 @@ entt::entity EndPhysics(PhysicsObject& po)
 		// 0x5F0BAF: MapCoords::IsWater of Pos (the cell's water bit, the shallow shore too; not the body's inWater)
 		if (ecs::sea_cells::IsWater(transform.position))
 		{
+			ecs::RememberLastPlayerToInteract(entity, po.byPlayer);
 			ecs::VillagerEndPhysicsInWater(entity);
 			return entt::null;
 		}
@@ -735,6 +736,7 @@ void Substep()
 		if (!po.body.resting && po.body.Centre().y < po.body.Radius() * 0.5f)
 		{
 			// 0x645A01: HasSunk (vt +0x7B8, ECS/VillagerDrowning) stops the body and ends its physics as if at rest
+			ecs::RememberLastPlayerToInteract(po.entity, po.byPlayer);
 			if (po.body.density > 1.0f && ecs::HasSunk(po.entity))
 			{
 				if (!stillAt(i, self)) // Living::HasSunk: the animal went (ToBeDeleted)

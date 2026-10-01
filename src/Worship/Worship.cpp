@@ -26,6 +26,7 @@
 #include "PlayerSpellIcons.h"
 #include "SpellDispenser.h"
 #include "SpellSeedGraphic.h"
+#include "TestDispensers.h"
 #include "WorshipPercentage.h"
 #include "WorshipSite.h"
 #include "WorshipSpellIcon.h"
@@ -51,6 +52,7 @@ void worship::OnLoadMap()
 	fire_fly::Reset(); // FireFly::OnClearMap 0x52A1E0
 	gesture_icons::Register();
 	ResetDebugHooks();
+	test_dispensers::Reset();
 }
 
 void worship::ProcessSpellIcons()
@@ -72,6 +74,7 @@ void worship::ProcessTurn(uint32_t turn)
 		citadel::PostLoadCleanup();
 	}
 	RunDebugHooks(turn);
+	test_dispensers::ProcessTurn(turn); // mod test.miracle-dispensers (not in the original)
 	dispenser::ProcessTurn();
 }
 

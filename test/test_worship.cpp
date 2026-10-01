@@ -23,6 +23,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Registry.h"
 #include "Enums.h"
 #include "InfoConstants.h"
@@ -240,15 +241,19 @@ TEST_F(WorshipTest, WorshipersNeeded)
 	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, nullptr), -1);
 }
 
-TEST_F(WorshipTest, SigmoidThreshold)
+TEST_F(WorshipTest, WorshipScoreFallsOffWithTheDistance)
 {
-	// GUtils::SigmoidThreshold 0x74F170 and its 41-step table: 1 gives 0, the threshold itself lands on the middle
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(1.0f, 0.5f), 0.0f);
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.5f, 0.5f), 0.5f);
-	// the table's steps, not a smooth curve: 0.5 - x = 0.5 lands on step 30 and -0.4 on step 13
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.0f, 0.5f), 0.99996f); // far away: it goes
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.9f, 0.5f), 0.00028f); // close by: it stays
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(-2.0f, 0.5f), 1.0f); // clamped
+	// fn_0073C590 calls GUtils::GetDistanceModifier(d1, d2) at 0x73C620, which is SigmoidThreshold(0.5, 1 - min / d2)
+	// 0x74F170 with the threshold as its FIRST argument (push 0x3F000000 at 0x74F2B7). openblack used to pass them the
+	// other way round, which mirrored the curve and sent the farthest villagers first; it is the nearest who go.
+	// The shared routine lives in ECS/GUtilsDistance and its own test checks the 0xC23284 table in bits.
+	// d2 = 400 m here (the town's distance to the centre + 100, fadd [0x8AB41C])
+	EXPECT_FLOAT_EQ(gutils::GetDistanceModifier(0.0f, 400.0f), 0.999963939f); // at the centre: it goes
+	EXPECT_FLOAT_EQ(gutils::GetDistanceModifier(200.0f, 400.0f), 0.5f);       // half way: the middle step
+	EXPECT_FLOAT_EQ(gutils::GetDistanceModifier(360.0f, 400.0f), 2.78786494e-4f); // far away: it stays
+	EXPECT_FLOAT_EQ(gutils::GetDistanceModifier(400.0f, 400.0f), 3.60351005e-5f);
+	// the score multiplies the life in THREE times (the loop 0x73C63A..0x73C644), not twice
+	EXPECT_FLOAT_EQ(0.5f * 0.5f * 0.5f * gutils::GetDistanceModifier(200.0f, 400.0f), 0.0625f);
 }
 
 TEST_F(WorshipTest, FireFlyRewardProbabilities)

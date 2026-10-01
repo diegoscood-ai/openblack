@@ -28,9 +28,9 @@ void SetWorshipPercentage(entt::entity town, float percentage);
 [[nodiscard]] int GetWorshipersNeeded(entt::entity town, bool countOnWay, bool countGoHome, bool* out);
 
 /// Town::AdjustWorshipersWorshipping 0x73C0F0 (n, skipLifeCheck, requireReachable): two passes (the second also takes the
-/// villagers flagged 0x200); n > 0: the available villagers, the highest WorshipScore (the farthest) first (fcomp
+/// villagers flagged 0x200); n > 0: the available villagers, the highest WorshipScore (the nearest) first (fcomp
 /// 0x73C190), go (CheckWorshipActivity, with life above damageThresholdToGoHome unless skipLifeCheck); n < 0: those at
-/// or on the way to the site, the lowest score (the nearest) first (fcomp 0x73C3AE), are sent back (state 163)
+/// or on the way to the site, the lowest score (the farthest) first (fcomp 0x73C3AE), are sent back (state 163)
 void AdjustWorshipersWorshipping(entt::entity town, int count, bool skipLifeCheck, bool requireReachable);
 
 /// Town::AddVillagerOnWayToWorshipSite 0x73E300 / RemoveVillagerOnWayToWorshipSite 0x73E360, fn_0073E3E0 / fn_0073E3F0
@@ -40,12 +40,11 @@ void RemoveVillagerOnWay(entt::entity town, entt::entity villager);
 void AddWorshipper(entt::entity town);
 void RemoveWorshipper(entt::entity town);
 
-/// fn_0073C590, the order AdjustWorshipersWorshipping takes the villagers in: GetDistanceModifier(the villager's
-/// distance to the site's centre (CalculateCentrePos 0x77DD40, the site's local point (12.55, 0, -26.1)), the
-/// centre's distance to the town + 100) x life^2. It grows with the distance: the farthest go first.
+/// fn_0073C590, the order AdjustWorshipersWorshipping takes the villagers in: GUtils::GetDistanceModifier 0x74F290 (the
+/// villager's distance to the site's centre (CalculateCentrePos 0x77DD40, the site's local point (12.55, 0, -26.1)), the
+/// centre's distance to the town + 100) x life^3 (the loop 0x73C63A..0x73C644). The modifier falls off with the
+/// distance, so the nearest villagers score highest and go first.
 [[nodiscard]] float WorshipScore(entt::entity villager);
-/// GUtils::SigmoidThreshold 0x74F170
-[[nodiscard]] float SigmoidThreshold(float x, float threshold);
 
 /// TotemStatue::Draw 0x738960 (per frame): the plinth rises 8 x the smoothed percentage and the icon stands on it
 void UpdateTotems(float seconds);

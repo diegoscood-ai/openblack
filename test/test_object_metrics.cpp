@@ -19,6 +19,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <gtest/gtest.h>
 
+#include "ECS/Components/Animal.h"
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/FishFarm.h"
@@ -26,7 +27,9 @@
 #include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/WorshipSite.h"
@@ -268,4 +271,40 @@ TEST_F(ObjectMetrics, BoundingSphere)
 	EXPECT_NEAR(sphere.centre.z, 30.0f, 1e-3f);
 	EXPECT_FLOAT_EQ(sphere.centre.y, 3.0f);
 	EXPECT_FLOAT_EQ(object::GetTopPos(a), 5.0f); // 0x638160: altitude 1 + height 4
+}
+
+TEST_F(ObjectMetrics, DerivedOverrides)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// Living 0x5ED2F0 / MobileStatic 0x608F40: the bounding sphere with R2D x 0.5
+	const auto animal = Make(k_Box, 1.0f, {20.0f, 0.0f, 30.0f}); // R2D 2, H 4
+	registry.Assign<Animal>(animal);
+	EXPECT_FLOAT_EQ(object::GetBoundingSphere(animal).radius, std::sqrt(1.0f + 4.0f));
+	const auto rock = Make(k_Box, 1.0f, {20.0f, 0.0f, 30.0f});
+	registry.Assign<MobileStatic>(rock, MobileStaticInfo::Boulder1Chalk);
+	EXPECT_FLOAT_EQ(object::GetBoundingSphere(rock).radius, std::sqrt(1.0f + 4.0f));
+
+	// MapShield 0x72C1C0: the top is 0; FishFarm 0x52C840: the hand's height above it is 5
+	const auto shield = Make(k_Box, 1.0f, {0.0f, 1.0f, 0.0f});
+	registry.Assign<MapShield>(shield).objectScale = 1.0f;
+	EXPECT_EQ(object::GetTopPos(shield), 0.0f);
+	const auto farm = Make(k_Box, 1.0f);
+	registry.Assign<FishFarm>(farm);
+	EXPECT_EQ(object::GetHeightForHandAboveInteractObject(farm), 5.0f);
+
+	// CitadelHeart 0x4680C0: Get2DRadius x 0.33
+	const auto heart = Make(k_Box, 1.0f);
+	registry.Assign<Temple>(heart, PlayerNames::PLAYER_ONE);
+	EXPECT_FLOAT_EQ(object::GetRoutePlanRadius(heart), 2.0f * 0.33f);
+
+	// WorshipSite 0x77DE20: from CalculateCentrePos 0x77DD40 (12.55 right, 26.1 back), minus 14 + R2D(b)
+	const auto site = Make(k_Box, 1.0f, {100.0f, 0.0f, 100.0f});
+	registry.Assign<WorshipSite>(site);
+	const auto centre = object::WorshipSiteCentre(site);
+	EXPECT_FLOAT_EQ(centre.x, 112.55f);
+	EXPECT_FLOAT_EQ(centre.z, 100.0f - 26.1f);
+	const auto b = Make(k_Wide, 1.0f, {centre.x + 20.0f, 0.0f, centre.z}); // R2D 3
+	EXPECT_NEAR(object::GetDistanceFromObject(site, b), 20.0f - (14.0f + 3.0f), 0.01f);
+	EXPECT_TRUE(object::IsTouching(site, b, 3.1f));
+	EXPECT_FALSE(object::IsTouching(site, b, 2.9f));
 }

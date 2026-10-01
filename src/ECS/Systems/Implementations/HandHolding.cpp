@@ -641,12 +641,11 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 	//   Villager                  VILLAGER  R = R2D             lowering 0.65
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(entity);
-	// Object::Get2DRadius 0x638180 itself: the hand food's PileFood 0x66F180 proportion is applied by HandSystem::Update
-	// (PotInfo::HandFood); none of the other overrides (Field, FishFarm, MagicFireBall, MagicTeleport) can be held.
-	// GetHeight vt +0x42C (Object 0x638120). No mesh: 0 for both (0x6381E9, 0x638140)
-	const float radius2D = ecs::object::ObjectGet2DRadius(entity);
+	// Object::GetHoldRadius 0x638C00 asks vt +0x64 (0x638C22..0x638C26), with its overrides: a food pile (PileFood,
+	// MagicFood, PuzzleGrain and the hand's HandFood, 0x66F180) is x its GetProportionRaised, so the hand opens as the
+	// food in it grows. GetHeight vt +0x42C (Object 0x638120). No mesh: 0 for both (0x6381E9, 0x638140)
+	const float radius2D = ecs::object::Get2DRadius(entity);
 	_heldHeight = ecs::object::GetHeight(entity);
-	auto& meshes = Locator::resources::value().GetMeshes();
 	_holdType = HoldType::Above;
 	_holdRadius = 0.75f * _heldHeight;
 	_loweringMultiplier = 0.0f;
@@ -654,14 +653,15 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 	if (const auto* seed = registry.TryGet<const SpellSeed>(entity); seed != nullptr)
 	{
 		// SpellSeed 0x728640..0x728680: MAGIC until ready, then the seed info's hold type; R = holdRadius x scale. The
-		// height is its mesh's even when the seed is not drawn in the hand.
+		// height is SpellSeed's vt +0x42C = Object::GetHeight 0x638120 of the seed info's mesh, even when the seed is not
+		// drawn in the hand
 		const auto& info = magic::seed::InfoOf(*seed);
-		const auto id = resources::HashIdentifier(info.mesh);
-		if (meshes.Contains(id))
+		if (const auto half = ecs::object::MeshHalfExtents(resources::HashIdentifier(info.mesh)); half)
 		{
-			_heldHeight = meshes.Handle(id)->GetBoundingBox().Size().y * transform.scale.y;
+			_heldHeight = ecs::object::Height(*half, ecs::object::GetScaleField(entity));
 		}
-		_holdType = seed->ready ? static_cast<HoldType>(info.holdType) : HoldType::Magic;
+		_holdType
+ = seed->ready ? static_cast<HoldType>(info.holdType) : HoldType::Magic;
 		_holdRadius = info.holdRadius * transform.scale.x;
 		_loweringMultiplier = info.holdLoweringMultiplier;
 		_rooted = false;

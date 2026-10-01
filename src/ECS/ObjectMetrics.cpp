@@ -20,9 +20,14 @@
 #include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Fragment.h"
+#include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
@@ -332,11 +337,20 @@ float GetTopPos(entt::entity object)
 	const auto* registry = RegistryOrNull();
 	const auto* transform = registry != nullptr && registry->Valid(object) ? registry->TryGet<const Transform>(object) : nullptr;
 	const float altitude = transform != nullptr ? map_coords::FromWorld(transform->position).altitude : 0.0f;
+	if (registry != nullptr && registry->Valid(object) && registry->AllOf<MapShield>(object))
+	{
+		return 0.0f; // MapShield 0x72C1C0: fld [0x8AA398]
+	}
 	return GetHeight(object) + altitude; // 0x638160: [ecx + 0x1C] kept, vt +0x42C, fadd
 }
 
 float GetHeightForHandAboveInteractObject(entt::entity object)
 {
+	const auto* registry = RegistryOrNull();
+	if (registry != nullptr && registry->Valid(object) && registry->AllOf<FishFarm>(object))
+	{
+		return k_FieldRadius; // FishFarm 0x52C840: fld [0x8AB6E4]
+	}
 	return GetHeight(object); // 0x638150: jmp [vt + 0x42C]
 }
 
@@ -414,6 +428,10 @@ float GetRoutePlanRadius(entt::entity object)
 	{
 		return TreeHugRadius(object); // Tree 0x74A140 (its own copy of 0x74A1A0)
 	}
+	if (registry != nullptr && registry->Valid(object) && registry->AllOf<Temple>(object))
+	{
+		return Get2DRadius(object) * k_CitadelHeartRoutePlanFactor; // CitadelHeart 0x4680C0: vt +0x64; fmul [0x8CA268]
+	}
 	return Get2DRadius(object); // Object 0x6384C0 with no creature (0x6384CF)
 }
 
@@ -433,6 +451,17 @@ std::optional<glm::vec3> PositionOf(entt::entity object)
 
 float GetDistanceFromObject(entt::entity object, entt::entity other)
 {
+	if (const auto* registry = RegistryOrNull();
+	    registry != nullptr && registry->Valid(object) && registry->AllOf<WorshipSite, Transform>(object))
+	{
+		// WorshipSite 0x77DE20: GetDistanceInMetres(CalculateCentrePos, b) (0x77DE36..0x77DE3C), vt +0x64 of b
+		// (0x77DE4C), GetRealRadius 0x77DDD0 + it (fadd 0x77DE5A), fsubr (0x77DE60)
+		const auto b = PositionOf(other);
+		const float distance = b ? gutils::GetDistanceInMetres(WorshipSiteCentre(object), *b) : 0.0f;
+		const float otherRadius = Get2DRadius(other);
+		const float radii = k_WorshipSiteRadius + otherRadius;
+		return distance - radii;
+	}
 	const auto a = PositionOf(object);
 	const auto b = PositionOf(other);
 	const float distance = a && b ? gutils::GetDistanceInMetres(*a, *b) : 0.0f; // 0x637FC1
@@ -461,7 +490,15 @@ bool IsTouching(entt::entity object, glm::vec3 point)
 BoundingSphere GetBoundingSphere(entt::entity object)
 {
 	const float h = GetHeight(object) * k_Half; // 0x637736..0x637746
-	const float r = Get2DRadius(object);        // 0x63774A
+	float r = Get2DRadius(object);              // 0x63774A
+	if (const auto* registry = RegistryOrNull();
+	    registry != nullptr && registry->Valid(object) &&
+	    registry->AnyOf<Villager, Animal, MobileStatic, DeadTree, Fragment, MagicTeleport>(object))
+	{
+		// Living 0x5ED2F0 / MobileStatic 0x608F40: the same routine with the radius halved (fmul [0x8AA3B4] at
+		// 0x5ED30D / 0x608F5D) before the square
+		r = r * k_Half;
+	}
 	const float rr = r * r;
 	const float hh = h * h;
 	const float radius = std::sqrt(rr + hh); // 0x63774D..0x637762
@@ -470,6 +507,29 @@ BoundingSphere GetBoundingSphere(entt::entity object)
 	auto centre = map_coords::ToWorld(map_coords::FromWorld(position));
 	centre.y = centre.y + h; // 0x637798
 	return {centre, radius};
+}
+
+glm::vec3 WorshipSiteCentre(entt::entity site)
+{
+	const auto* registry = RegistryOrNull();
+	const auto* transform = registry != nullptr && registry->Valid(site) ? registry->TryGet<const Transform>(site) : nullptr;
+	if (transform == nullptr)
+	{
+		return glm::vec3(0.0f);
+	}
+	// 0x77DD61..0x77DDB1, per component: (m[i] x 12.55 - m[6 + i] x 26.1) + m[9 + i], the right and forward rows and
+	// the position; spelled out so that no FMA joins them
+	const glm::vec3& right = transform->rotation[0];
+	const glm::vec3& forward = transform->rotation[2];
+	glm::vec3 centre;
+	for (int i = 0; i < 3; ++i)
+	{
+		const float r = right[i] * k_WorshipSiteCentreRight;
+		const float f = forward[i] * k_WorshipSiteCentreBack;
+		const float d = r - f;
+		centre[i] = d + transform->position[i];
+	}
+	return centre;
 }
 
 void detail::SetMeshBoxProviderForTests(MeshBoxProvider provider)

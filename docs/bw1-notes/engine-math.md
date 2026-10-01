@@ -270,7 +270,16 @@ guarda en +0x18..+0x20 el centro, en **+0x24 / +0x28 / +0x2C las semiextensiones
   la criatura 0x4778E9..0x4779B1; semialturas en `Field::Draw` 0x5287B9..0x5287D3, `PhysOb::Initialise` 0x7FB7D9,
   `Tree::Draw` 0x74ABB0, `WorshipTotem::Create` 0x780995, `CitadelHeart` 0x4653FE / 0x467777,
   `Abode::DrawPercentFull` 0x407111, `TownArtifact::Draw` 0x51C9A3 y otros. Ahí un campo mide lo que su malla.
-- **Nivel de objeto**: la llamada virtual, con la tabla de redefiniciones sacada de todas las `??_7` de symbols.txt.
+- **Nivel de objeto**: la llamada virtual, con la tabla de redefiniciones de las `??_7` de symbols.txt que derivan de
+  `Object` (barrido de las ranuras +0x60, +0x64, +0x120, +0x13C, +0x42C, +0x568, +0x590, +0x5F4, +0x630, +0x64C,
+  +0x6C4, +0x798 y +0x7C4 en todas las vtables, 2026-10-01). Las clases que **no** son `Object` no están cubiertas:
+  la `Citadel` 0x8C7E68 (y los `Planned*`, `SpellSeedGraphic`) se queda con `GameThing` 0x405140 / 0x405150 = 0,
+  `GameThingWithPos::GetHeight` 0x405500 = 0 y `GetScale` 0x4247E0 = 1; `SpellShield` 0x72B440 (`GetSpellMagnitude`
+  0x7202C0) / 0x72B450, `SpellStormAndTornado` 0x72D950 / 0x72D960, `Town` 0x73D6E0, `GArena` 0x424780, `Reaction`
+  0x55C7D0, `BuildingSite` 0x43D050 y `AtomCore` 0x673C70 tienen su propio `GetRadius` / `Get2DRadius`; `GStreetLight`
+  0x735110 (radio 20 [0x8C7658], fn_00735060) y `Mist` 0x6067D0 (`Mist::Get2DRadius` 0x606660) su propio
+  `GetDistanceFromObject(MapCoords)`. Nadie las pide a la API: el templo de openblack es el `CitadelHeart` (`Temple`),
+  que es un `Object`.
 
 Cada sitio se porta **al nivel que usa el original en ese punto**: una API de un solo nivel metería un campo de 5 m en
 `IsSuitableForFixed` o en las obras. Todo va en float (FPU a 24 bits, fn_007DEE00), sin double ni FMA.
@@ -291,19 +300,20 @@ Cada sitio se porta **al nivel que usa el original en ese punto**: una API de un
 | `Get2DRadius(e)` | vt+0x64 | Field 0x528E80 y FishFarm 0x52C470 = **5** [0x8AB6E4]; MagicTeleport 0x5FCCB0 → 0x5FCCA0 = **6** [0x92C108]; MagicFireBall 0x682D20 = `GetScale × 1` [0x935910]; PileFood / MagicFood / PuzzleGrain 0x66F180 = `GetProportionRaised × Object::Get2DRadius`; Creature 0x477F40 (sin portar: ver Pendiente); el resto, 0x638180 |
 | `GetRadius(e)` | vt+0x60: Object 0x638110 = `jmp [vt+0x64]` | igual que `Get2DRadius` (Creature 0x4792C0 repite su lectura) |
 | `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = tamaño × **15** [0x8C2C40]; el resto 0x638120 (Field, FishFarm y PileFood **no** la cambian) |
-| `GetTopPos(e)` | 0x638160 | `altitud (+0x1C, sobre el suelo) + GetHeight` |
-| `GetHeightForHandAboveInteractObject(e)` | 0x638150 = `jmp [vt+0x42C]` | |
+| `GetTopPos(e)` | vt+0x630: Object 0x638160; MapShield / MagicShield / PhysicalShield 0x72C1C0 = **0** | `altitud (+0x1C, sobre el suelo) + GetHeight` |
+| `GetHeightForHandAboveInteractObject(e)` | vt+0x64C: Object 0x638150 = `jmp [vt+0x42C]`; FishFarm 0x52C840 = **5** [0x8AB6E4] | |
 | `GetMeshRadius(e)` | vt+0x568: Object 0x636BD0 = +0x30 sin escala; Field 0x528A30 / FishFarm 0x52C480 = 5 | |
 | `PileFoodProportionRaised`, `PileWoodProportionRaised`, `GetProportionRaised(e)` | vt+0x86C: PileFood 0x66EB60, PileWood 0x66F1B0 | ver abajo |
 | **Derivadas** (rutinas propias encima de la API) | | |
 | `GetHoldRadius(e, above)` | Object 0x638C00: ABOVE (`GetHoldType` = 1) → `GetHeight × 0,75` [0x8AB274], si no `Get2DRadius`; Tree 0x74B610 / DeadTree 0x5110E0 = `Get2DRadius × 0,2` [0x8AB244] | el tipo de agarre lo sabe la mano; SpellSeed 0x728640 (`GetScale × info+0x150`) lo pone quien llama |
 | `GetDefaultFireRadius(e)` | Object 0x639AC0 = `jmp [vt+0x64]`; DeadTree 0x510E10 = `GetHeight × 0,35` [0x8D6974]; WorshipSite 0x77DE10 → 0x77DDD0 = **14** [0x99C9EC] | |
 | `GetVillagerHugRadius(e)` | Object 0x4026B0 = `Get2DRadius × 1,05 + 0,0005` [0x8AA3A0] [0x8AA39C]; Tree 0x74A1A0 = `min(Get2DRadius × 0,1, 0,25)` [0x8AB22C] [0x8AB3D4] | |
-| `GetRoutePlanRadius(e)` | Object 0x6384C0 sin criatura = `Get2DRadius` (0x6384CF); Tree 0x74A140 (copia de 0x74A1A0) | la rama con criatura, sin portar |
-| `GetDistanceFromObject(a, b)` | 0x637FB0 | `GetDistanceInMetres − (R2D(b) + R2D(a))` |
-| `GetDistanceFromObject(a, punto)` | 0x5702B0 (Object 0x4027C0 la llama) | `GetDistanceInMetres − GetRadius` |
-| `IsTouching(a, b, m)`, `IsTouching(a, punto)` | 0x637E00 (`≤ m`), 0x637E30 (`≤ 0`) | |
-| `GetBoundingSphere(e)` | 0x637730 | `h = GetHeight × 0,5`; `r = √(R2D² + h²)`; centro = el del MapCoords con `y = (GetAltitude + altitud) + h`. El suelo es el de la isla (`LandIsland::HeightAt`, la U3 de «sistemas», por `map_coords::ToWorld`) |
+| `GetRoutePlanRadius(e)` | vt+0x7C4: Object 0x6384C0 sin criatura = `Get2DRadius` (0x6384CF); Tree 0x74A140 (copia de 0x74A1A0); CitadelHeart 0x4680C0 = `Get2DRadius × 0,33` [0x8CA268] (en openblack, `Temple`) | la rama con criatura, sin portar |
+| `GetDistanceFromObject(a, b)` | vt+0x6C4: Object 0x637FB0; WorshipSite 0x77DE20 | `GetDistanceInMetres − (R2D(b) + R2D(a))`; el lugar de culto mide desde `CalculateCentrePos` 0x77DD40 y resta `14 + R2D(b)` (`GetRealRadius` 0x77DDD0, 0x77DE36..0x77DE60) |
+| `GetDistanceFromObject(a, punto)` | vt+0x13C: 0x5702B0 (Object 0x4027C0 la llama) | `GetDistanceInMetres − GetRadius`. Ninguna clase `Object` la redefine |
+| `IsTouching(a, b, m)`, `IsTouching(a, punto)` | 0x637E00 (`≤ m`), 0x637E30 (`≤ 0`) | por las dos de arriba, con sus redefiniciones |
+| `GetBoundingSphere(e)` | vt+0x798: Object 0x637730; Living 0x5ED2F0; MobileStatic 0x608F40 | `h = GetHeight × 0,5`; `r = √(R2D² + h²)`; centro = el del MapCoords con `y = (GetAltitude + altitud) + h`. El suelo es el de la isla (`LandIsland::HeightAt`, la U3 de «sistemas», por `map_coords::ToWorld`). Living (aldeanos, animales) y MobileStatic (rocas, árboles muertos y talados, hogueras, fragmentos, piedras de teletransporte) usan `R2D × 0,5` (0x5ED30D / 0x608F5D). Creature 0x479970 → `LH3DCreature::GetBoundingSphere` 0x47F8D0, sin portar: usa la de `Object` **(inferido)** |
+| `WorshipSiteCentre(e)` | `WorshipSite::CalculateCentrePos` 0x77DD40 | `derecha × 12,55 [0x99C9E8] − delante × 26,1 [0x99C9E4] + posición`, por componente (0x77DD61..0x77DDB1). La matriz es la del `Transform` del lugar **(inferido**: `[this+0x40]+0x14`, como ya leía `WorshipScore`, que ahora la llama) |
 
 **GetProportionRaised** (0x66EB60, comida): `p = cantidad / maxAmountInPot` (`fild` de 64 bits sin signo, `fidiv`);
 p < 0 → 0 sin suelo; p > 1 → 1; **p = 0 se queda en 0** (0x66EBB7..0x66EBC2); si no, `p = (1 − 0,05)·p + 0,05`
@@ -331,9 +341,12 @@ Migrados al nivel de objeto: `EffectValues` (ver abajo), `FireObjectTraits`, `Po
 (0x66E90A / 0x66E918), `SpellWater`, `SpellFlock` (`fn_006D0C20` con vt+0x60), `Heal` (incluida la escala de regla,
 vt+0x64 en 0x6A0DC3), `OneOffSpellSeed` (el adelanto del Z-sorter, vt+0x60), `SpellDispenser` (0x722B46),
 `TestDispensers`, `TownQueries`, `Trees`, `Rocks` (y con él `LanternSounds` y la física de rocas), `AnimalFlee`,
-`AbodeArchetype` (0x40327E / 0x40329A) y `HandHolding::ComputeHoldParameters` (la altura por vt+0x42C; el radio con
-`ObjectGet2DRadius`, porque la proporción de la comida de la mano la pone `HandSystem` aparte). Al nivel de malla:
-`Fields` y la copa de `Trees`.
+`AbodeArchetype` (0x40327E / 0x40329A) y `HandHolding::ComputeHoldParameters` (la altura por vt+0x42C, la de la semilla
+con la malla de su info por `Object::GetHeight` 0x638120; el radio por vt+0x64 como `Object::GetHoldRadius`
+0x638C22..0x638C26, así que una pila de comida cogida, también la HandFood de la mano, lleva su `GetProportionRaised`).
+`HandSystem::Update` ya no repite la proporción con 1600 fijo: solo vuelve a pedir los parámetros cada fotograma
+(info.dat: HandFood es potType 1 = PileFood con `maxAmountInPot` 1600, así que solo cambia la mano vacía, que ahora mide
+0). Al nivel de malla: `Fields` y la copa de `Trees`.
 
 `effects::ObjectHeight` / `Object2DRadius` quedan como envoltorios de `ObjectGetHeight` / `ObjectGet2DRadius` (la rutina de
 `Object` **sin** redefiniciones, como hacían) solo para los llamadores aplazados.
@@ -516,12 +529,17 @@ la rutina de `Object` sin redefiniciones):
   `PhysOb::Initialise` 0x7FB7D9 (`escala·[m+0x28]·1000`) con vt+0x42C (`SetUpPhysOb@Villager` 0x5F0007).
 - `HandHolding.cpp:187-192` (coger un árbol: `maxima.y`, no max − min) y `PSys/TownBelief.cpp:191` (`maxima.y` del
   centro del pueblo): falta leer `UR_TownCentreBelief` 0x69C17A.
-- `HandSystem.cpp:513-519`: la proporción de la comida de la mano con 1600 fijo en vez de `maxAmountInPot`, y sin el
-  0 de la mano vacía. Por eso `ComputeHoldParameters` usa `ObjectGet2DRadius` (si usara `Get2DRadius`, la proporción
-  se aplicaría dos veces). Al cerrarlo, pasar a `object::GetHoldRadius`.
+- `ComputeHoldParameters` sigue con su propia tabla de tipos de agarre en vez de `object::GetHoldRadius` (la tabla de
+  la mano trae también la bajada y el tipo; los radios ya son los de la API).
 - MagicFireBall en la física y en Storm: depende de si la bola es una entidad con `Mesh` en esas consultas.
 
 **Dudosas, no migradas** (no consta qué hace el original en ese sitio):
+- `HandHolding.cpp` (el anillo de agua de lo lanzado, `0,5 × |Size| × escala`, 1 sin malla) y
+  `Graphics/PhysicsShadows.cpp:155` (la misma semidiagonal × escala): en el original el anillo usa el campo +0x178 del
+  `PhysicsObject` (0x6466AA: `1 / r` y `2 r`), que viene de su inicialización; no se ha leído de dónde sale.
+- `Physics/PhysicsObjects.cpp:302, :308` (`rockHalfHeight = 0,5 × Size().y`): ¿es la semialtura en línea de
+  `PhysOb::Initialise` 0x7FB7D9 (`MeshHalfHeight`, sin escala)? Sin comprobar.
+- `HandTrees.cpp:375, :409` (`0,5 × Size().x`): sin dirección (y el archivo es de «sistemas»).
 - `Physics/PhysicsObjects.cpp:554-563` (`Radius2D`, usado en :638 y :1227): la fase ancha de openblack, sin dirección.
 - `PSys/TownBelief.cpp:183-196` (la altura de la cima del tótem): sin dirección.
 - `ECS/FireFlies.cpp:98-108` (`MeshHeight` + 2 de casas y farolas): fn_0052B1D0 solo es el filtro (`IsAbode` /
@@ -535,6 +553,10 @@ la rutina de `Object` sin redefiniciones):
   no tiene: por ahora una criatura usa la fórmula de `Object` **(inferido)**. La altura (0x477F50 = tamaño × 15) sí está,
   tomando la escala del `Transform` como el `GetUserSize` 0x4EF4F0 **(inferido)**.
 - La rama con criatura de `GetRoutePlanRadius` 0x6384D8 (necesita `NavRadius` 0x480A60).
+- `Creature::GetBoundingSphere` 0x479970 (`LH3DCreature::GetBoundingSphere` 0x47F8D0): la criatura usa la de `Object`
+  **(inferido)**.
+- Las clases que no son `Object` (Citadel, SpellShield, SpellStormAndTornado, Town, GArena, Reaction, BuildingSite,
+  AtomCore, GStreetLight, Mist: ver arriba) no pasan por la API; si alguna llega a pedirla, hay que añadir su rama.
 - `GetNearestPosOfObject` 0x636D30 (necesita `Get3DAngleFromXZ` 0x74D270 y `GetPosFromAngle` 0x74D580 en `gutils`; no
   hay llamador).
 - Los otros `GetScale`: `ShowNeedsVisuals` 0x55DD80 (+0x58), `PlannedMultiMapFixed` 0x4050C0 y `SpellSeedGraphic`
@@ -547,7 +569,8 @@ la rutina de `Object` sin redefiniciones):
 **Cambios que se ven y hay que comprobar con captura:** el campo se hunde la mitad al vaciarse (con el mod de plantas
 apagado); un campo o una piscifactoría miden 5 m para el fuego, el pueblo (dónde caben los edificios), los animales y los
 milagros; una pila de comida mide según lo llena que está (y vacía, 0) para el fuego y el pueblo; un lugar de culto
-ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 × su escala.
+ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 × su escala; una pila de comida cogida
+del mapa (PileFood, MagicFood, PuzzleGrain) abre la mano según lo llena que está, y la HandFood vacía la cierra del todo.
 
 ## Ganchos de prueba
 
@@ -587,7 +610,10 @@ ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 
     MagicFireBall = escala en radio y altura, la escala de objeto del MapShield y la altura de la criatura;
   - `GetProportionRaised` de comida y de madera, con la pila vacía a 0, y el radio de la pila de comida;
   - `GetHoldRadius`, `GetDefaultFireRadius` (árbol muerto, lugar de culto), `GetVillagerHugRadius` y
-    `GetRoutePlanRadius` de árbol, las dos distancias, `IsTouching`, `GetBoundingSphere` y `GetTopPos`.
+    `GetRoutePlanRadius` de árbol, las dos distancias, `IsTouching`, `GetBoundingSphere` y `GetTopPos`;
+  - las redefiniciones de las derivadas (`DerivedOverrides`): la esfera de Living y MobileStatic, el `GetTopPos` del
+    escudo, la altura de la mano sobre la piscifactoría, el radio de ruta del `CitadelHeart` y la distancia y el
+    `IsTouching` del lugar de culto con su `WorshipSiteCentre`.
 - `test_food_wood`: `PileFoodProportionRaised(0, 1000)` es 0.
 - No tienen variables de entorno propias.
 

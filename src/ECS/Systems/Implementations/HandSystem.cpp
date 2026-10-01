@@ -519,12 +519,10 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	const bool holding = (_held.has_value() || _tug.has_value()) && _override.empty() && _holdType != HoldType::None;
 	if (_held && PotInfoOf(*_held) == PotInfo::HandFood)
 	{
-		// PileFood::GetHoldRadius: Get2DRadius * q, q = 1 - (1 - p)^2, p = 0.05 + 0.95 * amount / 1600 (clamped):
-		// the hand opens as the food in it grows. Wood keeps a constant radius.
+		// Object::GetHoldRadius 0x638C00 -> PileFood::Get2DRadius 0x66F180 = Object::Get2DRadius x GetProportionRaised
+		// 0x66EB60 (ecs::object::Get2DRadius, inside ComputeHoldParameters): the hand opens as the food in it grows.
+		// Wood keeps a constant radius (PileWood has no Get2DRadius of its own).
 		ComputeHoldParameters(*_held);
-		const auto& pot = Locator::entitiesRegistry::value().Get<Pot>(*_held);
-		const float p = std::clamp(0.05f + 0.95f * static_cast<float>(pot.amount) / 1600.0f, 0.0f, 1.0f);
-		_holdRadius *= 1.0f - (1.0f - p) * (1.0f - p);
 	}
 	_animator->SetFrame(std::nullopt);
 	if (holding && _holdType == HoldType::Magic && _animator->Has("Cwiggle"))

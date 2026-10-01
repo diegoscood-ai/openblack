@@ -31,10 +31,18 @@
 ///   0x6E956A and 0x6EAC14..0x6EAC56, 0x7350A5, Field::Draw 0x5287B9..0x5287D3, PhysOb::Initialise 0x7FB7D9, Tree::Draw
 ///   0x74ABB0 ...). A Field there is its mesh, not 5 m.
 /// - The object level (GetScale, Get2DRadius, GetRadius, GetHeight and the derived ones): the virtual calls, with the
-///   overrides of the vtables (read from every ??_7 of symbols.txt): Field 0x528E80 and FishFarm 0x52C470 = 5,
-///   PileFood / MagicFood / PuzzleGrain 0x66F180 = x GetProportionRaised, MagicTeleport 0x5FCCB0 = 6, MagicFireBall
-///   0x682D20 / 0x682D30, Creature 0x477F40 / 0x477F50 / 0x47B190, and the classes without a mesh 0 (GameThing 0x405150,
-///   GameThingWithPos 0x405500). Trees, rocks, abodes, villagers, animals, the citadel and the wood piles override none.
+///   overrides the Object-derived vtables (the ??_7 of symbols.txt with Object 0x638180 or an override at +0x64) hold:
+///   Field 0x528E80 and FishFarm 0x52C470 = 5, PileFood / MagicFood / PuzzleGrain 0x66F180 = x GetProportionRaised,
+///   MagicTeleport 0x5FCCB0 = 6, MagicFireBall 0x682D20 / 0x682D30, Creature 0x477F40 / 0x477F50 / 0x47B190. Trees,
+///   rocks, abodes, villagers, animals, the citadel heart and the wood piles override none of the four. Each derived
+///   routine lists its own overrides (GetBoundingSphere: Living, MobileStatic, Creature; GetTopPos: MapShield; ...).
+/// - Not covered: the classes that are not Objects (GameThing / GameThingWithPos vtables). The Citadel 0x8C7E68 (the
+///   Planned* and SpellSeedGraphic too) keeps GameThing 0x405140 / 0x405150 = 0 and GameThingWithPos 0x405500 = 0 with
+///   GetScale 0x4247E0 = 1; SpellShield 0x72B440 / 0x72B450 (GetSpellMagnitude 0x7202C0), SpellStormAndTornado
+///   0x72D950 / 0x72D960, Town 0x73D6E0, GArena 0x424780, Reaction 0x55C7D0, BuildingSite 0x43D050 and AtomCore
+///   0x673C70 have their own GetRadius / Get2DRadius; GStreetLight 0x735110 (radius 20, fn_00735060) and Mist 0x6067D0
+///   (Mist::Get2DRadius 0x606660) their own GetDistanceFromObject(MapCoords). None of them is asked here: openblack's
+///   temple is the CitadelHeart, which is an Object (pendiente if one of them ever is).
 ///
 /// Port each site to the level the original uses there. The game logic runs with the FPU at 24 bits (fn_007DEE00), so
 /// everything is float, no double and no FMA.
@@ -67,6 +75,12 @@ constexpr float k_HugRadiusMargin = 0.0005f;
 /// min(Get2DRadius x 0.1, 0.25)
 constexpr float k_TreeHugFactor = 0.1f;
 constexpr float k_TreeHugMax = 0.25f;
+/// [0x8CA268] = 0.33: CitadelHeart::GetRoutePlanRadius 0x4680C0 = Get2DRadius x 0.33
+constexpr float k_CitadelHeartRoutePlanFactor = 0.33f;
+/// [0x99C9E8] = 12.55 and [0x99C9E4] = 26.1: WorshipSite::CalculateCentrePos 0x77DD40, the site's local point
+/// (12.55, 0, -26.1) through its matrix
+constexpr float k_WorshipSiteCentreRight = 12.55f;
+constexpr float k_WorshipSiteCentreBack = 26.1f;
 
 // ---- Mesh level (no override) -------------------------------------------------------------------------------------
 
@@ -127,16 +141,18 @@ constexpr float k_TreeHugMax = 0.25f;
 /// Get2DRadius vt +0x64 of the object's class: Field 0x528E80 / FishFarm 0x52C470 = 5; MagicTeleport 0x5FCCB0 = 6;
 /// MagicFireBall 0x682D20 = GetScale x 1; PileFood / MagicFood / PuzzleGrain 0x66F180 = GetProportionRaised x
 /// Object::Get2DRadius; Creature 0x477F40 reads the LH3DCreature (+0x160 -> +0x58 -> +0x5228), not ported: the Object
-/// one stands in (inferido); every other class Object 0x638180
+/// one stands in (inferido); every other Object class Object 0x638180 (the non-Object overrides: see the top)
 [[nodiscard]] float Get2DRadius(entt::entity object);
 /// GetRadius vt +0x60: Object 0x638110 = jmp [vt +0x64] (Creature 0x4792C0 is the same read as its Get2DRadius)
 [[nodiscard]] float GetRadius(entt::entity object);
 /// GetHeight vt +0x42C: MagicFireBall 0x682D30 = jmp [vt +0x64]; Creature 0x477F50 = user size x 15; every other class
 /// Object 0x638120 (Field, FishFarm and PileFood keep it)
 [[nodiscard]] float GetHeight(entt::entity object);
-/// Object::GetTopPos 0x638160: the MapCoords altitude (+0x1C, above the ground) + GetHeight (vt +0x42C)
+/// GetTopPos vt +0x630: Object 0x638160 = the MapCoords altitude (+0x1C, above the ground) + GetHeight (vt +0x42C);
+/// MapShield / MagicShield / PhysicalShield 0x72C1C0 = 0 (fld [0x8AA398])
 [[nodiscard]] float GetTopPos(entt::entity object);
-/// Object::GetHeightForHandAboveInteractObject 0x638150 = jmp [vt +0x42C]
+/// GetHeightForHandAboveInteractObject vt +0x64C: Object 0x638150 = jmp [vt +0x42C]; FishFarm 0x52C840 = 5
+/// (fld [0x8AB6E4])
 [[nodiscard]] float GetHeightForHandAboveInteractObject(entt::entity object);
 /// GetMeshRadius vt +0x568: Object 0x636BD0 = the mesh's +0x30, no scale; Field 0x528A30 / FishFarm 0x52C480 = 5
 [[nodiscard]] float GetMeshRadius(entt::entity object);
@@ -153,13 +169,15 @@ constexpr float k_TreeHugMax = 0.25f;
 /// GetVillagerHugRadius: Object 0x4026B0 = Get2DRadius x 1.05 + 0.0005; Tree 0x74A1A0 = min(Get2DRadius x 0.1, 0.25)
 [[nodiscard]] float GetVillagerHugRadius(entt::entity object);
 /// GetRoutePlanRadius(NULL creature): Object 0x6384C0 = Get2DRadius (0x6384CF); Tree 0x74A140 = min(Get2DRadius x 0.1,
-/// 0.25). The creature branch of 0x6384D8 (its NavRadius 0x480A60) is not ported
+/// 0.25); CitadelHeart 0x4680C0 = Get2DRadius x 0.33 (openblack: the Temple). The creature branch of 0x6384D8 (its
+/// NavRadius 0x480A60) is not ported
 [[nodiscard]] float GetRoutePlanRadius(entt::entity object);
-/// Object::GetDistanceFromObject(Object*) 0x637FB0: GetDistanceInMetres(a, b) 0x74CD70 - (R2D(b) + R2D(a)), the radii
-/// added first (0x637FDF) and the sum subtracted from the distance (fsubr 0x637FE5)
+/// GetDistanceFromObject(Object*) vt +0x6C4: Object 0x637FB0 = GetDistanceInMetres(a, b) 0x74CD70 - (R2D(b) + R2D(a)),
+/// the radii added first (0x637FDF) and the sum subtracted from the distance (fsubr 0x637FE5); WorshipSite 0x77DE20 =
+/// GetDistanceInMetres(CalculateCentrePos 0x77DD40, b) - (GetRealRadius 0x77DDD0 (14) + R2D(b)) (0x77DE36..0x77DE60)
 [[nodiscard]] float GetDistanceFromObject(entt::entity object, entt::entity other);
-/// GameThingWithPos::GetDistanceFromObject(MapCoords) 0x5702B0 (Object 0x4027C0 calls it): GetDistanceInMetres - GetRadius
-/// (vt +0x60)
+/// GetDistanceFromObject(MapCoords) vt +0x13C: GameThingWithPos 0x5702B0 (Object 0x4027C0 calls it) =
+/// GetDistanceInMetres - GetRadius (vt +0x60). No Object class overrides it (GStreetLight and Mist do: see the top)
 [[nodiscard]] float GetDistanceFromObject(entt::entity object, glm::vec3 point);
 /// Object::IsTouching(Object*, margin) 0x637E00: GetDistanceFromObject (vt +0x6C4) <= margin
 [[nodiscard]] bool IsTouching(entt::entity object, entt::entity other, float margin);
@@ -171,10 +189,19 @@ struct BoundingSphere
 	glm::vec3 centre;
 	float radius;
 };
-/// Object::GetBoundingSphere 0x637730: h = GetHeight x 0.5 (0x63773C), r = sqrt(R2D R2D + h h) (0x63774D..0x637762);
-/// the centre is the MapCoords' x, z (fild x 10 / 65536, 0x637781..0x637795) and y = (GetAltitude 0x803090 +
-/// altitude) + h (0x637771..0x637798). The ground is the island's (LandIsland::HeightAt, through map_coords::ToWorld)
+/// GetBoundingSphere vt +0x798: Object 0x637730 = h = GetHeight x 0.5 (0x63773C), r = sqrt(R2D R2D + h h)
+/// (0x63774D..0x637762); the centre is the MapCoords' x, z (fild x 10 / 65536, 0x637781..0x637795) and y =
+/// (GetAltitude 0x803090 + altitude) + h (0x637771..0x637798). The ground is the island's (LandIsland::HeightAt,
+/// through map_coords::ToWorld). Living 0x5ED2F0 (villagers and animals) and MobileStatic 0x608F40 (rocks, dead and
+/// felled trees, bonfires, fragments, magic teleports) are the same with R2D x 0.5 (fmul [0x8AA3B4] at 0x5ED30D /
+/// 0x608F5D). Creature 0x479970 = LH3DCreature::GetBoundingSphere 0x47F8D0, not ported: the Object one stands in
+/// (inferido)
 [[nodiscard]] BoundingSphere GetBoundingSphere(entt::entity object);
+
+/// WorshipSite::CalculateCentrePos 0x77DD40: the matrix's right x 12.55 - its forward x 26.1 + its position, per
+/// component in that order (0x77DD61..0x77DDB1), then made a MapCoords (0x77DDBD; openblack keeps the point). The
+/// matrix is the site's Transform (inferido: [this + 0x40] + 0x14, the same reading as WorshipScore's)
+[[nodiscard]] glm::vec3 WorshipSiteCentre(entt::entity site);
 
 namespace detail
 {

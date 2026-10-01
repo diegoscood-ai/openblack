@@ -48,20 +48,22 @@ float sky_type::At(float hour, const Thresholds& thresholds)
 {
 	// 0x86A1B1..0x86A1D4: `test ah, 0x41` / `jne`, so only hour > 12 folds (not 12 itself, not NaN)
 	const float t = hour > k_Half ? k_Day - hour : hour;
-	if (t < thresholds[0])
+	// 0x86A1DC..0x86A246: each compare is `fcomp` / `test ah, 1` / `je`, so C0 = 1 takes the branch: "<" or unordered.
+	// Written as !(t >= x) so that a NaN hour gives 2 (night) like the original.
+	if (!(t >= thresholds[0]))
 	{
 		return k_Night;
 	}
-	if (t < thresholds[1])
+	if (!(t >= thresholds[1]))
 	{
 		// 0x86A206..0x86A21A: fdivp (DE F9) is st1 / st0, (h - A) / (B - A)
 		return k_Night - (t - thresholds[0]) / (thresholds[1] - thresholds[0]);
 	}
-	if (t < thresholds[2])
+	if (!(t >= thresholds[2]))
 	{
 		return k_Dusk;
 	}
-	if (t < thresholds[3])
+	if (!(t >= thresholds[3]))
 	{
 		return k_Dusk - (t - thresholds[2]) / (thresholds[3] - thresholds[2]);
 	}
@@ -75,11 +77,12 @@ float sky_type::At(float hour)
 
 void sky_type::SampleFrame(float visualHour)
 {
-	// 0x86A2C4..0x86A308: while (h < 0) h += 24; if (!(h < 24)) do h -= 24 while (!(h < 24)), in the x87 register
-	// (double here), stored as a float at the end. A NaN loops forever in the original (fcom unordered sets C0); here
-	// it falls through (openblack difference).
-	double h = visualHour;
-	while (h < 0.0)
+	// 0x86A2C4..0x86A308: while (h < 0) h += 24; if (!(h < 24)) do h -= 24 while (!(h < 24)), in the x87 register.
+	// Float here: the same hypothesis as DayNightClock::SetCycle, the FPU at 24 bits (D3D's default, inferido), so
+	// h = -1e-7 gives 24 - 1e-7 -> 24 -> 0 (with 53 / 64 bits it would stay 23.9999999 and be stored as 24.0f).
+	// A NaN loops forever in the original (fcom unordered sets C0); here it falls through (openblack difference).
+	float h = visualHour;
+	while (h < 0.0f)
 	{
 		h += k_Day;
 	}
@@ -87,7 +90,7 @@ void sky_type::SampleFrame(float visualHour)
 	{
 		h -= k_Day;
 	}
-	g_frameHour = static_cast<float>(h);  // 0x86A310
+	g_frameHour = h;                      // 0x86A310
 	g_frame = At(g_frameHour);            // 0x86A317..0x86A31C
 }
 
@@ -188,9 +191,9 @@ sky_type::DomeBlend::Blocks sky_type::DomeBlend::Advance(float frameSkyType)
 		out.blocks[out.count++] = {_rebuildSkyType, 0, k_Rows};
 		_rebuildPending = false;
 	}
-	// 0x86A34E..0x86A379
-	if (_rowsDone >= k_Rows &&
-	    std::fabs(static_cast<double>(frameSkyType) - static_cast<double>(_built)) > k_Hysteresis)
+	// 0x86A34E..0x86A379: fld / fsub / fabs in the x87 register, rounded to float under the 24-bit FPU hypothesis
+	// of DayNightClock::SetCycle (inferido), then fcomp against the double [0x99A168]
+	if (_rowsDone >= k_Rows && static_cast<double>(std::fabs(frameSkyType - _built)) > k_Hysteresis)
 	{
 		_built = frameSkyType;
 		_rowsDone = 0;

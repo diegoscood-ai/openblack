@@ -120,7 +120,11 @@ Librería en `src/Mods/` ([mod-library.md](mod-library.md)). Los mods escriben i
 ## Variables de entorno de depuración
 
 `OPENBLACK_PROFILE=<s>` (resumen del perfilador en el log), `OPENBLACK_CAMERA_FLY="ox,oy,oz,fx,fy,fz"` (el vuelo
-tarda unos miles de fotogramas: usar `-n 8000 --screenshot-frame 7900`), `OPENBLACK_DUMP_COAST_ALPHA=1` (o `=<fichero>.png`: vuelca la textura del alfa costero, x a la derecha y z hacia
+tarda unos miles de fotogramas: usar `-n 8000 --screenshot-frame 7900`; con `--mod game.skip-intro=off` la intro de
+Land 1 se funde a negro hacia los 90 s de juego (`SetAviSequence` / `ObjectDelete` en el log) y a 7900 salen fotos
+negras o a medio fundido, así que ahí usar `-n 6000 --screenshot-frame 5900`, con el vuelo ya quieto, y mirar que
+la foto no salga negra; las nubes con `OPENBLACK_CLOUD_SEED` nacen igual pero avanzan con los milisegundos reales,
+así que dos fotos no se comparan píxel a píxel en el cielo), `OPENBLACK_DUMP_COAST_ALPHA=1` (o `=<fichero>.png`: vuelca la textura del alfa costero, x a la derecha y z hacia
 abajo desde el primer bloque de la isla, que sale en el log; comparar con `tmp_dis\agua\sea_coast_alpha.py`, que
 empieza en el bloque 0), `OPENBLACK_DUMP_BLOCK_TEXTURE=1` (o `=<fichero>.png`: la textura de bloque RGBA de toda la
 isla, color y alfa costero, misma orientación; comparar con `tmp_dis\agua\re\cmp_block_dump.py`),

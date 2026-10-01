@@ -116,7 +116,13 @@ Quién llama a qué:
   el reenviador), `Sky::SetDayNightTimes`, `u_skyAlphaThreshold.x` (fs_object no lo lee), `u_sky` y su rampa de
   reserva de `fs_water` (sin `palette.raw` el mar va ahora sin luz, blanco, **(inferido)**: el original siempre tiene
   la tabla). `u_skyAndBump.x` lleva 2 − `Frame()` hasta que «sistemas» lo quite de fs_terrain.
-- Precisión: `Time2SkyType` devuelve las rampas en el registro x87 sin redondear a float; openblack redondea (ulp).
+- Precisión: se supone la FPU a 24 bits (lo que pone D3D, **(inferido)**), la misma hipótesis que `SetCycle`. Con
+  ella las rampas de `Time2SkyType` ya salen redondeadas a float, los bucles de `SampleFrame` van en float (h = −1e-7
+  da 24 → 0; con 53/64 bits se quedaría en 23,9999999 y se guardaría 24,0f) y la resta de la histéresis se redondea a
+  float antes de compararla con el double 0,03f.
+- NaN: `Time2SkyType` compara con `fcomp` / `test ah,1` / `je` (0x86A1DC..0x86A246), así que «no ordenado» cuenta
+  como «<»: una hora NaN da 2 (noche). openblack lo copia con comparaciones `!(t >= x)`. En `SampleFrame` el original
+  se queda en bucle infinito con NaN; openblack sigue (diferencia de openblack).
 
 **La cúpula** (`DomeBlend`, `Sky::UpdateDome`, `fs_sky.sc`):
 
@@ -125,28 +131,42 @@ Quién llama a qué:
   3·hora_del_día + alineación ([0xFA26E8]).
 - Cada fotograma, `fn_0086A330` (tras `SampleFrame`, 0x5E222B): si la cúpula está entera y |`Frame()` − construido|
   > 0,03 (el double [0x99A168] = (double)0,03f, estricto), guarda el nuevo T ([0xFA26C0]) y vuelve a la fila 0
-  ([0xFA26B8]); mientras falten filas mezcla 32 más con el T guardado (el primer bloque en el mismo fotograma). Siempre
-  256 filas en 8 fotogramas: con [0xEDD470] ≠ 0 serían 128, pero entonces `fn_00869670` es falso y no hay mezcla.
+  ([0xFA26B8]); mientras falten filas mezcla 32 más con el T guardado (el primer bloque en el mismo fotograma). Son
+  [0xEDD470] ? 128 : 256 filas. [0xEDD470] depende del nivel de detalle: `fn_00823AD0` lo copia de la tabla
+  [0x9A38E0 + 4·nivel] = 1, 1, 0, 0, 0, 0, 0 (0x823C5B..0x823C69; `DetailLevel::skyNoBlend`), y `fn_0082A8E0` lo
+  vuelve a escribir en sus dos salidas (0x82AB1B / 0x82AB30). En los niveles 2..6 son 256 filas en 8 fotogramas, con
+  mezcla. En los niveles 0 y 1 `fn_00869670` es falso: sin mezcla, 128 filas y tinte por T (abajo, sin portar).
+  openblack mezcla 256 filas en todos los niveles.
 - `fn_0086B7F0`: T ≤ 1 → w = ftol(T·255) entre día (255 − w) y ocaso (w); si no, w = ftol((T − 1)·255) entre ocaso
   y noche. `fn_0086B9A0` (camino 555): por canal de 5 bits `(c_inf·(255 − w)) >> 8 + (c_sup·w) >> 8`; la suma de
-  pesos es 255/256 (un canal de 31 sale 30) y el bit 15 sale a 0.
+  pesos es 255/256 (un canal de 31 sale 30) y el bit 15 sale a 0. Como cada término se trunca por separado, la cúpula
+  sale algo más oscura y con más bandas que la mezcla lineal de antes: unos −4/−5 por canal (de 255) a mediodía y
+  hasta un 40 % menos en los canales oscuros de noche (las texturas de noche tienen valores 1..4 de 31). Es lo que
+  hace el original (tablas 0xFA2554 / 0xFA2514, p = 255 − ftol(T·255) en 0x86B8E3): **no «arreglarlo»**.
 - La textura (formato 4) solo recibe la marca +0x138 cuando el bloque llega a la última fila (0x86B95B..0x86B977); el
-  unlock `fn_00838EB0` solo sube él mismo los formatos 1, 2 y 0x20. openblack sube las 3 capas a la GPU solo al
-  terminar la última fila, así que la cúpula cambia de golpe tras 8 fotogramas (que esa marca sea la subida es
-  **(inferido)**).
+  unlock `fn_00838EB0` solo sube él mismo los formatos 1, 2 y 0x20. La marca +0x138 significa «sucia, subir en
+  el próximo enlace»: el camino de `SetTexture` de la textura LH3D (0x837EC6..0x837F74) la mira, bloquea la superficie
+  D3D (vtable +0x64, flags 0x821), convierte la copia de sistema con [+0x134] (0x837F19), desbloquea, llama a
+  `IDirect3DDevice7::SetTexture` (+0x8C) y borra la marca (0x837F74); es decir, en el `DrawSky` del mismo fotograma.
+  openblack sube las 3 capas a la GPU solo al terminar la última fila, así que la cúpula cambia de golpe tras 8
+  fotogramas, como el original.
 - openblack lo hace en CPU, en `Sky::BlendDome`, sobre una copia de las 9 texturas; `fs_sky.sc` ya no mezcla horas,
   solo alineaciones (capa 0 mala, 1 neutral, 2 buena; `u_typeAlignment.x` no se usa). Cómo mezcla el original la
   alineación está **sin leer** (openblack mantiene su mezcla lineal de las dos más cercanas, **(inferido)**).
 - La cúpula inicial se construye con el T actual (el original usa la hora de `fn_0086A3B0` con sus umbrales
-  4,5 / 7 / 7,5 / 8,25); los saltos de `Open` / `Reset` la rehacen en seguida, **(inferido)** sin efecto visible.
+  4,5 / 7 / 7,5 / 8,25); el último salto de hora de `Open` (0x5E1D9C; el primero es `fn_005576F0` 0x557702) y el
+  `ForceScriptTime(12)` de `Reset` en openblack la rehacen entera en seguida (gana el último salto), **(inferido)** sin
+  efecto visible. `fn_005E22A0` llama además a `fn_005E1DE0` (0x5E22D3, lee [0xBF3378]) tras el salto: no es tipo de
+  cielo y no está en `ForceScriptTime`.
 - Sin portar: el modo sin mezcla (`fn_00869670` falso: copia de las texturas de día y tinte del color del cielo por
   T, 0x86B1C1..0x86B2A4), el camino 565 ([0xEDD46C]) y la tabla de luz tras `Jump` (openblack la rehace cada
   fotograma).
 - Orden en `GGame::Load`: el salto (0x554B6F) va antes de `SetVisualTimeCycle` (0x554C9E), con los umbrales anteriores;
   openblack no carga partidas guardadas.
 
-Pruebas: `test_sky_type` (umbrales por defecto, `At` con Demon God, normalización, 1,2 double, rampa de tarde,
-columna y neblina, pesos, mezcla 555, histéresis y filas, salto desde `ForceScriptTime`).
+Pruebas: `test_sky_type` (umbrales por defecto, `At` con Demon God y con NaN, normalización (también
+−1e-7 → 0 a 24 bits), 1,2 double, rampa de tarde, columna y neblina, pesos, mezcla 555, histéresis y filas (también la
+resta redondeada a float), salto desde `ForceScriptTime`).
 
 ## Luces de noche (informe `night_visuals.txt`)
 

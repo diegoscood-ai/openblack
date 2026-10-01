@@ -11,6 +11,9 @@
 // 0x557620, fn_0086A2C0, fn_0086A270, fn_0086A330, fn_0086B7F0, fn_0086B9A0, IsVisualNight 0x5575E0, fn_00557AE0,
 // fn_00869850's column and haze factor
 
+#include <cmath>
+#include <limits>
+
 #include <gtest/gtest.h>
 
 #include "3D/DayNightClock.h"
@@ -60,6 +63,17 @@ TEST(SkyType, SampleFrameWraps)
 	EXPECT_EQ(sky_type::FrameHour(), 0.0f);
 	sky_type::SampleFrame(12.0f);
 	EXPECT_EQ(sky_type::Frame(), 0.0f);
+	// 0x86A2C4..0x86A308 at 24 bits: -1e-7 + 24 rounds to 24, which wraps to 0 (not 24.0f)
+	sky_type::SampleFrame(-1e-7f);
+	EXPECT_EQ(sky_type::FrameHour(), 0.0f);
+	EXPECT_EQ(sky_type::Frame(), 2.0f);
+}
+
+TEST(SkyType, AtNaNIsNight)
+{
+	// 0x86A1DC..0x86A1E7: `test ah, 1` / `je` takes an unordered compare as "<"
+	sky_type::SetThresholds(0.786f, 1.206f, 1.626f, 2.046f);
+	EXPECT_EQ(sky_type::At(std::numeric_limits<float>::quiet_NaN()), 2.0f);
 }
 
 TEST(SkyType, IsVisualNightDouble)
@@ -152,6 +166,23 @@ TEST(SkyType, DomeBlendHysteresisAndRows)
 	EXPECT_EQ(blocks.blocks[1].firstRow, 0);
 	EXPECT_EQ(blocks.blocks[1].rowCount, 32);
 	EXPECT_EQ(dome.Built(), 2.0f);
+}
+
+TEST(SkyType, DomeBlendHysteresisFloatDifference)
+{
+	// 0x86A352..0x86A360: the difference is rounded to float (24-bit FPU) before the compare with (double)0.03f.
+	// f - b is exactly 0.03f + 0.4 ulp (more than the threshold in double) but rounds to 0.03f, which is not more.
+	const float f = std::nextafter(0.03f, 1.0f);
+	const float b = (f - 0.03f) * 0.6f;
+	ASSERT_GT(static_cast<double>(f) - static_cast<double>(b), static_cast<double>(0.03f));
+	sky_type::DomeBlend dome;
+	dome.Jump(b);
+	for (int i = 0; i < 8; ++i)
+	{
+		(void)dome.Advance(b);
+	}
+	ASSERT_EQ(dome.RowsDone(), sky_type::DomeBlend::k_Rows);
+	EXPECT_EQ(dome.Advance(f).count, 0);
 }
 
 TEST(SkyType, ForceScriptTimeJumps)

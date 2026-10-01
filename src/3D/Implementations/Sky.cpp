@@ -78,7 +78,8 @@ Sky::Sky() noexcept
 	// fn_0086A3B0 0x86A530..0x86A564: three dynamic 256 x 256 textures (flags 0x104, fn_008379E0), one per alignment,
 	// built whole at once (0x86A589) and then followed by fn_0086A330 / fn_0086A270 (sky_type::DomeBlend). The set-up
 	// builds them with Time2SkyType of its hour on its own thresholds 4.5 / 7 / 7.5 / 8.25; here with the dome's current
-	// sky type (inferido: in both games the jumps of GLandAlignement::Open rebuild them right after)
+	// sky type (inferido, no visible effect: the last hour jump of GLandAlignement::Open, 0x5E1D9C, and openblack's
+	// Reset, DayNightClock::ForceScriptTime(12), rebuild them whole right after; the last jump wins)
 	_texture = std::make_unique<Texture2D>("Sky");
 	_texture->Create(k_Size, k_Size, static_cast<uint16_t>(k_Alignments.size()), TextureFormat::BGR5A1,
 	                 Wrapping::ClampEdge, Filter::Linear, nullptr);
@@ -110,7 +111,9 @@ void Sky::UpdateDome() noexcept
 
 void Sky::BlendDome(const sky_type::DomeBlock& block) noexcept
 {
-	// fn_0086B7F0 0x86B890..0x86B98B with fn_00869670 true ([0xC38200] = 1, [0xEDD470] = 0 in the file)
+	// fn_0086B7F0 0x86B890..0x86B98B with fn_00869670 true ([0xC38200] = 1 and [0xEDD470] = 0, i.e. detail levels 2..6,
+	// 0x823C5B..0x823C69). Levels 0 and 1 (DetailLevel::skyNoBlend: no blend, day textures, per-T tint 0x86B1C1..
+	// 0x86B2A4, 128 rows) are not ported: openblack blends at every detail level.
 	const auto weight = sky_type::DomeWeightOf(block.skyType);
 	const int lastRow = std::min(block.firstRow + block.rowCount, static_cast<int>(k_Size));
 	if (lastRow <= block.firstRow)
@@ -129,8 +132,11 @@ void Sky::BlendDome(const sky_type::DomeBlock& block) noexcept
 		                       std::span<const uint16_t>(_bitmaps).subspan(upper + first, count), weight.weight);
 	}
 	// 0x86B95B..0x86B977: the texture (format 4 of flags 0x104) gets its +0x138 flag only once first + rows reaches the
-	// height; unlock fn_00838EB0 hands only formats 1, 2 and 0x20 to the surface itself. That the flag is what sends the
-	// texels to the card is (inferido), so the GPU sees the dome change all at once when the last block is done.
+	// height; unlock fn_00838EB0 hands only formats 1, 2 and 0x20 to the surface itself. The flag is "dirty, upload on
+	// the next bind": the texture's SetTexture path 0x837EC6..0x837F74 checks +0x138, locks the D3D surface (vtable
+	// +0x64, flags 0x821), converts the system copy with [+0x134] (0x837F19), unlocks, calls IDirect3DDevice7::
+	// SetTexture (+0x8C) and clears the flag (0x837F74), i.e. in the same frame's DrawSky. So the GPU sees the dome
+	// change all at once when the last block is done.
 	if (lastRow < static_cast<int>(k_Size))
 	{
 		return;

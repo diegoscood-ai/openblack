@@ -107,7 +107,8 @@ void DayNightClock::ForceScriptTime(float hour)
 	_moveSeconds = 0.0f;
 	SetTarget(ScriptToVisual(hour), 0.0f);
 	_visualTime = _target;
-	// fn_005E22A0 0x5E22CB: fn_0086A270, the sky type is sampled at once and the dome rebuilt whole
+	// fn_005E22A0 0x5E22CB: fn_0086A270, the sky type is sampled at once and the dome rebuilt whole. Its following
+	// call fn_005E1DE0 (0x5E22D3, reads [0xBF3378]) is not sky type and is not done here.
 	sky_type::Jump(_visualTime);
 }
 

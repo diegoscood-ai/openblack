@@ -103,7 +103,8 @@ struct DomeWeight
 };
 [[nodiscard]] DomeWeight DomeWeightOf(float skyType);
 
-/// fn_0086B9A0's 555 path (0x86BACD..0x86BB3D, [0xEDD46C] = 0): tables low[i] = (i (255 - w)) >> 8 (0xFA2554) and
+/// fn_0086B9A0's 555 path (0x86BACD..0x86BB3D, taken when [0xEDD46C] = 0; no direct write of [0xEDD46C] found, the
+/// 565 path is not ported): tables low[i] = (i (255 - w)) >> 8 (0xFA2554) and
 /// high[i] = (i w) >> 8 (0xFA2514), each 5-bit channel out = low[lower] + high[upper]; bit 15 comes out 0. The sum of
 /// the weights is 255 / 256, so even with an integer sky type a channel of 31 gives 30.
 [[nodiscard]] uint16_t BlendTexel555(uint16_t lower, uint16_t upper, int weight);
@@ -115,13 +116,16 @@ void BlendRows555(std::span<uint16_t> dst, std::span<const uint16_t> lower, std:
 /// (rows built so far). fn_0086A330, once a frame after SampleFrame (DrawSky 0x5E222B): when the whole dome is built
 /// and |Frame() - built| > 0.03 (the double [0x99A168], bytes 00 00 00 E0 51 B8 9E 3F = (double)0.03f; `test ah,
 /// 0x41`, strict), the new sky type is latched and the rows start again from 0; while rows are missing, 32 more
-/// ([0x86A389] push 0x20) are blended with the latched sky type, the first block in the same frame as the latch. The
-/// dome is 256 rows: [0xEDD470] = 0 in the file (128 rows otherwise, but then fn_00869670 is false and the dome is a
-/// plain copy of the day textures with no blend at all).
+/// ([0x86A389] push 0x20) are blended with the latched sky type, the first block in the same frame as the latch.
+/// The rows are [0xEDD470] ? 128 : 256. [0xEDD470] is written at start-up by fn_00823AD0 from the detail level's table
+/// [0x9A38E0 + 4 level] = 1, 1, 0, 0, 0, 0, 0 (0x823C5B..0x823C69; graphics::DetailLevel::skyNoBlend), and set back on
+/// the two exits of fn_0082A8E0 (0x82AB1B / 0x82AB30). At levels 0 and 1 fn_00869670 is false: no blend, a single copy
+/// of the day textures, a per-T tint of the dome colour (0x86B1C1..0x86B2A4) and 128 rows. That path is not ported:
+/// openblack always blends 256 rows, whatever the detail level.
 class DomeBlend
 {
 public:
-	static constexpr int k_Rows = 256;      ///< [0xEDD470] ? 128 : 256 (0x86A335..0x86A348)
+	static constexpr int k_Rows = 256;      ///< [0xEDD470] ? 128 : 256 (0x86A335..0x86A348), the blend path only
 	static constexpr int k_RowsPerFrame = 32; ///< push 0x20 (0x86A389)
 	static constexpr double k_Hysteresis = static_cast<double>(0.03f); ///< [0x99A168]
 

@@ -191,7 +191,7 @@ Verificado instrucción a instrucción:
   radio del ctor (en info.dat REACT_TO_FIRE no crece: 35 m, el mismo) y el orden de la celda, como los animales
   (aproximado: el de la rejilla de openblack, que se rehace una vez por turno y antes de un reparto fuera del turno, no
   las listas del original). El reloj es uno, el turno de juego fijado al principio del turno (`BeginTurn`, que además
-  quita las reacciones cuyo iniciador ya no existe); los registros de los animales siguen con su propio turno.
+  quita las reacciones cuyo iniciador ya no existe); los registros de los animales también lo usan.
 
 ### Reglas de lanzamiento (`Magic/CastRules`)
 

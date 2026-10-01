@@ -384,8 +384,8 @@ std::vector<manager::Drawable> manager::Collect(Creator::Kind kind)
 	std::vector<Drawable> result;
 	for (const auto& [id, running] : g_Effects)
 	{
-		Drawable drawable {running.effect->GetOrigin(), {}};
-		running.effect->Collect(running.perFrame ? 1.0f : t, drawable.atoms, kind);
+		Drawable drawable {running.effect->GetOrigin(), {}, running.perFrame ? 1.0f : t};
+		running.effect->Collect(drawable.t, drawable.atoms, kind);
 		if (!drawable.atoms.empty())
 		{
 			result.push_back(std::move(drawable));

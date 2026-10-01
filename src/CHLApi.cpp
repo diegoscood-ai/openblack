@@ -10,7 +10,6 @@
 #include "CHLApi.h"
 
 #include <array>
-#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -66,6 +65,7 @@
 #include "ECS/Components/PuzzleGame.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/FeatureBuild.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MobileWalkPaths.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
@@ -772,38 +772,6 @@ void SetPosition() // 024 SET_POSITION
 	}
 }
 
-/// The 1/sqrt table 0xDA5A10 (1024 entries, filled by 0x74F590 from GGame::InitOneTimeOnly) and _FUN_0074f620, the
-/// table's approximate 1/sqrt (the same as ECS/AnimalLairs.cpp's InvSqrtApprox, which keeps them private)
-float InvSqrtApprox(float x)
-{
-	static const auto table = [] {
-		std::array<uint32_t, 1024> t {};
-		for (uint32_t i = 0; i < t.size(); ++i)
-		{
-			const auto f = std::bit_cast<float>((0x3F800000u & 0xFF003FFFu) | (i << 14));
-			const double r = 1.0 / std::sqrt(static_cast<double>(f));
-			t.at(i) = r == 1.0 ? 0x7FE000u : (std::bit_cast<uint32_t>(static_cast<float>(r)) & 0x7FE000u);
-		}
-		return t;
-	}();
-	// 0x74F620..0x74F64A: exponent ((0xBE000000 - exponent bits) >> 1), mantissa from the table (bits 14..23)
-	const auto bits = std::bit_cast<uint32_t>(x);
-	const uint32_t exponent = ((0xBE000000u - (bits & 0x7F800000u)) >> 1) & 0x7F800000u;
-	return std::bit_cast<float>(exponent | table.at((bits >> 14) & 0x3FFu));
-}
-
-/// hypotenuse(a, b) 0x74F6C0: 0 when |a| and |b| are both <= 0.0001 (0x8BF518); else 1 / InvSqrtApprox(a*a + b*b)
-/// (the sum stored as a float, 0x74F700; fdivr 1.0 0x8AA390)
-float Hypotenuse(float a, float b)
-{
-	if (std::abs(a) <= 0.0001f && std::abs(b) <= 0.0001f)
-	{
-		return 0.0f;
-	}
-	const auto sum = static_cast<float>(a * a + b * b);
-	return 1.0f / InvSqrtApprox(sum);
-}
-
 void GetDistance() // 025 GET_DISTANCE
 {
 	// GScript::GetDistance 0x6F8CA0: the two vectors (0x6F8CB1..0x6F8D07) to GUtils::GetDistance(LHPoint, LHPoint)
@@ -811,7 +779,7 @@ void GetDistance() // 025 GET_DISTANCE
 	// is 0
 	const auto p1 = PopVec();
 	const auto p0 = PopVec();
-	const float distance = Hypotenuse(p1.x - p0.x, p1.z - p0.z);
+	const float distance = gutils::GetDistance(p0, p1);
 	Pushf(distance < 0.5f ? 0.0f : distance);
 }
 

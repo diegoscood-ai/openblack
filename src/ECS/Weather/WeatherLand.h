@@ -18,6 +18,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Common/RandomNumberManager.h"
+#include "ECS/MapCoords.h"
 #include "Locator.h"
 
 // The land queries of the weather code (LH3DIsland / MapCoords of the original).
@@ -50,15 +51,13 @@ namespace openblack::weather
 		return true;
 	}
 	const auto& island = Locator::terrainSystem::value();
-	// MapCoords: the high word of the 16.16 coordinate x 6553.6 is the 10 m cell
-	const auto cx = static_cast<int32_t>(std::floor(x / 10.0f));
-	const auto cz = static_cast<int32_t>(std::floor(z / 10.0f));
-	const int32_t last = island.GetCellsPerSide() - 1;
-	if (cx < 0 || cx > last || cz < 0 || cz > last)
+	// MapCoords: the high word of the 16.16 coordinate x 6553.6 is the 10 m cell (unsigned, InBounds 0x6042C0)
+	const auto at = ecs::map_coords::CellOf(glm::vec2(x, z));
+	if (!ecs::map_coords::InBounds(at, island.GetCellsPerSide()))
 	{
 		return true;
 	}
-	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
+	const auto& cell = island.GetCell(glm::u16vec2(at));
 	// (aproximado) LandIsland's answer where there is no block: a real cell with the same bytes counts as none too
 	lnd::LNDCell empty {};
 	empty.properties.fullWater = true;

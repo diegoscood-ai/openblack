@@ -16,6 +16,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Life.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Villager/VillagerCore.h"
@@ -115,8 +116,7 @@ glm::ivec2 GetArrivePos(entt::entity abode)
 	// (aproximado, P-5) the mesh point through the object's matrix (rotation x scale, as the chimney's)
 	const glm::vec3 world = transform->position + transform->rotation * (*door * transform->scale);
 	// 0x63AFF2..0x63B017: x and z x 6553.6 (0x8AC400), ftol
-	const glm::ivec2 result(static_cast<int32_t>(static_cast<double>(world.x) * static_cast<double>(6553.6f)),
-	                        static_cast<int32_t>(static_cast<double>(world.z) * static_cast<double>(6553.6f)));
+	const glm::ivec2 result(map_coords::ToFixed(world.x), map_coords::ToFixed(world.z));
 	if (result.x == 0 || result.y == 0)
 	{
 		return position;

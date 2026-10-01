@@ -15,14 +15,24 @@
 // diffuse alpha. Here two passes with the WorldQuad program: the textured one blended, then the specular added with a
 // white texture and the same alpha (alpha x specular is what the specular adds under that blend). Unlit (UseLighting is
 // not ported). PSys/Rules/SurfRevol.h.
+//
+// The surface is one atom of its effect, so the original draws it inside the effect's single Z object
+// (PSysManager::AddDrawing 0x6797D0 -> fn_00679860 -> fn_006798B0 -> fn_00679920 -> vt+0xFC 0x67CBA0) and not after the
+// sorted list: CollectPSysSurfaces keys each one with the effect's origin and Renderer.cpp draws it from the sorted loop
+// (hole H2 of tmp_dis\unify2\lh3d_zsorter_openblack.md). Without that, the one-shot orb's bubble - mode 12, additive and
+// writing Z (0x82ECA6), queued nearer than the effect by OneOffSpellSeed::Draw 0x518E90 - hid the dispenser's disc.
 
 #include <cstring>
 
 #include <memory>
+#include <span>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <bgfx/bgfx.h>
 #include <entt/core/hashed_string.hpp>
+#include <glm/geometric.hpp>
 
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
@@ -51,18 +61,32 @@ const Texture2D& White()
 }
 } // namespace
 
-void Renderer::DrawPSysSurfaces(RenderPass viewId, [[maybe_unused]] const Camera& camera) const
+std::vector<std::pair<float, uint32_t>> Renderer::CollectPSysSurfaces(const Camera& camera) const
+{
+	_frameSurfaces = psys::surf_revol::Collect();
+	std::vector<std::pair<float, uint32_t>> order;
+	order.reserve(_frameSurfaces.size());
+	const auto eye = camera.GetOrigin();
+	for (size_t i = 0; i < _frameSurfaces.size(); ++i)
+	{
+		// no Z object of its own: the key is the effect's (PSysManager::AddDrawing 0x6797D0, |origin - g_camera|)
+		order.emplace_back(glm::distance(_frameSurfaces[i].origin, eye), static_cast<uint32_t>(i));
+	}
+	return order;
+}
+
+void Renderer::DrawPSysSurface(RenderPass viewId, uint32_t index) const
 {
 	struct Vertex
 	{
 		float x, y, z, u, v;
 		uint32_t abgr;
 	};
-	const auto surfaces = psys::surf_revol::Collect();
-	if (surfaces.empty())
+	if (index >= _frameSurfaces.size())
 	{
 		return;
 	}
+	const auto surfaces = std::span(&_frameSurfaces[index], 1);
 	const auto& textures = Locator::resources::value().GetTextures();
 	const auto* program = _shaderManager->GetShader("WorldQuad");
 	bgfx::VertexLayout layout;

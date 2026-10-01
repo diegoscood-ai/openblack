@@ -37,7 +37,6 @@ struct SurfRevolCreator final: Creator
 	std::vector<glm::vec3> savedPositions; ///< CollectionData +0x40
 	glm::vec2 uvOffset {0.0f};             ///< the draw object +0x34 / +0x38 (kept within the tile, GameUpdate 0x6C8BC0)
 	glm::vec2 tile {1.0f};                 ///< +0x3C / +0x40: TextureWidth / 256, TextureHeight / 256
-	float parentScale {1.0f};              ///< the hierarchy's scales above the atom (PostUpdateAtoms fn_00673EA0)
 	bool raiseAboveLandscape {false};
 	bool doubleSided {false};
 };
@@ -106,17 +105,12 @@ public:
 		{
 			return false;
 		}
-		// The disc is a NextGroup child of the group-2 point atom, whose UR_ChangeScale grows it to 5 (visuals_sound.md
-		// §4.5 "scale 5 via UR_ChangeScale"): the unit-radius mesh takes that parent atom's drawn scale (baseScale x
-		// ruleScale). Deeper parents up a hierarchy multiply on top (fn_00673EA0). UNVERIFIED which scales the original
-		// draws the surface at; this is the documented size.
-		float inherited = collection.parent != nullptr ? collection.parent->baseScale * collection.parent->ruleScale : 1.0f;
-		for (const Collection* c = &collection; c != nullptr && c->hierarchy && c->parent != nullptr;
-		     c = c->parent->collection)
-		{
-			inherited *= c->parent->current.scale;
-		}
-		creator->parentScale = inherited;
+		// The size: the unit-radius mesh goes through the atom's drawn matrix only (RenderParticleGJMesh::DrawAt 0x67C150
+		// multiplies each vertex by DrawData+4, the PSR at atom+0xD0). PostUpdateAtoms fn_00673EA0 already puts the
+		// hierarchy into it (cur = parent PSR x local fn_00673DB0, scale = +0x74 x +0x78 x the parent's), which
+		// Effect::PostUpdate does into atom.current.scale. So the radius is this atom's 1 (AtomCore ctor) x Scale x the
+		// group-2 parent's InitialScale x UR_ChangeScale: 6 m for SF_SpellDispenserVortex (6 x 1), 10 m for
+		// SF_TeleportVortex (2 x 5); the parent's scale must not be applied a second time.
 		// !DoRaiseAboveLandscape: the twists breathe with sin(fmod(collection age x +0x68, 2 pi)); +0x68 has no property
 		// (1.0 from the ctor 0x686200)
 		if (!raiseAboveLandscape)
@@ -415,7 +409,7 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 			surface.writeDepth = creator->writeDepth;
 			surface.doubleSided = creator->doubleSided;
 			surface.indices = creator->mesh.indices;
-			const float scale = atom.scale * creator->parentScale;
+			const float scale = atom.scale; // the drawn PSR's scale, hierarchy included (fn_00673EA0)
 			const float centreLand = LandHeight(atom.position.x, atom.position.z);
 			const float atomAlpha = std::clamp(atom.alpha, 0.0f, 255.0f) / 255.0f;
 			const auto& mesh = creator->mesh;

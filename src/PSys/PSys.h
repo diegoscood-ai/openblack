@@ -350,6 +350,10 @@ public:
 		const Creator* creator;
 		std::vector<DrawAtom> joints;
 		const Collection* collection {nullptr}; ///< the chain's collection (its scroll)
+		/// The effect's origin: the ribbon is drawn inside the effect's single Z object (fn_006798B0 0x6798DD takes the
+		/// fn_0067B370 branch, "draw now", whenever the manager is drawn from the Z-sorter), so its sort key is the
+		/// effect's own, PSysManager::AddDrawing 0x6797D0
+		glm::vec3 origin {0.0f};
 	};
 	/// Every collection made of Kind::Chain atoms, interpolated as Collect does
 	void CollectChains(float t, std::vector<DrawChain>& out) const;

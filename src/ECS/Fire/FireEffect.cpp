@@ -314,7 +314,7 @@ void HeatTransfer(FireEffect& source, entt::entity target)
 	}
 	const auto targetCentre = traits::FireCentre(target);
 	const auto sourceCentre = traits::FireCentre(source.object);
-	const float distance = Distance2D(targetCentre, sourceCentre);
+	const float distance = Distance2D(targetCentre, sourceCentre); // GetDistanceInMetres 0x74CD70 at 0x72FA44
 	if (!(traits::DefaultFireRadius(target) + radius > distance))
 	{
 		return;
@@ -748,8 +748,8 @@ FireEffect* FireEffect::NearestFireToFight(const glm::vec3& position) const
 		const float objectRadius = traits::DefaultFireRadius(member->object);
 		const float safe = member->SafeFireRadius();
 		const float keep = safe < objectRadius ? objectRadius : safe;
-		// fn_0074CD50 (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire centre.
-		// fn_0074CD50 = the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters 0x74DCC0
+		// fn_0074CD50 at 0x73010A (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire
+		// centre, the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters 0x74DCC0
 		const float distance = Distance2D(position, centre) - keep;
 		if (distance < bestDistance && member->IsAboveReactionTemperature())
 		{

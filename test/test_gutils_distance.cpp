@@ -14,6 +14,7 @@
 // against values worked out with the original's 24-bit float arithmetic. The table is checked in bits.
 
 #include <bit>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -99,6 +100,10 @@ TEST(GUtilsDistance, HypotenuseFloat)
 	EXPECT_EQ(gu::Hypotenuse(0.0f, 0.0f), 0.0f);
 	EXPECT_EQ(gu::Hypotenuse(1e-4f, 1e-4f), 0.0f);
 	EXPECT_FLOAT_EQ(gu::Hypotenuse(1.1e-4f, 0.0f), 0.00011003520921804011f);
+	// test ah, 0x41 is also set by an unordered compare (0x74F6CE, 0x74F6E1): a NaN side takes the cut
+	const float nan = std::numeric_limits<float>::quiet_NaN();
+	EXPECT_EQ(gu::Hypotenuse(nan, 0.0f), 0.0f);
+	EXPECT_EQ(gu::Hypotenuse(0.0f, nan), 0.0f);
 	EXPECT_EQ(std::bit_cast<uint32_t>(gu::Hypotenuse(3.0f, 4.0f)), 0x40A00A01u); // 5.0012212, not 5
 	EXPECT_EQ(std::bit_cast<uint32_t>(gu::Hypotenuse(100.0f, 0.0f)), 0x42C81C24u);
 	EXPECT_EQ(std::bit_cast<uint32_t>(gu::Hypotenuse(100.0f, 100.0f)), 0x430D7855u);

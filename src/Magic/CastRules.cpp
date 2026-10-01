@@ -192,13 +192,17 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 					continue;
 				}
 				++looked;
-				const glm::vec2 d(transform->position.x - position.x, transform->position.z - position.z);
-				// GetDistanceInMetres 0x74CD70 < R, available, IsEffectReceiver, a Living that can be healed, and then
-				// dx^2 + dz^2 < R^2 (the second test is an exact square: it is not the first one again)
-				if (!(gutils::GetDistanceInMetres(glm::vec2(transform->position.x, transform->position.z),
-				                                  glm::vec2(position.x, position.z)) < radius) ||
-				    !ecs::effects::IsEffectReceiver(object, values) ||
-				    !CanBeHealedByHealSpell(object) || !(glm::dot(d, d) < radius * radius))
+				// both tests measure from the spiral's MapCoords ([ebp-0x24], the one operator+= moves), not from the
+				// cast position: GetDistanceInMetres 0x74CD70 (coords, the object's +0x14) at 0x5FBBEE < R, available,
+				// IsEffectReceiver, a Living that can be healed, and then dx^2 + dz^2 < R^2 with dx = coords - object
+				// in metres (fild; fmul 10 [0x92C100]; fmul 2^-16 [0x8AC41C], 0x5FBC54..0x5FBCA3; test ah, 0x41: an
+				// exact square, not the first test again). (aproximado) the object's MapCoords is its float position
+				const auto at = ecs::map_coords::FromMetres(glm::vec2(transform->position.x, transform->position.z));
+				const float dx = ecs::map_coords::ToMetres(coords.x) - ecs::map_coords::ToMetres(at.x);
+				const float dz = ecs::map_coords::ToMetres(coords.z) - ecs::map_coords::ToMetres(at.z);
+				const float squared = dz * dz + dx * dx;
+				if (!(gutils::GetDistanceInMetres(coords, at) < radius) || !ecs::effects::IsEffectReceiver(object, values) ||
+				    !CanBeHealedByHealSpell(object) || !(radius * radius > squared))
 				{
 					continue;
 				}

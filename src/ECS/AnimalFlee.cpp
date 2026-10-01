@@ -335,9 +335,13 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	{
 		return;
 	}
-	const glm::vec2 p = PosOf(entity);
-	const float cur = static_cast<float>(
-	    Score(TypeOf(*current), entity, *brain, current->initiator, gutils::GetDistanceInMetres(p, PosOf(current->initiator))));
+	// the current reaction's distance: Reaction::GetPos 0x6E45C0 (0x6E4142; the initiator's position, as in
+	// ECS/Effects/Reactions), only its cell (fn_005E17C0 at 0x6E414C keeps the high words) and fn_0074CD90 at 0x6E4157
+	// from the animal's MapCoords (+0x14) to that cell's centre, not to the initiator itself
+	const auto at = ecs::map_coords::FromMetres(PosOf(current->initiator));
+	const ecs::map_coords::JustMapXZ cell {ecs::map_coords::SignedCellOf(at.x), ecs::map_coords::SignedCellOf(at.z)};
+	const float distance = gutils::GetDistanceInMetresToCell(ecs::map_coords::FromMetres(PosOf(entity)), cell);
+	const float cur = static_cast<float>(Score(TypeOf(*current), entity, *brain, current->initiator, distance));
 	const float now = static_cast<float>(Score(type, entity, *brain, reaction.initiator, d));
 	const float seconds = static_cast<float>((detail::Turn() - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
 	if (!reactions::MaySwitch(cur, now, seconds, TypeOf(*current)))

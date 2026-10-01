@@ -87,7 +87,8 @@ constexpr float k_MetresPerCell = 10.0f;
 /// s = float(z * z + x * x), then ftol(65536.0 [0x99A1D8] / InvSqrt(s)): truncated, with no cut at zero
 [[nodiscard]] int32_t Hypotenuse(int32_t dx, int32_t dz);
 
-/// hypotenuse(float, float) 0x74F6C0: 0 when |a| and |b| are both <= 1e-4 [0x8BF518]; else 1 / InvSqrt(float(a*a + b*b))
+/// hypotenuse(float, float) 0x74F6C0: 0 when |a| and |b| are both <= 1e-4 [0x8BF518] (or NaN: the compare is
+/// unordered); else 1 / InvSqrt(float(a*a + b*b))
 [[nodiscard]] float Hypotenuse(float a, float b);
 
 /// GUtils::ConvertWholeDistanceToMeters 0x74DCC0: `fld 10 [0x99A1BC]; fmul 2^-16 [0x8AC41C]; fimul whole`. The integer

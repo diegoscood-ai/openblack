@@ -80,8 +80,9 @@ int32_t gutils::Hypotenuse(int32_t dx, int32_t dz)
 
 float gutils::Hypotenuse(float a, float b)
 {
-	// 0x74F6C0..0x74F6EC: fabs; fcomp [0x8BF518]; test ah, 0x41 on both sides
-	if (std::abs(a) <= k_HypotenuseEpsilon && std::abs(b) <= k_HypotenuseEpsilon)
+	// 0x74F6C0..0x74F6EC: fabs; fcomp [0x8BF518]; test ah, 0x41 on both sides. C0 | C3 is also what an unordered
+	// compare sets, so a NaN side counts as "within 1e-4": !(|a| > eps), not |a| <= eps
+	if (!(std::abs(a) > k_HypotenuseEpsilon) && !(std::abs(b) > k_HypotenuseEpsilon))
 	{
 		return 0.0f;
 	}

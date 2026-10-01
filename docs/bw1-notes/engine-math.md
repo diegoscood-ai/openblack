@@ -160,7 +160,7 @@ double y sin FMA: tres de las copias de openblack hacían la suma o el cociente 
 | `InvSqrtTable()` | fn_0074F590, tabla 0xDA5A10, bandera [0xDA6A10] | entrada i = los 10 bits altos de la mantisa (`& 0x7FE000`) de 1/√f, con f = `0x3F000000 \| i << 14`; un 1 exacto se guarda como 0x7FE000 (0x74F5ED) |
 | `InvSqrt(x)` | `_FUN_0074f620` 0x74F620 | `exp = ((0xBE000000 − (bits & 0x7F800000)) >> 1) & 0x7F800000`, mantisa de la tabla en `(bits >> 14) & 0x3FF`; el signo no se mira, y x = 0 da ≈ 2^63 |
 | `Hypotenuse(int32, int32)` | `hypotenuse` 0x74F680 | 16.16 dentro y fuera: `x = dx·2^-16` [0x99A1D4], `s = float(z·z + x·x)`, `ftol(65536.0 [0x99A1D8] / InvSqrt(s))`. **Trunca** y no tiene corte en el cero |
-| `Hypotenuse(float, float)` | `hypotenuse` 0x74F6C0 | 0 si \|a\| y \|b\| son los dos ≤ 1e-4 [0x8BF518]; si no `1 / InvSqrt(float(a·a + b·b))` [0x8AA390]. **No** trunca |
+| `Hypotenuse(float, float)` | `hypotenuse` 0x74F6C0 | 0 si \|a\| y \|b\| son los dos ≤ 1e-4 [0x8BF518] (`test ah, 0x41` también se cumple con una comparación no ordenada: un lado NaN cuenta como «≤ 1e-4»); si no `1 / InvSqrt(float(a·a + b·b))` [0x8AA390]. **No** trunca |
 | `ConvertWholeDistanceToMeters(i)` | 0x74DCC0 | `fld 10 [0x99A1BC]; fmul 2^-16 [0x8AC41C]; fimul i`: el entero es exacto antes del redondeo (= `map_coords::ToMetres`) |
 | `ConvertMetersToWholeDistance(m)` | 0x74DCE0 | `ftol(m / 10 · 65536 [0x8AC408])`; 65536 es potencia de dos, así que es `ToFixedGUtils` |
 | `GetDistance(MapCoords, MapCoords)` | 0x74CCB0 = su gemela 0x74CCE0 (byte a byte) | `Hypotenuse(b.x − a.x, b.z − a.z)` |
@@ -216,6 +216,17 @@ gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cua
 10. **`FeatureScriptCommands::FindNearestTown`** comparaba **distancias al cuadrado**; el original llama a fn_00605CD0
     (0x553016, 0x55302E) y compara la distancia, así que con la tabla y la cuantización dos ciudades casi empatadas
     podían salir al revés.
+11. **`CastRules::FindHealTargets` medía desde el punto del lanzamiento** (el error venía de antes). El original
+    (`GMagicHealInfo::FindTargets` 0x5FBB00) solo tiene un MapCoords en el marco, la copia del argumento
+    ([ebp−0x24], 0x5FBB6B..0x5FBB82), y es el que **anda la espiral** (`operator+=` 0x605470 en 0x5FBCF1). Los dos cortes miden desde él:
+    `GetDistanceInMetres(coords, objeto)` en 0x5FBBEE `< R`, y el cuadrado exacto 0x5FBC54..0x5FBCA3
+    (`fild [ebp−0x24]` / `[ebp−0x20]`; `(coords − objeto)²` `< R²`, `test ah, 0x41`). Así la curación coge cualquier
+    objeto a menos de R del **punto de la espiral** que visita su celda, no del centro del milagro.
+12. **`AnimalFlee` `AnimalReaction`** (`ApplyReactionToLivingObjectsAtSquare` 0x6E3F90, la reacción en curso al
+    comparar con una nueva) medía al iniciador. El original toma `Reaction::GetPos` 0x6E45C0 (0x6E4142), le saca la
+    **celda** con fn_005E17C0 (las palabras altas, 0x6E414C) y mide con fn_0074CD90 (0x6E4157) desde el MapCoords del
+    animal al **centro** de esa celda (`GetDistanceInMetresToCell`): hasta 7,07 m de diferencia en la distancia que
+    alimenta la puntuación fn_006E4620 (0x6E4173).
 
 **Qué usa ya la API.**
 
@@ -225,14 +236,18 @@ gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cua
   `AnimalLairs` (`MapDistance` y `ForestScore` fn_0053AD00), `CHLApi` `GET_DISTANCE` (0x6F8CA0 → 0x74CDE0),
   `TownQueries::GetDistanceInMetres` (y con ella `VillagerDecide` y los radios de búsqueda de ciudad).
 - Sustitutos en float cambiados por la API **solo donde se ha leído la llamada del original**: `FireEffect` y
-  `VillagerFire` (`Distance2D`), `Reactions` `SpreadReaction` (0x6E3E91), `Climate` `FindWhereToCreateStorm` /
-  `CreateStorm` / fn_00772330 (0x74CDE0), `CastRules` (el radio de curación), `SpellFlock::WolfArrived` (0x421300),
+  `VillagerFire` (`Distance2D`, sus ocho usos leídos uno a uno: `HeatTransfer` fn_0072F980 0x72FA44,
+  `NearestFireToFight` fn_00730070 0x73010A, `IsBesideFire` fn_0075ABA0 0x75ABC7, `OnFire` 0x75B27B,
+  `ReactToFirePriority` 0x765610 en 0x76567E y 0x76582B, `ReactToFire` 0x765870 en 0x7658D9 y 0x765A81), `Reactions` `SpreadReaction` (0x6E3E91), `Climate` `FindWhereToCreateStorm` /
+  `CreateStorm` / fn_00772330 (0x74CDE0), `CastRules` (el radio de curación, 0x5FBBEE, desde la espiral), `SpellFlock::WolfArrived` (0x421300),
   `SpellWater::ApplyWaterSpell` (0x7250EC), `EffectValues::ApplyEffectToMapPos` (0x525307), `Trees`
   (`DistanceToForest` 0x53A890 / 0x53AC20 y el bosque escénico), `AnimalAI` (`PosWithinDomain` 0x5ED010,
   `SetNewWander` 0x41A3F0, `KeepFlockMemberWithinFlockArea` 0x41ABB0), `AnimalFlee` (`ReactToFoodPriority` 0x5F1710,
-  `SetupReactToFlyingObject` 0x4204A0, `ProcessReaction` 0x5F1270), `AnimalPredators` (fn_00419340),
-  `AnimalWallHug` (0x60D9F0), `StreetLantern` (`IsALaternWithinDistance`) y `FeatureScriptCommands::FindNearestTown`
-  (fn_00552FF0).
+  `SetupReactToFlyingObject` 0x4204A0, `ProcessReaction` 0x5F1270; `AnimalReaction` con `GetDistanceInMetresToCell`
+  0x6E4157), `AnimalPredators` (fn_00419340), `AnimalWallHug` (0x60D9F0), `StreetLantern` (`GStreetLantern::Create`
+  0x7346E0: recorre la celda con `MapCoords::FindType(0x1C)` 0x6045C0 y corta con `d < 0,5` [0x8AA3B4], `test ah, 1`
+  en 0x73470C) y `FeatureScriptCommands::FindNearestTown` (fn_00552FF0). Ojo: `GStreetLantern::IsALaternWithinDistance`
+  0x734A30 es **otra** rutina (la lista global de faroles g_game+0x205C34 y `d <= r`, `test ah, 0x41`), sin portar.
 
 ## Altura del terreno
 
@@ -360,13 +375,15 @@ migrar **solo** donde se ha leído en el binario que el original llama a `GetDis
   (0,15 mm) respecto a un MapCoords guardado.
 
 **Sin portar todavía en openblack** (no hay copia que migrar, la API ya las tiene listas): `GetDistanceToCell` /
-`GetDistanceInMetresToCell` (fn_0074CD10 / fn_0074CD90, usadas por `CreatureMental` 0x4D2B3D y
-`Reaction::ApplyReactionToLivingObjectsAtSquare` 0x6E4157), `ChebyshevDistance` (fn_0074CED0, un llamador),
+`GetDistanceInMetresToCell` en `CreatureMental` 0x4D2B3D (la de `ApplyReactionToLivingObjectsAtSquare` 0x6E4157 ya
+la usa, en `AnimalFlee`), `ChebyshevDistance` (fn_0074CED0, un llamador),
 `DistanceChangeToBelief` (0x438770, desde los `GetImpressiveValue`) y `CreatureSigmoidThreshold` (0x4F78C0, desde
 `CreatureDesires::GetIncrementFromSources`).
 
 **Cambios que se ven y hay que comprobar con captura:** quién va primero a rezar (`WorshipScore`: ahora los más
-cercanos, y con vida³), quién va a apagar un fuego (`VillagerFire`, 400 m), el crecimiento del árbol con el milagro de
+cercanos, y con vida³), quién va a apagar un fuego (`VillagerFire`, 400 m), a quién cura el milagro de curar (ahora
+todo lo que queda a menos de R del punto de la espiral, en un cuadrado de `ceil(2R/10)` celdas de lado), cuándo un
+animal cambia de reacción (distancia al centro de la celda de la reacción en curso), el crecimiento del árbol con el milagro de
 agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la sigmoide ya no se calcula en double).
 
 ## Ganchos de prueba
@@ -394,7 +411,10 @@ agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la 
   - `SigmoidThreshold` con el umbral en el primer argumento, los dos recortes y el caso `a == 1`;
   - `GetDistanceModifier` con los 400 m de `ReactToFire` y los 3 de `Tree::ApplyWaterSpell`, y el `max = 0`;
   - `DistanceChangeToBelief`.
-- `test_worship` comprueba la curva de `WorshipScore` (que baja con la distancia) y la vida³.
+  - el corte de `Hypotenuse(float)` con un lado NaN (devuelve 0, como la comparación no ordenada del original).
+- `test_worship` llama a `worship::percentage::WorshipScore` de verdad: un aldeano con vida 0,5 en el centro del
+  lugar de culto da 0,5³ · 0,99996 y uno con vida 1 a más de d2 da 3,6e-5 (con los argumentos al revés o con vida²
+  falla).
 - No tienen variables de entorno propias.
 
 ## Fuentes

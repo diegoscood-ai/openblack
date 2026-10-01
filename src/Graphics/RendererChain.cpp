@@ -36,6 +36,7 @@
 #include "3D/FrameAnim.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
@@ -188,12 +189,12 @@ void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t i
 		program->SetTextureSampler("s_alpha", 1,
 		                           textures.Contains(alphaTexture) ? *textures.Handle(alphaTexture) : *textures.Handle(texture));
 		bgfx::setVertexBuffer(0, &buffer);
-		// material fn_006AA860 (not read, inferido): additive when the creator says so, Z test on, Z write only with
-		// writeDepth; no cull state, so MaterialSetDoubleSided (+0x4E) is ignored and every chain draws two-sided
-		const uint64_t blend = creator->additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-		                                         : BGFX_STATE_BLEND_ALPHA;
-		bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | blend |
-		               (creator->writeDepth ? BGFX_STATE_WRITE_Z : 0));
+		// material fn_006AA860 (not read, inferido): as the particles', modes 13 / 6 (12 / 5 with writeDepth), Z test on;
+		// no cull state, so MaterialSetDoubleSided (+0x4E) is ignored and every chain draws two-sided
+		const auto mode = render_modes::ModeFromProperties(
+		    render_modes::Mode::AlphaTexturedAlphaNz,
+		    {.additive = creator->additive, .zWrite = creator->writeDepth, .alpha = true});
+		bgfx::setState(render_modes::State(mode));
 		bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 	}
 }

@@ -24,6 +24,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Weather/Rain.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
@@ -100,7 +101,7 @@ void Renderer::DrawRain(RenderPass viewId, const Camera& camera) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Atmos));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_AtmosAlpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6 (alpha blend), Z test, no Z write (AtmosMaterial +5 |= 1 | 4); one-pixel lines as the original's
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_PT_LINES);
+	// AtmosMaterial: mode 6 (alpha blend), Z test, no Z write (+5 |= 1 | 4); one-pixel lines as the original's
+	bgfx::setState(render_modes::State(render_modes::materials::k_Atmos, {.extra = BGFX_STATE_PT_LINES}));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }

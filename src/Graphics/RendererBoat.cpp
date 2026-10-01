@@ -33,6 +33,7 @@
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
 #include "Renderer.h"
@@ -62,7 +63,7 @@ void Renderer::DrawBoatReflection(RenderPass viewId) const
 	// clipped away, unlit in the diffuse obj+0x4C = 0xFF303070 (vs_object mode 2 with the packed rgb)
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.clipBelowSea = true;
 	submitDesc.unlitColour = static_cast<float>(ecs::petit_navire::k_ReflectionColour & 0x00FFFFFFu);
 	submitDesc.instanceDesc =
@@ -159,7 +160,8 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6: SRCALPHA / INVSRCALPHA, no Z write, both faces
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+	// the smoke material [0xEA1ABC] (PetitNavire 0x5E1328, SmokyStuff::Create 0x823D21), mode 6: SRCALPHA /
+	// INVSRCALPHA, no Z write, both faces
+	bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }

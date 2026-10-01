@@ -2,7 +2,7 @@
 
 Cómo se dibujan los objetos del mundo: materiales L3D, luz de los modelos, texturas y sprites, manchas de los pies,
 reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD, el humo
-de las chimeneas, los objetos que miran a la cámara (billboards), las texturas animadas por fotogramas y las mallas pegadas al suelo. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
+de las chimeneas, los objetos que miran a la cámara (billboards), las texturas animadas por fotogramas, las mallas pegadas al suelo y los modos de render y materiales del original. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
 como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
@@ -21,6 +21,7 @@ como juego, en [water.md](water.md).
 - [Objetos que miran a la cámara (billboards)](#objetos-que-miran-a-la-cámara-billboards)
 - [Texturas animadas por fotogramas](#texturas-animadas-por-fotogramas)
 - [Mallas pegadas al suelo (land_morph)](#mallas-pegadas-al-suelo-land_morph)
+- [Modos de render y materiales (render_modes)](#modos-de-render-y-materiales-render_modes)
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
 Estado: todo lo de esta página es **fiel** (original, no un mod) salvo lo que se marca **(aproximado)**, las
@@ -34,7 +35,8 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   `blend`: todo salía opaco. Ahora los materiales con mezcla y sin corte de alfa (`AlphaTextured`, `TexturedAlpha`,
   `SmoothAlpha`, `*Nz`, aditivos sin chroma) se dibujan con el alfa de la textura (`u_skyAlphaThreshold.w`),
   `SRCALPHA/INVSRCALPHA` (o `SRCALPHA/ONE` los aditivos), sin escribir Z en los `Nz`, en la vista `MainBlended`
-  (después de todo lo opaco). Los `TexturedChroma` siguen con prueba de alfa.
+  (después de todo lo opaco). Los `TexturedChroma` siguen con prueba de alfa. Los estados de cada tipo salen de
+  `render_modes` ([Modos de render y materiales](#modos-de-render-y-materiales-render_modes)).
 - La mano (`Hand_Boned_Base2`, material `AlphaTextured`) tiene en su piel un degradado de alfa en las filas de abajo:
   la muñeca se desvanece. Antes acababa en un borde blanco duro ([img/hand_zoom.png](img/hand_zoom.png)).
 - Mallas de `AllMeshes.g3d` por tipo de material: `Textured` 512, `TexturedChroma` 217, `Smooth` 181,
@@ -52,7 +54,8 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
 - Por vértice: `f = 90/256 + 166/256 · max(0, N·L)`, L = normalize(−500000, 500000, −500000 − origen) ≈
   (−0,577, 0,577, −0,577), fijo (no depende de la hora). Difuso = base · f; el especular se suma tras la textura.
 - La mano: base × 1,5 (`CHand::AddDrawing` 0x46D135). Primitivas sin textura: color del material × base. Chroma:
-  `ALPHAREF = umbral · alfa del objeto / 255 − 5`, `GREATEREQUAL`.
+  `ALPHAREF` = el umbral del material, `GREATEREQUAL`; solo los modos 9 / 15 de un objeto con alfa propio usan
+  `umbral · alfa del objeto / 255 − 5` ([Modos de render](#modos-de-render-y-materiales-render_modes)).
 - openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a =
   luminosidad), `vs_object` hace la bilineal y N·L; las normales ahora giran con el modelo y la instancia.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
@@ -718,6 +721,131 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
   directas; el único portado es el tótem, que hace la misma suma, (H(p) − H(pos)) + p.y, 0x8100B7..0x8100D0), y la
   cortina, la correa y los quads de D.
 
+## Modos de render y materiales (render_modes)
+
+**Fiel**, salvo lo marcado. En el original toda la mezcla, la prueba de alfa, la escritura de Z y la etapa de textura
+de un dibujo salen de **un material de 16 bytes** (`LH3DMaterial`, `LH3DRender::CreateMaterial` 0x82FD30) y **una de
+19 funciones de modo** (tabla 0xC38728). En openblack todos esos dibujos piden su estado de bgfx a una sola API,
+`openblack::graphics::render_modes` (`src/Graphics/RenderModes.{h,cpp}`); nadie escribe ya la mezcla ni la Z a mano.
+
+**El material.** `CreateMaterial(modo, textura)`: `new(0x10)`, `inc [0xECA654]` (0x82FD40), +0 modo, +4 = 0
+(ALPHAREF), +5 = 0 (banderas: bit 0 dos caras, bit 2 repetición, bit 4 sin desplazamiento de UV), +8 textura,
++0xC = 0xFF0000FF (0x82FD59; nadie lo lee, (inferido)). La textura no es del material: smoke.raw la comparten el modo 6
+[0xEA1ABC] y el modo 13 [0xEA1AC4] (0x80BC7D / 0x80BCB8); atmos.raw, AtmosMaterial (modo 6, +5 |= 1 | 4: 0x835C58,
+0x835C6F..0x835C79) y AdditiveMaterial (modo 13, +5 |= 1: 0x835C61). En la API: `Material` (el modo y las banderas
++5), `State(material, opciones)` (el culling del material si el dibujo no pone otro) y `materials::k_Smoke`,
+`k_SmokeAdditive`, `k_Misc0`, `k_Atmos`, `k_AtmosAdditive`, que usan sus ocho dibujos. La textura y la repetición
+(+5 bit 2, `SetD3DTillingOn/Off` 0x82FF10 / 0x82FF50 con `g_b_need_tilling` [0xECA614]) las pone cada dibujo; en las
+mallas L3D, `Primitive::wrap`.
+
+**El SetMaterial en línea** (unas 105 copias, p. ej. `SetupThing::DrawLine` 0x412662..0x4126BD): llama a
+`g_set_render_mode_data[0xECA618][modo].fn(m, etapa 0)`, pone la repetición y `CULLMODE = ((~m[5]) & 1)·2 + 1`
+(1 NONE, 3 CCW). En la API: `Select(modo, tabla)` y `CullFor(dosCaras, espejado)`.
+
+**Los 19 modos** (`k_Modes`, tabla 0xC38728, volcada del ejecutable; 2, 6, 9, 10, 11, 16 y 18 releídos):
+
+| Modo | Función | Mezcla | ATEST | ZWRITE | Alfa de la etapa 0 | Tipo L3D |
+|---|---|---|---|---|---|---|
+| 0 | 0x82D470 | no | no | sí | sin textura | Smooth |
+| 1 | 0x82D5C0 | SA/ISA | no | sí | sin textura (no toca la etapa) | SmoothAlpha |
+| 2 | 0x82D820 | no | no | sí | textura | Textured |
+| 3 | 0x82D920 | SA/ISA | no | sí | textura × difuso | TexturedAlpha |
+| 4 | 0x82DC20 | SA/ISA | no | sí | textura | AlphaTextured |
+| 5 | 0x82DD90 | SA/ISA | no | sí | textura × difuso | AlphaTexturedAlpha |
+| 6 | 0x82DF10 | SA/ISA (0x82DF6A / 0x82DF91) | no | **no** (0x82E063) | textura × difuso | AlphaTexturedAlphaNz |
+| 7 | 0x82D6F0 | SA/ISA | no | no | sin textura | SmoothAlphaNz |
+| 8 | 0x82DAA0 | SA/ISA | no | no | textura × difuso | TexturedAlphaNz |
+| 9 | 0x82E080 | SA/ISA | sí | sí | textura | TexturedChroma |
+| 10 | 0x82E830 | **SA/ONE** (0x82E87C) | sí (0x82E88E) | sí | textura × difuso | …AdditiveChroma |
+| 11 | 0x82E9C0 | SA/ONE | sí | no (0x82EAAF) | textura × difuso | …AdditiveChromaNz |
+| 12 | 0x82EB50 | SA/ONE | no | sí | textura × difuso | …Additive |
+| 13 | 0x82ECD0 | SA/ONE | no | no | textura × difuso | …AdditiveNz |
+| 14 | 0x82DD90 | = 5 | | | | (la tierra) |
+| 15 | 0x82E470 | SA/ISA | sí | sí | textura × difuso | TexturedChromaAlpha |
+| 16 | 0x82E6A0 | SA/ISA | sí | no (0x82E78F) | textura × difuso | TexturedChromaAlphaNz |
+| 17 | 0x82D820 | = 2 | | | | — |
+| 18 | 0x82E2A0 | **ZERO/ONE** (SRCBLEND 5 en 0x82E2F3 y 1 en 0x82E320) | sí | sí | textura | ChromaJustZ |
+
+ALPHAFUNC es GREATEREQUAL para todos (0x82CBA6). Ningún modo toca ZFUNC, la niebla ni el culling. La palabra de la
+tabla (1 en los mezclados) no la lee nadie.
+
+**La tabla del alfa global** 0xC387C8 (`k_GlobalAlphaModes`, `Table::GlobalAlpha`): 0, 1 → 1; 2, 3, 17 → 3; 4, 5 → 5;
+9 → 15; los demás, igual. La elige el Draw de un objeto con su propio alfa (vt+0x4C = `fn_007F9D80`, bit 7 de obj+4;
+0x80DF09). En openblack, los objetos con `components::Alpha` en la lista ordenada (`L3DMeshSubmitDesc::table`).
+
+**ALPHAREF** (`AlphaRef`): el +4 del material, o [0xECA65C] si el interruptor [0xECA658] está puesto. Con la tabla
+0xC387C8, los modos 9 y 15 lo escalan: `max(0, ftol(ref·A·(1/255) − 5))` (0x82E15C..0x82E1CE, 0x82E557..0x82E5C9;
+[0x900058], [0x8AB6E4], [0x8AA398]), con A el alfa del difuso del objeto [0xC37D8C]. D3D prueba el alfa que **sale de
+la etapa 0**: el de la textura en 9 y 18 (SELECTARG1, 0x82E120 / 0x82E384), textura × alfa del objeto en 10, 11, 15 y
+16 (MODULATE, 0x82E510 en el 15). `PrimitiveAlpha(modo dibujado, tabla, ref, A)` da a `fs_object` los dos uniformes:
+`u_skyAlphaThreshold.y` = ALPHAREF / 255 (−1 sin prueba) y `.w` = el alfa de la etapa (0 ninguno: modos sin mezcla ni
+prueba; 1 la textura; 2 textura × difuso). El shader descarta si `round(a·255) < ref`. El modo dibujado es el de
+verdad: el de la primitiva por la tabla, o el forzado (`L3DMeshSubmitDesc::mode`), así que un átomo aditivo (13) o la
+sombra de la mano (6) no tienen prueba de alfa, como en el original. Las sombras estáticas y de física
+(`fs_static_shadow`) usan el mismo `PrimitiveAlpha` con la tabla normal ((inferido)).
+
+**Lo que pone cada dibujo** (`StateOptions`): ZFUNC (LESSEQUAL 0x82CCC5, EQUAL de las sombras sobre objetos 0x80E488,
+ALWAYS para dibujar encima), los ZWRITEENABLE 0 escritos a mano (rectángulos 2D 0x81E64C, mar 0x879FD9, tierra
+reflejada 0x5E48C5..0x5E4900) y lo propio de openblack: escribir el alfa del destino, MSAA, la formulación
+premultiplicada ONE/INVSRCALPHA del modo 6 (humo, sprites, tierra; mismo color), el mar que compone el reflejo en su
+shader y el tipo de primitiva. `k_ModelPass` es la pasada de modelos opacos. `ModeFromProperties` es
+`GJUtils::SetMaterialProperties` 0x57E120 (4 → 6; sin alfa → 3; aditivo → 13; con Z 6 → 5, 13 → 12, 8 → 3, 16 → 9; sin Z
+5 → 6, 12 → 13, 3 / 2 → 8, 9 → 16), la usan `L3DSubMesh` y las partículas.
+
+**Quién la usa.** Las mallas L3D (`L3DSubMesh` y `Renderer::DrawSubMesh`: el tipo de material es el modo); las nubes,
+nieblas, humo, barco, lluvia, manchas, peces, anillos, sol, luna, mar, brillo de la mano en el mar, tierra, texto de la
+mano, fundido de pantalla, sprites y los sprites, cadenas y superficies de PSys, la sombra de la mano sobre objetos (todas
+las primitivas en el modo 6 con ZFUNC EQUAL), los átomos aditivos de PSys (modo 13) y el visor de mallas. Fuera, por
+ser técnicas propias de openblack sin modo del original: las pasadas MAX / MIN de sombras y ríos, las huellas y el mod
+de follaje.
+
+**Arreglos al unificar** (antes, la tabla de openblack y las ramas de `DrawSubMesh`):
+1. Los modos 10 y 11 salían SA/ISA (ahora SA/ONE) y el 11 escribía Z.
+2. El modo 16 escribía Z.
+3. El modo 18 pintaba color con SA/ISA; ahora ZERO/ONE, solo Z.
+4. ALPHAREF: el −5 se aplicaba siempre y sin el factor A/255 (`fs_object`, `fs_static_shadow`); ahora es el +4 exacto
+   salvo 9 / 15 con la tabla 0xC387C8.
+5. Las primitivas sin Z (6, 7, 8, 16) de un objeto que se funde escribían Z.
+6. Las entradas 14 y 17 de la tabla eran {sin mezcla, sin Z}; ahora 14 = 5 y 17 = 2 (latente: no hay L3D con esos tipos).
+7. La sombra de la mano sobre objetos ponía SA/ONE en las primitivas aditivas (12, 13); ahora todas van en el modo 6
+   del material de la sombra: `fn_0080B050` 0x80B06A..0x80B08B hace el SetMaterial de [si+0x460] (`CreateMaterial(6)`
+   en `fn_0087FD50` 0x87FE12) por la tabla actual, y `fn_0084E200` dibuja cada primitiva sin estado propio.
+8. Una primitiva chroma con ALPHAREF 0 (o un 9 / 15 que se funde con `ref·A < 1530`, que da 0) mezcla con el alfa de su
+   textura (modo 9: SELECTARG1 0x82E120, SA/ISA); antes salía opaca.
+9. La sombra de la mano sobre objetos con el culling de su material: +5 = 0 (0x87FE12) da CULLMODE CCW
+   (`fn_0080B050` 0x80B0AD..0x80B0E6) en todas las primitivas; antes las de dos caras la recibían también por detrás.
+10. La prueba de alfa y el alfa de la etapa 0 son los del modo dibujado (ver ALPHAREF): un 9 que se funde (→ 15) prueba
+    textura × A (antes, el alfa crudo de la textura: con ref 0x96 y A = 128 se quedaban los texeles desde 70 en vez de
+    desde ~140); un 2 que se funde (→ 3) mezcla con textura × A (antes, solo A); en un átomo aditivo (13) los tipos 0 / 2
+    usan textura × difuso (antes, el quad entero) y los chroma pierden la prueba de alfa, igual que bajo la sombra de la
+    mano (6).
+
+En `AllMeshes.g3d` no hay primitivas de los tipos 10, 11, 16 ni 18 (los recuentos de [Mezcla de materiales
+L3D](#mezcla-de-materiales-l3d)): los arreglos 1-3 se ven en las mallas de los milagros y en las que pasan por
+`SetMaterialProperties` (un `TexturedChroma` sin Z sale 16). El 4 se ve en los bordes de todos los chroma (árboles con
+corte 0x96: un poco más finos).
+
+**Huecos.**
+- (inferido) El alfa del objeto en byte: `AlphaByte` redondea `1 − [0][3]` de la instancia.
+- (inferido) La comparación de la prueba de alfa en bytes redondeados (`fs_object`, `fs_static_shadow`).
+- (inferido) La luna sin la Z del modo 4 (0x82DC20) y el cielo con los modos de sus mallas.
+- (inferido) Los modos de las cadenas (`fn_006AA860`, sin leer) y de la pasada especular de SurfRevol (13).
+- (inferido) Los anillos del agua y los bancos de peces con [0xEA1AC4] / [0xEA1AB0]: solo las referencias 0x54BA72 y
+  0x8247CC, sin decodificar dentro de la rutina.
+- (aproximado) Los peces con ZFUNC ALWAYS: el original deja LESSEQUAL (0x82CCC5); da lo mismo porque la tierra
+  reflejada de debajo no escribió Z (0x5E48C5).
+- (aproximado) El mar sin culling: su material (+5 = 4, 0x5E5474; `GLandscape::Draw` le pasa [this+4] en 0x5E4E85)
+  da CULLMODE CCW (0x879F54..0x879F86), que deja todas las filas del mar del original; la malla del mar de openblack
+  no son esas filas.
+- (aproximado) Con el alfa de la etapa «textura» (4, 9, 18) `fs_object` lo multiplica aún por el alfa del objeto; en
+  el original es el de la textura solo (SELECTARG1). Es lo mismo mientras el objeto tiene alfa 255 (fuera de los
+  fundidos, que pasan a 5 / 15, y del corte por el plano).
+- Sin portar: el ALPHAREF forzado de sus escritores (árbol que arde `fn_0074B3A0` 0x74B4E0..0x74B51E, que
+  `FireGraphic.cpp` llama «render mode 230»; `TownArtifact::Draw` 0x51CBB3; corte fijo de 10 en `fn_005E6350`
+  0x5E649C, `Scaffold::Draw` 0x6EA730, `fn_00826470` 0x826488; FragMesh `fn_007F7960`). `AlphaRef` ya lo acepta.
+- El fundido de objetos por prueba de alfa (`fn_0080E940` y copias 0x80F0A0 / 0x80F3D0) es otro sistema; openblack hace
+  el patrón de cruces de `fs_object`.
+
 ## Pendiente
 
 - Luz de los modelos: neblina (`fn_007FEB30`), tintes (veneno, fuego, `fn_0080BF10`), color de ventanas de noche, luz de la mano
@@ -753,6 +881,8 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
     `fn_00848600` / `fn_00848830`) y los quads de la criatura (`fn_0081F360`) cuando tengan casa en openblack;
   - la entrada del templo, el templo a medio hacer, el andamio y los demás usuarios de `GetExtraPos`;
   - el `SmokyStuff` de modo 1 de las marcas del suelo.
+- Modos de render: portar el ALPHAREF forzado del árbol que arde y de sus otros escritores; comprobar con el original
+  si el aro de piedra del dispensador debe tapar la burbuja que se funde (escena 3 de `dev\tmp_dis\unify\U4_changes.md`).
 
 ## Ganchos de prueba
 
@@ -784,6 +914,10 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   está en `SF_BeamExplosion*`), `OPENBLACK_TEST_TUG`
   (el cráter); `OPENBLACK_SPELL_TRACE=1` escribe `Explosion: ground mark`. La lista de escenas está en
   `dev\tmp_dis\unify\U3_changes.md`.
+- Modos de render: el test `test_render_modes` (las tablas, los estados de cada sitio antes y después y los arreglos);
+  escenas con `OPENBLACK_HAND_TEST_TREE` y `OPENBLACK_CAMERA_LOCK` (bordes chroma), `OPENBLACK_TEST_ONESHOT` y
+  `OPENBLACK_TEST_DISPENSER` (fundidos y aditivos), `OPENBLACK_MOUSE_AT` (sombra de la mano sobre objetos). La lista
+  está en `dev\tmp_dis\unify\U4_changes.md`.
 
 ## Fuentes
 
@@ -797,3 +931,5 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   (inventario de openblack) y `U2_changes.md` (la migración).
 - `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
   (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).
+- `dev\tmp_dis\unify2\lh3d_render_modes_original.md` (el original, con su verificación), `lh3d_render_modes_openblack.md`
+  (inventario de openblack) y `dev\tmp_dis\unify\U4_changes.md` (la migración).

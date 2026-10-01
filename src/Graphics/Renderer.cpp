@@ -72,6 +72,7 @@
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "Graphics/VertexBuffer.h"
@@ -463,9 +464,10 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 
 	auto const& skins = mesh.GetSkins();
 	bool lastPreserveState = false;
+	// the pass of the opaque models: the normal table and every primitive in its own mode
+	const bool modelPass = desc.table == render_modes::Table::Normal && !desc.mode.has_value();
 	// MSAA mod: smooth alpha cut-out edges in the multisampled opaque passes (not in blended ones)
-	const bool alphaToCoverage = Locator::config::value().msaa != 0 && desc.viewId != RenderPass::Reflection &&
-	                             (desc.state & BGFX_STATE_BLEND_MASK) == 0;
+	const bool alphaToCoverage = Locator::config::value().msaa != 0 && desc.viewId != RenderPass::Reflection && modelPass;
 	const auto& primitives = subMesh.GetPrimitives();
 	for (auto it = primitives.begin(); it != primitives.end(); ++it)
 	{
@@ -479,8 +481,15 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		// Material blending of the original (L3D material type): AlphaTextured & co. blend with the texture alpha, e.g.
 		// the fading wrist of the hand and the soft edges of buildings. Chroma materials stay alpha tested.
 		const bool blended = prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha;
+		// SetMaterial (0x412662..0x4126BD): the mode of the primitive's material through the current table, or the mode
+		// every primitive is drawn in
+		const auto drawn =
+		    render_modes::Select(desc.mode.value_or(static_cast<render_modes::Mode>(prim.materialType)), desc.table);
+		// MSAA mod (only in the model pass, so the primitive's own mode)
+		const bool a2c = render_modes::AlphaToCoverage(drawn, alphaToCoverage);
 		const auto sameMaterial = [&prim](const L3DSubMesh::Primitive& other) {
-			return other.blend == prim.blend && other.thresholdAlpha == prim.thresholdAlpha &&
+			return other.materialType == prim.materialType && other.blend == prim.blend &&
+			       other.thresholdAlpha == prim.thresholdAlpha &&
 			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold &&
 			       other.wrap == prim.wrap && other.uvOffset == prim.uvOffset;
 		};
@@ -564,11 +573,14 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			if (!desc.isSky)
 			{
+				// y: the drawn mode's ALPHAREF / 255 (-1 without alpha test), w: its stage 0 alpha
+				const auto alpha = render_modes::PrimitiveAlpha(
+				    drawn, desc.table, static_cast<uint8_t>(std::lround(prim.alphaCutoutThreshold * 255.0f)), desc.globalAlpha);
 				const glm::vec4 u_skyAlphaThreshold = {
 				    Locator::skySystem::value().GetCurrentSkyType(),
-				    prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-				    alphaToCoverage && prim.thresholdAlpha ? 1.0f : 0.0f,
-				    blended ? 1.0f : 0.0f,
+				    alpha.ref,
+				    a2c ? 1.0f : 0.0f,
+				    static_cast<float>(alpha.source),
 				};
 				program->SetUniformValue("u_skyAlphaThreshold", &u_skyAlphaThreshold);
 			}
@@ -594,47 +606,22 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				subMesh.GetMesh().GetVertexBuffer().Bind();
 			}
 			auto viewId = desc.viewId;
-			auto state = desc.state;
-			if (!desc.isSky && (state & BGFX_STATE_CULL_MASK) == 0 && !prim.twoSided)
+			// SetMaterial: the culling from the material's +5 bit 0 (D3DCULL_CCW 0x84C34A; the mirrored reflection camera
+			// flips it, and a mesh mirrored in the sea flips it back)
+			auto options = desc.options;
+			if (!desc.isSky && options.cull == render_modes::Cull::None)
 			{
-				// D3DCULL_CCW of the original (0x84C34A) is bgfx's CCW here; the mirrored reflection camera flips it (and a
-				// mesh mirrored in the sea flips it back)
-				state |= viewId == RenderPass::Reflection && !desc.mirrorInSea ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
+				options.cull = render_modes::CullFor(prim.twoSided, viewId == RenderPass::Reflection && !desc.mirrorInSea);
 			}
-			if (blended && (state & BGFX_STATE_BLEND_MASK) == 0)
+			// Blended: drawn after every opaque model (MainBlended) so what lies behind is already in the target
+			if (blended && modelPass && viewId == RenderPass::Main)
 			{
-				// Drawn after every opaque model (MainBlended) so what lies behind is already in the target
-				state &= ~(BGFX_STATE_WRITE_A | (prim.depthWrite ? 0 : BGFX_STATE_WRITE_Z));
-				state |= prim.blend == L3DSubMesh::Primitive::BlendMode::Additive
-				             ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-				             : BGFX_STATE_BLEND_ALPHA;
-				if (viewId == RenderPass::Main)
-				{
-					viewId = RenderPass::MainBlended;
-				}
+				viewId = RenderPass::MainBlended;
 			}
-			else if (blended && prim.blend == L3DSubMesh::Primitive::BlendMode::Additive &&
-			         (state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ALPHA)
-			{
-				// An object drawn with its own alpha (components::Alpha: SetGlobalAlpha, mode table 0xC387C8) keeps the
-				// additive modes 10..13 of its additive primitives (SRCALPHA / ONE), 11 and 13 without Z write: the one-shot
-				// orb's bubble (mode 12 by GJUtils::SetMaterialProperties, Game.cpp)
-				state = (state & ~BGFX_STATE_BLEND_MASK) | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
-				if (!prim.depthWrite)
-				{
-					state &= ~BGFX_STATE_WRITE_Z;
-				}
-			}
-			if (prim.thresholdAlpha && !alphaToCoverage && (state & BGFX_STATE_BLEND_MASK) == 0)
-			{
-				// Chroma materials (fn_0082E080 & co.): alpha test and SRCALPHA / INVSRCALPHA blending, drawn in the
-				// normal (unsorted) model order like the original
-				state |= BGFX_STATE_BLEND_ALPHA;
-			}
+			const auto state = render_modes::PrimitiveState(drawn, options, blended, alphaToCoverage);
 			if ((skip & Mesh::SkipState::SkipRenderState) == 0)
 			{
-				const auto a2c = alphaToCoverage && prim.thresholdAlpha ? BGFX_STATE_BLEND_ALPHA_TO_COVERAGE : 0;
-				bgfx::setState(state | a2c, desc.rgba);
+				bgfx::setState(state, desc.rgba);
 			}
 
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()), 0,
@@ -917,8 +904,11 @@ void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
 			for (const auto& prim : subMesh->GetPrimitives())
 			{
 				const auto* texture = GetTexture(prim.skinID, skins);
-				const glm::vec4 u_shadowParams = {prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-				                                  texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
+				// x: ALPHAREF / 255 of the primitive's mode, -1 without alpha test (inferido: the normal table)
+				const auto alpha = render_modes::PrimitiveAlpha(
+				    static_cast<render_modes::Mode>(prim.materialType), render_modes::Table::Normal,
+				    static_cast<uint8_t>(std::lround(prim.alphaCutoutThreshold * 255.0f)));
+				const glm::vec4 u_shadowParams = {alpha.ref, texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
 				program->SetUniformValue("u_shadowParams", &u_shadowParams);
 				if (texture != nullptr)
 				{
@@ -996,12 +986,15 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 	const glm::vec3 position(-30000.0f, height, -30000.0f);
 	auto model = glm::translate(position) * glm::rotate(-3.0f * glm::pi<float>() / 4.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 	const auto& texture = *textures.Handle(k_SunTexture);
-	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none
-	const uint64_t additive = BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none; the glare with
+	// ZFUNC ALWAYS (fn_0086BB60)
+	const uint64_t additive =
+	    render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz, {.zFunc = render_modes::ZFunc::Always});
 	if (!glare)
 	{
 		const glm::vec4 colour(glm::vec3(0x95, 0x7C, 0x63) / 255.0f, alpha / 255.0f);
-		DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive | BGFX_STATE_DEPTH_TEST_GREATER);
+		DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour,
+		                  render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz));
 		return;
 	}
 
@@ -1108,8 +1101,7 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 			program->SetUniformValue("u_colour", &glowColour);
 			program->SetUniformValue("u_celestial", &celestial);
 			bgfx::setVertexBuffer(0, &buffer);
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-			               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+			bgfx::setState(render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}
@@ -1127,9 +1119,10 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
 	const glm::vec4 moonColour(colour, m / 255.0f);
 	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
+	// (inferido) without the Z write of mode 4 (0x82DC20): nothing farther is drawn after it in the sky
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
-	                  BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
-	                      (mirrored ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW),
+	                  render_modes::State(render_modes::Mode::AlphaTextured,
+	                                      {.cull = render_modes::CullFor(false, mirrored), .zWrite = false}),
 	                  celestial, &*textures.Handle(k_WeatherAlpha));
 }
 
@@ -1306,7 +1299,8 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 				}
 				subMesh->GetMesh().GetVertexBuffer().Bind();
-				bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+				// the smoke material [0xEA1ABC] (fn_007FA300): mode 6, two-sided
+				bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 				bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 			}
 		}
@@ -1369,7 +1363,7 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 	const auto* program = _shaderManager->GetShader("DynamicShadowInstanced");
 	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
 	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
-	const glm::vec4 u_shadowParams(0.0f);
+	const glm::vec4 u_shadowParams(-1.0f, 0.0f, 0.0f, 0.0f); // no alpha test
 	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
 	for (const auto& subMesh : mesh->GetSubMeshes())
 	{
@@ -1438,7 +1432,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	}
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.landColourOnly = true;
 	submitDesc.clipBelowSea = true;
 	for (const auto& [entity, bodyRadius, centreY] : objects)
@@ -1487,8 +1481,12 @@ void Renderer::DrawHandShadowOnObjects() const
 	const glm::vec2 boxMax = boxMin + 1.0f / glm::vec2(_handShadowBox.z, _handShadowBox.w);
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = graphics::RenderPass::MainBlended;
-	// fn_0080B050: mode 6 (no Z write) with ZFUNC EQUAL over the object as it was drawn
-	submitDesc.state = BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
+	// fn_0080B050 0x80B06A..0x80B08B: SetMaterial of the shadow material [si+0x460] (CreateMaterial(6) fn_0087FD50
+	// 0x87FE12) through the current table, mode 6 (SRCALPHA / INVSRCALPHA, no Z write); fn_0084E200 draws each primitive
+	// with no state of its own. ZFUNC EQUAL over the object as it was drawn (0x80E488). The shadow material's culling:
+	// +5 = 0 (CreateMaterial 0x87FE12), CULLMODE CCW (fn_0080B050 0x80B0AD..0x80B0E6), two-sided primitives too
+	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
+	submitDesc.options = {.zFunc = render_modes::ZFunc::Equal, .cull = render_modes::Cull::Ccw, .msaa = true};
 	submitDesc.dynamicShadow = &_handShadowFrameBuffer->GetColorAttachment();
 	submitDesc.dynamicShadowBox = _handShadowBox;
 	submitDesc.dynamicShadowParams = _handShadowParams;
@@ -1592,8 +1590,10 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6: SRCALPHA / INVSRCALPHA, no Z write; two-sided. The mirrored land under them wrote no Z in the original.
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// misc0 [0xEA1AB0] (inferido: reference 0x8247CC, not decoded), mode 6: SRCALPHA / INVSRCALPHA, no Z write;
+	// two-sided. ZFUNC ALWAYS (aproximado: the original keeps LESSEQUAL 0x82CCC5; equivalent because the mirrored land
+	// under them wrote no Z, 0x5E48C5)
+	bgfx::setState(render_modes::State(render_modes::materials::k_Misc0, {.zFunc = render_modes::ZFunc::Always}));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -1722,9 +1722,8 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 13: SRCALPHA / ONE, no Z write
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-	               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+	// smoke.raw in mode 13 [0xEA1AC4] (inferido: reference 0x54BA72, not decoded): SRCALPHA / ONE, no Z write
+	bgfx::setState(render_modes::State(render_modes::materials::k_SmokeAdditive));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -1851,8 +1850,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	const auto* program = _shaderManager->GetShader("Blob");
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6, no Z write, cull none
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+	// mode 6 ([0xEB998C], fn_0081FAA0 0x81FD42), no Z write, cull none
+	bgfx::setState(render_modes::State(render_modes::Mode::AlphaTexturedAlphaNz));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -2030,8 +2029,9 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	const auto* program = _shaderManager->GetShader("Text");
 	program->SetTextureSampler("s_diffuse", 0, _font->GetTexture());
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 16: SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0)
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// mode 16 (CachePage::Init 0x830244): SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0); its alpha test
+	// (+4 = 5) is fs_text's
+	bgfx::setState(render_modes::State(render_modes::Mode::TexturedChromaAlphaNz, {.zFunc = render_modes::ZFunc::Always}));
 	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
@@ -2101,8 +2101,9 @@ void Renderer::DrawScreenOverlay() const
 	const glm::mat4 identity(1.0f);
 	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS, no Z write
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS and ZWRITEENABLE 0 by hand (fn_0081E590 0x81E64C)
+	bgfx::setState(render_modes::State(render_modes::Mode::SmoothAlpha,
+	                                   {.zFunc = render_modes::ZFunc::Always, .zWrite = false}));
 	bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
 }
 
@@ -2151,12 +2152,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = skyShader;
-			submitDesc.state = k_BgfxDefaultStateInvertedZ;
-			if (!desc.cullBack)
-			{
-				submitDesc.state &= ~BGFX_STATE_CULL_MASK;
-				submitDesc.state |= BGFX_STATE_CULL_CCW;
-			}
+			// (inferido) the sky meshes' own modes, culled as a whole
+			submitDesc.options = {.cull = desc.cullBack ? render_modes::Cull::Cw : render_modes::Cull::Ccw,
+			                      .writeAlpha = true,
+			                      .msaa = true};
 			submitDesc.modelMatrices = &modelMatrix;
 			submitDesc.matrixCount = 1;
 			submitDesc.isSky = true;
@@ -2259,12 +2258,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// clang-format off
 			// fs_terrain writes the land and small bump passes premultiplied (the coast alpha does not fade the small
 			// bump, as in the original); Z is written even where the land is transparent (render mode 14)
-			constexpr auto defaultState = 0u
-				| BGFX_STATE_WRITE_MASK
-				| BGFX_STATE_DEPTH_TEST_GREATER
-				| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA)
-				| BGFX_STATE_MSAA
-			;
+			// (the land blocks' material, fn_007FEDB0 0x7FEDE2: the function of mode 5, 0x82DD90)
+			const auto defaultState = render_modes::State(render_modes::Mode::Landscape,
+				{.writeAlpha = true, .msaa = true, .premultiplied = true});
 
 			constexpr auto discard = 0u
 				| BGFX_DISCARD_INSTANCE_DATA
@@ -2336,7 +2332,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					L3DMeshSubmitDesc handSubmit = {};
 					handSubmit.viewId = desc.viewId;
 					handSubmit.program = objectShaderInstanced;
-					handSubmit.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+					handSubmit.options = render_modes::k_ModelPass;
 					handSubmit.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer,
 					                                                                   handDesc->second.offset, handDesc->second.count);
 					handSubmit.modelMatrices = bones->data();
@@ -2384,10 +2380,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 			_plane->GetVertexBuffer().Bind();
 
-			const auto blend = sprite.additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-			                                   : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-			bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
-			               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+			// mode 13, or mode 6 with the tint premultiplied (fs_sprite) (inferido: the materials of the sprites' owners)
+			bgfx::setState(render_modes::State(sprite.additive ? render_modes::Mode::AlphaTexturedAlphaAdditiveNz
+			                                                   : render_modes::Mode::AlphaTexturedAlphaNz,
+			                                   {.writeAlpha = true, .premultiplied = true}));
 
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
 		};
@@ -2405,11 +2401,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = objectShaderInstanced;
-			submitDesc.state = 0u                              //
-			                   | BGFX_STATE_WRITE_MASK         //
-			                   | BGFX_STATE_DEPTH_TEST_GREATER //
-			                   | BGFX_STATE_MSAA               //
-			    ;
+			submitDesc.options = render_modes::k_ModelPass;
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 
 			if (desc.viewId == graphics::RenderPass::Main)
@@ -2680,7 +2672,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
 			if (!sorted.empty())
 			{
-				const auto opaqueState = submitDesc.state;
+				const auto opaqueOptions = submitDesc.options;
 				submitDesc.viewId = graphics::RenderPass::MainBlended;
 				auto& spriteRegistry = Locator::entitiesRegistry::value();
 				for (const auto& instance : sorted)
@@ -2728,19 +2720,22 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
 					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
 					submitDesc.blendFilter = instance.fading ? 0 : 2;
-					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
-					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
-					                                      BGFX_STATE_MSAA)
-					                                   : opaqueState;
+					// a fading object (components::Alpha) through the table 0xC387C8 with its alpha byte (LH3DObject Draw
+					// 0x80DF09; obj+0x4C -> [0xC37D8C])
+					submitDesc.options = instance.fading ? render_modes::StateOptions {.msaa = true} : opaqueOptions;
+					submitDesc.table = instance.fading ? render_modes::Table::GlobalAlpha : render_modes::Table::Normal;
+					submitDesc.globalAlpha =
+					    render_modes::AlphaByte(1.0f - renderCtx.instanceUniforms[instance.index][0][3]);
 					// a PSys mesh atom with UseAdditiveAlpha (Creators/Mesh.h): mode 13, SRCALPHA / ONE without Z write
-					if (instance.fading && renderCtx.additiveInstances.contains(instance.index))
-					{
-						submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-						                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) | BGFX_STATE_MSAA;
-					}
+					submitDesc.mode = instance.fading && renderCtx.additiveInstances.contains(instance.index)
+					                      ? std::optional(render_modes::Mode::AlphaTexturedAlphaAdditiveNz)
+					                      : std::nullopt;
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
-				submitDesc.state = opaqueState;
+				submitDesc.options = opaqueOptions;
+				submitDesc.table = render_modes::Table::Normal;
+				submitDesc.globalAlpha = 255;
+				submitDesc.mode = std::nullopt;
 				submitDesc.viewId = desc.viewId;
 				submitDesc.blendFilter = 0;
 			}

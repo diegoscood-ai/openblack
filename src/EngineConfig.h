@@ -112,6 +112,11 @@ struct EngineConfig
 
 	float guiScale {1.0f};
 
+	/// Music master volume 0..127: AudioMusicMasterVolume of the original's BWSetup registry key (GAudio fn_00428250 /
+	/// fn_004282B0), applied with LHMusicSetMasterVolume 0x1000E890; 127 without the key ([0x10056280] = 0x7F at
+	/// 0x1000DE08). Not saved yet (openblack has no settings file for it).
+	uint32_t audioMusicMasterVolume {0x7F};
+
 	GraphicsBackend graphicsBackend {GraphicsBackend::Noop};
 	glm::u16vec2 resolution {256, 256};
 	windowing::DisplayMode displayMode {windowing::DisplayMode::Windowed};

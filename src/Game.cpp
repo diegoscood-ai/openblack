@@ -35,7 +35,11 @@
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/GameMusic.h"
 #include "Audio/LanternSounds.h"
+#include "Audio/MusicStream.h"
+#include "Audio/ScriptAudioState.h"
+#include "Audio/Voices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -43,6 +47,7 @@
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/Components/CameraBookmark.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Fields.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
@@ -72,6 +77,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/RendererInterface.h"
+#include "Help/HelpSystem.h"
 #include "Input/GameActionMapInterface.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
@@ -94,6 +100,49 @@ using namespace openblack::lhscriptx;
 using namespace std::chrono_literals;
 
 const std::string k_WindowTitle = "openblack";
+
+namespace
+{
+/// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
+/// not have yet (videos, HelpSystem, the camera's alignment, the towns' tribes, citadel, creature, worship)
+audio::GameQueries MakeMusicQueries(Game& game)
+{
+	audio::GameQueries queries;
+	queries.landNumber = [&game]() { return game.GetMapScriptGlobals().landNumber; };
+	// (inferred) openblack's turn counter, back to 0 at each LoadMap, stands for g_game+0x205A40
+	queries.turn = [&game]() { return game.GetTurn(); };
+	queries.camera = []() -> std::optional<audio::CameraState> {
+		if (!Locator::camera::has_value())
+		{
+			return std::nullopt;
+		}
+		audio::CameraState camera;
+		camera.position = Locator::camera::value().GetOrigin();
+		const float ground = Locator::terrainSystem::has_value() ?
+		                         Locator::terrainSystem::value().GetHeightAt(glm::vec2(camera.position.x, camera.position.z)) :
+		                         0.0f;
+		camera.heightAboveGround = camera.position.y - ground;
+		return camera;
+	};
+	// (approximated) a valid entity with a Transform stands for GameThing::IsAvailable, and its float position for the
+	// thing's MapCoords (without their 16.16 rounding)
+	queries.thingPosition = [](audio::ThingId thing) -> std::optional<glm::vec3> {
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto entity = static_cast<entt::entity>(thing);
+		if (!registry.Valid(entity))
+		{
+			return std::nullopt;
+		}
+		const auto* transform = registry.TryGet<ecs::components::Transform>(entity);
+		if (transform == nullptr)
+		{
+			return std::nullopt;
+		}
+		return transform->position;
+	};
+	return queries;
+}
+} // namespace
 
 Game* Game::sInstance = nullptr;
 
@@ -178,6 +227,11 @@ Game::Game(Arguments&& args) noexcept
 
 Game::~Game() noexcept
 {
+	// GAudio's music before LHMusic, then the music thread and its OpenAL sources before the audio context
+	// (LHMusicClose 0x1000E7A0)
+	audio::game_music::Shutdown();
+	audio::music::Shutdown();
+	help::Shutdown();
 	ShutDownServices();
 	SDL_Quit(); // todo: move to GameWindow
 	spdlog::shutdown();
@@ -192,6 +246,11 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_LEFT)
 	{
 		leftMouseButton = !leftMouseButton;
+		// GInterface 0x5D11C0 -> HelpSystem::ProcessInterface (inferred: the click is the left button going down)
+		if (auto* helpSystem = help::Get(); helpSystem != nullptr && event.type == SDL_MOUSEBUTTONDOWN)
+		{
+			helpSystem->ProcessInterface(true);
+		}
 	}
 	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_MIDDLE)
 	{
@@ -381,6 +440,11 @@ bool Game::GameLogicLoop() noexcept
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
 		// GGame::EndTurn: SoundTag::ProcessSoundTags 0x71E5F0, the street lanterns' looping sample
 		audio::lantern_sounds::ProcessTurn();
+		// GGame::EndTurn 0x54E997: GAudio::ProcessAudioGameTurn after turn 5 (unpaused: this loop does not run in pause)
+		if (_turnCount > 5)
+		{
+			audio::game_music::ProcessTurn(_turnCount);
+		}
 		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
@@ -615,6 +679,7 @@ bool Game::Update() noexcept
 	{
 		auto updateAudio = profiler.BeginScoped(Profiler::Stage::UpdateAudio);
 		Locator::audio::value().Update();
+		audio::music::Update();
 	} // Update Audio
 
 	return config.numFramesToSimulate == 0 || _frameCount < config.numFramesToSimulate;
@@ -915,6 +980,23 @@ bool Game::Initialize() noexcept
 
 		    auto groupName = f.filename().string();
 
+		    // The wave names of the dialogue banks of the voice table 0x915D40 (k_SfxBankPaths 6, 7, 10)
+		    for (const auto bank : {audio::SfxBank::Villagers, audio::SfxBank::HelpSprites, audio::SfxBank::Guidance})
+		    {
+			    const auto path = string_utils::LowerCase(f.generic_string());
+			    const auto wanted = string_utils::LowerCase(std::string(audio::SfxBankPath(bank)));
+			    if (path.size() >= wanted.size() && path.compare(path.size() - wanted.size(), wanted.size(), wanted) == 0)
+			    {
+				    std::vector<std::string> names;
+				    names.reserve(audioHeaders.size());
+				    for (const auto& header : audioHeaders)
+				    {
+					    names.emplace_back(header.name.begin(), std::find(header.name.begin(), header.name.end(), '\0'));
+				    }
+				    audio::voices::SetBankSampleNames(bank, std::move(names));
+			    }
+		    }
+
 		    // A hacky way of detecting if the sound is music as all music sounds end with "mpg"
 		    if (soundName.extension() == ".mpg")
 		    {
@@ -945,6 +1027,12 @@ bool Game::Initialize() noexcept
 		    }
 	    });
 
+	// The voices of the help texts (0x915D40), rebuilt from the wave names of villagers, HelpSprites and Guidance
+	audio::voices::BuildTable();
+
+	// LHMusic on the OpenAL context of the audio manager (LH_AudioSystem init 0x1000DD50, from the GAudio constructor)
+	audio::music::Start();
+
 	{
 		InfoFile infoFile;
 		auto result = infoFile.LoadFromFile(Locator::filesystem::value().GetPath<filesystem::Path::Scripts>() / "info.dat");
@@ -954,6 +1042,26 @@ bool Game::Initialize() noexcept
 			return false;
 		}
 		Locator::infoConstants::reset(result.release());
+	}
+
+	// GAudio's music (the banks of 0x9C9748, fn_00426D40), with the town distances of info.dat (0xD9A934 / 0xD9A938)
+	{
+		const auto& sound = Locator::infoConstants::value().sound;
+		audio::game_music::Start(MakeMusicQueries(*this), {sound.townTriggerDistance, sound.townTriggerOffDistance});
+	}
+
+	// HelpSystem (text only, milestone A11) with HelpSystemInfo of info.dat (0xD16178 / 0xD1617C)
+	{
+		const auto& helpInfo = Locator::infoConstants::value().helpSystem;
+		help::HelpSystem::Queries queries;
+		// (inferred) openblack's turn counter stands for g_game+0x205A40
+		queries.turn = [this]() { return GetTurn(); };
+		// (approximated) the real milliseconds since the start, for the scaled clock of 0xEA1C78..0xEA1C80
+		queries.nowMs = [start = std::chrono::steady_clock::now()]() {
+			return static_cast<int32_t>(
+			    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+		};
+		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries), {});
 	}
 
 	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false, [&textureManager](const std::filesystem::path& f) {
@@ -1205,6 +1313,21 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	night_lights::Clear();
 	// before the registry reset: it destroys the emitters without freeing their sources, and a looping one would go on
 	audio::lantern_sounds::Clear();
+	// GGame::Init: GAudio::Reset 0x426CA0 (its music part, call 0x54F474) and GScript::Reset 0x6EB2D0 (its audio
+	// switches, call 0x54F53A)
+	{
+		const auto lock = audio::game_music::Lock();
+		if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+		{
+			gameMusic->Reset();
+		}
+	}
+	audio::GetScriptAudioState().Reset();
+	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->Reset();
+	}
 
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());

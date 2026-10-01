@@ -13,6 +13,7 @@
 #include <cstdint>
 
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -31,6 +32,8 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/GameMusic.h"
+#include "Audio/ScriptAudioState.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -48,6 +51,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Enums.h"
 #include "Game.h"
+#include "Help/HelpSystem.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "ECS/Alignment.h"
@@ -415,29 +419,48 @@ void PosFieldOfView() // 012 POS_FIELD_OF_VIEW
 	Pushb(false);
 }
 
+// CHAR2WCHAR 0x8300A0 of a script string: MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, s, -1, buffer, 0x7FF).
+// (approximated) byte by byte, the same as CP_ACP 1252 except for 0x80..0x9F, and without the 0x7FF limit
+std::u16string WidenScriptString(const std::string& text)
+{
+	std::u16string wide;
+	wide.reserve(text.size());
+	for (const char c : text)
+	{
+		wide.push_back(static_cast<char16_t>(static_cast<unsigned char>(c)));
+	}
+	return wide;
+}
+
 void RunText() // 013 RUN_TEXT
 {
-	// const auto withInteraction = Pop().intVal;
-	// const auto textID = Pop().intVal;
-	// const auto singleLine = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::RunText 0x6F7D60
+	const auto withInteraction = Pop().intVal;
+	const auto textID = static_cast<uint32_t>(Pop().intVal);
+	const auto singleLine = static_cast<bool>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->RunText(singleLine, textID, withInteraction);
+	}
 }
 
 void TempText() // 014 TEMP_TEXT
 {
-	// const auto withInteraction = Pop().intVal;
-	// const auto string = PopString();
-	// const auto singleLine = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::TempText 0x6F7E40
+	const auto withInteraction = Pop().intVal;
+	const auto string = PopString();
+	const auto singleLine = static_cast<bool>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->TempText(singleLine, WidenScriptString(string), withInteraction);
+	}
 }
 
 void TextRead() // 015 TEXT_READ
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::TextRead 0x6F8260: HelpSystem::IsTextRead, pushed as a bool (type 6)
+	const auto* helpSystem = help::Get();
+	Pushb(helpSystem != nullptr && helpSystem->IsTextRead());
 }
 
 void GameThingClicked() // 016 GAME_THING_CLICKED
@@ -699,32 +722,64 @@ void PlaySoundEffect() // 043 PLAY_SOUND_EFFECT
 	NotImplemented(__func__);
 }
 
+/// GScript::GetScriptGameThing 0x70D220 for the music functions: the object, or nullopt with the original's
+/// "Thing no longer valid" (0xC0C258) (approximated: the original looks the id up in its script table 0xD967F8, range
+/// 1..0x1FF; here 0 is null as in Pusho and a valid entity stands for a live thing)
+std::optional<audio::ThingId> MusicThing(uint32_t objId)
+{
+	if (objId != 0 && Locator::entitiesRegistry::value().Valid(static_cast<entt::entity>(objId)))
+	{
+		return objId;
+	}
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "Thing no longer valid");
+	return std::nullopt;
+}
+
 void StartMusic() // 044 START_MUSIC
 {
-	// const auto music = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartMusic 0x70FB20
+	const auto music = Pop().intVal;
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "START_MUSIC({})", music);
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+	{
+		gameMusic->ScriptStartMusic(music);
+	}
 }
 
 void StopMusic() // 045 STOP_MUSIC
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FB90: StartScriptMusic(0)
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "STOP_MUSIC()");
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+	{
+		gameMusic->ScriptStopMusic();
+	}
 }
 
 void AttachMusic() // 046 ATTACH_MUSIC
 {
-	// const auto target = Pop().uintVal;
-	// const auto music = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FBF0: the thing is popped first, then the type
+	const auto target = MusicThing(Pop().uintVal);
+	const auto music = Pop().intVal;
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "ATTACH_MUSIC({}, {})", music, target.value_or(0));
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+	{
+		gameMusic->ScriptAttachMusic(music, target);
+	}
 }
 
 void DetachMusic() // 047 DETACH_MUSIC
 {
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FC60: RemoveThingMusic
+	const auto object = MusicThing(Pop().uintVal);
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && object)
+	{
+		gameMusic->RemoveThingMusic(*object);
+	}
 }
 
 void ObjectDelete() // 048 OBJECT_DELETE
@@ -1363,6 +1418,10 @@ void StartDialogue() // 120 START_DIALOGUE
 
 void EndDialogue() // 121 END_DIALOGUE
 {
+	// GScript::EndDialogue 0x710780: only its audio part (GScript+0x84 = 1, +0x9C = 0), approximated without the check
+	// that this task owns the dialogue (0x71078C..0x71079F); the spirits going home and the dialogue's end are not
+	// implemented
+	audio::GetScriptAudioState().EndDialogue();
 	// TODO(Daniels118): implement this
 	NotImplemented(__func__);
 }
@@ -1601,10 +1660,14 @@ void GetTimerTimeSinceSet() // 148 GET_TIMER_TIME_SINCE_SET
 
 void MoveMusic() // 149 MOVE_MUSIC
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FCA0: "to" is popped first, then "from"; both must be valid (0x70FCEE..0x70FCF4)
+	const auto to = MusicThing(Pop().uintVal);
+	const auto from = MusicThing(Pop().uintVal);
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && from && to)
+	{
+		gameMusic->MoveThingMusic(*from, *to);
+	}
 }
 
 void GetInclusionDistance() // 150 GET_INCLUSION_DISTANCE
@@ -1882,36 +1945,57 @@ void CameraProperties() // 180 CAMERA_PROPERTIES
 
 void EnableDisableMusic() // 181 ENABLE_DISABLE_MUSIC
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FD10: the thing is popped first, then the switch (stored as it is, fn_004298A0)
+	const auto object = MusicThing(Pop().uintVal);
+	const auto enable = Pop().intVal;
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && object)
+	{
+		gameMusic->EnableThingMusic(*object, enable);
+	}
 }
 
 void GetMusicObjDistance() // 182 GET_MUSIC_OBJ_DISTANCE
 {
-	// const auto source = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// 0x70FD70: 0 for an invalid thing (0x70FDA1), else fn_004293B0
+	const auto source = MusicThing(Pop().uintVal);
+	float distance = 0.0f;
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && source)
+	{
+		distance = gameMusic->GetMusicObjDistance(*source);
+	}
+	Pushf(distance);
 }
 
 void GetMusicEnumDistance() // 183 GET_MUSIC_ENUM_DISTANCE
 {
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// 0x70FDE0: with an invalid type the original pushes twice (0, then GetPlayDistance)
+	const auto type = Pop().intVal;
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+	{
+		for (const float value : gameMusic->ScriptGetMusicEnumDistance(type))
+		{
+			Pushf(value);
+		}
+	}
+	else
+	{
+		Pushf(0.0f); // (not in the original: no GameMusic before game_music::Start; one value keeps the stack)
+	}
 }
 
 void SetMusicPlayPosition() // 184 SET_MUSIC_PLAY_POSITION
 {
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FE60: z, y and x are popped first (the LHPoint at 0x70FEDB), then the thing
+	const auto position = PopVec();
+	const auto object = MusicThing(Pop().uintVal);
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && object)
+	{
+		gameMusic->SetPlayPosition(*object, position);
+	}
 }
 
 void AttachObjectLeashToObject() // 185 ATTACH_OBJECT_LEASH_TO_OBJECT
@@ -1954,17 +2038,26 @@ void SetCreatureOnlyDesireOff() // 189 SET_CREATURE_ONLY_DESIRE_OFF
 
 void RestartMusic() // 190 RESTART_MUSIC
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x70FF00: RestartMusicThing
+	const auto object = MusicThing(Pop().uintVal);
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && object)
+	{
+		gameMusic->RestartMusicThing(*object);
+	}
 }
 
 void MusicPlayed191() // 191 MUSIC_PLAYED
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushi(0);
+	// 0x70FF40: true for an invalid thing (0x70FF71), else IsMusicThingFinished (a bool, VMType 6)
+	const auto object = MusicThing(Pop().uintVal);
+	bool finished = true;
+	const auto lock = audio::game_music::Lock();
+	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr && object)
+	{
+		finished = gameMusic->IsMusicThingFinished(*object) != 0;
+	}
+	Pushb(finished);
 }
 
 void IsOfType() // 192 IS_OF_TYPE
@@ -2302,22 +2395,28 @@ void SetMagicRadius() // 230 SET_MAGIC_RADIUS
 
 void TempTextWithNumber() // 231 TEMP_TEXT_WITH_NUMBER
 {
-	// const auto withInteraction = Pop().intVal;
-	// const auto value = Popf();
-	// const auto format = PopString();
-	// const auto singleLine = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::TempTextWithNumber 0x6F7F50
+	const auto withInteraction = Pop().intVal;
+	const auto value = Popf();
+	const auto format = PopString();
+	const auto singleLine = static_cast<bool>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->TempTextWithNumber(singleLine, WidenScriptString(format), value, withInteraction);
+	}
 }
 
 void RunTextWithNumber() // 232 RUN_TEXT_WITH_NUMBER
 {
-	// const auto withInteraction = Pop().intVal;
-	// const auto number = Popf();
-	// const auto string = Pop().intVal;
-	// const auto singleLine = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::RunTextWithNumber 0x6F7C70
+	const auto withInteraction = Pop().intVal;
+	const auto number = Popf();
+	const auto textID = static_cast<uint32_t>(Pop().intVal);
+	const auto singleLine = static_cast<bool>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->RunTextWithNumber(singleLine, textID, number, withInteraction);
+	}
 }
 
 void CreatureSpellReversion() // 233 CREATURE_SPELL_REVERSION
@@ -3051,9 +3150,8 @@ void CallNearInState() // 316 CALL_NEAR_IN_STATE
 
 void SetCreatureSound() // 317 SET_CREATURE_SOUND
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetCreatureSound 0x710020: GScript+0x84 = the value as it is (0x71003D)
+	audio::GetScriptAudioState().creatureSound = Pop().intVal;
 }
 
 void CreatureInteractingWith() // 318 CREATURE_INTERACTING_WITH
@@ -3204,10 +3302,24 @@ void HighlightProperties() // 334 HIGHLIGHT_PROPERTIES
 
 void LastMusicLine() // 335 LAST_MUSIC_LINE
 {
-	// const auto line = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// 0x710050: without audio the original runs TEXT_READ instead (0x7100A6)
+	const auto line = Popf();
+	std::optional<bool> reached;
+	{
+		const auto lock = audio::game_music::Lock();
+		if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+		{
+			reached = gameMusic->ScriptLastMusicLine(line);
+		}
+	}
+	if (reached)
+	{
+		Pushb(*reached);
+	}
+	else
+	{
+		TextRead();
+	}
 }
 
 void HandDemoTrigger() // 336 HAND_DEMO_TRIGGER
@@ -3348,10 +3460,24 @@ void ThingJcSpecial() // 349 THING_JC_SPECIAL
 
 void MusicPlayed350() // 350 MUSIC_PLAYED
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushi(0);
+	// 0x70FBA0: GAudio+0x28 != type (a bool, VMType 6); without audio the original runs TEXT_READ instead (0x70FBE4)
+	const auto music = Pop().intVal;
+	std::optional<bool> played;
+	{
+		const auto lock = audio::game_music::Lock();
+		if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
+		{
+			played = gameMusic->ScriptMusicPlayed(music);
+		}
+	}
+	if (played)
+	{
+		Pushb(*played);
+	}
+	else
+	{
+		TextRead();
+	}
 }
 
 void UpdateSnapshotPicture() // 351 UPDATE_SNAPSHOT_PICTURE
@@ -3869,14 +3995,20 @@ void GetTownWorshipDeaths() // 410 GET_TOWN_WORSHIP_DEATHS
 
 void GameClearDialogue() // 411 GAME_CLEAR_DIALOGUE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::GameClearDialogue 0x6FF6F0: HelpSystem::ClearAllText (the voices go on, voices.md §2.4)
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->ClearDialogue();
+	}
 }
 
 void GameCloseDialogue() // 412 GAME_CLOSE_DIALOGUE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::GameCloseDialogue 0x6FF700: HelpText fn_005CB010 and HelpSystem::ClearAllText
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->CloseDialogue();
+	}
 }
 
 void GetHandState() // 413 GET_HAND_STATE
@@ -4139,9 +4271,10 @@ void GameAddForBuilding() // 444 GAME_ADD_FOR_BUILDING
 
 void EnableDisableAlignmentMusic() // 445 ENABLE_DISABLE_ALIGNMENT_MUSIC
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x710120: GScript+0x94 = the value as it is (0x71013D)
+	const auto enable = Pop().intVal;
+	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "ENABLE_DISABLE_ALIGNMENT_MUSIC({})", enable);
+	audio::GetScriptAudioState().alignmentMusic = enable;
 }
 
 void GetDeadLiving() // 446 GET_DEAD_LIVING

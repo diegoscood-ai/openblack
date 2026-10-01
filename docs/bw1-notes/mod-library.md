@@ -1,6 +1,7 @@
 # Librería de mods
 
-Todo lo que cambia el juego original es un **mod**, desactivado por defecto. La librería (`src/Mods/`) los registra,
+Todo lo que cambia el juego original es un **mod**, desactivado por defecto (la única excepción, pedida por el usuario,
+es [`game.skip-intro`](#gameskip-intro): `Mod::Info::enabledByDefault`). La librería (`src/Mods/`) los registra,
 genera el menú **Mods**, guarda el estado de cada uno en su carpeta `Mods/<mod>/settings.cfg` y los activa desde la
 línea de comandos. Esta página cubre cómo se usan, los tres tipos de mod, cómo se programa uno y el catálogo de los
 integrados. Todo lo de esta página es **mod/propio** salvo que se diga lo contrario (**fiel**, **(aproximado)**).
@@ -90,7 +91,7 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
 | [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
 | [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores), `seed` **on**/off | Un dispensador de cada milagro junto al templo (más uno vacío) y una bola de fuego en la mano, para probarlos | no |
-| [`game.skip-intro`](#gameskip-intro) | `skip` **tutorial**/tutorial and creature training | Empieza Land 1 sin la intro (la respuesta «saltar el tutorial» del original) | sí |
+| [`game.skip-intro`](#gameskip-intro) (**activado por defecto**) | `skip` tutorial/tutorial and creature training/**tutorial, creature training and the glade**, `free start` **on**/off | Empieza Land 1 sin la intro (la respuesta «saltar» del original) y, con `free start`, con el jugador libre desde el primer fotograma | sí |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 
 Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
@@ -133,7 +134,8 @@ Enchufables a otro mod.
 1. Un archivo propio en `src/Mods/Builtin/<Nombre>Mod.cpp` con una clase derivada de `mods::Mod` y una función
    `Register<Nombre>Mod`, declarada y llamada en `BuiltinMods.h`. Sus archivos van en el repo en `assets/mods/<id>/`
    y en el juego en `Mods/<id>/` (junto a su `settings.cfg`); los lee con `ModRegistry::GetModFilesDirectory(id)`.
-2. `Info`: id estable (`categoria.nombre`), nombre, descripción, categoría, `restartRequired`.
+2. `Info`: id estable (`categoria.nombre`), nombre, descripción, categoría, `restartRequired` y, solo si el usuario lo
+   pide para ese mod, `enabledByDefault` (lo normal es dejarlo en `false`: los mods vienen apagados).
 3. Opciones: ver [Opciones y deslizadores](#opciones-y-deslizadores).
 4. `Apply()`: pone en marcha el estado actual. Se llama al arrancar (después de los `settings.cfg` y la línea de
    comandos) y cada vez que el mod o una opción cambia. Lo normal es escribir un interruptor de `EngineConfig` que lee
@@ -605,21 +607,49 @@ los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luci
 
 ### game.skip-intro
 
-- Opción `skip`: `tutorial` (por defecto) o `tutorial and creature training`. Con reinicio (cuenta al empezar la
-  partida). Para una sola vez: `--mod game.skip-intro` (y `--mod game.skip-intro.skip=tutorial and creature training`).
-- No inventa ningún salto: da la respuesta que el original pedía al jugador. En runblack.exe v1.42, al empezar cada
+**Único mod activado por defecto** (pedido por el usuario, 2026-10-01; el resto siguen apagados). Lo hace el campo
+nuevo `Mod::Info::enabledByDefault`, que el constructor de `Mod` copia a `_enabled`. Ojo: si ya existe
+`Mods/game.skip-intro/settings.cfg`, **manda ese archivo** (como en cualquier mod), así que un cambio de valor por
+defecto no llega a una instalación que ya haya arrancado una vez; hay que editar su `settings.cfg`.
+
+- Opción `skip`: `tutorial`, `tutorial and creature training` o `tutorial, creature training and the glade`
+  (**por defecto**). Opción `free start`: `on` (por defecto) u `off`. Con reinicio (la respuesta cuenta al empezar la
+  partida). Para una sola vez: `--mod game.skip-intro.skip=tutorial`, `--mod game.skip-intro.free start=off`,
+  `--mod game.skip-intro=off`.
+- El salto en sí no se inventa: da la respuesta que el original pedía al jugador. En runblack.exe v1.42, al empezar cada
   partida, `GGame::OnNewGame` (0x55395B) llama a `GGame::DoYesNoSkipTutorialRequestersIfNecessary` (0x54CBD0), que
   borra los bits 23, 24 y 25 de `g_game+0x14`, pausa el juego y enseña el **SkipBox** (cuatro casillas, la primera
   marcada por defecto; sin ESC, `SkipBox::CanESCOut` 0x53BD60 da 0). openblack no dibuja ese cuadro y juega todo, como
-  la respuesta por defecto; con el mod, `Game::Run` pone los bits de la segunda (`tutorial`, bit 23) o la tercera
-  respuesta (`tutorial and creature training`, bits 23 y 24), y el guion se salta la intro por su cuenta.
+  la respuesta por defecto; con el mod, `Game::Run` pone los bits de la segunda (`tutorial`, bit 23), la tercera
+  (`tutorial and creature training`, bits 23 y 24) o la cuarta respuesta (`…and the glade`, bits 23, 24 y 25), y el
+  guion se salta la intro por su cuenta.
 - Qué salta el guion (`SetupLand1` / `LandControl1` de challenge.chl): con `CAN_SKIP_TUTORIAL` no corren `FollowUs` (la
   intro: la cámara del guion y `START_MUSIC 54`), `CitadelGuide` (la ciudadela se construye al momento) ni
-  `ChooseYourCreature`; se va directo a elegir criatura en el claro (`CreaturesInGlade`, que también coge la cámara).
-  Con `CAN_SKIP_CREATURE_TRAINING` además no corren las lecciones del guía de la criatura. Detalle en
+  `ChooseYourCreature`. Con `CAN_SKIP_CREATURE_TRAINING` además no corren las lecciones del guía de la criatura. Con
+  `IS_KEEPING_OLD_CREATURE` tampoco corre `CreaturesInGlade`, que es **la que coge la cámara y el diálogo, funde a
+  negro, vuela la cámara y pone `START_MUSIC(63)`** (challenge.chl 44028..44691): por eso la cuarta respuesta es la
+  que deja el principio al jugador. Detalle en
   [map-loading.md](map-loading.md#saltar-el-tutorial-skipbox-y-can_skip_tutorial).
-- La cuarta respuesta del original (bits 23 a 25, conservar la criatura antigua) no se ofrece: el guion también pide
-  `CURRENT_PROFILE_HAS_CREATURE` y openblack no tiene perfiles.
+- La cuarta respuesta necesita además `CURRENT_PROFILE_HAS_CREATURE` (`SetupLand1` lo hace `and` con el bit 25,
+  challenge.chl 25432..25434) y openblack no tiene perfiles de jugador: el mod **contesta por el perfil** (CHL 463 da
+  verdadero cuando `skipTutorialChoice` es 3). Lo que el guion hace entonces en vez del claro es cargar la criatura del
+  perfil (`LOAD_MY_CREATURE`, sin portar: no sale criatura, como hoy).
+- **`free start` (no es del original).** Aun con la cuarta respuesta el guion corre `CreatureDevSeeHome`, que en su rama
+  de salto (challenge.chl 7056..7085) coge la cámara y el diálogo un turno, enciende y apaga la pantalla ancha, **clava
+  la cámara sobre el poblado** (`SET_CAMERA_POSITION(1891.04, 31.69, 2520.67)`) y hace `SET_FADE_IN(2.0)`. Con
+  `free start` el motor **se come eso**: la **primera tarea del guion que coge la cámara en una partida nueva** es «el
+  principio de la tierra», y mientras la tenga, `SET_CAMERA_POSITION` (001), `SET_CAMERA_FOCUS` (002),
+  `SET_WIDESCREEN` (032), `SET_FADE` (241), `SET_FADE_IN` (242), `START_MUSIC` (044) y `STOP_MUSIC` (045) no hacen nada
+  y `HAS_CAMERA_ARRIVED` (035) contesta «ya ha llegado» (si no, el guion esperaría para siempre: `MOVE_CAMERA_POSITION`
+  y `MOVE_CAMERA_FOCUS` tampoco están implementados). `START_CAMERA_CONTROL` **sí se concede**, para que el
+  `loop { START_CAMERA_CONTROL }` del guion pase y suelte la cámara como siempre; en openblack la cámara del jugador no
+  se le quita de todas formas (`Help/ScriptControl.cpp`). En cuanto esa tarea hace `END_CAMERA_CONTROL` (o se para)
+  todo vuelve a la normalidad: las escenas de los milagros, las misiones y los vórtices siguen igual. Estado:
+  `CameraControl::freeStartTask` / `freeStartArmed` (`Help/ScriptControl.h`), armado en `CameraControl::Reset` (cada
+  carga de mapa).
+- Lo que **no** toca el mod: la hora del día que pone el guion (`SET_GAME_TIME(4.59)` de `CreatureDevSeeHome`: amanece,
+  como en el original) y la música de alineamiento/tribu, que en el original también suena desde el principio cuando se
+  salta el tutorial (el `ENABLE_DISABLE_ALIGNMENT_MUSIC(false)` está dentro de `FollowUs`, challenge.chl 50102).
 
 ## Pendiente
 

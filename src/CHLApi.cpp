@@ -75,6 +75,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/VillagerDrowning.h"
+#include "EngineConfig.h"
 #include "Enums.h"
 #include "Game.h"
 #include "Help/HelpSystem.h"
@@ -145,6 +146,15 @@ help::script_control::Vm ScriptVm()
 	vm.taskType = [](uint32_t task) { return static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)); };
 	vm.stopTasksOfType = [](uint32_t mask) { Locator::vm::value().StopTasksOfType(static_cast<lhvm::ScriptType>(mask)); };
 	return vm;
+}
+
+/// **Not original**: true while the task running now is the land's opening one and mod game.skip-intro has "free start"
+/// on (EngineConfig::skipIntroFreeStart, Help/ScriptControl.h). The opcodes that would take the opening away from the
+/// player (its camera, the wide screen, the fades and the script's music) then do nothing, and its waits answer at once
+bool FreeStart()
+{
+	return help::script_control::IsFreeStartTask(help::script_control::GetCameraControl(),
+	                                             Locator::vm::value().GetCurrentTaskNumber());
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -396,6 +406,10 @@ void SetCameraPosition() // 001 SET_CAMERA_POSITION
 {
 	const auto position = PopVec();
 	// TODO(Daniels118): check if cinema mode is enabled
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening does not move the player's camera
+	}
 	auto& camera = Locator::camera::value();
 	camera.SetOrigin(position);
 }
@@ -404,6 +418,10 @@ void SetCameraFocus() // 002 SET_CAMERA_FOCUS
 {
 	const auto position = PopVec();
 	// TODO(Daniels118): check if cinema mode is enabled
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
 	auto& camera = Locator::camera::value();
 	camera.SetFocus(position);
 }
@@ -844,8 +862,20 @@ void StartCameraControl() // 030 START_CAMERA_CONTROL
 	// unless GCamera::CantExitCurrentMode 0x441B70; openblack has no camera modes, so it is always taken (inferred) and
 	// the camera itself does not change (pending: CameraModeScript)
 	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
-	Pushb(help::script_control::StartCameraControl(help::script_control::GetCameraControl(), ScriptVm(), insideCitadel,
-	                                               true));
+	auto& cameraControl = help::script_control::GetCameraControl();
+	const bool granted = help::script_control::StartCameraControl(cameraControl, ScriptVm(), insideCitadel, true);
+	// Not original (mod game.skip-intro, "free start"): the first task that takes the camera after a new game is the
+	// land's opening (CreatureDevSeeHome, or CreaturesInGlade with the other answers). It is still granted, so the
+	// script's `loop { START_CAMERA_CONTROL }` goes through and releases as usual, but from here until it gives the
+	// camera back FreeStart() drops what it does to the player
+	if (granted && cameraControl.freeStartArmed && Locator::config::value().skipIntroFreeStart)
+	{
+		cameraControl.freeStartArmed = false;
+		cameraControl.freeStartTask = cameraControl.owner;
+		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "Mod game.skip-intro: free start, the opening is task {}",
+		                   cameraControl.owner);
+	}
+	Pushb(granted);
 }
 
 void EndCameraControl() // 031 END_CAMERA_CONTROL
@@ -862,6 +892,10 @@ void SetWidescreen() // 032 SET_WIDESCREEN
 	// GScript::SetWideScreen: only the task that holds it (HelpSystem+0x45EC) or any when none does
 	// (Help/ScriptControl.cpp); HelpSystem's hook moves the bars (Game.cpp)
 	const auto on = static_cast<int32_t>(Pop().intVal);
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": no bars over the opening
+	}
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{
 		help::script_control::SetWideScreen(*helpSystem, on, ScriptVm());
@@ -978,6 +1012,13 @@ void SetFocus() // 034 SET_FOCUS
 
 void HasCameraArrived() // 035 HAS_CAMERA_ARRIVED
 {
+	if (FreeStart())
+	{
+		// Mod game.skip-intro, "free start": the opening's camera is not moved at all, so it has always arrived. Without
+		// this the script would wait here for ever (MOVE_CAMERA_POSITION / MOVE_CAMERA_FOCUS are not implemented either)
+		Pushb(true);
+		return;
+	}
 	// TODO(Daniels118): implement this
 	NotImplemented(__func__);
 	Pushb(false);
@@ -1070,6 +1111,10 @@ void StartMusic() // 044 START_MUSIC
 	// GScript::StartMusic 0x70FB20
 	const auto music = Pop().intVal;
 	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "START_MUSIC({})", music);
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening plays no music of its own
+	}
 	const auto lock = audio::game_music::Lock();
 	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
 	{
@@ -1081,6 +1126,10 @@ void StopMusic() // 045 STOP_MUSIC
 {
 	// 0x70FB90: StartScriptMusic(0)
 	SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "STOP_MUSIC()");
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": it started none, so it stops none
+	}
 	const auto lock = audio::game_music::Lock();
 	if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
 	{
@@ -2828,6 +2877,10 @@ void SetFade() // 241 SET_FADE
 	const auto green = Popf();
 	const auto red = Popf();
 	const auto channel = [](float value) { return static_cast<uint8_t>(static_cast<int>(value)); };
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening does not black out the screen
+	}
 	Game::Instance()->GetScreenFade().FadeTo(channel(red), channel(green), channel(blue), time);
 }
 
@@ -2835,6 +2888,10 @@ void SetFadeIn() // 242 SET_FADE_IN
 {
 	// 0x6FCE00 -> SetupScreenFadeBackToNormal 0x6EBB00
 	const auto duration = Popf();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": it faded nothing out, so there is nothing to fade back in
+	}
 	Game::Instance()->GetScreenFade().FadeBackToNormal(duration);
 }
 
@@ -4715,6 +4772,14 @@ void IsKeepingOldCreature() // 462 IS_KEEPING_OLD_CREATURE
 
 void CurrentProfileHasCreature() // 463 CURRENT_PROFILE_HAS_CREATURE
 {
+	// The original reads the player's profile, which openblack does not have. SetupLand1 ands it with bit 25
+	// (challenge.chl 25432..25434), so without an answer the SkipBox's fourth answer could never take effect: mod
+	// game.skip-intro answers it for the profile when that is the answer it gave (EngineConfig::skipTutorialChoice = 3)
+	if (Game::Instance()->GetTutorialSkipFlags().isKeepingOldCreature)
+	{
+		Pushb(true);
+		return;
+	}
 	// TODO(Daniels118): implement this
 	NotImplemented(__func__);
 	Pushb(false);

@@ -232,6 +232,9 @@ void magic::RegisterSpellClasses()
 	RegisterForestSpell();
 	RegisterTeleportSpell();
 	RegisterShieldSpell();
+	RegisterFlockSpells();
+	RegisterWaterSpell();
+	RegisterStormSpell();
 }
 
 const SpellOps& magic::OpsOf(SpellClass spellClass)
@@ -242,8 +245,8 @@ const SpellOps& magic::OpsOf(SpellClass spellClass)
 	{
 		return ops;
 	}
-	// (inferido: placeholder until the class is ported) a class nobody registered yet (StormAndTornado, Water,
-	// FlockFlying, FlockGround, Creature: their own vtables in the original) runs as a plain Spell
+	// (inferido: placeholder until the class is ported) a class nobody registered yet (only Creature now, M8: its own
+	// vtable in the original) runs as a plain Spell
 	static std::array<bool, static_cast<size_t>(SpellClass::_COUNT)> logged {};
 	if (auto logger = spdlog::get("game"); logger != nullptr && !logged[static_cast<size_t>(spellClass)])
 	{

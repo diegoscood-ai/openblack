@@ -11,6 +11,7 @@
 
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
@@ -53,6 +54,9 @@ struct RenderContext
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
 	/// unused w of the first column of the model matrix, as 1 - alpha so that opaque instances keep 0 there.
 	std::map<entt::id_type, const InstancedDrawDesc> translucentDrawDescs;
+	/// The instances (indices of instanceUniforms) of those that are PSys mesh atoms with UseAdditiveAlpha: material mode
+	/// 13 (GJUtils::SetMaterialProperties 0x57E120: SRCALPHA / ONE, no Z write), PSys/Creators/Mesh.h
+	std::unordered_set<uint32_t> additiveInstances;
 	/// Where each entity's model matrix is this frame
 	struct EntityInstance
 	{

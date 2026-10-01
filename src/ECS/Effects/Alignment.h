@@ -10,6 +10,7 @@
 #pragma once
 
 #include <entt/entity/entity.hpp>
+#include <glm/vec3.hpp>
 
 #include "ECS/Components/PlayerAlignment.h"
 #include "Enums.h"
@@ -52,5 +53,23 @@ void UpdateForTree(PlayerNames player, bool good);
 void ProcessForPlayer(PlayerNames player);
 /// GPlayer::Process 0x6496C5, once per turn for every player (Magic/MagicLoop.cpp, slot 3 GPlayer::ProcessPlayers)
 void ProcessPlayers();
+
+/// Influence::CalculateMostInfluentialPlayer 0x5CD630 (via MapCoords 0x603830): the first player (GGame::GetNextPlayer
+/// order) whose CalculatePlayerInfluence(pos, player, 0, type 0, allies 1) is above every earlier one and above 0;
+/// the neutral player (g_game +0x205A5B) when none is. Players that do not exist are skipped.
+[[nodiscard]] PlayerNames MostInfluentialPlayer(const glm::vec3& position);
+/// The sky's input (fn_005E2240's argument): x = clamp((alignment of the most influential player at the interface's
+/// position + 1) / 2, 0, 1) for the -1 evil .. 1 good alignment. fn_0064AC30 works it out once a turn at the end of
+/// GPlayer::ProcessPlayers (0x64A697); the interface's position is GInterfaceStatus +0xB0, the camera's position
+/// (GInterfaceStatus::UpdateSpellInfo 0x5DC948 takes the camera forward as +0xBC - +0xB0). 0.5 until the first turn
+/// (the sky starts neutral, [0xBF337C] = 1); DoCitadelMultiplayer forces 0.5 (no multiplayer in openblack).
+[[nodiscard]] float GetInterfaceAlignment();
+/// fn_0064AC30 now (MagicLoop slot 3, after ProcessPlayers)
+void UpdateInterfaceAlignment();
+/// The interface alignment of a point (fn_0064AC30's formula for any position; tests)
+[[nodiscard]] float InterfaceAlignmentAt(const glm::vec3& position);
+/// Back to 0.5 (tests; a new land does not reset it: GLandAlignement::Open only reads [0xBF337C], and the next turn's
+/// fn_0064AC30 writes it again)
+void ResetInterfaceAlignment();
 } // namespace alignment
 } // namespace openblack::ecs::effects

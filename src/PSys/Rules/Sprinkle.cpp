@@ -10,7 +10,7 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 // The sprinkle miracles' rules (SF_Food, SF_Wood, SF_Water): UR_HandSprinkle, the source atom that follows the hand and
-// raises it, and AppearanceRuleTumble, the logs' spin. Wiki: docs/bw1-notes/magic.md, "Comida y madera".
+// raises it, and AppearanceRuleTumble, the logs' spin. Wiki: docs/bw1-notes/miracles.md, "Comida y madera".
 
 #include <cmath>
 

@@ -120,7 +120,7 @@ void RefreshRecord(entt::entity living, uint8_t type, uint32_t now);
 [[nodiscard]] bool MaySwitch(float currentScore, float newScore, float seconds, uint8_t currentType);
 
 /// The game turn (GGame +0x205A40, Game's turn count) as BeginTurn set it: the one clock of the reactions' stamps and
-/// the villagers' records (the animals' records still run on their own animal_ai turn, the "animales" session's)
+/// of every Living's records (villagers and animals)
 [[nodiscard]] uint32_t Turn();
 /// The start of a game turn (Game::GameLogicLoop, before the Living): the turn for the stamps, and the reactions whose
 /// initiator was deleted go (Object::ToBeDeleted -> RemoveAllReactionsInitiatedByObject; here once per turn, inf)

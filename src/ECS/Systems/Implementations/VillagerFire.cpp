@@ -42,7 +42,6 @@
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
-#include "Magic/Objects/MapShield.h"
 #include "Worship/WorshipPercentage.h"
 
 using namespace openblack;
@@ -430,11 +429,7 @@ void ApplyFireReaction(entt::entity villager, const effects::reactions::Reaction
 	}
 	const auto at = PositionOf(villager);
 	const auto from = PositionOf(reaction.initiator);
-	// fn_0072B990 (0x6E4031): not under a shield the fire is not inside
-	if (magic::map_shield::IsReactionBlockedByShield(magic::ToMap(at), magic::ToMap(from)))
-	{
-		return;
-	}
+	// the shield test fn_0072B990 (0x6E4031) is done by reactions::SpreadReaction for every Living class
 	const float distance = 0.5f * (std::abs(at.x - from.x) + std::abs(at.z - from.z));
 	auto& state = StateOf(villager);
 	if (effects::reactions::Find(state.reaction) != nullptr)

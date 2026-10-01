@@ -103,6 +103,8 @@ void LandLightTable::Build(float skyType, float alignment, float weather) noexce
 		_haze.nearDistance = 1.0f / (0.0025f + 0.0075f * v * v);
 		_haze.farDistance = 1.0f / (0.00111111f + 0.000138889f * v * v);
 	}
+	s_lastBase = _base; // [0xFA26A4] for the readers outside the renderer (LastBuiltBase)
+	s_lastHaze = _haze;
 
 	const uint32_t n = (((base >> 8) & 0xFFu) * 48) >> 8;
 	for (uint32_t i = 0; i < n; ++i)
@@ -134,6 +136,19 @@ glm::vec3 LandLightTable::GetColour(size_t index) const noexcept
 glm::vec3 LandLightTable::GetBaseColour() const noexcept
 {
 	return glm::vec3((_base >> 16) & 0xFFu, (_base >> 8) & 0xFFu, _base & 0xFFu) / 255.0f;
+}
+
+uint32_t LandLightTable::s_lastBase = 0xFFFFFFFFu;
+LandLightTable::Haze LandLightTable::s_lastHaze {};
+
+uint32_t LandLightTable::LastBuiltBase() noexcept
+{
+	return s_lastBase;
+}
+
+LandLightTable::Haze LandLightTable::LastBuiltHaze() noexcept
+{
+	return s_lastHaze;
 }
 
 } // namespace openblack

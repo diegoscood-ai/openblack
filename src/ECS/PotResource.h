@@ -19,7 +19,7 @@
 #include "Enums.h"
 
 // Resources put down on the land: Pot::AddResourceToPos 0x66F270 and the pile helpers it uses. Shared by the hand (a
-// hand pot let go of) and the miracles (SpellResource's grains). Wiki: docs/bw1-notes/magic.md, "Comida y madera".
+// hand pot let go of) and the miracles (SpellResource's grains). Wiki: docs/bw1-notes/miracles.md, "Comida y madera".
 
 namespace openblack::ecs::pot_resource
 {

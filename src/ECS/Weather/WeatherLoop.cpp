@@ -15,7 +15,9 @@
 #include "Climate.h"
 #include "Game.h"
 #include "Locator.h"
+#include "LightningFlash.h"
 #include "Rain.h"
+#include "StormClouds.h"
 #include "WeatherThing.h"
 
 using namespace openblack;
@@ -32,6 +34,7 @@ void weather::OnLoadMap()
 	weather_thing::Reset();
 	atmos::Reset();
 	rain::Reset();
+	storm_clouds::Clear();
 	ResetDebugHooks();
 }
 
@@ -54,8 +57,12 @@ void weather::ProcessTurnEnd()
 
 void weather::UpdateFrame(float seconds)
 {
+	// LH3DAtmos::Update3D 0x8357A0: first each storm's flash (fn_00837200), then the camera's (in flash::AtCamera)
+	flash::UpdateFrame();
 	if (Locator::camera::has_value())
 	{
 		rain::Update(seconds, Locator::camera::value().GetOrigin());
+		// fn_0083F8B0 (from fn_005E5830, every frame): GWeather::DrawClouds of every storm
+		storm_clouds::DrawFrame(seconds * 1000.0f);
 	}
 }

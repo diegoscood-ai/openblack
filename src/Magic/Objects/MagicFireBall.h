@@ -21,7 +21,7 @@
 // MagicFireBall (PSysFireball.cpp 0x682970..0x683390): the invisible Object each ball of a fireball spell carries. It is
 // made by the PSys rule AttatchFireBallToAtom (PSys/Rules/Fireball.cpp) and follows its atom; its FireEffect (at
 // initialTemperature x the effect's strength) does the burning. The enemy's can be caught; a held fire seed absorbs one.
-// Wiki: docs/bw1-notes/magic.md, "Bola de fuego".
+// Wiki: docs/bw1-notes/miracles.md, "Bola de fuego".
 
 namespace openblack::magic::fireball
 {

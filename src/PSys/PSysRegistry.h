@@ -77,4 +77,11 @@ void RegisterLightMapCreator(); ///< Creators/LightMap.cpp: ParticleLightMapCrea
 void RegisterHealRules();       ///< Rules/Heal.cpp: UR_HealSpellChakra, the fused explode, UR_HealInHand (M4)
 void RegisterShieldRules();     ///< Rules/Shield.cpp: the defensive spheres, shield sparks, spin, vapour, EP atoms (M6)
 void RegisterSurfRevolRules();  ///< Rules/SurfRevol.cpp: ZR_SurfRevol, the teleport pool and dispenser discs (M6)
+void RegisterExplosionRules(); ///< Rules/Explosion.cpp: UR_Explosion, SetPSysCloseDown, UR_MoveAtom, UR_ChangeScaleXYZ (M6b)
+void RegisterKeyPointRules();  ///< Rules/KeyPoints.cpp: UR_KPStretchHeight, UR_KPMoveAtoms (heal PU mushroom, M6b)
+void RegisterOrientRules();    ///< Rules/Orient.cpp: UR_OrientSpriteWithVelocity (fireball in hand, M6b)
+void RegisterForestRules();    ///< Rules/Forest.cpp: UR_ForestPath, ParticleGoodEvilCreator (forest butterflies, M6b)
+void RegisterMistCreator();     ///< Creators/Mist.cpp: ParticleMistCreator (M4a water; the storm uses it too)
+void RegisterFlockRules();      ///< Rules/Flock.cpp: UR_FollowTargets, EventConditionAtomNearVillagers (M4c)
+void RegisterStormRules();      ///< Rules/Storm.cpp: UR_CloudMoverNew, UR_CloudGather, UR_Tornado, UR_StormCast (M6)
 } // namespace openblack::psys

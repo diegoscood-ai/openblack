@@ -40,6 +40,7 @@
 #include "FireObjectTraits.h"
 #include "FireSound.h"
 #include "Locator.h"
+#include "Magic/Spells/SpellStormAndTornado.h"
 
 using namespace openblack;
 using namespace openblack::ecs;
@@ -449,7 +450,12 @@ void Process(FireEffect& fire)
 	{
 		multiplier = traits::RainCoolingMultiplier(fire.object) * rain + 1.0f;
 		fire.flags |= FireEffect::Cooling;
-		// TODO(M6): fn_0072DCC0, the storm spells whose radius covers the object get REACT_TO_MAGIC_WATER_PUTTING_OUT_FIRE
+		// fn_0072DCC0 (0x72F2D9, with the object's +0x14): the storm spell whose radius covers it gets
+		// REACT_TO_MAGIC_WATER_PUTTING_OUT_FIRE (Magic/Spells/SpellStormAndTornado)
+		if (const auto* transform = Locator::entitiesRegistry::value().TryGet<const components::Transform>(fire.object))
+		{
+			magic::spell_storm::ReactToRainOnFire(transform->position);
+		}
 	}
 	else
 	{

@@ -320,9 +320,9 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	const auto again = TurnsBeforeReactingAgain(type, reaction.initiator, d);
 	if (brain->reaction == 0)
 	{
-		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::g_Turn))
+		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::Turn()))
 		{
-			reactions::MarkStarted(reaction.id, detail::g_Turn);
+			reactions::MarkStarted(reaction.id, detail::Turn());
 			StartReacting(entity, *brain, reaction);
 		}
 		return;
@@ -337,7 +337,7 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	const float cur = static_cast<float>(
 	    Score(TypeOf(*current), entity, *brain, current->initiator, glm::distance(p, PosOf(current->initiator))));
 	const float now = static_cast<float>(Score(type, entity, *brain, reaction.initiator, d));
-	const float seconds = static_cast<float>((detail::g_Turn - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
+	const float seconds = static_cast<float>((detail::Turn() - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
 	if (!reactions::MaySwitch(cur, now, seconds, TypeOf(*current)))
 	{
 		return;
@@ -393,7 +393,7 @@ void StopReactingPlain(AnimalBrain& brain)
 {
 	if (const auto* reaction = reactions::Find(brain.reaction); reaction != nullptr)
 	{
-		reactions::RefreshRecord(Locator::entitiesRegistry::value().ToEntity(brain), TypeOf(*reaction), detail::g_Turn);
+		reactions::RefreshRecord(Locator::entitiesRegistry::value().ToEntity(brain), TypeOf(*reaction), detail::Turn());
 	}
 	brain.reaction = 0;
 	brain.predator = entt::null;
@@ -571,7 +571,7 @@ void ProcessReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	const uint32_t elapsed = g_Turn - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
+	const uint32_t elapsed = Turn() - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
 	const float d = glm::distance(Xz(ctx.transform), PosOf(ctx.brain.predator));
 	if (elapsed > TurnsToReact(TypeOf(*reaction), ctx.brain, ctx.brain.predator, d))
 	{

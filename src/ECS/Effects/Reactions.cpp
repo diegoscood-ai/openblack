@@ -29,6 +29,8 @@
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/Spell.h"
+#include "Magic/Objects/MapShield.h"
 
 using namespace openblack;
 using namespace openblack::ecs::effects;
@@ -185,6 +187,14 @@ void reactions::SpreadReaction(uint32_t id)
 				}
 				const int living = ClassOf(entity);
 				if (living < 0 || g_Handlers.at(static_cast<size_t>(living)) == nullptr)
+				{
+					continue;
+				}
+				// 0x6E4031 fn_0072B990 (after the class's vt+0x984 test, before the distance): a Living under a shield the
+				// reaction's source is not definitely inside ignores it, villagers and animals alike
+				if (magic::map_shield::IsReactionBlockedByShield(
+				        magic::ToMap(registry.Get<const components::Transform>(entity).position),
+				        magic::ToMap(registry.Get<const components::Transform>(reaction.initiator).position)))
 				{
 					continue;
 				}

@@ -21,7 +21,7 @@
 
 // The sounds of the particle system (the miracles' loops, bangs and thunder): each is a PSysSound tied to the atom that
 // started it, played from the spells.sad anim effect table and kept alive or released once per game turn. Wiki:
-// docs/bw1-notes/magic.md, "Sonido de las partículas".
+// docs/bw1-notes/particles.md, "Sonido de las partículas".
 
 namespace openblack::psys
 {

@@ -18,6 +18,7 @@
 #include "Objects/MagicFireBall.h"
 #include "Objects/MapShield.h"
 #include "Spells/SpellShield.h"
+#include "Spells/SpellStormAndTornado.h"
 #include "Objects/MagicTeleport.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Effects/Alignment.h"
@@ -37,6 +38,8 @@
 #include "Hand/HandCasting.h"
 #include "Locator.h"
 #include "PSys/Creators/Mesh.h"
+#include "PSys/Creators/Mist.h"
+#include "PSys/Rules/Storm.h"
 #include "Worship/Worship.h"
 
 using namespace openblack;
@@ -54,6 +57,7 @@ void magic::OnLoadMap()
 	fireball::Clear();
 	map_shield::Clear();   // Magic/Objects/MapShield
 	spell_shield::Clear(); // Magic/Spells/SpellShield
+	spell_storm::Clear();  // Magic/Spells/SpellStormAndTornado
 	ecs::villager_fire::Clear();          // also registers the REACT_TO_FIRE spread
 	spell_grid::Clear();
 	magic_tree::Clear(); // Magic/Objects/MagicTree (the forests that lost a magic tree)
@@ -80,6 +84,8 @@ void magic::ProcessTurn(uint32_t turn)
 	ecs::effects::alignment::ProcessPlayers(); // ECS/Effects/Alignment.cpp
 	teleport::ProcessPlayers(); // Objects/MagicTeleport.cpp
 	teleport::RunDebugHooks();  // OPENBLACK_TEST_TELEPORT (Objects/TeleportDebugHooks.cpp)
+	// fn_0064AC30 on the local player, after the GetNextActivePlayer loop of GPlayer::Process (0x64A666..0x64A697)
+	ecs::effects::alignment::UpdateInterfaceAlignment();
 	//  4 Dance::ProcessDances 0x50BB60                                      [M7]
 	//    (and the first turn's GPlayer::PostLoadCleanup, the worship test hooks, the spell dispensers)
 	worship::ProcessTurn(turn); // Worship/Worship.cpp
@@ -143,6 +149,10 @@ void magic::Update(float seconds)
 	{
 		Locator::entitiesRegistry::value().SetDirty();
 	}
+	// RenderParticleMist::DrawAt 0x67A670: the PSys mists (the water cloud) go to mists::Submit (PSys/Creators/Mist.cpp)
+	psys::mist_atoms::SubmitFrame(seconds * 1000.0f);
+	// RenderParticleGameObject::DrawAt 0x67B170: what the tornados carry follows its atom (PSys/Rules/Storm.cpp)
+	psys::storm::UpdateCarriedObjects();
 	// FireEffect::Draw 0x730330 -> fn_00731560 with g_game_time_inc: the flames, steam and smoke (ECS/Fire/FireGraphic)
 	ecs::fire::graphic::Update(seconds);
 	// the gesture sampling and ProcessPowerUpSystem (GGame::ProcessFrameInputs), the in-hand PSys, the hand FX and the

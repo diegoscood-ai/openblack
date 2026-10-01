@@ -11,7 +11,7 @@
 // (CreateWithInitialDirection), the flight and bounce (UpdateRuleGravityWithFloor), the game object that burns
 // (AttatchFireBallToAtom -> Magic/Objects/MagicFireBall), the per-step event (EventAlways), the deflection flag and its
 // conditions, the spin, the trail, the light's fade with height and the steam sub-collections. Report:
-// tmp_dis\miracles\destructive.md §3; wiki docs/bw1-notes/magic.md, "Bola de fuego".
+// tmp_dis\miracles\destructive.md §3; wiki docs/bw1-notes/miracles.md, "Bola de fuego".
 
 #include <cmath>
 #include <cstring>

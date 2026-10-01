@@ -18,7 +18,7 @@
 
 #include "PSysFile.h"
 
-// The SOUND_ACTION property of the spell files and its value (docs/bw1-notes/magic.md, "Sonido de las partículas").
+// The SOUND_ACTION property of the spell files and its value (docs/bw1-notes/particles.md, "Sonido de las partículas").
 
 namespace openblack::psys
 {

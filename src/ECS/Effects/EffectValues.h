@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
@@ -82,5 +83,13 @@ float ApplyEffect(entt::entity object, EffectValues& values);
 /// Object::GetHeight 0x638120 (the mesh's height x scale) and Get2DRadius 0x638180 / GetDefaultFireRadius 0x639AC0
 [[nodiscard]] float ObjectHeight(entt::entity object);
 [[nodiscard]] float Object2DRadius(entt::entity object);
+
+/// The fixed list (+4) of one 10 m map cell. (aproximado) openblack's grid (ECS/MapProduction) puts a fixed object only
+/// in the cells whose centre is within its bounding radius + 1 m, so a small tree away from a cell centre is in no cell
+/// at all, while the original links every object into the cell of its position: here the list is the grid's plus every
+/// fixed object whose position is in the cell, sorted by entity (the grid's sets have no order). Out of the grid: empty.
+[[nodiscard]] std::vector<entt::entity> FixedObjectsInMapCell(int cellX, int cellZ);
+/// fn_00603500 / fn_007252D0 over one map cell: its fixed list, then its mobile list (+0, sorted by entity)
+[[nodiscard]] std::vector<entt::entity> ObjectsInMapCell(int cellX, int cellZ);
 
 } // namespace openblack::ecs::effects

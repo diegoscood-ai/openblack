@@ -9,7 +9,7 @@
 
 // Test hooks of the weather (documented in docs/bw1-notes/openblack-internals.md):
 //   OPENBLACK_TEST_WEATHER="x,z,radius[,rain[,fade[,temperature]]]"  on turn 1 registers a static LH3DStorm built like
-//       the storm miracle's (fn_006D5730: inner min(radius, 60), outer min(max(2.5 radius, inner + 20), 80), 20 degrees
+//       the storm miracle's (fn_006D5730: inner max(radius, 60), outer max(max(2.5 radius, inner + 20), 80), 20 degrees
 //       unless given, rain 100 unless given, overcast 80, no wind, a life of 1e9 s, fade-in `fade` s (default 1)), then
 //       logs ComputeWeather at the centre, inside, on the inner and outer radius and outside, on turns 2 and 30
 //   OPENBLACK_TEST_WEATHER_AT="x,z[;x,z...]"  logs ComputeWeather at those points on turns 2 and 30
@@ -120,8 +120,10 @@ void weather::RunDebugHooks(uint32_t turn)
 			const float radius = v[2];
 			storms::StormDescriptor d;
 			d.position = glm::vec3(v[0], LandHeightAt(v[0], v[1]), v[1]);
-			d.innerRadius = radius > 60.0f ? 60.0f : radius;
-			d.outerRadius = std::min(std::max(2.5f * radius, d.innerRadius + 20.0f), 80.0f);
+			// fn_006D5730 0x6D5751 / 0x6D576E / 0x6D5782 (`fcomp; test ah, 0x41; je`: kept only when above): maxima
+			// (the first reading had them as minima; PSys/Rules/Storm.cpp GatherStormDescriptor)
+			d.innerRadius = radius > 60.0f ? radius : 60.0f;
+			d.outerRadius = std::max(std::max(2.5f * radius, d.innerRadius + 20.0f), 80.0f);
 			d.fadeInTime = v.size() >= 5 ? v[4] : 1.0f;
 			d.lifeTime = 1e9f;
 			d.strength = 1.0f;

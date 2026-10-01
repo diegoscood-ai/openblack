@@ -14,6 +14,9 @@
 #include <cstdlib>
 #include <ctime>
 
+#include "Camera/Camera.h"
+#include "ECS/Effects/Alignment.h"
+#include "ECS/Weather/Atmos.h"
 #include "EngineConfig.h"
 #include "Locator.h"
 
@@ -135,20 +138,29 @@ uint32_t Clouds::GetLandscapeGeneration() noexcept
 
 float Clouds::InfluentialPlayerAlignment() noexcept
 {
-	// TODO: the most influential player's alignment at the hand (GAlignment::Update 0x414410) once it is merged
-	// test hook: OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1> instead of the debug slider
+	// test hook: OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>, then the debug slider when moved off 0
 	static const char* k_Test = std::getenv("OPENBLACK_TEST_SKY_ALIGNMENT");
 	if (k_Test != nullptr)
 	{
 		return std::clamp(std::strtof(k_Test, nullptr), -1.0f, 1.0f);
 	}
-	return Locator::config::has_value() ? std::clamp(Locator::config::value().skyAlignment, -1.0f, 1.0f) : 0.0f;
+	if (Locator::config::has_value() && Locator::config::value().skyAlignment != 0.0f)
+	{
+		return std::clamp(Locator::config::value().skyAlignment, -1.0f, 1.0f);
+	}
+	// fn_0064AC30's x = (v + 1) / 2 back to v (ECS/Effects/Alignment: the most influential player at the camera)
+	return ecs::effects::alignment::GetInterfaceAlignment() * 2.0f - 1.0f;
 }
 
 float Clouds::WeatherOvercastAtCamera() noexcept
 {
-	// TODO: the weather's overcast at the camera (GWeather / LH3DAtmos) once it is merged
-	return 0.0f;
+	// GCamera::Update 0x4426BA: the overcast byte (movsx +0x83) of LH3DAtmos::GetWeatherSmooth(camera, 1) x 0.01
+	// (0x8C5840) -> [0xD1A26C], which DrawSky 0x5E2215 copies to [0xFA2754] for fn_00869850
+	if (!Locator::camera::has_value())
+	{
+		return 0.0f;
+	}
+	return static_cast<float>(weather::atmos::GetWeatherSmooth(Locator::camera::value().GetOrigin()).overcast) * 0.01f;
 }
 
 uint32_t Clouds::Colour(float alignment, uint32_t table255) noexcept

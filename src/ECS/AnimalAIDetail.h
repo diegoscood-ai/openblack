@@ -11,6 +11,9 @@
 
 #include <cstdint>
 
+#include <utility>
+#include <vector>
+
 #include <entt/entity/fwd.hpp>
 #include <glm/vec2.hpp>
 
@@ -63,9 +66,10 @@ enum class Hunter
 	Wolf,
 };
 
-/// GGameInfo::GetVisualTime (hours) of this turn and g_game+0x205A40, the game turn
+/// GGameInfo::GetVisualTime (hours) of this turn
 extern float g_VisualTime;
-extern uint32_t g_Turn;
+/// g_game+0x205A40, the game turn: the common clock of ECS/Effects/Reactions (Game's turn count, 0 at a land's load)
+uint32_t Turn();
 
 const GAnimalInfo& InfoOf(const components::Animal& animal);
 bool IsGrazer(AnimalInfo type);
@@ -123,7 +127,9 @@ bool IsLeader(const Context& ctx);
 // Living::SetDying (vt+0x6A4) and the hook the spells use (AnimalAI.h SetDeathCallback)
 void SetDying(entt::entity entity, components::AnimalBrain& brain);
 void Delete(entt::entity entity);
-extern DeathCallback g_DeathCallback;
+/// the death listeners by id, and the species' own SetDying (AnimalAI.h)
+extern std::vector<std::pair<uint32_t, DeathCallback>> g_DeathListeners;
+extern std::vector<SpeciesDying> g_SpeciesDying;
 
 // states and moving
 void SetTopState(entt::entity entity, components::AnimalBrain& brain, AnimalState state);

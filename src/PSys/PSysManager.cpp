@@ -211,7 +211,8 @@ void manager::SetOrigin(uint32_t id, glm::vec3 origin)
 	}
 }
 
-entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner)
+entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner,
+                                       float magnitude)
 {
 	if (spotVisual < 0 || spotVisual >= static_cast<int>(k_SpotVisuals.size()))
 	{
@@ -223,7 +224,7 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "PSys: spot visual {} has no spell file", spotVisual);
 		return entt::null;
 	}
-	const uint32_t id = Start(std::string(info.file), position, 1.0f);
+	const uint32_t id = Start(std::string(info.file), position, magnitude);
 	if (id == 0)
 	{
 		return entt::null;

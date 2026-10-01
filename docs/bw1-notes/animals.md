@@ -146,7 +146,13 @@ portado en `ECS/AnimalWallHug.*` (investigación `wallhug_circle.md`):
   LINEAR_CW / CCW.
 - Consecuencia del original: como LINEAR solo re-apunta al cambiar de celda y con turnAngle (6° la vaca), un animal cuyo
   rumbo no apunta ya al destino (o que sale de una órbita hacia fuera) se aleja y no llega [el código; no visto en el
-  juego original]; si el destino queda dentro del círculo rodeado, llega por el STEP_THROUGH final.
+  juego original]; si el destino queda dentro del círculo rodeado, llega por el STEP_THROUGH final. Con números: la oveja
+  gira como mucho 64 (11°) por re-apunte (`Animal::SetTowardsAngle` 0x418560; el giro casi entero solo dentro de su
+  círculo de giro, R = 2 × 0,075 m / 0,196 = 0,77 m) y anda 0,075 m por turno, así que re-apunta una vez cada ~133 turnos;
+  en Land2 con una pila al lado (`OPENBLACK_TEST_FOOD_PILE`) de 25 ovejas hambrientas solo 2 llegan a comer, y la
+  reacción de comida dura 2000 turnos. Comprobado contra el código 2026-10-01 (MoveTo 0x60B095, MoveToCircleHug
+  0x60D800, InitStepsXZ 0x60BFA0, SetupMobileMoveToPos 0x60ABC0, AreWeThere 0x60AD60, Living::MoveToPos 0x5EC270,
+  ProcessReaction 0x5F1270: nada más re-apunta).
 
 `GUtils::Spiral` (dir 1, cuenta 1: (−1, 0), (0, −1), (+1, 0) × 2, (0, +1) × 2...)
 en todas las espirales; `Collide(1)` es solo agua (el bit `hasWater` de la celda de terreno) o fuera del mapa,
@@ -262,6 +268,33 @@ levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 
   cualquier hora sin mirar el hambre (Wolf::HideInLair 0x421A2E).
 - **No se puede comer** (+0x25 & 0x40, `components::CannotBeEaten`): lo pone el vórtice de tierra a tierra a todo lo que
   sale de él (fn_005FE3B0 0x5FE5DD) y los objetos de los puzles; no es presa y, si ya estaba derribado, sobrevive.
+
+## Manchas y malla de los animales
+
+(Movido de rendering.md.)
+
+### Manchas (hechas)
+
+Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
+- En `fn_00812170`: si no es humano, con `IsHumanShadowed` (flag 0x4000000, `SetHumanShadowed(1)` en el Create de cada
+  especie; 0 mientras la criatura lo sostiene), y > 0,2 y malla con `ContainsEBone` → `fn_0081FFF0(obj, normal, ebone)`.
+- Bloque EBone (836 bytes) tras los de huella (tamaño en +8), UV2, nombre y métricas extra: `u32 tamaño; float m[16][12];
+  int32 hueso[16]`. Se usan las posiciones de m[0..3] en el espacio de su hueso: P = objeto × hueso × pos, y = suelo + 0,2.
+  Par (0, 1) siempre, par (2, 3) si hueso[2] ≠ −1 (todos los cuadrúpedos: 4 quads). Aves y murciélagos no tienen EBone.
+- **Rareza del original**: el primer quad de cada par recibe V = D (construye D + (P1 − P0)/2 pero pasa &D); el segundo
+  D + (P0 − P1)/2.
+- openblack: `L3DFile::GetEBone`, `L3DMesh::GetBlobPoints`, bucle de animales en `Renderer::DrawHumanShadows`.
+
+### Creación: malla y escala
+
+- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
+  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
+  LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
+  `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
+  ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
+- Land1 crea 116 (palomas 40, gaviotas 22, golondrinas 14, caballos 12, vacas 10, cerdos 7, tortugas 6, murciélagos 5);
+  openblack los crea todos, con la IA y los clips de esta página.
+- openblack: `components::Animal`, `AnimalArchetype`.
 
 ## Diferencias y pendiente
 

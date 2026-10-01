@@ -525,8 +525,8 @@ dibujo, radios y fundido.
   - se mueve hacia su destino a `speed` m/s en x,z;
   - los relámpagos, ya fundida: `forkTimer` y `sheetTimer` cuentan atrás y al llegar a 0 se recargan con
     `min + rand(max − min)`. El de horquilla crea un PSys de rayo (0xEEA384) y el de sábana suena el trueno (0xEEA388);
-    aquí son dos *callbacks* (`SetForkCallback` / `SetSheetCallback`) que otra lane rellenará. El destello del terreno
-    (`fn_00837290`) no está portado.
+    aquí son dos *callbacks* (`SetForkCallback` / `SetSheetCallback`) que otra lane rellenará. El destello
+    (`fn_00837290`, `Storm::flash`) está en «Tormenta» (`ECS/Weather/LightningFlash`).
 - **Borrado en dos turnos**: `fn_0083F7B0` solo marca (+0x94 = 1); el contador sube en cada `UpdateAll` y la tormenta
   se destruye cuando pasa de 2. Mientras está marcada ya no aporta nada a la rejilla. `GClimate::ToBeDeleted` 0x7713E0
   sí las destruye al instante.
@@ -650,8 +650,8 @@ cada fotograma desde `magic::Update` (las rayas de lluvia). `OnLoadMap` lo deja 
 ### Sin portar / UNVERIFIED
 
 - `SnowCover` (la nieve acumulada, 0xEDC344) y la nieve dibujada.
-- El destello de los relámpagos (`fn_00837290`) y la luz de tormenta del terreno (0xFA2768); los *callbacks* de rayo y
-  trueno están puestos pero vacíos (los rellenará la lane del rayo).
+- El destello de los relámpagos (`fn_00837290`) y [0xFA2768] ya están (ver «Tormenta»), menos su sello de luz en el
+  terreno; los *callbacks* de rayo y trueno están puestos pero vacíos (los rellenará la lane del rayo).
 - Las gotas en el suelo (`g_water_drop_cb`).
 - La influencia virtual del tiempo, `LHInetWeather` y el tiempo ambiente de la partida guardada.
 - `GClimate+0x84` ("relámpago aunque haga menos de 30 grados"): **no se ha encontrado quién lo escribe**, se asume 0.
@@ -1601,6 +1601,117 @@ literalmente una multiplicación de la posición del padre, no un desplazamiento
   `m4h_heal_trace.log` (vidas 0,300 → 1,000 y veneno curado en los tres, el brillo subiendo 40 → 106 → 160 y bajando a
   0, 18 átomos —1 punto + 5 sprites por chakra— durante 3 s y el hechizo abierto hasta sus 20 s).
 
+## Agua (M4a, `Magic/Spells/SpellWater`, `PSys/Creators/Mist`)
+
+Informe: `resources.md` §2; desensamblado propio en `dev\tmp_dis\miracles\impl\m4a\` (`process.txt`,
+`alloc_getters.txt`, `obj_water.txt`, `field_water.txt`, `tree_water.txt`, `mist_creator.txt`, `mist_draw.txt`). MAGIC_TYPE
+22 WATER y 23 WATER_PU1, semilla 9 WATER. Estado: **fiel** salvo lo marcado.
+
+### El hechizo (`SpellWater.cpp`)
+
+- `GMagicWaterInfo::AllocSpell` 0x5FAC70: 0xF4 bytes, vtable 0x8F553C; fn_00724EC0 pone a 0 +0xEC (edad del último
+  anillo) y +0xF0 (la reacción «apagando un fuego»): `water::SpellWaterData`. **La vtable solo redefine `Process`**
+  (vt 0x528); el resto es el `Spell` normal (InitWithPos, SpellEvent, CloseDown...).
+- Getters (`info+0x10 − 0x16`): radio de lluvia fn_005FACE0 = **6** (WATER) / **12** (PU) / 1; crecimiento del anillo
+  fn_005FACC0 = **2** / **4** / 1; `GetRippleEvery` 0x5FAD00 = **0,1**.
+- `SpellWater::Process` 0x724ED0, **una gota por turno** (comprobado instrucción a instrucción):
+  1. `Spell::Process` 0x720710 y su resultado, que se devuelve siempre; si la reacción +0xF0 ya no está disponible, a 0;
+     si el hechizo está cerrado, nada más.
+  2. `r = GameFloatRand(R) × 0,7 + 0,3` (0,3 … 0,7·R + 0,3 m: 4,5 m con WATER, 8,7 m con PU) y
+     `a = GameFloatRand(2π)`; la gota P = posición de lanzamiento (+0xCC, la que sigue a la mano en un lanzamiento con
+     la mano) + (r cos a, r sin a), con `y = GetAltitude(P) + 0,2`.
+  3. `SpellEvent{2, P, mov. 0, fuerza 1, 0, sin objetivo}` (vt 0x52C → `ApplyDefaultSpellEffect`): los EffectValues de
+     WATER (**quemar −4000**, radio 1 m) × fuerza × poder tribal, `costPerEvent` 10, la reacción 21. Su resultado no se
+     mira: la gota y el anillo salen aunque no queden cánticos.
+  4. Las 9 celdas de 10 m desde la de P (`GUtils::Spiral`, dirección 1, cuenta 1), cada una con su lista fija y luego
+     la móvil (fn_00603500 / fn_007252D0): cada objeto con `2,5 × GetPower > dist2D(obj, P) − GetRadius` (estricto)
+     recibe `ApplyWaterSpell` (vt 0x67C). `GetPower` de un hechizo es el de `GameThingWithPos` 0x56FE60 = 1, así que el
+     alcance es **2,5 m desde el borde** (PLAN §4.1.2). `GetRadius` (vt 0x60) es `Get2DRadius` (Object 0x638110 salta
+     a vt 0x64): **5 m en un campo** (Field 0x528E80), en el resto la media extensión de la malla × escala.
+  5. Un anillo cuando `0,1 < edad − último` **en simple precisión** (fld/fsub/fstp dword; con la edad sumando 0,1 por
+     turno sale en casi todos los turnos, no en todos: el primer turno no, 0,1 − 0 no es mayor que 0,1). Color
+     `{0xFF80CBC5, 0xFF8599C5, 0xFFBA97B2, 0xFFB9CA86, 0xFFBD9C8A}[GameRand(5)]`, ángulo `GameFloatRand(2π)`, en el
+     primer hueco de los 1024 de 0xEAB7C8: +0 P, +0x0C bandera 1, +0x10 edad 0, +0x18 crecimiento 2/4, +0x20 ángulo,
+     +0x24 1, +0x28 aspecto 1, +0x2C ritmo 1, +0x30 celda 0x30, +0x34 color. **Los anillos caen en tierra**, no solo en el
+     agua (`ecs::WaterRings`; cuando «agua» cambie `AddWaterRing` a (pos, crecimiento, ritmo, aspecto, celda, argb), solo
+     cambia `AddDropRing` en `SpellWater.cpp`).
+- `ApplyWaterSpell` por clase (la lista de símbolos solo tiene estas tres):
+  - **Object** 0x63A8E0: si el objeto arde (`IsOnFire`) y +0xF0 está vacío, `+0xF0 = CreateReaction(hechizo, 34
+    REACT_TO_MAGIC_WATER_PUTTING_OUT_FIRE, jugador del hechizo, 1)`. Devuelve 0.
+  - **Tree** 0x74C390: la parte de Object y luego `ecs::ApplyWaterSpell(árbol, magicType == 23)` (de «arboles»: crecer,
+    con PU pasar del máximo, o un brote del bosque cada > 40 turnos). Con brote y jugador:
+    `GPlayer::FUN_0064DA80(0xE, 1)` —**solo hace algo en multijugador** (`IsMultiplayerGame` 0x552F80), aquí nada— y
+    `GAlignment::Update(jugador, árbol nuevo, 1)` 0x4145A0 = `alignment::UpdateForTree(jugador, true)`. Devuelve 1.
+  - **Field** 0x528F30 (`ecs::ApplyWaterSpellToField` en `ECS/Fields.cpp`): la parte de Object; con jugador,
+    `ConsiderMakingCreatureMimicPlayer(acción 0x21, magia 0x16)` (M8, no portado); si no arde: con `cultivos ≤ 30`
+    (`timesToSow`) pasa a **31** de golpe (sembrado); si no, mientras `crecimiento ≤ 1200`, `crecimiento += 2`
+    (`effectOfWaterSpell`, info.dat, igual en las 6 filas) y `comida += 2 × 350 / 1200`. `IsUnripe` se llama y se
+    descarta.
+- **Apagar fuegos**: lo hace la parte 3 (quemar −4000 en 1 m): `ApplyEffectToFireEffectIfNecessary` lleva la
+  temperatura hacia ambiente − 4000 con el tope `max(10·ΔT/capacidad, ΔT)`, así que **una sola gota apaga** un árbol
+  ardiendo a 500 (Tc 110, capacidad 100). Como el evento va antes que `ApplyWaterSpell`, el objeto ya no arde cuando le
+  llega el agua y la reacción 34 solo nace si la gota no le alcanzó con el radio de 1 m pero sí con los 2,5 m. Las
+  tormentas (fn_0072DCC0) son de M6.
+- La niebla del original para el `SPELL_AT_POS` está a la altura de «desde» (el gancho la pone 30 m sobre el blanco,
+  inferido); con la mano, en la mano, que `UR_HandSprinkle` sube 8 m en 8 s sin sujetarla (`ClampHand 0`).
+
+### `ParticleMistCreator` (`PSys/Creators/Mist.cpp`)
+
+- Constructor 0x6AA380: RandomiseScale 0, IsShadowMap 1, LoadLightMap 1, TakeRatioFromMatrix 0, Pitch 12, 1 cuadro,
+  InitialScaleMin 1, Ratio 0. Propiedades 0x6B3C00 (Pitch 1..12, cuadros 1..32, InitialScaleMin y Ratio 0..5).
+- `CreateParticleMist` 0x6AA610: escala del átomo = `RandomiseScale ? PSysFloatRand(InitialScaleMin, InitialScale) :
+  InitialScale`. `CreateLH3DMist` 0x6AA5A0: un `LH3DObject` de tipo 7 (la cúpula `mist.l3d`), `k = Ratio` o
+  `2,5 + LocalFloatRand(2,5)` si es 0, y `+0x80 |= 2` (la rama de efecto).
+- `RenderParticleMist::DrawAt` 0x67A670: tamaño = escala del PSR, con TakeRatioFromMatrix `k = M[1][1]/M[0][0]`, color
+  = el del átomo × `[0xFA26A4]` (la base de la tabla de luz del terreno, con alfa forzado a 0xFF): por canal
+  `(c × g) >> 8`. Aquí cada fotograma `mist_atoms::SubmitFrame` (desde `magic::Update`) pasa cada átomo a
+  `mists::Submit` de «mapa» (el mismo `DrawMist`). La base la lee `LandLightTable::LastBuiltBase` (añadido por la lane de
+  la tormenta).
+- **(aproximado)** un solo contador de atlas para todas las nieblas del PSys (el original lleva uno por objeto,
+  empezando en `Random(0,16) & 15`); con Ratio 0 se usa la media 3,75 en vez del azar por niebla. El mapa de sombra /
+  luz del terreno de una niebla con `TextureFileName` (la tormenta) no está portado.
+- SF_Water: la nube (183, 181, 255, 200), escala 0,2 (0,4 en PU), Ratio 2, y en su grupo 4 el cono de lluvia
+  `MSH_S_RAIN_CONE` (`ParticleMeshCreatorAnimTextured`, de 0,1 a −24 m, escala 0,7 / 1,4, UV que se desliza).
+- **Arreglo en `PSys.cpp` (`MakeCreator`)**: los creadores registrados se buscan antes de exigir que el nombre empiece
+  por «Particle» y acabe en «Creator»; `ParticleMeshCreatorAnimTextured` acaba en «Textured», así que el cono de lluvia
+  (y cualquier otro AnimTextured) no se creaba nunca.
+
+### Arreglo en `ECS/Effects`: las celdas del mapa
+
+`effects::FixedObjectsInMapCell` / `ObjectsInMapCell` (EffectValues.h). **(aproximado)** La rejilla de openblack
+(`MapProduction`) solo mete un objeto fijo en las celdas cuyo centro está a menos de su radio + 1 m, así que un árbol
+pequeño lejos del centro de su celda no estaba en ninguna, y ni `ApplyEffectToMapPos` (fuego, rayo, agua) ni el agua lo
+veían (el arbusto ardiendo junto al almacén de Land1 no se apagaba). El original enlaza cada objeto en la celda de su
+posición: ahora la lista fija de una celda es la de la rejilla más los fijos cuya posición cae en ella, ordenados por
+entidad. `ApplyEffectToMapPos` la usa para su parte fija.
+
+### Pruebas y capturas
+
+- `test_water`: los getters, la distancia de la gota y el alcance (estricto, 5 m de un campo), los anillos en simple
+  precisión, el color de la niebla, la nube de `UR_HandSprinkle` con su niebla y, con `OPENBLACK_GAME_PATH`, las filas de
+  info.dat (quemar −4000, radio 1, `costPerEvent` 10, 6 / 10 s, reacción 21, partículas 16/17, coste 5000/7000),
+  `effectOfWaterSpell` = 2 en las 6 filas de campo y SF_Water / SF_WaterPU1 ejecutados (nube + cono).
+- Gancho `OPENBLACK_TEST_WATER_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
+- Capturas en `dev\_audit\magic\`:
+  - `m4a_water_field.png` + `m4a_water_field_end.log` (`OPENBLACK_TEST_SPELL=WATER,1830,2750,10,6`, campos de Land1 en
+    1825-1835 × 2745-2755 con `OPENBLACK_TEST_FIELD_GROWTH=500`): anillos sobre la tierra; el registro da
+    `crops 0 -> 31` en los cuatro campos y luego `growth +2, food +0,58` por gota. Un campo con poca comida se dibuja
+    hundido (Field::Draw), así que el sembrado no se ve hasta que crece.
+  - `m4a_water_hand.png` + `m4a_water_hand_end.log` (`OPENBLACK_TEST_SEED=WATER` + `OPENBLACK_TEST_CAST` +
+    `OPENBLACK_TEST_CAST_PATH=1822,2742,1838,2756`): la nube y el cono de lluvia sobre la mano, los anillos en el
+    suelo; las gotas siguen a la mano por los campos.
+  - `m4a_water_cloud.png`: la nube azulada con el cono de lluvia vista desde abajo.
+  - `m4a_water_fire_burning.png` → `m4a_water_fire_out.png` + `m4a_water_fire_burning.log`
+    (`OPENBLACK_TEST_FIRE="1818.6,2628.4,500,tree,110"`, agua en el turno 200): el fuego 1 se borra en el turno 201,
+    tras la primera gota; sin el arreglo de las celdas seguía ardiendo pasado el turno 260.
+
+### Sin portar / pendiente (agua)
+
+- El mimetismo de la criatura (M8) y `FUN_0064DA80` (multijugador).
+- SF_WaterInHand / SF_WaterOnHolder usan la misma niebla, que ahora se dibuja; no se han revisado en una captura.
+- La distancia 2D usa la raíz exacta: el original va por `hypotenuse` 0x74F680 con una raíz inversa sobre MapCoords
+  16.16 (diferencias de submilímetro, aproximado).
+
 ## Escudos (M6-shield, `Magic/Spells/SpellShield`, `Magic/Objects/MapShield`, `PSys/Rules/Shield`)
 
 Informe: `dev\tmp_dis\miracles\protect_creature.md` §1; lo nuevo, verificado en `runblack.exe` al portarlo, está en
@@ -1763,13 +1874,558 @@ la cúpula es el PSys del hechizo, SF_DefenseSphere) o `PhysicalShield` (la mall
 - Los escudos no están en la rejilla de objetos del mapa: `ApplyEffectToMapPos` no los alcanza (el físico admitiría
   efectos sin quemar, `IsEffectReceiver` 0x72CC80; el mágico ninguno).
 - `CallVirtualFunctionsForCreation` (los enlaces de caminos y `fn_0057E220` (5, 0xD) / (4, 0xD) del objeto 3D).
-- El dibujo de los parches de la cúpula es el de `Creators/Mesh.cpp` (M3): sin color del jugador (`UsePlayerColor`,
-  mezcla 0,5), sin `DrawCutByPlane` y sin aditivo (que solo vale con `MeshChangeMaterialProps`), así que la cúpula se ve
-  tenue. `OrientToSurface` del trazador (lo usan SF_DefenseSphereInHand/OnHolder) y `MoveToBaseGroup` no están.
+- El dibujo de los parches de la cúpula es el de `Creators/Mesh.cpp`: **resuelto en M6b** (color del jugador con mezcla
+  0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` no recorta una malla estática); ver
+  «Explosión de rayo y clases de PSys que faltaban». `OrientToSurface` del trazador (lo usan
+  SF_DefenseSphereInHand/OnHolder) y `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) siguen sin usarse
+  aquí.
 - Los puntos extra de las mallas no se cargan (`UR_AtomsAtEPTarget` usa la posición del objeto, exacto para 554).
 - `Get2DRadius` / `GetHeight` salen de la caja de la malla (la cabecera de 554 la trae a cero; el original lee campos
   del LH3DMesh que se calculan al cargar, sin comprobar).
 - La bola de fuego aún no llama a `DoAnyShieldDeflections` (es de la lane M5; su `TODO(M6)` en `Fireball.cpp`).
+
+## Bandadas (M4c, `Magic/Spells/SpellFlock`, `PSys/Rules/Flock.cpp`)
+
+Los milagros FLYING_FLOCK (24, palomas o murciélagos) y GROUND_FLOCK (25, lobos). Desensamblado en
+`dev\tmp_dis\miracles\impl\m4c\` (`flock.asm`, `ground_tail.asm`, `spelldove.asm`, `spellwolf.asm`,
+`followtargets.asm`, `flocking*.asm`) y `resources.md` §5. Los animales son animales de verdad del módulo de los
+animales (`ECS/AnimalAI.h`: `CreateAnimal`, `MoveTo`, `SetStateRaw`, `SetFinalDestination`, `Destination`,
+`SetAlpha`, `Remove`, `SetDeathCallback`); lo que sus clases de hechizo SpellDove / SpellBat (AnimalDove.cpp) y
+SpellWolf (AnimalSpellWolf.cpp) hacen distinto vive en `SpellFlock.cpp` (componente `SpellFlockAnimal`).
+
+### El hechizo (fiel)
+
+- **Clases:** `SpellFlock` (SpellWithObjects, ctor 0x7231C0 / fn_00723210) y sus dos hijas: `SpellFlockFlying`
+  (AllocSpell 0x723100, 0x120 bytes) y `SpellFlockGround` (AllocSpell 0x723180, 0x110 bytes). Datos
+  `SpellFlockData`: +0xF4 la Flock, +0xF8 creados, +0xFC acumulador, +0x100/+0x104/+0x108 último punto de salida
+  (MapCoords y altura sobre el suelo), +0x110 el PSys del lanzamiento (solo la voladora).
+- **Constantes:** 12 animales por segundo (GetNumToEmitPerSecond 0x7230E0 / 0x7230F0), variación de ángulo 2,0
+  (0x723550 / 0x723560), distancia `info+0x60` = 800 m (0x723530 / 0x723540), cuántos = `fistp(numberToCreate ×
+  GetTribalPower)` (0x723B80 / 0x724250: 12 palomas, 14 lobos; redondeo al par más cercano), radio de caza `info+0x64` =
+  45 m (fn_00723170).
+- **`InitWithPos` 0x7232D0:** último punto = la mano (PSysProcessInfo +0xC) en MapCoords (ftol × 6553,6) y su altura
+  sobre el suelo; `new Flock(pos, GFlockInfo 0xC5E624, jugador, 0xABA52)` (Flock::Flock 0x52F780: radio 0x50, y el
+  hechizo pone la distancia de bandada = el radio, 80); luego `Spell::InitWithPos`. La voladora (0x723A80) además, si
+  lanza el interfaz de este ordenador, crea SF_FlockFlyingCastGood/Evil (122 + malo) en el punto, sin hechizo
+  (`GJPSysInterface::Create(NULL, ...)`), con su jugador; `Draw` 0x724100 lo avanza cada fotograma y se cierra
+  (vt 0x118) cuando ya están todos los animales.
+- **Bueno o malo:** alineación del jugador (`GPlayer+0x60 → +8`) `< alignmentSwitch` (−0,2) → malo: partículas 125
+  FlockFlyingRainEvil (si no 124, GetParticleType 0x723A30) y **SpellBat** (GAnimalInfo 21), si no **SpellDove** (20).
+  La de tierra es siempre 126 FlockGroundDust (0x724290) y **SpellWolf** (22).
+- **El bucle de salida** (Flying `Process` 0x723BC0, Ground 0x7242A0), cada turno mientras creados < N:
+  1. el hechizo se pone donde está el jefe (el primer miembro de la Flock, +0x40 → +8);
+  2. `emit += 12 × 100 ms × 0,001` (en float); el segmento de salida va del último punto a la mano de ahora;
+  3. mientras `creados < emit`: `creados++`; `f = (creados − emitAntes) / (emit − emitAntes)`; S = viejo +
+     `fistp((nuevo − viejo) × f)` en x, z y la altura interpolada; el punto donde nace lleva un temblor
+     `GameFloatRand(0,2) − 0,1` m en x y luego en z (el de destino no);
+  4. se salta (contando igual) si el punto con temblor está fuera del mapa (`MapCoords::InBounds` 0x6042C0), si lanza
+     un humano y `CalculatePlayerInfluence(pos del hechizo, jugador, 0, 0, 1) <= 0`, o si fn_00723570 falla;
+  5. el animal: `fn_00419D10(S, info, sin pueblo, la Flock, edad 0)`; escala = `GetScale()` (1, 0x4247E0) × 2,8 +
+     `GameFloatRand(0,2)` (aves) o × 1,5 + `GameFloatRand(0,5)` (lobos), primero el azar; `SetGameAngle(S → T)`
+     (GetAngleFromXZ 0x74D240); a la lista del hechizo (delante) y, todos, `AddTarget` al PSys principal;
+  6. **aves:** altura del punto = la de la mano; T a `altitudeNormal` (GAnimalInfo +0x278, 45 m). El jefe:
+     `SpellEvent{2, su posición, sin movimiento}` (reacción 37 ReactToImpressiveSpell), `SetupMoveToPos(T,
+     START_WANDER 0x1F)`, `SetState(0, SPECIAL_MOVE_TO_POS 0x2C)` y la Flock +0x78 = FOLLOW_FLOCK, +0x80 = 3
+     (formación), +0x7C = DECIDE_WHAT_TO_DO. Los demás: `SetupMoveToPos(GetDestPos del jefe (+0x80), 0x1F)` y el mismo
+     0x2C. **Así que el abanico de ±2 rad es solo el ángulo con el que nace cada ave; todas vuelan al T del jefe**;
+  7. **lobos:** nacen en el suelo (altura 0, T altura 0) con `SetPlayer(lanzador)`, una nube
+     `CreateSpotVisual(S, 9 MAGIC_OBJECT_CREATED, 1, 0)`; el jefe hace el `SpellEvent 2` y `fn_00420F50(S, T, 45)`; los
+     demás `fn_00420F50(S, GetDestPos del jefe, 45)`.
+- **fn_00723570 (el destino):** dirección d = la de la cámara (PSysProcessInfo +0x18) si lanza un humano, si no
+  `castPos − mano`; y = 0; (1, 0, 0) si |d|² < 0,0001. Lado: humano → v = normaliza(S − castPos) y `cruz = v.z·d.x −
+  v.x·d.z`: +1 si > 0,1, −1 si < −0,1; si no (y para la IA) +1 con creados par, −1 impar. Ángulo θ = 2 · creados ·
+  lado / N; d girado θ en Y (fn_00518BF0, vector fila: `(x cos − z sin, x sin + z cos)`), puesto a la longitud
+  (fn_006805F0). T = S con su celda de 10 m (la palabra alta) movida a `ftol((celda·10 + d)/10)` y la parte de dentro
+  de la celda igual; mientras T esté fuera y la distancia siguiente (la mitad) pase de 10 m se repite con la mitad
+  (800, 400, ..., 12,5). Devuelve `InBounds(T)`.
+- **`SpellFlock::Process` 0x7233D0** (el final de los dos): si no está cerrado, para cada miembro
+  `fn_006D0C20(+0x2C, +0x14, GetRadius)` busca un escudo cruzado este turno; si lo hay, `SpellEvent{4, su posición,
+  objetivo = el hechizo del escudo}` (`costPerShieldCollide` 50) y **si responde 0 (el escudo aguanta) el miembro
+  `SetDying` (vt+0x6A4), que en estas clases es el desvanecido (R15)**; con el escudo roto pasa; en los dos casos una
+  chispa en el escudo (fn_006D0AF0). Luego `SpellWithObjects::Process` 0x721290 (su bucle 0x721040 llama a
+  `Animal::ProcessBySpell` 0x417700 = `ProcessFadeOut`), y **la bandada** (su +0x14, el centro del dominio de
+  `components::Flock`) se pone donde el jefe (0x7234F2..0x723519; la auditoría 4 lo corrigió: se escribía en el
+  hechizo, que solo se mueve al principio de cada `Process` de clase, 0x723BE6 / 0x7242C8).
+- **Coste** 0x723240: `miembros × costPerEvent (0) + costPerGameTurn` (40 / 35). **CloseDown** 0x723270 =
+  SpellWithObjects 0x721300: `CoreCloseDown` y `SetDying` a cada objeto (GetSetObjectsDyingOnCloseDown 0x55CF50 = 1).
+  **ToBeDeleted** 0x720FD0: CloseDown, la lista fuera; la voladora borra su PSys del lanzamiento (fn_007239B0).
+
+### SpellDove, SpellBat y SpellWolf (lo que les toca al hechizo)
+
+- **El desvanecido (fiel):** alfa 0..255 en un Zoomer de LH3DLib (SpellDove +0x148..+0x174, SpellWolf
+  +0x168..+0x194; empieza en 255, 0x41F280 / 0x420930). `SetDying` (SpellDove 0x41F5C0, SpellWolf 0x420CF0) **nunca
+  llama a Living::SetDying**: si el destino aún no es 0, `vt+0xBD4` (fn_0041F2F0 / fn_00420A20, el
+  `SetDestinationWithSpeedAndTime(0, 0, t)` del Zoomer: cuártica desde el valor y la velocidad de ahora) con
+  t = `GetNumTurnsToDieOver` (20, 0x41F620 / 0x420D50) × 100 ms = 2 s. `ProcessFadeOut` (0x41F4C0 / 0x420BF0) avanza
+  0,1 s por turno y con el alfa exactamente 0 hace `ToBeDeleted`. El color de la malla es `fistp(alfa) << 24 |
+  0xFFFFFF` y translúcida si no es 255 (SetColor 0x41F630; SpellWolf::Draw 0x51C6EC): aquí `SetAlpha(alfa / 255)` en
+  el turno (el alfa solo cambia en el turno). El animal sigue moviéndose mientras se desvanece.
+- **Lobo, el pasillo** (fn_00420F50, fiel): normal `(DZ, −DX)/|D|` de D = destino − inicio ((1, 0) si |D|² < 0,0001;
+  la nota de resources.md decía «dirección»: es la normal), desplazamiento `−normal·inicio`, medio ancho 45 m,
+  `+0x148` = destino y luego `SetRunToFinalDest` 0x4209C0 (velocidad = escala × info.speed4 × 1,1,
+  `SetupMoveToPos(+0x148, SET_DYING)`). `IsPosOnCorridor` 0x420E10: `|normal·p + desp| <= 45` y el punto no más de 45 m
+  por detrás de la esquina de la celda de 10 m del lobo a lo largo del pasillo (no del inicio, como decía resources.md).
+  `SpellWolf::MoveToPos` 0x421300: `Living::MoveToPos`; si el hambre +0xE4 `>=` info+0x20C (el ctor 0x4207F0 la pone
+  así: con hambre desde el principio) `ReactToAnimalFoodNeeds` (vt+0xBC0, la caza del león); y a menos de 30 m
+  (0x8BF51C, `GetDistanceInMetres` 0x74CD70 en XZ) del destino final, `SetDying` (el desvanecido).
+  `IsHuntingTargetValid` 0x420D60: un Living que no está en DYING/DEAD/DOWNED/BEING_EATEN (0xE, 0xF, 0x11, 0x12) ni
+  tumbado (+0xB4 & 0x80), dentro del pasillo y con `IsPosValidForTurnAngle` (vt+0xB3C).
+- **Otros:** SpellDove/SpellBat `GetTimeToBank` 0,5 s, `ReactToAnimalNeeds` 0x24, SpellBat
+  `CanBeFrighteningToCreature` = 1; SpellWolf `SetSpeed` no hace nada, `DecideWhatToDo` / `Wander` /
+  `HuntingMoveToPosAbaondon` = SetRunToFinalDest (en `ECS/AnimalAI` y `AnimalPredators`, sesión «animales»).
+
+### Las partículas (`PSys/Rules/Flock.cpp`, fiel)
+
+- **UR_FollowTargets** 0x6A04B0 (ctor 0x6BFA20, propiedades 0x6B1DD0): banderas 2 sin 4 (espera a sus objetivos
+  hasta cerrar). Si el efecto no está cerrando, un átomo nuevo por paso: con `RemoveTargetFromManager` (1) se lleva el
+  último objetivo añadido (TakeTargetObject 0x671030), si no el primero sin quitarlo (fn_00671080); con
+  `UseLHPointTargets` (0) y sin objetos, un punto (que no usa). El átomo guarda su objetivo, su escala de regla = la
+  escala del objetivo, y `SoundCreate` suena salvo con `SoundOneOnly` (1) si no es el único átomo de la colección.
+  Cada paso cada átomo se pone en su objetivo (GlobalToLocal); un objetivo que se fue se olvida y, con
+  `RemoveAtomWhenTargetDies` (0), su átomo se borra. En SF_FlockFlyingRain* (SOUND_SPELL_DOVES / _BATS) y
+  SF_FlockGroundDust (SOUND_SPELL_WOLVES) cuelga de cada ave o lobo el rastro de UR_WillowWisp (3 o 5 brillos).
+- **UR_Flocking** 0x683580 (ctor 0x683470, propiedades 0x6ABCD0; lo usan SF_Forest, SF_Butterflies*, SF_Flies* y
+  SF_CreatureSpellItch*; desensamblado en `impl\m4c\flocking*.asm`): bandada de partículas. Por colección guarda la
+  velocidad V de la bandada (CollectionData 0x560EC0 +0x24, empieza en 0). Cada paso (dt el del efecto, [0xD4E0EC]):
+  - la media de velocidades y de posiciones C de sus átomos; el objetivo P = el átomo padre (o el origen) en el marco de
+    la colección (fn_00674B10);
+  - `V = V (1 − dt K_FlockDamping) + unit(P − C) K_IdealVel f(|P − C|, IdealVelAccnType, F_InvertAccnIdealVel) dt`;
+  - para cada átomo `a` que tenga otro: la suma por los demás b de `unit(b − a) f(|b − a| LocalScale, NeghbourAccnType,
+    NeighbourAccnInvert)` × `K_NeighbourAccn / n`; el más cercano da la evitación `unit(cercano − a) f(|..| LocalScale,
+    2, no) K_NeighbourAvoidance`; el centro la atracción `unit(C − a) f(|C − a|, AxisChosen, F_InvertAccn)
+    K_CentralAttraction`; y la igualación `(media − (v_a − V_antes)) K_VelocityMatching` (× LocalScale). Aceleración =
+    vecinos + igualación + atracción − evitación, recortada a `F_MaxAccn`; `v' = (v_a − V_antes)(1 − dt K_Damping) +
+    acel·dt + V`, recortada a `F_MaxVel`;
+  - la orientación: con `SpriteRotation` (1 por defecto) `SetAngleY(atan2(−y, x) + π/2)` de v' vista desde la cámara
+    (fn_006840E0); si no, `UpdateBanking` 0x684160: `SetAngleY(−π/2) × Rx(alabeo) × Rz(−cabeceo) × SetAngleY(rumbo)`
+    (producto de filas de LHMatrix), rumbo = atan2(v.z, v.x), cabeceo = atan2(v.y, |v.xz|) × ReducePitchBy, alabeo =
+    atan((a.z v.x − a.x v.z) / |v.xz| / GravityForBanking) con a = (v' − v_a)/dt; el +Z local mira a la velocidad;
+  - al final cada átomo avanza `pos += v·dt`.
+  La ley fn_00683520 (d, tipo, invertir): x = max(d, 0,01) × ScaleModifier; tipo 0 → 1, 1 → x, 2 → x²; 1/eso salvo
+  invertido (los tipos son enteros 0..2, los setters 0x6AC0D0.. no admiten otros; el archivo los escribe como FLOAT).
+  Por defecto (ctor): K 1 / 1 / 0 / 1 / 0 / 0 / 0, F_MaxAccn 10, F_MaxVel 100, GravityForBanking 10, ReducePitchBy 1,
+  ScaleModifier 1, tipos 0 / 2 / 1, SpriteRotation 1.
+- **EventConditionAtomNearVillagers** 0x67D8E0: la posición +0x80 del átomo (en metros, tal cual) en MapCoords está en
+  el mapa y alguno de los objetos de esa celda de 10 m es un aldeano. SF_FlockGroundDust la declara pero ninguna regla
+  la usa.
+
+### Pendiente / no fiel
+
+- **(inferido)** Los lobos empiezan a correr un turno más tarde: el `SetRunToFinalDest` del final de fn_00420F50 lo
+  hace aquí su primer turno (DECIDE_WHAT_TO_DO → SpellWolf::DecideWhatToDo) porque `ECS/AnimalAI.h` no lo expone
+  (pedido a «animales»). Hasta ese turno el `GetDestPos` del jefe se toma de su destino final (es el mismo valor).
+- **(inferido)** La llegada a 30 m del destino se mira en el turno del hechizo, con el lobo en MOVE_TO_POS, no en la
+  función de estado del lobo; la caza dentro del pasillo (`ReactToAnimalFoodNeeds` + `IsHuntingTargetValid`) es del
+  módulo de los animales: `spell_flock::IsOnCorridor` / `IsPosOnCorridor` está para que la llamen (pedido).
+- **(inferido)** Si el código de los animales mata a uno de estos (la mano, el fuego, un depredador),
+  `Living::SetDying` sigue con DYING y el cadáver; el original solo desvanece. La llamada de muerte
+  (`SetDeathCallback`) arranca el desvanecido y a los 2 s el animal se borra (pedido: que la llamada pueda sustituir
+  a Living::SetDying en estas tres clases).
+- **(aproximado)** El ángulo de nacimiento y la cara usan `detail::AngleOfMapCoords` / `FaceAngle` de los animales;
+  la posición previa (+0x2C) para el escudo es la del turno anterior del hechizo.
+- **(inferido)** UR_Flocking con `SpriteRotation` (moscas, picor): la matriz 0xEA1D28 se toma como la rotación
+  mundo→cámara (x = v·derecha, y = v·arriba), como hace `UR_OrientSpriteWithVelocity` (Rules/Orient.cpp).
+- Sin portar: `NeedsContinualPackets` 0x723280 (paquetes del interfaz mientras faltan animales), Load/Save.
+
+### Ganchos, pruebas y capturas
+
+- `OPENBLACK_TEST_SPELL=FLYING_FLOCK,x,z` y `GROUND_FLOCK,x,z` (los nombres del info.dat; o 24 / 25): el jugador
+  neutral lanza desde 30 m sobre el punto, así que d = (1, 0) y el lado alterna; `OPENBLACK_TEST_FLOCK_SHOT=
+  "<turnos>,<ruta.png>[;...]"` pide capturas esos turnos después del lanzamiento. Con `OPENBLACK_SPELL_TRACE=1` cada
+  animal escribe `SpellFlockFlying|Ground <n> #<N> entity e at (x, z) +h m -> (Tx, Tz)` y cada 10 turnos cada miembro
+  su posición, estado y alfa. Para seguirlos con la cámara: `OPENBLACK_TEST_VIEW_ANIMAL="0,35,-90"
+  OPENBLACK_TEST_ANIMAL_SPECIES=20` (22 los lobos) `OPENBLACK_TEST_VIEW_LOCK=1`.
+- `test_flock`: N con el redondeo de fistp, bueno/malo, el abanico (dirección, lado, ángulo, giro), el destino (celda,
+  truncado hacia 0, las mitades), la interpolación de salida, el pasillo del lobo (normal, borde, por detrás de la
+  celda) y el desvanecido (2 s, 79,7 a mitad, 0 a los 20 turnos); con `OPENBLACK_GAME_PATH`, las filas reales (12/14,
+  −0,2, 800, 45, 40/35 por turno, 50 por choque, 25/60 s, reacción 37, altitudNormal 45); y de UR_Flocking la ley
+  fn_00683520 y la rotación de UpdateBanking (rumbo, cabeceo reducido, alabeo).
+- Capturas en `dev\_audit\magic\` (Land1; lanzamiento de guion desde 30 m sobre 1790, 2625, así que salen hacia +x):
+  `m4c_doves_12.png` (12 turnos: las 12 palomas abriéndose desde el punto, con su brillo), `m4c_doves_40.png` (40
+  turnos: en hilera hacia el T del jefe, con el rastro), `m4c_wolves_15.png` (los lobos naciendo con la nube de
+  MAGIC_OBJECT_CREATED), `m4c_wolves_60.png` (corriendo con el polvo), `m4c_butterflies_75.png` / `_110.png` (un bosque
+  en 1912, 2605 junto a los cerdos: las mariposas de UR_Flocking entre los árboles) y los registros `m4c_doves.log`
+  (las 12 salidas con su T en abanico; cerrado a los 25 s, el desvanecido y el hechizo borrado a los 27,2 s) y
+  `m4c_wolves.log`.
+
+## Explosión de rayo y clases de PSys que faltaban (M6b, `PSys/Rules/{Explosion,KeyPoints,Orient,Forest}.cpp`)
+
+La explosión de rayo (MAGIC_TYPE 7-9 EXPLOSION_ONE, EXPLOSION_ONE_PU_ONE y _PU_TWO; semilla BEAM_EXPLOSION) es un
+`Spell` simple (`SpellGeneral.cpp`, clase General): todo lo que hace sale de los eventos de `UR_Explosion`. Lanza los
+tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). Desensamblado en
+`dev\tmp_dis\miracles\impl\m6b\` (`explosion_*.asm`, `moveatom.asm`, `meshdraw.asm`, `forestpath.asm`).
+
+### Los archivos (fiel)
+
+- Grupo 8 (creado al empezar): un átomo de control con `SetPSysCloseDown` 0x6A26D0 tras 6 s
+  (`EventConditionCollectionDelay`; 13,9 s en Loads), que cierra el efecto (`PSysManager::SetState(1)` 0x672FF0). En
+  Many/Loads un `SpreadingDiskEmitter` reparte 6 (Many, radio 30→50) o 6 + 50 (Loads, 25→40 y 20→60) puntos de
+  explosión más.
+- Grupo 7: el padre de cada explosión (muere a los 16 s); grupo 6: la colección de `UR_Explosion`, sin átomos.
+- Valores de `UR_Explosion` en los tres archivos: `InitialDelay` 0,4, `TimeToDoEventsFor` 5, `SmokeDelay` 1,2,
+  `BlastSpeed` 50, `SpreadSpeed` 20, `MaxDistance` 15, `MaxObjectsToDelete` 15, `MaxObjectsToExplode` 15; `BeamDelay`
+  no aparece (0, el del ctor).
+- **Arreglado (fiel):** `SpreadingDiskEmitter` (MAC 0x6A6610, DefineProperties 0x6AFA90) estaba registrado como un
+  `DiskEmitter` normal, que lee `Radius` (0): todas las explosiones de Many y Loads caían en el mismo punto. El original
+  emite **varios átomos por paso** (bucle con `ShouldEmit`) y mueve cada uno `(cos θ r, Height, sin θ r)` con
+  r = PSysFloatRand(StartRadius, StopRadius) y θ = PSysFloatRand(2π). Sus `StartTime` / `StopTime` (+0x5C / +0x60) son
+  propiedades que la clase **no lee**. (`DiskEmitter` 0x6A64D0 sí coincidía: un átomo por paso, dirección al azar en el
+  disco con radio PSysFloatRand(Radius) y Height en y. `ShouldEmit` 0x6A63A0 también: periodo 1/EmissionFreq con
+  `Randomise` × (0,5 + rand(0,5)), `MaxTotalAtomsToEmit` y `MaxAtoms`.)
+
+### `UR_Explosion` (R5: InitCollection 0x67E200, ModifyAtomCollection 0x67ECE0, actualización 0x67E900)
+
+- Propiedades (DefineProperties 0x6B0B90, una `AtomCreateRule`): +0x2C MaxObjectsToDelete, +0x30 MaxObjectsToExplode,
+  +0x34 MaxDistance, +0x38 BlastSpeed, +0x3C SpreadSpeed, +0x40 TimeToDoEventsFor, +0x44 InitialDelay, +0x48 SmokeDelay,
+  +0x4C BeamDelay. Datos por colección (0x58 bytes, ctor fn_0067E140): centro +0x24, «sin empezar» +0x20, «queda
+  objetivo» +0x21, anillo +0x30, lista {turno, objeto} +0x34, explotados +0x48, borrados +0x4C, humo / rayo / parado
+  +0x50 / +0x51 / +0x52 y el contenedor del rayo +0x54.
+- **Cada paso** (MAC 0x67ECE0): centro = `GetCurrentParentPos` con y = la altura del suelo. Si no está parado ni
+  cerrándose: con la edad de la colección > InitialDelay, `InitCollection` (una vez). Mientras edad < InitialDelay +
+  TimeToDoEventsFor, **un `SpellEvent 2` en el centro por paso** (velocidad 0, fuerza 1, sin escudos): el evento por
+  defecto del hechizo, burn / crush / hit del efecto (BEAM 200 / 0,01 / 0,01, PU1 400, PU2 800 / 0,02 / 0,02) en su
+  radio (5, 5, 10) con `ApplyEffectToMapPos`, pagando `costPerEvent` (10 cánticos) cada vez: unos 50 eventos. Con edad >
+  BeamDelay, el spot visual 36 `BEAM_EXPLOSION_FX` en el centro (escala 1, 60 turnos); con edad > SmokeDelay, el 23
+  SMOKE en tierra seca o el 22 STEAM en el agua (`MapCoords::IsDryLand` 0x603620), **magnitud 8** durante 4 s
+  (ftol(1000 / [0xD01A38] × 4) turnos). Parado o cerrándose: se cierra el rayo (`GParticleContainer::CloseDown`
+  0x63E370) y se vacía la lista. Después, siempre, la actualización 0x67E900.
+- **El símbolo `RecursiveUpdateForkStructure@UR_Lightning` 0x67E900 está mal puesto**: es la actualización de
+  `UR_Explosion` (sin recursión). Cada paso el anillo crece `SpreadSpeed × dt` ([0xD4E0EC]); los objetivos que ya no
+  están disponibles salen; con explotados ≥ MaxObjectsToExplode **y** borrados ≥ MaxObjectsToDelete se vacía la lista.
+  Recorre la lista y **trata como mucho un objeto por paso**: el primero con objeto 3D (+0x40) que el anillo alcance en
+  3D (`|p − centro|² ≤ (GetRadius + anillo)²`) recibe, si está dentro de un escudo con margen 2 (fn_006D0BC0), una chispa
+  (fn_006D0AF0) y un evento 4 al escudo (con 0 se salva); después `GetActualObjectToEffect` (vt 0x5D8) y la pregunta
+  `SpellEvent 7` (CanDestroy). Con 1: si no es criatura y quedan, explotados + 1 y la malla en pedazos (no portado, ver
+  abajo); si quedan borrados, borrados + 1 y `DestroyedByBeam` (vt 0x500) si [0xC029EC] (1). Conteste lo que conteste,
+  el objeto sale de la lista; el que contesta 1 corta el recorrido de ese paso.
+- **InitCollection 0x67E200**: margen = el radio del efecto del hechizo (`GMagicEffectInfo` +0x2C = archivo 0x1C), 5 sin
+  hechizo. Dentro de un escudo (fn_006D0BC0 con ese margen): el punto donde un rayo desde 200 m más arriba corta la
+  esfera (vt 0xFC FindIntersect), chispa y evento 4 en el centro al hechizo del escudo; **con 0 la explosión se para del
+  todo** (+0x52). Luego: en tierra seca una marca (fn_008251C0, no portada); en el agua **tres anillos** (crecimiento 5,
+  7 y 10; edad 0, ángulo 0, aspecto 1, ritmo 1, celda 0x30, blanco; +0x24 = 1,0 sin identificar). Los objetivos: r =
+  MaxDistance × el poder tribal del hechizo entre 1 y 5; las `ceil((r + 20) / 10)²` celdas de la espiral
+  (`GUtils::Spiral` 0x74D7E0) desde la del centro; de cada celda, los objetos móviles y fijos disponibles **cuya celda
+  propia es esa** (fn_00604F40) y a menos de `Get2DRadius + r` en x/z (`GetDistanceInMetres` 0x74CD70, una hipotenusa).
+  Anillo = 0. Por último cinco rocas `MSH_Z_SPELLROCK01` (567) en el centro ± 4 m que se rompen en pedazos (no portado).
+- **`Object::CanBeDestroyedBySpell`** (vt 0x778, 0x639960; responde al evento 7, 0x720DBD, que devuelve `== 1`):
+  `IsEffectReceiver(NULL)` y no la marca +0x25 & 0x40, y si está en un guion (vt 0x448 con g_game +0x25005C → +0x45E8
+  y +0x45EC) solo para un hechizo con +0x25 & 4. Dicen 0: `Creature` 0x47B1E0, `Field` 0x529FF0 y `CitadelPart`
+  0x4695D0 (corazón de la ciudadela, partes, corral, lugar de culto, tótem de culto). **(inferido)** openblack no lleva
+  la marca 0x40 ni los objetos de guion: se toman a 0.
+- **`Object::DestroyedByBeam`** (vt 0x500, 0x63AB20) = `ToBeDeleted(0)`: árboles y árboles muertos con `DeleteTree`,
+  animales con `animal_ai::Remove`, el resto como el `DestroyedByEffect` genérico. `Abode::DestroyedByBeam` 0x402CB0
+  (todas las clases de Abode, el almacén, el dispensador, el tótem): `ReduceLife(GetLife(0))`. **(aproximado)** los
+  aldeanos se van con `life::Kill` (el `Villager::ToBeDeleted` no está portado) y un edificio a vida 0 se queda en pie
+  (`Abode::ReduceLife` 0x405D90 sin portar, como en el fuego).
+
+### El rayo que se ve (SF_BeamExplosionFX, PT 138)
+
+- `UR_MoveAtom::ModifyAtomCore` 0x6A5E50 (DefineProperties 0x6AE240: +0x20 StartTime, +0x24 StopTime, +0x28
+  MoveSmoothly, +0x2C..+0x34 Start, +0x38..+0x40 Stop): entre StartTime y StopTime (incluidos) t = (edad − inicio) /
+  (fin − inicio), 1 en el paso que llega al final, `t²(3 − 2t)` con MoveSmoothly; la posición local = inicio + (fin −
+  inicio) t. La columna `MSH_S_BLAST_CENTRE` baja de 120 m al suelo en 0,4 s.
+- `UR_ChangeScaleXYZ::ModifyAtomCore` 0x6A5240 (DefineProperties 0x6ADE60): ruleScale = el XZ interpolado, stretch =
+  Y / XZ (0 si XZ ≤ 0,0001, [0x8BF518]); pasado StopTime, solo el primer paso escribe los valores finales. Los cuatro
+  conos `MSH_S_BLAST_CONE` se abren de 0 a 12 en XZ con Y 8.
+- La columna lleva `FaceCamera` (abajo). El mapa de luz `S_BeamSingleLightMap.raw`, el sonido `LASERBEAM_1` y el
+  `AddSoundToAtom` de `LASERBEAM_EXPLODE` con temblor de cámara ya estaban portados.
+
+### Las mallas de partículas (`Creators/Mesh.cpp`, Particle3DObj::DrawAt 0x679FD0) y la cúpula del escudo
+
+- **Fiel:** el ctor de `ParticleMeshCreator` 0x6A8960 pone `MeshChangeMaterialProps` = 1 y doble cara = 1 (antes se
+  tomaba 0): así **`UseAdditiveAlpha` vale para la cúpula** (SF_DefenseSphere no da MeshChangeMaterialProps) y para el
+  rayo. Con él, `GJUtils::SetMaterialProperties` 0x57E120 da el modo 13 (SRCALPHA / ONE, sin escribir Z): el paso de
+  transparentes lo dibuja ahora así (`RenderContext::additiveInstances`, `Renderer.cpp`).
+- **Fiel:** `UsePlayerColor` / `UsePlayerColorBlend` (fn_006A85E0, para **todos** los creadores, sprites incluidos: no
+  se aplicaba en ninguno): pc = `GetPlayerColour` del jugador del efecto con alfa 0xFF (el negro del neutral pasa a
+  blanco); con mezcla b = ftol(Blend × 255) & 0xFF ≠ 255, cada canal 255 + ((c − 255) b >> 8); el color del átomo × pc
+  >> 8 por canal. La cúpula usa 0,5 (con el rojo del jugador 1: (254, 162, 162)). `psys::TintWithPlayerColour`.
+- **Fiel:** `FaceCamera` (0x67A032): θ = atan2(d.z, d.x) − atan2(r2.z, r2.x) con d = posición − cámara en x/z y r2 la
+  fila Z; r0' = cos θ r0 + sin θ r2, r2' = cos θ r2 − sin θ r0; la fila Y × `HeightStretch` (ctor 1).
+  `FaceCameraSprite` (0x67A250) no lo usa ningún archivo: sin portar.
+- Con esto **la cúpula del escudo ya se ve** (nota de la revisión 3a): las 32 placas
+  `MSH_S_SPELLBALLSURFACE02` se dibujan en modo aditivo con el color del jugador y forman una burbuja clara
+  (`m6b_dome4_t30.png`), en vez del parche apenas visible de antes.
+- **`DrawCutByPlane` no recorta nada en la cúpula:** solo cambia la llamada (fn_00679F20: vt 0x11C en vez de vt 0x104),
+  y la malla de una partícula es un `LH3DStaticObject` (`LH3DObject::Create(0)` 0x80B4F8, vtable 0x9A2974) cuyo vt 0x11C
+  es fn_0080C050, un dibujo directo de sus primitivas. El corte por y = 0 es solo de los objetos animados (fn_00811C70,
+  [rendering.md](rendering.md)). La nota de la revisión 3a («sin recorte del suelo») queda resuelta: no hay nada que
+  portar.
+- **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la w de la cuarta
+  columna), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
+  original pone solo el color (`SetColour` vt 0x2C → obj +0x4C / +0x50). Sin portar: `UseScriptHightlightPulse`
+  (fn_0070A510), `CastHumanShadow` (lista 0xD4EDCC), `UseDynamicLighting` (bit 0x20), `UseGlobalAlpha` y el orden Z por
+  objeto.
+- **(aproximado)** `ParticleAnimCreator` (mariposas y murciélagos del bosque) se dibuja como malla quieta en su postura
+  de reposo; falta el .anm (Particle3DAnim::DrawAt 0x67A8E0: `GetCycleTimeFromFrame` 0x6C85F0, `SpeedUpFactor`, la
+  mezcla con MeshFileName1/2 entre FrameToStartBlend y FrameToEndBlend).
+
+### Las otras clases que faltaban
+
+- `UR_KPStretchHeight` 0x6A50C0 y `UR_KPMoveAtoms` 0x6A60B0 (el champiñón del curar potenciado, SF_HealChakraPU):
+  curvas `KPSplineInterpolator` (`PSys/Rules/KeyPoints.cpp`). El setter de la propiedad (0x6AE170) copia los pares (t,
+  valor) y fn_005B3760 calcula las segundas derivadas (el `spline()` de Numerical Recipes) con **pendiente 0 en los
+  extremos**, porque el ctor de cada regla pone la marca del array (+8 = 1; sin ella 1e30, natural); `EvalAtT` 0x6A7EB0
+  es `splint` (bisección, h²/6), sin recortar fuera de las claves. StretchHeight: stretch = curva(edad del átomo) entre
+  StartTime y StopTime (ctor 0 y 5). MoveAtoms: posición = `GetCurrentParentPos` + (0, curva(edad), 0), × índice / (n −
+  1) con `MovePropAtomIndex` (el índice 0 es el átomo más nuevo, la cabeza de la lista del original).
+- `UR_OrientSpriteWithVelocity` 0x69A790 (las llamas de SF_FireBallInHand; `PSys/Rules/Orient.cpp`): la primera vez v =
+  la velocidad y k = −10 ln(1 − SmoothFactor); cada paso v += (velocidad − v)(1 − e^(−k dt)); u = −v + (0,
+  ProportionDefault, 0) en el marco de la cámara y `SetAngleY(atan2(−u_y, u_x) + π/2)` 0x674360. **(inferido)** la
+  matriz 0xEA1D28 se toma como la rotación mundo → cámara (x = u · derecha, y = u · arriba).
+- `UR_ForestPath` 0x6A3770 (`PSys/Rules/Forest.cpp`): con la edad de la colección, r = RadiusSpline y h = HeightSpline
+  (las mismas curvas KP); por átomo tres ángulos al azar (2π) la primera vez, θ = fmod(edad · ThetaSpeed + θ0, 2π), φ
+  igual con PhiSpeed; p = SphereRadius · r (· ScaleSphereRadius) · (cos θ cos φ SX, sin φ SY, sin θ cos φ SZ), +
+  GetCurrentParentPos fuera de jerarquía, y + h en y; la velocidad = movimiento / dt.
+- `ParticleGoodEvilCreator` 0x6AAA00 (DefineProperties 0x6B40C0, ctor 0x6AA990: `AlignmentSwitch` −0,5): el creador malo
+  si el efecto tiene jugador con alineamiento (GPlayer +0x60 → +0x08) < AlignmentSwitch, si no el bueno
+  (`Creator::Resolve`, PSys.h). Las mariposas siguen quietas hasta que la lane m4c porte `UR_Flocking`.
+
+### Sin portar / pendiente
+
+- **Los pedazos**: fn_00681260 / fn_006812B0 encolan la malla de un objeto (o las cinco rocas 567) en las colas 0xD4E320
+  / 0xD4E308 que vacían `UR_ExplodeObject` / `UR_ExplodeObject2` (0x6814E0 / 0x681560, SF_ExplodeObject) con
+  `UR_ExplodeObject::ExplodeMesh` 0x6807B0 (0x960 bytes): los triángulos salen volando desde 5 m bajo el centro a
+  BlastSpeed. Sin eso los objetos borrados desaparecen de golpe.
+- La marca en el suelo de fn_008251C0 (malla 0x251 = 593 del paquete, objeto con vida de 15000 ms en la lista 0xEB9A00
+  y `SmokyStuff::Create`).
+- `GetActualObjectToEffect` de la ciudadela (CitadelHeart 0x468C30, CitadelPart 0x469780).
+- `ER_EmitFromParentAtom` y `CreateRule_GameObjectRef` (SF_SparklesFromObject, SF_ButterfliesOnObject, criaturas): no
+  los usa ningún milagro del jugador.
+
+### Ganchos, pruebas y capturas
+
+- `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` lanza la explosión (`EXPLOSION_ONE_PU_ONE` / `_PU_TWO` para Many /
+  Loads); `OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"` pide capturas esos turnos después de empezar la
+  primera explosión ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)). Con
+  `OPENBLACK_SPELL_TRACE=1`: `Explosion: started ...` con sus objetivos (distancia, radio, clase), cada objeto destruido
+  (anillo, explotados, borrados) y lo no portado.
+- `test_explosion`: ChangeScaleXYZ, MoveAtom, la cadencia de los eventos 2 y el cierre de un archivo como Single, el
+  tinte del jugador, FaceCamera, las curvas KP y el creador bueno / malo.
+- Capturas en `dev\_audit\magic\`: `m6b_beam3_t6/_t9/_t20.png` (BEAM_EXPLOSION junto al almacén de Land1: la columna
+  con los conos, el resplandor del suelo y, al final, los tres árboles que ya no están; `m6b_beam3.log`: los tres árboles de la
+  lista destruidos con el anillo a 6, 14 y 16 m (en otra pasada también un aldeano a 12 m) y el evento 2 por turno con
+  burn 200); `m6b_beampu2_t12/_t40/_t80.png`
+  (BEAM_EXPLOSION_PU2 = SF_BeamExplosionLoads en el pueblo: decenas de columnas repartidas por el
+  `SpreadingDiskEmitter`, humo y una casa ardiendo; 39 objetos destruidos); `m6b_dome4_t30.png` (la cúpula SHIELD de
+  radio 40 sobre el almacén, lanzada por el jugador neutral para que la fuerza no baje: ahora se ve como una burbuja
+  aditiva clara, frente al parche apenas visible de `m6s_shield_dome.png`); `m6b_forest_t80/_t110.png` (las mariposas del bosque como mallas quietas en
+  sus cinco grupos, moviéndose con `UR_ForestPath`); `m6b_healpu.png` (HEAL_PU_ONE: el champiñón de las curvas KP sobre
+  el almacén); `m6b_fire_hand.png` (las llamas de la bola de fuego en la mano con `UR_OrientSpriteWithVelocity`).
+
+## Tormenta, tormenta eléctrica y tornado (M6-storm, `Magic/Spells/SpellStormAndTornado`, `PSys/Rules/Storm`, `ECS/Weather/{LightningFlash,StormClouds}`)
+
+Informes: `destructive.md` §6 y `visuals_sound.md` §4.9; lo leído de nuevo en `runblack.exe` para este port (y lo que
+corrige a los informes) está en `dev\tmp_dis\miracles\impl\m6st\` (`tornado.txt`, `stormcast.txt`, `drawclouds.txt` y
+`props.py`, que saca los desplazamientos de las propiedades de los `DefineProperties`). Los tres MAGIC_TYPE (16 STORM,
+17 STORM_PU1, 18 STORM_PU2) son la misma clase y lanzan el mismo `SF_LightningStormPush`; lo que cambia es el nivel de
+mejora que leen sus reglas (−1, 0, 1: el derivado de la semilla, R3 sin verificar) y las filas de efecto y de
+`GMagicStormAndTornadoInfo`.
+
+### El hechizo (`SpellStormAndTornado.cpp`, 0xF8 bytes, vtable 0x9847DC)
+
+- Constructor 0x72D9C0: `Spell(tipo, creador)`, +0xEC (el PSys del remolino) y +0xF0 (la reacción de agua) a 0, y entra
+  **el primero** en la lista 0xDA07F8 (cuenta 0xDA07FC).
+- `InitWithPos` 0x72DAA0: el radio (castData +0) se recorta a [minRadius 20, maxRadius 1000] y se escribe de vuelta
+  (`min(r, max)` y luego `max(r, min)`); `Spell::InitWithPos` (el PSys principal, magnitud = radio); después un segundo
+  PSys **sin hechizo**, `GJPSysInterface::Create(NULL, 106 SF_StormCast, el LHPoint de la posición, PSysProcessInfo
+  +0x24, 1.0, 0)`, cuya magnitud pasa a ser la del hechizo (vt 0x11C).
+- `Process` 0x72DB90: olvida la reacción +0xF0 si ya no está; si hay remolino, un `PSysProcessInfo` de ceros con fuerza 1
+  y activo que rellena el creador (`UpdateSpellInfo`, vt 0x5C), fuerza 1 otra vez, y un paso del remolino; sin creador,
+  o cuando el remolino acaba (5), se borra. Después `Spell::Process`.
+- `CalculateCostToMaintain` 0x72DB50 = el de `Spell` × (radio / radiusForNormalCost 40)². `GetRadius`/`Get2DRadius`
+  (vt 0x60/0x64) = la magnitud. `CloseDown` es el de `Spell`. `ToBeDeleted` 0x72DA20: sale de la lista,
+  `Spell::ToBeDeleted` y borra el remolino.
+- fn_0072DCC0, desde el enfriamiento por lluvia del fuego (fn_0072EFB0 0x72F2D9, con la posición +0x14 del objeto que
+  arde): el primer hechizo de tormenta sin reacción de agua cuyo radio pase la distancia en x, z a su +0x14 recibe
+  `REACT_TO_MAGIC_WATER_PUTTING_OUT_FIRE` (34) de su jugador, sellada. Conectado en `ECS/Fire/FireEffect.cpp`.
+- Filas (info.dat): `rainAmount` 50 / 100 / **0**: el tornado **no llueve**. Coste por turno 20/25/30 × (r/40)², por
+  evento 0/2/10, temporizadores 40 s.
+
+### Los núcleos y las nubes (`UR_CloudMoverNew` 0x6D41C0, `UR_CloudGather` 0x6D4A70)
+
+`SF_LightningStormPush` crea 5 núcleos invisibles (grupo 0, `CreateRuleSphere`), cada uno con su colección de nubes
+(grupo 2).
+
+- **`UR_CloudMoverNew`** (ctor 0x6D4150: DelayBeforeMove 0, WindDamping 0,06, WindMagnification 60): el primer paso pone
+  los núcleos en el origen del PSys; hasta `DelayBeforeMove` (5 s en el fichero) no hace nada; después, por núcleo: el
+  viento `fn_00771B10(p, suavizado)` (0 si lanza el guion), `T = viento × WindMagnification × 0,1`, `v += WindDamping ×
+  (T − v) × dt`, `p += v × dt`. La posición del hechizo (+0x14) sigue al núcleo. Con nivel 1 los núcleos rebotan en los
+  escudos (`DoAnyShieldDeflections`). 0x6D452C..0x6D4601 miden la pendiente y escalan una **copia** de la velocidad que
+  nadie lee: en W120 la pendiente no hace nada.
+- **`UR_CloudGather`** (ctor 0x6D4700; las propiedades por desplazamiento en `props.py`; `TornadoGroup` no está en el
+  fichero: 10):
+  - Primer paso: relámpagos si el nivel ≠ −1; lluvia sí; el rumbo = `GetCurrentHeading` 0x673660 =
+    `(cameraForward.x, 0, cameraForward.z)` **sin normalizar**; solo la colección del **primer núcleo** (índice 0 en su
+    colección, fn_00673CA0) registra la tormenta, y con nivel 1 le añade al núcleo el grupo del tornado. Ritmo
+    `NumAtoms / TimeToForm`; giro ±1 al azar; **el primer rayo** a los `rand(0,5; 1) × SwitchLife + LightningDelay`
+    (3 y 8 s en el fichero: entre 9,5 y 11 s). El informe tenía el retraso como intervalo: es al revés.
+  - Emite mientras `cuenta < debidas` (la primera nube sale en el primer paso) y haya menos de `NumAtoms`.
+  - Cada nube (fn_006D4880): radio `(rand(0,7; 1) + 0,7) × R` (1,4..1,7 R, R = el proveedor Radius = 1,2 × magnitud),
+    ángulo al azar, edad 0, altura extra `rand(HeightVaryAmount)`. Pasado `TimeToForm` vuelve a empezar: las nubes
+    **giran hacia el centro** en `TimeToForm` s (`r = (1 − f) × radio × (1 + 0,3 cos(edad × 0,1 + θ)) × escala de la
+    colección`, con `f = edad / TimeToForm`), con velocidad angular `±MaxAngularSpeed × (1 − (2f − 1)²)`.
+  - Su aspecto: crecer = `f / FracToMaxSize` y luego baja; color gris `MaxColor + (MinColor − MaxColor) f`, alfa
+    `MinAlpha + (MaxAlpha − MinAlpha) crecer`, escala `(MinScale + (MaxScale − MinScale) crecer) × CloudScale`, y la
+    proporción `MaxCloudRatio + (MinCloudRatio − MaxCloudRatio) f` va al estirado del átomo, que el creador de niebla
+    usa como su k (`TakeRatioFromMatrix`). La colección, en sus primeros 10 s, multiplica la proporción y el radio por
+    `c + (1 − c) × suavizado(t)` (`CloudRatioMaxCollection` 1, `CollectionRadiusInitialScale` 2).
+  - Altura: `baseScale × altura extra × escala + CloudHeight`, más la altura media del suelo en una rejilla de 3 × 3
+    puntos a 0,33 R del núcleo (con el tornado, la del origen del PSys, que es la base del tornado).
+  - Se dibujan como `LH3DMist` con el creador de niebla de la lane del agua (`PSys/Creators/Mist.cpp`): corregido ahí
+    que la k tome el estirado y que el color se multiplique por el color base de la tabla de luz [0xFA26A4]
+    (`LandLightTable::LastBuiltBase`, la del fotograma anterior). El mapa de sombra `S_SMClouds16` **no se dibuja**
+    (pendiente: no hay textura de luz dinámica del terreno).
+- **La tormenta registrada** (fn_006D5730, sobre los valores de fn_0083F3F0): interior `max(R, 60)`, exterior
+  `max(2,5 R, interior + 20, 80)` (los tres `fcomp; test ah, 0x41; je` se quedan con el valor solo si es mayor: el
+  informe, el gancho `OPENBLACK_TEST_WEATHER` y esta wiki los tenían como mínimos; corregido); fundido
+  `0,5 × TimeToForm` (4 s), vida 1e9 s, fuerza 1, **0 nubes** (`DrawClouds` no dibuja nada para el milagro),
+  elevación = el proveedor CloudHeight (1,5 × magnitud); 20 grados, lluvia `min(ftol(fuerza × rainAmount) como byte,
+  100)` (así `fuerza 3 × 100 = 300 → 44`), nublado 80, nieve 0; viento = rumbo × `fuerza × lerp(WindMinSpeed,
+  WindMaxSpeed, clamp((mag − MagMin) / (MagMax − MagMin)))`, cada componente recortado a ±128 y redondeado a un byte
+  (128 da −128). La posición **no** se pone al crearla: `fn_006D5950` la copia del núcleo cada paso, y como el destino
+  del `GWeather` se queda en (0, 0, 0), `GWeather::Update` la acerca 0,1 m por turno hacia el origen del mapa antes de
+  que la vuelva a poner (fiel, despreciable). Al cerrar se marca para borrar (fn_006D4950); si alguien la borra (un
+  `KILL_STORMS_IN_AREA`), el paso siguiente registra otra.
+- **Rayos** (0x6D52A0): con relámpagos y nubes medio formadas (las de `f > 0,5`, la lista estática 0xD4EE88, que cada
+  colección vacía al empezar), el siguiente en `rand(0,5; 1) × SwitchLife / max(poder tribal, 1)`; sale de una nube al
+  azar: la primera vez `AddSubCollection(LightningGroup)` sobre ella; las siguientes la misma colección **se mueve** a
+  la nube nueva (fn_00674A30) y, al pasar `rand(0,5; 1) × LightningLife`, se suelta de la nube y se queda sin actualizar
+  hasta el siguiente. El rayo es el `UR_Lightning` de M5 en su modo del padre (radio 1 × magnitud): eventos tipo 3 con
+  la fila de la tormenta (STORM_PU1: burn 10000, hit 0,0045 → incendia al primer golpe). El trueno es `SoundLightning`
+  en la nube, con tamaño al azar (< 0,33 → 3, < 0,66 → 2, si no 1) y banderas |= 0x22. La nube recibe un especular
+  azulado (`v = (1 − t / SpecLife) × 255`; ARGB `(255v, 200v, 200v, 255v) >> 8`) que la rama de efecto de `LH3DMist`
+  no dibuja (`fn_007FA300`, lectura de mapa): se guarda y no se ve.
+
+### El tornado (`UR_Tornado` 0x6D18B0; ctor 0x6D1680)
+
+Solo con nivel 1 (STORM_PU2): el grupo 10 bajo el primer núcleo, y bajo él el grupo 11 con la regla.
+
+- `UpdateBaseAndTopPoints` 0x6D1C60: el fundido de cierre `1 − (t − cierre) / FadeOutTime`; el alfa de las colecciones
+  `min(edad / FadeInTime, fundido)`; la cima sigue al padre (la raíz del tornado, que `UR_FollowParent` deja en el
+  núcleo) pasado `DelayBeforeMove`; **la base vaga alrededor de la cima** `(n(t) + n(2t)/2, 0, n(1,3t) + n(2,6t)/2) ×
+  TornadoScale × TopMoveAmp` con `t = edad × TopMoveFreq` (`VSNoise1To1`), en el suelo; el origen del PSys pasa a ser la
+  base; la cima a `TornadoScale × TopHeight` sobre ella; velocidades por paso. **Cada paso** mientras no cierra:
+  `SpellEvent` tipo 2 en la base con su velocidad (fila 18: hit 0,001, empujar 0,001, radio 1).
+- El embudo: radio `(BaseRadius + (TopRadius − BaseRadius) h²) × TornadoScale` (fn_006D2790; el informe sospechaba
+  otro exponente: es 2); su eje a la altura h, `lerp(base, cima)` con la ganancia de Schlick `gain(FunnelBendParameter,
+  h)` en x, z (fn_006D2910; `bias(b, x) = x^(ln b / ln 0,5)`, 0xD4EEA0 = 1 / ln 0,5) más un serpenteo de
+  `TornadoScale × WiggleAmplitude` con fase `h × WiggleCount × π`.
+- Los átomos que vuelan (`UpdateFlyingAtoms` 0x6D31F0): giran a `lerp(BaseThetaDot, TopThetaDot, bias(ThetaBias, h)) ×
+  velocidad propia (0,5..1,5)` (más despacio fuera de la pared: × `r / (ρ + 0,1)`), el radio se acerca a la pared con
+  `dρ/dt = −0,5 (ρ − r)` integrado con punto medio (fn_006D28B0), suben hacia `lerp(base, cima, mezcla)` con k 0,1
+  (objetos reales) o 0,3, y se suma la velocidad del embudo a esa altura. Los objetos reales (estado 0) y los de adorno
+  (1) se van al grupo 12 (`GroupToMoveToOnceDone`: gravedad 10, chocan con el suelo, 15 s) cuando pasan de 0,9 de la
+  altura o al cerrar; los de adorno empiezan con gravedad y se mezclan en el vórtice en `PretendBlendTime`.
+- **Coger** (fn_006D21B0): una vez cada tres turnos de juego, pasado `FadeInTime`, **un objeto por vez**; alcance
+  `(r(0) + r(1)) × clamp(poder tribal, 1, 5)`; espiral de `(ceil(R/10) + 2)²` celdas (GUtils::Spiral 0x74D7E0 con
+  dirección 1 y cuenta 1, 0x6D22E9: −x, −z, +x, +x...; la auditoría 4 corrigió el recorrido, que era el simétrico); cada objeto con objeto 3D cuya
+  celda propia sea esa y a menos de su radio 2D + alcance. Si cabe entero (`CanBecomeAPhysicsObject`, `2 r(0) > radio`,
+  `r(1) > radio`; para las vasijas y montones, el flag de su `GPotInfo`, Pot 0x66E8F0) se le pregunta al hechizo
+  (`SpellEvent` 7, `CanBeDestroyedBySpell`); si es un montón (`IsPileResource`), se le quitan `lerp(150, 650,
+  clamp(TornadoScale))` (redondeado) como **un montón nuevo del tipo de la mano** (vt 0x870 `GetHandPotInfoType`:
+  HAND_FOOD 12 / HAND_WOOD 11; de un montón del almacén se quita del almacén), escalado `rand(0,7; 1,2) ×
+  clamp(TornadoScale, 0,2, 1)`, y vuela ese. Una criatura: fn_00477060 (no hay criaturas).
+- Lo que lleva (`RenderParticleGameObject`, 0x6C9E60): el átomo copia la matriz del objeto (fn_00674150) y el objeto
+  dibuja la del átomo (`DrawAt` 0x67B170). Cuando el átomo muere (choca con el suelo en el grupo 12, o a los 15 s), el
+  destructor 0x6C9FC0: **un vivo** se deja en su sitio y muere (`DestroyedByEffect`: el aldeano muere), **cualquier otra
+  cosa se borra** (`ToBeDeleted`): el tornado destruye lo que se lleva.
+- Polvo (`UpdateDebrisAtoms` 0x6D2AF0): `DebrisEmitRate` por segundo, como mucho 50, del color de polvo del material del
+  suelo (`GTerrainMaterialInfo.tornadoDustColorRGB`, el segundo material de la altitud en su país); adornos
+  (fn_006D2E70): `PretendEmitRate × TornadoScale` por segundo, solo en tierra seca y con el tornado del todo visible
+  (alfa > 250): pollos y matorrales. Las mallas del embudo (`S_TornadoNonFade.l3d`, fn_006D2A40) en la base, girando
+  `(1 + 0,13 i) × MeshThetaDot`.
+- No portado (no se usa): fn_006D1AD0, los sprites del embudo (`NumAtomsToCreate` = 0 en el único fichero). Leídas por
+  ningún código de W120: `PretendHeight`, `MaxSearchDistance*`, `LocalSearchDistance`, `PauseBeforeAffectsGameObjects`,
+  `UseTornadoStrength`, `K1_Accn`, `ScaleWhipUp`.
+
+### El remolino (`UR_StormCast` 0x6D59B0, SF_StormCast)
+
+30 átomos en anillo alrededor del padre (el grupo 0 tiene jerarquía y escala = la magnitud): radio que se encoge de
+`MaxRadius` a `MinRadius` a `RadiusDot` y, pasado `DispersalAge`, crece y se desvanece en `FadeOutTime`; giro
+`lerp(ThetaDotMinRadius, ThetaDotMaxRadius, radio normalizado) × (1 ± ThetaDotSpread)`; a `InitHeight × escala` sobre el
+suelo; el padre avanza por el rumbo **escalado a 20** (+0x64 del ctor, sin propiedad), acelerando de 0 a 1 entre
+`AccnStartTime` y `AccnEndTime`.
+
+### El destello y las nubes de las tormentas registradas (`ECS/Weather/LightningFlash`, `StormClouds`)
+
+- **El destello** (el objeto de 0x24 bytes en GWeather +0x70): `fn_00837290(punto, radio exterior, intensidad)` lo
+  enciende en los relámpagos de `GWeather::Update` (0,5 los de horquilla 0x83FBF0, 1,0 los de sábana 0x83FC5D);
+  `fn_008372D0` lo envejece cada turno y lo apaga pasados 0,8 s; `fn_00837200` cada fotograma (desde
+  `LH3DAtmos::Update3D`, solo las tormentas no marcadas): `s = 1 − edad`, f1 = s, f3 = s³, los dos 0,1 entre 0,2 y 0,5 s,
+  × intensidad. El sello de luz del terreno `fn_0086CFF0(f3)` (el mapa radial de 64 × 64 0xED92F0, `(32 − d) × 9`) **no
+  se dibuja** (pendiente, sin textura de luz dinámica). **`weather::LightningFlashAtCamera(cámara)`** es [0xFA2768] de
+  `Update3D` 0x83587C..0x835903: la tormenta más cercana en x, z (las no marcadas; la primera de las iguales), «dentro»
+  si `d² < ((interior + exterior)/2)²` de su descriptor, y `ftol(clamp(f1, 0, 1) × 255)`. **Rareza fiel**: la marca de
+  dentro no se borra cuando aparece otra más cercana de la que se está fuera, que entonces da su destello.
+- **Las nubes** (`GWeather::DrawClouds` 0x83FC90, para todas las tormentas, marcadas o no, desde fn_0083F8B0 cada
+  fotograma): hasta 16 cúpulas (`numClouds` se recorta en el propio descriptor), una nueva por fotograma: k
+  `Random(2,5; 5)`, tamaño `(exterior + interior) × 2 Random(0,01; 0,015)`, en `(±1, Random(−10, 10) + elevación, ±1)`;
+  cada 400 **fotogramas** un destino nuevo `(±1, Random(0, 20) + elevación, ±1)` al que van en pasos de 0,0025;
+  posición `(exterior + interior)/2 × (x, z)` desde la posición dibujada, y la altura sobre el suelo; color = el base de
+  la tabla de luz con cada byte × (1 − negrura/2), alfa `fundido × 0,75 × alfa base`, y la neblina por distancia de
+  fn_007FEB30; se dibujan por encima de alfa 5. Van a `mists::Submit` (la rama de efecto). La sombra de la tormenta en el
+  suelo (`fn_0086CFF0` modo 2 con el mapa 0xEE9D3C, fuerza `(negrura + 0,7) × fundido`) **no se dibuja** (pendiente).
+  `Random` 0x81D180 es el `rand()` del CRT (aproximado: aquí un generador propio del mismo tipo). El milagro no tiene
+  estas nubes (0); las climáticas y las de los objetos de tiempo sí (8 por defecto).
+- **Nublado en la cámara** (`Clouds::WeatherOvercastAtCamera`, de mapa): `GCamera::Update` 0x4426BA, el byte de nublado
+  de `LH3DAtmos::GetWeatherSmooth(cámara, 1)` × 0,01 → [0xD1A26C], que `DrawSky` 0x5E2215 copia a [0xFA2754] para la
+  tabla de luz. Puede pasar de 1 (un byte de hasta 127).
+
+### La alineación del cielo (`alignment::GetInterfaceAlignment`)
+
+`fn_0064AC30`, una vez por turno al final de `GPlayer::ProcessPlayers` (0x64A697; aquí en el hueco 3 del turno, después
+de `alignment::ProcessPlayers`): el jugador con más influencia (`Influence::CalculateMostInfluentialPlayer` 0x5CD630: el
+primero, en el orden de los jugadores, cuya influencia supera la de los anteriores y 0; si ninguno, el neutral) en la
+posición de la interfaz, **GInterfaceStatus +0xB0 = la posición de la cámara** (lo dice `UpdateSpellInfo` 0x5DC948,
+que calcula el frente de la cámara como +0xBC − +0xB0), y `x = clamp((alineación + 1)/2, 0, 1)` es lo que recibe
+`fn_005E2240`. Empieza en 0,5; `DoCitadelMultiplayer` la fija a 0,5 (no hay multijugador).
+`Clouds::InfluentialPlayerAlignment` (de mapa) devuelve `2x − 1`, salvo el gancho `OPENBLACK_TEST_SKY_ALIGNMENT` o el
+deslizador de depuración movido de 0.
+
+### Inferido, aproximado y pendiente (tormenta)
+
+- (sin verificar, R3) El nivel de mejora por la semilla: −1 / 0 / 1.
+- (inferido) Lo que hace `InitialisePhysics` con un aldeano o animal que se lleva el tornado: aquí sale de las físicas y
+  pasa al estado de la mano (IN_HAND, `animal_ai::PlaceInHand`). El bit 0x10 de Object +0x25 que mira fn_006D2140 no se
+  comprueba. La distancia de `GetDistanceInMetres` se toma en x, z.
+- (aproximado) El sitio donde muere un vivo soltado: donde se vio su átomo por última vez (el turno o el fotograma). La
+  escala del objeto llevado es uniforme (la del eje Y de su matriz), como en el original.
+- (aproximado) Quitar recursos de un montón suelto: la cantidad y el hundimiento (como la mano); el montón vacío no se
+  borra. Los montones se buscan también fuera de la rejilla del mapa (openblack no la llena con las vasijas).
+- (aproximado) La colección del tornado se actualiza el mismo paso en que se crea (el original la enlaza en la cabeza de
+  la lista y entra el paso siguiente): `Effect::UpdateCollection` recorre ahora por índice.
+- (aproximado) Las nubes de las tormentas registradas cuentan fotogramas como el original, pero openblack dibuja más
+  fotogramas por segundo; su contador del atlas avanza siempre (no solo en pantalla); la base de la tabla de luz es la
+  del fotograma anterior.
+- (pendiente) El sello de luz del destello, la sombra de la tormenta y la sombra de las nubes del milagro (no hay textura
+  dinámica de luz del terreno); el especular de las nubes (la rama de efecto no lo dibuja, según la lectura de
+  fn_007FA300); las criaturas (fn_00477060); fn_006D1AD0.
+- Visto en las capturas: el embudo (`S_TornadoNonFade.l3d`, alfa 60) se ve poco; puede ser el color de paisaje de la
+  malla (`DrawWithLandscapeColor`, `Creators/Mesh.cpp`): por revisar.
+
+### Ganchos, pruebas y capturas (tormenta)
+
+- Ganchos: `OPENBLACK_TEST_SPELL=STORM,x,z,60` (y `STORM_PU1`, `STORM_PU2`), `OPENBLACK_TEST_STORM_SHOT`,
+  `OPENBLACK_TEST_STORM_STRIKE_SHOT`, `OPENBLACK_TEST_STORM_PILE`, `OPENBLACK_TEST_STORM_CLOUDS` y
+  `OPENBLACK_STORM_TRACE` en [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración).
+- `test_storm`: el recorte y el coste del hechizo, el descriptor de fn_006D5730 (radios, viento, lluvia y sus rarezas),
+  las rampas de las nubes, el embudo (radio, bias/ganancia, RK2), una colección de nubes que registra su tormenta y la
+  marca al cerrar, el destello (curva, mapa, cámara y la marca que se queda), el color de las nubes registradas, la
+  alineación de la interfaz y, con el juego, `SF_LightningStormPush` / `SF_StormCast` (sus clases registradas; el
+  remolino solo, que acaba a los 4,4 s).
+- Capturas en `dev\_audit\magic\` (Land1, lanzado en el turno 200 sobre el almacén):
+  - `m6st_clouds_10/40/80.png` (STORM desde arriba): las nubes se juntan sobre el pueblo; la traza da lluvia 50 y
+    nublado 80 en el centro;
+  - `m6st_gather_15.png`, `m6st_gather_45.png`, `m6st_rain_90.png` (STORM_PU1 de cerca, con el árbol 953 ardiendo desde
+    el turno 195): rayas de lluvia; el fuego pasa de 25 llamas a 2 en 4 s y echa vapor (lluvia 100: se enfría dos veces
+    más rápido, `1 + 0,01 × lluvia`);
+  - `m6st_strike_3/7/12.png` (los rayos n.º 3, 7 y 12): horquillas desde las nubes; con burn 10000 arden el almacén,
+    casas y árboles;
+  - `m6st_tornado_85..160.png` y `m6st_pile_82..120.png` (STORM_PU2, con un montón de comida de 400): el polvo, árboles,
+    vallas y aldeanos girando; la traza da `tornado takes pile/pot ...` con trozos del montón y del almacén;
+  - `m6st_puffs.png`, `m6st_puffs_high.png` (`OPENBLACK_TEST_STORM_CLOUDS="1818,2628,60,8,0.5,160"`): las cúpulas de una
+    tormenta registrada vistas desde dentro y desde arriba.
 
 ## Revisión de la ola 2 (lane «review2»: M2, M3, M5, M6a, M7 juntos)
 
@@ -1900,4 +2556,27 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
   - Semillas: el objetivo MagicFireBall (0x728A20).
   - Culto: el camino por sendero (58).
   - Fuego: la ruta alrededor del fuego.
-  - Clases de hechizo sin portar (tormenta, agua, bandadas, criatura) que corren como un Spell simple.
+  - Clase de hechizo sin portar (criatura, M8), que corre como un Spell simple (tormenta, agua y bandadas ya tienen
+    la suya, oleada 4).
+
+### Oleada 4 (agua, bandadas, tormenta, explosión de rayo; lane audit4)
+
+25 hallazgos (tabla en `dev\_audit\magic\assumptions_audit.md`, sección «Wave 4»): 4 corregidos, 1 comentario, 7
+marcados, 11 comprobados con el desensamblado y 2 sin cambio.
+
+- **Corregido para igualar el original:**
+  - Bandadas: al final de `SpellFlock::Process` la posición del jefe va a la **bandada** (+0x14, el centro del
+    dominio), no al hechizo (0x7234F2..0x723519).
+  - Tornado: la espiral de la recogida es GUtils::Spiral 0x74D7E0 empezada con dirección 1 (0x6D22E9); el port
+    recorría la simétrica.
+  - Tormenta: la reacción de apagar fuegos se olvida cuando no está disponible (vt 0x2C, 0x72DBA2), no solo cuando
+    desaparece.
+  - Bucle: fn_0064AC30 (alineamiento del cielo) va tras los viajeros de los teletransportes, al final de
+    GPlayer::ProcessPlayers (0x64A697).
+- **(aproximado):** la subcolección añadida a mitad de paso se actualiza ese paso (PSys.cpp); `MoveToBaseGroup` sin
+  colección raíz borra el átomo; las vasijas por celda del tornado salen del registro; el color base de las nieblas
+  es el del fotograma anterior; la salida de `UR_ForestPath` sin claves es 0.
+- **(inferido):** el +0x80 de `EventConditionAtomNearVillagers` en metros; el destino del jefe lobo antes de su
+  primer turno.
+- **Sin cambio:** `FixedObjectsInMapCell` recorre todo el registro por celda (lento con muchos objetos fijos);
+  `SetDeathCallback` de animales tiene una sola ranura (solo la usan las bandadas).

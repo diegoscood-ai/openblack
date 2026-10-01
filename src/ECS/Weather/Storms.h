@@ -69,6 +69,19 @@ struct Storm
 	float outerRadius {0.0f};      ///< +0xB0
 	float fade {0.0f};             ///< +0xB4 0 .. strength
 	bool drawClouds {false};       ///< +0x3C0 (the 0x3C8 GWeather of the weather things; bit 10 of the thing's flags)
+	/// +0x70 the lightning's light flash (0x24 bytes, ctor fn_00837110): started by the fork (0.5) and sheet (1.0)
+	/// lightning of GWeather::Update (fn_00837290 at 0x83FBF0 / 0x83FC5D), aged each turn (fn_008372D0), its light
+	/// worked out each frame (fn_00837200, ECS/Weather/LightningFlash.h)
+	struct Flash
+	{
+		glm::vec3 position {0.0f}; ///< +0x00 the lightning's point
+		float radius {0.0f};       ///< +0x0C the storm's outer radius
+		bool active {false};       ///< +0x10
+		float age {0.0f};          ///< +0x14 seconds
+		float f1 {0.0f};           ///< +0x18 the flash at the camera ((1 - age) x intensity, LH3DAtmos::Update3D)
+		float f3 {0.0f};           ///< +0x1C the land's light ((1 - age)^3 x intensity, fn_0086CFF0)
+		float intensity {1.0f};    ///< +0x20 (ctor 1.0)
+	} flash;                       ///< +0x70
 };
 
 /// fn_0083F6F0 -> fn_0083F590: a new GWeather at the head of the list (speed 1, target = its position)
@@ -91,13 +104,15 @@ void CalcAtmosAll(const glm::vec3& point, WeatherInfo& weather);
 void CalcAtmos(const Storm& storm, const glm::vec3& point, WeatherInfo& weather);
 /// Every storm, newest first (the debug hooks and the drawing)
 void ForEach(const std::function<void(const Storm&)>& function);
+/// The same with write access (the per-frame flash, LightningFlash.cpp, and the cloud puffs, StormClouds.cpp)
+void ForEachMutable(const std::function<void(Storm&)>& function);
 /// InitStaticsValues 0x54A8D1: deletes every storm (a new land)
 void Clear();
 
 /// The engine's callbacks for the storms' lightning (GWeather::Update): the fork one creates a PSys strike
 /// (0xEEA384 = 0x68E8F0, PSysGlobal::InitializeOneTimeOnly), the sheet one plays the thunder (0xEEA388 = 0x429CE0,
 /// GAudio); both get the storm, the point (storm x, z, land height + elevation) and the outer radius. Unset = nothing
-/// (the lightning PSys and the thunder are other lanes'); the light flash fn_00837290 is not ported either.
+/// (the lightning PSys and the thunder are other lanes'); the light flash fn_00837290 is Storm::flash (LightningFlash.h).
 using LightningCallback = std::function<void(const Storm&, const glm::vec3&, float)>;
 void SetForkCallback(LightningCallback callback);
 void SetSheetCallback(LightningCallback callback);

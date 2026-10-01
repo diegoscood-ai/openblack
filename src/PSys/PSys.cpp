@@ -31,6 +31,7 @@
 #include "Locator.h"
 #include "PSysRegistry.h"
 #include "Rules/Shield.h"
+#include "Rules/SurfRevol.h"
 #include "SoundAction.h"
 
 using namespace openblack::psys;
@@ -179,6 +180,7 @@ public:
 	{
 		Simple,
 		Disk,
+		SpreadingDisk,
 		Conical,
 	};
 	Emitter(const Object& object, Shape shape)
@@ -192,12 +194,17 @@ public:
 	    , visible(object.Bool("InitiallyVisible", true))
 	    , speed(object.Float("Speed", 1.0f))
 	    , radius(object.Float("Radius", 0.0f))
+	    // SpreadingDiskEmitter (DefineProperties 0x6AFA90): +0x54 StartRadius, +0x58 StopRadius, +0x64 Height. Its
+	    // StartTime (+0x5C) and StopTime (+0x60) are properties the class never reads (ModifyAtomCollection 0x6A6610)
+	    , startRadius(object.Float("StartRadius", 0.0f))
+	    , stopRadius(object.Float("StopRadius", 0.0f))
 	    , height(object.Float("Height", 0.0f))
 	    , spread(object.Float("Spread", 0.0f))
 	    , sound(ReadSoundAction(object, "SoundEmission"))
 	{
-		// only Conical and SpreadingDisk loop, and only with AllowMultipleEmits
-		multiple = object.Bool("AllowMultipleEmits", false) && shape == Shape::Conical;
+		// EmitterRuleSimple / DiskEmitter make one atom per step; Conical loops with AllowMultipleEmits (0x6A6BF4) and
+		// SpreadingDiskEmitter always loops (0x6A66DC)
+		multiple = (object.Bool("AllowMultipleEmits", false) && shape == Shape::Conical) || shape == Shape::SpreadingDisk;
 	}
 	// slot.state: x = next emission time, y = emitted count
 	bool ShouldEmit(Effect& effect, const Collection& collection, Collection::Slot& slot) const
@@ -250,6 +257,15 @@ public:
 				atom.position += glm::vec3(std::cos(angle) * r, height, std::sin(angle) * r);
 				break;
 			}
+			case Shape::SpreadingDisk:
+			{
+				// 0x6A6674: r = PSysFloatRand(StartRadius, StopRadius), theta = PSysFloatRand(2 pi); the atom's point moves by
+				// (cos theta r, Height, sin theta r)
+				const float r = startRadius + effect.Random(stopRadius - startRadius);
+				const float angle = effect.Random(2.0f * std::numbers::pi_v<float>);
+				atom.position += glm::vec3(std::cos(angle) * r, height, std::sin(angle) * r);
+				break;
+			}
 			case Shape::Conical:
 			{
 				const float phi = effect.Random(spread);
@@ -284,6 +300,7 @@ public:
 	bool visible;
 	float speed;
 	float radius;
+	float startRadius, stopRadius;
 	float height;
 	float spread;
 	SoundAction sound;
@@ -923,13 +940,14 @@ std::unique_ptr<Modifier> MakeModifier(const Object& object)
 std::unique_ptr<Creator> MakeCreator(const Object& object)
 {
 	const auto& c = object.className;
-	if (!c.starts_with("Particle") || !c.ends_with("Creator"))
-	{
-		return nullptr;
-	}
+	// a registered creator first: ParticleMeshCreatorAnimTextured (the water's rain cone) does not end in "Creator"
 	if (const auto factory = FindCreatorFactory(c))
 	{
 		return factory(object);
+	}
+	if (!c.starts_with("Particle") || !c.ends_with("Creator"))
+	{
+		return nullptr;
 	}
 	auto creator = std::make_unique<Creator>();
 	ReadCreatorProperties(object, *creator);
@@ -980,6 +998,8 @@ void openblack::psys::ReadCreatorProperties(const Object& object, Creator& creat
 	creator.g = static_cast<uint8_t>(object.Int("ColorG", 255));
 	creator.b = static_cast<uint8_t>(object.Int("ColorB", 255));
 	creator.a = static_cast<uint8_t>(object.Int("ColorA", 255));
+	creator.usePlayerColour = object.Bool("UsePlayerColor", false);
+	creator.usePlayerColourBlend = object.Float("UsePlayerColorBlend", 1.0f);
 	creator.initialScale = object.Float("InitialScale", 1.0f);
 	creator.randomiseScale = object.Bool("RandomiseScale", false);
 	creator.loopAnim = object.Bool("LoopAnim", true);
@@ -1014,6 +1034,9 @@ void openblack::psys::RegisterCoreModifiers()
 	const ModifierFactory disk = [](const Object& o) -> std::unique_ptr<Modifier> {
 		return std::make_unique<Emitter>(o, Emitter::Shape::Disk);
 	};
+	const ModifierFactory spreadingDisk = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<Emitter>(o, Emitter::Shape::SpreadingDisk);
+	};
 	const ModifierFactory conical = [](const Object& o) -> std::unique_ptr<Modifier> {
 		return std::make_unique<Emitter>(o, Emitter::Shape::Conical);
 	};
@@ -1027,7 +1050,7 @@ void openblack::psys::RegisterCoreModifiers()
 	RegisterModifier("CreateRuleSphere", MakeModifierOf<CreateRuleSphere>);
 	RegisterModifier("EmitterRuleSimple", simple);
 	RegisterModifier("DiskEmitter", disk);
-	RegisterModifier("SpreadingDiskEmitter", disk);
+	RegisterModifier("SpreadingDiskEmitter", spreadingDisk);
 	RegisterModifier("EmitterRuleConical", conical);
 	RegisterModifier("UR_WillowWisp", MakeModifierOf<WillowWisp>);
 	RegisterModifier("RemoveRuleOldAgeOnly", MakeModifierOf<RemoveOldAge>);
@@ -1341,8 +1364,57 @@ Atom* Effect::NewAtomInGroup(int group, const Creator* creator)
 	return nullptr;
 }
 
+void Effect::MoveToBaseGroup(Collection& from, const Atom& atom, int group)
+{
+	// 0x673BD0: fn_00673180 finds the first root collection of the group, fn_00673C00 unlinks the atom and links it at
+	// the head of that one (the order of a collection's atoms does not change what the rules do to each one)
+	const auto it = std::find_if(from.atoms.begin(), from.atoms.end(), [&](const auto& a) { return a.get() == &atom; });
+	if (it == from.atoms.end())
+	{
+		return;
+	}
+	auto moved = std::move(*it);
+	from.atoms.erase(it);
+	for (const auto& root : _roots)
+	{
+		if (root->group == group && root.get() != &from)
+		{
+			moved->collection = root.get();
+			root->atoms.insert(root->atoms.begin(), std::move(moved));
+			return;
+		}
+	}
+	// no root collection of that group: see the header (the atom goes)
+}
+
+std::array<uint8_t, 4> openblack::psys::TintWithPlayerColour(std::array<uint8_t, 4> rgba, uint32_t playerArgb, float blend)
+{
+	uint32_t pc = playerArgb | 0xFF000000u;
+	if (pc == 0xFF000000u)
+	{
+		pc = 0xFFFFFFFFu; // 0x6A8650
+	}
+	if (blend != 1.0f)
+	{
+		// 0x6A865C..0x6A86D4: the (c - 255) x b products are signed, shifted and masked to a byte
+		const int b = static_cast<int>(blend * 255.0f) & 0xFF;
+		const auto towardsWhite = [b](uint32_t c) {
+			return static_cast<uint32_t>((255 + ((static_cast<int>(c) - 255) * b >> 8)) & 0xFF);
+		};
+		pc = (pc & 0xFF000000u) | (towardsWhite((pc >> 16) & 0xFF) << 16) | (towardsWhite((pc >> 8) & 0xFF) << 8) |
+		     towardsWhite(pc & 0xFF);
+	}
+	// 0x6A86D6..0x6A8741: each byte of the colour x the same byte of pc >> 8
+	return {static_cast<uint8_t>(rgba[0] * ((pc >> 16) & 0xFF) >> 8), static_cast<uint8_t>(rgba[1] * ((pc >> 8) & 0xFF) >> 8),
+	        static_cast<uint8_t>(rgba[2] * (pc & 0xFF) >> 8), static_cast<uint8_t>(rgba[3] * (pc >> 24) >> 8)};
+}
+
 Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std::vector<int>& nextGroups)
 {
+	if (creator != nullptr)
+	{
+		creator = creator->Resolve(*this);
+	}
 	auto atom = std::make_unique<Atom>();
 	atom->collection = &collection;
 	atom->creator = creator;
@@ -1352,6 +1424,10 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 	if (creator != nullptr)
 	{
 		atom->colour = {creator->r, creator->g, creator->b, creator->a};
+		if (creator->usePlayerColour && _player >= 0)
+		{
+			atom->colour = TintWithPlayerColour(atom->colour, surf_revol::PlayerColour(_player), creator->usePlayerColourBlend);
+		}
 		atom->baseScale = creator->initialScale * (creator->randomiseScale ? 0.3f + Random(0.7f) : 1.0f);
 		atom->stretch = creator->stretch;
 		if (creator->kind == Creator::Kind::Sprite)
@@ -1417,11 +1493,15 @@ void Effect::UpdateCollection(Collection& collection)
 			slot.attached = false;
 		}
 	}
-	for (auto& atom : collection.atoms)
+	// by index: a sub-collection's rule may add a sibling to the atom it hangs from (UR_CloudGather's AddSubCollection
+	// of the tornado group on its core, 0x6D4BBB), which the original links at the head of the list, past the
+	// iteration; (aproximado) here it is appended and also updated this step, one step earlier than the original
+	for (size_t a = 0; a < collection.atoms.size(); ++a)
 	{
-		for (auto& sub : atom->subCollections)
+		auto& atom = collection.atoms[a];
+		for (size_t s = 0; s < atom->subCollections.size(); ++s)
 		{
-			UpdateCollection(*sub);
+			UpdateCollection(*atom->subCollections[s]);
 		}
 	}
 }

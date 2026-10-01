@@ -224,6 +224,23 @@ void main()
 			objectColour = vec3_splat(windowGrey);
 		}
 	}
+	// A PSys mesh atom (PSys/Creators/Mesh.h): -1 - (r 65536 + g 256 + b) in the w of the third column is its DrawData
+	// colour, which Particle3DObj::DrawAt 0x679FD0 gives the object with SetColour (vt 0x2C: obj +0x4C) instead of the
+	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light (ambient 90 + 166 N.L) stays
+	if (i_data2.w < -0.5f && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
+	{
+		float packedParticle = -i_data2.w - 1.0f;
+		float particleRed = floor(packedParticle / 65536.0f);
+		float particleGreen = floor((packedParticle - particleRed * 65536.0f) / 256.0f);
+		vec3 particleColour = vec3(particleRed, particleGreen, packedParticle - particleRed * 65536.0f - particleGreen * 256.0f) / 255.0f;
+		const vec3 particleLight = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		objectColour = particleColour;
+		if (u_window.y <= 0.0f)
+		{
+			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), particleLight));
+		}
+		specular = vec3_splat(0.0f);
+	}
 	float opacity = 1.0f - fade;
 	// components::MeshTint: 1e6 (2e6 dissolving instead of blending) + 5 bits each of the ground colour and of `own`
 	float tintMarker = 0.0f;

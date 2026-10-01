@@ -13,6 +13,7 @@
 
 #include <list>
 
+#include "LightningFlash.h"
 #include "WeatherLand.h"
 
 using namespace openblack::weather;
@@ -98,7 +99,8 @@ void Update(Storm& storm, float seconds)
 			if (storm.forkTimer <= 0.0f)
 			{
 				storm.forkTimer = RandomRange(d.forkMin, d.forkMax);
-				// fn_00837290(+0x70, pos, outer, 0.5): the light flash (not ported)
+				// fn_00837290(+0x70, pos, outer, 0.5) (0x83FBF0): the light flash
+				flash::Start(storm.flash, point, d.outerRadius, 0.5f);
 				if (g_forkCallback)
 				{
 					g_forkCallback(storm, point, d.outerRadius);
@@ -111,7 +113,8 @@ void Update(Storm& storm, float seconds)
 			if (storm.sheetTimer <= 0.0f)
 			{
 				storm.sheetTimer = RandomRange(d.sheetMin, d.sheetMax);
-				// fn_00837290(+0x70, pos, outer, 1.0): the flash (not ported); then the thunder
+				// fn_00837290(+0x70, pos, outer, 1.0) (0x83FC5D): the flash; then the thunder
+				flash::Start(storm.flash, point, d.outerRadius, 1.0f);
 				if (g_sheetCallback)
 				{
 					g_sheetCallback(storm, point, d.outerRadius);
@@ -119,7 +122,8 @@ void Update(Storm& storm, float seconds)
 			}
 		}
 	}
-	// fn_008372D0(+0x70, seconds): the flash object's own step (not ported)
+	// fn_008372D0(+0x70, seconds) (0x83FC7F): the flash object's own step
+	flash::Age(storm.flash, seconds);
 }
 } // namespace
 
@@ -242,6 +246,14 @@ void storms::CalcAtmosAll(const glm::vec3& point, WeatherInfo& weather)
 void storms::ForEach(const std::function<void(const Storm&)>& function)
 {
 	for (const auto& storm : g_storms)
+	{
+		function(storm);
+	}
+}
+
+void storms::ForEachMutable(const std::function<void(Storm&)>& function)
+{
+	for (auto& storm : g_storms)
 	{
 		function(storm);
 	}

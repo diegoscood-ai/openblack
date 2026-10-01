@@ -22,6 +22,7 @@
 #include "Alignment.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/Fixed.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
@@ -265,6 +266,45 @@ float effects::ApplyEffect(entt::entity object, EffectValues& values)
 	return result;
 }
 
+std::vector<entt::entity> effects::FixedObjectsInMapCell(int cellX, int cellZ)
+{
+	std::vector<entt::entity> result;
+	if (!Locator::entitiesMap::has_value() || cellX < 0 || cellZ < 0 || cellX >= MapInterface::k_GridSize.x ||
+	    cellZ >= MapInterface::k_GridSize.y)
+	{
+		return result;
+	}
+	const MapInterface::CellId id(static_cast<uint16_t>(cellX), static_cast<uint16_t>(cellZ));
+	const auto& grid = Locator::entitiesMap::value().GetFixedInGridCell(id);
+	result.assign(grid.begin(), grid.end());
+	// (aproximado, see the header) the fixed objects whose position is in the cell, which the grid may have left out
+	Locator::entitiesRegistry::value().Each<const Fixed, const Transform>(
+	    [&](entt::entity entity, const Fixed& /*fixed*/, const Transform& transform) {
+		    if (MapInterface::GetGridCell(transform.position) == id && grid.find(entity) == grid.end())
+		    {
+			    result.push_back(entity);
+		    }
+	    });
+	std::sort(result.begin(), result.end());
+	return result;
+}
+
+std::vector<entt::entity> effects::ObjectsInMapCell(int cellX, int cellZ)
+{
+	auto result = FixedObjectsInMapCell(cellX, cellZ);
+	if (!Locator::entitiesMap::has_value() || cellX < 0 || cellZ < 0 || cellX >= MapInterface::k_GridSize.x ||
+	    cellZ >= MapInterface::k_GridSize.y)
+	{
+		return result;
+	}
+	const MapInterface::CellId id(static_cast<uint16_t>(cellX), static_cast<uint16_t>(cellZ));
+	const auto& grid = Locator::entitiesMap::value().GetMobileInGridCell(id);
+	std::vector<entt::entity> mobile(grid.begin(), grid.end());
+	std::sort(mobile.begin(), mobile.end());
+	result.insert(result.end(), mobile.begin(), mobile.end());
+	return result;
+}
+
 entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 {
 	if (!Locator::entitiesMap::has_value())
@@ -284,7 +324,9 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 		{
 			const MapInterface::CellId cell(static_cast<uint16_t>(x), static_cast<uint16_t>(z));
 			std::vector<entt::entity> objects(map.GetMobileInGridCell(cell).begin(), map.GetMobileInGridCell(cell).end());
-			objects.insert(objects.end(), map.GetFixedInGridCell(cell).begin(), map.GetFixedInGridCell(cell).end());
+			// the grid's fixed objects plus the small ones it leaves out (FixedObjectsInMapCell)
+			const auto fixed = FixedObjectsInMapCell(static_cast<int>(x), static_cast<int>(z));
+			objects.insert(objects.end(), fixed.begin(), fixed.end());
 			for (const auto object : objects)
 			{
 				// (inferido) once per object: 0x525100 was not read for a per-object "done" flag; openblack's grid puts a

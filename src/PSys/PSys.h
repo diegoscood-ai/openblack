@@ -62,6 +62,8 @@ struct Creator
 	Kind kind {Kind::Point};
 	std::string className;
 	uint8_t r {255}, g {255}, b {255}, a {255};
+	bool usePlayerColour {false};     ///< +0x0D UsePlayerColor (ctor 0)
+	float usePlayerColourBlend {1.0f}; ///< +0x10 UsePlayerColorBlend (ctor 1.0)
 	float initialScale {1.0f};
 	bool randomiseScale {false};
 	// sprites
@@ -86,7 +88,15 @@ struct Creator
 
 	/// The creator's part of a new atom (after CommonInitNewAtom), for the classes that have one
 	virtual void InitAtom(Effect& /*effect*/, Atom& /*atom*/) const {}
+	/// A creator that only picks another one (ParticleGoodEvilCreator::CreateParticle 0x6AAA00 calls the chosen creator's
+	/// CreateParticle): the creator the atom really gets. Itself for the others.
+	[[nodiscard]] virtual const Creator* Resolve(const Effect& /*effect*/) const { return this; }
 };
+
+/// fn_006A85E0's UsePlayerColor on an atom colour (r, g, b, a): the player's colour (GetPlayerColour 0x64D800, alpha
+/// forced to 0xFF; pure black, the neutral player, becomes white), with a blend b = ftol(Blend x 255) & 0xFF != 255 moved
+/// towards white per channel (255 + ((c - 255) b >> 8), & 0xFF), then each channel of the colour x that >> 8 (alpha too)
+[[nodiscard]] std::array<uint8_t, 4> TintWithPlayerColour(std::array<uint8_t, 4> rgba, uint32_t playerArgb, float blend);
 
 /// PosScaleRotation of the last two steps, lerped at draw time (fn_00679920)
 struct DrawState
@@ -157,6 +167,10 @@ struct Collection
 		bool first {true};
 	};
 	std::vector<Slot> modifiers;
+	/// +0x24 the BaseCollectionModifierData list (+0x1C each one's modifier): a modifier's CollectionData, found by its
+	/// modifier (UR_CloudGather 0x6D4AB0, UR_Tornado 0x6D18C3 and its sub-collections' data 0x6D2B10 / 0x6D2EA6),
+	/// destroyed with the collection
+	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
 };
 
 /// AtomCollectionModifier (Group, Condition, RemoveOnCloseDown) and the event conditions / float providers it uses
@@ -273,6 +287,11 @@ public:
 	/// PSysManager::fn_006731B0: a new atom in the first root collection of that group (the lightning's light maps go
 	/// into their InitiallyCreated group, not under the fork). nullptr when that group has no root collection.
 	Atom* NewAtomInGroup(int group, const Creator* creator);
+	/// AtomCore::MoveToBaseGroup 0x673BD0: the atom leaves its collection for the first root collection of that group
+	/// (fn_00673180), where it keeps its position, velocity and data (the tornado's flung objects, 0x6D33F1). With no
+	/// such collection the original leaves it in none (never updated nor drawn again): (aproximado) here it is deleted. Call it
+	/// only while `from` is not being iterated.
+	void MoveToBaseGroup(Collection& from, const Atom& atom, int group);
 	[[nodiscard]] glm::vec3 SpawnPosition(const Collection& collection) const;
 	[[nodiscard]] glm::vec3 GlobalPosition(const Atom& atom) const;
 	/// AtomCollection::LocalToGlobal 0x6751D0 / GlobalToLocal 0x675410: a point of the collection's frame. In a hierarchy

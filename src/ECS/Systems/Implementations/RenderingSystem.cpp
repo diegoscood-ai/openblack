@@ -214,6 +214,7 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		offset += desc.first;
 	}
 	_renderContext.translucentDrawDescs.clear();
+	_renderContext.additiveInstances.clear();
 	for (const auto& [meshId, count] : translucentIds)
 	{
 		_renderContext.translucentDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
@@ -427,6 +428,15 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		{
 			_renderContext.instanceUniforms[idx][0][3] = 1.0f - atom.alpha;
 		}
+		if (atom.additive)
+		{
+			_renderContext.additiveInstances.insert(idx);
+		}
+		// the DrawData colour (the creator's colour, x the player's for UsePlayerColor), packed as -1 - (r 65536 + g 256 +
+		// b): with DrawWithLandscapeColor (fn_0080BEC0) in the w of the fourth column, the object colour vs_object multiplies
+		// the land light by; otherwise in the w of the third column, the colour alone (SetColour vt 0x2C, vs_object)
+		const float packed = -1.0f - static_cast<float>(atom.colour[0] * 65536 + atom.colour[1] * 256 + atom.colour[2]);
+		_renderContext.instanceUniforms[idx][atom.landscapeColour ? 3 : 2][3] = packed;
 		if (atom.uv != glm::vec2(0.0f))
 		{
 			_renderContext.instanceUniforms[idx][1][3] = PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));

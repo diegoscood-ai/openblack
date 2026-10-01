@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include <entt/core/fwd.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 
@@ -31,9 +33,15 @@ struct MeshCreator: Creator
 	bool faceCamera {false};  ///< +0x4D
 	bool faceCameraSprite {false}; ///< +0x4C
 	float heightStretch {1.0f};    ///< +0x48
-	bool additive {false};         ///< +0x55 (with MeshChangeMaterialProps +0x58)
-	bool changeMaterialProps {false};
-	bool neverClip {false}; ///< +0x5B
+	bool scriptHighlightPulse {false}; ///< +0x4E UseScriptHightlightPulse
+	// ParticleMeshCreator (ctor 0x6A8960: +0x57 and +0x58 are 1, the other flags 0)
+	bool additive {false};            ///< +0x55 UseAdditiveAlpha (applied with MeshChangeMaterialProps)
+	bool writeDepth {false};          ///< +0x56 MaterialUpdateZBuffer
+	bool doubleSided {true};          ///< +0x57 MaterialSetDoubleSided
+	bool changeMaterialProps {true};  ///< +0x58 MeshChangeMaterialProps
+	bool neverClip {false};           ///< +0x5B
+	bool drawWithLandscapeColour {false}; ///< +0x5E: the particle's +0x24 bit 2 (CreateParticle 0x6A8B82)
+	bool drawCutByPlane {false};          ///< +0x5F: the particle's +0x24 bit 4
 	// ParticleMeshCreatorAnimTextured
 	bool animTextured {false};
 	int textureWidth {64};  ///< +0x6C
@@ -67,9 +75,15 @@ struct Instance
 	float alpha;       ///< 0..1 (atom alpha x collection alpha)
 	glm::vec2 uv;      ///< the AnimTextured offset (0, 0 otherwise)
 	bool translucent;  ///< additive or alpha < 1: drawn with the blended objects
+	bool additive;     ///< material mode 13 (GJUtils::SetMaterialProperties 0x57E120): SRCALPHA / ONE, no Z write
+	std::array<uint8_t, 3> colour; ///< the DrawData colour's r, g, b (SetColour vt 0x2C, or x the land light)
+	bool landscapeColour; ///< DrawWithLandscapeColor: the colour x the land light (fn_0080BEC0), else the colour alone
 };
 /// Every mesh atom of the running effects, interpolated since the last turn
 [[nodiscard]] std::vector<Instance> Collect();
+/// Particle3DObj::DrawAt 0x679FD0 with FaceCamera: the frame turned about its Y so that it faces the camera in x, z, and
+/// its Y axis x HeightStretch (axes = the LHMatrix rows as columns)
+void FaceCamera(glm::mat3& axes, const glm::vec3& position, const glm::vec3& camera, float heightStretch);
 } // namespace mesh_atoms
 
 } // namespace openblack::psys

@@ -17,6 +17,7 @@
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "PSys/Rules/Explosion.h"
 #include "PSys/Rules/Shield.h"
 #include "Spell.h"
 
@@ -144,9 +145,9 @@ int spell_event::ApplyDefaultSpellEffect(entt::entity spell, const psys::SpellEv
 		{
 			if (event.target != entt::null)
 			{
-				// vt 0x778 CanBeDestroyedBySpell (Object 0x639960) == 1, with no reaction and no direction. TODO(M5/M6):
-				// the per-class answers; 1 (inf)
-				return 1;
+				// vt 0x778 CanBeDestroyedBySpell (Object 0x639960 and its overrides, PSys/Rules/Explosion.h), with no
+				// reaction and no direction
+				return psys::explosion::CanBeDestroyedBySpell(event.target, spell) ? 1 : 0;
 			}
 			// no target (0x720DB4): nothing applied, straight to the reaction and the direction below, and 1
 		}

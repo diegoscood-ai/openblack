@@ -20,6 +20,8 @@
 #include "EffectValues.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Camera/Camera.h"
+#include "ECS/Influence/Influence.h"
 #include "Magic/Core/Players.h"
 
 using namespace openblack;
@@ -175,4 +177,59 @@ void alignment::ProcessPlayers()
 	{
 		ProcessForPlayer(static_cast<PlayerNames>(i));
 	}
+}
+
+namespace
+{
+/// [0xBF337C] as its argument: fn_005E2240(x) stores (1 - x) x 2, and the sky starts at 1 (neutral) -> x = 0.5
+float g_InterfaceAlignment = 0.5f;
+} // namespace
+
+PlayerNames alignment::MostInfluentialPlayer(const glm::vec3& position)
+{
+	// 0x5CD639: the neutral player first, best 0; GetNextPlayer from the first player on
+	PlayerNames best = PlayerNames::NEUTRAL;
+	float bestInfluence = 0.0f;
+	for (size_t i = 0; i < static_cast<size_t>(PlayerNames::_COUNT); ++i)
+	{
+		const auto player = static_cast<PlayerNames>(i);
+		if (magic::players::EntityOf(player) == entt::null)
+		{
+			continue;
+		}
+		const float influence = influence::CalculatePlayerInfluence(player, position, influence::CalcType::Default, true);
+		// 0x5CD678: fcom best; test ah, 0x41; jne -> only a strictly greater influence takes it
+		if (influence > bestInfluence)
+		{
+			bestInfluence = influence;
+			best = player;
+		}
+	}
+	return best;
+}
+
+float alignment::InterfaceAlignmentAt(const glm::vec3& position)
+{
+	// fn_0064AC30: GetAlignmentValue 0x64D6A0 of that player, + 1 (0x8AA390), x 0.5 (0x8AA3B4); fn_005E2240 clamps it
+	const float x = (Get(MostInfluentialPlayer(position)) + 1.0f) * 0.5f;
+	return std::clamp(x, 0.0f, 1.0f);
+}
+
+float alignment::GetInterfaceAlignment()
+{
+	return g_InterfaceAlignment;
+}
+
+void alignment::UpdateInterfaceAlignment()
+{
+	if (!Locator::camera::has_value())
+	{
+		return;
+	}
+	g_InterfaceAlignment = InterfaceAlignmentAt(Locator::camera::value().GetOrigin());
+}
+
+void alignment::ResetInterfaceAlignment()
+{
+	g_InterfaceAlignment = 0.5f;
 }

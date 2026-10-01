@@ -48,6 +48,13 @@ void RegisterAll()
 	RegisterHealRules();
 	RegisterShieldRules();
 	RegisterSurfRevolRules();
+	RegisterExplosionRules();
+	RegisterKeyPointRules();
+	RegisterOrientRules();
+	RegisterForestRules();
+	RegisterMistCreator();
+	RegisterFlockRules();
+	RegisterStormRules();
 }
 
 const Registry& Filled()

@@ -55,8 +55,12 @@ openblack_setup_and_add_test(test_teleport test_teleport.cpp)
 openblack_setup_and_add_test(test_spell_forest test_spell_forest.cpp)
 openblack_setup_and_add_test(test_lightning test_lightning.cpp)
 openblack_setup_and_add_test(test_shield test_shield.cpp)
+openblack_setup_and_add_test(test_explosion test_explosion.cpp)
 openblack_setup_and_add_test(test_heal test_heal.cpp)
 openblack_setup_and_add_test(test_worship test_worship.cpp)
+openblack_setup_and_add_test(test_water test_water.cpp)
+openblack_setup_and_add_test(test_flock test_flock.cpp)
+openblack_setup_and_add_test(test_storm test_storm.cpp)
 openblack_setup_and_add_test(test_set_camera_pos camera/test_set_camera_pos.cpp)
 openblack_setup_and_add_json_test(
   test_mobile_wall_hug mobile_wall_hug/test_mobile_wall_hug.cpp

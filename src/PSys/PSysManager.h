@@ -47,8 +47,9 @@ void SetPerFrame(uint32_t id);
 
 /// GParticleContainer::CreateSpotVisualWithSpecifiedDuration 0x63E580: SPOT_VISUAL index (GSpotVisualInfo 0xD44470),
 /// seconds (< 0: forever; 0: the entry's own life), an owner object it follows and whose loss ends it. Returns the
-/// container object for the script (deleting it closes the effect), or entt::null.
-entt::entity CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner);
+/// container object for the script (deleting it closes the effect), or entt::null. `magnitude` is the float argument
+/// (0x63E4B0 -> fn_0063E410 passes it to PSysInterface::Create as the effect's magnitude; UR_Explosion's smoke gives 8).
+entt::entity CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner, float magnitude = 1.0f);
 
 /// One game turn (GParticleContainer::Process 0x63E280, Process_ with the turn length)
 void ProcessTurn(float turnSeconds);

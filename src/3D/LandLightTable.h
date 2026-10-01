@@ -59,7 +59,15 @@ public:
 	/// Palette row 5 at the alignment column ([0xFA26DC]): the moon's colour, 0..1
 	[[nodiscard]] glm::vec3 GetMoonColour() const noexcept { return _moonColour; }
 
+	/// The base colour [0xFA26A4] (0xAARRGGBB) and the haze of the last Build of any table (the renderer's, once a
+	/// frame), for the code outside the renderer that reads them: the PSys mists (RenderParticleMist::DrawAt 0x67A6C7)
+	/// and the storm puffs (GWeather::DrawClouds 0x83FF56). White and the default haze before the first Build.
+	[[nodiscard]] static uint32_t LastBuiltBase() noexcept;
+	[[nodiscard]] static Haze LastBuiltHaze() noexcept;
+
 private:
+	static uint32_t s_lastBase;
+	static Haze s_lastHaze;
 	std::vector<uint32_t> _palette;     ///< 0xAARRGGBB, like the D3DCOLORs of the original
 	std::array<uint32_t, k_Size> _table {}; ///< 0xAARRGGBB
 	uint32_t _base {0xFFFFFFFFu};          ///< 0xAARRGGBB

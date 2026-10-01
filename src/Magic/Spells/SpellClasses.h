@@ -20,4 +20,7 @@ void RegisterResourceSpell(); ///< SpellResource.cpp: food and wood
 void RegisterForestSpell();   ///< SpellForest.cpp: the forest (NATURE)
 void RegisterTeleportSpell(); ///< SpellTeleport.cpp: the teleport stones (M6)
 void RegisterShieldSpell();   ///< SpellShield.cpp: the magic and physical shields (M6)
+void RegisterFlockSpells();   ///< SpellFlock.cpp: the flying and the ground flock (M4c)
+void RegisterWaterSpell();    ///< SpellWater.cpp: the water miracle (M4a)
+void RegisterStormSpell();    ///< SpellStormAndTornado.cpp: storm, lightning storm and tornado (M6)
 } // namespace openblack::magic

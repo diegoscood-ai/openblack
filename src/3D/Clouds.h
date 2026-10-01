@@ -62,12 +62,12 @@ public:
 	/// The target of the sky's alignment (fn_0064AC30, from GPlayer::ProcessPlayers 0x64A697, fn_005E2240 stores
 	/// (1 - clamp((v + 1) / 2, 0, 1)) * 2): v = GetAlignmentValue of CalculateMostInfluentialPlayer at the interface
 	/// position (GInterface+0x39C -> +0xB0), the value GAlignment::Update 0x414410 keeps for every player; -1 evil .. 1
-	/// good. There is no player alignment in openblack yet (ported in another branch): neutral 0, or the debug "Sky
-	/// alignment" slider.
+	/// good: ecs::effects::alignment::GetInterfaceAlignment() x 2 - 1 (unless the test hook or the debug "Sky
+	/// alignment" slider moved off 0 say otherwise).
 	[[nodiscard]] static float InfluentialPlayerAlignment() noexcept;
 	/// The overcast amount at the camera, 0..1 (GWeather / LH3DAtmos: fn_00869850 caps the light table's base colour at
-	/// 255 - 96 * overcast, and so the clouds through table[255]). No weather in openblack yet (ported in another
-	/// branch): a clear sky, 0.
+	/// 255 - 96 * overcast, and so the clouds through table[255]): GCamera::Update 0x4426BA, the overcast byte of
+	/// weather::atmos::GetWeatherSmooth(camera) x 0.01 (it can pass 1: a byte of up to 127).
 	[[nodiscard]] static float WeatherOvercastAtCamera() noexcept;
 
 	/// fn_005E1DE0 -> [0xBF3398]: the clouds' 0xAARRGGBB. Integer lerp of good 0x00FFFFFF / neutral 0xC8FFFFFF / evil

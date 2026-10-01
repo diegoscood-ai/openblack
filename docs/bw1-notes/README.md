@@ -27,7 +27,9 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [hand-and-interface.md](hand-and-interface.md) | Mano: colocación, estados, agarre, lanzamiento, objeto bajo el cursor |
-| [objects-and-resources.md](objects-and-resources.md) | Montones, vasijas, almacén, árboles (reglas, crecimiento, bosques), rocas, campos, sonidos de coger, objetos creados por el guion del mapa |
+| [objects-and-resources.md](objects-and-resources.md) | Montones y vasijas, coger por tandas, almacén, objetos estáticos y rocas, campos, sonidos (coger, LHAudio y QMixer, canales, ambiente) |
+| [trees.md](trees.md) | Árboles y bosques: arrancar y el tirón, reglas de coger, soltar y replantar, madera y GTreeInfo, API para los oficios de aldeano, búsquedas, crecimiento, dibujado, fuego del árbol, sacrificio |
+| [map-loading.md](map-loading.md) | Carga del mapa y funciones del guion: CREATE de CHL, niebla del mapa, rebaños y animales, datos de simulación, piscifactorías, `BUILT_PERCENTAGE`, objetos del guion (farolas, hogueras, árboles muertos, puertas, ciudadela planeada), `IsOkToCreateAtPos`, ciudades y ciudadela |
 | [physics.md](physics.md) | Físicas del original: objetos lanzados, choques, daño, mar, edificios y rocas que se rompen |
 
 **Seres vivos**
@@ -65,10 +67,9 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [mod-library.md](mod-library.md) | Librería de mods: menú, `settings.cfg`, `--mod`, tipos de mod, cómo programar uno, catálogo |
 | [mods.md](mods.md) | El `AllMeshes.g3d` modificado de la instalación y el mod HD-Tweaks |
 
-**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `water.md` (el agua en el juego), `trees.md` (sale de
-objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.md` (oficios de los aldeanos),
-`audio.md` (motor de audio) y `rendering-objects.md` (sale de rendering; las partículas de rendering irán a
-`particles.md`).
+**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `water.md` (el agua en el juego),
+`villagers.md` (oficios de los aldeanos), `audio.md` (motor de audio) y `rendering-objects.md` (sale de rendering; las
+partículas de rendering irán a `particles.md`).
 
 ## ¿Dónde busco…?
 
@@ -77,8 +78,9 @@ objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.
 | Una dirección o símbolo de `runblack.exe`, los scripts de desensamblado | [tooling.md](tooling.md) |
 | Altura del terreno, coordenadas, matrices | [engine-math.md](engine-math.md) |
 | Coger, soltar, lanzar, el cursor | [hand-and-interface.md](hand-and-interface.md) |
-| Comida y madera, almacén, campos, árboles | [objects-and-resources.md](objects-and-resources.md) |
-| Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas | [objects-and-resources.md](objects-and-resources.md) |
+| Comida y madera, almacén, campos | [objects-and-resources.md](objects-and-resources.md) |
+| Árboles y bosques (tirón, replantar, crecimiento, fuego, sacrificio) | [trees.md](trees.md) |
+| Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas, ciudades | [map-loading.md](map-loading.md) |
 | Golpes, daño, edificios que se rompen | [physics.md](physics.md) |
 | Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
 | Datos y estados de los aldeanos | [villagers.md](villagers.md) |

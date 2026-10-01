@@ -70,6 +70,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/GroundMarks.h"
 #include "ECS/PetitNavire.h"
+#include "ECS/Physics/Buildings.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -412,7 +413,7 @@ bool Game::GameLogicLoop() noexcept
 	using namespace ecs::components;
 	using namespace ecs::systems;
 
-	// ProcessNetworkPackets 0x54CE58 / GGame::StartTurn 0x54E507: the turn number goes up at the start of the turn
+	// ProcessNetworkPackets 0x54CD93 / GGame::StartTurn 0x54E507: the turn number goes up at the start of the turn
 	game_clock::StartTurn();
 	const auto currentTime = std::chrono::steady_clock::now();
 	_turnDeltaTime = currentTime - _lastGameLoopTime;
@@ -485,6 +486,8 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(turn);
 		ecs::ProcessFieldsTurn(turn);
+		// GGame::ProcessTurn 0x54E763..0x54E771: Fragment::ProcessTimer 0x76EAF0 for each fragment, once a turn
+		ecs::physics::Buildings::ProcessTurn();
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();

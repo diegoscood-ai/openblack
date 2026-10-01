@@ -64,7 +64,6 @@
 #include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
-#include "GameClock.h"
 #include "Locator.h"
 #include "Magic/Objects/MapShield.h"
 #include "Resources/ResourceManager.h"
@@ -1300,14 +1299,7 @@ bool PhysicsObjects::IsFlying(entt::entity entity)
 void PhysicsObjects::Update(float seconds)
 {
 	Dust::Update(std::min(seconds, 0.25f));
-	// objects with timers of their own (fragments) count game turns even when nothing moves: Fragment::ProcessTimer,
-	// once per turn of the game clock (GGame::ProcessTurn; at most one a frame)
-	static uint32_t s_Turn = game_clock::Turn();
-	if (s_Turn != game_clock::Turn())
-	{
-		s_Turn = game_clock::Turn();
-		Buildings::ProcessTurn();
-	}
+	// the fragments' timers (Fragment::ProcessTimer 0x76EAF0) run from GGame::ProcessTurn 0x54E768: Game::GameLogicLoop
 	const bool anyMoving = std::any_of(g_Objects.begin(), g_Objects.end(), [](const auto& po) { return !po->body.resting; });
 	if (!anyMoving && g_Substep == 0)
 	{

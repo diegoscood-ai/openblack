@@ -214,6 +214,15 @@ TEST_F(GameClockTest, TicksForSeconds)
 
 TEST_F(GameClockTest, RealClockAndSelectors)
 {
+	// the engine timer (LH3DTech::g_timer) is stopped until RenderInitialization 0x818C71 starts it: 0 and 1 ms frames
+	g_Now += 20;
+	EXPECT_EQ(gc::EngineMs(), 0);
+	gc::UpdateRealClock();
+	g_Now += 20;
+	gc::UpdateRealClock();
+	EXPECT_EQ(gc::FrameRealMs(), 1u);
+	gc::StartEngineTimer();
+	const uint32_t started = g_Now;
 	gc::UpdateRealClock();
 	g_Now += 40;
 	gc::UpdateRealClock();
@@ -224,10 +233,26 @@ TEST_F(GameClockTest, RealClockAndSelectors)
 	gc::UpdateRealClock();
 	EXPECT_EQ(gc::CameraFrameMs(), 900u);
 	EXPECT_EQ(gc::ClampedFrameMs(true), 500u);
-	// the engine timer (LH3DTech::g_timer) runs at speed 1 from tick 0: the wall clock itself
-	EXPECT_EQ(gc::EngineMs(), static_cast<int32_t>(g_Now));
+	// started, it runs at speed 1 from about 0 (elapsed = ftol(40 ms stopped * 1e-5) = 0): ms since the start
+	EXPECT_EQ(gc::EngineMs(), static_cast<int32_t>(g_Now - started));
 	Frame(0);
 	EXPECT_EQ(gc::CameraFrameMs(true), gc::FrameGameMs());
 	EXPECT_EQ(gc::ClampedFrameMs(), gc::FrameGameMs());
 	EXPECT_EQ(gc::FrameGameMs(), 199u);
+}
+
+TEST_F(GameClockTest, EngineTimerAfterLongUptime)
+{
+	// GetTickCount after 40 days of uptime: the engine timer counts from RenderInitialization, so its ms are whole
+	// (as float, the raw ticks would round to 256 ms and overflow the int32)
+	g_Now = 0xCE000000u;
+	gc::Reset();
+	g_Now += 3000;
+	gc::StartEngineTimer();
+	g_Now += 12345;
+	EXPECT_EQ(gc::EngineMs(), 12345);
+	gc::UpdateRealClock();
+	g_Now += 17;
+	gc::UpdateRealClock();
+	EXPECT_EQ(gc::FrameRealMs(), 17u);
 }

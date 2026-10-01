@@ -22,11 +22,12 @@
 ///   turn a frame in a single player game (ProcessNetworkPackets 0x54CD0F).
 /// - The turn number g_game +0x205A40 goes up when the turn STARTS, and only unpaused (GGame::StartTurn 0x54E507).
 /// - After the turns, the frame clock (GGame::Loop 0x54D2B2..0x54D3A6): the remainder of the turn in whole ms (0..99),
-///   the visual clock turn * 100 + remainder (never backwards), the frame's game ms g_game_time_inc [0xEA9EC0] (whole
-///   ms, 0 while paused, at most 199) and the fraction of the turn g_game +0x205D64 = remainder * 0.01 (kept, not
-///   zeroed, while paused).
-/// - The engine's wall clock g_delta_time [0xC38134] is another LHTimer (LH3DTech::g_timer 0xEA1B78), read in
-///   LH3DRender::StartFrame 0x82F14E: whole ms, at least 1, it does not stop in pause.
+///   the visual clock turn * 100 + remainder (it can go back; the frame's dt is then 0), the frame's game ms
+///   g_game_time_inc [0xEA9EC0] (whole ms, 0 while paused, at most 199) and the fraction of the turn g_game +0x205D64
+///   = remainder * 0.01 (kept, not zeroed, while paused).
+/// - The engine's wall clock g_delta_time [0xC38134] is another LHTimer (LH3DTech::g_timer 0xEA1B78), started by
+///   LH3DTech::RenderInitialization 0x818C71 and read in LH3DRender::StartFrame 0x82F14E: whole ms, at least 1, it
+///   does not stop in pause.
 ///
 /// Values that look alike and are NOT the same:
 /// - k_MsPerTurn / MsPerTurn() ([0xD01A38], what the game logic reads) vs k_SchedulerMsPerTurn (the 100 written by
@@ -92,8 +93,12 @@ using TickSource = uint32_t (*)();
 /// Tests: the clock reads the ticks from here (nullptr = the wall clock)
 void SetTickSource(TickSource source);
 
-/// The state at program start (the GGame ctor and the statics of GGame::Loop at 0), for the tests
+/// The state at program start (the GGame ctor and the statics of GGame::Loop at 0, the engine timer stopped as its
+/// static ctor fn_008189F0 leaves it)
 void Reset();
+/// LH3DTech::RenderInitialization 0x818C61..0x818CA3 (called by LH3DRender::Open 0x82B480 at 0x82B540): the engine
+/// timer starts from about 0 at speed 1. Until then EngineMs() stays at 0 and FrameRealMs() at 1
+void StartEngineTimer();
 
 /// [0xD01A38]: the ms of a turn for the game logic
 [[nodiscard]] uint32_t MsPerTurn();
@@ -113,8 +118,8 @@ void SetTurn(uint32_t turn);
 /// The loop of ProcessNetworkPackets 0x54CD45..0x54CD58: TimerSaysDoATurn() (asked first, so it is asked once more
 /// after the last turn of the frame) and fewer than k_MaxTurnsPerFrame turns this frame
 [[nodiscard]] bool TurnDue();
-/// ProcessNetworkPackets 0x54CE58 (++NetworkTurnsThisFrame [0xD01978]) and GGame::StartTurn 0x54E4F0: the turn number
-/// goes up at the start of the turn, unpaused only (0x54E4FD..0x54E507)
+/// ProcessNetworkPackets 0x54CD93 (++NetworkTurnsThisFrame [0xD01978], before ProcessOneGameTurn 0x54CE58) and
+/// GGame::StartTurn 0x54E4F0: the turn number goes up at the start of the turn, unpaused only (0x54E4FD..0x54E507)
 void StartTurn();
 /// GGame::ResetLocalGameTimer 0x54C570: stop, the timer = turn * 100 from now, and start it again
 void ResetLocalTimer();
@@ -143,8 +148,8 @@ void SetSpeed(float speed);
 void UpdateFrameClock();
 /// LH3DRender::StartFrame 0x82F14E..0x82F195: g_delta_time = the engine timer's ms since the last frame, 1 if <= 0
 void UpdateRealClock();
-/// LH3DTech::g_timer's MSeconds inline (0xEA1C78 / 0xEA1C7C / 0xEA1C80): the engine timer in ms, the wall clock (read
-/// by StartFrame and by the help texts' timing, fn_005C61B0 0x5C6250..0x5C6274)
+/// LH3DTech::g_timer's MSeconds inline (0xEA1C78 / 0xEA1C7C / 0xEA1C80): the engine timer in ms, the wall clock since
+/// StartEngineTimer (read by StartFrame and by the help texts' timing, fn_005C61B0 0x5C6250..0x5C6274)
 [[nodiscard]] int32_t EngineMs();
 
 /// g_game_time_inc [0xEA9EC0] = g_game +0x250540 = +0x205D48: the game ms of this frame (whole, 0 paused, <= 199)
@@ -153,7 +158,7 @@ void UpdateRealClock();
 [[nodiscard]] float FrameGameSeconds();
 /// g_game +0x205D64 (0x54D392): the remainder * 0.01, 0..0.99; one turn behind (0 just after a turn) and kept in pause
 [[nodiscard]] float TurnFraction();
-/// g_game +0x25053C: turn * 100 + remainder, the visual clock in ms (it never goes backwards)
+/// g_game +0x25053C: turn * 100 + remainder, the visual clock in ms (it can go back, 0x54D350; the dt never is < 0)
 [[nodiscard]] uint32_t VisualMs();
 /// g_delta_time [0xC38134]: the wall clock ms of this frame (>= 1, does not stop in pause)
 [[nodiscard]] uint32_t FrameRealMs();

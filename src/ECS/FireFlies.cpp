@@ -47,7 +47,6 @@ using namespace openblack::ecs::components;
 namespace
 {
 constexpr size_t k_MaxFireFlies = 50;    // game+0x205D34, GGame ctor 0x54B806
-constexpr float k_TurnSeconds = static_cast<float>(game_clock::k_MsPerTurn) * game_clock::k_SecondsPerMs; // [0xD01A38] * 0.001
 constexpr float k_SearchRadius = 300.0f; // fn_0052A5D0 / fn_0052A7A0
 constexpr float k_HalfSize = 0.3f;
 constexpr uint32_t k_Frame = 37; // S_SpriteSheet3, 8 x 8: column 5, row 4
@@ -297,6 +296,8 @@ void ecs::ProcessFireFliesTurn(const DayNightClock& clock)
 		g_canSpawn = true;
 	}
 
+	// FireFly::Process fn_0052AF90 0x52AF93..0x52AFB6: fild [0xD01A38]; fmul [0x8AA3B0] = 0.001, read every turn
+	const float turnSeconds = static_cast<float>(game_clock::MsPerTurn()) * game_clock::k_SecondsPerMs;
 	for (auto& fly : g_fireFlies)
 	{
 		fly.previous = fly.position;
@@ -310,7 +311,7 @@ void ecs::ProcessFireFliesTurn(const DayNightClock& clock)
 			break;
 		case State::FlyingHome:
 		case State::FlyingOut:
-			fly.progress = std::min(1.0f, fly.progress + k_TurnSeconds / fly.duration);
+			fly.progress = std::min(1.0f, fly.progress + turnSeconds / fly.duration);
 			fly.position = glm::mix(fly.from, fly.to, Smooth(fly.progress));
 			if (fly.progress >= 1.0f)
 			{

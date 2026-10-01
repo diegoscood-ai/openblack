@@ -65,7 +65,6 @@ constexpr float k_SpinPerSecond = 0.765f;    ///< 0x9A22E0
 constexpr float k_RisePerSecond = 2.55f;     ///< 0x9A22DC, along +0xF8 = (0, 1, 0)
 constexpr float k_DriftGain = 1.5f;          ///< 0x8AB24C
 constexpr float k_HandRadiusSquared = 225.0f; ///< 0x9A22E4: the hand within 15 units of the chimney
-constexpr auto k_TurnMilliseconds = static_cast<float>(game_clock::k_MsPerTurn); ///< [0xD01A38], the length of a game turn
 } // namespace
 
 glm::vec3 chimney_smoke::ChimneyWorldPosition(const glm::vec3& meshPoint, const components::Transform& transform)
@@ -128,8 +127,8 @@ void chimney_smoke::UpdateHandWind()
 		return;
 	}
 
-	// fn_005DBC60 (GInterfaceStatus::Process 0x5DC4E0, once per turn, inferred): velocity += 0.6 x (delta x 1000 / 100 -
-	// velocity), delta = the hand's motion in that turn
+	// fn_005DBC60 (GInterfaceStatus::Process 0x5DC4E0, once per turn, inferred): velocity += 0.6 x (delta x 1000 /
+	// [0xD01A38] - velocity), delta = the hand's motion in that turn
 	const uint32_t turn = game_clock::Turn(); // g_game +0x205A40
 	if (!g_Velocity.started)
 	{
@@ -139,9 +138,11 @@ void chimney_smoke::UpdateHandWind()
 	{
 		const uint32_t turns = std::min<uint32_t>(turn - g_Velocity.lastTurn, 10u);
 		const glm::vec3 delta = (position - g_Velocity.lastPosition) / static_cast<float>(turns);
+		// 0x5DBD4E..0x5DBD5F: fild [0xD01A38]; fdivr [0x8AB228] = 1000, read every turn
+		const float perSecond = 1000.0f / static_cast<float>(game_clock::MsPerTurn());
 		for (uint32_t i = 0; i < turns; ++i)
 		{
-			g_Velocity.velocity += 0.6f * (delta * (1000.0f / k_TurnMilliseconds) - g_Velocity.velocity);
+			g_Velocity.velocity += 0.6f * (delta * perSecond - g_Velocity.velocity);
 		}
 		g_Velocity.lastPosition = position;
 		g_Velocity.lastTurn = turn;

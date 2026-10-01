@@ -97,6 +97,25 @@ void SetTickSource(TickSource source)
 void Reset()
 {
 	g_State = {};
+	// fn_008189F0 (the static ctor of LH3DTech::g_timer, in __xc_a at 0x9C7D60): LHTimer::Reset (speed 1, saved 0, base
+	// = now, elapsed 0), then Stop inline (0x818A21..0x818ABB): stopped, saved speed 1
+	auto& engine = g_State.engineTimer;
+	const uint32_t now = TickCount();
+	engine = {now, 0, 1.0f, 0.0f};
+	engine.Stop(now);
+}
+
+void StartEngineTimer()
+{
+	auto& engine = g_State.engineTimer;
+	// LH3DTech::RenderInitialization 0x818C61..0x818CA3: speed 1e-5, elapsed = MSeconds, base = GetTickCount, then the
+	// saved speed (read at 0x818C61, before)
+	const float saved = engine.savedFactor;
+	engine.speedUpFactor = k_StartSpeed;
+	const uint32_t now = TickCount();
+	engine.elapsedTime = engine.MSeconds(now);
+	engine.tickCount = now;
+	engine.speedUpFactor = saved;
 }
 
 uint32_t MsPerTurn()
@@ -111,7 +130,9 @@ void SetMsPerTurn(uint32_t ms)
 
 int32_t TicksForSeconds(float seconds)
 {
-	// 0x711635: `mov eax, 0x3E8; div [0xD01A38]` (unsigned integer division), fild qword, fmul s, __ftol
+	// 0x711635: `mov eax, 0x3E8; div [0xD01A38]` (unsigned integer division), fild qword, fmul s, __ftol.
+	// (inferido) the original does not check [0xD01A38] == 0 (SET_GAME_TICK_TIME 0 would fault on the div); openblack
+	// gives 0 turns instead of crashing
 	const uint32_t perSecond = g_State.msPerTurn != 0 ? 1000u / g_State.msPerTurn : 0u;
 	return static_cast<int32_t>(static_cast<float>(perSecond) * seconds);
 }
@@ -155,7 +176,7 @@ bool TurnDue()
 void StartTurn()
 {
 	auto& s = g_State;
-	++s.turnsThisFrame; // ProcessNetworkPackets 0x54CE58
+	++s.turnsThisFrame; // ProcessNetworkPackets 0x54CD93 (before ProcessOneGameTurn 0x54CE58)
 	// GGame::StartTurn 0x54E4FD..0x54E507: `inc [+0x205A40]` skipped when +0x14 & 4
 	if (!s.paused)
 	{
@@ -231,6 +252,8 @@ void SetSpeed(float speed)
 	auto& s = g_State;
 	s.speed = speed;                                   // 0x553800
 	s.timer.SetSpeedUpFactor(speed, TickCount());      // 0x553835.., inline
+	// 0x5538AD / 0x5538C8 (both branches): [0xD00DA8] = 0. Not ported: in the whole exe that address is only written
+	// (here and by GNetwork::ProcessOnePacket 0x634B40), no instruction reads it (inferido: no indexed reader seen)
 }
 
 float Speed()
@@ -270,7 +293,8 @@ void UpdateFrameClock()
 		{
 			s.loopTimeRemainder = 0;
 		}
-		// 0x54D343..0x54D349: turn * 100 + remainder; 0x54D34E jae (unsigned): never backwards
+		// 0x54D343..0x54D349: turn * 100 + remainder; 0x54D34E jae (unsigned): a smaller value is stored as it is
+		// (0x54D350, the clock goes back) with the remainder at 0 (0x54D356), and the dt of the frame is 0
 		const uint32_t visual = turn * k_SchedulerMsPerTurn + static_cast<uint32_t>(s.loopTimeRemainder);
 		if (visual < s.visualMs)
 		{

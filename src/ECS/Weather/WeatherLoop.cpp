@@ -38,7 +38,7 @@ void weather::ProcessTurnStart([[maybe_unused]] uint32_t turn)
 {
 	auto* game = Game::Instance();
 	const float visualTime = game != nullptr ? game->GetDayNightClock().GetVisualTime() : 12.0f; // (port: tests only)
-	atmos::UpdateGame(visualTime, 0.1f);
+	atmos::UpdateGame(visualTime, game_clock::k_TurnSeconds); // 0x54E5D1: push 0x3DCCCCCD
 	// then GGame::ProcessTurn sets LH3DTech::g_ambient_wind_direction from the ambient weather's wind (normalised; 0
 	// in a game): no reader in openblack
 }

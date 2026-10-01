@@ -384,8 +384,8 @@ antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el j
 **El reloj del fotograma** (`GGame::Loop` 0x54D2A8..0x54D3A6, después de los turnos y antes de dibujar):
 - sin pausa: `Δ = MSeconds − muestra anterior`; con el mismo turno `resto += Δ`; con turno nuevo
   `resto += Δ − 100` (0x54D316); luego `resto` se limita a 0..99 (0x54D325..0x54D337);
-- `visual = turno · 100 + resto` (0x54D343); si es menor que el anterior, el anterior baja y `resto = 0` (nunca va
-  hacia atrás);
+- `visual = turno · 100 + resto` (0x54D343); si es menor que el anterior, se guarda ese valor menor (0x54D350: el reloj
+  **sí va hacia atrás**) y `resto = 0` (0x54D356); lo que nunca es negativo es el dt, que ese fotograma vale 0;
 - `g_game_time_inc` [0xEA9EC0] = g+0x250540 = g+0x205D48 = `visual − anterior` (0x54D366/0x54D374/0x54D380): **ms
   enteros**, como mucho 199, que siguen la velocidad;
 - la **fracción** g+0x205D64 = `resto · 0,01` [0x8C4B10] (0x54D392): va de 0 a 0,99 y va un turno por detrás;
@@ -393,7 +393,13 @@ antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el j
 - `NetworkTurnsThisFrame` vuelve a 0 después de dibujar (0x54D3C3).
 
 **El reloj de pared** `g_delta_time` [0xC38134] es otro `LHTimer` (`LH3DTech::g_timer` 0xEA1B78), leído en
-`LH3DRender::StartFrame` 0x82F14E: ms del fotograma, 1 si sale ≤ 0 (0x82F195), y no se para en pausa.
+`LH3DRender::StartFrame` 0x82F14E: ms del fotograma, 1 si sale ≤ 0 (0x82F195), y no se para en pausa. Su constructor
+estático (fn_008189F0, en la tabla `__xc_a` en 0x9C7D60) lo deja **parado** (velocidad 0, guardada 1);
+`LH3DTech::RenderInitialization` 0x818C61..0x818CA3 (llamada por `LH3DRender::Open` en 0x82B540) lo arranca: factor
+1e-5, `elapsed = MSeconds` (≈ 0), base = `GetTickCount`, factor = el guardado (1). Cuenta, pues, los ms **desde que
+arranca el motor**, no desde que arranca la máquina. `SetSpeed` 0x5537F0 pone además [0xD00DA8] = 0 por las dos ramas
+(0x5538AD, 0x5538C8); esa dirección solo se escribe en todo el exe (también en `GNetwork::ProcessOnePacket` 0x634B40),
+nadie la lee: no se porta **(inferido: no se ha visto ningún lector indexado)**.
 
 | API (`game_clock`) | Original | Qué hace |
 |---|---|---|
@@ -403,7 +409,7 @@ antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el j
 | `k_MaxLagMs`, `k_MaxTurnsPerFrame` | 0x54C553, 0x54CD0F | 2000 ms; 1 turno por fotograma |
 | `Timer` (`MSeconds`, `Stop`, `SetSpeedUpFactor`, `Start`) | LHTimer 0x43EB70 / 0x43E9C0 / 0x43EBC0; arranque 0x54CF93 | el temporizador |
 | `Turn()`, `SetTurn()` | g+0x205A40 | el turno |
-| `TimerSaysDoATurn()`, `TurnDue()`, `StartTurn()`, `ResetLocalTimer()` | 0x54C4A0, 0x54CD45, 0x54CE58 + 0x54E507, 0x54C570 | el planificador |
+| `TimerSaysDoATurn()`, `TurnDue()`, `StartTurn()`, `ResetLocalTimer()` | 0x54C4A0, 0x54CD45, 0x54CD93 + 0x54E507, 0x54C570 | el planificador |
 | `Start(paused)` | Loop 0x54CF6B..0x54D003 y 0x54D1F7 | temporizador desde 0, dt y fracción a 0, `ResetLocalGameTimer` |
 | `OnLoad()` | `ResolveLoad` 0x555080 | dt y fracción a 0, `visual = turno · 100` (los estáticos de Loop no se tocan) |
 | `Pause(bool)`, `IsPaused()` | `PauseGame` 0x54AE20 (0x54AE7C..0x54AEE7) | la bandera g+0x14 bit 2 y el temporizador parado / rearrancado |
@@ -412,10 +418,11 @@ antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el j
 | `FrameGameMs()`, `FrameGameSeconds()` | [0xEA9EC0]; `· 0,001` [0x8AA3B0] | ms enteros de juego del fotograma |
 | `TurnFraction()` | g+0x205D64 | la fracción del turno |
 | `VisualMs()` | g+0x25053C | el reloj visual |
+| `StartEngineTimer()` | `RenderInitialization` 0x818C61..0x818CA3 (`Reset()` lo deja parado como fn_008189F0) | arranca el reloj de pared desde ≈ 0; lo llama `InitializeEngine` (Locator.cpp) al crear el renderer |
 | `UpdateRealClock()`, `FrameRealMs()`, `EngineMs()` | `StartFrame` 0x82F14E..0x82F195; `g_timer` 0xEA1C78..0xEA1C80 | el reloj de pared |
 | `CameraFrameMs(playingBack)` | `GetCameraTimeInc` 0x555820 | dt de juego al reproducir la interfaz grabada, si no el de pared |
 | `ClampedFrameMs(inTemple)` | fn_005557E0 | pared en el templo, de juego fuera; ≤ 0 → 0, tope 500 |
-| `TicksForSeconds(s)` | `ftol(1000 / [0xD01A38] · s)` (división entera): `NumGameTicksPerSecond` 0x711630 y en línea en 0x70CCDE, 0x711338, 0x5C61F6 y `GetTicksToChangeOver` 0x66CD00 | segundos → turnos |
+| `TicksForSeconds(s)` | `ftol(1000 / [0xD01A38] · s)` (división entera): `NumGameTicksPerSecond` 0x711630 y en línea en 0x70CCDE, 0x711338, 0x5C61F6 y `GetTicksToChangeOver` 0x66CD00 | segundos → turnos; con [0xD01A38] = 0 el original fallaría en el `div` (0x711635, sin comprobar): openblack da 0 **(inferido)** |
 
 Ojo con el nombre de 0x711630: en realidad es el `SetTime` de un temporizador del guion (guarda el turno en +0x28 y los
 turnos en +0x2C, fn_00711610); la conversión es la misma que la de las otras cuatro.
@@ -453,6 +460,26 @@ Velocidad de openblack: `Game::SetGameSpeed(m)` sigue recibiendo el multiplicado
   toman sus constantes del reloj.
 - **El reloj de los textos de ayuda** (`queries.nowMs`) era un reloj propio aproximado; ahora es `EngineMs()`, el
   `g_timer` que lee el original en 0x5C6250.
+
+**Arreglos de la auditoría** (2026-10-02):
+- **El reloj de pared no se arrancaba.** `engineTimer` se quedaba con base 0 y velocidad 1: `EngineMs()` y
+  `UpdateRealClock()` daban los ms de `steady_clock` desde su época (el arranque de la máquina). En float, con más de
+  4,6 h de máquina encendida (2^24 ms) los ms iban de 2 en 2 (con días, de 32 en 32: el reloj de los textos y
+  `FrameRealMs` se cuantizaban), y con más de 24,8 días el paso a int32 se desbordaba. Ahora `Reset()` lo deja parado
+  como fn_008189F0 y `StartEngineTimer()` (RenderInitialization 0x818C71) lo arranca desde ≈ 0.
+- **El contador de fotogramas del mar** [0xFA938C] (`(frame + 1) & 15`) avanzaba sin pausa; el original lo avanza solo
+  si `g_game_time_inc != 0` (0x879B0A / 0x879B41).
+- **Direcciones y textos.** `++NetworkTurnsThisFrame` está en 0x54CD93 (en 0x54CE58 está la llamada a
+  `ProcessOneGameTurn`). El reloj visual **sí** puede ir hacia atrás (0x54D350); lo que no es negativo es el dt.
+- **`atmos::UpdateGame`** (WeatherLoop.cpp) lleva `k_TurnSeconds` (0x54E5D1) en lugar del 0,1f a mano.
+- **[0xD01A38] en tiempo de ejecución.** Las luciérnagas (`FireFly::Process` fn_0052AF90, 0x52AF93: `fild [0xD01A38];
+  fmul 0,001`) y el viento de la mano del humo de chimenea (fn_005DBC60 0x5DBD4E: `1000 / [0xD01A38]`) leen la
+  variable cada turno: ahora `MsPerTurn()` (antes la constante `k_MsPerTurn`, y `SET_GAME_TICK_TIME` no les llegaba).
+  `Chants.h` solo tiene el valor por defecto; `Spell.cpp` ya lo rellena con `MsPerTurn()`.
+- **HelpSystem en float.** Los segundos de lectura (0x5C6211..0x5C6225) y `ShownLongEnough` (fn_005C68C0) se
+  calculaban en double; ahora en float (la FPU a 24 bits).
+- **Los fragmentos** (`Fragment::ProcessTimer` 0x76EAF0) los llama `GGame::ProcessTurn` en 0x54E768: ahora van desde
+  `Game::GameLogicLoop` y no desde la física con un `static` del turno (que no se reiniciaba al cargar un mapa).
 
 **Cambios que se ven y hay que comprobar con captura:** a 30 fps la partida va un 25 % más deprisa (los turnos duran
 100 ms); el primer turno se juega en el primer fotograma; al quitar la pausa no hay salto; con la pausa puesta los
@@ -707,7 +734,8 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   mismo valor).
 - `Worship/SpellSeedGraphic.cpp:479`: el turno leído en línea.
 - `Graphics/Renderer.cpp:1030` (brillo del sol, reloj de pared sin pausa ni velocidad: qué dt usa el original es
-  **(inferido)**), `Renderer.cpp:1157-1162`, `RendererSmoke.cpp:99-105` y `RendererMists.cpp:147` (este, de
+  **(inferido)**), `Renderer.cpp:1157-1162`, `night_lights::Update` en `Renderer.cpp:1214` (el mismo `milliseconds`
+  de pared con tope de 100 y `IsPaused() ? 0`; falta leer qué dt usa fn_005E5830), `RendererSmoke.cpp:99-105` y `RendererMists.cpp:147` (este, de
   milagros2): sus `static lastTime` con tope de 100 ms → `FrameGameMs()` (el humo fn_007F8E00 recorta a 100 **s**).
 - `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
   `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
@@ -727,6 +755,9 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - `PSysManager.cpp:242` (`seconds · 1000 / [0xD01A38]`, ahora con `MsPerTurn()`): no se ha leído en qué orden redondea
   el original al crear un efecto visual puntual; se deja la fórmula.
 - `CHLApi.cpp:802` `DllGettime` (029 DLL_GETTIME) sigue vacía: falta leer qué empuja.
+- `Help/HelpSystem.cpp`: `ReadSpeedFactor` (fn_005C6CB0, devuelve double; la prueba `test_help_system` lo compara
+  en double) y `_endMs = segundos · 1000 + ahora` (0x5C6279..0x5C629B, `fmul; fiadd` a 24 bits) siguen en double:
+  pasarlos a float le toca al dueño del sistema de ayuda (audio).
 - La bandera g+0x14 bit 0x400000 («haz turno siempre», **(inferido)**), el segundo `ProcessNetworkPackets` tras dibujar
   si g+0x205D58 (0x54D3C9) y el turno propio de 100 ms del templo y la cinemática en pausa (0x54CCA9): no los hay en
   openblack.
@@ -790,7 +821,9 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   - la velocidad: el tiempo ya pasado conserva la de antes, el dt la sigue, y en pausa solo se guarda;
   - `OnLoad` (`visual = turno · 100`) y `Start` (el turno siguiente toca enseguida);
   - `TicksForSeconds` (trunca; con `SetMsPerTurn(300)`, 1000 / 300 = 3 por segundo);
-  - el reloj de pared (≥ 1), `EngineMs` y los dos selectores (tope de 500).
+  - el reloj de pared (≥ 1), `EngineMs` y los dos selectores (tope de 500); parado (0 y 1 ms) hasta
+    `StartEngineTimer`, y luego cuenta desde ≈ 0;
+  - `EngineTimerAfterLongUptime`: con `GetTickCount` = 0xCE000000 (40 días) los ms del motor son exactos.
 - Variable de entorno: `OPENBLACK_START_PAUSED=1` empieza la partida en pausa (`game_clock::Start(true)`).
 - No tienen variables de entorno propias.
 
@@ -814,7 +847,8 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.
 - Reloj del juego: desensamblado de 0x54C4A0, 0x54C570, 0x54CC30 (0x54CD0F..0x54CD58), 0x54D2A8..0x54D3D3, 0x54AE60:90,
   0x5557E0:60, 0x555820, 0x82F14E:50, 0x711630:30, 0x711610, 0x711280:F0, 0x70CC30:140, 0x66CD00, 0x66CD30:B0,
-  0x5C6250:50 y 0x714DB0. Informes: `dev\tmp_dis\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
+  0x5C6250:50, 0x714DB0 y, en la auditoría, 0x818C60:60, 0x8189F0:190, 0x54CD93, 0x54D338:50, 0x879B0A:40,
+  0x54E5C0, 0x52AF90, 0x5DBD4E, 0x5C61B0:D0, 0x5C68C0:E0, 0x5537F0:E0, 0x634B40, 0x76EAF0 y 0x54E763. Informes: `dev\tmp_dis\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
   adversaria») y `game_clock_openblack.md`. bw1-decomp: `src/Black/Game.cpp` (`PauseGame`, `SetSpeed`,
   `LocalTimerSaysDoATurn`, `ResetLocalGameTimer`, `ProcessNetworkPackets`, `Loop` l. 1834-1996, `ResolveLoad`).
 - Tamaño de los objetos: desensamblado de 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,

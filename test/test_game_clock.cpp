@@ -224,6 +224,8 @@ TEST_F(GameClockTest, RealClockAndSelectors)
 	gc::UpdateRealClock();
 	EXPECT_EQ(gc::CameraFrameMs(), 900u);
 	EXPECT_EQ(gc::ClampedFrameMs(true), 500u);
+	// the engine timer (LH3DTech::g_timer) runs at speed 1 from tick 0: the wall clock itself
+	EXPECT_EQ(gc::EngineMs(), static_cast<int32_t>(g_Now));
 	Frame(0);
 	EXPECT_EQ(gc::CameraFrameMs(true), gc::FrameGameMs());
 	EXPECT_EQ(gc::ClampedFrameMs(), gc::FrameGameMs());

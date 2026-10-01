@@ -143,6 +143,9 @@ void SetSpeed(float speed);
 void UpdateFrameClock();
 /// LH3DRender::StartFrame 0x82F14E..0x82F195: g_delta_time = the engine timer's ms since the last frame, 1 if <= 0
 void UpdateRealClock();
+/// LH3DTech::g_timer's MSeconds inline (0xEA1C78 / 0xEA1C7C / 0xEA1C80): the engine timer in ms, the wall clock (read
+/// by StartFrame and by the help texts' timing, fn_005C61B0 0x5C6250..0x5C6274)
+[[nodiscard]] int32_t EngineMs();
 
 /// g_game_time_inc [0xEA9EC0] = g_game +0x250540 = +0x205D48: the game ms of this frame (whole, 0 paused, <= 199)
 [[nodiscard]] uint32_t FrameGameMs();

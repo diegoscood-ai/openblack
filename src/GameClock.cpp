@@ -300,6 +300,11 @@ void UpdateRealClock()
 	s.previousEngineSample = now;
 }
 
+int32_t EngineMs()
+{
+	return g_State.engineTimer.MSeconds(TickCount());
+}
+
 uint32_t FrameGameMs()
 {
 	return g_State.frameGameMs;

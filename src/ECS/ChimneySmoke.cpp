@@ -65,7 +65,7 @@ constexpr float k_SpinPerSecond = 0.765f;    ///< 0x9A22E0
 constexpr float k_RisePerSecond = 2.55f;     ///< 0x9A22DC, along +0xF8 = (0, 1, 0)
 constexpr float k_DriftGain = 1.5f;          ///< 0x8AB24C
 constexpr float k_HandRadiusSquared = 225.0f; ///< 0x9A22E4: the hand within 15 units of the chimney
-constexpr float k_TurnMilliseconds = 100.0f; ///< [0xD01A38], the length of a game turn (GGame, 100 ms)
+constexpr auto k_TurnMilliseconds = static_cast<float>(game_clock::k_MsPerTurn); ///< [0xD01A38], the length of a game turn
 } // namespace
 
 glm::vec3 chimney_smoke::ChimneyWorldPosition(const glm::vec3& meshPoint, const components::Transform& transform)

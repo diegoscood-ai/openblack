@@ -1133,13 +1133,10 @@ bool Game::Initialize() noexcept
 	{
 		const auto& helpInfo = Locator::infoConstants::value().helpSystem;
 		help::HelpSystem::Queries queries;
-		// (inferred) openblack's turn counter stands for g_game+0x205A40
-		queries.turn = [this]() { return GetTurn(); };
-		// (approximated) the real milliseconds since the start, for the scaled clock of 0xEA1C78..0xEA1C80
-		queries.nowMs = [start = std::chrono::steady_clock::now()]() {
-			return static_cast<int32_t>(
-			    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
-		};
+		// g_game +0x205A40
+		queries.turn = []() { return game_clock::Turn(); };
+		// LH3DTech::g_timer's ms (0xEA1C78..0xEA1C80, 0x5C6250)
+		queries.nowMs = []() { return game_clock::EngineMs(); };
 		// ScriptDLL::GetScriptType 0x6F6C50 (fn_005C6800 0x5C681B)
 		queries.taskScriptType = [](uint32_t task) -> uint32_t {
 			return Locator::vm::has_value() ? static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)) : 1;

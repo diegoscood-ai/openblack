@@ -19,15 +19,17 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
+#include "Advisor.h"
 #include "AnimEffects.h"
 #include "AudioSystem.h"
 #include "BankTables.h"
 #include "SamplePlay.h"
+#include "Voices.h"
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No
-// argument has a default: each caller passes what the original caller passes. Milestones B1..B4 and B6
-// (docs/bw1-notes/audio.md); the parts of later milestones are declared at the end and are not defined yet. The script's
+// argument has a default: each caller passes what the original caller passes. Milestones B1..B4, B6 and B7
+// (docs/bw1-notes/audio.md). The script's
 // sound effects (B6: PLAY / STOP_SOUND_EFFECT, GAME_SOUND_PLAYING, ATTACH / DETACH_SOUND_TAG) are in ScriptSound.h.
 //
 // Rules for the callers (PLAN §2.1, §8.6):
@@ -270,32 +272,11 @@ void Delete(TagId tag);
 /// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
 [[nodiscard]] bool SoundExists();
 
-// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
-
-/// (B7) The voices on the channels (today only the table: Voices.h, milestone A10)
-namespace voices
-{
-/// fn_005C5F90: the advisor (narrators 2 / 3: HelpDude, owner k_OwnerAdvisor, 0..500 ms delay) or 2D with k_OwnerVoice
-Channel RunTextVoice(int helpTextId, int narrator);
-/// SaySoundEffect 0x70F8E0 (SAY_SOUND 0x70F9B0: owner k_OwnerVoiceAlt / k_OwnerVoice, track 0, 3D when `at`)
-Channel Say(int helpTextId, bool alt, std::optional<glm::vec3> at);
-/// SAY_SOUND_EFFECT_PLAYING 0x710280
-[[nodiscard]] bool IsSaying(int helpTextId, bool alt);
-/// STOP_SOUND_EFFECT 0x70FA50 with isSay (k_OwnerAdvisor / k_OwnerVoiceStop + k_OwnerVoiceAlt; not k_OwnerVoice)
-void StopSay(bool isSay, int id, SfxBank bank);
-/// The click 0x5C69B0 -> GAudio 0x42A210(0, k_OwnerVoice, Villagers)
-void CutByClick();
-} // namespace voices
-
-/// (B7) HelpDude 0x5BB340..0x5BB840 without its visual part
-namespace advisor
-{
-void Say(int dude, Sample sample, bool onlyIfSilent);
-[[nodiscard]] bool IsTalking(int dude);
-void Stop(int dude);
-/// AutoVoiceParams::CalcKey 0x428850 (the PCM of PlayOptions::keepPcm)
-[[nodiscard]] int LipSyncKey(int dude);
-} // namespace advisor
+// ---- voices (B7) ----------------------------------------------------------------------------------------------------
+// The voices of the texts and of the script (RUN_TEXT's fn_005C5F90, SAY_SOUND 0x70F8E0, SAY_SOUND_EFFECT_PLAYING
+// 0x710280, the click's cut 0x5C6AAD): Voices.h, audio::voices. The advisors (HelpDudeControl / HelpDude, owner 0x270C,
+// the lip-sync of AutoVoiceParams::CalcKey 0x428850): Advisor.h, audio::advisor. STOP_SOUND_EFFECT with isSay
+// (0x70FA50): ScriptSound.h.
 
 // The music (LHMusic + GAudio: milestones A3..A9) has its own headers: MusicEngine.h / MusicStream.h (LHMusic),
 // GameMusic.h (ProcessMusic, the script's music, the master volume), ThingMusic.h (ThingMusicInfo).

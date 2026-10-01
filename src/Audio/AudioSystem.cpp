@@ -51,6 +51,7 @@ struct BankEntry
 {
 	std::string path; ///< lower case, '/' separators
 	std::string group;
+	int samples {0}; ///< LHBankGetNumberOfSamples: the .sad's sample table size
 };
 
 struct State
@@ -265,6 +266,19 @@ BankId audio::RegisterBank(const std::filesystem::path& path, std::string_view g
 		}
 	}
 	return id;
+}
+
+void audio::SetBankSampleCount(BankId bank, int samples)
+{
+	if (bank != k_NoBank && bank <= g_State.banks.size())
+	{
+		g_State.banks[bank - 1].samples = samples;
+	}
+}
+
+int audio::BankSampleCount(BankId bank)
+{
+	return bank != k_NoBank && bank <= g_State.banks.size() ? g_State.banks[bank - 1].samples : 0;
 }
 
 BankId audio::Bank(SfxBank type)

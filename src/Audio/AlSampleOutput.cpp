@@ -9,6 +9,9 @@
 
 #include "AlSampleOutput.h"
 
+#include <chrono>
+#include <thread>
+
 #include <glm/geometric.hpp>
 
 extern "C" {
@@ -81,6 +84,41 @@ void AlSampleOutput::Stop(size_t channel)
 		alCheckCall(alSourceStop(_slots[channel].source));
 		_slots[channel].loop.Start(0);
 	}
+}
+
+void AlSampleOutput::StopRamped(size_t channel)
+{
+	if (channel >= _slots.size() || _slots[channel].source == 0 || !Playing(channel))
+	{
+		Stop(channel);
+		return;
+	}
+	// LHSampleStop 0x10012CCA..0x10012CE5: QSWaveMixSetPanRate(mixer, channel, 0, 20) and QSWaveMixSetVolume(.., 0): the
+	// volume ramps to 0 in 20 ms while the DLL sleeps 20 ms; then SetPanRate(100) and the flush. (approximated) OpenAL
+	// has no pan rate: four steps of 5 ms down to 0 (OpenAL Soft smooths each gain change), the game thread waiting as
+	// the original's does.
+	auto& slot = _slots[channel];
+	constexpr int k_Steps = 4;
+	constexpr auto k_Ramp = std::chrono::milliseconds(20); // push 0x14 (0x10012CCA, 0x10012CE3)
+	for (int step = 1; step <= k_Steps; ++step)
+	{
+		const float gain = slot.gain * static_cast<float>(k_Steps - step) / static_cast<float>(k_Steps);
+		alCheckCall(alSourcef(slot.source, AL_GAIN, gain));
+		std::this_thread::sleep_for(k_Ramp / k_Steps);
+	}
+	Stop(channel);
+	ApplyGain(slot);
+}
+
+int64_t AlSampleOutput::PlayPositionMs(size_t channel) const
+{
+	if (!Playing(channel))
+	{
+		return -1;
+	}
+	ALfloat seconds = 0.0f;
+	alCheckCall(alGetSourcef(_slots[channel].source, AL_SEC_OFFSET, &seconds));
+	return static_cast<int64_t>(seconds * 1000.0f);
 }
 
 bool AlSampleOutput::Playing(size_t channel) const

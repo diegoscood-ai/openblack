@@ -127,6 +127,7 @@
 #include <cstring>
 
 #include <fstream>
+#include <string_view>
 #include <utility>
 
 using namespace openblack::pack;
@@ -230,7 +231,7 @@ std::string_view openblack::pack::ResultToStr(PackResult result)
 	std::unreachable();
 }
 
-PackResult PackFile::ReadBlocks(std::istream& stream) noexcept
+PackResult PackFile::ReadBlocks(std::istream& stream, bool skipWaveData) noexcept
 {
 	assert(!_isLoaded);
 
@@ -268,6 +269,15 @@ PackResult PackFile::ReadBlocks(std::istream& stream) noexcept
 		if (_blocks.contains(header.blockName.data()))
 		{
 			return PackResult::ErrDuplicateBlockName;
+		}
+
+		if (skipWaveData && std::string_view(header.blockName.data()) == "LHAudioWaveData")
+		{
+			// LHBankRegister(path, 0) keeps the file open and reads a wave at its first play (b+0 = 1, 0x10002240)
+			_audioWaveDataOffset = static_cast<uint64_t>(stream.tellg());
+			_audioWaveDataSize = header.blockSize;
+			stream.seekg(header.blockSize, std::ios_base::cur);
+			continue;
 		}
 
 		_blocks[std::string(header.blockName.data())] = std::vector<uint8_t>(header.blockSize);
@@ -773,6 +783,40 @@ PackResult PackFile::ReadFile(std::istream& stream) noexcept
 
 	_isLoaded = true;
 
+	return PackResult::Success;
+}
+
+PackResult PackFile::ReadAudioHeaders(std::istream& stream) noexcept
+{
+	auto result = ReadBlocks(stream, true);
+	if (result != PackResult::Success)
+	{
+		return result;
+	}
+	result = ResolveAudioBankSampleTableBlock();
+	if (result != PackResult::Success)
+	{
+		return result;
+	}
+	result = ResolveFileSegmentBankInfoBlock();
+	if (result != PackResult::Success)
+	{
+		return result;
+	}
+	if (_audioWaveDataSize == 0 && !_audioSampleHeaders.empty())
+	{
+		return PackResult::ErrMissingAudioWaveDataBlock;
+	}
+	// the checks of ExtractSoundsFromBlock, without reading the waves
+	for (const auto& sample : _audioSampleHeaders)
+	{
+		if (static_cast<uint64_t>(sample.offset) + sample.size > _audioWaveDataSize)
+		{
+			return PackResult::ErrFileTooSmall;
+		}
+	}
+	_audioSampleData.assign(_audioSampleHeaders.size(), {});
+	_isLoaded = true;
 	return PackResult::Success;
 }
 

@@ -15,8 +15,8 @@
 
 #include <glm/vec3.hpp>
 
-// GetSurfaceType is shared with the miracles session (same code in both); the atmos part below is the water session's
-// (W15).
+// GetSurfaceType (used by the miracles' SpellSounds) forwards to ecs::sea_cells::GetSurfaceType, the single source;
+// the atmos part below is the water session's (W15).
 
 namespace openblack::audio
 {

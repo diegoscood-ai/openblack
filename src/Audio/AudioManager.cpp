@@ -25,9 +25,8 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Common/RandomNumberManager.h"
 #include "Locator.h"
-#include "MpegAudioDecoder.h"
 #include "Resources/Resources.h"
-#include "WavAudioDecoder.h"
+#include "WaveBuffers.h"
 
 using namespace openblack::ecs::components;
 
@@ -86,28 +85,52 @@ AudioManager::AudioManager()
     : _audioPlayer(new AudioPlayer())
 {
 	_audioPlayer->Initialize();
+	_sampleOutput = std::make_unique<AlSampleOutput>();
 }
 
 AudioManager::~AudioManager()
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<Transform, AudioEmitter>([this](entt::entity entity, const Transform&, const AudioEmitter& emitter) {
-		DestroyEmitter(entity);
-		auto sound = Locator::resources::value().GetSounds().Handle(emitter.soundId);
-		_audioPlayer->DeleteBuffer(sound->bufferId);
-	});
-
-	if (registry.Valid(_musicEntity))
+	// the channels' sources, the emitters' sources, then the wave buffers they played (one per sample, shared)
+	_sampleOutput.reset();
+	if (Locator::entitiesRegistry::has_value())
 	{
-		DestroyEmitter(_musicEntity);
+		DestroyAllEmitters();
+		if (Locator::entitiesRegistry::value().Valid(_musicEntity))
+		{
+			DestroyEmitter(_musicEntity);
+		}
+	}
+	wave_buffers::DeleteAll();
+}
+
+void AudioManager::DestroyAllEmitters()
+{
+	// (openblack) gathered first, then destroyed; the music's emitter is StopMusic's
+	auto& registry = Locator::entitiesRegistry::value();
+	std::vector<entt::entity> emitters;
+	registry.Each<Transform, AudioEmitter>([this, &emitters](entt::entity entity, const Transform&, const AudioEmitter&) {
+		if (entity != _musicEntity)
+		{
+			emitters.push_back(entity);
+		}
+	});
+	for (const auto entity : emitters)
+	{
+		if (registry.Valid(entity))
+		{
+			DestroyEmitter(entity);
+		}
+	}
+	if (AudioTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) AudioManager: {} emitters destroyed", emitters.size());
 	}
 }
 
 void AudioManager::Stop()
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<Transform, AudioEmitter>(
-	    [this](entt::entity entity, const Transform&, const AudioEmitter&) { DestroyEmitter(entity); });
+	_sampleOutput->DeleteAll();
+	DestroyAllEmitters();
 	StopMusic();
 }
 
@@ -126,6 +149,8 @@ void AudioManager::UpdateListener()
 
 void AudioManager::Update()
 {
+	// the 16 channels' finite loops (QMixer counts them as it mixes)
+	_sampleOutput->Update();
 	// QMixer mixes every channel against the listener of the last game turn (UpdateListener)
 	const auto pos = _listenerPosition;
 	auto& registry = Locator::entitiesRegistry::value();
@@ -246,11 +271,11 @@ entt::entity AudioManager::CreateEmitter(entt::id_type id, PlayType playType, gl
 	auto sourceId = _audioPlayer->CreateSource(FrequencyRatio(sound->sampleRate, static_cast<int>(pitch)), relative);
 	// QSWaveMixSetDistanceMapping {min, max, scale} of the channel (LHaudiodllR 0x10012159)
 	_audioPlayer->SetSourceDistance(sourceId, sound->minDistance, sound->mappingMaxDistance, sound->scale);
-	if (!sound->buffer.empty())
+	// one OpenAL buffer per sample, made at its first use and kept (wave_buffers): no decoding per emitter
+	if (wave_buffers::Get(*sound) != 0)
 	{
-		CreateBuffer(sound);
+		_audioPlayer->QueueBuffer(sourceId, sound->bufferId);
 	}
-	_audioPlayer->QueueBuffer(sourceId, sound->bufferId);
 	registry.Assign<AudioEmitter>(entity, sourceId, id, 0, position, direction, radius, volume, playType, status, relative,
 	                              sound->mappingMaxDistance);
 	registry.Assign<Transform>(entity, glm::zero<glm::vec3>(), glm::one<glm::mat4>(), glm::one<glm::vec3>());
@@ -259,46 +284,8 @@ entt::entity AudioManager::CreateEmitter(entt::id_type id, PlayType playType, gl
 
 void AudioManager::CreateBuffer(Sound& sound)
 {
-	std::vector<int16_t> decodeBuffer;
-	for (auto& buffer : sound.buffer)
-	{
-		// a .sad sample is a RIFF wave (LHaudio opens it with QSWaveMixOpenWaveEx); trying MPEG first let dr_mp3 find
-		// frame syncs inside some waves (G_BigSplash_03 decoded to a fraction of a second)
-		const bool riff = buffer.size() >= 4 && buffer[0] == 'R' && buffer[1] == 'I' && buffer[2] == 'F' && buffer[3] == 'F';
-		bool success = false;
-		std::vector<int16_t> decoded;
-		if (!riff)
-		{
-			auto decoder = audio::MpegAudioDecoder();
-			success = decoder.Open(buffer);
-			if (success)
-			{
-				decoder.Read(decoded);
-				sound.channelLayout = decoder.GetChannelLayout();
-			}
-		}
-		if (!success)
-		{
-			auto decoder = audio::WavAudioDecoder();
-			success = decoder.Open(buffer);
-			if (success)
-			{
-				decoder.Read(decoded);
-				sound.channelLayout = decoder.GetChannelLayout();
-			}
-		}
-		if (success)
-		{
-			decodeBuffer.insert(decodeBuffer.end(), decoded.begin(), decoded.end());
-		}
-		else
-		{
-			SPDLOG_LOGGER_ERROR(spdlog::get("audio"), "Unable to decode sound");
-		}
-	}
-	sound.bufferId = CreateBuffer(sound.channelLayout, decodeBuffer, sound.sampleRate);
-	sound.duration = _audioPlayer->GetDuration(sound.bufferId);
-	sound.sizeInBytes = decodeBuffer.size() * sizeof(decodeBuffer[0]);
+	// the sample's wave decoded once (RIFF PCM / MS-ADPCM / MPEG layer II, raw MPEG) into its kept buffer
+	wave_buffers::Get(sound);
 }
 
 bool AudioManager::EmitterExists(entt::entity emitter)
@@ -438,7 +425,8 @@ void AudioManager::StopMusic()
 	// Clean up the audio player's music resources
 	_audioPlayer->StopSource(emitter.sourceId);
 	_audioPlayer->DeleteSource(emitter.sourceId);
-	[[maybe_unused]] auto music = Locator::resources::value().GetSounds().Handle(emitter.soundId);
+	auto music = Locator::resources::value().GetSounds().Handle(emitter.soundId);
+	wave_buffers::Release(*music);
 	//	Erase the music resource as it is no longer being played
 	Locator::resources::value().GetSounds().Erase(emitter.soundId);
 	//	Remove the entity

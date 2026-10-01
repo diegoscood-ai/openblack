@@ -86,6 +86,10 @@ struct Spiral
 		const auto& step = spiral.Next();
 		return {step.x, step.z};
 	}
+	/// MapCoords::operator+=(JustMapXZ) 0x605470, the way every caller of the spiral moves (Living::CalcRandomPos
+	/// 0x5ED1C8, Animal::LookForGrazePos 0x41A945, fn_00419490's 0x41954B): the step is added to the high words only, so
+	/// the sub-cell fraction never changes and the 16-bit add wraps at the map's edge
+	void Advance(map_coords::MapCoords& coords) { map_coords::AddCells(coords, spiral.Next()); }
 };
 
 // MapCoords and angles (2048 per circle)

@@ -36,8 +36,9 @@ constexpr float k_FixedPerMetre = 6553.6f;          ///< [0x8AC400] = 0x45CCCCCD
 constexpr float k_MetresPerFixed = 10.0f / 65536.0f; ///< [0x8AA3A4] = 0x39200000, exactly 10 / 65536 (GetLHPoint 0x605C40)
 constexpr int32_t k_FixedPerCell = 0x10000;         ///< the high word is the cell
 constexpr float k_CellSize = 10.0f;                 ///< metres per cell (0x10000 * [0x8AA3A4])
-/// GMap::Init(0x200, 0x200) from GGame::Init (0x6014C8, 0x6014F1): g_game+0x59C4 (the row width, the limit of cz) and
-/// g_game+0x59C8 (the limit of cx); both 512, so one value
+/// GMap::Init(0x200, 0x200) 0x6014C0, called from GGame::Init (0x54F650+0x2A0: "push 0x200; push 0x200; call
+/// 0x6014C0"). Init stores them in g_game+0x59C4 ("mov [ecx+0xC], eax" 0x6014C8: the row width, the limit of cz) and
+/// g_game+0x59C8 ("mov [ecx+0x10], edx" 0x6014F1: the limit of cx); both 512, so one value
 constexpr uint32_t k_MapCells = 512;
 
 /// JustMapXZ: one cell step {int16 x, z}

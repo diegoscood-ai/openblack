@@ -864,9 +864,10 @@ glm::ivec2 spell_flock::DestinationAt(glm::ivec2 spawn, glm::vec2 direction, flo
 		d *= distance / length;
 	}
 	const auto move = [](int32_t coordinate, float delta) {
-		// fild the high word (movzx); fmul 10 (0x9819A4); fadd d; fdiv 10; ftol; the word stored back
-		const auto cell = static_cast<uint16_t>(static_cast<uint32_t>(coordinate) >> 16);
-		const auto moved = static_cast<int32_t>((static_cast<double>(cell) * 10.0 + static_cast<double>(delta)) / 10.0);
+		// 0x7238E2..0x723905: "xor edx, edx; mov dx, [esi+2]" (the high word, unsigned = map_coords::CellOf), fild,
+		// fmul 10 [0x9819A4], fadd d, fdiv 10, __ftol, and the word stored back. All of it in float (FPU at 24 bits)
+		const auto cell = ecs::map_coords::CellOf(coordinate);
+		const auto moved = static_cast<int32_t>((static_cast<float>(cell) * 10.0f + delta) / 10.0f);
 		const uint32_t low = static_cast<uint32_t>(coordinate) & 0xFFFFu;
 		return static_cast<int32_t>((static_cast<uint32_t>(static_cast<uint16_t>(moved)) << 16) | low);
 	};
@@ -929,10 +930,12 @@ bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPo
 	{
 		return false;
 	}
-	// along the corridor (u = (-normal.z, normal.x)) from the wolf's cell corner (the high words x 10)
-	const auto cell = ToMapCoords(wolfPosition);
-	const glm::vec2 corner(static_cast<float>(static_cast<uint16_t>(static_cast<uint32_t>(cell.x) >> 16)) * 10.0f,
-	                       static_cast<float>(static_cast<uint16_t>(static_cast<uint32_t>(cell.y) >> 16)) * 10.0f);
+	// along the corridor (u = (-normal.z, normal.x)) from the wolf's cell corner: SpellWolf::IsPosOnCorridor 0x420E67
+	// reads the high words unsigned ("xor eax, eax; mov ax, [ecx+0x16]" = map_coords::CellOf) and multiplies by 10
+	// [0x8BE8D4]
+	const auto coords = ToMapCoords(wolfPosition);
+	const glm::vec2 corner(static_cast<float>(ecs::map_coords::CellOf(coords.x)) * 10.0f,
+	                       static_cast<float>(ecs::map_coords::CellOf(coords.y)) * 10.0f);
 	const float ux = -wolf.normal.y;
 	const float uz = wolf.normal.x;
 	const float along = (ux * point.x + uz * point.y) - (ux * corner.x + uz * corner.y);

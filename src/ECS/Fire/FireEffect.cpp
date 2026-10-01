@@ -129,8 +129,8 @@ void RemoveReactions(entt::entity object, Reaction type)
 void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || cell.x < 0 || cell.y < 0 || cell.x >= MapInterface::k_GridSize.x ||
-	    cell.y >= MapInterface::k_GridSize.y)
+	// MapCoords::ToMap 0x603430 gives NULL off the map (InBounds 0x6042C0: the cell unsigned against 512)
+	if (!Locator::entitiesMap::has_value() || !map_coords::InBounds(cell, MapInterface::k_GridSize.x))
 	{
 		return;
 	}
@@ -518,20 +518,24 @@ void Process(FireEffect& fire)
 		if (search)
 		{
 			const float reach = radius + 10.0f;
-			const auto start = MapInterface::GetGridCell(glm::vec2(centre.x, centre.z));
-			glm::ivec2 cell(start);
+			// the spiral walks the fire's own MapCoords (copied at 0x72F5E1..0x72F608): the distance is
+			// GetDistanceInMetres 0x74CD70 (0x72F674) between it and the centre, and the step is Spiral 0x74D7E0
+			// (0x72F6C3) then operator+= 0x605470 (0x72F6D0), which only adds to the high words: the fraction is the
+			// same in both, so the difference is a whole number of 10 m cells, and the 16-bit add wraps at the edge
+			const auto start = map_coords::FromMetres(glm::vec2(centre.x, centre.z));
+			auto coords = start;
 			map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, from dir = count = 1
 			std::vector<entt::entity> objects;
 			std::unordered_set<entt::entity> heated; // (inf) an object spanning several cells is heated once
 			for (int steps = 99999; steps != 0; --steps)
 			{
-				const glm::vec3 cellPosition(centre.x + static_cast<float>(cell.x - start.x) * 10.0f, 0.0f,
-				                             centre.z + static_cast<float>(cell.y - start.y) * 10.0f);
-				if (!(Distance2D(cellPosition, centre) <= reach))
+				const auto cell = map_coords::Cell(coords);
+				const glm::vec2 delta = map_coords::ToMetres(map_coords::MapCoords {coords.x - start.x, coords.z - start.z, 0.0f});
+				if (!(glm::length(delta) <= reach))
 				{
 					break;
 				}
-				CellObjects(cell, objects);
+				CellObjects(glm::ivec2(cell), objects);
 				for (const auto object : objects)
 				{
 					if (object != fire.object && heated.insert(object).second)
@@ -543,8 +547,7 @@ void Process(FireEffect& fire)
 						}
 					}
 				}
-				const auto& step = spiral.Next();
-				cell += glm::ivec2(step.x, step.z);
+				map_coords::AddCells(coords, spiral.Next());
 			}
 		}
 	}

@@ -216,8 +216,10 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 			const float angle = GameFloatRand(std::numbers::pi_v<float> * 2.0f);
 			const float r = GameFloatRand(1.0f);
 			const float distance = r * r * climate.innerRadius * 0.1f; // in 10 m cells
-			const float cx = std::floor(static_cast<float>(climate.x) / 65536.0f);
-			const float cz = std::floor(static_cast<float>(climate.z) / 65536.0f);
+			// 0x772C38 and 0x772C65: the centre's cell is the unsigned high word of its MapCoords ("xor eax, eax; mov ax,
+			// [ebp+0x16]" / "[ebp+0x1a]" = ecs::map_coords::CellOf); "fiadd" adds it and __ftol truncates the sum
+			const float cx = static_cast<float>(ecs::map_coords::CellOf(climate.x));
+			const float cz = static_cast<float>(ecs::map_coords::CellOf(climate.z));
 			place.x = static_cast<float>(static_cast<int32_t>(std::cos(angle) * distance + cx)) * 10.0f;
 			place.z = static_cast<float>(static_cast<int32_t>(std::sin(angle) * distance + cz)) * 10.0f;
 		}
@@ -227,7 +229,7 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 			place.z = static_cast<float>(GameRand(0x200)) * 10.0f;
 			for (const auto& other : g_climates)
 			{
-				const auto centre = other.CellCentre();
+				const auto centre = other.Centre();
 				if (std::hypot(place.x - centre.x, place.z - centre.z) < other.outerRadius)
 				{
 					outside = false;
@@ -248,11 +250,6 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 glm::vec3 Climate::Centre() const
 {
 	return {ecs::map_coords::ToMetres(x), y, ecs::map_coords::ToMetres(z)}; // MapCoords: x [0x8AA3A4] (10 / 65536)
-}
-
-glm::vec3 Climate::CellCentre() const
-{
-	return {static_cast<float>((x >> 16) * 10), y, static_cast<float>((z >> 16) * 10)};
 }
 
 void climate::Reset()
@@ -598,7 +595,7 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			{
 				for (const auto& other : g_climates)
 				{
-					const auto centre = other.CellCentre();
+					const auto centre = other.Centre();
 					if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
 					    fadeOutAge > storm->age)
 					{
@@ -610,7 +607,7 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			}
 			else
 			{
-				const auto centre = climate.CellCentre();
+				const auto centre = climate.Centre();
 				if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
 				    fadeOutAge > storm->age)
 				{

@@ -67,8 +67,9 @@ float Radius2D(entt::entity object)
 	return effects::Object2DRadius(object);
 }
 
-/// ftol of a value the x87 keeps in extended precision (double here)
-int32_t Ftol(double value)
+/// __ftol 0x7A1400: truncates towards zero. The game runs with the FPU at 24 bits (fn_007DEE00, "and cw, 0xFCFF" at
+/// 0x7DEE0D), so what it is given is always a float
+int32_t Ftol(float value)
 {
 	return static_cast<int32_t>(value);
 }
@@ -174,10 +175,9 @@ float Get3DAngleFromXZ(glm::ivec2 a, glm::ivec2 b)
 
 glm::ivec2 GetPosFromAngle(float angle, float metres)
 {
-	// 0x74D58F..0x74D5C0: fcos / fsin, x d, x 65536, / 10, ftol (y = ftol(0 / 10) = 0)
-	const double a = angle;
-	const double d = metres;
-	return {Ftol(std::cos(a) * d * 65536.0 / 10.0), Ftol(std::sin(a) * d * 65536.0 / 10.0)};
+	// 0x74D58F..0x74D5C0: fcos / fsin, x metres, then GUtils' own x 65536 [0x8AC408] / 10 [0x99A1BC] and ftol
+	// (y = ftol(0 / 10) = 0). All of it in float: the FPU is at 24 bits
+	return {map_coords::ToFixedGUtils(std::cos(angle) * metres), map_coords::ToFixedGUtils(std::sin(angle) * metres)};
 }
 
 uint32_t GetMapCellSpiralSizeFromRadius(float radius)
@@ -357,9 +357,11 @@ glm::ivec2 GetCongregationPos(entt::entity townEntity)
 			sumZ += static_cast<uint32_t>(item.xz.y);
 			y = item.y;
 		}
-		// 0x7409F3..0x740A1E: fild qword / fild qword n, ftol (truncated)
-		pos.x = Ftol(static_cast<double>(sumX) / static_cast<double>(n));
-		pos.y = Ftol(static_cast<double>(sumZ) / static_cast<double>(n));
+		// 0x7409F3..0x740A1E: fild qword sum / fild qword n; fdiv st(1); __ftol (truncated). The fild are exact and the
+		// quotient is rounded once to 24 bits, so it is divided in double (exact) and rounded to float once, as the FPU
+		// does: with 100 positions the quotient is above 2^24 and its ulp is 2 or more
+		pos.x = Ftol(static_cast<float>(static_cast<double>(sumX) / static_cast<double>(n)));
+		pos.y = Ftol(static_cast<float>(static_cast<double>(sumZ) / static_cast<double>(n)));
 		// 0x740A25..0x740A5D: FindClearArea(pos, pos, 130, 3, 10, BlocksTownClearArea (0x743690), none)
 		if (FindClearArea(pos, pos, 130.0f, 3.0f, 10.0f, &BlocksTownClearArea, entt::null))
 		{

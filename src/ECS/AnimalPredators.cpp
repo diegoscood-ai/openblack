@@ -231,12 +231,13 @@ bool FindPrey(Context& ctx, int cells)
 {
 	const auto& map = Locator::entitiesMap::value();
 	const glm::vec2 me = Xz(ctx.transform);
-	// GUtils::Spiral (0x74D7E0), from its own cell
+	// GUtils::Spiral (0x74D7E0 at 0x41953E) over a copy of its own MapCoords (0x41949A..0x4194B6): InBounds 0x4194D6, the
+	// cell's object list 0x4194E9, and += 0x41954B (whole cells on the high words, the fraction kept)
 	Spiral spiral;
-	glm::ivec2 spiralCell(0);
+	map_coords::MapCoords coords = map_coords::FromMetres(me);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
+		const glm::vec2 c = map_coords::ToMetres(coords);
 		if (InBounds(c))
 		{
 			for (const auto entity : map.GetMobileInGridCell(CellOf(c)))
@@ -248,7 +249,7 @@ bool FindPrey(Context& ctx, int cells)
 				}
 			}
 		}
-		spiralCell += spiral.Next();
+		spiral.Advance(coords);
 	}
 	return false;
 }

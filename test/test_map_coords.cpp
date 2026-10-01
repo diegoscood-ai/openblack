@@ -96,6 +96,14 @@ TEST(MapCoords, AddCellsKeepsTheFraction)
 	mc::AddCells(edge, {-1, 0}); // the 16-bit add wraps to 0xFFFF: off the map
 	EXPECT_EQ(static_cast<uint32_t>(edge.x), 0xFFFF1234u);
 	EXPECT_FALSE(mc::InBounds(edge));
+	// and back in: a spiral starting left of the map (x in (-10, 0): cell 0xFFFF) steps into cell 0, which a cell kept in
+	// an int would miss (0xFFFF + 1 = 0x10000, off the map for good). This is why the spirals walk a MapCoords
+	mc::MapCoords left {mc::ToFixed(-3.0f), 0, 0.0f};
+	EXPECT_EQ(mc::CellX(left), 0xFFFF);
+	EXPECT_FALSE(mc::InBounds(left));
+	mc::AddCells(left, {1, 0});
+	EXPECT_EQ(mc::CellX(left), 0);
+	EXPECT_TRUE(mc::InBounds(left));
 }
 
 TEST(MapCoords, Neighbours)

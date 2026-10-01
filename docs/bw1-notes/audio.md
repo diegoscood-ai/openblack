@@ -781,8 +781,11 @@ el gancho de `SetWideScreen` mueve `ScreenFade` (en 16:9 no se ven, como en el o
 ya lee la pantalla ancha del guion (0x4279E9).
 
 En juego (Tierra 1, `FollowUs`): START_CAMERA_CONTROL → START_DIALOGUE → START_GAME_SPEED → SET_WIDESCREEN →
-**START_MUSIC 54** (suena intro.sad). Ahora se para en `FollowUs_loop_4`: espera a que el padre llegue a
-`FatherPosKiss` (GET_DISTANCE == 0), y `MOVE_GAME_THING` (033) es stub. El primer RUN_TEXT viene después.
+**START_MUSIC 54** (suena intro.sad). Con `MOVE_GAME_THING` (033) de mapas (b17111c6) pasa `FollowUs_loop_4`, la
+familia anda y suenan las piedras cantoras (PLAY_SOUND_EFFECT 49/50/54); los bloqueos siguientes son de cámara, sin
+dueño: HAS_CAMERA_ARRIVED (035, GCamera::Arrived 0x443050), MOVE_CAMERA_POSITION/FOCUS (003/004) y SET_AVI_SEQUENCE
+(203, pantalla en negro tras el SET_FADE). Las voces del guion (GAME_PLAY_SAY_SOUND_EFFECT, SAY_SOUND_EFFECT_PLAYING)
+son el hito B7 (pendiente).
 
 ## Fase A implementada
 
@@ -1109,7 +1112,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - Sonidos de los clips de animación y el banter: [animation.md](animation.md#sonidos-de-los-clips).
 - Golpes, choques y lanzamientos: [physics.md](physics.md#sonidos-polvo-y-aspecto-de-los-golpes).
 - Farolas (SoundTag, de noche): [day-night-weather.md](day-night-weather.md#luces-de-noche-informe-night_visualstxt).
-- Árboles (hojas, caída): [objects-and-resources.md](objects-and-resources.md).
+- Árboles: hojas en [trees.md](trees.md#dibujado), caída en [trees.md](trees.md#soltar-y-replantar).
 - Partículas de los milagros (SOUND_ACTION, PSysSound, spells.sad): [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp).
 - Agua (la mano en el agua, golpes, ahogarse, barco, cascada y arca, ambiente del mar, la costa y los lagos):
   [water.md](water.md#audio-del-agua). Hechizos: [particles.md](particles.md) y las páginas de Milagros.

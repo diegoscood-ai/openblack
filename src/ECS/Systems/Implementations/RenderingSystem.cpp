@@ -29,13 +29,17 @@
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/SpecularColour.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Fire/FireGraphic.h"
+#include "ECS/Life.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
+#include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Stream.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
@@ -47,6 +51,7 @@
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "Locator.h"
+#include "PSys/Creators/Mesh.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::systems;
@@ -56,6 +61,17 @@ RenderingSystem::~RenderingSystem() = default;
 
 namespace
 {
+/// The mesh atoms of the particle effects this frame (PSys/Creators/Mesh.h), drawn as instances of their mesh
+std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
+
+/// The texture offset in the w of an instance's second column: v + 4 x u in 1/256 steps (vs_object.sc). (openblack
+/// encoding) u is quantised to 1/256, enough for the orbs' 0.25 steps
+float PackUvOffset(float u, float v)
+{
+	const float steps = std::round((u - std::floor(u)) * 256.0f);
+	return v + 4.0f * (steps >= 256.0f ? 0.0f : steps);
+}
+
 /// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
 /// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
 /// ...); villagers and the creature have blob / dynamic shadows instead.
@@ -132,6 +148,27 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	    },
 	    entt::exclude<TempleInteriorPart>);
 
+	// ParticleMeshCreator atoms (Particle3DObj::DrawAt 0x679FD0): opaque ones with the meshes, translucent ones with the
+	// fading meshes
+	g_PSysMeshes = openblack::psys::mesh_atoms::Collect();
+	std::erase_if(g_PSysMeshes, [](const auto& atom) {
+		return !openblack::Locator::resources::value().GetMeshes().Contains(atom.meshId);
+	});
+	for (const auto& atom : g_PSysMeshes)
+	{
+		if (atom.translucent)
+		{
+			++translucentIds[atom.meshId];
+			translucentMorph.try_emplace(atom.meshId, false);
+		}
+		else
+		{
+			auto count = meshIds.insert(std::make_pair(atom.meshId, std::make_pair(0u, false)));
+			count.first->second.first++;
+		}
+		++instanceCount;
+	}
+
 	std::unordered_map<entt::id_type, uint32_t> shadowCasterIds;
 	registry.Each<const Mesh, const Transform>([&registry, &shadowCasterIds, &instanceCount](entt::entity entity, const Mesh& mesh,
 	                                                                                        const Transform& /*unused*/) {
@@ -177,6 +214,7 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		offset += desc.first;
 	}
 	_renderContext.translucentDrawDescs.clear();
+	_renderContext.additiveInstances.clear();
 	for (const auto& [meshId, count] : translucentIds)
 	{
 		_renderContext.translucentDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
@@ -217,7 +255,13 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    auto modelMatrix = glm::mat4(drawRotation);
 		    modelMatrix = glm::translate(modelMatrix, drawPosition * drawRotation);
 		    modelMatrix = glm::scale(modelMatrix, transform.scale);
-		    if (draw != nullptr)
+		    // the one-shot orb is drawn turned to the camera (fn_00518720, Magic/Core/OneOffSpellSeed.cpp)
+		    if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
+		    {
+			    modelMatrix = glm::scale(glm::translate(transform.position + orb->facingOffset) * glm::mat4(orb->facing),
+			                             transform.scale);
+		    }
+		    else if (draw != nullptr)
 		    {
 			    modelMatrix[0] += draw->shearX * modelMatrix[1];
 			    modelMatrix[2] += draw->shearZ * modelMatrix[1];
@@ -243,10 +287,10 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    {
 			    _renderContext.instanceUniforms[idx][0][3] = 1.0f - glm::clamp(alpha->value, 0.0f, 1.0f);
 		    }
-		    // The w of the second column carries the texture V offset (components::UvScroll).
+		    // The w of the second column carries the texture offset (components::UvScroll): v + 4 x u in 1/256 steps
 		    if (const auto* scroll = registry.TryGet<const UvScroll>(entity); scroll != nullptr)
 		    {
-			    _renderContext.instanceUniforms[idx][1][3] = scroll->v;
+			    _renderContext.instanceUniforms[idx][1][3] = PackUvOffset(scroll->u, scroll->v);
 		    }
 		    // The w of the third column: components::MeshTint, 1e6 (2e6 dissolving) + 5 bits each of the ground colour
 		    // (r, g, b from the bottom) and of `own` (bits 15-19)
@@ -315,6 +359,27 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
 			    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * ecs::WindSway(slot);
 		    }
+		    // Tree::Draw's fire part fn_0074B3A0 (a tree with a FireEffect, ECS/Fire/FireGraphic): its colour x the burnt
+		    // grey (the object colour, as the field's), and below 0.2 life it shrinks to 5 x life across (the matrix rows
+		    // 0 and 2, not its height)
+		    if (registry.AnyOf<Tree, DeadTree>(entity))
+		    {
+			    if (const auto colour = ecs::fire::graphic::TreeDrawColour(entity); colour.has_value())
+			    {
+				    _renderContext.instanceUniforms[idx][3][3] =
+				        -(1.0f + static_cast<float>(colour->r * 65536u + colour->g * 256u + colour->b));
+				    const float life = ecs::life::LifeOf(entity);
+				    if (life < 0.2f)
+				    {
+					    const float shrink = 1.0f - (0.2f - life) * 5.0f;
+					    for (const int axis : {0, 2})
+					    {
+						    auto& column = _renderContext.instanceUniforms[idx][axis];
+						    column = glm::vec4(glm::vec3(column) * shrink, column.w);
+					    }
+				    }
+			    }
+		    }
 		    // The w of the fourth column: 2 + the grey of a house's lit windows at night (Abode::Draw), 1 otherwise
 		    if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && Game::Instance() != nullptr)
 		    {
@@ -324,6 +389,16 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    {
 				    _renderContext.instanceUniforms[idx][3][3] = 2.0f + grey;
 			    }
+		    }
+		    // Living +0xD0 (components::SpecularColour, the heal chakra's glow): 3e6 + 7 bits each of r, g, b in the same w,
+		    // added to the land light's specular (fn_0080BF10). (aproximado) 7 bits per channel to fit the float, where
+		    // fn_0080BF10 adds 8
+		    if (const auto* specular = registry.TryGet<const SpecularColour>(entity); specular != nullptr)
+		    {
+			    const auto bits = [](uint8_t value) { return static_cast<uint32_t>(value) >> 1u; };
+			    _renderContext.instanceUniforms[idx][3][3] =
+			        3e6f + static_cast<float>(bits(specular->colour.r) * 16384u + bits(specular->colour.g) * 128u +
+			                                  bits(specular->colour.b));
 		    }
 		    if (drawBoundingBox)
 		    {
@@ -335,6 +410,39 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    offset.first->second++;
 	    },
 	    entt::exclude<TempleInteriorPart>);
+
+	// the particle effects' mesh atoms, after the entities of the same mesh
+	for (const auto& atom : g_PSysMeshes)
+	{
+		auto& offsets = atom.translucent ? translucentOffsets : uniformOffsets;
+		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs;
+		const auto desc = descs.find(atom.meshId);
+		if (desc == descs.end())
+		{
+			continue;
+		}
+		auto offset = offsets.insert(std::make_pair(atom.meshId, 0));
+		const uint32_t idx = desc->second.offset + offset.first->second;
+		_renderContext.instanceUniforms[idx] = atom.model;
+		if (atom.translucent)
+		{
+			_renderContext.instanceUniforms[idx][0][3] = 1.0f - atom.alpha;
+		}
+		if (atom.additive)
+		{
+			_renderContext.additiveInstances.insert(idx);
+		}
+		// the DrawData colour (the creator's colour, x the player's for UsePlayerColor), packed as -1 - (r 65536 + g 256 +
+		// b): with DrawWithLandscapeColor (fn_0080BEC0) in the w of the fourth column, the object colour vs_object multiplies
+		// the land light by; otherwise in the w of the third column, the colour alone (SetColour vt 0x2C, vs_object)
+		const float packed = -1.0f - static_cast<float>(atom.colour[0] * 65536 + atom.colour[1] * 256 + atom.colour[2]);
+		_renderContext.instanceUniforms[idx][atom.landscapeColour ? 3 : 2][3] = packed;
+		if (atom.uv != glm::vec2(0.0f))
+		{
+			_renderContext.instanceUniforms[idx][1][3] = PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));
+		}
+		offset.first->second++;
+	}
 
 	if (!_renderContext.instanceUniforms.empty())
 	{

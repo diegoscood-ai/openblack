@@ -93,7 +93,7 @@ void SetVillagerStateSpeed(entt::entity entity)
 	// m: the land balance speed scale (GLandBalance::Values[4]: 1.5 in Land2, 1.25 in Land3) * the player's wonder bonus
 	// (1) * the town's belief term (openblack has no belief in the player yet: 1)
 	const float m = land_balance::Get(4);
-	const float life = static_cast<float>(villager->health) / 100.0f;
+	const float life = villager->life;
 	const auto& group = info->speedGroup;
 	float speed = 0.0f;
 	if (life <= info->lifeWhenCrawlsWounded)

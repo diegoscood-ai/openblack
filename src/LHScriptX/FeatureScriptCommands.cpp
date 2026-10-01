@@ -55,10 +55,14 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/Influence/Influence.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
+#include "Magic/Script/MapScriptMagic.h"
+#include "Magic/Script/MapScriptWeather.h"
+#include "Worship/WorshipPercentage.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "ScriptingBindingUtils.h"
@@ -143,32 +147,6 @@ entt::entity FindNearestTown(const glm::vec3& position)
 		}
 	});
 	return nearest;
-}
-
-/// fn_007731B0: the newest climate with that id (0 is the world's climate, g_game+0x250534, made on demand by
-/// fn_00771300 with everything 0)
-Climate* FindClimate(int32_t id)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	auto& context = registry.Context();
-	if (id == 0)
-	{
-		if (context.worldClimate == entt::null)
-		{
-			context.worldClimate = registry.Create();
-			registry.Assign<Climate>(context.worldClimate, 0);
-			context.climates.push_back(context.worldClimate);
-		}
-		return &registry.Get<Climate>(context.worldClimate);
-	}
-	for (auto it = context.climates.rbegin(); it != context.climates.rend(); ++it)
-	{
-		if (auto* climate = registry.TryGet<Climate>(*it); climate != nullptr && climate->id == id)
-		{
-			return climate;
-		}
-	}
-	return nullptr;
 }
 
 /// MultiMapFixed::InsertMapObject 0x52E650 for an object the script made: its collide data (the mesh's, with the
@@ -444,38 +422,44 @@ void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position,
 		townData.centre = centre;
 	}
 	townData.worshipPercentage = static_cast<float>(worshipPercentage) * 0.001f;
+	// the real Town::SetWorshipPercentage 0x73C060 (Worship/WorshipPercentage.cpp: kept only with a worship site, the
+	// totem statue, the villagers sent)
+	worship::percentage::SetWorshipPercentage(town, townData.worshipPercentage);
 }
 
 void FeatureScriptCommands::CreateTownSpell(int32_t townId, const std::string& spellName)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, townId, spellName);
+	magic::script::CreateTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateNewTownSpell(int32_t townId, const std::string& spellName)
 {
-	// the spells themselves are not implemented; the town centre's spell icon they make is counted
+	// the town centre's spell icon this makes is counted by the object index (TownCentreSpellIcon takes no index of its own)
 	ecs::object_index::AddTownSpell(static_cast<uint32_t>(townId), spellName);
+	magic::script::CreateNewTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
-void FeatureScriptCommands::CreateTownCentreSpellIcon(int32_t param1, const std::string& param2)
+void FeatureScriptCommands::CreateTownCentreSpellIcon(int32_t townId, const std::string& spellName)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, param1, param2);
+	// command 12, the same handler as CREATE_TOWN_SPELL (0x715B4A)
+	magic::script::CreateTownSpell(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateSpellIcon(glm::vec3 position, const std::string& param2, int32_t param3, int32_t param4,
                                             int32_t param5)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, glm::to_string(position), param2, param3, param4, param5);
+	// command 13 does nothing in the original either (0x715B7C)
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "LHScriptX: CREATE_SPELL_ICON({}, {}, {}, {}, {}) does nothing.",
+	                    glm::to_string(position), param2, param3, param4, param5);
 }
 
-void FeatureScriptCommands::CreatePlannedSpellIcon(int32_t param1, glm::vec3 position, const std::string& param3,
+void FeatureScriptCommands::CreatePlannedSpellIcon(int32_t townId, glm::vec3 position, const std::string& spellName,
                                                    int32_t param4, int32_t param5, int32_t param6)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}, {}, {}, {}) not implemented.",
-	                    __FILE__, __LINE__, __func__, param1, glm::to_string(position), param3, param4, param5, param6);
+	// command 14: only the town's magic type (the planned icon itself is not made)
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "LHScriptX: CREATE_PLANNED_SPELL_ICON({}, {}, {}, {}, {}, {})", townId,
+	                    glm::to_string(position), spellName, param4, param5, param6);
+	magic::script::CreatePlannedSpellIcon(townId, spellName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateVillager(glm::vec3 param1, glm::vec3 param2, const std::string& param3)
@@ -533,11 +517,20 @@ void FeatureScriptCommands::CreateCreaturePen([[maybe_unused]] glm::vec3 positio
 	// __func__);
 }
 
-void FeatureScriptCommands::CreateWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string&,
-                                              const std::string&, int32_t, int32_t)
+void FeatureScriptCommands::CreateWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string& playerOwner,
+                                              const std::string& tribeType, int32_t, int32_t)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// command 19 (0x7160C8): only the player and the tribe are used; the site's place comes from its citadel slot
+	Tribe tribe;
+	try
+	{
+		tribe = k_TribeLookup.at(tribeType);
+	}
+	catch (...)
+	{
+		std::throw_with_nested(std::runtime_error("Could not recognize worship site tribe"));
+	}
+	magic::script::CreateWorshipSite(GetPlayerName(playerOwner), tribe); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreatePlannedWorshipSite([[maybe_unused]] glm::vec3 position, int32_t, const std::string&,
@@ -822,67 +815,48 @@ void FeatureScriptCommands::CreateNewBigForest(glm::vec3 position, BigForestInfo
 	BigForestArchetype::Create(position, type, unknown, rotation, scale);
 }
 
-void FeatureScriptCommands::CreateInfluenceRing([[maybe_unused]] glm::vec3 position, int32_t, float, int32_t)
+void FeatureScriptCommands::CreateInfluenceRing(glm::vec3 position, int32_t player, float radius, int32_t anti)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
-}
-
-void FeatureScriptCommands::CreateWeatherClimate(int32_t id, int32_t info, glm::vec3 position, float radius1, float radius2)
-{
-	// case 60 (0x7171F5) -> fn_00771300(pos, &GClimateInfo[N1], F3, F4, 0, id N0): id 0 makes a GClimate(0) that
-	// ignores the rest; otherwise GClimate 0x771170, radii in order. Only data (no weather simulation yet).
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto entity = registry.Create();
-	auto& climate = registry.Assign<Climate>(entity, id);
-	if (id != 0)
+	// case 59 (0x7171A3): InfluenceRing::Create(pos, GGame::GetPlayer(player), radius, anti). (inferido) the range
+	// check is openblack's: GetPlayer does not test the index
+	if (player >= 0 && player < static_cast<int32_t>(PlayerNames::_COUNT))
 	{
-		climate.info = info;
-		climate.position = position;
-		climate.innerRadius = std::min(radius1, radius2);
-		climate.outerRadius = std::max(radius1, radius2);
+		influence::CreateRing(position, static_cast<PlayerNames>(player), radius, anti != 0);
 	}
-	registry.Context().climates.push_back(entity);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateRain(int32_t id, float rain, int32_t param3, int32_t param4, int32_t param5)
+void FeatureScriptCommands::CreateWeatherClimate(int32_t id, int32_t info, glm::vec3 position, float radius1,
+                                                 float radius2)
+{
+	// case 60 (0x7171F5) -> fn_00771300(pos, &GClimateInfo[N1], F3, F4, 0, id N0): Magic/Script/MapScriptWeather.cpp ->
+	// ECS/Weather/Climate (id 0: GClimate(0), which ignores the rest; otherwise GClimate 0x771170, radii in order)
+	magic::map_script::CreateWeatherClimate(id, info, position, radius1, radius2);
+}
+
+void FeatureScriptCommands::CreateWeatherClimateRain(int32_t id, float desire, int32_t dryDays, int32_t rainingDays,
+                                                     int32_t flags)
 {
 	// case 61 (0x717250) -> 0x773200: the climate's +0x34.. = {F1, N2, N3, (uint8_t)N4}; nothing for an unknown id
-	if (auto* climate = FindClimate(id))
-	{
-		climate->rain = rain;
-		climate->rainN2 = param3;
-		climate->rainN3 = param4;
-		climate->rainN4 = static_cast<uint8_t>(param5);
-	}
+	magic::map_script::CreateWeatherClimateRain(id, desire, dryDays, rainingDays, flags);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t id, float temperature1, float temperature2)
+void FeatureScriptCommands::CreateWeatherClimateTemp(int32_t id, float temperature, float target)
 {
 	// case 62 (0x7172A2) -> 0x773290: +0x44 = F1, +0x48 = F2
-	if (auto* climate = FindClimate(id))
-	{
-		climate->temperature1 = temperature1;
-		climate->temperature2 = temperature2;
-	}
+	magic::map_script::CreateWeatherClimateTemp(id, temperature, target);
 }
 
-void FeatureScriptCommands::CreateWeatherClimateWind(int32_t id, float wind1, float wind2, float wind3)
+void FeatureScriptCommands::CreateWeatherClimateWind(int32_t id, float windX, float windZ, float angle)
 {
 	// case 63 (0x7172E0) -> 0x7732D0: +0x4C.. = {F1, F2, F3}
-	if (auto* climate = FindClimate(id))
-	{
-		climate->wind1 = wind1;
-		climate->wind2 = wind2;
-		climate->wind3 = wind3;
-	}
+	magic::map_script::CreateWeatherClimateWind(id, windX, windZ, angle);
 }
 
-void FeatureScriptCommands::CreateWeatherStorm(int32_t, glm::vec3, float, int32_t, const std::string&, const std::string&,
-                                               const std::string&, float, glm::vec3)
+void FeatureScriptCommands::CreateWeatherStorm(int32_t climate, glm::vec3 position, float age, int32_t numClouds,
+                                               const std::string& shape, const std::string& clouds,
+                                               const std::string& weather, float speed, glm::vec3 target)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::map_script::CreateWeatherStorm(climate, position, age, numClouds, shape, clouds, weather, speed, target);
 }
 
 void FeatureScriptCommands::BrushSize(float, float)
@@ -1022,20 +996,18 @@ void FeatureScriptCommands::CreateStreetLight(glm::vec3 position)
 
 void FeatureScriptCommands::SetLandNumber(int32_t number)
 {
-	// case 82 (0x7177A4): g_game+0x205A08
-	Game::Instance()->GetMapScriptGlobals().landNumber = number;
+	// case 82 (0x7177A4): g_game+0x205A08 (read by the influence and the worship sites, and kept in the map globals)
+	Game::Instance()->GetMapScriptGlobals().landNumber = number; // read by ECS/Influence and the worship sites
 }
 
-void FeatureScriptCommands::CreateOneShotSpell([[maybe_unused]] glm::vec3 position, const std::string&)
+void FeatureScriptCommands::CreateOneShotSpell(glm::vec3 position, const std::string& seed)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::script::CreateOneShotSpell(position, seed); // Magic/Script/MapScriptMagic.cpp
 }
 
-void FeatureScriptCommands::CreateOneShotSpellPu([[maybe_unused]] glm::vec3 position, const std::string&)
+void FeatureScriptCommands::CreateOneShotSpellPu(glm::vec3 position, const std::string& magicName)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	magic::script::CreateOneShotSpellPu(position, magicName); // Magic/Script/MapScriptMagic.cpp
 }
 
 void FeatureScriptCommands::CreateFireFly([[maybe_unused]] glm::vec3 position)
@@ -1063,8 +1035,10 @@ void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::
 
 void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, float probability)
 {
-	// case 88 (0x717998): GMagicInfo::GetInfoFromText 0x5FB3B0 (the first of the 42 magic effect names equal without
-	// case, else 42) -> 0x52B630: out of range does nothing; else the table entry and the running sums
+	magic::script::FireFlySpellRewardProb(spell, probability); // Magic/Script/MapScriptMagic.cpp
+	// the same table kept in the map globals: case 88 (0x717998): GMagicInfo::GetInfoFromText 0x5FB3B0 (the first of
+	// the 42 magic effect names equal without case, else 42) -> 0x52B630: out of range does nothing; else the table
+	// entry and the running sums
 	auto& globals = Game::Instance()->GetMapScriptGlobals();
 	const auto& effects = Locator::infoConstants::value().magicEffect;
 	size_t index = MapScriptGlobals::k_MagicCount;
@@ -1099,19 +1073,18 @@ void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 positio
 	RegisterFixed(FieldArchetype::Create(townId, position, townFieldType, rotation), position, rotation, 1.0f, "field");
 }
 
-void FeatureScriptCommands::CreateSpellDispenser(int32_t, glm::vec3 position, const std::string& abodeInfo,
-                                                 const std::string&, float yAngle, float scale, float)
+void FeatureScriptCommands::CreateSpellDispenser(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
+                                                 const std::string& magicName, float yAngle, float scale, float period)
 {
-	// not implemented; the dispenser and its spell seed are counted
-	ecs::object_index::Skip(2);
+	// the dispenser Abode and its one-shot orb take their own creation indices
+	magic::script::CreateSpellDispenser(townId, position, GAbodeInfo::Find(abodeInfo), magicName, yAngle, scale,
+	                                    period); // Magic/Script/MapScriptMagic.cpp
 	// it is a MultiMapFixed with the abode's mesh, the angle F4 and the scale F5: it blocks the trees made after it
 	if (const auto type = GAbodeInfo::Find(abodeInfo); type != AbodeInfo::None)
 	{
 		const auto meshId = Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).meshId;
 		ecs::map_collide::RegisterFixed(resources::HashIdentifier(meshId), position, yAngle, scale, abodeInfo);
 	}
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
 }
 
 void FeatureScriptCommands::LoadComputerPlayerPersonality(int32_t, glm::vec3)
@@ -1147,13 +1120,13 @@ void FeatureScriptCommands::CreateDrinkWaypoint(glm::vec3 position)
 void FeatureScriptCommands::SetTownInfluenceMultiplier(float multiplier)
 {
 	// case 96 (0x717B5C): g_game+0x250078
-	Game::Instance()->GetMapScriptGlobals().townInfluenceMultiplier = multiplier;
+	Game::Instance()->GetMapScriptGlobals().townInfluenceMultiplier = multiplier; // read by ECS/Influence
 }
 
 void FeatureScriptCommands::SetPlayerInfluenceMultiplier(float multiplier)
 {
 	// case 97 (0x717B7B): g_game+0x25007C
-	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier;
+	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier; // read by ECS/Influence
 }
 
 void FeatureScriptCommands::SetTownBalanceBeliefScale([[maybe_unused]] int32_t townId, [[maybe_unused]] float scale)

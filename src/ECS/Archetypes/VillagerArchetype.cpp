@@ -50,7 +50,8 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 
 	registry.Assign<Transform>(entity, position, glm::eulerAngleY(glm::radians(180.0f)), glm::vec3(1.0));
 	registry.Assign<Mobile>(entity);
-	const uint32_t health = 100;
+	// Living::Living 0x5EBEC0: SetLife(info.life)
+	const float life = info.life;
 	const uint32_t hunger = 100;
 
 	// Villager::SetAge (0x7528C0): a child below grownUpAge (13), else an adult of at least 18
@@ -90,7 +91,7 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 		}
 	}
 
-	registry.Assign<Villager>(entity, health, static_cast<uint32_t>(age), hunger, lifeStage, sex, info.tribeType,
+	registry.Assign<Villager>(entity, life, static_cast<uint32_t>(age), hunger, lifeStage, sex, info.tribeType,
 	                          info.villagerNumber, task, town, abode);
 	// WallHug::speed is the distance moved per game turn (the u16 at +0x5A in MapCoords, GetSpeedInMetres 0x60C070), and
 	// the speed groups are in m/s: a turn is 0.1 s

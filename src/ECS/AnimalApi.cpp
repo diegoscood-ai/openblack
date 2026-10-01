@@ -8,6 +8,9 @@
  *******************************************************************************/
 
 #include "ECS/AnimalAIDetail.h"
+
+#include <vector>
+
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Components/Alpha.h"
@@ -85,9 +88,38 @@ std::optional<glm::vec3> Destination(entt::entity entity)
 	return glm::vec3(brain->goal.x, brain->goalAltitude, brain->goal.y);
 }
 
+namespace
+{
+uint32_t g_NextListenerId = 1;
+uint32_t g_SingleSlotId = 0;
+} // namespace
+
+uint32_t AddDeathListener(DeathCallback callback)
+{
+	const uint32_t id = g_NextListenerId++;
+	detail::g_DeathListeners.emplace_back(id, std::move(callback));
+	return id;
+}
+
+void RemoveDeathListener(uint32_t id)
+{
+	std::erase_if(detail::g_DeathListeners, [id](const auto& listener) { return listener.first == id; });
+}
+
 void SetDeathCallback(DeathCallback callback)
 {
-	detail::g_DeathCallback = std::move(callback);
+	RemoveDeathListener(g_SingleSlotId);
+	g_SingleSlotId = callback ? AddDeathListener(std::move(callback)) : 0;
+}
+
+void SetSpeciesDying(AnimalInfo type, SpeciesDying dying)
+{
+	const auto index = static_cast<size_t>(type);
+	if (index >= detail::g_SpeciesDying.size())
+	{
+		detail::g_SpeciesDying.resize(index + 1);
+	}
+	detail::g_SpeciesDying[index] = std::move(dying);
 }
 
 void Kill(entt::entity entity)

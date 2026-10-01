@@ -2543,6 +2543,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
 					                                      BGFX_STATE_MSAA)
 					                                   : opaqueState;
+					// a PSys mesh atom with UseAdditiveAlpha (Creators/Mesh.h): mode 13, SRCALPHA / ONE without Z write
+					if (instance.fading && renderCtx.additiveInstances.contains(instance.index))
+					{
+						submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
+						                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) | BGFX_STATE_MSAA;
+					}
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
 				submitDesc.state = opaqueState;
@@ -2551,6 +2557,14 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
+				// (inferido: draw order) the chains, the surfaces and the rain are drawn as groups after the sorted
+				// sprites; the original's order against them is not read.
+				// fn_0067B3F0: the chain ribbons of the effects (RendererChain.cpp)
+				DrawPSysChains(graphics::RenderPass::MainBlended, *desc.camera);
+				// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0: the teleport pools (RendererSurfRevol.cpp)
+				DrawPSysSurfaces(graphics::RenderPass::MainBlended, *desc.camera);
+				// LH3DAtmos::Render3D 0x836250: the rain streaks (RendererRain.cpp)
+				DrawRain(graphics::RenderPass::MainBlended, *desc.camera);
 				DrawHandShadowOnObjects();
 			}
 

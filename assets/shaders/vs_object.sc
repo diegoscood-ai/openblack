@@ -130,7 +130,17 @@ void main()
 	model[3] = vec4(i_data3.xyz, 1.0f);
 	// The w of the fourth column: 2 + the grey of the house's windows at night (1 when they are lit normally), or
 	// negative: -1 - the object colour r 65536 + g 256 + b (Field::Draw, fn_0080BF10)
-	float windowGrey = i_data3.w > 1.5f ? i_data3.w - 2.0f : -1.0f;
+	// or 3e6 + the specular colour Living::SetSpecularColor adds (components::SpecularColour: r 16384 + g 128 + b, 7
+	// bits each, the heal chakra's glow)
+	float windowGrey = i_data3.w > 1.5f && i_data3.w < 2500000.0f ? i_data3.w - 2.0f : -1.0f;
+	vec3 objectSpecular = vec3_splat(0.0f);
+	if (i_data3.w > 2500000.0f)
+	{
+		float packedSpecular = i_data3.w - 3000000.0f;
+		float red = floor(packedSpecular / 16384.0f);
+		float green = floor((packedSpecular - red * 16384.0f) / 128.0f);
+		objectSpecular = vec3(red, green, packedSpecular - red * 16384.0f - green * 128.0f) * 2.0f / 255.0f;
+	}
 	vec3 drawColour = vec3_splat(-1.0f);
 	if (i_data3.w < -0.5f)
 	{
@@ -158,8 +168,11 @@ void main()
 
 	v_texcoord0 = vec4(a_texcoord0, 0.0f, 0.0f);
 #ifdef USE_INSTANCING
-	// The w of the second column carries a texture V offset (scrolling food piles).
-	v_texcoord0.y += i_data1.w;
+	// The w of the second column carries a texture offset: V (scrolling food piles) + 4 x U in 1/256 steps (the one-shot
+	// orbs' 4x4 animation, the PSys AnimTextured meshes)
+	float uSteps = floor(i_data1.w / 4.0f);
+	v_texcoord0.x += uSteps / 256.0f;
+	v_texcoord0.y += i_data1.w - uSteps * 4.0f;
 #endif // USE_INSTANCING
 	vec3 specular = vec3_splat(0.0f);
 #ifdef USE_INSTANCING
@@ -179,6 +192,8 @@ void main()
 		vec4 c11 = CellTexel(cell + vec2(1.0f, 1.0f));
 		objectColour = mix(mix(LandLight(c00.a), LandLight(c01.a), w.y), mix(LandLight(c10.a), LandLight(c11.a), w.y), w.x);
 		specular = mix(mix(c00.rgb, c01.rgb, w.y), mix(c10.rgb, c11.rgb, w.y), w.x);
+		// + the object's own specular, per channel with saturation (fn_0080BF10 from fn_0080BEC0: Villager / Animal Draw)
+		specular = min(specular + objectSpecular, vec3_splat(1.0f));
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
 		// the object colour multiplies the land light byte by byte, (c x tint) >> 8 (fn_0080BF10)
 		if (drawColour.r >= 0.0f)
@@ -208,6 +223,23 @@ void main()
 		{
 			objectColour = vec3_splat(windowGrey);
 		}
+	}
+	// A PSys mesh atom (PSys/Creators/Mesh.h): -1 - (r 65536 + g 256 + b) in the w of the third column is its DrawData
+	// colour, which Particle3DObj::DrawAt 0x679FD0 gives the object with SetColour (vt 0x2C: obj +0x4C) instead of the
+	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light (ambient 90 + 166 N.L) stays
+	if (i_data2.w < -0.5f && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
+	{
+		float packedParticle = -i_data2.w - 1.0f;
+		float particleRed = floor(packedParticle / 65536.0f);
+		float particleGreen = floor((packedParticle - particleRed * 65536.0f) / 256.0f);
+		vec3 particleColour = vec3(particleRed, particleGreen, packedParticle - particleRed * 65536.0f - particleGreen * 256.0f) / 255.0f;
+		const vec3 particleLight = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		objectColour = particleColour;
+		if (u_window.y <= 0.0f)
+		{
+			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), particleLight));
+		}
+		specular = vec3_splat(0.0f);
 	}
 	float opacity = 1.0f - fade;
 	// components::MeshTint: 1e6 (2e6 dissolving instead of blending) + 5 bits each of the ground colour and of `own`

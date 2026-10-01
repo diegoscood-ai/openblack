@@ -38,6 +38,7 @@
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
+#include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
@@ -50,12 +51,15 @@
 #include "ECS/StoragePitStore.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
+#include "ECS/Life.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
 #include "ECS/WaterRings.h"
+#include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Objects/MapShield.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -63,6 +67,9 @@ using namespace openblack;
 using namespace openblack::ecs;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::physics;
+using openblack::ecs::life::Kill;
+using openblack::ecs::life::LifeOf;
+using openblack::ecs::life::ReduceLife;
 
 namespace
 {
@@ -151,6 +158,11 @@ const GObjectInfo* InfoOf(entt::entity entity)
 	if (const auto* c = registry.TryGet<const DeadTree>(entity))
 	{
 		return &info.tree.at(static_cast<size_t>(c->type));
+	}
+	if (const auto* c = registry.TryGet<const MapShield>(entity))
+	{
+		// GMapShieldInfo 0xDA05D0 / 0xDA06D8 (weight 50000: Object::GetWeight gives the physical shield a heavy body)
+		return &info.mapShield.at(c->kind == MapShield::Kind::Physical ? 1 : 0);
 	}
 	return nullptr;
 }
@@ -253,7 +265,8 @@ bool SetUpBody(entt::entity entity, PhysOb& body, bool dynamic)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<const Transform>(entity);
-	const float scale = transform.scale.x;
+	// a shield's body has its Object::GetScale, which lags the drawn one (Magic/Objects/MapShield)
+	const float scale = registry.AllOf<MapShield>(entity) ? magic::map_shield::CollisionScale(entity) : transform.scale.x;
 	const auto size = mesh->GetBoundingBox().Size();
 	const float height = size.y * scale;                         // Object::GetHeight
 	const float radius = 0.5f * std::max(size.x, size.z) * scale; // Object::Get2DRadius
@@ -316,20 +329,6 @@ bool SetUpBody(entt::entity entity, PhysOb& body, bool dynamic)
 	return true;
 }
 
-float LifeOf(entt::entity entity)
-{
-	const auto& registry = Locator::entitiesRegistry::value();
-	if (const auto* villager = registry.TryGet<const Villager>(entity))
-	{
-		return static_cast<float>(villager->health) / 100.0f;
-	}
-	if (const auto* life = registry.TryGet<const Life>(entity))
-	{
-		return life->value;
-	}
-	return 1.0f;
-}
-
 void SyncTransform(const PhysicsObject& po)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -357,50 +356,17 @@ void AddRipple(const PhysicsObject& po)
 	AddWaterRing(ring);
 }
 
-/// Villager::VillagerDead / Animal::SetDying. TODO(physics): the corpse and the death states; the object goes.
-void Kill(entt::entity entity, const char* reason)
+/// Living::ReactToPhysicsImpact's damage: Object::ApplyEffect with the crush preset g_EffectInfo[3] (crush 1.0) x the
+/// object's defenceMultiplierCrush, then Object::ReduceLife. It dies at 0 (the dying states are not ported).
+void HurtByImpact(entt::entity entity, float damage)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: {} died ({})", registry.AllOf<Villager>(entity) ? "villager" : "animal",
-	                   reason);
-	if (const auto* villager = registry.TryGet<const Villager>(entity))
+	const bool villager = Locator::entitiesRegistry::value().AllOf<Villager>(entity);
+	const float life = ReduceLife(entity, damage);
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: {} hurt {:.3f}, life {:.2f}", villager ? "villager" : "animal", damage,
+	                   life);
+	if (life <= 0.0f)
 	{
-		if (auto* abode = registry.TryGet<Abode>(villager->abode))
-		{
-			abode->inhabitants.erase(entity);
-		}
-		if (auto* town = registry.TryGet<Town>(villager->town))
-		{
-			town->homelessVillagers.erase(entity);
-		}
-	}
-	ecs::animal_ai::Forget(entity);
-	PhysicsObjects::RemoveObject(entity);
-	registry.Destroy(entity);
-	registry.SetDirty();
-}
-
-/// Object::ApplyEffect with the crush preset g_EffectInfo[3] (crush 1.0) x the object's defenceMultiplierCrush.
-void ReduceLife(entt::entity entity, float damage)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	if (auto* villager = registry.TryGet<Villager>(entity))
-	{
-		const float life = std::max(0.0f, static_cast<float>(villager->health) / 100.0f - damage);
-		villager->health = static_cast<uint32_t>(std::lround(life * 100.0f));
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: villager hurt {:.3f}, life {:.2f}", damage, life);
-		if (villager->health == 0)
-		{
-			Kill(entity, "impact");
-		}
-		return;
-	}
-	auto& life = registry.AllOf<Life>(entity) ? registry.Get<Life>(entity) : registry.Assign<Life>(entity);
-	life.value = std::max(0.0f, life.value - damage);
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: animal hurt {:.3f}, life {:.2f}", damage, life.value);
-	if (life.value <= 0.0f)
-	{
-		if (registry.AllOf<Animal>(entity))
+		if (Locator::entitiesRegistry::value().AllOf<Animal>(entity))
 		{
 			// Object::ApplyEffect -> Animal::DestroyedByEffect: SetDying (nothing while it flies, EndPhysics does it)
 			ecs::animal_ai::DestroyedByEffect(entity);
@@ -415,6 +381,11 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = po.entity;
+	if (registry.AllOf<MapShield>(entity))
+	{
+		magic::map_shield::ReactToPhysicsImpact(entity, po); // PhysicalShield 0x72D610 (Magic/Objects/MapShield)
+		return registry.Valid(entity);
+	}
 	if (g_Handlers.reactToImpact && g_Handlers.reactToImpact(entity, po))
 	{
 		return false;
@@ -448,7 +419,7 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 			{
 				multiplier = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type)).defenceMultiplierCrush;
 			}
-			ReduceLife(entity, (g - 2.0f) * 0.03f * multiplier);
+			HurtByImpact(entity, (g - 2.0f) * 0.03f * multiplier);
 			return registry.Valid(entity);
 		}
 		return true;
@@ -671,6 +642,23 @@ void BeginTurn()
 			{
 				AddProxy(entity);
 			}
+		}
+	}
+	// GetAlwaysRemainsInPhysicsInternalSystem (PhysicalShield 0x72CAF0: 1): the physical shields stay in the system at
+	// their Object scale, whether or not something moves near them (Magic/Objects/MapShield)
+	for (const auto shield : magic::map_shield::Shields())
+	{
+		if (!registry.Valid(shield) || !magic::map_shield::InteractsWithPhysicsObjects(shield))
+		{
+			continue;
+		}
+		if (auto* po = PhysicsObjects::Find(shield))
+		{
+			po->flags |= PhysicsObject::Awake;
+		}
+		else
+		{
+			AddProxy(shield);
 		}
 	}
 	for (size_t i = 0; i < g_Objects.size();)
@@ -926,6 +914,10 @@ const PhysicsData& PhysicsObjects::Constants(int type)
 int PhysicsObjects::ConstantsType(entt::entity entity)
 {
 	const auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<MapShield>(entity))
+	{
+		return magic::map_shield::k_PhysicsConstantsType; // PhysicalShield::GetPhysicsConstantsType 0x72D7E0
+	}
 	if (registry.AnyOf<Abode, StoragePit>(entity))
 	{
 		return 0;
@@ -989,6 +981,10 @@ int PhysicsObjects::ConstantsType(entt::entity entity)
 bool PhysicsObjects::InteractsWithPhysicsObjects(entt::entity entity)
 {
 	const auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<MapShield>(entity))
+	{
+		return magic::map_shield::InteractsWithPhysicsObjects(entity); // PhysicalShield 0x72D600: 1, MagicShield 0
+	}
 	if (registry.AnyOf<Tree, Field, BigForest, Fragment>(entity))
 	{
 		return false; // standing trees: thrown objects go through them; fragments only hit the landscape
@@ -1086,7 +1082,11 @@ float PhysicsObjects::Weight(entt::entity entity)
 			}
 		}
 	}
-	const float scale = registry.AllOf<Transform>(entity) ? registry.Get<const Transform>(entity).scale.x : 1.0f;
+	float scale = registry.AllOf<Transform>(entity) ? registry.Get<const Transform>(entity).scale.x : 1.0f;
+	if (registry.AllOf<MapShield>(entity))
+	{
+		scale = magic::map_shield::CollisionScale(entity); // Object::GetScale, not the drawn one
+	}
 	return std::max(scale * scale * scale * weight, 0.01f);
 }
 
@@ -1130,10 +1130,13 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
 	po->byPlayer = fromHand;
 	g_Objects.push_back(std::move(po));
+	// Object::InitialisePhysics 0x637480: a burning object leaves its fire group (FireEffect::StartedMoving(0), ECS/Fire)
+	fire::StartedMoving(entity, false);
 	if (fromHand)
 	{
 		// Object::InitialisePhysicsFromHand (0x637412): the flying-object reaction, once (the predators flee from it)
-		ecs::animal_ai::SpreadFlyingObjectReaction(entity);
+		// the thrower: the hand's player (GInterfaceStatus::GetPlayer, 0x637405; PLAYER_ONE's interface here)
+		ecs::animal_ai::SpreadFlyingObjectReaction(entity, PlayerNames::PLAYER_ONE);
 	}
 	return g_Objects.back().get();
 }

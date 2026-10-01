@@ -89,7 +89,7 @@ void RemovePotReaction(entt::entity pot);
 void ClearReactions();
 /// Reaction 9 (Object::InitialisePhysicsFromHand 0x637412): anything the hand throws or drops offers itself once to the
 /// predators within 25 m, which flee when it comes fast enough
-void SpreadFlyingObjectReaction(entt::entity object);
+void SpreadFlyingObjectReaction(entt::entity object, PlayerNames thrower);
 
 /// Reaction::CreateReaction(predator, 28) at a predator's construction (fn_0041FD30 0x41FD5C): the flee-from-predator
 /// reaction is spread once, then, to the animals within 25 m (the per-turn re-spreading is off in the shipped game)
@@ -135,9 +135,18 @@ void SetStateRaw(entt::entity entity, AnimalState state);
 void SetFinalDestination(entt::entity entity, glm::vec2 position);
 /// the final state (vt+0x860 GetDestPos): the goal of its move, x / altitude over the land / z
 [[nodiscard]] std::optional<glm::vec3> Destination(entt::entity entity);
-/// Living::SetDying (vt+0x6A4) calls this first, once per death
+/// Living::SetDying (vt+0x6A4) tells every listener first, once per death (not while it flies). Any number of
+/// listeners; the id removes one
 using DeathCallback = std::function<void(entt::entity)>;
+uint32_t AddDeathListener(DeathCallback callback);
+void RemoveDeathListener(uint32_t id);
+/// the one listener of the old single slot: replaces the one it set before (empty: removes it)
 void SetDeathCallback(DeathCallback callback);
+/// a species' own SetDying (its vt+0x6A4 override, e.g. SpellDove 0x41F5C0 / SpellWolf 0x420CF0: a fade instead of
+/// Living::SetDying): called instead of the whole Living::SetDying, before the flying check and the listeners; one slot
+/// per species (empty: Living::SetDying again)
+using SpeciesDying = std::function<void(entt::entity)>;
+void SetSpeciesDying(AnimalInfo type, SpeciesDying dying);
 /// killed (SetDying: its dying and dead clips, the corpse) or gone at once (off its flock, out of the physics, deleted)
 void Kill(entt::entity entity);
 void Remove(entt::entity entity);

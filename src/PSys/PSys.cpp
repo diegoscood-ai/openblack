@@ -13,15 +13,26 @@
 
 #include <algorithm>
 #include <functional>
+#include <map>
+#include <mutex>
 #include <numbers>
 #include <set>
+#include <string>
 
 #include <glm/geometric.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "Audio/SpellSounds.h"
+#include "Common/StringUtils.h"
+#include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
+#include "PSysRegistry.h"
+#include "Rules/Shield.h"
+#include "Rules/SurfRevol.h"
+#include "SoundAction.h"
 
 using namespace openblack::psys;
 
@@ -82,7 +93,8 @@ public:
 	std::vector<int> nextGroups;
 };
 
-/// CreateRuleAnAtom 0x69F410: one atom at the spawn point + offset, once
+/// CreateRuleAnAtom 0x69F410: one atom at the spawn point + offset, once, with its SoundOfCreate (sized by
+/// SoundRadiusFP when it has one; ctor 0x69F350 defaults small 200, medium 500)
 class CreateRuleAnAtom final: public CreateRule
 {
 public:
@@ -90,6 +102,10 @@ public:
 	    : CreateRule(object)
 	    , offset(object.Float("OffsetX", 0.0f), object.Float("OffsetY", 0.0f), object.Float("OffsetZ", 0.0f))
 	    , scale(object.String("InitScaleFP"))
+	    , sound(ReadSoundAction(object, "SoundOfCreate"))
+	    , soundRadius(object.String("SoundRadiusFP"))
+	    , soundSmall(object.Float("SoundRadiusSmall", 200.0f))
+	    , soundMedium(object.Float("SoundRadiusMedium", 500.0f))
 	{
 	}
 	bool ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& /*slot*/) const override
@@ -97,10 +113,21 @@ public:
 		auto& atom = effect.NewAtom(collection, effect.FindCreator(creator), nextGroups);
 		atom.position += offset;
 		atom.baseScale *= effect.FloatProvider(scale, 1.0f);
+		auto action = sound;
+		if (!soundRadius.empty())
+		{
+			action.size = openblack::audio::spell_sounds::SizeFromRadius(effect.FloatProvider(soundRadius, 0.0f), soundSmall,
+			                                                             soundMedium);
+		}
+		openblack::audio::spell_sounds::StartSound(effect, atom, action);
 		return false;
 	}
 	glm::vec3 offset;
 	std::string scale;
+	SoundAction sound;
+	std::string soundRadius;
+	float soundSmall;
+	float soundMedium;
 };
 
 /// CreateRuleSphere 0x69E160: NumAtoms atoms inside a ball, once
@@ -114,6 +141,7 @@ public:
 	    , radiusScale(object.String("RadiusScaleFP"))
 	    , scale(object.String("InitScaleFP"))
 	    , frameFromIndex(object.Bool("SetInitFrameFromIndex", false))
+	    , sound(ReadSoundAction(object, "SoundOfCreate"))
 	{
 	}
 	bool ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& /*slot*/) const override
@@ -128,6 +156,11 @@ public:
 			{
 				atom.frame = static_cast<float>((count - 1 - i) % atom.creator->numFrames);
 			}
+			if (i == 0)
+			{
+				// (inferido) the first atom only: the 0x69E160 offset of the call was not noted
+				openblack::audio::spell_sounds::StartSound(effect, atom, sound);
+			}
 		}
 		return false;
 	}
@@ -136,6 +169,7 @@ public:
 	std::string radiusScale;
 	std::string scale;
 	bool frameFromIndex;
+	SoundAction sound;
 };
 
 /// EmitterRule::ShouldEmit 0x6A63A0 and the emitters (Simple 0x6A6700, Disk 0x6A64D0, Conical 0x6A6A60)
@@ -146,6 +180,7 @@ public:
 	{
 		Simple,
 		Disk,
+		SpreadingDisk,
 		Conical,
 	};
 	Emitter(const Object& object, Shape shape)
@@ -159,11 +194,17 @@ public:
 	    , visible(object.Bool("InitiallyVisible", true))
 	    , speed(object.Float("Speed", 1.0f))
 	    , radius(object.Float("Radius", 0.0f))
+	    // SpreadingDiskEmitter (DefineProperties 0x6AFA90): +0x54 StartRadius, +0x58 StopRadius, +0x64 Height. Its
+	    // StartTime (+0x5C) and StopTime (+0x60) are properties the class never reads (ModifyAtomCollection 0x6A6610)
+	    , startRadius(object.Float("StartRadius", 0.0f))
+	    , stopRadius(object.Float("StopRadius", 0.0f))
 	    , height(object.Float("Height", 0.0f))
 	    , spread(object.Float("Spread", 0.0f))
+	    , sound(ReadSoundAction(object, "SoundEmission"))
 	{
-		// only Conical and SpreadingDisk loop, and only with AllowMultipleEmits
-		multiple = object.Bool("AllowMultipleEmits", false) && shape == Shape::Conical;
+		// EmitterRuleSimple / DiskEmitter make one atom per step; Conical loops with AllowMultipleEmits (0x6A6BF4) and
+		// SpreadingDiskEmitter always loops (0x6A66DC)
+		multiple = (object.Bool("AllowMultipleEmits", false) && shape == Shape::Conical) || shape == Shape::SpreadingDisk;
 	}
 	// slot.state: x = next emission time, y = emitted count
 	bool ShouldEmit(Effect& effect, const Collection& collection, Collection::Slot& slot) const
@@ -216,6 +257,15 @@ public:
 				atom.position += glm::vec3(std::cos(angle) * r, height, std::sin(angle) * r);
 				break;
 			}
+			case Shape::SpreadingDisk:
+			{
+				// 0x6A6674: r = PSysFloatRand(StartRadius, StopRadius), theta = PSysFloatRand(2 pi); the atom's point moves by
+				// (cos theta r, Height, sin theta r)
+				const float r = startRadius + effect.Random(stopRadius - startRadius);
+				const float angle = effect.Random(2.0f * std::numbers::pi_v<float>);
+				atom.position += glm::vec3(std::cos(angle) * r, height, std::sin(angle) * r);
+				break;
+			}
 			case Shape::Conical:
 			{
 				const float phi = effect.Random(spread);
@@ -229,6 +279,10 @@ public:
 				}
 				break;
 			}
+			}
+			if (shape == Shape::Conical)
+			{
+				openblack::audio::spell_sounds::StartSound(effect, atom, sound); // EmitterRuleConical 0x6A6BF4: each atom
 			}
 			if (!multiple)
 			{
@@ -246,11 +300,16 @@ public:
 	bool visible;
 	float speed;
 	float radius;
+	float startRadius, stopRadius;
 	float height;
 	float spread;
+	SoundAction sound;
 };
 
-/// UR_WillowWisp 0x6A6D20: a trail emitted along the parent atom's path (the basic form)
+/// UR_WillowWisp 0x6A6D20: atoms emitted along the path of the parent atom (the origin without one). Its CollectionData
+/// (0x38 bytes): +0x20 the last position (slot.state xyz), +0x2C the amount emitted so far (slot.extra.x), +0x30 the atoms
+/// made (slot.extra.y), +0x34 "first" (slot.first). SmoothingValue and AccelerationForCast are not read in W120, and
+/// MaxAtoms is no cap: it only sets the rate.
 class WillowWisp final: public CreateRule
 {
 public:
@@ -261,59 +320,118 @@ public:
 	    , speed(object.Float("Speed", 0.0f))
 	    , maxSpeed(object.Float("MaxSpeed", 1e6f))
 	    , randomSpeed(object.Float("RandomSpeed", 0.0f))
+	    , randomRadiusMin(object.Float("RandomRadiusMin", 0.0f))
+	    , randomRadiusMax(object.Float("RandomRadiusMax", 0.0f))
 	    , deleteAtDieAge(object.Bool("DeleteAtomsAtDieAge", false))
 	    , moving(object.Bool("EmitDueToMoving", false))
 	    , movingDistance(object.Float("EmitDueToMovingDist", 1.0f))
-	    , movingMaxRate(object.Float("EmitDueToMovingMaxRate", 100.0f))
+	    , movingMaxRate(object.Float("EmitDueToMovingMaxRate", 0.0f)) // (inferido) default; 0 = no cap (0x6A6FB6)
+	    , randomiseOrientation(object.Bool("RandomiseInitOrientation", false))
+	    , useParentScale(object.Bool("UseParentScale", false))
+	    , addCastVelocity(object.Bool("AddCastVelToInitPos", false))
+	    , emitCondition(object.String("EmitConditionOfParent"))
+	    , adjustScale(object.String("AdjustInitialScale"))
+	    , adjustRandomVelocity(object.String("AdjustInitialRandomVel"))
+	    , sound(ReadSoundAction(object, "SoundEmission"))
 	{
 	}
-	// slot.state: xyz = last parent position, w = accumulator
 	bool ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& slot) const override
 	{
 		if (deleteAtDieAge)
 		{
 			std::erase_if(collection.atoms, [&](const auto& atom) { return effect.AtomAge(*atom) > dieAge; });
 		}
-		if (!effect.ConditionForCollection(condition, collection))
-		{
-			return true;
-		}
+		// GetCurrentParentPos 0x674AF0 / GetCurrentParentVel 0x674BB0
 		const glm::vec3 parent = collection.parent != nullptr ? effect.GlobalPosition(*collection.parent) : effect.GetOrigin();
-		const glm::vec3 last = slot.first ? parent : glm::vec3(slot.state);
-		slot.first = false;
+		const glm::vec3 parentVelocity = collection.parent != nullptr ? collection.parent->velocity : glm::vec3(0.0f);
+		glm::vec3 base = parentVelocity * speed;
+		if (glm::dot(base, base) > maxSpeed * maxSpeed && base != glm::vec3(0.0f))
+		{
+			base *= maxSpeed / glm::length(base);
+		}
+		if (slot.first)
+		{
+			slot.state = glm::vec4(parent, 0.0f);
+		}
+		const glm::vec3 last(slot.state);
 		const float dt = effect.GetDt();
-		float amount = dt * static_cast<float>(maxAtoms) / std::max(dieAge, 1e-3f);
-		if (moving)
+		// 0x6A6F08: fild +0x4C MaxAtoms, fdiv +0x40 DieAge (the original has no guard either)
+		const float rate = static_cast<float>(maxAtoms) / dieAge;
+		// EmitConditionOfParent: tested on the parent atom (none: nothing is emitted, 0x6A6F28..0x6A6F46)
+		const bool emit = emitCondition.empty() ||
+		                  (collection.parent != nullptr && effect.ConditionForAtom(emitCondition, *collection.parent));
+		if (emit)
 		{
-			amount = std::max(amount, std::min(glm::distance(parent, last) / std::max(movingDistance, 1e-3f), movingMaxRate * dt));
-		}
-		slot.state.w += amount;
-		glm::vec3 base(0.0f);
-		if (collection.parent != nullptr)
-		{
-			base = collection.parent->velocity * speed;
-			if (glm::length(base) > maxSpeed)
+			float amount = dt * rate;
+			if (moving && movingDistance != 0.0f)
 			{
-				base = glm::normalize(base) * maxSpeed;
+				float moved = glm::distance(parent, last) * (adjustScale.empty() ? 1.0f : effect.FloatProvider(adjustScale, 1.0f));
+				moved /= movingDistance;
+				if (movingMaxRate != 0.0f)
+				{
+					moved = std::min(moved / dt, movingMaxRate) * dt;
+				}
+				amount = std::max(amount, moved);
+			}
+			const float before = slot.extra.x;
+			slot.extra.x += amount;
+			const float after = slot.extra.x;
+			while (after - 1.0f > slot.extra.y)
+			{
+				slot.extra.y += 1.0f;
+				auto& atom = effect.NewAtom(collection, effect.FindCreator(creator), nextGroups);
+				glm::vec3 position = parent;
+				if (after != before)
+				{
+					// along last -> P (0x6A7075), and aged fraction x dt: fn_00673CE0((made - before) x dt /
+					// (after - before)) at 0x6A70CC..0x6A70F7 (it sets the age: birth = time - x; part_modifiers.md)
+					const float fraction = (slot.extra.y - before) / (after - before);
+					position = last + (parent - last) * fraction;
+					atom.birth -= fraction * dt;
+				}
+				if (randomRadiusMax > 0.0f)
+				{
+					const float angle = effect.Random(2.0f * std::numbers::pi_v<float>);
+					const float radius = randomRadiusMin + effect.Random(randomRadiusMax - randomRadiusMin);
+					position += glm::vec3(std::cos(angle) * radius, 0.0f, std::sin(angle) * radius);
+				}
+				glm::vec3 random = effect.RandomInBall() * effect.Random(randomSpeed);
+				if (!adjustRandomVelocity.empty())
+				{
+					random *= effect.FloatProvider(adjustRandomVelocity, 1.0f);
+				}
+				atom.velocity = base + random;
+				if (addCastVelocity)
+				{
+					position += atom.velocity * dt;
+				}
+				if (!collection.hierarchy)
+				{
+					atom.position = position;
+				}
+				if (randomiseOrientation)
+				{
+					// AtomCore::RandomiseOrientation 0x6743E0: SetAngleXYZ of three PSysFloatRand(2 pi)
+					const float x = effect.Random(2.0f * std::numbers::pi_v<float>);
+					const float y = effect.Random(2.0f * std::numbers::pi_v<float>);
+					const float z = effect.Random(2.0f * std::numbers::pi_v<float>);
+					atom.rotation = glm::mat3(glm::eulerAngleXYZ(x, y, z));
+				}
+				if (!adjustScale.empty())
+				{
+					atom.baseScale *= effect.FloatProvider(adjustScale, 1.0f);
+				}
+				if (useParentScale && collection.parent != nullptr)
+				{
+					atom.baseScale *= collection.parent->ruleScale * collection.parent->baseScale;
+				}
+				// TODO(M2): DoDrawOffsets (+0x80) with this computer's interface casting: a DrawOffset (fn_006C7840) draws
+				// the atom relative to the hand until it decays
+				openblack::audio::spell_sounds::StartSound(effect, atom, sound); // 0x6A7377: each atom
 			}
 		}
-		const int count = static_cast<int>(slot.state.w);
-		for (int i = 0; i < count; ++i)
-		{
-			if (static_cast<int>(collection.atoms.size()) > maxAtoms)
-			{
-				break;
-			}
-			auto& atom = effect.NewAtom(collection, effect.FindCreator(creator), nextGroups);
-			const float f = count > 1 ? static_cast<float>(i + 1) / static_cast<float>(count) : 1.0f;
-			if (!collection.hierarchy)
-			{
-				atom.position = last + (parent - last) * f;
-			}
-			atom.velocity = base + effect.RandomInBall() * effect.Random(randomSpeed);
-		}
-		slot.state.w -= static_cast<float>(count);
-		slot.state = glm::vec4(parent, slot.state.w);
+		slot.first = false;
+		slot.state = glm::vec4(parent, 0.0f);
 		return true;
 	}
 	int maxAtoms;
@@ -321,10 +439,19 @@ public:
 	float speed;
 	float maxSpeed;
 	float randomSpeed;
+	float randomRadiusMin;
+	float randomRadiusMax;
 	bool deleteAtDieAge;
 	bool moving;
 	float movingDistance;
 	float movingMaxRate;
+	bool randomiseOrientation;
+	bool useParentScale;
+	bool addCastVelocity;
+	std::string emitCondition;
+	std::string adjustScale;
+	std::string adjustRandomVelocity;
+	SoundAction sound;
 };
 
 // ---- remove rules ----
@@ -356,23 +483,27 @@ public:
 	float delay;
 };
 
+/// RemoveRuleAfterConditionTrue: once ConditionForRemove holds (or there is none) the time is kept, and Delay after it
+/// the atom goes. (inferido) the latch and the delay: its ModifyAtomCore was not read (no address in the notes)
 class RemoveAfterConditionTrue final: public Modifier
 {
 public:
 	explicit RemoveAfterConditionTrue(const Object& object)
 	    : delay(object.Float("Delay", 0.0f))
+	    , conditionForRemove(object.String("ConditionForRemove"))
 	{
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
 		auto& data = atom.data[this];
-		if (data.x == 0.0f)
+		if (data.x == 0.0f && (conditionForRemove.empty() || effect.ConditionForAtom(conditionForRemove, atom)))
 		{
 			data = glm::vec4(1.0f, effect.GetAge(), 0.0f, 0.0f);
 		}
-		return effect.GetAge() - data.y <= delay;
+		return data.x == 0.0f || effect.GetAge() - data.y <= delay;
 	}
 	float delay;
+	std::string conditionForRemove;
 };
 
 class RemoveProb final: public Modifier
@@ -391,10 +522,15 @@ public:
 	int minAtoms;
 };
 
-/// LandscapeCollide 0x67D6E0
+/// LandscapeCollide 0x67D6E0: an atom under the land is deleted; with SendEvent (+0x20) the spell first gets event 3 at
+/// the atom's global position with its last global movement, strength 1, no shield check
 class LandscapeCollide final: public Modifier
 {
 public:
+	explicit LandscapeCollide(const Object& object)
+	    : sendEvent(object.Bool("SendEvent", false))
+	{
+	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
 		if (!openblack::Locator::terrainSystem::has_value())
@@ -402,8 +538,22 @@ public:
 			return true;
 		}
 		const auto p = effect.GlobalPosition(atom);
-		return p.y >= openblack::Locator::terrainSystem::value().GetHeightAt(glm::vec2(p.x, p.z));
+		if (p.y >= openblack::Locator::terrainSystem::value().GetHeightAt(glm::vec2(p.x, p.z)))
+		{
+			return true;
+		}
+		if (sendEvent)
+		{
+			// GetLastGlobalMovement 0x674420 (inf: the atom's velocity over this step)
+			SpellEventInfo event;
+			event.type = SpellEventInfo::Landed;
+			event.position = p;
+			event.velocity = atom.velocity * effect.GetDt();
+			effect.SendSpellEvent(event);
+		}
+		return false;
 	}
+	bool sendEvent;
 };
 
 // ---- appearance ----
@@ -463,7 +613,8 @@ public:
 	bool afterCloseDown, holdAfterStop;
 };
 
-/// AR_FadeOutOnceConditionTrue 0x6A7CF0 (the condition is the modifier's own, tested per atom by the caller)
+/// AR_FadeOutOnceConditionTrue 0x6A7CF0: once ConditionStartFadeOut (+0x24) holds (or there is none) the age, alpha
+/// and scale are kept, and it fades out over TimeToFadeOut from there
 class FadeOutOnceConditionTrue final: public Modifier
 {
 public:
@@ -471,14 +622,19 @@ public:
 	    : time(object.Float("TimeToFadeOut", 1.0f))
 	    , fadeAlpha(object.Bool("FadeAlpha", true))
 	    , shrink(object.Bool("ShrinkScale", false))
+	    , conditionStartFadeOut(object.String("ConditionStartFadeOut"))
 	{
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
 		auto& data = atom.data[this]; // x: latched, y: age0, z: alpha0, w: scale0
-		if (data.x == 0.0f)
+		if (data.x == 0.0f && (conditionStartFadeOut.empty() || effect.ConditionForAtom(conditionStartFadeOut, atom)))
 		{
 			data = glm::vec4(1.0f, effect.AtomAge(atom), atom.colour[3], atom.ruleScale);
+		}
+		if (data.x == 0.0f || !(fadeAlpha || shrink))
+		{
+			return true;
 		}
 		const float f = std::clamp((effect.AtomAge(atom) - data.y) / std::max(time, 1e-4f), 0.0f, 1.0f);
 		if (fadeAlpha)
@@ -493,6 +649,7 @@ public:
 	}
 	float time;
 	bool fadeAlpha, shrink;
+	std::string conditionStartFadeOut;
 };
 
 class ChangeScale final: public Modifier
@@ -640,7 +797,8 @@ public:
 	{
 		if (const auto* parent = atom.collection->parent; parent != nullptr)
 		{
-			atom.position = atom.collection->hierarchy ? glm::vec3(0.0f) : effect.GlobalPosition(*parent);
+			// the parent's point in this collection's frame (CommonInitNewAtom 0x674C60's rule, see SpawnPosition)
+			atom.position = effect.SpawnPosition(*atom.collection);
 			atom.velocity = parent->velocity;
 		}
 		return true;
@@ -673,13 +831,16 @@ public:
 	bool aboveLand;
 };
 
-/// UR_SphereSurfaceTracer 0x6A32B0
+/// UR_SphereSurfaceTracer 0x6A32B0 (DefineProperties 0x6AEBB0: +0x20 ThetaSpeed, +0x24 PhiSpeed, +0x28 SphereRadius,
+/// +0x2C ScaleSphereRadius, +0x30 ScaleAlpha, +0x34..0x3C ScaleX/Y/Z, +0x40 Alpha, +0x44 OrientToSurface)
 class SphereSurfaceTracer final: public Modifier
 {
 public:
 	explicit SphereSurfaceTracer(const Object& object)
 	    : radius(object.Float("SphereRadius", 1.0f))
-	    , radiusScale(object.String("SphereRadiusFP"))
+	    , radiusScale(object.String("ScaleSphereRadius"))
+	    , alphaScale(object.String("ScaleAlpha"))
+	    , alpha(object.Int("Alpha", 255))
 	    , thetaSpeed(object.Float("ThetaSpeed", 1.0f))
 	    , phiSpeed(object.Float("PhiSpeed", 1.0f))
 	    , scale(object.Float("ScaleX", 1.0f), object.Float("ScaleY", 1.0f), object.Float("ScaleZ", 1.0f))
@@ -687,22 +848,35 @@ public:
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
+		// the first time: three PSysFloatRand(2 pi) (the third is not used here)
 		auto& data = atom.data[this];
 		if (data.w == 0.0f)
 		{
 			data = glm::vec4(effect.Random(2.0f * std::numbers::pi_v<float>), effect.Random(2.0f * std::numbers::pi_v<float>), 0.0f, 1.0f);
 		}
 		const float age = effect.AtomAge(atom);
-		const float th = age * thetaSpeed + data.x;
-		const float ph = age * phiSpeed + data.y;
+		const float twoPi = 2.0f * std::numbers::pi_v<float>;
+		const float th = std::fmod(age * thetaSpeed + data.x, twoPi);
+		const float ph = std::fmod(age * phiSpeed + data.y, twoPi);
 		const float r = radius * effect.FloatProvider(radiusScale, 1.0f);
-		const glm::vec3 p = r * glm::vec3(scale.x * std::cos(th) * std::cos(ph), scale.y * std::sin(ph), scale.z * std::sin(th) * std::cos(ph));
+		glm::vec3 p = r * glm::vec3(scale.x * std::cos(th) * std::cos(ph), scale.y * std::sin(ph), scale.z * std::sin(th) * std::cos(ph));
+		if (!atom.collection->hierarchy)
+		{
+			p += effect.SpawnPosition(*atom.collection); // + GetCurrentParentPos (the collection's frame is the world)
+		}
 		atom.velocity = (p - atom.position) / std::max(effect.GetDt(), 1e-4f);
 		atom.position = p;
+		// the alpha byte: Alpha x ScaleAlpha (clamped 0..255), or Alpha
+		const float a = alphaScale.empty() ? static_cast<float>(alpha)
+		                                   : std::clamp(static_cast<float>(alpha) * effect.FloatProvider(alphaScale, 1.0f), 0.0f, 255.0f);
+		atom.colour[3] = static_cast<uint8_t>(static_cast<int>(a) & 0xFF);
+		// TODO: OrientToSurface (+0x44, fn_006743A0 and the rotations after it); no ported file sets it
 		return true;
 	}
 	float radius;
 	std::string radiusScale;
+	std::string alphaScale;
+	int alpha;
 	float thetaSpeed, phiSpeed;
 	glm::vec3 scale;
 };
@@ -733,115 +907,17 @@ public:
 /// A class the port doesn't run yet: attached so group logic stays the same, but it does nothing
 class Unsupported final: public Modifier
 {
+public:
+	[[nodiscard]] bool Unported() const override { return true; }
 };
 
 std::unique_ptr<Modifier> MakeModifier(const Object& object)
 {
 	const auto& c = object.className;
 	std::unique_ptr<Modifier> m;
-	if (c == "CreateRuleAnAtom")
+	if (const auto factory = FindModifierFactory(c))
 	{
-		m = std::make_unique<CreateRuleAnAtom>(object);
-	}
-	else if (c == "CreateRuleSphere")
-	{
-		m = std::make_unique<CreateRuleSphere>(object);
-	}
-	else if (c == "EmitterRuleSimple")
-	{
-		m = std::make_unique<Emitter>(object, Emitter::Shape::Simple);
-	}
-	else if (c == "DiskEmitter" || c == "SpreadingDiskEmitter")
-	{
-		m = std::make_unique<Emitter>(object, Emitter::Shape::Disk);
-	}
-	else if (c == "EmitterRuleConical")
-	{
-		m = std::make_unique<Emitter>(object, Emitter::Shape::Conical);
-	}
-	else if (c == "UR_WillowWisp")
-	{
-		m = std::make_unique<WillowWisp>(object);
-	}
-	else if (c == "RemoveRuleOldAgeOnly")
-	{
-		m = std::make_unique<RemoveOldAge>(object);
-	}
-	else if (c == "RemoveRuleAfterCloseDown")
-	{
-		m = std::make_unique<RemoveAfterCloseDown>(object);
-	}
-	else if (c == "RemoveRuleAfterConditionTrue")
-	{
-		m = std::make_unique<RemoveAfterConditionTrue>(object);
-	}
-	else if (c == "RemoveRuleProb")
-	{
-		m = std::make_unique<RemoveProb>(object);
-	}
-	else if (c == "LandscapeCollide")
-	{
-		m = std::make_unique<LandscapeCollide>();
-	}
-	else if (c == "AR_FadeAlpha")
-	{
-		m = std::make_unique<FadeAlpha>(object);
-	}
-	else if (c == "AR_FadeCollectionAlpha")
-	{
-		m = std::make_unique<FadeCollectionAlpha>(object);
-	}
-	else if (c == "AR_FadeOutOnceConditionTrue")
-	{
-		m = std::make_unique<FadeOutOnceConditionTrue>(object);
-	}
-	else if (c == "UR_ChangeScale")
-	{
-		m = std::make_unique<ChangeScale>(object);
-	}
-	else if (c == "SetScale")
-	{
-		m = std::make_unique<SetScale>(object);
-	}
-	else if (c == "SetAtomAlpha")
-	{
-		m = std::make_unique<SetAtomAlpha>(object);
-	}
-	else if (c == "UpdateRuleGravity" || c == "UpdateRuleGravityWithFloor")
-	{
-		m = std::make_unique<Gravity>(object);
-	}
-	else if (c == "UR_UpdatePosnFromVelocity")
-	{
-		m = std::make_unique<PositionFromVelocity>();
-	}
-	else if (c == "UR_GustyWind")
-	{
-		m = std::make_unique<GustyWind>(object);
-	}
-	else if (c == "UpdateRuleRotatePrincipalAxis")
-	{
-		m = std::make_unique<RotateAxis>(object);
-	}
-	else if (c == "FollowOrigin")
-	{
-		m = std::make_unique<FollowOrigin>();
-	}
-	else if (c == "UR_FollowParent")
-	{
-		m = std::make_unique<FollowParent>();
-	}
-	else if (c == "ForceConstantHeight" || c == "ForceConstantAltitude")
-	{
-		m = std::make_unique<ForceHeight>(object, c == "ForceConstantHeight");
-	}
-	else if (c == "UR_SphereSurfaceTracer")
-	{
-		m = std::make_unique<SphereSurfaceTracer>(object);
-	}
-	else if (c == "UR_OrientSpriteWithRandomAngle")
-	{
-		m = std::make_unique<RandomAngle>(object);
+		m = factory(object);
 	}
 	else if (object.properties.contains("Group"))
 	{
@@ -864,56 +940,141 @@ std::unique_ptr<Modifier> MakeModifier(const Object& object)
 std::unique_ptr<Creator> MakeCreator(const Object& object)
 {
 	const auto& c = object.className;
+	// a registered creator first: ParticleMeshCreatorAnimTextured (the water's rain cone) does not end in "Creator"
+	if (const auto factory = FindCreatorFactory(c))
+	{
+		return factory(object);
+	}
 	if (!c.starts_with("Particle") || !c.ends_with("Creator"))
 	{
 		return nullptr;
 	}
 	auto creator = std::make_unique<Creator>();
-	creator->className = c;
-	creator->kind = c == "ParticleSpriteCreator" ? Creator::Kind::Sprite
-	                : c == "ParticlePointCreator" ? Creator::Kind::Point
-	                                              : Creator::Kind::Other;
-	creator->r = static_cast<uint8_t>(object.Int("ColorR", 255));
-	creator->g = static_cast<uint8_t>(object.Int("ColorG", 255));
-	creator->b = static_cast<uint8_t>(object.Int("ColorB", 255));
-	creator->a = static_cast<uint8_t>(object.Int("ColorA", 255));
-	creator->initialScale = object.Float("InitialScale", 1.0f);
-	creator->randomiseScale = object.Bool("RandomiseScale", false);
-	creator->loopAnim = object.Bool("LoopAnim", true);
-	if (creator->kind == Creator::Kind::Sprite)
-	{
-		auto texture = object.String("TextureFileName");
-		std::replace(texture.begin(), texture.end(), '\\', '/');
-		if (const auto slash = texture.find_last_of('/'); slash != std::string::npos)
-		{
-			texture = texture.substr(slash + 1);
-		}
-		if (const auto dot = texture.find_last_of('.'); dot != std::string::npos)
-		{
-			texture = texture.substr(0, dot);
-		}
-		creator->texture = texture;
-		creator->fileOffset = object.Int("FileOffset", 0);
-		creator->spritesPerRow = std::max(1, object.Int("NumSpritesPerRow", 8));
-		creator->numFrames = std::max(1, object.Int("NumFrames", 1));
-		creator->initFrame = object.Int("InitFrame", 0);
-		creator->randomiseInitFrame = object.Bool("RandomiseInitFrame", false);
-		creator->randomiseFrameDirection = object.Bool("RandomiseFrameDirection", false);
-		creator->frameRate = object.Float("FrameRate", 1.0f);
-		creator->playAnim = object.Bool("PlayAnim", false);
-		creator->additive = object.Bool("UseAdditiveAlpha", true);
-		creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
-		creator->scaleAlpha = object.Int("ScaleAlpha", 255);
-		creator->stretch = object.Float("StretchVertically", 1.0f);
-		creator->horizontal = object.Bool("SetHorozontal", false);
-		creator->centreAtBase = object.Bool("CentreAtBase", false);
-		creator->ignoreRotation = object.Bool("IgnoreRotation", false);
-		creator->originX = object.Float("SpriteOriginX", 0.0f);
-		creator->originY = object.Float("SpriteOriginY", 0.0f);
-	}
+	ReadCreatorProperties(object, *creator);
 	return creator;
 }
 } // namespace
+
+std::string openblack::psys::TextureBaseName(std::string path)
+{
+	std::replace(path.begin(), path.end(), '\\', '/');
+	if (const auto slash = path.find_last_of('/'); slash != std::string::npos)
+	{
+		path = path.substr(slash + 1);
+	}
+	if (const auto dot = path.find_last_of('.'); dot != std::string::npos)
+	{
+		path = path.substr(0, dot);
+	}
+	// Data\Textures once, lower case -> the real stem, so that the spell files' spelling always finds the texture
+	static std::map<std::string, std::string, std::less<>> stems;
+	static std::once_flag once;
+	std::call_once(once, [] {
+		if (!Locator::filesystem::has_value())
+		{
+			return;
+		}
+		auto& fileSystem = Locator::filesystem::value();
+		fileSystem.Iterate(fileSystem.GetPath<filesystem::Path::Textures>(), false, [](const std::filesystem::path& file) {
+			if (string_utils::LowerCase(file.extension().string()) == ".raw")
+			{
+				const auto stem = file.stem().string();
+				stems.insert_or_assign(string_utils::LowerCase(stem), stem);
+			}
+		});
+	});
+	const auto it = stems.find(string_utils::LowerCase(path));
+	return it != stems.end() ? it->second : path;
+}
+
+void openblack::psys::ReadCreatorProperties(const Object& object, Creator& creator)
+{
+	const auto& c = object.className;
+	creator.className = c;
+	creator.kind = c == "ParticleSpriteCreator" ? Creator::Kind::Sprite
+	               : c == "ParticlePointCreator" ? Creator::Kind::Point
+	                                             : Creator::Kind::Other;
+	creator.r = static_cast<uint8_t>(object.Int("ColorR", 255));
+	creator.g = static_cast<uint8_t>(object.Int("ColorG", 255));
+	creator.b = static_cast<uint8_t>(object.Int("ColorB", 255));
+	creator.a = static_cast<uint8_t>(object.Int("ColorA", 255));
+	creator.usePlayerColour = object.Bool("UsePlayerColor", false);
+	creator.usePlayerColourBlend = object.Float("UsePlayerColorBlend", 1.0f);
+	creator.initialScale = object.Float("InitialScale", 1.0f);
+	creator.randomiseScale = object.Bool("RandomiseScale", false);
+	creator.loopAnim = object.Bool("LoopAnim", true);
+	if (creator.kind == Creator::Kind::Sprite)
+	{
+		creator.texture = TextureBaseName(object.String("TextureFileName"));
+		creator.fileOffset = object.Int("FileOffset", 0);
+		creator.spritesPerRow = std::max(1, object.Int("NumSpritesPerRow", 8));
+		creator.numFrames = std::max(1, object.Int("NumFrames", 1));
+		creator.initFrame = object.Int("InitFrame", 0);
+		creator.randomiseInitFrame = object.Bool("RandomiseInitFrame", false);
+		creator.randomiseFrameDirection = object.Bool("RandomiseFrameDirection", false);
+		creator.frameRate = object.Float("FrameRate", 1.0f);
+		creator.playAnim = object.Bool("PlayAnim", false);
+		creator.additive = object.Bool("UseAdditiveAlpha", true);
+		creator.writeDepth = object.Bool("MaterialUpdateZBuffer", false);
+		creator.scaleAlpha = object.Int("ScaleAlpha", 255);
+		creator.stretch = object.Float("StretchVertically", 1.0f);
+		creator.horizontal = object.Bool("SetHorozontal", false);
+		creator.centreAtBase = object.Bool("CentreAtBase", false);
+		creator.ignoreRotation = object.Bool("IgnoreRotation", false);
+		creator.originX = object.Float("SpriteOriginX", 0.0f);
+		creator.originY = object.Float("SpriteOriginY", 0.0f);
+	}
+}
+
+void openblack::psys::RegisterCoreModifiers()
+{
+	const ModifierFactory simple = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<Emitter>(o, Emitter::Shape::Simple);
+	};
+	const ModifierFactory disk = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<Emitter>(o, Emitter::Shape::Disk);
+	};
+	const ModifierFactory spreadingDisk = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<Emitter>(o, Emitter::Shape::SpreadingDisk);
+	};
+	const ModifierFactory conical = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<Emitter>(o, Emitter::Shape::Conical);
+	};
+	const ModifierFactory height = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<ForceHeight>(o, true);
+	};
+	const ModifierFactory altitude = [](const Object& o) -> std::unique_ptr<Modifier> {
+		return std::make_unique<ForceHeight>(o, false);
+	};
+	RegisterModifier("CreateRuleAnAtom", MakeModifierOf<CreateRuleAnAtom>);
+	RegisterModifier("CreateRuleSphere", MakeModifierOf<CreateRuleSphere>);
+	RegisterModifier("EmitterRuleSimple", simple);
+	RegisterModifier("DiskEmitter", disk);
+	RegisterModifier("SpreadingDiskEmitter", spreadingDisk);
+	RegisterModifier("EmitterRuleConical", conical);
+	RegisterModifier("UR_WillowWisp", MakeModifierOf<WillowWisp>);
+	RegisterModifier("RemoveRuleOldAgeOnly", MakeModifierOf<RemoveOldAge>);
+	RegisterModifier("RemoveRuleAfterCloseDown", MakeModifierOf<RemoveAfterCloseDown>);
+	RegisterModifier("RemoveRuleAfterConditionTrue", MakeModifierOf<RemoveAfterConditionTrue>);
+	RegisterModifier("RemoveRuleProb", MakeModifierOf<RemoveProb>);
+	RegisterModifier("LandscapeCollide", MakeModifierOf<LandscapeCollide>);
+	RegisterModifier("AR_FadeAlpha", MakeModifierOf<FadeAlpha>);
+	RegisterModifier("AR_FadeCollectionAlpha", MakeModifierOf<FadeCollectionAlpha>);
+	RegisterModifier("AR_FadeOutOnceConditionTrue", MakeModifierOf<FadeOutOnceConditionTrue>);
+	RegisterModifier("UR_ChangeScale", MakeModifierOf<ChangeScale>);
+	RegisterModifier("SetScale", MakeModifierOf<SetScale>);
+	RegisterModifier("SetAtomAlpha", MakeModifierOf<SetAtomAlpha>);
+	RegisterModifier("UpdateRuleGravity", MakeModifierOf<Gravity>);
+	RegisterModifier("UR_UpdatePosnFromVelocity", MakeModifierOf<PositionFromVelocity>);
+	RegisterModifier("UR_GustyWind", MakeModifierOf<GustyWind>);
+	RegisterModifier("UpdateRuleRotatePrincipalAxis", MakeModifierOf<RotateAxis>);
+	RegisterModifier("FollowOrigin", MakeModifierOf<FollowOrigin>);
+	RegisterModifier("UR_FollowParent", MakeModifierOf<FollowParent>);
+	RegisterModifier("ForceConstantHeight", height);
+	RegisterModifier("ForceConstantAltitude", altitude);
+	RegisterModifier("UR_SphereSurfaceTracer", MakeModifierOf<SphereSurfaceTracer>);
+	RegisterModifier("UR_OrientSpriteWithRandomAngle", MakeModifierOf<RandomAngle>);
+}
 
 bool Modifier::ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& slot) const
 {
@@ -965,7 +1126,29 @@ Effect::Effect(std::shared_ptr<const File> file, glm::vec3 origin, float magnitu
 	}
 }
 
-Effect::~Effect() = default;
+Effect::~Effect()
+{
+	// the collections' data go with the effect: UR_AddDefensiveSphere's DefensiveSphere (fn_006A2A30 -> fn_006D0B70)
+	shields::RemoveAllOf(this); // Rules/Shield.cpp
+}
+
+void Effect::SetSink(SpellSink* sink)
+{
+	_sink = sink;
+	if (_sink != nullptr)
+	{
+		// fn_00673070: the effect tells its spell it started (the base Spell ignores type 1)
+		SpellEventInfo event;
+		event.type = SpellEventInfo::Started;
+		event.position = _origin;
+		SendSpellEvent(event);
+	}
+}
+
+int Effect::SendSpellEvent(const SpellEventInfo& event) const
+{
+	return _sink != nullptr ? _sink->SpellEvent(event) : 0;
+}
 
 float Effect::Random(float max)
 {
@@ -1013,9 +1196,17 @@ bool Effect::ConditionForCollection(const std::string& name, const Collection& c
 		const float t = CollectionAge(collection);
 		result = t >= object->Float("StartTime", 0.0f) && t < object->Float("StopTime", 0.0f);
 	}
-	else if (c == "EventConditionTrueWhenEnabled" || c == "EC_CollectionShouldBeEmitting")
+	else if (c == "EventConditionTrueWhenEnabled")
 	{
-		result = true; // the effect is enabled; emitting (inf)
+		result = _info.enabled; // PSysProcessInfo +0x38
+	}
+	else if (c == "EC_CollectionShouldBeEmitting")
+	{
+		result = true; // emitting (inf)
+	}
+	else if (const auto test = FindCondition(c); test != nullptr)
+	{
+		result = test(*this, *object, nullptr, collection);
 	}
 	else
 	{
@@ -1058,7 +1249,11 @@ bool Effect::ConditionForAtom(const std::string& name, const Atom& atom) const
 	}
 	else if (c == "EC_AtomAlphaAbove")
 	{
-		result = static_cast<float>(atom.colour[3]) > object->Float("Alpha", 0.0f);
+		result = static_cast<int>(atom.colour[3]) > object->Int("AlphaValue", 0); // 0x67DC80: alpha > AlphaValue
+	}
+	else if (const auto test = FindCondition(c); test != nullptr)
+	{
+		result = test(*this, *object, &atom, *atom.collection);
 	}
 	else
 	{
@@ -1075,25 +1270,151 @@ const Creator* Effect::FindCreator(const std::string& name) const
 
 glm::vec3 Effect::GlobalPosition(const Atom& atom) const
 {
-	if (atom.collection != nullptr && atom.collection->hierarchy && atom.collection->parent != nullptr)
+	return atom.collection != nullptr ? LocalToGlobal(*atom.collection, atom.position) : atom.position;
+}
+
+glm::vec3 Effect::FrameScale(const Atom& atom)
+{
+	// fn_00673DB0: the rotation rows x baseScale x ruleScale, the Y row also x the stretch
+	const float s = atom.baseScale * atom.ruleScale;
+	return {s, s * atom.stretch, s};
+}
+
+glm::vec3 Effect::LocalToGlobal(const Collection& collection, const glm::vec3& local) const
+{
+	// AtomCollection::LocalToGlobal 0x6751D0: nothing for a collection outside a hierarchy; else fn_006752D0's frame,
+	// the product of the local matrices (fn_00673DB0) of every ancestor atom whose group is flagged in Hierarchies (the
+	// others add nothing)
+	glm::vec3 p = local;
+	if (!collection.hierarchy)
 	{
-		const auto& parent = *atom.collection->parent;
-		return GlobalPosition(parent) + parent.rotation * atom.position;
+		return p;
 	}
-	return atom.position;
+	for (const Atom* a = collection.parent; a != nullptr && a->collection != nullptr; a = a->collection->parent)
+	{
+		if (_hierarchies[static_cast<size_t>(a->collection->group)])
+		{
+			p = a->position + a->rotation * (FrameScale(*a) * p);
+		}
+	}
+	return p;
+}
+
+glm::vec3 Effect::GlobalToLocal(const Collection& collection, const glm::vec3& global) const
+{
+	// AtomCollection::GlobalToLocal 0x675410: the inverse of LocalToGlobal's frame (outermost first)
+	if (!collection.hierarchy)
+	{
+		return global;
+	}
+	std::vector<const Atom*> frames;
+	for (const Atom* a = collection.parent; a != nullptr && a->collection != nullptr; a = a->collection->parent)
+	{
+		if (_hierarchies[static_cast<size_t>(a->collection->group)])
+		{
+			frames.push_back(a);
+		}
+	}
+	glm::vec3 p = global;
+	for (auto it = frames.rbegin(); it != frames.rend(); ++it)
+	{
+		const auto s = FrameScale(**it);
+		p = glm::inverse((*it)->rotation) * (p - (*it)->position);
+		p = glm::vec3(s.x != 0.0f ? p.x / s.x : 0.0f, s.y != 0.0f ? p.y / s.y : 0.0f, s.z != 0.0f ? p.z / s.z : 0.0f);
+	}
+	return p;
 }
 
 glm::vec3 Effect::SpawnPosition(const Collection& collection) const
 {
+	// CommonInitNewAtom 0x674C60: no parent -> the origin; a parent whose group is flagged -> 0 (the collection is in its
+	// frame); else the parent's position (fn_006744B0), in the same frame as this collection
 	if (collection.parent == nullptr)
 	{
 		return _origin;
 	}
-	return collection.hierarchy ? glm::vec3(0.0f) : GlobalPosition(*collection.parent);
+	const auto* parentCollection = collection.parent->collection;
+	if (parentCollection != nullptr && _hierarchies[static_cast<size_t>(parentCollection->group)])
+	{
+		return glm::vec3(0.0f);
+	}
+	return collection.parent->position;
+}
+
+void Effect::AddSubCollections(Atom& atom, const std::vector<int>& groups)
+{
+	for (const int group : groups)
+	{
+		if (group >= 0 && group < 25)
+		{
+			CreateCollection(group, &atom, atom.subCollections);
+		}
+	}
+}
+
+Atom* Effect::NewAtomInGroup(int group, const Creator* creator)
+{
+	for (const auto& root : _roots)
+	{
+		if (root->group == group)
+		{
+			return &NewAtom(*root, creator, {});
+		}
+	}
+	return nullptr;
+}
+
+void Effect::MoveToBaseGroup(Collection& from, const Atom& atom, int group)
+{
+	// 0x673BD0: fn_00673180 finds the first root collection of the group, fn_00673C00 unlinks the atom and links it at
+	// the head of that one (the order of a collection's atoms does not change what the rules do to each one)
+	const auto it = std::find_if(from.atoms.begin(), from.atoms.end(), [&](const auto& a) { return a.get() == &atom; });
+	if (it == from.atoms.end())
+	{
+		return;
+	}
+	auto moved = std::move(*it);
+	from.atoms.erase(it);
+	for (const auto& root : _roots)
+	{
+		if (root->group == group && root.get() != &from)
+		{
+			moved->collection = root.get();
+			root->atoms.insert(root->atoms.begin(), std::move(moved));
+			return;
+		}
+	}
+	// no root collection of that group: see the header (the atom goes)
+}
+
+std::array<uint8_t, 4> openblack::psys::TintWithPlayerColour(std::array<uint8_t, 4> rgba, uint32_t playerArgb, float blend)
+{
+	uint32_t pc = playerArgb | 0xFF000000u;
+	if (pc == 0xFF000000u)
+	{
+		pc = 0xFFFFFFFFu; // 0x6A8650
+	}
+	if (blend != 1.0f)
+	{
+		// 0x6A865C..0x6A86D4: the (c - 255) x b products are signed, shifted and masked to a byte
+		const int b = static_cast<int>(blend * 255.0f) & 0xFF;
+		const auto towardsWhite = [b](uint32_t c) {
+			return static_cast<uint32_t>((255 + ((static_cast<int>(c) - 255) * b >> 8)) & 0xFF);
+		};
+		pc = (pc & 0xFF000000u) | (towardsWhite((pc >> 16) & 0xFF) << 16) | (towardsWhite((pc >> 8) & 0xFF) << 8) |
+		     towardsWhite(pc & 0xFF);
+	}
+	// 0x6A86D6..0x6A8741: each byte of the colour x the same byte of pc >> 8
+	return {static_cast<uint8_t>(rgba[0] * ((pc >> 16) & 0xFF) >> 8), static_cast<uint8_t>(rgba[1] * ((pc >> 8) & 0xFF) >> 8),
+	        static_cast<uint8_t>(rgba[2] * (pc & 0xFF) >> 8), static_cast<uint8_t>(rgba[3] * (pc >> 24) >> 8)};
 }
 
 Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std::vector<int>& nextGroups)
 {
+	if (creator != nullptr)
+	{
+		creator = creator->Resolve(*this);
+	}
 	auto atom = std::make_unique<Atom>();
 	atom->collection = &collection;
 	atom->creator = creator;
@@ -1103,6 +1424,10 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 	if (creator != nullptr)
 	{
 		atom->colour = {creator->r, creator->g, creator->b, creator->a};
+		if (creator->usePlayerColour && _player >= 0)
+		{
+			atom->colour = TintWithPlayerColour(atom->colour, surf_revol::PlayerColour(_player), creator->usePlayerColourBlend);
+		}
 		atom->baseScale = creator->initialScale * (creator->randomiseScale ? 0.3f + Random(0.7f) : 1.0f);
 		atom->stretch = creator->stretch;
 		if (creator->kind == Creator::Kind::Sprite)
@@ -1115,6 +1440,7 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 				atom->frameRate = -atom->frameRate;
 			}
 		}
+		creator->InitAtom(*this, *atom);
 	}
 	auto& result = *atom;
 	collection.atoms.push_back(std::move(atom));
@@ -1134,7 +1460,10 @@ void Effect::CreateCollection(int group, Atom* parent, std::vector<std::unique_p
 	collection->group = group;
 	collection->parent = parent;
 	collection->birth = _age;
-	collection->hierarchy = parent != nullptr && _hierarchies[static_cast<size_t>(parent->collection->group)];
+	// AtomCollection ctor 0x6748B0: in a hierarchy when any ancestor collection's group is flagged (+0x4C; the loop at
+	// 0x674934 walks up the parents), not only the parent's
+	collection->hierarchy = parent != nullptr && (_hierarchies[static_cast<size_t>(parent->collection->group)] ||
+	                                              parent->collection->hierarchy);
 	for (const auto* modifier : _groups[static_cast<size_t>(group)])
 	{
 		collection->modifiers.push_back({modifier});
@@ -1164,24 +1493,33 @@ void Effect::UpdateCollection(Collection& collection)
 			slot.attached = false;
 		}
 	}
-	for (auto& atom : collection.atoms)
+	// by index: a sub-collection's rule may add a sibling to the atom it hangs from (UR_CloudGather's AddSubCollection
+	// of the tornado group on its core, 0x6D4BBB), which the original links at the head of the list, past the
+	// iteration; (aproximado) here it is appended and also updated this step, one step earlier than the original
+	for (size_t a = 0; a < collection.atoms.size(); ++a)
 	{
-		for (auto& sub : atom->subCollections)
+		auto& atom = collection.atoms[a];
+		for (size_t s = 0; s < atom->subCollections.size(); ++s)
 		{
-			UpdateCollection(*sub);
+			UpdateCollection(*atom->subCollections[s]);
 		}
 	}
 }
 
-void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition, const glm::mat3& parentRotation)
+void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition, const glm::mat3& parentRotation,
+                        const glm::vec3& parentScale)
 {
+	// parentPosition / Rotation / Scale: the frame of a collection in a hierarchy (LocalToGlobal), the drawn matrix of
+	// the nearest ancestor atom whose group is flagged; the scale also scales the atoms drawn in it
+	const bool flagged = _hierarchies[static_cast<size_t>(collection.group)];
 	for (auto& atom : collection.atoms)
 	{
 		atom->previous = atom->current;
 		auto& draw = atom->current;
 		draw.rotation = collection.hierarchy ? parentRotation * atom->rotation : atom->rotation;
-		draw.position = collection.hierarchy ? parentPosition + parentRotation * atom->position : atom->position;
-		draw.scale = atom->baseScale * atom->ruleScale;
+		draw.position = collection.hierarchy ? parentPosition + parentRotation * (parentScale * atom->position) : atom->position;
+		// (aproximado) the drawn size takes the parents' scale from x only: a Y stretch of theirs does not reach it
+		draw.scale = atom->baseScale * atom->ruleScale * (collection.hierarchy ? parentScale.x : 1.0f);
 		draw.stretch = atom->stretch;
 		draw.alpha = static_cast<float>(atom->colour[3]) * collection.alpha / 255.0f;
 		atom->frame += _dt * atom->frameRate;
@@ -1191,9 +1529,11 @@ void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition,
 			atom->previous = draw;
 			atom->drawn = true;
 		}
+		// a flagged atom is the frame of its sub-collections; the others pass their own frame down
+		const glm::vec3 subScale = flagged ? FrameScale(*atom) * (collection.hierarchy ? parentScale : glm::vec3(1.0f)) : parentScale;
 		for (auto& sub : atom->subCollections)
 		{
-			PostUpdate(*sub, draw.position, draw.rotation);
+			PostUpdate(*sub, flagged ? draw.position : parentPosition, flagged ? draw.rotation : parentRotation, subScale);
 		}
 	}
 }
@@ -1217,8 +1557,16 @@ void Effect::Step(float dt)
 		}
 		else if (c == "MagnitudeFloatProvider" || c == "MagnitudeTimesStrengthFloatProvider" || c == "StrengthFloatProvider")
 		{
-			// Strength (PSysProcessInfo +0x30) is 1 here (inf)
-			const float base = c == "StrengthFloatProvider" ? 1.0f : _magnitude;
+			// Strength = PSysProcessInfo +0x30 (1 for an effect without a spell)
+			float base = _magnitude;
+			if (c == "StrengthFloatProvider")
+			{
+				base = _info.power;
+			}
+			else if (c == "MagnitudeTimesStrengthFloatProvider")
+			{
+				base = _magnitude * _info.power;
+			}
 			value = std::clamp(base * scaleBy, object.Float("Minimum", -1e6f), object.Float("Maximum", 1e6f));
 		}
 		else if (c == "RenderHandScaleFloatProvider" || c == "RenderHandScaleTimesStrengthFloatProvider")
@@ -1244,7 +1592,7 @@ void Effect::Step(float dt)
 	};
 	for (auto& root : _roots)
 	{
-		PostUpdate(*root, glm::vec3(0.0f), glm::mat3(1.0f));
+		PostUpdate(*root, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
 		count(*root);
 	}
 	_age += dt;
@@ -1263,7 +1611,12 @@ bool Effect::AnyCreatorLeft(const Collection& collection) const
 {
 	for (const auto& slot : collection.modifiers)
 	{
-		if (slot.attached && slot.modifier->Creates() && !(_closing && slot.modifier->removeOnCloseDown))
+		// a spell's effect with a class not ported yet lives until the spell closes it (inf: that class may create atoms,
+		// and ending the spell at once would cut its lifecycle short)
+		// fn_00673290: a flag 2 modifier keeps it too until it closes (KeepsAlive)
+		const bool creates = slot.modifier->Creates() || (!_closing && slot.modifier->KeepsAlive()) ||
+		                     (_sink != nullptr && !_closing && slot.modifier->Unported());
+		if (slot.attached && creates && !(_closing && slot.modifier->removeOnCloseDown))
 		{
 			return true;
 		}
@@ -1301,16 +1654,16 @@ bool Effect::Finished() const
 	return true;
 }
 
-void Effect::CollectCollection(const Collection& collection, float t, std::vector<DrawAtom>& out) const
+void Effect::CollectCollection(const Collection& collection, float t, std::vector<DrawAtom>& out, Creator::Kind kind) const
 {
 	for (const auto& atom : collection.atoms)
 	{
-		if (atom->visible && atom->drawn && atom->creator != nullptr && atom->creator->kind == Creator::Kind::Sprite)
+		if (atom->visible && atom->drawn && atom->creator != nullptr && atom->creator->kind == kind)
 		{
 			const auto& a = atom->previous;
 			const auto& b = atom->current;
 			const float k = std::clamp(t, 0.0f, 1.0f);
-			const float alpha = a.alpha + (b.alpha - a.alpha) * k;
+			const float alpha = (a.alpha + (b.alpha - a.alpha) * k) * _globalAlpha / 255.0f;
 			if (alpha >= 1.0f)
 			{
 				out.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
@@ -1320,15 +1673,52 @@ void Effect::CollectCollection(const Collection& collection, float t, std::vecto
 		}
 		for (const auto& sub : atom->subCollections)
 		{
-			CollectCollection(*sub, t, out);
+			CollectCollection(*sub, t, out, kind);
 		}
 	}
 }
 
-void Effect::Collect(float t, std::vector<DrawAtom>& out) const
+void Effect::Collect(float t, std::vector<DrawAtom>& out, Creator::Kind kind) const
 {
 	for (const auto& root : _roots)
 	{
-		CollectCollection(*root, t, out);
+		CollectCollection(*root, t, out, kind);
+	}
+}
+
+void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<DrawChain>& out) const
+{
+	// one ribbon per collection: its joints in list order, the same interpolation as CollectCollection but with no
+	// alpha cut-off (a dark joint is still part of the strip)
+	DrawChain chain {nullptr, {}};
+	for (const auto& atom : collection.atoms)
+	{
+		if (atom->visible && atom->drawn && atom->creator != nullptr && atom->creator->kind == Creator::Kind::Chain)
+		{
+			const auto& a = atom->previous;
+			const auto& b = atom->current;
+			const float k = std::clamp(t, 0.0f, 1.0f);
+			chain.creator = atom->creator;
+			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
+			                        a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k,
+			                        a.alpha + (b.alpha - a.alpha) * k, a.frame + (b.frame - a.frame) * k,
+			                        {atom->colour[0], atom->colour[1], atom->colour[2]}});
+		}
+		for (const auto& sub : atom->subCollections)
+		{
+			CollectChainsOf(*sub, t, out);
+		}
+	}
+	if (chain.joints.size() > 1)
+	{
+		out.push_back(std::move(chain));
+	}
+}
+
+void Effect::CollectChains(float t, std::vector<DrawChain>& out) const
+{
+	for (const auto& root : _roots)
+	{
+		CollectChainsOf(*root, t, out);
 	}
 }

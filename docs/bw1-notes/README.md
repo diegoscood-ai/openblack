@@ -41,11 +41,19 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 
 | Página | Contenido |
 |---|---|
-| [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima |
+| [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima; tiempo y clima del juego (LH3DAtmos, GClimate, tormentas, lluvia) |
 | [rendering.md](rendering.md) | Estados D3D, terreno, luz, mar, neblina, sombras, cielo y nubes, reflejos, peces, anillos, partículas, ríos, niebla del mapa, humo, fundido, fuentes y texto |
 | [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
 | [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
 | [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
+
+**Magia**
+
+| Página | Contenido |
+|---|---|
+| [magic.md](magic.md) | Núcleo de la magia: tablas de info.dat, ciclo de vida de los hechizos, cánticos, eventos y efectos, reglas de lanzamiento, semillas y milagros de un uso, lanzar desde la mano y gestos, culto y poder de oración, influencia, alineación, reacciones, vida, modelo del fuego, orden en el turno; suposiciones auditadas |
+| [miracles.md](miracles.md) | Cada milagro: comida y madera, agua, curar, bosque, bandadas, bola de fuego y rayo, escudos, teletransporte, tormenta y tornado, explosión de rayo; los de la criatura (pendientes) |
+| [particles.md](particles.md) | Motor de partículas (PSys): tipos de partícula, registro de clases, PSys enlazado al hechizo, jerarquías, creadores (mallas, cadenas, mapas de luz, niebla), sonido de las partículas, índice de reglas |
 
 **Mods**
 
@@ -54,10 +62,10 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [mod-library.md](mod-library.md) | Librería de mods: menú, `settings.cfg`, `--mod`, tipos de mod, cómo programar uno, catálogo |
 | [mods.md](mods.md) | El `AllMeshes.g3d` modificado de la instalación y el mod HD-Tweaks |
 
-**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `magic.md` y `miracles.md` (hechizos y milagros),
-`water.md` (el agua en el juego), `trees.md` (sale de objects-and-resources), `map-loading.md` (carga del mapa,
-ciudades), `villagers.md` (oficios de los aldeanos), `audio.md` (motor de audio), `particles.md` y
-`rendering-objects.md` (salen de rendering).
+**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `water.md` (el agua en el juego), `trees.md` (sale de
+objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.md` (oficios de los aldeanos),
+`audio.md` (motor de audio) y `rendering-objects.md` (sale de rendering; las partículas de rendering irán a
+`particles.md`).
 
 ## ¿Dónde busco…?
 
@@ -71,9 +79,12 @@ ciudades), `villagers.md` (oficios de los aldeanos), `audio.md` (motor de audio)
 | Golpes, daño, edificios que se rompen | [physics.md](physics.md) |
 | Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
 | Comportamiento de los animales | [animals.md](animals.md) |
-| Hora del día, ventanas iluminadas, clima | [day-night-weather.md](day-night-weather.md) |
+| Hora del día, ventanas iluminadas, clima, tormentas, lluvia | [day-night-weather.md](day-night-weather.md) |
 | Cómo se dibuja algo; si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
 | Orden del fotograma original | [original-frame.md](original-frame.md) |
+| Magia: hechizos y cánticos, lanzar desde la mano, gestos, culto, influencia, alineación, reacciones, fuego | [magic.md](magic.md) |
+| Un milagro concreto (comida, agua, curar, bosque, bandadas, bola de fuego, rayo, escudos, teletransporte, tormenta, explosión de rayo) | [miracles.md](miracles.md) |
+| Partículas: tipos, clases de PSys, creadores, sonido de las partículas, qué regla está dónde | [particles.md](particles.md) |
 | Activar o programar un mod | [mod-library.md](mod-library.md) |
 | Ganchos de prueba (`OPENBLACK_*`), compilar, depurar | [openblack-internals.md](openblack-internals.md) y la sección «Ganchos de prueba» de cada página |
 

@@ -394,3 +394,22 @@ void ecs::ClearFireFlies()
 	g_fireFlies.clear();
 	g_canSpawn = true;
 }
+
+bool ecs::TakeFireFlyAt(const glm::vec3& position)
+{
+	// MapCoords::operator== 0x605660 on the fixed-point x and z (1/65536 of a 10 m cell)
+	constexpr float k_Tolerance = 10.0f / 65536.0f;
+	const auto it = std::find_if(g_fireFlies.begin(), g_fireFlies.end(), [&](const FireFly& fly) {
+		return std::abs(fly.position.x - position.x) < k_Tolerance && std::abs(fly.position.z - position.z) < k_Tolerance;
+	});
+	if (it == g_fireFlies.end())
+	{
+		return false;
+	}
+	if (Locator::entitiesRegistry::has_value() && Locator::entitiesRegistry::value().Valid(it->sprite))
+	{
+		Locator::entitiesRegistry::value().Destroy(it->sprite);
+	}
+	g_fireFlies.erase(it);
+	return true;
+}

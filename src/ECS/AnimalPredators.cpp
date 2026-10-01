@@ -325,7 +325,7 @@ int ReactToAnimalFoodNeeds(Context& ctx)
 	if (CurrentTargetOk(ctx))
 	{
 		SetSpeed(ctx, Speed(ctx.info, 4));
-		ctx.brain.chaseStart = g_Turn;
+		ctx.brain.chaseStart = Turn();
 		SetupMoveToTarget(ctx, ctx.brain.target);
 		return k_Started;
 	}
@@ -478,7 +478,7 @@ void HuntingMoveToPos(Context& ctx)
 	const auto target = ctx.brain.target;
 	// the script test at 0x418DD7 (script_held::MayTarget)
 	if (target == entt::null || !Available(target) || !script_held::MayTarget(ctx.entity, target) ||
-	    g_Turn - ctx.brain.chaseStart >= ctx.info.chaseTime)
+	    Turn() - ctx.brain.chaseStart >= ctx.info.chaseTime)
 	{
 		Abandon(ctx);
 		return;
@@ -516,7 +516,7 @@ void HuntingMoveToPos(Context& ctx)
 	}
 	else
 	{
-		speed = (g_Turn % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
+		speed = (Turn() % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
 	}
 	SetSpeed(ctx, speed);
 	if (d >= ctx.info.huntingDistance)
@@ -552,7 +552,7 @@ void TargetPounce(Context& ctx)
 		// fn_005EC480: the prey falls, with 0.05 of its life
 		if (auto* villager = registry.TryGet<Villager>(target); villager != nullptr)
 		{
-			villager->health = 5;
+			villager->life = 0.05f;
 			registry.AssignOrReplace<DownedVillager>(target);
 			SetVillagerState(target, VillagerStates::Downed);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} downed by animal {}", static_cast<uint32_t>(target),
@@ -624,7 +624,7 @@ void ProcessDownedVillagers()
 		}
 		// Villager::BeingEaten (0x76B380): dead (VillagerDead, reason ANIMAL). openblack has no villager corpse yet: it
 		// goes, as the physics' villager deaths
-		villager->health = 0;
+		villager->life = 0.0f;
 		if (auto* abode = registry.TryGet<Abode>(villager->abode))
 		{
 			abode->inhabitants.erase(entity);

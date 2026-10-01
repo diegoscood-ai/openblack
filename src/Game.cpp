@@ -57,8 +57,8 @@
 #include "ECS/CarriedProps.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
+#include "ECS/Effects/Reactions.h"
 #include "ECS/Trees.h"
-#include "ECS/Alignment.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -81,6 +81,7 @@
 #include "Input/GameActionMapInterface.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
+#include "Magic/MagicLoop.h"
 #include "Locator.h"
 #include "Mods/BuiltinMods.h"
 #include "Mods/ModRegistry.h"
@@ -404,6 +405,8 @@ bool Game::GameLogicLoop() noexcept
 
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
+	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
+	ecs::effects::reactions::BeginTurn(static_cast<uint32_t>(_turnCount));
 
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();
@@ -420,6 +423,8 @@ bool Game::GameLogicLoop() noexcept
 		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
 		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
+	// The miracles' part of GGame::ProcessTurn (Magic/MagicLoop.cpp: fire, reactions, spells, the seed in the hand...)
+	magic::ProcessTurn(static_cast<uint32_t>(_turnCount));
 
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
@@ -453,14 +458,14 @@ bool Game::GameLogicLoop() noexcept
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
-		// Tree::Process 0x74A290 through Forest::Process: the trees of a forest grow
-		ecs::ProcessTreesTurn(_turnCount);
-		// GPlayer::Process -> GAlignment::ProcessForPlayer: the turn's alignment change, capped
-		ecs::alignment::ProcessTurn();
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
+		magic::RunDebugHooks();
 		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
 	}
+	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
+	magic::ProcessTurnEnd();
+	ecs::effects::reactions::EndTurn();
 
 	_lastGameLoopTime = currentTime;
 	_turnDeltaTime = delta;
@@ -656,6 +661,8 @@ bool Game::Update() noexcept
 				previousMousePosition = _mousePosition;
 				Locator::handSystem::value().Update(deltaTime, mouseDelta, _handGripping, _handAction);
 			}
+			// The miracles' per-frame part (the one-shot orbs' texture), in game time
+			magic::Update(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier);
 
 			// Palm towards the ground, index fingertip on the point under the cursor, fingertips dug in while gripping.
 			const bool overLand = intersectionTransform.position != glm::zero<glm::vec3>();
@@ -896,6 +903,17 @@ bool Game::Initialize() noexcept
 		meshManager.Load("river", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river.l3d");
 		meshManager.Load("river2", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river2.l3d");
 		meshManager.Load("metre_sphere", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "metre_sphere.l3d");
+		// OneOffSpellSeed::CallVirtualFunctionsForCreation 0x72A450: .\data\spells\meshes\O_Bibble_up.l3d (not in the
+		// test data)
+		try
+		{
+			meshManager.Load("O_Bibble_up", LFromDiskTag {},
+			                 fileSystem.GetPath<Path::Data>() / "Spells" / "Meshes" / "O_bibble_up.l3d");
+		}
+		catch (std::runtime_error& err)
+		{
+			SPDLOG_LOGGER_ERROR(spdlog::get("game"), "{}", err.what());
+		}
 	}
 
 	// TODO(raffclar): #400: Parse level files within the resource loader
@@ -1014,7 +1032,7 @@ bool Game::Initialize() noexcept
 				    {
 					    SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Empty sound buffer found for {}. Skipping",
 					                       soundName.string());
-					    return;
+					    continue; // the next ones still load (spells.sad has an empty entry 31 before 32..88)
 				    }
 
 				    const auto stringId = fmt::format("{}/{}", groupName, audioHeaders[i].id);
@@ -1296,6 +1314,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	}
 
 	psys::manager::Clear();
+	magic::OnLoadMap();
 	// GSetup::LoadMapFeatures -> GLandBalance::Init: every land balance value back to 1 before the script
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)

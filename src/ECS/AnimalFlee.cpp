@@ -25,6 +25,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Effects/Reactions.h"
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -34,12 +35,12 @@
 #include "Resources/ResourcesInterface.h"
 
 /// The animals' reactions like the original (docs/bw1-notes/animals.md; research dev\tmp_dis\animals\flee.md,
-/// reactions.md, audit_r3.md): Reaction::CreateReaction spreads a reaction once over a spiral of map cells
-/// (SpreadReaction 0x6E3E10, ApplyReactionToLivingObjectsAtSquare 0x6E3F90) with each animal's score, its records and
-/// the rule to switch from the reaction it already takes. The per-turn re-spreading (Reaction::ProcessReactions) is
-/// behind a debug flag the shipped game never sets. Ported types: 28 flee from predator (a predator's construction),
+/// reactions.md, audit_r3.md): the Animal handler of ECS/Effects/Reactions (Reaction::CreateReaction spreads a reaction
+/// once over a spiral of map cells, SpreadReaction 0x6E3E10, and ApplyReactionToLivingObjectsAtSquare 0x6E3F90 gives
+/// each animal of a cell to this handler): the animal's score, its records (common to the Living, in the reactions
+/// module) and the rule to switch from the reaction it already takes. Ported types: 28 flee from predator (a predator's construction),
 /// 7 food (a food pile: the map's CREATE_POT, a pot the hand puts down), 9 flying object (every throw from the hand).
-/// openblack's villagers don't take reactions yet.
+/// The villagers take theirs through the same module (VillagerReactions.cpp: fire and teleport).
 namespace openblack::ecs::animal_ai
 {
 using components::Animal;
@@ -50,48 +51,19 @@ namespace
 {
 constexpr uint8_t k_ReactToFood = 7;
 constexpr uint8_t k_ReactToFlyingObject = 9;
-constexpr uint8_t k_ReactToHandPickUp = 16;
 constexpr uint8_t k_FleeFromPredator = 28;
 
-/// a Reaction object (0x44 bytes, list g_game+0x205BDC)
-struct ReactionObject
-{
-	uint32_t id;
-	uint8_t type;
-	entt::entity initiator;
-	float radius;        ///< +0x3C: maxReactionDistance for the types that do not grow
-	uint32_t startTurn;  ///< +0x2C
-	bool available;
-	bool stealth {false}; ///< +0x20 (0 for the ported types)
-};
-std::vector<ReactionObject> g_Reactions;
-uint32_t g_NextReaction = 1;
+namespace reactions = effects::reactions;
+using reactions::Reaction;
 
 const ReactionInfo& Info(uint8_t type)
 {
 	return Locator::infoConstants::value().reaction.at(type);
 }
 
-ReactionObject* Find(uint32_t id)
+uint8_t TypeOf(const Reaction& reaction)
 {
-	if (id == 0)
-	{
-		return nullptr;
-	}
-	for (auto& reaction : g_Reactions)
-	{
-		if (reaction.id == id)
-		{
-			return &reaction;
-		}
-	}
-	return nullptr;
-}
-
-/// Reaction::IsAvailable [inferred: removed or its initiator gone]
-bool ReactionAvailable(const ReactionObject* reaction)
-{
-	return reaction != nullptr && reaction->available && Locator::entitiesRegistry::value().Valid(reaction->initiator);
+	return static_cast<uint8_t>(reaction.type);
 }
 
 /// GLivingInfo.isReacting[type] (mem +0x144 + 4 type)
@@ -228,19 +200,15 @@ uint32_t Priority(uint8_t type, entt::entity entity, const AnimalBrain& brain, c
 	}
 }
 
-/// fn_006E4620: the reaction's score for this animal at that distance (0..255)
+/// fn_006E4620 (ECS/Effects/Reactions: Score) with the animal's isReacting and the table's priority function
 uint32_t Score(uint8_t type, entt::entity entity, const AnimalBrain& brain, entt::entity initiator, float d)
 {
 	const auto& info = detail::InfoOf(Locator::entitiesRegistry::value().Get<const Animal>(entity));
-	const auto& reaction = Info(type);
-	if (!IsReactingTo(info, type) || d > reaction.maxReactionDistance)
+	if (!IsReactingTo(info, type) || d > Info(type).maxReactionDistance)
 	{
 		return 0;
 	}
-	const float p = static_cast<float>(Priority(type, entity, brain, info, initiator));
-	const float max = reaction.maxReactionDistance;
-	const float score = p * (1.0f + 0.5f * reaction.howImportantIsDistance * (max - d) / std::max(max, 0.0001f));
-	return static_cast<uint32_t>(std::trunc(std::min(255.0f, score)));
+	return reactions::Score(type, true, Priority(type, entity, brain, info, initiator), d);
 }
 
 /// StandardNumGameTurnsToReactFunction (0x5F18C0) / ...BeforeReactingAgainFunction (0x5F1920)
@@ -298,54 +266,8 @@ uint32_t TurnsBeforeReactingAgain(uint8_t type, entt::entity initiator, float d)
 	return Standard(reaction.numGameTurnsForNormalThingsBeforeReactingAgain, reaction, d);
 }
 
-/// fn_006E4340: the records {type, turn} (at most 3): a known type only when its time is up; the rest expire at 1800
-bool Records(AnimalBrain& brain, uint8_t type, uint32_t again)
-{
-	const uint32_t now = detail::g_Turn;
-	for (uint8_t i = 0; i < brain.recordCount;)
-	{
-		auto& record = brain.records[i];
-		if (record.type == type)
-		{
-			if (now - record.turn > again)
-			{
-				record.turn = now;
-				return true;
-			}
-			return false;
-		}
-		if (now - record.turn > 1800)
-		{
-			std::copy(brain.records.begin() + i + 1, brain.records.begin() + brain.recordCount, brain.records.begin() + i);
-			--brain.recordCount;
-			continue;
-		}
-		++i;
-	}
-	if (brain.recordCount >= brain.records.size())
-	{
-		std::copy(brain.records.begin() + 1, brain.records.end(), brain.records.begin());
-		--brain.recordCount;
-	}
-	brain.records[brain.recordCount++] = {type, now};
-	return true;
-}
-
-/// fn_005F0FB0: the record's turn (0 if none)
-uint32_t RecordTurn(const AnimalBrain& brain, uint8_t type)
-{
-	for (uint8_t i = 0; i < brain.recordCount; ++i)
-	{
-		if (brain.records[i].type == type)
-		{
-			return brain.records[i].turn;
-		}
-	}
-	return 0;
-}
-
 /// Living::AddReaction (0x5F0F30): StorePreviousState (the final state), the reaction's state
-void AddReaction(entt::entity entity, AnimalBrain& brain, const ReactionObject& reaction, AnimalState state)
+void AddReaction(entt::entity entity, AnimalBrain& brain, const Reaction& reaction, AnimalState state)
 {
 	if (brain.reaction == 0)
 	{
@@ -357,9 +279,9 @@ void AddReaction(entt::entity entity, AnimalBrain& brain, const ReactionObject& 
 }
 
 /// the table's +0x10: StartReacting
-void StartReacting(entt::entity entity, AnimalBrain& brain, const ReactionObject& reaction)
+void StartReacting(entt::entity entity, AnimalBrain& brain, const Reaction& reaction)
 {
-	switch (reaction.type)
+	switch (TypeOf(reaction))
 	{
 	case k_FleeFromPredator:
 		// Animal::SetupFleeFromPredator (0x420410)
@@ -385,46 +307,38 @@ void StartReacting(entt::entity entity, AnimalBrain& brain, const ReactionObject
 	}
 }
 
-/// ApplyReactionToLivingObjectsAtSquare (0x6E3F90) for one animal
-void Apply(entt::entity entity, ReactionObject& reaction)
+/// ApplyReactionToLivingObjectsAtSquare (0x6E3F90) for one animal of the cell: the Animal handler of
+/// ECS/Effects/Reactions (d = (|dz| + |dx|) / 2 to the initiator)
+void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 {
 	auto* brain = detail::BrainOf(entity);
 	if (brain == nullptr || !IsAvailableForReaction(entity, *brain))
 	{
 		return;
 	}
-	const glm::vec2 p = PosOf(entity);
-	const glm::vec2 at = PosOf(reaction.initiator);
-	const float d = (std::abs(p.y - at.y) + std::abs(p.x - at.x)) * 0.5f;
-	const auto again = TurnsBeforeReactingAgain(reaction.type, reaction.initiator, d);
+	const uint8_t type = TypeOf(reaction);
+	const auto again = TurnsBeforeReactingAgain(type, reaction.initiator, d);
 	if (brain->reaction == 0)
 	{
-		if (Score(reaction.type, entity, *brain, reaction.initiator, d) > 0 && Records(*brain, reaction.type, again))
+		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::Turn()))
 		{
-			if (reaction.startTurn == 0)
-			{
-				reaction.startTurn = detail::g_Turn;
-			}
+			reactions::MarkStarted(reaction.id, detail::Turn());
 			StartReacting(entity, *brain, reaction);
 		}
 		return;
 	}
 	// already reacting: the new one must score more, and the old one must have lasted 10 s (1 s for a hand pick-up)
-	auto* current = Find(brain->reaction);
-	if (current == nullptr || !ReactionAvailable(current) || current->id == reaction.id)
+	const auto* current = reactions::Find(brain->reaction);
+	if (current == nullptr || !reactions::IsAvailable(current) || current->id == reaction.id)
 	{
 		return;
 	}
-	const float cur = static_cast<float>(Score(current->type, entity, *brain, current->initiator, glm::distance(p, PosOf(current->initiator))));
-	const float now = static_cast<float>(Score(reaction.type, entity, *brain, reaction.initiator, d));
-	// the table's +0x04 (whether a type may restart) [taken as 1 for the ported types, as for 28]
-	if (!(cur < now))
-	{
-		return;
-	}
-	const float h = std::max(10.0f, cur / now * 20.0f - 10.0f);
-	const float seconds = static_cast<float>((detail::g_Turn - RecordTurn(*brain, current->type)) / 10);
-	if (seconds < h && (seconds < 1.0f || current->type != k_ReactToHandPickUp))
+	const glm::vec2 p = PosOf(entity);
+	const float cur = static_cast<float>(
+	    Score(TypeOf(*current), entity, *brain, current->initiator, glm::distance(p, PosOf(current->initiator))));
+	const float now = static_cast<float>(Score(type, entity, *brain, reaction.initiator, d));
+	const float seconds = static_cast<float>((detail::Turn() - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
+	if (!reactions::MaySwitch(cur, now, seconds, TypeOf(*current)))
 	{
 		return;
 	}
@@ -432,78 +346,54 @@ void Apply(entt::entity entity, ReactionObject& reaction)
 	StartReacting(entity, *brain, reaction);
 }
 
-/// SpreadReaction (0x6E3E10): (radius x 0.2)^2 x GetReactionPower (1) map cells of GUtils::Spiral from its cell, those
-/// within the radius
-void Spread(ReactionObject& reaction)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.AllOf<Transform>(reaction.initiator))
-	{
-		return;
-	}
-	// the map cells as they are now (a spread at map load runs before the turn's rebuild)
-	Locator::entitiesMap::value().Rebuild();
-	const glm::vec2 at = PosOf(reaction.initiator);
-	const int side = std::max(1, static_cast<int>(reaction.radius * 0.2f));
-	const int cells = side * side;
-	glm::vec2 cell = at;
-	detail::Spiral spiral;
-	for (int i = 0; i < cells; ++i)
-	{
-		if (detail::InBounds(cell) && glm::distance(cell, at) <= reaction.radius)
-		{
-			// the cell's list [the mobile one, its order as openblack keeps it]
-			std::vector<entt::entity> livings;
-			for (const auto entity : Locator::entitiesMap::value().GetMobileInGridCell(detail::CellOf(cell)))
-			{
-				if (entity != reaction.initiator && registry.Valid(entity) && registry.AllOf<Animal, Transform>(entity))
-				{
-					livings.push_back(entity);
-				}
-			}
-			for (const auto entity : livings)
-			{
-				Apply(entity, reaction);
-			}
-		}
-		cell += 10.0f * glm::vec2(spiral.Next());
-	}
-}
-
-/// Reaction::CreateReaction (0x6E3D70): made and spread once
-uint32_t CreateReaction(entt::entity initiator, uint8_t type)
+/// Reaction::CreateReaction (0x6E3D70) of an animal-side initiator: made and spread once (ECS/Effects/Reactions), with
+/// the player the original passes (+0x38): the predator's GetPlayer (fn_0041FD30, 0x41FD5C), the pot's GetPlayer
+/// (Pot::SetupReaction 0x66D660), the thrower's GInterfaceStatus::GetPlayer (0x637405)
+uint32_t CreateReaction(entt::entity initiator, uint8_t type, PlayerNames player)
 {
 	if (!Locator::infoConstants::has_value() || !Locator::entitiesRegistry::value().Valid(initiator))
 	{
 		return 0;
 	}
-	const auto& info = Info(type);
-	ReactionObject reaction {g_NextReaction++, type, initiator, info.whetherReactionGrows != 0 ? 1.0f : info.maxReactionDistance, 0, true};
-	g_Reactions.push_back(reaction);
-	Spread(g_Reactions.back());
-	return reaction.id;
+	return reactions::CreateReaction(initiator, static_cast<openblack::Reaction>(type), player, false);
 }
+
+/// Animal::GetPlayer: the player of a spell's animal, else none (the neutral player, inf)
+PlayerNames PlayerOfAnimal(entt::entity animal)
+{
+	const auto* component = Locator::entitiesRegistry::value().TryGet<const Animal>(animal);
+	if (component == nullptr || component->player < 0 || component->player >= static_cast<int32_t>(PlayerNames::_COUNT))
+	{
+		return PlayerNames::NEUTRAL;
+	}
+	return static_cast<PlayerNames>(component->player);
+}
+
+/// The Animal handler from the start (before any map load too)
+const bool k_AnimalHandlerRegistered = [] {
+	reactions::SetLivingReactionHandler(reactions::LivingClass::Animal, &AnimalReaction);
+	return true;
+}();
 
 /// Reaction::RemoveAllReactionsInitiatedByObject [of one type, or all]
 void RemoveReactions(entt::entity initiator, int type)
 {
-	std::erase_if(g_Reactions, [initiator, type](const ReactionObject& reaction) {
-		return reaction.initiator == initiator && (type < 0 || reaction.type == type);
-	});
+	if (type < 0)
+	{
+		reactions::RemoveAllReactionsInitiatedByObject(initiator);
+	}
+	else
+	{
+		reactions::RemoveAllReactionsOfTypeInitiatedBy(initiator, static_cast<openblack::Reaction>(type));
+	}
 }
 
 /// Living::StopReacting (0x5F1140): off the reaction, its record's turn refreshed, +0x94 = 0, +0xBC = 0
 void StopReactingPlain(AnimalBrain& brain)
 {
-	if (const auto* reaction = Find(brain.reaction); reaction != nullptr)
+	if (const auto* reaction = reactions::Find(brain.reaction); reaction != nullptr)
 	{
-		for (uint8_t i = 0; i < brain.recordCount; ++i)
-		{
-			if (brain.records[i].type == reaction->type)
-			{
-				brain.records[i].turn = detail::g_Turn;
-			}
-		}
+		reactions::RefreshRecord(Locator::entitiesRegistry::value().ToEntity(brain), TypeOf(*reaction), detail::Turn());
 	}
 	brain.reaction = 0;
 	brain.predator = entt::null;
@@ -521,10 +411,10 @@ void StopReactingAndSetState(detail::Context& ctx)
 	}
 }
 
-const ReactionObject* CurrentReaction(const detail::Context& ctx)
+const Reaction* CurrentReaction(const detail::Context& ctx)
 {
-	const auto* reaction = Find(ctx.brain.reaction);
-	return ReactionAvailable(reaction) ? reaction : nullptr;
+	const auto* reaction = reactions::Find(ctx.brain.reaction);
+	return reactions::IsAvailable(reaction) ? reaction : nullptr;
 }
 
 bool InitiatorGone(const detail::Context& ctx)
@@ -579,14 +469,15 @@ void SetupPotReaction(entt::entity pot)
 	{
 		return;
 	}
-	for (const auto& reaction : g_Reactions)
+	// the pot's own flag (+0x74 & 2): its associatedReaction is there already (not the other types it may start, the
+	// fire's REACT_TO_FIRE)
+	if (reactions::GetReactionOfTypeInitiatedBy(pot, static_cast<openblack::Reaction>(potInfo->associatedReaction)) != 0)
 	{
-		if (reaction.initiator == pot && reaction.available)
-		{
-			return;
-		}
+		return;
 	}
-	CreateReaction(pot, static_cast<uint8_t>(potInfo->associatedReaction));
+	// Pot::GetPlayer: the pile's owner (MagicFood +0xBC / MagicWood +0xB4; a map pot keeps the default, inf)
+	const auto* data = Locator::entitiesRegistry::value().TryGet<const components::Pot>(pot);
+	CreateReaction(pot, static_cast<uint8_t>(potInfo->associatedReaction), data != nullptr ? data->owner : PlayerNames::NEUTRAL);
 }
 
 void RemovePotReaction(entt::entity pot)
@@ -595,9 +486,9 @@ void RemovePotReaction(entt::entity pot)
 	RemoveReactions(pot, -1);
 }
 
-void SpreadFlyingObjectReaction(entt::entity object)
+void SpreadFlyingObjectReaction(entt::entity object, PlayerNames thrower)
 {
-	CreateReaction(object, k_ReactToFlyingObject);
+	CreateReaction(object, k_ReactToFlyingObject, thrower);
 }
 
 void EndReactionsOf(entt::entity object)
@@ -614,22 +505,17 @@ void SpreadPredatorReaction(entt::entity predator)
 		return;
 	}
 	// fn_0041FD30: the predator's permanent reaction 28
-	CreateReaction(predator, k_FleeFromPredator);
+	CreateReaction(predator, k_FleeFromPredator, PlayerOfAnimal(predator));
 }
 
 void ClearReactions()
 {
-	g_Reactions.clear();
+	reactions::Clear();
+	reactions::SetLivingReactionHandler(reactions::LivingClass::Animal, &AnimalReaction);
 }
 
 namespace detail
 {
-void PruneReactions()
-{
-	// a deleted initiator takes its reactions with it (Object::ToBeDeleted)
-	auto& registry = Locator::entitiesRegistry::value();
-	std::erase_if(g_Reactions, [&registry](const ReactionObject& reaction) { return !registry.Valid(reaction.initiator); });
-}
 } // namespace detail
 
 namespace detail
@@ -685,9 +571,9 @@ void ProcessReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	const uint32_t elapsed = g_Turn - RecordTurn(ctx.brain, reaction->type);
+	const uint32_t elapsed = Turn() - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
 	const float d = glm::distance(Xz(ctx.transform), PosOf(ctx.brain.predator));
-	if (elapsed > TurnsToReact(reaction->type, ctx.brain, ctx.brain.predator, d))
+	if (elapsed > TurnsToReact(TypeOf(*reaction), ctx.brain, ctx.brain.predator, d))
 	{
 		StopReactingAndSetState(ctx);
 	}
@@ -731,7 +617,7 @@ void FleeingFromObjectReaction(Context& ctx)
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 at = PosOf(ctx.brain.predator);
 	const float d = glm::distance(me, at);
-	if (reaction == nullptr || d > Info(reaction->type).maxDistanceToRunAwayFromObject)
+	if (reaction == nullptr || d > Info(TypeOf(*reaction)).maxDistanceToRunAwayFromObject)
 	{
 		StopReactingAndSetState(ctx);
 		return;
@@ -739,7 +625,7 @@ void FleeingFromObjectReaction(Context& ctx)
 	// FleeFromObjectIfComingTowardsMe(obj, 30, 30) 0x5F1D90: the 30s are states (FLEEING_AND_LOOKING), the distance is
 	// the reaction's minDistanceToRunAwayFromObject
 	const auto movement = MovementOf(ctx.brain.predator);
-	if (d > Info(reaction->type).minDistanceToRunAwayFromObject && !ComingTowards(me, at, movement))
+	if (d > Info(TypeOf(*reaction)).minDistanceToRunAwayFromObject && !ComingTowards(me, at, movement))
 	{
 		SetTopState(ctx, AnimalState::FleeingAndLookingAtObjectReaction);
 		ctx.brain.angle = AngleOf(at - me);
@@ -764,7 +650,7 @@ void FleeingAndLookingReaction(Context& ctx)
 	}
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 at = PosOf(ctx.brain.predator);
-	if (glm::distance(me, at) > Info(reaction->type).maxDistanceToRunAwayFromObject)
+	if (glm::distance(me, at) > Info(TypeOf(*reaction)).maxDistanceToRunAwayFromObject)
 	{
 		StopReactingAndSetState(ctx);
 		return;

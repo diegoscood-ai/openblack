@@ -30,13 +30,14 @@ struct Value
 		String,  ///< STRING (a path) and ENUM (an MSH_* / ANIM_* name)
 		Pointer, ///< PERSIS_PNTR: the name of another object of the file ("" = NULL_STRING)
 		Array,
-		Sound,
+		Sound, ///< SOUND_ACTION: text = the SOUND_* name, array = LOOPING, ONLYONE, SOFTRELEASE, USESURFACE
 	};
 	Type type {Type::Integer};
 	int integer {0};
 	float number {0.0f};
 	std::string text;
 	std::vector<int> array;
+	std::vector<float> numbers; ///< ARRAY: the elements as written (UR_HandSprinkle's KeyPoints are floats)
 };
 
 /// BEGINCLASS <Class> <Name> BEGINPROPERTIES ... ENDPROPERTIES ENDCLASS

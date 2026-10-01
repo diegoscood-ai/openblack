@@ -127,13 +127,159 @@ o queda muerto),
 `OPENBLACK_HAND_TEST_HOLD=<escala>` (la mano empieza sosteniendo una roca), `OPENBLACK_TEST_SPLASH="x,z"` (un chapoteo de
 la mano por segundo), `OPENBLACK_HAND_TEST_FISH=1` (chapoteo y
 pesca en el primer banco con la acción mantenida 3 s; con `OPENBLACK_HAND_TRACE=1` escribe `Fish trace`), `OPENBLACK_START_PAUSED=1` (arranca en pausa como el openblack de antes; por defecto el juego corre desde el primer fotograma, como el original: turnos y
-scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_VIEW_VILLAGER="n[,distancia[,ángulo]]"` (la cámara mira al aldeano n desde esa distancia y lado; `dev\tools\shot_villager.sh` lo lanza desde una copia en `dev\hdp_run` para no bloquear el exe de las demás sesiones; los aldeanos caminan, así que de lejos pueden salir del encuadre), `OPENBLACK_TEST_WIDESCREEN=1`, `OPENBLACK_TEST_CHIMNEY=all` (todas las chimeneas echan humo aunque no haya nadie en casa; [rendering.md](rendering.md#humo-de-las-chimeneas-lh3dsmoke-hecho)), `OPENBLACK_CLOUD_SEED=<n>` (semilla fija del `rand()` de las nubes del cielo; sin ella, la hora como el original), `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (objetivo de la alineación del cielo: −1 mala, 0 neutral, 1 buena; en vez del deslizador de depuración), `OPENBLACK_LOG_ISOK=1` (una línea `isok:` en el log por cada árbol, vasija u objeto móvil del guion que `IsOkToCreateAtPos` no deja crear, con lo que lo tapa; ver [objects-and-resources.md](objects-and-resources.md)), `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` (cambia el mod HD-Tweaks en ese fotograma, como el menú; `dev\tools\shot_hand.sh` para la mano), `OPENBLACK_LANTERN_SOUND_TRACE=1` (escribe `Lantern sound:` en el log: arranque, corte y suelta del bucle de cada farola con su distancia, y cada 50 turnos el número de farolas, si es de noche y la distancia de la más cercana; probarlo con `OPENBLACK_TIME_OF_DAY=22` y la cámara a menos de 5 unidades de la punta de una farola). Físicas: ver [physics.md](physics.md#ganchos-de-prueba).
+scripts desde el primer fotograma), `OPENBLACK_TEST_FADE="r,g,b,segundos"` (`SET_FADE`), `OPENBLACK_TEST_VIEW_VILLAGER="n[,distancia[,ángulo]]"` (la cámara mira al aldeano n desde esa distancia y lado; `dev\tools\shot_villager.sh` lo lanza desde una copia en `dev\hdp_run` para no bloquear el exe de las demás sesiones; los aldeanos caminan, así que de lejos pueden salir del encuadre), `OPENBLACK_TEST_WIDESCREEN=1`, `OPENBLACK_TEST_CHIMNEY=all` (todas las chimeneas echan humo aunque no haya nadie en casa; [rendering.md](rendering.md#humo-de-las-chimeneas-lh3dsmoke-hecho)), `OPENBLACK_CLOUD_SEED=<n>` (semilla fija del `rand()` de las nubes del cielo; sin ella, la hora como el original), `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (objetivo de la alineación del cielo: −1 mala, 0 neutral, 1 buena; en vez del deslizador de depuración), `OPENBLACK_LOG_ISOK=1` (una línea `isok:` en el log por cada árbol, vasija u objeto móvil del guion que `IsOkToCreateAtPos` no deja crear, con lo que lo tapa; ver [objects-and-resources.md](objects-and-resources.md)), `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` (cambia el mod HD-Tweaks en ese fotograma, como el menú; `dev\tools\shot_hand.sh` para la mano), `OPENBLACK_LANTERN_SOUND_TRACE=1` (escribe `Lantern sound:` en el log: arranque, corte y suelta del bucle de cada farola con su distancia, y cada 50 turnos el número de farolas, si es de noche y la distancia de la más cercana; probarlo con `OPENBLACK_TIME_OF_DAY=22` y la cámara a menos de 5 unidades de la punta de una farola). `OPENBLACK_PSYS_SOUND_TRACE=1`: traza de los sonidos del PSys (inicio con acción, tamaño, superficie, distancia y muestra de spells.sad; "too far" si la cámara está más lejos que el maxDist de la muestra; suelta del bucle o corte al morir el átomo; borrado), ver [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp). Influencia ([magic.md](magic.md#influencia-m1i-srcecsinfluence)): `OPENBLACK_TEST_INFLUENCE="x,z[;x,z...]"` escribe en el registro, en los turnos 2 y 100, lo que daría `GET_INFLUENCE(0, 0, pos)` en cada punto (con el valor bruto, si hay anillo anti, y los radios de ciudadelas y ciudades); `OPENBLACK_TEST_INFLUENCE_RING="x,z,radio[,anti[,jugador]]"` crea en el turno 1 un anillo como `INFLUENCE_POSITION`; `OPENBLACK_INFLUENCE_EVERYWHERE=1` es la marca "GatheringFlag" del original (influencia 1 en todas partes). Tiempo y clima ([day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather)): `OPENBLACK_TEST_WEATHER="x,z,radio[,lluvia[,fundido[,temperatura]]]"` registra en el turno 1 una tormenta estática hecha como la del milagro de tormenta (interior `max(radio, 60)`, exterior `max(2,5·radio, interior + 20, 80)`, corregido por la lane del milagro de tormenta: los tres `fcomp; test ah, 0x41; je` de fn_006D5730 se quedan con el valor solo si es mayor, lluvia 100, nublado 80, 20 grados, vida casi infinita, fundido 1 s) y escribe en los turnos 2 y 30 lo que devuelve `GClimate::ComputeWeather` en el centro, dentro, en los dos radios y fuera (temperatura, lluvia, nieve, nublado, viento en bytes y en m/s, `GetMaxRainingOrSnowing` y `GetTemp`); la rejilla es de 40 m, así que los puntos de una misma celda dan el mismo valor. `OPENBLACK_TEST_WEATHER_AT="x,z[;x,z...]"` escribe lo mismo en esos puntos. `OPENBLACK_WEATHER_TRACE=1` escribe cada día de juego los climas (temperatura y objetivo, viento, deseo de lluvia, días secos y lloviendo, tormentas), cada 50 turnos las tormentas, y una vez por segundo lo que dibuja la lluvia (`Rain: N baldosas`). Culto y milagros de un uso ([magic.md](magic.md#culto-de-dónde-salen-los-milagros-m7-srcworship-ecssystemsimplementationsvillagerworship)), todos en el turno 1 salvo donde se diga: `OPENBLACK_TEST_WORSHIP_SITE="<TRIBU>[,<SEMILLA>...]"` crea el lugar de culto de esa tribu en la ciudadela del jugador, como `CREATE_WORSHIP_SITE`, con un icono de cada semilla (los guiones no le dan al jugador humano ningún centro de pueblo construido, así que su ciudadela nunca tendría lugar propio); `OPENBLACK_TEST_WORSHIP_PLAYER="<n>"` hace que estos ganchos actúen como el jugador n en vez del humano; `OPENBLACK_TEST_TOWN_SPELL="<ciudad>,<MAGIA>[;...]"` es `SET_MAGIC_IN_OBJECT(ciudad, magia, 1)` (la ciudad guarda la magia y su dueño la habilita); `OPENBLACK_TEST_MANA="<cánticos>"` es `GAME_SET_MANA` en el primer lugar de culto de ese jugador; `OPENBLACK_TEST_WORSHIP="<ciudad>,<fracción>"` es `Town::SetWorshipPercentage` (lo que hace arrastrar el tótem); `OPENBLACK_TEST_TAP_ICON="<SEMILLA>[,turno...]"` toca el icono de esa semilla del jugador en esos turnos (por defecto el 5) y escribe la magia, lo que hace falta, el resultado, el almacén y si se queda cargando; `OPENBLACK_TEST_TAP="x,z,turno"` toca el objeto tocable más cercano a ese punto (un icono, un icono del centro del pueblo o una bola de un uso); `OPENBLACK_TEST_DISPENSER="<ABODE>,x,z,<MAGIA>[,segundos]"` crea un dispensador como el guion del desafío de Land1 (`GiveSpellDispenserReward`); `OPENBLACK_TEST_FIREFLY_REWARD="x,z[,n]"` sortea n veces la recompensa de las luciérnagas allí. `OPENBLACK_WORSHIP_TRACE=1` escribe cada lugar de culto al crearse (jugador, tribu, hueco, posición y ángulo), sus iconos, y cada turno su cuenta de cánticos (`icons`, `N` bailarines, `C` capacidad, `k` intensidad, tensión, batería y máximo, disponible y daño por bailarín), además de la carga de los iconos, los orbes de los dispensadores y los aldeanos que van a adorar. Físicas: ver [physics.md](physics.md#ganchos-de-prueba).
+
+Milagros ([magic.md](magic.md#núcleo-de-los-hechizos-m1-srcmagiccore-srcmagicspells-srcecseffects)), una vez en el
+primer turno con el mapa cargado: `OPENBLACK_TEST_SPELL="<magia>,x,z[,radio[,duración[,jugador[,curl]]]]"` lanza como
+`SPELL_AT_POS` (creador el jugador neutral, que repone los cánticos; con `jugador` 0..7 lanza ese jugador, que no
+repone, y -1 es el neutral; radio 10 y la duración de `timerWhenPlayerCasting` si no se dan (-2 también la pide);
+«desde» 30 m sobre el punto; `curl` es el del guion, PSysProcessInfo +0x34, del que salen los giros de los escudos) y
+escribe lo que respondería la comprobación de la clase (vt 0x30) allí; `OPENBLACK_TEST_SEED="<semilla>[,pu]"` pone en la mano una
+semilla cargada, como `OneOffSpellSeed::CreateSpellIntoHand`; `OPENBLACK_TEST_ONESHOT="<semilla>,x,z[,pu[,tap]]"` crea
+una bola de un uso en el suelo (con `tap`, la toca y pasa a la mano). `<magia>` es un número de MAGIC_TYPE o el nombre
+del info.dat (`FIRE`, `HEAL`, `STORM_PU2`...); `<semilla>` un número de SPELL_SEED_TYPE o su nombre (`FIRE`, `HEAL`,
+`STORM`...). `OPENBLACK_SPELL_TRACE=1` escribe cada turno `Spell trace` por hechizo (cánticos, nivel de seguridad,
+fuerza, coste del turno, edad, cerrado, PSys y átomos), cada evento aplicado y las búsquedas de objetivos de curar.
+Con ella (o con `OPENBLACK_HAND_TRACE=1`) `Pot::AddResourceToPos` escribe `Pot trace` (en qué pila o almacén entra cada
+cantidad, a qué distancia y con qué radio, y las pilas nuevas con su radio 2D) y cada grano de comida o madera
+`SpellResource event` (unidades, cánticos pagados, tierra seca, fuerza), y `Grain trace` da cada turno el alzado de la
+mano del chorro (t, altura, inclinación y si está fijada); ver
+[miracles.md](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource).
+
+Curar (M4, [miracles.md](miracles.md#curar-m4-m4h-magicspellsspellhealcpp-psysruleshealcpp)):
+`OPENBLACK_TEST_HURT_VILLAGERS="x,z,radio,vida[,envenenado[,turno[,curar[,repetir]]]]"` pone a `vida` (0..1) a todos los
+aldeanos a menos de `radio` de (x, z), los envenena con un 1, y con `curar` 1 (HEAL) o 2 (HEAL_PU_ONE) lanza ahí mismo
+el milagro como `SPELL_AT_POS`. Ocurre en el turno `turno` (1 por defecto) y se repite cada `repetir` turnos (0 = una
+sola vez; útil para que haya un chakra encendido en la captura). Luego escribe cada cambio: `Heal test: turn +N villager
+E life a -> b, poisoned p, glow (specular) r,g,b` (el brillo del chakra; `none` cuando no hay chakra).
+
+Lanzar desde la mano y gestos (M2, [magic.md](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)):
+- `OPENBLACK_TEST_CAST="press@t0,release@t1[,press@t2,release@t3...][,shot@t]"` pulsa y suelta la acción (el botón
+  derecho) a esos segundos desde que existe el mapa, sumado al ratón real. Con una semilla en la mano
+  (`OPENBLACK_TEST_SEED`) recorre el camino real: arma y lanza al soltar (HAND_GESTURE), lanza al pulsar
+  (HAND_POSITION) o lanza cada turno mientras se mantiene (IN_HAND). La mano está donde diga `OPENBLACK_MOUSE_AT`.
+  `shot@t` (al final) pide una captura en ese momento a `OPENBLACK_TEST_SHOT_PATH`, para capturas a una hora de juego y
+  no a un fotograma (el ritmo de fotogramas varía).
+- `OPENBLACK_TEST_CAST_PATH="x0,z0,x1,z1"`: durante la primera pulsación la mano recorre esa línea sobre el terreno (el
+  sprinkle de comida, madera y agua solo suelta al moverla).
+- `OPENBLACK_TEST_THROW_VEL="vx,vy,vz"`: la velocidad de la mano (ThrowVelocity del estado de la interfaz) que recibe el
+  hechizo al lanzarse (la bola de fuego sale con ella).
+- `OPENBLACK_TEST_GESTURE="<GESTO>[,tamañoPx[,cx,cy[,t]]][;<GESTO>...]"` o `=<fichero.txt>` (píxeles «x y» por línea):
+  dibuja la primera plantilla del gesto (nombre de GESTURE_TYPE o número; un `-` delante lo refleja) de `tamañoPx` de
+  ancho (200) centrada en la fracción de ventana (cx, cy) (el centro), t segundos de juego después de existir el mapa
+  (0,5), como mensajes de ratón cada 28 ms. Al acabar escribe qué gestos encaja el búfer. La cámara no debe moverse
+  (un vuelo de `OPENBLACK_CAMERA_FLY` borra el búfer).
+- `OPENBLACK_GESTURE_TRACE=1`: gestos reconocidos (plantilla, espejo, tramo), círculos (posición y tamaño), eventos de
+  ayuda y lanzamientos de la mano (también con `OPENBLACK_SPELL_TRACE=1`).
+
+Fuego y rayo (M5, [magic.md](magic.md#fuego-m5-srcecsfire) y [miracles.md](miracles.md#bola-de-fuego-y-rayo-m5-magicobjectsmagicfireball-psysrulesfireballlightning)):
+`OPENBLACK_TEST_FIRE="x,z,T[,clase[,turno]]"` pone el objeto con datos de fuego más cercano a (x, z) a la temperatura T
+(`SetTemperature`) o, si T ≤ 1, lo enciende con esa velocidad (`SetOnFire`); la clase puede ser `any`, `tree`, `abode`,
+`villager` o `field`, y el turno (contado desde el primero con el mapa cargado) permite esperar a que la cámara llegue.
+`OPENBLACK_FIRE_TRACE=1` escribe los fuegos nuevos, los objetos que se consumen, los fuegos borrados, las reacciones y
+los aldeanos que huyen o apagan, y cada 20 turnos lo que dibuja cada objeto ardiendo (`Fire: graphic of fire ...`:
+llamas, escala y alfa de la primera, vapor y humo), que sirve para comprobar las llamas sin captura. El rayo y la bola
+de fuego se lanzan con `OPENBLACK_TEST_SPELL="LIGHTNING_BOLT,x,z,radio,duración"` y `"FIREBALL,x,z"`; con una duración
+larga (por ejemplo 300 s) el rayo sigue cayendo hasta que la cámara llega. `OPENBLACK_SPELL_TRACE=1` escribe cada evento
+tipo 3 de las puntas con sus números y, por turno, `Lightning: N targets ... M of K forks struck` con el origen, el rumbo
+del cono y la escala de las horquillas. `OPENBLACK_PSYS_CHAIN_TRACE=1` escribe por fotograma las cintas del PSys
+(cuántas, con cuántas articulaciones, su textura y de dónde a dónde van), que es la forma de distinguir «la cinta no se
+dibuja» de «en ese fotograma no había ninguna» (el rayo parpadea: una horquilla solo se ve el turno en que golpea).
+
+Teletransporte ([miracles.md](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)): `OPENBLACK_TEST_TELEPORT="x0,z0,x1,z1[,jugador[,modo]]"` planta dos piedras de teletransporte como `SPELL_AT_POS` (la B en x1,z1 y la A en x0,z0; jugador 7 = neutral y gratis, 0 = PLAYER_ONE gasta cánticos). `modo`: `walk` (por defecto, el aldeano más cercano a A anda hacia B dos turnos antes y la reacción de A lo desvía por las piedras), `drop` (un segundo después se suelta el aldeano sobre A, salto forzado como `fn_005FC4F0`), `none` (solo las piedras). `OPENBLACK_TEST_TELEPORT_TURN=<n>` retrasa el inicio (el vuelo de una captura tarda ~160 turnos). `OPENBLACK_TELEPORT_TRACE=1` (o `OPENBLACK_SPELL_TRACE=1`) escribe las piedras, el reparto de la reacción, los saltos (de qué piedra a cuál, el ahorro en metros) y el `PayFor` del hechizo (un salto útil suma cánticos, uno forzado hacia atrás cuesta, R13). Los discos usan `ZR_SurfRevol` (`RendererSurfRevol.cpp`).
+
+Bosque ([miracles.md](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)):
+`OPENBLACK_TEST_MAGIC_TURN=<n>` hace que `OPENBLACK_TEST_SPELL`, `_SEED` y `_ONESHOT` esperen al turno de juego n (para
+que la cámara de `OPENBLACK_CAMERA_FLY` ya esté allí); `OPENBLACK_TEST_FOREST_SHOT="<turnos>,<ruta.png>[;<turnos>,<ruta>...]"`
+pide una captura esos turnos después de que la semilla del bosque toque tierra (el número de fotograma de
+`--screenshot-frame` varía con la velocidad de dibujo; esta petición sustituye a la de la línea de órdenes si coinciden).
+Ejemplo: `OPENBLACK_TEST_MAGIC_TURN=330 OPENBLACK_TEST_SPELL=NATURE,1790,2625
+OPENBLACK_CAMERA_FLY=1772,52,2604,1790,36,2625 OPENBLACK_TEST_FOREST_SHOT="3,a.png;120,b.png"` con `-n 11000`.
+
+Agua ([miracles.md](miracles.md#agua-m4a-magicspellsspellwater-psyscreatorsmist)): `OPENBLACK_TEST_SPELL=WATER,x,z,10,6` (o
+`WATER_PU1`; la nube sale 30 m sobre el punto, las gotas caen alrededor del punto) y
+`OPENBLACK_TEST_WATER_SHOT="<turnos>,<ruta.png>[;...]"`: capturas esos turnos de juego después del primer `Process` del
+hechizo (también mientras se cierra). Con `OPENBLACK_SPELL_TRACE=1` cada gota escribe su punto, su distancia, los objetos
+regados y el último anillo; cada campo, sus cultivos, crecimiento y comida; un árbol, el brote que planta; un objeto que
+arde, la reacción 34. Con la mano: `OPENBLACK_TEST_SEED=WATER OPENBLACK_TEST_CAST="press@20,release@32"
+OPENBLACK_TEST_CAST_PATH="x0,z0,x1,z1"`. Apagar un fuego: `OPENBLACK_TEST_FIRE="1818.6,2628.4,500,tree,110"` y el agua
+en el turno 200 (`OPENBLACK_TEST_MAGIC_TURN=200`), cámara `1810,36,2620,1818.6,31,2628.4`.
+
+Bandadas ([miracles.md](miracles.md#bandadas-m4c-magicspellsspellflock-psysrulesflockcpp)): `OPENBLACK_TEST_SPELL=FLYING_FLOCK,x,z` o `GROUND_FLOCK,x,z` (24 / 25; desde 30 m sobre el punto, el jugador neutral, así que salen hacia +x alternando el lado) y `OPENBLACK_TEST_FLOCK_SHOT="<turnos>,<ruta.png>[;...]"` (capturas esos turnos de juego después del lanzamiento). Con `OPENBLACK_SPELL_TRACE=1` cada animal escribe su salida y destino y, cada 10 turnos, cada miembro su posición, estado y alfa. Para que la cámara los siga: `OPENBLACK_TEST_VIEW_ANIMAL="0,35,-90" OPENBLACK_TEST_ANIMAL_SPECIES=20 OPENBLACK_TEST_VIEW_LOCK=1` (22 los lobos).
+
+Escudos ([miracles.md](miracles.md#escudos-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)):
+`OPENBLACK_TEST_SHIELD_SHOT="<turnos>,<ruta.png>[;...]"` pide una captura esos turnos de juego después de crearse el
+primer MapShield (como la del bosque). Con `OPENBLACK_SPELL_TRACE=1` se escriben `SpellShield::InitWithPos` (radio,
+anillos anti, reacción, ciudad, coste por turno), cada turno el escudo físico (`t`, curva de crecer, escala dibujada y
+la del objeto, ángulo, altura, muriendo y si tiene cuerpo en las físicas) y cada golpe físico (momento y cánticos
+pagados). Ejemplo del escudo físico creciendo: `OPENBLACK_TEST_MAGIC_TURN=300
+OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,1826.8,2641.4,40,-2,-1,2" OPENBLACK_CAMERA_FLY=1720,90,2560,1826.8,40,2641.4
+OPENBLACK_TEST_SHIELD_SHOT="7,a.png;10,b.png;13,c.png;25,d.png"` con `-n 16000`. Una roca contra él:
+`OPENBLACK_TEST_PHYSICS="1745,2641.4,25,12,6,0,1.0,1"` (12 m/s: rebota).
+
+Explosión de rayo ([miracles.md](miracles.md#explosión-de-rayo-y-clases-de-psys-que-faltaban-m6b-psysrulesexplosionkeypointsorientforestcpp)):
+`OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` (también `BEAM_EXPLOSION_PU1` y `_PU2`, que reparten varias explosiones) y
+`OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"`, que pide capturas esos turnos de juego después del primer
+paso de la primera explosión (como la del escudo). Con `OPENBLACK_SPELL_TRACE=1` se escriben `Explosion: started ...`
+(centro, margen del escudo, radio de búsqueda y celdas de la espiral) con cada objetivo (distancia, radio y clase), cada
+objeto destruido (anillo, explotados y borrados) y lo que no está portado (las mallas en pedazos y la marca del suelo).
+Ejemplo: `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION_PU2,1790,2600"
+OPENBLACK_CAMERA_FLY=1700,140,2480,1790,40,2600 OPENBLACK_TEST_EXPLOSION_SHOT="12,a.png;40,b.png;80,c.png"` con
+`-n 16000`.
+
+Tormenta ([miracles.md](miracles.md#tormenta-tormenta-eléctrica-y-tornado-m6-storm-magicspellsspellstormandtornado-psysrulesstorm-ecsweatherlightningflashstormclouds)):
+`OPENBLACK_TEST_SPELL="STORM,x,z,60"` (o `STORM_PU1` con rayos, `STORM_PU2` con tornado; el radio es el del hechizo,
+recortado a 20..1000) lanza como `SPELL_AT_POS` (desde 30 m encima: sin rumbo, así que la tormenta no tiene viento
+propio). `OPENBLACK_TEST_STORM_SHOT="<turnos>,<ruta.png>[;...]"` pide una captura esos turnos de juego después del
+primer turno de la primera tormenta; `OPENBLACK_TEST_STORM_STRIKE_SHOT="<n>,<ruta.png>[;...]"` la pide en el turno del
+rayo n.º n desde las nubes (los rayos duran 1 o 2 turnos). `OPENBLACK_TEST_STORM_PILE="x,z,cantidad[,wood]"` pone un
+montón de comida (o de madera) allí al lanzarse la primera tormenta, para que lo coja el tornado.
+`OPENBLACK_TEST_STORM_CLOUDS="x,z,radio[,nubes[,negrura[,elevación]]]"` registra en el primer fotograma con tierra una
+tormenta con nubes (`GWeather::DrawClouds`: interior = radio, exterior = 3 × radio, 8 nubes, negrura 0,5, elevación 160
+por defecto; lluvia 100, fundido 1 s). `OPENBLACK_STORM_TRACE=1` escribe el registro de la tormenta del milagro (radios,
+lluvia, nublado, viento, fundido), cada rayo (de qué nube, el siguiente, su vida), cada cosa que coge el tornado (qué
+es, hasta qué altura sube) y, cada 10 turnos de cada hechizo de tormenta, su edad, cánticos, el tiempo en su centro
+(`ComputeWeather`), sus átomos, los objetos que lleva y el destello en ese punto. Ejemplo del tornado:
+`OPENBLACK_TEST_MAGIC_TURN=200 OPENBLACK_TEST_SPELL="STORM_PU2,1826.8,2641.4,60"
+OPENBLACK_TEST_STORM_PILE="1830,2650,400" OPENBLACK_CAMERA_FLY=1775,60,2595,1830,45,2650
+OPENBLACK_TEST_STORM_SHOT="95,a.png;120,b.png"` con `-n 12000`.
 
 Puntos útiles de Land1: playa de inicio `1464,2016` (agua poco profunda); arena seca `1478,2129`; almacén del pueblo
-`1826.8,2641.4` (cámara `1818,75,2612,1824,44,2636`).
+`1826.8,2641.4` (cámara `1818,75,2612,1824,44,2636`); árbol junto al almacén `1818.6,2628.4` (el suelo está a 29,4 m:
+cámara `1810,36,2620,1818.6,31,2628.4`). El vuelo de `OPENBLACK_CAMERA_FLY` tarda unos 4000 fotogramas, que con el mapa
+cargado son unos 150-180 turnos de juego: para ver algo que dura poco, conviene lanzarlo con el parámetro de turno.
 
 ## Tests y datos de prueba
 
+- `test_food_wood` (M3): la spline de HandStateGrain y su bucle, el coste de cada grano, los sonidos de pila,
+  `GetProportionRaised`, la emisión de SF_Food (18 granos/s con la mano quieta, 1 por 2,5 m al moverla) y la lectura de
+  ARRAY con flotantes; con `OPENBLACK_GAME_PATH` las filas reales de comida y madera.
+- `test_spell_forest` (M4b): la espiral del bosque, la escala objetivo, cuántos árboles quiere, el coste y
+  GetMaxObjectsToCreate; con `OPENBLACK_GAME_PATH` la fila NATURE real y los `magicTreeTypes`.
+- `test_shield` (M6, [miracles.md](miracles.md#escudos-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)):
+  el recorte y el coste del radio, las curvas de ProcessShield, los ayudantes de la esfera (dentro, cruce, intersección,
+  rebote), el registro de DefensiveSphere con un efecto real y `DoAnyShieldDeflections`, y el marco de las jerarquías
+  del PSys (los antepasados marcados, con su escala); con `OPENBLACK_GAME_PATH`, las filas reales de los dos escudos.
+- `test_influence`: la curva de los anillos, el radio de ciudad y ciudadela, los anillos anti y los que siguen a un objeto.
+- `test_lightning` (M5, [miracles.md](miracles.md#rayo-magic_type-4-6-semilla-6-lightning_bolt-psysruleslightningcpp)): que
+  `UR_Lightning`, `UR_LightningStrike`, `ParticleChainCreator` y `ParticleLightMapCreator` están registrados, las
+  propiedades que leen y la UV por tramo de la cinta; con `OPENBLACK_GAME_PATH`, los `SF_LightningBolt*` y
+  `SF_LightningStrike` reales y el tamaño del `.raw` del mapa de luz.
+- `test_spell_chants` (la economía de cánticos de [magic.md](magic.md), sin mundo): el rayo de un jugador y el del
+  jugador neutral, el escudo mantenido y el poder tribal, los casos límite de la fuerza y el reparto del alineamiento;
+  con `OPENBLACK_GAME_PATH` también las filas reales del rayo y del escudo.
+- `test_worship` (la economía del culto de [magic.md](magic.md), sin mundo salvo un registro): la capacidad y la
+  batería del lugar por bailarines, su cuenta de fin de turno (intensidad del baile, batería y daño por
+  bailarín), la tensión, el fallo de la reserva de mantenimiento, `UseChants`, el exceso de `AddToChantStore`,
+  cuántos aldeanos pide una ciudad, `SigmoidThreshold` y las probabilidades de las luciérnagas.
+- `test_magic_tables` (tablas de milagros, [magic.md](magic.md)): con `OPENBLACK_GAME_PATH=<instalación>` también
+  comprueba el `Scripts\info.dat` real; sin ella esa prueba se salta.
+- `test_spell_sounds` (sonido del PSys, [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp)): igual, con `OPENBLACK_GAME_PATH` lee también
+  `Data\SoundAction.h`, `spells.sad` y `SF_TeleportVortex`.
+- `test_weather` (tiempo y clima, [day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather)), sin mundo: la aritmética de
+  bytes, la fecha y las estaciones, el fundido y el `CalcAtmos` de una tormenta, la rejilla de 40 m y la bajada por
+  altura, el borrado en dos turnos, `KILL_STORMS_IN_AREA`, la suma de los climas, la oscilación de la temperatura, la
+  tormenta que crea un clima con deseo 1 y los bytes de `CREATE_WEATHER_STORM`.
 - El terreno de prueba lo genera `lndtool` en `test/mock/CMakeLists.txt`. Se corrigió un fallo que borraba los puntos
   anteriores del mismo bloque; la celda bajo la cámara de `test_set_camera_pos` ahora es llana.
 

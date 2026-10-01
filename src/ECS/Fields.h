@@ -28,6 +28,12 @@ uint32_t RemoveFieldFood(entt::entity field, float amount);
 /// Field::IsUnripe 0x5298D0 (misnamed in the symbols: true when ripe, growth >= ageRecolt)
 [[nodiscard]] bool IsFieldRipe(entt::entity field);
 
+/// Field::ApplyWaterSpell 0x528F30, the field's own part (the water miracle's drop, Magic/Spells/SpellWater.cpp, calls
+/// it after the Object part, only when the field is not on fire): crops <= timesToSow -> crops = ftol(timesToSow + 1)
+/// = 31, sown at once; else, while growth <= ageRecolt, growth += effectOfWaterSpell (info.dat 2.0) and food +=
+/// effectOfWaterSpell x totalFoodInField / ageRecolt. Returns false when it is not a field.
+bool ApplyWaterSpellToField(entt::entity field);
+
 /// Field::Draw 0x528570: shown only with growth >= 0.25 x ageGrowth and food >= 25; sinks with its food over 1 s and
 /// fades out below 20 % (PileSink / Alpha); sown again at once when empty (no farmers yet)
 void UpdateFields(float seconds);

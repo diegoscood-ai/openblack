@@ -28,7 +28,9 @@
 
 #include "3D/L3DAnim.h"
 #include "3D/LandIslandInterface.h"
+#include "Audio/AnimEffectBank.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/SoundMap.h"
 #include "Camera/Camera.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Animations.h"
@@ -46,7 +48,6 @@ namespace openblack::audio
 {
 namespace
 {
-constexpr int32_t k_Wildcard = 0x0FFF0000;
 constexpr int32_t k_ClipCount = 441;
 
 struct Event
@@ -62,20 +63,12 @@ struct ClipSounds
 	std::vector<Event> events;
 };
 
-/// A bank's animation effect tables (LHaudiodllR.dll)
-struct Bank
-{
-	std::string name;                         ///< the sound ids are "<name>/<sample number>"
-	std::vector<std::array<int32_t, 6>> rows; ///< LHAudioAnimArrayTable: voice, ?, group, surface, soundId, list index
-	std::vector<int32_t> waves;               ///< LHAudioWaveNumTable: lists {count, sample numbers...}
-};
-
 struct Tables
 {
 	bool loaded {false};
 	std::unordered_map<int32_t, ClipSounds> clips;
-	Bank editor {"editor.sad", {}, {}};
-	Bank banter {"VillagersBanter.sad", {}, {}}; ///< soundIds 0x92-0x94
+	AnimEffectBank editor {"editor.sad", {}, {}, {}};
+	AnimEffectBank banter {"VillagersBanter.sad", {}, {}, {}}; ///< soundIds 0x92-0x94
 };
 
 /// A playing sample that follows its object (the game's 3D callback 0x427200, Get3DSoundPos)
@@ -86,35 +79,6 @@ struct Playing
 	entt::id_type sound;
 };
 std::vector<Playing> g_Playing;
-
-void LoadBank(Bank& bank, const std::filesystem::path& path)
-{
-	auto& fileSystem = Locator::filesystem::value();
-	pack::PackFile file;
-	if (file.ReadFile(*fileSystem.GetData(path)) != pack::PackResult::Success)
-	{
-		return;
-	}
-	const auto& blocks = file.GetBlocks();
-	const auto rows = blocks.find("LHAudioAnimArrayTable");
-	const auto waves = blocks.find("LHAudioWaveNumTable");
-	if (rows == blocks.end() || waves == blocks.end() || rows->second.size() < 8)
-	{
-		return;
-	}
-	int32_t count = 0;
-	int32_t width = 0;
-	std::memcpy(&count, rows->second.data(), 4);
-	std::memcpy(&width, rows->second.data() + 4, 4);
-	for (int32_t r = 0; width == 6 && r < count && 8 + (r + 1) * 24 <= static_cast<int32_t>(rows->second.size()); ++r)
-	{
-		std::array<int32_t, 6> row {};
-		std::memcpy(row.data(), rows->second.data() + 8 + r * 24, 24);
-		bank.rows.push_back(row);
-	}
-	bank.waves.resize(waves->second.size() / 4);
-	std::memcpy(bank.waves.data(), waves->second.data(), bank.waves.size() * 4);
-}
 
 Tables& Load()
 {
@@ -167,8 +131,8 @@ Tables& Load()
 			}
 		}
 		const auto audio = fileSystem.GetPath<filesystem::Path::Audio>();
-		LoadBank(tables.editor, audio / "Sfx" / "Game" / "editor.sad");
-		LoadBank(tables.banter, audio / "Dialogue" / "VillagersBanter.sad");
+		tables.editor.Load(audio / "Sfx" / "Game" / "editor.sad");
+		tables.banter.Load(audio / "Dialogue" / "VillagersBanter.sad");
 	}
 	catch (const std::exception& error)
 	{
@@ -179,85 +143,6 @@ Tables& Load()
 	return tables;
 }
 
-/// GSoundMap::GetSurfaceType (0x71D8E0): 7 under water, else the surfaceSound of the cell's material (info.dat)
-int32_t SurfaceType(glm::vec3 position)
-{
-	if (!Locator::terrainSystem::has_value())
-	{
-		return 3;
-	}
-	auto& island = Locator::terrainSystem::value();
-	if (island.GetHeightAt(glm::vec2(position.x, position.z)) <= 0.0f)
-	{
-		return 7;
-	}
-	const auto& countries = island.GetCountries();
-	const auto& materials = island.GetMaterialInfo();
-	const int last = island.GetCellsPerSide() - 1;
-	const auto cellCoordinates = glm::clamp(glm::ivec2(position.x / 10.0f, position.z / 10.0f), 0, last);
-	const auto& cell = island.GetCell(glm::u16vec2(cellCoordinates));
-	if (cell.properties.country >= countries.size())
-	{
-		return 3;
-	}
-	// country + altitude * 12 + 8: the second material of the cell's altitude
-	const auto& country = countries[cell.properties.country];
-	const auto altitude = std::min<uint16_t>(island.GetCellAltitude(cell), 255);
-	const auto material = country.materials[altitude].indices[1];
-	if (material >= materials.size())
-	{
-		return 3;
-	}
-	const auto& info = Locator::infoConstants::value().terrainMaterial;
-	const auto type = materials[material].type;
-	const auto surface = type < info.size() ? static_cast<int32_t>(info[type].surfaceSound) : 3;
-	return surface >= 1 && surface <= 8 ? surface : 3;
-}
-
-/// LHFindAttribRow (LHaudiodllR 0x10014420): the list of the matching row with the most exact columns (the later one
-/// on a tie): its samples in LHAudioWaveNumTable, empty if none
-std::vector<int32_t> FindList(const Bank& bank, const std::array<int32_t, 5>& key)
-{
-	int best = -1;
-	size_t bestRow = 0;
-	for (size_t r = 0; r < bank.rows.size(); ++r)
-	{
-		int exact = 0;
-		bool match = true;
-		for (size_t c = 0; c < 5 && match; ++c)
-		{
-			const auto value = bank.rows[r][c];
-			if (value == k_Wildcard)
-			{
-				continue;
-			}
-			match = value == key.at(c);
-			++exact;
-		}
-		if (match && exact >= best)
-		{
-			best = exact;
-			bestRow = r;
-		}
-	}
-	if (best < 0)
-	{
-		return {};
-	}
-	const auto list = static_cast<size_t>(bank.rows[bestRow][5]);
-	if (list >= bank.waves.size() || bank.waves[list] <= 0 ||
-	    list + static_cast<size_t>(bank.waves[list]) >= bank.waves.size())
-	{
-		return {};
-	}
-	return {bank.waves.begin() + static_cast<std::ptrdiff_t>(list + 1),
-	        bank.waves.begin() + static_cast<std::ptrdiff_t>(list + 1 + static_cast<size_t>(bank.waves[list]))};
-}
-
-entt::id_type SampleSoundId(const Bank& bank, int32_t sample)
-{
-	return entt::hashed_string(fmt::format("{}/{}", bank.name, sample).c_str()).value();
-}
 } // namespace
 
 void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int32_t to)
@@ -289,7 +174,7 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 		int32_t voice = 2;
 		if (sounds->second.group == 1)
 		{
-			if (villager != nullptr && villager->health == 0)
+			if (villager != nullptr && villager->life <= 0.0f)
 			{
 				return; // not alive: the whole list is dropped
 			}
@@ -300,7 +185,7 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 		// fn_00516510's cases: banter from VillagersBanter.sad (0x92 heard at the villager's house), the thrown
 		// screams only just after being thrown
 		auto owner = entity;
-		const Bank* bank = &tables.editor;
+		const AnimEffectBank* bank = &tables.editor;
 		if (event.soundId >= 0x92 && event.soundId <= 0x94)
 		{
 			bank = &tables.banter;
@@ -323,8 +208,8 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 			}
 		}
 		const auto& position = registry.Get<const ecs::components::Transform>(owner).position;
-		const std::array<int32_t, 5> key = {voice, 2, sounds->second.group, SurfaceType(position), event.soundId};
-		const auto list = FindList(*bank, key);
+		const std::array<int32_t, 5> key = {voice, 2, sounds->second.group, GetSurfaceType(position), event.soundId};
+		const auto list = bank->FindList(key);
 		const bool trace = std::getenv("OPENBLACK_ANIM_TRACE") != nullptr;
 		if (list.empty())
 		{
@@ -341,7 +226,7 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 			for (auto& playing : g_Playing)
 			{
 				if (playing.owner == owner && registry.Valid(playing.emitter) &&
-				    std::ranges::any_of(list, [&](int32_t sample) { return SampleSoundId(*bank, sample) == playing.sound; }))
+				    std::ranges::any_of(list, [&](int32_t sample) { return bank->SoundId(sample) == playing.sound; }))
 				{
 					audio.StopEmitter(playing.emitter);
 				}
@@ -349,7 +234,7 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 			continue;
 		}
 		const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
-		const auto id = SampleSoundId(*bank, sample);
+		const auto id = bank->SoundId(sample);
 		if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
 		{
 			continue;
@@ -385,13 +270,13 @@ void AnimationSounds::PlayFromTable(entt::entity owner, glm::vec3 position, cons
 		return;
 	}
 	const auto& bank = Load().editor;
-	const auto list = FindList(bank, key);
+	const auto list = bank.FindList(key);
 	if (list.empty())
 	{
 		return;
 	}
 	const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
-	const auto id = SampleSoundId(bank, sample);
+	const auto id = bank.SoundId(sample);
 	if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
 	{
 		return;

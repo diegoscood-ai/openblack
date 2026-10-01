@@ -21,6 +21,7 @@
 #include "Common/RandomNumberManager.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
+#include "InfoConstants.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Mesh.h"
@@ -110,6 +111,33 @@ void openblack::ecs::ProcessFieldsTurn(uint32_t turn)
 		field.growth += d;
 		field.food += d * Field::k_TotalFood / Field::k_AgeRecolt;
 	});
+}
+
+bool openblack::ecs::ApplyWaterSpellToField(entt::entity entity)
+{
+	auto* field = Locator::entitiesRegistry::value().TryGet<Field>(entity);
+	if (field == nullptr)
+	{
+		return false;
+	}
+	// Field::ApplyWaterSpell 0x528F78..0x528FEA (info = Field +0x120, the runtime GFieldTypeInfo: +0x124 ageRecolt,
+	// +0x128 timesToSow, +0x130 totalFoodInField, +0x150 effectOfWaterSpell; the 6 info.dat rows are the same, so the
+	// first row's effectOfWaterSpell stands for the field's own)
+	if (!(static_cast<float>(field->crops) > static_cast<float>(Field::k_TimesToSow)))
+	{
+		// fild crops; fcomp timesToSow; jne 0x528FF9 (crops <= timesToSow): crops = ftol(timesToSow + 1)
+		field->crops = static_cast<uint8_t>(Field::k_TimesToSow + 1);
+		return true;
+	}
+	if (field->growth > Field::k_AgeRecolt)
+	{
+		return true; // je 0x529010: past ripe, nothing
+	}
+	const float water = Locator::infoConstants::value().fieldType.at(0).effectOfWaterSpell;
+	field->growth += water;
+	// Field::IsUnripe 0x5298D0 is called here and its result dropped
+	field->food += water * Field::k_TotalFood / Field::k_AgeRecolt;
+	return true;
 }
 
 bool openblack::ecs::IsFieldRipe(entt::entity entity)

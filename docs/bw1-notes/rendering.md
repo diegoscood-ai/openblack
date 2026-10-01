@@ -441,29 +441,10 @@ Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`.
   Anillos de agua (`fn_005E5100`, 1024 × 0x38 en 0xEAB7C8): viven 700, media anchura edad·crecimiento/700, alfa
   (255 − 0,364·edad)·A, `smoke.raw` modo 13 horizontal; pendientes hasta que haya nadadores o tiburones.
 
-## Manchas de los animales (hechas)
+## Animales: manchas y malla
 
-Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
-- En `fn_00812170`: si no es humano, con `IsHumanShadowed` (flag 0x4000000, `SetHumanShadowed(1)` en el Create de cada
-  especie; 0 mientras la criatura lo sostiene), y > 0,2 y malla con `ContainsEBone` → `fn_0081FFF0(obj, normal, ebone)`.
-- Bloque EBone (836 bytes) tras los de huella (tamaño en +8), UV2, nombre y métricas extra: `u32 tamaño; float m[16][12];
-  int32 hueso[16]`. Se usan las posiciones de m[0..3] en el espacio de su hueso: P = objeto × hueso × pos, y = suelo + 0,2.
-  Par (0, 1) siempre, par (2, 3) si hueso[2] ≠ −1 (todos los cuadrúpedos: 4 quads). Aves y murciélagos no tienen EBone.
-- **Rareza del original**: el primer quad de cada par recibe V = D (construye D + (P1 − P0)/2 pero pasa &D); el segundo
-  D + (P0 − P1)/2.
-- openblack: `L3DFile::GetEBone`, `L3DMesh::GetBlobPoints`, bucle de animales en `Renderer::DrawHumanShadows`.
-
-## Animales (base mínima para las manchas)
-
-- `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
-  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
-  LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
-  `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
-  ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.
-- Land1 crea 116 (palomas 40, gaviotas 22, golondrinas 14, caballos 12, vacas 10, cerdos 7, tortugas 6, murciélagos 5).
-  openblack crea solo los terrestres: los voladores faltan hasta decodificar su vuelo (ver objects-and-resources.md).
-  Están quietos en la pose de reposo, como los aldeanos (sin IA ni animación de animales todavía).
-- openblack: `components::Animal`, `AnimalArchetype`.
+Movido a [animals.md](animals.md#manchas-y-malla-de-los-animales): las manchas de EBone de los animales
+(`fn_0081FFF0`) y la malla / escala de creación.
 
 ## Fundido de pantalla y bandas de cine (hechos)
 

@@ -73,18 +73,11 @@ struct AnimalBrain
 	/// +0xFC: what it eats (a predator's downed prey)
 	entt::entity foodTarget {entt::null};
 	/// +0xBC: the object of its reaction (the predator, the food, the thrown object); +0x94 the reaction (an id of
-	/// ECS/AnimalFlee's list, 0 none); +0x8E the state to go back to (StorePreviousState: its final state)
+	/// ECS/Effects/Reactions' list, 0 none); +0x8E the state to go back to (StorePreviousState: its final state)
 	entt::entity predator {entt::null};
 	uint32_t reaction {0};
 	uint8_t previousState {0};
-	/// +0x98: the reaction records {type, turn}, at most 3 (fn_006E4340)
-	struct ReactionRecord
-	{
-		uint8_t type;
-		uint32_t turn;
-	};
-	std::array<ReactionRecord, 3> records {};
-	uint8_t recordCount {0};
+	/// +0x98: the reaction records are the Living's components::ReactionRecords (ECS/Effects/Reactions)
 	/// +0x1C: the MapCoords altitude, metres above the land (the birds; 0 on the ground) and the goal's (+0x88)
 	float altitude {0.0f};
 	float goalAltitude {0.0f};

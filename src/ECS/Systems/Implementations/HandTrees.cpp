@@ -68,7 +68,8 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
-#include "ECS/Alignment.h"
+#include "ECS/Fire/FireEffect.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -114,9 +115,10 @@ void HandSystem::ReleaseTree(entt::entity tree) noexcept
 		physics::PhysicsObjects::AddObject(tree, glm::vec3(0.0f), glm::vec3(0.0f), entt::null, true);
 		return;
 	}
-	// Tree::EndPhysics: planted again only on dry land (and not burning, TODO: fire); otherwise a DeadTree.
+	// Tree::EndPhysics 0x74B830: planted again only on dry land and with no FireEffect (+0x44, hot or burning, ECS/Fire);
+	// otherwise a DeadTree (the same entity keeps its fire: fn_00730960 moves it in the DeadTree ctor 0x510880).
 	const bool land = IsLand(transform.position);
-	if (land)
+	if (land && fire::Find(tree) == nullptr)
 	{
 		Replant(tree);
 	}
@@ -205,7 +207,7 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	// so the effect runs for its own life from the data).
 	// GAlignment::Update(the dropper's player, tree, true) 0x74BBB6: planting is good. TODO: StartImmersion(0x2E) and
 	// ConsiderMakingCreatureMimicPlayer.
-	ecs::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, true);
+	ecs::effects::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, true);
 	EmitGripDust(transform.position);
 	if (!inTown)
 	{

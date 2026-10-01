@@ -79,6 +79,7 @@ public:
 		bool morphWithTerrain;
 		float lightBoost {1.0f}; ///< model colour multiplier (the hand: 1.5, CHand::AddDrawing 0x46D135)
 		bool noHaze {false};     ///< no distance haze (the hand: CHand::AddDrawing never calls fn_007FEB30)
+		uint8_t landLightMode {0}; ///< land_light::ObjectMode: how the model takes the land light (vs_object)
 		uint8_t blendFilter {0}; ///< 0: every primitive, 1: the opaque ones only, 2: the blended ones only
 		float unlitColour {-1.0f}; ///< >= 0: unlit grey instead of the land light (reflections)
 		bool landColourOnly {false}; ///< the land light colour and specular without vertex lighting or haze (reflections)

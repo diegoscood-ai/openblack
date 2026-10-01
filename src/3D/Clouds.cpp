@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <ctime>
 
+#include "3D/LandLight.h"
 #include "Camera/Camera.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Weather/Atmos.h"
@@ -213,56 +214,26 @@ void Clouds::AdvanceAnimation(size_t index, float milliseconds)
 	cloud.counterRemainder = clock.remainder;
 }
 
-void Clouds::BuildShadowCap(const std::vector<uint8_t>& shadowImage, glm::vec2 origin, glm::u16vec2 size,
-                            const std::vector<float>& alpha, std::vector<uint8_t>& cap) const
+void Clouds::StampShadows(const std::vector<uint8_t>& shadowImage, const std::vector<float>& alpha) const
 {
-	constexpr int k_Side = 40;
-	cap.assign(static_cast<size_t>(size.x) * size.y, 255);
+	constexpr int k_Side = 40; // 0x5E27FE push 0x28
 	if (shadowImage.size() != static_cast<size_t>(k_Side) * k_Side)
 	{
 		return;
 	}
 	for (size_t i = 0; i < _clouds.size() && i < alpha.size(); ++i)
 	{
-		if (alpha[i] <= 0.0f)
+		// 0x5E27CB: only with an alpha (edi)
+		const auto edgeAlpha = static_cast<int>(alpha[i]);
+		if (edgeAlpha == 0)
 		{
 			continue;
 		}
+		// 0x5E2769..0x5E27B5: the cloud's world x and z, y 0
 		const auto position = WorldPosition(_clouds[i]);
-		const glm::vec2 corner = (glm::vec2(position.x, position.z) - origin) * 0.1f;
-		const glm::ivec2 first(static_cast<int>(std::floor(corner.x)), static_cast<int>(std::floor(corner.y)));
-		const glm::vec2 fraction = corner - glm::vec2(first);
-		for (int dz = 0; dz <= k_Side; ++dz)
-		{
-			for (int dx = 0; dx <= k_Side; ++dx)
-			{
-				const int cx = first.x + dx;
-				const int cz = first.y + dz;
-				if (cx < 0 || cz < 0 || cx >= size.x || cz >= size.y)
-				{
-					continue;
-				}
-				// bilinear: this cell sits at (dx - fraction) texels into the image
-				const float u = static_cast<float>(dx) - fraction.x;
-				const float v = static_cast<float>(dz) - fraction.y;
-				const auto texel = [&shadowImage](int x, int y) -> float {
-					if (x < 0 || y < 0 || x >= k_Side || y >= k_Side)
-					{
-						return 255.0f;
-					}
-					return shadowImage[static_cast<size_t>(y) * k_Side + x];
-				};
-				const int x0 = static_cast<int>(std::floor(u));
-				const int y0 = static_cast<int>(std::floor(v));
-				const float fu = u - static_cast<float>(x0);
-				const float fv = v - static_cast<float>(y0);
-				const float s = (texel(x0, y0) * (1.0f - fu) + texel(x0 + 1, y0) * fu) * (1.0f - fv) +
-				                (texel(x0, y0 + 1) * (1.0f - fu) + texel(x0 + 1, y0 + 1) * fu) * fv;
-				const float limit = std::max(48.0f, 255.0f - (255.0f - s) * alpha[i] / 255.0f);
-				auto& value = cap[static_cast<size_t>(cz) * size.x + cx];
-				value = static_cast<uint8_t>(std::min(static_cast<float>(value), limit));
-			}
-		}
+		// 0x5E27DE..0x5E2800: fn_0086CFF0(pos, [0xD1A25C], 40, 0, alpha x (1 / 255) [0x900058], 2, 0)
+		land_light::AddStamp(glm::vec3(position.x, 0.0f, position.z), shadowImage.data(), k_Side, false,
+		                     static_cast<float>(edgeAlpha) * (1.0f / 255.0f), 2);
 	}
 }
 

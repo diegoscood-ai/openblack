@@ -34,6 +34,7 @@
 #include "3D/Clouds.h"
 #include "3D/Foliage.h"
 #include "3D/DayNightClock.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
 #include "3D/SkyWeather.h"
@@ -361,9 +362,9 @@ Renderer::~Renderer() noexcept
 	{
 		bgfx::destroy(_landLightTexture);
 	}
-	if (bgfx::isValid(_cloudShadowTexture))
+	if (bgfx::isValid(_landCellsTexture))
 	{
-		bgfx::destroy(_cloudShadowTexture);
+		bgfx::destroy(_landCellsTexture);
 	}
 	if (bgfx::isValid(_fishPlotInstances))
 	{
@@ -521,9 +522,10 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
 				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection), 3 the land colour
 				// only, 4 DrawCutByPlane (y: colour alpha, z: colour r 65536 + g 256 + b)
+				// w: 1 = no haze + 2 x the land light mode (land_light::ObjectMode)
 				glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
-				                           desc.lightBoost,
-				                           desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
+				                           desc.lightBoost, desc.unlitColour,
+				                           (desc.noHaze ? 1.0f : 0.0f) + 2.0f * static_cast<float>(desc.landLightMode)};
 				if (desc.cutByPlane != 0)
 				{
 					u_objectLight = {4.0f, static_cast<float>(desc.cutColour >> 24) / 255.0f,
@@ -534,11 +536,15 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				                                                     : (desc.clipBelowSea ? 1.0f : 0.0f),
 				                                desc.mirrorInSea ? 1.0f : 0.0f, 0.0f, 0.0f};
 				program->SetUniformValue("u_objectClip", &u_objectClip); // vs, fs
-				program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
-				program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
-				if (bgfx::isValid(_cloudShadowTexture))
+				program->SetTextureSampler("s_landLightTable", 3, fromBgfx(_landLightTexture)); // vs
+				// this frame's cells (land_light), or the loaded ones (the same layout) before the first frame's
+				if (bgfx::isValid(_landCellsTexture) && glm::vec2(_landCellsSize) == cellMapSize)
 				{
-					program->SetTextureSampler("s_cloudShadow", 4, fromBgfx(_cloudShadowTexture)); // vs
+					program->SetTextureSampler("s_landCells", 4, fromBgfx(_landCellsTexture)); // vs
+				}
+				else
+				{
+					program->SetTextureSampler("s_landCells", 4, island.GetCellMap()); // vs
 				}
 				program->SetUniformValue("u_cellMap", &u_cellMap);                    // vs
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
@@ -643,6 +649,21 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		lastPreserveState = primitivePreserveState;
 	}
 }
+
+namespace
+{
+/// The land light mode and haze of a mesh's models (RenderContext::meshLandLight, land_light::ObjectLight)
+void ApplyLandLightMode(const RenderContext& context, entt::id_type meshId, RendererInterface::L3DMeshSubmitDesc& desc)
+{
+	const auto mode = context.meshLandLight.find(meshId);
+	desc.landLightMode = 0;
+	if (mode != context.meshLandLight.end())
+	{
+		desc.landLightMode = static_cast<uint8_t>(mode->second.mode);
+		desc.noHaze = desc.noHaze || !mode->second.haze;
+	}
+}
+} // namespace
 
 namespace
 {
@@ -1173,7 +1194,7 @@ void Renderer::UpdateClouds() const
 	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), running ? milliseconds : 0.0f);
 
 	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
-	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? land_light::FullLight(*_landLight) : 0xFFFFFFFFu;
 	const uint32_t colour = Clouds::Colour(_skyAlignment.Get(), table255);
 	_cloudRgb = glm::vec3((colour >> 16) & 0xFFu, (colour >> 8) & 0xFFu, colour & 0xFFu) / 255.0f;
 	const auto alignAlpha = static_cast<int>(colour >> 24);
@@ -1185,39 +1206,54 @@ void Renderer::UpdateClouds() const
 		    detail.clouds ? static_cast<float>(Clouds::EdgeAlpha(_clouds->GetClouds()[i]) * alignAlpha / 255) : 0.0f;
 	}
 
-	// shadows into the luminosity cap (same cell layout as the island's cell map)
+	// This frame's land cells (land_light, the cell map's layout): the loaded ones back (ClearLight fn_0086D460), then
+	// fn_005E5830: the map clouds' stamps (fn_005E25C0 0x5E2800, "CloudShadows"), fn_0086D360 0x5E592F with every
+	// stamp of this frame in the list 0xFA2920 (PSys light maps, the storms, the flashes, the fires), then the hand's
+	// and the village lights (fn_008229B0)
 	if (!Locator::terrainSystem::has_value())
 	{
+		land_light::ClearStamps();
 		return;
 	}
 	const auto& island = Locator::terrainSystem::value();
 	const auto size = island.GetCellMap().GetResolution();
-	if (size != _cloudShadowSize)
+	if (size != _landCellsSize)
 	{
-		if (bgfx::isValid(_cloudShadowTexture))
+		if (bgfx::isValid(_landCellsTexture))
 		{
-			bgfx::destroy(_cloudShadowTexture);
+			bgfx::destroy(_landCellsTexture);
 		}
-		_cloudShadowTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::R8,
-		                                            BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-		_cloudShadowSize = size;
+		_landCellsTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::RGBA8,
+		                                          BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+		_landCellsSize = size;
 	}
-	static const std::vector<float> k_NoClouds;
-	_clouds->BuildShadowCap(_cloudShadowImage, island.GetExtent().minimum, size, detail.clouds ? _cloudAlpha : k_NoClouds,
-	                        _cloudShadowCap);
-	// Night lights (fn_005E5830): the hand light and the village lights go into the same luminosity cap
+	land_light::BeginFrame(island, Clouds::GetLandscapeGeneration());
+	if (detail.clouds)
+	{
+		_clouds->StampShadows(_cloudShadowImage, _cloudAlpha);
+	}
+	land_light::ApplyStamps();
+	land_light::ClearStamps();
+	// Night lights (fn_005E5830): the hand light and the village lights into this frame's luminosities, after the
+	// stamps: fn_008229B0 reads the cell's byte +3 and writes it directly (0x822D9D, 0x822DC3), no min with the loaded one
 	if (_landLight && _landLight->IsLoaded() && Game::Instance() != nullptr)
 	{
+		auto luminosity = land_light::Luminosity();
 		night_lights::LightCells cells;
-		cells.firstCell = glm::ivec2(glm::floor(island.GetExtent().minimum * 0.1f + 0.5f));
+		cells.firstCell = land_light::GetCells().firstCell;
 		cells.size = glm::ivec2(size);
-		cells.cap = &_cloudShadowCap;
-		cells.fullLightGreen = static_cast<uint8_t>(std::lround(_landLight->GetColour(255).g * 255.0f));
+		cells.cap = &luminosity;
+		cells.fullLightGreen = static_cast<uint8_t>((land_light::FullLight(*_landLight) >> 8) & 0xFFu); // [0xEDDD09]
 		night_lights::Update(Game::Instance()->IsPaused() ? 0.0f : milliseconds,
 		                     Game::Instance()->GetDayNightClock().GetScriptTime(), _landLight->GetBaseColour(), cells);
+		land_light::SetLuminosity(luminosity);
 	}
-	bgfx::updateTexture2D(_cloudShadowTexture, 0, 0, 0, 0, size.x, size.y,
-	                      bgfx::copy(_cloudShadowCap.data(), static_cast<uint32_t>(_cloudShadowCap.size())));
+	const auto texels = land_light::Texels();
+	if (texels.size() == static_cast<size_t>(size.x) * size.y * 4)
+	{
+		bgfx::updateTexture2D(_landCellsTexture, 0, 0, 0, 0, size.x, size.y,
+		                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size())));
+	}
 }
 
 void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) const
@@ -2130,12 +2166,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 	const auto skyType = Locator::skySystem::value().GetCurrentSkyType();
 
-	// Distance haze of this frame (LandLightTable::Haze), on with the "Fog" detail key
-	const bool hazeOn = _landLight && _landLight->IsLoaded() && GetDetailLevel(Locator::config::value().detailLevel).fog;
-	const auto haze = hazeOn ? _landLight->GetHaze() : LandLightTable::Haze {};
-	const glm::vec4 u_haze = {haze.nearDistance, haze.farDistance, haze.k, hazeOn ? 1.0f : 0.0f};
-	const glm::vec4 u_hazeColour = {haze.colour, 0.0f};
-	_hazeUniforms = {u_haze, u_hazeColour};
+	// Distance haze of this frame (graphics::haze::Frame: fn_007FEAA0 / fn_007FEAD0 and the "Fog" detail key)
+	_haze = _landLight && _landLight->IsLoaded() ? haze::Frame() : haze::Params {};
+	_hazeUniforms = haze::Uniforms(_haze);
+	const glm::vec4 u_haze = _hazeUniforms[0];
+	const glm::vec4 u_hazeColour = _hazeUniforms[1];
 
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawSky
@@ -2209,11 +2244,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			terrainShader->SetTextureSampler("s1_bump", 1, island.GetBump());
 			terrainShader->SetTextureSampler("s2_smallBump", 2, island.GetSmallBump());
 			terrainShader->SetTextureSampler("s3_footprints", 3, island.GetFootprintFramebuffer().GetColorAttachment());
-			terrainShader->SetTextureSampler("s4_landLight", 4, fromBgfx(_landLightTexture)); // vs
-			if (bgfx::isValid(_cloudShadowTexture))
+			terrainShader->SetTextureSampler("s_landLightTable", 4, fromBgfx(_landLightTexture)); // vs
+			const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
+			if (bgfx::isValid(_landCellsTexture) && glm::vec2(_landCellsSize) == cellMapSize)
 			{
-				terrainShader->SetTextureSampler("s6_cloudShadow", 6, fromBgfx(_cloudShadowTexture)); // vs
+				terrainShader->SetTextureSampler("s_landCells", 6, fromBgfx(_landCellsTexture)); // vs
 			}
+			else
+			{
+				terrainShader->SetTextureSampler("s_landCells", 6, island.GetCellMap()); // vs
+			}
+			const glm::vec4 u_cellMap = {island.GetExtent().minimum, cellMapSize};
+			terrainShader->SetUniformValue("u_cellMap", &u_cellMap); // vs
 			terrainShader->SetTextureSampler("s5_staticShadow", 5, island.GetStaticShadowFramebuffer().GetColorAttachment());
 			terrainShader->SetTextureSampler("s8_landAlpha", 8, island.GetLandAlphaFramebuffer().GetColorAttachment());
 			// x: 1 = the colour comes from the block texture (the original's, BlockTexture.h); 0 = the per-vertex materials
@@ -2296,12 +2338,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			std::stable_sort(blockOrder.begin(), blockOrder.end(),
 			                 [](const auto& a, const auto& b) { return a.first < b.first; });
 
+			// fn_00877210: the block's haze class from its box (graphics::haze::BlockClassOf), LandRef [0xE9CD8C] (inferido)
+			const auto view = desc.camera->GetViewMatrix(Camera::Interpolation::Current);
+			const bool landRef = GetDetailLevel(Locator::config::value().detailLevel).landReflection;
 			for (const auto& [distance, blockIndex] : blockOrder)
 			{
 				const auto& block = blocks[blockIndex];
 				// pack uniforms
 				const glm::vec4 mapPositionAndSize = glm::vec4(block.GetMapPosition(), 160.0f, 160.0f);
 				terrainShader->SetUniformValue("u_blockPositionAndSize", &mapPositionAndSize);
+				const glm::vec4 u_hazeBlock = {static_cast<float>(haze::BlockClassOf(_haze, view, block, landRef)), 0.0f,
+				                               0.0f, 0.0f};
+				terrainShader->SetUniformValue("u_hazeBlock", &u_hazeBlock);
 
 				block.GetMesh().GetVertexBuffer().Bind();
 
@@ -2492,6 +2540,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.isSky = false;
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.noHaze = meshId == ecs::components::Hand::k_MeshId;
+				ApplyLandLightMode(renderCtx, meshId, submitDesc);
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
@@ -2725,6 +2774,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.isSky = false;
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
+					ApplyLandLightMode(renderCtx, instance.meshId, submitDesc);
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
 					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
 					submitDesc.blendFilter = instance.fading ? 0 : 2;

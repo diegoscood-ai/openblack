@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "3D/LH3DRandom.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "Graphics/Mists.h"
 #include "PSys/PSysFile.h"
@@ -47,6 +48,15 @@ std::unique_ptr<Creator> MakeMistCreator(const Object& object)
 	creator->numFramesInUse = std::clamp(object.Int("NumFramesInUse", 1), 1, 32);
 	creator->initialScaleMin = object.Float("InitialScaleMin", 1.0f);
 	creator->ratio = object.Float("Ratio", 0.0f);
+	// GetBitmap 0x6AA540 (0x6AA54B..0x6AA586): only with LoadLightMap (+0x7A); bpp 1 with IsShadowMap (+0x79), else 3.
+	// (inferido) the file's Pitch as written, not the [1, 12] property range: SF_LightningStormPush's S_SMClouds16 is
+	// Pitch 16 (256 bytes, 16 x 16 x 1)
+	if (creator->loadLightMap && !creator->lightMap.empty())
+	{
+		creator->landBitmap = land_light::LoadBitmapFile(creator->lightMap, std::max(1, object.Int("Pitch", 12)),
+		                                                 creator->isShadowMap ? 1 : 3, creator->numFramesInFile,
+		                                                 creator->numFramesInUse);
+	}
 	return creator;
 }
 } // namespace
@@ -120,12 +130,17 @@ void mist_atoms::SubmitFrame(float milliseconds)
 			// DrawData +0xC, the atom's +0x90 (0x679BF4), to SetColour 0x7F9770 as the specular (0x67A6C4/0x67A6D6)
 			mist.specular = atom.specular;
 			// vt 0x100 (Z-sorted, [0xC0215D] set) / vt 0x104: the sorting is mists::Submit's
-			// TODO(storm): the land shadow of a creator with a TextureFileName (+0x40, the storm's S_SMClouds16, bpp 1
-			// with IsShadowMap, ParticleMistCreator::GetBitmap 0x6AA540): a record in list 0xD4EDB8 (0x67A7BE..0x67A8C1)
-			// at (x, 0, z), alpha = DrawData alpha / 255; PSysLightMaps::AddDrawing 0x6CA6E0 -> fn_006CA280 mode 2 ->
-			// fn_00878C70 (min into the cells' vertex byte +3, floor 0x30). Not ported: the land's dynamic light is the
-			// session sistemas' batch
 			mists::Submit(mist);
+			// 0x67A792..0x67A8C1: with the creator's bitmap a record in the list 0xD4EDB8 at (x, 0, z), frame 0, alpha =
+			// DrawData alpha / 255 ([0x9357AC]) clamped to [0, 1]; PSysLightMaps fn_006CA280: + (10, 0, 10), centred,
+			// mode 1 for bpp 3 / 2 for bpp 1 (the storm's shadow: fn_00878C70, land_light::AddStamp)
+			if (creator->landBitmap)
+			{
+				const int mode = creator->landBitmap->channels == 3 ? 1 : 2;
+				land_light::AddStamp(glm::vec3(mist.position.x + 10.0f, 0.0f, mist.position.z + 10.0f),
+				                     graphics::frame_anim::FrameTexels(*creator->landBitmap, 0), creator->landBitmap->pitch, true,
+				                     static_cast<float>(alpha) * 0.00392157f, mode);
+			}
 		}
 	}
 }

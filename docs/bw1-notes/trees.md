@@ -263,10 +263,11 @@ turno, los guiones y lo que falta están en
   que los árboles usan la del fotograma anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano
   subida al menos a 10 sobre el terreno: entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros
   (Land1, cámara típica: 200 a mediodía, 242 a las 20 h).
-- **Color propio del árbol** (`fn_00802120` en `Tree::Draw`): es la misma luz bilineal de las 4 celdas bajo el origen
-  que usan los demás objetos (`fn_00801C90`, mismas tablas 0xEDD90C y celdas +3/+0xB/+0x88/+0x90), solo que en entero
-  (fracción de MapCoords >> 8) en vez de float; la neblina (`fn_007FEB30`) es la de todos los modelos. openblack ya lo
-  hace igual en `vs_object`: no hay nada propio que portar.
+- **Color propio del árbol**: `fn_00802120` en `Tree::Draw` 0x74AB1B toma las 4 celdas con pesos `CellX >> 8` y
+  `CellZ >> 8` (0x802206, 0x802237; SSE 0x7A42AC / 0x7A42BC), no la fracción: en la práctica, la celda sola (mismas
+  tablas 0xEDD90C y celdas +3/+0xB/+0x8B/+0x93). Luego la neblina (0x74AB60). openblack:
+  `land_light::ObjectMode::CellShift` (`vs_object`, `LandLightCellShift` de `land_light.sh`); ver
+  [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común).
   openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
   instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
 - **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)

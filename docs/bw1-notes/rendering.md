@@ -287,7 +287,104 @@ de la textura de bloque**.
 - Valores (neutral, despejado): mediodía near 400 far 900 k 211 color (63, 70, 65); ocaso 100/800 k 120 (56, 37,
   31); medianoche 400/900 k 81 (16, 24, 28). Referencia:
   `tmp_dis\render\haze_calc.py`.
-- openblack: `LandLightTable::GetHaze`, `u_haze` / `u_hazeColour` en `vs_terrain` y `vs_object`.
+- openblack: una sola API, `graphics::haze` (`src/Graphics/Haze.{h,cpp}`) y `assets/shaders/haze.sh` (ver la
+  sección siguiente). Fiel en el redondeo: `f = 256 − ftol((256 − k)·t)` (0x7FEBC3), difuso `(c·f) >> 8` por byte con
+  el alfa conservado (0x7FEBED), color con `fistp` (al par, 0x7FEC4A), clase 2 con el color truncado [0xE9B6D8]
+  (0x874C48, empaquetado en 0x7FEB26) y suma saturada.
+
+## Neblina y luz de la tierra: la API común
+
+**Original.** Una fórmula de neblina con tres implementaciones (objetos `fn_007FEB30`, tierra x87 `fn_00874AA0`,
+tierra SSE `fn_007A1800`) y cuatro maneras de tomar la luz de la tierra bajo un objeto, que no se funden:
+
+| Rutina | Qué hace | Usuarios |
+|---|---|---|
+| `fn_00801C90` (SSE `fn_007A3EC0`) | bilineal **entera** de 4 celdas: pesos `ftol(frac·256)` [0x8D45CC], primero en z (+0x08) y luego en x (+0x88), `a + ((b − a)·w >> 8)` por byte; fuera del mapa tabla[255] y especular 0xFF000000 (0x8020F8) | casi todos los modelos (48 llamadas) |
+| `fn_00802120` (SSE `fn_007A4170`) | la misma, con pesos `CellX >> 8` y `CellZ >> 8` (0x802206, 0x802237): **casi sin interpolar** | `Tree::Draw` 0x74AB1B (y la neblina en 0x74AB60), `Scaffold::Draw` 0x6EA6CA, `TownArtifact::Draw` 0x51CB14 |
+| `GetAltitudeAndSetColorSpecular` 0x803340 | la celda sola (0x8033FA..0x803413), sin neblina | `WorshipSite::Draw` 0x519460 (salvo si arde: con `Object +0x44`, el FireEffect, va por `fn_00518050` → `fn_0080BEC0`, bilineal y neblina; 0x5193FF..0x51940A), `SpellIcon::Draw` 0x5196CC, `Totem::Draw` 0x51ACD1 |
+| [0xEDDD08] = tabla[255] | luz fija | `Dove::Draw` 0x41F75B, `CitadelHeart` 0x466958, nubes `fn_005E1DE0`, mar `fn_00879930` |
+
+Clase de neblina de cada bloque (`fn_00877210` 0x87743D..0x87749B): la profundidad de las 8 esquinas de su caja
+(0x877232..0x877370, una por caso de la tabla de saltos 0x877D04: centro +0x90C / +0x910 + 80 [0x8D060C] ± 80; en y,
+de 0 a `fild(+0x924)` × 0,67 [0xC3720C], o ± esa altura con [0xE9CD8C]). (inferido) +0x924 es
+`LNDBlock::highestAltitude` y [0xE9CD8C] la clave de detalle LandRef.
+Bit 2 si una esquina pasa de far, bit 1 si está en (near, far]. Clase 0 con Fog apagado o sin bits, 1 si hay algún
+bit 1, si no 2.
+
+**Sellos de luz y sombra en la tierra.** No hay una textura aparte: se escriben en las celdas del LandBlock.
+- `fn_0086CFF0(pos, texels, pitch, centrar, alfa, modo, máximo)` → `fn_0086CF50`: hasta 200 sellos (0x86CFF5) en la
+  lista 0xFA2920 (0x34 bytes, cuenta [0xFA51C0]). El alfa × 255 se recorta y pasa por `ftol`. Con `centrar`, la
+  posición retrocede (pitch − 1)·5 [0x8AB6E4] en x y z.
+- `fn_005E5830` → `fn_0086D360` (0x5E592F) aplica la lista con `fn_0086D060`: celda `ftol(x·0,1)`, peso
+  `fistp(255 − frac·255)` & 0xFF, recorte a 0x200 celdas y solo bloques con +0x920 & 4. Los modos 1..8 de la tabla
+  0x86D338 solo fijan un bpp (3, 1, 1, 1, 1, 1, 1, 4); solo el 1 y el 2 estampan.
+  - Modo 2, sombra (`fn_00878C70`): bilineal del mapa (z con wz, luego x con wx), `v = 255 − (255 − r)·alfa/255`
+    (0x80808081), **suelo 0x30** (0x878DAD) y luminosidad = **mín**(luminosidad, v) (0x878DBD..0x878DC6).
+  - Modo 1, luz (`fn_00878780`): por canal, `v = r·alfa/255` sumado al color de la celda con tope 0xFF (0x878B09), o
+    el máximo si el último argumento no es 0 (0x87890D). El R del mapa va al rojo del D3DCOLOR.
+- `ClearLight` 0x5E57B0 → `fn_0086D460`: `fn_00878700` deja color 0 y luminosidad = byte +5 (que en los .lnd vale lo
+  mismo que el +3: comprobado en Land1, Land2 y Norse) y vacía la lista (0x86D487).
+- Llamadores:
+  - PSysLightMaps `fn_006CA280`: + (10, 0, 10) [0x8AB414], centrado, modo 1 con bpp 3 y 2 con bpp 1. Lo alimentan
+    `ParticleLightMap::DrawAt` 0x67B220, la sombra de las nubes PSys (0x67A7BE, `GetBitmap` 0x6AA540) y `FireGraphic`
+    (0x731633).
+  - Las nubes del mapa, `fn_005E25C0` 0x5E2800: sclouds.raw de 40, sin centrar, modo 2. Cubre pitch − 1 = 39
+    celdas. Las filas del mapa van a lo largo de x (`fn_0086D060` 0x86D1EC avanza `ix·pitch·bpp`) y los bytes a lo
+    largo de z (`fn_00878C70` 0x878DD1): la sombra queda **traspuesta** respecto a la de antes de U5, que leía
+    `image[z·40 + x]` y cubría 41 celdas.
+  - La sombra de la tormenta, `GWeather::DrawClouds` 0x8400C6: sstorm.raw de 40, centrada, modo 2, s = (negrura +
+    0,7)·fundido.
+  - El destello, `fn_00837200` 0x837278: el mapa radial 0xED92F0 de 64, modo 1.
+  - `DanceLight` 0x50F919: sin portar.
+
+**openblack.**
+- `graphics::haze`: `Params` (los 7 globales), `Frame()` (la clave Fog en un solo sitio), `ApplyObject` =
+  `fn_007FEB30`, `BlockClass` = `fn_00877210`, `ApplyVertex` = `fn_00874AA0` y `Uniforms`. `haze.sh`: `HazeT`,
+  `HazeFactor`, `ApplyHazeDiffuse`, `HazeColour` (al par), `HazeColourFull` y `HazeAddSaturated`.
+- `land_light` (`src/3D/LandLight.{h,cpp}`, `assets/shaders/land_light.sh`): las celdas del fotograma (`BeginFrame`,
+  `ApplyStamps`), `At` / `AtCellShift` / `AtCell` / `FullLight`, `AddStamp` / `ApplyStamp` y `LoadBitmapFile` (lee
+  el archivo y lo pasa a `graphics::frame_anim::LoadBitmapFromFile` = `GJBitmap::LoadBitmapFromFile` 0x57CA90, con el
+  reparto de fotogramas de `fn_0057CB40`; `frame_anim::FrameTexels` da un fotograma, 0x6CA2E3). `Renderer::UpdateClouds`
+  sube las celdas como una textura RGBA (color y luminosidad) que leen `vs_terrain` y `vs_object`.
+- La clase de neblina de cada bloque: `haze::BlockCorners` (las 8 esquinas) y `haze::BlockClassOf`.
+- `vs_object`: `u_objectLight.w` = sin neblina + 2 × `land_light::ObjectMode` por malla
+  (`RenderContext::meshLandLight`). Los árboles van con `CellShift` y neblina; los lugares de culto (si no arden) y
+  los iconos, con `Cell` y sin neblina; la clase Dove, con `Full` y sin neblina (`Dove::Draw` solo escribe +0x4C;
+  (inferido) +0x50 queda a 0).
+- `vs_terrain`: la luz y el color de la celda del fotograma, y la neblina según la clase del bloque (`u_hazeBlock`).
+- La sombra de las nubes del mapa ya no es un tope aparte: son sellos de modo 2 (`Clouds::StampShadows`).
+- Las luces nocturnas (`night_lights`, `fn_008229B0`) escriben en la luminosidad del fotograma, después de los
+  sellos. `fn_008229B0` lee el byte +3 de la celda y lo escribe directamente (0x822D9D, 0x822DC3). Antes de U5 se
+  recortaban con `min(luminosidad cargada, tope)`, así que una luz no subía una celda de luminosidad < 48; ahora sí.
+- `PSys/Creators/LightMap` ya no es un sprite plano: estampa en la tierra (`light_map_atoms::SubmitFrame`, una vez por
+  fotograma: un registro por átomo, como `DrawAt` 0x67B220). Cada átomo recorre los fotogramas del mapa
+  (`LightMapCreator::InitAtom` = `CreateParticleLightMap` 0x6A9DEF..0x6A9E16: FrameRate a +0x110, NumFramesInUse a
+  +0x114, PlayAnim a +0x118), así que la luz se apaga; parado en el fotograma 0, el rayo dejaba el suelo en blanco. El temblor `UseRandJitter` sale de
+  `grand_local::LocalFloatRand` (`src/3D/LH3DRandom.h`, el mismo que usa `FireGraphic`): el 1.º sorteo va a z, el 2.º
+  a y y el 3.º a x (0x67B264..0x67B2A3).
+
+**Diferencias que quedan.**
+- (aproximado) Se estampan todos los bloques, no solo los que se dibujan en el fotograma (+0x920 bit 4).
+- (aproximado) Fuera del mapa, o con c00 en un bloque que falta, la bilineal del shader trata cada celda como sin
+  bloque (luminosidad 255, color 0), en vez de dar tabla[255] y 0xFF000000 a toda la muestra (0x801D17..0x801D43 →
+  0x8020F8).
+- (inferido) En `FireGraphic`, `Object +0x24 & 2` = objeto del mapa y +0x98 = la posición del objeto.
+- (aproximado) En `FireGraphic`, el ruido de dos senos (`VLNoise` 0x590C30 sin portar), sin la fracción del turno, y
+  el id del fuego en vez de `this & 0xFFFF`.
+- (aproximado) Un modo de luz por malla, no por instancia: si dos clases comparten malla (un `DeadTree` o `FelledTree`,
+  que usan `fn_00801C90`, con la de un árbol vivo), gana el modo especial y se avisa una vez en el registro.
+- (aproximado) `grand_local::LocalRand` / `LocalFloatRand` usan otro generador que `LHRand`.
+- PLAUSIBLE, sin hacer: el reflejo bajo el agua (`vs_object` x = 3) va sin neblina, pero el original guarda en +0x4C /
+  +0x50 la luz ya con neblina (`MobileObject::Draw` 0x51818E, `PhysicsObject::DrawAll` 0x646FB1), que
+  `DrawUnderWater` reutiliza.
+- Pendiente: las ramas `vt+0x890 == 0` de `WorshipSite::Draw` y `SpellIcon::Draw` (0x5193D9, 0x519658 →
+  `DrawBuilding`) y la rama +0x10C de `SpellIcon::Draw` (0x519672, sin leer).
+- Pendiente: `RendererSea.cpp:164` lee tabla[255] con `GetColour(255)` y no con `land_light::FullLight` (el mar es de
+  la sesión «shaders»).
+- (inferido) Los modos «celda >> 8» y «una celda» solo se dan a `Tree`, `WorshipSite` y `SpellIcon`: los andamios, los
+  artefactos y los tótems aún no tienen componente propio.
+- Pendiente: la «luz sin neblina» de `DrawBuilding` 0x517FB2 y `PetitNavire`, los sprites UseLandscapeColor
+  (0x67AFD9) y `RenderParticleGJMesh` (0x67C184).
 
 ## Cámara
 
@@ -495,12 +592,16 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 
 - `OPENBLACK_SEA_TRACE=1` (filas del mar cada 500 fotogramas) y el test `test_sea_rows`.
 - `OPENBLACK_DUMP_BLOCK_TEXTURE` (textura de bloque de la costa) y el test `test_land_light` (tabla de luz).
+- `test_haze_land_light` (neblina, luz de la tierra y sellos); `OPENBLACK_TEST_STORM_CLOUDS`, `OPENBLACK_TEST_SPELL`
+  y `OPENBLACK_TEST_WEATHER` para ver los sellos (sombra de tormenta, luz de rayo y bola de fuego).
 - `OPENBLACK_CLOUD_SEED=<n>`, `OPENBLACK_TIME_OF_DAY=<h>` y `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (cielo y nubes).
 - `OPENBLACK_TEST_FADE="r,g,b,segundos"` y `OPENBLACK_TEST_WIDESCREEN=1` (fundido y bandas).
 - `OPENBLACK_TEST_TOOLTIP=<n>` (mensaje de la mano).
 
 ## Fuentes
 
+- `dev\tmp_dis\unify2\haze_land_light_{original,openblack}.md`, `dev\tmp_dis\miracles\polish\tormenta_audit.md` y
+  `fuego_audit.md` (sellos), `dev\tmp_dis\unify\U5_changes.md`.
 - `dev\tmp_dis\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,
   `haze_calc.py`, `fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
 - `dev\tmp_dis\agua\`: `sea_render.md`, `sea_coast_alpha.py`, `light_lut_testgen.py`, `re\emu_sea_range.py`,

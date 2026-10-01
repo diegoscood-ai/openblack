@@ -39,6 +39,7 @@
 #include "Hand/HandCasting.h"
 #include "Locator.h"
 #include "PSys/Creators/Chain.h"
+#include "PSys/Creators/LightMap.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/Creators/Mist.h"
 #include "PSys/Rules/Storm.h"
@@ -153,6 +154,8 @@ void magic::Update(float seconds)
 	}
 	// RenderParticleMist::DrawAt 0x67A670: the PSys mists (the water cloud) go to mists::Submit (PSys/Creators/Mist.cpp)
 	psys::mist_atoms::SubmitFrame(seconds * 1000.0f);
+	// ParticleLightMap::DrawAt 0x67B220 -> PSysLightMaps::AddDrawing 0x6CA6E0: the light maps' land stamps (land_light)
+	psys::light_map_atoms::SubmitFrame();
 	// fn_0067B3F0 0x67BE88: the chains' v-scroll with g_game_time_inc (PSys/Creators/Chain.cpp)
 	psys::chain_atoms::AdvanceScroll(seconds * 1000.0f);
 	// RenderParticleGameObject::DrawAt 0x67B170: what the tornados carry follows its atom (PSys/Rules/Storm.cpp)

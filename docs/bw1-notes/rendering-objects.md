@@ -486,9 +486,10 @@ diminuto, el «+ 32» de las fiolas redondea a 32.
     u = (W/256)·(f % cols) y v = (H/256)·(f / cols), con f sin signo. Con deslizamiento, u = W·f / (N·256) y
     v = H·f / (N·256) ([0x8D45CC] = 256). openblack añade una guarda: cols ≥ 1.
 - Relojes (tabla de abajo).
-- Cargadores: `LoadStackedFrames` (GetBitmap 0x6A9D40: fotogramas Pitch × Pitch apilados, RGB o grises) y
-  `SampleStackedFrame` (openblack, bilineal); `LoadGif` y `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms
-  valen 100 ms, como en los navegadores).
+- Cargadores: `LoadBitmapFromFile` (`GJBitmap::LoadBitmapFromFile` 0x57CA90: solo con el tamaño exacto, 0x57CAD2;
+  mín(framesInUse, framesInFile) fotogramas de Pitch × Pitch sacados de la rejilla de √n por fila de `fn_0057CB40`) y
+  `FrameTexels` (un fotograma, `fn_006CA280` 0x6CA2E3); `land_light::LoadBitmapFile` lee el archivo. `LoadGif` y
+  `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms valen 100 ms, como en los navegadores).
 - Mods: `DelayClock` (duraciones por fotograma, en bucle, fotogramas enteros; da también la fracción dentro del
   fotograma) y `AnimatedSprite` (celdas o capas consecutivas desde `first`, con `blend` apagado por defecto).
 

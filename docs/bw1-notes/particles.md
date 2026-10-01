@@ -3,7 +3,7 @@
 El motor de partículas del original tal como lo usan los milagros: los tipos de partícula, el registro de clases, el
 PSys enlazado a un hechizo, las jerarquías, los creadores (mallas, cadenas, mapas de luz, niebla), el sonido de las
 partículas y un índice de las reglas con la página donde está cada una. El dibujo de las partículas del mundo (y lo
-que queda del PSys en el render) está en [rendering.md](rendering.md#partículas-psys-en-curso); los milagros, en
+que queda del PSys en el render) está en [El PSys en el mundo](#el-psys-en-el-mundo-formato-paso-dibujo-y-reglas-del-agua); los milagros, en
 [miracles.md](miracles.md); el núcleo de la magia, en [magic.md](magic.md).
 
 - [Tipos de partícula](#tipos-de-partícula-m0-srcpsysparticletypes)
@@ -12,6 +12,7 @@ que queda del PSys en el render) está en [rendering.md](rendering.md#partícula
 - [Corrección en el núcleo del PSys: las jerarquías](#corrección-en-el-núcleo-del-psys-las-jerarquías)
 - [Creadores](#creadores)
 - [Sonido de las partículas](#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp)
+- [El PSys en el mundo: formato, paso, dibujo y reglas del agua](#el-psys-en-el-mundo-formato-paso-dibujo-y-reglas-del-agua)
 - [Índice de reglas](#índice-de-reglas)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
@@ -80,7 +81,7 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 - **`DrawCutByPlane` no recorta nada en la cúpula:** solo cambia la llamada (fn_00679F20: vt 0x11C en vez de vt 0x104),
   y la malla de una partícula es un `LH3DStaticObject` (`LH3DObject::Create(0)` 0x80B4F8, vtable 0x9A2974) cuyo vt 0x11C
   es fn_0080C050, un dibujo directo de sus primitivas. El corte por y = 0 es solo de los objetos animados (fn_00811C70,
-  [rendering.md](rendering.md)). La nota de la revisión 3a («sin recorte del suelo») queda resuelta: no hay nada que
+  [rendering-objects.md](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane)). La nota de la revisión 3a («sin recorte del suelo») queda resuelta: no hay nada que
   portar.
 - **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la w de la cuarta
   columna), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
@@ -201,6 +202,72 @@ los átomos del PSys. Informe: `visuals_sound.md` §3; lo de abajo está verific
 - Sin portar: el alineamiento del dueño, el temblor de cámara, los filtros de estado de juego, las repeticiones finitas
   (loop > 0 se toca una vez) y el tope global de distancia del DLL (+0x44 del sistema de audio).
 
+## El PSys en el mundo: formato, paso, dibujo y reglas del agua
+
+Viene de rendering.md (la parte que el render tenía del PSys). **Fiel** salvo lo que se dice sin portar.
+
+Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, tablas de efectos):
+`tmp_dis\psys\psys_report.md`; los 132 archivos descomprimidos en `tmp_dis\psys\zzz\`.
+- Archivos: `Data\Spells\ZSpellFiles\SF_X_txt.zzz` (u32 tamaño + zlib) con texto del editor: cabecera
+  `BEGINPROPERTIES` (DeleteOnCloseDown, Hierarchies[25], InitiallyCreated[25], MaxSpellAge) y bloques
+  `BEGINCLASS <Clase> <Nombre>`. Un `.txt` suelto con el mismo nombre tiene prioridad (`LHLoadData`): sirve para mods.
+- Modelo: cada modificador tiene `Group` (0..24) y `Condition`; una *colección* es una instancia viva de un grupo;
+  `InitiallyCreated` crea las raíces en el origen; `NextGroups` da a cada átomo nuevo sus subcolecciones; `Hierarchies`
+  pone los átomos hijos en el marco local del padre. Nada se mueve solo: solo las reglas.
+- Paso por turno (dt = 0,1 s) con el estado de dibujo anterior y actual, interpolado al dibujar con la fracción del turno.
+  Fin: sin átomos ni reglas de creación, o edad > MaxSpellAge; `CloseDown` activa `TrueOnCloseDown`, suelta las
+  reglas `RemoveOnCloseDown` y borra al momento si `DeleteOnCloseDown`.
+- Dibujo: cada efecto es un objeto del Z-sorter (`PSysManager::AddDrawing`), sus átomos en orden de lista; sprites de
+  `S_SpriteSheet{1,2,3}` (8×8 celdas de 32 px, celda = (FileOffset + fotograma) & 63), quad orientado a la pantalla
+  con giro atan2(M[0][2], M[0][0]) o plano XZ (`SetHorozontal`); modo 13 aditivo (102 de 137) o 6, sin escribir Z
+  salvo `MaterialUpdateZBuffer`; sin luz ni neblina salvo `UseLandscapeColor` (no hecho).
+- Guiones: `SPECIAL_EFFECT_POSITION` / `_OBJECT` (CHL 52/53) → `GParticleContainer` con la tabla `GSpotVisualInfo`
+  (50 entradas → PARTICLE_TYPE → archivo); duración en segundos (−1 siempre, 0 la vida de la tabla); sigue al objeto
+  y se cierra si desaparece; devuelve un objeto que el guion puede borrar.
+- openblack: `src/PSys/PSysFile` (lector), `PSys` (colecciones, átomos, reglas: CreateRuleAnAtom/Sphere, emisores
+  Simple/Disk/Conical, UR_WillowWisp, reglas de borrado, AR_FadeAlpha/FadeCollectionAlpha/FadeOutOnceConditionTrue,
+  UR_ChangeScale, SetScale, SetAtomAlpha, UpdateRuleGravity, UR_UpdatePosnFromVelocity, UR_GustyWind (con un ruido
+  propio: VLNoise3To1 sin portar), UpdateRuleRotatePrincipalAxis, FollowOrigin, UR_FollowParent, ForceConstant*,
+  UR_SphereSurfaceTracer, UR_OrientSpriteWithRandomAngle; condiciones y proveedores de float), `PSysManager`
+  (efectos, contenedores de guion, gancho de prueba) y `Graphics/RendererPSys.cpp`. Las clases sin portar se registran
+  una vez en el log ("not ported yet") y no hacen nada.
+- **`UpdateRuleGravityWithFloor`** (`PSys/Rules/Fireball.cpp`, una sola clase con la de los milagros; ctor 0x6A1510, `ModifyAtomCollection` 0x6A1880).
+  Valores por defecto del ctor: MaxSpeed 100, Gravity 10, Damping 0, WindMagnification 100, UseWind 1, rebotes 0,5/0,5,
+  GroundDrag 0, ImpactSpeed 5/20/40, MinAlphaForImpactSoundOrRipple 60, distancia de onda 2 (+0x40) y onda activada
+  (+0x71 = 1), sin propiedad. Por átomo, sin la `Condition` por átomo:
+  - amortiguar = UseDamping y (no DisableDampingForNonHuman o `IsHumanPlayerCasting` 0x673580, que es 0 sin `Spell`);
+    viento igual con UseWind / DisableWindForNonHuman. Con viento: v += (viento·WindMagnification·0,1 − v)·Damping·dt
+    (viento = `fn_00771B10` = `GClimate::GetWeather(p, 1)`: (int8 x/8, 0, int8 z/8); aquí `weather::GetWindAt(p, true)` de ECS/Weather); si no,
+    con amortiguar: v ·= 1 − dt·Damping.
+  - Se guarda v y el átomo se mueve **antes** de la gravedad. Suelo = `GetAltitude(x, z)`; punto más bajo = y global
+    (`RenderParticle::GetLowestPoint` 0x6C79B0; el de malla, `Particle3DObj` 0x6C7AE0, no está porque no hay
+    partículas de malla). Por encima: v.y −= clamp(v.y + MaxSpeed, 0, 1)·Gravity·gravedad del átomo·dt.
+  - Por debajo: se sube al suelo; d = n·v con la normal del terreno; si d < 0, golpe (`fn_006A1630`) y rebote:
+    vn = n·d, vt = v − vn, arrastre m = min(dt·GroundDrag, |vt|) en la dirección de vt (si |vt|² < 1e-4 la dirección
+    es +x), v = vt·DampingHorozontalBounce·superficie − vn·DampingVerticalBounce. Superficie (UseSurfaceForBounce):
+    tabla 0x937574 por `GetSurfaceType` = 1,1,1,1,1,1,**0,2** (agua profunda),**0,2** (somera),1,1,25.
+  - Golpe `fn_006A1630`: nada si alfa < MinAlpha, si ImpactSound es NO_SOUND (−1), si |d| < ImpactSpeedSmall, si el
+    sonido del átomo aún suena o si ImpactSoundCondition falla; nivel 3/2/1 según ImpactSpeedMedium/Large; y onda en el
+    agua. Consecuencia: los trozos de `SF_ExplodeObject` (NO_SOUND) **nunca** hacen onda; solo la bola de fuego
+    (`SF_FireBallThrow*`, SOUND_SPELL_FIREBALL_HIT) la hace. Los átomos de este motor aún no tocan sonidos
+    (`AtomCore::StartSound` 0x6745D0), así que la espera "mientras suena" no se aplica. `CheckShieldDeflections`
+    (escudos de criatura) no está. Prueba unitaria `test_psys_water`.
+- **`UR_Explosion`** (`PSys/Rules/Explosion.cpp` de Milagros, [magic.md](magic.md); los anillos de aquí son
+  `PSys/PSysWaterRings` `AddExplosionRings`, la única implementación; ctor 0x67E090, `ModifyAtomCollection` 0x67ECE0, `InitCollection`
+  0x67E200), en `SF_BeamExplosionSingle/Many/Loads`. Por defecto InitialDelay 3,5, SmokeDelay 3, BeamDelay 0. Punto =
+  `GetCurrentParentPos` (el +0x80 del átomo padre o el origen) con y = altitud del suelo. Si el efecto se cierra, cierra
+  el contenedor del rayo. Con edad de colección > InitialDelay: anillos de agua (arriba) o chamuscado; > BeamDelay:
+  punto visual BEAM_EXPLOSION_FX (magnitud 1, 60 turnos); > SmokeDelay: **SMOKE en tierra seca, STEAM sobre el agua**
+  (`IsDryLand`), magnitud 8, 4 s. El 3.er argumento de `CreateSpotVisualWithSpecifiedDuration` es la magnitud del
+  efecto (`GJPSysInterface::Create` 0x68F3A1 `SetScale`). El daño a los objetos, el `SpellEvent` 2 y el escudo los
+  hace la de Milagros; sin portar: el chamuscado (`TemporaryShadow` `fn_008251C0`, textura 0x251, tamaño 8) y los
+  escombros de malla.
+  Prueba: `OPENBLACK_TEST_PSYS="SF_BeamExplosionSingle,1464,2016,0,1"`, cámara `1452,14,2002,1464,0,2016`, captura en
+  el fotograma 272 de 300 (anillos) o 360 de 400 (vapor); `OPENBLACK_PSYS_TRACE=1` escribe la explosión.
+- Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
+  (hoguera con llamas y humo); `OPENBLACK_PSYS_TRACE=1` escribe átomos y edad de cada efecto cada 20 turnos.
+- **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `tmp_dis\psys\towncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
+
 ## Índice de reglas
 
 Cada clase del PSys que usan los milagros, con su dirección y dónde se describe. Las de `src/PSys/Rules/` se
@@ -251,6 +318,9 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 - Mallas: `UseScriptHightlightPulse`, `CastHumanShadow`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
   objeto, `FaceCameraSprite` y el .anm de `ParticleAnimCreator`.
 - Niebla: un contador de atlas por niebla y el mapa de sombra / luz del terreno.
+- PSys del mundo: creadores de malla, niebla, cadenas, animación, mapas de luz (se estampan en la luz del terreno), las
+  reglas de hechizos y del pueblo (`UR_TownCentreBelief` ya está: ver arriba), `CreateRule_GameObjectRef` (el brillo de las llaves de la
+  puerta de Land1, SF_HighlightOnObject), los sonidos, y pasar a este motor los efectos de la mano de `HandEffects.cpp`.
 - Las reglas sin portar del índice (pedazos, `LightningForkFlicker`, `ER_EmitFromParentAtom`, `CreateRule_GameObjectRef`).
 
 ## Ganchos de prueba

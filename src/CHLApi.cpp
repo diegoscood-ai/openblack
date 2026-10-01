@@ -69,6 +69,7 @@
 #include "Enums.h"
 #include "Game.h"
 #include "Help/HelpSystem.h"
+#include "Help/ScriptControl.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Script/CHLInfluence.h"
@@ -112,6 +113,18 @@ void NotImplemented(const char* function)
 	{
 		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented (logged once).", function);
 	}
+}
+
+/// The script VM as GScript asks it (ScriptDLL::TaskNumber 0x6F69F0, GetCurrentTaskScriptType 0x6F6A90, GetScriptType
+/// 0x6F6C50, StopTasksOfType 0x6F68F0)
+help::script_control::Vm ScriptVm()
+{
+	help::script_control::Vm vm;
+	vm.taskNumber = []() { return Locator::vm::value().GetCurrentTaskNumber(); };
+	vm.currentTaskType = []() { return static_cast<uint32_t>(Locator::vm::value().GetCurrentTaskScriptType()); };
+	vm.taskType = [](uint32_t task) { return static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)); };
+	vm.stopTasksOfType = [](uint32_t mask) { Locator::vm::value().StopTasksOfType(static_cast<lhvm::ScriptType>(mask)); };
+	return vm;
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -693,25 +706,42 @@ void DllGettime() // 029 DLL_GETTIME
 
 void StartCameraControl() // 030 START_CAMERA_CONTROL
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::StartCameraControl 0x6ECCA0 (Help/ScriptControl.cpp). Inside the citadel: g_game+0x205A28 == 1 (inferred:
+	// openblack's temple interior being active stands for it). The camera: fn_00461140 creates the script camera mode
+	// unless GCamera::CantExitCurrentMode 0x441B70; openblack has no camera modes, so it is always taken (inferred) and
+	// the camera itself does not change (pending: CameraModeScript)
+	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	Pushb(help::script_control::StartCameraControl(help::script_control::GetCameraControl(), ScriptVm(), insideCitadel,
+	                                               true));
 }
 
 void EndCameraControl() // 031 END_CAMERA_CONTROL
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::EndCameraControl 0x6ECEF0 (Help/ScriptControl.cpp): the state only; the camera mode and its field of view
+	// going back are pending (no camera modes in openblack)
+	help::script_control::EndCameraControl(help::script_control::GetCameraControl(), audio::GetScriptAudioState(),
+	                                       ScriptVm());
 }
 
 void SetWidescreen() // 032 SET_WIDESCREEN
 {
 	// 0x6F7BF0 -> HelpSystem::SetWideScreen 0x5C6AD0; the bars slide in HelpSystemInfo.wideScreenTime seconds (2.0)
-	const auto enabled = static_cast<bool>(Pop().intVal);
-	const float time = Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
-	Game::Instance()->GetScreenFade().SetWideScreen(enabled, time);
-	// +0x45EC = the script's task while on: GAudio::PlaySoundEffect then skips the samples of user parameter 1
-	audio::sample_play::SetScriptWideScreen(enabled);
+	// GScript::SetWideScreen: only the task that holds it (HelpSystem+0x45EC) or any when none does
+	// (Help/ScriptControl.cpp); HelpSystem's hook moves the bars (Game.cpp)
+	const auto on = static_cast<int32_t>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		help::script_control::SetWideScreen(*helpSystem, on, ScriptVm());
+	}
+	else
+	{
+		// openblack only (no original equivalent: GScript always has g_game+0x25005C; here a VM without a HelpSystem,
+		// e.g. tools): the bars move without any owner. 2.0 is the default of ScreenFade::_wideTime (no source)
+		const float time =
+		    Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
+		Game::Instance()->GetScreenFade().SetWideScreen(on != 0, time);
+		audio::sample_play::SetScriptWideScreen(on != 0);
+	}
 }
 
 void MoveGameThing() // 033 MOVE_GAME_THING
@@ -1508,26 +1538,28 @@ void RunCameraPath() // 119 RUN_CAMERA_PATH
 
 void StartDialogue() // 120 START_DIALOGUE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::StartDialogue 0x710690 (Help/ScriptControl.cpp); the advisors going home are HelpSystem hooks (not ported).
+	// Without a HelpSystem (openblack only, the original always has g_game+0x25005C): false
+	auto* helpSystem = help::Get();
+	Pushb(helpSystem != nullptr && help::script_control::StartDialogue(*helpSystem, ScriptVm()));
 }
 
 void EndDialogue() // 121 END_DIALOGUE
 {
-	// GScript::EndDialogue 0x710780: only its audio part (GScript+0x84 = 1, +0x9C = 0), approximated without the check
-	// that this task owns the dialogue (0x71078C..0x71079F); the spirits going home and the dialogue's end are not
-	// implemented
-	audio::GetScriptAudioState().EndDialogue();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::EndDialogue 0x710780 (Help/ScriptControl.cpp): only for the task that has the dialogue (nothing without a
+	// HelpSystem: openblack only)
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		help::script_control::EndDialogue(*helpSystem, audio::GetScriptAudioState(), ScriptVm());
+	}
 }
 
 void IsDialogueReady() // 122 IS_DIALOGUE_READY
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsSpiritReady 0x710830: !HelpSystem::IsDialogueControlled 0x5C6740, a bool (type 6). Without a
+	// HelpSystem (openblack only, no original equivalent): true, nothing controls the dialogue
+	const auto* helpSystem = help::Get();
+	Pushb(helpSystem == nullptr || help::script_control::IsSpiritReady(*helpSystem));
 }
 
 void ChangeWeatherProperties() // 123 CHANGE_WEATHER_PROPERTIES

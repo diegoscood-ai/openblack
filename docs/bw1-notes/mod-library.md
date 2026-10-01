@@ -89,7 +89,7 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 
-Más detalles en [rendering.md](rendering.md), [openblack-internals.md](openblack-internals.md) y
+Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
 [mods.md](mods.md#mod-hd-tweaks) (HD-Tweaks).
 
 ### Mods de datos
@@ -163,16 +163,40 @@ Enchufables a otro mod.
 
 - Opción `samples` 2x/4x/8x/16x (por defecto 4x). Sin reinicio.
 - Antialiasing multimuestreo y alpha to coverage en hojas y vallas (y en las plantas de `world.foliage`).
+- Atajo `--msaa 0/2/4/8/16`. Backbuffer multimuestreado (`BGFX_RESET_MSAA_*`). En las pasadas opacas los cut-outs
+  usan **alpha to coverage**: `fs_object` convierte el corte en una rampa de ~1 píxel con `fwidth`
+  (`u_skyAlphaThreshold.z`).
 
 ### graphics.mipmaps
 
 - Sin opciones. Hace falta reiniciar.
-- Mipmaps y filtrado trilineal.
+- Mipmaps y filtrado trilineal. Atajo `--mipmaps`. Se aplica a las texturas de modelos, pieles L3D, materiales y
+  bump del terreno y texturas `.raw` sueltas (el original no tiene mips: ver
+  [rendering.md](rendering.md#estados-de-direct3d-7-del-original)).
+- Implementación (`Graphics/TextureMipmaps.cpp`, `BuildRgba8MipChain`):
+  - decodifica el nivel 0 a RGBA8 con `bimg::imageDecodeToRgba8` (DXT1/3/5, BGRA4, BGR5A1, R8…);
+  - hace una media 2×2 **ponderada por alfa**, para que los texels transparentes no oscurezcan los bordes;
+  - en texturas de alfa casi binaria (≥85 % de texels con alfa <32 o >223) **conserva la cobertura** en cada nivel
+    respecto a la referencia 0x96, para que los árboles no adelgacen a lo lejos (sin esto se veían mucho más finos).
+- `Texture2D::Create`: con `Filter::LinearMipmapLinear` construye la cadena y crea la textura en RGBA8 con mips.
+  Libera el `bgfx::Memory` original con `bgfx::release`, que bgfx exporta pero no declara en `bgfx.h`.
+- `graphics::SurfaceTextureFilter()` devuelve `Linear` o `LinearMipmapLinear` según los mods. No se aplica al
+  heightmap, las huellas, el ruido ni el cielo.
+- `fs_terrain`: el small bump se muestrea fuera del `if` de distancia, porque con mips hacen falta derivadas en flujo
+  uniforme.
+- Coste: unos segundos más de carga y más memoria de vídeo (RGBA8 en lugar de DXT).
+- Verificación (de `msaa`, `mipmaps` y `anisotropic`): capturas (estaban en `dev\gfx\`, borradas en la limpieza del
+  2026-09-30; se regeneran con estas cámaras y opciones):
+  - `base_*` frente a `enh_*` / `enh2_*`: aldea `1818,75,2612,1824,44,2636` y panorámica
+    `1600,160,2350,1900,40,2750`, con `-n 14000 --screenshot-frame 13900`. Con mips la carga es más lenta y a 8000
+    fotogramas el vuelo aún no ha terminado.
+  - [img/crop_trees_zoom.png](img/crop_trees_zoom.png), rejilla de cuatro: original, mips, MSAA y todo.
 
 ### graphics.anisotropic
 
 - Sin opciones. Hace falta reiniciar.
-- Filtrado anisótropo (incluye los mipmaps).
+- Filtrado anisótropo (incluye los mipmaps). Atajo `--anisotropic`: añade `BGFX_SAMPLER_*_ANISOTROPIC` y
+  `BGFX_RESET_MAXANISOTROPY`. `--enhanced-graphics` equivale a `--msaa 4 --anisotropic`.
 
 ### graphics.terrain-x2
 
@@ -235,6 +259,12 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
 
 - Sin opciones ni reinicio.
 - El mar refleja todo, el reflejo ondula despacio en bucle y la superficie deriva (sin la ondulación por filas).
+- Atajo `--living-water`. "Agua viva": el reflejo del mar incluye modelos y sprites (el original solo refleja cielo y
+  tierra) y ondula en bucle con dos capas de `skya.raw` que se desplazan (mapa de olas), más fuerte cerca y nula a
+  1500 de profundidad; además quita la ondulación por filas del original (líneas fijas en pausa, temblor a fps
+  modernos) y hace derivar `sky.raw` y `skya.raw` juntos (0,020 / 0,012 texturas por unidad de tiempo). Usa tiempo
+  real a un cuarto de velocidad (también en pausa) que da la vuelta cada 1000 unidades (4000 s); las velocidades son
+  múltiplos de 1/1000 textura/s, así el bucle no salta. El mar del original: [rendering.md](rendering.md#mar-skyraw--skyaraw).
 
 ### world.ground-statics
 
@@ -326,14 +356,14 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
   transparente), las de costa siempre 2 (1,34, alfa 0,5) y la tierra opaca empieza en 3 (2,01); el máximo es 255
   (170,85). Por eso todas las `altitude` de las plantas pasan a `0-175` (los mínimos 1-2 ya no hacen falta: la costa
   está excluida; los máximos 120/150 cortaban los prados altos de Land3).
-- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver [rendering.md](rendering.md) "Ríos"); las
+- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver [rendering.md](rendering.md#ríos) "Ríos"); las
   celdas de costa (`coastLine`, altitud 2-3 en Land1) se dibujan con alfa 0,5 sobre el mar y las de agua con alfa 0,
   así que nada crece en una celda con alguna esquina de agua o costa.
 - `near = lake, stream, sea` + `water_distance` limitan una planta a esa distancia de agua (mapa de distancias 3-4
   chamfer a 5 unidades, `FoliageWaterMap`): lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1:
   una charca de 10 celdas en x 2130-2160, z 2400-2450 y una celda suelta); río = segmentos entre los puntos de cada
   `Stream` (Land1: 11 ríos, 187 puntos). En B&W1 no hay agua a otra altura: los ríos son esos caminos (openblack los
-  dibuja como el original desde 101dd844, `ECS/Rivers`, ver rendering.md "Ríos").
+  dibuja como el original desde 101dd844, `ECS/Rivers`, ver [rendering.md](rendering.md#ríos)).
 - Los juncos usan `near = lake, stream` a 3-9 unidades. Ninguna planta a menos de 3 unidades de la línea de un río (el
   canal de river.l3d mide unas 4; distancia exacta a los tramos en cubos de 20 unidades).
 - La base de cada planta sigue el suelo: altura en sus dos extremos (i_data4) y cizalla en el vertex shader, hundida

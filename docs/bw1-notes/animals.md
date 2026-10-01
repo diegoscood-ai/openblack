@@ -206,7 +206,7 @@ reacciones en el mismo reparto (fuego y teletransporte portados).
   nunca se para, su densidad sube y a los **~75 turnos (7,5 s)** pasa de 1 y `Living::HasSunk` 0x5ED370 lo mata y lo
   borra (`SetDying`, estado 15, `ToBeDeleted(0)`) — vivo o cadáver. En una celda somera con agua de altitud ≥ 2
   aterriza **vivo** (a diferencia del aldeano, que se ahoga); ver
-  [physics.md](physics.md#hundirse-ahogarse-y-borrarse-srcecsvillagerdrowninghcpp-srcecstobedeletedhcpp). Soltar suave
+  [water.md](water.md#hundirse-ahogarse-y-borrarse). Soltar suave
   sobre el mar ya lo mete en física como el original; en tierra openblack sigue colocándolo de pie.
 - Muerte (`Living::SetDying` 0x5EC390, nada mientras vuela): DYING (clip de caer) → DEAD (tumbado según landType; los
   depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → su humo (`CreateSmokyStuff`, abajo) y desaparece. Un cadáver lanzado

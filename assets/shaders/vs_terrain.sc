@@ -48,9 +48,25 @@ void main()
 
 	vec3 transformedPosition = vec3(a_position.x + blockPosition.x, a_position.y, a_position.z + blockPosition.y);
 
-	// Small bump fade, per vertex like the original's Gouraud alpha (fn_007A1800)
+	// Small bump pass vertex diffuse (x87 fn_00874AA0 0x8758E7..0x87598B, SSE fn_007A1800 0x7A2FD0..0x7A3136), d the
+	// signed distance to the fade line (fn_007FE7B0: e = 20, ramp 40): d >= e -> specular alpha | 0xFFFFFF (white, alpha
+	// 255, or 0 at altitude 1 or less); -e < d < e -> alpha fistp(255 - (e - d) * 255 / 40) << 24 | 0xFFFFFF if the
+	// specular alpha is set, else 0 (black, alpha 0); d <= -e -> 0. So the detail fades out (Gouraud) towards every
+	// vertex at altitude 1 or less: no hard edge where the shallow water meets the open sea cells.
 	float forwardDistance = dot(transformedPosition.xz - u_smallBumpLine.xy, u_smallBumpLine.zw);
-	v_smallBumpFade = clamp((u_skyAndBump.w - forwardDistance + 20.0f) / 40.0f, 0.0f, 1.0f);
+	float lineOffset = u_skyAndBump.w - forwardDistance;
+	if (lineOffset >= 20.0f)
+	{
+		v_smallBumpFade = vec2(1.0f, a_color3);
+	}
+	else if (lineOffset > -20.0f && a_color3 > 0.5f)
+	{
+		v_smallBumpFade = vec2(1.0f, floor(255.0f - (20.0f - lineOffset) * (255.0f / 40.0f) + 0.5f) / 255.0f);
+	}
+	else
+	{
+		v_smallBumpFade = vec2(0.0f, 0.0f);
+	}
 
 	v_normal = a_normal;
 	v_worldXZ = transformedPosition.xz;

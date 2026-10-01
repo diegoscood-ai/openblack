@@ -283,9 +283,10 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 		}
 		return clip;
 	}
+	case AnimFn::Script: // Villager::ScriptAnimation 0x768A00: +0x11C, the clip SET_SCRIPT_ULONG gave
+		return static_cast<int32_t>(villager.scriptAnim);
 	case AnimFn::Dance:        // no dance group
 	case AnimFn::WatchFight:   // no arena
-	case AnimFn::Script:       // no script clip
 	case AnimFn::LookAtFlyingObject:
 		return k_Stand;
 	case AnimFn::LookAtLargeObject:
@@ -359,14 +360,20 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	}
 	case AnimFn::SitDown:
 	{
-		const auto current = CurrentClip(entity);
-		if (current == k_SittingDown1Into)
+		// Villager::SitDownAnimation 0x424210: only while an into / out-of clip plays (+0xE1 & 8 = flag 0x800, 0x424213)
+		// the current clip decides (367 -> 369, 370 -> 372); else GameRand(2) (Animations.cpp 0x35A): 0 -> 369, 1 -> 372
+		const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(entity);
+		if (animation != nullptr && (animation->transitionFlags & 0x800) != 0)
 		{
-			return k_SittingDown1;
-		}
-		if (current == k_SittingDown2Into)
-		{
-			return k_SittingDown2;
+			const auto current = CurrentClip(entity);
+			if (current == k_SittingDown1Into)
+			{
+				return k_SittingDown1;
+			}
+			if (current == k_SittingDown2Into)
+			{
+				return k_SittingDown2;
+			}
 		}
 		return Random(2) == 0 ? k_SittingDown1 : k_SittingDown2;
 	}
@@ -597,6 +604,17 @@ bool VillagerWaitsForTransition(entt::entity entity, uint16_t turnsSinceStateCha
 		action->turnsSinceStateChange = 0;
 	}
 	return true;
+}
+
+void VillagerSetStateClip(entt::entity villager, bool reset)
+{
+	// 0x5ECB85: GetAnimId (vt +0x900); 0x5ECBA0: a negative id or the clip it has -> nothing; else the clip (LH3D +0x180)
+	// and, with n and not dancing, its time from 0 (+0x188(0), 0x5ECBDB..0x5ECBF8)
+	if (!Locator::entitiesRegistry::value().AllOf<SkeletalAnimation>(villager))
+	{
+		return;
+	}
+	SetAnim(villager, VillagerAnimId(villager), reset);
 }
 
 bool VillagerAnimationDone(entt::entity entity, uint16_t turnsSinceStateChange)

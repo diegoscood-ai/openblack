@@ -55,6 +55,7 @@
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mobile.h"
+#include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellSeed.h"
@@ -654,8 +655,10 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 		_holdRadius = 0.2f * radius2D;
 		_loweringMultiplier = 0.1f;
 	}
-	else if (registry.AnyOf<MobileObject, Pot>(entity))
+	else if (registry.AnyOf<MobileObject, Pot, OneOffSpellSeed>(entity))
 	{
+		// a one-shot orb is a MobileObject: GetHoldType 0x607120 = 6, GetHoldLoweringMultiplier 0x607130 and
+		// Object::GetHoldRadius 0x638C00 (Get2DRadius) in its vtable
 		_holdType = HoldType::Side;
 		_holdRadius = radius2D;
 		_loweringMultiplier = 0.7f;

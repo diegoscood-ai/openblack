@@ -44,7 +44,12 @@ protected:
 		};
 		std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::warn);
 		s_game = std::make_unique<openblack::Game>(std::move(args));
-		ASSERT_TRUE(s_game->Initialize());
+		if (!s_game->Initialize())
+		{
+			// a half-initialised Game crashes in its destructor: leak it and let the tests skip
+			static_cast<void>(s_game.release());
+			FAIL() << "Game::Initialize failed for " << path;
+		}
 		const auto script = Locator::filesystem::value().GetPath<filesystem::Path::Scripts>() / "Land1.txt";
 		ASSERT_TRUE(s_game->LoadMap(script));
 	}

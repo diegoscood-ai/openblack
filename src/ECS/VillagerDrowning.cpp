@@ -10,6 +10,7 @@
 #include "VillagerDrowning.h"
 
 #include <cstdlib>
+#include <unordered_map>
 
 #include <spdlog/spdlog.h>
 
@@ -25,6 +26,7 @@
 #include "ECS/ToBeDeleted.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
+#include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 
@@ -41,20 +43,27 @@ uint16_t DrowningTime(entt::entity villager)
 	return info != nullptr ? info->drowningTime : static_cast<uint16_t>(600);
 }
 
-/// Villager::VillagerDead (0x7506C0) with DEATH_REASON_PLAYER_INTERACTION_DROWN (6). TODO(villager-death): the death
-/// states, GAlignment::Update for the reason, the town's counters (fn_73E0A0 / fn_73E440), the guide's texts (0x99A364),
-/// CreateDroppedResource / DropWood / DropFood, and the DEAD state (Villager::Dead 0x76A5E0): the fire effect goes,
-/// CreateSmokyStuff, and only out of the water fn_00828790: a 12-byte record (global list 0xEB9A7C) with a new
-/// LH3DObject of the villager's mesh (the child mesh GVillagerInfo +0x204 under the age +0x138) at its matrix playing
-/// the soul's clip, P_DEAD1/2_GOTO_HEAVEN or _HELL (244/245 or 247/248: the pair by the dead clip "M_P_DEAD1", heaven
-/// or hell 50 %); then the villager's own mesh becomes mesh 0x1FF PersonSkeletonMale ([0xDCB164]). In the water:
-/// smoke and the skeleton, no soul. Until they exist the villager goes through ecs::life::Kill (TODO(villager-death):
-/// session mapas will provide villager::Dead(e, DROWNED)).
+/// lastPlayerToInteract (+0x104): Villager::EndPhysics 0x5F0BAF writes PhysicsObject::GetPlayer 0x647460 there (the
+/// player of the hand that dropped or threw it, inherited through what hit it). openblack has one hand, the local
+/// player PLAYER_ONE (inferido: no other players drop things yet), so a body thrown by the hand gives PLAYER_ONE.
+std::unordered_map<entt::entity, PlayerNames> g_lastPlayerToInteract;
+
+/// Villager::Drowning 0x76A7A0..0x76A7CB: VillagerDead(DEATH_REASON_PLAYER_INTERACTION_DROWN 6, player, 0.01f
+/// (0x3C23D70A), 1), player = GetPlayerWhoLastDroppedMe (vt +0x6C)->GetPlayer (vt +0x1C), else lastPlayerToInteract
+/// (+0x104); NEUTRAL when there is none. The death itself (states, alignment, counters, soul and skeleton, smoke) is
+/// ecs::villager::VillagerDead (session mapas, 0x7506C0). GetPlayerWhoLastDroppedMe: openblack keeps no dropper
+/// apart from the physics' player, which is what +0x104 already holds, so both give the same player here.
 void VillagerDeadDrowned(entt::entity villager)
 {
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager {} drowned (DEATH_REASON_PLAYER_INTERACTION_DROWN)",
-	                   static_cast<uint32_t>(villager));
-	life::Kill(villager, "drowned");
+	PlayerNames player = PlayerNames::NEUTRAL;
+	if (const auto found = g_lastPlayerToInteract.find(villager); found != g_lastPlayerToInteract.end())
+	{
+		player = found->second;
+		g_lastPlayerToInteract.erase(found);
+	}
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager {} drowned (DEATH_REASON_PLAYER_INTERACTION_DROWN, player {})",
+	                   static_cast<uint32_t>(villager), static_cast<int>(player));
+	villager::VillagerDead(villager, DeathReason::PlayerInteractionDrown, player, 0.01f, 1);
 }
 
 LivingAction* ActionOf(entt::entity villager)
@@ -72,6 +81,22 @@ void StartDrowning(entt::entity villager)
 	SetVillagerState(villager, VillagerStates::Drowning);
 }
 } // namespace
+
+void RememberLastPlayerToInteract(entt::entity villager, bool byPlayer)
+{
+	if (!Locator::entitiesRegistry::value().AllOf<Villager>(villager))
+	{
+		return;
+	}
+	if (byPlayer)
+	{
+		g_lastPlayerToInteract[villager] = PlayerNames::PLAYER_ONE;
+	}
+	else
+	{
+		g_lastPlayerToInteract.erase(villager);
+	}
+}
 
 bool HasSunk(entt::entity entity)
 {

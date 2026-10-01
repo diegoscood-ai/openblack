@@ -36,6 +36,7 @@
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AtmosBanks.h"
+#include "Audio/Audio.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Audio/GameMusic.h"
 #include "Audio/LanternSounds.h"
@@ -243,8 +244,9 @@ Game::Game(Arguments&& args) noexcept
 
 Game::~Game() noexcept
 {
-	// GAudio's music before LHMusic, then the music thread and its OpenAL sources before the audio context
-	// (LHMusicClose 0x1000E7A0)
+	// GAudio::ToBeDeleted 0x426FE0: the sample channels, then GAudio's music before LHMusic, then the music thread and
+	// its OpenAL sources before the audio context (LHMusicClose 0x1000E7A0)
+	audio::Shutdown();
 	audio::game_music::Shutdown();
 	audio::music::Shutdown();
 	help::Shutdown();
@@ -292,6 +294,14 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == window.GetID())
 		{
 			return false;
+		}
+		else if (event.window.event == SDL_WINDOWEVENT_MINIMIZED || event.window.event == SDL_WINDOWEVENT_RESTORED)
+		{
+			// LHScreen's activation callback 0x642470: LHGlobalSwitch(0 / 1). Not on a focus change: GameWindowProc sets
+			// the state 0x8002 for wParam 1 (0x7DBFF6..0x7DC009, inferred WM_SIZE SIZE_MINIMIZED), which sub_7DE8D0
+			// 0x7DE8DC turns into AltTabDeactivate 0x7DE6D0; AltTabReactivate 0x7DE6F0 comes from ProcessWindowMessages
+			// 0x7DB9DB after the flag [0xE8C0FB] that 0xF120 sets (0x7DC23A..0x7DC245, inferred WM_SYSCOMMAND SC_RESTORE)
+			audio::OnFocus(event.window.event == SDL_WINDOWEVENT_RESTORED);
 		}
 		else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 		{
@@ -407,7 +417,7 @@ bool Game::GameLogicLoop() noexcept
 	if (_paused)
 	{
 		// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
-		audio::atmos_banks::Silence();
+		audio::Paused();
 		return false;
 	}
 
@@ -464,18 +474,25 @@ bool Game::GameLogicLoop() noexcept
 		}
 		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
-		// GGame::EndTurn: SoundTag::ProcessSoundTags 0x71E5F0, the street lanterns' looping sample
-		audio::lantern_sounds::ProcessTurn();
-		// GGame::EndTurn 0x54E997: GAudio::ProcessAudioGameTurn after turn 5 (unpaused: this loop does not run in pause)
-		if (_turnCount > 5)
-		{
-			audio::game_music::ProcessTurn(_turnCount);
-		}
 		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
 			                   _dayNightClock->GetVisualTime(), _dayNightClock->GetScriptTime(),
 			                   _dayNightClock->GetSkyType());
+		}
+		// OPENBLACK_TEST_TEXT_CLICK=1 (openblack only): the player's click on a text that waits for one (RUN_TEXT with
+		// interaction 1), every turn while it waits, as the left button going down does (ProcessEvents);
+		// ProcessInterface itself ignores the click until the text has been shown long enough
+		if (static const bool textClick = std::getenv("OPENBLACK_TEST_TEXT_CLICK") != nullptr; textClick)
+		{
+			if (auto* helpSystem = help::Get(); helpSystem != nullptr && helpSystem->IsWaitingForClick())
+			{
+				helpSystem->ProcessInterface(true);
+				if (!helpSystem->IsWaitingForClick())
+				{
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "OPENBLACK_TEST_TEXT_CLICK: click taken at turn {}", _turnCount);
+				}
+			}
 		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
@@ -483,18 +500,10 @@ bool Game::GameLogicLoop() noexcept
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
 		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
-		// GGame::EndTurn: GSoundMap::Update 0x71D6F0 (+ Dump), SoundTag::ProcessSoundTags 0x71E5F0, then the atmos of
-		// GAudio::ProcessAudioGameTurn after turn 5 (AtmosProcess(0) before)
-		audio::sound_map::Update(_dayNightClock->GetSkyType());
-		audio::sound_tags::ProcessTurn();
-		if (_turnCount > 5)
-		{
-			audio::atmos_banks::ProcessTurn();
-		}
-		else
-		{
-			audio::atmos_banks::Silence();
-		}
+		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
+		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
+		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
+		audio::ProcessTurn(_dayNightClock->GetSkyType(), _turnCount);
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -727,6 +736,8 @@ bool Game::Update() noexcept
 	{
 		auto updateAudio = profiler.BeginScoped(Profiler::Stage::UpdateAudio);
 		Locator::audio::value().Update();
+		// the sample master of the configuration, live (the options dialog's slider 0x5145A3)
+		audio::UpdateFrame();
 		audio::music::Update();
 	} // Update Audio
 
@@ -1009,6 +1020,9 @@ bool Game::Initialize() noexcept
 		}
 	});
 
+	// The GAudio ctor 0x426D40: the sample master and the channels' queries, before its banks (fn_00429CB0)
+	audio::Init(MakeMusicQueries(*this));
+
 	// Load all sound packs in the Audio directory
 	auto& audioManager = Locator::audio::value();
 	fileSystem.Iterate(
@@ -1029,13 +1043,12 @@ bool Game::Initialize() noexcept
 		    }
 		    const auto& audioHeaders = soundPack.GetAudioSampleHeaders();
 		    const auto& audioData = soundPack.GetAudioSamplesData();
-		    auto soundName = std::filesystem::path(audioHeaders[0].name.data());
-
 		    if (audioHeaders.empty())
 		    {
 			    SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Empty sound pack found for {}. Skipping", f.filename().string());
 			    return;
 		    }
+		    auto soundName = std::filesystem::path(audioHeaders[0].name.data());
 
 		    auto groupName = f.filename().string();
 
@@ -1066,6 +1079,8 @@ bool Game::Initialize() noexcept
 		    else
 		    {
 			    audioManager.CreateSoundGroup(groupName);
+			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)
+			    const auto bankId = audio::RegisterBank(f, groupName);
 			    for (size_t i = 0; i < audioHeaders.size(); i++)
 			    {
 				    soundName = std::filesystem::path(audioHeaders[i].name.data());
@@ -1081,6 +1096,7 @@ bool Game::Initialize() noexcept
 				    const std::vector<std::vector<uint8_t>> buffer = {audioData[i]};
 				    SPDLOG_LOGGER_DEBUG(spdlog::get("audio"), "Loading sound {}: {}", stringId, audioHeaders[i].name.data());
 				    soundManager.Load(id, resources::SoundLoader::FromBufferTag {}, audioHeaders[i], buffer);
+				    soundManager.Handle(id)->bank = bankId;
 				    audioManager.AddToSoundGroup(groupName, id);
 			    }
 		    }
@@ -1394,17 +1410,10 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	ecs::animal_ai::ClearReactions();
 	ecs::SmokyStuff::Clear();
 	night_lights::Clear();
-	// before the registry reset: it destroys the emitters without freeing their sources, and a looping one would go on
-	audio::lantern_sounds::Clear();
-	// GGame::Init: GAudio::Reset 0x426CA0 (its music part, call 0x54F474) and GScript::Reset 0x6EB2D0 (its audio
-	// switches, call 0x54F53A)
-	{
-		const auto lock = audio::game_music::Lock();
-		if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
-		{
-			gameMusic->Reset();
-		}
-	}
+	// GGame::Init: GAudio::Reset 0x426CA0 (call 0x54F474) with the map's SoundTags and street lanterns, before the
+	// registry reset (it destroys the lanterns' emitters without freeing their sources); then GScript::Reset 0x6EB2D0
+	// (its audio switches, call 0x54F53A)
+	audio::ClearMap();
 	audio::GetScriptAudioState().Reset();
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
@@ -1413,9 +1422,6 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	{
 		helpSystem->Reset();
 	}
-	// the SoundTags' emitters are registry entities: stopped before the reset (their AL sources would leak)
-	audio::sound_tags::Clear();
-	audio::atmos_banks::Clear();
 	ecs::designed_scenery::OnLoadMap();
 
 	const auto data = fileSystem.ReadAll(path);

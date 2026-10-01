@@ -13,7 +13,10 @@
 
 #include <imgui.h>
 
+#include "Audio/Audio.h"
+#include "Audio/WaveBuffers.h"
 #include "ECS/Registry.h"
+#include "EngineConfig.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -25,6 +28,67 @@ using namespace openblack::ecs::components;
 const ImVec4 k_RedColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
 const ImVec4 k_GreenColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
 const std::array<const char*, 3> k_AudioBankLoopStrings = {"Repeat", "Once", "Overlap"};
+
+namespace
+{
+/// GAudio's 16 sample channels (audio::sample_play) and the sample master volume
+void SampleChannels()
+{
+	// The options dialog's slider 0x64: slider = master * (1 / 127) when it opens, master = ftol(slider * 127)
+	// (DialogBoxOptions::ControlCallback 0x5145A3 -> fn_00428600 LHSampleSetMasterVolume)
+	if (Locator::config::has_value())
+	{
+		auto& config = Locator::config::value();
+		float slider = static_cast<float>(static_cast<double>(audio::SampleMasterVolume()) *
+		                                  static_cast<double>(1.0f / 127.0f));
+		if (ImGui::SliderFloat("Sample volume", &slider, 0.0f, 1.0f))
+		{
+			config.audioSampleMasterVolume =
+			    static_cast<uint32_t>(static_cast<int32_t>(static_cast<double>(slider) * static_cast<double>(127.0f)));
+		}
+		ImGui::SameLine();
+		ImGui::Text("AudioSampleMasterVolume %u", config.audioSampleMasterVolume);
+	}
+	ImGui::Text("Active (LHWaveIsActive) %s, wave buffers %zu alive / %zu made", audio::sample_play::IsActive() ? "yes" : "no",
+	            audio::wave_buffers::Alive(), audio::wave_buffers::Made());
+	if (ImGui::BeginTable("SampleChannels", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+	{
+		for (const char* name : {"#", "Sample", "Bank", "Owner", "Prio", "Vol", "Pitch", "3D", "Playing"})
+		{
+			ImGui::TableSetupColumn(name);
+		}
+		ImGui::TableHeadersRow();
+		const auto channels = audio::sample_play::Channels();
+		for (size_t i = 0; i < channels.size(); ++i)
+		{
+			const auto& channel = channels[i];
+			const auto* sound = audio::sample_play::GetSound(channel.sound);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%zu", i);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d %s", channel.sample, sound != nullptr ? sound->name.c_str() : "");
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", audio::BankGroup(static_cast<audio::BankId>(channel.bank)).c_str());
+			ImGui::TableNextColumn();
+			ImGui::Text("%d:%u", static_cast<int>(channel.owner.kind),
+			            channel.owner.kind == audio::Owner::Kind::Thing ? static_cast<uint32_t>(channel.owner.thing)
+			                                                            : channel.owner.id);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", channel.priority);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", channel.volume);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d", channel.pitch);
+			ImGui::TableNextColumn();
+			ImGui::Text("%s%s%s", channel.is3D ? "3D" : "2D", channel.track ? " track" : "", channel.atmos ? " atmos" : "");
+			ImGui::TableNextColumn();
+			ImGui::TextColored(channel.playing ? k_GreenColor : k_RedColor, "%s", channel.playing ? "yes" : "no");
+		}
+		ImGui::EndTable();
+	}
+}
+} // namespace
 
 Audio::Audio() noexcept
     : Window("Audio Player", ImVec2(600.0f, 600.0f))
@@ -341,6 +405,13 @@ void Audio::Draw() noexcept
 			ImGui::Text("View music packs and their contents");
 			ImGui::Separator();
 			Audio::Music();
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Channels"))
+		{
+			ImGui::Text("GAudio's 16 sample channels (LHSamplePlay)");
+			ImGui::Separator();
+			SampleChannels();
 			ImGui::EndTabItem();
 		}
 		if (ImGui::BeginTabItem("Emitters"))

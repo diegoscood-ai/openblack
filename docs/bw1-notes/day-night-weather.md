@@ -97,8 +97,8 @@ original, hasta el sexto decimal.
     `smoke` fotograma 56 (semitamaño 3 ± 0,1). Color 0xF38421 con alfa trunc(I/2).
   - Aproximado: el shader de sprites solo usa la máscara alfa, sin el RGB de la textura.
   - El quad aditivo de la mano sobre el agua (±60, `atmos.raw`) está hecho (W9, `src/3D/HandWaterGlow.*`, ver
-    [rendering.md](rendering.md#cielo-sol-luna-y-nubes-original)). Faltan las dos luces de la puerta nórdica
-    (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta).
+    [rendering.md](rendering.md#cielo-sol-luna-y-nubes-original)). Las dos luces de la puerta nórdica
+    (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta) están hechas (5877f018, ver map-loading.md).
   - Informe: `night_visuals.txt`, secciones 3 y 5.
 - **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`; informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
   `d_soundtag.txt`, `d_gaudio_sfx.txt`, `d_5e5830.txt`, `d_streetlantern.txt`, script `sadhdr.py`):

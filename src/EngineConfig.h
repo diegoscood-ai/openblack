@@ -83,10 +83,12 @@ struct EngineConfig
 	float fieldGrowthMultiplier {1.0f};
 	/// Mod test.miracle-dispensers (Worship/TestDispensers.h): a miracle dispenser of each player miracle around the
 	/// human player's temple, at that power-up level (0 base, 1, 2, 3 = every level), making an orb every so many
-	/// seconds once the last was taken.
+	/// seconds once the last was taken, plus one empty dispenser that never makes one; with testDispensersSeed a fire
+	/// seed is put into the human player's hand once they are placed.
 	bool testDispensers {false};
 	int testDispensersLevel {0};
 	float testDispensersSeconds {10.0f};
+	bool testDispensersSeed {true};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};
@@ -122,6 +124,10 @@ struct EngineConfig
 	/// fn_004282B0), applied with LHMusicSetMasterVolume 0x1000E890; 127 without the key ([0x10056280] = 0x7F at
 	/// 0x1000DE08). Not saved yet (openblack has no settings file for it).
 	uint32_t audioMusicMasterVolume {0x7F};
+	/// Sample master volume 0..127 (every effect and voice): AudioSampleMasterVolume of BWSetup (fn_00428250 /
+	/// fn_004282B0), applied with LHSampleSetMasterVolume 0x100150E0; 127 without the key (LH_AudioSystem+0x3C, ctor
+	/// 0x10015290). Not saved yet (openblack has no settings file for it).
+	uint32_t audioSampleMasterVolume {0x7F};
 
 	GraphicsBackend graphicsBackend {GraphicsBackend::Noop};
 	glm::u16vec2 resolution {256, 256};

@@ -2260,15 +2260,37 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			;
 			// clang-format on
 
-			for (const auto& block : island.GetBlocks())
+			// The mirrored land (fn_007FF4F0) is drawn with ZWRITEENABLE off (GLandscape::Draw 0x5E48C5..0x5E4900), so it
+			// hides nothing drawn after it under the sea (the hand's, the objects' and the boats' reflections, the fish);
+			// here it wrote Z, and a mirrored hill hid the reflections behind it.
+			const auto state = desc.viewId == graphics::RenderPass::Reflection ? defaultState & ~BGFX_STATE_WRITE_Z : defaultState;
+
+			// Block order of both land passes: the list LH3DIsland::PreDraw (0x7FF45F..0x7FF4DD) builds, ascending by
+			// block+0x9BC = distance from the camera to the block centre (x + 80, 0, z + 80) with LandRef on
+			// (fn_00877210 0x87722C..0x877296, 0x877C8A..0x877CCD): nearest first. Without Z, it is what decides
+			// which mirrored hill covers which.
+			const auto& blocks = island.GetBlocks();
+			const auto& viewOrigin = desc.camera->GetOrigin();
+			std::vector<std::pair<float, size_t>> blockOrder;
+			blockOrder.reserve(blocks.size());
+			for (size_t i = 0; i < blocks.size(); ++i)
 			{
+				const glm::vec2 centre = blocks[i].GetMapPosition() + glm::vec2(80.0f);
+				blockOrder.emplace_back(glm::length(glm::vec3(centre.x - viewOrigin.x, viewOrigin.y, centre.y - viewOrigin.z)), i);
+			}
+			std::stable_sort(blockOrder.begin(), blockOrder.end(),
+			                 [](const auto& a, const auto& b) { return a.first < b.first; });
+
+			for (const auto& [distance, blockIndex] : blockOrder)
+			{
+				const auto& block = blocks[blockIndex];
 				// pack uniforms
 				const glm::vec4 mapPositionAndSize = glm::vec4(block.GetMapPosition(), 160.0f, 160.0f);
 				terrainShader->SetUniformValue("u_blockPositionAndSize", &mapPositionAndSize);
 
 				block.GetMesh().GetVertexBuffer().Bind();
 
-				bgfx::setState(defaultState | (desc.cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW), 0);
+				bgfx::setState(state | (desc.cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW), 0);
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
 			}
 			bgfx::discard(BGFX_DISCARD_BINDINGS);
@@ -2517,7 +2539,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						{
 							continue;
 						}
-						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
+						// the sort point of the one-shot orb (OneOffSpellSeed::Draw 0x518E90), else the matrix's translation
+						const auto point = renderCtx.sortPoints.find(placers.offset + i);
+						const auto origin = point != renderCtx.sortPoints.end()
+						                        ? point->second
+						                        : glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
 						sorted.push_back(
 						    {glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, true});
 					}

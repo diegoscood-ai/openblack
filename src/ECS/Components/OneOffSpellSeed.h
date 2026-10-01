@@ -33,6 +33,9 @@ struct OneOffSpellSeed
 	/// drawn = facing * vertex + Transform::position + facingOffset
 	glm::mat3 facing {1.0f};
 	glm::vec3 facingOffset {0.0f};
+	/// Draw 0x518E90: the point the orb is sorted at among the blended objects (its matrix at AddForDrawing): the box
+	/// centre pushed toward the camera by its radius, so the seed inside is drawn before the bubble
+	glm::vec3 sortPoint {0.0f};
 };
 
 } // namespace openblack::ecs::components

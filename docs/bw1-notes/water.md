@@ -177,6 +177,11 @@ pendiente (la muerte completa del aldeano, ver [Pendiente](#pendiente)).
   - `Object::HasSunk` 0x637470 → **no**: rocas, árboles, vasijas, montones y trozos siguen bajando hasta `T.y < −4R`
     (código 4) y ahí se **borran** con el `ToBeDeleted(0)` de su clase. Tiempos medidos: roca al momento, aldeano ~4
     turnos, vasija de ofrenda ~64, animal ~75, objeto normal ~150, árbol ~194, vasija ~298, balón ~525.
+    Mientras bajan se dibujan enteros con su Draw normal, después de la tierra: la parte bajo y = 0 queda tapada por la
+    Z de las celdas dibujadas (que la escriben aunque sean transparentes) y se ve sobre las celdas de mar abierto 0x02
+    (que no se dibujan). Un árbol que se hunde junto a esas celdas sale **cortado en rectángulos**, también en el
+    original ([rendering.md](rendering.md#costa)); el usuario lo recuerda así (2026-10-01): un árbol o una roca
+    lanzados al mar se veían cortados.
   - `Living::HasSunk` 0x5ED370 (animales) → `SetDying`, estado LIVING_DEAD 15 y `ToBeDeleted(0)`: el animal desaparece.
   - `Villager::HasSunk` 0x750AB0 → `stateCounter = GVillagerInfo::drowningTime` (**600** turnos = 60 s) y estado
     **DROWNING (16)**. (Si el aldeano ya estaba muerto: estado DYING 14 con `dyingTimeWithoutGraveyard`, rama que
@@ -516,23 +521,71 @@ El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [
 
 ## Pendiente
 
-- Consultas de agua y `LandAvoid`: portadas y probadas, pero sin consumidor hasta que haya trabajos de los aldeanos y
-  criatura ([arriba](#consultas-de-agua-gutils-gstream-abode)).
-- `GET_PROPERTY`: solo `FLYING` y `DROWNING`; las demás propiedades siguen sin implementar.
-- Espuma de los golpes contra el agua: el color hacia la luz base según la nieve (`SnowCover`) no se aplica.
-- Hundirse: avisar a la criatura para que imite al jugador que soltó al aldeano o al animal
-  (`ConsiderMakingCreatureMimicPlayer`); `lastPlayerToInteract` sin jugadores donde guardarlo.
-- Anillos: no hay nadadores (SuperVillagers con `M_P_Swim2`).
-- Puzle de los peces: el pescador y el pergamino.
-- Barco: los sprites ordenados con los transparentes, la luz de la cubierta, la sombra del casco sobre objetos y el
-  modo ≠ 0 de `SmokyStuff::Create`.
-- **Muerte del aldeano (`TODO(villager-death)`)**: `VillagerDead` 0x7506C0 de verdad (alineamiento por motivo, contadores del
-  pueblo, textos de guía, madera/comida que suelta) y el estado DEAD (`Villager::Dead` 0x76A5E0): borra el fuego,
-  `CreateSmokyStuff` y, **solo fuera del agua**, `fn_00828790` = un registro de 12 bytes (lista 0xEB9A7C) con un
-  `LH3DObject` nuevo de la malla del aldeano (la de niño, `GVillagerInfo`+0x204, por debajo de la edad +0x138) que
-  toca el clip del **alma** P_DEAD1/2_GOTO_HEAVEN o _HELL (244/245 o 247/248: la pareja según el clip "M_P_DEAD1",
-  cielo o infierno al 50 %); luego la malla del aldeano pasa a ser la 0x1FF `PersonSkeletonMale` ([0xDCB164]). En el
-  agua: humo y esqueleto, sin alma. Hoy, al llegar el contador a 0, el aldeano se borra con `ToBeDeleted`.
+Estado a 2026-10-01 (hand-hbn `43054fb0` y siguientes). Todo lo demás del agua está hecho y es fiel al original; el
+plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
+
+**Se puede hacer ya (área del agua):**
+- Barco de los misioneros (`ecs/PetitNavire`): ordenar sus sprites (estela, `SmokyStuff`) con los transparentes en el
+  Z-sorter de LH3DSprite (hoy `Renderer::DrawBoatSprites` va después de los modelos transparentes); la luz de la
+  cubierta, que en el original copia el color +0x4C del casco a cada pasajero (openblack ilumina cada instancia por su
+  posición); la sombra del casco también sobre objetos (su `ShadowInfo` +0xC = 0); el modo ≠ 0 de
+  `SmokyStuff::Create` (rama 0x823DA7). Se cruza con la unificación de sprites de la sesión «sistemas».
+- Espuma de los golpes contra el agua (`fn_0074F2D0`): el tinte hacia la luz base según la nieve (`SnowCover`
+  [0xEDC344], `fn_004ED180`), ahora que el clima está en hand-hbn.
+- Comprobar que el ambiente sonoro y su grupo por alineación leen ya los valores reales (`CameraWeather` →
+  `weather::atmos::GetWeatherSmooth`, `atmos_banks::Alignment` → `Clouds::InfluentialPlayerAlignment`) y no 0.
+- Capturas que faltan por ver: la luna reflejada en el mar; que las vasijas de comida y los orbes siguen animando su
+  textura con la puerta del bit 0x10 del material (hace falta comparar dos fotogramas); los anillos de la lluvia
+  (`water_drop_cb` 0x54EEA0) y del milagro del agua (`SpellWater`) sobre el mar.
+- `GET_PROPERTY` / `SET_PROPERTY`: solo `FLYING` y `DROWNING`; las demás propiedades siguen sin implementar (no son del
+  agua).
+
+**Bloqueado por otras áreas:**
+- Criatura (no existe): pisadas en el agua y susto de los peces (`fn_00483290`), meterse en el agua y sus límites,
+  su reflejo (0x5E4A02, 0x65A0A0D0), imitar al jugador que tira algo al mar (`ConsiderMakingCreatureMimicPlayer`,
+  mimetismo 0x15 desde `HasSunk`), `CheckAllCreaturesForCatching`, beber del mar, y ser el consumidor de la máscara
+  `LandAvoid`.
+- Aldeanos (sesión «mapas»): pescadores (`FishermanLookForWater` 0x75B4C0 y su máquina de estados, con
+  `RemoveFishFarmFood`), beber (`FindNearestDrinkingWater`, `CREATE_DRINK_WAYPOINT`), el pastor que lleva el rebaño
+  al agua (`ShepherdMoveFlockToWater` 0x768CC0), `Villager::CreateDroppedResource` y la reacción 9
+  `REACT_TO_FLYING_OBJECT` al soltar con la mano, y la muerte completa: `VillagerDead` 0x7506C0 ya se llama con
+  motivo 6, pero el estado DEAD (`Villager::Dead` 0x76A5E0: humo, esqueleto 0x1FF y, fuera del agua, el alma de
+  `fn_00828790`: un registro de 12 bytes en la lista 0xEB9A7C con un `LH3DObject` nuevo de la malla del aldeano, la de
+  niño `GVillagerInfo`+0x204 por debajo de la edad +0x138, que toca el clip del alma P_DEAD1/2_GOTO_HEAVEN o _HELL,
+  244/245 o 247/248, y luego la malla pasa a la 0x1FF `PersonSkeletonMale` [0xDCB164]; en el agua, humo y esqueleto
+  sin alma) es del hito de muerte de «mapas».
+- `lastPlayerToInteract` (+0x104) y `GetPlayerWhoLastDroppedMe`: con un solo jugador, la mano da PLAYER_ONE
+  (inferido) hasta que haya varios jugadores.
+- Nadadores SuperVillager (`M_P_Swim2`, `DrawCutByPlane` y su anillo cada 1000 ms): necesitan los guiones de Land 1-2
+  (Baywatch, FollowUs).
+- `WALK_PATH` de los Living (0x5EE100, `Living::MoveAlongPath` 0x5EE230): necesita los caminos (footpaths) de los
+  aldeanos.
+- Puzle de los peces: el pescador y el pergamino del reto (`FishPuzzle.txt`); el resto de tipos de `PuzzleGame`.
+
+**En manos de otra sesión:**
+- «sistemas»: los anillos de agua, los peces de piscifactoría y los sprites del barco pasan a su sistema unificado
+  de fotogramas y orientación (mismas celdas y fórmulas; cualquier fundido entre fotogramas que el original no
+  haga irá como mod). También arregla el signo de la inclinación y de la fase de la luna, la V del halo (0xEDC304),
+  la celda de los peces (8 + (ftol(frame) & 15), dt ≤ 0,1 s, `fn_008248E0`) y el morfado al suelo del arca y el
+  dinosaurio (`UpdateMelting` 0x5E3C55 / 0x5E3DBE).
+- «audio»: los sonidos que aún no van por los 16 canales (AnimationSounds, rocas, el silbido de la cámara,
+  `G_RockPast`, los `PlaySample` de la mano) y la unión de `LanternSounds` con `SoundTags`.
+
+**Dudas que solo puede aclarar el usuario** (memoria del original):
+- ¿El mar estaba quieto con la cámara parada? El código dice que sí (viento ambiente 0, sin deriva).
+- El escalón del horizonte: unos 25 px de cielo espejado sobre el borde del cuadrado de 30000 del mar.
+- La luna reflejada en el mar y la mancha cálida de la mano de noche sobre el agua (120 × 120).
+- Un aldeano dejado suave en la orilla somera también se ahoga (60 s de clip `P_DROWNING`), y se puede rescatar con la
+  mano: ¿era así?
+- La cascada de Land 3: solo corre el agua (bit 0x10 del material); ¿se veían los anillos al pie?
+- El arca varada de Land 4 lleva el bucle `G_WaterFlow`: ¿sonaba a agua?
+- Calibrar de oído: el chapoteo de la mano a 40 / 100 / 150 unidades y el mar, la costa y las olas sueltas.
+- Una bola de fuego que cae al mar: ¿tres anillos finos y luego vapor blanco?
+- La botadura del barco: densidad del polvo de arena y volumen de los crujidos.
+
+Confirmado por el usuario (2026-10-01): un árbol o una roca lanzados al mar se veían cortados; el moteado de la orilla
+puede venir del `smallbump.raw` del pack de texturas; y se prefiere todo como el original, sin mods (sin el mod de
+8 bits del mar ni otros).
 
 ## Ganchos de prueba
 
@@ -562,6 +615,9 @@ del original.
 - `dev\tmp_dis\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
   `sea_render.md`; scripts de RE en `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
   `scan_tree5c.py`) y `re\NOTES.md`.
+- `dev\tmp_dis\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
+  `map_around.py`: el alfa costero frente a las celdas 0x02 en las 6 tierras) y `HANDOVER.md` (cómo continuar el área
+  del agua: worktree `dev\openblack-agua`, rama `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` y `agua_shot.sh`).
 - `dev\tmp_dis\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
 - `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca), `dev\tmp_dis\render\cut_notes.txt` y `objshadow_notes.txt`.
 - `bw1-decomp` (`src/Black/Object.cpp`, `include/chlasm/ScriptEnums.h`).

@@ -96,7 +96,12 @@ struct Villager
 	int16_t pregnancy {0};        ///< +0xF8, turns left of a pregnancy (0 none)
 	entt::entity mother {entt::null};      ///< +0x100
 	entt::entity targetThing {entt::null}; ///< +0x118 TargetThing (bw1-decomp Villager.h), what the jobs work on
-	// +0x11C (a union: Football* / TradeTown / WanderArea, bw1-decomp Villager.h) is left out until a job reads it
+	// +0x11C (a union: Football* / TradeTown / WanderArea, bw1-decomp Villager.h) is left out until a job reads it;
+	// the scripts use its first two dwords:
+	/// +0x11C: SET_SCRIPT_ULONG's clip (GScript::SetScriptUlong 0x6F8855), SCRIPT_PLAY_ANIM's (ScriptAnimation 0x768A00)
+	uint32_t scriptAnim {0};
+	/// +0x120: how many times SCRIPT_PLAY_ANIM plays it (0x6F884D; ScriptPlayAnim 0x768970 counts it down)
+	uint32_t scriptAnimLoops {0};
 	/// mirrors flags & k_FlagChild (DetailMeshes, the drawing, the sounds read it)
 	LifeStage lifeStage;
 	Sex sex;

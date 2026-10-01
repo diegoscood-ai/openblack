@@ -51,6 +51,7 @@
 #include "EngineConfig.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/OneOffSpellSeed.h"
 #include "Magic/Core/Players.h"
 #include "Magic/MagicTables.h"
 #include "Resources/ResourcesInterface.h"
@@ -84,9 +85,16 @@ constexpr int k_Rings = 8;
 /// Without a mesh: the temple's radius
 constexpr float k_DefaultTempleRadius = 20.0f;
 
+/// Mod choice (openblack's): turns after the placement before the fire seed is tried, so the land script's intro
+/// (Land 1 takes the hand and the camera) has started; it is tried again every turn while the hand is busy
+constexpr uint32_t k_SeedDelayTurns = 10;
+constexpr uint32_t k_SeedTries = 600;
+
 bool g_Placed = false;
 float g_Seconds = 0.0f;
 std::vector<entt::entity> g_Dispensers;
+entt::entity g_Empty = entt::null;
+uint32_t g_SeedTurns = 0; ///< turns since the placement while the fire seed is still to be given (0: done or off)
 
 auto& Registry()
 {
@@ -242,13 +250,15 @@ void Place(entt::entity temple, PlayerNames player)
 	const auto centre = registry.Get<const Transform>(temple).position;
 	const float templeRadius = RadiusOf(temple) > 0.0f ? RadiusOf(temple) : k_DefaultTempleRadius;
 	const auto obstacles = Obstacles();
+	// one more place for the empty dispenser
+	const size_t wanted = magics.size() + 1;
 	std::vector<glm::vec3> spots;
-	for (int ring = 0; ring < k_Rings && spots.size() < magics.size(); ++ring)
+	for (int ring = 0; ring < k_Rings && spots.size() < wanted; ++ring)
 	{
 		const float radius = templeRadius + k_FirstGap + static_cast<float>(ring) * k_Spacing;
 		const int count = std::max(6, static_cast<int>(glm::two_pi<float>() * radius / k_Spacing));
 		const float offset = static_cast<float>(ring) * 0.5f * glm::two_pi<float>() / static_cast<float>(count);
-		for (int i = 0; i < count && spots.size() < magics.size(); ++i)
+		for (int i = 0; i < count && spots.size() < wanted; ++i)
 		{
 			const float angle = offset + static_cast<float>(i) * glm::two_pi<float>() / static_cast<float>(count);
 			glm::vec3 point(centre.x + radius * std::sin(angle), 0.0f, centre.z + radius * std::cos(angle));
@@ -293,6 +303,16 @@ void Place(entt::entity temple, PlayerNames player)
 		                   Text(magic::GetSpellSeedInfo(tables, seed).debugString), powerUp, static_cast<int>(magic),
 		                   Text(magic::GetMagicEffectInfo(tables, magic).debugString), spot.x, spot.z);
 	}
+	// the empty machine: created as CREATE(SPELL_DISPENSER) without SET_MAGIC_PROPERTIES nor SET_ACTIVE, so it is
+	// inactive with no magic and never makes an orb (SpellDispenser::Process 0x722A70 needs it active)
+	if (spots.size() > magics.size())
+	{
+		const auto& spot = spots[magics.size()];
+		const float yAngle = std::atan2(centre.x - spot.x, centre.z - spot.z);
+		g_Empty = dispenser::Create(spot, abode, -1, yAngle, 1.0f);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Mod test.miracle-dispensers: empty dispenser {} at ({:.1f}, {:.1f})",
+		                   static_cast<uint32_t>(g_Empty), spot.x, spot.z);
+	}
 	if (spots.size() < magics.size())
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("game"), "Mod test.miracle-dispensers: room for only {} of the {} dispensers",
@@ -305,7 +325,38 @@ void test_dispensers::Reset()
 {
 	g_Placed = false;
 	g_Dispensers.clear();
+	g_Empty = entt::null;
+	g_SeedTurns = 0;
 }
+
+namespace
+{
+/// The "seed" option: a fire seed into the human player's hand through the one-shot path
+/// (OneOffSpellSeed::CreateSpellIntoHand 0x72A730, as OPENBLACK_TEST_SEED), once the dispensers are placed
+void GiveFireSeed()
+{
+	if (g_SeedTurns == 0)
+	{
+		return;
+	}
+	if (!Locator::config::value().testDispensersSeed)
+	{
+		g_SeedTurns = 0;
+		return;
+	}
+	if (++g_SeedTurns < k_SeedDelayTurns)
+	{
+		return;
+	}
+	const auto seed = magic::one_off::CreateSpellIntoHand(HumanPlayer(), SpellSeedType::Fire, -1, 1.0f);
+	if (seed != entt::null || g_SeedTurns > k_SeedTries)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Mod test.miracle-dispensers: fire seed into the hand -> {}",
+		                   seed == entt::null ? -1 : static_cast<int>(seed));
+		g_SeedTurns = 0;
+	}
+}
+} // namespace
 
 void test_dispensers::ProcessTurn([[maybe_unused]] uint32_t turn)
 {
@@ -325,8 +376,10 @@ void test_dispensers::ProcessTurn([[maybe_unused]] uint32_t turn)
 		g_Placed = true;
 		g_Seconds = config.testDispensersSeconds;
 		Place(temple, player);
+		g_SeedTurns = 1;
 		return;
 	}
+	GiveFireSeed();
 	// the recharge option changed in the Mods menu: the new period on the placed ones
 	if (g_Seconds != config.testDispensersSeconds)
 	{

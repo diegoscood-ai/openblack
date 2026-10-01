@@ -198,7 +198,14 @@ procesa los animales después.
 
 ProcessState:
 1. `++turnsSinceStateChange` (+0x90) y ProcessFoodSpeedup 0x753430 (`foodSpeedUp != 0 && turno % 10 == 0` → −1).
-2. validate (+0x80) del TOP y del FINAL crudo; el resultado no se usa.
+2. validate (+0x80) del TOP (+0x8C, 0x74FF91) y del FINAL crudo (+0x8D, 0x74FFD9), solo si la fila tiene; el
+   resultado no se usa. Las filas de reacción (201, 202, 251, 214-218, 220, 6-30, 140-196... todas las de validate
+   original 0x756A00 en `VillagerOriginalFns.h`) llaman a `villager_reactions::ReactionValidate` 0x756A00 desde
+   `LivingActionSystem::VillagerCallValidate` (fusión de V2, 2026-10-01): sin objeto de reacción (+0xBC), o no
+   disponible, o en la mano si la reacción lo pide → `PopFromPrevious` 0x751E50. Por eso `ReactToFire` 0x765870 solo
+   devuelve 0 (sin cambiar de estado) cuando el objeto no es un `Object` o no tiene fuego, y `GoToTeleportReaction`
+   0x7662F0 no comprueba nada (openblack solo devuelve 0 si no guarda piedra, en vez de leer un nulo); las salidas
+   propias (inferido) que hacían ese trabajo ya no están.
 3. Si suena un clip de entrada / salida (flag 0x800): espera a que acabe (IsReadyForNewAnimation 0x5EC960 →
    FinishedIntoOutOfAnimation 0x750060) y no hace nada más ese turno.
 4. CheckEveryTime 0x750410 y CallState 0x7521D0 (la función del TOP).
@@ -260,11 +267,9 @@ Códigos: 1 hecho, 0x2E la salida rechazó (no cambia nada), 0x2F la entrada rec
   ya no suelta el paseo, sigue en STEP_THROUGH (0x60B02A: recto al destino, sin obstáculos) **(aproximado)** y el
   aldeano llega por AreWeThere. Además el ARRIVED del PathfindingSystem estaba al revés (salía de ARRIVED justo cuando
   había llegado; 0x60AFC0 sale cuando **no** ha llegado).
-- **El paseo ocioso de openblack** (VillagerDecideWhatToDo, inventado) deja FINAL **209 NOTHING_TO_DO**, el estado
-  ocioso del original (DecideWhatToDo → SetupNothingToDo 0x753B50) **(inventado, puente hasta V2)**: su fila acepta
-  reacciones (fichero 0xEC = 1, como la fila 0; la de 163 es 0) y reanuda en 163 (fichero 0x20), así una reacción
-  guarda 209 y PopFromPrevious vuelve a 163, no a la fila 0 (reanudación 0 = INVALID_STATE). La función de 209 no está
-  portada: al llegar vuelve a 163 por el camino de compatibilidad, igual que con FINAL 0 (herramientas de depuración).
+- El paseo ocioso inventado (radio 40, FINAL 209) **ya no existe** (V2): 163 es `Villager::DecideWhatToDo` 0x7515C0
+  (ver "Decidir qué hacer y el ocio (V2)"). Solo las herramientas de depuración ("Move To Point") preparan paseos con
+  FINAL 0, que al llegar vuelven a 163 por el camino de compatibilidad (el original haría SetTopState(0)).
 - CallOutofAnimationFunction 0x756620 / CallIntoAnimationFunction 0x756590: ver [animation.md](animation.md)
   (`VillagerCallOutOfAnimation`, `VillagerApplyStateClips`).
 
@@ -273,7 +278,7 @@ Códigos: 1 hecho, 0x2E la salida rechazó (no cambia nada), 0x2F la entrada rec
 | llamada | qué hace |
 |---|---|
 | TOP, `skipTransition = false` (culto) | `villager::SetTopState` exacto |
-| TOP, `skipTransition = true` (mano, física, animales, el paseo ocioso y su llegada con FINAL 0, LANDED, Gui) | si es el mismo estado, nada; si no, `villager::SetState(0, s)` exacto + clips y velocidad. **(aproximado)**: el original pasa por SetTopState con EnterInHand / ExitInHand..., no portadas |
+| TOP, `skipTransition = true` (mano, física, animales, la llegada de un paseo con FINAL 0, LANDED, Gui) | si es el mismo estado, nada; si no, `villager::SetState(0, s)` exacto + clips y velocidad. **(aproximado)**: el original pasa por SetTopState con EnterInHand / ExitInHand..., no portadas |
 | FINAL / PREVIOUS | `villager::SetState(i, s)` exacto |
 
 ## Estados 85 y 239
@@ -294,6 +299,73 @@ en 60 WORSHIPPING_AT_WORSHIP_SITE tras FindDanceGroup conserva la velocidad. Des
 grownUpAge (0x750F26, `jae`) y oldAge (0x750F87, `jbe`); las diferencias se cargan como qword sin signo, ×0,2×0,1,
 máximo 0,4. El adulto resta
 `GetDesireForFood()·0,1` (0x750FDB, POWER 0x75BB60 = `1 − min(food, 1)³`), `vida·0,1` y 0,2 si es mujer.
+
+## Decidir qué hacer y el ocio (V2)
+
+Spec completa: `dev\tmp_dis\aldeanos\V2_spec.md`. Código: `Villager/VillagerDecide.{h,cpp}`, `Villager/VillagerHome.{h,cpp}`,
+`Town/TownQueries.{h,cpp}`, `Town/AbodeQueries.{h,cpp}`; tests `test/test_villager_decide.cpp` (13 casos).
+
+- **163 DECIDE_WHAT_TO_DO** (0x7515C0, devuelve 1): emergencia del pueblo (Town::IsInStateOfEmergency 0x747970, +0xF1C
+  `Town::emergencyStartTurn`, nadie lo escribe aún: TODO(Milagros)) → 242; discípulo / seguidor (DiscipleDecideWhatToDo
+  neutro, V14); `SetTopState(163)`; niño → ChildDecideWhatToDo (CheckChild, reparto del pueblo neutro, guardería neutra,
+  → 114); CheckNeededForSomething (sin techo: neutro V4 → CheckNeededForSpecial: **culto de Milagros**, cívico (V3:
+  calcula el trigger y borra `flags & 1`, reparto 0), deseos propios con umbral 0,3) → CheckTakeResourcesToStoragePit
+  (→ 31) → SetupNothingToDo. El culto ya no va al principio de 163: está en su sitio (0x760013), antes de la rama ociosa
+  y también se mira desde 246.
+- Deseos: comida = 1 − min(food, 1)³, vida = 1 − ((vida − min(0,3, vida)) / 0,7)²; el mayor primero, comparaciones
+  estrictas con 0. CheckSatisfySleep 0x761490 no mira la hora (con casa → 36). ChangeStateToFindFoodToEat neutro (V4).
+- **SetupNothingToDo** 0x753B50: GameRand(9), tabla 0x753C64 = 0,1,1,1,2,2,2,2,2. Rama 0: casa funcional → 36; si no
+  GameRand(100) < 10 → 36, si no cae a la 1. Rama 1: con casa → 245; si no cae a la 2. Rama 2: con pueblo, anda a
+  GetChillOutPos (punto de reunión + R..10R, ±22,5° de su lado, R = 0,1·GTownInfo +0x140) con FINAL 246; si no 36.
+  Siempre devuelve 1.
+- **209** devuelve 1 (solo lo ponen guiones). **245** GoAndChilloutOutsideHome 0x76B3F0 y **252** GoAndChilloutInTown
+  0x76B590 → GetMeToMyChillOutPos 0x76B610 (lejos: anda a GetPosOutside(3, R/2, R/2) de la puerta; cerca y libre
+  (CheckForClearArea con 1,2·radio): LookAtPos un paso y 246; ocupado: FindClearArea(5, 1)). **246** SitAndChillout
+  0x76B4E0: entrada 500 turnos (+0x394), luego un chequeo cada 101 llamadas (+0x396 = 100): emergencia, CheckNeededFor
+  Something, GameRand(10) == 0 → SetupNothingToDo sin pasar por 163. Clip SitDown: el bit 0x800 antes del clip actual.
+- **36 GO_HOME** (parcial) = DoGoingHome(37, 238): con casa, anda a la puerta con FINAL 37 (37 ARRIVES_HOME es V4: el
+  aldeano queda quieto en la puerta). Sin casa: nada (tienda / vagabundo V4). La regla "herido → 36" de CheckEveryTime
+  está encendida en el juego.
+- **114 CHILD_FOLLOWS_MOTHER** 0x7578C0: CheckChild, reparto, guardería; si no, anda a la madre (o a la casa) + 5 m en
+  un ángulo al azar (GameFloatRand(2π), VillagerChild.cpp 0x39) si el punto es navegable; sin madre ni casa,
+  CheckNeedNewAbode (neutro V4). La fila 114 lleva +0x50 AlwaysReactToTownEmergency (0xD0D208 = 0x5AC990), como 36 y
+  209.
+- Pueblo: GetCongregationPos 0x7408B0 con caché `Town::congregationPos` (+0xF10; también la escribe
+  SET_TOWN_CONGREGATION_POS); media de las casas que no son campos (con < 3, más los planos) y FindClearArea(130, 3, 10,
+  BlocksTownClearArea); si no, base + 10..20 m. La lista de casas (+0x754) va de la más nueva a la más vieja
+  (AddStructureToTown inserta en cabeza, 0x7399C3..0x7399CF); la de planos (+0x9A8) de la más vieja a la más nueva
+  (AddPlanned añade al final, 0x73D08A..0x73D0AD). La altura del resultado es la del último leído (0x7409C1..0x7409DB).
+  SET_TOWN_CONGREGATION_POS: GetScriptPos 0x718250 → MapCoords::Set 0x603280 (x, z; altura 0, o el tercer campo sin
+  escalar si lo hay, 0x6032E4); el desplazamiento 0xD99724 es nulo al cargar una tierra (LoadMapFeatures 0x7180FE) y
+  solo lo pone el vórtice (fn_0076FA50).
+
+### Desviaciones y efectos visibles hasta V4
+
+- Aldeanos en 37 ARRIVES_HOME (sin función) y en 36 sin casa (DoGoingHome devuelve 1 sin hacer nada) quedan quietos
+  para siempre; el número crece con la partida (Land1: 4 → 5 → 6 en 37 en los turnos 400 / 800 / 1200, más 3 en 36 sin
+  casa). Aceptado (P-1).
+- **Niños sin casa quedan quietos en 114** hasta V4: sin madre (los creados al empezar el mapa no tienen, la madre es
+  nula cuando la edad < grownUpAge) y sin casa, ChildFollowsMother llama a CheckNeedNewAbode 0x757F90 (neutro) y
+  devuelve 1; si tienen hambre, CheckChild → GoHome → la rama sin casa de DoGoingHome 0x760310 (neutra) devuelve 1. Antes
+  de V2 paseaban (paseo inventado). Land1: 5–6 niños en 114 quietos (12, 13 en (1748,4, 2679,6) desde su creación). El
+  trace lo dice una vez por aldeano: `child 114: no mother, no abode -> CheckNeedNewAbode …` y
+  `home: no abode -> DoGoingHome's homeless branch …`. Land1 (2026-10-01, `_mapa_runudit_v2_fix.log`, 367 turnos): niños 60, 12 y 67 por
+  CheckNeedNewAbode, aldeanos 1992 y 1991 por la rama sin casa de DoGoingHome.
+- Los que quedan en 37 o en 36 sin casa no vuelven a CheckNeededForSomething: el culto de Milagros
+  (CheckNeededForWorship) no puede reclutarlos y la reserva de adoradores baja con la partida.
+- Otros caminos acaban también en 37: un aldeano que sobrevive a ser comido queda con vida 0,05 (AnimalPredators
+  ProcessDownedVillagers → LANDED → 163) y la regla "herido → 36" lo lleva a la puerta y a 37; igual los heridos por
+  fuego o por `OPENBLACK_TEST_HURT_VILLAGERS`.
+- Ganchos nuevos: `OPENBLACK_TEST_VILLAGER_FOOD="<food>[,<n>]"`, `OPENBLACK_TEST_VILLAGER_NOTHING="<r>[,<n>]"` (fuerza
+  la próxima GameRand(9)), `OPENBLACK_TEST_VILLAGER_SHOT="<turno>,<png>[;...]"` (captura en ese turno). El trace añade
+  `decide: …`, `chill 245/252: …`, `sit 246: check -> …`, `home 36: …`, `child 114: …` y `congregation town …`.
+
+Comprobado (2026-10-01): Land1, 2532 turnos, todos los aldeanos: 62 SetupNothingToDo (r = 0..8: 11, 3, 10, 8, 6, 4, 7, 5,
+8) → 36 × 11, 245 × 18, 246 × 33; 245: 20 "lejos", 17 "cerca y libre", 11 "ocupado" (por su casa, ver supuesto 21); 246:
+274 "otra vez" y 26 "nada"; un único aviso de 37 ARRIVES_HOME; ningún 163/209/245/246 sin función. Punto de reunión de
+los pueblos 0 (1789,3, 2681,3) y 4 (2479,1, 2542,7) por la media. Land2 con `OPENBLACK_TEST_WORSHIP="1,0.5"`, 3335
+turnos: r = 0..8 repartidas (30..45 cada una), 1734 chequeos de 246 "otra vez" y 185 "nada", 10 pueblos con punto de
+reunión, el culto sigue (11 adoradores en 59/60).
 
 ## Culto: vuelta a casa
 
@@ -352,13 +424,26 @@ moverse entre dos resúmenes), 18 casos sin portar del PathfindingSystem siguen 
 163 → 219), `ExitReaction` en cada salida de 215..220 y 12 `StopReacting` al apagarse; ningún `pause 239` ni
 `Stuck in an invalid state`. `OPENBLACK_TEST_MAP_CYCLE` sobre Land1-5 sin cuelgues.
 
+Con `ReactionValidate` conectada (fusión de V2, 2026-10-01, `_scratch\mapa\p_fire.log`, `p_tele3.log`, con una
+traza temporal en `VillagerCallValidate` que no se queda en el código): fuego (`OPENBLACK_TEST_FIRE=
+"1785.2,2652.6,450,abode,60"`, 785 turnos) 12 aldeanos 85/1/114 → 215 → 220 ⇄ 216 y vuelta a 163 con
+`StopReacting` al apagarse; `ReactionValidate` corre cada turno para el TOP (1080 veces en 216, 54 en 220, 13 en 215)
+y para el FINAL (410 en 220, 3 en 215), sin ningún pop (el objeto, la casa, sigue disponible; al apagarse
+`ExitPutOutFire` → 163 hace `StopReacting` antes de que se valide un estado de reacción sin objeto). Teletransporte
+(`OPENBLACK_TEST_TELEPORT="1715,2595,1760,2640,7,walk"`, `_TURN=550`): 1 → 201 → (20 turnos andando, FINAL 201
+validado cada turno) → 202 → salto de 63,6 m → 163 y `PopFromPrevious stored 245 -> resume 163`. **Ojo con el
+gancho `walk`**: desde V2 su paseo con FINAL 163 no admite reacciones (`IsAvailableForReaction` 0x763390: el +0xEC
+de 163 es 0), así que el aldeano del gancho no reacciona; la prueba se hizo con FINAL 245 cambiado a mano en
+`TeleportDebugHooks.cpp` (sin guardar). `OPENBLACK_TEST_MAP_CYCLE` sobre Land1-5, Greek God, TwoGods y Kapa's Land1
+sin cuelgues.
+
 ## Pruebas
 
 `test/test_villager_core.cpp` (tabla falsa en el Locator y tiradas guionizadas con `villager::SetRandForTests`):
 food con una y dos tiradas, lastCheckTurn, contador y regla del agua, orden de azar del constructor, 85, 0x2E por TOP y
 por FINAL, 0x2F (→ 163), 0x23, fijar TOP borra FINAL con el pueblo, la regla de PREVIOUS, AdjustTownModifier, la
 pausa (con y sin veneno, sin tirada en 239 o sin la marca), 239 → FINAL, check cada 9 turnos, desgaste, EXHAUSTION /
-CHANT (también con `WorshipVillager::atSite`), herido → 36 (apagado por defecto hasta V4; encendido: 19 con comida,
+CHANT (también con `WorshipVillager::atSite`), herido → 36 (encendido desde V2; apagado en un caso; 19 con comida,
 derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo), POWER.
 
 ## Supuestos (inferido / aproximado)
@@ -379,9 +464,9 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
    el jugador de VillagerDead (GetPlayer, vt +0x1C) no se pasa (NEUTRAL).
 9. **(aproximado)** Los cambios de TOP de la mano, la física, los animales, LANDED y el Gui no pasan por salidas ni
    entradas (sus Enter/Exit del original no están portadas). Los de fuego y teletransporte ya sí (núcleo).
-10. **(inventado, puente hasta V2)** El paseo ocioso de DECIDE_WHAT_TO_DO (radio 40, espera 20 turnos) no es del
-    original; deja FINAL 0 y a la llegada vuelve a 163 por el camino de compatibilidad (el original haría
-    SetTopState(0)). Con FINAL distinto de 0 la llegada es la exacta (SetTopStateToFinal, 0x5EC28E).
+10. (V2: el paseo ocioso inventado se ha quitado.) Un paseo con FINAL 0 (solo herramientas de depuración) vuelve a 163
+    por el camino de compatibilidad (el original haría SetTopState(0)). Con FINAL distinto de 0 la llegada es la
+    exacta (SetTopStateToFinal, 0x5EC28E).
 11. **(aproximado)** La salida de MOVE_TO_POS / MOVE_TO_OBJECT (ExitMoveToPos 0x5EDDA0: CircleHugInfo::Reset y
     +0x60 = 0) no está portada: vale 1 (lo que devuelve) y avisa una vez.
 12. **(aproximado)** AdjustTownModifier ignora un deseo fuera de 0..16 (info.dat no tiene ninguno).
@@ -389,11 +474,42 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
 14. **(aproximado)** Sin recursos de clips (los tests), IsReadyForNewAnimation da "acabado".
 15. **(aproximado)** El bit 0x2 de +0xE0 (en el sitio de culto) se lee de `flags` o de `WorshipVillager::atSite`
     (Milagros) hasta que pase a `flags`.
-16. **(aproximado hasta V4)** La regla "herido → 36 GO_HOME" de CheckEveryTime (0x7505C3) se evalúa pero no cambia el
-    estado (ni tirada de pausa, ni salida / entrada): GO_HOME no está portado y el aldeano se congelaría.
+16. (V2: ya no es supuesto.) La regla "herido → 36 GO_HOME" de CheckEveryTime (0x7505C3) está encendida: 36 anda a la
+    puerta. **(aproximado hasta V4)** Al llegar, 37 ARRIVES_HOME no está portado: el aldeano queda quieto en la puerta.
 17. Neutros hasta su hito (no inventan conducta): CheckHungry (solo el reinicio de lastCheckTurn; la comida no baja),
     CheckChildGrownUp, WomanSpecial, CheckDeathFromOldAge (V4), ProcessReaction (Milagros M-5), Town +0x5E8 (V3),
     SpecialVillager (V14), contador de aldeanos y esqueleto (V12), DROWNING 16 (agua).
+18. Neutros de V2 (devuelven 0 / no hacen nada, con TODO y dirección): CheckHomelessMoveIntoAbode 0x761360,
+    ChangeStateToFindFoodToEat 0x75B990, CheckWhenGoingToBed 0x760B60, CheckNeedNewAbode 0x757F90 (V4);
+    TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 (V3: devuelve 0; qué deja en eax está sin leer, P-11);
+    DiscipleDecideWhatToDo 0x751720, IsMotherAlive 0x757F40 (deja la madre), ChildGotoCreche 0x7579F0, RemoveFromDance
+    (V14); la rama sin casa de DoGoingHome (tienda 238 / 130, V4); Town +0xF1C (lo escribirá ProcessTownEmergency,
+    Milagros); ExitAtHome 0x761B40 (V4, vale 1).
+19. **(aproximado, P-5)** La puerta (Game3DObject::GetDoorPosition 0x63AFE0 por LH3D vt +0x1C4, sin símbolos): el
+    punto de puerta del L3D (`L3DMesh::GetDoorPos`) por rotación·escala del Transform de la casa; sin puerta, la
+    posición de la casa (literal, 0x52E3A4).
+20. **(inferido)** Abode IsAvailable (+0xA & 1) = la entidad es válida; IsBuilt (+0x58 & 2, +0x5C ≥ 1) = sí para todas
+    las casas (no hay obras hasta V6) **(aproximado hasta V6)**; el GAbodeInfo de la casa es el de su número y malla.
+21. **(aproximado)** CheckForClearArea: openblack no tiene listas de objetos por celda; se toman las entidades de cada
+    celda (`effects::ObjectsInMapCell`) y su radio `Object2DRadius`: mismo conjunto, otro orden (el resultado es sí /
+    no). Con el radio de las casas de openblack (≈5,4 m) y la puerta a ≈1,5 m del centro, muchos sitios de 245 caen
+    "ocupados por su casa" y FindClearArea los aparta: los aldeanos se sientan algo más lejos de la puerta que en el
+    original (efecto de 19).
+22. **(aproximado)** La lista de casas del pueblo (+0x754) va de la más nueva a la más vieja (AddStructureToTown
+    0x7399C3..0x7399CF inserta en cabeza); openblack la ordena por el índice de creación (+0x3C) de mayor a menor, como
+    si cada casa entrara en su pueblo al crearse. Decide la altura de GetCongregationPos (la del último leído: la más
+    vieja), la base del respaldo con una casa y qué casas quedan en el anillo con más de 100. Los planos (+0x9A8) van
+    en orden de llegada (AddPlanned 0x73D08A..0x73D0AD añade al final), como `plannedAbodes`.
+23. **(aproximado, P-9)** SetupMoveToOnFootpath 0x5EDD20: GFootpathLink::UseFootpathIfNecessary 0x5362E0 no está
+    portado: siempre el paseo directo (SetupMoveToWithHug), que es lo literal sin enlace de camino.
+24. **(aproximado)** LookAtPos 0x5EC550: el ángulo Living +0x5C es `WallHug::yAngle` (radianes, redondeado a 2048avos).
+    Toma dos argumentos (ret 8); con un modo distinto de 0 / 1 / 2 el paso es el propio modo (0x5EC57A).
+25. **(aproximado)** 114: la madre "disponible" (vt +0x2C) = entidad válida; IsNavigable (Collide & 2 y no & 8): el
+    Collide de openblack solo sabe tierra / agua (el bit 8 nunca está).
+26. **(aproximado)** SET_TOWN_CONGREGATION_POS: el analizador de guiones de openblack (Script.cpp GetParameter) solo hace
+    vector de una cadena de dos campos (y su y es la altura del terreno, no un tercer campo): la altura de la caché es 0,
+    lo literal para dos campos. Una cadena de tres campos (MapCoords::Set 0x6032E4 la leería sin escalar) no llega al
+    comando en openblack. Ninguno de los guiones del juego usa tres campos.
 
 Ya no son supuestos: el escritor de +0x24 & 0x400 (controlado por guion) es GameThingWithPos::SetControlledByScript
 0x402240 (`ecs::script_held`; también el vórtice, fn_005FE3B0 0x5FE474); el estado de andar de SetupMoveToWithHug es

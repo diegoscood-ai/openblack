@@ -18,6 +18,7 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Weather/Atmos.h"
 #include "EngineConfig.h"
+#include "Graphics/Lh3dColour.h"
 #include "Locator.h"
 
 namespace openblack
@@ -171,10 +172,12 @@ uint32_t Clouds::Colour(float alignment, uint32_t table255) noexcept
 	const int i = static_cast<int>(x);
 	const int f = static_cast<int>((x - static_cast<float>(i)) * 256.0f);
 	const uint32_t lerped = LerpColour(k_Table[i], k_Table[std::min(i + 1, 2)], f);
-	uint32_t result = lerped & 0xFF000000u;
+	// 0x5E1F05..0x5E1F24: the lerped colour times the light table's last entry, (c l) >> 8, its alpha (byte +0x1B) kept
+	const uint32_t lit = lh3d_colour::MulShr8_3KeepA(lerped, table255);
+	uint32_t result = lit & 0xFF000000u;
 	for (const uint32_t shift : {16u, 8u, 0u})
 	{
-		int c = static_cast<int>((((lerped >> shift) & 0xFFu) * ((table255 >> shift) & 0xFFu)) >> 8);
+		int c = static_cast<int>((lit >> shift) & 0xFFu);
 		// 0x5E1F28..0x5E1FB4: c + ((35 << 8) - 70 c) >> 8, a floor
 		c = c + static_cast<int>(std::floor(static_cast<float>(8960 - 70 * c) / 256.0f));
 		result |= (static_cast<uint32_t>(c) & 0xFFu) << shift;

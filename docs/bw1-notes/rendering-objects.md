@@ -7,6 +7,7 @@ como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
 - [Luz de los modelos](#luz-de-los-modelos)
+- [Aritmética de LH3DColor](#aritmética-de-lh3dcolor)
 - [Repetición o recorte de texturas](#repetición-o-recorte-de-texturas)
 - [Sprites en el orden de transparentes](#sprites-en-el-orden-de-transparentes)
 - [Manchas de aldeanos, reflejos de objetos y LOD](#manchas-de-aldeanos-reflejos-de-objetos-y-lod)
@@ -109,6 +110,62 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   `Ambient()` a `u_cloud.z`.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
   especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
+
+## Aritmética de LH3DColor
+
+**Fiel** (del original, no es un mod). Un LH3DColor es un D3DCOLOR, 0xAARRGGBB. El motor combina dos colores con dos
+familias de operaciones, y **todas truncan, ninguna redondea**:
+
+- `(c·t) >> 8` por canal: `imul` sobre el byte enmascarado y `shr 8`. Con t = 0xFF cada canal pierde 1 (0xFF → 0xFE).
+- `c·l / 255` por canal: el truco 0x80808081 (`sar 7` más el bit de signo, o `mul` y `shr 7`), que da exactamente
+  trunc(x/255) para x de 0 a 65025.
+
+Cada rutina tiene su propia regla para el alfa. Cuando el alfa se **conserva**, es siempre el del **primer**
+argumento:
+
+| Rutina | Qué hace | Alfa | openblack |
+|---|---|---|---|
+| `fn_0080BF10` difuso (0x80BFA3..0x80C00B) | `(c·t)>>8` → +0x4C | multiplicado (0x80BFC5..0x80BFD3) | `MulShr8_4` |
+| `fn_0080BF10` especular (0x80BF1B..0x80BFB9) | `min(a+b, 255)` → +0x50 | sumado y saturado (`cmp 0xFF`/`jb`) | `AddSat_4` |
+| `fn_00809D80` (solo 0x80A290: color del objeto × parte) | `(a·b)>>8` | el de a (0x809DCF) | `MulShr8_3KeepA` |
+| `fn_00809DE0` (0x80A2A6: especular del objeto + parte) | `min(a+b, 255)` | el de a (0x809E46) | `AddSat_3KeepA` |
+| `fn_0084BA90` 0x84BBEA, `Tree::Draw` 0x74B077, `fn_0074B3A0` | `(c·k)>>8` por un escalar | el del objeto (0x74B0BD, 0x74B4C9) | `ScaleShr8_3KeepA` |
+| `fn_007ACF70` (0x7ACF79..0x7AD03C) | `trunc(a·b/255)` | multiplicado | `Mul255_4` |
+| `LH3DMist` 0x7FA6C8..0x7FA75F | color × luz `/255` | el del color, no el de la luz (0x7FA753) | `Mul255_3KeepA` |
+| `LH3DCreature::DrawNow` 0x48EF00..0x48EF98 | cuerpo × objeto `/255` | 0xFF (0x48EF8F) | `Mul255_3OpaqueA` |
+| `fn_005E25C0` 0x5E2729..0x5E273B | borde de la nube × alfa `/255` | — (escalar) | `Mul255` |
+
+Detalles leídos en el binario:
+
+- Un campo: `Field::Draw` llama a `fn_0080BEC0` con el color del campo (BlendColor, alfa 0xFF en 0x528510), así que su
+  alfa final es (0xFF·0xFF)>>8 = **254**. Con fuego (0x528809..0x528862) el tinte es antes ese color por el gris de
+  carbonizado de `fn_00730570`, en los 4 canales (= `MulShr8_4`).
+- La bola de un uso (0x518DDA y 0x519002): tinte `([0xBE8E8C] & 0xFF) << 24 | 0xFFFFFF` con [0xBE8E8C] = 0x00010196
+  (sin escritor), así que el alfa es (0xFF·0x96)>>8 = 0x95.
+- `SpellWolf::Draw`: +0x4C = `fistp(alpha) << 24 | 0xFFFFFF` (0x51C701..0x51C714) y la translucidez se decide con ese
+  alfa crudo (0x51C71E..0x51C727); ardiendo, +0x4C × carbonizado en los 4 canales (0x51C751..0x51C7B7) y
+  `fn_0080BEC0` con el brillo `fn_00730480`.
+- **`Tree::Draw` no llama a `fn_0080BEC0`**: su +0x4C es `fn_00802120` (0x74AB1B) más la neblina `fn_007FEB30`
+  (0x74AB60), y después el brillo [0xC22FA0] por `(c·k)>>8` con el alfa conservado (0x74B077..0x74B0C4). La neblina va
+  **antes** del brillo, al revés que en `vs_object`.
+- El árbol ardiendo (`fn_0074B3A0`): gris 50, o `ftol(255 − (1 − vida)·2550)` con un mínimo de 50 si vida > 0,9, y
+  luego `min(gris, [0xC22FA0])` sin signo (`jb`, 0x74B47B..0x74B484); el alfa **se conserva** (0x74B4C9, confirmado).
+- El gris de carbonizado `fn_00730570` es `255 − ceil(175k/256)` (0x730585..0x7305D7): k = 255 da 80.
+
+openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, sin estado, todo `constexpr`), con la regla del alfa en el
+nombre (`_4`, `_3KeepA`, `_3OpaqueA`), más `Argb`, `Red/Green/Blue/Alpha` y las conversiones de bgfx sin original
+(`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` redondeando y `ToVec4/ToVec3` = byte/255). El gemelo de GPU es
+`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`). Todavía no lo incluye
+ningún shader: `vs_object.sc` y `vs_foliage.sc` siguen con sus copias hasta el reempaquetado de la instancia. La luz
+de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E1F05..0x5E1F24), las neblinas
+(`RendererMists`), la bola de un uso y las conversiones de `Renderer`, `RendererBoat`, `RendererSea`,
+`RendererSmoke`, `Dust`, `GameFont` y `ScreenFade` ya lo usan, sin cambio visible. `test_lh3d_colour` compara
+`MulShr8_4` con una emulación instrucción a instrucción de 0x80BFA3..0x80C00B y `Mul255` con las dos formas de
+0x80808081 para todos los productos de dos bytes.
+
+Diferencias que quedan (ver [Pendiente](#pendiente)): los empaquetadores de `RenderingSystem.cpp` (campo, árbol,
+árbol ardiendo, ObjectColour, especular de Living con 7 bits en vez de 8 y sin alfa, átomo PSys sin el especular
+DrawData+0xC) y el tinte T = −1, que no se aplica (el alfa de un campo debería quedar en 254).
 
 ## Repetición o recorte de texturas
 
@@ -782,6 +839,19 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
     cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
     compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
   - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
+- Aritmética de LH3DColor, lo que falta por pasar a `lh3d_colour`:
+  - con el reempaquetado de la instancia (el especular en otra columna, color y especular a la vez, el tinte
+    T = −1): los empaquetadores de `RenderingSystem.cpp`, el transporte `u_objectLight` (`Renderer.cpp`,
+    `RendererBoat.cpp`), el alfa del lobo (`SpellFlock.cpp`: debería ser (0xFF·a)>>8, con la translucidez decidida
+    aparte con el alfa crudo, 0x51C724), el veneno (0x51BB50 / 0x51BB60), `DrawBuilding` 0x517FD4 y el campo y el
+    lobo ardiendo;
+  - en zonas de otras sesiones: las copias de `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
+    0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` y `RendererChain` / `RendererPSys` (`ToAbgr`);
+  - `ECS/Fire/FireGraphic.cpp` (dos arreglos exactos): `TreeDrawColour` debe limitar con `ecs::TreeBrightness()`, no
+    con 255 (0x74B47B); `CharringGrey` debe ser `255 − ceil(175k/256)` (0x730585..0x7305D7; con k = 255 openblack da
+    81 y el original 80);
+  - `fn_00809D80` / `fn_00809DE0` (color por parte de malla, 0x80A290 / 0x80A2A6) y `LH3DCreature::DrawNow` no tienen
+    aún usuario en openblack; `fn_007ACF70` solo existe en GPU (`fs_object.sc`, en float sin truncar).
 - Bancos de peces: el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
 - Sombras de los objetos físicos: el filtro 2×2 de los árboles y el rehorneado de la sombra estática al salir un árbol
   o un MobileObject.
@@ -855,3 +925,5 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   (inventario de openblack) y `U2_changes.md` (la migración).
 - `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
   (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).
+- `dev\tmp_dis\unify2\shader_lh3dcolour_instance_original.md` (las rutinas, con su verificación),
+  `shader_lh3dcolour_instance_openblack.md` (inventario de openblack) y `SHADERS_PLAN.md` §3 (aritmética de LH3DColor).

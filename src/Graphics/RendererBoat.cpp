@@ -32,6 +32,7 @@
 #include "ECS/SmokyStuff.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
@@ -97,7 +98,7 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 	std::vector<Vertex> vertices;
 	// the cell of the 8 x 8 sheet (+0x30 = 8) is in the quad's UVs, the colour is the vertex diffuse
 	const auto add = [&vertices](const billboard::Quad& quad, uint32_t argb) {
-		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+		const uint32_t abgr = lh3d_colour::ToAbgr(argb);
 		for (const int i : billboard::k_SpriteTriangles)
 		{
 			const auto& p = quad.corners.at(static_cast<size_t>(i));

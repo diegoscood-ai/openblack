@@ -37,6 +37,7 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/SeaRows.h"
 #include "Graphics/ShaderManager.h"
@@ -226,8 +227,7 @@ void Renderer::DrawHandWaterGlow(RenderPass viewId) const
 		vertices[i] = corners[k_Indices[i]];
 	}
 	const auto argb = glow->argb;
-	const glm::vec4 colour(static_cast<float>((argb >> 16) & 0xFFu) / 255.0f, static_cast<float>((argb >> 8) & 0xFFu) / 255.0f,
-	                       static_cast<float>(argb & 0xFFu) / 255.0f, static_cast<float>(argb >> 24) / 255.0f);
+	const glm::vec4 colour = lh3d_colour::ToVec4(argb);
 	const glm::vec4 celestial(0.0f, 0.0f, 0.0f, 1.0f);
 	const glm::mat4 identity(1.0f);
 	const auto* program = _shaderManager->GetShader("Celestial");

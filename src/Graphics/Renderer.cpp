@@ -71,6 +71,7 @@
 #include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/ModelLight.h"
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
@@ -1180,7 +1181,7 @@ void Renderer::UpdateClouds() const
 	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
 	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
 	const uint32_t colour = Clouds::Colour(_skyAlignment.Get(), table255);
-	_cloudRgb = glm::vec3((colour >> 16) & 0xFFu, (colour >> 8) & 0xFFu, colour & 0xFFu) / 255.0f;
+	_cloudRgb = lh3d_colour::ToVec3(colour);
 	const auto alignAlpha = static_cast<int>(colour >> 24);
 	_cloudAlpha.resize(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _cloudAlpha.size(); ++i)
@@ -1691,10 +1692,7 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		const auto alpha = static_cast<uint32_t>(static_cast<int>((255.0f - static_cast<float>(ring.age % 700) * 0.364286f) *
 		                                                          static_cast<float>(ring.argb >> 24)) >> 8) & 0xFFu;
 		// +0x34 as the creator left it (the light colour was fixed at creation, ecs::AddWaterRing)
-		const uint32_t r = (ring.argb >> 16) & 0xFFu;
-		const uint32_t g = (ring.argb >> 8) & 0xFFu;
-		const uint32_t b = ring.argb & 0xFFu;
-		const uint32_t abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
+		const uint32_t abgr = lh3d_colour::ToAbgr(ring.argb, alpha);
 		// LH3DSprite flag 0x40 (GWater::InitialiseCircles 0x54BA84): a flat quad turned about Y (billboard::Horizontal),
 		// the z half size x the aspect (+0x10)
 		billboard::Sprite sprite;
@@ -2105,7 +2103,7 @@ void Renderer::DrawScreenOverlay() const
 	std::vector<Vertex> vertices;
 	// pre-transformed rectangles in pixels (FVF 0x1C4, rhw 1), here straight to clip space
 	const auto addRect = [&vertices, width, height](int x0, int y0, int x1, int y1, uint32_t argb) {
-		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+		const uint32_t abgr = lh3d_colour::ToAbgr(argb);
 		const float l = 2.0f * static_cast<float>(x0) / static_cast<float>(width) - 1.0f;
 		const float r = 2.0f * static_cast<float>(x1) / static_cast<float>(width) - 1.0f;
 		const float t = 1.0f - 2.0f * static_cast<float>(y0) / static_cast<float>(height);

@@ -438,50 +438,8 @@ creencias del pueblo) está en [particles.md](particles.md#el-psys-en-el-mundo-f
 
 ## Niebla del mapa (LH3DMist, `fn_007FA300`)
 
-- **Otras nieblas** (API `mists::Submit(const MistDesc&)`, `src/Graphics/Mists.h`): quien tenga sus propios objetos
-  LH3DMist (las bocanadas de tormenta de `GWeather::DrawClouds` 0x83FC90) los envía cada fotograma con posición,
-  tamaño, color ARGB, rama efecto/normal, k y su contador; `CollectMists` los recorta con la misma esfera y van a la
-  misma lista de atrás adelante que las del mapa y los modelos con mezcla (`_frameMists`, `DrawMist(índice)`).
-
-- Misma malla `mist.l3d` (cúpula de radio 20, base en el origen), material de humo 0xEA1ABC (`fn_0080BBD0`, modo 6:
-  mezcla SRCALPHA/INVSRCALPHA, color y alfa = textura × difuso, sin escritura de Z, dos caras) y atlas 8×8 que las
-  nubes. Creación (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 siempre; si F4 ≠ 1, +0x8C = F4 y
-  +0x80 |= 2 (rama "efecto"). Color N2 en +0x4C (ARGB), +0x50 (especular) = 0.
-- **Rotación** (clave): 0x7FA38F copia a la matriz del objeto la 0xEA1C98, que `UpdateCamera` 0x819A62 monta en dos
-  pasos. Primero permuta las columnas de la mundo→cámara A = 0xEA1D28: fila i = (A[3i], −A[3i+2], A[3i+1]),
-  traslación 0. Y **después** (0x819AC5 `mov ecx, 0xEA1C98`, 0x819AF3 `call fn_007FB3F0`; la otra copia de
-  `UpdateCamera`, 0x81A1AD, hace lo mismo en 0x81A265) la **invierte en su sitio**: `fn_007FB3F0` es la inversa de
-  la matriz 4×3 (cofactores / determinante, traslación = −t·M⁻¹). Al ser ortonormal, la inversa es la transpuesta, así
-  que las filas finales son derecha, −delante y arriba. A usa vectores fila y la matriz del objeto se aplica igual
-  (x' = m0 x + m3 y + m6 z, `fn_0084BA90`), luego la fila k es la imagen del eje local k: en glm
-  **mat3(derecha, −delante, arriba)**, es decir un **billboard**. X local = derecha de la pantalla, Y local (el eje de
-  la cúpula) hacia la cámara, Z local = arriba, así que la cúpula siempre se ve de cara, como un disco del humo, y
-  nunca de canto (comprobado emulando 0x819690 + la permutación + 0x7FB3F0 con varias cámaras,
-  `tmp_dis\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
-  en el original).
-- **Rama efecto** (bit 2; en Land1 todas tienen k = 1, en Land4/Land5 k = 3,78 / 2,64): s = tamaño/(1 + (k − 1)
-  (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 escalan la fila 0 (X local) por el tamaño y las filas 1 y 2 (Y, Z) por s: **escala
-  no uniforme**. Luz en (0, 500000, 0), ambiente 0xD2, sin luz de la tierra, atlas V + 0,25 (0x7FA44D: filas 2-3).
-- **Rama normal** (0x7FA5B0): las 9 celdas × tamaño. `fn_00801C90` da la luz (tabla[lum] bilineal de las 4 celdas)
-  y deja en +0x50 el RGB bilineal de esas celdas (el primer dword leído como D3DCOLOR: rojo = byte azul). `fn_007FEB30`
-  aplica la neblina: luz × (256 − trunc((256 − k) t)) >> 8 y especular += round(color de neblina × t). Luego cada
-  canal = floor(N2 × luz / 255), alfa = alfa de N2, y la luz de los modelos (luz en (−500000, 500000, −500000),
-  ambiente 90). **Sin** el + 0,25 del atlas (0x7FA675: filas 0-1 de `smokea.raw`, picos 171-197; las filas 2-3 llegan
-  a 228-248).
-- Luz por vértice (`fn_0084BA90`): I = round(255 · n_local · L_local), L_local = normalize(M⁻¹ (Lpos − pos)); con
-  escala no uniforme no es la luz de la normal girada.
-- Contador +0x84 += ftol(g_game_time_inc · 0,255), módulo 900 solo si pasa de 900; fotograma (contador/20) & 15. Solo
-  avanza dentro de Draw, es decir, con la niebla en pantalla.
-- Orden: `LH3DMist::AddDrawing` 0x7FA7F0 descarta con `CheckRegionOnScreen` (radio = radio de la malla × tamaño ×
-  0,55) y manda la niebla al `LH3DZSorter` (clave |pos − cámara|², callback 0x7FA980), junto a los modelos
-  transparentes y los sprites.
-- openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) entran en la lista de atrás adelante de la
-  pasada principal (`DrawPass`, `SortedInstance::mist`); `DrawMists` solo si esa lista no se usa. `vs_cloud`
-  recibe `u_cloudLight` (L_local) y `fs_cloud` suma `u_cloudSpecular` (0 en las nubes y en la rama efecto).
-  Desviaciones: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
-  el paso truncado del original sería 0; la textura alfa no se cuantiza a 4 bits (el original la carga en ARGB4444,
-  `a.raw` 0x8375C1: 228 → 238/255), porque cuantizar tras filtrar en el shader haría bandas y `raw/smokea` se
-  comparte con otros sistemas.
+El dibujo de la niebla del mapa (`fn_007FA300`, billboards, orden, fundido y las otras nieblas de `mists::Submit`)
+está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con su creación (CREATE_MIST).
 
 ## Pendiente
 

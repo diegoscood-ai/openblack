@@ -8,9 +8,11 @@
  *******************************************************************************/
 
 // Test hooks of the weather (documented in docs/bw1-notes/openblack-internals.md):
-//   OPENBLACK_TEST_WEATHER="x,z,radius[,rain[,fade[,temperature]]]"  on turn 1 registers a static LH3DStorm built like
+//   OPENBLACK_TEST_WEATHER="x,z,radius[,rain[,fade[,temperature[,sheetMin,sheetMax[,forkMin,forkMax]]]]]"  on turn 1 registers a static LH3DStorm built like
 //       the storm miracle's (fn_006D5730: inner max(radius, 60), outer max(max(2.5 radius, inner + 20), 80), 20 degrees
 //       unless given, rain 100 unless given, overcast 80, no wind, a life of 1e9 s, fade-in `fade` s (default 1)), then
+//       the sheet / fork lightning intervals (descriptor +0x30..+0x3C, 0 = none like fn_0083F3F0 and the miracle's
+//       fn_006D5730; only GWeather::Update 0x83FBF0 / 0x83FC5D start the flash fn_00837290 from them), then
 //       logs ComputeWeather at the centre, inside, on the inner and outer radius and outside, on turns 2 and 30
 //   OPENBLACK_TEST_WEATHER_AT="x,z[;x,z...]"  logs ComputeWeather at those points on turns 2 and 30
 //   OPENBLACK_WEATHER_TRACE=1  logs every climate (temperature, wind, rain desire, storms) on each new game day and every
@@ -132,6 +134,16 @@ void weather::RunDebugHooks(uint32_t turn)
 			d.weather.temperature = static_cast<int8_t>(v.size() >= 6 ? static_cast<int32_t>(v[5]) : 20);
 			d.weather.rain = static_cast<int8_t>(v.size() >= 4 ? static_cast<int32_t>(v[3]) : 100);
 			d.weather.overcast = 80;
+			if (v.size() >= 8)
+			{
+				d.sheetMin = v[6];
+				d.sheetMax = v[7];
+			}
+			if (v.size() >= 10)
+			{
+				d.forkMin = v[8];
+				d.forkMax = v[9];
+			}
 			g_testStorm = storms::Create(d);
 			g_testCentre = d.position;
 			g_testInner = d.innerRadius;

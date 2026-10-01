@@ -86,8 +86,7 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
 **Arreglos de fidelidad** que trajo:
 - Productos en double pasados a float:
   - WaterQueries: `k_WorldToFixed` era double, y también el `x·65536.0·0.1f` de `FindNearestStreamPos`.
-  - TownQueries: usaba el double 6553.6 (ni siquiera el valor float) y `Ftol` en precisión extendida; también
-    `SpiralIncrement` y los tamaños.
+  - TownQueries: usaba el double 6553.6 (ni siquiera el valor float); también `SpiralIncrement` y los tamaños.
   - AbodeQueries (la puerta, 0x63AFF2), SpellFlock y PSys `Flock`.
 - Climate: la vuelta usaba 0.000152588f = 0x39200008 en lugar de [0x8AA3A4] = 0x39200000 (3,9 mm a 5 km).
 - `InBounds` por la extensión de la tierra, con `>` estricto (AnimalAI.cpp, Reactions.cpp), pasa a 0x6042C0: x = 0 y
@@ -103,6 +102,39 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
 - `SpreadReaction`: el tamaño es `CellSpiralSize` (0x74F520, con su `jae` sin signo) y la posición avanza con `AddCells`
   sobre MapCoords (0x6E3F6E), en vez de sumar 10 m en float.
 - `MobileWalkPaths`: la vuelta ya no redondea dos veces con más de 2^24 unidades.
+
+**Segunda pasada (auditoría, 2026-10-01).** Lo que faltaba de la primera, comprobado otra vez en el binario:
+- **Todas las espirales avanzan ya sobre un MapCoords**, no sobre una celda en un `int` ni sobre metros en float. En el
+  original el llamador copia su MapCoords y lo mueve con `operator+=(JustMapXZ)` 0x605470, que suma **16 bits a la
+  palabra alta**: la fracción no cambia y la celda da la vuelta. Por eso una espiral que empieza a la izquierda del mapa
+  (x ∈ (−10, 0), celda 0xFFFF) entra en la celda 0 con el primer paso `+1`, mientras que con la celda en un `int` llega
+  a 0x10000 y se queda fuera para siempre. Sitios corregidos y su original:
+  - `Magic/CastRules.cpp` `FindHealTargets` ← `FindTargets` (copia 0x5FBB6B, `InBounds` 0x5FBBBA, `ToMap` 0x5FBBCB,
+    `Spiral` 0x5FBCE5, `+=` 0x5FBCF1); el `InBounds(vec3(celda·10))` que daba la vuelta celda → metros → fijo pasa a
+    `map_coords::InBounds(coords)`.
+  - `ECS/Fire/FireEffect.cpp` (copia 0x72F5E1, `InBounds` 0x72F60C, `GetDistanceInMetres` 0x72F674, `Spiral` 0x72F6C3,
+    `+=` 0x72F6D0). La distancia se mide entre los dos MapCoords: como la fracción es la misma, la diferencia son
+    celdas enteras. `CellObjects` usa `map_coords::InBounds` en vez de su propia copia.
+  - `Magic/Spells/SpellWater.cpp` (copia 0x7250A2, `Spiral` 0x725166, `+=` 0x725173; 9 celdas, `ebp = 9`).
+  - `ECS/AnimalAI.cpp`: `CalcRandomPos` ← `Living::CalcRandomPos` (0x5ED0FE..0x5ED152 el punto inicial con
+    `ToFixedGUtils`, `+=` 0x5ED1C8), `LookForFoodPos` ← `Animal::LookForGrazePos` (`+=` 0x41A945) y la fusión de bandadas
+    (`+=` 0x41A76A); `ECS/AnimalPredators.cpp` `FindPrey` ← fn_00419490 (`+=` 0x41954B). `detail::Spiral::Advance`
+    envuelve `AddCells`.
+- `TownQueries`: `Ftol` recibe un **float** (el comentario decía «x87 extendida», que contradice el `and cw, 0xFCFF` de
+  0x7DEE0D). La media de la congregación (0x7409F3..0x740A1E) hace `fild qword` (exacto) y `fdiv` a 24 bits, así que el
+  cociente se redondea una vez a float antes del `__ftol`: con 100 posiciones pasa de 2^24 y el truncado podía salir una
+  unidad distinto. `GetPosFromAngle` (0x74D580) ya es `ToFixedGUtils` en float.
+- `Climate`: se quita `CellCentre()` (la palabra alta con desplazamiento **con signo** × 10). Ni `ProcessAll`
+  (0x771DA0) ni `FindWhereToCreateStorm` (0x772D3E, 0x772D6F) leen la palabra alta: las dos construyen el LHPoint con
+  `fild; fmul [0x8AA3A4]`, o sea `Centre()`. La celda del centro en `FindWhereToCreateStorm` (0x772C38, 0x772C65) sí es
+  la palabra alta, pero **sin signo** (`xor eax, eax; mov ax, [ebp+0x16]`), y se suma con `fiadd`: ya es `CellOf`.
+- `SpellFlock`: `DestinationAt` (0x7238E2..0x723905) lee la palabra alta sin signo (`CellOf`) y calcula en float, no en
+  double; `IsPosOnCorridor` (0x420E67) usa `CellOf` igual.
+- `VillagerSpeed`: la vuelta a metros va marcada **(inferido)**. `MobileWallHug::SetSpeed` 0x60FC50 guarda el u16 tal
+  cual en +0x5A y el original nunca convierte esa velocidad a metros (la suma a un MapCoords); openblack la guarda en
+  metros, así que usa `ToMetres` por ser la conversión del original en todos los demás sitios.
+- `k_MapCells`: la cita estaba mal atribuida. 0x6014C8 y 0x6014F1 están **dentro** de `GMap::Init` 0x6014C0; la llamada
+  `GMap::Init(0x200, 0x200)` está en `GGame::Init` (0x54F650+0x2A0).
 
 ## Altura del terreno
 
@@ -175,12 +207,17 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
 - `Audio/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
 
 **Dudosas, no migradas:**
-- `Climate.cpp:222-223`, la celda `floor((float)x/65536)` de `FindWhereToCreateStorm`: no se ha leído la rutina
-  original (inferido).
 - `CHLApi.cpp:900` (`MOVE_GAME_THING`): truncar ahí haría una segunda conversión al caminar.
 - `SpellResource.cpp:68`: `AddResourceToPos` ya convierte una vez, igual que el original.
 - `Trees.cpp:1179-1186`: las celdas de la flexión de los árboles, con diferencias de celdas con signo.
-- `SpellFlock.cpp:866-871`: el paso de celdas de `SpawnPoint`, en metros y en double.
+
+**Fuera de este sistema, encontrado al auditarlo** (no se ha tocado; es de sus dueños):
+- `Climate.cpp:231` (`FindWhereToCreateStorm`) compara con `other.outerRadius`, pero el original compara con el radio
+  del clima que crea la tormenta: `fcomp [ebp+0x24]` en 0x772D9C, con `ebp = this`. En `ProcessAll` (0x771DBF) sí es
+  `[esi+0x24]`, el del otro clima, así que la diferencia entre las dos rutinas es del original.
+- `AnimalAI.cpp` `LookForFoodPos`: el número de celdas es `(radio/10)²` **en entero**; el original divide en float y
+  trunca el cuadrado (`fild; fdiv 10 [0x8AB744]; fld st(0); fmul st(1); __ftol`, 0x41A8B3..0x41A8DD): con radio 35 da 12
+  celdas, no 9.
 
 **Otros:**
 - Las posiciones de openblack son float en metros. Mientras no se guarden como MapCoords enteros, cada `ToFixed` de un
@@ -188,7 +225,7 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
   0x10000 vuelve intacta.
 - Distancias sobre MapCoords: la raíz de tabla 0x74F620 / `hypotenuse` 0x74F680 está copiada tres veces (WaterQueries,
   AnimalLairs, CHLApi), y `TownQueries::GetDistanceInMetres` usa `std::hypot`. Es el sistema `gutils_distance`.
-- `TownQueries::GetPosFromAngle` (0x74D580) calcula en double lo que es `ToFixedGUtils`: va con los ángulos de juego.
+- Lo que queda en double en `TownQueries::GetDistanceInMetres` (`std::hypot`) es del sistema `gutils_distance`.
 
 ## Ganchos de prueba
 
@@ -198,7 +235,8 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
     16777217 → 0x45200001);
   - la ida y vuelta que pierde una unidad;
   - celdas e `InBounds` con negativos;
-  - `AddCells`: la fracción se conserva y la celda da la vuelta por 0xFFFF;
+  - `AddCells`: la fracción se conserva, la celda da la vuelta por 0xFFFF y, al revés, una espiral que empieza en la
+    celda 0xFFFF (x ∈ (−10, 0)) entra en la celda 0;
   - las dos tablas de vecinos;
   - la secuencia exacta de la espiral y el cuadrado de 4×4 que cubre;
   - `SpiralIncrement` y los dos tamaños.
@@ -208,7 +246,9 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
 
 - Desensamblado W120 (`dev\tmp_dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
   0x5E1860, 0x5E1950, 0x74CA10, 0x74CA60, 0x74D7E0, 0x74D810, 0x74F520, 0x74F540, 0x7A1400, 0x525100..0x525260,
-  0x63AFF2, 0x7204D0 (0x72056B..0x720595), 0x882730 (0x8827C7..0x882810) y 0x7DEE00.
+  0x63AFF2, 0x7204D0 (0x72056B..0x720595), 0x882730 (0x8827C7..0x882810) y 0x7DEE00. De la 2.ª pasada: 0x6014C0,
+  0x54F650+0x2A0, 0x5FBB40..0x5FBD10, 0x72F5C0..0x72F6E0, 0x725000..0x725180, 0x5ED080, 0x41A8B0, 0x41A640..0x41A780,
+  0x419490, 0x60FC50, 0x7238C0, 0x420E10, 0x771BE0, 0x772BE0, 0x74CDE0 y 0x7409C0..0x740A60.
 - Informes: `dev\tmp_dis\unify2\PLAN.md` §1, `map_coords_grid_original.md` (sobre todo su «Verificación adversaria»)
   y `map_coords_grid_openblack.md`.
 - bw1-decomp: `src/Black/MapCoords.h`, `Map.h`, `Utils.h` y `Lionhead/LH3DLib/development/LH3DMapCoords.h`.

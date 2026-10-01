@@ -4698,25 +4698,25 @@ void SetHandDemoKeys() // 459 SET_HAND_DEMO_KEYS
 	NotImplemented(__func__);
 }
 
+// The three push a bit of g_game+0x14 as a boolean (VMType 6); the bits are set at each new game by the SkipBox answer
+// (Game::Run, GGame::OnNewGame 0x55395B). SetupLand1 turns them into IsSkippingToCreatureSelect, IsSkippingCreatureGuide
+// and IsKeepingOldCreature, which LandControl1 reads (docs/bw1-notes/map-loading.md).
 void CanSkipTutorial() // 460 CAN_SKIP_TUTORIAL
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::CanSkipTutorial 0x6FFEF0: (g_game+0x14 >> 23) & 1
+	Pushb(Game::Instance()->GetTutorialSkipFlags().canSkipTutorial);
 }
 
 void CanSkipCreatureTraining() // 461 CAN_SKIP_CREATURE_TRAINING
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::CanSkipCreatureTraining 0x6FFF10: (g_game+0x14 >> 24) & 1
+	Pushb(Game::Instance()->GetTutorialSkipFlags().canSkipCreatureTraining);
 }
 
 void IsKeepingOldCreature() // 462 IS_KEEPING_OLD_CREATURE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsKeepingOldCreature 0x6FFF30: (g_game+0x14 >> 25) & 1
+	Pushb(Game::Instance()->GetTutorialSkipFlags().isKeepingOldCreature);
 }
 
 void CurrentProfileHasCreature() // 463 CURRENT_PROFILE_HAS_CREATURE

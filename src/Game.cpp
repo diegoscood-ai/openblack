@@ -1218,6 +1218,15 @@ bool Game::Run() noexcept
 		{
 			lhvm.LoadBinary(fileSystem.ReadAll(challengePath));
 			lhvm.StartScript("LandControlAll", lhvm::ScriptType::All);
+			// GGame::OnNewGame (0x55395B) right after starting LandControlAll: DoYesNoSkipTutorialRequestersIfNecessary
+			// (0x54CBD0) clears bits 23, 24 and 25 of g_game+0x14, pauses the game and shows the SkipBox; its callback
+			// (0x544480, jump table 0x5445A0) sets them for the chosen answer: 0 none, 1 bit 23, 2 bits 23+24,
+			// 3 bits 23+24+25. openblack draws no SkipBox: the answer is the one of mod game.skip-intro (0 when off,
+			// the box's default). SetupLand1 reads them later through CAN_SKIP_TUTORIAL and the others.
+			const int skipChoice = config.skipTutorialChoice;
+			_tutorialSkipFlags.canSkipTutorial = skipChoice >= 1;
+			_tutorialSkipFlags.canSkipCreatureTraining = skipChoice >= 2;
+			_tutorialSkipFlags.isKeepingOldCreature = skipChoice >= 3;
 		}
 		catch (const std::runtime_error& err)
 		{

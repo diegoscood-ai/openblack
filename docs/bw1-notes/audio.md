@@ -1412,7 +1412,7 @@ juego sin ese sistema, y no suena nada.
 | `GetRandomSample`, `…BasedOnValue` | 0x71D300, 0x71D320 | listas HELP_SPRITES_GUIDANCE de info.dat (22 × 34; hasta el primer 0; 34 llenas cuentan 33) |
 | `TimeSinceThingSeen`, `DesireSample`, `DesireScore` | fn_0071AE10, fn_0071AA90, fn_0071B410 | ver abajo |
 | `ProcessTownDesireSFX` | 0x71B020 (+0x71B130, +0x71B270) | cada 10 turnos: el pueblo con almacén y gente más cerca de la cámara (< 200) y sus 17 deseos {valor +0x37C, tipo +0x380}; luego los 6 lugares de culto de mi ciudadela con fieles (comida, y +0x70 de la ciudadela) **pisan** al pueblo si puntúan (el de +0x70 siempre que no sea 0); valor > 0,3 → x = v − rand(v/2), 3D en el pueblo o la ciudadela, max 200·x; +0x98 = la muestra |
-| `ProcessHeartBeatSFX`, `HeartBeat`, `SetHeartBeatOverride`, `HeartBeatPulse`, `StopHeartBeat` | 0x71C190, 0x71C460, fn_0071C3F0, fn_0071C430/450, fn_0071C650 | cada 10 turnos v = Σ deseo de protección + ((+0xC8 + 0,001)/(q + 0,001) − 1) + ((+0xC4 + 0,001)/(p + 0,001) − 1) + Σ por cada criatura enemiga cuyo pueblo más cercano es mío (d < 400) 1 − max(d − 100, 0)/400, recortado a 0..1; p, q suavizados 0,1; tono, fase (+tono·0,025·100 ms·0,001), pulso (1 − cos 2πφ)/2 |
+| `ProcessHeartBeatSFX`, `HeartBeat`, `SetHeartBeatOverride`, `HeartBeatPulse`, `StopHeartBeat` | 0x71C190, 0x71C460, fn_0071C3F0, fn_0071C430/450, fn_0071C650 | cada 10 turnos v = Σ deseo de protección + ((+0xC8 + 0,001)/(q + 0,001) − 1) + ((+0xC4 + 0,001)/(p + 0,001) − 1) + Σ por cada criatura enemiga cuyo pueblo más cercano es mío (d < 400) 1 − max(d − 100, 0)/400, recortado a 0..1; p, q suavizados 0,1; **cada turno** (el `jne` de 0x71C1AD salta a la llamada 0x71C3C1) fn_0071C460(v guardado): tono, fase (+tono·0,025·100 ms·0,001), pulso (1 − cos 2πφ)/2 |
 | `HelpSpritesCheckMoonPhase` | 0x71D1C0 (estática) | cuenta atrás [0xC221D0]; de noche visual, fase − π; de noche real y \|·\| < 0,15 → OneOff(5) y 600000 turnos; si no, ftol((fase − π)²·12000) |
 | `MoonPhase` | fn_0086A7F0 | 2π(1 − frac(días·0,03386318)), días = time()/86400 − 10962 (entero) |
 | `ProcessGameTurn` | GGame::ProcessTurn 0x54E711..0x54E729 | GSpookyVoices::Process, la luna, los deseos y el latido de GInterfaceStatus::Process 0x5DC50D (orden **(aproximado)**) |
@@ -1441,7 +1441,7 @@ float y arranca el guion con los tipos 0x7F. `chlapi::ScriptVm` sale en `CHLApi.
 
 **Conectado en openblack**: `ProcessGameTurn` en el turno (Game.cpp, antes de `audio::ProcessTurn`); `Init` en cada
 `LoadMap`; las listas de info.dat al arrancar; `ResourceDropSFX` en `pot_resource::AddResourceToPos` (montón nuevo de la
-mano local: RESOURCE_TYPE 1 → 2, 0 → 1) y en `HandSystem::DepositInStore` (madera, tras AddResource). Hoy no suena nada
+mano local: RESOURCE_TYPE 1 → 2, 0 → 1) y en `HandSystem::DepositInStore` (con el punto y el GetGuidanceResourceType del **receptor**, el almacén: StoragePit hereda el 0 de GameThing 0x71BDD0, así que el original corre PlayNow y GetNearestTown y no dice nada). Hoy no suena nada
 de esto en Land 1: los tipos no «siempre» callan en el Land 1 de la campaña, los pueblos no tienen deseos ni valores de
 recursos (consultas neutras) y no hay corazón de ciudadela.
 
@@ -1502,6 +1502,31 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
     0x738620/0x738666, `GBelief::AddToBelief` 0x437F2A, la criatura (0x45A772, 0x5039E7), fn_0071D100 (otras manos,
     multijugador), GatheringBox/EndGameBox/red (OneOff 3 y otros), fn_0064AF80 (burlas multijugador);
   - el `DefName` del registro y el nombre de red de GetName; `fn_0081F1D0` (punto en pantalla).
+
+### Auditoría de B9/B10
+
+Comprobadas en el desensamblado: las tablas 0x980190 (33 filas), 0x980328, 0x98040C, 0x980440 y las constantes
+0x98011C..0x980188; Init 0x71AC70 (doble sorteo), Interval 0x71AEE0, PlayNow 0x71AF50, PlaySample 0x71C6F0,
+ProcessTownDesireSFX 0x71B020, CheckWorshipSiteDesiresSFX 0x71B300..0x71B407 (la necesidad gana aunque puntúe menos),
+ResourceDropSFX 0x71B570 / 0x71B5F0, fn_0071BF70, fn_0071C810, MakeDiscipleSFX 0x71BF10, fn_0071C460, 0x71C190,
+0x71C990..0x71CAE0, 0x71CEB0..0x71D063, HelpSpiritSay 0x71D270, GetRandomSample 0x71D300..0x71D3A4, la luna 0x71D1C0 /
+0x86A7F0, RunMessage 0x5C8CE0 / 0x5C8C40, CHL 200 / 253 (0x6FBFD0 / 0x6FC020), y GSpookyVoices entero (0x72E280..0x72E87F,
+la tabla de saltos 0x72E54C). Dos correcciones:
+
+- **El latido corre cada turno**: en `ProcessHeartBeatSFX` el `jne` de 0x71C1AD (turno no múltiplo de 10) salta a
+  0x71C3B8, que llama a fn_0071C460 con el +0xA4 guardado; solo el valor se recalcula cada 10 turnos. B9 volvía sin
+  latir, así que el tono se suavizaba y la fase avanzaba 10 veces más despacio. Test
+  `HeartBeatRunsEveryTurnTheValueEveryTen`.
+- **`DepositInStore` no dice nada**: en Object::DoDeleteObjectAndTakeResource 0x63A940 `this` (edi) es el receptor y
+  esi el objeto (GetPos 0x63AA2B y ToBeDeleted 0x63AAB1 van a esi); ResourceDropSFX recibe edi+0x14 y el
+  GetGuidanceResourceType de edi (vt +0xE0), que para StoragePit es el de GameThing 0x71BDD0 = 0. B9 pasaba el punto del
+  árbol y «madera» (PLEASED_WOOD inventado en cuanto haya `townResourceNeeds`); ahora el punto del almacén y `None`:
+  PlayNow y la búsqueda del pueblo corren y no suena nada, como el original.
+
+En juego (Land 3, 00:02 de noche real, `OPENBLACK_PLAYER_NAME=Mario OPENBLACK_TEST_GUIDANCE_SAY=90:3326`, logs
+`_auditudio9_audit_land3*.log`): `SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`, y en el turno 90
+`HelpSpiritSay(3326, type 32) ... not started` (también en Land 3 el guion de la intro tiene el diálogo). Sin errores
+nuevos.
 
 ## Fases B y C
 

@@ -220,8 +220,9 @@ void OneOff(int index);
 /// (0x98012C), x = value - LocalFloatRand(value / 2) and the sample plays 3D at the thing with maxDistance 200 x
 /// (0x980130), volume 127, pitch 100, +0x2C 90; +0x98 = the sample
 void ProcessTownDesireSFX();
-/// GGuidance::ProcessHeartBeatSFX 0x71C190 (every 10 turns, for the local interface): the heart beat's value +0xA4 from
-/// GameQueries::heartBeat, clamped to 0..1, then fn_0071C460
+/// GGuidance::ProcessHeartBeatSFX 0x71C190 (every turn, for the local interface): every 10 turns the heart beat's value
+/// +0xA4 from GameQueries::heartBeat, clamped to 0..1; then, every turn, fn_0071C460(+0xA4) (the jne at 0x71C1AD jumps
+/// to the call at 0x71C3C1, so the pitch, the phase and the pulse move each turn)
 void ProcessHeartBeatSFX();
 /// GGuidance::HelpSpritesCheckMoonPhase 0x71D1C0 (static, every turn): a countdown [0xC221D0]; at its end, at visual
 /// night (IsVisualNight 0x5575E0), the moon's phase (fn_0086A7F0) - pi: real night (fn_0072E3B0) and |phase - pi| <
@@ -247,7 +248,8 @@ enum class RainType : uint8_t
 	Rain = 3,
 };
 /// GGuidance::ResourceDropSFX 0x71B570(IS, MapCoords, type) (Pot::AddResourceToPos 0x66F509, a new pile from the local
-/// interface; Object::DoDeleteObjectAndTakeResource 0x63A9E6, a resource given to a store by the local interface):
+/// interface; Object::DoDeleteObjectAndTakeResource 0x63A9E6, a resource given to a store by the local interface, with
+/// the receiver's point and its GetGuidanceResourceType (vt +0xE0: a StoragePit's is GameThing's 0, silent)):
 /// PlayNow(ResourceDrop), the nearest town within 100 (0x98013C, MapCoords::GetNearestTown 0x6020E0: GameQueries::
 /// townResourceNeeds), GetResourceDropSample 0x71B5F0, then 3D at the point, maxDistance 200 (0x980148)
 void ResourceDropSFX(glm::vec3 point, RainType type);

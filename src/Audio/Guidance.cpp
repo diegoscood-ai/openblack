@@ -638,13 +638,15 @@ void guidance::ProcessTownDesireSFX()
 
 void guidance::ProcessHeartBeatSFX()
 {
-	if (Turn() % 10 != 0) // 0x71C1A2..0x71C1AD
+	auto& g = g_Guidance;
+	// 0x71C1A2..0x71C1AD: off the tenth turns the value is kept and the beat still runs (jne 0x71C3B8: fn_0071C460(+0xA4))
+	if (Turn() % 10 != 0)
 	{
+		HeartBeat(g.heartBeatValue);
 		return;
 	}
 	const auto& queries = Queries();
 	const auto input = queries.heartBeat ? queries.heartBeat() : HeartBeatInput {};
-	auto& g = g_Guidance;
 	// 0x71C1B6..0x71C1FF: +0xA4 = the sum of the towns' GetRawDesire(3)
 	g.heartBeatValue = 0.0f + input.protectionDesire;
 	const float p = input.believers;   // 0x71C20E

@@ -517,6 +517,25 @@ TEST_F(GuidanceTest, HeartBeatPitchAndTheCitadelHeart)
 	EXPECT_FLOAT_EQ(GetState().heartBeatValue, 0.75f);
 }
 
+TEST_F(GuidanceTest, HeartBeatRunsEveryTurnTheValueEveryTen)
+{
+	// 0x71C1AD: jne 0x71C3B8 -> fn_0071C460(+0xA4) also off the tenth turns; the value is only read on them
+	s_Heart.enemyCreatureDistances = {200};
+	s_Turn = 100000;
+	ProcessHeartBeatSFX();
+	EXPECT_FLOAT_EQ(GetState().heartBeatValue, 0.75f);
+	const float pitch10 = GetState().heartBeatPitch;
+	EXPECT_FLOAT_EQ(pitch10, (30.0f + 70.0f * 0.75f - 30.0f) * 0.1f + 30.0f);
+	const float phase10 = GetState().heartBeatPhase;
+	// turn 100001: the input changes but is not read; the beat moves on with the kept 0.75
+	s_Heart.enemyCreatureDistances = {};
+	s_Turn = 100001;
+	ProcessHeartBeatSFX();
+	EXPECT_FLOAT_EQ(GetState().heartBeatValue, 0.75f);
+	EXPECT_FLOAT_EQ(GetState().heartBeatPitch, (30.0f + 70.0f * 0.75f - pitch10) * 0.1f + pitch10);
+	EXPECT_GT(GetState().heartBeatPhase, phase10);
+}
+
 TEST(GuidanceMoon, PhaseFromTheRealClock)
 {
 	// fn_0086A7F0: days = time / 86400 - 10962 (2000-01-06, a new moon): phase 2 pi

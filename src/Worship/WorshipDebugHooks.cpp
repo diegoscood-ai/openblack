@@ -399,7 +399,14 @@ void worship::RunDebugHooks(uint32_t turn)
 	{
 		TestTap(value, turn);
 	}
-	if (const char* value = std::getenv("OPENBLACK_CAMERA_LOCK"); value != nullptr && Locator::camera::has_value())
+	// OPENBLACK_CAMERA_FLY also holds the camera at its end point every turn: the land scripts take the camera
+	// (START_CAMERA_CONTROL; Land 1's intro waits for MOVE_GAME_THING), so a one-off flight is undone
+	const char* lock = std::getenv("OPENBLACK_CAMERA_LOCK");
+	if (lock == nullptr)
+	{
+		lock = std::getenv("OPENBLACK_CAMERA_FLY");
+	}
+	if (const char* value = lock; value != nullptr && Locator::camera::has_value())
 	{
 		glm::vec3 origin(0.0f);
 		glm::vec3 focus(0.0f);

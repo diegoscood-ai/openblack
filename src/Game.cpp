@@ -66,6 +66,7 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/Influence/Influence.h"
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
 #include "ECS/PetitNavire.h"
@@ -725,6 +726,17 @@ bool Game::Update() noexcept
 			auto handPlace = profiler.BeginScoped(Profiler::Stage::HandPlace);
 			Locator::handSystem::value().Place(overLand ? std::optional(intersectionTransform.position) : std::nullopt,
 			                                   camera.GetForward(), _handGripping, deltaTime);
+
+			// fn_0x005e5cd0 0x5E61A1..0x5E61B5: after the landscape and the hand are placed, the hand's point
+			// ([0xE9A100], written by GLandscape::Draw 0x5E4395) goes to fn_00827820 unless the game is paused
+			// (g_game+0x14 & 4, 0x5E61A6): crossing a player's influence circle rings G_HandThroughInfluence_01.
+			if (!_paused)
+			{
+				if (const auto& hands = Locator::handSystem::value().GetPlayerHandPositions(); hands[0].has_value())
+				{
+					influence::ProcessHandCrossing(*hands[0]);
+				}
+			}
 		}
 
 		// Update Entities

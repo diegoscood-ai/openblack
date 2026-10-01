@@ -3,7 +3,7 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B4, B6 y B7 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
+y los hitos B0..B8 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -37,6 +37,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B2 y B3 implementados](#fase-b-b2-y-b3-implementados)
 - [Fase B: B4 y B6 implementados](#fase-b-b4-y-b6-implementados)
 - [Fase B: B7 implementado (voces en canal)](#fase-b-b7-implementado-voces-en-canal)
+- [Fase B: B8 implementado (interfaz y mano)](#fase-b-b8-implementado-interfaz-y-mano)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -133,9 +134,9 @@ Reglas:
 
 ### Estado del motor de efectos en openblack
 
-**Fases B0..B7 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
+**Fases B0..B8 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
 [B4-B6](#fase-b-b4-y-b6-implementados), [B5](#fase-b-b5-implementado-los-milagros-en-canal),
-[B7](#fase-b-b7-implementado-voces-en-canal)). Hay un solo motor de canales: los 16 canales de
+[B7](#fase-b-b7-implementado-voces-en-canal), [B8](#fase-b-b8-implementado-interfaz-y-mano)). Hay un solo motor de canales: los 16 canales de
 `audio::sample_play` (LHSamplePlay), cada uno con su fuente OpenAL propia y **fuera del registro ECS**, detrás de los
 filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
 cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí, y desde B5 también los milagros
@@ -1272,9 +1273,88 @@ la cámara de la intro rozando el máximo de 80 de la muestra. Eso cierra el «e
 - Pendiente: `FallingSpell` (LHSampleStop/LHMusicStop directos 0x526FD6..0x5271B0), el poder tribal de
   `DoPostCastThings` 0x72930A (27 + tribu, banco 9; nunca en el juego normal), `PSysSound::Save`/`Load` (C6).
 
+## Fase B: B8 implementado (interfaz y mano)
+
+Sesión audio, rama `local/audio`. Fuentes: `ui_creature.md` §2.0-2.2, §2.6 y §3, `sfx_inventory.md`, y el desensamblado
+de `Abode::InterfaceTap` 0x406830..0x406966 (con `Abode::GetAbodeType` 0x4061F0 y `Abode::InterfaceValidToTap` 0x406820),
+`fn_004082F0` / `fn_00408340` (el clic de SetupBox), `GGame::Loop` 0x54D009..0x54D078 (el Logo),
+`fn_0x005e5cd0` 0x5E61A1..0x5E6230, `fn_00827820`, `fn_00827210`, `InfluenceCircle::Draw` 0x826C90 / `Reset` 0x826C50 /
+`Add` 0x826FA0, `GGame::Update3DInfluence` 0x5552A0, `GInterface::StartGrab` 0x5D1740 y `SendTap` 0x5D38A0.
+
+### Qué suena ahora
+
+| sitio | original | openblack |
+|---|---|---|
+| Clic de un control de los menús propios | `fn_004082F0` (desde el bucle de SetupBox `fn_00408340`, códigos 0xA/0xC en 0x408AA6, 0x408BBE, 0x408D6F): `G_MenuButton` InGame **159** 2D modo 3 + inmersión 0x2C | `MenuClick()` en `src/Debug/Gui.cpp`: envuelve cada `MenuItem`, `Button`, `Checkbox` y `Selectable` de la barra de menú y del menú de Mods (los diálogos propios de openblack). La inmersión no se porta (no hay force feedback) |
+| Llamar a la puerta | `Abode::InterfaceTap` 0x406830: solo si `GetAbodeType() & 2` (LivingQuarters: casas A..F y molino), `G_KnockRoofMulti` **110 + [0xC4CC7C]** (0..8 rotando), 3D con track 0, dueño la casa, en el punto de la mano (status +0xC8) | `ecs::abodes::InterfaceTap` (`src/ECS/Abodes.{h,cpp}`), llamado desde `HandSystem::Update` cuando se pulsa el botón de acción sobre una casa: una casa no cabe en la mano (`Object::ValidForPlaceInHand` 0x402870 = 0), así que `StartGrab` la toca al momento, y el toque exige la mano dentro de la influencia (`InterfaceMustBeInInfluenceForInteraction` 0x4028A0 = 1). Usa el contador `audio::Counter::KnockRoof` |
+| Cruzar un anillo de influencia | `fn_0x005e5cd0` 0x5E61B0 por fotograma si no está en pausa: `fn_00827820` mira el punto de la mano contra los círculos de `GGame::Update3DInfluence` (uno por ciudadela y por pueblo con influencia) y, por cada jugador cuyo «la mano está dentro» cambió, hace la onda y pone [0xEB9A6C]; entonces `G_HandThroughInfluence_01` InGame **52** 3D (track 0, sin dueño) en la mano + inmersión 6 | `influence::ProcessHandCrossing` (`src/ECS/Influence/InfluenceCircles.cpp`), llamada desde `Game.cpp` tras colocar la mano si el juego no está en pausa. El `.sad` le da modo 1 (canal nuevo por cruce), volumen 40 y min/max 100/300: entrar y salir suenan igual |
+| Gritos al coger un aldeano | `GInterface::GenericPickup` 0x5D28C5..0x5D295D | ya estaba en B4 (`HandHolding.cpp`): dos tags, `G_PickUpObject` 10 y 180/187/194 + `GetRandomSample(7)` |
+
+`Abode::GetAbodeType` 0x4061F0 lee el `GAbodeInfo` +0x120 de la casa; openblack guarda el `AbodeNumber` y la malla, así
+que `abodes::TypeOf` busca el registro por esos dos (como `influence::AbodeInfoOf`) — **(inferido)**: todos los registros
+de un mismo número de casa llevan el mismo bit de LivingQuarters.
+
+### Lo que no tiene sitio en openblack (pendiente, con su dirección)
+
+- **Logo** InGame 160: `GGame::Loop` 0x54D011 lo arranca una vez ([0xBEC27C]) y lo **para** al volver de `DoLogo`
+  0x5FA070 (0x54D073). openblack no tiene esa secuencia de logo, así que ponerlo sonaría distinto (sonaría sin el logo);
+  queda para cuando exista.
+- **`G_ClickOnSpell_01` 42** de la arena (`ArenaSpellIcon` fn_00425660) y del poste de la correa
+  (`LeashObj::InterfaceTap` 0x464490): openblack no tiene arena ni correa. El del icono de culto (0x726430 → fn_00726490,
+  con su tono) ya está desde B5 (`Worship/WorshipSpellIcon.cpp`).
+- **Conquistar un pueblo** `G_TakeOverTown_01` 205 (fn_00649810, desde `SetTownEmpty` 0x7410DA): `Town::owner` solo se
+  escribe al crear el pueblo, no hay conquista.
+- **Orden aceptada** `G_AcknowledgeCommand` 1: sus tres sitios (0x5D2E2C, 0x5D3044, 0x5D4162) son órdenes a la criatura
+  con la correa y la arena (paquetes 0xF/0x10 y `fn_0048A490`/`fn_0048A420`); openblack no tiene criatura.
+- **Influencia virtual** `G_VirtualInfluence_04` 129 (`GVirtualInfluence::Draw` 0x76D000, `Start` fn_0076CED0,
+  `SetSoundFraction` 0x76CF90, `Stop` fn_0076CF60; bucle 2D con tono = fracción·100): openblack no tiene el estiramiento
+  de la mano con ancla ni los sprites del camino de maná.
+- **Cofre y pergaminos**: `Reward::InterfaceTap` 0x6E5D00 (173 `G_ClickSignpost`, 40 `G_RewardSting`, 41 `G_OpenChest`) y
+  `ScriptHighlight::SetActivated` 0x70A630 / `InterfaceTap` 0x70AC70 (134 `G_ClickOnScroll`, 173): no existen esos
+  objetos.
+- Del `Abode::InterfaceTap` real falta todo lo que no es sonido: [0xC4CC6C] = el pueblo tocado (0x40683F),
+  `HowManyPeople::KnockKnock` 0x829690, `Villager::SetStateWhenTappedOnAbode` 0x752B80 de los habitantes (+0xA0) y la
+  animación 0x39 de la mano (`CHand::StartFixedPosAnimation` 0x46C050).
+- El clic de menú no suena en los controles que se arrastran (los sliders de los menús propios): el original sí les da
+  el código 0xA al soltarlos **(pendiente)**. La activación por teclado (código 0xC) tampoco.
+
+### (Aproximado), (inferido) y pendiente de B8
+
+- **(Aproximado)** [0xEB9A1C] (los círculos de ese jugador ya se han dibujado; un pestillo por mapa que pone
+  `InfluenceCircle::Draw` 0x826F18 y el fundido del borde al llegar a 1, 0x8831AD, y que solo borra
+  `LH3DIsland::Create` 0x828A50) se toma por puesto: openblack no dibuja el borde de influencia. La onda del cruce
+  (fn_00827250) tampoco se hace.
+- **(Aproximado)** el punto de la mano del cruce sale de `HandSystem::GetPlayerHandPositions()[0]`; el original usa
+  [0xE9A100], que `GLandscape::Draw` 0x5E4395 rellena desde la mano de `MyInterface()`.
+- **(Aproximado)** el clic de los menús: openblack no tiene SetupBox; sus diálogos son la barra de menú de ImGui y el
+  menú de Mods, y suena cuando un control dice que se ha pulsado (como el código 0xA del original).
+- **(Inferido)** todos los registros de un `AbodeNumber` llevan el mismo `ABODE_TYPE` (arriba).
+- El pestillo «ya hay estado del fotograma anterior» ([0xEB9A68]) es estático del proceso, como en el original (nada lo
+  borra entre mapas).
+
+### Tests y juego
+
+- `test_ui_sfx` (4 tests nuevos, 46 en total): los parámetros de usuario reales de InGame.sad de las muestras de
+  interfaz (0 en 42/134/159/160/173/205/40/41/119, 1 en 1/52/110..118, 2 en 46, 4 en 129) y el modo 1, volumen 40 y
+  min/max 100/300 de la 52; **tocar una casa diez veces da 110..118 y vuelve a 110**, 3D en el punto de la mano con
+  max 150; dentro de la ciudadela no suenan ni el `MenuButton` (parámetro 0) ni el golpe (1) pero sí el woosh (2); la 52
+  toma un canal nuevo por cruce (modo 1 del `.sad`) y se corta a más de 300 de la cámara.
+- En juego (Land 1, `_audit/audio/b8_knock3.log`, gancho `OPENBLACK_TEST_KNOCK="10,0,6,0.4"` con
+  `OPENBLACK_SFX_TRACE=1`): los diez toques dan `InGame.sad/110, 111, 112, 113, 114, 115, 116, 117, 118, 110`, 3D con
+  track 0, dueño la casa y en su punto. Durante **toda** la intro de Land 1 el guion tiene la pantalla ancha (la
+  narración sigue a los 75 s, `b8_knock6.log`), así que GAudio los filtra por el parámetro de usuario 1 — como haría el
+  original; el arranque audible está en el test.
+- Coger un aldeano **suena dos veces** (`b8_pick2.log`, `OPENBLACK_TEST_PICK_VILLAGER="0,6"` con
+  `OPENBLACK_TEST_VIEW_VILLAGER="0,5,0"`): `InGame.sad/10 G_PickUpObject` → canal 113 y `InGame.sad/187 G_PickUpMan_01`
+  → canal 132, los dos tags de punto 3D en el aldeano (con la cámara lejos se cortan por sus máximos 180 y 160,
+  `b8_pick.log`).
+- El cruce de influencia salta solo (`b8_knock6.log`): dos `InGame.sad/52` con **modo 1**, 3D, track 0 y sin dueño
+  mientras la cámara de la intro arrastra la mano por el borde del círculo de un pueblo (filtrados por la pantalla
+  ancha, igual que el original). El clic de menú no se puede probar sin mover el ratón.
+
 ## Fases B y C
 
-**B0..B7 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B8 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
@@ -1286,7 +1366,7 @@ la cámara de la intro rozando el máximo de 80 de la muestra. Eso cierra el «e
 | B5 | **hecho** y **auditado** ([arriba](#fase-b-b5-implementado-los-milagros-en-canal), [auditoría](#auditoría-de-suposiciones-de-b5-team_guidelines-17)); los modificadores de PSys de F3 (`AddSoundToAtom` 0x69DCA0, `RemoveSoundFromAtom` 0x69DDD0, `StartStopSoundOnCondition` 0x69DC40) ya los tenía Milagros (`PSys/Rules/Sound.cpp`) |
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
-| B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, orden aceptada 1, llamar a la puerta 110+c%9, influencia 52/129 (los gritos 180/187/194+rand7 ya están, B4) |
+| B8 | **hecho** ([abajo](#fase-b-b8-implementado-interfaz-y-mano)): clic de los menús propios 159, llamar a la puerta 110+c%9, cruzar un anillo de influencia 52 (los gritos 180/187/194+rand7 ya estaban, B4). Sin sitio en openblack (pendientes con su dirección): Logo 160 (no hay `DoLogo` 0x5FA070), ClickOnSpell 42 de la arena y del poste de la correa, conquista 205, orden aceptada 1 (criatura), influencia virtual 129, cofre y pergaminos |
 | B9 | GGuidance, BeliefSFX, latido |
 | B10 | GSpookyVoices (antes hay que volcar el Soundex 0x72E4E0..0x72E870) |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
@@ -1316,7 +1396,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 
 ## Pendiente
 
-- **Fases B (B5, B8..B10) y C** ([arriba](#fases-b-y-c)). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
+- **Fases B (B9, B10) y C** ([arriba](#fases-b-y-c)). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
 - **B4/B6, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `PlayAt` de los árboles sin el árbol de dueño (la firma no cambia) **(aproximado)**; para arboles: el original pasa
     el árbol (0x74C4D4) y elige con `GetTickCount() % 9` (0x74C4B3), `Trees.cpp` usa el azar;

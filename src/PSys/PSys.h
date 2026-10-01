@@ -22,6 +22,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include "3D/FrameAnim.h"
 #include "PSysFile.h"
 #include "SpellLink.h"
 
@@ -88,6 +89,8 @@ struct Creator
 
 	/// The creator's part of a new atom (after CommonInitNewAtom), for the classes that have one
 	virtual void InitAtom(Effect& /*effect*/, Atom& /*atom*/) const {}
+	/// The frame count of its atoms (AtomCore +0x114, the N of fn_00673EA0 / fn_00679920): NumFrames
+	[[nodiscard]] virtual int FramesPerAtom() const { return numFrames; }
 	/// A creator that only picks another one (ParticleGoodEvilCreator::CreateParticle 0x6AAA00 calls the chosen creator's
 	/// CreateParticle): the creator the atom really gets. Itself for the others.
 	[[nodiscard]] virtual const Creator* Resolve(const Effect& /*effect*/) const { return this; }
@@ -131,8 +134,9 @@ struct Atom
 	std::array<uint8_t, 4> colour {255, 255, 255, 255}; ///< +0x8C ARGB as r, g, b, a
 	float birth {0.0f};
 	bool visible {true}; ///< flag 0x10 (EventConditionAtomInUse)
-	float frame {0.0f};
-	float frameRate {0.0f};
+	float frame {0.0f};     ///< +0x10C (fn_00673EA0 keeps it and +0x108, the previous step's, in [0, 2N))
+	float frameRate {0.0f}; ///< +0x110
+	bool playAnim {false};  ///< +0x118 PlayAnim: fn_00673EA0 steps the frame only when it is 1 (0x673FD7)
 	float gravity {1.0f}; ///< +0x11C
 	uint32_t random {0};  ///< +0x12C
 	uint32_t flags {0};   ///< +0x94 (bit 3: deflected, SetAtomHasBeenDeflected 0x6A26C0)
@@ -147,6 +151,9 @@ struct Atom
 	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
 	/// +0x2C: the sounds it started, newest first (Audio/SpellSounds.h)
 	std::vector<std::shared_ptr<audio::PSysSound>> sounds;
+	/// A ParticleMistCreator atom's LH3DMist +0x84 (Creators/Mist.cpp): advanced by the draw only while it is on screen
+	/// (fn_007FA300), so it is changed through the const atoms of the draw
+	mutable graphics::frame_anim::MistClock mist;
 };
 
 /// AtomCollection (0x54 bytes): one live instance of a group
@@ -157,6 +164,11 @@ struct Collection
 	float birth {0.0f};
 	float alpha {255.0f}; ///< +0x50
 	bool hierarchy {false};
+	/// The Chain of a collection of chain joints (ctor 0x6C8830): its v-scroll +0x3C (frame_anim::ChainScroll, advanced
+	/// by the draw fn_0067B3F0, so changed through the const collections of the draw) and its rate +0x4C, set only by
+	/// UR_SimpleBeam / UR_Plasma (not ported: 0)
+	mutable float chainScroll {0.0f};
+	float chainScrollRate {0.0f};
 	std::vector<std::unique_ptr<Atom>> atoms;
 	struct Slot
 	{
@@ -318,6 +330,7 @@ public:
 		float alpha;
 		float frame;
 		std::array<uint8_t, 3> colour;
+		const Atom* source {nullptr}; ///< the atom it was taken from (none for the fire's and the town belief's)
 	};
 	/// kind: the sprites (RendererPSys.cpp) or the meshes (Creators/Mesh.cpp, drawn as instances)
 	void Collect(float t, std::vector<DrawAtom>& out, Creator::Kind kind = Creator::Kind::Sprite) const;
@@ -326,6 +339,7 @@ public:
 	{
 		const Creator* creator;
 		std::vector<DrawAtom> joints;
+		const Collection* collection {nullptr}; ///< the chain's collection (its scroll)
 	};
 	/// Every collection made of Kind::Chain atoms, interpolated as Collect does
 	void CollectChains(float t, std::vector<DrawChain>& out) const;

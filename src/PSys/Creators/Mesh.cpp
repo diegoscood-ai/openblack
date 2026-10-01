@@ -25,6 +25,7 @@
 
 #include "3D/AllMeshes.h"
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -197,23 +198,16 @@ void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 	{
 		atom.frame = std::floor(effect.Random(static_cast<float>(FramesPerAtom()))); // PSysRand(N)
 	}
-	atom.frameRate = playAnimation ? rate : 0.0f; // +0x110, PlayAnim +0x118
-	atom.stretch = stretchY;                      // +0x7C
+	atom.frameRate = rate;         // +0x110
+	atom.playAnim = playAnimation; // +0x118 PlayAnim
+	atom.stretch = stretchY;       // +0x7C
 }
 
 glm::vec2 MeshCreator::UvOffset(int frame) const
 {
-	if (!slideU && !slideV)
-	{
-		// (inferido) the frames tile a 256 x 256 texture in rows of 256 / W: the layout of
-		// Particle3DObjAnimTextured::DrawAt 0x67A530 was not read offset by offset
-		const int perRow = std::max(1, 256 / textureWidth);
-		const auto f = static_cast<unsigned>(frame);
-		return {static_cast<float>(textureWidth) / 256.0f * static_cast<float>(f % static_cast<unsigned>(perRow)),
-		        static_cast<float>(textureHeight) / 256.0f * static_cast<float>(f / static_cast<unsigned>(perRow))};
-	}
-	const float n = static_cast<float>(FramesPerAtom()) * 256.0f;
-	return {slideU ? static_cast<float>(textureWidth * frame) / n : 0.0f, slideV ? static_cast<float>(textureHeight * frame) / n : 0.0f};
+	// Particle3DObjAnimTextured::DrawAt 0x67A530 (frame_anim::AnimTexturedCell): cells of W x H pixels in rows of
+	// 256 / W, or the slide over the 1000 frames
+	return graphics::frame_anim::AnimTexturedCell(frame, {textureWidth, textureHeight, slideU, slideV, FramesPerAtom()});
 }
 
 std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
@@ -249,11 +243,8 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			glm::vec2 uv(0.0f);
 			if (creator->animTextured)
 			{
-				// the frame drawn: looped fmod(f, N), else clamped to 0..N-1
-				const float frames = static_cast<float>(creator->FramesPerAtom());
-				float frame = atom.frame;
-				frame = creator->loopAnim ? std::fmod(std::fmod(frame, frames) + frames, frames) : std::clamp(frame, 0.0f, frames - 1.0f);
-				uv = creator->UvOffset(static_cast<int>(frame));
+				// the whole frame drawn (fn_00679920, DrawData +0x10): looped within N or clamped to its last
+				uv = creator->UvOffset(graphics::frame_anim::PSysFrameIndex(atom.frame, creator->FramesPerAtom(), creator->loopAnim));
 			}
 			// UseScriptHightlightPulse (A x fn_0070A510, the script highlight's pulse): not ported
 			const float alpha = std::clamp(atom.alpha / 255.0f, 0.0f, 1.0f);

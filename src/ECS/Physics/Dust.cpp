@@ -17,7 +17,7 @@
 #include <glm/vec4.hpp>
 #include <spdlog/spdlog.h>
 
-#include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Transform.h"
@@ -71,7 +71,7 @@ std::optional<graphics::TextureHandle> Texture()
 
 glm::vec2 CellUv(uint32_t cell)
 {
-	return graphics::billboard::CellUv(static_cast<uint8_t>(cell), 8)[0];
+	return graphics::frame_anim::SpriteCellUv(static_cast<int>(cell), 8)[0];
 }
 } // namespace
 
@@ -131,8 +131,8 @@ void Dust::Update(float seconds)
 		// half size = size x (1 - age) x min(1, age / 0.125)
 		const float half = puff.size * (1.0f - puff.age) * std::min(1.0f, puff.age / 0.125f);
 		transform.scale = glm::vec3(half);
-		// cell 16 + ((rand % 16 + (int)(2 age)) & 15)
-		registry.Get<Sprite>(puff.entity).uvMin = CellUv(16 + ((puff.seed + static_cast<uint32_t>(2.0f * puff.age)) & 15u));
+		// cell 16 + ((rand % 16 + (int)(2 age)) & 15) (frame_anim::DustCell)
+		registry.Get<Sprite>(puff.entity).uvMin = CellUv(graphics::frame_anim::DustCell(puff.seed, puff.age));
 	}
 	std::erase_if(g_Puffs, [](const Puff& p) { return p.entity == entt::null; });
 	registry.SetDirty();

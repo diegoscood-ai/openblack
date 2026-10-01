@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include <array>
 #include <vector>
 
 #include <glm/vec2.hpp>
@@ -26,19 +27,20 @@
 namespace openblack::psys
 {
 
-/// ParticleChainCreator (props 0x6B4760)
+/// ParticleChainCreator (props 0x6B4760; ctor 0x6AA6xx..0x6AA74E)
 struct ChainCreator: Creator
 {
-	int frameOfHead {0};             ///< +0x58, the texture frame the first segment uses
-	int frameOfTail {0};             ///< +0x5C, the frame the last one uses
-	int numTexturesForWholeChain {1}; ///< +0x68, how many frames the whole chain spans (-1: one per segment)
-	int frameWidth {256};            ///< +0x64
-	int frameHeight {256};           ///< +0x60
-	bool doubleSided {false};        ///< +0x4E MaterialSetDoubleSided
-	bool dynamicLighting {false};    ///< +0x51 UseDynamicLighting
+	int frameOfHead {0};              ///< +0x58 (chain +0x24): the frame of the textures' last stretch
+	int frameOfTail {0};              ///< +0x5C (chain +0x28): the frame of the first stretch
+	int numTexturesForWholeChain {-1}; ///< +0x68 (chain +0x30), ctor -1 (0x6AA747): one per segment
+	int frameWidth {32};              ///< +0x64 (chain +0x20), ctor 0x20 (0x6AA740)
+	int frameHeight {64};             ///< +0x60 (chain +0x1C), ctor 0x40 (0x6AA739)
+	bool doubleSided {false};         ///< +0x4E MaterialSetDoubleSided
+	bool dynamicLighting {false};     ///< +0x51 UseDynamicLighting
 
-	/// fn_006C8920: the U range of segment `index` of a chain of `segments`, in 0..1 of the texture
-	[[nodiscard]] glm::vec2 SegmentU(int index, int segments) const;
+	/// fn_006C8920 (frame_anim::ChainSegmentUv): the four UVs of segment `index` of a chain of `segments` (uv0, uv1 at
+	/// its first joint, uv2, uv3 at the next), the chain's v-scroll on their v
+	[[nodiscard]] std::array<glm::vec2, 4> SegmentUv(int index, int segments, float scroll) const;
 };
 
 namespace chain_atoms
@@ -47,6 +49,9 @@ namespace chain_atoms
 using Ribbon = Effect::DrawChain;
 /// Every chain collection of the running effects, interpolated since the last turn
 [[nodiscard]] std::vector<Ribbon> Collect();
+/// fn_0067B3F0 0x67BE88..0x67BED5 every drawn frame: each chain's v-scroll += g_game_time_inc x its rate x 0.001, kept in
+/// one frame height (frame_anim::ChainScroll)
+void AdvanceScroll(float milliseconds);
 } // namespace chain_atoms
 
 } // namespace openblack::psys

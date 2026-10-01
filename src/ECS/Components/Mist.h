@@ -26,7 +26,7 @@ struct Mist
 	/// land light under it (fn_00801C90) and the models' light
 	bool edgeShrink;
 	float k;          ///< +0x8C (3 by default, LH3DMist ctor 0x7F9560)
-	int counter;      ///< +0x84: += int(time_inc * 0.255) modulo 900; the atlas frame is (counter / 20) & 15
+	int counter;      ///< +0x84: += int(time_inc * 0.255) modulo 900; the atlas frame is frame_anim::MistCell
 	float counterRemainder;
 };
 

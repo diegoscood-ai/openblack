@@ -97,12 +97,18 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 
 - **`ParticleChainCreator`** 0x6AA900: los átomos de una colección son las articulaciones de **una** cinta. El dibujo
   por colección (fn_0067B3F0) la orienta a la cámara: en cada articulación el vector lateral es
-  `normalize(cross(dirección del tramo, dirección a la cámara)) · escala`, y la U recorre la cadena repitiendo la
-  textura `NumTexturesForWholeChain` veces (`S_Lightning.raw`, 4 veces en el rayo). Para esto el `Effect` tiene un
+  `normalize(cross(dirección del tramo, dirección a la cámara)) · escala` (la escala entera es la semianchura,
+  0x67B9E6..0x67BA70). Las UV son las de fn_006C8920, con uv0 en cabeza + lado: **la V
+  corre a lo largo de la cadena** (los `NumTexturesForWholeChain` trozos, −1 = uno por tramo, cada uno de
+  FrameHeight píxeles) y la U cruza la cinta por una columna de FrameWidth píxeles (el fotograma FileOffset +
+  FrameOfTail en el primer trozo, + FrameOfHead en el último, + 0 en los demás). Valores por defecto del creador:
+  64, 32 y −1 (0x6AA739..0x6AA747). Detalle en
+  [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas). Para esto el `Effect` tiene un
   `CollectChains` nuevo que devuelve las colecciones de tipo cadena con sus articulaciones **en orden** (el `Collect`
   normal las aplana). Se dibuja después de los sprites ordenados, en `MainBlended`.
-  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`), el desplazamiento vertical de la UV con el
-    tiempo y el suavizado por puntos medios.
+  - El desplazamiento vertical de la UV con el tiempo (chain +0x3C, `frame_anim::ChainScroll`) está portado, pero su
+    ritmo +0x4C solo lo ponen UR_SimpleBeam y UR_Plasma, sin portar: vale 0 en todas las cadenas de openblack.
+  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`) y el suavizado por puntos medios.
   - `OPENBLACK_PSYS_CHAIN_TRACE=1` escribe por fotograma cuántas cintas hay, con cuántas articulaciones, su textura y de
     dónde a dónde van: sirve para separar «no se dibuja» de «no hay ninguna en ese fotograma».
 - **`ParticleLightMapCreator`** 0x6A9D80: `GJBitmap::LoadBitmapFromFile(nombre, Pitch, 3, NumFramesInFile,
@@ -130,8 +136,10 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
   `mists::Submit` de «mapa» (el mismo `DrawMist`). La base la lee
   `LandLightTable::Current().GetRawBase()` (la copia global de la última tabla, de la lane del agua; antes
   `LastBuiltBase` de la lane de la tormenta).
-- **(aproximado)** un solo contador de atlas para todas las nieblas del PSys (el original lleva uno por objeto,
-  empezando en `Random(0,16) & 15`); con Ratio 0 se usa la media 3,75 en vez del azar por niebla. El mapa de sombra /
+- Cada niebla del PSys lleva su contador de atlas (`Atom::mist`), como el original lleva uno por objeto. Empieza en
+  `Random(0,16) & 15` (0x7F95F8; **(aproximado)** con `graphics::lh3d::Random`, un `rand()` de MSVC propio que comparte con las nieblas del mapa y las bocanadas de tormenta y no toca la serie del PSys) y solo
+  avanza si la niebla sale en pantalla (`mists::InView`). **(aproximado)** con Ratio 0 se usa la media 3,75 en vez
+  del azar por niebla. El mapa de sombra /
   luz del terreno de una niebla con `TextureFileName` (la tormenta) no está portado.
 - SF_Water: la nube (183, 181, 255, 200), escala 0,2 (0,4 en PU), Ratio 2, y en su grupo 4 el cono de lluvia
   `MSH_S_RAIN_CONE` (`ParticleMeshCreatorAnimTextured`, de 0,1 a −24 m, escala 0,7 / 1,4, UV que se desliza).
@@ -216,6 +224,10 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   `InitiallyCreated` crea las raíces en el origen; `NextGroups` da a cada átomo nuevo sus subcolecciones; `Hierarchies`
   pone los átomos hijos en el marco local del padre. Nada se mueve solo: solo las reglas.
 - Paso por turno (dt = 0,1 s) con el estado de dibujo anterior y actual, interpolado al dibujar con la fracción del turno.
+  El fotograma del átomo lo guarda fn_00673EA0 en [0, 2N) junto con el anterior, y solo lo mueve con PlayAnim
+  (`Atom::playAnim`, +0x118; sin él ni paso ni vuelta); fn_00679920 interpola el **número**
+  de fotograma y lo trunca (un escalón, sin mezclar dos fotogramas): `frame_anim::PSysFrameAdvance` /
+  `PSysFrameLerp` / `PSysFrameIndex`, ver [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas).
   Fin: sin átomos ni reglas de creación, o edad > MaxSpellAge; `CloseDown` activa `TrueOnCloseDown`, suelta las
   reglas `RemoveOnCloseDown` y borra al momento si `DeleteOnCloseDown`.
 - Dibujo: cada efecto es un objeto del Z-sorter (`PSysManager::AddDrawing`), sus átomos en orden de lista; sprites de

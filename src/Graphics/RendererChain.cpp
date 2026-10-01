@@ -25,6 +25,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
@@ -80,22 +81,32 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 			// the side vector of each end: the segment direction crossed with the direction to the camera
 			// (fn_0067B3F0, billboard::RibbonSide).
 			// Not ported (part_render.md §10): the midpoint smoothing of the joints, UseDynamicLighting (colour x
-			// clamp(0.6 + 0.4 n.L)), the UV v-scroll (chain +0x3C) and the joint jitter of ChainJoint::DrawAt 0x679E80
+			// clamp(0.6 + 0.4 n.L)) and the joint jitter of ChainJoint::DrawAt 0x679E80
 			const auto sideHead = billboard::RibbonSide(along, head.position, eye);
 			const auto sideTail = billboard::RibbonSide(along, tail.position, eye);
 			if (!sideHead.has_value() || !sideTail.has_value())
 			{
 				continue;
 			}
-			// (inferido) the half-width 0.5 x scale (billboard::RibbonHalfWidth): the notes give side = normalize(cross)
-			// x scale but not whether the strip (fn_0081C780) puts its vertices at the joint +- side
+			// the half width (billboard::RibbonHalfWidth): side x joint +0xC / |side| (0x67B9E6..0x67BA70), the joint's
+			// +0xC being the PSR scale (ChainJoint::DrawAt 0x679E9A), the same value a sprite takes as its half size
 			const auto offsetHead = *sideHead * billboard::RibbonHalfWidth(head.scale);
 			const auto offsetTail = *sideTail * billboard::RibbonHalfWidth(tail.scale);
-			const auto u = creator->SegmentU(i, segments);
+			// fn_006C8920 (ChainCreator::SegmentUv): V runs along the chain, U across it over one frame column, the
+			// v-scroll on all four. fn_0067B3F0 makes four vertices a segment (0x67BA82..0x67BB0D): v0 = head + side,
+			// v1 = head - side, v2 = tail + side, v3 = tail - side, and fills uv0..uv3 for them (0x67BEE4..0x67BEFD);
+			// fn_0081C780 copies each vertex's UV as it is into LH3DP3::Table1 +0x18 / +0x1C (0x81C9C7..0x81C9D0) and
+			// draws through DrawTriangle 0x82F810 (0x81CCB2). Before that, 0x67BFAC..0x67BFEE puts the same scroll in
+			// [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1) and DrawTriangle 0x82F8BE adds it once more: the material of
+			// fn_006AA800 has only bits 0 and 2 of +5 (SetMaterialProperties 0x57E120, 0x6AA84A), so it is not fixed
+			const float scroll = chain.collection != nullptr ? chain.collection->chainScroll : 0.0f;
+			const auto segmentUv = creator->SegmentUv(i, segments, scroll);
+			const frame_anim::UvOffset offset(0.0f, scroll);
 			const std::array<glm::vec3, 4> p = {head.position - offsetHead, tail.position - offsetTail,
 			                                   tail.position + offsetTail, head.position + offsetHead};
-			const std::array<glm::vec2, 4> uv = {glm::vec2(u.x, 0.0f), glm::vec2(u.y, 0.0f), glm::vec2(u.y, 1.0f),
-			                                     glm::vec2(u.x, 1.0f)};
+			const std::array<glm::vec2, 4> uv = {
+			    frame_anim::OffsetUv(segmentUv[1], offset, false), frame_anim::OffsetUv(segmentUv[3], offset, false),
+			    frame_anim::OffsetUv(segmentUv[2], offset, false), frame_anim::OffsetUv(segmentUv[0], offset, false)};
 			const std::array<const psys::Effect::DrawAtom*, 4> ends = {&head, &tail, &tail, &head};
 			for (const int k : {0, 1, 2, 0, 2, 3})
 			{

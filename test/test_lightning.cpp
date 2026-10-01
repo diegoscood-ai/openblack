@@ -113,17 +113,28 @@ TEST(Lightning, chainCreatorProperties)
 
 TEST(Lightning, chainSegmentUv)
 {
+	// fn_006C8920 with the ctor's 32 x 64 frames (0x6AA739..0x6AA740): V runs along the chain, U over one frame column
 	psys::ChainCreator chain;
 	chain.numTexturesForWholeChain = 4;
-	// the texture is repeated 4 times over the whole chain: 8 segments give half a tile each
-	EXPECT_FLOAT_EQ(chain.SegmentU(0, 8).x, 0.0f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(0, 8).y, 0.5f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(7, 8).x, 3.5f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(7, 8).y, 4.0f);
-	// -1: one tile per segment
+	// 4 textures over 8 segments: two segments each, the first stretch with FrameOfTail, the last with FrameOfHead
+	const auto first = chain.SegmentUv(0, 8, 0.0f);
+	EXPECT_FLOAT_EQ(first[0].x, 0.0f);
+	EXPECT_FLOAT_EQ(first[0].y, 0.0f);
+	EXPECT_FLOAT_EQ(first[1].x, 0.125f);
+	EXPECT_FLOAT_EQ(first[2].y, 0.125f);
+	chain.frameOfHead = 2;
+	chain.fileOffset = 5;
+	const auto last = chain.SegmentUv(7, 8, 0.0f);
+	EXPECT_FLOAT_EQ(last[0].x, 0.875f); // (5 + 2) x 32 / 256
+	EXPECT_FLOAT_EQ(last[1].x, 1.0f);
+	EXPECT_FLOAT_EQ(last[0].y, 0.125f); // the second of its two segments
+	EXPECT_FLOAT_EQ(last[3].y, 0.25f);
+	// -1: one texture per segment, the inner ones with frame 0 (+ FileOffset); the scroll on every v
 	chain.numTexturesForWholeChain = -1;
-	EXPECT_FLOAT_EQ(chain.SegmentU(3, 8).x, 3.0f);
-	EXPECT_FLOAT_EQ(chain.SegmentU(3, 8).y, 4.0f);
+	const auto inner = chain.SegmentUv(3, 8, 0.1f);
+	EXPECT_FLOAT_EQ(inner[0].x, 0.625f);
+	EXPECT_FLOAT_EQ(inner[0].y, 0.1f);
+	EXPECT_FLOAT_EQ(inner[2].y, 0.25f + 0.1f);
 }
 
 TEST(Lightning, lightMapCreatorProperties)

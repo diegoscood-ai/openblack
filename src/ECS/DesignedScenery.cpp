@@ -21,6 +21,7 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/Sound.h"
 #include "Audio/SoundTags.h"
@@ -57,8 +58,6 @@ float g_RingTimer = 0.0f;
 constexpr glm::vec3 k_WaterfallPos {3059.23f, 0.0f, 3145.33f};
 constexpr float k_WaterfallAngle = 4.7f;
 constexpr float k_WaterfallScale = 1.0f;
-// 0x5E393E: V -= 0.5 dt
-constexpr float k_WaterfallScrollPerSecond = 0.5f;
 // 0xBF34F0: one ring per 0.7 s; 0x5E3A32..: its point, growth (0xBF34F4), rate (0xBF34F8), alpha (0xBF34FC)
 constexpr float k_RingPeriod = 0.7f;
 constexpr glm::vec3 k_RingPos {3018.8f, 0.2f, 3130.15f};
@@ -176,11 +175,11 @@ void ProcessWaterfall(float seconds)
 	// LH3DRender::DrawTriangle 0x82F8BE adds them to the UVs unless the material's byte +5 has bit 0x10: the rock of
 	// waterfall3.l3d (submesh 0, Textured, byte +5 = 0x14) stays still and only the water (submesh 1, TexturedChroma,
 	// 0x04) flows (L3DSubMesh::Primitive::uvOffset).
-	g_V -= seconds * k_WaterfallScrollPerSecond;
-	g_V -= std::trunc(g_V);
+	// (frame_anim::WaterfallScroll)
+	const float v = graphics::frame_anim::WaterfallScroll(g_V, seconds);
 	if (auto* scroll = registry.TryGet<UvScroll>(g_Object); scroll != nullptr)
 	{
-		scroll->v = g_V;
+		scroll->v = v;
 	}
 	// 0x5E39BA: a ring at the foot once the timer passes 0.7 s (the timer restarts even when the pool is full)
 	g_RingTimer += seconds;

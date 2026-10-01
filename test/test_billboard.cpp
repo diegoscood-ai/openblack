@@ -209,3 +209,14 @@ TEST(Billboard, mistShrinksWithoutClamp)
 	// (inferido) d = 0 keeps the size
 	EXPECT_EQ(billboard::MistShrunkSize(2.0f, 3.0f, glm::vec3(0.0f)), 2.0f);
 }
+
+TEST(Billboard, ribbonSideAndHalfWidth)
+{
+	// fn_0067B3F0 0x67B89E..0x67B973: side = (eye - joint) x segment, normalised; the vertices are joint +- side x scale
+	// (0x67B9E6..0x67BA70, the joint's +0xC = the PSR scale)
+	const auto side = billboard::RibbonSide(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 10.0f));
+	ASSERT_TRUE(side.has_value());
+	EXPECT_NEAR(glm::distance(*side, glm::cross(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(1.0f, 0.0f, 0.0f)) / 10.0f), 0.0f,
+	            k_Epsilon);
+	EXPECT_EQ(billboard::RibbonHalfWidth(2.5f), 2.5f);
+}

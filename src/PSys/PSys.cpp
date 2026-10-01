@@ -1445,7 +1445,8 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 		{
 			atom->frame = creator->randomiseInitFrame ? std::floor(Random(static_cast<float>(creator->numFrames)))
 			                                          : static_cast<float>(creator->initFrame);
-			atom->frameRate = creator->playAnim ? creator->frameRate : 0.0f;
+			atom->frameRate = creator->frameRate;
+			atom->playAnim = creator->playAnim;
 			if (creator->randomiseFrameDirection && Random(1.0f) < 0.5f)
 			{
 				atom->frameRate = -atom->frameRate;
@@ -1533,7 +1534,12 @@ void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition,
 		draw.scale = atom->baseScale * atom->ruleScale * (collection.hierarchy ? parentScale.x : 1.0f);
 		draw.stretch = atom->stretch;
 		draw.alpha = static_cast<float>(atom->colour[3]) * collection.alpha / 255.0f;
-		atom->frame += _dt * atom->frameRate;
+		// fn_00673EA0 (frame_anim::PSysFrameAdvance): previous = current; with PlayAnim, current += dt x rate and both
+		// are kept in [0, 2N)
+		float previousFrame = atom->frame;
+		graphics::frame_anim::PSysFrameAdvance(previousFrame, atom->frame, _dt, atom->frameRate,
+		                                       atom->creator != nullptr ? atom->creator->FramesPerAtom() : 0, atom->playAnim);
+		atom->previous.frame = previousFrame;
 		draw.frame = atom->frame;
 		if (!atom->drawn)
 		{
@@ -1677,9 +1683,11 @@ void Effect::CollectCollection(const Collection& collection, float t, std::vecto
 			const float alpha = (a.alpha + (b.alpha - a.alpha) * k) * _globalAlpha / 255.0f;
 			if (alpha >= 1.0f)
 			{
+				// the frame between the steps: fn_00679920 (frame_anim::PSysFrameLerp, t' up to 5 when looped)
 				out.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
 				               a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k, alpha,
-				               a.frame + (b.frame - a.frame) * k, {atom->colour[0], atom->colour[1], atom->colour[2]}});
+				               graphics::frame_anim::PSysFrameLerp(a.frame, b.frame, t, atom->creator->loopAnim),
+				               {atom->colour[0], atom->colour[1], atom->colour[2]}, atom.get()});
 			}
 		}
 		for (const auto& sub : atom->subCollections)
@@ -1701,7 +1709,7 @@ void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<
 {
 	// one ribbon per collection: its joints in list order, the same interpolation as CollectCollection but with no
 	// alpha cut-off (a dark joint is still part of the strip)
-	DrawChain chain {nullptr, {}};
+	DrawChain chain {nullptr, {}, &collection};
 	for (const auto& atom : collection.atoms)
 	{
 		if (atom->visible && atom->drawn && atom->creator != nullptr && atom->creator->kind == Creator::Kind::Chain)
@@ -1712,8 +1720,9 @@ void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<
 			chain.creator = atom->creator;
 			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k, b.rotation,
 			                        a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k,
-			                        a.alpha + (b.alpha - a.alpha) * k, a.frame + (b.frame - a.frame) * k,
-			                        {atom->colour[0], atom->colour[1], atom->colour[2]}});
+			                        a.alpha + (b.alpha - a.alpha) * k,
+			                        graphics::frame_anim::PSysFrameLerp(a.frame, b.frame, t, atom->creator->loopAnim),
+			                        {atom->colour[0], atom->colour[1], atom->colour[2]}, atom.get()});
 		}
 		for (const auto& sub : atom->subCollections)
 		{

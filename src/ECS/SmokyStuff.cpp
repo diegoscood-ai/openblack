@@ -14,6 +14,8 @@
 
 #include <glm/geometric.hpp>
 
+#include "3D/FrameAnim.h"
+
 namespace openblack::ecs::smoky_stuff
 {
 namespace
@@ -94,7 +96,7 @@ void Update(float seconds)
 			puff.angle = sign * cloud.life * 5.0f + puff.velocity.x;
 			puff.half = std::max(((1.0f - cloud.life) * 2.0f + 1.0f) * cloud.size * 0.5f, 0.0001f);
 			puff.position += puff.velocity * seconds;
-			puff.cell = static_cast<uint8_t>(static_cast<int32_t>(cloud.life * 15.0f) & 0x3F);
+			puff.cell = graphics::frame_anim::SmokyStuffCell(cloud.life); // fn_00823F70 0x8240F9..0x824115
 		}
 	}
 	// fn_00824140: freed when life < 0

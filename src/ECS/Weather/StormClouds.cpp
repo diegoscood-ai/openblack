@@ -20,6 +20,8 @@
 #include <glm/mat4x4.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
+#include "3D/LH3DRandom.h"
 #include "3D/LandLightTable.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
@@ -36,14 +38,10 @@ namespace
 {
 std::unordered_map<storms::StormId, std::vector<storm_clouds::Puff>> g_Puffs;
 
-/// ?Random@@YAMMM@Z 0x81D180: a + (b - a) x rand() x (1 / 32767) (0x9A3700) on the CRT generator. (aproximado) the
-/// original's rand() is the program's shared CRT sequence; this is a private generator of the same kind (MSVC's LCG)
-uint32_t g_Rand = 1;
+/// ?Random@@YAMMM@Z 0x81D180 (graphics::lh3d::Random)
 float Random(float a, float b)
 {
-	g_Rand = g_Rand * 214013u + 2531011u;
-	const auto r = static_cast<float>((g_Rand >> 16u) & 0x7FFFu);
-	return r * 3.05185e-05f * (b - a) + a;
+	return graphics::lh3d::Random(a, b);
 }
 
 /// fn_007FEB30 on the colour (the "light" argument): with the haze on and the view depth z >= near, each RGB byte x
@@ -190,20 +188,19 @@ void storm_clouds::DrawFrame(float milliseconds)
 			position.z = spread * puff.offset.z * 0.5f + storm.drawPosition.z;
 			position.y = LandHeightAt(position.x, position.z) + puff.offset.y;
 			const uint32_t colour = Haze(PuffColour(base, d.blackness, storm.fade), position);
-			// fn_007FA300: the mist's counter += ftol(g_game_time_inc x 0.255) while drawn, modulo 900. (aproximado)
-			// advanced for every drawn puff here (mists::Submit culls without telling); the fraction kept as the map
-			// mists do
-			puff.counterRemainder += milliseconds * 0.255f;
-			const int step = static_cast<int>(puff.counterRemainder);
-			puff.counterRemainder -= static_cast<float>(step);
-			puff.counter += step;
-			if (puff.counter > 900)
-			{
-				puff.counter %= 900;
-			}
 			// vt 0x100 (AddDrawing) only above alpha 5
 			if ((colour >> 24u) > 5u)
 			{
+				// fn_007FA300: the mist's counter += ftol(g_game_time_inc x 0.255), modulo 900, run only for a mist that
+				// AddDrawing 0x7FA7F0 sent to the Z-sorter (its sphere on screen: mists::InView); the fraction kept as
+				// the map mists do (frame_anim::MistAdvance)
+				if (mists::InView(position, spread * puff.size))
+				{
+					graphics::frame_anim::MistClock clock {puff.counter, puff.counterRemainder};
+					graphics::frame_anim::MistAdvance(clock, milliseconds);
+					puff.counter = clock.counter;
+					puff.counterRemainder = clock.remainder;
+				}
 				mists::MistDesc mist {};
 				mist.position = position;
 				mist.size = spread * puff.size; // +0x88

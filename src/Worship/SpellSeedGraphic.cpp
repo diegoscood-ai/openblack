@@ -19,8 +19,12 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/AllMeshes.h"
+#include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
+#include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Alignment.h"
@@ -369,13 +373,33 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 		{
 			graphic.spin += k_TwoPi;
 		}
+		// A creature spell phial (GMagicInfo::AsMagicCreatureSpellInfo (vt 0x38) of the seed's magic is not NULL:
+		// 0x519B5C..0x519B73): SetAnimatedUV_2(1) (0x519B83), then its 8 x 4 sheet at -15 frames a second
+		// (0x519B89..0x519C1B, frame_anim::SpellIconFrame) through the object's UV offset. The magic is magicTypes[0]:
+		// fn_00727700 gives the GSpellSeedInfo (0xD9D678 + type x 0x190, the table load_variables fills, 0x42C28E),
+		// fn_0072AF50(0) the GMagicInfo [0xD37D10 + 4 x fn_0072AF10(0)], and fn_0072AF10(0) reads +0x124 (0x72AF1C),
+		// the field GetMagicTypeFromPULevel(-1) reads (0x72AFC9): magicTypes[0], file offset 0x114
+		const auto magicType = info.magicTypes[0];
+		if (static_cast<size_t>(magicType) < magic::k_MagicTypeCount &&
+		    magic::GetMagicInfoAs<GMagicCreatureSpellInfo>(Locator::infoConstants::value(), magicType) != nullptr)
+		{
+			const auto uv = graphics::frame_anim::SpellIconFrame(graphic.uvPhase, seconds);
+			auto* scroll = registry.TryGet<UvScroll>(graphicEntity);
+			if (scroll == nullptr)
+			{
+				scroll = &registry.Assign<UvScroll>(graphicEntity);
+			}
+			scroll->u = uv.x;
+			scroll->v = uv.y;
+		}
 	}
 	// A player seed (GMagicInfo::AsMagicCreatureSpellInfo (vt 0x38) of its base magic is NULL: 0x519B73 -> 0x51A0B3):
 	// diffuse alpha = the owner's alpha, SetGlobalAlpha (vt 0x48)(alpha != 0xFF), then with arg 2 = 0 (every caller in
 	// the world) LH3DIsland::GetAltitudeAndSetColorSpecular (the land's light on it, not ported) and
 	// LH3DObject::SetPosition 0x423140(point, +0x3C, size): rows X = (cos, 0, sin), Z = (-sin, 0, cos), and
-	// AddForDrawing. No bob and no pulse: those (+0x38, +0x34, the UV frames and the 0.7 / 0.8 / 1.5 squashes of the
-	// switch 0x519D76 by GMagicCreatureSpellInfo +0x58) are only for the creature spell phials (12..27), not ported.
+	// AddForDrawing. No bob and no pulse: those (+0x38 and the 0.7 / 0.8 / 1.5 squashes of the switch 0x519D76 by
+	// GMagicCreatureSpellInfo +0x58) are only for the creature spell phials (12..27); of that branch only the UV frames
+	// (+0x34, above) are ported.
 	auto& transform = registry.Get<Transform>(graphicEntity);
 	const float c = std::cos(graphic.spin);
 	const float s = std::sin(graphic.spin);
@@ -393,14 +417,19 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 	// 0x51A24B: the holder PSys gets the alpha (vt 0x12C, not ported) and is drawn
 
 	// 0x51A2D0: the bands when +0x60 != -1 and the band object exists: +0x44 += 10.3 dt, +0x40 += dt (fmod 2 pi), one
-	// drawing per level 0..pu at +0x64 with size 0.2 x +0x58 x +0x54. (aproximado): fn_0051A830 (the band turned by
-	// the camera when [0xBE8E8E]) and the player colour (GPlayer::GetPlayerColour, alpha +0x70 x alpha) are not ported
+	// drawing per level 0..pu at +0x64 with size 0.2 x +0x58 x +0x54, turned to the camera by fn_0051A830
+	// (billboard::BandToEye). (aproximado): the player colour (GPlayer::GetPlayerColour, alpha +0x70 x alpha) is not
+	// ported
 	if (graphic.powerUp != -1 && graphic.band != entt::null)
 	{
 		// the angles only move inside this branch (0x51A2D0 / 0x51A2E1 jump past 0x51A2EA..0x51A318)
 		graphic.bandSpin = std::fmod(graphic.bandSpin + k_BandSpinRate * seconds, k_TwoPi);
 		graphic.bandSpin2 = std::fmod(graphic.bandSpin2 + k_BandSpin2Rate * seconds, k_TwoPi);
 		const float size = k_BandScale * graphic.bandScale * graphic.scale;
+		// fn_0051A830 0x51A848..0x51A8BE: the camera of this frame (g_camera); the band's translation is the point
+		const auto toEye = Locator::camera::has_value()
+		                       ? graphics::billboard::BandToEye(graphic.point, Locator::camera::value().GetOrigin())
+		                       : glm::mat3(1.0f);
 		for (size_t i = 0; i <= graphic.extraBands.size(); ++i)
 		{
 			const auto band = i == 0 ? graphic.band : graphic.extraBands[i - 1];
@@ -408,7 +437,7 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 			{
 				auto& bandTransform = registry.Get<Transform>(band);
 				bandTransform.position = graphic.point;
-				bandTransform.rotation = BandRotation(graphic.bandSpin, i);
+				bandTransform.rotation = toEye * BandRotation(graphic.bandSpin, i);
 				bandTransform.scale = glm::vec3(size);
 			}
 		}

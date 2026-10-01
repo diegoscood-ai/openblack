@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "graphics.msaa",
+  "name": { "en": "Anti-aliasing (MSAA)", "es": "Antialiasing (MSAA)" },
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Multisampled back buffer; leaves and fences get smooth edges with alpha to coverage.",
+    "es": "Búfer con multimuestreo; hojas y vallas con bordes suaves (alpha to coverage)."
+  },
+  "api": ">=1.0 <2.0",
+  "options": [
+    {
+      "id": "samples", "label": { "en": "Samples", "es": "Muestras" },
+      "values": ["2x", "4x", "8x", "16x"], "default": "4x",
+      "bind": "graphics.msaa.samples"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "graphics.terrain-x2",
+  "name": { "en": "Sharper landscape textures", "es": "Texturas de terreno más nítidas" },
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Each landscape and sea texture repeated 2, 3 or 4 times as often, optionally upscaled 2x with Lanczos-3 when loaded; cliffs take the texture from the side instead of stretching it (triplanar).",
+    "es": "Cada textura de terreno y mar repetida 2, 3 o 4 veces más, opcionalmente ampliada x2 con Lanczos-3 al cargar; los acantilados toman la textura de lado en vez de estirarla (triplanar)."
+  },
+  "api": ">=1.0 <2.0",
+  "restart_required": true,
+  "options": [
+    {
+      "id": "repeat", "label": { "en": "Repeats per block", "es": "Repeticiones por bloque" },
+      "values": ["x1", "x2", "x3", "x4"], "default": "x2",
+      "bind": "graphics.terrain.repeat"
+    },
+    {
+      "id": "upscale", "label": { "en": "Lanczos 2x upscale", "es": "Ampliar x2 (Lanczos)" },
+      "values": ["off", "on"], "default": "off",
+      "bind": { "graphics.terrain.upscale": { "on": true } }
+    },
+    {
+      "id": "cliffs", "label": { "en": "Cliffs", "es": "Acantilados" },
+      "values": ["triplanar", "stretched"], "default": "triplanar",
+      "bind": { "graphics.terrain.triplanar": { "triplanar": true } }
+    }
+  ]
+}

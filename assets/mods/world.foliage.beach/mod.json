@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "id": "world.foliage.beach",
+  "name": { "en": "Beach", "es": "Playa" },
+  "version": "1.0.0",
+  "category": "World",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Shells, starfish, pebbles, washed-up seaweed, bird tracks and wet sand lying on the beaches. A module of Grass and flowers: its foliage.cfg is read with the same rules.",
+    "es": "Conchas, estrellas de mar, guijarros, algas, huellas de pájaros y arena mojada en las playas. Módulo de Hierba y flores: su foliage.cfg se lee con las mismas reglas."
+  },
+  "api": ">=1.0 <2.0",
+  "parent": "world.foliage",
+  "dependencies": { "world.foliage": ">=1.0" },
+  "options": [
+    {
+      "id": "density", "type": "slider", "label": { "en": "Density", "es": "Densidad" },
+      "values": ["very low", "low", "medium", "high", "very high"], "default": "medium"
+    }
+  ]
+}

@@ -64,8 +64,8 @@
 #include "LHVMViewer.h"
 #include "LandIsland.h"
 #include "Locator.h"
-#include "Mods/ModRegistry.h"
 #include "MeshViewer.h"
+#include "ModsWindow.h"
 #include "Music.h"
 #include "PathFinding.h"
 #include "Profiler.h"
@@ -125,6 +125,7 @@ std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPas
 	debugWindows.emplace_back(new Audio);
 	debugWindows.emplace_back(new Music);
 	debugWindows.emplace_back(new TempleInterior);
+	debugWindows.emplace_back(new ModsWindow);
 
 	auto gui = std::unique_ptr<DebugGuiInterface>(
 	    new Gui(imgui, static_cast<bgfx::ViewId>(viewId), std::move(debugWindows), !Locator::windowing::has_value()));
@@ -465,97 +466,6 @@ void Gui::Draw() noexcept
 	RenderDrawDataBgfx(ImGui::GetDrawData());
 }
 
-void Gui::DrawModsMenu() noexcept
-{
-	auto& registry = Locator::mods::value();
-	ImGui::TextDisabled("Changes to the original game, all off by default (saved in Mods/<mod>/settings.cfg)");
-	std::string category;
-	bool anyRestart = false;
-	bool anyDataMod = false;
-	const auto drawMod = [&registry, &anyRestart, &anyDataMod](auto& mod) {
-		const auto& info = mod.GetInfo();
-		anyRestart |= info.restartRequired;
-		anyDataMod |= info.id.starts_with("data.");
-		ImGui::PushID(info.id.c_str());
-		bool enabled = mod.IsEnabled();
-		const auto label = info.restartRequired ? info.name + " *" : info.name;
-		if (ImGui::Checkbox(label.c_str(), &enabled))
-		{
-			registry.SetEnabled(mod, enabled);
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("%s\n--mod %s", info.description.c_str(), info.id.c_str());
-		}
-		const auto& options = mod.GetOptions();
-		for (size_t i = 0; i < options.size(); ++i)
-		{
-			const auto& option = options[i];
-			ImGui::Indent();
-			ImGui::BeginDisabled(!mod.IsEnabled());
-			ImGui::SetNextItemWidth(120.0f);
-			if (option.slider)
-			{
-				auto choice = static_cast<int>(option.value);
-				if (ImGui::SliderInt(option.label.c_str(), &choice, 0, static_cast<int>(option.choices.size()) - 1,
-				                     option.choices.at(option.value).c_str(), ImGuiSliderFlags_NoInput))
-				{
-					registry.SetOption(mod, i, static_cast<size_t>(choice));
-				}
-			}
-			else if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
-			{
-				for (size_t choice = 0; choice < option.choices.size(); ++choice)
-				{
-					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
-					{
-						registry.SetOption(mod, i, choice);
-					}
-				}
-				ImGui::EndCombo();
-			}
-			ImGui::EndDisabled();
-			ImGui::Unindent();
-		}
-		ImGui::PopID();
-	};
-	for (const auto& mod : registry.GetMods())
-	{
-		const auto& info = mod->GetInfo();
-		if (!info.parent.empty())
-		{
-			continue; // a module: drawn under its parent
-		}
-		if (info.category != category)
-		{
-			category = info.category;
-			ImGui::Separator();
-			ImGui::TextUnformatted(category.c_str());
-		}
-		drawMod(*mod);
-		for (const auto& module : registry.GetMods())
-		{
-			if (module->GetInfo().parent == info.id)
-			{
-				ImGui::Indent();
-				ImGui::BeginDisabled(!registry.IsActive(*mod));
-				drawMod(*module);
-				ImGui::EndDisabled();
-				ImGui::Unindent();
-			}
-		}
-	}
-	ImGui::Separator();
-	if (!anyDataMod)
-	{
-		ImGui::TextDisabled("Data mods: folders in %s", registry.GetModsDirectory().generic_string().c_str());
-	}
-	if (anyRestart)
-	{
-		ImGui::TextDisabled("* takes effect after a restart");
-	}
-}
-
 bool Gui::ShowMenu() noexcept
 {
 	if (ImGui::BeginMainMenuBar())
@@ -639,10 +549,16 @@ bool Gui::ShowMenu() noexcept
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Mods"))
+		// the Mods window (Modpacks, Mods, Load order, Log)
+		if (ImGui::MenuItem(ModsWindow::k_Name))
 		{
-			DrawModsMenu();
-			ImGui::EndMenu();
+			for (auto& window : _debugWindows)
+			{
+				if (window->GetName() == ModsWindow::k_Name)
+				{
+					window->Toggle();
+				}
+			}
 		}
 
 		if (ImGui::BeginMenu("Debug"))

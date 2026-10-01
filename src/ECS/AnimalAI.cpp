@@ -1288,17 +1288,33 @@ void GivesBirth(Context& ctx)
 }
 
 /// Living::SetDying (0x5EC390): nothing while it flies
-DeathCallback g_DeathCallback;
+std::vector<std::pair<uint32_t, DeathCallback>> g_DeathListeners;
+std::vector<SpeciesDying> g_SpeciesDying;
 
 void SetDying(entt::entity entity, AnimalBrain& brain)
 {
+	// vt+0x6A4: the species' own SetDying replaces Living's
+	if (const auto* animal = Locator::entitiesRegistry::value().TryGet<Animal>(entity); animal != nullptr)
+	{
+		const auto type = static_cast<size_t>(animal->type);
+		if (type < g_SpeciesDying.size() && g_SpeciesDying[type])
+		{
+			g_SpeciesDying[type](entity);
+			return;
+		}
+	}
 	if (physics::PhysicsObjects::IsFlying(entity))
 	{
 		return;
 	}
-	if (g_DeathCallback && (brain.status & 1) == 0)
+	if ((brain.status & 1) == 0)
 	{
-		g_DeathCallback(entity);
+		// a copy: a listener may add or remove listeners
+		const auto listeners = g_DeathListeners;
+		for (const auto& [id, listener] : listeners)
+		{
+			listener(entity);
+		}
 	}
 	if ((brain.status & 1) == 0)
 	{

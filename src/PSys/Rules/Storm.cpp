@@ -811,7 +811,7 @@ void TornadoCarrier::Release(const glm::vec3& position)
 		}
 		else
 		{
-			ecs::fire::traits::DestroyedByEffect(object); // Animal 0x41B1B0 -> Living::SetDying
+			ecs::animal_ai::Kill(object); // Animal::DestroyedByEffect 0x41B1B0 -> SetDying (vt+0x6A4: a spell animal fades)
 		}
 		return;
 	}

@@ -433,7 +433,9 @@ int FlockProcess(entt::entity spell)
 			// -> SetDying (vt 0x6A4), the fade. (inferido: done here in the spell's turn, after the animals' one; the
 			// state function's other part, ReactToAnimalFoodNeeds (vt 0xBC0, the Lion's hunt) when the hunger +0xE4
 			// >= info +0x20C, is the animals' code: requested)
-			if (animal->wolf && animal_ai::TopState(member) == animal_ai::AnimalState::MoveToPos &&
+			// (once: the original's wolf leaves MOVE_TO_POS when it dies; here it stays in it while it fades, inf)
+			if (animal->wolf && animal->fade.destination != 0.0f &&
+			    animal_ai::TopState(member) == animal_ai::AnimalState::MoveToPos &&
 			    spell_flock::WolfArrived(*animal, glm::vec2(animal->previous.x, animal->previous.z)))
 			{
 				spell_flock::StartFade(*animal);
@@ -760,10 +762,10 @@ int GroundProcess(entt::entity spell)
 	return FlockProcess(spell);
 }
 
-/// Living::SetDying (vt 0x6A4) on an animal of a flock miracle, from the animals' own code (the hand, fire, a
-/// predator): its class's SetDying is the fade. (inferido: the animals' Living::SetDying goes on with DYING and the
-/// corpse; the original's SpellDove / SpellWolf::SetDying never calls it. Request to the animals session.)
-void OnAnimalDying(entt::entity animal)
+/// SetDying (vt 0x6A4) of the flock miracles' animals, instead of Living::SetDying (animal_ai::SetSpeciesDying):
+/// SpellDove::SetDying 0x41F5C0 (also SpellBat's slot) / SpellWolf::SetDying 0x420CF0 only start the fade (no dying
+/// states, no corpse) and return 1
+void SpellAnimalSetDying(entt::entity animal)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (auto* data = registry.TryGet<SpellFlockAnimal>(animal); data != nullptr)
@@ -942,9 +944,12 @@ bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPo
 
 void spell_flock::StartFade(SpellFlockAnimal& animal)
 {
-	if (animal.fade.destination == 0.0f)
+	// SpellDove::SetDying 0x41F5C0 / SpellWolf 0x420CF0: only while the alpha (+0x14C / +0x16C) is not 0, the fade
+	// (vt+0xBD4) to 0 over GetNumTurnsToDieOver (0x14, 0x41F620 / 0x420D50) x [0xD01A38] (ms per turn) x 0.001 s,
+	// started again from the current alpha on every call
+	if (animal.fade.value == 0.0f)
 	{
-		return; // already fading
+		return;
 	}
 	const float seconds = static_cast<float>(k_TurnsToDieOver * static_cast<int>(k_TurnMs)) * 0.001f;
 	animal.fade.SetDestinationWithSpeedAndTime(0.0f, 0.0f, seconds);
@@ -991,5 +996,8 @@ void openblack::magic::RegisterFlockSpells()
 	ground.particleType = GroundParticleType;
 	RegisterOps(SpellClass::FlockGround, ground);
 
-	animal_ai::SetDeathCallback(OnAnimalDying);
+	// vt+0x6A4: SpellDove 0x41F5C0 (SpellBat's vtable 0x8BABC4 has the same entry), SpellWolf 0x420CF0
+	animal_ai::SetSpeciesDying(AnimalInfo::SpellDove, SpellAnimalSetDying);
+	animal_ai::SetSpeciesDying(AnimalInfo::SpellBat, SpellAnimalSetDying);
+	animal_ai::SetSpeciesDying(AnimalInfo::SpellWolf, SpellAnimalSetDying);
 }

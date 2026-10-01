@@ -23,9 +23,6 @@
 #include "3D/Clouds.h"
 #include "AudioManagerInterface.h"
 #include "Common/RandomNumberManager.h"
-#include "ECS/Components/AudioEmitter.h"
-#include "ECS/Components/Transform.h"
-#include "ECS/Registry.h"
 #include "Locator.h"
 #include "SamplePlay.h"
 #include "Sound.h"
@@ -34,7 +31,6 @@
 
 using namespace openblack;
 using namespace openblack::audio;
-using namespace openblack::ecs::components;
 
 namespace
 {
@@ -56,7 +52,7 @@ struct Loop
 	int32_t volume;           ///< +0x10: the .sad volume (flag 0x20) or 127
 	int32_t fade {0};         ///< +0x14
 	bool playing {false};     ///< +0x18
-	entt::entity channel {entt::null};
+	Channel channel {k_NoChannel};
 };
 
 /// A loose sample (+0x27C = f > 0) in the time-ordered queue
@@ -71,9 +67,9 @@ struct Loose
 };
 
 /// A playing loose sample (the mixer's channel list)
-struct Channel
+struct LooseChannel
 {
-	entt::entity emitter;
+	Channel emitter;
 	size_t bank;
 	uint32_t group;
 	int32_t volume;
@@ -87,7 +83,7 @@ struct State
 	std::array<float, k_AtmosTypeCount> current {}; ///< GAudio+0x204
 	std::vector<Loop> loops;
 	std::vector<Loose> queue;
-	std::vector<Channel> channels;
+	std::vector<LooseChannel> channels;
 	uint32_t counter {0}; ///< the mixer's turn counter (+0x18)
 	int32_t cornerA {1};  ///< [0x10037050]
 	int32_t cornerB {1};  ///< [0x10037054]
@@ -115,34 +111,41 @@ bool TraceEvents()
 
 bool Available()
 {
-	return Locator::audio::has_value() && Locator::entitiesRegistry::has_value() && Locator::resources::has_value();
+	return Locator::audio::has_value() && Locator::resources::has_value();
 }
 
 /// LHSampleSetVolume 0x10013400 (QMixer's linear law, sample_play::QMixerGain)
-void SetGain(entt::entity emitter, int32_t volume)
+void SetGain(Channel emitter, int32_t volume)
 {
 	sample_play::SetVolume(emitter, volume);
 }
 
-bool IsPlaying(entt::entity emitter)
+/// LHSampleIsPlaying(LH_SampleInfo*) 0x10014070
+bool IsPlaying(Channel emitter)
 {
-	return emitter != entt::null && Locator::audio::value().EmitterExists(emitter);
+	return sample_play::IsPlaying(emitter);
 }
 
-void StopChannel(entt::entity& emitter)
+/// LHSampleStop(LH_SampleInfo*) 0x10012DF0 (an atmos channel stops even while the audio is switched off)
+void StopChannel(Channel& emitter)
 {
 	if (IsPlaying(emitter))
 	{
 		if (TraceEvents())
 		{
-			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos channel stopped: {}",
-			                   Locator::audio::value().GetSound(Locator::entitiesRegistry::value().Get<AudioEmitter>(emitter).soundId).name);
+			const auto infos = sample_play::Channels();
+			for (const auto& info : infos)
+			{
+				if (info.handle == emitter)
+				{
+					SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos channel stopped: {}",
+					                   Locator::audio::value().GetSound(info.sound).name);
+				}
+			}
 		}
-		auto& audio = Locator::audio::value();
-		audio.StopEmitter(emitter);
-		audio.DestroyEmitter(emitter);
+		sample_play::Stop(emitter);
 	}
-	emitter = entt::null;
+	emitter = k_NoChannel;
 }
 
 /// fn_100011B0 (0x10001304..0x100013A9): the list is walked from the head (on a reinsertion from the head's next, the
@@ -256,7 +259,7 @@ void ProcessBanks()
 }
 
 /// The loop's LHSamplePlay (0x10001A18): AtmosInfo 1, is3D 0, owner -1, loops -1, mode 2, caller mask 0x20, volume 0
-entt::entity PlayLoop(entt::id_type sample)
+Channel PlayLoop(entt::id_type sample)
 {
 	sample_play::Options options;
 	options.sound = sample;
@@ -267,13 +270,13 @@ entt::entity PlayLoop(entt::id_type sample)
 	options.mode = 2;
 	options.callerMask = 0x20;
 	options.volume = 0;
-	return sample_play::Play(options);
+	return sample_play::Start(options);
 }
 
 /// A loose sample's LHSamplePlay (0x10001BD7): AtmosInfo = its entry, is3D 1, +0x0C 1, relative (+0x14 = 1) at
 /// (x, y, 0), owner -1, caller mask 0x20; the mode (3), pitch, deviation and distance mapping are the .sad's or the
 /// defaults
-entt::entity PlayLoose(entt::id_type sample, glm::vec3 position, int32_t volume)
+Channel PlayLoose(entt::id_type sample, glm::vec3 position, int32_t volume)
 {
 	sample_play::Options options;
 	options.sound = sample;
@@ -284,7 +287,7 @@ entt::entity PlayLoose(entt::id_type sample, glm::vec3 position, int32_t volume)
 	options.owner = sample_play::Owner::AtmosMixer();
 	options.callerMask = 0x20;
 	options.volume = volume;
-	return sample_play::Play(options);
+	return sample_play::Start(options);
 }
 
 /// LHAtmosProcess(1) 0x100018B0
@@ -294,7 +297,7 @@ void Process()
 	auto& banks = g_State.banks;
 
 	// 1. the loose channels of a group other than their bank's fade by 5 a turn
-	std::erase_if(g_State.channels, [](const Channel& channel) { return !IsPlaying(channel.emitter); });
+	std::erase_if(g_State.channels, [](const LooseChannel& channel) { return !IsPlaying(channel.emitter); });
 	for (auto& channel : g_State.channels)
 	{
 		if (channel.group != 0 && channel.group != banks[channel.bank].group && channel.volume - 5 >= 0)
@@ -311,7 +314,7 @@ void Process()
 		if (loop.playing && !IsPlaying(loop.channel))
 		{
 			loop.playing = false;
-			loop.channel = entt::null;
+			loop.channel = k_NoChannel;
 		}
 		if (loop.playing && bank.volume == 0)
 		{
@@ -322,7 +325,7 @@ void Process()
 		if (!loop.playing && bank.volume != 0 && (loop.group == 0 || loop.group == bank.group))
 		{
 			loop.channel = PlayLoop(loop.sample);
-			loop.playing = loop.channel != entt::null;
+			loop.playing = loop.channel != k_NoChannel;
 			loop.fade = 0;
 			if (TraceEvents() && loop.playing)
 			{
@@ -391,7 +394,7 @@ void Process()
 		// relative to the listener at LHaudio (x, y, 0): x to the right, y ahead, z up (sample_play::PolarRelative), so
 		// the loose samples lie flat around the listener, 2 to 7.1 units away
 		const auto emitter = PlayLoose(loose.sample, glm::vec3(x, y, 0.0f), volume);
-		if (emitter != entt::null)
+		if (emitter != k_NoChannel)
 		{
 			g_State.channels.push_back({emitter, loose.bank, loose.group, volume});
 		}
@@ -419,7 +422,7 @@ float atmos_banks::Alignment()
 	return 2.0f - 2.0f * (1.0f - a) - 1.0f;
 }
 
-void atmos_banks::ProcessTurn()
+void atmos_banks::UpdateBanks()
 {
 	if (!Available())
 	{
@@ -429,15 +432,19 @@ void atmos_banks::ProcessTurn()
 	{
 		Register();
 	}
-	// GAudio::ProcessAudioGameTurn 0x427080: ProcessMusic, fn_00429100, ProcessAtmosBanks, fn_004270D0 (the listener
-	// and the tracked 3D channels), then LHAtmosProcess(1) unless a video plays (g_game+0x250188)
+	// GAudio::ProcessAudioGameTurn 0x427080: fn_00429100 0x427099 and ProcessAtmosBanks 0x4270A0
 	SetTargets(sample_play::IsInsideCitadel());
 	ProcessBanks();
-	sample_play::ProcessTurn();
-	if (!sample_play::IsVideoPlaying())
+}
+
+void atmos_banks::Mix()
+{
+	if (!Available() || !g_State.initialised)
 	{
-		Process();
+		return;
 	}
+	// 0x4270C0: LHAtmosProcess(1)
+	Process();
 }
 
 void atmos_banks::Silence()
@@ -463,5 +470,4 @@ void atmos_banks::Clear()
 	// GGame::ClearMap 0x552D98 -> GAudio::Reset 0x426CA0: LHAtmosProcess(0), LHSampleStopAll and the alignment back to
 	// 0; the banks, their targets and current volumes are kept (InitAtmos runs once)
 	Silence();
-	sample_play::Clear();
 }

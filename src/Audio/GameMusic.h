@@ -77,7 +77,7 @@ public:
 	void Reset();
 	/// The music part of ProcessAudioGameTurn 0x427080: ProcessMusic when the audio is active (0x427086), then always
 	/// fn_00429700 (0x4270C8)
-	void ProcessAudioGameTurn();
+	void ProcessAudioGameTurn(bool waveActive);
 	/// ProcessMusic 0x427DF0
 	void ProcessMusic();
 
@@ -196,7 +196,7 @@ void Start(GameQueries queries, GameMusic::TownTrigger townTrigger);
 void Shutdown();
 /// GGame::EndTurn's GAudio::ProcessAudioGameTurn (its music part), under the lock; and the test hook
 /// OPENBLACK_TEST_SCRIPT_MUSIC="<type>[@<turn>]" (START_MUSIC(type) at that game turn, 30 by default)
-void ProcessTurn(uint32_t turn);
+void ProcessTurn(uint32_t turn, bool waveActive);
 /// The lock of every call to Get(): the music system's (the engine calls back under it), or a lock of its own
 [[nodiscard]] std::unique_lock<std::recursive_mutex> Lock();
 /// nullptr before Start

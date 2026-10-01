@@ -19,13 +19,14 @@ namespace openblack::audio::atmos_banks
 /// f > 0, next time = counter + 4f + U[0, 12f] turns) at most starts a turn, from the head of one queue for all banks,
 /// at a random point beside the listener. Research: dev\tmp_dis\agua\audio.md §3.
 
-/// GAudio::ProcessAudioGameTurn 0x427080, once per game turn from GGame::EndTurn after GSoundMap::Update, when the game
-/// is not paused and past turn 5: fn_00429100 (the targets = GSoundMap's volumes, all 0 inside the citadel: the test
-/// 0x4282F0, misnamed HelpSystem::GetWideScreenControl, is g_game+0x205A28 == 1), ProcessAtmosBanks (step 0.02 / 0.04
-/// towards them, group by the alignment, LHAtmosSetBankVolume(current * 127)), fn_004270D0 (sample_play::ProcessTurn:
-/// the tracked 3D channels and the listener) and LHAtmosProcess(1) unless a video plays. The first call registers the
-/// banks (InitAtmos).
-void ProcessTurn();
+/// The atmos of GAudio::ProcessAudioGameTurn 0x427080 (audio::ProcessTurn calls them in its order, once per game turn
+/// after GSoundMap::Update, when the game is not paused, past turn 5 and with the audio active): UpdateBanks is
+/// fn_00429100 (the targets = GSoundMap's volumes, all 0 inside the citadel: the test 0x4282F0, misnamed
+/// HelpSystem::GetWideScreenControl, is g_game+0x205A28 == 1) and ProcessAtmosBanks (step 0.02 / 0.04 towards them, group
+/// by the alignment, LHAtmosSetBankVolume(current * 127)); then fn_004270D0 (the channels and the listener); then Mix,
+/// LHAtmosProcess(1) unless a video plays. The first UpdateBanks registers the banks (InitAtmos).
+void UpdateBanks();
+void Mix();
 
 /// GAudio+0x190 (-1 evil .. 1 good), which ProcessAtmosBanks compares with -0.6 to put every bank in group 1 or 2
 [[nodiscard]] float Alignment();
@@ -35,8 +36,8 @@ void ProcessTurn();
 /// EndTurn calls it instead of ProcessAudioGameTurn while the game is paused (g_game+0x14 & 4) or in the first 5 turns.
 void Silence();
 
-/// A new map (GGame::ClearMap -> GAudio::Reset 0x426CA0): the atmos channels and every sample stopped (the registry
-/// reset destroys the emitters, so their AL sources go first); the banks keep their volumes, as in the original
+/// A new map (GGame::ClearMap -> GAudio::Reset 0x426CA0): LHAtmosProcess(0), the atmos channels stopped; the banks keep
+/// their volumes, as in the original
 void Clear();
 
 } // namespace openblack::audio::atmos_banks

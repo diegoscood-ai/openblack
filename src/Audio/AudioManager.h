@@ -20,6 +20,7 @@
 
 #include "AudioDecoderInterface.h"
 #include "AudioManagerInterface.h"
+#include "AlSampleOutput.h"
 #include "AudioPlayer.h"
 #include "SoundGroup.h"
 
@@ -68,6 +69,7 @@ public:
 	void UpdateListener() override;
 	void CreateSoundGroup(const std::string& name) override;
 	void AddMusicEntry(const std::string& name) override;
+	[[nodiscard]] SampleOutput& GetSampleOutput() override { return *_sampleOutput; }
 	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override { return _music; }
 	void AddToSoundGroup(const std::string& name, entt::id_type id) override;
 	const SoundGroup& GetSoundGroup(const std::string& name) override;
@@ -75,6 +77,8 @@ public:
 
 private:
 	std::unique_ptr<AudioPlayerInterface> _audioPlayer;
+	/// The 16 sample channels' OpenAL sources (made after the context, deleted before it)
+	std::unique_ptr<AlSampleOutput> _sampleOutput;
 	/// All sounds are loaded
 	std::map<std::string, SoundGroup> _soundGroups;
 	/// Music resources are loaded on demand to avoid storing large audio buffers. There are no resource IDs yet

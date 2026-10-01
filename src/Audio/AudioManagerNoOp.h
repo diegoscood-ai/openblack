@@ -64,6 +64,11 @@ public:
 	void UpdateListener() override {}
 	void CreateSoundGroup([[maybe_unused]] const std::string& name) override {}
 	void AddMusicEntry([[maybe_unused]] const std::string& name) override {}
+	[[nodiscard]] SampleOutput& GetSampleOutput() override
+	{
+		static NullSampleOutput output;
+		return output;
+	}
 	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override
 	{
 		static const std::vector<std::string> result;

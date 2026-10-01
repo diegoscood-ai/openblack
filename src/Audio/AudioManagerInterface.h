@@ -15,6 +15,7 @@
 
 #include "AudioDecoderInterface.h"
 #include "AudioPlayerInterface.h"
+#include "SampleOutput.h"
 #include "ECS/Components/AudioEmitter.h"
 #include "Sound.h"
 #include "SoundGroup.h"
@@ -64,6 +65,8 @@ public:
 	virtual const SoundGroup& GetSoundGroup(const std::string& name) = 0;
 	virtual const std::map<std::string, SoundGroup>& GetSoundGroups() = 0;
 	virtual void AddMusicEntry(const std::string& name) = 0;
+	/// The 16 sample channels' device side (audio::sample_play), on this manager's OpenAL context
+	[[nodiscard]] virtual SampleOutput& GetSampleOutput() = 0;
 	[[nodiscard]] virtual const std::vector<std::string>& GetMusicTracks() const = 0;
 };
 } // namespace audio

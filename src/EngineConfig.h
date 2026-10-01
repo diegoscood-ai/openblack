@@ -116,6 +116,10 @@ struct EngineConfig
 	/// fn_004282B0), applied with LHMusicSetMasterVolume 0x1000E890; 127 without the key ([0x10056280] = 0x7F at
 	/// 0x1000DE08). Not saved yet (openblack has no settings file for it).
 	uint32_t audioMusicMasterVolume {0x7F};
+	/// Sample master volume 0..127 (every effect and voice): AudioSampleMasterVolume of BWSetup (fn_00428250 /
+	/// fn_004282B0), applied with LHSampleSetMasterVolume 0x100150E0; 127 without the key (LH_AudioSystem+0x3C, ctor
+	/// 0x10015290). Not saved yet (openblack has no settings file for it).
+	uint32_t audioSampleMasterVolume {0x7F};
 
 	GraphicsBackend graphicsBackend {GraphicsBackend::Noop};
 	glm::u16vec2 resolution {256, 256};

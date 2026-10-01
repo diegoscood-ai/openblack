@@ -326,7 +326,8 @@ float GetHeight(entt::entity object)
 	}
 	if (registry->AllOf<Creature>(object))
 	{
-		// Creature 0x477F50: fld [[[+0x160]+0x58]+0x90] (the user size, GetUserSize 0x4EF4F0); fmul [0x8C2C40]
+		// Creature 0x477F50: fld [[[+0x160]+0x58]+0x90] (the user size, GetUserSize 0x4EF4F0); fmul [0x8C2C40].
+		// (inferido): openblack has no CreaturePhysical, so the Transform's scale stands in for the user size
 		return GetScale(object) * k_CreatureHeightPerScale;
 	}
 	return ObjectGetHeight(object);

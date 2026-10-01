@@ -28,6 +28,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
@@ -164,6 +165,13 @@ glm::vec3 fire::traits::FireCentre(entt::entity object)
 	if (transform == nullptr)
 	{
 		return glm::vec3(0.0f);
+	}
+	if (registry.AllOf<WorshipSite>(object))
+	{
+		// WorshipSite::GetDefaultFireCentrePos 0x77DDE0 (vt +0x5F0) = CalculateCentrePos 0x77DD40, made a MapCoords by
+		// 0x603160 -> Set 0x603340: the altitude is y - GetAltitude 0x803090 (0x603371..0x60337C)
+		const glm::vec3 centre = object::WorshipSiteCentre(object);
+		return {centre.x, centre.y - LandAt(centre.x, centre.z), centre.z};
 	}
 	// MapCoords(pos): x, z and the height above the land (Object +0x1C)
 	const float height = transform->position.y - LandAt(transform->position.x, transform->position.z);

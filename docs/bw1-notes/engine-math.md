@@ -299,7 +299,7 @@ Cada sitio se porta **al nivel que usa el original en ese punto**: una API de un
 | `ObjectGetHeight(e)` | `Object::GetHeight` 0x638120 en sí | `2 × +0x28 × [+0x50]`; sin malla 0 (0x638140) |
 | `Get2DRadius(e)` | vt+0x64 | Field 0x528E80 y FishFarm 0x52C470 = **5** [0x8AB6E4]; MagicTeleport 0x5FCCB0 → 0x5FCCA0 = **6** [0x92C108]; MagicFireBall 0x682D20 = `GetScale × 1` [0x935910]; PileFood / MagicFood / PuzzleGrain 0x66F180 = `GetProportionRaised × Object::Get2DRadius`; Creature 0x477F40 (sin portar: ver Pendiente); el resto, 0x638180 |
 | `GetRadius(e)` | vt+0x60: Object 0x638110 = `jmp [vt+0x64]` | igual que `Get2DRadius` (Creature 0x4792C0 repite su lectura) |
-| `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = tamaño × **15** [0x8C2C40]; el resto 0x638120 (Field, FishFarm y PileFood **no** la cambian) |
+| `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = tamaño × **15** [0x8C2C40] (el tamaño, la escala del `Transform`: **(inferido)**); el resto 0x638120 (Field, FishFarm y PileFood **no** la cambian) |
 | `GetTopPos(e)` | vt+0x630: Object 0x638160; MapShield / MagicShield / PhysicalShield 0x72C1C0 = **0** | `altitud (+0x1C, sobre el suelo) + GetHeight` |
 | `GetHeightForHandAboveInteractObject(e)` | vt+0x64C: Object 0x638150 = `jmp [vt+0x42C]`; FishFarm 0x52C840 = **5** [0x8AB6E4] | |
 | `GetMeshRadius(e)` | vt+0x568: Object 0x636BD0 = +0x30 sin escala; Field 0x528A30 / FishFarm 0x52C480 = 5 | |
@@ -547,6 +547,13 @@ la rutina de `Object` sin redefiniciones):
 - `Physics/PartialBuild.cpp:148` (el corte de la obra): está en fn_00816AD0, sin leer.
 - `ECS/Trees.cpp:1104-1114` (`MeshHalfDiagonal` de las fuentes que doblan árboles): escala × +0x30, y `GetMeshRadius`
   0x636BD0 no lleva escala; sin dirección.
+
+**Revisión de milagros2 (2026-10-01):** cambios correctos que salen de la API y no estaban declarados: PileFood ×
+proporción (0x66F180) y MagicTeleport = 6 (0x5FCCB0) cuentan ya en el fuego y en el agua, y el MapShield se mide con su
+`objectScale`. El centro del fuego de un WorshipSite es `GetDefaultFireCentrePos` 0x77DDE0 (= `CalculateCentrePos`
+0x77DD40, altitud sobre la tierra por `Set` 0x603340), junto a su radio de 14 m (0x77DE10). Siguen con
+`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): SpellForest.cpp:169/193, Storm.cpp:1265,
+Lightning.cpp:126 y SpellSeed.cpp:137/143.
 
 **Sin portar:**
 - `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 leen el LH3DCreature (`[[+0x160]+0x58]+0x5228`), que openblack

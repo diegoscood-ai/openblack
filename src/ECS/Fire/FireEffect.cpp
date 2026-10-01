@@ -34,6 +34,7 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Systems/Implementations/VillagerFire.h"
 #include "ECS/Weather/Weather.h"
 #include "FireGraphic.h"
@@ -95,45 +96,16 @@ bool InBounds(const glm::vec3& position)
 	return cellX < side && cellZ < side;
 }
 
-/// The cell's properties byte (LNDCell +6); no block: none
-bool CellProperties(const glm::vec3& position, lnd::LNDCell::Properties& properties)
-{
-	if (!Locator::terrainSystem::has_value())
-	{
-		return false;
-	}
-	auto& island = Locator::terrainSystem::value();
-	const auto cx = static_cast<int32_t>(std::floor(position.x / 10.0f));
-	const auto cz = static_cast<int32_t>(std::floor(position.z / 10.0f));
-	if (cx < 0 || cz < 0 || cx >= 0x200 || cz >= 0x200 || cx >= island.GetCellsPerSide() || cz >= island.GetCellsPerSide())
-	{
-		return false;
-	}
-	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
-	// (aproximado) MapCoords' "no block" test (0x6035B0) stands as LandIsland's default cell (all zero but fullWater):
-	// a real cell with those same bytes would count as no block too
-	lnd::LNDCell empty {};
-	empty.properties.fullWater = true;
-	if (std::memcmp(&cell, &empty, sizeof(empty)) == 0)
-	{
-		return false;
-	}
-	properties = cell.properties;
-	return true;
-}
-
-/// MapCoords::IsWater 0x6035B0: the cell's hasWater bit; 1 outside the map or without a block
+/// MapCoords::IsWater 0x6035B0: the cell's hasWater bit; 1 outside the map or without a block (ecs::sea_cells)
 bool IsWater(const glm::vec3& position)
 {
-	lnd::LNDCell::Properties properties {};
-	return !CellProperties(position, properties) || properties.hasWater != 0;
+	return sea_cells::IsWater(position);
 }
 
-/// MapCoords::IsCoastal 0x6036A0: no water in the cell but the coast line bit
+/// MapCoords::IsCoastal 0x6036A0: no water in the cell but the coast line bit (ecs::sea_cells)
 bool IsCoastal(const glm::vec3& position)
 {
-	lnd::LNDCell::Properties properties {};
-	return CellProperties(position, properties) && properties.hasWater == 0 && properties.coastLine != 0;
+	return sea_cells::IsCoastal(position);
 }
 
 /// GClimate::GetMaxRainingOrSnowing 0x771600 at MapCoords::GetLHPoint of the fire centre (the land plus its height):

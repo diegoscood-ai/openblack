@@ -31,6 +31,7 @@
 #include "Audio/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Weather/Weather.h"
 #include "Locator.h"
@@ -55,28 +56,10 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// MapCoords::IsWater at a world point (the cell's hasWater bit; outside the map or without a block: water)
+/// MapCoords::IsWater 0x6035B0 at a world point (MapCoords(LHPoint) 0x603160): ecs::sea_cells::IsWater
 bool IsWaterAt(const glm::vec3& point)
 {
-	if (!Locator::terrainSystem::has_value())
-	{
-		return true;
-	}
-	auto& island = Locator::terrainSystem::value();
-	const auto cx = static_cast<int32_t>(point.x * 0.1f); // ftol
-	const auto cz = static_cast<int32_t>(point.z * 0.1f);
-	if (cx < 0 || cz < 0 || cx > 0x1FF || cz > 0x1FF || cx >= island.GetCellsPerSide() || cz >= island.GetCellsPerSide())
-	{
-		return true;
-	}
-	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
-	lnd::LNDCell empty {};
-	empty.properties.fullWater = true;
-	if (std::memcmp(&cell, &empty, sizeof(empty)) == 0)
-	{
-		return true;
-	}
-	return cell.properties.hasWater != 0;
+	return ecs::sea_cells::IsWater(point);
 }
 
 /// The atom, or one of its parents, has been deflected (EC_DeflectionInAtomsHierarchy 0x67DAF0)

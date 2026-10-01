@@ -32,6 +32,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
 #include "ECS/Life.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/AnimalAI.h"
@@ -186,35 +187,17 @@ glm::vec3 fire::traits::FireCentre(entt::entity object)
 
 float fire::traits::DefaultFireRadius(entt::entity object)
 {
-	if (Locator::entitiesRegistry::value().AllOf<DeadTree>(object))
-	{
-		return 0.35f * Height(object); // DeadTree::GetDefaultFireRadius 0x510E10
-	}
-	return Radius(object);
+	return object::GetDefaultFireRadius(object); // vt 0x5F4: Object 0x639AC0, DeadTree 0x510E10, WorshipSite 0x77DE10
 }
 
 float fire::traits::Height(entt::entity object)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	if (registry.AllOf<MagicFireBall>(object))
-	{
-		// MagicFireBall::GetHeight 0x682D30 = Get2DRadius (vt 0x64): GetScale() x 1.0
-		const auto* transform = registry.TryGet<const Transform>(object);
-		return transform != nullptr ? transform->scale.x : 0.0f;
-	}
-	return effects::ObjectHeight(object);
+	return object::GetHeight(object); // vt 0x42C, with MagicFireBall 0x682D30
 }
 
 float fire::traits::Radius(entt::entity object)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	if (registry.AllOf<MagicFireBall>(object))
-	{
-		// MagicFireBall::Get2DRadius 0x682D20: GetScale() (vt 0x120) x [0x935910] = 1.0
-		const auto* transform = registry.TryGet<const Transform>(object);
-		return transform != nullptr ? transform->scale.x : 0.0f;
-	}
-	return effects::Object2DRadius(object);
+	return object::GetRadius(object); // vt 0x60 -> 0x64, with Field / FishFarm / PileFood / MagicFireBall 0x682D20
 }
 
 float fire::traits::RainCoolingMultiplier(entt::entity object)

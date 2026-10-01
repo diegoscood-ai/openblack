@@ -41,6 +41,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -368,7 +369,7 @@ float openblack::ecs::TallestTreeHeight(uint32_t forestId)
 		{
 			continue;
 		}
-		tallest = std::max(tallest, meshes.Handle(mesh->id)->GetBoundingBox().Size().y * registry.Get<const Transform>(tree).scale.y);
+		tallest = std::max(tallest, ecs::object::GetHeight(tree)); // vt +0x42C (0x53A75D, 0x53A78E)
 	}
 	return tallest;
 }
@@ -530,9 +531,8 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	}
 	const auto& transform = registry.Get<const Transform>(tree);
 	const auto from = registry.Get<const Transform>(chopper).position;
-	// k = 0.4 (0x8C7A44) x GetHeight() x 0.5 (0x8AA3B4); Object::GetHeight 0x638120 = 2 x LH3DMesh +0x28 (half height)
-	// x scale, here the mesh box height x scale (the same, the repo's convention)
-	const float height = meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform.scale.y;
+	// k = 0.4 (0x8C7A44) x GetHeight() (vt +0x42C, 0x5116C2) x 0.5 (0x8AA3B4)
+	const float height = ecs::object::GetHeight(tree);
 	const float k = 0.4f * height * 0.5f;
 	// the direction from the forester to the tree (y 0) and its angle a = fn_007FAA50 = atan2(x, -z) (0 when shorter than
 	// sqrt(0.001)): velocity (sin a, 0, -cos a) k = k along that direction; spin (cos a, 0, sin a) x 0.4 rad/s
@@ -613,16 +613,7 @@ glm::ivec2 CellOf(glm::vec3 position)
 
 float openblack::ecs::Object2DRadius(entt::entity entity)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(entity);
-	const auto* transform = registry.TryGet<const Transform>(entity);
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || transform == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	const auto half = 0.5f * meshes.Handle(mesh->id)->GetBoundingBox().Size();
-	return transform->scale.x * std::max(half.x, half.z);
+	return ecs::object::Get2DRadius(entity);
 }
 
 uint32_t openblack::ecs::NextMapInsertion()
@@ -1173,7 +1164,8 @@ void UpdateTreeBends()
 		if (it != marked.end() && meshes.Contains(mesh.id))
 		{
 			const auto& source = sources[it->second].second;
-			const float crown = transform.position.y + meshes.Handle(mesh.id)->GetBoundingBox().Size().y * transform.scale.y;
+			// 0x74ABA2..0x74ABC2: GetScale (vt +0x120) x the mesh's +0x28 read inline, doubled, + the object's y
+			const float crown = transform.position.y + ecs::object::MeshHeight(mesh.id, ecs::object::GetScale(entity));
 			const glm::vec2 away(transform.position.x - source.position.x, transform.position.z - source.position.z);
 			const float d = glm::length(away);
 			const float r = source.radius;
@@ -1277,7 +1269,7 @@ void openblack::ecs::UpdateTrees(float seconds)
 		    {
 			    return;
 		    }
-		    if (!meshes.Contains(mesh.id) || meshes.Handle(mesh.id)->GetBoundingBox().Size().y * transform.scale.y <= 10.0f)
+		    if (!meshes.Contains(mesh.id) || ecs::object::GetHeight(entity) <= 10.0f) // vt +0x42C (0x74B1CF)
 		    {
 			    return;
 		    }

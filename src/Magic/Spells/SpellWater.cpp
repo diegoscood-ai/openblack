@@ -35,6 +35,7 @@
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/WaterRings.h"
@@ -66,14 +67,10 @@ float LandAt(float x, float z)
 }
 
 /// GameThing::GetRadius vt 0x60: Object 0x638110 jumps to Get2DRadius (vt 0x64): Field 0x528E80 = 5 m, Object 0x638180
-/// = the mesh's half extent x the scale (ECS/Effects Object2DRadius). No class of the water's targets overrides vt 0x60.
+/// = the mesh's half extent x the scale (ecs::object::GetRadius). No class of the water's targets overrides vt 0x60.
 float ObjectRadius(entt::entity object)
 {
-	if (Locator::entitiesRegistry::value().AllOf<Field>(object))
-	{
-		return 5.0f; // fld 5.0 (0x8AB6E4)
-	}
-	return ecs::effects::Object2DRadius(object);
+	return ecs::object::GetRadius(object);
 }
 
 /// The ring of a drop (0x725243..0x7252B9): the first free of the 1024 slots at 0xEAB7C8; +0x0C flags |= 1, +0x10 age 0,

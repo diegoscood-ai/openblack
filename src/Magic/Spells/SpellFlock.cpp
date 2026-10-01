@@ -34,6 +34,7 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -392,7 +393,7 @@ int FlockProcess(entt::entity spell)
 			const auto position = registry.Get<const Transform>(member).position;
 			const auto previous = animal != nullptr ? animal->previous : position;
 			// fn_006D0C20(its +0x2C, its +0x14, GetRadius vt 0x60 = Get2DRadius): the first shield it crossed into
-			const auto* hit = psys::shields::FindShieldCrossedInto(previous, position, ecs::effects::Object2DRadius(member));
+			const auto* hit = psys::shields::FindShieldCrossedInto(previous, position, ecs::object::GetRadius(member));
 			if (hit != nullptr)
 			{
 				// SpellEvent{4, its position, no movement, 1.0, target = the shield's spell (fn_006D0B10)}; costPerShieldCollide

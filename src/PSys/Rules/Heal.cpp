@@ -27,7 +27,7 @@
 #include "ECS/Components/SpecularColour.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
-#include "ECS/Effects/EffectValues.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -125,7 +125,7 @@ glm::vec3 TargetPosition(entt::entity object, bool centre)
 	auto position = Locator::entitiesRegistry::value().Get<const ecs::components::Transform>(object).position;
 	if (centre)
 	{
-		position.y += ecs::effects::ObjectHeight(object) * 0.5f; // GetHeight vt 0x42C (Object 0x638120)
+		position.y += ecs::object::GetHeight(object) * 0.5f; // GetHeight vt 0x42C (Object 0x638120)
 	}
 	return position;
 }
@@ -175,8 +175,8 @@ public:
 			auto& atom = effect.NewAtom(collection, effect.FindCreator(creator), nextGroups);
 			auto data = std::make_shared<ChakraData>();
 			data->SetTarget(target);
-			data->radius = ecs::effects::Object2DRadius(target); // vt 0x64
-			data->height = ecs::effects::ObjectHeight(target);   // vt 0x42C
+			data->radius = ecs::object::Get2DRadius(target); // vt 0x64
+			data->height = ecs::object::GetHeight(target);   // vt 0x42C
 			atom.modifierData.insert_or_assign(this, data);
 			atom.position = position;
 		}
@@ -208,7 +208,7 @@ public:
 				atom.position = TargetPosition(data.target, takeCentre);
 				if (scaleToObject)
 				{
-					atom.ruleScale = ecs::effects::Object2DRadius(data.target); // +0x78
+					atom.ruleScale = ecs::object::Get2DRadius(data.target); // vt 0x64 (0x6A0DC3) -> +0x78
 				}
 			}
 			else

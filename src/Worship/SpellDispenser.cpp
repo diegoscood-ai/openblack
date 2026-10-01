@@ -27,6 +27,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -76,16 +77,10 @@ const GAbodeInfo* AbodeInfoOf(entt::entity dispenser)
 	return nullptr;
 }
 
-/// Object::GetHeight 0x638120: 2 x the mesh's half height x scale
+/// GetHeight vt +0x42C (0x722B46; Object 0x638120: 2 x the mesh's half height x scale)
 float HeightOf(entt::entity entity)
 {
-	const auto* mesh = Registry().TryGet<const Mesh>(entity);
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	return meshes.Handle(mesh->id)->GetBoundingBox().Size().y * Registry().Get<const Transform>(entity).scale.y;
+	return ecs::object::GetHeight(entity);
 }
 
 /// fn_00722B30

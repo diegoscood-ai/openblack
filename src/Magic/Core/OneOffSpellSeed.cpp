@@ -26,6 +26,7 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "InfoConstants.h"
@@ -174,17 +175,14 @@ void one_off::UpdateFrames(float milliseconds)
 	// DrawSpellGraphic(this, 0, 1, the orb's diffuse alpha 0x95): the seed spins in the centre of the bubble and goes
 	// with the orb when it is carried or thrown. (inferido): every frame, not only when on screen.
 	registry.Each<OneOffSpellSeed, const Transform, const Mesh>(
-	    [&camera, milliseconds, hasCamera = Locator::camera::has_value()](OneOffSpellSeed& orb, const Transform& transform,
-	                                                                     const Mesh& mesh) {
+	    [&camera, milliseconds, hasCamera = Locator::camera::has_value()](entt::entity entity, OneOffSpellSeed& orb,
+	                                                                     const Transform& transform, const Mesh& mesh) {
 		    const auto l3d = Locator::resources::value().GetMeshes().Handle(mesh.id);
 		    glm::vec3 centre = transform.position;
-		    float radius = 0.0f;
+		    const float radius = ecs::object::GetRadius(entity); // vt 0x60
 		    if (l3d)
 		    {
-			    const auto& box = l3d->GetBoundingBox();
-			    centre += box.Center() * transform.scale;
-			    const auto size = box.Size() * transform.scale;
-			    radius = 0.5f * std::max(size.x, size.z);
+			    centre += l3d->GetBoundingBox().Center() * transform.scale;
 		    }
 		    orb.sortPoint = centre;
 		    if (hasCamera && glm::dot(camera - centre, camera - centre) > 0.0f)

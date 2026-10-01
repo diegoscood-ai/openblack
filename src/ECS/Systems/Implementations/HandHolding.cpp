@@ -74,6 +74,7 @@
 #include "ECS/SeaCells.h"
 #include "ECS/VillagerDrowning.h"
 #include "ECS/Life.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
@@ -640,15 +641,12 @@ void HandSystem::ComputeHoldParameters(entt::entity entity) noexcept
 	//   Villager                  VILLAGER  R = R2D             lowering 0.65
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<Transform>(entity);
-	float radius2D = 0.5f;
-	_heldHeight = 1.0f;
+	// Object::Get2DRadius 0x638180 itself: the hand food's PileFood 0x66F180 proportion is applied by HandSystem::Update
+	// (PotInfo::HandFood); none of the other overrides (Field, FishFarm, MagicFireBall, MagicTeleport) can be held.
+	// GetHeight vt +0x42C (Object 0x638120). No mesh: 0 for both (0x6381E9, 0x638140)
+	const float radius2D = ecs::object::ObjectGet2DRadius(entity);
+	_heldHeight = ecs::object::GetHeight(entity);
 	auto& meshes = Locator::resources::value().GetMeshes();
-	if (const auto* mesh = registry.TryGet<const Mesh>(entity); mesh != nullptr && meshes.Contains(mesh->id))
-	{
-		const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * transform.scale;
-		radius2D = 0.5f * std::max(size.x, size.z);
-		_heldHeight = size.y; // Object::GetHeight = 2 * half extent y * scale
-	}
 	_holdType = HoldType::Above;
 	_holdRadius = 0.75f * _heldHeight;
 	_loweringMultiplier = 0.0f;

@@ -716,7 +716,7 @@ PackResult PackFile::ReadFile(std::istream& stream) noexcept
 {
 	PackResult result;
 
-	result = ReadBlocks(stream);
+	result = ReadBlocks(stream, false);
 	if (result != PackResult::Success)
 	{
 		return result;

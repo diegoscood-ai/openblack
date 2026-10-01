@@ -1261,6 +1261,20 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   1000, queda pendiente). En juego (`_audit\audio\audit_b4b6.log`): PLAY_SOUND_EFFECT(49/50/54, 5, punto, 1) con la cámara
   al lado → Scriptsfx 3D, track 0, dueño `key 0x31/0x32/0x36`, en canal. (Aproximado, sin cambio audible) los tags de
   recoger y arrancar usan el punto de la Transform, el original GetAltitude + la altura de su MapCoords (0x71EB60).
+- **Auditoría B7** (2026-10-01, commit 6a67dd03): comprobadas en el desensamblado 0x5C36D0 (retardo |+0x3514| − 0,95
+  doble 0x915438, (v+1)·250, tope 500), 0x5C3750, 0x5C3780 (+0x7C = ebp, 0x900D48 = otra copia idéntica de 0x915D40,
+  0,9 doble 0x915440), 0x5C5290/0x5C52C0, 0x5BB340, 0x5BB530, 0x5BB610, 0x5BB730/0x5BB760/0x5BB7C0/0x5BB840,
+  0x5BCD00, 0x428850 (bandas, la banda más fuerte, límites dt·rate·0,18 y el doble), 0x428A80, 0x428C60, constantes de
+  four1 (0x8C49F8, 0x8AB260, 0x8C49F0), init 0x5C1EA1..0x5C1F24, 0x5C6025..0x5C60DB, 0x5C62F0, 0x5C6340, 0x70F8E0,
+  0x70F9B0, 0x710280, 0x710C40, 0x710350 (tabla 0x710400), 0x5C6E20, 0x5C6A7E..0x5C6AAD, 0x5C6720 → 0x5C68A0 →
+  0x5C4C20 → 0x5C5250, y en el DLL 0x10012BF0, 0x10012C50, 0x10012DF0, 0x1001439D/0x100143BC, 0x10014C00, 0x10015180:
+  cuadran. Corregido: `advisor::Reset` decía ser «HelpSystem / el cambio de mapa», sin fuente (HelpSystem::Reset
+  0x5C5580 no toca HelpDudeControl): ahora es solo de los tests y ningún código del juego la llama; quitado el argumento
+  por defecto de `PackFile::ReadBlocks`. Precisión al PLAN §4 B7 («el clic corta villagers pero no HelpSprites»): el
+  clic corta villagers/0x270F con 0x42A210 y además **para al consejero que habla** (fn_005C3780 → fn_005C3750, sin
+  frase de interrupción en W120); la narración 0x270F de HelpSprites (narrador ≠ 2/3) no se corta. Sin fugas: el
+  consejero solo decodifica PCM (ningún búfer AL), `ReadWave` cierra su flujo; las voces no tienen entidad dueña y
+  `ClearMap` → LHSampleStopAll las corta; el hilo de música no toca `sample_play`.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
 - **A9 en juego**: falta quién da el alineamiento en la cámara (GAudio+0x190, fn_005E2240 desde fn_0064AC30) y la tribu
   de los pueblos (Town +0x5B8). Hoy suena la genérica neutral.

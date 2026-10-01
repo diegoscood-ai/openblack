@@ -88,7 +88,10 @@ void CalcKey(AutoVoiceParams& params, VoiceKey& key, float dt, float t, const in
 /// HelpDudeControl::Init (HelpSystem::CallVirtualFunctionsForCreation 0x5C5860 -> fn_005C3660(HelpSprites, HelpSprites)
 /// -> fn_005BB060 on both dudes): their bank (+0x2EFC) and its number of samples (+0x2F00)
 void Init(BankId bank);
-/// HelpSystem / the map going: every sentence stopped, the dudes' state as their init leaves it
+/// For the tests only: every sentence stopped and the dudes' state as their init leaves it. Not in the original:
+/// HelpDudeControl lives as long as HelpSystem (HelpSystem::Reset 0x5C5580 does not touch it; only Uninit 0x5C5680
+/// deletes it), and at a map change GAudio::Reset's LHSampleStopAll ends the advisor's channel, after which IsTalking
+/// clears the sentence by itself (0x5BB7B6). No game code calls it.
 void Reset();
 
 /// HelpDudeControl::Say fn_005C36D0(dude, sample, onlyIfSilent): v = |dude+0x3514| - 0.95 (double 0x915438); the delay

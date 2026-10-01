@@ -219,7 +219,7 @@ protected:
 	uint64_t _audioWaveDataSize {0};
 
 	/// Read blocks from pack. `skipWaveData`: the body of LHAudioWaveData is not read, only its place is kept
-	PackResult ReadBlocks(std::istream& stream, bool skipWaveData = false) noexcept;
+	PackResult ReadBlocks(std::istream& stream, bool skipWaveData) noexcept;
 
 	/// Write blocks to file
 	PackResult WriteBlocks(std::ostream& stream) const noexcept;

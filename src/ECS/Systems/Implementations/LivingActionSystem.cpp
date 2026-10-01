@@ -29,6 +29,7 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
 #include "VillagerReactions.h"
@@ -282,7 +283,14 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     },
     /* MOVE_TO_OBJECT */ k_TodoEntry,
     /* MOVE_ON_STRUCTURE */ k_TodoEntry,
-    /* IN_SCRIPT */ k_TodoEntry,
+    // the script states (ECS/Villager/VillagerScript.h): StateInScript 0x5ED9A0, EnterInScript 0x5ED7E0 (vt +0x940),
+    // ExitInScript 0x5ED9C0 (vt +0x914); SaveInScript / LoadInScript not ported
+    /* IN_SCRIPT */
+    {.state = &ecs::villager::StateInScript,
+     .entryState = &ecs::villager::EnterInScript,
+     .exitState = &ecs::villager::ExitInScript,
+     .saveState = k_TodoEntry.saveState,
+     .loadState = k_TodoEntry.loadState},
     /* IN_DANCE */ k_TodoEntry,
     /* FLEEING_FROM_OBJECT_REACTION */ TodoWithExitReaction(),
     /* LOOKING_AT_OBJECT_REACTION */ TodoWithExitReaction(),
@@ -305,7 +313,13 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* ARRIVES_AT_FOOD_REACTION */ k_TodoEntry,
     /* GOTO_WOOD_REACTION */ k_TodoEntry,
     /* ARRIVES_AT_WOOD_REACTION */ k_TodoEntry,
-    /* WAIT_FOR_ANIMATION */ k_TodoEntry,
+    // Living::WaitForAnimation 0x5EC990 (no entry or exit; +0x50 AlwaysReactToTownEmergency; SaveWaitForAnim /
+    // LoadWaitForAnim not ported)
+    /* WAIT_FOR_ANIMATION */
+    {.state = &ecs::villager::WaitForAnimation,
+     .saveState = k_TodoEntry.saveState,
+     .loadState = k_TodoEntry.loadState,
+     .field0x50 = k_TodoEntry.field0x50},
     /* IN_HAND */ {.state = &VillagerCarried},
     /* GOTO_PICKUP_BALL_REACTION */ k_TodoEntry,
     /* ARRIVES_AT_PICKUP_BALL_REACTION */ k_TodoEntry,
@@ -498,7 +512,14 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* AFTER_TAP_ON_ABODE */ k_TodoEntry,
     /* WEAK_ON_GROUND */ k_TodoEntry,
     /* SCRIPT_WANDER_AROUND_POSITION */ k_TodoEntry,
-    /* SCRIPT_PLAY_ANIM */ k_TodoEntry,
+    // Villager::ScriptPlayAnim 0x768970, EnterPlayAnim 0x768840 (vt +0x958), ExitPlayAnim 0x7689C0 (vt +0x95C); the clip
+    // (ScriptAnimation 0x768A00) is VillagerAnimations' AnimFn::Script; SaveScriptPos / LoadScriptPos not ported
+    /* SCRIPT_PLAY_ANIM */
+    {.state = &ecs::villager::ScriptPlayAnim,
+     .entryState = &ecs::villager::EnterPlayAnim,
+     .exitState = &ecs::villager::ExitPlayAnim,
+     .saveState = k_TodoEntry.saveState,
+     .loadState = k_TodoEntry.loadState},
     // the teleport stones' states (VillagerTeleport.cpp); their exit (+0x20) ExitReactToTeleport 0x766390
     /* GO_TOWARDS_TELEPORT_REACTION */
     {.state = &ecs::villager_teleport::GoToTeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},

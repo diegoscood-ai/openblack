@@ -477,6 +477,20 @@ bool Game::GameLogicLoop() noexcept
 			                   _dayNightClock->GetVisualTime(), _dayNightClock->GetScriptTime(),
 			                   _dayNightClock->GetSkyType());
 		}
+		// OPENBLACK_TEST_TEXT_CLICK=1 (openblack only): the player's click on a text that waits for one (RUN_TEXT with
+		// interaction 1), every turn while it waits, as the left button going down does (ProcessEvents);
+		// ProcessInterface itself ignores the click until the text has been shown long enough
+		if (static const bool textClick = std::getenv("OPENBLACK_TEST_TEXT_CLICK") != nullptr; textClick)
+		{
+			if (auto* helpSystem = help::Get(); helpSystem != nullptr && helpSystem->IsWaitingForClick())
+			{
+				helpSystem->ProcessInterface(true);
+				if (!helpSystem->IsWaitingForClick())
+				{
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "OPENBLACK_TEST_TEXT_CLICK: click taken at turn {}", _turnCount);
+				}
+			}
+		}
 		ecs::ProcessFishFarmsTurn(_turnCount);
 		ecs::ProcessFieldsTurn(_turnCount);
 		// PSysGlobal: the particle effects, one step per turn of the turn's length

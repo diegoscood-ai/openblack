@@ -12,16 +12,14 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <vector>
-
-#include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
 #include "PSys/SoundAction.h"
 
 // The sounds of the particle system (the miracles' loops, bangs and thunder): each is a PSysSound tied to the atom that
-// started it, played from the spells.sad anim effect table and kept alive or released once per game turn. Wiki:
-// docs/bw1-notes/particles.md, "Sonido de las partículas".
+// started it, played from the spells.sad anim effect table (GAudio::SamplePlayAnimEffect 0x42A4B0 on the 16 channels,
+// audio milestone B5) and kept alive or released once per game turn. Wiki: docs/bw1-notes/particles.md, "Sonido de las
+// partículas", and docs/bw1-notes/audio.md.
 
 namespace openblack::psys
 {
@@ -40,8 +38,9 @@ struct PSysSound
 	const psys::Atom* atom {nullptr}; ///< +0x38, null once the atom stopped it or is gone
 	bool released {false};            ///< +0x3C the release has been sent
 	glm::vec3 position {0.0f};        ///< PSysSound::Get3DSoundPos 0x6D1000: the atom's last drawn position
-	/// the channels the bank started for this object (the DLL's LH_SampleInfo with obj = this PSysSound)
-	std::vector<entt::entity> emitters;
+	/// The channels' owner (LH_SamplePlayOptions +0x20 = this PSysSound): audio::Owner::Object(owner), registered with
+	/// audio::RegisterObject for its Get3DSoundPos while the sound lives
+	uint32_t owner {0};
 };
 
 namespace spell_sounds

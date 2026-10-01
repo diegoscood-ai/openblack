@@ -164,7 +164,9 @@ const char* OwnerName(const Owner& owner)
 	}
 }
 
-void Halt(ChannelState& channel, const char* why)
+/// `ramped`: LHSampleStop's 20 ms ramp to silence before the flush (SampleOutput::StopRamped); LHSampleStopAll flushes at
+/// once (0x10012C2E)
+void Halt(ChannelState& channel, const char* why, bool ramped)
 {
 	if (InUse(channel))
 	{
@@ -172,7 +174,14 @@ void Halt(ChannelState& channel, const char* why)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Sample play: channel {} stopped ({})", IndexOf(channel), why);
 		}
-		Output()->Stop(IndexOf(channel));
+		if (ramped)
+		{
+			Output()->StopRamped(IndexOf(channel));
+		}
+		else
+		{
+			Output()->Stop(IndexOf(channel));
+		}
 	}
 }
 
@@ -371,7 +380,7 @@ Channel sample_play::Start(const Options& options)
 	const size_t index = IndexOf(*channel);
 	if (restart)
 	{
-		Halt(*channel, "restarted");
+		Halt(*channel, "restarted", false);
 	}
 
 	const int volume = std::clamp(fromSad(0x20) ? sound->volume127 : options.volume, 0, qmixer::k_MaxVolume);
@@ -446,7 +455,7 @@ void sample_play::Stop(entt::id_type sound, Owner owner)
 	{
 		return;
 	}
-	Halt(*channel, "LHSampleStop");
+	Halt(*channel, "LHSampleStop", true);
 }
 
 void sample_play::Stop(Channel handle)
@@ -458,7 +467,7 @@ void sample_play::Stop(Channel handle)
 	}
 	if (auto* channel = First(started->bank, started->owner, started->sample); channel != nullptr)
 	{
-		Halt(*channel, "LHSampleStop(info)");
+		Halt(*channel, "LHSampleStop(info)", true);
 	}
 }
 
@@ -475,7 +484,7 @@ void sample_play::StopOwner(uint32_t bank, Owner owner)
 		{
 			return;
 		}
-		Halt(channel, "LHSampleStop, any sample");
+		Halt(channel, "LHSampleStop, any sample", true);
 	}
 }
 
@@ -485,7 +494,7 @@ void sample_play::StopAll()
 	{
 		if (!channel.atmos)
 		{
-			Halt(channel, "LHSampleStopAll");
+			Halt(channel, "LHSampleStopAll", false);
 		}
 	}
 }
@@ -515,6 +524,85 @@ bool sample_play::IsOwnerPlaying(uint32_t bank, Owner owner)
 		}
 	}
 	return false;
+}
+
+Channel sample_play::OwnerChannel(uint32_t bank, Owner owner)
+{
+	// 0x10014010: nothing while switched off (+0x14, 0x10014018); the first channel of the bank and owner, whatever its
+	// sample (0x10014038..0x10014040); its info when in use (+0x8C == 1, 0x10014051)
+	if (!g_State.active)
+	{
+		return k_NoChannel;
+	}
+	for (const auto& channel : g_State.channels)
+	{
+		if (channel.handle != k_NoChannel && channel.bank == bank && channel.owner == owner)
+		{
+			return InUse(channel) ? channel.handle : k_NoChannel;
+		}
+	}
+	return k_NoChannel;
+}
+
+int sample_play::Volume(Channel handle)
+{
+	const auto* channel = Find(handle);
+	return channel != nullptr ? channel->volume : 0;
+}
+
+int64_t sample_play::PlayPosition(uint32_t bank, Owner owner)
+{
+	// LHSampleGetPlayPosition 0x10014C00: -1 while switched off (0x10014C09); the first channel of the bank and owner,
+	// whatever its sample (0x10014C29..0x10014C31); in use -> QSWaveMixGetPlayPosition in ms, else -1
+	if (!g_State.active)
+	{
+		return -1;
+	}
+	for (const auto& channel : g_State.channels)
+	{
+		if (channel.handle != k_NoChannel && channel.bank == bank && channel.owner == owner)
+		{
+			return InUse(channel) ? Output()->PlayPositionMs(IndexOf(channel)) : -1;
+		}
+	}
+	return -1;
+}
+
+float sample_play::PercentageDone(entt::id_type sound, Owner owner)
+{
+	// LHSampleGetPercentageDone 0x10015180: 1 when nothing matches; every channel of (bank, owner, sample) in turn
+	// (0x100151AB..0x10015207); one met while switched off that is not an atmos one ends it with 1 (0x100151C6..
+	// 0x100151D0); the first in use gives position / length: the ms of QSWaveMixGetPlayPosition over the wave's
+	// bytes * 1000 / (channels * rate * 2) (0x10015243..0x1001527D)
+	const auto* info = Lookup(sound);
+	if (info == nullptr)
+	{
+		return 1.0f;
+	}
+	for (const auto& channel : g_State.channels)
+	{
+		if (channel.handle == k_NoChannel || channel.bank != info->bank || !(channel.owner == owner) ||
+		    channel.sample != info->id)
+		{
+			continue;
+		}
+		if (!g_State.active && !channel.atmos)
+		{
+			return 1.0f;
+		}
+		if (!InUse(channel))
+		{
+			continue;
+		}
+		const int64_t position = Output()->PlayPositionMs(IndexOf(channel));
+		const auto lengthMs = static_cast<int64_t>(info->duration * 1000.0f);
+		if (position < 0 || lengthMs <= 0)
+		{
+			continue;
+		}
+		return static_cast<float>(position) / static_cast<float>(lengthMs);
+	}
+	return 1.0f;
 }
 
 bool sample_play::IsPlaying(Channel handle)
@@ -661,7 +749,7 @@ void sample_play::UpdateChannels()
 			break;
 		case Owner::Kind::Atmos:
 			// 0x42726D: the atmos owner (-1) gives no position: LHSampleStop
-			Halt(channel, "tracked, atmos owner");
+			Halt(channel, "tracked, atmos owner", true); // LHSampleStop(info) 0x10012DF0: the ramp
 			channel.owner = {};
 			continue;
 		case Owner::Kind::SoundTag:
@@ -689,7 +777,7 @@ void sample_play::UpdateChannels()
 			{
 				// 0x4272AD: GameThing::IsAvailable() == 0 -> 0 -> LHSampleStop (0x1001439D) and the owner +0x18 = 0
 				// (0x100143A2)
-				Halt(channel, "tracked, owner gone");
+				Halt(channel, "tracked, owner gone", true); // LHSampleStop(info) 0x10012DF0: the ramp
 				channel.owner = {};
 				continue;
 			}
@@ -702,7 +790,7 @@ void sample_play::UpdateChannels()
 		// 0x100143BC: the camera at or beyond the channel's max distance stops it
 		if (glm::distance(at, *camera) >= channel.maxDistance)
 		{
-			Halt(channel, "tracked, beyond its max distance");
+			Halt(channel, "tracked, beyond its max distance", true); // LHSampleStop(info) 0x10012DF0: the ramp
 			continue;
 		}
 		output->SetPosition(IndexOf(channel), at);

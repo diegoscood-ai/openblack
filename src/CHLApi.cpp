@@ -37,6 +37,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/Audio.h"
 #include "Audio/GameMusic.h"
 #include "Audio/ScriptAudioState.h"
 #include "Audio/SamplePlay.h"
@@ -2913,11 +2914,19 @@ void HasPlayerMagic() // 245 HAS_PLAYER_MAGIC
 
 void SpiritSpeaks() // 246 SPIRIT_SPEAKS
 {
-	// const auto textID = Pop().intVal;
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SpiritSpeaks 0x710C40: POP the text, then the SCRIPT_SPIRIT_TYPE; ConvertScriptSpiritToHelpSpirit 0x710350
+	// (the local player's alignment: inferred, openblack's local player is PLAYER_ONE; LocalRand: openblack's generator);
+	// text 0 past 6974 (0x710C6E); push HelpSystem::GetSpiritWhoTalks 0x5C6E20 == the spirit (type 6)
+	auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto type = Pop().intVal;
+	const int discrete = audio::DiscreteAlignment(ecs::effects::alignment::Get(PlayerNames::PLAYER_ONE));
+	const auto spirit =
+	    help::ConvertScriptSpiritToHelpSpirit(type, discrete, []() { return audio::tags::RandomSample(0, 100); });
+	if (text >= helptext::k_TextCount)
+	{
+		text = 0;
+	}
+	Pushb(help::SpiritWhoTalks(helptext::GetEntry(text).narrator) == spirit);
 }
 
 void BeliefForPlayer() // 247 BELIEF_FOR_PLAYER
@@ -3741,12 +3750,15 @@ void GameThingCanViewCamera() // 339 GAME_THING_CAN_VIEW_CAMERA
 
 void GamePlaySaySoundEffect() // 340 GAME_PLAY_SAY_SOUND_EFFECT
 {
-	// const auto withPosition = static_cast<bool>(Pop().intVal);
-	// const auto position = PopVec();
-	// const auto sound = Pop().intVal;
-	// const auto extra = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::GamePlaySaySoundEffect 0x70F9B0: six POPs (withPos, the point, the text, alt), then
+	// SaySoundEffect 0x70F8E0(text, withPos, alt, &point) (audio::voices::Say)
+	const auto withPosition = Pop().intVal != 0;
+	const auto position = PopVec();
+	const auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto alt = Pop().intVal != 0;
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "GAME_PLAY_SAY_SOUND_EFFECT({}, {}, ({}, {}, {}), {})", alt, text,
+	                    position.x, position.y, position.z, withPosition);
+	audio::voices::Say(text, withPosition, alt, position);
 }
 
 void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
@@ -4735,11 +4747,10 @@ void GetTempleEntrancePosition() // 457 GET_TEMPLE_ENTRANCE_POSITION
 
 void SaySoundEffectPlaying() // 458 SAY_SOUND_EFFECT_PLAYING
 {
-	// const auto sound = Pop().intVal;
-	// const auto alwaysFalse = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SaySoundEffectPlaying 0x710280: POP the text, then alt; push audio::voices::IsSaying (type 6)
+	const auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto alt = Pop().intVal != 0;
+	Pushb(audio::voices::IsSaying(alt, text));
 }
 
 void SetHandDemoKeys() // 459 SET_HAND_DEMO_KEYS

@@ -25,8 +25,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/Sound.h"
+#include "Audio/Audio.h"
 #include "Audio/SoundMap.h"
 #include "Audio/SpellSounds.h"
 #include "Camera/Camera.h"
@@ -499,27 +498,26 @@ public:
 		return true;
 	}
 
-	/// The whoosh (0x683184..): the drawn position within 40 m of the camera now and not the step before, and faster
-	/// than 20: G_FireballPast_01..05 (sample 0x40 + GetTickCount() % 5). (aproximado): a round-robin counter stands
-	/// for GetTickCount() % 5, and the sample plays non-positionally (no emitter at the ball)
+	/// The whoosh (0x683184..0x68327F): the drawn position (+0xF4) within 40 m of LH3DTech::g_camera now (squared < 1600
+	/// [0x9361B8]) and not the step before (+0xBC: squared > 1600, 0x68322B), and faster than 20 (+0x34 squared > 400
+	/// [0x8C7728]): GAudio::PlaySoundEffect 0x429D60(NULL, 0x40 G_FireballPast_01 + GetTickCount() % 5, mode 2, loops
+	/// 0, +0x10 0, is3D 0, IN_GAME), a 2D one
 	static void FlyBySound(const Atom& atom)
 	{
-		if (!Locator::camera::has_value() || !Locator::audio::has_value() || !atom.drawn)
+		if (!Locator::camera::has_value() || !atom.drawn)
 		{
 			return;
 		}
 		const glm::vec3 camera = Locator::camera::value().GetOrigin();
 		const glm::vec3 now = atom.current.position - camera;
 		const glm::vec3 before = atom.previous.position - camera;
-		if (!(glm::dot(now, now) < 1600.0f) || glm::dot(before, before) < 1600.0f || !(glm::dot(atom.velocity, atom.velocity) > 400.0f))
+		if (!(glm::dot(now, now) < 1600.0f) || !(glm::dot(before, before) > 1600.0f) ||
+		    !(glm::dot(atom.velocity, atom.velocity) > 400.0f))
 		{
 			return;
 		}
-		static constexpr audio::SoundId k_Past[5] = {audio::SoundId::G_FireballPast_01, audio::SoundId::G_FireballPast_02,
-		                                             audio::SoundId::G_FireballPast_03, audio::SoundId::G_FireballPast_04,
-		                                             audio::SoundId::G_FireballPast_05};
-		static uint32_t s_Tick = 0;
-		Locator::audio::value().PlaySound(static_cast<entt::id_type>(k_Past[s_Tick++ % 5]), audio::PlayType::Once);
+		audio::PlaySoundEffect(audio::Owner::None(), 0x40 + static_cast<int>(audio::TickCount() % 5), 2, 0, false, false,
+		                       audio::SfxBank::InGame);
 	}
 
 	/// atom data +0x28 (the MagicFireBall*): by key, so that a float in the atom data can name it

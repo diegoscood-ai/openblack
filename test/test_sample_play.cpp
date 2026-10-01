@@ -9,6 +9,7 @@
 
 #include <cstdlib>
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <map>
@@ -426,4 +427,72 @@ TEST_F(SamplePlayTest, InGameWavesDecodeAndLoop)
 	wave_buffers::Pcm pcm;
 	ASSERT_TRUE(wave_buffers::Decode(bell, pcm));
 	EXPECT_EQ(pcm.Frames(), 57855u);
+}
+
+TEST_F(SamplePlayTest, OwnerChannelAndTheFadeOfAPSysSound)
+{
+	// LHSampleIsPlaying(bank, owner, LH_SampleInfo**) 0x10014010, which PSysSound fn_006D11A0 calls straight (0x6D120A):
+	// the first channel of the bank and owner, whatever its sample
+	const auto first = Start(Add(3, 5, 100), 1, Owner::Object(7));
+	const auto second = Start(Add(3, 6, 100), 1, Owner::Object(8));
+	ASSERT_NE(first, k_NoChannel);
+	ASSERT_NE(second, k_NoChannel);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(7)), first);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(8)), second);
+	// another bank or another owner: none (0x10014038..0x10014040)
+	EXPECT_EQ(sample_play::OwnerChannel(4, Owner::Object(7)), k_NoChannel);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(9)), k_NoChannel);
+	// 0x6D121C..0x6D1239: the FadeStep taken off that channel's volume (+0x38), never below 0
+	EXPECT_EQ(sample_play::Volume(first), 127);
+	sample_play::SetVolume(first, std::max(sample_play::Volume(first) - 30, 0));
+	EXPECT_EQ(sample_play::Volume(first), 97);
+	EXPECT_NEAR(output.gain[(first - 1) % 16], qmixer::Gain(97, 127), 1e-6f);
+	sample_play::SetVolume(first, std::max(sample_play::Volume(first) - 200, 0));
+	EXPECT_EQ(sample_play::Volume(first), 0);
+	// the wave ends: +0x8C != 1, so the PSysSound is deleted (0x6D12A5, vtable +4 0x6D12B5)
+	output.Finish((first - 1) % 16);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(7)), k_NoChannel);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(8)), second);
+}
+
+TEST_F(SamplePlayTest, OwnerChannelNeedsActive)
+{
+	// 0x10014018: k_NoChannel while switched off (+0x14), even though LHSamplePlay did start the channel
+	sample_play::Switch(false);
+	const auto channel = Start(Add(3, 5, 100), 1, Owner::Object(7));
+	ASSERT_NE(channel, k_NoChannel);
+	EXPECT_TRUE(output.playing[(channel - 1) % 16]);
+	EXPECT_EQ(sample_play::OwnerChannel(3, Owner::Object(7)), k_NoChannel);
+	sample_play::Switch(true);
+}
+
+TEST_F(SamplePlayTest, TapSoundKeepsTheOptionsPitch)
+{
+	// PlayTapSound fn_00726490: G_ClickOnSpell_01 (InGame 42) with the pitch of the icon's placement in the options
+	// (+0x48) and no caller mask (+0x1C). The .sad's flags of sample 42 are 0x402, with no pitch bit 0x1, so the
+	// options' pitch reaches the channel (0x1001278B..0x1001283B): placement 5 gives 175.
+	if (!LoadBank("Audio/SFX/Game/InGame.sad", 1, false))
+	{
+		GTEST_SKIP() << "OPENBLACK_TEST_BW_ROOT not set";
+	}
+	const auto& click = sounds.at(Real(1, 42));
+	EXPECT_EQ(click.overrides, 0x402u);
+	EXPECT_EQ(click.overrides & 0x1u, 0u);
+	sample_play::Options options;
+	options.sound = Real(1, 42);
+	options.owner = Owner::None();
+	options.is3D = false;
+	options.pitch = 175;
+	const auto channel = sample_play::Start(options);
+	ASSERT_NE(channel, k_NoChannel);
+	EXPECT_FLOAT_EQ(output.starts[(channel - 1) % 16].pitch, qmixer::FrequencyRatio(click.sampleRate, 175));
+	// with the .sad's pitch bit the options' pitch would be dropped for the .sad's own
+	auto raised = click;
+	raised.overrides |= 0x1u;
+	raised.pitch = 100;
+	sounds.insert_or_assign(Real(1, 42), raised);
+	sample_play::StopAll();
+	const auto other = sample_play::Start(options);
+	ASSERT_NE(other, k_NoChannel);
+	EXPECT_FLOAT_EQ(output.starts[(other - 1) % 16].pitch, qmixer::FrequencyRatio(click.sampleRate, 100));
 }

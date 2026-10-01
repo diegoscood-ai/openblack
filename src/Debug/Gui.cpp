@@ -66,6 +66,7 @@
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
 #include "MeshViewer.h"
+#include "Music.h"
 #include "PathFinding.h"
 #include "Profiler.h"
 #include "Resources/ResourcesInterface.h"
@@ -122,6 +123,7 @@ std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPas
 	debugWindows.emplace_back(new LHVMViewer);
 	debugWindows.emplace_back(new PathFinding);
 	debugWindows.emplace_back(new Audio);
+	debugWindows.emplace_back(new Music);
 	debugWindows.emplace_back(new TempleInterior);
 
 	auto gui = std::unique_ptr<DebugGuiInterface>(

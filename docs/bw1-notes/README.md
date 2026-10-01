@@ -46,6 +46,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [rendering.md](rendering.md) | Estados D3D, terreno, luz, mar, neblina, sombras, cielo y nubes, reflejos, peces, anillos, partículas, ríos, niebla del mapa, humo, fundido, fuentes y texto |
 | [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
 | [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
+| [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
 
 **Magia**
 

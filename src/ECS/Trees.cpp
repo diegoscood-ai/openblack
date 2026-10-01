@@ -39,6 +39,7 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
@@ -87,24 +88,6 @@ uint32_t g_nextForestId = 1;
 uint32_t g_lastTreeCreatedTurn = 0;
 uint32_t g_currentTurn = 0;
 
-
-/// GUtils::SigmoidThreshold 0x74F170's table (0xC23284, 41 steps of a logistic curve, 0 to 1)
-constexpr std::array<float, 41> k_Sigmoid = {
-    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,    0.0f,
-    0.0001f, 0.0003f, 0.0008f, 0.0022f, 0.006f,  0.0164f, 0.0444f, 0.1144f, 0.2644f, 0.5f,    0.7356f,
-    0.8856f, 0.9556f, 0.9836f, 0.994f,  0.9978f, 0.9992f, 0.9997f, 0.9999f, 1.0f,    1.0f,    1.0f,
-    1.0f,    1.0f,    1.0f,    1.0f,    1.0f,    1.0f,    1.0f,    1.0f};
-
-/// GUtils::SigmoidThreshold(t, x) 0x74F170: 0 when t is 1; else the table at (clamp(clamp(x, -1, 1) - t, -1, 1) + 1) x 20.5
-float SigmoidThreshold(float threshold, float x)
-{
-	if (threshold == 1.0f)
-	{
-		return 0.0f;
-	}
-	const float v = std::clamp(std::clamp(x, -1.0f, 1.0f) - threshold, -1.0f, 1.0f);
-	return k_Sigmoid.at(std::min<size_t>(40, static_cast<size_t>((v + 1.0f) * 20.5f)));
-}
 
 /// fn_0074C180: nothing fixed in the way (a 0.5 circle against the fixed objects' circles) and on land. The original
 /// reads `(collide & 8) == 0 || IsWater(p)`; the water half looks inverted and is taken as "not in water" (inferido).
@@ -185,8 +168,9 @@ std::vector<entt::entity> openblack::ecs::GrownTreesByDistance(uint32_t forestId
 	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
 		    if (forestId != 0 && tree.forestId == forestId && (!tree.growing || transform.scale.x >= tree.maxSize))
 		    {
-			    // SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
-			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
+			    // SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres 0x74CD70, x and z only
+			    grown.emplace_back(gutils::GetDistanceInMetres(glm::vec2(transform.position.x, transform.position.z),
+			                                                   glm::vec2(centre.x, centre.z)),
 			                       entity);
 		    }
 	    });
@@ -769,7 +753,8 @@ entt::entity openblack::ecs::ForestCentreTree(uint32_t forestId)
 		const auto& t = registry.Get<const Tree>(tree);
 		const auto& transform = registry.Get<const Transform>(tree);
 		// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890 / 0x53AC20: GetDistanceInMetres 0x74CD70, 2D
-		const float d = glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z));
+		const float d =
+		    gutils::GetDistanceInMetres(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z));
 		auto& head = (t.growing && transform.scale.x < t.maxSize) ? growing : grown;
 		if (!head || d < head->first)
 		{
@@ -885,7 +870,8 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 			// fn_00605CD0 = GetDistanceInMetres 0x74CD70: 2D
 			const auto forestCentre = ForestCentre(tree.forestId);
 			const glm::vec2 at(transform.position.x, transform.position.z);
-			if (glm::distance(at, centre2) < glm::distance(at, glm::vec2(forestCentre.x, forestCentre.z)))
+			if (gutils::GetDistanceInMetres(at, centre2) <
+			    gutils::GetDistanceInMetres(at, glm::vec2(forestCentre.x, forestCentre.z)))
 			{
 				taken.push_back(entity);
 			}
@@ -1057,7 +1043,7 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 		if (!growing)
 		{
 			// GUtils::GetDistanceModifier(size, 3) 0x74F290 = SigmoidThreshold(0.5, 1 - min(size, 3) / 3)
-			amount *= 0.5f * SigmoidThreshold(0.5f, 1.0f - std::min(transform->scale.x, 3.0f) / 3.0f);
+			amount *= 0.5f * gutils::GetDistanceModifier(transform->scale.x, 3.0f);
 		}
 		if (GrowTree(entity, amount, raiseMaximum) != 0.0f)
 		{
@@ -1331,9 +1317,10 @@ void ProcessForests(uint32_t turn)
 			++count;
 			if (!tree.growing || transform.scale.x >= tree.maxSize)
 			{
-				// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
-			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
-			                       entity);
+				// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres 0x74CD70, x and z only
+				grown.emplace_back(gutils::GetDistanceInMetres(glm::vec2(transform.position.x, transform.position.z),
+				                                              glm::vec2(centre.x, centre.z)),
+				                   entity);
 			}
 		});
 		// empty: no BigForest (+0x38) and no trees in either list

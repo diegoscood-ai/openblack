@@ -55,6 +55,14 @@ void SetupReactToTeleport(entt::entity villager, entt::entity stone, uint32_t re
 // the state table entries (LivingActionSystem.cpp k_VillagerStateTable)
 uint32_t GoToTeleportReaction(components::LivingAction& action); ///< 201 0x7662F0 (251 is a jmp to it: 0x766380)
 uint32_t TeleportReaction(components::LivingAction& action);     ///< 202 0x7663F0
+/// Villager::ExitReactToTeleport 0x766390, the exit (+0x20) of 201, 202 and 251: unless IsStateExitFunctionSameAs(next),
+/// off its town's way-to-worship list (0x73E360) and +0xE0 &= ~0x10; then ExitReaction 0x7527A0 (vt +0x910)
+uint32_t ExitReactToTeleport(components::LivingAction& action, VillagerStates next);
+/// Living +0x94 != 0 for the teleport's reaction (REACT_TO_TELEPORT)
+[[nodiscard]] bool IsReacting(entt::entity villager);
+/// Living::StopReacting 0x5F1140 for the teleport's reaction kept here: its record gets the turn, +0x94 = 0, +0xBC = 0
+/// (villager_reactions::StopReacting calls it)
+void StopReacting(entt::entity villager);
 
 /// The REACT_TO_TELEPORT part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for a villager of a cell the reaction
 /// reaches (spread once by ECS/Effects/Reactions, when the stone is made: ProcessReactions' respreading flag 0xD00DD4

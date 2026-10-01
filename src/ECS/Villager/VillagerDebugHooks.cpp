@@ -23,7 +23,9 @@
 #include "ECS/Archetypes/VillagerArchetype.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Poisoned.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/WallHug.h"
 #include "ECS/Life.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/PotResource.h"
@@ -188,9 +190,25 @@ void RunDebugHooks(uint32_t turn)
 			}
 			const auto& v = registry.Get<const Villager>(entity);
 			const auto& action = registry.Get<const LivingAction>(entity);
-			Trace(entity, fmt::format("summary: life {:.6f} food {:.4f} top {} final {} previous {} tssc {} counter {} age {}",
-			                          v.life, v.food, action.states[0], action.states[1], action.states[2],
-			                          action.turnsSinceStateChange, action.turnsUntilStateChange, GetAge(entity)));
+			// where it is and openblack's walk (the PathfindingSystem's move tag: L linear, O orbit, E exit circle, S
+			// step through, F final step, A arrived, - none)
+			const auto* transform = registry.TryGet<const components::Transform>(entity);
+			const auto* wallHug = registry.TryGet<const components::WallHug>(entity);
+			const char* walk = registry.AnyOf<components::MoveStateLinearTag>(entity)        ? "L"
+			                   : registry.AnyOf<components::MoveStateOrbitTag>(entity)       ? "O"
+			                   : registry.AnyOf<components::MoveStateExitCircleTag>(entity)  ? "E"
+			                   : registry.AnyOf<components::MoveStateStepThroughTag>(entity) ? "S"
+			                   : registry.AnyOf<components::MoveStateFinalStepTag>(entity)   ? "F"
+			                   : registry.AnyOf<components::MoveStateArrivedTag>(entity)     ? "A"
+			                                                                                 : "-";
+			Trace(entity,
+			      fmt::format("summary: life {:.6f} food {:.4f} top {} final {} previous {} tssc {} counter {} age {} "
+			                  "at ({:.1f}, {:.1f}) goal ({:.1f}, {:.1f}) walk {}",
+			                  v.life, v.food, action.states[0], action.states[1], action.states[2],
+			                  action.turnsSinceStateChange, action.turnsUntilStateChange, GetAge(entity),
+			                  transform != nullptr ? transform->position.x : 0.0f,
+			                  transform != nullptr ? transform->position.z : 0.0f, wallHug != nullptr ? wallHug->goal.x : 0.0f,
+			                  wallHug != nullptr ? wallHug->goal.y : 0.0f, walk));
 		}
 	}
 }

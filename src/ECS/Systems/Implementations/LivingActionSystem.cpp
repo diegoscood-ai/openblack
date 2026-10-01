@@ -31,6 +31,7 @@
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
+#include "VillagerReactions.h"
 #include "VillagerTeleport.h"
 #include "VillagerWorship.h"
 #include "Enums.h"
@@ -105,39 +106,73 @@ uint32_t VillagerDecideWhatToDo(LivingAction& action)
 	registry.Assign<MoveStateLinearTag>(entity);
 
 	Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
+	// (inventado, puente hasta V2) the original's walks have a final state (Living::SetupMoveToWithHug 0x5F2890 sets
+	// FINAL); the idle wander takes 209 NOTHING_TO_DO, the original's idle state (DecideWhatToDo -> SetupNothingToDo
+	// 0x753B50): its row takes reactions (file 0xEC 1, like row 0's; 163's is 0) and resumes 163 (file 0x20), so a
+	// reaction's StorePreviousState 0x763470 / PopFromPrevious 0x751E50 come back to deciding, not to row 0's resume 0
+	// (INVALID_STATE). 209's state function is not ported: the arrival goes back to 163 (VillagerMoveToPos)
+	ecs::villager::SetState(entity, LivingAction::Index::Final, VillagerStates::NothingToDo);
 	return 0;
 }
 
-// Wait until the PathfindingSystem has walked us to the goal, then decide again.
+/// MobileWallHug::MoveTo 0x60AF20's result for openblack's walk (PathfindingSystem::Update runs before the state
+/// functions, Game.cpp): 0xA (arrived) only from ARRIVED 0x60AFC0 when AreWeThere(0) and from FINAL_STEP 0x60AF6C, both
+/// after putting the object on the goal (Pos = GetDestPos, MoveMapObject vt +0x55C: 0x60AF6C..0x60AFB6 and
+/// 0x60AFC0..0x60B018). PathfindingSystem sets FINAL_STEP when AreWeThere (its step 5) and puts the villager on the goal
+/// on the next turn (ApplyStepGoal<FinalStep>, step 4b; ARRIVED the same): arrived when the tag is there and the villager
+/// stands on its goal, as the original returns 0xA one turn after STEP_THROUGH set FINAL_STEP. Anything else is a walk
+/// still going (0 / 1 / 6 / 7: Living::MoveToPos does nothing). There is no "abandoned" result (PathfindingSystem's
+/// AbandonMove goes on as STEP_THROUGH).
+uint32_t WallHugMoveToResult(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	if (transform == nullptr)
+	{
+		return 0;
+	}
+	const auto at = glm::xz(transform->position);
+	if (const auto* finalStep = registry.TryGet<const MoveStateFinalStepTag>(entity);
+	    finalStep != nullptr && finalStep->stepGoal == at)
+	{
+		return 0xA;
+	}
+	if (const auto* arrived = registry.TryGet<const MoveStateArrivedTag>(entity); arrived != nullptr && arrived->stepGoal == at)
+	{
+		return 0xA;
+	}
+	return 1;
+}
+
+// Living::MoveToPos 0x5EC270 (state 1 MOVE_TO_POS): MobileWallHug::MoveTo (0x5EC280) and, only on 0xA, SetTopStateToFinal
+// (0x5EC287..0x5EC28E). Returns MoveTo's result (0x5EC293). (aproximado) The +0x24 & 4 test (0x5EC273: 0, no walk) is
+// not ported: a villager in the hand is in IN_HAND, not here
 uint32_t VillagerMoveToPos(LivingAction& action)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.ToEntity(action);
 
-	// The PathfindingSystem removes the "in transit" move-state tags once the goal is reached
-	// (leaving only a FinalStep tag). When none of them remain, we've arrived.
-	const bool stillMoving =
-	    registry.AnyOf<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag>(entity);
-	if (!stillMoving)
+	const auto result = WallHugMoveToResult(entity);
+	if (result == 0xA)
 	{
 		registry.Remove<MoveStateFinalStepTag, MoveStateArrivedTag>(entity);
-		// Living::MoveToPos 0x5EC270: MobileWallHug::MoveTo == 0xA (arrived) -> SetTopStateToFinal (0x5EC28E;
-		// Living::SetTopStateToFinal 0x5ECA80 = Villager::SetTopState(FINAL), vt +0x8E8): the pause roll, the exit of
+		// Living::SetTopStateToFinal 0x5ECA80 = Villager::SetTopState(FINAL), vt +0x8E8: the pause roll, the exit of
 		// MOVE_TO_POS (ExitMoveToPos 0x5EDDA0, CircleHugInfo::Reset; not ported: taken as 1) and FINAL's exit / entry
 		const auto final = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(LivingAction::Index::Final)));
-		if (final != VillagerStates::InvalidState)
+		if (final != VillagerStates::InvalidState && final != VillagerStates::NothingToDo)
 		{
 			ecs::villager::SetTopStateToFinal(entity);
 		}
 		else
 		{
-			// (inventado, puente hasta V2) openblack's idle wander (VillagerDecideWhatToDo above, not the original's)
-			// leaves FINAL 0, where the original would SetTopState(0): back to deciding through the compat path
+			// (inventado, puente hasta V2) the idle wander's FINAL 209 (its state function is not ported) or a walk set
+			// up by openblack's own code with FINAL 0 (the debug tools), where the original would SetTopState(FINAL): back
+			// to deciding through the compat path
 			Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top,
 			                                                      VillagerStates::DecideWhatToDo, true);
 		}
 	}
-	return 0;
+	return result;
 }
 // FLYING / IN_HAND: the physics and the hand move the villager; nothing to decide meanwhile
 uint32_t VillagerCarried([[maybe_unused]] LivingAction& action)
@@ -227,6 +262,15 @@ static const VillagerStateTableEntry k_TodoEntry = {
     },
 };
 
+/// A not-ported row whose exit (+0x20) the original fills with the thunk 0x5B0100 (jmp [vt +0x910]) = Villager::ExitReaction
+/// 0x7527A0 (_$E32): the state is a TODO, its exit is the shared one
+static VillagerStateTableEntry TodoWithExitReaction()
+{
+	auto entry = k_TodoEntry;
+	entry.exitState = &ecs::villager_reactions::ExitReaction;
+	return entry;
+}
+
 const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerStates::_COUNT)> k_VillagerStateTable = {
     /* INVALID_STATE */ VillagerStateTableEntry {
         .state = &VillagerInvalidState,
@@ -239,10 +283,10 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* MOVE_ON_STRUCTURE */ k_TodoEntry,
     /* IN_SCRIPT */ k_TodoEntry,
     /* IN_DANCE */ k_TodoEntry,
-    /* FLEEING_FROM_OBJECT_REACTION */ k_TodoEntry,
-    /* LOOKING_AT_OBJECT_REACTION */ k_TodoEntry,
-    /* FOLLOWING_OBJECT_REACTION */ k_TodoEntry,
-    /* INSPECT_OBJECT_REACTION */ k_TodoEntry,
+    /* FLEEING_FROM_OBJECT_REACTION */ TodoWithExitReaction(),
+    /* LOOKING_AT_OBJECT_REACTION */ TodoWithExitReaction(),
+    /* FOLLOWING_OBJECT_REACTION */ TodoWithExitReaction(),
+    /* INSPECT_OBJECT_REACTION */ TodoWithExitReaction(),
     /* FLYING */ {.state = &VillagerCarried},
     /* LANDED */ {.state = &VillagerLanded},
     /* LOOK_AT_FLYING_OBJECT_REACTION */ k_TodoEntry,
@@ -454,10 +498,12 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* WEAK_ON_GROUND */ k_TodoEntry,
     /* SCRIPT_WANDER_AROUND_POSITION */ k_TodoEntry,
     /* SCRIPT_PLAY_ANIM */ k_TodoEntry,
-    // the teleport stones' states (VillagerTeleport.cpp)
-    /* GO_TOWARDS_TELEPORT_REACTION */ {.state = &ecs::villager_teleport::GoToTeleportReaction},
-    /* TELEPORT_REACTION */ {.state = &ecs::villager_teleport::TeleportReaction},
-    /* DANCE_WHILE_REACTING */ k_TodoEntry,
+    // the teleport stones' states (VillagerTeleport.cpp); their exit (+0x20) ExitReactToTeleport 0x766390
+    /* GO_TOWARDS_TELEPORT_REACTION */
+    {.state = &ecs::villager_teleport::GoToTeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
+    /* TELEPORT_REACTION */
+    {.state = &ecs::villager_teleport::TeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
+    /* DANCE_WHILE_REACTING */ TodoWithExitReaction(),
     /* CONTROLLED_BY_CREATURE */ k_TodoEntry,
     /* POINT_AT_DEAD_PERSON */ k_TodoEntry,
     /* GO_TOWARDS_DEAD_PERSON */ k_TodoEntry,
@@ -470,12 +516,12 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* HIDING_AT_WORSHIP_SITE */
     {.state = &ecs::villager_worship::HidingAtWorshipSite,
      .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitAtWorshipSite(a, n)); }},
-    /* CROWD_REACTION */ k_TodoEntry,
+    /* CROWD_REACTION */ TodoWithExitReaction(),
     // the fire's states (VillagerFire.cpp). Their entry (+0x10) and exit (+0x20) functions as _$E32 fills them: 216
     // 0x5AA2D9 / 0x5AA2EC, 217 0x5AA421 / 0x5AA434, 218 0x5AA4BE / 0x5AA4CB and 220 0x5AA75D / 0x5AA767 EnterPutOutFire
     // 0x75ADC0 / ExitPutOutFire 0x75AE80; 219 0x5AA611 / 0x5AA642 EnterOnFire 0x75AF30 / ExitOnFire 0x75AF80. 215's
-    // exit (ExitReaction 0x7527A0) is not ported yet
-    /* REACT_TO_FIRE */ {.state = &ecs::villager_fire::ReactToFire},
+    // exit is the thunk 0x5B0100 = Villager::ExitReaction 0x7527A0
+    /* REACT_TO_FIRE */ {.state = &ecs::villager_fire::ReactToFire, .exitState = &ecs::villager_reactions::ExitReaction},
     /* PUT_OUT_FIRE_BY_BEATING */
     {.state = &ecs::villager_fire::PutOutFireByBeating,
      .entryState = &ecs::villager_fire::EnterPutOutFire,
@@ -533,8 +579,8 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* 248 GO_HOME_FROM_WORSHIP */ {.state = &ecs::villager_worship::GoHomeFromWorship},
     /* 249 ARRIVES_HOME_FROM_WORSHIP */ k_TodoEntry,
     /* 250 SLEEP_IN_TENT_FROM_WORSHIP */ k_TodoEntry,
-    /* 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY (0x766380 = a jmp to 201's) */
-    {.state = &ecs::villager_teleport::GoToTeleportReaction},
+    /* 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY (0x766380 = a jmp to 201's; exit ExitReactToTeleport 0x766390) */
+    {.state = &ecs::villager_teleport::GoToTeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
     /* 252 GO_AND_CHILLOUT_IN_TOWN */ k_TodoEntry,
     /* 253 WAIT_FOR_ARTIFACT_DANCE */ k_TodoEntry,
     /* 254 BREEDER_JUST_LANDED */ k_TodoEntry,

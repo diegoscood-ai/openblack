@@ -71,6 +71,12 @@ uint32_t ExitOnFire(components::LivingAction& action, VillagerStates next); ///<
 /// 0xD00DD4 is never set)
 void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction);
 
+/// Living +0x94 != 0 for the fire's reaction (REACT_TO_FIRE)
+[[nodiscard]] bool IsReacting(entt::entity villager);
+/// Living::StopReacting 0x5F1140 for the fire's reaction kept here: its record gets the turn, +0x94 = 0, +0xBC = 0
+/// (villager_reactions::StopReacting calls it)
+void StopReacting(entt::entity villager);
+
 /// A land is loaded (also registers the villagers' reaction handler)
 void Clear();
 } // namespace openblack::ecs::villager_fire

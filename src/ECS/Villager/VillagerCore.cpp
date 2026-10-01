@@ -32,6 +32,7 @@
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateInfo.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
@@ -588,6 +589,22 @@ uint32_t CheckEveryTime(entt::entity villager, uint32_t turn)
 }
 
 // ---- state changes -----------------------------------------------------------------------------------------------
+
+bool IsStateExitFunctionSameAs(entt::entity villager, VillagerStates next)
+{
+	// 0x752535: GetFinalState (vt +0xB04); 0x752540..0x752583: its row's exit (+0x20 of the 0x90-byte row, 0xD091B8) and
+	// next's, all four dwords equal (the first 0 -> equal at once, 0x75256B) -> 1
+	const auto exitOf = [](VillagerStates s) {
+		const auto i = static_cast<size_t>(s);
+		return i < k_OriginalStateFns.size() ? k_OriginalStateFns.at(i).exit : 0u;
+	};
+	if (exitOf(GetFinalState(villager)) == exitOf(next))
+	{
+		return true;
+	}
+	// 0x752585..0x7525A5: Infos[next] final (0xDB9E84, file 0x0C) -> 0, else 1
+	return !state_info::IsFinal(StateInfo(next));
+}
 
 bool CanPauseForASecond(entt::entity villager, VillagerStates state)
 {

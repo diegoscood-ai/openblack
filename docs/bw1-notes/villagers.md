@@ -87,7 +87,7 @@ El inicializador estático `_$E32` (0x5AA2D9..0x5AA767) pone en +0x10 / +0x20 de
 
 | fila | estado | entrada (+0x10) | salida (+0x20) | dónde en `_$E32` |
 |---|---|---|---|---|
-| 215 | REACT_TO_FIRE | — | ExitReaction 0x7527A0 (**sin portar**: vale 1 y avisa) | — |
+| 215 | REACT_TO_FIRE | — | ExitReaction 0x7527A0 (el thunk 0x5B0100 = `jmp [vt +0x910]`) | — |
 | 216 | PUT_OUT_FIRE_BY_BEATING | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA2D9 / 0x5AA2EC |
 | 217 | PUT_OUT_FIRE_WITH_WATER | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA421 / 0x5AA434 |
 | 218 | GET_WATER_TO_PUT_OUT_FIRE | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA4BE / 0x5AA4CB |
@@ -110,13 +110,23 @@ Lo que devuelven (leído en el desensamblado):
 - **ExitOnFire(s)**: siempre **1**; sale de la lista si está y **+0x114 = 0 siempre** (no mira `s`).
 
 Los cambios de estado de `VillagerFire.cpp` y `VillagerTeleport.cpp` son ya los del núcleo: `villager::SetTopState`
-(con la tirada de pausa, la salida de TOP y del final y la entrada, una vez cada una, y los códigos 1 / 0x2E / 0x2F),
+(con la tirada de pausa, la salida de TOP y del final y la entrada, una vez cada una, y los códigos 1 / 0x2E / 0x2F;
+los dos pasan por `villager_reactions::SetTopState`, que además acaba el paseo de openblack),
 `villager::SetState(2, s)` para el estado guardado (vt +0x938: salta los de tabla +0x10 y ajusta el pueblo) y
 `villager::SetupMoveToWithHug`. Ya no hay SetTopState local, ni `CallEntry` / `CallExit`, ni
 `villager_fire::CallFinalStateExit`; las salidas de culto (58, 59, 60, 213) corren por sus filas. Además:
 - SetupMoveAroundFire 0x75A770 solo guarda destino y estado siguiente si SetTopState(220) da 1 (0x75A783).
-- PopFromPrevious 0x751E50: si SetTopState da 0x2E, TOP = 163 en bruto (LivingAction::SetState 0x5ECC90) y después
-  PREVIOUS = 0 en bruto.
+- PopFromPrevious 0x751E50 (`villager_reactions::PopFromPrevious`, uno solo para fuego y teletransporte):
+  SetTopState del estado de reanudación de lo guardado (Infos +0x30 0xDB9E98 = fichero 0x20); si da 0x2E, TOP = 163 en
+  bruto (LivingAction::SetState 0x5ECC90) y después PREVIOUS = 0 en bruto. **Sin nada guardado** es la fila 0, cuya
+  reanudación es **0** en info.dat: SetTopState(0) = INVALID_STATE, como el original (Living::InvalidState 0x5EC1D0
+  devuelve 0 cada turno). Antes se inventaba 163.
+- MoveAroundFire 0x75A7E0 al llegar: PopFromPrevious (0x75A815) y PREVIOUS = 163 **en bruto** (0x75A81A..0x75A827,
+  LivingAction::SetState 0x5ECC90 con ecx = +0x8C: sin el salto de la tabla +0x10 ni el pueblo), no Villager::SetState.
+- ResetStateAfterReacting 0x751E10 (vt +0x9A0): PopFromPrevious y, si el estado final es reactivo (fichero 0xB8),
+  SetTopState(163). StopReactingAndSetState 0x5F11C0 (vt +0x99C): eso y luego StopReacting si sigue reaccionando. Lo
+  usan ReactToFire (0x765A48, ya bombero) y TeleportReaction (0x76642F, tras el salto; antes iba al revés: primero
+  StopReacting y luego PopFromPrevious).
 - **(aproximado)** La salida de MOVE_TO_POS (ExitMoveToPos 0x5EDDA0) no está portada: estos SetTopState quitan las
   marcas de paseo de openblack (salvo con 0x2E), como hacía el SetTopState local.
 
@@ -124,8 +134,34 @@ Diferencias con antes (comprobadas en partida, ver abajo): las entradas y salida
 no cambia, como en el original. Al replanificar o llegar (SetupMoveToWithHug / SetTopStateToFinal) un bombero en 220
 pasa por ExitPutOutFire(220) y EnterPutOutFire(220, 220), que no cambian nada; un aldeano en 219 pasa por ExitOnFire,
 que **borra +0x114**: tras su primer paseo deja de huir del fuego ajeno y solo sigue en 219 mientras arde él (en el
-original igual: OnFire 0x75B1E0 llama a SetupMoveToWithHug 0x5F2890 en 0x75B39E). Ahora también se tira la pausa 239 en
-los SetTopState de fuego y teletransporte.
+original igual: OnFire 0x75B1E0 llama a SetupMoveToWithHug 0x5F2890 en 0x75B39E).
+
+**La pausa 239 no sale en fuego ni teletransporte.** CanPauseForASecond 0x752120 mira la fila del estado **de
+destino** (Infos +0xD4 en memoria, 0xDB9F3C = fichero 0xC4), que es 0 en 163, 201, 202 y 215..220: esos SetTopState
+no tiran la pausa. Solo puede salir cuando PopFromPrevious vuelve a un estado que pausa (un oficio con 0xC4 = 1) o en
+248 (culto).
+
+### Salidas de las reacciones (ExitReaction, ExitReactToTeleport)
+
+- **ExitReaction 0x7527A0** (vt +0x910; las filas guardan el thunk 0x5B0100 = `jmp [vt +0x910]`, 45 filas en `_$E32`):
+  CircleHugInfo::Reset(+0x70) 0x60A9F0 (en openblack quita `WallHugObjectReference`, **aproximado**), y si `s` no es
+  reactivo (IsReactiveState en línea, Infos +0xC8 0xDB9F30 = fichero 0xB8) StopReacting (vt +0x998). Devuelve 1.
+  En la tabla: 215 y las filas sin portar 6-9, 203 y 214 (`TodoWithExitReaction`); las demás filas con ese thunk
+  (12, 19-22, 25, 26, 30, 140-168, 194-196, 205-208, 227, 231, 235-237) siguen vacías porque nadie entra en ellas.
+  ExitPutOutFire la llama al final (0x75AF19).
+- **Villager::StopReacting 0x7637D0** → **Living::StopReacting 0x5F1140**: con TOP 203 y bailando, RemoveFromDance(1)
+  (sin portar: 203 no tiene función de estado); con reacción (+0x94): fuera de la lista de la reacción,
+  `fn_005F0FE0(tipo)` = el registro del tipo recibe el turno (`reactions::RefreshRecord`), +0x94 = 0; +0xBC = 0 siempre.
+  En openblack `villager_reactions::StopReacting` llama a `villager_fire::StopReacting` (reacción 0, objeto nulo,
+  RefreshRecord de REACT_TO_FIRE) y `villager_teleport::StopReacting` (borra su estado, RefreshRecord de
+  REACT_TO_TELEPORT). EnterPutOutFire (0x75AE55) también la usa.
+- **ExitReactToTeleport 0x766390** (salida de 201, 202 y 251): si no `IsStateExitFunctionSameAs(s)` (vt +0x96C
+  0x752530), sale de la lista de camino al culto de su pueblo (GetTown vt +0x48 → 0x73E360) y +0xE0 &= ~0x10 (también
+  sin pueblo); luego ExitReaction(s) y su resultado.
+- **IsStateExitFunctionSameAs 0x752530** (`villager::IsStateExitFunctionSameAs`): la salida de la fila de
+  GetFinalState y la de `s` son la misma (los punteros de 16 bytes enteros; aquí las direcciones de
+  `VillagerOriginalFns.h`, dos vacías cuentan como iguales) → 1; si no, `s` final (0xDB9E84) → 0, si no 1. ExitPutOutFire
+  (0x75AE95) también la usa ya, en vez de la lista a mano.
 
 ## Creación (Villager::Create 0x74FBE0 y el constructor 0x74F950)
 
@@ -211,9 +247,24 @@ Códigos: 1 hecho, 0x2E la salida rechazó (no cambia nada), 0x2F la entrada rec
   (WallHug). Lo usan fuego y teletransporte (`VillagerMove.h` reenvía a VillagerCore).
 - **Llegada de MOVE_TO_POS** (Living::MoveToPos 0x5EC270): MobileWallHug::MoveTo == 0xA → SetTopStateToFinal
   (0x5EC28E) = Villager::SetTopState(FINAL): tirada de pausa, salida de MOVE_TO_POS (ExitMoveToPos 0x5EDDA0,
-  CircleHugInfo::Reset, sin portar: vale 1) y salida / entrada del FINAL. Con FINAL 0 (solo lo deja así el paseo
-  ocioso inventado de openblack) el original haría SetTopState(0); aquí vuelve a 163 por el camino de compatibilidad
-  **(inventado, puente hasta V2)**.
+  CircleHugInfo::Reset, sin portar: vale 1) y salida / entrada del FINAL. MoveTo 0x60AF20 solo da 0xA en ARRIVED
+  (0x60AFC0, si AreWeThere(0)) y en FINAL_STEP (0x60AF6C), y las dos ponen antes el objeto en el destino (Pos = destino,
+  MoveMapObject vt +0x55C); si no devuelve 0 / 1 / 6 / 7 y Living::MoveToPos no hace nada: **no hay paseo
+  "abandonado"**. En openblack (`WallHugMoveToResult`): llega cuando tiene la marca FinalStep (o Arrived) y ya está en
+  su destino (PathfindingSystem la pone con AreWeThere y lo coloca en el destino al turno siguiente, como el original
+  da 0xA un turno después de que STEP_THROUGH ponga FINAL_STEP). Antes un paseo que el PathfindingSystem abandonaba
+  (sin marcas) contaba como llegada donde estuviera: así los aldeanos del teletransporte daban vueltas 1 ⇄ 201 sin llegar
+  nunca a la piedra.
+- **Los casos sin portar del PathfindingSystem** (destino dentro del círculo que rodea, TODO #864, y el paso de un
+  círculo a otro, TODO #865; en el original MoveToCircleHugCircleSquareSweep<0/1> 0x614C40 / 0x6159F0): `AbandonMove`
+  ya no suelta el paseo, sigue en STEP_THROUGH (0x60B02A: recto al destino, sin obstáculos) **(aproximado)** y el
+  aldeano llega por AreWeThere. Además el ARRIVED del PathfindingSystem estaba al revés (salía de ARRIVED justo cuando
+  había llegado; 0x60AFC0 sale cuando **no** ha llegado).
+- **El paseo ocioso de openblack** (VillagerDecideWhatToDo, inventado) deja FINAL **209 NOTHING_TO_DO**, el estado
+  ocioso del original (DecideWhatToDo → SetupNothingToDo 0x753B50) **(inventado, puente hasta V2)**: su fila acepta
+  reacciones (fichero 0xEC = 1, como la fila 0; la de 163 es 0) y reanuda en 163 (fichero 0x20), así una reacción
+  guarda 209 y PopFromPrevious vuelve a 163, no a la fila 0 (reanudación 0 = INVALID_STATE). La función de 209 no está
+  portada: al llegar vuelve a 163 por el camino de compatibilidad, igual que con FINAL 0 (herramientas de depuración).
 - CallOutofAnimationFunction 0x756620 / CallIntoAnimationFunction 0x756590: ver [animation.md](animation.md)
   (`VillagerCallOutOfAnimation`, `VillagerApplyStateClips`).
 
@@ -263,7 +314,9 @@ turno (`ecs::life::Kill`). El original lo deja vivo (SetDying → 13) y sigue ll
   edad, food, lastCheckTurn, contador, 85 o 16), cada `SetState`, `SetTopState a → b = código`,
   `SetCurrentAndDestinationState`, `pause 239 → s (rand, umbral)`, `AdjustTownModifier`, cada check periódico, un
   resumen cada 100 turnos y cada llamada a las entradas y salidas de fuego (`EnterPutOutFire(final, s) = r`,
-  `ExitPutOutFire(final, s) = 1`, `EnterOnFire`, `ExitOnFire`).
+  `ExitPutOutFire(final, s) = 1`, `EnterOnFire`, `ExitOnFire`), `ExitReaction(s) reactive r`,
+  `ExitReactToTeleport(s) same r`, `StopReacting`, `PopFromPrevious stored a -> resume b = código`; el resumen lleva la
+  posición, el destino y la marca de paseo (L / O / E / S / F / A / -).
 - `OPENBLACK_TEST_VILLAGER_LIFE="<vida>[,<n>]"`: en el turno 2 fija la vida de todos o del aldeano n.
 - `OPENBLACK_TEST_VILLAGER_STATE="<estado>[,<n>]"`: en el turno 2 llama a `villager::SetTopState` y escribe el código.
 - `OPENBLACK_TEST_VILLAGER_BORN_IN_WATER="x,z"`: en el turno 2 crea una celta (Housewife, 25 años) ahí.
@@ -289,6 +342,15 @@ replanificar y llegar (22 `ExitPutOutFire(220, 220)` / `EnterPutOutFire(220, 220
 216 ⇄ 220 de cada turno ya estaba antes. Teletransporte (`OPENBLACK_TEST_TELEPORT="1785,2655,1830,2660,7,walk"`,
 `_TURN=300`): 1 ⇄ 201 como antes y, en una de las pasadas, 201 → 202 → salto (ahorro 26 m) → `SetTopState 202 → 163 =
 0x1`.
+
+Revisión de Milagros (2026-10-01, `_scratch\mapa\tele3.log`, `fire1.log`, `cycle2.log`): teletransporte igual que
+arriba, 1365 turnos: los 6 aldeanos que reaccionan hacen **un** paseo a la piedra (1 con FINAL 201, unos 70 turnos),
+llegan (1 → 201 → 202), saltan (ahorro 44-45 m) y `PopFromPrevious stored 209 -> resume 163`; se acabó el vaivén
+1 ⇄ 201. Los aldeanos siguen andando y llegando (208 paseos acabados, mediana 170 turnos; ninguno en MOVE_TO_POS sin
+moverse entre dos resúmenes), 18 casos sin portar del PathfindingSystem siguen en STEP_THROUGH. Fuego
+(`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`, 747 turnos): los mismos estados (85 → 215 → 220 ⇄ 216 → 163,
+163 → 219), `ExitReaction` en cada salida de 215..220 y 12 `StopReacting` al apagarse; ningún `pause 239` ni
+`Stuck in an invalid state`. `OPENBLACK_TEST_MAP_CYCLE` sobre Land1-5 sin cuelgues.
 
 ## Pruebas
 

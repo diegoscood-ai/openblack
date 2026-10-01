@@ -141,6 +141,10 @@ uint32_t CallExitStateFunction(entt::entity villager, VillagerStates next);
 uint32_t CallEntryStateFunction(entt::entity villager, VillagerStates state);
 /// Villager::CallEntryStateFunction 0x752440 (vt +0x908): `current`'s, then `destination`'s -> SetState(FINAL, ...)
 uint32_t CallEntryStateFunction(entt::entity villager, VillagerStates current, VillagerStates destination);
+/// Villager::IsStateExitFunctionSameAs 0x752530 (vt +0x96C): GetFinalState's row and `next`'s row have the same exit
+/// function (+0x20, 0xD091B8, the 16-byte member pointers compared whole: the original's addresses in
+/// VillagerOriginalFns.h, 0 = none, two 0s are the same), or else `next` is not a final state (0xDB9E84)
+[[nodiscard]] bool IsStateExitFunctionSameAs(entt::entity villager, VillagerStates next);
 /// Villager::CanPauseForASecond 0x752120
 [[nodiscard]] bool CanPauseForASecond(entt::entity villager, VillagerStates state);
 /// Villager::SetupPauseForASecond 0x76B090: SetCurrentAndDestinationState(239, state) == 1

@@ -107,26 +107,14 @@ float GameFloatRand(float max)
 	return Locator::rng::value().NextValue(0.0f, max);
 }
 
-void RemoveMoveTags(entt::entity villager)
-{
-	Locator::entitiesRegistry::value()
-	    .Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag, MoveStateFinalStepTag,
-	            MoveStateArrivedTag>(villager);
-}
-
 /// Villager::SetTopState 0x752010 (vt +0x8E8): the villager core's (ECS/Villager/VillagerCore.h), which runs the exit
 /// functions of TOP and of the final state (CallExitStateFunction 0x752320) and the entry of the new state
-/// (CallEntryStateFunction 0x7523D0) from the rows of k_VillagerStateTable, once each, with the pause roll and the
-/// codes 1 / 0x2E / 0x2F. (aproximado) MOVE_TO_POS' exit ExitMoveToPos 0x5EDDA0 is not ported, so the walk a change
-/// leaves is ended here (openblack's move tags), unless the exit refused the change (0x2E: nothing changed)
+/// (CallEntryStateFunction 0x7523D0) from the rows of k_VillagerStateTable, once each, with the pause roll (only into a
+/// state whose row may pause: none of 163, 215..220) and the codes 1 / 0x2E / 0x2F; the walk's end as
+/// villager_reactions::SetTopState
 uint32_t SetTopState(entt::entity villager, VillagerStates state)
 {
-	const auto result = villager::SetTopState(villager, state);
-	if (result != villager::k_ExitRefused)
-	{
-		RemoveMoveTags(villager);
-	}
-	return result;
+	return villager_reactions::SetTopState(villager, state);
 }
 
 /// Villager::SetState (vt +0x938, 0x753690) for the stored state (index 2, PREVIOUS): the core's, which skips a state
@@ -150,29 +138,11 @@ void StorePreviousState(LivingAction& action)
 	action.states.at(static_cast<size_t>(LivingAction::Index::Previous)) = static_cast<uint8_t>(stored);
 }
 
-/// Villager::PopFromPrevious 0x751E50: SetTopState (vt +0x8E8) of the stored state's resume state (table +0x20); 0x2E
-/// (an exit refused, 0x751E78) -> raw LivingAction::SetState(0, 163) 0x5ECC90; then raw SetState(2, 0) (0x751E99).
-/// (inferido) nothing stored (resume 0): DECIDE_WHAT_TO_DO, as Milagros had it
+/// Villager::PopFromPrevious 0x751E50 (VillagerReactions.h): the stored state's resume state (file +0x20; nothing
+/// stored is row 0, resume 0: INVALID_STATE, as the original), 0x2E -> raw TOP 163, then raw PREVIOUS 0
 void PopFromPrevious(entt::entity villager)
 {
-	auto* action = ActionOf(villager);
-	if (action == nullptr)
-	{
-		return;
-	}
-	const auto stored = Get(*action, LivingAction::Index::Previous);
-	const auto* info = TableOf(stored);
-	auto next = info != nullptr ? static_cast<VillagerStates>(info->field0x20) : VillagerStates::DecideWhatToDo;
-	if (next == VillagerStates::InvalidState)
-	{
-		next = VillagerStates::DecideWhatToDo;
-	}
-	if (SetTopState(villager, next) == villager::k_ExitRefused)
-	{
-		action->states.at(static_cast<size_t>(LivingAction::Index::Top)) = static_cast<uint8_t>(VillagerStates::DecideWhatToDo);
-		action->turnsSinceStateChange = 0; // LivingAction::SetState(0, s): +0x90 = 0
-	}
-	action->states.at(static_cast<size_t>(LivingAction::Index::Previous)) = 0;
+	villager_reactions::PopFromPrevious(villager);
 }
 
 /// Living::SetupMoveToWithHug 0x5F2890: the villager core's (SetCurrentAndDestinationState(MOVE_TO_POS, final) with its
@@ -619,13 +589,12 @@ uint32_t villager_fire::ReactToFire(LivingAction& action)
 		return 1;
 	}
 	// 0x765A05: its final state already fights a fire (exit ExitPutOutFire 0x75AE80): StopReactingAndSetState (vt 0x99C
-	// 0x5F11C0: ResetStateAfterReacting, then StopReacting)
+	// 0x5F11C0: ResetStateAfterReacting 0x751E10, then StopReacting; 0x765A48)
 	if (const auto final = FinalState(action);
 	    final == VillagerStates::PutOutFireByBeating || final == VillagerStates::PutOutFireWithWater ||
 	    final == VillagerStates::GetWaterToPutOutFire || final == VillagerStates::MoveAroundFire)
 	{
-		PopFromPrevious(villager);
-		state.reaction = 0;
+		villager_reactions::StopReactingAndSetState(villager);
 		return 1;
 	}
 	// 0x765A5B: a villager with a town that is not on its way to worship (+0xE0 0x10) may fight it. The score is the
@@ -763,8 +732,14 @@ uint32_t villager_fire::MoveAroundFire(LivingAction& action)
 	// stands in for AreWeThere, as in VillagerTeleport.cpp
 	if (glm::length(glm::vec2(at.x, at.z) - destination) < 1.0f)
 	{
+		// 0x75A815 PopFromPrevious; 0x75A81A..0x75A827: raw LivingAction::SetState(2, 163) 0x5ECC90 (ecx = +0x8C: not
+		// Villager::SetState, so no table +0x10 skip and no town modifiers)
 		PopFromPrevious(villager);
-		SetStoredState(villager, VillagerStates::DecideWhatToDo);
+		if (auto* again = ActionOf(villager); again != nullptr)
+		{
+			again->states.at(static_cast<size_t>(LivingAction::Index::Previous)) =
+			    static_cast<uint8_t>(VillagerStates::DecideWhatToDo);
+		}
 		return 1;
 	}
 	auto* fire = fire::Get(StateOf(villager).fire);
@@ -821,7 +796,7 @@ uint32_t villager_fire::EnterPutOutFire(LivingAction& action, VillagerStates fin
 		// +0x998); 0 (refused: 0x2F, and Villager::SetTopState enters DECIDE_WHAT_TO_DO)
 		if (const auto* info = TableOf(final); info != nullptr && info->field0xb8 != 0)
 		{
-			state.reaction = 0;
+			villager_reactions::StopReacting(villager);
 		}
 		return 0;
 	}();
@@ -835,13 +810,9 @@ uint32_t villager_fire::ExitPutOutFire(LivingAction& action, VillagerStates next
 	const auto villager = registry.ToEntity(action);
 	TraceCall(villager, "ExitPutOutFire", FinalState(action), next, 1);
 	auto& state = StateOf(villager);
-	const auto* nextInfo = TableOf(next);
-	// 0x75AE95 IsStateExitFunctionSameAs (vt 0x96C) 0x752530: into another fire-fighting state (216..218, 220: the same
-	// exit) or into a state that is not a final one (table +0x0C) it stays a fireman
-	const bool same = next == VillagerStates::PutOutFireByBeating || next == VillagerStates::PutOutFireWithWater ||
-	                  next == VillagerStates::GetWaterToPutOutFire || next == VillagerStates::MoveAroundFire ||
-	                  nextInfo == nullptr || nextInfo->isFinalState == 0;
-	if (!same)
+	// 0x75AE95 IsStateExitFunctionSameAs (vt 0x96C) 0x752530: into another state with ExitPutOutFire (216..218, 220) or
+	// into a state that is not a final one (table +0x0C) it stays a fireman
+	if (!villager::IsStateExitFunctionSameAs(villager, next))
 	{
 		if (auto* fire = fire::Get(state.fire); fire != nullptr)
 		{
@@ -863,12 +834,9 @@ uint32_t villager_fire::ExitPutOutFire(LivingAction& action, VillagerStates next
 			}
 		}
 	}
-	// 0x75AF19 ExitReaction (vt 0x910) 0x7527A0: the reaction ends (StopReacting, vt 0x998) unless the next state is a
-	// reactive one (table +0xB8, IsReactiveState 0x7525B0)
-	if (nextInfo == nullptr || nextInfo->field0xb8 == 0)
-	{
-		state.reaction = 0;
-	}
+	// 0x75AF19 ExitReaction (vt 0x910) 0x7527A0: the circle hug reset, and the reaction ends (StopReacting, vt 0x998)
+	// unless the next state is a reactive one (table +0xB8)
+	villager_reactions::ExitReaction(action, next);
 	return 1; // 0x75AF20: always 1, it may leave
 }
 
@@ -921,4 +889,29 @@ void villager_fire::Clear()
 {
 	g_States.clear();
 	villager_reactions::Register(); // the Villager handler of ECS/Effects/Reactions
+}
+
+bool villager_fire::IsReacting(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	return it != g_States.end() && it->second.reaction != 0;
+}
+
+void villager_fire::StopReacting(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	if (it == g_States.end())
+	{
+		return;
+	}
+	// Living::StopReacting 0x5F1140: with a reaction (+0x94): off the reaction's list (+0x18, --count +0x1C; openblack's
+	// reactions keep no list of followers), fn_005F0FE0(its type +0x24) = its record gets the turn, +0x94 = 0
+	if (it->second.reaction != 0)
+	{
+		effects::reactions::RefreshRecord(villager, static_cast<uint8_t>(openblack::Reaction::ReactToFire),
+		                                  effects::reactions::Turn());
+		it->second.reaction = 0;
+	}
+	// 0x5F11A6 / 0x5F11B3: +0xBC = 0 on both paths
+	it->second.object = entt::null;
 }

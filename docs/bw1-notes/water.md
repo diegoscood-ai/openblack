@@ -57,6 +57,10 @@ Las posiciones del original son `MapCoords`: x y z en 16.16 de celda (mundo × 6
 por celda) e y = altura **sobre el suelo**, no altitud del mundo. El puerto mantiene ese detalle dentro del módulo y
 expone `glm::vec3` en unidades de mundo.
 
+Desde la sesión «sistemas2» la raíz de tabla, `hypotenuse` y `GetDistanceInMetres` ya no están copiadas en
+`WaterQueries.cpp`: salen de `src/ECS/GUtilsDistance.{h,cpp}` (`openblack::gutils`), en float y no en double, ver
+[engine-math.md](engine-math.md#distancias-de-gutils).
+
 | Función | Dirección | Qué hace |
 |---|---|---|
 | `GUtils::GetDistanceInMetres` | 0x74CD70 | distancia xz de dos `MapCoords`: `hypotenuse(int,int)` 0x74F680 (16.16) × 10/65536 |

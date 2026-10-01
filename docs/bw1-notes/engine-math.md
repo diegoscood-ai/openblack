@@ -1,10 +1,13 @@
 # Coordenadas, terreno, matrices y Zoomer
 
 Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, con sus
-celdas y su espiral; la altura exacta del terreno; la convención de las matrices LH, y el interpolador `Zoomer`. Todo
-es **fiel** (verificado en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendiente).
+celdas y su espiral; las distancias y sigmoides de `GUtils`; la altura exacta del terreno; la convención de las
+matrices LH, y el interpolador `Zoomer`. Todo es **fiel** (verificado en el ejecutable) y está portado, salvo lo que se
+marca en [Pendiente](#pendiente).
 
 - [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
+- [Distancias de GUtils](#distancias-de-gutils): raíz de tabla, `hypotenuse`, `GetDistanceInMetres`,
+  `FastDistance` y las sigmoides (`gutils`)
 - [Altura del terreno](#altura-del-terreno)
 - [Matrices LH](#matrices-lh)
 - [Zoomer (LH3DLib)](#zoomer-lh3dlib)
@@ -67,7 +70,7 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
 - `ftol(x·0.1 [0x8AC404])` de `GScript::GetLandHeight` 0x6FB1F0, de `LandAvoid` ([0x8AB22C]) y de la creación de
   `CitadelHeart` (0x8827C7..0x882810, con `jl`/`jg` contra 0..0x1FF). `CitadelArchetype.cpp` ya lo hace así, así que el
   «arreglo» que proponía el plan para la ciudadela era un falso positivo.
-- Las distancias (`GetDistance` 0x74CCB0, `GetDistanceInMetres` 0x74CD70): son el sistema siguiente, `gutils_distance`.
+- Las distancias (`GetDistance` 0x74CCB0, `GetDistanceInMetres` 0x74CD70): ver [Distancias de GUtils](#distancias-de-gutils).
 
 **Qué usa ya la API.**
 - `sea_cells::CellOf/InBounds` y `MapInterface::GetGridCell` son envoltorios. `GetGridCell` ya no es UB con negativos:
@@ -136,6 +139,101 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
 - `k_MapCells`: la cita estaba mal atribuida. 0x6014C8 y 0x6014F1 están **dentro** de `GMap::Init` 0x6014C0; la llamada
   `GMap::Init(0x200, 0x200)` está en `GGame::Init` (0x54F650+0x2A0).
 
+## Distancias de GUtils
+
+✅ Fiel y portado en `src/ECS/GUtilsDistance.{h,cpp}`, namespace `openblack::gutils` (sesión «sistemas2», 2026-10-01).
+Es la familia de distancias del original (la unidad `Utils`, 0x74CCA0..0x74F780, más dos funciones de `MapCoords`): unas
+**450 llamadas directas** en `runblack.exe`. Va encima de `ecs::map_coords`. Todas las distancias «buenas» son **2D
+(x, z)**: la y no se usa nunca.
+
+**Todo pasa por una raíz inversa de tabla.** `InvSqrt` 0x74F620 lee una tabla de 1024 entradas en 0xDA5A10 que se llena
+una sola vez (fn_0074F590, con la bandera [0xDA6A10]; `GUtils::SetupUtils` 0x74CCA0 es solo un `jmp` a ella, y la llama
+`GGame::InitOneTimeOnly` en 0x54F07B, justo **después** de poner la FPU a 24 bits). El error de la raíz es de **−0,097 %
+a +0,092 %** (recorrido completo). Consecuencias que se ven: una celda de 10 m mide 10,0049 m, 100 m miden 100,0244 m y
+400 m miden 400,0977 m. `1/InvSqrt(1)` no da 1, da 0,99951171875 (0x3F7FE000).
+
+**La FPU va a 24 bits** (fn_007DEE00, `and cw, 0xFCFF` en 0x7DEE0D). Por eso **todo el módulo está en float**, sin
+double y sin FMA: tres de las copias de openblack hacían la suma o el cociente en double y se desviaban (ver abajo).
+
+| API (`openblack::gutils`) | Original | Notas |
+|---|---|---|
+| `InvSqrtTable()` | fn_0074F590, tabla 0xDA5A10, bandera [0xDA6A10] | entrada i = los 10 bits altos de la mantisa (`& 0x7FE000`) de 1/√f, con f = `0x3F000000 \| i << 14`; un 1 exacto se guarda como 0x7FE000 (0x74F5ED) |
+| `InvSqrt(x)` | `_FUN_0074f620` 0x74F620 | `exp = ((0xBE000000 − (bits & 0x7F800000)) >> 1) & 0x7F800000`, mantisa de la tabla en `(bits >> 14) & 0x3FF`; el signo no se mira, y x = 0 da ≈ 2^63 |
+| `Hypotenuse(int32, int32)` | `hypotenuse` 0x74F680 | 16.16 dentro y fuera: `x = dx·2^-16` [0x99A1D4], `s = float(z·z + x·x)`, `ftol(65536.0 [0x99A1D8] / InvSqrt(s))`. **Trunca** y no tiene corte en el cero |
+| `Hypotenuse(float, float)` | `hypotenuse` 0x74F6C0 | 0 si \|a\| y \|b\| son los dos ≤ 1e-4 [0x8BF518]; si no `1 / InvSqrt(float(a·a + b·b))` [0x8AA390]. **No** trunca |
+| `ConvertWholeDistanceToMeters(i)` | 0x74DCC0 | `fld 10 [0x99A1BC]; fmul 2^-16 [0x8AC41C]; fimul i`: el entero es exacto antes del redondeo (= `map_coords::ToMetres`) |
+| `ConvertMetersToWholeDistance(m)` | 0x74DCE0 | `ftol(m / 10 · 65536 [0x8AC408])`; 65536 es potencia de dos, así que es `ToFixedGUtils` |
+| `GetDistance(MapCoords, MapCoords)` | 0x74CCB0 = su gemela 0x74CCE0 (byte a byte) | `Hypotenuse(b.x − a.x, b.z − a.z)` |
+| `GetDistanceToCell(MapCoords, JustMapXZ)` | fn_0074CD10, con fn_0074E2D0 = `(short(celda) << 16) + 0x8000` | al **centro** de la celda |
+| `GetDistanceInMetres(...)` | 0x74CD70 = 0x74CD50 = `MapCoords::GetDistanceInMetres` 0x605CD0 | `ConvertWholeDistanceToMeters(GetDistance(a, b))`. **383 llamadas** (202 + 62 + 119). Sobrecargas: MapCoords, `vec3`/`vec2` en metros (truncando a 16.16 como 0x603160) e `ivec2` en 16.16 |
+| `GetDistanceInMetresToCell` | fn_0074CD90 | |
+| `GetDistance(vec3, vec3)` | `GUtils::GetDistance(LHPoint, LHPoint)` 0x74CDE0 | las diferencias x/z guardadas como float (0x74CDEC, 0x74CDFA) y luego `Hypotenuse(float, float)`: metros, sin pasar por MapCoords |
+| `GetMetresDistanceSq` | `MapCoords::GetMetresDistanceSq` 0x605FB0 | el cuadrado **exacto** en float: sin tabla, así que **no** es `GetDistanceInMetres` al cuadrado (100 × 100 m da 20000, no 20018) |
+| `FastDistance` | `GUtils::FastDistance` 0x74CE10 | `max + (min >> 1)` (`sar`) en unidades MapCoords: no es una longitud euclídea |
+| `ChebyshevDistance` | fn_0074CED0 (con el `abs` fn_0074DD00) | `max(\|dx\|, \|dz\|)`, comparados **sin signo** (0x74CF05) |
+| `k_Sigmoid`, `detail::k_SigmoidBits` | tabla 0xC23284, 41 floats en .data | se copian **los bits**; T[0] = 0 exacto y T[37..40] = 1 exactos. Es una logística `1/(1+e^(−1,0232·(i−20)))` *(inferido: por ajuste)* |
+| `SigmoidThreshold(a, b)` | `GUtils::SigmoidThreshold` 0x74F170 | `a == 1 → 0` (0x74F174; un NaN en a también); si no `T[min(ftol((clamp(clamp(b,−1,1) − a,−1,1) + 1)·20,5 [0x99A1D0]), 40)]`. **El umbral es el PRIMER argumento** |
+| `GetDistanceModifier(d, max)` | 0x74F290 = su copia fn_005ECA20 (`ret 8`) | `SigmoidThreshold(0,5 [push 0x3F000000], 1 − min(d, max)/max)`: **baja** con la distancia, de T[30] = 0,99996 en d = 0 a T[10] = 3,6e-5 en d ≥ max (21 de los 41 pasos). Con max = 0, `0/0` da NaN y sale T[0] = 0 |
+| `DistanceChangeToBelief(x, y)` | `GBelief::DistanceChangeToBelief` 0x438770 = su copia fn_00657F30 | `SigmoidThreshold(−0,9 [0xBF666666], float(−(x/y)))`: otra curva sobre la misma tabla |
+| `CreatureSigmoidThreshold(a, b)` | `Creature::SigmoidThreshold` 0x4F78C0 | añade `b ≤ 0 → 0` (fcomp 0; test ah, 0x41) |
+
+**Rutinas que NO se funden** (dan resultados distintos): las dos `hypotenuse`; `GetDistanceInMetres` (cuantizada a
+1/65536 de celda) frente a `GetDistance(LHPoint)` (float directo); la distancia a celda (al centro, +0x8000);
+`GetMetresDistanceSq` (sin tabla); `FastDistance` y Chebyshev; `SigmoidThreshold` frente a la de Creature;
+`GetDistanceModifier` (a = 0,5) frente a `DistanceChangeToBelief` (a = −0,9).
+
+**Código muerto que no se porta** (sin `call`, referencias ni punteros): 0x74CDB0, 0x74CE50, 0x74CE80, 0x74F660,
+0x74F720 y 0x74F740. Los símbolos W120 también fallan en dos sitios: 0x74CD50 se llama `ReactionInfo::GetInfo` (es la
+gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cuando devuelve un int en eax.
+
+**Arreglos de fidelidad que trajo.**
+
+1. **`WorshipScore` fn_0073C590 tenía los argumentos de `SigmoidThreshold` al revés** (`WorshipPercentage.cpp`): pasaba
+   `(x, 0,5)` en vez de `(0,5, x)`, con lo que la curva salía **en espejo**. Con d = 0 daba 0 donde el original da
+   0,99996, y con d ≥ max daba 0,99996 donde el original da 3,6e-5. Como `AdjustWorshipersWorshipping` 0x73C0F0 ordena
+   de mayor a menor puntuación (0x73C180..0x73C1A6), openblack mandaba a rezar **primero a los aldeanos más lejanos**;
+   van primero los más cercanos. El error se repetía en `WorshipPercentage.h`, en `test_worship.cpp` y en `magic.md`.
+2. **`WorshipScore` multiplica por vida³, no por vida²** (0x73C63A..0x73C644: `mov eax, 2`, y dos vueltas de
+   `dec eax; fmul vida; jne` sobre st0 = vida; el modificador se multiplica al final, en 0x73C646).
+3. **`VillagerFire::DistanceModifier` era un `smoothstep` inventado**: con max = 400 m daba 0,156 a 250 m donde el
+   original da 0,0444, 0,352 a 220 m (original 0,264) y se saturaba a 1 / 0 en los extremos en vez de
+   0,99996 / 3,6e-5. El umbral que sigue (> 0,1, [0x8AB22C]) cambiaba de sitio. Es `GetDistanceModifier(d, 400)`, con el
+   400 inmediato en 0x765A77 y la distancia de 0x765A81.
+4. **La tabla de `Trees.cpp` estaba redondeada a 4 decimales** (35 de las 41 entradas distintas; 20 de ellas dentro del
+   rango 10..30, el único que usa `GetDistanceModifier`: T[1..10] valían 0 y T[30..36] valían 1).
+5. **La tabla de `WorshipPercentage.cpp` estaba redondeada a 5 decimales** (lo mismo, T[1..8] = 0 y T[32..36] = 1).
+6. **La sigmoide de `AnimalLairs.cpp` se calculaba en double**: en los saltos de la tabla (±40 ulp) salía otro índice en
+   50-60 de 3321 casos, y 1 de 300 000 con valores aleatorios.
+7. **`hypotenuse(int)` en double** (WaterQueries y AnimalLairs): distinta en 31 678 de 200 000 muestras frente a la
+   emulación a 24 bits; casi siempre 1 unidad, pero al cambiar de cubo de la tabla llega a 2431 unidades = **0,37 m a
+   1 km**.
+8. **`TownQueries::GetDistanceInMetres` usaba `std::hypot`** sin la tabla (100 m daban 100 m, no los 100,0244 m del
+   original) y convertía el entero a float **antes** de multiplicar, mientras que el original usa `fimul` sobre el
+   entero exacto (distinto en 22 572 de 100 000 enteros por encima de 2^24, es decir más de 2560 m).
+9. **`AnimalWallHug` `MoveToCircleHug`** hacía la raíz y el ×128 − 1 en double; en el original las dos constantes se
+   cargan como `qword` pero la FPU está a 24 bits, así que es todo float, y la base es `GetMetresDistanceSq` 0x605FB0
+   (0x60D9F0), el cuadrado exacto.
+10. **`FeatureScriptCommands::FindNearestTown`** comparaba **distancias al cuadrado**; el original llama a fn_00605CD0
+    (0x553016, 0x55302E) y compara la distancia, así que con la tabla y la cuantización dos ciudades casi empatadas
+    podían salir al revés.
+
+**Qué usa ya la API.**
+
+- Se borraron las tres copias de la tabla 1/√ y de `InvSqrt` (`WaterQueries.cpp`, `AnimalLairs.cpp`, `CHLApi.cpp`), las
+  cuatro `hypotenuse` y las tres `SigmoidThreshold` privadas (AnimalLairs, Trees, WorshipPercentage).
+- `WaterQueries` (`DistanceInMetres`, el corte de `NearestCoastal` y la distancia a los puntos de río),
+  `AnimalLairs` (`MapDistance` y `ForestScore` fn_0053AD00), `CHLApi` `GET_DISTANCE` (0x6F8CA0 → 0x74CDE0),
+  `TownQueries::GetDistanceInMetres` (y con ella `VillagerDecide` y los radios de búsqueda de ciudad).
+- Sustitutos en float cambiados por la API **solo donde se ha leído la llamada del original**: `FireEffect` y
+  `VillagerFire` (`Distance2D`), `Reactions` `SpreadReaction` (0x6E3E91), `Climate` `FindWhereToCreateStorm` /
+  `CreateStorm` / fn_00772330 (0x74CDE0), `CastRules` (el radio de curación), `SpellFlock::WolfArrived` (0x421300),
+  `SpellWater::ApplyWaterSpell` (0x7250EC), `EffectValues::ApplyEffectToMapPos` (0x525307), `Trees`
+  (`DistanceToForest` 0x53A890 / 0x53AC20 y el bosque escénico), `AnimalAI` (`PosWithinDomain` 0x5ED010,
+  `SetNewWander` 0x41A3F0, `KeepFlockMemberWithinFlockArea` 0x41ABB0), `AnimalFlee` (`ReactToFoodPriority` 0x5F1710,
+  `SetupReactToFlyingObject` 0x4204A0, `ProcessReaction` 0x5F1270), `AnimalPredators` (fn_00419340),
+  `AnimalWallHug` (0x60D9F0), `StreetLantern` (`IsALaternWithinDistance`) y `FeatureScriptCommands::FindNearestTown`
+  (fn_00552FF0).
+
 ## Altura del terreno
 
 `LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
@@ -182,6 +280,8 @@ T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan, e
 
 ## Pendiente
 
+### MapCoords
+
 Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, rama `local/sistemas2`):
 
 **Aplazadas, porque milagros2 está editando esos archivos:**
@@ -223,9 +323,51 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
 - Las posiciones de openblack son float en metros. Mientras no se guarden como MapCoords enteros, cada `ToFixed` de un
   valor ya cuantizado puede perder una unidad (0,15 mm). Las celdas no cambian: una posición en un múltiplo exacto de
   0x10000 vuelve intacta.
-- Distancias sobre MapCoords: la raíz de tabla 0x74F620 / `hypotenuse` 0x74F680 está copiada tres veces (WaterQueries,
-  AnimalLairs, CHLApi), y `TownQueries::GetDistanceInMetres` usa `std::hypot`. Es el sistema `gutils_distance`.
-- Lo que queda en double en `TownQueries::GetDistanceInMetres` (`std::hypot`) es del sistema `gutils_distance`.
+- Distancias sobre MapCoords: hechas, en [Distancias de GUtils](#distancias-de-gutils).
+
+### Distancias de GUtils
+
+Copias de distancias que aún no usan `openblack::gutils` (estado a 2026-10-01, rama `local/sistemas2`). La regla ha sido
+migrar **solo** donde se ha leído en el binario que el original llama a `GetDistance*` / `hypotenuse`; lo demás se deja.
+
+**Aplazadas, porque milagros2 está editando esos archivos:**
+- `Magic/Objects/MagicTeleport.cpp:148-153`: `FastDistance` 0x74CE10 (ya es exacta; solo hay que borrar la copia) y
+  `Distance2D` (:81-84, usos :171, :198 «fn_00605CD0», :204, :515, :550).
+- `Magic/Objects/MapShield.cpp:499-500`, `PSys/Rules/Explosion.cpp:354-414`, `PSys/Rules/Storm.cpp:1333-1334`,
+  `Magic/Spells/SpellStormAndTornado.cpp:196-198` y `Magic/Spells/SpellForest.cpp:167, :232`: `glm::length` /
+  `glm::distance` donde el original llama a 0x74CD70 / fn_00605CD0.
+
+**De otros dueños, sin autorización todavía:**
+- Milagros: `ECS/Influence/Influence.cpp:118-121` (`detail::DistanceXZ`, `std::hypot`, cita 0x74CD70),
+  `ECS/Systems/Implementations/VillagerWorship.cpp:161-164` (`FlatDistance`),
+  `Worship/WorshipSite.cpp:131, :147`, `Magic/Spells/SpellShield.cpp:73, :239, :258`,
+  `Magic/Script/CHLFire.cpp:74` y `Magic/Script/CHLSpells.cpp:185`.
+- «sistemas» (tiene el archivo abierto): `ECS/PotResource.cpp:131, :155` (`IsCloseToEqual` 0x6053C0 =
+  `GetDistanceInMetres <= r`).
+- «audio» (hito B11): `ECS/Fire/FireSound.cpp:38-52` (`CameraDistance`: además la cámara no pasa por MapCoords) y
+  `Audio/GameQueries.h:47, :72-76` (`nearestTown`, descrito pero sin implementar en `Game.cpp`).
+
+**Dudosas, no migradas** (no consta en el binario que el original use ahí la rutina):
+- `Worship/Citadel.cpp:61` (`NearestTownOfTribe`) y `ECS/Trees.cpp:244, :718, :799, :1038`: sin dirección en la cita.
+- `ECS/Weather/Climate.cpp:431` (`ProcessAll`): hace `d2 > r²` y luego `sqrt(d2)`, que no es la forma de una llamada a
+  `GetDistance`; `GClimate::ProcessAll` 0x771DBA sí llama una vez a 0x74CDE0, pero no se ha leído dónde.
+- `ECS/AnimalFlee.cpp:596, :619, :653` y `ECS/AnimalPredators.cpp:379, :488, :549, :692`: el informe los marca
+  *(inferido)* por su sitio en el archivo, no por una lectura.
+- `ECS/Systems/Implementations/PathfindingSystem.cpp:100, :218`: portan `MobileWallHug::MoveTo` 0x60AF20, que llama a
+  `GetMetresDistanceSq` 0x605FB0 *(inferido)*; haría falta migrar antes su entrada a MapCoords.
+- `ECS/Effects/EffectValues.cpp` y `ECS/Fire/FireEffect.cpp` usan `gutils::GetDistanceInMetres(vec3, vec3)`, que
+  trunca las posiciones a 16.16 cada vez. Mientras openblack guarde las posiciones en float, eso puede perder una unidad
+  (0,15 mm) respecto a un MapCoords guardado.
+
+**Sin portar todavía en openblack** (no hay copia que migrar, la API ya las tiene listas): `GetDistanceToCell` /
+`GetDistanceInMetresToCell` (fn_0074CD10 / fn_0074CD90, usadas por `CreatureMental` 0x4D2B3D y
+`Reaction::ApplyReactionToLivingObjectsAtSquare` 0x6E4157), `ChebyshevDistance` (fn_0074CED0, un llamador),
+`DistanceChangeToBelief` (0x438770, desde los `GetImpressiveValue`) y `CreatureSigmoidThreshold` (0x4F78C0, desde
+`CreatureDesires::GetIncrementFromSources`).
+
+**Cambios que se ven y hay que comprobar con captura:** quién va primero a rezar (`WorshipScore`: ahora los más
+cercanos, y con vida³), quién va a apagar un fuego (`VillagerFire`, 400 m), el crecimiento del árbol con el milagro de
+agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la sigmoide ya no se calcula en double).
 
 ## Ganchos de prueba
 
@@ -240,7 +382,20 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
   - las dos tablas de vecinos;
   - la secuencia exacta de la espiral y el cuadrado de 4×4 que cubre;
   - `SpiralIncrement` y los dos tamaños.
-- No tiene variables de entorno propias.
+- `test_gutils_distance` (`test/test_gutils_distance.cpp`) comprueba:
+  - los 41 dwords de la tabla 0xC23284, por bits, y que `k_Sigmoid` son esos mismos bits;
+  - las entradas 0, 1, 2, 511, 512 (el 0x7FE000 del 1 exacto), 513 y 1023 de la tabla 1/√;
+  - `InvSqrt(1)` = 0x3F7FE000 y el ≈ 2^63 del cero;
+  - `Hypotenuse(int)` con 0, una celda (65568), la diagonal (92691) y el lado del mapa (33570824);
+  - `Hypotenuse(float)` por bits, con el corte de 1e-4 en los dos lados;
+  - las dos conversiones de unidades, incluido el `fimul` por encima de 2^24;
+  - `GetDistanceInMetres` (100 m → 100,0244; 400 m → 400,098), la distancia al centro de una celda,
+    `GetMetresDistanceSq` (sin tabla), `FastDistance` y Chebyshev;
+  - `SigmoidThreshold` con el umbral en el primer argumento, los dos recortes y el caso `a == 1`;
+  - `GetDistanceModifier` con los 400 m de `ReactToFire` y los 3 de `Tree::ApplyWaterSpell`, y el `max = 0`;
+  - `DistanceChangeToBelief`.
+- `test_worship` comprueba la curva de `WorshipScore` (que baja con la distancia) y la vida³.
+- No tienen variables de entorno propias.
 
 ## Fuentes
 
@@ -252,3 +407,11 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
 - Informes: `dev\tmp_dis\unify2\PLAN.md` §1, `map_coords_grid_original.md` (sobre todo su «Verificación adversaria»)
   y `map_coords_grid_openblack.md`.
 - bw1-decomp: `src/Black/MapCoords.h`, `Map.h`, `Utils.h` y `Lionhead/LH3DLib/development/LH3DMapCoords.h`.
+- Distancias de GUtils: desensamblado de 0x74CCA0:1D0, 0x74CE6E:C0, 0x74DCC0:50, 0x74DD00, 0x74E2D0,
+  0x74F170:A0, 0x74F290:40, 0x74F580:1A0, 0x74F620, 0x74F680, 0x74F6C0, 0x605CD0, 0x605FB0, 0x5ECA20, 0x657F30,
+  0x438770, 0x4F78C0, 0x73C5C0..0x73C64E (vida³), 0x552FF0, 0x5252E0, 0x60D9D0 y 0x6E3E60; bytes de 0xC23284
+  (164 B), 0x99A1D0, 0x99A1D4, 0x99A1D8, 0x99A1BC, 0x8AC408, 0x8AC41C, 0x8AC400, 0x8AA390, 0x8AA3A4, 0x8AB678,
+  0x8AB680, 0x8AB41C, 0x8BF518 y 0x930670. Informes: `dev\tmp_dis\unify2\PLAN.md` §6,
+  `gutils_distance_original.md` (con su «Verificación adversaria») y `gutils_distance_openblack.md`.
+- bw1-decomp para las distancias: `src/Black/Utils.h` (solo firmas; `GetDistance` aparece como `void`),
+  `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.

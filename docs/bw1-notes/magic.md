@@ -678,9 +678,15 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
 - `Town::GetWorshipersNeeded` 0x73C860: `objetivo = pct > 0 ? max(1; int(población × pct + 0,5)) : 0`;
   `resultado = objetivo − (adorando + en camino) + los que piden volver a casa`.
 - `Town::AdjustWorshipersWorshipping` 0x73C0F0: dos pasadas (la segunda acepta también los marcados 0x200); para
-  mandar, los aldeanos disponibles **más lejos** del centro del baile primero
-  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida²`, que crece con la
-  distancia); para retirar, los que están o van al lugar, los más lejanos primero (estado 163).
+  mandar, los aldeanos disponibles **más cerca** del centro del baile primero
+  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida³`); para retirar, los
+  que están o van al lugar, los **más lejanos** primero (estado 163).
+  - `GetDistanceModifier` 0x74F290 es `SigmoidThreshold(0,5; 1 − min(d; max)/max)`, con el umbral en el **primer**
+    argumento (`push 0x3F000000` en 0x74F2B7): **baja** con la distancia, de 0,99996 en d = 0 a 3,6e-5 en d ≥ max (ver
+    [engine-math.md](engine-math.md#distancias-de-gutils)). openblack los pasaba al revés y mandaba primero a los más
+    lejanos; corregido en la sesión «sistemas2».
+  - Es **vida³**, no vida²: tras `GetLife` (0x73C630) el bucle 0x73C63A..0x73C644 (`mov eax, 2`, y dos vueltas de
+    `dec eax; fmul vida; jne`) multiplica la vida dos veces más, y el modificador entra al final (0x73C646).
 - Estados del aldeano (tabla de `LivingActionSystem.cpp`): **59** llega al lugar (0x76BE00; a 10 m del punto 9 entra al
   baile si `N < maxDancersVisible`, si no al escondite), **60** bailando (0x76C680), **213** escondido (0x76C5E0) y
   **248** vuelve a casa (0x761B70). Salidas `ExitMoveToWorshipSite` 0x76C170 y `ExitAtWorshipSite` 0x76C1F0. El 58 del

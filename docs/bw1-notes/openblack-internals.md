@@ -48,9 +48,11 @@
   `AbodeArchetype::Create`): hasta el suelo más bajo bajo las 4 esquinas xz de la caja de su malla
   (`GetAltitudeFondation` 0x63ABC0, nunca por encima del origen), como mucho `max(0,2·radio 2D, 0,8)` (radio =
   escala × la mayor semiextensión en x o z, 0x638180). Sustituye a la altitud del script. Solo con una isla cargada
-  (`UnloadedIsland` lanza en `GetHeightAt`). Pendiente: el templo aplana el terreno a su alrededor al crearse
-  (0x882730: plano hasta 35 unidades, mezcla hasta 70; hecho en `CitadelArchetype`) y su entrada (`Entrance.l3d`)
-  sigue el terreno (pendiente).
+  (`UnloadedIsland` lanza en `GetHeightAt`). El templo aplana el terreno a su alrededor
+  (0x882730: plano hasta 35 unidades, mezcla hasta 70; hecho en `CitadelArchetype::FlattenLandUnderTemple`).
+  **Desviación:** openblack lo hace al cargar (crea el templo ya hecho); el original, al convertir el plano en templo
+  (`CitadelHeart::Create` → 0x4675A0 → 0x882730; `dev\tmp_dis\mapa\flecos_citadel.md`). **Pendiente:** la entrada
+  (`Entrance.l3d`) sigue el terreno.
 - **Tótem del centro del pueblo** (`components::TotemStatue`, `CreateTotemStatue` en AbodeArchetype.cpp; notas en
   `dev\tmp_dis\totem\totem_notes.txt`): `TownCentre::CreateTotemIfNecessary` 0x743DA0 → `TotemStatue::Create`
   0x737CC0. Dos mallas estáticas sin hundimiento: el pedestal de la tribu (`InfoConstants.totemStatue[tribu].plinth`,

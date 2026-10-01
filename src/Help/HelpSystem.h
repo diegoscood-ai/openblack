@@ -95,9 +95,9 @@ public:
 		/// g_game+0x205A28 == 1 && (g_game+0x14 & 4): inside the citadel the times are in milliseconds (0x5C6463,
 		/// 0x5C68E8). Unset: false.
 		std::function<bool()> citadelClock;
-		/// +0x45E8 && +0x45EC: a script holds the wide screen (ProcessInterface 0x5C6A2E). Unset: false (inferred:
-		/// openblack does not keep which script task set it).
-		std::function<bool()> scriptWideScreen;
+		/// ScriptDLL::GetScriptType 0x6F6C50: the VMScriptType of a task (1 Script, 2 Help, ...; 1 when there is no such
+		/// task, ScriptLibraryR.dll 0x100051F0). Unset: 1.
+		std::function<uint32_t(uint32_t taskNumber)> taskScriptType;
 		/// [0xE85410] & 0xFF, the key that skips a text (ProcessInterface 0x5C69B2; which key: not read). Unset: false.
 		std::function<bool()> skipKey;
 		/// GGame::MyInterface()->IsPlayBack(0) (0x5C69ED). Unset: false.
@@ -119,9 +119,21 @@ public:
 		std::function<void(const std::u16string& text, float number, int32_t narrator)> showText;
 		/// The voice branches of fn_005C5F90 (milestone B7)
 		std::function<void(uint32_t textId, VoiceRoute route, audio::TextVoice voice)> sayVoice;
-		/// ProcessInterface 0x5C6A88..0x5C6AAD: fn_005C6720(1, 1), fn_005C6720(1, 2) (the spirits, not read) and
-		/// GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) (milestone B7)
+		/// ProcessInterface 0x5C6A88..0x5C6AAD: fn_005C6720(spirit 1, 1), fn_005C6720(spirit 2, 1) (the advisors, see
+		/// spiritStop) and GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) (milestone B7)
 		std::function<void()> stopVoicesOnClick;
+		/// HelpSystem::SpiritHome 0x5C6670(spirit, arg) -> fn_005C5200 on the spirit (fn_005C68A0: 1 -> HelpSystem+0xC,
+		/// any other -> +8): spirit+0x58 / +0x5C = 0 and HelpDudeControl (HelpSystem+0x10) fn_005C3540(dude) when arg != 0
+		/// (the dude's state +0xC = 1 at once, 0x5C357A), fn_005C3590(dude) when arg == 0 (fn_005C2E90 / fn_005BBDD0
+		/// first: inferred, the advisor flies off); dude = spirit+0x54 != 1 (fn_005C5250). The advisors are not ported.
+		std::function<void(int32_t spirit, int32_t arg)> spiritHome;
+		/// fn_005C6720(spirit, arg) -> fn_005C4C20 -> HelpDudeControl fn_005C3780(dude, arg) (its W120 symbol
+		/// MacAdjustHelpID is wrong: it reads HelpDude::IsTalking 0x5BB760). The advisors are not ported.
+		std::function<void(int32_t spirit, int32_t arg)> spiritStop;
+		/// The rest of HelpSystem::SetWideScreen 0x5C6AD0 when +0x45E8 changes: DialogBoxBase::HideAll (on),
+		/// GInterface::SetActive(!(on && owner)) and the bars' timer +0x45F0 (wideScreenTime 0xD16174 * 1000 * the part
+		/// already done, 0x5C6B3F..0x5C6B4E): openblack's bars are ScreenFade::SetWideScreen
+		std::function<void(bool on)> wideScreen;
 	};
 
 	HelpSystem(Info info, Queries queries, Hooks hooks);
@@ -150,15 +162,44 @@ public:
 	/// HelpSystem::ClearTextDisplayed 0x5C54E0: +0x580, +0x57C, +0x45DC and +0x45E4 = 0 (the KMIcons +0x24 / +0x28 it
 	/// deletes, 0x5C54F1..0x5C5522, are display only: not ported)
 	void ClearTextDisplayed();
-	/// The text part of HelpSystem::Reset 0x5C5580 (from GScript::Reset 0x6EB340): ClearAllText and the history emptied
-	/// (+0x45C8 / +0x45C4 = 0, 0x5C55EA). The rest (+0x578, +0x568, the spirits' arrays +0x78 / +0x2FC / +0x2D8, the wide
-	/// screen, fn_005C6C40, ResetIcons) is not ported
+	/// The text part of HelpSystem::Reset 0x5C5580 (from GScript::Reset 0x6EB340): ClearAllText, SetWideScreen(0, 0)
+	/// (0x5C55D6) and the history emptied (+0x45C8 / +0x45C4 = 0, 0x5C55EA). The rest (+0x578, +0x568, the spirits'
+	/// arrays +0x78 / +0x2FC / +0x2D8, fn_005C6C40, ResetIcons) is not ported. It does not touch +0x45CC
 	void Reset();
 	/// HelpSystem::IsTextRead 0x5C64E0 (CHL 15 TEXT_READ)
 	[[nodiscard]] bool IsTextRead() const;
 	/// HelpSystem::ProcessInterface 0x5C69B0 from GInterface (0x5D11C0: `click` is bit 5 of GInterface+0x39) (inferred:
 	/// that bit is the left button going down; openblack calls it on that event). 1, or k_ClickTaken.
 	int ProcessInterface(bool click);
+
+	/// HelpSystem::IsDialogueControlled 0x5C6740: a script task has the dialogue (+0x45CC != 0) or holds the wide screen
+	/// (+0x45E8 && +0x45EC). IS_DIALOGUE_READY pushes its negation (0x710846)
+	[[nodiscard]] bool IsDialogueControlled() const { return _dialogueOwner != 0 || IsScriptWideScreen(); }
+	/// +0x45CC: the script task that has the dialogue (0: none)
+	[[nodiscard]] uint32_t GetDialogueOwner() const { return _dialogueOwner; }
+	/// HelpSystem::SetCurrentControl 0x5C6780: +0x45CC = task
+	void SetCurrentControl(uint32_t task) { _dialogueOwner = task; }
+	/// HelpSystem::DialogueControlRequest 0x5C6790: nothing (false) while IsDialogueControlled; else the task takes the
+	/// dialogue and ClearAllText (true)
+	bool DialogueControlRequest(uint32_t task);
+	/// HelpSystem::ClearDialogueControl 0x5C67E0: +0x45CC = 0 and HelpText fn_005CB010 (+0xB4 = 0, +0xAC = 1: display
+	/// only, not ported)
+	void ClearDialogueControl();
+	/// fn_005C6800(task) (no W120 symbol; END_DIALOGUE 0x7107F9 and the task-stop callback 0x6EC6E9 call it): when the
+	/// task has the dialogue, give it back, take the wide screen away and send both advisors home
+	void ReleaseDialogueControl(uint32_t task);
+	/// HelpSystem::SpiritHome 0x5C6670 (Hooks::spiritHome)
+	void SpiritHome(int32_t spirit, int32_t arg);
+	/// HelpSystem::SetWideScreen 0x5C6AD0(on, owner): when +0x45E8 changes, +0x45E8 = on and +0x45EC = on ? owner : 0
+	/// (0x5C6B17..0x5C6B31), then Hooks::wideScreen
+	void SetWideScreen(int32_t on, uint32_t owner);
+	/// +0x45E8 && +0x45EC: a script task holds the wide screen (IsDialogueControlled 0x5C674A, ProcessInterface 0x5C6A2E,
+	/// GAudio::PlaySoundEffect userParam 1, ProcessAlignmentMusic 0x4279E9)
+	[[nodiscard]] bool IsScriptWideScreen() const { return _wideScreen != 0 && _wideScreenOwner != 0; }
+	/// +0x45E8: the wide screen is on
+	[[nodiscard]] int32_t GetWideScreen() const { return _wideScreen; }
+	/// +0x45EC: the script task that set it (0: none, or set by the game)
+	[[nodiscard]] uint32_t GetWideScreenOwner() const { return _wideScreenOwner; }
 
 	/// fn_005C6C90: HelpSystem+0x4610, the profile's READ_SPEED (fn_005C6CF0 0x5C6DC6; 0.5 without a profile, 0x5C6DEC)
 	void SetReadSpeed(float readSpeed) { _readSpeed = readSpeed; }
@@ -208,7 +249,10 @@ private:
 	/// +0x460C: GInterface::SetActive 0x5CEDC0 sets it to bit 0 of GInterface+0x39 (0x5CEDD2..0x5CEDDF), ProcessInterface
 	/// clears it. openblack has no GInterface::SetActive, so it stays false (not ported)
 	bool _clickPending {false};
-	float _readSpeed {0.5f};    ///< +0x4610
+	float _readSpeed {0.5f};       ///< +0x4610
+	uint32_t _dialogueOwner {0};   ///< +0x45CC (SetToZero 0x5C547B -> ClearDialogueControl)
+	int32_t _wideScreen {0};       ///< +0x45E8 (Reset 0x5C55D6: SetWideScreen(0, 0))
+	uint32_t _wideScreenOwner {0}; ///< +0x45EC
 };
 
 /// The game's help system (g_game+0x25005C): nullptr before Start

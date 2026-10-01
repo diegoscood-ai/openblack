@@ -65,8 +65,10 @@
 - `L3DSubMesh` guarda en CPU posiciones e índices (`GetCollisionPositions/Indices`) para picking y medidas;
   `L3DMesh::RayIntersect` hace el test de triángulos.
 - Texturas: si un material pide una textura inexistente y la malla trae skin incrustada, se usa esa (mods).
-- **Trampa**: ninja no recompila `vs_object_instanced.sc` / `vs_object_hm_instanced.sc` al cambiar `vs_object.sc`:
-  hay que tocarlos (`touch`). Con shaders viejos desaparecen todos los objetos.
+- **Trampa**: ninja no recompila las variantes que solo hacen `#include` de su base al cambiar la base
+  (`vs_object.sc`, `vs_static_shadow.sc`…): `vs_object_instanced*.sc`, `vs_object_hm_instanced*.sc` y
+  `vs_static_shadow_instanced_static.sc` (7 archivos) hay que tocarlos (`touch`). Con shaders viejos desaparecen
+  objetos (todos, o los árboles). `dev\verify_head.bat` ya lo hace antes de compilar (2026-10-01).
 
 - `RenderContext::entityInstances`: entidad → (malla, índice de instancia, `morphWithTerrain`,
   `receivesDynamicShadow`), para dibujar una entidad concreta (reflejos, sombra sobre objetos).

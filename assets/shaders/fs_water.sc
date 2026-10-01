@@ -6,8 +6,7 @@ SAMPLER2D(s_diffuse, 0);    // sky.raw, cut to 4 bits per channel at load (ARGB4
 SAMPLER2D(s_alpha, 1);      // skya.raw, the same
 SAMPLER2D(s_reflection, 2); // what is under the sea: the mirrored sky and land, the moon's reflection, the hand glow
 
-uniform vec4 u_sky;
-uniform vec4 u_seaColour; // rgb: landscape light table[255] (the sea vertex colour); negative if unavailable
+uniform vec4 u_seaColour; // rgb: landscape light table[255] (the sea vertex colour); white if unavailable
 uniform vec4 u_seaParams; // x: tiling period, y: frame counter [0xFA938C], zw: 0.9 * normalised horizontal camera forward
 uniform vec4 u_seaRows;   // fn_00879930's rows: x first row y, y count n, z 1 / depth of row 0, w its step per row
 uniform vec4 u_seaMode;   // x: 0 rows, 1 level-0 quad; y: row 0 gets alpha 0x20; zw: wind drift offset
@@ -66,7 +65,6 @@ float RowAlpha(float r)
 
 void main()
 {
-	float skyBightness = u_sky.x / 2.0f;
 	// what the sea is blended over: the reflection target, drawn with the same size and projection
 	vec2 reflectionUv = (gl_FragCoord.xy - u_viewRect.xy) / u_viewRect.zw;
 
@@ -134,7 +132,7 @@ void main()
 	}
 
 	// Light: the time-of-day full-light colour, landscape light table entry 255 (0xEDDD08)
-	vec3 light = u_seaColour.r >= 0.0f ? u_seaColour.rgb : vec3_splat(mix(0.25f, 1.0f, skyBightness));
+	vec3 light = u_seaColour.rgb;
 	vec3 diffuse_colour = light * texture2D(s_diffuse, uv).rgb;
 	if (u_waterMod.x > 0.0f && onSea > 0.5f)
 	{

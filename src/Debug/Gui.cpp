@@ -45,6 +45,7 @@
 
 #include "3D/DayNightClock.h"
 #include "3D/SkyInterface.h"
+#include "3D/SkyType.h"
 #include "Audio.h"
 #include "Camera/Camera.h"
 #include "Console.h"
@@ -535,7 +536,8 @@ bool Gui::ShowMenu() noexcept
 			}
 			ImGui::Text("Visual time %.3f", Game::Instance()->GetDayNightClock().GetVisualTime());
 
-			ImGui::Text("Sky Type Index %f", Locator::skySystem::value().GetCurrentSkyType());
+			// [0xFA26BC] (2 night, 1 dusk, 0 day) and the sky type the dome is built with [0xFA26C0]
+			ImGui::Text("Sky type %.3f (dome %.3f)", sky_type::Frame(), sky_type::Dome().Built());
 			ImGui::SliderFloat("Sky alignment", &config.skyAlignment, -1.0f, 1.0f, "%.3f");
 			{
 				int detail = config.detailLevel;

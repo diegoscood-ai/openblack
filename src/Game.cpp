@@ -34,6 +34,7 @@
 #include "3D/OceanInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
+#include "3D/SkyType.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AnimationSounds.h"
 #include "Audio/AtmosBanks.h"
@@ -475,9 +476,10 @@ bool Game::GameLogicLoop() noexcept
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
 		if (turn % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", turn,
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f} frame {:.3f} dome {:.3f}", turn,
 			                   _dayNightClock->GetVisualTime(), _dayNightClock->GetScriptTime(),
-			                   _dayNightClock->GetSkyType());
+			                   _dayNightClock->GetSkyType(), sky_type::Frame(), sky_type::Dome().Built());
 		}
 		// OPENBLACK_TEST_TEXT_CLICK=1 (openblack only): the player's click on a text that waits for one (RUN_TEXT with
 		// interaction 1), every turn while it waits, as the left button going down does (ProcessEvents);

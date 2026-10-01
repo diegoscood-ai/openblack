@@ -27,18 +27,22 @@ struct DetailLevel
 	bool useHighTexture;   ///< 256 px landscape textures (else 128)
 	uint8_t rainSplash;    ///< "RainSplash"
 	bool shadowsOnObjects; ///< "ShadowsOnObjects" (startup only): the hand's dynamic shadow also falls on objects
+	/// [0x9A38E0 + 4 level] -> [0xEDD470] (0x823C5B..0x823C69; not read from the registry at level 5): the sky dome
+	/// without the day / dusk / night blend (fn_00869670 false), 128 rows. Not ported: openblack's dome always blends
+	/// (sky_type::DomeBlend)
+	bool skyNoBlend;
 
 	[[nodiscard]] float SeaPeriod() const { return 2000.0f - 1800.0f * waterTiling; }
 };
 
 inline constexpr std::array<DetailLevel, 7> k_DetailLevels = {{
-    {0.0f, false, false, false, false, 0, false},
-    {0.2f, false, false, false, false, 0, false},
-    {0.4f, false, false, false, false, 3, false},
-    {0.6f, true, true, true, false, 5, true},
-    {0.8f, true, true, true, true, 8, true},
-    {0.5f, true, true, true, true, 8, true},
-    {1.0f, true, true, true, true, 8, true},
+    {0.0f, false, false, false, false, 0, false, true},
+    {0.2f, false, false, false, false, 0, false, true},
+    {0.4f, false, false, false, false, 3, false, false},
+    {0.6f, true, true, true, false, 5, true, false},
+    {0.8f, true, true, true, true, 8, true, false},
+    {0.5f, true, true, true, true, 8, true, false},
+    {1.0f, true, true, true, true, 8, true, false},
 }};
 
 inline constexpr uint8_t k_DefaultDetailLevel = 4;

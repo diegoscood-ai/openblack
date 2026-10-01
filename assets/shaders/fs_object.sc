@@ -6,7 +6,7 @@ $input v_position, v_texcoord0, v_normal, v_color0
 #include "model_light.sh"
 
 SAMPLER2D(s_diffuse, 0);
-uniform vec4 u_skyAlphaThreshold; // x: sky type, y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
+uniform vec4 u_skyAlphaThreshold; // x: unused (0), y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
 uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water),
                                   // x < 0: discard above it (y > 0; DrawCutByPlane with the plane (0, -1, 0, 0))

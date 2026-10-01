@@ -38,6 +38,7 @@
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "PSys/Rules/SurfRevol.h"
 #include "Renderer.h"
@@ -69,8 +70,8 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectPSysSurfaces(const Came
 	const auto eye = camera.GetOrigin();
 	for (size_t i = 0; i < _frameSurfaces.size(); ++i)
 	{
-		// no Z object of its own: the key is the effect's (PSysManager::AddDrawing 0x6797D0, |origin - g_camera|)
-		order.emplace_back(glm::distance(_frameSurfaces[i].origin, eye), static_cast<uint32_t>(i));
+		// no Z object of its own: the key is the effect's (PSysManager::AddDrawing 0x6797E5..0x679828, zsorter::Key)
+		order.emplace_back(zsorter::Key(_frameSurfaces[i].origin, eye), static_cast<uint32_t>(i));
 	}
 	return order;
 }

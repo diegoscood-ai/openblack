@@ -208,6 +208,13 @@ del cono y la escala de las horquillas. `OPENBLACK_PSYS_CHAIN_TRACE=1` escribe p
 (cuántas, con cuántas articulaciones, su textura y de dónde a dónde van), que es la forma de distinguir «la cinta no se
 dibuja» de «en ese fotograma no había ninguna» (el rayo parpadea: una horquilla solo se ve el turno en que golpea).
 
+`OPENBLACK_ZSORTER_TRACE=1` escribe una vez por segundo (cada 60 fotogramas dibujados) una línea `ZSorter trace:` con
+lo que lleva la cola única de transparentes del fotograma (`graphics::zsorter`, `Renderer::DrawPass`): el total, las
+entradas perdidas por el tope de 0x800 (`NewZObject` 0x83F31C), cuántas hay de cada clase (modelos, nubes, casillas de
+lluvia, sprites del barco, efectos, superficies, cintas, nieblas, humo, sprites, mano) y la clave (distancia al
+cuadrado) de la primera y de la última; ver
+[rendering-objects.md](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter).
+
 `OPENBLACK_ORB_TRACE=1` escribe, **cada fotograma dibujado** y desde `Renderer::DrawScene` (justo después de ordenar la
 lista de atrás a delante), dos clases de línea en el registro con el logger `graphics`:
 

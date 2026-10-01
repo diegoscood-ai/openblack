@@ -45,6 +45,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/Texture2D.h"
@@ -259,9 +260,11 @@ public:
 		// Water bodies: 4-connected water cells; the ones reaching the edge of the map (or a missing block) are the sea
 		const int cells = island.GetCellsPerSide();
 		std::vector<int8_t> kind(static_cast<size_t>(cells) * cells, -1); // -1 land, 0 lake, 2 sea, 3 unvisited
+		// the water bit through the single source (MapCoords::IsWater 0x6035B0: a cell without a block is water too, so
+		// the sea beyond the landscape blocks counts) plus the LND fullWater flag the mod has always added
 		const auto isWater = [&island](int x, int z) {
-			const auto& cell = island.GetCell(glm::u16vec2(x, z));
-			return cell.properties.hasWater || cell.properties.fullWater;
+			return ecs::sea_cells::IsWater(island, glm::ivec2(x, z)) ||
+			       island.GetCell(glm::u16vec2(x, z)).properties.fullWater;
 		};
 		for (int x = 0; x < cells; ++x)
 		{

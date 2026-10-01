@@ -19,7 +19,7 @@
 // What GAudio reads from the rest of the game (dev\tmp_dis\audio\PLAN.md §2.4). The audio does not include the ECS:
 // the game registers these functions (Game.cpp) and every query left unset gives the neutral value written next to it,
 // which is the value of a game without that system (marked (inferred) where the original has no such state).
-// Only the music part (milestones A5, A7, A9) is here so far.
+// The music part (milestones A5, A7, A9) and the filters of the sample channels (B1).
 
 namespace openblack::audio
 {
@@ -93,6 +93,15 @@ struct GameQueries
 	std::function<bool()> chantMusic;
 	/// ProcessCreatureDanceMusic 0x427EC0 (a creature leading a dance; milestone C1)
 	std::function<bool()> creatureDanceMusic;
+
+	/// g_game+0x205A28 == 1 (0x4282F0, misnamed HelpSystem::GetWideScreenControl; GoInsideCitadel 0x554004 sets 1,
+	/// LeaveInsideCitadel 0x553B1F sets 0): inside the citadel GAudio::PlaySoundEffect plays only the samples of user
+	/// parameter 2 (0x429F6D) and measures the 3D cull from LH3DTech::g_camera (0x429EB1). Unset: false (openblack has no
+	/// citadel interior yet).
+	std::function<bool()> insideCitadel;
+	/// GInterface+0x44 (GGame::MyInterface 0x555850): in the states 0x10, 0x16 and 0x17 the samples of user parameter 4
+	/// do not play (0x429FA5..0x429FB8). Unset: 0, none of them (openblack has no GInterface states).
+	std::function<int()> interfaceState;
 };
 
 } // namespace openblack::audio

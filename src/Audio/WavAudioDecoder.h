@@ -19,12 +19,19 @@ namespace openblack::audio
 class WavAudioDecoder final: public AudioDecoderInterface
 {
 public:
+	WavAudioDecoder() = default;
+	WavAudioDecoder(const WavAudioDecoder&) = delete;
+	WavAudioDecoder& operator=(const WavAudioDecoder&) = delete;
+	~WavAudioDecoder();
 	bool Open(const std::vector<uint8_t>& buffer) override;
 	void Read(std::vector<int16_t>& buffer) override;
 	[[nodiscard]] ChannelLayout GetChannelLayout() override;
+	/// The decoded rate in Hz (0 before a successful Open)
+	[[nodiscard]] int GetSampleRate() const;
 
 private:
-	drwav _wav;
+	drwav _wav {};
+	bool _open {false};
 };
 
 } // namespace openblack::audio

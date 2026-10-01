@@ -448,7 +448,7 @@ TEST_F(GameMusicTest, NoMusicOnLand6OrWithoutEngine)
 	music->ScriptStartMusic(61);
 	EXPECT_EQ(music->ScriptMusicPlayed(61), std::nullopt); // TEXT_READ instead
 	EXPECT_EQ(music->ScriptLastMusicLine(1.0f), std::nullopt);
-	music->ProcessAudioGameTurn();
+	music->ProcessAudioGameTurn(true);
 	EXPECT_EQ(music->GetScriptStarted(), 0);
 }
 
@@ -622,7 +622,7 @@ TEST_F(GameMusicTest, ThingMusicPlays3DEveryTurnAndBlocksTheAlignment)
 
 	// the thing is gone: its info goes (fn_00429700)
 	things.erase(11);
-	music->ProcessAudioGameTurn();
+	music->ProcessAudioGameTurn(true);
 	EXPECT_EQ(music->GetThingMusic().GetCount(), 0u);
 }
 

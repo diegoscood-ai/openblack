@@ -19,12 +19,19 @@ namespace openblack::audio
 class MpegAudioDecoder final: public AudioDecoderInterface
 {
 public:
+	MpegAudioDecoder() = default;
+	MpegAudioDecoder(const MpegAudioDecoder&) = delete;
+	MpegAudioDecoder& operator=(const MpegAudioDecoder&) = delete;
+	~MpegAudioDecoder();
 	bool Open(const std::vector<uint8_t>& buffer) override;
 	void Read(std::vector<int16_t>& buffer) override;
 	[[nodiscard]] ChannelLayout GetChannelLayout() override;
+	/// The decoded rate in Hz (0 before a successful Open)
+	[[nodiscard]] int GetSampleRate() const;
 
 private:
-	drmp3 _mp3;
+	drmp3 _mp3 {};
+	bool _open {false};
 };
 
 } // namespace openblack::audio

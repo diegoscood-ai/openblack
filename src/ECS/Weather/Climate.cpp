@@ -255,6 +255,12 @@ glm::vec3 Climate::Centre() const
 	return {ecs::map_coords::ToMetres(x), y, ecs::map_coords::ToMetres(z)}; // MapCoords: x [0x8AA3A4] (10 / 65536)
 }
 
+glm::vec3 Climate::CellCentre() const
+{
+	// 0x7724A6..0x7724DE: unsigned high word * 10, then fild
+	return {static_cast<float>(ecs::map_coords::CellOf(x) * 10), y, static_cast<float>(ecs::map_coords::CellOf(z) * 10)};
+}
+
 void climate::Reset()
 {
 	for (const auto& c : g_climates)
@@ -599,7 +605,7 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			{
 				for (const auto& other : g_climates)
 				{
-					const auto centre = other.Centre();
+					const auto centre = other.CellCentre();
 					// fn_00772330 0x7724E2: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
 					if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
 					    fadeOutAge > storm->age)
@@ -612,7 +618,7 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			}
 			else
 			{
-				const auto centre = climate.Centre();
+				const auto centre = climate.CellCentre();
 				// fn_00772330 0x77254C: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
 				if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
 				    fadeOutAge > storm->age)

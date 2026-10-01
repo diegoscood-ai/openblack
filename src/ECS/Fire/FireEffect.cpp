@@ -531,8 +531,8 @@ void Process(FireEffect& fire)
 			for (int steps = 99999; steps != 0; --steps)
 			{
 				const auto cell = map_coords::Cell(coords);
-				const glm::vec2 delta = map_coords::ToMetres(map_coords::MapCoords {coords.x - start.x, coords.z - start.z, 0.0f});
-				if (!(glm::length(delta) <= reach))
+				// 0x72F674: GetDistanceInMetres 0x74CD70 (table hypotenuse, ConvertWholeDistanceToMeters 0x74DCC0)
+				if (!(gutils::GetDistanceInMetres(coords, start) <= reach))
 				{
 					break;
 				}

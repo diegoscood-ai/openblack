@@ -22,7 +22,15 @@
 
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
+#include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/FishFarm.h"
+#include "ECS/Components/Footpath.h"
+#include "ECS/Components/Forest.h"
+#include "ECS/Components/MagicTeleport.h"
+#include "ECS/Components/Mobile.h"
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
@@ -106,10 +114,24 @@ glm::u16vec2 CellOf(const glm::vec3& position)
 	return ecs::MapInterface::GetGridCell(position);
 }
 
+/// Is the object one of the MultiMapFixed classes? Its ctor 0x52E1F0 is the only place that sets the flag +0x24 bit 1
+/// (0x52E207 `or byte [esi+0x24], 2`), which is what MapCell::IsFixed reads. The list of classes that derive from it
+/// comes from bw1-decomp (src/Black/*.h): Abode (so Field, Footpath, CreaturePen, BuildingSite and StoragePit too),
+/// BigForest, CitadelPart, Feature, FishFarm, MobileStatic (so MagicTeleport and the street lanterns), PFootball,
+/// PrayerSite, SpellIcon and TotemStatue. SingleMapFixed (Tree, MapShield, ScriptHighlight, PrayerIcon) does not set it.
+bool IsMultiMapFixed(const ecs::Registry& registry, entt::entity object)
+{
+	return registry.AnyOf<Abode, Field, Footpath, BigForest, Feature, FishFarm, MobileStatic, TotemStatue, SpellIcon,
+	                      MagicTeleport>(object);
+}
+
 /// MapCoords::IsFixed 0x603790 -> MapCell::IsFixed 0x601EA0: the cell's first fixed object (MapCell +4, where
-/// Fixed::InsertMapObjectToCell 0x52DEA0 puts the newest) has the flag +0x24 bit 1, which only the MultiMapFixed ctor
-/// 0x52E1F0 sets. A tree (SingleMapFixed) is in its own cell only. The newest is taken by the creation index (inf: a
-/// replanted tree goes back in its cell as the newest one; openblack doesn't know that order).
+/// Fixed::InsertMapObjectToCell 0x52DEA0 puts the newest) has the flag +0x24 bit 1, so IsFixed is "the newest fixed
+/// object of the cell is a MultiMapFixed". A tree (SingleMapFixed) is in its own cell only.
+/// (aproximado) The newest is taken by the creation index: openblack's map grid is an unordered_set rebuilt from
+/// scratch (ECS/Map.h), so it has no insertion order. The two differ only for an object that was taken out of the map
+/// and put back without being created again (picked up and dropped): the original makes it the newest again, here it
+/// keeps its old index.
 bool IsFixedCell(const glm::vec3& position)
 {
 	const auto cell = CellOf(position);
@@ -145,7 +167,7 @@ bool IsFixedCell(const glm::vec3& position)
 			newest = object;
 		}
 	}
-	return newest != entt::null && !registry.AllOf<Tree>(newest);
+	return newest != entt::null && IsMultiMapFixed(registry, newest);
 }
 
 /// fn_005FADF0: no Abode (FindType ABODE in the position's cell) has Get2DRadius > its distance to the point
@@ -158,15 +180,19 @@ bool NoAbodeCovers(const glm::vec3& position)
 	auto& registry = Locator::entitiesRegistry::value();
 	for (const auto object : Locator::entitiesMap::value().GetFixedInGridCell(CellOf(position)))
 	{
-		// OBJECT_TYPE 0: the abodes, the fields among them (Field : Abode; its own Get2DRadius 0x528E80 is not ported)
+		// OBJECT_TYPE 0: the abodes, the fields among them (Field : Abode)
 		if (!registry.Valid(object) || !registry.AnyOf<Abode, Field>(object))
 		{
 			continue;
 		}
 		const auto centre = ecs::fire::traits::FireCentre(object); // vt 0x5F0
 		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(centre.x, centre.z));
+		// vt 0x64: Field::Get2DRadius 0x528E80 is the constant 5 m ([0x8AB6E4]); every other class here keeps
+		// Object::Get2DRadius 0x638180 (only Field overrides the slot: checked on the Object, Abode, Field, Tree and
+		// Pot vtables)
+		const float radius = registry.AllOf<Field>(object) ? 5.0f : ecs::effects::Object2DRadius(object);
 		// fcomp; test ah, 0x41; je -> radius > distance: no
-		if (ecs::effects::Object2DRadius(object) > distance)
+		if (radius > distance)
 		{
 			return false;
 		}
@@ -217,8 +243,12 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 	auto& data = DataFor(entity);
 	if (data.forestId == 0)
 	{
-		// new Forest (0x58) -> fn_005399E0(pos, creator): a new forest for every cast (ECS/Trees; its creator's player,
-		// only for the natural new trees' alignment, is not kept there)
+		// new Forest (0x58) -> fn_005399E0(pos, creator): a new forest for every cast (ECS/Trees). The creator's
+		// player (0x5399F4 GetPlayer -> the GameThing ctor fn_0046B8A0) is not kept here and is not needed: nothing in
+		// Forest::Process 0x539DA0 reads it. The statistic the forest's new trees raise, GPlayer::FUN_0064da80(14, 1)
+		// at 0x539FB7, is for the player CalculateMostInfluentialPlayer 0x603830 gives at the new tree (0x539F9B), not
+		// for the forest's own player, and FUN_0064da80 returns at once outside a multiplayer game (0x64DA90
+		// IsMultiplayerGame). (inferido) no other reader of a Forest's player was found.
 		data.forestId = ecs::CreateForest(0, glm::vec3(position.x, 0.0f, position.z));
 		data.forestCreated = true;
 	}

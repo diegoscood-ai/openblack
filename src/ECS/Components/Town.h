@@ -75,6 +75,13 @@ struct Town
 	/// +0xF1C: the turn the town's emergency started (Town::IsInStateOfEmergency 0x747970 reads it; 0 = none).
 	/// TODO(Milagros): written by ProcessTownEmergency; nobody writes it in openblack yet, so 242 is never reached
 	uint32_t emergencyStartTurn {0};
+	/// +0xEAC / +0xEB0: the player of the last aggression against the town and the game turn of it (Town::UpdateAggressor
+	/// 0x73C9B0, 0x73CA82 / 0x73CA98; read by Villager::ReactToMagicShieldPriority 0x765C28). Only the record is ported:
+	/// the per-player aggression slots (town + n x 0x80 + 0x9F4, fn_0073E0F0), the 0.9 decay of +0xEB4 / +0xEB8 and the
+	/// guidance SFX are not. Written by a physical shield's impacts (Magic/Objects/MapShield); TODO(towns): the other
+	/// aggressions (damage, fire, buildings crushed) still do not. 0 = never (as in the original, turn 0 is "none")
+	PlayerNames aggressor {PlayerNames::NEUTRAL};
+	uint32_t aggressorTurn {0};
 };
 
 } // namespace openblack::ecs::components

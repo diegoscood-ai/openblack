@@ -429,17 +429,8 @@ int FlockProcess(entt::entity spell)
 		{
 			animal->previous = registry.AllOf<Transform>(member) ? registry.Get<const Transform>(member).position
 			                                                   : animal->previous;
-			// SpellWolf::MoveToPos 0x421300 (its MOVE_TO_POS state, vt 0xB40): within 30 m of the final destination
-			// -> SetDying (vt 0x6A4), the fade. (inferido: done here in the spell's turn, after the animals' one; the
-			// state function's other part, ReactToAnimalFoodNeeds (vt 0xBC0, the Lion's hunt) when the hunger +0xE4
-			// >= info +0x20C, is the animals' code: requested)
-			// (once: the original's wolf leaves MOVE_TO_POS when it dies; here it stays in it while it fades, inf)
-			if (animal->wolf && animal->fade.destination != 0.0f &&
-			    animal_ai::TopState(member) == animal_ai::AnimalState::MoveToPos &&
-			    spell_flock::WolfArrived(*animal, glm::vec2(animal->previous.x, animal->previous.z)))
-			{
-				spell_flock::StartFade(*animal);
-			}
+			// (the wolves' hunt and their end within 30 m are their own MOVE_TO_POS state, SpellWolf::MoveToPos
+			// 0x421300: ECS/AnimalPredators.cpp SpellWolfMoveToPos, in the animals' turn)
 			if (spell_flock::ProcessFade(*animal))
 			{
 				animal_ai::Remove(member); // ToBeDeleted(0) at alpha 0
@@ -459,9 +450,17 @@ int FlockProcess(entt::entity spell)
 			if (registry.Valid(member) && registry.AllOf<Transform, SpellFlockAnimal>(member))
 			{
 				const auto& p = registry.Get<const Transform>(member).position;
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell trace: spell {} flock member {} at ({:.1f}, {:.1f}, {:.1f}) state {} alpha {:.0f}",
+				const auto* brain = registry.TryGet<const AnimalBrain>(member);
+				const auto target = brain != nullptr ? brain->target : entt::null;
+				const bool hunting = target != entt::null && registry.Valid(target) && registry.AllOf<Transform>(target);
+				const auto at = hunting ? registry.Get<const Transform>(target).position : p;
+				SPDLOG_LOGGER_INFO(spdlog::get("game"),
+				                   "Spell trace: spell {} flock member {} at ({:.1f}, {:.1f}, {:.1f}) state {} alpha {:.0f} target {} "
+				                   "at {:.1f} m speed {}",
 				                   static_cast<uint32_t>(spell), static_cast<uint32_t>(member), p.x, p.y, p.z,
-				                   static_cast<int>(animal_ai::TopState(member)), registry.Get<const SpellFlockAnimal>(member).fade.value);
+				                   static_cast<int>(animal_ai::TopState(member)), registry.Get<const SpellFlockAnimal>(member).fade.value,
+				                   hunting ? static_cast<int>(static_cast<uint32_t>(target)) : -1,
+				                   glm::distance(glm::vec2(p.x, p.z), glm::vec2(at.x, at.z)), brain != nullptr ? brain->speed : 0);
 			}
 		}
 	}
@@ -663,37 +662,32 @@ int GroundInitWithPos(entt::entity spell, const glm::vec3& position, SpellCastDa
 	return FlockInitWithPos(spell, position, castData, info);
 }
 
-/// fn_00420F50 (SpellWolf, start, destination, halfWidth): the corridor, +0x80 = start, +0x148 = the destination, then
-/// SetRunToFinalDest 0x4209C0 (speed = scale x info.speed4 x 1.1, SetupMoveToPos(+0x148, SET_DYING)). That last call is
-/// the animals' own: a new SpellWolf's first turn (DECIDE_WHAT_TO_DO, SpellWolf::DecideWhatToDo 0x420A00) does it, one
-/// turn later than here (inferido).
+/// fn_00420F50 (SpellWolf, start, destination, halfWidth): the corridor (+0x154..+0x164), +0x80 (the move goal) and
+/// +0x148 (the final destination) both = the destination (0x421054..0x421081), then SetRunToFinalDest 0x4209C0
+/// (0x421084: speed = scale x info.speed4 x 1.1, SetupMoveToPos(+0x148, SET_DYING)), in the spell's turn: the wolf
+/// runs from its first turn
 void SetupWolf(entt::entity wolf, glm::vec2 start, glm::vec2 destination, float halfWidth)
 {
-	auto* data = Locator::entitiesRegistry::value().TryGet<SpellFlockAnimal>(wolf);
-	if (data == nullptr)
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* data = registry.TryGet<SpellFlockAnimal>(wolf);
+	auto* brain = animal_ai::detail::BrainOf(wolf);
+	if (data == nullptr || brain == nullptr)
 	{
 		return;
 	}
 	spell_flock::SetupCorridor(*data, start, destination, halfWidth);
 	data->destination = destination;
-	animal_ai::SetFinalDestination(wolf, destination);
+	brain->finalDestination = destination; // +0x148
+	brain->goal = destination;             // +0x80
+	auto& animal = registry.Get<Animal>(wolf);
+	animal_ai::detail::Context ctx {wolf, animal, *brain, registry.Get<Transform>(wolf), animal_ai::detail::InfoOf(animal)};
+	animal_ai::detail::SetRunToFinalDest(ctx);
 }
 
-/// The leader's GetDestPos (vt 0x860 = MobileWallHug +0x80): after SetRunToFinalDest that is its final destination
-/// (+0x148); (inferido) before its first turn openblack has not set it yet (SetRunToFinalDest runs in that turn, see
-/// SetupWolf), so its final destination is used then
+/// The leader's GetDestPos (vt 0x860 = MobileWallHug +0x80): its final destination since SetRunToFinalDest, or the
+/// prey it chases while it hunts (the followers' corridor then points at it, as in the original)
 glm::vec2 WolfDestination(entt::entity leader)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* brain = registry.TryGet<const AnimalBrain>(leader);
-	if (brain == nullptr)
-	{
-		return glm::vec2(0.0f);
-	}
-	if (animal_ai::TopState(leader) == animal_ai::AnimalState::DecideWhatToDo)
-	{
-		return brain->finalDestination;
-	}
 	const auto destination = animal_ai::Destination(leader).value_or(glm::vec3(0.0f));
 	return {destination.x, destination.z};
 }
@@ -729,7 +723,18 @@ int GroundProcess(entt::entity spell)
 		{
 			continue;
 		}
-		// scale = GetScale() x 1.5 + GameFloatRand(2 - 1.5), the random first; SetGameAngle(S -> T)
+		// the SpellWolf class (AllocSpell 0x4207F0) ignores fn_00419D10's age: Lion's ctor fn_0041FD30 gets
+		// info.grownUpAge + 1 (0x420816..0x420822, an adult), and +0xE4 (the hunger) = info.hunger (0x420885..0x42088E):
+		// it is hungry from birth. The age before the brain exists (its birth turn comes from it, Living::SetAge)
+		const auto& wolfInfo = Locator::infoConstants::value().animal.at(static_cast<size_t>(AnimalInfo::SpellWolf));
+		registry.Get<Animal>(animal).age = wolfInfo.grownUpAge + 1;
+		if (auto* brain = animal_ai::detail::BrainOf(animal); brain != nullptr)
+		{
+			brain->hunger = static_cast<int16_t>(wolfInfo.hunger);
+		}
+		// scale = GetScale() x 1.5 + GameFloatRand(2 - 1.5), the random first; SetGameAngle 0x60DA90 (+0x5C and the Y
+		// angle) of GetAngleFromXZ 0x74D240 (the jittered point ebp-0x14, T ebp-0x34; 0x7245E8..0x7245FB) = LHArcTan
+		// 0x74D0C0 of T - S (AngleOfMapCoords)
 		const float random = GameFloatRand(spell_flock::k_GroundScaleTop - spell_flock::k_GroundScale);
 		const float scale = 1.0f * spell_flock::k_GroundScale + random;
 		const auto angle = animal_ai::detail::AngleOfMapCoords(spawn.target.x - spawn.created.x,
@@ -770,6 +775,13 @@ void SpellAnimalSetDying(entt::entity animal)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (auto* data = registry.TryGet<SpellFlockAnimal>(animal); data != nullptr)
 	{
+		if (TraceEnabled() && data->fade.destination != 0.0f)
+		{
+			const auto* brain = registry.TryGet<const AnimalBrain>(animal);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell trace: flock member {} SetDying (state {}, final {})",
+			                   static_cast<uint32_t>(animal), brain != nullptr ? brain->topState : 0,
+			                   brain != nullptr ? brain->finalState : 0);
+		}
 		spell_flock::StartFade(*data);
 	}
 }
@@ -945,10 +957,11 @@ bool spell_flock::IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPo
 
 void spell_flock::StartFade(SpellFlockAnimal& animal)
 {
-	// SpellDove::SetDying 0x41F5C0 / SpellWolf 0x420CF0: only while the alpha (+0x14C / +0x16C) is not 0, the fade
-	// (vt+0xBD4) to 0 over GetNumTurnsToDieOver (0x14, 0x41F620 / 0x420D50) x [0xD01A38] (ms per turn) x 0.001 s,
-	// started again from the current alpha on every call
-	if (animal.fade.value == 0.0f)
+	// SpellDove::SetDying 0x41F5C0 / SpellWolf 0x420CF0: only while the fade's destination (+0x14C / +0x16C; the
+	// Zoomer's value is +0x148 / +0x168, ctors 0x41F280 / 0x420930) is not 0, the fade (vt+0xBD4) to 0 over
+	// GetNumTurnsToDieOver (0x14, 0x41F620 / 0x420D50) x [0xD01A38] (ms per turn) x 0.001 s: once started it is never
+	// restarted (a second SetDying, the shield or the CloseDown, does nothing)
+	if (animal.fade.destination == 0.0f)
 	{
 		return;
 	}

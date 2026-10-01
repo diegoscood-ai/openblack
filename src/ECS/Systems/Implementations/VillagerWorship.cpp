@@ -10,6 +10,7 @@
 #include "VillagerWorship.h"
 
 #include <algorithm>
+#include <vector>
 
 #include <glm/geometric.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
@@ -17,17 +18,22 @@
 #include <spdlog/spdlog.h>
 
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/ReactionRecords.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/Effects/Reactions.h"
 #include "ECS/Life.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/Implementations/VillagerTeleport.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/Spell.h"
+#include "Magic/Objects/MagicTeleport.h"
 #include "Worship/TownMagic.h"
 #include "Worship/WorshipPercentage.h"
 #include "Worship/WorshipSite.h"
@@ -302,13 +308,69 @@ bool TownCentreReady(entt::entity town)
 	return worship::town::TownCentreOf(town) != entt::null;
 }
 
-/// Villager::CanIGetToTheWorshipSite 0x76BC20: within maxDistanceThatVillagersWillGoToWorship of the site; farther only
-/// by fn_0064D6B0. (aproximado) that second test is not ported (what it finds is UNVERIFIED, sources.md §4.2): a site
-/// farther than the distance is never reachable
-bool CanIGetToTheWorshipSite(entt::entity villager, entt::entity siteEntity)
+/// Villager::CanIGetToTheWorshipSite 0x76BC20: 1 when the site is within the town info's
+/// maxDistanceThatVillagersWillGoToWorship (+0x148; GetDistanceInMetres 0x74CD70 on both MapCoords, flat, <= at
+/// 0x76BC5E..0x76BC69). Farther, the villager's player (GetPlayer vt 0x1C, 0x76BC6F) looks for a teleport stone that
+/// shortens the trip (GPlayer fn_0064D6B0 = teleport::FindRouteStone, the call at 0x76BC84): 1 with that stone in
+/// `routeStone`, 0 when it finds none (0x76BCA3). Without a player it is 1 with no stone (0x76BC74).
+bool CanIGetToTheWorshipSite(entt::entity villager, entt::entity siteEntity, entt::entity* routeStone = nullptr)
 {
 	const float maximum = Locator::infoConstants::value().town.maxDistanceThatVillagersWillGoToWorship;
-	return FlatDistance(PositionOf(villager), Entities().Get<const Transform>(siteEntity).position) <= maximum;
+	const auto at = PositionOf(villager);
+	const auto site = Entities().Get<const Transform>(siteEntity).position;
+	if (FlatDistance(at, site) <= maximum)
+	{
+		return true;
+	}
+	const auto player = villager_teleport::PlayerOf(villager);
+	if (!player.has_value())
+	{
+		return true;
+	}
+	// fn_0064D6B0 walks the player's stone list (GPlayer +0xA58, newest first)
+	const auto& stones = magic::teleport::StonesOf(*player);
+	std::vector<glm::vec3> positions;
+	positions.reserve(stones.size());
+	for (const auto stone : stones)
+	{
+		positions.push_back(magic::teleport::MapPositionOf(stone));
+	}
+	const int index = magic::teleport::FindRouteStone(positions, magic::ToMap(at), magic::ToMap(site), maximum);
+	if (index < 0)
+	{
+		return false;
+	}
+	if (routeStone != nullptr)
+	{
+		*routeStone = stones[static_cast<size_t>(index)];
+	}
+	return true;
+}
+
+/// Living::SetReactionDoneWhen 0x6E44A0 (Living +0x98, components::ReactionRecords): the record of that type gets the
+/// game turn (GGame +0x205A40, 0x6E44F1..0x6E44FD); without one a new {type, turn} record is appended at the tail, the
+/// head (the oldest) dropped first when the list already holds 3 (0x6E4507..0x6E4540). Unlike fn_006E4340
+/// (reactions::Records) it forgets nothing older than 1800 turns, and unlike StopReacting's RefreshRecord it adds
+void SetReactionDoneWhen(entt::entity living, uint8_t type)
+{
+	auto& registry = Entities();
+	auto& memory = registry.AllOf<ReactionRecords>(living) ? registry.Get<ReactionRecords>(living)
+	                                                        : registry.Assign<ReactionRecords>(living);
+	const auto now = effects::reactions::Turn();
+	for (uint8_t i = 0; i < memory.count; ++i)
+	{
+		if (memory.records[i].type == type)
+		{
+			memory.records[i].turn = now;
+			return;
+		}
+	}
+	if (memory.count >= memory.records.size())
+	{
+		std::copy(memory.records.begin() + 1, memory.records.end(), memory.records.begin());
+		--memory.count;
+	}
+	memory.records[memory.count++] = {type, now};
 }
 
 /// Villager::GotoWorshipSiteForWorship 0x76BCC0: Dance +0x114 and the flag 0x10, the walk to the arrive point (state
@@ -500,12 +562,36 @@ bool villager_worship::CheckWorshipActivity(entt::entity villager, bool requireR
 	{
 		return false;
 	}
-	if (!CanIGetToTheWorshipSite(villager, siteEntity) && requireReachable)
+	entt::entity routeStone = entt::null;
+	if (!CanIGetToTheWorshipSite(villager, siteEntity, &routeStone) && requireReachable)
 	{
 		return false;
 	}
 	// CheckNeededForWorshipSiteBuilding 0x76C930 is skipped. (inferido) openblack's sites are always built
-	return GotoWorshipSiteForWorship(villager);
+	if (!GotoWorshipSiteForWorship(villager))
+	{
+		return false;
+	}
+	// 0x76BB99..0x76BC07: when a teleport stone is what makes the site reachable, the walk goes through it. The
+	// REACT_TO_TELEPORT record gets the turn (SetReactionDoneWhen 0x6E44A0: the record's turn, added when there is none,
+	// so the villager will not take another teleport reaction for a while), the villager leaves the reactor list of the reaction it was following
+	// (0x76BBAF..0x76BBF2; openblack keeps no reactor list in a Reaction, and SetupReactToTeleport replaces its +0x94 /
+	// +0xBC anyway), and StartReacting(REACT_TO_TELEPORT, stone, the stone's reaction) (vt 0x994 = Living::StartReacting
+	// 0x6E4590, which dispatches to Villager::SetupReactToTeleport 0x766250) pushes GO_TOWARDS_TELEPORT_REACTION over the
+	// walk that was just started; TELEPORT_REACTION jumps it and PopFromPrevious puts it back on the way to the site
+	if (routeStone != entt::null)
+	{
+		SetReactionDoneWhen(villager, static_cast<uint8_t>(openblack::Reaction::ReactToTeleport)); // push 0x14, 0x76BBA6
+		villager_teleport::SetupReactToTeleport(villager, routeStone, magic::teleport::ReactionOf(routeStone));
+		if (worship::trace::Enabled() || magic::teleport::TraceEnabled())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("ai"),
+			                   "Worship trace: villager {} goes to worship site {} through teleport stone {}",
+			                   static_cast<uint32_t>(villager), static_cast<uint32_t>(siteEntity),
+			                   static_cast<uint32_t>(routeStone));
+		}
+	}
+	return true;
 }
 
 bool villager_worship::IsAvailableForWorshipSite(entt::entity villager, bool /*secondPass*/)
@@ -535,6 +621,15 @@ bool villager_worship::IsAtOrOnTheWayToWorshipSite(entt::entity villager)
 void villager_worship::SendBackToTown(entt::entity villager)
 {
 	SetState(villager, VillagerStates::DecideWhatToDo);
+}
+
+uint32_t villager_worship::GotoWorshipSiteForWorshipState(LivingAction& action)
+{
+	// 0x76BCC0 is also the state function of row 58 (VillagerOriginalFns.h): a villager that comes back to the walk
+	// (Villager::PopFromPrevious after a reaction state, which resumes 59 as 58) runs GotoWorshipSiteForWorship again, so
+	// it sets 59 and walks to the arrive point once more. That is how the villager that used the teleport stones on the
+	// way to the site (CheckWorshipActivity 0x76BB99) goes on from the stone it came out of
+	return GotoWorshipSiteForWorship(EntityOf(action)) ? 1 : 0;
 }
 
 uint32_t villager_worship::ArrivesAtWorshipSiteForWorship(LivingAction& action)

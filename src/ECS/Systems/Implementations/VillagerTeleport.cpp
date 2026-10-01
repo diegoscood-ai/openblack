@@ -33,6 +33,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/VillagerSpeed.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -95,6 +96,25 @@ bool AreWeThere(entt::entity villager, const glm::vec3& goal)
 	const auto at = PositionOf(villager);
 	const glm::vec2 d(at.x - goal.x, at.z - goal.z);
 	return glm::dot(d, d) < step * step;
+}
+
+/// MobileWallHug +0x5A: the speed as a whole MapCoords distance a turn (GetSpeedInMetres 0x60C070 =
+/// ConvertWholeDistanceToMeters of it). openblack keeps it in metres a turn (WallHug::speed = the u16 / 6553.6,
+/// ECS/VillagerSpeed.cpp), so the u16 comes back by the same factor, rounded: a plain truncation of u16 / 6553.6 x
+/// 6553.6 in float can give u16 - 1 and turn a word one above the threshold into "not faster"
+int32_t SpeedUnits(entt::entity villager)
+{
+	const auto* wallHug = Reg().TryGet<const WallHug>(villager);
+	return wallHug != nullptr ? static_cast<int32_t>(std::lround(wallHug->speed * ecs::MapInterface::k_PositionToGridFactor))
+	                          : 0;
+}
+
+/// GMobileWallHugInfo +0x10C, in the same units: openblack's speedGroup.speed2 (the third dword of the group, as
+/// Living::FleeFromPredatorPriority 0x5F15ED reads it for the same comparison)
+int32_t SpeedThresholdUnits(entt::entity villager)
+{
+	const auto* info = VillagerInfoOf(villager);
+	return info != nullptr ? static_cast<int32_t>(info->speedGroup.speed2) : 0;
 }
 
 void RemoveMoveTags(entt::entity villager)
@@ -271,21 +291,38 @@ uint32_t villager_teleport::ExitReactToTeleport(LivingAction& action, VillagerSt
 bool villager_teleport::IsMoving(entt::entity living)
 {
 	auto& registry = Reg();
-	const auto* action = ActionOf(living);
-	if (action == nullptr || !registry.AllOf<WallHug>(living))
+	if (!registry.AllOf<WallHug>(living))
 	{
 		return false;
 	}
-	return Get(*action, LivingAction::Index::Top) == VillagerStates::MoveToPos && !registry.AllOf<MoveStateArrivedTag>(living);
+	// Object::IsMoving 0x402710 (Villager vt 0x174): the thing's position (GameThingWithPos::Pos +0x14 x, +0x18 z) is
+	// not the one in Object::coords (+0x2C, +0x30), the position of the turn before, so it moved during the last turn.
+	// (aproximado) openblack keeps no previous-turn position: a Living with a move state that is not ARRIVED and a step
+	// to take stands for it. That covers any walking state, not only MOVE_TO_POS (the walk to the worship site, a
+	// reaction's walk...), which is what the original's test does.
+	if (registry.AllOf<MoveStateArrivedTag>(living))
+	{
+		return false;
+	}
+	if (!registry.AnyOf<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
+	                    MoveStateFinalStepTag>(living))
+	{
+		return false;
+	}
+	return registry.Get<const WallHug>(living).speed > 0.0f;
 }
 
 glm::vec3 villager_teleport::FinalDestination(entt::entity living)
 {
+	// Villager::GetFinalDestPos 0x756AD0 -> Living::GetFinalDestPos 0x5EC1E0: with a footpath and a node on it (+0xC8,
+	// +0xCC) the last non-hidden node of the path (GFootpath::GetEndNonHiddenNode 0x535120 with the direction flag
+	// (status +0xB4 >> 3) & 1), else MobileWallHug::GetDestPos (vt 0x860, 0x416F70) = the goal (+0x80), whether it is
+	// moving or not. (pendiente) the footpath branch: no openblack Living walks on a components::Footpath, so none has
+	// the original's +0xC8 / +0xCC
 	auto& registry = Reg();
-	if (IsMoving(living))
+	if (const auto* wallHug = registry.TryGet<const WallHug>(living); wallHug != nullptr)
 	{
-		const auto& goal = registry.Get<const WallHug>(living).goal;
-		return {goal.x, 0.0f, goal.y};
+		return {wallHug->goal.x, 0.0f, wallHug->goal.y};
 	}
 	const auto at = PositionOf(living);
 	return {at.x, 0.0f, at.z};
@@ -325,19 +362,24 @@ void villager_teleport::SetupReactToTeleport(entt::entity villager, entt::entity
 	{
 		return;
 	}
-	// the stone keeps where it is going (fn_005FC6A0), +0xBC = the stone
+	// the stone keeps where it is going (GetFinalDestPos vt 0x884 at 0x766297, fn_005FC6A0 at 0x7662A5), +0xBC = the
+	// stone (0x7662AC)
 	magic::teleport::RegisterDestination(stone, villager, FinalDestination(villager));
 	auto& state = g_States[villager];
 	state.stone = stone;
 	state.reaction = reaction;
-	// AddReaction(reaction, 0xC9 + (([+0x5A] > villagerInfo +0x10C) ? 0x32 : 0)): GO_TOWARDS_TELEPORT_REACTION or its
-	// _QUICKLY twin (251, the same function). UNVERIFIED: what +0x5A is; 201 is used.
+	// 0x7662B2..0x7662D8: AddReaction(reaction, 0xC9 + 0x32 x (speed > threshold)) (vt 0x990). The number compared is
+	// the villager's own speed (MobileWallHug +0x5A, the u16 GetSpeedInMetres 0x60C070 turns into metres) against its
+	// info's speed2 (GMobileWallHugInfo +0x10C, the same field AnimalFlee reads at 0x5F15ED): `setle` on the
+	// zero-extended word, so 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY only when it is strictly faster, else 201. Both
+	// rows run the same state function (251 jumps to 201's): only the state table row changes (animation, speed index)
+	const bool quick = SpeedUnits(villager) > SpeedThresholdUnits(villager);
 	StorePreviousState(*action);
-	SetTopState(villager, VillagerStates::GoTowardsTeleportReaction);
+	SetTopState(villager, quick ? VillagerStates::GoTowardsTeleportReactionQuickly : VillagerStates::GoTowardsTeleportReaction);
 	if (magic::teleport::TraceEnabled())
 	{
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Teleport: villager {} reacts to stone {} (reaction {})",
-		                   static_cast<uint32_t>(villager), static_cast<uint32_t>(stone), reaction);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Teleport: villager {} reacts to stone {} (reaction {}), state {}",
+		                   static_cast<uint32_t>(villager), static_cast<uint32_t>(stone), reaction, quick ? 251 : 201);
 	}
 }
 
@@ -408,15 +450,21 @@ void villager_teleport::ApplyReaction(entt::entity villager, const effects::reac
 
 void villager_teleport::LandAt(entt::entity villager, const glm::vec3& mapPosition)
 {
-	auto* transform = Reg().TryGet<Transform>(villager);
-	if (transform == nullptr)
+	if (!Reg().AllOf<Transform>(villager))
 	{
 		return;
 	}
-	// fn_005DA0C0: the interface puts the villager down at the stone; FLYING then LANDED are its landing, and then
-	// DecideWhatToDo (vt 0x8C8) chooses where it goes. (aproximado) FLYING and LANDED are not run: it is put at the
-	// stone and decides at once
-	transform->position = magic::ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
+	// fn_005FC4F0, in its order: SetTopState(FLYING 10) 0x5FC4FD, the interface puts the villager down at the stone
+	// (fn_005DA0C0 0x5FC517: the hand took it out first, HandApplyToObject.cpp), SetTopState(LANDED 11) 0x5FC51E and
+	// DecideWhatToDo (vt 0x8C8) 0x5FC52C. (aproximado) LANDED's own state function (the landing animation) only runs
+	// until DecideWhatToDo replaces it in the same turn, as in the original
+	SetTopState(villager, VillagerStates::Flying);
+	// the Transform is taken again: a state change may have moved the registry's storage
+	if (auto* transform = Reg().TryGet<Transform>(villager); transform != nullptr)
+	{
+		transform->position = magic::ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
+	}
+	SetTopState(villager, VillagerStates::Landed);
 	DecideWhatToDo(villager);
 	Reg().SetDirty();
 }

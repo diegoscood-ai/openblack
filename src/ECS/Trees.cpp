@@ -39,8 +39,10 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
+#include "ECS/Weather/Weather.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -1352,14 +1354,23 @@ void ProcessForests(uint32_t turn)
 }
 } // namespace
 
+float openblack::ecs::TreeGrowthAmount(float growthAmount, float rainMultiplier, float rain, float landAlignment)
+{
+	// 0x74A2FA (x 0.01), 0x74A306 (x info +0x130), 0x74A30E / 0x74A312 (x growthAmount, + growthAmount), then
+	// 0x74A31F (x 0.5), 0x74A329 (+ 1) and 0x74A32F (x the running value)
+	return growthAmount * (1.0f + 0.01f * rainMultiplier * rain) * (1.0f + 0.5f * landAlignment);
+}
+
 void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 {
 	g_currentTurn = turn;
 	ProcessForests(turn);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& constants = Locator::infoConstants::value();
+	const bool trace = std::getenv("OPENBLACK_TREE_TRACE") != nullptr;
 	std::vector<std::pair<entt::entity, float>> growing;
-	registry.Each<Tree, const Transform>([&constants, &growing](entt::entity entity, Tree& tree, const Transform& transform) {
+	registry.Each<Tree, const Transform>([&constants, &growing, trace](entt::entity entity, Tree& tree,
+	                                                                  const Transform& transform) {
 		// Only a tree in a forest is processed at all: the forest walks its own list (Forest::Process 0x539DA0).
 		if (!IsInForest(tree.forestId) || IsScenicForest(tree.forestId))
 		{
@@ -1382,15 +1393,22 @@ void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 			tree.growing = false;
 			return;
 		}
-		// amount = growthAmount x (1 + 0.01 x rainMultiplier x GClimate::GetMaxRainingOrSnowing) x
-		//          (1 + 0.5 x MapCoords::GetAlignment). No weather and no land alignment yet: dry, alignment 0.
-		constexpr float k_Rain = 0.0f;
-		constexpr float k_LandAlignment = 0.0f;
-		const float amount = info.growthAmount * (1.0f + 0.01f * info.rainingAcceleratorMultiplier * k_Rain) *
-		                     (1.0f + 0.5f * k_LandAlignment);
+		// 0x74A2E5..0x74A31A: GClimate::GetMaxRainingOrSnowing and MapCoords::GetAlignment are both asked at the tree's
+		// MapCoords::GetLHPoint 0x605C40, which is the land altitude plus the MapCoords' own y: that is what
+		// Transform::position already holds for a tree (TreeArchetype is created at GetHeightAt)
+		const float rain = weather::GetMaxRainingOrSnowingAt(transform.position);
+		const float landAlignment = effects::alignment::LandAlignmentAt(transform.position);
+		const float amount =
+		    openblack::ecs::TreeGrowthAmount(info.growthAmount, info.rainingAcceleratorMultiplier, rain, landAlignment);
+		if (trace)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Tree trace: {} forest {} growth {:.4f} = {:.4f} x rain {:.0f} (mult {:.2f}) x alignment {:.3f}",
+			                   static_cast<uint32_t>(entity), tree.forestId, amount, info.growthAmount, rain,
+			                   info.rainingAcceleratorMultiplier, landAlignment);
+		}
 		growing.emplace_back(entity, amount);
 	});
-	const bool trace = std::getenv("OPENBLACK_TREE_TRACE") != nullptr;
 	for (const auto& [entity, amount] : growing)
 	{
 		const float grown = GrowTree(entity, amount, false);

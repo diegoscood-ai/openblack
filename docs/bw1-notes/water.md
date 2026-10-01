@@ -406,9 +406,9 @@ registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode 
 - openblack: `src/ECS/PetitNavire.{h,cpp}` (estado, entidades, PreDraw y PostDraw en `Update` con el tiempo entero y el
   resto guardado), `src/ECS/SmokyStuff.{h,cpp}` (el mismo módulo que el humo del cadáver de
   [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (la sombra del casco entra en
-  `graphics::PhysicsShadows`), `Renderer::DrawBoatReflection` / `DrawBoatSprites` (`RendererBoat.cpp`; el reflejo en
-  0x303070 usa el modo 2 de `vs_object` con el rgb empaquetado cuando z > 1). Diferencias que quedan: los sprites se
-  dibujan después de los modelos transparentes en vez de ordenados con ellos; la cubierta toma la luz de tierra de su
+  `graphics::PhysicsShadows`), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; el
+  reflejo en 0x303070 usa el modo 2 de `vs_object` con el rgb empaquetado cuando z > 1; los sprites, uno a uno en la
+  cola común de transparentes, LH3DSprite::AddDrawing 0x840CB3). Diferencias que quedan: la cubierta toma la luz de tierra de su
   propio sitio (no la del casco); la sombra del casco solo cae en tierra (`PhysicsShadows` no se dibuja sobre objetos);
   el modo ≠ 0 de `SmokyStuff::Create` (0x823DA7) no tiene llamadas aquí y no está portado.
 
@@ -527,8 +527,9 @@ Estado a 2026-10-01 (hand-hbn `43054fb0` y siguientes). Todo lo demás del agua 
 plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
 
 **Se puede hacer ya (área del agua):**
-- Barco de los misioneros (`ecs/PetitNavire`): ordenar sus sprites (estela, `SmokyStuff`) con los transparentes en el
-  Z-sorter de LH3DSprite (hoy `Renderer::DrawBoatSprites` va después de los modelos transparentes); la luz de la
+- Barco de los misioneros (`ecs/PetitNavire`): sus sprites (estela, `SmokyStuff`) ya van uno a uno en la cola común
+  de transparentes (U6: `Renderer::CollectBoatSprites` / `DrawBoatSprite`, LH3DSprite::AddDrawing 0x840CB3; ver
+  [rendering-objects.md](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter)); falta la luz de la
   cubierta, que en el original copia el color +0x4C del casco a cada pasajero (openblack ilumina cada instancia por su
   posición); la sombra del casco también sobre objetos (su `ShadowInfo` +0xC = 0); el modo ≠ 0 de
   `SmokyStuff::Create` (rama 0x823DA7). Se cruza con la unificación de sprites de la sesión «sistemas».

@@ -11,12 +11,15 @@
 
 // The missionaries' boat (PetitNavire, ecs/PetitNavire.h): its reflection (PreDraw 0x5DFF20 -> DrawUnderWater in
 // 0xFF303070) and the LH3DSprites of the boat's frame: the flat smoke of its wake (PostDraw 0x5E0785) and the
-// SmokyStuff puffs (fn_00824140), all with the smoke material [0xEA1ABC] (smoke.raw / smokea.raw, render mode 6).
+// SmokyStuff puffs (fn_00824140), all with the smoke material [0xEA1ABC] (smoke.raw / smokea.raw, render mode 6). Each
+// sprite is one Z object of the frame's single transparency queue (LH3DSprite::AddDrawing 0x840C70; Graphics/ZSorter.h).
 
 #include <array>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include <bgfx/bgfx.h>
@@ -34,6 +37,7 @@
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/ShaderManager.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Renderer.h"
 #include "Resources/ResourceManager.h"
@@ -41,6 +45,12 @@
 
 using namespace openblack;
 using namespace openblack::graphics;
+
+namespace
+{
+const auto k_Texture = entt::hashed_string("raw/smoke");
+const auto k_Alpha = entt::hashed_string("raw/smokea");
+} // namespace
 
 void Renderer::DrawBoatReflection(RenderPass viewId) const
 {
@@ -74,36 +84,27 @@ void Renderer::DrawBoatReflection(RenderPass viewId) const
 	DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 }
 
-void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
+std::vector<std::pair<float, uint32_t>> Renderer::CollectBoatSprites(const Camera& camera) const
 {
+	std::vector<std::pair<float, uint32_t>> order;
+	_frameBoatSprites.clear();
 	const auto& wake = ecs::petit_navire::GetWake();
 	const auto& clouds = ecs::smoky_stuff::Get();
 	if (wake.empty() && clouds.empty())
 	{
-		return;
+		return order;
 	}
 	const auto& textures = Locator::resources::value().GetTextures();
-	static const auto k_Texture = entt::hashed_string("raw/smoke");
-	static const auto k_Alpha = entt::hashed_string("raw/smokea");
 	if (!textures.Contains(k_Texture) || !textures.Contains(k_Alpha))
 	{
-		return;
+		return order;
 	}
-	struct Vertex
-	{
-		float x, y, z, u, v;
-		uint32_t abgr;
-	};
-	std::vector<Vertex> vertices;
-	// the cell of the 8 x 8 sheet (+0x30 = 8) is in the quad's UVs, the colour is the vertex diffuse
-	const auto add = [&vertices](const billboard::Quad& quad, uint32_t argb) {
-		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
-		for (const int i : billboard::k_SpriteTriangles)
-		{
-			const auto& p = quad.corners.at(static_cast<size_t>(i));
-			const auto& uv = quad.uv.at(static_cast<size_t>(i));
-			vertices.push_back({p.x, p.y, p.z, uv.x, uv.y, abgr});
-		}
+	const auto eye = camera.GetOrigin();
+	// LH3DSprite::AddDrawing 0x840C70: key = |sprite +0/+4/+8 - g_camera|^2, (x^2 + y^2) + z^2; the sprite is queued
+	// whether or not Draw then culls it at the near plane
+	const auto add = [this, &order, &eye](const glm::vec3& position, std::optional<billboard::Quad> quad, uint32_t argb) {
+		order.emplace_back(zsorter::Key(position, eye), static_cast<uint32_t>(_frameBoatSprites.size()));
+		_frameBoatSprites.push_back({std::move(quad), argb});
 	};
 	// the wake: flag 0x40, the quad in the sprite's XZ turned about Y (LH3DSprite::Draw 0x8405FE, billboard::Horizontal)
 	for (const auto& wakeSprite : wake)
@@ -116,7 +117,7 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 		sprite.argb = wakeSprite.argb;
 		sprite.cell = frame_anim::SpriteCell(wakeSprite.cell);
 		sprite.horizontal = true;
-		add(billboard::Horizontal(sprite), sprite.argb);
+		add(sprite.position, billboard::Horizontal(sprite), sprite.argb);
 	}
 	// the puffs: mode A, in the plane of the screen and turned on it (0x84071D: view x -> (cos, -sin), view y -> (sin,
 	// cos); billboard::SpriteQuad), nothing at or before the near plane (0x840585)
@@ -135,11 +136,33 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 			sprite.angle = puff.angle;
 			sprite.argb = puff.argb;
 			sprite.cell = frame_anim::SpriteCell(puff.cell);
-			if (const auto quad = billboard::SpriteQuad(sprite, frame); quad.has_value())
-			{
-				add(*quad, sprite.argb);
-			}
+			add(sprite.position, billboard::SpriteQuad(sprite, frame), sprite.argb);
 		}
+	}
+	return order;
+}
+
+void Renderer::DrawBoatSprite(RenderPass viewId, uint32_t index) const
+{
+	if (index >= _frameBoatSprites.size() || !_frameBoatSprites[index].quad.has_value())
+	{
+		return;
+	}
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	const auto& [quad, argb] = _frameBoatSprites[index];
+	// the cell of the 8 x 8 sheet (+0x30 = 8) is in the quad's UVs, the colour is the vertex diffuse
+	const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+	std::array<Vertex, billboard::k_SpriteTriangles.size()> vertices {};
+	for (size_t k = 0; k < vertices.size(); ++k)
+	{
+		const auto i = static_cast<size_t>(billboard::k_SpriteTriangles.at(k));
+		const auto& p = quad->corners.at(i);
+		const auto& uv = quad->uv.at(i);
+		vertices.at(k) = {p.x, p.y, p.z, uv.x, uv.y, abgr};
 	}
 	bgfx::VertexLayout layout;
 	layout.begin()
@@ -148,10 +171,11 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
 	    .end();
 	const auto count = static_cast<uint32_t>(vertices.size());
-	if (count == 0 || bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
 	{
 		return;
 	}
+	const auto& textures = Locator::resources::value().GetTextures();
 	bgfx::TransientVertexBuffer buffer;
 	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
 	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));

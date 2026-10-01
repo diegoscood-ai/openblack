@@ -216,7 +216,7 @@ turno, los guiones y lo que falta están en
   (1 + 0,5·alineación del terreno)`, y `escala = min(escala + amt, maxSize)`. `growAmt` 0,01 (0,02 conífera/pino, 0,005
   roble/olivo/palmera). Al llegar al máximo deja de crecer. `SetScale` es virtual y rehace la colisión: el círculo de
   obstáculo sigue al tamaño.
-- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), llamado desde `Game::Update` con los campos. **Sin
+- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), llamado desde el turno del mundo (`src/Magic/MagicLoop.cpp`). **Sin
   clima ni alineación de terreno todavía** (el clima ya existe en `src/ECS/Weather`, pero `GrowTree` aún no lo lee):
   lluvia 0 y alineación 0, así que `amt = growAmt`. Ganchos
   `OPENBLACK_TEST_TREE_GROWTH="x,z"` (dos brotes, uno con bosque y otro sin), `OPENBLACK_TREE_TRACE=1` (cada paso
@@ -293,7 +293,8 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
   temperatura T, Tc = max(110, 40); arde si T ≥ Tc. Ardiendo T += 0,1·T/(2Tc) hasta 2Tc; enfriando (T ≤ anterior)
   T −= (T + 10 − amb)·4·H·R·0,1·k/capacidad (k = 50 sobre agua con y < 2, 1 + 0,01·lluvia). Daño: vida −=
   (T − Tc)/Tc·0,001 por turno (muere en ~100 s; magic.md lo escribe `(T − Tc)/(2·Tc − Tc) · defenceMultiplierBurn ·
-  0,1`: coinciden si ese multiplicador es 0,01 en los árboles, sin comprobar); carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
+  0,1`, con defenceMultiplierBurn = 0,01 en los 22 tipos de árbol y en Tree Logs (info.dat,
+  `tmp_dis\miracles\infodump\info_dump.txt`) y Tmax = 2·Tc: es la misma fórmula); carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
   1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
   arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
   lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
@@ -321,7 +322,6 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
 - Talar: `flags |= 2` y `+0x1A4 = 2` del objeto físico, `RaiseUntilNotIntersecting` 0x644800 y las dos reacciones 0x0C.
 - Crecimiento y campos: la lluvia y la alineación del terreno (`MapCoords::GetAlignment`).
 - Curvado: la criatura del jugador (ranura 2).
-- Fuego: confirmar el factor del daño frente a magic.md (`defenceMultiplierBurn`).
 - Sacrificio (aplazado por el usuario).
 
 ## Ganchos de prueba

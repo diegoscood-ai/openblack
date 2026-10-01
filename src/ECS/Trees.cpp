@@ -39,9 +39,11 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
+#include "ECS/Weather/Weather.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -52,6 +54,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/DayNightClock.h"
+#include "Graphics/ModelLight.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
@@ -1039,8 +1042,9 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 		if (GrowTree(entity, amount, raiseMaximum) != 0.0f)
 		{
 			tree->growing = true;
-			// sample 0x78 + GetTickCount() % 9 (InGame.sad 120-128, G_TreeGrow) at the tree
-			PlayAt(fmt::format("InGame.sad/{}", 120 + Locator::rng::value().NextValue<uint32_t>(0, 8)), transform->position);
+			// sample 0x78 + GetTickCount() % 9 (InGame.sad 120-128, G_TreeGrow) at the tree: the real clock, not the
+			// random generator (0x74C4B3..0x74C4C0, audio::TickCount)
+			PlayAt(fmt::format("InGame.sad/{}", 120 + audio::TickCount() % 9), transform->position);
 		}
 	}
 	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && game_clock::Turn() - g_lastTreeCreatedTurn > 40)
@@ -1206,26 +1210,12 @@ void openblack::ecs::UpdateTrees(float seconds)
 	const auto& camera = Locator::camera::value();
 	const auto cameraPosition = camera.GetOrigin();
 	// Tree::PreDraw 0x74A883: b = 200 + 55 x (horizontal view direction . normalize(camera focus - light position)),
-	// floored at 200, and Tree::Draw multiplies the tree's colour by b/256. LH3DTech keeps one point light, placed by
-	// fn_005E5830 each frame (after Tree::PreDraw, so the trees use the last frame's). By day (LH3DSky::Time2SkyType of
-	// the visual time 0) it is the global 0xEA1C88, whose only setter is dead code: the map origin (0, 0, 0), so trees
-	// are darkest when the camera looks back towards that corner. At dusk and night (sky type > 0) it goes 3 units from
-	// the hand towards the camera, the hand raised to at least 10 above the land under it.
-	glm::vec3 light(0.0f, 0.0f, 0.0f);
-	if (Game::Instance() != nullptr && Game::Instance()->GetDayNightClock().GetSkyType() > 0.0f &&
-	    Locator::handSystem::has_value())
-	{
-		if (const auto& hands = Locator::handSystem::value().GetPlayerHandPositions(); hands[0].has_value())
-		{
-			auto hand = *hands[0];
-			if (Locator::terrainSystem::has_value())
-			{
-				hand.y = std::max(hand.y, Locator::terrainSystem::value().GetHeightAt(glm::vec2(hand.x, hand.z)) + 10.0f);
-			}
-			const auto toCamera = cameraPosition - hand;
-			light = hand + (glm::length(toCamera) > 1e-4f ? glm::normalize(toCamera) : glm::vec3(0.0f)) * 3.0f;
-		}
-	}
+	// floored at 200, and Tree::Draw multiplies the tree's colour by b/256. The light is the one LH3DTech keeps
+	// [0xEA9E90], the same one every model is lit with (src/Graphics/ModelLight.h), placed once a frame by fn_005E5830
+	// from Renderer::DrawScene, which runs after this, so the trees use the last frame's as in the original: by day the
+	// default sun 0xEA1C88 = (-500000, 500000, -500000), and only in full night (sky type > 1.5, [0x8C5838]) 3 units
+	// from the player's hand towards the camera.
+	const auto light = model_light::Light();
 	const auto toFocus = camera.GetFocus() - light;
 	const auto forward = camera.GetForward();
 	const glm::vec2 heading(forward.x, forward.z);
@@ -1356,13 +1346,22 @@ void ProcessForests(uint32_t turn)
 }
 } // namespace
 
+float openblack::ecs::TreeGrowthAmount(float growthAmount, float rainMultiplier, float rain, float landAlignment)
+{
+	// 0x74A2FA (x 0.01), 0x74A306 (x info +0x130), 0x74A30E / 0x74A312 (x growthAmount, + growthAmount), then
+	// 0x74A31F (x 0.5), 0x74A329 (+ 1) and 0x74A32F (x the running value)
+	return growthAmount * (1.0f + 0.01f * rainMultiplier * rain) * (1.0f + 0.5f * landAlignment);
+}
+
 void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 {
 	ProcessForests(turn);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& constants = Locator::infoConstants::value();
+	const bool trace = std::getenv("OPENBLACK_TREE_TRACE") != nullptr;
 	std::vector<std::pair<entt::entity, float>> growing;
-	registry.Each<Tree, const Transform>([&constants, &growing](entt::entity entity, Tree& tree, const Transform& transform) {
+	registry.Each<Tree, const Transform>([&constants, &growing, trace](entt::entity entity, Tree& tree,
+	                                                                  const Transform& transform) {
 		// Only a tree in a forest is processed at all: the forest walks its own list (Forest::Process 0x539DA0).
 		if (!IsInForest(tree.forestId) || IsScenicForest(tree.forestId))
 		{
@@ -1385,15 +1384,22 @@ void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 			tree.growing = false;
 			return;
 		}
-		// amount = growthAmount x (1 + 0.01 x rainMultiplier x GClimate::GetMaxRainingOrSnowing) x
-		//          (1 + 0.5 x MapCoords::GetAlignment). No weather and no land alignment yet: dry, alignment 0.
-		constexpr float k_Rain = 0.0f;
-		constexpr float k_LandAlignment = 0.0f;
-		const float amount = info.growthAmount * (1.0f + 0.01f * info.rainingAcceleratorMultiplier * k_Rain) *
-		                     (1.0f + 0.5f * k_LandAlignment);
+		// 0x74A2E5..0x74A31A: GClimate::GetMaxRainingOrSnowing and MapCoords::GetAlignment are both asked at the tree's
+		// MapCoords::GetLHPoint 0x605C40, which is the land altitude plus the MapCoords' own y: that is what
+		// Transform::position already holds for a tree (TreeArchetype is created at GetHeightAt)
+		const float rain = weather::GetMaxRainingOrSnowingAt(transform.position);
+		const float landAlignment = effects::alignment::LandAlignmentAt(transform.position);
+		const float amount =
+		    openblack::ecs::TreeGrowthAmount(info.growthAmount, info.rainingAcceleratorMultiplier, rain, landAlignment);
+		if (trace)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Tree trace: {} forest {} growth {:.4f} = {:.4f} x rain {:.0f} (mult {:.2f}) x alignment {:.3f}",
+			                   static_cast<uint32_t>(entity), tree.forestId, amount, info.growthAmount, rain,
+			                   info.rainingAcceleratorMultiplier, landAlignment);
+		}
 		growing.emplace_back(entity, amount);
 	});
-	const bool trace = std::getenv("OPENBLACK_TREE_TRACE") != nullptr;
 	for (const auto& [entity, amount] : growing)
 	{
 		const float grown = GrowTree(entity, amount, false);

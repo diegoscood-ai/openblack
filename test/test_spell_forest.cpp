@@ -26,6 +26,7 @@
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/SpellSeed.h"
@@ -108,6 +109,20 @@ TEST(SpellForest, costToMaintain)
 {
 	EXPECT_FLOAT_EQ(spell_forest::CostToMaintain(5.0f, 1.0f, 0), 5.0f);
 	EXPECT_FLOAT_EQ(spell_forest::CostToMaintain(5.0f, 1.0f, 18), 23.0f);
+}
+
+/// Tree::Process 0x74A2D7..0x74A33E: the growth of a grow turn, with the rain and the land alignment (ECS/Trees)
+TEST(SpellForest, treeGrowthAmount)
+{
+	// sample values: growthAmount 0.01 with rainingAcceleratorMultiplier 1 and 2 (the Forest miracle's tree type has
+	// 0.01 and 2 in info.dat, as OPENBLACK_TREE_TRACE prints it)
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, 0.0f), 0.01f);   // dry, neutral land
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 50.0f, 0.0f), 0.015f); // 1 + 0.01 x 1 x 50
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 2.0f, 50.0f, 0.0f), 0.02f);  // the multiplier doubles the rain part
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, 1.0f), 0.015f);  // the best land adds half
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, -1.0f), 0.005f); // the worst halves it
+	// the two factors multiply, they do not add
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 100.0f, 1.0f), 0.01f * 2.0f * 1.5f);
 }
 
 /// SpellForest::AdjustSpellSeedPos 0x725750

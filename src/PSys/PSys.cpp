@@ -1713,7 +1713,7 @@ void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<
 {
 	// one ribbon per collection: its joints in list order, the same interpolation as CollectCollection but with no
 	// alpha cut-off (a dark joint is still part of the strip)
-	DrawChain chain {nullptr, {}, &collection};
+	DrawChain chain {nullptr, {}, &collection, _origin};
 	for (const auto& atom : collection.atoms)
 	{
 		if (atom->visible && atom->drawn && atom->creator != nullptr && atom->creator->kind == Creator::Kind::Chain)

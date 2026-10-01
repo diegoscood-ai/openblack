@@ -83,10 +83,16 @@ struct EngineConfig
 	float fieldGrowthMultiplier {1.0f};
 	/// Mod game.skip-intro: the answer given at each new game to the original's skip-tutorial requester (SkipBox, its
 	/// callback 0x544480), which openblack does not draw: 0 = play everything (the box's default answer, SkipBox::Init
-	/// 0x544206), 1 = skip the tutorial (bit 23 of g_game+0x14), 2 = also skip the creature training (bits 23 and 24).
-	/// The box's fourth answer (bits 23 to 25, keep the old creature) is not offered: the script also needs
-	/// CURRENT_PROFILE_HAS_CREATURE, and openblack has no player profiles.
+	/// 0x544206), 1 = skip the tutorial (bit 23 of g_game+0x14), 2 = also skip the creature training (bits 23 and 24),
+	/// 3 = the box's fourth answer, keep the old creature (bits 23 to 25). For 3 the mod also answers the
+	/// CURRENT_PROFILE_HAS_CREATURE that SetupLand1 ands with bit 25 (openblack has no player profiles), because that
+	/// is the only answer whose script path leaves the opening to the player: CreaturesInGlade does not run.
 	int skipTutorialChoice {0};
+	/// Mod game.skip-intro, option "free start" (**not original**): the first script task that takes the camera at a
+	/// new game is the land's opening; while it holds the camera the engine ignores what it does to the player (its
+	/// camera, wide screen, fades and music) and answers its waits at once, so nothing moves the camera, locks the
+	/// interface or hangs on a camera command openblack does not implement. Everything after that task is normal.
+	bool skipIntroFreeStart {false};
 	/// Mod test.miracle-dispensers (Worship/TestDispensers.h): a miracle dispenser of each player miracle around the
 	/// human player's temple, at that power-up level (0 base, 1, 2, 3 = every level), making an orb every so many
 	/// seconds once the last was taken, plus one empty dispenser that never makes one; with testDispensersSeed a fire

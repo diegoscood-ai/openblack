@@ -46,15 +46,66 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
 
 **Fiel** (del original, no es un mod).
 
-- Por CPU (`fn_0084BA90`, vértices D3DTLVERTEX); `LH3DObject::DrawTnL` da la misma fórmula con luz D3D.
+- **Una sola regla, entera y por CPU** (`fn_0084BA90`, vértices D3DTLVERTEX), la de todos los modelos normales
+  (edificios, aldeanos, árboles, rocas): `I = fistp(255 · N·L)` (0x84BBAF..0x84BBBE, redondeo al más cercano con los
+  empates a par, el modo normal de la FPU), `f = I < 0 ? amb : amb + ((255 − amb)·I >> 8)` (0x84BBC3..0x84BBE5) con
+  `amb` = [0xC39264] = 90, y el difuso por canal `(c·f) >> 8` truncado, con el alfa intacto (0x84BBEA..0x84BC1D). Así
+  que `f` llega como máximo a 254/256, nunca a 1. Variante con truncado `__ftol` en vez de a par: 0x859649
+  (`fn_00859530`, `fn_00859D90`, `fn_00878C70`).
+- **La fórmula float de 166 no se ejecuta nunca** en esta compilación: es la ruta D3D `fn_0082C680`, a la que solo llega
+  `LH3DObject::DrawTnL`, y `DrawTnL` pide el flag de T&L por hardware [0xECA60C] (0x80DC7A), que `OpenD3D` solo pone a 1
+  si [0xC386E4] es 0 (0x82D0F5); `start_system` le escribe 1 sin condición (0x642EA7). Por eso openblack ya no la tiene.
 - Color base del objeto (`fn_00801C90`), uno por objeto y fotograma: `tabla[luminosidad]` de las 4 celdas alrededor
   de su origen, bilineal; especular = RGB de esas celdas leído como D3DCOLOR (R y B cambiados; casi siempre 0).
-- Por vértice: `f = 90/256 + 166/256 · max(0, N·L)`, L = normalize(−500000, 500000, −500000 − origen) ≈
-  (−0,577, 0,577, −0,577), fijo (no depende de la hora). Difuso = base · f; el especular se suma tras la textura.
+- **La luz es un punto y se mueve con la hora.** LH3DTech guarda una sola luz, [0xEA9E90] (`SetLight` `fn_0081E1F0`;
+  guardar y restaurar es cosa del llamador, 0x8254A3/0x82551F). `fn_005E5830`, que llama `GLandscape::Draw` (0x5E488E)
+  una vez por fotograma antes de los modelos, la deja en el sol por defecto [0xEA1C88] = (−500000, 500000, −500000)
+  (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
+  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual, 2 = noche) la pone a 3 unidades ([0x8C2C50]) de la
+  **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
+  - Con el cursor fuera del terreno (en el cielo) el original sigue moviendo la mano por el rayo del ratón a su
+    distancia de la vista (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` se queda con
+    |cámara − posición| si el rayo no toca tierra). En openblack `HandSystem::Place` deja la mano donde se colocó por
+    última vez (o en su sitio inicial), así que de noche la luz se queda allí y las caras de los modelos lejanos pueden
+    quedarse casi solo con el ambiente: **diferencia conocida** (pendiente en el sistema de la mano). Para probar la luz
+    de noche, poner el cursor sobre el terreno (`OPENBLACK_MOUSE_AT`). Sin mano o sin cámara, `Renderer::DrawScene`
+    deja el sol por defecto (la rama de día, 0x5E5B70) **(inferido)**.
+- **N·L va en el espacio de la malla, no con la normal girada**: `fn_00855340` lleva la luz al espacio del objeto con
+  la inversa general de su matriz (`LHMatrix::SetInverse` 0x7FB290) y la normaliza (0xF03140); la rama con huesos hace
+  `SetInverse` de cada matriz de hueso (0x84BD9E) sobre la luz ya pasada a cámara (0x84BDA3), que es lo mismo por
+  hueso si esas matrices van del hueso a la cámara y la cámara se cancela **(inferido)**. La normal del vértice entra
+  cruda, sin girar ni normalizar, y la dirección sale del **origen** del hueso o del objeto. Con escala uniforme da lo
+  mismo que girar la normal; con escala por eje (mecer un árbol, la cizalla de un campo) no.
+- El corte por plano (`DrawCutByPlane`, `fn_00858BA0`) usa la luz [0xF03140] en el espacio del **objeto**: los dos
+  llamadores la ponen una vez con `fn_00855340` sobre obj+0x14 (estático 0x80C0EE, animado 0x811D2F) y `fn_00858BA0`
+  la lee en sus dos ramas (rígida 0x858CB1, con huesos 0x859049); las matrices de hueso (0x858F77) solo mueven las
+  posiciones. `vs_object` modo 4 usa solo la matriz de la instancia.
+- Las nieblas y las nubes suben el ambiente a 210 mientras se dibujan (`fn_007FA300` 0x7FA56D, de vuelta a 90 en
+  0x7FA586; la luz se guarda y se sube en 0x7FA53C..0x7FA563 y se restaura en 0x7FA590). Los objetos «sin luz» van
+  por `fn_00856D40`/`fn_0085BA30`, con el color base [0xC37D8C] tal cual (0x856D89, 0x85BA68): el selector es el
+  argumento edx de `fn_0080D910` (0x80D926 `test edx, edx`: `fn_0084BA90` si no es 0, `fn_00856D40` si es 0); que
+  ese edx venga de la ranura vt+0x5C es **(inferido)**. Las primitivas con el bit 0x1000 (con [0xE9FE44]) no van por
+  ahí: toman el color alternativo [0xC37D98] (`fn_0080AD90` 0x80ADBC, `fn_0080AF80` 0x80AFAC) y se iluminan en
+  `fn_00859530` (la regla con `__ftol`); qué es ese bit está **(no verificado)**.
 - La mano: base × 1,5 (`CHand::AddDrawing` 0x46D135). Primitivas sin textura: color del material × base. Chroma:
   `ALPHAREF = umbral · alfa del objeto / 255 − 5`, `GREATEREQUAL`.
-- openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a =
-  luminosidad), `vs_object` hace la bilineal y N·L; las normales ahora giran con el modelo y la instancia.
+- Las sombras estáticas **no** siguen esta luz: `fn_008721A0` (0x8721E1) y `fn_0080ECB0` (0x80EDA8) leen [0xEA1C88], el
+  sol fijo, así que de noche siguen con el del día (`vs_static_shadow_instanced`).
+- openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a = luminosidad);
+  `vs_object` hace la bilineal y la luz. Un solo sistema con una sola API: `src/Graphics/ModelLight.h`
+  (`model_light::Light/SetLight/ScopedLight`, `Ambient/ScopedAmbient`, `UpdateFrameLight` = `fn_005E5830`,
+  `LightInMeshSpace` = `fn_00855340`, `Apply` para las rutas por CPU) y su gemelo de GPU
+  `assets/shaders/model_light.sh` (`ModelLightI`, `ModelLightFactor`, `ModelLightDiffuse`, `ModelLightLocal` y el
+  uniforme `u_modelLight`: xyz la luz, w el ambiente). Lo usan `vs_object` (objetos, átomos de malla de PSys y el modo
+  cut), `fs_object` (el mod hd-tweaks, por píxel) y `vs_cloud` (nubes y nieblas). `Renderer::DrawScene` llama a
+  `UpdateFrameLight` una vez por fotograma y `ECS/Trees.cpp` usa `model_light::Light()`.
+- En `fs_object` el mod hd-tweaks usa las mismas funciones, pero con la normal interpolada del mundo contra la
+  dirección del píxel a la luz **(aproximado)**: no queda ninguna varying libre para la luz local. Coincide solo con la
+  luz lejos (de día, el sol a 500000); en plena noche, con la luz a 3 unidades de la mano, la dirección píxel→luz y la
+  de origen→luz difieren mucho en un aldeano cercano (diferencia nocturna conocida del mod).
+- `model_light::Intensity/Factor/Apply` aún no tienen llamador: esperan a las rutas por CPU aplazadas (`FragMesh`,
+  primitivas de `fn_00859530`); `Renderer::DrawClouds` usa `ScopedLight` + `ScopedAmbient(k_MistAmbient)` y pasa
+  `Ambient()` a `u_cloud.z`.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
   especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
 
@@ -77,6 +128,32 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
 `LH3DSprite::Draw` también va al Z-sorter. En la pasada principal, los `components::Sprite` (polvo, partículas de coger,
 destellos, luciérnagas...) entran en la lista de atrás a delante de `MainBlended` con los modelos transparentes, por la
 distancia a la cámara; antes se dibujaban antes que todos ellos y un modelo transparente detrás los tapaba.
+
+**Lo que no es un sprite de un efecto va en la misma cola** (hecho, 2026-10-01). `PSysManager::AddDrawing` 0x6797D0
+encola **un solo** Z-objeto por efecto, con clave |origen − g_camera|² (0x6797E5..0x679834) y retrollamada
+`fn_00679860`. Esa retrollamada dibuja el gestor entero: `fn_006798B0` recorre cada colección, dibuja sus átomos con
+`fn_00679920` (que llama a `vt+0xFC` `DrawAt`, 0x67CBA0 para un átomo `ZR_SurfRevol`) y después su cadena. La cadena
+toma la rama «dibujar ya» `fn_0067B370` (0x6798DD) porque `[0xC0215D]`, copiado del +0xAE del gestor, es 0; solo el
+camino directo `Draw_(float, bool)` (`fn_00679840`) con la marca puesta le da a la cadena un Z-objeto propio por
+`fn_0067B380` (clave = la articulación central).
+
+Así que los discos de `ZR_SurfRevol` (el charco del teletransporte, el disco del dispensador) y las cintas de las
+cadenas **no** son pasadas aparte: `Renderer::CollectPSysSurfaces` y `CollectPSysChains` les ponen la clave de su
+efecto y el bucle de `sorted` los dibuja, justo detrás de los sprites de ese efecto. La ordenación es
+`std::stable_sort`, que es el desempate del original: `NewZObject` 0x83F310 inserta una entrada nueva delante de la
+primera con clave *estrictamente* menor (0x83F36A..0x83F376), así que con claves iguales se dibuja antes la que entró
+antes. **(aproximado)** el original intercala los átomos y la cadena dentro de la colección; aquí van primero los
+sprites del efecto, luego sus superficies y luego sus cintas.
+
+Esto arregla el disco del dispensador tapado por la burbuja de la bola de un uso: `OneOffSpellSeed::Draw` 0x518E90
+encola la burbuja con su punto de orden empujado hacia la cámara por su radio, así que su clave es **menor** (más
+cerca) que la del efecto; la burbuja es de modo 12, aditiva y **escribe Z** (0x82ECA6, fiel), de modo que el disco,
+dibujado después, fallaba la prueba de profundidad. Ahora el disco va antes. Traza: `OPENBLACK_ORB_TRACE=1`.
+
+**La lluvia sigue siendo un grupo aparte, a propósito.** `LH3DAtmos::Render3D` encola un Z-objeto **por casilla** que
+llueve (`fn_008341B0`, llamada 0x83427F), con clave |(x, `GetAltitude`(x, z), z) − g_camera|² y la casilla y el alfa
+empaquetados en el dato de usuario K; no pasa por `PSysManager::AddDrawing`, así que darle la clave de un efecto sería
+falso. Sigue siendo el hueco H3 de `dev\tmp_dis\unify2\lh3d_zsorter_openblack.md`.
 
 ## Manchas de aldeanos, reflejos de objetos y LOD
 
@@ -490,7 +567,7 @@ diminuto, el «+ 32» de las fiolas redondea a 32.
 | `DustCell` | fn_00846010 (Dust.cpp) | 16 + ((rand % 16 + ftol(2·edad)) & 15) | polvo de los choques |
 | `WaterfallScroll` | DesignedWaterFall 0x5E392E..0x5E3972 | V −= 0,5·dt ([0x8AA3B4]), menos su parte entera; SetAnimatedUV_1(0, V) | la cascada de Land 3 |
 | `GoolooFrame` | fn_005E6390 | t de 500 ms a 0; x = t/500; UV (2·cos x, 1,7·sin(0,7·x)); byte +4 del material = 255 − ftol(255·t/500) | sin portar (fantasma al quitar un objeto) |
-| `RotatingUv` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 | lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t); se resta el periodo mientras lo pasa (nada si es negativo) | discos de SurfRevol |
+| `RotatingUv` / `RotatingUvClock` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 y GameUpdate 0x6C8BC0 | Dibujo: lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t) con t = DrawData +0x14 (0x67CBA8..0x67CBC1); se resta el periodo (+0x3C, +0x40) mientras lo pasa (0x67CBC8..0x67CBFC; nada si es negativo). Paso: la regla suma dt·SpeedU/V al **destino** +0x34/+0x38 y `GameUpdate`, al final de `PostUpdateAtoms` fn_00673EA0 (0x674080, `vt+0x108`), sube un periodo +0x34 y +0x2C mientras los dos están por debajo de −2·periodo (0x6C8BDF..0x6C8C5A) y los baja mientras los dos pasan +2·periodo (0x6C8C5B..0x6C8CCC) — se mueven en pareja, así que la diferencia que interpola el dibujo no cambia —, y después copia +0x2C → +0x24 y +0x34 → +0x2C (0x6C8CCD..0x6C8CE2) | discos de SurfRevol |
 | `ChainScroll` | fn_0067B3F0 (0x67BE88..0x67BED5) | +0x3C += ms·ritmo·0,001, fmod(FrameHeight/256), + eso si < 0 | cadenas de PSys |
 | `ChainSegmentUv` | fn_006C8920 | ver «Cadenas» abajo | cadenas de PSys |
 
@@ -540,20 +617,21 @@ diminuto, el «+ 32» de las fiolas redondea a 32.
   espejada) y la semianchura es la escala, no 0,5·escala, así que **las cintas salen el doble de anchas**.
 - Fiolas de hechizo de criatura: la animación UV de 0x519AD0, que antes no estaba.
 - Bandas de potencia: `billboard::BandToEye`, ver [billboards](#objetos-que-miran-a-la-cámara-billboards).
+- Discos de SurfRevol: el desplazamiento UV se interpola entre dos pasos (`frame_anim::RotatingUvClock`, DrawAt
+  0x67CBA0 con t = DrawData +0x14 y GameUpdate 0x6C8BC0 entero). Antes la regla envolvía el valor en [0, periodo) cada
+  paso y el dibujo lo usaba tal cual, así que el disco giraba a saltos de un paso de PSys.
 
 **Igual que antes, bit a bit:** la burbuja, las llamas y el vapor (la celda 32 en el primer fotograma ya estaba), el
 humo de las chimeneas, SmokyStuff, la estela del barco, los anillos (celda fija `& 63` de la hoja 8×8 de `smoke.raw`,
 fn_005E5100), las nieblas del mapa y las nubes, la cascada, los montones de comida (0x51C0FD), la disposición
-de celdas de AnimTextured, los discos de SurfRevol, el polvo, la mano y las mariposas GIF del mod. El polvo al
+de celdas de AnimTextured, la malla y las UV de los discos de SurfRevol, el polvo, la mano y las mariposas GIF del
+mod. El polvo al
 agarrar tierra y los granos y peces al coger comida van ahora por `PSysFrameAdvance` / `PSysFrameIndex`: dan las
 mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·ritmo.
 
 **Huecos.**
 - (aproximado) Todos los relojes de niebla y humo guardan la fracción de ms·0,255 (o dt·255) de un fotograma al
   siguiente. El `ftol` del original pararía la animación a más de 250 fps. `MistAdvanceExact` es la fórmula tal cual.
-- (aproximado) SurfRevol no interpola el desplazamiento entre pasos: la regla lo envuelve en [0, tile) cada paso.
-  GameUpdate 0x6C8BC0, que guarda los dos valores en ±2 periodos, está leído a medias, y no se sabe quién copia +0x2C a
-  +0x24.
 - (aproximado) Las bocanadas de tormenta empiezan con el contador a 0, no en Random(0, 16) & 15: es la misma celda 0.
 - (aproximado) `graphics::lh3d::Random` (src/3D/LH3DRandom.h) es Random 0x81D180 con un `rand()` de MSVC propio que
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
@@ -697,6 +775,12 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
   estampada en la tierra (`light_hand.raw`, `fn_008229B0`). Revisar si sigue vigente: la neblina de los modelos ya se
   aplica ([rendering.md](rendering.md#neblina-de-distancia-original-detalle-fog-niveles-36)) y las ventanas de noche y
   la luz de la mano estampada están en [day-night-weather.md](day-night-weather.md).
+- Luz de los modelos, copias que faltan por unificar con `model_light`:
+  - `FragMesh::BuildMesh` (`src/ECS/Physics/FragMesh.h`): el original la hace por cara y a dos caras por CPU
+    (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, las dos ramas de ambiente 0x7F82B1..0x7F82EC); openblack genera la
+    cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
+    compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
+  - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
 - Bancos de peces: el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
 - Sombras de los objetos físicos: el filtro 2×2 de los árboles y el rehorneado de la sombra estática al salir un árbol
   o un MobileObject.
@@ -714,8 +798,8 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
   - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
     la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
   - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
-  - la interpolación de SurfRevol (GameUpdate 0x6C8BC0 entero) y, en las cadenas, el suavizado por puntos medios
-    (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting;
+  - en las cadenas, el suavizado por puntos medios (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting
+    (la interpolación de SurfRevol ya está, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
   - HandEffects como efectos PSys de verdad;
   - una captura del rayo en la mano en el original, para comparar el ancho de las cintas;
   - capturas antes y después (lista de escenas en `dev\tmp_dis\unify\U2_changes.md`).
@@ -746,6 +830,11 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH` (peces y anillos), `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`
   (cadenas), `OPENBLACK_TIME_OF_DAY=22` (faroles), `OPENBLACK_TEST_WEATHER` (bocanadas de tormenta),
   `OPENBLACK_TEST_CHIMNEY=all` (humo). La lista de escenas está en `dev\tmp_dis\unify\U2_changes.md`.
+- Orden de transparentes y burbuja: `OPENBLACK_ORB_TRACE=1` escribe por fotograma el sitio y la clave de cada disco
+  `ZR_SurfRevol` y de cada burbuja de bola de un uso en la lista ordenada, con la fase, el fotograma, el `[1][3]`
+  empaquetado, el alfa y el recorte de cada burbuja (ver
+  [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)). Escena: un dispensador con
+  `OPENBLACK_TEST_DISPENSER` y la cámara fija con `OPENBLACK_CAMERA_LOCK`.
 - Mallas pegadas al suelo: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` con `OPENBLACK_TEST_SHIELD_SHOT` (el escudo
   físico se funde con la tierra), `OPENBLACK_TEST_DISPENSER` y `OPENBLACK_TEST_TELEPORT` (los discos cortados),
   `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` y `OPENBLACK_TEST_EXPLOSION_SHOT` (la marca del suelo; `UR_Explosion` solo

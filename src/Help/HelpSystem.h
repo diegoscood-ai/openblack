@@ -23,9 +23,9 @@
 // current text and the five before it, the history, ClearAllText, IsTextRead, the click that ends a text, and the CHL
 // functions RUN_TEXT, RUN_TEXT_WITH_NUMBER, TEMP_TEXT, TEMP_TEXT_WITH_NUMBER, TEXT_READ, GAME_CLEAR_DIALOGUE and
 // GAME_CLOSE_DIALOGUE. Nothing is drawn (the HelpText display, fn_005CCED0, is not ported): OPENBLACK_TEXT_TRACE logs
-// each text. The voices are milestone B7: the hooks below are where they plug in, and until then no text has a voice
-// (Queries::voiceBankLoaded unset), so IsTextRead always takes the reading-time branch, as the original does when the
-// dialogue banks are not registered.
+// each text. The voices (milestone B7) plug in through the hooks and queries below (Game.cpp: audio::voices and
+// audio::advisor); with Queries::voiceBankLoaded unset no text has a voice, so IsTextRead takes the reading-time branch,
+// as the original does when the dialogue banks are not registered.
 // Sources: dev\tmp_dis\audio\voices.md §2.3-2.4, script.md §2.3 and the disassembly of 0x5C5550..0x5C6E00,
 // 0x5CB0F0..0x5CBF00 and 0x6F7C70..0x6F8280 (bwdis.py), cited at each step.
 
@@ -58,6 +58,18 @@ enum class VoiceRoute : uint8_t
 	Narration,  ///< any other: GAudio::PlaySoundEffect 2D, owner 0x270F, +0x164 = 1
 };
 [[nodiscard]] VoiceRoute RouteOf(int32_t narrator, audio::TextVoice voice);
+
+/// HelpSystem::GetSpiritWhoTalks 0x5C6E20(text): the narrator of HelpTextDatabase[0 < text < count ? text : 0]: 2 (the
+/// good spirit) -> 1, 3 (the evil one) -> 2, any other -> 0
+[[nodiscard]] int32_t SpiritWhoTalks(int32_t narrator);
+
+/// GScript::ConvertScriptSpiritToHelpSpirit 0x710350 (the jump table 0x710400): SCRIPT_SPIRIT_TYPE (ScriptEnums.h
+/// SpiritType) -> the help spirit 1 (good) / 2 (evil): 2 (EVIL) -> 2; 3 (ALIGNMENT) -> discrete alignment < 3 ? 2 : 1;
+/// 4 (ANTI_ALIGNMENT) -> >= 3 ? 2 : 1; 5 (RANDOM) -> LocalRand(100) > 50 ? 2 : 1; any other (NONE, GOOD) -> 1.
+/// `discreteAlignment`: GAlignment::GetDiscreteAlignmentValue 0x414730 of the local player's GPlayer::GetAlignmentValue
+/// (g_game+0x205A59); `rand100`: GRand::LocalRand(100) (asked only for RANDOM)
+[[nodiscard]] int32_t ConvertScriptSpiritToHelpSpirit(int32_t type, int discreteAlignment,
+                                                      const std::function<int()>& rand100);
 
 /// One entry of the history (fn_005C5EE0: 16 bytes at +0x5C4)
 struct HistoryEntry
@@ -116,8 +128,8 @@ public:
 		std::function<void(const std::u16string& text, float number, int32_t narrator)> showText;
 		/// The voice branches of fn_005C5F90 (milestone B7)
 		std::function<void(uint32_t textId, VoiceRoute route, audio::TextVoice voice)> sayVoice;
-		/// ProcessInterface 0x5C6A88..0x5C6AAD: fn_005C6720(spirit 1, 1), fn_005C6720(spirit 2, 1) (the advisors, see
-		/// spiritStop) and GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) (milestone B7)
+		/// ProcessInterface 0x5C6A9E..0x5C6AAD: GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) (audio::voices::
+		/// CutByClick), after fn_005C6720(spirit 1, 1) and fn_005C6720(spirit 2, 1) (0x5C6A88 / 0x5C6A93: spiritStop)
 		std::function<void()> stopVoicesOnClick;
 		/// HelpSystem::SpiritHome 0x5C6670(spirit, arg) -> fn_005C5200 on the spirit (fn_005C68A0: 1 -> HelpSystem+0xC,
 		/// any other -> +8): spirit+0x58 / +0x5C = 0 and HelpDudeControl (HelpSystem+0x10) fn_005C3540(dude) when arg != 0
@@ -125,7 +137,7 @@ public:
 		/// first: inferred, the advisor flies off); dude = spirit+0x54 != 1 (fn_005C5250). The advisors are not ported.
 		std::function<void(int32_t spirit, int32_t arg)> spiritHome;
 		/// fn_005C6720(spirit, arg) -> fn_005C4C20 -> HelpDudeControl fn_005C3780(dude, arg) (its W120 symbol
-		/// MacAdjustHelpID is wrong: it reads HelpDude::IsTalking 0x5BB760). The advisors are not ported.
+		/// MacAdjustHelpID is wrong: it reads HelpDude::IsTalking 0x5BB760): audio::advisor::Interrupt
 		std::function<void(int32_t spirit, int32_t arg)> spiritStop;
 		/// The rest of HelpSystem::SetWideScreen 0x5C6AD0 when +0x45E8 changes: DialogBoxBase::HideAll (on),
 		/// GInterface::SetActive(!(on && owner)) and the bars' timer +0x45F0 (wideScreenTime 0xD16174 * 1000 * the part

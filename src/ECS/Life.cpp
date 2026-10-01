@@ -11,10 +11,14 @@
 
 #include <spdlog/spdlog.h>
 
+#include "ECS/Components/Animal.h"
 #include "ECS/Components/Life.h"
+#include "ECS/Components/Poisoned.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Registry.h"
 #include "ECS/ToBeDeleted.h"
+#include "ECS/VillagerSpeed.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -70,6 +74,70 @@ float openblack::ecs::life::IncreaseLife(entt::entity entity, float amount)
 		SetLife(entity, life + amount);
 	}
 	return LifeOf(entity);
+}
+
+bool openblack::ecs::life::IsPoisoned(entt::entity entity)
+{
+	// Living::IsPoisoned 0x416F90: bit 1 of Living +0xB4
+	const auto& registry = Locator::entitiesRegistry::value();
+	return registry.Valid(entity) && registry.AllOf<Poisoned>(entity);
+}
+
+void openblack::ecs::life::SetPoisoned(entt::entity entity, bool poisoned)
+{
+	// Living::SetPoisoned 0x416FA0. Only a Living has the bit: Object::SetPoisoned 0x402780 writes the object's own
+	// flag (the pots', components::Pot::poisoned), which is not this one
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(entity) || !registry.AnyOf<Villager, Animal>(entity))
+	{
+		return;
+	}
+	if (poisoned == registry.AllOf<Poisoned>(entity))
+	{
+		return;
+	}
+	if (poisoned)
+	{
+		registry.Assign<Poisoned>(entity);
+	}
+	else
+	{
+		registry.Remove<Poisoned>(entity);
+	}
+}
+
+void openblack::ecs::life::TakePoisonedResource(entt::entity living)
+{
+	// Villager::AddResource 0x7564F3 and Villager::GetResourceFrom 0x7533FC both just SetPoisoned(1)
+	SetPoisoned(living, true);
+}
+
+float openblack::ecs::life::HungerLifeLoss(float food, float hungryForFood, float hungerToLifeMultiplier)
+{
+	// 0x75BDA6..0x75BDE0: 1 - food / hungryForFood, then the *bigger* of that and 1 (0x75BDBB: fcom 1.0, test ah,0x41,
+	// je keeps st0 only when it is above 1), x hungerToLifeMultiplier. food is clamped to >= 0 before (0x75BD6E), so the
+	// first term never wins and the loss is the multiplier alone; it is written out as the original computes it
+	const float hunger = 1.0f - food / hungryForFood;
+	return (hunger > 1.0f ? hunger : 1.0f) * hungerToLifeMultiplier;
+}
+
+float openblack::ecs::life::ProcessPoison(entt::entity villager)
+{
+	if (!IsPoisoned(villager))
+	{
+		return 0.0f;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto* v = registry.TryGet<const Villager>(villager);
+	const auto* info = ecs::VillagerInfoOf(villager);
+	if (v == nullptr || info == nullptr)
+	{
+		return 0.0f; // the animals' poison: Living::CheckHungry is the villagers' (Animal has no belly)
+	}
+	const float loss = HungerLifeLoss(v->food, info->hungryForFood, info->hungerToLifeMultiplier);
+	const float before = LifeOf(villager);
+	ReduceLife(villager, loss); // 0x75BDE0: ReduceLife(amount, no player)
+	return before - LifeOf(villager);
 }
 
 void openblack::ecs::life::Kill(entt::entity entity, const char* reason)

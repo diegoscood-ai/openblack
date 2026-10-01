@@ -3,7 +3,7 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B4 y B6 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
+y los hitos B0..B4, B6 y B7 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -36,6 +36,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B0 y B1 implementados](#fase-b-b0-y-b1-implementados)
 - [Fase B: B2 y B3 implementados](#fase-b-b2-y-b3-implementados)
 - [Fase B: B4 y B6 implementados](#fase-b-b4-y-b6-implementados)
+- [Fase B: B7 implementado (voces en canal)](#fase-b-b7-implementado-voces-en-canal)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -132,17 +133,16 @@ Reglas:
 
 ### Estado del motor de efectos en openblack
 
-**Fases B0..B4 y B6 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
-[B4-B6](#fase-b-b4-y-b6-implementados)). Hay un solo motor de canales: los 16 canales de
+**Fases B0..B7 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
+[B4-B6](#fase-b-b4-y-b6-implementados), [B5](#fase-b-b5-implementado-los-milagros-en-canal),
+[B7](#fase-b-b7-implementado-voces-en-canal)). Hay un solo motor de canales: los 16 canales de
 `audio::sample_play` (LHSamplePlay), cada uno con su fuente OpenAL propia y **fuera del registro ECS**, detrás de los
 filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
-cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí. Siguen fuera de los canales, hasta B5,
-los reproductores viejos de Milagros sobre `AudioManager::CreateEmitter`/`PlaySound` (está prohibido añadirles llamadores):
-- `SpellSounds`, `FireSound`, el bucle de la semilla de `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`,
-  `WorshipSpellIcon`, `MagicTeleport`, `Fireball`, `OneOffSpellSeed` (B5, Milagros);
-- el panel de depuración «Sound».
-Esos también ganan los arreglos de B0 (un búfer por muestra, RIFF 0x50, puntos de bucle), porque comparten
-`wave_buffers`.
+cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí, y desde B5 también los milagros
+(`SpellSounds`, `FireSound`, `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`, `WorshipSpellIcon`, `MagicTeleport`,
+`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores**: `AudioManager` perdió
+`CreateEmitter`/`PlayEmitter`/`PlaySound`/`PlayAt`/`PlayMusic` y el componente `AudioEmitter` ya no existe; solo abre
+el dispositivo, mueve el oyente, guarda las fuentes de los canales y la lista de bancos.
 
 ## Bancos y formatos
 
@@ -230,7 +230,10 @@ openblack: `AudioBankInfo` (los 3 u32) y `PackFile::IsAudioMusicBank()` en `comp
   esté usando.
 - QMixer convierte ADPCM y MPEG con ACM. Con opts+0x164 (`keepPcm`), el DLL deja el PCM en SampleInfo+0x80/+0x84
   (fn_10010910, 0x10011CB3/0x10011E25), y HelpDude lo copia para el lip-sync (0x5BB57B..0x5BB5C9).
-- openblack (B0, `src/Audio/WaveBuffers.*`): los .sad se leen enteros al arrancar (como antes), pero cada muestra se
+- openblack (B0, `src/Audio/WaveBuffers.*`): los .sad se leen enteros al arrancar (como antes), salvo los de diálogo
+  (tipos 6..10, `Audio\Dialogue`, desde B7): de esos solo se leen las cabeceras (`PackFile::ReadAudioHeaders`) y cada
+  onda se lee del fichero al decodificarla (`Sound::waveFile`, `wave_buffers::ReadWave`), como `LHBankRegister(path, 0)`.
+  Que el resto de bancos se lea entero es **(aproximado)**: el original los registra todos así (0x426EEE). Cada muestra se
   **decodifica una sola vez, al primer uso**, a un búfer AL que se guarda (`Sound::bufferId`) hasta cerrar el audio.
   **(aproximado)**: un búfer por registro de muestra, no por onda +0x108 (los clones se decodifican cada uno), y sin
   presupuesto ni expulsión FIFO (RAM/8 solo importa con menos de 1 GB). RIFF con wFormatTag 0x50 (o 0x55) → el bloque
@@ -254,6 +257,11 @@ openblack: `AudioBankInfo` (los 3 u32) y `PackFile::IsAudioMusicBank()` en `comp
     queda **(inferido)**: es la pregunta 2 de PLAN §6.
   - Ejemplos: G_VillageBell InGame 30 (5 vueltas, 0..27400 de 57855), G_PickUpFood 44 (−1, 47743..110078), las palomas
     del editor 342/343 (5), jungle (3..5), swamp (2..6), country bird15 (6).
+- **`LHSampleStop`** (0x10012C50 por muestra o dueño, 0x10012DF0 por canal, y el corte de
+  `LHSampleUpdate3DChannels` 0x1001439D/0x100143BC): `QSWaveMixSetPanRate(20 ms)`, `SetVolume(0)`, `Sleep(20)`,
+  `SetPanRate(100)` y `Flush`: un fundido de 20 ms y el juego espera esos 20 ms. Desde B7 openblack lo hace igual
+  (`SampleOutput::StopRamped`: cuatro pasos de ganancia de 5 ms, **(aproximado)**: OpenAL no tiene pan rate).
+  `LHSampleStopAll` 0x10012BF0 y el reinicio de un canal cortan en seco.
 - **`ReleaseLoop`** (`LHSampleReleaseLoop` 0x10012F20): actúa sobre el **primer** canal que coincide y está en uso, con
   `StopChannel(0x1000)`. Pone a 0 las vueltas restantes y la pasada actual acaba. Si ese primer canal está inactivo,
   devuelve 0 sin seguir buscando.
@@ -669,8 +677,9 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
   - `CountWords` fn_005CBEC0, `ReadSpeedFactor` fn_005C6CB0, `RouteOf` (las ramas de 0x5C6025..0x5C60DB) y el historial
     fn_005C5EE0/fn_005C5F50.
   - **No se dibuja nada**: `OPENBLACK_TEXT_TRACE` escribe cada texto en el log.
-  - Las voces no suenan todavía (B7). `voiceBankLoaded` no está registrado, así que IsTextRead siempre toma la rama del
-    tiempo de lectura, como el original cuando los bancos de diálogo no están.
+  - Las voces van por los ganchos `sayVoice`, `stopVoicesOnClick` y `spiritStop` y las consultas `voiceBankLoaded`,
+    `advisorsTalking` e `isPlaying`, que `Game.cpp` conecta con `audio::voices` y `audio::advisor` (B7,
+    [abajo](#fase-b-b7-implementado-voces-en-canal)).
   - El clic es el botón izquierdo al bajar **(inferido)**.
   - El reloj escalado 0xEA1C78..0xEA1C80 son ms reales desde el arranque **(aproximado)**.
   - `+0x460C` (`GInterface::SetActive`) no está portado.
@@ -687,9 +696,9 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 
 | op | nombre | original | openblack |
 |---|---|---|---|
-| 13 | RUN_TEXT | 0x6F7D60 | hecho (texto; voz en B7) |
+| 13 | RUN_TEXT | 0x6F7D60 | hecho (texto A11, voz B7) |
 | 14 | TEMP_TEXT | 0x6F7E40 | hecho (sin voz, como el original) |
-| 15 | TEXT_READ | 0x6F8260 → IsTextRead | hecho (sin la rama de voz hasta B7) |
+| 15 | TEXT_READ | 0x6F8260 → IsTextRead | hecho (con la rama de voz desde B7) |
 | 43 | PLAY_SOUND_EFFECT | 0x70F7F0 (dueño = n.º de muestra) | hecho (B6) |
 | 44 | START_MUSIC | 0x70FB20 (error fuera de 0..0x55 y sigue; +0x98 = +0x9C = 0) | hecho |
 | 45 | STOP_MUSIC | 0x70FB90 | hecho |
@@ -707,11 +716,11 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 | 190 | RESTART_MUSIC | 0x70FF00 | hecho |
 | 191 | MUSIC_PLAYED (objeto) | 0x70FF40 (true si el objeto no vale) | hecho |
 | 231 / 232 | TEMP_TEXT_WITH_NUMBER / RUN_TEXT_WITH_NUMBER | 0x6F7F50 / 0x6F7C70 | hecho |
-| 246 | SPIRIT_SPEAKS | 0x710C40 (consulta) | sin cambios |
+| 246 | SPIRIT_SPEAKS | 0x710C40 → ConvertScriptSpiritToHelpSpirit 0x710350, GetSpiritWhoTalks 0x5C6E20 (consulta) | hecho (B7) |
 | 285 / 348 | START_ANGLE_SOUND / StartPitchSound | 0x70FFA0 / 0x70FFE0 | stub (C7) |
 | 317 | SET_CREATURE_SOUND | 0x710020 | hecho |
 | 335 | LAST_MUSIC_LINE | 0x710050 (sin audio: TEXT_READ, 0x7100A6) | hecho |
-| 340 | GAME_PLAY_SAY_SOUND_EFFECT | 0x70F9B0 → 0x70F8E0 | stub (B7) |
+| 340 | GAME_PLAY_SAY_SOUND_EFFECT | 0x70F9B0 → 0x70F8E0 | hecho (B7) |
 | 350 | MUSIC_PLAYED (tipo) | 0x70FBA0 (GAudio+0x28 != tipo; sin audio: TEXT_READ, 0x70FBE4) | hecho |
 | 357 | SET_GAME_SOUND | 0x7100B0 | hecho (B6, `audio::SetGameSound`) |
 | 409 | SOUND_EXISTS | 0x710100 → GAudio::IsInstalled 0x426D30 → LHWaveIsInstalled | hecho (B6) |
@@ -720,7 +729,7 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 | 445 | ENABLE_DISABLE_ALIGNMENT_MUSIC | 0x710120 | hecho |
 | 447 / 448 | ATTACH / DETACH_SOUND_TAG | 0x710150 / 0x7101D0 → 0x71E840 / 0x71EBE0 | hecho (B6) |
 | 450 | GAME_SOUND_PLAYING | 0x710230 → fn_0042A280 | hecho (B6) |
-| 458 | SAY_SOUND_EFFECT_PLAYING | 0x710280 | stub (B7) |
+| 458 | SAY_SOUND_EFFECT_PLAYING | 0x710280 | hecho (B7) |
 
 `GetScriptGameThing` 0x70D220 se aproxima en `MusicThing` (CHLApi.cpp): 0 es nulo y una entidad válida es un objeto
 vivo. El original busca el id en su tabla 0xD967F8 (1..0x1FF) **(aproximado)**. `CHAR2WCHAR` 0x8300A0 se hace byte a
@@ -784,8 +793,7 @@ En juego (Tierra 1, `FollowUs`): START_CAMERA_CONTROL → START_DIALOGUE → STA
 **START_MUSIC 54** (suena intro.sad). Con `MOVE_GAME_THING` (033) de mapas (b17111c6) pasa `FollowUs_loop_4`, la
 familia anda y suenan las piedras cantoras (PLAY_SOUND_EFFECT 49/50/54); los bloqueos siguientes son de cámara, sin
 dueño: HAS_CAMERA_ARRIVED (035, GCamera::Arrived 0x443050), MOVE_CAMERA_POSITION/FOCUS (003/004) y SET_AVI_SEQUENCE
-(203, pantalla en negro tras el SET_FADE). Las voces del guion (GAME_PLAY_SAY_SOUND_EFFECT, SAY_SOUND_EFFECT_PLAYING)
-son el hito B7 (pendiente).
+(203, pantalla en negro tras el SET_FADE). Desde B7 la intro habla: ver [B7 en juego](#b7-en-juego).
 
 ## Fase A implementada
 
@@ -902,9 +910,8 @@ Cambios de comportamiento audibles (todos por el original):
 - Con el filtro de banco por `BankId`, los aldeanos ya no se silencian tras `SET_GAME_SOUND false`.
 - Minimizar la ventana para los efectos y la música (perder el foco no).
 - Los bucles finitos acaban (campana ×5, ranas, pájaros, palomas) y los bucles con tramo repiten solo el tramo en los
-  16 canales. Los reproductores viejos (`AudioManager::CreateEmitter`: el fuego, las farolas, los árboles…) comparten el
-  búfer, pero lo ponen en cola (`alSourceQueueBuffers`, fuente de streaming) y OpenAL Soft solo usa los puntos de bucle
-  en fuentes estáticas: allí el bucle sigue siendo la onda entera, como antes (hasta que B2..B5 los pasen a canales).
+  16 canales. (Los reproductores viejos de `AudioManager::CreateEmitter` ponían el búfer en cola y OpenAL Soft solo
+  usa los puntos de bucle en fuentes estáticas; desde B5 no queda ninguno.)
 
 Auditoría de B0-B1 (§1.7 de TEAM_GUIDELINES, sesión audio):
 - Comprobado en el desensamblado: 0x429D20, 0x429D60/0x429DA0, 0x42A040, 0x42A100 (orden de los 10 argumentos),
@@ -946,9 +953,9 @@ Sesión audio, rama `local/audio` (sobre B0-B1 2767ffd3 / ca200e26).
 | `AnimationSounds::Fire` (firma intacta) | fn_00516510: los eventos con from ≤ t < to; sin `Get3DSoundPos` nada; la distancia y la superficie son **las del aldeano** (0x51655F, `GSoundMap::GetSurfaceType` 0x51662B → `ecs::sea_cells::GetSurfaceType`); grupo 1: muerto → nada más (0x5165BC), voz 3 niño / 1 + (+0x1F8 ≠ 0); 0x92 → banter con la casa como dueño (`GetAbode` 0x51675D; sin casa, dueño 0 = la cámara); 0x93/0x94 → banter en el aldeano; paso (4) de un aldeano con la pantalla ancha del guion → **se descarta el resto de la lista** (0x5166A4 salta al final); THROWN 399/401 solo con < 15 / < 10 turnos; siempre track 1, min/max 0 (0x5167A8) | `AnimationSounds.cpp` |
 | `AnimationSounds::PlayFromTable` (firma intacta, árboles) | Tree::Draw 0x74B009 (doblar, track 0) / 0x74B25C (susurro, track 1), banco editor (GAudio+0x3B0) | `AnimationSounds.cpp` |
 
-`SpellSounds` (Milagros, B5) sigue con su `AnimEffectBank`, pero su `Load(ruta)` ya no lee el fichero: copia las tablas
+`AnimEffectBank` (de Milagros) sigue como alias de `AnimEffectTable` para sus tests; su `Load(ruta)` copia las tablas
 que el núcleo leyó al registrar spells.sad (`test_anim_effects` `MiraclesBankCopiesTheCoresTables`: mismas filas, listas y
-muestras). Su comportamiento no cambia.
+muestras). Desde B5 `SpellSounds` ya no la usa: toca por `audio::SamplePlayAnimEffect`.
 
 Cambios audibles (todos por el original):
 - Los sonidos de los clips y de los árboles van por los 16 canales (prioridad, modo, robo) y siguen a su dueño una vez por
@@ -1077,20 +1084,208 @@ lejos se cortan por su máximo (100) y con la cámara al lado (`OPENBLACK_CAMERA
 salen el woosh del vuelo de `OPENBLACK_CAMERA_FLY` (2D), los golpes de roca (3D con la roca de dueño), el agarre de
 agua y la recogida (tags), los choques del árbol lanzado ({1/2, 0, 20, 9/12/16, 75} → G_Crash_Tree_*) y el triturado.
 
+## Fase B: B7 implementado (voces en canal)
+
+Sesión audio, rama `local/audio` (sobre `local/hand-hbn` fe72a3e9). Fuentes: `voices.md` §2.3-2.6, `script.md` §2.3 y el
+desensamblado de 0x5BB060..0x5BB8A7, 0x5BCD00, 0x5C36D0..0x5C3842, 0x5C52C0/0x5C5290, 0x5C6020..0x5C60DB,
+0x5C6A7E..0x5C6AB4, 0x5C6E20, 0x70F8E0, 0x70F9B0, 0x710280, 0x710350, 0x710C40, 0x428850..0x428EE1 (CalcKey,
+fn_00428A80, Analyse, four1), el init de HelpDude 0x5C1EA1..0x5C1F24 y, en el DLL, 0x10012BF0..0x10012F13 (LHSampleStop),
+0x10014C00 (LHSampleGetPlayPosition) y 0x10015180 (LHSampleGetPercentageDone).
+
+### API (`src/Audio/Voices.h`, `src/Audio/Advisor.h`)
+
+| función | original | qué hace |
+|---|---|---|
+| `voices::RunTextVoice(narrador, voz)` | fn_005C5F90 0x5C6025..0x5C60DB | HelpSprites con narrador 2/3: `advisor::Stop(1)`, `Stop(0)` y `advisor::Say(0/1, muestra, 0)`; cualquier otra voz con banco y muestra: opciones por defecto, dueño 0x270F, +0x164 = 1, 2D, por `GAudio::PlaySoundEffect` (con sus filtros) |
+| `voices::Say(texto, conPos, alt, punto)` | SaySoundEffect 0x70F8E0 | tabla 0x942B38; sin muestra, nada; dueño alt ? 0x270D : 0x270F; 3D si conPos (el punto solo entonces); track 0; +0x164 = 1. Sin texto ni consejero, aunque sea HelpSprites |
+| `voices::IsSaying(alt, texto)` | 0x710280 | fn_0042A280(alt ? 0x270D : 0x270F, muestra, banco) |
+| `voices::CutByClick()` | 0x5C6AA4..0x5C6AAD | `StopPlayingSoundEffect(0, 0x270F, VILLAGERS)`: toda la narración de villagers, con la rampa de 20 ms |
+| `voices::BankRegistered(banco)` | fn_005C62F0 0x5C631E | GAudio+0x3A8 + 4·banco ≠ 0 |
+| `advisor::Init(banco)` | fn_005C3660 → fn_005BB060 | el banco HelpSprites y su número de muestras en los dos consejeros |
+| `advisor::Say(dude, muestra, soloSiCalla)` | HelpDudeControl::Say 0x5C36D0 | retardo = v < 0 ? 0 : min((v + 1)·250, 500) ms con v = \|+0x3514\| − 0,95 (0x915438); SaySentence; +0x74 = 1 |
+| `advisor::SaySentence(dude, muestra, soloSiCalla, retardo)` | HelpDude::SaySentence 0x5BB340 | g_speaker = dude; con frase sonando, nada si soloSiCalla y habla, si no StopSentence; muestra en 1..n; arranque a GetTickCount + retardo |
+| `advisor::Update(dt)` | bucle de HelpDudeControl 0x5C3B05 → Update1 0x5BDDA0 | por fotograma: UpdateSaySentence 0x5BB610 (PlaySample 0x5BB530: `LHSamplePlay` directo, dueño 0x270C, sin filtros de GAudio; copia el PCM) y ApplyLipSync 0x5BCD00 |
+| `advisor::IsTalking`, `TalkingOrJustStopped`, `PercentageDone`, `StopSentence`, `Stop` | 0x5BB760, 0x5BB730 (+200 ms), 0x5BB7C0, 0x5BB840, fn_005C3750 | como el original, con g_speaker 0xD15AA0 y g_sentence 0xD15A9C globales |
+| `advisor::Interrupt(dude, arg)` | fn_005C3780 (desde fn_005C6720 → fn_005C4C20) | elige un HELP_TEXT_INTERRUPTION_* (0xE3F/0xE4C + rand 5, o 0xE44/0xE51 + rand 8 con arg 0 y LocalRand(2) = 0), Stop(dude) y, fuera de la ciudadela, si PercentageDone < 0,9 (0x915440), lo dice |
+| `advisor::AnyTalking()` | 0x5C6372..0x5C63A0 | +0x74 && fn_005BB730(0) \|\| +0x78 && fn_005BB730(1): la rama de consejero de IsTextRead |
+| `advisor::LipSyncKey`, `Amplitude`, `CalcKey`, `Analyse`, `Four1`, `BandLevel` | +0x2F60, fn_005BB420, 0x428850, 0x428C60, 0x428D50, fn_00428A80 | la boca, sin dibujarla (abajo) |
+| `help::SpiritWhoTalks`, `help::ConvertScriptSpiritToHelpSpirit` | 0x5C6E20, 0x710350 | SPIRIT_SPEAKS |
+| `sample_play::PlayPosition`, `PercentageDone`; `SampleOutput::StopRamped`, `PlayPositionMs` | 0x10014C00, 0x10015180, 0x10012C50 | posición en ms, fracción hecha, la rampa de LHSampleStop |
+| `audio::SetBankSampleCount` / `BankSampleCount` | LHBankGetNumberOfSamples | el tope de SaySentence |
+
+### Cómo va
+
+- **RUN_TEXT** (HelpSystem::SayText): el gancho `sayVoice` llama a `RunTextVoice` con el narrador del texto.
+  **TEXT_READ** con voz: consejero → leído cuando ninguno habla ni ha callado hace menos de 200 ms; narración → +450 ms
+  tras la última vez que sonó (la lógica ya estaba en A11; ahora las consultas están conectadas).
+- **Clic** (`ProcessInterface`, con la pantalla ancha del guion o la tecla): `spiritStop(1, 1)`, `spiritStop(2, 1)`
+  (`advisor::Interrupt`) y luego `CutByClick`. Solo se corta villagers; la narración genérica de HelpSprites y Guidance
+  sigue. Como en W120, la frase de interrupción **nunca se dice**: fn_005C3780 lee PercentageDone después de Stop, que
+  ya no deja hablante (da 1).
+- **Consejeros**: un solo hablante (g_speaker). Un SaySentence sin soloSiCalla con una frase sonando la para y deja la
+  nueva **sin hablante** (g_speaker se pone en 0x5BB343 antes del StopSentence de 0x5BB377, que lo borra en 0x5BB89F):
+  es del original, y el camino de RUN_TEXT no pasa por ahí (para a los dos antes).
+- **Lip-sync**: ApplyLipSync toma el tiempo de `LHSampleGetPlayPosition` (ms) y llama a CalcKey(dt, t) sobre el PCM
+  (ventana 0x200): Analyse (ventana triangular de paso 1/(n·32768), four1 de Numerical Recipes, módulo
+  √((re²+im²)/n)) y las tres bandas de AutoVoiceParams (200-400 Hz ×0,85, 400-700 ×1,1, 700-10000 ×10; umbral 0,05,
+  nivel 2,5, ritmo 40·dt·0,18 hacia abajo y el doble hacia arriba, normalizadas si suman más de 1). Si la frase ya no
+  suena y t > 0,5 s, StopSentence. No se dibujan la pose (fn_005BF810), la boca (fn_005BCBC0), los AudioTag de la
+  onda (BuildAudioTags 0x42AE70) ni los gestos: no hay modelo de consejero.
+- **Bancos de diálogo perezosos**: HelpSprites, villagers, VillagersBanter, SpellDialogue y Guidance se registran solo
+  con sus cabeceras (`PackFile::ReadAudioHeaders`) y cada onda se lee del .sad al decodificarla, como
+  `LHBankRegister(path, 0)` (unos 107 MB que ya no se leen al arrancar).
+- **LHSampleStop con rampa**: todas las paradas por muestra, por dueño o por canal (y los cortes de
+  `LHSampleUpdate3DChannels`) bajan a 0 en 20 ms y esperan esos 20 ms, como el DLL. `StopAll` y los reinicios, en seco.
+- **CHL**: GAME_PLAY_SAY_SOUND_EFFECT (340), SAY_SOUND_EFFECT_PLAYING (458) y SPIRIT_SPEAKS (246) hechos.
+  STOP_SOUND_EFFECT con isSay ya estaba (B6, `script_sound::StopSoundEffect`).
+
+### B7 en juego
+
+Land 1, 2026-10-01 (`OPENBLACK_TEXT_TRACE`, `OPENBLACK_AUDIO_TRACE`, `OPENBLACK_SFX_TRACE`; logs
+`_audit\audio\b7_run*.log`). La intro `FollowUs` habla y avanza: las doce voces de la familia
+(`HELP_TEXT_DEFINITELY_NEWEST_INTRO_01..12`, villagers 57..68, 2D, dueño 0x270F o 0x270D) con sus esperas
+SAY_SOUND_EFFECT_PLAYING; luego los RUN_TEXT con voz «¡Has salvado a nuestro hijo!», «¡Gracias! ¡Gracias por tu
+misericordia!» (mujer, villagers 119/120), «¡Te alabamos!» (con clic) y los consejeros «Saludos.», «Somos tu
+conciencia.», «Bueno.», «Y malo.», «Yin y Yang.», «Blanco y Negro.», «Como parte de ti, te guiaremos por este mundo.»
+(HelpSprites, dueño 0x270C); después «Nuestra gente te rendirá culto.», «Ten la bondad de acompañarnos a nuestro
+Pueblo.» y «Te enseñaré cómo seguirlos.». Los textos con clic se pasan con `OPENBLACK_TEST_TEXT_CLICK=1` (el clic, con
+la pantalla ancha, corta la voz de villagers, como el original). Se para en **HAS_CAMERA_ARRIVED (035)**: tras
+GAME_CLEAR_DIALOGUE, FollowUs hace `RUN Drag`, y Drag mueve la cámara (MOVE_CAMERA_POSITION/FOCUS 003/004, sin
+implementar) y espera `wait until HAS_CAMERA_ARRIVED` (un stub que da false). Es la cámara, sin dueño.
+
+### (Aproximado), (inferido) y pendiente de B7
+
+- **(aproximado)** el retardo del consejero es siempre 0: +0x3514 es del vuelo del consejero (no portado) y se queda en
+  el 0 del init (0x5C1A61).
+- **(aproximado)** la rampa de 20 ms de QMixer en cuatro pasos de 5 ms de ganancia; el juego espera los 20 ms.
+- **(aproximado)** el PCM del consejero se decodifica otra vez (el DLL lo convierte con ACM al arrancar con +0x164);
+  four1/Analyse/CalcKey con los registros x87 en double.
+- **(aproximado)** solo los bancos de Dialogue son perezosos; el resto se lee entero (el original los registra todos
+  así).
+- **(inferido)** el espíritu 1 (HelpSystem+0xC) es el consejero 0 (fn_005C5250: +0x54 ≠ 1); en SPIRIT_SPEAKS, el
+  jugador local es PLAYER_ONE; LocalRand con el generador de openblack.
+- **Pendiente**: la parte visual de los consejeros (modelos MarkGood/MarkEvil.Hd, vuelo, `SpiritHome`, boca, gestos
+  por AudioTag, `HelpDude::PlaySoundFX` 0x5C2800); el guion de ayuda «MultiHelpJustTalkWithText» (Guidance, B9);
+  GConfirmation (C7); GSpookyVoices (B10).
+
+## Fase B: B5 implementado (los milagros en canal)
+
+Sesión audio, rama `local/audio` (sobre B7 16f1d791). Archivos de Milagros tocados con su lógica intacta (el diff para su
+revisión está en `dev\_scratch\audio\b5_milagros.diff`). Desensamblado: 0x6745D0 (`AtomCore::StartSound`), 0x6D0F70..0x6D13A0
+(`PSysSound`: ctor, destructor, `Get3DSoundPos` 0x6D1000, el bucle fn_006D11A0), 0x72EBE0 (`FireEffect::ToBeDeleted`),
+0x72EDC0/0x72EDE0/0x72EE70 (fuego), 0x730760 (`ProcessList`), 0x5D2730/0x5D27B0 (bucle del gesto), 0x5CEC50
+(`GInterface::Get3DSoundPos`), 0x6882F0/0x688560..0x68866A (gesto reconocido), 0x683184..0x68327F (bola de fuego que
+pasa), 0x68CE90 / 0x68DE69 (`PHandFX`), 0x72A640 (`OneOffSpellSeed::InterfaceTap`), 0x5EC340 (`Living::MoveByTeleport`),
+0x726490 (`PlayTapSound`), 0x77F4E0 (`PlayFullyChargedSoundFX`), 0x729C40, 0x7314E0/0x731AB0 (vapor) y, en el DLL,
+0x10014010 (`LHSampleIsPlaying(banco, dueño, &info)`).
+
+### API nueva (`Audio.h`)
+
+| función | original | uso |
+|---|---|---|
+| `NewObjectId()` | (openblack) el original compara punteros de dueño | un número para `Owner::Object` de cada PSysSound, FireEffect, PHandFX, datos del gesto, FireGraphic |
+| `PlayingChannel(dueño, banco)` | `LHSampleIsPlaying(banco, dueño, LH_SampleInfo**)` 0x10014010: el primer canal del banco y dueño (cualquier muestra), si está en uso; nada con el audio apagado | PSysSound 0x6D120A |
+| `Volume(canal)` | `LH_SampleInfo` +0x38 | el fundido de PSysSound 0x6D1223 |
+
+### Cada sitio
+
+| sitio | original | ahora |
+|---|---|---|
+| `spell_sounds::StartSound` | 0x6745D0: posición global (+ suelo con SnapToGround), superficie con USESURFACE (`ecs::sea_cells::GetSurfaceType`), Delayed → retardo distancia/347 (0x6747AE); si no, `SamplePlayAnimEffect(this, dist, {tamaño, alineamiento, 1, superficie, acción}, 0, spells, track 1, 0, 0)` | `Owner::Object` registrado con `RegisterObject` (su `Get3DSoundPos` 0x6D1000: el átomo con suelo si SnapToGround; sin átomo, el último punto) |
+| `spell_sounds::ProcessTurn` | fn_006D11A0: sin átomo, `LHSampleIsPlaying` directo (ninguno → se borra), fundido `max(vol − FadeStep, 0)` con `LHSampleSetVolume` en **ese** canal, y una vez `SamplePlayAnimEffect(this, 0, clave, 1 + SoftRelease, …)` (1 parar, 2 soltar el bucle); con átomo, Looping o Delayed vencido → otra vez dentro de 1200 de la cámara | `PlayingChannel`, `Volume`/`SetVolume`, `SamplePlayAnimEffect` con `AnimAction::Stop`/`Release` |
+| `FireSound` | fn_0072EDE0 por turno y ranura: opciones InGame, muestra 2, dueño el fuego, 3D, track 1, en `Get3DSoundPos` 0x72EE70; el .sad le da bucle −1 y modo 2 (FLAGS 0x7E0); fn_0072EDC0: si +0x38 & 0x20, `StopPlayingSoundEffect(fuego, 2, InGame)` | `PlaySoundEffect(PlayOptions)` por turno; `StopSoundEffect(2, dueño, InGame)`; `ToBeDeleted` vacía la primera ranura del fuego (y, en openblack, la otra si la tenía) |
+| `HandSystem::BeginApplyOnRelease` / `EndApplyOnRelease` | `SoundTag::Create(GInterface, 3, track 0, modo 2, −1, 0, 3D, IN_GAME, 0)` 0x5D275E; `SoundTag::Remove(this, 3, IN_GAME)` 0x5D27C8 | `tags::Create`/`tags::Remove` con la entidad de la mano izquierda (**aproximado**: su `Transform` por el punto más nuevo del búfer del ratón de `GInterface::Get3DSoundPos` 0x5CEC50); al soltar, el bucle acaba su pasada (`ToBeDeleted` 0x71ECB0) |
+| `Gesture` (reconocido) | fn_006882F0 (el estado del registro es el de `MyInterface`): 2D `PlaySoundEffect(0, 0x24, 3, 0, 0, 0, IN_GAME)`; otro interfaz: opciones 3D, track 0, dueño los datos del átomo, en el +0x3C del registro | igual (`RecognisedGesture::fromInterface` / `handPosition`) |
+| `Fireball::FlyBySound` | 0x683184: a < 40 de la cámara ahora y > 40 antes (estricto, 0x68322B), velocidad² > 400; `PlaySoundEffect(0, 0x40 + GetTickCount() % 5, 2, 0, 0, 0, IN_GAME)` | igual con `TickCount()` (antes un contador propio y `>=` en el paso anterior) |
+| `hand_fx::DoRemoveFromHandVisual` | opciones InGame, 0x77, dueño el PHandFX, 2D (0x68CEE1) | `PlayOptions`, `Owner::Object` fijo |
+| `hand_fx::AddSpellToHandVisuals` | `PlaySoundEffect(0, 0x23, 3, 0, 0, 0, IN_GAME)` 0x68DE7D | igual |
+| `seed::SetPowerUp` (fn_00729C40) | PU 0/1/2 → `PlaySoundEffect(0, 10/11/12, 2, 0, 0, 0, SpellDialogue)` | igual; con la pantalla ancha del guion lo quita el filtro del userParam 1, como el original |
+| `PlayFullyChargedSoundFX` | 0x77F4E0: tabla 0x77F5F8 por tipo de semilla (> 0x1D → 8), `PlaySoundEffect(0, voz, 2, 0, 0, 0, SpellDialogue)` | igual |
+| `PlayTapSound` | fn_00726490: opciones InGame, 0x2A, sin dueño, 2D, tono +0x48 de la tabla {100, 115, 130, 145, 155, 175, 190} con el índice en 0..5 | igual; la máscara +0x1C queda a 0 (el .sad de la 42, FLAGS 0x402, no tiene el bit de tono 0x1, así que el tono de las opciones vale sin máscara; el «callerMask 0x1» del PLAN no hace falta) |
+| `one_off::InterfaceTap` | opciones InGame, 0x6D, dueño el orbe, 3D, track 0, en el +0xC8 del estado del interfaz (0x72A6F4) | igual (**aproximado**: el punto de interacción de la mano izquierda por el +0xC8) |
+| `teleport::MoveByTeleport` | `SoundTag::Create(MapCoords&, 0x27/0x26, track 0, modo 2, 0, 0, 3D, IN_GAME, 0)` 0x5EC358/0x5EC372: salida en las MapCoords del ser, llegada en las del argumento | `tags::CreateAtMapCoords` (antes un emisor suelto con la llegada a altura 0) |
+| `FireGraphic` (vapor) | fn_00731AB0 → fn_007314E0: opciones InGame, 0x35, dueño el FireGraphic, 3D, track 0, en su +0x98 | igual (**inferido**: +0x98 = la posición del objeto que arde; su escritor no se ha leído) |
+| panel de depuración «Audio Player» | — | «Sound» toca la muestra en 2D por `PlaySoundEffect`; «Music» arranca un MUSIC_TYPE como START_MUSIC (`ScriptStartMusic`) y lo para como STOP_MUSIC; la pestaña «Emitters» y sus volúmenes flotantes desaparecen (el maestro de efectos está en «Channels») |
+
+### Cambios audibles (por el original)
+
+- Todo lo de los milagros ocupa uno de los 16 canales, con prioridad, robo y la ley de QMixer; pasa los filtros de GAudio
+  (pantalla ancha del guion, SET_GAME_SOUND, ciudadela, estados de interfaz).
+- El fundido de los PSysSound baja el volumen 0..127 del canal (antes una fracción del emisor).
+- El crepitar del fuego sigue al objeto (track 1); al quitarse el bucle del gesto acaba su pasada en vez de cortarse.
+- El gesto reconocido de otro interfaz, el vapor y el teletransporte suenan en 3D en su punto.
+- La bola de fuego que pasa elige su muestra con `GetTickCount() % 5`.
+
+### En juego
+
+Land 1 (logs en `dev\_audit\audio\`): `b5_bolt_fire.log` / `b5_bolt_end.log` (`OPENBLACK_TEST_SPELL=LIGHTNING_BOLT…`,
+`OPENBLACK_TEST_FIRE`: S_HandLightning_Final en un canal con `owner object 1`; G_Fire_01 en su canal cada turno sin
+reiniciarse, modo 2), `b5_fireball.log` (bola de fuego: S_Fireball_S_01 y S_FireballHitSolid_L_01; al morir el átomo,
+«stop … atom gone» y «deleted»; tres fuegos que se turnan las dos ranuras), `b5_gesture.log` (semilla FIRE armada:
+G_HandGesture_02 3D en el canal de la etiqueta mientras se pulsa; al soltar se acaba), `b5_seed.log` (G_SpellPowerUpBand
+2D; la voz PU 10 la filtra la pantalla ancha de la intro, como el original), `b5_tap.log` (icono de FIRE tocado:
+G_ClickOnSpell_01 con tono 100 y la voz HELP_TEXT_ANNOUNCER_VOICE_FIREBALL_01 al cargarse).
+
+### Auditoría de suposiciones de B5 (TEAM_GUIDELINES §1.7)
+
+Repasado el commit 69715e9f contra el desensamblado: 0x726490 (la tabla de tonos {0x64, 0x73, 0x82, 0x91, 0x9B, 0xAF,
+0xBE} y el recorte 0..5 de 0x7264B7..0x726513, el tono en +0x48 tras el `push`), 0x6882F0 y 0x6885BB..0x68865B (2D con
+modo 3 / opciones 3D con dueño los datos del átomo y track 0), 0x68CE90..0x68CEE1 y 0x68DE69..0x68DE7D, 0x72A660..0x72A6F4
+(dueño el orbe, 3D, track 0, el punto +0xC8, y el `ToBeDeleted` justo después), 0x5EC340..0x5EC372 (los nueve argumentos
+de `SoundTag::Create`), 0x72EDC0/0x72EDE0 (el bit 0x20 antes del disparo, track 1) y 0x72EC79..0x72ECE4 (solo la primera
+ranura, y el máximo recalculado), 0x5D274D..0x5D275E y 0x5D27C3..0x5D27C8, 0x6D1000 y 0x6D11A0..0x6D137A (la clave
+{+0x24, +0x28, 1, +0x20, +0x1C} en los dos sitios, la acción `1 + SoftRelease`, el fundido `max(+0x38 − FadeStep, 0)`,
+el `< 1200²` estricto), 0x674740..0x6747B4 (el retardo distancia/347), 0x683184..0x68327F, 0x7314E0/0x731B0F,
+0x77F4E0..0x77F5EE (`> 0x1D` → 8) y, en el DLL, 0x10014010 (el primer canal del banco y dueño, +0x8C == 1, nada con
++0x14 a 0). Todos coinciden. Los `.sad` confirman lo que el commit afirma: la 42 tiene FLAGS 0x402 (sin el bit de tono
+0x1, así que la máscara +0x1C a 0 es lo correcto) y las voces 10/11/12 de SpellDialogue tienen userParam 1 (las quita la
+pantalla ancha, como dice el commit). No hay dependencias de componentes ECS en `src/Audio` nuevas, ningún
+`CreateEmitter`/`PlayEmitter`/`AudioEmitter` fuera, y cada `RegisterObject` se deshace: PSysSound en `ProcessTurn`/`Clear`
+(el `shared_ptr` sigue vivo en `g_Sounds` hasta el `UnregisterObject`), FireEffect en `sound::Free` (que `ToBeDeleted`
+llama siempre, antes de que `g_Pool` lo libere) y en `sound::Clear` (antes de `g_Pool.clear()`); el mapa nuevo pasa
+`psys::manager::Clear` y `magic::OnLoadMap` → `ecs::fire::Clear` antes de `audio::ClearMap`.
+
+Arreglado en la auditoría:
+
+- B5 no dejó ningún test. `test_sample_play` tiene tres nuevos (15 en total): `OwnerChannelAndTheFadeOfAPSysSound`
+  (el primer canal del banco y dueño, otro banco o dueño → ninguno, el fundido 127 → 97 → 0 con su ganancia, y al
+  acabar la onda ya no hay canal: el PSysSound se borra), `OwnerChannelNeedsActive` (0x10014018) y
+  `TapSoundKeepsTheOptionsPitch`, que con la 42 real comprueba el **tono 175 de la colocación 5** de la verificación del
+  PLAN (lo que no se pudo ver en juego) y que con el bit 0x1 del `.sad` ganaría el tono del banco.
+- `PSysSoundPosition` pide `atom->drawn`, que 0x6D1000 no mira: el comentario lo marca ahora como de openblack (el +0xF4
+  solo se escribe al dibujar el átomo).
+- `Audio.h`: un `Owner::Object` que solo toca canales sin track no necesita `RegisterObject` (PHandFX, vapor, gesto).
+- `ECS/Trees.cpp` (sin dueño): el crecer del árbol regado sorteaba la muestra con `Locator::rng` aunque su comentario
+  citaba `GetTickCount() % 9`; ahora usa `audio::TickCount()` como 0x74C4B3..0x74C4C0.
+
+En juego (Land 1, `audit_fire.log`): con `OPENBLACK_TEST_FIRE` y la cámara al lado, G_Fire_01 se queda en **un** canal
+(índice 2) 72 turnos seguidos sin reiniciarse (modo 2) con `owner object 1`; el único cambio de asa fue al principio, con
+la cámara de la intro rozando el máximo de 80 de la muestra. Eso cierra el «el fuego ocupa un canal» del PLAN.
+
+### (Aproximado), (inferido) y pendiente de B5
+
+- (Aproximado) el bucle del gesto usa la entidad de la mano izquierda en vez de `GInterface`; el orbe de un uso suena en
+  el punto de interacción de la mano en vez de `GInterfaceStatus` +0xC8.
+- (Inferido) `FireGraphic` +0x98 = posición del objeto.
+- (Aproximado, de Milagros, sin cambiar) `FireSound::Consider` no para el sonido de la ranura cuando es el mismo fuego
+  (fn_0072EDC0 en 0x72F82C); el alineamiento del dueño en la clave de PSysSound (0x674678) no se rellena.
+- Pendiente: `FallingSpell` (LHSampleStop/LHMusicStop directos 0x526FD6..0x5271B0), el poder tribal de
+  `DoPostCastThings` 0x72930A (27 + tribu, banco 9; nunca en el juego normal), `PSysSound::Save`/`Load` (C6).
+
 ## Fases B y C
 
-**B0..B4 y B6 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B7 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
 | B0 | **hecho** ([abajo](#fase-b-b0-y-b1-implementados)) |
-| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer`, `AudioManager::PlayMusic` no se ha retirado y el maestro no se guarda en disco |
-| B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); `SpellSounds` copia las tablas del núcleo hasta B5 |
+| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer` y el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5) |
+| B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); desde B5 `SpellSounds` también va por `SamplePlayAnimEffect` |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
-| B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); faltan el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene) y el vapor (`FireGraphic` 0x731542, Milagros/B5) |
-| B5 | Milagros: SpellSounds, FireSound, gesto 3D, PlayTapSound, SpellDialogue por canal; PSys `AddSoundToAtom` 0x69DCA0… (F3) |
+| B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); falta el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene); el vapor (`FireGraphic` 0x731542) entró con B5 |
+| B5 | **hecho** y **auditado** ([arriba](#fase-b-b5-implementado-los-milagros-en-canal), [auditoría](#auditoría-de-suposiciones-de-b5-team_guidelines-17)); los modificadores de PSys de F3 (`AddSoundToAtom` 0x69DCA0, `RemoveSoundFromAtom` 0x69DDD0, `StartStopSoundOnCondition` 0x69DC40) ya los tenía Milagros (`PSys/Rules/Sound.cpp`) |
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
-| B7 | Voces en canal: RunTextVoice, SAY, STOP, TEXT_READ con voz (+450/+200 ms), corte por clic, `Advisor` y CalcKey |
+| B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, orden aceptada 1, llamar a la puerta 110+c%9, influencia 52/129 (los gritos 180/187/194+rand7 ya están, B4) |
 | B9 | GGuidance, BeliefSFX, latido |
 | B10 | GSpookyVoices (antes hay que volcar el Soundex 0x72E4E0..0x72E870) |
@@ -1102,8 +1297,8 @@ agua y la recogida (tags), los choques del árbol lanzado ({1/2, 0, 20, 9/12/16,
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
 
-Mientras tanto, se prohíbe añadir llamadores nuevos a `AudioManager::PlaySound`/`CreateEmitter` (solo los usan los
-archivos de Milagros hasta B5).
+Desde B5 `AudioManager` ya no tiene `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`: todo sonido nuevo va
+por `audio::` (`Audio.h`) con lo que pasa su llamada original.
 
 ## Qué suena y cuándo
 
@@ -1121,7 +1316,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 
 ## Pendiente
 
-- **Fases B (B5, B7..B10) y C** ([arriba](#fases-b-y-c)).
+- **Fases B (B5, B8..B10) y C** ([arriba](#fases-b-y-c)). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
 - **B4/B6, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `PlayAt` de los árboles sin el árbol de dueño (la firma no cambia) **(aproximado)**; para arboles: el original pasa
     el árbol (0x74C4D4) y elige con `GetTickCount() % 9` (0x74C4B3), `Trees.cpp` usa el azar;
@@ -1168,6 +1363,20 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   1000, queda pendiente). En juego (`_audit\audio\audit_b4b6.log`): PLAY_SOUND_EFFECT(49/50/54, 5, punto, 1) con la cámara
   al lado → Scriptsfx 3D, track 0, dueño `key 0x31/0x32/0x36`, en canal. (Aproximado, sin cambio audible) los tags de
   recoger y arrancar usan el punto de la Transform, el original GetAltitude + la altura de su MapCoords (0x71EB60).
+- **Auditoría B7** (2026-10-01, commit 6a67dd03): comprobadas en el desensamblado 0x5C36D0 (retardo |+0x3514| − 0,95
+  doble 0x915438, (v+1)·250, tope 500), 0x5C3750, 0x5C3780 (+0x7C = ebp, 0x900D48 = otra copia idéntica de 0x915D40,
+  0,9 doble 0x915440), 0x5C5290/0x5C52C0, 0x5BB340, 0x5BB530, 0x5BB610, 0x5BB730/0x5BB760/0x5BB7C0/0x5BB840,
+  0x5BCD00, 0x428850 (bandas, la banda más fuerte, límites dt·rate·0,18 y el doble), 0x428A80, 0x428C60, constantes de
+  four1 (0x8C49F8, 0x8AB260, 0x8C49F0), init 0x5C1EA1..0x5C1F24, 0x5C6025..0x5C60DB, 0x5C62F0, 0x5C6340, 0x70F8E0,
+  0x70F9B0, 0x710280, 0x710C40, 0x710350 (tabla 0x710400), 0x5C6E20, 0x5C6A7E..0x5C6AAD, 0x5C6720 → 0x5C68A0 →
+  0x5C4C20 → 0x5C5250, y en el DLL 0x10012BF0, 0x10012C50, 0x10012DF0, 0x1001439D/0x100143BC, 0x10014C00, 0x10015180:
+  cuadran. Corregido: `advisor::Reset` decía ser «HelpSystem / el cambio de mapa», sin fuente (HelpSystem::Reset
+  0x5C5580 no toca HelpDudeControl): ahora es solo de los tests y ningún código del juego la llama; quitado el argumento
+  por defecto de `PackFile::ReadBlocks`. Precisión al PLAN §4 B7 («el clic corta villagers pero no HelpSprites»): el
+  clic corta villagers/0x270F con 0x42A210 y además **para al consejero que habla** (fn_005C3780 → fn_005C3750, sin
+  frase de interrupción en W120); la narración 0x270F de HelpSprites (narrador ≠ 2/3) no se corta. Sin fugas: el
+  consejero solo decodifica PCM (ningún búfer AL), `ReadWave` cierra su flujo; las voces no tienen entidad dueña y
+  `ClearMap` → LHSampleStopAll las corta; el hilo de música no toca `sample_play`.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
 - **A9 en juego**: falta quién da el alineamiento en la cámara (GAudio+0x190, fn_005E2240 desde fn_0064AC30) y la tribu
   de los pueblos (Town +0x5B8). Hoy suena la genérica neutral.
@@ -1179,7 +1388,6 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - el grupo 0 (`pos[-1]`).
 - **Bucles**: N o N+1 pasadas (pregunta 2 de PLAN §6); hoy N+1 **(inferido)**.
 - **B1, lo que queda (aproximado/inferido)**:
-  - la rampa de 20 ms de `LHSampleStop` (para en seco);
   - un búfer por registro de muestra y no por onda; sin presupuesto RAM/8;
   - las opciones de trabajo de GAudio (+0x240) con los valores del ctor en cada variante (nadie más las escribe:
     **inferido**);
@@ -1204,12 +1412,11 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - los valores 8/5 de info.dat;
   - GUIDE y MONK;
   - `GRand::LocalRand(14)`: 0..13 o 0..14 (0x6DE570);
-  - qué hace fn_005C6720 (HelpDudeControl fn_005C3780, se lee HelpDude::IsTalking 0x5BB760);
   - la cámara de guion (CameraModeScript 0x461180, CameraModeNew3, FOV de salida) y los consejeros de
     `SpiritHome`;
   - la tecla [0xE85410];
   - el dibujo del texto (HelpText fn_005CCED0).
-- **Sin volcar**: la FFT del lip-sync (0x428C60, 0x428D50), los disparadores de Guidance (PLAN §8.3 F4), el Soundex,
+- **Sin volcar**: los disparadores de Guidance (PLAN §8.3 F4), el Soundex,
   `GSoundMap::Reset` 0x71D6D0 y los modificadores de sonido de PSys (F3).
 - **Lista de (aproximado) e (inferido) del código de la fase A**, todos con su comentario en el código:
   - `MusicThing` (tabla de objetos del guion) y `CHAR2WCHAR`;
@@ -1259,7 +1466,9 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_TEST_SAMPLE_VOLUME=<0..127>` | El maestro de efectos al arrancar |
 | Pestaña «Channels» del panel de audio | Maestro de efectos (deslizador), LHWaveIsActive, búferes vivos/creados y los 16 canales (muestra, banco, dueño, prioridad, volumen, tono, 3D/track/ambiente, sonando) |
 | `OPENBLACK_TEXT_TRACE=1` | Cada texto de RUN_TEXT/TEMP_TEXT en el log (`|` por cada salto de línea) |
-| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags`, `test_script_sound` |
+| `OPENBLACK_AUDIO_TRACE=1` (voces) | `Advisor: dude n says HelpSprites m (s)` al arrancar cada frase de consejero; `Wave of … read from <banco>` cuando se lee una onda de un banco de diálogo |
+| `OPENBLACK_TEST_TEXT_CLICK=1` | Cada turno, si un texto espera el clic, hace el clic izquierdo (`HelpSystem::ProcessInterface(true)`); ver map-loading.md |
+| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags`, `test_script_sound`, `test_voices` |
 | Ventana de depuración «Music» | Maestro, 6 canales, reproductor de MUSIC_TYPE, estado de GameMusic y de GScript, lista de objetos con música |
 
 Ejemplo: `OPENBLACK_TEST_MUSIC="3,1@20" OPENBLACK_MUSIC_TRACE=1` arranca good.sad y a los 20 s cambia a evil.sad
@@ -1292,6 +1501,11 @@ sincronizado (mismo trozo).
   `src/CHLApi.cpp`, los sitios de la tabla de B4; test `test/test_script_sound.cpp`; desensamblado de 0x5D2800,
   0x74B730, 0x74BC60, 0x63AA13, 0x5D1FC4, 0x6E7480, 0x74C460, 0x458967, 0x45E0C3, 0x645B6D, 0x646860, 0x406240 /
   0x406511 / 0x406640, 0x66D1A0, 0x70F7F0, 0x70FA50, 0x710100..0x710280, 0x426D30, 0x42A280, 0x402610, 0x402320.
+- B7: `src/Audio/{Voices, Advisor, SamplePlay (PlayPosition, PercentageDone, la rampa), SampleOutput.h,
+  AlSampleOutput (StopRamped, PlayPositionMs), WaveBuffers (ReadWave), Sound.h (waveFile), AudioSystem
+  (BankSampleCount)}`, `src/Help/HelpSystem` (SpiritWhoTalks, ConvertScriptSpiritToHelpSpirit, el orden del clic),
+  `components/pack` (`ReadAudioHeaders`), `src/CHLApi.cpp` (340, 458, 246), `src/Game.cpp` (bancos perezosos,
+  consultas y ganchos); test `test/test_voices.cpp`.
 - Código: `src/Audio/{BankTables.h, GameQueries.h, MusicBank, MusicEngine, MusicStream, GameMusic, ThingMusic,
   ScriptAudioState, Voices}`, `src/Help/HelpSystem`, `src/Common/HelpText`, `src/Debug/Music`, `components/pack`
   (`AudioBankInfo`), `src/CHLApi.cpp`, `src/Game.cpp`; tests `test/test_{audio_tables, music_bank, music_engine,

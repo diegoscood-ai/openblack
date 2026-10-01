@@ -21,15 +21,18 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/FrameAnim.h"
-#include "Audio/AudioManagerInterface.h"
+#include "3D/L3DMesh.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/HandFxPart.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/ObjectColour.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "Enums.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -38,6 +41,7 @@
 #include "Magic/MagicTables.h"
 #include "PSys/PSysManager.h"
 #include "PSys/ParticleTypes.h"
+#include "PSys/Rules/SurfRevol.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -123,6 +127,11 @@ bool LoadBandMesh()
 		auto& fileSystem = Locator::filesystem::value();
 		meshes.Load(k_BandMesh, resources::L3DLoader::FromDiskTag {},
 		            fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / "Spells" / "Meshes" / "Power_Up_Band.L3d"));
+		// CreatePUBand 0x727097..0x7270B8 (and PHandFX fn_0068CC70 0x68CC7D..0x68CC99, the same mesh): GJUtils::GetSharedMesh
+		// with MaterialProperties {additive 1, Z 0, two-sided 1, change 1, alpha 1}, so SetMaterialProperties 0x57E120
+		// turns the band into mode 13 (SRCALPHA / ONE, no Z write, fn_0082ECD0)
+		meshes.Handle(k_BandMesh)->SetMaterialProperties(
+		    {.additive = true, .zWrite = false, .doubleSided = true, .change = true, .alpha = true});
 	}
 	catch (const std::exception& e)
 	{
@@ -132,13 +141,11 @@ bool LoadBandMesh()
 	return true;
 }
 
-void PlayInGame(audio::SoundId id)
+/// The PHandFX's own number as a channel owner (DoRemoveFromHandVisual passes `this`, 0x68CED5): one hand FX
+audio::Owner HandFxOwner()
 {
-	const auto sound = static_cast<entt::id_type>(id);
-	if (Locator::audio::has_value() && Locator::resources::value().GetSounds().Contains(sound))
-	{
-		Locator::audio::value().PlaySound(sound, audio::PlayType::Once);
-	}
+	static const uint32_t s_Id = audio::NewObjectId();
+	return audio::Owner::Object(s_Id);
 }
 
 /// fn_0068CA30: the band's LH3DObject (here an entity, invisible until it starts)
@@ -159,6 +166,14 @@ Band MakeBand(int index, float start, bool permanent, float duration, uint8_t al
 		registry.Assign<Transform>(band.entity, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
 		registry.Assign<Mesh>(band.entity, k_BandMesh.value(), static_cast<int8_t>(0), static_cast<int8_t>(0));
 		registry.Assign<Alpha>(band.entity, 0.0f);
+		// Band::Draw 0x68D849..0x68D8AB, every draw: +0x4C = GetPlayerColour 0x64D800 of the local player (g_game
+		// +0x205A59; openblack: PLAYER_ONE, inferido) with the band's alpha byte (components::Alpha, DrawBand), and
+		// 0x68D8B1 +0x50 (the specular) = the per-channel lerp of the ctor's colours +0x34 / +0x38 (fn_0068CA30 args 8,
+		// 9), 0 for every caller (fn_0068CCC0, fn_0068CD30, fn_0068CDA0, DoRemoveFromHandVisual 0x68CF05 / 0x68CF07)
+		const uint32_t rgb = psys::surf_revol::PlayerColour(static_cast<int>(PlayerNames::PLAYER_ONE));
+		registry.Assign<ObjectColour>(
+		    band.entity,
+		    ObjectColour {{static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8), static_cast<uint8_t>(rgb)}});
 		registry.Assign<HandFxPart>(band.entity);
 		registry.SetDirty();
 	}
@@ -330,8 +345,16 @@ void hand_fx::RemoveAllPermBands()
 
 void hand_fx::DoRemoveFromHandVisual()
 {
-	// LH_SAMPLE_G_SHAKEHAND_01 (0x77), then one temporary band going back: alpha 5 -> 50 reversed, 1 s
-	PlayInGame(audio::SoundId::G_ShakeHand_01);
+	// LH_SAMPLE_G_SHAKEHAND_01 (0x77): LH_SamplePlayOptions with bank +0x04 GGlobal+0x3AC (InGame), owner +0x20 this,
+	// sample +0x24 0x77, is3D +0x08 0, then GAudio::PlaySoundEffect 0x429E30 (0x68CEB2..0x68CEE1); then one temporary
+	// band going back: alpha 5 -> 50 reversed, 1 s
+	{
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 0x77};
+		options.owner = HandFxOwner();
+		options.is3D = false;
+		audio::PlaySoundEffect(options);
+	}
 	auto band = MakeBand(static_cast<int>(g_State.temporary.size()), 0.0f, false, k_ChargeDurationTo, 5, 50, true);
 	g_State.temporary.insert(g_State.temporary.begin(), band);
 }
@@ -343,7 +366,9 @@ void hand_fx::AddSpellToHandVisuals(bool delayed)
 	{
 		AddTemporaryBand(static_cast<float>(i) * 0.1f + base);
 	}
-	PlayInGame(audio::SoundId::G_SpellPowerUpBand); // 0x23, IN_GAME
+	// 0x68DE69..0x68DE7D: GAudio::PlaySoundEffect 0x429D60(NULL, 0x23 G_SpellPowerUpBand, mode 3, loops 0, +0x10 0,
+	// is3D 0, IN_GAME)
+	audio::PlaySoundEffect(audio::Owner::None(), 0x23, 3, 0, false, false, audio::SfxBank::InGame);
 }
 
 void hand_fx::SetPULevel(int level, bool delayed)

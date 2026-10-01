@@ -573,6 +573,11 @@ uint32_t villager_fire::ReactToFire(LivingAction& action)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto villager = registry.ToEntity(action);
 	auto& state = StateOf(villager);
+	// 0x765870..0x7658B2: dynamic_cast<Object*>(+0xBC) null -> return 0; its fire (+0x44) null -> return 0, both with
+	// no state change. The object going is the validate slot's (+0x80 of 215: villager_reactions::ReactionValidate
+	// 0x756A00, run by ProcessState 0x74FF91 before the state). (inferido) — replaced by ReactionValidate 0x756A00 once
+	// the table calls it: until the villager core calls that slot, both cases pop the state here, so that no villager
+	// stays in 215 for good (the no-fire case would stay in the original until what ends the reaction; not traced)
 	if (!registry.Valid(state.object))
 	{
 		PopFromPrevious(villager);
@@ -907,6 +912,12 @@ bool villager_fire::IsReacting(entt::entity villager)
 {
 	const auto it = g_States.find(villager);
 	return it != g_States.end() && it->second.reaction != 0;
+}
+
+entt::entity villager_fire::ReactionObject(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	return it != g_States.end() ? it->second.object : entt::entity(entt::null);
 }
 
 void villager_fire::StopReacting(entt::entity villager)

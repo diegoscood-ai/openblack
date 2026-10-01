@@ -870,6 +870,23 @@ más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por 
   (fn_0072F980). `SetupOnFire` 0x75B170 guarda el estado y el destino anteriores y pasa a `ON_FIRE` con el fuego que lo
   calienta. **R10** (la decisión de 0x765870) queda leída en `ReactToFire`: el aldeano busca el fuego del grupo más
   cercano a él que esté por encima de la temperatura de reacción (`fn_00730070`).
+  - Sitio del bombero (`GetFireFightingPos` 0x75AA90): en la recta del fuego al aldeano, a `max(radio seguro, radio
+    del objeto)` (0x75AAF2..0x75AB16; antes el port tomaba el mínimo, y el aldeano iba y venía 216 ⇄ 220 cada turno) +
+    el radio del aldeano (0x75AB23) + `GameFloatRand(1)`. La llegada de `MOVE_AROUND_FIRE` y de `GO_TOWARDS_TELEPORT`
+    es `MobileWallHug::AreWeThere` 0x60AD60: `d² < (paso +0x5A + extra)²` estricto, el paso de `RebuildMoveByStep`
+    0x609D10 = `WallHug::speed` (antes, 1 m). Comprobado: Land1, `OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`,
+    `OPENBLACK_VILLAGER_TRACE=1` (`dev\_audit\magic\fix_firemen.log`): 13 cambios 216 → 220 y 25 220 → 216 en toda la
+    vida del fuego (antes 3213 en 650 turnos), cada aldeano decenas de turnos en cada estado.
+  - `Villager::ReactionValidate` 0x756A00 (`villager_reactions::ReactionValidate`): la columna «validate» (+0x80) de la
+    tabla de estados 0xD09198 en las filas de reacción (201, 202, 251, 215-218, 220, 6-30, 140-146), que
+    `Villager::ProcessState` 0x74FF91/0x74FFD9 corre cada turno para el estado de arriba (+0x8C) y el guardado (+0x8D)
+    antes del estado: `PopFromPrevious` 0x751E50 si el objeto de la reacción (+0xBC) no existe o no está disponible
+    (`GameThing::IsAvailable` 0x401810, vt 0x2C), o si la fila de `ReactionInfo` (0xD4F6B0, `Reaction::GetInfo`
+    0x6E4709) pide `whetherReactionFinishesIfInitiatorInHand` (+0x28) y el objeto está en la mano (+0x24 & 4).
+    `ReactToFire` 0x765870 y `GoToTeleportReaction` 0x7662F0 no comprueban nada más (el primero solo devuelve 0 si el
+    objeto no es un `Object` o no tiene fuego). **Pendiente**: el núcleo de aldeanos (mapas) la conecta en esas filas;
+    hasta entonces las salidas de `ReactToFire` y la de «piedra desaparecida» de `GoToTeleportReaction` siguen en su
+    sitio, marcadas (inferido).
 
 ### Natives CHL (`Magic/Script/CHLFire.cpp`)
 

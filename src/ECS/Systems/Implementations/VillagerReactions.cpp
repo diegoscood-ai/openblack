@@ -15,9 +15,11 @@
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerStateInfo.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 #include "VillagerFire.h"
 #include "VillagerTeleport.h"
@@ -120,6 +122,42 @@ void villager_reactions::StopReactingAndSetState(entt::entity villager)
 	{
 		StopReacting(villager);
 	}
+}
+
+bool villager_reactions::ReactionValidate(LivingAction& action)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto villager = registry.ToEntity(action);
+	// +0xBC and the type of +0x94 (+0x24): the reaction it follows, kept by VillagerFire.cpp or VillagerTeleport.cpp
+	auto object = entt::entity(entt::null);
+	auto type = openblack::Reaction::None;
+	if (villager_fire::ReactionObject(villager) != entt::null)
+	{
+		object = villager_fire::ReactionObject(villager);
+		type = openblack::Reaction::ReactToFire;
+	}
+	else if (villager_teleport::ReactionObject(villager) != entt::null)
+	{
+		object = villager_teleport::ReactionObject(villager);
+		type = openblack::Reaction::ReactToTeleport;
+	}
+	// 0x756A03..0x756A15: no object, or IsAvailable (vt 0x2C) != 1 -> PopFromPrevious (0x756A3F)
+	bool pop = object == entt::null || !fire::traits::IsAvailable(object);
+	// 0x756A17..0x756A3B: ReactionInfo[type].whetherReactionFinishesIfInitiatorInHand && object +0x24 & 4 (in the hand)
+	if (!pop)
+	{
+		const auto& info = Locator::infoConstants::value().reaction.at(static_cast<size_t>(type));
+		pop = info.whetherReactionFinishesIfInitiatorInHand != 0 && fire::traits::InHand(object);
+	}
+	if (pop)
+	{
+		if (villager::TraceOn(villager))
+		{
+			villager::Trace(villager, "ReactionValidate: the reaction's object went -> PopFromPrevious");
+		}
+		PopFromPrevious(villager);
+	}
+	return !pop;
 }
 
 bool villager_reactions::IsReacting(entt::entity villager)

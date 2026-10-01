@@ -213,6 +213,12 @@ bool villager_teleport::IsReacting(entt::entity villager)
 	return it != g_States.end() && it->second.reaction != 0;
 }
 
+entt::entity villager_teleport::ReactionObject(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	return it != g_States.end() ? it->second.stone : entt::entity(entt::null);
+}
+
 void villager_teleport::StopReacting(entt::entity villager)
 {
 	const auto it = g_States.find(villager);
@@ -342,8 +348,10 @@ uint32_t villager_teleport::GoToTeleportReaction(LivingAction& action)
 	const auto it = g_States.find(villager);
 	if (it == g_States.end() || !registry.Valid(it->second.stone) || effects::reactions::Find(it->second.reaction) == nullptr)
 	{
-		// (inferido) the stone (and its reaction) went: Living::StopReactingAndSetState 0x5F11C0 (in the original the
-		// validate slot ReactionValidate 0x756A00 pops the state when the object goes; not ported)
+		// (inferido) — replaced by ReactionValidate 0x756A00 once the table calls it. The original 0x7662F0 has no check
+		// here: the validate slot (+0x80) of 201/202/251, villager_reactions::ReactionValidate, pops the state
+		// (PopFromPrevious 0x751E50) once the stone goes, before the state runs (ProcessState 0x74FF91). Until the
+		// villager core calls that slot, the stone gone (or its reaction) ends the reaction here
 		villager_reactions::StopReactingAndSetState(villager);
 		return 0;
 	}

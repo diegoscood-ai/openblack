@@ -18,8 +18,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/Sound.h"
+#include "Audio/Audio.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -89,16 +88,16 @@ bool Rocks::ValidToTap(entt::entity entity)
 std::array<entt::entity, 2> Rocks::Tap(entt::entity entity, glm::vec3 handPosition)
 {
 	const auto halves = SplitInTwo(entity);
-	// LH_SAMPLE_G_ROCKTAP_01 + i, i turning 0..3 (static 0xD559AC), played at the hand
-	static int s_Next = 0;
-	constexpr std::array<audio::SoundId, 4> k_Samples = {audio::SoundId::G_RockTap_01_1, audio::SoundId::G_RockTap_02_1,
-	                                                      audio::SoundId::G_RockTap_03_1, audio::SoundId::G_RockTap_04_1};
-	const auto soundId = static_cast<entt::id_type>(k_Samples.at(s_Next));
-	s_Next = (s_Next + 1) % 4;
-	if (Locator::audio::has_value() && Locator::resources::value().GetSounds().Contains(soundId))
-	{
-		Locator::audio::value().PlaySound(soundId, audio::PlayType::Once);
-	}
+	// 0x6E74B8..0x6E751D, after SplitInTwo: GAudio::PlaySoundEffect 0x429E30 with bank InGame (GAudio+0x3AC), sample 130
+	// G_RockTap_01 + the counter [0xD559AC] (0..3 in turn), owner the rock (+0x20), is3D 1, track 0, at the interface
+	// status' +0xC8 (the hand's point)
+	audio::PlayOptions options;
+	options.sample = {audio::Bank(audio::SfxBank::InGame), 130 + audio::NextCounter(audio::Counter::RockTap)};
+	options.owner = audio::Owner::Thing(entity);
+	options.is3D = true;
+	options.track = false;
+	options.position = handPosition;
+	audio::PlaySoundEffect(options);
 	// TODO: GPlayer::MakeCreatureEmpathiseWithPlayer(CREATURE_DESIRE_TO_PLAY, 0.5, Pos) once creatures have desires
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Rock: tapped at ({:.1f}, {:.1f}, {:.1f})", handPosition.x, handPosition.y,
 	                   handPosition.z);

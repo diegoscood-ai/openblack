@@ -29,6 +29,16 @@ class L3DMesh;
 class Mesh;
 class ShaderProgram;
 
+/// GJUtils::MaterialProperties, 5 bytes (GJUtils::GetSharedMesh 0x57DFB0, GJUtils::SetMaterialProperties 0x57E120)
+struct MaterialProperties
+{
+	bool additive;    ///< +0: the additive mode 13 (SRCALPHA / ONE)
+	bool zWrite;      ///< +1: the Z-writing variant (6 -> 5, 13 -> 12, 8 -> 3, 16 -> 9), else the one without Z
+	bool doubleSided; ///< +2: material byte +5 bit 0 set (D3DCULL_NONE), else cleared (back faces culled)
+	bool change;      ///< +3: PGetSharedMesh 0x57DF18 applies the properties to the mesh it loads (fn_0057E1D0)
+	bool alpha;       ///< +4: 0 makes every type TexturedAlpha (3) before the rules above
+};
+
 class L3DSubMesh
 {
 public:
@@ -56,6 +66,8 @@ public:
 		/// material byte +5 bit 4 clear: the object's texture offset (+0x68 / +0x6C) is added to the UVs.
 		/// LH3DRender::DrawTriangle 0x82F8CC skips the materials with the bit (the rock of waterfall3.l3d).
 		bool uvOffset;
+		/// the L3D material type (l3d::L3DMaterial::Type) the fields above come from (SetMaterialProperties changes it)
+		uint32_t materialType;
 	};
 
 public:
@@ -63,6 +75,9 @@ public:
 	~L3DSubMesh() noexcept;
 
 	bool Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept;
+	/// GJUtils::SetMaterialProperties 0x57E120 on every primitive: a new material type (blending, Z write) and the
+	/// double-sided bit
+	void SetMaterialProperties(const MaterialProperties& properties) noexcept;
 
 	/// A primitive built at run time (L3DMeshGenerated.cpp): the material of an existing primitive and its triangles.
 	struct GeneratedPrimitive

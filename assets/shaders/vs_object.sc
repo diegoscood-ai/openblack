@@ -18,60 +18,8 @@ $output v_position, v_texcoord0, v_normal, v_color0
 #include <bgfx_shader.sh>
 
 #ifdef USE_HEIGHT_MAP
-SAMPLER2D(s_heightmap, 1); // per cell: r = altitude (height units), g = split bit (LandIsland::CreateHeightMap)
-uniform vec4 u_islandExtent;
-
-vec2 HeightCell(vec2 cell, vec2 size)
-{
-	return texture2DLod(s_heightmap, (cell + 0.5f) / size, 0.0f).rg;
-}
-
-// LH3DIsland::GetAltitude (0x803090, LandIsland::HeightAt): the landscape triangle under the point. Each cell is split
-// along the diagonal its split bit chooses and the fourth corner is extrapolated from the other three, so the
-// bilinear blend is planar on that triangle; next to the sea (base corner <= 4) heights of 3 or less count as 0.
-float LandAltitude(vec2 xz)
-{
-	vec2 size = (u_islandExtent.zw - u_islandExtent.xy) * 0.1f + 1.0f;
-	vec2 position = (xz - u_islandExtent.xy) * 0.1f;
-	vec2 cell = floor(position);
-	vec2 f = position - cell;
-	vec2 base = HeightCell(cell, size);
-	float v00 = base.r;
-	float v01 = HeightCell(cell + vec2(0.0f, 1.0f), size).r;
-	float v10 = HeightCell(cell + vec2(1.0f, 0.0f), size).r;
-	float v11 = HeightCell(cell + vec2(1.0f, 1.0f), size).r;
-	if (v00 <= 4.0f)
-	{
-		v00 = v00 > 3.0f ? v00 : 0.0f;
-		v01 = v01 > 3.0f ? v01 : 0.0f;
-		v10 = v10 > 3.0f ? v10 : 0.0f;
-		v11 = v11 > 3.0f ? v11 : 0.0f;
-	}
-	float c00 = v00;
-	float c01 = v01;
-	float c10 = v10;
-	float c11 = v11;
-	if (base.g > 0.5f)
-	{
-		if (f.y > 1.0f - f.x)
-		{
-			c00 = v10 + v01 - v11;
-		}
-		else
-		{
-			c11 = v10 + v01 - v00;
-		}
-	}
-	else if (f.x > f.y)
-	{
-		c01 = v00 + v11 - v10;
-	}
-	else
-	{
-		c10 = v00 + v11 - v01;
-	}
-	return mix(mix(c00, c01, f.y), mix(c10, c11, f.y), f.x) * 0.67f;
-}
+// LandAltitude and LandMelting: the GPU side of src/3D/LandMorph.h
+#include "land_altitude.sh"
 #endif // USE_HEIGHT_MAP
 
 #ifdef USE_INSTANCING
@@ -157,15 +105,15 @@ void main()
 #endif // USE_INSTANCING
 
 #ifdef USE_HEIGHT_MAP
-	// Morphing with the land (LH3DObject::UpdateMelting 0x8168F0): every vertex is raised by the land's height under
-	// it minus the height under the object's origin, so the object's own altitude offset (a pile sinking, a field's
-	// food) is kept
+	// Morphing with the land (LH3DObject::UpdateMelting 0x8168F0, land_altitude.sh): every vertex is raised along the
+	// object's local Y by the land's height under it minus the height under the object's origin
 #ifdef USE_INSTANCING
-	vec2 origin = i_data3.xz;
+	// (the scale: column 0 is the rotation x the uniform scale; the field and tree sway only touch column 1)
+	v_position.xyz = LandMelting(v_position.xyz, i_data3.xz, i_data1.xyz, length(i_data0.xyz));
 #else
-	vec2 origin = u_model[modelIndex][3].xz;
+	v_position.xyz = LandMelting(v_position.xyz, u_model[modelIndex][3].xz, u_model[modelIndex][1].xyz,
+	                             length(u_model[modelIndex][0].xyz));
 #endif // USE_INSTANCING
-	v_position.y += LandAltitude(v_position.xz) - LandAltitude(origin);
 #endif // USE_HEIGHT_MAP
 
 	v_texcoord0 = vec4(a_texcoord0, 0.0f, 0.0f);

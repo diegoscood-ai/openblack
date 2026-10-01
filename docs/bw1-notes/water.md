@@ -497,8 +497,10 @@ El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [
   modo 2 deja el canal que ya suena. En openblack va por `sample_play` (dueño `Owner::Tag`), así cuenta en los 16
   canales de LHaudio; `IsPlaying` = `LHSampleIsPlaying` (fn_0042A2D0) y `ReleaseLoop` = 0x42A310. `SetActive(0)` corta
   en seco (LHSampleStop); `Delete` suelta el bucle (LHSampleReleaseLoop) y la etiqueta muere al terminar la pasada.
-  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Es la generalización de la
-  idea de `LanternSounds` de la rama principal (farolas, muestra 0x93); esa todavía no usa este módulo.
+  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Desde B3 del audio es el
+  SoundTag completo (`audio::tags`, [audio.md](audio.md#b3-soundtag-completo)): `Delete` = ToBeDeleted 0x71ECB0 →
+  CreateSoundTagForDeadObject 0x71ECD0 (suelta el bucle solo si suena con vueltas), y las farolas (`LanternSounds`)
+  son tags de este módulo.
 
 ## El agua en otras páginas
 
@@ -566,8 +568,8 @@ plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
 - «sistemas»: los anillos de agua, los peces de piscifactoría y los sprites del barco ya van por `graphics::billboard`
   y `graphics::frame_anim` (mismas celdas y fórmulas, sin fundido entre fotogramas; U1 y U2). La luna (signo de la
   inclinación y de la fase, V del halo 0xEDC304) está hecha en U1, y la celda de los peces (8 + (ftol(frame) & 15),
-  tomada antes de la vuelta, dt ≤ 0,1 s, `fn_008248E0`) en U2. Falta el morfado al suelo del arca y el dinosaurio
-  (`UpdateMelting` 0x5E3C55 / 0x5E3DBE, U3). Además, leído en U2 y sin tocar: `fn_008248E0` descuenta el tiempo de
+  tomada antes de la vuelta, dt ≤ 0,1 s, `fn_008248E0`) en U2. El morfado al suelo del arca y el dinosaurio
+  (`UpdateMelting` 0x5E3C55 / 0x5E3DBE) está en U3 (`MorphWithTerrain` en `ECS/DesignedScenery`). Además, leído en U2 y sin tocar: `fn_008248E0` descuenta el tiempo de
   huida con el dt sin limitar y calcula el empuje después de restarlo (0x82490D..0x82495A); openblack lo hace con
   el dt limitado y antes de restar.
 - «audio»: los sonidos que aún no van por los 16 canales (AnimationSounds, rocas, el silbido de la cámara,

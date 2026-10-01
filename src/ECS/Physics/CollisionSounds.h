@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <cstdint>
+
+#include <array>
+
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
@@ -25,12 +29,13 @@ public:
 	[[nodiscard]] static int TypeOf(entt::entity entity);
 	/// AttemptToAddSoundEvent for a body at the end of a turn (its impact and what hit it are set).
 	static void AttemptToAddSoundEvent(const PhysicsObject& po);
-	/// One of editor.sad samples first..last at random, 3D at the point: GAudio::SamplePlayAnimEffect 0x42A4B0 with the
-	/// object as the channel's owner (so the .sad play mode applies per object: G_BigSplash's mode 2 plays nothing while
-	/// the same object's splash plays) and `track` (options +0x0C: the sound follows the object every turn).
-	static void PlayEditorSample(int first, int last, glm::vec3 at, entt::entity owner = entt::null, bool track = false);
-	/// One sample of a bank, 2D.
-	static void PlaySample2D(const char* bank, int sample);
+	/// GAudio::SamplePlayAnimEffect(owner, distance, key, 0, editor.sad (GAudio+0x3B0), track, 0, 0) 0x42A4B0 as the
+	/// physics calls it (AttemptToAddSoundEvent 0x646919, Abode::ReactToPhysicsImpact 0x406610,
+	/// Abode::ApplyEffectsDueToPhysicalDestruction 0x40671D): the distance is the camera's (LH3DTech::g_camera) to `at`,
+	/// the row of editor.sad's table that fits the 5 columns picks the sample (LHSampleGetAnimEffectNumber), and the
+	/// channel belongs to the object (so the .sad play mode applies per object: G_BigSplash's mode 2 plays nothing while
+	/// the same object's splash plays) at its point, following it every turn with `track` (+0x0C).
+	static void PlayAnimEffect(const std::array<int32_t, 5>& key, entt::entity owner, glm::vec3 at, bool track);
 	/// The pair list ages one turn (pairs stay listed for the turn they were added and the next).
 	static void EndTurn();
 	CollisionSounds() = delete;

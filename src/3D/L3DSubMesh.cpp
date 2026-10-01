@@ -48,6 +48,38 @@ struct EnhancedL3DVertex
 
 namespace
 {
+struct MaterialTypeLutEntry
+{
+	bool depthWrite;
+	bool alphaTest;
+	L3DSubMesh::Primitive::BlendMode blend;
+	bool modulateAlpha;  ///< Multiply ouput alpha by a uniform
+	bool thresholdAlpha; ///< Dismiss fragments below a certain threshold
+};
+// L3D material type -> the D3D states of its mode (table 0xC38728, docs/bw1-notes/original-frame.md)
+const std::array<MaterialTypeLutEntry, static_cast<uint32_t>(l3d::L3DMaterial::Type::_Count)> k_MaterialTypeLut = {
+    {
+        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Smooth
+        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // SmoothAlpha
+        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Textured
+        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // TexturedAlpha
+        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // AlphaTextured
+        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // AlphaTexturedAlpha
+        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // AlphaTexturedAlphaNz
+        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false}, // SmoothAlphaNz
+        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // TexturedAlphaNz
+        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // TexturedChroma
+        {true, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},     // AlphaTexturedAlphaAdditiveChroma
+        {false, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},    // AlphaTexturedAlphaAdditiveChromaNz
+        {true, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},   // AlphaTexturedAlphaAdditive
+        {false, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},  // AlphaTexturedAlphaAdditiveNz
+        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0xe
+        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},     // TexturedChromaAlpha
+        {false, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},    // TexturedChromaAlphaNz
+        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0x11
+        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // ChromaJustZ
+    }};
+
 // Mod graphics.hd-tweaks: a boned mesh whose textures are all villager textures (EngineConfig::hdTweaksSkins)
 bool AllPersonSkins(const auto& primitiveSpan)
 {
@@ -244,40 +276,9 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 			indices[startIndex + j] = indexSpan[startIndex + j] + startVertex;
 		}
 
-		struct MaterialTypeLutEntry
-		{
-			bool depthWrite;
-			bool alphaTest;
-			L3DSubMesh::Primitive::BlendMode blend;
-			bool modulateAlpha;  ///< Multiply ouput alpha by a uniform
-			bool thresholdAlpha; ///< Dismiss fragments below a certain threshold
-		};
-		static const std::array<MaterialTypeLutEntry, static_cast<uint32_t>(l3d::L3DMaterial::Type::_Count)> materialTypeLut = {
-		    {
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Smooth
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // SmoothAlpha
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Textured
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // TexturedAlpha
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // AlphaTextured
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // AlphaTexturedAlpha
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // AlphaTexturedAlphaNz
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false}, // SmoothAlphaNz
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // TexturedAlphaNz
-		        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // TexturedChroma
-		        {true, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},     // AlphaTexturedAlphaAdditiveChroma
-		        {false, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},    // AlphaTexturedAlphaAdditiveChromaNz
-		        {true, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},   // AlphaTexturedAlphaAdditive
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},  // AlphaTexturedAlphaAdditiveNz
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0xe
-		        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},     // TexturedChromaAlpha
-		        {false, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},    // TexturedChromaAlphaNz
-		        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0x11
-		        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // ChromaJustZ
-		    }};
-
 		assert(static_cast<uint32_t>(primitive.material.type) != 0xe);
 		assert(static_cast<uint32_t>(primitive.material.type) != 0x11);
-		const auto& lutEntry = materialTypeLut.at(static_cast<uint32_t>(primitive.material.type));
+		const auto& lutEntry = k_MaterialTypeLut.at(static_cast<uint32_t>(primitive.material.type));
 
 		// TODO(bwrsandman): Interpret cull mode, color byte ordering and render mode, then store in primitive
 		_primitives.emplace_back(Primitive {
@@ -296,6 +297,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		    (primitive.material.cullMode & 1) != 0,
 		    (primitive.material.cullMode & 4) != 0,
 		    (primitive.material.cullMode & 0x10) == 0,
+		    static_cast<uint32_t>(primitive.material.type),
 		});
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);
@@ -349,6 +351,52 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "{} submesh {} with {} verts and {} indices", _l3dMesh.GetDebugName(), meshIndex,
 	                    nVertices, nIndices);
 	return true;
+}
+
+void L3DSubMesh::SetMaterialProperties(const MaterialProperties& properties) noexcept
+{
+	using Type = l3d::L3DMaterial::Type;
+	for (auto& primitive : _primitives)
+	{
+		// GJUtils::SetMaterialProperties 0x57E120, in this order
+		auto type = static_cast<Type>(primitive.materialType);
+		if (type == Type::AlphaTextured)
+		{
+			type = Type::AlphaTexturedAlphaNz; // 0x57E126
+		}
+		if (!properties.alpha)
+		{
+			type = Type::TexturedAlpha; // 0x57E138
+		}
+		if (properties.additive)
+		{
+			type = Type::AlphaTexturedAlphaAdditiveNz; // 0x57E142
+		}
+		if (properties.zWrite) // 0x57E14C
+		{
+			type = type == Type::AlphaTexturedAlphaNz          ? Type::AlphaTexturedAlpha
+			       : type == Type::AlphaTexturedAlphaAdditiveNz ? Type::AlphaTexturedAlphaAdditive
+			       : type == Type::TexturedAlphaNz              ? Type::TexturedAlpha
+			       : type == Type::TexturedChromaAlphaNz        ? Type::TexturedChroma
+			                                                    : type;
+		}
+		else // 0x57E182
+		{
+			type = type == Type::AlphaTexturedAlpha                                 ? Type::AlphaTexturedAlphaNz
+			       : type == Type::AlphaTexturedAlphaAdditive                       ? Type::AlphaTexturedAlphaAdditiveNz
+			       : type == Type::TexturedAlpha || type == Type::Textured          ? Type::TexturedAlphaNz
+			       : type == Type::TexturedChroma                                   ? Type::TexturedChromaAlphaNz
+			                                                                        : type;
+		}
+		const auto& entry = k_MaterialTypeLut.at(static_cast<uint32_t>(type));
+		primitive.materialType = static_cast<uint32_t>(type);
+		primitive.depthWrite = entry.depthWrite;
+		primitive.alphaTest = entry.alphaTest;
+		primitive.blend = entry.blend;
+		primitive.modulateAlpha = entry.modulateAlpha;
+		primitive.thresholdAlpha = entry.thresholdAlpha;
+		primitive.twoSided = properties.doubleSided; // 0x57E1B7: byte +5 bit 0
+	}
 }
 
 Mesh& L3DSubMesh::GetMesh() const

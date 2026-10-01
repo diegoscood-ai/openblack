@@ -20,16 +20,20 @@
 //   HandPhysics.cpp     trees, pots and stores in the physics system (ECS/Physics)
 //   HandDebugHooks.cpp  environment-variable test hooks
 
+#include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
+#include "Audio/Sound.h"
 
 namespace openblack::ecs::systems::hand_detail
 {
-/// Plays a one-shot sample if it is loaded.
+/// GAudio::PlaySoundEffect(NULL, sample, 3, 0, 0, 0, bank) 0x429D60, a 2D one-shot without owner: the hand's failure
+/// (FailApply fn_005D18F0 0x5D1941: G_SpellCastFailure). The sample is a "<bank>.sad/<n>" SoundId.
 void PlaySample(audio::SoundId id);
-/// GAudio::PlaySoundEffect with is3D: a one-shot sample at a world point, not started beyond its max distance from the
-/// camera. Returns the emitter (entt::null when culled or not loaded).
+/// GAudio::PlaySoundEffect(LH_SamplePlayOptions*) 0x429E30 with is3D 1, track 0, no owner, at a world point (the
+/// options form of the hand's 3D sites, e.g. G_HandInWater fn_005D1AB0 0x5D2167): not started beyond the sample's max
+/// distance from the camera. Returns the channel as an entity (entt::null when it did not start).
 entt::entity PlaySample3D(audio::SoundId id, glm::vec3 point);
 /// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit.
 bool IsLand(glm::vec3 point);

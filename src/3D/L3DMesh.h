@@ -100,6 +100,16 @@ public:
 	/// One sub-mesh from run-time triangles (L3DMeshGenerated.cpp)
 	bool LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& primitives) noexcept;
 
+	/// fn_0057E1D0 (PGetSharedMesh 0x57DF24 when MaterialProperties +3 is 1): GJUtils::SetMaterialProperties 0x57E120 on
+	/// every primitive of every sub-mesh
+	void SetMaterialProperties(const MaterialProperties& properties) noexcept
+	{
+		for (auto& subMesh : _subMeshes)
+		{
+			subMesh->SetMaterialProperties(properties);
+		}
+	}
+
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }
 	[[nodiscard]] const std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>>& GetSkins() const { return _skins; }

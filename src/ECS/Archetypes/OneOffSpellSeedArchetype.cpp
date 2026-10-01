@@ -42,8 +42,9 @@ entt::entity OneOffSpellSeedArchetype::Create(const glm::vec3& position, SpellSe
 	// the 4x4 texture animation (UpdateFrame 0x72A570) goes through the object's UV offset
 	registry.Assign<UvScroll>(entity);
 	// Draw 0x518E90 tints the object with 0x96FFFFFF ([0xBE8E8C], fn_0080BF10: diffuse alpha 0xFF * 0x96 >> 8 = 0x95) and
-	// SetGlobalAlpha(1) (LH3DObject vt 0x48, flags1 0x80), which switches to the alternative mode table 0xC387C8: its
-	// AlphaTextured primitive (mode 4) is drawn as mode 5 (SRCALPHA/INVSRCALPHA, alpha = texture x diffuse, Z write)
+	// SetGlobalAlpha(1) (LH3DObject vt 0x48, flags1 0x80), which switches to the alternative mode table 0xC387C8. The
+	// cap's material is already mode 12 (GJUtils::SetMaterialProperties at load, Game.cpp), which that table keeps:
+	// additive SRCALPHA / ONE, alpha = texture x diffuse (0x95), Z write
 	registry.Assign<Alpha>(entity, static_cast<float>((0xFF * 0x96) >> 8) / 255.0f);
 	// CallVirtualFunctionsForCreation 0x72A4C4: unless the object flag 0x100 (+0xA bit 0, never set on a new orb) the
 	// seed inside, SpellSeedGraphic::Create 0x726F60(pos, seed, the local player (g_game +0x205A5B), 1.0, +0x78 pu), in

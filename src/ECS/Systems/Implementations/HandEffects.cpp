@@ -42,8 +42,7 @@
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/SamplePlay.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -371,34 +370,34 @@ void HandSystem::UpdatePickupSound(bool active) noexcept
 	// after the first turn LHSamplePlay leaves the playing channel (and its position) alone and only
 	// LHSampleSetPitch(InGame, 0, sample, ftol(60 + 180 t^2)) changes it (rate * p / 100, from 60 % to 240 %).
 	// StopMultiPickup 0x68FA50: LHSampleStop(InGame, 0, 44) and (.., 98).
-	if (!Locator::audio::has_value())
-	{
-		return;
-	}
-	const auto food = static_cast<entt::id_type>(audio::SoundId::G_PickUpFood);
-	const auto wood = static_cast<entt::id_type>(audio::SoundId::G_PickUpWood);
-	const auto none = audio::sample_play::Owner {};
+	constexpr int k_Food = 44; // G_PickUpFood
+	constexpr int k_Wood = 98; // G_PickUpWood
+	const auto none = audio::Owner::None();
 	if (!active)
 	{
 		if (_pickupSound)
 		{
-			audio::sample_play::Stop(food, none);
-			audio::sample_play::Stop(wood, none);
+			// StopMultiPickup 0x68FA50: GAudio::StopPlayingSoundEffect(44, 0, InGame) 0x68FABA and (98, ..) 0x68FAD4
+			audio::StopSoundEffect(k_Food, none, audio::SfxBank::InGame);
+			audio::StopSoundEffect(k_Wood, none, audio::SfxBank::InGame);
 			_pickupSound.reset();
 		}
 		_pickupSoundFraction = 0.0f;
 		return;
 	}
-	const auto id = PotInfoOf(*_held) == PotInfo::HandWood ? wood : food;
-	audio::sample_play::Options options;
-	options.sound = id;
+	const int sample = PotInfoOf(*_held) == PotInfo::HandWood ? k_Wood : k_Food;
+	audio::PlayOptions options;
+	options.sample = {audio::Bank(audio::SfxBank::InGame), sample};
 	options.is3D = true;
 	options.track = false;
 	options.position = Locator::entitiesRegistry::value().Get<Transform>(_hands[static_cast<size_t>(Side::Left)]).position;
-	const auto emitter = audio::sample_play::PlaySoundEffect(options);
-	if (emitter != entt::null)
+	// 0x68F9E8: GAudio::PlaySoundEffect 0x429E30
+	const auto channel = audio::PlaySoundEffect(options);
+	if (channel != audio::k_NoChannel)
 	{
-		_pickupSound = emitter;
+		_pickupSound = channel;
 	}
-	audio::sample_play::SetPitch(id, none, static_cast<int>(60.0f + 180.0f * _pickupSoundFraction));
+	// 0x68FA25: fn_00428740(InGame, 0, sample, ftol(60 + 180 t)) -> LHSampleSetPitch
+	audio::SetPitch(audio::Bank(audio::SfxBank::InGame), none, sample,
+	                static_cast<int>(60.0f + 180.0f * _pickupSoundFraction));
 }

@@ -215,12 +215,42 @@ Verificado instrucción a instrucción:
   - `UpdateFrame` 0x72A570: `fase = fmod(fase + ms × 18 × 0,001, 16)`, cuadro = int(fase), desplazamiento
     `u = (cuadro % 4)/4`, `v = (cuadro / 4)/4` (vt 0xE8 recibe (u, v)). En openblack el desplazamiento va en
     `UvScroll {u, v}` y el sombreador suma `u` en cuartos.
-  - **La bola es translúcida por el alfa del objeto, no por la textura.** La malla tiene una submalla física
-    (`Smooth`, no se dibuja) y la visible, una primitiva `AlphaTextured` (modo 4, dos caras) cuya piel ARGB4444 es casi
-    opaca (alfa 13-15 de 15 o 0). `Draw` 0x518E90 tiñe el objeto con `0x96FFFFFF` (byte de [0xBE8E8C];
-    fn_0080BF10 multiplica el difuso: alfa 0xFF × 0x96 >> 8 = 0x95) y llama a `SetGlobalAlpha(1)` (LH3DObject vt 0x48,
-    bit 0x80 de las banderas). Con ese bit el objeto usa la tabla de modos alternativa 0xC387C8: el modo 4 pasa a ser
-    el 5 (`SRCALPHA/INVSRCALPHA`, alfa = textura × difuso, escribe Z). Opacidad ≈ 0,58 × la de la textura.
+  - **La bola es aditiva (fiel, corregido el 2026-10-01 con la captura del original).** La malla tiene una submalla
+    física (`Smooth`, no se dibuja) y la visible, el casquete, una primitiva `AlphaTextured` (tipo 4, byte +5 = 5: dos
+    caras y repetición) cuya piel 0xF49809BD ARGB4444 es una bola turquesa oscura (51, 119, 136) con un brillo blanco
+    arriba a la izquierda, casi opaca (alfa 13-15 de 15, o 0 fuera).
+    - Pero el archivo no manda: `CallVirtualFunctionsForCreation` 0x72A450 la carga con
+      `GJUtils::GetSharedMesh` 0x57DFB0 y `MaterialProperties` {1, 1, 0, 1, 1} (bytes en 0x72A474..0x72A485). El byte
+      +3 = 1 hace que `PGetSharedMesh` (0x57DF18) llame a fn_0057E1D0, que pasa `GJUtils::SetMaterialProperties`
+      0x57E120 a todas las primitivas al cargar la malla:
+      - tipo 4 → 6; si +4 = 0 → 3; si +0 (aditivo) = 1 → 13; si +1 (escribe Z) = 1: 6→5, 13→12, 8→3, 16→9; si no:
+        5→6, 12→13, 2 o 3→8, 9→16;
+      - +2 (dos caras) pone o quita el bit 0 del byte +5.
+      - Para la bola: **modo 12** (`fn_0082EB50`: `SRCALPHA / ONE`, color y alfa = textura × difuso, escribe Z) y **una
+        sola cara** (byte +5 = 4).
+    - `Draw` 0x518E90 tiñe el objeto con `0x96FFFFFF` (byte de [0xBE8E8C]; fn_0080BF10 multiplica el difuso: alfa
+      0xFF × 0x96 >> 8 = 0x95) y llama a `SetGlobalAlpha(1)` (LH3DObject vt 0x48, bit 0x80 de las banderas), que pasa a
+      la tabla de modos alternativa 0xC387C8. Esa tabla **deja igual** los modos aditivos 10-13 (leída del ejecutable).
+    - Resultado: la bola **suma** a lo que tiene detrás su textura × luz × (0,58 × alfa de la textura). Sobre la
+      arena de día sale casi blanca y nacarada: la textura turquesa se vuelve celeste y el brillo, blanco saturado.
+      El fondo se ve a través con tonos verdes y rosas.
+    - Antes openblack la mezclaba como modo 5 (`SRCALPHA / INVSRCALPHA`, dos caras). Eso tapaba la mitad del fondo con
+      el turquesa oscuro: una bola verdosa y oscura. La investigación anterior (luz N·L, ambiente 90/256, alfa 0x95)
+      era correcta, pero se le escapó este cambio de material al cargar.
+    - openblack:
+      - `graphics::MaterialProperties` y `L3DSubMesh::SetMaterialProperties` (el cambio de tipo de 0x57E120, con el
+        tipo guardado en `Primitive::materialType`) y `L3DMesh::SetMaterialProperties` (fn_0057E1D0), en
+        `src/3D/L3DSubMesh.*` y `L3DMesh.h`;
+      - `Game.cpp` lo aplica a `O_Bibble_up` al cargarla;
+      - `Renderer::DrawSubMesh`: un objeto con `components::Alpha` (la tabla 0xC387C8) conserva la mezcla aditiva de sus
+        primitivas aditivas, y sin escribir Z las de los modos 11 y 13.
+    - Capturas: `dev\_audit\magic\orbref_a.png` (antes), `orbref_b.png` y `orbref_c.png` (después), y la comparación
+      `dev\_audit\magic\ref\orb_compare.png` con la captura del original del usuario (`ref\dispenser_original.png`).
+    - Diferencias que quedan con esa captura, **pendientes**:
+      - en el original la bola flota más alta sobre el dispensador y se ve más grande;
+      - en openblack el efecto de la semilla de FUEGO se ve como un núcleo amarillo dentro de la bola, y en el
+        original no se ve (en su centro hay una mancha celeste);
+      - la arena del original es más clara, y como la bola es aditiva el fondo cambia mucho su aspecto.
     - Para ordenarla en el Z-sorter, `Draw` adelanta su posición hacia la cámara su radio (vt 0x60) y luego la
       restaura. Así la bola se pinta después de la semilla de dentro. `DrawSpellGraphic` recibe como alfa el byte alto
       del difuso (0x95). openblack: `components::Alpha` = 149/255 en `OneOffSpellSeedArchetype` (pasada `MainBlended`).
@@ -1175,6 +1205,14 @@ Lo que falta está en cada tema, al final de su sección:
 - Lanzar desde la mano: la ayuda, la inmersión, los iconos de gesto del HUD, el brillo de la mano y alimentar una bola de fuego en vuelo ([Lanzar desde la mano, gestos y efectos de la mano](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
+- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\_audit\magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
+- Dispensador roto por una roca lanzada: openblack lo parte en trozos como una casa; el original lo dibuja con `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). Falta leer `Abode::ReactToPhysicsImpact` 0x406240 y qué le pasa a su orbe.
+- Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
+- Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
+- Lluvia en el crecimiento de los árboles (`GrowTree`, fórmula en [trees.md](trees.md)): el clima es de Milagros.
+- Estado 215 cuando el objeto deja de arder: qué saca al aldeano en el original (`ReactToFire` 0x765870).
+- `OPENBLACK_TIME_OF_DAY` no se aplica ya en Land 1 (el guion controla el reloj).
+- Relevo para una sesión nueva de milagros: `Desktop\B&W\Prompts y detalles.md`, sección MILAGROS.
 - Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
 - Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 

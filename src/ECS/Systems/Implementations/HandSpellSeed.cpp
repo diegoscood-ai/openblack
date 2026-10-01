@@ -16,6 +16,9 @@
 #include "HandSystem.h"
 #include "HandSystemDetail.h"
 
+// the seed loop's emitter (CreateEmitter) until milestone B5 of the audio moves it to audio::
+#include "Audio/AudioManagerInterface.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

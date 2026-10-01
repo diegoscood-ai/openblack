@@ -35,6 +35,7 @@
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/AnimationSounds.h"
 #include "Audio/AtmosBanks.h"
 #include "Audio/Audio.h"
 #include "Audio/AudioManagerInterface.h"
@@ -67,6 +68,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
+#include "ECS/GroundMarks.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
@@ -151,6 +153,10 @@ audio::GameQueries MakeMusicQueries(Game& game)
 			return std::nullopt;
 		}
 		return transform->position;
+	};
+	// LH3DIsland::GetAltitude 0x803090 (SoundTag::Create(MapCoords&) 0x71EB71)
+	queries.landAltitude = [](float x, float z) {
+		return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 	};
 	// HelpSystem +0x45E8 && +0x45EC (ProcessAlignmentMusic 0x4279E9..0x427A01)
 	queries.scriptWideScreen = []() {
@@ -504,6 +510,7 @@ bool Game::GameLogicLoop() noexcept
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
 		audio::ProcessTurn(_dayNightClock->GetSkyType(), _turnCount);
+		audio::AnimationSounds::RunTestHooks(_turnCount); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -612,6 +619,9 @@ bool Game::Update() noexcept
 	// DesignedWaterFall 0x5E3770: the scenery of Land 3 (waterfall) and Land 4 (ark, dinosaur), by land number
 	ecs::designed_scenery::Update(_paused ? 0.0f
 	                                      : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	// The marks on the ground (fn_00825350, from fn_005E5CD0 0x5E6197 just before the SmokyStuff): fade and go
+	ecs::ground_marks::Update(_paused ? 0.0f
+	                                   : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 	// PetitNavire::PreDraw 0x5DFF20 / SmokyStuff fn_00824140 / PostDraw 0x5E03F0 (the missionaries' boat, ecs/PetitNavire.h).
 	// fn_00824140 also moves the smoke an object leaves when it goes (ecs/SmokyStuff.h), in game time, boat or not.
 	ecs::petit_navire::Update(_paused ? 0.0f
@@ -961,6 +971,13 @@ bool Game::Initialize() noexcept
 		{
 			meshManager.Load("O_Bibble_up", LFromDiskTag {},
 			                 fileSystem.GetPath<Path::Data>() / "Spells" / "Meshes" / "O_bibble_up.l3d");
+			// GetSharedMesh 0x72A490 with MaterialProperties {1, 1, 0, 1, 1} (0x72A474..0x72A485): +3 = 1 makes
+			// PGetSharedMesh 0x57DF18 rewrite every primitive (GJUtils::SetMaterialProperties 0x57E120): the cap's
+			// AlphaTextured (4) -> 6 -> additive 13 -> with Z write 12 (SRCALPHA / ONE, alpha = texture x diffuse), and the
+			// double-sided bit cleared. The object alpha's mode table 0xC387C8 keeps mode 12, so the bubble ADDS its
+			// texture x 0x95 to what is behind it: the bright, pearly bubble of the original
+			meshManager.Handle(entt::hashed_string("O_Bibble_up"))
+			    ->SetMaterialProperties({.additive = true, .zWrite = true, .doubleSided = false, .change = true, .alpha = true});
 		}
 		catch (std::runtime_error& err)
 		{
@@ -1081,6 +1098,8 @@ bool Game::Initialize() noexcept
 			    audioManager.CreateSoundGroup(groupName);
 			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)
 			    const auto bankId = audio::RegisterBank(f, groupName);
+			    // 0x10002778..0x100029AB: its anim effect tables, read once here (audio::anim_effects)
+			    audio::anim_effects::RegisterTables(bankId, soundPack);
 			    for (size_t i = 0; i < audioHeaders.size(); i++)
 			    {
 				    soundName = std::filesystem::path(audioHeaders[i].name.data());
@@ -1147,7 +1166,7 @@ bool Game::Initialize() noexcept
 		hooks.wideScreen = [this, time = helpInfo.wideScreenTime](bool on) {
 			GetScreenFade().SetWideScreen(on, time);
 			const auto* helpSystem = help::Get();
-			audio::sample_play::SetScriptWideScreen(helpSystem != nullptr && helpSystem->IsScriptWideScreen());
+			audio::SetScriptWideScreen(helpSystem != nullptr && helpSystem->IsScriptWideScreen());
 		};
 		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries),
 		            std::move(hooks));
@@ -1257,7 +1276,7 @@ bool Game::Run() noexcept
 	{
 		_screenFade->SetWideScreen(true, Locator::infoConstants::value().helpSystem.wideScreenTime);
 		// as SET_WIDESCREEN: the HelpSystem's owning task (+0x45EC) is set too (the user-param-1 samples are skipped)
-		audio::sample_play::SetScriptWideScreen(true);
+		audio::SetScriptWideScreen(true);
 	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
 	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)
@@ -1418,6 +1437,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	ecs::ClearForests();
 	ecs::animal_ai::ClearReactions();
 	ecs::SmokyStuff::Clear();
+	ecs::ground_marks::Clear(); // ClearAllStuff 0x82AED0 (GGame::ClearMap 0x552F22)
 	night_lights::Clear();
 	// GGame::Init: GAudio::Reset 0x426CA0 (call 0x54F474) with the map's SoundTags and street lanterns, before the
 	// registry reset (it destroys the lanterns' emitters without freeing their sources); then GScript::Reset 0x6EB2D0

@@ -177,6 +177,10 @@ pendiente (la muerte completa del aldeano, ver [Pendiente](#pendiente)).
   - `Object::HasSunk` 0x637470 → **no**: rocas, árboles, vasijas, montones y trozos siguen bajando hasta `T.y < −4R`
     (código 4) y ahí se **borran** con el `ToBeDeleted(0)` de su clase. Tiempos medidos: roca al momento, aldeano ~4
     turnos, vasija de ofrenda ~64, animal ~75, objeto normal ~150, árbol ~194, vasija ~298, balón ~525.
+    Mientras bajan se dibujan enteros con su Draw normal, después de la tierra: la parte bajo y = 0 queda tapada por la
+    Z de las celdas dibujadas (que la escriben aunque sean transparentes) y se ve sobre las celdas de mar abierto 0x02
+    (que no se dibujan). Un árbol que se hunde junto a esas celdas sale **cortado en rectángulos**, también en el
+    original ([rendering.md](rendering.md#costa)).
   - `Living::HasSunk` 0x5ED370 (animales) → `SetDying`, estado LIVING_DEAD 15 y `ToBeDeleted(0)`: el animal desaparece.
   - `Villager::HasSunk` 0x750AB0 → `stateCounter = GVillagerInfo::drowningTime` (**600** turnos = 60 s) y estado
     **DROWNING (16)**. (Si el aldeano ya estaba muerto: estado DYING 14 con `dyingTimeWithoutGraveyard`, rama que

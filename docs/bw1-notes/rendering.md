@@ -66,12 +66,28 @@ Informe completo del desensamblado; direcciones W120:
   empaqueta en ARGB4444 y mete `smallbumpa.raw` en el nibble de alfa (`"a.raw"`, 0x8375C1). Material modo 0xE.
 - Modo 0xE = `fn_0082DD90` (tabla de modos 0xC38728, entradas {fn, flag} de 8 bytes): `ALPHABLENDENABLE`,
   `SRCALPHA/INVSRCALPHA`, etapa 0 `TEXTURE*DIFFUSE` en color y alfa.
-- `fn_007A1800` (dibujo de bloques): segunda pasada por bloque con difuso **blanco (sin iluminar)** y alfa = fundido;
-  UV × 12 por bloque (una repetición cada 13,33 unidades). No se hace en bloques con material de superposición.
-- Fundido (`fn_007FEE60`): línea a 50 unidades delante de la cámara sobre el plano y = min(cam.y, 0,67·165); pleno hasta
-  20 unidades antes, nada 20 después (rampa de 40). Depende de la altura y del ángulo de la cámara (no 200 fijo).
-- Resultado: `col = mix(col_iluminado, smallbump.rgb, smallbumpa · fundido)` → motas **claras**, también de noche.
-  openblack hacía `col *= 1 − smallbumpa` (manchas oscuras) con solo el alfa y UV × 10.
+- `fn_007A1800` (dibujo de bloques): segunda pasada por bloque, sin iluminar, UV × 12 por bloque (una repetición cada
+  13,33 unidades). No se hace en bloques con material de superposición.
+- **Difuso de vértice de esa pasada** (x87 `fn_00874AA0` 0x8758E7–0x87598B, SSE `fn_007A1800` 0x7A2FD0–0x7A3136; las
+  dos rutas iguales), con d la distancia con signo a la línea de fundido y e = 20:
+  - d ≥ e → `especular & 0xFF000000 | 0xFFFFFF`: blanco con alfa 255, o **alfa 0 si la altitud del vértice es ≤ 1**
+    (el alfa especular, ver [Costa](#costa));
+  - −e < d < e → `fistp(255 − (e − d)·255/40) << 24 | 0xFFFFFF` si el alfa especular no es 0, si no 0 (negro, alfa 0);
+  - d ≤ −e → 0.
+  Máscaras de la ruta SSE: 0xFC01B0 = 0xFF000000, 0xFC01C0 = 0x00FFFFFF, comparada con 0 (`[esp+0x460]`, 0x7A1C3B).
+  Así el detalle **se funde (Gouraud) hacia cada vértice de altitud ≤ 1**: no acaba en un borde recto donde el agua
+  somera toca las celdas de mar abierto. Omitir los triángulos con los 3 vértices a 0 (0x7A31A0) no cambia nada.
+- Fundido (`fn_007FEE60`; constantes de `fn_007FE7B0`: 50 = 0x42480000, rampa 40 = 0x42200000, e = 20 = 0x41A00000):
+  línea a 50 unidades delante de la cámara sobre el plano y = min(cam.y, 0,67·165); pleno hasta 20 unidades antes,
+  nada 20 después. Depende de la altura y del ángulo de la cámara (no 200 fijo): **al acercar o alejar la cámara la
+  zona con detalle crece o mengua, también sobre la orilla, igual que en el original**.
+- Resultado: `col = mix(col_iluminado, smallbump.rgb · c, smallbumpa · a)` con (c, a) el difuso de arriba → motas
+  **claras**, también de noche. openblack hacía `col *= 1 − smallbumpa` (manchas oscuras) con solo el alfa y UV × 10.
+- Hasta la auditoría de la orilla (2026-10-01) openblack daba alfa = fundido en todo triángulo con algún vértice de
+  altitud > 1, también en sus vértices de la orilla: una película verdosa semitransparente sobre el agua somera cerca de
+  la cámara, cortada en las aristas de los triángulos (rectas y diagonales) y que cambiaba con el zoom. Ahora
+  `vs_terrain` calcula (c, a) por vértice como el original (`v_smallBumpFade`, vec2). Capturas antes/después:
+  `_audit\agua\shore_ab_near_crop.png`, `before_top.png` / `after_top.png`, `before_refl2.png` / `after_refl2.png`.
 - `SetUseSmallBump` (0x87FD30) solo cambia `[0xC37210]` (registro "UseSmallBump", niveles de detalle).
 - `S_TileLandscape.raw` no es del terreno: es la entrada 6 de la tabla de texturas globales 0xBEF484, usada por el
   corazón de la ciudadela (`fn_00465C70`) **(inferido)**. `L_Smallbump_01.raw` no se usa.
@@ -144,8 +160,11 @@ En openblack (`fs_water`/`vs_water`, `Graphics/RendererSea.cpp`, `Graphics/SeaRo
 - **Lo que hay bajo el mar** es el objetivo de reflejo, ahora **del tamaño de la vista principal** (se recrea al cambiar
   de tamaño; antes era de 1024²) y pintado **en orden** (vista secuencial, como `GLandscape::Draw` 0x5E48AE–0x5E4E6B):
   cielo espejado, luna reflejada, tierra reflejada (`fn_007FF4F0`: media luz, **sin small bump** porque
-  `[0xC37210]` = 0, sin sombras dinámicas; las de nubes sí), mano y objetos bajo el agua, bancos de peces y el
-  **brillo de la mano**. Sin modelos ni sprites (salvo el mod `water.living`). `fs_water` mezcla `luz·sky` sobre él con
+  `[0xC37210]` = 0, sin sombras dinámicas; las de nubes sí; **sin escribir Z**: `GLandscape::Draw` 0x5E48C5–0x5E4900
+  pone ZWRITEENABLE (14) a 0 antes de `fn_007FF4F0` y a 1 después, así que no tapa nada de lo que viene detrás y,
+  entre bloques, gana el último dibujado: el más lejano, ver [Costa](#costa)), mano y objetos bajo el agua, bancos de
+  peces y el **brillo de la mano**. openblack la dibujaba escribiendo Z (sus celdas planas en y = 0, aunque fueran
+  transparentes, y los montes espejados tapaban los reflejos que venían detrás); desde 2026-10-01 ya no. Sin modelos ni sprites (salvo el mod `water.living`). `fs_water` mezcla `luz·sky` sobre él con
   alfa `skya·alfa de fila`, igual que SRCALPHA/INVSRCALPHA sobre el fotograma.
 - Mar con ZFUNC ALWAYS, sin escribir Z y sin culling; la vista principal es secuencial y la tierra que va después lo
   tapa.
@@ -169,12 +188,28 @@ de la textura de bloque**.
 - **Aplanado de la malla**: `y = alt ≤ 3 ? 0 : alt·0,67` en cada vértice (0x874B95, SSE 0x7A1EE7, `cmpleps` contra 3,0
   en 0xFC01F0). El juego (`GetAltitude` 0x803121) solo aplana junto a una esquina base ≤ 4; en Land1 no hay ninguna
   celda donde las dos reglas den alturas distintas (base > 4 con una esquina ≤ 3: 0 de 25600).
-- **Especular**: `dword de la celda | 0xFF000000`; su alfa es 0 si UseSmallBump y alt ≤ 1 (0x874BA9, SSE 0x7A1F16), solo
-  para que la pasada de small bump **omita** los triángulos con los 3 vértices así (SSE 0x7A31A0). El small bump **no**
-  se modula con el alfa costero: cerca de la cámara sus motas salen también sobre el agua somera.
+- **Especular**: `dword de la celda | 0xFF000000`; su alfa es 0 si UseSmallBump y alt ≤ 1 (0x874BA9, SSE 0x7A1F16).
+  La pasada de small bump lo copia a su difuso (alfa 0 en esos vértices, ver
+  [Detalle del terreno](#detalle-del-terreno-small-bump)) y omite los triángulos con los 3 vértices así (SSE 0x7A31A0).
+  El small bump **no** se modula con el alfa costero, pero se funde a 0 hacia los vértices de altitud ≤ 1: sobre el agua
+  somera sus motas solo salen junto a vértices más altos, sin borde.
+- **Ningún borde duro junto a las celdas de mar abierto**: en las 6 tierras, las celdas 0x02 tienen las 4 esquinas a
+  altitud 0 y el alfa costero de las celdas dibujadas vecinas vale 0 en todos los texels de la arista común
+  (`tmp_dis\agua\shore\edge_stats.py`: Land1 871 aristas, Land2 1722, Land3 900, Land4 1283, Land5 1808, LandT 556,
+  todas con nibble máximo 0). Un borde recto en openblack no puede venir del alfa costero.
 - **Sombras dinámicas** (`fn_00878350`): color de vértice 0 donde el byte de altitud ≤ 1 → se funden hacia el agua
   (interpolado), sin corte duro.
-- La tierra se dibuja en modo 14 (SRCALPHA/INVSRCALPHA) sobre el mar ya pintado y **escribe Z aunque el alfa sea 0**.
+- La tierra se dibuja en modo 14 (SRCALPHA/INVSRCALPHA) sobre el mar ya pintado y **escribe Z aunque el alfa sea 0**
+  (`fn_0082DD90` pone ALPHATESTENABLE = 0 en 0x82DE2A y no toca ZWRITEENABLE). Consecuencia, en el original y en
+  openblack: lo que esté **bajo y = 0** y se dibuje después con su Draw normal (un árbol u otro objeto físico que se
+  hunde antes de borrarse a −4R, ver [water.md](water.md#hundirse-ahogarse-y-borrarse)) queda tapado en todas las
+  celdas dibujadas y se ve entero, como si flotara, sobre las celdas 0x02, que no escriben Z: sale **cortado en
+  rectángulos** por el borde de las celdas de mar abierto (`_audit\agua\after_treecut.png`).
+- **Orden de los bloques** (tierra y tierra reflejada): la lista de `LH3DIsland::PreDraw` (0x7FF45F–0x7FF4DD),
+  ascendente por `block+0x9BC` = distancia de la cámara al centro (x + 80, 0, z + 80) del bloque con LandRef
+  (`fn_00877210` 0x87722C–0x877296, 0x877C8A–0x877CCD): **el más cercano primero**; `fn_007FF610` y `fn_007FF4F0`
+  recorren la misma lista (+0x9B8). openblack los ordena igual en `Renderer::DrawPass`. Sin Z en la tierra reflejada,
+  ese orden decide qué monte espejado tapa a cuál.
 - openblack: `3D/CoastAlpha` (port de `tmp_dis\agua\sea_coast_alpha.py`, idéntico texel a texel en Land1),
   hoy el canal alfa de la RGBA8 `BlockTexture` de `LandIsland` (ver abajo; filtro lineal, filas a lo largo de +z; se
   rehace en `RebuildAltitudes`);
@@ -465,7 +500,8 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - `dev\tmp_dis\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,
   `haze_calc.py`, `fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
 - `dev\tmp_dis\agua\`: `sea_render.md`, `sea_coast_alpha.py`, `light_lut_testgen.py`, `re\emu_sea_range.py`,
-  `re\emu_block_texel.py`, `re\cmp_block_dump.py`.
+  `re\emu_block_texel.py`, `re\cmp_block_dump.py`; `shore\edge_stats.py` (alfa costero en las aristas de las celdas
+  0x02, todas las tierras) y `shore\map_around.py` (mapa de altitudes y celdas 0x02 alrededor de una celda).
 - `dev\tmp_dis\mapa\`: `clouds_placement.md`, `clouds_colour.md`, `emu_inv.py`.
 - `dev\tmp_dis\streams\streams.md` (ríos), `dev\tmp_dis\font\font_notes.txt` y `dev\tmp_dis\numbers\NOTES_numbers.md`
   (texto).

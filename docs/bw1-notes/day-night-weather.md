@@ -3,6 +3,13 @@
 Informes y scripts: `C:\Users\diewgarc\dev\tmp_dis\daynight\` (`emu_cycle.py`, `emu_update.py` emulan con Unicorn las
 funciones del reloj de `runblack.exe`; `night_visuals.txt` es el informe de las luces de noche).
 
+El tiempo del juego (climas, tormentas, lluvia) está al final, en «Tiempo y clima».
+
+- [Reloj](#reloj-hecho-src3ddaynightclock)
+- [Luces de noche](#luces-de-noche-informe-night_visualstxt)
+- [Clima](#clima)
+- [Tiempo y clima](#tiempo-y-clima-m6a-srcecsweather)
+
 ## Reloj (hecho: `src/3D/DayNightClock.*`)
 
 Hay **dos relojes** en horas 0..24:
@@ -143,6 +150,9 @@ original, hasta el sexto decimal.
 
 ## Clima
 
+El tiempo del juego (climas, tormentas, lluvia y su dibujo) está portado y descrito abajo, en
+[Tiempo y clima](#tiempo-y-clima-m6a-srcecsweather). Aquí quedan las notas del cielo de la primera lectura.
+
 - Nubes del cielo (`CloudInSky`): hechas, ver [rendering.md](rendering.md) (colocación, color por hora y alineación,
   alineación del cielo suavizada 0,001/ms). Lo que depende del tiempo va por `Clouds::WeatherOvercastAtCamera()` (hoy 0).
 - **Nubes de tormenta** (sin hacer; informe `tmp_dis\daynight\gweather_drawclouds.txt`,
@@ -151,8 +161,208 @@ original, hasta el sexto decimal.
   lx, lz ∈ −1..1, ly ∈ −10..10 + altura; cada 400 fotogramas un objetivo nuevo (ly 0..20 + altura), 1/400 del camino
   por fotograma; mundo X = R·lx/2 + cx, Z = R·lz/2 + cz, Y = suelo + ly con R = radio(t) + radio2; tamaño R·2·Random(0,01,
   0,015); color [0xFA26A4]·(1 − 0,5·negrura), alfa·intensidad·0,75, con neblina; no se dibujan con alfa ≤ 5. Son los
-  únicos grupos de nubes del original.
+  únicos grupos de nubes del original. Ya portadas: [El destello y las nubes de las tormentas registradas](miracles.md#el-destello-y-las-nubes-de-las-tormentas-registradas-ecsweatherlightningflash-stormclouds).
 
 Pendiente (siguiente tema): `GClimate` (temperatura, lluvia,
 nieve y tormentas), `LH3DAtmos::Render3D` (lluvia/nieve por casillas de 80×80), relámpagos, tiempo nublado en la tabla
-de luz y la neblina.
+de luz y la neblina. Hecho después en gran parte: ver [Tiempo y clima](#tiempo-y-clima-m6a-srcecsweather) y su «Sin portar / UNVERIFIED».
+
+## Tiempo y clima (M6a, `src/ECS/Weather`)
+
+Dueño: Milagros (WIKI_PLAN F2; la sección venía de magic.md).
+
+Dos capas, como en el original: **LH3DAtmos** (el motor 3D) guarda una rejilla del tiempo que hacen las *tormentas*
+registradas, y **GClimate** (el juego) le suma la temperatura y el viento de los *climas* y crea tormentas naturales.
+Todas las consultas del resto del juego pasan por `GClimate::ComputeWeather`.
+
+- `Weather.h` / `WeatherQueries.cpp`: las consultas (la cabecera pequeña que incluyen las demás lanes).
+- `WeatherInfo.h`: la estructura de 8 bytes y su aritmética de bytes.
+- `Atmos.{h,cpp}`: LH3DAtmos, la rejilla de 128 × 128 celdas de 40 m.
+- `Storms.{h,cpp}`: LH3DStorm / GWeather, los volúmenes registrados.
+- `Climate.{h,cpp}`: GClimate, `ComputeWeather`, `ProcessAll`, las tormentas naturales.
+- `Calendar.{h,cpp}`: la parte de fecha de GGameInfo (día del año, mes, estación).
+- `WeatherThing.{h,cpp}`: los objetos de tiempo del CHL.
+- `Rain.{h,cpp}` + `Graphics/RendererRain.cpp`: la lluvia dibujada.
+- `WeatherLoop.{h,cpp}`: las llamadas desde el turno; `WeatherDebugHooks.cpp`: los ganchos de prueba.
+- Guiones: `Magic/Script/MapScriptWeather.cpp` (comandos del mapa) y `Magic/Script/CHLWeather.cpp` (nativas CHL).
+
+### `WeatherInfo` (8 bytes, `LH3DAtmos`)
+
+Se devuelve en `edx:eax`, y la misma disposición es una celda de la rejilla, la cola de un LH3DStorm (+0x48) y el
+resultado de `ComputeWeather`: `temperature` (grados), `rain` (0..100), `snow`, `overcast`, `windX`, `windZ`
+(× 1/8 = m/s), `snowCover` y `stamp` (el fotograma en que se calculó la celda).
+
+La aritmética es de bytes con signo, y el original mezcla dos formas: la temperatura se **envuelve** (`add cl, al`,
+`WrapAdd`) y el resto se **recorta** a -128..127 (`ClampAdd`). La interpolación es `a + ((b - a) × w >> 8)` con
+desplazamiento aritmético (`LerpByte`).
+
+### LH3DAtmos: la rejilla de 40 m (`Atmos.cpp`)
+
+- 128 × 128 celdas de 40 m (0xEDC350) = 5120 m, justo el mapa. Fuera de la rejilla se usa el *tiempo ambiente*
+  (0xEDC348), que en una partida es todo 0 (solo lo escriben `LHInetWeather` y la partida guardada).
+- Una celda se recalcula **por demanda** (`fn_00834EE0` / `fn_00834E20`) cuando su `stamp` no es el fotograma actual
+  (0xEDC340): parte del tiempo ambiente y le suma cada tormenta registrada en la **esquina** de la celda
+  (`ix × 40, 0, iz × 40`), no en el punto pedido. De ahí que la lluvia salga en escalones de 40 m.
+- `LH3DAtmos::UpdateGame` 0x8356E0 (la primera llamada de `GGame::ProcessTurn`, con la hora visual y 0,1 s) actualiza
+  las tormentas y avanza el fotograma; al desbordar 256 limpia todos los sellos y vuelve a 1. La posición del sol que
+  también calcula (0xEDD378: 4000, cos(t·π/12) × 1100 − 150, sin × 800) es para la iluminación, aquí no se usa.
+- `LH3DAtmos::GetWeather` 0x834F80: la celda de (x, z) y luego la altura: **por encima de 50 m la temperatura baja
+  0,075 por metro**, y por encima de 200 m es un −11 fijo (`add al, 0xF5`).
+- `LH3DAtmos::GetWeatherSmooth` 0x835180: bilineal entre las cuatro celdas en pasos de 1/256; por encima de 200 m
+  tiende al tiempo ambiente con peso `(altura − 200) / 4` (tope 256) y después aplica la misma bajada por altura. Es la
+  que usan la cámara (nubes) y `GetWindAt(p, true)`; todos los getters de GClimate piden la no suavizada.
+- `SnowCover` (0xEDC344, la nieve acumulada en el suelo, `fn_0086CB80 × 0,5`) **no está portada**: `snowCover` queda 0.
+
+### Tormentas: LH3DStorm y GWeather (`Storms.cpp`)
+
+El descriptor LH3DStorm (0x50 bytes, constructor `fn_0083F3F0`) trae por defecto radio interior 100, exterior 300,
+fundido 10 s, vida 100 s, fuerza 1, 8 nubes, negrura 0,5, elevación 160, velocidad de caída 1, sin relámpagos, y como
+tiempo 10 grados / lluvia 100 / nublado 100 / viento (10, 0). El objeto GWeather (0x3C0, lista 0xEEA37C, el más nuevo
+primero) lo copia y añade edad, destino, velocidad, contador de borrado, temporizadores de relámpago, posición de
+dibujo, radios y fundido.
+
+- `GWeather::Update` 0x83F900 (desde `fn_0083F840`, una vez por turno con 0,1 s):
+  - al pasar `lifeTime` se marca para borrar;
+  - el **fundido** sube de 0 a `strength` en `fadeInTime` y baja igual al final, y el **radio interior** lo acompaña
+    (el exterior no);
+  - se mueve hacia su destino a `speed` m/s en x,z;
+  - los relámpagos, ya fundida: `forkTimer` y `sheetTimer` cuentan atrás y al llegar a 0 se recargan con
+    `min + rand(max − min)`. El de horquilla crea un PSys de rayo (0xEEA384) y el de sábana suena el trueno (0xEEA388);
+    aquí son dos *callbacks* (`SetForkCallback` / `SetSheetCallback`) que otra lane rellenará. El destello
+    (`fn_00837290`, `Storm::flash`) está en [El destello y las nubes de las tormentas registradas](miracles.md#el-destello-y-las-nubes-de-las-tormentas-registradas-ecsweatherlightningflash-stormclouds) (`ECS/Weather/LightningFlash`).
+- **Borrado en dos turnos**: `fn_0083F7B0` solo marca (+0x94 = 1); el contador sube en cada `UpdateAll` y la tormenta
+  se destruye cuando pasa de 2. Mientras está marcada ya no aporta nada a la rejilla. `GClimate::ToBeDeleted` 0x7713E0
+  sí las destruye al instante.
+- `GWeather::CalcAtmos` 0x8400E0: si el punto está en la caja y el círculo del radio **exterior**, el peso es 1 dentro
+  del interior y baja linealmente a 0 en el exterior; `w = peso × fundido × 256`. Con `w == 0` no hace nada. La
+  temperatura **tiende** a la de la tormenta (`LerpByte`) y lluvia, nieve, nublado y viento se **suman**
+  (`ClampAdd(x, (valor × w) >> 8)`).
+- `fn_0083F750` (`KILL_STORMS_IN_AREA`) marca las tormentas cuya distancia 2D al punto sea menor que radio + su radio
+  exterior.
+
+### GClimate: los climas (`Climate.cpp`)
+
+Lista `g_game+0x205CF4`, el más nuevo primero; el **clima del mundo** (id 0, `g_game+0x250534`) está en (2560, 2560)
+con radio 5120 y tipo `WORLD`. `ComputeWeather` lo crea si falta, así que en la práctica siempre existe.
+
+- Los crea el guion del mapa con `CREATE_WEATHER_CLIMATE(id, info, "x,z", r1, r2)` (`fn_00771300`, caso 60): id 0 hace
+  el del mundo (sustituyendo al anterior e ignorando el resto de argumentos), otro id uno local con los radios
+  ordenados y `maxStorms = int(r2 × 0,001 + 1)`. `CREATE_WEATHER_CLIMATE_RAIN/TEMP/WIND` fijan después el resto.
+  **Land1 tiene cuatro** (líneas 2270..2285 de `Scripts\Land1.txt`): el del mundo con 10,8 grados y viento (24, 0), dos
+  cálidos de 37,8 grados en (2157, 2425) y (1740, 3145), y uno **muy frío de −35,2** en (2701, 2568) con viento (40, 0).
+- `GClimateInfo` (7 filas de info.dat) da por estación `rainMin/Max`, `tempMin/Max` y `windMin/Max`. La estación sale de
+  `GGameInfo::GetSeason`: 0 primavera (día 79), 1 verano (171), 2 otoño (263), 3 invierno.
+- **Temperatura** (`fn_00773ED0` / `fn_00773F40`, cada turno): el objetivo es
+  `factorHora[hora] × factorMes[mes] × (max − min) + min`, con las tablas 0xC249D8 (0,5 a las 0 h, 1,5 a las 16 h) y
+  0xC249A4 (1,0 en julio, 0,1 en enero; **febrero es 0**, como en el exe). La temperatura se acerca al objetivo en
+  `|int(objetivo)| × 0,1` grados por turno, así que **nunca converge: oscila** alrededor (en Land1 el guion guarda 10,8
+  con objetivo 12).
+- **Lluvia** (`fn_00773D60`, una vez por día de juego): si ya está lloviendo solo cuenta los días; si no, el deseo crece
+  con dos tiradas de `rainMax × 0,02` y se recorta a 1. Los términos de mes, hora y naturaleza de `GClimateRainInfo`
+  valen 0 porque esa tabla **no está en info.dat** (0xDCB8D0 queda a ceros).
+- **Viento** (`fn_00774AA0`, por día): de la franja de la estación en la dirección `windAngle`. El peso es
+  `int(exp(−((deseo − 0,5) × 5)²))`, que solo vale 1 con un deseo de exactamente 0,5, así que en la práctica es siempre
+  `min + max`.
+- **Un día de juego** son 36000 turnos por año / 365,25 = **98,56 turnos** (9,9 s). La tierra empieza el 5 de mayo de
+  1998 a las 18:05:30 (`GGameInfo::GGameInfo` 0x557730), es decir en el día 125,75 del año.
+- `GClimate::ComputeWeather` 0x771640:
+  1. la rejilla en el punto (suavizada o no);
+  2. la temperatura y el viento **del clima del mundo** como base;
+  3. **más cada clima de la lista, el del mundo incluido otra vez**, con el peso del radio (1 dentro del interior, 0 en
+     el exterior). No es un descuido de la copia: el original lee 0x250534 y luego recorre la lista completa, así que
+     **el clima del mundo cuenta doble**. Por eso Land1 da 20 grados en el llano (9 + 9) y no 10.
+  4. el resultado se suma con recorte a los bytes de la rejilla.
+- `GClimate::ProcessAll` 0x771BE0 (turno, después de los guiones) y `fn_00772330` por clima: actualiza la temperatura;
+  sus tormentas derivan con el viento de la rejilla (× 0,01 m por turno); en un día nuevo, una tormenta que se salió de
+  su clima (o, la del mundo, que entró en cualquier clima) salta al tramo de desvanecimiento y el deseo vuelve a 1; y si
+  ya ha llovido bastante esta estación también se desvanece. Luego, en día nuevo, lluvia y viento, y con deseo 1 una
+  tormenta nueva.
+- `GClimate::CreateStorm` 0x772E00: `FindWhereToCreateStorm` 0x772BE0 elige el sitio (el del mundo, una celda de 10 m al
+  azar de las 512, reintentando hasta 20 veces mientras caiga en otro clima y fuera de la isla; uno local, a
+  `r² × radioInterior` en una dirección al azar). El tamaño es `rand(1000)` (mundo) o la distancia al centro, recortado
+  a 160..900; el exterior es `int(tamaño × 1,1)`; la vida `(rainMax × 100 − díasLloviendo) × 10` s con un mínimo de 20;
+  la elevación 500. La negrura es `exp(−((t − 30) / 15)²)`, y por encima de 30 grados es una tormenta eléctrica con los
+  relámpagos del clima. **Por debajo de 0 grados es nieve pura**; por encima, la parte de nieve es `exp(−(t × 0,2)²)`
+  (todo lluvia pasados unos 10 grados) y el resto lluvia.
+- `PAUSE_UNPAUSE_CLIMATE_SYSTEM` y `PAUSE_UNPAUSE_STORM_CREATION_IN_CLIMATE_SYSTEM` (0xC24759 / 0xC24758) apagan la
+  actualización y la creación.
+
+### Consultas (`Weather.h`)
+
+Todas sobre `ComputeWeather` en un LHPoint (x, z en metros y la **altura absoluta** en y, que es la que baja la
+temperatura):
+
+| Consulta | Original | Nota |
+|---|---|---|
+| `GetMaxRainingOrSnowingAt` | 0x771600 | `max(lluvia, nieve)`; el fuego se enfría con `1 + 0,01 ×` esto |
+| `GetRainAt` / `GetSnowAt` | 0x771570 / 0x7715B0 | 0 mientras no haya clima del mundo |
+| `IsRainingAt` / `IsSnowingAt` / `IsSnowCoveredAt` | 0x7714B0 / 0x7714F0 / 0x771530 | el byte > 0 |
+| `GetTemperatureAt` | `GClimate::GetTemp` 0x771A80 | **no** es la temperatura ambiente del fuego, que es la constante 24,7 de `MapCoords::GetTemperature` 0x605CC0 |
+| `GetWindXAt` / `GetWindZAt` | fn_00771AB0 / fn_00771AE0 | los bytes |
+| `GetWindAt` | fn_00771B10 | `(vientoX/8, 0, vientoZ/8)`; lo leen el fuego, `UR_CloudMoverNew` y el rebote de las bolas de fuego |
+
+Los cinco primeros comprueban antes que exista el clima del mundo (devuelven 0 / falso si no); los demás lo crean.
+
+### Objetos de tiempo del CHL (`WeatherThing.cpp`)
+
+`CREATE` de un `SCRIPT_OBJECT_TYPE_WEATHER_THING` (tipo 15) crea un WeatherThing con una tormenta hecha de
+`GWeatherInfo[subtipo]` (radio interior 100, exterior 300, vida 100 s, nubes a 500, y la temperatura, humedad, nieve,
+nublado y viento de la fila como bytes). Guarda una **copia** del descriptor; las nativas la editan y `UpdateStats`
+0x774370 la vuelca a la tormenta (recargando los temporizadores de relámpago): `CHANGE_WEATHER_PROPERTIES` (123),
+`CHANGE_LIGHTNING_PROPERTIES` (124), `CHANGE_TIME_FADE_PROPERTIES` (125), `CHANGE_CLOUD_PROPERTIES` (126).
+`WeatherThing::ProcessWeatherThings` 0x7741A0 corre cada turno: si su tormenta ya no está la olvida, con
+`SetAffectedByWind` la tormenta deriva con el viento de `ComputeWeather` × 0,01, y el objeto se mueve con ella.
+
+`CREATE_WEATHER_STORM` del guion del mapa (caso 0x717328) crea una tormenta de un clima. Su tercera cadena
+(`"nublado,nieve,temp,lluvia,vientoX,vientoZ"`) se lee con `%d` **sobre los bytes** del descriptor, 4 bytes por valor,
+así que cada valor pisa los tres siguientes: solo sobreviven temperatura, lluvia y el viento (nieve y nublado acaban en
+0 o −1). Ninguna tierra original lo usa.
+
+### La lluvia dibujada (`Rain.cpp`, `Graphics/RendererRain.cpp`)
+
+`LH3DAtmos` tiene un objeto de lluvia (`fn_00833DA0`) con **128 rayas** de 0x1C bytes. Cada raya (`fn_00833D10`) es una
+línea de `(x, −50, z)` a `(x + dx, elevación, z + dz)` alrededor del centro de la baldosa, con `x, z` en ±80, la
+inclinación `dx, dz` en ±15, un desplazamiento de textura 0..1 y una velocidad de 0,1..0,2 vueltas por segundo. La u va
+del desplazamiento a desplazamiento + 1 (la textura se repite a lo ancho) y la v es fija, 0x3F010000 = 0,50390625, la
+fila 129 de `Data\Textures\atmos.raw`, que es una hilera de trazos blancos.
+
+- `LH3DAtmos::Update3D` 0x8357A0 (por fotograma): la tormenta **más cercana a la cámara** fija la elevación y la
+  velocidad de caída (160 y 1 sin tormenta); las dos se acercan un 0,3 del camino por fotograma y se recortan a
+  40..640 m y 0,3..5. Después, *si se dibujó en el fotograma anterior* (0xEDC300), las rayas avanzan: la fase sube 2,4
+  por segundo y al desbordar la raya se coloca de nuevo.
+- `LH3DAtmos::Render3D` 0x836250: por cada bloque de tierra, dos muestras de la rejilla (el centro del bloque y el
+  centro + 40) y el mayor de sus bytes de lluvia y nieve; si pasa de 5, encola un objeto en el Z-sorter con los tres
+  bytes bajos de su dato de usuario = `(x/80, z/80, valor × 88 / 100)` (`fn_008341B0`). Al vaciar el Z-sorter
+  (`fn_0082F280`) el callback `fn_00833F80` los desempaqueta y llama a `fn_00834370(x, z, 0, 128, alfa)`. Por eso la
+  baldosa es una sola por bloque, centrada en su origen + 80.
+- `fn_00834370`: nada a más de 400 m de la cámara; entre 100 y 400 el alfa y el número de rayas se multiplican por
+  `1 − (d − 100) / 300`. El alfa de abajo es ese, y el de arriba `alfa / ((2d/400 + 1) × 5)`, así que la raya se
+  desvanece hacia la nube. Cada raya además se atenúa con su fase: por debajo de 0,05, `fase × 20`; por encima de 0,95,
+  `(1 − fase) × 20`. El material es `AtmosMaterial` en modo 6 (alfa) con prueba de Z y sin escribir Z.
+- Con el valor por encima de 0x2C el original también llama a `g_water_drop_cb` para las gotas que salpican el suelo:
+  **no está portado**. Tampoco la nieve dibujada (`fn_00834120` → `fn_00834BF0`) ni el destello del relámpago.
+- En openblack las rayas son líneas de un píxel con el programa `WorldQuad` (`atmos.raw` + `atmosa.raw`) en la pasada
+  `MainBlended`.
+
+### Orden en el turno (`WeatherLoop.cpp`)
+
+`Magic/MagicLoop.cpp` llama, en las ranuras de `GGame::ProcessTurn` 0x54E5C0: `ProcessTurnStart` en la 1
+(`LH3DAtmos::UpdateGame`), `ProcessTurnEnd` en la 12 (`ProcessWeatherThings` y `GClimate::ProcessAll`), y `UpdateFrame`
+cada fotograma desde `magic::Update` (las rayas de lluvia). `OnLoadMap` lo deja todo vacío.
+
+### Sin portar / UNVERIFIED
+
+- `SnowCover` (la nieve acumulada, 0xEDC344) y la nieve dibujada.
+- El destello de los relámpagos (`fn_00837290`) y [0xFA2768] ya están (ver [El destello y las nubes de las tormentas registradas](miracles.md#el-destello-y-las-nubes-de-las-tormentas-registradas-ecsweatherlightningflash-stormclouds)), menos su sello de luz en el
+  terreno; los *callbacks* de rayo y trueno están puestos pero vacíos (los rellenará la lane del rayo).
+- Las gotas en el suelo (`g_water_drop_cb`).
+- La influencia virtual del tiempo, `LHInetWeather` y el tiempo ambiente de la partida guardada.
+- `GClimate+0x84` ("relámpago aunque haga menos de 30 grados"): **no se ha encontrado quién lo escribe**, se asume 0.
+- El campo de distancia por bloque (+0x9BC) que usa `Render3D` para descartar bloques: aquí se usa la distancia 2D a la
+  cámara con el mismo umbral (400 + 160), y el corte real sigue siendo el de 400 m de `fn_00834370`.
+
+### Ganchos
+
+`OPENBLACK_TEST_WEATHER="x,z,radio[,lluvia[,fundido[,temperatura]]]"`, `OPENBLACK_TEST_WEATHER_AT="x,z[;x,z...]"` y
+`OPENBLACK_WEATHER_TRACE=1`; ver
+[openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración).

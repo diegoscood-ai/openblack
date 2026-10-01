@@ -74,25 +74,8 @@
 
 ### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
 
-- Valor de −1 (malvado) a +1 (bueno) en +0x08 y un cambio pendiente en +0x0C. Partida nueva: 0 (`GGame::Init`
-  0x54FEA0 toma el del perfil, 0 sin él). Vive con el jugador, no con la tierra (no se borra al cargar
-  mapa): en openblack, un `components::PlayerAlignment` por `PlayerNames` fuera del registro de la tierra
-  (`Magic/Core/Players`, `AlignmentOf`), el mismo que usan los milagros con `GAlignment::Update` 0x414410.
-- **Actos** (`GAlignment::Update` 0x4145A0 para árboles): ±`GPlayerInfo::treePullPutAlignmentChange` (0,005), pesado por
-  la alineación actual (fn_00414660): hacia donde ya se inclina cuenta `v·(1 − |a|/2)`, en contra `v·(1 + |a|/2)`; se suma
-  al pendiente. Arrancar con la mano (`Tree::InterfaceSetInMagicHand`) es malo; replantar (`Tree::EndPhysics`) y el árbol
-  que planta el agua (`Tree::ApplyWaterSpell`) son buenos.
-- **Cada turno** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140; en openblack la ranura 3 de
-  `Magic/MagicLoop.cpp`, `GPlayer::ProcessPlayers`): el pendiente, limitado a −1..1,
-  por `maxAlignmentChangePerGameTurn` (0,0019444 = 0,7 por hora de juego) se suma (`CrudeUpdate`, limitado a −1..1) y el
-  pendiente vuelve a 0. O sea, el pendiente es una **fracción del ritmo máximo** de ese turno: un árbol arrancado mueve la
-  alineación unas 10⁻⁵ (−0,005 × 0,0019444). Es lo que dice el código; otros actos (efectos, milagros, muertes) aportan
-  mucho más.
-- Guion: `GET_ALIGNMENT(jugador)` devuelve el valor; `SET_ALIGNMENT(jugador, v)` **suma** v (`CrudeUpdate`, pese al
-  nombre) y fuera de −1..1 da el error «Alignment out of range» sin hacer nada (`GScript::SetAlignment` 0x6F99C0).
-- Sin portar: el historial (`CAlignmentHistory::Add` 0x415260, que leen los consejeros y la vista bueno/malo) y
-  `GGuidance::HelpSpritesAlignmentProcess`. La alineación del **terreno** (`MapCoords::GetAlignment`, la del crecimiento y
-  los campos) es otra cosa, de la influencia de cada celda, y sigue sin portar. Traza: `OPENBLACK_ALIGNMENT_TRACE=1`.
+Se ha unido a la página de la magia: [magic.md](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment) (valor, actos de los árboles: arrancar con la
+mano es malo, replantar y el árbol que planta el agua son buenos; el ritmo por turno, los guiones y lo que falta).
 
 ### Árboles para los oficios de aldeano (API `src/ECS/Trees.h`, para la sesión de aldeanos)
 

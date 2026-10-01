@@ -61,7 +61,8 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   guardar y restaurar es cosa del llamador, 0x8254A3/0x82551F). `fn_005E5830`, que llama `GLandscape::Draw` (0x5E488E)
   una vez por fotograma antes de los modelos, la deja en el sol por defecto [0xEA1C88] = (−500000, 500000, −500000)
   (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
-  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual, 2 = noche) la pone a 3 unidades ([0x8C2C50]) de la
+  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual calculado ahí, 0x5E58D1..0x5E58DF, 2 = noche;
+  openblack: `sky_type::At(hora visual)`) la pone a 3 unidades ([0x8C2C50]) de la
   **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
   - Con el cursor fuera del terreno (en el cielo) el original sigue moviendo la mano por el rayo del ratón a su
     distancia de la vista (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` se queda con
@@ -719,7 +720,7 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
 - (aproximado) `graphics::lh3d::Random` (src/3D/LH3DRandom.h) es Random 0x81D180 con un `rand()` de MSVC propio que
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
   la serie de `rand()` de todo el programa, sembrada con srand(time).
-- (aproximado) TownBelief toma g_game_time_inc como el tiempo real entre dos fotogramas.
+- TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
 - (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
 - (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
 - HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en

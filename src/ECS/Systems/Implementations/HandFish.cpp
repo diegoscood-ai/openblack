@@ -35,6 +35,7 @@
 #include "Common/RandomNumberManager.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -109,7 +110,7 @@ bool HandSystem::TryPickUpFish(glm::vec3 point) noexcept
 	_pickSource = *farm;
 	_pickFish = true;
 	_pickTurns = 0;
-	_pickTurnAccumulator = 0.0f;
+	_pickTurn = game_clock::Turn();
 	_pickLock = glm::vec3(point.x, 0.0f, point.z);
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: catching fish from farm {}", static_cast<uint32_t>(*farm));
 	return true;
@@ -126,13 +127,12 @@ bool HandSystem::UpdateFishPickUp(float seconds) noexcept
 	{
 		return false;
 	}
-	constexpr float k_TurnSeconds = 0.1f;
 	_pickTime += seconds;
-	_pickTurnAccumulator += seconds;
 	bool changed = false;
-	while (_pickTurnAccumulator >= k_TurnSeconds)
+	// once per game turn (at most one a frame)
+	while (_pickTurn != game_clock::Turn())
 	{
-		_pickTurnAccumulator -= k_TurnSeconds;
+		_pickTurn = game_clock::Turn();
 		++_pickTurns;
 		const float t = static_cast<float>(_pickTurns) / 60.0f;
 		auto take = static_cast<uint32_t>(8.0f + 62.0f * t * t);
@@ -211,7 +211,7 @@ bool HandSystem::TryPickUpField(entt::entity field) noexcept
 	_pickSource = field;
 	_pickField = true;
 	_pickTurns = 0;
-	_pickTurnAccumulator = 0.0f;
+	_pickTurn = game_clock::Turn();
 	_pickLock = glm::vec3(point.x, ground, point.z);
 	return true;
 }
@@ -227,13 +227,12 @@ bool HandSystem::UpdateFieldPickUp(float seconds) noexcept
 	{
 		return false;
 	}
-	constexpr float k_TurnSeconds = 0.1f;
 	_pickTime += seconds;
-	_pickTurnAccumulator += seconds;
 	bool changed = false;
-	while (_pickTurnAccumulator >= k_TurnSeconds)
+	// once per game turn (at most one a frame)
+	while (_pickTurn != game_clock::Turn())
 	{
-		_pickTurnAccumulator -= k_TurnSeconds;
+		_pickTurn = game_clock::Turn();
 		++_pickTurns;
 		const float t = std::min(static_cast<float>(_pickTurns) / 60.0f, 1.0f);
 		_pickupSoundFraction = t * t;

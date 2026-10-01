@@ -33,6 +33,7 @@
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
@@ -65,7 +66,7 @@ float Radius2D(entt::entity object)
 	{
 		return g_RadiusForTests(object);
 	}
-	return effects::Object2DRadius(object);
+	return object::Get2DRadius(object);
 }
 
 /// __ftol 0x7A1400: truncates towards zero. The game runs with the FPU at 24 bits (fn_007DEE00, "and cw, 0xFCFF" at

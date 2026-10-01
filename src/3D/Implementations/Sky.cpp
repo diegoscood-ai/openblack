@@ -11,6 +11,11 @@
 
 #include "Sky.h"
 
+#include <cassert>
+
+#include <algorithm>
+#include <span>
+
 #include <bgfx/bgfx.h>
 #include <glm/vec3.hpp>
 #include <spdlog/fmt/fmt.h>
@@ -20,6 +25,7 @@
 #include "Common/Bitmap16B.h"
 #include "Common/StringUtils.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
 
@@ -32,11 +38,6 @@ namespace openblack
 Sky::Sky() noexcept
 {
 	auto& fileSystem = Locator::filesystem::value();
-
-	// Game-hour thresholds in play: GLandAlignement::Open -> SetVisualTimeCycle(1700, .083, .07) and the game/visual
-	// time mapping (fn_0086A110 / fn_0086A160) put them at 3.5 / 7.5 / 8 / 8.5 h (4.5 / 7 / 7.5 / 8.25 are only the
-	// constructor defaults of the visual clock)
-	SetDayNightTimes(3.5, 7.5, 8.0, 8.5);
 
 	// load in the mesh
 	_mesh = std::make_unique<graphics::L3DMesh>("Sky");
@@ -65,29 +66,27 @@ Sky::Sky() noexcept
 			SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading sky texture: {}", path.generic_string());
 
 			Bitmap16B* bitmap = Bitmap16B::LoadFromFile(path);
-			memcpy(&_bitmaps.at(idx * k_TextureResolution[0] * k_TextureResolution[1]), bitmap->Data(), bitmap->Size());
+			assert(bitmap->Size() == k_LayerTexels * sizeof(uint16_t));
+			memcpy(&_bitmaps.at(idx * k_LayerTexels), bitmap->Data(), bitmap->Size());
 			delete bitmap;
 			++idx;
 		}
 	}
 
-	_texture = std::make_unique<Texture2D>("Sky");
 	_timeOfDay = 1.0f;
 
-	_texture->Create(k_TextureResolution[0], k_TextureResolution[1], k_TextureResolution[2], TextureFormat::BGR5A1,
-	                 Wrapping::ClampEdge, Filter::Linear,
-	                 bgfx::makeRef(_bitmaps.data(), static_cast<uint32_t>(_bitmaps.size() * sizeof(_bitmaps[0]))));
+	// fn_0086A3B0 0x86A530..0x86A564: three dynamic 256 x 256 textures (flags 0x104, fn_008379E0), one per alignment,
+	// built whole at once (0x86A589) and then followed by fn_0086A330 / fn_0086A270 (sky_type::DomeBlend). The set-up
+	// builds them with Time2SkyType of its hour on its own thresholds 4.5 / 7 / 7.5 / 8.25; here with the dome's current
+	// sky type (inferido, no visible effect: the last hour jump of GLandAlignement::Open, 0x5E1D9C, and openblack's
+	// Reset, DayNightClock::ForceScriptTime(12), rebuild them whole right after; the last jump wins)
+	_texture = std::make_unique<Texture2D>("Sky");
+	_texture->Create(k_Size, k_Size, static_cast<uint16_t>(k_Alignments.size()), TextureFormat::BGR5A1,
+	                 Wrapping::ClampEdge, Filter::Linear, nullptr);
+	BlendDome({sky_type::Dome().Built(), 0, sky_type::DomeBlend::k_Rows});
 }
 
 Sky::~Sky() noexcept = default;
-
-void Sky::SetDayNightTimes(float nightFull, float duskStart, float duskEnd, float dayFull) noexcept
-{
-	_nightFullTime = nightFull;
-	_duskStartTime = duskStart;
-	_duskEndTime = duskEnd;
-	_dayFullTime = dayFull;
-}
 
 void Sky::SetTime(float time) noexcept
 {
@@ -97,29 +96,57 @@ void Sky::SetTime(float time) noexcept
 
 float Sky::GetCurrentSkyType() const noexcept
 {
-	assert(_timeOfDay <= 24.0f);
+	// Deprecated forwarder in openblack's old convention (0 night .. 2 day) for the callers not moved to sky_type yet
+	return 2.0f - sky_type::Frame();
+}
 
-	// Reflect time at 12
-	float time = _timeOfDay > 12.0f ? 24.0f - _timeOfDay : _timeOfDay;
+void Sky::UpdateDome() noexcept
+{
+	const auto blocks = sky_type::Dome().Advance(sky_type::Frame());
+	for (int i = 0; i < blocks.count; ++i)
+	{
+		BlendDome(blocks.blocks.at(i));
+	}
+}
 
-	if (time <= _nightFullTime) // In full night
+void Sky::BlendDome(const sky_type::DomeBlock& block) noexcept
+{
+	// fn_0086B7F0 0x86B890..0x86B98B with fn_00869670 true ([0xC38200] = 1 and [0xEDD470] = 0, i.e. detail levels 2..6,
+	// 0x823C5B..0x823C69). Levels 0 and 1 (DetailLevel::skyNoBlend: no blend, day textures, per-T tint 0x86B1C1..
+	// 0x86B2A4, 128 rows) are not ported: openblack blends at every detail level.
+	const auto weight = sky_type::DomeWeightOf(block.skyType);
+	const int lastRow = std::min(block.firstRow + block.rowCount, static_cast<int>(k_Size));
+	if (lastRow <= block.firstRow)
 	{
-		return 0.0f; // Index for night texture
+		return;
 	}
-	if (time < _duskStartTime) // Between night and dusk
+	const auto first = static_cast<size_t>(block.firstRow) * k_Size;
+	const auto count = static_cast<size_t>(lastRow - block.firstRow) * k_Size;
+	for (size_t a = 0; a < k_Alignments.size(); ++a)
 	{
-		return (time - _nightFullTime) / (_duskStartTime - _nightFullTime); // 0 - 1 lerp between night and dusk
+		// the original's time of day 0 _day, 1 _dusk, 2 _night is k_Times index 2 - tod
+		const auto lower = (a * k_Times.size() + (2 - weight.lower)) * k_LayerTexels;
+		const auto upper = (a * k_Times.size() + (2 - weight.upper)) * k_LayerTexels;
+		sky_type::BlendRows555(std::span(_dome).subspan(a * k_LayerTexels + first, count),
+		                       std::span<const uint16_t>(_bitmaps).subspan(lower + first, count),
+		                       std::span<const uint16_t>(_bitmaps).subspan(upper + first, count), weight.weight);
 	}
-	if (time <= _duskEndTime) // In full dusk
+	// 0x86B95B..0x86B977: the texture (format 4 of flags 0x104) gets its +0x138 flag only once first + rows reaches the
+	// height; unlock fn_00838EB0 hands only formats 1, 2 and 0x20 to the surface itself. The flag is "dirty, upload on
+	// the next bind": the texture's SetTexture path 0x837EC6..0x837F74 checks +0x138, locks the D3D surface (vtable
+	// +0x64, flags 0x821), converts the system copy with [+0x134] (0x837F19), unlocks, calls IDirect3DDevice7::
+	// SetTexture (+0x8C) and clears the flag (0x837F74), i.e. in the same frame's DrawSky. So the GPU sees the dome
+	// change all at once when the last block is done.
+	if (lastRow < static_cast<int>(k_Size))
 	{
-		return 1.0f; // Index for dusk texture
+		return;
 	}
-	if (time < _dayFullTime) // Between dusk and day
+	for (size_t a = 0; a < k_Alignments.size(); ++a)
 	{
-		return 1.0f + (time - _duskEndTime) / (_dayFullTime - _duskEndTime); // 1 - 2 lerp between dusk and day
+		bgfx::updateTexture2D(toBgfx(_texture->GetNativeHandle()), static_cast<uint16_t>(a), 0, 0, 0, k_Size, k_Size,
+		                      bgfx::copy(&_dome.at(a * k_LayerTexels),
+		                                 static_cast<uint32_t>(k_LayerTexels * sizeof(uint16_t))));
 	}
-	// In full day
-	return 2.0f; // Index for day texture
 }
 
 } // namespace openblack

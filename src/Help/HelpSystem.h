@@ -32,9 +32,6 @@
 namespace openblack::help
 {
 
-/// [0xD01A38], the length of a game turn in milliseconds: 100, set by GGame at 0x54F4A5 (mov [0xD01A38], 100). A script
-/// reader callback can change it (0x714DBE, from a value of its argument block; not read): not ported
-constexpr uint32_t k_MsPerTurn = 100;
 /// The history of texts: 1024 entries (fn_005C5EE0 0x5C5EE7, 0x5C5F30)
 constexpr size_t k_HistorySize = 0x400;
 /// What ProcessInterface returns when the click was used by the text (0x5C6A25, 0x5C6ABA)

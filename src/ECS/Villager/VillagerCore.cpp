@@ -40,6 +40,7 @@
 #include "ECS/VillagerSpeed.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 // Villager.cpp / Living.cpp of runblack.exe W120: the villager's turn and its state changes (VillagerCore.h; the
@@ -164,8 +165,7 @@ uint32_t CurrentTurn()
 	{
 		return *g_TurnForTests;
 	}
-	const auto* game = Game::Instance();
-	return game != nullptr ? game->GetTurn() : 0;
+	return game_clock::Turn();
 }
 
 void SetTurnForTests(std::optional<uint32_t> turn)

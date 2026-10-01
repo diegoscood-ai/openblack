@@ -34,6 +34,7 @@
 #include "3D/OceanInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
+#include "3D/SkyType.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/AnimationSounds.h"
 #include "Audio/AtmosBanks.h"
@@ -70,6 +71,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/GroundMarks.h"
 #include "ECS/PetitNavire.h"
+#include "ECS/Physics/Buildings.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -208,6 +210,9 @@ Game::Game(Arguments&& args) noexcept
 		++i;
 	}
 	sInstance = this;
+	// the GGame ctor 0x54B58A (the game timer at speed 1); paused until a map is loaded (openblack)
+	game_clock::Reset();
+	game_clock::Start(true);
 
 	auto& config = Locator::config::emplace();
 	config.numFramesToSimulate = args.numFramesToSimulate;
@@ -329,7 +334,7 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 			window.SetDisplayMode(windowing::DisplayMode::Fullscreen);
 			break;
 		case SDLK_p:
-			_paused = !_paused;
+			game_clock::Pause(!game_clock::IsPaused()); // PauseGame 0x54AE20
 			break;
 		case SDLK_F1:
 			Locator::rendererInterface::value().SetDebug(!Locator::rendererInterface::value().GetDebug());
@@ -404,42 +409,22 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 	return true;
 }
 
-float Game::GetTurnFraction() const
-{
-	if (_paused)
-	{
-		return 0.0f;
-	}
-	const auto turnDuration = std::chrono::duration<float, std::milli>(k_TurnDuration * _gameSpeedMultiplier).count();
-	const auto elapsed = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - _lastGameLoopTime).count();
-	return turnDuration > 0.0f ? std::clamp(elapsed / turnDuration, 0.0f, 0.99f) : 0.0f;
-}
-
 bool Game::GameLogicLoop() noexcept
 {
 	using namespace ecs::components;
 	using namespace ecs::systems;
 
-	if (_paused)
-	{
-		// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
-		audio::Paused();
-		return false;
-	}
-
+	// ProcessNetworkPackets 0x54CD93 / GGame::StartTurn 0x54E507: the turn number goes up at the start of the turn
+	game_clock::StartTurn();
 	const auto currentTime = std::chrono::steady_clock::now();
-	const auto delta = currentTime - _lastGameLoopTime;
-	const auto turnDuration = k_TurnDuration * _gameSpeedMultiplier;
-	// NOLINTNEXTLINE(modernize-use-nullptr): clang-tidy bug
-	if (delta < turnDuration)
-	{
-		return false;
-	}
+	_turnDeltaTime = currentTime - _lastGameLoopTime;
+	_lastGameLoopTime = currentTime;
+	const uint32_t turn = game_clock::Turn();
 
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
 	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
-	ecs::effects::reactions::BeginTurn(static_cast<uint32_t>(_turnCount));
+	ecs::effects::reactions::BeginTurn();
 
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();
@@ -461,7 +446,7 @@ bool Game::GameLogicLoop() noexcept
 		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
 	// The miracles' part of GGame::ProcessTurn (Magic/MagicLoop.cpp: fire, reactions, spells, the seed in the hand...)
-	magic::ProcessTurn(static_cast<uint32_t>(_turnCount));
+	magic::ProcessTurn(turn);
 
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
@@ -480,11 +465,12 @@ bool Game::GameLogicLoop() noexcept
 		}
 		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
 		ecs::ProcessFireFliesTurn(*_dayNightClock);
-		if (_turnCount % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
+		if (turn % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f}", _turnCount,
+			SPDLOG_LOGGER_INFO(spdlog::get("game"),
+			                   "Clock: turn {} visual {:.4f} script {:.4f} sky type {:.3f} frame {:.3f} dome {:.3f}", turn,
 			                   _dayNightClock->GetVisualTime(), _dayNightClock->GetScriptTime(),
-			                   _dayNightClock->GetSkyType());
+			                   _dayNightClock->GetSkyType(), sky_type::Frame(), sky_type::Dome().Built());
 		}
 		// OPENBLACK_TEST_TEXT_CLICK=1 (openblack only): the player's click on a text that waits for one (RUN_TEXT with
 		// interaction 1), every turn while it waits, as the left button going down does (ProcessEvents);
@@ -496,29 +482,27 @@ bool Game::GameLogicLoop() noexcept
 				helpSystem->ProcessInterface(true);
 				if (!helpSystem->IsWaitingForClick())
 				{
-					SPDLOG_LOGGER_INFO(spdlog::get("game"), "OPENBLACK_TEST_TEXT_CLICK: click taken at turn {}", _turnCount);
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "OPENBLACK_TEST_TEXT_CLICK: click taken at turn {}", turn);
 				}
 			}
 		}
-		ecs::ProcessFishFarmsTurn(_turnCount);
-		ecs::ProcessFieldsTurn(_turnCount);
+		ecs::ProcessFishFarmsTurn(turn);
+		ecs::ProcessFieldsTurn(turn);
+		// GGame::ProcessTurn 0x54E763..0x54E771: Fragment::ProcessTimer 0x76EAF0 for each fragment, once a turn
+		ecs::physics::Buildings::ProcessTurn();
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
-		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
+		psys::manager::ProcessTurn(game_clock::k_TurnSeconds);
 		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
-		audio::ProcessTurn(_dayNightClock->GetSkyType(), _turnCount);
-		audio::AnimationSounds::RunTestHooks(_turnCount); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
+		audio::ProcessTurn(_dayNightClock->GetSkyType(), turn);
+		audio::AnimationSounds::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
 	ecs::effects::reactions::EndTurn();
-
-	_lastGameLoopTime = currentTime;
-	_turnDeltaTime = delta;
-	++_turnCount;
 
 	return false;
 }
@@ -605,55 +589,61 @@ bool Game::Update() noexcept
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
 
+	// Update Game Logic in Registry: GGame::Loop 0x54D28A ProcessNetworkPackets, the turns before the frame clock and the draw
+	{
+		auto gameLogic = profiler.BeginScoped(Profiler::Stage::GameLogic);
+		// 0x54CD45: while LocalTimerSaysDoATurn and fewer than 1 turn this frame (game_clock::TurnDue)
+		while (game_clock::TurnDue())
+		{
+			if (GameLogicLoop())
+			{
+				return false; // Quit event
+			}
+		}
+		if (game_clock::IsPaused())
+		{
+			// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
+			audio::Paused();
+		}
+	}
+	// GGame::Loop 0x54D2A8..0x54D3A6: the remainder, the visual clock, g_game_time_inc and the fraction of the turn;
+	// LH3DRender::StartFrame 0x82F14E: g_delta_time
+	game_clock::UpdateFrameClock();
+	game_clock::UpdateRealClock();
+
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
 	// Tree::PreDraw / Tree::Draw: the trees' brightness this frame and the rustle of the tall ones by the camera
 	ecs::UpdateTrees(std::chrono::duration<float>(deltaTime).count());
 
 	// Fireflies (FireFly::Draw): orbit and fade, in game time
-	ecs::UpdateFireFlies(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
-	                     camera.GetOrigin());
+	ecs::UpdateFireFlies(game_clock::FrameGameSeconds(), camera.GetOrigin());
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
-	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::UpdateWaterRings(static_cast<float>(game_clock::FrameGameMs()));
 	// DesignedWaterFall 0x5E3770: the scenery of Land 3 (waterfall) and Land 4 (ark, dinosaur), by land number
-	ecs::designed_scenery::Update(_paused ? 0.0f
-	                                      : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::designed_scenery::Update(static_cast<float>(game_clock::FrameGameMs()));
 	// The marks on the ground (fn_00825350, from fn_005E5CD0 0x5E6197 just before the SmokyStuff): fade and go
-	ecs::ground_marks::Update(_paused ? 0.0f
-	                                   : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::ground_marks::Update(static_cast<float>(game_clock::FrameGameMs()));
 	// PetitNavire::PreDraw 0x5DFF20 / SmokyStuff fn_00824140 / PostDraw 0x5E03F0 (the missionaries' boat, ecs/PetitNavire.h).
 	// fn_00824140 also moves the smoke an object leaves when it goes (ecs/SmokyStuff.h), in game time, boat or not.
-	ecs::petit_navire::Update(_paused ? 0.0f
-	                                  : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::petit_navire::Update(static_cast<float>(game_clock::FrameGameMs()));
 
 	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
-	ecs::UpdateMobileDrawing(GetTurnFraction(),
-	                         _paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::UpdateMobileDrawing(GetTurnFraction(), static_cast<float>(game_clock::FrameGameMs()));
 	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
 	ecs::UpdateVillagerAnimations();
 	ecs::UpdateAnimalAnimations();
-	ecs::UpdateAnimations(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::UpdateAnimations(static_cast<float>(game_clock::FrameGameMs()));
 	ecs::UpdateCarriedProps();
 	// fn_00774E30: the sharks drawn between turns, heading, wake rings (ecs/Sharks.h)
-	ecs::UpdateSharks(GetTurnFraction(),
-	                  _paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	ecs::UpdateSharks(GetTurnFraction(), static_cast<float>(game_clock::FrameGameMs()));
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
-	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
-	                      camera.GetOrigin());
+	ecs::UpdateFishShoals(game_clock::FrameGameSeconds(), camera.GetOrigin());
 
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
-	_screenFade->UpdateWideScreen(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
-
-	// Update Game Logic in Registry
-	{
-		auto gameLogic = profiler.BeginScoped(Profiler::Stage::GameLogic);
-		if (GameLogicLoop())
-		{
-			return false; // Quit event
-		}
-	}
+	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));
 
 	// Update Uniforms
 	{
@@ -722,7 +712,7 @@ bool Game::Update() noexcept
 				Locator::handSystem::value().Update(deltaTime, mouseDelta, _handGripping, _handAction);
 			}
 			// The miracles' per-frame part (the one-shot orbs' texture), in game time
-			magic::Update(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier);
+			magic::Update(game_clock::FrameGameSeconds());
 
 			// Palm towards the ground, index fingertip on the point under the cursor, fingertips dug in while gripping.
 			const bool overLand = intersectionTransform.position != glm::zero<glm::vec3>();
@@ -1171,13 +1161,10 @@ bool Game::Initialize() noexcept
 	{
 		const auto& helpInfo = Locator::infoConstants::value().helpSystem;
 		help::HelpSystem::Queries queries;
-		// (inferred) openblack's turn counter stands for g_game+0x205A40
-		queries.turn = [this]() { return GetTurn(); };
-		// (approximated) the real milliseconds since the start, for the scaled clock of 0xEA1C78..0xEA1C80
-		queries.nowMs = [start = std::chrono::steady_clock::now()]() {
-			return static_cast<int32_t>(
-			    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
-		};
+		// g_game +0x205A40
+		queries.turn = []() { return game_clock::Turn(); };
+		// LH3DTech::g_timer's ms (0xEA1C78..0xEA1C80, 0x5C6250)
+		queries.nowMs = []() { return game_clock::EngineMs(); };
 		// ScriptDLL::GetScriptType 0x6F6C50 (fn_005C6800 0x5C681B)
 		queries.taskScriptType = [](uint32_t task) -> uint32_t {
 			return Locator::vm::has_value() ? static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)) : 1;
@@ -1542,9 +1529,12 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	_lastGameLoopTime = std::chrono::steady_clock::now();
 	_turnDeltaTime = 0ns;
 	SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
-	_turnCount = 0;
+	// a new game from turn 0 (inferido: openblack has no saved games, so this stands for GGame::ResolveLoad 0x555080
+	// too), then the start of GGame::Loop: the timer from 0 and ResetLocalGameTimer
+	game_clock::SetTurn(0);
+	game_clock::OnLoad();
 	// The original runs from the first frame; OPENBLACK_START_PAUSED=1 keeps openblack's old paused start (test hook)
-	_paused = std::getenv("OPENBLACK_START_PAUSED") != nullptr;
+	game_clock::Start(std::getenv("OPENBLACK_START_PAUSED") != nullptr);
 
 	return true;
 }

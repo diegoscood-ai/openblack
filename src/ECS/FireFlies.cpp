@@ -34,6 +34,7 @@
 #include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/Texture2D.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -46,7 +47,6 @@ using namespace openblack::ecs::components;
 namespace
 {
 constexpr size_t k_MaxFireFlies = 50;    // game+0x205D34, GGame ctor 0x54B806
-constexpr float k_TurnSeconds = 0.1f;    // ms per turn * 0.001
 constexpr float k_SearchRadius = 300.0f; // fn_0052A5D0 / fn_0052A7A0
 constexpr float k_HalfSize = 0.3f;
 constexpr uint32_t k_Frame = 37; // S_SpriteSheet3, 8 x 8: column 5, row 4
@@ -82,7 +82,6 @@ struct FireFly
 
 std::vector<FireFly> g_fireFlies;
 bool g_canSpawn = true; // [0xBE9DA0], set again every morning
-float g_sinceTurn = 0.0f;
 std::mt19937 g_random {0x46495245u};
 
 float Random(float from, float to)
@@ -297,6 +296,8 @@ void ecs::ProcessFireFliesTurn(const DayNightClock& clock)
 		g_canSpawn = true;
 	}
 
+	// FireFly::Process fn_0052AF90 0x52AF93..0x52AFB6: fild [0xD01A38]; fmul [0x8AA3B0] = 0.001, read every turn
+	const float turnSeconds = static_cast<float>(game_clock::MsPerTurn()) * game_clock::k_SecondsPerMs;
 	for (auto& fly : g_fireFlies)
 	{
 		fly.previous = fly.position;
@@ -310,7 +311,7 @@ void ecs::ProcessFireFliesTurn(const DayNightClock& clock)
 			break;
 		case State::FlyingHome:
 		case State::FlyingOut:
-			fly.progress = std::min(1.0f, fly.progress + k_TurnSeconds / fly.duration);
+			fly.progress = std::min(1.0f, fly.progress + turnSeconds / fly.duration);
 			fly.position = glm::mix(fly.from, fly.to, Smooth(fly.progress));
 			if (fly.progress >= 1.0f)
 			{
@@ -319,7 +320,6 @@ void ecs::ProcessFireFliesTurn(const DayNightClock& clock)
 			break;
 		}
 	}
-	g_sinceTurn = 0.0f;
 }
 
 void ecs::UpdateFireFlies(float seconds, const glm::vec3& camera)
@@ -329,8 +329,8 @@ void ecs::UpdateFireFlies(float seconds, const glm::vec3& camera)
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	g_sinceTurn = std::min(g_sinceTurn + seconds, k_TurnSeconds);
-	const float interpolation = g_sinceTurn / k_TurnSeconds;
+	// FireFly::Draw fn_0052ABC0 0x52ADF6: g_game +0x205D64, the fraction of the turn
+	const float interpolation = game_clock::TurnFraction();
 	for (auto& fly : g_fireFlies)
 	{
 		if (!registry.Valid(fly.sprite))

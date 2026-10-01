@@ -33,6 +33,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "EngineConfig.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Graphics/DetailLevel.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
@@ -71,9 +72,9 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	const auto* waterShader = _shaderManager->GetShader("Water");
 	const auto& config = Locator::config::value();
 	const auto& detail = GetDetailLevel(config.detailLevel);
-	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
-	// g_game_time_inc: the game milliseconds of this frame, 0 while paused
-	const float milliseconds = running ? static_cast<float>(desc.time) : 0.0f;
+	// g_game_time_inc [0xEA9EC0] (0x879963, 0x87A130): the game milliseconds of this frame, 0 while paused
+	const uint32_t frameGameMs = game_clock::FrameGameMs();
+	const auto milliseconds = static_cast<float>(frameGameMs);
 	// fn_00879930: P = 2000 - 1800 * WaterTiling (0xC38228), 560 at the default detail level 4; the terrain-x2 mod
 	// repeats the sea texture too (a shorter period)
 	const bool level0 = detail.waterTiling == 0.0f;
@@ -109,7 +110,8 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 		if (range)
 		{
 			drift.ScrollRows(milliseconds, sea::k_AmbientWind, period); // 0x879A69: a second time
-			if (running)
+			// 0x879B0A / 0x879B41: only when g_game_time_inc != 0
+			if (frameGameMs != 0)
 			{
 				frame = (frame + 1) & 15;
 			}
@@ -144,8 +146,6 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	waterShader->SetTextureSampler("s_diffuse", 0, *diffuse);
 	waterShader->SetTextureSampler("s_alpha", 1, *alpha);
 	waterShader->SetTextureSampler("s_reflection", 2, ocean.GetReflectionFramebuffer().GetColorAttachment());
-	const glm::vec4 u_sky = {Locator::skySystem::value().GetCurrentSkyType(), 0.0f, 0.0f, 0.0f};
-	waterShader->SetUniformValue("u_sky", &u_sky); // fs
 	const glm::vec4 u_seaParams = {period, static_cast<float>(frame), ripple};
 	waterShader->SetUniformValue("u_seaParams", &u_seaParams); // fs
 	waterShader->SetUniformValue("u_seaRows", &u_seaRows);     // fs
@@ -160,8 +160,10 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	    std::fmod(std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
 	const glm::vec4 u_waterMod = {config.livingWater ? 1.0f : 0.0f, seconds, config.terrainTextureDensity, 0.0f};
 	waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
+	// The sea vertex colour, landscape light table entry 255 ([0xEDDD08]); without palette.raw (no table) openblack
+	// leaves the sea unlit (white, inferido: the original always has the table)
 	const glm::vec4 u_seaColour =
-	    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(-1.0f);
+	    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(1.0f);
 	waterShader->SetUniformValue("u_seaColour", &u_seaColour); // fs
 	bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(waterShader->GetRawHandle()));
 }

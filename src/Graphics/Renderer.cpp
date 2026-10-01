@@ -43,6 +43,7 @@
 #include "3D/OceanInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
+#include "3D/SkyType.h"
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
@@ -570,7 +571,7 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			if (!desc.isSky)
 			{
 				const glm::vec4 u_skyAlphaThreshold = {
-				    Locator::skySystem::value().GetCurrentSkyType(),
+				    0.0f, // x: unused (fs_object reads only y, z, w)
 				    prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
 				    alphaToCoverage && prim.thresholdAlpha ? 1.0f : 0.0f,
 				    blended ? 1.0f : 0.0f,
@@ -1876,6 +1877,17 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
+	// DrawSky 0x5E21FD..0x5E222B, once a frame from GLandscape::Draw (0x5E48AE): fn_0086A2C0 samples the sky type of
+	// the visual time [0xBF3380], then fn_0086A330 rebuilds the land light table (UpdateLandLight below) and advances
+	// the dome. Here once per DrawScene, so the reflection pass does not advance the dome a second time.
+	if (Game::Instance() != nullptr)
+	{
+		sky_type::SampleFrame(Game::Instance()->GetDayNightClock().GetVisualTime());
+	}
+	if (Locator::skySystem::has_value())
+	{
+		Locator::skySystem::value().UpdateDome();
+	}
 	UpdateLandLight();
 	// fn_005E5830, called by GLandscape::Draw (0x5E488E) before the models: the one light of LH3DTech for this frame.
 	// The focus is the player hand's model position (CHand::position, +0x78 of MyInterface()->hand, 0x5E5848), used
@@ -1891,8 +1903,11 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		const auto& registry = Locator::entitiesRegistry::value();
 		if (registry.Valid(hand))
 		{
+			// 0x5E58D1..0x5E58DF: Time2SkyType(GetVisualTime()) computed there, not the frame's sample [0xFA26BC]
+			// (the same value: DrawSky samples the same visual time right after)
 			model_light::UpdateFrameLight(registry.Get<const ecs::components::Transform>(hand).position,
-			                              drawDesc.camera->GetOrigin(), Game::Instance()->GetDayNightClock().GetSkyType());
+			                              drawDesc.camera->GetOrigin(),
+			                              sky_type::At(Game::Instance()->GetDayNightClock().GetVisualTime()));
 			placed = true;
 		}
 	}
@@ -2199,7 +2214,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
 
-	const auto skyType = Locator::skySystem::value().GetCurrentSkyType();
+	// u_skyAndBump.x keeps openblack's old convention (0 night .. 2 day) of this frame's sample; fs_terrain does not use
+	// it for anything visible (its owner drops it)
+	const float skyType = 2.0f - sky_type::Frame();
 
 	// Distance haze of this frame (LandLightTable::Haze), on with the "Fog" detail key
 	const bool hazeOn = _landLight && _landLight->IsLoaded() && GetDetailLevel(Locator::config::value().detailLevel).fog;
@@ -2219,7 +2236,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		if (desc.drawSky)
 		{
 			const auto modelMatrix = glm::mat4(1.0f);
-			const glm::vec4 u_typeAlignment = {skyType, _skyAlignment.Get() + 1.0f, 0.0f, 0.0f};
+			// x unused: the sky type is blended into the dome textures by Sky::UpdateDome (sky_type::DomeBlend)
+			const glm::vec4 u_typeAlignment = {0.0f, _skyAlignment.Get() + 1.0f, 0.0f, 0.0f};
 
 			skyShader->SetTextureSampler("s_diffuse", 0, Locator::skySystem::value().GetTexture());
 			skyShader->SetUniformValue("u_typeAlignment", &u_typeAlignment);

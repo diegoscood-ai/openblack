@@ -135,7 +135,8 @@ struct Options
 	/// 0x20 volume, 0x40 loops, 0x80 min, 0x100 max, 0x200 scale, 0x400 mode
 	uint32_t callerMask {0};
 	/// +0x164: the DLL converts the wave to PCM and keeps it in the channel (+0x80/+0x84) for HelpDude's lip-sync
-	/// (fn_10010910, 0x10011CB3 / 0x10011E25) (milestone B7: no effect yet)
+	/// (fn_10010910, 0x10011CB3 / 0x10011E25). Only HelpDude::PlaySample reads that PCM (0x5BB57B..0x5BB5C9): the advisor
+	/// decodes its own copy (audio::advisor), so the flag has no effect on the channels
 	bool keepPcm {false};
 };
 
@@ -182,14 +183,14 @@ struct ChannelInfo
 /// playing, the playing channel (untouched).
 Channel Start(const Options& options);
 
-/// LHSampleStop 0x10012C50 with a sample: the first channel of (bank, owner, sample) stops (with QMixer's 20 ms ramp to 0,
-/// 0x10012D88..0x10012DCB: approximated, it stops at once). Nothing while the audio is switched off, unless the channel
-/// is an atmos one (0x10012D5B).
+/// LHSampleStop 0x10012C50 with a sample: the first channel of (bank, owner, sample) stops with QMixer's 20 ms ramp to
+/// 0 (0x10012D88..0x10012DCB: SampleOutput::StopRamped, the caller waits 20 ms as in the original). Nothing while the
+/// audio is switched off, unless the channel is an atmos one (0x10012D5B).
 void Stop(entt::id_type sound, Owner owner);
 /// LHSampleStop(LH_SampleInfo*) 0x10012DF0 on a channel the caller keeps: the first channel of its (bank, owner,
 /// sample) stops; nothing while switched off unless an atmos channel (0x10012E18..0x10012E22)
 void Stop(Channel channel);
-/// LHSampleStop with sample 0: every channel of the bank and owner (0x10012C78..0x10012D1A)
+/// LHSampleStop with sample 0: every channel of the bank and owner, each with the 20 ms ramp (0x10012C78..0x10012D1A)
 void StopOwner(uint32_t bank, Owner owner);
 /// LHSampleStopAll 0x10012BF0: every channel in use that is not an atmos one (+0x00 == 0)
 void StopAll();
@@ -198,6 +199,18 @@ void StopAll();
 /// LHSampleIsPlaying 0x10013FB0 (bank, owner): the first channel of the bank and owner (any sample) is in use
 /// (0x10013FF1: only that first one is looked at); nothing while switched off
 [[nodiscard]] bool IsOwnerPlaying(uint32_t bank, Owner owner);
+/// LHSampleIsPlaying(bank, owner, LH_SampleInfo**) 0x10014010: the first channel of the bank and owner (any sample,
+/// 0x10014038..0x10014040), its handle when it is in use (+0x8C == 1, 0x10014051), else k_NoChannel; k_NoChannel while
+/// switched off (+0x14, 0x10014018)
+[[nodiscard]] Channel OwnerChannel(uint32_t bank, Owner owner);
+/// LH_SampleInfo +0x38 of the channel of a start: its volume 0..127 (0 when that start is no longer on its channel)
+[[nodiscard]] int Volume(Channel channel);
+/// LHSampleGetPlayPosition 0x10014C00 (bank, owner, sample): the play position in ms of the first channel of the bank
+/// and owner (the sample is not compared, 0x10014C29..0x10014C31), -1 when it is not in use or while switched off
+[[nodiscard]] int64_t PlayPosition(uint32_t bank, Owner owner);
+/// LHSampleGetPercentageDone 0x10015180: position / length of the first channel of (bank, owner, sample) in use, 1 for
+/// none
+[[nodiscard]] float PercentageDone(entt::id_type sound, Owner owner);
 /// The channel of a start is still that start and in use
 [[nodiscard]] bool IsPlaying(Channel channel);
 /// LHSampleReleaseLoop 0x10012F20: the first channel of (bank, owner, sample) ends with its current pass (its remaining

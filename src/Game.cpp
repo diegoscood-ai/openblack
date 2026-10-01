@@ -749,6 +749,9 @@ bool Game::Update() noexcept
 		// the sample master of the configuration, live (the options dialog's slider 0x5145A3)
 		audio::UpdateFrame();
 		audio::music::Update();
+		// HelpDudeControl's loop 0x5C3B05..0x5C3CBC, once a frame: the advisors' delayed sentences (UpdateSaySentence
+		// 0x5BB610, GetTickCount) and their lip-sync (ApplyLipSync 0x5BCD00 with the frame's seconds)
+		audio::advisor::Update(std::chrono::duration<float>(deltaTime).count());
 	} // Update Audio
 
 	return config.numFramesToSimulate == 0 || _frameCount < config.numFramesToSimulate;
@@ -1051,7 +1054,21 @@ bool Game::Initialize() noexcept
 
 		    pack::PackFile soundPack;
 		    SPDLOG_LOGGER_DEBUG(spdlog::get("audio"), "Opening sound pack {}", f.filename().string());
-		    const auto result = soundPack.ReadFile(*fileSystem.GetData(f));
+		    // The dialogue banks of 0x9CB3F8 (types 6..10, Audio\Dialogue) are registered as LHBankRegister(path, 0)
+		    // 0x10002240 does: only the headers are read, and each wave is read from the file at its first play
+		    // (0x10011420 -> fn_100032D0; Sound::waveFile). The other banks keep their bytes in memory (approximated: the
+		    // original reads every bank that way, 0x426EEE).
+		    bool onDemand = false;
+		    for (const auto bank : {audio::SfxBank::HelpSprites, audio::SfxBank::Villagers, audio::SfxBank::VillagersBanter,
+		                            audio::SfxBank::SpellDialogue, audio::SfxBank::Guidance})
+		    {
+			    const auto path = string_utils::LowerCase(f.generic_string());
+			    const auto wanted = string_utils::LowerCase(std::string(audio::SfxBankPath(bank)));
+			    onDemand = onDemand || (path.size() >= wanted.size() &&
+			                            path.compare(path.size() - wanted.size(), wanted.size(), wanted) == 0);
+		    }
+		    const auto result =
+		        onDemand ? soundPack.ReadAudioHeaders(*fileSystem.GetData(f)) : soundPack.ReadFile(*fileSystem.GetData(f));
 		    if (result != pack::PackResult::Success)
 		    {
 			    SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Unable to load sound pack {}: {}", f.filename().string(),
@@ -1086,24 +1103,19 @@ bool Game::Initialize() noexcept
 			    }
 		    }
 
-		    // A hacky way of detecting if the sound is music as all music sounds end with "mpg"
-		    if (soundName.extension() == ".mpg")
-		    {
-			    auto buffers = std::queue<std::vector<uint8_t>>();
-			    auto packName = f.string();
-			    audioManager.AddMusicEntry(packName);
-		    }
-		    else
+		    // A music bank (its waves are ".mpg"): LHMusic registers it by MUSIC_TYPE (audio::music, k_MusicBanks 0x9C9748)
+		    if (soundName.extension() != ".mpg")
 		    {
 			    audioManager.CreateSoundGroup(groupName);
 			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)
 			    const auto bankId = audio::RegisterBank(f, groupName);
+			    audio::SetBankSampleCount(bankId, static_cast<int>(audioHeaders.size()));
 			    // 0x10002778..0x100029AB: its anim effect tables, read once here (audio::anim_effects)
 			    audio::anim_effects::RegisterTables(bankId, soundPack);
 			    for (size_t i = 0; i < audioHeaders.size(); i++)
 			    {
 				    soundName = std::filesystem::path(audioHeaders[i].name.data());
-				    if (audioData[i].empty())
+				    if (onDemand ? audioHeaders[i].size == 0 : audioData[i].empty())
 				    {
 					    SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Empty sound buffer found for {}. Skipping",
 					                       soundName.string());
@@ -1112,10 +1124,17 @@ bool Game::Initialize() noexcept
 
 				    const auto stringId = fmt::format("{}/{}", groupName, audioHeaders[i].id);
 				    const entt::id_type id = entt::hashed_string(stringId.c_str());
-				    const std::vector<std::vector<uint8_t>> buffer = {audioData[i]};
+				    const std::vector<std::vector<uint8_t>> buffer =
+				        onDemand ? std::vector<std::vector<uint8_t>> {} : std::vector<std::vector<uint8_t>> {audioData[i]};
 				    SPDLOG_LOGGER_DEBUG(spdlog::get("audio"), "Loading sound {}: {}", stringId, audioHeaders[i].name.data());
 				    soundManager.Load(id, resources::SoundLoader::FromBufferTag {}, audioHeaders[i], buffer);
 				    soundManager.Handle(id)->bank = bankId;
+				    if (onDemand)
+				    {
+					    soundManager.Handle(id)->waveFile = f;
+					    soundManager.Handle(id)->waveOffset = soundPack.GetAudioWaveDataOffset() + audioHeaders[i].offset;
+					    soundManager.Handle(id)->waveSize = audioHeaders[i].size;
+				    }
 				    audioManager.AddToSoundGroup(groupName, id);
 			    }
 		    }
@@ -1144,7 +1163,11 @@ bool Game::Initialize() noexcept
 		audio::game_music::Start(MakeMusicQueries(*this), {sound.townTriggerDistance, sound.townTriggerOffDistance});
 	}
 
-	// HelpSystem (text only, milestone A11) with HelpSystemInfo of info.dat (0xD16178 / 0xD1617C)
+	// HelpSystem::CallVirtualFunctionsForCreation 0x5C5860: HelpDudeControl::Init with the HelpSprites bank for both
+	// advisors (fn_005C3660 -> fn_005BB060); the models MarkGood.Hd / MarkEvil.Hd are not ported
+	audio::advisor::Init(audio::Bank(audio::SfxBank::HelpSprites));
+
+	// HelpSystem (texts A11, voices B7) with HelpSystemInfo of info.dat (0xD16178 / 0xD1617C)
 	{
 		const auto& helpInfo = Locator::infoConstants::value().helpSystem;
 		help::HelpSystem::Queries queries;
@@ -1159,7 +1182,26 @@ bool Game::Initialize() noexcept
 		queries.taskScriptType = [](uint32_t task) -> uint32_t {
 			return Locator::vm::has_value() ? static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)) : 1;
 		};
+		// fn_005C62F0 0x5C631E: GAudio+0x3A8 + 4 * bank != 0
+		queries.voiceBankLoaded = [](audio::SfxBank bank) { return audio::voices::BankRegistered(bank); };
+		// HelpSystem+0x10, HelpDudeControl (0x5C6372..0x5C63A0)
+		queries.advisorsTalking = []() { return audio::advisor::AnyTalking(); };
+		// fn_0042A280(owner, sample, bank) (0x5C63CA)
+		queries.isPlaying = [](audio::SfxBank bank, audio::VoiceOwner owner, uint32_t sample) {
+			return audio::IsPlaying(audio::Owner::Key(static_cast<uint32_t>(owner)), static_cast<int>(sample), bank);
+		};
 		help::HelpSystem::Hooks hooks;
+		// fn_005C5F90's voice (0x5C6025..0x5C60DB)
+		hooks.sayVoice = [](uint32_t textId, help::VoiceRoute /*route*/, audio::TextVoice voice) {
+			audio::voices::RunTextVoice(helptext::GetEntry(textId).narrator, voice);
+		};
+		// ProcessInterface 0x5C6AAD: the villagers' narration cut with the 20 ms ramp
+		hooks.stopVoicesOnClick = []() { audio::voices::CutByClick(); };
+		// fn_005C6720(spirit, arg) -> fn_005C4C20 -> HelpDudeControl fn_005C3780(dude, arg): dude = spirit+0x54 != 1
+		// (fn_005C5250) (inferred: the good spirit, HelpSystem+0xC, has type 1 and dude 0)
+		hooks.spiritStop = [](int32_t spirit, int32_t arg) {
+			audio::advisor::Interrupt(spirit == 1 ? audio::advisor::k_GoodSpirit : audio::advisor::k_EvilSpirit, arg);
+		};
 		// HelpSystem::SetWideScreen 0x5C6AD0: the bars slide in HelpSystemInfo.wideScreenTime (0xD16174) seconds from
 		// where they are (0x5C6B3F..0x5C6B4E); DialogBoxBase::HideAll and GInterface::SetActive are not ported
 		// and +0x45EC (the owning task while on) is what GAudio::PlaySoundEffect reads to skip the user-param-1 samples

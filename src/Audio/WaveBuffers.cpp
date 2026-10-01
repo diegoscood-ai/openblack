@@ -13,6 +13,8 @@
 #include <cstring>
 
 #include <algorithm>
+#include <fstream>
+#include <memory>
 #include <optional>
 #include <string_view>
 
@@ -25,6 +27,8 @@ extern "C" {
 }
 
 #include "AlCheck.h"
+#include "FileSystem/FileSystemInterface.h"
+#include "Locator.h"
 #include "MpegAudioDecoder.h"
 #include "WavAudioDecoder.h"
 
@@ -114,10 +118,57 @@ bool DecodeWith(const std::vector<uint8_t>& bytes, wave_buffers::Pcm& out)
 }
 } // namespace
 
+bool wave_buffers::ReadWave(const Sound& sound, std::vector<uint8_t>& out)
+{
+	out.clear();
+	if (sound.waveFile.empty() || sound.waveSize == 0)
+	{
+		return false;
+	}
+	// fn_100032D0 (from 0x10011420): the wave is read from the bank's open file when the sample first plays
+	std::unique_ptr<std::istream> stream;
+	if (Locator::filesystem::has_value())
+	{
+		stream = Locator::filesystem::value().GetData(sound.waveFile);
+	}
+	else
+	{
+		stream = std::make_unique<std::ifstream>(sound.waveFile, std::ios::binary);
+	}
+	if (!stream || !*stream)
+	{
+		return false;
+	}
+	out.resize(sound.waveSize);
+	stream->seekg(static_cast<std::streamoff>(sound.waveOffset));
+	stream->read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(out.size()));
+	if (stream->gcount() != static_cast<std::streamsize>(out.size()))
+	{
+		out.clear();
+		return false;
+	}
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Wave of {} read from {} ({} bytes at {})", sound.name,
+		                   sound.waveFile.filename().string(), sound.waveSize, sound.waveOffset);
+	}
+	return true;
+}
+
 bool wave_buffers::Decode(const Sound& sound, Pcm& out)
 {
 	out = {};
-	for (const auto& bytes : sound.buffer)
+	// a wave left in its .sad (Sound::waveFile) is read now; the bytes are not kept (the buffer is)
+	std::vector<std::vector<uint8_t>> onDemand;
+	if (sound.buffer.empty() && !sound.waveFile.empty())
+	{
+		onDemand.emplace_back();
+		if (!ReadWave(sound, onDemand.back()))
+		{
+			return false;
+		}
+	}
+	for (const auto& bytes : sound.buffer.empty() ? onDemand : sound.buffer)
 	{
 		Pcm part;
 		bool ok = false;

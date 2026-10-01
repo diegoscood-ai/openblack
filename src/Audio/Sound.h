@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <queue>
 #include <string>
 #include <vector>
@@ -275,6 +276,12 @@ public:
 	BufferId bufferId {0};
 	float duration {0.0f};
 	std::vector<std::vector<uint8_t>> buffer;
+	/// A wave left in its .sad (the dialogue banks, read as LHBankRegister(path, 0) 0x10002240 does: headers only):
+	/// `buffer` is empty and wave_buffers reads `waveSize` bytes at `waveOffset` of `waveFile` when it decodes the
+	/// sample (at its first play, as 0x10011420 -> fn_100032D0). Empty path: the bytes are in `buffer`.
+	std::filesystem::path waveFile;
+	uint64_t waveOffset {0};
+	uint32_t waveSize {0};
 	size_t sizeInBytes {0};
 };
 } // namespace openblack::audio

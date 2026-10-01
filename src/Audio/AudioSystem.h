@@ -38,6 +38,10 @@ inline constexpr BankId k_NoBank = 0;
 /// sound group of its samples ("<file>.sad", their ids "<file>.sad/<n>"). The 11 types of 0x9CB3F8 are recognised by
 /// path (fn_0042A390, 0x42A39D..0x42A3BA: GAudio+0x3A8 + 4 * type).
 BankId RegisterBank(const std::filesystem::path& path, std::string_view group);
+/// The size of a registered bank's sample table, as Game read it (the samples are 1..count)
+void SetBankSampleCount(BankId bank, int samples);
+/// LHBankGetNumberOfSamples (HelpDude::SaySentence 0x5BB389): 0 for no bank
+[[nodiscard]] int BankSampleCount(BankId bank);
 /// GAudio+0x3A8 + 4 * type (k_NoBank for type 0 or a bank not loaded)
 [[nodiscard]] BankId Bank(SfxBank type);
 /// The bank registered for a path (case-insensitive, any separator; matched on its end), k_NoBank if none

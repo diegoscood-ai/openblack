@@ -9,13 +9,17 @@
 
 #include "CHLApi.h"
 
+#include <array>
+#include <bit>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 
 #include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #include <LHVM.h>
@@ -48,8 +52,11 @@
 #include "ECS/Archetypes/StreetLanternArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/VillagerArchetype.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/Creature.h"
+#include "ECS/Components/Flock.h"
 #include "ECS/Components/Indestructible.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Shark.h"
@@ -65,6 +72,7 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "ECS/VillagerDrowning.h"
 #include "Enums.h"
 #include "Game.h"
@@ -104,6 +112,17 @@ const std::vector<lhvm::NativeFunction>& CHLApi::GetFunctionsTable()
 }
 
 /// The scripts call some unimplemented functions every frame (GAME_THING_CLICKED: 37k lines): logged once per function
+/// OPENBLACK_SCRIPT_THING_TRACE=1 (openblack only): MOVE_GAME_THING, SET_SCRIPT_STATE, SET_SCRIPT_ULONG and a PLAYED
+/// that is true write a line, to follow a script that drives its things (Land 1's FollowUs)
+bool ScriptThingTrace()
+{
+	static const bool on = [] {
+		const char* env = std::getenv("OPENBLACK_SCRIPT_THING_TRACE");
+		return env != nullptr && std::string_view(env) != "" && std::string_view(env) != "0";
+	}();
+	return on;
+}
+
 void NotImplemented(const char* function)
 {
 	static std::mutex mutex;
@@ -520,10 +539,38 @@ void GameThingClicked() // 016 GAME_THING_CLICKED
 
 void SetScriptState() // 017 SET_SCRIPT_STATE
 {
-	// const auto state = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetScriptState 0x6F8370: the state (first pop), then the object
+	const auto state = Pop().intVal;
+	const auto object = Pop().uintVal;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = static_cast<entt::entity>(object);
+	// 0x6F8396: GetScriptGameThing; none -> "Object no longer valid" (0xC0D428)
+	if (object == 0 || !registry.Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_SCRIPT_STATE: Object no longer valid");
+		return;
+	}
+	if (ScriptThingTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "SET_SCRIPT_STATE {} {}", object, state);
+	}
+	// 0x6F83B9: IsScriptContainer (vt +0x3F8) -> g_game +0x250090 +0x24 = state and the type's loop function (table
+	// 0xC0C73C by GetScriptObjectType vt +0x4E8, with 0x6F8280). TODO: openblack has no script containers
+	// 0x6F841D: dynamic_cast<Living*> and not IsDrowning (vt +0x17C) -> GScript::SetScriptState(living, state) 0x6F82E0;
+	// else "Object not living for set state" (0xC0D440)
+	if (registry.AllOf<ecs::components::Villager>(entity) && !ecs::IsDrowning(entity))
+	{
+		ecs::villager::SetScriptState(entity, static_cast<VillagerStates>(static_cast<uint8_t>(state)));
+		return;
+	}
+	if (registry.AnyOf<ecs::components::Animal, ecs::components::Creature>(entity))
+	{
+		// 0x6F82EA: a creature's (fn_0047B140 / fn_004F6E30 / fn_004F6F10 with its +0x128C clip) and an animal's
+		// (StorePreviousState, exit, entry, SetAnim(1), +0x58 = 0 on the animal state machine). TODO: not ported
+		NotImplemented("SetScriptState (animal or creature)");
+		return;
+	}
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_SCRIPT_STATE: Object not living for set state");
 }
 
 void SetScriptStatePos() // 018 SET_SCRIPT_STATE_POS
@@ -544,11 +591,39 @@ void SetScriptFloat() // 019 SET_SCRIPT_FLOAT
 
 void SetScriptUlong() // 020 SET_SCRIPT_ULONG
 {
-	// const auto loop = Pop().intVal;
-	// const auto animation = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetScriptUlong 0x6F8770: the times (first pop, edi), the clip (ebx), then the object
+	const auto loop = static_cast<uint32_t>(Pop().intVal);
+	const auto animation = static_cast<uint32_t>(Pop().intVal);
+	const auto object = Pop().uintVal;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = static_cast<entt::entity>(object);
+	// 0x6F87A9: GetScriptGameThing; none -> "Object no longer valid" (0xC0D428)
+	if (object == 0 || !registry.Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_SCRIPT_ULONG: Object no longer valid");
+		return;
+	}
+	if (ScriptThingTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "SET_SCRIPT_ULONG {} clip {} times {}", object, animation, loop);
+	}
+	// 0x6F87CD: IsScriptContainer (vt +0x3F8) -> g_game +0x250090 +0x24 = clip, +0x28 = times and the type's loop
+	// function (0xC0C73C, with 0x6F8730). TODO: openblack has no script containers
+	// 0x6F8841: dynamic_cast<Villager*> -> +0x120 = times, +0x11C = clip
+	if (registry.AllOf<ecs::components::Villager>(entity))
+	{
+		ecs::villager::SetScriptAnimation(entity, animation, loop);
+		return;
+	}
+	// 0x6F886D: dynamic_cast<Creature*> -> +0x1290 = times, +0x128C = clip. TODO(M8, creature)
+	if (registry.AllOf<ecs::components::Creature>(entity))
+	{
+		NotImplemented("SetScriptUlong (creature)");
+		return;
+	}
+	// 0x6F8879: "setting the state of something neither a creature nor a villager" (0xC0D484)
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"),
+	                    "SET_SCRIPT_ULONG: setting the state of something neither a creature nor a villager");
 }
 
 void GetProperty() // 021 GET_PROPERTY
@@ -625,10 +700,32 @@ void GetPosition() // 023 GET_POSITION
 	// GScript::GetPosition 0x6F88A0: GetAltitude(pos) + relY, the object's world position; (0, 0, 0) for a lost object
 	glm::vec3 position(0.0f);
 	auto& registry = Locator::entitiesRegistry::value();
-	if (objId != 0 && registry.Valid(static_cast<entt::entity>(objId)))
+	const auto entity = static_cast<entt::entity>(objId);
+	if (objId != 0 && registry.Valid(entity))
 	{
-		auto* transform = registry.TryGet<Transform>(static_cast<entt::entity>(objId));
-		if (transform != nullptr)
+		const auto* transform = registry.TryGet<const Transform>(entity);
+		if (const auto* flock = registry.TryGet<const ecs::components::Flock>(entity); flock != nullptr)
+		{
+			// 0x6F8927: IsFlock (vt +0x3EC): its first member's Pos (0x6F8931..0x6F893F), else Flock::GetFlockPos 0x530570,
+			// which with no first member is the flock's own +0x14 (the domain centre)
+			position = flock->domainCentre;
+			if (!flock->members.empty() && registry.Valid(flock->members.front()))
+			{
+				if (const auto* leader = registry.TryGet<const Transform>(flock->members.front()); leader != nullptr)
+				{
+					position = leader->position;
+				}
+			}
+		}
+		else if (registry.AllOf<ecs::components::Villager>(entity) && ecs::villager::AreWeThereAtDestination(entity, 0.0f))
+		{
+			// 0x6F8977..0x6F89AF: IsMobileWallHug (vt +0x408) and not a creature (vt +0x34): AreWeThere(0) 0x60AD40 -> its
+			// destination (+0x80) instead of Pos. Its height is GetAltitude + the destination's +0x88 (aproximado: the land
+			// under it, openblack's WallHug keeps only x / z; GET_DISTANCE ignores y). TODO: the animals' (AnimalBrain goal)
+			const auto dest = *ecs::villager::GetDestPos(entity);
+			position = OnGround(glm::vec3(dest.x, 0.0f, dest.y));
+		}
+		else if (transform != nullptr)
 		{
 			position = transform->position;
 		}
@@ -655,12 +752,47 @@ void SetPosition() // 024 SET_POSITION
 	}
 }
 
+/// The 1/sqrt table 0xDA5A10 (1024 entries, filled by 0x74F590 from GGame::InitOneTimeOnly) and _FUN_0074f620, the
+/// table's approximate 1/sqrt (the same as ECS/AnimalLairs.cpp's InvSqrtApprox, which keeps them private)
+float InvSqrtApprox(float x)
+{
+	static const auto table = [] {
+		std::array<uint32_t, 1024> t {};
+		for (uint32_t i = 0; i < t.size(); ++i)
+		{
+			const auto f = std::bit_cast<float>((0x3F800000u & 0xFF003FFFu) | (i << 14));
+			const double r = 1.0 / std::sqrt(static_cast<double>(f));
+			t.at(i) = r == 1.0 ? 0x7FE000u : (std::bit_cast<uint32_t>(static_cast<float>(r)) & 0x7FE000u);
+		}
+		return t;
+	}();
+	// 0x74F620..0x74F64A: exponent ((0xBE000000 - exponent bits) >> 1), mantissa from the table (bits 14..23)
+	const auto bits = std::bit_cast<uint32_t>(x);
+	const uint32_t exponent = ((0xBE000000u - (bits & 0x7F800000u)) >> 1) & 0x7F800000u;
+	return std::bit_cast<float>(exponent | table.at((bits >> 14) & 0x3FFu));
+}
+
+/// hypotenuse(a, b) 0x74F6C0: 0 when |a| and |b| are both <= 0.0001 (0x8BF518); else 1 / InvSqrtApprox(a*a + b*b)
+/// (the sum stored as a float, 0x74F700; fdivr 1.0 0x8AA390)
+float Hypotenuse(float a, float b)
+{
+	if (std::abs(a) <= 0.0001f && std::abs(b) <= 0.0001f)
+	{
+		return 0.0f;
+	}
+	const auto sum = static_cast<float>(a * a + b * b);
+	return 1.0f / InvSqrtApprox(sum);
+}
+
 void GetDistance() // 025 GET_DISTANCE
 {
+	// GScript::GetDistance 0x6F8CA0: the two vectors (0x6F8CB1..0x6F8D07) to GUtils::GetDistance(LHPoint, LHPoint)
+	// 0x74CDE0 = hypotenuse(dx, dz): x and z only, y is ignored (0x74CDE8..0x74CDF3); under 0.5 (0x8AA3B4, 0x6F8D4B) it
+	// is 0
 	const auto p1 = PopVec();
 	const auto p0 = PopVec();
-	const auto distance = glm::length(p1 - p0);
-	Pushf(distance);
+	const float distance = Hypotenuse(p1.x - p0.x, p1.z - p0.z);
+	Pushf(distance < 0.5f ? 0.0f : distance);
 }
 
 void Call() // 026 CALL
@@ -746,11 +878,105 @@ void SetWidescreen() // 032 SET_WIDESCREEN
 
 void MoveGameThing() // 033 MOVE_GAME_THING
 {
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveGameThing 0x6F8E80. The pops (0x6F8E91..0x6F8EE9): the radius (only the creature's), z, y, x, the
+	// object
+	const auto radius = Popf();
+	const auto position = PopVec();
+	const auto object = Pop().uintVal;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = static_cast<entt::entity>(object);
+	// 0x6F8EEF: GetScriptGameThing 0x70D220; none -> "Thing no longer valid" (0xC0C258)
+	if (object == 0 || !registry.Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "MOVE_GAME_THING: Thing no longer valid");
+		return;
+	}
+	if (ScriptThingTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "MOVE_GAME_THING {} to ({:.2f}, {:.2f}, {:.2f}) radius {:.2f}", object,
+		                   position.x, position.y, position.z, radius);
+	}
+	// MapCoords(pos) 0x603160 (MapCoords::Set 0x603340): x / z of the point, y kept above the land (the walks use x / z)
+	const glm::vec2 goal(position.x, position.z);
+	// 0x6F8F15: IsCreature (vt +0x34)
+	if (registry.AllOf<ecs::components::Creature>(entity))
+	{
+		// dynamic_cast<Creature*> (0x6F8F2B; none -> "no creature for script" 0xC0D598), IsObjectInMap (vt +0x178) ->
+		// fn_004F6B60(pos, radius) (0x6F8F60): Creature::PrepareCreatureForScriptedAction 0x4F6A90 and the sub-actions of
+		// its CreatureSubActionAgenda (AddSubAction 0x4FF240). TODO(M8, creature): openblack has no creature AI
+		NotImplemented("MoveGameThing (creature)");
+		return;
+	}
+	// 0x6F8F70: IsLiving (vt +0x3C4): IsObjectInMap (vt +0x178, 0x6F8F7E) and not IsDrowning (vt +0x17C, 0x6F8F90),
+	// else nothing (0x6F907E)
+	if (registry.AllOf<ecs::components::Villager>(entity))
+	{
+		if (!ecs::villager::IsObjectInMap(entity) || ecs::IsDrowning(entity))
+		{
+			return;
+		}
+		// 0x6F8FB7: AreWeThere(coords, 0.0) (vt +0x85C, 0x60AD60) == 0 -> Living::SetupMoveToPos(coords, 4 IN_SCRIPT)
+		// 0x5F2830 (0x6F8FCA); else GScript::SetScriptState(this, 4 IN_SCRIPT) 0x6F82E0 (0x6F8FD7)
+		if (!ecs::villager::AreWeThere(entity, goal, 0.0f))
+		{
+			ecs::villager::SetupMoveToPos(entity, goal, VillagerStates::InScript);
+		}
+		else
+		{
+			ecs::villager::SetScriptState(entity, VillagerStates::InScript);
+		}
+		return;
+	}
+	if (registry.AllOf<ecs::components::Animal>(entity))
+	{
+		// The same Living branch for an animal. (aproximado) IsObjectInMap as "not in the hand" (IN_HAND), the goal's
+		// altitude above the land (+0x88) taken as 0, and when it is there already GScript::SetScriptState's
+		// StorePreviousState / exit / entry / SetAnim(1) / +0x58 = 0 are not ported for the animals:
+		// animal_ai::SetState(IN_SCRIPT) stands for them
+		const auto* brain = registry.TryGet<const ecs::components::AnimalBrain>(entity);
+		const auto* transform = registry.TryGet<const Transform>(entity);
+		if (brain == nullptr || transform == nullptr || ecs::IsDrowning(entity) ||
+		    static_cast<ecs::animal_ai::AnimalState>(brain->topState) == ecs::animal_ai::AnimalState::InHand)
+		{
+			return;
+		}
+		// AreWeThere(coords, 0): the x / z distance under its speed (+0x5A, MapCoords a turn: 6553.6 per metre)
+		const float speed = static_cast<float>(brain->speed) / 6553.6f;
+		const glm::vec2 d = glm::vec2(transform->position.x, transform->position.z) - goal;
+		if (d.x * d.x + d.y * d.y >= speed * speed)
+		{
+			ecs::animal_ai::MoveTo(entity, goal, 0.0f, ecs::animal_ai::AnimalState::InScript);
+		}
+		else
+		{
+			ecs::animal_ai::SetState(entity, ecs::animal_ai::AnimalState::InScript);
+		}
+		return;
+	}
+	// 0x6F8FEA: IsFlock (vt +0x3EC) -> Flock::SetDomainCentrePos(coords) 0x52FC20: its first member's destination (+0x80,
+	// 0x52FC2C..0x52FC53) and the flock's +0x14
+	if (auto* flock = registry.TryGet<ecs::components::Flock>(entity); flock != nullptr)
+	{
+		if (!flock->members.empty() && registry.Valid(flock->members.front()))
+		{
+			if (auto* brain = registry.TryGet<ecs::components::AnimalBrain>(flock->members.front()); brain != nullptr)
+			{
+				brain->goal = goal;
+			}
+		}
+		flock->domainCentre = position;
+		return;
+	}
+	// 0x6F9015: IsWeather (vt +0x3FC) -> fn_00774550(pos) (its system +0x78: +0x5C = pos); 0x6F9036: IsComputerPlayer
+	// (vt +0x4B8) -> fn_00658510(pos, 60.0). openblack has neither kind of thing.
+	// 0x6F9058: anything else: "Jonty - Thing must be living to move it!" (0xC0D56C), then SetPos(coords) (vt +0xFC,
+	// GameThingWithPos::SetPos 0x401940: Pos = coords, so its world point is the vector itself). (aproximado) only the
+	// Transform moves: openblack's derived data (static meshes, physics) is not told
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "MOVE_GAME_THING: Jonty - Thing must be living to move it!");
+	if (auto* transform = registry.TryGet<Transform>(entity); transform != nullptr)
+	{
+		transform->position = position;
+	}
 }
 
 void SetFocus() // 034 SET_FOCUS
@@ -1067,10 +1293,21 @@ void Played() // 064 PLAYED
 		Pushb(openblack::ecs::IsPuzzleGamePlayed(entity));
 		return;
 	}
-	if (registry.AnyOf<ecs::components::Villager, ecs::components::Animal, ecs::components::Creature>(entity))
+	if (registry.AllOf<ecs::components::Villager>(entity))
 	{
-		// TODO(Daniels118): IsCreature -> the creature's plan (0x6F9DF4); IsLiving -> a Villager's
-		// IsScriptAnimationComplete 0x7689D0 (0x6F9EA8), any other Living (vt +0xB04)() == 4 (0x6F9EC4)
+		// 0x6F9E83: IsLiving (vt +0x3C4); 0x6F9E9C: dynamic_cast<Villager*> -> IsScriptAnimationComplete 0x7689D0 (0x6F9EAA)
+		const bool complete = ecs::villager::IsScriptAnimationComplete(entity);
+		if (complete && ScriptThingTrace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "PLAYED {}: true", object);
+		}
+		Pushb(complete);
+		return;
+	}
+	if (registry.AnyOf<ecs::components::Animal, ecs::components::Creature>(entity))
+	{
+		// TODO(Daniels118): IsCreature -> the creature's plan (0x6F9DF4..0x6F9E7E); any other Living: GetFinalState
+		// (vt +0xB04) == 4 IN_SCRIPT (0x6F9EC4..0x6F9ED8)
 		NotImplemented(__func__);
 		Pushb(false);
 		return;

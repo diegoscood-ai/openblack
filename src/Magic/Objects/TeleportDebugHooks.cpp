@@ -139,8 +139,9 @@ void teleport::RunDebugHooks()
 		g_Test.villager = NearestVillager(g_Test.a);
 		if (std::strcmp(g_Test.mode, "walk") == 0 && g_Test.villager != entt::null)
 		{
-			// the villager walks towards B (MOVE_TO_POS, then deciding again)
-			ecs::villager::SetupMoveToWithHug(g_Test.villager, g_Test.b, VillagerStates::DecideWhatToDo);
+			// the villager walks towards B (MOVE_TO_POS, then GO_AND_CHILLOUT_OUTSIDE_HOME 245: a final state with
+			// +0xEC set, so IsAvailableForReaction takes the teleport reaction; 163 has +0xEC = 0 and is refused)
+			ecs::villager::SetupMoveToWithHug(g_Test.villager, g_Test.b, VillagerStates::GoAndChilloutOutsideHome);
 		}
 		if (g_Test.villager != entt::null)
 		{

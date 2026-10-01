@@ -41,6 +41,9 @@ bool HasSunk(entt::entity entity);
 /// with the water bit (MapCoords::IsWater, the shallow shore too): alive -> stateCounter = drowningTime and DROWNING;
 /// otherwise VillagerDead(DEATH_REASON_PLAYER_INTERACTION_DROWN). No LANDED.
 void VillagerEndPhysicsInWater(entt::entity villager);
+/// lastPlayerToInteract (+0x104) from the body that ends in the water: PhysicsObject::GetPlayer 0x647460 (byPlayer:
+/// the local hand player PLAYER_ONE, inferido; else none). Read by the DROWNING death's VillagerDead.
+void RememberLastPlayerToInteract(entt::entity villager, bool byPlayer);
 
 /// Villager::Drowning (0x76A780), the DROWNING state's function, once per game turn: --stateCounter, and at 0
 /// VillagerDead(DEATH_REASON_PLAYER_INTERACTION_DROWN, the player who dropped it or lastPlayerToInteract, 0.01, true).

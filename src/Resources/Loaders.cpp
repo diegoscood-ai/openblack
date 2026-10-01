@@ -295,6 +295,15 @@ SoundLoader::result_type SoundLoader::operator()(BaseLoader<audio::Sound>::FromB
 	static_assert(offsetof(pack::AudioBankSampleHeader, atmos) == 0x27C);
 	static_assert(sizeof(pack::AudioBankSampleHeader) == 0x280);
 	std::memcpy(&sound->atmosFrequency, reinterpret_cast<const char*>(&header) + 0x27C, sizeof(sound->atmosFrequency));
+	// +0x108 the wave's sample, +0x124 WAVEFORMATEX.wFormatTag, +0x138 / +0x13C the loop section (engine.md §1.5)
+	static_assert(offsetof(pack::AudioBankSampleHeader, isBank) == 0x108);
+	static_assert(offsetof(pack::AudioBankSampleHeader, unknown6a) == 0x124);
+	static_assert(offsetof(pack::AudioBankSampleHeader, lStart) == 0x138);
+	static_assert(offsetof(pack::AudioBankSampleHeader, lEnd) == 0x13C);
+	sound->wave = header.isBank;
+	sound->waveFormat = static_cast<uint16_t>(header.unknown6a);
+	sound->loopStart = header.lStart;
+	sound->loopEnd = header.lEnd;
 	sound->playType = static_cast<audio::PlayType>(header.loopType);
 	sound->buffer = buffer;
 	return sound;

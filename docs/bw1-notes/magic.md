@@ -1201,7 +1201,14 @@ Lo que falta está en cada tema, al final de su sección:
 - Lanzar desde la mano: la ayuda, la inmersión, los iconos de gesto del HUD, el brillo de la mano y alimentar una bola de fuego en vuelo ([Lanzar desde la mano, gestos y efectos de la mano](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
-- Bola de los dispensadores: su altura y tamaño sobre el dispensador y la semilla de FUEGO que se ve dentro, frente a la captura del original ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
+- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\_audit\magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
+- Dispensador roto por una roca lanzada: openblack lo parte en trozos como una casa; el original lo dibuja con `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). Falta leer `Abode::ReactToPhysicsImpact` 0x406240 y qué le pasa a su orbe.
+- Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
+- Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
+- Lluvia en el crecimiento de los árboles (`GrowTree`, fórmula en [trees.md](trees.md)): el clima es de Milagros.
+- Estado 215 cuando el objeto deja de arder: qué saca al aldeano en el original (`ReactToFire` 0x765870).
+- `OPENBLACK_TIME_OF_DAY` no se aplica ya en Land 1 (el guion controla el reloj).
+- Relevo para una sesión nueva de milagros: `Desktop\B&W\Prompts y detalles.md`, sección MILAGROS.
 - Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
 - Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 

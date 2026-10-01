@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
+#include "ECS/Town/TownQueries.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -350,8 +351,22 @@ void FeatureScriptCommands::SetTownUninhabitable(int32_t townId)
 
 void FeatureScriptCommands::SetTownCongregationPos(int32_t townId, glm::vec3 position)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}) not implemented.", __FILE__, __LINE__,
-	                    __func__, townId, glm::to_string(position));
+	// case 6 (0x715580): GGame::FindTownWithID (none: nothing, 0x717E8A); town +0xF10 = GetScriptPos(N1) (0x7155A3..
+	// 0x7155B9, all three dwords), the cache of Town::GetCongregationPos 0x7408B0 (ecs::town_queries).
+	// GetScriptPos 0x718250 = MapCoords(const char*) 0x6031D0 -> MapCoords::Set 0x603280: x = ftol(atof x 65536 / 10)
+	// (0x6032AF), +8 = 0 (0x6032B1), z the second field (0x6032D5), and with a third ',' +8 = atof(third) (0x6032E4..
+	// 0x6032EF, not scaled). Then += the offset at 0xD99724 if set (0x718261..0x71826F); GSetup::LoadMapFeatures
+	// clears it (0x7180FE, ebp = 0 from 0x7180BA) and only fn_0076FA50 0x76FA69 (LandscapeVortexOut::
+	// ProcessContentsOfVortex 0x5FE249) sets it, so a land's features script never has one.
+	// openblack's script parser (Script.cpp GetParameter) only makes a vector of a two-field string, and its y is the
+	// terrain height, not a third field: y = 0 is the literal value for that form. Every SET_TOWN_CONGREGATION_POS of
+	// the shipped scripts has two fields. (aproximado) a three-field string does not reach here in openblack
+	if (const auto town = FindTown(townId); town != entt::null)
+	{
+		auto& component = Locator::entitiesRegistry::value().Get<Town>(town);
+		component.congregationPos = ecs::town_queries::ToMapCoords({position.x, position.z});
+		component.congregationPosY = 0.0f;
+	}
 }
 
 void FeatureScriptCommands::CreateAbode(int32_t townId, glm::vec3 position, const std::string& abodeInfo, int32_t rotation,

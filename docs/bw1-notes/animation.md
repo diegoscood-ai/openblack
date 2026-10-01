@@ -120,6 +120,10 @@ pueblo, hambre, cargas, creencia, maravilla) cuenta como neutro: ver [Pendiente]
   guardería / taller / maravilla / cementerio (salvo los africanos), ShowNeedsVisuals y montón de leña del taller, los
   iconos de hechizo del centro del pueblo (uno por semilla distinta, hasta 6), dispensador + semilla, y corazón +
   objeto visual + TempleLeash del templo (sus lugares de culto aún no) (**sin comprobar** que siga faltando cada uno).
+- **Mods** (propio de openblack): lo que crea un mod y no existe en el original se crea dentro de un
+  `object_index::ModScope`, que da índices de un rango aparte (desde `k_ModBase` = 0x40000000, `IsModObject`) sin mover
+  el contador del original (`Skip` también va al rango del mod). Lo usa
+  [test.miracle-dispensers](mod-library.md#testmiracle-dispensers) para sus dispensadores y sus orbes.
 - Vuelve a 0 al cargar un mapa (ClearMap → GData::Reset 0x510750) y empieza en 2 en el primero de la sesión (dos
   HelpSpirits).
 - Comprobado: los 55 aldeanos de Land1 tienen el mismo índice que el simulador. Traza

@@ -26,6 +26,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -271,6 +272,8 @@ entt::entity dispenser::CreateOneOffSpellSeed(entt::entity dispenser)
 	int powerUp = -1;
 	(void)magic::GetPowerUpGesture(magic::GetSpellSeedInfo(tables, seed), component.magicType, &powerUp);
 	const auto position = OrbPosition(dispenser);
+	// openblack: a mod's dispenser (test.miracle-dispensers) makes its orbs in the mods' index range
+	const ecs::object_index::ModScope scope(ecs::object_index::IsModObject(dispenser));
 	const auto orb = magic::one_off::Create(position, seed, powerUp, 1.0f);
 	registry.Get<SpellDispenser>(dispenser).oneShot = orb;
 	if (orb == entt::null)
@@ -301,6 +304,7 @@ bool dispenser::ApplySeed(entt::entity dispenser, entt::entity seedEntity)
 		return false;
 	}
 	const auto position = OrbPosition(dispenser);
+	const ecs::object_index::ModScope scope(ecs::object_index::IsModObject(dispenser)); // openblack: as above
 	magic::one_off::Create(position, seed.seedType, seed.powerUp, 1.0f);
 	magic::seed::SetChantStore(seed, 0.0f);
 	magic::seed::ToBeDeleted(seedEntity);

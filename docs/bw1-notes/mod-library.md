@@ -30,6 +30,7 @@ integrados. Todo lo de esta página es **mod/propio** salvo que se diga lo contr
   - [Módulo world.foliage.beach](#módulo-worldfoliagebeach)
   - [Módulo world.foliage.butterflies](#módulo-worldfoliagebutterflies)
   - [test.miracle-dispensers](#testmiracle-dispensers)
+  - [game.skip-intro](#gameskip-intro)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
 - [Fuentes](#fuentes)
@@ -89,6 +90,7 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
 | [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
 | [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores), `seed` **on**/off | Un dispensador de cada milagro junto al templo (más uno vacío) y una bola de fuego en la mano, para probarlos | no |
+| [`game.skip-intro`](#gameskip-intro) | `skip` **tutorial**/tutorial and creature training | Empieza Land 1 sin la intro (la respuesta «saltar el tutorial» del original) | sí |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 
 Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
@@ -600,6 +602,24 @@ los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luci
   `SpellDispenser::Draw` 0x722940 llama a `MultiMapFixed::Draw` 0x518090 y no a `Abode::Draw`, así que nunca dibuja la
   FragMesh de un dispensador dañado; falta leer si `Abode::ReactToPhysicsImpact` 0x406240 lo rompe (pendiente).
 
+### game.skip-intro
+
+- Opción `skip`: `tutorial` (por defecto) o `tutorial and creature training`. Con reinicio (cuenta al empezar la
+  partida). Para una sola vez: `--mod game.skip-intro` (y `--mod game.skip-intro.skip=tutorial and creature training`).
+- No inventa ningún salto: da la respuesta que el original pedía al jugador. En runblack.exe v1.42, al empezar cada
+  partida, `GGame::OnNewGame` (0x55395B) llama a `GGame::DoYesNoSkipTutorialRequestersIfNecessary` (0x54CBD0), que
+  borra los bits 23, 24 y 25 de `g_game+0x14`, pausa el juego y enseña el **SkipBox** (cuatro casillas, la primera
+  marcada por defecto; sin ESC, `SkipBox::CanESCOut` 0x53BD60 da 0). openblack no dibuja ese cuadro y juega todo, como
+  la respuesta por defecto; con el mod, `Game::Run` pone los bits de la segunda (`tutorial`, bit 23) o la tercera
+  respuesta (`tutorial and creature training`, bits 23 y 24), y el guion se salta la intro por su cuenta.
+- Qué salta el guion (`SetupLand1` / `LandControl1` de challenge.chl): con `CAN_SKIP_TUTORIAL` no corren `FollowUs` (la
+  intro: la cámara del guion y `START_MUSIC 54`), `CitadelGuide` (la ciudadela se construye al momento) ni
+  `ChooseYourCreature`; se va directo a elegir criatura en el claro (`CreaturesInGlade`, que también coge la cámara).
+  Con `CAN_SKIP_CREATURE_TRAINING` además no corren las lecciones del guía de la criatura. Detalle en
+  [map-loading.md](map-loading.md#saltar-el-tutorial-skipbox-y-can_skip_tutorial).
+- La cuarta respuesta del original (bits 23 a 25, conservar la criatura antigua) no se ofrece: el guion también pide
+  `CURRENT_PROFILE_HAS_CREATURE` y openblack no tiene perfiles.
+
 ## Pendiente
 
 - Nivel 3: mods externos (Lua o DLL) sobre esta misma API.
@@ -622,7 +642,8 @@ Cámaras: playa de Land1 `1702,7,1992,1706,0.5,2004`; mariposas de Land1 `1428,6
 
 ## Fuentes
 
-- Código: `src/Mods/` (`ModRegistry`, `Mod`, `Builtin/*Mod.cpp`), `src/Worship/TestDispensers.cpp`, `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`,
+- Código: `src/Mods/` (`ModRegistry`, `Mod`, `Builtin/*Mod.cpp`; `game.skip-intro` en `Builtin/SkipIntroMod.cpp`, `Game::Run` y
+  `CHLApi.cpp` `CanSkipTutorial`), `src/Worship/TestDispensers.cpp`, `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`,
   `src/Resources/HdTweaks`, `src/main.cpp` (atajos de la línea de comandos).
 - Datos del mod en el repo: `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`,
   `assets/mods/world.foliage.butterflies`, `assets/mods/graphics.hd-tweaks`.

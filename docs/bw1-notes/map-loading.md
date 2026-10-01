@@ -453,8 +453,49 @@ por eso la cámara no se desliza). `END_CAMERA_CONTROL` está al final de `Follo
 Además, tras el `SET_FADE` a negro de 4 s (línea 51012) la pantalla queda negra: viene `SET_AVI_SEQUENCE(1, 1)` (203,
 stub) y no hay `SET_FADE_IN` en `FollowUs`.
 
+### Saltar el tutorial (SkipBox y CAN_SKIP_TUTORIAL)
+
+**Fiel** (runblack.exe v1.42, leído con `bwdis.py`):
+
+- `GGame::OnNewGame` 0x553900: si hay guion y es Land 1 arranca `LandControlAll` y, siempre, llama a
+  `DoYesNoSkipTutorialRequestersIfNecessary` 0x54CBD0 (0x55395B). Esta borra los bits 23, 24 y 25 de `g_game+0x14`
+  (0x54CBD5 / 0x54CBE1 / 0x54CBED); la condición que había antes de enseñar el cuadro está anulada con 25 NOP
+  (0x54CBF4..0x54CC0C), así que **siempre** hace `PauseGame(1)` y `SkipBox::Show` (vt +0x0C, `DialogBoxBase::Show`
+  0x5135F0) sobre el SkipBox de `FrontEnd::Init` (0x53B844, puntero en 0xCD0634, callback 0x544480 en 0x53BB9D).
+- `SkipBox::Init` 0x5441C0: un título, un botón (id 0xB, texto 0xA24 de `HelpTextDatabase`) y cuatro casillas (ids
+  0x3C..0x3F) con los textos 5..8 de la tabla de textos de 0xD17CA0 (no leídos); la elegida está en `+0x20`, 0 por
+  defecto (0x544206). `SkipBox::CanESCOut` 0x53BD60 da 0: no se cierra con ESC.
+- Callback 0x544480: al pulsar el botón 0xB, según la casilla (tabla de saltos 0x5445A0): 0 borra 23, 24 y 25;
+  1 pone 23 y borra 24 y 25; 2 pone 23 y 24 y borra 25; 3 pone los tres. Luego `PauseGame(0)` y
+  `DialogBoxBase::Hide`.
+- Los guiones lo leen con `CAN_SKIP_TUTORIAL` (460, `GScript::CanSkipTutorial` 0x6FFEF0, bit 23),
+  `CAN_SKIP_CREATURE_TRAINING` (461, 0x6FFF10, bit 24) e `IS_KEEPING_OLD_CREATURE` (462, 0x6FFF30, bit 25), que
+  empujan el bit como booleano (VMType 6). Nadie más escribe esos bits (búsqueda de `or`/`and` con 0x800000,
+  0x1000000, 0x2000000 en todo `.text`).
+- challenge.chl: solo `SetupLand1` los llama. `CAN_SKIP_TUTORIAL` → global `IsSkippingToCreatureSelect` = 1;
+  `CAN_SKIP_CREATURE_TRAINING` → `IsSkippingCreatureGuide` = 1; `IS_KEEPING_OLD_CREATURE` y
+  `CURRENT_PROFILE_HAS_CREATURE` → `IsKeepingOldCreature` = 1 y los otros dos también.
+- `LandControl1`: con `IsSkippingToCreatureSelect` no corren `FollowUs` (la intro) ni `CitadelGuide`: hace
+  `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)`, coge con `CALL_NEAR(18, 5000, ese punto, 5)` el objeto creado (la
+  ciudadela, (inferido) por el tipo) y le pone `BUILT_PERCENTAGE` (propiedad 22) = 1; tampoco corre `ChooseYourCreature`: crea las tres piedras de la puerta (`GateKey1`, `GateKey2`,
+  `QuarryRock`) y corre `CreaturesInGlade` (que coge la cámara para elegir criatura y, en ese caso, se salta al
+  guardián y hace un `SET_FADE_IN` de 2 s tras 2 s). Con `IsKeepingOldCreature` en vez de eso pone la hora (`SET_GAME_TIME 15.4`,
+  `GAME_TIME_ON_OFF 1`), abre la puerta de las criaturas (`SET_OPEN_CLOSE`), da `ChooseYourCreatureFinished` y
+  carga la criatura del perfil (`LOAD_MY_CREATURE`). Con `IsSkippingCreatureGuide` no corren `MoveTheGuideAround`,
+  `CreatureDevLearnToEat`, `CreatureDevPunishment`, `CreatureDevLeashIntro`, `CreatureDevLeashAttachToHouse`,
+  `MeetTheGuide`, `GuideAsksToMeetYourCreature`, `GuideImpressTown*`, `CreatureDevGuideTeachesFight` ni `TheStorm`
+  (espera a `LeaveLandNow`).
+- No hay otra forma original de saltar la intro: `FollowUs` no llama a `KEY_DOWN` ni mira ESC; el clic solo pasa los
+  textos.
+
+**openblack:** sin SkipBox. `Game::Run`, tras arrancar `LandControlAll`, borra los tres bits (`TutorialSkipFlags` de
+`Game`) y pone los de la respuesta del mod [game.skip-intro](mod-library.md#gameskip-intro) (sin el mod, ninguno: la
+respuesta por defecto). En juego con el mod: no hay `START_MUSIC(54)` ni cámara de `FollowUs`; el guion lleva la
+cámara al claro de las criaturas (`CreaturesInGlade`).
+
 ## Pendiente
 
+- SkipBox: openblack no lo enseña (lo sustituye el mod `game.skip-intro`); faltan sus textos (tabla 0xD17CA0).
 - CREATE de CHL sin portar: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight y Scaffold.
 - `CREATE_MIST` 263 y `SET_MIST_FADE` 264 de CHL (`CHLApi.cpp`, sin implementar).
 - Lluvia y temperatura iniciales de `GClimate` (rango de la estación): aquí consta como no portado; comprobar con

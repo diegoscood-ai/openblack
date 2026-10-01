@@ -93,6 +93,17 @@ struct MapScriptGlobals
 	std::array<float, k_MagicCount> fireFlySpellRewardCumulative {};
 };
 
+/// The tutorial-skip bits of the GGame flags word g_game+0x14, cleared at every new game by
+/// GGame::DoYesNoSkipTutorialRequestersIfNecessary (0x54CBD0, called by GGame::OnNewGame 0x55395B) and set by the
+/// answer to its SkipBox (callback 0x544480); read by the scripts through CAN_SKIP_TUTORIAL (bit 23, 0x6FFEF0),
+/// CAN_SKIP_CREATURE_TRAINING (bit 24, 0x6FFF10) and IS_KEEPING_OLD_CREATURE (bit 25, 0x6FFF30)
+struct TutorialSkipFlags
+{
+	bool canSkipTutorial {false};
+	bool canSkipCreatureTraining {false};
+	bool isKeepingOldCreature {false};
+};
+
 class Game
 {
 public:
@@ -132,6 +143,8 @@ public:
 	[[nodiscard]] DayNightClock& GetDayNightClock() { return *_dayNightClock; }
 	/// Globals set by the map script (VERSION, SET_LAND_NUMBER, influence multipliers, firefly rewards)
 	[[nodiscard]] MapScriptGlobals& GetMapScriptGlobals() { return _mapScriptGlobals; }
+	/// The tutorial-skip bits of g_game+0x14 (CAN_SKIP_TUTORIAL, CAN_SKIP_CREATURE_TRAINING, IS_KEEPING_OLD_CREATURE)
+	[[nodiscard]] const TutorialSkipFlags& GetTutorialSkipFlags() const { return _tutorialSkipFlags; }
 
 	static Game* Instance() { return sInstance; }
 
@@ -156,5 +169,6 @@ private:
 	std::unique_ptr<ScreenFade> _screenFade;
 	std::unique_ptr<DayNightClock> _dayNightClock;
 	MapScriptGlobals _mapScriptGlobals;
+	TutorialSkipFlags _tutorialSkipFlags;
 };
 } // namespace openblack

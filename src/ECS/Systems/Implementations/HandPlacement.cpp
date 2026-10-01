@@ -42,7 +42,6 @@
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -337,7 +336,7 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 				if (game == nullptr || !game->GetScreenFade().IsWideScreenOn())
 				{
 					EmitGripDust(*_gripPoint);
-					GripLandSound();
+					GripLandSound(*_gripPoint);
 				}
 			}
 			else if (game == nullptr || !game->IsPaused())

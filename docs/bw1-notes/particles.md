@@ -164,6 +164,7 @@ los átomos del PSys. Informe: `visuals_sound.md` §3; lo de abajo está verific
   no, `surfaceSound` del material (1..8, otro → 3). Los sonidos de animación usan ahora esta misma función (antes
   "altura ≤ 0 → 7").
 - **Banco** (`LHSamplePlayAnimEffect` 0x100146F0 del DLL): `LHFindAttribRow` (fila más exacta, `src/Audio/AnimEffectBank`,
+  alias de `AnimEffectTable` del núcleo desde B2 del audio: sus tablas se copian de las del banco registrado,
   compartido con los sonidos de animación), una muestra al azar de la lista y **no suena si la cámara está más lejos
   que el maxDist de la muestra** (S_TeleportPool: 170). El modo de reproducción de la muestra (+0x274, bit 0x400) 2 =
   no hace nada si ya suena para ese objeto; así el bucle se puede "re-emitir" cada turno sin duplicarse. El argumento de

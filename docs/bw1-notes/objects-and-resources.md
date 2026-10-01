@@ -110,7 +110,7 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
 - Coger de un montón, campo o piscifactoría: **un solo canal en bucle** (G_PICKUPWOOD 98 para madera; G_PICKUPFOOD 44
   para lo demás) cuyo tono sube a ftol(60 + 180·t²) % por turno; se para al soltar o al acabarse. Dejar en un montón:
   G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound` con
-  `sample_play` (modo 2 del .sad, dueño 0, `SetPitch`); trazado con `OPENBLACK_HAND_TEST_FISH=1`: un solo arranque y
+  `audio::PlaySoundEffect` (modo 2 del .sad, dueño 0, `audio::SetPitch`, `audio::StopSoundEffect`); trazado con `OPENBLACK_HAND_TEST_FISH=1`: un solo arranque y
   tono 0,60 → 1,02 en los 3 s del gancho. El original lo pone 3D (+0x0C 0, no sigue a nadie) en el punto +0xC8 del
   estado de la interfaz, que es **la mano**: `GInterface::Process` → `fn_005D2250` manda en el paquete 0x15 la
   posición de la mano (`CHand`+0x78, `Morphable::position`, 0x5D2350); `GPacket` 0x63CA9E → 0x5DBFB0 la guarda en
@@ -248,8 +248,8 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
 - `PileFood::Draw`: confirmar que la vfunc 0xE8 de LH3DObject es el desplazamiento de UV (**inferido**).
 - Campos: la alineación y la lluvia en el crecimiento; los oficios de aldeano que los siembran (sin ellos los campos
   quedan vacíos salvo con el mod `world.crops`).
-- Sonidos que aún van por su cuenta, fuera de los 16 canales: `AnimationSounds`, las rocas, el silbido de la cámara,
-  `G_RockPast` y los `PlaySample` de coger/plantar/romper de la mano.
+- Sonidos: desde B4 del audio todos (coger, arrancar, plantar, triturar, rocas, silbidos, montones) van por los 16
+  canales como en el original, 2D o 3D según su sitio ([audio.md](audio.md#b4-los-llamadores-del-mundo-en-los-canales)).
 
 ## Ganchos de prueba
 

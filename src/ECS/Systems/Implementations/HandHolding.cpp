@@ -41,7 +41,6 @@
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -74,6 +73,8 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/SeaCells.h"
 #include "ECS/VillagerDrowning.h"
+#include "ECS/Life.h"
+#include "ECS/Villager/VillagerCore.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
@@ -191,24 +192,42 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 		_heldHeight = _heldTop;
 		_holdRadius = 0.2f * 0.5f * std::max(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z);
 	}
+	// GInterface::GenericPickup 0x5D2800 (0x5D2881..0x5D28B7): every object but a rooted tree or forest (IsTree /
+	// IsForest without the uprooted bit +0x24 & 0x40) gets SoundTag::Create(its MapCoords +0x14, 10 G_PickUpObject,
+	// track 0, mode 3, loops 0, +0x40 0, is3D 1, InGame, delay 0) 0x71EB60, a point tag at the object's point (x, altitude
+	// + height, z) that plays at once (fn_0071EA40). A DeadTree is not IsTree (it has no override of
+	// GameThingWithPos::IsTree 0x402320, which returns 0), so it sounds too.
+	const auto pickupPoint = transform.position;
+	const auto pickupTag = [&pickupPoint](int sample) {
+		audio::tags::Create(pickupPoint, sample, false, 3, 0, false, true, audio::SfxBank::InGame, 0);
+	};
 	if (registry.AllOf<Tree>(entity) && caught)
 	{
-		// a thrown tree caught again: already out of the ground, no uprooting
-		PlaySample(audio::SoundId::G_PickUpObject);
+		// a thrown tree caught again: already out of the ground (+0x24 & 0x40), no uprooting
+		pickupTag(10);
 	}
 	else if (registry.AllOf<Tree>(entity))
 	{
-		// Tree::InterfaceSetInMagicHand 0x74B730: uprooting cracks (LH_SAMPLE_G_TREEBREAK_01 + rand % 3) and is evil:
-		// GAlignment::Update(the hand's player, tree, false), -treePullPutAlignmentChange weighed by the alignment.
+		// Tree::InterfaceSetInMagicHand 0x74B730 (rooted, +0x24 & 0x40 clear): SoundTag::Create(the tree's MapCoords,
+		// GetRandomSample(32 G_TreeBreak_01, 3) 0x71ED40, track 0, mode 3, loops 0, 0, is3D 1, InGame, delay 0)
+		// (0x74B739..0x74B758). Uprooting is evil: GAlignment::Update(the hand's player, tree, false),
+		// -treePullPutAlignmentChange weighed by the alignment.
 		ecs::effects::alignment::UpdateForTree(PlayerNames::PLAYER_ONE, false);
-		static constexpr auto k_TreeBreak = std::array<audio::SoundId, 3> {
-		    audio::SoundId::G_TreeBreak_01_1, audio::SoundId::G_TreeBreak_02_1, audio::SoundId::G_TreeBreak_03_1};
-		PlaySample(Locator::rng::value().Choose(k_TreeBreak));
+		audio::tags::Create(pickupPoint, audio::tags::RandomSample(32, 3), false, 3, 0, false, true, audio::SfxBank::InGame,
+		                    0);
 		_heldAltitude = 0.0f;
 	}
-	else if (!registry.AllOf<DeadTree>(entity))
+	else
 	{
-		PlaySample(audio::SoundId::G_PickUpObject);
+		pickupTag(10);
+	}
+	// 0x5D28C5..0x5D295D: a villager (IsVillager vt +0x2C8) that is alive (Object::IsAlive 0x402610: GetLife() > 0 and
+	// available) screams with a second point tag of the same form: a child (IsChild vt +0xAF8) 180 + GetRandomSample(7)
+	// G_PickUpChild_01.., else a woman (Villager::IsWoman 0x752620) 194 G_PickUpWoman_01.., else 187 G_PickUpMan_01..
+	if (registry.AllOf<Villager>(entity) && ecs::life::LifeOf(entity) > 0.0f)
+	{
+		const int first = ecs::villager::IsChild(entity) ? 180 : ecs::villager::IsWoman(entity) ? 194 : 187;
+		pickupTag(audio::tags::RandomSample(first, 7));
 	}
 	ComputeHoldParameters(entity);
 	_held = entity;

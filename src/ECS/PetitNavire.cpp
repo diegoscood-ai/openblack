@@ -28,8 +28,7 @@
 #include "3D/AllMeshes.h"
 #include "3D/L3DAnim.h"
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/SamplePlay.h"
+#include "Audio/Audio.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/DynamicShadow.h"
 #include "ECS/Components/Mesh.h"
@@ -64,7 +63,7 @@ constexpr int32_t k_PuffMs = 200;                                  // 0x5E04CE
 constexpr int32_t k_PushedMs = 850;                                // 0x5E062E
 // 0xBF2B10..: the ScriptSFX samples at these clip times, 2D (LH_SamplePlayOptions +0xBC = 2)
 constexpr std::array<int32_t, 3> k_SoundTimes = {100, 1500, 3900};
-constexpr std::array<const char*, 3> k_Sounds = {"Scriptsfx.sad/62", "Scriptsfx.sad/61", "Scriptsfx.sad/60"};
+constexpr std::array<int, 3> k_Sounds = {62, 61, 60}; // ScriptSfx MissionaryBoatCreak / Slide / Splash_01
 // 0xBF2B1C, 0xBF2B30, 0xBF2B44: the five sailors on the dock
 constexpr std::array<float, 5> k_SailorX = {5.2f, 5.3f, 5.5f, 5.0f, 5.0f};
 constexpr std::array<int32_t, 5> k_SailorPhase = {5, 500, 1500, 455, 2000};
@@ -224,20 +223,14 @@ void Free()
 	registry.SetDirty();
 }
 
-void PlaySample(const char* name)
+void PlaySample(int sample)
 {
-	const auto id = entt::hashed_string(name).value();
-	if (!Locator::audio::has_value() || !Locator::resources::value().GetSounds().Contains(id))
-	{
-		SPDLOG_LOGGER_WARN(spdlog::get("audio"), "PetitNavire: no sample {}", name);
-		return;
-	}
 	// 0x5E0413..0x5E04B9: a default LH_SamplePlayOptions, bank Scriptsfx (GAudio+0x3BC), is3D 0 (+0x08), owner 0
 	// (+0x20), mode 2 (+0x50), GAudio::PlaySoundEffect 0x429E30: one of LHaudio's 16 channels
-	audio::sample_play::Options options;
-	options.sound = id;
+	audio::PlayOptions options;
+	options.sample = {audio::Bank(audio::SfxBank::ScriptSfx), sample};
 	options.mode = 2;
-	audio::sample_play::PlaySoundEffect(options);
+	audio::PlaySoundEffect(options);
 }
 
 /// PreDraw 0x5DFF20. False when the boat was freed (or turned into a new one, which gets no PreDraw this frame).

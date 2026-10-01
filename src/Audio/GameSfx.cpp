@@ -12,6 +12,8 @@
 
 #include <array>
 
+#include <spdlog/spdlog.h>
+
 #include "Audio.h"
 #include "Sound.h"
 
@@ -38,14 +40,15 @@ sample_play::Options Variant(Owner owner, glm::vec3 position, int sample, int mo
 	return options;
 }
 
-/// Get3DSoundPos of the owner of 0x429DA0 (vtable +0x10): a thing or a registered object; nothing for the others (a key
-/// or a tag passed as a GameThingWithPos would be a bad pointer in the original)
+/// Get3DSoundPos of the owner of 0x429DA0 (vtable +0x10): a thing, a registered object or a tag; nothing for the others
+/// (a key passed as a GameThingWithPos would be a bad pointer in the original)
 std::optional<glm::vec3> SoundPosition(const Owner& owner)
 {
 	switch (owner.kind)
 	{
 	case Owner::Kind::Thing:
 	case Owner::Kind::Object:
+	case Owner::Kind::SoundTag: // SoundTag::Get3DSoundPos 0x71EC90 (its thing's)
 		return OwnerSoundPosition(owner);
 	default:
 		return std::nullopt;
@@ -153,6 +156,12 @@ void audio::StopSoundEffect(int sample, Owner owner, SfxBank bank)
 void audio::StopSoundEffect(int sample, Owner owner, BankId bank)
 {
 	// 0x42A210 -> LHSampleStop(bank, owner, sample): sample 0 = any (0x10012C76)
+	if (SfxTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "SFX: stop {}/{} owner kind {} {}", BankGroup(bank), sample,
+		                   static_cast<int>(owner.kind),
+		                   owner.kind == Owner::Kind::Thing ? static_cast<uint32_t>(owner.thing) : owner.id);
+	}
 	if (sample == 0)
 	{
 		sample_play::StopOwner(bank, owner);

@@ -14,6 +14,7 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <chrono>
 #include <unordered_map>
 #include <vector>
 
@@ -23,8 +24,10 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio.h"
+#include "AnimEffects.h"
 #include "AtmosBanks.h"
 #include "AudioManagerInterface.h"
+#include "SampleOutput.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "GameMusic.h"
@@ -44,10 +47,6 @@ using namespace openblack::audio;
 
 namespace
 {
-/// LHSampleRegister3DObjectFunction(fn_00427200, 800.0) at 0x426E6B: LH_AudioSystem+0x44, the farthest an anim effect
-/// starts (LHSamplePlayAnimEffect 0x1001475A / 0x10014A8A)
-constexpr float k_AnimEffectMaxDistance = 800.0f;
-
 struct BankEntry
 {
 	std::string path; ///< lower case, '/' separators
@@ -124,36 +123,100 @@ std::optional<glm::vec3> OwnerPosition(const Owner& owner)
 		}
 		return found->second();
 	}
+	case Owner::Kind::SoundTag:
+		// SoundTag::Get3DSoundPos 0x71EC90: its thing's (nullopt: no thing, the channel keeps its point)
+		return tags::Get3DSoundPos(owner.id);
 	default:
 		return std::nullopt;
 	}
 }
 
 /// GAudio's filters shared by PlaySoundEffect (0x429F25..0x429FD9) and SamplePlayAnimEffect (0x42A51B..0x42A5B8):
-/// `ownerTest` is whether the unavailable owner is tested (is3D && track for the first, track for the second)
-bool Filtered(const Sound& sound, uint32_t bank, const Owner& owner, bool ownerTest)
+/// `ownerTest` is whether the unavailable owner is tested (is3D && track for the first, track for the second). The
+/// reason the sample does not play (for OPENBLACK_SFX_TRACE), nullptr when it passes.
+const char* FilterReason(const Sound& sound, uint32_t bank, const Owner& owner, bool ownerTest)
 {
 	// LHSampleGetUserParam: the 16 bits compared at 0x429F65 (cmp di, 1)
 	const auto kind = static_cast<uint16_t>(sound.userParam);
 	if (g_State.scriptWideScreen && kind == 1)
 	{
-		return true;
+		return "user parameter 1 with the script's wide screen";
 	}
 	if (IsInsideCitadel() && kind != 2)
 	{
-		return true;
+		return "inside the citadel, user parameter not 2";
 	}
 	// GScript+0x90 (SET_GAME_SOUND false): only GAudio+0x3C4 / +0x3C0 (banks 7 and 6 of 0x9CB3F8)
 	if (GetScriptAudioState().gameSoundOff != 0 && bank != Bank(SfxBank::Villagers) && bank != Bank(SfxBank::HelpSprites))
 	{
-		return true;
+		return "SET_GAME_SOUND false";
 	}
 	const int state = g_State.queries.interfaceState ? g_State.queries.interfaceState() : 0;
 	if ((state == 0x10 || state == 0x16 || state == 0x17) && kind == 4)
 	{
-		return true;
+		return "user parameter 4 in an interface state 0x10 / 0x16 / 0x17";
 	}
-	return ownerTest && OwnerUnavailable(owner);
+	if (ownerTest && OwnerUnavailable(owner))
+	{
+		return "owner unavailable";
+	}
+	return nullptr;
+}
+
+bool Filtered(const Sound& sound, uint32_t bank, const Owner& owner, bool ownerTest)
+{
+	return FilterReason(sound, bank, owner, ownerTest) != nullptr;
+}
+
+std::string OwnerText(const Owner& owner)
+{
+	switch (owner.kind)
+	{
+	case Owner::Kind::None:
+		return "none";
+	case Owner::Kind::Atmos:
+		return "atmos";
+	case Owner::Kind::Thing:
+		return fmt::format("thing {}", static_cast<uint32_t>(owner.thing));
+	case Owner::Kind::SoundTag:
+		return fmt::format("tag {}", owner.id);
+	case Owner::Kind::Key:
+		return fmt::format("key {:#x}", owner.id);
+	case Owner::Kind::Object:
+		return fmt::format("object {}", owner.id);
+	}
+	return "?";
+}
+
+/// The pitch a started channel got (with the .sad's deviation), 0 when it did not start
+int ChannelPitch(Channel channel)
+{
+	if (channel == k_NoChannel)
+	{
+		return 0;
+	}
+	for (const auto& info : sample_play::Channels())
+	{
+		if (info.handle == channel)
+		{
+			return info.pitch;
+		}
+	}
+	return 0;
+}
+
+/// One OPENBLACK_SFX_TRACE line of GAudio::PlaySoundEffect 0x429E30
+void TraceSoundEffect(const sample_play::Options& options, const Sound& sound, Channel channel, const std::string& result)
+{
+	// the mode LHSamplePlay starts with: the .sad's with its flag 0x400 unless the caller set it (0x10011B5C)
+	const bool sadMode = (sound.overrides & 0x400) != 0 && (options.callerMask & 0x400) == 0;
+	const auto at = options.position + options.offset;
+	SPDLOG_LOGGER_INFO(spdlog::get("audio"),
+	                   "SFX: {}/{} ({}) {} track {} at ({:.1f}, {:.1f}, {:.1f}) mode {} loops {} pitch {} owner {} -> {}",
+	                   BankGroup(static_cast<BankId>(sound.bank)), sound.id, sound.name, options.is3D ? "3D" : "2D",
+	                   options.track ? 1 : 0, at.x, at.y, at.z, sadMode ? sound.playMode : options.mode, options.loops,
+	                   ChannelPitch(channel), OwnerText(options.owner),
+	                   channel != k_NoChannel ? fmt::format("channel {}", channel) : result);
 }
 
 /// The atmos of ProcessAudioGameTurn 0x427080 and its gate
@@ -262,6 +325,45 @@ std::optional<glm::vec3> audio::OwnerSoundPosition(const Owner& owner)
 	return OwnerPosition(owner);
 }
 
+std::optional<glm::vec3> audio::Get3DSoundPos(const Owner& owner)
+{
+	switch (owner.kind)
+	{
+	case Owner::Kind::None:
+		// 0x4272F9: LH3DTech::g_camera
+		return CameraPoint();
+	case Owner::Kind::Atmos:
+		// 0x42726D: -1 gives 0
+		return std::nullopt;
+	case Owner::Kind::SoundTag:
+		// 0x4272D5: a Base's Get3DSoundPos; a tag without a thing answers 1 with the point it was given (the info's
+		// +0x50, 0x427209). For a new start (LHSamplePlayAnimEffect 0x10014B91 asks it on the channel just allocated,
+		// before LHSamplePlay writes the options' point) that +0x50 is the channel's previous point, a stale value:
+		// openblack gives the tag's own point (approximated; no caller starts an anim effect owned by a tag)
+		if (const auto at = tags::Get3DSoundPos(owner.id))
+		{
+			return at;
+		}
+		return tags::Point(owner.id);
+	case Owner::Kind::Key:
+		// a plain number is never given to the 3D function (the voices' keys play 2D or untracked) (inferred)
+		return std::nullopt;
+	default:
+		// 0x4272A6: a GameThing not IsAvailable gives 0; else Get3DSoundPos
+		return OwnerPosition(owner);
+	}
+}
+
+std::optional<glm::vec3> audio::ListenerPoint()
+{
+	return CameraPoint();
+}
+
+float audio::IslandAltitude(float x, float z)
+{
+	return g_State.queries.landAltitude ? g_State.queries.landAltitude(x, z) : 0.0f;
+}
+
 bool audio::OwnerUnavailable(const Owner& owner)
 {
 	// 0x429D20: only a GameThing can be unavailable; 0 and -1 are not tested
@@ -293,6 +395,10 @@ Channel audio::PlaySoundEffectOptions(const sample_play::Options& options)
 	const auto* sound = sample_play::GetSound(options.sound);
 	if (sound == nullptr)
 	{
+		if (SfxTrace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "SFX: sound {:#x} not loaded", options.sound);
+		}
 		return k_NoChannel;
 	}
 	// 0x429E59..0x429F1F: a 3D sample with a sample number
@@ -313,53 +419,68 @@ Channel audio::PlaySoundEffectOptions(const sample_play::Options& options)
 					SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Sample play: {} culled, camera {:.1f} > max {:.1f}",
 					                   sound->name, std::sqrt(distanceSq), maxDistance);
 				}
+				if (SfxTrace())
+				{
+					TraceSoundEffect(options, *sound, k_NoChannel,
+					                 fmt::format("culled (camera {:.1f} > max {:.1f})", std::sqrt(distanceSq), maxDistance));
+				}
 				return k_NoChannel;
 			}
 		}
 	}
-	if (Filtered(*sound, sound->bank, options.owner, options.is3D && options.track))
+	if (const char* reason = FilterReason(*sound, sound->bank, options.owner, options.is3D && options.track))
 	{
+		if (SfxTrace())
+		{
+			TraceSoundEffect(options, *sound, k_NoChannel, fmt::format("filtered ({})", reason));
+		}
 		return k_NoChannel;
 	}
-	return sample_play::Start(options);
+	const auto channel = sample_play::Start(options);
+	if (SfxTrace())
+	{
+		TraceSoundEffect(options, *sound, channel, "no channel");
+	}
+	return channel;
 }
 
-Channel audio::PlayAnimEffectSample(entt::id_type id, Owner owner, glm::vec3 position, bool track)
+Channel audio::SamplePlayAnimEffect(Owner owner, float distance, const AnimKey& key, AnimAction action, BankId bank,
+                                    bool track, float minDistance, float maxDistance)
 {
-	if (!g_State.initialised)
+	// 0x42A4BC: an action goes to the key variant 0x100146F0 with no filter and no min / max (0x42A4C6 / 0x42A4C8)
+	if (action != AnimAction::Play)
+	{
+		return anim_effects::PlayKey(owner, distance, key, action, track, bank, 0.0f, 0.0f);
+	}
+	// 0x42A4F9: LHSampleGetAnimEffectNumber; 0 = nothing (0x42A515)
+	const int sample = anim_effects::Number(key, bank);
+	if (sample == 0 || !g_State.initialised)
 	{
 		return k_NoChannel;
 	}
-	const auto* sound = sample_play::GetSound(id);
+	const auto* sound = sample_play::GetSound(SampleId(bank, sample));
 	if (sound == nullptr)
 	{
 		return k_NoChannel;
 	}
-	if (Filtered(*sound, sound->bank, owner, track))
+	// 0x42A51B..0x42A5B8: the user parameter's filters (LHSampleGetUserParam 0x42A520), the banks after SET_GAME_SOUND
+	// (0x42A56E), the interface states, and an unavailable owner when tracking (0x42A5A1, no is3D test)
+	const char* reason = FilterReason(*sound, bank, owner, track);
+	// 0x42A5D4: LHSamplePlayAnimEffect(owner, dist, n, track, bank, min, max)
+	const auto channel =
+	    reason != nullptr ? k_NoChannel : anim_effects::Play(owner, distance, sample, track, bank, minDistance, maxDistance);
+	if (SfxTrace())
 	{
-		return k_NoChannel;
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"),
+		                   "SFX: anim effect {{{}, {}, {}, {}, {}}} -> {}/{} ({}) 3D track {} distance {:.1f} pitch {} owner {} "
+		                   "-> {}",
+		                   key[0], key[1], key[2], key[3], key[4], BankGroup(bank), sample, sound->name, track ? 1 : 0,
+		                   distance, ChannelPitch(channel), OwnerText(owner),
+		                   reason != nullptr                 ? fmt::format("filtered ({})", reason)
+		                   : channel != k_NoChannel ? fmt::format("channel {}", channel)
+		                                            : std::string("not started (800 / max distance, or no channel)"));
 	}
-	// 0x10014A83: the camera distance against the global max (800) and the .sad's raw +0x26C
-	if (const auto camera = CameraPoint())
-	{
-		const float distance = glm::distance(position, *camera);
-		if (distance > k_AnimEffectMaxDistance || distance > sound->maxDistance)
-		{
-			if (Trace())
-			{
-				SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Sample play: anim effect {} culled, camera {:.1f} > max {:.1f}",
-				                   sound->name, distance, std::min(k_AnimEffectMaxDistance, sound->maxDistance));
-			}
-			return k_NoChannel;
-		}
-	}
-	sample_play::Options options;
-	options.sound = id;
-	options.is3D = true;
-	options.track = track;
-	options.owner = owner;
-	options.position = position;
-	return sample_play::Start(options);
+	return channel;
 }
 
 Channel audio::PlaySoundEffect(const PlayOptions& options)
@@ -388,7 +509,24 @@ void audio::SetGameSound(bool enabled)
 
 void audio::SetScriptWideScreen(bool on)
 {
+	// (openblack test hook, audio session) OPENBLACK_AUDIO_TEST_NO_WIDESCREEN=1: the audio never sees the script's wide
+	// screen (the Land 1 intro holds it until a click), to compare the anim effects with the wide screen filters off
+	static const bool k_Ignore = std::getenv("OPENBLACK_AUDIO_TEST_NO_WIDESCREEN") != nullptr;
+	if (k_Ignore)
+	{
+		on = false;
+	}
+	if (Trace() && on != g_State.scriptWideScreen)
+	{
+		// the samples of user parameter 1 and the villagers' footsteps are skipped while it is on
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Sample play: script wide screen {}", on ? "on" : "off");
+	}
 	g_State.scriptWideScreen = on;
+}
+
+bool audio::IsScriptWideScreen()
+{
+	return g_State.scriptWideScreen;
 }
 
 bool audio::IsInsideCitadel()
@@ -434,7 +572,30 @@ void audio::Shutdown()
 	sample_play::ReleaseSources();
 	sample_play::SetBackend({});
 	g_State.objects.clear();
+	anim_effects::Clear();
 	g_State.initialised = false;
+}
+
+bool audio::SoundExists()
+{
+	// GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled: the wave device of LH_AudioSystem::Create. (approximated) here
+	// the audio is initialised on the OpenAL device (Locator.cpp falls back to AudioManagerNoOp, whose sample output is
+	// the NullSampleOutput, when there is none)
+	return g_State.initialised && Locator::audio::has_value() &&
+	       dynamic_cast<NullSampleOutput*>(&Locator::audio::value().GetSampleOutput()) == nullptr;
+}
+
+uint32_t audio::TickCount()
+{
+	// GetTickCount: milliseconds, wrapping at 2^32
+	using namespace std::chrono;
+	return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+}
+
+bool audio::SfxTrace()
+{
+	static const bool k_Trace = std::getenv("OPENBLACK_SFX_TRACE") != nullptr;
+	return k_Trace;
 }
 
 void audio::ProcessTurn(float skyType, uint32_t turn)
@@ -445,9 +606,10 @@ void audio::ProcessTurn(float skyType, uint32_t turn)
 	}
 	// GGame::EndTurn 0x54E96F: GSoundMap::Update (+ Dump 0x54E981)
 	sound_map::Update(skyType);
-	// 0x54E989 SoundTag::ProcessSoundTags: the street lanterns' tags, then the others (milestone B3 joins them)
+	// 0x54E989 SoundTag::ProcessSoundTags (the street lanterns' tags among the others; openblack first gives the
+	// lanterns made since the last turn their tag, GStreetLantern::CallVirtualFunctionsForCreation 0x734810)
 	lantern_sounds::ProcessTurn();
-	sound_tags::ProcessTurn();
+	tags::ProcessSoundTags();
 	// 0x54E997: GAudio::ProcessAudioGameTurn past turn 5, else AtmosProcess(0) 0x54E9B4
 	if (turn > 5)
 	{
@@ -484,7 +646,7 @@ void audio::ClearMap()
 {
 	// the map's SoundTags go with the objects of ClearMap (SoundTag::ToBeDeleted 0x71ECB0)
 	lantern_sounds::Clear();
-	sound_tags::Clear();
+	tags::Clear();
 	// GAudio::Reset 0x426CA0: the music part (+0x18C, fn_00428190, +0x28, +0x24, +0x180, +0x1C; LHMusicStop(0) 0x426CD3,
 	// LHMusicSwitch(0)/(1) of the two LHGlobalSwitch, ReleaseAllThingMusicInfo 0x426D28)
 	{

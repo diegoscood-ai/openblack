@@ -82,6 +82,9 @@ struct GameQueries
 	/// original builds it from the thing's MapCoords: (x, GetAltitude + altitude above the land, z) (0x42943F..0x429470).
 	/// Unset: nullopt.
 	std::function<std::optional<glm::vec3>(ThingId thing)> thingPosition;
+	/// LH3DIsland::GetAltitude 0x803090 at a world x / z (SoundTag::Create(MapCoords&) 0x71EB71: the land under a
+	/// MapCoords). Unset: 0.
+	std::function<float(float x, float z)> landAltitude;
 
 	/// The branches of ProcessMusic 0x427DF0 that need systems openblack does not have yet. Each one is "the original
 	/// function returned non-zero" (it took the music); unset = false, so ProcessMusic goes on to the next one.

@@ -929,28 +929,16 @@ void MoveGameThing() // 033 MOVE_GAME_THING
 	}
 	if (registry.AllOf<ecs::components::Animal>(entity))
 	{
-		// The same Living branch for an animal. (aproximado) IsObjectInMap as "not in the hand" (IN_HAND), the goal's
-		// altitude above the land (+0x88) taken as 0, and when it is there already GScript::SetScriptState's
-		// StorePreviousState / exit / entry / SetAnim(1) / +0x58 = 0 are not ported for the animals:
-		// animal_ai::SetState(IN_SCRIPT) stands for them
+		// The same Living branch for an animal (GScript 0x6F8F6C), ported by the animals session: there already
+		// (AreWeThere) -> SetScriptState(IN_SCRIPT 4), else SetupMoveToPos(pos, IN_SCRIPT 4) (animal_ai::ScriptMoveTo).
+		// (aproximado) IsObjectInMap as "not in the hand" (IN_HAND)
 		const auto* brain = registry.TryGet<const ecs::components::AnimalBrain>(entity);
-		const auto* transform = registry.TryGet<const Transform>(entity);
-		if (brain == nullptr || transform == nullptr || ecs::IsDrowning(entity) ||
+		if (brain == nullptr || ecs::IsDrowning(entity) ||
 		    static_cast<ecs::animal_ai::AnimalState>(brain->topState) == ecs::animal_ai::AnimalState::InHand)
 		{
 			return;
 		}
-		// AreWeThere(coords, 0): the x / z distance under its speed (+0x5A, MapCoords a turn: 6553.6 per metre)
-		const float speed = static_cast<float>(brain->speed) / 6553.6f;
-		const glm::vec2 d = glm::vec2(transform->position.x, transform->position.z) - goal;
-		if (d.x * d.x + d.y * d.y >= speed * speed)
-		{
-			ecs::animal_ai::MoveTo(entity, goal, 0.0f, ecs::animal_ai::AnimalState::InScript);
-		}
-		else
-		{
-			ecs::animal_ai::SetState(entity, ecs::animal_ai::AnimalState::InScript);
-		}
+		ecs::animal_ai::ScriptMoveTo(entity, goal);
 		return;
 	}
 	// 0x6F8FEA: IsFlock (vt +0x3EC) -> Flock::SetDomainCentrePos(coords) 0x52FC20: its first member's destination (+0x80,

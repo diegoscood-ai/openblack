@@ -14,13 +14,13 @@
 #include <cstdlib>
 
 #include <algorithm>
-#include <chrono>
 
 #include <spdlog/spdlog.h>
 
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -43,7 +43,6 @@ struct State
 	float lastTilt {0.0f};      ///< +0x11C
 	float lastHeight {0.0f};    ///< +0x120
 	bool holdingSeed {false};
-	std::chrono::steady_clock::time_point turnTime {};
 };
 State g_State;
 
@@ -55,11 +54,10 @@ const hand_grain::Spline& KeyPoints()
 	return spline;
 }
 
-/// g_game +0x205D64: the fraction of the turn since the last GameTurnUpdate (inf: a turn of 0.1 s)
+/// g_game +0x205D64 (read at 0x5B2D41 / 0x5B2D61): the fraction of the turn of the game clock
 float TurnFraction()
 {
-	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_State.turnTime).count();
-	return std::clamp(elapsed / 0.1f, 0.0f, 1.0f);
+	return game_clock::TurnFraction();
 }
 
 bool Trace()
@@ -173,7 +171,6 @@ void hand_grain::GameTurnUpdate(float dt)
 {
 	g_State.lastHeight = g_State.height;
 	g_State.lastTilt = g_State.tilt;
-	g_State.turnTime = std::chrono::steady_clock::now();
 	// +0x13C (a creature it follows, vt 0x2C IsAvailable): creatures are M8
 	if (!g_State.active)
 	{
@@ -240,10 +237,8 @@ void hand_grain::SetHoldingSeed(bool holding)
 	if (holding)
 	{
 		// HandStateGrain Enter 0x5B3080 (after HandStateHolding's): the grain state is cleared
-		const auto turnTime = g_State.turnTime;
 		g_State = State {};
 		g_State.holdingSeed = true;
-		g_State.turnTime = turnTime;
 	}
 	else
 	{

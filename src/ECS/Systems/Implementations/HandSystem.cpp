@@ -73,6 +73,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -500,12 +501,9 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateThrown(seconds);
-	// PhysicsObject::GameTurnUpdate runs with the game turns: stopped while paused, faster or slower with the game speed
-	if (Game::Instance() == nullptr || !Game::Instance()->IsPaused())
-	{
-		const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
-		physics::PhysicsObjects::Update(speed > 0.0f ? seconds / speed : seconds);
-	}
+	// PhysicsObject::GameTurnUpdate runs with the game turns: in game time (game_clock: 0 while paused, faster or
+	// slower with the game speed)
+	physics::PhysicsObjects::Update(game_clock::FrameGameSeconds());
 	UpdateTestSplash(seconds);
 	UpdateTestAbode(seconds);
 	UpdateRootsAndPiles(seconds);

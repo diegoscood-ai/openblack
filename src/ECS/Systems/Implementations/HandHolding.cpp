@@ -81,6 +81,7 @@
 #include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Magic/Core/SpellSeed.h"
 #include "Resources/Loaders.h"
@@ -101,7 +102,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	_pickFish = false;
 	_pickField = false;
 	_pickTime = 0.0f;
-	_pickTurnAccumulator = 0.0f;
+	_pickTurn = game_clock::Turn();
 	_lastHeldPosition.reset();
 	_handVelocity = glm::vec3(0.0f);
 	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)

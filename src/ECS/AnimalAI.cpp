@@ -52,6 +52,7 @@
 #include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 namespace openblack::ecs::animal_ai
@@ -117,7 +118,7 @@ Hunter HunterOf(AnimalInfo type)
 float g_VisualTime = 12.0f;
 uint32_t Turn()
 {
-	return effects::reactions::Turn();
+	return game_clock::Turn(); // g_game +0x205A40, the reactions' clock too
 }
 
 // ---- MapCoords and the angle tables ----

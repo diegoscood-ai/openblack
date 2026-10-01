@@ -422,7 +422,7 @@ bool Game::GameLogicLoop() noexcept
 	// Build Map Grid Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
 	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
-	ecs::effects::reactions::BeginTurn(turn);
+	ecs::effects::reactions::BeginTurn();
 
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();

@@ -35,7 +35,6 @@ namespace
 {
 /// g_game +0x205C9C: the fireballs, newest first
 std::vector<entt::entity> g_FireBalls;
-uint32_t g_Turn = 0;
 
 const GMagicFireBallInfo& InfoOf(const MagicFireBall& ball)
 {
@@ -180,9 +179,8 @@ const std::vector<entt::entity>& fireball::All()
 	return g_FireBalls;
 }
 
-void fireball::ProcessTurn(uint32_t turn)
+void fireball::ProcessTurn([[maybe_unused]] uint32_t turn)
 {
-	g_Turn = turn;
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto balls = g_FireBalls;
 	for (const auto fireball : balls)

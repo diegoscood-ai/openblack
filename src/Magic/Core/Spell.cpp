@@ -49,7 +49,6 @@ namespace
 std::vector<entt::entity> g_Spells;
 std::array<SpellOps, static_cast<size_t>(SpellClass::_COUNT)> g_Ops {};
 bool g_OpsRegistered = false;
-unsigned int g_Turn = 0;
 
 /// The PSysManager's Spell* (PSysInterface::Create's first argument)
 class Sink final: public psys::SpellSink
@@ -203,7 +202,7 @@ void Trace(entt::entity entity, const char* what)
 	SPDLOG_LOGGER_INFO(spdlog::get("game"),
 	                   "Spell trace: turn {} spell {} {} ({}) {}: chants {:.2f} safety {:.2f} strength {:.3f} upkeep {:.2f} "
 	                   "age {:.1f}/{:.1f} closed {} psys {} atoms {}",
-	                   g_Turn, static_cast<uint32_t>(entity), EffectInfoOf(entity).debugString.data(),
+	                   game_clock::Turn(), static_cast<uint32_t>(entity), EffectInfoOf(entity).debugString.data(),
 	                   static_cast<int>(spell.magicType), what, spell.chants, chants::GetChantSafetyLevel(spell, context),
 	                   chants::GetSpellStrength(spell, context), context.costToMaintain, spell.age, spell.duration,
 	                   spell.closedDown, spell.psys, effect != nullptr ? effect->AtomCount() : 0);
@@ -395,7 +394,7 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	}
 	// player +0xDC: the last cast's position, magic type and game turn
 	auto& last = players::MagicOf(spell.player).lastCast;
-	last = {spell.castPos, spell.magicType, g_Turn};
+	last = {spell.castPos, spell.magicType, game_clock::Turn()};
 	if (spell.psys != 0)
 	{
 		if (auto* effect = psys::manager::Find(spell.psys); effect != nullptr)
@@ -627,9 +626,8 @@ void magic::DeleteSpell(entt::entity spell)
 	registry.Destroy(spell);
 }
 
-void magic::ProcessSpells(unsigned int turn)
+void magic::ProcessSpells([[maybe_unused]] unsigned int turn)
 {
-	g_Turn = turn;
 	auto& registry = Locator::entitiesRegistry::value();
 	spell_grid::Decay(); // fn_007215C0
 	map_shield::ProcessShields(); // fn_0072BF80: ProcessShield (vt 0x868) of the MapShields (Magic/Objects/MapShield)
@@ -659,7 +657,7 @@ void magic::ProcessSpells(unsigned int turn)
 
 unsigned int magic::CurrentTurn()
 {
-	return g_Turn;
+	return game_clock::Turn();
 }
 
 const std::vector<entt::entity>& magic::Spells()
@@ -672,5 +670,4 @@ void magic::ClearSpells()
 	// the entities go with the registry's reset; the PSys with psys::manager::Clear
 	g_Spells.clear();
 	g_Sinks.clear();
-	g_Turn = 0;
 }

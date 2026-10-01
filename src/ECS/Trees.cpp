@@ -55,6 +55,7 @@
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -87,7 +88,6 @@ uint32_t g_nextForestId = 1;
 /// 0xCD04C8: the turn the last tree of the world was planted by a forest (the planting chance and the water miracle's
 /// 40-turn cooldown both use it)
 uint32_t g_lastTreeCreatedTurn = 0;
-uint32_t g_currentTurn = 0;
 
 
 /// fn_0074C180: nothing fixed in the way (a 0.5 circle against the fixed objects' circles) and on land. The original
@@ -269,7 +269,7 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 			const glm::vec3 point(at.x, Locator::terrainSystem::value().GetHeightAt(at), at.y);
 			if (IsFreeForTree(point))
 			{
-				g_lastTreeCreatedTurn = g_currentTurn;
+				g_lastTreeCreatedTurn = game_clock::Turn();
 				const auto tree = archetypes::TreeArchetype::Create(forestId, point, type, true,
 				                                                     rng.NextValue(0.0f, glm::two_pi<float>()),
 				                                                     0.8f + rng.NextValue(0.0f, 0.4f), 0.1f);
@@ -1043,7 +1043,7 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 			PlayAt(fmt::format("InGame.sad/{}", 120 + Locator::rng::value().NextValue<uint32_t>(0, 8)), transform->position);
 		}
 	}
-	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && g_currentTurn - g_lastTreeCreatedTurn > 40)
+	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && game_clock::Turn() - g_lastTreeCreatedTurn > 40)
 	{
 		return PlantTreeNear(tree->forestId, entity);
 	}
@@ -1358,7 +1358,6 @@ void ProcessForests(uint32_t turn)
 
 void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 {
-	g_currentTurn = turn;
 	ProcessForests(turn);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& constants = Locator::infoConstants::value();

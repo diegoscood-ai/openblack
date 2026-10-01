@@ -17,6 +17,7 @@
 #include "Chants.h"
 #include "ECS/Components/Spell.h"
 #include "Enums.h"
+#include "GameClock.h"
 #include "PSys/SpellLink.h"
 #include "SpellCastData.h"
 
@@ -100,7 +101,7 @@ int CastAtPos(MagicType type, ecs::components::SpellCreator creator, const glm::
 int CastAtObject(MagicType type, ecs::components::SpellCreator creator, entt::entity object, entt::entity* out,
                  SpellCastData* castData, const psys::ProcessInfo& info);
 
-/// Spell::ProcessSpells 0x720300: once per game turn
+/// Spell::ProcessSpells 0x720300: once per game turn (`turn` is game_clock::Turn, which CurrentTurn reads)
 void ProcessSpells(unsigned int turn);
 
 /// ToBeDeleted (vt 0xC) of a spell: the class part, then the base Spell::ToBeDeleted 0x71FD90, and the entity goes
@@ -108,7 +109,7 @@ void DeleteSpell(entt::entity spell);
 /// CloseDown (vt 0x530) through the ops
 void CloseDown(entt::entity spell);
 
-/// The game turn of the last ProcessSpells (g_game +0x205A40)
+/// The game turn (g_game +0x205A40, game_clock::Turn)
 [[nodiscard]] unsigned int CurrentTurn();
 
 /// The spells, in processing order (g_game +0x205BC4)
@@ -127,8 +128,8 @@ void CloseDown(entt::entity spell);
 /// Spell::IsCastFromHand 0x721510: the seed's castType is IN_HAND
 [[nodiscard]] bool IsCastFromHand(entt::entity spell);
 
-/// The turn length (*(u32*)0xD01A38)
-constexpr unsigned int k_TurnMs = 100;
+/// The turn length (*(u32*)0xD01A38, game_clock::k_MsPerTurn)
+constexpr unsigned int k_TurnMs = game_clock::k_MsPerTurn;
 
 /// MapCoords (x, z metres, y above the land) <-> world points (LHPoint, y absolute): MapCoords::GetLHPoint 0x605C40,
 /// MapCoords(LHPoint) 0x603160

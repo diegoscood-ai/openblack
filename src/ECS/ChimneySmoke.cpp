@@ -23,6 +23,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -129,7 +130,7 @@ void chimney_smoke::UpdateHandWind()
 
 	// fn_005DBC60 (GInterfaceStatus::Process 0x5DC4E0, once per turn, inferred): velocity += 0.6 x (delta x 1000 / 100 -
 	// velocity), delta = the hand's motion in that turn
-	const uint32_t turn = Game::Instance()->GetTurn();
+	const uint32_t turn = game_clock::Turn(); // g_game +0x205A40
 	if (!g_Velocity.started)
 	{
 		g_Velocity = {glm::vec3(0.0f), position, turn, true};

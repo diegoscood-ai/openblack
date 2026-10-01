@@ -29,6 +29,7 @@
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -42,7 +43,6 @@ namespace
 {
 std::vector<reactions::Reaction> g_Reactions;
 uint32_t g_NextId = 1;
-uint32_t g_Turn = 0;
 /// between BeginTurn and EndTurn the map cells were rebuilt at the start of the turn (Game::GameLogicLoop)
 bool g_InTurn = false;
 std::array<reactions::LivingReactionHandler, 3> g_Handlers {};
@@ -105,7 +105,7 @@ uint32_t reactions::CreateReaction(entt::entity initiator, openblack::Reaction t
 	reaction.initiator = initiator;
 	reaction.type = type;
 	reaction.player = player;
-	reaction.turnCreated = stamp ? g_Turn : 0;
+	reaction.turnCreated = stamp ? game_clock::Turn() : 0;
 	// Reaction::Reaction 0x6E39D0: +0x3C = whetherReactionGrows ? 1 : maxReactionDistance
 	if (Locator::infoConstants::has_value())
 	{
@@ -216,7 +216,7 @@ void reactions::Stamp(uint32_t reaction)
 {
 	if (auto* entry = FindMutable(reaction); entry != nullptr)
 	{
-		entry->turnCreated = g_Turn;
+		entry->turnCreated = game_clock::Turn();
 	}
 }
 
@@ -368,12 +368,11 @@ bool reactions::MaySwitch(float currentScore, float newScore, float seconds, uin
 
 uint32_t reactions::Turn()
 {
-	return g_Turn;
+	return game_clock::Turn();
 }
 
-void reactions::BeginTurn(uint32_t turn)
+void reactions::BeginTurn()
 {
-	g_Turn = turn;
 	g_InTurn = true;
 	Prune();
 }
@@ -387,6 +386,5 @@ void reactions::Clear()
 {
 	g_Reactions.clear();
 	g_NextId = 1;
-	g_Turn = 0;
 	g_InTurn = false;
 }

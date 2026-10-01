@@ -119,15 +119,15 @@ void RefreshRecord(entt::entity living, uint8_t type, uint32_t now);
 /// second if the current one is 16 REACT_TO_HAND_PICK_UP); `seconds` = (turn - its record's turn) / 10
 [[nodiscard]] bool MaySwitch(float currentScore, float newScore, float seconds, uint8_t currentType);
 
-/// The game turn (GGame +0x205A40, Game's turn count) as BeginTurn set it: the one clock of the reactions' stamps and
-/// of every Living's records (villagers and animals)
+/// The game turn (GGame +0x205A40, game_clock::Turn): the one clock of the reactions' stamps and of every Living's
+/// records (villagers and animals)
 [[nodiscard]] uint32_t Turn();
-/// The start of a game turn (Game::GameLogicLoop, before the Living): the turn for the stamps, and the reactions whose
-/// initiator was deleted go (Object::ToBeDeleted -> RemoveAllReactionsInitiatedByObject; here once per turn, inf)
-void BeginTurn(uint32_t turn);
+/// The start of a game turn (Game::GameLogicLoop, before the Living): the reactions whose initiator was deleted go
+/// (Object::ToBeDeleted -> RemoveAllReactionsInitiatedByObject; here once per turn, inf)
+void BeginTurn();
 /// The end of the game turn's logic: from here to the next BeginTurn a spread rebuilds the map cells first (the map
 /// script and the debug hooks create reactions outside the turn, when the cells are not up to date)
 void EndTurn();
-/// A land is loaded: no reactions, turn 0, outside a turn (the handlers stay)
+/// A land is loaded: no reactions, outside a turn (the handlers stay; the turn is the game clock's)
 void Clear();
 } // namespace openblack::ecs::effects::reactions

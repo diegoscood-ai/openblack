@@ -41,6 +41,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -399,7 +400,9 @@ bool PosWithinDomain(const Context& ctx, glm::vec2 p)
 	{
 		return true;
 	}
-	return glm::distance(glm::vec2(flock->domainCentre.x, flock->domainCentre.z), p) <= static_cast<float>(flock->domainRadius);
+	// fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 (PosWithinDomain 0x5ED010), then <= the radius
+	return gutils::GetDistanceInMetres(glm::vec2(flock->domainCentre.x, flock->domainCentre.z), p) <=
+	       static_cast<float>(flock->domainRadius);
 }
 
 uint16_t FlockDistance(const Context& ctx)
@@ -737,7 +740,7 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 {
 	glm::ivec2 out(0);
 	const glm::vec2 me = Xz(ctx.transform);
-	const float d = glm::distance(c, me);
+	const float d = gutils::GetDistanceInMetres(c, me); // fn_0074CD50 = GetDistanceInMetres 0x74CD70
 	if (d > rMax || d < rMin)
 	{
 		const auto a = AngleOf(d > rMax ? c - me : me - c);
@@ -1096,7 +1099,8 @@ int KeepFlockMemberWithinFlockArea(Context& ctx)
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 leader = FlockPos(ctx);
 	const auto flockDistance = static_cast<float>(FlockDistance(ctx));
-	if (PosWithinDomain(ctx, me) && glm::distance(leader, me) <= flockDistance)
+	// fn_0074CD50 = GetDistanceInMetres 0x74CD70 to the leader
+	if (PosWithinDomain(ctx, me) && gutils::GetDistanceInMetres(leader, me) <= flockDistance)
 	{
 		return 1;
 	}

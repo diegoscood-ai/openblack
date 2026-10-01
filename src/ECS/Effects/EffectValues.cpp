@@ -29,6 +29,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Map.h"
@@ -354,7 +355,9 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 				// GetDefaultFireCentrePos (vt 0x5F0: the position; DeadTree its mesh centre) and GetDefaultFireRadius (vt
 				// 0x5F4: Get2DRadius; DeadTree 0.35 x its height), ECS/Fire/FireObjectTraits
 				const glm::vec3 centre = fire::traits::FireCentre(object);
-				const float distance = glm::length(glm::vec2(centre.x - position.x, centre.z - position.z));
+				// 0x525307: GUtils::GetDistanceInMetres 0x74CD70 of the position and that centre, then the radius sum is
+				// compared with it (fcomp; test ah, 1 at 0x525320)
+				const float distance = gutils::GetDistanceInMetres(position, centre);
 				if (fire::traits::DefaultFireRadius(object) + radius < distance)
 				{
 					continue;

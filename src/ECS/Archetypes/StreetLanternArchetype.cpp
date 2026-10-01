@@ -20,6 +20,7 @@
 #include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -51,8 +52,8 @@ bool MobileStaticWithinHalfMetre(const glm::vec3& position)
 		{
 			return;
 		}
-		const glm::vec2 delta(transform.position.x - position.x, transform.position.z - position.z);
-		found = glm::length(delta) < 0.5f;
+		// GUtils::GetDistanceInMetres 0x74CD70 (the table hypotenuse 0x74F680 on the two MapCoords) against 0.5 m
+		found = gutils::GetDistanceInMetres(transform.position, position) < 0.5f;
 	});
 	return found;
 }

@@ -31,6 +31,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
@@ -262,7 +263,8 @@ bool CurrentTargetOk(Context& ctx)
 	// the script test at 0x419376 (script_held::MayTarget)
 	if (target != entt::null && Available(target) && script_held::MayTarget(ctx.entity, target) &&
 	    AltitudeAboveLand(registry.Get<const Transform>(target)) <= 2.0f &&
-	    glm::distance(Xz(ctx.transform), Xz(registry.Get<const Transform>(target))) < ctx.info.huntingDistance)
+	    // fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 (HuntingMoveToPos 0x418DB0 / fn_00419340)
+	    gutils::GetDistanceInMetres(Xz(ctx.transform), Xz(registry.Get<const Transform>(target))) < ctx.info.huntingDistance)
 	{
 		return true;
 	}

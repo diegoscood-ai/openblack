@@ -1756,6 +1756,48 @@ void PutDown(entt::entity entity)
 	EndPhysics(entity, transform.rotation, transform.rotation);
 }
 
+void SetScriptState(entt::entity entity, AnimalState state)
+{
+	auto* brain = BrainOf(entity);
+	// GScript::SetScriptState (0x6F82E0), a Living that is available (not dying: status & 1) and on the map [inferred for an animal: not in the
+	// hand]
+	if (brain == nullptr || brain->topState == static_cast<uint8_t>(AnimalState::InHand) || (brain->status & 1) != 0)
+	{
+		return;
+	}
+	// StorePreviousState (0x417040): its final state; CallExitStateFunction (0x41A2C0), its answer not read;
+	// CallEntryStateFunctionUc (0x41A310): no animal state the scripts set has an entry function, so SetState(0, s);
+	// SetAnim(1) (vt+0x8FC); the counter (+0x58) 0
+	brain->previousState = FinalStateOf(*brain);
+	CallExitStateFunction(*brain, state);
+	brain->topState = static_cast<uint8_t>(state);
+	brain->turnsSinceStateChange = 0;
+	SetAnimalStateAnim(entity);
+	brain->counter = 0;
+}
+
+void ScriptMoveTo(entt::entity entity, glm::vec2 position)
+{
+	auto* brain = BrainOf(entity);
+	// MOVE_GAME_THING (GScript 0x6F8F6C) on a Living: on the map and not drowning (an animal never drowns: Object 0),
+	// then AreWeThere(pos, 0) (vt+0x85C) -> SetScriptState(IN_SCRIPT 4), else SetupMoveToPos(pos, IN_SCRIPT 4)
+	if (brain == nullptr || brain->topState == static_cast<uint8_t>(AnimalState::InHand))
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& animal = registry.Get<Animal>(entity);
+	Context ctx {entity, animal, *brain, registry.Get<Transform>(entity), InfoOf(animal)};
+	const glm::vec2 d = position - Xz(ctx.transform);
+	const float step = Metres(brain->speed);
+	if (glm::dot(d, d) <= step * step)
+	{
+		SetScriptState(entity, AnimalState::InScript);
+		return;
+	}
+	SetupMoveToPos(ctx, position, AnimalState::InScript);
+}
+
 void DestroyedByEffect(entt::entity entity)
 {
 	if (auto* brain = BrainOf(entity); brain != nullptr)

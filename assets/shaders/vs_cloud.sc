@@ -5,7 +5,9 @@ $output v_texcoord0, v_color0
 
 // The same model light as vs_object: ModelLightI / ModelLightFactor / ModelLightDiffuse of src/Graphics/ModelLight.h
 // (fn_0084BA90). The clouds and the mists carry their own ambient and light in u_cloud.z / u_cloudLight, which is what
-// LH3DMist::Draw leaves in [0xC39264] and [0xEA9E90] while it draws them (fn_007FA300 0x7FA56D, 0x7FA3B1)
+// LH3DMist::Draw leaves in [0xC39264] and [0xEA9E90] while it draws them (fn_007FA300: the ambient 0x7FA56D, the light
+// saved and moved 0x7FA53C..0x7FA563, both put back 0x7FA586 / 0x7FA590); the CPU fills them from model_light::Ambient
+// and model_light::LightInMeshSpace
 #include "model_light.sh"
 
 uniform vec4 u_cloud;       // xy: texture atlas offset of the animation frame, z: ambient (210 / 256 for the clouds and
@@ -14,7 +16,7 @@ uniform vec4 u_cloudLight;  // xyz: the light's direction in the mesh's own spac
 uniform vec4 u_cloudColour; // rgb: cloud colour, a: alpha
 
 // A sky cloud or a map mist (mist.l3d) drawn by LH3DObject::Draw with a temporary light straight above (0, 500000, 0)
-// and ambient 210 / 256 (fn_007FA300 effect branch 0x7FA3B1); mists without the effect flag keep the models' light
+// and ambient 210 / 256 (fn_007FA300, the effect branch that the flag test at 0x7FA3B1 opens); mists without the effect flag keep the models' light
 // (ambient 90 / 256, the light at (-500000, 500000, -500000))
 void main()
 {

@@ -98,13 +98,18 @@ void UpdateFrameLight(glm::vec3 focus, const glm::vec3& cameraPosition, float sk
 
 /// fn_00855340 (0x855340): the light's position brought into the mesh's own space by the inverse of the drawn matrix
 /// (LHMatrix::SetInverse 0x7FB290, the general inverse, so a non-uniform scale is kept) and normalised. The boned path
-/// does the same per bone (0x84BD82..0x84BDFE).
+/// does SetInverse of each bone matrix over the light in camera space (0x84BD82..0x84BDFE), the same per bone if those
+/// matrices go from the bone to the camera (inferido).
 [[nodiscard]] glm::vec3 LightInMeshSpace(const glm::mat4& model);
 
 /// The uniform both sides share, u_modelLight of assets/shaders/model_light.sh: xyz the light [0xEA9E90], w the
 /// ambient [0xC39264]
 [[nodiscard]] glm::vec4 Uniform();
 
+/// The CPU side of the rule. No openblack path calls Intensity / Factor / Apply yet: they wait for the deferred CPU-lit
+/// meshes (FragMesh::BuildMesh, fn_007F7ED0, and the special primitives of fn_00859530 / fn_00859D90, which use the
+/// __ftol variant); the GPU paths use their twins in model_light.sh.
+///
 /// I = fistp(255 (n . l)) (0x84BBAF..0x84BBBE): to the nearest, halves to even. `truncate` is the __ftol variant of
 /// the same rule (0x859649).
 [[nodiscard]] int Intensity(float dot, bool truncate = false);

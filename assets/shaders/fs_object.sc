@@ -79,8 +79,10 @@ void main()
 		// mod graphics.hd-tweaks: vs_object's vertex light of the original, with the same functions, light and ambient
 		// (model_light.sh, fn_0084BA90), per pixel on the smooth normals (a rim of light on the silhouette was tried and
 		// looked bad, 2026-09-30). (aproximado) the direction is taken in the world, from the pixel towards the light,
-		// instead of in the mesh's own space from the bone's origin: there is no varying left for the local light, and
-		// the two agree for a uniform scale, which is what the people this mod touches have.
+		// instead of in the mesh's own space from the bone's origin: there is no varying left for the local light. The
+		// two agree only while the light is far away (by day, the sun at 500000); in full night fn_005E5830 puts it 3
+		// units from the hand, and then the pixel -> light and origin -> light directions differ a lot on a nearby
+		// villager (a known night difference of the mod).
 		float factor =
 		    ModelLightFactor(ModelLightI(normalize(v_normal), normalize(u_modelLight.xyz - v_position.xyz), false), u_modelLight.w);
 		light = ModelLightDiffuse(floor(light * 255.0f + 0.5f), factor) / 255.0f;

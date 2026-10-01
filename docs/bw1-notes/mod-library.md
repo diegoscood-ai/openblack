@@ -252,7 +252,8 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
   notan):
   - `light` = `smooth` (por defecto: la misma luz del original, la regla entera de `fn_0084BA90` con las funciones de
     `assets/shaders/model_light.sh`, pero por píxel en `fs_object` con las normales suaves y con la dirección tomada en
-    el mundo, (aproximado); ver [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) u `original` (por
+    el mundo, (aproximado): coincide solo con la luz lejos, de día; de noche, con la luz a 3 unidades de la mano,
+    difiere de forma visible en un aldeano cercano; ver [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) u `original` (por
     vértice). Un borde de luz en la silueta (0,8·(1-N·V)²) se probó y quedaba feo (usuario, 2026-09-30).
   - `sharp` = sesgo de mip −1 en sus texturas.
   - `L3DSubMesh::IsPerson`, `u_window.y/z` (Renderer::DrawSubMesh, solo instancias iluminadas como el original, no

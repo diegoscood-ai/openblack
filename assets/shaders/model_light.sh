@@ -45,8 +45,9 @@ vec3 ModelLightDiffuse(vec3 c255, float factor)
 }
 
 // The light in the mesh's own space, normalised: fn_00855340 (0x855340, the rigid path) and the per-bone
-// B^-1 (W2C Lpos) of the boned one (0x84BD82..0x84BDFE), which come to the same thing because the bone matrices go
-// all the way to the camera (B = W2C Obj Bc) and the camera cancels out. The direction is taken from the ORIGIN of the
+// B^-1 (W2C Lpos) of the boned one (SetInverse 0x84BD9E over the light in camera space 0x84BDA3), which come to the
+// same thing if the bone matrices [0xE9FE48] go all the way to the camera (B = W2C Obj Bc), so that the camera cancels
+// out (inferido: they are projected with no other matrix). The direction is taken from the ORIGIN of the
 // bone (or of the object), not from the vertex, and it meets the raw local normal (not rotated, not normalised).
 // `axisX/Y/Z` and `origin` are that space's axes and origin in the world; the inverse is the general one
 // (LHMatrix::SetInverse 0x7FB290, adjugate / determinant), so the adjugate is enough here: 1 / det goes away with the

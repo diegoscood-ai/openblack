@@ -107,17 +107,25 @@ void main()
 	v_position = instMul(model, v_position);
 	normal = instMul(model, vec4(normal, 0.0f)).xyz;
 
-	// The one light of the original in the space the vertex lives in, for every branch below (fn_00855340 for the rigid
-	// meshes; the boned path 0x84BD82..0x84BDFE does the same per bone, because its matrices go to the camera, which
-	// cancels out). It is taken from the ORIGIN of the bone (or of the object) and meets the raw local normal, so a
-	// non-uniform scale (a tree's sway, a field's shear) gives the light of the original and not that of a rotated
-	// normal. The axes come out of mul / instMul instead of u_model[i][k]: with HLSL that indexes a row of the maths
-	// matrix, not the axis, because bgfx packs its matrices column major (the compiler folds the unit vectors away).
-	vec3 lightAxisX = instMul(model, vec4(mul(u_model[modelIndex], vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
-	vec3 lightAxisY = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
-	vec3 lightAxisZ = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz, 0.0f)).xyz;
-	vec3 lightOrigin = instMul(model, mul(u_model[modelIndex], vec4(0.0f, 0.0f, 0.0f, 1.0f))).xyz;
-	vec3 lightLocal = ModelLightLocal(lightAxisX, lightAxisY, lightAxisZ, lightOrigin, u_modelLight.xyz);
+	// The one light of the original in the space the vertex lives in, for the fn_0084BA90 branches below (fn_00855340
+	// for the rigid meshes; the boned path 0x84BD82..0x84BDFE does SetInverse of each bone matrix (0x84BD9E) over the
+	// light already in camera space (0x84BDA3), which is the light per bone only if those matrices go from the bone to
+	// the camera, so that the camera cancels out (inferido)). It is taken from the ORIGIN of the bone (or of the object)
+	// and meets the raw local normal, so a non-uniform scale (a tree's sway, a field's shear) gives the light of the
+	// original and not that of a rotated normal. The axes come out of mul / instMul instead of u_model[i][k]: with HLSL
+	// that indexes a row of the maths matrix, not the axis, because bgfx packs its matrices column major (the compiler
+	// folds the unit vectors away). Only the vertex-lit cases need it: mode 1 and the PSys mesh atoms of modes 1 and 3,
+	// and not with the hd-tweaks per-pixel light (u_window.y > 0); the cut (mode 4) takes its own light below.
+	vec3 lightLocal = vec3_splat(0.0f);
+	if (u_window.y <= 0.0f && u_objectLight.x > 0.0f &&
+	    (u_objectLight.x < 1.5f || (u_objectLight.x > 2.5f && u_objectLight.x < 3.5f && i_data2.w < -0.5f)))
+	{
+		vec3 lightAxisX = instMul(model, vec4(mul(u_model[modelIndex], vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
+		vec3 lightAxisY = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
+		vec3 lightAxisZ = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz, 0.0f)).xyz;
+		vec3 lightOrigin = instMul(model, mul(u_model[modelIndex], vec4(0.0f, 0.0f, 0.0f, 1.0f))).xyz;
+		lightLocal = ModelLightLocal(lightAxisX, lightAxisY, lightAxisZ, lightOrigin, u_modelLight.xyz);
+	}
 	float lightAmbient = u_modelLight.w;
 #endif // USE_INSTANCING
 
@@ -150,14 +158,18 @@ void main()
 	if (u_objectLight.x > 3.5f)
 	{
 		// DrawCutByPlane (fn_00811C70 / fn_0080C050 -> fn_00858BA0 per vertex): the same rule as fn_0084BA90 with the
-		// light in the mesh's own space [0xF03140], which its callers set with fn_00855340 (0x80C0EE); rgb = colour.rgb
-		// (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, the object's specular (0
-		// for every caller)
+		// light [0xF03140] in the OBJECT's space: both callers set it once with fn_00855340 over the object matrix
+		// obj+0x14 (static 0x80C0EE, animated 0x811D2F), and fn_00858BA0 reads [0xF03140] in both its branches (rigid
+		// 0x858CB1, boned 0x859049), using the bone matrices [0xE9FE48] (0x858F77) only for the positions. So a boned
+		// mesh is lit with the object's light, not per bone: the instance matrix alone, without u_model. rgb =
+		// colour.rgb (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, the object's
+		// specular (0 for every caller)
+		vec3 cutLight = ModelLightLocal(i_data0.xyz, i_data1.xyz, i_data2.xyz, i_data3.xyz, u_modelLight.xyz);
 		float packedCut = u_objectLight.z;
 		float cutRed = floor(packedCut / 65536.0f);
 		float cutGreen = floor((packedCut - cutRed * 65536.0f) / 256.0f);
 		vec3 cutColour = vec3(cutRed, cutGreen, packedCut - cutRed * 65536.0f - cutGreen * 256.0f);
-		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
+		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, cutLight, false), lightAmbient);
 		objectColour = ModelLightDiffuse(cutColour, cutFactor) / 255.0f;
 	}
 	else if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
@@ -220,8 +232,9 @@ void main()
 	}
 	// A PSys mesh atom (PSys/Creators/Mesh.h): -1 - (r 65536 + g 256 + b) in the w of the third column is its DrawData
 	// colour, which Particle3DObj::DrawAt 0x679FD0 gives the object with SetColour (vt 0x2C: obj +0x4C) instead of the
-	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light stays (RenderParticleGJMesh::DrawAt
-	// takes the current light into the mesh's own space at 0x67C508, the same fn_00855340 as every other model)
+	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light stays: the atom is an LH3DObject that
+	// draws like every other model, fn_00855340 -> fn_0084BA90 (inferido: the draw that follows Particle3DObj::DrawAt
+	// is not disassembled)
 	if (i_data2.w < -0.5f && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
 	{
 		float packedParticle = -i_data2.w - 1.0f;

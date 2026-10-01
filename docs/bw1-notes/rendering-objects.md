@@ -62,14 +62,30 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
   [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual, 2 = noche) la pone a 3 unidades ([0x8C2C50]) de la
   **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
+  - Con el cursor fuera del terreno (en el cielo) el original sigue moviendo la mano por el rayo del ratón a su
+    distancia de la vista (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` se queda con
+    |cámara − posición| si el rayo no toca tierra). En openblack `HandSystem::Place` deja la mano donde se colocó por
+    última vez (o en su sitio inicial), así que de noche la luz se queda allí y las caras de los modelos lejanos pueden
+    quedarse casi solo con el ambiente: **diferencia conocida** (pendiente en el sistema de la mano). Para probar la luz
+    de noche, poner el cursor sobre el terreno (`OPENBLACK_MOUSE_AT`). Sin mano o sin cámara, `Renderer::DrawScene`
+    deja el sol por defecto (la rama de día, 0x5E5B70) **(inferido)**.
 - **N·L va en el espacio de la malla, no con la normal girada**: `fn_00855340` lleva la luz al espacio del objeto con
   la inversa general de su matriz (`LHMatrix::SetInverse` 0x7FB290) y la normaliza (0xF03140); la rama con huesos hace
-  lo mismo por hueso (0x84BD82..0x84BDFE, con la cámara cancelándose porque sus matrices llegan hasta ella). La normal
-  del vértice entra cruda, sin girar ni normalizar, y la dirección sale del **origen** del hueso o del objeto. Con
-  escala uniforme da lo mismo que girar la normal; con escala por eje (mecer un árbol, la cizalla de un campo) no.
+  `SetInverse` de cada matriz de hueso (0x84BD9E) sobre la luz ya pasada a cámara (0x84BDA3), que es lo mismo por
+  hueso si esas matrices van del hueso a la cámara y la cámara se cancela **(inferido)**. La normal del vértice entra
+  cruda, sin girar ni normalizar, y la dirección sale del **origen** del hueso o del objeto. Con escala uniforme da lo
+  mismo que girar la normal; con escala por eje (mecer un árbol, la cizalla de un campo) no.
+- El corte por plano (`DrawCutByPlane`, `fn_00858BA0`) usa la luz [0xF03140] en el espacio del **objeto**: los dos
+  llamadores la ponen una vez con `fn_00855340` sobre obj+0x14 (estático 0x80C0EE, animado 0x811D2F) y `fn_00858BA0`
+  la lee en sus dos ramas (rígida 0x858CB1, con huesos 0x859049); las matrices de hueso (0x858F77) solo mueven las
+  posiciones. `vs_object` modo 4 usa solo la matriz de la instancia.
 - Las nieblas y las nubes suben el ambiente a 210 mientras se dibujan (`fn_007FA300` 0x7FA56D, de vuelta a 90 en
-  0x7FA586). Los objetos «sin luz» (ranura vt+0x5C a 0) y las primitivas con el bit 0x1000 y color alternativo van por
-  `fn_00856D40`/`fn_0085BA30`, con el color tal cual.
+  0x7FA586; la luz se guarda y se sube en 0x7FA53C..0x7FA563 y se restaura en 0x7FA590). Los objetos «sin luz» van
+  por `fn_00856D40`/`fn_0085BA30`, con el color base [0xC37D8C] tal cual (0x856D89, 0x85BA68): el selector es el
+  argumento edx de `fn_0080D910` (0x80D926 `test edx, edx`: `fn_0084BA90` si no es 0, `fn_00856D40` si es 0); que
+  ese edx venga de la ranura vt+0x5C es **(inferido)**. Las primitivas con el bit 0x1000 (con [0xE9FE44]) no van por
+  ahí: toman el color alternativo [0xC37D98] (`fn_0080AD90` 0x80ADBC, `fn_0080AF80` 0x80AFAC) y se iluminan en
+  `fn_00859530` (la regla con `__ftol`); qué es ese bit está **(no verificado)**.
 - La mano: base × 1,5 (`CHand::AddDrawing` 0x46D135). Primitivas sin textura: color del material × base. Chroma:
   `ALPHAREF = umbral · alfa del objeto / 255 − 5`, `GREATEREQUAL`.
 - Las sombras estáticas **no** siguen esta luz: `fn_008721A0` (0x8721E1) y `fn_0080ECB0` (0x80EDA8) leen [0xEA1C88], el
@@ -83,8 +99,12 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   cut), `fs_object` (el mod hd-tweaks, por píxel) y `vs_cloud` (nubes y nieblas). `Renderer::DrawScene` llama a
   `UpdateFrameLight` una vez por fotograma y `ECS/Trees.cpp` usa `model_light::Light()`.
 - En `fs_object` el mod hd-tweaks usa las mismas funciones, pero con la normal interpolada del mundo contra la
-  dirección del píxel a la luz **(aproximado)**: no queda ninguna varying libre para la luz local y con escala uniforme
-  coincide.
+  dirección del píxel a la luz **(aproximado)**: no queda ninguna varying libre para la luz local. Coincide solo con la
+  luz lejos (de día, el sol a 500000); en plena noche, con la luz a 3 unidades de la mano, la dirección píxel→luz y la
+  de origen→luz difieren mucho en un aldeano cercano (diferencia nocturna conocida del mod).
+- `model_light::Intensity/Factor/Apply` aún no tienen llamador: esperan a las rutas por CPU aplazadas (`FragMesh`,
+  primitivas de `fn_00859530`); `Renderer::DrawClouds` usa `ScopedLight` + `ScopedAmbient(k_MistAmbient)` y pasa
+  `Ambient()` a `u_cloud.z`.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
   especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
 

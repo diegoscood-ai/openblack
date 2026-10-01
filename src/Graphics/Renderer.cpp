@@ -1286,11 +1286,13 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		_clouds->AdvanceAnimation(index, milliseconds);
 		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step)
 		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
-		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
-		                        210.0f / 256.0f, 0.0f);
-		// fn_007FA300 0x7FA3B1: LH3DMist::Draw moves the light straight above while it draws the clouds, and
-		// fn_00855340 (model_light::LightInMeshSpace) brings it into the mesh's own space, normalised
+		// fn_007FA300 0x7FA53C..0x7FA563: LH3DMist::Draw saves [0xEA9E90] and moves the light straight above with
+		// fn_0081E1F0 while it draws the clouds, with the ambient at 210 (0x7FA56D); both go back at 0x7FA586 / 0x7FA590.
+		// fn_00855340 (model_light::LightInMeshSpace) brings the light into the mesh's own space, normalised
 		const model_light::ScopedLight cloudLight(glm::vec3(0.0f, 500000.0f, 0.0f));
+		const model_light::ScopedAmbient cloudAmbient(model_light::k_MistAmbient);
+		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
+		                        static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
 		const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
 		for (const auto& subMesh : mesh.GetSubMeshes())
 		{
@@ -1863,7 +1865,11 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 	UpdateLandLight();
 	// fn_005E5830, called by GLandscape::Draw (0x5E488E) before the models: the one light of LH3DTech for this frame.
 	// The focus is the player hand's model position (CHand::position, +0x78 of MyInterface()->hand, 0x5E5848), used
-	// even while the hand is hidden, and not the point under the cursor of GetPlayerHandPositions.
+	// even while the hand is hidden, and not the point under the cursor of GetPlayerHandPositions. Known difference: with
+	// the cursor off the land the original still moves the hand along the mouse ray at its distance from view
+	// (ObtainRequiredHandPosition 0x5B5E70, CHand::fn_0046DF60 keeps |camera - position| when the ray misses), while
+	// HandSystem::Place leaves the hand where it was last placed, so at night the light stays there.
+	bool placed = false;
 	if (Game::Instance() != nullptr && Locator::handSystem::has_value() && Locator::entitiesRegistry::has_value() &&
 	    drawDesc.camera != nullptr)
 	{
@@ -1873,7 +1879,14 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		{
 			model_light::UpdateFrameLight(registry.Get<const ecs::components::Transform>(hand).position,
 			                              drawDesc.camera->GetOrigin(), Game::Instance()->GetDayNightClock().GetSkyType());
+			placed = true;
 		}
+	}
+	if (!placed)
+	{
+		// The original runs fn_005E5830 every frame; with no hand or camera to place it here, the light falls back to
+		// its day branch, the default sun (0x5E5B70), instead of keeping an old frame's (inferido)
+		model_light::SetLight(model_light::k_DefaultSun);
 	}
 	DrawHandShadowPass(drawDesc);
 	if (drawDesc.drawIsland && drawDesc.drawEntities)

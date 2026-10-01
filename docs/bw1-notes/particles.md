@@ -261,8 +261,9 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   punto visual BEAM_EXPLOSION_FX (magnitud 1, 60 turnos); > SmokeDelay: **SMOKE en tierra seca, STEAM sobre el agua**
   (`IsDryLand`), magnitud 8, 4 s. El 3.er argumento de `CreateSpotVisualWithSpecifiedDuration` es la magnitud del
   efecto (`GJPSysInterface::Create` 0x68F3A1 `SetScale`). El daño a los objetos, el `SpellEvent` 2 y el escudo los
-  hace la de Milagros; sin portar: el chamuscado (`TemporaryShadow` `fn_008251C0`, textura 0x251, tamaño 8) y los
-  escombros de malla.
+  hace la de Milagros; la marca del suelo (`fn_008251C0`: una malla morfable 0x251 de escala 8, no una sombra; `TemporaryShadow` es
+  `fn_00825090`) está en `ecs/GroundMarks` ([rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph));
+  sin portar: los escombros de malla.
   Prueba: `OPENBLACK_TEST_PSYS="SF_BeamExplosionSingle,1464,2016,0,1"`, cámara `1452,14,2002,1464,0,2016`, captura en
   el fotograma 272 de 300 (anillos) o 360 de 400 (vapor); `OPENBLACK_PSYS_TRACE=1` escribe la explosión.
 - Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`

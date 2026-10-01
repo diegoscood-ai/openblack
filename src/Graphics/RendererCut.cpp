@@ -22,6 +22,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandLightTable.h"
+#include "3D/LandMorph.h"
 #include "ECS/Components/CutByPlane.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Registry.h"
@@ -46,6 +47,12 @@ void Renderer::DrawCutByPlane(RenderPass viewId, entt::entity entity, int8_t kee
 	{
 		return;
 	}
+	// the morphable objects' DrawCutByPlane (vt+0x11C of the vtables 0x9A2E34 and 0x9A2BFC) is 0x80BA50, a bare ret:
+	// cut, they are not drawn at all (none of them is cut today)
+	if (instance->second.morphWithTerrain)
+	{
+		return;
+	}
 	const auto mesh = meshes.Handle(instance->second.meshId);
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
@@ -67,9 +74,8 @@ void Renderer::DrawCutByPlane(RenderPass viewId, entt::entity entity, int8_t kee
 		submitDesc.modelMatrices = animation->pose.data();
 		submitDesc.matrixCount = static_cast<uint8_t>(animation->pose.size());
 	}
-	submitDesc.morphWithTerrain = instance->second.morphWithTerrain;
-	submitDesc.program =
-	    _shaderManager->GetShader(submitDesc.morphWithTerrain ? "ObjectHeightMapInstanced" : "ObjectInstanced");
+	submitDesc.morphWithTerrain = false;
+	submitDesc.program = land_morph::ObjectProgram(*_shaderManager, false);
 	DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 }
 

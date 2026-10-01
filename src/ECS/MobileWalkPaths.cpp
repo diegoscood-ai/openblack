@@ -20,6 +20,7 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/MobileWalkPath.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 
@@ -40,7 +41,7 @@ bool Trace()
 /// Game3DObject::SetPosition 0x63B6BD
 float MapCoordsRound(float x)
 {
-	return static_cast<float>(static_cast<int32_t>(x * 6553.60009765625f)) * 0.000152587890625f;
+	return map_coords::Quantise(x); // fmul [0x8AC400]; __ftol; fild; fmul [0x8AA3A4]
 }
 } // namespace
 

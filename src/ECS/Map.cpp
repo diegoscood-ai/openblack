@@ -9,20 +9,18 @@
 
 #include "Map.h"
 
-#include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 
 #include "Locator.h"
+#include "MapCoords.h"
 
 using namespace openblack::ecs;
 
 MapInterface::CellId MapInterface::GetGridCell(const glm::vec2& pos)
 {
-	assert(glm::compMin(pos) >= 0);
-	const glm::u32vec2 coords = pos * k_PositionToGridFactor;
-	const MapInterface::CellId result(coords.x >> 0x10, coords.y >> 0x10);
-	assert(glm::all(glm::lessThan(result, k_GridSize))); // If not, clamp to 0, _gridSize
-	return result;
+	// MapCoords(LHPoint) 0x603160 then the unsigned high words (ToMap 0x603433): a negative position is cell 0xFFFF and a
+	// position past the map a cell >= 512, both off the map (InBounds 0x6042C0)
+	return CellId(map_coords::CellOf(pos));
 }
 
 MapInterface::CellId MapInterface::GetGridCell(const glm::vec3& pos)

@@ -35,6 +35,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
@@ -60,20 +61,19 @@ bool Trace()
 /// The MapCoords of a point (ftol(x * 6553.6)); its high words are the 10 m cells
 glm::ivec2 MapCoordsOf(const glm::vec3& position)
 {
-	return {static_cast<int32_t>(position.x * 6553.6f), static_cast<int32_t>(position.z * 6553.6f)};
+	return {map_coords::ToFixed(position.x), map_coords::ToFixed(position.z)};
 }
 
 /// MapCoords::ToMap 0x603430: the cell, or none out of the 512 x 512 map
 std::optional<glm::ivec2> CellOf(glm::ivec2 coords)
 {
-	const auto cellX = static_cast<uint16_t>(coords.x >> 16);
-	const auto cellZ = static_cast<uint16_t>(coords.y >> 16);
+	const map_coords::MapCoords at {coords.x, coords.y, 0.0f};
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	if (cellX >= side || cellZ >= side)
+	if (!map_coords::InBounds(at, side))
 	{
 		return std::nullopt;
 	}
-	return glm::ivec2(cellX, cellZ);
+	return map_coords::Cell(at);
 }
 
 const lnd::LNDCell* LandCellOf(const glm::vec3& position)
@@ -88,18 +88,6 @@ const lnd::LNDCell* LandCellOf(const glm::vec3& position)
 		return nullptr;
 	}
 	return &Locator::terrainSystem::value().GetCell(glm::u16vec2(*cell));
-}
-
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z)
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2 {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
 }
 
 bool InHandOrFlying(entt::entity entity)
@@ -336,8 +324,7 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		return 0; // MapCoords::InBounds 0x6042C0
 	}
 	uint32_t left = amount;
-	int direction = 1;
-	int count = 1;
+	map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0
 	for (int i = 0; i < 9; ++i)
 	{
 		if (const auto cell = CellOf(coords); cell)
@@ -353,8 +340,9 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 				// TODO(M8): DoCreatureMimicAfterAddingResource (vt 0x68C) when there is an interface
 			}
 		}
-		// MapCoords += JustMapXZ: one cell
-		coords += Spiral(direction, count) * 0x10000;
+		// MapCoords += JustMapXZ 0x605470: one cell
+		const auto& step = spiral.Next();
+		coords += glm::ivec2(step.x, step.z) * map_coords::k_FixedPerCell;
 	}
 	if (left == 0 || IsWater(position))
 	{

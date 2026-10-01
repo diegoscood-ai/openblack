@@ -39,8 +39,8 @@ constexpr float k_ShepherdDrinkingWaterRadius = 400.0f;
 /// Tiger::CalculeLairPos (0x4214D2)
 constexpr float k_TigerLairDrinkingWaterRadius = 500.0f;
 
-/// GUtils::GetDistanceInMetres (0x74CD70): the xz distance of two MapCoords, through hypotenuse(int, int) 0x74F680
-/// (the fast inverse square root of GUtils, 0x74F620, truncated to 16.16) times 10 / 65536
+/// GUtils::GetDistanceInMetres (0x74CD70) on two world points: ECS/GUtilsDistance (gutils::GetDistanceInMetres) with
+/// the points truncated to MapCoords first
 [[nodiscard]] float GetDistanceInMetres(glm::vec3 a, glm::vec3 b);
 
 /// GUtils::FindNearestCoastalTo (0x74E2E0): walks the cells in a square spiral from `from` (GUtils::Spiral 0x74D7E0:

@@ -24,8 +24,10 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "Magic/Objects/MagicTeleport.h"
@@ -40,18 +42,6 @@ using namespace openblack::magic;
 
 namespace
 {
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z): the next cell step
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[direction & 3];
-}
-
 /// Living::CanBeHealedByHealSpell 0x5EE550 (!IsDead; the Dove 0x41EAB0 answers 0)
 bool CanBeHealedByHealSpell(entt::entity object)
 {
@@ -63,17 +53,21 @@ bool CanBeHealedByHealSpell(entt::entity object)
 	// TODO(M4c): the Dove (Animal SpellDove) answers 0. (inferido: no IsDead test for animals either)
 	return registry.AllOf<ecs::components::Animal>(object);
 }
+
+/// The map's cells per side, 512 in the original (map_coords::k_MapCells)
+/// (inferido: 512 when there is no terrain, an openblack fallback)
+uint16_t MapSide()
+{
+	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide()
+	                                           : static_cast<uint16_t>(ecs::map_coords::k_MapCells);
+}
 } // namespace
 
 bool cast_rules::InBounds(const glm::vec3& position)
 {
-	// (inferido: 512 cells per side when there is no terrain, an openblack fallback)
-	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out. 6553.6 = 65536 / 10 m, the
-	// MapCoords fixed point (castPos = (int)(x * 6553.6) in Spell::ProcessMaintainRequest 0x7204D0)
-	const auto cellX = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.x * 6553.6f)) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.z * 6553.6f)) >> 16);
-	return cellX < side && cellZ < side;
+	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out. castPos = (int)(x * 6553.6)
+	// in Spell::ProcessMaintainRequest 0x7204D0 (truncated, __ftol)
+	return ecs::map_coords::InBounds(position, MapSide());
 }
 
 bool cast_rules::IsLand(const glm::vec3& position)
@@ -166,15 +160,18 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 	int cells = side * side;
 	const auto values = ecs::effects::EffectValues::FromEffectInfo(GetMagicEffectInfo(tables, magicType));
 	const auto& map = Locator::entitiesMap::value();
-	auto cell = glm::ivec2(ecs::MapInterface::GetGridCell(glm::vec2(position.x, position.z)));
-	int direction = 1;
-	int count = 1;
+	// the spiral walks the MapCoords itself (a copy of the cast position, 0x5FBB6B..0x5FBB82): InBounds 0x6042C0 at
+	// 0x5FBBBA and ToMap 0x603430 at 0x5FBBCB on it, and operator+= 0x605470 at 0x5FBCF1 adds the step to the high words
+	// only, so the fraction stays and the 16-bit add wraps (from cell 0xFFFF, left of the map, a +1 step enters cell 0)
+	auto coords = ecs::map_coords::FromMetres(glm::vec2(position.x, position.z));
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, dir = count = 1 (0x5FBB9A..0x5FBBA5)
 	int healed = 0;
 	int looked = 0;
 	while (cells != 0 && healed < maximum)
 	{
-		if (InBounds(glm::vec3(static_cast<float>(cell.x) * 10.0f, 0.0f, static_cast<float>(cell.y) * 10.0f)))
+		if (ecs::map_coords::InBounds(coords, MapSide()))
 		{
+			const auto cell = ecs::map_coords::Cell(coords);
 			const ecs::MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
 			// the cell's mobile list, in entity order (inf: the original's list order)
 			std::vector<entt::entity> objects(map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
@@ -195,10 +192,17 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 					continue;
 				}
 				++looked;
-				const glm::vec2 d(transform->position.x - position.x, transform->position.z - position.z);
-				// GetDistanceInMetres < R, available, IsEffectReceiver, a Living that can be healed, dx^2 + dz^2 < R^2
-				if (!(glm::length(d) < radius) || !ecs::effects::IsEffectReceiver(object, values) ||
-				    !CanBeHealedByHealSpell(object) || !(glm::dot(d, d) < radius * radius))
+				// both tests measure from the spiral's MapCoords ([ebp-0x24], the one operator+= moves), not from the
+				// cast position: GetDistanceInMetres 0x74CD70 (coords, the object's +0x14) at 0x5FBBEE < R, available,
+				// IsEffectReceiver, a Living that can be healed, and then dx^2 + dz^2 < R^2 with dx = coords - object
+				// in metres (fild; fmul 10 [0x92C100]; fmul 2^-16 [0x8AC41C], 0x5FBC54..0x5FBCA3; test ah, 0x41: an
+				// exact square, not the first test again). (aproximado) the object's MapCoords is its float position
+				const auto at = ecs::map_coords::FromMetres(glm::vec2(transform->position.x, transform->position.z));
+				const float dx = ecs::map_coords::ToMetres(coords.x) - ecs::map_coords::ToMetres(at.x);
+				const float dz = ecs::map_coords::ToMetres(coords.z) - ecs::map_coords::ToMetres(at.z);
+				const float squared = dz * dz + dx * dx;
+				if (!(gutils::GetDistanceInMetres(coords, at) < radius) || !ecs::effects::IsEffectReceiver(object, values) ||
+				    !CanBeHealedByHealSpell(object) || !(radius * radius > squared))
 				{
 					continue;
 				}
@@ -214,7 +218,7 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 			}
 		}
 		--cells;
-		cell += Spiral(direction, count);
+		ecs::map_coords::AddCells(coords, spiral.Next()); // 0x5FBCE5 Spiral, 0x5FBCF1 MapCoords += JustMapXZ
 	}
 	if (TraceEnabled())
 	{

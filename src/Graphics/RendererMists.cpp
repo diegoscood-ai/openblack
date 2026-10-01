@@ -47,6 +47,7 @@
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Renderer.h"
 #include "Resources/ResourcesInterface.h"
@@ -186,29 +187,19 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& cam
 		    frame_anim::MistAdvance(clock, milliseconds);
 		    mist.counter = clock.counter;
 		    mist.counterRemainder = clock.remainder;
-		    // the Z-sorter key is |pos - camera|^2 (LH3DZSorter::NewZObject); the distance sorts the same way
-		    order.emplace_back(glm::distance(transform.position, origin), static_cast<uint32_t>(_frameMists.size()));
+		    // the Z-sorter key: |+0x38 - g_camera|^2, (x^2 + y^2) + z^2 (0x7FA83C..0x7FA86B, NewZObject call 0x7FA87B)
+		    order.emplace_back(zsorter::Key(transform.position, origin), static_cast<uint32_t>(_frameMists.size()));
 		    _frameMists.push_back({transform.position, mist.size, mist.colour, mist.edgeShrink, mist.k, mist.counter});
 	    });
 	for (const auto& mist : submitted)
 	{
 		if (SphereInView(viewProjection, mist.position, MistSphereRadius(mesh, mist.size)))
 		{
-			order.emplace_back(glm::distance(mist.position, origin), static_cast<uint32_t>(_frameMists.size()));
+			order.emplace_back(zsorter::Key(mist.position, origin), static_cast<uint32_t>(_frameMists.size()));
 			_frameMists.push_back(mist);
 		}
 	}
 	return order;
-}
-
-void Renderer::DrawMists(graphics::RenderPass viewId, const Camera& camera) const
-{
-	auto order = CollectMists(camera);
-	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-	for (const auto& [distance, index] : order)
-	{
-		DrawMist(viewId, camera, index);
-	}
 }
 
 void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const

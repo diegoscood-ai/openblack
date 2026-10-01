@@ -18,6 +18,7 @@
 #include "3D/L3DMesh.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/AnimalAIDetail.h"
+#include "ECS/AnimalWallHug.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimalBrain.h"
@@ -28,6 +29,7 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -115,9 +117,10 @@ uint8_t FinalStateOf(const AnimalBrain& brain)
 }
 
 /// Living::IsAvailableForReaction (0x5F11F0)
-bool IsAvailableForReaction(const AnimalBrain& brain)
+bool IsAvailableForReaction(entt::entity entity, const AnimalBrain& brain)
 {
-	if ((brain.status & 1) != 0)
+	// 0x5F120C: not while a script controls it (+0x24 & 0x400)
+	if ((brain.status & 1) != 0 || script_held::IsControlledByScript(entity))
 	{
 		return false;
 	}
@@ -309,7 +312,7 @@ void StartReacting(entt::entity entity, AnimalBrain& brain, const Reaction& reac
 void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 {
 	auto* brain = detail::BrainOf(entity);
-	if (brain == nullptr || !IsAvailableForReaction(*brain))
+	if (brain == nullptr || !IsAvailableForReaction(entity, *brain))
 	{
 		return;
 	}
@@ -317,9 +320,9 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	const auto again = TurnsBeforeReactingAgain(type, reaction.initiator, d);
 	if (brain->reaction == 0)
 	{
-		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::g_Turn))
+		if (Score(type, entity, *brain, reaction.initiator, d) > 0 && reactions::Records(entity, type, again, detail::Turn()))
 		{
-			reactions::MarkStarted(reaction.id, detail::g_Turn);
+			reactions::MarkStarted(reaction.id, detail::Turn());
 			StartReacting(entity, *brain, reaction);
 		}
 		return;
@@ -334,7 +337,7 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	const float cur = static_cast<float>(
 	    Score(TypeOf(*current), entity, *brain, current->initiator, glm::distance(p, PosOf(current->initiator))));
 	const float now = static_cast<float>(Score(type, entity, *brain, reaction.initiator, d));
-	const float seconds = static_cast<float>((detail::g_Turn - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
+	const float seconds = static_cast<float>((detail::Turn() - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
 	if (!reactions::MaySwitch(cur, now, seconds, TypeOf(*current)))
 	{
 		return;
@@ -390,7 +393,7 @@ void StopReactingPlain(AnimalBrain& brain)
 {
 	if (const auto* reaction = reactions::Find(brain.reaction); reaction != nullptr)
 	{
-		reactions::RefreshRecord(Locator::entitiesRegistry::value().ToEntity(brain), TypeOf(*reaction), detail::g_Turn);
+		reactions::RefreshRecord(Locator::entitiesRegistry::value().ToEntity(brain), TypeOf(*reaction), detail::Turn());
 	}
 	brain.reaction = 0;
 	brain.predator = entt::null;
@@ -568,7 +571,7 @@ void ProcessReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	const uint32_t elapsed = g_Turn - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
+	const uint32_t elapsed = Turn() - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
 	const float d = glm::distance(Xz(ctx.transform), PosOf(ctx.brain.predator));
 	if (elapsed > TurnsToReact(TypeOf(*reaction), ctx.brain, ctx.brain.predator, d))
 	{
@@ -632,9 +635,8 @@ void FleeingFromObjectReaction(Context& ctx)
 	const auto p = FleeingPosition(me, at, movement, 10.0f);
 	if (InBounds(p))
 	{
-		// SetupMoveToWithHug (0x5F2890): a LINEAR walk round obstacles in the original [the circle hug is not ported for
-		// animals: a STEP_THROUGH walk]
-		SetupMoveToPos(ctx, p, AnimalState::FleeingAndLookingAtObjectReaction);
+		// SetupMoveToWithHug (0x5F2890, called at 0x5F1E3F): a LINEAR walk round the obstacles (ECS/AnimalWallHug.cpp)
+		SetupMoveToWithHug(ctx, p, AnimalState::FleeingAndLookingAtObjectReaction);
 	}
 }
 
@@ -665,8 +667,8 @@ void GotoFoodReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	// SetupMoveToWithHug in the original [a STEP_THROUGH walk here, as the flee]
-	SetupMoveToPos(ctx, WorkingPos(ctx.brain.predator, ctx.entity), AnimalState::ArrivesAtFoodReaction);
+	// SetupMoveToWithHug (0x5F2890, called at 0x5F259A): a LINEAR walk round the obstacles (ECS/AnimalWallHug.cpp)
+	SetupMoveToWithHug(ctx, WorkingPos(ctx.brain.predator, ctx.entity), AnimalState::ArrivesAtFoodReaction);
 }
 
 void ArrivesAtFoodReaction(Context& ctx)

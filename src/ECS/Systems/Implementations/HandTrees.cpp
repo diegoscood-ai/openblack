@@ -223,9 +223,13 @@ void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool place
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& transform = registry.Get<Transform>(tree);
+	// Tree::EndPhysics 0x74BBF0: a DeadTree takes over the tree's 3D object (and fire, fn_00730960) and the tree is
+	// ToBeDeleted; DeadTree +0x9C keeps its GetWoodValueMultiplier
 	const auto type = registry.Get<Tree>(tree).type;
+	const float multiplier = registry.Get<Tree>(tree).woodValueMultiplier;
+	ecs::NotifyTreeDeleted(tree, ecs::TreeDeletion::BecameDeadTree);
 	registry.Remove<Tree>(tree);
-	registry.Assign<DeadTree>(tree, type);
+	registry.Assign<DeadTree>(tree, type, multiplier);
 	if (!placeLying)
 	{
 		registry.SetDirty();

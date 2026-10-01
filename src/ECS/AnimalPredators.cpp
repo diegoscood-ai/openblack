@@ -37,6 +37,7 @@
 #include "ECS/VillagerSpeed.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include <spdlog/spdlog.h>
 
 #include "InfoConstants.h"
@@ -179,6 +180,12 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 	{
 		return false;
 	}
+	// +0x25 & 0x40 (0x4196F4): it cannot be eaten; +0x24 & 0x400 (0x41973B): a script's, only for a hunter in a script.
+	// Both are tested for the villagers too.
+	if (script_held::CannotBeEaten(entity) || !script_held::MayTarget(ctx.entity, entity))
+	{
+		return false;
+	}
 	if (registry.AllOf<Villager>(entity))
 	{
 		return IsVillagerPrey(ctx, entity);
@@ -252,7 +259,9 @@ bool CurrentTargetOk(Context& ctx)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto target = ctx.brain.target;
-	if (target != entt::null && Available(target) && AltitudeAboveLand(registry.Get<const Transform>(target)) <= 2.0f &&
+	// the script test at 0x419376 (script_held::MayTarget)
+	if (target != entt::null && Available(target) && script_held::MayTarget(ctx.entity, target) &&
+	    AltitudeAboveLand(registry.Get<const Transform>(target)) <= 2.0f &&
 	    glm::distance(Xz(ctx.transform), Xz(registry.Get<const Transform>(target))) < ctx.info.huntingDistance)
 	{
 		return true;
@@ -316,7 +325,7 @@ int ReactToAnimalFoodNeeds(Context& ctx)
 	if (CurrentTargetOk(ctx))
 	{
 		SetSpeed(ctx, Speed(ctx.info, 4));
-		ctx.brain.chaseStart = g_Turn;
+		ctx.brain.chaseStart = Turn();
 		SetupMoveToTarget(ctx, ctx.brain.target);
 		return k_Started;
 	}
@@ -386,41 +395,6 @@ void SetRunToFinalDest(Context& ctx)
 	ctx.brain.speed = static_cast<uint16_t>(std::min(Scale(ctx) * static_cast<float>(Speed(ctx.info, 4)) * 1.1f, 65535.0f));
 	SetAnimalAnimHelper(ctx);
 	SetupMoveToPos(ctx, ctx.brain.finalDestination, AnimalState::SetDying);
-}
-
-void CalculeLairPos(Context& ctx)
-{
-	auto* flock = FlockOf(ctx.animal);
-	if (flock == nullptr || !IsLeader(ctx))
-	{
-		return;
-	}
-	const glm::vec2 me = Xz(ctx.transform);
-	std::optional<glm::vec3> lair;
-	const auto inForest = [](const Tree& tree) { return tree.forestId != 0; };
-	switch (HunterOf(ctx.animal.type))
-	{
-	case Hunter::Tiger:
-		// Tiger::CalculeLairPos (0x421470): the nearest forest (the first tree of the best-scored one [approximated by the
-		// nearest forest tree])
-		lair = Nearest<Tree>(me, inForest);
-		break;
-	case Hunter::Wolf:
-		// Wolf::CalculeLairPos (0x421730): the nearest big forest, else forest, else tree
-		lair = Nearest<BigForest>(me, [](const BigForest&) { return true; });
-		if (!lair)
-		{
-			lair = Nearest<Tree>(me, inForest);
-		}
-		if (!lair)
-		{
-			lair = Nearest<Tree>(me, [](const Tree&) { return true; });
-		}
-		break;
-	default:
-		break; // Lion::CalculeLairPos (0x420010): where it is
-	}
-	SetDomainCentre(*flock, lair.value_or(ctx.transform.position));
 }
 
 int PredatorReactToAnimalNeeds(Context& ctx)
@@ -502,7 +476,9 @@ void HuntingMoveToPos(Context& ctx)
 	// Animal::HuntingMoveToPos (0x418DB0)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto target = ctx.brain.target;
-	if (target == entt::null || !Available(target) || g_Turn - ctx.brain.chaseStart >= ctx.info.chaseTime)
+	// the script test at 0x418DD7 (script_held::MayTarget)
+	if (target == entt::null || !Available(target) || !script_held::MayTarget(ctx.entity, target) ||
+	    Turn() - ctx.brain.chaseStart >= ctx.info.chaseTime)
 	{
 		Abandon(ctx);
 		return;
@@ -540,7 +516,7 @@ void HuntingMoveToPos(Context& ctx)
 	}
 	else
 	{
-		speed = (g_Turn % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
+		speed = (Turn() % 100) < 33 ? Speed(ctx.info, 2) : Speed(ctx.info, 4);
 	}
 	SetSpeed(ctx, speed);
 	if (d >= ctx.info.huntingDistance)
@@ -637,6 +613,15 @@ void ProcessDownedVillagers()
 		{
 			continue;
 		}
+		// Villager::BeingEaten (0x76B380): counter 50; +0x25 & 0x40: PlayAnimThenSetState(LANDED 11), it gets up and
+		// lives (openblack sets LANDED at once: the BEING_EATEN clip has played for 300 turns [approximated])
+		if (script_held::CannotBeEaten(entity))
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} survives being eaten", static_cast<uint32_t>(entity));
+			registry.Remove<DownedVillager>(entity);
+			SetVillagerState(entity, VillagerStates::Landed);
+			continue;
+		}
 		// Villager::BeingEaten (0x76B380): dead (VillagerDead, reason ANIMAL). openblack has no villager corpse yet: it
 		// goes, as the physics' villager deaths
 		villager->life = 0.0f;
@@ -663,6 +648,13 @@ void BeingEaten(Context& ctx)
 		return;
 	}
 	ctx.brain.counter = 50;
+	// +0x25 & 0x40 (0x5EC4E0): it survives, PlayAnimThenSetState(LANDED 11, 1): it gets up and lives
+	if (script_held::CannotBeEaten(ctx.entity))
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: animal {} survives being eaten", static_cast<uint32_t>(ctx.entity));
+		PlayAnimThenSetState(ctx, AnimalState::Landed);
+		return;
+	}
 	auto& registry = Locator::entitiesRegistry::value();
 	(registry.AllOf<Life>(ctx.entity) ? registry.Get<Life>(ctx.entity) : registry.Assign<Life>(ctx.entity)).value = 0.0f;
 	PlayAnimThenSetState(ctx, AnimalState::Dead);
@@ -674,6 +666,12 @@ void HideInLair(Context& ctx)
 	if (ctx.brain.sleep > 0)
 	{
 		ctx.brain.sleep = static_cast<int16_t>(ctx.brain.sleep - 2);
+		return;
+	}
+	// 0x421A0E: a leader in a script hunts from its lair at any hour, without the hunger test
+	if (FlockOf(ctx.animal) != nullptr && IsLeader(ctx) && script_held::IsInScript(ctx.entity) &&
+	    ReactToAnimalFoodNeeds(ctx) == k_Started)
+	{
 		return;
 	}
 	if (CheckNeeds(ctx) != 1 || g_VisualTime <= 23.0f)

@@ -46,6 +46,7 @@
 #include "ECS/Fields.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
+#include "ECS/ScriptHeld.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
@@ -370,6 +371,8 @@ bool Game::GameLogicLoop() noexcept
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
 		auto& lhvm = Locator::vm::value();
 		lhvm.LookIn(lhvm::ScriptType::All);
+		// GScript::Process: fn_0070D480 (the things no script variable holds any more are released)
+		ecs::script_held::Process();
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
 		// GGame::ProcessTurn: GLandAlignement::UpdateTime once per turn
@@ -1007,7 +1010,24 @@ bool Game::Run() noexcept
 	{
 		auto& chlapi = Locator::chlapi::value();
 		auto& lhvm = Locator::vm::value();
-		lhvm.Initialise(&chlapi.GetFunctionsTable(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+		// the VM's object references: the original ScriptLibraryR.dll calls the ADD_REFERENCE / REMOVE_REFERENCE natives
+		// (GScript::AddReference 0x6FA450 -> IncrementScriptReference 0x70CF90, RemoveReference 0x6FA470 ->
+		// DecrementScriptReference 0x70CFD0) for a popped object and the variable's old one (POP 0x10008BC0) and for a
+		// stopped task's object locals (0x10006604); object 0 is the scripts' null (0x10008A64)
+		lhvm.Initialise(
+		    &chlapi.GetFunctionsTable(), nullptr, nullptr, nullptr, nullptr,
+		    [](uint32_t objId) {
+			    if (objId != 0)
+			    {
+				    ecs::script_held::IncrementReference(static_cast<entt::entity>(objId));
+			    }
+		    },
+		    [](uint32_t objId) {
+			    if (objId != 0)
+			    {
+				    ecs::script_held::DecrementReference(static_cast<entt::entity>(objId));
+			    }
+		    });
 		try
 		{
 			lhvm.LoadBinary(fileSystem.ReadAll(challengePath));

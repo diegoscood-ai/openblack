@@ -184,7 +184,9 @@ std::vector<entt::entity> openblack::ecs::GrownTreesByDistance(uint32_t forestId
 	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
 		    if (forestId != 0 && tree.forestId == forestId && (!tree.growing || transform.scale.x >= tree.maxSize))
 		    {
-			    grown.emplace_back(glm::distance(transform.position, centre), entity);
+			    // SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
+			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
+			                       entity);
 		    }
 	    });
 	std::ranges::stable_sort(grown, [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
@@ -405,6 +407,14 @@ void openblack::ecs::AddTreeDeletedListener(TreeDeletedListener listener)
 	g_treeDeletedListeners.push_back(std::move(listener));
 }
 
+void openblack::ecs::NotifyTreeDeleted(entt::entity tree, TreeDeletion how)
+{
+	for (const auto& listener : g_treeDeletedListeners)
+	{
+		listener(tree, how);
+	}
+}
+
 void openblack::ecs::DeleteTree(entt::entity tree)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -412,10 +422,7 @@ void openblack::ecs::DeleteTree(entt::entity tree)
 	{
 		return;
 	}
-	for (const auto& listener : g_treeDeletedListeners)
-	{
-		listener(tree);
-	}
+	NotifyTreeDeleted(tree, TreeDeletion::Removed);
 	if (ecs::physics::PhysicsObjects::Find(tree) != nullptr)
 	{
 		ecs::physics::PhysicsObjects::RemoveObject(tree);
@@ -454,7 +461,8 @@ float openblack::ecs::TreeWoodValue(entt::entity entity)
 	if (const auto* tree = registry.TryGet<const Tree>(entity); tree != nullptr)
 	{
 		const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(tree->type));
-		return lifeValue * 1.0f * static_cast<float>(info.woodValue) * scale * openblack::land_balance::Get(5);
+		return lifeValue * tree->woodValueMultiplier * static_cast<float>(info.woodValue) * scale *
+		       openblack::land_balance::Get(5);
 	}
 	if (const auto* dead = registry.TryGet<const DeadTree>(entity); dead != nullptr)
 	{
@@ -478,9 +486,8 @@ uint32_t openblack::ecs::TreeWood(entt::entity entity)
 		return 0;
 	}
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type));
-	// DeadTree +0x9C: Tree::GetWoodValueMultiplier 0x74B810 of the tree it was, 1.0
-	constexpr float k_WoodMultiplier = 1.0f;
-	return static_cast<uint32_t>(static_cast<float>(info.woodValue) * k_WoodMultiplier * transform->scale.x);
+	// DeadTree +0x9C: Tree::GetWoodValueMultiplier 0x74B810 of the tree it was
+	return static_cast<uint32_t>(static_cast<float>(info.woodValue) * dead->woodValueMultiplier * transform->scale.x);
 }
 
 uint32_t openblack::ecs::RemoveWood(entt::entity entity, uint32_t amount)
@@ -500,9 +507,9 @@ uint32_t openblack::ecs::RemoveWood(entt::entity entity, uint32_t amount)
 		return have;
 	}
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type));
-	constexpr float k_WoodMultiplier = 1.0f;
 	auto& transform = registry.Get<Transform>(entity);
-	transform.scale = glm::vec3(static_cast<float>(have - amount) / (static_cast<float>(info.woodValue) * k_WoodMultiplier));
+	transform.scale =
+	    glm::vec3(static_cast<float>(have - amount) / (static_cast<float>(info.woodValue) * dead->woodValueMultiplier));
 	registry.SetDirty();
 	return amount;
 }
@@ -569,12 +576,10 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	// Villager::ForesterChopsTree 0x75FAE7 then calls tree->ToBeDeleted(0): the tree leaves its forest and whoever
 	// listens (hand, reactions) lets go of it. Its fire (+0x44) moves to the DeadTree (fn_00730960): kept here because it
 	// is the same entity.
-	for (const auto& listener : g_treeDeletedListeners)
-	{
-		listener(tree);
-	}
+	NotifyTreeDeleted(tree, TreeDeletion::BecameDeadTree);
+	const float multiplier = treeComponent->woodValueMultiplier;
 	registry.Remove<Tree>(tree);
-	registry.Assign<DeadTree>(tree, type);
+	registry.Assign<DeadTree>(tree, type, multiplier);
 	registry.AssignOrReplace<FelledTree>(tree, chopper);
 	registry.SetDirty();
 	auto* po = ecs::physics::PhysicsObjects::AddObject(tree, velocity, spin, chopper, false);
@@ -1349,7 +1354,9 @@ void ProcessForests(uint32_t turn)
 			++count;
 			if (!tree.growing || transform.scale.x >= tree.maxSize)
 			{
-				grown.emplace_back(glm::distance(transform.position, centre), entity);
+				// SortTreesOnDistanceFromForest::DistanceToForest 0x53A890: GetDistanceInMetres, x and z only
+			    grown.emplace_back(glm::distance(glm::vec2(transform.position.x, transform.position.z), glm::vec2(centre.x, centre.z)),
+			                       entity);
 			}
 		});
 		// empty: no BigForest (+0x38) and no trees in either list

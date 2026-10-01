@@ -34,6 +34,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
@@ -97,9 +98,10 @@ glm::vec3 PositionOf(entt::entity object)
 	return transform != nullptr ? transform->position : glm::vec3(0.0f);
 }
 
+/// GUtils::GetDistanceInMetres 0x74CD70 (and its twin fn_0074CD50): x, z only, through the table hypotenuse 0x74F680
 float Distance2D(const glm::vec3& a, const glm::vec3& b)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 /// GRand::GameFloatRand
@@ -298,15 +300,6 @@ void FinishBeingOnFire(entt::entity villager)
 		wallHug->goal = StateOf(villager).savedDestination;
 	}
 	PopFromPrevious(villager);
-}
-
-/// GUtils::GetDistanceModifier 0x74F290 -> SigmoidThreshold(1 - min(d, max) / max, 0.5) 0x74F170 (inf: a smooth step
-/// around 0.5)
-float DistanceModifier(float distance, float maximum)
-{
-	const float x = 1.0f - (distance < maximum ? distance : maximum) / maximum;
-	const float t = std::clamp((x - 0.25f) / 0.5f, 0.0f, 1.0f);
-	return t * t * (3.0f - 2.0f * t);
 }
 
 const ReactionInfo& FireReactionInfo()
@@ -622,7 +615,11 @@ uint32_t villager_fire::ReactToFire(LivingAction& action)
 	if (const auto* v = registry.TryGet<const Villager>(villager);
 	    v != nullptr && registry.Valid(v->town) && (worshipper == nullptr || !worshipper->onWay))
 	{
-		const float townModifier = DistanceModifier(Distance2D(PositionOf(v->town), PositionOf(villager)), 400.0f);
+		// GUtils::GetDistanceModifier 0x74F290 = SigmoidThreshold(0.5, 1 - min(d, 400) / 400) 0x74F170 over the 41-step
+		// table 0xC23284 (ECS/GUtilsDistance): openblack used to approximate it with a smoothstep, which is 0.156 at
+		// 250 m where the original gives 0.0444, and saturates to 1 / 0 at the ends instead of 0.99996 / 3.6e-5
+		const float townModifier =
+		    gutils::GetDistanceModifier(Distance2D(PositionOf(v->town), PositionOf(villager)), 400.0f);
 		float room = fire->GroupBurningRadius() * glm::two_pi<float>() / (4.0f * Radius2D(villager));
 		if (room != 0.0f)
 		{

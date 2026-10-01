@@ -29,6 +29,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
@@ -70,10 +71,10 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// GUtils::GetDistanceInMetres 0x74CD70: x, z only
+/// GUtils::GetDistanceInMetres 0x74CD70 (and its twin fn_0074CD50): x, z only, through the table hypotenuse 0x74F680
 float Distance2D(const glm::vec3& a, const glm::vec3& b)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 /// MapCoords::InBounds 0x6042C0: the 10 m cell inside the map ((port) 512 cells when no land is loaded: tests only)
@@ -748,8 +749,7 @@ FireEffect* FireEffect::NearestFireToFight(const glm::vec3& position) const
 		const float safe = member->SafeFireRadius();
 		const float keep = safe < objectRadius ? objectRadius : safe;
 		// fn_0074CD50 (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire centre.
-		// (aproximado: the original takes the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters
-		// 0x74DCC0; this is the float distance)
+		// fn_0074CD50 = the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters 0x74DCC0
 		const float distance = Distance2D(position, centre) - keep;
 		if (distance < bestDistance && member->IsAboveReactionTemperature())
 		{

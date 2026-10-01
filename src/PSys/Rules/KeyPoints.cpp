@@ -9,7 +9,7 @@
 
 // The key-point rules: UR_KPStretchHeight and UR_KPMoveAtoms (the heal power-up's mushroom, SF_HealChakraPU) on
 // KPSplineInterpolator<float>, which UR_ForestPath (Forest.cpp) shares. Disassembly: dev\tmp_dis\miracles\impl\m4h\kp.txt
-// and impl\m6b; wiki: docs/bw1-notes/magic.md, "Explosión de rayo (M6b)".
+// and impl\m6b; wiki: docs/bw1-notes/miracles.md, "Explosión de rayo y clases de PSys que faltaban (M6b)".
 
 #include "KeyPoints.h"
 

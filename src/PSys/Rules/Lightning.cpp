@@ -12,7 +12,7 @@
 // chain of joints per fork towards each of them (ParticleChainCreator, Creators/Chain.cpp), drops a light map where
 // every fork ends (Creators/LightMap.cpp) and sends the spell a "landed" event at each tip, which is what burns and
 // kills. UR_LightningStrike is the one-shot script / climate strike. Report: tmp_dis\miracles\destructive.md §4; wiki
-// docs/bw1-notes/magic.md, "Rayo".
+// docs/bw1-notes/miracles.md, "Rayo".
 
 #include <cmath>
 #include <cstdlib>

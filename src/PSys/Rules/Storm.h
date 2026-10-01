@@ -20,7 +20,7 @@
 // on the land (UR_CloudGather), fork lightning strikes from random clouds (UR_Lightning of Rules/Lightning.cpp in its
 // parent mode) and, at power-up level 1, a tornado sucks up objects and piles (UR_Tornado). UR_StormCast is the swirl at
 // the hand while casting. Research: tmp_dis\miracles\impl\m6st\ (the disassembly read for this port); wiki:
-// docs/bw1-notes/magic.md, "Tormenta".
+// docs/bw1-notes/miracles.md, "Tormenta".
 
 namespace openblack::psys::storm
 {

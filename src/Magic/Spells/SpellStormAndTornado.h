@@ -19,7 +19,7 @@
 // SpellStormAndTornado (0xF8 bytes, vtable 0x9847DC, save type 0x10; GMagicStormAndTornadoInfo::AllocSpell 0x5FBAB0):
 // MAGIC_TYPE 16 STORM (wind and rain), 17 STORM_PU1 (with lightning) and 18 STORM_PU2 (the tornado). The three cast the
 // same SF_LightningStormPush, whose rules read the power-up level (Rules/Storm.cpp), plus an SF_StormCast swirl at the
-// hand. Wiki: docs/bw1-notes/magic.md, "Tormenta".
+// hand. Wiki: docs/bw1-notes/miracles.md, "Tormenta".
 
 namespace openblack::magic
 {

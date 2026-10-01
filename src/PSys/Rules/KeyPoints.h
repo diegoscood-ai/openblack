@@ -14,7 +14,7 @@
 #include <glm/vec3.hpp>
 
 // KPSplineInterpolator<float>: the key-point curves of the spell files (UR_KPStretchHeight, UR_KPMoveAtoms,
-// UR_ForestPath's RadiusSpline / HeightSpline). Wiki: docs/bw1-notes/magic.md, "Explosión de rayo (M6b)" (las clases
+// UR_ForestPath's RadiusSpline / HeightSpline). Wiki: docs/bw1-notes/miracles.md, "Explosión de rayo y clases de PSys que faltaban (M6b)" (las clases
 // que faltaban).
 
 namespace openblack::psys::key_points

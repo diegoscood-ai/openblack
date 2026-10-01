@@ -31,7 +31,7 @@ struct Reaction;
 // The villagers and the teleport stones (VillagerReaction.cpp 0x766200..0x766440): a walking villager that the stone's
 // REACT_TO_TELEPORT reaction reaches, and for which another stone of its player is worth the detour, walks to the stone
 // (GO_TOWARDS_TELEPORT_REACTION 201 / _QUICKLY 251), jumps (TELEPORT_REACTION 202) and resumes what it was doing.
-// Magic/Objects/MagicTeleport does the jump. Wiki: docs/bw1-notes/magic.md, "Teletransporte".
+// Magic/Objects/MagicTeleport does the jump. Wiki: docs/bw1-notes/miracles.md, "Teletransporte".
 
 namespace openblack::ecs::villager_teleport
 {

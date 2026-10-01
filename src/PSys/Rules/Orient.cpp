@@ -8,7 +8,7 @@
  *******************************************************************************/
 
 // UR_OrientSpriteWithVelocity (the flames of SF_FireBallInHand): the sprite's roll follows its smoothed velocity as the
-// camera sees it. Wiki: docs/bw1-notes/magic.md, "Explosión de rayo (M6b)" (las clases que faltaban).
+// camera sees it. Wiki: docs/bw1-notes/miracles.md, "Explosión de rayo y clases de PSys que faltaban (M6b)" (las clases que faltaban).
 
 #include <cmath>
 

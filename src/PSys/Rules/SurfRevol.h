@@ -22,7 +22,7 @@
 // ZR_SurfRevol (PSysGeom.cpp; ModifyAtomCollection 0x686370, DefineProperties 0x6B2E80): a create rule that makes one
 // atom per collection carrying a textured surface of revolution (RenderParticleGJMeshRotatingUV, ctor 0x6C8B60): the
 // teleport's vortex pool (SF_TeleportVortex, S_TileLandscape.raw) and the spell dispensers' discs. The renderer draws it
-// with Graphics/RendererSurfRevol.cpp. Wiki: docs/bw1-notes/magic.md, "Teletransporte" (ZR_SurfRevol).
+// with Graphics/RendererSurfRevol.cpp. Wiki: docs/bw1-notes/miracles.md, "Teletransporte" (ZR_SurfRevol).
 
 namespace openblack::psys
 {

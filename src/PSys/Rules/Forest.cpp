@@ -10,7 +10,7 @@
 // The forest miracle's butterflies (SF_Forest groups 5-7): UR_ForestPath moves each butterfly group round a sphere
 // whose radius and height follow two key-point curves, and ParticleGoodEvilCreator makes butterflies or bats by the
 // caster's alignment (the ParticleAnimCreator meshes, Creators/Mesh.cpp). UR_Flocking (the butterflies round their
-// group) is lane m4c's. Wiki: docs/bw1-notes/magic.md, "Explosión de rayo (M6b)" (las clases que faltaban).
+// group) is lane m4c's. Wiki: docs/bw1-notes/miracles.md, "Explosión de rayo y clases de PSys que faltaban (M6b)" (las clases que faltaban).
 
 #include <cmath>
 

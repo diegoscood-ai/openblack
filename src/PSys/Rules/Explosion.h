@@ -15,7 +15,7 @@
 // The beam explosion's particle side (PSysExplosion.cpp of the original): UR_Explosion (the blast of SF_BeamExplosion*,
 // MAGIC_TYPE 7-9), SetPSysCloseDown, and the rules of its spot visual SF_BeamExplosionFX (UR_MoveAtom, UR_ChangeScaleXYZ).
 // Plus the two Object virtuals the blast asks of its targets. Research: dev\tmp_dis\miracles\impl\m6b\;
-// wiki: docs/bw1-notes/magic.md, "Explosión de rayo".
+// wiki: docs/bw1-notes/miracles.md, "Explosión de rayo".
 
 namespace openblack::psys::explosion
 {

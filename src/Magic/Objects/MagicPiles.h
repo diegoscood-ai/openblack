@@ -19,7 +19,7 @@
 #include "Enums.h"
 
 // The piles the food and wood miracles (and the hand) leave on the land: MagicFood (MagicFood.cpp) and MagicWood
-// (MagicWood.cpp). Wiki: docs/bw1-notes/magic.md, "Comida y madera".
+// (MagicWood.cpp). Wiki: docs/bw1-notes/miracles.md, "Comida y madera".
 
 namespace openblack::magic::objects
 {

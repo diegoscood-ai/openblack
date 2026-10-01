@@ -22,7 +22,7 @@
 // cast position, which gets the default effect (burn -4000: it cools fires) and the ApplyWaterSpell (vt 0x67C) of every
 // object within reach (fields are sown and grow, trees grow or seed a sapling, burning objects start the "putting out
 // the fire" reaction), and a ring on the land every 0.1 s. The cloud and the rain cone are its PSys (SF_Water /
-// SF_WaterPU1). Wiki: docs/bw1-notes/magic.md, "Agua".
+// SF_WaterPU1). Wiki: docs/bw1-notes/miracles.md, "Agua".
 
 namespace openblack::magic::water
 {

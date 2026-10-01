@@ -17,7 +17,7 @@
 // HandStateGrain (CHand +0x489C, hand state 8: the hand holds a spell seed; ctor 0x5B2B80, vtable 0x900B00). Its
 // "grain" part raises and tilts the hand while a sprinkle miracle (food, wood, water) pours from it: UR_HandSprinkle
 // starts it (fn_005B2F70), CHand::GameTurnUpdate steps it, HandStateHolding::Update reads it. Wiki:
-// docs/bw1-notes/magic.md, "Comida y madera".
+// docs/bw1-notes/miracles.md, "Comida y madera".
 
 namespace openblack::ecs::systems::hand_grain
 {

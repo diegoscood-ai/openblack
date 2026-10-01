@@ -11,7 +11,7 @@
 // UR_StormCast. Every constant below is the class ctor's default or a literal of the function it is read from; the
 // spell files replace the defaults with their properties. The disassembly read for this port is kept in
 // tmp_dis\miracles\impl\m6st\ (tornado.txt, stormcast.txt, drawclouds.txt, props.py for the property offsets). Wiki:
-// docs/bw1-notes/magic.md, "Tormenta".
+// docs/bw1-notes/miracles.md, "Tormenta".
 
 #include "Storm.h"
 

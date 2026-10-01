@@ -9,7 +9,7 @@
 
 // The heal miracle's rules (SF_HealChakra, SF_HealChakraPU, SF_HealChakraInHand, SF_HealChakraOnHolder):
 // UR_HealSpellChakra, one chakra atom per target that heals it (event 5) and makes it glow, CreateRuleFusedSphericalExplode,
-// the burst of sprites under each chakra, and UR_HealInHand, the in-hand wiggle. Wiki: docs/bw1-notes/magic.md, "Curar".
+// the burst of sprites under each chakra, and UR_HealInHand, the in-hand wiggle. Wiki: docs/bw1-notes/miracles.md, "Curar".
 
 #include "Heal.h"
 

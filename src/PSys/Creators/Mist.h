@@ -20,7 +20,7 @@
 // with the smoke atlas, the same object as the map mists and the storm puffs); here it is handed every frame to mapa's
 // mists::Submit (Graphics/Mists.h), which culls, sorts and draws it with Renderer::DrawMist. The water miracle's cloud
 // (SF_Water, SF_WaterPU1, the water in the hand and on its holder) and the lightning storm use it. Wiki:
-// docs/bw1-notes/magic.md, "Agua".
+// docs/bw1-notes/miracles.md, "Agua".
 
 namespace openblack::psys
 {

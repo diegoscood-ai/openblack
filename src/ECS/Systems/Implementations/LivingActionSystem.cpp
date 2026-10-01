@@ -471,13 +471,31 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     {.state = &ecs::villager_worship::HidingAtWorshipSite,
      .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitAtWorshipSite(a, n)); }},
     /* CROWD_REACTION */ k_TodoEntry,
-    // the fire's states (VillagerFire.cpp); their entry / exit functions go with the final state there
+    // the fire's states (VillagerFire.cpp). Their entry (+0x10) and exit (+0x20) functions as _$E32 fills them: 216
+    // 0x5AA2D9 / 0x5AA2EC, 217 0x5AA421 / 0x5AA434, 218 0x5AA4BE / 0x5AA4CB and 220 0x5AA75D / 0x5AA767 EnterPutOutFire
+    // 0x75ADC0 / ExitPutOutFire 0x75AE80; 219 0x5AA611 / 0x5AA642 EnterOnFire 0x75AF30 / ExitOnFire 0x75AF80. 215's
+    // exit (ExitReaction 0x7527A0) is not ported yet
     /* REACT_TO_FIRE */ {.state = &ecs::villager_fire::ReactToFire},
-    /* PUT_OUT_FIRE_BY_BEATING */ {.state = &ecs::villager_fire::PutOutFireByBeating},
-    /* PUT_OUT_FIRE_WITH_WATER */ {.state = &ecs::villager_fire::PutOutFireWithWater},
-    /* GET_WATER_TO_PUT_OUT_FIRE */ {.state = &ecs::villager_fire::PutOutFireWithWater},
-    /* ON_FIRE */ {.state = &ecs::villager_fire::OnFire},
-    /* MOVE_AROUND_FIRE */ {.state = &ecs::villager_fire::MoveAroundFire},
+    /* PUT_OUT_FIRE_BY_BEATING */
+    {.state = &ecs::villager_fire::PutOutFireByBeating,
+     .entryState = &ecs::villager_fire::EnterPutOutFire,
+     .exitState = &ecs::villager_fire::ExitPutOutFire},
+    /* PUT_OUT_FIRE_WITH_WATER */
+    {.state = &ecs::villager_fire::PutOutFireWithWater,
+     .entryState = &ecs::villager_fire::EnterPutOutFire,
+     .exitState = &ecs::villager_fire::ExitPutOutFire},
+    /* GET_WATER_TO_PUT_OUT_FIRE */
+    {.state = &ecs::villager_fire::PutOutFireWithWater,
+     .entryState = &ecs::villager_fire::EnterPutOutFire,
+     .exitState = &ecs::villager_fire::ExitPutOutFire},
+    /* ON_FIRE */
+    {.state = &ecs::villager_fire::OnFire,
+     .entryState = &ecs::villager_fire::EnterOnFire,
+     .exitState = &ecs::villager_fire::ExitOnFire},
+    /* MOVE_AROUND_FIRE */
+    {.state = &ecs::villager_fire::MoveAroundFire,
+     .entryState = &ecs::villager_fire::EnterPutOutFire,
+     .exitState = &ecs::villager_fire::ExitPutOutFire},
     /* DISCIPLE_NOTHING_TO_DO */ k_TodoEntry,
     /* FOOTBALL_MOVE_TO_BALL */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_TRADER_PICK_UP */ k_TodoEntry,
@@ -576,10 +594,10 @@ void LivingActionSystem::VillagerSetState(LivingAction& action, LivingAction::In
 		return;
 	}
 	// The changes that bypass the exit and entry functions (the hand, the physics, the animals, the water, MOVE_TO_POS
-	// and LANDED, the miracles' local SetTopState): Villager::SetState(0, s) (FINAL cleared with its town modifier,
-	// +0x90 = 0) and the clips and speed as before. (aproximado) in the original those go through SetTopState with
-	// their own entry / exit functions (EnterInHand 0x76AFE0, ExitInHand 0x76B000, ...), not ported yet. Repeating the
-	// same order changes nothing, as openblack had it
+	// and LANDED): Villager::SetState(0, s) (FINAL cleared with its town modifier, +0x90 = 0) and the clips and speed
+	// as before. (aproximado) in the original those go through SetTopState with their own entry / exit functions
+	// (EnterInHand 0x76AFE0, ExitInHand 0x76B000, ...), not ported yet. Repeating the same order changes nothing, as
+	// openblack had it
 	if (previousState == state)
 	{
 		return;

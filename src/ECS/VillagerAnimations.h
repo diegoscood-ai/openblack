@@ -39,7 +39,7 @@ int32_t VillagerCallOutOfAnimation(entt::entity villager, VillagerStates next);
 void VillagerApplyStateClips(entt::entity villager, VillagerStates entered, int32_t out);
 
 /// Both halves at once, for the changes that bypass the exit and entry functions (LivingActionSystem::VillagerSetState
-/// with skipTransition: the hand, the physics, the animals, the miracles' local SetTopState). `previous` is the TOP
+/// with skipTransition: the hand, the physics, the animals, LANDED). `previous` is the TOP
 /// before the change; the new TOP is already set.
 void OnVillagerStateChanged(entt::entity villager, VillagerStates previous, VillagerStates next);
 

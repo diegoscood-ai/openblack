@@ -8,7 +8,6 @@
  *******************************************************************************/
 
 #include "VillagerTeleport.h"
-#include "VillagerFire.h"
 #include "VillagerMove.h"
 #include "VillagerReactions.h"
 
@@ -60,11 +59,6 @@ LivingAction* ActionOf(entt::entity villager)
 	return Reg().TryGet<LivingAction>(villager);
 }
 
-auto& System()
-{
-	return Locator::livingActionSystem::value();
-}
-
 VillagerStates Get(const LivingAction& action, LivingAction::Index index)
 {
 	return static_cast<VillagerStates>(action.states.at(static_cast<size_t>(index)));
@@ -107,22 +101,19 @@ VillagerStates FinalState(const LivingAction& action)
 	return info != nullptr && info->isFinalState != 0 ? top : Get(action, LivingAction::Index::Final);
 }
 
-/// Villager::SetTopState (vt 0x8E8), as VillagerFire.cpp does it (the move ends, no destination state): the old final
-/// state's exit (VillagerFire.cpp) runs with the new state; the teleport states have no entry function
-void SetTopState(entt::entity villager, VillagerStates state)
+/// Villager::SetTopState 0x752010 (vt +0x8E8): the villager core's (ECS/Villager/VillagerCore.h), which runs the exit
+/// functions of TOP and of the final state and the entry of the new state from the rows of k_VillagerStateTable (the
+/// fire's and the worship ones among them), once each, with the pause roll and the codes 1 / 0x2E / 0x2F.
+/// (aproximado) MOVE_TO_POS' exit ExitMoveToPos 0x5EDDA0 is not ported, so the walk a change leaves is ended here
+/// (openblack's move tags), unless the exit refused the change (0x2E: nothing changed)
+uint32_t SetTopState(entt::entity villager, VillagerStates state)
 {
-	auto* action = ActionOf(villager);
-	if (action == nullptr)
+	const auto result = villager::SetTopState(villager, state);
+	if (result != villager::k_ExitRefused)
 	{
-		return;
+		RemoveMoveTags(villager);
 	}
-	if (const auto previous = FinalState(*action); previous != state)
-	{
-		villager_fire::CallFinalStateExit(villager, previous, state);
-	}
-	RemoveMoveTags(villager);
-	System().VillagerSetState(*action, LivingAction::Index::Final, VillagerStates::InvalidState, true);
-	System().VillagerSetState(*action, LivingAction::Index::Top, state, true);
+	return result;
 }
 
 /// Villager::StorePreviousState 0x763470 (AddReaction's vt 0x8EC when it had no reaction): the final state goes to
@@ -139,7 +130,8 @@ void StorePreviousState(LivingAction& action)
 	action.states.at(static_cast<size_t>(LivingAction::Index::Previous)) = static_cast<uint8_t>(stored);
 }
 
-/// Villager::PopFromPrevious 0x751E50: the stored state's resume state (table +0x20); nothing stored: DECIDE_WHAT_TO_DO
+/// Villager::PopFromPrevious 0x751E50: the stored state's resume state (table +0x20); (inferido) nothing stored:
+/// DECIDE_WHAT_TO_DO
 void PopFromPrevious(entt::entity villager)
 {
 	auto* action = ActionOf(villager);
@@ -154,7 +146,13 @@ void PopFromPrevious(entt::entity villager)
 	{
 		next = VillagerStates::DecideWhatToDo;
 	}
-	SetTopState(villager, next);
+	// 0x751E72 SetTopState; 0x2E (an exit refused) -> raw LivingAction::SetState(0, 163) 0x5ECC90; then raw
+	// SetState(2, 0) (0x751E99)
+	if (SetTopState(villager, next) == villager::k_ExitRefused)
+	{
+		action->states.at(static_cast<size_t>(LivingAction::Index::Top)) = static_cast<uint8_t>(VillagerStates::DecideWhatToDo);
+		action->turnsSinceStateChange = 0;
+	}
 	action->states.at(static_cast<size_t>(LivingAction::Index::Previous)) = 0;
 }
 

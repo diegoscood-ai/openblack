@@ -76,9 +76,56 @@ save/load, +0x50, +0x60 (función de clip), +0x70 (clip de transición), +0x80 v
   original; si el original tiene entrada, salida o validate en una fila que openblack deja vacía, avisa una vez
   (`TODO: Unimplemented entry function of ... (0x...): taken as 1`);
 - las salidas de culto de Milagros (58, 59, 60, 213) conservan su convención vieja (false = puede salir) y la fila las
-  adapta; las de fuego (215-220) siguen en su SetTopState local (M-11, sin cambiar en V1);
+  adapta;
+- las de fuego están en sus filas, como las rellena `_$E32` (ver [Fuego en la tabla](#fuego-en-la-tabla));
 - 16 DROWNING: EnterDrowning 0x767410 y ExitDrowning 0x767420 solo aceptan (`mov eax, 1; ret`); la función de estado
   (Villager::Drowning 0x76A780) llega con agua.
+
+### Fuego en la tabla
+
+El inicializador estático `_$E32` (0x5AA2D9..0x5AA767) pone en +0x10 / +0x20 de cada fila:
+
+| fila | estado | entrada (+0x10) | salida (+0x20) | dónde en `_$E32` |
+|---|---|---|---|---|
+| 215 | REACT_TO_FIRE | — | ExitReaction 0x7527A0 (**sin portar**: vale 1 y avisa) | — |
+| 216 | PUT_OUT_FIRE_BY_BEATING | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA2D9 / 0x5AA2EC |
+| 217 | PUT_OUT_FIRE_WITH_WATER | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA421 / 0x5AA434 |
+| 218 | GET_WATER_TO_PUT_OUT_FIRE | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA4BE / 0x5AA4CB |
+| 219 | ON_FIRE | EnterOnFire 0x75AF30 | ExitOnFire 0x75AF80 | 0x5AA611 / 0x5AA642 |
+| 220 | MOVE_AROUND_FIRE | EnterPutOutFire 0x75ADC0 | ExitPutOutFire 0x75AE80 | 0x5AA75D / 0x5AA767 |
+
+Lo que devuelven (leído en el desensamblado):
+- **EnterPutOutFire(final, s)**: 1 si `IsStateEntryFunctionSameAs(final, s)` 0x7524D0 (las dos filas tienen la misma
+  entrada: de 216/217/218/220 a otra de ellas); si no, con fuego (+0x114) vivo (fn_0075AD90; si ya no existe, +0x114 =
+  0), su vt +0x2C y una reacción (+0x94) no apagada (Reaction +0x34, la pone ShutDown 0x6E4723): **0** si ya está en
+  la lista de bomberos de la raíz (0x75AE75), y si no lo añade (AddFireman 0x7309A0) y da **1**. En cualquier otro caso
+  da **0** y, si el final de antes es reactivo (tabla +0xB8, 0xDB9F30), StopReacting (vt +0x998). Un 0 es 0x2F y
+  Villager::SetTopState entra en 163.
+- **ExitPutOutFire(s)**: siempre **1** (0x75AECB y 0x75AF20). Si la salida no es "la misma" (vt +0x96C,
+  0x752530: otra fila con ExitPutOutFire, o un estado no final) sale de la lista de bomberos y de la de camino al
+  culto del pueblo (0x73E360); si no estaba en la lista, solo +0x114 = 0 y vuelve sin ExitReaction; si no, ExitReaction
+  0x7527A0 (acaba la reacción salvo que `s` sea reactivo).
+- **EnterOnFire(final, s)**: **1** sin fuego o con su vt +0x2C a 0; **0** si ya está en la lista (0x75AF78); si no lo
+  añade y **1**.
+- **ExitOnFire(s)**: siempre **1**; sale de la lista si está y **+0x114 = 0 siempre** (no mira `s`).
+
+Los cambios de estado de `VillagerFire.cpp` y `VillagerTeleport.cpp` son ya los del núcleo: `villager::SetTopState`
+(con la tirada de pausa, la salida de TOP y del final y la entrada, una vez cada una, y los códigos 1 / 0x2E / 0x2F),
+`villager::SetState(2, s)` para el estado guardado (vt +0x938: salta los de tabla +0x10 y ajusta el pueblo) y
+`villager::SetupMoveToWithHug`. Ya no hay SetTopState local, ni `CallEntry` / `CallExit`, ni
+`villager_fire::CallFinalStateExit`; las salidas de culto (58, 59, 60, 213) corren por sus filas. Además:
+- SetupMoveAroundFire 0x75A770 solo guarda destino y estado siguiente si SetTopState(220) da 1 (0x75A783).
+- PopFromPrevious 0x751E50: si SetTopState da 0x2E, TOP = 163 en bruto (LivingAction::SetState 0x5ECC90) y después
+  PREVIOUS = 0 en bruto.
+- **(aproximado)** La salida de MOVE_TO_POS (ExitMoveToPos 0x5EDDA0) no está portada: estos SetTopState quitan las
+  marcas de paseo de openblack (salvo con 0x2E), como hacía el SetTopState local.
+
+Diferencias con antes (comprobadas en partida, ver abajo): las entradas y salidas corren también cuando el estado final
+no cambia, como en el original. Al replanificar o llegar (SetupMoveToWithHug / SetTopStateToFinal) un bombero en 220
+pasa por ExitPutOutFire(220) y EnterPutOutFire(220, 220), que no cambian nada; un aldeano en 219 pasa por ExitOnFire,
+que **borra +0x114**: tras su primer paseo deja de huir del fuego ajeno y solo sigue en 219 mientras arde él (en el
+original igual: OnFire 0x75B1E0 llama a SetupMoveToWithHug 0x5F2890 en 0x75B39E). Ahora también se tira la pausa 239 en
+los SetTopState de fuego y teletransporte.
 
 ## Creación (Villager::Create 0x74FBE0 y el constructor 0x74F950)
 
@@ -175,7 +222,7 @@ Códigos: 1 hecho, 0x2E la salida rechazó (no cambia nada), 0x2F la entrada rec
 | llamada | qué hace |
 |---|---|
 | TOP, `skipTransition = false` (culto) | `villager::SetTopState` exacto |
-| TOP, `skipTransition = true` (mano, física, animales, el paseo ocioso y su llegada con FINAL 0, LANDED, Gui, el SetTopState local de fuego y teletransporte) | si es el mismo estado, nada; si no, `villager::SetState(0, s)` exacto + clips y velocidad. **(aproximado)**: el original pasa por SetTopState con EnterInHand / ExitInHand..., no portadas |
+| TOP, `skipTransition = true` (mano, física, animales, el paseo ocioso y su llegada con FINAL 0, LANDED, Gui) | si es el mismo estado, nada; si no, `villager::SetState(0, s)` exacto + clips y velocidad. **(aproximado)**: el original pasa por SetTopState con EnterInHand / ExitInHand..., no portadas |
 | FINAL / PREVIOUS | `villager::SetState(i, s)` exacto |
 
 ## Estados 85 y 239
@@ -214,8 +261,9 @@ turno (`ecs::life::Kill`). El original lo deja vivo (SetDying → 13) y sigue ll
 
 - `OPENBLACK_VILLAGER_TRACE=1` (o `=<n>`, índice de creación): líneas `Villager trace:` con la creación (posición,
   edad, food, lastCheckTurn, contador, 85 o 16), cada `SetState`, `SetTopState a → b = código`,
-  `SetCurrentAndDestinationState`, `pause 239 → s (rand, umbral)`, `AdjustTownModifier`, cada check periódico y un
-  resumen cada 100 turnos.
+  `SetCurrentAndDestinationState`, `pause 239 → s (rand, umbral)`, `AdjustTownModifier`, cada check periódico, un
+  resumen cada 100 turnos y cada llamada a las entradas y salidas de fuego (`EnterPutOutFire(final, s) = r`,
+  `ExitPutOutFire(final, s) = 1`, `EnterOnFire`, `ExitOnFire`).
 - `OPENBLACK_TEST_VILLAGER_LIFE="<vida>[,<n>]"`: en el turno 2 fija la vida de todos o del aldeano n.
 - `OPENBLACK_TEST_VILLAGER_STATE="<estado>[,<n>]"`: en el turno 2 llama a `villager::SetTopState` y escribe el código.
 - `OPENBLACK_TEST_VILLAGER_BORN_IN_WATER="x,z"`: en el turno 2 crea una celta (Housewife, 25 años) ahí.
@@ -232,6 +280,15 @@ skipped`), siguen andando y llegando (35 llegadas por el puente a 163); Land1 no
 entre 21 aldeanos hasta el final (antes, desde el turno 2333 solo salía uno). Land2,
 `OPENBLACK_TEST_HUNT_VILLAGER="0,3"` (turno 3, antes de que el guion cree los aldeanos del mar, así el primero del
 registro está en tierra): 85 → 17 DOWNED → 18 BEING_EATEN → comido.
+
+Fuego y teletransporte por el núcleo (2026-10-01): Land1, `OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`, 650
+turnos: los mismos estados que antes (85/1 → 215 → 220 ⇄ 216, 163/1 → 219) y una entrada y una salida por cambio (3213
+`EnterPutOutFire(216, 220) = 1` para 3213 cambios 216 → 220, 3221 para 220 → 216, 11 `(215, 220) = 1`), más las de
+replanificar y llegar (22 `ExitPutOutFire(220, 220)` / `EnterPutOutFire(220, 220)`, 6 `ExitOnFire(219, 219)` /
+`EnterOnFire(219, 219)`), ningún 0x2E ni 0x2F; antes faltaban esas últimas y ExitOnFire no se llamaba nunca. El vaivén
+216 ⇄ 220 de cada turno ya estaba antes. Teletransporte (`OPENBLACK_TEST_TELEPORT="1785,2655,1830,2660,7,walk"`,
+`_TURN=300`): 1 ⇄ 201 como antes y, en una de las pasadas, 201 → 202 → salto (ahorro 26 m) → `SetTopState 202 → 163 =
+0x1`.
 
 ## Pruebas
 
@@ -258,8 +315,8 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
    los aldeanos en el orden del registro (no el de la lista g_game +0x205BBC).
 8. **(aproximado hasta V12)** VillagerDead mata al final del turno y la función de estado ya no corre tras la muerte;
    el jugador de VillagerDead (GetPlayer, vt +0x1C) no se pasa (NEUTRAL).
-9. **(aproximado)** Los cambios de TOP de la mano, la física, los animales, LANDED, el Gui y el SetTopState local de
-   Milagros no pasan por salidas ni entradas (sus Enter/Exit del original no están portadas).
+9. **(aproximado)** Los cambios de TOP de la mano, la física, los animales, LANDED y el Gui no pasan por salidas ni
+   entradas (sus Enter/Exit del original no están portadas). Los de fuego y teletransporte ya sí (núcleo).
 10. **(inventado, puente hasta V2)** El paseo ocioso de DECIDE_WHAT_TO_DO (radio 40, espera 20 turnos) no es del
     original; deja FINAL 0 y a la llegada vuelve a 163 por el camino de compatibilidad (el original haría
     SetTopState(0)). Con FINAL distinto de 0 la llegada es la exacta (SetTopStateToFinal, 0x5EC28E).

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <entt/entity/entity.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 #include "Enums.h"
@@ -65,6 +66,15 @@ struct Town
 	/// shepherded joins it
 	std::vector<entt::entity> flocks;
 	TownDesire desire; ///< +0x34
+	/// +0xF10: Town::GetCongregationPos 0x7408B0's cache, MapCoords x / z (6553.6 per metre) and y; (0, 0, 0) = not
+	/// computed yet. Zeroed by the constructor (0x739501, fn_0073C710 0x73C81D); written by GetCongregationPos, by
+	/// SET_TOWN_CONGREGATION_POS (MapCommandProcess case 6, 0x7155A3..0x7155B9) and cleared by
+	/// CheckWhenNewBuildingCreated 0x741500 (a building made within 7.5 m; only from PostCreatePlanned: TODO(V6))
+	glm::ivec2 congregationPos {0, 0};
+	float congregationPosY {0.0f};
+	/// +0xF1C: the turn the town's emergency started (Town::IsInStateOfEmergency 0x747970 reads it; 0 = none).
+	/// TODO(Milagros): written by ProcessTownEmergency; nobody writes it in openblack yet, so 242 is never reached
+	uint32_t emergencyStartTurn {0};
 };
 
 } // namespace openblack::ecs::components

@@ -28,6 +28,8 @@
 #include "ECS/Registry.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerDecide.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
@@ -49,72 +51,8 @@ uint32_t VillagerInvalidState(LivingAction& action)
 	return 0;
 }
 
-// Wander behaviour: how far (in world units) an idle villager may roam from
-// its village centre when picking a destination.
-static constexpr float k_WanderRadius = 40.0f;
-// Idle pause (in turns) before an arrived/abandoned villager picks a new destination.
-static constexpr uint16_t k_WanderCooldownTurns = 20;
-// Keep goals clear of the map edges so the pathfinder's neighbouring-cell lookups stay in
-// bounds (the movement grid is MapInterface::k_GridSize cells, each 10 world units wide).
-static constexpr float k_WanderWorldBoundMin = 30.0f;
-static constexpr float k_WanderWorldBoundMax = 5090.0f;
-
 namespace
 {
-// Pick a random nearby point and hand it to the PathfindingSystem the same way the
-// debug "Move To Point" tool does (see Debug/PathFinding.cpp), then wait in MoveToPos.
-uint32_t VillagerDecideWhatToDo(LivingAction& action)
-{
-	// Villager::DecideWhatToDo's worship check (0x76BA60, VillagerWorship.cpp): it runs before the idle wander, as the
-	// original runs it before the "nothing to do" branch
-	if (ecs::villager_worship::CheckNeededForWorship(Locator::entitiesRegistry::value().ToEntity(action)))
-	{
-		return 0;
-	}
-
-	if (action.turnsSinceStateChange < k_WanderCooldownTurns)
-	{
-		// TODO(#863): play a "catch breath" idle animation here (lean forward, breathe) during the cooldown
-		// once villager animation playback exists. The transitionAnimation hook in k_VillagerStateTable
-		// is the intended home for it; the Mesh component has no animation state today.
-		return 0;
-	}
-
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto entity = registry.ToEntity(action);
-
-	const auto& transform = registry.Get<Transform>(entity);
-	auto& wallHug = registry.Get<WallHug>(entity);
-	auto& rng = Locator::rng::value();
-
-	const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
-	const float distance = rng.NextValue(0.0f, k_WanderRadius);
-	const auto& villager = registry.Get<Villager>(entity);
-	auto origin = glm::xz(transform.position); // fallback if the villager has no valid town
-	if (villager.town != entt::null && registry.Valid(villager.town) && registry.AllOf<Transform>(villager.town))
-	{
-		origin = glm::xz(registry.Get<Transform>(villager.town).position);
-	}
-	auto goal = origin + glm::vec2(glm::cos(angle), glm::sin(angle)) * distance;
-	goal = glm::clamp(goal, glm::vec2(k_WanderWorldBoundMin), glm::vec2(k_WanderWorldBoundMax));
-
-	wallHug.goal = goal;
-	wallHug.step = glm::vec2(0.0f); // force a fresh step to be computed on the next pathfinding turn
-	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
-	                MoveStateFinalStepTag, MoveStateArrivedTag>(entity);
-	registry.Remove<WallHugObjectReference>(entity);
-	registry.Assign<MoveStateLinearTag>(entity);
-
-	Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top, VillagerStates::MoveToPos, true);
-	// (inventado, puente hasta V2) the original's walks have a final state (Living::SetupMoveToWithHug 0x5F2890 sets
-	// FINAL); the idle wander takes 209 NOTHING_TO_DO, the original's idle state (DecideWhatToDo -> SetupNothingToDo
-	// 0x753B50): its row takes reactions (file 0xEC 1, like row 0's; 163's is 0) and resumes 163 (file 0x20), so a
-	// reaction's StorePreviousState 0x763470 / PopFromPrevious 0x751E50 come back to deciding, not to row 0's resume 0
-	// (INVALID_STATE). 209's state function is not ported: the arrival goes back to 163 (VillagerMoveToPos)
-	ecs::villager::SetState(entity, LivingAction::Index::Final, VillagerStates::NothingToDo);
-	return 0;
-}
-
 /// MobileWallHug::MoveTo 0x60AF20's result for openblack's walk (PathfindingSystem::Update runs before the state
 /// functions, Game.cpp): 0xA (arrived) only from ARRIVED 0x60AFC0 when AreWeThere(0) and from FINAL_STEP 0x60AF6C, both
 /// after putting the object on the goal (Pos = GetDestPos, MoveMapObject vt +0x55C: 0x60AF6C..0x60AFB6 and
@@ -159,15 +97,14 @@ uint32_t VillagerMoveToPos(LivingAction& action)
 		// Living::SetTopStateToFinal 0x5ECA80 = Villager::SetTopState(FINAL), vt +0x8E8: the pause roll, the exit of
 		// MOVE_TO_POS (ExitMoveToPos 0x5EDDA0, CircleHugInfo::Reset; not ported: taken as 1) and FINAL's exit / entry
 		const auto final = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(LivingAction::Index::Final)));
-		if (final != VillagerStates::InvalidState && final != VillagerStates::NothingToDo)
+		if (final != VillagerStates::InvalidState)
 		{
 			ecs::villager::SetTopStateToFinal(entity);
 		}
 		else
 		{
-			// (inventado, puente hasta V2) the idle wander's FINAL 209 (its state function is not ported) or a walk set
-			// up by openblack's own code with FINAL 0 (the debug tools), where the original would SetTopState(FINAL): back
-			// to deciding through the compat path
+			// a walk set up by openblack's own code with FINAL 0 (the debug tools' "Move To Point"), where the original
+			// would SetTopState(0): back to deciding through the compat path
 			Locator::livingActionSystem::value().VillagerSetState(action, LivingAction::Index::Top,
 			                                                      VillagerStates::DecideWhatToDo, true);
 		}
@@ -317,7 +254,12 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GOTO_STORAGE_PIT_FOR_FOOD */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_FOOD */ k_TodoEntry,
     /* ARRIVES_AT_HOME_WITH_FOOD */ k_TodoEntry,
-    /* GO_HOME */ k_TodoEntry,
+    /* GO_HOME: Villager::GoHome 0x760270 = DoGoingHome(37, 238) (VillagerHome.cpp; the walk to the door, 37 is V4).
+       Its exit ExitAtHome 0x761B40 is V4 (warned once, taken as 1); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoHomeState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* ARRIVES_HOME */ k_TodoEntry,
     /* AT_HOME */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS */ k_TodoEntry,
@@ -408,7 +350,12 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* HOUSEWIFE_GIVING_BIRTH */ k_TodoEntry,
     /* HOUSEWIFE_GIVEN_BIRTH */ k_TodoEntry,
     /* CHILD_AT_CRECHE */ k_TodoEntry,
-    /* CHILD_FOLLOWS_MOTHER */ k_TodoEntry,
+    /* CHILD_FOLLOWS_MOTHER: Villager::ChildFollowsMother 0x7578C0 (VillagerDecide.cpp; no entry or exit; +0x50
+       AlwaysReactToTownEmergency: 0xD0D208 = 0x5AC990, _$E32 0x5A4046..0x5A404B) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ChildFollowsMother,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* CHILD_BECOMES_ADULT */ k_TodoEntry,
     /* SITS_DOWN_TO_DINNER */ k_TodoEntry,
     /* EAT_FOOD */ k_TodoEntry,
@@ -457,9 +404,9 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* TURN_TO_FACE_CREATURE_REACTION */ k_TodoEntry,
     /* WATCH_FLYING_OBJECT_REACTION */ k_TodoEntry,
     /* POINT_AT_FLYING_OBJECT_REACTION */ k_TodoEntry,
-    /* DECIDE_WHAT_TO_DO */
+    /* DECIDE_WHAT_TO_DO: Villager::DecideWhatToDo 0x7515C0 (VillagerDecide.cpp; no entry or exit) */
     VillagerStateTableEntry {
-        .state = &VillagerDecideWhatToDo,
+        .state = &ecs::villager::DecideWhatToDo,
     },
     /* INTERACT_DECIDE_WHAT_TO_DO */ k_TodoEntry,
     /* EAT_OUTSIDE */ k_TodoEntry,
@@ -509,7 +456,11 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GO_TOWARDS_DEAD_PERSON */ k_TodoEntry,
     /* LOOK_AT_DEAD_PERSON */ k_TodoEntry,
     /* MOURN_DEAD_PERSON */ k_TodoEntry,
-    /* NOTHING_TO_DO */ k_TodoEntry,
+    /* NOTHING_TO_DO: Villager::NothingToDo 0x760000 (no entry or exit; +0x50 AlwaysReactToTownEmergency) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::NothingToDo,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* ARRIVES_AT_WORKSHOP_FOR_DROP_OFF */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_WORKSHOP_MATERIALS */ k_TodoEntry,
     /* SHOW_POISONED */ k_TodoEntry,
@@ -572,8 +523,16 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* GOTO_CONGREGATE_IN_TOWN_AFTER_EMERGENCY */ k_TodoEntry,
     /* CONGREGATE_IN_TOWN_AFTER_EMERGENCY */ k_TodoEntry,
     /* SCRIPT_IN_CROWD */ k_TodoEntry,
-    /* GO_AND_CHILLOUT_OUTSIDE_HOME */ k_TodoEntry,
-    /* SIT_AND_CHILLOUT */ k_TodoEntry,
+    /* GO_AND_CHILLOUT_OUTSIDE_HOME: Villager::GoAndChilloutOutsideHome 0x76B3F0 (VillagerDecide.cpp) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoAndChilloutOutsideHome,
+    },
+    /* SIT_AND_CHILLOUT: Villager::SitAndChillout 0x76B4E0, entry EnterSitAndChillOut 0x76B570 (its clip functions +0x60
+       SitDownAnimation 0x424210 / +0x70 SitDownIntoOutOfAnimation 0x4243A0 are in VillagerAnimationTable.h) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::SitAndChillout,
+        .entryState = &ecs::villager::EnterSitAndChillOut,
+    },
     /* SCRIPT_GO_AND_MOVE_ALONG_PATH */ k_TodoEntry,
     // (k_VillagerStateStrings mislabels 248..254; the names here are the enum's / info.dat's)
     /* 248 GO_HOME_FROM_WORSHIP */ {.state = &ecs::villager_worship::GoHomeFromWorship},
@@ -581,7 +540,10 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* 250 SLEEP_IN_TENT_FROM_WORSHIP */ k_TodoEntry,
     /* 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY (0x766380 = a jmp to 201's; exit ExitReactToTeleport 0x766390) */
     {.state = &ecs::villager_teleport::GoToTeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
-    /* 252 GO_AND_CHILLOUT_IN_TOWN */ k_TodoEntry,
+    /* 252 GO_AND_CHILLOUT_IN_TOWN: Villager::GoAndChilloutInTown 0x76B590 (VillagerDecide.cpp; only scripts set it) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoAndChilloutInTown,
+    },
     /* 253 WAIT_FOR_ARTIFACT_DANCE */ k_TodoEntry,
     /* 254 BREEDER_JUST_LANDED */ k_TodoEntry,
 };

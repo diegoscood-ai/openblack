@@ -350,14 +350,20 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	}
 	case AnimFn::SitDown:
 	{
-		const auto current = CurrentClip(entity);
-		if (current == k_SittingDown1Into)
+		// Villager::SitDownAnimation 0x424210: only while an into / out-of clip plays (+0xE1 & 8 = flag 0x800, 0x424213)
+		// the current clip decides (367 -> 369, 370 -> 372); else GameRand(2) (Animations.cpp 0x35A): 0 -> 369, 1 -> 372
+		const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(entity);
+		if (animation != nullptr && (animation->transitionFlags & 0x800) != 0)
 		{
-			return k_SittingDown1;
-		}
-		if (current == k_SittingDown2Into)
-		{
-			return k_SittingDown2;
+			const auto current = CurrentClip(entity);
+			if (current == k_SittingDown1Into)
+			{
+				return k_SittingDown1;
+			}
+			if (current == k_SittingDown2Into)
+			{
+				return k_SittingDown2;
+			}
 		}
 		return Random(2) == 0 ? k_SittingDown1 : k_SittingDown2;
 	}

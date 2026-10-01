@@ -19,6 +19,7 @@
  *   ob_mod_unload()           optional: openblack closes
  *
  * Rules:
+ * - 64-bit only (x64 / arm64), where every platform has one C calling convention.
  * - Everything happens on the game thread. A mod may run threads of its own but must not call `host` from them.
  * - Nothing of C++ crosses: no exceptions out of the mod's functions (catch them inside), no STL types.
  * - Strings given to the mod are UTF-8 and valid only during the call; strings asked from openblack go into a buffer
@@ -107,7 +108,7 @@ typedef struct ob_host_api
 	/* 1 and the landscape height at x, z; 0 when no land is loaded */
 	int32_t (*ground_height)(float x, float z, float* height);
 	void (*camera)(ob_vec3* position, ob_vec3* focus);
-	void (*set_camera)(ob_vec3 position, ob_vec3 focus);
+	void (*set_camera)(const ob_vec3* position, const ob_vec3* focus);
 	/* a miracle cast on the ground at x, z by the neutral player, as the script's SPELL_AT_POS (with its checks).
 	 * `magic` is its info.dat name ("FIREBALL") or number; seconds < 0 = the player's cast time. 1 = cast */
 	int32_t (*cast_miracle)(const char* magic, float x, float z, float radius, float seconds);
@@ -123,10 +124,15 @@ typedef struct ob_mod_info
 	const char* version;   /* its version, e.g. "1.0.0" */
 } ob_mod_info;
 
-/* what a native mod exports */
+/* what a native mod exports (declared here inside extern "C", so a mod written in C++ exports them undecorated) */
 typedef const ob_mod_info* (*ob_mod_query_fn)(void);
 typedef int32_t (*ob_mod_load_fn)(const ob_host_api* host, ob_mod* self);
 typedef void (*ob_mod_unload_fn)(void);
+#ifndef OB_MOD_HOST
+OB_MOD_EXPORT const ob_mod_info* ob_mod_query(void);
+OB_MOD_EXPORT int32_t ob_mod_load(const ob_host_api* host, ob_mod* self);
+OB_MOD_EXPORT void ob_mod_unload(void); /* optional: a mod may leave it out */
+#endif
 
 #ifdef __cplusplus
 }

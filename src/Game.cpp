@@ -256,14 +256,15 @@ Game::Game(Arguments&& args) noexcept
 
 Game::~Game() noexcept
 {
+	// the mods first, while the engine they talk to (audio included) is still up
+	mods::native::Stop();
+	mods::lua::Stop();
 	// GAudio::ToBeDeleted 0x426FE0: the sample channels, then GAudio's music before LHMusic, then the music thread and
 	// its OpenAL sources before the audio context (LHMusicClose 0x1000E7A0)
 	audio::Shutdown();
 	audio::game_music::Shutdown();
 	audio::music::Shutdown();
 	help::Shutdown();
-	mods::native::Stop();
-	mods::lua::Stop();
 	ShutDownServices();
 	SDL_Quit(); // todo: move to GameWindow
 	spdlog::shutdown();

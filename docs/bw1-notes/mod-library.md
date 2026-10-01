@@ -188,10 +188,15 @@ ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.j
 
 - **meshes**: una malla de `AllMeshes.g3d` por su nombre (la [enumeración `meshes`](#enumeraciones), sin mayúsculas
   que importen) o `#<número>`, cambiada por un `.l3d` (o `.zzz`) del mod. Se carga en lugar de la del pack (la caché
-  de recursos guarda la primera carga, `Game::Initialize`).
+  de recursos guarda la primera carga, `Game::Initialize`) por el mismo `L3DLoader`, así que hereda lo que el motor
+  aplica después a esa malla por su id: p. ej. la burbuja (`O_Bibble_up`) y las bandas de power-up
+  (`Power_Up_Band`) quedan con el material aditivo sin Z del original, y los modos de render de `render_modes` (nota
+  de la sesión sistemas). Un mod que quiera otro material para esas tendrá que pedirlo cuando el SDK lo ofrezca.
 - **textures**: `pack:<id hex>` una textura de `AllMeshes.g3d` (los ids de HD-Tweaks, `textures.cfg`) por un PNG;
   `raw:<nombre>` un `Data/Textures/<nombre>.raw` por un PNG o un `.raw` (si el juego no lo tiene, se añade).
-- **objects**: propiedades de los objetos de `info.dat` por tabla y por su nombre de depuración (`debugString`): tablas
+- **objects**: propiedades de los objetos de `info.dat` por tabla y por su nombre de depuración (`debugString`; en
+  `abode` también `<TRIBU>_<nombre>`, como los guiones, `GAbodeInfo::GetInfoFromText` 0x405A70: el nombre solo cambia
+  el edificio de todas las tribus): tablas
   `feature`, `abode`, `mobileStatic`, `mobileObject`, `pot`, `tree`, `animatedStatic`, `animal`, `bigForest`,
   `fieldType`; campos comunes (`foodValue`, `woodValue`, `weight`, `heatCapacity`, `combustionTemperature`,
   `sacrificeValue`, `impressiveValue`, `drawImportance`, los `defenceEffect*` / `defenceMultiplier*`, los
@@ -208,8 +213,13 @@ ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.j
 
 `"entry": {"lua": "scripts/main.lua"}`. El script corre una vez al arrancar el motor (antes de la primera tierra), en
 un **entorno propio** por mod: sin `io`, `os` (salvo `os.time`, `os.clock`, `os.date`), `package`, `debug`, `load` ni
-`dofile`; `require("a.b")` carga `scripts/a/b.lua` del mismo mod; `print` escribe en el Log. Un error de un script se
-apunta en el Log y nunca para el juego; tras 10 errores se quitan sus funciones de eventos. Tabla `ob`:
+`dofile`; `string.dump`; las librerías `string`, `table`, `math`, `utf8` y `coroutine` son copias propias de cada mod;
+`require("a.b")` carga `scripts/a/b.lua` del mismo mod (sin rutas, unidades ni `..`); `print` escribe en el Log; solo
+se ejecuta código fuente, nunca Lua precompilado). Un error de un script se apunta en el Log y nunca para el juego;
+tras 10 errores se quitan sus funciones de eventos, y una llamada que pase de unos 20 millones de instrucciones se
+corta (reglas del anfitrión, no del original). Un mod apagado o bloqueado no recibe eventos, y como el script se carga
+al arrancar, un mod con `entry` o `replace` es siempre de reinicio. No hay que cambiar la metatabla de las cadenas
+(`getmetatable("")`): es la única tabla que comparten todos los mods. Tabla `ob`:
 
 | Función | Qué hace |
 |---|---|
@@ -378,7 +388,7 @@ valores, comprobado en `test_mods` `BuiltinModsSetTheOldValues`):
 | [`graphics.hd-tweaks`](#graphicshd-tweaks) | `textures` **hd**/original, `smooth` off/soft/**round**, `light` **smooth**/original, `sharp` **on**/off, `detail` **high**/original | Aldeanos, animales y mano mejor vistos | no |
 | [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
-| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
+| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos (apagado ya no deja su velocidad puesta: la clase C++ antigua la ponía aunque estuviera apagado, un fallo de fidelidad) | no |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 | [`world.foliage.beach`](#módulo-worldfoliagebeach) | `density` very low…**medium**…very high | Módulo: playa | no |
 | [`world.foliage.butterflies`](#módulo-worldfoliagebutterflies) | — | Módulo: mariposas | no |
@@ -893,7 +903,7 @@ escriben en la pestaña Log. Son las plantillas.
 
 - SDK de mods (2026-10-01), lo que falta: sonido en Lua y C (envoltorio de `Audio.h` con un dueño por mod, acordado
   con audio), lanzar orbes (cuando la API `one_off::` de milagros sea estable), `ecs::object` y `game_clock` (sistemas2),
-  límite de instrucciones y de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
+  límite de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
   audio, B11), reemplazar mallas en vivo (hoy al arrancar: las formas físicas se toman al crear cada objeto), texturas
   incrustadas en un `.l3d` (`L3DMesh::_skins`) y materiales sueltos del `.lnd`, traducciones `lang/<idioma>.json`
   (hoy los textos por idioma van dentro del `mod.json`), y el idioma de la ventana (hoy inglés; `mods::SetLanguage`).

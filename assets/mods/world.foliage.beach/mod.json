@@ -11,7 +11,6 @@
   },
   "api": ">=1.0 <2.0",
   "parent": "world.foliage",
-  "dependencies": { "world.foliage": ">=1.0" },
   "options": [
     {
       "id": "density", "type": "slider", "label": { "en": "Density", "es": "Densidad" },

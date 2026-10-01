@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <deque>
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -47,7 +48,11 @@ inline void Error(std::string_view mod, std::string_view text)
 	Write(Level::Error, mod, text);
 }
 
-/// The last messages, oldest first (at most 2000)
+/// A path as UTF-8, whatever characters it has (path::string() throws on Windows when they do not fit the ANSI code
+/// page, e.g. a mod folder with Japanese letters)
+[[nodiscard]] std::string Utf8(const std::filesystem::path& path);
+
+/// The last messages, oldest first (at most 2000; a host rule, not from the original)
 [[nodiscard]] const std::deque<Entry>& Entries();
 void Clear();
 

@@ -12,6 +12,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -528,5 +529,93 @@ TEST_F(ModsTest, ReplacementsAreCollectedAndPatchObjects)
 	EXPECT_FLOAT_EQ(info->feature[0].weight, 2.5f);
 	EXPECT_EQ(info->feature[0].meshId, static_cast<MeshId>(2));
 	EXPECT_TRUE(LogHas("rep.one", "there is no table 'nosuchtable'"));
+	replace::Clear();
+}
+
+TEST_F(ModsTest, WrongTypesNeverThrow)
+{
+	// nlohmann's value() throws on a wrong type: the mod is unusable, openblack goes on
+	for (const auto* json : {R"({"id": "test.t", "restart_required": "yes"})", R"({"id": "test.t", "schema": "1"})",
+	                         R"({"id": "test.t", "parent": null})", R"({"id": "test.t", "url": 5})",
+	                         R"({"id": "test.t", "options": [{"id": "a", "values": ["x"], "type": 3}]})"})
+	{
+		ManifestResult result;
+		EXPECT_NO_THROW(result = ParseManifest(json, {}, "")) << json;
+		EXPECT_FALSE(result.mod) << json;
+		EXPECT_FALSE(result.errors.empty()) << json;
+	}
+	std::vector<std::string> errors;
+	EXPECT_NO_THROW(EXPECT_FALSE(ParseModpack(R"({"id": "pack.t", "name": 3, "version": 2})", {}, errors)));
+	// a mod with code is always a restart mod
+	auto mod = Make(R"({"id": "test.code", "entry": {"lua": "scripts/main.lua"}})");
+	EXPECT_TRUE(mod->GetInfo().restartRequired);
+}
+
+TEST_F(ModsTest, NonFiniteSwitchValuesAreRefused)
+{
+	EXPECT_FALSE(switches::Set("world.foliage.distance", std::numeric_limits<double>::quiet_NaN()));
+	EXPECT_FALSE(switches::Set("graphics.msaa.samples", std::numeric_limits<double>::infinity()));
+	EXPECT_FLOAT_EQ(Locator::config::value().foliageDistance, 200.0f);
+	EXPECT_EQ(Locator::config::value().msaa, 0);
+}
+
+TEST_F(ModsTest, LuaSandboxEdges)
+{
+	WriteFile("lua.edge/mod.json", R"({"id": "lua.edge", "entry": {"lua": "scripts/main.lua"}})");
+	WriteFile("lua.edge/scripts/main.lua", R"(
+		count = 0
+		ob.on("turn", function() count = count + 1 end)
+		string.format = function() return "mine" end
+	)");
+	WriteFile("lua.other/mod.json", R"({"id": "lua.other", "entry": {"lua": "scripts/main.lua"}})");
+	WriteFile("lua.other/scripts/main.lua", "x = 1");
+	log::Clear();
+	auto& registry = Locator::mods::emplace();
+	registry.Discover(_folder);
+	EXPECT_EQ(registry.ApplyArgument("lua.edge"), "");
+	EXPECT_EQ(registry.ApplyArgument("lua.other"), "");
+	registry.ApplyAll();
+	lua::Start(registry);
+	// its own string library: the other mod still has the real string.format
+	EXPECT_EQ(lua::RunForTest("lua.other", "assert(string.format('%d', 5) == '5' and string.dump == nil)"), "");
+	// require cannot leave the mod's scripts/
+	EXPECT_NE(lua::RunForTest("lua.edge", "require('../../x')"), "");
+	EXPECT_NE(lua::RunForTest("lua.edge", "require('C:/Windows/x')"), "");
+	// a runaway loop is cut, the game goes on
+	EXPECT_NE(lua::RunForTest("lua.edge", "while true do end"), "");
+	// switched off: no more events
+	lua::OnTurn(1);
+	EXPECT_EQ(registry.ApplyArgument("lua.edge=off"), "");
+	registry.ApplyAll();
+	lua::OnTurn(2);
+	EXPECT_EQ(lua::RunForTest("lua.edge", "assert(count == 1)"), "");
+	lua::Stop();
+	Locator::mods::reset();
+}
+
+TEST_F(ModsTest, ObjectPatchEdges)
+{
+	WriteFile("rep.abode/mod.json", R"({"id": "rep.abode", "replace": {"objects": {
+		"abode": {"NORSE_Hut": {"woodValue": 9}},
+		"feature": {"Rock1": {"woodValue": -5}}}}})");
+	log::Clear();
+	ModRegistry registry;
+	registry.Discover(_folder);
+	EXPECT_EQ(registry.ApplyArgument("rep.abode"), "");
+	registry.ApplyAll();
+	replace::Collect(registry);
+	auto info = std::make_unique<InfoConstants>();
+	const std::string hut = "Hut";
+	std::ranges::copy(hut, info->abode[0].debugString.begin());
+	std::ranges::copy(hut, info->abode[1].debugString.begin());
+	info->abode[0].tribeType = Tribe::NORSE;
+	info->abode[1].tribeType = Tribe::CELTIC;
+	const std::string rock = "Rock1";
+	std::ranges::copy(rock, info->feature[0].debugString.begin());
+	EXPECT_EQ(replace::PatchObjects(*info), 1u);
+	EXPECT_EQ(info->abode[0].woodValue, 9u); // the Norse one only
+	EXPECT_EQ(info->abode[1].woodValue, 0u);
+	EXPECT_EQ(info->feature[0].woodValue, 0u); // a negative unsigned value is refused
+	EXPECT_TRUE(LogHas("rep.abode", "woodValue must be 0 or more"));
 	replace::Clear();
 }

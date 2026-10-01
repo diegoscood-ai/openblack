@@ -12,6 +12,9 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <fstream>
+#include <iterator>
+#include <vector>
 
 #include <fmt/format.h>
 #include <stb_image.h>
@@ -155,8 +158,13 @@ bgfx::TextureHandle ModsWindow::Icon(const std::filesystem::path& path) noexcept
 	int width = 0;
 	int height = 0;
 	int channels = 0;
-	const auto utf8 = path.u8string();
-	if (auto* pixels = stbi_load(reinterpret_cast<const char*>(utf8.c_str()), &width, &height, &channels, 4); pixels != nullptr)
+	// read with the wide path (any folder name works), decoded from memory
+	std::ifstream file(path, std::ios::binary);
+	const std::vector<char> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	if (auto* pixels = bytes.empty() ? nullptr
+	                                 : stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(bytes.data()),
+	                                                         static_cast<int>(bytes.size()), &width, &height, &channels, 4);
+	    pixels != nullptr)
 	{
 		const auto size = static_cast<uint32_t>(width * height * 4);
 		handle = bgfx::createTexture2D(static_cast<uint16_t>(width), static_cast<uint16_t>(height), false, 1,
@@ -165,7 +173,7 @@ bgfx::TextureHandle ModsWindow::Icon(const std::filesystem::path& path) noexcept
 	}
 	else
 	{
-		mods::log::Warning("", fmt::format("could not read the image {}", path.generic_string()));
+		mods::log::Warning("", fmt::format("could not read the image {}", mods::log::Utf8(path)));
 	}
 	_icons[path] = handle;
 	return handle;
@@ -235,7 +243,7 @@ void ModsWindow::DrawModpacks() noexcept
 	{
 		ImGui::TextWrapped("No modpacks. A modpack is a folder of %s with a modpack.json and its mods inside, each in its "
 		                   "own folder with its mod.json.",
-		                   registry.GetModsDirectory().generic_string().c_str());
+		                   mods::log::Utf8(registry.GetModsDirectory()).c_str());
 		return;
 	}
 	for (const auto& pack : packs)
@@ -374,7 +382,7 @@ void ModsWindow::DrawMods() noexcept
 		ImGui::SeparatorText("Could not be read");
 		for (const auto& broken : registry.GetBroken())
 		{
-			ImGui::TextColored(k_Red, "%s", broken.folder.filename().string().c_str());
+			ImGui::TextColored(k_Red, "%s", mods::log::Utf8(broken.folder.filename()).c_str());
 			if (ImGui::IsItemHovered() && !broken.errors.empty())
 			{
 				std::string text;
@@ -398,7 +406,7 @@ void ModsWindow::DrawMods() noexcept
 	{
 		ImGui::TextWrapped("Pick a mod on the left. Mods are folders of %s (each with a mod.json); see the wiki page "
 		                   "mod-library.md to make one.",
-		                   registry.GetModsDirectory().generic_string().c_str());
+		                   mods::log::Utf8(registry.GetModsDirectory()).c_str());
 		ImGui::TextColored(k_Grey, "* takes effect after a restart");
 	}
 	ImGui::EndChild();
@@ -527,7 +535,7 @@ void ModsWindow::DrawModDetails(Mod& mod) noexcept
 	}
 
 	ImGui::SeparatorText("Files");
-	ImGui::TextColored(k_Grey, "%s", registry.GetModDirectory(mod).generic_string().c_str());
+	ImGui::TextColored(k_Grey, "%s", mods::log::Utf8(registry.GetModDirectory(mod)).c_str());
 	ImGui::TextColored(k_Grey, "%s  -  --mod %s", KindName(info.kind).data(), info.id.c_str());
 	if (!info.url.empty())
 	{

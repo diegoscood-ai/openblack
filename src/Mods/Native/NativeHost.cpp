@@ -18,6 +18,8 @@
 
 #include <SDL_loadso.h>
 #include <fmt/format.h>
+// openblack is the host: it calls the exports, it does not define them
+#define OB_MOD_HOST
 #include <openblack/mod_api.h>
 
 #include "Mods/Api.h"
@@ -46,6 +48,7 @@ namespace
 {
 struct Host
 {
+	ModRegistry* registry {nullptr};
 	std::vector<std::unique_ptr<ob_mod>> mods;
 	std::string land;
 };
@@ -188,9 +191,12 @@ void HostCamera(ob_vec3* position, ob_vec3* focus)
 	}
 }
 
-void HostSetCamera(ob_vec3 position, ob_vec3 focus)
+void HostSetCamera(const ob_vec3* position, const ob_vec3* focus)
 {
-	api::SetCamera({position.x, position.y, position.z}, {focus.x, focus.y, focus.z});
+	if (position != nullptr && focus != nullptr)
+	{
+		api::SetCamera({position->x, position->y, position->z}, {focus->x, focus->y, focus->z});
+	}
 }
 
 int32_t HostCastMiracle(const char* magic, float x, float z, float radius, float seconds)
@@ -234,10 +240,19 @@ const ob_host_api& HostApi()
 
 void Fire(int32_t event, double value)
 {
-	for (const auto& mod : Get().mods)
+	auto& host = Get();
+	for (const auto& mod : host.mods)
 	{
-		for (const auto& handler : mod->handlers)
+		// a mod switched off (or blocked) in the window gets no events until it is on again
+		if (host.registry != nullptr && !host.registry->IsActive(*mod->mod))
 		{
+			continue;
+		}
+		// by index, with the count taken first: a handler may register more (push_back moves the vector)
+		const size_t count = mod->handlers.size();
+		for (size_t i = 0; i < count; ++i)
+		{
+			const auto handler = mod->handlers[i];
 			if (handler.event == event)
 			{
 				handler.function(handler.user, event, value);
@@ -250,6 +265,7 @@ void Fire(int32_t event, double value)
 void Start(ModRegistry& registry)
 {
 	Stop();
+	Get().registry = &registry;
 	std::error_code error;
 	for (auto* mod : registry.GetLoadOrder())
 	{
@@ -261,14 +277,14 @@ void Start(ModRegistry& registry)
 		}
 		if (!std::filesystem::exists(entry, error))
 		{
-			log::Error(id, fmt::format("native library {} not found", entry.generic_string()));
+			log::Error(id, fmt::format("native library {} not found", log::Utf8(entry)));
 			continue;
 		}
 		const auto utf8 = entry.u8string();
 		void* library = SDL_LoadObject(reinterpret_cast<const char*>(utf8.c_str()));
 		if (library == nullptr)
 		{
-			log::Error(id, fmt::format("native library {}: {}", entry.filename().string(), SDL_GetError()));
+			log::Error(id, fmt::format("native library {}: {}", log::Utf8(entry.filename()), SDL_GetError()));
 			continue;
 		}
 		const auto query = reinterpret_cast<ob_mod_query_fn>(SDL_LoadFunction(library, "ob_mod_query"));
@@ -294,7 +310,7 @@ void Start(ModRegistry& registry)
 		}
 		if (!problem.empty())
 		{
-			log::Error(id, fmt::format("native library {} not loaded: {}", entry.filename().string(), problem));
+			log::Error(id, fmt::format("native library {} not loaded: {}", log::Utf8(entry.filename()), problem));
 			SDL_UnloadObject(library);
 			continue;
 		}
@@ -310,7 +326,7 @@ void Start(ModRegistry& registry)
 			SDL_UnloadObject(library);
 			continue;
 		}
-		log::Info(id, fmt::format("native library {} {} loaded", entry.filename().string(),
+		log::Info(id, fmt::format("native library {} {} loaded", log::Utf8(entry.filename()),
 		                          info->version != nullptr ? info->version : ""));
 		Get().mods.push_back(std::move(self));
 	}
@@ -329,6 +345,7 @@ void Stop()
 		SDL_UnloadObject((*it)->library);
 	}
 	mods.clear();
+	Get().registry = nullptr;
 }
 
 void OnTurn(uint32_t turn)

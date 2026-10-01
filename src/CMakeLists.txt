@@ -313,7 +313,7 @@ else ()
   add_custom_target(
     openblack_builtin_mods ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets/mods
-            ${PROJECT_BINARY_DIR}/bin/$<CONFIG>/Mods
+            $<TARGET_FILE_DIR:openblack>/Mods
     COMMENT "Copying assets/mods to Mods/"
   )
   set_property(TARGET openblack_builtin_mods PROPERTY FOLDER "mods")

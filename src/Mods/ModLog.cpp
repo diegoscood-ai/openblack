@@ -48,6 +48,12 @@ void Write(Level level, std::string_view mod, std::string_view text)
 	}
 }
 
+std::string Utf8(const std::filesystem::path& path)
+{
+	const auto text = path.generic_u8string();
+	return {text.begin(), text.end()};
+}
+
 const std::deque<Entry>& Entries()
 {
 	return Buffer();

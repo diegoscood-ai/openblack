@@ -68,9 +68,9 @@ const std::vector<Switch>& All()
 bool Set(std::string_view name, double value)
 {
 	auto* target = FindMutable(name);
-	if (target == nullptr || !target->set)
+	if (target == nullptr || !target->set || !std::isfinite(value))
 	{
-		return false;
+		return false; // no such switch, or NaN / infinity (never reaches the engine)
 	}
 	const double normalised = Normalise(*target, value);
 	const double before = target->get ? target->get() : std::numeric_limits<double>::quiet_NaN();

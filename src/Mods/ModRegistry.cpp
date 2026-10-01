@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include <fstream>
 #include <map>
 #include <set>
@@ -54,7 +55,7 @@ bool MigrateRenamedFolder(const std::filesystem::path& folder)
 	static const std::map<std::string, std::string, std::less<>> k_Renamed = {
 	    {"graphics.hd-people", "graphics.hd-tweaks"}, // 2026-09-30, it does more than villagers now
 	};
-	const auto renamed = k_Renamed.find(folder.filename().string());
+	const auto renamed = k_Renamed.find(log::Utf8(folder.filename()));
 	if (renamed == k_Renamed.end())
 	{
 		return false;
@@ -283,7 +284,7 @@ void ModRegistry::Discover(const std::filesystem::path& modsDirectory)
 				_broken.push_back({folder, errors});
 				for (const auto& text : errors)
 				{
-					log::Error(folder.filename().string(), fmt::format("modpack.json: {}", text));
+					log::Error(log::Utf8(folder.filename()), fmt::format("modpack.json: {}", text));
 				}
 				continue;
 			}
@@ -308,7 +309,7 @@ void ModRegistry::Discover(const std::filesystem::path& modsDirectory)
 	}
 	for (const auto& folder : others)
 	{
-		const auto name = folder.filename().string();
+		const auto name = log::Utf8(folder.filename());
 		if (!std::filesystem::exists(folder / "mod.json", error) && builtins.contains(name))
 		{
 			continue; // Mods/<built-in id>: that mod's own files and settings
@@ -329,7 +330,7 @@ void ModRegistry::Discover(const std::filesystem::path& modsDirectory)
 	// the old module folders, now that every parent is known
 	for (const auto& [folder, manifest] : modules)
 	{
-		const auto folderName = folder.filename().string();
+		const auto folderName = log::Utf8(folder.filename());
 		const auto& parent = manifest.at("module_of");
 		const auto* parentMod = Find(parent);
 		if (parentMod == nullptr)
@@ -363,14 +364,14 @@ void ModRegistry::Discover(const std::filesystem::path& modsDirectory)
 		}
 	}
 	SortLoadOrder();
-	log::Info("", fmt::format("{} mods and {} modpacks in {}", _mods.size(), _packs.size(), modsDirectory.generic_string()));
+	log::Info("", fmt::format("{} mods and {} modpacks in {}", _mods.size(), _packs.size(), log::Utf8(modsDirectory)));
 }
 
 void ModRegistry::DiscoverFolder(const std::filesystem::path& folder, std::string_view pack,
                                  std::vector<std::pair<std::filesystem::path, std::map<std::string, std::string>>>& modules)
 {
 	std::error_code error;
-	const auto folderName = folder.filename().string();
+	const auto folderName = log::Utf8(folder.filename());
 	if (std::filesystem::exists(folder / "mod.json", error))
 	{
 		auto result = ParseManifest(ReadText(folder / "mod.json"), folder, pack);
@@ -511,7 +512,7 @@ void ModRegistry::ImportLegacySettings(const std::filesystem::path& legacyPath)
 		}
 	}
 	std::filesystem::remove(legacyPath, error);
-	log::Info("", fmt::format("split {} into the mods' settings.cfg files", legacyPath.generic_string()));
+	log::Info("", fmt::format("split {} into the mods' settings.cfg files", log::Utf8(legacyPath)));
 }
 
 void ModRegistry::LoadSettings()
@@ -532,7 +533,7 @@ void ModRegistry::LoadSettings()
 			const auto argument = key == "enabled" ? mod->GetInfo().id + "=" + value : mod->GetInfo().id + "." + key + "=" + value;
 			if (const auto message = ApplyArgument(argument); !message.empty())
 			{
-				log::Warning(mod->GetInfo().id, fmt::format("{}: {}", path.generic_string(), message));
+				log::Warning(mod->GetInfo().id, fmt::format("{}: {}", log::Utf8(path), message));
 			}
 		}
 	}
@@ -653,8 +654,10 @@ std::string ModRegistry::ApplyArgument(std::string_view argument)
 
 void ModRegistry::Resolve()
 {
+	std::map<std::string, std::string, std::less<>> before;
 	for (const auto& mod : _mods)
 	{
+		before[mod->GetInfo().id] = mod->_blockedReason;
 		mod->_blockedReason.clear();
 	}
 	const auto apiOk = [](const Mod& mod) {
@@ -665,68 +668,99 @@ void ModRegistry::Resolve()
 		const auto range = VersionRange::Parse(mod.GetInfo().api);
 		return range && range->Contains(k_ApiVersion);
 	};
-	const auto on = [this](const Mod& mod) {
+	const auto on = [](const Mod& mod) {
 		return mod.IsEnabled() && mod.GetBlockedReason().empty();
 	};
 
-	// blocking spreads: a mod that needs a blocked mod is blocked too, so go on until nothing changes
-	for (bool changed = true; changed;)
-	{
-		changed = false;
-		for (const auto& mod : _mods)
+	// what a dependency needs of the other mod: its blocking reason, or empty when it is fine
+	const auto requiredProblem = [this](const Dependency& dependency) -> std::string {
+		const auto* other = Find(dependency.id);
+		if (other == nullptr)
 		{
-			if (!on(*mod))
+			return fmt::format("needs {}, which is not installed", DependencyText(dependency));
+		}
+		if (!dependency.range.Contains(other->GetInfo().version))
+		{
+			return fmt::format("needs {}, found {}", DependencyText(dependency), other->GetInfo().version.ToString());
+		}
+		if (!other->IsEnabled())
+		{
+			return fmt::format("needs {}, which is off", other->GetInfo().name);
+		}
+		if (!other->GetBlockedReason().empty())
+		{
+			return fmt::format("needs {}, which is blocked", other->GetInfo().name);
+		}
+		if (!IsActive(*other))
+		{
+			return fmt::format("needs {}, which is not active", other->GetInfo().name);
+		}
+		return {};
+	};
+
+	// blocking spreads (a mod that needs a blocked mod is blocked too), so each phase goes on until nothing changes
+	const auto dependencies = [&]() {
+		for (bool changed = true; changed;)
+		{
+			changed = false;
+			for (const auto& mod : _mods)
 			{
-				continue;
-			}
-			std::string reason;
-			if (!apiOk(*mod))
-			{
-				reason = fmt::format("written for mod API {}, this openblack has {}", mod->GetInfo().api, k_ApiVersion.ToString());
-			}
-			for (const auto& dependency : mod->GetInfo().dependencies)
-			{
+				if (!on(*mod))
+				{
+					continue;
+				}
+				std::string reason;
+				if (!apiOk(*mod))
+				{
+					reason = fmt::format("written for mod API {}, this openblack has {}", mod->GetInfo().api,
+					                     k_ApiVersion.ToString());
+				}
+				for (const auto& dependency : mod->GetInfo().dependencies)
+				{
+					if (reason.empty() && dependency.kind == Dependency::Kind::Required)
+					{
+						reason = requiredProblem(dependency);
+					}
+				}
 				if (!reason.empty())
 				{
-					break;
-				}
-				const auto* other = Find(dependency.id);
-				switch (dependency.kind)
-				{
-				case Dependency::Kind::Required:
-					if (other == nullptr)
-					{
-						reason = fmt::format("needs {}, which is not installed", DependencyText(dependency));
-					}
-					else if (!dependency.range.Contains(other->GetInfo().version))
-					{
-						reason = fmt::format("needs {}, found {}", DependencyText(dependency), other->GetInfo().version.ToString());
-					}
-					else if (!other->IsEnabled())
-					{
-						reason = fmt::format("needs {}, which is off", other->GetInfo().name);
-					}
-					else if (!other->GetBlockedReason().empty())
-					{
-						reason = fmt::format("needs {}, which is blocked", other->GetInfo().name);
-					}
-					break;
-				case Dependency::Kind::Incompatible:
-					if (other != nullptr && on(*other) && dependency.range.Contains(other->GetInfo().version))
-					{
-						reason = fmt::format("does not work with {}, which is on", other->GetInfo().name);
-					}
-					break;
-				case Dependency::Kind::Optional:
-					break;
+					mod->_blockedReason = reason;
+					changed = true;
 				}
 			}
-			if (!reason.empty())
+		}
+	};
+	dependencies();
+	// incompatibilities only against mods that stay on after their own dependencies are checked
+	bool blockedAny = false;
+	for (const auto& mod : _mods)
+	{
+		if (!on(*mod))
+		{
+			continue;
+		}
+		for (const auto& dependency : mod->GetInfo().dependencies)
+		{
+			const auto* other = Find(dependency.id);
+			if (dependency.kind == Dependency::Kind::Incompatible && other != nullptr && other != mod.get() && on(*other) &&
+			    dependency.range.Contains(other->GetInfo().version))
 			{
-				mod->_blockedReason = reason;
-				log::Warning(mod->GetInfo().id, fmt::format("blocked: {}", reason));
-				changed = true;
+				mod->_blockedReason = fmt::format("does not work with {}, which is on", other->GetInfo().name);
+				blockedAny = true;
+				break;
 			}
+		}
+	}
+	if (blockedAny)
+	{
+		dependencies(); // what needed a mod blocked as incompatible
+	}
+
+	for (const auto& mod : _mods)
+	{
+		if (mod->_blockedReason != before[mod->GetInfo().id] && !mod->_blockedReason.empty())
+		{
+			log::Warning(mod->GetInfo().id, fmt::format("blocked: {}", mod->_blockedReason));
 		}
 	}
 }
@@ -859,10 +893,7 @@ void ModRegistry::ApplySwitches()
 	}
 	for (const auto& [name, value] : target)
 	{
-		if (switches::Get(name) != value)
-		{
-			switches::Set(name, value);
-		}
+		switches::Set(name, value); // it compares with the clamped value and runs onChange only on a real change
 	}
 }
 
@@ -902,7 +933,7 @@ void ModRegistry::SetOption(Mod& mod, size_t optionIndex, size_t choice)
 
 bool ModRegistry::SetRuntimeSwitch(Mod& mod, std::string_view name, double value)
 {
-	if (switches::Find(name) == nullptr)
+	if (switches::Find(name) == nullptr || !std::isfinite(value))
 	{
 		return false;
 	}
@@ -972,7 +1003,7 @@ void ModRegistry::MountDataMods(filesystem::FileSystemInterface& fileSystem) con
 		if (!folder.empty())
 		{
 			fileSystem.AddOverridePath(folder);
-			log::Info(mod->GetInfo().id, fmt::format("replacement files mounted from {}", folder.generic_string()));
+			log::Info(mod->GetInfo().id, fmt::format("replacement files mounted from {}", log::Utf8(folder)));
 		}
 	}
 }

@@ -348,7 +348,7 @@ const std::string& GetLanguage()
 	return Language();
 }
 
-ManifestResult ParseManifest(std::string_view text, const std::filesystem::path& root, std::string_view pack)
+static ManifestResult ParseManifestUnchecked(std::string_view text, const std::filesystem::path& root, std::string_view pack)
 {
 	ManifestResult result;
 	Json json = Json::parse(text, nullptr, false, true); // no exceptions, comments allowed
@@ -456,6 +456,8 @@ ManifestResult ParseManifest(std::string_view text, const std::filesystem::path&
 		return result;
 	}
 
+	// a script, a library or replacements are read once, at start-up
+	info.restartRequired |= json.contains("entry") || !info.replaceJson.empty();
 	auto mod = std::make_unique<PackageMod>(std::move(info), root);
 
 	if (const auto it = json.find("switches"); it != json.end())
@@ -505,7 +507,7 @@ ManifestResult ParseManifest(std::string_view text, const std::filesystem::path&
 	return result;
 }
 
-std::optional<Modpack> ParseModpack(std::string_view text, const std::filesystem::path& root,
+static std::optional<Modpack> ParseModpackUnchecked(std::string_view text, const std::filesystem::path& root,
                                     std::vector<std::string>& errors)
 {
 	Json json = Json::parse(text, nullptr, false, true);
@@ -538,6 +540,40 @@ std::optional<Modpack> ParseModpack(std::string_view text, const std::filesystem
 	pack.icon = IconOf(json, root);
 	pack.root = root;
 	return pack;
+}
+
+} // namespace openblack::mods
+
+namespace openblack::mods
+{
+
+// nlohmann's value() and get() throw on a wrong type ("restart_required": "yes"); a broken manifest must never stop
+// openblack, so whatever is thrown becomes an error of that mod
+ManifestResult ParseManifest(std::string_view text, const std::filesystem::path& root, std::string_view pack)
+{
+	try
+	{
+		return ParseManifestUnchecked(text, root, pack);
+	}
+	catch (const std::exception& error)
+	{
+		ManifestResult result;
+		result.errors.push_back(fmt::format("mod.json: {}", error.what()));
+		return result;
+	}
+}
+
+std::optional<Modpack> ParseModpack(std::string_view text, const std::filesystem::path& root, std::vector<std::string>& errors)
+{
+	try
+	{
+		return ParseModpackUnchecked(text, root, errors);
+	}
+	catch (const std::exception& error)
+	{
+		errors.push_back(fmt::format("modpack.json: {}", error.what()));
+		return std::nullopt;
+	}
 }
 
 } // namespace openblack::mods

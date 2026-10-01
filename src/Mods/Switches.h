@@ -61,7 +61,7 @@ void Register(Switch value);
 [[nodiscard]] const std::vector<Switch>& All();
 
 /// Sets a switch, clamped to its range and rounded for Bool / Int; calls its onChange when the value changed.
-/// @return false if there is no such switch
+/// @return false if there is no such switch, or the value is NaN or infinite
 bool Set(std::string_view name, double value);
 /// The current value, or nullopt-like NaN if there is no such switch
 [[nodiscard]] double Get(std::string_view name);

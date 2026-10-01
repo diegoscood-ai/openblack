@@ -21,6 +21,7 @@
 #include <nlohmann/json.hpp>
 
 #include "3D/AllMeshes.h"
+#include "Enums.h"
 #include "InfoConstants.h"
 #include "ModLog.h"
 #include "ModRegistry.h"
@@ -124,7 +125,7 @@ void ReadMod(const Mod& mod, const Json& replace)
 		auto path = InMod(mod, relative);
 		if (!std::filesystem::exists(path, error))
 		{
-			log::Error(id, fmt::format("{}: there is no file {}", what, path.generic_string()));
+			log::Error(id, fmt::format("{}: there is no file {}", what, log::Utf8(path)));
 			return std::nullopt;
 		}
 		return path;
@@ -295,13 +296,23 @@ bool SetField(T& info, std::string_view field, const Json& value, std::string& e
 			return false;
 		}
 		const double number = value.is_boolean() ? (value.get<bool>() ? 1.0 : 0.0) : value.get<double>();
+		bool ok = true;
 		std::visit(
-		    [&info, number](auto pointer) {
+		    [&info, number, &ok, &error, field](auto pointer) {
 			    using Field = std::remove_reference_t<decltype(static_cast<GObjectInfo&>(info).*pointer)>;
+			    if constexpr (std::is_unsigned_v<Field>)
+			    {
+				    if (number < 0.0 || number > 4294967295.0)
+				    {
+					    error = fmt::format("{} must be 0 or more", field);
+					    ok = false;
+					    return;
+				    }
+			    }
 			    static_cast<GObjectInfo&>(info).*pointer = static_cast<Field>(number);
 		    },
 		    member);
-		return true;
+		return ok;
 	}
 	const auto mesh = [&](MeshId& target) {
 		if (const auto id = MeshValue(value))
@@ -381,7 +392,18 @@ size_t PatchTable(std::array<T, N>& table, std::string_view tableName, const Jso
 		size_t matches = 0;
 		for (auto& info : table)
 		{
-			if (Lower(info.debugString.data()) != lower)
+			bool match = Lower(info.debugString.data()) == lower;
+			// abodes also by "<TRIBE>_<name>", as the scripts name them (GAbodeInfo::GetInfoFromText 0x405A70): the plain
+			// name is the abode of every tribe
+			if constexpr (requires { info.tribeType; })
+			{
+				if (!match && info.tribeType != Tribe::NONE && static_cast<size_t>(info.tribeType) < k_TribeStrs.size())
+				{
+					match = Lower(fmt::format("{}_{}", k_TribeStrs.at(static_cast<size_t>(info.tribeType)),
+					                          info.debugString.data())) == lower;
+				}
+			}
+			if (!match)
 			{
 				continue;
 			}

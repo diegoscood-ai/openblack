@@ -10,6 +10,5 @@
     "es": "Mariposas que vuelan alrededor de las flores del prado y se posan en ellas. Módulo de Hierba y flores."
   },
   "api": ">=1.0 <2.0",
-  "parent": "world.foliage",
-  "dependencies": { "world.foliage": ">=1.0" }
+  "parent": "world.foliage"
 }

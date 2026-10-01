@@ -2,7 +2,11 @@
 # Mods/examples, with its native mods built into their bin/ folders. A native mod links nothing of openblack: only the
 # C header of components/modsdk (openblack passes its functions in at load time).
 
-set(OPENBLACK_MODS_OUTPUT "${PROJECT_BINARY_DIR}/bin/$<CONFIG>/Mods")
+if (NOT TARGET openblack)
+  return() # Android: no exe, no Mods folder
+endif ()
+# next to the exe, whatever the generator (bin/<config> with multi-config ones, bin with the others)
+set(OPENBLACK_MODS_OUTPUT "$<TARGET_FILE_DIR:openblack>/Mods")
 
 # openblack_add_native_mod(<target> <mod id> <folder under Mods/> <sources...>)
 function (OPENBLACK_ADD_NATIVE_MOD TARGET ID FOLDER)

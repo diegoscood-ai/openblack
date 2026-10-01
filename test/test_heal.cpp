@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "Common/Zip.h"
+#include "ECS/Life.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
 #include "PSys/PSysRegistry.h"
@@ -170,6 +171,18 @@ TEST(Heal, healInHandWiggle)
 	const float s = std::sin(0.1f * 0.25f * 2.0f * std::numbers::pi_v<float>);
 	EXPECT_NEAR(glm::distance(atoms[0].position, origin * s), 0.0f, 1e-4f);
 	EXPECT_NEAR(glm::distance(atoms[1].position, -origin * s), 0.0f, 1e-4f);
+}
+
+TEST(Heal, poisonData)
+{
+	// the tint of a poisoned Living, fn_0051B3D0 0x51B43D..0x51B45D: diffuse 0x51BB50, specular 0x51BB60 (ARGB)
+	EXPECT_EQ(ecs::life::k_PoisonDiffuse, 0xFFE8FFDDU);
+	EXPECT_EQ(ecs::life::k_PoisonSpecular, 0xFF001000U);
+	// Villager::CheckHungry 0x75BDA6..0x75BDE0: the loss is max(1 - food / hungryForFood, 1) x hungerToLifeMultiplier,
+	// and with food >= 0 the max always picks the 1, so the food never changes it
+	EXPECT_FLOAT_EQ(ecs::life::HungerLifeLoss(1.0f, 0.5f, 0.01f), 0.01f);
+	EXPECT_FLOAT_EQ(ecs::life::HungerLifeLoss(0.5f, 0.5f, 0.01f), 0.01f);
+	EXPECT_FLOAT_EQ(ecs::life::HungerLifeLoss(0.0f, 0.5f, 0.01f), 0.01f);
 }
 
 /// With OPENBLACK_GAME_PATH set to the install: the real heal files use these classes with these values

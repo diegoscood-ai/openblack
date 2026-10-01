@@ -190,6 +190,8 @@ float BankAngle(AnimalInfo type);
 
 // the predators (ECS/AnimalPredators.cpp)
 void SetRunToFinalDest(Context& ctx);
+/// SpellWolf::MoveToPos 0x421300's part after Living::MoveToPos: the hunt when hungry, the end within 30 m
+void SpellWolfMoveToPos(Context& ctx);
 /// the villagers a predator caught: DOWNED, BEING_EATEN 300 turns, dead
 void ProcessDownedVillagers();
 void PredatorDecideWhatToDo(Context& ctx);

@@ -20,15 +20,18 @@
 #include <glm/gtc/quaternion.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/L3DMesh.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/HandFxPart.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/ObjectColour.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "Enums.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -37,6 +40,7 @@
 #include "Magic/MagicTables.h"
 #include "PSys/PSysManager.h"
 #include "PSys/ParticleTypes.h"
+#include "PSys/Rules/SurfRevol.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -122,6 +126,11 @@ bool LoadBandMesh()
 		auto& fileSystem = Locator::filesystem::value();
 		meshes.Load(k_BandMesh, resources::L3DLoader::FromDiskTag {},
 		            fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / "Spells" / "Meshes" / "Power_Up_Band.L3d"));
+		// CreatePUBand 0x727097..0x7270B8 (and PHandFX fn_0068CC70 0x68CC7D..0x68CC99, the same mesh): GJUtils::GetSharedMesh
+		// with MaterialProperties {additive 1, Z 0, two-sided 1, change 1, alpha 1}, so SetMaterialProperties 0x57E120
+		// turns the band into mode 13 (SRCALPHA / ONE, no Z write, fn_0082ECD0)
+		meshes.Handle(k_BandMesh)->SetMaterialProperties(
+		    {.additive = true, .zWrite = false, .doubleSided = true, .change = true, .alpha = true});
 	}
 	catch (const std::exception& e)
 	{
@@ -158,6 +167,14 @@ Band MakeBand(int index, float start, bool permanent, float duration, uint8_t al
 		registry.Assign<Transform>(band.entity, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
 		registry.Assign<Mesh>(band.entity, k_BandMesh.value(), static_cast<int8_t>(0), static_cast<int8_t>(0));
 		registry.Assign<Alpha>(band.entity, 0.0f);
+		// Band::Draw 0x68D849..0x68D8AB, every draw: +0x4C = GetPlayerColour 0x64D800 of the local player (g_game
+		// +0x205A59; openblack: PLAYER_ONE, inferido) with the band's alpha byte (components::Alpha, DrawBand), and
+		// 0x68D8B1 +0x50 (the specular) = the per-channel lerp of the ctor's colours +0x34 / +0x38 (fn_0068CA30 args 8,
+		// 9), 0 for every caller (fn_0068CCC0, fn_0068CD30, fn_0068CDA0, DoRemoveFromHandVisual 0x68CF05 / 0x68CF07)
+		const uint32_t rgb = psys::surf_revol::PlayerColour(static_cast<int>(PlayerNames::PLAYER_ONE));
+		registry.Assign<ObjectColour>(
+		    band.entity,
+		    ObjectColour {{static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8), static_cast<uint8_t>(rgb)}});
 		registry.Assign<HandFxPart>(band.entity);
 		registry.SetDirty();
 	}

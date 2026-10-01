@@ -24,6 +24,11 @@ entt::entity objects::CreateMagicWood(const glm::vec3& position, std::optional<P
 	// PileResource(pos, GPotInfo 0xD4D1C4 = info 9, ...) -> PileWood; the scale 0.7 is PotArchetype's. There is no
 	// Process and no expiry: the pile stays until it is emptied. IsAWoodPileOutsideStoragePit always answers 1 (creature
 	// AI, not ported).
+	// Unlike the food pile, the wood pile keeps whatever shadow settings every pile has (no extra setters):
+	// MagicWood::CallVirtualFunctionsForCreation 0x600F10 is just a call to PileResource's 0x66E300, without the
+	// SetCastDynamicShadow(0) / SetShadowOnTexture(0) that MagicFood::CallVirtualFunctionsForCreation 0x5FAAB0 adds
+	// (MagicFood.cpp). So, like any Pot, it bakes no shadow (RenderingSystem.cpp CastsStaticShadow) but still takes the
+	// dynamic one (ReceivesDynamicShadow).
 	const float ground = Locator::terrainSystem::has_value()
 	                         ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z))
 	                         : position.y;

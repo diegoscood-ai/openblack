@@ -34,6 +34,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
+#include "ECS/WaterQueries.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
@@ -42,6 +43,7 @@
 
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Spells/SpellFlock.h"
 #include "Resources/ResourcesInterface.h"
 
 /// The predators (lion, tiger, leopard, wolf) like the original: their decisions, lairs and hunting (docs/bw1-notes/
@@ -118,6 +120,49 @@ void SetAnimalAnimHelper(Context& ctx)
 
 bool IsDowned(entt::entity entity);
 
+/// vt+0xBB4 IsHuntingTargetValid: Animal 0x418DA0 = the target is not null; SpellWolf 0x420D60 (the flock miracle's
+/// wolves, Magic/Spells/SpellFlock): not fading (+0x16C, the fade's destination, != 0), a Living (RTDynamicCast) whose
+/// GetFinalState (vt+0xB04) is not DYING 0xE / DEAD 0xF / DOWNED 0x11 / BEING_EATEN 0x12 and not downed (+0xB4 & 0x80),
+/// inside its corridor (IsPosOnCorridor 0x420E10) and outside its turning circles (vt+0xB3C IsPosValidForTurnAngle)
+bool IsHuntingTargetValid(const Context& ctx, entt::entity target)
+{
+	if (target == entt::null)
+	{
+		return false;
+	}
+	if (ctx.animal.type != AnimalInfo::SpellWolf)
+	{
+		return true;
+	}
+	const auto* wolf = magic::spell_flock::AnimalOf(ctx.entity);
+	if (wolf == nullptr || wolf->fade.destination == 0.0f)
+	{
+		return false;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	uint8_t final;
+	if (const auto* brain = registry.TryGet<const AnimalBrain>(target); brain != nullptr)
+	{
+		// Animal::GetFinalState 0x41A240: the top state if the table marks it final, else the destination
+		const auto& state = Locator::infoConstants::value().animalStateTable.at(std::min<size_t>(brain->topState, 52));
+		final = state.field0xc != 0 ? brain->topState : brain->finalState;
+	}
+	else if (registry.AllOf<Villager>(target))
+	{
+		final = static_cast<uint8_t>(ecs::villager::GetFinalState(target)); // Villager::GetFinalState 0x751DD0
+	}
+	else
+	{
+		return false;
+	}
+	if (final == 0xE || final == 0xF || final == 0x11 || final == 0x12 || IsDowned(target))
+	{
+		return false;
+	}
+	const glm::vec2 p = Xz(registry.Get<const Transform>(target));
+	return magic::spell_flock::IsOnCorridor(ctx.entity, p) && IsPosValidForTurnAngle(ctx, p);
+}
+
 /// fn_004196D0's "nearer than the stored candidate": 2 x Chebyshev(me, prey) (raw MapCoords) against Chebyshev of my
 /// CELL indices and the stored raw MapCoords (fn_0074CF30; the original's unit mix-up: in practice always nearer)
 bool NearerThanStored(const Context& ctx, glm::vec2 p)
@@ -182,6 +227,11 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 	// +0x25 & 0x40 (0x4196F4): it cannot be eaten; +0x24 & 0x400 (0x41973B): a script's, only for a hunter in a script.
 	// Both are tested for the villagers too.
 	if (script_held::CannotBeEaten(entity) || !script_held::MayTarget(ctx.entity, entity))
+	{
+		return false;
+	}
+	// vt+0xBB4 (0x419715), after IsReachable
+	if (!IsHuntingTargetValid(ctx, entity))
 	{
 		return false;
 	}
@@ -346,6 +396,15 @@ int ReactToAnimalFoodNeeds(Context& ctx)
 /// Animal::HuntingMoveToPosAbandon (0x418FD0)
 void Abandon(Context& ctx)
 {
+	// vt+0xBB8: SpellWolf::HuntingMoveToPosAbandon 0x420F30: +0x60 (the target), +0xF4 / +0xF8 (the prey cell) = 0,
+	// then SetRunToFinalDest
+	if (ctx.animal.type == AnimalInfo::SpellWolf)
+	{
+		ctx.brain.target = entt::null;
+		ctx.brain.preyCell = glm::vec2(0.0f);
+		SetRunToFinalDest(ctx);
+		return;
+	}
 	ctx.brain.target = entt::null;
 	ctx.brain.preyCell = glm::vec2(0.0f);
 	SetSpeed(ctx, SpeedDefault(ctx));
@@ -394,6 +453,23 @@ void SetRunToFinalDest(Context& ctx)
 	ctx.brain.speed = static_cast<uint16_t>(std::min(Scale(ctx) * static_cast<float>(Speed(ctx.info, 4)) * 1.1f, 65535.0f));
 	SetAnimalAnimHelper(ctx);
 	SetupMoveToPos(ctx, ctx.brain.finalDestination, AnimalState::SetDying);
+}
+
+void SpellWolfMoveToPos(Context& ctx)
+{
+	// SpellWolf::MoveToPos 0x421300, after Living::MoveToPos: hunger (+0xE4) >= info +0x20C (no zero test) -> vt+0xBC0
+	// (Lion::ReactToAnimalFoodNeeds 0x41FF40), then within 30 m (0x8BF51C, GUtils::GetDistanceInMetres 0x74CD70) of the
+	// final destination (+0x148) -> SetDying (vt+0x6A4, SpellWolf 0x420CF0: the fade)
+	if (ctx.brain.hunger >= static_cast<int32_t>(ctx.info.hunger))
+	{
+		ReactToAnimalFoodNeeds(ctx);
+	}
+	// (the exe's fixed-point hypotenuse 0x74F680 through water_queries, not the exact float length)
+	const glm::vec3 end {ctx.brain.finalDestination.x, 0.0f, ctx.brain.finalDestination.y};
+	if (water_queries::GetDistanceInMetres(ctx.transform.position, end) < magic::spell_flock::k_WolfArrive)
+	{
+		SetDying(ctx.entity, ctx.brain);
+	}
 }
 
 int PredatorReactToAnimalNeeds(Context& ctx)
@@ -477,7 +553,7 @@ void HuntingMoveToPos(Context& ctx)
 	const auto target = ctx.brain.target;
 	// the script test at 0x418DD7 (script_held::MayTarget)
 	if (target == entt::null || !Available(target) || !script_held::MayTarget(ctx.entity, target) ||
-	    Turn() - ctx.brain.chaseStart >= ctx.info.chaseTime)
+	    Turn() - ctx.brain.chaseStart >= ctx.info.chaseTime || !IsHuntingTargetValid(ctx, target))
 	{
 		Abandon(ctx);
 		return;

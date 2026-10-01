@@ -19,6 +19,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Core/Spell.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Transform.h"
@@ -52,7 +53,7 @@ glm::ivec2 Spiral(int& direction, int& count)
 	return k_Steps[direction & 3];
 }
 
-/// Living::CanBeHealedByHealSpell 0x5EE550 (!IsDead; the Dove 0x41EAB0 answers 0)
+/// Living::CanBeHealedByHealSpell 0x5EE550 (vt 0xB18): !IsDead (vt 0xAF4, Living::IsDead 0x417270)
 bool CanBeHealedByHealSpell(entt::entity object)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -60,8 +61,16 @@ bool CanBeHealedByHealSpell(entt::entity object)
 	{
 		return true; // (inferido: dead villagers taken as gone from openblack's world; no IsDead test)
 	}
-	// TODO(M4c): the Dove (Animal SpellDove) answers 0. (inferido: no IsDead test for animals either)
-	return registry.AllOf<ecs::components::Animal>(object);
+	const auto* animal = registry.TryGet<const ecs::components::Animal>(object);
+	if (animal == nullptr)
+	{
+		return false;
+	}
+	// Dove::CanBeHealedByHealSpell 0x41EAB0 (`xor eax, eax`, the whole class' vt 0xB18): no bird can be healed, not
+	// just the spell dove. The Vulture is a Dove too (bw1-decomp AnimalVulture.h; its vtable 0x8BB7F8 +0xB18 is
+	// 0x41EAB0) but IsFlyingSpecies leaves it out, so it is named here. CitadelDove / CitadelBat: their class is not
+	// identified and openblack never makes them (inferido: taken as healable). (inferido: no IsDead test for animals)
+	return !ecs::animal_ai::IsFlyingSpecies(animal->type) && animal->type != AnimalInfo::Vulture;
 }
 } // namespace
 

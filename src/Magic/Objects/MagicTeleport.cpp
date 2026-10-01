@@ -16,13 +16,13 @@
 #include <array>
 #include <string>
 
-#include <entt/core/hashed_string.hpp>
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
+#include "Audio/BankTables.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
@@ -51,7 +51,6 @@
 #include "Magic/MagicTables.h"
 #include "PSys/PSysManager.h"
 #include "PSys/ParticleTypes.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -88,24 +87,12 @@ int32_t ToUnits(float metres)
 	return static_cast<int32_t>(metres * k_UnitsPerMetre); // MapCoords(LHPoint) 0x603160: ftol
 }
 
-/// Living::MoveByTeleport's SoundTag::Create(pos, sample, ..., bank 2 = InGame): a one-off 3D sample
-void PlayInGameSample(int sample, const glm::vec3& worldPosition)
+/// Living::MoveByTeleport 0x5EC358 / 0x5EC372: SoundTag::Create(MapCoords, sample, track 0, mode 2, loops 0, +0x40 0,
+/// 3D 1, AUDIO_SFX_BANK_TYPE 1 = InGame, delay 0) 0x71EB60, a one-off 3D sample at a point (Audio/SoundTags.cpp)
+void PlayInGameSample(int sample, const glm::vec3& mapPosition)
 {
-	if (!Locator::audio::has_value() || !Locator::resources::has_value())
-	{
-		return;
-	}
-	const auto id = entt::hashed_string(fmt::format("InGame.sad/{}", sample).c_str()).value();
-	if (!Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	auto& audio = Locator::audio::value();
-	const auto& sound = audio.GetSound(id);
-	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, worldPosition, glm::vec3(0.0f), glm::vec2(0.0f),
-	                                         sound.volume, audio::AudioStatus::Playing, false);
-	Reg().Get<Transform>(emitter).position = worldPosition;
-	audio.PlayEmitter(emitter);
+	audio::tags::CreateAtMapCoords(mapPosition.x, mapPosition.z, mapPosition.y, sample, false, 2, 0, false, true,
+	                               audio::SfxBank::InGame, 0);
 }
 
 /// Object::AsMultiMapFixed (vt 0x678) != NULL: the MultiMapFixed classes openblack has as components
@@ -466,6 +453,8 @@ int teleport::ApplyVillagerDirectly(entt::entity stone, entt::entity villager)
 	}
 	// SetTopState(FLYING), the interface puts it down at the stone (fn_005DA0C0), SetTopState(LANDED), DecideWhatToDo
 	ecs::villager_teleport::LandAt(villager, MapPositionOf(stone));
+	// GetFinalDestPos (vt 0x884) at 0x5FC549, after DecideWhatToDo. (aproximado) the original's DecideWhatToDo may have
+	// chosen a new walk by then; openblack's only sets the state, so the goal read here is still the one it had
 	RegisterDestination(stone, villager, ecs::villager_teleport::FinalDestination(villager));
 	if (DoTeleport(stone, villager, true) == 1)
 	{
@@ -483,10 +472,11 @@ void teleport::MoveByTeleport(entt::entity living, const glm::vec3& mapPosition)
 	{
 		return;
 	}
-	// SoundTag::Create(old pos, 0x27 G_SpellTeleportEnergiseGo, ..., bank 2) and (new pos, 0x26 ..Arrive)
-	PlayInGameSample(39, transform->position);
+	// 0x5EC352..0x5EC372: a sound tag where it was (its own MapCoords +0x14, sample 0x27 G_SpellTeleportEnergiseGo) and
+	// one where it goes (the argument's MapCoords, 0x26 G_SpellTeleportEnergiseArrive), both InGame
+	PlayInGameSample(39, ToMap(transform->position));
 	const auto world = ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
-	PlayInGameSample(38, world);
+	PlayInGameSample(38, mapPosition);
 	// MoveMapObject (vt 0x55C): the new position, at the land
 	transform->position = world;
 	ecs::villager_teleport::OnMoved(living);
@@ -606,6 +596,12 @@ std::vector<entt::entity> teleport::HandCollisionStones()
 		}
 	});
 	return result;
+}
+
+uint32_t teleport::ReactionOf(entt::entity stone)
+{
+	const auto* component = StoneOf(stone);
+	return component != nullptr ? component->reaction : 0;
 }
 
 entt::entity teleport::SeedOf(entt::entity stone)

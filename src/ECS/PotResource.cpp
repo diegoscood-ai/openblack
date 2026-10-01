@@ -165,8 +165,13 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	}
 	if (store || owner != entt::null)
 	{
-		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store. TODO: the redirect of wood
-		// through StoragePit +0x74 (UNVERIFIED object) is not ported.
+		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store.
+		// 0x732F67..0x732F99: before anything else, if the pit's +0x74 is not null and the type is WOOD (1) or ANY (-2),
+		// the whole call is forwarded to that object's AddResource (vt 0x9C) and this function returns its answer.
+		// +0x74 is MultiMapFixed::building_site, a BuildingSite* (bw1-decomp src/Black/MultiMapFixed.h; StoragePit
+		// derives from Abode, whose own fields only start at 0x7C): a pit that is being built sends its wood to its
+		// building site. (pendiente) openblack has no building sites and nothing builds abodes (ECS/Components/Town.h),
+		// so no pit can ever have one and the redirect is unreachable; port it with the building sites.
 		return StoragePitStore::AddResource(store ? object : owner, type, left);
 	}
 	// PotStructure::AddResource -> JustAddResource (vt 0x8C). PileResource::JustAddResource 0x66D330 plays the pile sound
@@ -381,7 +386,16 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		                   position.z, Get2DRadius(pile));
 	}
 	SetSpeedUp(pile, speedUp || pot.speedUp); // vt 0x864
-	// TODO(interface): GGuidance::ResourceDropSFX 0x71B570 (the guidance voice) for the local interface's drops
+	// (pendiente) the guidance voice. Pot::AddResourceToPos 0x66F4D8..0x66F509 calls GGuidance::ResourceDropSFX 0x71B570
+	// only with a status that is GGame::MyInterfaceStatus 0x555880 (this is `dropper.isMyInterface`), passing the drop
+	// point and a RESOURCE_RAIN_TYPE: 1 for food (type 0) and 2 for wood (type 1), 0 for anything else (0x66F4EB..0x66F502).
+	// 0x71B570 then: GGuidance::PlayNow(1) on the status's guidance (+0x30) must answer non-zero; the nearest town within
+	// 100 m ([0x98013C], MapCoords::GetNearestTown 0x6020E0); GGuidance::GetResourceDropSample 0x71B5F0, which sums three
+	// of that town's floats (food: +0xC4 + +0x108 + +0x19C; wood: +0xC8 + +0x10C + +0x1A0) and, above 0.5 ([0x980140]),
+	// picks a HELP_TEXT id with LocalRand(3) out of 0x1352/0x1353/0x1354 for food or 0x1355/0x1356/0x1357 for wood,
+	// above 0.25 ([0x980144]) out of 0x135B/0x135C/0x135D for food (wood keeps the same three), and nothing below; then
+	// GGuidance::PlaySample 0x71C6F0 (1, sample, player +0xB5, 1, 0x7F, 0x64, 0x5A, the drop point, 200 [0x980148], 1).
+	// Not ported: openblack has neither the guidance channel (Audio/Voices.h, milestone B7) nor those town fields.
 	static_cast<void>(dropper.isMyInterface);
 	return amount - left; // 0x66F511: eax = amount - left on every path, so the new pile's part is not counted
 }

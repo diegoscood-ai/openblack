@@ -617,6 +617,17 @@ void VillagerSetStateClip(entt::entity villager, bool reset)
 	SetAnim(villager, VillagerAnimId(villager), reset);
 }
 
+void VillagerSetClip(entt::entity villager, int32_t clip, bool reset)
+{
+	// Living::SetAnim(clip, n) 0x5ECBA0 with a clip of the caller's, not GetAnimId's (the states that name one:
+	// Villager::AmazedByMagicShieldReaction 0x765FA5 with 395)
+	if (!Locator::entitiesRegistry::value().AllOf<SkeletalAnimation>(villager))
+	{
+		return;
+	}
+	SetAnim(villager, clip, reset);
+}
+
 bool VillagerAnimationDone(entt::entity entity, uint16_t turnsSinceStateChange)
 {
 	const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(entity);

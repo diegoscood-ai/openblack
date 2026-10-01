@@ -1226,7 +1226,9 @@ void Eat(Context& ctx)
 	}
 	// Lion::Eat (0x41FE40), every predator: its prey is gone (also once the meal is over: then the up-from-eat clip
 	// never shows, straight to DECIDE)
-	if (HunterOf(ctx.animal.type) != Hunter::None && !Available(ctx.brain.foodTarget))
+	// (SpellWolf's vt+0xB50 is Lion::Eat too)
+	if ((HunterOf(ctx.animal.type) != Hunter::None || ctx.animal.type == AnimalInfo::SpellWolf) &&
+	    !Available(ctx.brain.foodTarget))
 	{
 		ctx.brain.counter = 0;
 		SetTopState(ctx, AnimalState::DecideWhatToDo);
@@ -1368,11 +1370,17 @@ bool ProcessState(Context& ctx)
 		SetTopState(ctx, AnimalState::DecideWhatToDo);
 		return false;
 	}
-	const bool walker = IsGrazer(ctx.animal.type) || HunterOf(ctx.animal.type) != Hunter::None;
+	// (SpellWolf's vt+0xB48 is Animal::StartWander 0x417C90 too: after a hunt it wanders, and its Wander runs on)
+	const bool walker = IsGrazer(ctx.animal.type) || HunterOf(ctx.animal.type) != Hunter::None ||
+	                    ctx.animal.type == AnimalInfo::SpellWolf;
 	switch (static_cast<AnimalState>(ctx.brain.topState))
 	{
 	case AnimalState::MoveToPos:
 		MoveToPos(ctx);
+		if (ctx.animal.type == AnimalInfo::SpellWolf)
+		{
+			SpellWolfMoveToPos(ctx); // SpellWolf::MoveToPos 0x421300 (vt+0xB40)
+		}
 		break;
 	case AnimalState::Landed:
 		// Animal::Landed (0x417D50): CalculeLairPos, the flock now centres where it landed (the predators: their lair)

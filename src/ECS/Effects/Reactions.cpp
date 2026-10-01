@@ -23,6 +23,7 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/ReactionRecords.h"
+#include "ECS/Components/Spell.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Map.h"
@@ -92,6 +93,26 @@ glm::vec2 PosOf(entt::entity entity)
 	return {position.x, position.z};
 }
 
+/// Reaction::GetPos 0x6E45C0 = its initiator's GetPos (GameThingWithPos +0x14), as MapCoords in metres (x, z and the
+/// altitude above the land in y). Most initiators are objects with a Transform (a world point); a Spell has no
+/// Transform in openblack and keeps its own position (components::Spell +0x14), and a spell IS the initiator of the
+/// shield reactions (REACTION 13 / 35 / 36, Magic/Spells/SpellShield) and of Spell +0x28. False: no position at all
+bool MapPosOf(entt::entity entity, glm::vec3& out)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* transform = registry.TryGet<const ecs::components::Transform>(entity); transform != nullptr)
+	{
+		out = magic::ToMap(transform->position);
+		return true;
+	}
+	if (const auto* spell = registry.TryGet<const ecs::components::Spell>(entity); spell != nullptr)
+	{
+		out = spell->position;
+		return true;
+	}
+	return false;
+}
+
 /// The Living class of an object of a cell's list (-1: not a Living)
 int ClassOf(entt::entity entity)
 {
@@ -151,7 +172,8 @@ void reactions::SpreadReaction(uint32_t id)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto* found = Find(id);
-	if (found == nullptr || !registry.Valid(found->initiator) || !registry.AllOf<components::Transform>(found->initiator))
+	glm::vec3 initiator(0.0f);
+	if (found == nullptr || !registry.Valid(found->initiator) || !MapPosOf(found->initiator, initiator))
 	{
 		return;
 	}
@@ -162,7 +184,7 @@ void reactions::SpreadReaction(uint32_t id)
 	{
 		Locator::entitiesMap::value().Rebuild();
 	}
-	const glm::vec2 at = PosOf(reaction.initiator);
+	const glm::vec2 at(initiator.x, initiator.z);
 	const int side = std::max(1, static_cast<int>(reaction.radius * 0.2f));
 	const int cells = side * side;
 	glm::vec2 cell = at;
@@ -193,8 +215,7 @@ void reactions::SpreadReaction(uint32_t id)
 				// 0x6E4031 fn_0072B990 (after the class's vt+0x984 test, before the distance): a Living under a shield the
 				// reaction's source is not definitely inside ignores it, villagers and animals alike
 				if (magic::map_shield::IsReactionBlockedByShield(
-				        magic::ToMap(registry.Get<const components::Transform>(entity).position),
-				        magic::ToMap(registry.Get<const components::Transform>(reaction.initiator).position)))
+				        magic::ToMap(registry.Get<const components::Transform>(entity).position), initiator))
 				{
 					continue;
 				}

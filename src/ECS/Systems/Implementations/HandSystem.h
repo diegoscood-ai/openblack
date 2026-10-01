@@ -355,7 +355,7 @@ private:
 	{
 		entt::entity entity;
 		float age;
-		uint32_t initialFrame;
+		float frame; ///< the atom's +0x10C, from RandomiseInitFrame (frame_anim::PSysFrameAdvance)
 	};
 	std::vector<DustParticle> _dust;
 	uint32_t _dustSeed {1};
@@ -368,8 +368,8 @@ private:
 		glm::vec3 start;
 		glm::vec3 previous;
 		bool mesh;
-		uint32_t firstFrame {0}; ///< RandomiseInitFrame (fish)
-		int frameStep {1};       ///< RandomiseFrameDirection (fish): +1 or -1
+		float frame {0.0f};     ///< the atom's +0x10C: InitFrame 0, or RandomiseInitFrame (fish)
+		float frameRate {0.0f}; ///< +0x110: FrameRate, negated by RandomiseFrameDirection (fish)
 	};
 	std::vector<PickupParticle> _pickupParticles;
 	/// ER_MultiPickup collection data: atoms owed (+0x20, EmitRate * time) and atoms emitted (+0x24).

@@ -17,6 +17,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -59,7 +60,6 @@ struct HandVelocity
 HandVelocity g_Velocity;
 
 constexpr int32_t k_Life = 900;              ///< 0x384: the age at which a puff is reborn
-constexpr float k_AgePerSecond = 255.0f;     ///< 0x8AB270
 constexpr float k_SpinPerSecond = 0.765f;    ///< 0x9A22E0
 constexpr float k_RisePerSecond = 2.55f;     ///< 0x9A22DC, along +0xF8 = (0, 1, 0)
 constexpr float k_DriftGain = 1.5f;          ///< 0x8AB24C
@@ -197,9 +197,8 @@ void chimney_smoke::Advance(ChimneySmoke& smoke, float milliseconds, std::vector
 	// The original truncates the age step every frame (ftol(dt x 255)) and loses the fraction: 4 at 60 fps (a life of
 	// 3.75 s), 1 at 144 fps and 0 above 255 fps, where the smoke would stop. openblack runs without vsync by default,
 	// so the fraction is kept (as the mists, RendererMists.cpp, and Clouds.cpp): the life is 900 / 255 = 3.53 s
-	smoke.ageRemainder += dt * k_AgePerSecond;
-	const auto ageStep = static_cast<int32_t>(smoke.ageRemainder);
-	smoke.ageRemainder -= static_cast<float>(ageStep);
+	// (frame_anim::SmokeAgeStep: the same dt, x 255 [0x8AB270])
+	const int32_t ageStep = graphics::frame_anim::SmokeAgeStep(smoke.ageRemainder, milliseconds);
 
 	uint32_t count = 0;
 	for (auto& puff : smoke.puffs)
@@ -224,7 +223,7 @@ void chimney_smoke::Advance(ChimneySmoke& smoke, float milliseconds, std::vector
 
 		// cell (age x 45 / 900) & 15 (three turns of the animation in a life); half width max(0.0001, (age / 450 +
 		// 0.5) x scale(1)); alpha 79 up to 225, then (225 - age) x 79 / 675 + 79 (integer), 0 at 900
-		const auto cell = static_cast<uint32_t>((puff.age * 45) / 900) & 15u;
+		const auto cell = static_cast<uint32_t>(graphics::frame_anim::MistCell(puff.age));
 		const float halfWidth = std::max(0.0001f, static_cast<float>(puff.age) * (1.0f / 450.0f) + 0.5f);
 		const int32_t alpha = puff.age > 225 ? (225 - puff.age) * 79 / 675 + 79 : 79;
 		const uint32_t argb = (static_cast<uint32_t>(alpha) << 24u) | smoke.rgb;

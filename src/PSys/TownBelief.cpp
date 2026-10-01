@@ -22,6 +22,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
@@ -55,6 +56,9 @@ constexpr std::array<uint32_t, 7> k_PlayerColours = {0xFF4646, 0x47FF54, 0xE347F
 
 struct Symbol
 {
+	/// PlayerSymbolSprite +0xC, +0x10: the two glows' cells, +0x14: the second glow's angle (ctor fn_0069D5A0: all 0;
+	/// frame_anim::PlayerSymbolCell / PlayerSymbolSpin)
+	float glowA {0.0f}, glowB {0.0f}, glowSpin {0.0f};
 	float a1 {0.0f}, a2 {0.0f}, phase {0.0f};
 	float fightTimer {0.0f}, fightLength {0.0f}, waitLength {-1.0f};
 	bool fighting {false};
@@ -66,6 +70,9 @@ struct Centre
 };
 
 std::unordered_map<entt::entity, Centre> g_Centres;
+/// (openblack) g_game_time_inc: the real time between two collects, in whole milliseconds with the fraction kept
+std::chrono::steady_clock::time_point g_LastCollect {};
+float g_MsRemainder {0.0f};
 std::mt19937 g_Random(4242);
 
 float Rand(float a, float b)
@@ -150,7 +157,12 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& towns = registry.Context().towns;
 	const auto& meshes = Locator::resources::value().GetMeshes();
-	const float seconds = std::chrono::duration<float>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	const auto now = std::chrono::steady_clock::now();
+	const float elapsed = g_LastCollect == std::chrono::steady_clock::time_point {}
+	                          ? 0.0f
+	                          : std::chrono::duration<float, std::milli>(now - g_LastCollect).count();
+	g_LastCollect = now;
+	const auto milliseconds = static_cast<float>(graphics::frame_anim::WholeMilliseconds(g_MsRemainder, elapsed));
 
 	registry.Each<const Abode, const Transform, const Mesh>([&](entt::entity entity, const Abode& abode,
 	                                                            const Transform& transform, const Mesh& mesh) {
@@ -261,12 +273,15 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 			const std::array<uint8_t, 3> colour = {static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8),
 			                                       static_cast<uint8_t>(rgb)};
 			const glm::mat3 still(1.0f);
-			const float spin = seconds * 2.0f;
-			// the second glow's +0x14 += g_game_time_inc x 0.002 (0x69D855..0x69D88B, 0x69D8C5): rotate(-spin, Y) is
+			// the second glow's +0x14 (frame_anim::PlayerSymbolSpin, written at 0x69D8C5): rotate(-spin, Y) is
 			// SetAngleY(spin), whose roll atan2(M[0][2], M[0][0]) = +spin (billboard::Screen turns it clockwise)
+			const float spin = graphics::frame_anim::PlayerSymbolSpin(symbol.glowSpin, milliseconds);
 			const glm::mat3 spun = glm::mat3(glm::rotate(glm::mat4(1.0f), -spin, glm::vec3(0.0f, 1.0f, 0.0f)));
-			drawable.atoms.push_back({&GlowCreator(), position, still, 1.5f * size, 1.0f, 99.0f, -seconds * 20.0f, colour});
-			drawable.atoms.push_back({&GlowCreator(), position, spun, 1.5f * size, 1.0f, 99.0f, -seconds * 23.0f, {255, 255, 255}});
+			// the cells of the two glows, +0xC and +0x10 (frame_anim::PlayerSymbolCell, 0x69D7E0..0x69D853)
+			const auto cellA = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowA, milliseconds, 0));
+			const auto cellB = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowB, milliseconds, 1));
+			drawable.atoms.push_back({&GlowCreator(), position, still, 1.5f * size, 1.0f, 99.0f, cellA, colour});
+			drawable.atoms.push_back({&GlowCreator(), position, spun, 1.5f * size, 1.0f, 99.0f, cellB, {255, 255, 255}});
 			drawable.atoms.push_back({&SymbolCreator(player), position, still, size, 1.0f, 255.0f, 0.0f, colour});
 		}
 		if (!drawable.atoms.empty())

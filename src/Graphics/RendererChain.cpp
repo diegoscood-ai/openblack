@@ -28,6 +28,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
@@ -88,7 +89,10 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 			const auto sideOf = [&eye, &along](const glm::vec3& joint, float scale) {
 				const auto side = glm::cross(eye - joint, along);
 				const float length = glm::length(side);
-				return length > 0.0f ? side * (scale / length) : glm::vec3(0.0f);
+				// the half width (billboard::RibbonHalfWidth): side x joint +0xC / |side| (0x67B9E6..0x67BA70), the
+				// joint's +0xC being the PSR scale (ChainJoint::DrawAt 0x679E9A), the same value a sprite takes as its
+				// half size
+				return length > 0.0f ? side * (billboard::RibbonHalfWidth(scale) / length) : glm::vec3(0.0f);
 			};
 			const auto sideHead = sideOf(head.position, head.scale);
 			const auto sideTail = sideOf(tail.position, tail.scale);
@@ -108,22 +112,27 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 			c[1] = previous[3] = (previous[3] + c[1]) * 0.5f;
 		}
 		// Not ported (part_render.md §10): UseDynamicLighting (colour x clamp(0.6 + 0.4 n.L), 0x67BB10..0x67BCCF) and
-		// the joint jitter of ChainJoint::DrawAt 0x679E80. The V scroll (0x67BE91..0x67BED5: chain +0x3C +=
-		// game_time_inc x chain +0x4C x 0.001, wrapped by fmod(., FrameHeight / 256)) stays 0: chain +0x4C is 0 from
-		// the Chain ctor fn_006C8830 (0x6C8875) and CreateChain 0x6AA880 does not set it (inferido: no other writer
-		// was searched)
-		constexpr float k_Scroll = 0.0f;
+		// the joint jitter of ChainJoint::DrawAt 0x679E80. The V scroll is the collection's chain +0x3C, advanced by
+		// chain_atoms::AdvanceScroll (0x67BE88..0x67BED5, frame_anim::ChainScroll; its rate +0x4C is 0 but for
+		// UR_SimpleBeam / UR_Plasma, not ported)
+		const float scroll = chain.collection != nullptr ? chain.collection->chainScroll : 0.0f;
+		const frame_anim::UvOffset offset(0.0f, scroll);
 		std::vector<Vertex> vertices;
 		for (int i = 0; i < segments; ++i)
 		{
 			const auto& head = chain.joints[static_cast<size_t>(i)];
 			const auto& tail = chain.joints[static_cast<size_t>(i) + 1];
 			const auto* c = &corners[static_cast<size_t>(i) * 4];
-			// fn_006C8920 (0x67BEFD): (u0, v0) (u1, v0) (u0, v1) (u1, v1) on the four vertices in that order: U across,
-			// V along the segment
-			const auto uv = creator->SegmentUvOf(i, segments, k_Scroll);
-			const std::array<glm::vec2, 4> uvs = {glm::vec2(uv.u0, uv.v0), glm::vec2(uv.u1, uv.v0),
-			                                      glm::vec2(uv.u0, uv.v1), glm::vec2(uv.u1, uv.v1)};
+			// fn_006C8920 (ChainCreator::SegmentUv, 0x67BEE4..0x67BEFD): (u0, v0) (u1, v0) (u0, v1) (u1, v1) on the four
+			// vertices in that order (uv0 on head + side): U across, V along the segment, the v-scroll on all four.
+			// fn_0081C780 copies each vertex's UV as it is into LH3DP3::Table1 +0x18 / +0x1C (0x81C9C7..0x81C9D0) and
+			// draws through DrawTriangle 0x82F810 (0x81CCB2). Before that, 0x67BFAC..0x67BFEE puts the same scroll in
+			// [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1) and DrawTriangle 0x82F8BE adds it once more: the material of
+			// fn_006AA800 has only bits 0 and 2 of +5 (SetMaterialProperties 0x57E120, 0x6AA84A), so it is not fixed
+			const auto segmentUv = creator->SegmentUv(i, segments, scroll);
+			const std::array<glm::vec2, 4> uvs = {
+			    frame_anim::OffsetUv(segmentUv[0], offset, false), frame_anim::OffsetUv(segmentUv[1], offset, false),
+			    frame_anim::OffsetUv(segmentUv[2], offset, false), frame_anim::OffsetUv(segmentUv[3], offset, false)};
 			const std::array<const psys::Effect::DrawAtom*, 4> ends = {&head, &head, &tail, &tail};
 			// the index list 0x67B77A..0x67B7D8: (0, 1, 2) and (1, 3, 2) per segment
 			for (const int k : {0, 1, 2, 1, 3, 2})

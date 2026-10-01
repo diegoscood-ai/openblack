@@ -31,6 +31,16 @@ using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 
+namespace
+{
+/// PileFood::Draw 0x51BF80, SetAnimatedUV_1 (vt 0xE8) at 0x51C0FD: (0, 0.25 (1 - clamp(offset / H + 1, 0, 1))), a
+/// texture V offset that keeps the grain still in the world while the pile sinks (a selection, not an animation)
+float PileFoodV(const PileSink& sink)
+{
+	return 0.25f * (1.0f - std::clamp(sink.offset.value / std::max(sink.height, 1e-3f) + 1.0f, 0.0f, 1.0f));
+}
+} // namespace
+
 entt::entity PotArchetype::Create(const glm::vec3& position, float yAngleRadians, PotInfo type, int32_t amount, bool allowEmpty)
 {
 	if (static_cast<int32_t>(type) < 0 || static_cast<int32_t>(type) >= static_cast<int32_t>(PotInfo::_COUNT))
@@ -127,7 +137,7 @@ void PotArchetype::SetSize(entt::entity entity, bool animate)
 	transform.position.y = sink->baseY + sink->offset.value;
 	if (auto* scroll = registry.TryGet<UvScroll>(entity); scroll != nullptr)
 	{
-		scroll->v = 0.25f * (1.0f - std::clamp(sink->offset.value / std::max(sink->height, 1e-3f) + 1.0f, 0.0f, 1.0f));
+		scroll->v = PileFoodV(*sink);
 	}
 	registry.SetDirty();
 }
@@ -144,10 +154,10 @@ void PotArchetype::UpdateSizes(float seconds)
 		}
 		sink.offset.Update(seconds);
 		transform.position.y = sink.baseY + sink.offset.value;
-		// fn 0x51C0A3: 0.25 * (1 - clamp(offset / H + 1, 0, 1)) passed to the Game3DObject as its texture V offset.
+		// 0x51C0FD: 0.25 * (1 - clamp(offset / H + 1, 0, 1)) passed to the Game3DObject as its texture V offset.
 		if (auto* scroll = registry.TryGet<UvScroll>(entity); scroll != nullptr)
 		{
-			scroll->v = 0.25f * (1.0f - std::clamp(sink.offset.value / std::max(sink.height, 1e-3f) + 1.0f, 0.0f, 1.0f));
+			scroll->v = PileFoodV(sink);
 		}
 		dirty = true;
 	});

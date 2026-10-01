@@ -2,7 +2,7 @@
 
 Cómo se dibujan los objetos del mundo: materiales L3D, luz de los modelos, texturas y sprites, manchas de los pies,
 reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD, el humo
-de las chimeneas, los objetos que miran a la cámara (billboards) y las mallas pegadas al suelo. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
+de las chimeneas, los objetos que miran a la cámara (billboards), las texturas animadas por fotogramas y las mallas pegadas al suelo. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
 como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
@@ -19,6 +19,7 @@ como juego, en [water.md](water.md).
 - [Animales: manchas y malla](#animales-manchas-y-malla)
 - [Humo de las chimeneas (LH3DSmoke)](#humo-de-las-chimeneas-lh3dsmoke)
 - [Objetos que miran a la cámara (billboards)](#objetos-que-miran-a-la-cámara-billboards)
+- [Texturas animadas por fotogramas](#texturas-animadas-por-fotogramas)
 - [Mallas pegadas al suelo (land_morph)](#mallas-pegadas-al-suelo-land_morph)
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
@@ -178,7 +179,8 @@ de edificios), `PartialBuild` y el picado (`L3DMesh::RayIntersect`). Comprobado 
   direcciones, con el aplanado del mar **desactivado** (`[0xC37BF4]` = 0); la primera dirección con altitud 0 en dos
   radios seguidos da el centro (x', y de la granja, z'). 15 peces (`fn_00824740`): sprite `misc0.raw` horizontal (flag
   0x40: quad girado en Y con su x local según el rumbo), media anchura 0,8–1,2, posición centro + (±5, −1..0, ±5), rumbo
-  ±π, velocidad 0,5–1,5, giro velocidad·(1 ± 0,1)·0,6283; celdas 8–23 (fotograma += dt·velocidad·25, módulo 15).
+  ±π, velocidad 0,5–1,5, giro velocidad·(1 ± 0,1)·0,6283; celdas 8–23 (fotograma += dt·velocidad·25; la celda se toma antes de la vuelta −15·ftol(f/15), así que sale la 23;
+  `frame_anim::FishFrame`).
   Movimiento `fn_008248E0` (dt ≤ 0,1 s), objetivo del banco `fn_00824DA0` (centro ± 7, temporizador 0,5·distancia);
   a más de 300 no se dibuja, alfa desde 200 (con el desbordamiento de byte del original). Dibujo modo 6 antes del mar.
   - openblack: `FishFarmArchetype`, `ecs::UpdateFishShoals` (tiempo de juego del fotograma), `Renderer::DrawFishShoals`.
@@ -345,10 +347,11 @@ el ángulo +0x14.
 | `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), con d = p − ojo en XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | mallas de PSys con FaceCamera (`PSys/Creators/Mesh.cpp`) |
 | `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identidad × escala. Luego cada fila (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), con φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), y después fn_0067A4A0(ψ), con ψ = atan2(d.z, d.x). El +Y local mira al ojo y la Z queda horizontal | `Mesh.cpp`, después de FaceCamera como en el original; ningún SF lo activa |
 | `LookAtCentre` | la burbuja: fn_00518720, desde `OneOffSpellSeed::Draw` 0x518E90 | d = W − ojo, con W = el centro de la caja en el mundo (0x518746..0x5187B8). Si \|d.x\| y \|d.z\| son < 1e-4 (el double [0x8C79D8]), d.x pasa a ±1e-4 (0x518875..0x5188B4). D = normalize(d), U = normalize(Y − (Y·D)D). Las filas (U×D, −D, U) salen de invertir con fn_007FB3F0 (0x518B0C). Luego M = T(−c)·R·s y traslación W − c·R·s (fn_00518B90, fn_00518BF0, fn_0044CF90). Tras el empujón de 1e-4, d y U nunca son cero, así que la prueba de ceros de 0x5188BC..0x5188ED no salta nunca y no se porta | nadie todavía. `Magic/Core/OneOffSpellSeed.cpp` (de Milagros, sin commitear) sigue con su copia sin el empujón; pasará a `LookAtCentre` después de su HEAD |
+| `BandToEye` | las bandas de potencia: fn_0051A830 (si el byte [0xBE8E8E] = 1, que nadie escribe), desde `DrawSpellGraphic` 0x51A773 | d = T − ojo, con T la traslación de la banda; el mismo empujón de 1e-4 que la burbuja; D = d / sqrt(d.y² + d.z² + d.x²), U = normalize(Y − (Y·D)D) con Y = (0, 1, 0) en 0xCC62C0. La matriz de columnas (−D, U, U×D) se invierte con fn_007FB3F0 (0x51AB5A), así que sus filas son −D, U, U×D. Luego M = M·R con fn_0046D9D0 y se repone T. En glm, R·(giro y escala de la banda) | `Worship/SpellSeedGraphic.cpp` (las bandas de la bola y de los iconos) |
 | `MoonBasis` / `MoonModel` / `MoonHalo` (E) | fn_0086AC60 y fn_0086A930, leídas enteras | Ver la luna, debajo | `Renderer::DrawMoon` |
 | `MistBasis` / `MistShrunkSize` (F) | `LH3DMist::Draw` fn_007FA300 0x7FA38F, rama del efecto 0x7FA483..0x7FA539 | Las 9 celdas son 0xEA1C98. Con el efecto, la fila 0 lleva el tamaño y las filas 1-2 tamaño / (1 + (k − 1)(1 − \|d.y\|/\|d\|)), sin límite. **(aproximado)** 1/\|d\| se saca con `std::sqrt` y no con la tabla de InverseSquareRoot 0x841170. **(inferido)** con d = 0 devuelve el tamaño | nieblas (`RendererMists.cpp`, `mists::Submit`) y nubes (`Renderer::DrawClouds`) |
 | `ScreenVelocity` (G) | `UR_OrientSpriteWithVelocity` 0x69A790 (0x69A8ED..0x69A94B) y fn_006840E0 (UR_Flocking) | x = w·right, y = w·up (la rotación W2C); `SetAngleY(atan2(−y, x) + π/2)`. Con `Screen`, el +y del sprite queda a lo largo de la velocidad en pantalla | `PSys/Rules/Orient.cpp`, `PSys/Rules/Flock.cpp` |
-| `RibbonSide` / `RibbonHalfWidth` (H) | fn_0067B3F0 (lee g_camera en 0x67B4BA) | lado = normalize(cross(normalize(segmento), normalize(articulación − ojo))). La semianchura de 0,5·escala es **(inferido)**, porque fn_0081C780 está sin leer | `Graphics/RendererChain.cpp` (rayos, horquillas, rastro del gesto) |
+| `RibbonSide` / `RibbonHalfWidth` (H) | fn_0067B3F0 (lee g_camera en 0x67B4BA) | lado de cada extremo del tramo = (ojo − articulación) × (cola − cabeza) (0x67B86C..0x67B924: la vista desde esa articulación, primero la cabeza y luego la cola), que es la misma dirección que normalize(cross(normalize(segmento), normalize(articulación − ojo))). Vértices = articulación ± lado·(+0xC de la articulación)/\|lado\| (0x67B9E6..0x67BA70). Ese +0xC es la escala del PSR (ChainJoint::DrawAt 0x679E9A), la misma que un sprite toma como semitamaño, así que la **semianchura es la escala** | `Graphics/RendererChain.cpp` (rayos, horquillas, rastro del gesto) |
 | `VolBlend` (I) | `RenderParticleVolBlendMesh::DrawAt` 0x67CCB0 ([0xC029C4] = 1) | a = normalize(fila 0), d = normalize(ojo − p), b = normalize(a × d), c = d × b; filas (c, b, d) × escala | nadie (ningún SF usa ParticleVolBlendMeshCreator) |
 
 **Sprites de PSys** (`Particle3DSprite::DrawAt` 0x67AE80):
@@ -406,7 +409,6 @@ FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_cha
 
 **Huecos.**
 - (inferido) El vector w de UR_OrientSpriteWithVelocity antes de 0x69A8ED.
-- (inferido) La vista por articulación y la semianchura de las cadenas.
 - (inferido) Con IgnoreRotation, +0x14 vale 0 (fn_006A84C0 sin leer).
 - (inferido) El dibujo de los mapas de luz como sprite horizontal.
 - (inferido) La 4.ª fila del AtomCore que gira UR_RotatePrincipalAxis no se usa para dibujar.
@@ -425,6 +427,146 @@ FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_cha
     `OneOffSpellSeed.cpp` es de Milagros y lo tiene sin commitear. Sin él, con la cámara justo en la vertical
     openblack conserva el giro anterior.
 
+## Texturas animadas por fotogramas
+
+**Fiel**, salvo lo marcado. **El original nunca mezcla dos fotogramas.** Cada usuario elige un fotograma entero
+(`__ftol`, que trunca, o una división entera; solo el brillo de la mano usa `fistp`, que redondea) y dibuja una sola
+vez. Lo que parece fluido sale de dos cosas: muchos fotogramas, de 15 a 25 por segundo, y los desplazamientos
+continuos de UV (scroll). Las PSys interpolan el **número** de fotograma entre dos pasos y después lo truncan: eso es
+un escalón, no una mezcla. En openblack, fundir dos fotogramas solo existe como opción de mod
+(`AnimatedSprite::blend`), apagada por defecto.
+
+Tampoco hay un reloj común: cada usuario guarda su acumulador (por objeto, o global donde el original lo tiene global)
+con sus constantes. Por eso la API tiene **una función por reloj del original** y el estado lo guarda quien llama, en
+el sitio donde lo guarda el original.
+
+Los relojes se calculan en float porque el original corre la FPU a 24 bits: `fn_007DEE00` borra los bits de precisión
+(ver [camera-tracks.md](camera-tracks.md)). Así, cada fadd, fmul o fsub de la pila redondea como una operación de float,
+y el valor que queda en la pila entre un `fmod` y el `__ftol` es el de float. Por eso, cuando el `fmod` da un negativo
+diminuto, el «+ 32» de las fiolas redondea a 32.
+
+**API.** `graphics::frame_anim` (`src/3D/FrameAnim.{h,cpp}`), solo lógica:
+- Primitivas del motor:
+  - `SpriteCell` / `SpriteCellUv`: la celda del LH3DSprite, `flags & 0x3F` (LH3DSprite::Draw 0x840530). Sus UV son las
+    de `billboard::CellUv`, que no se duplica.
+  - `UvOffset` / `IsAnimatedUv` / `OffsetUv`: `SetAnimatedUV_1` (vt +0xE8, 0x7F9B70; +0x68 / +0x6C). Cada dibujo de
+    LH3DObject lo copia a [0xECA62C] / [0xECA630], con [0xECA628] = 1 si no son los dos 0. DrawTriangle 0x82F8BE..0x82F8F7
+    lo suma a cada vértice **salvo** si el material tiene el bit 0x10 del byte +5. fn_0082F920, fn_0082FD70 y
+    fn_00884750 lo suman sin mirar el bit.
+  - `PackUvOffset` (openblack): el transporte a `vs_object.sc`, v + 4·round(256·frac(u)). Es exacto para todos los
+    usuarios del original: los cuartos de la burbuja, los pasos de 32/256 de las fiolas y las celdas de píxeles
+    enteros de AnimTextured. Solo un SlideU de 1000 fotogramas se redondea a 1/256.
+  - `AnimTexturedCell`: Particle3DObjAnimTextured::DrawAt 0x67A530, leído entero. Con celdas, cols = 256 / W (idiv),
+    u = (W/256)·(f % cols) y v = (H/256)·(f / cols), con f sin signo. Con deslizamiento, u = W·f / (N·256) y
+    v = H·f / (N·256) ([0x8D45CC] = 256). openblack añade una guarda: cols ≥ 1.
+- Relojes (tabla de abajo).
+- Cargadores: `LoadStackedFrames` (GetBitmap 0x6A9D40: fotogramas Pitch × Pitch apilados, RGB o grises) y
+  `SampleStackedFrame` (openblack, bilineal); `LoadGif` y `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms
+  valen 100 ms, como en los navegadores).
+- Mods: `DelayClock` (duraciones por fotograma, en bucle, fotogramas enteros; da también la fracción dentro del
+  fotograma) y `AnimatedSprite` (celdas o capas consecutivas desde `first`, con `blend` apagado por defecto).
+
+| Reloj | Original | Regla | Usuarios en openblack |
+|---|---|---|---|
+| `OneOffFrame` | OneOffSpellSeed::UpdateFrame 0x72A570 | fase = fmod(fase + ms·18·0,001, 16) ([0x981FB4], double [0x982820]); celda (f % 4, f / 4)·0,25 ([0x981FB8]) | la burbuja (`one_off::UpdateFrames`) |
+| `SpellIconFrame` | DrawSpellGraphic 0x519AD0, rama de las fiolas (0x519B79..0x519C1B) | +0x34 = fmod(+0x34 − 15·dt, 32), +32 si < 0 ([0x8D86F0], [0x8D8740], [0x8CF134]); u = (f % 8)·(1/256)·32, v = (f / 8)·(1/256)·32 | las fiolas de hechizo de criatura (`seed_graphic::DrawSpellGraphic`) |
+| `HandFlowFrame` | PHandFX::Draw 0x68D0C0 (0x68D29B..0x68D374) | +0x58 += dt·(−20); con ritmo > 0, fmod(.., 64) si pasa de 64; con ritmo ≤ 0, fmod(.., 64) + 64 si < 0; f = **fistp** (redondea) % 32; (f % 8, f / 8)·0,125 | el brillo de la mano (`hand_fx`, calculado y sin dibujar) |
+| `PSysFrameAdvance` | AtomCore, fn_00673EA0 (0x673FB8..0x6740D8) | prev = cur; **solo con [0xC029DC] y PlayAnim (+0x118) = 1** (si no, 0x673FC6..0x673FDE saltan a 0x67406A: ni paso ni vuelta), cur = dt·ritmo + prev; con ritmo > 0, mientras los dos pasan de 2N, −N; con ritmo ≤ 0, mientras alguno es < 0, +2N | todos los átomos (`Effect::PostUpdate`, con `Atom::playAnim`), el polvo, los granos y los peces de `HandEffects` |
+| `PSysFrameLerp` / `PSysFrameIndex` | fn_00679920 (0x679A7D..0x679B61) | t' = clamp(t, 0, 5) ([0x9357B8]) en bucle y clamp(t, 0, 1) sin él; f = prev + (cur − prev)·t'; en bucle ftol(fmod(f, N)) (+N antes si es negativo), sin bucle ftol(f) en 0..N−1 | sprites de PSys, mallas AnimTextured, TownBelief, FireGraphic, mapas de luz |
+| `MistCell` / `MistCellUv` / `MistAdvance` | LH3DMist, fn_007FA300 | +0x84 += ftol(ms·0,255) ([0x9A2BA8]), %= 900 si > 900 (0x384); celda (c·45/900) & 15; UV ((f & 7)·0,125, (f >> 3)·0,125 (+0,25 en la rama de efecto, 0x7FA466; sin él, 0x7FA69E)) | nieblas del mapa, nubes, bocanadas de tormenta, nieblas de PSys |
+| `MistCell` / `SmokeAgeStep` | LH3DSmoke, fn_007F8E00 | dt = min(ms·0,001, 100) ([0x8AB41C]); edad += ftol(dt·255) ([0x8AB270]); celda = MistCell(edad) | humo de las chimeneas |
+| `FireCell` | fn_007321B0 | ftol(fmod(−25·edad, 32) + 32) ([0x999668]); edad = SpritePos +0x2C | llamas de FireGraphic |
+| `SteamCell` | SteamGetOffsetFromAge 0x7321E0, fn_0073250A | ftol(fmod(25·edad, 32)) ([0x99966C]) | vapor y humo gris de FireGraphic |
+| `FishFrame` | fn_008248E0 (0x824960..0x8249CE) | dt = min(dt, 0,1) ([0x8AB22C]); +0x1C += dt·vel·25 ([0x8C7BD0]); celda (8 + (ftol & 15)) & 63 **antes** de la vuelta; luego −= 15·ftol(+0x1C·(1/15)) | peces de las piscifactorías |
+| `LanternAdvance` / `LanternStart` / `LanternCell` | fn_00823570 (0x823599..0x82362D); fn_00823240 (0x8233E4..0x8233F8) | reloj **global** [0xEB99C4] += ms, %= 700 si > 700 ([0xC383C8]); a = c·31/700; llama i: (10i + 31 − ((inicio[i] + a) & 31)) & 31. Inicio = la tabla **global** 0xC383BC ({0, 13, 0} en el fichero): cada luz nueva escribe ftol(Random(0, 31)) en sus tres entradas, así que todas las luces usan los valores de la última creada | faroles y hogueras (`night_lights`) |
+| `LeashCell` / `LeashScroll` | fn_00466730 (0x46690A..0x466955, 0x466855..0x46687B) | +0x74 += 10·dt, −= 15·ftol(+0x74/15), celda ftol & 63; +0x60 += 0,5·dt, −= ftol | sin portar (correas de la ciudadela) |
+| `GoldenShowerCell` | fn_006CA990 (0x6CAB1F..0x6CAB5B) | (t/50 + base + gota) % 32, con signo | sin portar |
+| `CreatureRoomCell` | CreatureRoom::DrawAdditional 0x788630 (0x7889A5..0x7889CC) | 31 − (((GetTickCount() >> 5) + i) & 31): reloj **real** | sin portar |
+| `CursorCell` | CameraModeNew3 0x456BED | (GetTickCount() / 50) & 15: reloj real, 20 por s | sin portar (cursor 3D) |
+| `HelpSystemCell` | fn_005C0700 (0x5C0A7A..0x5C0AAF) | [0xD15AB0] += fn_005557E0(); (c / 200) & 15 | sin portar (HelpDude) |
+| `JCSpecialCell` | fn_00828A70 (0x828CDE..0x828D7A) | f += ms·0,01; si f > 15, f = 0 (no fmod); ftol & 15 | sin portar |
+| `PlayerSymbolCell` / `PlayerSymbolSpin` | PlayerSymbolSprite::Draw 0x69D7E0 | capa 0: +0xC −= ms·0,02 ([0x937538]); capa 1: +0x10 −= ms·0,023 ([0x937534]); +32 mientras < 0; ftol & 63. Giro del segundo brillo: +0x14 += ms·0,002 ([0x92A544]), −2π mientras > 2π. El ctor fn_0069D5A0 los pone a 0 | los brillos de TownBelief (un acumulador por símbolo) |
+| `SmokyStuffCell` | fn_00823F70 (0x8240F9..0x824115) | ftol(vida·15) & 63 | bocanadas de SmokyStuff |
+| `DustCell` | fn_00846010 (Dust.cpp) | 16 + ((rand % 16 + ftol(2·edad)) & 15) | polvo de los choques |
+| `WaterfallScroll` | DesignedWaterFall 0x5E392E..0x5E3972 | V −= 0,5·dt ([0x8AA3B4]), menos su parte entera; SetAnimatedUV_1(0, V) | la cascada de Land 3 |
+| `GoolooFrame` | fn_005E6390 | t de 500 ms a 0; x = t/500; UV (2·cos x, 1,7·sin(0,7·x)); byte +4 del material = 255 − ftol(255·t/500) | sin portar (fantasma al quitar un objeto) |
+| `RotatingUv` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 | lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t); se resta el periodo mientras lo pasa (nada si es negativo) | discos de SurfRevol |
+| `ChainScroll` | fn_0067B3F0 (0x67BE88..0x67BED5) | +0x3C += ms·ritmo·0,001, fmod(FrameHeight/256), + eso si < 0 | cadenas de PSys |
+| `ChainSegmentUv` | fn_006C8920 | ver «Cadenas» abajo | cadenas de PSys |
+
+**Las cadenas.** fn_006C8920 da las UV del tramo i de S = articulaciones − 1:
+- k = ((i + 1)·T − 1) / S, b = k·S / T, n = (k + 1)·S / T − b y j = i − b, todo en enteros. T es NumTexturesForWholeChain,
+  o S cuando vale −1 (CreateChain 0x6AA8DC).
+- F = FileOffset + (k = T − 1 ? FrameOfHead : k = 0 ? FrameOfTail : 0).
+- uv0 / uv1 = (F·W, H·j/n) y ((F+1)·W, H·j/n); uv2 / uv3 = lo mismo con j + 1. Todo × 1/256 ([0x938EBC]) y el scroll
+  +0x3C sumado a las cuatro v.
+- Es decir, **la V corre a lo largo de la cadena y la U cruza la cinta** por una columna de W píxeles. Los valores por
+  defecto del creador son FrameHeight 64, FrameWidth 32 y NumTexturesForWholeChain −1 (0x6AA739..0x6AA747).
+- El ritmo del scroll (+0x4C) solo lo ponen UR_SimpleBeam (SpeedV, 0x6762EE) y UR_Plasma (0x676898). Ninguno está
+  portado, así que el scroll de todas las cadenas de openblack vale 0.
+- fn_0067B3F0 hace cuatro vértices por tramo (0x67BA82..0x67BB0D): v0 = cabeza + lado, v1 = cabeza − lado,
+  v2 = cola + lado y v3 = cola − lado. Les da uv0..uv3 (0x67BEE4..0x67BEFD). fn_0081C780 copia la UV de cada vértice
+  tal cual en LH3DP3::Table1 +0x18 / +0x1C (0x81C9C7..0x81C9D0) y dibuja con DrawTriangle 0x82F810 (0x81CCB2). Por
+  eso U = F·W va del lado +lado.
+- Luego 0x67BFAC..0x67BFEE pone el mismo scroll en [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1), y DrawTriangle
+  0x82F8BE lo suma otra vez: el material de fn_006AA800 solo tiene los bits 0 y 2 de +5. (La verificación de animtex,
+  V1-2, decía que la tira usaba fn_0082F920. No es así: la llamada de 0x81D152 está en otra función, la de 0x81CCD0,
+  porque fn_0081C780 acaba en 0x81CCBE.)
+
+**Arreglos deliberados** (el original es distinto de lo que hacía openblack):
+- PSys:
+  - el fotograma se guarda en [0, 2N) con su anterior (fn_00673EA0), y el índice se elige como en fn_00679920 (fmod y
+    +N una sola vez; antes era fmod(fmod + N));
+  - sin PlayAnim no hay ni paso ni vuelta (0x673FC6..0x673FDE), así que un fotograma negativo se queda como está;
+  - un átomo sin bucle con ritmo negativo salta a ~2N y enseña el último fotograma, no el primero. Ningún .zzz del
+    juego tiene LoopAnim 0 con FrameRate < 0 o con RandomiseFrameDirection, así que en el juego no se ve. Son 169
+    creadores con la propiedad PlayAnim (137 sprites, 21 mapas de luz, 6 mallas AnimTextured, 4 de animación y 1 de
+    animación con cámara), y los diez con ritmo negativo (bolas de fuego, SF_Flash, el tornado y el cono de lluvia)
+    van todos en bucle.
+- Nieblas de PSys: cada átomo lleva su contador (`Atom::mist`). Empieza en ftol(Random(0, 16)) & 15 (0x7F95F8) y solo
+  avanza si la niebla sale en pantalla. Antes había un solo contador global.
+- Bocanadas de tormenta: el contador avanza solo si la bocanada pasa de alfa 5 (AddDrawing) **y** su esfera está en
+  pantalla (`mists::InView`, la prueba de LH3DMist::AddDrawing 0x7FA7F0). Ya no está (aproximado).
+- Peces: la celda se toma antes de la vuelta (puede salir la 23) y la vuelta es −15·ftol(f/15).
+- Faroles: el inicio de cada llama sale de la tabla global 0xC383BC, que reescribe cada luz nueva con
+  ftol(Random(0, 31)). Así, todas las luces van en fase con los valores de la última creada (antes cada luz tenía los
+  suyos). El reloj es entero y solo corre si el alfa del pueblo no es 0 y hay luces (0x82357A..0x823593). El halo es
+  la celda 56 de `smoke` ((flags & ~7) | 0x38, 0x8233BC..0x8233EB).
+- TownBelief: los brillos llevan su acumulador por símbolo (+0xC, +0x10 y el giro +0x14, desde 0), avanzado con los
+  ms enteros de cada fotograma. Antes usaba el tiempo global (−s·20, −s·23).
+- Brillo de la mano: el fotograma se redondea (fistp 0x68D323), no se trunca, y la vuelta es «> 64», no «≥ 64».
+- Cadenas: las UV de fn_006C8920 (antes la U recorría la cadena con la textura entera repetida), los valores por
+  defecto del creador, FileOffset y el scroll. Además, uv0 va del lado +lado (antes del −lado: la U estaba
+  espejada) y la semianchura es la escala, no 0,5·escala, así que **las cintas salen el doble de anchas**.
+- Fiolas de hechizo de criatura: la animación UV de 0x519AD0, que antes no estaba.
+- Bandas de potencia: `billboard::BandToEye`, ver [billboards](#objetos-que-miran-a-la-cámara-billboards).
+
+**Igual que antes, bit a bit:** la burbuja, las llamas y el vapor (la celda 32 en el primer fotograma ya estaba), el
+humo de las chimeneas, SmokyStuff, la estela del barco, los anillos (celda fija `& 63` de la hoja 8×8 de `smoke.raw`,
+fn_005E5100), las nieblas del mapa y las nubes, la cascada, los montones de comida (0x51C0FD), la disposición
+de celdas de AnimTextured, los discos de SurfRevol, el polvo, la mano y las mariposas GIF del mod. El polvo al
+agarrar tierra y los granos y peces al coger comida van ahora por `PSysFrameAdvance` / `PSysFrameIndex`: dan las
+mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·ritmo.
+
+**Huecos.**
+- (aproximado) Todos los relojes de niebla y humo guardan la fracción de ms·0,255 (o dt·255) de un fotograma al
+  siguiente. El `ftol` del original pararía la animación a más de 250 fps. `MistAdvanceExact` es la fórmula tal cual.
+- (aproximado) SurfRevol no interpola el desplazamiento entre pasos: la regla lo envuelve en [0, tile) cada paso.
+  GameUpdate 0x6C8BC0, que guarda los dos valores en ±2 periodos, está leído a medias, y no se sabe quién copia +0x2C a
+  +0x24.
+- (aproximado) Las bocanadas de tormenta empiezan con el contador a 0, no en Random(0, 16) & 15: es la misma celda 0.
+- (aproximado) `graphics::lh3d::Random` (src/3D/LH3DRandom.h) es Random 0x81D180 con un `rand()` de MSVC propio que
+  empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
+  la serie de `rand()` de todo el programa, sembrada con srand(time).
+- (aproximado) TownBelief toma g_game_time_inc como el tiempo real entre dos fotogramas.
+- (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
+- (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
+- HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en
+  el original son PSys (SF_GripLandscape, ER_MultiPickup). Sus relojes de fotograma ya son los de PSys.
+- Sin portar, con su reloj y su prueba en la API: InfluenceCircle (scroll 0,0001 / −0,0002 por ms, 0x826C90),
+  Gooloo, GoldenShower, las correas, la habitación de la criatura y el mapa del mundo de la ciudadela, HelpDude, el
+  cursor 3D y JCSpecial. También HandGlow / fn_0083F270, el scroll que no es de LightSheet sino del objeto de
+  fn_0083F100 / fn_0083F210, leído por fn_0084F910.
 ## Mallas pegadas al suelo (land_morph)
 
 **Fiel**, salvo lo marcado. Todo lo que se amolda al terreno pasa por una sola API, `openblack::land_morph`
@@ -568,6 +710,15 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
   - el oy heredado por el vapor y el humo del fuego;
   - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
   - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
+- Texturas animadas:
+  - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
+    la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
+  - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
+  - la interpolación de SurfRevol (GameUpdate 0x6C8BC0 entero) y, en las cadenas, el suavizado por puntos medios
+    (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting;
+  - HandEffects como efectos PSys de verdad;
+  - una captura del rayo en la mano en el original, para comparar el ancho de las cintas;
+  - capturas antes y después (lista de escenas en `dev\tmp_dis\unify\U2_changes.md`).
 - Mallas pegadas al suelo:
   - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
     de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);
@@ -590,6 +741,11 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   origen, CentreAtBase y giro); `OPENBLACK_TEST_FIRE` (llamas); `OPENBLACK_TIME_OF_DAY=22` con `OPENBLACK_CAMERA_LOCK`
   (la luna, centrada y en un borde); `OPENBLACK_TEST_ONESHOT` (la burbuja). La lista de escenas está en
   `dev\tmp_dis\unify\U1_changes.md`.
+- Texturas animadas: `OPENBLACK_TEST_ONESHOT="<semilla>,x,z[,pu]"` (la burbuja; con pu, las bandas que miran a la
+  cámara; con una fiola de criatura, su hoja 8×4), `OPENBLACK_TEST_DISPENSER`, `OPENBLACK_TEST_FIRE` (llamas),
+  `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH` (peces y anillos), `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`
+  (cadenas), `OPENBLACK_TIME_OF_DAY=22` (faroles), `OPENBLACK_TEST_WEATHER` (bocanadas de tormenta),
+  `OPENBLACK_TEST_CHIMNEY=all` (humo). La lista de escenas está en `dev\tmp_dis\unify\U2_changes.md`.
 - Mallas pegadas al suelo: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` con `OPENBLACK_TEST_SHIELD_SHOT` (el escudo
   físico se funde con la tierra), `OPENBLACK_TEST_DISPENSER` y `OPENBLACK_TEST_TELEPORT` (los discos cortados),
   `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` y `OPENBLACK_TEST_EXPLOSION_SHOT` (la marca del suelo; `UR_Explosion` solo
@@ -605,5 +761,7 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - `dev\tmp_dis\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
 - `dev\tmp_dis\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
   (inventario de openblack) y `U1_changes.md` (la migración).
+- `dev\tmp_dis\unify\animtex_original.md` (los relojes del original, con su verificación), `animtex_openblack.md`
+  (inventario de openblack) y `U2_changes.md` (la migración).
 - `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
   (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).

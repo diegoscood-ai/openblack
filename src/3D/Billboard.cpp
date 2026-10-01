@@ -245,6 +245,27 @@ billboard::LookAt billboard::LookAtCentre(const glm::vec3& position, const glm::
 	return result;
 }
 
+glm::mat3 billboard::BandToEye(const glm::vec3& position, const glm::vec3& eye)
+{
+	glm::vec3 d = position - eye;
+	// 0x51A8C2..0x51A90F: the same push off the vertical as the bubble's
+	if (std::abs(d.x) < k_BubbleNearVertical && std::abs(d.z) < k_BubbleNearVertical)
+	{
+		d.x = d.x > 0.0f ? k_BubbleNearVertical : -k_BubbleNearVertical;
+	}
+	// 0x51A948..0x51A988
+	const float inverse = 1.0f / std::sqrt(d.y * d.y + d.z * d.z + d.x * d.x);
+	const glm::vec3 direction = d * inverse;
+	// 0x51A9CD..0x51AA3B: k = -(Y.D), U' = k D + Y
+	constexpr glm::vec3 k_Y(0.0f, 1.0f, 0.0f);
+	const float k = -(k_Y.y * direction.y + k_Y.z * direction.z + k_Y.x * direction.x);
+	const glm::vec3 up = k * direction + k_Y;
+	// 0x51AA7A..0x51AAB2
+	const glm::vec3 u = up * (1.0f / std::sqrt(up.z * up.z + up.y * up.y + up.x * up.x));
+	// 0x51AABC..0x51AB2A: U x D (m2 = U.y D.z - U.z D.y, m5 = U.z D.x - U.x D.z, m8 = U.x D.y - U.y D.x)
+	return glm::mat3(-direction, u, glm::cross(u, direction));
+}
+
 glm::mat3 billboard::MoonBasis(const glm::mat4& view, const glm::mat4& inverseView, const glm::vec3& position)
 {
 	const glm::vec3 v(view * glm::vec4(position, 1.0f)); // 0x86AC67..0x86ACEB
@@ -331,7 +352,7 @@ std::optional<glm::vec3> billboard::RibbonSide(const glm::vec3& segment, const g
 
 float billboard::RibbonHalfWidth(float scale)
 {
-	return 0.5f * scale;
+	return scale;
 }
 
 glm::mat3 billboard::VolBlend(const glm::vec3& axisX, const glm::vec3& position, const glm::vec3& eye, float scale)

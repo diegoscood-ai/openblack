@@ -147,6 +147,17 @@ struct LookAt
 /// push d and U are never zero, so the original's zero test (0x5188BC..0x5188ED) cannot fire and has no port.
 [[nodiscard]] LookAt LookAtCentre(const glm::vec3& position, const glm::vec3& boxCentre, float scale, const glm::vec3& eye);
 
+/// The power-up bands of a spell seed graphic, fn_0051A830 (on while the byte [0xBE8E8E] is set: 1, never written), called
+/// by DrawSpellGraphic 0x51A773 with the band's matrix: its translation T is taken out (0x51A848..0x51A85F), d = T - eye
+/// (g_camera 0xEA1DB8), pushed off the vertical as the bubble's (|d.x| and |d.z| under 1e-4, the double [0x8C79D8]: d.x =
+/// +1e-4 [0x8BF518] when above 0, else -1e-4 [0x8D8738]), D = d / sqrt(d.y^2 + d.z^2 + d.x^2), U' = Y - (Y.D) D with Y
+/// the static (0, 1, 0) at 0xCC62C0, U = U' / sqrt(U'.z^2 + U'.y^2 + U'.x^2); the matrix with columns (-D, U, U x D)
+/// (0x51AABC..0x51AB56) inverted in place by fn_007FB3F0 (0x51AB5A), so its rows are -D, U, U x D; then the band's
+/// 9 cells M = M R (fn_0046D9D0: each row times R) and T put back (0x51AB6A..0x51AB7C). In glm terms: R (the returned
+/// axes, columns -D, U, U x D) times the band's own rotation and scale. After the push the zero tests (0x51A911..
+/// 0x51A942, 0x51AA3F..0x51AA78) cannot fire and are not ported
+[[nodiscard]] glm::mat3 BandToEye(const glm::vec3& position, const glm::vec3& eye);
+
 /// fn_0086AC60 0x86AC67..0x86AEBD: v = position in the camera, n = normalize(v), t = normalize(n.z, 0, -n.x), u = n x t;
 /// the halo's matrix (t, u, n) in the camera space goes to the world with SetInverse(W2C) (0x86AE64, fn_007FAFF0
 /// 0x86AE6F) and its 9 rotation cells x [0xFA2750] (4.0: fn_0086A3B0 writes 3.0 at 0x86A3D6, then 4.0 at 0x86A3F4).
@@ -176,11 +187,14 @@ inline constexpr std::array<int, 6> k_MoonHaloTriangles = {0, 1, 3, 3, 2, 0};
 /// then SetAngleY(atan2(-y, x) + pi/2) ([0x8C78D8]). Screen then puts the sprite's +y along (x, y). @return the angle
 [[nodiscard]] float ScreenVelocity(const glm::vec3& w, const glm::vec3& right, const glm::vec3& up);
 
-/// The chains' ribbon, fn_0067B3F0 (reads g_camera at 0x67B4BA): the side of a joint is
-/// normalize(cross(normalize(segment), normalize(joint - eye))); nothing when either is (almost) zero (openblack's
-/// 1e-4 guard). (inferido) the view vector is taken per joint (eye -> joint), not from the chain's centre
+/// The chains' ribbon, fn_0067B3F0 (reads g_camera at 0x67B4BA): the side of each end of a segment is
+/// (eye - joint) x (tail - head) (0x67B86C..0x67B924, the view from that joint, head then tail), normalised
+/// (0x67B943 InverseSquareRoot, whose table error the fsqrt of 0x67BA57 then takes out, see RibbonHalfWidth): the same
+/// direction as normalize(cross(normalize(segment), normalize(joint - eye))); nothing when either is (almost) zero
+/// (openblack's 1e-4 guard)
 [[nodiscard]] std::optional<glm::vec3> RibbonSide(const glm::vec3& segment, const glm::vec3& joint, const glm::vec3& eye);
-/// (inferido) the strip's half width is 0.5 x the joint scale: fn_0081C780 (the strip) is not read
+/// The ribbon's half width, fn_0067B3F0 0x67B9E6..0x67BA70: each vertex is joint +- side x (joint +0xC) / |side|, the
+/// joint's +0xC the PSR scale (ParticleChainJoint::DrawAt 0x679E9A copies DrawData +4 -> +0x30), so the scale itself
 [[nodiscard]] float RibbonHalfWidth(float scale);
 
 /// RenderParticleVolBlendMesh::DrawAt 0x67CCB0 (0x67CCBB..0x67D013, [0xC029C4] = 1 so always on): a = normalize(the

@@ -20,6 +20,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
@@ -411,21 +412,11 @@ void hand_fx::Update(float seconds)
 			AddChargeBand(charge);
 		}
 	}
-	// the flowing texture's frame: += dt x -20 in [0, 64), the cell (frame % 32) of an 8 x 4 atlas
+	// the flowing texture's frame: += dt x -20 in [0, 64), the cell (frame % 32) of an 8 x 4 atlas; the frame is
+	// fistp(+0x58), rounded to the nearest (0x68D323), not truncated (frame_anim::HandFlowFrame)
 	if (s.glowAlpha > 0.01f) // 0x68D0C0 step 3
 	{
-		s.glowFrame += seconds * k_GlowRate;
-		const float wrap = static_cast<float>(k_GlowFrames * 2);
-		if (k_GlowRate > 0.0f && s.glowFrame >= wrap)
-		{
-			s.glowFrame = std::fmod(s.glowFrame, wrap);
-		}
-		else if (k_GlowRate <= 0.0f && s.glowFrame < 0.0f)
-		{
-			s.glowFrame = std::fmod(s.glowFrame, wrap) + wrap;
-		}
-		const int frame = static_cast<int>(s.glowFrame) % k_GlowFrames; // int(+0x58) % 32: truncated (0x68D0C0)
-		s.glowUv = glm::vec2(static_cast<float>(frame % 8) * 0.125f, static_cast<float>(frame / 8) * 0.125f);
+		s.glowUv = graphics::frame_anim::HandFlowFrame(s.glowFrame, seconds, k_GlowRate, k_GlowFrames);
 	}
 	// the bands on the hand's root bone: the permanent ones, then the temporary ones (a finished one goes)
 	const auto bone = HandBoneMatrix();

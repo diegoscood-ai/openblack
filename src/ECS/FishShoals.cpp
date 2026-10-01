@@ -18,6 +18,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "3D/FrameAnim.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Transform.h"
@@ -43,11 +44,8 @@ bool Trace()
 /// fn_008248E0
 void UpdateFish(Fish& fish, const glm::vec3& target, float dt)
 {
-	fish.frame += dt * fish.speed * 25.0f;
-	while (fish.frame >= 15.0f)
-	{
-		fish.frame -= 15.0f;
-	}
+	// 0x824960..0x8249CE: the frame (dt at most 0.1 s), the cell before the wrap, then frame -= 15 ftol(frame / 15)
+	fish.cell = openblack::graphics::frame_anim::FishFrame(fish.frame, dt, fish.speed);
 	// a fish scared by a splash swims 4 times faster, easing back to normal over its last second
 	float boost = 1.0f;
 	if (fish.fleeTime > 0.0f)
@@ -86,6 +84,7 @@ void openblack::ecs::InitFishShoal(FishShoal& shoal, const glm::vec3& centre)
 		fish.turnRate = fish.speed * (1.0f + rng.NextValue(-0.1f, 0.1f)) * 0.6283f;
 		fish.frame = 0.0f;
 		fish.fleeTime = 0.0f;
+		fish.cell = 8;
 	}
 }
 

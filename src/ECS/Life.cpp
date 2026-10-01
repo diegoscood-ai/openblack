@@ -11,13 +11,10 @@
 
 #include <spdlog/spdlog.h>
 
-#include "ECS/Components/Abode.h"
 #include "ECS/Components/Life.h"
-#include "ECS/Components/Town.h"
 #include "ECS/Components/Villager.h"
-#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
-#include "ECS/AnimalAI.h"
+#include "ECS/ToBeDeleted.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -78,21 +75,13 @@ float openblack::ecs::life::IncreaseLife(entt::entity entity, float amount)
 void openblack::ecs::life::Kill(entt::entity entity, const char* reason)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(entity))
+	{
+		return; // already gone (two deaths in one turn)
+	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: {} died ({})", registry.AllOf<Villager>(entity) ? "villager" : "animal",
 	                   reason);
-	if (const auto* villager = registry.TryGet<const Villager>(entity))
-	{
-		if (auto* abode = registry.TryGet<Abode>(villager->abode))
-		{
-			abode->inhabitants.erase(entity);
-		}
-		if (auto* town = registry.TryGet<Town>(villager->town))
-		{
-			town->homelessVillagers.erase(entity);
-		}
-	}
-	ecs::animal_ai::Forget(entity);
-	physics::PhysicsObjects::RemoveObject(entity);
-	registry.Destroy(entity);
-	registry.SetDirty();
+	// the class's GameThing::ToBeDeleted (vt +0xC): Villager / Animal DeleteDependancys, out of the physics and the
+	// registry (ECS/ToBeDeleted.h)
+	ecs::ToBeDeleted(entity);
 }

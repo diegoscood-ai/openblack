@@ -264,6 +264,8 @@ void HandSystem::PutDownHandPot(entt::entity pot) noexcept
 	position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z));
 	registry.Destroy(pot);
 	registry.SetDirty();
+	// 0x66F27A: off the map (MapCoords::InBounds) nothing is added anywhere: the resource is lost (pot_resource's
+	// AddResourceToPos checks it, and drops what is left over on water, 0x66F42D)
 	if (amount == 0)
 	{
 		return;

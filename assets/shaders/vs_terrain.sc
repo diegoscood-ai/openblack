@@ -1,5 +1,5 @@
 $input a_position, a_texcoord1, a_color1, a_color2, a_texcoord2, a_color0, a_color3, a_normal
-$output v_normal, v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_waterAlpha, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
+$output v_normal, v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialID1, v_materialBlend, v_lightLevel, v_shoreFade, v_distToCamera, v_smallBumpFade, v_landLight, v_landSpecular, v_worldXZ, v_worldY
 
 #include <bgfx_shader.sh>
 
@@ -44,7 +44,7 @@ void main()
 	float cloudCap = texture2DLod(s6_cloudShadow, (cellIndex + 0.5f) / cellMapSize, 0.0f).r;
 	float luminosity = min(a_color0.x, cloudCap);
 	v_landLight = texture2DLod(s4_landLight, vec2((floor(luminosity * 255.0f + 0.5f) + 0.5f) / 256.0f, 0.5f), 0.0f).rgb;
-	v_waterAlpha = a_color3;
+	v_shoreFade = a_color3; // 0 at altitude 1 or less: no small bump there, dynamic shadows fade out
 
 	vec3 transformedPosition = vec3(a_position.x + blockPosition.x, a_position.y, a_position.z + blockPosition.y);
 

@@ -23,6 +23,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/SamplePlay.h"
 #include "Buildings.h"
 #include "Common/RandomNumberManager.h"
 #include "Dust.h"
@@ -34,6 +35,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/WaterRings.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -210,7 +212,7 @@ int CollisionSounds::TypeOf(entt::entity entity)
 	return 0;
 }
 
-void CollisionSounds::PlayEditorSample(int first, int last, glm::vec3 at)
+void CollisionSounds::PlayEditorSample(int first, int last, glm::vec3 at, entt::entity owner, bool track)
 {
 	if (!Locator::audio::has_value() || first <= 0)
 	{
@@ -222,12 +224,9 @@ void CollisionSounds::PlayEditorSample(int first, int last, glm::vec3 at)
 	{
 		return;
 	}
-	auto& audio = Locator::audio::value();
-	const auto& sound = audio.GetSound(id);
-	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, at, glm::vec3(0.0f), glm::vec2(0.0f), sound.volume,
-	                                         audio::AudioStatus::Playing, false);
-	Locator::entitiesRegistry::value().Get<Transform>(emitter).position = at;
-	audio.PlayEmitter(emitter);
+	// SamplePlayAnimEffect -> LHSamplePlayAnimEffect 0x100146F0: not started farther than the sample's max distance from
+	// the camera (G_BigSplash 160) or 800; LHSamplePlay with the object as the owner and the .sad's play mode
+	audio::sample_play::PlayAnimEffect(id, owner, at, track);
 }
 
 void CollisionSounds::PlaySample2D(const char* bank, int sample)
@@ -262,13 +261,11 @@ void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
 	}
 	else if (Locator::terrainSystem::has_value())
 	{
-		// not dry land and (off the map or a cell altitude under 3): water; shallow cells keep the ground sounds
+		// 0x6465B7: not IsDryLand (altitude < 4, the water bit is not read) -> ring; and no cell (off the map, no
+		// block) or an altitude under 3 at the cell rounded to the nearest (fistp) -> WATER; altitude 3: ring + dust
 		const auto& terrain = Locator::terrainSystem::value();
-		const int cells = terrain.GetCellsPerSide();
-		const glm::ivec2 cell(static_cast<int>(at.x * 0.1f), static_cast<int>(at.z * 0.1f));
-		const bool inMap = cell.x >= 0 && cell.y >= 0 && cell.x < cells && cell.y < cells;
-		const auto* c = inMap ? &terrain.GetCell(glm::u16vec2(cell)) : nullptr;
-		const bool land = c != nullptr && !c->properties.hasWater && !c->properties.fullWater;
+		const bool land = ecs::sea_cells::IsDryLand(terrain, ecs::sea_cells::CellOf(at));
+		const auto* c = land ? nullptr : ecs::sea_cells::CellAt(terrain, ecs::sea_cells::RoundedCellOf(at));
 		const bool deep = !land && (c == nullptr || terrain.GetCellAltitude(*c) < 3);
 		const float ground = terrain.GetHeightAt(glm::vec2(at.x, at.z));
 		const float size = std::min(2.0f * po.body.Radius(), 5.0f);
@@ -288,6 +285,11 @@ void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
 			ring.cell = 0x3F;
 			ecs::AddWaterRing(ring);
 		}
+		// 0x646776..0x646854: 6 liquid particles (fn_00845C20, kind 4: 1 s, no gravity) of the foam / dust colour.
+		// fn_004ED180 tints that colour first: k = clamp(ftol(SnowCover(point)), 0, 255) (the 128 x 128 grid
+		// [0xEDC344], 40 units a cell, fn_0086CA80) and each channel c += floor((base - c) * k / 256) towards the
+		// light's base colour [0xFA26A4]. Without snow k = 0 and the colour stays; there is no SnowCover in this tree
+		// (weather of the openblack-magic session), so none is applied.
 		for (int i = 0; i < 6; ++i)
 		{
 			Dust::Emit(dustAt, Dust::RandomVelocity(), deep ? 0x28C8F0F4u : 0x50806040u, size);
@@ -319,7 +321,8 @@ void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Collision sound: types {}/{} level {} -> editor.sad {}..{}", typeA, typeB,
 				                   level, range[0], range[1]);
 			}
-			PlayEditorSample(range[0], range[1], at);
+			// 0x64689F: the channel follows the object (+0x0C) unless its A code is 0x16
+			PlayEditorSample(range[0], range[1], at, obj, a != 0x16);
 			return;
 		}
 	}

@@ -74,6 +74,8 @@
 #include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Rocks.h"
+#include "ECS/SeaDebugHooks.h"
+#include "ECS/Sharks.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
@@ -110,6 +112,8 @@ using namespace openblack::ecs::systems::hand_detail;
 // Environment-variable test hooks (OPENBLACK_HAND_TEST_*, OPENBLACK_CAMERA_FLY, ...), run once when the landscape exists.
 void HandSystem::RunDebugHooks() noexcept
 {
+	ecs::RunSeaDebugHooks(); // OPENBLACK_TEST_SEA
+	ecs::RunSharkDebugHook(); // OPENBLACK_TEST_SHARK
 	if (const char* at = std::getenv("OPENBLACK_HAND_TEST_ROCK"); at != nullptr)
 	{
 		float x = 0.0f;
@@ -312,6 +316,77 @@ void HandSystem::RunDebugHooks() noexcept
 		PickUp(rock);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: holding a boulder of scale {}", scale);
 	}
+	// OPENBLACK_HAND_TEST_DROP="x,z,seconds[,kind]": the hand holds a rock (kind 0, scale 0.5), a hand pot of 300 food (1)
+	// or of 300 wood (2), the first villager (3), the first tree (4) or the first animal (5), and puts it down gently at
+	// (x, z) after that many seconds (HandSystem::Drop -> Release with zero velocity -> InitialisePhysicsFromHand)
+	if (const char* drop = std::getenv("OPENBLACK_HAND_TEST_DROP"); drop != nullptr)
+	{
+		float x = 0.0f;
+		float z = 0.0f;
+		float delay = 2.0f;
+		int kind = 0;
+		if (std::sscanf(drop, "%f,%f,%f,%d", &x, &z, &delay, &kind) >= 2)
+		{
+			auto& registry = Locator::entitiesRegistry::value();
+			std::optional<entt::entity> held;
+			// made standing on the ground there (the hand keeps the altitude above the ground it was picked at)
+			const float ground = Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z));
+			if (kind == 1 || kind == 2)
+			{
+				held = archetypes::PotArchetype::Create(glm::vec3(x, ground, z), 0.0f, kind == 1 ? PotInfo::HandFood : PotInfo::HandWood,
+				                                        300);
+			}
+			else if (kind == 3)
+			{
+				registry.Each<const Villager>([&](entt::entity e, const Villager&) {
+					if (!held)
+					{
+						held = e;
+					}
+				});
+			}
+			else if (kind == 4)
+			{
+				registry.Each<const Tree>([&](entt::entity e, const Tree&) {
+					if (!held)
+					{
+						held = e;
+					}
+				});
+			}
+			else if (kind == 5)
+			{
+				registry.Each<const Animal>([&](entt::entity e, const Animal&) {
+					if (!held)
+					{
+						held = e;
+					}
+				});
+			}
+			else
+			{
+				held = archetypes::MobileStaticArchetype::Create(glm::vec3(x, ground, z), MobileStaticInfo::Boulder1Chalk, 0.0f, 0.0f,
+				                                                 0.0f, 0.0f, 0.5f);
+			}
+			registry.SetDirty();
+			if (held && registry.Valid(*held))
+			{
+				if (kind == 1 || kind == 2)
+				{
+					ComputeHoldParameters(*held);
+					_held = *held;
+				}
+				else
+				{
+					PickUp(*held);
+				}
+				_testDropAt = glm::vec3(x, 0.0f, z);
+				_testDropIn = delay;
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: holding kind {} ({}), put down at ({}, {}) in {} s", kind,
+				                   static_cast<uint32_t>(*held), x, z, delay);
+			}
+		}
+	}
 	// OPENBLACK_HAND_TEST_FISH=1: a splash next to the first shoal, then catching fish there with the action held 3 s
 	if (std::getenv("OPENBLACK_HAND_TEST_FISH") != nullptr)
 	{
@@ -480,8 +555,11 @@ void HandSystem::RunDebugHooks() noexcept
 		float z = 0.0f;
 		if (std::sscanf(at, "%f,%f", &x, &z) == 2)
 		{
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Altitude at ({}, {}): {:.7f}", x, z,
-			                   Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)));
+			// drawn: the landscape mesh (every vertex of altitude 3 or less at 0); unflattened: [0xC37BF4] = 0
+			const auto& land = Locator::terrainSystem::value();
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Altitude at ({}, {}): {:.7f} (drawn {:.7f}, unflattened {:.7f})", x, z,
+			                   land.GetHeightAt(glm::vec2(x, z)), land.GetDrawnHeightAt(glm::vec2(x, z)),
+			                   land.GetUnflattenedHeightAt(glm::vec2(x, z)));
 			// Every mesh entity within 15 m: its kind and how far its lowest vertex is above the land.
 			{
 				auto& registry = Locator::entitiesRegistry::value();
@@ -815,7 +893,8 @@ void HandSystem::RunDebugHooks() noexcept
 		}
 	}
 	// Debug: OPENBLACK_TEST_REPLANT="x,z,tilt" drops a beech there tilted by `tilt` degrees about x, straight through
-	// ReleaseTree: upright and on flat ground it is replanted, leaning or on a slope it falls (DeadTree).
+	// InitialisePhysicsFromHand (a gentle release, dont_replant 0): upright on land it is replanted at once (LANDED,
+	// Tree::EndPhysics), leaning (GetYXZ |x| or |z| > 0.2) it stays in physics and falls (DeadTree).
 	if (const char* at = std::getenv("OPENBLACK_TEST_REPLANT"); at != nullptr)
 	{
 		float x = 0.0f;
@@ -830,7 +909,10 @@ void HandSystem::RunDebugHooks() noexcept
 			registry.Get<Transform>(tree).rotation =
 			    glm::mat3(glm::eulerAngleX(glm::radians(tilt))) * registry.Get<const Transform>(tree).rotation;
 			registry.SetDirty();
-			ReleaseTree(tree);
+			if (!InitialisePhysicsFromHand(tree, glm::vec3(0.0f), false))
+			{
+				PlaceWithoutBody(tree);
+			}
 			const bool alive = registry.Valid(tree);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: dropped tilted {:.0f} deg at ({:.1f}, {:.1f}) -> {}", tilt,
 			                   x, z, !alive                                   ? "gone"
@@ -853,6 +935,34 @@ void HandSystem::UpdateTestAbode(float seconds) noexcept
 			static std::string s_env;
 			s_env = std::string("OPENBLACK_MOUSE_AT=") + std::getenv("OPENBLACK_TEST_TUG_MOUSE2");
 			_putenv(s_env.c_str());
+		}
+	}
+	if (_testDropAt)
+	{
+		_testDropIn -= seconds;
+		auto& registry = Locator::entitiesRegistry::value();
+		if (_testDropIn <= 0.0f && _held && registry.Valid(*_held))
+		{
+			auto& transform = registry.Get<Transform>(*_held);
+			transform.position = glm::vec3(_testDropAt->x, transform.position.y, _testDropAt->z);
+			const auto entity = *_held;
+			Drop();
+			if (registry.Valid(entity))
+			{
+				const auto& after = registry.Get<const Transform>(entity);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: put down {} at ({:.1f}, {:.1f}, {:.1f}), in physics {}",
+				                   static_cast<uint32_t>(entity), after.position.x, after.position.y, after.position.z,
+				                   physics::PhysicsObjects::Find(entity) != nullptr);
+			}
+			else
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: put down {}: gone (a pot put down)", static_cast<uint32_t>(entity));
+			}
+			_testDropAt.reset();
+		}
+		else if (_testDropIn <= 0.0f)
+		{
+			_testDropAt.reset();
 		}
 	}
 	if (_testActionHold > 0.0f)

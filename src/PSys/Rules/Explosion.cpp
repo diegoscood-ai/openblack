@@ -48,7 +48,6 @@
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
-#include "ECS/WaterRings.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -58,6 +57,7 @@
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
+#include "PSys/PSysWaterRings.h"
 #include "PSys/Rules/Shield.h"
 
 using namespace openblack;
@@ -73,7 +73,6 @@ constexpr float k_CellMetres = 10.0f;            ///< [0x9357C8]: a map cell
 constexpr float k_SearchExtra = 20.0f;           ///< [0x8C7658]: ceil((r + 20) / 10)^2 spiral cells
 constexpr float k_TribalPowerMin = 1.0f;         ///< [0x8AA390]
 constexpr float k_TribalPowerMax = 5.0f;         ///< [0x8AB6E4]
-constexpr float k_WaterRingSize = 10.0f;         ///< [0x9357D8]: the rings grow to 5, 7 and 10 (x 0.5, x 0.7, x 1)
 constexpr int k_SpotVisualBeamFx = 36;           ///< SPOT_VISUAL BEAM_EXPLOSION_FX (0x67EE99)
 constexpr int k_BeamFxTurns = 60;                ///< 0x67EE92: 60 turns
 constexpr int k_SpotVisualSmoke = 23;            ///< SMOKE on dry land (0x67EEDE)
@@ -205,21 +204,21 @@ glm::vec3 PositionOf(entt::entity object)
 
 /// UR_Explosion (DefineProperties 0x6B0B90, an AtomCreateRule): +0x2C MaxObjectsToDelete, +0x30 MaxObjectsToExplode,
 /// +0x34 MaxDistance, +0x38 BlastSpeed, +0x3C SpreadSpeed, +0x40 TimeToDoEventsFor, +0x44 InitialDelay, +0x48
-/// SmokeDelay, +0x4C BeamDelay. The DefineProperties ranges are editor limits; the defaults are the ctor's (all 0:
-/// no file leaves one out but BeamDelay).
+/// SmokeDelay, +0x4C BeamDelay. The DefineProperties ranges are editor limits; the defaults are the ctor's (0x67E090:
+/// 20, 20, 100, 10, 10, 5, 3.5, 3 and 0; no file leaves one out but BeamDelay).
 class Explosion final: public Modifier
 {
 public:
 	explicit Explosion(const Object& object)
-	    : maxObjectsToDelete(object.Int("MaxObjectsToDelete", 0))
-	    , maxObjectsToExplode(object.Int("MaxObjectsToExplode", 0))
-	    , maxDistance(object.Float("MaxDistance", 0.0f))
-	    , blastSpeed(object.Float("BlastSpeed", 0.0f))
-	    , spreadSpeed(object.Float("SpreadSpeed", 0.0f))
-	    , timeToDoEventsFor(object.Float("TimeToDoEventsFor", 0.0f))
-	    , initialDelay(object.Float("InitialDelay", 0.0f))
-	    , smokeDelay(object.Float("SmokeDelay", 0.0f))
-	    , beamDelay(object.Float("BeamDelay", 0.0f))
+	    : maxObjectsToDelete(object.Int("MaxObjectsToDelete", 20))      // +0x2C = 0x14
+	    , maxObjectsToExplode(object.Int("MaxObjectsToExplode", 20))    // +0x30 = 0x14
+	    , maxDistance(object.Float("MaxDistance", 100.0f))              // +0x34 = 0x42C80000
+	    , blastSpeed(object.Float("BlastSpeed", 10.0f))                 // +0x38 = 0x41200000
+	    , spreadSpeed(object.Float("SpreadSpeed", 10.0f))               // +0x3C
+	    , timeToDoEventsFor(object.Float("TimeToDoEventsFor", 5.0f))    // +0x40 = 0x40A00000
+	    , initialDelay(object.Float("InitialDelay", 3.5f))              // +0x44 = 0x40600000
+	    , smokeDelay(object.Float("SmokeDelay", 3.0f))                  // +0x48 = 0x40400000
+	    , beamDelay(object.Float("BeamDelay", 0.0f))                    // +0x4C = 0
 	{
 	}
 
@@ -276,11 +275,7 @@ public:
 			// stopped or closing: GParticleContainer::CloseDown 0x63E370 on the FX, and the target list emptied
 			if (data.beamFx != entt::null && Locator::entitiesRegistry::has_value())
 			{
-				auto& registry = Locator::entitiesRegistry::value();
-				if (registry.Valid(data.beamFx))
-				{
-					registry.Destroy(data.beamFx);
-				}
+				manager::CloseSpotVisual(data.beamFx);
 				data.beamFx = entt::null;
 			}
 			data.targets.clear();
@@ -342,32 +337,16 @@ private:
 		{
 			return;
 		}
-		if (ecs::pot_resource::IsDryLand(data.centre))
+		// 0x67E347..0x67E55B: three water rings (PSys/PSysWaterRings, the one implementation: growth [0x9357D8] = 10 x 0.5,
+		// x 0.7 and x 1, angle 0, aspect and rate 1, cell 0x30, 0xFFFFFFFF), or on dry land (MapCoords::IsDryLand, altitude
+		// >= 4) the scorch mark
+		if (!water_rings::AddExplosionRings(data.centre))
 		{
 			// (no portado) fn_008251C0(centre, rand(2 pi), [0x9357D4] = 8, mesh 0x251): a 0x0C-byte mark on the land
 			// (fn_00825240: an LH3DObject of that pack mesh, +8 = 15000 ms, list 0xEB9A00, SmokyStuff::Create at it)
 			if (Trace())
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: the land mark (fn_008251C0, mesh 593) is not ported");
-			}
-		}
-		else
-		{
-			// three water rings (pool 0xEAB7C8, the first free of 1024): growth 5, 7 and 10, age 0, angle 0, aspect 1,
-			// rate 1, cell 0x30, white; +0x24 = 1.0 (a field the port's ring has not)
-			// When "agua" changes ecs::AddWaterRing to (pos, growth, rate, aspect, cell, argb), only this loop changes.
-			for (const float k : {0.5f, 0.7f, 1.0f})
-			{
-				ecs::WaterRing ring;
-				ring.position = data.centre;
-				ring.age = 0;
-				ring.growth = k_WaterRingSize * k;
-				ring.angle = 0.0f;
-				ring.aspect = 1.0f;
-				ring.rate = 1.0f;
-				ring.cell = 0x30;
-				ring.argb = 0xFFFFFFFFu;
-				ecs::AddWaterRing(ring);
 			}
 		}
 		// the targets: every available object of the ceil((r + 20) / 10)^2 cells of the spiral around the centre that is

@@ -42,9 +42,8 @@ struct ScriptAudioState
 
 	/// The audio part of GScript::Reset 0x6EB2D0
 	void Reset();
-	/// The audio part of END_DIALOGUE 0x710780 (0x7107FE..0x710820): +0x84 = 1, +0x9C = 0. The original does it only
-	/// when the calling task owns the dialogue (HelpSystem+0x45CC == ScriptDLL::TaskNumber, 0x71078C..0x71079F);
-	/// openblack has no dialogue owner yet, so CHLApi calls it for any task (approximated).
+	/// The audio part of END_DIALOGUE 0x710780 (0x7107FE..0x710820): +0x84 = 1, +0x9C = 0, done only when the calling
+	/// task owns the dialogue (HelpSystem+0x45CC == ScriptDLL::TaskNumber, 0x71078C..0x71079F; Help/ScriptControl.cpp)
 	void EndDialogue();
 };
 

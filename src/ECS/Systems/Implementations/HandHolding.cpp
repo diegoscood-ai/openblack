@@ -71,6 +71,8 @@
 #include "ECS/WaterRings.h"
 #include "ECS/Registry.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/SeaCells.h"
+#include "ECS/VillagerDrowning.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
@@ -219,71 +221,241 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: picked up entity {}", static_cast<uint32_t>(entity));
 }
 
-void HandSystem::Drop() noexcept
+namespace
 {
+/// GameThingWithPos::IsFence (vt +0x3CC) = MobileStatic::IsFence 0x609110: its GMobileStaticInfo's mesh is MESH_LIST
+/// 0x38 (BuildingAmericanFence) or 0x51..0x52 (the Celtic fences).
+bool IsFence(entt::entity entity)
+{
+	const auto* statics = Locator::entitiesRegistry::value().TryGet<const MobileStatic>(entity);
+	if (statics == nullptr || !Locator::infoConstants::has_value() || statics->type == MobileStaticInfo::None)
+	{
+		return false;
+	}
+	const auto mesh = Locator::infoConstants::value().mobileStatic.at(static_cast<size_t>(statics->type)).meshId;
+	return mesh == MeshId::BuildingAmericanFence || mesh == MeshId::BuildingCelticFenceShort ||
+	       mesh == MeshId::BuildingCelticFenceTall;
+}
+
+/// LHMatrix::GetYXZ 0x7FAB30 (confirmed by emulation, dev\tmp_dis\agua\re\emu_getyxz.py) with the rows = the body
+/// axes (openblack's columns): x = asin(r2.y), z = atan2(-r0.y, r1.y); a uniform scale does not change them.
+glm::vec2 TiltXZ(const glm::mat3& rotation)
+{
+	const auto& r0 = rotation[0];
+	const auto& r1 = rotation[1];
+	const auto& r2 = rotation[2];
+	return glm::vec2(std::atan2(r2.y, std::sqrt(r2.x * r2.x + r2.z * r2.z)), std::atan2(-r0.y, r1.y));
+}
+
+/// Villager::CreateDroppedResource 0x750940, called for a villager released without landing: a villager whose
+/// carrying type (+0xF1) is 2..15 and whose wood (+0xF6) is over GVillagerInfo::minWoodToShowGraphic (+0x26C) lets
+/// his log fall: a DeadTree (fn_00510BB0, the mesh of table 0xC5E19C, scale 1, angle pi/2, woodValue = wood /
+/// GetWoodValue) put into physics with the villager's velocity and angular velocity, flag 0x10,
+/// AdjustToGroundLevel(false, true), RaiseUntilNotIntersecting, then DropWood(0).
+/// TODO(villager-jobs): openblack's villagers carry no wood yet, so there is nothing to drop.
+void CreateDroppedResource([[maybe_unused]] entt::entity villager, [[maybe_unused]] glm::vec3 velocity) {}
+} // namespace
+
+void HandSystem::PlaceWithoutBody(entt::entity entity) noexcept
+{
+	// openblack only: an object PhysicsObject::AddObject cannot build a body for (no mesh) is put where it is, on the
+	// ground (Living::InitialisePhysicsFromHand 0x5EFDF8 ends the physics of a Living at once when AddObject fails)
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& transform = registry.Get<Transform>(entity);
+	const float ground = Locator::terrainSystem::has_value()
+	                         ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z))
+	                         : 0.0f;
+	transform.position.y = ground;
+	if (auto* fixed = registry.TryGet<Fixed>(entity); fixed != nullptr)
+	{
+		fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
+	}
+	if (registry.AllOf<Villager>(entity) && ecs::sea_cells::IsWater(transform.position))
+	{
+		ecs::VillagerEndPhysicsInWater(entity);
+	}
+	else
+	{
+		ecs::SetVillagerState(entity, VillagerStates::Landed);
+	}
+	ecs::animal_ai::PutDown(entity);
+	registry.SetDirty();
+}
+
+bool HandSystem::InitialisePhysicsFromHand(entt::entity entity, glm::vec3 velocity, bool dontReplant) noexcept
+{
+	// Object::InitialisePhysicsFromHand 0x636F00 (bw1-decomp src/Black/Object.cpp:447), from the hand (thrower NULL).
+	// Living 0x5EFD80 / Villager 0x5EFE90 add FLYING and the disciple around it (AddObject sets FLYING in openblack).
+	// TODO(physics): the angular velocity (GInterfaceStatus::ThrowAngularVelocity) is 0.
+	auto& registry = Locator::entitiesRegistry::value();
+	const bool tree = registry.AnyOf<Tree, DeadTree>(entity); // IsAnyKindOfTree (vt +0x478)
+	// fromHand false: AddObject's own fromHand path spreads the flying-object reaction at once, but here it is only
+	// spread when the object does not land (0x637412, below); PHYSICS_OBJECT_FLAG_FROM_HAND and the player are set here
+	auto* po = physics::PhysicsObjects::AddObject(entity, velocity, glm::vec3(0.0f), entt::null, false);
+	if (po == nullptr)
+	{
+		return false;
+	}
+	po->flags |= physics::PhysicsObject::FromHand;
+	po->byPlayer = true;
+	// thrown = |v.xz|^2 > 4 from the hand (> 1 from a creature); either way AdjustToGroundLevel(thrown, !tree) (thrown:
+	// only raised out of the ground), ZeroForces, RaiseUntilNotIntersecting and PHYSICS_OBJECT_FLAG_FROM_HAND
+	const bool thrown = velocity.x * velocity.x + velocity.z * velocity.z > 4.0f;
+	po->body.AdjustToGroundLevel(thrown, !tree);
+	const float oldAltitude = po->body.Centre().y;
+	po->body.ZeroForces();
+	physics::PhysicsObjects::RaiseUntilNotIntersecting(*po);
+	const auto at = po->body.Centre();
+	// 0x637128: not thrown and not raised over something (the exception of a computer player's villager has no hand
+	// here): landed on dry land, or on a cell (rounded, fistp) of altitude > 1
+	bool landed = false;
+	if (!thrown && oldAltitude == at.y && Locator::terrainSystem::has_value())
+	{
+		namespace sea_cells = ecs::sea_cells;
+		const auto& island = Locator::terrainSystem::value();
+		landed = sea_cells::IsDryLand(island, sea_cells::CellOf(at)) ||
+		         sea_cells::AltitudeAt(island, sea_cells::RoundedCellOf(at)) > 1; // 0x637231: cmp [cell + 4], 1; jbe
+	}
+	const bool living = registry.AnyOf<Villager, Animal>(entity); // IsLiving (vt +0x3C4)
+	const bool fence = IsFence(entity);
+	if (landed && (living || fence) && physics::LandscapeNormal(at).y < 0.7f)
+	{
+		landed = false; // 0x6372A6: too steep to stand on
+	}
+	const auto tilt = TiltXZ(registry.Get<const Transform>(entity).rotation);
+	const char* outcome = "in physics";
+	if (landed)
+	{
+		// TODO(villager-jobs): GGuidance::MakeDiscipleSFX when the villager's disciple changed (0x6372E8).
+		// TODO(creature): ConsiderCreatureMimickingWhenObjectLands (0x637306).
+		po->flags |= physics::PhysicsObject::Landed;
+		// Living, Fence, or a Tree with no FireEffect (+0x44, ECS/Fire) on land: out of physics at once, where it is,
+		// through its EndPhysics; a tree held tilted (GetYXZ: |x| or |z| > 0.2) or dont_replant stays in physics, not
+		// LANDED. A hot or burning tree stays in physics, LANDED (bw1-decomp Object.cpp:567), and ends a DeadTree.
+		const bool treeOnLand =
+		    registry.AllOf<Tree>(entity) && fire::Find(entity) == nullptr && ecs::sea_cells::IsLand(at);
+		if (living || fence || treeOnLand)
+		{
+			if (treeOnLand && (dontReplant || std::abs(tilt.x) > 0.2f || std::abs(tilt.y) > 0.2f))
+			{
+				po->flags &= ~physics::PhysicsObject::Landed;
+				outcome = "tilted tree: in physics";
+			}
+			else
+			{
+				physics::PhysicsObjects::RemoveObjectWithEndPhysics(entity);
+				outcome = "landed: out of physics";
+			}
+		}
+		else
+		{
+			outcome = "landed: in physics";
+		}
+	}
+	else
+	{
+		if (registry.AllOf<Villager>(entity))
+		{
+			CreateDroppedResource(entity, velocity);
+		}
+		// Reaction::CreateReaction(this, REACTION_REACT_TO_FLYING_OBJECT 9, player, 0) 0x637412: spread once
+		// (SpreadReaction 0x6E3E10) to the Livings near it; the thrower is the hand's player (PLAYER_ONE's interface)
+		ecs::animal_ai::SpreadFlyingObjectReaction(entity, PlayerNames::PLAYER_ONE);
+		// TODO(creature): Creature::CheckAllCreaturesForCatching 0x47CBD0.
+	}
+	// TODO(creature): a toy -> ConsiderMakingCreatureMimicPlayer(DETECTED_PLAYER_ACTION_PLAY_WITH_TOY) (0x637457).
+	SPDLOG_LOGGER_INFO(spdlog::get("game"),
+	                   "Hand: released {} at ({:.1f}, {:.1f}, {:.1f}) v ({:.1f}, {:.1f}, {:.1f}) thrown {} tilt ({:.2f}, {:.2f}): {}",
+	                   static_cast<uint32_t>(entity), at.x, at.y, at.z, velocity.x, velocity.y, velocity.z, thrown, tilt.x, tilt.y,
+	                   outcome);
+	registry.SetDirty();
+	return true;
+}
+
+void HandSystem::Release(glm::vec3 velocity) noexcept
+{
+	// The hand opens (packet 0x12, GInterface 0x5DA400): held->ApplyThisToMapCoord(status, pos) whatever the speed, then
+	// ThrowObjectFromHand(status, dont_replant 0) 0x6385E0 -> InitialisePhysicsFromHand(ThrowVelocity, ...)
 	if (!_held)
 	{
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	fire::SetOutMagicHand(*_held); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
-	if (registry.Valid(*_held) && registry.AnyOf<Tree, DeadTree>(*_held))
+	const auto entity = *_held;
+	if (registry.Valid(entity))
 	{
-		const auto entity = *_held;
-		_held.reset();
-		_pickSource.reset();
-		// Tree::ApplyThisToObject: dropped on a wood store it becomes its wood.
-		if (const auto store = _interactionPoint ? FindWoodStore(*_interactionPoint) : std::nullopt; store)
+		// Tree::ApplyThisToMapCoord 0x74BFD0 / DeadTree 0x511050: on a wood store (IsResourceStore) the store takes it
+		// (DeleteObjectAndTakeResource, 3), thrown or not
+		if (registry.AnyOf<Tree, DeadTree>(entity))
 		{
-			DepositInStore(entity, *store);
-		}
-		else if (registry.AllOf<Tree>(entity))
-		{
-			ReleaseTree(entity);
-		}
-		else
-		{
-			auto& transform = registry.Get<Transform>(entity);
-			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
-			if (auto* fixed = registry.TryGet<Fixed>(entity); fixed != nullptr)
+			if (const auto store = _interactionPoint ? FindWoodStore(*_interactionPoint) : std::nullopt; store)
 			{
-				fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
+				_held.reset();
+				_pickSource.reset();
+				fire::SetOutMagicHand(entity); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
+				DepositInStore(entity, *store);
+				return;
 			}
-			registry.SetDirty();
 		}
+		// Pot::ApplyThisToMapCoord (0x66DED8): a pot put down offers its reaction again (the hand's HandWood / HandFood
+		// become a pile in PutDownHandPot, which offers the pile's)
+		if (const auto type = PotInfoOf(entity);
+		    registry.AllOf<Pot>(entity) && type != PotInfo::HandWood && type != PotInfo::HandFood)
+		{
+			ecs::animal_ai::SetupPotReaction(entity);
+		}
+	}
+	ThrowObjectFromHand(velocity, false);
+}
+
+void HandSystem::ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexcept
+{
+	// Object::ThrowObjectFromHand(status, dont_replant) 0x6385E0: out of the hand, then InitialisePhysicsFromHand
+	if (!_held)
+	{
 		return;
 	}
-	if (registry.Valid(*_held) && (PotInfoOf(*_held) == PotInfo::HandWood || PotInfoOf(*_held) == PotInfo::HandFood))
-	{
-		const auto pot = *_held;
-		_held.reset();
-		_pickSource.reset();
-		PutDownHandPot(pot);
-		return;
-	}
-	if (registry.Valid(*_held))
-	{
-		auto& transform = registry.Get<Transform>(*_held);
-		const float ground = Locator::terrainSystem::has_value()
-		                         ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z))
-		                         : 0.0f;
-		transform.position.y = ground + _heldAltitude;
-		if (auto* fixed = registry.TryGet<Fixed>(*_held); fixed != nullptr)
-		{
-			fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
-		}
-		// put down gently (openblack places it at once): it lands on its feet
-		ecs::SetVillagerState(*_held, VillagerStates::Landed);
-		ecs::animal_ai::PutDown(*_held);
-		// Pot::ApplyThisToMapCoord (0x66DED8): a pot put down offers its reaction again
-		if (registry.AllOf<Pot>(*_held))
-		{
-			ecs::animal_ai::SetupPotReaction(*_held);
-		}
-		registry.SetDirty();
-	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = *_held;
 	_held.reset();
 	_pickSource.reset();
+	fire::SetOutMagicHand(entity); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
+	if (!registry.Valid(entity))
+	{
+		return;
+	}
+	// Pot::InitialisePhysicsFromHand 0x66DF00: |v|^2 <= 5 (all three axes) puts the resource down at once
+	// (PSysGlobal::StartMultiPutdown, Pot::AddResourceToPos, GoolooGooloo, ToBeDeleted); faster it flies as an Object
+	if (const auto type = PotInfoOf(entity); type == PotInfo::HandWood || type == PotInfo::HandFood)
+	{
+		if (glm::dot(velocity, velocity) <= 5.0f)
+		{
+			PutDownHandPot(entity);
+			return;
+		}
+	}
+	// TODO(villager-jobs): Villager::ThrowObjectFromHand 0x756AE0 first clears the disciple (SetVillagerDisciple(0, 0, 0))
+	// when the villager is the player's or nobody's.
+	if (InitialisePhysicsFromHand(entity, velocity, dontReplant))
+	{
+		return;
+	}
+	// openblack only, no body could be built (no mesh): thrown, the old ballistic flight; put down, placed
+	if (velocity.x * velocity.x + velocity.z * velocity.z > 4.0f)
+	{
+		_thrown.push_back({entity, velocity, _heldAltitude});
+	}
+	else
+	{
+		PlaceWithoutBody(entity);
+	}
+}
+
+void HandSystem::Drop() noexcept
+{
+	// ForceDropHeld 0x5D4350 is packet 0x4D with zero velocity, then 0x1D -> ThrowObjectFromHand(status, 1); the test
+	// hook OPENBLACK_HAND_TEST_DROP uses this as a gentle release instead (dont_replant 0)
+	Release(glm::vec3(0.0f));
 }
 
 void HandSystem::UpdateHeldObject() noexcept
@@ -332,29 +504,6 @@ void HandSystem::UpdateHeldObject() noexcept
 	_lastHeldPosition = transform.position;
 }
 
-void HandSystem::Throw(glm::vec3 velocity) noexcept
-{
-	if (!_held)
-	{
-		return;
-	}
-	auto& registry = Locator::entitiesRegistry::value();
-	fire::SetOutMagicHand(*_held); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
-	if (registry.Valid(*_held))
-	{
-		// ThrowObjectFromHand -> Object::InitialisePhysicsFromHand -> PhysicsObject::AddObject with the spring's velocity
-		// TODO(physics): the angular velocity InitialisePhysicsFromHand gives
-		if (physics::PhysicsObjects::AddObject(*_held, velocity, glm::vec3(0.0f), entt::null, true) == nullptr)
-		{
-			// no mesh to build a body from: the old ballistic flight
-			_thrown.push_back({*_held, velocity, _heldAltitude});
-		}
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: thrown at ({:.1f}, {:.1f}, {:.1f}) u/s", velocity.x, velocity.y, velocity.z);
-	}
-	_held.reset();
-	_pickSource.reset();
-}
-
 void HandSystem::UpdateThrown(float seconds) noexcept
 {
 	if (_thrown.empty() || seconds <= 0.0f)
@@ -381,11 +530,17 @@ void HandSystem::UpdateThrown(float seconds) noexcept
 		if (transform.position.y <= ground + thrown.altitude && thrown.velocity.y < 0.0f)
 		{
 			transform.position.y = ground + thrown.altitude;
-			// PhysicsObject::AttemptToAddSoundEvent 0x646683 -> fn_0074F2D0: landing in the water scares the fish, and
-			// leaves a white ring at y 0.1 that grows 2 x the object's radius, aging at 1 / radius (cell 0x3F)
-			if (!IsLand(transform.position))
+			// PhysicsObject::AttemptToAddSoundEvent 0x6465B7: off dry land a white ring at y 0.1 that grows 2 x the
+			// object's radius, aging at 1 / radius (cell 0x3F); in deep water (no cell or altitude < 3 at the rounded
+			// cell, 0x646683) fn_0074F2D0 scares the fish too
+			if (!sea_cells::IsDryLand(transform.position))
 			{
-				ecs::SplashWater(transform.position);
+				const auto* island = Locator::terrainSystem::has_value() ? &Locator::terrainSystem::value() : nullptr;
+				const auto* cell = island != nullptr ? sea_cells::CellAt(*island, sea_cells::RoundedCellOf(transform.position)) : nullptr;
+				if (cell == nullptr || island->GetCellAltitude(*cell) < 3)
+				{
+					ecs::SplashWater(transform.position);
+				}
 				float radius = 1.0f;
 				if (const auto* mesh = registry.TryGet<const Mesh>(thrown.entity);
 				    mesh != nullptr && Locator::resources::value().GetMeshes().Contains(mesh->id))

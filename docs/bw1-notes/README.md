@@ -27,8 +27,10 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [hand-and-interface.md](hand-and-interface.md) | Mano: colocación, estados, agarre, lanzamiento, objeto bajo el cursor |
-| [objects-and-resources.md](objects-and-resources.md) | Montones, vasijas, almacén, árboles (reglas, crecimiento, bosques), rocas, campos, sonidos de coger, objetos creados por el guion del mapa |
-| [physics.md](physics.md) | Físicas del original: objetos lanzados, choques, daño, mar, edificios y rocas que se rompen |
+| [objects-and-resources.md](objects-and-resources.md) | Montones y vasijas, coger por tandas, almacén, objetos estáticos y rocas, campos, sonidos (coger, LHAudio y QMixer, canales, ambiente) |
+| [trees.md](trees.md) | Árboles y bosques: arrancar y el tirón, reglas de coger, soltar y replantar, madera y GTreeInfo, API para los oficios de aldeano, búsquedas, crecimiento, dibujado, fuego del árbol, sacrificio |
+| [map-loading.md](map-loading.md) | Carga del mapa y funciones del guion: CREATE de CHL, niebla del mapa, rebaños y animales, datos de simulación, piscifactorías, `BUILT_PERCENTAGE`, objetos del guion (farolas, hogueras, árboles muertos, puertas, ciudadela planeada), `IsOkToCreateAtPos`, ciudades y ciudadela |
+| [physics.md](physics.md) | Físicas del original: objetos lanzados, choques, daño, flotación, soltar desde la mano, edificios y rocas que se rompen |
 
 **Seres vivos**
 
@@ -43,10 +45,13 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima; tiempo y clima del juego (LH3DAtmos, GClimate, tormentas, lluvia) |
-| [rendering.md](rendering.md) | Estados D3D, terreno, luz, mar, neblina, sombras, cielo y nubes, reflejos, peces, anillos, partículas, ríos, niebla del mapa, humo, fundido, fuentes y texto |
+| [rendering.md](rendering.md) | Render del mundo: estados D3D, terreno y small bump, mar y costa, tabla de luz, neblina, cámara, sombras sobre el terreno, cielo y nubes, ríos, fundido, fuentes y texto, niebla del mapa |
+| [rendering-objects.md](rendering-objects.md) | Render de los modelos: materiales L3D, luz de los modelos, texturas, sprites, manchas, reflejos en el mar, cortes por el plano del agua, bancos de peces, sombras de objetos y de la mano, LOD, humo de las chimeneas |
 | [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
 | [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
 | [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
+| [water.md](water.md) | El agua en el juego: celdas de agua (SeaCells), consultas (costa, río y agua potable) y máscara `LandAvoid`, el agua en los guiones, golpes y caídas al agua, hundirse y ahogarse, anillos, tiburones, puzle de los peces, barco de los misioneros, cascada y arca, audio del agua |
+| [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: cámaras `Cam%d`, pistas `Track%d` (`LH3DWay`), `WALK_PATH` de los MobileObject (tiburones) |
 
 **Magia**
 
@@ -63,10 +68,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [mod-library.md](mod-library.md) | Librería de mods: menú, `settings.cfg`, `--mod`, tipos de mod, cómo programar uno, catálogo |
 | [mods.md](mods.md) | El `AllMeshes.g3d` modificado de la instalación y el mod HD-Tweaks |
 
-**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `water.md` (el agua en el juego), `trees.md` (sale de
-objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.md` (oficios de los aldeanos),
-`audio.md` (motor de audio) y `rendering-objects.md` (sale de rendering; las partículas de rendering irán a
-`particles.md`).
+**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `villagers.md` (oficios de los aldeanos).
 
 ## ¿Dónde busco…?
 
@@ -75,18 +77,23 @@ objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.
 | Una dirección o símbolo de `runblack.exe`, los scripts de desensamblado | [tooling.md](tooling.md) |
 | Altura del terreno, coordenadas, matrices | [engine-math.md](engine-math.md) |
 | Coger, soltar, lanzar, el cursor | [hand-and-interface.md](hand-and-interface.md) |
-| Comida y madera, almacén, campos, árboles | [objects-and-resources.md](objects-and-resources.md) |
-| Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas | [objects-and-resources.md](objects-and-resources.md) |
-| Golpes, daño, edificios que se rompen | [physics.md](physics.md) |
+| Comida y madera, almacén, campos | [objects-and-resources.md](objects-and-resources.md) |
+| Árboles y bosques (tirón, replantar, crecimiento, fuego, sacrificio) | [trees.md](trees.md) |
+| Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas, ciudades | [map-loading.md](map-loading.md) |
+| Golpes, daño, edificios que se rompen, soltar desde la mano | [physics.md](physics.md) |
 | Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
 | Datos y estados de los aldeanos | [villagers.md](villagers.md) |
 | Comportamiento de los animales | [animals.md](animals.md) |
 | Hora del día, ventanas iluminadas, clima, tormentas, lluvia | [day-night-weather.md](day-night-weather.md) |
-| Cómo se dibuja algo; si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
+| Cómo se dibuja el mundo (terreno, mar, cielo); si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
+| Cómo se dibuja un modelo (materiales, luz, reflejos, sombras, sprites, humo) | [rendering-objects.md](rendering-objects.md) |
 | Orden del fotograma original | [original-frame.md](original-frame.md) |
 | Magia: hechizos y cánticos, lanzar desde la mano, gestos, culto, influencia, alineación, reacciones, fuego | [magic.md](magic.md) |
 | Un milagro concreto (comida, agua, curar, bosque, bandadas, bola de fuego, rayo, escudos, teletransporte, tormenta, explosión de rayo) | [miracles.md](miracles.md) |
 | Partículas: tipos, clases de PSys, creadores, sonido de las partículas, qué regla está dónde | [particles.md](particles.md) |
+| Qué celda es agua; costa, río o agua potable más cercana; `LandAvoid` de la criatura | [water.md](water.md#celdas-de-agua-seacells) |
+| Hundirse y ahogarse, tiburones, puzle de los peces, barco de los misioneros, cascada, qué suena en el agua | [water.md](water.md) |
+| Cámaras y pistas de `camera.edt`, recorridos de los tiburones | [camera-tracks.md](camera-tracks.md) |
 | Activar o programar un mod | [mod-library.md](mod-library.md) |
 | Ganchos de prueba (`OPENBLACK_*`), compilar, depurar | [openblack-internals.md](openblack-internals.md) y la sección «Ganchos de prueba» de cada página |
 

@@ -39,6 +39,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -143,6 +144,12 @@ Tables& Load()
 	return tables;
 }
 
+/// GSoundMap::GetSurfaceType (0x71D8E0): 6 off the map, 7 on a water cell, else the surfaceSound of the cell's material
+/// (the water session's single source of the MapCoords cell predicates, ecs::sea_cells)
+int32_t SurfaceType(glm::vec3 position)
+{
+	return ecs::sea_cells::GetSurfaceType(position);
+}
 } // namespace
 
 void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int32_t to)
@@ -208,7 +215,7 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 			}
 		}
 		const auto& position = registry.Get<const ecs::components::Transform>(owner).position;
-		const std::array<int32_t, 5> key = {voice, 2, sounds->second.group, GetSurfaceType(position), event.soundId};
+		const std::array<int32_t, 5> key = {voice, 2, sounds->second.group, SurfaceType(position), event.soundId};
 		const auto list = bank->FindList(key);
 		const bool trace = std::getenv("OPENBLACK_ANIM_TRACE") != nullptr;
 		if (list.empty())

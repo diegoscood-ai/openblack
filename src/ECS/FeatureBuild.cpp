@@ -1,0 +1,183 @@
+/*******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "FeatureBuild.h"
+
+#include <algorithm>
+#include <cstdlib>
+#include <exception>
+#include <string>
+#include <vector>
+
+#include <entt/core/hashed_string.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
+#include <spdlog/spdlog.h>
+
+#include "3D/L3DMesh.h"
+#include "3D/L3DSubMesh.h"
+#include "3D/LandIslandInterface.h"
+#include "ECS/Archetypes/FeatureArchetype.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/Mesh.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Physics/PartialBuild.h"
+#include "ECS/Registry.h"
+#include "Enums.h"
+#include "Locator.h"
+#include "Resources/Loaders.h"
+#include "Resources/ResourceManager.h"
+#include "Resources/ResourcesInterface.h"
+
+namespace openblack::ecs::feature_build
+{
+namespace
+{
+using namespace components;
+
+void EraseMesh(entt::id_type id)
+{
+	auto& meshes = Locator::resources::value().GetMeshes();
+	if (id != 0 && meshes.Contains(id))
+	{
+		meshes.Erase(id);
+	}
+}
+
+/// The model the Feature shows for its percentage (MultiMapFixed::Draw 0x518090)
+void Redraw(entt::entity entity, Feature& feature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& meshes = Locator::resources::value().GetMeshes();
+	auto* mesh = registry.TryGet<Mesh>(entity);
+	if (feature.intactMesh == 0 && mesh != nullptr)
+	{
+		feature.intactMesh = mesh->id;
+	}
+	// Feature::IsDrawBuilding 0x527790: the dry dock while not built (IsBuilt 0x422110: +0x58 & 2 clear and +0x5C >= 1)
+	const bool drawBuilding = feature.type == FeatureInfo::ArkDryDock && feature.percentBuilt < 1.0f;
+	const float percent = feature.percentBuilt; // min(GetPercentBuilt, 1)
+	const auto old = feature.builtMesh;
+	feature.builtMesh = 0;
+	entt::id_type shown = feature.intactMesh;
+	if (drawBuilding)
+	{
+		shown = 0; // DrawBuilding 0x517FE0: nothing at 0
+		auto primitives = percent > 0.0f ? physics::PartialBuild::Build(entity, feature.intactMesh, percent)
+		                                 : std::vector<graphics::L3DSubMesh::GeneratedPrimitive> {};
+		if (!primitives.empty())
+		{
+			// PartialBuild works in world space: back into the Feature's own
+			const auto& transform = registry.Get<const Transform>(entity);
+			const glm::mat4 toWorld = glm::translate(glm::mat4(1.0f), transform.position) * glm::mat4(transform.rotation) *
+			                          glm::scale(glm::mat4(1.0f), transform.scale);
+			const glm::mat4 toLocal = glm::inverse(toWorld);
+			const glm::mat3 normals(glm::transpose(glm::inverse(glm::mat3(toLocal))));
+			for (auto& p : primitives)
+			{
+				for (auto& v : p.positions)
+				{
+					v = glm::vec3(toLocal * glm::vec4(v, 1.0f));
+				}
+				for (auto& n : p.normals)
+				{
+					const auto m = normals * n;
+					n = glm::dot(m, m) > 0.0f ? glm::normalize(m) : glm::vec3(0.0f, 1.0f, 0.0f);
+				}
+			}
+			static uint32_t s_Next = 0;
+			const auto id = entt::hashed_string(("feature-built/" + std::to_string(s_Next++)).c_str()).value();
+			try
+			{
+				meshes.Load(id, resources::L3DLoader::FromGeneratedTag {}, "feature-built", primitives);
+				if (meshes.Contains(feature.intactMesh))
+				{
+					// the Feature's mark on the landscape stays
+					meshes.Handle(id)->SetFootprintSource(meshes.Handle(feature.intactMesh).handle());
+				}
+				feature.builtMesh = id;
+				shown = id;
+			}
+			catch (const std::exception& e)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Feature built percentage: {}", e.what());
+			}
+		}
+	}
+	if (shown == 0)
+	{
+		registry.Remove<Mesh>(entity);
+	}
+	else if (mesh != nullptr)
+	{
+		mesh->id = shown;
+		mesh->submeshId = shown != feature.intactMesh && meshes.Handle(shown)->GetNumSubMeshes() > 1 ? static_cast<int8_t>(-1)
+		                                                                                            : static_cast<int8_t>(0);
+	}
+	else
+	{
+		registry.Assign<Mesh>(entity, shown, static_cast<int8_t>(0), static_cast<int8_t>(1));
+	}
+	EraseMesh(old);
+	registry.SetDirty();
+}
+} // namespace
+
+std::optional<float> GetBuiltPercentage(entt::entity entity)
+{
+	const auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* feature = registry.TryGet<const Feature>(entity); feature != nullptr)
+	{
+		return feature->percentBuilt;
+	}
+	if (registry.AnyOf<Abode>(entity))
+	{
+		return std::nullopt; // a MultiMapFixed whose percentage openblack does not keep
+	}
+	return 1.0f; // 0x70E1ED: not a MultiMapFixed
+}
+
+bool SetBuiltPercentage(entt::entity entity, float value)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* feature = registry.TryGet<Feature>(entity);
+	if (feature == nullptr)
+	{
+		return false;
+	}
+	// fn_0052EDD0: +0x5C = value, 0 when negative; >= 1 -> Built (+0x5C = 1)
+	feature->percentBuilt = std::max(value, 0.0f);
+	if (feature->percentBuilt >= 1.0f)
+	{
+		feature->percentBuilt = 1.0f;
+	}
+	Redraw(entity, *feature);
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "Feature {} built percentage {:.2f}", static_cast<int>(feature->type),
+	                    feature->percentBuilt);
+	return true;
+}
+
+void RunDebugHook()
+{
+	const char* test = std::getenv("OPENBLACK_TEST_BUILT_PERCENTAGE");
+	if (test == nullptr || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	// TheMissionaries: GArk = CREATE(3 = Feature, 69 = ArkDryDock, (1881.083, 8.1316, 3154.109)), then BUILT_PERCENTAGE
+	const glm::vec2 at(1881.083f, 3154.109f);
+	const glm::vec3 position(at.x, Locator::terrainSystem::value().GetHeightAt(at), at.y);
+	const auto dock = archetypes::FeatureArchetype::Create(position, FeatureInfo::ArkDryDock, 0.0f, 1.0f);
+	SetBuiltPercentage(dock, static_cast<float>(std::atof(test)));
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Built percentage test: ArkDryDock at {:.3f}", *GetBuiltPercentage(dock));
+}
+
+} // namespace openblack::ecs::feature_build

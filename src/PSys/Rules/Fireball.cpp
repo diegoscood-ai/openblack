@@ -31,6 +31,7 @@
 #include "Audio/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Weather/Weather.h"
 #include "Locator.h"
@@ -39,6 +40,7 @@
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
+#include "PSys/PSysWaterRings.h"
 #include "PSys/Rules/Shield.h"
 #include "PSys/SoundAction.h"
 
@@ -54,28 +56,10 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// MapCoords::IsWater at a world point (the cell's hasWater bit; outside the map or without a block: water)
+/// MapCoords::IsWater 0x6035B0 at a world point (MapCoords(LHPoint) 0x603160): ecs::sea_cells::IsWater
 bool IsWaterAt(const glm::vec3& point)
 {
-	if (!Locator::terrainSystem::has_value())
-	{
-		return true;
-	}
-	auto& island = Locator::terrainSystem::value();
-	const auto cx = static_cast<int32_t>(point.x * 0.1f); // ftol
-	const auto cz = static_cast<int32_t>(point.z * 0.1f);
-	if (cx < 0 || cz < 0 || cx > 0x1FF || cz > 0x1FF || cx >= island.GetCellsPerSide() || cz >= island.GetCellsPerSide())
-	{
-		return true;
-	}
-	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
-	lnd::LNDCell empty {};
-	empty.properties.fullWater = true;
-	if (std::memcmp(&cell, &empty, sizeof(empty)) == 0)
-	{
-		return true;
-	}
-	return cell.properties.hasWater != 0;
+	return ecs::sea_cells::IsWater(point);
 }
 
 /// The atom, or one of its parents, has been deflected (EC_DeflectionInAtomsHierarchy 0x67DAF0)
@@ -138,31 +122,30 @@ bool FireBallSteam(const Effect& effect, const Object& /*object*/, const Atom* a
 /// +0x28 Damping, +0x2C WindMagnification, +0x30 UseDamping, +0x31 UseWind, +0x32 / +0x33 Disable{Wind,Damping}ForNonHuman;
 /// its own +0x34 DampingHorozontalBounce, +0x38 DampingVerticalBounce, +0x3C GroundDrag, +0x44 ImpactSound, +0x5C its
 /// condition, +0x60..+0x68 ImpactSpeed{Small,Medium,Large}, +0x6C MinAlphaForImpactSoundOrRipple, +0x70
-/// UseSurfaceForBounce, +0x72 CheckShieldDeflections)
-/// (inferido) the property defaults below: the ctor was not read (the fireball files set the values they use)
+/// UseSurfaceForBounce, +0x72 CheckShieldDeflections). The spell files that use it: SF_ExplodeObject (fragments,
+/// NO_SOUND: no impact, no ripple) and SF_FireBallThrow / PU / PU2 (the thrown fireball).
 class GravityWithFloor final: public Modifier
 {
 public:
+	/// the ctor's defaults (0x6A1510) where the file has no such property
 	explicit GravityWithFloor(const Object& object)
-	    // (inferido) the Gravity default: DefineProperties 0x6AC1B0 registers it late and the ctor was not read; 30
-	    // is only the fallback of CreateWithInitialDirection when the group has no UpdateRuleGravity (0x69E9A0)
-	    : gravity(object.Float("Gravity", 10.0f))
-	    , maxSpeed(object.Float("MaxSpeed", 100.0f))
-	    , damping(object.Float("Damping", 0.0f))
-	    , windMagnification(object.Float("WindMagnification", 0.0f))
-	    , useDamping(object.Bool("UseDamping", false))
-	    , useWind(object.Bool("UseWind", false))
-	    , disableWindForNonHuman(object.Bool("DisableWindForNonHuman", false))
-	    , disableDampingForNonHuman(object.Bool("DisableDampingForNonHuman", false))
-	    , horizontalBounce(object.Float("DampingHorozontalBounce", 1.0f))
-	    , verticalBounce(object.Float("DampingVerticalBounce", 1.0f))
-	    , groundDrag(object.Float("GroundDrag", 0.0f))
-	    , impactSound(ReadSoundAction(object, "ImpactSound"))
-	    , impactSoundCondition(object.String("ImpactSoundCondition"))
-	    , impactSmall(object.Float("ImpactSpeedSmall", 0.0f))
-	    , impactMedium(object.Float("ImpactSpeedMedium", 0.0f))
-	    , impactLarge(object.Float("ImpactSpeedLarge", 0.0f))
-	    , minAlpha(object.Int("MinAlphaForImpactSoundOrRipple", 0))
+	    : gravity(object.Float("Gravity", 10.0f))                                      // +0x24
+	    , maxSpeed(object.Float("MaxSpeed", 100.0f))                                   // +0x20
+	    , damping(object.Float("Damping", 0.0f))                                       // +0x28
+	    , windMagnification(object.Float("WindMagnification", 100.0f))                 // +0x2C
+	    , useDamping(object.Bool("UseDamping", false))                                 // +0x30
+	    , useWind(object.Bool("UseWind", true))                                        // +0x31
+	    , disableWindForNonHuman(object.Bool("DisableWindForNonHuman", false))         // +0x32
+	    , disableDampingForNonHuman(object.Bool("DisableDampingForNonHuman", false))   // +0x33
+	    , horizontalBounce(object.Float("DampingHorozontalBounce", 0.5f))              // +0x34
+	    , verticalBounce(object.Float("DampingVerticalBounce", 0.5f))                  // +0x38
+	    , groundDrag(object.Float("GroundDrag", 0.0f))                                 // +0x3C
+	    , impactSound(ReadSoundAction(object, "ImpactSound"))                          // +0x44 (NO_SOUND: action -1)
+	    , impactSoundCondition(object.String("ImpactSoundCondition"))                  // +0x5C
+	    , impactSmall(object.Float("ImpactSpeedSmall", 5.0f))                          // +0x60
+	    , impactMedium(object.Float("ImpactSpeedMedium", 20.0f))                       // +0x64
+	    , impactLarge(object.Float("ImpactSpeedLarge", 40.0f))                         // +0x68
+	    , minAlpha(object.Int("MinAlphaForImpactSoundOrRipple", 60))                   // +0x6C
 	    , useSurface(object.Bool("UseSurfaceForBounce", false))
 	    , checkShields(object.Bool("CheckShieldDeflections", false))
 	{
@@ -192,7 +175,9 @@ public:
 			atom.position += v * dt;
 			// the new global position against the land (atom +0x128, a surface object, not ported)
 			auto p = effect.GlobalPosition(atom);
-			const float land = LandAt(p.x, p.z);
+			const float land = LandAt(p.x, p.z); // LH3DIsland::GetAltitude 0x803090
+			// RenderParticle::GetLowestPoint 0x6C79B0 (vt+0x10C, every kind but meshes): the global y. Particle3DObj
+			// (0x6C7AE0) gives the mesh's lowest point, not used here.
 			if (!(p.y < land))
 			{
 				// in the air: v.y -= clamp(v.y + MaxSpeed, 0, 1) x Gravity x atom gravity x dt
@@ -207,7 +192,7 @@ public:
 				const float into = glm::dot(v, normal);
 				if (into < 0.0f)
 				{
-					ImpactSound(effect, atom, std::abs(into));
+					ImpactSound(effect, atom, p, std::abs(into));
 					const glm::vec3 normalPart = normal * into;
 					glm::vec3 tangent = v - normalPart;
 					glm::vec3 direction = tangent;
@@ -244,9 +229,9 @@ public:
 		return true;
 	}
 
-	/// fn_006A1630: the impact sound (and the ripple on water, +0x71, not ported) when the atom is visible enough,
-	/// hit fast enough and has not got that sound yet
-	void ImpactSound(Effect& effect, Atom& atom, float speed) const
+	/// fn_006A1630: the impact sound and the ripple on water (+0x71, set to 1 by the ctor, no property) when the atom
+	/// is visible enough, hit fast enough and has not got that sound yet
+	void ImpactSound(Effect& effect, Atom& atom, const glm::vec3& position, float speed) const
 	{
 		if (static_cast<int>(atom.colour[3]) < minAlpha || impactSound.action == -1 || speed < impactSmall)
 		{
@@ -263,7 +248,16 @@ public:
 		auto action = impactSound;
 		action.size = audio::spell_sounds::SizeFromImpactSpeed(speed, impactMedium, impactLarge);
 		audio::spell_sounds::StartSound(effect, atom, action);
+		// the ripple (AtomDataRipple, 0x2C bytes; its last ripple +0x20 = (0, 0, 0) when made), only on water.
+		// AtomCore::GetRadius 0x673C70: scale (+0x74) x rule scale (+0x78) with a render particle, else 1
+		const float radius = atom.creator != nullptr ? atom.baseScale * atom.ruleScale : 1.0f;
+		auto& data = atom.data[this];
+		glm::vec3 last(data.x, data.y, data.z);
+		water_rings::AddParticleRipple(position, radius, last, k_RippleDistance);
+		data = glm::vec4(last, data.w);
 	}
+
+	static constexpr float k_RippleDistance = 2.0f; ///< +0x40, set by the ctor, no property
 
 	/// AtomCore::GlobalToLocal 0x673D40 into atom +0x80
 	static void SetGlobal(const Effect& effect, Atom& atom, const glm::vec3& global)

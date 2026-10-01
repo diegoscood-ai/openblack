@@ -23,6 +23,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "Audio/SamplePlay.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/FishFarm.h"
@@ -49,7 +50,23 @@ constexpr std::array k_HandInWater = {
     audio::SoundId::G_HandInWater_07, audio::SoundId::G_HandInWater_08, audio::SoundId::G_HandInWater_09,
     audio::SoundId::G_HandInWater_10,
 };
+constexpr std::array k_HandGrabLand = {
+    audio::SoundId::G_HandGrabLand_01, audio::SoundId::G_HandGrabLand_02, audio::SoundId::G_HandGrabLand_03,
+    audio::SoundId::G_HandGrabLand_04, audio::SoundId::G_HandGrabLand_05, audio::SoundId::G_HandGrabLand_06,
+};
 } // namespace
+
+void HandSystem::GripLandSound() noexcept
+{
+	// StartLandscapeGrip fn_005D1AB0 0x5D1FC4 (on land, unless the HelpSystem g_game+0x25005C has a script's
+	// widescreen on, +0x45E8 and +0x45EC: see HandPlacement.cpp): SoundTag::Create(coords, GetRandomSample(4, 6) = InGame 4 +
+	// LocalRand(6), no loop, mode 3, InGame) -> fn_0071EA40 plays it at once with is3D 0 (the 7th argument): a 2D
+	// one-shot, vol 10, pitch 60 +-15 % (.sad flags 0x3A1). The point tag has no thing and dies when the sample ends.
+	audio::sample_play::Options options;
+	options.sound = static_cast<entt::id_type>(
+	    k_HandGrabLand.at(Locator::rng::value().NextValue<size_t>(0, k_HandGrabLand.size() - 1)));
+	audio::sample_play::PlaySoundEffect(options);
+}
 
 void HandSystem::SplashHand(glm::vec3 point) noexcept
 {
@@ -68,8 +85,17 @@ void HandSystem::SplashHand(glm::vec3 point) noexcept
 	ring.argb = 0xB0FFFFFFu;
 	ring.seaLight = true;
 	ecs::AddWaterRing(ring);
+	// the sample (0x5D20E9): bank InGame, 99 + counter (0xD18228, 0..9 in turn, advanced even when culled), is3D 1,
+	// +0x0C 0 (not moved with an object), no object, at (x, 0.2, z); GAudio::PlaySoundEffect does not start it farther
+	// than 150 from the camera. The ten are clone group 4 of InGame.sad and play in the default mode 3 with no object,
+	// so LHSamplePlay restarts the channel of the previous one (0x10011146..0x100111BC): one at a time.
 	static size_t next = 0;
-	PlaySample(k_HandInWater.at(next));
+	audio::sample_play::Options options;
+	options.sound = static_cast<entt::id_type>(k_HandInWater.at(next));
+	options.is3D = true;
+	options.track = false;
+	options.position = glm::vec3(point.x, 0.2f, point.z);
+	audio::sample_play::PlaySoundEffect(options);
 	next = (next + 1) % k_HandInWater.size();
 	ecs::SplashWater(glm::vec3(point.x, 0.2f, point.z));
 }

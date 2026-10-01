@@ -20,11 +20,14 @@
 //   OPENBLACK_TEST_WORSHIP_PLAYER="<n>"                              the hooks act as player n, not the human one
 //   OPENBLACK_TEST_WORSHIP_SITE="<TRIBE>[,<SEED>...]"                CREATE_WORSHIP_SITE on that player's citadel, with
 //                                                                    an icon of each seed, turn 1
+//   OPENBLACK_CAMERA_LOCK="ox,oy,oz,fx,fy,fz"                         the camera put there every turn (screenshots while
+//                                                                    the Land 1 script moves the camera)
 // <MAGIC> is a MAGIC_TYPE number or its info.dat name, <SEED> a SPELL_SEED_TYPE number or name, <ABODE> an abode info
 // name (NORSE_ABODE_SPELL_DISPENSER...), <town> a town id.
 
 #include "Worship.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -36,6 +39,7 @@
 #include <glm/vec2.hpp>
 #include <spdlog/spdlog.h>
 
+#include "Camera/Camera.h"
 #include "Citadel.h"
 #include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/SpellIcon.h"
@@ -394,6 +398,22 @@ void worship::RunDebugHooks(uint32_t turn)
 	if (const char* value = std::getenv("OPENBLACK_TEST_TAP"); value != nullptr)
 	{
 		TestTap(value, turn);
+	}
+	// OPENBLACK_CAMERA_FLY also holds the camera at its end point every turn: the land scripts take the camera
+	// (START_CAMERA_CONTROL; Land 1's intro waits for MOVE_GAME_THING), so a one-off flight is undone
+	const char* lock = std::getenv("OPENBLACK_CAMERA_LOCK");
+	if (lock == nullptr)
+	{
+		lock = std::getenv("OPENBLACK_CAMERA_FLY");
+	}
+	if (const char* value = lock; value != nullptr && Locator::camera::has_value())
+	{
+		glm::vec3 origin(0.0f);
+		glm::vec3 focus(0.0f);
+		if (std::sscanf(value, "%f,%f,%f,%f,%f,%f", &origin.x, &origin.y, &origin.z, &focus.x, &focus.y, &focus.z) == 6)
+		{
+			Locator::camera::value().SetOrigin(origin).SetFocus(focus);
+		}
 	}
 }
 

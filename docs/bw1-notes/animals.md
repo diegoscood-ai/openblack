@@ -201,10 +201,15 @@ reacciones en el mismo reparto (fuego y teletransporte portados).
   una propia (`SeperateLivingIntoNewFlock`) → IN_HAND. Soltar o lanzar: física → FLYING (clip THROWN).
 - En reposo (`Animal::EndPhysics` 0x5F0D80): landType por la fila derecha del cuerpo (y > 0,5 de lado derecho, < −0,5
   izquierdo, si no de pie); vivo → LANDED (clip de levantarse según landType; los depredadores, el de despertar) → la
-  bandada se centra donde cayó → INTERACT_DECIDE → a pasear. **No hay ahogamiento** de animales (solo se borra un
-  cadáver hundido). openblack deja un animal suavemente de pie (el original lo suelta en la física).
+  bandada se centra donde cayó → INTERACT_DECIDE → a pasear. **No hay estado de
+  ahogarse** en los animales (`Animal::EndPhysics` no tiene rama de agua): en el mar el animal
+  nunca se para, su densidad sube y a los **~75 turnos (7,5 s)** pasa de 1 y `Living::HasSunk` 0x5ED370 lo mata y lo
+  borra (`SetDying`, estado 15, `ToBeDeleted(0)`) — vivo o cadáver. En una celda somera con agua de altitud ≥ 2
+  aterriza **vivo** (a diferencia del aldeano, que se ahoga); ver
+  [water.md](water.md#hundirse-ahogarse-y-borrarse). Soltar suave
+  sobre el mar ya lo mete en física como el original; en tierra openblack sigue colocándolo de pie.
 - Muerte (`Living::SetDying` 0x5EC390, nada mientras vuela): DYING (clip de caer) → DEAD (tumbado según landType; los
-  depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → desaparece (el humo `CreateSmokyStuff` aún no). Un cadáver lanzado
+  depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → su humo (`CreateSmokyStuff`, abajo) y desaparece. Un cadáver lanzado
   vuelve a DEAD con otros 600.
 
 ## Clips por especie (AnimalAnimation.cpp 0x41C0E0..)
@@ -238,8 +243,10 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 - **Nacer** (GIVES_BIRTH): el recién nacido decide al momento, antes de que la madre vuelva a pasear.
 - **Animal lanzado a un almacén de comida:** se convierte en comida (su foodValue: vaca y caballo 1200, oveja 800,
   león y tigre 900, lobo 700, cerdo 290) y desaparece (`Animal::ReactToPhysicsImpact` 0x41BC10).
-- **Humo del cadáver** (`Object::CreateSmokyStuff` 0x63A810, `ECS/SmokyStuff.*`): 15 sprites de `Data\Textures\smoke.raw`,
-  cada uno con dirección al azar a 0,3..1 × tamaño, gris con opacidad vida × 100 / 255, 3 s, de 0,5 a 1,5 × tamaño.
+- **Humo del cadáver** (`Object::CreateSmokyStuff` 0x63A810 → `SmokyStuff::Create` 0x823C90 modo 0, tamaño 1): 15
+  sprites de `Data\Textures\smoke.raw` con dirección al azar a 0,3..1 × tamaño, gris 0x808080 con opacidad vida × 100,
+  3 s, de 0,5 a 1,5 × tamaño. El motor es `ecs::smoky_stuff` (`ECS/SmokyStuff.*`, de la sesión agua, el mismo del polvo
+  y las salpicaduras del barco; se dibuja con los sprites del barco); los animales solo llaman a `SmokyStuff::Create`.
 - **En la mano** los animales tienen el agarre de los aldeanos (radio 2D, bajada 0,65). El landType se lee de la matriz
   del cuerpo al empezar el turno.
 
@@ -288,7 +295,7 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
 ### Creación: malla y escala
 
 - `CREATE_ANIMAL` (24, "ANNN": tipo, rebaño, pueblo) y `CREATE_NEW_ANIMAL` (25, "ANNNN": + edad) → `fn_00419D10`
-  (rebaños y clases en objects-and-resources.md). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
+  (rebaños y clases en [map-loading.md](map-loading.md#animales-y-rebaños-create_flock-create_new_animal)). Malla: `Object::CallVirtualFunctionsForCreation` 0x636BE0 da al
   LH3DObject `GetDetailMesh(2, 1, 0)` (info +0x1FC + 4k: alta, std, baja) y el LOD es siempre 1: **la std** (también
   `GetMesh`); openblack usaba la alta. Escala (`InitialiseScale` 0x417B20): jóvenes
   ageToScale[edad − 1] + FloatRand(0,75·(ageToScale[edad + 1] − s)); adultos 1,05 − FloatRand(0,1). Sin ángulo inicial.

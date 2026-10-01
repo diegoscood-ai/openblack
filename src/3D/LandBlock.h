@@ -45,7 +45,7 @@ struct LandVertex
 	glm::u8vec4 secondMaterialID;         // w: the same for the second materials
 	glm::u8vec4 materialBlendCoefficient; // force alignment 4 bytes to prevent packing
 	glm::u8vec4 lightLevel;               // x: luminosity, yzw: the cell colour as a D3DCOLOR (b, g, r) for the specular
-	float waterAlpha;
+	float waterAlpha; // the shore fade: 0 at altitude 1 or less, 1 above (LandBlock::BuildVertexList)
 	glm::vec3 normal; // smooth, from the neighbouring cell altitudes (triplanar cliffs of the terrain-x2 mod)
 
 	LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat, const glm::uvec3& blend,

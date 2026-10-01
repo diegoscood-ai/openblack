@@ -78,7 +78,21 @@ void DoPreCastThings(entt::entity entity, MagicType type, psys::ProcessInfo& inf
 	const auto& tables = Locator::infoConstants::value();
 	castData.duration = GetTimerWhenPlayerCasting(tables, type) * seed.castMultiplier;
 	castData.chants = GetMagicEffectInfo(tables, type).initialChants * seed.castMultiplier;
-	// `if (magicInfo.spellSeedType == 2) castData.magnitude = 1`: dead (-1 in every row)
+	// 0x729502..0x72950B: `if (magicInfo.spellSeedType == SpellSeedType::Fire) castData.magnitude = 1.0f`, after
+	// fn_0071FA10 put the gesture packet's size (+0x14 = GInterface +0x1B8) there, so a FIRE seed casts with a fixed
+	// magnitude whatever circle was drawn. Read literally the branch is dead: info.dat leaves GMagicInfo +0x28
+	// (spellSeedType) at -1 in every row and nothing writes it at run time, so the original's ball would take the last
+	// circle's size, or 0 (SF_FireBall's MagnitudeFloatProvider clamps it to 0.01, a 4 cm ball) when no circle was ever
+	// drawn. USER (2026-10-01): a fireball thrown from the hand was always big, whatever the gesture. (inferido) the
+	// test uses the seed's own type (GSpellSeedInfo, seed +0x6C) when the info row leaves the field at None, which
+	// gives the hand fireball the 1.0 the branch was written for (SetScale 1.0 x the root sprite's 4.0168).
+	const auto& magicInfo = GetMagicInfo(tables, type);
+	const auto infoSeed =
+	    magicInfo.spellSeedType != SpellSeedType::None ? magicInfo.spellSeedType : seed.seedType; // (inferido)
+	if (infoSeed == SpellSeedType::Fire)
+	{
+		castData.magnitude = 1.0f;
+	}
 }
 
 /// SpellSeed::DoPostCastThings 0x729260

@@ -1,5 +1,18 @@
 # Objetos y recursos
 
+Vasijas y montones de comida y madera, coger por tandas, el almacén, los objetos estáticos y las rocas, los campos y los
+sonidos (coger, LHAudio y QMixer, canales, mano en el agua, ambiente). Todo **fiel** salvo lo marcado **(inferido)**.
+Los árboles están en [trees.md](trees.md) y la carga del mapa en [map-loading.md](map-loading.md).
+
+- [Vasijas y montones](#vasijas-y-montones-pot--pileresource)
+- [Coger por tandas](#coger-por-tandas-multi-pick-up)
+- [Almacén](#almacén-storagepit)
+- [Objetos estáticos](#objetos-estáticos-mobilestatic-rocas)
+- [Campos](#campos-field-informe-tmp_disfieldfield_notestxt)
+- [Sonidos](#sonidos-informe-tmp_dissoundnotestxt)
+- [Movido a otras páginas](#movido-a-otras-páginas)
+- [Pendiente](#pendiente) · [Ganchos de prueba](#ganchos-de-prueba) · [Fuentes](#fuentes)
+
 ## Vasijas y montones (Pot / PileResource)
 
 - `Pot::Create` (0x66CF10): potType 0 = Pot simple, 1 = PileFood, 2 = PileWood. Las vasijas de mano (HandWood 11,
@@ -45,191 +58,7 @@
 
 ## Árboles
 
-- Arrancar: el tirón empieza **al pulsar** (StartGrab 0x5D1740 llama a `CHand::PickUp(obj, 1)` en el momento; el umbral
-  de 225 ms es solo para los demás objetos); el árbol se inclina hacia la mano y sale cuando la mano se ha movido más de
-  peso/1000 m en horizontal desde donde lo agarró (detalle y diferencia con el original en «Tirón», abajo). Sonido TreeBreak, montón de raíces
-  (malla 593, 15 s) y raíces colgando (malla 592).
-- El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
-  vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
-- **Soltar** (`Object::InitialisePhysicsFromHand` 0x636F00 + `Tree::EndPhysics` 0x74B830): el árbol cuenta como «dejado
-  con cuidado» (bandera 8 del objeto físico) solo si la normal del terreno bajo él apunta arriba (y ≥ 0,7, pendiente
-  menor de unos 45°) **y** llega casi derecho (los ángulos x y z de su matriz YXZ ≤ 0,2 rad ≈ 11,5°; un árbol en la mano
-  toma el «arriba» de la mano, que sigue la superficie, así que en una ladera va inclinado). Entonces: en tierra y sin
-  arder, se replanta; en agua, árbol muerto. Si no cumple, cae con físicas y acaba como árbol muerto. El sonido
-  (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) lo lanza `PhysicsObject::RemoveObject` 0x646B44 en **todo** soltado
-  con cuidado que acabe en tierra, replantado o no. Lanzado = árbol muerto siempre.
-- **Bosque al replantar** (0x74B8BF): espiral por las celdas del mapa hasta 25 + 10 m; por cada objeto fijo
-  `d = distancia − su radio 2D`. Un objeto de un pueblo (o parte del templo) a menos de 25 m ⇒ el árbol es «de pueblo»
-  (bit 1 de +0x5E = `isNonScenic`, ¡se pone a **1** dentro del pueblo!) y se une al bosque **del pueblo**, que gana a
-  cualquier otro; si no, hereda el bosque del árbol con bosque más cercano (sin límite propio, solo los 35 m de la
-  búsqueda); sin ninguno y fuera de pueblo, crea un bosque nuevo. Efectos: humo blanco `SmokyStuff` en el suelo (en
-  openblack, el polvo del agarre), `SPOT_VISUAL_FOREST_CREATED` (0x2C) **siempre que no sea en pueblo**,
-  `StartImmersion(0x2E)` y mímica de criatura (sin portar) y alineación buena (ver «Alineación»).
-  *Desviación*: el original saca el bosque del pueblo de una lista que el pueblo guarda (Town +0x608) y openblack no
-  modela esa lista: el primer árbol plantado en un pueblo crea su bosque (`ecs::TownForestId`).
-- Sobre un almacén = madera `woodValue·escala·GLandBalance[5]` (`Tree::GetDefaultResource` 0x74B7A0, × vida). Un **árbol
-  muerto** da menos: `DeadTree::GetDefaultResource` 0x511330 = `woodValue·escala` sin vida ni balance de tierra.
-- Valores de madera (info.dat): roble 800, haya/cedro 700, abedul/olivo 500, ciprés 400, conífera/pino 350,
-  palmera 300, seto 100, arbusto 15.
-
-### Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
-
-Se ha unido a la página de la magia: [magic.md](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment) (valor, actos de los árboles: arrancar con la
-mano es malo, replantar y el árbol que planta el agua son buenos; el ritmo por turno, los guiones y lo que falta).
-
-### Árboles para los oficios de aldeano (API `src/ECS/Trees.h`, para la sesión de aldeanos)
-
-- **Borrar** (`DeleteTree` = `Tree::ToBeDeleted` 0x74A210 / `DeadTree::ToBeDeleted` 0x510C90): fuera del bosque y de las
-  físicas, avisa a los oyentes (`AddTreeDeletedListener`: fuego, reacciones, mano) y se borra. `DeleteForest` =
-  `Forest::ToBeDeleted` 0x539C60: borra cada árbol de sus dos listas y sale de la lista de bosques (también el bosque
-  vacío a los 2000 turnos). `ShrinkAllTrees` usa `DeleteTree` para el árbol que llegaría a 0 (fn_0074A3A0).
-- **Madera**: `TreeWoodValue` = `Tree::GetWoodValue` 0x74B7B0 (vida × 1 × woodValue × escala × GLandBalance[5]) o
-  `DeadTree::GetWoodValue` 0x511AD0 (vida × woodValue × escala³: el original eleva la escala al cubo ahí); `TreeWood` =
-  `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × escala), lo
-  que recibe un almacén (`DepositInStore` lo usa).
-- **Quitar madera a un tronco** (`RemoveWood` = `DeadTree::RemoveResource` 0x511370): si le quedan ≤ n, se borra y da lo
-  que tenía; si no, **encoge**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Su recurso es su
-  `GetDefaultResource` (`Object::GetResource` 0x639520: el suyo si el tipo coincide, 0 si no). Comprobado:
-  haya muerta de escala 1, 700 → quitar 100 → 600, escala 0,857.
-- **Tipo de tronco al cargarlo** (`TreeCarriedType`): `Tree::GetCarriedTreeType` 0x55D900 = `carriedType` de info.dat;
-  `DeadTree::GetCarriedTreeType` 0x511A20 = 0-3 si su malla es uno de los 4 troncos de `CarriedObject::Init` 0x462600
-  (MeshPack 406, 347, 348, 349), si no el `carriedType` de su árbol (haya = 3, madera dura).
-- **Talar** (`FellTree` = `FelledTree::Create` 0x5116A0, que solo llama `Villager::ForesterChopsTree` 0x75FAC0): el árbol
-  pasa a `DeadTree` + `FelledTree` con su malla (sin soltar las raíces: esa bandera solo la pone `Tree::EndPhysics`) y
-  entra en las físicas lanzado por el leñador: `k = 0,4 × altura × 0,5`, `a = atan2(x, −z)` de la dirección
-  leñador→árbol (fn_007FAA50; 0 si mide menos de √0,001), velocidad `(sin a, 0, −cos a)·k` (a lo largo de esa
-  dirección), giro `0,4·(cos a, 0, sin a)` rad/s **en espacio del cuerpo** (`PhysicsObject::AddObject` 0x6443A0 hace
-  `L = Σ (w·I)_i · fila_i` con la matriz del árbol, con su giro Y): en mundo `R·(cos a, 0, sin a)·0,4`, así que cómo cae
-  depende de la orientación del árbol. En openblack el eje va **negado**: `PhysOb::Integrate` 0x7FE260 gira las filas con
-  `R(ŵ, ángulo)`, que en el `PhysOb` diestro de openblack es girar −ángulo (`tmp_dis\physics\physob.md`, «Sign
-  convention»). Después `Villager::ForesterChopsTree` borra el árbol (`ToBeDeleted`): en openblack es la misma entidad,
-  así que se avisa a los oyentes de borrado y el fuego pasa al tronco (fn_00730960). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
-  **Sin portar**: `flags |= 2` y `+0x1A4 = 2` del objeto físico (sin identificar), `RaiseUntilNotIntersecting` 0x644800 y
-  las dos reacciones 0x0C («aquí hay madera»: una del constructor de DeadTree 0x510957 y otra de `FelledTree::Create`
-  0x511889; `FelledTree::EndPhysics` 0x511970 no añade la del posarse). `FelledTree::Draw`
-  0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
-  Gancho `OPENBLACK_TEST_FELL="x,z"`.
-
-### Búsquedas de árboles y bosques para los aldeanos (informe `tmp_dis\trees2\villager_queries.md`)
-
-- **Árboles de una celda** (`TreesInCell`; `MapCoords::FindType(6)` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0): el
-  tipo 6 (`OBJECT_TYPE_FOREST_TREE`) va en la lista de **fijos** de la celda (MapCell +4), y `Fixed::InsertMapObjectToCell`
-  0x52DEA0 mete cada objeto **en cabeza**: el primero es el último insertado. openblack no tiene listas por celda:
-  `Tree::mapInsertion` guarda ese orden (al crear el árbol y al replantarlo, `InsertMapObject` en `Fixed::EndPhysics`).
-- **Buscar árbol para talar** (`FindTreeNearVillager` = `Villager::FindTreeNearVillager` 0x75FD00): las 9 celdas de
-  alrededor en el orden de `GUtils::Spiral` (0x74D7E0, tabla 0xDA59FC, empezando con dir 1 y pasos 1: (0,0) (−1,0)
-  (−1,−1) (0,−1) (1,−1) (1,0) (1,1) (0,1) (−1,1)), en cada una **solo el primer árbol** que no sea
-  INDESTRUCTIBLE (bit 0x4000 de +0x24: solo lo ponen los objetos de puzle y `LandscapeVortexOut`; ningún árbol en una
-  partida normal); el más cercano por `Dist2D(aldeano, posición de trabajo)` desde 99999. Sin más reglas: ni distancia
-  máxima, ni el bit «de pueblo» (+0x5E & 2), ni tamaño, ni bosque. El original devuelve 0/1/10 (10 = ya lo toca,
-  `IsTouching`): eso lo decide el lado del aldeano.
-- **Posición de trabajo** (`TreeWorkingPos` = `Tree::GetWorkingPos` 0x74C040): la del árbol más, hacia el aldeano,
-  `Get2DRadius(aldeano) + 0,9` (0x8C5844). El radio es el **del aldeano**. `Object2DRadius` = `Object::Get2DRadius`
-  0x638180 = escala × max(semiejes x, z de su caja).
-- **Bosques** (Forest, 0x58 bytes): +0x34 cuenta atrás de vacío, +0x38 BigForest, +0x3C = 1 bosque «de pueblo»
-  (escénico), +0x40 id. Un **BigForest** tiene su Forest (su ctor 0x438CE0 lo crea en +0x80 y le pone +0x38): ahora en
-  openblack también, así que el Conifer que da al cogerlo y el Pine que planta en su borde son de ese bosque.
-  `Forest::Process`: solo cuenta como vacío sin BigForest y sin árboles; **un bosque escénico no se procesa** (sus árboles
-  no crecen y no planta).
-- **Bosque escénico del pueblo** (`MakeScenicForest` = `Town::MakeScenicForest` 0x741B40): toma los árboles a menos de
-  250 + 10 m del centro del pueblo que no tienen bosque, o cuyo bosque es escénico y están más cerca del centro del
-  pueblo que del de ese bosque (distancias 2D); si el pueblo no tenía, lo crea en el centro **solo si hay algún árbol**. Las
-  celdas son las de la espiral de `GUtils::Spiral` desde la celda del centro, que para en la primera celda a más de R
-  (1369 celdas, radio de Chebyshev 18: no todo el disco de 260 m).
-- **Lista de bosques del pueblo** (`AssignForestsToTown` = `Town::AssignForestsToTown` 0x73EB00, Town +0x608): se vacía y se
-  llena con cada bosque cuyo punto más cercano (el borde de su BigForest o su centro, fn_0053ADB0) está a menos de
-  `GTownInfo::maxDistanceForTownForest` (250, +0x164) del almacén (o del punto temporal) y que tiene madera
-  (`ForestWood` = fn_0053B280: la de su BigForest más la de cada árbol). La llama `Town::AsssignTownFeature` 0x73EAC0 (para
-  cada pueblo, tras `MakeScenicForest`) y `Scaffold::BuildBuilding`; no se toca al crear o replantar árboles.
-  El borde es `Object::GetNearestEdgeToPos` 0x636DA0 (vt+0x83C de BigForest): pos + GetPosFromAngle(ángulo hacia
-  `pos`, Get2DRadius).
-- **Replantar en un pueblo** (`TownForestId`): el árbol se une al **último bosque escénico** de la lista del pueblo
-  (`Tree::EndPhysics` 0x74BA2B); si no hay ninguno se queda con el bosque del árbol más cercano ya encontrado, y sin
-  ninguno de los dos, **sin bosque** (antes openblack creaba uno).
-- **Bosque más cercano** (`FindNearestForestToPos` = `Town::FindNearestForestToPos` 0x73EC10): en la lista del pueblo, el
-  de punto más cercano (0 si se está dentro del radio del BigForest) a menos de 250; gana uno no escénico, el escénico solo
-  si no hay otro. `FindForest(pos, max, soloVacíos)` = fn_0053A1A0: por la lista global, el de **centro** más cercano
-  (vacío = sin árboles y sin BigForest). `ForestCentreTree` = `Forest::GetForestCentreTree` 0x53ABF0.
-- **BigForest para los leñadores**: `BigForestArrivePos` = `GetArrivePos` 0x439360 (su posición más, hacia el aldeano,
-  0,5 × su radio 2D); los árboles en la mano o en vuelo no están en ninguna celda (en el original salen del mapa);
-  `BigForestRemoveWood` = `RemoveResource` 0x4390D0: pide n / vida; si no llega, da lo que tiene y
-  se borra; si llega, resta y **solo cuando** su madera se aleja más de 250,0 (0x8C6210) de vida × escala × woodValue se
-  reescala y planta un Pine en el borde (`AddTreeAround` 0x439220: tamaño 0,05, máximo **0,75** (0x8AC3F8) + azar(0,5);
-  antes openblack ponía 0,5). La mano usa lo mismo (350 por árbol, así que siempre reescala). Ganchos
-  `OPENBLACK_TEST_TREE_QUERIES="x,z"` y `OPENBLACK_HAND_TEST_FOREST=1`.
-- **Quién llama a `MakeScenicForest` y `AssignForestsToTown`**: en el original, `Town::AsssignTownFeature` (carga del mapa) y
-  los edificios terminados; en openblack, de momento nadie (la sesión de aldeanos lo enganchará): hasta entonces los
-  pueblos no tienen lista de bosques y un árbol replantado en un pueblo queda sin bosque.
-
-### Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
-
-- Solo crecen los árboles **de un bosque**: en el original únicamente `Forest::Process` 0x539DA0 recorre sus árboles, así
-  que los árboles sueltos del guion (todos los de Land 1 y Land 2, que llevan bosque −1) no crecen nunca. Los de Land 3
-  (65), Land 4 (82) y Land 5 (164) sí.
-- Un árbol nace «creciendo» (bit 0 de +0x5E) solo si su `maxSize` es distinto del tamaño con el que se crea, y su
-  contador (+0x60) arranca en un turno al azar de [0, growTurns) (ctor 0x749E00).
-- Cada `growTurns` turnos (10 en los 22 tipos, o sea 1 s): `amt = growAmt · (1 + 0,01·rainMultiplier·lluvia) ·
-  (1 + 0,5·alineación del terreno)`, y `escala = min(escala + amt, maxSize)`. `growAmt` 0,01 (0,02 conífera/pino, 0,005
-  roble/olivo/palmera). Al llegar al máximo deja de crecer. `SetScale` es virtual y rehace la colisión: el círculo de
-  obstáculo sigue al tamaño.
-- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), llamado desde `Game::Update` con los campos. **Sin
-  clima ni alineación de terreno todavía**: lluvia 0 y alineación 0, así que `amt = growAmt`. Ganchos
-  `OPENBLACK_TEST_TREE_GROWTH="x,z"` (dos brotes, uno con bosque y otro sin), `OPENBLACK_TREE_TRACE=1` (cada paso
-  de crecimiento y el brillo) y `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"` (suelta un árbol ahí y dice si se
-  replanta, cae o queda muerto).
-- **Bosques** (`Forest`, ctor 0x539BD0; `ECS/Trees.cpp`): un bosque es un objeto con centro e id (CREATE_FOREST, o
-  `new Forest(pos, 0)` al replantar fuera de todo bosque; id 0 = el siguiente libre). CREATE_TREE y CREATE_NEW_TREE
-  buscan el id del guion en la lista de bosques y, si no existe, el árbol **no tiene bosque** (0x7162BE): los ids 0-6
-  de Land5 y el −1 de Land1/Land2 quedan sin bosque. Cada turno (`Forest::Process` 0x539DA0): un bosque vacío espera
-  2000 turnos y se borra; si no, crecen sus árboles y puede plantar uno nuevo: `r = 2000 + azar(1000)`,
-  `f = min(1, 0,05·crecidos)`, `T` = turnos desde el último árbol que plantó cualquier bosque (global 0xCD04C8),
-  `c` = intentos del bosque (+1 por turno); si `c·f·T/300 > r`, planta junto a uno de los `azar(n/2+1)` crecidos más
-  cercanos a su centro (`Forest::CreateNewTree` 0x539FD0) y `c` vuelve a 0. **Plantar junto a un árbol**
-  (fn_0053A010): 32 ángulos desde uno al azar (2π/32 entre ellos) × 5 radios (entero 5-9 al azar, luego `(r+2) % 10`),
-  el primer sitio libre; el árbol nuevo es del tipo del padre, tamaño 0,1, máximo `0,8 + azar(0,4)` y ángulo al azar.
-  «Libre» (fn_0074C180) = sin objeto fijo (círculo de 0,5) y en tierra; el original lee `(collide & 8) == 0 || IsWater`,
-  la parte del agua parece invertida y se ha tomado como «no en agua» [supuesto]. Con un bosque de 20 árboles crecidos
-  sale más o menos un árbol nuevo en el mundo cada minuto y medio (comprobado en Land3: el bosque 19 plantó uno).
-- **Agua sobre un árbol** (`Tree::ApplyWaterSpell` 0x74C390, `ecs::ApplyWaterSpell`, para la sesión de milagros): uno
-  que crece crece `waterMultiplier·growAmt`; con el subtipo de hechizo 0x17 también uno adulto, la mitad por
-  `GetDistanceModifier(tamaño, 3)` (= `SigmoidThreshold(0,5, 1 − min(tamaño,3)/3)`, tabla de 41 pasos en 0xC23284), por
-  encima de su máximo. Uno adulto de un bosque regado sin 0x17, pasados 40 turnos del último árbol del mundo, planta
-  otro a su lado (el llamador da la alineación buena y la estadística 0xE). Suena 0x78 + tick%9 (`G_TreeGrow`).
-
-### Dibujado (además del mecido, ver «Campos»)
-
-- **Ranura de viento**: `round(yAngle·16/2π) & 15` (0x74A0E7), guardada al crear el árbol, así que los árboles orientados
-  igual se mecen juntos (`components::Tree::windSlot`; antes openblack usaba un hash de la entidad).
-- **Brillo por cámara** (`Tree::PreDraw` 0x74A883 → global 0xC22FA0, leído solo por código de árboles):
-  `d = normalize(foco de la cámara − posición de la luz)`, `v = normalize_xz(dirección de vista)`,
-  `b = dot < 0 ? 200 : 200 + 55·dot`, y `Tree::Draw` 0x74B077 multiplica cada canal RGB del color del árbol por `b/256`
-  (0,781 … 0,996). **Rareza del original**: LH3D tiene una sola luz puntual y de día su único `setter` es código muerto,
-  así que la luz se queda en el origen del mapa (0,0,0); los árboles se oscurecen un 22 % cuando la cámara mira hacia esa
-  esquina. Al ocaso y de noche (tipo de cielo > 0; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así
-  que los árboles usan la del fotograma anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano
-  subida al menos a 10 sobre el terreno: entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros
-  (Land1, cámara típica: 200 a mediodía, 242 a las 20 h).
-- **Color propio del árbol** (`fn_00802120` en `Tree::Draw`): es la misma luz bilineal de las 4 celdas bajo el origen
-  que usan los demás objetos (`fn_00801C90`, mismas tablas 0xEDD90C y celdas +3/+0xB/+0x88/+0x90), solo que en entero
-  (fracción de MapCoords >> 8) en vez de float; la neblina (`fn_007FEB30`) es la de todos los modelos. openblack ya lo
-  hace igual en `vs_object`: no hay nada propio que portar.
-  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
-  instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
-- **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
-  suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
-  `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.
-- **Curvado junto a lo que pasa cerca** (`Tree::Draw` 0x74AB8B, `fn_005DF1B0`, tabla 0xD19A48): cada fotograma se apuntan
-  en la tabla el objeto que lleva la mano (ranura 1: todo objeto en la mano se «dibuja en la mano»), los objetos físicos
-  en vuelo (ranuras 3-13 por turno, `fn_00646FE0`) y la criatura del jugador (ranura 2; aún no hay), cada uno con su
-  posición y un radio = escala × la semidiagonal de su malla (LH3DMesh +0x30). Cada fuente marca los árboles de las 3 × 3
-  celdas de 10 m a su alrededor (gana la última). Un árbol marcado se curva si su copa no está por debajo de la fuente
-  (base + altura ≥ y de la fuente) y la distancia horizontal `d` es menor que el radio `r`:
-  `ángulo = 0,471239 · (1 − ((r − 0,75)·d/r + 0,75)/r)` (27° como mucho), alrededor del eje horizontal perpendicular a la
-  dirección fuente→árbol, la copa **alejándose** de la fuente; solo la matriz dibujada, y en ese fotograma sin vaivén.
-  Sonido al empezar a curvarse: clave `{c, *, *, 10, 75}` de `editor.sad` con `c = 3` si la curva es < 0,3 (sin
-  muestras), 2 si < 0,67, 1 si no: `G_Crash_Tree_M_01..08` («rubbing trees»). openblack: `ecs::UpdateTrees`
-  (`UpdateTreeBends`, `Tree::bendAngle/bendDirection`) y `RenderingSystem.cpp`. Comprobado con una roca en la mano
-  (`OPENBLACK_HAND_TEST_HOLD=1.5`): los árboles cercanos se apartan y suenan `G_Crash_Tree_M_05/07`.
+Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado).
 
 ## Campos (Field, informe `tmp_dis\field\field_notes.txt`)
 
@@ -263,291 +92,178 @@ mano es malo, replantar y el árbol que planta el agua son buenos; el ritmo por 
   maduros se mecen: la columna 1 (eje arriba) se cizalla en z world con `1,75 × escala × T0[i]`, `T0 = −0,03·cos(fase)`
   de 16 fases (`Tree::PreDraw` 0x74A7C0: velocidad Random(1, 2) cada 2 s, fase += ms·vel·0,00106061; el ángulo del
   viento es siempre 0), `i` fijo por campo (en el original, bits de su dirección); solo la matriz dibujada.
-  `ecs::FieldDrawColour`, `ecs::WindSway`. Los árboles (`Tree::Draw` 0x74B016) usan la misma tabla con factor 1: x de la columna 1 = 0, z = escala × T0[i], `i` = bits 2-5 de +0x5C; hecho en RenderingSystem salvo con el árbol inclinado por la mano (falta la curva junto a criaturas y objetos físicos, bits 6-9 de +0x5C, tabla 0xD19A48). Con el mod world.foliage
+  `ecs::FieldDrawColour`, `ecs::WindSway`. Los árboles usan la misma tabla ([trees.md](trees.md#dibujado)). Con el mod world.foliage
   (`fields = wheat`) el campo se dibuja con plantas que crecen por etapas en vez de la malla (mod-library.md).
 
 ## Sonidos (informe `tmp_dis\sound\notes.txt`)
 
-- El tono de LHAudio es un **porcentaje** de la frecuencia del wav (100 = normal): AL_PITCH = p/100; la desviación del
-  .sad (±%) se sortea al empezar. El tono y el volumen del .sad solo cuentan si su bit está en las banderas de
-  +0x244 (0x1 tono, 0x20 volumen 0..127); si no, 100 y 127. openblack pasaba el número crudo (casi siempre 0).
+- El tono de LHAudio es un **porcentaje** de la frecuencia del wav (100 = normal). Al empezar (0x1001278B, enteros sin
+  signo): d = desviación·p/100, p = p − d + rand·2d/32767 (0 → 100), frecuencia = rate·p/100 (división entera; lo mismo
+  en `LHSampleSetPitch` 0x10013520, que no hace nada si el canal ya tiene ese p). El tono, el volumen, los bucles
+  (+0x248) y el modo del .sad solo cuentan si su bit está en las banderas de +0x244 (0x1, 0x20, 0x40, 0x400) y quien
+  llama no los ha puesto (máscara +0x1C de las opciones); si no, 100, 127, 0 y 3. openblack pasaba el número crudo.
+- **Volumen** (verificado con Unicorn, `tmp_dis\agua\re\emu_qmixer.py`): LHaudio manda a `QSWaveMixSetVolume`
+  floor(maestro·v/127)·258 (0x100133C1; maestro = `AudioSampleMasterVolume` de BWSetup = 127 → v·258, 0..32766) y
+  QMixer lo guarda como vol/32767 (0x18007AE5) y lo **multiplica** por la ganancia de la distancia (0x1800AE20):
+  ganancia lineal v·258/32767 (`sample_play::QMixerGain`, `Sound::volume`). El "user param" del .sad
+  (`LHSampleGetUserParam` 0x10014230) es la mitad alta de ese mismo u32 (+0x25C >> 16).
 - Coger de un montón, campo o piscifactoría: **un solo canal en bucle** (G_PICKUPWOOD 98 para madera; G_PICKUPFOOD 44
-  para lo demás) cuyo tono sube a 60 + 180·t² % por turno; se para al soltar o al acabarse. Dejar en un montón:
-  G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound`,
-  `AudioManager::SetEmitterPitch`.
+  para lo demás) cuyo tono sube a ftol(60 + 180·t²) % por turno; se para al soltar o al acabarse. Dejar en un montón:
+  G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound` con
+  `sample_play` (modo 2 del .sad, dueño 0, `SetPitch`); trazado con `OPENBLACK_HAND_TEST_FISH=1`: un solo arranque y
+  tono 0,60 → 1,02 en los 3 s del gancho. El original lo pone 3D (+0x0C 0, no sigue a nadie) en el punto +0xC8 del
+  estado de la interfaz, que es **la mano**: `GInterface::Process` → `fn_005D2250` manda en el paquete 0x15 la
+  posición de la mano (`CHand`+0x78, `Morphable::position`, 0x5D2350); `GPacket` 0x63CA9E → 0x5DBFB0 la guarda en
+  +0xA4 (y la cámara en +0xB0/+0xBC); `GInterfaceStatus::Process` 0x5DC4E7 → `fn_005DBC60` calcula la velocidad de la
+  mano con +0xA4 − +0xC8 y copia +0xA4 a +0xC8 (0x5DBF1F) **antes** de `ProcessInInteract` (0x5DC574), que llega a
+  `UpdateMultiPickup`. Así que suena donde está la mano al empezar (el modo 2 no lo mueve después) y no arranca con la
+  cámara a más de 180 de la mano. openblack: la posición del `Transform` de la mano.
+- El reproductor ya **no pone AL_PITCH = 1 cada fotograma** (`AudioPlayer::UpdateSource` lo hacía y borraba el tono
+  del .sad y el de `SetEmitterPitch`): el tono se fija al crear la fuente y con `SetSourcePitch`.
+- **Distancias** (`QSWaveMixSetDistanceMapping {min, max, escala}`, LHaudiodllR 0x10012159): .sad +0x268 / +0x26C /
+  +0x270 si las banderas 0x80 / 0x100 / 0x200 están puestas; si no, 1 / 9999 / 0,3 (`LH_SamplePlayOptions` 0x10010E90).
+  QMixer (0x1800ACDF, 0x1802CE50; banderas del canal 0x103/0x111 de 0x10012065: ni 0x800 "tope en max" ni 0x1000
+  "lineal"; verificado con Unicorn): ganancia 1 hasta min (o con escala 0), `min / (min + escala·(d − min))` hasta max
+  (min/d con escala 1), **0 más allá de max** (el canal sigue sonando, mudo). La escala es por canal porque LHaudio no
+  usa el mezclador por hardware (opción `UseHardware` de `HKCU\Software\Lionhead Studios Ltd\Audio\Override`, que no
+  existe; con ella llamaría a `QSWaveMixSetListenerRolloff(4)`). En openblack: `AL_INVERSE_DISTANCE_CLAMPED` con referencia = min y rolloff =
+  escala (`AudioPlayer::SetSourceDistance`), y `AudioEmitter::cutDistance` = max silencia el emisor en
+  `AudioManager::Update`. `Sound` guarda además `cloneGroup` (+0x118), `playMode` (+0x274 con 0x400, si no 3),
+  `atmosGroup` (+0x11A) y `atmosFrequency` (i32 en +0x27C, −1 = no es de atmósfera; comprobado con `offsetof`).
+- `GAudio::PlaySoundEffect` 0x429E30 con posición: **no empieza** si la cámara está más lejos que el max del .sad
+  (+0x26C crudo, `LHSampleGetMaxDistance` 0x10014170; el max del mapeo si es 0) → `AudioManager::PlayAt(id, pos)`.
+  Además (0x429F36..0x429FD9, y lo mismo en `SamplePlayAnimEffect` 0x42A4B0): con la panorámica puesta por un guion
+  (+0x45E8 y +0x45EC) no suena ningún sample de user param 1 (InGame tiene 60, editor 82, p. ej. `G_WaterFlow`);
+  dentro de la ciudadela (`g_game+0x205A28 == 1`) solo los de user param 2; tras `SET_GAME_SOUND false` (GScript+0x90,
+  0x7100B0, que además hace `LHSampleStopAll`) solo los bancos de diálogo HelpSprites y Villagers. Los choques de
+  física van por `SamplePlayAnimEffect` → `LHSamplePlayAnimEffect` 0x100146F0: no empiezan a más del max del .sad ni de
+  800 (0x426E6B) y el dueño del canal es el objeto. Todo en `Audio/SamplePlay` (`PlaySoundEffect`, `PlayAnimEffect`).
+- **Canales y modos** (`LHSamplePlay` 0x100113B0: reparto 0x10011020, arranque 0x10011420; `Audio/SamplePlay`): 16
+  canales (+0xCC, constructor 0x1001535E). Cada canal recuerda banco, dueño (+0x20 de las opciones: 0 ninguno, −1 el
+  del ambiente, o el objeto), sample, grupo de clones (.sad +0x118) y prioridad (.sad +0x240). Modo 1: un canal libre.
+  Modo 2: **nada** (ni posición nueva) si un canal del mismo banco y dueño toca el mismo sample o uno del mismo grupo
+  (> 0); si no, uno libre. Modo 3: el canal del mismo banco, dueño y sample (se reinicia), si no el del mismo grupo
+  (> 0), si no uno libre. Sin libre: el de menor prioridad si es menor que la del sample (se reinicia); si no, no suena.
+  `G_BigSplash` (modo 2) no vuelve a sonar mientras suene el mismo sample del mismo objeto; los diez `G_HandInWater`
+  (grupo 4, modo 3, sin dueño) se reinician unos a otros; los sueltos del ambiente (modo 3, dueño −1) reinician su
+  canal si vuelven a salir mientras suenan. Solo cuentan para los 16 los samples que pasan por `sample_play`: los
+  golpes de física, el agua y el polvo de la mano, el bucle de coger, el ambiente, las `SoundTags` (cascada) y los
+  del barco. Aún van por su cuenta (temas de otras sesiones): `AnimationSounds`, las rocas, el silbido de la cámara,
+  `G_RockPast` y los `PlaySample` de coger/plantar/romper de la mano.
+- **Seguimiento y oyente, una vez por turno** (`fn_004270D0` desde `ProcessAudioGameTurn`): `LHSampleUpdate3DChannels`
+  0x10014310 lleva cada canal 3D con +0x0C (1 por defecto) y sin AtmosInfo a la posición de su dueño
+  (`Get3DSoundPos`, función del juego 0x427200): sin dueño, **la cámara**; dueño −1 o que ya no está, se para; a más de
+  su max (+0x6C) de la cámara, se para. Los choques ponen +0x0C = (código A de la tabla ≠ 0x16, 0x64689F); la mano en
+  el agua y el de coger, 0. Después `LHListenerUpdate`: el oyente de QMixer = la cámara (posición, delante y arriba,
+  velocidad 0) **solo una vez por turno** (y no en pausa ni en los 5 primeros turnos); openblack igual
+  (`AudioManager::UpdateListener`).
+- Los .sad son wavs RIFF (`QSWaveMixOpenWaveEx`); openblack probaba antes MPEG y dr_mp3 encontraba tramas dentro de
+  alguno (`G_BigSplash_03` duraba una fracción de segundo): ahora un RIFF va directo al lector de wav.
+- **Ejes del oyente**: openblack es levógiro y OpenAL dextrógiro; posiciones y velocidades ya iban con x ↔ z, la
+  orientación (at, up) no, y la izquierda y la derecha salían al revés. Ahora pasa por el mismo intercambio.
+- **Mano en el agua / agarrar tierra** (`StartLandscapeGrip` fn_005D1AB0): una sola rama elegida por el **bit de agua
+  de la celda** (`InBounds && IsLand` 0x5D1F94; fuera del mapa = agua), no por la altura. Agua: anillo,
+  `G_HandInWater_01..10` = InGame 99 + contador (0xD18228, 0..9, avanza aunque se descarte), **3D en (x; 0,2; z)**,
+  vol 127, tono 100 ±5 %, min 40 / max 150 / escala 4, y el susto de los peces. Tierra: polvo y
+  `G_HandGrabLand_01..06` = InGame 4 + LocalRand(6) (0x5D1FC4, `SoundTag` sin objeto, 2D: is3D 0, vol 10, tono
+  60 ±15 %). Los diez de agua están en el **grupo de clones 4** y se tocan en modo 3 sin objeto: `LHSamplePlay`
+  (0x10011146..0x100111BC) reinicia el canal del anterior → **uno a la vez** (`sample_play`, HandFish.cpp).
+  Traza: `OPENBLACK_AUDIO_TRACE=1`.
+  - Condiciones (resueltas): la rama de tierra (0x5D1FA8) no hace polvo ni sonido si `g_game+0x25005C` (el
+    **HelpSystem**) tiene la **pantalla panorámica** puesta (+0x45E8) **por un guion** (+0x45EC = número de tarea del
+    guion, `GScript::SetWideScreen` 0x6F7BF0 → `HelpSystem::SetWideScreen` 0x5C6AD0; los vídeos y la reproducción
+    pasan 0); la de agua (0x5D1FF0) no hace nada con el **juego en pausa** (`g_game+0x14` bit 4, que conmuta
+    `PauseGame` 0x54AE20) ni si el objeto 3D de la mano (`CHand+0x482C`) dibuja algo sostenido (+0x8C, lo pone su
+    `SetHeldG3D` vt+0x234 = 0x816830; vacío también con una `SpellSeed` que no se dibuja en la mano). En openblack:
+    `ScreenFade::IsWideScreenOn` (solo `SET_WIDESCREEN`), `Game::IsPaused` y `!_held` (`HandPlacement.cpp`).
+- **Ambiente (atmos)** (hecho, 2026-09-30; `Audio/SoundMap`, `Audio/AtmosBanks`; informe `tmp_dis\agua\audio.md` §1-3):
+  - Zona de la celda: `Terrain::GetAtmosType` 0x7352B0 = `(flags >> 2) & 0xF` (bits 2..5 del byte 7; **1 = SEA** fuera
+    del mapa o sin bloque). Tabla 0x9CB048 de 14 tipos {nombre, banco, de día}: 1 SEA `ocean.sad`, 2 STILL_FRESH_WATER
+    `lake.sad`, 3 COASTAL `shore.sad`, 4 JUNGLE*, 5 ARCTIC, 6 DESERT*, 7 COUNTRYSIDE*, 8 SWAMP*, 9 RUNNING_WATER
+    `stream.sad` (ningún mapa base lo usa), 10 STRATOSPHERE `high.sad`, 11 NIGHT* `night.sad`, 12 RAIN, 13 WIND
+    (* = de día). Los códigos del editor de Daniels118 son `tipo << 1` (el bit 1 es la celda de agua que no se dibuja).
+  - `GSoundMap::Update` 0x71D6F0, cada turno desde `GGame::EndTurn` (antes de `ProcessSoundTags`): receptor = cámara;
+    11 × 11 celdas alrededor (radio 50); por tipo, número de celdas y la esquina más cercana. Volumen = radial (1 hasta
+    20, 0 a 50) × fundido por la altura de la cámara sobre el suelo en esa esquina (1 bajo 120, 0 a 250); los de día
+    además × weatherFade × (1 − noche), noche = max(0, tipo de cielo − 1). La costa se calcula sin eso y el **mar =
+    min(radial, 1 − costa)**: a menos de 20 de una celda COASTAL el mar calla (el punto `1464, 2016` de Land1 da SEA 0,
+    COASTAL 1; `1300, 2016` da SEA 1). STRATOSPHERE con la altura absoluta: 0 bajo 200, sube hasta 1500, baja hasta
+    44444. NIGHT = fundido(cámara) × (1 − fracción de celdas de mar) × weatherFade × noche. RAIN = lluvia/70, WIND =
+    (|viento| − 15)/30. `CameraWeather()` lee el clima con `ecs::weather::atmos::GetWeatherSmooth(cámara, true)`
+    (`LH3DAtmos::GetWeatherSmooth` 0x835180; el byte 3 es el nublado).
+  - `GAudio`: objetivos = volúmenes del mapa, **todo 0 dentro de la ciudadela**: el símbolo
+    `HelpSystem::GetWideScreenControl` 0x4282F0 está mal puesto, es `g_game+0x205A28 == 1` (`GoInsideCitadel` 0x554004,
+    2 durante el vídeo del hechizo que cae); la panorámica no toca el ambiente (sin interior de ciudadela: nunca). El
+    `fn_00429100` copia 15 floats, así que el 15.º (la x de la cámara) cae en `current[0]` (NONE, sin banco: solo se ve
+    en la traza). `ProcessAtmosBanks` 0x428FE0: paso 0,04 entre 0,1 y 0,8 y 0,02 fuera (0 → 1 en 33 turnos, 3,3 s),
+    grupo 1 si GAudio+0x190 > −0,6 (double en 0x8C4A08) si no 2, `LHAtmosSetBankVolume(trunc(cur·127))`.
+    GAudio+0x190 lo pone `fn_005E2240(a)` = 2a − 1 con a = clamp(a, 0, 1), desde `fn_0064AC30` en
+    `GPlayer::ProcessPlayers` cada turno: a = (alineamiento del **jugador de más influencia en la posición de la
+    cámara**, `MapCoords::CalculateMostInfluentialPlayer` + `GPlayer::GetAlignmentValue`, + 1) / 2; `GAudio::Reset` (al
+    limpiar el mapa) lo deja en 0. openblack: `atmos_banks::Alignment()` lee
+    `Clouds::InfluentialPlayerAlignment()`, el mismo valor que el objetivo del alineamiento del cielo (fn_0064AC30),
+    así que tiene una sola fuente: `ecs::effects::alignment::GetInterfaceAlignment()` × 2 − 1 (el fn_0064AC30 de
+    Milagros, una vez por turno), salvo el gancho de prueba o el deslizador de depuración.
+    Solo desde el turno 6 y sin pausa (`g_game+0x14 & 4`); si no, `AtmosProcess(0)`: se paran los bucles y **solo los
+    canales con AtmosInfo** (0x10001EBF: bucles = 1, sueltos = su entrada), no los demás samples. Con un vídeo
+    (`g_game+0x250188`) no corre `LHAtmosProcess(1)` (openblack no tiene vídeos en partida). Al cambiar de mapa
+    (`GAudio::Reset`) se paran ambiente y samples, pero los volúmenes de los bancos se conservan.
+  - Mezclador del DLL (`fn_10001610`, `LHAtmosProcess` 0x100018B0): muestras con +0x27C = 0 son **bucles** 2D (vol del
+    .sad o 127, fundido de entrada +5 por turno sin tope hasta llegar a su volumen, ganancia banco·fade/127; se cortan
+    en seco cuando el banco llega a 0); +0x27C = f > 0 son **sueltos** en **una sola cola** para todos los bancos,
+    próximo = contador + 4f + rand·12f/32767, y al registrar un banco contador = cabeza − 20. **Como mucho uno por
+    turno** (la cabeza, si toca): suena si su banco no está a 0, relativo al oyente en QMixer (x, y, 0) con x, y =
+    2 − rand·4/32767; si |x| + |y| ≤ 1 se multiplican por 4 y si quedan en (0, 0) van a 5·(a, b), con a, b = ±1 que
+    rotan (a' = −a, b' = −a·b). Se vuelve a poner en la cola aunque no haya sonado. Los sueltos de otro grupo que el de
+    su banco bajan 5 por turno. En Land1 hay 15 bucles y 400 sueltos.
+  - **Ejes del modo relativo** (verificado con Unicorn, `emu_polar.py`): LHaudio pasa la posición relativa (+0x14) a
+    polares (0x10012269): acimut = atan2(x, y) en grados (con π tomado como 1/0,318471 y |ftol| de los negativos),
+    elevación = atan(z/|xy|), alcance |xyz|; QMixer (0x1800AA85) vuelve a derecha = r·cos(el)·sin(ac), arriba =
+    r·sin(el), delante = r·cos(el)·cos(ac). O sea **x derecha, y delante, z arriba**: los sueltos (x, y, 0) quedan en el
+    plano horizontal alrededor del oyente, a 2..7,1 (p. ej. (2, 2) delante a la derecha, (0, −4) detrás), atenuados con
+    su mapeo (min 1, escala 2 o 4: a (2, 2) con escala 2, 0,215). En openblack: `sample_play::PolarRelative` y el emisor
+    relativo en el espacio del oyente de OpenAL (derecha, arriba, −delante). Trazas: `OPENBLACK_AUDIO_TRACE=1` (canales)
+    y `OPENBLACK_ATMOS_TRACE=<n>`. Comprobado en Land1 (cámara en 2120, 40, 2400): las olas del lago (lake.sad, tono
+    160 del .sad) suenan a AL_PITCH 1,600 en (−1, 1) y (1, 2).
 
-## Árboles: reglas, fuego y sacrificio (investigado; fuego pendiente, tótem aplazado)
+## Movido a otras páginas
 
-Informe: `tmp_dis\trees2\` (`pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`).
-- **Tirón** (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, en HandTrees.cpp): al empezar, el ancla es la base del
-  árbol y el plano de arrastre pasa por ella con la normal del terreno, a la altura de la mano vista a la distancia del
-  ancla. Tras 0,13 s (el fundido del cambio de estado), cada fotograma la mano va al corte del rayo del ratón con ese
-  plano; el agarre está en `base + arriba × bajada` (bajada = 0,1 × altura, mínimo 3,2 × escala de la mano × 0,3 al
-  empezar); un muelle `F = 1000 × (mano − agarre)` (tope 600000) lo inclina con par `(r × F)/1000` y rozamiento
-  cuadrático 4 alrededor de la base, y el tronco se estira hasta ×1,3 (Zoomer 0,3 s). Sale cuando `|F| > GetWeight`
-  (escala³ × peso de info.dat): agarrado lejos del punto de agarre, sale enseguida. Soltado antes, vuelve a su postura.
-  Al final de cada Update (también en los primeros 0,13 s) la mano se coloca en el agarre del tronco estirado
-  (`CHand+0x78 = matriz × (0, bajada, 0)`); solo se dibuja ahí, el siguiente Update la vuelve a poner en el plano.
-  **Consecuencia (2026-09-30, por confirmar con el original)**: como la mano antes de pulsar está sobre el rayo del
-  ratón, el plano queda a la altura a la que ese rayo cruza el eje del árbol, así que el primer tirón es esa altura menos
-  la bajada: una haya de escala 1 (18 m, agarre a 1,8 m, peso 1000) solo se inclina si se pulsa a menos de ~1 m del
-  agarre (de 0,8 a 2,8 m sobre la base); pulsada en la copa sale a los 0,13 s. El openblack de antes de las físicas
-  medía solo la distancia horizontal del cursor a la base y se inclinaba pulsara donde pulsara.
-  **Lo que hace openblack (2026-09-30, a petición del usuario, que recuerda el original así)**: no se usa el muelle
-  literal (además el estirado ×1,3 hacía que el árbol subiera y bajara). Al pulsar se guarda el punto agarrado y su
-  distancia en el rayo del ratón; el tirón es cuánto se ha movido en horizontal la mano (el rayo a esa distancia) desde
-  entonces. El árbol se inclina hacia ella hasta 0,25 rad y sale cuando pasa de peso/1000 m (escala³ × peso de
-  info.dat). Agarrado en cualquier sitio y sin mover el ratón, no sale. Si algún día se puede probar el original, se
-  puede comprobar con `tmp_dis\trees2\tugwatch.py` (lee la memoria de runblack.exe: plano, mano, agarre, estado).
-  Gancho: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, el cursor se mueve 0,5 s
-  después), trazas con `OPENBLACK_HAND_TRACE=1`.
-- **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,
-  setos, palmeras, bosquecillos, dentro o fuera de pueblos). Solo lo impiden la bandera 0x2000 (partidas guardadas y
-  puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para
-  árboles no hace nada. `BigForest` (**hecho**): no se tira; al agarrar (225 ms) `InterfaceSetInMagicHand` 0x4393C0
-  hace `RemoveResource(WOOD, 350)` (madera del Conifer) y pone en la mano un Conifer nuevo (escala 1, ángulo 0).
-  `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, `Create` 0x438EC0) baja 350 y
-  **solo** cuando su madera se aleja más de 250 de vida × escala × woodValue se reescala a madera/woodValue y planta en el
-  borde; sin madera suficiente da lo que queda y el bosque se borra (detalle en «Búsquedas de árboles y bosques»).
-  `AddTreeAround` 0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto de la celda con distancia + radio
-  menor de 4, un Pine de su bosque (+0x80), escala 0,05, ángulo al azar y tamaño máximo 0,75 + azar(0,5). openblack: `HandSystem::TakeTreeFromForest`
-  (HandTrees.cpp), `BigForest::wood`, gancho `OPENBLACK_HAND_TEST_FOREST=1` (Land1: 15000 → 14650, escala 0,977). DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
-  alineación malvada (`GAlignment::Update`); replantar, bueno.
-- Tabla GTreeInfo (info.dat, runtime = registro + 0x10, paso 0x140): madera 700 Beech/Cedar/Copse, 500 Birch/Olive,
-  350 Conifer/Pine, 800 Oak, 300 palmeras, 400 Cypress, 100 setos, 15 arbustos; peso 1000 (arbustos 20, setos 100);
-  capacidad calorífica 1000 (arbustos 100, setos 200); sacrificio 400/500/1000 (Oak)/250/350/100/200/110; temperatura
-  de combustión 110 para todos.
-- **Fuego** (`SpreadEffect.cpp` / FireEffect en Object+0x44; turno 0,1 s): temperatura T, Tc = max(110, 40); arde si
-  T ≥ Tc. Ardiendo T += 0,1·T/(2Tc) hasta 2Tc; enfriando (T ≤ anterior) T −= (T + 10 − amb)·4·H·R·0,1·k/capacidad
-  (k = 50 sobre agua con y < 2, 1 + 0,01·lluvia). Daño: vida −= (T − Tc)/Tc·0,001 por turno (muere en ~100 s);
-  carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
-  1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
-  arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
-  lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
-  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %), modo 230 + calor·25/255, escala × 5·vida por
-  debajo de 0,2; llamas `FireGraphic` (sprites `S_Fire.raw`, humo `S_SpriteSheet3.raw`, luz `S_LMFireBall.raw`),
-  2 llamas por árbol de 0,2·alto; sonido de fuego en bucle.
-- **Sacrificio** (aplazado por el usuario): soltar un árbol apuntando al **WorshipTotem** (CitadelPart del sitio de
-  culto; `ValidToApplyThisToObject` 0x74BD50): v = sacrificeValue·vida·(0,5 + 0,5·vida) al maná del sitio
-  (+0xF0) y al total (+0xF4), fantasma del árbol (`GoolooGooloo`), `G_SACRIFICE_01`, número flotante rojo "%3.0f".
-  Aldeanos ×1,25; comida, rocas y vasijas no. Necesita los sitios de culto (`CREATE_WORSHIP_SITE` aún no hace nada).
+- Árboles: reglas, fuego y sacrificio → [trees.md](trees.md) ([tirón](trees.md#tirón-handstatetug-enter-0x5b7df0--update-0x5b8070-en-handtreescpp),
+  [reglas de coger](trees.md#reglas-de-coger-y-bigforest), [fuego](trees.md#fuego), [sacrificio](trees.md#sacrificio)).
+- Creación desde CHL → [map-loading.md](map-loading.md#creación-desde-chl-create-27--create_with_angle_and_scale-252).
+- Niebla del mapa (CREATE_MIST) → [map-loading.md](map-loading.md#niebla-del-mapa-create_mist).
+- Animales y rebaños → [map-loading.md](map-loading.md#animales-y-rebaños-create_flock-create_new_animal).
+- Datos de simulación del mapa → [map-loading.md](map-loading.md#datos-de-simulación-del-mapa-solo-datos-nada-se-dibuja).
+- Piscifactorías → [map-loading.md](map-loading.md#piscifactorías-create_fish_farm--create_town_fish_farm).
+- Barco de los misioneros (`PetitNavire`) → [water.md](water.md#barco-de-los-misioneros-petitnavire).
+- Porcentaje de construcción de un Feature →
+  [map-loading.md](map-loading.md#porcentaje-de-construcción-de-un-feature-built_percentage-propiedad-chl-22).
+- Puzle de los peces: el lado del guion → [water.md](water.md#puzle-de-los-peces).
+- Objetos del guion del mapa →
+  [map-loading.md](map-loading.md#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas).
 
-## Creación desde CHL (CREATE 27 / CREATE_WITH_ANGLE_AND_SCALE 252)
+## Pendiente
 
-Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
-- `GScript::CreateThing` 0x6F1B20 y `CreateWithAngleAndScale` 0x6F2E10 (ángulo en grados, ×0,0174533) solo aceptan
-  los tipos 1..41 y llaman al switch `fn_006F11A0` (tabla 0x6F1A70). Si no se crea nada, el guion recibe **0**
-  ("Thing not created"). openblack devolvía la entidad 0 (una entidad válida) para todo lo no soportado.
-- El subtipo 5000 solo vale para Timer, SpellDispenser, Whale, Ark, Marker, Ball, Poo y Scaffold.
-- **Marker** (`fn_0070D8D0`): un `ScriptMarker` con solo la posición. `MapCoords::Set` 0x603340 guarda
-  `y − GetAltitude`, `GET_POSITION` 0x6F88A0 devuelve `GetAltitude + relY` y `ScriptMarker::PhysicsEditorCreate`
-  0x561030 no hace nada, así que el marcador devuelve exactamente el vector con que se creó (y = 0 en CHL).
-- Los demás objetos se quedan en el suelo: `PhysicsEditorCreate` (GameThingWithPos 0x401980, MobileStatic 0x55D720,
-  Bonfire 0x4397C0) pone relY = 0; tras crear, 0x6F1591-0x6F1A42 rehace la matriz en `GetAltitude(pos) + relY` con
-  solo el ángulo Y y la escala del objeto (sin inclinación X/Z).
-- Casos: Feature `fn_00527350`(ángulo, escala); Villager `Villager::Create` 0x74FBE0 con edad grownUpAge + 1,
-  VillagerChild con edad 10 (sin pueblo ni casa); Animal y Bird `fn_00419C20`; MobileStatic y Rock: subtipo 6 →
-  GBaseOnly `fn_00609340` (sin ángulo ni escala), 7 y 59 → `GStreetLantern::Create`, el resto `fn_00608770` (info 8 →
-  Bonfire, rocas con info +0x128 = 2); MobileObject `0x607000`, Poo = MobileObject 5, Ark = 23; Tree
-  `Tree::Create` 0x749EE0 (sin bosque); AnimatedStatic `0x421F50`. Abode, Town, Dance, Flock, InfluenceRing, Citadel,
-  WorshipSite, SpellSeed, Mist, Field, ComputerPlayer y TotemStatue dan "Invalid create type" también en el original.
-  Pendientes en openblack: Reward, Creature, DeadTree, WeatherThing, Store, Timer, Vortex, Whale, Ball, OneShotSpell,
-  PuzzleGame, Totem, SpellDispenser, Highlight y Scaffold.
-- openblack: `CreateScriptObject` (CHLApi.cpp), `MarkerArchetype`. El círculo de Singing Stones ya se monta en
-  (2496,67, 2246,33) sobre el suelo. Las funciones CHL sin implementar se registran una sola vez por función.
+- Coger por tandas: las partículas del pescado (`S_Spangle_A`).
+- `PileFood::Draw`: confirmar que la vfunc 0xE8 de LH3DObject es el desplazamiento de UV (**inferido**).
+- Campos: la alineación y la lluvia en el crecimiento; los oficios de aldeano que los siembran (sin ellos los campos
+  quedan vacíos salvo con el mod `world.crops`).
+- Sonidos que aún van por su cuenta, fuera de los 16 canales: `AnimationSounds`, las rocas, el silbido de la cámara,
+  `G_RockPast` y los `PlaySample` de coger/plantar/romper de la mano.
 
-## Niebla del mapa (CREATE_MIST)
+## Ganchos de prueba
 
-- `CREATE_MIST` "AFNFF" (0x7155C9) → `Mist::Create` 0x6063D0(pos con relY = F1, tamaño F3, color N2, k F4) →
-  `CallVirtualFunctionsForCreation` 0x606420: `LH3DObject::Create(7)` (LH3DMist) en `GetAltitude(x, z) + F1`,
-  +0x88 = F3, +0x90 = N2 >> 24 (alfa), bandera +0x80 bit 1; solo si F4 ≠ 1, +0x8C = F4 y bit 2. El constructor de
-  LH3DMist 0x7F9560 pone +0x88 = 1, +0x8C = 3, +0x90 = 0x80 y el contador +0x84 = Random(0, 16) & 15.
-- `Mist::SetFade` 0x606800(tamaño inicial, tamaño final, alfa inicial, alfa final, segundos): pone ya el tamaño y el
-  alfa iniciales y `fn_00606880` suma un paso por turno de 0,1 s durante segundos × 10 turnos (alfa limitado a
-  0..255); `Get2DRadius` 0x606660 = escala × la mayor semiextensión x/z de la malla. Lo usan `CREATE_MIST` 263 y
-  `SET_MIST_FADE` 264 de CHL (una llamada de cada en challenge.chl; aún sin hacer).
-- Land1 tiene 17 (pantano, cueva del flautista...). openblack: `MistArchetype`, `components::Mist`,
-  `Renderer::DrawMists` (dibujo en rendering.md).
+- `OPENBLACK_HAND_TEST_FIELD=1`: coger de un campo.
+- `OPENBLACK_HAND_TEST_FISH=1`: coger de una piscifactoría; traza el bucle de coger (un arranque, tono 0,60 → 1,02).
+- `OPENBLACK_AUDIO_TRACE=1`: canales de `sample_play` (mano en el agua, choques, ambiente).
+- `OPENBLACK_ATMOS_TRACE=<n>`: el ambiente (mapa de sonido y bancos).
+- Árboles y carga del mapa: los ganchos de [trees.md](trees.md#ganchos-de-prueba) y
+  [map-loading.md](map-loading.md#ganchos-de-prueba).
 
-## Animales y rebaños (CREATE_FLOCK, CREATE_NEW_ANIMAL)
+## Fuentes
 
-Desensamblado en `tmp_dis\mapa\all_cases.txt` (casos 24, 25 y 49).
-- **CREATE_FLOCK** "NAANNN" (0x71634A): `Flock::Flock` 0x52F780(A1, el jugador actual, id N0) → id en +0x8C, +0x60/+0x6C
-  = A1, +0x50 = 0x50, +0x52 = 0x1E, en la lista g_game+0x205C44 (se inserta delante); `SetDomainCentrePos`(A2) → +0x14.
-  Radio del dominio +0x50 = N3 (0 → 0x50). Con `VERSION` ≥ 2,1 (0xD9957C; todas las tierras traen 2,3): distancia del
-  rebaño +0x52 = N4 y pueblo N5; antes, pueblo N4 y +0x52 se queda en 0x1E. Con pueblo: +0x34 y la lista del pueblo
-  +0xF08. Invisible (solo simulación).
-- **CREATE_NEW_ANIMAL** (0x716543; CREATE_ANIMAL 0x71649F igual con edad 0): busca el rebaño por +0x8C en esa lista
-  (el más nuevo con ese id) y el pueblo con `FindTownWithID` → `fn_00419D10`(pos, info, pueblo, rebaño, edad).
-  - Con rebaño: edad 0 → GameRand(20) + 5; crea el animal (`fn_00419E00`) y lo une (`fn_0052FA50`: lista +0x3C
-    ordenada por el byte +0xD4 del ser, +0x48 miembros, `Living::SetFlock`); si el animal no se puede pastorear y el
-    rebaño tiene pueblo, el rebaño sale de la lista del pueblo y +0x34 = 0; +0x88 = máximo de miembros.
-  - Sin rebaño (`fn_00419C20`, también el CREATE de CHL): edad 0 → **GameRand(40)** + 5; el animal recibe un rebaño
-    propio (`Flock(Living*)` 0x52F950, en su posición, sin id de guion, +0x50 = info.domainRadius (+0x25C),
-    +0x52 = (int)info.flockDistance (+0x21C), sin pueblo).
-  - Pueblo del animal (`fn_00417C50`, +0xE0 y la lista +0x984 del pueblo): solo lo guardan los que se pueden pastorear
-    (`IsOkToBeShepherd`, vtable +0xBA4 = 0x41D0E0 → 1); los demás, ninguno.
-- **Clases** (`fn_00419E00`, salto por info.animalInfo +0x1F4, 27 casos): terrestres (león, tigre, lobo, leopardo,
-  SpellWolf, PieceLion/Wolf/Villager; ctor 0x41FD30 o 0x416EB0), de pasto (oveja, tortuga, vaca, caballo, cerdo,
-  PieceSheep; ctor 0x41D0B0, se pueden pastorear) y voladores (cuervo, paloma, golondrina, pichón, gaviota, murciélago,
-  SpellDove y SpellBat; ctor `Dove` 0x41DCF0). Los tipos 5 (cabra), 7 (cebra), 17-19 y > 26 (caballo, vaca, tortuga y
-  cerdo de puzle) **no crean nada**.
-- **Voladores**: el ctor `Dove` 0x41DCF0 llama al de Animal (0x416EB0, que llama a `Living::SetState` 0x5F2A80),
-  reinicia campos (`fn_00417900`) y pone la altitud de su MapCoords (+0x1C) = info.altitudeNormal (+0x278: paloma,
-  pichón y murciélago 20, cuervo, golondrina y gaviota 40); `Game3DObject::SetPosition` 0x63B680 los pone en
-  `GetAltitude + altitudeNormal`. `CallVirtualFunctionsForCreation` es 0x41F240 (la de Animal más una llamada al
-  objeto 3D). `StandAnimation`: paloma 8 (DOVE_FLAP), golondrina 27 (SWALLOW_FLAP), gaviota 22 (SEAGULL_TAKEOFF),
-  murciélago 2 (BAT_GLIDE). **Falta** decodificar su vuelo (estados de Living y el `Process` de Dove): openblack aún no
-  los crea (81 de los 116 animales de Land1), pero cuentan como Object en el contador de creación.
-- openblack: `components::Flock`, `Animal::flock/town`, `Town::flocks`, `RegistryContext::flocks`, `AnimalArchetype`.
-
-## Datos de simulación del mapa (solo datos, nada se dibuja)
-
-- **SET_TOWN_UNINHABITABLE** (caso 5, 0x715542): pueblo +0x5F4 = 1 (`Town::uninhabitable`).
-- **CREATE_TOWN_CENTRE** (caso 9, 0x71577C): pueblo o el más cercano (`fn_00552FF0`); `IsOkToCreateAtPos` 0x404B10;
-  `Abode::Create`; si es un TownCentre: pueblo +0x9A4 = el centro si estaba vacío (`Town::centre`) y
-  `Town::SetWorshipPercentage`(N5·0,001) 0x73C060, que guarda +0x5C0 **solo si el pueblo tiene lugar de culto** (si no,
-  0) y lo pasa a la estatua tótem. Sin pueblo, `TotemStatue::SetWorshipPercentage` 0x738270. Todas las tierras pasan 0.
-- **CREATE_PLANNED_ABODE** (caso 8, comparte código con CREATE_ABODE): pueblo o el más cercano, si no nada; tipo de
-  abode 0x404 (TownCentre) → `PlannedTownCentre::Create` 0x7444D0, si no `PlannedAbode::Create` 0x405600 (pos, info,
-  pueblo, ángulo N4·0,001, escala N5·0,001; comida y madera no se usan); invisibles (`PlannedMultiMapFixed::Draw`
-  0x648930 = `ret`). openblack: `Town::plannedAbodes`.
-- **CREATE_ARENA** (caso 69) → `fn_00424820` → GArena 0x4246F0 (pos, radio +0x30, lista g_game+0x205C7C); su
-  GLightSheet solo se dibuja durante un combate. openblack: `components::Arena`.
-- **Clima** (casos 60-63): `CREATE_WEATHER_CLIMATE`(id, info, pos, r1, r2) → `fn_00771300`: id 0 = `GClimate(0)`
-  0x771020 (ignora el resto); si no, GClimate 0x771170 (pos +0x14, radios ordenados +0x20/+0x24, id +0x28, info +0x2C;
-  lluvia y temperatura iniciales del rango de la estación, no portado), lista g_game+0x205CF4. `_RAIN`(id, F1, N2, N3,
-  N4) → +0x34 {F1, N2, N3, (u8)N4}; `_TEMP`(id, F1, F2) → +0x44/+0x48; `_WIND`(id, F1, F2, F3) → +0x4C..; el clima se
-  busca por id (`fn_007731B0`, el más nuevo); id 0 usa el clima del mundo g_game+0x250534, creado al vuelo; id
-  desconocido no hace nada. Land1: zonas 1 (2701, 2567; −35/−32 grados, nieve), 2 y 3. openblack:
-  `components::Climate`.
-- **CREATE_DRINK_WAYPOINT** (caso 95) → 0x770BC0 (WayPoint.cpp, lista g_game+0x205C74): punto donde bebe la criatura.
-  Land1 tiene 47. openblack: `components::DrinkWaypoint`.
-- **FIRE_FLY_SPELL_REWARD_PROB** (caso 88): `GMagicInfo::GetInfoFromText` 0x5FB3B0 compara sin mayúsculas con el nombre
-  de los 42 efectos de magia (el primero que coincide; "NONE" siempre es el 0; si no hay, 42) → 0x52B630: fuera de
-  rango no hace nada; si no, tabla 0xCCFBAC[i] = p y rehace las sumas acumuladas en 0xCCFB04. No se reinicia entre
-  tierras.
-- **Globales**: `VERSION` → 0xD9957C; `SET_LAND_NUMBER` → g_game+0x205A08 (0 en el ctor de GGame);
-  `SET_TOWN_INFLUENCE_MULTIPLIER` / `SET_PLAYER_INFLUENCE_MULTIPLIER` → g_game+0x250078 / +0x25007C, que
-  `GGame::Init` 0x54F66F pone a 1 antes del guion. openblack: `Game::GetMapScriptGlobals`.
-
-## Piscifactorías (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM)
-
-- Caso 31 (0x7166E1): 0x52C7B0(pos, GFishFarmInfo[N1] (0xCCFC78 + 0x128·i; info.dat solo trae el 0), sin pueblo).
-  Caso 32 (0x716722): sin el pueblo no crea nada; si no, lo mismo con él. El ctor 0x52C360 guarda en +0x8C **siempre
-  el pueblo más cercano** (`Town::GetNearestTownToPos` 0x73B170, cualquier tribu), sea cual sea el del guion.
-- Banco de peces (`CallVirtualFunctionsForCreation` 0x52CC10, revisado): con [0xC37BF4] = 0 (sin aplanar el mar,
-  `GetAltitude` 0x803090 usa la altura cruda), anillos de radio 2, 4... < 50 y 32 direcciones; la primera dirección con
-  altura exactamente 0 en dos radios seguidos da el centro. openblack ya lo hacía igual (`GetUnflattenedHeightAt`), así
-  que los 9 de Land1 sin banco (los del lago del pueblo 2 y otros) salen igual que en el original con los mismos
-  datos; no se cambió la búsqueda.
-
-## Objetos del guion del mapa (farolas, hogueras, árboles muertos, puertas)
-
-Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` y `d_animstatic_cvffc.txt`.
-- **Parámetros**: en el bloque de argumentos del guion, el entero del parámetro i está en +0x6000 + 4i y el float en
-  +0x6030 + 4i. `GMobileStaticInfo` ocupa 300 bytes en memoria (0xD3A6D8 + 300·i: MS[6] = 0xD3ADE0, MS[7] = 0xD3AF0C,
-  MS[8] = 0xD3B038) y 284 en `info.dat`: en memoria el registro de info.dat empieza en +0x10 (el tipo de objeto está en
-  info +0x10 y el clip de un AnimatedStatic en +0x128, que es +0x118 en `GAnimatedStaticInfo` de openblack). Las 61
-  infos de MobileStatic tienen el tipo de objeto 0x1C (MOBILE_STATIC).
-- **CREATE_STREET_LANTERN** (caso 80, 0x717720) → `GStreetLantern::Create` 0x7346E0(pos, &MS[N1]): no crea nada si en la
-  celda del mapa de la posición (`MapCoords::FindType` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0; celdas de 10
-  unidades) hay un objeto de tipo 0x1C a menos de 0,5 m en x/z (`GUtils::GetDistanceInMetres` 0x74CD70); cualquier
-  cosa hecha con una info de MobileStatic: rocas, hogueras, farolas, árboles muertos. +0x58 = (info ≠ MS[7]).
-  `CallVirtualFunctionsForCreation` 0x734810: malla 148 (MSH_B_CAMPFIRE) si +0x58, si no 398 (MSH_O_TOWNLIGHT);
-  `SetPosition((x, GetAltitude + y, z), ángulo 0, escala 1)` (sin giro de 180°), la luz `fn_00823240`(ese punto,
-  +0x58) en +0x5C y, **en las dos clases** (no mira +0x58, corregido: antes esta nota decía "solo en la de pueblo"), el
-  sonido 0x93 en +0x60 (`fn_0071E8C0` = `SoundTag::Create`), salvo si el objeto lleva la marca UNAVAILABLE (+0xA & 1);
-  detalle del sonido en [day-night-weather.md](day-night-weather.md). Land1: 8 de tipo 7 y 4 de tipo 59
-  (farolillos de campo con la malla de la hoguera, **no** hogueras). El CREATE de CHL con 7 o 59 va por el mismo sitio.
-  openblack: `StreetLanternArchetype`, `components::StreetLantern` / `LanternLight`; `night_lights` pone las luces
-  según `LanternLight` (antes por la malla, y las hogueras de verdad salían con luz de farolillo).
-- **CREATE_BONFIRE** "AFFF" (caso 73, 0x7176AE) → `fn_00439850`(pos, F1 temperatura, F2 ángulo Y, F3 escala) → ctor
-  0x4395C0: `Rock`(pos, MS[8], ángulo, escala) y `CreateSpotVisualWithSpecifiedDuration`(pos, 25 SF_Bonfire, 1,0, −1 =
-  siempre, la hoguera); la temperatura no se usa al crear (Land1 trae 24,7, que openblack tomaba por el ángulo). Sin
-  luz de farolillo. openblack: `BonfireArchetype`.
-- **MobileStatic**: `CREATE_MOBILESTATIC` "ANFF" (caso 41) → `fn_00608770`(pos, info, 0, 0, F2 ángulo, F3 escala):
-  MS[8] → `Bonfire::Create` con temperatura 100; info +0x128 = 2 → `Rock`; MS[6] → nada; el resto `MobileStatic`.
-  `CREATE_MOBILE_STATIC` "ANFFFFF" (caso 42) → `fn_00608840`(pos con relY = F2, info, 0, 0, F3, F4, F5, F6): MS[6] →
-  GBaseOnly `fn_00609340`; MS[7] → nada; el resto `fn_00608770`(…, F4, F6); después `SetXYZAnglesAndScale`(F3, F4, F5,
-  F6) sobre lo creado (también la base y la hoguera). openblack: `MobileStaticArchetype::CreateFromInfo` /
-  `CreateWithXYZAngles`.
-- **CREATE_DEAD_TREE** "ALNFFFF" (caso 43, 0x716E64) → `fn_00510BB0`(pos, GTreeInfo[N2], jugador, F3, F4, F5, F6, 0):
-  ctor 0x510A30 = `Rock`(MS[3], ángulo 0, escala 1) + `SetLife`(F3); con 0xCC5F10 = 0, `GetDeadTreeMesh` 0x510C60 es la
-  malla normal del tipo; luego `SetXYZAnglesAndScale`(F4, F5, F6, 1), la matriz de MobileStatic (x = F4, y = F5,
-  z = F6). Land1: 3 (tipos 12, 4 y 4, vida 1, ángulos pequeños). openblack hacía un árbol quemado vivo; ahora
-  `DeadTreeArchetype` (`components::DeadTree`, sin Tree ni bosque, se puede coger).
-- **CREATE_POT** (caso 38): `IsOkToCreateAtPos` y, si la cantidad N3 ≤ 0 (0x716B19), nada. Quita los 4 montones de
-  madera vacíos de Land1.
-- **CREATE_NEW_FEATURE** (caso 75): con N5 ≠ 0 crea un `PlannedFeature` 0x527440 (no se dibuja); ninguna tierra lo usa.
-- **Nombres**: features `fn_00527740` y animated statics `fn_00422600` comparan con `_stricmp` (si no hay, devuelven el
-  número de infos, 0x4C / 0x10); `GAbodeInfo::GetInfoFromText` 0x405A70 recorre las 9 tribus, compara el prefijo con
-  `_strnicmp`, exige '_' y la descripción con `_stricmp` (16 por tribu); si no, −1. El original usa el resultado sin
-  comprobarlo; openblack registra el fallo y se salta el comando (desviación de robustez deliberada; antes lanzaba).
-- **AnimatedStatic** (`CallVirtualFunctionsForCreation` 0x422300): pone el clip de info +0x128 (Norse Gate 191, Gate
-  Stone Plinth 195, Piper Cave Entrance 189); `Draw` 0x422770 lo avanza o retrocede según esté abierta, limitado a su
-  duración: cerrada es t = 0 (openblack: `SkeletalAnimation` parada en 0). Con malla 212 (Norse Gate, `fn_004230D0`)
-  crea 2 `Game3DObject` con la malla 398 en (∓15, 30, 0) de la matriz de la puerta (filas con escala + traslación),
-  ángulo 0 y escala 1, cada uno con la luz `fn_00823240`(su posición, 0).
-- **CREATE_PLANNED_CITADEL** (caso 20): pueblo y jugador obligatorios; `fn_00467DD0` (PlannedTownCitadelHeart en el
-  pueblo) y guarda la posición en 0xC5E258. El templo de verdad sale de `PlannedTownCitadelHeart::CreatePlannedNoFixedCheck`
-  0x467EF0 (vtable +0x504: la `Citadel` del jugador si no tiene, `fn_00462B10`, y `CitadelHeart::Create` 0x464E20), que
-  llama `Town::AddBuildingSiteNoFixedCheck` 0x73B8A0 desde `Town::RequestBestPlanned`, `Town::ForceBuildingOfPlannedAtPos`
-  0x73E560 (`GScript::BuildBuilding` 0x6FAB30 de CHL, y 0x641774 tras `StartPlaygroundGame` con 0xC5E258) y
-  `Scaffold::TryToBuildPlannedBuilding`. `GGame::Birthday` → `GPlayer::Birthday` → `Town::Birthday` solo rehace
-  estadísticas. Al cargar el mapa **no hay templo**, solo el plan (GameThingWithPos 0x4C, sin malla, sin celda, sin
-  índice de creación, sin aplanado; `Draw` 0x648930 = `ret`). Info "Citadel Heart" (info.dat 0x115C0): madera 5,
-  timeToBuild 150, desireToBeBuilt 1,0, malla 564 BuildingDummyCitadel; tipo de abode del plan 0x804 (cívico).
-  - Conversión 0x467EF0 (arg `float life`): el jugador es el **dueño del pueblo** (`Town+0x2C`, el de CREATE_TOWN o el
-    neutral), no el del script (ese solo se valida). `CitadelHeart::Create`(pos, info, citadel, ángulo del plan, escala
-    del plan, life, 1): el 1 marca "en construcción" (MultiMapFixed 0x52E1E0, +0x58 bit 1, +0x5C = 0).
-    `CallVirtualFunctionsForCreation` 0x4675A0 crea el LH3D tipo 8 a **escala 1** con y = altitud(origen) + alt y llama
-    0x882730 (malla B_FIRST_TEMPLE, % construido, **aplana la tierra**): el aplanado es al convertir. Lugares de culto
-    (`fn_00464F50`) solo si life ≥ 1. Luego heart+0x94 = pueblo, `PostCreatePlanned` 0x648C50 y se borra el plan.
-  - `AddBuildingSiteNoFixedCheck` pasa siempre life 0,0 y crea un `CitadelBuildingSite` (0x468DC0 → 0x43D1E0); lo
-    terminan los aldeanos (`CitadelHeart::Built` 0x465000). Con vida < 1 `Draw` 0x882A40 usa `DrawPartialyBuilt`
-    0x816AD0 (sin decodificar).
-  - Disparadores: **Land 1** = CHL `FollowUs`: `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)` (la pos del plan de
-    Land1.txt:95; `GetPlannedAtPos` 0x73E4C0 coge el plan más cercano a menos de radio de la malla 564 × escala + 1 m),
-    luego `CALL_NEAR(Citadel 18)` + `SET_PROPERTY(22, 0.375)`; `PreventCitadelCompletion` lo limita a 0,9 y
-    `CheckCitadel` espera 1. **Lands 2-5** = IA: `Villager::CheckSatisfyCivicBuildings` 0x758E90 (deseo del pueblo
-    FOR_CIVIC_BUILDING 6, 0x748330) → `RequestBestPlanned` 0x73A650 → `GetBestPlanned` 0x73A140 (máscara 4).
-  - **CREATE_CITADEL** (`Citadel::CreateCitadel` 0x463240) pasa (ángulo, 1,0, 1,0, 0) a `CitadelHeart::Create`: la
-    escala del script se **ignora** (Kapa's Land1 Playground pasa 0, otros mapas 300 o 4121) y sale construido.
-  - openblack: CREATE_CITADEL dibuja a escala 1 (antes usaba la del script: en Kapa's Land1 Playground el templo era
-    invisible). CREATE_PLANNED_CITADEL exige pueblo y jugador válidos (si no, nada), el templo es del dueño del pueblo
-    (`Town::owner`) y se dibuja a escala 1. **Desviación pendiente**: como no hay deseos de pueblo, sitios de
-    construcción, BUILD_BUILDING/SET_PROPERTY 22/CALL_NEAR ni dibujo parcial, el templo se sigue creando ya construido
-    (y aplanando) al cargar, para que no desaparezca de Land 1-5. Hacerlo fiel requiere portar todo lo anterior.
-- **IsOkToCreateAtPos** 0x638C40: falla si `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe`
-  0x601D10 da el bit 8 y la celda no es agua. El bit 8 sale de un círculo `NewCollide::Obj` de radio 0,5 (0x82AD90)
-  contra el `GetCollideData` (vtable +0x858) de cada objeto fijo de la lista +4 de la celda (`Obj::Collide` 0x829140);
-  los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Informe
-  completo: `tmp_dis\mapa\flecos_isok.md` (simulación `isok\sim.py`).
-  - **Quién lo llama**: solo CREATE_TREE (27, 0x716235), CREATE_NEW_TREE (28, 0x7162EE), CREATE_POT (38, 0x716B0C, antes
-    de mirar la cantidad) y CREATE_MOBILEOBJECT (40, 0x716C71). Si falla, no crea nada, no escribe nada y el guion sigue.
-    Ángulo y escala no se usan. Los handlers CHL no lo llaman. CREATE_TOWN_CENTRE usa otro (`GAbodeInfo::IsOkToCreateAtPos`
-    0x404B10, sin portar: en Land1-5 no rechaza ninguno). Abodes, campos, features, mobile statics, hogueras y árboles
-    muertos se crean sin mirar nada.
-  - **La prueba**: círculo de 0,5 en (x, z) del guion (la altura no cuenta, `MapCoords(char*)` deja y = 0) contra los
-    objetos de **su celda**; prueba 2D `dx² + dz² <= (ra + rb)²` y luego los hijos. Con agua en la celda (bit 0x10,
-    `hasWater`) se crea siempre; fuera del mapa (o en un bloque vacío) también.
-  - **Formas**: árbol = círculo de 0,3 en su posición, solo en su celda (0x74C5F0). MultiMapFixed (abode, centro,
-    campo 594, feature, animated static, mobile static, roca, hoguera, árbol muerto, dispensador) = `NewCollide(LH3DObject)`
-    0x829390 desde el bbox de la malla: centro del bbox girado con `x' = x·cos a − z·sin a`, `z' = x·sin a + z·cos a`;
-    semiejes `max(1, escala·mitad)` en x y z; si largo/corto > 1,4, círculo exterior `sqrt(ex²+ez²)` con
-    `int(largo/corto)+1` hijos de radio corto en fila por el eje largo (0x82ADD0 / 0x828F40); si no, un círculo de
-    `max(ex, ez)`. Se mete en cada celda cuyo círculo (centro de la celda, 7,1) la toca. El bbox (0x8081B0) pasa las
-    mallas con huesos (flag 0x100) por `LH3DAnim::SetTransform`, como el de openblack. Sin collide data: BigForest,
-    vasijas, mobile objects, aldeanos, animales, farolas y planificados.
-  - **openblack** (`ECS/MapCollide.h/.cpp`, `openblack::ecs::map_collide`): rejilla de celdas que se vacía en
-    LOAD_LANDSCAPE y se llena con los parámetros del guion (malla del `Mesh` del objeto creado, ángulo Y y escala del
-    guion, no el Transform). Sin registrar aún: piscifactorías, CitadelHeart (0x468FB0) y WorshipSite (0x77E490), sin
-    decodificar. `OPENBLACK_LOG_ISOK=1` escribe una línea por rechazo (orden, posición, qué lo tapa).
-  - **Resultado** (comprobado con `OPENBLACK_DUMP_ENTITY_COUNTS`): Land1 1395 → 1351 árboles (44 rechazos: los 43 de
-    `sim.py` − 2 bajo la Piper Cave Entrance + 3 bajo los árboles muertos), mobile objects 51; Land2 921 → 915 (+1
-    vasija); Land3 1397 → 1373 y 26 → 20 mobile objects; Land4 799 → 764 y 1 → 0 (+1 vasija); Land5 804 → 782 y
-    19 → 13; LandT 341 → 316. Diferencias con `sim.py`: la Piper Cave Entrance es una malla con huesos y `sim.py` usaba
-    los vértices sin transformar; los árboles muertos `sim.py` no los modelaba (son Rock con la malla normal del tipo,
-    creados con ángulo 0 y escala 1, y los ángulos del guion son casi 0). Captura: Land1 junto al Boulder1 Lime
-    (2120, 2494), ya sin los árboles de encima.
+- `C:\Users\diewgarc\dev\tmp_dis\field\field_notes.txt` y `draw_colour_sway_notes.txt`: campos.
+- `C:\Users\diewgarc\dev\tmp_dis\sound\notes.txt`: sonidos de coger y de LHAudio.
+- `C:\Users\diewgarc\dev\tmp_dis\agua\re\emu_qmixer.py` y `emu_polar.py`: volumen, distancias y ejes de QMixer (Unicorn).
+- `C:\Users\diewgarc\dev\tmp_dis\agua\audio.md` §1-3: el ambiente.
+- `C:\Users\diewgarc\dev\decomp_pickup`: coger, sostener y soltar (interfaz, CHand, objetos).

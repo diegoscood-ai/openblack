@@ -36,6 +36,7 @@
 #include "VillagerReactions.h"
 #include "VillagerTeleport.h"
 #include "VillagerWorship.h"
+#include "ECS/VillagerDrowning.h"
 #include "Enums.h"
 #include "Locator.h"
 
@@ -230,9 +231,9 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* SET_DYING */ k_TodoEntry,
     /* DYING */ k_TodoEntry,
     /* DEAD */ k_TodoEntry,
-    // the water's state (local/agua: Villager::Drowning 0x76A780). EnterDrowning 0x767410 (`mov eax, 1; ret 8`) and
+    // the water's state (Villager::Drowning 0x76A780, ECS/VillagerDrowning). EnterDrowning 0x767410 (`mov eax, 1; ret 8`) and
     // ExitDrowning 0x767420 (`mov eax, 1; ret 4`) only accept
-    /* DROWNING */ {.state = &TodoState,
+    /* DROWNING */ {.state = &openblack::ecs::VillagerDrowningState,
                     .entryState = [](LivingAction&, VillagerStates, VillagerStates) -> uint32_t { return 1; },
                     .exitState = [](LivingAction&, VillagerStates) -> uint32_t { return 1; }},
     /* DOWNED */ {.state = &VillagerCarried},      // caught by a predator: the animal AI drives it (ECS/AnimalPredators)

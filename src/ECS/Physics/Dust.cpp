@@ -115,7 +115,8 @@ void Dust::Update(float seconds)
 	for (auto& puff : g_Puffs)
 	{
 		puff.age += seconds;
-		if (puff.age >= k_Life || !registry.Valid(puff.entity))
+		// fn_00846010: age += dt, gone once past the kind's life (kind 4: 1 s; 0: 3 s; others 2 s), before moving
+		if (puff.age > k_Life || !registry.Valid(puff.entity))
 		{
 			if (registry.Valid(puff.entity))
 			{

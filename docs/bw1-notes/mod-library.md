@@ -29,6 +29,7 @@ integrados. Todo lo de esta página es **mod/propio** salvo que se diga lo contr
   - [world.foliage](#worldfoliage)
   - [Módulo world.foliage.beach](#módulo-worldfoliagebeach)
   - [Módulo world.foliage.butterflies](#módulo-worldfoliagebutterflies)
+  - [test.miracle-dispensers](#testmiracle-dispensers)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
 - [Fuentes](#fuentes)
@@ -87,9 +88,10 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
 | [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
+| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores) | Un dispensador de cada milagro junto al templo, para probarlos | no |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
 
-Más detalles en [rendering.md](rendering.md), [openblack-internals.md](openblack-internals.md) y
+Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
 [mods.md](mods.md#mod-hd-tweaks) (HD-Tweaks).
 
 ### Mods de datos
@@ -163,16 +165,40 @@ Enchufables a otro mod.
 
 - Opción `samples` 2x/4x/8x/16x (por defecto 4x). Sin reinicio.
 - Antialiasing multimuestreo y alpha to coverage en hojas y vallas (y en las plantas de `world.foliage`).
+- Atajo `--msaa 0/2/4/8/16`. Backbuffer multimuestreado (`BGFX_RESET_MSAA_*`). En las pasadas opacas los cut-outs
+  usan **alpha to coverage**: `fs_object` convierte el corte en una rampa de ~1 píxel con `fwidth`
+  (`u_skyAlphaThreshold.z`).
 
 ### graphics.mipmaps
 
 - Sin opciones. Hace falta reiniciar.
-- Mipmaps y filtrado trilineal.
+- Mipmaps y filtrado trilineal. Atajo `--mipmaps`. Se aplica a las texturas de modelos, pieles L3D, materiales y
+  bump del terreno y texturas `.raw` sueltas (el original no tiene mips: ver
+  [rendering.md](rendering.md#estados-de-direct3d-7-del-original)).
+- Implementación (`Graphics/TextureMipmaps.cpp`, `BuildRgba8MipChain`):
+  - decodifica el nivel 0 a RGBA8 con `bimg::imageDecodeToRgba8` (DXT1/3/5, BGRA4, BGR5A1, R8…);
+  - hace una media 2×2 **ponderada por alfa**, para que los texels transparentes no oscurezcan los bordes;
+  - en texturas de alfa casi binaria (≥85 % de texels con alfa <32 o >223) **conserva la cobertura** en cada nivel
+    respecto a la referencia 0x96, para que los árboles no adelgacen a lo lejos (sin esto se veían mucho más finos).
+- `Texture2D::Create`: con `Filter::LinearMipmapLinear` construye la cadena y crea la textura en RGBA8 con mips.
+  Libera el `bgfx::Memory` original con `bgfx::release`, que bgfx exporta pero no declara en `bgfx.h`.
+- `graphics::SurfaceTextureFilter()` devuelve `Linear` o `LinearMipmapLinear` según los mods. No se aplica al
+  heightmap, las huellas, el ruido ni el cielo.
+- `fs_terrain`: el small bump se muestrea fuera del `if` de distancia, porque con mips hacen falta derivadas en flujo
+  uniforme.
+- Coste: unos segundos más de carga y más memoria de vídeo (RGBA8 en lugar de DXT).
+- Verificación (de `msaa`, `mipmaps` y `anisotropic`): capturas (estaban en `dev\gfx\`, borradas en la limpieza del
+  2026-09-30; se regeneran con estas cámaras y opciones):
+  - `base_*` frente a `enh_*` / `enh2_*`: aldea `1818,75,2612,1824,44,2636` y panorámica
+    `1600,160,2350,1900,40,2750`, con `-n 14000 --screenshot-frame 13900`. Con mips la carga es más lenta y a 8000
+    fotogramas el vuelo aún no ha terminado.
+  - [img/crop_trees_zoom.png](img/crop_trees_zoom.png), rejilla de cuatro: original, mips, MSAA y todo.
 
 ### graphics.anisotropic
 
 - Sin opciones. Hace falta reiniciar.
-- Filtrado anisótropo (incluye los mipmaps).
+- Filtrado anisótropo (incluye los mipmaps). Atajo `--anisotropic`: añade `BGFX_SAMPLER_*_ANISOTROPIC` y
+  `BGFX_RESET_MAXANISOTROPY`. `--enhanced-graphics` equivale a `--msaa 4 --anisotropic`.
 
 ### graphics.terrain-x2
 
@@ -235,6 +261,12 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
 
 - Sin opciones ni reinicio.
 - El mar refleja todo, el reflejo ondula despacio en bucle y la superficie deriva (sin la ondulación por filas).
+- Atajo `--living-water`. "Agua viva": el reflejo del mar incluye modelos y sprites (el original solo refleja cielo y
+  tierra) y ondula en bucle con dos capas de `skya.raw` que se desplazan (mapa de olas), más fuerte cerca y nula a
+  1500 de profundidad; además quita la ondulación por filas del original (líneas fijas en pausa, temblor a fps
+  modernos) y hace derivar `sky.raw` y `skya.raw` juntos (0,020 / 0,012 texturas por unidad de tiempo). Usa tiempo
+  real a un cuarto de velocidad (también en pausa) que da la vuelta cada 1000 unidades (4000 s); las velocidades son
+  múltiplos de 1/1000 textura/s, así el bucle no salta. El mar del original: [rendering.md](rendering.md#mar-skyraw--skyaraw).
 
 ### world.ground-statics
 
@@ -326,14 +358,14 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
   transparente), las de costa siempre 2 (1,34, alfa 0,5) y la tierra opaca empieza en 3 (2,01); el máximo es 255
   (170,85). Por eso todas las `altitude` de las plantas pasan a `0-175` (los mínimos 1-2 ya no hacen falta: la costa
   está excluida; los máximos 120/150 cortaban los prados altos de Land3).
-- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver [rendering.md](rendering.md) "Ríos"); las
+- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver [rendering.md](rendering.md#ríos) "Ríos"); las
   celdas de costa (`coastLine`, altitud 2-3 en Land1) se dibujan con alfa 0,5 sobre el mar y las de agua con alfa 0,
   así que nada crece en una celda con alguna esquina de agua o costa.
 - `near = lake, stream, sea` + `water_distance` limitan una planta a esa distancia de agua (mapa de distancias 3-4
   chamfer a 5 unidades, `FoliageWaterMap`): lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1:
   una charca de 10 celdas en x 2130-2160, z 2400-2450 y una celda suelta); río = segmentos entre los puntos de cada
   `Stream` (Land1: 11 ríos, 187 puntos). En B&W1 no hay agua a otra altura: los ríos son esos caminos (openblack los
-  dibuja como el original desde 101dd844, `ECS/Rivers`, ver rendering.md "Ríos").
+  dibuja como el original desde 101dd844, `ECS/Rivers`, ver [rendering.md](rendering.md#ríos)).
 - Los juncos usan `near = lake, stream` a 3-9 unidades. Ninguna planta a menos de 3 unidades de la línea de un río (el
   canal de river.l3d mide unas 4; distancia exacta a los tramos en cubos de 20 unidades).
 - La base de cada planta sigue el suelo: altura en sus dos extremos (i_data4) y cizalla en el vertex shader, hundida
@@ -473,6 +505,78 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
   hierba de 0,7-1,2). Sin opciones. Cómo vuelan: [Voladores](#voladores-flyer-nombre).
 - En Land1 hay unas 70 cerca de `1434,57.8,2232` (cámara `1428,61.5,2226,1434,57.5,2233`, `OPENBLACK_TIME_OF_DAY=13`).
 
+### test.miracle-dispensers
+
+«Máquinas de milagros de prueba» (categoría **Test**). **No existe en el original**: es una ayuda para probar los
+milagros, desactivada por defecto. Código: `src/Mods/Builtin/MiracleDispensersMod.cpp` (el mod, que pone
+`EngineConfig::testDispensers*`) y `src/Worship/TestDispensers.cpp` (lo que hace en el juego). Todo es **mod**; solo
+los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luciérnagas-worshipspelldispensercpp-worshipfireflyrewardcpp)).
+
+- **Activarlo**: menú **Mods** → sección *Test* → casilla «Máquinas de milagros de prueba» (y sus dos deslizadores
+  debajo); se guarda en `Mods/test.miracle-dispensers/settings.cfg` (`enabled = on`, `level = base`,
+  `recharge = 10s`). Solo para una sesión: `--mod test.miracle-dispensers` (más
+  `--mod test.miracle-dispensers.level=all`, `--mod test.miracle-dispensers.recharge=5s`). Sin reinicio, pero los
+  dispensadores salen **al cargar una tierra** (o en el turno siguiente si se enciende con la tierra cargada); al
+  apagarlo se quedan hasta la próxima carga. La recarga sí se cambia en vivo en los ya puestos.
+- **Qué hace**: cuando ha corrido el guion de la tierra (después de `PostLoadCleanup`, en `worship::ProcessTurn`) y el
+  jugador humano tiene ciudadela (`citadel::Of`; se busca su posición en la entidad, no está escrita en el código),
+  pone un dispensador `NORSE_ABODE_SPELL_DISPENSER` (el del desafío de Land 1) por milagro, como
+  `GiveSpellDispenserReward`: `dispenser::Create` (pueblo más cercano del jugador, mirando al templo),
+  `SetMagicProperties(magia, recarga)` y `SetActive` (orbe al momento). Cuando se coge el orbe, a los `recharge`
+  segundos sale otro.
+- **Dónde**: en anillos alrededor del templo, el primero a radio del templo (mitad mayor de su malla en x/z, 25,6 m en
+  Land 1) + 12 m y los siguientes cada 13 m, puestos cada 13 m de arco (los anillos impares desplazados medio paso). Un
+  sitio vale si un cuadrado de 8 × 8 m (9 puntos) es tierra seca sin agua (`sea_cells::IsWater` / `IsDryLand`), con
+  menos de 2,5 m de desnivel, dentro de la influencia del jugador (`CalculatePlayerInfluence > 0`, la regla de
+  lanzamiento), a más de 4 m de cualquier objeto fijo (`Fixed`, edificios, árboles, rasgos, rocas, ollas, campos,
+  farolas, tótem, lugares de culto) y lo acepta `map_collide::IsOkToCreateAtPos`. Constantes elegidas por openblack
+  (mod).
+- **Milagros** (las 14 semillas del jugador de `GSpellSeedInfo`, en su orden; las de la criatura, 12..27, no): STORM
+  (tormenta), NATURE (bosque), FIRE (bola de fuego), FOOD (comida), SHIELD (escudo), PHYSICAL_SHIELD (escudo físico),
+  LIGHTNING_BOLT (rayo), HEAL (curar), WOOD (madera), WATER (agua), FLYING_FLOCK (bandada de palomas), GROUND_FLOCK
+  (manada de lobos), TELEPORT (teletransporte) y BEAM_EXPLOSION (explosión de rayo). La tormenta eléctrica y el
+  tornado no son semillas: son los power-ups de STORM.
+- **Opción `level`** (deslizador): `base` la magia base de cada semilla; `pu1` / `pu2` su power-up 1 / 2 (si la
+  semilla no lo tiene, el más alto que tenga); `all` un dispensador por cada nivel distinto (25 en total: STORM,
+  STORM_PU1 = tormenta eléctrica, STORM_PU2 = tornado; FIRE ×3; FOOD ×2; LIGHTNING_BOLT ×3; HEAL ×2; WATER ×2;
+  BEAM_EXPLOSION ×3; el resto ×1). El orbe sale con el nivel de su magia (`GetPowerUpGesture`, como el original).
+- **Opción `recharge`** (deslizador): segundos hasta el siguiente orbe (`SET_MAGIC_PROPERTIES` en segundos × 10
+  turnos); el original usa 300 turnos (`timeEachMobileObjectTakesToProduce`).
+- **Orden de creación**: los dispensadores y sus orbes no existen en el original, así que se crean dentro de un
+  `ecs::object_index::ModScope`: toman índices de un rango aparte (desde `k_ModBase` = 0x40000000) y el contador del
+  original no se mueve (las velocidades de los aldeanos, `Villager::SetSpeed`, y los órdenes de animales y bosques
+  quedan iguales). `SpellDispenser::CreateOneOffSpellSeed` / `ApplySeed` abren el mismo ámbito si el dispensador es
+  de un mod (`IsModObject`). No consumen números aleatorios del juego. Sí son abodes del pueblo y obstáculos fijos,
+  como el dispensador de Land 1. La semilla que da el orbe al tocarlo y lo que crea el hechizo cuentan como siempre
+  (son acciones del jugador).
+- **Registro**: una línea por dispensador:
+  `Mod test.miracle-dispensers: dispenser <entidad> seed <n> (<SEMILLA>) pu <nivel> magic <n> (<MAGIA>) at (x, z)`.
+- **Land 1** (`level = base`; templo en (1915,1, 2508,9), anillo de 37,6 m, los 14 caben en el primero):
+
+  | Semilla | Posición (x, z) |
+  |---|---|
+  | STORM | 1915,1, 2546,5 |
+  | NATURE | 1927,9, 2544,2 |
+  | FIRE | 1939,2, 2537,7 |
+  | FOOD | 1947,6, 2527,7 |
+  | SHIELD | 1952,1, 2515,4 |
+  | PHYSICAL_SHIELD | 1952,1, 2502,4 |
+  | LIGHTNING_BOLT | 1947,6, 2490,1 |
+  | HEAL | 1939,2, 2480,1 |
+  | WOOD | 1927,9, 2473,6 |
+  | WATER | 1915,1, 2471,3 |
+  | FLYING_FLOCK | 1902,2, 2473,6 |
+  | GROUND_FLOCK | 1890,9, 2480,1 |
+  | TELEPORT | 1882,5, 2490,1 |
+  | BEAM_EXPLOSION | 1878,0, 2502,4 |
+
+  Con `all` los 25 ocupan el primer anillo (18 sitios) y 7 del segundo (radio 50,6 m).
+- **Probado** (2026-10-01, capturas en `dev\_audit\magic\`): `dispmod_ring.png` (el anillo en Land 1),
+  `dispmod_cast.png` (el orbe de FIRE tocado, `seed (FIRE, pu -1) in the hand with 3500 chants`, armado y lanzado:
+  la bola de fuego en el suelo y su dispensador vacío) y `dispmod_all.png` (`level = all`, 25 dispensadores). A los
+  10 s del toque el dispensador hace otro orbe. Gancho de cámara: `OPENBLACK_CAMERA_LOCK=1960,85,2580,1915,32,2508`
+  (ver [Ganchos de prueba](#ganchos-de-prueba)).
+
 ## Pendiente
 
 - Nivel 3: mods externos (Lua o DLL) sobre esta misma API.
@@ -488,12 +592,14 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
 | `OPENBLACK_TEST_FIELD_GROWTH=0..1200` | Todos los campos empiezan con ese crecimiento y su comida |
 | `OPENBLACK_HAND_TRACE=1` | Escribe `Flyer trace` (huida de las mariposas) |
 | `OPENBLACK_TIME_OF_DAY=13` | Hora del juego para ver las mariposas (solo de día) |
+| `OPENBLACK_CAMERA_LOCK="ox,oy,oz,fx,fy,fz"` | Pone la cámara ahí cada turno (`WorshipDebugHooks.cpp`): en Land 1 el guion mueve la cámara y `OPENBLACK_CAMERA_FLY` ya no llega |
+| `--mod test.miracle-dispensers` + `OPENBLACK_TEST_TAP="1939.2,2537.7,200"` + `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"` | Toca el orbe de FIRE de Land 1 y lo lanza |
 
 Cámaras: playa de Land1 `1702,7,1992,1706,0.5,2004`; mariposas de Land1 `1428,61.5,2226,1434,57.5,2233`.
 
 ## Fuentes
 
-- Código: `src/Mods/` (`ModRegistry`, `Mod`, `Builtin/*Mod.cpp`), `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`,
+- Código: `src/Mods/` (`ModRegistry`, `Mod`, `Builtin/*Mod.cpp`), `src/Worship/TestDispensers.cpp`, `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`,
   `src/Resources/HdTweaks`, `src/main.cpp` (atajos de la línea de comandos).
 - Datos del mod en el repo: `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`,
   `assets/mods/world.foliage.butterflies`, `assets/mods/graphics.hd-tweaks`.

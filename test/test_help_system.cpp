@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -24,7 +25,9 @@
 #include <gtest/gtest.h>
 
 #include "Common/HelpText.h"
+#include "Audio/ScriptAudioState.h"
 #include "Help/HelpSystem.h"
+#include "Help/ScriptControl.h"
 #include "InfoConstants.h"
 
 // Milestone A11 of dev\tmp_dis\audio\PLAN.md: HelpSystem without voices (runblack.exe W120 0x5C5550..0x5C6E00, the
@@ -85,7 +88,6 @@ struct Fixture
 	bool bankLoaded {false};
 	bool playing {false};
 	bool advisors {false};
-	bool wideScreen {false};
 	std::vector<helptext::Entry> texts;
 	std::vector<audio::TextVoice> voices;
 	std::vector<std::pair<uint32_t, VoiceRoute>> said;
@@ -110,7 +112,6 @@ struct Fixture
 			return playing && owner == audio::VoiceOwner::Narration;
 		};
 		queries.advisorsTalking = [this]() { return advisors; };
-		queries.scriptWideScreen = [this]() { return wideScreen; };
 		HelpSystem::Hooks hooks;
 		hooks.sayVoice = [this](uint32_t id, VoiceRoute route, audio::TextVoice) { said.emplace_back(id, route); };
 		hooks.stopVoicesOnClick = [this]() { ++stops; };
@@ -271,7 +272,7 @@ TEST(HelpSystem, WithInteraction)
 	EXPECT_FALSE(f.help->IsTextRead());
 
 	// with the script's wide screen a click after 0.5 s cuts the text
-	f.wideScreen = true;
+	f.help->SetWideScreen(1, 7); // a script task (7) holds it: +0x45E8 && +0x45EC
 	f.help->RunText(false, 0, 0);
 	f.turn += 4;
 	EXPECT_EQ(f.help->ProcessInterface(true), 1);
@@ -394,4 +395,185 @@ TEST(HelpSystem, InstalledGame)
 	EXPECT_EQ(words, 52190u);
 	EXPECT_EQ(CountWords(entries[1715].text), 11u); // a real line feed ("\n" in the file)
 	EXPECT_EQ(CountWords(entries[1153].text), 3u);  // "Descubiertos: $I Retos"
+}
+
+namespace
+{
+/// A script VM: `current` runs now; types[task] is its VMScriptType (1 when it does not exist)
+struct VmFixture
+{
+	uint32_t current {0};
+	std::vector<uint32_t> types;
+	std::vector<uint32_t> stoppedMasks;
+	std::function<void(uint32_t)> onStop;
+
+	script_control::Vm Make()
+	{
+		script_control::Vm vm;
+		vm.taskNumber = [this]() { return current; };
+		vm.currentTaskType = [this]() { return TypeOf(current); };
+		vm.taskType = [this](uint32_t task) { return TypeOf(task); };
+		vm.stopTasksOfType = [this](uint32_t mask) {
+			stoppedMasks.push_back(mask);
+			for (uint32_t task = 1; task < types.size(); ++task)
+			{
+				if ((types[task] & mask) != 0 && onStop)
+				{
+					onStop(task);
+				}
+			}
+		};
+		return vm;
+	}
+	[[nodiscard]] uint32_t TypeOf(uint32_t task) const { return task != 0 && task < types.size() ? types[task] : 1; }
+};
+} // namespace
+
+TEST(ScriptControl, IsDialogueControlled)
+{
+	// HelpSystem::IsDialogueControlled 0x5C6740: +0x45CC, or +0x45E8 && +0x45EC
+	Fixture f;
+	EXPECT_FALSE(f.help->IsDialogueControlled());
+	EXPECT_TRUE(script_control::IsSpiritReady(*f.help)); // IS_DIALOGUE_READY 0x710846: the negation
+	f.help->SetWideScreen(1, 0);                         // the game's wide screen (no owner)
+	EXPECT_FALSE(f.help->IsDialogueControlled());
+	f.help->SetWideScreen(0, 0);
+	f.help->SetWideScreen(1, 4); // a task's
+	EXPECT_TRUE(f.help->IsDialogueControlled());
+	EXPECT_FALSE(script_control::IsSpiritReady(*f.help));
+	EXPECT_EQ(f.help->GetWideScreenOwner(), 4u);
+	f.help->SetWideScreen(1, 9); // +0x45E8 unchanged: nothing (0x5C6ADE)
+	EXPECT_EQ(f.help->GetWideScreenOwner(), 4u);
+	f.help->SetWideScreen(0, 9); // off: the owner goes (0x5C6B31)
+	EXPECT_EQ(f.help->GetWideScreenOwner(), 0u);
+	f.help->SetCurrentControl(3);
+	EXPECT_TRUE(f.help->IsDialogueControlled());
+	f.help->ClearDialogueControl(); // 0x5C67E0
+	EXPECT_FALSE(f.help->IsDialogueControlled());
+	// Reset 0x5C55D6 takes the wide screen away, not +0x45CC
+	f.help->SetWideScreen(1, 4);
+	f.help->SetCurrentControl(3);
+	f.help->Reset();
+	EXPECT_EQ(f.help->GetWideScreen(), 0);
+	EXPECT_EQ(f.help->GetDialogueOwner(), 3u);
+}
+
+TEST(ScriptControl, StartEndDialogue)
+{
+	Fixture f;
+	audio::ScriptAudioState audio;
+	VmFixture vm;
+	vm.types = {0, 1, 1, 2}; // tasks 1 and 2: Script; 3: Help
+
+	// START_DIALOGUE 0x710690: nobody has it -> this task (DialogueControlRequest 0x5C6790), true
+	vm.current = 1;
+	EXPECT_TRUE(script_control::StartDialogue(*f.help, vm.Make()));
+	EXPECT_EQ(f.help->GetDialogueOwner(), 1u);
+	EXPECT_FALSE(script_control::IsSpiritReady(*f.help));
+	// again from the same task: true (0x7106CF)
+	EXPECT_TRUE(script_control::StartDialogue(*f.help, vm.Make()));
+	// another Script task: false (0x71076C), without stopping anything
+	vm.current = 2;
+	EXPECT_FALSE(script_control::StartDialogue(*f.help, vm.Make()));
+	EXPECT_TRUE(vm.stoppedMasks.empty());
+	// END_DIALOGUE 0x710780 of a task without it: nothing
+	audio.musicBeat = 5;
+	audio.creatureSound = 0;
+	script_control::EndDialogue(*f.help, audio, vm.Make());
+	EXPECT_EQ(f.help->GetDialogueOwner(), 1u);
+	EXPECT_EQ(audio.musicBeat.load(), 5);
+	// of the owner: released (fn_005C6800), +0x84 = 1, +0x9C = 0 (0x71080A, 0x710820)
+	vm.current = 1;
+	f.help->SetWideScreen(1, 1);
+	script_control::EndDialogue(*f.help, audio, vm.Make());
+	EXPECT_EQ(f.help->GetDialogueOwner(), 0u);
+	EXPECT_EQ(f.help->GetWideScreen(), 0); // 0x5C684B
+	EXPECT_EQ(audio.musicBeat.load(), 0);
+	EXPECT_EQ(audio.creatureSound.load(), 1);
+	EXPECT_TRUE(script_control::IsSpiritReady(*f.help));
+
+	// a Help task has it; a Script task asks: StopHelpScripts (0x4A) and its stop callback gives it back
+	vm.current = 3;
+	EXPECT_TRUE(script_control::StartDialogue(*f.help, vm.Make()));
+	EXPECT_EQ(f.help->GetDialogueOwner(), 3u);
+	script_control::CameraControl camera;
+	vm.onStop = [&](uint32_t task) { script_control::OnTaskStopped(task, f.help.get(), camera, audio); };
+	vm.current = 2;
+	EXPECT_TRUE(script_control::StartDialogue(*f.help, vm.Make()));
+	ASSERT_EQ(vm.stoppedMasks.size(), 1u);
+	EXPECT_EQ(vm.stoppedMasks[0], script_control::k_HelpScriptTypes);
+	EXPECT_EQ(f.help->GetDialogueOwner(), 2u);
+	// a Help task does not take it from a Script one (0x7106FA)
+	vm.current = 3;
+	EXPECT_FALSE(script_control::StartDialogue(*f.help, vm.Make()));
+	EXPECT_EQ(vm.stoppedMasks.size(), 1u);
+	// the wide screen of another task refuses the request, but START_DIALOGUE still pushes true (0x710722..0x71072E)
+	f.help->ClearDialogueControl();
+	f.help->SetWideScreen(1, 7);
+	vm.current = 1;
+	EXPECT_TRUE(script_control::StartDialogue(*f.help, vm.Make()));
+	EXPECT_EQ(f.help->GetDialogueOwner(), 0u);
+}
+
+TEST(ScriptControl, SetWideScreen)
+{
+	// GScript::SetWideScreen 0x6F7BF0: only the owner, or anyone while nobody holds it
+	Fixture f;
+	VmFixture vm;
+	vm.types = {0, 1, 1};
+	vm.current = 1;
+	EXPECT_TRUE(script_control::SetWideScreen(*f.help, 1, vm.Make()));
+	EXPECT_EQ(f.help->GetWideScreenOwner(), 1u);
+	EXPECT_TRUE(f.help->IsScriptWideScreen());
+	vm.current = 2;
+	EXPECT_FALSE(script_control::SetWideScreen(*f.help, 0, vm.Make())); // 0x6F7C40
+	EXPECT_EQ(f.help->GetWideScreen(), 1);
+	vm.current = 1;
+	EXPECT_TRUE(script_control::SetWideScreen(*f.help, 1, vm.Make())); // its own: the warning, no change
+	EXPECT_TRUE(script_control::SetWideScreen(*f.help, 0, vm.Make()));
+	EXPECT_EQ(f.help->GetWideScreen(), 0);
+	EXPECT_FALSE(f.help->IsScriptWideScreen());
+}
+
+TEST(ScriptControl, CameraControl)
+{
+	audio::ScriptAudioState audio;
+	VmFixture vm;
+	vm.types = {0, 1, 0x10, 0x8};
+	script_control::CameraControl camera;
+	camera.Reset();
+	vm.current = 1;
+	// START_CAMERA_CONTROL 0x6ECCA0 outside the citadel: the script camera mode taken -> owner, highlights and leashes off
+	EXPECT_TRUE(script_control::StartCameraControl(camera, vm.Make(), false, true));
+	EXPECT_EQ(camera.owner, 1u);
+	EXPECT_EQ(camera.drawHighlight, 0);
+	EXPECT_EQ(camera.drawLeash, 0);
+	// not taken (GCamera::CantExitCurrentMode): false, nothing written (0x6ECD24)
+	script_control::CameraControl other;
+	EXPECT_FALSE(script_control::StartCameraControl(other, vm.Make(), false, false));
+	EXPECT_EQ(other.owner, 0u);
+	// inside the citadel only TempleHelp / TempleSpecial (0x18, 0x6ECD3E), without touching the switches
+	EXPECT_FALSE(script_control::StartCameraControl(other, vm.Make(), true, true));
+	vm.current = 2;
+	EXPECT_TRUE(script_control::StartCameraControl(other, vm.Make(), true, false));
+	EXPECT_EQ(other.owner, 2u);
+	EXPECT_EQ(other.drawLeash, 1);
+	// END_CAMERA_CONTROL 0x6ECEF0: only the owner (fn_006ECD70)
+	EXPECT_FALSE(script_control::EndCameraControl(camera, audio, vm.Make()));
+	EXPECT_EQ(camera.owner, 1u);
+	vm.current = 1;
+	audio.creatureSound = 0;
+	camera.field7C = 5;
+	EXPECT_TRUE(script_control::EndCameraControl(camera, audio, vm.Make()));
+	EXPECT_EQ(camera.owner, 0u);
+	EXPECT_EQ(camera.drawHighlight, 1);       // 0x6ECE85
+	EXPECT_EQ(camera.drawLeash, 1);           // 0x6ECE97
+	EXPECT_EQ(camera.field7C, 0);             // 0x6ECEDB
+	EXPECT_EQ(audio.creatureSound.load(), 1); // 0x6ECE74
+	// the task-stop callback 0x6EC70C (fn_006ECF20) gives it back too
+	EXPECT_TRUE(script_control::StartCameraControl(camera, vm.Make(), false, true));
+	EXPECT_FALSE(script_control::ReleaseCameraOf(camera, audio, 2));
+	EXPECT_TRUE(script_control::ReleaseCameraOf(camera, audio, 1));
+	EXPECT_EQ(camera.owner, 0u);
+	EXPECT_EQ(script_control::k_ScriptEndFov, 1.2217305f); // 0x8C762C
 }

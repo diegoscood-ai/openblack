@@ -27,6 +27,7 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/CameraTracks.h"
 #include "3D/DayNightClock.h"
 #include "PSys/PSysManager.h"
 #include "3D/LandIslandInterface.h"
@@ -34,6 +35,7 @@
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/GameMusic.h"
 #include "Audio/ScriptAudioState.h"
+#include "Audio/SamplePlay.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -42,16 +44,32 @@
 #include "ECS/Archetypes/MarkerArchetype.h"
 #include "ECS/Archetypes/MobileObjectArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
+#include "ECS/Archetypes/SharkArchetype.h"
 #include "ECS/Archetypes/StreetLanternArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/VillagerArchetype.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/Indestructible.h"
+#include "ECS/Components/Mobile.h"
+#include "ECS/Components/Shark.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/PuzzleGame.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/FeatureBuild.h"
+#include "ECS/MobileWalkPaths.h"
+#include "ECS/PetitNavire.h"
+#include "ECS/PuzzleGames.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/VillagerDrowning.h"
 #include "Enums.h"
 #include "Game.h"
 #include "Help/HelpSystem.h"
+#include "Help/ScriptControl.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Script/CHLInfluence.h"
@@ -95,6 +113,18 @@ void NotImplemented(const char* function)
 	{
 		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CHLApi Function {}() not implemented (logged once).", function);
 	}
+}
+
+/// The script VM as GScript asks it (ScriptDLL::TaskNumber 0x6F69F0, GetCurrentTaskScriptType 0x6F6A90, GetScriptType
+/// 0x6F6C50, StopTasksOfType 0x6F68F0)
+help::script_control::Vm ScriptVm()
+{
+	help::script_control::Vm vm;
+	vm.taskNumber = []() { return Locator::vm::value().GetCurrentTaskNumber(); };
+	vm.currentTaskType = []() { return static_cast<uint32_t>(Locator::vm::value().GetCurrentTaskScriptType()); };
+	vm.taskType = [](uint32_t task) { return static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)); };
+	vm.stopTasksOfType = [](uint32_t mask) { Locator::vm::value().StopTasksOfType(static_cast<lhvm::ScriptType>(mask)); };
+	return vm;
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -240,6 +270,10 @@ entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const g
 			return AnimatedStaticArchetype::Create(ground, static_cast<AnimatedStaticInfo>(subtype), yAngleRadians, scale);
 		}
 		break;
+	case ObjectType::Whale: // 0x6F1747: Whale::Create 0x774C50(pos, &GMobileObjectInfo[24], 0, angle, scale), the shark
+		return SharkArchetype::Create(ground, yAngleRadians, scale);
+	case ObjectType::PuzzleGame: // 0x6F184C: fn_006D6680(pos, sub_type, ftol(angle x 2048 / 2 pi), scale)
+		return openblack::ecs::CreatePuzzleGame(position, static_cast<script::PuzzleGameType>(subtype), yAngleRadians, scale);
 	case ObjectType::Abode: // "Invalid create type" (0x6F191D) in the original too
 	case ObjectType::Town:
 	case ObjectType::Dance:
@@ -264,7 +298,7 @@ entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const g
 	case ObjectType::SpellDispenser:
 		return magic::script::CreateSpellDispenser(subtype, position, yAngleRadians, scale);
 	default:
-		// TODO: Reward, Creature, DeadTree, Store, Timer, Vortex, Whale, Ball, PuzzleGame, Totem, Highlight, Scaffold
+		// TODO: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight, Scaffold
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "CreateScriptObject not implemented for type {}", static_cast<int>(type));
 		return entt::null;
 	}
@@ -519,20 +553,69 @@ void SetScriptUlong() // 020 SET_SCRIPT_ULONG
 
 void GetProperty() // 021 GET_PROPERTY
 {
-	// const auto object = Pop().uintVal;
-	// const auto prop = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushi(0);
+	// GScript::GetProperty 0x70DAE0: the object, then the property; switch table 0x70E78C on property - 1
+	const auto object = Pop().uintVal;
+	const auto prop = static_cast<script::ObjectPropertyType>(Pop().intVal);
+	const auto entity = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "GET_PROPERTY: Thing no longer valid");
+		Pushf(0.0f);
+		return;
+	}
+	switch (prop)
+	{
+	case script::ObjectPropertyType::Flying:
+		// 0x70DCF8: bit 6 (0x40) of +0x24 = the object has a PhysicsObject (Object::IsActuallyInTheAir 0x639410 reads it
+		// the same way), asleep resting proxies included
+		Pushb(openblack::ecs::physics::PhysicsObjects::Find(entity) != nullptr);
+		return;
+	case script::ObjectPropertyType::Drowning: // 0x70DD0A: IsDrowning (vt +0x17C)
+		Pushb(openblack::ecs::IsDrowning(entity));
+		return;
+	case script::ObjectPropertyType::BuiltPercentage: // 0x70E1A9: a MultiMapFixed's GetPercentBuilt, else 1
+		if (const auto percent = openblack::ecs::feature_build::GetBuiltPercentage(entity); percent.has_value())
+		{
+			Pushf(*percent);
+			return;
+		}
+		NotImplemented(__func__);
+		Pushf(1.0f);
+		return;
+	default:
+		// TODO(Daniels118): implement the other properties
+		NotImplemented(__func__);
+		Pushi(0);
+		return;
+	}
 }
 
 void SetProperty() // 022 SET_PROPERTY
 {
-	// const auto val = Popf();
-	// const auto object = Pop().uintVal;
-	// const auto prop = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetProperty 0x70F380: the value, the object, the property -> fn_0070E820 (switch table 0x70F2BC)
+	[[maybe_unused]] const auto val = Popf();
+	[[maybe_unused]] const auto object = Pop().uintVal;
+	const auto prop = static_cast<script::ObjectPropertyType>(Pop().intVal);
+	switch (prop)
+	{
+	case script::ObjectPropertyType::Flying:
+	case script::ObjectPropertyType::Drowning:
+	case script::ObjectPropertyType::Moving:
+		// 0x70F2CC..0x70F2D4 -> 0x70F294: "Cannot Set Property %d", nothing changes
+		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "SET_PROPERTY: Cannot Set Property {}", static_cast<int>(prop));
+		return;
+	case script::ObjectPropertyType::BuiltPercentage:
+		// 0x70EC69: a MultiMapFixed -> fn_0052EDD0 (the Features here); anything else -> 0x70F294
+		if (object == 0 || !openblack::ecs::feature_build::SetBuiltPercentage(static_cast<entt::entity>(object), val))
+		{
+			NotImplemented(__func__);
+		}
+		return;
+	default:
+		// TODO(Daniels118): implement the other properties
+		NotImplemented(__func__);
+		return;
+	}
 }
 
 void GetPosition() // 023 GET_POSITION
@@ -623,23 +706,42 @@ void DllGettime() // 029 DLL_GETTIME
 
 void StartCameraControl() // 030 START_CAMERA_CONTROL
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::StartCameraControl 0x6ECCA0 (Help/ScriptControl.cpp). Inside the citadel: g_game+0x205A28 == 1 (inferred:
+	// openblack's temple interior being active stands for it). The camera: fn_00461140 creates the script camera mode
+	// unless GCamera::CantExitCurrentMode 0x441B70; openblack has no camera modes, so it is always taken (inferred) and
+	// the camera itself does not change (pending: CameraModeScript)
+	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	Pushb(help::script_control::StartCameraControl(help::script_control::GetCameraControl(), ScriptVm(), insideCitadel,
+	                                               true));
 }
 
 void EndCameraControl() // 031 END_CAMERA_CONTROL
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::EndCameraControl 0x6ECEF0 (Help/ScriptControl.cpp): the state only; the camera mode and its field of view
+	// going back are pending (no camera modes in openblack)
+	help::script_control::EndCameraControl(help::script_control::GetCameraControl(), audio::GetScriptAudioState(),
+	                                       ScriptVm());
 }
 
 void SetWidescreen() // 032 SET_WIDESCREEN
 {
 	// 0x6F7BF0 -> HelpSystem::SetWideScreen 0x5C6AD0; the bars slide in HelpSystemInfo.wideScreenTime seconds (2.0)
-	const auto enabled = static_cast<bool>(Pop().intVal);
-	const float time = Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
-	Game::Instance()->GetScreenFade().SetWideScreen(enabled, time);
+	// GScript::SetWideScreen: only the task that holds it (HelpSystem+0x45EC) or any when none does
+	// (Help/ScriptControl.cpp); HelpSystem's hook moves the bars (Game.cpp)
+	const auto on = static_cast<int32_t>(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		help::script_control::SetWideScreen(*helpSystem, on, ScriptVm());
+	}
+	else
+	{
+		// openblack only (no original equivalent: GScript always has g_game+0x25005C; here a VM without a HelpSystem,
+		// e.g. tools): the bars move without any owner. 2.0 is the default of ScreenFade::_wideTime (no source)
+		const float time =
+		    Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
+		Game::Instance()->GetScreenFade().SetWideScreen(on != 0, time);
+		audio::sample_play::SetScriptWideScreen(on != 0);
+	}
 }
 
 void MoveGameThing() // 033 MOVE_GAME_THING
@@ -948,10 +1050,35 @@ void SetInterfaceInteraction() // 063 SET_INTERFACE_INTERACTION
 
 void Played() // 064 PLAYED
 {
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::Played 0x6F9DC0
+	const auto object = Pop().uintVal;
+	const auto entity = static_cast<entt::entity>(object);
+	auto& registry = Locator::entitiesRegistry::value();
+	if (object == 0 || !registry.Valid(entity))
+	{
+		// 0x6F9DE1: "Thing no longer valid" -> 1
+		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "PLAYED: Thing no longer valid");
+		Pushb(true);
+		return;
+	}
+	if (registry.AllOf<openblack::ecs::components::PuzzleGame>(entity))
+	{
+		// 0x6F9F0B: IsPuzzleGame -> fn_006D66E0
+		Pushb(openblack::ecs::IsPuzzleGamePlayed(entity));
+		return;
+	}
+	if (registry.AnyOf<ecs::components::Villager, ecs::components::Animal, ecs::components::Creature>(entity))
+	{
+		// TODO(Daniels118): IsCreature -> the creature's plan (0x6F9DF4); IsLiving -> a Villager's
+		// IsScriptAnimationComplete 0x7689D0 (0x6F9EA8), any other Living (vt +0xB04)() == 4 (0x6F9EC4)
+		NotImplemented(__func__);
+		Pushb(false);
+		return;
+	}
+	// IsWeather (vt +0x3FC) -> +0x78 == 0 (0x6F9EF0): openblack has no weather things. Anything else (0x6F9F31):
+	// "Thing not living" and 1
+	SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "PLAYED: Thing not living");
+	Pushb(true);
 }
 
 void RandomUlong() // 065 RANDOM_ULONG
@@ -1100,22 +1227,24 @@ void CreatureSetDesireMaximum() // 080 CREATURE_SET_DESIRE_MAXIMUM
 
 void ConvertCameraPosition() // 081 CONVERT_CAMERA_POSITION
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	// GScript::ConvertCameraPosition 0x6ED200: LoadCameraFromHD 0x446FE0 ("Cam%d" of camera.edt), its position
+	const auto cameraEnum = Pop().intVal;
+	const auto camera = LoadCameraBin(cameraEnum);
+	const auto position = camera.has_value() ? camera->position : glm::vec3(0.0f);
+	Pushv(position.x);
+	Pushv(position.y);
+	Pushv(position.z);
 }
 
 void ConvertCameraFocus() // 082 CONVERT_CAMERA_FOCUS
 {
-	// const auto camera_enum = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	// GScript::ConvertCameraFocus 0x6ED270: LoadCameraFromHD 0x446FE0 ("Cam%d" of camera.edt), its focus
+	const auto cameraEnum = Pop().intVal;
+	const auto camera = LoadCameraBin(cameraEnum);
+	const auto focus = camera.has_value() ? camera->focus : glm::vec3(0.0f);
+	Pushv(focus.x);
+	Pushv(focus.y);
+	Pushv(focus.z);
 }
 
 void CreatureSetPlayer() // 083 CREATURE_SET_PLAYER
@@ -1401,32 +1530,36 @@ void GetRealYear() // 118 GET_REAL_YEAR
 void RunCameraPath() // 119 RUN_CAMERA_PATH
 {
 	// const auto cameraEnum = Pop().intVal;
+	// GScript::RunCameraPath 0x6ED7F0: the script camera mode (CameraModeScript) fn_00461A80(path); the track is
+	// LoadCameraTrack (3D/CameraTracks.h) with CameraWayRunner on both of its ways. The camera itself is not ported.
 	// TODO(Daniels118): implement this
 	NotImplemented(__func__);
 }
 
 void StartDialogue() // 120 START_DIALOGUE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::StartDialogue 0x710690 (Help/ScriptControl.cpp); the advisors going home are HelpSystem hooks (not ported).
+	// Without a HelpSystem (openblack only, the original always has g_game+0x25005C): false
+	auto* helpSystem = help::Get();
+	Pushb(helpSystem != nullptr && help::script_control::StartDialogue(*helpSystem, ScriptVm()));
 }
 
 void EndDialogue() // 121 END_DIALOGUE
 {
-	// GScript::EndDialogue 0x710780: only its audio part (GScript+0x84 = 1, +0x9C = 0), approximated without the check
-	// that this task owns the dialogue (0x71078C..0x71079F); the spirits going home and the dialogue's end are not
-	// implemented
-	audio::GetScriptAudioState().EndDialogue();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::EndDialogue 0x710780 (Help/ScriptControl.cpp): only for the task that has the dialogue (nothing without a
+	// HelpSystem: openblack only)
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		help::script_control::EndDialogue(*helpSystem, audio::GetScriptAudioState(), ScriptVm());
+	}
 }
 
 void IsDialogueReady() // 122 IS_DIALOGUE_READY
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsSpiritReady 0x710830: !HelpSystem::IsDialogueControlled 0x5C6740, a bool (type 6). Without a
+	// HelpSystem (openblack only, no original equivalent): true, nothing controls the dialogue
+	const auto* helpSystem = help::Get();
+	Pushb(helpSystem == nullptr || help::script_control::IsSpiritReady(*helpSystem));
 }
 
 void ChangeWeatherProperties() // 123 CHANGE_WEATHER_PROPERTIES
@@ -1658,10 +1791,9 @@ void GetLandHeight() // 151 GET_LAND_HEIGHT
 {
 	const auto position = PopVec();
 
+	// GScript::GetLandHeight 0x6FB1F0: -10 over the sea (altitude 0), off the map or without a block
 	const auto& island = Locator::terrainSystem::value();
-	const auto elevation = island.GetHeightAt(glm::vec2(position.x, position.z));
-
-	Pushf(elevation);
+	Pushf(openblack::ecs::sea_cells::ScriptLandHeight(island, position));
 }
 
 void LoadMap() // 152 LOAD_MAP
@@ -1871,13 +2003,31 @@ void SetTarget() // 176 SET_TARGET
 
 void WalkPath() // 177 WALK_PATH
 {
-	// const auto valTo = Popf();
-	// const auto valFrom = Popf();
-	// const auto camera_enum = Pop().intVal;
-	// const auto forward = static_cast<bool>(Pop().intVal);
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::WalkPath 0x6FBB50
+	const auto valTo = Popf();
+	const auto valFrom = Popf();
+	const auto cameraEnum = Pop().intVal;
+	const auto forward = Pop().intVal != 0;
+	const auto object = static_cast<entt::entity>(Pop().uintVal);
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(object) || !registry.AllOf<ecs::components::Transform>(object))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "WALK_PATH: Thing not valid");
+		return;
+	}
+	if (registry.AnyOf<ecs::components::Villager, ecs::components::Animal, ecs::components::Creature>(object))
+	{
+		// IsLiving: 0x5EE100 gives the Living its own DataPath (+0xAC), with a step from the speed (+0x5A) and the
+		// focus way's length (+0x0C), and a footpath (docs/bw1-notes/camera-tracks.md). Not ported.
+		NotImplemented(__func__);
+		return;
+	}
+	if (!registry.AnyOf<ecs::components::MobileObject, ecs::components::Shark>(object))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "WALK_PATH: Thing is invalid for move path"); // 0x6FBC2E
+		return;
+	}
+	ecs::StartMobileWalkPath(object, cameraEnum, forward, valFrom, valTo); // fn_006076C0
 }
 
 void FocusAndPositionFollow() // 178 FOCUS_AND_POSITION_FOLLOW
@@ -1890,10 +2040,18 @@ void FocusAndPositionFollow() // 178 FOCUS_AND_POSITION_FOLLOW
 
 void GetWalkPathPercentage() // 179 GET_WALK_PATH_PERCENTAGE
 {
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetWalkPathPercentage 0x6FBC50: 1.0 for anything but a Living (a shark's DataPath is not read)
+	const auto object = static_cast<entt::entity>(Pop().uintVal);
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.Valid(object) &&
+	    registry.AnyOf<ecs::components::Villager, ecs::components::Animal, ecs::components::Creature>(object))
+	{
+		// Living::GetWalkPathPercentage 0x5EE520: +0xAC current / duration; the Living walk path is not ported
+		NotImplemented(__func__);
+		Pushf(0.0f);
+		return;
+	}
+	Pushf(1.0f);
 }
 
 void CameraProperties() // 180 CAMERA_PROPERTIES
@@ -2918,10 +3076,25 @@ void AddSpotVisualTargetObject() // 297 ADD_SPOT_VISUAL_TARGET_OBJECT
 
 void SetIndestructable() // 298 SET_INDESTRUCTABLE
 {
-	// const auto object = Pop().uintVal;
-	// const auto indestructible = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetIndestructable 0x6FDE20: POP the object (GetScriptGameThing), POP the flag; a script container
+	// (IsScriptContainer vt +0x3F8) hands it to its type's callback (table 0xC0C73C, TODO: openblack has none), anything
+	// else sets or clears Flags +0x24 bit 0x4000 (0x6FDEB3)
+	const auto object = static_cast<entt::entity>(Pop().uintVal);
+	const auto indestructible = (Pop().intVal & 1) != 0;
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(object))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_INDESTRUCTABLE: Thing not valid");
+		return;
+	}
+	if (indestructible)
+	{
+		registry.AssignOrReplace<openblack::ecs::components::Indestructible>(object);
+	}
+	else if (registry.AllOf<openblack::ecs::components::Indestructible>(object))
+	{
+		registry.Remove<openblack::ecs::components::Indestructible>(object);
+	}
 }
 
 void SetGraphicsClipping() // 299 SET_GRAPHICS_CLIPPING
@@ -3146,17 +3319,25 @@ void SetPlayerBelief() // 325 SET_PLAYER_BELIEF
 
 void PlayJcSpecial() // 326 PLAY_JC_SPECIAL
 {
-	// const auto feature = Pop().intVal;
-	// TODO(Daniels118): implement this
+	// GScript::PlayJCSpecial 0x708ED0 (table 0x708F74 on the value, 0..15): 0, 1, 2, 4, 5, 6 -> fn_005DF9C0(value),
+	// 3 a ScriptGFX object (0x828DB0), 14 / 15 [0x9CD384] = 1 / 0
+	const auto feature = Pop().intVal;
+	if (feature == 6)
+	{
+		// fn_005DF9C0 case 6 (0x5DFBF8): new PetitNavire(0), the missionaries' boat
+		openblack::ecs::petit_navire::Create(0);
+		return;
+	}
+	// TODO(Daniels118): the other specials
 	NotImplemented(__func__);
 }
 
 void IsPlayingJcSpecial() // 327 IS_PLAYING_JC_SPECIAL
 {
-	// const auto feature = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsPlayingJCSpecial 0x708FC0: ftol of the value; 1, except 13 -> [0xD19C94], which only the hand intro
+	// (fn_005DF640, special 4, not ported) sets: 0 here
+	const auto feature = static_cast<int32_t>(Popf());
+	Pushb(feature != 13);
 }
 
 void VortexParameters() // 328 VORTEX_PARAMETERS
@@ -3450,9 +3631,10 @@ void SetMagicProperties() // 356 SET_MAGIC_PROPERTIES
 
 void SetGameSound() // 357 SET_GAME_SOUND
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetGameSound 0x7100B0: false -> LHSampleStopAll (fn_004287D0) and GScript+0x90 = 1 (only the dialogue
+	// banks HelpSprites / Villagers play, GAudio::PlaySoundEffect 0x429F7C); true -> +0x90 = 0
+	const auto enable = static_cast<bool>(Pop().intVal);
+	audio::sample_play::SetGameSound(enable);
 }
 
 void SexIsMale() // 358 SEX_IS_MALE

@@ -92,51 +92,6 @@ bool HandSystem::IsHoldingTree() const noexcept
 	       Locator::entitiesRegistry::value().AnyOf<Tree, DeadTree>(*_held);
 }
 
-void HandSystem::ReleaseTree(entt::entity tree) noexcept
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto& transform = registry.Get<Transform>(tree);
-	// Object::InitialisePhysicsFromHand 0x636F00: a released tree only counts as "gently put down" (the physics object's
-	// flag 8, the one Tree::EndPhysics asks for) when the landscape normal under it points up (y >= 0.7, a slope under
-	// about 45 degrees) and the tree comes down almost upright: the x and z angles of its YXZ matrix within 0.2 rad
-	// (about 11.5 degrees). A held tree takes the hand's up axis, which follows the surface, so it leans on a slope.
-	// Anything else falls with physics and ends up a DeadTree (the handler in HandPhysics.cpp).
-	float yAngle = 0.0f;
-	float xAngle = 0.0f;
-	float zAngle = 0.0f;
-	glm::extractEulerAngleYXZ(glm::mat4(transform.rotation), yAngle, xAngle, zAngle);
-	constexpr float k_UprightAngle = 0.2f;
-	constexpr float k_FlatNormal = 0.7f;
-	if (physics::LandscapeNormal(transform.position).y < k_FlatNormal || std::abs(xAngle) > k_UprightAngle ||
-	    std::abs(zAngle) > k_UprightAngle)
-	{
-		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: tree dropped on a slope or leaning (x {:.2f} z {:.2f}): it falls",
-		                    xAngle, zAngle);
-		physics::PhysicsObjects::AddObject(tree, glm::vec3(0.0f), glm::vec3(0.0f), entt::null, true);
-		return;
-	}
-	// Tree::EndPhysics 0x74B830: planted again only on dry land and with no FireEffect (+0x44, hot or burning, ECS/Fire);
-	// otherwise a DeadTree (the same entity keeps its fire: fn_00730960 moves it in the DeadTree ctor 0x510880).
-	const bool land = IsLand(transform.position);
-	if (land && fire::Find(tree) == nullptr)
-	{
-		Replant(tree);
-	}
-	else
-	{
-		const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>());
-		MakeDeadTree(tree, glm::vec3(std::sin(angle), 0.0f, std::cos(angle)));
-	}
-	// PhysicsObject::RemoveObject 0x646B44 calls Tree::DropSfx 0x74BC60 for every gentle release that ends on land,
-	// replanted or not (the original picks the sample by GetTickCount() % 3).
-	if (land)
-	{
-		static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
-		    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
-		PlaySample(Locator::rng::value().Choose(k_PlantTree));
-	}
-}
-
 void HandSystem::Replant(entt::entity tree) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();

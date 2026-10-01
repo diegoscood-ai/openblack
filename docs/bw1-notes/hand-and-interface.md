@@ -38,8 +38,8 @@ Detalle completo en `C:\Users\diewgarc\dev\decomp_pickup` (hand.cpp, interface.c
 - Si al hacer clic no hay nada: `FindObjectNearMapCoord` (0x5D39E0), el más cercano en ±5 unidades y solo si está
   más cerca que el punto pulsado; primero los peces de una piscifactoría si es agua. **No es un alcance de hover**:
   openblack usa solo el objeto del pick por triángulos (antes tenía un radio inventado de ≥3,5 unidades).
-- Mensaje de la cantidad en la mano ("Cantidad: N", fuente `j0`, amarillo con sombra, sin fondo): ver rendering.md
-  "Texto"; se ve mientras la mano sostiene comida o madera.
+- Mensaje de la cantidad en la mano ("Cantidad: N", fuente `j0`, amarillo con sombra, sin fondo): ver
+  [rendering.md](rendering.md#texto-fuentes-del-original-y-el-mensaje-de-la-mano); se ve mientras la mano sostiene comida o madera.
 - Las mallas con huesos (aldeanos, animales) se prueban en su pose de reposo, que es como se dibujan
   (`L3DSubMesh`: posiciones de colisión × cadena de huesos del grupo). Los animales cuentan como Living al colocar la
   mano (distancia al centro menos el radio 2D).
@@ -67,7 +67,17 @@ Cada estado tiene un "estado de cursor" (`GInterface+0x3AC`); IN THROW = **0x17*
   (dur>>1)·grip, grip = min(1, R/(3.2·s)). R = GetHoldRadius (en madera es constante; la comida se abre con la cantidad).
 - **Muelle (inercia)**: pasos de 10 ms, a = 260·d − 40·v, |v| ≤ 124. **Solo se activa en el estado IN THROW**
   (comprobación `0x3AC == 0x17` en 0x5B4603). Tras coger y soltar el botón, la mano sigue al cursor sin inercia.
-- Al soltar en IN THROW: lanza si |v_xz|² > 4, si no, deja el objeto. La velocidad es la del muelle.
+- Al soltar en IN THROW: un solo camino para lanzar y dejar (`HandSystem::Release`): `ApplyThisToMapCoord` y luego
+  `Object::InitialisePhysicsFromHand` con la velocidad del muelle, que lanza si |v_xz|² > 4 y si no deja el objeto
+  (una vasija de la mano: |v|² ≤ 5). Detalle en [physics.md](physics.md#el-agua-en-los-golpes-y-al-soltar).
+- Dejar el objeto **sobre el mar no lo coloca**: `Object::InitialisePhysicsFromHand` (0x636F00) solo "aterriza" en
+  tierra seca (altitud ≥ 4) o en una celda de altitud > 1, así que sobre el agua el objeto queda en física y flota o
+  se hunde (ver [physics.md](physics.md) y [water.md](water.md#hundirse-ahogarse-y-borrarse)). En tierra tampoco hay "colocar": el cuerpo baja al suelo y un aldeano, un
+  animal, una valla o un árbol derecho salen de la física al momento; lo demás se asienta con la física. Una vasija de la mano soltada en el mar tampoco
+  deja montón: el recurso se pierde (`Pot::AddResourceToPos` 0x66F270). Un **aldeano** soltado ahí se hunde en ~0,4 s y
+  pasa 60 s ahogándose (clip 252 con grito y chapoteos) antes de morir; un animal desaparece a los ~7,5 s. Si la celda
+  de agua tiene altitud ≥ 2 el aldeano sí "aterriza", pero `Villager::EndPhysics` ve `IsWater` y también se ahoga (en
+  Land1 no hay ninguna celda de agua tan alta).
 - Balanceo: hasta 0.3 rad según el suavizado del ratón (±80 px, referencia 1024 de ancho). El giro ±π/2 de lado solo
   ocurre mientras hay una entrega a la criatura pendiente.
 

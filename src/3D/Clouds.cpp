@@ -154,13 +154,14 @@ float Clouds::InfluentialPlayerAlignment() noexcept
 
 float Clouds::WeatherOvercastAtCamera() noexcept
 {
-	// GCamera::Update 0x4426BA: the overcast byte (movsx +0x83) of LH3DAtmos::GetWeatherSmooth(camera, 1) x 0.01
-	// (0x8C5840) -> [0xD1A26C], which DrawSky 0x5E2215 copies to [0xFA2754] for fn_00869850
+	// [0xFA2754] = [0xD1A26C] (GCamera::Update 0x4426BA..0x4426E5, copied by GLandAlignement::DrawSky 0x5E2215):
+	// (float)(int8)LH3DAtmos::GetWeatherSmooth(camera position, 1).byte3 (movsx +0x83) * 0.01 (0x8C5840), not clamped
 	if (!Locator::camera::has_value())
 	{
 		return 0.0f;
 	}
-	return static_cast<float>(weather::atmos::GetWeatherSmooth(Locator::camera::value().GetOrigin()).overcast) * 0.01f;
+	const auto weather = openblack::weather::atmos::GetWeatherSmooth(Locator::camera::value().GetOrigin(), true);
+	return static_cast<float>(weather.overcast) * 0.01f;
 }
 
 uint32_t Clouds::Colour(float alignment, uint32_t table255) noexcept

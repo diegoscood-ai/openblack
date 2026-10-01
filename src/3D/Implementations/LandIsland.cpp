@@ -13,6 +13,7 @@
 #include "LandIsland.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <array>
 #include <stdexcept>
 
@@ -26,6 +27,8 @@
 #include <spdlog/spdlog.h>
 #include <stb_image_write.h>
 
+#include "3D/BlockTexture.h"
+#include "3D/CoastAlpha.h"
 #include "3D/LandBlock.h"
 #include "Dynamics/LandBlockBulletMeshInterface.h"
 #include "EngineConfig.h"
@@ -223,6 +226,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	const auto texelsPerBlock = static_cast<uint16_t>(
 	    std::min<int>(lnd::LNDMaterial::k_Width, k_MaxIslandTexture / std::max(indexSize.x, indexSize.y)));
 	const auto res = indexSize * texelsPerBlock;
+	_texelsPerBlock = texelsPerBlock;
 	_footprintFrameBuffer = std::make_unique<FrameBuffer>("Footprints", res.x, res.y, graphics::TextureFormat::RGBA8);
 	_staticShadowFrameBuffer = std::make_unique<FrameBuffer>("StaticShadows", res.x, res.y, graphics::TextureFormat::R8);
 	_landAlphaFrameBuffer = std::make_unique<FrameBuffer>("LandAlpha", res.x, res.y, graphics::TextureFormat::R8);
@@ -235,8 +239,9 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 
 	auto materialCount = static_cast<uint16_t>(lnd.GetMaterials().size());
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "[LandIsland] loading {} textures", materialCount);
-	std::vector<uint16_t> rgba5TextureData;
-	rgba5TextureData.resize(lnd::LNDMaterial::k_Width * lnd::LNDMaterial::k_Height * lnd.GetMaterials().size());
+	// kept: the block texture (BlockTexture.h) is built from them again when the altitudes change
+	auto& rgba5TextureData = _materialTexels;
+	rgba5TextureData.assign(lnd::LNDMaterial::k_Width * lnd::LNDMaterial::k_Height * lnd.GetMaterials().size(), 0);
 	for (size_t i = 0; i < lnd.GetMaterials().size(); i++)
 	{
 		std::memcpy(&rgba5TextureData[lnd::LNDMaterial::k_Width * lnd::LNDMaterial::k_Height * i],
@@ -276,7 +281,8 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	                         Filter::Linear,
 	                         bgfx::makeRef(_noiseMap.data(), static_cast<uint32_t>(_noiseMap.size() * sizeof(_noiseMap[0]))));
 
-	// read bump map into Texture2D
+	// read bump map into Texture2D (and keep it for the block texture)
+	_bumpMap = lnd.GetExtra().bump.texels;
 	_textureBumpMap = std::make_unique<Texture2D>("LandIslandBumpMap");
 	_textureBumpMap->Create(
 	    lnd::LNDBumpMap::k_Width, lnd::LNDBumpMap::k_Height, 1, TextureFormat::R8, Wrapping::Repeat, SurfaceTextureFilter(),
@@ -284,6 +290,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	                  static_cast<uint32_t>(sizeof(lnd.GetExtra().bump.texels[0]) * lnd.GetExtra().bump.texels.size())));
 
 	_smallBump = CreateSmallBumpTexture();
+	CreateBlockTexture();
 
 	std::vector<uint8_t> pictureMaterials(lnd.GetMaterials().size());
 	_materialInfo.clear();
@@ -333,7 +340,7 @@ void LandIsland::LoadFromFile(const std::filesystem::path& path)
 	bgfx::frame();
 }
 
-float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
+float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening, bool meshFlattening) const
 {
 	// LH3DIsland::GetAltitude (0x803090): the height of the landscape triangle under the point, in the original's
 	// integer arithmetic. MapCoords are 16.16 fixed point with 10 units per cell; each cell is split into two triangles
@@ -368,6 +375,15 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening) const
 	// Next to the sea (base corner at most 4) heights of 3 or less count as 0 (g 0xC37BF4, on by default).
 	if (seaFlattening && v00 <= 4)
 	{
+		const auto sea = [](int64_t v) { return v > 3 ? v : int64_t {0}; };
+		v00 = sea(v00);
+		v01 = sea(v01);
+		v10 = sea(v10);
+		v11 = sea(v11);
+	}
+	else if (meshFlattening)
+	{
+		// the drawn mesh (fn_00874AA0 0x874B95): every vertex of 3 or less at 0
 		const auto sea = [](int64_t v) { return v > 3 ? v : int64_t {0}; };
 		v00 = sea(v00);
 		v01 = sea(v01);
@@ -550,6 +566,46 @@ void LandIsland::RebuildAltitudes()
 	_heightMap->Create(indexSize.x * k_CellCount + 1, indexSize.y * k_CellCount + 1, 1, graphics::TextureFormat::RG32F,
 	                   Wrapping::ClampEdge, Filter::Nearest,
 	                   bgfx::copy(heightMapData.data(), static_cast<uint32_t>(heightMapData.size() * sizeof(heightMapData[0]))));
+	CreateBlockTexture();
+}
+
+void LandIsland::CreateBlockTexture()
+{
+	const auto indexSize = _extentIndexMax - _extentIndexMin + glm::u16vec2(1, 1);
+	const block_texture::Materials materials {_materialTexels, _materialTexels.size() / lnd::LNDMaterial::k_Width /
+	                                                               lnd::LNDMaterial::k_Height};
+	const auto texels = block_texture::BuildIslandBlockTexture(*this, _extentIndexMin, indexSize, _texelsPerBlock,
+	                                                           _noiseMap, _bumpMap, materials);
+	const auto size = indexSize * _texelsPerBlock;
+	// bilinear like the D3D sampling of the block textures (one texture over the whole island here, so the filter
+	// also runs across block borders)
+	_blockTexture = std::make_unique<Texture2D>("BlockTexture");
+	_blockTexture->Create(size.x, size.y, 1, TextureFormat::RGBA8, Wrapping::ClampEdge, Filter::Linear,
+	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size())));
+
+	// Debug: OPENBLACK_DUMP_COAST_ALPHA=1 (or =<file>.png) writes the alpha nibble (x 17) and OPENBLACK_DUMP_BLOCK_TEXTURE
+	// the RGBA texture, x to the right and z down from the block extent minimum (compare with agua/sea_coast_alpha.py,
+	// whose PNG starts at block 0)
+	if (const char* dump = std::getenv("OPENBLACK_DUMP_COAST_ALPHA"); dump != nullptr && dump[0] != '\0')
+	{
+		const std::string file = std::string(dump) == "1" ? std::string("coast_alpha.png") : std::string(dump);
+		std::vector<uint8_t> alpha(texels.size() / 4);
+		for (size_t i = 0; i < alpha.size(); ++i)
+		{
+			alpha[i] = texels[i * 4 + 3];
+		}
+		const int ok = stbi_write_png(file.c_str(), size.x, size.y, 1, alpha.data(), size.x);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "[LandIsland] coast alpha {} x {} ({} texels per block, first block {}, {}) -> {} ({})",
+		                   size.x, size.y, _texelsPerBlock, _extentIndexMin.x, _extentIndexMin.y, file,
+		                   ok != 0 ? "ok" : "FAILED");
+	}
+	if (const char* dump = std::getenv("OPENBLACK_DUMP_BLOCK_TEXTURE"); dump != nullptr && dump[0] != '\0')
+	{
+		const std::string file = std::string(dump) == "1" ? std::string("block_texture.png") : std::string(dump);
+		const int ok = stbi_write_png(file.c_str(), size.x, size.y, 4, texels.data(), size.x * 4);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "[LandIsland] block texture {} x {} -> {} ({})", size.x, size.y, file,
+		                   ok != 0 ? "ok" : "FAILED");
+	}
 }
 
 const lnd::LNDCell& LandIsland::GetCell(const glm::u16vec2& coordinates) const

@@ -55,7 +55,7 @@ uint32_t Haze(uint32_t argb, const glm::vec3& position)
 	{
 		return argb;
 	}
-	const auto haze = LandLightTable::LastBuiltHaze();
+	const auto& haze = LandLightTable::Current().GetHaze();
 	const auto view = Locator::camera::value().GetViewMatrix(Camera::Interpolation::Current);
 	const float depth = (view * glm::vec4(position, 1.0f)).z;
 	if (depth < haze.nearDistance)
@@ -141,7 +141,7 @@ void storm_clouds::DrawFrame(float milliseconds)
 		storms::ForEach([&](const storms::Storm& storm) { alive = alive || storm.id == entry.first; });
 		return !alive;
 	});
-	const uint32_t base = LandLightTable::LastBuiltBase();
+	const uint32_t base = LandLightTable::Current().GetRawBase();
 	storms::ForEachMutable([&](storms::Storm& storm) {
 		auto& d = storm.descriptor;
 		// fn_0083F8B0 calls every storm's DrawClouds, marked or not

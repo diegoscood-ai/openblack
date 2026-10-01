@@ -1287,7 +1287,7 @@ de `Abode::InterfaceTap` 0x406830..0x406966 (con `Abode::GetAbodeType` 0x4061F0 
 |---|---|---|
 | Clic de un control de los menús propios | `fn_004082F0` (desde el bucle de SetupBox `fn_00408340`, códigos 0xA/0xC en 0x408AA6, 0x408BBE, 0x408D6F): `G_MenuButton` InGame **159** 2D modo 3 + inmersión 0x2C | `MenuClick()` en `src/Debug/Gui.cpp`: envuelve cada `MenuItem`, `Button`, `Checkbox` y `Selectable` de la barra de menú y del menú de Mods (los diálogos propios de openblack). La inmersión no se porta (no hay force feedback) |
 | Llamar a la puerta | `Abode::InterfaceTap` 0x406830: solo si `GetAbodeType() & 2` (LivingQuarters: casas A..F y molino), `G_KnockRoofMulti` **110 + [0xC4CC7C]** (0..8 rotando), 3D con track 0, dueño la casa, en el punto de la mano (status +0xC8) | `ecs::abodes::InterfaceTap` (`src/ECS/Abodes.{h,cpp}`), llamado desde `HandSystem::Update` cuando se pulsa el botón de acción sobre una casa: una casa no cabe en la mano (`Object::ValidForPlaceInHand` 0x402870 = 0), así que `StartGrab` la toca al momento, y el toque exige la mano dentro de la influencia (`InterfaceMustBeInInfluenceForInteraction` 0x4028A0 = 1). Usa el contador `audio::Counter::KnockRoof` |
-| Cruzar un anillo de influencia | `fn_0x005e5cd0` 0x5E61B0 por fotograma si no está en pausa: `fn_00827820` mira el punto de la mano contra los círculos de `GGame::Update3DInfluence` (uno por ciudadela y por pueblo con influencia) y, por cada jugador cuyo «la mano está dentro» cambió, hace la onda y pone [0xEB9A6C]; entonces `G_HandThroughInfluence_01` InGame **52** 3D (track 0, sin dueño) en la mano + inmersión 6 | `influence::ProcessHandCrossing` (`src/ECS/Influence/InfluenceCircles.cpp`), llamada desde `Game.cpp` tras colocar la mano si el juego no está en pausa. El `.sad` le da modo 1 (canal nuevo por cruce), volumen 40 y min/max 100/300: entrar y salir suenan igual |
+| Cruzar un anillo de influencia | `fn_0x005e5cd0` 0x5E61B0 por fotograma si no está en pausa: `fn_00827820` mira el punto de la mano contra los círculos de `GGame::Update3DInfluence` (uno por ciudadela y por pueblo con influencia) y, por cada jugador cuyo «la mano está dentro» cambió, busca con `fn_008277B0` un círculo suyo cuyo borde cruzó la mano entre el punto anterior ([0xEA9EF0], que cada llamada reescribe) y el actual; si lo hay, hace la onda y pone [0xEB9A6C]; entonces `G_HandThroughInfluence_01` InGame **52** 3D (track 0, sin dueño) en la mano + inmersión 6 | `influence::ProcessHandCrossing` (`src/ECS/Influence/InfluenceCircles.cpp`), llamada desde `Game.cpp` tras colocar la mano si el juego no está en pausa. El `.sad` le da modo 1 (canal nuevo por cruce), volumen 40 y min/max 100/300: entrar y salir suenan igual, y un círculo que aparece, crece o mengua bajo la mano quieta no suena (no hay borde cruzado). `influence::HandCrossedInfluence` es `fn_00827820` sin el sonido |
 | Gritos al coger un aldeano | `GInterface::GenericPickup` 0x5D28C5..0x5D295D | ya estaba en B4 (`HandHolding.cpp`): dos tags, `G_PickUpObject` 10 y 180/187/194 + `GetRandomSample(7)` |
 
 `Abode::GetAbodeType` 0x4061F0 lee el `GAbodeInfo` +0x120 de la casa; openblack guarda el `AbodeNumber` y la malla, así
@@ -1320,10 +1320,13 @@ de un mismo número de casa llevan el mismo bit de LivingQuarters.
 
 ### (Aproximado), (inferido) y pendiente de B8
 
-- **(Aproximado)** [0xEB9A1C] (los círculos de ese jugador ya se han dibujado; un pestillo por mapa que pone
-  `InfluenceCircle::Draw` 0x826F18 y el fundido del borde al llegar a 1, 0x8831AD, y que solo borra
-  `LH3DIsland::Create` 0x828A50) se toma por puesto: openblack no dibuja el borde de influencia. La onda del cruce
-  (fn_00827250) tampoco se hace.
+- **(Aproximado)** [0xEB9A1C] (el borde de influencia de ese jugador ya ha aparecido: un pestillo por mapa que solo
+  pone `fn_00883120` cuando el fundido del gráfico del borde llega a 1, 0x8831AD, y que borra `fn_00828A50` desde
+  `LH3DIsland::Create` 0x803E85; `InfluenceCircle::Draw` solo lo lee, 0x826F15) se toma por puesto: openblack no dibuja
+  el borde de influencia. Por eso, justo tras cambiar de mapa, openblack puede sonar en un cruce que el original
+  callaría hasta que aparece el borde. La onda del cruce (fn_00827670 / fn_00827250) tampoco se hace.
+- **(Aproximado)** con la mano fuera de la tierra `Game.cpp` no llama a `ProcessHandCrossing` (no hay punto); el
+  original sigue pasando el último [0xE9A100].
 - **(Aproximado)** el punto de la mano del cruce sale de `HandSystem::GetPlayerHandPositions()[0]`; el original usa
   [0xE9A100], que `GLandscape::Draw` 0x5E4395 rellena desde la mano de `MyInterface()`.
 - **(Aproximado)** el clic de los menús: openblack no tiene SetupBox; sus diálogos son la barra de menú de ImGui y el
@@ -1332,9 +1335,32 @@ de un mismo número de casa llevan el mismo bit de LivingQuarters.
 - El pestillo «ya hay estado del fotograma anterior» ([0xEB9A68]) es estático del proceso, como en el original (nada lo
   borra entre mapas).
 
+### Auditoría de B8 (sesión audio)
+
+Comprobadas en el desensamblado: 0x406820 (`mov eax, 1`), 0x406830..0x40694A (vt +0x8C4 de Abode = `GetAbodeType`
+0x4061F0, `test al, 2`, 0x6E + [0xC4CC7C] con vuelta a 0 en 9, +0x20 dueño, +0x08 = 1, +0x0C = 0, punto status
++0xC8), 0x4082F0 (0x429DA0 con dueño 0, 0x9F, modo 3, lazos 0, +0x10 0, 2D, banco +0x3AC; inmersión 0x2C), 0x5E61A6
+(pausa), 0x5E61B0..0x5E621E (0x34 = 52, +0x20 = 0, 3D, track 0, sonido solo si [0xEB9A6C]), 0x827820, 0x8277B0,
+0x827210 (estricto), 0x5552A0, 0x5508A0 (para en el jugador de tipo 3), 0x5D1740 (vt +0x6FC de Abode = 0x402870,
++0x714 = 0x4028A0), 0x5D38A0 (+0x740 = 0x406820, paquete 0x20), 0x828A50, 0x883120.
+
+- **Corregido**: el cruce sonaba cada vez que cambiaba el bit «dentro» de un jugador, también cuando un círculo aparecía o
+  crecía bajo la mano quieta; el original exige `fn_008277B0` (un círculo del jugador con el punto anterior [0xEA9EF0]
+  y el actual a lados distintos del borde). Ahora se guarda ese punto anterior y se busca el círculo.
+- **Corregido**: el comentario y la wiki decían que `InfluenceCircle::Draw` pone el pestillo [0xEB9A1C]; solo lo lee.
+- **Corregido**: los tests del golpe y del cruce copiaban la llamada en vez de ejercitar el código; ahora llaman a
+  `ecs::abodes::InterfaceTap` (casa y centro del pueblo, que calla) e `influence::ProcessHandCrossing` sobre el registro
+  (entrar, quedarse, salir, círculo que crece, pueblo neutral), y el de los diez toques no depende del valor de partida
+  del contador estático.
+- Sin cambios: el clic de los menús (el PLAN B8 lo pide en los menús propios), ninguna dependencia ECS nueva en
+  `src/Audio`, ninguna fuente/búfer AL nuevo, sin hilo de música. `audio::OnThingDeleted` no lo llama nadie (de B0, no
+  de B8: los canales siguen por `ownerPosition`, que con ids versionados de entt da nullopt para una entidad borrada).
+- En juego (`_audit/audio/b8_audit_knock.log`, `OPENBLACK_TEST_KNOCK="10,0,6,0.4"`, `OPENBLACK_SFX_TRACE=1`): los diez
+  toques dan 110..118 y 110, 3D track 0, dueño la casa (cortados por el máximo 150 con la cámara a 220).
+
 ### Tests y juego
 
-- `test_ui_sfx` (4 tests nuevos, 46 en total): los parámetros de usuario reales de InGame.sad de las muestras de
+- `test_ui_sfx` (6 tests, 46 ejecutables en total): los parámetros de usuario reales de InGame.sad de las muestras de
   interfaz (0 en 42/134/159/160/173/205/40/41/119, 1 en 1/52/110..118, 2 en 46, 4 en 129) y el modo 1, volumen 40 y
   min/max 100/300 de la 52; **tocar una casa diez veces da 110..118 y vuelve a 110**, 3D en el punto de la mano con
   max 150; dentro de la ciudadela no suenan ni el `MenuButton` (parámetro 0) ni el golpe (1) pero sí el woosh (2); la 52

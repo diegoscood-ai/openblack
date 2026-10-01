@@ -85,9 +85,20 @@ void ProcessTurn();
 
 /// fn_0x005e5cd0 0x5E61A1..0x5E6230, once a frame while the game is not paused (g_game+0x14 & 4): the hand's point goes
 /// to fn_00827820, which compares it against the circles GGame::Update3DInfluence 0x5552A0 keeps (one per citadel and per
-/// town with influence) and, for each player whose "the hand is inside" changed since the last frame, makes a ripple at
-/// the crossing and plays G_HandThroughInfluence_01 (InGame 52) 3D at the hand
+/// town with influence) and, for each player whose "the hand is inside" changed since the last frame and who has a
+/// circle whose edge the hand crossed since the previous call (fn_008277B0), makes a ripple at the crossing; then
+/// G_HandThroughInfluence_01 (InGame 52) plays once, 3D at the hand
 void ProcessHandCrossing(const glm::vec3& handPosition);
+
+/// fn_00827820 without the sound: true when it set [0xEB9A6C] (a crossing made a ripple)
+[[nodiscard]] bool HandCrossedInfluence(const glm::vec3& handPosition);
+
+namespace detail
+{
+/// For the tests only: the statics of fn_00827820 ([0xEB9A48], [0xEB9A68], [0xEA9EF0]) back to the process start;
+/// nothing in the original clears them
+void ResetHandCrossing();
+} // namespace detail
 
 // ---- the land's globals (GGame fields) ----
 

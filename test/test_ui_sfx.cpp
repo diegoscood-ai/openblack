@@ -12,6 +12,7 @@
 #include <array>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,6 +27,15 @@
 #include "Audio/GameQueries.h"
 #include "Audio/SampleOutput.h"
 #include "Audio/Sound.h"
+#include "ECS/Abodes.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/TownInfluence.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Influence/Influence.h"
+#include "ECS/Registry.h"
+#include "InfoConstants.h"
+#include "Locator.h"
 #include "Resources/Loaders.h"
 
 // Milestone B8 of dev\tmp_dis\audio\PLAN.md (ui_creature.md §2.1-2.2, §2.6): the interface and the hand. The samples
@@ -34,6 +44,7 @@
 
 using namespace openblack;
 using namespace openblack::audio;
+using namespace openblack::ecs::components;
 
 namespace
 {
@@ -117,12 +128,42 @@ protected:
 		sample_play::SetMasterVolume(127);
 		audio::ClearMap();
 		output = FakeOutput {};
+		// a house (living quarters) and a town centre (civic) of the info records, for ecs::abodes
+		auto info = std::make_unique<InfoConstants>();
+		info->abode.at(0).abodeNumber = AbodeNumber::A;
+		info->abode.at(0).abodeType = AbodeType::LivingQuarters;
+		info->abode.at(1).abodeNumber = AbodeNumber::TownCentre;
+		info->abode.at(1).abodeType = AbodeType::TownCentre;
+		Locator::infoConstants::reset(info.release());
+		Locator::entitiesRegistry::emplace<ecs::Registry>();
+		influence::detail::ResetHandCrossing();
 	}
 	void TearDown() override
 	{
 		audio::ClearMap();
 		sample_play::SetBackend({});
 		audio::Shutdown();
+		Locator::entitiesRegistry::reset();
+		Locator::infoConstants::reset();
+	}
+
+	static entt::entity MakeAbode(AbodeNumber number)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto abode = registry.Create();
+		registry.Assign<Abode>(abode, number, 0u, 0u, 0u);
+		registry.Assign<Transform>(abode, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+		return abode;
+	}
+
+	static entt::entity MakeTown(const glm::vec3& position, float radius, PlayerNames owner)
+	{
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto town = registry.Create();
+		registry.Assign<Town>(town, 0u).owner = owner;
+		registry.Assign<Transform>(town, position, glm::mat3(1.0f), glm::vec3(1.0f));
+		registry.Assign<TownInfluence>(town).radius = radius;
+		return town;
 	}
 
 	/// The real InGame.sad records of the installation, keyed as SampleId(InGame, n)
@@ -155,17 +196,16 @@ protected:
 		return found != sounds.end() ? &found->second : nullptr;
 	}
 
-	/// Abode::InterfaceTap 0x406830 for a house: the sound only, as ecs::abodes::InterfaceTap plays it
+	/// Abode::InterfaceTap 0x406830 on a house: ecs::abodes::InterfaceTap itself
 	void Knock(const glm::vec3& handPosition)
 	{
-		PlayOptions options;
-		options.sample = {inGame, 110 + NextCounter(Counter::KnockRoof)};
-		options.owner = Owner::Thing(static_cast<entt::entity>(7));
-		options.is3D = true;
-		options.track = false;
-		options.position = handPosition;
-		PlaySoundEffect(options);
+		if (!house)
+		{
+			house = MakeAbode(AbodeNumber::A);
+		}
+		ecs::abodes::InterfaceTap(*house, handPosition);
 	}
+	std::optional<entt::entity> house;
 };
 } // namespace
 
@@ -239,8 +279,14 @@ TEST_F(UiSfxTest, KnockingOnARoofWalksTheNineSamples)
 			}
 		}
 	}
-	const std::vector<int> expected {110, 111, 112, 113, 114, 115, 116, 117, 118, 110};
-	EXPECT_EQ(played, expected);
+	// [0xC4CC7C] is a static of the process that nothing resets (other tests may have knocked): from wherever it is,
+	// ten taps walk 110..118 in turn and wrap once
+	ASSERT_EQ(played.size(), 10u);
+	for (size_t i = 1; i < played.size(); ++i)
+	{
+		EXPECT_EQ(played[i], played[i - 1] == 118 ? 110 : played[i - 1] + 1) << i;
+	}
+	EXPECT_EQ(played[9], played[0]);
 }
 
 // 0x429F6D: inside the citadel only the samples of user parameter 2 play, so neither the menu click (0) nor the knock (1)
@@ -287,4 +333,57 @@ TEST_F(UiSfxTest, InfluenceCrossingTakesANewChannelAndIsCulledAt300)
 	EXPECT_EQ(output.Channels(), 3); // mode 1: three channels, none restarted
 	EXPECT_EQ(cross(glm::vec3(0.0f, 0.0f, 301.0f)), k_NoChannel);
 	EXPECT_EQ(output.Channels(), 3);
+}
+
+// 0x406864..0x406870: only an abode with the living-quarters bit knocks; a civic one (the town centre) is tapped in
+// silence, and a non-abode is not tappable at all
+TEST_F(UiSfxTest, OnlyLivingQuartersKnock)
+{
+	if (!LoadInGame())
+	{
+		GTEST_SKIP() << "OPENBLACK_TEST_BW_ROOT not set";
+	}
+	const auto centre = MakeAbode(AbodeNumber::TownCentre);
+	EXPECT_TRUE(ecs::abodes::InterfaceValidToTap(centre));
+	ecs::abodes::InterfaceTap(centre, glm::vec3(0.0f, 0.0f, 10.0f));
+	EXPECT_EQ(output.plays, 0);
+	Knock(glm::vec3(0.0f, 0.0f, 10.0f));
+	EXPECT_EQ(output.plays, 1);
+	const auto town = MakeTown(glm::vec3(0.0f), 50.0f, PlayerNames::PLAYER_ONE);
+	EXPECT_FALSE(ecs::abodes::InterfaceValidToTap(town));
+}
+
+// fn_00827820 / fn_008277B0: the 52 sounds when the hand's move crosses the edge of a circle, in or out; a circle that
+// grows under a still hand changes the "inside" bit but crosses nothing, so it is silent and the bit is kept
+TEST_F(UiSfxTest, InfluenceCrossingNeedsTheHandToCrossAnEdge)
+{
+	if (!LoadInGame())
+	{
+		GTEST_SKIP() << "OPENBLACK_TEST_BW_ROOT not set";
+	}
+	const auto town = MakeTown(glm::vec3(0.0f), 50.0f, PlayerNames::PLAYER_ONE);
+	MakeTown(glm::vec3(200.0f, 0.0f, 0.0f), 30.0f, PlayerNames::NEUTRAL); // the neutral player has no circle
+	const glm::vec3 outside(0.0f, 0.0f, 60.0f);
+	const glm::vec3 inside(0.0f, 0.0f, 40.0f);
+	influence::ProcessHandCrossing(outside); // the first call only remembers
+	EXPECT_EQ(output.plays, 0);
+	influence::ProcessHandCrossing(inside);
+	EXPECT_EQ(output.plays, 1);
+	influence::ProcessHandCrossing(inside);
+	EXPECT_EQ(output.plays, 1);
+	influence::ProcessHandCrossing(outside);
+	EXPECT_EQ(output.plays, 2);
+	// the circle grows over the still hand: the bit changes, no edge was crossed
+	Locator::entitiesRegistry::value().Get<TownInfluence>(town).radius = 70.0f;
+	influence::ProcessHandCrossing(outside);
+	EXPECT_EQ(output.plays, 2);
+	influence::ProcessHandCrossing(outside);
+	EXPECT_EQ(output.plays, 2);
+	// out again across the new edge
+	influence::ProcessHandCrossing(glm::vec3(0.0f, 0.0f, 80.0f));
+	EXPECT_EQ(output.plays, 3);
+	// the neutral town's edge: nothing
+	influence::ProcessHandCrossing(glm::vec3(200.0f, 0.0f, 80.0f));
+	influence::ProcessHandCrossing(glm::vec3(200.0f, 0.0f, 0.0f));
+	EXPECT_EQ(output.plays, 3);
 }

@@ -398,6 +398,13 @@ void audio::UnregisterObject(uint32_t id)
 	g_State.objects.erase(id);
 }
 
+uint32_t audio::NewObjectId()
+{
+	// (openblack) 0 is no owner's: the numbers start at 1 and are not reused
+	static uint32_t s_Next = 0;
+	return ++s_Next;
+}
+
 // ---- GAudio::PlaySoundEffect ----------------------------------------------------------------------------------------
 
 Channel audio::PlaySoundEffectOptions(const sample_play::Options& options)
@@ -681,13 +688,6 @@ void audio::ClearMap()
 	sample_play::Switch(true);
 	// (openblack) the channels' OpenAL sources: a new map starts with none
 	sample_play::ReleaseSources();
-	// (openblack) the old players' emitters (AnimationSounds, the trees, the fire, the spells... until B2..B5 move them to
-	// the channels) are channels of the original too, which LHSampleStopAll 0x426CE6 stops: without this the registry
-	// reset of the new map dropped them with their sources still playing (a looping one for ever)
-	if (Locator::audio::has_value())
-	{
-		Locator::audio::value().DestroyAllEmitters();
-	}
 }
 
 void audio::OnFocus(bool active)

@@ -10,15 +10,11 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <string>
-#include <type_traits>
-#include <vector>
 
-#include <entt/entity/entity.hpp>
-#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#include "AudioDecoderInterface.h"
 #include "AudioManagerInterface.h"
 #include "AlSampleOutput.h"
 #include "AudioPlayer.h"
@@ -28,11 +24,6 @@
 #error "Locator interface implementations should only be included in Locator.cpp, use interface instead."
 #endif
 
-namespace openblack
-{
-class Game;
-}
-
 namespace openblack::audio
 {
 
@@ -41,55 +32,23 @@ class AudioManager final: public AudioManagerInterface
 public:
 	AudioManager();
 	~AudioManager();
-	BufferId CreateBuffer(ChannelLayout layout, const std::vector<int16_t>& buffer, int sampleRate) override;
-	void CreateBuffer(Sound& sound) override;
-	void PlayEmitter(entt::entity emitter) override;
-	void PauseEmitter(entt::entity emitter) override;
-	void StopEmitter(entt::entity emitter) override;
-	void SetEmitterPitch(entt::entity emitter, float percent) override;
-	void DestroyEmitter(entt::entity emitter) override;
-	void DestroyAllEmitters() override;
-	entt::entity CreateEmitter(entt::id_type id, PlayType playType, glm::vec3 position, glm::vec3 direction, glm::vec2 radius,
-	                           float volume, AudioStatus status, bool relative) override;
-	[[nodiscard]] bool EmitterExists(entt::entity emitter) override;
-	[[nodiscard]] float GetProgress(entt::entity entity) override;
-	[[nodiscard]] AudioStatus GetStatus(entt::entity emitter) override;
-	void PlayMusic(const std::string& packPath, PlayType type) override;
-	void StopMusic() override;
 	const Sound& GetSound(entt::id_type id) override;
-	void PlaySound(entt::id_type id, PlayType type) override;
-	entt::entity PlayAt(entt::id_type id, glm::vec3 position) override;
-	void SetGlobalVolume(float volume) override { _globalVolume = volume; }
-	void SetSfxVolume(float volume) override { _sfxVolume = volume; }
-	void SetMusicVolume(float volume) override { _musicVolume = volume; }
-	[[nodiscard]] float GetGlobalVolume() override { return _globalVolume; }
-	[[nodiscard]] float GetSfxVolume() override { return _sfxVolume; }
-	[[nodiscard]] float GetMusicVolume() override { return _musicVolume; }
 	void Stop() override;
 	void Update() override;
 	void UpdateListener() override;
 	void CreateSoundGroup(const std::string& name) override;
-	void AddMusicEntry(const std::string& name) override;
 	[[nodiscard]] SampleOutput& GetSampleOutput() override { return *_sampleOutput; }
-	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override { return _music; }
 	void AddToSoundGroup(const std::string& name, entt::id_type id) override;
 	const SoundGroup& GetSoundGroup(const std::string& name) override;
 	const std::map<std::string, SoundGroup>& GetSoundGroups() override;
 
 private:
+	/// The OpenAL device and context, and the listener
 	std::unique_ptr<AudioPlayerInterface> _audioPlayer;
 	/// The 16 sample channels' OpenAL sources (made after the context, deleted before it)
 	std::unique_ptr<AlSampleOutput> _sampleOutput;
-	/// All sounds are loaded
+	/// The samples of each bank
 	std::map<std::string, SoundGroup> _soundGroups;
-	/// Music resources are loaded on demand to avoid storing large audio buffers. There are no resource IDs yet
-	std::vector<std::string> _music;
-	float _globalVolume {1.0f};
-	float _musicVolume {1.0f};
-	float _sfxVolume {1.0f};
-	entt::entity _musicEntity {entt::null};
-	/// where the last UpdateListener put QMixer's listener (the distances of the channels are taken from it)
-	glm::vec3 _listenerPosition {0.0f};
 };
 
 } // namespace openblack::audio

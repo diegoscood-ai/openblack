@@ -12,7 +12,7 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 
 #include "Magic/CastRules.h"
 #include "Magic/Gestures/PowerUpSystem.h"
@@ -225,14 +225,11 @@ void seed::SetPowerUp(entt::entity entity, int powerUp)
 	{
 		hand_fx::AddSpellToHandVisuals(false);
 	}
-	// fn_00729C40: PU 0 / 1 / 2 -> SpellDialogue samples 10 / 11 / 12 (AUDIO_SFX_BANK_TYPE_SPELL_DIALOG); none for -1
-	if (powerUp >= 0 && powerUp <= 2 && Locator::audio::has_value())
+	// fn_00729C40: PU 0 / 1 / 2 -> SpellDialogue samples 10 / 11 / 12 (the jump table 0x729C80); none for -1 (0x729C48);
+	// GAudio::PlaySoundEffect 0x429D60(NULL, sample, mode 2, loops 0, +0x10 0, is3D 0, AUDIO_SFX_BANK_TYPE 9) 0x729C77
+	if (powerUp >= 0 && powerUp <= 2)
 	{
-		const auto id = entt::hashed_string(fmt::format("SpellDialogue.sad/{}", 10 + powerUp).c_str()).value();
-		if (Locator::resources::value().GetSounds().Contains(id))
-		{
-			Locator::audio::value().PlaySound(id, audio::PlayType::Once);
-		}
+		audio::PlaySoundEffect(audio::Owner::None(), 10 + powerUp, 2, 0, false, false, audio::SfxBank::SpellDialogue);
 	}
 }
 

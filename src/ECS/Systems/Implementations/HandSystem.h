@@ -168,8 +168,6 @@ private:
 	entt::entity _seedTarget {entt::null};
 	/// m_ApplySentTurn: one apply packet per game turn
 	std::optional<uint32_t> _applySentTurn;
-	/// the SoundTag of LH_SAMPLE_G_HANDGESTURE_02 while a HAND_GESTURE seed is armed
-	std::optional<entt::entity> _seedLoopSound;
 	/// the seed the hand held last frame (to see it come and go)
 	entt::entity _seedInHand {entt::null};
 	float _testCastTime {-1.0f};

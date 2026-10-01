@@ -199,6 +199,12 @@ void StopAll();
 /// LHSampleIsPlaying 0x10013FB0 (bank, owner): the first channel of the bank and owner (any sample) is in use
 /// (0x10013FF1: only that first one is looked at); nothing while switched off
 [[nodiscard]] bool IsOwnerPlaying(uint32_t bank, Owner owner);
+/// LHSampleIsPlaying(bank, owner, LH_SampleInfo**) 0x10014010: the first channel of the bank and owner (any sample,
+/// 0x10014038..0x10014040), its handle when it is in use (+0x8C == 1, 0x10014051), else k_NoChannel; k_NoChannel while
+/// switched off (+0x14, 0x10014018)
+[[nodiscard]] Channel OwnerChannel(uint32_t bank, Owner owner);
+/// LH_SampleInfo +0x38 of the channel of a start: its volume 0..127 (0 when that start is no longer on its channel)
+[[nodiscard]] int Volume(Channel channel);
 /// LHSampleGetPlayPosition 0x10014C00 (bank, owner, sample): the play position in ms of the first channel of the bank
 /// and owner (the sample is not compared, 0x10014C29..0x10014C31), -1 when it is not in use or while switched off
 [[nodiscard]] int64_t PlayPosition(uint32_t bank, Owner owner);

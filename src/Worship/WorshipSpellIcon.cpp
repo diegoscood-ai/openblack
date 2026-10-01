@@ -18,7 +18,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <spdlog/spdlog.h>
 
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SpellIcon.h"
@@ -107,23 +107,19 @@ constexpr std::array<int, 30> k_FullyChargedVoice = {
 /// fn_00726490: IN_GAME 42 (G_ClickOnSpell_01) with the pitch of the icon's placement (LH_SamplePlayOptions +0x48)
 void PlayTapSound(int placement)
 {
-	if (!Locator::audio::has_value())
-	{
-		return;
-	}
-	// the table of fn_00726490 (sources.md §5.1), the index clamped to 0..5
-	constexpr std::array<float, 6> k_Pitch = {100.0f, 115.0f, 130.0f, 145.0f, 155.0f, 175.0f};
+	// the stack table of fn_00726490 0x7264E0..0x726513: 100, 115, 130, 145, 155, 175, 190 (sources.md §5.1); the index
+	// clamped to 0..5 (0x7264B7..0x726511), so the 7th (190) is never read
+	constexpr std::array<int, 7> k_Pitch = {100, 115, 130, 145, 155, 175, 190};
 	const int index = std::clamp(placement, 0, 5);
-	auto& audio = Locator::audio::value();
-	const auto id = entt::hashed_string("InGame.sad/42").value();
-	if (!Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec2(0.0f),
-	                                         audio.GetSound(id).volume, audio::AudioStatus::Playing, true);
-	audio.SetEmitterPitch(emitter, k_Pitch.at(static_cast<size_t>(index)));
-	audio.PlayEmitter(emitter);
+	// LH_SamplePlayOptions (ctor defaults) with bank +0x04 GGlobal+0x3AC (InGame), sample +0x24 0x2A, owner +0x20 0, is3D
+	// +0x08 0 and the pitch +0x48, then GAudio::PlaySoundEffect 0x429E30 (0x726528). The caller mask +0x1C stays 0: the
+	// .sad's flags of sample 42 (0x402) have no pitch bit 0x1, so LHSamplePlay keeps the options' pitch.
+	audio::PlayOptions options;
+	options.sample = {audio::Bank(audio::SfxBank::InGame), 0x2A};
+	options.owner = audio::Owner::None();
+	options.is3D = false;
+	options.pitch = k_Pitch.at(static_cast<size_t>(index));
+	audio::PlaySoundEffect(options);
 }
 
 /// SpellIcon vt 0x910 GetSpellIconPlacementIndex: WorshipSpellIcon 0x77FC90 = slot - 10; TownCentreSpellIcon 0x748E90 =
@@ -303,15 +299,13 @@ int icon::Process(entt::entity iconEntity)
 				PutFullyChargedSeedInHand(iconEntity, charged.chargingFor);
 			}
 			// PlayFullyChargedSoundFX 0x77F4E0: for the local player's icons, PlaySoundEffect(bank 9, the seed's voice)
-			if (magic::players::IsHuman(PlayerOf(iconEntity)) && Locator::audio::has_value())
+			if (magic::players::IsHuman(PlayerOf(iconEntity)))
 			{
-				const auto seed = static_cast<size_t>(SeedTypeOf(iconEntity));
-				const auto name = fmt::format("SpellDialogue.sad/{}", k_FullyChargedVoice.at(seed));
-				const auto id = entt::hashed_string(name.c_str()).value();
-				if (Locator::resources::value().GetSounds().Contains(id))
-				{
-					Locator::audio::value().PlaySound(id, audio::PlayType::Once);
-				}
+				// 0x77F520: a seed type above 0x1D gives 8 (0x77F5D6); then GAudio::PlaySoundEffect 0x429D60(NULL, the
+				// voice, mode 2, loops 0, +0x10 0, is3D 0, AUDIO_SFX_BANK_TYPE 9) 0x77F5EE
+				const auto seedType = static_cast<size_t>(SeedTypeOf(iconEntity));
+				const int voice = seedType < k_FullyChargedVoice.size() ? k_FullyChargedVoice.at(seedType) : 8;
+				audio::PlaySoundEffect(audio::Owner::None(), voice, 2, 0, false, false, audio::SfxBank::SpellDialogue);
 			}
 		}
 		auto& done = IconOf(iconEntity);

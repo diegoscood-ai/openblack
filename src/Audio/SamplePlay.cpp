@@ -526,6 +526,30 @@ bool sample_play::IsOwnerPlaying(uint32_t bank, Owner owner)
 	return false;
 }
 
+Channel sample_play::OwnerChannel(uint32_t bank, Owner owner)
+{
+	// 0x10014010: nothing while switched off (+0x14, 0x10014018); the first channel of the bank and owner, whatever its
+	// sample (0x10014038..0x10014040); its info when in use (+0x8C == 1, 0x10014051)
+	if (!g_State.active)
+	{
+		return k_NoChannel;
+	}
+	for (const auto& channel : g_State.channels)
+	{
+		if (channel.handle != k_NoChannel && channel.bank == bank && channel.owner == owner)
+		{
+			return InUse(channel) ? channel.handle : k_NoChannel;
+		}
+	}
+	return k_NoChannel;
+}
+
+int sample_play::Volume(Channel handle)
+{
+	const auto* channel = Find(handle);
+	return channel != nullptr ? channel->volume : 0;
+}
+
 int64_t sample_play::PlayPosition(uint32_t bank, Owner owner)
 {
 	// LHSampleGetPlayPosition 0x10014C00: -1 while switched off (0x10014C09); the first channel of the bank and owner,

@@ -133,17 +133,16 @@ Reglas:
 
 ### Estado del motor de efectos en openblack
 
-**Fases B0..B4, B6 y B7 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
-[B4-B6](#fase-b-b4-y-b6-implementados), [B7](#fase-b-b7-implementado-voces-en-canal)). Hay un solo motor de canales: los 16 canales de
+**Fases B0..B7 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
+[B4-B6](#fase-b-b4-y-b6-implementados), [B5](#fase-b-b5-implementado-los-milagros-en-canal),
+[B7](#fase-b-b7-implementado-voces-en-canal)). Hay un solo motor de canales: los 16 canales de
 `audio::sample_play` (LHSamplePlay), cada uno con su fuente OpenAL propia y **fuera del registro ECS**, detrás de los
 filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
-cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí. Siguen fuera de los canales, hasta B5,
-los reproductores viejos de Milagros sobre `AudioManager::CreateEmitter`/`PlaySound` (está prohibido añadirles llamadores):
-- `SpellSounds`, `FireSound`, el bucle de la semilla de `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`,
-  `WorshipSpellIcon`, `MagicTeleport`, `Fireball`, `OneOffSpellSeed` (B5, Milagros);
-- el panel de depuración «Sound».
-Esos también ganan los arreglos de B0 (un búfer por muestra, RIFF 0x50, puntos de bucle), porque comparten
-`wave_buffers`.
+cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí, y desde B5 también los milagros
+(`SpellSounds`, `FireSound`, `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`, `WorshipSpellIcon`, `MagicTeleport`,
+`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores**: `AudioManager` perdió
+`CreateEmitter`/`PlayEmitter`/`PlaySound`/`PlayAt`/`PlayMusic` y el componente `AudioEmitter` ya no existe; solo abre
+el dispositivo, mueve el oyente, guarda las fuentes de los canales y la lista de bancos.
 
 ## Bancos y formatos
 
@@ -911,9 +910,8 @@ Cambios de comportamiento audibles (todos por el original):
 - Con el filtro de banco por `BankId`, los aldeanos ya no se silencian tras `SET_GAME_SOUND false`.
 - Minimizar la ventana para los efectos y la música (perder el foco no).
 - Los bucles finitos acaban (campana ×5, ranas, pájaros, palomas) y los bucles con tramo repiten solo el tramo en los
-  16 canales. Los reproductores viejos (`AudioManager::CreateEmitter`: el fuego, las farolas, los árboles…) comparten el
-  búfer, pero lo ponen en cola (`alSourceQueueBuffers`, fuente de streaming) y OpenAL Soft solo usa los puntos de bucle
-  en fuentes estáticas: allí el bucle sigue siendo la onda entera, como antes (hasta que B2..B5 los pasen a canales).
+  16 canales. (Los reproductores viejos de `AudioManager::CreateEmitter` ponían el búfer en cola y OpenAL Soft solo
+  usa los puntos de bucle en fuentes estáticas; desde B5 no queda ninguno.)
 
 Auditoría de B0-B1 (§1.7 de TEAM_GUIDELINES, sesión audio):
 - Comprobado en el desensamblado: 0x429D20, 0x429D60/0x429DA0, 0x42A040, 0x42A100 (orden de los 10 argumentos),
@@ -955,9 +953,9 @@ Sesión audio, rama `local/audio` (sobre B0-B1 2767ffd3 / ca200e26).
 | `AnimationSounds::Fire` (firma intacta) | fn_00516510: los eventos con from ≤ t < to; sin `Get3DSoundPos` nada; la distancia y la superficie son **las del aldeano** (0x51655F, `GSoundMap::GetSurfaceType` 0x51662B → `ecs::sea_cells::GetSurfaceType`); grupo 1: muerto → nada más (0x5165BC), voz 3 niño / 1 + (+0x1F8 ≠ 0); 0x92 → banter con la casa como dueño (`GetAbode` 0x51675D; sin casa, dueño 0 = la cámara); 0x93/0x94 → banter en el aldeano; paso (4) de un aldeano con la pantalla ancha del guion → **se descarta el resto de la lista** (0x5166A4 salta al final); THROWN 399/401 solo con < 15 / < 10 turnos; siempre track 1, min/max 0 (0x5167A8) | `AnimationSounds.cpp` |
 | `AnimationSounds::PlayFromTable` (firma intacta, árboles) | Tree::Draw 0x74B009 (doblar, track 0) / 0x74B25C (susurro, track 1), banco editor (GAudio+0x3B0) | `AnimationSounds.cpp` |
 
-`SpellSounds` (Milagros, B5) sigue con su `AnimEffectBank`, pero su `Load(ruta)` ya no lee el fichero: copia las tablas
+`AnimEffectBank` (de Milagros) sigue como alias de `AnimEffectTable` para sus tests; su `Load(ruta)` copia las tablas
 que el núcleo leyó al registrar spells.sad (`test_anim_effects` `MiraclesBankCopiesTheCoresTables`: mismas filas, listas y
-muestras). Su comportamiento no cambia.
+muestras). Desde B5 `SpellSounds` ya no la usa: toca por `audio::SamplePlayAnimEffect`.
 
 Cambios audibles (todos por el original):
 - Los sonidos de los clips y de los árboles van por los 16 canales (prioridad, modo, robo) y siguen a su dueño una vez por
@@ -1170,18 +1168,86 @@ implementar) y espera `wait until HAS_CAMERA_ARRIVED` (un stub que da false). Es
   por AudioTag, `HelpDude::PlaySoundFX` 0x5C2800); el guion de ayuda «MultiHelpJustTalkWithText» (Guidance, B9);
   GConfirmation (C7); GSpookyVoices (B10).
 
+## Fase B: B5 implementado (los milagros en canal)
+
+Sesión audio, rama `local/audio` (sobre B7 16f1d791). Archivos de Milagros tocados con su lógica intacta (el diff para su
+revisión está en `dev\_scratch\audio\b5_milagros.diff`). Desensamblado: 0x6745D0 (`AtomCore::StartSound`), 0x6D0F70..0x6D13A0
+(`PSysSound`: ctor, destructor, `Get3DSoundPos` 0x6D1000, el bucle fn_006D11A0), 0x72EBE0 (`FireEffect::ToBeDeleted`),
+0x72EDC0/0x72EDE0/0x72EE70 (fuego), 0x730760 (`ProcessList`), 0x5D2730/0x5D27B0 (bucle del gesto), 0x5CEC50
+(`GInterface::Get3DSoundPos`), 0x6882F0/0x688560..0x68866A (gesto reconocido), 0x683184..0x68327F (bola de fuego que
+pasa), 0x68CE90 / 0x68DE69 (`PHandFX`), 0x72A640 (`OneOffSpellSeed::InterfaceTap`), 0x5EC340 (`Living::MoveByTeleport`),
+0x726490 (`PlayTapSound`), 0x77F4E0 (`PlayFullyChargedSoundFX`), 0x729C40, 0x7314E0/0x731AB0 (vapor) y, en el DLL,
+0x10014010 (`LHSampleIsPlaying(banco, dueño, &info)`).
+
+### API nueva (`Audio.h`)
+
+| función | original | uso |
+|---|---|---|
+| `NewObjectId()` | (openblack) el original compara punteros de dueño | un número para `Owner::Object` de cada PSysSound, FireEffect, PHandFX, datos del gesto, FireGraphic |
+| `PlayingChannel(dueño, banco)` | `LHSampleIsPlaying(banco, dueño, LH_SampleInfo**)` 0x10014010: el primer canal del banco y dueño (cualquier muestra), si está en uso; nada con el audio apagado | PSysSound 0x6D120A |
+| `Volume(canal)` | `LH_SampleInfo` +0x38 | el fundido de PSysSound 0x6D1223 |
+
+### Cada sitio
+
+| sitio | original | ahora |
+|---|---|---|
+| `spell_sounds::StartSound` | 0x6745D0: posición global (+ suelo con SnapToGround), superficie con USESURFACE (`ecs::sea_cells::GetSurfaceType`), Delayed → retardo distancia/347 (0x6747AE); si no, `SamplePlayAnimEffect(this, dist, {tamaño, alineamiento, 1, superficie, acción}, 0, spells, track 1, 0, 0)` | `Owner::Object` registrado con `RegisterObject` (su `Get3DSoundPos` 0x6D1000: el átomo con suelo si SnapToGround; sin átomo, el último punto) |
+| `spell_sounds::ProcessTurn` | fn_006D11A0: sin átomo, `LHSampleIsPlaying` directo (ninguno → se borra), fundido `max(vol − FadeStep, 0)` con `LHSampleSetVolume` en **ese** canal, y una vez `SamplePlayAnimEffect(this, 0, clave, 1 + SoftRelease, …)` (1 parar, 2 soltar el bucle); con átomo, Looping o Delayed vencido → otra vez dentro de 1200 de la cámara | `PlayingChannel`, `Volume`/`SetVolume`, `SamplePlayAnimEffect` con `AnimAction::Stop`/`Release` |
+| `FireSound` | fn_0072EDE0 por turno y ranura: opciones InGame, muestra 2, dueño el fuego, 3D, track 1, en `Get3DSoundPos` 0x72EE70; el .sad le da bucle −1 y modo 2 (FLAGS 0x7E0); fn_0072EDC0: si +0x38 & 0x20, `StopPlayingSoundEffect(fuego, 2, InGame)` | `PlaySoundEffect(PlayOptions)` por turno; `StopSoundEffect(2, dueño, InGame)`; `ToBeDeleted` vacía la primera ranura del fuego (y, en openblack, la otra si la tenía) |
+| `HandSystem::BeginApplyOnRelease` / `EndApplyOnRelease` | `SoundTag::Create(GInterface, 3, track 0, modo 2, −1, 0, 3D, IN_GAME, 0)` 0x5D275E; `SoundTag::Remove(this, 3, IN_GAME)` 0x5D27C8 | `tags::Create`/`tags::Remove` con la entidad de la mano izquierda (**aproximado**: su `Transform` por el punto más nuevo del búfer del ratón de `GInterface::Get3DSoundPos` 0x5CEC50); al soltar, el bucle acaba su pasada (`ToBeDeleted` 0x71ECB0) |
+| `Gesture` (reconocido) | fn_006882F0 (el estado del registro es el de `MyInterface`): 2D `PlaySoundEffect(0, 0x24, 3, 0, 0, 0, IN_GAME)`; otro interfaz: opciones 3D, track 0, dueño los datos del átomo, en el +0x3C del registro | igual (`RecognisedGesture::fromInterface` / `handPosition`) |
+| `Fireball::FlyBySound` | 0x683184: a < 40 de la cámara ahora y > 40 antes (estricto, 0x68322B), velocidad² > 400; `PlaySoundEffect(0, 0x40 + GetTickCount() % 5, 2, 0, 0, 0, IN_GAME)` | igual con `TickCount()` (antes un contador propio y `>=` en el paso anterior) |
+| `hand_fx::DoRemoveFromHandVisual` | opciones InGame, 0x77, dueño el PHandFX, 2D (0x68CEE1) | `PlayOptions`, `Owner::Object` fijo |
+| `hand_fx::AddSpellToHandVisuals` | `PlaySoundEffect(0, 0x23, 3, 0, 0, 0, IN_GAME)` 0x68DE7D | igual |
+| `seed::SetPowerUp` (fn_00729C40) | PU 0/1/2 → `PlaySoundEffect(0, 10/11/12, 2, 0, 0, 0, SpellDialogue)` | igual; con la pantalla ancha del guion lo quita el filtro del userParam 1, como el original |
+| `PlayFullyChargedSoundFX` | 0x77F4E0: tabla 0x77F5F8 por tipo de semilla (> 0x1D → 8), `PlaySoundEffect(0, voz, 2, 0, 0, 0, SpellDialogue)` | igual |
+| `PlayTapSound` | fn_00726490: opciones InGame, 0x2A, sin dueño, 2D, tono +0x48 de la tabla {100, 115, 130, 145, 155, 175, 190} con el índice en 0..5 | igual; la máscara +0x1C queda a 0 (el .sad de la 42, FLAGS 0x402, no tiene el bit de tono 0x1, así que el tono de las opciones vale sin máscara; el «callerMask 0x1» del PLAN no hace falta) |
+| `one_off::InterfaceTap` | opciones InGame, 0x6D, dueño el orbe, 3D, track 0, en el +0xC8 del estado del interfaz (0x72A6F4) | igual (**aproximado**: el punto de interacción de la mano izquierda por el +0xC8) |
+| `teleport::MoveByTeleport` | `SoundTag::Create(MapCoords&, 0x27/0x26, track 0, modo 2, 0, 0, 3D, IN_GAME, 0)` 0x5EC358/0x5EC372: salida en las MapCoords del ser, llegada en las del argumento | `tags::CreateAtMapCoords` (antes un emisor suelto con la llegada a altura 0) |
+| `FireGraphic` (vapor) | fn_00731AB0 → fn_007314E0: opciones InGame, 0x35, dueño el FireGraphic, 3D, track 0, en su +0x98 | igual (**inferido**: +0x98 = la posición del objeto que arde; su escritor no se ha leído) |
+| panel de depuración «Audio Player» | — | «Sound» toca la muestra en 2D por `PlaySoundEffect`; «Music» arranca un MUSIC_TYPE como START_MUSIC (`ScriptStartMusic`) y lo para como STOP_MUSIC; la pestaña «Emitters» y sus volúmenes flotantes desaparecen (el maestro de efectos está en «Channels») |
+
+### Cambios audibles (por el original)
+
+- Todo lo de los milagros ocupa uno de los 16 canales, con prioridad, robo y la ley de QMixer; pasa los filtros de GAudio
+  (pantalla ancha del guion, SET_GAME_SOUND, ciudadela, estados de interfaz).
+- El fundido de los PSysSound baja el volumen 0..127 del canal (antes una fracción del emisor).
+- El crepitar del fuego sigue al objeto (track 1); al quitarse el bucle del gesto acaba su pasada en vez de cortarse.
+- El gesto reconocido de otro interfaz, el vapor y el teletransporte suenan en 3D en su punto.
+- La bola de fuego que pasa elige su muestra con `GetTickCount() % 5`.
+
+### En juego
+
+Land 1 (logs en `dev\_audit\audio\`): `b5_bolt_fire.log` / `b5_bolt_end.log` (`OPENBLACK_TEST_SPELL=LIGHTNING_BOLT…`,
+`OPENBLACK_TEST_FIRE`: S_HandLightning_Final en un canal con `owner object 1`; G_Fire_01 en su canal cada turno sin
+reiniciarse, modo 2), `b5_fireball.log` (bola de fuego: S_Fireball_S_01 y S_FireballHitSolid_L_01; al morir el átomo,
+«stop … atom gone» y «deleted»; tres fuegos que se turnan las dos ranuras), `b5_gesture.log` (semilla FIRE armada:
+G_HandGesture_02 3D en el canal de la etiqueta mientras se pulsa; al soltar se acaba), `b5_seed.log` (G_SpellPowerUpBand
+2D; la voz PU 10 la filtra la pantalla ancha de la intro, como el original), `b5_tap.log` (icono de FIRE tocado:
+G_ClickOnSpell_01 con tono 100 y la voz HELP_TEXT_ANNOUNCER_VOICE_FIREBALL_01 al cargarse).
+
+### (Aproximado), (inferido) y pendiente de B5
+
+- (Aproximado) el bucle del gesto usa la entidad de la mano izquierda en vez de `GInterface`; el orbe de un uso suena en
+  el punto de interacción de la mano en vez de `GInterfaceStatus` +0xC8.
+- (Inferido) `FireGraphic` +0x98 = posición del objeto.
+- (Aproximado, de Milagros, sin cambiar) `FireSound::Consider` no para el sonido de la ranura cuando es el mismo fuego
+  (fn_0072EDC0 en 0x72F82C); el alineamiento del dueño en la clave de PSysSound (0x674678) no se rellena.
+- Pendiente: `FallingSpell` (LHSampleStop/LHMusicStop directos 0x526FD6..0x5271B0), el poder tribal de
+  `DoPostCastThings` 0x72930A (27 + tribu, banco 9; nunca en el juego normal), `PSysSound::Save`/`Load` (C6).
+
 ## Fases B y C
 
-**B0..B4, B6 y B7 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B7 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
 | B0 | **hecho** ([abajo](#fase-b-b0-y-b1-implementados)) |
-| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer`, `AudioManager::PlayMusic` no se ha retirado y el maestro no se guarda en disco |
-| B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); `SpellSounds` copia las tablas del núcleo hasta B5 |
+| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer` y el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5) |
+| B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); desde B5 `SpellSounds` también va por `SamplePlayAnimEffect` |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
-| B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); faltan el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene) y el vapor (`FireGraphic` 0x731542, Milagros/B5) |
-| B5 | Milagros: SpellSounds, FireSound, gesto 3D, PlayTapSound, SpellDialogue por canal; PSys `AddSoundToAtom` 0x69DCA0… (F3) |
+| B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); falta el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene); el vapor (`FireGraphic` 0x731542) entró con B5 |
+| B5 | **hecho** ([arriba](#fase-b-b5-implementado-los-milagros-en-canal)); los modificadores de PSys de F3 (`AddSoundToAtom` 0x69DCA0, `RemoveSoundFromAtom` 0x69DDD0, `StartStopSoundOnCondition` 0x69DC40) ya los tenía Milagros (`PSys/Rules/Sound.cpp`) |
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, orden aceptada 1, llamar a la puerta 110+c%9, influencia 52/129 (los gritos 180/187/194+rand7 ya están, B4) |
@@ -1195,8 +1261,8 @@ implementar) y espera `wait until HAS_CAMERA_ARRIVED` (un stub que da false). Es
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
 
-Mientras tanto, se prohíbe añadir llamadores nuevos a `AudioManager::PlaySound`/`CreateEmitter` (solo los usan los
-archivos de Milagros hasta B5).
+Desde B5 `AudioManager` ya no tiene `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`: todo sonido nuevo va
+por `audio::` (`Audio.h`) con lo que pasa su llamada original.
 
 ## Qué suena y cuándo
 

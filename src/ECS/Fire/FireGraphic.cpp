@@ -24,6 +24,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "Audio/Audio.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
@@ -83,6 +84,8 @@ struct Graphic
 	std::list<SpritePos> flames;   ///< +0xB8, newest first
 	std::list<SpritePos> steam;    ///< +0xC0
 	std::list<SpritePos> smoke;    ///< +0xC8
+	/// the FireGraphic as a channel owner (fn_007314E0 0x73152A: owner +0x20 = this), given at its first sizzle
+	uint32_t soundOwner {0};
 };
 
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
@@ -332,7 +335,21 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 			graphic.steamCount = 0;
 			graphic.steamAccumulator = 0.0f;
 			graphic.steamTemperature = fire.temperature;
-			// fn_007314E0: the sizzle (GGlobal +0x3AC, options 0x35) TODO(sound)
+			// fn_007314E0 (0x731B0F): the sizzle, LH_SamplePlayOptions with bank +0x04 GGlobal+0x3AC (InGame), sample +0x24
+			// 0x35 (G_Steam_01), owner +0x20 the FireGraphic, is3D +0x08 1, track +0x0C 0, the point +0x30 its +0x98,
+			// then GAudio::PlaySoundEffect 0x429E30. (inferido) +0x98 (copied to +0x20 by fn_00731560 0x7316FD, its
+			// writer not read) is the burning object's position.
+			if (graphic.soundOwner == 0)
+			{
+				graphic.soundOwner = audio::NewObjectId();
+			}
+			audio::PlayOptions options;
+			options.sample = {audio::Bank(audio::SfxBank::InGame), 0x35};
+			options.owner = audio::Owner::Object(graphic.soundOwner);
+			options.is3D = true;
+			options.track = false;
+			options.position = ObjectPosition(graphic.object);
+			audio::PlaySoundEffect(options);
 		}
 	}
 	else if (g_Turn > graphic.steamStart + k_BurstTurns)

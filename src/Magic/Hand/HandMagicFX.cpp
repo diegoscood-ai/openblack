@@ -20,7 +20,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <spdlog/spdlog.h>
 
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/HandFxPart.h"
@@ -131,13 +131,11 @@ bool LoadBandMesh()
 	return true;
 }
 
-void PlayInGame(audio::SoundId id)
+/// The PHandFX's own number as a channel owner (DoRemoveFromHandVisual passes `this`, 0x68CED5): one hand FX
+audio::Owner HandFxOwner()
 {
-	const auto sound = static_cast<entt::id_type>(id);
-	if (Locator::audio::has_value() && Locator::resources::value().GetSounds().Contains(sound))
-	{
-		Locator::audio::value().PlaySound(sound, audio::PlayType::Once);
-	}
+	static const uint32_t s_Id = audio::NewObjectId();
+	return audio::Owner::Object(s_Id);
 }
 
 /// fn_0068CA30: the band's LH3DObject (here an entity, invisible until it starts)
@@ -329,8 +327,16 @@ void hand_fx::RemoveAllPermBands()
 
 void hand_fx::DoRemoveFromHandVisual()
 {
-	// LH_SAMPLE_G_SHAKEHAND_01 (0x77), then one temporary band going back: alpha 5 -> 50 reversed, 1 s
-	PlayInGame(audio::SoundId::G_ShakeHand_01);
+	// LH_SAMPLE_G_SHAKEHAND_01 (0x77): LH_SamplePlayOptions with bank +0x04 GGlobal+0x3AC (InGame), owner +0x20 this,
+	// sample +0x24 0x77, is3D +0x08 0, then GAudio::PlaySoundEffect 0x429E30 (0x68CEB2..0x68CEE1); then one temporary
+	// band going back: alpha 5 -> 50 reversed, 1 s
+	{
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 0x77};
+		options.owner = HandFxOwner();
+		options.is3D = false;
+		audio::PlaySoundEffect(options);
+	}
 	auto band = MakeBand(static_cast<int>(g_State.temporary.size()), 0.0f, false, k_ChargeDurationTo, 5, 50, true);
 	g_State.temporary.insert(g_State.temporary.begin(), band);
 }
@@ -342,7 +348,9 @@ void hand_fx::AddSpellToHandVisuals(bool delayed)
 	{
 		AddTemporaryBand(static_cast<float>(i) * 0.1f + base);
 	}
-	PlayInGame(audio::SoundId::G_SpellPowerUpBand); // 0x23, IN_GAME
+	// 0x68DE69..0x68DE7D: GAudio::PlaySoundEffect 0x429D60(NULL, 0x23 G_SpellPowerUpBand, mode 3, loops 0, +0x10 0,
+	// is3D 0, IN_GAME)
+	audio::PlaySoundEffect(audio::Owner::None(), 0x23, 3, 0, false, false, audio::SfxBank::InGame);
 }
 
 void hand_fx::SetPULevel(int level, bool delayed)

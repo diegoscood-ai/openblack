@@ -1092,14 +1092,8 @@ bool Game::Initialize() noexcept
 			    }
 		    }
 
-		    // A hacky way of detecting if the sound is music as all music sounds end with "mpg"
-		    if (soundName.extension() == ".mpg")
-		    {
-			    auto buffers = std::queue<std::vector<uint8_t>>();
-			    auto packName = f.string();
-			    audioManager.AddMusicEntry(packName);
-		    }
-		    else
+		    // A music bank (its waves are ".mpg"): LHMusic registers it by MUSIC_TYPE (audio::music, k_MusicBanks 0x9C9748)
+		    if (soundName.extension() != ".mpg")
 		    {
 			    audioManager.CreateSoundGroup(groupName);
 			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)

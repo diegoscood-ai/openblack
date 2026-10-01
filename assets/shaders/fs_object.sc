@@ -2,6 +2,9 @@ $input v_position, v_texcoord0, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 
+// The same model light as vs_object, for the per-pixel mod below: src/Graphics/ModelLight.h and fn_0084BA90
+#include "model_light.sh"
+
 SAMPLER2D(s_diffuse, 0);
 uniform vec4 u_skyAlphaThreshold; // x: sky type, y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
@@ -73,10 +76,14 @@ void main()
 	vec3 light = v_color0.rgb;
 	if (u_window.y > 0.0f && v_normal.y < 500.0f)
 	{
-		// mod graphics.hd-tweaks: vs_object's vertex light of the original (ambient 90/256 + 166/256 N.L), per pixel on
-		// the smooth normals (a rim of light on the silhouette was tried and looked bad, 2026-09-30)
-		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		light *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(v_normal), lightDirection));
+		// mod graphics.hd-tweaks: vs_object's vertex light of the original, with the same functions, light and ambient
+		// (model_light.sh, fn_0084BA90), per pixel on the smooth normals (a rim of light on the silhouette was tried and
+		// looked bad, 2026-09-30). (aproximado) the direction is taken in the world, from the pixel towards the light,
+		// instead of in the mesh's own space from the bone's origin: there is no varying left for the local light, and
+		// the two agree for a uniform scale, which is what the people this mod touches have.
+		float factor =
+		    ModelLightFactor(ModelLightI(normalize(v_normal), normalize(u_modelLight.xyz - v_position.xyz), false), u_modelLight.w);
+		light = ModelLightDiffuse(floor(light * 255.0f + 0.5f), factor) / 255.0f;
 	}
 	diffuseTex.rgb = diffuseTex.rgb * light + specular;
 	gl_FragColor = diffuseTex;

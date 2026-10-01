@@ -23,9 +23,13 @@ $output v_position, v_texcoord0, v_normal, v_color0
 #endif // USE_HEIGHT_MAP
 
 #ifdef USE_INSTANCING
+// ModelLightI / ModelLightFactor / ModelLightDiffuse / ModelLightLocal and u_modelLight: the GPU side of
+// src/Graphics/ModelLight.h (fn_0084BA90, the light [0xEA9E90] and the ambient [0xC39264] = 90)
+#include "model_light.sh"
+
 // Model lighting of the original (fn_00801C90 + fn_0084BA90): the object takes the landscape light of the ground it
 // stands on, table[cell luminosity] interpolated bilinearly over the 4 cells around its origin, and the cells' r, g, b
-// as specular; each vertex gets ambient 90/256 + 166/256 * N.L with the light at (-500000, 500000, -500000).
+// as specular; each vertex is then lit by the one point light of LH3DTech with the integer rule of model_light.sh.
 SAMPLER2D(s_cellMap, 2);   // per cell: rgb = the cell colour read as a D3DCOLOR (R and B swapped), a = luminosity
 SAMPLER2D(s_landLight, 3); // landscape light table, 256x1
 SAMPLER2D(s_cloudShadow, 4); // cloud shadow luminosity cap per cell
@@ -102,6 +106,19 @@ void main()
 
 	v_position = instMul(model, v_position);
 	normal = instMul(model, vec4(normal, 0.0f)).xyz;
+
+	// The one light of the original in the space the vertex lives in, for every branch below (fn_00855340 for the rigid
+	// meshes; the boned path 0x84BD82..0x84BDFE does the same per bone, because its matrices go to the camera, which
+	// cancels out). It is taken from the ORIGIN of the bone (or of the object) and meets the raw local normal, so a
+	// non-uniform scale (a tree's sway, a field's shear) gives the light of the original and not that of a rotated
+	// normal. The axes come out of mul / instMul instead of u_model[i][k]: with HLSL that indexes a row of the maths
+	// matrix, not the axis, because bgfx packs its matrices column major (the compiler folds the unit vectors away).
+	vec3 lightAxisX = instMul(model, vec4(mul(u_model[modelIndex], vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
+	vec3 lightAxisY = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
+	vec3 lightAxisZ = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 0.0f, 1.0f, 0.0f)).xyz, 0.0f)).xyz;
+	vec3 lightOrigin = instMul(model, mul(u_model[modelIndex], vec4(0.0f, 0.0f, 0.0f, 1.0f))).xyz;
+	vec3 lightLocal = ModelLightLocal(lightAxisX, lightAxisY, lightAxisZ, lightOrigin, u_modelLight.xyz);
+	float lightAmbient = u_modelLight.w;
 #endif // USE_INSTANCING
 
 #ifdef USE_HEIGHT_MAP
@@ -132,23 +149,16 @@ void main()
 	vec3 objectColour = vec3_splat(1.0f);
 	if (u_objectLight.x > 3.5f)
 	{
-		// DrawCutByPlane (fn_00811C70 / fn_0080C050 -> fn_00858BA0 per vertex): I = 255 (L.n) with the light 0xF03140
-		// (the one of fn_0084BA90); I < 0 -> amb, else amb + (255 - amb) I >> 8, amb = [0xC39264] = 90; rgb = colour.rgb x
-		// I >> 8 (the colour of SetColorSpecular, u_objectLight.z), no land light, no haze, the object's specular (0 for
-		// every caller). I is stored with fistp (0x858CDF): rounded to the nearest, halves to even (the FPU default)
-		const vec3 cutLight = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		// DrawCutByPlane (fn_00811C70 / fn_0080C050 -> fn_00858BA0 per vertex): the same rule as fn_0084BA90 with the
+		// light in the mesh's own space [0xF03140], which its callers set with fn_00855340 (0x80C0EE); rgb = colour.rgb
+		// (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, the object's specular (0
+		// for every caller)
 		float packedCut = u_objectLight.z;
 		float cutRed = floor(packedCut / 65536.0f);
 		float cutGreen = floor((packedCut - cutRed * 65536.0f) / 256.0f);
 		vec3 cutColour = vec3(cutRed, cutGreen, packedCut - cutRed * 65536.0f - cutGreen * 256.0f);
-		float lit = 255.0f * dot(normalize(normal), cutLight);
-		float intensity = floor(lit + 0.5f);
-		if (intensity - lit == 0.5f && mod(intensity, 2.0f) != 0.0f)
-		{
-			intensity -= 1.0f;
-		}
-		intensity = intensity < 0.0f ? 90.0f : 90.0f + floor(165.0f * intensity / 256.0f);
-		objectColour = floor(cutColour * intensity / 256.0f) / 255.0f;
+		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
+		objectColour = ModelLightDiffuse(cutColour, cutFactor) / 255.0f;
 	}
 	else if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
 	{
@@ -194,11 +204,12 @@ void main()
 		                  : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
 		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
 		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
-		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		// The vertex light of fn_0084BA90 (model_light.sh) over the object's byte colour, so it is at most 254/256
 		// mod graphics.hd-tweaks (u_window.y > 0): fs_object does this per pixel on the villager
 		if (u_window.y <= 0.0f)
 		{
-			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), lightDirection));
+			float factor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
+			objectColour = ModelLightDiffuse(floor(objectColour * 255.0f + 0.5f), factor) / 255.0f;
 		}
 		}
 		// Windows at night (fn_00856D40): unlit, the flat grey instead of the land light, the specular kept
@@ -209,18 +220,19 @@ void main()
 	}
 	// A PSys mesh atom (PSys/Creators/Mesh.h): -1 - (r 65536 + g 256 + b) in the w of the third column is its DrawData
 	// colour, which Particle3DObj::DrawAt 0x679FD0 gives the object with SetColour (vt 0x2C: obj +0x4C) instead of the
-	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light (ambient 90 + 166 N.L) stays
+	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light stays (RenderParticleGJMesh::DrawAt
+	// takes the current light into the mesh's own space at 0x67C508, the same fn_00855340 as every other model)
 	if (i_data2.w < -0.5f && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
 	{
 		float packedParticle = -i_data2.w - 1.0f;
 		float particleRed = floor(packedParticle / 65536.0f);
 		float particleGreen = floor((packedParticle - particleRed * 65536.0f) / 256.0f);
-		vec3 particleColour = vec3(particleRed, particleGreen, packedParticle - particleRed * 65536.0f - particleGreen * 256.0f) / 255.0f;
-		const vec3 particleLight = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		objectColour = particleColour;
+		vec3 particleColour = vec3(particleRed, particleGreen, packedParticle - particleRed * 65536.0f - particleGreen * 256.0f);
+		objectColour = particleColour / 255.0f;
 		if (u_window.y <= 0.0f)
 		{
-			objectColour *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(normal), particleLight));
+			float factor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
+			objectColour = ModelLightDiffuse(particleColour, factor) / 255.0f;
 		}
 		specular = vec3_splat(0.0f);
 	}

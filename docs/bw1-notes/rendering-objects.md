@@ -45,15 +45,46 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
 
 **Fiel** (del original, no es un mod).
 
-- Por CPU (`fn_0084BA90`, vértices D3DTLVERTEX); `LH3DObject::DrawTnL` da la misma fórmula con luz D3D.
+- **Una sola regla, entera y por CPU** (`fn_0084BA90`, vértices D3DTLVERTEX), la de todos los modelos normales
+  (edificios, aldeanos, árboles, rocas): `I = fistp(255 · N·L)` (0x84BBAF..0x84BBBE, redondeo al más cercano con los
+  empates a par, el modo normal de la FPU), `f = I < 0 ? amb : amb + ((255 − amb)·I >> 8)` (0x84BBC3..0x84BBE5) con
+  `amb` = [0xC39264] = 90, y el difuso por canal `(c·f) >> 8` truncado, con el alfa intacto (0x84BBEA..0x84BC1D). Así
+  que `f` llega como máximo a 254/256, nunca a 1. Variante con truncado `__ftol` en vez de a par: 0x859649
+  (`fn_00859530`, `fn_00859D90`, `fn_00878C70`).
+- **La fórmula float de 166 no se ejecuta nunca** en esta compilación: es la ruta D3D `fn_0082C680`, a la que solo llega
+  `LH3DObject::DrawTnL`, y `DrawTnL` pide el flag de T&L por hardware [0xECA60C] (0x80DC7A), que `OpenD3D` solo pone a 1
+  si [0xC386E4] es 0 (0x82D0F5); `start_system` le escribe 1 sin condición (0x642EA7). Por eso openblack ya no la tiene.
 - Color base del objeto (`fn_00801C90`), uno por objeto y fotograma: `tabla[luminosidad]` de las 4 celdas alrededor
   de su origen, bilineal; especular = RGB de esas celdas leído como D3DCOLOR (R y B cambiados; casi siempre 0).
-- Por vértice: `f = 90/256 + 166/256 · max(0, N·L)`, L = normalize(−500000, 500000, −500000 − origen) ≈
-  (−0,577, 0,577, −0,577), fijo (no depende de la hora). Difuso = base · f; el especular se suma tras la textura.
+- **La luz es un punto y se mueve con la hora.** LH3DTech guarda una sola luz, [0xEA9E90] (`SetLight` `fn_0081E1F0`;
+  guardar y restaurar es cosa del llamador, 0x8254A3/0x82551F). `fn_005E5830`, que llama `GLandscape::Draw` (0x5E488E)
+  una vez por fotograma antes de los modelos, la deja en el sol por defecto [0xEA1C88] = (−500000, 500000, −500000)
+  (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
+  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual, 2 = noche) la pone a 3 unidades ([0x8C2C50]) de la
+  **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
+- **N·L va en el espacio de la malla, no con la normal girada**: `fn_00855340` lleva la luz al espacio del objeto con
+  la inversa general de su matriz (`LHMatrix::SetInverse` 0x7FB290) y la normaliza (0xF03140); la rama con huesos hace
+  lo mismo por hueso (0x84BD82..0x84BDFE, con la cámara cancelándose porque sus matrices llegan hasta ella). La normal
+  del vértice entra cruda, sin girar ni normalizar, y la dirección sale del **origen** del hueso o del objeto. Con
+  escala uniforme da lo mismo que girar la normal; con escala por eje (mecer un árbol, la cizalla de un campo) no.
+- Las nieblas y las nubes suben el ambiente a 210 mientras se dibujan (`fn_007FA300` 0x7FA56D, de vuelta a 90 en
+  0x7FA586). Los objetos «sin luz» (ranura vt+0x5C a 0) y las primitivas con el bit 0x1000 y color alternativo van por
+  `fn_00856D40`/`fn_0085BA30`, con el color tal cual.
 - La mano: base × 1,5 (`CHand::AddDrawing` 0x46D135). Primitivas sin textura: color del material × base. Chroma:
   `ALPHAREF = umbral · alfa del objeto / 255 − 5`, `GREATEREQUAL`.
-- openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a =
-  luminosidad), `vs_object` hace la bilineal y N·L; las normales ahora giran con el modelo y la instancia.
+- Las sombras estáticas **no** siguen esta luz: `fn_008721A0` (0x8721E1) y `fn_0080ECB0` (0x80EDA8) leen [0xEA1C88], el
+  sol fijo, así que de noche siguen con el del día (`vs_static_shadow_instanced`).
+- openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a = luminosidad);
+  `vs_object` hace la bilineal y la luz. Un solo sistema con una sola API: `src/Graphics/ModelLight.h`
+  (`model_light::Light/SetLight/ScopedLight`, `Ambient/ScopedAmbient`, `UpdateFrameLight` = `fn_005E5830`,
+  `LightInMeshSpace` = `fn_00855340`, `Apply` para las rutas por CPU) y su gemelo de GPU
+  `assets/shaders/model_light.sh` (`ModelLightI`, `ModelLightFactor`, `ModelLightDiffuse`, `ModelLightLocal` y el
+  uniforme `u_modelLight`: xyz la luz, w el ambiente). Lo usan `vs_object` (objetos, átomos de malla de PSys y el modo
+  cut), `fs_object` (el mod hd-tweaks, por píxel) y `vs_cloud` (nubes y nieblas). `Renderer::DrawScene` llama a
+  `UpdateFrameLight` una vez por fotograma y `ECS/Trees.cpp` usa `model_light::Light()`.
+- En `fs_object` el mod hd-tweaks usa las mismas funciones, pero con la normal interpolada del mundo contra la
+  dirección del píxel a la luz **(aproximado)**: no queda ninguna varying libre para la luz local y con escala uniforme
+  coincide.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
   especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
 
@@ -555,6 +586,13 @@ tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x
   estampada en la tierra (`light_hand.raw`, `fn_008229B0`). Revisar si sigue vigente: la neblina de los modelos ya se
   aplica ([rendering.md](rendering.md#neblina-de-distancia-original-detalle-fog-niveles-36)) y las ventanas de noche y
   la luz de la mano estampada están en [day-night-weather.md](day-night-weather.md).
+- Luz de los modelos, copias que faltan por unificar con `model_light`:
+  - `RendererMists.cpp` (posición y ambiente literales, `fn_007FA300`): tiene cambios sin commitear de otra sesión.
+  - `FragMesh::BuildMesh` (`src/ECS/Physics/FragMesh.h`): el original la hace por cara y a dos caras por CPU
+    (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, las dos ramas de ambiente 0x7F82B1..0x7F82EC); openblack genera la
+    cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
+    compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
+  - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
 - Bancos de peces: el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
 - Sombras de los objetos físicos: el filtro 2×2 de los árboles y el rehorneado de la sombra estática al salir un árbol
   o un MobileObject.

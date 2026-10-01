@@ -67,6 +67,7 @@
 #include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/ModelLight.h"
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
@@ -541,6 +542,9 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
 				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
 				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
+				// xyz: the one light of LH3DTech [0xEA9E90], w: the ambient [0xC39264] (model_light.sh, fn_0084BA90)
+				const auto u_modelLight = model_light::Uniform();
+				program->SetUniformValue("u_modelLight", &u_modelLight);              // vs, fs
 				// y, z: mod graphics.hd-tweaks on villagers lit like the original (lighting mode, mip bias; fs_object)
 				const auto& config = Locator::config::value();
 				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
@@ -1284,9 +1288,10 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
 		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
 		                        210.0f / 256.0f, 0.0f);
-		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
-		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
-		                             0.0f);
+		// fn_007FA300 0x7FA3B1: LH3DMist::Draw moves the light straight above while it draws the clouds, and
+		// fn_00855340 (model_light::LightInMeshSpace) brings it into the mesh's own space, normalised
+		const model_light::ScopedLight cloudLight(glm::vec3(0.0f, 500000.0f, 0.0f));
+		const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
 		for (const auto& subMesh : mesh.GetSubMeshes())
 		{
 			for (const auto& prim : subMesh->GetPrimitives())
@@ -1856,6 +1861,20 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
 	UpdateLandLight();
+	// fn_005E5830, called by GLandscape::Draw (0x5E488E) before the models: the one light of LH3DTech for this frame.
+	// The focus is the player hand's model position (CHand::position, +0x78 of MyInterface()->hand, 0x5E5848), used
+	// even while the hand is hidden, and not the point under the cursor of GetPlayerHandPositions.
+	if (Game::Instance() != nullptr && Locator::handSystem::has_value() && Locator::entitiesRegistry::has_value() &&
+	    drawDesc.camera != nullptr)
+	{
+		const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
+		const auto& registry = Locator::entitiesRegistry::value();
+		if (registry.Valid(hand))
+		{
+			model_light::UpdateFrameLight(registry.Get<const ecs::components::Transform>(hand).position,
+			                              drawDesc.camera->GetOrigin(), Game::Instance()->GetDayNightClock().GetSkyType());
+		}
+	}
 	DrawHandShadowPass(drawDesc);
 	if (drawDesc.drawIsland && drawDesc.drawEntities)
 	{

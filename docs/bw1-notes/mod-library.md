@@ -250,9 +250,10 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
   arrancar). Gancho `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>`.
 - **Visible a distancia de juego** (2026-09-30; a 20-40 m un aldeano mide 40-70 px y las texturas ×4 solas no se
   notan):
-  - `light` = `smooth` (por defecto: la misma luz del original, ambiente 90/256 + 166/256 N·L, pero por píxel en
-    `fs_object` con las normales suaves) u `original` (por vértice). Un borde de luz en la silueta (0,8·(1-N·V)²) se
-    probó y quedaba feo (usuario, 2026-09-30).
+  - `light` = `smooth` (por defecto: la misma luz del original, la regla entera de `fn_0084BA90` con las funciones de
+    `assets/shaders/model_light.sh`, pero por píxel en `fs_object` con las normales suaves y con la dirección tomada en
+    el mundo, (aproximado); ver [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) u `original` (por
+    vértice). Un borde de luz en la silueta (0,8·(1-N·V)²) se probó y quedaba feo (usuario, 2026-09-30).
   - `sharp` = sesgo de mip −1 en sus texturas.
   - `L3DSubMesh::IsPerson`, `u_window.y/z` (Renderer::DrawSubMesh, solo instancias iluminadas como el original, no
     reflejos ni la mano).

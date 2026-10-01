@@ -49,6 +49,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/DayNightClock.h"
+#include "Graphics/ModelLight.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
@@ -1242,26 +1243,12 @@ void openblack::ecs::UpdateTrees(float seconds)
 	const auto& camera = Locator::camera::value();
 	const auto cameraPosition = camera.GetOrigin();
 	// Tree::PreDraw 0x74A883: b = 200 + 55 x (horizontal view direction . normalize(camera focus - light position)),
-	// floored at 200, and Tree::Draw multiplies the tree's colour by b/256. LH3DTech keeps one point light, placed by
-	// fn_005E5830 each frame (after Tree::PreDraw, so the trees use the last frame's). By day (LH3DSky::Time2SkyType of
-	// the visual time 0) it is the global 0xEA1C88, whose only setter is dead code: the map origin (0, 0, 0), so trees
-	// are darkest when the camera looks back towards that corner. At dusk and night (sky type > 0) it goes 3 units from
-	// the hand towards the camera, the hand raised to at least 10 above the land under it.
-	glm::vec3 light(0.0f, 0.0f, 0.0f);
-	if (Game::Instance() != nullptr && Game::Instance()->GetDayNightClock().GetSkyType() > 0.0f &&
-	    Locator::handSystem::has_value())
-	{
-		if (const auto& hands = Locator::handSystem::value().GetPlayerHandPositions(); hands[0].has_value())
-		{
-			auto hand = *hands[0];
-			if (Locator::terrainSystem::has_value())
-			{
-				hand.y = std::max(hand.y, Locator::terrainSystem::value().GetHeightAt(glm::vec2(hand.x, hand.z)) + 10.0f);
-			}
-			const auto toCamera = cameraPosition - hand;
-			light = hand + (glm::length(toCamera) > 1e-4f ? glm::normalize(toCamera) : glm::vec3(0.0f)) * 3.0f;
-		}
-	}
+	// floored at 200, and Tree::Draw multiplies the tree's colour by b/256. The light is the one LH3DTech keeps
+	// [0xEA9E90], the same one every model is lit with (src/Graphics/ModelLight.h), placed once a frame by fn_005E5830
+	// from Renderer::DrawScene, which runs after this, so the trees use the last frame's as in the original: by day the
+	// default sun 0xEA1C88 = (-500000, 500000, -500000), and only in full night (sky type > 1.5, [0x8C5838]) 3 units
+	// from the player's hand towards the camera.
+	const auto light = model_light::Light();
 	const auto toFocus = camera.GetFocus() - light;
 	const auto forward = camera.GetForward();
 	const glm::vec2 heading(forward.x, forward.z);

@@ -675,8 +675,10 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 | 45 | STOP_MUSIC | 0x70FB90 | hecho |
 | 46 | ATTACH_MUSIC | 0x70FBF0 (error fuera de 1..84 y lo añade igual) | hecho |
 | 47 | DETACH_MUSIC | 0x70FC60 | hecho |
-| 120 / 122 | START_DIALOGUE / IS_DIALOGUE_READY | 0x710690 / 0x710830 (sin audio) | stub |
-| 121 | END_DIALOGUE | 0x710780 (+0x84 = 1, +0x9C = 0) | solo la parte de audio, sin comprobar la tarea dueña del diálogo **(aproximado)** |
+| 30 / 31 | START_CAMERA_CONTROL / END_CAMERA_CONTROL | 0x6ECCA0 / 0x6ECEF0 (al soltar: +0x84 = 1, 0x6ECE74) | hecho el estado; la cámara de guion, pendiente ([abajo](#diálogo-pantalla-ancha-y-cámara-del-guion)) |
+| 32 | SET_WIDESCREEN | 0x6F7BF0 → HelpSystem::SetWideScreen 0x5C6AD0 | hecho, con el dueño |
+| 120 / 122 | START_DIALOGUE / IS_DIALOGUE_READY | 0x710690 / 0x710830 (sin audio) | hecho |
+| 121 | END_DIALOGUE | 0x710780 (+0x84 = 1, +0x9C = 0 solo si la tarea tiene el diálogo) | hecho |
 | 149 | MOVE_MUSIC | 0x70FCA0 | hecho |
 | 181 | ENABLE_DISABLE_MUSIC | 0x70FD10 | hecho |
 | 182 | GET_MUSIC_OBJ_DISTANCE | 0x70FD70 | hecho |
@@ -712,13 +714,53 @@ Viven en `src/Audio/ScriptAudioState.{h,cpp}` (A6), y `GScript::Reset` 0x6EB2D0 
 
 | campo | qué es | tras Reset | quién lo escribe y quién lo lee |
 |---|---|---|---|
-| +0x84 | sonidos de las criaturas | 1 (0x6EB2F4) | `SET_CREATURE_SOUND`; `END_DIALOGUE` (0x71080A) y `START_CAMERA_CONTROL` (0x6ECE74) lo ponen a 1. Lo lee fn_00483290+0x16A: con 0, solo suena la criatura local |
+| +0x84 | sonidos de las criaturas | 1 (0x6EB2F4) | `SET_CREATURE_SOUND`; `END_DIALOGUE` (0x71080A) y la suelta de la cámara de guion (fn_006ECD70 0x6ECE74, desde `END_CAMERA_CONTROL` y al parar la tarea) lo ponen a 1. Lo lee fn_00483290+0x16A: con 0, solo suena la criatura local |
 | +0x90 | solo diálogo (SET_GAME_SOUND) | 0 (0x6EB403) | se guarda aquí para el reset; se usa en B6 |
 | +0x94 | música de alineamiento | 1 (0x6EB409) | `ProcessAlignmentMusic` no toca nada con 0 (0x427A20) |
 | +0x98 | última línea `L<n>` de la música del guion | 0 (0x6EB306) | 0x426BD1; START_MUSIC la pone a 0 |
 | +0x9C | golpes | 0 (0x6EB30C) | 1 en `L`, +1 en `P`/`W`. Lo lee fn_005CB590+0x62B, **(inferido)**: el texto de una canción lo sigue |
 
 `HelpSystem::Reset` (0x6EB340) también va en `LoadMap`.
+
+### Diálogo, pantalla ancha y cámara del guion
+
+**Fiel** en el estado (`src/Help/ScriptControl.{h,cpp}` y `HelpSystem`; `script.md` §2.8). El original guarda qué
+**tarea** del guion tiene cada cosa, con `ScriptDLL::TaskNumber` 0x6F69F0 (ScriptLibraryR.dll 0x10008320: la tarea
+en curso, +0x14; 0 fuera de una tarea). openblack lo da con `LHVM::GetCurrentTaskNumber` (la tarea `_currentTask`
+que corre la función nativa), `GetCurrentTaskScriptType` (0x6F6A90) y `GetTaskScriptType` (0x6F6C50 → 0x100051F0:
++0x158, 1 si la tarea no existe).
+
+| campo | qué es | quién lo escribe |
+|---|---|---|
+| HelpSystem+0x45CC | la tarea que tiene el diálogo | `DialogueControlRequest` 0x5C6790 (si nadie lo controla), `ClearDialogueControl` 0x5C67E0 |
+| HelpSystem+0x45E8 / +0x45EC | pantalla ancha y la tarea que la puso (0 = el juego) | `SetWideScreen` 0x5C6AD0 (solo si +0x45E8 cambia; al apagar, +0x45EC = 0) |
+| GScript+0xA8 | la tarea que tiene la cámara | `START_CAMERA_CONTROL` 0x6ECCDF / 0x6ECD5B; 0 al soltar (0x6ECE59) |
+| GScript+0x78 / +0x80 | se dibujan las correas / los resaltados | 0 al coger la cámara fuera de la ciudadela; 1 al soltarla y en Reset |
+
+- `IsDialogueControlled` 0x5C6740 = +0x45CC != 0, o +0x45E8 y +0x45EC. `IS_DIALOGUE_READY` empuja su negación.
+- `START_DIALOGUE`: sin dueño, los dos consejeros a casa (`SpiritHome(1/2, 0)`) y la petición; empuja **true aunque
+  la petición falle** por la pantalla ancha de otra tarea (0x710722..0x71072E). La misma tarea: aviso y true. Otra:
+  false, salvo si el dueño es Help (tipo 2) y la que pide es Script (1): `StopHelpScripts` (máscara 0x4A) y se
+  vuelve a mirar el dueño.
+- `END_DIALOGUE`: solo la tarea dueña. `SpiritHome(1/2, es Help)`, fn_005C6800 (suelta el diálogo, quita la pantalla
+  ancha, consejeros a casa, borra el texto) y +0x84 = 1, +0x9C = 0.
+- `SET_WIDESCREEN`: solo la dueña o cualquiera si no hay dueña; con el mismo dueño avisa y sigue.
+- `START_CAMERA_CONTROL`: en la ciudadela (g_game+0x205A28 == 1) solo tareas TempleHelp/TempleSpecial (0x18), sin
+  modo de cámara. Fuera, si se crea el modo `CameraModeScript` (fn_00461140; no si `CantExitCurrentMode`).
+- `END_CAMERA_CONTROL`: si la tarea la tiene, fn_006ECD70: modo `CameraModeNew3`, FOV 70° (0x8C762C) en 0.5 s,
+  +0xA8 = 0, +0x84 = +0x80 = +0x78 = 1, fn_0042A5F0(1), SuperVillagers fuera, +0x7C = 0.
+- Al **parar una tarea** (callback 0x6EC6D0, el `stopTaskCallback` de LHVM): fn_005C6800(tarea) y fn_006ECF20(tarea)
+  devuelven el diálogo y la cámara.
+
+En openblack falta lo visual: no hay modos de cámara (se toma siempre **(inferido)**, y la cámara no cambia), ni FOV
+de salida, ni consejeros (`SpiritHome`, fn_005C6720 son ganchos vacíos), ni `DialogBoxBase::HideAll` /
+`GInterface::SetActive`. La ciudadela es el interior del templo de openblack **(inferido)**. Las barras sí:
+el gancho de `SetWideScreen` mueve `ScreenFade` (en 16:9 no se ven, como en el original). La música de alineamiento
+ya lee la pantalla ancha del guion (0x4279E9).
+
+En juego (Tierra 1, `FollowUs`): START_CAMERA_CONTROL → START_DIALOGUE → START_GAME_SPEED → SET_WIDESCREEN →
+**START_MUSIC 54** (suena intro.sad). Ahora se para en `FollowUs_loop_4`: espera a que el padre llegue a
+`FatherPosKiss` (GET_DISTANCE == 0), y `MOVE_GAME_THING` (033) es stub. El primer RUN_TEXT viene después.
 
 ## Fase A implementada
 
@@ -776,6 +818,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - Golpes, choques y lanzamientos: [physics.md](physics.md#sonidos-polvo-y-aspecto-de-los-golpes).
 - Farolas (SoundTag, de noche): [day-night-weather.md](day-night-weather.md#luces-de-noche-informe-night_visualstxt).
 - Árboles (hojas, caída): [objects-and-resources.md](objects-and-resources.md).
+- Partículas de los milagros (SOUND_ACTION, PSysSound, spells.sad): [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp).
 - Hechizos, agua, ambiente: en las páginas de Milagros y de agua, cuando se fusionen.
 - Inventario completo de los efectos del original (cada llamada, banco y muestra): `tmp_dis\audio\sfx_inventory.md` y
   `sfx_inventory_tables.md`. Interfaz y criatura: `ui_creature.md`.
@@ -797,14 +840,16 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - los valores 8/5 de info.dat;
   - GUIDE y MONK;
   - `GRand::LocalRand(14)`: 0..13 o 0..14 (0x6DE570);
-  - qué hace fn_005C6720;
+  - qué hace fn_005C6720 (HelpDudeControl fn_005C3780, se lee HelpDude::IsTalking 0x5BB760);
+  - la cámara de guion (CameraModeScript 0x461180, CameraModeNew3, FOV de salida) y los consejeros de
+    `SpiritHome`;
   - la tecla [0xE85410];
   - el dibujo del texto (HelpText fn_005CCED0).
 - **Sin volcar**: la FFT del lip-sync (0x428C60, 0x428D50), los disparadores de Guidance (PLAN §8.3 F4), el Soundex,
   `GSoundMap::Reset` 0x71D6D0 y los modificadores de sonido de PSys (F3).
 - **Lista de (aproximado) e (inferido) del código de la fase A**, todos con su comentario en el código:
   - `MusicThing` (tabla de objetos del guion) y `CHAR2WCHAR`;
-  - `END_DIALOGUE` sin dueño del diálogo;
+  - la cámara de guion siempre se toma (sin modos de cámara) y la ciudadela como el interior del templo;
   - `GameThing::IsAvailable` y los MapCoords en float;
   - `LHWaveIsActive`;
   - el turno de openblack como `g_game+0x205A40`;

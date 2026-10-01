@@ -78,6 +78,7 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/RendererInterface.h"
 #include "Help/HelpSystem.h"
+#include "Help/ScriptControl.h"
 #include "Input/GameActionMapInterface.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
@@ -105,7 +106,7 @@ const std::string k_WindowTitle = "openblack";
 namespace
 {
 /// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
-/// not have yet (videos, HelpSystem, the camera's alignment, the towns' tribes, citadel, creature, worship)
+/// not have yet (videos, the wide screen bars moving, the camera's alignment, the towns' tribes, citadel, creature, worship)
 audio::GameQueries MakeMusicQueries(Game& game)
 {
 	audio::GameQueries queries;
@@ -140,6 +141,11 @@ audio::GameQueries MakeMusicQueries(Game& game)
 			return std::nullopt;
 		}
 		return transform->position;
+	};
+	// HelpSystem +0x45E8 && +0x45EC (ProcessAlignmentMusic 0x4279E9..0x427A01)
+	queries.scriptWideScreen = []() {
+		const auto* helpSystem = help::Get();
+		return helpSystem != nullptr && helpSystem->IsScriptWideScreen();
 	};
 	return queries;
 }
@@ -1079,7 +1085,16 @@ bool Game::Initialize() noexcept
 			return static_cast<int32_t>(
 			    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
 		};
-		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries), {});
+		// ScriptDLL::GetScriptType 0x6F6C50 (fn_005C6800 0x5C681B)
+		queries.taskScriptType = [](uint32_t task) -> uint32_t {
+			return Locator::vm::has_value() ? static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)) : 1;
+		};
+		help::HelpSystem::Hooks hooks;
+		// HelpSystem::SetWideScreen 0x5C6AD0: the bars slide in HelpSystemInfo.wideScreenTime (0xD16174) seconds from
+		// where they are (0x5C6B3F..0x5C6B4E); DialogBoxBase::HideAll and GInterface::SetActive are not ported
+		hooks.wideScreen = [this, time = helpInfo.wideScreenTime](bool on) { GetScreenFade().SetWideScreen(on, time); };
+		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries),
+		            std::move(hooks));
 	}
 
 	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false, [&textureManager](const std::filesystem::path& f) {
@@ -1123,7 +1138,14 @@ bool Game::Run() noexcept
 		// DecrementScriptReference 0x70CFD0) for a popped object and the variable's old one (POP 0x10008BC0) and for a
 		// stopped task's object locals (0x10006604); object 0 is the scripts' null (0x10008A64)
 		lhvm.Initialise(
-		    &chlapi.GetFunctionsTable(), nullptr, nullptr, nullptr, nullptr,
+		    &chlapi.GetFunctionsTable(), nullptr, nullptr,
+		    // the task-stop callback 0x6EC6D0 (fn_006EB1D0 gives it to ScriptDLL, 0x6EB1F1): the dialogue, the wide
+		    // screen and the camera of the task go back (Help/ScriptControl.cpp)
+		    [](uint32_t taskNumber) {
+			    help::script_control::OnTaskStopped(taskNumber, help::Get(), help::script_control::GetCameraControl(),
+			                                        audio::GetScriptAudioState());
+		    },
+		    nullptr,
 		    [](uint32_t objId) {
 			    if (objId != 0)
 			    {
@@ -1342,6 +1364,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 		}
 	}
 	audio::GetScriptAudioState().Reset();
+	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
+	help::script_control::GetCameraControl().Reset();
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{

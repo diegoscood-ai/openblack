@@ -163,6 +163,23 @@ public:
 
 	void StopTasksOfType(ScriptType typesMask);
 
+	/// ScriptLibraryR.dll TaskNumber 0x100025A0 -> 0x10008320: the id of the task running now (its +0x14), 0 outside a
+	/// task (runblack.exe ScriptDLL::TaskNumber 0x6F69F0)
+	[[nodiscard]] uint32_t GetCurrentTaskNumber() const { return _currentTask != nullptr ? _currentTask->id : 0; }
+	/// GetCurrentScriptType 0x10002630: the type of the task running now (+0x158), Script (1) outside a task
+	/// (ScriptDLL::GetCurrentTaskScriptType 0x6F6A90)
+	[[nodiscard]] ScriptType GetCurrentTaskScriptType() const
+	{
+		return _currentTask != nullptr ? _currentTask->type : ScriptType::Script;
+	}
+	/// GetScriptType 0x10002650 -> 0x100051F0: the type of a task (+0x158), Script (1) when there is no such task
+	/// (ScriptDLL::GetScriptType 0x6F6C50)
+	[[nodiscard]] ScriptType GetTaskScriptType(uint32_t taskNumber) const
+	{
+		const auto task = _tasks.find(taskNumber);
+		return task != _tasks.end() ? task->second.type : ScriptType::Script;
+	}
+
 	[[nodiscard]] std::string GetString(uint32_t offset);
 	[[nodiscard]] const std::vector<NativeFunction>* GetFunctions() const { return _functions; };
 

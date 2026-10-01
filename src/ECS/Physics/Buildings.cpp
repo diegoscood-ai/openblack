@@ -21,7 +21,6 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fragment.h"
@@ -196,7 +195,9 @@ void DestroyBuilding(entt::entity building)
 bool ApplyEffectsDueToPhysicalDestruction(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	CollisionSounds::PlayEditorSample(398, 406, registry.Get<const Transform>(building).position); // G_Crash_Abode_01..09
+	// 0x406640..0x40671D: SamplePlayAnimEffect(this, the camera's distance, {1, 0, 0x16, 9, 75}, 0, editor.sad, track 0)
+	// (G_Crash_Abode_01..09 in editor.sad's table)
+	CollisionSounds::PlayAnimEffect({1, 0, 0x16, 9, 75}, building, registry.Get<const Transform>(building).position, false);
 	auto& life = registry.AllOf<Life>(building) ? registry.Get<Life>(building) : registry.Assign<Life>(building);
 	const float before = life.value;
 	if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
@@ -307,13 +308,15 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 		return true;
 	}
 	const auto at = registry.Get<const Transform>(building).position;
+	// 0x406511..0x406610: p > 1000 level 2, p > 300 level 3; SamplePlayAnimEffect(this, the camera's distance, {level,
+	// 0, 0x16, 0x10, 75}, 0, editor.sad, track 0) (G_Rock_V_Ground_M / _S in editor.sad's table)
 	if (p > 1000.0f)
 	{
-		CollisionSounds::PlayEditorSample(423, 425, at); // level 2: G_Rock_V_Ground_M
+		CollisionSounds::PlayAnimEffect({2, 0, 0x16, 0x10, 75}, building, at, false);
 	}
 	else if (p > 300.0f)
 	{
-		CollisionSounds::PlayEditorSample(426, 430, at); // level 3: G_Rock_V_Ground_S
+		CollisionSounds::PlayAnimEffect({3, 0, 0x16, 0x10, 75}, building, at, false);
 	}
 	return true;
 }

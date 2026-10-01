@@ -325,6 +325,12 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
 - Crecimiento y campos: la lluvia y la alineación del terreno (`MapCoords::GetAlignment`).
 - Curvado: la criatura del jugador (ranura 2).
 - Sacrificio (aplazado por el usuario).
+- Meter un árbol en un solar en construcción (`Scaffold`): faltan los solares.
+- Árbol muerto y talado: la reacción 0x0C «aquí hay madera» (constructor de DeadTree 0x510957, `FelledTree::Create`
+  0x511889) espera el sistema de reacciones; los leñadores (sesión de aldeanos, V9) usarán la API de arriba.
+- Criatura: esquivar los árboles al andar (sin criatura todavía).
+- Sonidos: la sesión de audio (fase B) pasa el rumor, el roce y `G_TreeGrow` de `Trees.cpp` a su motor sin cambiar
+  la elección de la muestra; comprobarlo con `OPENBLACK_HAND_TEST_HOLD=1.5` y `OPENBLACK_TEST_TREE_GROWTH`.
 
 ## Ganchos de prueba
 
@@ -340,7 +346,10 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
 ## Fuentes
 
 - `C:\Users\diewgarc\dev\tmp_dis\trees2\`: `pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`,
-  `villager_queries.md`, `tugwatch.py`.
+  `villager_queries.md`, `gap_hand_physics.md`, `gap_life_draw.md`, `gap_brightness_sound.md`, `tree_draw_bend.txt`,
+  `tugwatch.py`. Relevo para quien continúe con los árboles: `tmp_dis\trees2\HANDOVER.md`.
+- `C:\Users\diewgarc\dev\tmp_dis\miracles\infodump\info_dump.txt`: los valores de info.dat de los árboles (madera,
+  peso, `defenceMultiplierBurn` 0,01…).
 - `C:\Users\diewgarc\dev\tmp_dis\physics\physob.md` («Sign convention»): el giro del árbol talado.
 - `C:\Users\diewgarc\dev\tmp_dis\field\draw_colour_sway_notes.txt`: la tabla del mecido.
 - bw1-decomp `src/Black/Object.cpp:539`: la prueba de la normal al soltar (solo seres vivos y vallas).

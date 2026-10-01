@@ -41,7 +41,6 @@
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -89,20 +88,23 @@ namespace openblack::ecs::systems::hand_detail
 {
 void PlaySample(audio::SoundId id)
 {
-	const auto soundId = static_cast<entt::id_type>(id);
-	if (Locator::audio::has_value() && Locator::resources::value().GetSounds().Contains(soundId))
-	{
-		Locator::audio::value().PlaySound(soundId, audio::PlayType::Once);
-	}
+	// 0x429D60 -> 0x42A040: GAudio's options with owner 0, the sample, +0x10 0, is3D = track = 0, mode 3, loops 0
+	audio::PlayOptions options;
+	options.sound = static_cast<entt::id_type>(id);
+	options.track = false;
+	options.mode = 3;
+	options.loops = 0;
+	audio::PlaySoundEffect(options);
 }
 
 entt::entity PlaySample3D(audio::SoundId id, glm::vec3 point)
 {
-	if (!Locator::audio::has_value() || !Locator::camera::has_value())
-	{
-		return entt::null;
-	}
-	return Locator::audio::value().PlayAt(static_cast<entt::id_type>(id), point);
+	audio::PlayOptions options;
+	options.sound = static_cast<entt::id_type>(id);
+	options.is3D = true;
+	options.track = false;
+	options.position = point;
+	return audio::sample_play::AsEntity(audio::PlaySoundEffect(options));
 }
 
 /// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit (off the map or

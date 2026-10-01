@@ -19,7 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 #include "Camera.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Transform.h"
@@ -507,7 +507,12 @@ void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
 
 	if (wooshingDistance)
 	{
-		SetFlight(_targetOrigin, _targetFocus);
+		// CameraModeNew3::Update 0x45E0C3..0x45E305: the double click's flight whooshes without FlyToPosFoc's own test.
+		// Its flag [esp+0x23] is set with the focus distance [0x9CE640] 100 when one distance is more than 100 * 1.5 and
+		// the other more than 10 (0x45E119..0x45E151, the test above), and also when [esp+0x4B] is set (focus distance
+		// 1000, 0x45E1D5..0x45E1F1: pending, not ported)
+		_flightPath = CharterFlight(_targetOrigin, _targetFocus, _currentOrigin, k_FlightHeightFactor);
+		PlayWoosh();
 	}
 }
 
@@ -731,14 +736,20 @@ void DefaultWorldCameraModel::HandleActions(std::chrono::microseconds dt)
 void DefaultWorldCameraModel::SetFlight(glm::vec3 origin, glm::vec3 focus)
 {
 	_flightPath = CharterFlight(origin, focus, _currentOrigin, k_FlightHeightFactor);
-	static constexpr auto k_WooshingNoiseIds = std::array<audio::SoundId, 4> {
-	    audio::SoundId::G_Woosh_01,
-	    audio::SoundId::G_Woosh_02,
-	    audio::SoundId::G_Woosh_03,
-	    audio::SoundId::G_Woosh_04,
-	};
-	const auto wooshNoiseId = static_cast<entt::id_type>(Locator::rng::value().Choose(k_WooshingNoiseIds));
-	Locator::audio::value().PlaySound(wooshNoiseId, audio::PlayType::Once);
+	// CameraModeNew3::FlyToPosFoc 0x4587F0 (the bookmarks, the scripts' flights): the woosh only when the camera is
+	// farther than [0x9CE640] (100) * 1.5 (0x458967..0x45897A) from the new position
+	if (glm::distance(origin, _currentOrigin) > k_FlyingDistanceThresholds[0] * 1.5f)
+	{
+		PlayWoosh();
+	}
+}
+
+void DefaultWorldCameraModel::PlayWoosh()
+{
+	// 0x45897C..0x45899B (and 0x45E2F0..0x45E305): GAudio::PlaySoundEffect(0, 46 G_Woosh_01 + (GetTickCount() & 3), mode
+	// 3, loops 0, 0, 2D, InGame) 0x429D60
+	audio::PlaySoundEffect(audio::Owner::None(), 46 + static_cast<int>(audio::TickCount() & 3), 3, 0, false, false,
+	                       audio::SfxBank::InGame);
 }
 
 glm::vec3 DefaultWorldCameraModel::GetTargetOrigin() const

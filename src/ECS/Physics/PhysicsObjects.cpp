@@ -11,6 +11,7 @@
 
 #include "Buildings.h"
 #include "CollisionSounds.h"
+#include "Audio/Audio.h"
 #include "Dust.h"
 #include "FragMesh.h"
 
@@ -763,10 +764,10 @@ void Substep()
 			const float d2 = glm::dot(d, d);
 			if (d2 < 100.0f && po.cameraDistance2 > 100.0f && glm::dot(po.body.velocity, po.body.velocity) > 400.0f)
 			{
-				const auto ticks = std::chrono::duration_cast<std::chrono::milliseconds>(
-				                       std::chrono::steady_clock::now().time_since_epoch())
-				                       .count();
-				CollisionSounds::PlaySample2D("InGame.sad", 69 + static_cast<int>(ticks % 5));
+				// 0x645BEE..0x645C12: GAudio::PlaySoundEffect(0, 69 G_RockPast_01 + GetTickCount() % 5, mode 2, loops 0,
+				// 0, 2D, InGame) 0x429D60
+				audio::PlaySoundEffect(audio::Owner::None(), 69 + static_cast<int>(audio::TickCount() % 5), 2, 0, false,
+				                       false, audio::SfxBank::InGame);
 			}
 			po.cameraDistance2 = d2;
 		}

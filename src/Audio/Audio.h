@@ -19,18 +19,20 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
+#include "AnimEffects.h"
 #include "AudioSystem.h"
 #include "BankTables.h"
 #include "SamplePlay.h"
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No
-// argument has a default: each caller passes what the original caller passes. Milestone B1 (docs/bw1-notes/audio.md);
-// the parts of later milestones are declared at the end and are not defined yet.
+// argument has a default: each caller passes what the original caller passes. Milestones B1..B4 and B6
+// (docs/bw1-notes/audio.md); the parts of later milestones are declared at the end and are not defined yet. The script's
+// sound effects (B6: PLAY / STOP_SOUND_EFFECT, GAME_SOUND_PLAYING, ATTACH / DETACH_SOUND_TAG) are in ScriptSound.h.
 //
 // Rules for the callers (PLAN §2.1, §8.6):
-//  - nobody outside src/Audio calls OpenAL, AudioManager::CreateEmitter / PlayEmitter / PlaySound (no new callers of
-//    those: they are the old path, kept until B2..B5 move their callers here);
+//  - nobody outside src/Audio calls OpenAL, AudioManager::CreateEmitter / PlayEmitter / PlaySound (the old path: since
+//    B4 only the miracles' files of milestone B5 still use it, and no new caller may be added);
 //  - the audio includes no ECS component: the positions of the owners come from GameQueries (things) and from
 //    RegisterObject (other objects).
 
@@ -142,6 +144,15 @@ enum class Counter : uint8_t
 /// The counter's value to add to the first sample, advancing it
 [[nodiscard]] int NextCounter(Counter counter);
 
+/// GetTickCount() of the original (milliseconds of the process's clock, wrapping at 2^32): the callers that pick a sample
+/// with it instead of a random generator (Tree::DropSfx 0x74BCB6: 83 + t % 3, Tree::ApplyWaterSpell 0x74C4B3: 120 + t % 9,
+/// PhysicsObject::GameTurnUpdate 0x645BF8: 69 + t % 5, CameraModeNew3::FlyToPosFoc 0x458986: 46 + (t & 3), fn_0066D1A0)
+[[nodiscard]] uint32_t TickCount();
+
+/// OPENBLACK_SFX_TRACE=1: one "SFX:" line in the log for each call of the family above, of SamplePlayAnimEffect and of
+/// the tags' plays (bank / sample, 2D or 3D, the point, the mode and pitch it starts with, the owner and what came of it)
+[[nodiscard]] bool SfxTrace();
+
 // ---- the script's switches and GAudio's state filters ---------------------------------------------------------------
 // SetGameSound (SET_GAME_SOUND 0x7100B0), SetScriptWideScreen (HelpSystem::SetWideScreen 0x5C6AD0), IsInsideCitadel
 // (0x4282F0), IsVideoPlaying (g_game+0x250188): AudioSystem.h. The citadel and the interface states come from
@@ -191,43 +202,75 @@ void SetSampleMasterVolume(int volume);
 /// LHSampleGetMasterVolume 0x10015170
 [[nodiscard]] int SampleMasterVolume();
 
-// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
+// ---- anim effects (B2) and SoundTags (B3) ---------------------------------------------------------------------------
 
-/// (B2) GAudio::SamplePlayAnimEffect 0x42A4B0 with a 5-column key (LHSampleGetAnimEffectNumber 0x42A4F9) and the
-/// actions 0 play / 1 stop / 2 release (the key path of 0x42A4BC, without GAudio's filters)
-using AnimKey = std::array<int32_t, 5>;
-enum class AnimAction : uint8_t
-{
-	Play = 0,
-	Stop = 1,
-	Release = 2
-};
-Channel PlayAnimEffect(Owner owner, const AnimKey& key, BankId bank, glm::vec3 at, bool track);
-void AnimEffectAction(Owner owner, const AnimKey& key, BankId bank, AnimAction action);
+/// GAudio::SamplePlayAnimEffect(void* owner, float dist, long* key, int action, LH_AudioBank*, int track, float min,
+/// float max) 0x42A4B0 (milestone B2; AnimKey and AnimAction: AnimEffects.h). `distance` is what the caller measured
+/// (the camera's distance to the object: fn_00516510, Tree::Draw 0x74AFFD) and gates the play (k_MaxDistance and the
+/// sample's max distance); the point is the owner's (fn_00427200). Play: LHSampleGetAnimEffectNumber 0x42A4F9 (no row,
+/// nothing), the filters of the sample's user parameter (1 not while a script holds the wide screen, only 2 inside the
+/// citadel, the banks after SET_GAME_SOUND false, not 4 in the interface states 0x10 / 0x16 / 0x17) and, when tracking,
+/// an unavailable owner (0x42A51B..0x42A5B8); then LHSamplePlayAnimEffect 0x10014A20 with min / max (> 0 overrides the
+/// .sad's). Stop / Release: straight to 0x100146F0 for the row's samples, without filters (0x42A4BC). Returns the
+/// channel of a play.
+Channel SamplePlayAnimEffect(Owner owner, float distance, const AnimKey& key, AnimAction action, BankId bank, bool track,
+                             float minDistance, float maxDistance);
 
-/// (B6) SOUND_EXISTS 0x710100 -> LHWaveIsInstalled
-[[nodiscard]] bool SoundExists();
-
-/// (B3) The full SoundTag 0x71E300..0x71ED90 (today: sound_tags, SoundTags.h, InGame / mode 2 / 3D only, and the street
-/// lanterns' LanternSounds)
+/// SoundTag 0x71E300..0x71ED90 (milestone B3): a sample tied to a thing or a point, linked in g_game+0x205C1C (newest
+/// first) and processed once a turn (SoundTag::ProcessSoundTags 0x71E5F0, GGame::EndTurn 0x54E989). The channel's
+/// owner is the tag itself (0x71E6F1). A tag of a thing (re)plays through GAudio::PlaySoundEffect 0x42A100 every turn
+/// while active, so its play mode decides (2: nothing while it plays; 3: restarts); one whose thing is gone becomes a
+/// tag of the dead object (CreateSoundTagForDeadObject 0x71ECD0). A tag of a point plays once and goes when its
+/// sample stops; a 3D one with a delay waits for the sound to reach the camera at 347 per second (CheckDelay 0x71E760).
 namespace tags
 {
 using TagId = uint32_t;
-/// SoundTag::Create on a thing 0x71E840 (ATTACH_SOUND_TAG 0x710150: mode 2, loops 0, track = is3D)
-TagId Create(entt::entity thing, Sample sample, bool track, int mode, int loops, int delay, bool is3D);
-/// on a thing with an offset 0x71E8C0 (the street lantern: (0, h, 0), InGame 147)
-TagId Create(entt::entity thing, glm::vec3 offset, Sample sample, bool track, int mode, int loops, int delay, bool is3D);
-/// on a point 0x71EB60
-TagId Create(glm::vec3 point, Sample sample, bool track, int mode, int loops, int delay, bool is3D);
-/// 0x71E640
+inline constexpr TagId k_NoTag = 0;
+/// SoundTag::Create(GameThingWithPos*, sample, track, mode, loops, +0x40 (the options' +0x10), is3D, AUDIO_SFX_BANK_TYPE,
+/// delay) 0x71E840:
+/// no offset; the tag's point is the thing's (0x71E336..0x71E349); the delay is kept only when is3D (0x71E56B)
+TagId Create(entt::entity thing, int sample, bool track, int mode, int loops, bool flag10, bool is3D, SfxBank bank,
+             int delay);
+/// fn_0071E8C0: the same with an offset (+0x1C) added by the channel (the street lantern: (0, Object::GetHeight, 0))
+TagId Create(entt::entity thing, glm::vec3 offset, int sample, bool track, int mode, int loops, bool flag10, bool is3D,
+             SfxBank bank, int delay);
+/// fn_0071EA40, SoundTag::Create(LHPoint&, ...): a point tag (track ignored, +0x30 = 0 without a thing, 0x71E568); it
+/// plays at once through GAudio::PlaySoundEffect 0x429E30 (owner the tag, track 0, 0x71EACE..0x71EB33) unless it is 3D
+/// with a delay
+TagId Create(glm::vec3 point, int sample, bool track, int mode, int loops, bool flag10, bool is3D, SfxBank bank,
+             int delay);
+/// SoundTag::Create(MapCoords&, ...) 0x71EB60: the point (x, LH3DIsland::GetAltitude + the height above the land, z)
+/// (0x71EB71..0x71EBBF; the altitude from GameQueries::landAltitude), then fn_0071EA40. x / z are world units: the
+/// original's MapCoords keeps them as integers that it scales by 1/6553.6 ([0x8AA3A4], 0x71EB8A / 0x71EBA6), a
+/// caller holding a MapCoords converts it first.
+/// (Not ported: fn_0071E920, the same point tag in an atmos bank (ctor fn_0071E460 sets +0x34, so GetBank 0x71E610
+/// takes GAudio+0x194 + 4 * type), played at once through 0x429E30 unless 3D with a delay; its only caller is the
+/// thunder of GWeather::Update 0x83FC62 through the callback [0xEEA388] = 0x429CE0: sample 2 + GetTickCount() % 11,
+/// mode 2, 3D, type 12, delay 1. Pending with the weather's thunder.)
+TagId CreateAtMapCoords(float x, float z, float heightAboveLand, int sample, bool track, int mode, int loops, bool flag10,
+                        bool is3D, SfxBank bank, int delay);
+/// fn_0071E640 (SoundTag::SetActive): an active tag (+0x4C == 1) turned off stops its sample (GAudio 0x42A210); +0x4C
 void SetActive(TagId tag, bool active);
-/// DETACH_SOUND_TAG 0x7101D0 -> 0x71EBE0
-void Remove(entt::entity thing, Sample sample);
-/// 0x71ECB0
+/// SoundTag::Remove(thing, sample, AUDIO_SFX_BANK_TYPE) 0x71EBE0: every tag of the three (fn_0071ED60) is deleted
+/// (ToBeDeleted: a playing loop is released first)
+void Remove(entt::entity thing, int sample, SfxBank bank);
+/// SoundTag::Remove(..., int stop) 0x71EC30: the same, stopping the sample first when `stop` (GAudio 0x42A210)
+void Remove(entt::entity thing, int sample, SfxBank bank, bool stop);
+/// SoundTag::ToBeDeleted 0x71ECB0 -> CreateSoundTagForDeadObject 0x71ECD0: the thing forgotten; a sample that plays
+/// with loops (fn_0042A460: LHSampleGetInfo +0x40) has its loop released (0x42A310) and the tag lives on until it
+/// stops; otherwise the tag goes at once (its sample, if any, plays on)
 void Delete(TagId tag);
-/// 0x71ED40
+/// SoundTag::GetRandomSample 0x71ED40: first + GRand::LocalRand(count) (0 for count 0)
 [[nodiscard]] int RandomSample(int first, int count);
+/// The tag still exists (it has not gone in ProcessSoundTags or Delete)
+[[nodiscard]] bool Exists(TagId tag);
 } // namespace tags
+
+/// SOUND_EXISTS 0x710100 -> GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled (milestone B6): the wave device was made.
+/// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
+[[nodiscard]] bool SoundExists();
+
+// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
 
 /// (B7) The voices on the channels (today only the table: Voices.h, milestone A10)
 namespace voices

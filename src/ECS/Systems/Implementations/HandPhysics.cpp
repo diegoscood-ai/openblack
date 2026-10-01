@@ -70,13 +70,19 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 				UpdateRoots(entity, true);
 				MakeDeadTree(entity, po.body.velocity, false);
 			}
-			// PhysicsObject::RemoveObject 0x646B2E..0x646B44: LANDED on land -> Tree::DropSfx 0x74BC60, replanted or not
-			// (the original picks G_PlantTree_01 + GetTickCount() % 3)
+			// PhysicsObject::RemoveObject 0x646B2E..0x646B44: LANDED on land -> Tree::DropSfx 0x74BC60, replanted or not:
+			// GAudio::PlaySoundEffect 0x429E30 (0x74BD03) with bank InGame (GAudio+0x3AC), owner the tree (+0x20), is3D 1,
+			// track 0, sample 83 G_PlantTree_01 + GetTickCount() % 3, at the tree's point (x, altitude + height, z)
 			if (landedOnLand)
 			{
-				static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
-				    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
-				PlaySample(Locator::rng::value().Choose(k_PlantTree));
+				audio::PlayOptions options;
+				options.sample = {audio::Bank(audio::SfxBank::InGame), 83 + static_cast<int>(audio::TickCount() % 3)};
+				options.owner = audio::Owner::Thing(entity);
+				options.is3D = true;
+				options.track = false;
+				const auto* now = registry.TryGet<const Transform>(entity);
+				options.position = now != nullptr ? now->position : position;
+				audio::PlaySoundEffect(options);
 			}
 			return entity;
 		}

@@ -22,8 +22,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/SamplePlay.h"
+#include "Audio/Audio.h"
 #include "Buildings.h"
 #include "Common/RandomNumberManager.h"
 #include "Dust.h"
@@ -62,115 +61,6 @@ constexpr std::array<int, 33> k_TabA = {21, 24, 20, 20, 20, 20, 20, 19, 19, 19, 
                                         22, 30, 25, 35, 31, 24, 23, 24, 25, 25, 21, 21, 21, 33, 34, 42};
 constexpr std::array<int, 33> k_TabB = {11, 14, 10, 10, 10, 10, 10, 9, 9, 9, 9, 10, 15, 12, 12, 12, 12,
                                         12, 20, 15, 23, 19, 14, 13, 14, 15, 15, 16, 18, 17, 21, 22, 24};
-
-struct Row
-{
-	int a;
-	int b;
-	std::array<std::array<int, 2>, 3> levels; ///< editor.sad samples first..last for level 1..3 (0 = silent)
-};
-// editor.sad LHAudioAnimArrayTable resolved for the key {level, 0, A, B, 75} (tmp_dis/physics/snd/full_matrix.md)
-constexpr std::array<Row, 99> k_Table = {{
-    {19, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {19, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {19, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {19, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {19, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {19, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {20, 9, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {20, 11, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 12, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 13, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 14, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 15, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 16, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 17, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 18, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 19, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 20, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 21, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 23, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {20, 24, {{{443, 447}, {448, 455}, {0, 0}}}},
-    {21, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {21, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {21, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {21, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {21, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {21, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {22, 9, {{{398, 406}, {398, 406}, {0, 0}}}},
-    {22, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {22, 12, {{{431, 436}, {431, 436}, {437, 442}}}},
-    {22, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {22, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {22, 16, {{{413, 422}, {423, 425}, {426, 430}}}},
-    {22, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {22, 18, {{{524, 527}, {528, 531}, {532, 535}}}},
-    {22, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {22, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {22, 21, {{{426, 430}, {426, 430}, {0, 0}}}},
-    {23, 9, {{{464, 467}, {464, 467}, {0, 0}}}},
-    {23, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {23, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {23, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {23, 16, {{{464, 467}, {464, 467}, {0, 0}}}},
-    {23, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {23, 18, {{{524, 527}, {464, 467}, {464, 467}}}},
-    {23, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {23, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {24, 9, {{{426, 430}, {426, 430}, {0, 0}}}},
-    {24, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {24, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {24, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {24, 16, {{{426, 430}, {426, 430}, {426, 430}}}},
-    {24, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {24, 18, {{{524, 527}, {528, 531}, {426, 430}}}},
-    {24, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {24, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {25, 9, {{{407, 412}, {407, 412}, {0, 0}}}},
-    {25, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {25, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {25, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {25, 16, {{{407, 412}, {407, 412}, {0, 0}}}},
-    {25, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {25, 18, {{{524, 527}, {407, 412}, {407, 412}}}},
-    {25, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {25, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {30, 9, {{{464, 467}, {464, 467}, {0, 0}}}},
-    {30, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {30, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {30, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {30, 16, {{{464, 467}, {464, 467}, {0, 0}}}},
-    {30, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {30, 18, {{{524, 527}, {528, 531}, {464, 467}}}},
-    {30, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {30, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {31, 9, {{{398, 406}, {398, 406}, {0, 0}}}},
-    {31, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {31, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {31, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {31, 16, {{{398, 406}, {398, 406}, {0, 0}}}},
-    {31, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {31, 18, {{{524, 527}, {528, 531}, {398, 406}}}},
-    {31, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {31, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {33, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {33, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {33, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {33, 16, {{{426, 430}, {426, 430}, {426, 430}}}},
-    {33, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {33, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {33, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-    {35, 9, {{{426, 430}, {426, 430}, {0, 0}}}},
-    {35, 10, {{{456, 463}, {456, 463}, {0, 0}}}},
-    {35, 13, {{{0, 0}, {0, 0}, {0, 0}}}},
-    {35, 15, {{{407, 412}, {407, 412}, {407, 412}}}},
-    {35, 16, {{{426, 430}, {426, 430}, {426, 430}}}},
-    {35, 17, {{{389, 392}, {389, 392}, {389, 392}}}},
-    {35, 18, {{{524, 527}, {426, 430}, {426, 430}}}},
-    {35, 19, {{{398, 406}, {398, 406}, {398, 406}}}},
-    {35, 20, {{{464, 467}, {464, 467}, {464, 467}}}},
-}};
 
 struct Pair
 {
@@ -212,30 +102,13 @@ int CollisionSounds::TypeOf(entt::entity entity)
 	return 0;
 }
 
-void CollisionSounds::PlayEditorSample(int first, int last, glm::vec3 at, entt::entity owner, bool track)
+void CollisionSounds::PlayAnimEffect(const std::array<int32_t, 5>& key, entt::entity owner, glm::vec3 at, bool track)
 {
-	if (!Locator::audio::has_value() || first <= 0)
-	{
-		return;
-	}
-	const int sample = Locator::rng::value().NextValue(first, std::max(first, last));
-	const auto id = entt::hashed_string(fmt::format("editor.sad/{}", sample).c_str()).value();
-	if (!Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	// SamplePlayAnimEffect -> LHSamplePlayAnimEffect 0x100146F0: not started farther than the sample's max distance from
-	// the camera (G_BigSplash 160) or 800; LHSamplePlay with the object as the owner and the .sad's play mode
-	audio::sample_play::PlayAnimEffect(id, owner, at, track);
-}
-
-void CollisionSounds::PlaySample2D(const char* bank, int sample)
-{
-	const auto id = entt::hashed_string(fmt::format("{}/{}", bank, sample).c_str()).value();
-	if (Locator::audio::has_value() && Locator::resources::value().GetSounds().Contains(id))
-	{
-		Locator::audio::value().PlaySound(id, audio::PlayType::Once);
-	}
+	// 0x6468AB..0x646919: GGame::GetCamera, then |LH3DTech::g_camera - point| as the distance (fsqrt 0x64690D)
+	const auto camera = audio::ListenerPoint();
+	const float distance = camera ? glm::distance(*camera, at) : 0.0f;
+	audio::SamplePlayAnimEffect(owner != entt::null ? audio::Owner::Thing(owner) : audio::Owner::None(), distance, key,
+	                            audio::AnimAction::Play, audio::Bank(audio::SfxBank::Editor), track, 0.0f, 0.0f);
 }
 
 void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
@@ -311,21 +184,15 @@ void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
 	}
 	const int a = k_TabA.at(static_cast<size_t>(std::clamp(typeA, 0, 32)));
 	const int b = k_TabB.at(static_cast<size_t>(std::clamp(typeB, 0, 32)));
-	for (const auto& row : k_Table)
+	// 0x64686C..0x64688A: the key {level, 0, A (0xBFEE34), B (0xBFEDB0), 75 COLLIDE}
+	const std::array<int32_t, 5> key = {level, 0, a, b, 75};
+	if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr)
 	{
-		if (row.a == a && row.b == b)
-		{
-			const auto& range = row.levels.at(static_cast<size_t>(level - 1));
-			if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr)
-			{
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Collision sound: types {}/{} level {} -> editor.sad {}..{}", typeA, typeB,
-				                   level, range[0], range[1]);
-			}
-			// 0x64689F: the channel follows the object (+0x0C) unless its A code is 0x16
-			PlayEditorSample(range[0], range[1], at, obj, a != 0x16);
-			return;
-		}
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Collision sound: types {}/{} level {} -> editor.sad key {{{}, 0, {}, {}, 75}}",
+		                   typeA, typeB, level, level, a, b);
 	}
+	// 0x64689F: the channel follows the object (+0x0C) unless its A code is 0x16
+	PlayAnimEffect(key, obj, at, a != 0x16);
 }
 
 void CollisionSounds::EndTurn()

@@ -15,6 +15,7 @@
 #include <entt/entity/entity.hpp>
 
 #include "3D/HandAnimator.h"
+#include "Audio/SamplePlay.h"
 #include "Common/Zoomer.h"
 #include "Enums.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -100,7 +101,7 @@ private:
 	/// HandFish.cpp: the splash of gripping the water (StartLandscapeGrip fn_005D1AB0)
 	void SplashHand(glm::vec3 point) noexcept;
 	/// HandFish.cpp: the sound of gripping the land (StartLandscapeGrip, G_HandGrabLand_01..06)
-	void GripLandSound() noexcept;
+	void GripLandSound(glm::vec3 point) noexcept;
 	/// HandFish.cpp: the action over the water next to a fish starts catching from its farm (FishFarm locked select)
 	bool TryPickUpFish(glm::vec3 point) noexcept;
 	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
@@ -312,7 +313,7 @@ private:
 	/// Test hook (OPENBLACK_HAND_TEST_FISH): seconds the action button counts as held
 	float _testActionSeconds {0.0f};
 	/// UpdateMultiPickup fn_0068F930: the looping G_PICKUPFOOD / G_PICKUPWOOD of a multi pick-up and its pitch t^2
-	std::optional<entt::entity> _pickupSound;
+	std::optional<audio::Channel> _pickupSound;
 	/// The forced tooltip 0xEEA: the amount and how long it is still shown (1.2 s after the last pick-up turn)
 	float _amountToolTip {0.0f};
 	float _amountToolTipTime {0.0f};

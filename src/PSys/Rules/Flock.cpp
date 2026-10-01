@@ -25,6 +25,7 @@
 
 #include "Flock.h"
 
+#include "3D/Billboard.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/SpellSounds.h"
 #include "Camera/Camera.h"
@@ -399,8 +400,7 @@ private:
 	}
 
 	/// fn_006840E0: SetAngleY(atan2(-y, x) + pi / 2) of the velocity as the camera sees it (the LHMatrix at 0xEA1D28,
-	/// its columns 0 and 1). (inferido, as UR_OrientSpriteWithVelocity in Rules/Orient.cpp: that matrix taken as the
-	/// world-to-camera rotation, x = v . right, y = v . up)
+	/// its columns 0 and 1, the W2C rotation: x = v . right, y = v . up; billboard::ScreenVelocity)
 	static void TurnSprite(Atom& atom, const glm::vec3& velocity)
 	{
 		if (!Locator::camera::has_value())
@@ -408,9 +408,7 @@ private:
 			return;
 		}
 		const auto& camera = Locator::camera::value();
-		const float x = glm::dot(velocity, camera.GetRight());
-		const float y = glm::dot(velocity, camera.GetUp());
-		atom.rotation = ToAtomRotation(RotationY(std::atan2(-y, x) + std::numbers::pi_v<float> * 0.5f)); // [0x8C78D8]
+		atom.rotation = ToAtomRotation(RotationY(graphics::billboard::ScreenVelocity(velocity, camera.GetRight(), camera.GetUp())));
 	}
 
 	/// UpdateBanking 0x684160 (Flock.h)

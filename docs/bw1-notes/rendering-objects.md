@@ -1,8 +1,8 @@
 # Render de los modelos: original frente a openblack
 
 Cómo se dibujan los objetos del mundo: materiales L3D, luz de los modelos, texturas y sprites, manchas de los pies,
-reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD y el humo
-de las chimeneas. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
+reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD, el humo
+de las chimeneas y los objetos que miran a la cámara (billboards). El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
 como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
@@ -18,6 +18,7 @@ como juego, en [water.md](water.md).
 - [Sombra dinámica de la mano](#sombra-dinámica-de-la-mano)
 - [Animales: manchas y malla](#animales-manchas-y-malla)
 - [Humo de las chimeneas (LH3DSmoke)](#humo-de-las-chimeneas-lh3dsmoke)
+- [Objetos que miran a la cámara (billboards)](#objetos-que-miran-a-la-cámara-billboards)
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
 Estado: todo lo de esta página es **fiel** (original, no un mod) salvo lo que se marca **(aproximado)**, las
@@ -286,6 +287,143 @@ desensamblado de W1.20; los puntos dudosos (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_
 - **Gancho**: `OPENBLACK_TEST_CHIMNEY=all` (todas las chimeneas echan humo). Capturas de Land1 de día y de noche en
   `dev\_scratch\mapa\` (`day_near`, `day_close`, `day_far`, `night_far`; `day_far_nohook` sin gancho: sin humo).
 
+## Objetos que miran a la cámara (billboards)
+
+**Fiel**, salvo lo marcado. Todo lo que se orienta hacia la cámara pasa por una sola API, `graphics::billboard`
+(`src/3D/Billboard.{h,cpp}`, solo matemática glm), con una función por cada modo del original.
+
+**Convenios.**
+- LH3D usa vector fila (p' = p·M, fn_0084BA90). La fila k es la imagen del eje local k; en glm es la columna k, con la
+  misma memoria.
+- Los giros de LH3D van al revés que `glm::rotate`: `SetAngleY(a)` 0x674360 (filas (c,0,s) / (0,1,0) / (−s,0,c)) es
+  `glm::rotate(−a, Y)`. Lo mismo pasa con RotateY 0x5198F0, fn_0086AFA0 y UpdateRuleRotatePrincipalAxis 0x6A1150, que
+  giran en el sitio y en glm van a la izquierda.
+
+**Cámara de la pasada.** `CameraFrame::From(camera)` se construye una vez por pasada, con la cámara principal o la
+reflejada. Contiene:
+- el ojo, g_camera 0xEA1DB8;
+- right / up / forward;
+- la vista, W2C 0xEA1D28 (`UpdateWorldToCamera` 0x819690, el lookAtLH de openblack), su inversa (SetInverse 0x7FB290)
+  y la rotación W2C;
+- el plano cercano [0xE839E0], sacado de la proyección. **(aproximado)** `Game.cpp` lo calcula como
+  `LandFeature::GetNearClipping` 0x5E2F30, pero solo cambia la proyección si se mueve más de 0,01, así que puede ir
+  hasta 0,01 por detrás del original;
+- la matriz de las nieblas 0xEA1C98 = mat3(right, −forward, up) (UpdateCamera 0x819A62..0x819AF3 y fn_00819F50).
+
+En la pasada de reflejo, el ojo y right / up / forward siguen siendo los de la cámara principal, porque
+`ReflectionXZCamera` solo refleja `GetViewMatrix`. En cambio, la vista, su inversa, la rotación W2C y la matriz de las
+nieblas sí salen reflejadas. En esa pasada no hay que mezclar los dos grupos. Hoy solo `DrawMoon` y `drawSprite` montan
+un `CameraFrame` en el reflejo, y solo usan la vista y su inversa.
+
+**`Sprite`.** Son los campos útiles del LH3DSprite de 0x34 bytes, con los valores por defecto de SetToZero 0x8404F0:
+
+| Campo | Contenido |
+|---|---|
+| +0x00 | posición |
+| +0x0C | tamaño (media anchura) |
+| +0x10 | estiramiento (media altura = tamaño × estiramiento) |
+| +0x14 | ángulo |
+| +0x18 / +0x1C | origen, en unidades de mundo; **se resta** |
+| +0x20 | color |
+| +0x28 | celda (bits 0-5) y 0x40 horizontal |
+| +0x30 | celdas por fila (8) |
+
+`SpriteQuad` devuelve las 4 esquinas en el orden v0..v3 de 0x840530 y sus UV. `CellUv` hace col·(1/n) +
+(8/n)·{0, .125, .125, 0} y fila·(1/n) + (8/n)·{0, 0, .125, .125} (0xC390CC / 0xC390DC, 8 = [0x8C2C70]), con la celda
+& 0x3F. Los triángulos son {0,1,2}, {0,2,3}. Los `components::Sprite` (luces de noche, luciérnagas, polvo y los efectos
+de la mano) sacan su `uvMin` de `CellUv(celda, 8)[0]`. Su `Transform::rotation` no se usa, porque el modo A solo tiene
+el ángulo +0x14.
+
+| Modo (función) | Original | Matemática | Usuarios en openblack |
+|---|---|---|---|
+| `Screen` (modo A) | `LH3DSprite::Draw` 0x840530, flag 0x40 = 0 | Cuadrado en el plano de la pantalla a la profundidad del sprite: es paralelo a la pantalla y no gira hacia el ojo. x local = {−s − ox, s − ox}, y = {hs − oy, −hs − oy} (0x840831..0x8408CF). La x local va a (cos, −sin) en la pantalla y la y a (sin, cos) (0x84071D..0x84082B), es decir, giro horario. Ángulo 0 = sin giro (0x840770). Orden TL, TR, BR, BL. No dibuja nada si la profundidad es ≤ near (`InFrontOfNear`, 0x84055D..0x840585) | sprites de PSys (`RendererPSys.cpp`: todos los SF, TownBelief, FireGraphic), bocanadas de SmokyStuff (`RendererBoat.cpp`) y, en la GPU, el humo de las chimeneas y los `components::Sprite` |
+| `ScreenSpriteModel` | el mismo modo A en `vs_sprite.sc` | T(pos)·Rz(−ángulo)·S(media anchura, media altura, 1). El shader suma u_invView·(modelo·(x, y, 0, 0)) en el plano −1..1, con v = 0 arriba: es `Screen` con origen 0. El corte por near se hace en la CPU | `drawSprite` (luces de noche, luciérnagas, polvo, efectos de la mano, brillos del templo, marcadores de cámara) y `DrawChimneySmoke` |
+| `Horizontal` (modo B) | flag 0x40 (0x8405FE..0x840704): `SetHorozontal` 0x6AA093, `GWater::InitialiseCircles` 0x54BA84, fn_00824740 0x8247EF | Ry(ángulo), con filas (c,0,s) / (0,1,0) / (−s,0,c), más la posición. x = {−s − ox, s − ox}, z = {−hs − oy, hs − oy} (0x84085D). No depende de la cámara ni tiene corte por near | estela del barco, peces de las piscifactorías, anillos de agua, la rama horizontal de PSys (SF_ManaPathNew, mapas de luz) |
+| `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | El cuadrado del modo B en el plano XZ de una matriz dada, girado sobre su Y local si el ángulo ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). No usa la posición del sprite | nadie (los 7 anillos de fn_008274A0 están sin portar) |
+| `YawToEye` (modo C) | código inline: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(ojo.z − p.z, ojo.x − p.x) + π/2 ([0x8C78D8]); ejes Ry(θ). El +Z local va del ojo al objeto | nadie (columnas de influencia, banderas de deseo, ShowNeeds y ScriptHighlight están sin portar) |
+| `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), con d = p − ojo en XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | mallas de PSys con FaceCamera (`PSys/Creators/Mesh.cpp`) |
+| `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identidad × escala. Luego cada fila (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), con φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), y después fn_0067A4A0(ψ), con ψ = atan2(d.z, d.x). El +Y local mira al ojo y la Z queda horizontal | `Mesh.cpp`, después de FaceCamera como en el original; ningún SF lo activa |
+| `LookAtCentre` | la burbuja: fn_00518720, desde `OneOffSpellSeed::Draw` 0x518E90 | d = W − ojo, con W = el centro de la caja en el mundo (0x518746..0x5187B8). Si \|d.x\| y \|d.z\| son < 1e-4 (el double [0x8C79D8]), d.x pasa a ±1e-4 (0x518875..0x5188B4). D = normalize(d), U = normalize(Y − (Y·D)D). Las filas (U×D, −D, U) salen de invertir con fn_007FB3F0 (0x518B0C). Luego M = T(−c)·R·s y traslación W − c·R·s (fn_00518B90, fn_00518BF0, fn_0044CF90). Tras el empujón de 1e-4, d y U nunca son cero, así que la prueba de ceros de 0x5188BC..0x5188ED no salta nunca y no se porta | nadie todavía. `Magic/Core/OneOffSpellSeed.cpp` (de Milagros, sin commitear) sigue con su copia sin el empujón; pasará a `LookAtCentre` después de su HEAD |
+| `MoonBasis` / `MoonModel` / `MoonHalo` (E) | fn_0086AC60 y fn_0086A930, leídas enteras | Ver la luna, debajo | `Renderer::DrawMoon` |
+| `MistBasis` / `MistShrunkSize` (F) | `LH3DMist::Draw` fn_007FA300 0x7FA38F, rama del efecto 0x7FA483..0x7FA539 | Las 9 celdas son 0xEA1C98. Con el efecto, la fila 0 lleva el tamaño y las filas 1-2 tamaño / (1 + (k − 1)(1 − \|d.y\|/\|d\|)), sin límite. **(aproximado)** 1/\|d\| se saca con `std::sqrt` y no con la tabla de InverseSquareRoot 0x841170. **(inferido)** con d = 0 devuelve el tamaño | nieblas (`RendererMists.cpp`, `mists::Submit`) y nubes (`Renderer::DrawClouds`) |
+| `ScreenVelocity` (G) | `UR_OrientSpriteWithVelocity` 0x69A790 (0x69A8ED..0x69A94B) y fn_006840E0 (UR_Flocking) | x = w·right, y = w·up (la rotación W2C); `SetAngleY(atan2(−y, x) + π/2)`. Con `Screen`, el +y del sprite queda a lo largo de la velocidad en pantalla | `PSys/Rules/Orient.cpp`, `PSys/Rules/Flock.cpp` |
+| `RibbonSide` / `RibbonHalfWidth` (H) | fn_0067B3F0 (lee g_camera en 0x67B4BA) | lado = normalize(cross(normalize(segmento), normalize(articulación − ojo))). La semianchura de 0,5·escala es **(inferido)**, porque fn_0081C780 está sin leer | `Graphics/RendererChain.cpp` (rayos, horquillas, rastro del gesto) |
+| `VolBlend` (I) | `RenderParticleVolBlendMesh::DrawAt` 0x67CCB0 ([0xC029C4] = 1) | a = normalize(fila 0), d = normalize(ojo − p), b = normalize(a × d), c = d × b; filas (c, b, d) × escala | nadie (ningún SF usa ParticleVolBlendMeshCreator) |
+
+**Sprites de PSys** (`Particle3DSprite::DrawAt` 0x67AE80):
+- tamaño = la escala del PSR, con un mínimo de 0,0001 (0x67AEAF);
+- ángulo = atan2(M[0][2], M[0][0]) del PSR, salvo con IgnoreRotation (0x67AF6B..0x67AF87, [0xC029A8] = 1);
+- origen: ox = OriginX·tamaño y oy = OriginY·tamaño·estiramiento (CreateSprite 0x6AA0A8 y 0x67AEC4..0x67AF2D);
+- CentreAtBase: y += estiramiento·tamaño·0,5 (0x67AFB4, [0x8AA3B4]);
+- celda = (FileOffset + fotograma) & 63.
+
+Todo eso vale también con SetHorozontal. Las llamas de `FireGraphic` usan el origen de su sprite compartido 0xDA09E8:
++0x1C = −2·tamaño (0x732382..0x732395), es decir, `SpriteOriginY` = −1, y no CentreAtBase. Así la base queda en el
+punto a lo largo del «arriba» de la pantalla.
+
+**Luna (modo E).**
+- Base (fn_0086AC60 0x86AC67..0x86AEBD):
+  - v = la posición en la cámara, n = normalize(v), t = normalize(n.z, 0, −n.x), u = n × t;
+  - se lleva al mundo con SetInverse(W2C) (0x86AE64 / 0x86AE6F) y × [0xFA2750] = 4,0 (0x86A3F4, que sobrescribe el
+    3,0 de 0x86A3D6);
+  - el +Z local va del ojo a la luna y la X queda horizontal en la vista.
+- Malla: esa base, inclinada con fn_0086AFA0(α = [0x9A3BF0] = −0,1309), luego RotateY(fase + π) 0x5198F0, luego
+  × 0,65 [0x8AC420]. En glm es Rz(+7,5°)·Ry(−(fase + π)).
+- Halo (fn_0086A930):
+  - esquinas p ∓ 500(r0 + r1) y p ± 500(r0 − r1) (500 = [0x8C78EC], con las filas ya × 4);
+  - UV (0,25, 0,25), (0,49375, 0,25), (0,25, 0,49375), (0,49375, 0,49375) (0xEDC304; v0 = abajo a la izquierda);
+  - índices {0,1,3, 3,2,0} (0xEDC310).
+- Reflejo (fn_0086B010 0x86B662..0x86B69C): la segunda llamada, en (x, −y, z) con [0xFA2774] = 1, solo dibuja su halo
+  (0x86AC0F se salta el objeto luna). La luna reflejada es el DrawUnderWater (vt+0x118) de la primera. Con la cámara
+  reflejada de openblack:
+  - el halo se monta con la vista reflejada;
+  - la luna usa la vista principal (`view·mirror(y)`).
+
+**Diferencias con lo que había antes en openblack (arreglos de U1).**
+- El giro de los sprites de PSys iba al revés (D1). Lo compensaban dos reglas que también giraban al revés:
+  - `UR_OrientSpriteWithRandomAngle` ahora hace SetAngleY((1 − PSysFloatRand(2))·RandomAngle + DefaultAngle) en cada
+    paso (0x6A2187..0x6A21AC);
+  - `UpdateRuleRotatePrincipalAxis` ahora es `rotate(−dt·AngularVel)` (Z 0x6A116B, Y 0x6A1218, X fn_006A12F0). El
+    original también gira la 4.ª fila de la matriz del AtomCore (+0x68..+0x70), que SetAngleY 0x674360 pone a cero;
+    no se porta (**inferido**: no se usa para dibujar).
+
+  Como las dos están arregladas, también giran como el original las mallas que usan la segunda.
+- El origen se sumaba; ahora se resta (V4-b).
+- CentreAtBase sumaba h·s entero; ahora suma h·s·0,5 (D2).
+- La rama horizontal de PSys no tenía origen, IgnoreRotation ni CentreAtBase (D2b), y llevaba las V al revés: v0/v1
+  van a −hs − oy (D2c, 0x84085D..0x840897).
+- Faltaba el corte por near del modo A (0x84055D..0x840590).
+- La luna usaba el plano de la vista y tenía invertidos los signos de la inclinación y de la fase (V4-a).
+- Las V del halo estaban al revés (V4-d).
+- `MistShrunkSize` ya no limita \|d\| a ≥ 1. Solo cambia algo con una niebla o una nube a menos de 1 m del ojo.
+
+D2b, D2c, los dos arreglos de RotateAxis y RandomAngle y el corte por near no estaban en la lista inicial del plan.
+Están verificados en el binario, pero **falta la aprobación del jefe de sesión**.
+
+Lo demás da los mismos vértices que antes: estela, peces, anillos, SmokyStuff, nieblas y nubes a más de 1 m,
+FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_changes.md`.
+
+**Huecos.**
+- (inferido) El vector w de UR_OrientSpriteWithVelocity antes de 0x69A8ED.
+- (inferido) La vista por articulación y la semianchura de las cadenas.
+- (inferido) Con IgnoreRotation, +0x14 vale 0 (fn_006A84C0 sin leer).
+- (inferido) El dibujo de los mapas de luz como sprite horizontal.
+- (inferido) La 4.ª fila del AtomCore que gira UR_RotatePrincipalAxis no se usa para dibujar.
+- (aproximado) El near de `CameraFrame` va hasta 0,01 por detrás de [0xE839E0].
+- (aproximado) `MistShrunkSize` usa `std::sqrt`, no la tabla de 128 bytes de InverseSquareRoot 0x841170
+  (MakeInverseSqrtLookupTable 0x8411D0, más un paso de Newton en 0x8411B0..0x8411C2).
+- (aproximado) El vapor y el humo del fuego salen centrados. En el original heredan el oy = −2·tamaño de la última
+  llama dibujada con el sprite 0xDA09E8, porque 0x7323F0..0x7325C5 no escriben +0x18 / +0x1C. fn_00732200 dibuja por
+  cada fuego las llamas, después el vapor y después el humo, así que es la llama más vieja de ese fuego, o la del fuego
+  anterior si no tiene llamas. Así que en el original salen 2 veces ese tamaño más arriba. Para portarlo haría falta un
+  origen por átomo en `psys::manager::DrawAtom` y saber el orden de los fuegos.
+- Sin portar, aunque leído:
+  - el recorte a [0, 639] × [0, 479] de los vértices de un sprite sin recortar (0x840A47 / 0x840A85);
+  - la ruta fn_007A8DB0 con [0xEA9EB4] ≠ 0;
+  - el empujón de 1e-4 de la burbuja en la vertical (0x518875..0x5188B4): está en `LookAtCentre`, pero
+    `OneOffSpellSeed.cpp` es de Milagros y lo tiene sin commitear. Sin él, con la cámara justo en la vertical
+    openblack conserva el giro anterior.
+
 ## Pendiente
 
 - Luz de los modelos: neblina (`fn_007FEB30`), tintes (veneno, fuego, `fn_0080BF10`), color de ventanas de noche, luz de la mano
@@ -298,6 +436,13 @@ desensamblado de W1.20; los puntos dudosos (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_
 - Reflejos y sombras dinámicas de la criatura y de los SuperVillagers (no existen aún en openblack).
 - Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
   andamio de los talleres.
+- Billboards:
+  - capturas del original para confirmar V4-a (la luna en un borde de la pantalla) y V4-b (un rayo en la mano);
+  - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
+    `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
+  - el oy heredado por el vapor y el humo del fuego;
+  - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
+  - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
 
 ## Ganchos de prueba
 
@@ -309,6 +454,10 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - `OPENBLACK_TEST_CUT=1` con `OPENBLACK_TEST_SEA`: corte por el plano del agua.
 - `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH="x,z"`: pesca y susto de los peces.
 - `OPENBLACK_TEST_CHIMNEY=all`: todas las chimeneas echan humo.
+- Billboards: `OPENBLACK_TEST_SEED=FIREBALL` / `LIGHTNING_BOLT` con `OPENBLACK_MOUSE_AT` (sprites de PSys en la mano:
+  origen, CentreAtBase y giro); `OPENBLACK_TEST_FIRE` (llamas); `OPENBLACK_TIME_OF_DAY=22` con `OPENBLACK_CAMERA_LOCK`
+  (la luna, centrada y en un borde); `OPENBLACK_TEST_ONESHOT` (la burbuja). La lista de escenas está en
+  `dev\tmp_dis\unify\U1_changes.md`.
 
 ## Fuentes
 
@@ -316,3 +465,5 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   `objshadow_notes.txt`, `cut_notes.txt`, `physshadow\`, `l3d_wrap_scan.py`, `animal_notes.txt`, `objlight_*`.
 - `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca).
 - `dev\tmp_dis\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
+- `dev\tmp_dis\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
+  (inventario de openblack) y `U1_changes.md` (la migración).

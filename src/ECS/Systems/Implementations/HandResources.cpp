@@ -41,7 +41,6 @@
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -311,10 +310,18 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 	auto wood = ecs::TreeWood(object);
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
-	static constexpr auto k_TreeMulch = std::array<audio::SoundId, 4> {
-	    audio::SoundId::G_TreeMulch_01, audio::SoundId::G_TreeMulch_02, audio::SoundId::G_TreeMulch_03,
-	    audio::SoundId::G_TreeMulch_04};
-	PlaySample(Locator::rng::value().Choose(k_TreeMulch));
+	// 0x63AA13..0x63AA93: GAudio::PlaySoundEffect 0x429E30 with bank InGame (GAudio+0x3AC), owner the object (+0x20), is3D
+	// 1, track 0, sample 155 G_TreeMulch_01 + the counter [0xD4437C] = ([0xD4437C] + 1) & 3, at the object's point
+	// (GetPos -> MapCoords::GetLHPoint 0x605C40)
+	{
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 155 + audio::NextCounter(audio::Counter::TreeMulch)};
+		options.owner = audio::Owner::Thing(object);
+		options.is3D = true;
+		options.track = false;
+		options.position = registry.Get<const Transform>(object).position;
+		audio::PlaySoundEffect(options);
+	}
 	DropRoots(object, false);
 	registry.Destroy(object);
 	registry.SetDirty();

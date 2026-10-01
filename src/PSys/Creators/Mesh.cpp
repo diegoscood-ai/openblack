@@ -24,6 +24,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/AllMeshes.h"
+#include "3D/Billboard.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -215,30 +216,6 @@ glm::vec2 MeshCreator::UvOffset(int frame) const
 	return {slideU ? static_cast<float>(textureWidth * frame) / n : 0.0f, slideV ? static_cast<float>(textureHeight * frame) / n : 0.0f};
 }
 
-void mesh_atoms::FaceCamera(glm::mat3& axes, const glm::vec3& position, const glm::vec3& camera, float heightStretch)
-{
-	// Particle3DObj::DrawAt 0x67A032..0x67A1C3. r2 = the Z row (x, y, z normalised when not all zero; only x, z used), d
-	// = position - camera in x, z (normalised when not zero); theta = atan2(d.z, d.x) - atan2(r2.z, r2.x); then per
-	// component r0' = cos r0 + sin r2, r2' = cos r2 - sin r0 (a turn in the local XZ plane), and r1 x HeightStretch
-	glm::vec3 r2 = axes[2];
-	if (r2 != glm::vec3(0.0f))
-	{
-		r2 /= glm::length(r2);
-	}
-	glm::vec2 d(position.x - camera.x, position.z - camera.z);
-	if (d != glm::vec2(0.0f))
-	{
-		d /= glm::length(d);
-	}
-	const float theta = std::atan2(d.y, d.x) - std::atan2(r2.z, r2.x);
-	const float c = std::cos(theta);
-	const float s = std::sin(theta);
-	const glm::vec3 r0 = axes[0];
-	axes[0] = c * r0 + s * axes[2];
-	axes[2] = c * axes[2] - s * r0;
-	axes[1] *= heightStretch;
-}
-
 std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 {
 	std::vector<Instance> result;
@@ -254,12 +231,18 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 				continue;
 			}
 			// fn_00679920: the PSR matrix (rotation x scale, the Y axis x the stretch): the LHMatrix rows r0, r1, r2 are
-			// the columns here. FaceCameraSprite (0x67A250, no spell file sets it) is not ported.
+			// the columns here
 			glm::mat3 axes = atom.rotation * atom.scale;
 			axes[1] *= atom.stretch;
+			// Particle3DObj::DrawAt 0x679FD0: FaceCamera (+0x4D) first (0x67A040), else FaceCameraSprite (+0x4C, 0x67A250;
+			// no spell file sets it), which starts again from the identity x the scale
 			if (creator->faceCamera && camera != nullptr)
 			{
-				FaceCamera(axes, atom.position, *camera, creator->heightStretch);
+				graphics::billboard::ParticleYaw(axes, atom.position, *camera, creator->heightStretch);
+			}
+			else if (creator->faceCameraSprite && camera != nullptr)
+			{
+				axes = graphics::billboard::FullSprite(atom.position, *camera, atom.scale);
 			}
 			glm::mat4 model(axes);
 			model[3] = glm::vec4(atom.position, 1.0f);

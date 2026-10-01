@@ -43,7 +43,7 @@ uint32_t AddResourceToPos(const glm::vec3& position, const Dropper& dropper, Res
 
 /// fn_0066D1A0: the pile sound at pos, by type and amount (food < 200: G_PileFoodSmall_01..06 (77 + t % 6), else
 /// G_PileFood_01/02 (75 + (t & 1)); wood < 200: G_PileWoodSmall_01..06 (92 + t % 6), else G_PileWood_01..06 (86 + t % 6))
-void PlayPileSound(const glm::vec3& position, ResourceType type, uint32_t amount);
+void PlayPileSound(entt::entity pile, const glm::vec3& position, ResourceType type, uint32_t amount);
 /// The InGame.sad sample fn_0066D1A0 picks for a random value t
 [[nodiscard]] int PileSoundSample(ResourceType type, uint32_t amount, uint32_t t);
 

@@ -13,10 +13,8 @@
 #include <cmath>
 
 #include <memory>
-#include <numbers>
 
-#include <glm/geometric.hpp>
-
+#include "3D/Billboard.h"
 #include "Camera/Camera.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -72,18 +70,16 @@ public:
 		}
 		// v += (velocity - v) (1 - e^(-dt rate)) ([0xD4E0EC] = dt; f2xm1 / fscale for the exponential)
 		data.velocity += (atom.velocity - data.velocity) * (1.0f - std::exp(-effect.GetDt() * data.rate));
-		// u = -v + (0, ProportionDefault, 0), in the camera's frame (the LHMatrix at 0xEA1D28 x u: its columns 0 and 1).
-		// (inferido) 0xEA1D28 taken as the world-to-camera rotation: x = u . right, y = u . up
+		// u = -v + (0, ProportionDefault, 0), in the camera's frame (the LHMatrix at 0xEA1D28 x u: its columns 0 and 1,
+		// the W2C rotation: x = u . right, y = u . up). (inferido) the vector u: the code before 0x69A8ED is not read
 		const glm::vec3 u(-data.velocity.x, -data.velocity.y + proportionDefault, -data.velocity.z);
 		if (!Locator::camera::has_value())
 		{
 			return true;
 		}
 		const auto& camera = Locator::camera::value();
-		const float x = glm::dot(u, camera.GetRight());
-		const float y = glm::dot(u, camera.GetUp());
-		// SetAngleY(atan2(-y, x) + pi / 2) ([0x8C78D8])
-		atom.rotation = AngleY(std::atan2(-y, x) + std::numbers::pi_v<float> * 0.5f);
+		// SetAngleY(atan2(-y, x) + pi / 2) ([0x8C78D8]), billboard::ScreenVelocity
+		atom.rotation = AngleY(graphics::billboard::ScreenVelocity(u, camera.GetRight(), camera.GetUp()));
 		return true;
 	}
 	float smoothFactor, proportionDefault;

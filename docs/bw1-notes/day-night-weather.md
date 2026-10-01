@@ -100,7 +100,8 @@ original, hasta el sexto decimal.
     [rendering.md](rendering.md#cielo-sol-luna-y-nubes-original)). Las dos luces de la puerta nórdica
     (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta) están hechas (5877f018, ver map-loading.md).
   - Informe: `night_visuals.txt`, secciones 3 y 5.
-- **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`; informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
+- **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`, desde B3 del audio un `audio::tags` por farola,
+  [audio.md](audio.md#b3-soundtag-completo); informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
   `d_soundtag.txt`, `d_gaudio_sfx.txt`, `d_5e5830.txt`, `d_streetlantern.txt`, script `sadhdr.py`):
   - **Creación**: `GStreetLantern::CallVirtualFunctionsForCreation` 0x734810 crea un `SoundTag` (`fn_0071E8C0`,
     +0x60) con desplazamiento (0, `Object::GetHeight` 0x638120, 0), muestra 0x93, 3D, modo 2, bucles −1, banco 1

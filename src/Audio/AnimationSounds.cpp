@@ -9,41 +9,36 @@
 
 #include "AnimationSounds.h"
 
+#include <cstdio>
 #include <cstdlib>
-#include <cstring>
 
-#include <algorithm>
 #include <array>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <LNDFile.h>
-#include <PackFile.h>
-#include <entt/core/hashed_string.hpp>
-#include <fmt/format.h>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DAnim.h"
-#include "3D/LandIslandInterface.h"
-#include "Audio/AnimEffectBank.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/SoundMap.h"
+#include "Audio/Audio.h"
+#include "Audio/Sound.h"
 #include "Camera/Camera.h"
-#include "Common/RandomNumberManager.h"
+#include "Camera/CameraModel.h"
 #include "ECS/Animations.h"
-#include "ECS/Components/AudioEmitter.h"
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "FileSystem/FileSystemInterface.h"
-#include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
+
+// A caller of the audio core (the animated things are ECS entities): the anim effects themselves, their tables and
+// GAudio's filters are audio::SamplePlayAnimEffect (Audio.h, AnimEffects.h).
 
 namespace openblack::audio
 {
@@ -64,31 +59,27 @@ struct ClipSounds
 	std::vector<Event> events;
 };
 
-struct Tables
+/// Data\SmallSounds.SAS as LoadAllAnimations 0x550180 keeps it in the clips (+0x44 group, +0x48 events)
+struct Clips
 {
 	bool loaded {false};
 	std::unordered_map<int32_t, ClipSounds> clips;
-	AnimEffectBank editor {"editor.sad", {}, {}, {}};
-	AnimEffectBank banter {"VillagersBanter.sad", {}, {}, {}}; ///< soundIds 0x92-0x94
 };
 
-/// A playing sample that follows its object (the game's 3D callback 0x427200, Get3DSoundPos)
-struct Playing
+bool Trace()
 {
-	entt::entity emitter;
-	entt::entity owner;
-	entt::id_type sound;
-};
-std::vector<Playing> g_Playing;
+	static const bool k_Trace = std::getenv("OPENBLACK_ANIM_TRACE") != nullptr;
+	return k_Trace;
+}
 
-Tables& Load()
+Clips& Load()
 {
-	static Tables tables;
-	if (tables.loaded)
+	static Clips table;
+	if (table.loaded)
 	{
-		return tables;
+		return table;
 	}
-	tables.loaded = true;
+	table.loaded = true;
 	auto& fileSystem = Locator::filesystem::value();
 	auto& animations = Locator::resources::value().GetAnimations();
 	std::unordered_map<std::string, int32_t> byName;
@@ -128,50 +119,68 @@ Tables& Load()
 			}
 			if (const auto index = byName.find(name); index != byName.end())
 			{
-				tables.clips[index->second] = std::move(clip);
+				table.clips[index->second] = std::move(clip);
 			}
 		}
-		const auto audio = fileSystem.GetPath<filesystem::Path::Audio>();
-		tables.editor.Load(audio / "Sfx" / "Game" / "editor.sad");
-		tables.banter.Load(audio / "Dialogue" / "VillagersBanter.sad");
 	}
 	catch (const std::exception& error)
 	{
 		SPDLOG_LOGGER_ERROR(spdlog::get("audio"), "Animation sounds: {}", error.what());
 	}
-	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sounds: {} clips, {} + {} effect rows", tables.clips.size(),
-	                   tables.editor.rows.size(), tables.banter.rows.size());
-	return tables;
+	const auto* editor = anim_effects::Tables(Bank(SfxBank::Editor));
+	const auto* banter = anim_effects::Tables(Bank(SfxBank::VillagersBanter));
+	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sounds: {} clips, {} + {} effect rows", table.clips.size(),
+	                   editor != nullptr ? editor->rows.size() : 0, banter != nullptr ? banter->rows.size() : 0);
+	return table;
 }
 
-/// GSoundMap::GetSurfaceType (0x71D8E0): 6 off the map, 7 on a water cell, else the surfaceSound of the cell's material
-/// (the water session's single source of the MapCoords cell predicates, ecs::sea_cells)
-int32_t SurfaceType(glm::vec3 position)
+/// The sample a play put on its channel, for the trace
+void TracePlay(Channel channel, int32_t clip, int32_t time, int32_t soundId, const AnimKey& key, BankId bank)
 {
-	return ecs::sea_cells::GetSurfaceType(position);
+	if (channel == k_NoChannel)
+	{
+		return;
+	}
+	const auto* sound = sample_play::GetSound(sample_play::SoundOf(channel));
+	if (sound == nullptr)
+	{
+		return;
+	}
+	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: clip {} at {} ms, id {} surface {} -> {}/{} ({})", clip, time,
+	                   soundId, key[3], BankGroup(bank), sound->id, sound->name);
 }
 } // namespace
 
 void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int32_t to)
 {
-	if (!Locator::audio::has_value() || !Locator::camera::has_value() || from >= to)
+	if (!Locator::entitiesRegistry::has_value() || from >= to)
 	{
 		return;
 	}
-	const auto& tables = Load();
-	const auto sounds = tables.clips.find(clip);
-	if (sounds == tables.clips.end())
+	const auto& clips = Load();
+	const auto sounds = clips.clips.find(clip);
+	if (sounds == clips.clips.end())
 	{
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	if (registry.TryGet<const ecs::components::Transform>(entity) == nullptr)
+	// fn_00516510 0x516548: this->Get3DSoundPos(&p) (GameThingWithPos: its position), else nothing
+	const auto* transform = registry.TryGet<const ecs::components::Transform>(entity);
+	const auto camera = ListenerPoint();
+	if (transform == nullptr || !camera)
 	{
 		return;
 	}
+	const auto position = transform->position;
+	// 0x51655F..0x5165B0: |p - LH3DTech::g_camera|, the distance of every event of the clip (also for banter heard at
+	// the abode)
+	const float distance = glm::distance(position, *camera);
+	// 0x51662B: GSoundMap::GetSurfaceType(this->MapCoords) (agua's ecs::sea_cells, the single source)
+	const int32_t surface = ecs::sea_cells::GetSurfaceType(position);
 	const auto* villager = registry.TryGet<const ecs::components::Villager>(entity);
 	const auto* action = registry.TryGet<const ecs::components::LivingAction>(entity);
-	auto& audio = Locator::audio::value();
+	const auto editor = Bank(SfxBank::Editor);                 // GAudio+0x3B0
+	const auto banter = Bank(SfxBank::VillagersBanter);        // GAudio+0x3C8
 	for (const auto& event : sounds->second.events)
 	{
 		if (event.time < from || event.time >= to)
@@ -181,149 +190,145 @@ void AnimationSounds::Fire(entt::entity entity, int32_t clip, int32_t from, int3
 		int32_t voice = 2;
 		if (sounds->second.group == 1)
 		{
+			// 0x5165BC: IsAlive (vtable +0x5B4), else the whole list is dropped
 			if (villager != nullptr && villager->life <= 0.0f)
 			{
-				return; // not alive: the whole list is dropped
+				return;
 			}
 			voice = villager == nullptr || villager->lifeStage == ecs::components::Villager::LifeStage::Child ? 3
 			        : villager->sex == ecs::components::Villager::Sex::FEMALE                              ? 2
 			                                                                                                : 1;
 		}
-		// fn_00516510's cases: banter from VillagersBanter.sad (0x92 heard at the villager's house), the thrown
-		// screams only just after being thrown
-		auto owner = entity;
-		const AnimEffectBank* bank = &tables.editor;
+		const AnimKey key = {voice, 2, sounds->second.group, surface, event.soundId};
+		// fn_00516510's cases (0x51663A..0x5167A8)
+		Owner owner = Owner::Thing(entity);
+		BankId bank = editor;
 		if (event.soundId >= 0x92 && event.soundId <= 0x94)
 		{
-			bank = &tables.banter;
+			bank = banter;
 			if (event.soundId == 0x92)
 			{
-				if (villager == nullptr || villager->abode == entt::null || !registry.Valid(villager->abode) ||
-				    !registry.AllOf<ecs::components::Transform>(villager->abode))
+				// 0x516751: IsVillager, else nothing; 0x51675D: Villager::GetAbode, passed as it is (no abode: owner 0, so
+				// LHaudio puts it at the camera, fn_00427200 0x4272F9)
+				if (villager == nullptr)
 				{
 					continue;
 				}
-				owner = villager->abode;
+				owner = villager->abode != entt::null && registry.Valid(villager->abode) ? Owner::Thing(villager->abode)
+				                                                                        : Owner::None();
 			}
 		}
 		else
 		{
+			// 0x51665F..0x5166A5: a villager's footstep (4) is not heard while a script holds the wide screen (HelpSystem
+			// +0x45E8 / +0x45EC) unless the villager is in a script (IsInScript, vtable +0x448: openblack has no
+			// scripted villagers, inferred false). The jump goes to the function's end (0x5166A4 jne 0x5167B8): the rest of
+			// the clip's events are dropped too, as for a dead villager.
+			if (event.soundId == 4 && villager != nullptr && IsScriptWideScreen())
+			{
+				return;
+			}
+			// 0x5166B1 / 0x5166F8: P_THROWN (399) and P_THROWN_VORTEX (401) only just after the throw
+			// (TurnsSinceStateChange < 15 / < 10)
 			const uint16_t turns = action != nullptr ? action->turnsSinceStateChange : 0;
 			if ((clip == 399 && (villager == nullptr || turns >= 15)) || (clip == 401 && (villager == nullptr || turns >= 10)))
 			{
 				continue;
 			}
 		}
-		const auto& position = registry.Get<const ecs::components::Transform>(owner).position;
-		const std::array<int32_t, 5> key = {voice, 2, sounds->second.group, SurfaceType(position), event.soundId};
-		const auto list = bank->FindList(key);
-		const bool trace = std::getenv("OPENBLACK_ANIM_TRACE") != nullptr;
-		if (list.empty())
+		if (Trace())
 		{
-			if (trace)
+			const auto* tables = anim_effects::Tables(bank);
+			if (tables == nullptr || tables->FindList(key).empty())
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: clip {} id {} key {},{},{},{}: no row", clip,
 				                   event.soundId, key[0], key[2], key[3], key[4]);
+				continue;
 			}
-			continue;
 		}
-		if (event.action != 0)
+		// 0x5167A8: GAudio::SamplePlayAnimEffect(owner, dist, key, action, bank, 1, 0.0f, 0.0f)
+		const auto channel = SamplePlayAnimEffect(owner, distance, key, static_cast<AnimAction>(event.action), bank, true,
+		                                          0.0f, 0.0f);
+		if (Trace())
 		{
-			// LHSampleStop of every sample of the list playing for that object
-			for (auto& playing : g_Playing)
-			{
-				if (playing.owner == owner && registry.Valid(playing.emitter) &&
-				    std::ranges::any_of(list, [&](int32_t sample) { return bank->SoundId(sample) == playing.sound; }))
-				{
-					audio.StopEmitter(playing.emitter);
-				}
-			}
-			continue;
-		}
-		const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
-		const auto id = bank->SoundId(sample);
-		if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
-		{
-			continue;
-		}
-		const auto& sound = audio.GetSound(id);
-		// LHSamplePlay: not beyond the sample's max distance from the camera (NULL.wav fillers have 0: never)
-		if (glm::distance(position, Locator::camera::value().GetOrigin()) > sound.maxDistance)
-		{
-			if (trace && bank == &tables.banter)
-			{
-				SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: banter {} too far ({:.1f} > {})", sample,
-				                   glm::distance(position, Locator::camera::value().GetOrigin()), sound.maxDistance);
-			}
-			continue;
-		}
-		const auto emitter = audio.CreateEmitter(id, PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f), sound.volume,
-		                                         AudioStatus::Playing, false);
-		registry.Get<ecs::components::Transform>(emitter).position = position;
-		audio.PlayEmitter(emitter);
-		g_Playing.push_back({emitter, owner, id});
-		if (trace)
-		{
-			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: clip {} at {} ms, id {} surface {} -> {}/{} ({})", clip,
-			                   event.time, event.soundId, key[3], bank->name, sample, sound.name);
+			TracePlay(channel, clip, event.time, event.soundId, key, bank);
 		}
 	}
 }
 
 void AnimationSounds::PlayFromTable(entt::entity owner, glm::vec3 position, const std::array<int32_t, 5>& key)
 {
-	if (!Locator::audio::has_value() || !Locator::camera::has_value())
+	const auto camera = ListenerPoint();
+	if (!camera)
 	{
 		return;
 	}
-	const auto& bank = Load().editor;
-	const auto list = bank.FindList(key);
-	if (list.empty())
+	// Tree::Draw: SamplePlayAnimEffect(tree, |tree - camera| (0x74AFFD / 0x74B250), key, 0, editor (GAudio+0x3B0),
+	// track, 0, 0). The two callers of PlayFromTable are those two sites: the bend ({c, *, *, 10, 75}, 0x74B009) passes
+	// track 0 (push ebp = 0, 0x74AFE1), the ambient rustle ({*, *, 20, *, 70}, 0x74B25C) track 1 (push 1, 0x74B1FA).
+	// PlayFromTable has no track argument (its signature stays for ECS/Trees.cpp), so the site is told by the key's
+	// soundId (openblack)
+	const bool track = key[4] == 70;
+	const auto bank = Bank(SfxBank::Editor);
+	const auto channel = SamplePlayAnimEffect(Owner::Thing(owner), glm::distance(position, *camera), key, AnimAction::Play,
+	                                          bank, track, 0.0f, 0.0f);
+	if (Trace() && channel != k_NoChannel)
 	{
-		return;
-	}
-	const auto sample = list.size() == 1 ? list[0] : list[Locator::rng::value().NextValue<size_t>(0, list.size() - 1)];
-	const auto id = bank.SoundId(sample);
-	if (sample <= 0 || !Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	auto& audio = Locator::audio::value();
-	const auto& sound = audio.GetSound(id);
-	// LHSamplePlay: not beyond the sample's max distance from the camera
-	if (glm::distance(position, Locator::camera::value().GetOrigin()) > sound.maxDistance)
-	{
-		return;
-	}
-	const auto emitter = audio.CreateEmitter(id, PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f), sound.volume,
-	                                         AudioStatus::Playing, false);
-	Locator::entitiesRegistry::value().Get<ecs::components::Transform>(emitter).position = position;
-	audio.PlayEmitter(emitter);
-	g_Playing.push_back({emitter, owner, id});
-	if (std::getenv("OPENBLACK_ANIM_TRACE") != nullptr)
-	{
-		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: key {},{},{},{},{} -> editor.sad/{} ({})", key[0], key[1],
-		                   key[2], key[3], key[4], sample, sound.name);
+		if (const auto* sound = sample_play::GetSound(sample_play::SoundOf(channel)); sound != nullptr)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Animation sound: key {},{},{},{},{} -> editor.sad/{} ({})", key[0],
+			                   key[1], key[2], key[3], key[4], sound->id, sound->name);
+		}
 	}
 }
 
 void AnimationSounds::Update()
 {
+	// The channels follow their owner once a turn (LHSampleUpdate3DChannels, audio::ProcessTurn): nothing per frame.
+}
+
+void AnimationSounds::RunTestHooks(uint32_t turn)
+{
+	const char* view = std::getenv("OPENBLACK_AUDIO_TEST_VIEW");
+	if (view == nullptr || !Locator::entitiesRegistry::has_value() || !Locator::camera::has_value())
+	{
+		return;
+	}
+	unsigned at = 0;
+	int wanted = 0;
+	float distance = 4.0f;
+	if (std::sscanf(view, "%u,%d,%f", &at, &wanted, &distance) < 2 || turn != at)
+	{
+		return;
+	}
 	auto& registry = Locator::entitiesRegistry::value();
-	std::erase_if(g_Playing, [&registry](const Playing& playing) {
-		if (!registry.Valid(playing.emitter) || !registry.AllOf<ecs::components::AudioEmitter>(playing.emitter))
-		{
-			return true;
-		}
-		if (registry.Valid(playing.owner))
-		{
-			if (const auto* at = registry.TryGet<const ecs::components::Transform>(playing.owner); at != nullptr)
-			{
-				registry.Get<ecs::components::Transform>(playing.emitter).position = at->position;
-			}
-		}
-		return false;
-	});
+	int clip = -1;
+	if (const char* anim = std::getenv("OPENBLACK_AUDIO_TEST_ANIM"); anim != nullptr)
+	{
+		clip = std::atoi(anim);
+	}
+	int index = 0;
+	registry.Each<const ecs::components::Villager, const ecs::components::Transform>(
+	    [&](entt::entity entity, const ecs::components::Villager&, const ecs::components::Transform& t) {
+		    if (clip >= 0)
+		    {
+			    auto& animation = registry.AssignOrReplace<ecs::components::SkeletalAnimation>(entity);
+			    animation.clip = ecs::ClipId(static_cast<uint32_t>(clip));
+			    animation.clipIndex = clip;
+			    animation.locked = true;
+			    animation.hasClip = true;
+			    animation.time = 0.0f;
+			    animation.speed = 1.0f;
+		    }
+		    if (index++ != wanted)
+		    {
+			    return;
+		    }
+		    const glm::vec3 focus = t.position + glm::vec3(0.0f, 0.8f, 0.0f);
+		    Locator::camera::value().GetModel().SetFlight(focus + glm::vec3(0.0f, distance * 0.35f, distance), focus);
+		    SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio test: turn {}, camera on villager {} at ({:.1f}, {:.1f}, {:.1f}), clip {}",
+		                       turn, wanted, t.position.x, t.position.y, t.position.z, clip);
+	    });
 }
 
 } // namespace openblack::audio

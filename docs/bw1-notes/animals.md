@@ -2,7 +2,9 @@
 
 Toda la IA de los animales portada de runblack.exe (sesión "animales", 2026-09-30; commits 06fec160 herbívoros, mano y
 muerte · 2d629816 depredadores y huida · e3a9d81f aves · 333ad5ae API para los hechizos · 2894cfd9 aldeanos como presa,
-bandadas, edad, humo, reacciones de comida y objeto volador · f992a01a auditoría completa contra el original). bw1-decomp
+bandadas, edad, humo, reacciones de comida y objeto volador · f992a01a auditoría completa contra el original; 2026-10-01: a8e3313d rodeo, guaridas y animales de guion · 3f548aec
+reloj común · 19d165f3 avisos de muerte · 0b8471b2 agua de sea_cells · d207fdd4 aldeano comido por VillagerDead ·
+b7f48053 MOVE_GAME_THING). Relevo para quien continúe: `dev\tmp_dis\animals\HANDOVER.md`. bw1-decomp
 solo tiene stubs vacíos de Animal*.cpp: todo sale del ejecutable.
 
 Investigación con direcciones, en `C:\Users\diewgarc\dev\tmp_dis\animals\`: `grazing_ai.md` (herbívoros),
@@ -277,6 +279,26 @@ levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 
   cualquier hora sin mirar el hambre (Wolf::HideInLair 0x421A2E).
 - **No se puede comer** (+0x25 & 0x40, `components::CannotBeEaten`): lo pone el vórtice de tierra a tierra a todo lo que
   sale de él (fn_005FE3B0 0x5FE5DD) y los objetos de los puzles; no es presa y, si ya estaba derribado, sobrevive.
+
+## API para otras sesiones (`ECS/AnimalAI.h`)
+
+- **Hechizos** (Milagros): `CreateAnimal`, `MoveTo` (Living::SetupMoveToPos), `SetState` / `SetStateRaw` (vt+0x938),
+  `Destination`, `SetFinalDestination` (SpellWolf +0x148), `Kill` / `DestroyedByEffect` (0x41B1B0), `Remove`, `SetAlpha`.
+- **Muerte**: `AddDeathListener(fn)` → id / `RemoveDeathListener(id)`: se avisa a todos al empezar Living::SetDying
+  (vt+0x6A4), una vez por muerte y no mientras vuela; `SetDeathCallback` es un oyente único que sustituye al suyo.
+  `SetSpeciesDying(tipo, fn)` es el SetDying propio de una especie y sustituye a todo Living::SetDying. Lo usan
+  SpellDove 0x41F5C0, SpellBat (comparte la ranura de SpellDove) y SpellWolf 0x420CF0: un fundido durante
+  GetNumTurnsToDieOver = 20 turnos, sin cadáver; lo registra Milagros.
+- **Guion** (mapas): `ScriptMoveTo(e, xz)` = la rama Living de MOVE_GAME_THING (GScript 0x6F8F6C): nada en la mano; ya
+  allí (AreWeThere vt+0x85C) → `SetScriptState(IN_SCRIPT 4)`, si no `SetupMoveToPos(pos, IN_SCRIPT 4)`.
+  `SetScriptState(e, s)` = GScript::SetScriptState 0x6F82E0: StorePreviousState (0x417040: su estado final),
+  CallExitStateFunction (0x41A2C0, sin mirar su respuesta), SetState(0, s) (ningún estado de guion de animal tiene
+  función de entrada, 0x41A310), su clip (SetAnim vt+0x8FC) y el contador +0x58 a 0. «En el mapa» para un animal = no
+  en la mano [inferido].
+- **Aldeanos** (mapas): el comido muere por `ecs::villager::VillagerDead`; se esperan `villager::IsAtHome` (V4, excluir
+  de las presas a los que estén en casa) y la lista de los pastores (V10).
+- **Mano y física** (agua): `PlaceInHand`, `InitialisePhysics`, `EndPhysics`, `PutDown` (solo para el caso de
+  openblack sin cuerpo, `HandSystem::PlaceWithoutBody`; el original termina las físicas al momento, 0x5EFDF8).
 
 ## Manchas y malla de los animales
 

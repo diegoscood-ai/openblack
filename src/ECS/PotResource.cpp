@@ -27,7 +27,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
@@ -175,7 +175,7 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
 	if (info.potType != PotType::Pot && pot->type != PotInfo::HandWood && pot->type != PotInfo::HandFood)
 	{
-		pot_resource::PlayPileSound(transform->position, type, left);
+		pot_resource::PlayPileSound(object, transform->position, type, left);
 	}
 	uint32_t add = left;
 	if (static_cast<int32_t>(info.nextPotForResource) < 19 && pot->amount + add > info.maxAmountInPot)
@@ -274,27 +274,18 @@ int pot_resource::PileSoundSample(ResourceType type, uint32_t amount, uint32_t t
 	return type == ResourceType::Food ? 75 + static_cast<int>(t & 1) : 86 + static_cast<int>(t % 6);
 }
 
-void pot_resource::PlayPileSound(const glm::vec3& position, ResourceType type, uint32_t amount)
+void pot_resource::PlayPileSound(entt::entity pile, const glm::vec3& position, ResourceType type, uint32_t amount)
 {
-	// fn_0066D1A0: GetTickCount picks the sample (here the process's millisecond clock, not the game's generator), 3D at
-	// the pile (InGame bank, Global +0x3AC)
-	if (!Locator::audio::has_value() || !Locator::resources::has_value())
-	{
-		return;
-	}
-	const auto t = static_cast<uint32_t>(
-	    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-	const auto id = entt::hashed_string(fmt::format("InGame.sad/{}", PileSoundSample(type, amount, t)).c_str()).value();
-	if (!Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	auto& audio = Locator::audio::value();
-	const auto& sound = audio.GetSound(id);
-	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f),
-	                                         sound.volume, audio::AudioStatus::Playing, false);
-	Locator::entitiesRegistry::value().Get<Transform>(emitter).position = position;
-	audio.PlayEmitter(emitter);
+	// fn_0066D1A0: GetTickCount picks the sample (0x66D1D7 / 0x66D1E7: one call for the food sample and one for the wood
+	// one; a single reading here), then GAudio::PlaySoundEffect 0x429E30 (0x66D26A) with bank InGame (Global +0x3AC),
+	// owner the pile (this, +0x20), is3D 1, track 0, at the MapCoords' point
+	audio::PlayOptions options;
+	options.sample = {audio::Bank(audio::SfxBank::InGame), PileSoundSample(type, amount, audio::TickCount())};
+	options.owner = audio::Owner::Thing(pile);
+	options.is3D = true;
+	options.track = false;
+	options.position = position;
+	audio::PlaySoundEffect(options);
 }
 
 void pot_resource::SetSpeedUp(entt::entity pile, bool on)
@@ -380,7 +371,7 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		*newPile = pile;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	PlayPileSound(registry.Get<const Transform>(pile).position, type, left);
+	PlayPileSound(pile, registry.Get<const Transform>(pile).position, type, left);
 	auto& pot = registry.Get<Pot>(pile);
 	pot.poisoned = poisoned || pot.poisoned; // SetPoisoned (vt 0x69C)
 	if (Trace())

@@ -497,8 +497,10 @@ El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [
   modo 2 deja el canal que ya suena. En openblack va por `sample_play` (dueño `Owner::Tag`), así cuenta en los 16
   canales de LHaudio; `IsPlaying` = `LHSampleIsPlaying` (fn_0042A2D0) y `ReleaseLoop` = 0x42A310. `SetActive(0)` corta
   en seco (LHSampleStop); `Delete` suelta el bucle (LHSampleReleaseLoop) y la etiqueta muere al terminar la pasada.
-  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Es la generalización de la
-  idea de `LanternSounds` de la rama principal (farolas, muestra 0x93); esa todavía no usa este módulo.
+  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Desde B3 del audio es el
+  SoundTag completo (`audio::tags`, [audio.md](audio.md#b3-soundtag-completo)): `Delete` = ToBeDeleted 0x71ECB0 →
+  CreateSoundTagForDeadObject 0x71ECD0 (suelta el bucle solo si suena con vueltas), y las farolas (`LanternSounds`)
+  son tags de este módulo.
 
 ## El agua en otras páginas
 
@@ -615,6 +617,9 @@ del original.
 - `dev\tmp_dis\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
   `sea_render.md`; scripts de RE en `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
   `scan_tree5c.py`) y `re\NOTES.md`.
+- `dev\tmp_dis\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
+  `map_around.py`: el alfa costero frente a las celdas 0x02 en las 6 tierras) y `HANDOVER.md` (cómo continuar el área
+  del agua: worktree `dev\openblack-agua`, rama `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` y `agua_shot.sh`).
 - `dev\tmp_dis\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
 - `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca), `dev\tmp_dis\render\cut_notes.txt` y `objshadow_notes.txt`.
 - `bw1-decomp` (`src/Black/Object.cpp`, `include/chlasm/ScriptEnums.h`).

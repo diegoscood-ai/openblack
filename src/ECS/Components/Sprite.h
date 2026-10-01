@@ -16,6 +16,9 @@
 
 namespace openblack::ecs::components
 {
+/// Drawn as LH3DSprite::Draw 0x840530 mode A with angle 0 and no origin (Renderer.cpp drawSprite): the entity's
+/// Transform gives the position and the half width / half height (scale x / y); Transform::rotation is ignored (mode A
+/// only has the +0x14 roll)
 struct Sprite
 {
 	graphics::TextureHandle texture;

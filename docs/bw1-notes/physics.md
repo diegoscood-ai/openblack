@@ -108,14 +108,18 @@ Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Inform
 - **Sonido de choque** (`AttemptToAddSoundEvent` 0x6464F0), una vez por turno en cada cuerpo despierto con algo que lo
   golpeó o `F > 0,5·m·g`: tipo de colisión de cada lado (info `collideSound`; trozo = BUSH; DeadTree malla 406 =
   HOLLOW_WOOD; sin objeto = GROUND, o WATER en el mar), nivel por `g = impacto / (peso de info sin escalar · 9,81)`
-  (3 si < 1,25, 1 si > 3, si no 2), y la muestra de `editor.sad` de la tabla del original, en 3D sobre el objeto. Una
-  pareja no vuelve a sonar hasta dos turnos después. Una roca contra un edificio: suena el edificio.
-- **Edificios**: golpe medio 423–425 y flojo 426–430 (`G_Rock_V_Ground_M/S`), derrumbe 398–406 (`G_Crash_Abode`), en 3D.
-  (Corrige 431–447, que salían de leer la tabla del banco con una columna de desfase.)
+  (3 si < 1,25, 1 si > 3, si no 2), y `GAudio::SamplePlayAnimEffect(objeto, |g_camera − punto|, {nivel, 0, A, B, 75},
+  0, editor.sad, track = A ≠ 0x16)` (0x646919): la muestra la elige la tabla de animación de `editor.sad` en el núcleo
+  del audio (B4, [audio.md](audio.md#b4-los-llamadores-del-mundo-en-los-canales)), en 3D en el objeto, que es el dueño
+  del canal. Una pareja no vuelve a sonar hasta dos turnos después. Una roca contra un edificio: suena el edificio.
+- **Edificios**: golpe medio {2, 0, 0x16, 0x10, 75} y flojo {3, …} (`G_Rock_V_Ground_M/S`, 0x406610), derrumbe
+  {1, 0, 0x16, 9, 75} (`G_Crash_Abode`, 0x40671D), en 3D con el edificio de dueño. (Corrige 431–447, que salían de leer
+  la tabla del banco con una columna de desfase.)
 - **Polvo**: al caer al suelo, 6 bocanadas de `data\blobs.raw` (filas 2–3), color 0x50806040, tamaño `min(2R, 5)`,
   ±2 m/s, vida 1 s de juego, crecen en 0,125 s y encogen hasta 0; en el mar color 0x28C8F0F4 + chapoteo + anillo;
   en celdas someras, anillo + polvo. Cada trozo de edificio suelta una por vértice (0x80706050, tamaño 2).
-- **Silbido** (G_ROCKPAST, `InGame.sad` 69–73): un cuerpo que entra a más de 20 m/s en la esfera de 10 m de la cámara.
+- **Silbido** (G_ROCKPAST, `InGame.sad` 69–73): un cuerpo que entra a más de 20 m/s en la esfera de 10 m de la cámara:
+  `PlaySoundEffect(0, 69 + GetTickCount() % 5, modo 2, 0, 0, 2D, InGame)` (0x645C12).
 - **Edificio golpeado a medio construir**: sobre su FragMesh se dibuja el modelo intacto recortado a
   `pos.y + pct·alto` (pct = `(vida − s)/(1 − s)`, s = 1,1·vida − 0,1 al golpear: 1/11), con pared interior a 0,35 (0,2 si
   el material es de dos caras), tapa en el corte y el andamio (la submalla de mayor status) saliendo de la tierra; nada
@@ -175,7 +179,7 @@ Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Inform
   coger se golpea con un clic corto (< 225 ms). Condición: altura > 0,7. Sin contador de golpes.
 - Salen dos rocas del mismo tipo, escala × 0,7935 (∛½: la mitad de volumen), solo el ángulo Y, en
   `Pos ± (cos a, 0, sin a)·0,7935·R2D` con `a` al azar; la original se borra y las mitades entran en física (caen o
-  siguen volando con su velocidad). Sonido G_RockTap_01..04 en rotación, en la mano.
+  siguen volando con su velocidad). Sonido G_RockTap_01..04 (130 + contador 0xD559AC) en 3D en el punto de la mano, con la roca de dueño (0x6E751D).
 - Los impactos fuertes también las parten (ver daño).
 
 ## Pendiente

@@ -21,6 +21,7 @@
 #include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
 
+#include "3D/Billboard.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
@@ -41,8 +42,7 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 	};
 	const auto& textures = Locator::resources::value().GetTextures();
 	const auto* program = _shaderManager->GetShader("WorldQuad");
-	const glm::vec3 right = camera.GetRight();
-	const glm::vec3 up = camera.GetUp();
+	const auto cameraFrame = billboard::CameraFrame::From(camera);
 
 	// atoms in list order (one Z-sorter object per effect, AddDrawing); consecutive atoms with the same material batched
 	size_t i = 0;
@@ -66,45 +66,43 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 			const float frames = static_cast<float>(c->numFrames);
 			float frame = atom.frame;
 			frame = c->loopAnim ? std::fmod(std::fmod(frame, frames) + frames, frames) : std::clamp(frame, 0.0f, frames - 1.0f);
-			const int cell = (c->fileOffset + static_cast<int>(frame)) & 63;
-			const float n = static_cast<float>(c->spritesPerRow);
-			const glm::vec2 uv0(static_cast<float>(cell % c->spritesPerRow) / n, static_cast<float>(cell / c->spritesPerRow) / n);
-			const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / n);
-			const float size = std::max(atom.scale, 1e-4f);
-			const float height = size * atom.stretch;
 			const float alpha = std::clamp(atom.alpha * static_cast<float>(c->scaleAlpha) / 255.0f, 0.0f, 255.0f);
 			const uint32_t abgr = (static_cast<uint32_t>(alpha) << 24) | (static_cast<uint32_t>(atom.colour[2]) << 16) |
 			                      (static_cast<uint32_t>(atom.colour[1]) << 8) | atom.colour[0];
-			glm::vec3 centre = atom.position;
-			glm::vec3 across;
-			glm::vec3 along;
-			if (c->horizontal)
+			// Particle3DSprite::DrawAt 0x67AE80 fills the creator's LH3DSprite and draws it (0x67B0DF)
+			billboard::Sprite sprite;
+			sprite.position = atom.position;
+			// 0x67AEA4..0x67AED7: size = the PSR scale, at least 0.0001 ([0x8BF518]); the stretch is the height
+			sprite.size = std::max(atom.scale, 1e-4f);
+			sprite.height = atom.stretch;
+			// CreateSprite 0x6AA0A8..0x6AA0BD and DrawAt 0x67AEC4..0x67AF2D: ox = OriginX size, oy = OriginY size stretch;
+			// LH3DSprite::Draw subtracts them from the local corners
+			sprite.origin = glm::vec2(c->originX * sprite.size, c->originY * sprite.size * sprite.height);
+			// 0x67AF6B..0x67AF87: the angle is atan2(M[0][2], M[0][0]) of the PSR unless IgnoreRotation; [0xC029A8] is 1
+			// in the binary and only read there, so the roll is always on. With IgnoreRotation +0x14 keeps what it has:
+			// (inferido) the 0 of SetToZero 0x8404F0, each creator having its own sprite (CreateSprite 0x6AA070 calls
+			// fn_006A84C0, not read, taken as LH3DSprite::Create)
+			sprite.angle = c->ignoreRotation ? 0.0f : std::atan2(atom.rotation[0][2], atom.rotation[0][0]);
+			// 0x67AFAB..0x67AFBE: CentreAtBase raises the position by height x size x 0.5 ([0x8AA3B4])
+			if (c->centreAtBase)
 			{
-				// flag 0x40: a flat XZ quad turned about Y
-				across = glm::normalize(glm::vec3(atom.rotation[0].x, 0.0f, atom.rotation[0].z) + glm::vec3(1e-6f, 0.0f, 0.0f)) * size;
-				along = glm::vec3(-across.z, 0.0f, across.x) * (height / size);
+				sprite.position.y += sprite.height * sprite.size * 0.5f;
 			}
-			else
+			// 0x67B0A2..0x67B0BA: the cell in the flags' low 6 bits; SetHorozontal is flag 0x40 (0x6AA093), which also
+			// takes the origin and the angle (as the yaw)
+			sprite.cell = static_cast<uint8_t>((c->fileOffset + static_cast<int>(frame)) & 63);
+			sprite.cellsPerRow = static_cast<uint8_t>(c->spritesPerRow);
+			sprite.horizontal = c->horizontal;
+			const auto quad = billboard::SpriteQuad(sprite, cameraFrame);
+			if (!quad.has_value())
 			{
-				// a screen-aligned quad, rolled by atan2(M[0][2], M[0][0]) unless IgnoreRotation
-				const float roll = c->ignoreRotation ? 0.0f : std::atan2(atom.rotation[0][2], atom.rotation[0][0]);
-				const float cr = std::cos(roll);
-				const float sr = std::sin(roll);
-				across = (right * cr + up * sr) * size;
-				along = (up * cr - right * sr) * height;
-				if (c->centreAtBase)
-				{
-					centre += glm::vec3(0.0f, height, 0.0f);
-				}
-				centre += across * c->originX + along * c->originY;
+				continue;
 			}
-			const std::array<glm::vec3, 4> p = {centre - across + along, centre + across + along, centre + across - along,
-			                                    centre - across - along};
-			const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
-			                                     glm::vec2(uv0.x, uv1.y)};
-			for (const int k : {0, 1, 2, 0, 2, 3})
+			for (const int k : billboard::k_SpriteTriangles)
 			{
-				vertices.push_back({p[k].x, p[k].y, p[k].z, uv[k].x, uv[k].y, abgr});
+				const auto& p = quad->corners.at(static_cast<size_t>(k));
+				const auto& uv = quad->uv.at(static_cast<size_t>(k));
+				vertices.push_back({p.x, p.y, p.z, uv.x, uv.y, abgr});
 			}
 		}
 		i = j;

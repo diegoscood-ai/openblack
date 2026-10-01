@@ -108,7 +108,7 @@ class Renderer final: public RendererInterface
 	/// and its index in _frameSmoke (RendererSmoke.cpp)
 	std::vector<std::pair<float, uint32_t>> CollectChimneySmoke(const Camera& camera) const;
 	/// One smoke of _frameSmoke: its visible puffs in their order 0..9 (LH3DSprite::Draw 0x840530, material g_smoke_mat)
-	void DrawChimneySmoke(graphics::RenderPass viewId, uint32_t index) const;
+	void DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
 	/// The puffs of every smoke of this frame, filled by CollectChimneySmoke
 	mutable std::vector<std::vector<ecs::chimney_smoke::DrawnPuff>> _frameSmoke;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)

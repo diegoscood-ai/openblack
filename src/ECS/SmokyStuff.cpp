@@ -60,7 +60,7 @@ void Create(const glm::vec3& position, int32_t mode, float size, uint32_t colour
 		}
 		else if (const float length = glm::length(puff.velocity); length > 0.0f)
 		{
-			// 0x823DA7..0x823E18: mode != 0 (RootsPile 0x8252EB): 1.5 x size along the direction ([0x8AB24C])
+			// 0x823DA7..0x823E18: mode != 0 (ground_marks, RootsPile 0x8252EB): 1.5 x size along the direction ([0x8AB24C])
 			puff.velocity *= 1.5f * size / length;
 		}
 		puff.position += position;

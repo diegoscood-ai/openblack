@@ -17,11 +17,10 @@ namespace openblack::psys::water_rings
 {
 
 inline constexpr float k_ExplosionRingGrowth = 10.0f; ///< [0x9357D8]
-inline constexpr float k_ExplosionScorchSize = 8.0f;  ///< [0x9357D4]: the crater RootsPile's scale (ECS/RootsPile), unused here
+inline constexpr float k_ExplosionScorchSize = 8.0f;  ///< [0x9357D4], the scorch sprite (id 0x251) on dry land
 
 /// UR_Explosion::InitCollection 0x67E200 (0x67E347..0x67E55B): MapCoords(point).IsDryLand() (altitude >= 4) -> false,
-/// and the caller puts the crater (RootsPile, pack mesh 0x251, scale 8) at a random angle PSysFloatRand(2 pi)
-/// (fn_008251C0, ECS/RootsPile), no ring.
+/// and the caller puts the scorch sprite 0x251 of size 8 at a random angle PSysFloatRand(2 pi) (fn_008251C0), no ring.
 /// Otherwise (water or altitude < 4) three rings at the point, growth 10 x 0.5, x 0.7 and x 1, cell 0x30, colour
 /// 0xFFFFFFFF, angle 0, rate and aspect 1; each is skipped when the 1024 slots are full. Returns true then.
 bool AddExplosionRings(const glm::vec3& point);

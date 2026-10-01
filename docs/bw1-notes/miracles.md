@@ -1107,7 +1107,9 @@ donde llega, y `MoveMapObject`.
   jugador × `(1−ese factor)` (`GetPlayer3DColor` 0x64B590 → tabla 0xBFF0B8 con `GetRemapedPlayer`; el neutral es
   0xFF000000). `fn_00685F00` escala las UV por `TextureWidth/256, TextureHeight/256`; `fn_00685F40` retuerce las UV
   `u += (1−t)²·MaxUVChange`; `fn_00685FC0` gira cada fila `t·MaxVertexChange` sobre Y; con `DoRaiseAboveLandscape`
-  (`fn_00686980`) cada vértice sube al terreno bajo él menos el del centro (aquí al dibujar).
+  (`fn_00686980`) la malla se corta por las celdas y las diagonales del terreno (`fn_00686D90`) y cada vértice sube
+  al terreno bajo él menos el del centro, una vez al crearla (`land_morph`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)).
   `RenderParticleGJMeshRotatingUV::GameUpdate` 0x6C8BC0 desplaza las UV (SpeedU/V) dentro de la baldosa; `DrawAt`
   0x67CBA0 dibuja en modo 6 (color = textura×difuso + especular, alfa = textura×difuso).
   - **Tamaño (fiel, verificado):** la malla tiene radio 1 y solo pasa por la matriz dibujada del átomo
@@ -1451,7 +1453,8 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
 - **InitCollection 0x67E200**: margen = el radio del efecto del hechizo (`GMagicEffectInfo` +0x2C = archivo 0x1C), 5 sin
   hechizo. Dentro de un escudo (fn_006D0BC0 con ese margen): el punto donde un rayo desde 200 m más arriba corta la
   esfera (vt 0xFC FindIntersect), chispa y evento 4 en el centro al hechizo del escudo; **con 0 la explosión se para del
-  todo** (+0x52). Luego: en tierra seca **el cráter** (`RootsPile`, ver abajo); en el agua **tres anillos** (crecimiento 5,
+  todo** (+0x52). Luego: en tierra seca una marca (fn_008251C0, `ecs/GroundMarks`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)); en el agua **tres anillos** (crecimiento 5,
   7 y 10; edad 0, ángulo 0, aspecto 1, ritmo 1, celda 0x30, blanco; +0x24 = 1,0 sin identificar; una sola
   implementación, `psys::water_rings::AddExplosionRings` de `PSys/PSysWaterRings`, de la lane del agua). Los objetivos: r =
   MaxDistance × el poder tribal del hechizo entre 1 y 5; las `ceil((r + 20) / 10)²` celdas de la espiral
@@ -1459,7 +1462,7 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
   propia es esa** (fn_00604F40) y a menos de `Get2DRadius + r` en x/z (`GetDistanceInMetres` 0x74CD70, una hipotenusa).
   Anillo = 0. Por último cinco rocas `MSH_Z_SPELLROCK01` (567) en el centro ± 4 m que se rompen en pedazos (no portado,
   ver «Sin portar / pendiente» más abajo).
-- **El cráter** (`ECS/RootsPile`; 0x67E35C..0x67E395, solo si `MapCoords::IsDryLand` 0x67E353, es decir, si no salen
+- **El cráter** (`ecs::ground_marks`, `src/ECS/GroundMarks`, de la sesión sistemas; 0x67E35C..0x67E395, solo si `MapCoords::IsDryLand` 0x67E353, es decir, si no salen
   los anillos). La clase se llama `RootsPile` (símbolos del Mac: `__ct__9RootsPileFRC7LHPointffl`,
   `DrawAll__9RootsPileFv`). **No es `TemporaryShadow`**: esa es fn_00825090 (lista 0xEB99FC, una sombra dinámica).
   - `new RootsPile(centro, PSysFloatRand(2π), [0x9357D4] = 8, malla 0x251)` = fn_008251C0 → fn_00825240. El centro es
@@ -1482,15 +1485,16 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
     borra el objeto; si no, se dibuja como un objeto normal (`AddDrawing` 0x815A70, luz de la tierra fn_00801C90). No
     se hunde ni cambia de escala: dura 14 s entero y se desvanece en el último segundo.
   - `ClearAllStuff` 0x82AEFD los borra al cambiar de mapa.
-  - En openblack es una entidad `Transform` + `Mesh` + `MorphWithTerrain` (+ `Alpha` en el último segundo). Se mueve
-    con el paso de `ecs::petit_navire` (el mismo orden que fn_005E5CD0) y se borra en `Game::LoadMap`.
+  - En openblack es `ecs::ground_marks` (U3 de sistemas; ver
+    [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)): una entidad `Transform` + `Mesh` +
+    `MorphWithTerrain` (una vez, `Melting::Snapshot`) (+ `Alpha` en el último segundo), con el `SmokyStuff` de modo 1.
     **(pendiente)** las dos marcas de dibujo del `LH3DObject` no tienen equivalente: la 0x20 del detalle Light
     (fn_008168C0) y la 0x10 apagada (fn_007F97A0). Sombra estática no echa en ninguno de los dos (`CastsStaticShadow`
     pide `Fixed` / `MobileStatic` / …, y la entidad no lo es). El alfa del último segundo va como `Alpha` (la pasada
     translúcida del renderizador), que es lo que hace `SetGlobalAlpha` (marca 0x80, fn_007F9D60) en el original.
     **(aproximado)** la luz de la tierra de fn_00801C90 sobre el color del montón la hace el alumbrado normal de mallas.
-  - El montón del árbol arrancado (fn_0074BD20 → fn_008251F0, escala `(M+0x24 + M+0x2C) × escala × 0,3`) sigue siendo
-    la copia propia de `HandSystem::Uproot` (lane árboles), con el polvo del agarre en vez del `SmokyStuff` de modo 1.
+  - El montón del árbol arrancado (fn_0074BD20 → fn_008251F0, escala `(M+0x24 + M+0x2C) × escala × 0,3`) usa la misma
+    `ground_marks::Create`, y con ella el mismo polvo de modo 1.
 - **`Object::CanBeDestroyedBySpell`** (vt 0x778, 0x639960; responde al evento 7, 0x720DBD, que devuelve `== 1`):
   `IsEffectReceiver(NULL)` y no la marca +0x25 & 0x40, y si está en un guion (vt 0x448 con g_game +0x25005C → +0x45E8
   y +0x45EC) solo para un hechizo con +0x25 & 4. Dicen 0: `Creature` 0x47B1E0, `Field` 0x529FF0 y `CitadelPart`
@@ -1594,11 +1598,11 @@ visible la cúpula del escudo y el rayo, está en [Las mallas de partículas](pa
 - `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` lanza la explosión (`EXPLOSION_ONE_PU_ONE` / `_PU_TWO` para Many /
   Loads); `OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"` pide capturas esos turnos después de empezar la
   primera explosión ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)). Con
-  `OPENBLACK_SPELL_TRACE=1`: `Explosion: started ...` con sus objetivos (distancia, radio, clase), `Explosion: the
-  crater (RootsPile ...)` con su ángulo, cada objeto destruido (anillo, explotados, borrados) y lo no portado.
+  `OPENBLACK_SPELL_TRACE=1`: `Explosion: started ...` con sus objetivos (distancia, radio, clase), `Explosion: ground
+  mark ...` con su ángulo, cada objeto destruido (anillo, explotados, borrados) y lo no portado.
 - `test_explosion`: ChangeScaleXYZ, MoveAtom, la cadencia de los eventos 2 y el cierre de un archivo como Single, el
-  tinte del jugador, FaceCamera, las curvas KP, el creador bueno / malo y el `RootsPile`: 15000 ms, el alfa de
-  `ftol(ms × 0,255)` y el polvo `SmokyStuff` de modo 1 a 1,5 × tamaño.
+  tinte del jugador, FaceCamera, las curvas KP, el creador bueno / malo y el polvo `SmokyStuff` de
+  modo 1 a 1,5 × tamaño (la vida y el alfa de la marca los prueba `ground_marks`).
 - Capturas del cráter (`polish_fix_beam_open_t10/_t40/_t110/_t142.png` + `polish_fix_beam_open_end.log`): BEAM_EXPLOSION
   en (1850, 2612), en la ladera junto al almacén de Land 1, cámara `1822,55,2585,1850,28,2612`.
   - t10: la columna dentro del hoyo.

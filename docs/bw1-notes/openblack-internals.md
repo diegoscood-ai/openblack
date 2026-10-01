@@ -37,7 +37,8 @@
   - `[1][3]` = desplazamiento de textura V (`components::UvScroll`);
   - `[2][3]` = `components::MeshTint` (1e6 y más; ver mod-library.md). El shader de huellas usa solo xyz de esas columnas.
 - `MorphWithTerrain` (el original: `LH3DObject::UpdateMelting` 0x8168F0; objetos de tipo 3D 1 = morphable, ver
-  `dev\tmp_dis\morph\morph_notes.txt`): cada vértice sube `GetAltitude(xz del vértice) − GetAltitude(xz del origen)`,
+  `dev\tmp_dis\morph\morph_notes.txt`; la API común es `land_morph`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)): cada vértice sube `GetAltitude(xz del vértice) − GetAltitude(xz del origen)`,
   así que la altura propia del objeto (hundirse una pila o un campo) se conserva. vs_object calcula GetAltitude exacto
   (las 4 esquinas de la celda sin filtrar, su diagonal `split` y el aplanado junto al mar) con el mapa de alturas RG32F
   (altitud, split; las 17×17 celdas de cada bloque). Antes era bilineal y desalineado media celda (errores de 8-50
@@ -242,8 +243,7 @@ Explosión de rayo ([miracles.md](miracles.md#explosión-de-rayo-y-clases-de-psy
 `OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"`, que pide capturas esos turnos de juego después del primer
 paso de la primera explosión (como la del escudo). Con `OPENBLACK_SPELL_TRACE=1` se escriben `Explosion: started ...`
 (centro, margen del escudo, radio de búsqueda y celdas de la espiral) con cada objetivo (distancia, radio y clase), cada
-objeto destruido (anillo, explotados y borrados), el cráter (`Explosion: the crater (RootsPile ...)`) y lo que no está
-portado (las mallas en pedazos).
+objeto destruido (anillo, explotados y borrados) y lo que no está portado (las mallas en pedazos), y la marca del suelo que deja (`Explosion: ground mark`).
 Ejemplo: `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION_PU2,1790,2600"
 OPENBLACK_CAMERA_FLY=1700,140,2480,1790,40,2600 OPENBLACK_TEST_EXPLOSION_SHOT="12,a.png;40,b.png;80,c.png"` con
 `-n 16000`.

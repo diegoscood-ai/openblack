@@ -23,7 +23,6 @@
 #include <gtest/gtest.h>
 
 #include "3D/Billboard.h"
-#include "ECS/RootsPile.h"
 #include "ECS/SmokyStuff.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/PSys.h"
@@ -309,16 +308,12 @@ ENDCLASS
 	EXPECT_FLOAT_EQ(atoms.front().scale, 4.0f);
 }
 
-// The beam explosion's crater: RootsPile fn_00825240 (15000 ms, SmokyStuff mode 1) and DrawAll fn_00825350 (the alpha
-// ftol(ms x 0.255) from 1000 ms, gone at <= 0)
-TEST(Explosion, rootsPileCountsDownAndFades)
+// The ground mark's dust (fn_00825240 0x8252EB, ECS/GroundMarks): SmokyStuff::Create(point, 1, 1.0, -1), mode 1, every
+// puff at 1.5 x size per second (0x823DA7)
+TEST(Explosion, groundMarkDustIsSmokyStuffMode1)
 {
-	ecs::RootsPile::Clear();
 	ecs::smoky_stuff::Clear();
-	const entt::entity pile = ecs::RootsPile::Create(glm::vec3(10.0f, 5.0f, 20.0f), 1.0f, 8.0f, 0x251);
-	EXPECT_TRUE(pile == entt::null); // no registry here
-	ASSERT_EQ(ecs::RootsPile::Count(), 1u);
-	// 0x8252EB: SmokyStuff::Create(point, 1, 1.0, -1): mode 1, every puff at 1.5 x size per second (0x823DA7)
+	ecs::smoky_stuff::Create(glm::vec3(10.0f, 5.0f, 20.0f), 1, 1.0f, 0xFFFFFFFFu);
 	ASSERT_EQ(ecs::smoky_stuff::Get().size(), 1u);
 	const auto& cloud = ecs::smoky_stuff::Get().front();
 	EXPECT_EQ(cloud.mode, 1);
@@ -326,18 +321,5 @@ TEST(Explosion, rootsPileCountsDownAndFades)
 	{
 		EXPECT_NEAR(glm::length(puff.velocity), 1.5f, 1e-4f);
 	}
-	EXPECT_EQ(ecs::RootsPile::AlphaFor(1000), 255);
-	EXPECT_EQ(ecs::RootsPile::AlphaFor(500), 127);
-	EXPECT_EQ(ecs::RootsPile::AlphaFor(3), 0);
-	ecs::RootsPile::DrawAll(14999);
-	EXPECT_EQ(ecs::RootsPile::Count(), 1u);
-	ecs::RootsPile::DrawAll(1);
-	EXPECT_EQ(ecs::RootsPile::Count(), 0u);
-	// ClearAllStuff 0x82AEFD (Game::LoadMap): every pile goes, however much life is left
-	ecs::RootsPile::Create(glm::vec3(0.0f), 0.0f, 8.0f, 0x251);
-	ecs::RootsPile::Create(glm::vec3(1.0f), 0.0f, 8.0f, 0x251);
-	ASSERT_EQ(ecs::RootsPile::Count(), 2u);
-	ecs::RootsPile::Clear();
-	EXPECT_EQ(ecs::RootsPile::Count(), 0u);
 	ecs::smoky_stuff::Clear();
 }

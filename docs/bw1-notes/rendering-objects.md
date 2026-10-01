@@ -2,7 +2,7 @@
 
 Cómo se dibujan los objetos del mundo: materiales L3D, luz de los modelos, texturas y sprites, manchas de los pies,
 reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD, el humo
-de las chimeneas y los objetos que miran a la cámara (billboards). El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
+de las chimeneas, los objetos que miran a la cámara (billboards) y las mallas pegadas al suelo. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
 como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
@@ -19,6 +19,7 @@ como juego, en [water.md](water.md).
 - [Animales: manchas y malla](#animales-manchas-y-malla)
 - [Humo de las chimeneas (LH3DSmoke)](#humo-de-las-chimeneas-lh3dsmoke)
 - [Objetos que miran a la cámara (billboards)](#objetos-que-miran-a-la-cámara-billboards)
+- [Mallas pegadas al suelo (land_morph)](#mallas-pegadas-al-suelo-land_morph)
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
 Estado: todo lo de esta página es **fiel** (original, no un mod) salvo lo que se marca **(aproximado)**, las
@@ -424,6 +425,130 @@ FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_cha
     `OneOffSpellSeed.cpp` es de Milagros y lo tiene sin commitear. Sin él, con la cámara justo en la vertical
     openblack conserva el giro anterior.
 
+## Mallas pegadas al suelo (land_morph)
+
+**Fiel**, salvo lo marcado. Todo lo que se amolda al terreno pasa por una sola API, `openblack::land_morph`
+(`src/3D/LandMorph.{h,cpp}`), y en GPU por un solo include, `assets/shaders/land_altitude.sh`. Toda altura es
+`LH3DIsland::GetAltitude` 0x803090: en CPU `LandIsland::HeightAt` (exacta, 16.16), en GPU `LandAltitude` (la misma
+lógica en float: diagonal `split` y aplanado junto al mar), en el x, z de mundo del punto (`fn_004427B0` /
+`fn_00653150`: x·65536·0,1 truncado, [0x8AC408], [0x8AC404]). En el original no hay una rutina única: hay una
+altura y cuatro algoritmos que la aplican.
+
+| # | Algoritmo | Original | Cuándo | API | Usuarios en openblack |
+|---|---|---|---|---|---|
+| A | Cortar la malla por el terreno y subir cada vértice `y += H(v) − H(origen)` | `fn_00686980` + corte `fn_00686D90` | una vez al crear (0x6867F9), solo con `DoRaiseAboveLandscape`; sin la «respiración» de cada fotograma (0x686805) | `SplitByPlane`, `CellPlanes`, `RaiseAboveLandscape` | `PSys/Rules/SurfRevol.cpp`: `SF_TeleportVortex`, `SF_SpellDispenserVortex` |
+| B | *Melting*: un delta por vértice `(H(v) − H0) / escala`, en espacio modelo, a lo largo de la Y local | `UpdateMelting` 0x8168F0 + Draw morfable 0x80E550 | al crear (`Snapshot`); `PhysicalShield` en cada dibujo (`Live`) | `components::MorphWithTerrain{mode}`, `Melting`, `MeltingDeltas`, `LandMelting` (GPU), `ObjectProgram` | vs_object_hm_instanced: edificios morfables, campos, montones, BigForest, escudo físico, arca y dinosaurio, marcas del suelo |
+| C | *Bake*: el mismo delta escrito en los vértices | FragMesh `fn_007F72B0`; ClampToLandscape `RenderParticleGJMesh::DrawAt` 0x67C313; MeltBorder 0x816350; ciudadela vt+0x208 `fn_00882B10` | FragMesh al romperse; ClampToLandscape cada fotograma, todas las primitivas, sin corte | `Bake`, `Raised`, `BakeAgainstY` | `ECS/Physics/FragMesh.cpp`; `SurfRevol.cpp` (`SF_LandscapeVolcano*`, `SF_LandscapeVortex*`); llamas de un objeto morfable (`ECS/Fire/FireGraphic.cpp`); el punto del tótem sobre el centro del pueblo (`GetExtraPos` 0x80FF20, `AbodeArchetype.cpp`) |
+| D | Geometría hecha sobre el suelo, `y = H + constante` | manchas `fn_0081FFF0`; InfluenceCircle `fn_008265F0`; correa `fn_008491B0`; quads de la criatura `fn_0081F360` | al crear / cada fotograma | `OnGround`, `k_BlobLift`, `k_LeashRibbonLift`, `k_CreatureQuadLift`, `InfluenceCurtain` | manchas (`Renderer::DrawHumanShadows`); el picking de los morfados (`HandPlacement.cpp`) |
+
+**A, cortar y subir.** `fn_00686980(M, mesh)` pasa la malla al mundo con la matriz del átomo (`fn_00673E40` en
+0x6867E8: el marco local de `fn_00673DB0` en la jerarquía, `fn_006752D0`), saca la caja de todas las primitivas
+(`fn_006C99E0`: centro = (máx + mín)·0,5 y semiejes = (máx − mín)·0,5) y corta **solo la primera primitiva del
+primer grupo**:
+
+| Paso | Detalle | Dirección |
+|---|---|---|
+| Índices | x0 = −1 − ftol(−0,1·mín.x), x1 = 1 − ftol(−0,1·máx.x), igual en z (= ⌊mín/10⌋ − 1 .. ⌊máx/10⌋ + 1 con x ≥ 0) | 0x6869EF..0x686A41, [0x8C7B10] |
+| Planos | x = 10i (n = (1,0,0)), z = 10j (n = (0,0,1)), x + z = 10k y x − z = 10k (n = (s,0,±s), s = 1/√2 en double, por (10i, 0, 10·z1); i de x0 − dz a x1 y de x0 a x1 + dz, dz = z1 − z0) | 0x686A53, 0x686AF9, 0x686BDB, 0x686C8B; [0x8AB414], [0x8AC410] |
+| d del plano | −n·p con `fn_00453F50` ((z z' + y y') + x x') | 0x686AB2..0x686ACC |
+| Corte | dist = ((y ny + z nz) + x nx) + w; dist ≤ 0 cuenta como negativo; si los tres signos son iguales no se corta; A = el primer vértice cuyo signo es el producto de los tres | `fn_00686D90` 0x686E3B..0x686F9A |
+| Nuevos vértices | t = −dA/(dO − dA); posición, UV y normal = A + t(O − A) (la normal sin renormalizar); cada byte de color cA + ((cO − cA)·ftol(255t) >> 8); difuso, especular y normales solo si hay uno por posición | 0x686FEB..0x68732B, [0x8AB270] |
+| Triángulos | n1 (arista AB) y n2 (AC) al final; tri := (A, n1, n2), se añaden (B, C, n2) y (B, n2, n1); solo se prueban los triángulos que había | 0x687386..0x687413 |
+| Subir | H0 = H(M+0x24, M+0x2C); y = (H(v) − H0) + y en la primera primitiva | 0x686D01..0x686D55 |
+| Volver | la inversa de M (`SetInverse` 0x7FB290) | 0x686D61..0x686D78 |
+
+Como `GetAltitude` es lineal dentro de cada triángulo de tierra y los cortes siguen las aristas de las celdas y sus dos
+diagonales (sea cual sea el bit `split`), la malla cortada sigue el terreno **exactamente**. openblack lo hace en
+`ZR_SurfRevol::MakeSurface`, al crear la superficie, con el marco del átomo en la jerarquía (`Effect::LocalToGlobal` /
+`GlobalToLocal`), y la deja en espacio local: al dibujar se mueve y escala con el átomo, como los deltas locales del
+original. **(aproximado)** El marco es el que usa `surf_revol::Collect` al dibujar (giro · baseScale · ruleScale, sin
+el estiramiento en Y de `fn_00673DB0`): se toma la M de `fn_00673E40` como la PSR dibujada de `fn_00673EA0`, y
+`Collect` no aplica el estiramiento. Los dos usuarios tienen estiramiento 1 (sin `StretchVertically` ni reglas que lo
+cambien). Antes se subía cada vértice al dibujar y sin cortes, así que las cuerdas del disco atravesaban los pliegues
+del terreno. `HeightAboveLandscape` y `RaiseAboveLandscapeRadius` no los lee nadie (0x6B30EF, 0x6B312A).
+
+**B, melting.** `UpdateMelting` 0x8168F0 sale si no hay búfer de deltas ([+0x80] == 0) o si vt+0x1B0 ≠ 0 (0x7F9BF0 =
+0 en las dos vtables morfables); a0 = H(+0x38, +0x40), inv = 1/[+0x44]; para cada vértice de cada submalla,
+w = v·M + pos y delta = (H(w) − a0)·inv (0x816A5E..0x816A77). El Draw 0x80E550 lo suma a la y del modelo antes de la
+matriz. En openblack lo hace `LandMelting` en vs_object (programas `ObjectHeightMap*`): en el mundo es
+columna 1 · (H(w) − H(origen)) / escala, con la columna 1 de la matriz dibujada (su eje arriba) y la escala de la
+columna 0 (giro por escala uniforme; los vaivenes solo tocan la columna 1). Con la columna (0, s, 0) es
+`y += H(w) − H(origen)` exacto, como antes. El único morfado inclinado es el campo maduro: su vaivén (`Field::Draw`
+0x528570) cizalla la columna 1 a lo largo de z, así que sus vértices suben H − H0 y además se corren
+1,75·vaivén·(H − H0) en z, como en el original (antes solo subían). Las clases morfables (Get3DType
+1 / 8) están en `MorphWithTerrain.h`. El escudo físico es una (Get3DType 0x72CE50 = 1); el mágico no (0x72C340 → el
+estático).
+- **Snapshot / Live (aproximado).** `MorphWithTerrain::mode` guarda cuándo toma el original los deltas: `Snapshot` al
+  crear, `Live` en cada dibujo. `Live` es solo `PhysicalShield`: `CallVirtualFunctionsForCreation` 0x72CD23,
+  `SetUpPhysOb` 0x72CEB8 y `DrawShield` 0x72D01E, tras interpolar la matriz y la escala. El shader los calcula en cada
+  dibujo para los dos: los deltas congelados harían falta por instancia y por vértice, y las instancias comparten la
+  malla. Solo difieren si la tierra cambia después de crear el objeto, y en openblack solo cambia en
+  `FlattenLandUnderTemple` (`CitadelArchetype.cpp`), mientras se carga el mapa.
+- **Un programa.** `land_morph::ObjectProgram(shaders, morph, pass)` es la única elección entre `ObjectInstanced` y
+  `ObjectHeightMapInstanced` (y sus `Shadow`): la pasada principal, la mezclada, el reflejo de objetos y la sombra de la
+  mano sobre objetos.
+- **Corte por el plano.** El `DrawCutByPlane` de las vtables morfables (vt+0x11C) es 0x80BA50, un `ret`: un objeto
+  morfable cortado no se dibuja. `Renderer::DrawCutByPlane` sale igual. Hoy ningún morfado lleva `CutByPlane` salvo el
+  montón de comida de `OPENBLACK_TEST_SEA=...,pot` con `OPENBLACK_TEST_CUT=1`, que ya no se dibuja cortado.
+
+**C, bake.** `Bake` / `Raised` hacen `y = (H(v) − H0) + y`, el orden de float del original:
+- FragMesh `fn_007F72B0` (v.y − (H0 − H) en cada FragVertex, 0x7F7510..0x7F7563; solo si `IsStaticMorphable`,
+  vt+0x1F4 → [0xE920E8], 0x7F6FF5): `FragMesh::FromEntity`.
+- **ClampToLandscape** (`RenderParticleGJMesh::DrawAt` 0x67C313..0x67C38C; el byte +0x22 que pone 0x686432 desde la
+  regla +0x6C): cada fotograma, todas las primitivas, **sin corte**, con H0 en la posición de la matriz dibujada. Solo
+  lo llevan los 5 `SF_Landscape*` (volcán y vórtice de terreno, `FunctionIndex` 1-3). Está en `surf_revol::Collect`.
+- Las llamas de un objeto morfable (bit 0 de +0xB5, `fn_00732220` 0x7322A9..0x7322D2 y 0x73230A..0x732366): el mismo
+  delta sobre cada llama.
+- MeltBorder 0x816350 (solo 0x49D303) y la ciudadela `fn_00882B10` (`v.y − (pos.y − H)`, 0x882DBE..0x882DD7; desde
+  0x462FE2 y 0x8829AF): `BakeAgainstY`, sin usuarios todavía.
+
+**D, sobre el suelo.** `OnGround(ground, xz, k) = H + k`. Las manchas de aldeanos y animales ponen cada punto en
+H + [0xEAA3C4] (= [0xC381DC] = 0,2, de 0x81E350). El picking de `HandPlacement` pone el origen de un morfado en
+H + el hundimiento del montón: **(aproximado)**, porque el origen dibujado es la y guardada; da lo mismo mientras la y
+guardada sea esa. `InfluenceCurtain` es la cortina de `fn_008265F0`, leída entera:
+
+| Dato | Valor | Dirección |
+|---|---|---|
+| Segmentos N | clamp(ftol(2πr·0,05), 8, 250) | [0x8AB210], [0x8C7BD4], 0x826659..0x826670 |
+| Vértices | 3 por segmento, más 3 que cierran el anillo en el ángulo 0: (cos·r + cx, (H − H0) + H0 + {0, 20, 40}, sin·r + cz) | [0x8C7658], [0x8CF300] |
+| U | += (1 − ftol(2πr·(−1/111))) / N | [0x9A3930] |
+| V | += min(ftol(r/60), 6) / N; filas v, v + 0,2 y v + 0,4 | [0x8C5818], [0x8AB244], [0x8C7A44] |
+| Color | el del jugador, [0xEA9EFC + 4·jugador] | 0x82695B |
+| Triángulos | (b, b+3, b+4), (b, b+4, b+1), (b+1, b+4, b+5), (b+1, b+5, b+2), b = 3i | 0x8269DA..0x826A34 |
+
+La correa (`fn_008491B0`: bordes en H + 0,1, [0x8AB22C]) y los quads de la criatura (`fn_0081F360`: H + 0,15,
+[0x8CF110]) solo tienen su constante: no están portados.
+
+**Marcas del suelo** (`ecs/GroundMarks`). `fn_00825240` (lista 0xEB9A00) es un `LH3DObject::Create(1)` de la malla
+0x251 (`TreeRootsPile`). Se funde con la tierra una vez (0x8252C3), dura 15000 ms y se desvanece el último segundo:
+`fn_00825350`, desde 0x5E6197, pone alfa ftol(vida·0,255) con vida ≤ 1000 ([0x9A2BA8]), resta `g_game_time_inc` y a 0
+la borra con `fn_00825300`. Tiene dos usuarios:
+- el cráter de un árbol arrancado (`fn_008251F0` ← `fn_0074BD20`, escala (extensión x + z)·escala·0,3, [0x8AB23C]);
+- la marca de una explosión en tierra seca (`fn_008251C0` ← `UR_Explosion::InitCollection` 0x67E395: giro
+  `PSysFloatRand(2π)` con `SetPosition` 0x423140, escala [0x9357D4] = 8).
+
+La lista se vacía con el mapa (`ClearAllStuff` 0x82AED0, desde `GGame::ClearMap` 0x552F22): `ground_marks::Clear` en
+`Game::LoadMap`. **(aproximado)** `g_game_time_inc` es un entero de ms que se resta tal cual (0x8253B1..0x8253C0); el
+paso de openblack es float, así que la fracción espera al fotograma siguiente.
+
+Sin portar: el `SmokyStuff::Create(pos, 1, 1, 0xFFFFFFFF)` de 0x8252EB, porque el modo 1 de SmokyStuff no está
+portado (el cráter sigue con el polvo del agarre).
+
+**No es de esta familia.** Las sombras sobre la tierra (`ShadowInfo`, `fn_008745A0` / `fn_00874850` / `fn_00878350`:
+vuelven a dibujar la propia tierra; ver [Sombras de los objetos físicos](#sombras-de-los-objetos-físicos)), los
+cimientos (`GetAltitudeFondation` 0x63ABC0: un hundimiento rígido), el aplanado bajo el templo (0x882730: edita la
+tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x40 de `LH3DSprite::Draw`).
+
+**Huecos.**
+- (aproximado) Snapshot y Live son iguales en GPU (arriba).
+- (aproximado) `LandAltitude` en float frente a la aritmética 16.16 de 0x803090.
+- (inferido) El orden de las sumas de la x, z de mundo en `fn_00882B10` (`BakeAgainstY`).
+- (inferido) El +0x98 / +0xA0 del fuego, que da el H0 de las llamas, es la posición del objeto.
+- Sin portar: la entrada del templo y el templo a medio hacer (0x4676CD, `DrawPartialyBuilt` 0x816AD0), el andamio
+  (`Scaffold::SetPhantomMesh` 0x6E8B03), los demás usuarios de `GetExtraPos` 0x80FF20 (vt+0x1CC, sin llamadas
+  directas; el único portado es el tótem, que hace la misma suma, (H(p) − H(pos)) + p.y, 0x8100B7..0x8100D0), y la
+  cortina, la correa y los quads de D.
+
 ## Pendiente
 
 - Luz de los modelos: neblina (`fn_007FEB30`), tintes (veneno, fuego, `fn_0080BF10`), color de ventanas de noche, luz de la mano
@@ -443,6 +568,13 @@ FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_cha
   - el oy heredado por el vapor y el humo del fuego;
   - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
   - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
+- Mallas pegadas al suelo:
+  - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
+    de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);
+  - portar la cortina del anillo de influencia (`InfluenceCurtain` ya está), la correa de la criatura (`fn_008491B0`,
+    `fn_00848600` / `fn_00848830`) y los quads de la criatura (`fn_0081F360`) cuando tengan casa en openblack;
+  - la entrada del templo, el templo a medio hacer, el andamio y los demás usuarios de `GetExtraPos`;
+  - el `SmokyStuff` de modo 1 de las marcas del suelo.
 
 ## Ganchos de prueba
 
@@ -458,6 +590,12 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   origen, CentreAtBase y giro); `OPENBLACK_TEST_FIRE` (llamas); `OPENBLACK_TIME_OF_DAY=22` con `OPENBLACK_CAMERA_LOCK`
   (la luna, centrada y en un borde); `OPENBLACK_TEST_ONESHOT` (la burbuja). La lista de escenas está en
   `dev\tmp_dis\unify\U1_changes.md`.
+- Mallas pegadas al suelo: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` con `OPENBLACK_TEST_SHIELD_SHOT` (el escudo
+  físico se funde con la tierra), `OPENBLACK_TEST_DISPENSER` y `OPENBLACK_TEST_TELEPORT` (los discos cortados),
+  `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` y `OPENBLACK_TEST_EXPLOSION_SHOT` (la marca del suelo; `UR_Explosion` solo
+  está en `SF_BeamExplosion*`), `OPENBLACK_TEST_TUG`
+  (el cráter); `OPENBLACK_SPELL_TRACE=1` escribe `Explosion: ground mark`. La lista de escenas está en
+  `dev\tmp_dis\unify\U3_changes.md`.
 
 ## Fuentes
 
@@ -467,3 +605,5 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - `dev\tmp_dis\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
 - `dev\tmp_dis\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
   (inventario de openblack) y `U1_changes.md` (la migración).
+- `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
+  (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).

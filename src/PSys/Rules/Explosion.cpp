@@ -43,11 +43,11 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
-#include "ECS/RootsPile.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
@@ -82,9 +82,6 @@ constexpr float k_SmokeScale = 8.0f;             ///< [0x9357E4]: the smoke's ma
 constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol(1000 / [0xD01A38] x 4) turns
 constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F: fn_00681260's fourth argument
 constexpr bool k_DestroyByBeam = true;           ///< [0xC029EC] = 1: the objects are destroyed
-constexpr int32_t k_CraterMesh = 0x251;          ///< 0x67E37F: MeshPack 593, TreeRootsPile
-constexpr float k_TwoPi = 6.2831855f;            ///< 0x67E385: PSysFloatRand(0x40C90FDB)
-constexpr float k_CraterScale = 8.0f;            ///< 0x67E37A: [0x9357D4] = 8, the RootsPile's scale
 
 /// UR_Explosion::CollectionData (0x58 bytes, ctor fn_0067E140)
 struct CollectionData
@@ -346,17 +343,14 @@ private:
 		// >= 4) the crater (a pack mesh, not a sprite)
 		if (!water_rings::AddExplosionRings(data.centre))
 		{
-			// 0x67E35C..0x67E395: new RootsPile(centre, PSysFloatRand(2 pi), [0x9357D4] = 8, mesh 0x251 = TreeRootsPile)
-			// (fn_008251C0 -> fn_00825240): the crater, 15 s on the land with its dust puff (ECS/RootsPile)
-			const float angle = effect.Random(k_TwoPi);
-			const auto pile = ecs::RootsPile::Create(data.centre, angle, k_CraterScale, k_CraterMesh);
+			// 0x67E35C..0x67E395: fn_008251C0(centre, PSysFloatRand(2 pi) (0x40C90FDB), [0x9357D4] = 8, mesh 0x251), a
+			// ground mark that melts into the land and fades after 15 s (ecs/GroundMarks.h; its SmokyStuff is not made)
+			const float angle = effect.Random(6.28318548f);
+			const auto mark = ecs::ground_marks::CreateExplosionMark(data.centre, angle);
 			if (Trace())
 			{
-				SPDLOG_LOGGER_INFO(spdlog::get("game"),
-				                   "Explosion: the crater (RootsPile, mesh {}) at ({:.1f}, {:.1f}, {:.1f}), angle {:.2f}, scale "
-				                   "{:.1f}, entity {}",
-				                   k_CraterMesh, data.centre.x, data.centre.y, data.centre.z, angle,
-				                   k_CraterScale, static_cast<uint32_t>(pile));
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: ground mark {} at ({:.1f}, {:.1f}), angle {:.2f}",
+				                   static_cast<uint32_t>(mark), data.centre.x, data.centre.z, angle);
 			}
 		}
 		// the targets: every available object of the ceil((r + 20) / 10)^2 cells of the spiral around the centre that is

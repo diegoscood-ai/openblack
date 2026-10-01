@@ -39,6 +39,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
@@ -517,6 +518,7 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& meshes = Locator::resources::value().GetMeshes();
 	const auto& terrain = Locator::terrainSystem::value();
+	const auto ground = land_morph::Altitude(terrain);
 	glm::vec3 forward = dir;
 	float nearClip = 0.3f;
 	if (Locator::camera::has_value())
@@ -554,12 +556,15 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 		{
 			return;
 		}
-		// Height-map objects are drawn glued to the landscape (plus a pile's sink offset), not at their stored y.
+		// Height-map objects are picked glued to the landscape (plus a pile's sink offset), not at their stored y.
+		// (aproximado) The melting (land_morph, vs_object_hm_instanced) draws their origin at the stored y; this is the
+		// older y = H(origin) + sink, the same wherever the stored y is that.
 		glm::vec3 position = transform.position;
 		if (registry.AllOf<MorphWithTerrain>(entity))
 		{
 			const auto* sink = registry.TryGet<const PileSink>(entity);
-			position.y = terrain.GetHeightAt(glm::vec2(position.x, position.z)) + (sink != nullptr ? sink->offset.value : 0.0f);
+			position.y = land_morph::OnGround(ground, glm::vec2(position.x, position.z),
+			                                  sink != nullptr ? sink->offset.value : 0.0f);
 		}
 		const auto centre = position + transform.rotation * (transform.scale * box.Center());
 		const float radius = 0.5f * glm::length(transform.scale * box.Size());

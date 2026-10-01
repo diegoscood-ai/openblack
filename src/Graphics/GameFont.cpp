@@ -17,6 +17,7 @@
 #include <bgfx/bgfx.h>
 #include <spdlog/spdlog.h>
 
+#include "Graphics/Argb4444.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
 
@@ -110,7 +111,7 @@ bool GameFont::Load(const std::filesystem::path& base)
 	const auto put = [&](uint32_t tx, uint32_t ty, uint8_t nibble) {
 		if (tx < k_AtlasWidth && ty < height)
 		{
-			alpha[static_cast<size_t>(ty) * k_AtlasWidth + tx] = static_cast<uint8_t>(nibble * 17);
+			alpha[static_cast<size_t>(ty) * k_AtlasWidth + tx] = argb4444::Expand(nibble);
 		}
 	};
 

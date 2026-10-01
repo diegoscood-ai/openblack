@@ -33,6 +33,7 @@
 #include "Dynamics/LandBlockBulletMeshInterface.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "Graphics/Argb4444.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/Texture2D.h"
@@ -89,20 +90,22 @@ std::unique_ptr<Texture2D> CreateSmallBumpTexture()
 		auto& fileSystem = Locator::filesystem::value();
 		const auto directory = fileSystem.GetPath<filesystem::Path::Textures>();
 		const auto rgb = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbump.raw"));
-		const auto alpha = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbumpa.raw"));
-		if (rgb.size() != k_Pixels * 3 || alpha.size() != k_Pixels)
+		// a missing smallbumpa.raw only makes fn_00837400 report it (0x837616): PackRaw takes the alpha from the colour
+		// bytes left in the buffer (0x83761E)
+		std::vector<uint8_t> alpha;
+		try
+		{
+			alpha = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbumpa.raw"));
+		}
+		catch (const std::exception&)
+		{
+			alpha.clear();
+		}
+		if (rgb.size() != argb4444::k_ColourBytes || (!alpha.empty() && alpha.size() != argb4444::k_AlphaBytes))
 		{
 			throw std::runtime_error("unexpected size");
 		}
-		// 4 bits per channel, expanded the way D3D samples an ARGB4444 surface
-		const auto quantise = [](uint8_t v) { return static_cast<uint8_t>((v & 0xF0) | (v >> 4)); };
-		for (size_t i = 0; i < k_Pixels; ++i)
-		{
-			rgba[i * 4 + 0] = quantise(rgb[i * 3 + 0]);
-			rgba[i * 4 + 1] = quantise(rgb[i * 3 + 1]);
-			rgba[i * 4 + 2] = quantise(rgb[i * 3 + 2]);
-			rgba[i * 4 + 3] = quantise(alpha[i]);
-		}
+		rgba = argb4444::PackRaw(rgb, alpha);
 	}
 	catch (const std::exception& e)
 	{

@@ -99,10 +99,11 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
 - openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) entran en la lista de atrás adelante de la
   pasada principal (`DrawPass`, `SortedInstance::mist`); `DrawMists` solo si esa lista no se usa. `vs_cloud`
   recibe `u_cloudLight` (L_local) y `fs_cloud` suma `u_cloudSpecular` (0 en las nubes y en la rama efecto).
-  Desviaciones: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
-  el paso truncado del original sería 0; la textura alfa no se cuantiza a 4 bits (el original la carga en ARGB4444,
-  `a.raw` 0x8375C1: 228 → 238/255), porque cuantizar tras filtrar en el shader haría bandas y `raw/smokea` se
-  comparte con otros sistemas.
+  Desviación: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
+  el paso truncado del original sería 0. La textura alfa `smokea.raw` se corta a 4 bits al cargar, como en el
+  original (ARGB4444, `a.raw` 0x8375C1: 228 → 238/255; ver
+  [rendering.md](rendering.md#texturas-argb4444)). El mod `graphics.smooth-smoke` (desactivado por defecto) la deja
+  con sus 8 bits, que es como se veía antes.
 
 ## Animales y rebaños (CREATE_FLOCK, CREATE_NEW_ANIMAL)
 

@@ -27,6 +27,7 @@ void RegisterCropsMod(ModRegistry& registry);
 void RegisterHdTweaksMod(ModRegistry& registry);
 void RegisterMiracleDispensersMod(ModRegistry& registry);
 void RegisterSkipIntroMod(ModRegistry& registry);
+void RegisterSmoothSmokeMod(ModRegistry& registry);
 
 inline void RegisterBuiltinMods(ModRegistry& registry)
 {
@@ -41,6 +42,7 @@ inline void RegisterBuiltinMods(ModRegistry& registry)
 	RegisterHdTweaksMod(registry);
 	RegisterMiracleDispensersMod(registry);
 	RegisterSkipIntroMod(registry);
+	RegisterSmoothSmokeMod(registry);
 }
 
 } // namespace openblack::mods

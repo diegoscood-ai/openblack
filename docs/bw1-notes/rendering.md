@@ -7,6 +7,7 @@ mapa. Los modelos (materiales, luz, reflejos, sombras de objetos, sprites, humo)
 en [parity.md](parity.md).
 
 - [Estados de Direct3D 7 del original](#estados-de-direct3d-7-del-original)
+- [Texturas ARGB4444](#texturas-argb4444)
 - [Mods gráficos](#mods-gráficos)
 - [Detalle del terreno ("small bump")](#detalle-del-terreno-small-bump)
 - [Mar](#mar-skyraw--skyaraw)
@@ -52,6 +53,77 @@ constantes, usa `tmp_dis\render\scan_states.py` (envoltorios) y `scan_vt.py` (vt
   intermedio.
 
 openblack ya coincide por defecto: bilineal, sin mips y sin MSAA.
+
+## Texturas ARGB4444
+
+**Fiel** (del original, no es un mod). Código: `src/Graphics/Argb4444.h` (`graphics::argb4444`, sin estado y, a
+propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x837533 y 0x83767E..0x837687).
+
+- **El corte.** `LH3DTexture` guarda en ARGB4444 las texturas creadas con la bandera de alfa 0x40 (`Create` 0x8379E0
+  con flags 0x41). El formato 0 tiene las máscaras 0xF000/0xF00/0xF0/0xF (0x85DCA1..0x85DCC2). `fn_00837400` se
+  queda con el nibble alto de cada byte, sin redondear:
+  - B = byte[+2] >> 4 (0x8374F4), G = byte[+1] & 0xF0 (0x837502), R = (byte[+0] & 0xF0) << 4 (0x837512);
+  - el alfa de `xa.raw` = byte & 0xF0 (0x837681).
+  - D3D7 expande el nibble al muestrear, n·17 (inferido: lo hace el controlador). El original **filtra nibbles ya
+    cortados**, así que el corte va en la carga y no en un shader.
+  - API: `Quantize(v) = v >> 4`, `Expand(n) = n·17`, `Cut(v) = Expand(Quantize(v)) = (v & 0xF0) | (v >> 4)`;
+    `Pack`/`Unpack` del texel de 16 bits; `PackRaw(rgb, alpha)` para la pareja `x.raw` + `xa.raw`.
+- **Sin la bandera**, la rama 4444 no corre (`cmp [esp+0x834],0 / je`, 0x8374CB/0x8374D2). Va a 565
+  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F), con 5 bits por canal. Es el caso de `sun.raw` (flags 1, 0x81E851)
+  y de las imágenes de ChallengeRoom (ver [Pendiente](#pendiente)).
+- **Guardas.** El color tiene que medir 0x30000 bytes justos (`fn_00837300`, `cmp ecx,0x30000 / sete`, 0x837318); si
+  no, va por DDS. Por eso `S_IceEnvMapGrey.raw`, de 194823 bytes, no se corta. El alfa se lee con 0x10000 bytes
+  (0x837600) y su tamaño no se comprueba.
+- **Sin `a.raw`.** El nombre del alfa es el del color sin sus 4 últimos caracteres más `"a.raw"` (0xC384AC,
+  0x8375B4..0x8375C1). Si `LHLoadData` falla, solo llama a `Report3D` (0x837616) y sigue en 0x83761E con el búfer que
+  aún tiene el color. El alfa del píxel i sale entonces del byte i del flujo de color (R0, G0, B0, R1…) & 0xF0.
+  - En la práctica no pasa: todas las texturas 0x41 traen su `a.raw` (quizá las imágenes de partidas guardadas,
+    inferido). `PackRaw` lo reproduce.
+- **Quién la lleva.** Solo hay dos llamadas a `fn_00837400`: 0x838087 en `fn_00837DF0` y 0x838D41 en `fn_00838AF0`.
+  Las dos pasan `[tex+0x10] & 0x40` (0x838079 / 0x838D37).
+  - De las 69 llamadas a `Create`, 32 empujan 0x41 inmediato y 22 usan 0x44.
+  - Una más lo calcula: `fn_00822560` 0x822855..0x822874 pone 1, más 0x40 si existe el `a.raw` (el conversor .cmp del
+    terreno).
+- **La lista `k_AlphaFlagStems`**, cada nombre con su dirección:
+  - fijos: `Front_end_buttons`, `mousehelp`, `forcefield`, `pin`, `rainbow`, `PlayersSymbols`, `ChooseSymbol`,
+    `OriginalChooseSymbol`, `sky` (0x5E5432), `gatheringtext`, `Data\C_Ape_Hair`, `icons`, `PictureTexture`,
+    `smallbump`, `Weather`, `atmos`, `snow`, `Data\blobs`, `leash`;
+  - partículas de `fn_0080BBD0`: `p4t`, `p4`, `smoke`, `s_fire`, `cool_effect`, `misc0`, `burn`;
+  - mapas de entorno (tabla 0xC37EAC): `envmap`, `envmap_glass_fx`, `envmap_glass_fx_inv`, `envmap_glass_fx2_inv`;
+  - por `fn_0057DBE0` → `fn_0057DB10` (0x57DB78/0x57DB7B, flags 0x41):
+    - GlobalTextures: `S_SpriteSheet1/2/3`, `S_Static`, `S_Hand_Flow`, `S_Fire` y las tablas 0xBEF478, 0xBEF484 y
+      0xBEF4A0;
+    - los `TextureFileName` de los ficheros de hechizos, por ParticleSpriteCreator (`fn_006AA030` 0x6AA047) y
+      ParticleChainCreator (`fn_006AA800` 0x6AA817): `S_Beam`, `S_lightning`, `S_Spangle_A` (inferido),
+      `S_Teleport_Vortex_Texture(01)`, `S_Volcano_Fire`, `S_Volcano_Rock`;
+    - ZR_SurfRevol (0x6863E4);
+    - LandscapeVortex `fn_005FEA70`, tablas 0xBF3F5C / 0xBF3F68: `S_VortexBaseMultiRing`, `S_Volcano_Base`,
+      `S_VortexBaseAlphacopy`, `S_Volcano_Base_Alpha`.
+  - `HasAlphaFlag(stem)` acepta el nombre del color y el del alfa (el mismo más `a`), sin distinguir mayúsculas.
+- **`human_shadow.raw`** no está en la lista. `fn_0081FAA0` crea su propia textura 0x44 (0x81FC58) y lee 0x400 bytes
+  (0x81FC86). Escribe texel = (v & 0xF0) << 8 (`and cl,0xF0 / mov bh,cl`, 0x81FCDD..0x81FCEC): alfa `Quantize(v)` y
+  RGB 0. Es el mismo corte, con su propia entrada (`k_HumanShadowStem`).
+- **Pieles L3D**: se copian tal cual (`rep movsd` 0x837B41), porque ya vienen en 4444. Con la bandera de malla 0x10000
+  (`test edi,edx` 0x80656D) serían RGB555 (ver [Pendiente](#pendiente)).
+
+**openblack.**
+- `Texture2DLoader` (FromDiskTag, `Resources/Loaders.cpp`) corta con `Cut` al cargar:
+  - cada `.raw` cuyo nombre cumple `HasAlphaFlag` y mide 0x30000 (color) o 0x10000 (alfa; aproximado: el original
+    solo mira el color);
+  - y `human_shadow`.
+- openblack guarda `x.raw` y `xa.raw` como dos texturas. Cada una se corta por separado, y el filtro lineal de bgfx
+  trabaja ya sobre los 16 niveles, como D3D.
+- Con el mod `graphics.terrain-x2` (opción `upscale`), el mar se corta después del Lanczos.
+- `PackRaw` lo usa el small bump (`LandIsland.cpp`), que junta color y alfa en una textura.
+- Las copias que solo expanden nibbles ya hechos usan `Expand` (`CoastAlpha.cpp`, `GameFont.cpp`) o `Unpack`
+  (`BlockTexture.cpp`).
+- Shaders:
+  - `fs_blob.sc` ya no cuantiza. Antes hacía floor(v/17) tras el filtrado: un nivel menos en 120 de los 256 valores y
+    el degradado en escalones. Ahora la mancha sale algo más oscura y sin escalones.
+  - `fs_land_alpha.sc` lee el alfa tal cual, porque la huella ya es BGRA4.
+  - `fs_physics_shadow_resolve.sc` (`covered/15`, 0xFA95C4) ya era exacto.
+- Desviación aceptada, como mod: `graphics.smooth-smoke` (desactivado por defecto) deja `smokea.raw` con sus 8 bits
+  (ver [map-loading.md](map-loading.md) y [mod-library.md](mod-library.md#graphicssmooth-smoke)).
 
 ## Mods gráficos
 
@@ -495,6 +567,15 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
 - Texto: los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...); el margen del texto respecto a la
   mano es una estimación.
 - Ríos: el sonido `ATMOS_TYPE_RUNNING_WATER` (sin analizar, ver [water.md](water.md#audio-del-agua)).
+- [Texturas ARGB4444](#texturas-argb4444), lo que falta:
+  - `sun.raw` (flags 1) va en el original por la rama 555, con 5 bits por canal (>> 3); openblack no lo corta.
+  - Las pieles L3D con la bandera 0x10000 (`L3DMeshFlags::Unknown17`) deberían subirse en X1R5G5B5 y no en BGRA4
+    (`L3DMesh.cpp`). Solo `Data\d_sky.l3d` la lleva y openblack no lo carga, así que hoy no se ve. Las mallas de
+    `AllMeshes.g3d` no están revisadas (inferido).
+  - La reducción a la mitad de `[0xEDD470]` con fmt ≠ 3 (paso 6 y salto 0x300, 0x8374BB/0x8374C3): el píxel de arriba
+    a la izquierda de cada 2×2, a 128. No está portada.
+  - Los mapas de luz de `Data\Spells\LightMaps` (`PSys/Creators/LightMap.cpp`) pasan también por `fn_0057DBE0`
+    (inferido) y no se cortan.
 
 ## Ganchos de prueba
 

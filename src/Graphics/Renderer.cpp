@@ -33,6 +33,7 @@
 #include "3D/Foliage.h"
 #include "3D/DayNightClock.h"
 #include "3D/LandLightTable.h"
+#include "3D/LandMorph.h"
 #include "3D/SkyWeather.h"
 #include "3D/NightLights.h"
 #include "3D/LandBlock.h"
@@ -1461,7 +1462,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 		submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &k_Identity;
 		submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
 		submitDesc.morphWithTerrain = instance->second.morphWithTerrain;
-		submitDesc.program = _shaderManager->GetShader(submitDesc.morphWithTerrain ? "ObjectHeightMapInstanced" : "ObjectInstanced");
+		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 	}
 }
@@ -1519,8 +1520,7 @@ void Renderer::DrawHandShadowOnObjects() const
 			submitDesc.matrixCount = 1;
 		}
 		submitDesc.morphWithTerrain = instance.morphWithTerrain;
-		submitDesc.program =
-		    _shaderManager->GetShader(instance.morphWithTerrain ? "ObjectHeightMapShadowInstanced" : "ObjectShadowInstanced");
+		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain, land_morph::ObjectPass::Shadow);
 		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 	}
 }
@@ -1734,6 +1734,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		return;
 	}
 	const auto& island = Locator::terrainSystem::value();
+	// fn_0081FFF0: each point on the ground + [0xEAA3C4] (land_morph, algorithm D)
+	const auto ground = land_morph::Altitude(island);
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	struct Vertex
 	{
@@ -1741,11 +1743,10 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		uint32_t abgr;
 	};
 	std::vector<Vertex> vertices;
-	// fn_0081FAA0 constants: half width U = 0.2 * norm(1, 0, -1), the light offset O = 2 * norm(1, 0, 1), lift 0.2
+	// fn_0081FAA0 constants: half width U = 0.2 * norm(1, 0, -1), the light offset O = 2 * norm(1, 0, 1)
 	const glm::vec3 u(0.14142136f, 0.0f, -0.14142136f);
 	const glm::vec3 w = -u;
 	const glm::vec3 o(1.41421356f, 0.0f, 1.41421356f);
-	constexpr float k_Lift = 0.2f;
 	const auto addQuad = [&vertices, &u, &w](const glm::vec3& c, const glm::vec3& v) {
 		// fn_0081FE50: v0 = C - 0.02V + U, v1 = C - 0.02V + W, v2 = C + V + W, v3 = C + V + U; opaque at the feet
 		const std::array<glm::vec3, 4> p = {c - 0.02f * v + u, c - 0.02f * v + w, c + v + w, c + v + u};
@@ -1781,7 +1782,7 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		                 glm::mat4(draw != nullptr ? draw->rotation : transform.rotation) * glm::scale(transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-			    p.y = island.GetHeightAt(glm::vec2(p.x, p.z)) + k_Lift;
+			    p.y = land_morph::OnGround(ground, glm::vec2(p.x, p.z), land_morph::k_BlobLift);
 			    return p;
 		    };
 		    const auto a = foot(21);
@@ -1818,7 +1819,7 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 			    const auto& [bone, position] = points[k];
 			    const auto boneMatrix = bone < bones.size() ? bones[bone] : glm::mat4(1.0f);
 			    p[k] = glm::vec3(model * boneMatrix * glm::vec4(position, 1.0f));
-			    p[k].y = island.GetHeightAt(glm::vec2(p[k].x, p[k].z)) + k_Lift;
+			    p[k].y = land_morph::OnGround(ground, glm::vec2(p[k].x, p[k].z), land_morph::k_BlobLift);
 		    }
 		    for (size_t k = 0; k + 1 < points.size(); k += 2)
 		    {
@@ -2123,7 +2124,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* spriteShader = _shaderManager->GetShader("Sprite");
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
-	const auto* objectShaderHeightMapInstanced = _shaderManager->GetShader("ObjectHeightMapInstanced");
 
 	const auto skyType = Locator::skySystem::value().GetCurrentSkyType();
 
@@ -2486,7 +2486,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.noHaze = meshId == ecs::components::Hand::k_MeshId;
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
-				submitDesc.program = submitDesc.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
 
 				// TODO(bwrsandman): choose the correct LOD
@@ -2629,7 +2629,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
-					submitDesc.program = instance.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
 					submitDesc.blendFilter = instance.fading ? 0 : 2;
 					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
 					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |

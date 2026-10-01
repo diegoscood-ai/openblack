@@ -19,6 +19,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
@@ -39,6 +40,7 @@ constexpr float k_Near = 0.01f;       // the double at 0x8C7A10
 constexpr size_t k_MaxTriangles = 2048; // g_kept / g_broken, per primitive and impact
 constexpr int k_MaxGroups = 64;
 
+// The land height under a point (GetAltitude 0x803090), for the anchor test below: a point sample, not the morph
 float Ground(glm::vec3 p)
 {
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(p.x, p.z)) : 0.0f;
@@ -178,9 +180,11 @@ std::shared_ptr<FragMesh> FragMesh::FromEntity(entt::entity entity)
 	}
 	const auto mesh = meshes.Handle(meshComponent->id);
 	const auto& transform = registry.Get<const Transform>(entity);
-	// objects that morph with the landscape are baked with it (the original's g_morph)
+	// objects that morph with the landscape are baked with it: fn_007F72B0 v.y - (H0 - H) on each FragVertex
+	// (0x7F7510..0x7F7563), only if IsStaticMorphable (vt+0x1F4 -> [0xE920E8], 0x7F6FF5)
 	const bool morph = registry.AllOf<MorphWithTerrain>(entity);
-	const float originGround = Ground(transform.position);
+	const auto ground = land_morph::CurrentAltitude();
+	const float originGround = ground(glm::vec2(transform.position.x, transform.position.z));
 	auto result = std::make_shared<FragMesh>();
 	for (const auto& subMesh : mesh->GetSubMeshes())
 	{
@@ -204,7 +208,7 @@ std::shared_ptr<FragMesh> FragMesh::FromEntity(entt::entity entity)
 					t.v.at(k).pos = transform.position + transform.rotation * (transform.scale * positions.at(index));
 					if (morph)
 					{
-						t.v.at(k).pos.y += Ground(t.v.at(k).pos) - originGround;
+						t.v.at(k).pos.y = land_morph::Raised(ground, t.v.at(k).pos, originGround);
 					}
 					t.v.at(k).uv = index < uvs.size() ? uvs[index] : glm::vec2(0.0f);
 				}

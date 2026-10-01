@@ -912,7 +912,9 @@ donde llega, y `MoveMapObject`.
   jugador × `(1−ese factor)` (`GetPlayer3DColor` 0x64B590 → tabla 0xBFF0B8 con `GetRemapedPlayer`; el neutral es
   0xFF000000). `fn_00685F00` escala las UV por `TextureWidth/256, TextureHeight/256`; `fn_00685F40` retuerce las UV
   `u += (1−t)²·MaxUVChange`; `fn_00685FC0` gira cada fila `t·MaxVertexChange` sobre Y; con `DoRaiseAboveLandscape`
-  (`fn_00686980`) cada vértice sube al terreno bajo él menos el del centro (aquí al dibujar).
+  (`fn_00686980`) la malla se corta por las celdas y las diagonales del terreno (`fn_00686D90`) y cada vértice sube
+  al terreno bajo él menos el del centro, una vez al crearla (`land_morph`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)).
   `RenderParticleGJMeshRotatingUV::GameUpdate` 0x6C8BC0 desplaza las UV (SpeedU/V) dentro de la baldosa; `DrawAt`
   0x67CBA0 dibuja en modo 6 (color = textura×difuso + especular, alfa = textura×difuso).
   - **Tamaño (fiel, verificado):** la malla tiene radio 1 y solo pasa por la matriz dibujada del átomo
@@ -1211,7 +1213,8 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
 - **InitCollection 0x67E200**: margen = el radio del efecto del hechizo (`GMagicEffectInfo` +0x2C = archivo 0x1C), 5 sin
   hechizo. Dentro de un escudo (fn_006D0BC0 con ese margen): el punto donde un rayo desde 200 m más arriba corta la
   esfera (vt 0xFC FindIntersect), chispa y evento 4 en el centro al hechizo del escudo; **con 0 la explosión se para del
-  todo** (+0x52). Luego: en tierra seca una marca (fn_008251C0, no portada); en el agua **tres anillos** (crecimiento 5,
+  todo** (+0x52). Luego: en tierra seca una marca (fn_008251C0, `ecs/GroundMarks`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)); en el agua **tres anillos** (crecimiento 5,
   7 y 10; edad 0, ángulo 0, aspecto 1, ritmo 1, celda 0x30, blanco; +0x24 = 1,0 sin identificar; una sola
   implementación, `psys::water_rings::AddExplosionRings` de `PSys/PSysWaterRings`, de la lane del agua). Los objetivos: r =
   MaxDistance × el poder tribal del hechizo entre 1 y 5; las `ceil((r + 20) / 10)²` celdas de la espiral

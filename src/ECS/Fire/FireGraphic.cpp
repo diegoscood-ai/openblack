@@ -24,6 +24,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
@@ -232,11 +233,6 @@ glm::vec3 ObjectPosition(entt::entity object)
 	return transform != nullptr ? transform->position : glm::vec3(0.0f);
 }
 
-float LandAt(float x, float z)
-{
-	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
-}
-
 /// fn_007317F0: the flames
 void UpdateFlames(Graphic& graphic, const FireEffect& fire, float dt)
 {
@@ -398,13 +394,18 @@ void CollectFires(std::vector<psys::manager::Drawable>& out)
 		}
 		psys::manager::Drawable drawable {transform->position, {}};
 		// fn_00732220: flames, orange 0xFF713C, cell = int(fmod(-25 age, 32) + 32) (fn_007321B0)
-		const float rockGround = (graphic->flags & 1) != 0 ? LandAt(transform->position.x, transform->position.z) : 0.0f;
+		// flag bit 0 (+0xB5 & 1): the flames follow the land like the morphed object (land_morph::Raised): H0 at the
+		// graphic's +0x98 / +0xA0 (0x7322A9..0x7322D2; (inferido) the object's position), y = (H(flame) - H0) + y
+		// (0x73230A..0x732366)
+		const auto ground = land_morph::CurrentAltitude();
+		const float rockGround =
+		    (graphic->flags & 1) != 0 ? ground(glm::vec2(transform->position.x, transform->position.z)) : 0.0f;
 		for (const auto& flame : graphic->flames)
 		{
 			auto position = WorldFlamePosition(graphic->object, flame.position);
 			if ((graphic->flags & 1) != 0)
 			{
-				position.y += LandAt(position.x, position.z) - rockGround;
+				position.y = land_morph::Raised(ground, position, rockGround);
 			}
 			const float frame = static_cast<float>(static_cast<int>(std::fmod(-25.0f * flame.age, 32.0f) + 32.0f));
 			drawable.atoms.push_back({&FlameCreator(), position, glm::mat3(1.0f), flame.scale * graphic->scaleMultiplier,

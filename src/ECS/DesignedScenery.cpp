@@ -25,6 +25,7 @@
 #include "Audio/Sound.h"
 #include "Audio/SoundTags.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -216,6 +217,8 @@ void ProcessLand4()
 		g_Object = MakeObject("arche", glm::vec3(k_ArkPos.x, Altitude(k_ArkPos), k_ArkPos.y), k_ArkAngle, k_ArkScale);
 		if (g_Object != entt::null)
 		{
+			// a morphable object (Create(ecx = 1) 0x5E3B08): UpdateMelting at 0x5E3C55
+			Locator::entitiesRegistry::value().Assign<MorphWithTerrain>(g_Object);
 			g_Tag = MakeWaterFlowTag(glm::vec3(k_ArkPos.x, 0.0f, k_ArkPos.y));
 		}
 	}
@@ -225,6 +228,11 @@ void ProcessLand4()
 		// draws it like any placed mesh's (Renderer::DrawFootprintPass)
 		g_Object2 = MakeObject("dinosaur", glm::vec3(k_DinosaurPos.x, Altitude(k_DinosaurPos), k_DinosaurPos.y),
 		                       k_DinosaurAngle, k_DinosaurScale);
+		if (g_Object2 != entt::null)
+		{
+			// a morphable object too (Create(ecx = 1) 0x5E3CF8): UpdateMelting at 0x5E3DBE
+			Locator::entitiesRegistry::value().Assign<MorphWithTerrain>(g_Object2);
+		}
 	}
 }
 } // namespace

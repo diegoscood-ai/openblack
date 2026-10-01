@@ -43,6 +43,7 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
 #include "ECS/PotResource.h"
@@ -342,11 +343,14 @@ private:
 		// >= 4) the scorch mark
 		if (!water_rings::AddExplosionRings(data.centre))
 		{
-			// (no portado) fn_008251C0(centre, rand(2 pi), [0x9357D4] = 8, mesh 0x251): a 0x0C-byte mark on the land
-			// (fn_00825240: an LH3DObject of that pack mesh, +8 = 15000 ms, list 0xEB9A00, SmokyStuff::Create at it)
+			// 0x67E35C..0x67E395: fn_008251C0(centre, PSysFloatRand(2 pi) (0x40C90FDB), [0x9357D4] = 8, mesh 0x251), a
+			// ground mark that melts into the land and fades after 15 s (ecs/GroundMarks.h; its SmokyStuff is not made)
+			const float angle = effect.Random(6.28318548f);
+			const auto mark = ecs::ground_marks::CreateExplosionMark(data.centre, angle);
 			if (Trace())
 			{
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: the land mark (fn_008251C0, mesh 593) is not ported");
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: ground mark {} at ({:.1f}, {:.1f}), angle {:.2f}",
+				                   static_cast<uint32_t>(mark), data.centre.x, data.centre.z, angle);
 			}
 		}
 		// the targets: every available object of the ceil((r + 20) / 10)^2 cells of the spiral around the centre that is

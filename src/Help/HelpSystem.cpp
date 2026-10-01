@@ -16,6 +16,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "GameClock.h"
+
 namespace openblack::help
 {
 
@@ -375,10 +377,10 @@ void HelpSystem::StartReadingTime(std::u16string_view text)
 	const uint32_t turn = Turn();
 	_startTurn = turn; // 0x5C61FB
 	// fild gt, fimul [0xD01A38], fmul 0.001f (0x8AA3B0), fmul factor, fstp float
-	const auto seconds = static_cast<float>(static_cast<double>(gameTurns) * static_cast<double>(k_MsPerTurn) *
+	const auto seconds = static_cast<float>(static_cast<double>(gameTurns) * static_cast<double>(game_clock::MsPerTurn()) *
 	                                        static_cast<double>(0.001f) * factor);
-	const uint32_t turnsPerSecond = 1000 / k_MsPerTurn; // 0x5C61F6..0x5C6201 (div)
-	_endTurn = turn + static_cast<uint32_t>(static_cast<int32_t>(static_cast<double>(turnsPerSecond) * seconds)); // 0x5C623E
+	// 0x5C61F6..0x5C623E: 1000 / [0xD01A38] (div) * seconds, ftol: the NumGameTicksPerSecond 0x711630 conversion
+	_endTurn = turn + static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	const int32_t now = NowMs();
 	_startMs = now;                                                                                  // 0x5C628F
 	_endMs = static_cast<int32_t>(static_cast<double>(seconds) * 1000.0 + static_cast<double>(now)); // 0x5C629B
@@ -537,7 +539,7 @@ bool HelpSystem::ShownLongEnough() const
 	}
 	else // 0x5C695F..0x5C698B
 	{
-		seconds = static_cast<double>(static_cast<int32_t>(Turn() - _startTurn)) * static_cast<double>(k_MsPerTurn) *
+		seconds = static_cast<double>(static_cast<int32_t>(Turn() - _startTurn)) * static_cast<double>(game_clock::MsPerTurn()) *
 		          static_cast<double>(0.001f);
 	}
 	return !(seconds < static_cast<double>(limit));

@@ -29,6 +29,7 @@
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/OneOffSpellSeed.h"
@@ -180,8 +181,8 @@ void dispenser::SetMagicProperties(entt::entity dispenser, MagicType magic, floa
 	component.magicType = magic;
 	if (seconds > 0.0f)
 	{
-		constexpr float k_TurnsPerSecond = 1000.0f / static_cast<float>(magic::k_TurnMs);
-		component.period = static_cast<uint32_t>(k_TurnsPerSecond * seconds);
+		// 0x70CCDE: ftol(1000 / [0xD01A38] * seconds), the NumGameTicksPerSecond 0x711630 conversion inline
+		component.period = static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	}
 	else
 	{
@@ -200,8 +201,9 @@ void dispenser::SetTimerTime(entt::entity dispenser, float seconds)
 	{
 		return;
 	}
-	constexpr float k_TurnsPerSecond = 1000.0f / static_cast<float>(magic::k_TurnMs);
-	const auto period = static_cast<uint32_t>(k_TurnsPerSecond * seconds);
+	// 0x711338..0x711360: ftol(1000 / [0xD01A38] * seconds) inline (NumGameTicksPerSecond 0x711630), kept when > 0
+	// unsigned (jbe)
+	const auto period = static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	if (period > 0)
 	{
 		Registry().Get<SpellDispenser>(dispenser).period = period;

@@ -347,7 +347,7 @@ chants::Context magic::ChantContextOf(entt::entity spell)
 		}
 	}
 	context.costToMaintain = OpsOf(component.spellClass).costToMaintain(spell);
-	context.turnMs = k_TurnMs;
+	context.turnMs = game_clock::MsPerTurn(); // *(u32*)0xD01A38
 	const auto creator = component.creator;
 	context.maintain = [creator, spell](float amount) { return creator::MaintainSpell(creator, spell, amount); };
 	// TODO(M7): CreateSpellPoint 0x7213D0 (the mana path sprites of a spell with a worship site)

@@ -12,12 +12,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "GameClock.h"
+
 using namespace openblack;
 
 namespace
 {
-// Game turn length in seconds, as passed by GGame::ProcessTurn
-constexpr float k_TurnSeconds = 0.1f;
+// Game turn length in seconds, as passed by GGame::ProcessTurn (0x54E6AE..0x54E6C3: [0xD01A3C] * 0.1, 0.1)
+constexpr float k_TurnSeconds = game_clock::k_TurnSeconds;
 
 float WrapHours(float t)
 {

@@ -1155,6 +1155,16 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   fn_0071E920 que faltaba, la escala de MapCoords, el punto viejo de 0x427209). Nota para arboles: `Trees.cpp` pasa
   la columna 1 de la clave = 2 y el original 0 (ebp = 0, 0x74AB6A); sin efecto audible, todas las filas de editor.sad
   tienen comodín en esa columna.
+- **Auditoría B4-B6** (2026-10-01, commit 598b6dbd): comprobadas en el desensamblado 0x70F7F0 (POPs y campos +0x04
+  / +0x08 / +0x0C / +0x20 / +0x24 / +0x30..+0x38 / +0x164), 0x70FA50 (isSay, tabla 0x942B3C/+0x40, 0x270C/0x270E/0x270D),
+  0x710150 / 0x7101D0 (orden de POPs y argumentos de SoundTag::Create / Remove), 0x5D2800 (0x5D2881..0x5D295D: tag 10,
+  gritos 180/194/187 + rand 7 con IsAlive 0x402610), 0x74B730, 0x74BC60, 0x63AA13, 0x6E74B8, 0x458967, 0x45E119..0x45E305,
+  0x645BEE, 0x406511 (B = ebp = 0x10 de 0x40626C) / 0x406640, 0x66D1A0, 0x5D1933, 0x68F9E8, 0x5D1FC4, 0x5E0413: cuadran.
+  DeadTree hereda de Rock (bw1-decomp DeadTree.h), no de Tree: no es IsTree y suena al cogerlo. Corregido solo un
+  comentario de la cámara (la bandera del woosh del doble clic es [esp+0x23], no [esp+0x4B]; el caso [esp+0x4B], distancia
+  1000, queda pendiente). En juego (`_audit\audio\audit_b4b6.log`): PLAY_SOUND_EFFECT(49/50/54, 5, punto, 1) con la cámara
+  al lado → Scriptsfx 3D, track 0, dueño `key 0x31/0x32/0x36`, en canal. (Aproximado, sin cambio audible) los tags de
+  recoger y arrancar usan el punto de la Transform, el original GetAltitude + la altura de su MapCoords (0x71EB60).
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
 - **A9 en juego**: falta quién da el alineamiento en la cámara (GAudio+0x190, fn_005E2240 desde fn_0064AC30) y la tribu
   de los pueblos (Town +0x5B8). Hoy suena la genérica neutral.

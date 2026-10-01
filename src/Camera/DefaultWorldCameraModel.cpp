@@ -507,8 +507,10 @@ void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
 
 	if (wooshingDistance)
 	{
-		// CameraModeNew3::Update 0x45E0C3..0x45E305: the double click's flight to the focus distance 100 (the woosh flag
-		// [esp+0x4B], set with that distance) whooshes without FlyToPosFoc's own test
+		// CameraModeNew3::Update 0x45E0C3..0x45E305: the double click's flight whooshes without FlyToPosFoc's own test.
+		// Its flag [esp+0x23] is set with the focus distance [0x9CE640] 100 when one distance is more than 100 * 1.5 and
+		// the other more than 10 (0x45E119..0x45E151, the test above), and also when [esp+0x4B] is set (focus distance
+		// 1000, 0x45E1D5..0x45E1F1: pending, not ported)
 		_flightPath = CharterFlight(_targetOrigin, _targetFocus, _currentOrigin, k_FlightHeightFactor);
 		PlayWoosh();
 	}

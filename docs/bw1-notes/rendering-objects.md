@@ -61,7 +61,8 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   guardar y restaurar es cosa del llamador, 0x8254A3/0x82551F). `fn_005E5830`, que llama `GLandscape::Draw` (0x5E488E)
   una vez por fotograma antes de los modelos, la deja en el sol por defecto [0xEA1C88] = (−500000, 500000, −500000)
   (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
-  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual, 2 = noche) la pone a 3 unidades ([0x8C2C50]) de la
+  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual calculado ahí, 0x5E58D1..0x5E58DF, 2 = noche;
+  openblack: `sky_type::At(hora visual)`) la pone a 3 unidades ([0x8C2C50]) de la
   **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
   - Con el cursor fuera del terreno (en el cielo) el original sigue moviendo la mano por el rayo del ratón a su
     distancia de la vista (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` se queda con

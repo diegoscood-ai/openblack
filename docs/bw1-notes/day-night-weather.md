@@ -6,6 +6,7 @@ funciones del reloj de `runblack.exe`; `night_visuals.txt` es el informe de las 
 El tiempo del juego (climas, tormentas, lluvia) está al final, en «Tiempo y clima».
 
 - [Reloj](#reloj-hecho-src3ddaynightclock)
+- [Tipo de cielo](#tipo-de-cielo-src3dskytype)
 - [Luces de noche](#luces-de-noche-informe-night_visualstxt)
 - [Clima](#clima)
 - [Tiempo y clima](#tiempo-y-clima-m6a-srcecsweather)
@@ -21,20 +22,31 @@ Hay **dos relojes** en horas 0..24:
 - **Hora de guion**: la hora visual pasada por una función lineal a trozos (`fn_00869FD0`; `fn_0086A160` visual →
   guion, `fn_0086A110` guion → visual). Lleva los umbrales del ciclo a las horas fijas 3,5 / 7,5 / 8 / 8,5
   (0xC395B0..BC), reflejadas en las 12. La usan `GET_GAME_TIME` / `SET_GAME_TIME`, el sol (`fn_0086C020`), la luna
-  (`LH3DAtmos::UpdateGame`) y las luces de las farolas (`fn_0086C220`). openblack le pasa esta hora al cielo
-  (`Sky::SetTime`); es equivalente a `Time2SkyType(hora visual)` con los umbrales del ciclo.
+  (`LH3DAtmos::UpdateGame`) y las luces de las farolas (`fn_0086C220`). openblack le pasa esta hora al sol y a la luna
+  (`Sky::SetTime` / `GetTime`). **No** es la hora del tipo de cielo: ese va sobre la hora visual (ver
+  [Tipo de cielo](#tipo-de-cielo-src3dskytype)).
 
 **Ciclo** (`GGameInfo::SetVisualTimeCycle` 0x557620, `(duración, noche, cambio)`; fracciones del día entero):
 
-- Velocidad: `n = trunc(duración · 0,416667)` y `10/n` horas por segundo, igual de día y de noche (0xBF338C y 0xBF3390
-  valen lo mismo).
-- Umbrales (`LH3DSky::SetDayNightTimes` 0xFA26A0..94): con A = 12·noche, B = 12·cambio y c = min(B/4, A) quedan
-  (A − c, A + c, A + B − c, A + B + c). Por defecto (1700; 0,083; 0,07) son **0,786 / 1,206 / 1,626 / 2,046 h**
+- Velocidad: `n = ftol(duración · 0,41666666f)` ([0x8DF8F0] = 0x3ED55555) y `10/n` horas por segundo, igual de día
+  y de noche (0xBF338C y 0xBF3390 valen lo mismo). El producto se queda en el registro x87 antes de `__ftol`: con la
+  FPU a 24 bits (lo que pone D3D, **(inferido)**) es el producto en float que hace openblack; con 53 bits las
+  duraciones múltiplo de 2,4 (1200, 2400) darían un `n` menos.
+- Umbrales (`LH3DSky::SetDayNightTimes` 0x869FA0 → 0xFA26A0..94): N = 12·noche, E = 12·cambio + N (guardado en
+  float), c = min((E − N)·0,25, N), y `SetDayNightTimes(N − c, c + N, E − c, E + c)` (0x55768F..0x5576E4; **fiel**,
+  openblack lo hace en este orden desde `DayNightClock::SetCycle`, que además llama a `sky_type::SetThresholds`).
+  Por defecto (1700; 0,083; 0,07) son **0,786 / 1,206 / 1,626 / 2,046 h**
   desde medianoche. Es decir, hay noche cerrada solo entre las 23,2 y las 0,8 h visuales y es de día entre las 2 y las
   22 h: la noche dura unos 2 min reales y cada transición otros 30 s.
-- `LH3DSky::Time2SkyType` 0x86A1B0 sobre la hora visual: 2 de noche, 1 al ocaso, 0 de día. `IsVisualNight` es > 1,2.
+- `LH3DSky::Time2SkyType` 0x86A1B0 sobre la hora visual: 2 de noche, 1 al ocaso, 0 de día. `IsVisualNight` es > 1,2
+  (el double). Todo el detalle, en [Tipo de cielo](#tipo-de-cielo-src3dskytype).
 - `fn_0086A3B0` pone (4,5; 7; 7,5; 8,25) al abrir el cielo, pero `GLandAlignement::Open` lo pisa en seguida con el
   ciclo por defecto.
+- En la campaña los umbrales son **siempre** los de por defecto: `challenge.chl` no llama nunca a 407 ni a 408, Land1,
+  Land4, Land5 y LandT no tienen `SET_NIGHTTIME` y Land2/Land3 repiten (1700; 0,083; 0,07). Los playgrounds sí los
+  cambian: SandBox Creature Training y ThreeGods (1000; 0,23; 0,17) → 2,25 / 3,27 / 4,29 / 5,31; Demon God
+  (1143; 1; 0) → 12 / 12 / 12 / 12, tipo 2 siempre salvo a las 12 en punto (0); Ultimate Sandbox (3400; 0,4; 0,01) →
+  4,77 / 4,83 / 4,89 / 4,95.
 
 **Avance por turno** (`UpdateTime(a, b)`, a = escala · 0,1 y b = 0,1):
 
@@ -66,10 +78,95 @@ original, hasta el sexto decimal.
 
 **Ganchos de prueba**
 
-- `OPENBLACK_TIME_OF_DAY=<hora de guion>` fija la hora en cada fotograma.
+- `OPENBLACK_TIME_OF_DAY=<hora de guion>` fija la hora en cada turno (`ForceScriptTime`, con el salto del cielo).
 - `OPENBLACK_TEST_MOVE_TIME="hora,segundos"` hace un `MOVE_GAME_TIME` al cargar; el guion puede pisarlo.
-- `OPENBLACK_CLOCK_TRACE=1` escribe el reloj en el log cada 50 turnos.
-- El menú World muestra la hora de guion (deslizador) y la visual.
+- `OPENBLACK_CLOCK_TRACE=1` escribe el reloj en el log cada 50 turnos: hora visual, de guion, tipo de cielo calculado
+  ahora, el del fotograma (`sky_type::Frame()`) y el de la cúpula (`Dome().Built()`).
+- El menú World muestra la hora de guion (deslizador), la visual, el tipo de cielo del fotograma y el de la cúpula.
+
+## Tipo de cielo (`src/3D/SkyType.*`)
+
+Una sola API, `openblack::sky_type::` (`src/3D/SkyType.h`), con el convenio del original: **2 noche, 1 ocaso, 0 día**,
+continuo. Informes: `dev\tmp_dis\unify2\shader_sky_type_original.md` (su «Verificación adversaria» manda) y
+`shader_sky_type_openblack.md`; plan: `SHADERS_PLAN.md` §6. Todo **fiel** salvo lo marcado.
+
+| Función | Original | Qué hace |
+|---|---|---|
+| `At(hora)` | `Time2SkyType` 0x86A1B0 | Pliega en 12 solo si hora > 12 (`test ah,0x41`); luego `<` estricto contra A..D: 2, 2 − (h − A)/(B − A), 1, 1 − (h − C)/(D − C), 0. No hay división por cero: con A = B la rampa es inalcanzable. `DayNightClock::Time2SkyType` reenvía aquí con sus umbrales |
+| `SetThresholds(A,B,C,D)` | `SetDayNightTimes` 0x869FA0 | A → 0xFA26A0, B → 0xFA269C, C → 0xFA2698, D → 0xFA2694; lo llama `DayNightClock::SetCycle` (0x557620) |
+| `SampleFrame(visual)`, `Frame()`, `FrameHour()` | `fn_0086A2C0`, [0xFA26BC], [0xFA26C4] | Normaliza a [0, 24) con los bucles de 0x86A2C4..0x86A308 y guarda hora y tipo. `DrawSky` 0x5E2226 lo llama una vez por fotograma con la hora visual [0xBF3380]: en openblack, al principio de `Renderer::DrawScene` (una vez por fotograma, no en cada pasada) |
+| `Jump(visual)` | `fn_0086A270` | `SampleFrame` y la cúpula entera de golpe. Lo llama `fn_005E22A0` 0x5E22CB (`ForceVisualTime` 0x5575D0): en openblack, `DayNightClock::ForceScriptTime` (Reset/LoadMap, `SET_GAME_TIME`, el deslizador, `OPENBLACK_TIME_OF_DAY`, `config.timeOfDay`). `MOVE_GAME_TIME` no salta |
+| `IsVisualNight(T)` | 0x5575E0 | T > el double 1,2 ([0x8D8758] = 33 33 33 33 33 33 F3 3F): T = 1,2f ya es noche. La usa `DayNightClock::IsVisualNight`; `ChildAtCreche` 0x757CFF tiene la misma comparación |
+| `EveningRamp(visual, w, o)` | `fn_00557AE0` | u = 24 − visual, s = D + o; u < s → 1; !((D + w) + o > u) → 0; si no, 1 − (u − s)/w. Para los deseos Relaxation 0x7488C0 / Sleep 0x748960 (sin llamador aún, **pendiente** de mapa V3) |
+| `LightColumn(T)` | 0x86985E..0x8698AD | (2 − T)·6,0f·2,5f = (2 − T)·15, columna de la tabla de luz |
+| `HazeFactor(T)` | 0x869D5F..0x869D7A | v = T > 1 ? 2 − T : T; v² |
+| `DomeWeightOf`, `BlendTexel555`, `DomeBlend` | `fn_0086B7F0`, `fn_0086B9A0`, `fn_0086A330` | La cúpula, abajo |
+
+Quién llama a qué:
+
+- Calculan el tipo en el momento con la hora visual, como el original: la luz de los modelos
+  (`model_light::UpdateFrameLight(…, sky_type::At(visual))`, como `fn_005E5830` 0x5E58D1..0x5E58DF; da lo mismo que
+  `Frame()` porque `DrawSky` muestrea la misma hora justo después), `DayNightClock::ProcessTurn` (0x5E202B), las
+  luciérnagas (`GetSkyType`, 0x52B7CA / 0x52B820) y `IsVisualNight` (luces de noche).
+- Leen el muestreo del fotograma: la cúpula y, por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`
+  (= 2 − `Frame()`), `LandLightTable::Build` (la conecta «sistemas»). El sonido (`GSoundMap`, 0x71DDF1) debe leer
+  `Frame()`, el T del fotograma anterior (ProcessTurn 0x54D830 y EndTurn 0x54D837 van seguidos, sin `DrawSky`):
+  hoy `Game.cpp` le pasa `GetSkyType()` del turno; lo cambia «audio» (B11). **pendiente**.
+- Quitado: `Sky::GetCurrentSkyType` con hora de guion y umbrales inventados 3,5 / 7,5 / 8 / 8,5 con `<=` (queda solo
+  el reenviador), `Sky::SetDayNightTimes`, `u_skyAlphaThreshold.x` (fs_object no lo lee), `u_sky` y su rampa de
+  reserva de `fs_water` (sin `palette.raw` el mar va ahora sin luz, blanco, **(inferido)**: el original siempre tiene
+  la tabla). `u_skyAndBump.x` lleva 2 − `Frame()` hasta que «sistemas» lo quite de fs_terrain.
+- Precisión: se supone la FPU a 24 bits (lo que pone D3D, **(inferido)**), la misma hipótesis que `SetCycle`. Con
+  ella las rampas de `Time2SkyType` ya salen redondeadas a float, los bucles de `SampleFrame` van en float (h = −1e-7
+  da 24 → 0; con 53/64 bits se quedaría en 23,9999999 y se guardaría 24,0f) y la resta de la histéresis se redondea a
+  float antes de compararla con el double 0,03f.
+- NaN: `Time2SkyType` compara con `fcomp` / `test ah,1` / `je` (0x86A1DC..0x86A246), así que «no ordenado» cuenta
+  como «<»: una hora NaN da 2 (noche). openblack lo copia con comparaciones `!(t >= x)`. En `SampleFrame` el original
+  se queda en bucle infinito con NaN; openblack sigue (diferencia de openblack).
+
+**La cúpula** (`DomeBlend`, `Sky::UpdateDome`, `fs_sky.sc`):
+
+- `fn_0086A3B0` crea 3 texturas dinámicas de 256×256 (flags 0x104, formato 4; [0xFA2738 + 4a]), una por alineación,
+  y las construye enteras. Fuentes: `Data\WeatherSystem\sky_<good|ntrl|evil>_<day|dusk|night>.555`, índice
+  3·hora_del_día + alineación ([0xFA26E8]).
+- Cada fotograma, `fn_0086A330` (tras `SampleFrame`, 0x5E222B): si la cúpula está entera y |`Frame()` − construido|
+  > 0,03 (el double [0x99A168] = (double)0,03f, estricto), guarda el nuevo T ([0xFA26C0]) y vuelve a la fila 0
+  ([0xFA26B8]); mientras falten filas mezcla 32 más con el T guardado (el primer bloque en el mismo fotograma). Son
+  [0xEDD470] ? 128 : 256 filas. [0xEDD470] depende del nivel de detalle: `fn_00823AD0` lo copia de la tabla
+  [0x9A38E0 + 4·nivel] = 1, 1, 0, 0, 0, 0, 0 (0x823C5B..0x823C69; `DetailLevel::skyNoBlend`), y `fn_0082A8E0` lo
+  vuelve a escribir en sus dos salidas (0x82AB1B / 0x82AB30). En los niveles 2..6 son 256 filas en 8 fotogramas, con
+  mezcla. En los niveles 0 y 1 `fn_00869670` es falso: sin mezcla, 128 filas y tinte por T (abajo, sin portar).
+  openblack mezcla 256 filas en todos los niveles.
+- `fn_0086B7F0`: T ≤ 1 → w = ftol(T·255) entre día (255 − w) y ocaso (w); si no, w = ftol((T − 1)·255) entre ocaso
+  y noche. `fn_0086B9A0` (camino 555): por canal de 5 bits `(c_inf·(255 − w)) >> 8 + (c_sup·w) >> 8`; la suma de
+  pesos es 255/256 (un canal de 31 sale 30) y el bit 15 sale a 0. Como cada término se trunca por separado, la cúpula
+  sale algo más oscura y con más bandas que la mezcla lineal de antes: unos −4/−5 por canal (de 255) a mediodía y
+  hasta un 40 % menos en los canales oscuros de noche (las texturas de noche tienen valores 1..4 de 31). Es lo que
+  hace el original (tablas 0xFA2554 / 0xFA2514, p = 255 − ftol(T·255) en 0x86B8E3): **no «arreglarlo»**.
+- La textura (formato 4) solo recibe la marca +0x138 cuando el bloque llega a la última fila (0x86B95B..0x86B977); el
+  unlock `fn_00838EB0` solo sube él mismo los formatos 1, 2 y 0x20. La marca +0x138 significa «sucia, subir en
+  el próximo enlace»: el camino de `SetTexture` de la textura LH3D (0x837EC6..0x837F74) la mira, bloquea la superficie
+  D3D (vtable +0x64, flags 0x821), convierte la copia de sistema con [+0x134] (0x837F19), desbloquea, llama a
+  `IDirect3DDevice7::SetTexture` (+0x8C) y borra la marca (0x837F74); es decir, en el `DrawSky` del mismo fotograma.
+  openblack sube las 3 capas a la GPU solo al terminar la última fila, así que la cúpula cambia de golpe tras 8
+  fotogramas, como el original.
+- openblack lo hace en CPU, en `Sky::BlendDome`, sobre una copia de las 9 texturas; `fs_sky.sc` ya no mezcla horas,
+  solo alineaciones (capa 0 mala, 1 neutral, 2 buena; `u_typeAlignment.x` no se usa). Cómo mezcla el original la
+  alineación está **sin leer** (openblack mantiene su mezcla lineal de las dos más cercanas, **(inferido)**).
+- La cúpula inicial se construye con el T actual (el original usa la hora de `fn_0086A3B0` con sus umbrales
+  4,5 / 7 / 7,5 / 8,25); el último salto de hora de `Open` (0x5E1D9C; el primero es `fn_005576F0` 0x557702) y el
+  `ForceScriptTime(12)` de `Reset` en openblack la rehacen entera en seguida (gana el último salto), **(inferido)** sin
+  efecto visible. `fn_005E22A0` llama además a `fn_005E1DE0` (0x5E22D3, lee [0xBF3378]) tras el salto: no es tipo de
+  cielo y no está en `ForceScriptTime`.
+- Sin portar: el modo sin mezcla (`fn_00869670` falso: copia de las texturas de día y tinte del color del cielo por
+  T, 0x86B1C1..0x86B2A4), el camino 565 ([0xEDD46C]) y la tabla de luz tras `Jump` (openblack la rehace cada
+  fotograma).
+- Orden en `GGame::Load`: el salto (0x554B6F) va antes de `SetVisualTimeCycle` (0x554C9E), con los umbrales anteriores;
+  openblack no carga partidas guardadas.
+
+Pruebas: `test_sky_type` (umbrales por defecto, `At` con Demon God y con NaN, normalización (también
+−1e-7 → 0 a 24 bits), 1,2 double, rampa de tarde, columna y neblina, pesos, mezcla 555, histéresis y filas (también la
+resta redondeada a float), salto desde `ForceScriptTime`).
 
 ## Luces de noche (informe `night_visuals.txt`)
 

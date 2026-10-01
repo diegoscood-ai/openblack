@@ -12,6 +12,8 @@
 
 #include <array>
 
+#include <spdlog/spdlog.h>
+
 #include "Audio.h"
 #include "Sound.h"
 
@@ -154,6 +156,12 @@ void audio::StopSoundEffect(int sample, Owner owner, SfxBank bank)
 void audio::StopSoundEffect(int sample, Owner owner, BankId bank)
 {
 	// 0x42A210 -> LHSampleStop(bank, owner, sample): sample 0 = any (0x10012C76)
+	if (SfxTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "SFX: stop {}/{} owner kind {} {}", BankGroup(bank), sample,
+		                   static_cast<int>(owner.kind),
+		                   owner.kind == Owner::Kind::Thing ? static_cast<uint32_t>(owner.thing) : owner.id);
+	}
 	if (sample == 0)
 	{
 		sample_play::StopOwner(bank, owner);

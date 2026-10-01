@@ -244,15 +244,11 @@ void OnThingDeleted(entt::entity thing);
 /// Once a frame: the device output's loop counting (AudioManager::Update)
 void UpdateFrame();
 
-// ---- agua's names (kept for the callers outside src/Audio until milestone B4 moves them to audio::) ----------------
+// ---- agua's names (inside src/Audio and the tests only: since milestone B4 the game calls audio::) -------------------
 // The emitter handles are the Channel numbers as entities.
 
 /// LHSamplePlay (Start)
 entt::entity Play(const Options& options);
-/// GAudio::PlaySoundEffect 0x429E30 (audio::PlaySoundEffect)
-entt::entity PlaySoundEffect(const Options& options);
-/// GAudio::SamplePlayAnimEffect 0x42A4B0 with a sample number (audio::PlayAnimEffectSample)
-entt::entity PlayAnimEffect(entt::id_type sound, entt::entity thing, glm::vec3 position, bool track);
 /// LHSampleSetVolume on a handle of Play
 void SetVolume(entt::entity emitter, int volume);
 /// fn_004270D0 (UpdateChannels)

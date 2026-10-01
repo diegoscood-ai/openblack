@@ -31,7 +31,7 @@
 #include <glm/vec3.hpp>
 
 #include "Audio/AnimationSounds.h"
-#include "Audio/AudioManagerInterface.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Archetypes/TreeArchetype.h"
@@ -304,28 +304,19 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 
 namespace
 {
-/// GAudio::PlaySoundEffect at a position: a one-shot 3D emitter, within the sample's max distance of the camera
+/// GAudio::PlaySoundEffect(LH_SamplePlayOptions*) 0x429E30 at a position, as Tree::ApplyWaterSpell 0x74C460..0x74C500
+/// fills the options: the bank's sample ("<bank>.sad/<n>"), is3D 1 (+0x08), track 0 (+0x0C), the tree's point (+0x30);
+/// one of the 16 channels, not started farther from the camera than the sample's max distance (0x429E59). (approximated)
+/// The owner +0x20 is the tree in the original (0x74C4D4); this signature has no tree, so the channel has none: only
+/// LHSamplePlay's mode 3 matching differs (two trees growing with the same sample share a channel).
 void PlayAt(const std::string& name, glm::vec3 position)
 {
-	if (!Locator::audio::has_value() || !Locator::camera::has_value())
-	{
-		return;
-	}
-	const auto id = entt::hashed_string(name.c_str()).value();
-	if (!Locator::resources::value().GetSounds().Contains(id))
-	{
-		return;
-	}
-	auto& audio = Locator::audio::value();
-	const auto& sound = audio.GetSound(id);
-	if (glm::distance(position, Locator::camera::value().GetOrigin()) > sound.maxDistance)
-	{
-		return;
-	}
-	const auto emitter = audio.CreateEmitter(id, audio::PlayType::Once, position, glm::vec3(0.0f), glm::vec2(0.0f),
-	                                         sound.volume, audio::AudioStatus::Playing, false);
-	Locator::entitiesRegistry::value().Get<Transform>(emitter).position = position;
-	audio.PlayEmitter(emitter);
+	audio::PlayOptions options;
+	options.sound = entt::hashed_string(name.c_str()).value();
+	options.is3D = true;
+	options.track = false;
+	options.position = position;
+	audio::PlaySoundEffect(options);
 }
 
 /// The trees of a forest (both of the original's lists)

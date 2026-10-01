@@ -3,7 +3,7 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B3 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
+y los hitos B0..B4 y B6 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -35,6 +35,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase A implementada](#fase-a-implementada)
 - [Fase B: B0 y B1 implementados](#fase-b-b0-y-b1-implementados)
 - [Fase B: B2 y B3 implementados](#fase-b-b2-y-b3-implementados)
+- [Fase B: B4 y B6 implementados](#fase-b-b4-y-b6-implementados)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -131,14 +132,14 @@ Reglas:
 
 ### Estado del motor de efectos en openblack
 
-**Fases B0..B3 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados)). Hay un solo motor de canales: los 16 canales de
+**Fases B0..B4 y B6 hechas** ([B0-B1](#fase-b-b0-y-b1-implementados), [B2-B3](#fase-b-b2-y-b3-implementados),
+[B4-B6](#fase-b-b4-y-b6-implementados)). Hay un solo motor de canales: los 16 canales de
 `audio::sample_play` (LHSamplePlay), cada uno con su fuente OpenAL propia y **fuera del registro ECS**, detrás de los
-filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Siguen fuera de los canales, hasta sus hitos,
-los reproductores viejos sobre `AudioManager::CreateEmitter`/`PlaySound` (está prohibido añadirles llamadores):
-- `PlayAt` de los árboles (B4; su `PlayFromTable` ya va por los canales desde B2);
-- `SpellSounds`, `FireSound`, `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`, `WorshipSpellIcon`,
-  `MagicTeleport`, `PotResource`, `Fireball`, `OneOffSpellSeed` (B5, Milagros);
-- la mano (`HandSystem::PlaySample`/`PlayAt`), `Rocks`, el woosh de la cámara, `CollisionSounds::PlaySample2D` (B4);
+filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
+cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí. Siguen fuera de los canales, hasta B5,
+los reproductores viejos de Milagros sobre `AudioManager::CreateEmitter`/`PlaySound` (está prohibido añadirles llamadores):
+- `SpellSounds`, `FireSound`, el bucle de la semilla de `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`,
+  `WorshipSpellIcon`, `MagicTeleport`, `Fireball`, `OneOffSpellSeed` (B5, Milagros);
 - el panel de depuración «Sound».
 Esos también ganan los arreglos de B0 (un búfer por muestra, RIFF 0x50, puntos de bucle), porque comparten
 `wave_buffers`.
@@ -689,7 +690,7 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 | 13 | RUN_TEXT | 0x6F7D60 | hecho (texto; voz en B7) |
 | 14 | TEMP_TEXT | 0x6F7E40 | hecho (sin voz, como el original) |
 | 15 | TEXT_READ | 0x6F8260 → IsTextRead | hecho (sin la rama de voz hasta B7) |
-| 43 | PLAY_SOUND_EFFECT | 0x70F7F0 (dueño = n.º de muestra) | stub (B6) |
+| 43 | PLAY_SOUND_EFFECT | 0x70F7F0 (dueño = n.º de muestra) | hecho (B6) |
 | 44 | START_MUSIC | 0x70FB20 (error fuera de 0..0x55 y sigue; +0x98 = +0x9C = 0) | hecho |
 | 45 | STOP_MUSIC | 0x70FB90 | hecho |
 | 46 | ATTACH_MUSIC | 0x70FBF0 (error fuera de 1..84 y lo añade igual) | hecho |
@@ -712,13 +713,13 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
 | 335 | LAST_MUSIC_LINE | 0x710050 (sin audio: TEXT_READ, 0x7100A6) | hecho |
 | 340 | GAME_PLAY_SAY_SOUND_EFFECT | 0x70F9B0 → 0x70F8E0 | stub (B7) |
 | 350 | MUSIC_PLAYED (tipo) | 0x70FBA0 (GAudio+0x28 != tipo; sin audio: TEXT_READ, 0x70FBE4) | hecho |
-| 357 | SET_GAME_SOUND | 0x7100B0 | stub en esta rama (hecho en agua, B6) |
-| 409 | SOUND_EXISTS | 0x710100 → LHWaveIsInstalled | stub (B6) |
+| 357 | SET_GAME_SOUND | 0x7100B0 | hecho (B6, `audio::SetGameSound`) |
+| 409 | SOUND_EXISTS | 0x710100 → GAudio::IsInstalled 0x426D30 → LHWaveIsInstalled | hecho (B6) |
 | 411 / 412 | GAME_CLEAR_DIALOGUE / GAME_CLOSE_DIALOGUE | 0x6FF6F0 / 0x6FF700 | hecho |
-| 424 | STOP_SOUND_EFFECT | 0x70FA50 (isSay: narrador 2 → 0x270C; si no, 0x270E + 0x270D; nunca 0x270F) | stub (B6/B7) |
+| 424 | STOP_SOUND_EFFECT | 0x70FA50 (isSay: narrador 2 → 0x270C; si no, 0x270E + 0x270D; nunca 0x270F) | hecho (B6; con isSay para las voces de B7) |
 | 445 | ENABLE_DISABLE_ALIGNMENT_MUSIC | 0x710120 | hecho |
-| 447 / 448 | ATTACH / DETACH_SOUND_TAG | 0x710150 / 0x7101D0 → 0x71E840 / 0x71EBE0 | stub (B6) |
-| 450 | GAME_SOUND_PLAYING | 0x710230 | stub (B6) |
+| 447 / 448 | ATTACH / DETACH_SOUND_TAG | 0x710150 / 0x7101D0 → 0x71E840 / 0x71EBE0 | hecho (B6) |
+| 450 | GAME_SOUND_PLAYING | 0x710230 → fn_0042A280 | hecho (B6) |
 | 458 | SAY_SOUND_EFFECT_PLAYING | 0x710280 | stub (B7) |
 
 `GetScriptGameThing` 0x70D220 se aproxima en `MusicThing` (CHLApi.cpp): 0 es nulo y una entidad válida es un objeto
@@ -833,8 +834,8 @@ Capas (PLAN §2.1):
   0x100142C0).
 - **2. GAudio** (`AudioSystem`): bancos (`RegisterBank`, `Bank(SfxBank)` = GAudio+0x3A8+4·tipo, `FindBank`,
   `SampleId`, `CreatureBank`), filtros de `PlaySoundEffect` 0x429E30 (corte 3D con +0x58, userParam 1/2/4,
-  SET_GAME_SOUND sobre GScript+0x90 de `ScriptAudioState`, `OwnerUnavailable` 0x429D20), `PlayAnimEffectSample`
-  0x42A4B0 (rama de muestra), ciclo de vida.
+  SET_GAME_SOUND sobre GScript+0x90 de `ScriptAudioState`, `OwnerUnavailable` 0x429D20), ciclo de vida. (La rama de
+  muestra `PlayAnimEffectSample` de `CollisionSounds` se quitó en B4: la física pasa ya su clave.)
 - **3. GameSfx**: las 5 variantes 0x429D60 / 0x429DA0 / 0x42A000 / 0x42A040 / 0x42A100, Stop 0x42A210, ReleaseLoop
   0x42A330 / 0x42A310, IsPlaying 0x42A280 / 0x42A2B0 / 0x42A2D0, SetPitch 0x428740 y los contadores cíclicos
   (`enum class Counter`).
@@ -921,8 +922,7 @@ Auditoría de B0-B1 (§1.7 de TEAM_GUIDELINES, sesión audio):
   arranque del asa también apagado, porque su juego sigue corriendo minimizado y PSysSound (0x6D120A) relanzaría cada
   turno. `LHSampleSet3DPosition` también busca el primer canal de la terna y respeta los ejes fijos del canal (+0x14
   bits 4/8/0x10, 0x10013BCC): openblack mueve el canal del asa y no tiene ejes fijos.
-- La distancia de `SamplePlayAnimEffect` la calcula el llamador (`|LH3DTech::g_camera − pos|`, physics/collision_sounds.md);
-  `PlayAnimEffectSample` la mide él mismo desde la cámara: es la misma cuenta.
+- La distancia de `SamplePlayAnimEffect` la calcula el llamador (`|LH3DTech::g_camera − pos|`, physics/collision_sounds.md).
 - La música y el ambiente se procesan en el orden de `ProcessAudioGameTurn` (antes la música iba al principio del turno).
 - `audio::GetSurfaceType` llama a `ecs::sea_cells::GetSurfaceType` (una sola fuente).
 
@@ -1004,9 +1004,79 @@ sin stop y por tipo de banco, farola en su punta) y `test_anim_effects` (7). En 
 `OPENBLACK_AUDIO_TEST_LANTERN=100`): 12 farolas con tag, `G_Lantern_01.wav mode 2 owner sound tag`, en bucle, con la
 cámara a 3,2 de la punta.
 
+## Fase B: B4 y B6 implementados
+
+Sesión audio, rama `local/audio` (sobre B2-B3 8af89ed7 y la fusión de `local/hand-hbn` 056ad80f).
+
+### B4: los llamadores del mundo en los canales
+
+Cada sitio va por `audio::` con lo que pasa su llamada original (`sfx_inventory_tables.md`, comprobado en el
+desensamblado). Ya nadie fuera de `src/Audio` llama a `AudioManager::PlaySound`/`CreateEmitter`/`PlayAt` salvo los
+archivos de Milagros de B5 (lista [arriba](#estado-del-motor-de-efectos-en-openblack)). `Game.cpp` (bancos y
+`AudioManager::Update`) y `Locator` siguen usando `AudioManager` para el ciclo de vida, no para sonar.
+
+| sitio openblack | original | qué hace ahora |
+|---|---|---|
+| `HandHolding` `PickUp` | `GInterface::GenericPickup` 0x5D2800 (0x5D2881..0x5D295D) | `tags::Create(punto del objeto, 10 G_PickUpObject, 0, 3, 0, 0, 3D, InGame, 0)` (0x71EB60) salvo un árbol arraigado; un aldeano vivo (`Object::IsAlive` 0x402610) grita con otro tag igual: niño 180, mujer 194, hombre 187 + `GetRandomSample(7)`. Un `DeadTree` también suena (no tiene `IsTree`: `GameThingWithPos::IsTree` 0x402320 = 0) |
+| `HandHolding` (arrancar) | `Tree::InterfaceSetInMagicHand` 0x74B730 | `tags::Create(punto del árbol, 32 + GetRandomSample(3), 0, 3, 0, 0, 3D, InGame, 0)` si no tiene +0x24 & 0x40 |
+| `HandPhysics` (soltar árbol) | `Tree::DropSfx` 0x74BC60 | opciones: InGame, dueño el árbol, 3D, track 0, 83 + GetTickCount() % 3, en su punto |
+| `HandResources` (madera al almacén) | `Object::DoDeleteObjectAndTakeResource` 0x63AA93 | opciones: InGame, dueño el objeto, 3D, track 0, 155 + `Counter::TreeMulch` ((c + 1) & 3) |
+| `HandFish` (agarrar tierra) | fn_005D1AB0 0x5D1FE4 | `tags::Create(punto, 4 + GetRandomSample(6), 0, 3, 0, 0, 2D, InGame, 0)`: el tag es el dueño (canal nuevo en cada agarre) |
+| `HandFish` (mano en el agua) | fn_005D1AB0 0x5D2167 | opciones: 99 + `Counter::HandInWater`, 3D, track 0, en (x, 0,2, z) |
+| `HandEffects` (multirrecogida) | fn_0068F930 0x68F9E8 / 0x68FA25, StopMultiPickup 0x68FABA / 0x68FAD4 | `PlaySoundEffect` 44/98 3D track 0 en la mano cada turno, `SetPitch(InGame, 0, n, 60 + 180 t)`, `StopSoundEffect(44/98, 0, InGame)` |
+| `hand_detail::PlaySample(id)` | `FailApply` fn_005D18F0 0x5D1941 | `PlaySoundEffect(NULL, n, 3, 0, 0, 0, banco)` 2D (lo usa `HandSpellSeed`) |
+| `hand_detail::PlaySample3D` | forma de opciones 3D track 0 | sin llamadores; se conserva la firma |
+| `Trees.cpp` `PlayAt` (crecer) | `Tree::ApplyWaterSpell` 0x74C500 | opciones 3D, track 0, en el árbol, por los canales; **(aproximado)**: la firma no lleva el árbol y el canal no tiene dueño (el original +0x20 = el árbol, 0x74C4D4) |
+| `Rocks::Tap` | `Rock::InterfaceTap` 0x6E751D | opciones: InGame, 130 + `Counter::RockTap`, dueño la roca, 3D, track 0, en el punto de la mano (estado +0xC8) |
+| `DefaultWorldCameraModel` | `CameraModeNew3::FlyToPosFoc` 0x45899B, `Update` 0x45E305 | `PlaySoundEffect(0, 46 + (GetTickCount() & 3), 3, 0, 0, 2D, InGame)`. `SetFlight` (marcadores, vuelos del guion y de los ganchos) solo si la cámara está a más de [0x9CE640]·1,5 = 150 del destino (0x458967); el doble clic (`Update`) suena con su propia marca, sin esa prueba |
+| `PhysicsObjects` (G_RockPast) | `PhysicsObject::GameTurnUpdate` 0x645C12 | `PlaySoundEffect(0, 69 + GetTickCount() % 5, 2, 0, 0, 2D, InGame)` |
+| `CollisionSounds::AttemptToAddSoundEvent` | 0x646919 | `SamplePlayAnimEffect(objeto, |g_camera − punto|, {nivel, 0, A, B, 75}, 0, editor.sad, track = A ≠ 0x16, 0, 0)`: la fila la elige la tabla del banco (`LHSampleGetAnimEffectNumber`), ya no la tabla resuelta de 99 filas; el canal es del objeto y suena en su punto |
+| `Buildings.cpp` | `Abode::ReactToPhysicsImpact` 0x406610, `ApplyEffectsDueToPhysicalDestruction` 0x40671D | `CollisionSounds::PlayAnimEffect` con dueño el edificio: golpe {2/3, 0, 0x16, 0x10, 75} (p > 1000 / > 300), derrumbe {1, 0, 0x16, 9, 75}, track 0 |
+| `PetitNavire` | `PostDraw` 0x5E0465..0x5E04B9 | opciones: ScriptSfx 62/61/60, 2D, modo 2 |
+| `PotResource::PlayPileSound` | fn_0066D1A0 0x66D26A | opciones: InGame, dueño el montón, 3D, track 0, muestra por GetTickCount (firma con el montón) |
+| `DesignedScenery` (cascada) | 0x5E3921 / 0x5E3BD5 | sin cambios: `sound_tags::Create(TagDesc)` de agua ya es un `tags::Create` del núcleo (el marcador del original se emula con un tag de punto que se repite como uno de cosa) |
+
+`audio::TickCount()` es el `GetTickCount` del original (ms del reloj del proceso) para los que eligen muestra con él.
+
+Cambios audibles (todos por el original): coger, arrancar, plantar, triturar y golpear rocas suenan **en 3D** donde
+pasa (antes 2D y, salvo agua y vasijas, fuera de los canales); al coger un aldeano grita; un árbol muerto suena al
+cogerlo; triturar usa el contador y no el azar; el woosh de los marcadores ya no suena en saltos cortos (≤ 150); los
+choques eligen su muestra con la tabla del banco y siguen al objeto; todo cuenta en los 16 canales y respeta los
+filtros de GAudio (p. ej. G_RockPast, TreeFall, KnockRoof, HandThroughInfluence son userParam 1: callan con la pantalla
+ancha del guion).
+
+### B6: CHL de efectos
+
+`src/Audio/ScriptSound.{h,cpp}` (`audio::script_sound`), llamado desde `CHLApi.cpp` con los POP del original:
+
+| CHL | original | openblack |
+|---|---|---|
+| PLAY_SOUND_EFFECT(sample, bank, pos, withPos) | 0x70F7F0: opciones por defecto, banco GAudio+0x3A8 + 4·bank, muestra, **dueño = la muestra** (`Owner::Key`), is3D = withPos, track 0, punto, +0x164 = 1 | `PlaySoundEffect` |
+| STOP_SOUND_EFFECT(isSay, id, bank) | 0x70FA50: sin isSay, `StopPlayingSoundEffect(id, id, bank)`; con isSay, la voz del texto (tabla 0x942B38) en 0x270C (narrador 2) o en 0x270E y 0x270D; 0x270F nunca | `StopSoundEffect` |
+| GAME_SOUND_PLAYING(sample, bank) | 0x710230 → fn_0042A280(sample, sample, bank) | `GameSoundPlaying` |
+| ATTACH_SOUND_TAG(threeD, sample, bank, obj) | 0x710150 → `SoundTag::Create(cosa, sample, track = threeD ≠ 0, 2, 0, 0, threeD, bank, 0)` 0x71E840 | `AttachSoundTag` |
+| DETACH_SOUND_TAG(sample, bank, obj) | 0x7101D0 → `SoundTag::Remove(cosa, sample, bank)` 0x71EBE0 | `DetachSoundTag` |
+| SOUND_EXISTS | 0x710100 → GAudio::IsInstalled 0x426D30 → LHWaveIsInstalled | `audio::SoundExists()`: el audio está en un dispositivo OpenAL (no en `AudioManagerNoOp`) **(aproximado)** |
+| SET_GAME_SOUND(on) | 0x7100B0 | `audio::SetGameSound` (antes el nombre de agua) |
+
+El objeto de ATTACH/DETACH lo da `MusicThing` (GetScriptGameThing 0x70D220, aproximado igual que la música). Un banco
+fuera de 1..10 no suena ni para **(aproximado**: el original indexa GAudio+0x3A8 sin comprobar).
+
+Test `test_script_sound` (10): PLAY(93, 5, p, 1) → canal 3D con dueño `Key(93)` sin track; GAME_SOUND_PLAYING true y
+false tras STOP(0, 93, 5); 2D sin corte por distancia; 3D más allá de su máximo no arranca; banco 11 → nada;
+SET_GAME_SOUND(false) deja solo HelpSprites/Villagers; ATTACH(1, 126, 5, cosa) → tag modo 2 dueño del canal, 3D con
+track, no re-dispara mientras suena, DETACH suelta el bucle y el tag se va al acabar; ATTACH 2D sin track; sin cosa,
+nada; SOUND_EXISTS falso sin dispositivo.
+
+En juego (Land 1, 2026-10-01, `OPENBLACK_SFX_TRACE=1`, logs `_audit\audio\b4_run1.log` / `b4_run2.log`): el guion
+`FollowUs` toca las piedras cantoras (`PLAY_SOUND_EFFECT(49/50/54, 5, punto, 1)`: Stone1/2/6 3D, dueño la muestra);
+lejos se cortan por su máximo (100) y con la cámara al lado (`OPENBLACK_CAMERA_LOCK`) suenan en un canal. También
+salen el woosh del vuelo de `OPENBLACK_CAMERA_FLY` (2D), los golpes de roca (3D con la roca de dueño), el agarre de
+agua y la recogida (tags), los choques del árbol lanzado ({1/2, 0, 20, 9/12/16, 75} → G_Crash_Tree_*) y el triturado.
+
 ## Fases B y C
 
-**B0..B3 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B4 y B6 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
@@ -1014,11 +1084,11 @@ cámara a 3,2 de la punta.
 | B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer`, `AudioManager::PlayMusic` no se ha retirado y el maestro no se guarda en disco |
 | B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); `SpellSounds` copia las tablas del núcleo hasta B5 |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
-| B4 | Llamadores del mundo: mano, árboles, rocas, cámara (woosh con d > 150 también en los marcadores), colisiones, barco, volcán, vapor |
+| B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); faltan el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene) y el vapor (`FireGraphic` 0x731542, Milagros/B5) |
 | B5 | Milagros: SpellSounds, FireSound, gesto 3D, PlayTapSound, SpellDialogue por canal; PSys `AddSoundToAtom` 0x69DCA0… (F3) |
-| B6 | CHL de efectos: PLAY/STOP_SOUND_EFFECT, GAME_SOUND_PLAYING, ATTACH/DETACH_SOUND_TAG, SOUND_EXISTS, SET_GAME_SOUND; ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0, de agua) |
+| B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | Voces en canal: RunTextVoice, SAY, STOP, TEXT_READ con voz (+450/+200 ms), corte por clic, `Advisor` y CalcKey |
-| B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, gritos 180/187/194+rand7, llamar a la puerta 110+c%9, influencia 52/129 |
+| B8 | Interfaz y mano: MenuButton 159, Logo 160, ClickOnSpell 42, conquista 205, orden aceptada 1, llamar a la puerta 110+c%9, influencia 52/129 (los gritos 180/187/194+rand7 ya están, B4) |
 | B9 | GGuidance, BeliefSFX, latido |
 | B10 | GSpookyVoices (antes hay que volcar el Soundex 0x72E4E0..0x72E870) |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
@@ -1029,8 +1099,8 @@ cámara a 3,2 de la punta.
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
 
-Mientras tanto, se prohíbe añadir llamadores nuevos a `AudioManager::PlaySound`/`CreateEmitter` y a
-`PlayAnimEffectSample` (la rama de muestra de agua para `CollisionSounds`, hasta que B4 le dé su clave).
+Mientras tanto, se prohíbe añadir llamadores nuevos a `AudioManager::PlaySound`/`CreateEmitter` (solo los usan los
+archivos de Milagros hasta B5).
 
 ## Qué suena y cuándo
 
@@ -1048,7 +1118,22 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 
 ## Pendiente
 
-- **Fases B (B4..B10) y C** ([arriba](#fases-b-y-c)).
+- **Fases B (B5, B7..B10) y C** ([arriba](#fases-b-y-c)).
+- **B4/B6, (inferido)/(aproximado)** (todos con su comentario en el código):
+  - `PlayAt` de los árboles sin el árbol de dueño (la firma no cambia) **(aproximado)**; para arboles: el original pasa
+    el árbol (0x74C4D4) y elige con `GetTickCount() % 9` (0x74C4B3), `Trees.cpp` usa el azar;
+  - `audio::TickCount` = milisegundos del reloj del proceso como `GetTickCount`; el montón lee el reloj una vez y no
+    dos (0x66D1D7 / 0x66D1E7) **(aproximado)**;
+  - el grito al coger un aldeano: vivo = `LifeOf > 0` (una entidad válida se toma disponible) **(inferido)**;
+  - la distancia de los choques sale de la cámara de las `GameQueries` (`LH3DTech::g_camera`) **(inferido**, como en B2);
+  - el woosh de `SetFlight` mide desde el origen actual de la cámara del fotograma anterior (FlyToPosFoc lee la
+    posición de la cámara, +0x118) **(inferido)**;
+  - `SOUND_EXISTS` = dispositivo OpenAL **(aproximado)**; bancos fuera de 1..10 y textos fuera de la tabla de voz no
+    suenan ni paran **(aproximado)**.
+- **B4/B6, pendiente**: el volcán y el vapor; `G_OutOfBounds` 43 (fn_0045FA00, no hay límites de cámara); los demás
+  llamadores originales de `tags::Create`/`Remove` (molino, taller, tótem, credo, caída de árboles: C3); B5 (Milagros:
+  `HandSpellSeed` incluye `AudioManagerInterface.h` solo por su bucle de semilla); la traza `OPENBLACK_SFX_TRACE` no
+  dice la dirección del sitio original (se compara por banco, muestra, 2D/3D y modo con `sfx_inv.json`).
 - **B2/B3, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `IsInScript` (vt +0x448) siempre falso: openblack no tiene aldeanos de guion **(inferido)**;
   - `GameThing::IsFunctional` y `Get3DSoundPos` ≠ 1 de la cosa de un tag = la entidad ya no tiene posición **(inferido)**;
@@ -1061,10 +1146,8 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
     `GRand::LocalRand` de `RandomSample` con el generador de openblack **(aproximado)**;
   - las farolas reciben su tag en el `ProcessTurn` siguiente a crearse (no hay gancho de `CallVirtualFunctionsForCreation`) y ninguna tiene la marca UNAVAILABLE **(aproximado)**;
   - `PlayFromTable` no tiene argumento track: el sitio (doblar 0 / susurro 1) se distingue por el soundId de la clave (openblack).
-- **B2/B3, pendiente**: `SpellSounds` por `SamplePlayAnimEffect` (B5); `CollisionSounds` con su clave en vez de
-  `PlayAnimEffectSample`, `Buildings.cpp` (`PlayEditorSample` sin dueño), rocas, woosh, G_RockPast y la mano (B4);
-  los llamadores originales de `tags::Create`/`Remove` (B4, C3) y los CHL de tags (B6); el tag de punto de ambiente
-  fn_0071E920 (el trueno de GWeather, ver B3).
+- **B2/B3, pendiente**: `SpellSounds` por `SamplePlayAnimEffect` (B5); el tag de punto de ambiente fn_0071E920 (el
+  trueno de GWeather, ver B3).
 - **Auditoría B2-B3** (2026-10-01): comprobadas en el desensamblado 0x42A4B0, fn_00516510 (0x5165BC, 0x5166A4,
   0x51675D, 0x5167A8), Tree::Draw 0x74AFE1/0x74B1FA, 0x10014A20, 0x100146F0 (0x1001491C/0x10014990), 0x10015710,
   fn_10014610, 0x71E300, 0x71E4F0, 0x71E5F0, 0x71E640, fn_0071E680, 0x71E760, 0x71EA40, 0x71EB60, 0x71EBE0/0x71EC30,
@@ -1156,13 +1239,14 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_AUDIO_TRACE=1` | Cada arranque, robo, parada y corte de canal (`Sample play:`), cada búfer creado (`Wave buffer … N made`), los cambios de la pantalla ancha del guion, los anim-effects rechazados por distancia (`Anim effect: banco/n (onda) too far`) y las trazas viejas de `AudioManager` |
 | `OPENBLACK_ANIM_TRACE=1` | Los sonidos de los clips y de los árboles (`Animation sound: clip … -> editor.sad/n`, `key … -> editor.sad/n`, `no row`, `banter n too far`), con el mismo formato que antes de B2 |
 | `OPENBLACK_SOUND_TAG_TRACE=1` | Cada tag creado, borrado, soltado o con retardo, y cada 50 turnos el canal de cada tag de cosa |
+| `OPENBLACK_SFX_TRACE=1` | Una línea `SFX:` por llamada a `GAudio::PlaySoundEffect` (y a los tags), a `SamplePlayAnimEffect` y a `StopSoundEffect`: banco/muestra (onda), 2D/3D, track, punto, modo y vueltas con que arranca, tono, dueño y qué pasó (canal, `culled`, `filtered (motivo)`); y los `PLAY_SOUND_EFFECT(...)` del guion |
 | `OPENBLACK_AUDIO_TEST_VIEW="turno,n[,distancia]"` / `OPENBLACK_AUDIO_TEST_ANIM=<clip>` | En ese turno la cámara mira al aldeano n desde esa distancia (4), y todos los aldeanos tocan ese clip en bucle (437 bostezo, 354 sierra, 369 sentado) |
 | `OPENBLACK_AUDIO_TEST_LANTERN="turno[,distancia]"` | En ese turno la cámara mira la punta de la primera farola desde esa distancia (3) |
 | `OPENBLACK_AUDIO_TEST_NO_WIDESCREEN=1` | El audio no ve la pantalla ancha del guion (la intro de Land 1 la tiene hasta un clic), para comparar sin ese filtro. No es del original |
 | `OPENBLACK_TEST_SAMPLE_VOLUME=<0..127>` | El maestro de efectos al arrancar |
 | Pestaña «Channels» del panel de audio | Maestro de efectos (deslizador), LHWaveIsActive, búferes vivos/creados y los 16 canales (muestra, banco, dueño, prioridad, volumen, tono, 3D/track/ambiente, sonando) |
 | `OPENBLACK_TEXT_TRACE=1` | Cada texto de RUN_TEXT/TEMP_TEXT en el log (`|` por cada salto de línea) |
-| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags` |
+| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags`, `test_script_sound` |
 | Ventana de depuración «Music» | Maestro, 6 canales, reproductor de MUSIC_TYPE, estado de GameMusic y de GScript, lista de objetos con música |
 
 Ejemplo: `OPENBLACK_TEST_MUSIC="3,1@20" OPENBLACK_MUSIC_TRACE=1` arranca good.sad y a los 20 s cambia a evil.sad
@@ -1191,6 +1275,10 @@ sincronizado (mismo trozo).
   (`SamplePlayAnimEffect`, `Get3DSoundPos`), `SamplePlay` (`Random`, `Loops`, el punto del canal de un tag); tests
   `test/test_anim_effects.cpp`, `test/test_sound_tags.cpp`; volcados `tmp_dis\mapa\d_soundtag.txt` y los de
   0x42A4B0, 0x516510, 0x10014670 / 0x100146F0 / 0x10014A20, 0x10012C50, 0x10015710, Tree::Draw 0x74AFDD..0x74B25C.
+- B4/B6: `src/Audio/{Audio.h (TickCount, SfxTrace, SoundExists), AudioSystem (traza), GameSfx, ScriptSound}`,
+  `src/CHLApi.cpp`, los sitios de la tabla de B4; test `test/test_script_sound.cpp`; desensamblado de 0x5D2800,
+  0x74B730, 0x74BC60, 0x63AA13, 0x5D1FC4, 0x6E7480, 0x74C460, 0x458967, 0x45E0C3, 0x645B6D, 0x646860, 0x406240 /
+  0x406511 / 0x406640, 0x66D1A0, 0x70F7F0, 0x70FA50, 0x710100..0x710280, 0x426D30, 0x42A280, 0x402610, 0x402320.
 - Código: `src/Audio/{BankTables.h, GameQueries.h, MusicBank, MusicEngine, MusicStream, GameMusic, ThingMusic,
   ScriptAudioState, Voices}`, `src/Help/HelpSystem`, `src/Common/HelpText`, `src/Debug/Music`, `components/pack`
   (`AudioBankInfo`), `src/CHLApi.cpp`, `src/Game.cpp`; tests `test/test_{audio_tables, music_bank, music_engine,

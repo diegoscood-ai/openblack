@@ -26,12 +26,13 @@
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No
-// argument has a default: each caller passes what the original caller passes. Milestones B1..B3 (docs/bw1-notes/audio.md);
-// the parts of later milestones are declared at the end and are not defined yet.
+// argument has a default: each caller passes what the original caller passes. Milestones B1..B4 and B6
+// (docs/bw1-notes/audio.md); the parts of later milestones are declared at the end and are not defined yet. The script's
+// sound effects (B6: PLAY / STOP_SOUND_EFFECT, GAME_SOUND_PLAYING, ATTACH / DETACH_SOUND_TAG) are in ScriptSound.h.
 //
 // Rules for the callers (PLAN §2.1, §8.6):
-//  - nobody outside src/Audio calls OpenAL, AudioManager::CreateEmitter / PlayEmitter / PlaySound (no new callers of
-//    those: they are the old path, kept until B2..B5 move their callers here);
+//  - nobody outside src/Audio calls OpenAL, AudioManager::CreateEmitter / PlayEmitter / PlaySound (the old path: since
+//    B4 only the miracles' files of milestone B5 still use it, and no new caller may be added);
 //  - the audio includes no ECS component: the positions of the owners come from GameQueries (things) and from
 //    RegisterObject (other objects).
 
@@ -142,6 +143,15 @@ enum class Counter : uint8_t
 };
 /// The counter's value to add to the first sample, advancing it
 [[nodiscard]] int NextCounter(Counter counter);
+
+/// GetTickCount() of the original (milliseconds of the process's clock, wrapping at 2^32): the callers that pick a sample
+/// with it instead of a random generator (Tree::DropSfx 0x74BCB6: 83 + t % 3, Tree::ApplyWaterSpell 0x74C4B3: 120 + t % 9,
+/// PhysicsObject::GameTurnUpdate 0x645BF8: 69 + t % 5, CameraModeNew3::FlyToPosFoc 0x458986: 46 + (t & 3), fn_0066D1A0)
+[[nodiscard]] uint32_t TickCount();
+
+/// OPENBLACK_SFX_TRACE=1: one "SFX:" line in the log for each call of the family above, of SamplePlayAnimEffect and of
+/// the tags' plays (bank / sample, 2D or 3D, the point, the mode and pitch it starts with, the owner and what came of it)
+[[nodiscard]] bool SfxTrace();
 
 // ---- the script's switches and GAudio's state filters ---------------------------------------------------------------
 // SetGameSound (SET_GAME_SOUND 0x7100B0), SetScriptWideScreen (HelpSystem::SetWideScreen 0x5C6AD0), IsInsideCitadel
@@ -256,10 +266,11 @@ void Delete(TagId tag);
 [[nodiscard]] bool Exists(TagId tag);
 } // namespace tags
 
-// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
-
-/// (B6) SOUND_EXISTS 0x710100 -> LHWaveIsInstalled
+/// SOUND_EXISTS 0x710100 -> GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled (milestone B6): the wave device was made.
+/// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
 [[nodiscard]] bool SoundExists();
+
+// ---- later milestones (declared, not defined yet: PLAN §2.3, §4) --------------------------------------------------
 
 /// (B7) The voices on the channels (today only the table: Voices.h, milestone A10)
 namespace voices

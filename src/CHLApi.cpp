@@ -40,6 +40,7 @@
 #include "Audio/GameMusic.h"
 #include "Audio/ScriptAudioState.h"
 #include "Audio/SamplePlay.h"
+#include "Audio/ScriptSound.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -872,7 +873,7 @@ void SetWidescreen() // 032 SET_WIDESCREEN
 		const float time =
 		    Locator::infoConstants::has_value() ? Locator::infoConstants::value().helpSystem.wideScreenTime : 2.0f;
 		Game::Instance()->GetScreenFade().SetWideScreen(on != 0, time);
-		audio::sample_play::SetScriptWideScreen(on != 0);
+		audio::SetScriptWideScreen(on != 0);
 	}
 }
 
@@ -1055,12 +1056,12 @@ void GetHandPosition() // 042 GET_HAND_POSITION
 
 void PlaySoundEffect() // 043 PLAY_SOUND_EFFECT
 {
-	// const auto withPosition = static_cast<bool>(Pop().intVal);
-	// const auto position = PopVec();
-	// const auto soundbank = Pop().intVal;
-	// const auto sound = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::PlaySoundEffect 0x70F7F0: six POPs (withPos, z, y, x, bank, sample), then audio::script_sound
+	const auto withPosition = Pop().intVal != 0;
+	const auto position = PopVec();
+	const auto bank = Pop().intVal;
+	const auto sample = Pop().intVal;
+	audio::script_sound::PlaySoundEffect(sample, bank, position, withPosition);
 }
 
 /// GScript::GetScriptGameThing 0x70D220 for the music functions: the object, or nullopt with the original's
@@ -3871,7 +3872,7 @@ void SetGameSound() // 357 SET_GAME_SOUND
 	// GScript::SetGameSound 0x7100B0: false -> LHSampleStopAll (fn_004287D0) and GScript+0x90 = 1 (only the dialogue
 	// banks HelpSprites / Villagers play, GAudio::PlaySoundEffect 0x429F7C); true -> +0x90 = 0
 	const auto enable = static_cast<bool>(Pop().intVal);
-	audio::sample_play::SetGameSound(enable);
+	audio::SetGameSound(enable);
 }
 
 void SexIsMale() // 358 SEX_IS_MALE
@@ -4291,9 +4292,8 @@ void ResetGameTimeProperties() // 408 RESET_GAME_TIME_PROPERTIES
 
 void SoundExists() // 409 SOUND_EXISTS
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SoundExists 0x710100: GAudio::IsInstalled 0x426D30 (LHWaveIsInstalled), pushed as a bool (VMType 6)
+	Pushb(audio::SoundExists());
 }
 
 void GetTownWorshipDeaths() // 410 GET_TOWN_WORSHIP_DEATHS
@@ -4398,11 +4398,12 @@ void ClearPlayerSpellCharging() // 423 CLEAR_PLAYER_SPELL_CHARGING
 
 void StopSoundEffect() // 424 STOP_SOUND_EFFECT
 {
-	// const auto soundbank = Pop().intVal;
-	// const auto sound = Pop().intVal;
-	// const auto alwaysFalse = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StopSoundEffect 0x70FA50: POPs bank, sample (or a HELP_TEXT with isSay), isSay (the scripts of W120 always
+	// pass 0)
+	const auto bank = Pop().intVal;
+	const auto id = Pop().uintVal;
+	const auto isSay = Pop().intVal != 0;
+	audio::script_sound::StopSoundEffect(isSay, id, bank);
 }
 
 void GetTotemStatue() // 425 GET_TOTEM_STATUE
@@ -4588,21 +4589,27 @@ void GetDeadLiving() // 446 GET_DEAD_LIVING
 
 void AttachSoundTag() // 447 ATTACH_SOUND_TAG
 {
-	// const auto target = Pop().uintVal;
-	// const auto soundbank = Pop().intVal;
-	// const auto sound = Pop().intVal;
-	// const auto threeD = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::AttachSoundTag 0x710150: POPs the object (GetScriptGameThing 0x70D220 at once), bank, sample, threeD
+	const auto object = MusicThing(Pop().uintVal);
+	const auto bank = Pop().intVal;
+	const auto sample = Pop().intVal;
+	const auto threeD = Pop().intVal != 0;
+	if (object)
+	{
+		audio::script_sound::AttachSoundTag(threeD, sample, bank, static_cast<entt::entity>(*object));
+	}
 }
 
 void DetachSoundTag() // 448 DETACH_SOUND_TAG
 {
-	// const auto target = Pop().uintVal;
-	// const auto soundbank = Pop().intVal;
-	// const auto sound = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::DetachSoundTag 0x7101D0: POPs the object (GetScriptGameThing 0x70D220 at once), bank, sample
+	const auto object = MusicThing(Pop().uintVal);
+	const auto bank = Pop().intVal;
+	const auto sample = Pop().intVal;
+	if (object)
+	{
+		audio::script_sound::DetachSoundTag(sample, bank, static_cast<entt::entity>(*object));
+	}
 }
 
 void GetSacrificeTotal() // 449 GET_SACRIFICE_TOTAL
@@ -4615,11 +4622,10 @@ void GetSacrificeTotal() // 449 GET_SACRIFICE_TOTAL
 
 void GameSoundPlaying() // 450 GAME_SOUND_PLAYING
 {
-	// const auto soundbank = Pop().intVal;
-	// const auto sound = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsSoundPlaying 0x710230: POPs bank, sample; pushes fn_0042A280(sample, sample, bank) as a bool (VMType 6)
+	const auto bank = Pop().intVal;
+	const auto sample = Pop().intVal;
+	Pushb(audio::script_sound::GameSoundPlaying(sample, bank));
 }
 
 void GetTemplePosition() // 451 GET_TEMPLE_POSITION

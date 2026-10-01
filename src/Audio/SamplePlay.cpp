@@ -784,16 +784,6 @@ entt::entity sample_play::Play(const Options& options)
 	return AsEntity(Start(options));
 }
 
-entt::entity sample_play::PlaySoundEffect(const Options& options)
-{
-	return AsEntity(audio::PlaySoundEffectOptions(options));
-}
-
-entt::entity sample_play::PlayAnimEffect(entt::id_type sound, entt::entity thing, glm::vec3 position, bool track)
-{
-	return AsEntity(audio::PlayAnimEffectSample(sound, Owner::Thing(thing), position, track));
-}
-
 void sample_play::SetVolume(entt::entity emitter, int volume)
 {
 	SetVolume(AsChannel(emitter), volume);

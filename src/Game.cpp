@@ -1155,7 +1155,7 @@ bool Game::Initialize() noexcept
 		hooks.wideScreen = [this, time = helpInfo.wideScreenTime](bool on) {
 			GetScreenFade().SetWideScreen(on, time);
 			const auto* helpSystem = help::Get();
-			audio::sample_play::SetScriptWideScreen(helpSystem != nullptr && helpSystem->IsScriptWideScreen());
+			audio::SetScriptWideScreen(helpSystem != nullptr && helpSystem->IsScriptWideScreen());
 		};
 		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries),
 		            std::move(hooks));
@@ -1256,7 +1256,7 @@ bool Game::Run() noexcept
 	{
 		_screenFade->SetWideScreen(true, Locator::infoConstants::value().helpSystem.wideScreenTime);
 		// as SET_WIDESCREEN: the HelpSystem's owning task (+0x45EC) is set too (the user-param-1 samples are skipped)
-		audio::sample_play::SetScriptWideScreen(true);
+		audio::SetScriptWideScreen(true);
 	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
 	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)

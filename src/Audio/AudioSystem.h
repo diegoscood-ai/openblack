@@ -77,15 +77,6 @@ BankId RegisterBank(const std::filesystem::path& path, std::string_view group);
 /// (The original returns nothing, 0x429FE8; openblack returns the channel.)
 Channel PlaySoundEffectOptions(const sample_play::Options& options);
 
-/// (agua's CollisionSounds, until milestone B4 gives it its key) GAudio::SamplePlayAnimEffect 0x42A4B0 for a sample
-/// already looked up and a point of the caller's (the original passes a key, and the point is the owner's): its
-/// action-0 path after
-/// LHSampleGetAnimEffectNumber 0x42A4F9): the same user-parameter and bank filters (0x42A51B..0x42A59F, no camera cull),
-/// an unavailable owner when tracking (0x42A5A1..0x42A5B8, without the is3D test of 0x429FBA), then
-/// LHSamplePlayAnimEffect 0x100146F0: not started farther from the camera than the sample's max distance (.sad +0x26C
-/// raw) or the global 800 (LHSampleRegister3DObjectFunction, 0x426E6B); options is3D 1, track, owner, the point.
-Channel PlayAnimEffectSample(entt::id_type sound, Owner owner, glm::vec3 position, bool track);
-
 /// SET_GAME_SOUND 0x7100B0: false -> LHSampleStopAll (fn_004287D0) and GScript+0x90 = 1, true -> +0x90 = 0
 void SetGameSound(bool enabled);
 /// HelpSystem::SetWideScreen 0x5C6AD0 from a script (+0x45E8 with the owning task +0x45EC)

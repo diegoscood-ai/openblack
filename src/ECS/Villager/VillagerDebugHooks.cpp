@@ -12,6 +12,7 @@
 
 #include <cstdlib>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +32,8 @@
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerDecide.h"
+#include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 
@@ -118,6 +121,34 @@ void Trace(entt::entity villager, const std::string& line)
 void RunDebugHooks(uint32_t turn)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	// OPENBLACK_TEST_VILLAGER_SHOT="<turn>,<path>[;<turn>,<path>...]": a screenshot at those game turns (one a turn)
+	static std::vector<std::pair<uint32_t, std::string>> shots = [] {
+		std::vector<std::pair<uint32_t, std::string>> list;
+		const char* value = std::getenv("OPENBLACK_TEST_VILLAGER_SHOT");
+		std::string text = value != nullptr ? value : "";
+		size_t start = 0;
+		while (start < text.size())
+		{
+			const auto end = std::min(text.find(';', start), text.size());
+			const auto item = text.substr(start, end - start);
+			if (const auto comma = item.find(','); comma != std::string::npos)
+			{
+				list.emplace_back(static_cast<uint32_t>(std::atoi(item.substr(0, comma).c_str())), item.substr(comma + 1));
+			}
+			start = end + 1;
+		}
+		return list;
+	}();
+	for (auto it = shots.begin(); it != shots.end(); ++it)
+	{
+		if (turn >= it->first && Game::Instance() != nullptr)
+		{
+			Game::Instance()->RequestScreenshot(it->second);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager test: screenshot at turn {} -> {}", turn, it->second);
+			shots.erase(it);
+			break;
+		}
+	}
 	if (turn == 2)
 	{
 		// OPENBLACK_TEST_VILLAGER_LIFE="<life>[,<n>]"
@@ -130,6 +161,32 @@ void RunDebugHooks(uint32_t turn)
 				{
 					life::SetLife(entity, value);
 					Trace(entity, fmt::format("test: life set to {:.3f}", value));
+				}
+			}
+		}
+		// OPENBLACK_TEST_VILLAGER_FOOD="<food>[,<n>]": the belly (+0xE8)
+		if (const auto food = ParseValueFor("OPENBLACK_TEST_VILLAGER_FOOD"))
+		{
+			const float value = static_cast<float>(std::atof(food->value.c_str()));
+			for (const auto entity : Villagers())
+			{
+				if (Applies(*food, entity))
+				{
+					registry.Get<Villager>(entity).food = value;
+					Trace(entity, fmt::format("test: food set to {:.3f}", value));
+				}
+			}
+		}
+		// OPENBLACK_TEST_VILLAGER_NOTHING="<r>[,<n>]": the GameRand(9) of the next SetupNothingToDo
+		if (const auto nothing = ParseValueFor("OPENBLACK_TEST_VILLAGER_NOTHING"))
+		{
+			const auto r = static_cast<uint32_t>(std::atoi(nothing->value.c_str()));
+			for (const auto entity : Villagers())
+			{
+				if (Applies(*nothing, entity))
+				{
+					ForceNextNothingRoll(entity, r);
+					Trace(entity, fmt::format("test: next SetupNothingToDo r={}", r));
 				}
 			}
 		}

@@ -257,11 +257,24 @@ public:
 	/// .sad +0x27C (i32): -1 = not an atmos sample, 0 = the bank's loop, f > 0 = a loose sample queued again
 	/// 4f + rand * 12f / 32767 turns later (LHaudiodllR fn_10001610)
 	int32_t atmosFrequency {-1};
-	ChannelLayout channelLayout;
-	PlayType playType;
-	BufferId bufferId;
-	float duration;
+	/// The bank the sample belongs to (audio::BankId of the .sad it was read from, GAudio's LH_AudioBank*): the channel's
+	/// +0x04. 0 = not registered.
+	uint16_t bank {0};
+	/// .sad +0x108: the sample whose wave this one plays (clones share one, e.g. editor 1..6 -> 1)
+	int wave {0};
+	/// .sad +0x124 WAVEFORMATEX.wFormatTag of the RIFF wave: 1 PCM, 2 MS-ADPCM, 0x50 MPEG layer II (decoded by
+	/// wave_buffers, WaveBuffers.h)
+	uint16_t waveFormat {0};
+	/// .sad +0x138 / +0x13C: the loop section in frames (-1 = none). LHSamplePlay passes it to QSWaveMixPlayEx as the
+	/// QMIXPLAYPARAMS +0x18 / +0x1C when both are set and start < end (0x10012949)
+	int32_t loopStart {-1};
+	int32_t loopEnd {-1};
+	ChannelLayout channelLayout {ChannelLayout::Mono};
+	PlayType playType {PlayType::Once};
+	/// The wave's OpenAL buffer, made at the first use (wave_buffers::Get) and kept: 0 = not decoded yet
+	BufferId bufferId {0};
+	float duration {0.0f};
 	std::vector<std::vector<uint8_t>> buffer;
-	size_t sizeInBytes;
+	size_t sizeInBytes {0};
 };
 } // namespace openblack::audio

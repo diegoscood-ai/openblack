@@ -15,6 +15,7 @@
 
 #include "AudioDecoderInterface.h"
 #include "AudioPlayerInterface.h"
+#include "SampleOutput.h"
 #include "ECS/Components/AudioEmitter.h"
 #include "Sound.h"
 #include "SoundGroup.h"
@@ -40,6 +41,9 @@ public:
 	/// LHSampleSetPitch: the emitter's pitch in percent of the sample rate (no deviation)
 	virtual void SetEmitterPitch(entt::entity emitter, float percent) = 0;
 	virtual void DestroyEmitter(entt::entity emitter) = 0;
+	/// Every emitter but the music's destroyed with its OpenAL source (GAudio::Reset 0x426CA0 LHSampleStopAll for the
+	/// old players: the registry reset of a new map would drop them with their sources still playing)
+	virtual void DestroyAllEmitters() = 0;
 	virtual entt::entity CreateEmitter(entt::id_type id, PlayType playType, glm::vec3 position, glm::vec3 direction,
 	                                   glm::vec2 radius, float volume, AudioStatus status, bool relative) = 0;
 	virtual bool EmitterExists(entt::entity emitter) = 0;
@@ -64,6 +68,8 @@ public:
 	virtual const SoundGroup& GetSoundGroup(const std::string& name) = 0;
 	virtual const std::map<std::string, SoundGroup>& GetSoundGroups() = 0;
 	virtual void AddMusicEntry(const std::string& name) = 0;
+	/// The 16 sample channels' device side (audio::sample_play), on this manager's OpenAL context
+	[[nodiscard]] virtual SampleOutput& GetSampleOutput() = 0;
 	[[nodiscard]] virtual const std::vector<std::string>& GetMusicTracks() const = 0;
 };
 } // namespace audio

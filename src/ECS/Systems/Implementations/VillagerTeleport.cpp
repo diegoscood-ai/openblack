@@ -346,13 +346,12 @@ uint32_t villager_teleport::GoToTeleportReaction(LivingAction& action)
 	auto& registry = Reg();
 	const auto villager = registry.ToEntity(action);
 	const auto it = g_States.find(villager);
-	if (it == g_States.end() || !registry.Valid(it->second.stone) || effects::reactions::Find(it->second.reaction) == nullptr)
+	// 0x7662F0 checks nothing: the validate slot (+0x80) of 201/202/251, villager_reactions::ReactionValidate 0x756A00,
+	// pops the state (PopFromPrevious 0x751E50) once the stone goes, before the state runs (ProcessState 0x74FF91).
+	// 0x7662F6 GetReaction 0x5ECA60 -> its object's position, which the original reads with no null test; here, with
+	// no stone kept, the state only returns 0 (a guard against reading nothing; ReactionValidate has popped by then)
+	if (it == g_States.end() || !registry.Valid(it->second.stone))
 	{
-		// (inferido) — replaced by ReactionValidate 0x756A00 once the table calls it. The original 0x7662F0 has no check
-		// here: the validate slot (+0x80) of 201/202/251, villager_reactions::ReactionValidate, pops the state
-		// (PopFromPrevious 0x751E50) once the stone goes, before the state runs (ProcessState 0x74FF91). Until the
-		// villager core calls that slot, the stone gone (or its reaction) ends the reaction here
-		villager_reactions::StopReactingAndSetState(villager);
 		return 0;
 	}
 	const auto stone = PositionOf(it->second.stone);

@@ -34,6 +34,7 @@ public:
 	void StopEmitter([[maybe_unused]] entt::entity emitter) override {}
 	void SetEmitterPitch([[maybe_unused]] entt::entity emitter, [[maybe_unused]] float percent) override {}
 	void DestroyEmitter([[maybe_unused]] entt::entity emitter) override {}
+	void DestroyAllEmitters() override {}
 	entt::entity CreateEmitter([[maybe_unused]] entt::id_type id, [[maybe_unused]] PlayType playType,
 	                           [[maybe_unused]] glm::vec3 position, [[maybe_unused]] glm::vec3 direction,
 	                           [[maybe_unused]] glm::vec2 radius, [[maybe_unused]] float volume,
@@ -64,6 +65,11 @@ public:
 	void UpdateListener() override {}
 	void CreateSoundGroup([[maybe_unused]] const std::string& name) override {}
 	void AddMusicEntry([[maybe_unused]] const std::string& name) override {}
+	[[nodiscard]] SampleOutput& GetSampleOutput() override
+	{
+		static NullSampleOutput output;
+		return output;
+	}
 	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override
 	{
 		static const std::vector<std::string> result;

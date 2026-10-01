@@ -254,7 +254,9 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 
 Los aldeanos son presa como los animales (tipo 2, con carne) si están fuera de casa. Derribados, su salud queda en 5 %
 y pasan a DOWNED (clip `P_ATTACKED_BY_LION`), luego BEING_EATEN 300 turnos (`P_DYING`) y mueren (`Villager::BeingEaten`
-0x76B380). Los conduce la IA de animales (`components::DownedVillager`). El que no se puede comer (+0x25 & 0x40) se
+0x76B380: l = GetLife(); SetLife(0); `VillagerDead(ANIMAL 3, su jugador (el dueño de su pueblo), l, 1)`, en
+openblack `ecs::villager::VillagerDead` de la sesión mapas, que lo mata al final del turno). Los conduce la IA de
+animales (`components::DownedVillager`). El que no se puede comer (+0x25 & 0x40) se
 levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 turnos, sin esperar al clip (aproximado).
 
 ## Scripts y marcas (`dev\tmp_dis\animals\script_flags.md`)
@@ -323,7 +325,8 @@ Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
   original. El orden de los árboles crecidos de un bosque (`GrownTreesByDistance`, de "arboles") usa la distancia 3D al
   centro; el original (`DistanceToForest` 0x53A890 = `GetDistanceInMetres`) la mide solo en x / z: en laderas puede
   cambiar qué árbol es la guarida.
-- Aldeano comido: desaparece (sin cadáver, alineamiento, avisos del pueblo ni duelo de los vecinos); los aldeanos no
+- Aldeano comido: muere por `VillagerDead`, pero hasta el hito V12 de mapas sin cadáver, alineamiento, avisos del pueblo
+  ni duelo de los vecinos; los aldeanos no
   huyen de los depredadores ni toman reacciones.
 - Scripts (script_flags.md): el vórtice no existe en openblack, así que nada tiene aún la marca «no se puede comer»
   (necesita Milagros: `script_held::SetCannotBeEaten` en lo que sale del vórtice); no hay bandadas de script

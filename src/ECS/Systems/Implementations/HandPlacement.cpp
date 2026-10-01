@@ -57,6 +57,8 @@
 #include "ECS/Components/HandFxPart.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/OneOffSpellSeed.h"
+#include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
@@ -80,6 +82,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
+#include "Worship/Worship.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
@@ -592,9 +595,18 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 		{
 			return;
 		}
-		// Exact test in mesh space: world = position + R * (S * local).
-		const auto toLocal = glm::inverse(transform.rotation);
-		const auto localOrigin = (toLocal * (origin - position)) / transform.scale;
+		// Exact test in mesh space: world = position + R * (S * local). CheckTriangleCollide tests the LH3D object with
+		// the matrix it is drawn with; a one-shot orb's is turned to the camera every frame (OneOffSpellSeed::Draw
+		// 0x518E90 -> fn_00518720), so its pick volume is the drawn dome: world = position + facingOffset + facing * local
+		glm::mat3 rotation = transform.rotation;
+		glm::vec3 drawnAt = position;
+		if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
+		{
+			rotation = orb->facing;
+			drawnAt += orb->facingOffset;
+		}
+		const auto toLocal = glm::inverse(rotation);
+		const auto localOrigin = (toLocal * (origin - drawnAt)) / transform.scale;
 		const auto localDir = (toLocal * dir) / transform.scale;
 		const auto t = l3d->RayIntersect(localOrigin, localDir);
 		if (t && *t < bestT)
@@ -742,10 +754,37 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	// picked up. FindObjectNearMapCoord (0x5D39E0, +-5 units) is only a fallback for a click that hit nothing, and it
 	// only takes an object nearer than the clicked point (it is not a hover reach).
 	std::optional<entt::entity> best;
-	if (_cursorObject && registry.Valid(*_cursorObject) && registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field, BigForest>(*_cursorObject) &&
-	    _hands[0] != *_cursorObject && _hands[1] != *_cursorObject)
+	auto cursorObject = _cursorObject;
+	if (cursorObject && registry.Valid(*cursorObject) && registry.AllOf<SpellSeedGraphic>(*cursorObject))
 	{
-		best = *_cursorObject;
+		// the seed inside an orb or over a spell icon is drawn by its owner (OneOffSpellSeed::Draw 0x518E90 ->
+		// SpellSeedGraphic::DrawSpellGraphic 0x519AD0; a SpellSeedGraphic is not an Object): (inferido) a ray that hits
+		// it points at its owner
+		const auto graphic = *cursorObject;
+		cursorObject.reset();
+		registry.Each<const OneOffSpellSeed>([&](entt::entity owner, const OneOffSpellSeed& orb) {
+			if (orb.graphic == graphic)
+			{
+				cursorObject = owner;
+			}
+		});
+		registry.Each<const SpellIcon>([&](entt::entity owner, const SpellIcon& icon) {
+			if (icon.graphic == graphic)
+			{
+				cursorObject = owner;
+			}
+		});
+	}
+	// GInterface::ActionPressed fn_005D1330: the object under the cursor goes to StartGrab 0x5D1740 when
+	// ValidForPlaceInHand (vt 0x6FC) or InterfaceValidToTap (vt 0x740). A one-shot orb is both (Mobile::ValidForPlaceInHand
+	// 0x425B00 = 1, OneOffSpellSeed::InterfaceValidToTap 0x72A630 = 1); a spell icon of the player only taps
+	// (Object::ValidForPlaceInHand 0x402870 = 0, SpellIcon::InterfaceValidToTap 0x7263C0).
+	if (cursorObject && registry.Valid(*cursorObject) &&
+	    (registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field, BigForest, OneOffSpellSeed>(*cursorObject) ||
+	     worship::InterfaceValidToTap(*cursorObject, PlayerNames::PLAYER_ONE)) &&
+	    _hands[0] != *cursorObject && _hands[1] != *cursorObject)
+	{
+		best = *cursorObject;
 		// Rock::ValidForPlaceInHand: boulders with a 2D radius over 3.6 cannot be lifted, but they stay the target of the
 		// action button when they can be tapped (StartGrab 0x5D1740 goes straight to Tap).
 		if (Rocks::IsRock(*best) && !Rocks::ValidForPlaceInHand(*best) && !Rocks::ValidToTap(*best))

@@ -27,10 +27,24 @@ extern "C" {
 
 using namespace openblack::audio;
 
+MpegAudioDecoder::~MpegAudioDecoder()
+{
+	if (_open)
+	{
+		drmp3_uninit(&_mp3);
+	}
+}
+
+int MpegAudioDecoder::GetSampleRate() const
+{
+	return _open ? static_cast<int>(_mp3.sampleRate) : 0;
+}
+
 bool MpegAudioDecoder::Open(const std::vector<uint8_t>& buffer)
 {
 	const auto status = drmp3_init_memory(&_mp3, buffer.data(), buffer.size(), nullptr);
-	return static_cast<bool>(status);
+	_open = static_cast<bool>(status);
+	return _open;
 }
 
 void MpegAudioDecoder::Read(std::vector<int16_t>& buffer)

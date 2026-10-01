@@ -9,6 +9,7 @@
 
 #include "OneOffSpellSeed.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include <glm/geometric.hpp>
@@ -162,6 +163,38 @@ void one_off::UpdateFrames(float milliseconds)
 		    const glm::vec3 u = glm::normalize(up);
 		    orb.facing = glm::mat3(glm::cross(u, d), -d, u);
 		    orb.facingOffset = centre - orb.facing * centre;
+	    });
+	// Draw 0x518E90, the rest: the orb is added for drawing (AddForDrawing 0x63B5D0) with its matrix moved to the box
+	// centre + normalize(camera - centre) x GetRadius (vt 0x60 -> Object::Get2DRadius: the larger half extent x/z x
+	// scale), then put back: only the alpha sort key moves, so the orb sorts in front of the seed inside and the seed
+	// is drawn first, seen through the bubble. Then, if the orb was on screen, GetSpellGraphicPos 0x72A840 (the drawn
+	// matrix applied to the mesh point ResolveLoad() + 0x18, the box centre fn_00518720 turns about (inferido); scale =
+	// the 3D object's scale +0x44 x 0.6 [0x8C7BDC]), SpellSeedGraphic::DrawUpdateAtPos 0x727630 and
+	// DrawSpellGraphic(this, 0, 1, the orb's diffuse alpha 0x95): the seed spins in the centre of the bubble and goes
+	// with the orb when it is carried or thrown. (inferido): every frame, not only when on screen.
+	registry.Each<OneOffSpellSeed, const Transform, const Mesh>(
+	    [&camera, milliseconds, hasCamera = Locator::camera::has_value()](OneOffSpellSeed& orb, const Transform& transform,
+	                                                                     const Mesh& mesh) {
+		    const auto l3d = Locator::resources::value().GetMeshes().Handle(mesh.id);
+		    glm::vec3 centre = transform.position;
+		    float radius = 0.0f;
+		    if (l3d)
+		    {
+			    const auto& box = l3d->GetBoundingBox();
+			    centre += box.Center() * transform.scale;
+			    const auto size = box.Size() * transform.scale;
+			    radius = 0.5f * std::max(size.x, size.z);
+		    }
+		    orb.sortPoint = centre;
+		    if (hasCamera && glm::dot(camera - centre, camera - centre) > 0.0f)
+		    {
+			    orb.sortPoint = centre + glm::normalize(camera - centre) * radius;
+		    }
+		    worship::seed_graphic::DrawUpdateAtPos(orb.graphic, centre, transform.scale.x * 0.6f, milliseconds);
+		    // the orb's diffuse alpha (+0x4C >> 24, 0x519077): 0x519002 tints it with 0x96FFFFFF ([0xBE8E8C] low byte
+		    // 0x96) and fn_0080BF10 0x80BFC0..0x80C00B multiplies that into the land colour, whose alpha fn_00801C90 sets
+		    // to 0xFF: (0xFF x 0x96) >> 8 = 0x95
+		    worship::seed_graphic::DrawSpellGraphic(orb.graphic, static_cast<uint8_t>((0xFF * 0x96) >> 8), milliseconds);
 	    });
 	if (any)
 	{

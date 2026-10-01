@@ -184,8 +184,9 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 
 			// The coast's transparency is the per-texel coast alpha (CoastAlpha.h), not a per-vertex value. Per vertex
 			// only the shore fade: at altitude 1 or less the specular alpha is 0 (0x874BA9..0x874BC0, SSE
-			// 0x7A1F16..0x7A1F73), so the small bump pass skips the triangles whose three vertices have it (SSE
-			// 0x7A31A0..0x7A3260), and the dynamic shadows give such vertices colour 0 (fn_00878350), a fade.
+			// 0x7A1F16..0x7A1F73), which the small bump pass copies to its vertex alpha (0x8758E7.., SSE 0x7A2FD0..;
+			// vs_terrain) and uses to skip the triangles whose three vertices have it (SSE 0x7A31A0..0x7A3260), and the
+			// dynamic shadows give such vertices colour 0 (fn_00878350), a fade.
 			auto shoreFade = [&island](const lnd::LNDCell& cell) { return island.GetCellAltitude(cell) > 1 ? 1.0f : 0.0f; };
 			auto makeVert = [&shoreFade, &pos, &normals, &cells, &materials, singleMaterials](Corner corner, const glm::vec3& weight,
 			                                                      const std::array<Corner, 3>& m) -> LandVertex {

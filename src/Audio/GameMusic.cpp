@@ -229,11 +229,11 @@ void GameMusic::Reset()
 	SetPlaying(k_PlayingNone);
 }
 
-void GameMusic::ProcessAudioGameTurn()
+void GameMusic::ProcessAudioGameTurn(bool waveActive)
 {
-	// 0x427086: LHWaveIsActive (approximated: the music engine exists and is active; openblack has no LHaudio sample
-	// system yet). The ambient (fn_00429100, ProcessAtmosBanks, LHAtmosProcess) and the listener are not music.
-	if (_engine != nullptr && _engine->IsActive())
+	// 0x427086: LHWaveIsActive (sample_play::IsActive, LH_AudioSystem+0x14). The ambient (fn_00429100,
+	// ProcessAtmosBanks, LHAtmosProcess) and the listener are not music: audio::ProcessTurn does them.
+	if (_engine != nullptr && waveActive)
 	{
 		ProcessMusic(); // 0x427092
 	}
@@ -792,7 +792,7 @@ void Shutdown()
 	g_GameMusic.reset();
 }
 
-void ProcessTurn(uint32_t turn)
+void ProcessTurn(uint32_t turn, bool waveActive)
 {
 	auto lock = Lock();
 	if (!g_GameMusic)
@@ -822,7 +822,7 @@ void ProcessTurn(uint32_t turn)
 		}
 		g_GameMusic->ScriptStartMusic(k_TestHook->first);
 	}
-	g_GameMusic->ProcessAudioGameTurn();
+	g_GameMusic->ProcessAudioGameTurn(waveActive);
 }
 
 GameMusic* Get()

@@ -27,19 +27,21 @@
 namespace openblack::psys
 {
 
-/// ParticleChainCreator (props 0x6B4760; ctor 0x6AA6xx..0x6AA74E)
+/// ParticleChainCreator (props 0x6B4760; ctor 0x6AA6E0..0x6AA751, CreateChain 0x6AA880 copies the layout to the Chain)
 struct ChainCreator: Creator
 {
-	int frameOfHead {0};              ///< +0x58 (chain +0x24): the frame of the textures' last stretch
-	int frameOfTail {0};              ///< +0x5C (chain +0x28): the frame of the first stretch
-	int numTexturesForWholeChain {-1}; ///< +0x68 (chain +0x30), ctor -1 (0x6AA747): one per segment
-	int frameWidth {32};              ///< +0x64 (chain +0x20), ctor 0x20 (0x6AA740)
-	int frameHeight {64};             ///< +0x60 (chain +0x1C), ctor 0x40 (0x6AA739)
+	int frameOfHead {0};              ///< +0x58 -> chain +0x24, the frame of the last repeat (fn_006C8920)
+	int frameOfTail {0};              ///< +0x5C -> chain +0x28, the frame of the first repeat
+	int numTexturesForWholeChain {-1}; ///< +0x68 -> chain +0x30 (ctor 0x6AA747: -1, CreateChain 0x6AA8DF: joints - 1)
+	int frameWidth {32};              ///< +0x64 -> chain +0x20 (ctor 0x6AA740), texels across the ribbon
+	int frameHeight {64};             ///< +0x60 -> chain +0x1C (ctor 0x6AA739), texels along one repeat
 	bool doubleSided {false};         ///< +0x4E MaterialSetDoubleSided
 	bool dynamicLighting {false};     ///< +0x51 UseDynamicLighting
 
-	/// fn_006C8920 (frame_anim::ChainSegmentUv): the four UVs of segment `index` of a chain of `segments` (uv0, uv1 at
-	/// its first joint, uv2, uv3 at the next), the chain's v-scroll on their v
+	/// fn_006C8920 (frame_anim::ChainSegmentUv): the four UVs of segment `index` of a chain of `segments` (joints - 1),
+	/// in 0..1 of the 256 x 256 texture: uv0 = (u0, v0), uv1 = (u1, v0) at its first joint, uv2 = (u0, v1),
+	/// uv3 = (u1, v1) at the next. U runs across the ribbon (u0 on the joint + side vertices, u1 on the joint - side
+	/// ones), V along it; `scroll` is chain +0x3C, added to the four v
 	[[nodiscard]] std::array<glm::vec2, 4> SegmentUv(int index, int segments, float scroll) const;
 };
 

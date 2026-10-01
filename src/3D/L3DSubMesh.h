@@ -78,6 +78,9 @@ public:
 	/// GJUtils::SetMaterialProperties 0x57E120 on every primitive: a new material type (blending, Z write) and the
 	/// double-sided bit
 	void SetMaterialProperties(const MaterialProperties& properties) noexcept;
+	/// The inner loop of fn_0057E220 0x57E220: every primitive whose material type (dword +0) is `from` becomes `to`
+	/// (0x57E252..0x57E256). Only the type changes: the byte +5 bits (two-sided, wrap, uv offset) and ALPHAREF stay.
+	void ReplaceMaterialType(uint32_t from, uint32_t to) noexcept;
 
 	/// A primitive built at run time (L3DMeshGenerated.cpp): the material of an existing primitive and its triangles.
 	struct GeneratedPrimitive

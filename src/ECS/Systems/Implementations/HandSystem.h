@@ -158,11 +158,29 @@ private:
 	/// Every frame: the hold parameters (MAGIC until ready), the seed's own mesh (IsG3DObjectDrawnInHand), its coming in
 	/// and out of the hand, and what the gesture system is told (magic::gestures::SetHandStatus)
 	void UpdateSeedInHand(bool actionHeld) noexcept;
-	/// SpellSeed::InterfaceSetOutMagicHand 0x728940 (and the seed is not drawn outside the hand: Spell::DrawSpellSeed)
+	/// SpellSeed::InterfaceSetOutMagicHand 0x728940; the hand stops drawing it (out of the hand Spell::DrawSpellSeed
+	/// 0x721360 -> 0x729020 draws a seed that follows its spell: magic::seed::DrawSpells)
 	void SeedLeftHand(entt::entity seed) noexcept;
 	/// Test hooks OPENBLACK_TEST_CAST / OPENBLACK_TEST_CAST_PATH / OPENBLACK_TEST_THROW_VEL (HandSpellSeed.cpp)
 	bool TestCastActionHeld(float seconds, bool actionHeld) noexcept;
 	[[nodiscard]] std::optional<glm::vec3> TestCastPathPoint() const noexcept;
+
+	// ---- HandApplyToObject.cpp: the held object applied to the object under the hand, and seeds / stones picked up ----
+	/// The seed an object out of the hand gives the hand when it is ValidForPlaceInHand (vt 0x6FC): a SpellSeed itself
+	/// (0x728580), a MagicTeleport its spell's seed (0x5FC440); entt::null otherwise
+	[[nodiscard]] static entt::entity SeedToPlaceInHand(entt::entity object) noexcept;
+	/// GenericPickup 0x5D2800 (the 225 ms grab) of a seed or a stone: packet 0x13 -> GInterface::PlaceObjectInMagicHand
+	/// 0x5DA6F0 (a stone's InterfaceSetInMagicHand 0x5FC470 places its seed). False if the object is neither.
+	bool PickUpSeedOrStone(entt::entity object, bool inInfluence) noexcept;
+	/// ActionPressedHolding 0x5D1560 for a held object that is not a seed: when the object under the hand takes it
+	/// (vt 0x71C at 0x5D1607, the influence rule 0x5D15D6..0x5D15E9), SendApplyToObject 0x5D30D0 -> packet 0x11 ->
+	/// 0x5DA1A0 -> vt 0x720 ApplyThisToObject -> HandleApplyResult fn_005DA100. False: nothing applied (the press arms the
+	/// put down / throw as before)
+	bool HeldActionPressedOnObject(bool inInfluence) noexcept;
+	/// fn_005CED60 RemoveFirstFromHand: the held object leaves the hand without physics (GMagicHand::RemoveFromHand
+	/// 0x5FB0B0: FireEffect::SetOutMagicHand); the caller places it
+	std::optional<entt::entity> RemoveFirstFromHand() noexcept;
+
 	SeedAction _seedAction {SeedAction::None};
 	/// the object under the cursor when the apply started (m_ActionCollide.object)
 	entt::entity _seedTarget {entt::null};

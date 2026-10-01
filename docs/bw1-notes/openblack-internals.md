@@ -227,7 +227,10 @@ Bandadas ([miracles.md](miracles.md#bandadas-m4c-magicspellsspellflock-psysrules
 
 Escudos ([miracles.md](miracles.md#escudos-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)):
 `OPENBLACK_TEST_SHIELD_SHOT="<turnos>,<ruta.png>[;...]"` pide una captura esos turnos de juego después de crearse el
-primer MapShield (como la del bosque). Con `OPENBLACK_SPELL_TRACE=1` se escriben `SpellShield::InitWithPos` (radio,
+primer MapShield (como la del bosque). `OPENBLACK_TEST_SHIELD_FRAMES="<turnos>,<n>,<prefijo>[@<lento>]"` hace n capturas
+en fotogramas seguidos (`<prefijo>_<i>.png`, turno y fracción en el log; `@<lento>` alarga el turno pero **no** la
+interpolación del PSys, ver [miracles.md](miracles.md#ganchos-y-capturas)). Con `OPENBLACK_SPELL_TRACE=1` se escriben
+`SpellShield::InitWithPos` (radio,
 anillos anti, reacción, ciudad, coste por turno), cada turno el escudo físico (`t`, curva de crecer, escala dibujada y
 la del objeto, ángulo, altura, muriendo y si tiene cuerpo en las físicas) y cada golpe físico (momento y cánticos
 pagados). Ejemplo del escudo físico creciendo: `OPENBLACK_TEST_MAGIC_TURN=300

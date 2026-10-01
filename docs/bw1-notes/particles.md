@@ -97,18 +97,26 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 
 - **`ParticleChainCreator`** 0x6AA900: los átomos de una colección son las articulaciones de **una** cinta. El dibujo
   por colección (fn_0067B3F0) la orienta a la cámara: en cada articulación el vector lateral es
-  `normalize(cross(dirección del tramo, dirección a la cámara)) · escala` (la escala entera es la semianchura,
-  0x67B9E6..0x67BA70). Las UV son las de fn_006C8920, con uv0 en cabeza + lado: **la V
-  corre a lo largo de la cadena** (los `NumTexturesForWholeChain` trozos, −1 = uno por tramo, cada uno de
-  FrameHeight píxeles) y la U cruza la cinta por una columna de FrameWidth píxeles (el fotograma FileOffset +
-  FrameOfTail en el primer trozo, + FrameOfHead en el último, + 0 en los demás). Valores por defecto del creador:
-  64, 32 y −1 (0x6AA739..0x6AA747). Detalle en
-  [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas). Para esto el `Effect` tiene un
-  `CollectChains` nuevo que devuelve las colecciones de tipo cadena con sus articulaciones **en orden** (el `Collect`
-  normal las aplana). Se dibuja después de los sprites ordenados, en `MainBlended`.
-  - El desplazamiento vertical de la UV con el tiempo (chain +0x3C, `frame_anim::ChainScroll`) está portado, pero su
-    ritmo +0x4C solo lo ponen UR_SimpleBeam y UR_Plasma, sin portar: vale 0 en todas las cadenas de openblack.
-  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`) y el suavizado por puntos medios.
+  `normalize(cross(cámara − articulación, dirección del tramo)) · escala` y los vértices son `articulación ± lado`
+  (la escala entera del PSR es la semianchura, 0x67B9E6..0x67BB0D; un lado exactamente nulo, p. ej. un tramo de
+  longitud 0, se queda nulo, 0x67BA04..0x67BA39). Donde se juntan dos tramos, los vértices se mueven a su punto medio
+  (0x67BD2D..0x67BE82). Índices por tramo (0, 1, 2) y (1, 3, 2) (0x67B77A..0x67B7D8). UV (fn_006C8920, con uv0 en
+  cabeza + lado): la **U va a lo ancho**, `[(cuadro+FileOffset)·FrameWidth, +FrameWidth]/256`, con cuadro
+  `FrameOfHead` en la última repetición, `FrameOfTail` en la primera y 0 en las demás. La **V va a lo largo**,
+  `FrameHeight/256` por repetición; hay `NumTexturesForWholeChain` repeticiones, −1 = una por tramo. Detalle en
+  [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas).
+  - Valores por defecto del creador: 64 de alto, 32 de ancho, −1 (ctor 0x6AA739..0x6AA747).
+  - Así el rayo usa la tira 0 de `S_Lightning.raw` (núcleo blanco y halo cian), 4 veces.
+  - Antes el port tenía 256×256 y los ejes cambiados, y la cinta salía casi transparente.
+
+  Para esto el `Effect` tiene un `CollectChains` nuevo que devuelve las colecciones de tipo cadena con sus
+  articulaciones **en orden** (el `Collect` normal las aplana). Se dibuja después de los sprites ordenados, en
+  `MainBlended`. Una colección sin el bit 2 de +0x38 (las horquillas del rayo) se dibuja sin interpolar
+  (fn_00679920 0x67999E); el fotograma sí se interpola siempre (0x679A79).
+  - El desplazamiento vertical de la UV con el tiempo (chain +0x3C, `frame_anim::ChainScroll`, 0x67BE91, `fmod` por
+    `FrameHeight/256`) está portado, pero su ritmo +0x4C solo lo ponen UR_SimpleBeam y UR_Plasma, sin portar: vale 0
+    en todas las cadenas de openblack.
+  - No portado: `UseDynamicLighting` (color × `clamp(0,6 + 0,4·(n·L))`).
   - `OPENBLACK_PSYS_CHAIN_TRACE=1` escribe por fotograma cuántas cintas hay, con cuántas articulaciones, su textura y de
     dónde a dónde van: sirve para separar «no se dibuja» de «no hay ninguna en ese fotograma».
 - **`ParticleLightMapCreator`** 0x6A9D80: `GJBitmap::LoadBitmapFromFile(nombre, Pitch, 3, NumFramesInFile,
@@ -328,7 +336,7 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 
 - Sonido: el alineamiento del dueño, el temblor de cámara, los filtros de estado de juego, las repeticiones finitas
   y el tope global de distancia (ver [Sonido de las partículas](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp)).
-- Cadenas: `UseDynamicLighting`, el desplazamiento vertical de la UV y el suavizado por puntos medios; mapas de luz
+- Cadenas: `UseDynamicLighting` (el desplazamiento de V es 0 en todos los datos); mapas de luz
   estampados en una textura de luz dinámica del terreno (no existe en el port).
 - Mallas: `UseScriptHightlightPulse`, `CastHumanShadow`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
   objeto, `FaceCameraSprite` y el .anm de `ParticleAnimCreator`.

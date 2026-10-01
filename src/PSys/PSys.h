@@ -132,6 +132,9 @@ struct Atom
 	float ruleScale {1.0f};    ///< +0x78
 	float stretch {1.0f};      ///< +0x7C
 	std::array<uint8_t, 4> colour {255, 255, 255, 255}; ///< +0x8C ARGB as r, g, b, a
+	/// +0x90 the specular, D3DCOLOR ARGB: fn_006A85E0 0x6A8748..0x6A875B puts SpecColorR/G/B there, alpha 0
+	/// (pendiente: not read from the creator yet, 0 in every dumped spell file); copied raw to DrawData +0xC (0x679BF4)
+	uint32_t specular {0};
 	float birth {0.0f};
 	bool visible {true}; ///< flag 0x10 (EventConditionAtomInUse)
 	float frame {0.0f};     ///< +0x10C (fn_00673EA0 keeps it and +0x108, the previous step's, in [0, 2N))
@@ -151,8 +154,9 @@ struct Atom
 	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
 	/// +0x2C: the sounds it started, newest first (Audio/SpellSounds.h)
 	std::vector<std::shared_ptr<audio::PSysSound>> sounds;
-	/// A ParticleMistCreator atom's LH3DMist +0x84 (Creators/Mist.cpp): advanced by the draw only while it is on screen
-	/// (fn_007FA300), so it is changed through the const atoms of the draw
+	/// A ParticleMistCreator atom's LH3DMist +0x84 (its render object, CreateLH3DMist 0x6AA5A0; Creators/Mist.cpp): seeded
+	/// by the ctor 0x7F9560 and advanced by the draw fn_007FA300 only while it is on screen, so it is changed through the
+	/// const atoms of the draw; unused by other atoms
 	mutable graphics::frame_anim::MistClock mist;
 };
 
@@ -163,6 +167,10 @@ struct Collection
 	Atom* parent {nullptr};
 	float birth {0.0f};
 	float alpha {255.0f}; ///< +0x50
+	/// +0x38 flags (AtomCollection ctor 0x675CA2: 3). Bit 0x02: the atoms are drawn interpolated between the last two
+	/// steps (fn_00679920 0x67999E; without it the current PSR is drawn as is). UR_Lightning clears it on its forks
+	/// (0x6912A1, 0x691B42, 0x692B1D)
+	uint8_t flags {3};
 	bool hierarchy {false};
 	/// The Chain of a collection of chain joints (ctor 0x6C8830): its v-scroll +0x3C (frame_anim::ChainScroll, advanced
 	/// by the draw fn_0067B3F0, so changed through the const collections of the draw) and its rate +0x4C, set only by
@@ -330,7 +338,9 @@ public:
 		float alpha;
 		float frame;
 		std::array<uint8_t, 3> colour;
-		const Atom* source {nullptr}; ///< the atom it was taken from (none for the fire's and the town belief's)
+		uint32_t specular {0}; ///< the atom's +0x90 (DrawData +0xC, 0x679BF4), not interpolated
+		/// DrawData +0 (0x679C0C): the atom it was taken from (none for the fire's and the town belief's)
+		const Atom* atom {nullptr};
 	};
 	/// kind: the sprites (RendererPSys.cpp) or the meshes (Creators/Mesh.cpp, drawn as instances)
 	void Collect(float t, std::vector<DrawAtom>& out, Creator::Kind kind = Creator::Kind::Sprite) const;

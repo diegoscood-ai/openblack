@@ -30,6 +30,10 @@ struct MistDesc
 	float k;     ///< +0x8C
 	int counter; ///< +0x84, 0..900: the atlas frame is frame_anim::MistCell, (c / 20) & 15; the caller advances it
 	             ///< (fn_007FA300 adds ftol(g_game_time_inc * 0.255) only while the object is on screen: InView)
+	/// +0x50 the specular, D3DCOLOR ARGB (SetColour 0x7F9770): fn_0080DB30 0x80DEF5 puts it in [0xE9FE2C], the vertices'
+	/// specular, added to texture x diffuse (D3DRS_SPECULARENABLE, fn_0082C8F0 0x82CC54). Only the effect branch keeps it
+	/// (the normal branch replaces it with the haze at 0x7FA6DD); the storm clouds' lightning glow (UR_CloudGather)
+	uint32_t specular {0};
 };
 
 /// Draws this mist in the current frame only (call it every frame, before the scene is drawn)

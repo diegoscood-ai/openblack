@@ -17,6 +17,7 @@
 #include "Core/SpellSeed.h"
 #include "Objects/MagicFireBall.h"
 #include "Objects/MapShield.h"
+#include "Objects/ShieldDebugHooks.h"
 #include "Spells/SpellShield.h"
 #include "Spells/SpellStormAndTornado.h"
 #include "Objects/MagicTeleport.h"
@@ -165,6 +166,10 @@ void magic::Update(float seconds)
 	worship::Update(seconds);
 	// Spell::DrawSpells -> fn_0072BF50: the physical shields' DrawShield (the matrix lerped over the turn, the alpha)
 	map_shield::DrawShields();
+	// Spell::DrawSpells 0x7203F0 -> Spell::Draw 0x720430 -> DrawSpellSeed 0x721360 -> 0x729020: the seeds that follow
+	// their spell, over it (Core/SpellSeed.cpp)
+	seed::DrawSpells();
+	shield_debug::OnFrame(); // OPENBLACK_TEST_SHIELD_FRAMES (test hook, ShieldDebugHooks.cpp)
 	// MagicTeleport::Draw 0x5FCCC0: the stones' vortex, stepped with the frame time (Objects/MagicTeleport.cpp)
 	teleport::UpdateFrame(seconds);
 }

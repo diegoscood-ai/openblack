@@ -109,17 +109,22 @@ void mist_atoms::SubmitFrame(float milliseconds)
 			// fn_007FA300: every LH3DMist its own counter += ftol(g_game_time_inc x 0.255), modulo 900 once past it, run
 			// only for a mist on screen (AddDrawing 0x7FA7F0, mists::InView); the fraction kept as the map mists do
 			// (frame_anim::MistAdvance)
-			if (atom.source != nullptr)
+			if (atom.atom != nullptr)
 			{
 				if (mists::InView(mist.position, mist.size))
 				{
-					graphics::frame_anim::MistAdvance(atom.source->mist, milliseconds);
+					graphics::frame_anim::MistAdvance(atom.atom->mist, milliseconds);
 				}
-				mist.counter = atom.source->mist.counter;
+				mist.counter = atom.atom->mist.counter;
 			}
+			// DrawData +0xC, the atom's +0x90 (0x679BF4), to SetColour 0x7F9770 as the specular (0x67A6C4/0x67A6D6)
+			mist.specular = atom.specular;
 			// vt 0x100 (Z-sorted, [0xC0215D] set) / vt 0x104: the sorting is mists::Submit's
-			// TODO(storm): the land light / shadow map of a creator with a TextureFileName (+0x40, the storm's
-			// S_SMClouds16), a record in list 0xD4EDB8 like ParticleLightMap's: not ported
+			// TODO(storm): the land shadow of a creator with a TextureFileName (+0x40, the storm's S_SMClouds16, bpp 1
+			// with IsShadowMap, ParticleMistCreator::GetBitmap 0x6AA540): a record in list 0xD4EDB8 (0x67A7BE..0x67A8C1)
+			// at (x, 0, z), alpha = DrawData alpha / 255; PSysLightMaps::AddDrawing 0x6CA6E0 -> fn_006CA280 mode 2 ->
+			// fn_00878C70 (min into the cells' vertex byte +3, floor 0x30). Not ported: the land's dynamic light is the
+			// session sistemas' batch
 			mists::Submit(mist);
 		}
 	}

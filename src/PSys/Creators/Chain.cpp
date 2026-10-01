@@ -52,6 +52,10 @@ std::unique_ptr<Creator> MakeChainCreator(const Object& object)
 
 std::array<glm::vec2, 4> ChainCreator::SegmentUv(int index, int segments, float scroll) const
 {
+	// fn_006C8920 (called from fn_0067B3F0 at 0x67BEFD with frame 0): the chain is cut in T repeats (chain +0x30);
+	// segment s falls in repeat k = ((s + 1) T - 1) / (n - 1) (integer division), which starts at segment
+	// k (n - 1) / T and holds (k + 1)(n - 1) / T - that of them; FrameOfHead in the last repeat, FrameOfTail in the
+	// first (with a single repeat the head wins, the k == T - 1 test comes first), else 0, + FileOffset (chain +0x34)
 	// CreateChain 0x6AA880: chain +0x30 = NumTexturesForWholeChain, or joints - 1 when -1 (0x6AA8DC..0x6AA8EB).
 	// (aproximado) the joints drawn now, where the original counts the ones the chain was made with
 	graphics::frame_anim::ChainSheet sheet;

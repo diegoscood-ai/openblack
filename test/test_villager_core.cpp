@@ -24,12 +24,15 @@
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Poisoned.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "Enums.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -592,4 +595,125 @@ TEST_F(VillagerCoreTest, Power)
 	EXPECT_FLOAT_EQ(villager::Power(0.5f), 0.875f);
 	EXPECT_FLOAT_EQ(villager::Power(1.1f), 0.0f);
 	EXPECT_FLOAT_EQ(villager::Power(0.0f), 1.0f);
+}
+
+// ---- the script's villager (ECS/Villager/VillagerScript.h: MOVE_GAME_THING, SET_SCRIPT_STATE / _ULONG, PLAYED) ----
+
+namespace
+{
+entt::entity MakeWalker(uint32_t top, glm::vec2 at, float speed)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto e = registry.Create();
+	auto& v = registry.Assign<Villager>(e);
+	v.life = 1.0f;
+	v.town = entt::null;
+	v.abode = entt::null;
+	registry.Assign<LivingAction>(e, static_cast<VillagerStates>(top), static_cast<uint16_t>(7));
+	registry.Assign<WallHug>(e, glm::vec2(), glm::vec2(), 0.0f, speed);
+	auto& transform = registry.Assign<Transform>(e);
+	transform.position = glm::vec3(at.x, 0.0f, at.y);
+	// a script's villager: SetStateSpeed keeps its speed (+0x25 & 4, 0x753766)
+	ecs::script_held::SetControlledByScript(e, true);
+	return e;
+}
+} // namespace
+
+TEST_F(VillagerCoreTest, ScriptAreWeThereIsStrict)
+{
+	// MobileWallHug::AreWeThere 0x60AD60: d^2 < (speed + r)^2
+	const auto a = MakeWalker(163, glm::vec2(0.0f), 0.5f);
+	EXPECT_TRUE(villager::AreWeThere(a, glm::vec2(0.4f, 0.0f), 0.0f));
+	EXPECT_FALSE(villager::AreWeThere(a, glm::vec2(0.5f, 0.0f), 0.0f));
+	EXPECT_TRUE(villager::AreWeThere(a, glm::vec2(0.5f, 0.0f), 0.1f));
+}
+
+TEST_F(VillagerCoreTest, ScriptSetupMoveToPosStepsThrough)
+{
+	// Living::SetupMoveToPos 0x5F2830 -> SetupMobileMoveToPos 0x60AAD0: TOP MOVE_TO_POS, FINAL IN_SCRIPT, STEP_THROUGH
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto a = MakeWalker(163, glm::vec2(0.0f), 0.1f);
+	EXPECT_EQ(villager::SetupMoveToPos(a, glm::vec2(10.0f, 0.0f), VillagerStates::InScript), 1u);
+	EXPECT_EQ(Top(a), 1u);
+	EXPECT_EQ(Final(a), 4u);
+	EXPECT_TRUE(registry.AllOf<MoveStateStepThroughTag>(a));
+	EXPECT_FALSE(registry.AllOf<MoveStateLinearTag>(a));
+	const auto& wallHug = registry.Get<WallHug>(a);
+	EXPECT_EQ(wallHug.goal, glm::vec2(10.0f, 0.0f));
+	EXPECT_NEAR(wallHug.step.x, 0.1f, 1e-6f);
+	EXPECT_NEAR(wallHug.step.y, 0.0f, 1e-6f);
+	// there already: ARRIVED (0x60AB91)
+	const auto b = MakeWalker(163, glm::vec2(5.0f, 5.0f), 0.1f);
+	EXPECT_EQ(villager::SetupMoveToPos(b, glm::vec2(5.05f, 5.0f), VillagerStates::InScript), 1u);
+	EXPECT_TRUE(registry.AllOf<MoveStateArrivedTag>(b));
+	// the exit refused: no walk, 0
+	const auto c = MakeWalker(163, glm::vec2(0.0f), 0.1f);
+	Table().rows[163].exit = 0;
+	EXPECT_EQ(villager::SetupMoveToPos(c, glm::vec2(10.0f, 0.0f), VillagerStates::InScript), 0u);
+	EXPECT_FALSE(registry.AllOf<MoveStateStepThroughTag>(c));
+}
+
+TEST_F(VillagerCoreTest, ScriptSetScriptStateStopsTheWalk)
+{
+	// GScript::SetScriptState 0x6F82E0: StorePreviousState, exit, entry, SetAnim(1), +0x58 = 0
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto a = MakeWalker(163, glm::vec2(0.0f), 0.1f);
+	ASSERT_EQ(villager::SetupMoveToPos(a, glm::vec2(10.0f, 0.0f), VillagerStates::InScript), 1u);
+	Table().calls.clear();
+	villager::SetScriptState(a, VillagerStates::ScriptPlayAnim);
+	EXPECT_EQ(Top(a), 200u);
+	EXPECT_EQ(Action(a).turnsUntilStateChange, 0u);
+	EXPECT_EQ(Table().Count("exit 1 200"), 1u);
+	EXPECT_EQ(Table().Count("entry 200 4 200"), 1u);
+	EXPECT_FALSE(registry.AllOf<MoveStateStepThroughTag>(a));
+	// in the hand: nothing (IsObjectInMap)
+	const auto b = MakeWalker(24, glm::vec2(0.0f), 0.1f);
+	villager::SetScriptState(b, VillagerStates::ScriptPlayAnim);
+	EXPECT_EQ(Top(b), 24u);
+}
+
+TEST_F(VillagerCoreTest, ScriptPlayAnimCountsDown)
+{
+	// Villager::ScriptPlayAnim 0x768970 and IsScriptAnimationComplete 0x7689D0
+	const auto a = MakeWalker(200, glm::vec2(0.0f), 0.1f);
+	villager::SetScriptAnimation(a, 224, 2);
+	EXPECT_EQ(V(a).scriptAnim, 224u);
+	EXPECT_EQ(villager::ScriptAnimation(a), 224);
+	EXPECT_FALSE(villager::IsScriptAnimationComplete(a)); // TOP 200, 2 left
+	villager::ScriptPlayAnim(Action(a));
+	EXPECT_EQ(V(a).scriptAnimLoops, 1u);
+	EXPECT_EQ(Top(a), 23u); // PlayAnimThenSetState: WAIT_FOR_ANIMATION, then 200 again
+	EXPECT_EQ(Final(a), 200u);
+	EXPECT_FALSE(villager::IsScriptAnimationComplete(a));
+	// the clip ends (no animation here: ready at once): SetTopStateToFinal
+	EXPECT_EQ(villager::WaitForAnimation(Action(a)), 0u);
+	EXPECT_EQ(Top(a), 200u);
+	villager::ScriptPlayAnim(Action(a));
+	EXPECT_EQ(V(a).scriptAnimLoops, 0u);
+	EXPECT_EQ(Top(a), 23u);
+	EXPECT_EQ(Final(a), 4u); // the last time goes back to IN_SCRIPT
+	EXPECT_EQ(villager::WaitForAnimation(Action(a)), 0u);
+	EXPECT_EQ(Top(a), 4u);
+	EXPECT_TRUE(villager::IsScriptAnimationComplete(a));
+	// TOP 200 with no times left: complete, and the state does nothing
+	const auto b = MakeWalker(200, glm::vec2(0.0f), 0.1f);
+	EXPECT_TRUE(villager::IsScriptAnimationComplete(b));
+	EXPECT_EQ(villager::ScriptPlayAnim(Action(b)), 1u);
+	EXPECT_EQ(Top(b), 200u);
+}
+
+TEST_F(VillagerCoreTest, ScriptExitInScript)
+{
+	// Living::ExitInScript 0x5ED9C0: a script state next -> 1; else ExitNoChangeState 0x768780
+	// the test's own InfoConstants (SetUp), written through the Locator's const view
+	auto& table = const_cast<InfoConstants&>(Locator::infoConstants::value()).villagerStateTable;
+	table.at(200).isScriptState = 1;
+	const auto a = MakeWalker(4, glm::vec2(0.0f), 0.1f);
+	EXPECT_EQ(villager::ExitInScript(Action(a), VillagerStates::ScriptPlayAnim), 1u);
+	// 24 IN_HAND: IsStateForInterface -> 1
+	EXPECT_EQ(villager::ExitInScript(Action(a), VillagerStates::InHand), 1u);
+	// 36 GO_HOME (final, another exit than the final state's, not script-interruptable): 0
+	EXPECT_EQ(villager::ExitInScript(Action(a), VillagerStates::GoHome), 0u);
+	table.at(36).isScriptInterruptableState = 1;
+	EXPECT_EQ(villager::ExitInScript(Action(a), VillagerStates::GoHome), 1u);
 }

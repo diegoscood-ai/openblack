@@ -14,6 +14,7 @@ en runblack.exe) salvo lo marcado **(inferido)**, *desviación* o **pendiente**.
 - [Porcentaje de construcción de un Feature](#porcentaje-de-construcción-de-un-feature-built_percentage-propiedad-chl-22)
 - [Objetos del guion del mapa](#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas)
 - [Ciudades y ciudadela](#ciudades-y-ciudadela)
+- [Órdenes de guion que mueven cosas](#órdenes-de-guion-que-mueven-cosas-move_game_thing-033-y-compañía)
 - [Pendiente](#pendiente) · [Ganchos de prueba](#ganchos-de-prueba) · [Fuentes](#fuentes)
 
 ## Creación desde CHL (CREATE 27 / CREATE_WITH_ANGLE_AND_SCALE 252)
@@ -350,6 +351,108 @@ Resumen de lo que la wiki ya dice de pueblos, templo y ciudadela, con enlaces (n
 - Árboles del pueblo (bosque escénico, lista de bosques Town +0x608):
   [trees.md](trees.md#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-tmp_distrees2villager_queriesmd).
 
+## Órdenes de guion que mueven cosas (MOVE_GAME_THING 033 y compañía)
+
+La intro de **Land 1** (CHL `FollowUs`, `Scripts\Quests\challenge.chl`; código en `tmp_dis\mapa\rt_chl_code.txt`
+desde la línea 49528) crea a la familia (madre = VILLAGER 49, padre = 53, hijo = 52, CREATE 027), la lleva con
+`MOVE_GAME_THING(cosa, punto, 0.0)` y espera con `GET_DISTANCE(GET_POSITION(cosa), punto) == 0` (`FollowUs_loop_4` y
+`_loop_6`) o `< 1` (`_loop_5`, `_loop_77..79`). Luego les hace actuar con `SET_SCRIPT_ULONG(cosa, clip, veces)` +
+`SET_SCRIPT_STATE(cosa, 200)` y espera `PLAYED(cosa)` (`_loop_8`, 11, 17, 45, 48, 49, 74, 80..82). Todo esto era stub.
+
+### MOVE_GAME_THING (GScript::MoveGameThing 0x6F8E80)
+
+Saca radio, z, y, x y la cosa (0x6F8E91..0x6F8EE9); `GetScriptGameThing` 0x70D220 (si no: "Thing no longer valid"
+0xC0C258). `MapCoords(pos)` 0x603160 (x / z; la y queda relativa a la tierra). Por tipo, en este orden:
+
+| prueba (vtable) | qué hace | openblack |
+|---|---|---|
+| IsCreature (+0x34) | `dynamic_cast<Creature*>` ("no creature for script" 0xC0D598), IsObjectInMap (+0x178) → fn_004F6B60(pos, radio): `PrepareCreatureForScriptedAction` 0x4F6A90 y subacciones (`AddSubAction` 0x4FF240). Solo aquí se usa el radio | **pendiente** (no hay IA de criatura) |
+| IsLiving (+0x3C4) | IsObjectInMap y !IsDrowning (+0x17C), si no nada; `AreWeThere(coords, 0.0)` (+0x85C, 0x60AD60) == 0 → `Living::SetupMoveToPos(coords, 4 IN_SCRIPT)` 0x5F2830 (0x6F8FCA); si ya está → `GScript::SetScriptState(cosa, 4)` 0x6F82E0 (0x6F8FD7) | aldeanos exacto; animales **(aproximado)**, abajo |
+| IsFlock (+0x3EC) | `Flock::SetDomainCentrePos` 0x52FC20: destino (+0x80) del primer miembro y centro (+0x14) del rebaño | `AnimalBrain::goal` del primero y `Flock::domainCentre` |
+| IsWeather (+0x3FC) | fn_00774550: +0x78 (su sistema) +0x5C = pos | no hay cosas de clima |
+| IsComputerPlayer (+0x4B8) | fn_00658510(pos, 60,0) | no hay jugadores de la CPU |
+| resto | "Jonty - Thing must be living to move it!" (0xC0D56C) y `SetPos(coords)` (+0xFC, 0x401940) | solo se mueve el `Transform` **(aproximado)** |
+
+- **Living::SetupMoveToPos** 0x5F2830 (pos, final): estado de movimiento = byte de GLivingInfo +0x124 (1 MOVE_TO_POS
+  en todos los aldeanos), o 3 MOVE_ON_STRUCTURE si GameThingWithPos +0x24 & 0x80 (solo lo pone `Living::MoveOnStructure`;
+  openblack no lo tiene: nunca); `SetCurrentAndDestinationState(movimiento, final)` (+0x8DC) y, solo si da 1,
+  `MobileWallHug::SetupMobileMoveToPos(pos)` 0x60AAD0: destino +0x80 = pos, `InitStepsXZ` 0x60BFA0, fuera de las listas
+  de rodeo (fn_00611AC0 / 00611610 / 00612BB0 / 00610590, +0x76 = 0), y `AreWeThere(0)` → +0x5E = 1 ARRIVED; si no,
+  `CircleHugInfo::Reset`, +0x78 = 1, +0x5E = 0xB **STEP_THROUGH** (recto, sin rodear: no es el LINEAR de
+  `SetupMoveToWithHug` 0x5F2890). openblack: `ecs::villager::SetupMoveToPos` (`src/ECS/Villager/VillagerScript.*`), con
+  la marca `MoveStateStepThroughTag` o `MoveStateArrivedTag` del PathfindingSystem.
+- **MobileWallHug::AreWeThere(pos, r)** 0x60AD60: `dx² + dz² < (velocidad u16 +0x5A + r)²` (estricto, en MapCoords);
+  `AreWeThere(r)` 0x60AD40 = `AreWeThere(GetDestPos() (+0x860), r)`. openblack en metros con `WallHug::speed`
+  **(aproximado: flotantes en vez de enteros 16.16)**.
+- Animales **(aproximado)**: `animal_ai::MoveTo(…, IN_SCRIPT)` (Living::SetupMoveToPos), la altitud del destino sobre
+  la tierra (+0x88) se toma 0 y, si ya está, `animal_ai::SetState(IN_SCRIPT)` en lugar de SetScriptState.
+
+### Lo que el guion consulta después
+
+- **GET_POSITION** (GScript::GetPosition 0x6F88A0): rebaño → Pos del primer miembro o `GetFlockPos` 0x530570 (el
+  centre +0x14); **un MobileWallHug que no es criatura (+0x408, +0x34) devuelve su destino (+0x80) si
+  `AreWeThere(0)`** (0x6F8977..0x6F89AF), si no su Pos. Altura = `GetAltitude` + la +8 de esas MapCoords; openblack da la
+  de la tierra en el destino **(aproximado: WallHug guarda solo x / z; GET_DISTANCE no mira la y)**.
+- **GET_DISTANCE** (GScript::GetDistance 0x6F8CA0): `GUtils::GetDistance(LHPoint, LHPoint)` 0x74CDE0 =
+  `hypotenuse(dx, dz)` 0x74F6C0: **solo x y z**; 0 si |dx| y |dz| ≤ 0,0001 (0x8BF518), si no `1 / InvSqrt(dx²+dz²)` con la
+  raíz aproximada por tabla `_FUN_0074f620` (tabla 0xDA5A10, la misma que `AnimalLairs.cpp`); **por debajo de 0,5
+  (0x8AA3B4) da 0**. Antes openblack medía en 3D y sin el corte, así que `== 0` no se cumplía nunca.
+
+### SET_SCRIPT_STATE 017, SET_SCRIPT_ULONG 020, PLAYED 064 y los estados de guion
+
+- **SET_SCRIPT_STATE** 0x6F8370: estado (primer pop) y cosa ("Object no longer valid" 0xC0D428). Contenedor de guion
+  (+0x3F8: g_game +0x250090 +0x24 y la función de bucle de la tabla 0xC0C73C) **pendiente**; `dynamic_cast<Living*>` y
+  !IsDrowning → `GScript::SetScriptState(living, estado)` 0x6F82E0; si no, "Object not living for set state" 0xC0D440.
+- **GScript::SetScriptState** 0x6F82E0, no criatura: IsAvailable (+0x2C; Villager 0x751D50: no borrándose y final ≠ 14
+  DYING) e IsObjectInMap (+0x178: +0x24 & 1; openblack: no está en la mano, **(aproximado)**) → `StorePreviousState`
+  (+0x8EC, 0x763470), `CallExitStateFunction(estado)` (+0x904) y `CallEntryStateFunction(estado)` (+0x90C) sin mirar
+  el resultado, `Living::SetAnim(1)` (+0x8FC, 0x5ECB80 → SetAnim(GetAnimId(), 1) 0x5ECBA0: el clip del estado desde 0) y
+  +0x58 = 0. La rama de criatura (fn_0047B140 / 004F6E30 / 004F6F10) **pendiente**.
+- **SET_SCRIPT_ULONG** 0x6F8770: veces (primer pop), clip, cosa. Villager: +0x120 = veces, +0x11C = clip
+  (`Villager::scriptAnimLoops` / `scriptAnim`); criatura +0x1290 / +0x128C **pendiente**; si no, "setting the state of
+  something neither a creature nor a villager" (0xC0D484).
+- **PLAYED** 0x6F9DC0 en un aldeano: `Villager::IsScriptAnimationComplete` 0x7689D0: TOP 23 WAIT_FOR_ANIMATION → 0; TOP
+  200 → veces == 0; si no 1. Otro Living: GetFinalState == 4 (0x6F9EC4) **pendiente**.
+- Fila **4 IN_SCRIPT**: estado `StateInScript` 0x5ED9A0 (crea DataForScriptRemind si no hay; 1), entrada
+  `EnterInScript` 0x5ED7E0 (vt +0x940: 1 si `IsStateEntryFunctionSameAs(final, next)` 0x7524D0 o no hay recuerdo de
+  guion), salida `ExitInScript` 0x5ED9C0 (vt +0x914: `CircleHugInfo::Reset`; `IsScriptState(next)` (+0x960, fichero
+  0x18) → 1; si no guarda el recuerdo y `ExitNoChangeState(next)` 0x768780 = 1 si next es interrumpible por guion
+  (fichero 0x1C), IN_HAND (`IsStateForInterface` 0x417070) o `IsStateExitFunctionSameAs`).
+- Fila **200 SCRIPT_PLAY_ANIM**: `ScriptPlayAnim` 0x768970: con veces > 0, una menos y `PlayAnimThenSetState(veces ?
+  200 : 4)`; entrada `EnterPlayAnim` 0x768840 (como EnterInScript), salida `ExitPlayAnim` 0x7689C0 = ExitInScript; clip
+  `ScriptAnimation` 0x768A00 = +0x11C (`AnimFn::Script` de `VillagerAnimations.cpp`).
+- **Living::PlayAnimThenSetState** 0x5ECAC0: `CallExitStateFunction(s)` y, si 1, `CallEntryStateFunction(23, s)`: TOP 23
+  y FINAL s, el clip no cambia. Fila **23 WAIT_FOR_ANIMATION**: `WaitForAnimation` 0x5EC990: `IsReadyForNewAnimation(1)`
+  → `SetTopStateToFinal` y 0, si no 1.
+- **No portado**: `DataForScriptRemind` (Living +0xB0, `Create` 0x5EF190, `KeepThatInMind` 0x5EF1D0, fn_005EF2A0), con el
+  que un aldeano sacado de un estado de guion recuerda su paseo y lo retoma al volver. Sin él, las ramas de
+  EnterInScript / EnterPlayAnim que lo retoman no se toman nunca **(inferido)**.
+- **(aproximado)** En el original el paseo solo avanza desde la función de MOVE_TO_POS (`Living::MoveToPos` 0x5EC270 →
+  `MobileWallHug::MoveTo` 0x60AF20); el PathfindingSystem de openblack mueve toda entidad con marca, sea cual sea su
+  estado. Por eso `SetScriptState` quita las marcas si el aldeano ya no está en MOVE_TO_POS: sin ello el padre seguía
+  andando (y se pasaba del destino) mientras actuaba en 200.
+
+### CAST de la máquina virtual
+
+En el `ScriptLibraryR.dll` original (`Plug Ins`), el opcode 23 INTCAST (0x10008EE0, tabla 0x100090E4 por tipo − 1)
+**convierte**: CASTI lee los bits como float y hace `__ftol` (0x1001568C, trunca; la palabra baja del entero de 64 bits),
+CASTF lee los bits como entero sin signo de 32 bits (fild qword con la parte alta 0); CASTV, CASTO y CASTB solo cambian
+el tipo y el tipo 5 no hace nada. openblack solo cambiaba el tipo, así que `PUSHF 1.0 CASTI` llegaba a SET_SCRIPT_ULONG
+como 0x3F800000 veces. Corregido en `components/ScriptLibrary/src/LHVM.cpp` (`Opcode23Cast`).
+
+### En juego (Land 1)
+
+Con `OPENBLACK_TEST_TEXT_CLICK=1` (los textos con interacción 1 esperan un clic, como en el original) `FollowUs` pasa
+`_loop_4` a los ~15 s (la familia llega a las marcas del beso), anda a la playa, el hijo corre al mar, la cámara salta
+con los SET_CAMERA_POSITION del guion, salen los textos (`¡Has salvado a nuestro hijo!` … `Te enseñaré cómo seguirlos.`)
+y la familia pasa `_loop_77..79` (llega a `StartPath`). **Se para en `HAS_CAMERA_ARRIVED` (035)**, stub que da 0: en el
+original es `GCamera::Arrived` 0x443050 (el modo de cámara activo, +0x58 / +0x28, vt +0x34; sin modo, 1) tras
+`IsMultiplayerGame` 0x552F80 (multijugador → 1) y el aviso de ciudadela (g_game +0x205A28 == 1). Necesita el modo de
+cámara de guion (`START_CAMERA_CONTROL`) y `MOVE_CAMERA_POSITION` / `MOVE_CAMERA_FOCUS` (003 / 004, también stubs:
+por eso la cámara no se desliza). `END_CAMERA_CONTROL` está al final de `FollowUs` (tras `RUN Drag`), aún lejos.
+Además, tras el `SET_FADE` a negro de 4 s (línea 51012) la pantalla queda negra: viene `SET_AVI_SEQUENCE(1, 1)` (203,
+stub) y no hay `SET_FADE_IN` en `FollowUs`.
+
 ## Pendiente
 
 - CREATE de CHL sin portar: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight y Scaffold.
@@ -367,8 +470,16 @@ Resumen de lo que la wiki ya dice de pueblos, templo y ciudadela, con enlaces (n
 - `OPENBLACK_TEST_BUILT_PERCENTAGE`: `BUILT_PERCENTAGE` del arca de Land 1.
 - `OPENBLACK_LOG_ISOK=1`: una línea por rechazo de `IsOkToCreateAtPos`.
 - `OPENBLACK_DUMP_ENTITY_COUNTS`: cuenta de entidades por tipo tras cargar (resultado de `IsOkToCreateAtPos`).
+- `OPENBLACK_SCRIPT_THING_TRACE=1`: una línea por MOVE_GAME_THING, SET_SCRIPT_STATE, SET_SCRIPT_ULONG y por PLAYED
+  verdadero (para seguir `FollowUs`).
+- `OPENBLACK_TEST_TEXT_CLICK=1`: cada turno, si un texto espera el clic (RUN_TEXT con interacción 1), hace el clic
+  izquierdo (`HelpSystem::ProcessInterface(true)`, que lo ignora hasta 1 s de texto).
 
 ## Fuentes
 
 - `C:\Users\diewgarc\dev\tmp_dis\mapa\`: `chl_creatething_6F11A0.txt`, `all_cases.txt`, `d_streetlantern.txt`,
   `d_deadtree_isok.txt`, `d_animstatic_cvffc.txt`, `flecos_isok.md`, `isok\sim.py`.
+- Órdenes de guion: `tmp_dis\miracles\all.asm` (GScript::MoveGameThing 0x6F8E80, SetScriptState 0x6F8370,
+  SetScriptUlong 0x6F8770, Played 0x6F9DC0, GetPosition 0x6F88A0, GetDistance 0x6F8CA0, HasCameraArrived 0x6ED170),
+  `bwdis.py` en las funciones de Living / Villager / MobileWallHug citadas, y `_scratch\mapa\sldis.py` sobre
+  `Plug Ins\ScriptLibraryR.dll` (INTCAST).

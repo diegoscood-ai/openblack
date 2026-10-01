@@ -198,7 +198,14 @@ procesa los animales después.
 
 ProcessState:
 1. `++turnsSinceStateChange` (+0x90) y ProcessFoodSpeedup 0x753430 (`foodSpeedUp != 0 && turno % 10 == 0` → −1).
-2. validate (+0x80) del TOP y del FINAL crudo; el resultado no se usa.
+2. validate (+0x80) del TOP (+0x8C, 0x74FF91) y del FINAL crudo (+0x8D, 0x74FFD9), solo si la fila tiene; el
+   resultado no se usa. Las filas de reacción (201, 202, 251, 214-218, 220, 6-30, 140-196... todas las de validate
+   original 0x756A00 en `VillagerOriginalFns.h`) llaman a `villager_reactions::ReactionValidate` 0x756A00 desde
+   `LivingActionSystem::VillagerCallValidate` (fusión de V2, 2026-10-01): sin objeto de reacción (+0xBC), o no
+   disponible, o en la mano si la reacción lo pide → `PopFromPrevious` 0x751E50. Por eso `ReactToFire` 0x765870 solo
+   devuelve 0 (sin cambiar de estado) cuando el objeto no es un `Object` o no tiene fuego, y `GoToTeleportReaction`
+   0x7662F0 no comprueba nada (openblack solo devuelve 0 si no guarda piedra, en vez de leer un nulo); las salidas
+   propias (inferido) que hacían ese trabajo ya no están.
 3. Si suena un clip de entrada / salida (flag 0x800): espera a que acabe (IsReadyForNewAnimation 0x5EC960 →
    FinishedIntoOutOfAnimation 0x750060) y no hace nada más ese turno.
 4. CheckEveryTime 0x750410 y CallState 0x7521D0 (la función del TOP).
@@ -416,6 +423,19 @@ moverse entre dos resúmenes), 18 casos sin portar del PathfindingSystem siguen 
 (`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`, 747 turnos): los mismos estados (85 → 215 → 220 ⇄ 216 → 163,
 163 → 219), `ExitReaction` en cada salida de 215..220 y 12 `StopReacting` al apagarse; ningún `pause 239` ni
 `Stuck in an invalid state`. `OPENBLACK_TEST_MAP_CYCLE` sobre Land1-5 sin cuelgues.
+
+Con `ReactionValidate` conectada (fusión de V2, 2026-10-01, `_scratch\mapa\p_fire.log`, `p_tele3.log`, con una
+traza temporal en `VillagerCallValidate` que no se queda en el código): fuego (`OPENBLACK_TEST_FIRE=
+"1785.2,2652.6,450,abode,60"`, 785 turnos) 12 aldeanos 85/1/114 → 215 → 220 ⇄ 216 y vuelta a 163 con
+`StopReacting` al apagarse; `ReactionValidate` corre cada turno para el TOP (1080 veces en 216, 54 en 220, 13 en 215)
+y para el FINAL (410 en 220, 3 en 215), sin ningún pop (el objeto, la casa, sigue disponible; al apagarse
+`ExitPutOutFire` → 163 hace `StopReacting` antes de que se valide un estado de reacción sin objeto). Teletransporte
+(`OPENBLACK_TEST_TELEPORT="1715,2595,1760,2640,7,walk"`, `_TURN=550`): 1 → 201 → (20 turnos andando, FINAL 201
+validado cada turno) → 202 → salto de 63,6 m → 163 y `PopFromPrevious stored 245 -> resume 163`. **Ojo con el
+gancho `walk`**: desde V2 su paseo con FINAL 163 no admite reacciones (`IsAvailableForReaction` 0x763390: el +0xEC
+de 163 es 0), así que el aldeano del gancho no reacciona; la prueba se hizo con FINAL 245 cambiado a mano en
+`TeleportDebugHooks.cpp` (sin guardar). `OPENBLACK_TEST_MAP_CYCLE` sobre Land1-5, Greek God, TwoGods y Kapa's Land1
+sin cuelgues.
 
 ## Pruebas
 

@@ -299,7 +299,10 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtre
     muertos se crean sin mirar nada.
   - **La prueba**: círculo de 0,5 en (x, z) del guion (la altura no cuenta, `MapCoords(char*)` deja y = 0) contra los
     objetos de **su celda**; prueba 2D `dx² + dz² <= (ra + rb)²` y luego los hijos. Con agua en la celda (bit 0x10,
-    `hasWater`) se crea siempre; fuera del mapa (o en un bloque vacío) también.
+    `hasWater`) se crea siempre; fuera del mapa (o en un bloque vacío) también. En openblack esa prueba es
+    `ecs::sea_cells::IsWater` (`MapCoords::IsWater` 0x6035B0, `ECS/SeaCells.h`, la celda de las MapCoords 16.16), la
+    misma de la física, la mano y la IA (2026-10-01; antes leía la celda a mano). Land1 sigue con 1351 árboles y 51
+    mobile objects (`OPENBLACK_DUMP_ENTITY_COUNTS=600`, `_scratch\mapa\int_counts.log`).
   - **Formas**: árbol = círculo de 0,3 en su posición, solo en su celda (0x74C5F0). MultiMapFixed (abode, centro,
     campo 594, feature, animated static, mobile static, roca, hoguera, árbol muerto, dispensador) = `NewCollide(LH3DObject)`
     0x829390 desde el bbox de la malla: centro del bbox girado con `x' = x·cos a − z·sin a`, `z' = x·sin a + z·cos a`;

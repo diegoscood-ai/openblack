@@ -695,6 +695,14 @@ bool LivingActionSystem::VillagerCallValidate(LivingAction& action, LivingAction
 {
 	const auto state = static_cast<VillagerStates>(action.states.at(static_cast<size_t>(index)));
 	const auto& callback = k_VillagerStateTable.at(static_cast<size_t>(state)).validate;
+	// the +0x80 column of 0xD09198: Villager::ReactionValidate 0x756A00 in the reaction rows (201, 202, 251, 215-218,
+	// 220, 6-30, 140-196...: every row whose original validate is 0x756A00, VillagerOriginalFns.h). Villager::ProcessState
+	// calls this slot for +0x8C (0x74FF91) and +0x8D (0x74FFD9) before CallState; the result is unused there
+	if (!callback && ecs::villager::k_OriginalStateFns.at(std::min<size_t>(static_cast<size_t>(state), 254)).validate ==
+	                     0x756A00)
+	{
+		return ecs::villager_reactions::ReactionValidate(action);
+	}
 	if (!callback)
 	{
 		WarnMissing(action, state, Slot::Validate);

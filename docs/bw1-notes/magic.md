@@ -884,9 +884,10 @@ más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por 
     (`GameThing::IsAvailable` 0x401810, vt 0x2C), o si la fila de `ReactionInfo` (0xD4F6B0, `Reaction::GetInfo`
     0x6E4709) pide `whetherReactionFinishesIfInitiatorInHand` (+0x28) y el objeto está en la mano (+0x24 & 4).
     `ReactToFire` 0x765870 y `GoToTeleportReaction` 0x7662F0 no comprueban nada más (el primero solo devuelve 0 si el
-    objeto no es un `Object` o no tiene fuego). **Pendiente**: el núcleo de aldeanos (mapas) la conecta en esas filas;
-    hasta entonces las salidas de `ReactToFire` y la de «piedra desaparecida» de `GoToTeleportReaction` siguen en su
-    sitio, marcadas (inferido).
+    objeto no es un `Object` o no tiene fuego, sin cambiar de estado). Conectada (2026-10-01, fusión de V2):
+    `LivingActionSystem::VillagerCallValidate` la llama en toda fila sin validate propio cuyo validate original es
+    0x756A00 (`VillagerOriginalFns.h`); las salidas propias (inferido) de `ReactToFire` y `GoToTeleportReaction` ya no
+    están (detalle en [villagers.md](villagers.md)).
 
 ### Natives CHL (`Magic/Script/CHLFire.cpp`)
 

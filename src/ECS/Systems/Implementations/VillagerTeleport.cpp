@@ -86,9 +86,15 @@ glm::vec3 PositionOf(entt::entity object)
 	return transform != nullptr ? transform->position : glm::vec3(0.0f);
 }
 
-float Distance2D(const glm::vec3& a, const glm::vec3& b)
+/// MobileWallHug::AreWeThere(pos, extra 0) 0x60AD60 (Living vt 0x85C): d^2 < (the wall hug's step +0x5A + extra)^2,
+/// strictly (0x60ADAB `test ah, 0x41`); the step is RebuildMoveByStep 0x609D10's, openblack's WallHug::speed
+bool AreWeThere(entt::entity villager, const glm::vec3& goal)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
+	const auto* wallHug = Reg().TryGet<const WallHug>(villager);
+	const float step = wallHug != nullptr ? wallHug->speed : 0.0f;
+	const auto at = PositionOf(villager);
+	const glm::vec2 d(at.x - goal.x, at.z - goal.z);
+	return glm::dot(d, d) < step * step;
 }
 
 void RemoveMoveTags(entt::entity villager)
@@ -342,8 +348,8 @@ uint32_t villager_teleport::GoToTeleportReaction(LivingAction& action)
 		return 0;
 	}
 	const auto stone = PositionOf(it->second.stone);
-	// AreWeThere(stone pos, 0) (vt 0x85C): (inf) where MOVE_TO_POS left it, within the wall hug's arrive step
-	if (Distance2D(PositionOf(villager), stone) < 1.0f)
+	// 0x76632E AreWeThere(the reaction's object position, 0) (vt 0x85C) -> TELEPORT_REACTION (0x766341)
+	if (AreWeThere(villager, stone))
 	{
 		SetTopState(villager, VillagerStates::TeleportReaction);
 		return 1;

@@ -21,6 +21,7 @@
 
 #include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtx/norm.hpp>
 #include <spdlog/spdlog.h>
 
 #include "Common/RandomNumberManager.h"
@@ -177,6 +178,15 @@ float Radius2D(entt::entity object)
 	return fire::traits::Radius(object);
 }
 
+/// MobileWallHug::AreWeThere(pos, extra 0) 0x60AD60: d^2 < (the wall hug's step +0x5A + extra)^2, strictly (0x60ADAB
+/// `test ah, 0x41`); the step is RebuildMoveByStep 0x609D10's, openblack's WallHug::speed (as PathfindingSystem's)
+bool AreWeThere(entt::entity villager, const glm::vec2& at, const glm::vec2& goal)
+{
+	const auto* wallHug = Locator::entitiesRegistry::value().TryGet<const WallHug>(villager);
+	const float step = wallHug != nullptr ? wallHug->speed : 0.0f;
+	return glm::distance2(at, goal) < step * step;
+}
+
 /// The firemen list of a fire's group root
 bool IsFireman(const fire::FireEffect& fire, entt::entity villager)
 {
@@ -206,9 +216,11 @@ bool FireFightingPosition(entt::entity villager, const fire::FireEffect& fire, g
 	const auto centre = fire::traits::FireCentre(fire.object);
 	const auto at = PositionOf(villager);
 	const float angle = std::atan2(at.z - centre.z, at.x - centre.x); // Get3DAngleFromXZ(fire, villager)
+	// 0x75AAF2..0x75AB16: `fcomp safe, objectRadius; test ah, 1`: safe < the object's radius (vt 0x64) -> the radius,
+	// else safe, so the larger of the two; 0x75AB23: + the villager's radius (vt 0x64); 0x75AB3D: + GameFloatRand(1)
 	const float radius = Radius2D(fire.object);
 	const float safe = fire.SafeFireRadius();
-	const float keep = safe < radius ? safe : radius;
+	const float keep = safe < radius ? radius : safe;
 	const float distance = keep + Radius2D(villager) + GameFloatRand(1.0f);
 	const auto object = PositionOf(fire.object);
 	out = glm::vec2(object.x, object.z) + FromAngle(angle, distance);
@@ -245,7 +257,7 @@ bool SetupMoveAroundFire(entt::entity villager, const glm::vec2& destination, Vi
 }
 
 /// fn_0075ABA0: the villager stands in the band just outside the fire (its radius plus the fire's) and 2 m further. The
-/// fire's part is max(safe radius, the object's radius) (read at 0x75ABE0..0x75ABFB), unlike GetFireFightingPos' min
+/// fire's part is max(safe radius, the object's radius) (read at 0x75ABE0..0x75ABFB), as in GetFireFightingPos (0x75AAF2)
 bool IsBesideFire(entt::entity villager, const fire::FireEffect& fire, float band)
 {
 	if (fire.object == entt::null)
@@ -728,9 +740,9 @@ uint32_t villager_fire::MoveAroundFire(LivingAction& action)
 	const auto villager = registry.ToEntity(action);
 	const auto destination = StateOf(villager).savedDestination;
 	const auto at = PositionOf(villager);
-	// AreWeThere (vt 0x85C): arrived -> the stored state, and DECIDE_WHAT_TO_DO after it. (inferido) the 1 m radius
-	// stands in for AreWeThere, as in VillagerTeleport.cpp
-	if (glm::length(glm::vec2(at.x, at.z) - destination) < 1.0f)
+	// AreWeThere(destination, 0) (vt 0x85C -> MobileWallHug::AreWeThere 0x60AD60): arrived -> the stored state, and
+	// DECIDE_WHAT_TO_DO after it
+	if (AreWeThere(villager, glm::vec2(at.x, at.z), destination))
 	{
 		// 0x75A815 PopFromPrevious; 0x75A81A..0x75A827: raw LivingAction::SetState(2, 163) 0x5ECC90 (ecx = +0x8C: not
 		// Villager::SetState, so no table +0x10 skip and no town modifiers)

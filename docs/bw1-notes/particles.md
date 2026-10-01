@@ -74,7 +74,8 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
   >> 8 por canal. La cúpula usa 0,5 (con el rojo del jugador 1: (254, 162, 162)). `psys::TintWithPlayerColour`.
 - **Fiel:** `FaceCamera` (0x67A032): θ = atan2(d.z, d.x) − atan2(r2.z, r2.x) con d = posición − cámara en x/z y r2 la
   fila Z; r0' = cos θ r0 + sin θ r2, r2' = cos θ r2 − sin θ r0; la fila Y × `HeightStretch` (ctor 1).
-  `FaceCameraSprite` (0x67A250) no lo usa ningún archivo: sin portar.
+  `FaceCameraSprite` (0x67A250) no lo usa ningún archivo; está portado (`billboard::FullSprite`) por completitud. Los
+  dos están en [rendering-objects.md](rendering-objects.md#objetos-que-miran-a-la-cámara-billboards).
 - Con esto **la cúpula del escudo ya se ve** (nota de la revisión 3a): las 32 placas
   `MSH_S_SPELLBALLSURFACE02` se dibujan en modo aditivo con el color del jugador y forman una burbuja clara
   (`m6b_dome4_t30.png`), en vez del parche apenas visible de antes.

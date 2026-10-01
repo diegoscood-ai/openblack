@@ -25,6 +25,7 @@
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/Billboard.h"
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
@@ -1051,19 +1052,17 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 	}
 	// (the reflection camera has the main camera's origin)
 	const auto centre = camera.GetOrigin() + offset;
-	const auto inverseView = glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current));
-	const auto right = glm::vec3(inverseView[0]);
-	const auto up = glm::vec3(inverseView[1]);
-	const auto back = glm::vec3(inverseView[2]);
-	// fn_0086B010 0x86B61D: in the reflection, the glow is the second glow quad at (x, -y, z) facing the camera and the
-	// moon is its DrawUnderWater (vt+0x118), the moon object mirrored in y = 0. Drawn with the mirrored camera, the glow
-	// takes that camera's axes and the moon the main camera's (mirroring them back), so the mesh comes out flipped and
-	// its winding with it.
-	const glm::vec3 mirror(1.0f, mirrored ? -1.0f : 1.0f, 1.0f);
+	const auto frame = billboard::CameraFrame::From(camera);
+	// fn_0086B010 0x86B61D: fn_0086AC60 + fn_0086A930 twice, the second time at (x, -y, z) with [0xFA2774] = 1 (0x86B662..
+	// 0x86B69C). That second call only draws its glow (fn_0086A930 0x86AC0F skips the moon object): drawn here with the
+	// mirrored camera at (x, y, z), it is that glow, built from the mirrored view (billboard::MoonBasis). The moon in the
+	// reflection is the first call's DrawUnderWater (vt+0x118, 0x86AC46), its matrix mirrored in y = 0: drawn with the
+	// mirrored camera, that is the main camera's moon matrix itself (the mirrored view x mirror(y) is the main view,
+	// ReflectionXZCamera::GetViewMatrix), so the mesh comes out flipped and its winding with it.
 	const auto colour = _landLight && _landLight->IsLoaded() ? _landLight->GetMoonColour() : glm::vec3(1.0f);
 
-	// Glow (fn_0086A930): a camera-facing 4000 x 4000 quad, atmos.raw UV 0.25..0.49375, additive (mode 13),
-	// colour (R/6, G/5, B/4, m)
+	// Glow (fn_0086A930): a 4000 x 4000 quad on the fn_0086AC60 basis (billboard::MoonHalo), atmos.raw UV
+	// 0.25..0.49375, additive (mode 13), colour (R/6, G/5, B/4, m)
 	{
 		struct Vertex
 		{
@@ -1076,12 +1075,12 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 			bgfx::TransientVertexBuffer buffer;
 			bgfx::allocTransientVertexBuffer(&buffer, 6, layout);
 			auto* vertices = reinterpret_cast<Vertex*>(buffer.data);
-			const std::array<glm::vec2, 6> corners = {{{-1, -1}, {1, -1}, {1, 1}, {-1, -1}, {1, 1}, {-1, 1}}};
-			for (size_t i = 0; i < corners.size(); ++i)
+			const auto halo = billboard::MoonHalo(billboard::MoonBasis(frame.view, frame.inverseView, centre), centre);
+			for (size_t i = 0; i < billboard::k_MoonHaloTriangles.size(); ++i)
 			{
-				const auto p = centre + (right * corners[i].x + up * corners[i].y) * 2000.0f;
-				vertices[i] = {p.x, p.y, p.z, 0.25f + (corners[i].x * 0.5f + 0.5f) * 0.24375f,
-				               0.25f + (0.5f - corners[i].y * 0.5f) * 0.24375f};
+				const auto k = static_cast<size_t>(billboard::k_MoonHaloTriangles.at(i));
+				const auto& p = halo.corners.at(k);
+				vertices[i] = {p.x, p.y, p.z, halo.uv.at(k).x, halo.uv.at(k).y};
 			}
 			const auto* program = _shaderManager->GetShader("Celestial");
 			const glm::mat4 identity(1.0f);
@@ -1099,18 +1098,17 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 		}
 	}
 
-	// The moon (mode 4: SRCALPHA / INVSRCALPHA): billboard x4, tilted -7.5 degrees about Z, turned by the phase + pi
-	// about Y, x0.65. The phase follows the real clock: 2 pi (1 - frac((days since 1970 - 10962) / 29.5306))
+	// The moon (mode 4: SRCALPHA / INVSRCALPHA): the fn_0086AC60 basis x4, fn_0086AFA0's tilt, RotateY(phase + pi), x0.65
+	// (billboard::MoonModel). The phase follows the real clock: 2 pi (1 - frac((days since 1970 - 10962) / 29.5306))
 	const auto days = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(
 	                                          std::chrono::system_clock::now().time_since_epoch())
 	                                          .count()) /
 	                  86400.0;
 	const double cycles = (days - 10962.0) / 29.5306;
 	const auto phase = static_cast<float>(2.0 * glm::pi<double>() * (1.0 - (cycles - std::floor(cycles))));
-	const glm::mat4 billboard(glm::vec4(right * mirror * 4.0f, 0.0f), glm::vec4(up * mirror * 4.0f, 0.0f),
-	                          glm::vec4(back * mirror * 4.0f, 0.0f), glm::vec4(centre, 1.0f));
-	const auto model = billboard * glm::rotate(glm::radians(-7.5f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-	                   glm::rotate(phase + glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::vec3(0.65f));
+	const auto mainView = mirrored ? frame.view * glm::scale(glm::vec3(1.0f, -1.0f, 1.0f)) : frame.view;
+	const auto mainInverseView = mirrored ? glm::inverse(mainView) : frame.inverseView;
+	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
 	const glm::vec4 moonColour(colour, m / 255.0f);
 	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
@@ -1222,9 +1220,9 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	const auto origin = camera.GetOrigin();
 	// the same billboard as the map mists (Renderer::DrawMist): 0xEA1C98 after its in-place inverse fn_007FB3F0
 	// (0x819AF3), in glm mat3(right, -forward, up): local X = screen right, local Y (the dome's axis) towards the
-	// camera, local Z = screen up
-	const auto cameraBasis = glm::mat3(glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current)));
-	const auto rotation = glm::mat3(cameraBasis[0], -cameraBasis[2], cameraBasis[1]);
+	// camera, local Z = screen up (billboard::MistBasis)
+	const auto cameraFrame = billboard::CameraFrame::From(camera);
+	const auto& rotation = billboard::MistBasis(cameraFrame);
 	std::vector<std::pair<float, size_t>> order;
 	order.reserve(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)
@@ -1257,12 +1255,10 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 	{
 		const auto& cloud = _clouds->GetClouds()[index];
 		const auto position = Clouds::WorldPosition(cloud);
-		const auto toCloud = position - origin;
-		const float length = std::max(glm::length(toCloud), 1.0f);
 		// 0x7FA4DC..0x7FA539: row 0 (local X, the screen width) is scaled by the size and rows 1-2 (local Y = depth,
 		// local Z = screen height) by the shrunk one, so a cloud is round only straight overhead and near the horizon
-		// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall
-		const float shrunk = cloud.size / (1.0f + (cloud.k - 1.0f) * (1.0f - std::abs(toCloud.y) / length));
+		// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall (billboard::MistShrunkSize)
+		const float shrunk = billboard::MistShrunkSize(cloud.size, cloud.k, position - origin);
 		const auto model =
 		    glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
 		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
@@ -1541,22 +1537,21 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 		for (size_t i = 0; i < std::min(farm.shoal->shown, farm.shoal->fish.size()); ++i)
 		{
 			const auto& fish = farm.shoal->fish[i];
-			// LH3DSprite::Draw 0x840530 with flag 0x40: a flat quad turned about Y, its local x along the heading;
-			// cells 8..23 of the 8 x 8 sheet
-			const int cell = 8 + (static_cast<int>(fish.frame) & 15);
-			const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>(cell / 8) / 8.0f);
-			const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / 8.0f);
-			const glm::vec3 along = glm::vec3(std::cos(fish.heading), 0.0f, std::sin(fish.heading)) * fish.halfSize;
-			const glm::vec3 across = glm::vec3(-std::sin(fish.heading), 0.0f, std::cos(fish.heading)) * fish.halfSize;
+			// LH3DSprite::Draw 0x840530 with flag 0x40 (fn_00824740 0x8247EF): a flat quad turned about Y, its local x
+			// along the heading (billboard::Horizontal); cells 8..23 of the 8 x 8 sheet
+			billboard::Sprite sprite;
 			// mirrored in y = 0 for the reflection target (see DrawPass)
-			const glm::vec3 centre(fish.position.x, -fish.position.y, fish.position.z);
-			const std::array<glm::vec3, 4> p = {centre - along - across, centre + along - across, centre + along + across,
-			                                    centre - along + across};
-			const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
-			                                     glm::vec2(uv0.x, uv1.y)};
-			for (const int i : {0, 1, 2, 0, 2, 3})
+			sprite.position = glm::vec3(fish.position.x, -fish.position.y, fish.position.z);
+			sprite.size = fish.halfSize;
+			sprite.angle = fish.heading;
+			sprite.cell = static_cast<uint8_t>(8 + (static_cast<int>(fish.frame) & 15));
+			sprite.horizontal = true;
+			const auto quad = billboard::Horizontal(sprite);
+			for (const int k : billboard::k_SpriteTriangles)
 			{
-				vertices.push_back({p[i].x, p[i].y, p[i].z, uv[i].x, uv[i].y, colour});
+				const auto& p = quad.corners.at(static_cast<size_t>(k));
+				const auto& uv = quad.uv.at(static_cast<size_t>(k));
+				vertices.push_back({p.x, p.y, p.z, uv.x, uv.y, colour});
 			}
 		}
 	});
@@ -1677,19 +1672,21 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		const uint32_t g = (ring.argb >> 8) & 0xFFu;
 		const uint32_t b = ring.argb & 0xFFu;
 		const uint32_t abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
-		const uint32_t cell = ring.cell & 0x3Fu;
-		const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>(cell / 8) / 8.0f);
-		const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / 8.0f);
-		// LH3DSprite flag 0x40: a flat quad turned about Y
-		const glm::vec3 along = glm::vec3(std::cos(ring.angle), 0.0f, std::sin(ring.angle)) * half;
-		const glm::vec3 across = glm::vec3(-std::sin(ring.angle), 0.0f, std::cos(ring.angle)) * (half * ring.aspect);
-		const auto& c = ring.position;
-		const std::array<glm::vec3, 4> p = {c - along - across, c + along - across, c + along + across, c - along + across};
-		const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
-		                                     glm::vec2(uv0.x, uv1.y)};
-		for (const int i : {0, 1, 2, 0, 2, 3})
+		// LH3DSprite flag 0x40 (GWater::InitialiseCircles 0x54BA84): a flat quad turned about Y (billboard::Horizontal),
+		// the z half size x the aspect (+0x10)
+		billboard::Sprite sprite;
+		sprite.position = ring.position;
+		sprite.size = half;
+		sprite.height = ring.aspect;
+		sprite.angle = ring.angle;
+		sprite.cell = static_cast<uint8_t>(ring.cell & 0x3Fu);
+		sprite.horizontal = true;
+		const auto quad = billboard::Horizontal(sprite);
+		for (const int k : billboard::k_SpriteTriangles)
 		{
-			vertices.push_back({p[i].x, p[i].y, p[i].z, uv[i].x, uv[i].y, abgr});
+			const auto& p = quad.corners.at(static_cast<size_t>(k));
+			const auto& uv = quad.uv.at(static_cast<size_t>(k));
+			vertices.push_back({p.x, p.y, p.z, uv.x, uv.y, abgr});
 		}
 	}
 	bgfx::VertexLayout layout;
@@ -2326,12 +2323,20 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// 0x5E4D89: the hand's glow on the water, the last thing before the sea
 			DrawHandWaterGlow(desc.viewId);
 		}
-		const auto drawSprite = [this, &spriteShader](const ecs::components::Sprite& sprite,
-		                                              const ecs::components::Transform& transform, RenderPass viewId) {
-			glm::mat4 modelMatrix = glm::mat4(1.0f);
-			modelMatrix = glm::translate(modelMatrix, transform.position);
-			modelMatrix *= glm::mat4(transform.rotation);
-			modelMatrix = glm::scale(modelMatrix, transform.scale);
+		// LH3DSprite::Draw 0x840530 mode A (billboard::Screen) on the GPU: vs_sprite adds u_invView x (model x (x, y, 0,
+		// 0)) to the model's translation on the plane -1..1 with v = 0 at the top, so the half width / half height are
+		// the Transform's scale x / y. components::Sprite has no angle nor origin (every user, NightLights, FireFlies,
+		// Dust, HandEffects, Glow, CameraBookmark, HandDebugHooks, gives an identity rotation), so it is Screen with angle
+		// 0 and ox = oy = 0. The near test of mode A (0x840585) is made here on the CPU
+		const auto spriteFrame = billboard::CameraFrame::From(*desc.camera);
+		const auto drawSprite = [this, &spriteShader, &spriteFrame](const ecs::components::Sprite& sprite,
+		                                                            const ecs::components::Transform& transform,
+		                                                            RenderPass viewId) {
+			if (!billboard::InFrontOfNear(transform.position, spriteFrame))
+			{
+				return;
+			}
+			const glm::mat4 modelMatrix = billboard::ScreenSpriteModel(transform.position, glm::vec2(transform.scale), 0.0f);
 
 			glm::vec4 u_sampleRect(sprite.uvExtent, sprite.uvMin);
 
@@ -2567,7 +2572,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 					if (instance.smoke >= 0)
 					{
-						DrawChimneySmoke(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.smoke));
+						DrawChimneySmoke(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.smoke));
 						continue;
 					}
 					if (instance.sprite != entt::null)

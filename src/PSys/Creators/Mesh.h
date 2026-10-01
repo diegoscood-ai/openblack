@@ -81,9 +81,6 @@ struct Instance
 };
 /// Every mesh atom of the running effects, interpolated since the last turn
 [[nodiscard]] std::vector<Instance> Collect();
-/// Particle3DObj::DrawAt 0x679FD0 with FaceCamera: the frame turned about its Y so that it faces the camera in x, z, and
-/// its Y axis x HeightStretch (axes = the LHMatrix rows as columns)
-void FaceCamera(glm::mat3& axes, const glm::vec3& position, const glm::vec3& camera, float heightStretch);
 } // namespace mesh_atoms
 
 } // namespace openblack::psys

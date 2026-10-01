@@ -23,6 +23,7 @@
 #include <entt/core/hashed_string.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/Billboard.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "ECS/PetitNavire.h"
@@ -93,29 +94,32 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 		uint32_t abgr;
 	};
 	std::vector<Vertex> vertices;
-	const auto add = [&vertices](const std::array<glm::vec3, 4>& p, uint8_t cell, uint32_t argb) {
-		// the cell of the 8 x 8 sheet (+0x30 = 8), the colour as the vertex diffuse
-		const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>((cell & 0x3F) / 8) / 8.0f);
-		const glm::vec2 uv1 = uv0 + glm::vec2(1.0f / 8.0f);
-		const std::array<glm::vec2, 4> uv = {glm::vec2(uv0.x, uv0.y), glm::vec2(uv1.x, uv0.y), glm::vec2(uv1.x, uv1.y),
-		                                     glm::vec2(uv0.x, uv1.y)};
+	// the cell of the 8 x 8 sheet (+0x30 = 8) is in the quad's UVs, the colour is the vertex diffuse
+	const auto add = [&vertices](const billboard::Quad& quad, uint32_t argb) {
 		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
-		for (const int i : {0, 1, 2, 0, 2, 3})
+		for (const int i : billboard::k_SpriteTriangles)
 		{
-			vertices.push_back({p.at(i).x, p.at(i).y, p.at(i).z, uv.at(i).x, uv.at(i).y, abgr});
+			const auto& p = quad.corners.at(static_cast<size_t>(i));
+			const auto& uv = quad.uv.at(static_cast<size_t>(i));
+			vertices.push_back({p.x, p.y, p.z, uv.x, uv.y, abgr});
 		}
 	};
-	// the wake: flag 0x40, the quad in the sprite's XZ turned about Y (LH3DSprite::Draw 0x8405FE)
-	for (const auto& sprite : wake)
+	// the wake: flag 0x40, the quad in the sprite's XZ turned about Y (LH3DSprite::Draw 0x8405FE, billboard::Horizontal)
+	for (const auto& wakeSprite : wake)
 	{
-		const glm::vec3 along = glm::vec3(std::cos(sprite.angle), 0.0f, std::sin(sprite.angle)) * sprite.half;
-		const glm::vec3 across = glm::vec3(-std::sin(sprite.angle), 0.0f, std::cos(sprite.angle)) * (sprite.half * sprite.aspect);
-		const auto& c = sprite.position;
-		add({c - along - across, c + along - across, c + along + across, c - along + across}, sprite.cell, sprite.argb);
+		billboard::Sprite sprite;
+		sprite.position = wakeSprite.position;
+		sprite.size = wakeSprite.half;
+		sprite.height = wakeSprite.aspect;
+		sprite.angle = wakeSprite.angle;
+		sprite.argb = wakeSprite.argb;
+		sprite.cell = static_cast<uint8_t>(wakeSprite.cell & 0x3Fu);
+		sprite.horizontal = true;
+		add(billboard::Horizontal(sprite), sprite.argb);
 	}
-	// the puffs: facing the camera, turned on the screen (0x84071D: view x -> (cos, -sin), view y -> (sin, cos))
-	const glm::vec3 right = camera.GetRight();
-	const glm::vec3 up = camera.GetUp();
+	// the puffs: mode A, in the plane of the screen and turned on it (0x84071D: view x -> (cos, -sin), view y -> (sin,
+	// cos); billboard::SpriteQuad), nothing at or before the near plane (0x840585)
+	const auto frame = billboard::CameraFrame::From(camera);
 	for (const auto& cloud : clouds)
 	{
 		if (cloud.life <= 0.0f)
@@ -124,12 +128,16 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 		}
 		for (const auto& puff : cloud.puffs)
 		{
-			const float c = std::cos(puff.angle);
-			const float s = std::sin(puff.angle);
-			const glm::vec3 x = (right * c - up * s) * puff.half;
-			const glm::vec3 y = (right * s + up * c) * puff.half;
-			const auto& p = puff.position;
-			add({p - x + y, p + x + y, p + x - y, p - x - y}, puff.cell, puff.argb);
+			billboard::Sprite sprite;
+			sprite.position = puff.position;
+			sprite.size = puff.half;
+			sprite.angle = puff.angle;
+			sprite.argb = puff.argb;
+			sprite.cell = static_cast<uint8_t>(puff.cell & 0x3Fu);
+			if (const auto quad = billboard::SpriteQuad(sprite, frame); quad.has_value())
+			{
+				add(*quad, sprite.argb);
+			}
 		}
 	}
 	bgfx::VertexLayout layout;

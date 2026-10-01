@@ -22,6 +22,7 @@
 #include <glm/geometric.hpp>
 #include <gtest/gtest.h>
 
+#include "3D/Billboard.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
@@ -225,14 +226,14 @@ TEST(Explosion, meshFacesTheCamera)
 {
 	// Particle3DObj::DrawAt with FaceCamera: turned about Y so the frame follows the camera in x, z; Y x HeightStretch
 	glm::mat3 axes(1.0f);
-	psys::mesh_atoms::FaceCamera(axes, glm::vec3(0.0f), glm::vec3(0.0f, 50.0f, -10.0f), 2.0f);
+	graphics::billboard::ParticleYaw(axes, glm::vec3(0.0f), glm::vec3(0.0f, 50.0f, -10.0f), 2.0f);
 	// d = position - camera = (0, +1) in x, z: theta = atan2(1, 0) - atan2(1, 0) = 0, unchanged
 	EXPECT_NEAR(axes[0].x, 1.0f, 1e-5f);
 	EXPECT_NEAR(axes[2].z, 1.0f, 1e-5f);
 	EXPECT_NEAR(axes[1].y, 2.0f, 1e-5f);
 	// the camera on the +x side: d = (-1, 0), theta = pi - pi / 2
 	axes = glm::mat3(1.0f);
-	psys::mesh_atoms::FaceCamera(axes, glm::vec3(0.0f), glm::vec3(10.0f, 0.0f, 0.0f), 1.0f);
+	graphics::billboard::ParticleYaw(axes, glm::vec3(0.0f), glm::vec3(10.0f, 0.0f, 0.0f), 1.0f);
 	EXPECT_NEAR(axes[0].z, 1.0f, 1e-5f); // r0' = cos r0 + sin r2 = r2
 	EXPECT_NEAR(axes[2].x, -1.0f, 1e-5f); // r2' = cos r2 - sin r0 = -r0
 	EXPECT_NEAR(glm::length(axes[0]), 1.0f, 1e-5f);

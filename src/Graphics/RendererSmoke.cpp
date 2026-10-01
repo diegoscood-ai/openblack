@@ -23,9 +23,9 @@
 #include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/Billboard.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "ECS/ChimneySmoke.h"
@@ -150,7 +150,7 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Came
 	return order;
 }
 
-void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, uint32_t index) const
+void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const
 {
 	if (index >= _frameSmoke.size() || _frameSmoke[index].empty())
 	{
@@ -163,16 +163,21 @@ void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, uint32_t index) con
 	}
 	const auto& alpha = *textures.Handle(k_SmokeAlpha);
 	const auto* program = _shaderManager->GetShader("Sprite");
+	const auto frame = billboard::CameraFrame::From(camera);
 	for (const auto& puff : _frameSmoke[index])
 	{
-		// LH3DSprite::Draw 0x840530: a screen-facing quad of half width = size, turned in the screen plane by the angle
-		// (x_v = cos x + sin y, y_v = -sin x + cos y, i.e. by -angle); the sprite shader faces the camera after the
-		// model's rotation and scale
-		const glm::mat4 model = glm::translate(puff.position) * glm::rotate(-puff.angle, glm::vec3(0.0f, 0.0f, 1.0f)) *
-		                        glm::scale(glm::vec3(puff.halfWidth));
-		// 8 cells per row (LH3DSprite +0x30): u = (cell & 7) / 8, v = (cell >> 3) / 8, 1/8 wide
-		const glm::vec4 sampleRect(0.125f, 0.125f, static_cast<float>(puff.cell & 7u) * 0.125f,
-		                           static_cast<float>(puff.cell >> 3u) * 0.125f);
+		// LH3DSprite::Draw 0x840530, mode A (billboard::Screen): a square of half width = size in the plane of the
+		// screen, turned by the angle (x_v = cos x + sin y, y_v = -sin x + cos y, i.e. by -angle), no origin offset;
+		// on the GPU through vs_sprite (billboard::ScreenSpriteModel). Nothing when its depth is at or before the near
+		// plane (0x840585)
+		if (!billboard::InFrontOfNear(puff.position, frame))
+		{
+			continue;
+		}
+		const glm::mat4 model = billboard::ScreenSpriteModel(puff.position, glm::vec2(puff.halfWidth), puff.angle);
+		// 8 cells per row (LH3DSprite +0x30): the cell's corners v0 (top left) and v2 (bottom right), 1/8 wide
+		const auto uv = billboard::CellUv(static_cast<uint8_t>(puff.cell), 8);
+		const glm::vec4 sampleRect(uv[2] - uv[0], uv[0]);
 		// mode 6 (SRCALPHA / INVSRCALPHA, no light, no fog): the sprite shader's normal blend is ONE / INVSRCALPHA with
 		// the tint premultiplied by its alpha
 		const float a = static_cast<float>(puff.argb >> 24u) / 255.0f;

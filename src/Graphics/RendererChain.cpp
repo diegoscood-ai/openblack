@@ -24,6 +24,7 @@
 #include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
 
+#include "3D/Billboard.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
@@ -77,19 +78,19 @@ void Renderer::DrawPSysChains(RenderPass viewId, const Camera& camera) const
 				continue;
 			}
 			// the side vector of each end: the segment direction crossed with the direction to the camera
-			// (fn_0067B3F0).
+			// (fn_0067B3F0, billboard::RibbonSide).
 			// Not ported (part_render.md §10): the midpoint smoothing of the joints, UseDynamicLighting (colour x
 			// clamp(0.6 + 0.4 n.L)), the UV v-scroll (chain +0x3C) and the joint jitter of ChainJoint::DrawAt 0x679E80
-			const auto sideHead = glm::cross(glm::normalize(along), glm::normalize(head.position - eye));
-			const auto sideTail = glm::cross(glm::normalize(along), glm::normalize(tail.position - eye));
-			if (glm::length(sideHead) < 1e-4f || glm::length(sideTail) < 1e-4f)
+			const auto sideHead = billboard::RibbonSide(along, head.position, eye);
+			const auto sideTail = billboard::RibbonSide(along, tail.position, eye);
+			if (!sideHead.has_value() || !sideTail.has_value())
 			{
 				continue;
 			}
-			// (inferido) the half-width 0.5 x scale: the notes give side = normalize(cross) x scale but not whether the
-			// strip (fn_0081C780) puts its vertices at the joint +- side
-			const auto offsetHead = glm::normalize(sideHead) * (0.5f * head.scale);
-			const auto offsetTail = glm::normalize(sideTail) * (0.5f * tail.scale);
+			// (inferido) the half-width 0.5 x scale (billboard::RibbonHalfWidth): the notes give side = normalize(cross)
+			// x scale but not whether the strip (fn_0081C780) puts its vertices at the joint +- side
+			const auto offsetHead = *sideHead * billboard::RibbonHalfWidth(head.scale);
+			const auto offsetTail = *sideTail * billboard::RibbonHalfWidth(tail.scale);
 			const auto u = creator->SegmentU(i, segments);
 			const std::array<glm::vec3, 4> p = {head.position - offsetHead, tail.position - offsetTail,
 			                                   tail.position + offsetTail, head.position + offsetHead};

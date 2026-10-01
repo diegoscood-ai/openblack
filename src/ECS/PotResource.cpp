@@ -36,6 +36,7 @@
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "InfoConstants.h"
@@ -253,20 +254,9 @@ float pot_resource::RadiusMultiplierForApplyingPotToPos(entt::entity object)
 
 bool pot_resource::IsWater(const glm::vec3& position)
 {
-	// 0x603617: out of the 512 x 512 cells or without a land block the answer is 1 (the open sea); openblack gives the
-	// empty cell (all zero but fullWater) where there is no block
-	const auto* cell = LandCellOf(position);
-	if (cell == nullptr)
-	{
-		return true;
-	}
-	lnd::LNDCell empty {};
-	empty.properties.fullWater = true;
-	if (std::memcmp(cell, &empty, sizeof(empty)) == 0)
-	{
-		return true;
-	}
-	return cell->properties.hasWater != 0;
+	// MapCoords::IsWater 0x6035B0 (0x603617: out of the 512 x 512 cells or without a land block the answer is 1, the
+	// open sea). The single source is ecs::sea_cells (no cell or no block = water, else the cell's water bit).
+	return sea_cells::IsWater(position);
 }
 
 bool pot_resource::IsDryLand(const glm::vec3& position)

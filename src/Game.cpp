@@ -29,17 +29,22 @@
 #include "3D/NightLights.h"
 #include "PSys/PSysManager.h"
 #include "3D/L3DMesh.h"
+#include "3D/LandAvoid.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/AtmosBanks.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Audio/GameMusic.h"
 #include "Audio/LanternSounds.h"
 #include "Audio/MusicStream.h"
 #include "Audio/ScriptAudioState.h"
 #include "Audio/Voices.h"
+#include "Audio/SamplePlay.h"
+#include "Audio/SoundMap.h"
+#include "Audio/SoundTags.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -55,11 +60,14 @@
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
+#include "ECS/DesignedScenery.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
+#include "ECS/PetitNavire.h"
+#include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Map.h"
@@ -73,6 +81,7 @@
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/Sharks.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
@@ -391,6 +400,8 @@ bool Game::GameLogicLoop() noexcept
 
 	if (_paused)
 	{
+		// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
+		audio::atmos_banks::Silence();
 		return false;
 	}
 
@@ -410,6 +421,10 @@ bool Game::GameLogicLoop() noexcept
 
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();
+	// fn_00775140 (0x54E5C7): the sharks' turn (Whale::Process), then the WALK_PATH list (GlobalGameLists::Process)
+	ecs::ProcessSharksTurn();
+	// GlobalGameLists::Process 0x591449: the PuzzleGames (fn_006D7480), before the scripts
+	ecs::ProcessPuzzleGamesTurn();
 
 	auto& profiler = Locator::profiler::value();
 
@@ -462,6 +477,18 @@ bool Game::GameLogicLoop() noexcept
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
 		psys::manager::ProcessTurn(std::chrono::duration<float>(k_TurnDuration).count());
+		// GGame::EndTurn: GSoundMap::Update 0x71D6F0 (+ Dump), SoundTag::ProcessSoundTags 0x71E5F0, then the atmos of
+		// GAudio::ProcessAudioGameTurn after turn 5 (AtmosProcess(0) before)
+		audio::sound_map::Update(_dayNightClock->GetSkyType());
+		audio::sound_tags::ProcessTurn();
+		if (_turnCount > 5)
+		{
+			audio::atmos_banks::ProcessTurn();
+		}
+		else
+		{
+			audio::atmos_banks::Silence();
+		}
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -567,8 +594,13 @@ bool Game::Update() noexcept
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
-	// The smoke an object leaves when it goes (ecs/SmokyStuff.h), in game seconds
-	ecs::SmokyStuff::Update(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier);
+	// DesignedWaterFall 0x5E3770: the scenery of Land 3 (waterfall) and Land 4 (ark, dinosaur), by land number
+	ecs::designed_scenery::Update(_paused ? 0.0f
+	                                      : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
+	// PetitNavire::PreDraw 0x5DFF20 / SmokyStuff fn_00824140 / PostDraw 0x5E03F0 (the missionaries' boat, ecs/PetitNavire.h).
+	// fn_00824140 also moves the smoke an object leaves when it goes (ecs/SmokyStuff.h), in game time, boat or not.
+	ecs::petit_navire::Update(_paused ? 0.0f
+	                                  : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
 	ecs::UpdateMobileDrawing(GetTurnFraction(),
@@ -578,6 +610,9 @@ bool Game::Update() noexcept
 	ecs::UpdateAnimalAnimations();
 	ecs::UpdateAnimations(_paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 	ecs::UpdateCarriedProps();
+	// fn_00774E30: the sharks drawn between turns, heading, wake rings (ecs/Sharks.h)
+	ecs::UpdateSharks(GetTurnFraction(),
+	                  _paused ? 0.0f : std::chrono::duration<float, std::milli>(deltaTime).count() / _gameSpeedMultiplier);
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(_paused ? 0.0f : std::chrono::duration<float>(deltaTime).count() / _gameSpeedMultiplier,
@@ -1169,6 +1204,8 @@ bool Game::Run() noexcept
 	if (std::getenv("OPENBLACK_TEST_WIDESCREEN") != nullptr)
 	{
 		_screenFade->SetWideScreen(true, Locator::infoConstants::value().helpSystem.wideScreenTime);
+		// as SET_WIDESCREEN: the HelpSystem's owning task (+0x45EC) is set too (the user-param-1 samples are skipped)
+		audio::sample_play::SetScriptWideScreen(true);
 	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
 	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)
@@ -1347,6 +1384,10 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	{
 		helpSystem->Reset();
 	}
+	// the SoundTags' emitters are registry entities: stopped before the reset (their AL sources would leak)
+	audio::sound_tags::Clear();
+	audio::atmos_banks::Clear();
+	ecs::designed_scenery::OnLoadMap();
 
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());
@@ -1413,6 +1454,9 @@ void Game::LoadLandscape(const std::filesystem::path& path)
 		throw std::runtime_error("Could not find landscape " + path.generic_string());
 	}
 	InitializeLevel(fixedName);
+	// GLandscape::Open 0x5E5541: the creature's walkable mask of the new landscape
+	land_avoid::Validate(Locator::terrainSystem::value());
+	land_avoid::DumpIfRequested();
 
 	// There is always a player active
 	Locator::playerSystem::value().AddPlayer(ecs::archetypes::PlayerArchetype::Create(PlayerNames::PLAYER_ONE));

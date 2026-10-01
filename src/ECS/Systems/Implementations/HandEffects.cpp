@@ -42,6 +42,7 @@
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
 #include "Audio/AudioManagerInterface.h"
+#include "Audio/SamplePlay.h"
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
@@ -120,16 +121,13 @@ void HandSystem::EmitGripDust(glm::vec3 point) noexcept
 		}
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Grip dust: loaded S_SpriteSheet3a.raw (present now: {})", textures.Contains(textureId));
 	}
-	// Dust only on land: gripping the sea (water plane at y = 0) throws no dust.
+	// Dust only on land: HandPlacement calls this only when the gripped cell is land (not over the sea).
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr && Locator::terrainSystem::has_value())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Grip dust at ({:.1f},{:.1f},{:.1f}) terrain height {:.2f}", point.x, point.y,
 		                   point.z, Locator::terrainSystem::value().GetHeightAt(glm::vec2(point.x, point.z)));
 	}
-	if (Locator::terrainSystem::has_value() && Locator::terrainSystem::value().GetHeightAt(glm::vec2(point.x, point.z)) <= 0.05f)
-	{
-		return;
-	}
+	// No height test: the caller picks the land or the water branch by the cell's water bit (StartLandscapeGrip)
 	const auto texture = textures.Handle(textureId)->GetNativeHandle();
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto random = [this]() {
@@ -351,41 +349,42 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 void HandSystem::UpdatePickupSound(bool active) noexcept
 {
 	// UpdateMultiPickup fn_0068F930 plays 98 G_PickUpWood for a wood pile and 44 G_PickUpFood for everything else
-	// (food piles, fields, fish farms) every turn: a single looping channel (loops -1, play mode 2 "already playing:
-	// leave it"), so only LHSampleSetPitch(60 + 180 t^2) changes it. StopMultiPickup 0x68FA50 stops it at the end.
+	// (food piles, fields, fish farms) every turn through GAudio::PlaySoundEffect: bank InGame, is3D 1, +0x0C 0 (not
+	// moved afterwards), no object, at the interface status' +0xC8. That point is the hand: GInterface::Process sends
+	// CHand+0x78 (Morphable::position) in the sync packet 0x15 (fn_005D2250 0x5D2350), GPacket 0x63CA9E -> 0x5DBFB0
+	// stores it at +0xA4, and GInterfaceStatus::Process 0x5DC4E7 -> fn_005DBC60 copies +0xA4 to +0xC8 (0x5DBF1F) before
+	// ProcessInInteract (0x5DC574) reaches UpdateMultiPickup. The .sad (flags 0x7E0) makes it loop (-1) in mode 2, so
+	// after the first turn LHSamplePlay leaves the playing channel (and its position) alone and only
+	// LHSampleSetPitch(InGame, 0, sample, ftol(60 + 180 t^2)) changes it (rate * p / 100, from 60 % to 240 %).
+	// StopMultiPickup 0x68FA50: LHSampleStop(InGame, 0, 44) and (.., 98).
 	if (!Locator::audio::has_value())
 	{
 		return;
 	}
-	auto& audio = Locator::audio::value();
-	auto& registry = Locator::entitiesRegistry::value();
-	if (_pickupSound && !registry.Valid(*_pickupSound))
-	{
-		_pickupSound.reset();
-	}
+	const auto food = static_cast<entt::id_type>(audio::SoundId::G_PickUpFood);
+	const auto wood = static_cast<entt::id_type>(audio::SoundId::G_PickUpWood);
+	const auto none = audio::sample_play::Owner {};
 	if (!active)
 	{
 		if (_pickupSound)
 		{
-			audio.StopEmitter(*_pickupSound);
-			audio.DestroyEmitter(*_pickupSound);
+			audio::sample_play::Stop(food, none);
+			audio::sample_play::Stop(wood, none);
 			_pickupSound.reset();
 		}
 		_pickupSoundFraction = 0.0f;
 		return;
 	}
-	if (!_pickupSound)
+	const auto id = PotInfoOf(*_held) == PotInfo::HandWood ? wood : food;
+	audio::sample_play::Options options;
+	options.sound = id;
+	options.is3D = true;
+	options.track = false;
+	options.position = Locator::entitiesRegistry::value().Get<Transform>(_hands[static_cast<size_t>(Side::Left)]).position;
+	const auto emitter = audio::sample_play::PlaySoundEffect(options);
+	if (emitter != entt::null)
 	{
-		const bool wood = PotInfoOf(*_held) == PotInfo::HandWood;
-		const auto id = static_cast<entt::id_type>(wood ? audio::SoundId::G_PickUpWood : audio::SoundId::G_PickUpFood);
-		if (!Locator::resources::value().GetSounds().Contains(id))
-		{
-			return;
-		}
-		const auto& sound = audio.GetSound(id);
-		_pickupSound = audio.CreateEmitter(id, audio::PlayType::Repeat, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec2(0.0f),
-		                                   sound.volume, audio::AudioStatus::Playing, true);
-		audio.PlayEmitter(*_pickupSound);
+		_pickupSound = emitter;
 	}
-	audio.SetEmitterPitch(*_pickupSound, 60.0f + 180.0f * _pickupSoundFraction);
+	audio::sample_play::SetPitch(id, none, static_cast<int>(60.0f + 180.0f * _pickupSoundFraction));
 }

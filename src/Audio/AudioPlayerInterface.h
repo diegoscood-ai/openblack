@@ -37,6 +37,9 @@ public:
 	[[nodiscard]] virtual SourceId CreateSource(float pitch, bool relative) = 0;
 	/// AL_PITCH, 1 = as recorded
 	virtual void SetSourcePitch(SourceId id, float pitch) = 0;
+	[[nodiscard]] virtual float GetSourcePitch(SourceId id) const = 0;
+	/// QSWaveMixSetDistanceMapping {min, max, scale}: AL_REFERENCE_DISTANCE, AL_MAX_DISTANCE, AL_ROLLOFF_FACTOR
+	virtual void SetSourceDistance(SourceId id, float minDistance, float maxDistance, float rolloff) = 0;
 	virtual void DeleteSource(SourceId id) = 0;
 	virtual void UpdateSource(SourceId id, glm::vec3 pos, float volume, bool loop) = 0;
 	virtual void UpdateSource(SourceId id, float volume, bool loop) = 0;

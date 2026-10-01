@@ -74,6 +74,8 @@
 #include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
+#include "3D/ScreenFade.h"
+#include "Game.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -317,8 +319,28 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 			}
 			_gripPoint = _interactionPoint ? _interactionPoint : groundPoint;
 			_gripRotation = transform.rotation;
-			EmitGripDust(*_gripPoint);
-			SplashHand(*_gripPoint);
+			// StartLandscapeGrip fn_005D1AB0: one branch, chosen by the water bit of the cell (InBounds && IsLand,
+			// 0x5D1F94; off the map or without a block counts as water): land -> dust (the grip packet 0x2B,
+			// SF_GripLandscape) and G_HandGrabLand; water -> the ring, G_HandInWater and the fish scare.
+			// 0x5D1FAE: no dust nor sound while g_game+0x25005C (the HelpSystem) has its widescreen on (+0x45E8) for a
+			// script (+0x45EC = the owning script task, GScript::SetWideScreen 0x6F7C5A; videos and playback pass 0):
+			// openblack's only widescreen is SET_WIDESCREEN. 0x5D1FF0: no splash while the game is paused (g_game+0x14
+			// bit 4, toggled by PauseGame 0x54AE20), nor while the hand 3D object (CHand+0x482C) draws a held object
+			// (+0x8C, set by its SetHeldG3D vt +0x234 = 0x816830; empty or a SpellSeed that is not drawn in the hand):
+			// here the hand grips the land only while it holds nothing.
+			auto* game = Game::Instance();
+			if (IsLand(*_gripPoint))
+			{
+				if (game == nullptr || !game->GetScreenFade().IsWideScreenOn())
+				{
+					EmitGripDust(*_gripPoint);
+					GripLandSound();
+				}
+			}
+			else if (game == nullptr || !game->IsPaused())
+			{
+				SplashHand(*_gripPoint);
+			}
 		}
 		glm::vec3 claw(0.0f);
 		for (const auto v : _tipVertices)

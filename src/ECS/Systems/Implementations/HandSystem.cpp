@@ -66,6 +66,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -93,17 +94,20 @@ void PlaySample(audio::SoundId id)
 	}
 }
 
-/// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit.
+entt::entity PlaySample3D(audio::SoundId id, glm::vec3 point)
+{
+	if (!Locator::audio::has_value() || !Locator::camera::has_value())
+	{
+		return entt::null;
+	}
+	return Locator::audio::value().PlayAt(static_cast<entt::id_type>(id), point);
+}
+
+/// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit (off the map or
+/// without a block: not land)
 bool IsLand(glm::vec3 point)
 {
-	if (!Locator::terrainSystem::has_value())
-	{
-		return true;
-	}
-	const auto& terrain = Locator::terrainSystem::value();
-	const auto cell = glm::u16vec2(glm::max(glm::vec2(point.x, point.z) / LandIslandInterface::k_CellSize, glm::vec2(0.0f)));
-	const auto& properties = terrain.GetCell(cell).properties;
-	return properties.hasWater == 0;
+	return sea_cells::IsLand(point);
 }
 } // namespace openblack::ecs::systems::hand_detail
 
@@ -382,18 +386,10 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	else if (actionReleased && _held && _releaseArmed)
 	{
 		_releaseArmed = false;
-		// Released while moving fast: throw it (the hand velocity carries on), otherwise put it down.
-		// Object::InitialisePhysicsFromHand throws when vel.x^2 + vel.z^2 > 4; the velocity is the holding spring's
-		// (CHand+0x48C8, units per second, capped at 124).
-		constexpr float k_ThrowSpeed = 2.0f;
-		if (glm::length(glm::vec2(_handVelocity.x, _handVelocity.z)) > k_ThrowSpeed)
-		{
-			Throw(_handVelocity);
-		}
-		else
-		{
-			Drop();
-		}
+		// State 12 (0x5D4DB0) sends the holding spring's velocity (CHand+0x48C8, units per second, capped at 124) and
+		// every release takes the same path: Object::InitialisePhysicsFromHand decides thrown (vel.x^2 + vel.z^2 > 4)
+		// or put down, a hand pot |v|^2 <= 5 (HandHolding.cpp).
+		Release(_handVelocity);
 	}
 	if (_pendingPick)
 	{

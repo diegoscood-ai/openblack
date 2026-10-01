@@ -84,9 +84,11 @@ struct LNDCell
 	/// With more than 8 altitude bits (BWLandEditor EXT0 chunk) its low bits are the high bits of the altitude
 	uint8_t saveColor;
 	Properties properties;
-	/// Bit 0: "transparent"; bits 1-7: ambient sound code (BWLandEditor LH3DLandCell.Sound: 0 none, 2 splash, 3 ocean,
-	/// 4 slow waves, 5 lake, 6 coast, 7 fast waves, 8 jungle, 10 wind, 12 desert, 14 birds, 16 forest, 18 river; the
-	/// odd codes above 8 are variants of the even one below)
+	/// Bit 0: "transparent"; bit 1: an open-water cell that is not drawn (word[cell + 6] & 0x200); bits 2..5: the
+	/// ATMOS_TYPE of the cell (Terrain::GetAtmosType 0x7352B0 = (flags >> 2) & 0xF: 0 none, 1 sea, 2 still fresh
+	/// water, 3 coastal, 4 jungle, 5 arctic, 6 desert, 7 countryside, 8 swamp, 9 running water). BWLandEditor's
+	/// LH3DLandCell.Sound codes (flags >> 1: 2 splash, 3 ocean, 4 slow waves, 5 lake, 6 coast, 7 fast waves...) are
+	/// ATMOS_TYPE = code >> 1 named by ear
 	uint8_t flags;
 
 	/// The altitude in height units (0.67): the altitude byte plus, with more than 8 altitude bits, the high bits kept

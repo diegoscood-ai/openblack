@@ -28,12 +28,23 @@ struct WaterRing
 	float aspect {1.0f};  ///< +0x28: the z half size is half size x aspect
 	float rate {1.0f};    ///< +0x2C: age speed
 	uint8_t cell {0x30};  ///< +0x30: cell of the 8 x 8 sheet (low 6 bits)
-	uint32_t argb {0xFFFFFFFFu}; ///< +0x34
-	bool seaLight {false}; ///< rgb = the landscape light table[255] ([0xEDDD08]), like the hand's splash
+	/// +0x34, fixed when the ring is made: the creators that follow the light write (alpha << 24) | (table[i] &
+	/// 0xFFFFFF) of that moment (the hand's splash table[255], the rain table[200]), so a ring keeps its colour after
+	/// dusk or a lightning flash
+	uint32_t argb {0xFFFFFFFFu};
+	/// shortcut for the creators of table[255] ([0xEDDD08]: the hand's splash, the waterfall): AddWaterRing replaces the
+	/// rgb of argb with it and clears the flag
+	bool seaLight {false};
+	// +0x1C, the ambient-wind drift that some creators leave unwritten (the slot keeps the last ring's value), is not
+	// kept: this pool is a vector, not the original's slot array, and the ambient wind is 0 in a game anyway
 };
 
-/// Adds a ring; the pool holds 1024 like the original (no new ring when it is full)
-void AddWaterRing(const WaterRing& ring);
+/// The rgb (0x00RRGGBB) of the landscape light table[index] of this frame (0xEDD90C), for the ring creators
+[[nodiscard]] uint32_t LandLightRgb(uint8_t index);
+
+/// Adds a ring; the pool holds 1024 like the original (no new ring when it is full, false). The colour is resolved
+/// here (seaLight) and never again.
+bool AddWaterRing(const WaterRing& ring);
 /// fn_005E5100: age += (int)(gameMilliseconds * rate), removed at 700
 void UpdateWaterRings(float gameMilliseconds);
 [[nodiscard]] const std::vector<WaterRing>& GetWaterRings();

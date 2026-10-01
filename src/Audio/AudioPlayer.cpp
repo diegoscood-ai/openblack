@@ -100,13 +100,19 @@ void AudioPlayer::Initialize()
 	alcGetIntegerv(_device.get(), ALC_MINOR_VERSION, 1, &minorVersion);
 	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "ALC Version {}.{}", majorVersion, minorVersion);
 	alCheckCall(alcMakeContextCurrent(_context.get()));
+	// QMixer's distance curve up to maxDistance (0x1802CE50) is OpenAL's inverse distance clamped with
+	// reference = min and rolloff = scale; beyond max QMixer mutes the channel (AudioManager::Update does that)
+	alCheckCall(alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED));
 }
 
 void AudioPlayer::UpdateListener(glm::vec3 pos, glm::vec3 vel, glm::vec3 front, glm::vec3 up) const
 {
+	// openblack's world is left-handed (GLM_FORCE_LEFT_HANDED: right = up x forward) and OpenAL's is right-handed
+	// (right = at x up): every position, velocity and direction goes through the same x <-> z swap, which turns one
+	// into the other, so the orientation must be swapped too or left and right come out wrong
 	alCheckCall(alListener3f(AL_POSITION, pos.z, pos.y, pos.x));
 	alCheckCall(alListener3f(AL_VELOCITY, vel.z, vel.y, vel.x));
-	ALfloat listenerOri[] = {front.x, front.y, front.z, up.x, up.y, up.z}; // NOLINT(modernize-avoid-c-arrays)
+	ALfloat listenerOri[] = {front.z, front.y, front.x, up.z, up.y, up.x}; // NOLINT(modernize-avoid-c-arrays)
 	alCheckCall(alListenerfv(AL_ORIENTATION, listenerOri));
 }
 
@@ -156,6 +162,20 @@ void AudioPlayer::SetSourcePitch(SourceId id, float pitch)
 	alCheckCall(alSourcef(id, AL_PITCH, pitch));
 }
 
+float AudioPlayer::GetSourcePitch(SourceId id) const
+{
+	ALfloat pitch = 1.0f;
+	alCheckCall(alGetSourcef(id, AL_PITCH, &pitch));
+	return pitch;
+}
+
+void AudioPlayer::SetSourceDistance(SourceId id, float minDistance, float maxDistance, float rolloff)
+{
+	alCheckCall(alSourcef(id, AL_REFERENCE_DISTANCE, minDistance));
+	alCheckCall(alSourcef(id, AL_MAX_DISTANCE, maxDistance));
+	alCheckCall(alSourcef(id, AL_ROLLOFF_FACTOR, rolloff));
+}
+
 void AudioPlayer::DeleteSource(SourceId id)
 {
 	alCheckCall(alDeleteSources(1, &id));
@@ -166,14 +186,14 @@ void AudioPlayer::UpdateSource(SourceId id, glm::vec3 pos, float volume, bool lo
 	alCheckCall(alSource3f(id, AL_POSITION, pos.z, pos.y, pos.x));
 	alCheckCall(alSourcef(id, AL_GAIN, volume * _volume));
 	alCheckCall(alSourcei(id, AL_LOOPING, loop ? AL_TRUE : AL_FALSE));
-	alCheckCall(alSourcef(id, AL_PITCH, 1.f));
+	// the pitch is not touched here: it is set when the source is made (the .sad pitch and deviation) and by
+	// SetSourcePitch (LHSampleSetPitch)
 }
 
 void AudioPlayer::UpdateSource(SourceId id, float volume, bool loop)
 {
 	alCheckCall(alSourcef(id, AL_GAIN, volume * _volume));
 	alCheckCall(alSourcei(id, AL_LOOPING, loop ? AL_TRUE : AL_FALSE));
-	alCheckCall(alSourcef(id, AL_PITCH, 1.f));
 }
 
 float AudioPlayer::GetDuration(BufferId id)

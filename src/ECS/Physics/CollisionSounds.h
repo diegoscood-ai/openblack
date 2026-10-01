@@ -25,8 +25,10 @@ public:
 	[[nodiscard]] static int TypeOf(entt::entity entity);
 	/// AttemptToAddSoundEvent for a body at the end of a turn (its impact and what hit it are set).
 	static void AttemptToAddSoundEvent(const PhysicsObject& po);
-	/// One of editor.sad samples first..last at random, 3D at the point.
-	static void PlayEditorSample(int first, int last, glm::vec3 at);
+	/// One of editor.sad samples first..last at random, 3D at the point: GAudio::SamplePlayAnimEffect 0x42A4B0 with the
+	/// object as the channel's owner (so the .sad play mode applies per object: G_BigSplash's mode 2 plays nothing while
+	/// the same object's splash plays) and `track` (options +0x0C: the sound follows the object every turn).
+	static void PlayEditorSample(int first, int last, glm::vec3 at, entt::entity owner = entt::null, bool track = false);
 	/// One sample of a bank, 2D.
 	static void PlaySample2D(const char* bank, int sample);
 	/// The pair list ages one turn (pairs stay listed for the turn they were added and the next).

@@ -35,6 +35,8 @@ public:
 	float GetDuration(BufferId id) override;
 	SourceId CreateSource(float pitch, bool relative) override;
 	void SetSourcePitch(SourceId id, float pitch) override;
+	[[nodiscard]] float GetSourcePitch(SourceId id) const override;
+	void SetSourceDistance(SourceId id, float minDistance, float maxDistance, float rolloff) override;
 	void PlaySource(SourceId id, glm::vec3 pos, float volume, bool loop) override;
 	void PlaySource(SourceId id, float volume, bool loop) override;
 	void PauseSource(SourceId id) const override;

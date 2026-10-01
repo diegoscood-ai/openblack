@@ -88,10 +88,10 @@ float ObjectRadius(entt::entity object)
 }
 
 /// The ring of a drop (0x725243..0x7252B9): the first free of the 1024 slots at 0xEAB7C8; +0x0C flags |= 1, +0x10 age 0,
-/// +0x18 growth, +0x20 angle, +0x24 1.0, +0x28 aspect 1.0, +0x2C rate 1.0, +0x30 cell 0x30, +0x34 colour.
-/// When the "agua" session changes ecs::AddWaterRing to (pos, growth, rate, aspect, cell, argb), only this function
-/// changes (the angle then goes wherever agua keeps it).
-void AddDropRing(const glm::vec3& position, float growth, float angle, uint32_t argb)
+/// +0x18 growth, +0x20 angle, +0x24 1.0, +0x28 aspect 1.0, +0x2C rate 1.0, +0x30 cell 0x30, +0x34 colour. The colour
+/// is one of the constants k_RippleColours (0x7251C5), not the landscape light table: it is written as is (no seaLight)
+/// and kept for the ring's life (ecs::AddWaterRing). Nothing when the 1024 slots are full (0x725236).
+bool AddDropRing(const glm::vec3& position, float growth, float angle, uint32_t argb)
 {
 	ecs::WaterRing ring;
 	ring.position = position;
@@ -102,7 +102,7 @@ void AddDropRing(const glm::vec3& position, float growth, float angle, uint32_t 
 	ring.rate = 1.0f;
 	ring.cell = 0x30;
 	ring.argb = argb;
-	ecs::AddWaterRing(ring);
+	return ecs::AddWaterRing(ring);
 }
 
 /// OPENBLACK_TEST_WATER_SHOT="<turns>,<path>[;<turns>,<path>...]" (test hook, not in the original): a screenshot that

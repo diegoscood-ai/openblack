@@ -32,6 +32,7 @@
 #include "3D/Foliage.h"
 #include "3D/DayNightClock.h"
 #include "3D/LandLightTable.h"
+#include "3D/SkyWeather.h"
 #include "3D/NightLights.h"
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
@@ -50,6 +51,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Stream.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -330,6 +332,9 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::Main), bgfx::ViewMode::Sequential);
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended), bgfx::ViewMode::Sequential);
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay), bgfx::ViewMode::Sequential);
+	// what is under the sea is painted in order too (GLandscape::Draw 0x5E48AE..0x5E4E6B): the sky, the moon's
+	// reflection, the mirrored land, the parts under the water, the hand glow
+	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::Reflection), bgfx::ViewMode::Sequential);
 
 	// give debug names to views
 	// TODO (#749) use std::views::enumerate
@@ -354,6 +359,10 @@ Renderer::~Renderer() noexcept
 	if (bgfx::isValid(_cloudShadowTexture))
 	{
 		bgfx::destroy(_cloudShadowTexture);
+	}
+	if (bgfx::isValid(_fishPlotInstances))
+	{
+		bgfx::destroy(_fishPlotInstances);
 	}
 	_plane.reset();
 	_shaderManager.reset();
@@ -468,7 +477,7 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		const auto sameMaterial = [&prim](const L3DSubMesh::Primitive& other) {
 			return other.blend == prim.blend && other.thresholdAlpha == prim.thresholdAlpha &&
 			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold &&
-			       other.wrap == prim.wrap;
+			       other.wrap == prim.wrap && other.uvOffset == prim.uvOffset;
 		};
 		const bool primitivePreserveState = texture != nullptr && texture == nextTexture && sameMaterial(*std::next(it)) &&
 		                                    (preserveState || hasNext);
@@ -505,12 +514,21 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				const bool lit = _landLight && _landLight->IsLoaded();
 				const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
-				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection)
-				const glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
-				                                 desc.lightBoost,
-				                                 desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
-				const glm::vec4 u_objectClip = {desc.clipBelowSea ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
-				program->SetUniformValue("u_objectClip", &u_objectClip); // fs
+				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection), 3 the land colour
+				// only, 4 DrawCutByPlane (y: colour alpha, z: colour r 65536 + g 256 + b)
+				glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
+				                           desc.lightBoost,
+				                           desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
+				if (desc.cutByPlane != 0)
+				{
+					u_objectLight = {4.0f, static_cast<float>(desc.cutColour >> 24) / 255.0f,
+					                 static_cast<float>(desc.cutColour & 0x00FFFFFFu), 1.0f};
+				}
+				// x: 1 discard y < 0, -1 discard y > 0 (fs); y > 0: mirrored in y = 0 (vs)
+				const glm::vec4 u_objectClip = {desc.cutByPlane != 0 ? static_cast<float>(desc.cutByPlane)
+				                                                     : (desc.clipBelowSea ? 1.0f : 0.0f),
+				                                desc.mirrorInSea ? 1.0f : 0.0f, 0.0f, 0.0f};
+				program->SetUniformValue("u_objectClip", &u_objectClip); // vs, fs
 				program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
 				program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
 				if (bgfx::isValid(_cloudShadowTexture))
@@ -524,10 +542,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				// y, z: mod graphics.hd-tweaks on villagers lit like the original (lighting mode, mip bias; fs_object)
 				const auto& config = Locator::config::value();
 				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
-				                    desc.unlitColour < 0.0f;
+				                    desc.unlitColour < 0.0f && desc.cutByPlane == 0;
+				// w: 1 if the primitive takes the object's texture offset (L3DSubMesh::Primitive::uvOffset)
 				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f,
 				                            person ? static_cast<float>(config.hdTweaksLighting) : 0.0f,
-				                            person ? config.hdTweaksMipBias : 0.0f, 0.0f};
+				                            person ? config.hdTweaksMipBias : 0.0f, prim.uvOffset ? 1.0f : 0.0f};
 				program->SetUniformValue("u_window", &u_window);                      // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
@@ -573,8 +592,9 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			auto state = desc.state;
 			if (!desc.isSky && (state & BGFX_STATE_CULL_MASK) == 0 && !prim.twoSided)
 			{
-				// D3DCULL_CCW of the original (0x84C34A) is bgfx's CCW here; the mirrored reflection camera flips it
-				state |= viewId == RenderPass::Reflection ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
+				// D3DCULL_CCW of the original (0x84C34A) is bgfx's CCW here; the mirrored reflection camera flips it (and a
+				// mesh mirrored in the sea flips it back)
+				state |= viewId == RenderPass::Reflection && !desc.mirrorInSea ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
 			}
 			if (blended && (state & BGFX_STATE_BLEND_MASK) == 0)
 			{
@@ -829,8 +849,10 @@ void Renderer::UpdateLandLight() const
 	{
 		return;
 	}
-	// TODO: lightning flashes (the table lerps to white); the overcast at the camera caps the base colour
-	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(), Clouds::WeatherOvercastAtCamera());
+	// The overcast at the camera caps the base colour (Clouds::WeatherOvercastAtCamera, [0xFA2754]); the lightning flash
+	// at the camera lerps the table to white ([0xFA2768], sky_weather::LightningFlash -> weather::LightningFlashAtCamera)
+	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(),
+	                  Clouds::WeatherOvercastAtCamera(), sky_weather::LightningFlash());
 	const auto& texels = _landLight->GetTexels();
 	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
 	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(texels[0]))));
@@ -1005,7 +1027,7 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 	DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive);
 }
 
-void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
+void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool mirrored) const
 {
 	const auto& sky = Locator::skySystem::value();
 	const auto& textures = Locator::resources::value().GetTextures();
@@ -1027,11 +1049,17 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 	{
 		return;
 	}
+	// (the reflection camera has the main camera's origin)
 	const auto centre = camera.GetOrigin() + offset;
 	const auto inverseView = glm::inverse(camera.GetViewMatrix(Camera::Interpolation::Current));
 	const auto right = glm::vec3(inverseView[0]);
 	const auto up = glm::vec3(inverseView[1]);
 	const auto back = glm::vec3(inverseView[2]);
+	// fn_0086B010 0x86B61D: in the reflection, the glow is the second glow quad at (x, -y, z) facing the camera and the
+	// moon is its DrawUnderWater (vt+0x118), the moon object mirrored in y = 0. Drawn with the mirrored camera, the glow
+	// takes that camera's axes and the moon the main camera's (mirroring them back), so the mesh comes out flipped and
+	// its winding with it.
+	const glm::vec3 mirror(1.0f, mirrored ? -1.0f : 1.0f, 1.0f);
 	const auto colour = _landLight && _landLight->IsLoaded() ? _landLight->GetMoonColour() : glm::vec3(1.0f);
 
 	// Glow (fn_0086A930): a camera-facing 4000 x 4000 quad, atmos.raw UV 0.25..0.49375, additive (mode 13),
@@ -1079,15 +1107,16 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 	                  86400.0;
 	const double cycles = (days - 10962.0) / 29.5306;
 	const auto phase = static_cast<float>(2.0 * glm::pi<double>() * (1.0 - (cycles - std::floor(cycles))));
-	const glm::mat4 billboard(glm::vec4(right * 4.0f, 0.0f), glm::vec4(up * 4.0f, 0.0f), glm::vec4(back * 4.0f, 0.0f),
-	                          glm::vec4(centre, 1.0f));
+	const glm::mat4 billboard(glm::vec4(right * mirror * 4.0f, 0.0f), glm::vec4(up * mirror * 4.0f, 0.0f),
+	                          glm::vec4(back * mirror * 4.0f, 0.0f), glm::vec4(centre, 1.0f));
 	const auto model = billboard * glm::rotate(glm::radians(-7.5f), glm::vec3(0.0f, 0.0f, 1.0f)) *
 	                   glm::rotate(phase + glm::pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::scale(glm::vec3(0.65f));
 	const glm::vec4 moonColour(colour, m / 255.0f);
 	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
-	                  BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CCW, celestial,
-	                  &*textures.Handle(k_WeatherAlpha));
+	                  BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
+	                      (mirrored ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW),
+	                  celestial, &*textures.Handle(k_WeatherAlpha));
 }
 
 void Renderer::UpdateClouds() const
@@ -1369,21 +1398,38 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	// DrawUnderWater of the held object (CHand, after the hand, in its own colour) and of the physics objects
 	// (fn_00646FE0, while not wholly under water: y > -r, r = the farthest vertex). "Own colour" is obj+0x4C / +0x50 as
 	// the last Draw left them: the land light and cell specular of fn_00801C90 (PhysicsObject::DrawAll 0x646F9F)
-	std::vector<std::pair<entt::entity, bool>> objects;
+	// The physics objects are the whole list 0xD47814 (thrown, knocked, the resting proxies); r is the body's radius
+	// (PhysOb: the farthest vertex). The hand's thrown objects that are not in the physics keep the bounding box radius.
+	struct Reflected
+	{
+		entt::entity entity;
+		float radius; ///< < 0: always drawn (the held object); 0: from the bounding box
+		float centreY;
+	};
+	std::vector<Reflected> objects;
 	if (const auto held = hand.GetHeldObject(); held.has_value())
 	{
-		objects.emplace_back(*held, false);
+		objects.push_back({*held, -1.0f, 0.0f});
 	}
+	ecs::physics::PhysicsObjects::ForEach([&objects](const ecs::physics::PhysicsObject& po) {
+		if (po.entity != entt::null)
+		{
+			objects.push_back({po.entity, po.body.Radius(), po.body.Centre().y});
+		}
+	});
 	for (const auto entity : hand.GetThrownObjects())
 	{
-		objects.emplace_back(entity, true);
+		if (ecs::physics::PhysicsObjects::Find(entity) == nullptr)
+		{
+			objects.push_back({entity, 0.0f, 0.0f});
+		}
 	}
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
 	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
 	submitDesc.landColourOnly = true;
 	submitDesc.clipBelowSea = true;
-	for (const auto& [entity, thrown] : objects)
+	for (const auto& [entity, bodyRadius, centreY] : objects)
 	{
 		const auto instance = renderCtx.entityInstances.find(entity);
 		if (!registry.Valid(entity) || instance == renderCtx.entityInstances.end() || !meshes.Contains(instance->second.meshId))
@@ -1391,11 +1437,12 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 			continue;
 		}
 		const auto mesh = meshes.Handle(instance->second.meshId);
-		if (thrown)
+		if (bodyRadius >= 0.0f)
 		{
 			const auto& transform = registry.Get<ecs::components::Transform>(entity);
-			const float radius = 0.5f * glm::length(mesh->GetBoundingBox().Size()) * transform.scale.x;
-			if (transform.position.y <= -radius)
+			const float radius =
+			    bodyRadius > 0.0f ? bodyRadius : 0.5f * glm::length(mesh->GetBoundingBox().Size()) * transform.scale.x;
+			if ((bodyRadius > 0.0f ? centreY : transform.position.y) <= -radius)
 			{
 				continue;
 			}
@@ -1612,7 +1659,6 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 	{
 		return;
 	}
-	const glm::vec3 seaLight = _landLight && _landLight->IsLoaded() ? _landLight->GetColour(255) : glm::vec3(1.0f);
 	struct Vertex
 	{
 		float x, y, z, u, v;
@@ -1626,15 +1672,10 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		const float half = std::max(static_cast<float>(ring.age) * ring.growth * 0.00142857f, 0.0001f);
 		const auto alpha = static_cast<uint32_t>(static_cast<int>((255.0f - static_cast<float>(ring.age % 700) * 0.364286f) *
 		                                                          static_cast<float>(ring.argb >> 24)) >> 8) & 0xFFu;
-		uint32_t r = (ring.argb >> 16) & 0xFFu;
-		uint32_t g = (ring.argb >> 8) & 0xFFu;
-		uint32_t b = ring.argb & 0xFFu;
-		if (ring.seaLight)
-		{
-			r = static_cast<uint32_t>(seaLight.r * 255.0f + 0.5f);
-			g = static_cast<uint32_t>(seaLight.g * 255.0f + 0.5f);
-			b = static_cast<uint32_t>(seaLight.b * 255.0f + 0.5f);
-		}
+		// +0x34 as the creator left it (the light colour was fixed at creation, ecs::AddWaterRing)
+		const uint32_t r = (ring.argb >> 16) & 0xFFu;
+		const uint32_t g = (ring.argb >> 8) & 0xFFu;
+		const uint32_t b = ring.argb & 0xFFu;
 		const uint32_t abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
 		const uint32_t cell = ring.cell & 0x3Fu;
 		const glm::vec2 uv0(static_cast<float>(cell % 8) / 8.0f, static_cast<float>(cell / 8) / 8.0f);
@@ -1827,7 +1868,10 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::ReflectionPass);
 		if (drawDesc.drawWater)
 		{
+			UpdateReflectionTarget();
 			DrawSceneDesc drawPassDesc = drawDesc;
+			// fn_007FF4F0 draws the mirrored land with UseSmallBump ([0xC37210]) = 0
+			drawPassDesc.smallBumpMapStrength = 0.0f;
 
 			const auto& frameBuffer = Locator::oceanSystem::value().GetReflectionFramebuffer();
 			auto reflectionCamera = drawDesc.camera->Reflect();
@@ -2065,7 +2109,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	_shaderManager->SetCamera(desc.viewId, *desc.camera);
 
 	const auto* skyShader = _shaderManager->GetShader("Sky");
-	const auto* waterShader = _shaderManager->GetShader("Water");
 	const auto* terrainShader = _shaderManager->GetShader("Terrain");
 	const auto* debugShader = _shaderManager->GetShader("DebugLine");
 	const auto* spriteShader = _shaderManager->GetShader("Sprite");
@@ -2112,6 +2155,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				DrawMoon(desc.viewId, *desc.camera);
 				DrawSun(desc.viewId, *desc.camera, false);
 			}
+			else if (desc.viewId == graphics::RenderPass::Reflection)
+			{
+				// the moon is reflected (its halo and DrawUnderWater), the sun is not (fn_0086C140 is called once)
+				DrawMoon(desc.viewId, *desc.camera, true);
+			}
 		}
 	}
 
@@ -2120,48 +2168,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		                                                                          : Profiler::Stage::MainPassDrawWater);
 		if (desc.drawWater)
 		{
-			const auto& ocean = Locator::oceanSystem::value();
-			const auto& mesh = ocean.GetMesh();
-			mesh.GetIndexBuffer().Bind(mesh.GetIndexBuffer().GetCount(), 0);
-			mesh.GetVertexBuffer().Bind();
-			// fn_00879930: no Z write (the original uses ZFUNC ALWAYS because it draws the land afterwards; bgfx may
-			// reorder the draws of a view, so keep the depth test)
-			bgfx::setState(k_BgfxDefaultStateInvertedZ & ~BGFX_STATE_WRITE_Z);
-			auto diffuse = Locator::resources::value().GetTextures().Handle(ocean.GetDiffuseTexture());
-			auto alpha = Locator::resources::value().GetTextures().Handle(ocean.GetAlphaTexture());
-			waterShader->SetTextureSampler("s_diffuse", 0, *diffuse);
-			waterShader->SetTextureSampler("s_alpha", 1, *alpha);
-			waterShader->SetTextureSampler("s_reflection", 2, ocean.GetReflectionFramebuffer().GetColorAttachment());
-			const glm::vec4 u_sky = {skyType, 0.0f, 0.0f, 0.0f};
-			waterShader->SetUniformValue("u_sky", &u_sky); // fs
-			// Tiling period P = 2000 - 1800 * WaterTiling (0xC38228): 560 at the default detail level 4. The frame counter
-			// (0xFA938C) only advances while the game runs. The original also scrolls the UVs with the ambient wind
-			// (-1/330 per ms), which openblack does not simulate yet.
-			static uint32_t seaFrame = 0;
-			if (desc.viewId == graphics::RenderPass::Main && Game::Instance() != nullptr && !Game::Instance()->IsPaused())
-			{
-				++seaFrame;
-			}
-			const auto forward = desc.camera->GetForward();
-			const auto forwardXZ = glm::vec2(forward.x, forward.z) / std::max(glm::length(glm::vec2(forward.x, forward.z)), 1e-4f);
-			// the terrain-x2 mod repeats the sea texture too: a shorter period
-			const float seaPeriod = GetDetailLevel(Locator::config::value().detailLevel).SeaPeriod() /
-			                        Locator::config::value().terrainTextureDensity;
-			const glm::vec4 u_seaParams = {seaPeriod, static_cast<float>(seaFrame % 16), forwardXZ};
-			// Living water mod: real time at a quarter speed (calm waves), also while paused; the shader time wraps at 1000 (every scroll
-			// speed in fs_water repeats the texture a whole number of times in that period, so the loop is seamless)
-			constexpr float k_WaveSpeed = 0.25f;
-			static const auto k_Start = std::chrono::steady_clock::now();
-			const float seconds = std::fmod(
-			    std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
-			const glm::vec4 u_waterMod = {Locator::config::value().livingWater ? 1.0f : 0.0f, seconds,
-			                              Locator::config::value().terrainTextureDensity, 0.0f};
-			waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
-			waterShader->SetUniformValue("u_seaParams", &u_seaParams); // fs
-			const glm::vec4 u_seaColour =
-			    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(-1.0f);
-			waterShader->SetUniformValue("u_seaColour", &u_seaColour); // fs
-			bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(waterShader->GetRawHandle()));
+			// fn_00879930 / fn_0087A090 (RendererSea.cpp)
+			DrawSea(desc);
 		}
 	}
 
@@ -2196,6 +2204,23 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			terrainShader->SetTextureSampler("s5_staticShadow", 5, island.GetStaticShadowFramebuffer().GetColorAttachment());
 			terrainShader->SetTextureSampler("s8_landAlpha", 8, island.GetLandAlphaFramebuffer().GetColorAttachment());
+			// x: 1 = the colour comes from the block texture (the original's, BlockTexture.h); 0 = the per-vertex materials
+			// of the terrain mods (terrain-x2 repeats, triplanar cliffs), which the block texture cannot follow
+			const auto& terrainConfig = Locator::config::value();
+			const bool terrainMod = terrainConfig.terrainTextureDensity != 1.0f || terrainConfig.terrainTriplanar ||
+			                        terrainConfig.terrainTexturesX2;
+			glm::vec4 u_blockTexture {0.0f};
+			if (const auto* blockTexture = island.GetBlockTexture(); blockTexture != nullptr)
+			{
+				terrainShader->SetTextureSampler("s10_blockTexture", 10, *blockTexture);
+				u_blockTexture.x = terrainMod ? 0.0f : 1.0f;
+				u_blockTexture.y = 1.0f; // its alpha is the coast alpha
+			}
+			else
+			{
+				terrainShader->SetTextureSampler("s10_blockTexture", 10, island.GetLandAlphaFramebuffer().GetColorAttachment());
+			}
+			terrainShader->SetUniformValue("u_blockTexture", &u_blockTexture);
 			if (_handShadowFrameBuffer)
 			{
 				terrainShader->SetTextureSampler("s7_dynamicShadow", 7, _handShadowFrameBuffer->GetColorAttachment());
@@ -2220,10 +2245,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			terrainShader->SetUniformValue("u_islandExtent", &islandExtent);
 
 			// clang-format off
+			// fs_terrain writes the land and small bump passes premultiplied (the coast alpha does not fade the small
+			// bump, as in the original); Z is written even where the land is transparent (render mode 14)
 			constexpr auto defaultState = 0u
 				| BGFX_STATE_WRITE_MASK
 				| BGFX_STATE_DEPTH_TEST_GREATER
-				| BGFX_STATE_BLEND_ALPHA
+				| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA)
 				| BGFX_STATE_MSAA
 			;
 
@@ -2286,12 +2313,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				}
 			}
 			DrawObjectReflections(desc.viewId);
+			DrawBoatReflection(desc.viewId);
 		}
 		if (desc.viewId == graphics::RenderPass::Reflection)
 		{
 			// GLandscape::Draw 0x5E4B26..: the parts under the water go into the frame before the sea, over the mirrored
 			// land. Here that frame is the reflection target, drawn with the mirrored camera, so they are mirrored too.
+			// the sharks (and whatever else is cut by the plane), then the fish (4d-4e)
+			DrawCutBelowWater(desc.viewId);
 			DrawFishShoals(desc.viewId);
+			DrawFishPlots(desc.viewId, -1); // fn_00824B90: each shoal of a bait, then its net (fn_00829BC0)
+			// 0x5E4D89: the hand's glow on the water, the last thing before the sea
+			DrawHandWaterGlow(desc.viewId);
 		}
 		const auto drawSprite = [this, &spriteShader](const ecs::components::Sprite& sprite,
 		                                              const ecs::components::Transform& transform, RenderPass viewId) {
@@ -2341,6 +2374,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				DrawWaterRings(desc.viewId);
 				DrawHumanShadows(desc.viewId);
+				DrawFishPlots(desc.viewId, 1); // fn_00824D60 (0x5E6296): the nets' part over the water
 			}
 			const auto setMatrices = [&submitDesc](entt::id_type meshId, const L3DMesh& mesh) {
 				const auto* handBones =
@@ -2398,6 +2432,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 			// the poses of the animated boned meshes (ecs/Animations.h), by instance
 			const auto poses = ecs::PosesByInstance(renderCtx.entityInstances);
+			// the sharks (components::CutByPlane::drawAbove): their owner draws them cut by the water instead
+			const auto cutAbove = desc.viewId == graphics::RenderPass::Main ? CutAboveInstances() : std::unordered_set<uint32_t>();
 
 			// Instance meshes
 			for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
@@ -2428,6 +2464,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						const auto& model = renderCtx.instanceUniforms[placers.offset + i];
 						const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
 						                              glm::length(glm::vec3(model[2]))});
+						if (cutAbove.contains(placers.offset + i))
+						{
+							continue;
+						}
 						if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(boxCentre, 1.0f)), boxRadius * scale))
 						{
 							continue;
@@ -2447,10 +2487,19 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
+						if (cutAbove.contains(placers.offset + i))
+						{
+							continue;
+						}
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
 						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, false});
 					}
 				}
+			}
+			// Whale::Draw 0x774E10: the sharks' parts above the water, in the normal object list
+			if (desc.viewId == graphics::RenderPass::Main)
+			{
+				DrawCutAboveWater(desc.viewId);
 			}
 			if (sortBlended)
 			{
@@ -2566,6 +2615,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				// LH3DAtmos::Render3D 0x836250: the rain streaks (RendererRain.cpp)
 				DrawRain(graphics::RenderPass::MainBlended, *desc.camera);
 				DrawHandShadowOnObjects();
+				// the boat's LH3DSprites (wake, dust, spray), after the blended models (the original Z-sorts them)
+				DrawBoatSprites(graphics::RenderPass::MainBlended, *desc.camera);
 			}
 
 			// Debug

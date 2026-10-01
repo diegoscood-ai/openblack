@@ -125,8 +125,9 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 - `RenderParticleMist::DrawAt` 0x67A670: tamaño = escala del PSR, con TakeRatioFromMatrix `k = M[1][1]/M[0][0]`, color
   = el del átomo × `[0xFA26A4]` (la base de la tabla de luz del terreno, con alfa forzado a 0xFF): por canal
   `(c × g) >> 8`. Aquí cada fotograma `mist_atoms::SubmitFrame` (desde `magic::Update`) pasa cada átomo a
-  `mists::Submit` de «mapa» (el mismo `DrawMist`). La base la lee `LandLightTable::LastBuiltBase` (añadido por la lane de
-  la tormenta).
+  `mists::Submit` de «mapa» (el mismo `DrawMist`). La base la lee
+  `LandLightTable::Current().GetRawBase()` (la copia global de la última tabla, de la lane del agua; antes
+  `LastBuiltBase` de la lane de la tormenta).
 - **(aproximado)** un solo contador de atlas para todas las nieblas del PSys (el original lleva uno por objeto,
   empezando en `Random(0,16) & 15`); con Ratio 0 se usa la media 3,75 en vez del azar por niebla. El mapa de sombra /
   luz del terreno de una niebla con `TextureFileName` (la tormenta) no está portado.

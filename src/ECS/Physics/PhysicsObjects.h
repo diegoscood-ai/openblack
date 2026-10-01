@@ -32,6 +32,9 @@ struct PhysicsObject
 	enum Flags : uint32_t
 	{
 		Awake = 0x1,
+		/// Object::PushObject 0x6396BA / Ball::KickBallAtDestination 0x435D9B: pushed by a Living (a villager is not
+		/// raised over it by RaiseUntilNotIntersecting)
+		PushedByLiving = 0x2,
 		FromHand = 0x4,
 		Landed = 0x8,
 		NoObjectCollision = 0x10,
@@ -91,6 +94,14 @@ public:
 	                                entt::entity thrower = entt::null, bool fromHand = false);
 	/// RemoveObject (0x646A00) without EndPhysics.
 	static void RemoveObject(entt::entity entity);
+	/// RemoveObject(obj, true, true) (0x646A00): the object takes the body's pose (angles, position, altitude), its
+	/// EndPhysics runs (vt +0x790), then Tree::DropSfx if LANDED on land (0x646B2E; the tree's is in its replanting),
+	/// the flying-object reactions go (TODO(reactions)) and the body is removed.
+	static void RemoveObjectWithEndPhysics(entt::entity entity);
+	/// RaiseUntilNotIntersecting (0x644800): resting bodies are made for the objects of the map cells under the body's
+	/// square (C +- R) that InteractsWithPhysicsObjects (ShouldPhysicsRaiseObjectUntilNotIntersectingThis 0x6377D0),
+	/// then the body goes up by max(fn_007FDD60 both ways) until no overlapping body pushes it more than 0.001.
+	static void RaiseUntilNotIntersecting(PhysicsObject& po);
 	[[nodiscard]] static PhysicsObject* Find(entt::entity entity);
 	/// Is the object flying (in physics and not a resting proxy)?
 	[[nodiscard]] static bool IsFlying(entt::entity entity);

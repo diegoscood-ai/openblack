@@ -25,6 +25,7 @@
 #include <string>
 
 #include <glm/geometric.hpp>
+#include <glm/vec2.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
@@ -54,6 +55,9 @@
 #include "ECS/Life.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
+#include "ECS/SeaCells.h"
+#include "ECS/ToBeDeleted.h"
+#include "ECS/VillagerDrowning.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -352,7 +356,7 @@ void AddRipple(const PhysicsObject& po)
 	ring.position = glm::vec3(po.body.Centre().x, 0.1f, po.body.Centre().z);
 	ring.growth = 2.0f * radius;
 	ring.rate = 1.0f / radius;
-	ring.cell = 0x3F;
+	ring.cell = 0x30; // 0x645A5E: the bob ripple takes cell 0x30 (the water hit's ring, 0x6466D2, takes 0x3F)
 	AddWaterRing(ring);
 }
 
@@ -482,9 +486,10 @@ entt::entity EndPhysics(PhysicsObject& po)
 		{
 			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 		}
-		if (po.body.inWater)
+		// 0x5F0BAF: MapCoords::IsWater of Pos (the cell's water bit, the shallow shore too; not the body's inWater)
+		if (ecs::sea_cells::IsWater(transform.position))
 		{
-			Kill(entity, "drowned");
+			ecs::VillagerEndPhysicsInWater(entity);
 			return entt::null;
 		}
 		if (LifeOf(entity) <= 0.0f)
@@ -722,11 +727,16 @@ void Substep()
 		auto result = po.body.Integrate();
 		if (!po.body.resting && po.body.Centre().y < po.body.Radius() * 0.5f)
 		{
-			// Living::HasSunk: a sunk villager or animal drowns
-			if (po.body.density > 1.0f && registry.AnyOf<Villager, Animal>(po.entity))
+			// 0x645A01: HasSunk (vt +0x7B8, ECS/VillagerDrowning) stops the body and ends its physics as if at rest
+			if (po.body.density > 1.0f && ecs::HasSunk(po.entity))
 			{
-				Kill(po.entity, "sunk");
-				continue;
+				if (!stillAt(i, self)) // Living::HasSunk: the animal went (ToBeDeleted)
+				{
+					continue;
+				}
+				po.body.velocity = glm::vec3(0.0f);
+				po.body.angularMomentum = glm::vec3(0.0f);
+				result = PhysOb::Result::Stopped;
 			}
 			if (vyBefore * po.body.velocity.y < 0.0f)
 			{
@@ -789,10 +799,9 @@ void Substep()
 			{
 				Buildings::DestroyFragment(entity);
 			}
-			else if (registry.Valid(entity))
+			else
 			{
-				registry.Destroy(entity);
-				registry.SetDirty();
+				ecs::ToBeDeleted(entity); // code 4 (T.y < -4R, 0x645B22): the class's ToBeDeleted(0)
 			}
 			continue;
 		}
@@ -815,9 +824,9 @@ void EndTurn()
 		if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr && !po->body.resting)
 		{
 			const auto c = po->body.Centre();
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics trace: entity {} at ({:.2f}, {:.2f}, {:.2f}) v {:.2f} contacts {} G {:.2f}",
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics trace: entity {} at ({:.2f}, {:.2f}, {:.2f}) v {:.2f} contacts {} G {:.2f} density {:.4f} R {:.2f}",
 			                   static_cast<uint32_t>(po->entity), c.x, c.y, c.z, glm::length(po->body.velocity),
-			                   po->body.numContacts, po->GLoad());
+			                   po->body.numContacts, po->GLoad(), po->body.density, po->body.Radius());
 		}
 		po->hitBy = nullptr;
 		if (po->body.lastHit != nullptr)
@@ -1150,6 +1159,106 @@ void PhysicsObjects::RemoveObject(entt::entity entity)
 			RemoveAt(i);
 			ForgetThrower(entity);
 			return;
+		}
+	}
+}
+
+void PhysicsObjects::RemoveObjectWithEndPhysics(entt::entity entity)
+{
+	for (size_t i = 0; i < g_Objects.size(); ++i)
+	{
+		if (g_Objects[i]->entity != entity)
+		{
+			continue;
+		}
+		auto* self = g_Objects[i].get();
+		// SetXYZAngles / Pos / altitude from the body, then EndPhysics(po, insert_back_into_map = true). DropSfx
+		// (vt +0x794, 0x646B48) is Object's "return 0" except Tree::DropSfx 0x74BC60 (G_PlantTree_01 + tick % 3),
+		// which openblack plays where the tree is replanted (the same LANDED-on-land condition).
+		EndPhysics(*self);
+		for (size_t j = 0; j < g_Objects.size(); ++j)
+		{
+			if (g_Objects[j].get() == self)
+			{
+				RemoveAt(j);
+				break;
+			}
+		}
+		ForgetThrower(entity);
+		return;
+	}
+}
+
+void PhysicsObjects::RaiseUntilNotIntersecting(PhysicsObject& po)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x644877: the map cells of the two corners (C.x - R, C.z - R) and (C.x + R, C.z + R), clamped into the map
+	// (fn_00604250). openblack has no per-cell object lists: an object is in a cell if its position is, and the
+	// multi-cell buildings (MultiMapFixed: abodes, stores) are in every cell their footprint (Radius2D) covers.
+	const auto centre = po.body.Centre();
+	const float radius = po.body.Radius();
+	const int last = Locator::terrainSystem::has_value() ? static_cast<int>(Locator::terrainSystem::value().GetCellsPerSide()) - 1 : 511;
+	const auto cellOf = [last](float v) { return std::clamp(static_cast<int>(std::floor(v * 0.1f)), 0, last); };
+	const glm::ivec2 low(cellOf(centre.x - radius), cellOf(centre.z - radius));
+	const glm::ivec2 high(cellOf(centre.x + radius), cellOf(centre.z + radius));
+	std::vector<entt::entity> candidates;
+	registry.Each<const Transform, const Mesh>([&](entt::entity entity, const Transform& transform, const Mesh&) {
+		// obj != po->thrower (+0x1C) && ShouldPhysicsRaiseObjectUntilNotIntersectingThis (= InteractsWithPhysicsObjects,
+		// 0 for LandscapeVortexIn / MapShield) && not in the physics list yet && it has a Game3dObject
+		if (entity == po.entity || entity == po.thrower || !InteractsWithPhysicsObjects(entity) || Find(entity) != nullptr)
+		{
+			return;
+		}
+		const float reach = registry.AnyOf<Abode, StoragePit>(entity) ? Radius2D(entity) : 0.0f;
+		const glm::ivec2 from(cellOf(transform.position.x - reach), cellOf(transform.position.z - reach));
+		const glm::ivec2 to(cellOf(transform.position.x + reach), cellOf(transform.position.z + reach));
+		if (to.x >= low.x && from.x <= high.x && to.y >= low.y && from.y <= high.y)
+		{
+			candidates.push_back(entity);
+		}
+	});
+	for (const auto entity : candidates)
+	{
+		AddProxy(entity); // fn_00644DF0
+	}
+	// 0x644AB4: go up by the first push over 0.001 and start again, until nothing pushes. The original has no limit;
+	// the 1000 rounds only guard openblack against a body that could never leave another.
+	for (int round = 0; round < 1000; ++round)
+	{
+		float best = 0.0f;
+		bool raised = false;
+		for (const auto& other : g_Objects)
+		{
+			if (other.get() == &po)
+			{
+				continue;
+			}
+			// a villager is not raised over what a Living pushed, nor that over a villager (+0x1A4, flag 2)
+			if ((po.villager && (other->flags & PhysicsObject::PushedByLiving) != 0) ||
+			    (other->villager && (po.flags & PhysicsObject::PushedByLiving) != 0))
+			{
+				continue;
+			}
+			const float reach = other->body.Radius() + po.body.Radius();
+			const auto d = po.body.Centre() - other->body.Centre();
+			if (!(reach * reach > glm::dot(d, d)))
+			{
+				continue;
+			}
+			const float down = po.body.PenetrationAlong(other->body, glm::vec3(0.0f, -1.0f, 0.0f));
+			const float up = other->body.PenetrationAlong(po.body, glm::vec3(0.0f, 1.0f, 0.0f));
+			best = std::max(best, std::max(down, up));
+			if (best > 0.001f)
+			{
+				// C.y += best, fn_007FD140 (the object's origin) and PhysOb::SetUpPos 0x7FC760
+				po.body.SetUpPos(po.body.Rotation(), po.body.ObjectOrigin() + glm::vec3(0.0f, best, 0.0f));
+				raised = true;
+				break;
+			}
+		}
+		if (!raised)
+		{
+			break;
 		}
 	}
 }

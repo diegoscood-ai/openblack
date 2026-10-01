@@ -40,6 +40,8 @@ public:
 	void UpdateWideScreen(float gameMilliseconds);
 	/// [0xEB9950], 0 (no bars) .. 1 (the picture is 16:9)
 	[[nodiscard]] float GetWideScreenFraction() const { return _wideFraction; }
+	/// HelpSystem::GetWideScreenControl 0x4282F0 (+0x45E8 == 1): the bars are on or coming
+	[[nodiscard]] bool IsWideScreenOn() const { return _wideOn; }
 	/// WIDESCREEN_TRANSISTION_FINISHED 0x6FAC20
 	[[nodiscard]] bool IsWideScreenTransitionFinished() const { return _wideOn ? _wideFraction >= 1.0f : _wideFraction <= 0.0f; }
 	/// fn_0081E8B0: height of each bar in pixels

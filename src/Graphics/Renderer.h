@@ -18,6 +18,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -81,7 +82,14 @@ class Renderer final: public RendererInterface
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
 	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
 	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)
-	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
+	/// @param mirrored in the reflection pass: the mirrored glow and the moon's DrawUnderWater (fn_0086B010 0x86B61D)
+	void DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool mirrored = false) const;
+	/// The sea: the screen rows of fn_00879930, or the level-0 quad of fn_0087A090 (RendererSea.cpp)
+	void DrawSea(const DrawSceneDesc& desc) const;
+	/// The reflection target follows the main view's size (RendererSea.cpp)
+	void UpdateReflectionTarget() const;
+	/// The hand's glow on the water at night (0x5E4D89, fn_005E3F70), into the reflection target (RendererSea.cpp)
+	void DrawHandWaterGlow(graphics::RenderPass viewId) const;
 	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
 	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front on their own (RendererMists.cpp);
@@ -105,11 +113,28 @@ class Renderer final: public RendererInterface
 	mutable std::vector<std::vector<ecs::chimney_smoke::DrawnPuff>> _frameSmoke;
 	/// The mirrored held object and thrown objects in the reflection (DrawUnderWater, GLandscape::Draw 0x5E4905..)
 	void DrawObjectReflections(graphics::RenderPass viewId) const;
+	/// The missionaries' boat hull in the reflection (PetitNavire::PreDraw 0x5DFF20: DrawUnderWater in 0xFF303070), and
+	/// the boat's sprites: the wake and the SmokyStuff puffs, smoke material mode 6 (RendererBoat.cpp)
+	void DrawBoatReflection(graphics::RenderPass viewId) const;
+	void DrawBoatSprites(graphics::RenderPass viewId, const Camera& camera) const;
+	/// DrawCutByPlane (animated fn_00811C70, static fn_0080C050) of an entity's model: keep -1 the part under y = 0, 1
+	/// the part over it; lit 90 + N.L in argb (0xAARRGGBB); mirrored in y = 0 for the reflection target (RendererCut.cpp)
+	void DrawCutByPlane(graphics::RenderPass viewId, entt::entity entity, int8_t keep, uint32_t argb, bool mirrored) const;
+	/// The parts under the water of the objects with components::CutByPlane, before the sea (GLandscape::Draw 4d-4e)
+	void DrawCutBelowWater(graphics::RenderPass viewId) const;
+	/// The parts above the water of the objects whose owner draws them cut (components::CutByPlane::drawAbove: the
+	/// sharks' Whale::Draw 0x774E10), in the colour of the land light table[255]; the normal pass skips those instances
+	void DrawCutAboveWater(graphics::RenderPass viewId) const;
+	/// the instance indices (RenderContext::entityInstances) that DrawCutAboveWater draws instead of the normal pass
+	[[nodiscard]] std::unordered_set<uint32_t> CutAboveInstances() const;
 	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)
 	void DrawHandShadowOnObjects() const;
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
+	/// The fish puzzle's nets of floats (FishPlot), cut by the plane: keep -1 the part under the water (fn_00829BC0, into
+	/// the reflection target, mirrored), 1 the part over it (fn_00829B50) (RendererFishPlot.cpp)
+	void DrawFishPlots(graphics::RenderPass viewId, int8_t keep) const;
 	/// Mod world.foliage: loads Mods/world.foliage on first use, places the plants for the island and draws them
 	void DrawFoliage(const DrawSceneDesc& desc) const;
 	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13
@@ -176,6 +201,9 @@ private:
 	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw
 	mutable std::vector<uint8_t> _cloudShadowCap;
 	mutable bgfx::TextureHandle _cloudShadowTexture = BGFX_INVALID_HANDLE;
+	/// The instances of the fish puzzle nets' floats (RendererFishPlot.cpp), made on first use
+	mutable bgfx::DynamicVertexBufferHandle _fishPlotInstances = BGFX_INVALID_HANDLE;
+	mutable uint32_t _fishPlotCapacity {0};
 	mutable glm::u16vec2 _cloudShadowSize {0, 0};
 	/// Moves the clouds, computes their colour / alpha and bakes their shadows into the luminosity cap texture
 	void UpdateClouds() const;

@@ -11,9 +11,11 @@
 
 #include "AudioManager.h"
 
+#include <cstdlib>
 #include <fstream>
 
 #include <PackFile.h>
+#include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
 #include <spdlog/spdlog.h>
 
@@ -31,6 +33,54 @@ using namespace openblack::ecs::components;
 
 namespace openblack::audio
 {
+
+namespace
+{
+/// OPENBLACK_AUDIO_TRACE=1: every PlayAt (start or cull) and, twice a second, every playing emitter (AL pitch, camera
+/// distance, distance gain, muted)
+bool AudioTrace()
+{
+	static const bool k_Trace = std::getenv("OPENBLACK_AUDIO_TRACE") != nullptr;
+	return k_Trace;
+}
+
+/// The channel's distance gain in QMixer (0x1800ACDF .. 0x1800AE1A with the channel flags LHSamplePlay sets, 0x103 /
+/// 0x111: neither 0x8 "clamp at max" nor 0x1000 "linear"; 0x1802CE50): 1 up to min (or with scale 0),
+/// min / (min + scale * (d - min)) up to max, 0 beyond max
+float MappingGain(const Sound& sound, float d)
+{
+	if (d > sound.mappingMaxDistance)
+	{
+		return 0.0f;
+	}
+	if (d <= sound.minDistance || sound.scale == 0.0f)
+	{
+		return 1.0f;
+	}
+	return sound.minDistance / (sound.minDistance + sound.scale * (d - sound.minDistance));
+}
+
+/// QSWaveMixSetFrequency(rate * percent / 100) as a ratio of the sample's rate (the integer division of 0x10012820)
+float FrequencyRatio(int sampleRate, int percent)
+{
+	if (sampleRate <= 0)
+	{
+		return static_cast<float>(percent) / 100.0f;
+	}
+	const auto frequency = static_cast<uint32_t>(sampleRate) * static_cast<uint32_t>(percent) / 100u;
+	return static_cast<float>(frequency) / static_cast<float>(sampleRate);
+}
+
+/// Which side of the listener a world point is heard on, as OpenAL builds it: the listener's right is at x up of the
+/// swapped (x <-> z) vectors AudioPlayer::UpdateListener sends. > 0 = right.
+float AlSide(glm::vec3 point)
+{
+	const auto& camera = Locator::camera::value();
+	const auto swap = [](glm::vec3 v) { return glm::vec3(v.z, v.y, v.x); };
+	const glm::vec3 right = glm::cross(swap(camera.GetForward()), swap(camera.GetUp()));
+	return glm::dot(swap(point - camera.GetOrigin()), right);
+}
+} // namespace
 
 AudioManager::AudioManager()
     : _audioPlayer(new AudioPlayer())
@@ -61,18 +111,47 @@ void AudioManager::Stop()
 	StopMusic();
 }
 
+void AudioManager::UpdateListener()
+{
+	// fn_004270D0 -> LHListenerUpdate (0x10003960: QSWaveMixSetListenerPosition / Orientation), once a game turn: the
+	// camera's position, forward and up; the velocity stays 0 (QSWaveMixSetListenerVelocity(0) at 0x10015C1A)
+	if (!Locator::camera::has_value())
+	{
+		return;
+	}
+	auto& camera = Locator::camera::value();
+	_listenerPosition = camera.GetOrigin();
+	_audioPlayer->UpdateListener(_listenerPosition, glm::vec3(0.0f), camera.GetForward(), camera.GetUp());
+}
+
 void AudioManager::Update()
 {
-	auto& camera = Locator::camera::value();
-	auto pos = camera.GetOrigin();
-	auto vel = camera.GetOriginVelocity();
-	auto forward = camera.GetForward();
-	auto top = camera.GetUp();
-	_audioPlayer->UpdateListener(pos, vel, forward, top);
+	// QMixer mixes every channel against the listener of the last game turn (UpdateListener)
+	const auto pos = _listenerPosition;
 	auto& registry = Locator::entitiesRegistry::value();
+	static uint32_t s_Frame = 0;
+	const bool traceFrame = AudioTrace() && (s_Frame++ % 30) == 0;
 	registry.Each<Transform, AudioEmitter>(
-	    [this](entt::entity entity, const Transform& transform, const AudioEmitter& emitter) {
+	    [this, pos, traceFrame](entt::entity entity, const Transform& transform, const AudioEmitter& emitter) {
 		    auto volume = _globalVolume * emitter.volume;
+		    // QMixer 0x1800ADDF: a channel farther than the max of its distance mapping is silent (it keeps playing)
+		    const float distance =
+		        emitter.relative ? glm::length(transform.position) : glm::distance(transform.position, pos);
+		    const bool muted = emitter.cutDistance > 0.0f && distance > emitter.cutDistance;
+		    if (muted)
+		    {
+			    volume = 0.0f;
+		    }
+		    if (traceFrame && entity != _musicEntity)
+		    {
+			    const auto& sound = Locator::resources::value().GetSounds().Handle(emitter.soundId);
+			    SPDLOG_LOGGER_INFO(spdlog::get("audio"),
+			                       "Audio trace: {} {} at ({:.1f}, {:.1f}, {:.1f}) distance {:.1f} pitch {:.3f} gain {:.3f}{}",
+			                       sound->name, emitter.relative ? "relative" : "world", transform.position.x,
+			                       transform.position.y, transform.position.z, distance,
+			                       _audioPlayer->GetSourcePitch(emitter.sourceId), muted ? 0.0f : MappingGain(*sound, distance),
+			                       muted ? " MUTED (beyond max)" : "");
+		    }
 		    if (entity == _musicEntity)
 		    {
 			    volume *= _musicVolume;
@@ -85,6 +164,11 @@ void AudioManager::Update()
 		    auto audioStatus = _audioPlayer->GetStatus(emitter.sourceId);
 		    if (audioStatus == AudioStatus::Stopped)
 		    {
+			    if (AudioTrace() && entity != _musicEntity)
+			    {
+				    SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio trace: {} ended",
+				                       Locator::resources::value().GetSounds().Handle(emitter.soundId)->name);
+			    }
 			    DestroyEmitter(entity);
 		    }
 	    });
@@ -119,7 +203,11 @@ void AudioManager::SetEmitterPitch(entt::entity emitter, float percent)
 	{
 		return;
 	}
-	_audioPlayer->SetSourcePitch(registry.Get<AudioEmitter>(emitter).sourceId, std::max(percent, 1.0f) / 100.0f);
+	// LHSampleSetPitch 0x10013520: QSWaveMixSetFrequency(rate * p / 100), integers
+	const auto& emitterComponent = registry.Get<AudioEmitter>(emitter);
+	const auto& sound = Locator::resources::value().GetSounds().Handle(emitterComponent.soundId);
+	_audioPlayer->SetSourcePitch(emitterComponent.sourceId,
+	                             FrequencyRatio(sound->sampleRate, std::max(static_cast<int>(percent), 1)));
 }
 
 void AudioManager::StopEmitter(entt::entity emitter)
@@ -145,21 +233,26 @@ entt::entity AudioManager::CreateEmitter(entt::id_type id, PlayType playType, gl
 	auto sound = Locator::resources::value().GetSounds().Handle(id);
 	auto& registry = Locator::entitiesRegistry::value();
 	auto entity = registry.Create();
-	// the start of a sample (LHaudiodllR 0x1001278B): p = pitch, d = p * deviation / 100, p = uniform in [p - d, p + d],
-	// played at rate * p / 100
-	float pitch = static_cast<float>(sound->pitch > 0 ? sound->pitch : 100);
-	if (sound->pitchDeviation > 0)
+	// the start of a sample (LHaudiodllR 0x1001278B..0x1001283B, unsigned integers): p = pitch (0 -> 100),
+	// d = deviation * p / 100, p = p - d + rand() * 2d / 32767 (0 -> 100); QSWaveMixSetFrequency(rate * p / 100)
+	uint32_t pitch = static_cast<uint32_t>(sound->pitch > 0 ? sound->pitch : 100);
+	const uint32_t d = static_cast<uint32_t>(std::max(sound->pitchDeviation, 0)) * pitch / 100;
+	pitch -= d;
+	pitch += static_cast<uint32_t>(Locator::rng::value().NextValue<int32_t>(0, 32767)) * (2 * d) / 32767;
+	if (pitch == 0)
 	{
-		const float d = pitch * static_cast<float>(sound->pitchDeviation) / 100.0f;
-		pitch += Locator::rng::value().NextValue(-d, d);
+		pitch = 100;
 	}
-	auto sourceId = _audioPlayer->CreateSource(std::max(pitch, 1.0f) / 100.0f, relative);
+	auto sourceId = _audioPlayer->CreateSource(FrequencyRatio(sound->sampleRate, static_cast<int>(pitch)), relative);
+	// QSWaveMixSetDistanceMapping {min, max, scale} of the channel (LHaudiodllR 0x10012159)
+	_audioPlayer->SetSourceDistance(sourceId, sound->minDistance, sound->mappingMaxDistance, sound->scale);
 	if (!sound->buffer.empty())
 	{
 		CreateBuffer(sound);
 	}
 	_audioPlayer->QueueBuffer(sourceId, sound->bufferId);
-	registry.Assign<AudioEmitter>(entity, sourceId, id, 0, position, direction, radius, volume, playType, status, relative);
+	registry.Assign<AudioEmitter>(entity, sourceId, id, 0, position, direction, radius, volume, playType, status, relative,
+	                              sound->mappingMaxDistance);
 	registry.Assign<Transform>(entity, glm::zero<glm::vec3>(), glm::one<glm::mat4>(), glm::one<glm::vec3>());
 	return entity;
 }
@@ -169,8 +262,12 @@ void AudioManager::CreateBuffer(Sound& sound)
 	std::vector<int16_t> decodeBuffer;
 	for (auto& buffer : sound.buffer)
 	{
-		bool success;
+		// a .sad sample is a RIFF wave (LHaudio opens it with QSWaveMixOpenWaveEx); trying MPEG first let dr_mp3 find
+		// frame syncs inside some waves (G_BigSplash_03 decoded to a fraction of a second)
+		const bool riff = buffer.size() >= 4 && buffer[0] == 'R' && buffer[1] == 'I' && buffer[2] == 'F' && buffer[3] == 'F';
+		bool success = false;
 		std::vector<int16_t> decoded;
+		if (!riff)
 		{
 			auto decoder = audio::MpegAudioDecoder();
 			success = decoder.Open(buffer);
@@ -234,12 +331,55 @@ const Sound& AudioManager::GetSound(entt::id_type id)
 
 void AudioManager::PlaySound(entt::id_type id, PlayType playType)
 {
-	auto position = glm::one<glm::vec3>();
+	// a 2D sample (is3D 0): on the listener, no distance mapping
+	auto position = glm::zero<glm::vec3>();
 	auto direction = glm::zero<glm::vec3>();
 	auto radius = glm::zero<glm::vec3>();
 	auto sound = Locator::resources::value().GetSounds().Handle(id);
 	auto entity = CreateEmitter(id, playType, position, direction, radius, sound->volume, AudioStatus::Playing, true);
 	PlayEmitter(entity);
+}
+
+entt::entity AudioManager::PlayAt(entt::id_type id, glm::vec3 position)
+{
+	auto& sounds = Locator::resources::value().GetSounds();
+	if (!sounds.Contains(id) || !Locator::camera::has_value())
+	{
+		return entt::null;
+	}
+	const auto sound = sounds.Handle(id);
+	// GAudio::PlaySoundEffect 0x429E30: GetGSFXSampleMaxDistance (.sad +0x26C, raw), or the options' max when that is 0;
+	// skipped when the camera is farther than it
+	const float maxDistance = sound->maxDistance != 0.0f ? sound->maxDistance : sound->mappingMaxDistance;
+	const float distance = glm::distance(position, Locator::camera::value().GetOrigin());
+	if (distance > maxDistance)
+	{
+		if (AudioTrace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio trace: PlayAt {} at ({:.1f}, {:.1f}, {:.1f}) culled: camera {:.1f} > max {:.1f}",
+			                   sound->name, position.x, position.y, position.z, distance, maxDistance);
+		}
+		return entt::null;
+	}
+	const auto entity =
+	    CreateEmitter(id, PlayType::Once, position, glm::zero<glm::vec3>(), glm::zero<glm::vec2>(), sound->volume,
+	                  AudioStatus::Playing, false);
+	Locator::entitiesRegistry::value().Get<Transform>(entity).position = position;
+	PlayEmitter(entity);
+	if (AudioTrace())
+	{
+		const auto& emitter = Locator::entitiesRegistry::value().Get<AudioEmitter>(entity);
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"),
+		                   "Audio trace: PlayAt {} at ({:.1f}, {:.1f}, {:.1f}): camera {:.1f} (max {:.1f}), pitch {:.3f} "
+		                   "(.sad {} +-{}%), mapping min {:.0f} max {:.0f} scale {:.1f} -> gain {:.3f}, volume {:.3f}, {} "
+		                   "(AL side {:.1f}, camera right {:.1f})",
+		                   sound->name, position.x, position.y, position.z, distance, maxDistance,
+		                   _audioPlayer->GetSourcePitch(emitter.sourceId), sound->pitch, sound->pitchDeviation,
+		                   sound->minDistance, sound->mappingMaxDistance, sound->scale, MappingGain(*sound, distance),
+		                   sound->volume, AlSide(position) >= 0.0f ? "right" : "left", AlSide(position),
+		                   glm::dot(position - Locator::camera::value().GetOrigin(), Locator::camera::value().GetRight()));
+	}
+	return entity;
 }
 
 void AudioManager::CreateSoundGroup(const std::string& name)

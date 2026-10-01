@@ -165,6 +165,9 @@ struct Collection
 		glm::vec4 state {0.0f}; ///< per-collection data (+0x24): emitter timing and counts
 		glm::vec4 extra {0.0f}; ///< more of it (UR_WillowWisp: the amount emitted and the atoms made)
 		bool first {true};
+		/// an object the rule made and must close later (UR_Explosion: the beam's GParticleContainer, CollectionData
+		/// +0x54); 0xFFFFFFFF = none (entt::null)
+		uint32_t object {0xFFFFFFFFu};
 	};
 	std::vector<Slot> modifiers;
 	/// +0x24 the BaseCollectionModifierData list (+0x1C each one's modifier): a modifier's CollectionData, found by its

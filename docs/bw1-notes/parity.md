@@ -11,12 +11,12 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | Borrado | El color no se borra; el cielo cubre la pantalla | Borra a 0x274659 | aprox. (no se ve) |
 | Cámara | FOV horizontal 70°, sin plano lejano, cercano 0,3–3,5 según altura | FOV 70°, cercano 0,3 + 0,16·altura (0,3–3,5), lejano 65536 | igual |
 | Cielo | 9 imágenes (alineación × hora), 2 pasadas, se oscurece con tormenta, blanco con relámpago; umbrales de hora 3,5/7,5/8/8,5 | Tipo y alineación, umbrales del original | aprox. (sin clima) |
-| Sol y luna | `sun.l3d` (6–18 h) y su resplandor; `moon.l3d` con fase por el reloj real y halo aditivo; sin estrellas | Igual (resplandor ocluido por el terreno con rayos por CPU; sin la luna reflejada) | aprox. |
+| Sol y luna | `sun.l3d` (6–18 h) y su resplandor; `moon.l3d` con fase por el reloj real y halo aditivo; sin estrellas | Igual (resplandor ocluido por el terreno con rayos por CPU); la luna reflejada en el mar (halo + malla espejada) | aprox. |
 | Nubes y sombras de nubes | 70 nubes (`mist.l3d` + `smoke.raw`) con el viento, color por alineación; sombras de `sclouds.raw` en la luminosidad de las celdas | Igual | igual |
 | Tierra reflejada | Solo tierra, sin Z, media luz, sin small bump | Igual | igual |
 | Reflejos de objetos en el mar | Mano (gris 0xA0A0A0 sin luz) y lo que sostiene, objetos físicos, el cuerpo de la criatura (y < 6, 0x65A0A0D0) y barcos, espejados y recortados sobre el agua, con el color que les dejó `fn_00801C90` | La mano, lo que sostiene y los objetos lanzados; faltan la criatura y los barcos (no existen aún) | aprox. |
 | Bajo el agua | Peces de piscifactoría (15 sprites `misc0.raw` por granja), antes del mar; tiburones y SuperVillagers nadando cortados por y = 0 (`DrawCutByPlane`, 0xFF303070) | Los bancos de peces, dentro del objetivo de reflejo; no hay tiburones ni SuperVillagers en Land1 | aprox. |
-| Mar | Modo 5, periodo 560 (nivel 4), viento, ondulación por filas, alfa 255→80, sin neblina | Igual salvo el viento | aprox. (sin viento) |
+| Mar | Modo 5 (ARGB4444), periodo 560 (nivel 4), viento (0 en partida), filas de 2 px desde el borde del quad de 30000, ondulación, alfa 255→80 y fila superior a 0x20, nivel 0 con quad de ±70000; sin neblina; brillo de la mano de noche debajo | Igual (filas rehechas por píxel en `fs_water`) | igual |
 | Tabla de luz | `palette.raw` por hora y alineación | Igual (sin nubes ni relámpagos) | igual |
 | Tierra | Bloques de delante a atrás, modo 14, tabla de luz por vértice, small bump | Igual | igual |
 | Neblina de distancia | Por software: tierra por vértice, modelos una vez por objeto; no en mar, cielo ni partículas PSys | Igual (sin tormenta ni relámpago) | igual |
@@ -32,7 +32,7 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | Mano | Z-sorter, luz ×1,5, muñeca con alfa | Igual | igual |
 | Humo de las chimeneas | `LH3DSmoke` (10 sprites `smoke.raw`, modo 6) en la chimenea (punto extra [1] de las mallas con flag 0x400) mientras hay aldeanos dentro o el taller fabrica; la mano lo empuja | Igual (`RendererSmoke.cpp`); nadie entra aún en casa (gancho `OPENBLACK_TEST_CHIMNEY=all`), edad sin truncar | aprox. (falta PresentAtHome) |
 | Anillos de agua | `fn_005E5100`: `smoke.raw` horizontal, modo 13, 700 ms; del chapoteo de la mano, objetos que caen al agua, nadadores, tiburones y cebo | Igual (mano y objetos lanzados; no hay nadadores ni tiburones) | igual |
-| Barcos | `PetitNavire` de las cinemáticas | — | falta |
+| Barcos | `PetitNavire` (`PLAY_JC_SPECIAL(6)`): botadura por `boat1.anm` con marineros, polvo, salpicaduras y 3 sonidos; travesía de 60 s por `boat2.anm` con cubierta y estela; reflejo 0xFF303070 | Igual (`ecs/PetitNavire`, `SmokyStuff`); los sprites van tras los transparentes en vez de ordenados con ellos y la sombra del casco solo cae en tierra | aprox. |
 | Partículas, hechizos, luciérnagas, destellos | PSys, todo en el Z-sorter | Motor PSys genérico (`src/PSys`): los archivos de hechizo con las ~25 clases más usadas, sprites ordenados por efecto; efectos de guion (`SPECIAL_EFFECT_*`); luciérnagas. Faltan mallas, niebla, cadenas, mapas de luz, las reglas de hechizos concretos y pasar a este motor los efectos de la mano | aprox. |
 | Lluvia, nieve, relámpagos | Por tormenta, en casillas de 80×80 | — | falta (sin clima) |
 | Correas, gestos, anillo de influencia | Modos 15, 13 y 6 | — | falta |

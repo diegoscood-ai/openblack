@@ -42,6 +42,9 @@ public:
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
+	/// No blocks: the cell predicates (ECS/SeaCells) see the whole map as "no cell" instead of throwing
+	[[nodiscard]] bool HasBlockAt(const glm::u16vec2&) const override { return false; }
+
 	void DumpTextures() const override { throw std::runtime_error("Cannot get landscape before any are loaded"); }
 
 	void DumpMaps() const override { throw std::runtime_error("Cannot get landscape before any are loaded"); }

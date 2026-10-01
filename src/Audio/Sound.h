@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <queue>
 #include <string>
 #include <vector>
@@ -223,11 +224,39 @@ public:
 	int sampleRate;
 	int priority;
 	int bitRate;
-	float volume;       ///< gain 0..1 (the .sad volume / 127 when its override flag is set)
+	float volume;       ///< QMixer's gain of volume127 (sample_play::QMixerGain: floor(127 v / 127) * 258 / 32767)
+	int volume127 {127}; ///< the LHaudio volume 0..127: the .sad's (+0x25C low u16) with flag 0x20, else 127
+	/// .sad +0x244: which of the .sad's fields override the play options (0x1 pitch, 0x20 volume, 0x40 loops, 0x80 min,
+	/// 0x100 max, 0x200 scale, 0x400 play mode)
+	uint32_t overrides {0};
+	/// .sad +0x248 with flag 0x40: the loops (0 once, -1 for ever)
+	int loops {0};
+	/// .sad +0x25C >> 16 (LHSampleGetUserParam 0x10014230): the kind GAudio::PlaySoundEffect filters on (1 = not while a
+	/// script holds the widescreen, 2 = also inside the citadel, 4 = not in some interface states)
+	int userParam {0};
 	int pitch;          ///< percent of the sample rate (100 = as recorded)
 	int pitchDeviation; ///< +-percent, random at each start
-	/// .sad +0x26C: LHSamplePlay does not start the sample farther than this from the camera (animation sounds)
+	/// .sad +0x26C: LHSamplePlay does not start the sample farther than this from the camera (animation sounds).
+	/// GAudio::PlaySoundEffect 0x429E30 reads it raw (LHSampleGetMaxDistance 0x10014170, no flag test).
 	float maxDistance {0.0f};
+	/// The distance mapping of the sample's channel (QSWaveMixSetDistanceMapping {min, max, scale}, LHaudiodllR
+	/// 0x10012159): the .sad +0x268 / +0x26C / +0x270 when the override flags 0x80 / 0x100 / 0x200 are set, otherwise
+	/// the LH_SamplePlayOptions defaults 1 / 9999 / 0.3 (ctor 0x10010E90). QMixer 0x1800ACDF / 0x1802CE50: gain 1 up to
+	/// min, min / (min + scale * (d - min)) up to max, 0 beyond max.
+	float minDistance {1.0f};
+	float mappingMaxDistance {9999.0f};
+	float scale {0.3f};
+	/// .sad +0x118 (u16): the clone group. LHSamplePlay 0x10011146, play mode 3: a new sample reuses (restarts) the
+	/// channel of any sample of the same bank, object and group (0 = none)
+	int cloneGroup {0};
+	/// .sad +0x274 when the override flag 0x400 is set, else 3: 1 = a new channel, 2 = nothing while the same sample
+	/// (or group) plays, 3 = restart the same channel
+	int playMode {3};
+	/// .sad +0x11A (u16, `u32 @+0x118 >> 16`): the atmos group of a bank sample (0 any, 1 good/neutral, 2 evil)
+	int atmosGroup {0};
+	/// .sad +0x27C (i32): -1 = not an atmos sample, 0 = the bank's loop, f > 0 = a loose sample queued again
+	/// 4f + rand * 12f / 32767 turns later (LHaudiodllR fn_10001610)
+	int32_t atmosFrequency {-1};
 	ChannelLayout channelLayout;
 	PlayType playType;
 	BufferId bufferId;

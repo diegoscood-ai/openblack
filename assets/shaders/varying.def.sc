@@ -24,7 +24,7 @@ flat ivec4 v_materialID0 : COLOR0;
 flat ivec4 v_materialID1 : COLOR1;
 vec3 v_materialBlend     : COLOR2;
 float v_lightLevel       : COLOR3;
-float v_waterAlpha       : COLOR4;
+float v_shoreFade        : COLOR4;
 float v_distToCamera     : DEPTH0;
 float v_smallBumpFade    : TEXCOORD3;
 vec3 v_landLight         : TEXCOORD4;

@@ -33,10 +33,16 @@ public:
 
 	[[nodiscard]] float GetHeightAt(glm::vec2 vec) const override { return HeightAt(vec, true); }
 	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2 vec) const override { return HeightAt(vec, false); }
-	[[nodiscard]] float HeightAt(glm::vec2 vec, bool seaFlattening) const;
+	[[nodiscard]] float GetDrawnHeightAt(glm::vec2 vec) const override { return HeightAt(vec, false, true); }
+	/// meshFlattening: every corner of 3 or less at 0, as the landscape mesh is drawn (GetDrawnHeightAt)
+	[[nodiscard]] float HeightAt(glm::vec2 vec, bool seaFlattening, bool meshFlattening = false) const;
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const override;
 	[[nodiscard]] const LandBlock* GetBlock(const glm::u8vec2& coordinates) const;
 	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const override;
+	[[nodiscard]] bool HasBlockAt(const glm::u16vec2& coordinates) const override
+	{
+		return BlockIndexAt(coordinates >> static_cast<uint16_t>(0x4)) != 0;
+	}
 	[[nodiscard]] uint8_t GetAltitudeBits() const override { return _altitudeBits; }
 	void SetCellAltitude(glm::u16vec2 cell, uint16_t altitude) override;
 	void RebuildAltitudes() override;
@@ -51,6 +57,8 @@ private:
 	/// Index + 1 of the block at these block coordinates, 0 where there is none
 	[[nodiscard]] uint16_t BlockIndexAt(glm::u16vec2 blockCoordinates) const;
 	[[nodiscard]] std::vector<uint8_t> CreateCellMap() const;
+	/// (Re)builds the coast alpha texture from the altitudes (CoastAlpha.h); OPENBLACK_DUMP_COAST_ALPHA writes it to a PNG
+	void CreateBlockTexture();
 	std::vector<LandBlock> _landBlocks;
 	std::vector<lnd::LNDCountry> _countries;
 	std::vector<LandMaterialInfo> _materialInfo;
@@ -77,6 +85,7 @@ public:
 	[[nodiscard]] const graphics::Texture2D& GetCellMap() const override { return *_cellMap; }
 	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const override { return *_staticShadowFrameBuffer; }
 	[[nodiscard]] const graphics::FrameBuffer& GetLandAlphaFramebuffer() const override { return *_landAlphaFrameBuffer; }
+	[[nodiscard]] const graphics::Texture2D* GetBlockTexture() const override { return _blockTexture.get(); }
 	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const override { return *_footprintFrameBuffer; }
 
 	[[nodiscard]] glm::mat4 GetOrthoView() const override { return _view; }
@@ -94,6 +103,8 @@ private:
 	std::unique_ptr<graphics::Texture2D> _cellMap;
 	std::unique_ptr<graphics::FrameBuffer> _staticShadowFrameBuffer;
 	std::unique_ptr<graphics::FrameBuffer> _landAlphaFrameBuffer;
+	std::unique_ptr<graphics::Texture2D> _blockTexture;
+	uint16_t _texelsPerBlock {256};
 	std::unique_ptr<graphics::Texture2D> _textureNoiseMap;
 	std::unique_ptr<graphics::Texture2D> _textureBumpMap;
 	std::unique_ptr<graphics::Texture2D> _smallBump;
@@ -107,6 +118,8 @@ private:
 	glm::vec2 _extentMax;
 
 	std::array<uint8_t, 256 * 256> _noiseMap;
+	std::array<uint8_t, 256 * 256> _bumpMap {};
+	std::vector<uint16_t> _materialTexels; ///< the LND material textures one after another, raw B5G5R5 [x * 256 + z]
 };
 } // namespace openblack
 

@@ -35,6 +35,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [animation.md](animation.md) | Aldeanos y animales: clips ANM, qué clip por estado, velocidad, tamaño, índice de creación, sonidos de los clips, objetos en la mano, dibujo entre turnos |
+| [villagers.md](villagers.md) | Aldeanos: campos del original, flags +0xE0, creación, cambios de estado (SetTopState / SetCurrentAndDestinationState), saltos de la velocidad, supuestos |
 | [animals.md](animals.md) | Animales: IA completa del original (herbívoros, depredadores y caza, aves, reacciones, bandadas, edad, mano, física, muerte, aldeanos como presa), clips por especie, diferencias que quedan |
 
 **Mundo, tiempo y gráficos**
@@ -46,6 +47,8 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
 | [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
 | [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
+| [water-queries.md](water-queries.md) | Consultas de agua (costa, río y agua potable más cercanas) y máscara `LandAvoid` de la criatura |
+| [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: cámaras `Cam%d`, pistas `Track%d` (`LH3DWay`), `WALK_PATH` de los MobileObject (tiburones) |
 
 **Magia**
 
@@ -78,6 +81,7 @@ objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.
 | Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas | [objects-and-resources.md](objects-and-resources.md) |
 | Golpes, daño, edificios que se rompen | [physics.md](physics.md) |
 | Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
+| Datos y estados de los aldeanos | [villagers.md](villagers.md) |
 | Comportamiento de los animales | [animals.md](animals.md) |
 | Hora del día, ventanas iluminadas, clima, tormentas, lluvia | [day-night-weather.md](day-night-weather.md) |
 | Cómo se dibuja algo; si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
@@ -85,6 +89,8 @@ objects-and-resources), `map-loading.md` (carga del mapa, ciudades), `villagers.
 | Magia: hechizos y cánticos, lanzar desde la mano, gestos, culto, influencia, alineación, reacciones, fuego | [magic.md](magic.md) |
 | Un milagro concreto (comida, agua, curar, bosque, bandadas, bola de fuego, rayo, escudos, teletransporte, tormenta, explosión de rayo) | [miracles.md](miracles.md) |
 | Partículas: tipos, clases de PSys, creadores, sonido de las partículas, qué regla está dónde | [particles.md](particles.md) |
+| Costa, río o agua potable más cercana; `LandAvoid` de la criatura | [water-queries.md](water-queries.md) |
+| Cámaras y pistas de `camera.edt`, recorridos de los tiburones | [camera-tracks.md](camera-tracks.md) |
 | Activar o programar un mod | [mod-library.md](mod-library.md) |
 | Ganchos de prueba (`OPENBLACK_*`), compilar, depurar | [openblack-internals.md](openblack-internals.md) y la sección «Ganchos de prueba» de cada página |
 

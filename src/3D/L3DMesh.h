@@ -117,6 +117,9 @@ public:
 	[[nodiscard]] const std::vector<glm::mat4>& GetExtraMetrics() const { return _extraMetrics; }
 	/// Ground blob points of the EBone block (animals): bone index and position in that bone's space, 2 or 4 of them
 	[[nodiscard]] const std::vector<std::pair<uint32_t, glm::vec3>>& GetBlobPoints() const { return _blobPoints; }
+	/// The first point of the EBone block (bones[0], matrices[0] position), whatever the others: the shark's wake
+	/// (fn_00774E30 0x775049-0x7750A3). Empty without an EBone block.
+	[[nodiscard]] const std::optional<std::pair<uint32_t, glm::vec3>>& GetEBonePoint0() const { return _eBonePoint0; }
 	[[nodiscard]] bool HasPhysicsMesh() const { return _physicsMesh != nullptr; }
 	[[nodiscard]] btConvexShape& GetPhysicsMesh() { return *_physicsMesh; }
 	[[nodiscard]] const btConvexShape& GetPhysicsMesh() const { return *_physicsMesh; }
@@ -140,6 +143,7 @@ private:
 	std::optional<glm::vec3> _chimneyPos;
 	std::vector<glm::mat4> _extraMetrics;
 	std::vector<std::pair<uint32_t, glm::vec3>> _blobPoints;
+	std::optional<std::pair<uint32_t, glm::vec3>> _eBonePoint0;
 	/// Bounding box if no physics mesh was found
 	std::unique_ptr<btConvexShape> _physicsMesh;
 	float _physicsMass {1.0f}; // TODO(bwrsandman): Find somewhere in file a value

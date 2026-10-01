@@ -106,11 +106,11 @@ void mist_atoms::SubmitFrame(float milliseconds)
 				mist.k = matrix[1][1] / matrix[0][0];
 			}
 			// DrawData colour (the atom's, its alpha with the collection's) x [0xFA26A4], the land light table's base
-			// colour (the renderer's last Build, LandLightTable::LastBuiltBase: (aproximado) the previous frame's)
+			// colour (the renderer's last Build, LandLightTable::Current().GetRawBase(): (aproximado) the previous frame's)
 			const auto alpha = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
 			const uint32_t argb = (alpha << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) |
 			                      (static_cast<uint32_t>(atom.colour[1]) << 8) | static_cast<uint32_t>(atom.colour[2]);
-			mist.colour = MistColour(argb, LandLightTable::LastBuiltBase());
+			mist.colour = MistColour(argb, LandLightTable::Current().GetRawBase());
 			mist.counter = static_cast<int>(g_counter);
 			// vt 0x100 (Z-sorted, [0xC0215D] set) / vt 0x104: the sorting is mists::Submit's
 			// TODO(storm): the land light / shadow map of a creator with a TextureFileName (+0x40, the storm's

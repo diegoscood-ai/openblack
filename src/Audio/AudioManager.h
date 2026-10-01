@@ -56,6 +56,7 @@ public:
 	void StopMusic() override;
 	const Sound& GetSound(entt::id_type id) override;
 	void PlaySound(entt::id_type id, PlayType type) override;
+	entt::entity PlayAt(entt::id_type id, glm::vec3 position) override;
 	void SetGlobalVolume(float volume) override { _globalVolume = volume; }
 	void SetSfxVolume(float volume) override { _sfxVolume = volume; }
 	void SetMusicVolume(float volume) override { _musicVolume = volume; }
@@ -64,6 +65,7 @@ public:
 	[[nodiscard]] float GetMusicVolume() override { return _musicVolume; }
 	void Stop() override;
 	void Update() override;
+	void UpdateListener() override;
 	void CreateSoundGroup(const std::string& name) override;
 	void AddMusicEntry(const std::string& name) override;
 	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override { return _music; }
@@ -81,6 +83,8 @@ private:
 	float _musicVolume {1.0f};
 	float _sfxVolume {1.0f};
 	entt::entity _musicEntity {entt::null};
+	/// where the last UpdateListener put QMixer's listener (the distances of the channels are taken from it)
+	glm::vec3 _listenerPosition {0.0f};
 };
 
 } // namespace openblack::audio

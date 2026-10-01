@@ -55,18 +55,27 @@ uint32_t PutOutFireByBeating(components::LivingAction& action);  ///< 216, 0x75A
 uint32_t PutOutFireWithWater(components::LivingAction& action);  ///< 217 0x75AFE0 / 218 0x75B000: DECIDE_WHAT_TO_DO
 uint32_t OnFire(components::LivingAction& action);               ///< 219, 0x75B1E0
 uint32_t MoveAroundFire(components::LivingAction& action);       ///< 220, 0x75A7E0
-bool EnterPutOutFire(components::LivingAction& action, VillagerStates from, VillagerStates to); ///< 0x75ADC0
-bool ExitPutOutFire(components::LivingAction& action, VillagerStates next); ///< 0x75AE80
-bool EnterOnFire(components::LivingAction& action, VillagerStates from, VillagerStates to); ///< 0x75AF30
-bool ExitOnFire(components::LivingAction& action);               ///< 0x75AF80
-/// The exit function of the final state `state` (the fire's and the worship ones, none for the others), told the next
-/// state: for the other files' SetTopState (the entry and exit functions go with the final state, as here)
-void CallFinalStateExit(entt::entity villager, VillagerStates state, VillagerStates next);
+// their rows' entry (+0x10) and exit (+0x20) functions (_$E32 0x5AA2D9..0x5AA767: EnterPutOutFire / ExitPutOutFire
+// on 216, 217, 218 and 220, EnterOnFire / ExitOnFire on 219), with the table's codes: entry 1 = accepted, 0 = refused
+// (0x2F); exit 1 = it may leave. The villager core's state changes (ECS/Villager/VillagerCore.h) call them, once each
+/// 0x75ADC0 (final, next): 1 for a change between fire-fighting states, or with a live fire and reaction when it was not
+/// a fireman yet (then it is); else 0
+uint32_t EnterPutOutFire(components::LivingAction& action, VillagerStates final, VillagerStates next);
+uint32_t ExitPutOutFire(components::LivingAction& action, VillagerStates next); ///< 0x75AE80: always 1
+/// 0x75AF30 (final, next): 0 only if it is already a fireman of its fire, else 1
+uint32_t EnterOnFire(components::LivingAction& action, VillagerStates final, VillagerStates next);
+uint32_t ExitOnFire(components::LivingAction& action, VillagerStates next); ///< 0x75AF80: always 1, +0x114 = 0
 
 /// The REACT_TO_FIRE part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for a villager of a cell the reaction
 /// reaches (ECS/Effects/Reactions spreads it once, when it is made; ProcessReactions' respreading is off: its flag
 /// 0xD00DD4 is never set)
 void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction);
+
+/// Living +0x94 != 0 for the fire's reaction (REACT_TO_FIRE)
+[[nodiscard]] bool IsReacting(entt::entity villager);
+/// Living::StopReacting 0x5F1140 for the fire's reaction kept here: its record gets the turn, +0x94 = 0, +0xBC = 0
+/// (villager_reactions::StopReacting calls it)
+void StopReacting(entt::entity villager);
 
 /// A land is loaded (also registers the villagers' reaction handler)
 void Clear();

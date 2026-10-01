@@ -10,142 +10,105 @@
 #include "SmokyStuff.h"
 
 #include <algorithm>
-#include <optional>
-#include <vector>
+#include <cmath>
 
-#include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
-#include <glm/gtc/constants.hpp>
-#include <glm/vec2.hpp>
-#include <glm/vec4.hpp>
-#include <spdlog/spdlog.h>
 
-#include "Common/RandomNumberManager.h"
-#include "ECS/Components/Sprite.h"
-#include "ECS/Components/Transform.h"
-#include "ECS/Registry.h"
-#include "FileSystem/FileSystemInterface.h"
-#include "Graphics/Texture2D.h"
-#include "Locator.h"
-#include "Resources/Loaders.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/ResourcesInterface.h"
-
-using namespace openblack;
-using namespace openblack::ecs;
-using namespace openblack::ecs::components;
-
+namespace openblack::ecs::smoky_stuff
+{
 namespace
 {
-constexpr size_t k_MaxSprites = 512;
-/// SmokyStuff type 0: life 1 falling by dt / 3 (three seconds)
-constexpr float k_Life = 3.0f;
-/// frames 0..15: LH3DSprite::SetToZero leaves 8 cells per row (+0x30) and SmokyStuff::Create 0x823C90 does not change
-/// it, so they are rows 0-1 of smoke.raw's 8 x 8 sheet (LH3DSprite::Draw 0x840530: u = (c & 7) / 8, v = (c >> 3) / 8)
-constexpr uint32_t k_Frames = 16;
-
-struct Sprite2
-{
-	entt::entity entity;
-	glm::vec3 velocity;
-	float size;
-	float life;
-};
-std::vector<Sprite2> g_Sprites;
-
-/// the alpha of Data\Textures\smoke.raw (as the night lights' glow)
-std::optional<graphics::TextureHandle> Texture()
-{
-	auto& textures = Locator::resources::value().GetTextures();
-	const auto id = entt::hashed_string("raw/smokea").value();
-	if (!textures.Contains(id))
-	{
-		try
-		{
-			auto& fileSystem = Locator::filesystem::value();
-			textures.Load(id, resources::Texture2DLoader::FromDiskTag {},
-			              fileSystem.FindPath(std::filesystem::path("Data") / "Textures" / "smokea.raw"));
-		}
-		catch (const std::exception& e)
-		{
-			SPDLOG_LOGGER_WARN(spdlog::get("game"), "SmokyStuff: cannot load Data/Textures/smokea.raw: {}", e.what());
-			return std::nullopt;
-		}
-	}
-	return textures.Handle(id)->GetNativeHandle();
-}
-
-glm::vec2 FrameUv(uint32_t frame)
-{
-	const uint32_t f = std::min(frame, k_Frames - 1);
-	return glm::vec2(static_cast<float>(f & 7), static_cast<float>(f >> 3)) * 0.125f;
-}
-
-/// grey 0x808080 with alpha = trunc(life x 100) of 255
-glm::vec4 Colour(float life)
-{
-	const float a = std::clamp(std::trunc(life * 100.0f) / 255.0f, 0.0f, 1.0f);
-	const glm::vec3 rgb(128.0f / 255.0f);
-	return glm::vec4(rgb * a, a);
-}
+std::vector<Cloud> g_clouds;
+uint32_t g_seed = 1;
 } // namespace
 
-void SmokyStuff::Create(glm::vec3 at, float size)
+float Random(float from, float to)
 {
-	const auto texture = Texture();
-	if (!texture || size <= 0.0f)
-	{
-		return;
-	}
-	auto& registry = Locator::entitiesRegistry::value();
-	auto& rng = Locator::rng::value();
-	const auto random = [&rng, size]() { return rng.NextValue(-size, size); };
-	for (int i = 0; i < 15 && g_Sprites.size() < k_MaxSprites; ++i)
-	{
-		const auto entity = registry.Create();
-		const glm::vec3 offset(random(), random(), random());
-		glm::vec3 direction(random(), random(), random());
-		direction = glm::length(direction) > 0.0f ? glm::normalize(direction) : glm::vec3(0.0f, 1.0f, 0.0f);
-		const glm::vec3 velocity = direction * rng.NextValue(0.3f, 1.0f) * size;
-		registry.Assign<Sprite>(entity, *texture, FrameUv(k_Frames - 1), glm::vec2(0.125f), Colour(1.0f), false);
-		registry.Assign<Transform>(entity, at + offset, glm::mat3(1.0f), glm::vec3(size * 0.5f));
-		g_Sprites.push_back({entity, velocity, size, 1.0f});
-	}
-	registry.SetDirty();
+	g_seed = g_seed * 214013u + 2531011u;
+	const auto r = static_cast<float>((g_seed >> 16) & 0x7FFFu);
+	return from + (to - from) * r * 3.05185e-05f;
 }
 
-void SmokyStuff::Update(float seconds)
+void Create(const glm::vec3& position, int32_t mode, float size, uint32_t colour)
 {
-	if (g_Sprites.empty() || seconds <= 0.0f)
+	Cloud cloud;
+	cloud.life = 1.0f;
+	cloud.mode = mode;
+	cloud.size = size;
+	cloud.colour = colour;
+	for (auto& puff : cloud.puffs)
 	{
-		return;
-	}
-	auto& registry = Locator::entitiesRegistry::value();
-	for (auto& sprite : g_Sprites)
-	{
-		sprite.life -= seconds / k_Life;
-		if (sprite.life <= 0.0f || !registry.Valid(sprite.entity))
+		// the order of the Random calls of 0x823D39..0x823D80
+		const float a = Random(-size, size);
+		const float b = Random(-size, size);
+		const float c = Random(-size, size);
+		puff.position = glm::vec3(c, b, a);
+		puff.angle = Random(0.0f, 6.2831855f);
+		const float d = Random(-size, size);
+		const float e = Random(-size, size);
+		puff.velocity = glm::vec3(e, size, d);
+		puff.cell = 0x10;
+		if (mode == 0)
 		{
-			if (registry.Valid(sprite.entity))
+			// 0x823E80: Random(0.3, 1) x size along the direction (left as it is when it is 0)
+			const float speed = Random(0.3f, 1.0f) * size;
+			const float length = glm::length(puff.velocity);
+			if (length > 0.0f)
 			{
-				registry.Destroy(sprite.entity);
+				puff.velocity *= speed / length;
 			}
-			sprite.entity = entt::null;
+		}
+		puff.position += position;
+	}
+	g_clouds.push_back(cloud);
+}
+
+void Update(float seconds)
+{
+	for (auto& cloud : g_clouds)
+	{
+		// fn_00823F70
+		cloud.life -= seconds * (cloud.mode != 0 ? 0.666667f : 0.333333f);
+		if (cloud.life <= 0.0f)
+		{
 			continue;
 		}
-		auto& transform = registry.Get<Transform>(sprite.entity);
-		transform.position += sprite.velocity * seconds;
-		// 0.5 x size at the start, 1.5 x size at the end
-		transform.scale = glm::vec3(std::max(0.0001f, (1.0f + 2.0f * (1.0f - sprite.life)) * sprite.size * 0.5f));
-		auto& drawn = registry.Get<Sprite>(sprite.entity);
-		drawn.uvMin = FrameUv(static_cast<uint32_t>(sprite.life * static_cast<float>(k_Frames) * 0.9375f));
-		drawn.tint = Colour(sprite.life);
+		uint32_t argb = 0;
+		if (cloud.mode != 0)
+		{
+			const float a = cloud.life < 0.7f ? cloud.life * 1.42857f * 255.0f : 255.0f;
+			argb = (static_cast<uint32_t>(static_cast<int32_t>(a)) << 24) | 0x68503Du;
+		}
+		else
+		{
+			argb = (static_cast<uint32_t>(static_cast<int32_t>(cloud.life * 100.0f)) << 24) | 0x808080u;
+		}
+		if (cloud.colour != 0xFFFFFFFFu)
+		{
+			argb = (argb & 0xFF000000u) | (cloud.colour & 0x00FFFFFFu);
+		}
+		for (auto& puff : cloud.puffs)
+		{
+			puff.argb = argb;
+			const float sign = puff.velocity.x > puff.velocity.z ? -1.0f : 1.0f;
+			puff.angle = sign * cloud.life * 5.0f + puff.velocity.x;
+			puff.half = std::max(((1.0f - cloud.life) * 2.0f + 1.0f) * cloud.size * 0.5f, 0.0001f);
+			puff.position += puff.velocity * seconds;
+			puff.cell = static_cast<uint8_t>(static_cast<int32_t>(cloud.life * 15.0f) & 0x3F);
+		}
 	}
-	std::erase_if(g_Sprites, [](const Sprite2& s) { return s.entity == entt::null; });
-	registry.SetDirty();
+	// fn_00824140: freed when life < 0
+	std::erase_if(g_clouds, [](const Cloud& cloud) { return cloud.life < 0.0f; });
 }
 
-void SmokyStuff::Clear()
+const std::vector<Cloud>& Get()
 {
-	g_Sprites.clear();
+	return g_clouds;
 }
+
+void Clear()
+{
+	g_clouds.clear();
+}
+
+} // namespace openblack::ecs::smoky_stuff

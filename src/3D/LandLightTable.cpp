@@ -56,7 +56,7 @@ bool LandLightTable::Load(const std::vector<uint8_t>& palette) noexcept
 	return true;
 }
 
-void LandLightTable::Build(float skyType, float alignment, float weather) noexcept
+void LandLightTable::Build(float skyType, float alignment, float overcast, uint8_t flash) noexcept
 {
 	if (_palette.empty())
 	{
@@ -77,22 +77,25 @@ void LandLightTable::Build(float skyType, float alignment, float weather) noexce
 	}
 
 	_moonColour = glm::vec3((colours[5] >> 16) & 0xFFu, (colours[5] >> 8) & 0xFFu, colours[5] & 0xFFu) / 255.0f;
+	_row6 = colours[6];
 
 	const auto k = static_cast<int>(x * 255.0f);
 	uint32_t base = x < 1.0f ? Lerp(colours[0], colours[1], static_cast<uint32_t>(k))
 	                         // at X = 1 exactly the original lerps with t = -1 (unsigned wrap): keep it
 	                         : Lerp(colours[1], colours[2], static_cast<uint32_t>(k - 256));
-	const auto limit = static_cast<uint32_t>(255.0f - std::clamp(weather, 0.0f, 1.0f) * 96.0f);
+	// 0x869ADB: ftol(255 - 96 * overcast), not clamped (the haze below clamps the overcast to 1 afterwards)
+	const auto limit = static_cast<int32_t>(255.0f - overcast * 96.0f);
 	uint32_t capped = base & 0xFF000000u;
 	for (const uint32_t shift : {16u, 8u, 0u})
 	{
-		capped |= std::min((base >> shift) & 0xFFu, limit) << shift;
+		const auto channel = static_cast<int32_t>((base >> shift) & 0xFFu);
+		capped |= static_cast<uint32_t>(std::clamp(std::min(channel, limit), 0, 255)) << shift;
 	}
 	base = capped;
 	_base = base;
 
-	// Haze (clear weather, no lightning): k from the base colour's luminance, fog colour = base / 3, near / far by sky
-	// type (400 -> 900 at noon and midnight, 100 -> 800 at dusk)
+	// Haze: k from the base colour's luminance, fog colour = base / 3, near / far by sky type (400 -> 900 at noon and
+	// midnight, 100 -> 800 at dusk); then the storm and the lightning (0x869DB1..0x869F37)
 	{
 		const uint32_t r = (base >> 16) & 0xFFu;
 		const uint32_t g = (base >> 8) & 0xFFu;
@@ -100,11 +103,32 @@ void LandLightTable::Build(float skyType, float alignment, float weather) noexce
 		_haze.k = static_cast<float>(std::min(255u, (r + 4 * g + 3 * b) / 8 + 8));
 		_haze.colour = glm::vec3(static_cast<float>(r / 3), static_cast<float>(g / 3), static_cast<float>(b / 3));
 		const float v = 1.0f - std::abs(std::clamp(skyType, 0.0f, 2.0f) - 1.0f); // 0 day / night, 1 dusk
-		_haze.nearDistance = 1.0f / (0.0025f + 0.0075f * v * v);
-		_haze.farDistance = 1.0f / (0.00111111f + 0.000138889f * v * v);
+		float nearInverse = 0.0025f + 0.0075f * v * v;
+		float farInverse = 0.00111111f + 0.000138889f * v * v;
+		if (overcast > 0.0f)
+		{
+			// the storm: colour -> (c >> 3) + 32, k -> 48, near -> 15 and far -> 350 (in 1 / distance) by the overcast
+			// amount, clamped to 1 (0x869DDB writes the clamp back to [0xFA2754])
+			const float w = std::min(overcast, 1.0f);
+			const glm::vec3 storm(static_cast<float>((r >> 3) + 32), static_cast<float>((g >> 3) + 32),
+			                      static_cast<float>((b >> 3) + 32));
+			_haze.colour += (storm - _haze.colour) * w;
+			const float k = _haze.k;
+			_haze.k = k + static_cast<float>(static_cast<int32_t>((48.0f - k) * w)); // __ftol truncates
+			nearInverse += (0.0666667f - nearInverse) * w;
+			farInverse += (0.00285714f - farInverse) * w;
+		}
+		if (flash != 0)
+		{
+			// the lightning: colour and k that much of the way to 255
+			const float f = static_cast<float>(flash);
+			_haze.colour += (glm::vec3(255.0f) - _haze.colour) * f * 0.00390625f;
+			const auto k = static_cast<int32_t>(_haze.k);
+			_haze.k = static_cast<float>(k + ((255 - k) * static_cast<int32_t>(flash)) / 256);
+		}
+		_haze.nearDistance = 1.0f / nearInverse;
+		_haze.farDistance = 1.0f / farInverse;
 	}
-	s_lastBase = _base; // [0xFA26A4] for the readers outside the renderer (LastBuiltBase)
-	s_lastHaze = _haze;
 
 	const uint32_t n = (((base >> 8) & 0xFFu) * 48) >> 8;
 	for (uint32_t i = 0; i < n; ++i)
@@ -118,6 +142,21 @@ void LandLightTable::Build(float skyType, float alignment, float weather) noexce
 	for (uint32_t i = 48; i < k_Size; ++i)
 	{
 		_table[i] = Ramp(colours[3], base, i);
+	}
+	if (flash != 0)
+	{
+		// 0x869C25..0x869CB6: per channel c + (((0xFF - c) * flash) >> 8), alpha 0xFF
+		for (auto& c : _table)
+		{
+			c = Lerp(c, 0xFFFFFFFFu, flash) | 0xFF000000u;
+		}
+	}
+	// the original's single global table at 0xEDD90C (and its base [0xFA26A4] and haze): a copy of the last one built
+	if (auto& current = CurrentStorage(); &current != this)
+	{
+		current._table = _table;
+		current._base = _base;
+		current._haze = _haze;
 	}
 
 	for (size_t i = 0; i < k_Size; ++i)
@@ -133,22 +172,24 @@ glm::vec3 LandLightTable::GetColour(size_t index) const noexcept
 	return glm::vec3((c >> 16) & 0xFFu, (c >> 8) & 0xFFu, c & 0xFFu) / 255.0f;
 }
 
+const LandLightTable& LandLightTable::Current() noexcept
+{
+	return CurrentStorage();
+}
+
+LandLightTable& LandLightTable::CurrentStorage() noexcept
+{
+	static LandLightTable table = [] {
+		LandLightTable t;
+		t._table.fill(0xFFFFFFFFu);
+		return t;
+	}();
+	return table;
+}
+
 glm::vec3 LandLightTable::GetBaseColour() const noexcept
 {
 	return glm::vec3((_base >> 16) & 0xFFu, (_base >> 8) & 0xFFu, _base & 0xFFu) / 255.0f;
-}
-
-uint32_t LandLightTable::s_lastBase = 0xFFFFFFFFu;
-LandLightTable::Haze LandLightTable::s_lastHaze {};
-
-uint32_t LandLightTable::LastBuiltBase() noexcept
-{
-	return s_lastBase;
-}
-
-LandLightTable::Haze LandLightTable::LastBuiltHaze() noexcept
-{
-	return s_lastHaze;
 }
 
 } // namespace openblack

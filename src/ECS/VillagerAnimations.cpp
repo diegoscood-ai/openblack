@@ -23,7 +23,9 @@
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/VillagerAnimationTable.h"
 #include "ECS/VillagerSpeed.h"
@@ -159,6 +161,13 @@ bool IsWomanOrChild(const Villager& villager)
 	return !IsMale(villager) || villager.lifeStage == Villager::LifeStage::Child;
 }
 
+/// MapCoords::IsWater (0x6035B0) of the villager's Pos (+0x14)
+bool IsInWater(entt::entity villager)
+{
+	const auto* transform = Locator::entitiesRegistry::value().TryGet<const Transform>(villager);
+	return transform != nullptr && sea_cells::IsWater(transform->position);
+}
+
 float Life(const Villager& villager)
 {
 	return villager.life;
@@ -234,10 +243,10 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 		return k_Stand;
 	case AnimFn::Landed: // landType 0 (on its feet): no landing types yet
 		return CarriedObject(entity) == k_CarriedNone ? k_LandedFromFeet : k_LandedFromFeetCarryObject;
-	case AnimFn::Dying: // not in water, landType 0
-		return k_Dying;
-	case AnimFn::Dead:
-		return k_Dead1;
+	case AnimFn::Dying: // DyingAnimation 0x423770: in the water P_INTO_DEAD_DROWNED; else landType 0 (no landing types yet)
+		return IsInWater(entity) ? k_IntoDeadDrowned : k_Dying;
+	case AnimFn::Dead: // DeadAnimation 0x4237A0: in the water P_DEAD_DROWNED; else landType 0
+		return IsInWater(entity) ? k_DeadDrowned : k_Dead1;
 	case AnimFn::Thrown: // not in a vortex
 		return Life(villager) <= 0.0f ? k_ThrownDead : k_Thrown;
 	case AnimFn::Kissing:
@@ -481,36 +490,62 @@ int32_t VillagerAnimId(entt::entity entity)
 	return StateFunctionAnim(k_StateAnimFns.at(static_cast<size_t>(state)).anim, entity, *villager, fallback);
 }
 
-void OnVillagerStateChanged(entt::entity entity, VillagerStates previous, VillagerStates next)
+namespace
 {
-	// SetTopState: the new state's speed before its clips (not while dancing)
-	if (next != VillagerStates::InDance)
+/// CallOutofAnimationFunction 0x756620 for a given current state
+int32_t OutOfClip(entt::entity entity, VillagerStates current, VillagerStates next)
+{
+	if (StateInfo(next).field0xf0 != 0 || static_cast<size_t>(current) >= 255)
 	{
-		SetVillagerStateSpeed(entity);
+		return -1;
 	}
-	auto& animation = AnimationOf(entity);
-	int32_t out = -1;
-	if (StateInfo(next).field0xf0 == 0 && static_cast<size_t>(previous) < 255)
+	const auto out = TransitionAnim(k_StateAnimFns.at(static_cast<size_t>(current)).transition, entity, false, next, current);
+	if (out != -1)
 	{
-		out = TransitionAnim(k_StateAnimFns.at(static_cast<size_t>(previous)).transition, entity, false, next, previous);
-		if (out != -1)
-		{
-			animation.transitionFlags |= 0x1800;
-		}
+		// Villager +0xE1 |= 0x18 (0x756699): the flags 0x800 / 0x1000 of Villager +0xE0
+		AnimationOf(entity).transitionFlags |= 0x1800;
 	}
+	return out;
+}
+} // namespace
+
+int32_t VillagerCallOutOfAnimation(entt::entity entity, VillagerStates next)
+{
+	return OutOfClip(entity, TopState(entity), next);
+}
+
+void VillagerApplyStateClips(entt::entity entity, VillagerStates entered, int32_t out)
+{
+	const auto top = TopState(entity);
+	// Living::SetTopState 0x5F291B / SetCurrentAndDestinationState 0x5F29BF: Villager::SetStateSpeed with no test (its
+	// own skips, script-controlled or dancing, are inside SetVillagerStateSpeed, 0x753766 / 0x753772)
+	SetVillagerStateSpeed(entity);
 	if (out != -1)
 	{
 		SetAnim(entity, out, true);
 		return;
 	}
 	SetStateAnim(entity);
-	const auto into = TransitionAnim(k_StateAnimFns.at(static_cast<size_t>(next)).transition, entity, true, next, next);
+	if (static_cast<size_t>(top) >= 255)
+	{
+		return;
+	}
+	// CallIntoAnimationFunction (0x756590): the TOP's function (Villager +0x8C, 0x756598) with (1, entered): SetTopState
+	// passes its s (0x5F2947), SetCurrentAndDestinationState its destination d (0x5F29EB `push ebx`)
+	const auto into = TransitionAnim(k_StateAnimFns.at(static_cast<size_t>(top)).transition, entity, true, entered, top);
 	if (into != -1)
 	{
+		// Villager +0xE0 = (flags | 0x800) & ~0x1000 (0x7565F5)
 		auto& flags = AnimationOf(entity).transitionFlags;
 		flags = static_cast<uint16_t>((flags | 0x800) & ~0x1000);
 		SetAnim(entity, into, true);
 	}
+}
+
+void OnVillagerStateChanged(entt::entity entity, VillagerStates previous, VillagerStates next)
+{
+	const auto out = OutOfClip(entity, previous, next);
+	VillagerApplyStateClips(entity, next, out);
 }
 
 bool VillagerWaitsForTransition(entt::entity entity, uint16_t turnsSinceStateChange)
@@ -521,11 +556,16 @@ bool VillagerWaitsForTransition(entt::entity entity, uint16_t turnsSinceStateCha
 	{
 		return false;
 	}
-	// Living::IsReadyForNewAnimation (0x5EC960): turns in the state * 100 ms >= the clip's duration
-	auto& animations = Locator::resources::value().GetAnimations();
-	const int32_t duration = animation->hasClip && animations.Contains(animation->clip)
-	                             ? animations.Handle(animation->clip)->GetDurationMs()
-	                             : 0;
+	// Living::IsReadyForNewAnimation (0x5EC960): turns in the state * 100 ms >= the clip's duration (no resources, in the
+	// unit tests: no duration)
+	int32_t duration = 0;
+	if (Locator::resources::has_value())
+	{
+		auto& animations = Locator::resources::value().GetAnimations();
+		duration = animation->hasClip && animations.Contains(animation->clip)
+		               ? animations.Handle(animation->clip)->GetDurationMs()
+		               : 0;
+	}
 	if (static_cast<int32_t>(turnsSinceStateChange) * 100 < duration)
 	{
 		return true;
@@ -562,8 +602,12 @@ bool VillagerWaitsForTransition(entt::entity entity, uint16_t turnsSinceStateCha
 bool VillagerAnimationDone(entt::entity entity, uint16_t turnsSinceStateChange)
 {
 	const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(entity);
+	if (animation == nullptr || !animation->hasClip || !Locator::resources::has_value())
+	{
+		return true;
+	}
 	auto& animations = Locator::resources::value().GetAnimations();
-	if (animation == nullptr || !animation->hasClip || !animations.Contains(animation->clip))
+	if (!animations.Contains(animation->clip))
 	{
 		return true;
 	}

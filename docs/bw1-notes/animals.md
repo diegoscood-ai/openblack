@@ -201,8 +201,13 @@ reacciones en el mismo reparto (fuego y teletransporte portados).
   una propia (`SeperateLivingIntoNewFlock`) → IN_HAND. Soltar o lanzar: física → FLYING (clip THROWN).
 - En reposo (`Animal::EndPhysics` 0x5F0D80): landType por la fila derecha del cuerpo (y > 0,5 de lado derecho, < −0,5
   izquierdo, si no de pie); vivo → LANDED (clip de levantarse según landType; los depredadores, el de despertar) → la
-  bandada se centra donde cayó → INTERACT_DECIDE → a pasear. **No hay ahogamiento** de animales (solo se borra un
-  cadáver hundido). openblack deja un animal suavemente de pie (el original lo suelta en la física).
+  bandada se centra donde cayó → INTERACT_DECIDE → a pasear. **No hay estado de
+  ahogarse** en los animales (`Animal::EndPhysics` no tiene rama de agua): en el mar el animal
+  nunca se para, su densidad sube y a los **~75 turnos (7,5 s)** pasa de 1 y `Living::HasSunk` 0x5ED370 lo mata y lo
+  borra (`SetDying`, estado 15, `ToBeDeleted(0)`) — vivo o cadáver. En una celda somera con agua de altitud ≥ 2
+  aterriza **vivo** (a diferencia del aldeano, que se ahoga); ver
+  [physics.md](physics.md#hundirse-ahogarse-y-borrarse-srcecsvillagerdrowninghcpp-srcecstobedeletedhcpp). Soltar suave
+  sobre el mar ya lo mete en física como el original; en tierra openblack sigue colocándolo de pie.
 - Muerte (`Living::SetDying` 0x5EC390, nada mientras vuela): DYING (clip de caer) → DEAD (tumbado según landType; los
   depredadores con el clip de dormir) 600 turnos (nunca si lo controla un script) → desaparece (el humo `CreateSmokyStuff` aún no). Un cadáver lanzado
   vuelve a DEAD con otros 600.

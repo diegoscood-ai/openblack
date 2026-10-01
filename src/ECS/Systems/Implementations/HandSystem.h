@@ -79,13 +79,28 @@ private:
 	void LoadGeometry() noexcept;
 	[[nodiscard]] std::optional<entt::entity> FindObjectUnderHand() const noexcept;
 	void PickUp(entt::entity entity) noexcept;
+	/// HandHolding.cpp: a gentle release (zero velocity) through Release
 	void Drop() noexcept;
+	/// HandHolding.cpp: the hand opens with the holding spring's velocity: ApplyThisToMapCoord (a tree on a wood
+	/// store, a hand pot put down at |v|^2 <= 5), then ThrowObjectFromHand -> InitialisePhysicsFromHand
+	void Release(glm::vec3 velocity) noexcept;
+	/// HandHolding.cpp: Object::ThrowObjectFromHand(status, dont_replant) 0x6385E0: the held object leaves the hand
+	/// (RemoveFromHand), a hand pot slow enough is put down, else InitialisePhysicsFromHand. Release passes
+	/// dont_replant 0, ForceDropHeld 1 (packet 0x1D, no ApplyThisToMapCoord)
+	void ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexcept;
+	/// HandHolding.cpp: Object::InitialisePhysicsFromHand 0x636F00 (AddObject, AdjustToGroundLevel,
+	/// RaiseUntilNotIntersecting, the LANDED rule); false when no body could be made
+	bool InitialisePhysicsFromHand(entt::entity entity, glm::vec3 velocity, bool dontReplant) noexcept;
+	/// HandHolding.cpp: openblack's placement of an object that has no physics body
+	void PlaceWithoutBody(entt::entity entity) noexcept;
 	void UpdateHeldObject() noexcept;
 	void UpdateMultiPickUp(float seconds, bool actionHeld) noexcept;
 	/// HandTrees.cpp: BigForest::InterfaceSetInMagicHand 0x4393C0: the forest gives a Conifer to the hand
 	bool TakeTreeFromForest(entt::entity forest) noexcept;
 	/// HandFish.cpp: the splash of gripping the water (StartLandscapeGrip fn_005D1AB0)
 	void SplashHand(glm::vec3 point) noexcept;
+	/// HandFish.cpp: the sound of gripping the land (StartLandscapeGrip, G_HandGrabLand_01..06)
+	void GripLandSound() noexcept;
 	/// HandFish.cpp: the action over the water next to a fish starts catching from its farm (FishFarm locked select)
 	bool TryPickUpFish(glm::vec3 point) noexcept;
 	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
@@ -102,9 +117,6 @@ private:
 	void SinkPile(entt::entity pile) noexcept;
 	[[nodiscard]] static PotInfo PotInfoOf(entt::entity entity) noexcept;
 	[[nodiscard]] float HeldFill() const noexcept;
-	void Throw(glm::vec3 velocity) noexcept;
-	/// Tree released gently: replanted on land (Tree::EndPhysics), a DeadTree over water.
-	void ReleaseTree(entt::entity tree) noexcept;
 	void Replant(entt::entity tree) noexcept;
 	/// Tree -> DeadTree. With placeLying it is laid on the ground towards direction; a physics body keeps its pose.
 	void MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying = true) noexcept;
@@ -202,6 +214,9 @@ private:
 	std::optional<TestAbode> _testAbode;
 	float _testActionDelay {0.0f};
 	float _testActionHold {0.0f};
+	/// OPENBLACK_HAND_TEST_DROP: where (x, z) and in how many seconds the held object is put down
+	std::optional<glm::vec3> _testDropAt;
+	float _testDropIn {0.0f};
 	float _testMouseMoveIn {-1.0f};
 	void UpdatePickupParticles(float seconds, bool emitting) noexcept;
 	[[nodiscard]] glm::vec3 ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept;

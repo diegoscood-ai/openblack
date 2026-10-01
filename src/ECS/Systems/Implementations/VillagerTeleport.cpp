@@ -8,7 +8,6 @@
  *******************************************************************************/
 
 #include "VillagerTeleport.h"
-#include "VillagerFire.h"
 #include "VillagerMove.h"
 #include "VillagerReactions.h"
 
@@ -18,6 +17,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <fmt/format.h>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
@@ -26,16 +26,19 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
 #include "Magic/Objects/MagicTeleport.h"
 #include "Worship/TownMagic.h"
+#include "Worship/WorshipPercentage.h"
 
 using namespace openblack;
 using namespace openblack::ecs;
@@ -58,11 +61,6 @@ auto& Reg()
 LivingAction* ActionOf(entt::entity villager)
 {
 	return Reg().TryGet<LivingAction>(villager);
-}
-
-auto& System()
-{
-	return Locator::livingActionSystem::value();
 }
 
 VillagerStates Get(const LivingAction& action, LivingAction::Index index)
@@ -107,22 +105,13 @@ VillagerStates FinalState(const LivingAction& action)
 	return info != nullptr && info->isFinalState != 0 ? top : Get(action, LivingAction::Index::Final);
 }
 
-/// Villager::SetTopState (vt 0x8E8), as VillagerFire.cpp does it (the move ends, no destination state): the old final
-/// state's exit (VillagerFire.cpp) runs with the new state; the teleport states have no entry function
-void SetTopState(entt::entity villager, VillagerStates state)
+/// Villager::SetTopState 0x752010 (vt +0x8E8): the villager core's (ECS/Villager/VillagerCore.h), which runs the exit
+/// functions of TOP and of the final state and the entry of the new state from the rows of k_VillagerStateTable (the
+/// fire's, the teleport's and the worship ones among them), once each, with the pause roll (only into a state whose
+/// row may pause: not 163, 201, 202) and the codes 1 / 0x2E / 0x2F; the walk's end as villager_reactions::SetTopState
+uint32_t SetTopState(entt::entity villager, VillagerStates state)
 {
-	auto* action = ActionOf(villager);
-	if (action == nullptr)
-	{
-		return;
-	}
-	if (const auto previous = FinalState(*action); previous != state)
-	{
-		villager_fire::CallFinalStateExit(villager, previous, state);
-	}
-	RemoveMoveTags(villager);
-	System().VillagerSetState(*action, LivingAction::Index::Final, VillagerStates::InvalidState, true);
-	System().VillagerSetState(*action, LivingAction::Index::Top, state, true);
+	return villager_reactions::SetTopState(villager, state);
 }
 
 /// Villager::StorePreviousState 0x763470 (AddReaction's vt 0x8EC when it had no reaction): the final state goes to
@@ -137,25 +126,6 @@ void StorePreviousState(LivingAction& action)
 		stored = Get(action, LivingAction::Index::Previous);
 	}
 	action.states.at(static_cast<size_t>(LivingAction::Index::Previous)) = static_cast<uint8_t>(stored);
-}
-
-/// Villager::PopFromPrevious 0x751E50: the stored state's resume state (table +0x20); nothing stored: DECIDE_WHAT_TO_DO
-void PopFromPrevious(entt::entity villager)
-{
-	auto* action = ActionOf(villager);
-	if (action == nullptr)
-	{
-		return;
-	}
-	const auto stored = Get(*action, LivingAction::Index::Previous);
-	const auto* info = TableOf(stored);
-	auto next = info != nullptr ? static_cast<VillagerStates>(info->field0x20) : VillagerStates::DecideWhatToDo;
-	if (next == VillagerStates::InvalidState)
-	{
-		next = VillagerStates::DecideWhatToDo;
-	}
-	SetTopState(villager, next);
-	action->states.at(static_cast<size_t>(LivingAction::Index::Previous)) = 0;
 }
 
 /// Living::SetupMoveToWithHug 0x5F2890: the villagers' shared one (VillagerMove.cpp: TOP, then FINAL)
@@ -229,13 +199,62 @@ void ApplyTeleportReaction(entt::entity villager, const effects::reactions::Reac
 	villager_teleport::SetupReactToTeleport(villager, reaction.initiator, reaction.id);
 }
 
-/// Villager::ExitReactToTeleport 0x766390 / Living::StopReacting: the reaction ends (the worship-site bookkeeping of
-/// +0xE0 bit 4 belongs to VillagerWorship)
-void StopReacting(entt::entity villager)
-{
-	g_States.erase(villager);
-}
 } // namespace
+
+bool villager_teleport::IsReacting(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	return it != g_States.end() && it->second.reaction != 0;
+}
+
+void villager_teleport::StopReacting(entt::entity villager)
+{
+	const auto it = g_States.find(villager);
+	if (it == g_States.end())
+	{
+		return;
+	}
+	// Living::StopReacting 0x5F1140: with a reaction (+0x94): fn_005F0FE0(its type +0x24) = its record gets the turn,
+	// +0x94 = 0; +0xBC (the stone) = 0 on both paths: nothing of the teleport stays
+	if (it->second.reaction != 0)
+	{
+		effects::reactions::RefreshRecord(villager, static_cast<uint8_t>(openblack::Reaction::ReactToTeleport),
+		                                  effects::reactions::Turn());
+	}
+	g_States.erase(it);
+}
+
+uint32_t villager_teleport::ExitReactToTeleport(LivingAction& action, VillagerStates next)
+{
+	auto& registry = Reg();
+	const auto villager = registry.ToEntity(action);
+	// 0x76639A..0x7663AD: IsStateExitFunctionSameAs(next) (vt +0x96C, 0x752530)
+	const bool same = villager::IsStateExitFunctionSameAs(villager, next);
+	if (villager::TraceOn(villager))
+	{
+		villager::Trace(villager, fmt::format("ExitReactToTeleport({}) same {}", static_cast<int>(next), same ? 1 : 0));
+	}
+	if (!same)
+	{
+		auto* worshipper = registry.TryGet<WorshipVillager>(villager);
+		// 0x7663B3..0x7663C4: GetTown (vt +0x48) -> Town::RemoveVillagerOnWayToWorshipSite 0x73E360
+		if (const auto* v = registry.TryGet<const Villager>(villager); v != nullptr && registry.Valid(v->town))
+		{
+			worship::percentage::RemoveVillagerOnWay(v->town, villager);
+			if (worshipper != nullptr)
+			{
+				worshipper->onWayInTown = false;
+			}
+		}
+		// 0x7663C9: +0xE0 &= ~0x10, with or without a town
+		if (worshipper != nullptr)
+		{
+			worshipper->onWay = false;
+		}
+	}
+	// 0x7663D2..0x7663D7: ExitReaction (vt +0x910) 0x7527A0, its result (1)
+	return villager_reactions::ExitReaction(action, next);
+}
 
 bool villager_teleport::IsMoving(entt::entity living)
 {
@@ -317,9 +336,9 @@ uint32_t villager_teleport::GoToTeleportReaction(LivingAction& action)
 	const auto it = g_States.find(villager);
 	if (it == g_States.end() || !registry.Valid(it->second.stone) || effects::reactions::Find(it->second.reaction) == nullptr)
 	{
-		// the stone (and its reaction) went: Living::StopReactingAndSetState
-		StopReacting(villager);
-		PopFromPrevious(villager);
+		// (inferido) the stone (and its reaction) went: Living::StopReactingAndSetState 0x5F11C0 (in the original the
+		// validate slot ReactionValidate 0x756A00 pops the state when the object goes; not ported)
+		villager_reactions::StopReactingAndSetState(villager);
 		return 0;
 	}
 	const auto stone = PositionOf(it->second.stone);
@@ -353,9 +372,9 @@ uint32_t villager_teleport::TeleportReaction(LivingAction& action)
 		return 0;
 	}
 	magic::teleport::DoTeleport(stone, villager, false);
-	// StopReactingAndSetState (vt 0x99C): ResetStateAfterReacting 0x751E10 (PopFromPrevious) and StopReacting
-	StopReacting(villager);
-	PopFromPrevious(villager);
+	// 0x76642F StopReactingAndSetState (vt 0x99C, 0x5F11C0): ResetStateAfterReacting 0x751E10 (PopFromPrevious, then
+	// 163 if the final state is a reactive one), then StopReacting if still reacting
+	villager_reactions::StopReactingAndSetState(villager);
 	return 1;
 }
 

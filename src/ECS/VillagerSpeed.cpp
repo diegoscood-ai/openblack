@@ -19,6 +19,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
 #include "ECS/Villager/VillagerAge.h"
@@ -171,7 +172,7 @@ void SetVillagerStateSpeed(entt::entity entity)
 	}
 	const auto raw = std::clamp(static_cast<int32_t>(static_cast<float>(static_cast<int32_t>(speed)) * f), 0, 0xFFFF);
 	// the u16 is the distance per turn in MapCoords (6553.6 per metre)
-	wallHug->speed = static_cast<float>(raw) / 6553.6f;
+	wallHug->speed = map_coords::ToMetres(raw); // x [0x8AA3A4]
 }
 
 float VillagerScaleForAge(const GVillagerInfo& info, uint32_t age)

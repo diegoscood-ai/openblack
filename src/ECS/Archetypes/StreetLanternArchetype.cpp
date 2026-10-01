@@ -20,6 +20,7 @@
 #include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "Locator.h"
@@ -34,7 +35,7 @@ namespace
 /// The map cell (MapCoords::ToMap 0x603430: the high words of the 1/6553.6 fixed point, 10 units a cell)
 glm::ivec2 MapCell(const glm::vec3& position)
 {
-	return {static_cast<int>(std::floor(position.x / 10.0f)), static_cast<int>(std::floor(position.z / 10.0f))};
+	return ecs::map_coords::CellOf(position);
 }
 
 /// MapCoords::FindType(OBJECT_TYPE_MOBILE_STATIC) 0x6045C0 walked with GUtils::GetDistanceInMetres 0x74CD70: whether

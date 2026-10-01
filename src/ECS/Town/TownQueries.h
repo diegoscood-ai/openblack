@@ -29,10 +29,8 @@ struct Town;
 
 namespace openblack::ecs::town_queries
 {
-/// MapCoords per metre: 65536 / 10 (GUtils::GetPosFromAngle 0x74D580: x 65536 / 10)
-inline constexpr double k_MapCoordsPerMetre = 6553.6;
-
-/// metres -> MapCoords (ftol: truncation towards 0). (aproximado) openblack keeps the positions in float metres
+/// metres -> MapCoords (ecs::map_coords::ToFixed, MapCoords(LHPoint) 0x603160: fmul [0x8AC400], truncated towards 0).
+/// (aproximado) openblack keeps the positions in float metres
 [[nodiscard]] glm::ivec2 ToMapCoords(glm::vec2 metres);
 [[nodiscard]] glm::vec2 ToMetres(glm::ivec2 mapCoords);
 /// The x / z of an object's Transform as MapCoords (Object +0x14); (0, 0) without one

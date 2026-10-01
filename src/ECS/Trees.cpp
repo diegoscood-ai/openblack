@@ -39,6 +39,7 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -593,20 +594,13 @@ namespace
 /// (0,0) (-1,0) (-1,-1) (0,-1) (1,-1) (1,0) (1,1) (0,1) (-1,1) ...
 std::vector<glm::ivec2> SpiralOffsets(size_t count)
 {
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
-	                                                      glm::ivec2(0, -1)};
 	std::vector<glm::ivec2> offsets {glm::ivec2(0)};
 	glm::ivec2 at(0);
-	int dir = 1;
-	int steps = 1;
+	ecs::map_coords::Spiral spiral;
 	while (offsets.size() < count)
 	{
-		if (--steps == 0)
-		{
-			++dir;
-			steps = dir / 2;
-		}
-		at += k_Steps.at(static_cast<size_t>(dir & 3));
+		const auto& step = spiral.Next();
+		at += glm::ivec2(step.x, step.z);
 		offsets.push_back(at);
 	}
 	return offsets;
@@ -626,9 +620,10 @@ bool IsOnMap(entt::entity entity)
 	return openblack::ecs::physics::PhysicsObjects::Find(entity) == nullptr;
 }
 
+/// The MapCoords cell (ecs::map_coords::CellOf: ftol(x * 6553.6f), the unsigned high words)
 glm::ivec2 CellOf(glm::vec3 position)
 {
-	return {static_cast<int>(std::floor(position.x * 0.1f)), static_cast<int>(std::floor(position.z * 0.1f))};
+	return ecs::map_coords::CellOf(position);
 }
 } // namespace
 
@@ -656,9 +651,7 @@ std::vector<entt::entity> openblack::ecs::TreesInCell(glm::ivec2 cell)
 	std::vector<std::pair<uint32_t, entt::entity>> found;
 	Locator::entitiesRegistry::value().Each<const Tree, const Transform>(
 	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
-		    const glm::ivec2 at(static_cast<int>(std::floor(transform.position.x * 0.1f)),
-		                        static_cast<int>(std::floor(transform.position.z * 0.1f)));
-		    if (at == cell && IsOnMap(entity))
+		    if (CellOf(transform.position) == cell && IsOnMap(entity))
 		    {
 			    found.emplace_back(tree.mapInsertion, entity);
 		    }
@@ -858,10 +851,7 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 	const auto centreCell = CellOf(townCentre);
 	std::vector<glm::ivec2> cells;
 	glm::ivec2 walked(0);
-	int dir = 1;
-	int steps = 1;
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0),
-	                                                      glm::ivec2(0, -1)};
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0
 	for (int n = 0; n < 99999; ++n)
 	{
 		if (glm::length(glm::vec2(walked)) * 10.0f > radius)
@@ -869,12 +859,8 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 			break;
 		}
 		cells.push_back(centreCell + walked);
-		if (--steps == 0)
-		{
-			++dir;
-			steps = dir / 2;
-		}
-		walked += k_Steps.at(static_cast<size_t>(dir & 3));
+		const auto& step = spiral.Next();
+		walked += glm::ivec2(step.x, step.z);
 	}
 	std::set<std::pair<int, int>> inside;
 	for (const auto& c : cells)

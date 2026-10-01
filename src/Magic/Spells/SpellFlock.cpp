@@ -32,6 +32,7 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -172,9 +173,7 @@ float LandHeight(glm::vec2 metres)
 bool InBoundsMapCoords(glm::ivec2 p)
 {
 	const uint32_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	const auto cellX = static_cast<uint16_t>(static_cast<uint32_t>(p.x) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<uint32_t>(p.y) >> 16);
-	return cellX < side && cellZ < side;
+	return ecs::map_coords::InBounds(ecs::map_coords::MapCoords {p.x, p.y, 0.0f}, side);
 }
 
 /// MapCoords (x, z with a height above the land) -> the world point (MapCoords::GetLHPoint 0x605C40)
@@ -885,15 +884,13 @@ glm::ivec2 spell_flock::SpawnPoint(glm::ivec2 from, glm::ivec2 to, float f)
 glm::ivec2 spell_flock::ToMapCoords(glm::vec2 metres)
 {
 	// fld x; fmul 6553.6 (0x8AC400, a float); __ftol (truncation)
-	return {static_cast<int32_t>(static_cast<double>(metres.x) * static_cast<double>(6553.6f)),
-	        static_cast<int32_t>(static_cast<double>(metres.y) * static_cast<double>(6553.6f))};
+	return {ecs::map_coords::ToFixed(metres.x), ecs::map_coords::ToFixed(metres.y)};
 }
 
 glm::vec2 spell_flock::ToMetres(glm::ivec2 mapCoords)
 {
 	// fild; fmul 10 / 65536 (0x8AA3A4)
-	return {static_cast<float>(static_cast<double>(mapCoords.x) * static_cast<double>(10.0f / 65536.0f)),
-	        static_cast<float>(static_cast<double>(mapCoords.y) * static_cast<double>(10.0f / 65536.0f))};
+	return {ecs::map_coords::ToMetres(mapCoords.x), ecs::map_coords::ToMetres(mapCoords.y)};
 }
 
 void spell_flock::SetupCorridor(SpellFlockAnimal& wolf, glm::vec2 start, glm::vec2 destination, float halfWidth)

@@ -185,7 +185,7 @@ bool TouchesCell(glm::vec2 centre, float radius, glm::vec2 cellCentre)
 /// ObjectCircleIterator::Init(int) 0x60D0A0 is the same hasWater bit)
 bool WaterCell(glm::ivec2 cell)
 {
-	if (cell.x < 0 || cell.y < 0 || cell.x >= MapInterface::k_GridSize.x || cell.y >= MapInterface::k_GridSize.y)
+	if (!map_coords::InBounds(cell)) // JustMapXZ::InBounds 0x5E1860: movsx, then the unsigned compare with 512
 	{
 		return true;
 	}

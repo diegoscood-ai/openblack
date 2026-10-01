@@ -26,6 +26,7 @@
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
 #include "Magic/Objects/MagicTeleport.h"
@@ -40,18 +41,6 @@ using namespace openblack::magic;
 
 namespace
 {
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z): the next cell step
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[direction & 3];
-}
-
 /// Living::CanBeHealedByHealSpell 0x5EE550 (!IsDead; the Dove 0x41EAB0 answers 0)
 bool CanBeHealedByHealSpell(entt::entity object)
 {
@@ -69,11 +58,9 @@ bool cast_rules::InBounds(const glm::vec3& position)
 {
 	// (inferido: 512 cells per side when there is no terrain, an openblack fallback)
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out. 6553.6 = 65536 / 10 m, the
-	// MapCoords fixed point (castPos = (int)(x * 6553.6) in Spell::ProcessMaintainRequest 0x7204D0)
-	const auto cellX = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.x * 6553.6f)) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.z * 6553.6f)) >> 16);
-	return cellX < side && cellZ < side;
+	// the MapCoords' high words (the 10 m cells) as unsigned: a negative coordinate is out. castPos = (int)(x * 6553.6)
+	// in Spell::ProcessMaintainRequest 0x7204D0 (truncated, __ftol)
+	return ecs::map_coords::InBounds(position, side);
 }
 
 bool cast_rules::IsLand(const glm::vec3& position)
@@ -167,8 +154,7 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 	const auto values = ecs::effects::EffectValues::FromEffectInfo(GetMagicEffectInfo(tables, magicType));
 	const auto& map = Locator::entitiesMap::value();
 	auto cell = glm::ivec2(ecs::MapInterface::GetGridCell(glm::vec2(position.x, position.z)));
-	int direction = 1;
-	int count = 1;
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, dir = count = 1 (0x5FBB9A..0x5FBBA5)
 	int healed = 0;
 	int looked = 0;
 	while (cells != 0 && healed < maximum)
@@ -214,7 +200,8 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 			}
 		}
 		--cells;
-		cell += Spiral(direction, count);
+		const auto& step = spiral.Next();
+		cell += glm::ivec2(step.x, step.z);
 	}
 	if (TraceEnabled())
 	{

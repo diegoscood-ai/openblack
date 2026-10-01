@@ -216,7 +216,7 @@ glm::vec2 Xz(const Transform& transform)
 
 MapInterface::CellId CellOf(glm::vec2 p)
 {
-	return MapInterface::GetGridCell(glm::max(p, glm::vec2(0.0f)));
+	return MapInterface::GetGridCell(p); // map_coords::CellOf: off the map (>= 512, 0xFFFF when negative) stays off it
 }
 
 /// the drawn rotation of a mobile heading along the angle (as PathfindingSystem's InitializeStep)
@@ -238,13 +238,8 @@ uint16_t AngleOfRotation(const glm::mat3& rotation)
 
 bool InBounds(glm::vec2 p)
 {
-	if (!Locator::terrainSystem::has_value())
-	{
-		return false;
-	}
-	const auto extent = Locator::terrainSystem::value().GetExtent();
-	return p.x > std::max(extent.minimum.x, 0.0f) && p.y > std::max(extent.minimum.y, 0.0f) && p.x < extent.maximum.x &&
-	       p.y < extent.maximum.y;
+	// MapCoords::InBounds (0x6042C0): the cell's unsigned high words inside the map, not the land's extent
+	return sea_cells::InBounds(glm::vec3(p.x, 0.0f, p.y));
 }
 
 /// Object::Collide(info.collideType) [inferred]: the sea or a fixed object's footprint

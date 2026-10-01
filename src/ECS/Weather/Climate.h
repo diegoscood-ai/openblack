@@ -64,7 +64,7 @@ struct Climate
 	/// +0x84 lightning below 30 degrees too; fn_00771170 zeroes it (0x7712E0), no other writer found (UNVERIFIED)
 	uint8_t lightning {0};
 
-	/// The centre as ComputeWeather reads it (fild x 0.000152588)
+	/// The centre as ComputeWeather reads it (fild x [0x8AA3A4] = 10 / 65536, ecs::map_coords::ToMetres)
 	[[nodiscard]] glm::vec3 Centre() const;
 	/// The centre as ProcessAll and CreateStorm read it: the 10 m cell (the high word x 10)
 	[[nodiscard]] glm::vec3 CellCentre() const;

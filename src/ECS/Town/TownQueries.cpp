@@ -30,6 +30,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
@@ -47,12 +48,6 @@ std::function<float(entt::entity)> g_RadiusForTests;
 
 /// ConvertGameAngleTo3D 0x74DC50's factor (0x99A1CC, 0x3B490FDB)
 constexpr float k_GameAngleTo3D = 0.0030679617f;
-/// MapCoords per map cell (10 m: the high word of x / z, MapCoords::InBounds 0x6042C0 and operator+= JustMapXZ 0x605470)
-constexpr int32_t k_MapCoordsPerCell = 65536;
-
-/// The steps of GUtils::Spiral's table (0xDA59FC, words x / z; the same table as ecs::animal_ai::detail::Spiral)
-constexpr std::array<glm::ivec2, 4> k_SpiralSteps = {{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}};
-
 std::vector<entt::entity> CellObjects(int cellX, int cellZ)
 {
 	if (g_CellObjectsForTests)
@@ -143,12 +138,12 @@ void TraceCongregation(const Town& town, const std::string& line)
 
 glm::ivec2 ToMapCoords(glm::vec2 metres)
 {
-	return {Ftol(static_cast<double>(metres.x) * k_MapCoordsPerMetre), Ftol(static_cast<double>(metres.y) * k_MapCoordsPerMetre)};
+	return {map_coords::ToFixed(metres.x), map_coords::ToFixed(metres.y)}; // fmul [0x8AC400]; __ftol
 }
 
 glm::vec2 ToMetres(glm::ivec2 mapCoords)
 {
-	return {static_cast<float>(mapCoords.x / k_MapCoordsPerMetre), static_cast<float>(mapCoords.y / k_MapCoordsPerMetre)};
+	return {map_coords::ToMetres(mapCoords.x), map_coords::ToMetres(mapCoords.y)}; // fild; fmul [0x8AA3A4]
 }
 
 glm::ivec2 PosOf(entt::entity object)
@@ -187,40 +182,23 @@ glm::ivec2 GetPosFromAngle(float angle, float metres)
 
 uint32_t GetMapCellSpiralSizeFromRadius(float radius)
 {
-	// 0x74F520: ftol(r x 0.2) (0x8AA3AC); below 1 (unsigned, jae) -> 1; squared
-	auto n = static_cast<uint32_t>(Ftol(static_cast<double>(radius) * static_cast<double>(0.2f)));
-	if (n < 1)
-	{
-		n = 1;
-	}
-	return n * n;
+	return static_cast<uint32_t>(map_coords::CellSpiralSize(radius)); // 0x74F520
 }
 
 uint32_t GetIncrementSpiralSizeFromRadius(float a, float b)
 {
-	// 0x74F540: ftol(a x -2 / b) (0x8C7CE0 = -2); (1 - that)^2
-	const int32_t t = Ftol(static_cast<double>(a) * -2.0 / static_cast<double>(b));
-	const int32_t s = 1 - t;
-	return static_cast<uint32_t>(s * s);
+	return static_cast<uint32_t>(map_coords::IncrementSpiralSize(a, b)); // 0x74F540
 }
 
 void SpiralIncrement(glm::ivec2& pos, int32_t& dir, int32_t& count, float step)
 {
-	// 0x74D81B..0x74D82B: --count == 0 -> ++dir, count = dir / 2 (cdq, sub, sar: towards 0)
-	if (--count == 0)
-	{
-		++dir;
-		count = dir / 2;
-	}
-	const auto& s = k_SpiralSteps.at(static_cast<size_t>(dir & 3));
-	// 0x74D836..0x74D8A8: x = ftol((x x 10 x 1/65536 + table.x x step) x 65536 / 10), the same for z
-	const auto move = [step](int32_t value, int32_t table) {
-		const double metres = static_cast<double>(value) * 10.0 * static_cast<double>(1.0f / 65536.0f) +
-		                      static_cast<double>(table) * static_cast<double>(step);
-		return Ftol(metres * 65536.0 / 10.0);
-	};
-	pos.x = move(pos.x, s.x);
-	pos.y = move(pos.y, s.y);
+	// 0x74D810 (ecs::map_coords::SpiralIncrement)
+	map_coords::Spiral spiral {dir, count};
+	map_coords::MapCoords coords {pos.x, pos.y, 0.0f};
+	map_coords::SpiralIncrement(coords, spiral, step);
+	dir = spiral.dir;
+	count = spiral.count;
+	pos = {coords.x, coords.z};
 }
 
 bool IsInStateOfEmergency(const Town& town)
@@ -258,17 +236,14 @@ bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filt
 	auto& registry = Locator::entitiesRegistry::value();
 	// 0x7413F4: the number of cells; 0x7413FB: dir = count = 1
 	uint32_t cells = GetMapCellSpiralSizeFromRadius(radius);
-	int32_t dir = 1;
-	int32_t count = 1;
-	glm::ivec2 cell = pos; // the walk's MapCoords: pos plus whole cells
+	map_coords::Spiral spiral;
+	map_coords::MapCoords cell {pos.x, pos.y, 0.0f}; // the walk's MapCoords: pos plus whole cells
 	while (cells != 0)
 	{
 		// 0x741421 MapCoords::InBounds: the high words (unsigned) inside the map
-		const auto cx = static_cast<uint32_t>(cell.x) >> 16;
-		const auto cz = static_cast<uint32_t>(cell.y) >> 16;
-		if (cx < MapInterface::k_GridSize.x && cz < MapInterface::k_GridSize.y)
+		if (map_coords::InBounds(cell))
 		{
-			for (const auto object : CellObjects(static_cast<int>(cx), static_cast<int>(cz)))
+			for (const auto object : CellObjects(map_coords::CellX(cell), map_coords::CellZ(cell)))
 			{
 				if (!registry.Valid(object) || !registry.AllOf<Transform>(object))
 				{
@@ -292,14 +267,7 @@ bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filt
 		}
 		// 0x7414B2..0x7414D3: --cells; Spiral (the cell step); MapCoords += JustMapXZ (whole cells)
 		--cells;
-		if (--count == 0)
-		{
-			++dir;
-			count = dir / 2;
-		}
-		const auto& s = k_SpiralSteps.at(static_cast<size_t>(dir & 3));
-		cell.x += s.x * k_MapCoordsPerCell;
-		cell.y += s.y * k_MapCoordsPerCell;
+		map_coords::AddCells(cell, spiral.Next());
 	}
 	return true;
 }

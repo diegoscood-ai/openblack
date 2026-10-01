@@ -19,6 +19,7 @@
 
 #include "ECS/AnimalAI.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "Enums.h"
 
 namespace openblack
@@ -39,7 +40,7 @@ struct Transform;
 namespace openblack::ecs::animal_ai::detail
 {
 
-constexpr float k_MapCoordsPerMetre = 6553.6f;
+constexpr float k_MapCoordsPerMetre = map_coords::k_FixedPerMetre; // [0x8AC400]
 constexpr int32_t k_Circle = 2048;
 /// the returns of the original's "did something" tests (ReactToAnimalNeeds, KeepLeaderWithinDomain...)
 constexpr int k_Started = 0x23;
@@ -79,17 +80,11 @@ Hunter HunterOf(AnimalInfo type);
 /// 10 m cells, the sub-cell offset kept): (-1, 0), (0, -1), (+1, 0) x2, (0, +1) x2, (-1, 0) x3...
 struct Spiral
 {
-	int dir {1};
-	int count {1};
+	map_coords::Spiral spiral;
 	glm::ivec2 Next()
 	{
-		if (--count == 0)
-		{
-			++dir;
-			count = dir / 2;
-		}
-		static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-		return k_Steps[dir & 3];
+		const auto& step = spiral.Next();
+		return {step.x, step.z};
 	}
 };
 

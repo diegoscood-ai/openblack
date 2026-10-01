@@ -97,7 +97,7 @@ float InvSqrtApprox(float x)
 /// s = (float)((dx / 65536)^2 + (dz / 65536)^2), then ftol(65536 / InvSqrtApprox(s)) (a ~0.1% approximate length)
 uint32_t MapDistance(glm::vec2 a, glm::vec2 b)
 {
-	const auto mx = [](float metres) { return static_cast<int32_t>(metres * k_MapCoordsPerMetre); };
+	const auto mx = [](float metres) { return map_coords::ToFixed(metres); }; // MapCoords(LHPoint) 0x603160
 	const double dx = static_cast<double>(mx(b.x) - mx(a.x)) / 65536.0;
 	const double dz = static_cast<double>(mx(b.y) - mx(a.y)) / 65536.0;
 	const auto s = static_cast<float>(dx * dx + dz * dz);

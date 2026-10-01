@@ -20,6 +20,7 @@
 
 #include "3D/DayNightClock.h"
 #include "Atmos.h"
+#include "ECS/MapCoords.h"
 #include "Calendar.h"
 #include "Game.h"
 #include "InfoConstants.h"
@@ -38,10 +39,6 @@ constexpr std::array<float, 24> k_HourFactor = {0.5f, 0.4f, 0.3f, 0.2f, 0.3f, 0.
 /// 0xC249A4: by month 1..12 (February 0 as in the exe; [0] is never read)
 constexpr std::array<float, 13> k_MonthFactor = {0.0f, 0.1f, 0.0f, 0.3f, 0.4f, 0.5f, 0.6f,
                                                  0.8f, 1.0f, 0.7f, 0.4f, 0.3f, 0.2f};
-/// MapCoords: metres x 6553.6 (16.16 fixed point of 10 m cells)
-constexpr float k_ToMapCoords = 6553.6f;
-constexpr float k_FromMapCoords = 0.000152588f;
-
 std::list<Climate> g_climates; ///< g_game+0x205CF4, newest first
 Climate* g_world = nullptr;    ///< g_game+0x250534
 bool g_climateSystem = true;   ///< 0xC24759
@@ -250,7 +247,7 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 
 glm::vec3 Climate::Centre() const
 {
-	return {static_cast<float>(x) * k_FromMapCoords, y, static_cast<float>(z) * k_FromMapCoords};
+	return {ecs::map_coords::ToMetres(x), y, ecs::map_coords::ToMetres(z)}; // MapCoords: x [0x8AA3A4] (10 / 65536)
 }
 
 glm::vec3 Climate::CellCentre() const
@@ -301,8 +298,8 @@ Climate& climate::Create(const glm::vec3& position, int32_t info, float radius1,
 	else
 	{
 		// fn_00771170
-		climate.x = static_cast<int32_t>(position.x * k_ToMapCoords);
-		climate.z = static_cast<int32_t>(position.z * k_ToMapCoords);
+		climate.x = ecs::map_coords::ToFixed(position.x); // MapCoords(LHPoint): x [0x8AC400], __ftol
+		climate.z = ecs::map_coords::ToFixed(position.z);
 		climate.y = position.y;
 		climate.info = info;
 		climate.innerRadius = radius1 <= radius2 ? radius1 : radius2;

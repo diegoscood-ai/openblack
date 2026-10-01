@@ -34,6 +34,7 @@
 #include "ECS/Fields.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/WaterRings.h"
@@ -62,18 +63,6 @@ water::SpellWaterData& MutableDataOf(entt::entity spell)
 float LandAt(float x, float z)
 {
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
-}
-
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z), started with direction 1 and count 1 (0x7250BF..0x7250C3)
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2 {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
 }
 
 /// GameThing::GetRadius vt 0x60: Object 0x638110 jumps to Get2DRadius (vt 0x64): Field 0x528E80 = 5 m, Object 0x638180
@@ -214,9 +203,8 @@ int Process(entt::entity entity)
 	std::unordered_set<entt::entity> seen;
 	const auto first = ecs::MapInterface::GetGridCell(glm::vec2(drop.x, drop.z));
 	glm::ivec2 cell(first);
-	int direction = 1;
-	int count = 1;
-	std::string watered; // the trace's list
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, direction 1 and count 1 (0x7250BF..0x7250C3)
+	std::string watered;            // the trace's list
 	for (int i = 0; i < 9; ++i)
 	{
 		for (const auto object : ecs::effects::ObjectsInMapCell(cell.x, cell.y))
@@ -242,7 +230,8 @@ int Process(entt::entity entity)
 				}
 			}
 		}
-		cell += Spiral(direction, count);
+		const auto& step = spiral.Next();
+		cell += glm::ivec2(step.x, step.z);
 	}
 	// a ring when GetRippleEvery < age - lastRipple
 	const auto& after = registry.Get<const Spell>(entity);

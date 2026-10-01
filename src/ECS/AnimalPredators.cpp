@@ -126,10 +126,10 @@ bool NearerThanStored(const Context& ctx, glm::vec2 p)
 	{
 		return true;
 	}
-	const glm::ivec2 me(Xz(ctx.transform) * k_MapCoordsPerMetre);
-	const glm::ivec2 prey(p * k_MapCoordsPerMetre);
-	const glm::ivec2 stored(ctx.brain.preyCell * k_MapCoordsPerMetre);
-	const glm::ivec2 myCell(me.x >> 16, me.y >> 16);
+	const glm::ivec2 me(map_coords::ToFixed(ctx.transform.position.x), map_coords::ToFixed(ctx.transform.position.z));
+	const glm::ivec2 prey(map_coords::ToFixed(p.x), map_coords::ToFixed(p.y));
+	const glm::ivec2 stored(map_coords::ToFixed(ctx.brain.preyCell.x), map_coords::ToFixed(ctx.brain.preyCell.y));
+	const glm::ivec2 myCell(map_coords::CellOf(me.x), map_coords::CellOf(me.y)); // the high words
 	const int64_t lhs = 2 * static_cast<int64_t>(std::max(std::abs(me.x - prey.x), std::abs(me.y - prey.y)));
 	const int64_t rhs = std::max(std::abs(static_cast<int64_t>(stored.x) - myCell.x), std::abs(static_cast<int64_t>(stored.y) - myCell.y));
 	return lhs < rhs;

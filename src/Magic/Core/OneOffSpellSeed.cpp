@@ -28,6 +28,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "Graphics/Lh3dColour.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/MagicTables.h"
@@ -210,7 +211,9 @@ void one_off::UpdateFrames(float milliseconds)
 		    // the orb's diffuse alpha (+0x4C >> 24, 0x519077): 0x519002 tints it with 0x96FFFFFF ([0xBE8E8C] low byte
 		    // 0x96) and fn_0080BF10 0x80BFC0..0x80C00B multiplies that into the land colour, whose alpha fn_00801C90 sets
 		    // to 0xFF: (0xFF x 0x96) >> 8 = 0x95
-		    worship::seed_graphic::DrawSpellGraphic(orb.graphic, static_cast<uint8_t>((0xFF * 0x96) >> 8), milliseconds);
+		    worship::seed_graphic::DrawSpellGraphic(
+		        orb.graphic, static_cast<uint8_t>(lh3d_colour::Alpha(lh3d_colour::MulShr8_4(0xFF000000u, 0x96FFFFFFu))),
+		        milliseconds);
 	    });
 	if (any)
 	{

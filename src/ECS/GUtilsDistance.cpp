@@ -163,8 +163,8 @@ float gutils::GetDistanceModifier(float distance, float maximum)
 
 float gutils::DistanceChangeToBelief(float x, float y)
 {
-	const float b = -(x / y);            // fdiv; fchs; fstp dword (a float) at 0x438775..0x43877B
-	return SigmoidThreshold(-0.9f, b);   // push 0xBF666666 at 0x43877E
+	const float b = -(x / y); // fdiv; fchs; fstp dword (a float) at 0x438775..0x43877B
+	return SigmoidThreshold(-0.9f, b); // push 0xBF666666 at 0x43877E
 }
 
 float gutils::CreatureSigmoidThreshold(float a, float b)

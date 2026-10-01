@@ -694,10 +694,9 @@ int MoveToCircleHug(Context& ctx)
 			// +0x76: the distance to the goal x 128 [0x930670], less 1 [0x8AB680] (beyond 0xFFFF in
 			// g_CircleHugStateInfo). 0x60D9F0: MapCoords::GetMetresDistanceSq 0x605FB0 (the exact square, no table) and
 			// `fsqrt` on it; the two qword constants are loaded but the FPU is at 24 bits, so it is all float
-			const float v = std::sqrt(gutils::GetMetresDistanceSq(map_coords::FromMetres(pos),
-			                                                     map_coords::FromMetres(ctx.brain.goal))) *
-			                    128.0f -
-			                1.0f;
+			const float squared =
+			    gutils::GetMetresDistanceSq(map_coords::FromMetres(pos), map_coords::FromMetres(ctx.brain.goal));
+			const float v = std::sqrt(squared) * 128.0f - 1.0f;
 			ctx.brain.hugGoalDistance = v > 0.0f ? static_cast<uint32_t>(v) : 0u;
 		}
 	}

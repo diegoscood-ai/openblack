@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Common/RandomNumberManager.h"
+#include "ECS/AnimalAIDetail.h"
 #include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Poisoned.h"
@@ -31,6 +32,7 @@
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Town/TownQueries.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateInfo.h"
@@ -62,8 +64,8 @@ struct PendingDeath
 	DeathReason reason;
 };
 std::vector<PendingDeath> g_Deaths;
-/// Whether CheckEveryTime's hurt rule enters 36 GO_HOME (TODO(V4): off until GO_HOME is ported; the tests turn it on)
-bool g_GoHomeEnabled = false;
+/// Whether CheckEveryTime's hurt rule enters 36 GO_HOME (on since V2: 36 walks to the door; the tests may turn it off)
+bool g_GoHomeEnabled = true;
 
 /// g_DiscipleInfos 0x99A1F8 (.rdata, 13 x 0x1C) +0xC, read from runblack.exe (the same in bw1-decomp Villager.cpp:31):
 /// NONE 0, FARMER 1, FORESTER 1, FISHERMAN 1, BUILDER 1, BREEDER 1, PROTECTION 1, MISSIONARY 0, CRAFTSMAN 1, TRADER 1,
@@ -547,17 +549,19 @@ uint32_t CheckEveryTime(entt::entity villager, uint32_t turn)
 			    state_info::GoHomeWhenHurt(*st) && !Entities().AllOf<DownedVillager>(villager) &&
 			    !state_info::NoGoHomeWhenHurt(*st) && (!foodReaction || v->food > info.hungryForFood))
 			{
-				// 0x7505C3 SetTopState(36 GO_HOME). TODO(V4): GO_HOME (Villager::GoHome 0x760270 -> DoGoingHome 0x760280:
-				// the abode's footpath, ARRIVES_HOME, AT_HOME's rest) is not ported, and entering a row without its state
-				// function would leave the villager standing for good; until V4 the rule is evaluated but not applied
-				// (aproximado: no pause roll, no exit / entry). The tests switch it on (SetGoHomeEnabledForTests)
+				// 0x7505C3 SetTopState(36 GO_HOME): Villager::GoHome 0x760270 walks to the abode's door (VillagerHome.cpp);
+				// TODO(V4): its arrival 37 and AT_HOME 38. The tests may switch the rule off (SetGoHomeEnabledForTests)
 				if (g_GoHomeEnabled)
 				{
+					if (TraceOn(villager))
+					{
+						Trace(villager, fmt::format("hurt (life {:.4f}): GO_HOME", v->life));
+					}
 					SetTopState(villager, VillagerStates::GoHome);
 				}
 				else if (TraceOn(villager))
 				{
-					Trace(villager, fmt::format("hurt (life {:.4f}): GO_HOME skipped until V4", v->life));
+					Trace(villager, fmt::format("hurt (life {:.4f}): GO_HOME off", v->life));
 				}
 			}
 			// 0x7505C9..0x7505D9 (vt +0xAF8)
@@ -905,6 +909,53 @@ uint32_t SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, Villag
 	registry.Remove<WallHugObjectReference>(villager);
 	registry.Assign<MoveStateLinearTag>(villager);
 	return 1;
+}
+
+uint32_t LookAtPos(entt::entity villager, glm::ivec2 pos, uint32_t mode)
+{
+	auto& registry = Entities();
+	auto* wallHug = registry.TryGet<WallHug>(villager);
+	auto* transform = registry.TryGet<Transform>(villager);
+	if (wallHug == nullptr || transform == nullptr)
+	{
+		return 0;
+	}
+	// 0x5EC554..0x5EC57A: the step: mode 0 -> 0x40, 1 -> 0x80, 2 -> 0x100, else the mode itself (0x5EC57A mov ebp,
+	// [esp+0x18] = entry [esp+8], arg 2 after the four pushes; the function takes two arguments, ret 8)
+	const int32_t maxStep = mode == 0 ? 0x40 : mode == 1 ? 0x80 : mode == 2 ? 0x100 : static_cast<int32_t>(mode);
+	// 0x5EC57E..0x5EC587: GetAngleFromXZ(me (+0x14), pos)
+	const auto me = town_queries::PosOf(villager);
+	const int32_t target = town_queries::GetAngleFromXZ(me, pos);
+	// 0x5EC58E: the current angle (+0x5C, u16). (aproximado) WallHug::yAngle in radians
+	const auto current = static_cast<int32_t>(
+	    static_cast<uint32_t>(std::lround(static_cast<double>(wallHug->yAngle) * 2048.0 / (2.0 * 3.14159265358979323846))) &
+	    0x7FF);
+	const auto setGameAngle = [&](int32_t angle) {
+		// MobileWallHug::SetGameAngle 0x60DA90: the angle and the drawn rotation (PathfindingSystem's convention)
+		const auto a = static_cast<uint16_t>(angle & 0x7FF);
+		wallHug->yAngle = static_cast<float>(a) * 0.0030679617f;
+		animal_ai::detail::FaceAngle(*transform, a);
+	};
+	// 0x5EC594..0x5EC5BF: d = target - current; |d| < step -> SetGameAngle(target); 1
+	const int32_t d = target - current;
+	if (std::abs(d) < maxStep)
+	{
+		setGameAngle(target);
+		return 1;
+	}
+	// 0x5EC5C2..0x5EC5F0: d > 0: d < 0x400 (unsigned) -> +step, else -step; d <= 0: |d| < 0x400 -> -step, else +step;
+	// & 0x7FF; 0
+	bool up;
+	if (d > 0)
+	{
+		up = static_cast<uint32_t>(d) < 0x400;
+	}
+	else
+	{
+		up = !(static_cast<uint32_t>(std::abs(d)) < 0x400);
+	}
+	setGameAngle(up ? current + maxStep : current - maxStep);
+	return 0;
 }
 
 uint32_t VillagerCreated(LivingAction& action)

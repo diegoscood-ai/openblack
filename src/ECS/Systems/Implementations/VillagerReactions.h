@@ -52,7 +52,8 @@ void StopReacting(entt::entity villager);
 /// (+0xBC) is none or not available (GameThing::IsAvailable 0x401810, vt 0x2C), or when the reaction's info row
 /// (Reaction::GetInfo 0x6E4709, 0xD4F6B0) says whetherReactionFinishesIfInitiatorInHand (+0x28, 0xD4F6D8) and the
 /// object is in the hand (+0x24 & 4). The original returns nothing; this returns false when it popped. The signature
-/// is the table's `validate` column (ECS/Villager/VillagerStateTable.h); the villager core wires it into those rows.
+/// is the table's `validate` column (ECS/Villager/VillagerStateTable.h); LivingActionSystem::VillagerCallValidate
+/// calls it for every row with no validate of its own whose original validate is 0x756A00 (VillagerOriginalFns.h).
 bool ReactionValidate(components::LivingAction& action);
 /// Villager::ExitReaction 0x7527A0 (vt +0x910; the rows hold the thunk 0x5B0100 = jmp [vt +0x910]): the circle hug
 /// reset, and StopReacting unless `next` is a reactive state. Always 1 (it may leave)

@@ -173,7 +173,7 @@ protected:
 	void TearDown() override
 	{
 		villager::ForgetDeathsForTests();
-		villager::SetGoHomeEnabledForTests(false);
+		villager::SetGoHomeEnabledForTests(true);
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
 		Locator::livingActionSystem::reset();
@@ -538,7 +538,8 @@ TEST_F(VillagerCoreTest, DeathReasons)
 
 TEST_F(VillagerCoreTest, HurtGoesHome)
 {
-	// in the game the rule is off until GO_HOME is ported (TODO(V4)): the villager stays
+	// switched off (on in the game since V2): the villager stays
+	villager::SetGoHomeEnabledForTests(false);
 	auto off = MakeVillager(1, 0);
 	V(off).life = 0.29f;
 	V(off).lastCheckTurn = 0;

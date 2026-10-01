@@ -43,6 +43,25 @@ void Skip(uint32_t count);
 /// The entity's index, or none (-1)
 [[nodiscard]] int64_t Of(entt::entity entity);
 
+/// openblack only (mods): while one of these is alive, Assign gives indices from a separate range (k_ModBase up) and
+/// the original's counter does not move, so objects a mod adds (that the original never makes) don't shift the
+/// creation order of the original's objects (Villager::SetSpeed, the animals' and the forest's orderings).
+class ModScope
+{
+public:
+	explicit ModScope(bool active = true);
+	~ModScope();
+	ModScope(const ModScope&) = delete;
+	ModScope& operator=(const ModScope&) = delete;
+
+private:
+	bool _active;
+};
+/// The first index of the mods' range
+constexpr uint32_t k_ModBase = 0x40000000u;
+/// An entity made inside a ModScope
+[[nodiscard]] bool IsModObject(entt::entity entity);
+
 /// CREATE_NEW_TOWN_SPELL / the town centre's spell icons (TownCentreSpellIcons, at most 6): a town's distinct spell
 /// seeds, and whether its centre exists; each new seed of a town with a centre makes an icon
 void AddTownSpell(uint32_t town, const std::string& spell);

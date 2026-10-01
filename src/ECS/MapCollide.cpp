@@ -24,6 +24,7 @@
 #include "3D/LandIslandInterface.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
+#include "SeaCells.h"
 
 using namespace openblack;
 using namespace openblack::ecs::map_collide;
@@ -196,18 +197,11 @@ bool openblack::ecs::map_collide::IsOkToCreateAtPos(glm::vec3 position, std::str
 	{
 		return true;
 	}
-	// IsWater 0x6035B0: bit 0x10 of the land cell (hasWater); a cell of an empty block (LH3DIsland::GetCell gives none)
-	// counts as water
-	if (Locator::terrainSystem::has_value())
+	// MapCoords::IsWater 0x6035B0 (ecs::sea_cells, the cell of the 16.16 MapCoords): bit 0x10 of the land cell
+	// (hasWater); no landscape cell (off the map, or an empty block) counts as water
+	if (sea_cells::IsWater(position))
 	{
-		const auto& terrain = Locator::terrainSystem::value();
-		const auto& cell = terrain.GetCell(glm::u16vec2(cx, cz));
-		// out of range coordinates give the island's empty cell
-		const auto& empty = terrain.GetCell(glm::u16vec2(0xFFFF, 0xFFFF));
-		if (&cell == &empty || cell.properties.hasWater != 0)
-		{
-			return true;
-		}
+		return true;
 	}
 	if (LogRejections())
 	{

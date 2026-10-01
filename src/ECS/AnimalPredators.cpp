@@ -29,7 +29,6 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
-#include "ECS/Components/Abode.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -38,6 +37,7 @@
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Villager/VillagerCore.h"
 #include <spdlog/spdlog.h>
 
 #include "InfoConstants.h"
@@ -57,7 +57,6 @@ using components::Life;
 using components::Town;
 using components::Transform;
 using components::Tree;
-using components::Abode;
 using components::DownedVillager;
 using components::LivingAction;
 using components::Villager;
@@ -622,21 +621,14 @@ void ProcessDownedVillagers()
 			SetVillagerState(entity, VillagerStates::Landed);
 			continue;
 		}
-		// Villager::BeingEaten (0x76B380): dead (VillagerDead, reason ANIMAL). openblack has no villager corpse yet: it
-		// goes, as the physics' villager deaths
+		// Villager::BeingEaten (0x76B380): l = GetLife(); SetLife(0); VillagerDead(ANIMAL 3, GetPlayer() (the villager's:
+		// its town's owner), l, 1). ecs::villager kills it at the end of the turn (life::Kill -> ToBeDeleted)
+		const float life = villager->life;
 		villager->life = 0.0f;
-		if (auto* abode = registry.TryGet<Abode>(villager->abode))
-		{
-			abode->inhabitants.erase(entity);
-		}
-		if (auto* town = registry.TryGet<Town>(villager->town))
-		{
-			town->homelessVillagers.erase(entity);
-		}
+		const auto* town = registry.TryGet<const Town>(villager->town);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} eaten", static_cast<uint32_t>(entity));
-		physics::PhysicsObjects::RemoveObject(entity);
-		registry.Destroy(entity);
-		registry.SetDirty();
+		registry.Remove<DownedVillager>(entity);
+		ecs::villager::VillagerDead(entity, DeathReason::Animal, town != nullptr ? town->owner : PlayerNames::NEUTRAL, life, 1);
 	}
 }
 

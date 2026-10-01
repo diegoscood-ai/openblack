@@ -81,6 +81,12 @@ struct EngineConfig
 	/// and openblack has no villager jobs yet, so its fields would stay empty forever), and grow this much faster.
 	bool fieldsWithoutFarmers {false};
 	float fieldGrowthMultiplier {1.0f};
+	/// Mod test.miracle-dispensers (Worship/TestDispensers.h): a miracle dispenser of each player miracle around the
+	/// human player's temple, at that power-up level (0 base, 1, 2, 3 = every level), making an orb every so many
+	/// seconds once the last was taken.
+	bool testDispensers {false};
+	int testDispensersLevel {0};
+	float testDispensersSeconds {10.0f};
 	/// Living water: the sea reflects models and sprites too (the original only mirrors the sky and the land) and the
 	/// reflection ripples with moving waves in a loop (the original's reflection is static).
 	bool livingWater {false};

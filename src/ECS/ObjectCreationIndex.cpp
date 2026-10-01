@@ -22,6 +22,9 @@ namespace
 {
 uint32_t g_Counter = 0;
 bool g_Loaded = false;
+/// ModScope: how many are alive, and the next index of the mods' range
+uint32_t g_ModDepth = 0;
+uint32_t g_ModCounter = k_ModBase;
 
 struct TownSpells
 {
@@ -37,17 +40,41 @@ void OnLoadMap()
 {
 	g_Counter = g_Loaded ? 0 : 2;
 	g_Loaded = true;
+	g_ModCounter = k_ModBase;
 	g_Towns.clear();
 }
 
 void Assign(entt::entity entity)
 {
-	Locator::entitiesRegistry::value().AssignOrReplace<components::ObjectCreationIndex>(entity, g_Counter++);
+	const uint32_t value = g_ModDepth > 0 ? g_ModCounter++ : g_Counter++;
+	Locator::entitiesRegistry::value().AssignOrReplace<components::ObjectCreationIndex>(entity, value);
+}
+
+ModScope::ModScope(bool active)
+    : _active(active)
+{
+	if (_active)
+	{
+		++g_ModDepth;
+	}
+}
+
+ModScope::~ModScope()
+{
+	if (_active)
+	{
+		--g_ModDepth;
+	}
+}
+
+bool IsModObject(entt::entity entity)
+{
+	return Of(entity) >= static_cast<int64_t>(k_ModBase);
 }
 
 void Skip(uint32_t count)
 {
-	g_Counter += count;
+	(g_ModDepth > 0 ? g_ModCounter : g_Counter) += count;
 }
 
 int64_t Of(entt::entity entity)

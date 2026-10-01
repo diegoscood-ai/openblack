@@ -52,10 +52,17 @@
 - El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
   vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
 - **Soltar** (`Object::InitialisePhysicsFromHand` 0x636F00 + `Tree::EndPhysics` 0x74B830): el árbol cuenta como «dejado
-  con cuidado» (bandera 8 del objeto físico) solo si la normal del terreno bajo él apunta arriba (y ≥ 0,7, pendiente
-  menor de unos 45°) **y** llega casi derecho (los ángulos x y z de su matriz YXZ ≤ 0,2 rad ≈ 11,5°; un árbol en la mano
-  toma el «arriba» de la mano, que sigue la superficie, así que en una ladera va inclinado). Entonces: en tierra y sin
-  arder, se replanta; en agua, árbol muerto. Si no cumple, cae con físicas y acaba como árbol muerto. El sonido
+  con cuidado» (bandera 8 LANDED del objeto físico) si no se lanza y no hubo que subirlo (`IsDryLand` o altitud de la
+  celda > 1). La prueba de la normal (y < 0,7 ⇒ no aterriza) es **solo** para seres vivos y vallas, no para árboles
+  (bw1-decomp `src/Black/Object.cpp:539`; la versión anterior de esta nota la aplicaba también a los árboles). Un árbol
+  LANDED sin `FireEffect` sobre `IsLand` sale de la física en el acto si llega casi derecho (los ángulos x y z de su
+  matriz YXZ ≤ 0,2 rad ≈ 11,5°; un árbol en la mano toma el «arriba» de la mano, que sigue la superficie, así que en una
+  ladera va inclinado) y `Tree::EndPhysics` lo replanta; inclinado (o `dont_replant`) sigue en física sin LANDED, cae y
+  acaba como árbol muerto. Caliente o ardiendo, o LANDED en una celda de agua: sigue en física con LANDED y al pararse
+  `Tree::EndPhysics` lo hace árbol muerto (conserva su fuego). Todo pasa por las físicas
+  (`HandSystem::InitialisePhysicsFromHand`, `HandPhysics.cpp`). «Derecho» = `LHMatrix::GetYXZ` 0x7FAB30 de su matriz con |x| ≤ 0,2 y |z| ≤ 0,2 rad (x = asin(fila2.y),
+  z = atan2(−fila0.y, fila1.y), comprobado emulando). Soltado sobre el mar (ni `IsDryLand` ni altitud de la celda > 1)
+  **no aterriza**: flota ~19 s hasta hundirse (ver [physics.md](physics.md#el-agua-en-los-golpes-y-al-soltar)). El sonido
   (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) lo lanza `PhysicsObject::RemoveObject` 0x646B44 en **todo** soltado
   con cuidado que acabe en tierra, replantado o no. Lanzado = árbol muerto siempre.
 - **Bosque al replantar** (0x74B8BF): espiral por las celdas del mapa hasta 25 + 10 m; por cada objeto fijo
@@ -268,13 +275,134 @@ mano es malo, replantar y el árbol que planta el agua son buenos; el ritmo por 
 
 ## Sonidos (informe `tmp_dis\sound\notes.txt`)
 
-- El tono de LHAudio es un **porcentaje** de la frecuencia del wav (100 = normal): AL_PITCH = p/100; la desviación del
-  .sad (±%) se sortea al empezar. El tono y el volumen del .sad solo cuentan si su bit está en las banderas de
-  +0x244 (0x1 tono, 0x20 volumen 0..127); si no, 100 y 127. openblack pasaba el número crudo (casi siempre 0).
+- El tono de LHAudio es un **porcentaje** de la frecuencia del wav (100 = normal). Al empezar (0x1001278B, enteros sin
+  signo): d = desviación·p/100, p = p − d + rand·2d/32767 (0 → 100), frecuencia = rate·p/100 (división entera; lo mismo
+  en `LHSampleSetPitch` 0x10013520, que no hace nada si el canal ya tiene ese p). El tono, el volumen, los bucles
+  (+0x248) y el modo del .sad solo cuentan si su bit está en las banderas de +0x244 (0x1, 0x20, 0x40, 0x400) y quien
+  llama no los ha puesto (máscara +0x1C de las opciones); si no, 100, 127, 0 y 3. openblack pasaba el número crudo.
+- **Volumen** (verificado con Unicorn, `tmp_dis\agua\re\emu_qmixer.py`): LHaudio manda a `QSWaveMixSetVolume`
+  floor(maestro·v/127)·258 (0x100133C1; maestro = `AudioSampleMasterVolume` de BWSetup = 127 → v·258, 0..32766) y
+  QMixer lo guarda como vol/32767 (0x18007AE5) y lo **multiplica** por la ganancia de la distancia (0x1800AE20):
+  ganancia lineal v·258/32767 (`sample_play::QMixerGain`, `Sound::volume`). El "user param" del .sad
+  (`LHSampleGetUserParam` 0x10014230) es la mitad alta de ese mismo u32 (+0x25C >> 16).
 - Coger de un montón, campo o piscifactoría: **un solo canal en bucle** (G_PICKUPWOOD 98 para madera; G_PICKUPFOOD 44
-  para lo demás) cuyo tono sube a 60 + 180·t² % por turno; se para al soltar o al acabarse. Dejar en un montón:
-  G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound`,
-  `AudioManager::SetEmitterPitch`.
+  para lo demás) cuyo tono sube a ftol(60 + 180·t²) % por turno; se para al soltar o al acabarse. Dejar en un montón:
+  G_PileFood/Wood(Small) según la cantidad (< 200 pequeños). openblack: `HandSystem::UpdatePickupSound` con
+  `sample_play` (modo 2 del .sad, dueño 0, `SetPitch`); trazado con `OPENBLACK_HAND_TEST_FISH=1`: un solo arranque y
+  tono 0,60 → 1,02 en los 3 s del gancho. El original lo pone 3D (+0x0C 0, no sigue a nadie) en el punto +0xC8 del
+  estado de la interfaz, que es **la mano**: `GInterface::Process` → `fn_005D2250` manda en el paquete 0x15 la
+  posición de la mano (`CHand`+0x78, `Morphable::position`, 0x5D2350); `GPacket` 0x63CA9E → 0x5DBFB0 la guarda en
+  +0xA4 (y la cámara en +0xB0/+0xBC); `GInterfaceStatus::Process` 0x5DC4E7 → `fn_005DBC60` calcula la velocidad de la
+  mano con +0xA4 − +0xC8 y copia +0xA4 a +0xC8 (0x5DBF1F) **antes** de `ProcessInInteract` (0x5DC574), que llega a
+  `UpdateMultiPickup`. Así que suena donde está la mano al empezar (el modo 2 no lo mueve después) y no arranca con la
+  cámara a más de 180 de la mano. openblack: la posición del `Transform` de la mano.
+- El reproductor ya **no pone AL_PITCH = 1 cada fotograma** (`AudioPlayer::UpdateSource` lo hacía y borraba el tono
+  del .sad y el de `SetEmitterPitch`): el tono se fija al crear la fuente y con `SetSourcePitch`.
+- **Distancias** (`QSWaveMixSetDistanceMapping {min, max, escala}`, LHaudiodllR 0x10012159): .sad +0x268 / +0x26C /
+  +0x270 si las banderas 0x80 / 0x100 / 0x200 están puestas; si no, 1 / 9999 / 0,3 (`LH_SamplePlayOptions` 0x10010E90).
+  QMixer (0x1800ACDF, 0x1802CE50; banderas del canal 0x103/0x111 de 0x10012065: ni 0x800 "tope en max" ni 0x1000
+  "lineal"; verificado con Unicorn): ganancia 1 hasta min (o con escala 0), `min / (min + escala·(d − min))` hasta max
+  (min/d con escala 1), **0 más allá de max** (el canal sigue sonando, mudo). La escala es por canal porque LHaudio no
+  usa el mezclador por hardware (opción `UseHardware` de `HKCU\Software\Lionhead Studios Ltd\Audio\Override`, que no
+  existe; con ella llamaría a `QSWaveMixSetListenerRolloff(4)`). En openblack: `AL_INVERSE_DISTANCE_CLAMPED` con referencia = min y rolloff =
+  escala (`AudioPlayer::SetSourceDistance`), y `AudioEmitter::cutDistance` = max silencia el emisor en
+  `AudioManager::Update`. `Sound` guarda además `cloneGroup` (+0x118), `playMode` (+0x274 con 0x400, si no 3),
+  `atmosGroup` (+0x11A) y `atmosFrequency` (i32 en +0x27C, −1 = no es de atmósfera; comprobado con `offsetof`).
+- `GAudio::PlaySoundEffect` 0x429E30 con posición: **no empieza** si la cámara está más lejos que el max del .sad
+  (+0x26C crudo, `LHSampleGetMaxDistance` 0x10014170; el max del mapeo si es 0) → `AudioManager::PlayAt(id, pos)`.
+  Además (0x429F36..0x429FD9, y lo mismo en `SamplePlayAnimEffect` 0x42A4B0): con la panorámica puesta por un guion
+  (+0x45E8 y +0x45EC) no suena ningún sample de user param 1 (InGame tiene 60, editor 82, p. ej. `G_WaterFlow`);
+  dentro de la ciudadela (`g_game+0x205A28 == 1`) solo los de user param 2; tras `SET_GAME_SOUND false` (GScript+0x90,
+  0x7100B0, que además hace `LHSampleStopAll`) solo los bancos de diálogo HelpSprites y Villagers. Los choques de
+  física van por `SamplePlayAnimEffect` → `LHSamplePlayAnimEffect` 0x100146F0: no empiezan a más del max del .sad ni de
+  800 (0x426E6B) y el dueño del canal es el objeto. Todo en `Audio/SamplePlay` (`PlaySoundEffect`, `PlayAnimEffect`).
+- **Canales y modos** (`LHSamplePlay` 0x100113B0: reparto 0x10011020, arranque 0x10011420; `Audio/SamplePlay`): 16
+  canales (+0xCC, constructor 0x1001535E). Cada canal recuerda banco, dueño (+0x20 de las opciones: 0 ninguno, −1 el
+  del ambiente, o el objeto), sample, grupo de clones (.sad +0x118) y prioridad (.sad +0x240). Modo 1: un canal libre.
+  Modo 2: **nada** (ni posición nueva) si un canal del mismo banco y dueño toca el mismo sample o uno del mismo grupo
+  (> 0); si no, uno libre. Modo 3: el canal del mismo banco, dueño y sample (se reinicia), si no el del mismo grupo
+  (> 0), si no uno libre. Sin libre: el de menor prioridad si es menor que la del sample (se reinicia); si no, no suena.
+  `G_BigSplash` (modo 2) no vuelve a sonar mientras suene el mismo sample del mismo objeto; los diez `G_HandInWater`
+  (grupo 4, modo 3, sin dueño) se reinician unos a otros; los sueltos del ambiente (modo 3, dueño −1) reinician su
+  canal si vuelven a salir mientras suenan. Solo cuentan para los 16 los samples que pasan por `sample_play`: los
+  golpes de física, el agua y el polvo de la mano, el bucle de coger, el ambiente, las `SoundTags` (cascada) y los
+  del barco. Aún van por su cuenta (temas de otras sesiones): `AnimationSounds`, las rocas, el silbido de la cámara,
+  `G_RockPast` y los `PlaySample` de coger/plantar/romper de la mano.
+- **Seguimiento y oyente, una vez por turno** (`fn_004270D0` desde `ProcessAudioGameTurn`): `LHSampleUpdate3DChannels`
+  0x10014310 lleva cada canal 3D con +0x0C (1 por defecto) y sin AtmosInfo a la posición de su dueño
+  (`Get3DSoundPos`, función del juego 0x427200): sin dueño, **la cámara**; dueño −1 o que ya no está, se para; a más de
+  su max (+0x6C) de la cámara, se para. Los choques ponen +0x0C = (código A de la tabla ≠ 0x16, 0x64689F); la mano en
+  el agua y el de coger, 0. Después `LHListenerUpdate`: el oyente de QMixer = la cámara (posición, delante y arriba,
+  velocidad 0) **solo una vez por turno** (y no en pausa ni en los 5 primeros turnos); openblack igual
+  (`AudioManager::UpdateListener`).
+- Los .sad son wavs RIFF (`QSWaveMixOpenWaveEx`); openblack probaba antes MPEG y dr_mp3 encontraba tramas dentro de
+  alguno (`G_BigSplash_03` duraba una fracción de segundo): ahora un RIFF va directo al lector de wav.
+- **Ejes del oyente**: openblack es levógiro y OpenAL dextrógiro; posiciones y velocidades ya iban con x ↔ z, la
+  orientación (at, up) no, y la izquierda y la derecha salían al revés. Ahora pasa por el mismo intercambio.
+- **Mano en el agua / agarrar tierra** (`StartLandscapeGrip` fn_005D1AB0): una sola rama elegida por el **bit de agua
+  de la celda** (`InBounds && IsLand` 0x5D1F94; fuera del mapa = agua), no por la altura. Agua: anillo,
+  `G_HandInWater_01..10` = InGame 99 + contador (0xD18228, 0..9, avanza aunque se descarte), **3D en (x; 0,2; z)**,
+  vol 127, tono 100 ±5 %, min 40 / max 150 / escala 4, y el susto de los peces. Tierra: polvo y
+  `G_HandGrabLand_01..06` = InGame 4 + LocalRand(6) (0x5D1FC4, `SoundTag` sin objeto, 2D: is3D 0, vol 10, tono
+  60 ±15 %). Los diez de agua están en el **grupo de clones 4** y se tocan en modo 3 sin objeto: `LHSamplePlay`
+  (0x10011146..0x100111BC) reinicia el canal del anterior → **uno a la vez** (`sample_play`, HandFish.cpp).
+  Traza: `OPENBLACK_AUDIO_TRACE=1`.
+  - Condiciones (resueltas): la rama de tierra (0x5D1FA8) no hace polvo ni sonido si `g_game+0x25005C` (el
+    **HelpSystem**) tiene la **pantalla panorámica** puesta (+0x45E8) **por un guion** (+0x45EC = número de tarea del
+    guion, `GScript::SetWideScreen` 0x6F7BF0 → `HelpSystem::SetWideScreen` 0x5C6AD0; los vídeos y la reproducción
+    pasan 0); la de agua (0x5D1FF0) no hace nada con el **juego en pausa** (`g_game+0x14` bit 4, que conmuta
+    `PauseGame` 0x54AE20) ni si el objeto 3D de la mano (`CHand+0x482C`) dibuja algo sostenido (+0x8C, lo pone su
+    `SetHeldG3D` vt+0x234 = 0x816830; vacío también con una `SpellSeed` que no se dibuja en la mano). En openblack:
+    `ScreenFade::IsWideScreenOn` (solo `SET_WIDESCREEN`), `Game::IsPaused` y `!_held` (`HandPlacement.cpp`).
+- **Ambiente (atmos)** (hecho, 2026-09-30; `Audio/SoundMap`, `Audio/AtmosBanks`; informe `tmp_dis\agua\audio.md` §1-3):
+  - Zona de la celda: `Terrain::GetAtmosType` 0x7352B0 = `(flags >> 2) & 0xF` (bits 2..5 del byte 7; **1 = SEA** fuera
+    del mapa o sin bloque). Tabla 0x9CB048 de 14 tipos {nombre, banco, de día}: 1 SEA `ocean.sad`, 2 STILL_FRESH_WATER
+    `lake.sad`, 3 COASTAL `shore.sad`, 4 JUNGLE*, 5 ARCTIC, 6 DESERT*, 7 COUNTRYSIDE*, 8 SWAMP*, 9 RUNNING_WATER
+    `stream.sad` (ningún mapa base lo usa), 10 STRATOSPHERE `high.sad`, 11 NIGHT* `night.sad`, 12 RAIN, 13 WIND
+    (* = de día). Los códigos del editor de Daniels118 son `tipo << 1` (el bit 1 es la celda de agua que no se dibuja).
+  - `GSoundMap::Update` 0x71D6F0, cada turno desde `GGame::EndTurn` (antes de `ProcessSoundTags`): receptor = cámara;
+    11 × 11 celdas alrededor (radio 50); por tipo, número de celdas y la esquina más cercana. Volumen = radial (1 hasta
+    20, 0 a 50) × fundido por la altura de la cámara sobre el suelo en esa esquina (1 bajo 120, 0 a 250); los de día
+    además × weatherFade × (1 − noche), noche = max(0, tipo de cielo − 1). La costa se calcula sin eso y el **mar =
+    min(radial, 1 − costa)**: a menos de 20 de una celda COASTAL el mar calla (el punto `1464, 2016` de Land1 da SEA 0,
+    COASTAL 1; `1300, 2016` da SEA 1). STRATOSPHERE con la altura absoluta: 0 bajo 200, sube hasta 1500, baja hasta
+    44444. NIGHT = fundido(cámara) × (1 − fracción de celdas de mar) × weatherFade × noche. RAIN = lluvia/70, WIND =
+    (|viento| − 15)/30. `CameraWeather()` lee el clima con `ecs::weather::atmos::GetWeatherSmooth(cámara, true)`
+    (`LH3DAtmos::GetWeatherSmooth` 0x835180; el byte 3 es el nublado).
+  - `GAudio`: objetivos = volúmenes del mapa, **todo 0 dentro de la ciudadela**: el símbolo
+    `HelpSystem::GetWideScreenControl` 0x4282F0 está mal puesto, es `g_game+0x205A28 == 1` (`GoInsideCitadel` 0x554004,
+    2 durante el vídeo del hechizo que cae); la panorámica no toca el ambiente (sin interior de ciudadela: nunca). El
+    `fn_00429100` copia 15 floats, así que el 15.º (la x de la cámara) cae en `current[0]` (NONE, sin banco: solo se ve
+    en la traza). `ProcessAtmosBanks` 0x428FE0: paso 0,04 entre 0,1 y 0,8 y 0,02 fuera (0 → 1 en 33 turnos, 3,3 s),
+    grupo 1 si GAudio+0x190 > −0,6 (double en 0x8C4A08) si no 2, `LHAtmosSetBankVolume(trunc(cur·127))`.
+    GAudio+0x190 lo pone `fn_005E2240(a)` = 2a − 1 con a = clamp(a, 0, 1), desde `fn_0064AC30` en
+    `GPlayer::ProcessPlayers` cada turno: a = (alineamiento del **jugador de más influencia en la posición de la
+    cámara**, `MapCoords::CalculateMostInfluentialPlayer` + `GPlayer::GetAlignmentValue`, + 1) / 2; `GAudio::Reset` (al
+    limpiar el mapa) lo deja en 0. openblack: `atmos_banks::Alignment()` lee
+    `Clouds::InfluentialPlayerAlignment()`, el mismo valor que el objetivo del alineamiento del cielo (fn_0064AC30),
+    así que tiene una sola fuente: `ecs::effects::alignment::GetInterfaceAlignment()` × 2 − 1 (el fn_0064AC30 de
+    Milagros, una vez por turno), salvo el gancho de prueba o el deslizador de depuración.
+    Solo desde el turno 6 y sin pausa (`g_game+0x14 & 4`); si no, `AtmosProcess(0)`: se paran los bucles y **solo los
+    canales con AtmosInfo** (0x10001EBF: bucles = 1, sueltos = su entrada), no los demás samples. Con un vídeo
+    (`g_game+0x250188`) no corre `LHAtmosProcess(1)` (openblack no tiene vídeos en partida). Al cambiar de mapa
+    (`GAudio::Reset`) se paran ambiente y samples, pero los volúmenes de los bancos se conservan.
+  - Mezclador del DLL (`fn_10001610`, `LHAtmosProcess` 0x100018B0): muestras con +0x27C = 0 son **bucles** 2D (vol del
+    .sad o 127, fundido de entrada +5 por turno sin tope hasta llegar a su volumen, ganancia banco·fade/127; se cortan
+    en seco cuando el banco llega a 0); +0x27C = f > 0 son **sueltos** en **una sola cola** para todos los bancos,
+    próximo = contador + 4f + rand·12f/32767, y al registrar un banco contador = cabeza − 20. **Como mucho uno por
+    turno** (la cabeza, si toca): suena si su banco no está a 0, relativo al oyente en QMixer (x, y, 0) con x, y =
+    2 − rand·4/32767; si |x| + |y| ≤ 1 se multiplican por 4 y si quedan en (0, 0) van a 5·(a, b), con a, b = ±1 que
+    rotan (a' = −a, b' = −a·b). Se vuelve a poner en la cola aunque no haya sonado. Los sueltos de otro grupo que el de
+    su banco bajan 5 por turno. En Land1 hay 15 bucles y 400 sueltos.
+  - **Ejes del modo relativo** (verificado con Unicorn, `emu_polar.py`): LHaudio pasa la posición relativa (+0x14) a
+    polares (0x10012269): acimut = atan2(x, y) en grados (con π tomado como 1/0,318471 y |ftol| de los negativos),
+    elevación = atan(z/|xy|), alcance |xyz|; QMixer (0x1800AA85) vuelve a derecha = r·cos(el)·sin(ac), arriba =
+    r·sin(el), delante = r·cos(el)·cos(ac). O sea **x derecha, y delante, z arriba**: los sueltos (x, y, 0) quedan en el
+    plano horizontal alrededor del oyente, a 2..7,1 (p. ej. (2, 2) delante a la derecha, (0, −4) detrás), atenuados con
+    su mapeo (min 1, escala 2 o 4: a (2, 2) con escala 2, 0,215). En openblack: `sample_play::PolarRelative` y el emisor
+    relativo en el espacio del oyente de OpenAL (derecha, arriba, −delante). Trazas: `OPENBLACK_AUDIO_TRACE=1` (canales)
+    y `OPENBLACK_ATMOS_TRACE=<n>`. Comprobado en Land1 (cámara en 2120, 40, 2400): las olas del lago (lake.sad, tono
+    160 del .sad) suenan a AL_PITCH 1,600 en (−1, 1) y (1, 2).
 
 ## Árboles: reglas, fuego y sacrificio (investigado; fuego pendiente, tótem aplazado)
 
@@ -351,8 +479,9 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
   Bonfire, rocas con info +0x128 = 2); MobileObject `0x607000`, Poo = MobileObject 5, Ark = 23; Tree
   `Tree::Create` 0x749EE0 (sin bosque); AnimatedStatic `0x421F50`. Abode, Town, Dance, Flock, InfluenceRing, Citadel,
   WorshipSite, SpellSeed, Mist, Field, ComputerPlayer y TotemStatue dan "Invalid create type" también en el original.
-  Pendientes en openblack: Reward, Creature, DeadTree, WeatherThing, Store, Timer, Vortex, Whale, Ball, OneShotSpell,
-  PuzzleGame, Totem, SpellDispenser, Highlight y Scaffold.
+  PuzzleGame (tipo 32, 0x6F184C): `fn_006D6680(pos, subtipo, ftol(ángulo·2048·0,159155), escala)` (ver "Puzle de los
+  peces: el lado del guion"). Pendientes en openblack: Reward, Creature, DeadTree, WeatherThing, Store, Timer, Vortex,
+  Ball, OneShotSpell, Totem, SpellDispenser, Highlight y Scaffold.
 - openblack: `CreateScriptObject` (CHLApi.cpp), `MarkerArchetype`. El círculo de Singing Stones ya se monta en
   (2496,67, 2246,33) sobre el suelo. Las funciones CHL sin implementar se registran una sola vez por función.
 
@@ -427,7 +556,8 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt` (casos 24, 25 y 49).
   de los 42 efectos de magia (el primero que coincide; "NONE" siempre es el 0; si no hay, 42) → 0x52B630: fuera de
   rango no hace nada; si no, tabla 0xCCFBAC[i] = p y rehace las sumas acumuladas en 0xCCFB04. No se reinicia entre
   tierras.
-- **Globales**: `VERSION` → 0xD9957C; `SET_LAND_NUMBER` → g_game+0x205A08 (0 en el ctor de GGame);
+- **Globales**: `VERSION` → 0xD9957C; `SET_LAND_NUMBER` → g_game+0x205A08 (0 en el ctor de GGame; openblack no lo reinicia al cargar un mapa; lo lee
+  `DesignedWaterFall` 0x5E3770 para el decorado de Land 3/4, ver rendering.md);
   `SET_TOWN_INFLUENCE_MULTIPLIER` / `SET_PLAYER_INFLUENCE_MULTIPLIER` → g_game+0x250078 / +0x25007C, que
   `GGame::Init` 0x54F66F pone a 1 antes del guion. openblack: `Game::GetMapScriptGlobals`.
 
@@ -441,6 +571,130 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt` (casos 24, 25 y 49).
   altura exactamente 0 en dos radios seguidos da el centro. openblack ya lo hacía igual (`GetUnflattenedHeightAt`), así
   que los 9 de Land1 sin banco (los del lago del pueblo 2 y otros) salen igual que en el original con los mismos
   datos; no se cambió la búsqueda.
+
+## Barco de los misioneros (`PLAY_JC_SPECIAL(6)`, `PetitNavire`) — hecho
+
+Scripts de RE en `tmp_dis\agua\re\` (`emu_navire_pre.py`, `emu_navire_post.py`: Unicorn con objetos LH3D falsos que
+registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode CHL, tabla 0xC0DB98 + 0x90·opcode).
+- **CHL**: `PLAY_JC_SPECIAL` (326) = `GScript::PlayJCSpecial` 0x708ED0, tabla 0x708F74 sobre el valor entero (0..15):
+  0, 1, 2, 4, 5, 6 → `fn_005DF9C0(n)`; 3 → un objeto de 0x2C de ScriptGFX (0x828DB0); 14/15 → [0x9CD384] = 1/0. En
+  `fn_005DF9C0` el caso 6 (0x5DFBF8) es `new PetitNavire(0)` (0x68 bytes). `IS_PLAYING_JC_SPECIAL` (327) 0x708FC0 saca
+  un **float** (ftol) y devuelve 1 salvo con 13, que da [0xD19C94] (solo lo pone la intro de la mano, `fn_005DF640`
+  0x5DF807; sin portar → 0).
+- **Un solo barco** [0xD19CB4]; el ctor 0x5E1020 libera el que haya (`fn_005E13C0`: suelta Boat1/Boat2 y los objetos y
+  pone el global a 0). Constantes (inicializadores `crt_xc_fn_JCMisc_005DFED0/005DFF00`): dique [0xD19A08] =
+  (1881,0833; 8,1316; 3154,1094), salida en el mar [0xD199F8] = (1456,54; 0; 3263,06).
+- **Objetos**: casco MSH_O_ARK (339) estático, `SetPosition(dique, 0, 1)`; marinero MSH_P_NORS_SAILOR (504) animado con
+  ANM_P_PUSH_OBJECT (346). Animaciones +0x08..+0x20 = 346, 332 OVERWORKED1, 235 CROWD_WON_2, 333 OVERWORKED2, 406
+  TITANIC, 378 SITTING_SWINGING_LEGS, 359 SCRUBBS. Modo 0: sombra dinámica propia (`fn_008745A0`, holder+4 = 1 y
+  ShadowInfo+0xC = **0**: también cae sobre objetos). Modo 1: vaca MSH_A_COW_1 (16) con ANM_A_COW_EAT_2 (36), montón de
+  grano MSH_S_GRAIN_PILE (533) y `LH3DSprite::Create(5)` con el material de humo [0xEA1ABC] (`smoke.raw`, **modo 6**,
+  0x80BC7D), +0x14 = 3,92699 (5π/4), bandera 0x40 (plano en XZ), celda 0x31; fases +0x50[i] = i·1200 ms.
+- **Pistas del casco**: `Data\MISC\boat1.anm` ("beach04", 158 fotogramas, 15833 ms, banderas 0x501 = en bucle) y
+  `boat2.anm` ("beach_sailing", 44 fotogramas, 4466 ms, 0x501). Una sola matriz por fotograma con **determinante −1**;
+  `fn_0083AC70` interpola los 12 floats (como `LH3DAnim::GetPose`) y la compone con la matriz padre M (`fn_007FAFF0`:
+  pista·M). Después `RotateY(π/2)` 0x5198F0 y `fn_007FAE60(diag(−1, 1, 1))`, que **multiplican por delante** (espacio
+  local): casco = espejo·RotY(π/2)·pista(t)·M, determinante +1. En glm: `M · pista · eulerAngleY(−π/2) · scale(−1, 1, 1)`.
+- **PreDraw 0x5DFF20** (desde `GLandscape::Draw` 0x5E490F, antes del mar), con dt = `g_game_time_inc` entero:
+  - Modo 0: +0x34 += dt; +0x64 = +0x24; si `!+0x48 || +0x34 > 3000`, +0x24 += dt. Si +0x24 > 15833 − 400 se borra,
+    hace `new PetitNavire(1)` y **vuelve**: ese fotograma el barco nuevo no tiene PreDraw y su PostDraw lo dibuja una vez
+    en el dique sin girar. Si no: M = Translate(dique); y del casco += `GetAltitude(casco.xz)` − `GetAltitude(dique.xz)`
+    (0x5E00EB..0x5E0154); `fn_00874850` (sombra); +0x4C = 0xFF303070 y `DrawUnderWater` (vt+0x118, el reflejo);
+    `fn_00801C90` le devuelve la luz de tierra.
+  - Modo 1: +0x24 = (+0x24 + dt) % 4466 (en bucle; si no, min(…, dur − 1)); +0x34 += dt; a los 60000 ms se borra. M =
+    RotY(π/4) (0x92B210) en (1456,54; 0; 3263,06) + (−k, 0, −k)·0,005·+0x34, con k = `InverseSquareRoot(2)` 0x841170
+    (tabla 0xEEA394 más un paso de Newton = 0,70710659): **5 u/s** hacia −x −z, 300 unidades en total. Casco como
+    arriba (sin corrección de altura ni sombra), 0xFF303070 y `DrawUnderWater`.
+  - **Resuelta la duda B4**: no hay "dos partes" ni dos dibujos por fotograma. 0x5E0100-0x5E0190 (modo 0) y
+    0x5E0380-0x5E03EE (modo 1) son ramas **excluyentes** (0x5E0195: `cmp +0x30, 1`); **las dos** montan el espejo
+    diag(−1, 1, 1) (0x5E00C1-0x5E00D9 y 0x5E0350-0x5E03B6) y el π/2 es el `RotateY` del casco. Cada fotograma hay un
+    solo `DrawUnderWater`, en 0xFF303070.
+- **PostDraw 0x5E03F0** (desde `fn_005E5CD0` 0x5E6250, después de `fn_00824140`):
+  - Modo 0, sonidos 2D (`GAudio::PlaySoundEffect` 0x429E30, banco GGlobal+0x3BC = `Scriptsfx.sad`, opciones +0xBC = 2,
+    es decir +0x50 = modo 2, dueño 0, is3D 0; en openblack por `sample_play`, uno de los 16 canales)
+    cuando el tiempo del casco cruza el umbral (+0x64 < umbral < +0x24): 100 → 62 `MissionaryBoatCreak_01`, 1500 → 61
+    `MissionaryBoatSlide_01`, 3900 → 60 `MissionaryBoatSplash_01`.
+  - Modo 0, cada 200 ms (+0x38 += ftol(dt); > 200 → acción y +0x38 = 0): si 3900 < t < 6500, 2 `SmokyStuff::Create`
+    (casco + (r2 − 10, **7**, r1), modo 0, tamaño 7, 0xFEFFFFFF); si 1130 < t ≤ 3900, 2 × (casco + (r2, 0, r1), 0, 5,
+    0xFFB88C38, arena), con r1 = Random(−20, 20) y r2 = Random(−2, 2) en ese orden (corrige el informe: el ±20 va en z y
+    el −10 / +7 en x / y). Después el casco (vt+0x100).
+  - Modo 0, marineros (el mismo objeto dibujado 5 veces): si t > 850: si +0x48, +0x34 = 0; animación +0x0C + (i % 3)·4
+    y +0x48 = 0. Posición (dique.x + {5,2; 5,3; 5,5; 5; 5}[i], suelo, dique.z + (i − 2,5)·3 + {1; −0,7; 0; 0,4; −0,2}[i]
+    + 10) (0xBF2B1C, 0xBF2B44), ángulo −π/2, fotograma ({5, 500, 1500, 455, 2000}[i] + +0x34) % duración (0xBF2B30),
+    color = luz de tierra en su sitio.
+  - Modo 1, estela (0x5E0785): fase = (fase + dt) % 6000, t = fase/6000; posición = casco·(0, 0, 100t − 15) con
+    **y = 0,2**; media anchura +0xC = 30t + 10, aspecto +0x10 = 0,5; alfa = ftol((1 − f)·255) con f = (t − u)/(1 − u)
+    si t ≥ u (si no, u) y u = [0xD19CB8]: **nadie escribe ese float** (solo lecturas en 0x5E086E..0x5E0893, ningún
+    inicializador), así que u = 0 y f = t; solo se dibuja si f > 0,2 (doble 0,2 en 0x8C7C68).
+  - Modo 1, cubierta (0x5E08E7..0x5E1015, emulado): la matriz de cada uno es L·casco (`fn_007FAFF0` y copia a
+    obj+0x14), L = RotY(a)·escala + t en el marco del casco; color = el +0x4C del casco. Vaca (a = −1,
+    t = (−1,778; 10,78; 1,83), fotograma +0x34 % dur) y otra vez (a = −0,7, t = (−1,778; 10,78; 3,83), +0x34 + 1255);
+    grano (escala 0,26, t = (−5,708; 10,854; 3,199)); el objeto marinero con MSH_P_NORS_F_A_1 (498) y TITANIC en
+    (−0,14; 13,213; −19,657) (+0x34), con 504 y TITANIC en (−0,14; 13,213; −18,9) (+0x34 + 500), SITTING girado π en
+    (−6,25; 11,424; −7,227) (+0x34) y en (−5,25; 11,424; −7,227) (+0x34 + 2345), SCRUBBS girado π en
+    (5,881; 10,741; 0,174) (+0x34).
+- **SmokyStuff** (0xCC bytes, lista 0xEB99CC): `Create` 0x823C90(pos, modo, tamaño, color) = 15 sprites de humo modo
+  6 que miran a la cámara; cada uno en pos + (c, b, a) con a, b, c = Random(−tam, tam), giro Random(0, 2π), celda 0x10,
+  velocidad norm(e, tam, d)·Random(0,3; 1)·tam (modo 0). `fn_00824140` (0x5E619C, dt = ms·0,001) → `fn_00823F70`:
+  vida −= dt/3 (modo 0), nada si vida ≤ 0; color (vida·100)<<24 | 0x808080 con el rgb del argumento; giro ±5·vida + v.x;
+  media anchura ((1 − vida)·2 + 1)·tam/2; pos += v·dt; celda (int)(vida·15); se libera con vida < 0. `Random` 0x81D180
+  = a + (b − a)·rand()/32768 (stdcall). Billboard de `LH3DSprite::Draw` 0x84071D: x local → (cos, −sin) en pantalla,
+  y local → (sin, cos).
+- openblack: `src/ECS/PetitNavire.{h,cpp}` (estado, entidades, PreDraw y PostDraw en `Update` con el tiempo entero y el
+  resto guardado), `src/ECS/SmokyStuff.{h,cpp}` (el mismo módulo que el humo del cadáver de
+  [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (la sombra del casco entra en
+  `graphics::PhysicsShadows`), `Renderer::DrawBoatReflection` / `DrawBoatSprites` (`RendererBoat.cpp`; el reflejo en
+  0x303070 usa el modo 2 de `vs_object` con el rgb empaquetado cuando z > 1). Diferencias que quedan: los sprites se
+  dibujan después de los modelos transparentes en vez de ordenados con ellos; la cubierta toma la luz de tierra de su
+  propio sitio (no la del casco); la sombra del casco solo cae en tierra (`PhysicsShadows` no se dibuja sobre objetos);
+  el modo ≠ 0 de `SmokyStuff::Create` (0x823DA7) no tiene llamadas aquí y no está portado.
+
+## Porcentaje de construcción de un Feature (`BUILT_PERCENTAGE`, propiedad CHL 22) — hecho
+
+- **Guion** (Land 1): `TheMissionaries` crea `GArk = CREATE(3, 69 = ArkDryDock, (1881,083; 8,1316; 3154,109))` y pone
+  `BUILT_PERCENTAGE of GArk = 0,2` (el patrón `GET_PROPERTY; POPI 0; PUSHF v; SET_PROPERTY` es una asignación);
+  `TheMissionariesBuildingBoat` suma 0,03 por golpe (con `PLAY_SOUND_EFFECT(RANDOM_ULONG(92, 97))`) hasta
+  `ArkIncrement`. La numeración de openblack es la buena: 22 = `BuiltPercentage`.
+- `GET_PROPERTY` 22 (0x70E1A9): `dynamic_cast<MultiMapFixed>` → `GetPercentBuilt` (vt+0x880 = 0x4014F0, +0x5C); si no
+  es MultiMapFixed, **1**. `SET_PROPERTY` 22 (0x70EC69): MultiMapFixed → `fn_0052EDD0`: +0x5C = valor (0 si es
+  negativo, **sin tope**) y, si ≥ 1, `MultiMapFixed::Built` 0x52EBB0 (+0x5C = 1, +0x58 pierde 0x02 y gana 0x08, suelta
+  el sitio de obra +0x74, reacción 0xF si tiene pueblo, `RequestChangeTexture`); después la lista de edificios del
+  pueblo (0x70EC9B..0x70ECD4), que un Feature no tiene.
+- **Valor inicial**: `fn_00527350` → ctor de `MultiMapFixed` 0x52E1E0(pos, info, ángulo, escala, porcentaje,
+  planeado): planeado → bit 0x02 y +0x5C = 0; si no, +0x5C = porcentaje y bit 0x08. El `CREATE` del guion pasa 1:
+  construido.
+- **Dibujo**: `Feature::Draw` 0x518690 = `MultiMapFixed::Draw` 0x518090: si `IsDrawBuilding` (vt+0x8A4), `DrawBuilding`
+  0x517F90. `Feature::IsDrawBuilding` 0x527790: **solo para GFeatureInfo 69** (ArkDryDock) es `!IsBuilt()` (0x422110:
+  bit 0x02 libre y +0x5C ≥ 1); los demás Features usan `MultiMapFixed::IsDrawBuilding` 0x52F0C0 = "tiene sitio de obra"
+  (+0x74), que un Feature nunca tiene: se dibujan siempre enteros. `DrawBuilding`: p = `GetPercentForDrawBuilding`
+  0x52EFD0 = min(GetPercentBuilt, GetPercentRepairedFromWhenDamaged 0x52F010 = 1 si no está construido); con p = 0 no
+  se dibuja nada; si no, vt+0x110 del objeto estático = `fn_00816AD0` (el dibujo a medio construir de las casas: malla
+  principal cortada en pos.y + 2·ext.y·escala·p con paredes interiores y tapa, y el andamio que sube (p < 0,2), entero o
+  cortado desde arriba (p > 0,8)).
+- openblack: `components::Feature::percentBuilt`, `src/ECS/FeatureBuild.{h,cpp}` (`physics::PartialBuild` pasado a la
+  malla local del Feature; sin malla con p = 0; la huella del terreno se mantiene), `GET/SET_PROPERTY` 22 en `CHLApi`.
+  El guion de Land 1 no llega aún a `TheMissionaries` (va detrás de elegir criatura): se prueba con
+  `OPENBLACK_TEST_BUILT_PERCENTAGE`. A 0,2 se ve el andamio entero y el arca cortada a un quinto; a 1, el arca sobre
+  sus puntales.
+
+## Puzle de los peces: el lado del guion (`PuzzleGame` 14 y `PLAYED`) — hecho
+
+- `CREATE_WITH_ANGLE_AND_SCALE(32, 14, PuzzlePos, …)` → `fn_006D6680` (puzzlegame.cpp, 0x588 bytes, lista
+  g_game+0x205D14). No hace nada hasta que `GlobalGameLists::Process` 0x591449 llama cada turno a `fn_006D7480`:
+  0x6D74C3 nada si +0x3C; si la prueba de "jugado" (`fn_006D66E0`) da 1, +0x3C = 1 y fuera; si no, el paso del tipo. El
+  tipo 14 (0x6D7FCD) crea la primera vez el cebo en `ConvertToLHPoint(+0x14)` 0x6041C0 (altitud + y del guion), su red
+  y los dos bancos (ver rendering.md, "puzle de los peces").
+- `PLAYED` (64) = `GScript::Played` 0x6F9DC0: criatura → su plan (0x6F9DF4); Living → `IsScriptAnimationComplete` o su
+  estado; tiempo → +0x78 == 0; **PuzzleGame** (vt+0x498) → `fn_006D66E0`, switch 0x6D6C94 sobre tipo − 1: el 14
+  (0x6D6A32) da 0 sin cebo, 1 si `cebo+0x18` (done) —y pone +0x3C = 1—, 0 si no. Objeto perdido o "Thing not living"
+  → 1 (openblack: todo lo que no es aldeano, animal, criatura ni puzle da 1 con "Thing not living"; los Living y la
+  criatura siguen sin portar). El `done` lo pone `fn_00824B90` cuando los 30 peces llevan 500 ms dentro del radio 11 (los bancos solo cuentan
+  a menos de 300 de la cámara, como se dibujan).
+- `PuzzleGame::ToBeDeleted` 0x6D6FF0: borra el cebo con su `FishPlot` (fn_00829B20) y los dos bancos (fuera de la lista
+  0xEB99F4, con sus 15 peces).
+- openblack: `components::PuzzleGame`, `src/ECS/PuzzleGames.{h,cpp}` (creación, turno, `PLAYED`, limpieza de los
+  borrados), `CreateScriptObject` tipo 32 y `PLAYED` en `CHLApi`. Solo el tipo 14; los demás puzles (Hanoi,
+  laberintos, tótems, ajedrez...) no están portados y su `PLAYED` da 0.
 
 ## Objetos del guion del mapa (farolas, hogueras, árboles muertos, puertas)
 

@@ -10,6 +10,8 @@
 #include "Resources/Loaders.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <ranges>
@@ -203,6 +205,19 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 		                graphics::SurfaceTextureFilter(), bgfx::copy(upscaled.data(), static_cast<uint32_t>(upscaled.size())));
 		return texture;
 	}
+	if (stem == "sky" || stem == "skya")
+	{
+		// fn_00837400 packs the sea's sky.raw and skya.raw into one ARGB4444 texture: R, G, B = sky >> 4 and A = skya & 0xF0
+		// (0x8374F4..0x837517, 0x837681), so the sea is posterised to 16 levels per channel (n / 15, as D3D expands them)
+		std::vector<uint8_t> nibbles(data.begin(), data.end());
+		for (auto& v : nibbles)
+		{
+			v = static_cast<uint8_t>((v >> 4) * 17);
+		}
+		texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
+		                bgfx::copy(nibbles.data(), static_cast<uint32_t>(nibbles.size())));
+		return texture;
+	}
 	texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
 	                bgfx::copy(data.data(), static_cast<uint32_t>(data.size())));
 
@@ -253,10 +268,33 @@ SoundLoader::result_type SoundLoader::operator()(BaseLoader<audio::Sound>::FromB
 	// (LHaudiodllR 0x10011420): 0x1 pitch (+0x260, percent of the wav's rate), 0x20 volume (+0x25C, 0..127).
 	// Otherwise the game's values apply: pitch 100, volume 127. The pitch deviation (percent) always applies.
 	const uint32_t overrides = static_cast<uint32_t>(header.unknown10) | (static_cast<uint32_t>(header.unknown11) << 16);
-	sound->volume = (overrides & 0x20u) != 0 ? static_cast<float>(std::min<int>(header.volume, 127)) / 127.0f : 1.0f;
+	// the volume is the low u16 at +0x25C (openblack's `volume` byte), the user parameter its high u16
+	uint32_t volumeWord = 0;
+	std::memcpy(&volumeWord, reinterpret_cast<const char*>(&header) + 0x25C, sizeof(volumeWord));
+	sound->overrides = overrides;
+	sound->volume127 = (overrides & 0x20u) != 0 ? std::min<int>(static_cast<int>(volumeWord & 0xFFFFu), 127) : 127;
+	// QMixer's law (sample_play::QMixerGain): floor(master 127 * v / 127) * 258 / 32767
+	sound->volume = static_cast<float>(sound->volume127 * 258) / 32767.0f;
+	sound->userParam = static_cast<int>(volumeWord >> 16);
+	sound->loops = (overrides & 0x40u) != 0 ? static_cast<int>(header.loop) : 0;
 	sound->pitch = (overrides & 0x1u) != 0 && header.pitch != 0 ? header.pitch : 100;
 	sound->pitchDeviation = header.pitchDeviation;
 	sound->maxDistance = header.maxDist;
+	// 0x80 minDist (+0x268), 0x100 maxDist (+0x26C), 0x200 scale (+0x270) -> QSWaveMixSetDistanceMapping; defaults
+	// of LH_SamplePlayOptions (0x10010E90): 1, 9999, 0.3. 0x400 play mode (+0x274), default 3.
+	sound->minDistance = (overrides & 0x80u) != 0 ? header.minDist : 1.0f;
+	sound->mappingMaxDistance = (overrides & 0x100u) != 0 ? header.maxDist : 9999.0f;
+	sound->scale = (overrides & 0x200u) != 0 ? header.scale : 0.3f;
+	sound->playMode = (overrides & 0x400u) != 0 ? static_cast<int>(header.loopType) : 3;
+	sound->cloneGroup = static_cast<uint16_t>(header.group);
+	sound->atmosGroup = static_cast<uint16_t>(header.atmosGroup);
+	// the atmos frequency is the whole u32 at +0x27C: openblack's `atmos` (u16) plus the struct's tail padding
+	static_assert(offsetof(pack::AudioBankSampleHeader, loop) == 0x248);
+	static_assert(offsetof(pack::AudioBankSampleHeader, minDist) == 0x268);
+	static_assert(offsetof(pack::AudioBankSampleHeader, loopType) == 0x274);
+	static_assert(offsetof(pack::AudioBankSampleHeader, atmos) == 0x27C);
+	static_assert(sizeof(pack::AudioBankSampleHeader) == 0x280);
+	std::memcpy(&sound->atmosFrequency, reinterpret_cast<const char*>(&header) + 0x27C, sizeof(sound->atmosFrequency));
 	sound->playType = static_cast<audio::PlayType>(header.loopType);
 	sound->buffer = buffer;
 	return sound;

@@ -23,7 +23,9 @@
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/VillagerAnimationTable.h"
 #include "ECS/VillagerSpeed.h"
@@ -159,6 +161,13 @@ bool IsWomanOrChild(const Villager& villager)
 	return !IsMale(villager) || villager.lifeStage == Villager::LifeStage::Child;
 }
 
+/// MapCoords::IsWater (0x6035B0) of the villager's Pos (+0x14)
+bool IsInWater(entt::entity villager)
+{
+	const auto* transform = Locator::entitiesRegistry::value().TryGet<const Transform>(villager);
+	return transform != nullptr && sea_cells::IsWater(transform->position);
+}
+
 float Life(const Villager& villager)
 {
 	return villager.life;
@@ -234,10 +243,10 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 		return k_Stand;
 	case AnimFn::Landed: // landType 0 (on its feet): no landing types yet
 		return CarriedObject(entity) == k_CarriedNone ? k_LandedFromFeet : k_LandedFromFeetCarryObject;
-	case AnimFn::Dying: // not in water, landType 0
-		return k_Dying;
-	case AnimFn::Dead:
-		return k_Dead1;
+	case AnimFn::Dying: // DyingAnimation 0x423770: in the water P_INTO_DEAD_DROWNED; else landType 0 (no landing types yet)
+		return IsInWater(entity) ? k_IntoDeadDrowned : k_Dying;
+	case AnimFn::Dead: // DeadAnimation 0x4237A0: in the water P_DEAD_DROWNED; else landType 0
+		return IsInWater(entity) ? k_DeadDrowned : k_Dead1;
 	case AnimFn::Thrown: // not in a vortex
 		return Life(villager) <= 0.0f ? k_ThrownDead : k_Thrown;
 	case AnimFn::Kissing:

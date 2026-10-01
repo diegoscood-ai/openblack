@@ -83,6 +83,11 @@ public:
 		float unlitColour {-1.0f}; ///< >= 0: unlit grey instead of the land light (reflections)
 		bool landColourOnly {false}; ///< the land light colour and specular without vertex lighting or haze (reflections)
 		bool clipBelowSea {false}; ///< discard the fragments below y = 0 (reflections: only the part above the water)
+		/// DrawCutByPlane (animated fn_00811C70, static fn_0080C050): -1 keeps y <= 0 (the plane (0, -1, 0, 0), the part
+		/// under the water), 1 keeps y >= 0 ((0, 1, 0, 0)); lit per vertex 90 + N.L in cutColour (fn_00858BA0)
+		int8_t cutByPlane {0};
+		uint32_t cutColour {0xFFFFFFFFu}; ///< 0xAARRGGBB, the colour of SetColorSpecular (obj+0x4C) for cutByPlane
+		bool mirrorInSea {false}; ///< drawn mirrored in y = 0 (the parts under the water, into the reflection target)
 		/// The dynamic shadow drawn on the object (programs *ShadowInstanced): texture, box and opacity
 		const graphics::Texture2D* dynamicShadow {nullptr};
 		glm::vec4 dynamicShadowBox {0.0f};

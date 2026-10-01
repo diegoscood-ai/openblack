@@ -287,7 +287,7 @@ void HandSystem::ForceDropHeld() noexcept
 	if (!IsHoldingSeed())
 	{
 		// Object::ThrowObjectFromHand(status, 1) with the 0x4D packet's zero velocity: it falls
-		Throw(glm::vec3(0.0f));
+		ThrowObjectFromHand(glm::vec3(0.0f), true);
 		return;
 	}
 	// SpellSeed::ThrowObjectFromHand 0x72ACD0 (forced) -> ApplyToWorshipSite 0x729A80: the charge goes back to the icon's

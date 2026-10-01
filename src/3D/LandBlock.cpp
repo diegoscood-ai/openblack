@@ -61,7 +61,7 @@ void LandBlock::BuildMesh(LandIslandInterface& island, std::span<const uint8_t> 
 	decl.emplace_back(VertexAttrib::Attribute::TexCoord2, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8, true);
 	// light level, align to 4 bytes
 	decl.emplace_back(VertexAttrib::Attribute::Color0, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8, true);
-	// water alpha
+	// shore fade: 0 at altitude 1 or less (no small bump, no dynamic shadow), 1 above
 	decl.emplace_back(VertexAttrib::Attribute::Color3, static_cast<uint8_t>(1), VertexAttrib::Type::Float, true);
 	// smooth normal
 	decl.emplace_back(VertexAttrib::Attribute::Normal, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
@@ -72,10 +72,30 @@ void LandBlock::BuildMesh(LandIslandInterface& island, std::span<const uint8_t> 
 
 	BuildVertexList(vertices, island, singleMaterials);
 
+	// the physics shape keeps every cell (it copies the positions)
+	_dynamicsMeshInterface = std::make_unique<dynamics::LandBlockBulletMeshInterface>(vertices);
+
+	// Open sea cells (bit 0x02 of the flags byte, word(cell + 6) & 0x200) are not drawn: the original emits no
+	// triangles for them (0x875DDC, 0x876A8A; SSE 0x7A9B14, 0x7AAB14), so there only the sea shows and no Z is written.
+	// Here their six vertices collapse to a point (zero area, nothing rasterised).
+	constexpr uint8_t k_NotDrawnFlag = 0x02;
+	constexpr size_t k_VerticesPerCell = 6;
+	for (size_t cell = 0; cell < static_cast<size_t>(k_Resolution.x) * k_Resolution.y; ++cell)
+	{
+		const size_t x = cell / k_Resolution.y;
+		const size_t z = cell % k_Resolution.y;
+		if ((_block->cells.at(x * 17 + z).flags & k_NotDrawnFlag) != 0)
+		{
+			const auto collapsed = vertices[cell * k_VerticesPerCell].position;
+			for (size_t v = 0; v < k_VerticesPerCell; ++v)
+			{
+				vertices[cell * k_VerticesPerCell + v].position = collapsed;
+			}
+		}
+	}
+
 	auto* vertexBuffer = new VertexBuffer("LandBlock", verticesMem, decl);
 	_mesh = std::make_unique<Mesh>(vertexBuffer);
-
-	_dynamicsMeshInterface = std::make_unique<dynamics::LandBlockBulletMeshInterface>(vertices);
 
 	_physicsMesh = std::make_unique<btBvhTriangleMeshShape>(_dynamicsMeshInterface.get(), true);
 	_rigidBody = std::make_unique<btRigidBody>(0.0f, nullptr, _physicsMesh.get());
@@ -130,10 +150,14 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 			{
 				const auto coordinates = blockOffset + offset;
 				cell = &island.GetCell(coordinates);
-				position =
-				    glm::vec3(offset.x * LandIslandInterface::k_CellSize,
-				              static_cast<float>(island.GetCellAltitude(*cell)) * LandIslandInterface::k_HeightUnit,
-				              offset.y * LandIslandInterface::k_CellSize);
+				// Sea flattening of the mesh (fn_00874AA0 0x874B95..0x874BB3, SSE 0x7A1EE7..0x7A1F0C, cmpleps against
+				// 3.0 at 0xFC01F0): every vertex of altitude 3 or less at y = 0 (GetDrawnHeightAt; the game's
+				// GetAltitude flattens only next to a base corner of 4 or less)
+				const auto cellAltitude = island.GetCellAltitude(*cell);
+				position = glm::vec3(offset.x * LandIslandInterface::k_CellSize,
+				                     cellAltitude <= 3 ? 0.0f
+				                                       : static_cast<float>(cellAltitude) * LandIslandInterface::k_HeightUnit,
+				                     offset.y * LandIslandInterface::k_CellSize);
 
 				// central differences of the neighbouring altitudes (clamped at the map edge)
 				const auto height = [&island](int cx, int cz) {
@@ -149,26 +173,21 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				const auto& country = countries.at(cell->properties.country);
 				const auto noise = island.GetNoise(blockOffset + offset);
 
-				// BWLandEditor maps above altitude 255 keep the top material (as the editor draws them)
-				const auto altitude = island.GetCellAltitude(*cell);
-				material = altitude > 255 ? &country.materials.back()
-				                          : &country.materials.at((altitude + noise) % country.materials.size());
+				// The material of the block texture's texel at this corner (fn_008732C0 0x8733BF with the cone weights
+				// (255, 0, 0, 0) there): min((255 altitude >> 8) + noise, 255). The texture itself (BlockTexture.h)
+				// takes it per texel; these per-vertex materials are only drawn by the terrain mods (terrain-x2,
+				// triplanar). BWLandEditor maps above altitude 255 get the top entry too.
+				const auto altitude = static_cast<int32_t>(island.GetCellAltitude(*cell));
+				material = &country.materials.at(
+				    static_cast<size_t>(std::min((255 * altitude >> 8) + static_cast<int32_t>(noise), 255)));
 			}
 
-			// TODO(470): This is temporary way for drawing landscape, should be moved to a shader in the renderer
-			// Using a lambda so we're not repeating ourselves
-			auto getAlpha = [](lnd::LNDCell::Properties properties) {
-				if (properties.hasWater || properties.fullWater)
-				{
-					return 0.0f;
-				}
-				if (properties.coastLine)
-				{
-					return 0.5f;
-				}
-				return 1.0f;
-			};
-			auto makeVert = [&getAlpha, &pos, &normals, &cells, &materials, singleMaterials](Corner corner, const glm::vec3& weight,
+			// The coast's transparency is the per-texel coast alpha (CoastAlpha.h), not a per-vertex value. Per vertex
+			// only the shore fade: at altitude 1 or less the specular alpha is 0 (0x874BA9..0x874BC0, SSE
+			// 0x7A1F16..0x7A1F73), so the small bump pass skips the triangles whose three vertices have it (SSE
+			// 0x7A31A0..0x7A3260), and the dynamic shadows give such vertices colour 0 (fn_00878350), a fade.
+			auto shoreFade = [&island](const lnd::LNDCell& cell) { return island.GetCellAltitude(cell) > 1 ? 1.0f : 0.0f; };
+			auto makeVert = [&shoreFade, &pos, &normals, &cells, &materials, singleMaterials](Corner corner, const glm::vec3& weight,
 			                                                      const std::array<Corner, 3>& m) -> LandVertex {
 				const std::array<uint32_t, 6> mat = {
 				    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -203,7 +222,7 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				// vertex specular = the cell's first dword read as a D3DCOLOR (fn_00874AA0): r, g, b bytes -> blue, green, red
 				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity,
-				        glm::u8vec3(cell.b, cell.g, cell.r), getAlpha(cell.properties),
+				        glm::u8vec3(cell.b, cell.g, cell.r), shoreFade(cell),
 				        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				        normals[static_cast<size_t>(corner)], single};
 			};

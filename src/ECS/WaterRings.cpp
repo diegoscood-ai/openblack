@@ -9,6 +9,8 @@
 
 #include "WaterRings.h"
 
+#include "3D/LandLightTable.h"
+
 using namespace openblack::ecs;
 
 namespace
@@ -18,12 +20,24 @@ constexpr uint32_t k_RingLife = 700; // 0x2BC
 std::vector<WaterRing> s_rings;
 } // namespace
 
-void openblack::ecs::AddWaterRing(const WaterRing& ring)
+uint32_t openblack::ecs::LandLightRgb(uint8_t index)
 {
-	if (s_rings.size() < k_MaxRings)
+	return LandLightTable::Current().GetRaw(index) & 0x00FFFFFFu;
+}
+
+bool openblack::ecs::AddWaterRing(const WaterRing& ring)
+{
+	if (s_rings.size() >= k_MaxRings)
 	{
-		s_rings.push_back(ring);
+		return false;
 	}
+	auto& added = s_rings.emplace_back(ring);
+	if (added.seaLight)
+	{
+		added.argb = (added.argb & 0xFF000000u) | LandLightRgb(255);
+		added.seaLight = false;
+	}
+	return true;
 }
 
 void openblack::ecs::UpdateWaterRings(float gameMilliseconds)

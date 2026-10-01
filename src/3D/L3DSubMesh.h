@@ -53,6 +53,9 @@ public:
 		glm::vec4 colour; ///< material colour (used by untextured primitives)
 		bool twoSided;    ///< material byte +5 bit 0: D3DCULL_NONE, else back faces are culled (0x84C34A)
 		bool wrap;        ///< material byte +5 bit 2: D3DTADDRESS_WRAP, else CLAMP (0x851782)
+		/// material byte +5 bit 4 clear: the object's texture offset (+0x68 / +0x6C) is added to the UVs.
+		/// LH3DRender::DrawTriangle 0x82F8CC skips the materials with the bit (the rock of waterfall3.l3d).
+		bool uvOffset;
 	};
 
 public:

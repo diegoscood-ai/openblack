@@ -443,6 +443,56 @@ bool PhysOb::RaySegmentVsFaces(glm::vec3 point, glm::vec3 direction, glm::vec3& 
 	return found;
 }
 
+bool PhysOb::RayBehindVsFaces(glm::vec3 point, glm::vec3 direction, glm::vec3& hit) const
+{
+	// fn_007FC310: best starts at -10000 (0xC61C4000); the plane normal is the raw cross product of the world
+	// vertices, so the -0.0001 (qword 0x9A2BC0) threshold is on the unnormalised one; t < 0 and nearest to 0 wins.
+	// The mesh-collide branch of fn_007FDD60 (other +0x168, fn_008683C0) is not used by openblack's bodies.
+	float best = -10000.0f;
+	bool found = false;
+	for (const auto& f : _faces)
+	{
+		const auto& v0 = _vertices[f.indices[0]].world;
+		const auto& v1 = _vertices[f.indices[1]].world;
+		const auto& v2 = _vertices[f.indices[2]].world;
+		const auto n = glm::cross(v1 - v0, v2 - v0);
+		const float dn = glm::dot(n, direction);
+		if (!(dn < -0.0001f))
+		{
+			continue;
+		}
+		const float t = -glm::dot(point - v0, n) / dn;
+		if (!(t < 0.0f) || !(t > best))
+		{
+			continue;
+		}
+		const auto p = point + t * direction;
+		if (glm::dot(glm::cross(v1 - v0, p - v0), n) <= 0.0f || glm::dot(glm::cross(v2 - v1, p - v1), n) <= 0.0f ||
+		    glm::dot(glm::cross(v0 - v2, p - v2), n) <= 0.0f)
+		{
+			continue;
+		}
+		best = t;
+		hit = p;
+		found = true;
+	}
+	return found;
+}
+
+float PhysOb::PenetrationAlong(const PhysOb& other, glm::vec3 direction) const
+{
+	float deepest = 0.0f;
+	for (const auto& q : _vertices)
+	{
+		glm::vec3 hit;
+		if (other.RayBehindVsFaces(q.world, direction, hit))
+		{
+			deepest = std::max(deepest, glm::dot(q.world - hit, direction));
+		}
+	}
+	return deepest;
+}
+
 void PhysOb::CollideVertices(PhysOb& b)
 {
 	const float radius2 = b._radius * b._radius;

@@ -28,6 +28,9 @@ namespace openblack::ecs::systems::hand_detail
 {
 /// Plays a one-shot sample if it is loaded.
 void PlaySample(audio::SoundId id);
+/// GAudio::PlaySoundEffect with is3D: a one-shot sample at a world point, not started beyond its max distance from the
+/// camera. Returns the emitter (entt::null when culled or not loaded).
+entt::entity PlaySample3D(audio::SoundId id, glm::vec3 point);
 /// MapCoords::IsLand (0x603720): the landscape cell under the point does not have the water bit.
 bool IsLand(glm::vec3 point);
 /// OPENBLACK_DUMP_ENTITY_COUNTS (HandDebugHooks.cpp): entity counts per kind, once.

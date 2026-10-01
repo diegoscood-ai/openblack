@@ -67,7 +67,8 @@ public:
 	[[nodiscard]] static float InfluentialPlayerAlignment() noexcept;
 	/// The overcast amount at the camera, 0..1 (GWeather / LH3DAtmos: fn_00869850 caps the light table's base colour at
 	/// 255 - 96 * overcast, and so the clouds through table[255]): GCamera::Update 0x4426BA, the overcast byte of
-	/// weather::atmos::GetWeatherSmooth(camera) x 0.01 (it can pass 1: a byte of up to 127).
+	/// weather::atmos::GetWeatherSmooth(camera) x 0.01 (it can pass 1: a byte of up to 127); 0 with a clear sky (a storm
+	/// of the weather miracle gives 0.8).
 	[[nodiscard]] static float WeatherOvercastAtCamera() noexcept;
 
 	/// fn_005E1DE0 -> [0xBF3398]: the clouds' 0xAARRGGBB. Integer lerp of good 0x00FFFFFF / neutral 0xC8FFFFFF / evil

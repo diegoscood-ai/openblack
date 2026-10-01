@@ -53,8 +53,13 @@ public:
 	[[nodiscard]] virtual float GetHeightAt(glm::vec2) const = 0;
 	/// GetAltitude with the sea flattening off ([0xC37BF4] = 0, as FishFarm::CallVirtualFunctionsForCreation sets it)
 	[[nodiscard]] virtual float GetUnflattenedHeightAt(glm::vec2) const = 0;
+	/// The height of the landscape mesh as it is drawn: every vertex of altitude 3 or less at 0 (fn_00874AA0 0x874B95,
+	/// SSE 0x7A1EE7), not only next to a base corner of 4 or less like GetAltitude
+	[[nodiscard]] virtual float GetDrawnHeightAt(glm::vec2 vec) const { return GetUnflattenedHeightAt(vec); }
 	[[nodiscard]] virtual glm::vec3 GetNormalAt(glm::vec2) const = 0;
 	[[nodiscard]] virtual const lnd::LNDCell& GetCell(const glm::u16vec2& coordinates) const = 0;
+	/// A block holds this cell (g_index_block[x >> 4][z >> 4] != 0); GetCell returns an empty cell where none does
+	[[nodiscard]] virtual bool HasBlockAt(const glm::u16vec2& /*coordinates*/) const { return true; }
 	/// Altitude bits of the loaded LND: 8 in the original, up to 16 in BWLandEditor maps (EXT0 chunk)
 	[[nodiscard]] virtual uint8_t GetAltitudeBits() const { return 8; }
 	/// Cells per side of the block grid: 512 (32 blocks of 16) in the original, up to 2048 in BWLandEditor maps
@@ -85,6 +90,10 @@ public:
 	/// Island-wide land alpha, one texel per footprint texel: 1, or lower in the river channels (min of the river.l3d
 	/// footprints, like the alpha nibble of the original's block textures)
 	[[nodiscard]] virtual const graphics::FrameBuffer& GetLandAlphaFramebuffer() const = 0;
+	/// Island-wide block texture (BlockTexture.h), RGBA8, same layout as the land alpha but rows along +z from the
+	/// extent minimum: the original's ARGB4444 block textures (each nibble x 17), colour and coast alpha, 0 in the open
+	/// sea cells; nullptr while none is built
+	[[nodiscard]] virtual const graphics::Texture2D* GetBlockTexture() const { return nullptr; }
 
 	[[nodiscard]] virtual U16Extent2 GetIndexExtent() const = 0;
 	[[nodiscard]] virtual glm::mat4 GetOrthoView() const = 0;

@@ -87,6 +87,8 @@ uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (
 uniform vec4 u_haze;        // x: near, y: far, z: k, w: on ("Fog" detail key)
 uniform vec4 u_hazeColour;  // rgb: fog colour 0..255
 uniform vec4 u_window;      // x > 0: a window submesh (L3D isWindow), lit at night by the instance (Abode::Draw)
+                            // w: 1 = the primitive takes the object's texture offset
+uniform vec4 u_objectClip;  // y > 0: mirrored in y = 0 (the parts under the water drawn into the reflection target)
 
 vec4 CellTexel(vec2 cell)
 {
@@ -168,18 +170,51 @@ void main()
 
 	v_texcoord0 = vec4(a_texcoord0, 0.0f, 0.0f);
 #ifdef USE_INSTANCING
-	// The w of the second column carries a texture offset: V (scrolling food piles) + 4 x U in 1/256 steps (the one-shot
-	// orbs' 4x4 animation, the PSys AnimTextured meshes)
-	float uSteps = floor(i_data1.w / 4.0f);
-	v_texcoord0.x += uSteps / 256.0f;
-	v_texcoord0.y += i_data1.w - uSteps * 4.0f;
+	// The w of the second column carries the object's texture offset (components::UvScroll, SetUVOffset): V (food piles,
+	// the Land 3 waterfall) + 4 x U in 1/256 steps (the one-shot orbs' 4x4 animation, the PSys AnimTextured meshes),
+	// added (U and V) only to the primitives whose material lacks bit 0x10 of byte +5 (u_window.w;
+	// LH3DRender::DrawTriangle 0x82F8BE). V may be -2..2: the waterfall's is -1..0 (frac of a decreasing V), the piles'
+	// and orbs' 0..1
+	float uSteps = floor((i_data1.w + 2.0f) / 4.0f);
+	v_texcoord0.x += uSteps / 256.0f * u_window.w;
+	v_texcoord0.y += (i_data1.w - uSteps * 4.0f) * u_window.w;
 #endif // USE_INSTANCING
 	vec3 specular = vec3_splat(0.0f);
 #ifdef USE_INSTANCING
 	vec3 objectColour = vec3_splat(1.0f);
-	if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
+	if (u_objectLight.x > 3.5f)
 	{
-		objectColour = vec3_splat(u_objectLight.z);
+		// DrawCutByPlane (fn_00811C70 / fn_0080C050 -> fn_00858BA0 per vertex): I = 255 (L.n) with the light 0xF03140
+		// (the one of fn_0084BA90); I < 0 -> amb, else amb + (255 - amb) I >> 8, amb = [0xC39264] = 90; rgb = colour.rgb x
+		// I >> 8 (the colour of SetColorSpecular, u_objectLight.z), no land light, no haze, the object's specular (0 for
+		// every caller). I is stored with fistp (0x858CDF): rounded to the nearest, halves to even (the FPU default)
+		const vec3 cutLight = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
+		float packedCut = u_objectLight.z;
+		float cutRed = floor(packedCut / 65536.0f);
+		float cutGreen = floor((packedCut - cutRed * 65536.0f) / 256.0f);
+		vec3 cutColour = vec3(cutRed, cutGreen, packedCut - cutRed * 65536.0f - cutGreen * 256.0f);
+		float lit = 255.0f * dot(normalize(normal), cutLight);
+		float intensity = floor(lit + 0.5f);
+		if (intensity - lit == 0.5f && mod(intensity, 2.0f) != 0.0f)
+		{
+			intensity -= 1.0f;
+		}
+		intensity = intensity < 0.0f ? 90.0f : 90.0f + floor(165.0f * intensity / 256.0f);
+		objectColour = floor(cutColour * intensity / 256.0f) / 255.0f;
+	}
+	else if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
+	{
+		// a grey 0..1 (the hand's 0xA0A0A0), or above 1 a packed r 65536 + g 256 + b (the boat's 0x303070)
+		if (u_objectLight.z > 1.5f)
+		{
+			float packedRed = floor(u_objectLight.z / 65536.0f);
+			float packedGreen = floor((u_objectLight.z - packedRed * 65536.0f) / 256.0f);
+			objectColour = vec3(packedRed, packedGreen, u_objectLight.z - packedRed * 65536.0f - packedGreen * 256.0f) / 255.0f;
+		}
+		else
+		{
+			objectColour = vec3_splat(u_objectLight.z);
+		}
 	}
 	else if (u_objectLight.x > 0.0f)
 	{
@@ -242,6 +277,10 @@ void main()
 		specular = vec3_splat(0.0f);
 	}
 	float opacity = 1.0f - fade;
+	if (u_objectLight.x > 3.5f)
+	{
+		opacity *= u_objectLight.y; // A = colour A (fn_00858BA0)
+	}
 	// components::MeshTint: 1e6 (2e6 dissolving instead of blending) + 5 bits each of the ground colour and of `own`
 	float tintMarker = 0.0f;
 	vec3 tintGround = vec3_splat(0.0f);
@@ -275,7 +314,12 @@ void main()
 #endif // USE_INSTANCING
 	// The specular colour rides in the unused texcoord z/w and position w: vs_object is shared with the sky (fs_sky)
 	// and a new varying broke its interface
+#ifdef USE_INSTANCING
+	// fs_object clips on the real position; only the drawn one is mirrored
+	gl_Position = mul(u_viewProj, u_objectClip.y > 0.0f ? vec4(v_position.x, -v_position.y, v_position.zw) : v_position);
+#else
 	gl_Position = mul(u_viewProj, v_position);
+#endif // USE_INSTANCING
 #ifdef USE_INSTANCING
 	// Window submeshes exist only while the house's windows are lit (by day they fail the LOD test)
 	if (u_window.x > 0.0f && windowGrey < 0.0f)

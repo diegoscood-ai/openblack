@@ -44,6 +44,9 @@ Compiladas en `cmake-build-presets\ninja-multi-vcpkg\bin\Release`:
 - `l3dtool read -H|-m|-P|-V|-I|-s file.l3d`: cabecera, submallas, primitivas (material, skinID), vértices (posiciones
   con **un decimal**), índices, skins incrustadas.
 - `lndtool write ... --points "x y z"`: genera el terreno de prueba (ver tests en openblack-internals.md).
+- **Shaders con #include**: `bgfx_compile_shaders` solo sigue el fichero de arriba. Las variantes `vs_object_*.sc`
+  (y `vs_static_shadow_instanced_static.sc`) incluyen `vs_object.sc`/otra variante: tras cambiar el incluido hay que
+  tocar (`touch`) las variantes, o el ejecutable se queda con la versión vieja de las mallas estáticas e instanciadas.
 
 ## Formatos de datos
 
@@ -85,6 +88,8 @@ Igual que openblack, más tres extensiones que openblack ya admite (`LNDFile`, `
   4 olas lentas, 5 lago, 6 costa, 7 olas rápidas, 8 jungla, 10 viento, 12 desierto, 14 pájaros, 16 bosque, 18 río.
   Los impares por encima de 8 son variantes del par anterior. openblack lo usa en los filtros `zone`/`not_zone` de
   `world.foliage` (**mod**, 1579a51c, ver [mod-library.md](mod-library.md)).
+  El original lee la zona como `(flags >> 2) & 0xF` (`Terrain::GetAtmosType` 0x7352B0): los códigos del editor son
+  `tipo << 1`; tabla y uso en [objects-and-resources.md](objects-and-resources.md) («Ambiente (atmos)»).
 - **`properties` (+6).** Bits 0-3 = country, bit 4 (0x10) = hasWater, bit 5 (0x20) = coastLine, bit 6 (0x40) =
   fullWater, bit 7 (0x80) = split (diagonal, ver [engine-math.md](engine-math.md#altura-del-terreno)). Para separar
   el mar abierto del agua interior, `lnd_water.py` agrupa las celdas conectadas con agua o sin bloque: las que tocan
@@ -122,7 +127,9 @@ Scripts de análisis de `.lnd` (`dev\tools\lnd\`): `lnd_check` (tabla de bloques
 
 ### Diferencias sin comprobar en el original
 
-- El editor elige el material con `min(altitud + ruido/4, 255)`; openblack usa `(altitud + ruido) % 256`.
+- El editor elige el material con `min(altitud + ruido/4, 255)`; el original lo hace **por texel** con
+  `min((h >> 8) + ruido, 255)` y la altitud pesada con conos (resuelto, rendering.md "Costa"), y openblack
+  ya lo sigue (`3D/BlockTexture`).
 - El lector L3D de openblack toma ancho y alto de huella de la cabecera; el editor los lee por entrada.
 - El editor lee info.dat de Creature Isle (627250 bytes; tablas más largas en InfoConstants.java L23-33); openblack
   todavía no.

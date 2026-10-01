@@ -116,7 +116,7 @@ void Foliage::UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition
 				                       std::sin(w2 * t + p2) + 0.4f * std::sin(1.7f * w2 * t + p1));
 				const glm::vec2 point = homePoint + wander * (range * envelope / 1.4f);
 				const float bob = 0.2f * std::sin(9.0f * t + p1) + 0.15f * std::sin(3.1f * t + p2);
-				const float ground = island.GetUnflattenedHeightAt(point) + 0.3f;
+				const float ground = island.GetDrawnHeightAt(point) + 0.3f;
 				return glm::vec3(point.x, std::max(home.top.y + envelope * (above + bob), ground), point.y);
 			};
 
@@ -196,7 +196,7 @@ void Foliage::UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition
 					}
 				}
 				position += home.offset;
-				position.y = std::max(position.y, island.GetUnflattenedHeightAt(glm::vec2(position.x, position.z)) + 0.3f);
+				position.y = std::max(position.y, island.GetDrawnHeightAt(glm::vec2(position.x, position.z)) + 0.3f);
 			}
 
 			// the frame by the image's own delays

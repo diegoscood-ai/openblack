@@ -12,6 +12,7 @@
 #include <array>
 #include <optional>
 
+#include <entt/core/fwd.hpp>
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
@@ -40,9 +41,40 @@ struct FishShoal
 	glm::vec3 target;
 	float timer {0.0f}; ///< seconds until a new target
 	std::array<Fish, k_FishCount> fish;
+	/// +0x5C: the fish puzzle's bait (components::FishBait) the shoal swims for, or null (the fish farms). Such a shoal
+	/// is not fished with the hand (fn_00824B10) and is no longer drawn once its bait is done (fn_00824DA0)
+	entt::entity bait {entt::null};
 	uint8_t alpha {255}; ///< this frame, from the camera distance
 	bool visible {false};
 	size_t shown {k_FishCount}; ///< fish shown this frame (FishFarm::VisibleFish)
+};
+
+/// The fish puzzle's net of floats (FishPlot, ctor 0x829A30, 0x90 bytes): Data\MISC\Fishplot.l3d (one float, a
+/// static LH3DObject with dynamic lighting) drawn at 7 points on a circle round the bait
+struct FishPlot
+{
+	static constexpr size_t k_Floats = 7;
+
+	glm::vec3 centre;                         ///< +0x08
+	std::array<glm::vec3, k_Floats> points;   ///< +0x14: centre + r (cos(i 2pi/7), 0, sin(i 2pi/7))
+	float phase {0.0f};                       ///< +0x68: the bobbing, += 2 dt per draw under the water
+	float closure {1.0f};                     ///< +0x88: 1 open .. 0 closed, the radius is 1 + 10 closure
+	bool closing {false};                     ///< +0x8C
+	entt::id_type mesh {0};                   ///< +0x04: "misc/Fishplot" in the mesh manager (0: not loaded)
+};
+
+/// The fish puzzle's bait (PuzzleGame type 14, fn_006D7480 0x6D7FCD, 0x2C bytes): the net is done when `need` fish of
+/// the shoals swimming for it are all within `radius` (x, z) at once for `holdMs` of game time (fn_00824B90)
+struct FishBait
+{
+	glm::vec3 position;       ///< +0x00
+	float radius {11.0f};     ///< +0x0C
+	uint32_t need {30};       ///< +0x10
+	uint32_t holdMs {500};    ///< +0x14
+	bool done {false};        ///< +0x18
+	uint32_t inside {0};      ///< +0x20: the fish inside this frame
+	uint32_t timerMs {0};     ///< +0x24
+	FishPlot net;             ///< +0x28
 };
 
 /// A fish farm (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM, GFishFarmInfo 0). No shoal when no sea was found around it.

@@ -10,6 +10,9 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+
+#include "Audio/Guidance.h"
+
 #include "HandSystemDetail.h"
 
 #include <glm/gtc/constants.hpp>
@@ -310,6 +313,9 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 	auto wood = ecs::TreeWood(object);
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
+	// 0x63A9C7..0x63A9E6, after AddResource (vt +0x68C): the IS is the local one (inferred: the hand) -> ResourceDropSFX
+	// (IS, the object's MapCoords, GetGuidanceResourceType: Tree 0x71BE20 / DeadTree 0x71BE30 = 2, wood)
+	audio::guidance::ResourceDropSFX(registry.Get<const Transform>(object).position, audio::guidance::RainType::Wood);
 	// 0x63AA13..0x63AA93: GAudio::PlaySoundEffect 0x429E30 with bank InGame (GAudio+0x3AC), owner the object (+0x20), is3D
 	// 1, track 0, sample 155 G_TreeMulch_01 + the counter [0xD4437C] = ([0xD4437C] + 1) & 3, at the object's point
 	// (GetPos -> MapCoords::GetLHPoint 0x605C40)

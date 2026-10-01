@@ -28,6 +28,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
+#include "Audio/Guidance.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
@@ -381,7 +382,14 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		                   position.z, Get2DRadius(pile));
 	}
 	SetSpeedUp(pile, speedUp || pot.speedUp); // vt 0x864
-	// TODO(interface): GGuidance::ResourceDropSFX 0x71B570 (the guidance voice) for the local interface's drops
-	static_cast<void>(dropper.isMyInterface);
+	// 0x66F4D8..0x66F509: the local interface's drop -> GGuidance::ResourceDropSFX(IS, pos, RESOURCE_TYPE 1 -> 2 (wood),
+	// 0 -> 1 (food), else 0)
+	if (dropper.hasInterface && dropper.isMyInterface)
+	{
+		const auto rain = type == ResourceType::Wood   ? audio::guidance::RainType::Wood
+		                  : type == ResourceType::Food ? audio::guidance::RainType::Food
+		                                               : audio::guidance::RainType::None;
+		audio::guidance::ResourceDropSFX(position, rain);
+	}
 	return amount - left; // 0x66F511: eax = amount - left on every path, so the new pile's part is not counted
 }

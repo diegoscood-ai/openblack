@@ -3,7 +3,7 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B8 de la fase B están hechos; el resto de la fase B y la C quedan pendientes.
+y los hitos B0..B10 de la fase B están hechos; la fase C queda pendiente.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -38,6 +38,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B4 y B6 implementados](#fase-b-b4-y-b6-implementados)
 - [Fase B: B7 implementado (voces en canal)](#fase-b-b7-implementado-voces-en-canal)
 - [Fase B: B8 implementado (interfaz y mano)](#fase-b-b8-implementado-interfaz-y-mano)
+- [Fase B: B9 y B10 implementados (Guidance y voces nocturnas)](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -643,19 +644,26 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
     0x428C60 + `four1` 0x428D50, que están sin volcar.
   - `IsTalking` 0x5BB760 y `StopSentence` 0x5BB840.
   - Efectos de los espíritus: `HelpDude::PlaySoundFX` 0x5C2800 (banco `GetSoundFXBank` 0x5BC7C0).
-- **GGuidance** (`Guidance.sad`, 0x71AB10..0x71D490): reacciones de los aldeanos.
+- **GGuidance** (`Guidance.sad`, 0x71AB10..0x71D490): reacciones de los aldeanos y comentarios de los consejeros.
+  Todo leído (volcado `tmp_dis\audio\voices_guidance_71ab10.txt`); el detalle está en
+  [B9](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas).
   - 33 tipos con una tabla de intervalos 0x980190 {base, nivel de ayuda, siempre}.
-  - `PlayNow` 0x71AF50. El intervalo es base + rand(5·base·(1 − r³)) (0x71AEE0). `PlaySample` 0x71C6F0.
-  - Los tipos 9..30 hacen hablar a un consejero (`HelpSpiritSay` 0x71D270).
-  - `BeliefSFX` 0x71BF70 (umbrales 0,05/0,4/0,7, max 200).
-  - Latido: InGame 45 en bucle, 3D, max 500 (0x71C190 → 0x71C460). El tono 30+70·v suavizado 0,1 es **(inferido)**.
-  - Los disparadores 0x71B130..0x71D1C0 están sin volcar (PLAN §8.3 F4).
+  - `PlayNow` 0x71AF50: un tipo no «siempre» calla en el **Land 1 de una partida de un jugador que no es el
+    playground** (g_game+0x205A08 == 1, `IsMultiplayerGame` 0x552F80, +0x205A0C); luego el nivel de ayuda
+    (HelpSystem+0x45F8 ? +0x45F4 : 0) y turnos desde la última vez > intervalo = base + rand(5·base·(1 − r³))
+    (0x71AEE0, sorteado en cada llamada). `PlaySample` 0x71C6F0.
+  - Los tipos 9..30 (y 31, 32) hacen hablar a un consejero: `HelpSpiritSay` 0x71D270 arranca el guion de ayuda
+    `MultiHelpJustTalkWithText(texto, texto)` (HelpSystem.txt), que espera el diálogo, hace RUN_TEXT y espera a que se lea.
+  - `BeliefSFX` 0x437F40 → 0x71BF70 (umbrales 0,05/0,4/0,7, max 200).
+  - Latido: InGame 45 en bucle, 3D en la **ciudadela** si su corazón (+0x30) vive, max 500, tono = 30 + 70·v
+    suavizado 0,1 (0x71C460, ya **fiel**: 0x8BF51C, 0x92B2C8, 0x8AB22C).
 - **GConfirmation** (START_ANGLE_SOUND 285 / «START_ANGLE_SOUND» 348 = `StartPitchSound`):
   - Init 0x71A560, Start 0x71A610, Process 0x71A650.
   - HelpSprites 1686 (BETTER_14), 1673..1685 y 1704..1717.
   - Nunca dice «no»: es un fallo del original y se copia.
 - **GSpookyVoices** 0x72E2A0..0x72E870: de noche (reloj real 20:45-20:59 o 23:00-05:59) susurra el nombre del perfil
-  elegido por Soundex entre los 100 `HELP_TEXT_SPOOKY_NAMES_*`. El Soundex está sin volcar.
+  elegido por Soundex entre los 100 `HELP_TEXT_SPOOKY_NAMES_*` (volcado `tmp_dis\audio\spooky_72e130.txt`; detalle en
+  [B10](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)).
 - La **criatura no habla**: `creature.sad` y los bancos por especie son efectos **(inferido)**.
 
 ### Voces y textos en openblack
@@ -1378,9 +1386,126 @@ Comprobadas en el desensamblado: 0x406820 (`mov eax, 1`), 0x406830..0x40694A (vt
   mientras la cámara de la intro arrastra la mano por el borde del círculo de un pueblo (filtrados por la pantalla
   ancha, igual que el original). El clic de menú no se puede probar sin mover el ratón.
 
+## Fase B: B9 y B10 implementados (Guidance y voces nocturnas)
+
+Sesión audio, rama `local/audio`. Fuentes: el desensamblado entero de SoundGuidance.cpp 0x71AA90..0x71D480
+(`tmp_dis\audio\voices_guidance_71ab10.txt` y 0x71AA90), de SpookyVoices.cpp 0x72E130..0x72E8B0
+(`tmp_dis\audio\spooky_72e130.txt`), los llamadores (`callers.py`: 0x54E711..0x54E729, 0x5DC50D, 0x7506C0..0x7508F4,
+0x4141A0, 0x406640..0x406786, 0x66F4D8..0x66F509, 0x63A9A0..0x63A9E6), HelpSystem::RunMessage 0x5C8CE0 /
+StopHelpScriptsForNewHelp 0x5C8C40 / TriggerCategory 0x5C8280 / Reset 0x5C5580 / fn_005C6CF0, GScript::StartScript
+0x6EB710, HelpSystemOn 0x6FBFD0, SetHelpSystem 0x6FC020, GRand 0x6DE570 / 0x6DE590, _LHRand 0x7DB600, la fase de la
+luna fn_0086A7F0 y las tablas 0x980128..0x9804D0, 0x999434 (`tmp_dis\audio\b10_dump.py`; el azar sembrado de los tests: `b9_interval.py`, el Soundex: `b10_soundex.py`; los llamadores: `b9_callers.txt`).
+
+### GGuidance (`src/Audio/Guidance.{h,cpp}`, `audio::guidance`)
+
+**Fiel.** Un solo GGuidance (el original tiene uno por GInterfaceStatus, +0x30, y todos los llamadores usan el de
+`MyInterfaceStatus`). Lo que lee del juego llega por `GameQueries` (sección B9); sin consulta, el valor neutro de un
+juego sin ese sistema, y no suena nada.
+
+| función | original | qué hace |
+|---|---|---|
+| `Init` | 0x71AC70 (GInterfaceStatus::Init 0x5DD1CB) | opciones propias (banco Guidance, 2D, track 0, modo 2); lastPlayed[t] = turno − LocalRand(base) si es > 0 (**con un segundo sorteo** para el valor que se guarda), si no 0; +0x98..+0xC8 = 0, +0xA8 = 30, los 7 «una vez» a 0, [0xC221CC] = 1. openblack lo llama al empezar cada tierra |
+| `TimeSinceLastPlayed`, `Interval`, `PlayNow`, `HelpSpritesPlayNow` | 0x71ADF0, 0x71AEE0, 0x71AF50, 0x71AFF0 | ver arriba; `HelpSpritesPlayNow` = PlayNow(8) && PlayNow(t) (el tipo 8 nunca se actualiza: es una puerta global) |
+| `PlaySample` | 0x71C6F0 | opciones **persistentes**: vol, tono, +0x2C, muestra (tabla de voz 0x96BA38 si es texto), dueño = nº del jugador; 3D: punto, max, min = max·0,333 (0x8D8734), máscara 0x180, track 0; **sin punto no suena ni marca**; 2D deja lo demás como lo dejó el último 3D; lastPlayed = turno |
+| `HelpSpiritSay` | 0x71D270 | RunMessage(texto, texto, «MultiHelpJustTalkWithText» o «…NoText» para el 31) + TriggerCategory(8); lastPlayed y +0x2C = turno **aunque el guion no arranque** |
+| `OneOff(k)` | fn_0071D0B0 | una vez por tierra, con probabilidad (tabla 0x980440: 3308 0,02 · 3317 0,0002 · 3318 0,01 · 3321 0,01 · 3325 0,05 · 3326 0,1 · 3328 0,025) → HelpSpiritSay(texto, 32) |
+| `GetRandomSample`, `…BasedOnValue` | 0x71D300, 0x71D320 | listas HELP_SPRITES_GUIDANCE de info.dat (22 × 34; hasta el primer 0; 34 llenas cuentan 33) |
+| `TimeSinceThingSeen`, `DesireSample`, `DesireScore` | fn_0071AE10, fn_0071AA90, fn_0071B410 | ver abajo |
+| `ProcessTownDesireSFX` | 0x71B020 (+0x71B130, +0x71B270) | cada 10 turnos: el pueblo con almacén y gente más cerca de la cámara (< 200) y sus 17 deseos {valor +0x37C, tipo +0x380}; luego los 6 lugares de culto de mi ciudadela con fieles (comida, y +0x70 de la ciudadela) **pisan** al pueblo si puntúan (el de +0x70 siempre que no sea 0); valor > 0,3 → x = v − rand(v/2), 3D en el pueblo o la ciudadela, max 200·x; +0x98 = la muestra |
+| `ProcessHeartBeatSFX`, `HeartBeat`, `SetHeartBeatOverride`, `HeartBeatPulse`, `StopHeartBeat` | 0x71C190, 0x71C460, fn_0071C3F0, fn_0071C430/450, fn_0071C650 | cada 10 turnos v = Σ deseo de protección + ((+0xC8 + 0,001)/(q + 0,001) − 1) + ((+0xC4 + 0,001)/(p + 0,001) − 1) + Σ por cada criatura enemiga cuyo pueblo más cercano es mío (d < 400) 1 − max(d − 100, 0)/400, recortado a 0..1; p, q suavizados 0,1; tono, fase (+tono·0,025·100 ms·0,001), pulso (1 − cos 2πφ)/2 |
+| `HelpSpritesCheckMoonPhase` | 0x71D1C0 (estática) | cuenta atrás [0xC221D0]; de noche visual, fase − π; de noche real y \|·\| < 0,15 → OneOff(5) y 600000 turnos; si no, ftol((fase − π)²·12000) |
+| `MoonPhase` | fn_0086A7F0 | 2π(1 − frac(días·0,03386318)), días = time()/86400 − 10962 (entero) |
+| `ProcessGameTurn` | GGame::ProcessTurn 0x54E711..0x54E729 | GSpookyVoices::Process, la luna, los deseos y el latido de GInterfaceStatus::Process 0x5DC50D (orden **(aproximado)**) |
+| `ResourceDropSFX`, `ResourceDropSample` | 0x71B570, 0x71B5F0 | el pueblo más cercano < 100; suma de sus tres valores del tipo ≥ 0,5 → PLEASED_x, < 0,25 → DISPLEASED_FOOD para comida y **PLEASED** para madera y lluvia (los DISPLEASED de madera y lluvia no se usan en W120); 3D, max 200 |
+| `TownAttackSFX`, `StrongestEffect`, `AttackerSample`, `HelpSpritesTownBeingAttacked` | 0x71B7C0, fn_0071BE40, 0x71BC20..0x71BD50, 0x71C870 | 10 ATTACK, + 10 FIRE si el efecto 0 manda, + 10 veces la muestra del atacante (rayo / roca / criatura); una al azar; max 200·(min(+0xEC0·0,2, 1) + 1); y siempre el comentario si el pueblo es mío (PlayNow, no HelpSpritesPlayNow; agresión > 1) |
+| `StartRaiseTotemSFX`, `EndRaiseTotemSFX` | 0x71BEB0, 0x71BED0 | el final no toca nada en W120 (calcula la clase de alineamiento y vuelve) |
+| `MakeDiscipleSFX`, `DiscipleText`, `AlignmentClass` | 0x71BF10, fn_0071AB70, fn_0071C690 | 2D, vol 85; tabla 0x98040C; el discípulo 10 dice GOOD/EVIL_LIVE_HERE según la clase (±0,55) |
+| `BeliefSFX`, `BeliefSample`, `BeliefVisibility` | 0x437F40, fn_0071BF70, fn_0071C0D0 | solo si la creencia del jugador está por debajo de la mayor; x = (b + 0,0001)/(máx + 0,0001) − rand(x/3); visibilidad t0·(1 − d²) > 0,3 |
+| `DeathInVillageSFX` | fn_0071C810 | DEATH_IN_VILLAGE_06 + rand 5, 2D |
+| `HelpSprites*` (16 funciones) | 0x71C930..0x71D070 | cada una su condición (gente, almacén que funciona, a < 300 de la mano GInterface+0x3B8, en pantalla) y su lista (tipo − 9) |
+| `HelpSpritesAlignmentProcess` | 0x71CEB0 | acumulado +0xC0 = 0,95·+0xC0 + cambio; pasado 2·cambio máximo del jugador: mismo signo y \|a\| > 0,75 → bueno: tipo 29 lista 20, malo: tipo 28 lista 19 **(sic: los nombres de Enums.h los dan cruzados)**; signo opuesto y \|a\| > 0,4 → 25/16 o 26/17 |
+
+**Azar**: LocalRand(n) ∈ [0, n) (0 para 0, sin sorteo) y LocalFloatRand(x) = x·LocalRand(0xFFFF)·(1/65535) como el
+original; el generador es el de openblack **(aproximado)** salvo en los tests, que usan `LHRand` con semilla.
+
+**Consultas nuevas** (`GameQueries.h`): `playgroundGame`, `multiplayerGame` (falso), `helpLevel` (HelpSystem; 3 sin él),
+`localPlayerNumber` (PLAYER_ONE), `visualNight`, `handPosition` (la mano, **(inferido)** GInterface+0x3B8), `pointOnScreen`
+(sin ella: falso), `desireTowns`, `worshipSites`, `townResourceNeeds`, `heartBeat` (sin ellas: nada), `helpRunMessage`,
+`helpTriggerCategory`, `profileName`.
+
+**HelpSystem** (A11/B7, de audio): `+0x45F8` interruptor (Reset 0x5C55FC = 1; **SET_HELP_SYSTEM 253** hecho), `+0x45F4`
+nivel (3 sin perfil, 0x5C6DB6), **HELP_SYSTEM_ON 200** hecho (interruptor && nivel ≠ 0), `TriggerCategory` (+0x2D8, 9;
+Reset los pone a 0), `+0x560`. `script_control::RunMessage` / `StopHelpScriptsForNewHelp`: no arranca si una tarea que no
+es de ayuda (tipo sin 0x42) tiene el diálogo; si no, para los guiones de ayuda (0x4A), empuja los dos números como
+float y arranca el guion con los tipos 0x7F. `chlapi::ScriptVm` sale en `CHLApi.h` con `pushFloat` y `startScript`.
+
+**Conectado en openblack**: `ProcessGameTurn` en el turno (Game.cpp, antes de `audio::ProcessTurn`); `Init` en cada
+`LoadMap`; las listas de info.dat al arrancar; `ResourceDropSFX` en `pot_resource::AddResourceToPos` (montón nuevo de la
+mano local: RESOURCE_TYPE 1 → 2, 0 → 1) y en `HandSystem::DepositInStore` (madera, tras AddResource). Hoy no suena nada
+de esto en Land 1: los tipos no «siempre» callan en el Land 1 de la campaña, los pueblos no tienen deseos ni valores de
+recursos (consultas neutras) y no hay corazón de ciudadela.
+
+### GSpookyVoices (`src/Audio/SpookyVoices.{h,cpp}`, `audio::spooky`)
+
+**Fiel** salvo el nombre. Objeto estático 0xDA0830: banco +0x8, opciones +0xC, muestra +0x10, contador +0x14, cuenta
+atrás +0x18. La info de info.dat `GSpookyVoiceInfo` (5 entradas, 0xDA0850) no la lee nadie.
+
+- **Soundex** (`SoundExCode` 0x72E4E0, tabla de saltos 0x72E54C): a e i o u 0, b f p v 1, c g j k q s x z 2, d t 3,
+  l 4, m n 5, r 6 y **h w y el propio carácter** (la entrada 0x72E548 devuelve eax). No letra (`_isalpha`) = 0
+  ((inferido): la «C» locale, solo ASCII; «é», «ñ» dan 0).
+- `GetNextSoundexCode` 0x72E5C0: salta códigos 0 hasta el fin o un espacio; tras una letra con código, si la siguiente
+  tiene el mismo, **devuelve código + 1 sin pasarla** (rareza de W120: «Curro» da 7, 6, 0).
+- `PerformSoundexComparison` 0x72E630: primer carácter idéntico (mayúsculas cuentan) y tres códigos iguales;
+  `SoundexOverlap` 0x72E6E0: alguna palabra del nombre; `TrySoundex` 0x72E7E0: el primero de los 100 nombres (0x999434:
+  4586..4685) que encaja → la muestra de la tabla de voz 0x984D48 (otra copia de 0x915D40). En la instalación española
+  11 nombres se resuelven a uno anterior (Alfredo → Alberto, Manolo → Manuel, Jaime → Juan, María → Mario, Miriam →
+  Mariano, Lucía y Luisa → Luis, Ángeles → Ángel, Julia → Julio, Rocío → Rosa, el segundo Alberto).
+- `GetName` 0x72E740: nombre del perfil ([0xD4BF38] = PlayerProfile +0x200), luego el de la red ([0xD204D4]+0x70) y el
+  `DefName` del registro «Software\Microsoft\MS Setup (ACME)\User Info»; **openblack no tiene perfiles**: `profileName`
+  = `OPENBLACK_PLAYER_NAME` si está **(inferido)**; red y registro **no portados**. Sin nombre → muestra 0 → nunca suena.
+- `Init` 0x72E2A0 (GGame::InitOneTimeOnly, una vez), `UpdatePlayerName` 0x72E870 (GGame::Init, cada tierra).
+- `Process` 0x72E310: nada en los Land 1 y 2 ni sin muestra; cuenta atrás de 100 llamadas; de noche (fn_0072E3B0),
+  r → ftol((1 − r³)·1000) < contador → `PlaySpooky`, si no OneOff(1); contador + 1. **Corrección**: `PlaySpooky` pone el
+  contador a 0 (0x72E4D3), así que tras sonar vuelve a 1.
+- `PlaySpooky` 0x72E3F0: tono 100·(1 + a³)^±1 con a = rand(0,65), +0x2C = rand(180), volumen ·(1 + b³)^±1 con b = rand(0,8)
+  **acumulado** (las opciones persisten), 2D.
+
+### B9/B10 en juego
+
+Land 1, 2026-10-01 a las 23:20 (noche real), `OPENBLACK_GUIDANCE_TRACE=1 OPENBLACK_PLAYER_NAME=Mario
+OPENBLACK_TEST_GUIDANCE_SAY=80:3326` (y otra con `--mod game.skip-intro` en el turno 200; logs `_audit\audio\b9_run*.log`):
+`SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`; en el turno 80/200 `HelpSpiritSay(3326, type 32)
+MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo Script) tiene el diálogo y
+`StopHelpScriptsForNewHelp` no se lo quita, como el original. Ni los deseos ni las voces nocturnas suenan en Land 1
+(muteados por tipo y por tierra). Sin errores nuevos.
+
+### (Aproximado), (inferido) y pendiente de B9/B10
+
+- **(aproximado)**: distancias = longitud exacta x/z de los puntos del mundo (el original: hypotenuse 0x74F680 con la
+  tabla 1/√ de _FUN_0074f620 sobre MapCoords 16.16); x87 en double; el generador; el orden de `ProcessGameTurn` respecto
+  a GInterfaceStatus::Process; los puntos de PlaySample son puntos del mundo (sin el redondeo de MapCoords).
+- **(inferido)**: [0xD01A38] = 100 ms por turno (como SoundTags); GInterface+0x3B8 = la mano; `_isalpha` ASCII; el nombre
+  por `OPENBLACK_PLAYER_NAME`; el jugador local = PLAYER_ONE.
+- **No modelado**: el +0x2C de las opciones (90, rand(180) en las voces nocturnas): se guarda, SamplePlay no lo usa.
+- **Pendiente (sin llamador en openblack; la API ya está)**:
+  - `Alignment.cpp` (Milagros): `GAlignment::ProcessForPlayer` 0x4141D9 llama cada turno, para el jugador local y antes
+    de `Process`, a `HelpSpritesAlignmentProcess(GetMaxAlignmentChangePerGameTurn · pending, alignment, maxChange)`
+    (también con pending 0: el acumulado decae);
+  - `Villager::VillagerDead` 0x7506C0 (aldeanos, V12): fn_0071CE70 (KillingPeople, si lo mató el jugador local y la
+    tabla 0x99A368 de la causa), fn_0071C810 (DEATH_IN_VILLAGE, aldeano mío, 0x99A370), fn_0071CFE0 (causa 4),
+    LosingVillagers (pueblo con +0x618 > info+0x150, 0x99A36C) y LowOnPeople;
+  - `Town::UpdateAggressor` 0x73C9B0 (TownAttackSFX, fn_0071C960, fn_0071C9F0), `Town::CalculateDesireForFood`
+    0x747FA0 / 0x7481BC (LowOnFood/Wood), `TownDesire::Process` 0x745C8A (VillagerUnhappy), los deseos de los pueblos
+    (V3 de mapa: `desireTowns`, `townResourceNeeds`, `heartBeat`), el corazón de la ciudadela;
+  - `Abode::ApplyEffectsDueToPhysicalDestruction` 0x406781 (DestroyBuilding: +0x90 +0x18 < 0,4 y el jugador que lo
+    rompió), `Object::InitialisePhysicsFromHand` 0x6372EA (MakeDiscipleSFX, TODO de HandHolding.cpp), el tótem
+    0x738620/0x738666, `GBelief::AddToBelief` 0x437F2A, la criatura (0x45A772, 0x5039E7), fn_0071D100 (otras manos,
+    multijugador), GatheringBox/EndGameBox/red (OneOff 3 y otros), fn_0064AF80 (burlas multijugador);
+  - el `DefName` del registro y el nombre de red de GetName; `fn_0081F1D0` (punto en pantalla).
+
 ## Fases B y C
 
-**B0..B8 hechos; el resto pendiente** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B10 hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
@@ -1393,8 +1518,8 @@ Comprobadas en el desensamblado: 0x406820 (`mov eax, 1`), 0x406830..0x40694A (vt
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | **hecho** ([abajo](#fase-b-b8-implementado-interfaz-y-mano)): clic de los menús propios 159, llamar a la puerta 110+c%9, cruzar un anillo de influencia 52 (los gritos 180/187/194+rand7 ya estaban, B4). Sin sitio en openblack (pendientes con su dirección): Logo 160 (no hay `DoLogo` 0x5FA070), ClickOnSpell 42 de la arena y del poste de la correa, conquista 205, orden aceptada 1 (criatura), influencia virtual 129, cofre y pergaminos |
-| B9 | GGuidance, BeliefSFX, latido |
-| B10 | GSpookyVoices (antes hay que volcar el Soundex 0x72E4E0..0x72E870) |
+| B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); sin llamador en openblack: alineamiento (Milagros), muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
+| B10 | **hecho** ([arriba](#gspookyvoices-srcaudiospookyvoiceshcpp-audiospooky)); el nombre del perfil, por `OPENBLACK_PLAYER_NAME` **(inferido)** |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | Clima y alineamiento en el ambiente |
 | C3 | Aldeanos, edificios y cánticos |
@@ -1422,7 +1547,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 
 ## Pendiente
 
-- **Fases B (B9, B10) y C** ([arriba](#fases-b-y-c)). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
+- **Fase C** ([arriba](#fases-b-y-c)); lo que queda de B9/B10 está [en su sección](#aproximado-inferido-y-pendiente-de-b9b10). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
 - **B4/B6, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `PlayAt` de los árboles sin el árbol de dueño (la firma no cambia) **(aproximado)**; para arboles: el original pasa
     el árbol (0x74C4D4) y elige con `GetTickCount() % 9` (0x74C4B3), `Trees.cpp` usa el azar;
@@ -1574,7 +1699,10 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_TEXT_TRACE=1` | Cada texto de RUN_TEXT/TEMP_TEXT en el log (`|` por cada salto de línea) |
 | `OPENBLACK_AUDIO_TRACE=1` (voces) | `Advisor: dude n says HelpSprites m (s)` al arrancar cada frase de consejero; `Wave of … read from <banco>` cuando se lee una onda de un banco de diálogo |
 | `OPENBLACK_TEST_TEXT_CLICK=1` | Cada turno, si un texto espera el clic, hace el clic izquierdo (`HelpSystem::ProcessInterface(true)`); ver map-loading.md |
-| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags`, `test_script_sound`, `test_voices` |
+| `OPENBLACK_TEST_BW_ROOT=<instalación>` | Para los tests con datos: `test_audio_tables`, `test_music_bank`, `test_music_stream`, `test_game_music`, `test_voice_table`, `test_help_system`, `test_sample_play`, `test_anim_effects`, `test_sound_tags`, `test_script_sound`, `test_voices`, `test_spooky_voices` |
+| `OPENBLACK_GUIDANCE_TRACE=1` | `Guidance:` por cada Init, PlaySample (tipo, texto o muestra, 2D/3D, banco/muestra, canal) y HelpSpiritSay (texto, tipo, guion, arrancado o no); `SpookyVoices:` en Init y PlaySpooky |
+| `OPENBLACK_TEST_GUIDANCE_SAY=<turno>:<HELP_TEXT>` | En ese turno, `HelpSpiritSay(texto, 32)`: prueba el guion `MultiHelpJustTalkWithText` (no es del original) |
+| `OPENBLACK_PLAYER_NAME=<nombre>` | El nombre de perfil que lee GSpookyVoices::GetName (openblack no tiene perfiles) |
 | Ventana de depuración «Music» | Maestro, 6 canales, reproductor de MUSIC_TYPE, estado de GameMusic y de GScript, lista de objetos con música |
 
 Ejemplo: `OPENBLACK_TEST_MUSIC="3,1@20" OPENBLACK_MUSIC_TRACE=1` arranca good.sad y a los 20 s cambia a evil.sad
@@ -1612,6 +1740,11 @@ sincronizado (mismo trozo).
   (BankSampleCount)}`, `src/Help/HelpSystem` (SpiritWhoTalks, ConvertScriptSpiritToHelpSpirit, el orden del clic),
   `components/pack` (`ReadAudioHeaders`), `src/CHLApi.cpp` (340, 458, 246), `src/Game.cpp` (bancos perezosos,
   consultas y ganchos); test `test/test_voices.cpp`.
+- B9/B10: `src/Audio/{Guidance, SpookyVoices, GameQueries.h (sección B9), AudioSystem (Queries)}`,
+  `src/Help/{HelpSystem (+0x45F4/+0x45F8, TriggerCategory, +0x560), ScriptControl (RunMessage,
+  StopHelpScriptsForNewHelp)}`, `src/CHLApi.{h,cpp}` (200, 253, `ScriptVm`), `src/ECS/PotResource.cpp`,
+  `HandResources.cpp`, `src/Game.cpp`; tests `test/test_guidance.cpp`, `test/test_spooky_voices.cpp`; volcados
+  `voices_guidance_71ab10.txt`, `spooky_72e130.txt`.
 - Código: `src/Audio/{BankTables.h, GameQueries.h, MusicBank, MusicEngine, MusicStream, GameMusic, ThingMusic,
   ScriptAudioState, Voices}`, `src/Help/HelpSystem`, `src/Common/HelpText`, `src/Debug/Music`, `components/pack`
   (`AudioBankInfo`), `src/CHLApi.cpp`, `src/Game.cpp`; tests `test/test_{audio_tables, music_bank, music_engine,

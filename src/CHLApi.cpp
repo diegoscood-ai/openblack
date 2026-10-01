@@ -145,6 +145,10 @@ help::script_control::Vm ScriptVm()
 	vm.currentTaskType = []() { return static_cast<uint32_t>(Locator::vm::value().GetCurrentTaskScriptType()); };
 	vm.taskType = [](uint32_t task) { return static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)); };
 	vm.stopTasksOfType = [](uint32_t mask) { Locator::vm::value().StopTasksOfType(static_cast<lhvm::ScriptType>(mask)); };
+	vm.pushFloat = [](float value) { Locator::vm::value().Pushf(value); };
+	vm.startScript = [](std::string_view name, uint32_t mask) {
+		Locator::vm::value().StartScript(std::string(name), static_cast<lhvm::ScriptType>(mask));
+	};
 	return vm;
 }
 
@@ -2467,9 +2471,10 @@ void GetObjectHeld199() // 199 GET_OBJECT_HELD
 
 void HelpSystemOn() // 200 HELP_SYSTEM_ON
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::HelpSystemOn 0x6FBFD0: HelpSystem+0x45F8 && +0x45F4 != 0, a bool (type 6). Without a HelpSystem
+	// (openblack only: the original always has g_game+0x25005C): false
+	const auto* helpSystem = help::Get();
+	Pushb(helpSystem != nullptr && helpSystem->IsHelpSystemOn());
 }
 
 void ShakeCamera() // 201 SHAKE_CAMERA
@@ -2933,9 +2938,12 @@ void CreateWithAngleAndScale() // 252 CREATE_WITH_ANGLE_AND_SCALE
 
 void SetHelpSystem() // 253 SET_HELP_SYSTEM
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetHelpSystem 0x6FC020: HelpSystem+0x45F8 = the popped value as it is (0x6FC03D)
+	const auto on = Pop().intVal;
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->SetHelpOn(static_cast<uint32_t>(on));
+	}
 }
 
 void SetVirtualInfluence() // 254 SET_VIRTUAL_INFLUENCE

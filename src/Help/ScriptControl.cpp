@@ -225,6 +225,49 @@ bool ReleaseCameraOf(CameraControl& camera, audio::ScriptAudioState& audio, uint
 	return true;
 }
 
+bool StopHelpScriptsForNewHelp(const HelpSystem& help, const Vm& vm)
+{
+	// 0x5C8C40..0x5C8C72: a task with the dialogue whose type has neither Help nor MultiplayerHelp keeps it
+	if (const auto owner = help.GetDialogueOwner(); owner != 0 && (TaskType(vm, owner) & 0x42u) == 0)
+	{
+		return false;
+	}
+	if (vm.stopTasksOfType)
+	{
+		vm.stopTasksOfType(k_HelpScriptTypes); // GScript::StopHelpScripts 0x6EC780
+	}
+	return true;
+}
+
+bool RunMessage(HelpSystem& help, uint32_t first, uint32_t last, std::string_view script, const Vm& vm, uint32_t turn)
+{
+	if (first > last) // 0x5C8CEE: ja
+	{
+		return false;
+	}
+	if (!StopHelpScriptsForNewHelp(help, vm)) // 0x5C8CF8 StopRunningScripts
+	{
+		return false;
+	}
+	help.SetMessageTurn(turn); // 0x5C8D0C: +0x560
+	if (vm.pushFloat)
+	{
+		vm.pushFloat(static_cast<float>(first)); // 0x5C8D22..0x5C8D31: fild qword, fstp float, PUSH(VMType 2)
+		vm.pushFloat(static_cast<float>(last));  // 0x5C8D44..0x5C8D53
+	}
+	// GScript::StartScript 0x6EB710: ScriptDLL::StartScript(name, 0x7F), 0x60 in a multiplayer game
+	const bool multiplayer = vm.multiplayer && vm.multiplayer();
+	if (vm.startScript)
+	{
+		vm.startScript(script, multiplayer ? k_MultiplayerScriptTypes : k_SinglePlayerScriptTypes);
+	}
+	if (Tracing())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Text: RunMessage({}, {}, {})", first, last, script);
+	}
+	return true;
+}
+
 void OnTaskStopped(uint32_t task, HelpSystem* help, CameraControl& camera, audio::ScriptAudioState& audio)
 {
 	if (help == nullptr) // 0x6EC6D5 / 0x6EC6DF

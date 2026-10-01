@@ -464,10 +464,28 @@ void HelpSystem::ClearAllText()
 
 void HelpSystem::Reset()
 {
-	ClearAllText();      // 0x5C558D
-	SetWideScreen(0, 0); // 0x5C55D6
-	_historyCount = 0;   // 0x5C55EA
-	_historyNext = 0;    // 0x5C55F0
+	ClearAllText();          // 0x5C558D
+	_categoryTurns.fill(0);  // 0x5C55BE..0x5C55C9: +0x2D8, 9 dwords
+	SetWideScreen(0, 0);     // 0x5C55D6
+	_historyCount = 0;       // 0x5C55EA
+	_historyNext = 0;        // 0x5C55F0
+	_helpOn = 1;             // 0x5C55FC: +0x45F8
+}
+
+void HelpSystem::TriggerCategory(int32_t category)
+{
+	// 0x5C8280: +0x2D8 + 4 category = g_game+0x205A40 (unchecked in the original)
+	if (category >= 0 && static_cast<size_t>(category) < _categoryTurns.size())
+	{
+		_categoryTurns.at(static_cast<size_t>(category)) = Turn();
+	}
+}
+
+uint32_t HelpSystem::GetCategoryTurn(int32_t category) const
+{
+	return category >= 0 && static_cast<size_t>(category) < _categoryTurns.size()
+	           ? _categoryTurns.at(static_cast<size_t>(category))
+	           : 0;
 }
 
 bool HelpSystem::DialogueControlRequest(uint32_t task)

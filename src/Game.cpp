@@ -9,6 +9,8 @@
 
 #include "Game.h"
 
+#include <cstring>
+
 #include <sstream>
 #include <string>
 
@@ -40,6 +42,7 @@
 #include "Audio/Audio.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Audio/GameMusic.h"
+#include "Audio/Guidance.h"
 #include "Audio/LanternSounds.h"
 #include "Audio/MusicStream.h"
 #include "Audio/ScriptAudioState.h"
@@ -47,6 +50,7 @@
 #include "Audio/SamplePlay.h"
 #include "Audio/SoundMap.h"
 #include "Audio/SoundTags.h"
+#include "Audio/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -163,6 +167,55 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr && helpSystem->IsScriptWideScreen();
 	};
+	// GGuidance (B9): HelpSystem+0x45F8 ? +0x45F4 : 0 (PlayNow 0x71AF99); 3 without a HelpSystem (its defaults)
+	queries.helpLevel = []() {
+		const auto* helpSystem = help::Get();
+		return helpSystem != nullptr ? helpSystem->GetGuidanceLevel() : 3;
+	};
+	// GPlayer::GetPlayerNumber 0x64A790 of the local interface's player: openblack's local player is PLAYER_ONE
+	queries.localPlayerNumber = []() { return static_cast<uint32_t>(PlayerNames::PLAYER_ONE); };
+	// GGameInfo::IsVisualNight 0x5575E0 (HelpSpritesCheckMoonPhase 0x71D1DC)
+	queries.visualNight = [&game]() { return game.GetDayNightClock().IsVisualNight(); };
+	// GInterface+0x3B8 (inferred: the hand's MapCoords, as SoundMap::Dump takes it): the player's first hand
+	queries.handPosition = []() -> std::optional<glm::vec3> {
+		if (!Locator::handSystem::has_value() || !Locator::entitiesRegistry::has_value())
+		{
+			return std::nullopt;
+		}
+		const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
+		auto& registry = Locator::entitiesRegistry::value();
+		if (!registry.Valid(hand))
+		{
+			return std::nullopt;
+		}
+		const auto* transform = registry.TryGet<const ecs::components::Transform>(hand);
+		return transform != nullptr ? std::optional<glm::vec3>(transform->position) : std::nullopt;
+	};
+	// GGuidance::HelpSpiritSay 0x71D270: HelpSystem::RunMessage 0x5C8CE0 and TriggerCategory 0x5C8280
+	queries.helpRunMessage = [&game](uint32_t first, uint32_t last, std::string_view script) {
+		auto* helpSystem = help::Get();
+		return helpSystem != nullptr && Locator::vm::has_value() &&
+		       help::script_control::RunMessage(*helpSystem, first, last, script, chlapi::ScriptVm(), game.GetTurn());
+	};
+	queries.helpTriggerCategory = [](int category) {
+		if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+		{
+			helpSystem->TriggerCategory(category);
+		}
+	};
+	// GSpookyVoices::GetName 0x72E740: the profile's name. (inferred) openblack has no profiles: OPENBLACK_PLAYER_NAME
+	// (ASCII / UTF-8 letters as they are), else none
+	queries.profileName = []() {
+		std::u16string name;
+		if (const char* env = std::getenv("OPENBLACK_PLAYER_NAME"); env != nullptr)
+		{
+			for (const char* c = env; *c != 0; ++c)
+			{
+				name.push_back(static_cast<char16_t>(static_cast<unsigned char>(*c)));
+			}
+		}
+		return name;
+	};
 	return queries;
 }
 } // namespace
@@ -252,6 +305,9 @@ Game::~Game() noexcept
 {
 	// GAudio::ToBeDeleted 0x426FE0: the sample channels, then GAudio's music before LHMusic, then the music thread and
 	// its OpenAL sources before the audio context (LHMusicClose 0x1000E7A0)
+	// GInterfaceStatus::UnInit 0x5DD226 -> GGuidance::Close; fn_0054EB40 0x54EC24 -> fn_0072E280 (GSpookyVoices' options)
+	audio::guidance::Close();
+	audio::spooky::Shutdown();
 	audio::Shutdown();
 	audio::game_music::Shutdown();
 	audio::music::Shutdown();
@@ -509,6 +565,9 @@ bool Game::GameLogicLoop() noexcept
 		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
+		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
+		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Guidance.h
+		audio::guidance::ProcessGameTurn();
 		audio::ProcessTurn(_dayNightClock->GetSkyType(), _turnCount);
 		audio::AnimationSounds::RunTestHooks(_turnCount); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
 	}
@@ -1164,6 +1223,20 @@ bool Game::Initialize() noexcept
 		audio::game_music::Start(MakeMusicQueries(*this), {sound.townTriggerDistance, sound.townTriggerOffDistance});
 	}
 
+	// GGuidance's HELP_SPRITES_GUIDANCE lists (info.dat GHelpSpritesGuidance, the objects 0xD99BD8 + 0x98 k)
+	{
+		std::array<audio::guidance::SpriteList, audio::guidance::k_SpriteLists> lists {};
+		const auto& guidance = Locator::infoConstants::value().helpSpritesGuidance;
+		static_assert(sizeof(guidance[0]) == sizeof(lists[0]), "GHelpSpritesGuidance is 34 HELP_TEXT ids");
+		for (size_t k = 0; k < lists.size() && k < guidance.size(); ++k)
+		{
+			std::memcpy(lists.at(k).data(), &guidance.at(k), sizeof(lists[0]));
+		}
+		audio::guidance::SetSpriteLists(lists);
+	}
+	// GGame::InitOneTimeOnly 0x54F024: GSpookyVoices::Init (the help texts and the voice table are ready)
+	audio::spooky::Init();
+
 	// HelpSystem::CallVirtualFunctionsForCreation 0x5C5860: HelpDudeControl::Init with the HelpSprites bank for both
 	// advisors (fn_005C3660 -> fn_005BB060); the models MarkGood.Hd / MarkEvil.Hd are not ported
 	audio::advisor::Init(audio::Bank(audio::SfxBank::HelpSprites));
@@ -1543,6 +1616,10 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	_turnDeltaTime = 0ns;
 	SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 	_turnCount = 0;
+	// GInterfaceStatus::Init 0x5DD1CB -> GGuidance::Init 0x71AC70 (its turn is the new land's), and GGame::Init 0x54FD10
+	// -> GSpookyVoices::GetPlayerName 0x72E870
+	audio::guidance::Init();
+	audio::spooky::UpdatePlayerName();
 	// The original runs from the first frame; OPENBLACK_START_PAUSED=1 keeps openblack's old paused start (test hook)
 	_paused = std::getenv("OPENBLACK_START_PAUSED") != nullptr;
 

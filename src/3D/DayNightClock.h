@@ -43,7 +43,7 @@ public:
 	void SetCycleFromMapEditor(float duration, float night, float change);
 	/// SetVisualTimeScale 0x557610 (GAME_TIME_ON_OFF): 1 runs the clock, 0 stops it
 	void SetScale(float scale) { _scale = scale; }
-	/// SET_GAME_TIME: ForceVisualTime(ScriptToVisual(hour)) 0x5E22A0
+	/// SET_GAME_TIME: ForceVisualTime(ScriptToVisual(hour)) 0x5E22A0, with the sky's jump (sky_type::Jump)
 	void ForceScriptTime(float hour);
 	/// MOVE_GAME_TIME: SetTime(ScriptToVisual(hour), seconds) 0x5E22E0, the visual time slides there in `seconds`
 	void MoveScriptTime(float hour, float seconds);
@@ -51,13 +51,15 @@ public:
 	[[nodiscard]] float GetVisualTime() const { return _visualTime; }
 	/// GET_GAME_TIME (fn_0086A160)
 	[[nodiscard]] float GetScriptTime() const { return VisualToScript(_visualTime); }
-	/// LH3DSky::Time2SkyType 0x86A1B0 on the visual time: 2 night, 1 dusk, 0 day
+	/// LH3DSky::Time2SkyType 0x86A1B0 on the visual time, computed now: 2 night, 1 dusk, 0 day (sky_type::At). What the
+	/// sky drew this frame is sky_type::Frame().
 	[[nodiscard]] float GetSkyType() const { return Time2SkyType(_visualTime); }
-	/// GGameInfo::IsVisualNight 0x5575E0: sky type > 1.2
-	[[nodiscard]] bool IsVisualNight() const { return GetSkyType() > 1.2f; }
+	/// GGameInfo::IsVisualNight 0x5575E0: sky type > the double 1.2 (sky_type::IsVisualNight)
+	[[nodiscard]] bool IsVisualNight() const;
 
 	[[nodiscard]] float ScriptToVisual(float hour) const;
 	[[nodiscard]] float VisualToScript(float hour) const;
+	/// sky_type::At with this clock's thresholds
 	[[nodiscard]] float Time2SkyType(float hour) const;
 	[[nodiscard]] const std::array<float, 4>& GetDayNightTimes() const { return _times; }
 

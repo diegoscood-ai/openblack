@@ -144,8 +144,6 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	waterShader->SetTextureSampler("s_diffuse", 0, *diffuse);
 	waterShader->SetTextureSampler("s_alpha", 1, *alpha);
 	waterShader->SetTextureSampler("s_reflection", 2, ocean.GetReflectionFramebuffer().GetColorAttachment());
-	const glm::vec4 u_sky = {Locator::skySystem::value().GetCurrentSkyType(), 0.0f, 0.0f, 0.0f};
-	waterShader->SetUniformValue("u_sky", &u_sky); // fs
 	const glm::vec4 u_seaParams = {period, static_cast<float>(frame), ripple};
 	waterShader->SetUniformValue("u_seaParams", &u_seaParams); // fs
 	waterShader->SetUniformValue("u_seaRows", &u_seaRows);     // fs
@@ -160,8 +158,10 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	    std::fmod(std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
 	const glm::vec4 u_waterMod = {config.livingWater ? 1.0f : 0.0f, seconds, config.terrainTextureDensity, 0.0f};
 	waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
+	// The sea vertex colour, landscape light table entry 255 ([0xEDDD08]); without palette.raw (no table) openblack
+	// leaves the sea unlit (white, inferido: the original always has the table)
 	const glm::vec4 u_seaColour =
-	    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(-1.0f);
+	    _landLight && _landLight->IsLoaded() ? glm::vec4(_landLight->GetColour(255), 1.0f) : glm::vec4(1.0f);
 	waterShader->SetUniformValue("u_seaColour", &u_seaColour); // fs
 	bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(waterShader->GetRawHandle()));
 }

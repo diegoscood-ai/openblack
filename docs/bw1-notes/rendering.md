@@ -270,6 +270,10 @@ de la textura de bloque**.
   da el destello (`weather::LightningFlashAtCamera(cámara)` de `ECS/Weather/LightningFlash`). Test:
   `test_land_light` contra `tmp_dis\agua\light_lut_testgen.py` (entradas exactas en binario: con 1,3 o 0,6 las
   columnas en float caen al otro lado de un entero que los double de Python). La alineación es la suavizada del cielo (`Renderer::_skyAlignment`, [0xBF3378]).
+  El tipo de cielo de la columna es el muestreo del fotograma [0xFA26BC] (`sky_type::Frame()`; columna
+  `sky_type::LightColumn` = (2 − T)·15, neblina `sky_type::HazeFactor`, ver
+  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype)); `Build` lo recibe todavía en el convenio
+  viejo de openblack (2 − T) por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`.
 
 ## Neblina de distancia (original, detalle "Fog", niveles 3–6)
 
@@ -316,8 +320,11 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
 ## Cielo: sol, luna y nubes (original)
 
 Informe: `tmp_dis\render\sky_*.txt`.
-- La hora que usan el sol, la luna y el cielo es la **hora de guion** (umbrales fijos 3,5 / 7,5 / 8 / 8,5 h); el reloj
-  real del juego es la hora visual con los umbrales del ciclo. Ver [day-night-weather.md](day-night-weather.md).
+- La hora que usan el sol y la luna es la **hora de guion** (umbrales fijos 3,5 / 7,5 / 8 / 8,5 h); el reloj real del
+  juego es la hora visual con los umbrales del ciclo. Ver [day-night-weather.md](day-night-weather.md).
+- La **cúpula** (las texturas `sky_*.555`) va por el tipo de cielo de la hora visual, con histéresis de 0,03 y 32 filas
+  por fotograma (`fn_0086A330` / `fn_0086B7F0`; `sky_type::DomeBlend`, `Sky::UpdateDome`). Todo el detalle, en
+  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype).
 - **Sol** (`fn_0086C020` / `fn_0086C140`): `sun.l3d` (quad vertical 9928), `sun.raw`, modo 13 (aditivo SRCALPHA/ONE,
   sin Z), en (−30000, y, −30000) girado 3π/4, y = 7500·(clamp(min(T, 24−T), 6, 12) − 6)/6, color 0x957C63, alfa
   0 → 255 entre 3 y 6 h y 255 → 0 entre 18 y 21 h (÷(1 + 8·nubes)). **Resplandor** (`fn_0086BB60`, al final del

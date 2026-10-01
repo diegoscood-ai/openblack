@@ -59,6 +59,14 @@ void CameraControl::Reset()
 	drawHighlight = 1; // 0x6EB2FA (edi = 1)
 	drawLeash = 1;     // 0x6EB300
 	field7C = 0;       // 0x6EB303 (ebx = 0)
+	// Not original (mod game.skip-intro, "free start"): a new game looks for its opening task again
+	freeStartTask = 0;
+	freeStartArmed = true;
+}
+
+bool IsFreeStartTask(const CameraControl& camera, uint32_t task)
+{
+	return camera.freeStartTask != 0 && camera.freeStartTask == task;
 }
 
 CameraControl& GetCameraControl()
@@ -190,6 +198,12 @@ void ReleaseCameraControl(CameraControl& camera, audio::ScriptAudioState& audio)
 	// is a CameraModeScript (__RTDynamicCast), its vt+0x30 and a new CameraModeNew3 (0x4572E0, 0x300 bytes), or "We are
 	// in the wrong camera mode! - exception happened?" (0xC0C14C). Pending too: GCamera::SetCameraFov(k_ScriptEndFov,
 	// k_ScriptEndFovTime) (0x6ECE48)
+	// Not original (mod game.skip-intro, "free start"): the land's opening task has given the camera back, so from here
+	// the script gets the player back too
+	if (IsFreeStartTask(camera, camera.owner))
+	{
+		camera.freeStartTask = 0;
+	}
 	camera.owner = 0;         // 0x6ECE59
 	audio.creatureSound = 1;  // 0x6ECE74 (+0x84)
 	camera.drawHighlight = 1; // 0x6ECE85

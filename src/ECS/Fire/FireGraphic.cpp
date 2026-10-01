@@ -21,9 +21,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "Audio/Audio.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
@@ -109,8 +111,9 @@ psys::Creator MakeCreator(const char* texture, bool additive, float originY, flo
 	creator.kind = psys::Creator::Kind::Sprite;
 	creator.className = "FireGraphic";
 	creator.texture = texture;
-	// (inferido) the sheet layout of S_Fire / S_SpriteSheet3 is not read from the original: 8 x 8 cells; the frame is
-	// the cell (the sprite flags' low 6 bits), and the flame frames (fmod(.., 32) + 32) need at least 64
+	// the frame is the cell (the sprite flags' low 6 bits, 0x7323B7..0x7323CA), 8 cells a row (LH3DSprite +0x30, 8 by
+	// SetToZero 0x8404F0); (inferido) that S_Fire is drawn 8 x 8 like S_SpriteSheet3. The flame cells (fmod(.., 32) +
+	// 32, frame_anim::FireCell) need 64 frames: PSysFrameIndex then keeps them as they are
 	creator.spritesPerRow = 8;
 	creator.numFrames = 64;
 	creator.additive = additive;
@@ -233,11 +236,6 @@ glm::vec3 ObjectPosition(entt::entity object)
 {
 	const auto* transform = Locator::entitiesRegistry::value().TryGet<const components::Transform>(object);
 	return transform != nullptr ? transform->position : glm::vec3(0.0f);
-}
-
-float LandAt(float x, float z)
-{
-	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
 /// fn_007317F0: the flames
@@ -414,30 +412,36 @@ void CollectFires(std::vector<psys::manager::Drawable>& out)
 			continue;
 		}
 		psys::manager::Drawable drawable {transform->position, {}};
-		// fn_00732220: flames, orange 0xFF713C, cell = int(fmod(-25 age, 32) + 32) (fn_007321B0)
-		const float rockGround = (graphic->flags & 1) != 0 ? LandAt(transform->position.x, transform->position.z) : 0.0f;
+		// fn_00732220: flames, orange 0xFF713C, cell = int(fmod(-25 age, 32) + 32) (fn_007321B0, frame_anim::FireCell;
+		// the age is SpritePos +0x2C, cell 32 at age 0)
+		// flag bit 0 (+0xB5 & 1): the flames follow the land like the morphed object (land_morph::Raised): H0 at the
+		// graphic's +0x98 / +0xA0 (0x7322A9..0x7322D2; (inferido) the object's position), y = (H(flame) - H0) + y
+		// (0x73230A..0x732366)
+		const auto ground = land_morph::CurrentAltitude();
+		const float rockGround =
+		    (graphic->flags & 1) != 0 ? ground(glm::vec2(transform->position.x, transform->position.z)) : 0.0f;
 		for (const auto& flame : graphic->flames)
 		{
 			auto position = WorldFlamePosition(graphic->object, flame.position);
 			if ((graphic->flags & 1) != 0)
 			{
-				position.y += LandAt(position.x, position.z) - rockGround;
+				position.y = land_morph::Raised(ground, position, rockGround);
 			}
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(-25.0f * flame.age, 32.0f) + 32.0f));
+			const auto frame = static_cast<float>(graphics::frame_anim::FireCell(flame.age));
 			drawable.atoms.push_back({&FlameCreator(), position, glm::mat3(1.0f), flame.scale * graphic->scaleMultiplier,
 			                          2.0f, static_cast<float>(flame.alpha), frame, {0xFF, 0x71, 0x3C}});
 		}
 		// fn_007323F0 / fn_007324E0: white steam (additive), grey smoke (alpha 6), cell = int(fmod(25 age, 32))
-		// (SteamGetOffsetFromAge 0x7321E0)
+		// (SteamGetOffsetFromAge 0x7321E0 at 0x7324B2 and fn_0073250A 0x7325A2, frame_anim::SteamCell)
 		for (const auto& puff : graphic->steam)
 		{
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(25.0f * puff.age, 32.0f)));
+			const auto frame = static_cast<float>(graphics::frame_anim::SteamCell(puff.age));
 			drawable.atoms.push_back({&SteamCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
 			                          static_cast<float>(puff.alpha), frame, {0xFF, 0xFF, 0xFF}});
 		}
 		for (const auto& puff : graphic->smoke) // grey: or 0x707070 (0x732593)
 		{
-			const float frame = static_cast<float>(static_cast<int>(std::fmod(25.0f * puff.age, 32.0f)));
+			const auto frame = static_cast<float>(graphics::frame_anim::SteamCell(puff.age));
 			drawable.atoms.push_back({&SmokeCreator(), puff.position, glm::mat3(1.0f), puff.scale, 2.0f,
 			                          static_cast<float>(puff.alpha), frame, {0x70, 0x70, 0x70}});
 		}

@@ -65,6 +65,9 @@ struct Drawable
 {
 	glm::vec3 origin;
 	std::vector<Effect::DrawAtom> atoms;
+	/// The draw fraction of the step this effect is drawn with: the float PSysManager::AddDrawing keeps at its +0xB0
+	/// (0x6797D4) and hands down to every atom's DrawAt as DrawData +0x14 (1 for the effects that step every frame)
+	float t {1.0f};
 };
 /// kind: the sprites (with the town belief sprites), or the mesh atoms (Creators/Mesh.h)
 std::vector<Drawable> Collect(Creator::Kind kind = Creator::Kind::Sprite);

@@ -24,12 +24,15 @@
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Spell.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -323,10 +326,26 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 	shield.startScale = finalScale * 0.01f; // fn_0072C9F0 0x72CAC6: x 0.01 (0x8C5840)
 	shield.finalScale = finalScale; // fn_0072D5E0
 	SetScale(entity, shield, finalScale);
-	// CallVirtualFunctionsForCreation 0x72CCB0: the SingleMapFixed base, 3D object flags (fn_0057E220 with (5, 0xD) and
-	// (4, 0xD), UNVERIFIED) and the footpath links: none of it is modelled here
+	// PhysicalShield::CallVirtualFunctionsForCreation 0x72CCB0: fn_0057E220(obj3D vt+0xF8 = fn_007F9E70 [this+0x7C], the
+	// LH3DMesh, 5, 0xD) at 0x72CCCD and (4, 0xD) at 0x72CCE5. On MSH_S_SOLID_SHIELD the inner layer (sub-mesh 1,
+	// AlphaTextured 4) becomes AlphaTexturedAlphaAdditiveNz 13 (mode fn_0082ECD0: SRCALPHA / ONE, no Z write); no
+	// primitive is type 5. It changes the shared mesh, for every physical shield, as the original. The SingleMapFixed
+	// base (0x52E880) and the footpath links (vt 0x78 / 0x80 / 0x88 / 0x98 / 0x1E8, fn_00644DF0) are not modelled
+	if (Locator::resources::has_value())
+	{
+		auto& meshes = Locator::resources::value().GetMeshes();
+		if (const auto id = resources::HashIdentifier(k_Mesh); meshes.Contains(id))
+		{
+			meshes.Handle(id)->ReplaceMaterialType(5, 13);
+			meshes.Handle(id)->ReplaceMaterialType(4, 13);
+		}
+	}
 	registry.Assign<ecs::components::Mesh>(entity, resources::HashIdentifier(k_Mesh), static_cast<int8_t>(0), static_cast<int8_t>(0));
 	registry.Assign<ecs::components::Alpha>(entity, 0.0f);
+	// Get3DType 0x72CE50 = 1, a morphable 3D object: UpdateMelting at creation (CallVirtualFunctionsForCreation 0x72CD23,
+	// SetUpPhysOb 0x72CEB8) and on every DrawShield after the lerp (0x72D01E), so it follows the land as it grows. The
+	// magic shield is static (MagicShield::Get3DType 0x72C340 -> Object::Get3DType 0x6364F0) and has no mesh here
+	registry.Assign<ecs::components::MorphWithTerrain>(entity, land_morph::Melting::Live);
 	// fn_0072CD40: the 3D object's matrix and scale into the current and last ones, two ProcessShields to prime them
 	shield.rotation = glm::mat3(1.0f);
 	shield.translation = WorldOf(shield.position);
@@ -542,6 +561,29 @@ bool map_shield::GetPlayer(entt::entity shield, PlayerNames& player)
 	return spell.hasPlayer;
 }
 
+bool map_shield::CreatureMustAvoid(entt::entity shield, entt::entity creature, std::optional<PlayerNames> creaturePlayer)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x72C177..0x72C17F: no creature, or one controlled by a script (+0x24 & 0x400) -> 0
+	if (creature == entt::null || !registry.Valid(creature) || ecs::script_held::IsControlledByScript(creature))
+	{
+		return false;
+	}
+	// 0x72C184..0x72C193: the creature's player (vt 0x1C) against the shield's (MapShield::GetPlayer 0x72C150), as
+	// pointers: the same player (two null ones included) -> 0, anything else 1. A shield whose spell is gone (+0x60 0,
+	// 0x72C155) takes GameThing::GetPlayer 0x570130: the interface's player (g_game +0x205A5B), openblack's PLAYER_ONE;
+	// a live spell with no player gives NULL
+	PlayerNames shieldPlayer = PlayerNames::PLAYER_ONE;
+	const auto* component = registry.TryGet<const MapShield>(shield);
+	const bool spellGone = component == nullptr || !SpellAlive(component->spell);
+	const bool hasShieldPlayer = spellGone || GetPlayer(shield, shieldPlayer);
+	if (hasShieldPlayer != creaturePlayer.has_value())
+	{
+		return true;
+	}
+	return hasShieldPlayer && *creaturePlayer != shieldPlayer;
+}
+
 bool map_shield::InteractsWithPhysicsObjects(entt::entity shield)
 {
 	const auto* component = Locator::entitiesRegistry::value().TryGet<const MapShield>(shield);
@@ -591,8 +633,19 @@ void map_shield::ReactToPhysicsImpact(entt::entity shield, const ecs::physics::P
 	{
 		chants::PayFor(registry.Get<ecs::components::Spell>(spell), ChantContextOf(spell), cost, true);
 	}
-	// TODO(towns): the spell's town (+0xFC) -> Town::UpdateAggressor(EffectValues(type 2, 0, hitter, 1.0, the thrower's
-	// player), 0): the town aggression record is not ported
+	// 0x72D74F..0x72D788: with a town (the spell's +0xFC), Town::UpdateAggressor(EffectValues(EFFECT_TYPE 2, 0, the
+	// hitter, 1.0, PhysicsObject::GetPlayer 0x647460 of it), 0) 0x73C9B0. Only its record is ported (+0xEAC the
+	// aggressor, +0xEB0 the turn: 0x73CA82 / 0x73CA98); TODO(towns): the per-player aggression slots (fn_0073E0F0 on
+	// town + n x 0x80 + 0x9F4, with the value plus GTownInfo +0xAC when the slot is 0 and x the +0xEB4 / +0xEB8 weight
+	// that then decays by 0.9), the guidance TownAttackSFX 0x71B7C0 and the creature mimic of 0x73CAAA..0x73CB29
+	if (const auto town = spell_shield::TownOf(spell); registry.Valid(town))
+	{
+		auto& townComponent = registry.Get<ecs::components::Town>(town);
+		// PhysicsObject::GetPlayer: the player's hand threw it (po.byPlayer), else no player, and UpdateAggressor then
+		// takes the interface's own (g_game +0x205A5B, 0x73C9C7): both are openblack's PLAYER_ONE
+		townComponent.aggressor = PlayerNames::PLAYER_ONE;
+		townComponent.aggressorTurn = CurrentTurn();
+	}
 	const float strength = GetSpellStrength(spell);
 	if (TraceEnabled())
 	{

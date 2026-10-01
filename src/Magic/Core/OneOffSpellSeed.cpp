@@ -16,6 +16,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Audio/Audio.h"
 #include "Camera/Camera.h"
@@ -144,10 +145,10 @@ void one_off::UpdateFrames(float milliseconds)
 	auto& registry = Locator::entitiesRegistry::value();
 	bool any = false;
 	registry.Each<OneOffSpellSeed, UvScroll>([&](entt::entity /*orb*/, OneOffSpellSeed& orb, UvScroll& scroll) {
-		orb.phase = std::fmod(orb.phase + milliseconds * 18.0f * 0.001f, 16.0f);
-		const int frame = static_cast<int>(orb.phase);
-		scroll.u = static_cast<float>(frame % 4) * 0.25f;
-		scroll.v = static_cast<float>(frame / 4) * 0.25f;
+		// UpdateFrame 0x72A570: 18 frames a second over the 4 x 4 sheet (frame_anim::OneOffFrame)
+		const auto uv = graphics::frame_anim::OneOffFrame(orb.phase, milliseconds);
+		scroll.u = uv.x;
+		scroll.v = uv.y;
 		any = true;
 	});
 	// Draw 0x518E90 -> fn_00518720 (on while the byte [0xBE8E8D] is set, 1): the mesh is turned about the centre c of

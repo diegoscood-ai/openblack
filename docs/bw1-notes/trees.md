@@ -27,7 +27,8 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
   [Tirón](#tirón-handstatetug-enter-0x5b7df0--update-0x5b8070-en-handtreescpp)). Sonido TreeBreak, montón de raíces
   (malla 593, 15 s) y raíces colgando (malla 592).
 - El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
-  vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
+  vez al crearlo): se amolda al terreno como los campos y almacenes (`ecs::ground_marks::Create` desde `HandSystem::Uproot`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)).
 
 ### Tirón (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, en HandTrees.cpp)
 
@@ -256,12 +257,13 @@ turno, los guiones y lo que falta están en
 - **Brillo por cámara** (`Tree::PreDraw` 0x74A883 → global 0xC22FA0, leído solo por código de árboles):
   `d = normalize(foco de la cámara − posición de la luz)`, `v = normalize_xz(dirección de vista)`,
   `b = dot < 0 ? 200 : 200 + 55·dot`, y `Tree::Draw` 0x74B077 multiplica cada canal RGB del color del árbol por `b/256`
-  (0,781 … 0,996). **Rareza del original**: LH3D tiene una sola luz puntual y de día su único `setter` es código muerto,
-  así que la luz se queda en el origen del mapa (0,0,0); los árboles se oscurecen un 22 % cuando la cámara mira hacia esa
-  esquina. Al ocaso y de noche (tipo de cielo > 0; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así
-  que los árboles usan la del fotograma anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano
-  subida al menos a 10 sobre el terreno: entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros
-  (Land1, cámara típica: 200 a mediodía, 242 a las 20 h).
+  (0,781 … 0,996). La luz es la única que guarda LH3D, [0xEA9E90], la misma de todos los modelos
+  ([Luz de los modelos](rendering-objects.md#luz-de-los-modelos), `src/Graphics/ModelLight.h`): de día el sol por
+  defecto [0xEA1C88] = (−500000, 500000, −500000), que sí se inicializa (`fn_00818920` 0x818930; lo de «(0,0,0) porque su
+  `setter` es código muerto» era un error de trees2 §A.3). Solo en **plena noche** (tipo de cielo > 1,5, el double de
+  [0x8C5838]; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así que los árboles usan la del fotograma
+  anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano subida al menos a 10 sobre el terreno:
+  entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros.
 - **Color propio del árbol** (`fn_00802120` en `Tree::Draw`): es la misma luz bilineal de las 4 celdas bajo el origen
   que usan los demás objetos (`fn_00801C90`, mismas tablas 0xEDD90C y celdas +3/+0xB/+0x88/+0x90), solo que en entero
   (fracción de MapCoords >> 8) en vez de float; la neblina (`fn_007FEB30`) es la de todos los modelos. openblack ya lo

@@ -45,6 +45,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/Texture2D.h"
@@ -259,9 +260,11 @@ public:
 		// Water bodies: 4-connected water cells; the ones reaching the edge of the map (or a missing block) are the sea
 		const int cells = island.GetCellsPerSide();
 		std::vector<int8_t> kind(static_cast<size_t>(cells) * cells, -1); // -1 land, 0 lake, 2 sea, 3 unvisited
+		// the water bit through the single source (MapCoords::IsWater 0x6035B0: a cell without a block is water too, so
+		// the sea beyond the landscape blocks counts) plus the LND fullWater flag the mod has always added
 		const auto isWater = [&island](int x, int z) {
-			const auto& cell = island.GetCell(glm::u16vec2(x, z));
-			return cell.properties.hasWater || cell.properties.fullWater;
+			return ecs::sea_cells::IsWater(island, glm::ivec2(x, z)) ||
+			       island.GetCell(glm::u16vec2(x, z)).properties.fullWater;
 		};
 		for (int x = 0; x < cells; ++x)
 		{
@@ -729,27 +732,22 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 		}
 		std::ifstream stream(path, std::ios::binary);
 		const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-		int* delays = nullptr;
-		int width = 0;
-		int height = 0;
-		int frames = 0;
-		int channels = 0;
-		auto* pixels = bytes.empty() ? nullptr
-		                             : stbi_load_gif_from_memory(bytes.data(), static_cast<int>(bytes.size()), &delays, &width,
-		                                                         &height, &frames, &channels, 4);
-		if (pixels == nullptr || frames <= 0)
+		const auto gif = graphics::frame_anim::LoadGif(bytes);
+		if (!gif.has_value())
 		{
 			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: cannot read {}", path.string());
 			animationFiles.emplace_back(key, -1);
 			return -1;
 		}
-		Animation animation {static_cast<uint16_t>(layers.size()), {}};
-		float time = 0.0f;
+		const int width = gif->width;
+		const int height = gif->height;
+		Animation animation {};
+		animation.sprite.first = static_cast<uint16_t>(layers.size());
 		// each frame's half width: the furthest opaque pixel from the middle column (the body)
 		std::vector<float> halfWidths;
-		for (int frame = 0; frame < frames; ++frame)
+		for (int frame = 0; frame < gif->frames; ++frame)
 		{
-			const auto* image = pixels + static_cast<size_t>(frame) * width * height * 4;
+			const auto* image = gif->Frame(frame);
 			float halfWidth = 0.0f;
 			for (int y = 0; y < height; ++y)
 			{
@@ -763,13 +761,9 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 			}
 			halfWidths.push_back(halfWidth);
 			addLayer(image, width, height);
-			// browsers draw delays under 20 ms as 100 ms
-			const int delay = delays != nullptr && delays[frame] >= 20 ? delays[frame] : 100;
-			time += static_cast<float>(delay) / 1000.0f;
-			animation.ends.push_back(time);
 		}
-		stbi_image_free(pixels);
-		STBI_FREE(delays);
+		// the delays as browsers show them (under 20 ms: 100 ms)
+		animation.sprite.clock = graphics::frame_anim::DelayClock::FromDelays(gif->delaysMs);
 		const auto widest = std::ranges::max_element(halfWidths);
 		for (const float halfWidth : halfWidths)
 		{
@@ -783,7 +777,7 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 		if (path.extension() == ".gif")
 		{
 			const int animation = animationOf(path); // a plant shows the first frame
-			return animation < 0 ? -1 : _animations[static_cast<size_t>(animation)].first;
+			return animation < 0 ? -1 : _animations[static_cast<size_t>(animation)].sprite.first;
 		}
 		const auto key = path.generic_string();
 		if (const auto found = std::ranges::find(layerFiles, key, &std::pair<std::string, int>::first); found != layerFiles.end())

@@ -12,10 +12,11 @@
 namespace openblack::ecs::components
 {
 
-/// A poisoned Living: bit 1 of Living +0xB4 (Living::IsPoisoned 0x416F90 / SetPoisoned 0x416FA0). The heal miracle
-/// cures it (Spell::ApplyDefaultSpellEffect 0x720C30, event 5). Villager::Draw's helper fn_0051B3D0 draws a poisoned
-/// villager with diffuse 0xFFE8FFDD and specular 0xFF001000 (Pot::GetPoisonColor / GetPoisonSpecular, not drawn yet);
-/// who poisons villagers (eating poisoned food) is not ported yet.
+/// A poisoned Living: bit 1 of Living +0xB4 (Living::IsPoisoned 0x416F90 / SetPoisoned 0x416FA0, vt 0x4A4 / 0x69C).
+/// The heal miracle cures it (Spell::ApplyDefaultSpellEffect 0x720E34, event 5). Everything else about it is in
+/// ECS/Life.h (ecs::life): who sets it (Villager::AddResource 0x7564F3 / GetResourceFrom 0x7533FC, the poisoned food
+/// that reaches a villager), the life it costs on every periodic check (Villager::CheckHungry 0x75BD92) and the tint
+/// the drawing needs, k_PoisonDiffuse / k_PoisonSpecular (fn_0051B3D0 0x51B43D, not drawn yet).
 struct Poisoned
 {
 };

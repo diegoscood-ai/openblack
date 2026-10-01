@@ -406,9 +406,13 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	else if (actionPressed && _held && !_pickPressHeld)
 	{
-		// GInterface: with an object in the hand, press the action button again, move and release to put it down or
-		// hurl it (state 12, 0x5D4DB0).
-		_releaseArmed = true;
+		// ActionPressedHolding 0x5D1560: the object under the hand takes the held one (a villager into a teleport stone:
+		// HandApplyToObject.cpp); otherwise press the action button again, move and release to put it down or hurl it
+		// (state 12, 0x5D4DB0).
+		if (!HeldActionPressedOnObject(TapInInfluence()))
+		{
+			_releaseArmed = true;
+		}
 	}
 	// the seed's apply states 8..11, and what the gesture system is told about the hand (HandSpellSeed.cpp)
 	UpdateSeedAction(actionHeld);
@@ -470,6 +474,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(entity) && !TapInInfluence())
 			{
 				// GenericPickup 0x5D2800 out of the influence (vt 0x714 = 1): not picked up
+			}
+			else if (PickUpSeedOrStone(entity, TapInInfluence()))
+			{
+				// a spell seed over its spell or a teleport stone: GenericPickup 0x5D2800 -> PlaceObjectInMagicHand
+				// 0x5DA6F0, the seed in the hand and its spell closed (HandApplyToObject.cpp)
 			}
 			else
 			{

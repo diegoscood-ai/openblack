@@ -103,8 +103,14 @@ desactivado por defecto como todo mod.
     su arista de un solo hueso y se estiran como los del original (con puntos interiores pegados a un hueso se
     doblaban al animar).
   - La colisión (mano, físicas) sigue siendo la malla original.
-- `light` smooth/original: la luz del original (ambiente 90/256 + 166/256 N·L) calculada por píxel en `fs_object` con
-  las normales suaves (`u_window.y`), solo en instancias iluminadas como el original (no reflejos ni sombras).
+- `light` smooth/original: la luz del original (la regla entera de `fn_0084BA90` con las mismas funciones de
+  `assets/shaders/model_light.sh`, el mismo ambiente y la misma luz; ver
+  [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) calculada por píxel en `fs_object` con las normales
+  suaves (`u_window.y`), solo en instancias iluminadas como el original (no reflejos ni sombras). Por píxel la dirección
+  se toma en el mundo, del píxel a la luz, en vez de en el espacio de la malla desde el origen del hueso
+  **(aproximado)**: no queda varying libre. Coincide solo con la luz lejos (de día, el sol a 500000); en plena noche la
+  luz está a 3 unidades de la mano y en un aldeano cercano el sombreado cambia de forma visible (diferencia nocturna
+  conocida del mod).
   **Probado y descartado**: un borde de luz en la silueta, 0,8·(1−N·V)² ("rim"); al usuario le pareció feo.
 - `sharp` on/off: sesgo de mip −1 en esas texturas (`u_window.z`).
 - `detail` high/original: aldeanos y animales con su malla alta (`ECS/DetailMeshes`); sin el mod, el LOD 1 del

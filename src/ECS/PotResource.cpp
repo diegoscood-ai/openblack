@@ -36,6 +36,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
@@ -61,20 +62,19 @@ bool Trace()
 /// The MapCoords of a point (ftol(x * 6553.6)); its high words are the 10 m cells
 glm::ivec2 MapCoordsOf(const glm::vec3& position)
 {
-	return {static_cast<int32_t>(position.x * 6553.6f), static_cast<int32_t>(position.z * 6553.6f)};
+	return {map_coords::ToFixed(position.x), map_coords::ToFixed(position.z)};
 }
 
 /// MapCoords::ToMap 0x603430: the cell, or none out of the 512 x 512 map
 std::optional<glm::ivec2> CellOf(glm::ivec2 coords)
 {
-	const auto cellX = static_cast<uint16_t>(coords.x >> 16);
-	const auto cellZ = static_cast<uint16_t>(coords.y >> 16);
+	const map_coords::MapCoords at {coords.x, coords.y, 0.0f};
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	if (cellX >= side || cellZ >= side)
+	if (!map_coords::InBounds(at, side))
 	{
 		return std::nullopt;
 	}
-	return glm::ivec2(cellX, cellZ);
+	return map_coords::Cell(at);
 }
 
 const lnd::LNDCell* LandCellOf(const glm::vec3& position)
@@ -89,18 +89,6 @@ const lnd::LNDCell* LandCellOf(const glm::vec3& position)
 		return nullptr;
 	}
 	return &Locator::terrainSystem::value().GetCell(glm::u16vec2(*cell));
-}
-
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z)
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2 {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
 }
 
 bool InHandOrFlying(entt::entity entity)
@@ -166,8 +154,13 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	}
 	if (store || owner != entt::null)
 	{
-		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store. TODO: the redirect of wood
-		// through StoragePit +0x74 (UNVERIFIED object) is not ported.
+		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store.
+		// 0x732F67..0x732F99: before anything else, if the pit's +0x74 is not null and the type is WOOD (1) or ANY (-2),
+		// the whole call is forwarded to that object's AddResource (vt 0x9C) and this function returns its answer.
+		// +0x74 is MultiMapFixed::building_site, a BuildingSite* (bw1-decomp src/Black/MultiMapFixed.h; StoragePit
+		// derives from Abode, whose own fields only start at 0x7C): a pit that is being built sends its wood to its
+		// building site. (pendiente) openblack has no building sites and nothing builds abodes (ECS/Components/Town.h),
+		// so no pit can ever have one and the redirect is unreachable; port it with the building sites.
 		return StoragePitStore::AddResource(store ? object : owner, type, left);
 	}
 	// PotStructure::AddResource -> JustAddResource (vt 0x8C). PileResource::JustAddResource 0x66D330 plays the pile sound
@@ -337,8 +330,7 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		return 0; // MapCoords::InBounds 0x6042C0
 	}
 	uint32_t left = amount;
-	int direction = 1;
-	int count = 1;
+	map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0
 	for (int i = 0; i < 9; ++i)
 	{
 		if (const auto cell = CellOf(coords); cell)
@@ -354,8 +346,9 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 				// TODO(M8): DoCreatureMimicAfterAddingResource (vt 0x68C) when there is an interface
 			}
 		}
-		// MapCoords += JustMapXZ: one cell
-		coords += Spiral(direction, count) * 0x10000;
+		// MapCoords += JustMapXZ 0x605470: one cell
+		const auto& step = spiral.Next();
+		coords += glm::ivec2(step.x, step.z) * map_coords::k_FixedPerCell;
 	}
 	if (left == 0 || IsWater(position))
 	{
@@ -382,9 +375,13 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		                   position.z, Get2DRadius(pile));
 	}
 	SetSpeedUp(pile, speedUp || pot.speedUp); // vt 0x864
-	// 0x66F4D8..0x66F509: the local interface's drop -> GGuidance::ResourceDropSFX(IS, pos, RESOURCE_TYPE 1 -> 2 (wood),
-	// 0 -> 1 (food), else 0)
-	if (dropper.hasInterface && dropper.isMyInterface)
+	// Pot::AddResourceToPos 0x66F4D8..0x66F509 calls GGuidance::ResourceDropSFX 0x71B570 only with a status that is
+	// GGame::MyInterfaceStatus 0x555880 (this is `dropper.isMyInterface`), passing the drop point and a RESOURCE_RAIN_TYPE:
+	// 1 for food (type 0) and 2 for wood (type 1), 0 for anything else (0x66F4EB..0x66F502). 0x71B570 then: GGuidance::
+	// PlayNow(1); the nearest town within 100 m ([0x98013C], MapCoords::GetNearestTown 0x6020E0); GetResourceDropSample
+	// 0x71B5F0 (the town's three need floats; above 0.5 [0x980140] 0x1352..0x1354 food / 0x1355..0x1357 wood, above 0.25
+	// [0x980144] 0x135B..0x135D food, wood keeps the same three); GGuidance::PlaySample 0x71C6F0 (Audio/Guidance.*)
+	if (dropper.isMyInterface)
 	{
 		const auto rain = type == ResourceType::Wood   ? audio::guidance::RainType::Wood
 		                  : type == ResourceType::Food ? audio::guidance::RainType::Food

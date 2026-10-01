@@ -78,6 +78,20 @@ void ApplyUnlockProcess(entt::entity seed);
 /// (fn_00728FC0) closes it when it is out of its player's influence. Returns 1.
 int ProcessFromSpell(entt::entity seed);
 
+/// fn_00728FC0: the seed follows its spell (not in the map, not cast in hand, not kept in hand, seedFollowsSpell
+/// (info +0x120), its spell (if any) still open, and linked to a worship icon (+0x5C))
+[[nodiscard]] bool FollowsSpell(const SpellSeed& seed);
+
+/// SpellSeed::ValidForPlaceInHand 0x728580: a neutral seed with the GatheringFlag (g_game +0x14 & 0x2000), or the
+/// seed of the hand's player (GetPlayer 0x729800: the interface status's player) that IsAvailable
+[[nodiscard]] bool ValidForPlaceInHand(entt::entity seed, PlayerNames handPlayer);
+
+/// Spell::DrawSpells 0x7203F0 (GGame::Process3dEngine 0x54E023), every frame: Spell::Draw 0x720430 (vt 0x50C) of each
+/// spell calls DrawSpellSeed 0x721360 (vt 0x508), which with a seed (+0xAC) jumps to 0x729020: a seed that follows its
+/// spell is put over it (fn_006022C0, AdjustSpellSeedPos vt 0x540) and drawn with AddForDrawing(seed) 0x63B5D0, so the
+/// hand can see it and pick it up; no other seed out of the hand is drawn
+void DrawSpells();
+
 /// SpellSeed::CanCast 0x729150: the magic's cast rule for the seed's player, then its class check (vt 0x30)
 [[nodiscard]] bool CanCast(entt::entity seed, const glm::vec3& position);
 

@@ -35,10 +35,13 @@ struct Reaction;
 
 namespace openblack::ecs::villager_teleport
 {
-/// Object::IsMoving (vt 0x174, 0x402710: the position changed since the last turn). (inf) Here: walking to a goal.
+/// Object::IsMoving (vt 0x174, 0x402710: GameThingWithPos::Pos +0x14 / +0x18 differs from Object::coords +0x2C / +0x30,
+/// the position of the turn before). (aproximado) openblack keeps no previous-turn position: a move state that is not
+/// ARRIVED plus a speed stands for it, whatever the state is.
 [[nodiscard]] bool IsMoving(entt::entity living);
-/// Villager::GetFinalDestPos 0x756AD0 -> Living::GetFinalDestPos 0x5EC1E0 (the footpath's end or the wall hug's goal):
-/// here the wall hug's goal while walking, else where it stands. MapCoords as metres (y 0).
+/// Villager::GetFinalDestPos 0x756AD0 -> Living::GetFinalDestPos 0x5EC1E0: the wall hug's goal (GetDestPos vt 0x860 =
+/// +0x80), moving or not; (pendiente) the footpath branch (GFootpath::GetEndNonHiddenNode 0x535120) has no openblack
+/// equivalent. MapCoords as metres (y 0).
 [[nodiscard]] glm::vec3 FinalDestination(entt::entity living);
 /// Living::GetReaction 0x5ECA60 as far as the stones care: the REACT_TO_TELEPORT reaction it follows, 0 none
 [[nodiscard]] uint32_t CurrentReaction(entt::entity living);
@@ -71,7 +74,8 @@ void StopReacting(entt::entity villager);
 /// is never set)
 void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction);
 
-/// fn_005FC4F0's villager side before the jump: put down at the stone (fn_005DA0C0), LANDED, DecideWhatToDo
+/// fn_005FC4F0's villager side before the jump: FLYING (0x5FC4FD), put down at the stone (fn_005DA0C0), LANDED
+/// (0x5FC51E), DecideWhatToDo (vt 0x8C8)
 void LandAt(entt::entity villager, const glm::vec3& mapPosition);
 /// Villager::DecideWhatToDo (vt 0x8C8)
 void DecideWhatToDo(entt::entity villager);

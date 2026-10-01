@@ -39,6 +39,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/Archetypes/HandArchetype.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
@@ -78,6 +79,8 @@
 #include "3D/ScreenFade.h"
 #include "Game.h"
 #include "Locator.h"
+#include "Magic/Core/Spell.h"
+#include "Magic/Objects/MagicTeleport.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -515,6 +518,7 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& meshes = Locator::resources::value().GetMeshes();
 	const auto& terrain = Locator::terrainSystem::value();
+	const auto ground = land_morph::Altitude(terrain);
 	glm::vec3 forward = dir;
 	float nearClip = 0.3f;
 	if (Locator::camera::has_value())
@@ -552,12 +556,15 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 		{
 			return;
 		}
-		// Height-map objects are drawn glued to the landscape (plus a pile's sink offset), not at their stored y.
+		// Height-map objects are picked glued to the landscape (plus a pile's sink offset), not at their stored y.
+		// (aproximado) The melting (land_morph, vs_object_hm_instanced) draws their origin at the stored y; this is the
+		// older y = H(origin) + sink, the same wherever the stored y is that.
 		glm::vec3 position = transform.position;
 		if (registry.AllOf<MorphWithTerrain>(entity))
 		{
 			const auto* sink = registry.TryGet<const PileSink>(entity);
-			position.y = terrain.GetHeightAt(glm::vec2(position.x, position.z)) + (sink != nullptr ? sink->offset.value : 0.0f);
+			position.y = land_morph::OnGround(ground, glm::vec2(position.x, position.z),
+			                                  sink != nullptr ? sink->offset.value : 0.0f);
 		}
 		const auto centre = position + transform.rotation * (transform.scale * box.Center());
 		const float radius = 0.5f * glm::length(transform.scale * box.Size());
@@ -616,6 +623,34 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 			best = CursorHit {entity, *t, glm::min(lo, hi), glm::max(lo, hi)};
 		}
 	});
+	// MagicTeleport::Draw 0x5FCCC0: a stone has no mesh; while its spell (+0x9C) still has a seed (+0xAC, 0x5FCD03) it
+	// sends GInterface::SendInvisibleDrawCollision(stone, (x, GetAltitude + y, z), 3.0) every frame (0x5FCD18).
+	// 0x519960: ProjectPoint 0x819390 of the centre (nothing behind the near clip 0xE839E0), the screen radius of a point
+	// 3 m off it, and SendObjectDrawCollision(stone, the projected depth) when the mouse is inside that circle: the mouse
+	// ray passes within 3 m of the centre on the plane at the centre's view depth. (aproximado) the distance it competes
+	// with is the ray's length to that plane, like openblack's mesh hits, not the projected w itself.
+	for (const auto stone : magic::teleport::HandCollisionStones())
+	{
+		if (skip(stone) || !registry.AllOf<Transform>(stone))
+		{
+			continue;
+		}
+		const auto centre = magic::ToWorld(magic::teleport::MapPositionOf(stone));
+		const float radius = magic::teleport::k_HandCollisionRadius;
+		const float depth = glm::dot(centre - origin, forward);
+		const float along = glm::dot(dir, forward);
+		if (depth < nearClip || along <= 0.0f)
+		{
+			continue;
+		}
+		const float t = depth / along;
+		if (glm::distance(origin + dir * t, centre) >= radius || t >= bestT)
+		{
+			continue;
+		}
+		bestT = t;
+		best = CursorHit {stone, t, centre - glm::vec3(radius), centre + glm::vec3(radius)};
+	}
 	return best;
 }
 
@@ -795,6 +830,13 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 		{
 			best.reset();
 		}
+	}
+	// a spell seed out of the hand (drawn over its spell by 0x729020: a forest seed cast from an icon) or a teleport stone
+	// (its invisible draw collision) when ValidForPlaceInHand: SpellSeed 0x728580, MagicTeleport 0x5FC440 (the seed's)
+	if (!best && cursorObject && registry.Valid(*cursorObject) && SeedToPlaceInHand(*cursorObject) != entt::null &&
+	    _hands[0] != *cursorObject && _hands[1] != *cursorObject)
+	{
+		best = *cursorObject;
 	}
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
 	{

@@ -23,6 +23,10 @@
 // vortex PSys; a player's stones form a list (GPlayer +0xA58 head, +0xA5C count). A living thing that uses a stone
 // comes out of the stone of the same player that brings it nearest to where it is going. Wiki: docs/bw1-notes/magic.md,
 // "Teletransporte".
+// A pool lives off the chants of the seed that cast it (the spell's timer is -1, info.dat effect 12, so only the chants
+// end it): a dispenser orb gives 2000 and the spell spends 1 a turn, about 200 s, unless a player keeps paying. Each
+// useful jump gives chants back (JumpCost: PayFor with a negative cost, research R13), so a pool that is being used
+// lasts longer. That is the original's behaviour, not a defect.
 
 namespace openblack::magic::teleport
 {
@@ -57,9 +61,10 @@ constexpr int k_SpotVisualVillagerTeleport = 14;
 /// (saving > 0) gives the spell chants; only a forced jump backwards costs (research R13, PayFor 0x720990 has no clamp).
 [[nodiscard]] float JumpCost(float saving, float costPerKilometer);
 
-/// GPlayer fn_0064D6B0 (Villager::CanIGetToTheWorshipSite 0x76BC20): the stone nearest `from` (d1) and, separately,
-/// the smallest distance d2 from any stone to `to`, both starting at maxDistance; the first stone if d1 + d2 <
-/// maxDistance. -1 = none.
+/// GPlayer fn_0064D6B0 (Villager::CanIGetToTheWorshipSite 0x76BC20, the call at 0x76BC84): the stone nearest `from` (d1)
+/// and, separately, the smallest distance d2 from any stone to `to`, both starting at maxDistance (0x64D6C5/0x64D6C9);
+/// that nearest stone if d1 + d2 < maxDistance (0x64D720..0x64D731, strictly less). -1 = none. The distances are
+/// GetDistanceInMetres 0x74CD70 (flat, x / z only: GetDistance 0x74CCB0 reads MapCoords +0 and +4).
 [[nodiscard]] int FindRouteStone(const std::vector<glm::vec3>& stones, const glm::vec3& from, const glm::vec3& to,
                                  float maxDistance);
 
@@ -89,9 +94,10 @@ int DoTeleport(entt::entity stone, entt::entity living, bool force);
 /// MagicTeleport::ValidToApplyVillagerDirectlyToTeleport fn_005FC4B0 (a villager in the hand over a stone): the
 /// villager's player is the stone's and that player has more than one stone (count != 1)
 [[nodiscard]] bool ValidToApplyVillagerDirectly(entt::entity stone, entt::entity villager);
-/// fn_005FC4F0 (Villager::ApplyThisToObject 0x752D40 on a stone): FLYING, the interface lets it go at the stone
-/// (fn_005DA0C0), LANDED, DecideWhatToDo (vt 0x8C8); then its final destination is registered and it jumps at once
-/// (forced), and decides again. 1 when it jumped, else 0x17.
+/// fn_005FC4F0 (Villager::ApplyThisToObject 0x752C40 on a stone, the call at 0x752FF8): FLYING, the interface lets it go
+/// at the stone (fn_005DA0C0), LANDED, DecideWhatToDo (vt 0x8C8); then its final destination is registered and it jumps
+/// at once (forced), and decides again. 1 when it jumped, else 0x17. The hand takes it out first (fn_005DA0C0's
+/// RemoveFirstFromHand: HandApplyToObject.cpp).
 int ApplyVillagerDirectly(entt::entity stone, entt::entity villager);
 
 /// Living::MoveByTeleport 0x5EC340: G_SpellTeleportEnergiseGo (InGame 39) where it was, G_SpellTeleportEnergiseArrive
@@ -108,11 +114,15 @@ void ProcessPlayers();
 /// MagicTeleport::Draw 0x5FCCC0, every frame: the vortex follows the stone and is stepped with the frame time
 void UpdateFrame(float seconds);
 
-/// The stones whose hand collision is on (the spell still has its seed: Draw's SendInvisibleDrawCollision), for the hand
+/// The stones whose hand collision is on (the spell still has its seed, 0x5FCD03: Draw's SendInvisibleDrawCollision
+/// 0x5FCD18 with k_HandCollisionRadius), for the hand's pick (HandPlacement.cpp PickObjectAlongRay)
 [[nodiscard]] std::vector<entt::entity> HandCollisionStones();
 /// The TELEPORT seed a stone gives the hand: MagicTeleport::ValidForPlaceInHand 0x5FC440 / InterfaceSetInMagicHand
 /// 0x5FC470 forward to the spell's seed (Spell +0xAC); entt::null if the spell has none
 [[nodiscard]] entt::entity SeedOf(entt::entity stone);
+/// The stone's own REACT_TO_TELEPORT (MagicTeleport +0x94), which a Living takes when it starts reacting to it
+/// (CheckWorshipActivity 0x76BBF9 reads it to call StartReacting); 0 when there is none
+[[nodiscard]] uint32_t ReactionOf(entt::entity stone);
 
 /// OPENBLACK_TEST_TELEPORT (TeleportDebugHooks.cpp)
 void RunDebugHooks();

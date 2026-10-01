@@ -23,7 +23,13 @@
 #include <glm/geometric.hpp>
 #include <gtest/gtest.h>
 
+#include "ECS/Components/Spell.h"
+#include "ECS/Components/SpellSeed.h"
+#include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "InfoConstants.h"
+#include "Locator.h"
+#include "Magic/Core/SpellSeed.h"
 #include "Magic/MagicTables.h"
 #include "Magic/Spells/SpellForest.h"
 
@@ -105,12 +111,63 @@ TEST(SpellForest, costToMaintain)
 	EXPECT_FLOAT_EQ(spell_forest::CostToMaintain(5.0f, 1.0f, 18), 23.0f);
 }
 
+/// Tree::Process 0x74A2D7..0x74A33E: the growth of a grow turn, with the rain and the land alignment (ECS/Trees)
+TEST(SpellForest, treeGrowthAmount)
+{
+	// sample values: growthAmount 0.01 with rainingAcceleratorMultiplier 1 and 2 (the Forest miracle's tree type has
+	// 0.01 and 2 in info.dat, as OPENBLACK_TREE_TRACE prints it)
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, 0.0f), 0.01f);   // dry, neutral land
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 50.0f, 0.0f), 0.015f); // 1 + 0.01 x 1 x 50
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 2.0f, 50.0f, 0.0f), 0.02f);  // the multiplier doubles the rain part
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, 1.0f), 0.015f);  // the best land adds half
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, -1.0f), 0.005f); // the worst halves it
+	// the two factors multiply, they do not add
+	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 100.0f, 1.0f), 0.01f * 2.0f * 1.5f);
+}
+
 /// SpellForest::AdjustSpellSeedPos 0x725750
 TEST(SpellForest, adjustSpellSeedPos)
 {
 	EXPECT_FLOAT_EQ(spell_forest::AdjustSpellSeedAltitude(false, 7.0f, 3.0f), -5.0f);
 	EXPECT_FLOAT_EQ(spell_forest::AdjustSpellSeedAltitude(true, 7.0f, 3.0f), 7.0f);
 	EXPECT_FLOAT_EQ(spell_forest::AdjustSpellSeedAltitude(true, 7.0f, 9.0f), 9.0f);
+}
+
+/// fn_00728FC0 (the seed's draw 0x729020 and ProcessFromSpell 0x728F70): the NATURE seed follows its spell only while it
+/// is linked to a worship icon (+0x5C) and its spell (if any) is open; a cast-in-hand or kept-in-hand seed never does
+TEST(SpellForest, seedFollowsSpell)
+{
+	// seed_table.md: NATURE is HAND_POSITION, isKeptInHand 0, seedFollowsSpell 1
+	const auto setInfo = [](SpellCastType castType, uint32_t kept) {
+		auto info = std::make_unique<InfoConstants>();
+		auto& nature = info->spellSeed.at(static_cast<size_t>(SpellSeedType::Nature));
+		nature.castType = castType;
+		nature.isKeptInHand = kept;
+		nature.seedFollowsSpell = 1;
+		Locator::infoConstants::reset(info.release());
+	};
+	setInfo(SpellCastType::SpellCastHandPosition, 0);
+	Locator::entitiesRegistry::emplace<ecs::Registry>();
+	auto& registry = Locator::entitiesRegistry::value();
+	ecs::components::SpellSeed seed;
+	seed.seedType = SpellSeedType::Nature;
+	// a loose seed (a one-shot orb, CreateSpellIntoHand): no icon, not drawn
+	EXPECT_FALSE(magic::seed::FollowsSpell(seed));
+	seed.icon = registry.Create();
+	EXPECT_TRUE(magic::seed::FollowsSpell(seed)); // no spell yet: a NULL +0x60 goes on (0x728FF6)
+	const auto spell = registry.Create();
+	registry.Assign<ecs::components::Spell>(spell);
+	seed.spell = spell;
+	EXPECT_TRUE(magic::seed::FollowsSpell(seed));
+	registry.Get<ecs::components::Spell>(spell).closedDown = true; // +0x40
+	EXPECT_FALSE(magic::seed::FollowsSpell(seed));
+	registry.Get<ecs::components::Spell>(spell).closedDown = false;
+	setInfo(SpellCastType::SpellCastHandPosition, 1); // kept in hand (0x729840)
+	EXPECT_FALSE(magic::seed::FollowsSpell(seed));
+	setInfo(SpellCastType::SpellCastInHand, 0); // cast in hand (0x729820)
+	EXPECT_FALSE(magic::seed::FollowsSpell(seed));
+	Locator::entitiesRegistry::reset();
+	Locator::infoConstants::reset();
 }
 
 /// With OPENBLACK_GAME_PATH set to the install: the real NATURE row (resources.md section 0.2) and the terrain

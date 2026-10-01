@@ -37,7 +37,8 @@ struct LNDCell;
 namespace openblack::ecs::sea_cells
 {
 
-/// MapCoords(LHPoint) (0x603160): the cell of a world point, x and z / 10 rounded down (negative -> off the map)
+/// MapCoords(LHPoint) (0x603160): the cell of a world point (ecs::map_coords::CellOf: the unsigned high words of
+/// ftol(x * 6553.6f), so negative -> off the map)
 [[nodiscard]] glm::ivec2 CellOf(glm::vec3 point);
 /// fistp(x * 0.1), fistp(z * 0.1): the cell rounded to the nearest, as AttemptToAddSoundEvent (0x6465DF) reads it
 [[nodiscard]] glm::ivec2 RoundedCellOf(glm::vec3 point);

@@ -43,6 +43,7 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
 #include "ECS/PotResource.h"
@@ -339,14 +340,17 @@ private:
 		}
 		// 0x67E347..0x67E55B: three water rings (PSys/PSysWaterRings, the one implementation: growth [0x9357D8] = 10 x 0.5,
 		// x 0.7 and x 1, angle 0, aspect and rate 1, cell 0x30, 0xFFFFFFFF), or on dry land (MapCoords::IsDryLand, altitude
-		// >= 4) the scorch mark
+		// >= 4) the crater (a pack mesh, not a sprite)
 		if (!water_rings::AddExplosionRings(data.centre))
 		{
-			// (no portado) fn_008251C0(centre, rand(2 pi), [0x9357D4] = 8, mesh 0x251): a 0x0C-byte mark on the land
-			// (fn_00825240: an LH3DObject of that pack mesh, +8 = 15000 ms, list 0xEB9A00, SmokyStuff::Create at it)
+			// 0x67E35C..0x67E395: fn_008251C0(centre, PSysFloatRand(2 pi) (0x40C90FDB), [0x9357D4] = 8, mesh 0x251), a
+			// ground mark that melts into the land and fades after 15 s (ecs/GroundMarks.h; its SmokyStuff is not made)
+			const float angle = effect.Random(6.28318548f);
+			const auto mark = ecs::ground_marks::CreateExplosionMark(data.centre, angle);
 			if (Trace())
 			{
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: the land mark (fn_008251C0, mesh 593) is not ported");
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion: ground mark {} at ({:.1f}, {:.1f}), angle {:.2f}",
+				                   static_cast<uint32_t>(mark), data.centre.x, data.centre.z, angle);
 			}
 		}
 		// the targets: every available object of the ceil((r + 20) / 10)^2 cells of the spiral around the centre that is
@@ -397,9 +401,15 @@ private:
 			}
 		}
 		data.spread = 0.0f;
-		// (no portado) five MSH_Z_SPELLROCK01 (567) rocks at centre + (rand(-4, 4), 0, rand(-4, 4)), a random Y angle and
-		// scale rand(0.8, 1.2), thrown to pieces from 5 m under the centre at BlastSpeed (fn_006812B0 -> the
-		// UR_ExplodeObject queue 0xD4E320, drawn by SF_ExplodeObject; UR_ExplodeObject::ExplodeMesh 0x6807B0)
+		// (no portado) 0x67E79E..0x67E88E: five times LH3DObject::Create(0) with MeshPack 0x237 (567, MSH_Z_SPELLROCK01),
+		// SetPosition(centre + (rand(-4, 4), 0, rand(-4, 4)) (the z rand first), PSysFloatRand(2 pi), rand(0.8, 1.2) x
+		// [0x9357DC] = 1), fn_006812B0(it, its matrix, centre - 5 m (fn_0067E8C0), BlastSpeed, 6, 0) and the object deleted:
+		// only its pieces exist. fn_006812B0 queues {mesh, matrix, origin, speed, 6} in 0xD4E320 (0xD4E308 with the last
+		// argument != 0), emptied every step by UR_ExplodeObject::ModifyAtomCollection 0x6814E0 of the always-on
+		// EXPLODE_OBJECT effect (PSysUtilityPSys, PSysGlobal::InitializeOneTimeOnly 0x68F750; SF_ExplodeObject.txt) with
+		// ExplodeMesh 0x6807B0: per LOD 0 primitive, pieces of joined triangles, one atom each (RenderParticleGJMesh,
+		// DrawAt 0x67C150 through Draw3DWorldTriangle), at their centroid, flying away from the origin at the speed plus
+		// PSysRandR3 x RandomFactor / 2; the file's gravity, tumble, fade (0..3 s) and shrink (1..5 s), gone at 6 s
 		if (Trace())
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"),
@@ -534,8 +544,9 @@ private:
 				    data.exploded < maxObjectsToExplode)
 				{
 					++data.exploded;
-					// (no portado) fn_00681260(object, centre - 5 m, BlastSpeed, 6, 0): its mesh thrown to pieces
-					// (fn_006812B0 -> the UR_ExplodeObject queue 0xD4E320; UR_ExplodeObject::ExplodeMesh 0x6807B0)
+					// (no portado) fn_00681260(object, centre - 5 m, BlastSpeed, 6, 0) 0x67EC86: GetWorldMatrix (vt 0x63C)
+					// and the object's 3D mesh (+0x40) into the 0xD4E320 queue (fn_006812B0), thrown to pieces by the
+					// EXPLODE_OBJECT effect (see the five rocks in InitCollection)
 					static_cast<void>(k_ExplodeSpread);
 				}
 				if (target.object != entt::null && data.deleted < maxObjectsToDelete)
@@ -696,8 +707,14 @@ void explosion::DestroyedByBeam(entt::entity object)
 	using namespace ecs::components;
 	if (registry.AnyOf<Abode, StoragePit, SpellDispenser, TotemStatue, Field>(object))
 	{
-		// Abode::DestroyedByBeam 0x402CB0: ReduceLife(GetLife(0)) (vt 0x5B8 / 0x11C). (aproximado) Abode::ReduceLife
-		// 0x405D90 (the repair site, the ghost at 0) is not ported: the building's life goes to 0 and it stays
+		// Abode::DestroyedByBeam 0x402CB0: ReduceLife(GetLife(0)) (vt 0x5B8 / 0x11C). Abode::ReduceLife 0x405D90 ->
+		// MultiMapFixed::ReduceLife 0x52F5E0 (built: Object::ReduceLife, life 0); below 1 every inhabitant
+		// SetStateWhenTappedOnAbode 0x752B80, StopBeingFunctional (vt 0x918) / the town's emergency, and with a town and
+		// no site Town::AddBuildingSite 0x73B8E0 (site +0x640 = 1.1 x life - 0.1). With the site IsDrawBuilding
+		// 0x52F0C0 (+0x74 != 0) holds and, with no DestructionMesh, GetPercentForDrawBuilding 0x52EFD0 = min(the built
+		// percentage, GetPercentRepairedFromWhenDamaged 0x52F010 = 0.98 x life (0x52F0A6, [0x8CF3FC])) = 0: Abode::Draw
+		// 0x515F70 -> MultiMapFixed::Draw 0x518090 draws nothing, the building is gone from view until it is repaired.
+		// (pendiente) openblack's towns have no building sites: the life goes to 0 and the building is still drawn whole
 		ecs::life::ReduceLife(object, ecs::life::LifeOf(object));
 		return;
 	}

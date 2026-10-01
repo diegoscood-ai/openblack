@@ -14,8 +14,11 @@ $output v_texcoord0
 #include <bgfx_shader.sh>
 
 // Static shadow bake (fn_008721A0 / fn_0080ECB0): the object seen from above, each vertex slid along the sun by its
-// height over the object's base, x' = x + h and z' = z + h (the sun at (-500000, 500000, -500000): -Lx/Ly = -Lz/Ly = 1),
-// drawn into the island-wide shadow texture with the landscape's orthographic view.
+// height over the object's base, x' = x + h and z' = z + h, drawn into the island-wide shadow texture with the
+// landscape's orthographic view. Both of them read the default sun [0xEA1C88] itself (0x8721E1, 0x80EDA8), which the
+// __xc_a initialiser fn_00818920 leaves at (-500000, 500000, -500000) (model_light::k_DefaultSun) and nothing ever
+// changes: -Lx/Ly = -Lz/Ly = 1, the shear below. So these shadows do NOT follow the frame light [0xEA9E90] that
+// fn_005E5830 moves at night (model_light.sh): they keep the day sun all night, as in the original.
 void main()
 {
 #if BGFX_SHADER_LANGUAGE_HLSL > 300 || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV

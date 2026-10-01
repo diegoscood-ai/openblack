@@ -199,21 +199,17 @@ void Foliage::UpdateFlyers(LandIslandInterface& island, glm::vec3 cameraPosition
 				position.y = std::max(position.y, island.GetDrawnHeightAt(glm::vec2(position.x, position.z)) + 0.3f);
 			}
 
-			// the frame by the image's own delays
-			const float length = animation.ends.back();
-			const float at = std::fmod(beat, length);
-			const auto frames = animation.ends.size();
-			const auto frame = std::min(
-			    static_cast<size_t>(std::ranges::upper_bound(animation.ends, at) - animation.ends.begin()), frames - 1);
-			const auto layer = static_cast<uint16_t>(animation.first + frame);
+			// the frame by the image's own delays, a whole one (frame_anim::DelayClock)
+			const auto sample = animation.sprite.clock.At(beat);
+			const auto frame = sample.frame;
+			const auto layer = static_cast<uint16_t>(animation.sprite.first + frame);
 			// folding, on top of the image's own frames: its halves turned up about the body by fold times the fold
-			// that matches this frame's width, easing into the next frame's (i_data4.z = 3, w = the fold)
+			// that matches this frame's width, easing into the next frame's (i_data4.z = 3, w = the fold). The geometry
+			// eases, the texture does not blend
 			float fold = 0.0f;
 			if (flyer.fold > 0.0f)
 			{
-				const float start = frame > 0 ? animation.ends[frame - 1] : 0.0f;
-				const float u = std::clamp((at - start) / std::max(animation.ends[frame] - start, 1e-3f), 0.0f, 1.0f);
-				fold = flyer.fold * glm::mix(animation.folds[frame], animation.folds[(frame + 1) % frames], u);
+				fold = flyer.fold * glm::mix(animation.folds[frame], animation.folds[sample.next], sample.fraction);
 			}
 
 			const auto cell = glm::clamp(glm::ivec2(glm::floor(glm::vec2(position.x, position.z) / k_CellSize)), 0, last);

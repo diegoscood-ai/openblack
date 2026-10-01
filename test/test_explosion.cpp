@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "3D/Billboard.h"
+#include "ECS/SmokyStuff.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
@@ -307,3 +308,18 @@ ENDCLASS
 	EXPECT_FLOAT_EQ(atoms.front().scale, 4.0f);
 }
 
+// The ground mark's dust (fn_00825240 0x8252EB, ECS/GroundMarks): SmokyStuff::Create(point, 1, 1.0, -1), mode 1, every
+// puff at 1.5 x size per second (0x823DA7)
+TEST(Explosion, groundMarkDustIsSmokyStuffMode1)
+{
+	ecs::smoky_stuff::Clear();
+	ecs::smoky_stuff::Create(glm::vec3(10.0f, 5.0f, 20.0f), 1, 1.0f, 0xFFFFFFFFu);
+	ASSERT_EQ(ecs::smoky_stuff::Get().size(), 1u);
+	const auto& cloud = ecs::smoky_stuff::Get().front();
+	EXPECT_EQ(cloud.mode, 1);
+	for (const auto& puff : cloud.puffs)
+	{
+		EXPECT_NEAR(glm::length(puff.velocity), 1.5f, 1e-4f);
+	}
+	ecs::smoky_stuff::Clear();
+}

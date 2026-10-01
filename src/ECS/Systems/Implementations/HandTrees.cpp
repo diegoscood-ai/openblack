@@ -69,6 +69,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/GroundMarks.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -338,18 +339,8 @@ void HandSystem::Uproot(entt::entity tree) noexcept
 		extentX = 0.5f * size.x;
 		extentZ = 0.5f * size.z;
 	}
-	const auto pileMesh = resources::HashIdentifier(MeshId::TreeRootsPile);
-	if (meshes.Contains(pileMesh))
-	{
-		const auto pile = registry.Create();
-		const float scale = (extentX + extentZ) * transform.scale.x * 0.3f;
-		registry.Assign<Transform>(pile, transform.position, transform.rotation, glm::vec3(scale));
-		registry.Assign<Mesh>(pile, pileMesh, static_cast<int8_t>(0), static_cast<int8_t>(-1));
-		// fn_00825240: LH3DObject::Create(1), a morphable object whose deltas UpdateMelting takes once (vt+0x1E8), so
-		// the crater follows the land under it
-		registry.Assign<MorphWithTerrain>(pile);
-		_rootsPiles.emplace_back(pile, 15.0f);
-	}
+	// fn_008251F0 -> fn_00825240: a ground mark (ecs/GroundMarks.h) that melts into the land and fades after 15 s
+	ecs::ground_marks::Create(transform.position, transform.rotation, (extentX + extentZ) * transform.scale.x * 0.3f);
 	EmitGripDust(transform.position);
 	PickUp(tree);
 	UpdateRoots(tree);
@@ -425,23 +416,6 @@ void HandSystem::UpdateRootsAndPiles(float seconds) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	bool dirty = false;
-	// fn_00825350: the pile fades out over its last second (alpha = life * 0.255 of 255).
-	for (auto& [pile, life] : _rootsPiles)
-	{
-		life -= seconds;
-		if (life < 1.0f && life > 0.0f && registry.Valid(pile))
-		{
-			registry.AssignOrReplace<Alpha>(pile, life);
-			dirty = true;
-		}
-		if (life <= 0.0f && registry.Valid(pile))
-		{
-			registry.Destroy(pile);
-			pile = entt::null;
-			dirty = true;
-		}
-	}
-	std::erase_if(_rootsPiles, [](const auto& pair) { return pair.first == entt::null; });
 	for (auto& roots : _fallingRoots)
 	{
 		if (!registry.Valid(roots.entity))

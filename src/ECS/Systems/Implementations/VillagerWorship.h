@@ -31,7 +31,10 @@ namespace openblack::ecs::villager_worship
 bool CheckNeededForWorship(entt::entity villager);
 /// Villager::CheckWorshipActivity 0x76BAE0: a worship site, the town centre functional and built, the site's player is
 /// the town's; a villager that cannot get there (CanIGetToTheWorshipSite 0x76BC20: within
-/// maxDistanceThatVillagersWillGoToWorship, 500) only goes when not `requireReachable` -> GotoWorshipSiteForWorship
+/// maxDistanceThatVillagersWillGoToWorship, 500) only goes when not `requireReachable` -> GotoWorshipSiteForWorship.
+/// A site farther than that is still reachable through the player's teleport stones (GPlayer fn_0064D6B0 =
+/// teleport::FindRouteStone): then the villager also starts reacting to the stone it must walk to (0x76BB99..0x76BC07),
+/// so the walk to the site goes through two stones
 bool CheckWorshipActivity(entt::entity villager, bool requireReachable);
 /// Villager::IsAvailableForWorshipSite 0x752820: IsVillagerAvailable (the state table's availability bit
 /// field0xa8 & 1), not flagged 0x200 on the first pass, and not IsAtOrOnTheWayToWorshipSite 0x752860
@@ -42,6 +45,7 @@ bool CheckWorshipActivity(entt::entity villager, bool requireReachable);
 void SendBackToTown(entt::entity villager);
 
 // the state table entries (LivingActionSystem.cpp k_VillagerStateTable)
+uint32_t GotoWorshipSiteForWorshipState(components::LivingAction& action); ///< 58, 0x76BCC0 (the walk, resumed)
 uint32_t ArrivesAtWorshipSiteForWorship(components::LivingAction& action); ///< 59, 0x76BE00 (after the walk)
 uint32_t WorshippingAtWorshipSite(components::LivingAction& action);       ///< 60, 0x76C680
 uint32_t HidingAtWorshipSite(components::LivingAction& action);            ///< 213, 0x76C5E0

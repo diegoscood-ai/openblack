@@ -100,6 +100,26 @@ public:
 	/// One sub-mesh from run-time triangles (L3DMeshGenerated.cpp)
 	bool LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& primitives) noexcept;
 
+	/// fn_0057E1D0 (PGetSharedMesh 0x57DF24 when MaterialProperties +3 is 1): GJUtils::SetMaterialProperties 0x57E120 on
+	/// every primitive of every sub-mesh
+	void SetMaterialProperties(const MaterialProperties& properties) noexcept
+	{
+		for (auto& subMesh : _subMeshes)
+		{
+			subMesh->SetMaterialProperties(properties);
+		}
+	}
+	/// fn_0057E220 0x57E220 (only PhysicalShield::CallVirtualFunctionsForCreation 0x72CCCD / 0x72CCE5 calls it): every
+	/// sub-mesh (LH3DMesh +0xC count, +0x10 table, the physics one included), every primitive (+4 count, +8 table) of
+	/// material type `from` becomes type `to`
+	void ReplaceMaterialType(uint32_t from, uint32_t to) noexcept
+	{
+		for (auto& subMesh : _subMeshes)
+		{
+			subMesh->ReplaceMaterialType(from, to);
+		}
+	}
+
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }
 	[[nodiscard]] const std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>>& GetSkins() const { return _skins; }

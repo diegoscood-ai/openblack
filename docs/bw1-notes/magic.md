@@ -215,12 +215,42 @@ Verificado instrucción a instrucción:
   - `UpdateFrame` 0x72A570: `fase = fmod(fase + ms × 18 × 0,001, 16)`, cuadro = int(fase), desplazamiento
     `u = (cuadro % 4)/4`, `v = (cuadro / 4)/4` (vt 0xE8 recibe (u, v)). En openblack el desplazamiento va en
     `UvScroll {u, v}` y el sombreador suma `u` en cuartos.
-  - **La bola es translúcida por el alfa del objeto, no por la textura.** La malla tiene una submalla física
-    (`Smooth`, no se dibuja) y la visible, una primitiva `AlphaTextured` (modo 4, dos caras) cuya piel ARGB4444 es casi
-    opaca (alfa 13-15 de 15 o 0). `Draw` 0x518E90 tiñe el objeto con `0x96FFFFFF` (byte de [0xBE8E8C];
-    fn_0080BF10 multiplica el difuso: alfa 0xFF × 0x96 >> 8 = 0x95) y llama a `SetGlobalAlpha(1)` (LH3DObject vt 0x48,
-    bit 0x80 de las banderas). Con ese bit el objeto usa la tabla de modos alternativa 0xC387C8: el modo 4 pasa a ser
-    el 5 (`SRCALPHA/INVSRCALPHA`, alfa = textura × difuso, escribe Z). Opacidad ≈ 0,58 × la de la textura.
+  - **La bola es aditiva (fiel, corregido el 2026-10-01 con la captura del original).** La malla tiene una submalla
+    física (`Smooth`, no se dibuja) y la visible, el casquete, una primitiva `AlphaTextured` (tipo 4, byte +5 = 5: dos
+    caras y repetición) cuya piel 0xF49809BD ARGB4444 es una bola turquesa oscura (51, 119, 136) con un brillo blanco
+    arriba a la izquierda, casi opaca (alfa 13-15 de 15, o 0 fuera).
+    - Pero el archivo no manda: `CallVirtualFunctionsForCreation` 0x72A450 la carga con
+      `GJUtils::GetSharedMesh` 0x57DFB0 y `MaterialProperties` {1, 1, 0, 1, 1} (bytes en 0x72A474..0x72A485). El byte
+      +3 = 1 hace que `PGetSharedMesh` (0x57DF18) llame a fn_0057E1D0, que pasa `GJUtils::SetMaterialProperties`
+      0x57E120 a todas las primitivas al cargar la malla:
+      - tipo 4 → 6; si +4 = 0 → 3; si +0 (aditivo) = 1 → 13; si +1 (escribe Z) = 1: 6→5, 13→12, 8→3, 16→9; si no:
+        5→6, 12→13, 2 o 3→8, 9→16;
+      - +2 (dos caras) pone o quita el bit 0 del byte +5.
+      - Para la bola: **modo 12** (`fn_0082EB50`: `SRCALPHA / ONE`, color y alfa = textura × difuso, escribe Z) y **una
+        sola cara** (byte +5 = 4).
+    - `Draw` 0x518E90 tiñe el objeto con `0x96FFFFFF` (byte de [0xBE8E8C]; fn_0080BF10 multiplica el difuso: alfa
+      0xFF × 0x96 >> 8 = 0x95) y llama a `SetGlobalAlpha(1)` (LH3DObject vt 0x48, bit 0x80 de las banderas), que pasa a
+      la tabla de modos alternativa 0xC387C8. Esa tabla **deja igual** los modos aditivos 10-13 (leída del ejecutable).
+    - Resultado: la bola **suma** a lo que tiene detrás su textura × luz × (0,58 × alfa de la textura). Sobre la
+      arena de día sale casi blanca y nacarada: la textura turquesa se vuelve celeste y el brillo, blanco saturado.
+      El fondo se ve a través con tonos verdes y rosas.
+    - Antes openblack la mezclaba como modo 5 (`SRCALPHA / INVSRCALPHA`, dos caras). Eso tapaba la mitad del fondo con
+      el turquesa oscuro: una bola verdosa y oscura. La investigación anterior (luz N·L, ambiente 90/256, alfa 0x95)
+      era correcta, pero se le escapó este cambio de material al cargar.
+    - openblack:
+      - `graphics::MaterialProperties` y `L3DSubMesh::SetMaterialProperties` (el cambio de tipo de 0x57E120, con el
+        tipo guardado en `Primitive::materialType`) y `L3DMesh::SetMaterialProperties` (fn_0057E1D0), en
+        `src/3D/L3DSubMesh.*` y `L3DMesh.h`;
+      - `Game.cpp` lo aplica a `O_Bibble_up` al cargarla;
+      - `Renderer::DrawSubMesh`: un objeto con `components::Alpha` (la tabla 0xC387C8) conserva la mezcla aditiva de sus
+        primitivas aditivas, y sin escribir Z las de los modos 11 y 13.
+    - Capturas: `dev\_audit\magic\orbref_a.png` (antes), `orbref_b.png` y `orbref_c.png` (después), y la comparación
+      `dev\_audit\magic\ref\orb_compare.png` con la captura del original del usuario (`ref\dispenser_original.png`).
+    - Diferencias que quedan con esa captura, **pendientes**:
+      - en el original la bola flota más alta sobre el dispensador y se ve más grande;
+      - en openblack el efecto de la semilla de FUEGO se ve como un núcleo amarillo dentro de la bola, y en el
+        original no se ve (en su centro hay una mancha celeste);
+      - la arena del original es más clara, y como la bola es aditiva el fondo cambia mucho su aspecto.
     - Para ordenarla en el Z-sorter, `Draw` adelanta su posición hacia la cámara su radio (vt 0x60) y luego la
       restaura. Así la bola se pinta después de la semilla de dentro. `DrawSpellGraphic` recibe como alfa el byte alto
       del difuso (0x95). openblack: `components::Alpha` = 149/255 en `OneOffSpellSeedArchetype` (pasada `MainBlended`).
@@ -424,7 +454,14 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
     interpolar por turno.
 - **PHandFX** (ctor 0x68CB10, `Draw` 0x68D0C0, `Band::Draw` 0x68D6D0): bandas `Power_Up_Band.L3d` de escala 10 en el
   hueso raíz, a 10 + 40·índice, girando a (1 + 0,2·índice)·12 rad/s.
-  - Permanentes: nivel de power-up + 1 (máximo 5); alfa 20→130 en 0,85 s, con lerp de matrices.
+  - Permanentes: `SetPULevel(pu + 1, 1)` desde `SpellSeed::SetPowerUp` 0x729BFC..0x729BFE (pu = POWER_UP_TYPE: −1 sin
+    power-up, 0 = PU1, 1 = PU2), así que 0 / 1 / 2 anillos (máximo 5); empiezan a los 2,4 s; alfa 20→130 en 0,85 s,
+    con lerp de matrices. Vuelan desde delante de la cámara hasta el hueso raíz de la mano (la muñeca).
+  - Color (`Band::Draw` 0x68D849..0x68D8B1, en cada dibujo): +0x4C = `GetPlayerColour` 0x64D800 del jugador local
+    (g_game +0x205A59) con el alfa de la banda; +0x50 = lerp por canal de los colores +0x34 / +0x38 del ctor
+    (fn_0068CA30, args 8 y 9), 0 en todos los llamantes. Un solo dibujo por banda (0x68DD46 vt+0x104). Recuerdo del
+    usuario: un anillo rojo translúcido llega a la muñeca al coger un milagro (el exe lo confirma: rojo del jugador 1).
+    openblack: `components::ObjectColour`.
   - Temporales: 5 al ganar un nivel, 0,1 s entre ellas; alfa 20→120, con slerp.
   - De carga: duración lerp(3,5; 1; c), una cada lerp(6; 0,3; c) s.
   - Llegan volando desde 4 m delante de la cámara, a media escala (la matriz 0xEA1CF8 es la de la cámara, inf).
@@ -439,7 +476,11 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
   semilla con m_Held & 8, selección abierta con la mano libre o semilla con círculo. Va en la mano, con magnitud
   `escala de la mano × f(distancia)` ({0, 50, 500, 1500} → {0,2; 1; 1; 1,5}). Sus reglas `ZR_ChainGesture` 0x68A080
   (emisión fn_0068A330) y `CreateRuleMakeChain` 0x69FD10 están en `PSys/Rules/Gesture.cpp`, y la cinta se dibuja con
-  el `ParticleChainCreator` de M5 (`Graphics/RendererChain.cpp`).
+  el `ParticleChainCreator` de M5 (`Graphics/RendererChain.cpp`). Color: fn_00671110 la crea con
+  `PSysInterface::Create` y le hace `SetPlayer` (vt 0x20) del jugador local (g_game +0x205A59, 0x671172..0x671197);
+  `ParticleChainCreator0` de `SF_GestureChain` tiene `UsePlayerColor 1` (blanco 255 × el color del jugador, alfa 10),
+  así que la estela sale en el color del jugador (rojo para el 1). Lo mismo hace fn_00671260 con PT 35 (0x6712CD..
+  0x6712EA); la selección (fn_006711D0) no recibe jugador.
 - **La selección** (PT 28 `SF_SpellSelection`), mientras está abierta.
 - **El gesto reconocido** (`fn_00689790` desde `Success(1)`; PT 35 `SF_Gesture`; `UR_GesturingRecognised`
   0x6884F0 / 0x688910):
@@ -596,15 +637,41 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
     [0x8D45D8]); `SetPosition` 0x423140: filas X = (cos, 0, sin), Z = (−sin, 0, cos). **Sin bote ni pulso** para las
     semillas del jugador: `AsMagicCreatureSpellInfo` (vt 0x38) de su magia base es NULL y salta a 0x51A0B3. El bote
     (+0x38 a 0,35/0,5 por s, `0,5(1 + sin 2π f)`), los cuadros UV 8×4 a −15 por s (+0x34) y los aplastamientos
-    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27: no portados.
+    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27. Portados solo los
+    cuadros UV (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, ver
+    [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas)); el bote y los aplastamientos no.
   - alfa difuso = el del dueño y `SetGlobalAlpha(alfa ≠ 0xFF)`: en la bola la semilla es translúcida (0x95).
   - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
     **no portado** (aproximado).
   - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.
   - la banda si pu ≠ −1: +0x44 += 10,3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 dibujos en +0x64 con tamaño
     0,2 × +0x58 × +0x54, filas: identidad con la fila 1 y la 2 cambiadas (la vieja 1 negada), giro (x, z) por base
-    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. **(aproximado)**:
-    fn_0051A830 (gira la banda con la cámara cuando [0xBE8E8E]) y el color del jugador no están.
+    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. Después
+    fn_0051A830 la gira hacia la cámara ([0xBE8E8E] = 1; `billboard::BandToEye`, ver
+    [rendering-objects.md](rendering-objects.md#objetos-que-miran-a-la-cámara-billboards)).
+  - **Color de la banda** (`SetColour` 0x7F9770 en 0x51A3BE: edx → +0x4C, el argumento → +0x50): +0x4C =
+    `GetPlayerColour` 0x64D800 (tabla 0xBFF0B8 por `GetRemapedPlayer`) del dueño (vt 0x1C), o del jugador local
+    (g_game +0x205A59) si el dueño es el neutral (g_game +0x205A5B) (0x51A322..0x51A36D); su rgb con alfa
+    (+0x70 × alfa del llamante) >> 8 (0x51A397..0x51A3B9); +0x70 = 0x3C (fn_00726F10 0x726F4E, único escritor), así que
+    en un icono (alfa 0xFF) el alfa es 59 y en la bola (0x95) 34. +0x50 (especular) = 0x141414 (byte [0xBE8EA0] = 20).
+    Rojo para el jugador 1. openblack: `components::ObjectColour` (nuevo) + `Alpha`; **(aproximado)**: el especular no
+    se pinta (la ruta de color de vs_object no lo tiene) y la luz del modelo (90 + 166 N·L) es la de los átomos de
+    malla del PSys. **(inferido)**: el jugador local es PLAYER_ONE.
+  - **Cada nivel se dibuja dos veces** con la misma matriz y color: 0x51A780 vt+0x104 y luego 0x51A7A3 vt+0x104 o, en
+    el último nivel con arg 1 = 0 (todas las llamadas: iconos y bolas), 0x51A796 vt+0x100. El objeto es un
+    `LH3DStaticObject` (LH3DObject::Create(0) 0x80B4F8, vtable 0x9A2974). vt+0x104 = fn_00815980: prueba de pantalla
+    (CheckRegionOnScreen 0x868C80) y de distancia, luego dibuja ya (vt+0x108 = fn_0080DB30). vt+0x100 = fn_00815A70:
+    la misma prueba, LOD por distancia (vt+0x1D0), apunta g_last_distance / g_last_selected_box y, si el objeto tiene
+    el bit 0x10 de +4 (vt+0x44 = fn_007F97C0), lo mete en el Z-sorter (`NewZObject` 0x83F310 con fn_007FA980 → vt+0x108,
+    clave = distancia² a la cámara, 0x815F0F..0x815F53); si no, dibuja ya. Ese bit lo pone `SetMesh` (vt+0xF4 =
+    fn_007F9E10 → vt+0x40 = fn_007F97A0) cuando la malla tiene el bit 0x200 en sus flags (fn_007F9D40), y
+    `Power_Up_Band.L3d` lo tiene (flags 0xA2200). Así que: todos los dibujos son inmediatos salvo el segundo del último
+    nivel, que va ordenado con los transparentes (con el estado del objeto al vaciarse el sorter, que es el del último
+    nivel: nada lo cambia después). Mismo material y mismo modo de cara en las dos pasadas (las dos acaban en
+    fn_0080DB30): no hay pasada de caras traseras ni media banda. Aditivo, así que cada banda suma su luz dos veces.
+    openblack: dos entidades por nivel (`k_DrawsPerBand`, `extraBands` = 2 (pu + 1) − 1). **(aproximado)**: el orden
+    respecto a la burbuja (inmediatos antes, el del Z-sorter entre los transparentes) no se reproduce: las 2 (pu + 1)
+    van en la pasada de translúcidos de openblack.
 - openblack: `seed_graphic::DrawUpdateAtPos` / `UpdateOnly` / `DrawSpellGraphic` / `UpdateIconGraphics`;
   `one_off::UpdateFrames` (bola) y `worship::Update` (iconos) los llaman cada fotograma. **(inferido)**: también
   cuando no están en pantalla.
@@ -648,9 +715,15 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
 - `Town::GetWorshipersNeeded` 0x73C860: `objetivo = pct > 0 ? max(1; int(población × pct + 0,5)) : 0`;
   `resultado = objetivo − (adorando + en camino) + los que piden volver a casa`.
 - `Town::AdjustWorshipersWorshipping` 0x73C0F0: dos pasadas (la segunda acepta también los marcados 0x200); para
-  mandar, los aldeanos disponibles **más lejos** del centro del baile primero
-  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida²`, que crece con la
-  distancia); para retirar, los que están o van al lugar, los más lejanos primero (estado 163).
+  mandar, los aldeanos disponibles **más cerca** del centro del baile primero
+  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida³`); para retirar, los
+  que están o van al lugar, los **más lejanos** primero (estado 163).
+  - `GetDistanceModifier` 0x74F290 es `SigmoidThreshold(0,5; 1 − min(d; max)/max)`, con el umbral en el **primer**
+    argumento (`push 0x3F000000` en 0x74F2B7): **baja** con la distancia, de 0,99996 en d = 0 a 3,6e-5 en d ≥ max (ver
+    [engine-math.md](engine-math.md#distancias-de-gutils)). openblack los pasaba al revés y mandaba primero a los más
+    lejanos; corregido en la sesión «sistemas2».
+  - Es **vida³**, no vida²: tras `GetLife` (0x73C630) el bucle 0x73C63A..0x73C644 (`mov eax, 2`, y dos vueltas de
+    `dec eax; fmul vida; jne`) multiplica la vida dos veces más, y el modificador entra al final (0x73C646).
 - Estados del aldeano (tabla de `LivingActionSystem.cpp`): **59** llega al lugar (0x76BE00; a 10 m del punto 9 entra al
   baile si `N < maxDancersVisible`, si no al escondite), **60** bailando (0x76C680), **213** escondido (0x76C5E0) y
   **248** vuelve a casa (0x761B70). Salidas `ExitMoveToWorshipSite` 0x76C170 y `ExitAtWorshipSite` 0x76C1F0. El 58 del
@@ -1082,7 +1155,7 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
   - Hechizos: un hechizo sin PSys se lanza igual y acaba al turno siguiente (0x71FE50, paso 8).
   - Semillas y lanzadores: `ProcessSpellSeed` devuelve siempre 1 (0x721370); un creador sin objeto no es funcional
     (0x405240); la selección de milagro pone a 0 el gesto de potenciación (0x5CF010).
-  - Mano: el fotograma del brillo se trunca (0x68D0C0).
+  - Mano: el fotograma del brillo se redondea (`fistp` 0x68D323, no `__ftol`) y la vuelta es «> 64» (0x68D0C0).
   - Teletransporte: los destellos SPOT_VISUAL 14 duran lo que su entrada.
   - Jugador del guion: el byte g_game+0x205A5B es el hueco del **jugador neutral** (7; GGame::SetupPlayers 0x550458,
     GPlayer::IsNeutral 0x64AC00). Por eso el jugador 0 del guion y una pila mágica sin dueño son neutrales.
@@ -1171,6 +1244,14 @@ Lo que falta está en cada tema, al final de su sección:
 - Lanzar desde la mano: la ayuda, la inmersión, los iconos de gesto del HUD, el brillo de la mano y alimentar una bola de fuego en vuelo ([Lanzar desde la mano, gestos y efectos de la mano](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
+- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\_audit\magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
+- Dispensador roto por una roca lanzada: openblack lo parte en trozos como una casa; el original lo dibuja con `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). Falta leer `Abode::ReactToPhysicsImpact` 0x406240 y qué le pasa a su orbe.
+- Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
+- Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
+- Lluvia en el crecimiento de los árboles (`GrowTree`, fórmula en [trees.md](trees.md)): el clima es de Milagros.
+- Estado 215 cuando el objeto deja de arder: qué saca al aldeano en el original (`ReactToFire` 0x765870).
+- `OPENBLACK_TIME_OF_DAY` no se aplica ya en Land 1 (el guion controla el reloj).
+- Relevo para una sesión nueva de milagros: `Desktop\B&W\Prompts y detalles.md`, sección MILAGROS.
 - Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
 - Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 

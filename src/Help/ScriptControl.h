@@ -92,12 +92,23 @@ struct CameraControl
 	/// ported either
 	int32_t drawHighlight {1};
 
-	/// The camera part of GScript::Reset 0x6EB2D0
+	/// **Not original**, mod game.skip-intro option "free start" (EngineConfig::skipIntroFreeStart): the task of the
+	/// land's opening, i.e. the first one that takes the camera after a new game, while it still holds it. 0 = none
+	/// (it has not asked yet, it has already given the camera back, or the mod is off)
+	uint32_t freeStartTask {0};
+	/// **Not original**: no opening task has been seen yet in this game, so the next one to take the camera is it
+	bool freeStartArmed {true};
+
+	/// The camera part of GScript::Reset 0x6EB2D0, plus arming the mod's free start again (not original)
 	void Reset();
 };
 
 /// GScript's camera state of the running game (one, as g_game+0x250090)
 CameraControl& GetCameraControl();
+
+/// **Not original**, mod game.skip-intro option "free start": true while `task` is the land's opening task, so the
+/// engine must drop what it does to the player (its camera, wide screen, fades and music) and answer its waits at once
+[[nodiscard]] bool IsFreeStartTask(const CameraControl& camera, uint32_t task);
 
 /// GScript::StartDialogue 0x710690 (CHL 120 START_DIALOGUE): the bool it pushes
 bool StartDialogue(HelpSystem& help, const Vm& vm);

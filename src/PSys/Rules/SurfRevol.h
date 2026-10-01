@@ -86,6 +86,10 @@ struct Surface
 	};
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> indices;
+	/// The effect's origin: the surface is drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0
+	/// -> fn_00679860 -> fn_006798B0 -> fn_00679920 -> vt+0xFC DrawAt 0x67CBA0), so it sorts with the effect's own key
+	/// and not with one of its own
+	glm::vec3 origin {0.0f};
 };
 /// Every ZR_SurfRevol atom of the running effects
 [[nodiscard]] std::vector<Surface> Collect();

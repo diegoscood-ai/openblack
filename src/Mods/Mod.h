@@ -41,6 +41,9 @@ public:
 		std::string description; ///< tooltip
 		std::string category;    ///< menu section, e.g. "Graphics"
 		bool restartRequired {false};
+		/// Rare: the mod is on the first time the game runs. Mods are off by default (mod-library.md); only when the
+		/// user asks for it, as with game.skip-intro. A settings.cfg that already exists still wins, as for any mod
+		bool enabledByDefault {false};
 		/// A module of another mod (its id): listed under it in the menu, and only in effect while that mod is on
 		std::string parent;
 	};
@@ -68,7 +71,7 @@ private:
 	friend class ModRegistry;
 
 	Info _info;
-	bool _enabled {false};
+	bool _enabled; ///< Info::enabledByDefault, then whatever the settings.cfg and the --mod arguments say
 	std::vector<ModOption> _options;
 };
 

@@ -25,6 +25,7 @@
 
 #include "3D/AllMeshes.h"
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -126,10 +127,10 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	// ParticleBaseMeshCreator ctor 0x6A87C0: MeshEnum -1, HeightStretch 1, FaceCamera / FaceCameraSprite / the pulse 0
 	creator->heightStretch = object.Float("HeightStretch", 1.0f);
 	creator->scriptHighlightPulse = object.Bool("UseScriptHightlightPulse", false);
-	// ParticleMeshCreator ctor 0x6A8960 (AnimTextured's 0x6A8BB0 calls it): MeshChangeMaterialProps 1, double-sided 1,
-	// the rest 0. With MeshChangeMaterialProps, fn_0057E1D0 gives every material of the mesh
-	// GJUtils::SetMaterialProperties 0x57E120 (+0x55 additive, +0x56 Z write, +0x57 double-sided); without it the L3D
-	// materials are drawn as they are (opaque).
+	// ParticleMeshCreator ctor 0x6A8960: MeshChangeMaterialProps 1, double-sided 1, the rest 0 (AnimTextured's ctor
+	// 0x6A8BB0 calls the base 0x6A87C0 and sets the same, 0x6A8BBD..0x6A8BF6). With MeshChangeMaterialProps,
+	// fn_0057E1D0 gives every material of the mesh GJUtils::SetMaterialProperties 0x57E120 (+0x55 additive, +0x56 Z
+	// write, +0x57 double-sided); without it the L3D materials are drawn as they are (opaque).
 	creator->changeMaterialProps = object.Bool("MeshChangeMaterialProps", true);
 	if (object.className == "ParticleAnimCreator")
 	{
@@ -144,6 +145,11 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", true);
 	creator->neverClip = object.Bool("NeverClip", false);
+	// DrawWithLandscapeColor: ParticleMeshCreator's DefineProperties 0x6B38B0 reads it into +0x5E (0x6B390E; CreateParticle
+	// 0x6A8B82 puts it in the particle's +0x24 bit 1, which Particle3DObj::DrawAt 0x67A00C tests for fn_0080BEC0), and
+	// ParticleMeshCreatorAnimTextured's DefineProperties 0x6B3970 reads it too, into its own +0x84 (its last property,
+	// 0x6B3AEF..0x6B3AFD; ctor default 0 at 0x6A8BF6), which its CreateParticle 0x6A8F0D..0x6A8F20 puts in the same
+	// bit 1. So the tornado funnel's DrawWithLandscapeColor=1 is honoured
 	creator->drawWithLandscapeColour = object.Bool("DrawWithLandscapeColor", false);
 	creator->drawCutByPlane = object.Bool("DrawCutByPlane", false);
 	if (creator->animTextured)
@@ -197,23 +203,16 @@ void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 	{
 		atom.frame = std::floor(effect.Random(static_cast<float>(FramesPerAtom()))); // PSysRand(N)
 	}
-	atom.frameRate = playAnimation ? rate : 0.0f; // +0x110, PlayAnim +0x118
-	atom.stretch = stretchY;                      // +0x7C
+	atom.frameRate = rate;         // +0x110
+	atom.playAnim = playAnimation; // +0x118 PlayAnim
+	atom.stretch = stretchY;       // +0x7C
 }
 
 glm::vec2 MeshCreator::UvOffset(int frame) const
 {
-	if (!slideU && !slideV)
-	{
-		// (inferido) the frames tile a 256 x 256 texture in rows of 256 / W: the layout of
-		// Particle3DObjAnimTextured::DrawAt 0x67A530 was not read offset by offset
-		const int perRow = std::max(1, 256 / textureWidth);
-		const auto f = static_cast<unsigned>(frame);
-		return {static_cast<float>(textureWidth) / 256.0f * static_cast<float>(f % static_cast<unsigned>(perRow)),
-		        static_cast<float>(textureHeight) / 256.0f * static_cast<float>(f / static_cast<unsigned>(perRow))};
-	}
-	const float n = static_cast<float>(FramesPerAtom()) * 256.0f;
-	return {slideU ? static_cast<float>(textureWidth * frame) / n : 0.0f, slideV ? static_cast<float>(textureHeight * frame) / n : 0.0f};
+	// Particle3DObjAnimTextured::DrawAt 0x67A530 (frame_anim::AnimTexturedCell): cells of W x H pixels in rows of
+	// 256 / W, or the slide over the 1000 frames
+	return graphics::frame_anim::AnimTexturedCell(frame, {textureWidth, textureHeight, slideU, slideV, FramesPerAtom()});
 }
 
 std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
@@ -249,11 +248,8 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			glm::vec2 uv(0.0f);
 			if (creator->animTextured)
 			{
-				// the frame drawn: looped fmod(f, N), else clamped to 0..N-1
-				const float frames = static_cast<float>(creator->FramesPerAtom());
-				float frame = atom.frame;
-				frame = creator->loopAnim ? std::fmod(std::fmod(frame, frames) + frames, frames) : std::clamp(frame, 0.0f, frames - 1.0f);
-				uv = creator->UvOffset(static_cast<int>(frame));
+				// the whole frame drawn (fn_00679920, DrawData +0x10): looped within N or clamped to its last
+				uv = creator->UvOffset(graphics::frame_anim::PSysFrameIndex(atom.frame, creator->FramesPerAtom(), creator->loopAnim));
 			}
 			// UseScriptHightlightPulse (A x fn_0070A510, the script highlight's pulse): not ported
 			const float alpha = std::clamp(atom.alpha / 255.0f, 0.0f, 1.0f);

@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 #include <SDL_video.h>
@@ -26,6 +27,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
@@ -33,6 +35,7 @@
 #include "3D/Foliage.h"
 #include "3D/DayNightClock.h"
 #include "3D/LandLightTable.h"
+#include "3D/LandMorph.h"
 #include "3D/SkyWeather.h"
 #include "3D/NightLights.h"
 #include "3D/LandBlock.h"
@@ -48,6 +51,7 @@
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
@@ -66,6 +70,7 @@
 #include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/ModelLight.h"
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
@@ -540,6 +545,9 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
 				program->SetUniformValue("u_haze", &_hazeUniforms[0]);               // vs
 				program->SetUniformValue("u_hazeColour", &_hazeUniforms[1]);         // vs
+				// xyz: the one light of LH3DTech [0xEA9E90], w: the ambient [0xC39264] (model_light.sh, fn_0084BA90)
+				const auto u_modelLight = model_light::Uniform();
+				program->SetUniformValue("u_modelLight", &u_modelLight);              // vs, fs
 				// y, z: mod graphics.hd-tweaks on villagers lit like the original (lighting mode, mip bias; fs_object)
 				const auto& config = Locator::config::value();
 				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
@@ -607,6 +615,18 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				if (viewId == RenderPass::Main)
 				{
 					viewId = RenderPass::MainBlended;
+				}
+			}
+			else if (blended && prim.blend == L3DSubMesh::Primitive::BlendMode::Additive &&
+			         (state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ALPHA)
+			{
+				// An object drawn with its own alpha (components::Alpha: SetGlobalAlpha, mode table 0xC387C8) keeps the
+				// additive modes 10..13 of its additive primitives (SRCALPHA / ONE), 11 and 13 without Z write: the one-shot
+				// orb's bubble (mode 12 by GJUtils::SetMaterialProperties, Game.cpp)
+				state = (state & ~BGFX_STATE_BLEND_MASK) | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+				if (!prim.depthWrite)
+				{
+					state &= ~BGFX_STATE_WRITE_Z;
 				}
 			}
 			if (prim.thresholdAlpha && !alphaToCoverage && (state & BGFX_STATE_BLEND_MASK) == 0)
@@ -1267,13 +1287,16 @@ void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) con
 			continue;
 		}
 		_clouds->AdvanceAnimation(index, milliseconds);
-		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step)
-		const int frame = Clouds::GetFrame(_clouds->GetClouds()[index]);
-		const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + 0.25f,
-		                        210.0f / 256.0f, 0.0f);
-		// fn_00855340: the light's position brought into the mesh's own space, normalised (the light is at (0, 500000, 0))
-		const glm::vec4 u_cloudLight(glm::normalize(glm::inverse(glm::mat3(model)) * (glm::vec3(0.0f, 500000.0f, 0.0f) - position)),
-		                             0.0f);
+		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step;
+		// frame_anim::MistCellUv of the effect branch)
+		const auto cell = frame_anim::MistCellUv(Clouds::GetFrame(_clouds->GetClouds()[index]), true);
+		// fn_007FA300 0x7FA53C..0x7FA563: LH3DMist::Draw saves [0xEA9E90] and moves the light straight above with
+		// fn_0081E1F0 while it draws the clouds, with the ambient at 210 (0x7FA56D); both go back at 0x7FA586 / 0x7FA590.
+		// fn_00855340 (model_light::LightInMeshSpace) brings the light into the mesh's own space, normalised
+		const model_light::ScopedLight cloudLight(glm::vec3(0.0f, 500000.0f, 0.0f));
+		const model_light::ScopedAmbient cloudAmbient(model_light::k_MistAmbient);
+		const glm::vec4 u_cloud(cell.x, cell.y, static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
+		const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
 		for (const auto& subMesh : mesh.GetSubMeshes())
 		{
 			for (const auto& prim : subMesh->GetPrimitives())
@@ -1449,7 +1472,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 		submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &k_Identity;
 		submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
 		submitDesc.morphWithTerrain = instance->second.morphWithTerrain;
-		submitDesc.program = _shaderManager->GetShader(submitDesc.morphWithTerrain ? "ObjectHeightMapInstanced" : "ObjectInstanced");
+		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 	}
 }
@@ -1507,8 +1530,7 @@ void Renderer::DrawHandShadowOnObjects() const
 			submitDesc.matrixCount = 1;
 		}
 		submitDesc.morphWithTerrain = instance.morphWithTerrain;
-		submitDesc.program =
-		    _shaderManager->GetShader(instance.morphWithTerrain ? "ObjectHeightMapShadowInstanced" : "ObjectShadowInstanced");
+		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain, land_morph::ObjectPass::Shadow);
 		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 	}
 }
@@ -1544,7 +1566,7 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 			sprite.position = glm::vec3(fish.position.x, -fish.position.y, fish.position.z);
 			sprite.size = fish.halfSize;
 			sprite.angle = fish.heading;
-			sprite.cell = static_cast<uint8_t>(8 + (static_cast<int>(fish.frame) & 15));
+			sprite.cell = fish.cell; // fn_008248E0 0x824993..0x8249A4, taken before the frame's wrap (frame_anim::FishFrame)
 			sprite.horizontal = true;
 			const auto quad = billboard::Horizontal(sprite);
 			for (const int k : billboard::k_SpriteTriangles)
@@ -1679,7 +1701,7 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		sprite.size = half;
 		sprite.height = ring.aspect;
 		sprite.angle = ring.angle;
-		sprite.cell = static_cast<uint8_t>(ring.cell & 0x3Fu);
+		sprite.cell = frame_anim::SpriteCell(ring.cell); // fixed at creation (fn_005E5100)
 		sprite.horizontal = true;
 		const auto quad = billboard::Horizontal(sprite);
 		for (const int k : billboard::k_SpriteTriangles)
@@ -1722,6 +1744,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		return;
 	}
 	const auto& island = Locator::terrainSystem::value();
+	// fn_0081FFF0: each point on the ground + [0xEAA3C4] (land_morph, algorithm D)
+	const auto ground = land_morph::Altitude(island);
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	struct Vertex
 	{
@@ -1729,11 +1753,10 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		uint32_t abgr;
 	};
 	std::vector<Vertex> vertices;
-	// fn_0081FAA0 constants: half width U = 0.2 * norm(1, 0, -1), the light offset O = 2 * norm(1, 0, 1), lift 0.2
+	// fn_0081FAA0 constants: half width U = 0.2 * norm(1, 0, -1), the light offset O = 2 * norm(1, 0, 1)
 	const glm::vec3 u(0.14142136f, 0.0f, -0.14142136f);
 	const glm::vec3 w = -u;
 	const glm::vec3 o(1.41421356f, 0.0f, 1.41421356f);
-	constexpr float k_Lift = 0.2f;
 	const auto addQuad = [&vertices, &u, &w](const glm::vec3& c, const glm::vec3& v) {
 		// fn_0081FE50: v0 = C - 0.02V + U, v1 = C - 0.02V + W, v2 = C + V + W, v3 = C + V + U; opaque at the feet
 		const std::array<glm::vec3, 4> p = {c - 0.02f * v + u, c - 0.02f * v + w, c + v + w, c + v + u};
@@ -1769,7 +1792,7 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		                 glm::mat4(draw != nullptr ? draw->rotation : transform.rotation) * glm::scale(transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-			    p.y = island.GetHeightAt(glm::vec2(p.x, p.z)) + k_Lift;
+			    p.y = land_morph::OnGround(ground, glm::vec2(p.x, p.z), land_morph::k_BlobLift);
 			    return p;
 		    };
 		    const auto a = foot(21);
@@ -1806,7 +1829,7 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 			    const auto& [bone, position] = points[k];
 			    const auto boneMatrix = bone < bones.size() ? bones[bone] : glm::mat4(1.0f);
 			    p[k] = glm::vec3(model * boneMatrix * glm::vec4(position, 1.0f));
-			    p[k].y = island.GetHeightAt(glm::vec2(p[k].x, p[k].z)) + k_Lift;
+			    p[k].y = land_morph::OnGround(ground, glm::vec2(p[k].x, p[k].z), land_morph::k_BlobLift);
 		    }
 		    for (size_t k = 0; k + 1 < points.size(); k += 2)
 		    {
@@ -1843,6 +1866,31 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
 	UpdateLandLight();
+	// fn_005E5830, called by GLandscape::Draw (0x5E488E) before the models: the one light of LH3DTech for this frame.
+	// The focus is the player hand's model position (CHand::position, +0x78 of MyInterface()->hand, 0x5E5848), used
+	// even while the hand is hidden, and not the point under the cursor of GetPlayerHandPositions. Known difference: with
+	// the cursor off the land the original still moves the hand along the mouse ray at its distance from view
+	// (ObtainRequiredHandPosition 0x5B5E70, CHand::fn_0046DF60 keeps |camera - position| when the ray misses), while
+	// HandSystem::Place leaves the hand where it was last placed, so at night the light stays there.
+	bool placed = false;
+	if (Game::Instance() != nullptr && Locator::handSystem::has_value() && Locator::entitiesRegistry::has_value() &&
+	    drawDesc.camera != nullptr)
+	{
+		const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
+		const auto& registry = Locator::entitiesRegistry::value();
+		if (registry.Valid(hand))
+		{
+			model_light::UpdateFrameLight(registry.Get<const ecs::components::Transform>(hand).position,
+			                              drawDesc.camera->GetOrigin(), Game::Instance()->GetDayNightClock().GetSkyType());
+			placed = true;
+		}
+	}
+	if (!placed)
+	{
+		// The original runs fn_005E5830 every frame; with no hand or camera to place it here, the light falls back to
+		// its day branch, the default sun (0x5E5B70), instead of keeping an old frame's (inferido)
+		model_light::SetLight(model_light::k_DefaultSun);
+	}
 	DrawHandShadowPass(drawDesc);
 	if (drawDesc.drawIsland && drawDesc.drawEntities)
 	{
@@ -2111,7 +2159,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* spriteShader = _shaderManager->GetShader("Sprite");
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
-	const auto* objectShaderHeightMapInstanced = _shaderManager->GetShader("ObjectHeightMapInstanced");
 
 	const auto skyType = Locator::skySystem::value().GetCurrentSkyType();
 
@@ -2439,6 +2486,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
 				int mist {-1}; ///< an index of _frameMists
 				int smoke {-1}; ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
+				/// an index of _frameSurfaces: a ZR_SurfRevol atom of an effect, drawn inside that effect's single Z object
+				/// (PSysManager::AddDrawing 0x6797D0), so with the effect's key and right after its sprites
+				int surface {-1};
+				int chain {-1}; ///< an index of _frameChains, likewise inside its effect's Z object (fn_0067B370)
 			};
 			std::vector<SortedInstance> sorted;
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
@@ -2474,7 +2525,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.noHaze = meshId == ecs::components::Hand::k_MeshId;
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
-				submitDesc.program = submitDesc.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
 
 				// TODO(bwrsandman): choose the correct LOD
@@ -2554,6 +2605,24 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				sorted.push_back({glm::distance(effects[i].origin, cameraOrigin), 0, 0, false, false, entt::null, static_cast<int>(i)});
 			}
+			if (sortBlended)
+			{
+				// The atoms of an effect that are not sprites share the Z object of its sprites, with the same key:
+				// fn_00679860 -> fn_006798B0 draws a whole collection at once (its atoms through fn_00679920, which calls
+				// vt+0xFC DrawAt 0x67CBA0 for a ZR_SurfRevol one, then its chain through fn_0067B370, "draw now"). Pushed
+				// after the effects and ordered with a stable sort, so with an equal key they follow their effect's sprites,
+				// as the original's stable insertion does (NewZObject 0x83F36A..0x83F376).
+				// (aproximado) the original interleaves them atom by atom inside the collection; here an effect's sprites come
+				// first, then its surfaces, then its ribbons.
+				for (const auto& [distance, index] : CollectPSysSurfaces(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, -1, static_cast<int>(index)});
+				}
+				for (const auto& [distance, index] : CollectPSysChains(*desc.camera))
+				{
+					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, -1, -1, static_cast<int>(index)});
+				}
+			}
 			if (spritesSorted)
 			{
 				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
@@ -2575,7 +2644,69 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, static_cast<int>(index)});
 				}
 			}
-			std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
+			// stable: NewZObject 0x83F310 puts a new entry before the first one with a strictly smaller key
+			// (0x83F36A..0x83F376), so entries with an equal key keep the order they arrived in
+			std::stable_sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
+
+			// OPENBLACK_ORB_TRACE=1: one line a drawn frame per one-shot orb (docs/bw1-notes/openblack-internals.md), to
+			// follow the bubble across the 15 -> 0 wrap of its 4 x 4 sheet (OneOffSpellSeed::UpdateFrame 0x72A570)
+			static const bool k_OrbTrace = std::getenv("OPENBLACK_ORB_TRACE") != nullptr;
+			if (k_OrbTrace && sortBlended && Locator::entitiesRegistry::has_value())
+			{
+				const auto viewProjection = desc.camera->GetViewProjectionMatrix();
+				// the ZR_SurfRevol discs in the same list, to see that each one is drawn before the bubble of its dispenser
+				for (size_t k = 0; k < sorted.size(); ++k)
+				{
+					if (sorted[k].surface >= 0)
+					{
+						const auto& surface = _frameSurfaces[static_cast<size_t>(sorted[k].surface)];
+						SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
+						                   "Orb trace: surface {} ({}) sorted {}/{} key {:.2f} origin ({:.1f}, {:.1f}, {:.1f})",
+						                   sorted[k].surface, surface.texture, static_cast<int>(k),
+						                   static_cast<int>(sorted.size()), sorted[k].distance, surface.origin.x, surface.origin.y,
+						                   surface.origin.z);
+					}
+				}
+				Locator::entitiesRegistry::value().Each<const ecs::components::OneOffSpellSeed, const ecs::components::Mesh>(
+				    [&](entt::entity entity, const ecs::components::OneOffSpellSeed& orb, const ecs::components::Mesh& mesh) {
+					    const auto found = renderCtx.entityInstances.find(entity);
+					    if (found == renderCtx.entityInstances.end())
+					    {
+						    SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Orb trace: orb {} has no instance this frame",
+						                       static_cast<uint32_t>(entity));
+						    return;
+					    }
+					    const auto index = found->second.index;
+					    const auto& model = renderCtx.instanceUniforms[index];
+					    int at = -1;
+					    float key = -1.0f;
+					    for (size_t k = 0; k < sorted.size(); ++k)
+					    {
+						    if (sorted[k].fading && sorted[k].index == index && sorted[k].meshId == mesh.id)
+						    {
+							    at = static_cast<int>(k);
+							    key = sorted[k].distance;
+							    break;
+						    }
+					    }
+					    // the gate of the sorted list: a fully faded instance ([0][3] >= 1) is left out; nothing culls the
+					    // translucent instances by frustum, so SphereInView is only reported
+					    const float alpha = 1.0f - model[0][3];
+					    auto l3d = meshManager.Handle(mesh.id);
+					    const auto box = l3d->GetBoundingBox();
+					    const float radius = glm::length(box.Size()) * 0.5f;
+					    const bool inView =
+					        SphereInView(viewProjection, glm::vec3(model * glm::vec4(box.Center(), 1.0f)), radius);
+					    SPDLOG_LOGGER_INFO(
+					        spdlog::get("graphics"),
+					        "Orb trace: orb {} phase {:.4f} frame {} packed[1][3] {:.6f} uv ({:.3f}, {:.3f}) alpha {:.3f} "
+					        "sorted {}/{} key {:.2f} sortPoint ({:.1f}, {:.1f}, {:.1f}) inView {}",
+					        static_cast<uint32_t>(entity), orb.phase, static_cast<int>(orb.phase), model[1][3],
+					        static_cast<float>(static_cast<int>(orb.phase) % 4) * 0.25f,
+					        static_cast<float>(static_cast<int>(orb.phase) / 4) * 0.25f, alpha, at,
+					        static_cast<int>(sorted.size()), key, orb.sortPoint.x, orb.sortPoint.y, orb.sortPoint.z, inView);
+				    });
+			}
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
 			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
@@ -2601,6 +2732,16 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						DrawChimneySmoke(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.smoke));
 						continue;
 					}
+					if (instance.surface >= 0)
+					{
+						DrawPSysSurface(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.surface));
+						continue;
+					}
+					if (instance.chain >= 0)
+					{
+						DrawPSysChain(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.chain));
+						continue;
+					}
 					if (instance.sprite != entt::null)
 					{
 						const auto& [sprite, transform] =
@@ -2617,7 +2758,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
-					submitDesc.program = instance.morphWithTerrain ? objectShaderHeightMapInstanced : objectShaderInstanced;
+					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
 					submitDesc.blendFilter = instance.fading ? 0 : 2;
 					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
 					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
@@ -2637,12 +2778,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
-				// (inferido: draw order) the chains, the surfaces and the rain are drawn as groups after the sorted
-				// sprites; the original's order against them is not read.
-				// fn_0067B3F0: the chain ribbons of the effects (RendererChain.cpp)
-				DrawPSysChains(graphics::RenderPass::MainBlended, *desc.camera);
-				// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0: the teleport pools (RendererSurfRevol.cpp)
-				DrawPSysSurfaces(graphics::RenderPass::MainBlended, *desc.camera);
+				// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0) are no longer a group of their own: they go
+				// through the back-to-front list above, inside their effect's Z object, as the original draws them.
+				// The rain keeps its group: LH3DAtmos::Render3D queues one Z object per raining tile of its own
+				// (fn_008341B0 0x83427F, key = dist2 to (x, GetAltitude(x, z), z), the tile and the alpha packed in K), not
+				// through PSysManager::AddDrawing, so giving it an effect's key would be wrong (hole H3).
+				// (inferido: draw order) the rain as a group after the sorted sprites; its order against them is not read.
 				// LH3DAtmos::Render3D 0x836250: the rain streaks (RendererRain.cpp)
 				DrawRain(graphics::RenderPass::MainBlended, *desc.camera);
 				DrawHandShadowOnObjects();

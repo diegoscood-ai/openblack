@@ -78,11 +78,14 @@ struct SpellSeedGraphic
 	int powerUp {-1};                          ///< +0x60 (SetPowerUpType 0x727060; the band when != -1)
 	uint32_t psys {0};                         ///< +0x50 the holder effect (psys::manager)
 	entt::entity band {entt::null};            ///< +0x30 the power-up band (CreatePUBand 0x727080)
-	std::vector<entt::entity> extraBands;      ///< the band drawn again for PU 1, 2 (the loop 0x51A3D4 draws pu + 1)
+	std::vector<entt::entity> extraBands;      ///< the other band entities: each of the pu + 1 levels (loop 0x51A3D4) is drawn twice (0x51A780, then 0x51A7A3 / 0x51A796), 2(pu + 1) - 1 besides `band`
 	glm::vec3 point {0.0f};                    ///< +0x64 the point given (fn_007270E0): the bands' centre
 	glm::vec3 meshPosition {0.0f};             ///< +0x14 (MapCoords) = point + unknown0x150 x scale: the mesh
 	glm::vec3 effectPosition {0.0f};           ///< point + unknown0x154 x scale: the holder effect
 	float spin {0.0f};                         ///< +0x3C the mesh's y angle (+2 rad/s, DrawSpellGraphic 0x519B20)
+	/// +0x34 the creature spell phials' frame, 0..32 at -15 a second (0x519B89, frame_anim::SpellIconFrame); 0 from
+	/// fn_00726F10 (0x726F4B)
+	float uvPhase {0.0f};
 	float bandSpin {0.0f};                     ///< +0x44 the bands' angle (+10.3 rad/s [0xBE8E94], 0x51A2EA)
 	float bandSpin2 {0.0f};                    ///< +0x40 (+1 rad/s [0xBE8E90], 0x51A305; no reader found)
 };

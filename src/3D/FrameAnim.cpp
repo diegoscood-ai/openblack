@@ -388,6 +388,32 @@ frame_anim::UvOffset frame_anim::RotatingUv(const UvOffset& previous, const UvOf
 	return uv;
 }
 
+void frame_anim::RotatingUvClock::GameUpdate() noexcept
+{
+	for (int k = 0; k < 2; ++k)
+	{
+		if (period[k] <= 0.0f)
+		{
+			continue; // (openblack guard) the original would turn its two loops into endless ones
+		}
+		const float two = period[k] + period[k]; // 0x6C8BC3..0x6C8BD1: the period doubled, once per axis
+		// 0x6C8BDF..0x6C8C5A: both under -2 period -> both up a period (the pair keeps its difference)
+		while (destination[k] < -two && current[k] < -two)
+		{
+			destination[k] += period[k];
+			current[k] += period[k];
+		}
+		// 0x6C8C5B..0x6C8CCC: both over +2 period -> both down a period
+		while (destination[k] > two && current[k] > two)
+		{
+			destination[k] -= period[k];
+			current[k] -= period[k];
+		}
+	}
+	previous = current;    // 0x6C8CCD / 0x6C8CD3 / 0x6C8CD9
+	current = destination; // 0x6C8CD6 / 0x6C8CDC..0x6C8CE2
+}
+
 float frame_anim::ChainScroll(float& scroll, float milliseconds, float rate, int frameHeight) noexcept
 {
 	scroll = milliseconds * rate * k_Milli + scroll;

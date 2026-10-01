@@ -33,6 +33,7 @@
 #include "Graphics/Mists.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
+#include "PSys/Rules/SurfRevol.h"
 #include "Graphics/RendererInterface.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -73,10 +74,22 @@ class Renderer final: public RendererInterface
 	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
-	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp)
-	void DrawPSysChains(RenderPass viewId, const Camera& camera) const;
-	/// The effects' surfaces of revolution (ZR_SurfRevol: the teleport pool; RendererSurfRevol.cpp)
-	void DrawPSysSurfaces(RenderPass viewId, const Camera& camera) const;
+	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each
+	/// with the distance to the camera of the effect that owns it: the original draws the ribbon inside that effect's
+	/// single Z object (fn_006798B0 0x6798DD -> fn_0067B370 "draw now"), so it shares its key
+	std::vector<std::pair<float, uint32_t>> CollectPSysChains(const Camera& camera) const;
+	/// One ribbon of _frameChains, from the back-to-front list
+	void DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t index) const;
+	/// The ribbons of this frame, filled by CollectPSysChains
+	mutable std::vector<psys::Effect::DrawChain> _frameChains;
+	/// The effects' surfaces of revolution (ZR_SurfRevol: the teleport pool, the dispensers' discs;
+	/// RendererSurfRevol.cpp), each with the distance to the camera of the effect it belongs to: the surface is one of
+	/// its atoms, drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0 -> 0x67CBA0)
+	std::vector<std::pair<float, uint32_t>> CollectPSysSurfaces(const Camera& camera) const;
+	/// One surface of _frameSurfaces, from the back-to-front list
+	void DrawPSysSurface(RenderPass viewId, uint32_t index) const;
+	/// The surfaces of this frame, filled by CollectPSysSurfaces
+	mutable std::vector<psys::surf_revol::Surface> _frameSurfaces;
 	/// The rain streaks where the weather grid rains (LH3DAtmos::Render3D 0x836250; RendererRain.cpp)
 	void DrawRain(RenderPass viewId, const Camera& camera) const;
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)

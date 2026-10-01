@@ -245,6 +245,28 @@ struct Gooloo
 /// interpolated between turns: the UV, not a frame
 [[nodiscard]] UvOffset RotatingUv(const UvOffset& previous, const UvOffset& current, float t, const glm::vec2& period) noexcept;
 
+/// The whole clock of a RenderParticleGJMeshRotatingUV (the ZR_SurfRevol atom's draw object, ctor 0x6C8A90): the rule
+/// adds its step to `destination` (+0x34 / +0x38) and GameUpdate 0x6C8BC0 moves it down the chain once a step, so a
+/// draw between two steps interpolates. `previous` and `current` are +0x24 / +0x28 and +0x2C / +0x30, `period` the
+/// tiling +0x3C / +0x40 (TextureWidth / 256, TextureHeight / 256).
+struct RotatingUvClock
+{
+	UvOffset previous {0.0f, 0.0f};
+	UvOffset current {0.0f, 0.0f};
+	UvOffset destination {0.0f, 0.0f};
+	glm::vec2 period {1.0f, 1.0f};
+
+	/// GameUpdate 0x6C8BC0, called once a step per atom at the end of PostUpdateAtoms fn_00673EA0 (0x674080, vt+0x108):
+	/// per axis, while both `destination` and `current` are under -2 period it adds the period to both (0x6C8BDF..
+	/// 0x6C8C5A) and while both are over +2 period it takes it off both (0x6C8C5B..0x6C8CCC) - the pair moves together,
+	/// so their difference, which is what DrawAt interpolates, never changes. Then previous = current and current =
+	/// destination (0x6C8CCD..0x6C8CE2).
+	void GameUpdate() noexcept;
+	/// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 with t = DrawData +0x14 (the draw fraction of the step that
+	/// PSysManager::AddDrawing 0x6797D4 keeps at its +0xB0)
+	[[nodiscard]] UvOffset Interpolated(float t) const noexcept { return RotatingUv(previous, current, t, period); }
+};
+
 /// The chains' v-scroll, fn_0067B3F0 (0x67BE88..0x67BED5, only when [0xC029B8]): chain +0x3C += g_game_time_inc x rate
 /// (+0x4C) x 0.001 ([0x8AA3B0]), fmod (FrameHeight +0x1C x (1/256) [0x9357A8]), + that when negative. The rate is
 /// set only by UR_SimpleBeam (SpeedV +0x48, 0x6762EE) and UR_Plasma::CreateArc (its AtomData +0x54, not read, x SpeedV

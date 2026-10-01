@@ -240,15 +240,31 @@ TEST_F(WorshipTest, WorshipersNeeded)
 	EXPECT_EQ(worship::percentage::GetWorshipersNeeded(town, true, true, nullptr), -1);
 }
 
-TEST_F(WorshipTest, SigmoidThreshold)
+TEST_F(WorshipTest, WorshipScoreFallsOffWithTheDistance)
 {
-	// GUtils::SigmoidThreshold 0x74F170 and its 41-step table: 1 gives 0, the threshold itself lands on the middle
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(1.0f, 0.5f), 0.0f);
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.5f, 0.5f), 0.5f);
-	// the table's steps, not a smooth curve: 0.5 - x = 0.5 lands on step 30 and -0.4 on step 13
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.0f, 0.5f), 0.99996f); // far away: it goes
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(0.9f, 0.5f), 0.00028f); // close by: it stays
-	EXPECT_FLOAT_EQ(worship::percentage::SigmoidThreshold(-2.0f, 0.5f), 1.0f); // clamped
+	// fn_0073C590 calls GUtils::GetDistanceModifier(d1, d2) at 0x73C620, which is SigmoidThreshold(0.5, 1 - min / d2)
+	// 0x74F170 with the threshold as its FIRST argument (push 0x3F000000 at 0x74F2B7). openblack used to pass them the
+	// other way round, which mirrored the curve and sent the farthest villagers first; it is the nearest who go.
+	// d1 is the villager's distance to the site's centre (CalculateCentrePos 0x77DD40: the site + (12.55, 0, -26.1)
+	// here, as the site is at the origin unrotated) and d2 the town's + 100 (fadd [0x8AB41C]), so about 128.9 m
+	const auto town = MakeTown(1, 0.5f, 0);
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto villager = [&](glm::vec3 position, float life) {
+		const auto entity = registry.Create();
+		auto& component = registry.Assign<Villager>(entity);
+		component.town = town;
+		component.life = life;
+		registry.Assign<Transform>(entity, position, glm::mat3(1.0f), glm::vec3(1.0f));
+		return entity;
+	};
+	const auto atCentre = villager(glm::vec3(12.55f, 0.0f, -26.1f), 0.5f);
+	const auto farAway = villager(glm::vec3(1000.0f, 0.0f, 1000.0f), 1.0f);
+	// at the centre the modifier is k_Sigmoid[30] = 0.99996 and the life goes in THREE times (the loop
+	// 0x73C63A..0x73C644), not twice: 0.5^3, not 0.5^2. The mirrored curve would give k_Sigmoid[10] = 3.6e-5 here
+	EXPECT_FLOAT_EQ(worship::percentage::WorshipScore(atCentre), 0.5f * 0.5f * 0.5f * 0.999963939f);
+	// beyond d2 the modifier is k_Sigmoid[10]: a full-life villager far away scores below a half-life one at the centre
+	EXPECT_FLOAT_EQ(worship::percentage::WorshipScore(farAway), 3.60351005e-5f);
+	EXPECT_GT(worship::percentage::WorshipScore(atCentre), worship::percentage::WorshipScore(farAway));
 }
 
 TEST_F(WorshipTest, FireFlyRewardProbabilities)

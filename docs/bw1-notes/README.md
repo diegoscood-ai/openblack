@@ -19,7 +19,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [tooling.md](tooling.md) | Desensamblado, símbolos, herramientas de openblack, formatos de datos, LND y mapas de BWLandEditor |
-| [engine-math.md](engine-math.md) | Coordenadas, altura del terreno, matrices LH, Zoomer |
+| [engine-math.md](engine-math.md) | Coordenadas (MapCoords 16.16, celdas, InBounds, espiral: `ecs::map_coords`), distancias y sigmoides de GUtils (`gutils`), altura del terreno, matrices LH, Zoomer |
 | [openblack-internals.md](openblack-internals.md) | Dónde está cada cosa en el código, compilar, tests, ganchos de prueba, depurar cierres, trampas (Vulkan, makeRef), commits con varias sesiones |
 
 **La mano y los objetos**

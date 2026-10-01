@@ -306,16 +306,18 @@ public:
 };
 
 /// UR_InitialSpin::ModifyAtomCore 0x69E490 (DefineProperties 0x6B1520: +0x20 ScaleAngularVelocity, +0x24
-/// MaxAngularVelocity, +0x28 TimeToFade). Once the effect has a player: spin = PSysProcessInfo curl (manager +0x58,
-/// fn_00673640) x ScaleAngularVelocity, clamped to +-MaxAngularVelocity. Every step the atom turns about its own Y axis
-/// by spin (1 - clamp(age / TimeToFade, 0, 1)) dt. (inferido) the defaults: the ctor was not read.
+/// MaxAngularVelocity, +0x28 TimeToFade, all three with the editor range 0..1 that nothing applies). Once the effect has
+/// a player: spin = PSysProcessInfo curl (manager +0x58, fn_00673640) x ScaleAngularVelocity, clamped to
+/// +-MaxAngularVelocity. Every step the atom turns about its own Y axis by spin (1 - clamp(age / TimeToFade, 0, 1)) dt.
+/// The defaults are the rule's constructor (0x6BF450: +0x20 and +0x24 1.0 at 0x6BF47B..0x6BF483, +0x28 2.0 at
+/// 0x6BF48C); SF_DefenseSphere.txt gives all three anyway (1, 5 and 5)
 class InitialSpin final: public Modifier
 {
 public:
 	explicit InitialSpin(const Object& object)
 	    : scale(object.Float("ScaleAngularVelocity", 1.0f))
 	    , maxSpeed(object.Float("MaxAngularVelocity", 1.0f))
-	    , timeToFade(object.Float("TimeToFade", 1.0f))
+	    , timeToFade(object.Float("TimeToFade", 2.0f))
 	{
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override

@@ -489,10 +489,50 @@ stub) y no hay `SET_FADE_IN` en `FollowUs`.
 - No hay otra forma original de saltar la intro: `FollowUs` no llama a `KEY_DOWN` ni mira ESC; el clic solo pasa los
   textos.
 
+**Qué corre con cada respuesta** (leído en `dev\tmp_dis\mapa\rt_chl_code.txt`, que es pseudoensamblador: los nativos
+salen como `CALL <n>`; extensiones: `SetupLand1` 25357-25622, `LandControl1` 74956-75239, `LandControlAll`
+171106-171139, `CreaturesInGlade` 43862-46096, `CreatureDevSeeHome` 6932-7814, `FollowUs` 49528-53196):
+
+- `SetupLand1` 25398-25455: los tres globales son independientes, pero `IsKeepingOldCreature` =
+  `IS_KEEPING_OLD_CREATURE and CURRENT_PROFILE_HAS_CREATURE` (25432-25435) y, cuando se pone, **fuerza** los otros dos
+  a 1 (25440-25447). Ni `SetupLand1` ni `LandControlAll` tienen música, cámara, diálogo o fundido antes de
+  `LandControl1` (el `SET_FADE_IN(3.0)` de 171120 es ya la transición a Land 2).
+- `LandControl1`: con `IsSkippingToCreatureSelect` no corren `FollowUs` (74982), `CitadelGuide` (74983) ni
+  `ChooseYourCreature` (75037), y en su lugar hace `BUILD_BUILDING` + `CALL_NEAR(18, 5000, …)` +
+  `SET_PROPERTY(22, ciudadela, 1.0)` (74988-75017) y borra `GateKey1`, `GateKey2` y `QuarryRock` (75042-75083).
+  `CreaturesInGlade` (75088) solo se salta con `IsKeepingOldCreature`: entonces corre el bloque 75093-75125
+  (`SET_GAME_TIME(15.4)`, `GAME_TIME_ON_OFF(1)`, `SET_CAMERA_ZONE(3436)`, `SET_OPEN_CLOSE` de las puertas de las
+  criaturas, `ChooseYourCreatureFinished = 1`, `LOAD_MY_CREATURE(1850, 1300)`).
+- **`CreatureDevSeeHome` (75141) corre siempre**, con las tres respuestas. Con `IsSkippingCreatureGuide` toma la rama
+  7056-7085: `loop { START_CAMERA_CONTROL }`, `loop { START_DIALOGUE }`, `START_GAME_SPEED`, `SET_WIDESCREEN(1)`,
+  `SET_CAMERA_POSITION(1891.039, 31.693, 2520.674)`, `SET_CAMERA_FOCUS(1899.053, 30.312, 2518.680)`,
+  `SET_WIDESCREEN(0)`, `END_GAME_SPEED`, `END_CAMERA_CONTROL`, `END_DIALOGUE`, `SET_FADE_IN(2.0)`; sin `SLEEP` por medio,
+  así que el candado dura un turno y la cámara se **clava** (no se desliza) sobre el poblado. Antes, sin condición,
+  `SET_GAME_TIME(4.59)` + `GAME_TIME_ON_OFF(1)` (7000-7003): amanece.
+- `CreaturesInGlade` (respuestas 2 y 3, no la 4) sí secuestra el principio: `START_CAMERA_CONTROL` 44028,
+  `START_DIALOGUE` 44031, `SET_WIDESCREEN(1)` 44035, `SET_FADE(0,0,0,2.0)` 44295 (rama de salto), `SET_FADE_IN(2.0)`
+  44326, `SET_CAMERA_POSITION/FOCUS` 44303/44310 (1753.3, 49.5, 2811.1), `MOVE_CAMERA_*` 44339-44403,
+  `HAS_CAMERA_ARRIVED` 44404/44415/44422, `START_MUSIC(63)` 44419, `RUN_CAMERA_PATH(13)` 44421, y no suelta hasta
+  44684-44691. En openblack `MOVE_CAMERA_*` y `HAS_CAMERA_ARRIVED` son stubs, así que el guion **se quedaba colgado ahí
+  para siempre con la cámara, el diálogo y la pantalla ancha cogidos**.
+- `START_MUSIC(54)`, la música de la intro, aparece **una sola vez en todo el challenge.chl**: línea 50114, dentro de
+  `FollowUs`. Con cualquier respuesta de salto nunca suena. Otras de Land 1: 67 en `ChooseYourCreature` (42493) y en
+  `CreatureDevSeeHome` sin salto (7117), 63 y 65 en `CreaturesInGlade` (44419, 45644/45813/45985), 67 y 69 en
+  `TheStorm`. `SET_AVI_SEQUENCE` (51024), `CAMERA_PROPERTIES` (50444), `SET_FOCUS_AND_POSITION_FOLLOW` (50439) y
+  `SET_INTERFACE_INTERACTION` de Land 1 están todos dentro de `FollowUs`: con el salto no se ejecutan nunca.
+- Los 13 guiones de fondo (`SingingStoneCircle`, `ThrowingStones`, `TheLostFlock`, `TheMissionaries`, `MagicMushroom`,
+  `HermitMain`, `CreatureSavingPeople`, `PiedPiper`, `CreatureGuardian`, `LeaveThroughVortexL1`…) esperan en un
+  `ChallengeHighlightNotify` / `QuestHighlightNotify` / `SingingStonesNotify` antes de tocar la cámara, así que ninguno
+  molesta al empezar. Con `IsSkippingCreatureGuide`, `LeaveThroughVortexL1` abre el vórtice de salida desde el principio
+  (53845-53876).
+
 **openblack:** sin SkipBox. `Game::Run`, tras arrancar `LandControlAll`, borra los tres bits (`TutorialSkipFlags` de
 `Game`) y pone los de la respuesta del mod [game.skip-intro](mod-library.md#gameskip-intro) (sin el mod, ninguno: la
-respuesta por defecto). En juego con el mod: no hay `START_MUSIC(54)` ni cámara de `FollowUs`; el guion lleva la
-cámara al claro de las criaturas (`CreaturesInGlade`).
+respuesta por defecto). El mod está **activado por defecto** con la cuarta respuesta, así que no corren ni `FollowUs`
+ni `CreaturesInGlade`; para que esa respuesta valga, el mod contesta también `CURRENT_PROFILE_HAS_CREATURE` (CHL 463),
+que openblack no puede saber porque no tiene perfiles. Lo único que queda del principio, el turno de cámara y diálogo de
+`CreatureDevSeeHome`, lo come la opción `free start` del mod (no es del original): ver
+[mod-library.md](mod-library.md#gameskip-intro).
 
 ## Pendiente
 

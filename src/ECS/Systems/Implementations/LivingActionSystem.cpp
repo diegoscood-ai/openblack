@@ -35,6 +35,7 @@
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
 #include "VillagerReactions.h"
+#include "VillagerShield.h"
 #include "VillagerTeleport.h"
 #include "VillagerWorship.h"
 #include "ECS/VillagerDrowning.h"
@@ -295,13 +296,17 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* ARRIVES_AT_BIG_FOREST_FOR_BUILDING */ k_TodoEntry,
     /* FISHERMAN_ARRIVES_AT_FISHING */ k_TodoEntry,
     /* FISHING */ k_TodoEntry,
-    /* WAIT_FOR_COUNTER */ k_TodoEntry,
+    // Living::WaitForCounter 0x5EC310 (no entry or exit): the states that park a villager for a while (the amazed
+    // villager of VillagerShield.cpp, SetupWaitForCounter 0x76B060) need it to come back to their final state
+    /* WAIT_FOR_COUNTER */ {.state = &ecs::villager::WaitForCounter},
     // the worship states (VillagerWorship.cpp). 58 is the original's footpath walk (SetupMoveToOnFootpath): openblack
-    // walks with the WallHug inside 59, so GotoWorshipSiteForWorship sets 59 straight away and 58 is never entered
-    // (aproximado: the footpath walk is not ported).
+    // walks with the WallHug inside 59, so GotoWorshipSiteForWorship sets 59 straight away and 58 is only entered when a
+    // reaction's state is popped (PopFromPrevious resumes 59 as 58), where its own state function 0x76BCC0 =
+    // GotoWorshipSiteForWorship starts the walk again (aproximado: the footpath walk is not ported).
     // (their exits keep the old convention, false = it may leave: OldExit adapts them)
     /* GOTO_WORSHIP_SITE_FOR_WORSHIP */
-    {.exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitMoveToWorshipSite(a, n)); }},
+    {.state = &ecs::villager_worship::GotoWorshipSiteForWorshipState,
+     .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitMoveToWorshipSite(a, n)); }},
     /* ARRIVES_AT_WORSHIP_SITE_FOR_WORSHIP */
     {.state = &ecs::villager_worship::ArrivesAtWorshipSiteForWorship,
      .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitMoveToWorshipSite(a, n)); }},
@@ -427,7 +432,9 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* EAT_OUTSIDE */ k_TodoEntry,
     /* RUN_AWAY_FROM_OBJECT_REACTION */ k_TodoEntry,
     /* MOVE_TOWARDS_CREATURE_REACTION */ k_TodoEntry,
-    /* AMAZED_BY_MAGIC_SHIELD_REACTION */ k_TodoEntry,
+    // the shield's state (VillagerShield.cpp); its exit (+0x20) is the thunk 0x5B0100 = Villager::ExitReaction 0x7527A0
+    /* AMAZED_BY_MAGIC_SHIELD_REACTION */
+    {.state = &ecs::villager_shield::AmazedByMagicShieldReaction, .exitState = &ecs::villager_reactions::ExitReaction},
     /* VILLAGER_GOSSIPS */ k_TodoEntry,
     /* CHECK_INTERACT_WITH_ANIMAL */ k_TodoEntry,
     /* CHECK_INTERACT_WITH_WORSHIP_SITE */ k_TodoEntry,

@@ -51,8 +51,11 @@ struct UtilityPSys
 UtilityPSys g_Utility;
 std::vector<magic::gestures::RecognisedGesture> g_Pending;
 
-/// fn_00671110 / fn_00671260 / fn_006711D0: PSysInterface::Create(NULL, type, 0, 0, 1.0, NET 0) once
-uint32_t CreateOnce(uint32_t& slot, ParticleType type)
+/// fn_00671110 / fn_00671260 / fn_006711D0: PSysInterface::Create(NULL, type, 0, 0, 1.0, NET 0) once. The trail
+/// (fn_00671110 0x671172..0x671197) and the recognised sparkles (fn_00671260 0x6712CD..0x6712EA) then SetPlayer (vt
+/// 0x20) the local player (g_game +0x205A59; openblack: PLAYER_ONE, inferido), so SF_GestureChain's
+/// ParticleChainCreator0 (UsePlayerColor 1) is drawn in its colour; the selection (fn_006711D0) gets no player
+uint32_t CreateOnce(uint32_t& slot, ParticleType type, bool localPlayer)
 {
 	if (slot != 0 && manager::Find(slot) == nullptr)
 	{
@@ -65,6 +68,10 @@ uint32_t CreateOnce(uint32_t& slot, ParticleType type)
 		{
 			slot = manager::StartForSpell(std::string(file), glm::vec3(0.0f), glm::vec3(0.0f), 1.0f, nullptr);
 			manager::SetPerFrame(slot);
+			if (auto* effect = manager::Find(slot); effect != nullptr && localPlayer)
+			{
+				effect->SetPlayer(static_cast<int>(PlayerNames::PLAYER_ONE));
+			}
 		}
 	}
 	return slot;
@@ -269,7 +276,7 @@ void utility::GestureRecognised(const magic::gestures::GestureSystem& system, co
 	}
 	g_Pending.push_back(std::move(record));
 	// PSysUtilityPSys: SF_Gesture (35) is created once and stepped every frame (Update); its rule takes the record
-	CreateOnce(g_Utility.recognised, ParticleType::Gesture);
+	CreateOnce(g_Utility.recognised, ParticleType::Gesture, true);
 }
 
 std::vector<magic::gestures::RecognisedGesture>& utility::PendingRecognised()
@@ -284,14 +291,14 @@ void utility::Update(float seconds, const glm::vec3& handPosition, float handSca
 		return; // g_game_time_inc > 0 only
 	}
 	// the trail (48): on while a gesture is expected (immersion 8 GESTURE_TRAIL: force feedback, not ported)
-	if (const auto trail = CreateOnce(g_Utility.trail, ParticleType::GestureLocal); trail != 0)
+	if (const auto trail = CreateOnce(g_Utility.trail, ParticleType::GestureLocal, true); trail != 0)
 	{
 		g_Utility.trailActive = TrailWanted();
 		Step(trail, handPosition, g_Utility.trailActive, handScale * TrailScale(cameraDistance), seconds);
 	}
 	// the selection (28): while the selection (or the leash selection) is open (immersion 9). Not ported: the leash
 	// selection case, only the normal selection is tested
-	if (const auto selection = CreateOnce(g_Utility.selection, ParticleType::SpellSelection); selection != 0)
+	if (const auto selection = CreateOnce(g_Utility.selection, ParticleType::SpellSelection, false); selection != 0)
 	{
 		const auto& state = gestures::State();
 		g_Utility.selectionActive = state.selection.open && gestures::GetHandStatus().handReady;

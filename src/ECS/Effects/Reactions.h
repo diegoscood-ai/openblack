@@ -69,6 +69,9 @@ uint32_t CreateReaction(entt::entity initiator, openblack::Reaction type, Player
 /// (aproximado) The cells are openblack's map grid, rebuilt once per turn (and before a spread outside the turn), not
 /// the original's lists that follow every move; a cell's order is the grid's (the registry's), not the original's
 /// insertion order.
+/// The spread centre is Reaction::GetPos 0x6E45C0 = the initiator's GetPos: its Transform, or, for an initiator with
+/// none, components::Spell::position (+0x14) - a Spell entity has no Transform in openblack and IS the initiator of the
+/// shield reactions (13 / 35 / 36).
 void SpreadReaction(uint32_t reaction);
 
 /// Reaction::RemoveAllReactionsInitiatedByObject 0x6E4750

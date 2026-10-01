@@ -16,6 +16,7 @@ namespace openblack::mods
 
 Mod::Mod(Info info)
     : _info(std::move(info))
+    , _enabled(_info.enabledByDefault)
 {
 }
 

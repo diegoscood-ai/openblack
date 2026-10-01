@@ -30,6 +30,14 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
+#include "ECS/Components/MapShield.h"
+#include "ECS/Components/Spell.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Effects/Reactions.h"
+#include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
+#include "ECS/Systems/Implementations/VillagerShield.h"
 #include "EngineConfig.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -382,4 +390,96 @@ TEST(Shield, physicalShieldMaterialTypes)
 		EXPECT_EQ(inner[0].materialType, static_cast<uint32_t>(Type::AlphaTexturedAlphaAdditiveNz));
 	}
 	bgfx::shutdown();
+}
+
+/// Villager::ReactToMagicShieldPriority 0x765BB0 (needs the real info.dat for ReactionInfo[13]) and
+/// MapShield::CreatureMustAvoid 0x72C170
+TEST(Shield, villagerReactionPriorityAndCreatureMustAvoid)
+{
+	const char* game = std::getenv("OPENBLACK_GAME_PATH");
+	if (game == nullptr)
+	{
+		GTEST_SKIP() << "OPENBLACK_GAME_PATH not set";
+	}
+	std::ifstream in(std::filesystem::path(game) / "Scripts" / "info.dat", std::ios::binary);
+	ASSERT_TRUE(in.is_open());
+	const std::vector<char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	ASSERT_EQ(data.size(), 0x2C + sizeof(InfoConstants));
+	auto info = std::make_unique<InfoConstants>();
+	std::memcpy(info.get(), data.data() + 0x2C, sizeof(InfoConstants));
+	Locator::infoConstants::reset(info.release());
+	Locator::entitiesRegistry::emplace<ecs::Registry>();
+	ecs::effects::reactions::Clear();
+	auto& registry = Locator::entitiesRegistry::value();
+
+	// a PHYSICAL_SHIELD spell of player one at (100, 100), r 40: the initiator of REACTION 13. CreateReaction spreads at
+	// once, which does nothing here (no entities map)
+	const auto spell = registry.Create();
+	{
+		auto& component = registry.Assign<ecs::components::Spell>(spell);
+		component.spellClass = ecs::components::SpellClass::Shield;
+		component.magicType = MagicType::PhysicalShield;
+		component.position = glm::vec3(100.0f, 0.0f, 100.0f);
+		component.castPos = component.position;
+		component.magnitude = 40.0f;
+		component.player = PlayerNames::PLAYER_ONE;
+		component.hasPlayer = true;
+	}
+	const auto reaction = ecs::effects::reactions::CreateReaction(spell, Reaction::ReactToMagicShield,
+	                                                             PlayerNames::PLAYER_ONE, false);
+	ASSERT_NE(reaction, 0u);
+
+	// a homeless villager: no town (0x765C08) -> the priority of the reaction row (0xD4FBD4)
+	const auto villager = registry.Create();
+	{
+		auto& component = registry.Assign<ecs::components::Villager>(villager);
+		component.town = entt::null;
+	}
+	const auto expected =
+	    static_cast<uint8_t>(Locator::infoConstants::value().reaction.at(static_cast<size_t>(Reaction::ReactToMagicShield)).priority & 0xFFu);
+	EXPECT_GT(expected, 0);
+	EXPECT_EQ(ecs::villager_shield::ReactToMagicShieldPriority(villager, reaction), expected);
+	// an unknown reaction, and one whose initiator is no SpellShield (0x765BD7): 0
+	EXPECT_EQ(ecs::villager_shield::ReactToMagicShieldPriority(villager, 0), 0);
+	const auto other = registry.Create();
+	{
+		auto& component = registry.Assign<ecs::components::Spell>(other);
+		component.spellClass = ecs::components::SpellClass::General;
+		component.magicType = MagicType::LightningBolt;
+	}
+	const auto otherReaction =
+	    ecs::effects::reactions::CreateReaction(other, Reaction::ReactToMagicShield, PlayerNames::PLAYER_ONE, false);
+	EXPECT_EQ(ecs::villager_shield::ReactToMagicShieldPriority(villager, otherReaction), 0);
+	// with a town, the desire for protection is 0 in openblack (not ported): no reaction
+	const auto town = registry.Create();
+	registry.Assign<ecs::components::Town>(town);
+	registry.Get<ecs::components::Villager>(villager).town = town;
+	EXPECT_EQ(ecs::villager_shield::ReactToMagicShieldPriority(villager, reaction), 0);
+
+	// MapShield::CreatureMustAvoid: the shield of player one
+	const auto shield = registry.Create();
+	{
+		auto& component = registry.Assign<ecs::components::MapShield>(shield);
+		component.kind = ecs::components::MapShield::Kind::Physical;
+		component.spell = spell;
+	}
+	const auto creature = registry.Create();
+	// another player's creature avoids it; its own player's does not; without a creature or a player, 0
+	EXPECT_TRUE(magic::map_shield::CreatureMustAvoid(shield, creature, PlayerNames::PLAYER_TWO));
+	EXPECT_FALSE(magic::map_shield::CreatureMustAvoid(shield, creature, PlayerNames::PLAYER_ONE));
+	EXPECT_TRUE(magic::map_shield::CreatureMustAvoid(shield, creature, std::nullopt));
+	EXPECT_FALSE(magic::map_shield::CreatureMustAvoid(shield, entt::null, PlayerNames::PLAYER_TWO));
+	// a shield whose spell is gone: GameThing::GetPlayer 0x570130 = the interface's player (PLAYER_ONE), not NULL
+	registry.Get<ecs::components::MapShield>(shield).spell = entt::null;
+	EXPECT_FALSE(magic::map_shield::CreatureMustAvoid(shield, creature, PlayerNames::PLAYER_ONE));
+	EXPECT_TRUE(magic::map_shield::CreatureMustAvoid(shield, creature, PlayerNames::PLAYER_TWO));
+	EXPECT_TRUE(magic::map_shield::CreatureMustAvoid(shield, creature, std::nullopt));
+	registry.Get<ecs::components::MapShield>(shield).spell = spell;
+	// controlled by a script (+0x24 & 0x400): never (0x72C17F)
+	ecs::script_held::SetControlledByScript(creature, true);
+	EXPECT_FALSE(magic::map_shield::CreatureMustAvoid(shield, creature, PlayerNames::PLAYER_TWO));
+
+	ecs::effects::reactions::Clear();
+	Locator::entitiesRegistry::reset();
+	Locator::infoConstants::reset();
 }

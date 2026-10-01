@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 
 #include <utility>
 #include <vector>
@@ -42,6 +43,7 @@
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Mists.h"
+#include "Graphics/ModelLight.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -244,16 +246,20 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	// (the image of local X) keeps the size and rows 1 and 2 (local Y and Z) take the shrunk one, so the dome is
 	// squashed along its own axis (depth) and screen height, not uniformly: it keeps its width
 	glm::vec3 scale(mist.size);
-	float ambient = 90.0f;
-	auto lightPosition = glm::vec3(-500000.0f, 500000.0f, -500000.0f);
+	// the normal branch lights with whatever light is current ([0xEA9E90], the frame light of fn_005E5830) and the
+	// ambient [0xC39264]; the effect branch moves both for its draw (model_light::ScopedLight / ScopedAmbient)
+	std::optional<model_light::ScopedLight> effectLight;
+	std::optional<model_light::ScopedAmbient> effectAmbient;
 	if (mist.edgeShrink)
 	{
 		// effect branch 0x7FA3B1: round seen from straight below or above, k times wider than tall near the horizon; lit from straight above
 		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D, frame_anim::MistCellUv; the
 		// normal branch has no such offset at 0x7FA675, so it uses rows 0-1)
 		scale.y = scale.z = billboard::MistShrunkSize(mist.size, mist.k, mist.position - origin);
-		ambient = 210.0f;
-		lightPosition = glm::vec3(0.0f, 500000.0f, 0.0f);
+		// fn_007FA300 0x7FA53C..0x7FA563: saves [0xEA9E90] and sets (0, 500000, 0) with fn_0081E1F0, ambient 210 at
+		// 0x7FA56D; both go back at 0x7FA586 / 0x7FA590
+		effectLight.emplace(glm::vec3(0.0f, 500000.0f, 0.0f));
+		effectAmbient.emplace(model_light::k_MistAmbient);
 		// the effect branch (0x7FA3B1..0x7FA5AF) leaves +0x50 as SetColour 0x7F9770 put it: fn_0080DB30 0x80DEF5 draws
 		// it as the vertices' specular ([0xE9FE2C], 0x84D645), added after the texture stage (the storm clouds' glow)
 		specular = glm::vec3(static_cast<float>((mist.specular >> 16u) & 0xFFu),
@@ -277,14 +283,13 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	}
 	// fn_007FA300 0x7FA3F4..0x7FA466 / 0x7FA69E: one whole cell, no blend (frame_anim::MistCell, MistCellUv)
 	const auto cell = frame_anim::MistCellUv(frame_anim::MistCell(mist.counter), mist.edgeShrink);
-	const glm::vec4 u_cloud(cell.x, cell.y, ambient / 256.0f, 0.0f);
+	const glm::vec4 u_cloud(cell.x, cell.y, static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
 	const glm::vec4 u_cloudColour(rgb / 255.0f, alpha / 255.0f);
 	const glm::vec4 u_cloudSpecular(specular / 255.0f, 0.0f);
 	const auto model = glm::translate(mist.position) * glm::mat4(rotation) * glm::scale(scale);
-	// fn_00855340: the light of a vertex is the local normal against the light's position brought into the mesh's
-	// own space, so a non-uniform scale tilts it
-	const glm::vec4 u_cloudLight(
-	    glm::normalize(glm::inverse(glm::mat3(model)) * (lightPosition - mist.position)), 0.0f);
+	// fn_00855340 (model_light::LightInMeshSpace): the light of a vertex is the local normal against the light's
+	// position brought into the mesh's own space, so a non-uniform scale tilts it
+	const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
 	for (const auto& subMesh : mesh.GetSubMeshes())
 	{
 		for (const auto& prim : subMesh->GetPrimitives())

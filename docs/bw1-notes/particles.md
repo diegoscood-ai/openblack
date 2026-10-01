@@ -210,7 +210,7 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 | `CreateRuleAnAtom`, `CreateRuleSphere`, `EmitterRuleConical` | ctor 0x69F350 (CreateRuleAnAtom) | — | [Sonido de las partículas](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp) |
 | `StartStopSoundOnCondition`, `AddSoundToAtom`, `RemoveSoundFromAtom` | 0x69DC40, 0x69DCA0, 0x69DDD0 | `Rules/Sound.cpp` | [Sonido de las partículas](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp) |
 | `StrengthFloatProvider`, `EventConditionTrueWhenEnabled`, `LandscapeCollide` (SendEvent) | — | `SpellLink.h` | [PSys enlazado al hechizo](particles.md#psys-enlazado-al-hechizo-psysspelllinkh) |
-| `MagnitudeFloatProvider` | UpdateParams 0x69DA90 | — | [Pregunta abierta: el tamaño de la bola de fuego lanzada con la mano](magic.md#pregunta-abierta-el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano) |
+| `MagnitudeFloatProvider` | UpdateParams 0x69DA90 | — | [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario) |
 | `UR_FollowLocalHand`, `UR_FollowCastPosn` | 0x69A6A0, 0x69FE30 | `Rules/HandFollow.cpp` | [La mano](magic.md#la-mano-handmagicfxcpp-phandfx-y-el-efecto-en-la-mano) |
 | `ZR_ChainGesture`, `CreateRuleMakeChain` | 0x68A080, 0x69FD10 | `Rules/Gesture.cpp` | [Efectos de utilidad](magic.md#efectos-de-utilidad-psysutilitycpp-psysutilitypsys-0xd4e0e8) |
 | `UR_GesturingRecognised` | 0x6884F0 / 0x688910 | — | [Efectos de utilidad](magic.md#efectos-de-utilidad-psysutilitycpp-psysutilitypsys-0xd4e0e8) |

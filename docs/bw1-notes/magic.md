@@ -939,28 +939,33 @@ Comprobado contra el ejecutable (`dev\tmp_dis\miracles\impl\review2\`) y con las
 - La semilla de un uso se ata al mejor icono del jugador (`CreateSpellIntoHand` 0x72A730 → fn_007282A0), como arriba.
 - La bola de un uso tiene su `SpellSeedGraphic` dentro (0x72A450) y se borra con ella.
 
-### Pregunta abierta: el tamaño de la bola de fuego lanzada con la mano
+### El tamaño de la bola de fuego lanzada con la mano (inferido, recuerdo del usuario)
 
-`Spell::InitWithPos` 0x71FE50 da al PSys la magnitud `SpellCastData[0]` sin comprobar si es 0, y ese valor es el
-tamaño del paquete de gesto de la interfaz (`m_Gesture` +0x1B8, fn_0071FA10). **Solo lo escribe el círculo** (la rama de
-los gestos de tamaño de `ProcessPowerUpSystem`, 0x5CF559, único llamador de 0x57A5E0, y la copia del círculo pendiente
-en 0x5D33BA); la selección por gesto y los demás reconocimientos no lo tocan, y el `GInterface` nace a cero
-(`Base::operator new` 0x4366F0 borra la memoria). `SF_FireBallThrow` pone la escala del átomo con
-`MagnitudeFloatProvider` (mín 0,01, máx 10, `UpdateParams` 0x69DA90) y `SetScale` 0x6A2700 (+0x78), y de esa escala
-salen el radio y la capacidad de calor de la `MagicFireBall`. Así, en el port igual que (según lo leído) en el
-original, una bola de fuego lanzada sin haber dibujado nunca un círculo sale con escala 0,01 (unos 4 cm, casi no
-calienta: `review2_disp_fireball_t33.png`, `review2_land2_cast.png`), y tras un círculo de escudo o tormenta sale con el
-tamaño de ese círculo (hasta 10, 40 m). Con `SPELL_AT_POS` la magnitud es el radio del guion (10 en
-`m5_fireball.png`). No cuadra con cómo se recuerda el juego: queda **UNVERIFIED** si hay otro escritor que no se ve
-(p. ej. una copia de la estructura entera) antes de cambiar nada.
+`Spell::InitWithPos` 0x71FE50 da al PSys la magnitud `SpellCastData[0]` sin comprobar si es 0 (`PSysInterface::Create`
+0x68E910 → `GJPSysInterface::Create` 0x68F3DA la guarda en el manager +0xA0, que lee `MagnitudeFloatProvider`
+0x69DA90). En `SpellSeed::Cast` 0x729520 ese valor sale del paquete de gesto (+0x14, fn_0071FA10), que es
+`GInterface` +0x1B8 copiado entero en el paquete 0x12 (`SendApplyToMapCoord` 0x5D362D → fn_00550E90 → formato 15 de
+`SendPacketCompressed`, un bloque de 0x18 bytes, sin cuantizar) y que **solo escribe el círculo** (0x5CF57A y 0x5D33BA;
+el `GInterface` nace a cero). Pero justo después, `SpellSeed::DoPreCastThings` 0x729460 hace
+`if (magicInfo.spellSeedType == FIRE) castData.magnitude = 1.0` (0x729502..0x72950B): los programadores fijaron la
+bola de fuego a magnitud 1 fuera cual fuera el gesto. Leído al pie de la letra esa rama está muerta: info.dat deja
+`GMagicInfo` +0x28 (`spellSeedType`) a −1 en todas las filas y nada lo escribe en el juego, así que la bola saldría con
+el tamaño del último círculo, o 0 → 0,01 (4 cm, casi no calienta) si nunca se dibujó uno. El usuario recuerda (2026-10-01)
+que una bola lanzada desde la mano salía **siempre grande**, con cualquier gesto: manda su recuerdo, y el port aplica la
+rama con el tipo de la propia semilla (`GSpellSeedInfo`, semilla +0x6C) cuando la fila deja el campo a −1
+(**inferido**, `SpellSeed.cpp` `DoPreCastThings`). Resultado: escala de átomo 1 × 4,0168 del sprite raíz, la bola se ve
+en vuelo y prende la casa y el árbol donde cae (`fix_fireball_flight.png`, `fix_fireball_hut.png`). Con `SPELL_AT_POS` la
+magnitud sigue siendo el radio del guion (10 en `m5_fireball.png`), porque no pasa por la semilla.
 
 ### Cadenas probadas en el juego (capturas en `dev\_audit\magic\`)
 
 - Land1, dispensador → bola → semilla → lanzar: `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1812,2652,1"`,
   `OPENBLACK_TEST_TAP="1812,2652,200"`, `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"`,
   `OPENBLACK_TEST_THROW_VEL`: la bola da la semilla FIRE lista (3500 cánticos), se arma (estado 8) y al soltar sale el
-  hechizo con su `MagicFireBall` (T 6000, fuego 2 en el granero 52, que no llega a prender con una bola de 0,01).
-  `review2_disp_fireball.log`.
+  hechizo con su `MagicFireBall` (T 6000). Con la bola de 0,01 de antes el granero no llegaba a prender
+  (`review2_disp_fireball.log`); con la magnitud 1 de la semilla FIRE arden la casa, un árbol y los aldeanos de al lado
+  (`fix_fireball_hut.png`, con `OPENBLACK_CAMERA_FLY=1800,75,2600,1826,30,2641`, `OPENBLACK_MOUSE_AT=0.5,0.55` y
+  `OPENBLACK_TEST_THROW_VEL=0,2,6`).
 - Land1, comida junto al almacén: el mismo dispensador con `FOOD`: dentro del radio del almacén (18,5 m) todo entra en
   él (`review2_disp_food.log`); un poco más allá (`review2_disp_food_pour.png`) hace una `MagicFood` de 200 que crece
   18 por grano, con la mano alzada 16 m y el chorro de 4 s.
@@ -1071,7 +1076,7 @@ Lo que falta está en cada tema, al final de su sección:
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
 - Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
-- Lo marcado en el código por la auditoría y la pregunta abierta de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [Pregunta abierta: el tamaño de la bola de fuego lanzada con la mano](magic.md#pregunta-abierta-el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano).
+- Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 
 Lo pendiente de cada milagro está en [Pendiente](miracles.md#pendiente).
 

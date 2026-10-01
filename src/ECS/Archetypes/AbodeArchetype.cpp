@@ -16,6 +16,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h"
 #include "ECS/ChimneySmoke.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fixed.h"
@@ -97,9 +98,10 @@ void CreateTotemStatue(entt::entity townCentre, const GAbodeInfo& info, float yA
 		if (const auto& extra = meshes.Handle(centreMesh)->GetExtraMetrics(); extra.size() > 6)
 		{
 			point = transform.position + transform.rotation * (glm::vec3(extra[6][3]) * transform.scale);
-			const auto& island = Locator::terrainSystem::value();
-			point.y += island.GetHeightAt(glm::vec2(point.x, point.z)) -
-			           island.GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
+			// GetExtraPos 0x80FF20 of the morphed town centre (IsStaticMorphable 0x81002E): (H(p) - H(pos)) + p.y
+			// (0x8100B7..0x8100D0)
+			const auto ground = land_morph::Altitude(Locator::terrainSystem::value());
+			point.y = land_morph::Raised(ground, point, ground(glm::vec2(transform.position.x, transform.position.z)));
 		}
 	}
 	const auto rotation = glm::mat3(glm::eulerAngleY(-yAngleRadians));

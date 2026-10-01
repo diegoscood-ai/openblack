@@ -27,7 +27,8 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
   [Tirón](#tirón-handstatetug-enter-0x5b7df0--update-0x5b8070-en-handtreescpp)). Sonido TreeBreak, montón de raíces
   (malla 593, 15 s) y raíces colgando (malla 592).
 - El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
-  vez al crearlo): se amolda al terreno como los campos y almacenes (`MorphWithTerrain` en `HandSystem::Uproot`).
+  vez al crearlo): se amolda al terreno como los campos y almacenes (`ecs::ground_marks::Create` desde `HandSystem::Uproot`, ver
+  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)).
 
 ### Tirón (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, en HandTrees.cpp)
 

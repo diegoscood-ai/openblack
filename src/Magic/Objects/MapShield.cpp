@@ -24,6 +24,7 @@
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -327,6 +328,10 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 	// (4, 0xD), UNVERIFIED) and the footpath links: none of it is modelled here
 	registry.Assign<ecs::components::Mesh>(entity, resources::HashIdentifier(k_Mesh), static_cast<int8_t>(0), static_cast<int8_t>(0));
 	registry.Assign<ecs::components::Alpha>(entity, 0.0f);
+	// Get3DType 0x72CE50 = 1, a morphable 3D object: UpdateMelting at creation (CallVirtualFunctionsForCreation 0x72CD23,
+	// SetUpPhysOb 0x72CEB8) and on every DrawShield after the lerp (0x72D01E), so it follows the land as it grows. The
+	// magic shield is static (MagicShield::Get3DType 0x72C340 -> Object::Get3DType 0x6364F0) and has no mesh here
+	registry.Assign<ecs::components::MorphWithTerrain>(entity, land_morph::Melting::Live);
 	// fn_0072CD40: the 3D object's matrix and scale into the current and last ones, two ProcessShields to prime them
 	shield.rotation = glm::mat3(1.0f);
 	shield.translation = WorldOf(shield.position);

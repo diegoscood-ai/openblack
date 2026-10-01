@@ -290,8 +290,6 @@ private:
 		float groundY;
 	};
 	std::vector<FallingRoots> _fallingRoots;
-	/// Roots piles left where trees were pulled up (lifetime left, seconds).
-	std::vector<std::pair<entt::entity, float>> _rootsPiles;
 	float _heldAltitude {0.0f};
 	float _heldTop {0.0f};
 	bool _actionWasHeld {false};

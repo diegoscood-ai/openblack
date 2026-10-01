@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/LandMorph.h" // (and glm::inverse, through glm/mat4x4.hpp)
 #include "Locator.h"
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
@@ -38,6 +39,7 @@ struct SurfRevolCreator final: Creator
 	glm::vec2 uvOffset {0.0f};             ///< the draw object +0x34 / +0x38 (kept within the tile, GameUpdate 0x6C8BC0)
 	glm::vec2 tile {1.0f};                 ///< +0x3C / +0x40: TextureWidth / 256, TextureHeight / 256
 	bool raiseAboveLandscape {false};
+	bool clampToLandscape {false}; ///< the draw object's +0x22 (ctor 0x6C8A90: 0; set from the rule's +0x6C at 0x686432)
 	bool doubleSided {false};
 };
 
@@ -56,6 +58,45 @@ uint32_t Pack(uint8_t a, uint8_t r, uint8_t g, uint8_t b)
 uint8_t ToByte(float value)
 {
 	return static_cast<uint8_t>(static_cast<int>(value));
+}
+
+/// fn_00686980 when the surface is made (0x6867F9), with the matrix fn_00673E40 gives at 0x6867E8: the atom's local
+/// frame (fn_00673DB0: its rotation x baseScale x ruleScale, Y also x the stretch, at +0x80) in the collection's
+/// hierarchy (fn_00673D20 -> fn_006752D0). The mesh goes to the world (fn_006C9BD0), is cut along the land's cells and
+/// raised there (land_morph::RaiseAboveLandscape) and comes back with the inverse (SetInverse 0x7FB290), so the draw
+/// moves the raised mesh with the atom (and scales it with a later UR_ChangeScale, as the original's local deltas do).
+/// (aproximado) The frame is the one Collect draws with (rotation x baseScale x ruleScale, no stretch): the original's
+/// drawn PSR (fn_00673EA0 -> fn_00673DB0 at 0x673ED6) is taken as the same matrix as M, and Collect leaves the stretch
+/// out. Both users have stretch 1 (SF_TeleportVortex, SF_SpellDispenserVortex: no StretchVertically, no rule writes it).
+void RaiseAboveLandscape(const Effect& effect, const Collection& collection, const Atom& atom, SurfMesh& mesh)
+{
+	const glm::mat3 frame = atom.rotation * (atom.baseScale * atom.ruleScale);
+	land_morph::Primitive primitive;
+	primitive.positions.reserve(mesh.positions.size());
+	for (const auto& p : mesh.positions)
+	{
+		primitive.positions.push_back(effect.LocalToGlobal(collection, atom.position + frame * p));
+	}
+	primitive.uvs = mesh.uvs;
+	primitive.diffuse = mesh.colours;
+	primitive.specular = mesh.speculars;
+	primitive.indices.assign(mesh.indices.begin(), mesh.indices.end());
+	const auto origin = effect.LocalToGlobal(collection, atom.position); // M+0x24 / M+0x2C
+	land_morph::RaiseAboveLandscape(land_morph::CurrentAltitude(), std::span(&primitive, 1), glm::vec2(origin.x, origin.z));
+	if (primitive.positions.size() > 0xFFFFu)
+	{
+		return; // (port guard) the surface's indices are 16 bits; the two users stay far below
+	}
+	const auto back = glm::inverse(frame);
+	mesh.positions.clear();
+	for (const auto& p : primitive.positions)
+	{
+		mesh.positions.push_back(back * (effect.GlobalToLocal(collection, p) - atom.position));
+	}
+	mesh.uvs = std::move(primitive.uvs);
+	mesh.colours = std::move(primitive.diffuse);
+	mesh.speculars = std::move(primitive.specular);
+	mesh.indices.assign(primitive.indices.begin(), primitive.indices.end());
 }
 
 class SurfRevol final: public Modifier
@@ -79,6 +120,7 @@ public:
 	    , maxUVChange(object.Float("MaxUVChange", 1.0f))
 	    , maxVertexChange(object.Float("MaxVertexChange", 1.0f))
 	    , raiseAboveLandscape(object.Bool("DoRaiseAboveLandscape", false))
+	    , clampToLandscape(object.Bool("ClampToLandscape", false))
 	    , alphaFadeIn(object.Float("AlphaFadeIn", 0.4f))
 	    , alphaFadeOut(object.Float("AlphaFadeOut", 0.4f))
 	    , scale(object.Float("Scale", 1.0f))
@@ -86,8 +128,9 @@ public:
 	    , colour {static_cast<uint8_t>(object.Int("ColorR", 255)), static_cast<uint8_t>(object.Int("ColorG", 255)),
 	              static_cast<uint8_t>(object.Int("ColorB", 255)), static_cast<uint8_t>(object.Int("ColorA", 255))}
 	{
-		// ClampToLandscape (+0x6C, the draw object's +0x22), UseLighting (+0x88: the normals, fn_006C9340), UseSphere
-		// (+0x5C) and MaterialUseTextureAlpha are not used here: the pool is drawn unlit with the texture's alpha.
+		// ClampToLandscape (+0x6C, the draw object's +0x22) is drawn in Collect. UseLighting (+0x88: the normals,
+		// fn_006C9340), UseSphere (+0x5C) and MaterialUseTextureAlpha are not used here: the pool is drawn unlit with the
+		// texture's alpha.
 		// HeightAboveLandscape and RaiseAboveLandscapeRadius are defined (0x6B30EF, 0x6B312A) but nothing reads them.
 	}
 
@@ -172,6 +215,7 @@ private:
 		creator->writeDepth = writeDepth;
 		creator->doubleSided = doubleSided;
 		creator->raiseAboveLandscape = raiseAboveLandscape;
+		creator->clampToLandscape = clampToLandscape;
 		creator->initialScale = 1.0f;
 		creator->r = colour[0];
 		creator->g = colour[1];
@@ -195,8 +239,8 @@ private:
 		surf_revol::ScaleUVs(creator->mesh, creator->tile.x, creator->tile.y);
 		creator->savedUVs = creator->mesh.uvs;
 		creator->savedPositions = creator->mesh.positions;
-		// DoRaiseAboveLandscape: the twists once with amount 1, then the mesh is draped over the land (fn_00686980, done
-		// at draw time here: see Collect)
+		// DoRaiseAboveLandscape: the twists once with amount 1, then the mesh is cut and draped over the land, once
+		// (fn_00686980 at 0x6867F9)
 		if (raiseAboveLandscape)
 		{
 			if (maxVertexChange != 0.0f)
@@ -207,6 +251,7 @@ private:
 			{
 				surf_revol::TwistUVs(creator->mesh, creator->savedUVs, maxUVChange, 1.0f);
 			}
+			RaiseAboveLandscape(effect, collection, atom, creator->mesh);
 		}
 		return creator;
 	}
@@ -227,17 +272,13 @@ private:
 	float maxUVChange;
 	float maxVertexChange;
 	bool raiseAboveLandscape;
+	bool clampToLandscape;
 	float alphaFadeIn;
 	float alphaFadeOut;
 	float scale;
 	int functionIndex;
 	std::array<uint8_t, 4> colour;
 };
-
-float LandHeight(float x, float z)
-{
-	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
-}
 } // namespace
 
 glm::vec2 surf_revol::Profile(int functionIndex, float t)
@@ -394,6 +435,7 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 		it = manager::Find(it->first) == nullptr ? g_Creators.erase(it) : std::next(it);
 	}
 	std::vector<Surface> result;
+	const auto ground = land_morph::CurrentAltitude();
 	for (const auto& drawable : manager::Collect(Creator::Kind::Other))
 	{
 		for (const auto& atom : drawable.atoms)
@@ -410,18 +452,18 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 			surface.doubleSided = creator->doubleSided;
 			surface.indices = creator->mesh.indices;
 			const float scale = atom.scale; // the drawn PSR's scale, hierarchy included (fn_00673EA0)
-			const float centreLand = LandHeight(atom.position.x, atom.position.z);
+			const float centreLand = creator->clampToLandscape ? ground(glm::vec2(atom.position.x, atom.position.z)) : 0.0f;
 			const float atomAlpha = std::clamp(atom.alpha, 0.0f, 255.0f) / 255.0f;
 			const auto& mesh = creator->mesh;
 			surface.vertices.reserve(mesh.positions.size());
 			for (size_t k = 0; k < mesh.positions.size(); ++k)
 			{
 				glm::vec3 p = atom.position + atom.rotation * (mesh.positions[k] * scale);
-				// fn_00686980: to world space, cut along the 10 m cells (fn_00686D90, not ported: each vertex is draped
-				// on its own), y += the land under the vertex - the land at the atom's centre, back
-				if (creator->raiseAboveLandscape)
+				// ClampToLandscape (RenderParticleGJMesh::DrawAt 0x67C313..0x67C38C): every vertex of every primitive,
+				// every draw and without the cut, y = (H(v) - H(the drawn matrix's position)) + y (land_morph::Bake)
+				if (creator->clampToLandscape)
 				{
-					p.y += LandHeight(p.x, p.z) - centreLand;
+					p.y = land_morph::Raised(ground, p, centreLand);
 				}
 				const uint32_t argb = mesh.colours[k];
 				const float a = static_cast<float>(argb >> 24) * atomAlpha;

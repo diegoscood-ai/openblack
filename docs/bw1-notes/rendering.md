@@ -92,7 +92,8 @@ Informe completo del desensamblado; direcciones W120:
 - `S_TileLandscape.raw` no es del terreno: es la entrada 6 de la tabla de texturas globales 0xBEF484, usada por el
   corazón de la ciudadela (`fn_00465C70`) **(inferido)**. `L_Smallbump_01.raw` no se usa.
 - En esta instalación `smallbump.raw` (2017), `smallbumpa.raw`, `Sky.raw` y `S_TileLandscape*.raw` (2021) vienen de un
-  pack de texturas, no son de 2001.
+  pack de texturas, no son de 2001. El usuario recuerda (2026-10-01) que el moteado sobre el agua somera puede
+  venir de ese `smallbump.raw`: con el original de 2001 se vería distinto, la regla de dibujo es la misma.
 - openblack: `LandIsland::CreateSmallBumpTexture` (RGBA con cuantización a 4 bits), fundido por vértice en
   `vs_terrain` (`u_smallBumpLine`, `u_skyAndBump.w`), mezcla en `fs_terrain`.
 

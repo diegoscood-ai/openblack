@@ -22,6 +22,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
@@ -62,10 +63,8 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 			{
 				break;
 			}
-			// cell = (FileOffset + frame) & 63; looped frames wrap within NumFrames
-			const float frames = static_cast<float>(c->numFrames);
-			float frame = atom.frame;
-			frame = c->loopAnim ? std::fmod(std::fmod(frame, frames) + frames, frames) : std::clamp(frame, 0.0f, frames - 1.0f);
+			// fn_00679920: the whole frame drawn, looped within NumFrames or clamped to its last (frame_anim::PSysFrameIndex)
+			const int frame = frame_anim::PSysFrameIndex(atom.frame, c->numFrames, c->loopAnim);
 			const float alpha = std::clamp(atom.alpha * static_cast<float>(c->scaleAlpha) / 255.0f, 0.0f, 255.0f);
 			const uint32_t abgr = (static_cast<uint32_t>(alpha) << 24) | (static_cast<uint32_t>(atom.colour[2]) << 16) |
 			                      (static_cast<uint32_t>(atom.colour[1]) << 8) | atom.colour[0];
@@ -90,7 +89,7 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 			}
 			// 0x67B0A2..0x67B0BA: the cell in the flags' low 6 bits; SetHorozontal is flag 0x40 (0x6AA093), which also
 			// takes the origin and the angle (as the yaw)
-			sprite.cell = static_cast<uint8_t>((c->fileOffset + static_cast<int>(frame)) & 63);
+			sprite.cell = frame_anim::SpriteCell(c->fileOffset + frame);
 			sprite.cellsPerRow = static_cast<uint8_t>(c->spritesPerRow);
 			sprite.horizontal = c->horizontal;
 			const auto quad = billboard::SpriteQuad(sprite, cameraFrame);

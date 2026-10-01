@@ -17,6 +17,7 @@
 #include <numbers>
 #include <unordered_map>
 
+#include "3D/FrameAnim.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h" // (and glm::inverse, through glm/mat4x4.hpp)
 #include "Locator.h"
@@ -36,8 +37,10 @@ struct SurfRevolCreator final: Creator
 	SurfMesh mesh;
 	std::vector<glm::vec2> savedUVs;       ///< CollectionData +0x2C
 	std::vector<glm::vec3> savedPositions; ///< CollectionData +0x40
-	glm::vec2 uvOffset {0.0f};             ///< the draw object +0x34 / +0x38 (kept within the tile, GameUpdate 0x6C8BC0)
-	glm::vec2 tile {1.0f};                 ///< +0x3C / +0x40: TextureWidth / 256, TextureHeight / 256
+	/// The draw object's UV scroll clock: the rule adds the step to its `destination` (+0x34 / +0x38) and GameUpdate
+	/// 0x6C8BC0 shifts it into `current` (+0x2C / +0x30) with the one before in `previous` (+0x24 / +0x28), so DrawAt
+	/// 0x67CBA0 interpolates between two steps. `period` is +0x3C / +0x40: TextureWidth / 256, TextureHeight / 256
+	graphics::frame_anim::RotatingUvClock uv;
 	bool raiseAboveLandscape {false};
 	bool clampToLandscape {false}; ///< the draw object's +0x22 (ctor 0x6C8A90: 0; set from the rule's +0x6C at 0x686432)
 	bool doubleSided {false};
@@ -169,23 +172,13 @@ public:
 				surf_revol::TwistUVs(creator->mesh, creator->savedUVs, maxUVChange, amount);
 			}
 		}
-		// the UV scroll: +0x34 += dt x SpeedU, +0x38 += dt x SpeedV (dt = [0xD4E0EC], the step); GameUpdate keeps it in
-		// [-2 tile, 2 tile] and the draw wraps it into [0, tile)
+		// the UV scroll: +0x34 += dt x SpeedU, +0x38 += dt x SpeedV (dt = [0xD4E0EC], the step). Nothing wraps it here:
+		// GameUpdate 0x6C8BC0 keeps the pair within two periods and hands it on (it runs once a step per atom, at the end
+		// of PostUpdateAtoms fn_00673EA0 0x674080 - after the rules - so here, right after the step, is the same place),
+		// and the draw takes the period off the interpolated value
 		const float dt = effect.GetDt();
-		creator->uvOffset += glm::vec2(dt * speedU, dt * speedV);
-		for (int k = 0; k < 2; ++k)
-		{
-			auto& o = creator->uvOffset[k];
-			const float t = creator->tile[k];
-			if (t > 0.0f)
-			{
-				o = std::fmod(o, t);
-				if (o < 0.0f)
-				{
-					o += t;
-				}
-			}
-		}
+		creator->uv.destination += glm::vec2(dt * speedU, dt * speedV);
+		creator->uv.GameUpdate();
 		return true;
 	}
 
@@ -235,8 +228,8 @@ private:
 		}
 		creator->mesh =
 		    surf_revol::Build(numU, numV, functionIndex, fadeAlphas, alphaFadeIn, alphaFadeOut, changeSpecColour, player);
-		creator->tile = glm::vec2(static_cast<float>(textureWidth) / 256.0f, static_cast<float>(textureHeight) / 256.0f);
-		surf_revol::ScaleUVs(creator->mesh, creator->tile.x, creator->tile.y);
+		creator->uv.period = glm::vec2(static_cast<float>(textureWidth) / 256.0f, static_cast<float>(textureHeight) / 256.0f);
+		surf_revol::ScaleUVs(creator->mesh, creator->uv.period.x, creator->uv.period.y);
 		creator->savedUVs = creator->mesh.uvs;
 		creator->savedPositions = creator->mesh.positions;
 		// DoRaiseAboveLandscape: the twists once with amount 1, then the mesh is cut and draped over the land, once
@@ -446,6 +439,7 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 				continue;
 			}
 			Surface surface;
+			surface.origin = drawable.origin; // the key of the effect's Z object (PSysManager::AddDrawing 0x6797D0)
 			surface.texture = creator->texture;
 			surface.additive = creator->additive;
 			surface.writeDepth = creator->writeDepth;
@@ -455,6 +449,10 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 			const float centreLand = creator->clampToLandscape ? ground(glm::vec2(atom.position.x, atom.position.z)) : 0.0f;
 			const float atomAlpha = std::clamp(atom.alpha, 0.0f, 255.0f) / 255.0f;
 			const auto& mesh = creator->mesh;
+			// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 (frame_anim::RotatingUvClock): lerp(+0x24 -> +0x2C) and
+			// lerp(+0x28 -> +0x30) with the draw fraction of the step (DrawData +0x14, the float PSysManager::AddDrawing
+			// keeps at +0xB0), then the period taken off while above it
+			const auto uvOffset = creator->uv.Interpolated(drawable.t);
 			surface.vertices.reserve(mesh.positions.size());
 			for (size_t k = 0; k < mesh.positions.size(); ++k)
 			{
@@ -476,7 +474,7 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 				const uint32_t spec = mesh.speculars[k];
 				const uint32_t specAbgr =
 				    (alpha << 24) | ((spec & 0xFFu) << 16) | (spec & 0xFF00u) | ((spec >> 16) & 0xFFu);
-				const glm::vec2 uv = mesh.uvs[k] + creator->uvOffset;
+				const glm::vec2 uv = mesh.uvs[k] + uvOffset;
 				surface.vertices.push_back({p, uv, abgr, specAbgr});
 			}
 			result.push_back(std::move(surface));

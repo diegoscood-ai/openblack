@@ -17,6 +17,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "Advisor.h"
+#include "Audio.h"
 #include "Common/HelpText.h"
 
 namespace openblack::audio
@@ -126,6 +128,103 @@ void voices::BuildTable()
 const VoiceTable& voices::Table()
 {
 	return s_table;
+}
+
+void voices::SetTable(VoiceTable table)
+{
+	s_table = std::move(table);
+}
+
+bool voices::BankRegistered(SfxBank bank)
+{
+	return Bank(bank) != k_NoBank;
+}
+
+Channel voices::RunTextVoice(int32_t narrator, TextVoice voice)
+{
+	if (voice.bank == SfxBank::HelpSprites) // 0x5C6025
+	{
+		const int dude = narrator == helptext::k_NarratorGoodSpirit   ? advisor::k_GoodSpirit // 0x5C602A
+		                 : narrator == helptext::k_NarratorEvilSpirit ? advisor::k_EvilSpirit // 0x5C6061
+		                                                              : -1;
+		if (dude >= 0)
+		{
+			advisor::Stop(advisor::k_EvilSpirit);                           // fn_005C3750(1) 0x5C6034 / 0x5C606B
+			advisor::Stop(advisor::k_GoodSpirit);                           // fn_005C3750(0) 0x5C603E / 0x5C6075
+			advisor::Say(dude, static_cast<int>(voice.sample), false);      // fn_005C36D0(dude, sample, 0)
+			return k_NoChannel;
+		}
+	}
+	if (voice.sample == 0 || voice.bank == SfxBank::None) // 0x5C609C..0x5C60A2
+	{
+		return k_NoChannel;
+	}
+	PlayOptions options;                                            // ctor 0x5C60A8
+	options.sample = {Bank(voice.bank), static_cast<int>(voice.sample)}; // +0x24 (0x5C60B4), +0x04 (0x5C60C4)
+	options.owner = Owner::Key(k_OwnerVoice);                       // +0x20 = 0x270F (0x5C60C8)
+	options.keepPcm = true;                                         // +0x164 = 1 (0x5C60D0)
+	if (options.sample.bank == k_NoBank)
+	{
+		return k_NoChannel;
+	}
+	return PlaySoundEffect(options); // 0x5C60DB
+}
+
+Channel voices::Say(uint32_t textId, bool withPosition, bool alt, glm::vec3 position)
+{
+	if (textId >= helptext::k_TextCount) // 0x70F8EA
+	{
+		textId = 0;
+	}
+	// 0x70F8FB / 0x70F904: the say table 0x942B38 (+8 sample, +4 bank); W120's entries all have id == index, so the
+	// id test of 0x70F910 never zeroes the bank (VoiceTable keeps no id)
+	const auto voice = Table().Get(textId);
+	if (voice.sample == 0) // 0x70F90A
+	{
+		return k_NoChannel;
+	}
+	PlayOptions options;                                                 // ctor 0x70F91E
+	options.sample = {Bank(voice.bank), static_cast<int>(voice.sample)}; // +0x04 (0x70F956), +0x24 (0x70F93E)
+	options.owner = Owner::Key(alt ? k_OwnerVoiceAlt : k_OwnerVoice);    // +0x20 (0x70F931..0x70F949)
+	options.is3D = withPosition;                                         // +0x08 (0x70F96C)
+	options.keepPcm = true;                                              // +0x164 = 1 (0x70F961)
+	if (withPosition)                                                    // 0x70F970..0x70F986
+	{
+		options.position = position;
+	}
+	options.track = false; // +0x0C = 0 (0x70F98F)
+	if (SfxTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "SFX: SAY({}, {}, ({:.1f}, {:.1f}, {:.1f}), alt {}) -> bank {} sample {}", textId,
+		                   withPosition ? 1 : 0, position.x, position.y, position.z, alt ? 1 : 0, static_cast<int>(voice.bank),
+		                   voice.sample);
+	}
+	if (options.sample.bank == k_NoBank)
+	{
+		return k_NoChannel;
+	}
+	return PlaySoundEffect(options); // 0x70F997
+}
+
+bool voices::IsSaying(bool alt, uint32_t textId)
+{
+	if (textId >= helptext::k_TextCount) // 0x7102A7
+	{
+		textId = 0;
+	}
+	const auto voice = Table().Get(textId);
+	if (voice.sample == 0) // 0x7102C3
+	{
+		return false;
+	}
+	// 0x7102C7..0x7102DC: fn_0042A280(alt ? 0x270D : 0x270F, sample, bank)
+	return IsPlaying(Owner::Key(alt ? k_OwnerVoiceAlt : k_OwnerVoice), static_cast<int>(voice.sample), voice.bank);
+}
+
+void voices::CutByClick()
+{
+	// 0x5C6AA4..0x5C6AAD: StopPlayingSoundEffect(0, 0x270F, 7)
+	StopSoundEffect(0, Owner::Key(k_OwnerVoice), SfxBank::Villagers);
 }
 
 } // namespace openblack::audio

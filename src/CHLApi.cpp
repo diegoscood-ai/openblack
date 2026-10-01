@@ -10,7 +10,6 @@
 #include "CHLApi.h"
 
 #include <array>
-#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -37,6 +36,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
+#include "Audio/Audio.h"
 #include "Audio/GameMusic.h"
 #include "Audio/ScriptAudioState.h"
 #include "Audio/SamplePlay.h"
@@ -65,6 +65,7 @@
 #include "ECS/Components/PuzzleGame.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/FeatureBuild.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/MobileWalkPaths.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
@@ -753,38 +754,6 @@ void SetPosition() // 024 SET_POSITION
 	}
 }
 
-/// The 1/sqrt table 0xDA5A10 (1024 entries, filled by 0x74F590 from GGame::InitOneTimeOnly) and _FUN_0074f620, the
-/// table's approximate 1/sqrt (the same as ECS/AnimalLairs.cpp's InvSqrtApprox, which keeps them private)
-float InvSqrtApprox(float x)
-{
-	static const auto table = [] {
-		std::array<uint32_t, 1024> t {};
-		for (uint32_t i = 0; i < t.size(); ++i)
-		{
-			const auto f = std::bit_cast<float>((0x3F800000u & 0xFF003FFFu) | (i << 14));
-			const double r = 1.0 / std::sqrt(static_cast<double>(f));
-			t.at(i) = r == 1.0 ? 0x7FE000u : (std::bit_cast<uint32_t>(static_cast<float>(r)) & 0x7FE000u);
-		}
-		return t;
-	}();
-	// 0x74F620..0x74F64A: exponent ((0xBE000000 - exponent bits) >> 1), mantissa from the table (bits 14..23)
-	const auto bits = std::bit_cast<uint32_t>(x);
-	const uint32_t exponent = ((0xBE000000u - (bits & 0x7F800000u)) >> 1) & 0x7F800000u;
-	return std::bit_cast<float>(exponent | table.at((bits >> 14) & 0x3FFu));
-}
-
-/// hypotenuse(a, b) 0x74F6C0: 0 when |a| and |b| are both <= 0.0001 (0x8BF518); else 1 / InvSqrtApprox(a*a + b*b)
-/// (the sum stored as a float, 0x74F700; fdivr 1.0 0x8AA390)
-float Hypotenuse(float a, float b)
-{
-	if (std::abs(a) <= 0.0001f && std::abs(b) <= 0.0001f)
-	{
-		return 0.0f;
-	}
-	const auto sum = static_cast<float>(a * a + b * b);
-	return 1.0f / InvSqrtApprox(sum);
-}
-
 void GetDistance() // 025 GET_DISTANCE
 {
 	// GScript::GetDistance 0x6F8CA0: the two vectors (0x6F8CB1..0x6F8D07) to GUtils::GetDistance(LHPoint, LHPoint)
@@ -792,7 +761,7 @@ void GetDistance() // 025 GET_DISTANCE
 	// is 0
 	const auto p1 = PopVec();
 	const auto p0 = PopVec();
-	const float distance = Hypotenuse(p1.x - p0.x, p1.z - p0.z);
+	const float distance = gutils::GetDistance(p0, p1);
 	Pushf(distance < 0.5f ? 0.0f : distance);
 }
 
@@ -2856,11 +2825,19 @@ void HasPlayerMagic() // 245 HAS_PLAYER_MAGIC
 
 void SpiritSpeaks() // 246 SPIRIT_SPEAKS
 {
-	// const auto textID = Pop().intVal;
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SpiritSpeaks 0x710C40: POP the text, then the SCRIPT_SPIRIT_TYPE; ConvertScriptSpiritToHelpSpirit 0x710350
+	// (the local player's alignment: inferred, openblack's local player is PLAYER_ONE; LocalRand: openblack's generator);
+	// text 0 past 6974 (0x710C6E); push HelpSystem::GetSpiritWhoTalks 0x5C6E20 == the spirit (type 6)
+	auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto type = Pop().intVal;
+	const int discrete = audio::DiscreteAlignment(ecs::effects::alignment::Get(PlayerNames::PLAYER_ONE));
+	const auto spirit =
+	    help::ConvertScriptSpiritToHelpSpirit(type, discrete, []() { return audio::tags::RandomSample(0, 100); });
+	if (text >= helptext::k_TextCount)
+	{
+		text = 0;
+	}
+	Pushb(help::SpiritWhoTalks(helptext::GetEntry(text).narrator) == spirit);
 }
 
 void BeliefForPlayer() // 247 BELIEF_FOR_PLAYER
@@ -3684,12 +3661,15 @@ void GameThingCanViewCamera() // 339 GAME_THING_CAN_VIEW_CAMERA
 
 void GamePlaySaySoundEffect() // 340 GAME_PLAY_SAY_SOUND_EFFECT
 {
-	// const auto withPosition = static_cast<bool>(Pop().intVal);
-	// const auto position = PopVec();
-	// const auto sound = Pop().intVal;
-	// const auto extra = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::GamePlaySaySoundEffect 0x70F9B0: six POPs (withPos, the point, the text, alt), then
+	// SaySoundEffect 0x70F8E0(text, withPos, alt, &point) (audio::voices::Say)
+	const auto withPosition = Pop().intVal != 0;
+	const auto position = PopVec();
+	const auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto alt = Pop().intVal != 0;
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "GAME_PLAY_SAY_SOUND_EFFECT({}, {}, ({}, {}, {}), {})", alt, text,
+	                    position.x, position.y, position.z, withPosition);
+	audio::voices::Say(text, withPosition, alt, position);
 }
 
 void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
@@ -4678,11 +4658,10 @@ void GetTempleEntrancePosition() // 457 GET_TEMPLE_ENTRANCE_POSITION
 
 void SaySoundEffectPlaying() // 458 SAY_SOUND_EFFECT_PLAYING
 {
-	// const auto sound = Pop().intVal;
-	// const auto alwaysFalse = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SaySoundEffectPlaying 0x710280: POP the text, then alt; push audio::voices::IsSaying (type 6)
+	const auto text = static_cast<uint32_t>(Pop().intVal);
+	const auto alt = Pop().intVal != 0;
+	Pushb(audio::voices::IsSaying(alt, text));
 }
 
 void SetHandDemoKeys() // 459 SET_HAND_DEMO_KEYS

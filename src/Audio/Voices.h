@@ -15,12 +15,16 @@
 #include <string_view>
 #include <vector>
 
+#include <glm/vec3.hpp>
+
 #include "BankTables.h"
+#include "SamplePlay.h"
 
 // The voices of the help texts (milestone A10 of dev\tmp_dis\audio\PLAN.md): the table HELP_TEXT -> {bank, sample} of
 // runblack.exe W120, 0x915D40 (identical copies at 0x942B38, 0x957310 and 0x96BA30), rebuilt from the data because it is
 // not in any data file: the name of a text is the name of the wave of its sample (dev\tmp_dis\audio\voices.md §2.2, §3.2;
-// voices_namerule.py). Playing them (RunTextVoice, SaySound, the advisors) is milestone B7.
+// voices_namerule.py). Playing them (milestone B7): RunTextVoice, Say, IsSaying, CutByClick below; the advisors in
+// Advisor.h.
 
 namespace openblack::audio
 {
@@ -80,6 +84,39 @@ void SetBankSampleNames(SfxBank bank, VoiceTable::SampleNames names);
 void BuildTable();
 /// The game's table (empty until BuildTable)
 [[nodiscard]] const VoiceTable& Table();
+/// The table of the tests
+void SetTable(VoiceTable table);
+
+/// fn_005C62F0 0x5C631E: GAudio+0x3A8 + 4 * bank != 0, the bank of a voice is registered
+[[nodiscard]] bool BankRegistered(SfxBank bank);
+
+/// The voice part of fn_005C5F90 (0x5C6025..0x5C60DB), after the text is shown and kept in the history:
+///  - HelpSprites (6) and narrator 2 (the good spirit) / 3 (the evil one): fn_005C3750 (advisor::Stop) of dude 1, then
+///    of dude 0, then HelpDudeControl::Say(0 / 1, sample, 0) (advisor::Say: owner 0x270C, LHSamplePlay directly);
+///  - any other voice with a sample and a bank: a default LH_SamplePlayOptions (ctor 0x5C60A8) with the bank +0x04 =
+///    GAudio+0x3A8 + 4 * bank, the sample +0x24, the owner +0x20 = 0x270F and +0x164 = 1: 2D, the .sad decides the
+///    rest; GAudio::PlaySoundEffect 0x429E30 (with its filters: inside the citadel only user parameter 2 plays, and after
+///    SET_GAME_SOUND false only HelpSprites / villagers).
+/// Returns the channel of the second branch (the advisor's sentence starts in advisor::Update).
+Channel RunTextVoice(int32_t narrator, TextVoice voice);
+
+/// GScript::SaySoundEffect 0x70F8E0(text, withPosition, alt, LHPoint*) (GAME_PLAY_SAY_SOUND_EFFECT 0x70F9B0): text 0 for
+/// one >= 6974 (0x70F8EA); the say table 0x942B38: nothing without a sample (0x70F90A), the bank 0 when the entry's id
+/// is not the text (0x70F910, never in W120's table); a default LH_SamplePlayOptions with the bank, the sample, the owner
+/// alt ? 0x270D : 0x270F (0x70F931..0x70F938), is3D +0x08 = withPosition, the point +0x30 only when withPosition
+/// (0x70F970..0x70F986), track +0x0C = 0 (0x70F98F), +0x164 = 1; GAudio::PlaySoundEffect 0x429E30. No text and no
+/// advisor, even for HelpSprites.
+Channel Say(uint32_t textId, bool withPosition, bool alt, glm::vec3 position);
+
+/// SAY_SOUND_EFFECT_PLAYING 0x710280(alt, text): text 0 for one >= 6974 (0x7102A7); false without a sample in the say
+/// table (0x7102C3); else fn_0042A280(alt ? 0x270D : 0x270F, sample, the entry's bank) = LHSampleIsPlaying (the id is
+/// not compared here)
+[[nodiscard]] bool IsSaying(bool alt, uint32_t textId);
+
+/// HelpSystem::ProcessInterface 0x5C6A9E..0x5C6AAD: GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) 0x42A210 =
+/// LHSampleStop(villagers, 0x270F, 0): every narration of villagers.sad, each with the 20 ms ramp. (The narration of
+/// the other banks is not cut; the advisors are cut by fn_005C6720, advisor::Interrupt.)
+void CutByClick();
 } // namespace voices
 
 } // namespace openblack::audio

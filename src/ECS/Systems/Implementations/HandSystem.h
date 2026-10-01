@@ -158,18 +158,34 @@ private:
 	/// Every frame: the hold parameters (MAGIC until ready), the seed's own mesh (IsG3DObjectDrawnInHand), its coming in
 	/// and out of the hand, and what the gesture system is told (magic::gestures::SetHandStatus)
 	void UpdateSeedInHand(bool actionHeld) noexcept;
-	/// SpellSeed::InterfaceSetOutMagicHand 0x728940 (and the seed is not drawn outside the hand: Spell::DrawSpellSeed)
+	/// SpellSeed::InterfaceSetOutMagicHand 0x728940; the hand stops drawing it (out of the hand Spell::DrawSpellSeed
+	/// 0x721360 -> 0x729020 draws a seed that follows its spell: magic::seed::DrawSpells)
 	void SeedLeftHand(entt::entity seed) noexcept;
 	/// Test hooks OPENBLACK_TEST_CAST / OPENBLACK_TEST_CAST_PATH / OPENBLACK_TEST_THROW_VEL (HandSpellSeed.cpp)
 	bool TestCastActionHeld(float seconds, bool actionHeld) noexcept;
 	[[nodiscard]] std::optional<glm::vec3> TestCastPathPoint() const noexcept;
+
+	// ---- HandApplyToObject.cpp: the held object applied to the object under the hand, and seeds / stones picked up ----
+	/// The seed an object out of the hand gives the hand when it is ValidForPlaceInHand (vt 0x6FC): a SpellSeed itself
+	/// (0x728580), a MagicTeleport its spell's seed (0x5FC440); entt::null otherwise
+	[[nodiscard]] static entt::entity SeedToPlaceInHand(entt::entity object) noexcept;
+	/// GenericPickup 0x5D2800 (the 225 ms grab) of a seed or a stone: packet 0x13 -> GInterface::PlaceObjectInMagicHand
+	/// 0x5DA6F0 (a stone's InterfaceSetInMagicHand 0x5FC470 places its seed). False if the object is neither.
+	bool PickUpSeedOrStone(entt::entity object, bool inInfluence) noexcept;
+	/// ActionPressedHolding 0x5D1560 for a held object that is not a seed: when the object under the hand takes it
+	/// (vt 0x71C at 0x5D1607, the influence rule 0x5D15D6..0x5D15E9), SendApplyToObject 0x5D30D0 -> packet 0x11 ->
+	/// 0x5DA1A0 -> vt 0x720 ApplyThisToObject -> HandleApplyResult fn_005DA100. False: nothing applied (the press arms the
+	/// put down / throw as before)
+	bool HeldActionPressedOnObject(bool inInfluence) noexcept;
+	/// fn_005CED60 RemoveFirstFromHand: the held object leaves the hand without physics (GMagicHand::RemoveFromHand
+	/// 0x5FB0B0: FireEffect::SetOutMagicHand); the caller places it
+	std::optional<entt::entity> RemoveFirstFromHand() noexcept;
+
 	SeedAction _seedAction {SeedAction::None};
 	/// the object under the cursor when the apply started (m_ActionCollide.object)
 	entt::entity _seedTarget {entt::null};
 	/// m_ApplySentTurn: one apply packet per game turn
 	std::optional<uint32_t> _applySentTurn;
-	/// the SoundTag of LH_SAMPLE_G_HANDGESTURE_02 while a HAND_GESTURE seed is armed
-	std::optional<entt::entity> _seedLoopSound;
 	/// the seed the hand held last frame (to see it come and go)
 	entt::entity _seedInHand {entt::null};
 	float _testCastTime {-1.0f};
@@ -337,7 +353,7 @@ private:
 	{
 		entt::entity entity;
 		float age;
-		uint32_t initialFrame;
+		float frame; ///< the atom's +0x10C, from RandomiseInitFrame (frame_anim::PSysFrameAdvance)
 	};
 	std::vector<DustParticle> _dust;
 	uint32_t _dustSeed {1};
@@ -350,8 +366,8 @@ private:
 		glm::vec3 start;
 		glm::vec3 previous;
 		bool mesh;
-		uint32_t firstFrame {0}; ///< RandomiseInitFrame (fish)
-		int frameStep {1};       ///< RandomiseFrameDirection (fish): +1 or -1
+		float frame {0.0f};     ///< the atom's +0x10C: InitFrame 0, or RandomiseInitFrame (fish)
+		float frameRate {0.0f}; ///< +0x110: FrameRate, negated by RandomiseFrameDirection (fish)
 	};
 	std::vector<PickupParticle> _pickupParticles;
 	/// ER_MultiPickup collection data: atoms owed (+0x20, EmitRate * time) and atoms emitted (+0x24).

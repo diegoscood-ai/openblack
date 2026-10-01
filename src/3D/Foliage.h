@@ -22,6 +22,8 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include "3D/FrameAnim.h"
+
 namespace openblack
 {
 class LandIslandInterface;
@@ -208,11 +210,11 @@ private:
 		glm::vec3 offset {0.0f};     ///< how far it is from its path: grows while it flees, then it flies back
 	};
 
-	/// The frames of an animated image: consecutive texture layers
+	/// The frames of an animated image: consecutive texture layers from sprite.first, timed by the image's frame delays
+	/// (graphics::frame_anim::LoadGif / AnimatedSprite: whole frames, no blend)
 	struct Animation
 	{
-		uint16_t first;
-		std::vector<float> ends; ///< seconds at the end of each frame, from the image's frame delays
+		graphics::frame_anim::AnimatedSprite sprite;
 		/// folding flyers, per frame: the fold (radians) that would make the widest frame look as wide as this one
 		/// (acos of its width over the widest): the wings' beat, in time with the image
 		std::vector<float> folds;

@@ -127,11 +127,11 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
   (min/d con escala 1), **0 más allá de max** (el canal sigue sonando, mudo). La escala es por canal porque LHaudio no
   usa el mezclador por hardware (opción `UseHardware` de `HKCU\Software\Lionhead Studios Ltd\Audio\Override`, que no
   existe; con ella llamaría a `QSWaveMixSetListenerRolloff(4)`). En openblack: `AL_INVERSE_DISTANCE_CLAMPED` con referencia = min y rolloff =
-  escala (`AudioPlayer::SetSourceDistance`), y `AudioEmitter::cutDistance` = max silencia el emisor en
-  `AudioManager::Update`. `Sound` guarda además `cloneGroup` (+0x118), `playMode` (+0x274 con 0x400, si no 3),
+  escala (`AudioPlayer::SetSourceDistance`), y el canal más allá de max queda mudo en `AlSampleOutput` (los 16
+  canales de `audio::sample_play`; desde la fase B5 del audio no hay emisores `AudioEmitter`). `Sound` guarda además `cloneGroup` (+0x118), `playMode` (+0x274 con 0x400, si no 3),
   `atmosGroup` (+0x11A) y `atmosFrequency` (i32 en +0x27C, −1 = no es de atmósfera; comprobado con `offsetof`).
 - `GAudio::PlaySoundEffect` 0x429E30 con posición: **no empieza** si la cámara está más lejos que el max del .sad
-  (+0x26C crudo, `LHSampleGetMaxDistance` 0x10014170; el max del mapeo si es 0) → `AudioManager::PlayAt(id, pos)`.
+  (+0x26C crudo, `LHSampleGetMaxDistance` 0x10014170; el max del mapeo si es 0) → `audio::PlaySoundEffect` (`Audio.h`; antes `AudioManager::PlayAt`, retirado en la fase B5 del audio).
   Además (0x429F36..0x429FD9, y lo mismo en `SamplePlayAnimEffect` 0x42A4B0): con la panorámica puesta por un guion
   (+0x45E8 y +0x45EC) no suena ningún sample de user param 1 (InGame tiene 60, editor 82, p. ej. `G_WaterFlow`);
   dentro de la ciudadela (`g_game+0x205A28 == 1`) solo los de user param 2; tras `SET_GAME_SOUND false` (GScript+0x90,

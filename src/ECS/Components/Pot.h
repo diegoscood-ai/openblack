@@ -40,13 +40,16 @@ struct PileSink
 	openblack::Zoomer offset {};
 };
 
-// Texture offset of the object (LH3DObject vfunc 0xE8 (u, v)). PileFood::Draw scrolls the grain of the storage pit and
-// magic food piles by v = 0.25 * sink / height, so that the grain stays put in the world and the pile seems to shrink;
-// OneOffSpellSeed::UpdateFrame 0x72A570 steps the orbs' 4x4 texture (u and v in quarters).
+// Texture offset of the object (LH3DObject::SetAnimatedUV_1 vt 0xE8 0x7F9B70 (u, v), graphics::frame_anim::UvOffset),
+// added by the draw to the primitives whose material lacks bit 0x10 of byte +5 (DrawTriangle 0x82F8BE). PileFood::Draw
+// scrolls the grain of the storage pit and magic food piles by v = 0.25 * sink / height, so that the grain stays put in
+// the world and the pile seems to shrink; OneOffSpellSeed::UpdateFrame 0x72A570 steps the orbs' 4x4 texture (u and v in
+// quarters); DesignedWaterFall 0x5E3972 scrolls the water's v; SpellSeedGraphic::DrawSpellGraphic 0x519AD0 steps the
+// creature spell phials' 8 x 4 texture (u and v in eighths).
 struct UvScroll
 {
 	float v = 0.0f;
-	float u = 0.0f; ///< 0, 0.25, 0.5 or 0.75 (the renderer packs it with v)
+	float u = 0.0f; ///< in 1/256 steps (the renderer packs it with v, frame_anim::PackUvOffset)
 };
 
 } // namespace openblack::ecs::components

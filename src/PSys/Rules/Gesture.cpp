@@ -21,8 +21,7 @@
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/Sound.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Locator.h"
 #include "Magic/Gestures/GestureShapes.h"
@@ -99,10 +98,7 @@ public:
 			auto& data = _data[&atom];
 			data.record = std::move(pending.back());
 			pending.pop_back();
-			// fn_006882F0 (the record is this computer's interface's): LH_SAMPLE_G_SPELLGESTURERECOGNISE (0x24), IN_GAME;
-			// another interface's one plays at its hand position: not ported (record.fromInterface / handPosition are
-			// ignored, the sound is always non-positional)
-			PlayRecognisedSound();
+			PlayRecognisedSound(data);
 		}
 		// the atoms older than DieAge go (with their sprites)
 		std::erase_if(collection.atoms, [&](const std::unique_ptr<Atom>& atom) {
@@ -177,16 +173,33 @@ private:
 		std::vector<glm::vec3> lightSheet;         ///< +0x2C
 		float lightSheetHeight {0.0f};
 		float lightSheetAlpha {0.0f};
+		/// the atom data as a channel owner (0x688643: owner +0x20 = this), for another interface's recognition sound
+		uint32_t soundOwner {0};
 	};
 
-	static void PlayRecognisedSound()
+	/// 0x6885BB..0x68865B: fn_006882F0 (the record's status +0x38 is MyInterface()'s +0x39C: this computer's interface;
+	/// openblack has only that one, RecognisedGesture::fromInterface) plays LH_SAMPLE_G_SPELLGESTURERECOGNISE (0x24) in
+	/// 2D: GAudio::PlaySoundEffect 0x429D60(NULL, 0x24, mode 3, loops 0, +0x10 0, is3D 0, IN_GAME); another
+	/// interface's one plays at its hand: LH_SamplePlayOptions with bank +0x04 InGame, owner +0x20 the atom data, sample
+	/// +0x24 0x24, is3D +0x08 1, track +0x0C 0, the point +0x30 the record's +0x3C, then 0x429E30
+	static void PlayRecognisedSound(AtomData& data)
 	{
-		const auto id = static_cast<entt::id_type>(audio::SoundId::G_SpellGestureRecognise);
-		if (Locator::audio::has_value() && Locator::resources::has_value() &&
-		    Locator::resources::value().GetSounds().Contains(id))
+		if (data.record.fromInterface)
 		{
-			Locator::audio::value().PlaySound(id, audio::PlayType::Once);
+			audio::PlaySoundEffect(audio::Owner::None(), 0x24, 3, 0, false, false, audio::SfxBank::InGame);
+			return;
 		}
+		if (data.soundOwner == 0)
+		{
+			data.soundOwner = audio::NewObjectId();
+		}
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 0x24};
+		options.owner = audio::Owner::Object(data.soundOwner);
+		options.is3D = true;
+		options.track = false;
+		options.position = data.record.handPosition;
+		audio::PlaySoundEffect(options);
 	}
 
 	/// ModifySubCollection 0x688910

@@ -21,8 +21,8 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/AllMeshes.h"
-#include "3D/Billboard.h"
 #include "3D/DayNightClock.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
@@ -209,7 +209,7 @@ void Spawn()
 		fly.phaseB1 = Random(0.0f, glm::two_pi<float>());
 		fly.phaseB2 = Random(0.0f, glm::two_pi<float>());
 		fly.sprite = registry.Create();
-		registry.Assign<Sprite>(fly.sprite, texture, graphics::billboard::CellUv(static_cast<uint8_t>(k_Frame), 8)[0],
+		registry.Assign<Sprite>(fly.sprite, texture, graphics::frame_anim::SpriteCellUv(static_cast<int>(k_Frame), 8)[0],
 		                        glm::vec2(1.0f / 8.0f), glm::vec4(0.0f), true);
 		registry.Assign<Transform>(fly.sprite, fly.position, glm::mat3(1.0f), glm::vec3(k_HalfSize));
 		g_fireFlies.push_back(fly);

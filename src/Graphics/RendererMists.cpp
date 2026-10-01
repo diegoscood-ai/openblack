@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include <LNDFile.h>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
@@ -41,6 +43,7 @@
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Mists.h"
+#include "Graphics/ModelLight.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -53,6 +56,8 @@ using namespace openblack::graphics;
 
 namespace
 {
+constexpr float k_MistSphereScale = 0.55f; ///< [0x8D3E80], LH3DMist::AddDrawing 0x7FA814
+
 /// mists::Submit: the other LH3DMist objects of this frame
 std::vector<mists::MistDesc> g_submitted;
 /// What fn_00801C90 leaves in the object: the land light in +0x4C and the cells' own colour in +0x50 (the specular)
@@ -112,11 +117,29 @@ bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, floa
 	}
 	return true;
 }
+
+/// LH3DMist::AddDrawing 0x7FA7FE..0x7FA82A: the radius of the sphere sent to CheckRegionOnScreen, the resolved mesh's
+/// +0x30 x the size (+0x88) x 0.55. (aproximado) +0x30 taken as the bounding box's half diagonal (what
+/// LH3DMesh::ComputeBoundingBox 0x8081B0 leaves there; 29.3 for the 20-unit dome of mist.l3d)
+float MistSphereRadius(const L3DMesh& mesh, float size)
+{
+	return glm::length(mesh.GetBoundingBox().Size()) * 0.5f * size * k_MistSphereScale;
+}
 } // namespace
 
 void mists::Submit(const MistDesc& mist)
 {
 	g_submitted.push_back(mist);
+}
+
+bool mists::InView(const glm::vec3& position, float size)
+{
+	if (!Locator::camera::has_value() || !Locator::skySystem::has_value())
+	{
+		return true;
+	}
+	return SphereInView(Locator::camera::value().GetViewProjectionMatrix(Camera::Interpolation::Current), position,
+	                    MistSphereRadius(Locator::skySystem::value().GetCloudMesh(), size));
 }
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& camera) const
@@ -145,14 +168,12 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& cam
 	}
 	const auto origin = camera.GetOrigin();
 	// LH3DMist::AddDrawing 0x7FA7F0: only a mist whose sphere touches the screen goes to the Z-sorter, so only that one
-	// is drawn (and only its animation counter advances). The sphere is centred on the object's position, with radius
-	// the mesh's bounding-box half diagonal (LH3DMesh::ComputeBoundingBox 0x8081B0 leaves it in +0x30; 29.3 for the
-	// 20-unit dome of mist.l3d) times the size times 0.55
-	const float meshRadius = glm::length(mesh.GetBoundingBox().Size()) * 0.5f;
+	// is drawn (and only its animation counter advances). The sphere is centred on the object's position, of radius
+	// MistSphereRadius
 	const auto viewProjection = camera.GetViewProjectionMatrix(Camera::Interpolation::Current);
 	registry.Each<ecs::components::Mist, const ecs::components::Transform>(
 	    [&](entt::entity entity, ecs::components::Mist& mist, const ecs::components::Transform& transform) {
-		    if (!SphereInView(viewProjection, transform.position, meshRadius * mist.size * 0.55f))
+		    if (!SphereInView(viewProjection, transform.position, MistSphereRadius(mesh, mist.size)))
 		    {
 			    return;
 		    }
@@ -160,21 +181,18 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& cam
 		    // original truncates every frame and loses the fraction (4 instead of 4.08 with 16 ms frames); the
 		    // fraction is kept here so that the animation does not slow down (or stop) at the uncapped frame rates of
 		    // openblack (no vsync by default: under 4 ms a frame the original's step would be 0), like Clouds.cpp
-		    mist.counterRemainder += milliseconds * 0.255f;
-		    const int step = static_cast<int>(mist.counterRemainder);
-		    mist.counterRemainder -= static_cast<float>(step);
-		    mist.counter += step;
-		    if (mist.counter > 900)
-		    {
-			    mist.counter %= 900;
-		    }
+		    // (frame_anim::MistAdvance)
+		    frame_anim::MistClock clock {mist.counter, mist.counterRemainder};
+		    frame_anim::MistAdvance(clock, milliseconds);
+		    mist.counter = clock.counter;
+		    mist.counterRemainder = clock.remainder;
 		    // the Z-sorter key is |pos - camera|^2 (LH3DZSorter::NewZObject); the distance sorts the same way
 		    order.emplace_back(glm::distance(transform.position, origin), static_cast<uint32_t>(_frameMists.size()));
 		    _frameMists.push_back({transform.position, mist.size, mist.colour, mist.edgeShrink, mist.k, mist.counter});
 	    });
 	for (const auto& mist : submitted)
 	{
-		if (SphereInView(viewProjection, mist.position, meshRadius * mist.size * 0.55f))
+		if (SphereInView(viewProjection, mist.position, MistSphereRadius(mesh, mist.size)))
 		{
 			order.emplace_back(glm::distance(mist.position, origin), static_cast<uint32_t>(_frameMists.size()));
 			_frameMists.push_back(mist);
@@ -237,18 +255,24 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	// (the image of local X) keeps the size and rows 1 and 2 (local Y and Z) take the shrunk one, so the dome is
 	// squashed along its own axis (depth) and screen height, not uniformly: it keeps its width
 	glm::vec3 scale(mist.size);
-	float atlasV = 0.0f;
-	float ambient = 90.0f;
-	auto lightPosition = glm::vec3(-500000.0f, 500000.0f, -500000.0f);
+	// the normal branch lights with whatever light is current ([0xEA9E90], the frame light of fn_005E5830) and the
+	// ambient [0xC39264]; the effect branch moves both for its draw (model_light::ScopedLight / ScopedAmbient)
+	std::optional<model_light::ScopedLight> effectLight;
+	std::optional<model_light::ScopedAmbient> effectAmbient;
 	if (mist.edgeShrink)
 	{
 		// effect branch 0x7FA3B1: round seen from straight below or above, k times wider than tall near the horizon; lit from straight above
-		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D; the normal branch has no
-		// such offset at 0x7FA675, so it uses rows 0-1)
+		// with ambient 210, no land light, and the atlas rows 2-3 (V + 0.25 at 0x7FA44D, frame_anim::MistCellUv; the
+		// normal branch has no such offset at 0x7FA675, so it uses rows 0-1)
 		scale.y = scale.z = billboard::MistShrunkSize(mist.size, mist.k, mist.position - origin);
-		atlasV = 0.25f;
-		ambient = 210.0f;
-		lightPosition = glm::vec3(0.0f, 500000.0f, 0.0f);
+		// fn_007FA300 0x7FA53C..0x7FA563: saves [0xEA9E90] and sets (0, 500000, 0) with fn_0081E1F0, ambient 210 at
+		// 0x7FA56D; both go back at 0x7FA586 / 0x7FA590
+		effectLight.emplace(glm::vec3(0.0f, 500000.0f, 0.0f));
+		effectAmbient.emplace(model_light::k_MistAmbient);
+		// the effect branch (0x7FA3B1..0x7FA5AF) leaves +0x50 as SetColour 0x7F9770 put it: fn_0080DB30 0x80DEF5 draws
+		// it as the vertices' specular ([0xE9FE2C], 0x84D645), added after the texture stage (the storm clouds' glow)
+		specular = glm::vec3(static_cast<float>((mist.specular >> 16u) & 0xFFu),
+		                     static_cast<float>((mist.specular >> 8u) & 0xFFu), static_cast<float>(mist.specular & 0xFFu));
 	}
 	else if (landLight)
 	{
@@ -266,16 +290,15 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 		// 0x7FA6C8: the colour times that light, byte by byte (c l / 255), then the models' light and ambient 90
 		rgb = glm::floor(rgb * light / 255.0f);
 	}
-	const int frame = (mist.counter / 20) & 15;
-	const glm::vec4 u_cloud(static_cast<float>(frame & 7) / 8.0f, static_cast<float>(frame >> 3) / 8.0f + atlasV,
-	                        ambient / 256.0f, 0.0f);
+	// fn_007FA300 0x7FA3F4..0x7FA466 / 0x7FA69E: one whole cell, no blend (frame_anim::MistCell, MistCellUv)
+	const auto cell = frame_anim::MistCellUv(frame_anim::MistCell(mist.counter), mist.edgeShrink);
+	const glm::vec4 u_cloud(cell.x, cell.y, static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
 	const glm::vec4 u_cloudColour(rgb / 255.0f, alpha / 255.0f);
 	const glm::vec4 u_cloudSpecular(specular / 255.0f, 0.0f);
 	const auto model = glm::translate(mist.position) * glm::mat4(rotation) * glm::scale(scale);
-	// fn_00855340: the light of a vertex is the local normal against the light's position brought into the mesh's
-	// own space, so a non-uniform scale tilts it
-	const glm::vec4 u_cloudLight(
-	    glm::normalize(glm::inverse(glm::mat3(model)) * (lightPosition - mist.position)), 0.0f);
+	// fn_00855340 (model_light::LightInMeshSpace): the light of a vertex is the local normal against the light's
+	// position brought into the mesh's own space, so a non-uniform scale tilts it
+	const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
 	for (const auto& subMesh : mesh.GetSubMeshes())
 	{
 		for (const auto& prim : subMesh->GetPrimitives())

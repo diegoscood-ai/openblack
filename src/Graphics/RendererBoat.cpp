@@ -24,6 +24,7 @@
 #include <glm/mat4x4.hpp>
 
 #include "3D/Billboard.h"
+#include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Camera/Camera.h"
 #include "ECS/PetitNavire.h"
@@ -113,7 +114,7 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 		sprite.height = wakeSprite.aspect;
 		sprite.angle = wakeSprite.angle;
 		sprite.argb = wakeSprite.argb;
-		sprite.cell = static_cast<uint8_t>(wakeSprite.cell & 0x3Fu);
+		sprite.cell = frame_anim::SpriteCell(wakeSprite.cell);
 		sprite.horizontal = true;
 		add(billboard::Horizontal(sprite), sprite.argb);
 	}
@@ -133,7 +134,7 @@ void Renderer::DrawBoatSprites(RenderPass viewId, const Camera& camera) const
 			sprite.size = puff.half;
 			sprite.angle = puff.angle;
 			sprite.argb = puff.argb;
-			sprite.cell = static_cast<uint8_t>(puff.cell & 0x3Fu);
+			sprite.cell = frame_anim::SpriteCell(puff.cell);
 			if (const auto quad = billboard::SpriteQuad(sprite, frame); quad.has_value())
 			{
 				add(*quad, sprite.argb);

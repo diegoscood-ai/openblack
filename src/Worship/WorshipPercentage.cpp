@@ -10,11 +10,9 @@
 #include "WorshipPercentage.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <vector>
 
-#include <glm/geometric.hpp>
 #include <glm/vec2.hpp>
 #include <spdlog/spdlog.h>
 
@@ -25,6 +23,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerWorship.h"
@@ -188,13 +187,13 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Worship trace: pass {}, {} of {} villagers available", pass,
 				                   candidates.size(), villagers.size());
 			}
-			// the highest score (the farthest) first: a new one goes before the first whose score is lower (0x73C190)
+			// the highest score (the nearest) first: a new one goes before the first whose score is lower (0x73C190)
 			std::stable_sort(candidates.begin(), candidates.end(),
 			                 [](const auto& a, const auto& b) { return a.first > b.first; });
 			// 0x73C2DE: [info +0x35C] of each villager's own GVillagerInfo; (aproximado): openblack keeps no info per
 			// villager and takes info 0 (every villager info has 0.3 today)
 			const float threshold = Locator::infoConstants::value().villager.at(0).damageThresholdToGoHome;
-			for (const auto& [distance, villager] : candidates)
+			for (const auto& [score, villager] : candidates)
 			{
 				if (count == 0)
 				{
@@ -224,10 +223,10 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 					candidates.emplace_back(WorshipScore(villager), villager);
 				}
 			}
-			// the lowest score (the nearest) first: a new one goes before the first whose score is higher (0x73C3AE)
+			// the lowest score (the farthest) first: a new one goes before the first whose score is higher (0x73C3AE)
 			std::stable_sort(candidates.begin(), candidates.end(),
 			                 [](const auto& a, const auto& b) { return a.first < b.first; });
-			for (const auto& [distance, villager] : candidates)
+			for (const auto& [score, villager] : candidates)
 			{
 				if (count == 0)
 				{
@@ -303,33 +302,16 @@ float percentage::WorshipScore(entt::entity villager)
 	const auto& site = registry.Get<const Transform>(magic->worshipSite);
 	const auto centre = site.position + site.rotation * glm::vec3(12.55f, 0.0f, -26.1f);
 	const auto flat = [](const glm::vec3& p) { return glm::vec2(p.x, p.z); };
-	const float toVillager = glm::distance(flat(registry.Get<const Transform>(villager).position), flat(centre));
-	const float toTown = glm::distance(flat(centre), flat(registry.Get<const Transform>(component->town).position)) + 100.0f;
-	// GUtils::GetDistanceModifier 0x74F290: SigmoidThreshold(1 - min(a, b) / b, 0.5)
-	const float x = 1.0f - std::min(toVillager, toTown) / toTown;
+	// fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70, twice (0x73C5ED and 0x73C607), then + 100 [0x8AB41C]
+	const float toVillager = gutils::GetDistanceInMetres(flat(registry.Get<const Transform>(villager).position), flat(centre));
+	const float toTown =
+	    gutils::GetDistanceInMetres(flat(centre), flat(registry.Get<const Transform>(component->town).position)) + 100.0f;
 	const float life = ecs::life::LifeOf(villager);
-	return SigmoidThreshold(x, 0.5f) * life * life;
-}
-
-float percentage::SigmoidThreshold(float x, float threshold)
-{
-	// GUtils::SigmoidThreshold 0x74F170 and its table 0xC23284 (41 steps of a logistic curve)
-	static constexpr std::array<float, 41> k_Table = {
-	    0.0f,     0.0f,     0.0f,     0.0f,     0.0f,     0.0f,     0.0f,     0.0f,     0.0f,     1e-05f,   4e-05f,
-	    0.0001f,  0.00028f, 0.00078f, 0.00215f, 0.00597f, 0.01642f, 0.04439f, 0.11444f, 0.26442f, 0.5f,     0.73558f,
-	    0.88556f, 0.95561f, 0.98358f, 0.99403f, 0.99785f, 0.99922f, 0.99972f, 0.9999f,  0.99996f, 0.99999f, 1.0f,
-	    1.0f,     1.0f,     1.0f,     1.0f,     1.0f,     1.0f,     1.0f,     1.0f};
-	if (x == 1.0f)
-	{
-		return 0.0f;
-	}
-	const float v = std::clamp(std::clamp(threshold, -1.0f, 1.0f) - x, -1.0f, 1.0f);
-	auto index = static_cast<uint32_t>(static_cast<int>((v + 1.0f) * 20.5f));
-	if (index > 40)
-	{
-		index = 40;
-	}
-	return k_Table.at(index);
+	// GetDistanceModifier(toVillager, toTown) 0x73C620 = SigmoidThreshold(0.5, 1 - min / toTown): the threshold is the
+	// FIRST argument, so the modifier FALLS with the distance (0.99996 at the centre, 3.6e-5 at toTown and beyond).
+	// Then life^3, not life^2: after GetLife 0x73C630 the loop 0x73C63A..0x73C644 ("mov eax, 2; dec eax; fmul life;
+	// jne") multiplies the life in twice more, and 0x73C646 multiplies by the modifier last
+	return life * life * life * gutils::GetDistanceModifier(toVillager, toTown);
 }
 
 void percentage::UpdateTotems(float seconds)

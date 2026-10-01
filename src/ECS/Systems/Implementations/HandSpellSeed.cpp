@@ -16,9 +16,6 @@
 #include "HandSystem.h"
 #include "HandSystemDetail.h"
 
-// the seed loop's emitter (CreateEmitter) until milestone B5 of the audio moves it to audio::
-#include "Audio/AudioManagerInterface.h"
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -325,18 +322,11 @@ void HandSystem::BeginApplyOnRelease(SeedAction state) noexcept
 	gestures::ReseedBuffer();
 	_seedAction = state;
 	_seedTarget = _cursorObject.value_or(entt::null);
-	if (Locator::audio::has_value() && !_seedLoopSound)
-	{
-		auto& audio = Locator::audio::value();
-		const auto id = static_cast<entt::id_type>(audio::SoundId::G_HandGesture_02);
-		if (Locator::resources::value().GetSounds().Contains(id))
-		{
-			const auto& sound = audio.GetSound(id);
-			_seedLoopSound = audio.CreateEmitter(id, audio::PlayType::Repeat, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec2(0.0f),
-			                                     sound.volume, audio::AudioStatus::Playing, true);
-			audio.PlayEmitter(*_seedLoopSound);
-		}
-	}
+	// 0x5D274D..0x5D275E: SoundTag::Create 0x71E840(GInterface, 3, track 0, mode 2, loops -1, +0x10 0, is3D 1, IN_GAME, delay
+	// 0), a tag of the interface replayed every turn (mode 2: nothing while the loop plays). (aproximado) the hand's
+	// entity stands for the GInterface: its Transform for GInterface::Get3DSoundPos 0x5CEC50 (the newest point of the
+	// mouse sample buffer g_game+0x25006C, +0xC88 / +0xC90, the entry's +0x1C)
+	audio::tags::Create(_hands[static_cast<size_t>(Side::Left)], 3, false, 2, -1, false, true, audio::SfxBank::InGame, 0);
 	if (SeedTrace())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand seed: armed (state {})", static_cast<int>(state));
@@ -345,14 +335,9 @@ void HandSystem::BeginApplyOnRelease(SeedAction state) noexcept
 
 void HandSystem::EndApplyOnRelease() noexcept
 {
-	// 0x5D27B0: SoundTag::Remove(this, 3, IN_GAME)
-	if (_seedLoopSound && Locator::audio::has_value())
-	{
-		auto& audio = Locator::audio::value();
-		audio.StopEmitter(*_seedLoopSound);
-		audio.DestroyEmitter(*_seedLoopSound);
-	}
-	_seedLoopSound.reset();
+	// 0x5D27C3..0x5D27C8: SoundTag::Remove 0x71EBE0(this, 3, IN_GAME): every such tag deleted, its playing loop released
+	// (it ends with its pass, SoundTag::ToBeDeleted 0x71ECB0)
+	audio::tags::Remove(_hands[static_cast<size_t>(Side::Left)], 3, audio::SfxBank::InGame);
 }
 
 void HandSystem::SeedActionPressed() noexcept
@@ -696,7 +681,9 @@ void HandSystem::SeedLeftHand(entt::entity seed) noexcept
 		// 0x77F9A0 (Worship/Worship.cpp keeps the player's own copy of the last type, for the R gesture)
 		gestures::State().lastSeedType = static_cast<int>(SeedOf(seed).seedType);
 		worship::OnSeedOutOfHand(seed, SeedOf(seed).creator.player);
-		// Spell::DrawSpellSeed 0x721360 draws nothing: out of the hand the seed is not seen
+		// out of the hand only Spell::DrawSpellSeed 0x721360 -> 0x729020 draws it, while it follows its spell (a forest
+		// seed cast from an icon): seed::DrawSpells (Magic/Core/SpellSeed.cpp) puts the mesh back over the spell in the
+		// same frame
 		ShowSeedMesh(seed, false);
 	}
 	// the local hand: fn_0046E890 (the in-hand effect), PHandFX SetPULevel(0, 0), StopTribalPowerRing

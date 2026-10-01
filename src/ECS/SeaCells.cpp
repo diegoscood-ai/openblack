@@ -17,20 +17,12 @@
 #include "3D/LandIslandInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "MapCoords.h"
 
 using namespace openblack;
 
 namespace
 {
-constexpr float k_MapCoordsScale = 6553.6f; // [0x8AC400]: 65536 / 10
-
-/// The high word of a 16.16 MapCoords, read unsigned like "xor eax, eax; mov ax, [ecx + 2]"
-int32_t HighWord(float world)
-{
-	const auto fixed = static_cast<int32_t>(world * k_MapCoordsScale); // __ftol: truncated
-	return static_cast<int32_t>(static_cast<uint32_t>(fixed) >> 16u);
-}
-
 const LandIslandInterface* Island()
 {
 	return Locator::terrainSystem::has_value() ? &Locator::terrainSystem::value() : nullptr;
@@ -42,7 +34,7 @@ namespace openblack::ecs::sea_cells
 
 glm::ivec2 CellOf(glm::vec3 point)
 {
-	return {HighWord(point.x), HighWord(point.z)};
+	return map_coords::CellOf(point);
 }
 
 glm::ivec2 RoundedCellOf(glm::vec3 point)
@@ -74,8 +66,7 @@ uint16_t AltitudeAt(const LandIslandInterface& island, glm::ivec2 cell)
 
 bool InBounds(const LandIslandInterface& island, glm::ivec2 cell)
 {
-	const auto cells = static_cast<uint32_t>(island.GetCellsPerSide());
-	return static_cast<uint32_t>(cell.x) < cells && static_cast<uint32_t>(cell.y) < cells;
+	return map_coords::InBounds(cell, island.GetCellsPerSide());
 }
 
 bool IsWater(const LandIslandInterface& island, glm::ivec2 cell)

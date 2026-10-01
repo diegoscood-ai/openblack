@@ -19,6 +19,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
 #include "ECS/Villager/VillagerAge.h"
@@ -170,8 +171,11 @@ void SetVillagerStateSpeed(entt::entity entity)
 		}
 	}
 	const auto raw = std::clamp(static_cast<int32_t>(static_cast<float>(static_cast<int32_t>(speed)) * f), 0, 0xFFFF);
-	// the u16 is the distance per turn in MapCoords (6553.6 per metre)
-	wallHug->speed = static_cast<float>(raw) / 6553.6f;
+	// MobileWallHug::SetSpeed 0x60FC50 clamps to 0..0xFFFF and stores the u16 at +0x5A as it is: the distance per turn in
+	// MapCoords units. openblack keeps the speed in metres, so it converts here; (inferido) the original never converts
+	// this value, it adds it to a MapCoords, and ToMetres ([0x8AA3A4], the conversion it uses everywhere else) is the
+	// nearest thing to it (it differs from / 6553.6f by at most one bit)
+	wallHug->speed = map_coords::ToMetres(raw);
 }
 
 float VillagerScaleForAge(const GVillagerInfo& info, uint32_t age)

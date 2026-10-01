@@ -51,6 +51,7 @@ struct BankEntry
 {
 	std::string path; ///< lower case, '/' separators
 	std::string group;
+	int samples {0}; ///< LHBankGetNumberOfSamples: the .sad's sample table size
 };
 
 struct State
@@ -267,6 +268,19 @@ BankId audio::RegisterBank(const std::filesystem::path& path, std::string_view g
 	return id;
 }
 
+void audio::SetBankSampleCount(BankId bank, int samples)
+{
+	if (bank != k_NoBank && bank <= g_State.banks.size())
+	{
+		g_State.banks[bank - 1].samples = samples;
+	}
+}
+
+int audio::BankSampleCount(BankId bank)
+{
+	return bank != k_NoBank && bank <= g_State.banks.size() ? g_State.banks[bank - 1].samples : 0;
+}
+
 BankId audio::Bank(SfxBank type)
 {
 	const auto index = static_cast<size_t>(type);
@@ -382,6 +396,13 @@ void audio::RegisterObject(uint32_t id, ObjectPositionFn position)
 void audio::UnregisterObject(uint32_t id)
 {
 	g_State.objects.erase(id);
+}
+
+uint32_t audio::NewObjectId()
+{
+	// (openblack) 0 is no owner's: the numbers start at 1 and are not reused
+	static uint32_t s_Next = 0;
+	return ++s_Next;
 }
 
 // ---- GAudio::PlaySoundEffect ----------------------------------------------------------------------------------------
@@ -667,13 +688,6 @@ void audio::ClearMap()
 	sample_play::Switch(true);
 	// (openblack) the channels' OpenAL sources: a new map starts with none
 	sample_play::ReleaseSources();
-	// (openblack) the old players' emitters (AnimationSounds, the trees, the fire, the spells... until B2..B5 move them to
-	// the channels) are channels of the original too, which LHSampleStopAll 0x426CE6 stops: without this the registry
-	// reset of the new map dropped them with their sources still playing (a looping one for ever)
-	if (Locator::audio::has_value())
-	{
-		Locator::audio::value().DestroyAllEmitters();
-	}
 }
 
 void audio::OnFocus(bool active)

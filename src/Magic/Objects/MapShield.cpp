@@ -324,8 +324,20 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 	shield.startScale = finalScale * 0.01f; // fn_0072C9F0 0x72CAC6: x 0.01 (0x8C5840)
 	shield.finalScale = finalScale; // fn_0072D5E0
 	SetScale(entity, shield, finalScale);
-	// CallVirtualFunctionsForCreation 0x72CCB0: the SingleMapFixed base, 3D object flags (fn_0057E220 with (5, 0xD) and
-	// (4, 0xD), UNVERIFIED) and the footpath links: none of it is modelled here
+	// PhysicalShield::CallVirtualFunctionsForCreation 0x72CCB0: fn_0057E220(obj3D vt+0xF8 = fn_007F9E70 [this+0x7C], the
+	// LH3DMesh, 5, 0xD) at 0x72CCCD and (4, 0xD) at 0x72CCE5. On MSH_S_SOLID_SHIELD the inner layer (sub-mesh 1,
+	// AlphaTextured 4) becomes AlphaTexturedAlphaAdditiveNz 13 (mode fn_0082ECD0: SRCALPHA / ONE, no Z write); no
+	// primitive is type 5. It changes the shared mesh, for every physical shield, as the original. The SingleMapFixed
+	// base (0x52E880) and the footpath links (vt 0x78 / 0x80 / 0x88 / 0x98 / 0x1E8, fn_00644DF0) are not modelled
+	if (Locator::resources::has_value())
+	{
+		auto& meshes = Locator::resources::value().GetMeshes();
+		if (const auto id = resources::HashIdentifier(k_Mesh); meshes.Contains(id))
+		{
+			meshes.Handle(id)->ReplaceMaterialType(5, 13);
+			meshes.Handle(id)->ReplaceMaterialType(4, 13);
+		}
+	}
 	registry.Assign<ecs::components::Mesh>(entity, resources::HashIdentifier(k_Mesh), static_cast<int8_t>(0), static_cast<int8_t>(0));
 	registry.Assign<ecs::components::Alpha>(entity, 0.0f);
 	// Get3DType 0x72CE50 = 1, a morphable 3D object: UpdateMelting at creation (CallVirtualFunctionsForCreation 0x72CD23,

@@ -23,6 +23,7 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/HandGrain.h"
 #include "InfoConstants.h"
@@ -157,9 +158,10 @@ void ProcessMaintainRequest(entt::entity entity)
 	creator::UpdateSpellInfo(spell.creator, entity, spell.processInfo);
 	if (IsCastFromHand(entity))
 	{
-		// castPos follows the hand (ftol(x * 6553.6), altitude 0). fn_00720460 / fn_005D1260 (the interface's
+		// castPos follows the hand (ftol(x * 6553.6), altitude 0: 0x72056B..0x720595). fn_00720460 / fn_005D1260 (the interface's
 		// "can't cast here" feedback for a human caster) come with the hand casting (M2).
-		spell.castPos = glm::vec3(spell.processInfo.handPos.x, 0.0f, spell.processInfo.handPos.z);
+		spell.castPos = glm::vec3(ecs::map_coords::Quantise(spell.processInfo.handPos.x), 0.0f,
+		                          ecs::map_coords::Quantise(spell.processInfo.handPos.z));
 	}
 	if (!spell.closedDown)
 	{
@@ -216,12 +218,16 @@ bool magic::TraceEnabled()
 
 glm::vec3 magic::ToWorld(const glm::vec3& mapPosition)
 {
+	// GetLHPoint 0x605C40: x, z are the MapCoords' (already whole 16.16 units in metres: not truncated again, a second
+	// round trip can lose a unit), y = GetAltitude + the altitude
 	return {mapPosition.x, LandAt(mapPosition) + mapPosition.y, mapPosition.z};
 }
 
 glm::vec3 magic::ToMap(const glm::vec3& worldPoint)
 {
-	return {worldPoint.x, worldPoint.y - LandAt(worldPoint), worldPoint.z};
+	// MapCoords(LHPoint) 0x603160: x, z truncated to 16.16 (ftol(x * 6553.6f)), altitude = y - GetAltitude there
+	const auto coords = ecs::map_coords::FromWorld(worldPoint);
+	return {ecs::map_coords::ToMetres(coords.x), coords.altitude, ecs::map_coords::ToMetres(coords.z)};
 }
 
 void magic::RegisterSpellClasses()

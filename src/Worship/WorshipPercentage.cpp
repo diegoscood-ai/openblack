@@ -193,7 +193,7 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 			// 0x73C2DE: [info +0x35C] of each villager's own GVillagerInfo; (aproximado): openblack keeps no info per
 			// villager and takes info 0 (every villager info has 0.3 today)
 			const float threshold = Locator::infoConstants::value().villager.at(0).damageThresholdToGoHome;
-			for (const auto& [distance, villager] : candidates)
+			for (const auto& [score, villager] : candidates)
 			{
 				if (count == 0)
 				{
@@ -226,7 +226,7 @@ void percentage::AdjustWorshipersWorshipping(entt::entity town, int count, bool 
 			// the lowest score (the farthest) first: a new one goes before the first whose score is higher (0x73C3AE)
 			std::stable_sort(candidates.begin(), candidates.end(),
 			                 [](const auto& a, const auto& b) { return a.first < b.first; });
-			for (const auto& [distance, villager] : candidates)
+			for (const auto& [score, villager] : candidates)
 			{
 				if (count == 0)
 				{

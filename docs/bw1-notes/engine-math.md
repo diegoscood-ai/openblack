@@ -339,6 +339,10 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, ram
   valor ya cuantizado puede perder una unidad (0,15 mm). Las celdas no cambian: una posición en un múltiplo exacto de
   0x10000 vuelve intacta.
 - Distancias sobre MapCoords: hechas, en [Distancias de GUtils](#distancias-de-gutils).
+- Revisión de milagros2 (2026-10-01): `WeatherLand.h` y `WorshipSite.cpp` cambian también `floor` por la celda de
+  MapCoords (palabra alta). `PotResource` podría recorrer su espiral con `AddCells` 0x605470, por coherencia con el resto.
+  `Climate::CellCentre` se queda para las dos distancias de ProcessClimate fn_00772330 (palabra alta sin signo × 10,
+  0x7724A6..0x7724DE y 0x772510..0x772548); el resto de los lectores usa `Centre()`.
 
 ### Distancias de GUtils
 
@@ -385,6 +389,9 @@ cercanos, y con vida³), quién va a apagar un fuego (`VillagerFire`, 400 m), a 
 todo lo que queda a menos de R del punto de la espiral, en un cuadrado de `ceil(2R/10)` celdas de lado), cuándo un
 animal cambia de reacción (distancia al centro de la celda de la reacción en curso), el crecimiento del árbol con el milagro de
 agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la sigmoide ya no se calcula en double).
+
+**Siguen con `glm::length` (para migrar cuando milagros2 suba su tanda 2a):** MagicTeleport.cpp:81-83 (cita
+fn_00605CD0), SpellShield.cpp:73/239/258, SpellForest.cpp:167/232, MapShield.cpp:517 y SpellStormAndTornado.cpp:198.
 
 ## Ganchos de prueba
 

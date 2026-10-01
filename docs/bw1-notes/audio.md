@@ -821,7 +821,8 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - Farolas (SoundTag, de noche): [day-night-weather.md](day-night-weather.md#luces-de-noche-informe-night_visualstxt).
 - Árboles (hojas, caída): [objects-and-resources.md](objects-and-resources.md).
 - Partículas de los milagros (SOUND_ACTION, PSysSound, spells.sad): [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp).
-- Hechizos, agua, ambiente: en las páginas de Milagros y de agua, cuando se fusionen.
+- Agua (la mano en el agua, golpes, ahogarse, barco, cascada y arca, ambiente del mar, la costa y los lagos):
+  [water.md](water.md#audio-del-agua). Hechizos: [particles.md](particles.md) y las páginas de Milagros.
 - Inventario completo de los efectos del original (cada llamada, banco y muestra): `tmp_dis\audio\sfx_inventory.md` y
   `sfx_inventory_tables.md`. Interfaz y criatura: `ui_creature.md`.
 

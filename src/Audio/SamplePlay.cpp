@@ -515,6 +515,10 @@ bool sample_play::IsOwnerPlaying(uint32_t bank, Owner owner)
 
 bool sample_play::IsPlaying(Channel handle)
 {
+	// LHSampleIsPlaying(LH_SampleInfo*) 0x10014070 answers 0 while switched off (0x1001407A) and looks at the first
+	// channel of the info's (bank, owner, sample) (0x100140E6..0x10014100). (approximated) Here: the handle's own start,
+	// also while switched off: openblack's game runs on while minimised (the original stops), and a caller asking every
+	// turn (PSysSound 0x6D120A) would start its sample again on another channel each turn.
 	const auto* channel = Find(handle);
 	return channel != nullptr && InUse(*channel);
 }
@@ -542,7 +546,9 @@ void sample_play::SetPitch(entt::id_type sound, Owner owner, int percent)
 		return;
 	}
 	auto* channel = First(info->bank, owner, info->id);
-	if (channel == nullptr || !InUse(*channel) || channel->pitch == percent)
+	// 0x10013572..0x1001357C: nothing while switched off, unless an atmos channel; 0x1001357E: not in use; 0x10013588:
+	// the same pitch
+	if (channel == nullptr || (!g_State.active && !channel->atmos) || !InUse(*channel) || channel->pitch == percent)
 	{
 		return;
 	}
@@ -552,11 +558,19 @@ void sample_play::SetPitch(entt::id_type sound, Owner owner, int percent)
 
 void sample_play::SetVolume(Channel handle, int volume)
 {
-	auto* channel = Find(handle);
+	const auto* started = Find(handle);
+	// 0x10013412..0x10013420: nothing while switched off, unless the channel is an atmos one (+0x00)
+	if (started == nullptr || (!g_State.active && !started->atmos))
+	{
+		return;
+	}
+	// 0x10013489..0x100134A9: the first channel of its (bank, owner, sample), then 0x100134BE: in use
+	auto* channel = First(started->bank, started->owner, started->sample);
 	if (channel == nullptr || !InUse(*channel))
 	{
 		return;
 	}
+	// 0x10013473..0x10013487: clamped to 0..127
 	const int v = std::clamp(volume, 0, qmixer::k_MaxVolume);
 	// +0x38: nothing when it already has that volume
 	if (channel->volume == v)
@@ -692,6 +706,10 @@ void sample_play::ReleaseSources()
 {
 	if (auto* output = Output(); output != nullptr)
 	{
+		if (Trace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Sample play: {} channel sources released", output->Sources());
+		}
 		output->DeleteAll();
 	}
 }

@@ -895,8 +895,32 @@ Cambios de comportamiento audibles (todos por el original):
 - `Stop`/`ReleaseLoop`/`SetPitch` actúan en el primer canal que coincide (antes en todos).
 - Con el filtro de banco por `BankId`, los aldeanos ya no se silencian tras `SET_GAME_SOUND false`.
 - Minimizar la ventana para los efectos y la música (perder el foco no).
-- Los bucles finitos acaban (campana ×5, ranas, pájaros, palomas) y los bucles con tramo repiten solo el tramo (también
-  en los reproductores viejos: el fuego, las farolas…).
+- Los bucles finitos acaban (campana ×5, ranas, pájaros, palomas) y los bucles con tramo repiten solo el tramo en los
+  16 canales. Los reproductores viejos (`AudioManager::CreateEmitter`: el fuego, las farolas, los árboles…) comparten el
+  búfer, pero lo ponen en cola (`alSourceQueueBuffers`, fuente de streaming) y OpenAL Soft solo usa los puntos de bucle
+  en fuentes estáticas: allí el bucle sigue siendo la onda entera, como antes (hasta que B2..B5 los pasen a canales).
+
+Auditoría de B0-B1 (§1.7 de TEAM_GUIDELINES, sesión audio):
+- Comprobado en el desensamblado: 0x429D20, 0x429D60/0x429DA0, 0x42A040, 0x42A100 (orden de los 10 argumentos),
+  0x429E30 (orden de los filtros y el `<=` del corte 3D), 0x42A4B0, 0x426E6B (800), 0x54E960, 0x427080, 0x426CA0,
+  0x427200, 0x4068F4, 0x63AA39, 0x5D2109 (contadores), 0x7DBFF6 / 0x7DE8DC / 0x7DE6D0 / 0x642470 (minimizar) y en
+  LHaudiodllR 0x10011020 (asignación), 0x10012BF0, 0x10012C50, 0x10012F20, 0x10013400, 0x10013520, 0x10013AC0,
+  0x10013ED0 / 0x10013FB0, 0x10014070, 0x100142C0, 0x10014310, 0x100146F0, 0x100150E0, 0x10015D40, 0x10001EBF.
+- Corregido: `LHSampleSetVolume` y `LHSampleSetPitch` no hacen nada con el audio apagado salvo en canales de ambiente
+  (0x10013412, 0x10013572), y `SetVolume` actúa sobre el primer canal de su (banco, dueño, muestra) (0x10013489).
+  `LHAtmosProcess(0)` para cada canal guardado sin preguntar si suena (0x10001ED3); `atmos_banks::StopChannel` igual.
+- Corregido (fuga): `audio::ClearMap` no paraba los emisores viejos (`AudioManager::CreateEmitter`: árboles,
+  AnimationSounds, fuego, hechizos…); el reinicio del registro del mapa nuevo los borraba con su fuente AL sonando (uno
+  en bucle, para siempre) y al salir quedaban «7 Sources not deleted» y «Deleting in-use buffer». En el original son
+  canales y `LHSampleStopAll` 0x426CE6 los para: ahora `ClearMap` llama a `AudioManagerInterface::DestroyAllEmitters`
+  (todos menos el de la música vieja). Traza: `Sample play: N channel sources released` y `AudioManager: N emitters
+  destroyed` con `OPENBLACK_AUDIO_TRACE`.
+- Marcado **(aproximado)**: `LHSampleIsPlaying(info)` da 0 con el audio apagado (0x1001407A); openblack mira el
+  arranque del asa también apagado, porque su juego sigue corriendo minimizado y PSysSound (0x6D120A) relanzaría cada
+  turno. `LHSampleSet3DPosition` también busca el primer canal de la terna y respeta los ejes fijos del canal (+0x14
+  bits 4/8/0x10, 0x10013BCC): openblack mueve el canal del asa y no tiene ejes fijos.
+- La distancia de `SamplePlayAnimEffect` la calcula el llamador (`|LH3DTech::g_camera − pos|`, physics/collision_sounds.md);
+  `PlayAnimEffectSample` la mide él mismo desde la cámara: es la misma cuenta.
 - La música y el ambiente se procesan en el orden de `ProcessAudioGameTurn` (antes la música iba al principio del turno).
 - `audio::GetSurfaceType` llama a `ecs::sea_cells::GetSurfaceType` (una sola fuente).
 
@@ -968,6 +992,10 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
     solo hace AtmosProcess(0), porque su pausa no tiene reloj de turnos;
   - g_game / HelpSystem nulos (0x429E37..0x429E4F) no se modelan: openblack siempre los tiene;
   - los dueños de `SoundTags`/`LanternSounds` todavía leen `Transform` del ECS (B3);
+  - `SamplePlay.cpp` y `AudioSystem.cpp` incluyen `AudioManagerInterface.h`, que arrastra el componente
+    `ECS/Components/AudioEmitter.h` (la interfaz vieja): se va cuando B2..B5 retiren `CreateEmitter`;
+  - `LHSampleIsPlaying(info)` con el audio apagado (0x1001407A) y los ejes fijos de `LHSampleSet3DPosition`
+    (0x10013BCC): ver la auditoría de B0-B1;
   - estéreo en 3D: OpenAL no espacializa los búferes estéreo.
 - **B1, sin hacer**: guardar `AudioSampleMasterVolume`; retirar `AudioManager::PlayMusic`/`PlaySound`/`CreateEmitter`
   públicos (cuando B2..B5 muevan sus llamadores).

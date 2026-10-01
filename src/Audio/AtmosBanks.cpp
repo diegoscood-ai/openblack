@@ -126,12 +126,13 @@ bool IsPlaying(Channel emitter)
 	return sample_play::IsPlaying(emitter);
 }
 
-/// LHSampleStop(LH_SampleInfo*) 0x10012DF0 (an atmos channel stops even while the audio is switched off)
+/// LHSampleStop(LH_SampleInfo*) 0x10012DF0 (an atmos channel stops even while the audio is switched off). LHAtmosProcess(0)
+/// stops every kept channel without asking whether it plays (0x10001ED3..0x10001EE5)
 void StopChannel(Channel& emitter)
 {
-	if (IsPlaying(emitter))
+	if (emitter != k_NoChannel)
 	{
-		if (TraceEvents())
+		if (TraceEvents() && IsPlaying(emitter))
 		{
 			const auto infos = sample_play::Channels();
 			for (const auto& info : infos)

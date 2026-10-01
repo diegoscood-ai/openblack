@@ -289,6 +289,32 @@ TEST_F(SamplePlayTest, SwitchStopsAndStopNeedsActive)
 	EXPECT_TRUE(sample_play::IsPlaying(loop));
 }
 
+TEST_F(SamplePlayTest, SetVolumeNeedsActive)
+{
+	// LHSamplePlay does not test +0x14, so a channel can start while switched off; LHSampleSetVolume (0x10013412) leaves
+	// it alone then, unless it is an atmos channel (LHSampleSetPitch 0x10013572 too)
+	sample_play::Switch(false);
+	const auto plain = Start(Add(1, 1, 100), 1);
+	sample_play::Options options;
+	options.sound = Add(2, 1, 1);
+	options.atmos = true;
+	options.owner = Owner::AtmosMixer();
+	options.mode = 1;
+	const auto atmos = sample_play::Start(options);
+	ASSERT_NE(plain, k_NoChannel);
+	ASSERT_NE(atmos, k_NoChannel);
+	const auto plainIndex = (plain - 1) % 16;
+	const auto atmosIndex = (atmos - 1) % 16;
+	const float before = output.gain[plainIndex];
+	sample_play::SetVolume(plain, 10);
+	EXPECT_EQ(output.gain[plainIndex], before);
+	sample_play::SetVolume(atmos, 10);
+	EXPECT_NEAR(output.gain[atmosIndex], qmixer::Gain(10, 127), 1e-6f);
+	sample_play::Switch(true);
+	sample_play::SetVolume(plain, 10);
+	EXPECT_NEAR(output.gain[plainIndex], qmixer::Gain(10, 127), 1e-6f);
+}
+
 TEST(LoopCounter, FinitePasses)
 {
 	// QSWaveMixPlayEx iLoops = 2: two wraps, then the looping stops (3 passes, inferred)

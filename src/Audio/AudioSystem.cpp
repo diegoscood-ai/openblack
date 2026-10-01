@@ -24,6 +24,7 @@
 
 #include "Audio.h"
 #include "AtmosBanks.h"
+#include "AudioManagerInterface.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "GameMusic.h"
@@ -504,6 +505,13 @@ void audio::ClearMap()
 	sample_play::Switch(true);
 	// (openblack) the channels' OpenAL sources: a new map starts with none
 	sample_play::ReleaseSources();
+	// (openblack) the old players' emitters (AnimationSounds, the trees, the fire, the spells... until B2..B5 move them to
+	// the channels) are channels of the original too, which LHSampleStopAll 0x426CE6 stops: without this the registry
+	// reset of the new map dropped them with their sources still playing (a looping one for ever)
+	if (Locator::audio::has_value())
+	{
+		Locator::audio::value().DestroyAllEmitters();
+	}
 }
 
 void audio::OnFocus(bool active)

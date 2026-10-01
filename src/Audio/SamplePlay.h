@@ -194,7 +194,8 @@ void StopOwner(uint32_t bank, Owner owner);
 void StopAll();
 /// LHSampleIsPlaying 0x10013ED0 (bank, owner, sample): the first channel of the three is in use
 [[nodiscard]] bool IsPlaying(entt::id_type sound, Owner owner);
-/// LHSampleIsPlaying 0x10013FB0 (bank, owner): any channel of the bank and owner in use; nothing while switched off
+/// LHSampleIsPlaying 0x10013FB0 (bank, owner): the first channel of the bank and owner (any sample) is in use
+/// (0x10013FF1: only that first one is looked at); nothing while switched off
 [[nodiscard]] bool IsOwnerPlaying(uint32_t bank, Owner owner);
 /// The channel of a start is still that start and in use
 [[nodiscard]] bool IsPlaying(Channel channel);
@@ -202,9 +203,10 @@ void StopAll();
 /// loops go to 0); if that first one is not in use, nothing (no further search); nothing while switched off
 void ReleaseLoop(entt::id_type sound, Owner owner);
 /// LHSampleSetPitch 0x10013520: the first channel of (bank, owner, sample) in use gets rate * percent / 100 (integers,
-/// no deviation); nothing for 0 or when its pitch is already that
+/// no deviation); nothing for 0, while switched off (unless an atmos channel) or when its pitch is already that
 void SetPitch(entt::id_type sound, Owner owner, int percent);
-/// LHSampleSetVolume 0x10013400 on a channel (0..127, QMixer's law); nothing when it already has that volume
+/// LHSampleSetVolume 0x10013400 on a channel: the first channel of its (bank, owner, sample) gets 0..127 (QMixer's law);
+/// nothing while switched off (unless an atmos channel), when not in use or when it already has that volume
 void SetVolume(Channel channel, int volume);
 /// LHSampleSetMasterVolume 0x100150E0: 0..127 (more is ignored, the same value too), re-applied to the channels in use
 void SetMasterVolume(int master);

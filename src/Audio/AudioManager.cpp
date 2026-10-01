@@ -94,10 +94,8 @@ AudioManager::~AudioManager()
 	_sampleOutput.reset();
 	if (Locator::entitiesRegistry::has_value())
 	{
-		auto& registry = Locator::entitiesRegistry::value();
-		registry.Each<Transform, AudioEmitter>(
-		    [this](entt::entity entity, const Transform&, const AudioEmitter&) { DestroyEmitter(entity); });
-		if (registry.Valid(_musicEntity))
+		DestroyAllEmitters();
+		if (Locator::entitiesRegistry::value().Valid(_musicEntity))
 		{
 			DestroyEmitter(_musicEntity);
 		}
@@ -105,12 +103,34 @@ AudioManager::~AudioManager()
 	wave_buffers::DeleteAll();
 }
 
+void AudioManager::DestroyAllEmitters()
+{
+	// (openblack) gathered first, then destroyed; the music's emitter is StopMusic's
+	auto& registry = Locator::entitiesRegistry::value();
+	std::vector<entt::entity> emitters;
+	registry.Each<Transform, AudioEmitter>([this, &emitters](entt::entity entity, const Transform&, const AudioEmitter&) {
+		if (entity != _musicEntity)
+		{
+			emitters.push_back(entity);
+		}
+	});
+	for (const auto entity : emitters)
+	{
+		if (registry.Valid(entity))
+		{
+			DestroyEmitter(entity);
+		}
+	}
+	if (AudioTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) AudioManager: {} emitters destroyed", emitters.size());
+	}
+}
+
 void AudioManager::Stop()
 {
 	_sampleOutput->DeleteAll();
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<Transform, AudioEmitter>(
-	    [this](entt::entity entity, const Transform&, const AudioEmitter&) { DestroyEmitter(entity); });
+	DestroyAllEmitters();
 	StopMusic();
 }
 

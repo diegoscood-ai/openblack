@@ -116,7 +116,6 @@ struct Boat
 
 std::optional<Boat> g_boat;
 std::vector<WakeSprite> g_wake;
-float g_carry = 0.0f; // the fraction of a millisecond not given yet (g_game_time_inc is whole)
 // OPENBLACK_TEST_JC_SPECIAL's delay: the mode to make once that much game time has gone (-1: nothing pending)
 int32_t g_pendingMode = -1;
 int32_t g_pendingFrames = 0;
@@ -451,10 +450,8 @@ void Update(float gameMilliseconds)
 			                   g_boat->hull[3].y, g_boat->hull[3].z, g_wake.size(), smoky_stuff::Get().size());
 		}
 	}
-	g_carry += std::max(gameMilliseconds, 0.0f);
-	const auto dt = static_cast<int32_t>(g_carry);
-	g_carry -= static_cast<float>(dt);
-	Step(dt);
+	// g_game_time_inc [0xEA9EC0]: whole ms already (game_clock::FrameGameMs from Game)
+	Step(static_cast<int32_t>(std::max(gameMilliseconds, 0.0f)));
 }
 
 void Step(int32_t dt)

@@ -12,6 +12,7 @@
 #include <functional>
 
 #include "ECS/Components/Spell.h"
+#include "GameClock.h"
 
 namespace openblack
 {
@@ -34,7 +35,7 @@ struct Context
 	float tribalPower {1.0f};      ///< Spell::GetTribalPower 0x7216F0
 	float seedPower {1.0f};        ///< the seed's +0x8C, 1 without a seed
 	float costToMaintain {0.0f};   ///< CalculateCostToMaintain (vt 0x53C) of this spell now
-	unsigned int turnMs {100};     ///< *(u32*)0xD01A38
+	unsigned int turnMs {game_clock::k_MsPerTurn}; ///< *(u32*)0xD01A38 (Spell.cpp: game_clock::MsPerTurn())
 	/// creator->MaintainSpell(spell, amount) (GameThing vt 0x58): the chants the creator gives
 	std::function<float(float amount)> maintain;
 	/// CreateSpellPoint(chants, perTurn) 0x7213D0: the mana path sprites (worship-site creators only)

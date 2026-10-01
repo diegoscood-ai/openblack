@@ -25,6 +25,7 @@
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Systems/TownSystemInterface.h"
@@ -177,7 +178,7 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	{
 		// Abode::CallVirtualFunctionsForCreation (0x403270): an abode that doesn't follow the land sinks to the lowest
 		// ground under the corners of its mesh box (Game3DObject::GetAltitudeFondation 0x63ABC0, never above the
-		// origin's), but by at most max(0.2 x its 2D radius, 0.8) (Object::Get2DRadius 0x638180: scale x the larger
+		// origin's), but by at most max(0.2 x its 2D radius, 0.8) (Get2DRadius, Object 0x638180: scale x the larger
 		// half-extent in x or z). It replaces the script's altitude.
 		const auto& island = Locator::terrainSystem::value();
 		const auto box = Locator::resources::value().GetMeshes().Handle(resourceId)->GetBoundingBox();
@@ -190,8 +191,7 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 			const glm::vec3 world = position + transform.rotation * (corner * transform.scale);
 			lowest = std::min(lowest, island.GetHeightAt(glm::vec2(world.x, world.z)) - ground);
 		}
-		const auto half = box.Size() * 0.5f;
-		const float radius = scale * std::max(half.x, half.z);
+		const float radius = ecs::object::Get2DRadius(entity); // vt +0x64 (0x40327E, 0x40329A)
 		registry.Get<Transform>(entity).position.y = ground + std::max(lowest, -std::max(0.2f * radius, 0.8f));
 	}
 

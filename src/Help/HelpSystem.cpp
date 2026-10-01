@@ -16,6 +16,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "GameClock.h"
+
 namespace openblack::help
 {
 
@@ -401,11 +403,11 @@ void HelpSystem::StartReadingTime(std::u16string_view text)
 	    static_cast<int32_t>(_info.readDefaultWordGTTime * words + _info.readDefaultAdjustGTTime); // 0x5C61DA
 	const uint32_t turn = Turn();
 	_startTurn = turn; // 0x5C61FB
-	// fild gt, fimul [0xD01A38], fmul 0.001f (0x8AA3B0), fmul factor, fstp float
-	const auto seconds = static_cast<float>(static_cast<double>(gameTurns) * static_cast<double>(k_MsPerTurn) *
-	                                        static_cast<double>(0.001f) * factor);
-	const uint32_t turnsPerSecond = 1000 / k_MsPerTurn; // 0x5C61F6..0x5C6201 (div)
-	_endTurn = turn + static_cast<uint32_t>(static_cast<int32_t>(static_cast<double>(turnsPerSecond) * seconds)); // 0x5C623E
+	// 0x5C6211..0x5C6225: fild gt, fimul [0xD01A38], fmul 0.001f (0x8AA3B0), fmul factor, fstp float (the FPU at 24 bits)
+	const float seconds = static_cast<float>(gameTurns) * static_cast<float>(game_clock::MsPerTurn()) *
+	                      game_clock::k_SecondsPerMs * static_cast<float>(factor);
+	// 0x5C61F6..0x5C623E: 1000 / [0xD01A38] (div) * seconds, ftol: the NumGameTicksPerSecond 0x711630 conversion
+	_endTurn = turn + static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	const int32_t now = NowMs();
 	_startMs = now;                                                                                  // 0x5C628F
 	_endMs = static_cast<int32_t>(static_cast<double>(seconds) * 1000.0 + static_cast<double>(now)); // 0x5C629B
@@ -557,17 +559,18 @@ bool HelpSystem::ShownLongEnough() const
 {
 	// fn_005C68C0: 1 s ([0x92A444]) while it waits for the click, 0.5 s ([0x915D1C]) otherwise
 	const float limit = _waitClick ? 1.0f : 0.5f;
-	double seconds;
+	// the FPU at 24 bits: float
+	float seconds;
 	if (CitadelClock()) // 0x5C68ED..0x5C6949
 	{
-		seconds = static_cast<double>(static_cast<uint32_t>(NowMs() - _startMs)) * static_cast<double>(0.001f);
+		seconds = static_cast<float>(static_cast<uint32_t>(NowMs() - _startMs)) * game_clock::k_SecondsPerMs;
 	}
 	else // 0x5C695F..0x5C698B
 	{
-		seconds = static_cast<double>(static_cast<int32_t>(Turn() - _startTurn)) * static_cast<double>(k_MsPerTurn) *
-		          static_cast<double>(0.001f);
+		seconds = static_cast<float>(static_cast<int32_t>(Turn() - _startTurn)) *
+		          static_cast<float>(static_cast<int32_t>(game_clock::MsPerTurn())) * game_clock::k_SecondsPerMs;
 	}
-	return !(seconds < static_cast<double>(limit));
+	return !(seconds < limit);
 }
 
 int HelpSystem::ProcessInterface(bool click)

@@ -33,6 +33,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "EngineConfig.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Graphics/DetailLevel.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
@@ -71,9 +72,9 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	const auto* waterShader = _shaderManager->GetShader("Water");
 	const auto& config = Locator::config::value();
 	const auto& detail = GetDetailLevel(config.detailLevel);
-	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
-	// g_game_time_inc: the game milliseconds of this frame, 0 while paused
-	const float milliseconds = running ? static_cast<float>(desc.time) : 0.0f;
+	// g_game_time_inc [0xEA9EC0] (0x879963, 0x87A130): the game milliseconds of this frame, 0 while paused
+	const uint32_t frameGameMs = game_clock::FrameGameMs();
+	const auto milliseconds = static_cast<float>(frameGameMs);
 	// fn_00879930: P = 2000 - 1800 * WaterTiling (0xC38228), 560 at the default detail level 4; the terrain-x2 mod
 	// repeats the sea texture too (a shorter period)
 	const bool level0 = detail.waterTiling == 0.0f;
@@ -109,7 +110,8 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 		if (range)
 		{
 			drift.ScrollRows(milliseconds, sea::k_AmbientWind, period); // 0x879A69: a second time
-			if (running)
+			// 0x879B0A / 0x879B41: only when g_game_time_inc != 0
+			if (frameGameMs != 0)
 			{
 				frame = (frame + 1) & 15;
 			}

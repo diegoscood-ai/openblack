@@ -28,6 +28,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
@@ -444,17 +445,10 @@ glm::vec2 FleeingPosition(glm::vec2 me, glm::vec2 object, glm::vec2 movement, fl
 	return glm::dot(perp, me - object) >= 0.0f ? me + f : me - f;
 }
 
+/// GetRadius vt +0x60 (0x639574, 0x63957F): ecs::object::GetRadius, with the class overrides (a Field is 5 m)
 float Radius2D(entt::entity entity)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const components::Mesh>(entity);
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(entity).scale;
-	return 0.5f * std::max(size.x, size.z);
+	return object::GetRadius(entity);
 }
 
 /// Object::GetWorkingPos(me) (0x639550): on the object's rim facing it, the two radii apart

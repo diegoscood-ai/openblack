@@ -75,7 +75,7 @@ using ClearAreaFilter = std::function<bool(entt::entity)>;
 /// `blocker` (openblack, for the trace): the object that made it not clear
 [[nodiscard]] bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filter, entt::entity excluded,
                                      entt::entity* blocker = nullptr);
-/// Object::Get2DRadius (vt +0x64, 0x638180): effects::Object2DRadius, or the tests'
+/// Get2DRadius (vt +0x64, Object 0x638180 and the class overrides): ecs::object::Get2DRadius, or the tests'
 [[nodiscard]] float Get2DRadius(entt::entity object);
 /// Town::FindClearArea 0x7412F0: GetIncrementSpiralSizeFromRadius(a, b) points from `start` (SpiralIncrement, steps of
 /// b metres, dir = count = 1), the first one with CheckForClearArea(p, r) goes to `result` (true). None: `result` is
@@ -89,7 +89,7 @@ bool FindClearArea(glm::ivec2& result, glm::ivec2 start, float a, float b, float
 [[nodiscard]] glm::ivec2 GetCongregationPos(entt::entity town);
 
 /// The tests: the objects of a map cell and their 2D radius (empty functions: effects::ObjectsInMapCell and
-/// effects::Object2DRadius, which need the map and the meshes)
+/// ecs::object::Get2DRadius, which need the map and the meshes)
 void SetCellObjectsForTests(std::function<std::vector<entt::entity>(int cellX, int cellZ)> objects,
                             std::function<float(entt::entity)> radius);
 } // namespace openblack::ecs::town_queries

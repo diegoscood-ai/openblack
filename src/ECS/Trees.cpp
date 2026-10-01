@@ -42,6 +42,7 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Weather/Weather.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
@@ -57,6 +58,7 @@
 #include "Game.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -89,7 +91,6 @@ uint32_t g_nextForestId = 1;
 /// 0xCD04C8: the turn the last tree of the world was planted by a forest (the planting chance and the water miracle's
 /// 40-turn cooldown both use it)
 uint32_t g_lastTreeCreatedTurn = 0;
-uint32_t g_currentTurn = 0;
 
 
 /// fn_0074C180: nothing fixed in the way (a 0.5 circle against the fixed objects' circles) and on land. The original
@@ -271,7 +272,7 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 			const glm::vec3 point(at.x, Locator::terrainSystem::value().GetHeightAt(at), at.y);
 			if (IsFreeForTree(point))
 			{
-				g_lastTreeCreatedTurn = g_currentTurn;
+				g_lastTreeCreatedTurn = game_clock::Turn();
 				const auto tree = archetypes::TreeArchetype::Create(forestId, point, type, true,
 				                                                     rng.NextValue(0.0f, glm::two_pi<float>()),
 				                                                     0.8f + rng.NextValue(0.0f, 0.4f), 0.1f);
@@ -371,7 +372,7 @@ float openblack::ecs::TallestTreeHeight(uint32_t forestId)
 		{
 			continue;
 		}
-		tallest = std::max(tallest, meshes.Handle(mesh->id)->GetBoundingBox().Size().y * registry.Get<const Transform>(tree).scale.y);
+		tallest = std::max(tallest, ecs::object::GetHeight(tree)); // vt +0x42C (0x53A75D, 0x53A78E)
 	}
 	return tallest;
 }
@@ -533,9 +534,8 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	}
 	const auto& transform = registry.Get<const Transform>(tree);
 	const auto from = registry.Get<const Transform>(chopper).position;
-	// k = 0.4 (0x8C7A44) x GetHeight() x 0.5 (0x8AA3B4); Object::GetHeight 0x638120 = 2 x LH3DMesh +0x28 (half height)
-	// x scale, here the mesh box height x scale (the same, the repo's convention)
-	const float height = meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform.scale.y;
+	// k = 0.4 (0x8C7A44) x GetHeight() (vt +0x42C, 0x5116C2) x 0.5 (0x8AA3B4)
+	const float height = ecs::object::GetHeight(tree);
 	const float k = 0.4f * height * 0.5f;
 	// the direction from the forester to the tree (y 0) and its angle a = fn_007FAA50 = atan2(x, -z) (0 when shorter than
 	// sqrt(0.001)): velocity (sin a, 0, -cos a) k = k along that direction; spin (cos a, 0, sin a) x 0.4 rad/s
@@ -616,16 +616,7 @@ glm::ivec2 CellOf(glm::vec3 position)
 
 float openblack::ecs::Object2DRadius(entt::entity entity)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(entity);
-	const auto* transform = registry.TryGet<const Transform>(entity);
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || transform == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	const auto half = 0.5f * meshes.Handle(mesh->id)->GetBoundingBox().Size();
-	return transform->scale.x * std::max(half.x, half.z);
+	return ecs::object::Get2DRadius(entity);
 }
 
 uint32_t openblack::ecs::NextMapInsertion()
@@ -1056,7 +1047,7 @@ entt::entity openblack::ecs::ApplyWaterSpell(entt::entity entity, bool raiseMaxi
 			PlayAt(fmt::format("InGame.sad/{}", 120 + audio::TickCount() % 9), transform->position);
 		}
 	}
-	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && g_currentTurn - g_lastTreeCreatedTurn > 40)
+	if (!growing && IsInForest(tree->forestId) && !raiseMaximum && game_clock::Turn() - g_lastTreeCreatedTurn > 40)
 	{
 		return PlantTreeNear(tree->forestId, entity);
 	}
@@ -1177,7 +1168,8 @@ void UpdateTreeBends()
 		if (it != marked.end() && meshes.Contains(mesh.id))
 		{
 			const auto& source = sources[it->second].second;
-			const float crown = transform.position.y + meshes.Handle(mesh.id)->GetBoundingBox().Size().y * transform.scale.y;
+			// 0x74ABA2..0x74ABC2: GetScale (vt +0x120) x the mesh's +0x28 read inline, doubled, + the object's y
+			const float crown = transform.position.y + ecs::object::MeshHeight(mesh.id, ecs::object::GetScale(entity));
 			const glm::vec2 away(transform.position.x - source.position.x, transform.position.z - source.position.z);
 			const float d = glm::length(away);
 			const float r = source.radius;
@@ -1267,7 +1259,7 @@ void openblack::ecs::UpdateTrees(float seconds)
 		    {
 			    return;
 		    }
-		    if (!meshes.Contains(mesh.id) || meshes.Handle(mesh.id)->GetBoundingBox().Size().y * transform.scale.y <= 10.0f)
+		    if (!meshes.Contains(mesh.id) || ecs::object::GetHeight(entity) <= 10.0f) // vt +0x42C (0x74B1CF)
 		    {
 			    return;
 		    }
@@ -1363,7 +1355,6 @@ float openblack::ecs::TreeGrowthAmount(float growthAmount, float rainMultiplier,
 
 void openblack::ecs::ProcessTreesTurn(uint32_t turn)
 {
-	g_currentTurn = turn;
 	ProcessForests(turn);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& constants = Locator::infoConstants::value();

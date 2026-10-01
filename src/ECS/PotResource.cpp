@@ -36,6 +36,7 @@
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
@@ -221,23 +222,12 @@ std::vector<entt::entity> CellObjects(glm::ivec2 cell)
 
 float pot_resource::PileFoodProportionRaised(uint32_t amount, uint32_t maxInPot)
 {
-	float p = static_cast<float>(amount) / static_cast<float>(std::max(1u, maxInPot));
-	p = p < 0.0f ? 0.0f : 0.05f + (1.0f - 0.05f) * std::min(p, 1.0f);
-	return std::clamp(1.0f - (1.0f - p) * (1.0f - p), 0.0f, 1.0f);
+	return object::PileFoodProportionRaised(amount, maxInPot);
 }
 
 float pot_resource::Get2DRadius(entt::entity object)
 {
-	const float radius = effects::Object2DRadius(object);
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* pot = registry.TryGet<const Pot>(object);
-	if (pot == nullptr || pot->type == PotInfo::_COUNT || !Locator::infoConstants::has_value())
-	{
-		return radius;
-	}
-	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
-	// PileFood::Get2DRadius 0x66F180 (the potType 1 piles; the hand's food keeps its own GetHoldRadius)
-	return info.potType == PotType::PileFood ? radius * PileFoodProportionRaised(pot->amount, info.maxAmountInPot) : radius;
+	return object::Get2DRadius(object);
 }
 
 float pot_resource::RadiusMultiplierForApplyingPotToPos(entt::entity object)

@@ -47,12 +47,12 @@ void PlayPileSound(entt::entity pile, const glm::vec3& position, ResourceType ty
 /// The InGame.sad sample fn_0066D1A0 picks for a random value t
 [[nodiscard]] int PileSoundSample(ResourceType type, uint32_t amount, uint32_t t);
 
-/// PileFood::GetProportionRaised 0x66EB60: p = amount / maxInPot, 0 when not positive, else 0.05 + 0.95 min(p, 1);
-/// then 1 - (1 - p)^2, clamped to 0..1
+/// PileFood::GetProportionRaised 0x66EB60 (ecs::object::PileFoodProportionRaised): p = amount / maxInPot, 0 when not
+/// positive (an empty pile is 0), else 0.05 + 0.95 min(p, 1); then 1 - (1 - p)^2, clamped to 0..1
 [[nodiscard]] float PileFoodProportionRaised(uint32_t amount, uint32_t maxInPot);
 
-/// Object::Get2DRadius 0x638180 (scale x the larger half extent of the mesh), x GetProportionRaised for a PileFood
-/// (0x66F180); PileWood, pots and stores use the Object one
+/// Get2DRadius vt +0x64 (ecs::object::Get2DRadius): Object 0x638180 (scale x the larger half extent of the mesh), x
+/// GetProportionRaised for a PileFood (0x66F180); PileWood, pots and stores use the Object one
 [[nodiscard]] float Get2DRadius(entt::entity object);
 
 /// GetRadiusMultiplierForApplyingPotToPos: Pot 0x66F520 = 2, Object 0x63AAD0 / WorshipSite 0x77E480 = 1.2

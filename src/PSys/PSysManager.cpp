@@ -248,6 +248,16 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 	return object;
 }
 
+void manager::CloseSpotVisual(entt::entity object)
+{
+	// the container's effect closes down on the next turn, as when a script deletes it (ProcessTurn)
+	auto& registry = Locator::entitiesRegistry::value();
+	if (object != entt::null && registry.Valid(object))
+	{
+		registry.Destroy(object);
+	}
+}
+
 void manager::ProcessTurn(float turnSeconds)
 {
 	auto& registry = Locator::entitiesRegistry::value();

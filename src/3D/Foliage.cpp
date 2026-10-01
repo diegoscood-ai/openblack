@@ -177,12 +177,12 @@ float ValueNoise(glm::vec2 p, uint32_t seed)
 	return a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y;
 }
 
-/// The normal of the ground as it is drawn (GetUnflattenedHeightAt: GetHeightAt and GetNormalAt flatten the
-/// altitudes of 3 or less next to the sea to 0, the landscape mesh does not)
+/// The normal of the ground as it is drawn (GetDrawnHeightAt: the landscape mesh flattens every altitude of 3 or
+/// less to 0, GetHeightAt and GetNormalAt only next to a base corner of 4 or less)
 static glm::vec3 GroundNormal(const LandIslandInterface& island, glm::vec2 point)
 {
-	const float dx = island.GetUnflattenedHeightAt(point + glm::vec2(1.0f, 0.0f)) - island.GetUnflattenedHeightAt(point - glm::vec2(1.0f, 0.0f));
-	const float dz = island.GetUnflattenedHeightAt(point + glm::vec2(0.0f, 1.0f)) - island.GetUnflattenedHeightAt(point - glm::vec2(0.0f, 1.0f));
+	const float dx = island.GetDrawnHeightAt(point + glm::vec2(1.0f, 0.0f)) - island.GetDrawnHeightAt(point - glm::vec2(1.0f, 0.0f));
+	const float dz = island.GetDrawnHeightAt(point + glm::vec2(0.0f, 1.0f)) - island.GetDrawnHeightAt(point - glm::vec2(0.0f, 1.0f));
 	return glm::normalize(glm::vec3(-dx, 2.0f, -dz));
 }
 
@@ -1476,8 +1476,8 @@ void Foliage::UpdateFields(LandIslandInterface& island, glm::vec3 cameraPosition
 					FieldPlant plant {};
 					plant.yaw = random.Next() * 3.1415927f;
 					const glm::vec2 along(std::cos(plant.yaw), std::sin(plant.yaw));
-					plant.position = glm::vec3(point.x, island.GetUnflattenedHeightAt(point), point.y);
-					plant.groundSlope = 0.5f * (island.GetUnflattenedHeightAt(point + along) - island.GetUnflattenedHeightAt(point - along));
+					plant.position = glm::vec3(point.x, island.GetDrawnHeightAt(point), point.y);
+					plant.groundSlope = 0.5f * (island.GetDrawnHeightAt(point + along) - island.GetDrawnHeightAt(point - along));
 					const int last = island.GetCellsPerSide() - 1;
 					const auto cell = glm::clamp(glm::ivec2(glm::floor(point / k_CellSize)), 0, last);
 					plant.luminosity = static_cast<float>(island.GetCell(glm::u16vec2(cell)).luminosity) / 255.0f;
@@ -1652,11 +1652,14 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 					{
 						continue;
 					}
-					const float height = island.GetUnflattenedHeightAt(point);
-					if (height < species.altitude.x || height > species.altitude.y)
+					// the species' altitude range is on the unflattened ground (the same plants as before the mesh was
+					// flattened at the coast); they stand on the ground as it is drawn
+					const float unflattened = island.GetUnflattenedHeightAt(point);
+					if (unflattened < species.altitude.x || unflattened > species.altitude.y)
 					{
 						continue;
 					}
+					const float height = island.GetDrawnHeightAt(point);
 					const float slope = glm::degrees(std::acos(std::clamp(GroundNormal(island, point).y, -1.0f, 1.0f)));
 					if (slope < species.slope.x || slope > species.slope.y || _blocked->IsBlocked(point))
 					{
@@ -1727,8 +1730,8 @@ void Foliage::BuildChunk(LandIslandInterface& island, size_t blockIndex, float d
 						continue;
 					}
 					const glm::vec2 across = glm::vec2(std::cos(yaw), std::sin(yaw)) * (0.5f * width);
-					const float left = island.GetUnflattenedHeightAt(point - across) - height;
-					const float right = island.GetUnflattenedHeightAt(point + across) - height;
+					const float left = island.GetDrawnHeightAt(point - across) - height;
+					const float right = island.GetDrawnHeightAt(point + across) - height;
 					(species.cross ? crossInstances : instances).push_back({{point.x, height - 0.06f * plantHeight, point.y, width},
 					                     {plantHeight, static_cast<float>(layer), luminosity, yaw},
 					                     {_layerTop[layer], species.sway, static_cast<float>(materialIndex),

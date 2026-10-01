@@ -18,7 +18,12 @@
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
+#include "ECS/Villager/VillagerAge.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "Game.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
@@ -34,6 +39,13 @@ namespace
 float FloatRand(float x)
 {
 	return x > 0.0f ? Locator::rng::value().NextValue(0.0f, x) : 0.0f;
+}
+
+/// g_game +0x205A40, the game turn (0 without a Game, in the tests)
+uint32_t CurrentGameTurn()
+{
+	const auto* game = Game::Instance();
+	return game != nullptr ? game->GetTurn() : 0;
 }
 
 uint32_t Raw(SpeedState state)
@@ -80,6 +92,20 @@ void SetVillagerStateSpeed(entt::entity entity)
 	const auto& states = Locator::infoConstants::value().villagerStateTable;
 	// GetFinalState: the current state if it is a final one, else the destination
 	const auto top = action->states[static_cast<size_t>(LivingAction::Index::Top)];
+	// 0x753766: a villager controlled by a script keeps its speed (GameThingWithPos +0x25 & 4)
+	if (script_held::IsControlledByScript(entity))
+	{
+		return;
+	}
+	// 0x753772: so does a dancing one (Living::IsDancing 0x5ECC10: the DanceGroup at Living +0xD8 is not null).
+	// (aproximado: openblack has no Living +0xD8 yet; WorshipVillager::dancing, set where the original's
+	// GroupBehaviour::FindDanceGroup puts it in a dance group and cleared at RemoveFromDance, stands for it, and TOP ==
+	// IN_DANCE for the other dances, as openblack had it)
+	const auto* worship = registry.TryGet<const WorshipVillager>(entity);
+	if (top == static_cast<uint8_t>(VillagerStates::InDance) || (worship != nullptr && worship->dancing))
+	{
+		return;
+	}
 	const auto destination = action->states[static_cast<size_t>(LivingAction::Index::Final)];
 	auto final = top < states.size() && states[top].isFinalState != 0 ? top : destination;
 	if (final >= states.size())
@@ -117,20 +143,26 @@ void SetVillagerStateSpeed(entt::entity entity)
 	// ObjectCreationIndex (+0x3C), a signed int in the original's multiplication
 	const auto index = static_cast<int32_t>(std::max<int64_t>(object_index::Of(entity), 0));
 	float f = static_cast<float>((index * 47) % 31 - 16) * 0.01f + 1.0f;
-	const auto age = static_cast<int32_t>(villager->age);
-	const auto grownUp = static_cast<int32_t>(info->grownUpAge);
-	const auto old = static_cast<int32_t>(info->oldAge);
+	// Living::GetAge 0x5ECAF0 (vt +0x8D0, an unsigned div), compared unsigned with GLivingInfo +0x138 grownUpAge
+	// (0x750F26, jae) and +0x13C oldAge (0x750F87, jbe); the differences are loaded as unsigned qwords (fild, high
+	// dword 0: 0x750F47 / 0x750FA6), times 0.2 and 0.1 (0x8AA3AC, 0x8AC404), at most 0.4 (0x8C7A44)
+	const uint32_t age = villager::AgeFromBirthTurn(villager->birthTurn, CurrentGameTurn());
+	const uint32_t grownUp = info->grownUpAge;
+	const uint32_t old = info->oldAge;
 	if (age < grownUp)
 	{
 		f -= std::min(static_cast<float>(grownUp - age) * 0.2f * 0.1f, 0.4f);
 	}
 	else if (age > old)
 	{
-		f -= std::min(static_cast<float>(age - old) * 0.02f, 0.4f);
+		f -= std::min(static_cast<float>(age - old) * 0.2f * 0.1f, 0.4f);
 	}
 	else
 	{
-		// (1 - min(food, 1))^3 * 0.1: villagers don't get hungry yet (food 1)
+		// 0x750FDB..0x750FEE: GetDesireForFood 0x75BB50 (POWER(food) = 1 - min(food, 1)^3) * 0.1
+		f -= villager::GetDesireForFood(entity) * 0.1f;
+		// 0x750FF2..0x751008: life (vt +0x11C) * 0.1, and 0.2 more for a woman (GVillagerInfo +0x1F8 == 1, which
+		// Villager::sex mirrors)
 		f -= life * 0.1f;
 		if (villager->sex == Villager::Sex::FEMALE)
 		{

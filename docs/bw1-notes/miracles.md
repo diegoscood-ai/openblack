@@ -123,8 +123,8 @@ Informe: `resources.md` §2; desensamblado propio en `dev\tmp_dis\miracles\impl\
      `{0xFF80CBC5, 0xFF8599C5, 0xFFBA97B2, 0xFFB9CA86, 0xFFBD9C8A}[GameRand(5)]`, ángulo `GameFloatRand(2π)`, en el
      primer hueco de los 1024 de 0xEAB7C8: +0 P, +0x0C bandera 1, +0x10 edad 0, +0x18 crecimiento 2/4, +0x20 ángulo,
      +0x24 1, +0x28 aspecto 1, +0x2C ritmo 1, +0x30 celda 0x30, +0x34 color. **Los anillos caen en tierra**, no solo en el
-     agua (`ecs::WaterRings`; cuando «agua» cambie `AddWaterRing` a (pos, crecimiento, ritmo, aspecto, celda, argb), solo
-     cambia `AddDropRing` en `SpellWater.cpp`).
+     agua (`ecs::AddWaterRing` de la lane del agua, desde `AddDropRing` en `SpellWater.cpp`; el color es una de esas
+     constantes, no la tabla de luz, y el anillo lo guarda toda su vida).
 - `ApplyWaterSpell` por clase (la lista de símbolos solo tiene estas tres):
   - **Object** 0x63A8E0: si el objeto arde (`IsOnFire`) y +0xF0 está vacío, `+0xF0 = CreateReaction(hechizo, 34
     REACT_TO_MAGIC_WATER_PUTTING_OUT_FIRE, jugador del hechizo, 1)`. Devuelve 0.
@@ -998,7 +998,7 @@ mejora que leen sus reglas (−1, 0, 1: el derivado de la semilla, R3 sin verifi
     puntos a 0,33 R del núcleo (con el tornado, la del origen del PSys, que es la base del tornado).
   - Se dibujan como `LH3DMist` con el creador de niebla de la lane del agua (`PSys/Creators/Mist.cpp`): corregido ahí
     que la k tome el estirado y que el color se multiplique por el color base de la tabla de luz [0xFA26A4]
-    (`LandLightTable::LastBuiltBase`, la del fotograma anterior). El mapa de sombra `S_SMClouds16` **no se dibuja**
+    (`LandLightTable::Current().GetRawBase()`, la del fotograma anterior). El mapa de sombra `S_SMClouds16` **no se dibuja**
     (pendiente: no hay textura de luz dinámica del terreno).
 - **La tormenta registrada** (fn_006D5730, sobre los valores de fn_0083F3F0): interior `max(R, 60)`, exterior
   `max(2,5 R, interior + 20, 80)` (los tres `fcomp; test ah, 0x41; je` se quedan con el valor solo si es mayor: el
@@ -1159,7 +1159,9 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
 - Grupo 7: el padre de cada explosión (muere a los 16 s); grupo 6: la colección de `UR_Explosion`, sin átomos.
 - Valores de `UR_Explosion` en los tres archivos: `InitialDelay` 0,4, `TimeToDoEventsFor` 5, `SmokeDelay` 1,2,
   `BlastSpeed` 50, `SpreadSpeed` 20, `MaxDistance` 15, `MaxObjectsToDelete` 15, `MaxObjectsToExplode` 15; `BeamDelay`
-  no aparece (0, el del ctor).
+  no aparece (0, el del ctor). Valores por defecto del ctor 0x67E090 (en el port desde la fusión con el agua):
+  MaxObjectsToDelete / ToExplode 20, MaxDistance 100, BlastSpeed 10, SpreadSpeed 10, TimeToDoEventsFor 5,
+  InitialDelay 3,5, SmokeDelay 3, BeamDelay 0.
 - **Arreglado (fiel):** `SpreadingDiskEmitter` (MAC 0x6A6610, DefineProperties 0x6AFA90) estaba registrado como un
   `DiskEmitter` normal, que lee `Radius` (0): todas las explosiones de Many y Loads caían en el mismo punto. El original
   emite **varios átomos por paso** (bucle con `ShouldEmit`) y mueve cada uno `(cos θ r, Height, sin θ r)` con
@@ -1197,7 +1199,8 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
   hechizo. Dentro de un escudo (fn_006D0BC0 con ese margen): el punto donde un rayo desde 200 m más arriba corta la
   esfera (vt 0xFC FindIntersect), chispa y evento 4 en el centro al hechizo del escudo; **con 0 la explosión se para del
   todo** (+0x52). Luego: en tierra seca una marca (fn_008251C0, no portada); en el agua **tres anillos** (crecimiento 5,
-  7 y 10; edad 0, ángulo 0, aspecto 1, ritmo 1, celda 0x30, blanco; +0x24 = 1,0 sin identificar). Los objetivos: r =
+  7 y 10; edad 0, ángulo 0, aspecto 1, ritmo 1, celda 0x30, blanco; +0x24 = 1,0 sin identificar; una sola
+  implementación, `psys::water_rings::AddExplosionRings` de `PSys/PSysWaterRings`, de la lane del agua). Los objetivos: r =
   MaxDistance × el poder tribal del hechizo entre 1 y 5; las `ceil((r + 20) / 10)²` celdas de la espiral
   (`GUtils::Spiral` 0x74D7E0) desde la del centro; de cada celda, los objetos móviles y fijos disponibles **cuya celda
   propia es esa** (fn_00604F40) y a menos de `Get2DRadius + r` en x/z (`GetDistanceInMetres` 0x74CD70, una hipotenusa).

@@ -15,14 +15,18 @@
 #include "HandSystem.h"
 #include "HandSystemDetail.h"
 
+#include <array>
+
 #include <spdlog/spdlog.h>
 
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Fire/FireEffect.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "Common/RandomNumberManager.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -50,9 +54,30 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 		const auto position = registry.Get<const Transform>(entity).position;
 		if (registry.AllOf<Tree>(entity))
 		{
-			// Tree::EndPhysics: a thrown tree never lands planted (LANDED is only set by a gentle release): DeadTree
-			UpdateRoots(entity, true);
-			MakeDeadTree(entity, po.body.velocity, false);
+			// Tree::EndPhysics 0x74B830: LANDED (only a gentle release sets it, InitialisePhysicsFromHand 0x6372F2) on
+			// land (IsLand 0x74B8A5) and with no FireEffect (+0x44, hot or burning, ECS/Fire) -> planted again (altitude
+			// 0, SmokyStuff, the forest, SPOT_VISUAL 0x2C, alignment: Replant); otherwise fn_00510B70 makes it a DeadTree
+			// (0x74BBD9; the same entity keeps its fire: fn_00730960 moves it in the DeadTree ctor 0x510880). A tree
+			// with +0x5C & 2 (0x74B882) only gets Fixed::EndPhysics (stays where it fell, neither replanted nor dead):
+			// that bit is set by the MagicTree ctor alone (0x5FCF8D), the trees of the forest miracle, not in this tree.
+			const bool landedOnLand = (po.flags & physics::PhysicsObject::Landed) != 0 && IsLand(position);
+			if (landedOnLand && fire::Find(entity) == nullptr)
+			{
+				Replant(entity);
+			}
+			else
+			{
+				UpdateRoots(entity, true);
+				MakeDeadTree(entity, po.body.velocity, false);
+			}
+			// PhysicsObject::RemoveObject 0x646B2E..0x646B44: LANDED on land -> Tree::DropSfx 0x74BC60, replanted or not
+			// (the original picks G_PlantTree_01 + GetTickCount() % 3)
+			if (landedOnLand)
+			{
+				static constexpr auto k_PlantTree = std::array<audio::SoundId, 3> {
+				    audio::SoundId::G_PlantTree_01, audio::SoundId::G_PlantTree_02, audio::SoundId::G_PlantTree_03};
+				PlaySample(Locator::rng::value().Choose(k_PlantTree));
+			}
 			return entity;
 		}
 		if (const auto type = PotInfoOf(entity); (type == PotInfo::HandWood || type == PotInfo::HandFood) && IsLand(position))

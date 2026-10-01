@@ -29,5 +29,7 @@ struct AudioEmitter
 	audio::PlayType loop = audio::PlayType::Once;
 	audio::AudioStatus state = audio::AudioStatus::Playing;
 	bool relative;
+	/// QMixer mutes a 3D channel farther than the max of its distance mapping (0x1800ADDF); 0 = never
+	float cutDistance = 0.0f;
 };
 } // namespace openblack::ecs::components

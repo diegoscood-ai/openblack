@@ -27,6 +27,7 @@
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Creature.h"
+#include "ECS/Components/DynamicShadow.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Fixed.h"
@@ -101,21 +102,15 @@ void PhysicsShadows::Update(const Camera& camera)
 	const auto& island = Locator::terrainSystem::value();
 	const auto cameraOrigin = camera.GetOrigin();
 
-	ecs::physics::PhysicsObjects::ForEach([&](const ecs::physics::PhysicsObject& object) {
-		// resting proxies are skipped (the byte elem+0x19C = PhysOb+0x174 that fn_00646FE0 tests)
-		if (_shadows.size() >= k_MaxShadows || object.body.resting ||
-		    !registry.Valid(object.entity) || !CastsPhysicsShadow(registry, object.entity))
-		{
-			return;
-		}
-		const auto found = renderCtx.entityInstances.find(object.entity);
+	const auto addCaster = [&](entt::entity entity) {
+		const auto found = renderCtx.entityInstances.find(entity);
 		if (found == renderCtx.entityInstances.end() || !meshes.Contains(found->second.meshId) ||
 		    found->second.index >= renderCtx.instanceUniforms.size())
 		{
 			return;
 		}
 		const auto mesh = meshes.Handle(found->second.meshId);
-		const auto& transform = registry.Get<const ecs::components::Transform>(object.entity);
+		const auto& transform = registry.Get<const ecs::components::Transform>(entity);
 		const auto& instance = renderCtx.instanceUniforms[found->second.index];
 		const glm::vec3 position = transform.position;
 
@@ -165,10 +160,27 @@ void PhysicsShadows::Update(const Camera& camera)
 		{
 			return;
 		}
-		_shadows.push_back({object.entity, found->second.meshId, found->second.index,
+		_shadows.push_back({entity, found->second.meshId, found->second.index,
 		                    glm::vec4(minimum, 1.0f / (maximum - minimum)),
 		                    glm::vec4(position + glm::vec3(0.0f, k_LightHeight, 0.0f), position.y), fade});
+	};
+	ecs::physics::PhysicsObjects::ForEach([&](const ecs::physics::PhysicsObject& object) {
+		// resting proxies are skipped (the byte elem+0x19C = PhysOb+0x174 that fn_00646FE0 tests)
+		if (_shadows.size() >= k_MaxShadows || object.body.resting ||
+		    !registry.Valid(object.entity) || !CastsPhysicsShadow(registry, object.entity))
+		{
+			return;
+		}
+		addCaster(object.entity);
 	});
+	// the objects with a ShadowInfo of their own (the launched boat, fn_00874850 from PetitNavire::PreDraw 0x5E0164)
+	registry.Each<const ecs::components::DynamicShadow, const ecs::components::Transform>(
+	    [&](entt::entity entity, const ecs::components::DynamicShadow&, const ecs::components::Transform&) {
+		    if (_shadows.size() < k_MaxShadows)
+		    {
+			    addCaster(entity);
+		    }
+	    });
 
 	for (size_t i = 0; i < _shadows.size(); ++i)
 	{

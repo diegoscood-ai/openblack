@@ -71,16 +71,29 @@ void IterateStepAroundObstacle(Transform& transform, WallHug& wallHug, const Fix
 	InitializeStep(transform, wallHug, angle + angleStep * clockwiseModifier);
 }
 
-/// The wall-hug/orbit movement port has unfinished branches. To keep villager wandering
-/// working, we degrade gracefully instead of crashing: stop the villager where it is
-/// and drop all of its movement state. The LivingActionSystem's MoveToPos handler then sees no
-/// active move tags, treats the villager as "arrived", and picks a new destination.
+/// The wall-hug/orbit movement port has unfinished branches (the goal inside the hugged circle, TODO #864, and the
+/// circle-to-circle handover, TODO #865: MoveToCircleHugCircleSquareSweep<0/1> 0x614C40 / 0x6159F0 in the original).
+/// The original never gives a walk up: MobileWallHug::MoveTo 0x60AF20 returns 0 / 1 / 6 / 7 while it walks and 0xA only
+/// when it is there (ARRIVED 0x60AFC0 with AreWeThere, FINAL_STEP 0x60AF6C), and Living::MoveToPos 0x5EC270 changes
+/// state only on 0xA (0x5EC287); there is no "abandoned" code. (aproximado) So instead of dropping the walk (which the
+/// villagers took as an arrival where they stood), the unported branch goes on as STEP_THROUGH (0xB, 0x60B02A: the
+/// straight walk to the goal, InitStepsXZ 0x60BFA0, no obstacle handling): MoveTo keeps walking and the villager
+/// arrives only through AreWeThere (step 5 -> FINAL_STEP).
 void AbandonMove(ecs::Registry& registry, entt::entity entity)
 {
-	SPDLOG_LOGGER_WARN(spdlog::get("pathfinding"), "Villager #{}: unimplemented pathfinding case hit, abandoning move",
+	SPDLOG_LOGGER_WARN(spdlog::get("pathfinding"),
+	                   "Villager #{}: unimplemented pathfinding case hit, going on straight to the goal (STEP_THROUGH)",
 	                   static_cast<uint32_t>(entity));
 	registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
 	                MoveStateFinalStepTag, MoveStateArrivedTag, WallHugObjectReference>(entity);
+	auto* transform = registry.TryGet<Transform>(entity);
+	auto* wallHug = registry.TryGet<WallHug>(entity);
+	if (transform == nullptr || wallHug == nullptr)
+	{
+		return;
+	}
+	InitializeStepToGoal(*transform, *wallHug);
+	registry.Assign<MoveStateStepThroughTag>(entity, MoveStateClockwise::Undefined, glm::xz(transform->position));
 }
 bool AreWeThere(const glm::vec2& pos, const glm::vec2& goal, float threshold)
 {
@@ -397,10 +410,12 @@ void PathfindingSystem::Update()
 	auto& registry = Locator::entitiesRegistry::value();
 
 	// 1.  ARRIVED:
-	//         If AreWeThere is false, set to STEP_THROUGH (and it will trigger following steps)
+	//         If AreWeThere is false, set to STEP_THROUGH (and it will trigger following steps). MobileWallHug::MoveTo's
+	//         ARRIVED 0x60AFC0: AreWeThere(0) -> Pos = goal, 0xA; else STEP_THROUGH (0x60B022). (The test here was
+	//         inverted: it left ARRIVED precisely when there.)
 	registry.Each<const MoveStateArrivedTag, const Transform, const WallHug>(
 	    [&registry](entt::entity entity, const MoveStateArrivedTag& state, const Transform& transform, const WallHug& wallHug) {
-		    if (AreWeThere(glm::xz(transform.position), wallHug.goal, wallHug.speed))
+		    if (!AreWeThere(glm::xz(transform.position), wallHug.goal, wallHug.speed))
 		    {
 			    registry.SwapComponents<MoveStateStepThroughTag>(entity, state, state.clockwise);
 		    }

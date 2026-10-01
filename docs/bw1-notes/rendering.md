@@ -100,28 +100,130 @@ Informe completo del desensamblado; direcciones W120:
 Del desensamblado (W120):
 - `GLandscape::Open` 0x5E5432 carga `.\Data\Textures\sky.raw` (flag de alfa; `skya.raw` es el alfa, 4 bits) con
   material modo 5 (= `fn_0082DD90`, igual que el 0xE: `SRCALPHA/INVSRCALPHA`, `TEXTURE*DIFFUSE`).
-- `GLandscape::Draw`: cielo → tierra reflejada (`LandRef`, alturas × −1, tabla de luz × 0,5, `fn_007FF4F0`) → mar
+- `GLandscape::Draw`: cielo (con la luna reflejada) → tierra reflejada (`LandRef`, alturas × −1, tabla de luz × 0,5,
+  `fn_007FF4F0`) → partes bajo el agua (mano, objetos, peces…) → brillo de la mano (0x5E4D89) → mar
   (`fn_00879930`) → tierra. El mar se salta solo si `[0xECA670]` (alambre, depuración) o `[0xECA664]` ≠ 0; este lo pone
   `PSysLightMaps` (0x6CA57E) a `clamp(nivel,0,1)·190` y el nivel solo sube/baja al acabar una cinemática
   (`CameraModePath::Cleanup`): **en juego normal el mar se dibuja**.
 - Tiras de filas de 2 px en pantalla, `ZFUNC ALWAYS`, sin escribir Z. UV = (mundo + desplazamiento) / P,
-  P = 2000 − 1800·WaterTiling (200 en el detalle máximo). Desplazamiento con el viento ambiente (−1/330 por ms).
+  P = 2000 − 1800·WaterTiling (560 en el detalle por defecto, 200 en el máximo). Desplazamiento con el viento ambiente
+  (−1/330 por ms, aplicado dos veces por fotograma), que en partida vale 0.
   Ondulación: cada fila se mueve 0,9·sin(i·π/8) a lo largo del frente horizontal de la cámara,
   i = (fotograma + 2·(fila+1)) & 15, pleno a más de 70 de profundidad, nada a menos de 30.
 - Color del vértice = entrada 255 de la tabla de luz del terreno (luz plena de la hora del día); alfa = 255 hasta
-  profundidad 7000, baja lineal a 80 en 14000 (0xC39908).
+  profundidad 7000, baja lineal a 80 en 14000 (0xC39908). Un solo color para todo el mar: **el mar no recibe sombras
+  de nubes** (solo la tierra reflejada que se ve a través).
 
-En openblack (`fs_water`/`vs_water`, `Renderer`): P = 200, ondulación, fundido de horizonte, sin escribir Z (se
-mantiene la prueba de Z porque bgfx reordena las llamadas de una vista), tierra reflejada a media luz
-(`u_terrainPass`). **Pendiente**: desplazamiento con viento (openblack no simula viento), el tinte ya usa la tabla de luz (abajo)
-y el reflejo solo lleva cielo y tierra: `GLandscape::Draw` 0x5E48B3–0x5E4900 apaga ZWRITE, llama a `fn_007FF4F0`
-(`LH3DIsland::PreDraw` + bloques) y lo vuelve a encender; sin modelos ni sprites.
+En openblack (`fs_water`/`vs_water`, `Graphics/RendererSea.cpp`, `Graphics/SeaRows`): **hecho como el original**
+(W7).
+- **Zona del mar** (`fn_00879500`, `sea::ComputeScreenRange`): quad de 30000×30000 en y = 0 centrado en (2560, 2560)
+  (esquinas −12440 / 17560), recortado con el plano cercano y los cuatro lados (sin plano lejano). `top` = y mínima y
+  `bot` = y máxima de pantalla, con su 1/z; `top` se sube a 0 y `bot` se baja a alto − 1 sin corregir su 1/z. Rareza
+  copiada: el primer vértice solo puede fijar `bot` (`if y > bot … else if y < top`). El recorte es el del original:
+  vértices 0..3 = (−12440, −12440), (17560, −12440), (17560, 17560), (−12440, 17560) y triángulos (0, 2, 1), (0, 3, 2)
+  (0x879537); cada uno pasa por el recortador recursivo `fn_0081A760` (x87) / `fn_007A3A50` (SSE, P4), un plano por
+  bit de 0x20 (cercano) a 0x02, dos vértices nuevos por corte al final de la tabla y, si quedan dos triángulos, el
+  primero recortado por una llamada recursiva; los vértices nuevos llevan solo los códigos de los planos siguientes
+  y su y de pantalla se pinza a 0..alto−1 (`g_MaxScreen`, 0x81E130). `bot`/`top` se leen en el orden de esa lista.
+  Comprobado con una emulación Unicorn de `fn_00879500` (`tmp_dis\agua\re\emu_sea_range.py`): las dos rutas dan la
+  misma lista y la misma y (±0,05 px de redondeo) en 400 cámaras al azar; `test_sea_rows` lleva dos casos de la
+  emulación. En 30000 cámaras sobre la isla la rareza de "solo `bot`" nunca movió `top` más de 1 px.
+  **Fallo del original, copiado**: para decidir si hace falta recortar suma los códigos de 0, 1, 2 y de la entrada
+  **4** de la tabla (`[0xE3B5F0]`, en vez de la 3 en 0xE3B5EC), que es un resto del último dibujo por LH3DP3. Si esa
+  entrada y los códigos 0..2 son 0 con el vértice 3 fuera, dibuja sin recortar con la x', y', z' de cámara del
+  vértice 3 (un `top` basura). Hace falta ver las esquinas 0, 1 y 2 a la vez: no pasa en ninguna de 200000 cámaras
+  del disco de la isla (radio 5120, altura 3..4000), así que se toma la entrada 4 = 0. Plano cercano: `[0xE839E0]`,
+  que `GCamera::Update` 0x4424AF pone cada fotograma con `LandFeature::GetNearClipping` 0x5E2F30 = 0,3 + 0,16·h
+  (h = cámara − `GetAltitude`; 0,3 si h ≤ 0, 3,5 si h > 20; 0,1 con `SET_GRAPHICS_CLIPPING` [0xD1A2F8]): es el
+  `cameraNearClip` que openblack ya recalcula en `Game` y el que usa el mar.
+- **Filas** (`fn_00879930`): filas de vértices r = 0..n en y = ftol(top) + 2r, n = (ftol(bot) − ftol(top) + 2)/2;
+  1/z de la fila = 1/z(top) + r·(1/z(bot) − 1/z(top))/(n − 1). `vs_water` dibuja un quad de pantalla completa y
+  `fs_water` rehace cada fila por píxel: punto del plano bajo la fila, ondulación en las filas pares (entera si
+  1/z < 1/70, (1/z − 30)·0,025 si < 1/30), las filas impares repiten la UV de la anterior (2 px iguales y 2 px
+  interpolados, sin corrección de perspectiva), alfa por fila redondeado y **fila 0 con alfa 0x20** si ftol(top) ≥ 1.
+  Se cuenta desde `top` y con `u_viewRect`, así no depende de la API.
+- Fuera de las filas y bajo el horizonte (entre el borde lejano del quad y el horizonte, o sin mar en pantalla) se ve
+  lo que hay bajo el mar sin mezclar: la **franja de cielo espejado** sobre el borde del mar (unos 25 px a 864 de alto
+  con la cámara a 300 de altura). Sobre el horizonte, el cielo de la vista principal.
+- **Fotograma** `[0xFA938C]`: sube 1 (& 15) por fotograma dibujado solo si el mar está en pantalla y el juego corre
+  (`g_game_time_inc` ≠ 0): **en pausa las líneas del mar no se mueven** (capturas en pausa idénticas). A fps modernos
+  tiembla más rápido que a ~30 fps, como haría el original a esa velocidad.
+- **Deriva con el viento** (`sea::Drift`): off += viento·ms·(−1/330), dos veces (0x879963 siempre, 0x879A69 si hay mar
+  en pantalla), envuelta a P; en el nivel 0, off0 += viento·ms·(−1/330000) envuelta a (−1, 1). El viento ambiente vale
+  0 (`sea::k_AmbientWind`), así que no se mueve: el código está para el día que no valga 0.
+- **Nivel de detalle 0** (`fn_0087A090`, WaterTiling = 0): quad del mundo de ±70000, UV (x + 70000)/2800 y
+  (70000 − z)/2800 (la V crece hacia −z) más su deriva, alfa de vértice 255, sin ondulación ni fundido.
+- **Textura en 4 bits** (`fn_00837400`): al cargar, `sky.raw` y `skya.raw` se quedan con `v >> 4` (n/15, como
+  ARGB4444 en D3D). El color de `sky.raw` tiene una desviación de 5-8 sobre 255, así que quedan 4-6 niveles por canal y
+  de cerca se ven manchas planas. El mod `graphics.terrain-x2` (reescalado) sigue en 8 bits.
+- **Lo que hay bajo el mar** es el objetivo de reflejo, ahora **del tamaño de la vista principal** (se recrea al cambiar
+  de tamaño; antes era de 1024²) y pintado **en orden** (vista secuencial, como `GLandscape::Draw` 0x5E48AE–0x5E4E6B):
+  cielo espejado, luna reflejada, tierra reflejada (`fn_007FF4F0`: media luz, **sin small bump** porque
+  `[0xC37210]` = 0, sin sombras dinámicas; las de nubes sí), mano y objetos bajo el agua, bancos de peces y el
+  **brillo de la mano**. Sin modelos ni sprites (salvo el mod `water.living`). `fs_water` mezcla `luz·sky` sobre él con
+  alfa `skya·alfa de fila`, igual que SRCALPHA/INVSRCALPHA sobre el fotograma.
+- Mar con ZFUNC ALWAYS, sin escribir Z y sin culling; la vista principal es secuencial y la tierra que va después lo
+  tapa.
+- Gancho `OPENBLACK_SEA_TRACE=1` (cada 500 fotogramas: primera fila, n, 1/z, paso, fila suave, fotograma, deriva).
+  Test: `test_sea_rows`.
 
-**Sin cerrar (no aplicado)**: el agente dedujo que el original no dibuja las celdas con bit 0x02 de `flags` (0x875DDC,
-0x876A8A, solo en la ruta no SSE), aplana las de altitud ≤ 3 y suma `cell.rgb` como especular (`SPECULARENABLE` = 1 si
-`[0xEA9E9C]` = 0, 0x82CC1E). Probado: da una costa en escalones y fondo de arena que no se parece a las capturas del
-original, así que se revirtió; openblack sigue con su alfa de celdas (agua 0, costa 0,5). Falta revisar la ruta SSE
-`fn_007A1800` y comparar con capturas del original.
+## Costa (hecha)
+
+Informe: `tmp_dis\agua\sea_render.md` §4. Las rutas normal y SSE hacen lo mismo. El intento anterior (aplanar y omitir
+celdas sin más) dio "fondo de arena en escalones" porque le faltaba la pieza que da la forma de la orilla: el **alfa
+de la textura de bloque**.
+- **Alfa costero por texel** (`fn_008732C0`, SSE `fn_007AB4B0`, 16×16 texels por celda, 256 por bloque): altitud
+  pesada con conos `h = Σ w_k·alt_k` (`fn_00871560`: `w_k = max(0, 14 − d_k)` a las 4 esquinas, truncados a Σ = 255
+  y +1 a la mayor), `h < 0x100` → 0, `h ≥ 0x400` → 15, en medio `e = h + 4·(int8)ruido` (ruido del LND,
+  `[x·256 + z]`, el mismo en todos los bloques) e `idx = 15 + trunc((15e − 14250)/438)` sobre la tabla 0xC39814 =
+  0xC2AAC0 (16 dwords ya desplazados 12 bits: nibbles 0,0,0,1,2,4,6,8,9,10,10,11,12,13,14,15). Transparente por
+  debajo de una altitud de ~1,2–2, opaco hacia ~2,9–3,7; el ruido dibuja la orilla.
+- **Celdas de mar abierto** (bit 0x02 del byte de `flags`, `word(celda+6) & 0x200`): no se emiten sus triángulos
+  (0x875DDC, 0x876A8A **y** SSE 0x7A9B14, 0x7AAB14) y el builder pone a 0 sus texels (0x8739F8). 3297 celdas en Land1.
+  El bit 0x02 **no** es parte del código de sonido: los bits 2..5 del byte son el tipo ATMOS.
+- **Aplanado de la malla**: `y = alt ≤ 3 ? 0 : alt·0,67` en cada vértice (0x874B95, SSE 0x7A1EE7, `cmpleps` contra 3,0
+  en 0xFC01F0). El juego (`GetAltitude` 0x803121) solo aplana junto a una esquina base ≤ 4; en Land1 no hay ninguna
+  celda donde las dos reglas den alturas distintas (base > 4 con una esquina ≤ 3: 0 de 25600).
+- **Especular**: `dword de la celda | 0xFF000000`; su alfa es 0 si UseSmallBump y alt ≤ 1 (0x874BA9, SSE 0x7A1F16), solo
+  para que la pasada de small bump **omita** los triángulos con los 3 vértices así (SSE 0x7A31A0). El small bump **no**
+  se modula con el alfa costero: cerca de la cámara sus motas salen también sobre el agua somera.
+- **Sombras dinámicas** (`fn_00878350`): color de vértice 0 donde el byte de altitud ≤ 1 → se funden hacia el agua
+  (interpolado), sin corte duro.
+- La tierra se dibuja en modo 14 (SRCALPHA/INVSRCALPHA) sobre el mar ya pintado y **escribe Z aunque el alfa sea 0**.
+- openblack: `3D/CoastAlpha` (port de `tmp_dis\agua\sea_coast_alpha.py`, idéntico texel a texel en Land1),
+  hoy el canal alfa de la RGBA8 `BlockTexture` de `LandIsland` (ver abajo; filtro lineal, filas a lo largo de +z; se
+  rehace en `RebuildAltitudes`);
+  `LandBlock` aplana, colapsa a un punto las celdas 0x02 (la forma física de Bullet las conserva) y pasa por vértice
+  el "fundido de orilla" (alt > 1); `fs_terrain`: `a = min(costa, LandAlpha)` (los ríos siguen con `min`), sin
+  `discard`, las dos pasadas como un color premultiplicado (mezcla ONE/INV_SRC_ALPHA: `(tierra+esp)·a·(1−b) +
+  (bump+esp)·b`) y las sombras multiplican también lo que se ve detrás. `GetDrawnHeightAt` = altura de la malla
+  dibujada (la vegetación de los mods se apoya en ella, pero elige sus plantas con la altura sin aplanar como antes).
+  Diferencias: una sola textura para la isla (el filtro bilineal cruza los bordes de bloque; el original tenía una
+  textura por bloque).
+- **Pesos de cono, desempate**: el +1 va a la mayor y, entre iguales, a la **última** (w3 antes que w0): la tabla que
+  construye `fn_00871560` en 0xE3A3E0, leída de una ejecución Unicorn, da p. ej. en el texel (8, 8) 63, 63, 63, 66.
+  31 de los 256 texels (las líneas i = 8 y j = 8) cambian respecto a la regla anterior (el alfa costero apenas).
+- **Color de la textura de bloque (hecho)**: `fn_00873790` por celda y `fn_008732C0` por texel, con el índice
+  `(x·256 + z)` del bloque para el material, el ruido y el bump (`[0xFA7698]`, el bump del LND):
+  - `h < 0x100` → texel 0. Si no, entrada `mat = min((h >> 8) + ruido, 255)` de la tabla del país (`[0xFA75C0 +
+    4·país]`, país = nibble bajo del byte 6 de la celda): {índice 0, índice 1, coef}. Color de 5 bits de las texturas
+    de material (`[0xFA74F8 + 4·i]`, B5G5R5 tras el u16 de tipo): `c0·coef + c1·(256 − coef)` (el **primero** pesa el
+    coeficiente; solo c0 si son iguales), × bump y a 4 bits: R = (Σ(c & 0x7C00)·bump) >> 18, G >> 17, B >> 16, cada
+    uno pinzado a 15 (0x873438..0x8734EA); alfa el nibble costero.
+  - Si las 4 esquinas de la celda no son del mismo país, se construye una vez por país de esquina y `fn_00871850`
+    mezcla por canal de 4 bits (alfa incluido) con los pesos de cono: `floor(Σ canal_k·w_k / 255)`.
+  - Comprobado: la emulación Unicorn de `fn_00873790` (`tmp_dis\agua\re\emu_block_texel.py`) coincide con la
+    referencia en los 163840 texels de 40 filas de celdas de Land1 por la ruta x87; la SSE (P4, `fn_007AB4B0` con
+    `pmulhuw`) baja en 1 el nibble azul (a veces el verde) en ~1,8 % de los texels. Se sigue la x87. La textura que
+    genera openblack (`OPENBLACK_DUMP_BLOCK_TEXTURE`) es idéntica a la referencia en 524288 texels comparados
+    (`tmp_dis\agua\re\cmp_block_dump.py`).
+  - openblack: `3D/BlockTexture` (`CountryTexel`, `BlendCorners`, `BuildIslandBlockTexture`); `LandIsland` guarda las
+    texturas de material y el bump en CPU y sube una RGBA8 `BlockTexture` (nibble × 17, color y alfa costero) que
+    sustituye a la R8 `CoastAlpha`; `fs_terrain` toma de ella el color (ya lleva el bump) y el alfa; encima van las
+    huellas, las sombras estáticas y la luz como antes. Los mods de terreno (`terrain-x2`, acantilados triplanares)
+    siguen con los materiales por vértice, ahora con la entrada `min((255·alt >> 8) + ruido, 255)` (el texel de la
+    esquina) y el coeficiente del lado bueno (antes estaba al revés: `mix(id0, id1, coef)`). Esto cierra la duda de
+    tooling.md: ni el `min(alt + ruido/4)` del editor ni el `(alt + ruido) % 256` de openblack.
 
 ## Tabla de luz del terreno (0xEDD90C)
 
@@ -136,8 +238,17 @@ original, así que se revirtió; openblack sigue con su alfa de celdas (agua 0, 
 - Valores a mediodía neutral: [48] 686d66, [128] 9eab9f, [218] daf0e0, [255] f3fffb (casi blanco); medianoche
   [255] 3d5b6c; ocaso d68e79; malo a mediodía dbc8ff.
 - openblack: `3D/LandLightTable` (port exacto, comprobado contra `tmp_dis\render\light_lut.py`), textura 256×1 que
-  `vs_terrain` muestrea por vértice; `u_seaColour` para el mar. Falta: tiempo nublado, relámpagos, suavizado de la
-  alineación.
+  `vs_terrain` muestrea por vértice; `u_seaColour` para el mar. `Build(skyType, alineación, nublado, destello)`:
+  tope `min(c, ftol(255 − 96·nublado))` sin recortar el nublado (0x869ADB), destello `c += ((0xFF − c)·f) >> 8` con alfa
+  0xFF en toda la tabla (0x869C25) y la neblina de tormenta/relámpago; `LandLightTable::Current().GetRaw(i)` (copia
+  del último `Build`) es la tabla global 0xEDD90C que leen los creadores de anillos (`ECS/WaterRings`); el
+  renderizador usa `GetRaw` de su propia tabla; `Current()` guarda también la base [0xFA26A4] (`GetRawBase`) y la
+  neblina, que leen las nieblas del PSys y las nubes de las tormentas. Nublado = `[0xFA2754]` (`GCamera::Update` 0x4426BA: byte 3 de
+  `GetWeatherSmooth` en la cámara × 0,01) y destello = `[0xFA2768]` (`Update3D` 0x83587C, la tormenta más cercana que
+  contiene la cámara). El nublado sale de una sola fuente, `Clouds::WeatherOvercastAtCamera()`; `3D/SkyWeather` solo
+  da el destello (`weather::LightningFlashAtCamera(cámara)` de `ECS/Weather/LightningFlash`). Test:
+  `test_land_light` contra `tmp_dis\agua\light_lut_testgen.py` (entradas exactas en binario: con 1,3 o 0,6 las
+  columnas en float caen al otro lado de un entero que los double de Python). La alineación es la suavizada del cielo (`Renderer::_skyAlignment`, [0xBF3378]).
 
 ## Luz de los modelos (original, no es un mod)
 
@@ -210,6 +321,22 @@ Informe: `tmp_dis\render\sky_*.txt`.
   la cámara, `atmos.raw` UV 0,25–0,49375, aditivo, color (R/6, G/5, B/4, m). Malla: `moon.l3d` (cargada sin skins,
   textura `weather.raw` por código), billboard ×4, −7,5° en Z, fase + π en Y, ×0,65; la fase sale del **reloj real**
   (2π(1 − frac((días − 10962)/29,5306))) y regenera las UV. Culling normal (bit 0 = 0).
+  **Reflejo** (`fn_0086B010` 0x86B61D; hecho, W8): la primera llamada dibuja halo + malla + la `DrawUnderWater` de la
+  malla (vt+0x118: la luna espejada en y = 0, sin luz); la segunda, con `pos.y = −pos.y` y `[0xFA2774]` = 1, solo el
+  halo. Mismo m y mismo color, en la etapa del cielo (la tierra reflejada lo tapa). En openblack, `DrawMoon(…,
+  mirrored)` en la pasada de reflejo: el halo con los ejes de la cámara espejada y la malla con los de la principal
+  (sale volteada, como `DrawUnderWater`, con el culling invertido). El sol **no** se refleja (`fn_0086C140` se llama
+  una sola vez).
+- **Brillo de la mano de noche sobre el agua** (hecho, W9; `3D/HandWaterGlow`, `Renderer::DrawHandWaterGlow`):
+  `GLandscape::Draw` 0x5E4D89, si k = `[0xD20184]` > 0,01 (k = clamp((120 − media del color base)/15, 0, 1), la misma
+  que la luz de la mano en tierra): color = fila 6 de `palette.raw` (`[0xFA26E0]`) movida un cuarto hacia
+  (255, 128, 64) por canal (entero: floor((3c + objetivo)/4)), alfa clamp(ftol(k·190), 0, 190). `fn_005E3F70`: solo
+  si alguna celda de [(x − 70)/10, (x + 70)/10] × [(z − 70)/10, (z + 70)/10] (límites inferiores recortados a 0..511,
+  los superiores no) tiene altitud < 5 o no tiene celda; quad horizontal en y = 0 de (x ± 60, z ± 60), UV
+  (0,75; 0,375)–(0,796875; 0,421875) de `atmos.raw` (u con x, v con z), `LH3DAtmos::AdditiveMaterial` (modo 13,
+  SRCALPHA/ONE; con la textura `data\textures\atmos.raw` (`fn_00835AD0` 0x835C20..0x835C4E crea `AtmosMaterial` modo 6 y `AdditiveMaterial` modo 13 con ella)), ZFUNC ALWAYS, justo antes del mar. En openblack va al
+  final de la pasada de reflejo (un quad en y = 0 es su propio espejo) y se ve a través del mar; con la mano sobre
+  tierra alta no sale nada.
 - **Nubes** (`CloudInSky::Open` 0x5E23F0, `fn_005E25C0`): 70 + 2 fijas, x ∈ ±8000 (viento a 70 u/s, ángulo 3π/4,
   alrededor de (1280, 1280)), y 300–500, z ±5000, tamaño 13–50, k 2,5–5; alfa de borde por encima de ±6000.
   `mist.l3d` sin skins: material de humo `smoke.raw` + `smokea.raw` (modo 6, dos caras, `fn_0080BBD0`). Son
@@ -249,9 +376,11 @@ Informe: `tmp_dis\render\sky_*.txt`.
     más influencia en la posición de la interfaz (`fn_0064AC30` desde `GPlayer::ProcessPlayers` 0x64A697, cada turno;
     `DoCitadelMultiplayer` fuerza 0,5). `DrawSky` 0x5E2160 la mueve 0,001 por ms (inc·0,01·0,1) y la ajusta al pasarse;
     la usan las nubes, la tabla de luz y el cielo. openblack: `SkyAlignment` (Renderer), objetivo
-    `Clouds::InfluentialPlayerAlignment()` (hoy neutral o el deslizador de depuración; `OPENBLACK_TEST_SKY_ALIGNMENT`
-    de −1 mala a 1 buena) y nublado `Clouds::WeatherOvercastAtCamera()` (hoy 0): los dos esperan la alineación de
-    jugadores (`GAlignment::Update` 0x414410) y el tiempo (`GWeather`/`LH3DAtmos`) de la otra rama.
+    `Clouds::InfluentialPlayerAlignment()` (`ecs::effects::alignment::GetInterfaceAlignment()` × 2 − 1, o el
+    deslizador de depuración, o `OPENBLACK_TEST_SKY_ALIGNMENT` de −1 mala a 1 buena; `atmos_banks::Alignment()` usa el
+    mismo valor) y nublado
+    `Clouds::WeatherOvercastAtCamera()` = byte 3 de `weather::atmos::GetWeatherSmooth(cámara, 1)` × 0,01 (0 sin
+    tormentas).
   - **Animación**: cada nube es un LH3DMist con su propio contador +0x84; `LH3DMist::AddDrawing` 0x7FA7F0 (vt+0x100)
     solo la manda al Z-sorter si su esfera (semidiagonal de la malla × tamaño × 0,55) toca la pantalla, y solo entonces
     avanza el contador en el Draw: las nubes se desfasan entre sí. **No hay fundido entre fotogramas**: `fn_007FA300`
@@ -311,6 +440,39 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   UR_SphereSurfaceTracer, UR_OrientSpriteWithRandomAngle; condiciones y proveedores de float), `PSysManager`
   (efectos, contenedores de guion, gancho de prueba) y `Graphics/RendererPSys.cpp`. Las clases sin portar se registran
   una vez en el log ("not ported yet") y no hacen nada.
+- **`UpdateRuleGravityWithFloor`** (`PSys/Rules/Fireball.cpp`, una sola clase con la de los milagros; ctor 0x6A1510, `ModifyAtomCollection` 0x6A1880).
+  Valores por defecto del ctor: MaxSpeed 100, Gravity 10, Damping 0, WindMagnification 100, UseWind 1, rebotes 0,5/0,5,
+  GroundDrag 0, ImpactSpeed 5/20/40, MinAlphaForImpactSoundOrRipple 60, distancia de onda 2 (+0x40) y onda activada
+  (+0x71 = 1), sin propiedad. Por átomo, sin la `Condition` por átomo:
+  - amortiguar = UseDamping y (no DisableDampingForNonHuman o `IsHumanPlayerCasting` 0x673580, que es 0 sin `Spell`);
+    viento igual con UseWind / DisableWindForNonHuman. Con viento: v += (viento·WindMagnification·0,1 − v)·Damping·dt
+    (viento = `fn_00771B10` = `GClimate::GetWeather(p, 1)`: (int8 x/8, 0, int8 z/8); aquí `weather::GetWindAt(p, true)` de ECS/Weather); si no,
+    con amortiguar: v ·= 1 − dt·Damping.
+  - Se guarda v y el átomo se mueve **antes** de la gravedad. Suelo = `GetAltitude(x, z)`; punto más bajo = y global
+    (`RenderParticle::GetLowestPoint` 0x6C79B0; el de malla, `Particle3DObj` 0x6C7AE0, no está porque no hay
+    partículas de malla). Por encima: v.y −= clamp(v.y + MaxSpeed, 0, 1)·Gravity·gravedad del átomo·dt.
+  - Por debajo: se sube al suelo; d = n·v con la normal del terreno; si d < 0, golpe (`fn_006A1630`) y rebote:
+    vn = n·d, vt = v − vn, arrastre m = min(dt·GroundDrag, |vt|) en la dirección de vt (si |vt|² < 1e-4 la dirección
+    es +x), v = vt·DampingHorozontalBounce·superficie − vn·DampingVerticalBounce. Superficie (UseSurfaceForBounce):
+    tabla 0x937574 por `GetSurfaceType` = 1,1,1,1,1,1,**0,2** (agua profunda),**0,2** (somera),1,1,25.
+  - Golpe `fn_006A1630`: nada si alfa < MinAlpha, si ImpactSound es NO_SOUND (−1), si |d| < ImpactSpeedSmall, si el
+    sonido del átomo aún suena o si ImpactSoundCondition falla; nivel 3/2/1 según ImpactSpeedMedium/Large; y onda en el
+    agua. Consecuencia: los trozos de `SF_ExplodeObject` (NO_SOUND) **nunca** hacen onda; solo la bola de fuego
+    (`SF_FireBallThrow*`, SOUND_SPELL_FIREBALL_HIT) la hace. Los átomos de este motor aún no tocan sonidos
+    (`AtomCore::StartSound` 0x6745D0), así que la espera "mientras suena" no se aplica. `CheckShieldDeflections`
+    (escudos de criatura) no está. Prueba unitaria `test_psys_water`.
+- **`UR_Explosion`** (`PSys/Rules/Explosion.cpp` de Milagros, [magic.md](magic.md); los anillos de aquí son
+  `PSys/PSysWaterRings` `AddExplosionRings`, la única implementación; ctor 0x67E090, `ModifyAtomCollection` 0x67ECE0, `InitCollection`
+  0x67E200), en `SF_BeamExplosionSingle/Many/Loads`. Por defecto InitialDelay 3,5, SmokeDelay 3, BeamDelay 0. Punto =
+  `GetCurrentParentPos` (el +0x80 del átomo padre o el origen) con y = altitud del suelo. Si el efecto se cierra, cierra
+  el contenedor del rayo. Con edad de colección > InitialDelay: anillos de agua (arriba) o chamuscado; > BeamDelay:
+  punto visual BEAM_EXPLOSION_FX (magnitud 1, 60 turnos); > SmokeDelay: **SMOKE en tierra seca, STEAM sobre el agua**
+  (`IsDryLand`), magnitud 8, 4 s. El 3.er argumento de `CreateSpotVisualWithSpecifiedDuration` es la magnitud del
+  efecto (`GJPSysInterface::Create` 0x68F3A1 `SetScale`). El daño a los objetos, el `SpellEvent` 2 y el escudo los
+  hace la de Milagros; sin portar: el chamuscado (`TemporaryShadow` `fn_008251C0`, textura 0x251, tamaño 8) y los
+  escombros de malla.
+  Prueba: `OPENBLACK_TEST_PSYS="SF_BeamExplosionSingle,1464,2016,0,1"`, cámara `1452,14,2002,1464,0,2016`, captura en
+  el fotograma 272 de 300 (anillos) o 360 de 400 (vapor); `OPENBLACK_PSYS_TRACE=1` escribe la explosión.
 - Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
   (hoguera con llamas y humo); `OPENBLACK_PSYS_TRACE=1` escribe átomos y edad de cada efecto cada 20 turnos.
 - **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `tmp_dis\psys\towncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
@@ -348,8 +510,9 @@ Informe: `tmp_dis\render\physshadow\`.
 
 - Silueta de la mano (las dos instancias del mesh) en un R8 de 64×64 (`RenderPass::DynamicShadow`,
   `vs_dynamic_shadow_instanced`), proyectada desde la luz 200 unidades encima de la mano sobre el plano del suelo,
-  en una caja de ±2 radios; `fs_terrain` la cuelga vertical (sin la cara de mar, altura > 0,67) y oscurece
-  × (1 − 8/15 · cobertura · fundido), fundido entre 50 y 80 radios desde la cámara.
+  en una caja de ±2 radios; `fs_terrain` la cuelga vertical y oscurece × (1 − 8/15 · cobertura · fundido), fundido
+  entre 50 y 80 radios desde la cámara; hacia el agua se funde con el color de vértice 0 de las altitudes ≤ 1
+  (`fn_00878350`, ver "Costa").
 
 ## Manchas de aldeanos, reflejos de objetos y LOD (original)
 
@@ -384,8 +547,14 @@ Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`.
     centro de masas), sin límite de distancia.
   - El "color propio" es lo que `fn_00801C90` dejó en obj+0x4C/+0x50 en su último Draw (lo llaman `PhysicsObject::DrawAll`
     0x646F9F, `MobileObject::Draw`, `Rock::Draw`...): la luz de tierra bilineal y el especular de las celdas, sin N·L ni neblina.
-  - Barcos (`PetitNavire::PreDraw`): matriz × diag(−1, 1, 1), 0xFF303070, y una segunda parte girada π/2.
-  - openblack: `Renderer::DrawObjectReflections` en la pasada de reflejo (lo que sostiene la mano y `HandSystem::GetThrownObjects`),
+  - Barcos (`PetitNavire::PreDraw` 0x5DFF20): **un** `DrawUnderWater` por fotograma del casco en 0xFF303070 (luego
+    `fn_00801C90` le devuelve la luz de tierra). Las ramas 0x5E0100-0x5E0190 (modo 0, botadura: además corrige la y con
+    `GetAltitude` y la sombra) y 0x5E0380-0x5E03EE (modo 1, travesía) se excluyen por +0x30, las dos con el espejo
+    diag(−1, 1, 1) sobre la pista del casco (determinante −1) y el `RotateY(π/2)`: no hay segunda parte. openblack:
+    `Renderer::DrawBoatReflection` (modo 2 de `vs_object` con el rgb empaquetado). Ver objects-and-resources.md, "Barco".
+  - openblack: `Renderer::DrawObjectReflections` en la pasada de reflejo (lo que sostiene la mano y **toda** la lista
+    física 0xD47814 por `PhysicsObjects::ForEach`: lanzados, golpeados y los proxies en reposo, con y del centro > −r,
+    r = `PhysOb::Radius`; los lanzados de la mano que no estén en física, con el radio de la caja),
     `landColourOnly` (modo 3 de `u_objectLight` en `vs_object`) y `clipBelowSea`.
 - **Sombra dinámica sobre objetos**: al final de cada Draw (estático 0x80E457, animado 0x81311A, morfable 0x80E74B...),
   si el objeto tiene Flags1 0x40, para cada `ShadowInfo` con alfa ≠ 0, si+0xC = 0 (solo la mano y la criatura; barcos,
@@ -428,16 +597,86 @@ Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`.
   - openblack: `ecs::SplashWater` / `ProcessFishFarmsTurn` / `FindFishFarmAt` / `RemoveFishFarmFood` (FishShoals.cpp),
     `HandFish.cpp` (`SplashHand`, `TryPickUpFish`, `UpdateFishPickUp`), salpicadura al aterrizar los objetos lanzados en
     `UpdateThrown`. Faltan el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
+  - **Puzle de los peces** (Land 4, `PuzzleGame` 14, `fn_006D7480` rama 0x6D7FCD): cebo `{pos, radio 11, need 30,
+    500 ms}` + red `FishPlot` (ctor 0x829A30: `Data\MISC\Fishplot.l3d`, un flotador estático con luz dinámica, dibujado
+    en 7 puntos `pos + 11·(cos(i·2π/7), 0, sin(i·2π/7))`, fase 0, cierre 1) + 2 bancos de 15 (rango 7) en `pos + (±12, 0,
+    12)` con `+0x5C = cebo`. `fn_00824B90` cada fotograma: `inside = 0` en todos los cebos; por banco, `n =
+    fn_00824DA0` (0 y el banco ya no se mueve ni se dibuja si el cebo está `done`; si no, los peces visibles con
+    `dx² + dz² < r²` tras moverse, 0x824AB8), y si tiene cebo: la red bajo el agua (`fn_00829BC0`), `inside += n` y, con
+    `inside ≥ 30` y sin `done`, `timer += g_game_time_inc`; a 500 ms `done = 1`, la red se cierra y **cada uno de los 15
+    peces de cada banco de ese cebo** suelta un anillo (su posición, crecimiento 2, ritmo 1, +0x24/+0x28 = 1, celda
+    0x30, blanco; +0x1C sin escribir). Al final, el cebo con `inside < 30` vuelve el temporizador a 0 (0x824D2E): los 30
+    tienen que estar dentro a la vez 0,5 s seguidos. `fn_00829BC0` (dt = ms·0,001): si se cierra y `k ≠ 0`, `k =
+    max(k − 2·dt, 0)`, radio `1 + 10·k` y se recolocan los puntos; `fase += 2·dt`; `SetClipPlane(0, −1, 0, 0)`, por
+    flotador `SetPosition((x, y + 0,5·cos(i² + fase), z), 0, 1)` + `DrawCutByPlane` (vt+0x11C, fn_0080C050), y
+    `SetClipPlane(0, 1, 0, 0)`. Como se llama **una vez por banco**, con los dos bancos la fase avanza 4/s y la red se
+    cierra en 0,25 s, no en 0,5 (se replica). Encima del agua `fn_00829B50` (desde `fn_00824D60`, 0x5E6296): los mismos
+    flotadores con el plano por defecto. Los bancos del puzle no se pescan (`fn_00824B10` salta `+0x5C ≠ 0`).
+    - openblack: `components::FishBait` / `FishPlot` y `FishShoal::bait` (FishFarm.h), `ecs/FishPuzzle`
+      (`CreateFishPuzzle`: los bancos son `FishFarm` de reserva llena sin `Transform`), la regla en
+      `ecs::UpdateFishShoals`, `Renderer::DrawFishPlots` (`RendererFishPlot.cpp`; instancias propias, modo de corte de
+      `vs_object`): la parte de abajo en la pasada de reflejo, espejada, tras los peces; la de arriba en la principal
+      tras los anillos. La red se dibuja una vez por fotograma (el original la dibuja dos veces, una por banco, con la
+      fase de cada llamada: no se ve). El color del corte es el `+0x4C` por defecto, 0xFFFFFFFF (ctor de
+      `LH3DMeshedObject` 0x8164F7): el ctor de `FishPlot` no llama a `SetColour` (vt+0x2C); `UseDynamicLighting`
+      (vt+0x58, `fn_008168C0`) solo pone el bit 0x20 de +4, y los únicos que escriben +0x4C son los dibujos de vt+0x100,
+      +0x110, +0x130 y +0x154, por los que la red no pasa (`fn_00829B50`/`fn_00829BC0` solo llaman a vt+0x20 y
+      vt+0x11C). El lado del guion (`CREATE_WITH_ANGLE_AND_SCALE` 32/14 y `PLAYED`) está hecho: ver
+      objects-and-resources.md, "Puzle de los peces: el lado del guion". Faltan el pescador y el pergamino.
+      Gancho `OPENBLACK_TEST_FISH_PUZZLE` (openblack-internals.md).
 - **Anillos de agua** (hechos, `fn_005E5100`, tras la tierra y antes de los modelos): por anillo, edad += (int)(ms de
-  juego · ritmo), fuera a 700; media anchura max(edad·crecimiento/700, 0,0001) (z × aspecto); alfa (int)((255 − 0,364286·
+  juego · ritmo), fuera a 700; media anchura max(edad·crecimiento/700, 0,0001) (z × aspecto, +0x28); alfa (int)((255 − 0,364286·
   (edad % 700))·A) >> 8, RGB del color; giro en Y, celda & 63 de la hoja 8×8 de `smoke.raw`/`smokea.raw`, modo 13
   (SRCALPHA/ONE, sin Z); deriva con el viento si +0x1C. Chapoteo de la mano: (x, 0,2, z), crecimiento 7, ángulo al azar,
   celda 0x30, 0xB0 + tabla de luz[255]. Objeto físico en el agua (0x6466D2): (x, 0,1, z), crecimiento 2·radio, ritmo
   1/radio, celda 0x3F, blanco. openblack: `ecs/WaterRings`, `Renderer::DrawWaterRings`; gancho `OPENBLACK_TEST_SPLASH="x,z"`
-  (un chapoteo por segundo; los anillos solo avanzan con el juego en marcha).
-- **DrawCutByPlane** (animado `fn_00811C70`; en estáticos es un `ret`): plano (0, −1, 0, 0) → queda lo de **y ≤ 0**, recorte
-  por CPU por triángulo, luz 90 + N·L, color 0x303070 opaco, el modo del material. Solo lo usan los SuperVillagers con la
-  animación `M_P_Swim2`, los tiburones (`MSH_SHARK_BONED`) y el cebo del puzle de peces (Land 4). **No aplica en Land1**.
+  (un chapoteo por segundo; los anillos solo avanzan con el juego en marcha). El color +0x34 se fija **al crear** el
+  anillo (tabla[255] de ese fotograma para la mano y la cascada, tabla[200] para la lluvia): `AddWaterRing` resuelve
+  `seaLight` una vez y el dibujo usa +0x34 tal cual, así un anillo hecho al anochecer o en un relámpago no cambia.
+  Anillos de partículas (`PSys/PSysWaterRings`, llamados por las reglas de "Partículas" de arriba): explosión
+  (`UR_Explosion` 0x67E347: en agua o altitud < 4 tres anillos de crecimiento 5, 7 y 10, celda 0x30, blanco, en
+  (x, altitud, z); en tierra seca el chamuscado 0x251) y onda de partícula (`fn_006A1630`: solo en agua y a más de 2
+  (rule+0x40) en xz de la última, crecimiento 4·radio del átomo, en el suelo).
+- **DrawCutByPlane** (vt+0x11C: animado `fn_00811C70`; estático `LH3DStaticObject` vt 0x9A2974 = `fn_0080C050`, **no**
+  es un `ret`: el `ret` `fn_00815F90` es solo la vtable base 0x9A2748): plano de `fn_00822560`, (0, −1, 0, 0) → queda
+  lo de **y ≤ 0**, (0, 1, 0, 0) → y ≥ 0; recorte por CPU por triángulo (`fn_0081D2C0`), luz por vértice `fn_00858BA0`:
+  I = 255·(L·n) con la luz 0xF03140 (la de `fn_0084BA90`), I < 0 → 90, si no 90 + (255 − 90)·I >> 8
+  (`[0xC39264]` = 90); rgb = color.rgb·I >> 8, A = color.A, el especular del objeto; el modo del material. Lo usan los
+  SuperVillagers con `M_P_Swim2`, los tiburones (`MSH_SHARK_BONED`: la parte de abajo antes del mar en 0xFF303070 y la
+  de arriba en su Draw con tabla[255]) y la red del puzle de peces (Land 4, estático). **No aplica en Land1**.
+  openblack (W11): `L3DMeshSubmitDesc::cutByPlane` (−1 / 1) + `cutColour` → modo 4 de `u_objectLight` en `vs_object`
+  (la misma cuenta entera; I se guarda con `fistp` en 0x858CDF:
+  redondeo al más cercano, mitades a par, no truncado) y descarte por fragmento en `fs_object` (`u_objectClip.x` < 0 descarta
+  y > 0) en vez del recorte por CPU; `mirrorInSea` espeja la malla en y = 0 para el destino del reflejo (el culling
+  vuelve a CCW). `Renderer::DrawCutByPlane(vista, entidad, keep, argb, espejo)` y `DrawCutBelowWater` (en la pasada
+  de reflejo, antes de los peces: las entidades con `components::CutByPlane`). La parte de arriba la llama el dueño
+  del objeto en lugar de su dibujo normal: `CutByPlane::drawAbove` (los tiburones) hace que la pasada normal salte esa
+  instancia y `Renderer::DrawCutAboveWater` la dibuje con keep = 1 y `LandLightTable::GetRaw(255)`, en la
+  pasada principal tras las mallas instanciadas. `DrawCutByPlane` usa la pose de `SkeletalAnimation` si la hay.
+  Gancho: `OPENBLACK_TEST_CUT=1` con `OPENBLACK_TEST_SEA`.
+- **Tiburones** (clase `Whale`, Whale.cpp; hecho en W12, `src/ECS/Sharks.{h,cpp}`,
+  `ECS/Archetypes/SharkArchetype.*`, `ECS/Components/Shark.h`). `CREATE(Whale = 26, 5000, pos)` → `Whale::Create`
+  0x774C50 (`GMobileObjectInfo[24]`; la malla 370 de info.dat no se usa) → `CallVirtualFunctionsForCreation` 0x774CA0:
+  **escala ×2**, malla 31 `MSH_SHARK_BONED`, clip 129 `ANM_SHARK_BONED_SWIM` en bucle, +0x6C (rumbo) = 0. Sin IA: por
+  turno `Whale::Process` 0x775280 solo copia Pos en +0x2C (lo mueve el `WALK_PATH` del guion por el foco de las
+  pistas `Track21`/`Track20` de `camera.edt`: [camera-tracks.md](camera-tracks.md), `ECS/MobileWalkPaths.*`). Por fotograma `fn_00774E30` (desde `GLandscape::Draw` 0x5E4B26, antes del mar):
+  tiempo del clip += ms; rumbo = `LH3DMath::GetYAngle` 0x841290 = atan2(dz, dx) en [0, 2π) de Pos − +0x2C (el
+  anterior si no se movió); posición interpolada con la fracción del turno (cada extremo en GetAltitude + relY);
+  parte de abajo en 0xFF303070; estela `fn_00775170`; la parte de arriba es `Whale::Draw` 0x774E10 (tabla[255], plano
+  por defecto). Sin sombra, sin reflejo, no se coge.
+  Estela: un temporizador **global** 0xDCB984 para todos los tiburones (cada uno le suma los ms del fotograma): si
+  pasa de 50, `%= 50` y un anillo en (p.x, 0, p.z), crecimiento 10, aspecto 0,5, ritmo 0,5, celda 0x31, 0x90FFFFFF,
+  ángulo = rumbo, sin escribir +0x1C. p = la posición de `EBone.matrices[0]` por la matriz del hueso `EBone.bones[0]`
+  (0x77507D, `fn_007FAE60`; en la malla 31 el hueso 0 y (−0,079, −0,003, 0,304)): `L3DMesh::GetEBonePoint0`.
+  El temporizador suma ms enteros (`g_game+0x250540`, 0x775265: la diferencia de dos lecturas enteras del reloj de
+  juego, `GGame::Loop` 0x54D374); openblack lo lleva igual (reloj en double y ms enteros por fotograma, sin perder
+  tiempo a muchos fps). Espacio de `[0xC37D9C]`: el que acaba de llenar el `DrawCutByPlane` del propio tiburón
+  (`fn_00811C70` → `fn_00839980`/`fn_00839BC0` mezclan los fotogramas del clip y `fn_00839F10` multiplica cada hueso
+  por su padre y la raíz por la matriz de mundo del objeto, +0x14): **espacio de mundo**, sin cámara. openblack:
+  modelo × pose (huesos en espacio de modelo) × punto, el mismo producto. Captura `_audit/agua/re_shark.png`. Gancho `OPENBLACK_TEST_SHARK=1` (los dos tiburones de
+  `FollowUs` con sus `WALK_PATH`; captura `_audit/agua/paths_sharks1.png`).
+  Captura `_audit/agua/w12_shark_noon.png`: aleta y cola claras sobre el agua, cuerpo azul oscuro a través del mar,
+  anillos blancos saliendo del lomo hacia la cola.
   Anillos de agua (`fn_005E5100`, 1024 × 0x38 en 0xEAB7C8): viven 700, media anchura edad·crecimiento/700, alfa
   (255 − 0,364·edad)·A, `smoke.raw` modo 13 horizontal; pendientes hasta que haya nadadores o tiburones.
 
@@ -484,8 +723,66 @@ Informe completo con direcciones y pseudo-C++: `C:\Users\diewgarc\dev\tmp_dis\st
   en la pasada de huellas (`Renderer::DrawRiverFootprints`) y el canal en `RenderPass::LandAlpha`, un R8 de toda la
   isla borrado a 1 con mezcla MIN (`fs_land_alpha`, texel más cercano, cuantizado a 1/15); `fs_terrain` multiplica su
   alfa de salida por ese valor.
-- Sin analizar: el sonido `ATMOS_TYPE_RUNNING_WATER` (`audio/sfx/atmos/stream.sad`) y las cascadas (`GWaterfall`,
-  `waterfall3.l3d`).
+- Sin analizar: el sonido `ATMOS_TYPE_RUNNING_WATER` (`audio/sfx/atmos/stream.sad`). Las cascadas: ver la sección
+  siguiente (`GWaterfall` no dibuja nada; la de `waterfall3.l3d` es `DesignedWaterFall`, solo en Land 3).
+
+## Decorado fijo por tierra: cascada de Land 3, arca y dinosaurio de Land 4 (hecho, original)
+
+Informes: `tmp_dis\agua\sealife_features.md` §2.6 y §3, `tmp_dis\agua\audio.md` §6.
+
+- `GWaterfall` (`CREATE_WATERFALL`, comando 68 de Land, 0x7175D1; ctor 0x734130, vtable 0x8EC14C) es un objeto
+  **vacío**: `CallVirtualFunctionsForCreation` 0x7341B0 = `ret 4`, no dibuja ni suena, y ninguna tierra lo usa.
+- `DesignedWaterFall` 0x5E3770 (LandFeature.cpp), cada fotograma desde fn_005E5CD0 (0x5E5CDA), según el número de
+  tierra (`SET_LAND_NUMBER`, g_game+0x205A08). Al cambiar de número (última tierra en 0xBF34E4, 74 al arrancar) borra
+  los dos objetos (0xD1A31C / 0xD1A324), el `ScriptMarker` 0xD1A32C, su `SoundTag` 0xD1A330 (ToBeDeleted: el bucle
+  termina la pasada) y suelta las mallas. No son objetos de juego: `LH3DObject` sueltos (sin sombra, sin celda).
+  - **Land 3**: `Data\MISC\waterfall3.l3d` (`LH3DObject::Create(0)`, estático) en (3059,23; **0**; 3145,33), ángulo
+    4,7, escala 1, luz dinámica, +0x10 = 1. Cada fotograma `V = V − 0,5·dt` y `V −= (int)V` (queda en −1..0) con
+    `SetUVOffset(0, V)` (vt+0xE8 fn_007F9B70: +0x68/+0x6C y bandera 0x400); dt = `g_game_time_inc`·0,001. Cada 0,7 s
+    de juego (temporizador 0xD1A338, se reinicia aunque el cupo esté lleno) un anillo en (3018,8; 0,2; 3130,15):
+    crecimiento 30, +0x24 = 1, aspecto 1, ritmo 0,3, celda 0x30, ángulo 0, color `0x80 << 24 | tabla[255].rgb`; el
+    campo de deriva +0x1C no se escribe. `SoundTag::Create(marcador, 12 G_WaterFlow, false, modo 2, bucles −1, 0,
+    3D, InGame, 0)` (0x5E3921).
+  - **Land 4**: `Data\MISC\arche.l3d` (Create(1)) en (3538, altitud, 2129), ángulo 8,9728, escala 1,1, +0x10 = 10,
+    con el mismo SoundTag de `G_WaterFlow` en (3538, 0, 2129); `Data\MISC\dinosaur.l3d` en (2690, altitud, 2590)
+    (≈ 138,7: tierra alta), ángulo 1,57, escala 1, +0x10 = 10, con su huella de terreno (fn_0081E9E0, la lista de
+    huellas de los edificios). `dinosaur.l3d` es la única de las tres con `ContainsLandscapeFeature` (0x8000);
+    `waterfall3.l3d` trae un bloque de huella pero sin esa bandera y nadie la estampa.
+  - El marcador se crea con `MapCoords(LHPoint)` (0x603340 guarda y − altitud) y `Get3DSoundPos` 0x56FE20 le vuelve a
+    sumar la altitud: el sonido sale en y = 0 exacto. `G_WaterFlow` (InGame 12; el banco lo describe como "Citadel
+    waterfall", pero solo lo usan esta cascada y el arca): volumen 50, bucle, min 60, **max 110**, escala 6, modo 2.
+- openblack: `ECS/DesignedScenery` (`designed_scenery::Update` cada fotograma tras los anillos, `OnLoadMap` antes del
+  reset del registro): entidades `Transform` + `Mesh` (mallas `misc/<fichero>` cargadas al usarse), `UvScroll` en la
+  cascada, `AddWaterRing` con `seaLight`. La huella del dinosaurio sale sola en la pasada de huellas (malla con
+  `ContainsLandscapeFeature`). Sonido: `Audio/SoundTags` (abajo). El +0x10 de los objetos (float 1 / 10) es el factor k de
+  distancia del LOD de `fn_00815A70` (vt+0x100): D = min((k + 1)·[0xC37EA0]·[0xC3813C], 100000) (0xC3813C lo mueve
+  `LevelOfDetail`), LOD 1/2/3/4 por debajo de 23,33·D / 66,67·D / 86,67·D / más allá (`g_last_distance` 0xEA1AF4) y
+  cada submalla se dibuja si los bits 29..31 de sus banderas contienen el LOD: las tres mallas los tienen todos
+  (0xE0000800), así que k no cambia nada en pantalla y no se guarda. Diferencias: la luz dinámica es la de todos los objetos; al cargar
+  un mapa el registro se borra, así que el bucle se corta en seco en vez de acabar la pasada.
+- **Qué se desplaza (hecho)**: la bandera 0x400 no la lee nadie. El `Draw` estático 0x80DB30 lee U y V con vt+0x8 /
+  vt+0xC (0x80DE86) y los deja en 0xECA62C / 0xECA630 (0xECA628 = 1 si no son los dos 0); el envío de triángulos por
+  defecto (`[0xC386EC]` = `LH3DRender::DrawTriangle` 0x82F810) los suma a las UV **salvo si el byte +5 del material
+  tiene el bit 0x10** (0x82F8CC). En `waterfall3.l3d` la roca (submalla 0, `Textured`, +5 = 0x14) lo tiene y el agua
+  (submalla 1, `TexturedChroma`, 0x04) no: **solo corre el agua**. (Otras rutas, `fn_0082FD70` de `fn_00812170` /
+  `fn_00817930` y `fn_00884750`, lo suman siempre; el estático no pasa por ellas.) En `AllMeshes.g3d` solo las
+  mallas `S_PHILE*` tienen ese bit, ninguna pila de comida. openblack: `L3DSubMesh::Primitive::uvOffset` y
+  `u_window.w` en `vs_object`; captura `_audit/agua/re_waterfall_diff.png` (diferencia de dos fotogramas: solo cambia
+  la lámina de agua, y las palmas por el viento).
+- **Anillos del pie**: se dibujan con `LH3DSprite::Draw` en modo 13 (`fn_0082ECD0`: mezcla SRCALPHA/ONE, sin prueba
+  de alfa, ZWRITEENABLE 0 y sin tocar ZFUNC): con prueba de Z contra la tierra, como en openblack. Los anillos del pie quedan casi enterrados: el suelo está a 0 en el punto y
+  sube a 1,7 en 7 unidades, así que con la prueba de Z solo se ve un brillo tenue.
+- **SoundTags** (`Audio/SoundTags`, SoundTag.cpp 0x71E300..0x71ED90): etiqueta {cosa o punto fijo, desplazamiento,
+  muestra, bucle, activa}. `ProcessTurn` = `SoundTag::ProcessSoundTags` 0x71E5F0 una vez por turno (GGame::EndTurn):
+  si la cosa ya no existe → ToBeDeleted; si está activa, `fn_0071E680` llama a `GAudio::PlaySoundEffect` 0x42A100 con
+  **la propia etiqueta como dueño** del canal (+0x20), el punto (`Get3DSoundPos` de la cosa), el desplazamiento +0x1C,
+  muestra +0x28, seguir +0x30 (solo con cosa; `false` en las del decorado), modo +0x38, bucles +0x3C, is3D +0x44 y su
+  banco (`SoundTag::Set` 0x71E4F0); 0x429E30 solo la arranca con la cámara a ≤ maxDist (.sad +0x26C) del punto y el
+  modo 2 deja el canal que ya suena. En openblack va por `sample_play` (dueño `Owner::Tag`), así cuenta en los 16
+  canales de LHaudio; `IsPlaying` = `LHSampleIsPlaying` (fn_0042A2D0) y `ReleaseLoop` = 0x42A310. `SetActive(0)` corta
+  en seco (LHSampleStop); `Delete` suelta el bucle (LHSampleReleaseLoop) y la etiqueta muere al terminar la pasada.
+  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Es la generalización de la
+  idea de `LanternSounds` de la rama principal (farolas, muestra 0x93); esa todavía no usa este módulo.
 
 ## Texto: fuentes del original y el mensaje de la mano (hecho)
 

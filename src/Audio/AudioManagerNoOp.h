@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <entt/entity/entity.hpp>
+
 #include "AudioManagerInterface.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -50,6 +52,7 @@ public:
 		return result;
 	}
 	void PlaySound([[maybe_unused]] entt::id_type id, [[maybe_unused]] PlayType type) override {}
+	entt::entity PlayAt([[maybe_unused]] entt::id_type id, [[maybe_unused]] glm::vec3 position) override { return entt::null; }
 	void SetGlobalVolume([[maybe_unused]] float volume) override {}
 	void SetSfxVolume([[maybe_unused]] float volume) override {}
 	void SetMusicVolume([[maybe_unused]] float volume) override {}
@@ -58,6 +61,7 @@ public:
 	[[nodiscard]] float GetMusicVolume() override { return 0.0f; }
 	void Stop() override {}
 	void Update() override {}
+	void UpdateListener() override {}
 	void CreateSoundGroup([[maybe_unused]] const std::string& name) override {}
 	void AddMusicEntry([[maybe_unused]] const std::string& name) override {}
 	[[nodiscard]] const std::vector<std::string>& GetMusicTracks() const override

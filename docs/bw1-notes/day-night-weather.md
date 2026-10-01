@@ -96,7 +96,8 @@ original, hasta el sexto decimal.
   - Sprites aditivos: dos llamas `S_Fire` (fotogramas 0..31 al revés en 700 ms, semitamaño 1 ± 0,1) y un halo
     `smoke` fotograma 56 (semitamaño 3 ± 0,1). Color 0xF38421 con alfa trunc(I/2).
   - Aproximado: el shader de sprites solo usa la máscara alfa, sin el RGB de la textura.
-  - Falta el quad aditivo de la mano sobre el agua (±60, `atmos.raw`) y las dos luces de la puerta nórdica
+  - El quad aditivo de la mano sobre el agua (±60, `atmos.raw`) está hecho (W9, `src/3D/HandWaterGlow.*`, ver
+    [rendering.md](rendering.md)). Faltan las dos luces de la puerta nórdica
     (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta).
   - Informe: `night_visuals.txt`, secciones 3 y 5.
 - **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`; informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
@@ -143,8 +144,9 @@ original, hasta el sexto decimal.
   - Dibujo: órbita de radio 8 más un temblor de radio 1. Sprite 37 de `S_SpriteSheet3`, semitamaño 0,3, alfa 190,
     que se desvanece entre 100 y 300 m.
   - Aproximado: la búsqueda en espiral con un 50 % por celda se reduce a "la más cercana que pase una moneda".
-- **Sonido**: `GSoundMap` mezcla el ambiente de día y el de noche según max(0, tipo de cielo − 1); los sonidos de las
-  casas se eligen por el tipo de cielo. Pendiente.
+- **Sonido**: `GSoundMap` mezcla el ambiente de día y el de noche según max(0, tipo de cielo − 1) (hecho, ver
+  [objects-and-resources.md](objects-and-resources.md#sonidos-informe-tmp_dissoundnotestxt), "Ambiente"); los
+  sonidos de las casas se eligen por el tipo de cielo (pendiente).
 - Solo jugabilidad, fuera por ahora: los leones y los lobos van a su guarida (22 / 23 h), los niños salen de la
   guardería, el deseo de comida y los deseos de la criatura.
 
@@ -154,7 +156,13 @@ El tiempo del juego (climas, tormentas, lluvia y su dibujo) está portado y desc
 [Tiempo y clima](#tiempo-y-clima-m6a-srcecsweather). Aquí quedan las notas del cielo de la primera lectura.
 
 - Nubes del cielo (`CloudInSky`): hechas, ver [rendering.md](rendering.md) (colocación, color por hora y alineación,
-  alineación del cielo suavizada 0,001/ms). Lo que depende del tiempo va por `Clouds::WeatherOvercastAtCamera()` (hoy 0).
+  alineación del cielo suavizada 0,001/ms). Lo que depende del tiempo va por `Clouds::WeatherOvercastAtCamera()`
+  (byte 3 de `weather::atmos::GetWeatherSmooth` en la cámara × 0,01; 0 con el cielo despejado).
+
+Agua y clima: **no hay suelo mojado** en el original; el mar solo cambia con el tiempo por el tope de nublado de la
+tabla de luz y el destello del relámpago (`LandLightTable::Build`). El nublado tiene una sola fuente,
+`Clouds::WeatherOvercastAtCamera()` (lee `weather::atmos::GetWeatherSmooth` en la cámara); `3D/SkyWeather` solo da el destello (`weather::LightningFlashAtCamera` de
+`ECS/Weather/LightningFlash` en la posición de la cámara).
 - **Nubes de tormenta** (sin hacer; informe `tmp_dis\daynight\gweather_drawclouds.txt`,
   `tmp_dis\mapa\clouds_placement.md`): `GClimate::CreateStorm` 0x772E00 → `GWeather` 0x83F590 → `DrawClouds`
   0x83FC90, un grupo de hasta 16 bolas (8 por defecto, `CHANGE_CLOUD_PROPERTIES` cambia número, negrura y altura) en

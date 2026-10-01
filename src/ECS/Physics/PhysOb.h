@@ -132,10 +132,18 @@ public:
 	/// Sets the angular velocity (world) through the inertia tensor.
 	void SetAngularVelocity(glm::vec3 omega);
 
+	/// fn_007FDD60 (PhysicsObject::RaiseUntilNotIntersecting 0x644B79 / 0x644B8A): the largest dot(q - hit, direction)
+	/// over this body's vertices q whose ray back along -direction meets a face of `other` (fn_007FC310), 0 if none.
+	/// With direction (0, -1, 0) it is how far this body must go up for its vertices to leave `other` through its top.
+	[[nodiscard]] float PenetrationAlong(const PhysOb& other, glm::vec3 direction) const;
+
 private:
 	void SetUpMoi();
 	[[nodiscard]] glm::vec3 BodyOmega() const;
 	bool RaySegmentVsFaces(glm::vec3 point, glm::vec3 direction, glm::vec3& hit, glm::vec3& normal) const;
+	/// fn_007FC310: the face entry nearest to the point on the ray point + t direction, t < 0 (unbounded), among the
+	/// faces facing against the direction (dot(n, direction) < -0.0001 with n = (v1 - v0) x (v2 - v0), not unit).
+	bool RayBehindVsFaces(glm::vec3 point, glm::vec3 direction, glm::vec3& hit) const;
 
 	float _scale {1.0f};
 	glm::mat3 _rotation {1.0f}; ///< columns = body axes in the world

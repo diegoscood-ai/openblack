@@ -25,8 +25,22 @@ namespace openblack::ecs
 /// Villager::GetAnimId (0x750110): the clip for the villager's current state (an ANM_ index; -4 = not drawn)
 int32_t VillagerAnimId(entt::entity villager);
 
-/// Living::SetTopState's clip part (0x5F28E0): the previous state's out-of clip, else the new state's clip and then
-/// its into clip. Called when the top state changes.
+/// Villager::CallOutofAnimationFunction (0x756620), called before the new state's entry (Living::SetTopState
+/// 0x5F2900): -1 if `next` has no out-of clip (state table file 0xF0, 0xDB9F68), else the current TOP's into / out-of
+/// function with (0, next); a clip sets the flags 0x1800 (Villager +0xE1 |= 0x18, here transitionFlags).
+int32_t VillagerCallOutOfAnimation(entt::entity villager, VillagerStates next);
+
+/// The tail of Living::SetTopState (0x5F2917) and of Living::SetCurrentAndDestinationState (0x5F29BB): the state's
+/// speed (Villager::SetStateSpeed, called with no test; its skips are its own, see SetVillagerStateSpeed), then the
+/// out-of clip if there was one, else SetStateAnim (0x5ECB10) and CallIntoAnimationFunction (0x756590: the TOP's
+/// function with (1, entered); a clip sets 0x800 and clears 0x1000). `entered` is SetTopState's s (0x5F2947) or
+/// SetCurrentAndDestinationState's destination d, not its current state c (0x5F29EB pushes ebx = arg 2); the
+/// out-of clip of SetCurrentAndDestinationState is also VillagerCallOutOfAnimation(villager, d) (0x5F299C).
+void VillagerApplyStateClips(entt::entity villager, VillagerStates entered, int32_t out);
+
+/// Both halves at once, for the changes that bypass the exit and entry functions (LivingActionSystem::VillagerSetState
+/// with skipTransition: the hand, the physics, the animals, LANDED). `previous` is the TOP
+/// before the change; the new TOP is already set.
 void OnVillagerStateChanged(entt::entity villager, VillagerStates previous, VillagerStates next);
 
 /// Villager::ProcessState (0x74FF70): while an into / out-of clip plays the state logic waits. Returns true if it must

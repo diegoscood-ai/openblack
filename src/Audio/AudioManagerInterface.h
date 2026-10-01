@@ -30,6 +30,8 @@ class AudioManagerInterface
 public:
 	virtual void Stop() = 0;
 	virtual void Update() = 0;
+	/// LHListenerUpdate from fn_004270D0, once a game turn: QMixer's listener goes to the camera (position, forward, up)
+	virtual void UpdateListener() = 0;
 	virtual BufferId CreateBuffer(ChannelLayout layout, const std::vector<int16_t>& buffer, int sampleRate) = 0;
 	virtual void CreateBuffer(Sound& sound) = 0;
 	virtual void PlayEmitter(entt::entity emitter) = 0;
@@ -52,6 +54,10 @@ public:
 	virtual void PlayMusic(const std::string& packPath, PlayType type) = 0;
 	virtual void StopMusic() = 0;
 	virtual void PlaySound(entt::id_type id, PlayType type) = 0;
+	/// GAudio::PlaySoundEffect 0x429E30 with a 3D position: not started when the camera is farther than the sample's
+	/// max distance (.sad +0x26C, or the mapping max when that is 0); otherwise a one-shot world emitter at `position`.
+	/// Returns the emitter, entt::null when culled.
+	virtual entt::entity PlayAt(entt::id_type id, glm::vec3 position) = 0;
 	virtual const Sound& GetSound(entt::id_type id) = 0;
 	virtual void CreateSoundGroup(const std::string& name) = 0;
 	virtual void AddToSoundGroup(const std::string& name, entt::id_type id) = 0;

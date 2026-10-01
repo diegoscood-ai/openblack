@@ -1074,6 +1074,8 @@ void openblack::psys::RegisterCoreModifiers()
 	RegisterModifier("ForceConstantAltitude", altitude);
 	RegisterModifier("UR_SphereSurfaceTracer", MakeModifierOf<SphereSurfaceTracer>);
 	RegisterModifier("UR_OrientSpriteWithRandomAngle", MakeModifierOf<RandomAngle>);
+	// UR_Explosion is Rules/Explosion.cpp's (RegisterExplosionRules; its water rings are PSysWaterRings'). The
+	// UpdateRuleGravityWithFloor of the water work is merged into the fireball one (Rules/Fireball.cpp, which registers it)
 }
 
 bool Modifier::ModifyCollection(Effect& effect, Collection& collection, Collection::Slot& slot) const

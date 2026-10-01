@@ -24,6 +24,7 @@
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/FishShoals.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "Locator.h"
@@ -36,7 +37,6 @@ entt::entity FishFarmArchetype::Create(const glm::vec3& position, uint32_t info)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& island = Locator::terrainSystem::value();
-	auto& rng = Locator::rng::value();
 
 	const float y = island.GetHeightAt(glm::vec2(position.x, position.z));
 	const auto entity = registry.Create();
@@ -75,20 +75,7 @@ entt::entity FishFarmArchetype::Create(const glm::vec3& position, uint32_t info)
 			if (++seaCount[i] == 2)
 			{
 				FishShoal shoal;
-				shoal.centre = glm::vec3(point.x, y, point.y);
-				shoal.target = shoal.centre;
-				// fn_00824740
-				for (auto& fish : shoal.fish)
-				{
-					fish.halfSize = rng.NextValue(0.8f, 1.2f);
-					fish.position = shoal.centre + glm::vec3(rng.NextValue(-5.0f, 5.0f), rng.NextValue(-1.0f, 0.0f),
-					                                         rng.NextValue(-5.0f, 5.0f));
-					fish.heading = rng.NextValue(-glm::pi<float>(), glm::pi<float>());
-					fish.speed = rng.NextValue(0.5f, 1.5f);
-					fish.turnRate = fish.speed * (1.0f + rng.NextValue(-0.1f, 0.1f)) * 0.6283f;
-					fish.frame = 0.0f;
-					fish.fleeTime = 0.0f;
-				}
+				ecs::InitFishShoal(shoal, glm::vec3(point.x, y, point.y)); // fn_00824740
 				farm.shoal = shoal;
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fish farm at ({}, {}): shoal at ({}, {}, {})", position.x, position.z,
 				                    shoal.centre.x, shoal.centre.y, shoal.centre.z);

@@ -1,0 +1,227 @@
+/*******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include "Sharks.h"
+
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+
+#include <glm/gtc/constants.hpp>
+#include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec2.hpp>
+#include <spdlog/spdlog.h>
+
+#include "3D/CameraTracks.h"
+#include "3D/L3DMesh.h"
+#include "3D/LandIslandInterface.h"
+#include "ECS/Archetypes/SharkArchetype.h"
+#include "ECS/Components/DrawPosition.h"
+#include "ECS/Components/Mesh.h"
+#include "ECS/Components/Shark.h"
+#include "ECS/Components/SkeletalAnimation.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/MobileWalkPaths.h"
+#include "ECS/Registry.h"
+#include "ECS/WaterRings.h"
+#include "Locator.h"
+#include "Resources/ResourceManager.h"
+#include "Resources/ResourcesInterface.h"
+
+namespace openblack::ecs
+{
+using components::DrawPosition;
+using components::Shark;
+using components::Transform;
+
+namespace
+{
+/// 0xDCB984: one int timer for all the sharks, each one adds the frame's whole milliseconds to it (two sharks share
+/// the rings)
+int32_t s_WakeTimer = 0;
+/// The game clock in milliseconds, so that the frame's whole milliseconds are the difference of two whole clock
+/// readings like g_game+0x250540 (GGame::Loop 0x54D374: the integer game time now minus the last one): no time is
+/// lost at high frame rates
+double s_Clock = 0.0;
+
+/// fn_00775170(point): a ring at (point.x, 0, point.z) once the timer passes 50 ms (cmp 0x32 / jle, then idiv: %= 50)
+void EmitWakeRing(const glm::vec3& point, float heading, int32_t frameMilliseconds)
+{
+	if (s_WakeTimer > 50)
+	{
+		s_WakeTimer %= 50;
+		WaterRing ring;
+		ring.position = glm::vec3(point.x, 0.0f, point.z);
+		ring.age = 0;
+		ring.growth = 10.0f;
+		ring.angle = heading;
+		ring.aspect = 0.5f;
+		ring.rate = 0.5f;
+		ring.cell = 0x31;
+		ring.argb = 0x90FFFFFFu;
+		// +0x24 = 1 is the pool's flag; +0x1C (the wind drift) is left as the slot had it (WaterRing: not kept).
+		// A full pool (1024) makes no ring, the timer is reset all the same.
+		AddWaterRing(ring);
+	}
+	// 0x775265: += g_game+0x250540, the frame's whole milliseconds
+	s_WakeTimer += frameMilliseconds;
+}
+} // namespace
+
+void ProcessSharksTurn()
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	registry.Each<Shark, const Transform>([](Shark& shark, const Transform& transform) {
+		// Whale::Process 0x775280: +0x2C = Pos
+		shark.turnStart = transform.position;
+	});
+	// later in GGame::ProcessTurn, GlobalGameLists::Process 0x5913ED: MoveAlongPath of the WALK_PATH list (the sharks
+	// are the only MobileObjects the original scripts walk), before GScript::Process 0x54E693 runs the scripts
+	ProcessMobileWalkPaths();
+}
+
+void UpdateSharks(float turnFraction, float gameMilliseconds)
+{
+	if (!Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& island = Locator::terrainSystem::value();
+	const auto& meshes = Locator::resources::value().GetMeshes();
+	const float f = turnFraction;
+	const double clock = s_Clock + static_cast<double>(gameMilliseconds);
+	const auto frameMilliseconds = static_cast<int32_t>(std::floor(clock) - std::floor(s_Clock));
+	s_Clock = std::fmod(clock, 1000.0 * 3600.0); // wrapped at a whole hour, so the difference stays exact
+	std::vector<entt::entity> undrawn;
+	registry.Each<Shark, Transform>([&](entt::entity entity, Shark& shark, Transform& transform) {
+		const auto pos = transform.position;
+		const auto prev = shark.turnStart;
+		// 0x774E87: the heading of the move (pos - prevPos) * 10 / 65536 with y = 0; the last one while it stands still
+		if (pos.x != prev.x || pos.z != prev.z)
+		{
+			float heading = std::atan2(pos.z - prev.z, pos.x - prev.x); // LH3DMath::GetYAngle 0x841290
+			if (heading < 0.0f)
+			{
+				heading += glm::two_pi<float>();
+			}
+			shark.heading = heading;
+		}
+		// 0x774EFB..: between the start and the end of the turn, each end at GetAltitude + relY
+		const float y0 = island.GetHeightAt(glm::vec2(prev.x, prev.z));
+		const float y1 = island.GetHeightAt(glm::vec2(pos.x, pos.z));
+		const glm::vec3 drawn((1.0f - f) * prev.x + f * pos.x, (1.0f - f) * y0 + f * y1, (1.0f - f) * prev.z + f * pos.z);
+		// obj3d->SetPosition(P, heading, GetScale()) (vt+0x20): RotateY(heading), the same turn as at the creation
+		transform.rotation = glm::mat3(glm::eulerAngleY(-shark.heading));
+		if (auto* draw = registry.TryGet<DrawPosition>(entity); draw != nullptr)
+		{
+			draw->position = drawn;
+			draw->rotation = transform.rotation;
+			draw->shearX = 0.0f;
+			draw->shearZ = 0.0f;
+		}
+		else
+		{
+			undrawn.push_back(entity);
+		}
+
+		// the wake: the translation of [0xC37D9C][bones[0]] x EBone matrices[0] (0x77507D-0x7750A3, fn_007FAE60). The
+		// array is the one the shark's own DrawCutByPlane (fn_00811C70) just filled: fn_00839980 / fn_00839BC0 blend the
+		// clip's frames and fn_00839F10 multiplies each bone by its parent, the root by the object's world matrix (+0x14:
+		// SetPosition's position, heading and scale), so it is world space; no camera matrix is involved. Here: model x
+		// this frame's pose (model space bones) x the point, the same product.
+		const auto* mesh = registry.TryGet<const components::Mesh>(entity);
+		if (mesh == nullptr || !meshes.Contains(mesh->id))
+		{
+			return;
+		}
+		const auto l3d = meshes.Handle(mesh->id);
+		const auto& point = l3d->GetEBonePoint0();
+		if (!point.has_value())
+		{
+			return;
+		}
+		const auto* animation = registry.TryGet<const components::SkeletalAnimation>(entity);
+		const auto& bones = animation != nullptr && animation->pose.size() == l3d->GetBoneMatrices().size()
+		                        ? animation->pose
+		                        : l3d->GetBoneMatrices();
+		const auto bone = point->first < bones.size() ? bones[point->first] : glm::mat4(1.0f);
+		const auto model = glm::translate(drawn) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		EmitWakeRing(glm::vec3(model * bone * glm::vec4(point->second, 1.0f)), shark.heading, frameMilliseconds);
+	});
+	for (const auto entity : undrawn)
+	{
+		const auto& transform = registry.Get<const Transform>(entity);
+		const auto position = transform.position;
+		const auto rotation = transform.rotation;
+		auto& draw = registry.Assign<DrawPosition>(entity);
+		draw.turnStart = position;
+		draw.started = true;
+		draw.position = position;
+		draw.rotation = rotation;
+	}
+}
+
+void RunSharkDebugHook()
+{
+	const char* test = std::getenv("OPENBLACK_TEST_SHARK");
+	if (test == nullptr || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	struct Walk
+	{
+		int32_t track;
+		int32_t camera;
+		int forward;
+		float from;
+		float to;
+	};
+	// Land 1, FollowUs (challenge.chl): Shark1 = CREATE(Whale, 5000, CONVERT_CAMERA_FOCUS(221)) walks WALK_PATH(Shark1,
+	// forward, 21, 0.0, 1.0), Shark2 at CONVERT_CAMERA_FOCUS(230) walks track 20
+	std::vector<Walk> walks;
+	Walk one {0, 0, 1, 0.0f, 1.0f};
+	if (std::sscanf(test, "%d,%d,%d,%f,%f", &one.track, &one.camera, &one.forward, &one.from, &one.to) >= 2)
+	{
+		walks.push_back(one);
+	}
+	else
+	{
+		walks.push_back({21, 221, 1, 0.0f, 1.0f});
+		walks.push_back({20, 230, 1, 0.0f, 1.0f});
+	}
+	const auto& island = Locator::terrainSystem::value();
+	for (const auto& walk : walks)
+	{
+		const auto camera = LoadCameraBin(walk.camera);
+		if (!camera.has_value())
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("game"), "Shark test: no Cam{} in camera.edt", walk.camera);
+			continue;
+		}
+		// CREATE(Marker, 0, focus), GET_POSITION of it, CREATE(Whale, 5000, that): at GetAltitude there, angle 0, scale 1
+		const auto& focus = camera->focus;
+		const glm::vec3 at(focus.x, island.GetHeightAt(glm::vec2(focus.x, focus.z)), focus.z);
+		const auto entity = archetypes::SharkArchetype::Create(at, 0.0f, 1.0f);
+		const bool started = StartMobileWalkPath(entity, walk.track, walk.forward != 0, walk.from, walk.to);
+		SPDLOG_LOGGER_INFO(spdlog::get("game"),
+		                   "Shark test: shark {} at Cam{} focus ({:.2f}, {:.2f}, {:.2f}), WALK_PATH track {} forward {} from {} "
+		                   "to {}{}",
+		                   static_cast<uint32_t>(entity), walk.camera, at.x, at.y, at.z, walk.track, walk.forward, walk.from,
+		                   walk.to, started ? "" : ": cannot load the track");
+	}
+}
+
+} // namespace openblack::ecs

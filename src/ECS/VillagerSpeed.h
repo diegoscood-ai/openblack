@@ -29,7 +29,8 @@ const GVillagerInfo* VillagerInfoOf(entt::entity villager);
 
 /// Villager::SetStateSpeed (0x753760) + SetSpeed (0x750ED0): on every top state change, from the speed group entry of
 /// the final state (info.dat villagerStateTable speed index), the wounded and town terms, then the per-villager factor
-/// (creation index), age, life and sex. Sets WallHug::speed (metres per turn).
+/// (creation index), age, life and sex. Sets WallHug::speed (metres per turn). Nothing changes for a villager controlled
+/// by a script (+0x25 & 4, 0x753766) or dancing (Living::IsDancing 0x5ECC10, 0x753772; (aproximado) as TOP == IN_DANCE).
 void SetVillagerStateSpeed(entt::entity villager);
 
 /// Villager::SetAge (0x7528C0) scale part: InitialiseScale (0x74FB80) + SetScaleForAge (0x752A90). Adults end in

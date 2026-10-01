@@ -127,6 +127,11 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		}
 	}
 
+	if (const auto& eBone = l3d.GetEBone(); eBone.has_value() && eBone->bones[0] >= 0)
+	{
+		const auto& m = eBone->matrices[0];
+		_eBonePoint0 = std::make_pair(static_cast<uint32_t>(eBone->bones[0]), glm::vec3(m[9], m[10], m[11]));
+	}
 	// fn_0081FFF0: the pair (0, 1) always, the pair (2, 3) when bone[2] != -1
 	if (const auto& eBone = l3d.GetEBone(); eBone.has_value() && eBone->bones[0] >= 0 && eBone->bones[1] >= 0)
 	{

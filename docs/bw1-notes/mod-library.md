@@ -364,7 +364,8 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
   celdas de costa (`coastLine`, altitud 2-3 en Land1) se dibujan con alfa 0,5 sobre el mar y las de agua con alfa 0,
   así que nada crece en una celda con alguna esquina de agua o costa.
 - `near = lake, stream, sea` + `water_distance` limitan una planta a esa distancia de agua (mapa de distancias 3-4
-  chamfer a 5 unidades, `FoliageWaterMap`): lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1:
+  chamfer a 5 unidades, `FoliageWaterMap`): celda de agua = `sea_cells::IsWater` (bit 0x10; una celda sin bloque
+  también es agua, MapCoords::IsWater 0x6035B0) o `fullWater`; lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1:
   una charca de 10 celdas en x 2130-2160, z 2400-2450 y una celda suelta); río = segmentos entre los puntos de cada
   `Stream` (Land1: 11 ríos, 187 puntos). En B&W1 no hay agua a otra altura: los ríos son esos caminos (openblack los
   dibuja como el original desde 101dd844, `ECS/Rivers`, ver [rendering.md](rendering.md#ríos)).
@@ -625,6 +626,9 @@ los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luci
 - Nivel 3: mods externos (Lua o DLL) sobre esta misma API.
 - `world.crops`: sin el mod los campos se quedan vacíos hasta que openblack tenga oficios (granjeros).
 - HD-Tweaks: lo que queda por comprobar está en [mods.md](mods.md#mod-hd-tweaks).
+- Revisión de todos los mods tras la base 0e10b735 (2026-10-01): todos compilan, leen su `settings.cfg` y funcionan
+  encendidos y apagados; `world.foliage` lee el agua con `sea_cells::IsWater`. `world.ground-statics` no se vio
+  bajar nada: en los sitios mirados de Land 1 (1327,2432 y 1342,2406) ningún estático flota con el AllMeshes.g3d actual.
 
 ## Ganchos de prueba
 

@@ -888,7 +888,7 @@ void StartCameraControl() // 030 START_CAMERA_CONTROL
 	if (!insideCitadel)
 	{
 		const auto& camera = Locator::camera::value();
-		cameraTaken = script_camera::Begin(camera.GetOrigin(), camera.GetFocus());
+		cameraTaken = script_camera::BeginFrom(camera.GetOriginZoomer(), camera.GetFocusZoomer());
 	}
 	const bool granted =
 	    help::script_control::StartCameraControl(cameraControl, ScriptVm(), insideCitadel, cameraTaken);

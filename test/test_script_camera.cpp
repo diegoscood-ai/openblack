@@ -156,7 +156,7 @@ TEST(ScriptCamera, DiscOfTheWorld)
 	script_camera::MovePosition({2560 + 7000, 50, 2560}, 1.0f);
 	Frames(1, 0.01f);
 	// 0x44222C..0x44232A: the destination pulled back to d / (|d| 0.000285796) + centre in 3 s
-	const auto destination = script_camera::Get().position.Destination();
+	const auto destination = script_camera::Get().position.GetDestination();
 	const float d = std::sqrt(7000.0f * 7000.0f + 50.0f * 50.0f);
 	EXPECT_NEAR(destination.x, 2560.0f + 7000.0f / (d * script_camera::k_DiscScale), 0.05f);
 	EXPECT_NEAR(destination.y, 50.0f / (d * script_camera::k_DiscScale), 0.01f);
@@ -368,12 +368,12 @@ TEST(ScriptCameraFollow, PlaceNowThenFollow)
 	EXPECT_FLOAT_EQ(state.modeSeconds, 2.0f); // 0x44C141
 	EXPECT_TRUE(script_camera::ScriptArrived());
 	// the focus follows the position thing (GetFocusThing 0x4611F0), on the MapCoords point
-	ExpectNear(state.focus.Value(), {300, 11, 300});
-	ExpectNear(state.position.Value(), script_camera::PointFromDistanceHeadingAndPitch({300, 11, 300}, 16.0f, 0.0f, pitch));
+	ExpectNear(state.focus.GetCurrentValue(), {300, 11, 300});
+	ExpectNear(state.position.GetCurrentValue(), script_camera::PointFromDistanceHeadingAndPitch({300, 11, 300}, 16.0f, 0.0f, pitch));
 	// then every frame both head for the Game3DObject's point in T = 0.2 s (2.1 s after the mode change)
 	script_camera::Frame(0.1f, 0, 0.0f);
-	ExpectNear(state.focus.Destination(), {305, 11, 300});
-	ExpectNear(state.position.Destination(),
+	ExpectNear(state.focus.GetDestination(), {305, 11, 300});
+	ExpectNear(state.position.GetDestination(),
 	           script_camera::PointFromDistanceHeadingAndPitch({305, 11, 300}, 16.0f, 0.0f, pitch));
 	EXPECT_FLOAT_EQ(state.focus.axis[0].duration, 0.2f);
 	EXPECT_FALSE(script_camera::ScriptArrived());
@@ -387,7 +387,7 @@ TEST(ScriptCameraFollow, FollowStartsSlower)
 	script_camera::FocusFollow(k_Thing);
 	script_camera::Frame(0.1f, 0, 0.0f); // 0.1 s after the mode change: (0.05 x -1 + 2) x 0.2
 	EXPECT_FLOAT_EQ(script_camera::Get().focus.axis[0].duration, 0.39f);
-	EXPECT_EQ(script_camera::Get().position.Destination(), glm::vec3(100, 50, 100)); // no position thing
+	EXPECT_EQ(script_camera::Get().position.GetDestination(), glm::vec3(100, 50, 100)); // no position thing
 }
 
 TEST(ScriptCameraFollow, CameraPropertiesWithoutSpeedPlaceAtOnce)
@@ -403,9 +403,9 @@ TEST(ScriptCameraFollow, CameraPropertiesWithoutSpeedPlaceAtOnce)
 	script_camera::Frame(0.05f, 0, 0.0f);
 	auto& state = script_camera::Get();
 	EXPECT_FLOAT_EQ(state.distance, 1500.0f); // 0x44C191
-	ExpectNear(state.focus.Value(), {305, 11, 300});
+	ExpectNear(state.focus.GetCurrentValue(), {305, 11, 300});
 	// behind a MobileWallHug at angle 0: heading 0.25 + pi / 2
-	ExpectNear(state.position.Value(),
+	ExpectNear(state.position.GetCurrentValue(),
 	           script_camera::PointFromDistanceHeadingAndPitch({305, 11, 300}, 1500.0f, 0.25f + 1.5707964f, pitch), 0.05f);
 }
 
@@ -422,12 +422,12 @@ TEST(ScriptCameraFollow, AThingThatGoesIsDropped)
 	script_camera::Frame(0.1f, 0, 0.0f); // after Validate 0x461270 dropped +0x4C: the focus goes to +0x08's thing
 	auto& state = script_camera::Get();
 	EXPECT_TRUE(state.focusThing == entt::null);
-	ExpectNear(state.focus.Destination(), {305, 11, 300});
+	ExpectNear(state.focus.GetDestination(), {305, 11, 300});
 	test.things.erase(k_Thing);
 	script_camera::Validate();
 	script_camera::Frame(0.1f, 0, 0.0f); // 0x44BB10: +0x08 dropped, the zoomers keep their destinations
 	EXPECT_TRUE(state.positionThing == entt::null);
-	ExpectNear(state.focus.Destination(), {305, 11, 300});
+	ExpectNear(state.focus.GetDestination(), {305, 11, 300});
 	// FOCUS_FOLLOW of a thing that is not there follows nothing (0x4619DC)
 	script_camera::FocusFollow(k_Other);
 	EXPECT_TRUE(state.focusThing == entt::null);

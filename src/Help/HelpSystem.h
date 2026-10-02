@@ -173,7 +173,8 @@ public:
 	void ClearTextDisplayed();
 	/// The text part of HelpSystem::Reset 0x5C5580 (from GScript::Reset 0x6EB340): ClearAllText, SetWideScreen(0, 0)
 	/// (0x5C55D6) and the history emptied (+0x45C8 / +0x45C4 = 0, 0x5C55EA). The rest (+0x578, +0x568, the spirits'
-	/// arrays +0x78 / +0x2FC / +0x2D8, fn_005C6C40, ResetIcons) is not ported. It does not touch +0x45CC
+	/// arrays +0x78 / +0x2FC, fn_005C6C40, ResetIcons) is not ported. +0x2D8 (9 category turns) is zeroed and +0x45F8 = 1
+	/// (0x5C55FC). It does not touch +0x45CC
 	void Reset();
 	/// HelpSystem::IsTextRead 0x5C64E0 (CHL 15 TEXT_READ)
 	[[nodiscard]] bool IsTextRead() const;
@@ -213,6 +214,24 @@ public:
 	/// fn_005C6C90: HelpSystem+0x4610, the profile's READ_SPEED (fn_005C6CF0 0x5C6DC6; 0.5 without a profile, 0x5C6DEC)
 	void SetReadSpeed(float readSpeed) { _readSpeed = readSpeed; }
 	[[nodiscard]] float GetReadSpeed() const { return _readSpeed; }
+
+	/// +0x45F8: the help switch (HelpSystem::Reset 0x5C55FC sets 1; SET_HELP_SYSTEM 0x6FC03D stores the popped value)
+	void SetHelpOn(uint32_t on) { _helpOn = on; }
+	[[nodiscard]] uint32_t GetHelpOn() const { return _helpOn; }
+	/// +0x45F4, fn_005C79C0 (its ResetFOV 0x5C9300 is not ported): the profile's HELP_LEVEL, 3 when the profile has none
+	/// (fn_005C6CF0 0x5C6DB6; openblack has no profiles)
+	void SetHelpLevel(int32_t level) { _helpLevel = level; }
+	[[nodiscard]] int32_t GetHelpLevel() const { return _helpLevel; }
+	/// HELP_SYSTEM_ON (GScript::HelpSystemOn 0x6FBFD0): +0x45F8 && +0x45F4 != 0
+	[[nodiscard]] bool IsHelpSystemOn() const { return _helpOn != 0 && _helpLevel != 0; }
+	/// The level GGuidance::PlayNow reads (0x71AF99..0x71AFB1): +0x45F8 ? +0x45F4 : 0
+	[[nodiscard]] int32_t GetGuidanceLevel() const { return _helpOn != 0 ? _helpLevel : 0; }
+	/// HelpSystem::TriggerCategory 0x5C8280(category): +0x2D8 + 4 category = the turn (Reset zeroes the 9, 0x5C55BE)
+	void TriggerCategory(int32_t category);
+	[[nodiscard]] uint32_t GetCategoryTurn(int32_t category) const;
+	/// +0x560: the turn of the last help message started (RunMessage 0x5C8D0C; SetToZero 0x5C54A4 zeroes it)
+	void SetMessageTurn(uint32_t turn) { _messageTurn = turn; }
+	[[nodiscard]] uint32_t GetMessageTurn() const { return _messageTurn; }
 
 	/// fn_005C5F50: the i-th most recent text of the history (0 = the last), nullptr past the ones kept
 	[[nodiscard]] const HistoryEntry* GetHistory(int32_t i) const;
@@ -259,6 +278,10 @@ private:
 	/// clears it. openblack has no GInterface::SetActive, so it stays false (not ported)
 	bool _clickPending {false};
 	float _readSpeed {0.5f};       ///< +0x4610
+	uint32_t _helpOn {1};          ///< +0x45F8 (Reset 0x5C55FC)
+	int32_t _helpLevel {3};        ///< +0x45F4 (fn_005C6CF0 0x5C6DB6 without a profile)
+	std::array<uint32_t, 9> _categoryTurns {}; ///< +0x2D8 (Reset 0x5C55BE: 9 dwords)
+	uint32_t _messageTurn {0};     ///< +0x560
 	uint32_t _dialogueOwner {0};   ///< +0x45CC (SetToZero 0x5C547B -> ClearDialogueControl)
 	int32_t _wideScreen {0};       ///< +0x45E8 (Reset 0x5C55D6: SetWideScreen(0, 0))
 	uint32_t _wideScreenOwner {0}; ///< +0x45EC

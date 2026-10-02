@@ -86,9 +86,11 @@
 #include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
+#include "PSys/Creators/Mist.h"
 #include "Profiler.h"
 #include "Renderer.h"
 
+#include <unordered_map>
 #include <unordered_set>
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -2384,10 +2386,11 @@ namespace
 {
 /// One entry of the frame's transparency queue (zsorter::Queue, LH3DZSorter::NewZObject 0x83F310): what DrawPass needs
 /// to draw it when the queue is drained (fn_0082F280), in place of the original's object and callback. One of the
-/// indices is set; with none, an instance of the models (fading or with blended primitives, or the hand).
+/// indices is set; with none, an instance of the models (a mesh with the flag 0x200, LH3DObject::AddDrawing 0x815F53;
+/// a fading one; the hand, CHand::AddDrawing 0x46D203).
 /// (aproximado) the arrival order, which breaks ties between equal keys, is not the original's: here clouds, then the
-/// models mesh by mesh (an unordered_map), fading ones, effects, surfaces, chains, sprites, mists, smoke, rain, boat;
-/// there the order of the frame's AddDrawing calls (tmp_dis original-frame.md steps 4m..22)
+/// models mesh by mesh (a map), fading ones, the PSys sprites, meshes, chains and Queued effects, sprites, mists,
+/// smoke, rain, boat; there the order of the frame's AddDrawing calls (tmp_dis original-frame.md steps 4m..22)
 struct ZObject
 {
 	entt::id_type meshId {0};
@@ -2395,17 +2398,24 @@ struct ZObject
 	bool morphWithTerrain {false};
 	bool fading {false};
 	entt::entity sprite {entt::null};
-	int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
-	int mist {-1};   ///< an index of _frameMists
-	int smoke {-1};  ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
-	/// an index of _frameSurfaces: a ZR_SurfRevol atom of an effect, drawn inside that effect's single Z object
-	/// (PSysManager::AddDrawing 0x6797D0), so with the effect's key and right after its sprites
-	int surface {-1};
-	int chain {-1}; ///< an index of _frameChains, likewise inside its effect's Z object (fn_0067B370)
+	/// a sprite of a Sorted effect (manager::SortedFrame::sprites): LH3DSprite::AddDrawing 0x840C70 from 0x67B0D2
+	int psysSprite {-1};
+	/// a mesh atom of a Sorted effect (RenderContext::psysAtoms), opaque or not: fn_00679F60 from 0x67A246
+	int psysMesh {-1};
+	/// a chain of a Sorted effect (manager::SortedFrame::chains): fn_0067B380 from 0x6798DF
+	int psysChain {-1};
+	/// a Queued effect (manager::CollectQueued), all of it: PSysManager::AddDrawing 0x6797D0 -> NewZObject 0x679834
+	int queuedEffect {-1};
+	int mist {-1};  ///< an index of _frameMists
+	int smoke {-1}; ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
 	int cloud {-1}; ///< a cloud of _clouds (LH3DMist::AddDrawing 0x7FA87B from fn_005E25C0)
 	int rain {-1};  ///< an index of _frameRain (fn_008341B0 0x83427F, one per raining tile)
 	int boat {-1};  ///< an index of _frameBoatSprites (LH3DSprite::AddDrawing 0x840CB3, one per sprite)
 };
+
+// The renderer draws the PSys effects by their draw path (manager::CollectSorted / CollectQueued / HandEffects and
+// RenderContext::psysAtoms): with k_DrawByPath false the mesh atoms would be drawn by the old loops as well
+static_assert(psys::manager::k_DrawByPath, "Renderer::DrawPass draws the PSys effects by path");
 } // namespace
 
 void Renderer::DrawPass(const DrawSceneDesc& desc) const
@@ -2777,24 +2787,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.matrixCount = 1;
 				}
 			};
-			// The original draws opaque meshes at once and sends meshes with alpha to the Z-sorter, drawn back to front
-			// at the end of the frame (fn_0082F280); here every instance with blended primitives, and every fading
-			// one, is drawn on its own in that order in the blended view (the queue `sorted`)
+			// LH3DObject::AddDrawing 0x815A70 (vt+0x100 of the static, animated and morphing objects) queues an object only by
+			// its +4 bit 0x10 (vt+0x44 fn_007F97C0 at 0x815AC2, tested at 0x815F0B): the whole object goes to the Z-sorter
+			// (NewZObject 0x815F53, callback 0x7FA980 -> Draw vt+0x108), else it is drawn at once, blended primitives and
+			// all (vt+0x108 0x815F62). The bit is the mesh's flag 0x200 (SetMesh 0x7F9E48..0x7F9E58, L3DMesh::IsZSorted);
+			// the one-shot orb forces it (0x72A4AA, after SetMesh 0x72A49D). SetGlobalAlpha's bit 0x80 (vt+0x4C
+			// fn_007F9D80) is not looked at here (only fn_00813340, vtable 0x9A3068, queues by it, 0x8133B9), so a fading
+			// object whose mesh lacks 0x200 is drawn at once through the table 0xC387C8. (inferido) that every model
+			// instance is drawn through 0x815A70 (Game3DObject::AddForDrawing 0x63B5D0 -> vt+0x100) and none is of the
+			// class 0x9A3068; in the main view only, the queue's (the reflection draws everything at once)
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
 			const auto cameraOrigin = desc.camera->GetOrigin();
-			const auto hasBlended = [](const L3DMesh& mesh) {
-				for (const auto& subMesh : mesh.GetSubMeshes())
-				{
-					for (const auto& prim : subMesh->GetPrimitives())
-					{
-						if (prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha)
-						{
-							return true;
-						}
-					}
-				}
-				return false;
-			};
+			const auto opaqueOptions = submitDesc.options;
 
 			// the poses of the animated boned meshes (ecs/Animations.h), by instance; the PSys mesh atoms' too
 			const auto poses = ecs::PosesByInstance(renderCtx);
@@ -2815,13 +2819,15 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				ApplyLandLightMode(renderCtx, meshId, submitDesc);
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
-				submitDesc.blendFilter = sortBlended ? 1 : 0;
+				submitDesc.blendFilter = 0;
 
-				// CHand::AddDrawing 0x46D100 queues the whole hand, always (0x46D1B7..0x46D203, no test): in the main view
-				// it is drawn only from the queue, opaque primitives included
-				const bool handQueued = sortBlended && meshId == ecs::components::Hand::k_MeshId;
+				// CHand::AddDrawing 0x46D100 queues the whole hand, always (0x46D1B7..0x46D203, no test); any other model
+				// whole by its mesh's flag 0x200 (LH3DObject::AddDrawing 0x815F0B). In the main view a queued one is drawn
+				// only from the queue, opaque primitives included; the others at once with their blended primitives
+				const bool hand = meshId == ecs::components::Hand::k_MeshId;
+				const bool queued = sortBlended && (hand || mesh->IsZSorted());
 				// TODO(bwrsandman): choose the correct LOD
-				if (!handQueued && mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
+				if (!queued && mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
 				{
 					// animated (ecs/Animations.h): each instance on its own, with its pose. Only the ones in the view: every
 					// draw copies the bones into the backend's per-frame uniform buffer (see vs_object.sc)
@@ -2849,11 +2855,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 					}
 				}
-				else if (!handQueued)
+				else if (!queued)
 				{
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
-				if (sortBlended && (handQueued || hasBlended(*mesh)))
+				if (queued)
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
@@ -2864,10 +2870,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						// the key of LH3DObject::AddDrawing fn_00815A70 (0x815F0F..0x815F45: +0x38, (x^2 + z^2) + y^2) or,
 						// for the hand, of CHand::AddDrawing: the origin +0x38 of the LH3DObject [CHand+0x482C]
 						// (0x46D1B7..0x46D1C0), (x^2 + y^2) + z^2 (0x46D1BD..0x46D1F3). (inferido) that the hand instance's
-						// translation is that object's origin. (aproximado) the objects of fn_00813340 (vtable 0x9A3068,
-						// 0x8133CF..0x813403) sum (x^2 + y^2) + z^2 and are not told apart
+						// translation is that object's origin
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
-						const auto order = handQueued ? zsorter::SumOrder::XYZ : zsorter::SumOrder::XZY;
+						const auto order = hand ? zsorter::SumOrder::XYZ : zsorter::SumOrder::XZY;
 						sorted.Submit({.meshId = meshId,
 						               .index = placers.offset + i,
 						               .morphWithTerrain = placers.morphWithTerrain},
@@ -2880,41 +2885,80 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				DrawCutAboveWater(desc.viewId);
 			}
-			// The opaque PSys mesh atoms with DrawCutByPlane (fn_00679F20 0x679F29 -> vt+0x11C 0x679F4A,
-			// RenderContext::cutAtomDrawDescs): cut by the default plane, each in its DrawData colour (sea_pass::CutAtoms).
-			// (aproximado) after the other models instead of in the effect's own order, and all their primitives here
-			// (DrawMesh sends the blended ones to MainBlended unsorted). Only in the main pass: the original's reflection
-			// draws no models, and the living water mod's leaves the cut atoms out
-			for (const auto& [meshId, placers] : renderCtx.cutAtomDrawDescs)
-			{
-				if (desc.viewId != graphics::RenderPass::Main)
+			// One model instance drawn on its own: from the queue, or a fading one at once (in the main view). The table
+			// 0xC387C8 with its alpha byte for a fading object (components::Alpha; LH3DObject Draw 0x80DEED..0x80DF09, obj
+			// +0x4C -> [0xC37D8C]), every primitive in its own mode for the others
+			const auto drawInstance = [&](const ZObject& instance, RenderPass viewId) {
+				auto mesh = meshManager.Handle(instance.meshId);
+				submitDesc.viewId = viewId;
+				submitDesc.instanceDesc =
+				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
+				setMatrices(instance.meshId, *mesh);
+				ecs::UsePose(poses, instance.index, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
+				submitDesc.isSky = false;
+				submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
+				submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
+				ApplyLandLightMode(renderCtx, instance.meshId, submitDesc);
+				submitDesc.morphWithTerrain = instance.morphWithTerrain;
+				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
+				// the whole object (Draw vt+0x108; the hand's CHand::Draw 0x46D210)
+				submitDesc.blendFilter = 0;
+				submitDesc.options = instance.fading ? render_modes::StateOptions {.msaa = true} : opaqueOptions;
+				submitDesc.table = instance.fading ? render_modes::Table::GlobalAlpha : render_modes::Table::Normal;
+				submitDesc.globalAlpha = render_modes::AlphaByte(1.0f - renderCtx.instanceUniforms[instance.index][0][3]);
+				submitDesc.mode = std::nullopt;
+				submitDesc.sea = {};
+				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				submitDesc.options = opaqueOptions;
+				submitDesc.table = render_modes::Table::Normal;
+				submitDesc.globalAlpha = 255;
+				submitDesc.viewId = desc.viewId;
+			};
+			// One PSys mesh atom (RenderContext::psysAtoms): fn_00679F20, the callback of a Sorted atom's Z object
+			// (`push 0x679F20` 0x679FBC) and the draw of a Queued / Immediate one inside its effect (0x67A458): vt+0x104,
+			// or vt+0x11C cut by the default plane with DrawCutByPlane (`test al, 4` 0x679F29, 0x679F4A;
+			// sea_pass::CutAtoms). A translucent one (global alpha or additive) through the table 0xC387C8, an additive
+			// one in mode 13 (UseAdditiveAlpha, Creators/Mesh.h); an opaque one in its materials' own modes
+			const auto drawAtom = [&](const RenderContext::PSysAtomInstance& atom, RenderPass viewId) {
+				// fully faded out (alpha 0, kept in [0][3] as 1 - alpha): not drawn, it would still write depth
+				if (atom.translucent && renderCtx.instanceUniforms[atom.index][0][3] >= 1.0f)
 				{
-					break;
+					return;
 				}
-				auto mesh = meshManager.Handle(meshId);
+				auto mesh = meshManager.Handle(atom.meshId);
+				submitDesc.viewId = viewId;
+				submitDesc.instanceDesc =
+				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, atom.index, 1);
+				setMatrices(atom.meshId, *mesh);
+				// a ParticleAnimCreator atom has its own pose
+				ecs::UsePose(poses, atom.index, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
 				submitDesc.isSky = false;
 				submitDesc.lightBoost = 1.0f;
 				submitDesc.noHaze = false;
-				ApplyLandLightMode(renderCtx, meshId, submitDesc);
+				ApplyLandLightMode(renderCtx, atom.meshId, submitDesc);
 				submitDesc.morphWithTerrain = false;
 				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, false);
 				submitDesc.blendFilter = 0;
-				submitDesc.sea = sea_pass::CutAtoms(desc.viewId);
-				for (uint32_t i = 0; i < placers.count; ++i)
-				{
-					// one at a time: a ParticleAnimCreator atom has its own pose (ecs::UsePose)
-					submitDesc.instanceDesc =
-					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset + i, 1);
-					setMatrices(meshId, *mesh);
-					ecs::UsePose(poses, placers.offset + i, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
-					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
-				}
+				submitDesc.options = atom.translucent ? render_modes::StateOptions {.msaa = true} : opaqueOptions;
+				submitDesc.table = atom.translucent ? render_modes::Table::GlobalAlpha : render_modes::Table::Normal;
+				submitDesc.globalAlpha = render_modes::AlphaByte(1.0f - renderCtx.instanceUniforms[atom.index][0][3]);
+				submitDesc.mode = atom.translucent && atom.additive
+				                      ? std::optional(render_modes::Mode::AlphaTexturedAlphaAdditiveNz)
+				                      : std::nullopt;
+				submitDesc.sea = atom.cut ? sea_pass::CutAtoms(viewId) : sea_pass::SeaDraw {};
+				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				submitDesc.sea = {};
-			}
+				submitDesc.options = opaqueOptions;
+				submitDesc.table = render_modes::Table::Normal;
+				submitDesc.globalAlpha = 255;
+				submitDesc.mode = std::nullopt;
+				submitDesc.viewId = desc.viewId;
+			};
 			if (sortBlended)
 			{
 				for (const auto& [meshId, placers] : renderCtx.translucentDrawDescs)
 				{
+					const bool zSorted = meshManager.Handle(meshId)->IsZSorted();
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
 						// fully faded out (alpha 0, kept in [0][3] as 1 - alpha): not drawn, it would still write depth
@@ -2922,46 +2966,158 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						{
 							continue;
 						}
-						// the sort point of the one-shot orb (OneOffSpellSeed::Draw 0x518E90), else the matrix's translation.
-						// The key of LH3DObject::AddDrawing (0x815F0F..0x815F45), which the orb reaches through
-						// Game3DObject::AddForDrawing 0x519027. (aproximado) the PSys mesh atoms (fn_00679F60
-						// 0x679F87..0x679FB7) and the objects of fn_00813340 (0x8133CF..0x813403) sum (x^2 + y^2) + z^2: the
-						// list does not tell them apart, and only the last bit of the key can differ
+						const ZObject instance {.meshId = meshId,
+						                        .index = placers.offset + i,
+						                        .morphWithTerrain = placers.morphWithTerrain,
+						                        .fading = true};
+						// the sort point of the one-shot orb (OneOffSpellSeed::Draw 0x518E90): only the orbs have one, and
+						// their object is always queued (vt+0x40(1) 0x72A4AA, after SetMesh 0x72A49D)
 						const auto point = renderCtx.sortPoints.find(placers.offset + i);
+						if (!zSorted && point == renderCtx.sortPoints.end())
+						{
+							// without the bit 0x10 (LH3DObject::AddDrawing 0x815F0B): Draw vt+0x108 at once (0x815F62),
+							// through the table 0xC387C8. The physical shield too when its mesh lacks 0x200
+							// (PhysicalShield::DrawShield: SetGlobalAlpha 0x72D0CC, AddForDrawing 0x72D0E2)
+							drawInstance(instance, desc.viewId);
+							continue;
+						}
+						// the key of LH3DObject::AddDrawing (0x815F0F..0x815F45, (x^2 + z^2) + y^2) at the orb's sort
+						// point (which reaches it through Game3DObject::AddForDrawing 0x519027) or the translation
 						const auto origin = point != renderCtx.sortPoints.end()
 						                        ? point->second
 						                        : glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
-						sorted.Submit({.meshId = meshId,
-						               .index = placers.offset + i,
-						               .morphWithTerrain = placers.morphWithTerrain,
-						               .fading = true},
-						              zsorter::Key(origin, cameraOrigin, zsorter::SumOrder::XZY));
+						sorted.Submit(instance, zsorter::Key(origin, cameraOrigin, zsorter::SumOrder::XZY));
 					}
 				}
 			}
-			const auto effects = sortBlended ? psys::manager::Collect() : std::vector<psys::manager::Drawable>();
-			for (size_t i = 0; i < effects.size(); ++i)
+
+			// The particle effects by their draw path (psys::DrawPath; tmp_dis\miracles\polish\psys_draw_paths_verdict.md)
+			const auto psysSorted = sortBlended ? psys::manager::CollectSorted() : psys::manager::SortedFrame {};
+			const auto psysQueued = sortBlended ? psys::manager::CollectQueued() : std::vector<psys::manager::OrderedEffect>();
+			const auto psysHand = sortBlended ? psys::manager::HandEffects() : std::vector<psys::manager::OrderedEffect>();
+			const auto psysSurfaces = sortBlended ? psys::surf_revol::Collect() : std::vector<psys::surf_revol::Surface>();
+			std::unordered_map<const psys::Atom*, size_t> surfaceOf;
+			for (size_t i = 0; i < psysSurfaces.size(); ++i)
 			{
-				// PSysManager::AddDrawing 0x6797E5..0x679834: the point it is given, (x^2 + y^2) + z^2
-				sorted.Submit({.effect = static_cast<int>(i)}, zsorter::Key(effects[i].origin, cameraOrigin));
+				surfaceOf.insert_or_assign(psysSurfaces[i].atom, i);
 			}
+			// A Queued or Immediate effect drawn all at once (fn_00679860 with [0xC0215D] = 0, 0x679884): its items in
+			// fn_006798B0's order (0x6798B0..0x679912, manager::OrderedEffect). Sprites through LH3DSprite::Draw
+			// (0x67B0DF), meshes through fn_00679F20 (0x67A458), mists through LH3DMist vt+0x104 (0x67A78C), surfaces
+			// 0x67CBA0, chains through fn_0067B370 (0x6798DD); the other kinds draw nothing here
+			const auto drawOrderedEffect = [&](const psys::manager::OrderedEffect& effect, RenderPass viewId) {
+				std::vector<psys::Effect::DrawAtom> sprites;
+				const auto flushSprites = [&]() {
+					if (!sprites.empty())
+					{
+						DrawPSysSprites(sprites, *desc.camera, viewId);
+						sprites.clear();
+					}
+				};
+				for (const auto& item : effect.items)
+				{
+					const auto* creator = item.atom.creator;
+					if (item.chain < 0 && creator != nullptr && creator->kind == psys::Creator::Kind::Sprite)
+					{
+						sprites.push_back(item.atom);
+						continue;
+					}
+					flushSprites();
+					if (item.chain >= 0)
+					{
+						if (static_cast<size_t>(item.chain) < effect.chains.size())
+						{
+							DrawPSysChain(viewId, *desc.camera, effect.chains[static_cast<size_t>(item.chain)]);
+						}
+						continue;
+					}
+					if (creator == nullptr)
+					{
+						continue;
+					}
+					if (creator->kind == psys::Creator::Kind::Mesh)
+					{
+						const auto found = renderCtx.psysAtomIndex.find(item.atom.atom);
+						if (found != renderCtx.psysAtomIndex.end())
+						{
+							drawAtom(renderCtx.psysAtoms[found->second], viewId);
+						}
+						continue;
+					}
+					if (dynamic_cast<const psys::MistCreator*>(creator) != nullptr)
+					{
+						mists::MistDesc mist {};
+						if (psys::mist_atoms::Describe(item.atom, mist))
+						{
+							DrawEffectMist(viewId, *desc.camera, mist);
+						}
+						continue;
+					}
+					if (creator->className == "ZR_SurfRevol")
+					{
+						const auto found = surfaceOf.find(item.atom.atom);
+						if (found != surfaceOf.end())
+						{
+							DrawPSysSurface(viewId, psysSurfaces[found->second]);
+						}
+					}
+				}
+				flushSprites();
+			};
 			if (sortBlended)
 			{
-				// The atoms of an effect that are not sprites share the Z object of its sprites, with the same key:
-				// fn_00679860 -> fn_006798B0 draws a whole collection at once (its atoms through fn_00679920, which calls
-				// vt+0xFC DrawAt 0x67CBA0 for a ZR_SurfRevol one, then its chain through fn_0067B370, "draw now"). Pushed
-				// after the effects and ordered with a stable sort, so with an equal key they follow their effect's sprites,
-				// as the original's stable insertion does (NewZObject 0x83F36A..0x83F376).
-				// (aproximado) the original interleaves them atom by atom inside the collection; here an effect's sprites come
-				// first, then its surfaces, then its ribbons.
-				// (aproximado) they also take entries of the queue (its 0x800 cap) that the original's effect does not
-				for (const auto& [key, index] : CollectPSysSurfaces(*desc.camera))
+				// Draw_(t, 1) (fn_00679840, +0xAE = 1 at 0x67984E; Spell::Draw 0x720441 and the other Sorted sites): the
+				// effect has no Z object, each element goes into the queue with its own key, (x^2 + y^2) + z^2
+				// (zsorter::SumOrder::XYZ). Its ZR_SurfRevol surfaces do not read [0xC0215D] (0x67CBA0): drawn at once,
+				// here after the models, unsorted (Draw3DWorldTriangle 0x81C090 from 0x67C9F2)
+				for (const auto& surface : psysSurfaces)
 				{
-					sorted.Submit({.surface = static_cast<int>(index)}, key);
+					if (surface.path == psys::DrawPath::Sorted)
+					{
+						DrawPSysSurface(desc.viewId, surface);
+					}
 				}
-				for (const auto& [key, index] : CollectPSysChains(*desc.camera))
+				// each sprite: LH3DSprite::AddDrawing 0x840C70 from 0x67B0D2, keyed at the LH3DSprite's +0/+4/+8
+				// (0x840C95..0x840CA3; manager::SortedFrame::sprites)
+				for (size_t i = 0; i < psysSorted.sprites.size(); ++i)
 				{
-					sorted.Submit({.chain = static_cast<int>(index)}, key);
+					sorted.Submit({.psysSprite = static_cast<int>(i)}, zsorter::Key(psysSorted.sprites[i].key, cameraOrigin));
+				}
+				// each mesh atom, opaque ones too: fn_00679F60 from 0x67A246, after CheckRegionOnScreen (0x679F75; here
+				// the sphere around the mesh's box, (aproximado) not the box), keyed at the object's +0x38..+0x40
+				// (0x679F7E..0x679FB7)
+				const auto viewProjection = desc.camera->GetViewProjectionMatrix();
+				for (size_t i = 0; i < renderCtx.psysAtoms.size(); ++i)
+				{
+					const auto& atom = renderCtx.psysAtoms[i];
+					if (atom.path != psys::DrawPath::Sorted)
+					{
+						continue;
+					}
+					const auto& model = renderCtx.instanceUniforms[atom.index];
+					const auto box = meshManager.Handle(atom.meshId)->GetBoundingBox();
+					const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
+					                              glm::length(glm::vec3(model[2]))});
+					if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(box.Center(), 1.0f)),
+					                  glm::length(box.Size()) * 0.5f * scale))
+					{
+						continue;
+					}
+					sorted.Submit({.psysMesh = static_cast<int>(i)}, zsorter::Key(atom.key, cameraOrigin));
+				}
+				// each mist: fn_007FA7F0 from 0x67A782, its own Z object at mist +0x38 (NewZObject 0x7FA87B): they come
+				// through mists::Submit (mist_atoms::SubmitFrame) and CollectMists below.
+				// each chain: fn_0067B380 from 0x6798DF, keyed at the joint n / 2 (0x67B389..0x67B3D7)
+				for (size_t i = 0; i < psysSorted.chains.size(); ++i)
+				{
+					sorted.Submit({.psysChain = static_cast<int>(i)}, zsorter::Key(psysSorted.chains[i].key, cameraOrigin));
+				}
+				// AddDrawing (PSysManager::AddDrawing 0x6797D0, +0xAE = 0 at 0x6797DE: the seed graphic on a ball or an
+				// icon 0x51A2CA, the containers 0x63E26A; the fire's FireGraphic 0x73261D likewise): one Z object per
+				// effect at GetOrigin (0x6797E5..0x679834), drawn all at once from the drain
+				for (size_t i = 0; i < psysQueued.size(); ++i)
+				{
+					sorted.Submit({.queuedEffect = static_cast<int>(i)}, zsorter::Key(psysQueued[i].origin, cameraOrigin));
 				}
 			}
 			if (spritesSorted)
@@ -3007,30 +3163,32 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			static uint32_t zsorterTraceFrame = 0;
 			if (k_ZSorterTrace && sortBlended && ++zsorterTraceFrame % 60 == 0)
 			{
-				std::array<int, 11> counts {};
+				std::array<int, 13> counts {};
 				const auto ordered = sorted.Ordered();
 				for (const auto& entry : ordered)
 				{
 					const auto& z = *entry.item;
-					const size_t kind = z.cloud >= 0     ? 1
-					                    : z.rain >= 0    ? 2
-					                    : z.boat >= 0    ? 3
-					                    : z.effect >= 0  ? 4
-					                    : z.surface >= 0 ? 5
-					                    : z.chain >= 0   ? 6
-					                    : z.mist >= 0    ? 7
-					                    : z.smoke >= 0   ? 8
-					                    : z.sprite != entt::null ? 9
-					                    : z.meshId == ecs::components::Hand::k_MeshId && !z.fading ? 10
+					const size_t kind = z.cloud >= 0          ? 1
+					                    : z.rain >= 0         ? 2
+					                    : z.boat >= 0         ? 3
+					                    : z.psysSprite >= 0   ? 4
+					                    : z.psysMesh >= 0     ? 5
+					                    : z.psysChain >= 0    ? 6
+					                    : z.queuedEffect >= 0 ? 7
+					                    : z.mist >= 0         ? 8
+					                    : z.smoke >= 0        ? 9
+					                    : z.sprite != entt::null ? 10
+					                    : z.meshId == ecs::components::Hand::k_MeshId && !z.fading ? 11
+					                    : z.fading                                                 ? 12
 					                                                                               : 0;
 					++counts.at(kind);
 				}
 				SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
-				                   "ZSorter trace: {} entries ({} dropped): models {}, clouds {}, rain tiles {}, "
-				                   "boat sprites {}, effects {}, surfaces {}, chains {}, mists {}, smoke {}, sprites {}, "
-				                   "hand {}; farthest key {:.1f}, nearest {:.1f}",
-				                   ordered.size(), sorted.Dropped(), counts[0], counts[1], counts[2], counts[3], counts[4],
-				                   counts[5], counts[6], counts[7], counts[8], counts[9], counts[10],
+				                   "ZSorter trace: {} entries ({} dropped): models {}, fading {}, clouds {}, rain tiles {}, "
+				                   "boat sprites {}, PSys sprites {}, PSys meshes {}, PSys chains {}, queued effects {}, "
+				                   "mists {}, smoke {}, sprites {}, hand {}; farthest key {:.1f}, nearest {:.1f}",
+				                   ordered.size(), sorted.Dropped(), counts[0], counts[12], counts[1], counts[2], counts[3],
+				                   counts[4], counts[5], counts[6], counts[7], counts[8], counts[9], counts[10], counts[11],
 				                   ordered.empty() ? 0.0f : ordered.front().key, ordered.empty() ? 0.0f : ordered.back().key);
 			}
 
@@ -3042,18 +3200,24 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				const auto viewProjection = desc.camera->GetViewProjectionMatrix();
 				// the queue in draw order; the key printed is the distance (the root of the queue's key) as before
 				const auto ordered = sorted.Ordered();
-				// the ZR_SurfRevol discs in the same list, to see that each one is drawn before the bubble of its dispenser
-				for (size_t k = 0; k < ordered.size(); ++k)
+				// the ZR_SurfRevol discs: a Sorted effect's at once, before the whole queue (so before every bubble); a
+				// Queued one's inside its effect's entry
+				for (const auto& surface : psysSurfaces)
 				{
-					if (ordered[k].item->surface >= 0)
+					int at = -1;
+					for (size_t k = 0; k < ordered.size() && surface.path != psys::DrawPath::Sorted; ++k)
 					{
-						const auto& surface = _frameSurfaces[static_cast<size_t>(ordered[k].item->surface)];
-						SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
-						                   "Orb trace: surface {} ({}) sorted {}/{} key {:.2f} origin ({:.1f}, {:.1f}, {:.1f})",
-						                   ordered[k].item->surface, surface.texture, static_cast<int>(k),
-						                   static_cast<int>(ordered.size()), std::sqrt(ordered[k].key), surface.origin.x,
-						                   surface.origin.y, surface.origin.z);
+						const int effect = ordered[k].item->queuedEffect;
+						if (effect >= 0 && psysQueued[static_cast<size_t>(effect)].effect == surface.effect)
+						{
+							at = static_cast<int>(k);
+							break;
+						}
 					}
+					SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
+					                   "Orb trace: surface ({}) path {} sorted {}/{} origin ({:.1f}, {:.1f}, {:.1f})", surface.texture,
+					                   static_cast<int>(surface.path), at, static_cast<int>(ordered.size()), surface.origin.x,
+					                   surface.origin.y, surface.origin.z);
 				}
 				Locator::entitiesRegistry::value().Each<const ecs::components::OneOffSpellSeed, const ecs::components::Mesh>(
 				    [&](entt::entity entity, const ecs::components::OneOffSpellSeed& orb, const ecs::components::Mesh& mesh) {
@@ -3096,105 +3260,101 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				    });
 			}
 
-			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
-			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
-			// (fn_0082F280: far to near; the full queue dropped the entries over 0x800, NewZObject 0x83F31C)
+			// The drain, far to near (fn_0082F280; the full queue dropped the entries over 0x800, NewZObject 0x83F31C), in
+			// its own view right after the main pass (same target and camera, no clear), so that nothing drawn at once in
+			// the main pass is drawn over them
 			if (!sorted.Empty())
 			{
-				const auto opaqueOptions = submitDesc.options;
-				submitDesc.viewId = graphics::RenderPass::MainBlended;
+				constexpr auto k_Blended = graphics::RenderPass::MainBlended;
 				auto& spriteRegistry = Locator::entitiesRegistry::value();
-				for (const auto& entry : sorted.Drain())
+				const auto drained = sorted.Drain();
+				bool handEffectsDrawn = false;
+				std::vector<psys::Effect::DrawAtom> sprites;
+				for (size_t e = 0; e < drained.size(); ++e)
 				{
-					const auto& instance = *entry.item;
+					const auto& instance = *drained[e].item;
 					if (instance.cloud >= 0)
 					{
-						DrawCloud(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.cloud));
+						DrawCloud(k_Blended, *desc.camera, static_cast<uint32_t>(instance.cloud));
 						continue;
 					}
 					if (instance.rain >= 0)
 					{
-						DrawRainTile(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.rain));
+						DrawRainTile(k_Blended, static_cast<uint32_t>(instance.rain));
 						continue;
 					}
 					if (instance.boat >= 0)
 					{
-						DrawBoatSprite(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.boat));
+						DrawBoatSprite(k_Blended, static_cast<uint32_t>(instance.boat));
 						continue;
 					}
-					if (instance.effect >= 0)
+					if (instance.psysSprite >= 0)
 					{
-						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
+						// a Sorted effect's sprite, LH3DSprite::Draw from its Z object; the next entries that are sprites too
+						// go in the same call (DrawPSysSprites keeps their order and batches only equal materials)
+						sprites.clear();
+						sprites.push_back(psysSorted.sprites[static_cast<size_t>(instance.psysSprite)].atom);
+						while (e + 1 < drained.size() && drained[e + 1].item->psysSprite >= 0)
+						{
+							++e;
+							sprites.push_back(psysSorted.sprites[static_cast<size_t>(drained[e].item->psysSprite)].atom);
+						}
+						DrawPSysSprites(sprites, *desc.camera, k_Blended);
+						continue;
+					}
+					if (instance.psysMesh >= 0)
+					{
+						drawAtom(renderCtx.psysAtoms[static_cast<size_t>(instance.psysMesh)], k_Blended);
+						continue;
+					}
+					if (instance.psysChain >= 0)
+					{
+						// 0x67B3F0, the callback of fn_0067B380's Z object
+						DrawPSysChain(k_Blended, *desc.camera, psysSorted.chains[static_cast<size_t>(instance.psysChain)].chain);
+						continue;
+					}
+					if (instance.queuedEffect >= 0)
+					{
+						// fn_00679860, the callback of PSysManager::AddDrawing's Z object (0x67982D)
+						drawOrderedEffect(psysQueued[static_cast<size_t>(instance.queuedEffect)], k_Blended);
 						continue;
 					}
 					if (instance.mist >= 0)
 					{
-						DrawMist(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.mist));
+						DrawMist(k_Blended, *desc.camera, static_cast<uint32_t>(instance.mist));
 						continue;
 					}
 					if (instance.smoke >= 0)
 					{
-						DrawChimneySmoke(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.smoke));
-						continue;
-					}
-					if (instance.surface >= 0)
-					{
-						DrawPSysSurface(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.surface));
-						continue;
-					}
-					if (instance.chain >= 0)
-					{
-						DrawPSysChain(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.chain));
+						DrawChimneySmoke(k_Blended, *desc.camera, static_cast<uint32_t>(instance.smoke));
 						continue;
 					}
 					if (instance.sprite != entt::null)
 					{
 						const auto& [sprite, transform] =
 						    spriteRegistry.Get<const ecs::components::Sprite, const ecs::components::Transform>(instance.sprite);
-						drawSprite(sprite, transform, graphics::RenderPass::MainBlended);
+						drawSprite(sprite, transform, k_Blended);
 						continue;
 					}
-					auto mesh = meshManager.Handle(instance.meshId);
-					submitDesc.instanceDesc =
-					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
-					setMatrices(instance.meshId, *mesh);
-					ecs::UsePose(poses, instance.index, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
-					submitDesc.isSky = false;
-					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
-					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
-					ApplyLandLightMode(renderCtx, instance.meshId, submitDesc);
-					submitDesc.morphWithTerrain = instance.morphWithTerrain;
-					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
-					// the hand's Z object draws all of it (CHand::Draw 0x46D210); a blended model's only its blended primitives
-					submitDesc.blendFilter = instance.fading || instance.meshId == ecs::components::Hand::k_MeshId ? 0 : 2;
-					// a fading object (components::Alpha) through the table 0xC387C8 with its alpha byte (LH3DObject Draw
-					// 0x80DF09; obj+0x4C -> [0xC37D8C])
-					submitDesc.options = instance.fading ? render_modes::StateOptions {.msaa = true} : opaqueOptions;
-					submitDesc.table = instance.fading ? render_modes::Table::GlobalAlpha : render_modes::Table::Normal;
-					submitDesc.globalAlpha =
-					    render_modes::AlphaByte(1.0f - renderCtx.instanceUniforms[instance.index][0][3]);
-					// a PSys mesh atom with UseAdditiveAlpha (Creators/Mesh.h): mode 13, SRCALPHA / ONE without Z write
-					submitDesc.mode = instance.fading && renderCtx.additiveInstances.contains(instance.index)
-					                      ? std::optional(render_modes::Mode::AlphaTexturedAlphaAdditiveNz)
-					                      : std::nullopt;
-					// a translucent PSys mesh atom with DrawCutByPlane: the sorted path cuts too (fn_00679F60's callback is
-					// fn_00679F20, `push 0x679F20` 0x679FBC)
-					submitDesc.sea = renderCtx.cutAtomInstances.contains(instance.index) ? sea_pass::CutAtoms(submitDesc.viewId)
-					                                                                     : sea_pass::SeaDraw {};
-					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+					drawInstance(instance, k_Blended);
+					// CHand::Draw 0x46D210: after the hand's mesh (0x46D258) and the held object (0x46D27C),
+					// DrawSpellInHand (0x46D2AE -> 0x46E680) draws the hand's effects with Draw_(1.0, 0) (0x46E76A): at
+					// once, in their own order (manager::HandEffects, DrawPath::Immediate). The held object is not drawn
+					// from the hand's entry here (inferido: no visible difference, it is opaque and drawn before)
+					if (instance.meshId == ecs::components::Hand::k_MeshId && !instance.fading && !handEffectsDrawn)
+					{
+						handEffectsDrawn = true;
+						for (const auto& effect : psysHand)
+						{
+							drawOrderedEffect(effect, k_Blended);
+						}
+					}
 				}
-				submitDesc.sea = {};
-				submitDesc.options = opaqueOptions;
-				submitDesc.table = render_modes::Table::Normal;
-				submitDesc.globalAlpha = 255;
-				submitDesc.mode = std::nullopt;
-				submitDesc.viewId = desc.viewId;
-				submitDesc.blendFilter = 0;
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
 				// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0), the rain tiles, the boat's sprites and the
-				// clouds are no longer groups of their own: they all went through the queue above.
+				// clouds are no longer groups of their own: they all went at once or through the queue above.
 				// (inferido) the hand's shadow on the objects (fn_0080B050) is not read to go through the queue: after it.
 				// That moves it after the clouds and the boat's sprites too, which used to be drawn after it (the rain was
 				// already before it)

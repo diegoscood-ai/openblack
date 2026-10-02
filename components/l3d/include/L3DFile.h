@@ -64,7 +64,7 @@ enum class L3DMeshFlags : uint32_t
 	Unknown7 = 1U << 6U,                  // 0x40     (25)
 	Unknown8 = 1U << 7U,                  // 0x80     (24)
 	HasBones = 1U << 8U,                  // 0x100    (23)
-	Unknown10 = 1U << 9U,                 // 0x200    (22)
+	Unknown10 = 1U << 9U,                 // 0x200    (22) the object goes to the Z-sorter whole (L3DMesh::IsZSorted)
 	HasChimney = 1U << 10U,               // 0x400    (21) extra point [1] (LH3DStaticObject::GetChimneyPos 0x7F9F10)
 	HasDoorPosition = 1U << 11U,          // 0x800    (20)
 	Packed = 1U << 12U,                   // 0x1000   (19)

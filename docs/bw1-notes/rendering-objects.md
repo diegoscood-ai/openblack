@@ -280,10 +280,14 @@ dueño de área). Informe: `dev\tmp_dis\unify2\lh3d_zsorter_original.md` (con su
 
 | Qué | Original | Punto de la clave |
 |---|---|---|
-| modelos con primitivas mezcladas | `LH3DObject::AddDrawing` 0x815F53 | traslación de la instancia (+0x38) |
-| modelos que se desvanecen, mallas PSys, burbuja | 0x815F53 / fn_00679F60 0x679FC7 | `sortPoint` de la burbuja (`OneOffSpellSeed::Draw` 0x518E90) o la traslación |
+| modelos cuya malla tiene la marca 0x200, enteros (también los que se desvanecen) | `LH3DObject::AddDrawing` 0x815F53 | traslación de la instancia (+0x38), (x² + z²) + y² |
+| la burbuja de la bola de un uso, siempre | 0x815F53 (bit forzado en 0x72A4AA) | `sortPoint` (`OneOffSpellSeed::Draw` 0x518E90) |
 | la mano, entera | `CHand::AddDrawing` 0x46D203 | el origen +0x38 del LH3DObject [CHand+0x482C] (0x46D1B7); aquí la traslación de la instancia **(inferido: que sea ese origen)** |
-| efectos PSys, y dentro de ellos sus superficies y cintas | `PSysManager::AddDrawing` 0x679834 | el origen del efecto |
+| efecto `Sorted`: cada sprite | `LH3DSprite::AddDrawing` 0x840CB3, desde 0x67B0D2 | el sprite (`SortedFrame::sprites`) |
+| efecto `Sorted`: cada átomo de malla, también los opacos y los cortados | `fn_00679F60` 0x679FC7, desde 0x67A246 | la traslación (+0x38..+0x40) |
+| efecto `Sorted`: cada cadena | `fn_0067B380`, desde 0x6798DF | la articulación n/2 |
+| efecto `Sorted`: cada niebla | `LH3DMist::AddDrawing` 0x7FA87B, desde 0x67A782 | la niebla (por `mists::Submit`) |
+| efecto `Queued`, entero | `PSysManager::AddDrawing` 0x679834 | `GetOrigin` del efecto |
 | `components::Sprite` | `LH3DSprite::AddDrawing` 0x840CB3 | el sprite |
 | nieblas del mapa y de `mists::Submit` | `LH3DMist::AddDrawing` 0x7FA87B | la niebla |
 | **nubes** | 0x7FA87B, desde `fn_005E25C0` 0x5E2813 | la nube |
@@ -296,22 +300,63 @@ depuración) la cola tiene solo nubes y nieblas y se vacía al final de la pasad
 Los `components::Sprite` (polvo, partículas de coger, destellos, luciérnagas...) van con los modelos transparentes
 desde antes de U6; hasta entonces se dibujaban antes que todos ellos y un modelo transparente detrás los tapaba.
 
-**Dentro del objeto de un efecto.** `PSysManager::AddDrawing` 0x6797D0 encola **un solo** Z-objeto por efecto, con
-clave |origen − g_camera|² (0x6797E5..0x679834) y retrollamada `fn_00679860`. Esa retrollamada dibuja el gestor
-entero: `fn_006798B0` recorre cada colección, dibuja sus átomos con `fn_00679920` (que llama a `vt+0xFC` `DrawAt`,
-0x67CBA0 para un átomo `ZR_SurfRevol`) y después su cadena. La cadena toma la rama «dibujar ya» `fn_0067B370`
-(0x6798DD) porque `[0xC0215D]`, copiado del +0xAE del gestor, es 0; solo el camino directo `Draw_(float, bool)`
-(`fn_00679840`) con la marca puesta le da a la cadena un Z-objeto propio por `fn_0067B380` (clave = la articulación
-central). Así que los discos de `ZR_SurfRevol` (el charco del teletransporte, el disco del dispensador) y las cintas de
-las cadenas **no** son pasadas aparte: `Renderer::CollectPSysSurfaces` y `CollectPSysChains` les ponen la clave de su
-efecto y entran en la cola detrás de los efectos, así que, con la misma clave, se dibujan justo detrás de los sprites de
-ese efecto. **(aproximado)** el original intercala los átomos y la cadena dentro de la colección; aquí van primero los
-sprites del efecto, luego sus superficies y luego sus cintas.
+**Qué entra y qué no: los modelos** (D7). `LH3DObject::AddDrawing` 0x815A70 (vt+0x100 de los objetos estáticos,
+animados y morfables) manda un objeto a la cola **solo** por el bit 0x10 de su +4 (vt+0x44 = `fn_007F97C0`, leído en
+0x815AC2 y probado en 0x815F0B): con él, el objeto **entero** (NewZObject 0x815F53, retrollamada 0x7FA980 → Draw
+vt+0x108); sin él, el Draw **al momento** (0x815F62), primitivas mezcladas incluidas. El bit lo copia `SetMesh` 0x7F9E10
+de la marca 0x200 de la malla (vt+0x3C = `fn_007F9D40`, mesh+4 & 0x200, 0x7F9E48; vt+0x40 = `fn_007F97A0`,
+0x7F9E51..0x7F9E64). mesh+4 son las banderas de la cabecera del L3D (`GetChimneyPos` 0x7F9F17 prueba ahí 0x400,
+HasChimney): `L3DMeshFlags::Unknown10`, `L3DMesh::IsZSorted`. La bola de un uso fuerza el bit (vt+0x40(1) 0x72A4AA,
+tras su `SetMesh` 0x72A49D). `SetGlobalAlpha` (bit 0x80, vt+0x48 = `fn_007F9D60`) **no** cuenta en 0x815A70: solo
+`fn_00813340` (vtable 0x9A3068, la de `Particle3DAnim`) encola por él (vt+0x4C 0x8133B9). Por eso un objeto que se
+funde con una malla sin 0x200 se dibuja al momento con la tabla 0xC387C8 (`render_modes::Table::GlobalAlpha`), en la
+vista principal. Afecta al escudo físico (`PhysicalShield::DrawShield`: `SetGlobalAlpha(1)` 0x72D0CC, `AddForDrawing`
+0x72D0E2): su malla `SpellSolidShield` tiene la marca en `Data\AllMeshes.g3d` (el del juego, leído entero: 626 L3D), así
+que sigue en la cola. Con la marca, en ese fichero, 40 mallas: casi todas las de los milagros (`SpellBlast*`, `SpellPhile*`,
+`SpellRainCone`, `SpellSolidShield`, `SpellSpellBallSurface02`, `SpellSpellDispenser`, `SpellPulseIn/Out`...), las
+cuevas, el foso de almacén azteca, `I_SpellGem`, `ObjectBoxFrame`, `RewardChestExplode`, el buitre y
+`TreeWheatInField`. openblack (`Renderer::DrawPass`): `instancedDrawDescs` y `translucentDrawDescs` por la marca de la
+malla (y la burbuja por su `sortPoint`); los demás modelos, al momento, con todas sus primitivas.
+**(inferido)** que todo modelo pase por 0x815A70 (`Game3DObject::AddForDrawing` 0x63B5D0 → vt+0x100) y que ninguno sea
+de la clase 0x9A3068.
 
-Esto arregló el disco del dispensador tapado por la burbuja de la bola de un uso: `OneOffSpellSeed::Draw` 0x518E90
-encola la burbuja con su punto de orden empujado hacia la cámara por su radio, así que su clave es **menor** (más
-cerca) que la del efecto; la burbuja es de modo 12, aditiva y **escribe Z** (0x82ECA6, fiel), de modo que el disco,
-dibujado después, fallaba la prueba de profundidad. Ahora el disco va antes. Traza: `OPENBLACK_ORB_TRACE=1`.
+**Los tres caminos de un efecto PSys** (`psys::DrawPath`; [particles.md](particles.md), veredicto
+`dev\tmp_dis\miracles\polish\psys_draw_paths_verdict.md`, interfaz `drawpath_fix.md`). `fn_00679860` copia el +0xAE
+del gestor en [0xC0215D] (0x679884) y cada átomo lo mira:
+
+- **`Sorted`** (`Draw_(t, 1)` 0x55EDA0 → `fn_00679840`, +0xAE = 1 en 0x67984E; `Spell::Draw` 0x720441, tormenta
+  0x72DCB7, escudo 0x72D160, teletransporte 0x5FCDC5, dispensador 0x722A13, bandada 0x72420D, utilidades de la mano,
+  creencia del pueblo 0x69BF19): el efecto **no tiene Z-objeto**. `manager::CollectSorted` da cada elemento con su
+  punto y `DrawPass` hace un `Submit` por elemento, (x² + y²) + z²: cada sprite (`LH3DSprite::AddDrawing` 0x840C70
+  desde 0x67B0D2, en la posición del LH3DSprite, subida por altura·tamaño·0,5 con `CentreAtBase`, 0x67AFAB..0x67AFD6),
+  cada átomo de malla, **opacos y cortados también** (`fn_00679F60` desde 0x67A246, en su traslación, tras
+  `CheckRegionOnScreen` 0x679F75; aquí la esfera de la caja **(aproximado)**), cada cadena (`fn_0067B380`, en la
+  articulación n/2: base +0x44, paso 0x1C, índice (n − (n >> 31)) >> 1, 0x67B389..0x67B3A1) y cada niebla
+  (`fn_007FA7F0` desde 0x67A782, en mist+0x38: llega por `mists::Submit`). Los discos `ZR_SurfRevol` no miran
+  [0xC0215D] (0x67CBA0 → `RenderParticleGJMesh::DrawAt` 0x67C150 → `Draw3DWorldTriangle` 0x81C090, 0x67C9F2): se
+  dibujan **al momento**, en la vista principal tras los modelos (`Spell::DrawSpells` 0x7203F0 va después de los
+  modelos, desde 0x54E023), sin ordenar. Al vaciar, los sprites seguidos de la cola van en una sola llamada si
+  comparten material (`DrawPSysSprites`: mismo orden y mismos estados, los mismos píxeles).
+- **`Queued`** (`AddDrawing` 0x55EDC0 → `PSysManager::AddDrawing` 0x6797D0, +0xAE = 0 en 0x6797DE; solo la semilla en
+  la bola, el icono, la recompensa o el mapa 0x51A2CA y los contenedores con `GSpotVisualInfo+0x4C == 1` 0x63E26A; y,
+  fuera del PSys, el fuego `FireGraphic` 0x73261D): **un** Z-objeto por efecto con clave = `GetOrigin`
+  (0x6797E5..0x679834). En el vaciado (retrollamada `fn_00679860`) se dibujan todos sus elementos al momento, en el
+  orden de `fn_006798B0` (0x6798B0..0x679912: los átomos de la colección, su cadena, las colecciones hijas;
+  `manager::OrderedEffect::items`): sprites con `LH3DSprite::Draw` (0x67B0DF), mallas con `fn_00679F20` (0x67A458;
+  vt+0x104, o vt+0x11C cortada con el bit 4 de +0x24), nieblas con vt+0x104 = `fn_007FA790` (0x67A78C: la prueba de
+  pantalla y el Draw), discos (0x67CBA0) y cadenas con `fn_0067B370` (0x6798DD).
+- **`Immediate`** (`Draw_(t, 0)`): el efecto de la semilla en la mano. `CHand::Draw` 0x46D210 dibuja, dentro del
+  Z-objeto de la mano, la malla (0x46D258), el objeto sostenido (0x46D27C) y luego `DrawSpellInHand` (0x46D2AE →
+  0x46E680), que hace `Draw_(1.0, 0)` (0x46E76A): `manager::HandEffects`, dibujados como un `Queued` justo detrás de la
+  malla de la mano, en la misma entrada. El objeto sostenido de openblack no se dibuja desde esa entrada **(inferido: no
+  cambia nada, es opaco y va antes)**.
+
+Por eso la lluvia y el fuego de un milagro ya no se pelean con la burbuja de un dispensador: antes el efecto entero iba
+con la clave de su origen, delante o detrás de la burbuja de una vez; ahora cada gota y cada llama van con la suya. El
+disco del dispensador (que es del efecto `Sorted` del dispensador, `Draw_(1.0, 1)` 0x722A13) se dibuja al momento, antes
+de toda la cola, así que la burbuja (modo 12, aditiva y que **escribe Z**, 0x82ECA6) suma su luz encima, como en el
+original. Prueba: `test_psys_sorted_queue` (clave de cada sprite y de la cadena, un `Queued` entre dos sprites de un
+mismo `Sorted`). Traza: `OPENBLACK_ORB_TRACE=1` (los discos con su camino y su sitio).
 
 La lluvia, en cambio, **no** pasa por `PSysManager::AddDrawing`: lleva su propia entrada por casilla con su propio
 punto (tabla de arriba); darle la clave de un efecto sería falso.
@@ -326,6 +371,7 @@ punto (tabla de arriba); darle la clave de un efecto sería falso.
 6. Los sprites del barco, cada uno en la cola (antes, un lote detrás de la lista; 0x840CB3).
 7. La mano va siempre a la cola y entera (antes, sus partes opacas en la vista principal y solo las mezcladas en la
    lista, y solo si tenía alguna; 0x46D1B7..0x46D203 no prueba nada).
+8. Los efectos PSys por su camino (arriba); los modelos a la cola solo por la marca 0x200 de su malla, enteros (D7).
 
 Además la clave es la distancia al cuadrado en `float` y no la distancia: el mismo orden salvo claves que la raíz
 juntaba.
@@ -341,18 +387,18 @@ tiene cola (en el original no se ha leído **(inferido)**); se queda como estaba
 
 **(aproximado)**:
 - El orden de llegada (el desempate con claves iguales) no es el del original: aquí nubes, modelos por malla (un
-  `unordered_map`), desvanecidos, efectos, superficies, cintas, sprites, nieblas, humo, lluvia, barco; allí el orden de
-  los AddDrawing del fotograma (`original-frame.md`, pasos 4m..22).
+  `std::map`), desvanecidos, sprites, mallas y cadenas de los `Sorted`, efectos `Queued`, sprites, nieblas, humo,
+  lluvia, barco; allí el orden de los AddDrawing del fotograma (`original-frame.md`, pasos 4m..22).
 - El punto de la lluvia es `tile.origin` con la altura de `LandHeightAt` de Rain.cpp, no `GetAltitude` 0x803090 sobre
   `MapCoords(x × 65536 × 0,1, z × 65536 × 0,1)` (0x8341D2..0x834210): eso es U3.
-- Las superficies y las cintas de un efecto son entradas aparte con la clave del efecto, detrás de sus sprites (el
-  original las dibuja dentro del objeto del efecto, átomo a átomo): ocupan sitios del tope que el original no gasta.
-- Las instancias que se desvanecen usan el orden de suma de `LH3DObject::AddDrawing`; las mallas PSys (fn_00679F60) y
-  los objetos de fn_00813340 suman al otro orden y la lista de instancias no los distingue.
+- `CheckRegionOnScreen` de una malla `Sorted` (0x679F75) es la esfera de su caja; la de un modelo (0x815AB1) no se
+  hace: un modelo fuera de la vista ocupa un sitio del tope que el original no gasta.
+- Las mallas animadas de un `Sorted` (`Particle3DAnim::DrawAt` 0x67A9D9 → `fn_00813340`: a la cola solo con el bit
+  0x10, el 0x80 o +0xB8, si no al momento) van como las demás mallas **(no portado)**.
 - La lluvia viaja por su índice y no por K: `CollectTiles` ya aplica el fundido por distancia de fn_00834370, así que
   una K hecha con ese alfa no sería la del original.
-- Que un modelo con mezcla mande el objeto entero a la cola (bit 0x10 de +4, 0x815F0B) sigue sin portar: aquí solo
-  van sus primitivas mezcladas **(inferido: qué pone el bit no se ha leído)**.
+- Las primitivas mezcladas de un modelo dibujado al momento van a la vista `MainBlended` (`DrawSubMesh`), por delante
+  de toda la cola pero detrás de todo lo opaco de la vista principal; en el original, en el sitio de su Draw.
 
 La traza `OPENBLACK_ORB_TRACE` sigue escribiendo la distancia (la raíz de la clave), como antes. Traza nueva:
 `OPENBLACK_ZSORTER_TRACE=1`.
@@ -461,9 +507,9 @@ El original tiene tres mecanismos y un solo plano:
   (`fn_00679F20` `test al, 4` 0x679F29; lo pone `CreateParticle` desde +0x5F, 0x6A8B94..0x6A8B9A). Con el bit, vt+0xF8
   (0x679F2F, devuelve la malla), luego `LH3DBoundingBox::CheckRegionOnScreen` 0x868C80 (llamada directa en 0x679F3C;
   si da 0 se salta, 0x679F43) y vt+0x11C (0x679F4A) en vez del Draw vt+0x104 (0x679F52); también en el camino
-  ordenado (la vuelta de `fn_00679F60` es `fn_00679F20`, 0x679FBC). openblack: `RenderContext::cutAtomDrawDescs` (los
-  opacos, dibujados tras los modelos, **(aproximado)** no en el orden del efecto) y `cutAtomInstances` (los
-  translúcidos, en la cola ordenada), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia;
+  ordenado (la vuelta de `fn_00679F60` es `fn_00679F20`, 0x679FBC). openblack: `RenderContext::cutAtomInstances` (con
+  `psys::manager::k_DrawByPath` todos, opacos o no, en `psysAtoms`: con su Z-objeto en un `Sorted`, en su sitio dentro
+  del efecto en un `Queued`), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia;
   **(aproximado)** alfa de vértice 0xFF: `fn_00858BA0` lo toma de obj+0x4C & 0xFF000000, 0x858C42 → [ebp−0x24], OR en
   0x858D60, es decir el alfa de DrawData+8, que la instancia no lleva).
   `psys::mesh_atoms::Instance` lleva el bit (`cutByPlane`, desde `MeshCreator::drawCutByPlane`) y el especular
@@ -1118,7 +1164,8 @@ tabla (1 en los mezclados) no la lee nadie.
 
 **La tabla del alfa global** 0xC387C8 (`k_GlobalAlphaModes`, `Table::GlobalAlpha`): 0, 1 → 1; 2, 3, 17 → 3; 4, 5 → 5;
 9 → 15; los demás, igual. La elige el Draw de un objeto con su propio alfa (vt+0x4C = `fn_007F9D80`, bit 7 de obj+4;
-0x80DF09). En openblack, los objetos con `components::Alpha` en la lista ordenada (`L3DMeshSubmitDesc::table`).
+0x80DF09). En openblack, los objetos con `components::Alpha` (en la cola si su malla tiene la marca 0x200, si no al
+momento) y los átomos de malla translúcidos del PSys (`L3DMeshSubmitDesc::table`).
 
 **ALPHAREF** (`AlphaRef`): el +4 del material, o [0xECA65C] si el interruptor [0xECA658] está puesto. Con la tabla
 0xC387C8, los modos 9 y 15 lo escalan: `max(0, ftol(ref·A·(1/255) − 5))` (0x82E15C..0x82E1CE, 0x82E557..0x82E5C9;
@@ -1273,8 +1320,8 @@ corte 0x96: un poco más finos).
   si el aro de piedra del dispensador debe tapar la burbuja que se funde (escena 3 de `dev\tmp_dis\unify\U4_changes.md`).
 
 - Cola de transparentes: capturas antes y después de las escenas de `dev\tmp_dis\unify\U6_changes.md` (nubes
-  contra modelos y nieblas, lluvia, barco, mano); el objeto entero a la cola con el bit 0x10 (0x815F0B), cuando se lea
-  quién lo pone; las superficies y cintas dentro del objeto de su efecto, sin entradas propias; el reflejo (no leído);
+  contra modelos y nieblas, lluvia, barco, mano); el reflejo (no leído); `CheckRegionOnScreen` antes de encolar un
+  modelo (0x815AB1); las mallas animadas de un `Sorted` (fn_00813340);
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
 

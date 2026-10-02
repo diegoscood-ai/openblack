@@ -158,6 +158,25 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& cam
 	return order;
 }
 
+void Renderer::DrawEffectMist(graphics::RenderPass viewId, const Camera& camera, const mists::MistDesc& mist) const
+{
+	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
+	if (mesh.GetNumSubMeshes() == 0)
+	{
+		return;
+	}
+	// LH3DMist vt+0x104 fn_007FA790: the sphere of AddDrawing (mesh +0x30 x +0x88 x 0.55, 0x7FA79E..0x7FA7CA) through
+	// CheckRegionOnScreen (0x7FA7CE), then Draw vt+0x108 at once (0x7FA7E0). Its animation counter was advanced by
+	// mist_atoms::SubmitFrame with the same test (mists::InView)
+	if (!SphereInView(camera.GetViewProjectionMatrix(Camera::Interpolation::Current), mist.position,
+	                  MistSphereRadius(mesh, mist.size)))
+	{
+		return;
+	}
+	_frameMists.push_back(mist);
+	DrawMist(viewId, camera, static_cast<uint32_t>(_frameMists.size() - 1));
+}
+
 void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const
 {
 	if (index >= _frameMists.size())

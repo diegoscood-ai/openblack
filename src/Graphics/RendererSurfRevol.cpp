@@ -16,18 +16,18 @@
 // white texture and the same alpha (alpha x specular is what the specular adds under that blend). Unlit (UseLighting is
 // not ported). PSys/Rules/SurfRevol.h.
 //
-// The surface is one atom of its effect, so the original draws it inside the effect's single Z object
-// (PSysManager::AddDrawing 0x6797D0 -> fn_00679860 -> fn_006798B0 -> fn_00679920 -> vt+0xFC 0x67CBA0) and not after the
-// sorted list: CollectPSysSurfaces keys each one with the effect's origin and Renderer.cpp draws it from the sorted loop
-// (hole H2 of tmp_dis\unify2\lh3d_zsorter_openblack.md). Without that, the one-shot orb's bubble - mode 12, additive and
-// writing Z (0x82ECA6), queued nearer than the effect by OneOffSpellSeed::Draw 0x518E90 - hid the dispenser's disc.
+// RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 never reads [0xC0215D] (the manager's +0xAE): a surface has no Z
+// object of its own on any path. A Sorted effect's (Draw_(t, 1): the teleport pool, MagicTeleport::Draw 0x5FCDC5; the
+// dispensers' discs, SpellDispenser::Draw 0x722A13) is drawn at once when the effect is drawn, in the main view after
+// the models (Spell::DrawSpells 0x7203F0 from 0x54E023, before the drain); a Queued one inside its effect's single Z
+// object, at its place in the effect's items (PSysManager::AddDrawing 0x6797D0 -> fn_00679860 -> fn_006798B0 ->
+// fn_00679920 -> vt+0xFC); an Immediate one inside the hand's. Renderer.cpp picks the place; this draws one surface.
 
 #include <cstring>
 
 #include <memory>
 #include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <bgfx/bgfx.h>
@@ -39,7 +39,6 @@
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
-#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "PSys/Rules/SurfRevol.h"
 #include "Renderer.h"
@@ -63,32 +62,14 @@ const Texture2D& White()
 }
 } // namespace
 
-std::vector<std::pair<float, uint32_t>> Renderer::CollectPSysSurfaces(const Camera& camera) const
-{
-	_frameSurfaces = psys::surf_revol::Collect();
-	std::vector<std::pair<float, uint32_t>> order;
-	order.reserve(_frameSurfaces.size());
-	const auto eye = camera.GetOrigin();
-	for (size_t i = 0; i < _frameSurfaces.size(); ++i)
-	{
-		// no Z object of its own: the key is the effect's (PSysManager::AddDrawing 0x6797E5..0x679828, zsorter::Key)
-		order.emplace_back(zsorter::Key(_frameSurfaces[i].origin, eye), static_cast<uint32_t>(i));
-	}
-	return order;
-}
-
-void Renderer::DrawPSysSurface(RenderPass viewId, uint32_t index) const
+void Renderer::DrawPSysSurface(RenderPass viewId, const psys::surf_revol::Surface& drawn) const
 {
 	struct Vertex
 	{
 		float x, y, z, u, v;
 		uint32_t abgr;
 	};
-	if (index >= _frameSurfaces.size())
-	{
-		return;
-	}
-	const auto surfaces = std::span(&_frameSurfaces[index], 1);
+	const auto surfaces = std::span(&drawn, 1);
 	const auto& textures = Locator::resources::value().GetTextures();
 	const auto* program = _shaderManager->GetShader("WorldQuad");
 	bgfx::VertexLayout layout;

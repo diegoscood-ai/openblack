@@ -1336,6 +1336,29 @@ corte 0x96: un poco más finos).
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
 
+### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
+
+Se implementó todo «como el original» leído en el binario; estas dudas solo dependen de cómo se veía el juego.
+Resueltas por el usuario (2026-10-02, capturas del original `img/original_hand_shadow_*.png`): la sombra de la mano es
+su silueta gris clara y semitransparente (4/15), el orbe sostenido da una sombra más oscura, los orbes se dibujan
+enteros por encima de las sombras (paso S5 aplicado).
+
+- **Luz de los modelos de noche** (`model_light`): con tipo de cielo > 1,5 (double de 0x8C5838) la luz se pone a 3
+  unidades de la mano, del lado de la cámara (fn_005E5830 0x5E5A7D..0x5E5B64). ¿Se parece a lo que recuerdas de noche?
+- **Pasada bajo el mar** (`sea_pass`): (1) ¿la cúpula del escudo y los efectos de malla del PSys junto al mar se
+  cortaban a ras de agua y sin reflejo? (0x679F4A → fn_00858BA0; hecho así); (2) el reflejo de la mano tiene color
+  0x65A0A0A0: ¿gris y semitransparente?; (3) el original mezcla el mar sobre el cielo sin espejarlo y openblack refleja
+  el cielo: ¿se notaba en el agua lejana?; (4) los objetos morfables (casas, campos, arca, escudo físico) no se reflejan
+  (su DrawUnderWater es un `ret`, 0x80BA40; hecho así): ¿lo recuerdas igual?
+- **Sombras proyectadas** (`shadow_list`): (1) el barco de los misioneros de Land 1: ¿su sombra iba en diagonal (sol
+  fijo) y caía sobre el dique y los marineros? (0x5E11B6 / 0x5E11BE); (2) entre 50 y 80 radios, ¿las sombras de los
+  objetos lanzados se aclaraban a saltos o suave? (0x80769A); (3) ¿la sombra de un árbol lanzado era suave y tan oscura
+  como la de una roca?; (4) la sombra del orbe sostenido sale algo más oscura que en las capturas (el máximo 8/15 del
+  código con alfa 255, **(aproximado)**); (5) la sombra propia del dispensador es la estática (Abode, fn_008721A0), que
+  apenas se distingue en las tomas de openblack.
+- **Para milagros2** (no es de shaders): en las capturas el orbe del original es una burbuja verde translúcida con el
+  icono rojo dentro; en openblack tiene un núcleo blanco quemado que tapa el icono (OneOffSpellSeed::Draw 0x518E90).
+
 ## Ganchos de prueba
 
 En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración):

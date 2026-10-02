@@ -37,6 +37,7 @@
 #include "ECS/Weather/Atmos.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
+#include "Video/VideoPlayer.h"
 
 using namespace openblack;
 using namespace openblack::ecs::components;
@@ -264,6 +265,9 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	// GSoundMap::GetSurfaceType 0x71D8E0: agua's ecs::sea_cells, the single source
 	queries.surfaceType = [](glm::vec3 point) { return ecs::sea_cells::GetSurfaceType(point); };
 	queries.weatherSmooth = &WeatherSmooth;
+	// g_game+0x250188 != 0, the LHVideoPlayer of a full screen film (written at 0x54AC23, cleared by DeleteVideo
+	// 0x54A969 and ClearVariables 0x54BF28; tmp_dis\audio\video_audio.md): asistente's player, atomic
+	queries.videoPlaying = &video::IsPlaying;
 	// GAudio+0x190, written by fn_005E2240 (ProcessAtmosBanks' group 0x428FFA, the alignment music fn_00427460)
 	queries.cameraAlignment = &CameraAlignment;
 	// GPlayer::GetAlignmentValue 0x64D6A0 of the local player (ProcessCitadelMusic 0x427BB8): openblack's is PLAYER_ONE

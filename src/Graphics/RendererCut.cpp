@@ -75,8 +75,12 @@ void Renderer::DrawUnderWater(RenderPass viewId, entt::entity entity, const sea_
 	{
 		return;
 	}
-	// (openblack) a morphing instance keeps openblack's draw with the height map, although the morphable vtables'
-	// DrawUnderWater is a bare ret (0x80BA40, vt+0x118 of 0x9A2E34 / 0x9A2BFC)
+	// the morphable objects' DrawUnderWater (vt+0x118 of the vtables 0x9A2E34 and 0x9A2BFC) is 0x80BA40, a bare ret:
+	// an object that morphs with the land is not drawn under the sea, as DrawCutByPlane below
+	if (instance->second.morphWithTerrain)
+	{
+		return;
+	}
 	const auto mesh = meshes.Handle(instance->second.meshId);
 	static const auto k_Identity = glm::mat4(1.0f);
 	DrawUnderWater(viewId, *mesh,

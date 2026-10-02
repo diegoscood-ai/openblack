@@ -12,11 +12,13 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <map>
 
 #include <fmt/format.h>
 #include <glm/vec2.hpp>
 
 #include "3D/AllMeshes.h"
+#include "Audio/Audio.h"
 #include "3D/DayNightClock.h"
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
@@ -42,10 +44,47 @@ namespace openblack::mods::api
 {
 namespace
 {
+/// The bank names mods use: the SfxBank enumerators (BankTables.h)
+std::string_view SoundBankName(audio::SfxBank bank)
+{
+	switch (bank)
+	{
+	case audio::SfxBank::InGame:
+		return "InGame";
+	case audio::SfxBank::Editor:
+		return "Editor";
+	case audio::SfxBank::Spells:
+		return "Spells";
+	case audio::SfxBank::Creature:
+		return "Creature";
+	case audio::SfxBank::ScriptSfx:
+		return "ScriptSfx";
+	case audio::SfxBank::HelpSprites:
+		return "HelpSprites";
+	case audio::SfxBank::Villagers:
+		return "Villagers";
+	case audio::SfxBank::VillagersBanter:
+		return "VillagersBanter";
+	case audio::SfxBank::SpellDialogue:
+		return "SpellDialogue";
+	case audio::SfxBank::Guidance:
+		return "Guidance";
+	default:
+		return "";
+	}
+}
+
 std::vector<Interface>& InterfaceList()
 {
 	static std::vector<Interface> list;
 	return list;
+}
+
+/// The sound owner of each mod that has played something (mod id -> audio::NewOwner)
+std::map<std::string, audio::Owner, std::less<>>& SoundOwners()
+{
+	static std::map<std::string, audio::Owner, std::less<>> owners;
+	return owners;
 }
 } // namespace
 
@@ -151,6 +190,13 @@ std::vector<std::pair<std::string, int64_t>> Enumeration(std::string_view which)
 			values.emplace_back(std::string(names[i]), static_cast<int64_t>(i));
 		}
 	}
+	else if (which == "sound_banks")
+	{
+		for (size_t i = 1; i < static_cast<size_t>(audio::SfxBank::_COUNT); ++i)
+		{
+			values.emplace_back(std::string(SoundBankName(static_cast<audio::SfxBank>(i))), static_cast<int64_t>(i));
+		}
+	}
 	else if (which == "switches")
 	{
 		const auto& all = switches::All();
@@ -164,7 +210,7 @@ std::vector<std::pair<std::string, int64_t>> Enumeration(std::string_view which)
 
 std::vector<std::string_view> Enumerations()
 {
-	return {"meshes", "magic", "object_tables", "object_fields", "switches"};
+	return {"meshes", "magic", "object_tables", "object_fields", "switches", "sound_banks"};
 }
 
 uint32_t Turn()
@@ -312,6 +358,72 @@ std::optional<float> MeshHeight(std::string_view mesh, float scale)
 		return std::nullopt;
 	}
 	return ecs::object::MeshHeight(*id, scale);
+}
+
+bool PlaySound(const Mod& mod, std::string_view bankName, std::string_view sampleName, const glm::vec3* position)
+{
+	std::optional<audio::SfxBank> type;
+	for (size_t i = 1; i < static_cast<size_t>(audio::SfxBank::_COUNT); ++i)
+	{
+		const auto each = static_cast<audio::SfxBank>(i);
+		if (bankName == SoundBankName(each))
+		{
+			type = each;
+		}
+	}
+	if (!type)
+	{
+		return false;
+	}
+	const auto bank = audio::Bank(*type);
+	if (bank == audio::k_NoBank)
+	{
+		return false;
+	}
+	int number = 0;
+	if (const auto [end, error] = std::from_chars(sampleName.data(), sampleName.data() + sampleName.size(), number);
+	    error != std::errc() || end != sampleName.data() + sampleName.size())
+	{
+		const auto sample = audio::FindSample(bank, sampleName);
+		if (!sample)
+		{
+			return false;
+		}
+		number = sample->number;
+	}
+	if (number <= 0)
+	{
+		return false;
+	}
+	auto& owners = SoundOwners();
+	auto owner = owners.find(mod.GetInfo().id);
+	if (owner == owners.end())
+	{
+		owner = owners.emplace(mod.GetInfo().id, audio::NewOwner()).first;
+	}
+	// a one-shot effect as the original plays them: mode 3, no loop, +0x10 false (audio: the camera woosh 0x45899B,
+	// the pile's 3D sound 0x66D26A)
+	constexpr int k_Mode = 3;
+	constexpr int k_Loops = 0;
+	if (position == nullptr)
+	{
+		audio::PlaySoundEffect(owner->second, number, k_Mode, k_Loops, false, false, bank);
+	}
+	else
+	{
+		audio::PlaySoundEffectAt(owner->second, *position, glm::vec3(0.0f), number, false, k_Mode, k_Loops, false, true, bank);
+	}
+	return true;
+}
+
+void StopSounds(const Mod& mod)
+{
+	auto& owners = SoundOwners();
+	if (const auto owner = owners.find(mod.GetInfo().id); owner != owners.end())
+	{
+		audio::StopOwner(owner->second);
+		owners.erase(owner);
+	}
 }
 
 } // namespace openblack::mods::api

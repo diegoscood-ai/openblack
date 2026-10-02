@@ -474,6 +474,11 @@ void Step(int32_t dt)
 	}
 }
 
+entt::entity GetHull()
+{
+	return g_boat.has_value() ? g_boat->hullEntity : entt::null;
+}
+
 entt::entity GetReflectedHull()
 {
 	return g_boat.has_value() && g_boat->reflected ? g_boat->hullEntity : entt::null;

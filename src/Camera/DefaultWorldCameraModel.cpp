@@ -519,9 +519,10 @@ void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
 
 void DefaultWorldCameraModel::UpdateCameraInterpolationValues(const Camera& camera)
 {
-	// Get current curve interpolated values from camera
-	_currentOrigin = camera.GetOrigin(Camera::Interpolation::Current);
-	_currentFocus = camera.GetFocus(Camera::Interpolation::Current);
+	// Get current curve interpolated values from camera: CameraModeNew3 reads GCamera's Zoomer3d (+0x118 / +0x88), not
+	// the shaken g_camera (fn_008210C0 only moves the drawn camera), so the shake never feeds back into the model
+	_currentOrigin = camera.GetOriginZoomer().GetCurrentValue();
+	_currentFocus = camera.GetFocusZoomer().GetCurrentValue();
 	_targetOrigin = camera.GetOrigin(Camera::Interpolation::Target);
 	_targetFocus = camera.GetFocus(Camera::Interpolation::Target);
 }

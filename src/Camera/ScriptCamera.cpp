@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Camera.h"
+#include "CameraShake.h"
 #include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Flock.h"
@@ -35,47 +36,13 @@
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "EngineConfig.h"
+#include "GameClock.h"
 #include "Help/ScriptControl.h"
 #include "Locator.h"
 #include "Windowing/WindowingInterface.h"
 
 namespace openblack::script_camera
 {
-
-void Vec3Zoomer::SetPosition(const glm::vec3& v)
-{
-	for (int i = 0; i < 3; ++i)
-	{
-		axis[i].SetPosition(v[i]);
-	}
-}
-
-void Vec3Zoomer::SetDestination(const glm::vec3& v, float seconds)
-{
-	// 0x407D60 for x and the same code inline for y and z (0x46147B..0x4616DC, 0x46173B..0x46199C)
-	for (int i = 0; i < 3; ++i)
-	{
-		axis[i].SetDestinationWithSpeedAndTime(v[i], 0.0f, seconds);
-	}
-}
-
-void Vec3Zoomer::Update(float seconds)
-{
-	for (auto& zoomer : axis)
-	{
-		zoomer.Update(seconds); // Zoomer::Update 0x442720
-	}
-}
-
-glm::vec3 Vec3Zoomer::Value() const
-{
-	return {axis[0].value, axis[1].value, axis[2].value};
-}
-
-glm::vec3 Vec3Zoomer::Destination() const
-{
-	return {axis[0].destination, axis[1].destination, axis[2].destination};
-}
 
 State::State()
 {
@@ -157,6 +124,7 @@ std::optional<ThingInfo> RegistryThing(entt::entity entity)
 		return std::nullopt;
 	}
 	info.mapPoint = ecs::map_coords::ToWorld(ecs::object::MapCoordsOf(entity));
+	info.radius2d = ecs::object::Get2DRadius(entity); // CameraModeTwoObjects::Update 0x462041 (vt +0x64)
 	if (const auto* drawn = registry.TryGet<const ecs::components::DrawPosition>(entity); drawn != nullptr)
 	{
 		info.drawnPoint = drawn->position; // the villager's / animal's matrix drawn this frame (ECS/MobileDrawing.h)
@@ -250,16 +218,205 @@ void UpdateFollow(State& state)
 	// elsewhere: not ported
 	if (const auto focus = ReadThing(FocusThingOf(state)); focus.has_value())
 	{
-		state.focus.SetDestination(FollowPoint(*focus, true), seconds); // 0x44C555..0x44C597
+		state.focus.SetDestinationWithTime(FollowPoint(*focus, true), seconds); // 0x44C555..0x44C597
 	}
 	// else GetComputerPlayerFocus (vt +0x4C) != -1: the computer player's hand (0x44C59C..), not ported
 	if (const auto thing = ReadThing(state.positionThing); thing.has_value())
 	{
-		state.position.SetDestination(PositionFor(state, *thing, true), seconds); // 0x44C8C2..0x44C8FB
+		state.position.SetDestinationWithTime(PositionFor(state, *thing, true), seconds); // 0x44C8C2..0x44C8FB
 	}
 	// else GetComputerPlayerFollow (vt +0x50) != -1: from the computer player's hand (0x44C905..), not ported
 }
+
+/// SwitchToViewMode 0x441CD0 for a new CameraModeTwoObjects
+void PushDual(State& state, const DualMode& mode, const Zoomer3d& origin, const Zoomer3d& focus)
+{
+	if (!state.scriptMode && state.duals.empty())
+	{
+		// Over the player's mode: GCamera's zoomers are the same for every mode, so the dual camera goes on from wherever
+		// the player's were heading (as BeginFrom)
+		state.position = origin;
+		state.focus = focus;
+	}
+	state.duals.push_back(mode);
+	state.modeSeconds = 0.0f; // 0x441D30
+}
+
+/// The last dual camera gone with no script mode under it (PopViewMode 0x441C50 / CheckStackedModesForValidity
+/// 0x441D40): the player's CameraModeNew3 is current again and goes on from GCamera's zoomers, so they are handed back
+/// to the player's camera (as End). Only when this module drove the camera (`drove`: not with the camera test hooks).
+/// (inferido) CameraModeNew3's Restart (vt +0x10) was not read
+void HandBackAfterDual(const State& state, bool drove)
+{
+	if (drove && !state.scriptMode && state.duals.empty() && Locator::camera::has_value())
+	{
+		auto& camera = Locator::camera::value();
+		HandBack(camera.GetOriginZoomer(), camera.GetFocusZoomer());
+	}
+}
+
+/// CameraModeTwoObjects::Update 0x461DE0, once a frame while it is the current mode (GCamera::Update 0x441FD9)
+void UpdateDualMode(State& state, DualMode& mode)
+{
+	// 0x461DED..0x461E26: the seconds of the destinations, with no time factor
+	const float pace =
+	    state.modeSeconds > k_DualSettleSeconds ? 1.0f : state.modeSeconds / k_DualSettleSeconds * (1.0f - 2.0f) + 2.0f;
+	// (aproximado) the original reads +0x08 / +0x0C with no check (a null thing would crash it before the turn's
+	// CheckStackedModesForValidity drops the mode); here a thing that cannot be read leaves the zoomers alone this frame
+	const auto a = ReadThing(mode.a);
+	if (!a.has_value())
+	{
+		return;
+	}
+	std::optional<ThingInfo> b;
+	if (mode.twoObjects)
+	{
+		b = ReadThing(mode.b);
+		if (!b.has_value())
+		{
+			return;
+		}
+	}
+	// 0x461E2A..0x461EB2: the MapCoords points (x, z x 1/6553.6 [0x8AA3A4], GetAltitude 0x803090 + the altitude +0x1C;
+	// not the Game3DObject nor a flock's GetFlockPos); B is the point without +0x1C
+	const glm::vec3 pointA = a->mapPoint;
+	const glm::vec3 pointB = b.has_value() ? b->mapPoint : mode.point;
+	// 0x461EB6..0x461F10: (B + A) x 0.5 [0x8AA3B4]
+	const glm::vec3 middle((pointB.x + pointA.x) * 0.5f, (pointB.y + pointA.y) * 0.5f, (pointB.z + pointA.z) * 0.5f);
+	// 0x461F14..0x461F4A: (A's GetHeight (vt +0x42C) + B's, 1 without B) x 0.5
+	const float meanHeight = (a->height + (b.has_value() ? b->height : k_DualPointHeight)) * 0.5f;
+	// 0x461F4E..0x461FAE: the larger of A's height and B's (0 without B; test ah, 0x41: A only when strictly larger)
+	const float otherHeight = b.has_value() ? b->height : 0.0f;
+	const float maxHeight = a->height > otherHeight ? a->height : otherHeight;
+	// 0x461FAE..0x461FFE: the focus heads for the middle raised by half the mean height (0x407D60 on x, y, z, speed 0)
+	const glm::vec3 focus(middle.x, meanHeight * 0.5f + middle.y, middle.z);
+	state.focus.SetDestinationWithTime(focus, pace);
+	mode.pitch = FollowPitch(mode.pitch); // 0x462003..0x462021: at least [0x8C78E0], stored back
+	// 0x462024..0x462080: an Object's Get2DRadius (vt +0x64), else 30
+	const float radiusA = a->radius2d.value_or(k_DualDefaultRadius);
+	const float radiusB = b.has_value() && b->radius2d.has_value() ? *b->radius2d : k_DualDefaultRadius;
+	// 0x462082..0x4620B9: ((|A - B| in x / z + B's radius) + A's radius) x +0x28 + the larger height x 1.4
+	const float dx = pointA.x - pointB.x;
+	const float dz = pointA.z - pointB.z;
+	const float apart = std::sqrt(dx * dx + dz * dz);
+	const float distance = ((apart + radiusB) + radiusA) * mode.distanceFactor + maxHeight * k_DualHeightFactor;
+	// 0x4620BF..0x462122: v = B - A; the heading is +0x20 less v's direction (fn_007FAA50: 0 when x^2 + z^2 <= 1e-6, else
+	// fn_007FA990(-z, x)), or +0x20 itself when |v.x| and |v.z| are both <= 0.01
+	const glm::vec3 v = pointB - pointA;
+	float heading = mode.heading;
+	if (static_cast<double>(std::abs(v.x)) > k_DualFlatEpsilon || static_cast<double>(std::abs(v.z)) > k_DualFlatEpsilon)
+	{
+		const float horizontal = v.x * v.x + v.z * v.z;
+		heading = mode.heading - (horizontal > k_NoHeadingSquared ? ArcTan2(-v.z, v.x) : 0.0f);
+	}
+	// 0x462126..0x462318: SetPointFromPointDistanceHeadingAndPitch 0x442810 from the focus; the position heads for it
+	// (0x407D60 on x and y, its inline copy on z)
+	const auto position = PointFromDistanceHeadingAndPitch(focus, distance, heading, mode.pitch);
+	state.position.SetDestinationWithTime(position, pace);
+}
+
+/// GCamera::CheckStackedModesForValidity 0x441D40 (once a turn, GGame::ProcessTurn 0x54E743) for the dual cameras:
+/// CameraModeTwoObjects::IsStillValid 0x461D90 = +0x2C when +0x08 (and with +0x1C, +0x0C) is there and its IsAvailable
+/// (vt +0x2C) is 1, else 0 -> deleted (vt+0 with 1, 0x441D86). A current one deleted -> the new current's Restart (vt
+/// +0x10, 0x441DEB: nothing for CameraModeScript / CameraModeTwoObjects); the mode's seconds are not reset. The script
+/// mode's own IsStillValid 0x4611D0 is +0x48, which End keeps. The last one gone over the player's mode hands the
+/// zoomers back (HandBackAfterDual)
+void CheckDualModes(State& state)
+{
+	const auto available = [](entt::entity thing) {
+		const auto info = ReadThing(thing);
+		return info.has_value() && info->available;
+	};
+	const bool drove = Drives();
+	auto& duals = state.duals;
+	for (auto it = duals.begin(); it != duals.end();) // from the bottom of the stack (0x441D57)
+	{
+		const bool things = available(it->a) && (!it->twoObjects || available(it->b));
+		it = things && it->alive ? std::next(it) : duals.erase(it);
+	}
+	HandBackAfterDual(state, drove);
+}
 } // namespace
+
+bool HasMode()
+{
+	const auto& state = Get();
+	return state.scriptMode || !state.duals.empty();
+}
+
+bool ScriptModeCurrent()
+{
+	const auto& state = Get();
+	return state.scriptMode && state.duals.empty();
+}
+
+bool DualCurrent()
+{
+	return !Get().duals.empty();
+}
+
+void StartDual(entt::entity a, entt::entity b, const Zoomer3d& origin, const Zoomer3d& focus)
+{
+	auto& state = Get();
+	// 0x461BD5..0x461C1E: the current mode's +0x08 and +0x0C compared. (aproximado) a current point camera's +0x0C is
+	// whatever new left there (fn_00461CB0 does not write it); here it is null
+	if (!state.duals.empty() && state.duals.back().a == a && state.duals.back().b == b)
+	{
+		return;
+	}
+	DualMode mode;
+	mode.a = a;                                 // +0x08 (0x461BC8)
+	mode.b = b;                                 // +0x0C (0x461BCB)
+	mode.twoObjects = true;                     // +0x1C (0x461BCE)
+	mode.distanceFactor = k_DualDistanceFactor; // +0x28 (0x461C2C)
+	PushDual(state, mode, origin, focus);       // +0x2C = 1, +0x20, +0x24 (0x461C25..0x461C41)
+}
+
+void StartDualWithPoint(entt::entity a, const glm::vec3& point, const Zoomer3d& origin, const Zoomer3d& focus)
+{
+	auto& state = Get();
+	// 0x461CE9..0x461D54: the current mode's +0x08 and its point (fcomp ==, x, y, z) compared. (aproximado) a current
+	// two things camera's +0x10 is whatever new left there; here (0, 0, 0)
+	if (!state.duals.empty() && state.duals.back().a == a && state.duals.back().point == point)
+	{
+		return;
+	}
+	DualMode mode;
+	mode.a = a;                                      // +0x08 (0x461CC0)
+	mode.point = point;                              // +0x10 (0x461CCC..0x461CDF)
+	mode.twoObjects = false;                         // +0x1C (0x461CE2)
+	mode.distanceFactor = k_DualPointDistanceFactor; // +0x28 (0x461D62)
+	PushDual(state, mode, origin, focus);
+}
+
+bool UpdateDual(entt::entity a, entt::entity b)
+{
+	auto& state = Get();
+	if (state.duals.empty())
+	{
+		return false;
+	}
+	auto& mode = state.duals.back();
+	mode.a = a;             // 0x461C98
+	mode.b = b;             // 0x461C9B
+	mode.twoObjects = true; // 0x461C9E
+	return true;
+}
+
+bool ReleaseDual()
+{
+	auto& state = Get();
+	if (state.duals.empty())
+	{
+		return false;
+	}
+	const bool drove = Drives();
+	state.duals.back().alive = false; // Delete 0x461C50 (vt+0x30, 0x6ED44D)
+	state.duals.pop_back();           // PopViewMode 0x441C50: Cleanup (vt+0x18, nothing), deleted, the index -1
+	state.modeSeconds = 0.0f;         // 0x441C86
+	HandBackAfterDual(state, drove);
+	return true;
+}
 
 void Reset()
 {
@@ -269,6 +426,7 @@ void Reset()
 	state.scriptMode = false;
 	state.modeSeconds = 0.0f;
 	state.fov.SetPosition(k_DefaultFov); // GCamera ctor 0x441A78..0x441A83
+	state.duals.clear();
 }
 
 bool Begin(const glm::vec3& origin, const glm::vec3& focus)
@@ -282,16 +440,51 @@ bool Begin(const glm::vec3& origin, const glm::vec3& focus)
 	ResetFollow(state);
 	state.scriptMode = true;
 	state.modeSeconds = 0.0f; // SwitchToViewMode 0x441CD0 from the CameraModeFollow ctor 0x44B947
-	// (aproximado) the original's zoomers are already the drawn camera; openblack's player camera is not built on them
 	state.position.SetPosition(origin);
 	state.focus.SetPosition(focus);
 	return true;
 }
 
+bool BeginFrom(const Zoomer3d& origin, const Zoomer3d& focus)
+{
+	if (!Begin(origin.GetCurrentValue(), focus.GetCurrentValue()))
+	{
+		return false;
+	}
+	auto& state = Get();
+	state.position = origin; // GCamera +0x118 / +0x88: the same zoomers, still heading where they were
+	state.focus = focus;
+	return true;
+}
+
+void HandBack(Zoomer3d& origin, Zoomer3d& focus)
+{
+	const auto& state = Get();
+	origin = state.position;
+	focus = state.focus;
+}
+
 bool End()
 {
 	auto& state = Get();
-	const bool wasScript = state.scriptMode;
+	ReleaseDual(); // 0x6ECDB1: GScript::ReleaseDualCamera 0x6ED410 (one dual camera)
+	// 0x6ECDD0..0x6ECE2E: only a current CameraModeScript is deleted; with another mode current (a second dual camera, or
+	// the player's) "We are in the wrong camera mode! - excep" (0xC0C14C) and the script mode, if any, stays
+	const bool wasScript = ScriptModeCurrent();
+	if (!wasScript)
+	{
+		if (const auto logger = spdlog::get("scripting"); logger != nullptr)
+		{
+			SPDLOG_LOGGER_DEBUG(logger, "We are in the wrong camera mode! - excep");
+		}
+	}
+	// CameraModeNew3 0x4572E0 -> Initialise 0x456640: the player's mode starts from GCamera's zoomers. Only when the
+	// script mode drove the camera (with "free start" or the camera test hooks the player kept it)
+	if (wasScript && Drives() && Locator::camera::has_value())
+	{
+		auto& camera = Locator::camera::value();
+		HandBack(camera.GetOriginZoomer(), camera.GetFocusZoomer());
+	}
 	if (wasScript) // 0x6ECDBF..0x6ECE2E: Delete (vt+0x30) and a new CameraModeNew3 (0x4572E0)
 	{
 		state.scriptMode = false;
@@ -315,7 +508,7 @@ bool Drives()
 	static const bool s_testCameraHook =
 	    std::getenv("OPENBLACK_CAMERA_LOCK") != nullptr || std::getenv("OPENBLACK_CAMERA_FLY") != nullptr;
 	const auto& control = help::script_control::GetCameraControl();
-	return Get().scriptMode && !s_testCameraHook && !help::script_control::IsFreeStartTask(control, control.owner);
+	return HasMode() && !s_testCameraHook && !help::script_control::IsFreeStartTask(control, control.owner);
 }
 
 void SetPosition(const glm::vec3& position)
@@ -339,7 +532,7 @@ void MovePosition(const glm::vec3& position, float seconds)
 	auto& state = Get();
 	DropPath(state);
 	StopPositionFollow(state); // 0x461702
-	state.position.SetDestination(position, seconds);
+	state.position.SetDestinationWithTime(position, seconds);
 }
 
 void MoveFocus(const glm::vec3& focus, float seconds)
@@ -347,7 +540,7 @@ void MoveFocus(const glm::vec3& focus, float seconds)
 	auto& state = Get();
 	DropPath(state);
 	state.focusThing = entt::null; // 0x461442
-	state.focus.SetDestination(focus, seconds);
+	state.focus.SetDestinationWithTime(focus, seconds);
 }
 
 void SetPositionAndFocus(const glm::vec3& position, const glm::vec3& focus)
@@ -526,7 +719,7 @@ void PositionFollow(entt::entity thing)
 	if (thing != entt::null)
 	{
 		// 0x44BA11..0x44BA62: from the zoomers' destinations (+4 of each), the position from the focus
-		HeadingAndPitchFromPoints(state.position.Destination(), state.focus.Destination(), state.heading, state.pitch);
+		HeadingAndPitchFromPoints(state.position.GetDestination(), state.focus.GetDestination(), state.heading, state.pitch);
 		const auto info = ReadThing(thing);
 		state.distance = ThingViewingDistance(info.has_value() ? info->height : 0.0f); // 0x44BA6B
 	}
@@ -542,7 +735,7 @@ void FocusAndPositionFollow(entt::entity thing, float distance)
 	state.positionThing = thing; // 0x44BA9C
 	if (thing != entt::null)
 	{
-		HeadingAndPitchFromPoints(state.position.Destination(), state.focus.Destination(), state.heading, state.pitch);
+		HeadingAndPitchFromPoints(state.position.GetDestination(), state.focus.GetDestination(), state.heading, state.pitch);
 		state.distance = distance; // 0x44BAFE
 	}
 }
@@ -576,6 +769,7 @@ void SetFollowProperties(float distance, float timeFactor, float heading, bool b
 void Validate()
 {
 	auto& state = Get();
+	CheckDualModes(state); // GCamera::CheckStackedModesForValidity 0x441D40 comes just before (0x54E743)
 	const auto available = [](entt::entity thing) {
 		const auto info = ReadThing(thing);
 		return info.has_value() && info->available;
@@ -612,13 +806,14 @@ std::optional<FacePoints> FaceObject(entt::entity thing, float distance)
 bool ScriptArrived()
 {
 	const auto& state = Get();
-	if (state.track != nullptr) // CameraModeScript::Arrived 0x461B40
+	// A current dual camera answers CameraMode::Arrived 0x441700 (vtable 0x8C7DD0 +0x34), path or not
+	if (state.duals.empty() && state.track != nullptr) // CameraModeScript::Arrived 0x461B40
 	{
 		return state.track->position.duration <= state.pathMs;
 	}
 	// CameraMode::Arrived 0x441700..0x441835
-	const auto dp = state.position.Value() - state.position.Destination();
-	const auto df = state.focus.Value() - state.focus.Destination();
+	const auto dp = state.position.GetCurrentValue() - state.position.GetDestination();
+	const auto df = state.focus.GetCurrentValue() - state.focus.GetDestination();
 	return glm::dot(dp, dp) < k_ArrivedDistanceSquared && glm::dot(df, df) < k_ArrivedDistanceSquared;
 }
 
@@ -642,7 +837,11 @@ void Frame(float cameraSeconds, uint32_t gameMs, float gameSeconds)
 	auto& state = Get();
 	const float dt = std::min(cameraSeconds, k_MaxFrameSeconds); // 0x441FB0..0x441FC1
 	state.modeSeconds += dt;                                     // 0x441FCD..0x441FD0, before the mode's Update
-	if (state.scriptMode)
+	if (!state.duals.empty())
+	{
+		UpdateDualMode(state, state.duals.back()); // vt+0x08 of the current mode: CameraModeTwoObjects::Update 0x461DE0
+	}
+	else if (state.scriptMode)
 	{
 		// GCamera::Validate 0x441F50 runs once a turn (GGame::ProcessTurn 0x54E74E, Game.cpp); until then a thing
 		// that has gone is not read (ReadThing gives nothing for an invalid entity)
@@ -656,10 +855,10 @@ void Frame(float cameraSeconds, uint32_t gameMs, float gameSeconds)
 	state.focus.Update(dt);
 	// 0x44222C..0x44232A: the position's destination kept inside the disc of the world
 	const glm::vec3 centre(k_DiscCentre, 0.0f, k_DiscCentre);
-	const auto d = state.position.Destination() - centre;
+	const auto d = state.position.GetDestination() - centre;
 	if (const float d2 = glm::dot(d, d); d2 > k_DiscRadiusSquared)
 	{
-		state.position.SetDestination(d / (std::sqrt(d2) * k_DiscScale) + centre, k_DiscSeconds);
+		state.position.SetDestinationWithTime(d / (std::sqrt(d2) * k_DiscScale) + centre, k_DiscSeconds);
 	}
 	state.fov.Update(gameSeconds); // 0x4424F6..0x4425C3: g_game_time_inc * 0.001, not the camera's seconds
 }
@@ -669,7 +868,7 @@ Drawn DrawnCamera(const std::function<float(float, float)>& groundAt)
 	const auto& state = Get();
 	static glm::vec3 s_goodOrigin(1000.0f, 0.0f, 1000.0f); // 0xC59B48
 	static glm::vec3 s_goodFocus(1000.0f, 0.0f, 1000.0f);  // 0xC59B38
-	Drawn drawn {state.position.Value(), state.focus.Value()};
+	Drawn drawn {state.position.GetCurrentValue(), state.focus.GetCurrentValue()};
 	// 0x4420D9..0x4421D5: a NaN component -> the last good one
 	for (int i = 0; i < 3; ++i)
 	{
@@ -704,13 +903,19 @@ bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float ga
 	const bool drive = Drives() && !insideCitadel;
 	if (drive)
 	{
-		const auto drawn = DrawnCamera([](float x, float z) {
+		auto drawn = DrawnCamera([](float x, float z) {
 			return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z))
 			                                           : -1e30f;
 		});
+		// LH3DTech::UpdateCamera 0x819920 (GCamera::Update 0x442622, outside the citadel): the shake moves the drawn
+		// camera only, from the camera drawn the frame before (g_camera); the zoomers keep their values
+		camera_shake::Adjust(camera.GetOrigin(), drawn.origin, drawn.focus);
 		camera.SetOrigin(drawn.origin);
 		camera.SetFocus(drawn.focus);
 	}
+	// LH3DRender::StartFrame 0x82F270 -> fn_00821270 with g_delta_time, once a drawn frame (inferido: after the camera,
+	// GGame::ProcessGraphicsEngine 0x54D879 runs before the draw). (aproximado) the player's camera is not shaken yet
+	camera_shake::Tick(game_clock::FrameRealMs());
 
 	// LH3DTech::ChangeFov 0x8195B0 with the zoomer's value (0x4425C3; not inside the citadel, 0x4424F6); openblack keeps
 	// the field of view in the config's degrees, which every rebuild of the projection reads

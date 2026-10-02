@@ -33,6 +33,9 @@ void Create(int32_t mode);
 /// fn_005E5CD0 0x5E6250: sounds, dust, the hull, the people and the wake)
 void Update(float gameMilliseconds);
 
+/// The hull (+0x28) while a boat exists (null otherwise): its land light is fn_00801C90 with no haze (0x5E03DF)
+[[nodiscard]] entt::entity GetHull();
+
 /// The hull while a boat exists, drawn into the reflection by PreDraw's DrawUnderWater (vt+0x118) in 0xFF303070
 [[nodiscard]] entt::entity GetReflectedHull();
 constexpr uint32_t k_ReflectionColour = 0xFF303070u;

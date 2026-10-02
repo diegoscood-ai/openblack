@@ -636,6 +636,14 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				bgfx::setInstanceDataBuffer(toBgfx(desc.instanceDesc->GetRawHandle()), desc.instanceDesc->GetStart(),
 				                            desc.instanceDesc->GetCount());
 			}
+			// (openblack guard) a mesh whose buffers bgfx could not create (out of handles) is not drawn
+			if (!subMesh.GetMesh().GetVertexBuffer().IsValid() ||
+			    (subMesh.GetMesh().IsIndexed() && !subMesh.GetMesh().GetIndexBuffer().IsValid()))
+			{
+				bgfx::discard(BGFX_DISCARD_ALL);
+				lastPreserveState = false;
+				continue;
+			}
 			if (subMesh.GetMesh().IsIndexed() && (skip & Mesh::SkipState::SkipIndexBuffer) == 0)
 			{
 				subMesh.GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);

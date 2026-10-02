@@ -39,6 +39,7 @@
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Lh3dColour.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -192,10 +193,10 @@ void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camer
 		program->SetUniformValue("u_tint", glm::value_ptr(tint));
 		program->SetTextureSampler("s_diffuse", 0, alpha);
 		_plane->GetVertexBuffer().Bind();
-		// depth test, no depth write (the material is two sided: no culling)
-		bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-		               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) |
-		               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+		// g_smoke_mat [0xEA1ABC] (LH3DSmoke::Create 0x7F8CEC), mode 6 with the tint premultiplied: depth test, no depth
+		// write (the material is two sided: no culling)
+		bgfx::setState(render_modes::State(render_modes::materials::k_Smoke,
+		                                   {.writeAlpha = true, .premultiplied = true}));
 		bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 	}
 }

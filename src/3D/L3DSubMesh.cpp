@@ -48,37 +48,19 @@ struct EnhancedL3DVertex
 
 namespace
 {
-struct MaterialTypeLutEntry
+/// The D3D states of the mode of an L3D material type (the type is the index of the tables 0xC38728 / 0xC387C8:
+/// render_modes::k_Modes). 14 and 17 are the functions of modes 5 and 2 (0x82DD90, 0x82D820)
+void ApplyMode(L3DSubMesh::Primitive& primitive, uint32_t type)
 {
-	bool depthWrite;
-	bool alphaTest;
-	L3DSubMesh::Primitive::BlendMode blend;
-	bool modulateAlpha;  ///< Multiply ouput alpha by a uniform
-	bool thresholdAlpha; ///< Dismiss fragments below a certain threshold
-};
-// L3D material type -> the D3D states of its mode (table 0xC38728, docs/bw1-notes/original-frame.md)
-const std::array<MaterialTypeLutEntry, static_cast<uint32_t>(l3d::L3DMaterial::Type::_Count)> k_MaterialTypeLut = {
-    {
-        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Smooth
-        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // SmoothAlpha
-        {true, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false},  // Textured
-        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // TexturedAlpha
-        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false},  // AlphaTextured
-        {true, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},   // AlphaTexturedAlpha
-        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // AlphaTexturedAlphaNz
-        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, false, false}, // SmoothAlphaNz
-        {false, false, L3DSubMesh::Primitive::BlendMode::Standard, true, false},  // TexturedAlphaNz
-        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // TexturedChroma
-        {true, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},     // AlphaTexturedAlphaAdditiveChroma
-        {false, true, L3DSubMesh::Primitive::BlendMode::Additive, true, true},    // AlphaTexturedAlphaAdditiveChromaNz
-        {true, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},   // AlphaTexturedAlphaAdditive
-        {false, false, L3DSubMesh::Primitive::BlendMode::Additive, true, false},  // AlphaTexturedAlphaAdditiveNz
-        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0xe
-        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},     // TexturedChromaAlpha
-        {false, true, L3DSubMesh::Primitive::BlendMode::Standard, true, true},    // TexturedChromaAlphaNz
-        {false, false, L3DSubMesh::Primitive::BlendMode::Disabled, false, false}, // 0x11
-        {true, true, L3DSubMesh::Primitive::BlendMode::Standard, false, true},    // ChromaJustZ
-    }};
+	assert(type < render_modes::k_ModeCount);
+	const auto& desc = render_modes::Desc(static_cast<render_modes::Mode>(type));
+	primitive.materialType = type;
+	primitive.depthWrite = desc.zWrite;
+	primitive.alphaTest = desc.alphaTest;
+	primitive.blend = desc.blend;
+	primitive.modulateAlpha = desc.alphaModulate;
+	primitive.thresholdAlpha = desc.alphaTest;
+}
 
 // Mod graphics.hd-tweaks: a boned mesh whose textures are all villager textures (EngineConfig::hdTweaksSkins)
 bool AllPersonSkins(const auto& primitiveSpan)
@@ -278,18 +260,16 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 
 		assert(static_cast<uint32_t>(primitive.material.type) != 0xe);
 		assert(static_cast<uint32_t>(primitive.material.type) != 0x11);
-		const auto& lutEntry = k_MaterialTypeLut.at(static_cast<uint32_t>(primitive.material.type));
-
-		// TODO(bwrsandman): Interpret cull mode, color byte ordering and render mode, then store in primitive
-		_primitives.emplace_back(Primitive {
+		// the inline SetMaterial (0x412662..0x4126BD) reads the culling from +5 bit 0 and the tiling from +5 bit 2
+		auto& added = _primitives.emplace_back(Primitive {
 		    primitive.material.skinID,
 		    startIndex,
 		    primitive.numTriangles * 3,
-		    lutEntry.depthWrite,
-		    lutEntry.alphaTest,
-		    lutEntry.blend,
-		    lutEntry.modulateAlpha,
-		    lutEntry.thresholdAlpha,
+		    false,
+		    false,
+		    Primitive::BlendMode::Disabled,
+		    false,
+		    false,
 		    primitive.material.alphaCutoutThreshold / 255.0f,
 		    glm::vec4(primitive.material.color.bgra.r, primitive.material.color.bgra.g, primitive.material.color.bgra.b,
 		              primitive.material.color.bgra.a) /
@@ -297,8 +277,9 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		    (primitive.material.cullMode & 1) != 0,
 		    (primitive.material.cullMode & 4) != 0,
 		    (primitive.material.cullMode & 0x10) == 0,
-		    static_cast<uint32_t>(primitive.material.type),
+		    0,
 		});
+		ApplyMode(added, static_cast<uint32_t>(primitive.material.type));
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);
 		startIndex += static_cast<uint16_t>(primitive.numTriangles * 3);
@@ -355,46 +336,12 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 
 void L3DSubMesh::SetMaterialProperties(const MaterialProperties& properties) noexcept
 {
-	using Type = l3d::L3DMaterial::Type;
 	for (auto& primitive : _primitives)
 	{
-		// GJUtils::SetMaterialProperties 0x57E120, in this order
-		auto type = static_cast<Type>(primitive.materialType);
-		if (type == Type::AlphaTextured)
-		{
-			type = Type::AlphaTexturedAlphaNz; // 0x57E126
-		}
-		if (!properties.alpha)
-		{
-			type = Type::TexturedAlpha; // 0x57E138
-		}
-		if (properties.additive)
-		{
-			type = Type::AlphaTexturedAlphaAdditiveNz; // 0x57E142
-		}
-		if (properties.zWrite) // 0x57E14C
-		{
-			type = type == Type::AlphaTexturedAlphaNz          ? Type::AlphaTexturedAlpha
-			       : type == Type::AlphaTexturedAlphaAdditiveNz ? Type::AlphaTexturedAlphaAdditive
-			       : type == Type::TexturedAlphaNz              ? Type::TexturedAlpha
-			       : type == Type::TexturedChromaAlphaNz        ? Type::TexturedChroma
-			                                                    : type;
-		}
-		else // 0x57E182
-		{
-			type = type == Type::AlphaTexturedAlpha                                 ? Type::AlphaTexturedAlphaNz
-			       : type == Type::AlphaTexturedAlphaAdditive                       ? Type::AlphaTexturedAlphaAdditiveNz
-			       : type == Type::TexturedAlpha || type == Type::Textured          ? Type::TexturedAlphaNz
-			       : type == Type::TexturedChroma                                   ? Type::TexturedChromaAlphaNz
-			                                                                        : type;
-		}
-		const auto& entry = k_MaterialTypeLut.at(static_cast<uint32_t>(type));
-		primitive.materialType = static_cast<uint32_t>(type);
-		primitive.depthWrite = entry.depthWrite;
-		primitive.alphaTest = entry.alphaTest;
-		primitive.blend = entry.blend;
-		primitive.modulateAlpha = entry.modulateAlpha;
-		primitive.thresholdAlpha = entry.thresholdAlpha;
+		// GJUtils::SetMaterialProperties 0x57E120
+		const auto mode =
+		    render_modes::ModeFromProperties(static_cast<render_modes::Mode>(primitive.materialType), properties);
+		ApplyMode(primitive, static_cast<uint32_t>(mode));
 		primitive.twoSided = properties.doubleSided; // 0x57E1B7: byte +5 bit 0
 	}
 }
@@ -403,7 +350,7 @@ void L3DSubMesh::ReplaceMaterialType(uint32_t from, uint32_t to) noexcept
 {
 	// fn_0057E220 writes any value in the type dword; openblack only knows the 19 modes of the table 0xC38728. Never hit:
 	// the only caller in the image (PhysicalShield 0x72CCCD / 0x72CCE5) uses (5, 13) and (4, 13)
-	if (to >= k_MaterialTypeLut.size())
+	if (to >= render_modes::k_ModeCount)
 	{
 		return;
 	}
@@ -416,13 +363,7 @@ void L3DSubMesh::ReplaceMaterialType(uint32_t from, uint32_t to) noexcept
 		}
 		// the D3D states of the new type's mode (the type picks the mode in the tables 0xC38728 / 0xC387C8); twoSided,
 		// wrap, uvOffset and alphaCutoutThreshold come from the other material bytes, which fn_0057E220 does not touch
-		const auto& entry = k_MaterialTypeLut.at(to);
-		primitive.materialType = to;
-		primitive.depthWrite = entry.depthWrite;
-		primitive.alphaTest = entry.alphaTest;
-		primitive.blend = entry.blend;
-		primitive.modulateAlpha = entry.modulateAlpha;
-		primitive.thresholdAlpha = entry.thresholdAlpha;
+		ApplyMode(primitive, to);
 	}
 }
 

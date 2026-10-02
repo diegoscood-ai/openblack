@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "example.native-consumer",
+  "name": { "en": "Native consumer", "es": "Consumidor nativo" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A native mod that uses the library mod Native library (src/consumer.c): it needs it (\"dependencies\"), so it loads after it, takes its interface example.counter.v1 and counts the lands loaded.",
+    "es": "Un mod nativo que usa el mod librería Librería nativa (src/consumer.c): la necesita («dependencies»), así que carga después, toma su interfaz example.counter.v1 y cuenta las tierras cargadas."
+  },
+  "api": ">=1.0 <2.0",
+  "dependencies": { "example.native-library": "^1.0" },
+  "entry": { "native": { "windows": "bin/example.native-consumer.dll", "linux": "bin/example.native-consumer.so" } }
+}

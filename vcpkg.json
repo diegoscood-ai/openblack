@@ -43,6 +43,9 @@
         },
         "bullet3",
         "minizip",
+        "nlohmann-json",
+        "lua",
+        "sol2",
         "gtest"
     ]
 }

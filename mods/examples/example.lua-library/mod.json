@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "example.lua-library",
+  "name": { "en": "Lua library", "es": "Librería Lua" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A Lua library mod: it changes nothing itself and offers the table example.places.v1 (named places of Land 1) to other Lua mods. Lua consumer uses it.",
+    "es": "Un mod librería en Lua: no cambia nada por sí mismo y ofrece la tabla example.places.v1 (lugares con nombre de Land 1) a otros mods Lua. Consumidor Lua la usa."
+  },
+  "api": ">=1.0 <2.0",
+  "provides": ["example.places.v1"],
+  "entry": { "lua": "scripts/main.lua" }
+}

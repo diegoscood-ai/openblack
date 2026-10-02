@@ -40,6 +40,8 @@ void UpdateAnimations(float milliseconds);
 /// The renderer's view of the poses: instance index -> the bones' model matrices.
 using PoseMap = std::unordered_map<uint32_t, const std::vector<glm::mat4>*>;
 PoseMap PosesByInstance(const std::unordered_map<entt::entity, systems::RenderContext::EntityInstance>& entityInstances);
+/// The same, with the poses of the instances that are not entities (RenderContext::instancePoses, the PSys mesh atoms)
+PoseMap PosesByInstance(const systems::RenderContext& context);
 /// whether any instance in [offset, offset + count) has its own pose
 bool HasPose(const PoseMap& poses, uint32_t offset, uint32_t count);
 /// points matrices / count at the instance's pose if it has one that fits the mesh (else leaves them)

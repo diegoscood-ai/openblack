@@ -92,14 +92,6 @@ frame_anim::UvOffset frame_anim::AnimTexturedCell(int frame, const AnimTexturedS
 	        sheet.slideV ? static_cast<float>(sheet.height * frame) / n : 0.0f};
 }
 
-uint32_t frame_anim::WholeMilliseconds(float& remainder, float milliseconds) noexcept
-{
-	remainder += milliseconds;
-	const auto whole = remainder > 0.0f ? static_cast<uint32_t>(remainder) : 0u;
-	remainder -= static_cast<float>(whole);
-	return whole;
-}
-
 frame_anim::UvOffset frame_anim::OneOffFrame(float& phase, float milliseconds) noexcept
 {
 	phase = std::fmod(phase + milliseconds * k_OneOffRate * k_Milli, k_OneOffFrames);

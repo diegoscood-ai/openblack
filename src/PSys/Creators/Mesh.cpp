@@ -26,7 +26,9 @@
 #include "3D/AllMeshes.h"
 #include "3D/Billboard.h"
 #include "3D/FrameAnim.h"
+#include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
+#include "3D/SkeletalPose.h"
 #include "Camera/Camera.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
@@ -71,8 +73,8 @@ int32_t MeshEnumValue(std::string_view name)
 	return it != names.end() ? it->second : -1;
 }
 
-/// GJUtils::GetSharedMesh 0x57DFB0: a mesh file (".\Data\Spells\Meshes\X.l3d"), loaded once by its name
-entt::id_type SharedMesh(std::string path)
+/// A spell file's path (".\Data\Spells\Meshes\X.l3d") under the data folder ("Spells/Meshes/X.l3d")
+std::string DataRelativePath(std::string path)
 {
 	std::replace(path.begin(), path.end(), '\\', '/');
 	if (path.starts_with("./"))
@@ -83,6 +85,13 @@ entt::id_type SharedMesh(std::string path)
 	{
 		path = path.substr(5);
 	}
+	return path;
+}
+
+/// GJUtils::GetSharedMesh 0x57DFB0: a mesh file (".\Data\Spells\Meshes\X.l3d"), loaded once by its name
+entt::id_type SharedMesh(std::string path)
+{
+	path = DataRelativePath(std::move(path));
 	const auto id = entt::hashed_string(("psys/" + path).c_str()).value();
 	if (!Locator::resources::has_value() || !Locator::filesystem::has_value())
 	{
@@ -104,6 +113,53 @@ entt::id_type SharedMesh(std::string path)
 		SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: mesh {}: {}", path, e.what());
 	}
 	return id;
+}
+
+/// fn_006A9570 with AnimEnum -1: the AnimFileName (".\Data\SPELLS\Anims\X.anm") loaded by fn_00839900 (the whole
+/// file, LHLoadData 0x83993C, then the fix-ups fn_0083A610), when LHFileLength finds it. (openblack) once per path,
+/// kept by the animation manager; 0 when there is no file
+entt::id_type SharedAnim(std::string path)
+{
+	path = DataRelativePath(std::move(path));
+	if (path.empty() || path == "NULL_STRING")
+	{
+		return 0;
+	}
+	const auto id = entt::hashed_string(("psys/" + path).c_str()).value();
+	if (!Locator::resources::has_value() || !Locator::filesystem::has_value())
+	{
+		return id;
+	}
+	auto& animations = Locator::resources::value().GetAnimations();
+	if (animations.Contains(id))
+	{
+		return id;
+	}
+	try
+	{
+		auto& fileSystem = Locator::filesystem::value();
+		animations.Load(id, resources::L3DAnimLoader::FromDiskTag {},
+		                fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / path));
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: animation {}: {}", path, e.what());
+		return 0;
+	}
+	return id;
+}
+
+/// The clip of an animated mesh creator, if it is loaded. (openblack guard) without a clip (missing file) or with a
+/// mesh without bones the atom is drawn in its rest pose; the original would read the null clip (fn_006A9570 leaves
+/// +0x40 at 0, GetCycleTimeFromFrame 0x6C85F0 reads [0 + 0x20])
+const L3DAnim* CreatorClip(const MeshCreator& creator)
+{
+	if (!creator.animated || creator.animId == 0 || !Locator::resources::has_value())
+	{
+		return nullptr;
+	}
+	const auto& animations = Locator::resources::value().GetAnimations();
+	return animations.Contains(creator.animId) ? &*animations.Handle(creator.animId) : nullptr;
 }
 
 std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
@@ -135,11 +191,27 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	if (object.className == "ParticleAnimCreator")
 	{
 		// ParticleAnimCreator (DefineProperties 0x6B3D70, ctor 0x6A9200: +0x90 UseAdditiveAlpha 0, +0x91 Z 0, +0x92
-		// double-sided 1, +0x93 / +0x94 1, no MeshChangeMaterialProps): (aproximado) drawn as a still mesh in its bind
-		// pose. Not ported: the .anm (AnimFileName / AnimEnum, Particle3DAnim::DrawAt 0x67A8E0: GetCycleTimeFromFrame
-		// 0x6C85F0 -> vt 0x188, SpeedUpFactor, RandomiseInitFrame, PlayAnim), the blend to MeshFileName1/2 between
-		// FrameToStartBlend and FrameToEndBlend (vt 0xDC), UseSuperSortedPolys
+		// double-sided 1, +0x93 / +0x94 1, no MeshChangeMaterialProps property): fn_006A95E0 gives the pack mesh
+		// SetMaterialProperties when +0x93 (0x6A9602..0x6A9617), the file goes through fn_0057D420 with them
 		creator->changeMaterialProps = true;
+		// The clip (fn_006A9570, set on each particle's object by vt 0x180 fn_008185C0 at 0x6A97A2) and the ctor's
+		// defaults (0x6A93A7..0x6A93B5): SpeedUpFactor 1, PlayAnim 0, RandomiseInitFrame 0. Every spell file (SF_Forest,
+		// SF_Butterflies, SF_ButterfliesOnObject) names an AnimFileName and no AnimEnum. (pendiente) AnimEnum (+0x7C,
+		// LH3DAnim::AnimPack [0xEDD508], pack[0] out of range, 0x6A957C..0x6A959A); the blend of DrawAt
+		// 0x67A946..0x67A9B1 to MeshFileName1/2 (+0x38 / +0x3C, both needed) between FrameToStartBlend and
+		// FrameToEndBlend (vt 0xDC fn_007F9A80): NULL_STRING in every file; UseSuperSortedPolys (vt 0xD4, 0 everywhere),
+		// UseDynamicLighting (vt 0x58 fn_008168C0), UseGlobalAlpha (vt 0x48 fn_007F9D60, the object's +4 bit 0x80; 1
+		// everywhere, the alpha is drawn as for every mesh atom) and NeverClip (vt 0x98 fn_007F98E0 with !NeverClip)
+		creator->animated = true;
+		creator->animId = SharedAnim(object.String("AnimFileName"));
+		creator->speedUpFactor = object.Float("SpeedUpFactor", 1.0f);
+		creator->animPlay = object.Bool("PlayAnim", false);
+		creator->animRandomInitFrame = object.Bool("RandomiseInitFrame", false);
+		if (creator->animId == 0)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: {} {}: no animation ({})", object.className, object.name,
+			                   object.String("AnimFileName"));
+		}
 	}
 	creator->additive = creator->changeMaterialProps && object.Bool("UseAdditiveAlpha", false);
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
@@ -177,8 +249,39 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 }
 } // namespace
 
+float openblack::psys::AnimFrameRate(int32_t clipMs, float speedUpFactor) noexcept
+{
+	// (openblack guard) a clip of 0 ms: no rate, where the original divides by it
+	if (clipMs <= 0)
+	{
+		return 0.0f;
+	}
+	return 1000.0f / static_cast<float>(clipMs) * speedUpFactor * 1000.0f;
+}
+
+int32_t openblack::psys::AnimCycleTime(int32_t clipMs, int frame) noexcept
+{
+	return clipMs * frame / k_AnimFrames;
+}
+
 void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 {
+	if (animated)
+	{
+		// ParticleAnimCreator::CreateParticle (vt 0x10 0x6A98C0 -> fn_006A97F0): the particle's own object of type 2
+		// (vt 0x1C, CreateLH3DObject 0x6A9760), then on the atom (0x6A9843..0x6A98AD) the rate +0x110 from the clip's
+		// length (AnimFrameRate), +0x114 = 1000 frames, +0x118 PlayAnim (+0xA1) and +0x119 LoopAnim (+0xC), and with
+		// RandomiseInitFrame (+0xA2) SetFrame 0x674100 (+0x108 and +0x10C) of PSysRand(1000) 0x6729E0. (aproximado) the
+		// PSysRand of the function pointer [0xD4E0BC] by the effect's generator, as every random of this PSys port
+		const auto* clip = CreatorClip(*this);
+		atom.frameRate = AnimFrameRate(clip != nullptr ? clip->GetDurationMs() : 0, speedUpFactor);
+		atom.playAnim = animPlay;
+		if (animRandomInitFrame)
+		{
+			atom.frame = std::floor(effect.Random(static_cast<float>(k_AnimFrames)));
+		}
+		return;
+	}
 	if (!animTextured)
 	{
 		return; // ParticleMeshCreator::CreateParticle 0x6A8B00: the Particle3DObj only
@@ -215,6 +318,22 @@ glm::vec2 MeshCreator::UvOffset(int frame) const
 	return graphics::frame_anim::AnimTexturedCell(frame, {textureWidth, textureHeight, slideU, slideV, FramesPerAtom()});
 }
 
+bool mesh_atoms::Any()
+{
+	for (const auto& drawable : manager::Collect(Creator::Kind::Mesh))
+	{
+		for (const auto& atom : drawable.atoms)
+		{
+			const auto* creator = dynamic_cast<const MeshCreator*>(atom.creator);
+			if (creator != nullptr && creator->meshId != 0)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 {
 	std::vector<Instance> result;
@@ -228,6 +347,20 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			if (creator == nullptr || creator->meshId == 0)
 			{
 				continue;
+			}
+			// Particle3DAnim::DrawAt 0x67A8E0: the whole frame of DrawData +0x10 (fn_00679920, 0..999) gives the clip's
+			// time (GetCycleTimeFromFrame 0x6C85F0, kept in the particle's +0x28 and set on its object by vt 0x188
+			// fn_0080B880: +0x84), which the object's draw poses the bones at (fn_008175B0: LH3DAnim::GetPose 0x839980 of
+			// +0x80 at +0x84, 0x8177B8..0x8177CE). Frame 0 is not drawn: 0x67A9B7..0x67A9BE leaves before vt 0xF8 / 0x104
+			const L3DAnim* clip = CreatorClip(*creator);
+			int animFrame = 0;
+			if (creator->animated)
+			{
+				animFrame = graphics::frame_anim::PSysFrameIndex(atom.frame, creator->FramesPerAtom(), creator->loopAnim);
+				if (animFrame == 0)
+				{
+					continue;
+				}
 			}
 			// fn_00679920: the PSR matrix (rotation x scale, the Y axis x the stretch): the LHMatrix rows r0, r1, r2 are
 			// the columns here
@@ -260,6 +393,21 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			// cut at y = 0 is the animated objects' fn_00811C70, rendering.md). Nothing to port for the dome.
 			result.push_back({creator->meshId, model, alpha, uv, creator->additive || alpha < 1.0f, creator->additive, atom.colour,
 			                  creator->drawWithLandscapeColour});
+			// (openblack) no pose for an atom of alpha 0: the renderer does not draw it
+			if (clip != nullptr && alpha > 0.0f && Locator::resources::has_value())
+			{
+				const auto& meshes = Locator::resources::value().GetMeshes();
+				if (meshes.Contains(creator->meshId))
+				{
+					const auto mesh = meshes.Handle(creator->meshId);
+					if (mesh->IsBoned())
+					{
+						graphics::ComputePose(*mesh, *clip,
+						                      static_cast<float>(AnimCycleTime(clip->GetDurationMs(), animFrame)),
+						                      result.back().pose);
+					}
+				}
+			}
 		}
 	}
 	return result;
@@ -269,5 +417,5 @@ void openblack::psys::RegisterMeshCreators()
 {
 	RegisterCreator("ParticleMeshCreator", MakeMeshCreator);
 	RegisterCreator("ParticleMeshCreatorAnimTextured", MakeMeshCreator);
-	RegisterCreator("ParticleAnimCreator", MakeMeshCreator); // (aproximado) the forest's butterflies and bats, still
+	RegisterCreator("ParticleAnimCreator", MakeMeshCreator); // the forest's butterflies and bats (Particle3DAnim)
 }

@@ -12,7 +12,6 @@
 // The map's mist banks (CREATE_MIST -> Mist, an LH3DObject of type 7 drawn by LH3DMist::Draw fn_007FA300)
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <optional>
@@ -107,14 +106,10 @@ bool mists::InView(const glm::vec3& position, float size)
 std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& camera) const
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// game time (g_game_time_inc): the animation stops while the game is paused
-	static auto lastTime = std::chrono::steady_clock::now();
-	const auto now = std::chrono::steady_clock::now();
-	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
+	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs, fn_007FA300 0x7FA3BE): game time, whole ms, 0 while
+	// paused, so the animation stops while the game is paused. Collected once a frame (the main view)
 	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
-	const float milliseconds =
-	    paused ? 0.0f : std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
-	lastTime = now;
+	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameMists.clear();

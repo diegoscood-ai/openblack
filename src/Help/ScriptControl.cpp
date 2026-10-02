@@ -15,7 +15,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "Audio/ScriptAudioState.h"
+#include "Audio/Services/ScriptAudioState.h"
 #include "HelpSystem.h"
 
 namespace openblack::help::script_control

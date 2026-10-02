@@ -28,7 +28,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/Guidance.h"
+#include "Audio/Services/Guidance.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"

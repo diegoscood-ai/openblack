@@ -33,7 +33,7 @@
 #include <LNDFile.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
@@ -834,7 +834,7 @@ TornadoCarrier::~TornadoCarrier()
 }
 
 /// Terrain::GetMaterialInfo 0x735330 at a point: the second material of the cell's altitude in its country (the reading
-/// of Audio/SoundMap.cpp), and its GTerrainMaterialInfo::tornadoDustColorRGB (+0x54..+0x5C) as 0xFFRRGGBB
+/// of Audio/Services/SoundMap.cpp), and its GTerrainMaterialInfo::tornadoDustColorRGB (+0x54..+0x5C) as 0xFFRRGGBB
 uint32_t TornadoDustColour(const glm::vec3& point)
 {
 	if (!Locator::terrainSystem::has_value() || !Locator::infoConstants::has_value())

@@ -25,8 +25,8 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
 #include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Town.h"

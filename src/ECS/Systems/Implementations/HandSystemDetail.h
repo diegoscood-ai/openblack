@@ -24,7 +24,7 @@
 #include <glm/vec3.hpp>
 
 #include "Audio/Audio.h"
-#include "Audio/Sound.h"
+#include "Audio/Device/Sound.h"
 
 namespace openblack::ecs::systems::hand_detail
 {

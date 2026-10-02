@@ -23,8 +23,8 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/LandIslandInterface.h"
-#include "Audio/Sound.h"
-#include "Audio/SoundTags.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/SoundTags.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"

@@ -11,7 +11,7 @@
 
 #include "HandSystem.h"
 
-#include "Audio/Guidance.h"
+#include "Audio/Services/Guidance.h"
 
 #include "HandSystemDetail.h"
 

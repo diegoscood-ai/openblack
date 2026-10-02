@@ -577,8 +577,10 @@ plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
   (`UpdateMelting` 0x5E3C55 / 0x5E3DBE) está en U3 (`MorphWithTerrain` en `ECS/DesignedScenery`). Además, leído en U2 y sin tocar: `fn_008248E0` descuenta el tiempo de
   huida con el dt sin limitar y calcula el empuje después de restarlo (0x82490D..0x82495A); openblack lo hace con
   el dt limitado y antes de restar.
-- «audio»: los sonidos que aún no van por los 16 canales (AnimationSounds, rocas, el silbido de la cámara,
-  `G_RockPast`, los `PlaySample` de la mano) y la unión de `LanternSounds` con `SoundTags`.
+- «audio» (**hecho**, [audio.md](audio.md#fases-b-y-c)): los sonidos que no iban por los 16 canales
+  (AnimationSounds B2, rocas, el silbido de la cámara, `G_RockPast` y los `PlaySample` de la mano B4/B8) y las farolas
+  como `SoundTags` (B3); desde B11b el audio no lee el ECS y `audio::GetSurfaceType` ya no existe (todos usan
+  `sea_cells::GetSurfaceType`).
 
 **Dudas que solo puede aclarar el usuario** (memoria del original):
 - ¿El mar estaba quieto con la cámara parada? El código dice que sí (viento ambiente 0, sin deriva).

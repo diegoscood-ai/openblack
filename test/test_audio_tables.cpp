@@ -19,7 +19,7 @@
 #include <PackFile.h>
 #include <gtest/gtest.h>
 
-#include "Audio/BankTables.h"
+#include "Audio/GAudio/BankTables.h"
 
 // Milestone A1 of dev\tmp_dis\audio\PLAN.md: the tables 0x9CB3F8 and 0x9C9748 of runblack.exe W120 (dumped with
 // dev\tmp_dis\audio\audit_banktable.py; music_types.md) and the music flag of LHFileSegmentBankInfo read by PackFile.

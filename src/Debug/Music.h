@@ -14,7 +14,7 @@
 namespace openblack::debug::gui
 {
 
-/// LHMusic (Audio/MusicEngine.h): the music master volume, the 6 channels, and a player for any MUSIC_TYPE
+/// LHMusic (Audio/LH/MusicEngine.h): the music master volume, the 6 channels, and a player for any MUSIC_TYPE
 class Music final: public Window
 {
 public:

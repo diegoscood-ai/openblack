@@ -140,8 +140,8 @@ struct Coverage
 void ToGrid(const Box& box, std::span<glm::vec2> points, int texels = k_Texels);
 
 /// fn_00850CC0 on one primitive: triangles of 16-bit indices into `grid`. One-sided ones (no `mat+5 & 1` and not a
-/// temple, vt+0x1F8) are kept when (r0 - r2)(x1 - x2) >= (r1 - r2)(x0 - x2), rows r = ftol(z) (0x850D03..0x850DA1),
-/// and walked 0 -> 2, 2 -> 1, 1 -> 0; two-sided ones are walked 0 -> 2 -> 1 when (r0 - r1)(x2 - x1) < (r2 - r1)
+/// mist, vt+0x1F8 = IsMist, 1 only in Mist 0x55EB90) are kept when (r0 - r2)(x1 - x2) >= (r1 - r2)(x0 - x2), rows
+/// r = ftol(z) (0x850D03..0x850DA1), and walked 0 -> 2, 2 -> 1, 1 -> 0; two-sided ones are walked 0 -> 2 -> 1 when (r0 - r1)(x2 - x1) < (r2 - r1)
 /// (x0 - x1), else 0 -> 1 -> 2 (0x850E29..0x850F6D). Edges fn_0087FF70, spans fn_00880050; `halfRows` = si+0x3C
 /// (the even subrows are not written, 0x880141..0x880146).
 void RasterTriangles(std::span<const glm::vec2> grid, std::span<const uint16_t> indices, bool bothFaces,

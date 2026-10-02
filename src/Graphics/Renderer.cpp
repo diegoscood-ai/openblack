@@ -75,6 +75,7 @@
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/ModelLight.h"
 #include "Graphics/PhysicsShadows.h"
+#include "Graphics/ShadowList.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/RenderModes.h"
 #include "Graphics/SeaPass.h"
@@ -335,6 +336,7 @@ std::unique_ptr<RendererInterface> RendererInterface::Create(GraphicsBackend bac
 Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallback) noexcept
     : _shaderManager(std::make_unique<ShaderManager>())
     , _physicsShadows(std::make_unique<PhysicsShadows>())
+    , _shadows(std::make_unique<shadow_list::List>())
     , _bgfxCallback(std::move(bgfxCallback))
     , _bgfxReset(bgfxReset)
 {
@@ -364,6 +366,7 @@ Renderer::~Renderer() noexcept
 	_foliage.reset();
 	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
 	_physicsShadows.reset();
+	_shadows.reset(); // its textures before bgfx::shutdown
 	if (bgfx::isValid(_landLightTexture))
 	{
 		bgfx::destroy(_landLightTexture);
@@ -1977,6 +1980,7 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		_physicsShadows->Update(*drawDesc.camera);
 		_physicsShadows->Draw(*_shaderManager);
 	}
+	UpdateShadows(drawDesc);
 	if (drawDesc.drawIsland)
 	{
 		UpdateClouds();

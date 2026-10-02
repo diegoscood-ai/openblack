@@ -61,6 +61,10 @@ namespace graphics
 {
 class L3DSubMesh;
 class PhysicsShadows;
+namespace shadow_list
+{
+class List;
+}
 class Mesh;
 class GameFont;
 
@@ -76,6 +80,8 @@ class Renderer final: public RendererInterface
 	void DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const;
 	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
 	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
+	/// The projected shadows of this frame (shadow_list::List::Frame; RendererShadows.cpp)
+	void UpdateShadows(const DrawSceneDesc& drawDesc) const;
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
 	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each
@@ -241,6 +247,8 @@ private:
 	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
 	/// The physics objects' shadows on the land (fn_007FCE80)
 	std::unique_ptr<PhysicsShadows> _physicsShadows;
+	/// The projected shadows, the ShadowInfo list [0xFAA7E0] (shadow_list)
+	std::unique_ptr<shadow_list::List> _shadows;
 	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
 	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
 	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame

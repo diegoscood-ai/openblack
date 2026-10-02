@@ -46,7 +46,7 @@ enum class SeaPlane : int8_t
 {
 	None = 0,      ///< not a sea draw: no discard
 	KeepAbove = 1, ///< y >= 0 (the default plane, with B and with C)
-	KeepBelow = -1 ///< y <= 0 (C with the swimmers' plane (0, -1, 0, 0))
+	KeepBelow = -1 ///< y <= 0 (C with a plane (0, -1, 0, 0): the shark's, the net's, the swimmers')
 };
 
 /// The plane of the CRT initialisers, world fn_0084A380 (0x84A390..0x84A3AE: [0xF0312C] = 0x3F800000 = 1.0f, the rest
@@ -55,6 +55,14 @@ inline constexpr glm::vec4 k_DefaultPlane {0.0f, 1.0f, 0.0f, 0.0f};
 /// The swimmers' plane: GLandscape::Draw 0x5E4C4A..0x5E4C5A (dwords, [esp+0x44] = 0xBF800000 = -1.0f), then
 /// fn_00822560 0x5E4C5E
 inline constexpr glm::vec4 k_SwimPlane {0.0f, -1.0f, 0.0f, 0.0f};
+/// The net's own plane: fn_00829BC0 0x829C91..0x829CB4 (dwords, [esp+0x28] = 0xBF800000 = -1.0f at 0x829C9C, the rest
+/// 0), fn_00822560 0x829CB7, then the default plane again (0x829D25..0x829D45). It runs in fn_00824B90 (0x5E4B2B),
+/// before the swimmers' loop: not k_SwimPlane's write, the same values
+inline constexpr glm::vec4 k_NetPlane {0.0f, -1.0f, 0.0f, 0.0f};
+/// The shark's own plane under the water: fn_00774E30 0x774FF5..0x775015 (dwords, [esp+0x50] = 0xBF800000 = -1.0f at
+/// 0x774FFD, the rest 0), fn_00822560 0x77501A, then the default plane again (0x7750E6..0x775106). It runs in
+/// fn_00775120 (0x5E4B26), before the swimmers' loop: not k_SwimPlane's write, the same values
+inline constexpr glm::vec4 k_SharkPlane {0.0f, -1.0f, 0.0f, 0.0f};
 
 /// The two LH3DObject draws of the pass
 enum class Mechanism : uint8_t
@@ -96,8 +104,9 @@ enum class Mechanism : uint8_t
 enum class SeaLight : uint8_t
 {
 	Normal,   ///< not a sea draw: the model light of the normal Draw
-	Constant, ///< B: the constant obj+0x4C / +0x50 of SetColorSpecular (fn_00811010, the hand 0x5E496E, the boat
-	          ///< 0x5E016C), no vertex light
+	Constant, ///< B: a constant obj+0x4C / +0x50 read by fn_00811010, no vertex light. The hand sets both with
+	          ///< SetColorSpecular (0x5E496C..0x5E4975); the boat writes only +0x4C (`mov [eax+0x4C], 0xFF303070`
+	          ///< 0x5E016C) and leaves +0x50 as its hull's last Draw left it, so its specular 0 is (inferido)
 	LastDraw, ///< B: obj+0x4C / +0x50 as the last Draw left them, fn_00801C90's land light and cell specular
 	          ///< (PhysicsObject::DrawAll 0x646F9F), no vertex light, no haze
 	Cut       ///< C: fn_00858BA0, 90 + 165 I >> 8 (R14: [0xC39264] = 90, 0x858CE1..0x858D03) in obj+0x4C, + obj+0x50
@@ -143,7 +152,9 @@ struct SeaDraw
 
 /// C for the PSys mesh atoms with DrawCutByPlane (fn_00679F20: +0x24 & 4 `test al, 4` 0x679F29, vt+0x11C 0x679F4A),
 /// in the pass's default plane (they draw in the model pass, after GLandscape::Draw put it back, 0x5E4D76) and each in
-/// its own DrawData colour and specular (SetColorSpecular vt+0x2C 0x67A02F)
+/// its own DrawData colour and specular (SetColorSpecular vt+0x2C 0x67A02F). (aproximado) the vertex alpha is 0xFF:
+/// fn_00858BA0 takes it from obj+0x4C & 0xFF000000 ([0xC37D8C] 0x858C42 -> [ebp-0x24], OR'd in at 0x858D60), i.e.
+/// DrawData+8's alpha, which psys::mesh_atoms::Instance does not carry yet
 [[nodiscard]] constexpr SeaDraw CutAtoms(RenderPass pass)
 {
 	auto draw = Cut(Kept(Mechanism::CutByPlane, k_DefaultPlane), 0xFFFFFFFFu, 0u, pass);

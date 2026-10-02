@@ -64,7 +64,8 @@ void Renderer::DrawBoatReflection(RenderPass viewId) const
 	// DrawUnderWater (static 0x811010 -> fn_00850FC0, 0x5E0178): mirrored in y = 0 (the reflection camera here), what had
 	// y < 0 clipped away, unlit in the diffuse obj+0x4C = 0xFF303070 (`mov [eax+0x4C]` 0x5E016C; vs_object mode 2,
 	// sea_pass::UnderWater). (inferido) +0x50 is left as it was (0x5E016C writes only +0x4C): the hull's last Draw's
-	// specular is not kept in openblack, 0
+	// specular is not kept in openblack, 0. The hull (petit_navire, PetitNavire.cpp) never gets MorphWithTerrain, so its
+	// instance's morphWithTerrain is false and DrawUnderWater draws it with ObjectInstanced, as before
 	DrawUnderWater(viewId, entity, sea_pass::UnderWater(ecs::petit_navire::k_ReflectionColour, 0u));
 }
 

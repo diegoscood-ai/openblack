@@ -49,8 +49,12 @@ void Renderer::DrawUnderWater(RenderPass viewId, const L3DMesh& mesh, std::uniqu
 {
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
-	// the material's own mode (fn_00811010 0x8110CF: the table 0xC387C8 only with Flags1 & 0x80, which no caller here
-	// sets: the hand's LH3DObject, type 3 0x9A3068, starts with +4 = 0x10009 (0x816537) and nothing calls its vt+0x48)
+	// the material's own mode: fn_00811010 stores the table 0xC387C8 (0x8110CF) only when vt+0x4C = fn_007F9D80
+	// (Flags1 >> 7 & 1) returns 1 (0x8110BF, `test eax, eax / je 0x81114C` 0x8110C2..0x8110C4). (inferido) no caller
+	// here has that bit: the hand's LH3DObject, type 3 0x9A3068 (vt+0x118 = fn_00813300 -> fn_00811010), starts with
+	// +4 = 0x10009 (0x816537), and a byte scan found no vt+0x48 (fn_007F9D60, Flags1 | 0x80) call within 0x30 bytes
+	// after a [x+0x482C] load; a setter through another pointer path is not ruled out. The moon does set it, vt+0x48(1)
+	// before both its Draw (0x86AC05) and its DrawUnderWater (0x86AC3B), see Renderer::DrawMoon
 	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.sea = sea;
 	submitDesc.instanceDesc = std::move(instances);
@@ -126,9 +130,10 @@ void Renderer::DrawCutByPlane(RenderPass viewId, entt::entity entity, sea_pass::
 
 void Renderer::DrawCutBelowWater(RenderPass viewId) const
 {
-	// GLandscape::Draw 4d-4e (0x5E4B26..): SetClipPlane(0, -1, 0, 0) (fn_00822560; sea_pass::k_SwimPlane), keep y <= 0,
-	// the object's colour, DrawCutByPlane, SetClipPlane(0, 1, 0, 0)
-	const auto plane = sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_SwimPlane);
+	// GLandscape::Draw 0x5E4B26 (fn_00775120): each shark under the water, fn_00774E30: its own SetClipPlane(0, -1, 0,
+	// 0) (sea_pass::k_SharkPlane, 0x774FF5..0x77501A), keep y <= 0, the object's colour, DrawCutByPlane, then
+	// SetClipPlane(0, 1, 0, 0) again (0x7750E6..0x775106)
+	const auto plane = sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_SharkPlane);
 	std::vector<std::pair<entt::entity, uint32_t>> cut;
 	Locator::entitiesRegistry::value().Each<const ecs::components::CutByPlane>(
 	    [&cut](entt::entity entity, const ecs::components::CutByPlane& component) {

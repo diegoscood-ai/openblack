@@ -554,9 +554,10 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				case sea_pass::SeaLight::Constant:
 					// fn_00811010 0x811033..0x81103F: obj+0x4C -> [0xC37D8C], obj+0x50 -> [0xE9FE2C], both read per vertex
 					// by fn_00850FC0 (0x851082, 0x85102F). The colour's alpha (the hand's 0x65) only reaches what the
-					// stage's alpha takes from the diffuse: no table 0xC387C8 here (fn_00811010 0x8110CF tests Flags1 &
-					// 0x80, which the hand's object never gets, see Renderer::DrawUnderWater) and the hand's
-					// AlphaTextured takes the texture's alpha, so it is left out
+					// stage's alpha takes from the diffuse: no table 0xC387C8 here (fn_00811010 tests Flags1 & 0x80 with
+					// vt+0x4C = fn_007F9D80 at 0x8110BF, `test eax, eax / je 0x81114C` 0x8110C2..0x8110C4, and only then
+					// stores the table, 0x8110CF; (inferido) the hand's object never gets the bit, see
+					// Renderer::DrawUnderWater) and the hand's AlphaTextured takes the texture's alpha, so it is left out
 					u_objectLight = {2.0f, desc.lightBoost, static_cast<float>(desc.sea.argb & k_Rgb),
 					                 static_cast<float>(desc.sea.specular & k_Rgb)};
 					break;
@@ -1175,7 +1176,11 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
 	const glm::vec4 moonColour(colour, m / 255.0f);
 	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
-	// (inferido) without the Z write of mode 4 (0x82DC20): nothing farther is drawn after it in the sky
+	// (inferido) without the Z write of mode 4 (0x82DC20): nothing farther is drawn after it in the sky.
+	// The moon object gets Flags1 0x80 (vt+0x48(1) = fn_007F9D60) before its Draw (0x86AC05) and before its
+	// DrawUnderWater (0x86AC3B), so both draw through the table 0xC387C8: mode 4 -> 5 (0x82DD90, the same blend and Z
+	// write, ALPHAOP MODULATE(TEXTURE, DIFFUSE)). fs_celestial always modulates the alpha by u_colour, so the state of
+	// mode 4 here already draws as mode 5, in both passes
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
 	                  render_modes::State(render_modes::Mode::AlphaTextured,
 	                                      {.cull = pass.FaceCull(sea_pass::Surface::Model, false, false), .zWrite = false}),
@@ -2488,7 +2493,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		                                                                          : Profiler::Stage::MainPassDrawModels);
 		// The original's "underwater" stage (GLandscape::Draw 0x5E490F): the hand mirrored in the sea, unlit in
 		// SetColorSpecular(0x65A0A0A0, 0) (0x5E496C..0x5E4975), only its part above the water (CHand's LH3DObject
-		// DrawUnderWater, vt+0x118 0x5E4985; sea_pass::UnderWater)
+		// DrawUnderWater, vt+0x118 0x5E4985 = fn_00813300, which sets [0xC37D9C] = obj+0x80 and goes on to fn_00811010;
+		// sea_pass::UnderWater). Around it vt+0x58(0) 0x5E497E (fn_008168C0: Flags1 0x20 cleared, it is only set while
+		// [0xC38224] != 0) and vt+0x58(edi) 0x5E4991 puts it back: (no portado) what Flags1 0x20 does in this draw is
+		// not identified (fn_00811010 has no test of it)
 		if (!desc.drawEntities && desc.viewId == graphics::RenderPass::Reflection)
 		{
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
@@ -2519,16 +2527,19 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// GLandscape::Draw 0x5E4B26..: the parts under the water go into the frame before the sea, over the mirrored
 			// land. Here that frame is the reflection target, drawn with the mirrored camera, so they are mirrored too.
 			// the sharks (and whatever else is cut by the plane), then the fish (4d-4e)
+			// the sharks: fn_00775120 0x5E4B26
 			DrawCutBelowWater(desc.viewId);
-			// TODO(sea_pass, R11): the swimming SuperVillagers go here (GLandscape::Draw 0x5E4B4C..0x5E4D76): each of the
-			// list SuperVillager::g_first [0xEB9A08] whose animation is "M_P_Swim2" (0xBF3598, compared at 0x5E4C07),
-			// after its Draw vt+0x610 (0x5E4BC2) and shadow fn_00874850 (0x5E4BFB): the plane sea_pass::k_SwimPlane
+			// fn_00824B90 0x5E4B2B: each shoal of a bait, then its net (fn_00829BC0) under the net's own plane
+			// (sea_pass::k_NetPlane, 0x829C91..0x829CB7, put back 0x829D25..0x829D45)
+			DrawFishShoals(desc.viewId);
+			DrawFishPlots(desc.viewId, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_NetPlane));
+			// TODO(sea_pass, R11): the swimming SuperVillagers go here, after fn_00824B90 (0x5E4B2B: the fish and the
+			// nets) and before the hand's glow (0x5E4D89) (GLandscape::Draw 0x5E4B4C..0x5E4D76): each of the list
+			// SuperVillager::g_first [0xEB9A08] whose animation is "M_P_Swim2" (0xBF3598, compared at 0x5E4C07), after its
+			// Draw vt+0x610 (0x5E4BC2) and shadow fn_00874850 (0x5E4BFB): the plane sea_pass::k_SwimPlane
 			// (0x5E4C4A..0x5E4C5E), SetColorSpecular(sea_pass::k_SwimmerColour, k_SwimmerSpecular) (0x5E4C68..0x5E4C70),
 			// vt+0x11C 0x5E4C77 = DrawCutByPlane(viewId, entity, KeepBelow, k_SwimmerColour, k_SwimmerSpecular), then the
 			// default plane again (0x5E4D76). openblack has no SuperVillager list (ScriptControl.cpp)
-			DrawFishShoals(desc.viewId);
-			// fn_00824B90: each shoal of a bait, then its net (fn_00829BC0) under the swimmers' plane
-			DrawFishPlots(desc.viewId, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_SwimPlane));
 			// 0x5E4D89: the hand's glow on the water, the last thing before the sea
 			DrawHandWaterGlow(desc.viewId);
 		}

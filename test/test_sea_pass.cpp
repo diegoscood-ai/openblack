@@ -36,6 +36,16 @@ TEST(SeaPass, PlanesAreTheBinarysDwords)
 	EXPECT_EQ(std::bit_cast<uint32_t>(k_SwimPlane.x), 0u);
 	EXPECT_EQ(std::bit_cast<uint32_t>(k_SwimPlane.z), 0u);
 	EXPECT_EQ(std::bit_cast<uint32_t>(k_SwimPlane.w), 0u);
+	// fn_00829BC0 0x829C91: c7 44 24 24 00 00 00 00 .. 0x829C9C: c7 44 24 28 00 00 80 bf, +0x2C / +0x30 = 0
+	// fn_00774E30 0x774FF5: c7 44 24 4c 00 00 00 00, 0x774FFD: c7 44 24 50 00 00 80 bf, +0x54 / +0x58 = 0
+	for (const auto& plane : {k_NetPlane, k_SharkPlane})
+	{
+		EXPECT_EQ(std::bit_cast<uint32_t>(plane.y), 0xBF800000u);
+		EXPECT_EQ(std::bit_cast<uint32_t>(plane.x), 0u);
+		EXPECT_EQ(std::bit_cast<uint32_t>(plane.z), 0u);
+		EXPECT_EQ(std::bit_cast<uint32_t>(plane.w), 0u);
+		EXPECT_EQ(Kept(Mechanism::CutByPlane, plane), SeaPlane::KeepBelow);
+	}
 }
 
 namespace

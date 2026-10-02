@@ -410,7 +410,10 @@ El original tiene tres mecanismos y un solo plano:
 - B y C comparten el recortador de CPU `fn_0081D2C0` (sus únicos llamadores: 0x8515E7 / 0x8516AD y 0x85930E /
   0x8593C5) y el plano de usuario de `fn_00822560` (mundo [0xF03128], vista [0xF03118]). El plano por defecto
   (0, 1, 0, 0) lo ponen los inicializadores `fn_0084A380` (0x84A39A: [0xF0312C] = 0x3F800000) y `fn_0084A3C0`; los
-  nadadores ponen (0, −1, 0, 0) (0x5E4C4A..0x5E4C5A, dwords, 0xBF800000) y lo devuelven en 0x5E4D76. Con
+  nadadores ponen (0, −1, 0, 0) (0x5E4C4A..0x5E4C5A, dwords, 0xBF800000) y lo devuelven en 0x5E4D76. El tiburón
+  (`fn_00774E30` 0x774FF5..0x77501A, devuelto en 0x7750E6..0x775106) y la red (`fn_00829BC0` 0x829C91..0x829CB7,
+  devuelto en 0x829D25..0x829D45) ponen **su propio** (0, −1, 0, 0), antes del bucle de los nadadores
+  (`sea_pass::k_SharkPlane`, `k_NetPlane`: los mismos valores que `k_SwimPlane`). Con
   (0, b, 0, 0) los dos mecanismos dejan el mismo lado de la y **real**: b > 0 → y ≥ 0, b < 0 → y ≤ 0 (el espejo y la
   prueba contraria se anulan). `sea_pass::Kept(Mechanism, plano)` → `SeaPlane {None, KeepAbove, KeepBelow}`.
 - **Cara**: el material decide en los tres sitios (el Draw 0x84C34A, B 0x851798..0x8517D1, C 0x8594CF..0x8594ED:
@@ -434,23 +437,37 @@ El original tiene tres mecanismos y un solo plano:
   entidad, SeaDraw)` (la mano con `UnderWater(k_HandColour, k_HandSpecular)`, lo sostenido y los objetos físicos con
   `UnderWaterLastDraw()`, el barco con `UnderWater(0xFF303070, 0)`), `DrawCutByPlane(vista, entidad, SeaPlane, argb,
   especular)` (tiburones: especular 0, `push 0` 0x775027) y `DrawFishPlots(vista, SeaPlane)` (la red: +0x50 = 0 del
-  ctor 0x8164FE). **(openblack)** una instancia que se pega al suelo sigue dibujando su reflejo con el mapa de alturas,
+  ctor 0x8164FE). El orden es el del binario: tiburones (`fn_00775120` 0x5E4B26), peces y redes (`fn_00824B90`
+  0x5E4B2B), el sitio de los nadadores (0x5E4B4C..0x5E4D76) y el brillo de la mano (0x5E4D89). El reflejo del barco
+  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. **(openblack)** una instancia que se pega al suelo sigue dibujando su reflejo con el mapa de alturas,
   aunque el `DrawUnderWater` de las vtables morfables es un `ret` (0x80BA40).
 - Colores de la pasada (`SetColorSpecular` vt+0x2C antes de la llamada): mano 0x65A0A0A0 / 0 (0x5E496E / 0x5E496C),
   criatura 0x65A0A0D0 / 0x30 (0x5E4ACF / 0x5E4ACD), nadadores 0xFF303070 / 0 (0x5E4C69 / 0x5E4C68), barco 0xFF303070
   (`mov [eax+0x4C]` 0x5E016C, sin tocar +0x50: **(inferido)** openblack pone 0).
-- **El alfa 0x65 de la mano no se ve** (D-O3, comprobado en el binario): el objeto LH3D de la mano es
-  `LH3DObject::Create(3)` (`Morphable::MorphInit` 0x61731A → 0x80B5B2, vtable compleja 0x9A3068), sus banderas empiezan
-  en 0x10009 (0x816537) y no se ha encontrado ninguna llamada a su vt+0x48 (`fn_007F9D60`, Flags1 | 0x80) cerca de una
-  lectura de [CHand+0x482C]: su `DrawUnderWater` usa la tabla normal y su material `AlphaTextured` toma el alfa de la
-  textura.
+- **El alfa 0x65 de la mano no se ve** (D-O3, **(inferido)**): `fn_00811010` solo pone la tabla 0xC387C8 (0x8110CF)
+  si vt+0x4C = `fn_007F9D80` ((+4 >> 7) & 1) devuelve 1 (0x8110BF, `test eax, eax / je 0x81114C` 0x8110C2..0x8110C4).
+  El objeto LH3D de la mano es `LH3DObject::Create(3)` (`Morphable::MorphInit` 0x61731A → 0x80B5B2, vtable compleja
+  0x9A3068, cuyo vt+0x118 es `fn_00813300`: [0xC37D9C] = obj+0x80 y luego `fn_00811010`), sus banderas empiezan en
+  0x10009 (0x816537) y una búsqueda de bytes no encontró ninguna llamada a su vt+0x48 (`fn_007F9D60`, Flags1 | 0x80) en
+  los 0x30 bytes tras una lectura de [x+0x482C] (no descarta un setter por otro camino): su `DrawUnderWater` usa la
+  tabla normal y su material `AlphaTextured` toma el alfa de la textura.
+- Alrededor del `DrawUnderWater` de la mano: vt+0x58(0) 0x5E497E (`fn_008168C0`: quita Flags1 0x20; solo lo pone si
+  [0xC38224] ≠ 0) y vt+0x58(edi) 0x5E4991 lo devuelve. **(no portado)**: no se sabe qué hace Flags1 0x20 en este
+  dibujo (`fn_00811010` no lo prueba).
+- La **luna** sí usa la tabla 0xC387C8: vt+0x48(1) antes de su Draw (0x86AC05) y antes de su `DrawUnderWater`
+  (0x86AC3B). Modo 4 → 5 (0x82DD90: mismo blend y Z, ALPHAOP MODULATE(TEXTURE, DIFFUSE)); `fs_celestial` siempre
+  modula el alfa con `u_colour`, así que `DrawMoon` ya dibuja como el modo 5 en las dos pasadas.
 - **Átomos de malla del PSys con `DrawCutByPlane`** (fidelidad 3): el bit es `+0x24 & 4` del átomo, no `& 0x10`
   (`fn_00679F20` `test al, 4` 0x679F29; lo pone `CreateParticle` desde +0x5F, 0x6A8B94..0x6A8B9A). Con el bit, vt+0xF8
-  `CheckRegionOnScreen` (0x679F3C) y vt+0x11C (0x679F4A) en vez del Draw vt+0x104 (0x679F52); también en el camino
+  (0x679F2F, devuelve la malla), luego `LH3DBoundingBox::CheckRegionOnScreen` 0x868C80 (llamada directa en 0x679F3C;
+  si da 0 se salta, 0x679F43) y vt+0x11C (0x679F4A) en vez del Draw vt+0x104 (0x679F52); también en el camino
   ordenado (la vuelta de `fn_00679F60` es `fn_00679F20`, 0x679FBC). openblack: `RenderContext::cutAtomDrawDescs` (los
   opacos, dibujados tras los modelos, **(aproximado)** no en el orden del efecto) y `cutAtomInstances` (los
-  translúcidos, en la cola ordenada), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia).
-  **Pendiente de milagros2**: `psys::mesh_atoms::Instance` todavía no lleva el bit ni el especular DrawData+0xC;
+  translúcidos, en la cola ordenada), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia;
+  **(aproximado)** alfa de vértice 0xFF: `fn_00858BA0` lo toma de obj+0x4C & 0xFF000000, 0x858C42 → [ebp−0x24], OR en
+  0x858D60, es decir el alfa de DrawData+8, que la instancia no lleva).
+  **Pendiente de milagros2**: `psys::mesh_atoms::Instance` todavía no lleva el bit, ni el especular DrawData+0xC, ni el
+  alfa de DrawData+8;
   `RenderingSystem` lee `cutByPlane` / `specular` en cuanto existan, y hasta entonces ningún átomo se corta. Un átomo
   con `DrawCutByPlane` y `DrawWithLandscapeColor` se apunta una vez en el registro y se dibuja sin cortar
   **(inferido: no se conoce ningún efecto con los dos)**. La prueba de caja en pantalla 0x679F3C la da el recorte de
@@ -458,7 +475,8 @@ El original tiene tres mecanismos y un solo plano:
 - **Huecos sin usuario** (constantes y un TODO con dirección en `Renderer.cpp`): la criatura (`DrawUnderWater` tras los
   objetos físicos, 0x5E4A84..0x5E4AE6, si su bloque se ve (+0x920 & 1), el +0x9BC del bloque ≤ [0xC37200] = 100000,
   y < [0x8AB35C] = 6 y +0xA0 < [0x8AB244] = 0,2) y los SuperVillagers que nadan (lista [0xEB9A08], animación
-  «M_P_Swim2» 0xBF3598, plano de los nadadores, vt+0x11C 0x5E4C77, tras `DrawCutBelowWater`).
+  «M_P_Swim2» 0xBF3598, plano de los nadadores, vt+0x11C 0x5E4C77, tras `fn_00824B90` (0x5E4B2B: peces y redes) y
+  antes del brillo de la mano 0x5E4D89).
 
 ## Reflejos de objetos y sombra de la mano sobre objetos
 
@@ -514,7 +532,7 @@ El original tiene tres mecanismos y un solo plano:
   descarte por fragmento en `fs_object` (`SeaPlaneDiscard`) en vez del recorte por CPU; dentro de la pasada Reflection
   la malla se des-espeja en y = 0 (`unmirror`; el culling vuelve a CCW). `Renderer::DrawCutByPlane(vista, entidad,
   SeaPlane, argb, especular)` y `DrawCutBelowWater` (en la pasada de reflejo, antes de los peces: las entidades con
-  `components::CutByPlane`, KeepBelow con `k_SwimPlane`). La parte de arriba la llama el dueño del objeto en lugar de
+  `components::CutByPlane`, KeepBelow con el plano propio del tiburón `k_SharkPlane`, 0x774FF5..0x77501A). La parte de arriba la llama el dueño del objeto en lugar de
   su dibujo normal: `CutByPlane::drawAbove` (los tiburones) hace que la pasada normal salte esa instancia y
   `Renderer::DrawCutAboveWater` la dibuje con KeepAbove y `LandLightTable::GetRaw(255)`, en la pasada principal tras
   las mallas instanciadas. `DrawCutByPlane` usa la pose de `SkeletalAnimation` si la hay.
@@ -1214,11 +1232,20 @@ corte 0x96: un poco más finos).
   pasada bajo el mar ya tienen sitio, constantes y TODO con dirección (`sea_pass::k_Creature*`, `k_Swimmer*`,
   `Renderer.cpp`): ver [La pasada bajo el mar](#la-pasada-bajo-el-mar-graphicssea_pass).
 - Pasada bajo el mar: que milagros2 añada a `psys::mesh_atoms::Instance` el bit `cutByPlane` (`creator->drawCutByPlane`
-  en `Mesh.cpp`, el `push_back` de `Collect`) y `specular` (DrawData+0xC), y corrija el comentario de `Mesh.h` (el bit
-  vale 4, 0x679F29) y el de `Mesh.cpp` («no plane cuts a static mesh»: falso, R4 / R6); entonces la cúpula del escudo y
-  los demás átomos con `DrawCutByPlane` pierden lo que quede bajo y = 0 sin tocar `Renderer` ni los shaders. Captura
-  pendiente: la cúpula en una costa. El especular +0x50 del casco del barco (lo que dejó su último Draw, **(inferido)**
-  0). El reflejo de los morfables (su `DrawUnderWater` es un `ret`, 0x80BA40; openblack los dibuja).
+  en `Mesh.cpp`, el `push_back` de `Collect`), `specular` (DrawData+0xC) y el alfa de DrawData+8, y corrija el
+  comentario de `Mesh.h` (el bit vale 4, 0x679F29) y el de `Mesh.cpp` («no plane cuts a static mesh»: falso, R4 / R6);
+  entonces la cúpula del escudo y los demás átomos con `DrawCutByPlane` pierden lo que quede bajo y = 0 sin tocar
+  `Renderer` ni los shaders. Captura pendiente: la cúpula más metida en el mar (p. ej. `PHYSICAL_SHIELD,1800,3120`;
+  la de 1825,3140 queda casi toda sobre la playa). El especular +0x50 del casco del barco (lo que dejó su último Draw,
+  **(inferido)** 0). El reflejo de los morfables (su `DrawUnderWater` es un `ret`, 0x80BA40; openblack los dibuja).
+- Pasada bajo el mar, pruebas con capturas: que los pasos 1-6 no cambian ningún píxel **no está demostrado** con
+  capturas (el código sí lo da: mano 0xA0/255, especular 0 del modo 4, mismo culling, `UnmirrorView` = vista·diag(1,
+  −1, 1, 1)); dos ejecuciones del mismo exe ya difieren porque el mar y las nubes siguen el reloj real, y algunas
+  vistas (costa, luna, roca cortada, red de Land 4) salen algo por encima de ese ruido medido con solo dos ejecuciones.
+  Hace falta un gancho de paso de tiempo fijo en los dos exes. Faltan también: el reflejo del casco del barco (la vista
+  del plan enseña el arca en tierra, sin mar delante), un BEFORE del tiburón con un exe a b8985c33 (solo hay el de un
+  exe anterior) y por qué el primer BEFORE de la roca física en reposo (y = 0,75) salió sin reflejo y los demás sí
+  (fallo intermitente de `DrawObjectReflections` anterior al punto 4; y si el reflejo debe ser tan claro, S3, luz ½).
 - Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
   andamio de los talleres.
 - Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la

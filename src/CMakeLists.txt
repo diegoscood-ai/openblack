@@ -138,6 +138,11 @@ set_target_properties(openblack_lib PROPERTIES LINKER_LANGUAGE CXX)
 # Lua mods (src/Mods/Lua): Lua 5.4 through sol2
 target_include_directories(openblack_lib PRIVATE ${LUA_INCLUDE_DIR})
 target_link_libraries(openblack_lib PRIVATE ${LUA_LIBRARIES} sol2::sol2)
+# Bink video (src/Video/FfmpegDecoder.cpp): FFmpeg libavcodec + libavutil (vcpkg-overlay-ports/ffmpeg, LGPL); on
+# Windows the DLLs land next to the exe through vcpkg's applocal step, like lua.dll
+target_include_directories(openblack_lib SYSTEM PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories(openblack_lib PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(openblack_lib PRIVATE ${FFMPEG_LIBRARIES})
 
 target_include_directories(
   openblack_lib

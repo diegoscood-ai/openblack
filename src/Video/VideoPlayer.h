@@ -125,7 +125,7 @@ public:
 		/// GAudio::StartScriptMusic(0) 0x428230 after the ESC skip (ProcessKey 0x63F3FA..0x63F402)
 		std::function<void()> stopScriptMusic;
 		/// GGame::EndFallingSpellVideo 0x553A10 (fn_0054DA00 0x54DA0C: the skip of the falling spell's film). Unset:
-		/// nothing (milestone V6, the FallingSpell object is not ported)
+		/// nothing (FallingSpellVideo.h: GameHooks() connects video::GetFallingSpell().End())
 		std::function<void()> endFallingSpellVideo;
 		/// The picture decoder (VideoDecoder.h). Unset: NullVideoDecoder
 		std::function<std::unique_ptr<IVideoDecoder>()> makeDecoder;
@@ -197,7 +197,8 @@ public:
 	/// 0xD01984: 1 while the new profile box is up (pc_main 0x641E30), ESC does not skip; DeleteVideo / FinishedVideo
 	/// clear it (0x54A97D / 0x54D907)
 	void SetNoSkip(bool noSkip) { _noSkip = noSkip; }
-	/// GGame::FallingSpellVideo 0xCD3B10 != NULL (KickOffFallingSpellVideo 0x5539A0; milestone V6)
+	/// GGame::FallingSpellVideo 0xCD3B10 != NULL (KickOffFallingSpellVideo 0x5539A0 / EndFallingSpellVideo 0x553A4E;
+	/// FallingSpellVideo.h)
 	void SetFallingSpellVideo(bool on) { _fallingSpell = on; }
 	/// The 16-bit format of the framebuffer ([0xEDD46C]); k_DefaultFormat
 	void SetFormat(graphics::rgb16::Format format) { _format = format; }

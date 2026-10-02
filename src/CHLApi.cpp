@@ -46,6 +46,7 @@
 #include "Camera/CameraShake.h"
 #include "Camera/PlayerCameraScript.h"
 #include "Camera/ScriptCamera.h"
+#include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
@@ -2729,10 +2730,10 @@ void SetAviSequence() // 203 SET_AVI_SEQUENCE
 	}
 	if (!on)
 	{
-		// StopAVISequence 0x68F4F0: 2 -> GGame::EndFallingSpellVideo 0x553A10; anything else nothing
+		// StopAVISequence 0x68F4F0: 2 -> GGame::EndFallingSpellVideo 0x553A10 (0x68F4FD `jmp`); anything else nothing
 		if (sequence == 2)
 		{
-			NotImplemented("SetAviSequence (EndFallingSpellVideo)");
+			video::GetFallingSpell().End(); // StopAVISequence(2): nothing without FallingSpellVideo
 		}
 		return;
 	}
@@ -2755,9 +2756,11 @@ void SetAviSequence() // 203 SET_AVI_SEQUENCE
 	}
 	if (sequence == 2)
 	{
-		// StartAVISequence(2) 0x68F459..0x68F471: GGame::KickOffFallingSpellVideo 0x5539A0 (not ported) and
-		// SetupScreenFadeBackToNormal(0)
-		NotImplemented("SetAviSequence (KickOffFallingSpellVideo)");
+		// StartAVISequence(2) 0x68F459..0x68F471: GGame::KickOffFallingSpellVideo 0x5539A0 (Video/FallingSpellVideo.h:
+		// nothing without the local player's creature; else mode 2, PlayFullScreenMovie("data\spells\fall\fall.bik")
+		// with no fade of its own, the update of the FallingSpell each frame) and SetupScreenFadeBackToNormal(0)
+		// 0x68F471, also without a creature
+		video::GetFallingSpell().KickOff();
 		Game::Instance()->GetScreenFade().FadeBackToNormal(0.0f);
 	}
 }

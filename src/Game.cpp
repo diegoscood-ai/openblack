@@ -115,6 +115,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
+#include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
 
 #ifdef __ANDROID__
@@ -735,6 +736,9 @@ bool Game::Update() noexcept
 	// Process3dEngine 0x54DAB5..0x54DD76: the full screen film's frame (Video/VideoPlayer.h), paced by the wall
 	// clock (the game is paused while it plays)
 	video::Get().Process(game_clock::FrameRealMs());
+	// Process3dEngine case 2 0x54DD83..0x54DDDB (the FallingSpell's update, its end at state 4 or without a film) and
+	// 0x54E2A4..0x54E2DE Temple::UpdateFade with g_delta_time (Video/FallingSpellVideo.h)
+	video::GetFallingSpell().ProcessFrame(game_clock::FrameRealMs());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
@@ -1447,8 +1451,8 @@ bool Game::Run() noexcept
 		audio::SetScriptWideScreen(true);
 	}
 	// OPENBLACK_TEST_VIDEO=<intro|fall|path> plays a full screen film (video.md): intro as StartAVISequence(1) 0x68F450
-	// (data\intro.bik, 60 s), fall as the falling spell's film (data\Spells\fall\fall.bik, alpha 0x50 over the world;
-	// the FallingSpell object is milestone V6), else the given .bik
+	// (data\intro.bik, 60 s), fall as KickOffFallingSpellVideo without its creature test (0x5539C9..0x5539F9: mode 2,
+	// data\Spells\fall\fall.bik with alpha 0x50 and no world drawn, Video/FallingSpellVideo.h), else the given .bik
 	if (const char* film = std::getenv("OPENBLACK_TEST_VIDEO"); film != nullptr)
 	{
 		const std::string name = film;
@@ -1464,11 +1468,17 @@ bool Game::Run() noexcept
 		catch (const std::exception&)
 		{
 		}
-		video::Get().SetFallingSpellVideo(name == "fall");
-		video::Get().Play(found);
-		if (name == "intro")
+		if (name == "fall")
 		{
-			video::Get().ScheduleIntro();
+			video::GetFallingSpell().Start();
+		}
+		else
+		{
+			video::Get().Play(found);
+			if (name == "intro")
+			{
+				video::Get().ScheduleIntro();
+			}
 		}
 	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns

@@ -3,7 +3,7 @@
 Every texture used by a person or animal mesh (MSH_P_* and MSH_A_* in AllMeshes.h) is decoded, brought back to its real resolution (some packs
 store 256x256 art doubled with nearest pixels, which the upscaler would keep as blocks), upscaled x4 with Real-ESRGAN
 (realesrgan-x4plus: keeps the painted detail; the anime model flattens it) and written as textures/<id hex>.png.
-textures.cfg records the FNV-1a hash of each source DDS: the engine only uses an HD texture while the pack still has
+textures.json records the FNV-1a hash of each source DDS: the engine only uses an HD texture while the pack still has
 that same texture. An image already in <out dir> whose hash is still the pack's is kept (no new upscale).
 
 usage: python make_textures.py <AllMeshes.g3d> <AllMeshes.h> <out dir> [--tools <openblack bin>] [--esrgan <dir>]
@@ -75,8 +75,15 @@ def main():
         skins = mesh_skins(args.tools, args.pack, args.header, tmp)
         # the images already made, kept while their source texture is the same
         made = {}
+        # what was made before: textures.json, or the old textures.cfg
+        json_path = os.path.join(args.out, "textures.json")
         cfg_path = os.path.join(args.out, "textures.cfg")
-        if os.path.exists(cfg_path):
+        if os.path.exists(json_path):
+            for line in open(json_path, encoding="utf-8"):
+                m = re.match(r'\s*"([0-9a-f]+)"\s*:\s*"([0-9a-f]{8})"', line)
+                if m:
+                    made[int(m[1], 16)] = m[2]
+        elif os.path.exists(cfg_path):
             for line in open(cfg_path, encoding="utf-8"):
                 m = re.match(r"\s*([0-9a-f]+)\s*=\s*([0-9a-f]{8})", line)
                 if m:
@@ -111,11 +118,16 @@ def main():
             hd.save(image_path, optimize=True)
             entries.append(f"{skin:x} = {source_hash:08x}")
             print(f"texture {skin:#x}: {size} px in the pack, {rgb.size[0]} px native -> {hd.size[0]} px")
-        with open(os.path.join(args.out, "textures.cfg"), "w", encoding="utf-8") as cfg:
-            cfg.write("# HD textures of the villagers and animals: <texture id (hex)> = <FNV-1a of the pack's DDS data>. The engine\n"
-                      "# only uses textures/<id>.png while the pack's texture still has that hash.\n"
-                      "# Made by tools/make_textures.py (Real-ESRGAN x4plus).\n")
-            cfg.write("\n".join(entries) + "\n")
+        # textures.json (JSON with // comments, Mods/RuleFiles.h): "<texture id (hex)>": "<FNV-1a of the DDS>"
+        pairs = [entry.split(" = ") for entry in entries]
+        with open(os.path.join(args.out, "textures.json"), "w", encoding="utf-8") as out:
+            out.write("// HD textures of the villagers and animals: \"<texture id (hex)>\": \"<FNV-1a of the pack's DDS data>\".\n"
+                      "// The engine only uses textures/<id>.png while the pack's texture still has that hash.\n"
+                      "// Made by tools/make_textures.py (Real-ESRGAN x4plus).\n")
+            out.write('{\n  "schema": 1,\n  "textures": {\n')
+            out.write(",\n".join(f'    "{key}": "{value}"' for key, value in pairs) + "\n  }\n}\n")
+        if os.path.exists(cfg_path):
+            os.remove(cfg_path)  # replaced by textures.json
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

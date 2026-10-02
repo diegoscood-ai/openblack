@@ -50,6 +50,7 @@
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
+#include "Mods/RuleFiles.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
@@ -641,9 +642,10 @@ uint8_t Foliage::ZoneOf(uint8_t cellFlags)
 bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std::filesystem::path>& modules,
                    const std::vector<float>& moduleDensities)
 {
-	if (!std::filesystem::exists(directory / "foliage.cfg"))
+	// foliage.json (or the old foliage.cfg: Mods/RuleFiles.h)
+	if (!std::filesystem::exists(directory / "foliage.json") && !std::filesystem::exists(directory / "foliage.cfg"))
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: no {}", (directory / "foliage.cfg").string());
+		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: no foliage.json in {}", directory.generic_string());
 		return false;
 	}
 
@@ -831,12 +833,17 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 	const auto& source = sources[sourceIndex];
 	// a module's own density (its option in the Mods menu) on top of the mod's
 	const float sourceDensity = sourceIndex > 0 && sourceIndex - 1 < moduleDensities.size() ? moduleDensities[sourceIndex - 1] : 1.0f;
-	std::ifstream file(source / "foliage.cfg");
-	if (!file)
+	// its foliage.json as the lines of a foliage.cfg (the same rules), or the old foliage.cfg itself
+	std::filesystem::path rulesFile;
+	std::string rulesError;
+	const auto rules = mods::rule_files::Read(source, "foliage", rulesFile, rulesError);
+	if (!rules)
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: no {}", (source / "foliage.cfg").string());
+		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: {}: {}", rulesFile.generic_string(),
+		                   rulesError.empty() ? "not found" : rulesError);
 		continue;
 	}
+	std::istringstream file(*rules);
 	std::string line;
 	int lineNumber = 0;
 	auto section = Section::None;
@@ -882,7 +889,8 @@ bool Foliage::Load(const std::filesystem::path& directory, const std::vector<std
 		const auto equals = line.find('=');
 		if (equals == std::string::npos || section == Section::None)
 		{
-			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: foliage.cfg line {} ignored", lineNumber);
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "Foliage: {}: rule line {} ignored", rulesFile.generic_string(),
+			                   lineNumber);
 			continue;
 		}
 		const auto key = Trim(std::string_view(line).substr(0, equals));

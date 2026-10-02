@@ -21,12 +21,12 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/Clouds.h"
-#include "AudioManagerInterface.h"
+#include "Banks.h"
 #include "Common/RandomNumberManager.h"
 #include "Locator.h"
+#include "Resources/ResourcesInterface.h"
 #include "SamplePlay.h"
 #include "Sound.h"
-#include "SoundGroup.h"
 #include "SoundMap.h"
 
 using namespace openblack;
@@ -111,7 +111,13 @@ bool TraceEvents()
 
 bool Available()
 {
-	return Locator::audio::has_value() && Locator::resources::has_value();
+	return Locator::resources::has_value();
+}
+
+/// A sample of a registered bank (the resources LHBankRegister filled, Banks.cpp)
+const Sound& SoundOf(entt::id_type id)
+{
+	return Locator::resources::value().GetSounds().Handle(id);
 }
 
 /// LHSampleSetVolume 0x10013400 (QMixer's linear law, sample_play::QMixerGain)
@@ -140,7 +146,7 @@ void StopChannel(Channel& emitter)
 				if (info.handle == emitter)
 				{
 					SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos channel stopped: {}",
-					                   Locator::audio::value().GetSound(info.sound).name);
+					                   SoundOf(info.sound).name);
 				}
 			}
 		}
@@ -167,22 +173,21 @@ uint32_t NextTime(int32_t frequency)
 /// InitAtmos 0x428EF0 -> fn_00428F30: LHBankRegister of the 14 banks; the DLL's fn_10001610 per bank
 void Register()
 {
-	auto& audio = Locator::audio::value();
-	const auto& groups = audio.GetSoundGroups();
 	for (size_t i = 1; i < k_AtmosTypeCount; ++i)
 	{
 		const auto* name = k_AtmosTypes[i].bank;
-		const auto found = groups.find(name);
-		if (found == groups.end())
+		// the bank of Audio\SFX\Atmos registered by its file name (banks::LoadAll)
+		const auto bank = FindBank(std::string("/") + name);
+		if (bank == k_NoBank)
 		{
 			SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Atmos: no sound bank {}", name);
 			continue;
 		}
 		g_State.banks[i].registered = true;
 		bool anyLoose = false;
-		for (const auto id : found->second.sounds)
+		for (const auto id : banks::Samples(bank))
 		{
-			const auto& sound = audio.GetSound(id);
+			const auto& sound = SoundOf(id);
 			// +0x27C >= 0 and a sample id > 0
 			if (sound.atmosFrequency < 0 || sound.id <= 0)
 			{
@@ -294,7 +299,6 @@ Channel PlayLoose(entt::id_type sample, glm::vec3 position, int32_t volume)
 /// LHAtmosProcess(1) 0x100018B0
 void Process()
 {
-	auto& audio = Locator::audio::value();
 	auto& banks = g_State.banks;
 
 	// 1. the loose channels of a group other than their bank's fade by 5 a turn
@@ -330,7 +334,7 @@ void Process()
 			loop.fade = 0;
 			if (TraceEvents() && loop.playing)
 			{
-				SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos loop start: {} of {}", audio.GetSound(loop.sample).name,
+				SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos loop start: {} of {}", SoundOf(loop.sample).name,
 				                   k_AtmosTypes[loop.bank].name);
 			}
 		}
@@ -402,7 +406,7 @@ void Process()
 		if (TraceEvents())
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos loose sample: {} of {} at ({:.0f}, {:.0f}) volume {}",
-			                   audio.GetSound(loose.sample).name, k_AtmosTypes[loose.bank].name, x, y, volume);
+			                   SoundOf(loose.sample).name, k_AtmosTypes[loose.bank].name, x, y, volume);
 		}
 	}
 	// rescheduled even when it did not sound

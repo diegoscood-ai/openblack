@@ -23,9 +23,9 @@
 #include "BankTables.h"
 #include "MusicEngine.h"
 
-// The OpenAL side of LHMusic: what QMixer and the DLL's MPEG decoder did for the 6 music channels, over the OpenAL
-// context that AudioPlayer already opened (no second device: PLAN.md §8.6.1), and the "music" thread that runs
-// MusicEngine. Until B1 merges it into AudioPlayer, it uses AL directly with alCheckCall.
+// The device side of LHMusic: what QMixer and the DLL's MPEG decoder did for the 6 music channels, on the sources and
+// buffers of the audio device (Device.h: its one OpenAL context, no second device: PLAN.md §8.6.1), and the "music"
+// thread that runs MusicEngine. The banks are audio::banks' (Banks.h, MusicBankOf).
 // Trace: OPENBLACK_MUSIC_TRACE=1 writes one "music:" line per pass of the thread with every busy channel.
 
 namespace openblack::audio
@@ -164,7 +164,7 @@ private:
 
 namespace music
 {
-/// Start the music system on the OpenAL context of Locator::audio (call after it exists), and the test hook
+/// Start the music system on the audio device (call after device::Open), and the test hook
 void Start();
 /// Stop the thread and free the channels (LHMusicClose 0x1000E7A0); before the OpenAL context goes
 void Shutdown();
@@ -172,8 +172,9 @@ void Shutdown();
 void Update();
 /// nullptr when not started or without OpenAL
 MusicSystem* Get();
-/// The bank of a MUSIC_TYPE (0x9C9748), registered on first use for the test hook and the debug window (the original
-/// registers the 85 at once in the GAudio constructor: milestone A5); nullptr if it is not installed (WELCOME_DANCE)
+/// The bank of a MUSIC_TYPE (0x9C9748: banks::MusicBankOf, registered on first use; the original registers the 85 at
+/// once in the GAudio constructor: milestone A5), told to the engine when new; nullptr if it is not installed
+/// (WELCOME_DANCE)
 MusicBank* GetBank(MusicType type);
 } // namespace music
 

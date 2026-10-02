@@ -30,6 +30,7 @@
 
 #include "Audio/Advisor.h"
 #include "Audio/Audio.h"
+#include "Audio/Banks.h"
 #include "Audio/GameQueries.h"
 #include "Audio/SampleOutput.h"
 #include "Audio/Sound.h"
@@ -571,7 +572,7 @@ TEST(LazyDialogueBank, HeadersOnlyThenTheWaveAtItsFirstUse)
 		sound.waveOffset = lazy.GetAudioWaveDataOffset() + header.offset;
 		sound.waveSize = header.size;
 		std::vector<uint8_t> bytes;
-		ASSERT_TRUE(wave_buffers::ReadWave(sound, bytes)) << i;
+		ASSERT_TRUE(banks::ReadWave(sound, bytes)) << i;
 		EXPECT_EQ(bytes, eager.GetAudioSampleData(static_cast<uint32_t>(i))) << i;
 	}
 	// HelpSprites 1 decodes from the file to about 5.2 s (milestone B0's measure) of 22050 Hz mono

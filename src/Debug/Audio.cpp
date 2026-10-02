@@ -14,10 +14,14 @@
 #include <fmt/format.h>
 #include <imgui.h>
 
+#include "Audio/Advisor.h"
 #include "Audio/Audio.h"
-#include "Audio/AudioManagerInterface.h"
 #include "Audio/BankTables.h"
+#include "Audio/Banks.h"
+#include "Audio/Device.h"
 #include "Audio/GameMusic.h"
+#include "Audio/MusicBank.h"
+#include "Audio/MusicStream.h"
 #include "Audio/WaveBuffers.h"
 #include "EngineConfig.h"
 #include "Locator.h"
@@ -50,7 +54,8 @@ void SampleChannels()
 		ImGui::SameLine();
 		ImGui::Text("AudioSampleMasterVolume %u", config.audioSampleMasterVolume);
 	}
-	ImGui::Text("Active (LHWaveIsActive) %s, wave buffers %zu alive / %zu made", audio::sample_play::IsActive() ? "yes" : "no",
+	ImGui::Text("Device (LHWaveIsInstalled) %s, active (LHWaveIsActive) %s, wave buffers %zu alive / %zu made",
+	            audio::device::IsOpen() ? "yes" : "no", audio::sample_play::IsActive() ? "yes" : "no",
 	            audio::wave_buffers::Alive(), audio::wave_buffers::Made());
 	if (ImGui::BeginTable("SampleChannels", 9, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
 	{
@@ -86,6 +91,54 @@ void SampleChannels()
 			ImGui::TableNextColumn();
 			ImGui::TextColored(channel.playing ? k_GreenColor : k_RedColor, "%s", channel.playing ? "yes" : "no");
 		}
+		ImGui::EndTable();
+	}
+}
+
+/// The advisors' sentence (HelpDude, owner 0x270C on the channels: g_speaker 0xD15AA0, g_sentence 0xD15A9C); the other
+/// voices are the channels of the owners 0x270D..0x270F above
+void Voices()
+{
+	const int speaker = audio::advisor::Speaker();
+	ImGui::Text("Advisors: speaker %d, sentence %d, talking good %s / evil %s, time %.2f s", speaker,
+	            audio::advisor::Sentence(), audio::advisor::IsTalking(0) ? "yes" : "no",
+	            audio::advisor::IsTalking(1) ? "yes" : "no", speaker >= 0 ? audio::advisor::SentenceTime(speaker) : 0.0f);
+}
+
+/// LHMusic's 6 channels (audio::music: LH_MusicInfo +0x24 status, +0x58 bank, +0x48 / +0x4C chunks, +0x34 / +0x30
+/// volume)
+void MusicChannels()
+{
+	auto* system = audio::music::Get();
+	if (system == nullptr)
+	{
+		ImGui::Text("Music: not started");
+		return;
+	}
+	if (ImGui::BeginTable("MusicChannels", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+	{
+		for (const char* name : {"#", "Status", "Bank", "Chunk", "Volume"})
+		{
+			ImGui::TableSetupColumn(name);
+		}
+		ImGui::TableHeadersRow();
+		system->With([](audio::MusicEngine& engine) {
+			for (int i = 0; i < audio::k_MusicChannelCount; ++i)
+			{
+				const auto& channel = engine.GetChannel(i);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", i);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", static_cast<int>(channel.status));
+				ImGui::TableNextColumn();
+				ImGui::Text("%s", channel.bank != nullptr ? channel.bank->GetPath().filename().string().c_str() : "");
+				ImGui::TableNextColumn();
+				ImGui::Text("%u / %u", channel.playingChunk, channel.chunkCount);
+				ImGui::TableNextColumn();
+				ImGui::Text("%d -> %d", channel.current, channel.target);
+			}
+		});
 		ImGui::EndTable();
 	}
 }
@@ -135,8 +188,11 @@ void Audio::Sounds() noexcept
 		ImGui::TableSetupColumn("Sounds", ImGuiTableColumnFlags_WidthFixed, 60.0f);
 		ImGui::TableHeadersRow();
 
-		for (const auto& [name, group] : Locator::audio::value().GetSoundGroups())
+		// the banks LHBankRegister registered (audio::banks), by their sound group ("InGame.sad")
+		for (size_t bank = 1; bank <= audio::banks::Count(); ++bank)
 		{
+			const auto id = static_cast<audio::BankId>(bank);
+			const auto name = audio::BankGroup(id);
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
 			if (ImGui::Selectable(name.c_str(), _selectedSoundPack == name, ImGuiSelectableFlags_SpanAllColumns))
@@ -144,7 +200,7 @@ void Audio::Sounds() noexcept
 				_selectedSoundPack = name;
 			}
 			ImGui::TableSetColumnIndex(1);
-			ImGui::Text("%zu", group.sounds.size());
+			ImGui::Text("%zu", audio::banks::Samples(id).size());
 		}
 		ImGui::EndTable();
 	}
@@ -169,14 +225,15 @@ void Audio::Sounds() noexcept
 		ImGui::TableSetupColumn(lastColumnString.c_str(), ImGuiTableColumnFlags_WidthFixed, lastColumnWidth);
 		ImGui::TableHeadersRow();
 
-		for (const auto& [name, group] : Locator::audio::value().GetSoundGroups())
+		for (size_t bank = 1; bank <= audio::banks::Count(); ++bank)
 		{
-			if (_selectedSoundPack != name)
+			const auto id = static_cast<audio::BankId>(bank);
+			if (_selectedSoundPack != audio::BankGroup(id))
 			{
 				continue;
 			}
 
-			for (auto soundId : group.sounds)
+			for (auto soundId : audio::banks::Samples(id))
 			{
 				auto sound = Locator::resources::value().GetSounds().Handle(soundId);
 				ImGui::TableNextRow();
@@ -269,9 +326,13 @@ void Audio::Draw() noexcept
 		}
 		if (ImGui::BeginTabItem("Channels"))
 		{
-			ImGui::Text("GAudio's 16 sample channels (LHSamplePlay)");
+			ImGui::Text("GAudio's 16 sample channels (LHSamplePlay), the voices and LHMusic's 6 channels");
 			ImGui::Separator();
 			SampleChannels();
+			ImGui::Separator();
+			Voices();
+			ImGui::Separator();
+			MusicChannels();
 			ImGui::EndTabItem();
 		}
 	}

@@ -42,15 +42,11 @@ struct Pcm
 	}
 };
 
-/// The bytes of a wave left in its .sad (Sound::waveFile, the dialogue banks: LHBankRegister(path, 0) 0x10002240 reads
-/// only the headers and a wave at its first play, 0x10011420 -> fn_100032D0). False when the sound has no such wave or
-/// the file cannot be read.
-[[nodiscard]] bool ReadWave(const Sound& sound, std::vector<uint8_t>& out);
-
-/// The sample's wave as PCM (read from its .sad first when it was left there). A .sad wave is a RIFF file (LHaudio opens it as memory with QSWaveMixOpenWaveEx,
-/// 0x10011CB3): wFormatTag 1 (PCM) and 2 (MS-ADPCM) go to dr_wav; 0x50 (MPEG-1/2 layer II: all of HelpSprites and
-/// villagers, most of Guidance) has its "data" chunk decoded by dr_mp3, as ACM does. A wave that is not RIFF is tried as
-/// raw MPEG (the music segments). False when nothing decodes (an empty sample: InGame 165, spells 31).
+/// The sample's wave as PCM (read from its .sad first when it was left there: banks::ReadWave). A .sad wave is a RIFF
+/// file (LHaudio opens it as memory with QSWaveMixOpenWaveEx, 0x10011CB3): wFormatTag 1 (PCM) and 2 (MS-ADPCM) go to
+/// dr_wav; 0x50 (MPEG-1/2 layer II: all of HelpSprites and villagers, most of Guidance) has its "data" chunk decoded by
+/// dr_mp3, as ACM does. A wave that is not RIFF is tried as raw MPEG (the music segments). False when nothing decodes
+/// (an empty sample: InGame 165, spells 31).
 [[nodiscard]] bool Decode(const Sound& sound, Pcm& out);
 
 /// The sample's OpenAL buffer, decoded and made at the first call and kept in `sound.bufferId` (with its duration and
@@ -59,7 +55,7 @@ struct Pcm
 /// QMIXPLAYPARAMS +0x18 / +0x1C do (0x10012949).
 BufferId Get(Sound& sound);
 
-/// The buffer of a sample that is going away (a music bank Sound erased by AudioManager::StopMusic)
+/// The buffer of a sample that is going away
 void Release(Sound& sound);
 
 /// Every buffer made, deleted (the audio closes: after every source that used them)

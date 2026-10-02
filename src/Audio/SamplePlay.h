@@ -140,7 +140,7 @@ struct Options
 	bool keepPcm {false};
 };
 
-/// What the channels need from the rest of openblack. Unset members: the device output of Locator::audio, the sounds
+/// What the channels need from the rest of openblack. Unset members: the device output (device::Output), the sounds
 /// of Locator::resources, Locator::rng, the camera of Locator::camera, and owners that are not moved.
 struct Backend
 {
@@ -254,7 +254,7 @@ void ReleaseSources();
 /// GameThing::IsAvailable() == 0 does in fn_00427200, even if its entity number is reused before
 void OnThingDeleted(entt::entity thing);
 
-/// Once a frame: the device output's loop counting (AudioManager::Update)
+/// Once a frame: the device output's loop counting (QMixer counts the finite loops as it mixes; audio::UpdateFrame)
 void UpdateFrame();
 
 // ---- agua's names (inside src/Audio and the tests only: since milestone B4 the game calls audio::) -------------------

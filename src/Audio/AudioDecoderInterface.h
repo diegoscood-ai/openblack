@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "AudioPlayerInterface.h"
+#include "Sound.h"
 
 namespace openblack::audio
 {

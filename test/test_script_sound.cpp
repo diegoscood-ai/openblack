@@ -250,6 +250,6 @@ TEST_F(ScriptSoundTest, NoThingNoTag)
 
 TEST_F(ScriptSoundTest, SoundExistsNeedsTheDevice)
 {
-	// no OpenAL device in the tests (Locator::audio is empty): LHWaveIsInstalled is false
+	// no OpenAL device in the tests (device::Open is never called): LHWaveIsInstalled is false
 	EXPECT_FALSE(audio::SoundExists());
 }

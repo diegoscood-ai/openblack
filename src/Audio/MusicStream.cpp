@@ -17,8 +17,6 @@
 #include <string>
 #include <string_view>
 
-#include <AL/al.h>
-#include <AL/alc.h>
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
@@ -27,10 +25,10 @@ extern "C" {
 #include <dr_mp3.h> // the implementation is in MpegAudioDecoder.cpp
 }
 
-#include "AlCheck.h"
 #include "BankTables.h"
+#include "Banks.h"
+#include "Device.h"
 #include "EngineConfig.h"
-#include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
 
 namespace openblack::audio
@@ -55,12 +53,6 @@ float DistanceGain(const MusicDistanceMapping& mapping, float distance)
 		return 1.0f;
 	}
 	return mapping.minDistance / ((distance - mapping.minDistance) * mapping.scale + mapping.minDistance);
-}
-
-// openblack's OpenAL axes: AudioPlayer::UpdateListener puts the listener at (z, y, x)
-glm::vec3 ToAl(glm::vec3 p)
-{
-	return {p.z, p.y, p.x};
 }
 
 std::shared_ptr<spdlog::logger> Logger()
@@ -155,17 +147,17 @@ size_t MusicSegmentDecoder::Decode(const std::vector<uint8_t>& segment, std::vec
 
 MusicStream::MusicStream()
 {
-	// The context of AudioPlayer (AudioPlayer::Initialize makes it current); no device of our own
-	if (alcGetCurrentContext() == nullptr)
+	// The audio device's one context (device::Open); no device of our own
+	if (!device::IsOpen())
 	{
 		return;
 	}
 	for (auto& channel : _channels)
 	{
-		alCheckCall(alGenSources(1, &channel.source));
+		channel.source = device::CreateSource();
 		// QMixer's law is applied in the gain (ApplyGain), not by OpenAL's distance model
-		alCheckCall(alSourcef(channel.source, AL_ROLLOFF_FACTOR, 0.0f));
-		alCheckCall(alSourcei(channel.source, AL_LOOPING, AL_FALSE));
+		device::SetSourceRolloff(channel.source, 0.0f);
+		device::SetSourceLooping(channel.source, false);
 	}
 	_available = true;
 }
@@ -178,14 +170,14 @@ MusicStream::~MusicStream()
 	}
 	for (auto& channel : _channels)
 	{
-		alCheckCall(alSourceStop(channel.source));
-		alCheckCall(alSourcei(channel.source, AL_BUFFER, 0));
+		device::StopSource(channel.source);
+		device::SetSourceBuffer(channel.source, 0);
 		for (const auto& queued : channel.queue)
 		{
-			alCheckCall(alDeleteBuffers(1, &queued.buffer));
+			device::DeleteBuffer(queued.buffer);
 		}
 		channel.queue.clear();
-		alCheckCall(alDeleteSources(1, &channel.source));
+		device::DeleteSource(channel.source);
 	}
 }
 
@@ -201,9 +193,8 @@ void MusicStream::EnableChannel(int channel, bool is3D, const MusicDistanceMappi
 	}
 	if (is3D)
 	{
-		alCheckCall(alSourcei(ch.source, AL_SOURCE_RELATIVE, AL_FALSE));
-		const auto p = ToAl(position);
-		alCheckCall(alSource3f(ch.source, AL_POSITION, p.x, p.y, p.z));
+		device::SetSourceRelative(ch.source, false);
+		device::SetSourcePosition(ch.source, position);
 	}
 	else
 	{
@@ -220,8 +211,8 @@ void MusicStream::SetCentred(int channel)
 		return;
 	}
 	const auto source = _channels[static_cast<size_t>(channel)].source;
-	alCheckCall(alSourcei(source, AL_SOURCE_RELATIVE, AL_TRUE));
-	alCheckCall(alSource3f(source, AL_POSITION, 0.0f, 0.0f, 0.0f));
+	device::SetSourceRelative(source, true);
+	device::SetSourcePosition(source, glm::vec3(0.0f));
 }
 
 void MusicStream::QueueChunk(int channel, const std::vector<uint8_t>& segment, bool resetDecoder, uint32_t startSample,
@@ -256,20 +247,16 @@ void MusicStream::QueueChunk(int channel, const std::vector<uint8_t>& segment, b
 		return;
 	}
 
-	ALuint buffer = 0;
-	alCheckCall(alGenBuffers(1, &buffer));
-	alCheckCall(alBufferData(buffer, channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16, data.data(),
-	                         static_cast<ALsizei>(data.size() * sizeof(int16_t)), rate));
-	alCheckCall(alSourceQueueBuffers(ch.source, 1, &buffer));
+	const auto buffer = device::CreateBuffer(channels == 1 ? ChannelLayout::Mono : ChannelLayout::Stereo, data.data(),
+	                                         data.size(), rate);
+	device::QueueSourceBuffer(ch.source, buffer);
 	ch.queue.push_back({buffer, queuedFrames, static_cast<uint32_t>(skip), last});
 	ApplyPitch(channel);
 	if (!ch.paused)
 	{
-		ALint state = AL_STOPPED;
-		alCheckCall(alGetSourcei(ch.source, AL_SOURCE_STATE, &state));
-		if (state != AL_PLAYING)
+		if (device::SourceStatus(ch.source) != AudioStatus::Playing)
 		{
-			alCheckCall(alSourcePlay(ch.source));
+			device::PlaySource(ch.source);
 		}
 	}
 }
@@ -289,7 +276,7 @@ void MusicStream::ApplyPitch(int channel)
 	}
 	// QSWaveMixSetFrequency plays the wave at that rate: OpenAL's pitch is its ratio to the wave's own rate
 	const float pitch = static_cast<float>(ch.frequency) / static_cast<float>(ch.decoder.GetSampleRate());
-	alCheckCall(alSourcef(ch.source, AL_PITCH, pitch));
+	device::SetSourcePitch(ch.source, pitch);
 }
 
 void MusicStream::SetVolume(int channel, uint32_t volume)
@@ -308,12 +295,10 @@ void MusicStream::ApplyGain(int channel)
 	float gain = static_cast<float>(ch.volume) / k_QMixerVolumeScale;
 	if (ch.is3D)
 	{
-		glm::vec3 listener;
-		alCheckCall(alGetListener3f(AL_POSITION, &listener.x, &listener.y, &listener.z));
-		const auto distance = glm::length(ToAl(ch.position) - listener);
+		const auto distance = glm::distance(ch.position, device::ListenerPosition());
 		gain *= DistanceGain(ch.mapping, distance);
 	}
-	alCheckCall(alSourcef(ch.source, AL_GAIN, gain));
+	device::SetSourceGain(ch.source, gain);
 }
 
 bool MusicStream::IsChannelDone(int channel)
@@ -326,8 +311,8 @@ void MusicStream::FlushChannel(int channel)
 	auto& ch = _channels[static_cast<size_t>(channel)];
 	if (_available)
 	{
-		alCheckCall(alSourceStop(ch.source));
-		alCheckCall(alSourcei(ch.source, AL_BUFFER, 0)); // unqueues every buffer of a stopped source
+		device::StopSource(ch.source);
+		device::SetSourceBuffer(ch.source, 0); // unqueues every buffer of a stopped source
 	}
 	auto flushed = std::move(ch.queue);
 	ch.queue.clear();
@@ -335,7 +320,7 @@ void MusicStream::FlushChannel(int channel)
 	{
 		if (_available)
 		{
-			alCheckCall(alDeleteBuffers(1, &queued.buffer));
+			device::DeleteBuffer(queued.buffer);
 		}
 		// QMixer notifies each flushed wave (see IMusicSink::SetListener)
 		if (_listener != nullptr)
@@ -352,10 +337,8 @@ uint32_t MusicStream::GetPlayPosition(int channel)
 	{
 		return 0;
 	}
-	ALint offset = 0;
-	ALint processed = 0;
-	alCheckCall(alGetSourcei(ch.source, AL_SAMPLE_OFFSET, &offset));
-	alCheckCall(alGetSourcei(ch.source, AL_BUFFERS_PROCESSED, &processed));
+	const auto offset = device::SourceSampleOffset(ch.source);
+	const auto processed = device::SourceBuffersProcessed(ch.source);
 	// AL_SAMPLE_OFFSET counts from the first buffer still queued, played ones included
 	auto position = static_cast<uint32_t>(std::max(offset, 0));
 	size_t index = 0;
@@ -376,8 +359,7 @@ void MusicStream::SetSourcePosition(int channel, glm::vec3 position)
 	{
 		return;
 	}
-	const auto p = ToAl(position);
-	alCheckCall(alSource3f(ch.source, AL_POSITION, p.x, p.y, p.z));
+	device::SetSourcePosition(ch.source, position);
 	ApplyGain(channel);
 }
 
@@ -387,7 +369,7 @@ void MusicStream::PauseChannel(int channel)
 	ch.paused = true;
 	if (_available)
 	{
-		alCheckCall(alSourcePause(ch.source));
+		device::PauseSource(ch.source);
 	}
 }
 
@@ -397,7 +379,7 @@ void MusicStream::RestartChannel(int channel)
 	ch.paused = false;
 	if (_available && !ch.queue.empty())
 	{
-		alCheckCall(alSourcePlay(ch.source));
+		device::PlaySource(ch.source);
 	}
 }
 
@@ -410,13 +392,10 @@ void MusicStream::Pump()
 		{
 			continue;
 		}
-		ALint processed = 0;
-		alCheckCall(alGetSourcei(ch.source, AL_BUFFERS_PROCESSED, &processed));
-		for (ALint n = 0; n < processed && !ch.queue.empty(); ++n)
+		const auto processed = device::SourceBuffersProcessed(ch.source);
+		for (int32_t n = 0; n < processed && !ch.queue.empty(); ++n)
 		{
-			ALuint buffer = 0;
-			alCheckCall(alSourceUnqueueBuffers(ch.source, 1, &buffer));
-			alCheckCall(alDeleteBuffers(1, &buffer));
+			device::DeleteBuffer(device::UnqueueSourceBuffer(ch.source));
 			const bool last = ch.queue.front().last;
 			ch.queue.pop_front();
 			if (_listener != nullptr)
@@ -427,11 +406,10 @@ void MusicStream::Pump()
 		if (!ch.queue.empty() && !ch.paused)
 		{
 			// (approximated) an underrun stops an OpenAL source; QMixer plays the next queued wave as soon as it is there
-			ALint state = AL_STOPPED;
-			alCheckCall(alGetSourcei(ch.source, AL_SOURCE_STATE, &state));
-			if (state == AL_STOPPED || state == AL_INITIAL)
+			const auto state = device::SourceStatus(ch.source);
+			if (state == AudioStatus::Stopped || state == AudioStatus::Initial)
 			{
-				alCheckCall(alSourcePlay(ch.source));
+				device::PlaySource(ch.source);
 			}
 		}
 		if (ch.is3D)
@@ -534,11 +512,6 @@ namespace
 {
 std::unique_ptr<MusicSystem> g_System;
 
-// Banks registered for the test hook and the debug window (GAudio registers all 85 of 0x9C9748 in its constructor,
-// 0x426E82..0x426F1F; that is milestone A5's GameMusic)
-std::array<std::unique_ptr<MusicBank>, static_cast<size_t>(MusicType::_COUNT)> g_Banks;
-std::array<bool, static_cast<size_t>(MusicType::_COUNT)> g_BankTried {};
-
 struct TestStep
 {
 	float seconds;
@@ -629,33 +602,14 @@ void RunTestHook()
 
 MusicBank* GetBank(MusicType type)
 {
-	const auto index = static_cast<size_t>(type);
-	if (index >= g_Banks.size())
+	// the banks of 0x9C9748 are audio::banks' (LHBankRegister 0x10002240); the engine learns each one as it comes
+	bool registeredNow = false;
+	auto* bank = banks::MusicBankOf(type, registeredNow);
+	if (registeredNow && g_System)
 	{
-		return nullptr;
+		g_System->With([bank](MusicEngine& engine) { engine.NoteBankRegistered(*bank); });
 	}
-	if (!g_BankTried[index])
-	{
-		g_BankTried[index] = true;
-		const auto& entry = k_MusicBanks[index];
-		if (!entry.path.empty() && Locator::filesystem::has_value())
-		{
-			try
-			{
-				const auto path = Locator::filesystem::value().FindPath(std::filesystem::path(entry.path));
-				g_Banks[index] = MusicBank::Register(path);
-			}
-			catch (const std::exception& e)
-			{
-				SPDLOG_LOGGER_WARN(Logger(), "music: {} ({}): {}", entry.name, entry.path, e.what());
-			}
-		}
-		if (g_Banks[index] && g_System)
-		{
-			g_System->With([&index](MusicEngine& engine) { engine.NoteBankRegistered(*g_Banks[index]); });
-		}
-	}
-	return g_Banks[index].get();
+	return bank;
 }
 
 void Start()
@@ -664,7 +618,7 @@ void Start()
 	{
 		return;
 	}
-	if (alcGetCurrentContext() == nullptr)
+	if (!device::IsOpen())
 	{
 		SPDLOG_LOGGER_WARN(Logger(), "music: no OpenAL context, no music");
 		return;
@@ -682,11 +636,7 @@ void Start()
 void Shutdown()
 {
 	g_System.reset();
-	for (auto& bank : g_Banks)
-	{
-		bank.reset();
-	}
-	g_BankTried.fill(false);
+	banks::ReleaseMusicBanks();
 	g_TestSteps.clear();
 	g_NextTestStep = 0;
 }

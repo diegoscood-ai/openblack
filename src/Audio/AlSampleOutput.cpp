@@ -14,12 +14,7 @@
 
 #include <glm/geometric.hpp>
 
-extern "C" {
-#include <AL/al.h>
-#include <AL/alc.h>
-}
-
-#include "AlCheck.h"
+#include "Device.h"
 #include "Sound.h"
 #include "WaveBuffers.h"
 
@@ -32,7 +27,7 @@ AlSampleOutput::~AlSampleOutput()
 
 bool AlSampleOutput::Play(size_t channel, Sound& sound, const Start& start)
 {
-	if (channel >= _slots.size() || alcGetCurrentContext() == nullptr)
+	if (channel >= _slots.size() || !device::IsOpen())
 	{
 		return false;
 	}
@@ -44,36 +39,34 @@ bool AlSampleOutput::Play(size_t channel, Sound& sound, const Start& start)
 	auto& slot = _slots[channel];
 	if (slot.source == 0)
 	{
-		alCheckCall(alGenSources(1, &slot.source));
+		slot.source = device::CreateSource();
 	}
 	const auto source = slot.source;
-	alCheckCall(alSourceStop(source));
-	alCheckCall(alSourcei(source, AL_BUFFER, 0));
-	alCheckCall(alSourcei(source, AL_BUFFER, static_cast<ALint>(buffer)));
-	alCheckCall(alSourcef(source, AL_PITCH, start.pitch));
+	device::StopSource(source);
+	device::SetSourceBuffer(source, 0);
+	device::SetSourceBuffer(source, buffer);
+	device::SetSourcePitch(source, start.pitch);
 	slot.is3D = start.is3D;
 	slot.relative = start.relative || !start.is3D;
 	slot.position = start.is3D ? start.position : glm::vec3(0.0f);
 	slot.maxDistance = start.maxDistance;
 	slot.gain = start.gain;
-	alCheckCall(alSourcei(source, AL_SOURCE_RELATIVE, slot.relative ? AL_TRUE : AL_FALSE));
+	device::SetSourceRelative(source, slot.relative);
 	if (start.is3D)
 	{
-		alCheckCall(alSourcef(source, AL_REFERENCE_DISTANCE, start.minDistance));
-		alCheckCall(alSourcef(source, AL_MAX_DISTANCE, start.maxDistance));
-		alCheckCall(alSourcef(source, AL_ROLLOFF_FACTOR, start.scale));
+		device::SetSourceDistance(source, start.minDistance, start.maxDistance, start.scale);
 	}
 	else
 	{
 		// 2D (0x100125AB): no position and no distance mapping
-		alCheckCall(alSourcef(source, AL_ROLLOFF_FACTOR, 0.0f));
+		device::SetSourceRolloff(source, 0.0f);
 	}
-	alCheckCall(alSource3f(source, AL_POSITION, slot.position.z, slot.position.y, slot.position.x));
+	device::SetSourcePosition(source, slot.position);
 	slot.looping = start.loops != 0;
-	alCheckCall(alSourcei(source, AL_LOOPING, slot.looping ? AL_TRUE : AL_FALSE));
+	device::SetSourceLooping(source, slot.looping);
 	slot.loop.Start(start.loops);
 	ApplyGain(slot);
-	alCheckCall(alSourcePlay(source));
+	device::PlaySource(source);
 	return true;
 }
 
@@ -81,7 +74,7 @@ void AlSampleOutput::Stop(size_t channel)
 {
 	if (channel < _slots.size() && _slots[channel].source != 0)
 	{
-		alCheckCall(alSourceStop(_slots[channel].source));
+		device::StopSource(_slots[channel].source);
 		_slots[channel].loop.Start(0);
 	}
 }
@@ -103,7 +96,7 @@ void AlSampleOutput::StopRamped(size_t channel)
 	for (int step = 1; step <= k_Steps; ++step)
 	{
 		const float gain = slot.gain * static_cast<float>(k_Steps - step) / static_cast<float>(k_Steps);
-		alCheckCall(alSourcef(slot.source, AL_GAIN, gain));
+		device::SetSourceGain(slot.source, gain);
 		std::this_thread::sleep_for(k_Ramp / k_Steps);
 	}
 	Stop(channel);
@@ -116,8 +109,7 @@ int64_t AlSampleOutput::PlayPositionMs(size_t channel) const
 	{
 		return -1;
 	}
-	ALfloat seconds = 0.0f;
-	alCheckCall(alGetSourcef(_slots[channel].source, AL_SEC_OFFSET, &seconds));
+	const float seconds = device::SourceSecondOffset(_slots[channel].source);
 	return static_cast<int64_t>(seconds * 1000.0f);
 }
 
@@ -127,9 +119,8 @@ bool AlSampleOutput::Playing(size_t channel) const
 	{
 		return false;
 	}
-	ALint state = AL_STOPPED;
-	alCheckCall(alGetSourcei(_slots[channel].source, AL_SOURCE_STATE, &state));
-	return state == AL_PLAYING || state == AL_PAUSED;
+	const auto state = device::SourceStatus(_slots[channel].source);
+	return state == AudioStatus::Playing || state == AudioStatus::Paused;
 }
 
 void AlSampleOutput::SetGain(size_t channel, float gain)
@@ -145,7 +136,7 @@ void AlSampleOutput::SetPitch(size_t channel, float ratio)
 {
 	if (channel < _slots.size() && _slots[channel].source != 0)
 	{
-		alCheckCall(alSourcef(_slots[channel].source, AL_PITCH, ratio));
+		device::SetSourcePitch(_slots[channel].source, ratio);
 	}
 }
 
@@ -157,7 +148,7 @@ void AlSampleOutput::SetPosition(size_t channel, glm::vec3 position)
 	}
 	auto& slot = _slots[channel];
 	slot.position = position;
-	alCheckCall(alSource3f(slot.source, AL_POSITION, position.z, position.y, position.x));
+	device::SetSourcePosition(slot.source, position);
 	ApplyGain(slot);
 }
 
@@ -168,7 +159,7 @@ void AlSampleOutput::ReleaseLoop(size_t channel)
 		auto& slot = _slots[channel];
 		slot.looping = false;
 		slot.loop.Start(0);
-		alCheckCall(alSourcei(slot.source, AL_LOOPING, AL_FALSE));
+		device::SetSourceLooping(slot.source, false);
 	}
 }
 
@@ -192,12 +183,11 @@ void AlSampleOutput::Update()
 		{
 			continue;
 		}
-		ALint offset = 0;
-		alCheckCall(alGetSourcei(slot.source, AL_SAMPLE_OFFSET, &offset));
+		const auto offset = device::SourceSampleOffset(slot.source);
 		if (slot.loop.Feed(offset))
 		{
 			slot.looping = false;
-			alCheckCall(alSourcei(slot.source, AL_LOOPING, AL_FALSE));
+			device::SetSourceLooping(slot.source, false);
 		}
 	}
 }
@@ -214,13 +204,13 @@ size_t AlSampleOutput::Sources() const
 
 void AlSampleOutput::DeleteAll()
 {
-	const bool context = alcGetCurrentContext() != nullptr;
+	const bool context = device::IsOpen();
 	for (auto& slot : _slots)
 	{
 		if (slot.source != 0 && context)
 		{
-			alCheckCall(alSourceStop(slot.source));
-			alCheckCall(alDeleteSources(1, &slot.source));
+			device::StopSource(slot.source);
+			device::DeleteSource(slot.source);
 		}
 		slot = {};
 	}
@@ -235,5 +225,5 @@ void AlSampleOutput::ApplyGain(Slot& slot) const
 		const float distance = slot.relative ? glm::length(slot.position) : glm::distance(slot.position, _listener);
 		muted = distance > slot.maxDistance;
 	}
-	alCheckCall(alSourcef(slot.source, AL_GAIN, muted ? 0.0f : slot.gain));
+	device::SetSourceGain(slot.source, muted ? 0.0f : slot.gain);
 }

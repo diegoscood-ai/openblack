@@ -16,10 +16,10 @@
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
-#include "AudioManagerInterface.h"
 #include "AudioSystem.h"
 #include "Camera/Camera.h"
 #include "Common/RandomNumberManager.h"
+#include "Device.h"
 #include "Locator.h"
 #include "QMixerLaws.h"
 #include "Resources/ResourceManager.h"
@@ -79,7 +79,7 @@ SampleOutput* Output()
 	{
 		return g_State.backend.output;
 	}
-	return Locator::audio::has_value() ? &Locator::audio::value().GetSampleOutput() : nullptr;
+	return device::Output();
 }
 
 Sound* Lookup(entt::id_type id)
@@ -795,10 +795,13 @@ void sample_play::UpdateChannels()
 		}
 		output->SetPosition(IndexOf(channel), at);
 	}
-	// LHListenerUpdate (fn_004270D0 0x4271EF): QMixer's listener
-	if (Locator::audio::has_value())
+	// LHListenerUpdate (fn_004270D0 0x4271EF -> 0x10003960: QSWaveMixSetListenerPosition / Orientation): QMixer's
+	// listener at the camera's position, forward and up; the velocity stays 0 (QSWaveMixSetListenerVelocity(0) at
+	// 0x10015C1A)
+	if (Locator::camera::has_value())
 	{
-		Locator::audio::value().UpdateListener();
+		const auto& listener = Locator::camera::value();
+		device::SetListener(listener.GetOrigin(), glm::vec3(0.0f), listener.GetForward(), listener.GetUp());
 	}
 	output->SetListener(*camera);
 }

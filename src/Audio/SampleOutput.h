@@ -35,8 +35,8 @@ public:
 		/// a 3D channel (0x10012050: QSWaveMixEnableChannel 0x20 with the 3D flags); 2D: on the listener, no distance
 		/// mapping (0x100125AB)
 		bool is3D {false};
-		/// the position is in the listener's frame: (right, up, ahead) in openblack's axes as AudioPlayer sends them
-		/// (x <-> z swapped), i.e. already through qmixer::PolarRelative
+		/// the position is in the listener's frame: (right, up, ahead) in openblack's axes (the device swaps x <-> z for
+		/// OpenAL), i.e. already through qmixer::PolarRelative
 		bool relative {false};
 		glm::vec3 position {0.0f};
 		/// QSWaveMixSetDistanceMapping {min, max, scale} (0x10012159)
@@ -110,7 +110,7 @@ struct LoopCounter
 	}
 };
 
-/// No device (AudioManagerNoOp): nothing ever plays
+/// No device (device::Open failed): nothing ever plays
 class NullSampleOutput final: public SampleOutput
 {
 public:

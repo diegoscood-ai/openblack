@@ -26,8 +26,8 @@
 #include "Audio.h"
 #include "AnimEffects.h"
 #include "AtmosBanks.h"
-#include "AudioManagerInterface.h"
-#include "SampleOutput.h"
+#include "Banks.h"
+#include "Device.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "GameMusic.h"
@@ -47,18 +47,8 @@ using namespace openblack::audio;
 
 namespace
 {
-struct BankEntry
-{
-	std::string path; ///< lower case, '/' separators
-	std::string group;
-	int samples {0}; ///< LHBankGetNumberOfSamples: the .sad's sample table size
-};
-
 struct State
 {
-	std::vector<BankEntry> banks; ///< BankId - 1
-	/// GAudio+0x3A8 + 4 * type
-	std::array<BankId, static_cast<size_t>(SfxBank::_COUNT)> types {};
 	GameQueries queries;
 	bool initialised {false};
 	/// HelpSystem +0x45E8 && +0x45EC as the script set them (Game's wide screen hook, CHLApi without HelpSystem)
@@ -71,20 +61,6 @@ bool Trace()
 {
 	static const bool k_Trace = std::getenv("OPENBLACK_AUDIO_TRACE") != nullptr;
 	return k_Trace;
-}
-
-std::string Normalised(std::string_view path)
-{
-	std::string text(path);
-	std::replace(text.begin(), text.end(), '\\', '/');
-	std::transform(text.begin(), text.end(), text.begin(),
-	               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	return text;
-}
-
-bool EndsWith(const std::string& text, const std::string& tail)
-{
-	return text.size() >= tail.size() && text.compare(text.size() - tail.size(), tail.size(), tail) == 0;
 }
 
 std::optional<glm::vec3> CameraPoint()
@@ -243,78 +219,7 @@ void ProcessAudioGameTurn(uint32_t turn)
 }
 } // namespace
 
-// ---- banks --------------------------------------------------------------------------------------------------------
-
-BankId audio::RegisterBank(const std::filesystem::path& path, std::string_view group)
-{
-	const auto normalised = Normalised(path.generic_string());
-	for (size_t i = 0; i < g_State.banks.size(); ++i)
-	{
-		if (g_State.banks[i].path == normalised)
-		{
-			return static_cast<BankId>(i + 1);
-		}
-	}
-	g_State.banks.push_back({normalised, std::string(group)});
-	const auto id = static_cast<BankId>(g_State.banks.size());
-	// fn_0042A390: the slot of a type is filled once, with the bank of its path
-	for (size_t type = 1; type < k_SfxBankPaths.size(); ++type)
-	{
-		if (g_State.types[type] == k_NoBank && EndsWith(normalised, Normalised(k_SfxBankPaths[type])))
-		{
-			g_State.types[type] = id;
-		}
-	}
-	return id;
-}
-
-void audio::SetBankSampleCount(BankId bank, int samples)
-{
-	if (bank != k_NoBank && bank <= g_State.banks.size())
-	{
-		g_State.banks[bank - 1].samples = samples;
-	}
-}
-
-int audio::BankSampleCount(BankId bank)
-{
-	return bank != k_NoBank && bank <= g_State.banks.size() ? g_State.banks[bank - 1].samples : 0;
-}
-
-BankId audio::Bank(SfxBank type)
-{
-	const auto index = static_cast<size_t>(type);
-	return index < g_State.types.size() ? g_State.types[index] : k_NoBank;
-}
-
-BankId audio::FindBank(std::string_view path)
-{
-	const auto wanted = Normalised(path);
-	for (size_t i = 0; i < g_State.banks.size(); ++i)
-	{
-		if (EndsWith(g_State.banks[i].path, wanted))
-		{
-			return static_cast<BankId>(i + 1);
-		}
-	}
-	return k_NoBank;
-}
-
-std::string audio::BankGroup(BankId bank)
-{
-	return bank != k_NoBank && bank <= g_State.banks.size() ? g_State.banks[bank - 1].group : std::string {};
-}
-
-entt::id_type audio::SampleId(BankId bank, int number)
-{
-	const auto group = BankGroup(bank);
-	if (group.empty())
-	{
-		return 0;
-	}
-	const auto key = fmt::format("{}/{}", group, number);
-	return entt::hashed_string(key.c_str()).value();
-}
+// ---- banks (Banks.cpp) ------------------------------------------------------------------------------------------
 
 BankId audio::CreatureBank(std::string_view species)
 {
@@ -589,6 +494,9 @@ void audio::Init(GameQueries queries)
 	{
 		SPDLOG_LOGGER_INFO(logger, "GAudio: sample master volume {}", sample_play::MasterVolume());
 	}
+	// the GAudio ctor 0x426D40 -> fn_00429CB0: the sample banks of 0x9CB3F8, then (InitAtmos fn_00428F30) the atmos
+	// ones, every .sad of Audio\ through LHBankRegister 0x10002240 (Banks.h)
+	banks::LoadAll();
 }
 
 void audio::Shutdown()
@@ -605,10 +513,9 @@ void audio::Shutdown()
 bool audio::SoundExists()
 {
 	// GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled: the wave device of LH_AudioSystem::Create. (approximated) here
-	// the audio is initialised on the OpenAL device (Locator.cpp falls back to AudioManagerNoOp, whose sample output is
-	// the NullSampleOutput, when there is none)
-	return g_State.initialised && Locator::audio::has_value() &&
-	       dynamic_cast<NullSampleOutput*>(&Locator::audio::value().GetSampleOutput()) == nullptr;
+	// the audio is initialised on the OpenAL device (device::Open; without one the channels' output is the
+	// NullSampleOutput)
+	return g_State.initialised && device::IsOpen();
 }
 
 uint32_t audio::TickCount()
@@ -655,6 +562,8 @@ void audio::Paused()
 
 void audio::UpdateFrame()
 {
+	// the 16 channels' finite loops (QMixer counts them as it mixes)
+	sample_play::UpdateFrame();
 	// the options dialog's slider 0x64 applies the sample master at once (fn_00428600, DialogBoxOptions 0x5145A3);
 	// LHSampleSetMasterVolume ignores the same value (0x100150F9)
 	if (g_State.initialised && Locator::config::has_value())

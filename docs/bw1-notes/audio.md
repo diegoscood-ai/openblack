@@ -113,9 +113,11 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
  2. GAudio       AudioSystem: bancos por tipo (0x9CB3F8, 0x9C9748), filtros, volúmenes maestros,
                  Init/Reset/ProcessTurn/foco, dueños fijos 0x270C..0x270F
  1. LHaudio/QMixer emulado
-                 Banks (LHBankRegister, caché de ondas) · SamplePlay (16 canales, de agua)
-                 MusicEngine (LHMusic: 6 pistas, hilo de 120 ms) · QMixerLaws (volumen, distancia, polar)
- 0. Dispositivo  AudioPlayer (OpenAL) + decodificadores (dr_wav PCM/ADPCM, dr_mp3 capa II)
+                 Banks (LHBankRegister: bancos, tablas, ondas perezosas, música) · WaveBuffers (búfer por onda)
+                 SamplePlay (16 canales, de agua) · MusicEngine (LHMusic: 6 pistas, hilo de 120 ms)
+                 QMixerLaws (volumen, distancia, polar)
+ 0. Dispositivo  Device (el único que llama a OpenAL: un dispositivo, un contexto, alGetError en cada llamada)
+                 AlSampleOutput (16 canales) · MusicStream (6 pistas) + decodificadores (dr_wav, dr_mp3 capa II)
 ```
 
 Reglas:
@@ -129,7 +131,10 @@ Reglas:
    de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos y las
    ramas de música de ciudadela, pelea, cántico y baile en false.
 6. **La lógica es pura y se prueba sin AL**, con sinks falsos.
-7. **No se abre un segundo dispositivo OpenAL.** La música usa el contexto que ya abre `AudioPlayer`.
+7. **Un solo motor (B11a).** Un solo dispositivo OpenAL (`src/Audio/Device.{h,cpp}`, `audio::device`): los canales
+   (`AlSampleOutput`), los búferes (`WaveBuffers`) y la música (`MusicStream`) le piden fuentes y búferes; nadie más
+   incluye `AL/al.h`. Una sola carga de bancos (`src/Audio/Banks.{h,cpp}`, `audio::banks`), llamada desde `audio::Init`.
+   No hay `AudioManager`, `AudioPlayer`, `AlCheck`, `SoundGroup` ni `Locator::audio`.
 8. **Los contadores cíclicos van en un `enum class Counter`** con la dirección en el comentario, no con direcciones
    como claves. La API no tiene argumentos por defecto inventados.
 
@@ -142,9 +147,9 @@ Reglas:
 filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
 cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí, y desde B5 también los milagros
 (`SpellSounds`, `FireSound`, `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`, `WorshipSpellIcon`, `MagicTeleport`,
-`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores**: `AudioManager` perdió
-`CreateEmitter`/`PlayEmitter`/`PlaySound`/`PlayAt`/`PlayMusic` y el componente `AudioEmitter` ya no existe; solo abre
-el dispositivo, mueve el oyente, guarda las fuentes de los canales y la lista de bancos.
+`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores** (B5) ni segundo motor
+(B11a, [abajo](#fase-b-b11a-un-solo-motor)): `AudioManager`, `AudioPlayer` y `Locator::audio` se retiraron; el
+dispositivo es `audio::device` y los bancos son `audio::banks`.
 
 ## Bancos y formatos
 
@@ -234,7 +239,7 @@ openblack: `AudioBankInfo` (los 3 u32) y `PackFile::IsAudioMusicBank()` en `comp
   (fn_10010910, 0x10011CB3/0x10011E25), y HelpDude lo copia para el lip-sync (0x5BB57B..0x5BB5C9).
 - openblack (B0, `src/Audio/WaveBuffers.*`): los .sad se leen enteros al arrancar (como antes), salvo los de diálogo
   (tipos 6..10, `Audio\Dialogue`, desde B7): de esos solo se leen las cabeceras (`PackFile::ReadAudioHeaders`) y cada
-  onda se lee del fichero al decodificarla (`Sound::waveFile`, `wave_buffers::ReadWave`), como `LHBankRegister(path, 0)`.
+  onda se lee del fichero al decodificarla (`Sound::waveFile`, `banks::ReadWave`), como `LHBankRegister(path, 0)`.
   Que el resto de bancos se lea entero es **(aproximado)**: el original los registra todos así (0x426EEE). Cada muestra se
   **decodifica una sola vez, al primer uso**, a un búfer AL que se guarda (`Sound::bufferId`) hasta cerrar el audio.
   **(aproximado)**: un búfer por registro de muestra, no por onda +0x108 (los clones se decodifican cada uno), y sin
@@ -406,12 +411,12 @@ openblack:
 - `MusicEngine` (`src/Audio/MusicEngine.{h,cpp}`, A3, **fiel**) es la lógica del DLL sobre una interfaz `IMusicSink` (lo
   que hace QMixer). Así se prueba sin OpenAL (`test_music_engine`).
 - `MusicStream` + `MusicSystem` (`src/Audio/MusicStream.{h,cpp}`, A4):
-  - Usan el **contexto OpenAL de `AudioPlayer`**, sin abrir otro dispositivo. Tienen una fuente por canal, con su cola de
+  - Usan el **dispositivo de audio** (`audio::device`, desde B11a; antes el contexto de `AudioPlayer`), sin abrir otro. Tienen una fuente por canal, con su cola de
     búferes y un decodificador dr_mp3 continuo por pista (`MusicSegmentDecoder`).
   - El hilo hace una vuelta y luego espera 120/5000 ms. Bombea cada 20 ms.
   - Hay un cerrojo recursivo, que hace de la sección crítica 0x100562B0.
   - Ganancia = volumen QMixer / 32767, por la ley 3D de QMixer.
-  - `AudioManager::PlayMusic` sigue en su sitio: se retira en B1.
+  - Los bancos de MUSIC_TYPE los registra `banks::MusicBankOf` (B11a) al primer uso.
 - **(aproximado)**:
   - Un segmento que no decodifica da una trama de silencio, para que el callback llegue.
   - Si la cola de OpenAL se vacía, la fuente se para y se reanuda en cuanto hay datos; QMixer toca la siguiente onda en
@@ -563,7 +568,7 @@ openblack:
 ### La música en openblack
 
 Resumen de la fase A. La cadena es `Game::Initialize` → `audio::music::Start()` (`LH_AudioSystem` init 0x1000DD50,
-sobre el contexto del `AudioManager`) → `audio::game_music::Start(GameQueries, townTrigger)`. Por fotograma,
+sobre el dispositivo `audio::device`) → `audio::game_music::Start(GameQueries, townTrigger)`. Por fotograma,
 `audio::music::Update()` aplica el maestro de la configuración y el gancho de prueba. En el turno corre
 `game_music::ProcessTurn`. Al cerrar, `game_music::Shutdown` y luego `music::Shutdown` (`LHMusicClose` 0x1000E7A0),
 antes de soltar el contexto. Panel de depuración: la ventana «Music» (`src/Debug/Music.{h,cpp}`), con el maestro, los 6
@@ -1524,18 +1529,18 @@ la tabla de saltos 0x72E54C). Dos correcciones:
   PlayNow y la búsqueda del pueblo corren y no suena nada, como el original.
 
 En juego (Land 3, 00:02 de noche real, `OPENBLACK_PLAYER_NAME=Mario OPENBLACK_TEST_GUIDANCE_SAY=90:3326`, logs
-`_auditudio9_audit_land3*.log`): `SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`, y en el turno 90
+`_audit\audio\b9_audit_land3*.log`): `SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`, y en el turno 90
 `HelpSpiritSay(3326, type 32) ... not started` (también en Land 3 el guion de la intro tiene el diálogo). Sin errores
 nuevos.
 
 ## Fases B y C
 
-**B0..B10 hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B10 y B11a hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
 | B0 | **hecho** ([abajo](#fase-b-b0-y-b1-implementados)) |
-| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer` y el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5) |
+| B1 | **hecho** salvo: el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5; `MusicStream` va sobre `audio::device` desde B11a) |
 | B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); desde B5 `SpellSounds` también va por `SamplePlayAnimEffect` |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
 | B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); falta el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene); el vapor (`FireGraphic` 0x731542) entró con B5 |
@@ -1545,6 +1550,7 @@ nuevos.
 | B8 | **hecho** ([abajo](#fase-b-b8-implementado-interfaz-y-mano)): clic de los menús propios 159, llamar a la puerta 110+c%9, cruzar un anillo de influencia 52 (los gritos 180/187/194+rand7 ya estaban, B4). Sin sitio en openblack (pendientes con su dirección): Logo 160 (no hay `DoLogo` 0x5FA070), ClickOnSpell 42 de la arena y del poste de la correa, conquista 205, orden aceptada 1 (criatura), influencia virtual 129, cofre y pergaminos |
 | B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); sin llamador en openblack: alineamiento (Milagros), muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
 | B10 | **hecho** ([arriba](#gspookyvoices-srcaudiospookyvoiceshcpp-audiospooky)); el nombre del perfil, por `OPENBLACK_PLAYER_NAME` **(inferido)** |
+| B11a | **hecho** ([abajo](#fase-b-b11a-un-solo-motor)): un solo motor; fuera `AudioManager*`, `AudioPlayer*`, `AlCheck`, `SoundGroup`, `Locator::audio`; `audio::device` y `audio::banks` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | Clima y alineamiento en el ambiente |
 | C3 | Aldeanos, edificios y cánticos |
@@ -1553,8 +1559,60 @@ nuevos.
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
 
-Desde B5 `AudioManager` ya no tiene `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`: todo sonido nuevo va
-por `audio::` (`Audio.h`) con lo que pasa su llamada original.
+Desde B5 no hay `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`, y desde B11a tampoco `AudioManager`: todo
+sonido nuevo va por `audio::` (`Audio.h`) con lo que pasa su llamada original.
+
+## Fase B: B11a, un solo motor
+
+Lo prometido: «un solo motor, no dos conviviendo». Fuera de `src/Audio` nadie usa ya `AudioManager` (no existe) ni
+OpenAL (`grep` de `AudioManager|Locator::audio|AL/al.h|alGen|alSource` en `src`, `test` y `apps`: solo `Device.cpp`).
+
+**Retirado**: `AudioManager.{h,cpp}`, `AudioManagerInterface.h`, `AudioManagerNoOp.h`, `AudioPlayer.{h,cpp}`,
+`AudioPlayerInterface.h`, `AlCheck.{h,cpp}`, `SoundGroup.h` y `Locator::audio`. Lo que aún hacían pasa a:
+
+| antes | ahora |
+|---|---|
+| `AudioPlayer::Initialize` (dispositivo, contexto, registro de OpenAL Soft, `AL_INVERSE_DISTANCE_CLAMPED`), `AudioManagerNoOp` si falla | `audio::device::Open()` desde `InitializeEngine` (`LH_AudioSystem::Create`); sin dispositivo, `NullSampleOutput` |
+| `~AudioManager` (fuentes de los canales, búferes, contexto) | `audio::device::Close()` desde `ShutDownServices`, tras `audio::Shutdown` y `music::Shutdown` |
+| `AudioManager::Update` (bucles finitos de los canales) | `sample_play::UpdateFrame()` al principio de `audio::UpdateFrame()` (mismo sitio del fotograma) |
+| `AudioManager::UpdateListener` → `AudioPlayer::UpdateListener` | `device::SetListener(cámara, 0, forward, up)` en `sample_play::UpdateChannels` (LHListenerUpdate 0x10003960 desde fn_004270D0 0x4271EF; velocidad 0, 0x10015C1A) |
+| `AudioManager::GetSampleOutput` | `device::Output()` |
+| `AudioManager::GetSound`, `CreateSoundGroup`/`AddToSoundGroup`/`GetSoundGroups` (lista de bancos del panel y de LHAtmos) | `banks::Count/Path/Samples(BankId)`, `BankGroup`, `FindBank` |
+| `SoundExists` mirando si la salida era `NullSampleOutput` | `device::IsOpen()` |
+
+**Dispositivo** (`src/Audio/Device.{h,cpp}`, `audio::device`, capa 0): `Open`, `Close`, `IsOpen`, `Output`,
+`SetListener`, `ListenerPosition`; fuentes (`CreateSource`, `DeleteSource`, `SetSourceBuffer/Pitch/Gain/Looping/Relative/
+Position/Distance/Rolloff`, `Play/Stop/PauseSource`, `SourceStatus`, `SourceSampleOffset`, `SourceSecondOffset`,
+`SourceBuffersProcessed`, `QueueSourceBuffer`, `UnqueueSourceBuffer`); búferes (`CreateBuffer`, `SetBufferLoopPoints`
+con `AL_SOFT_loop_points`, `DeleteBuffer(s)`). Es el único archivo que incluye OpenAL y el único `alCheckCall`. El cambio
+de ejes (x ↔ z, mundo de openblack zurdo, OpenAL diestro) se hace solo aquí: antes estaba repetido en `AudioPlayer`,
+`AlSampleOutput` y `MusicStream`. Usuarios: `AlSampleOutput` (16 canales; voces y consejeros van por ellos),
+`WaveBuffers` y `MusicStream` (6 pistas).
+
+**Bancos** (`src/Audio/Banks.{h,cpp}`, `audio::banks`, capa 1, LHBankRegister 0x10002240): el registro
+(`RegisterBank`, `SetBankSampleCount`, `BankSampleCount`, `Bank(SfxBank)` = GAudio+0x3A8 + 4·tipo de 0x9CB3F8,
+`FindBank`, `BankGroup`, `SampleId`, que estaban en `AudioSystem`) y la carga:
+- `banks::LoadAll()`, al final de `audio::Init` (GAudio ctor 0x426D40 → fn_00429CB0, InitAtmos fn_00428F30): cada .sad
+  de `Audio\` en el orden del sistema de ficheros, como el bucle que había en `Game.cpp`. Mismo contenido: tablas de
+  anim-effects (`anim_effects::RegisterTables`, 0x10002778..0x100029AB), nombres de onda de la tabla de voz (bancos 6, 7,
+  10), muestras vacías saltadas (`continue`), bancos de música (ondas .mpg) fuera.
+- Los de diálogo (tipos 6..10) siguen **perezosos**: solo cabeceras y `banks::ReadWave` lee la onda al primer uso
+  (0x10011420 → fn_100032D0; antes `wave_buffers::ReadWave`).
+- `banks::MusicBankOf(MusicType)` (0x9C9748, GAudio+0x2C + 4·tipo) registra cada banco de música al primer uso (antes en
+  `MusicStream.cpp`); `music::GetBank` se lo cuenta al motor; `banks::ReleaseMusicBanks()` en `music::Shutdown`.
+- `LHAtmos` (`AtmosBanks::Register`) busca sus 14 bancos con `FindBank("/<archivo>.sad")` y lee sus muestras con
+  `banks::Samples`.
+- `AnimEffectTable::Load(path)` solo lee el fichero para un banco no registrado (herramientas y tests).
+
+**Panel de depuración** (`src/Debug/Audio.cpp`): la lista de bancos sale de `audio::banks`; la pestaña «Channels» muestra
+el dispositivo (LHWaveIsInstalled), los 16 canales, los consejeros (`advisor::Speaker/Sentence/IsTalking/SentenceTime`,
+dueño 0x270C) y las 6 pistas de LHMusic (estado +0x24, banco +0x58, trozo +0x48/+0x4C, volumen +0x34 → +0x30).
+
+**Comprobación** (Land 1, 1800 fotogramas, las cinco trazas `OPENBLACK_AUDIO/SFX/MUSIC/ANIM/TEXT_TRACE`, el mismo
+`Mods\`; logs `_audit\audio\b11a_base.log`, segunda pasada, y `b11a_after.log`): mismas líneas de arranque (Atmos 15
+bucles y 400 sueltas, tabla de voz 6974/1922/1328/227, dos muestras vacías, WELCOME_DANCE sin fichero), la misma música
+(`intro.sad`, MUSIC_TYPE_SCRIPT_INTRO) y los mismos tipos de evento; las diferencias son de número (sorteos de
+anim-effects y unos turnos menos en la segunda pasada, que depende del tiempo real). Sin errores de OpenAL.
 
 ## Qué suena y cuándo
 

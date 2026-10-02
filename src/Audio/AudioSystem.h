@@ -20,6 +20,7 @@
 #include <glm/vec3.hpp>
 
 #include "BankTables.h"
+#include "Banks.h"
 #include "SamplePlay.h"
 
 // GAudio (runblack.exe, 0x3D4 bytes, ctor 0x426D40): layer 2 of dev\tmp_dis\audio\PLAN.md §2.1. The public face is
@@ -29,27 +30,7 @@ namespace openblack::audio
 {
 struct GameQueries;
 
-/// Any registered bank: GAudio's LH_AudioBank* (the 11 of 0x9CB3F8, the 14 atmos ones, a creature's). 0 = none.
-using BankId = uint16_t;
-inline constexpr BankId k_NoBank = 0;
-
-/// LHBankRegister 0x10002240 as openblack loads the .sad: every bank Game reads gets an id, by its path (the original
-/// file system ignores case, so "audio/dialogue/Villagers.sad" of 0x9CB488 is villagers.sad on disk). `group` is the
-/// sound group of its samples ("<file>.sad", their ids "<file>.sad/<n>"). The 11 types of 0x9CB3F8 are recognised by
-/// path (fn_0042A390, 0x42A39D..0x42A3BA: GAudio+0x3A8 + 4 * type).
-BankId RegisterBank(const std::filesystem::path& path, std::string_view group);
-/// The size of a registered bank's sample table, as Game read it (the samples are 1..count)
-void SetBankSampleCount(BankId bank, int samples);
-/// LHBankGetNumberOfSamples (HelpDude::SaySentence 0x5BB389): 0 for no bank
-[[nodiscard]] int BankSampleCount(BankId bank);
-/// GAudio+0x3A8 + 4 * type (k_NoBank for type 0 or a bank not loaded)
-[[nodiscard]] BankId Bank(SfxBank type);
-/// The bank registered for a path (case-insensitive, any separator; matched on its end), k_NoBank if none
-[[nodiscard]] BankId FindBank(std::string_view path);
-/// The sound group of a bank ("InGame.sad"), empty for k_NoBank
-[[nodiscard]] std::string BankGroup(BankId bank);
-/// The sound id of sample `number` (1-based, .sad +0x104) of a bank: "<group>/<number>" (0 when the bank is unknown)
-[[nodiscard]] entt::id_type SampleId(BankId bank, int number);
+// The banks (BankId, RegisterBank, Bank, FindBank, SampleId...): Banks.h
 
 /// GAudio::IsInsideCitadel 0x429D20, misnamed: the owner is a GameThing (dynamic cast) that is not available
 /// (IsAvailable(), vtable +0x2C, returns 0). 0 and -1 (no owner, the atmos mixer) and any other Base are available.

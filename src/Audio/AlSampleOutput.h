@@ -16,8 +16,8 @@
 namespace openblack::audio
 {
 
-/// The 16 sample channels on OpenAL, in the context AudioPlayer opened (no second device). Positions are openblack's
-/// world (or listener) coordinates; like AudioPlayer, they go to OpenAL with x and z swapped. The distance curve up to
+/// The 16 sample channels on the audio device (Device.h: its one OpenAL context, no second device). Positions are
+/// openblack's world (or listener) coordinates (the device swaps x and z for OpenAL). The distance curve up to
 /// the max is OpenAL's inverse distance clamped (reference = min, rolloff = scale: QMixer 0x1802CE50) and beyond the max
 /// the channel is muted as QMixer does (0x1800ADDF).
 class AlSampleOutput final: public SampleOutput

@@ -13,22 +13,14 @@
 #include <cstring>
 
 #include <algorithm>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <string_view>
 
 #include <spdlog/spdlog.h>
 
-extern "C" {
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alext.h>
-}
-
-#include "AlCheck.h"
-#include "FileSystem/FileSystemInterface.h"
-#include "Locator.h"
+#include "Banks.h"
+#include "Device.h"
 #include "MpegAudioDecoder.h"
 #include "WavAudioDecoder.h"
 
@@ -118,43 +110,6 @@ bool DecodeWith(const std::vector<uint8_t>& bytes, wave_buffers::Pcm& out)
 }
 } // namespace
 
-bool wave_buffers::ReadWave(const Sound& sound, std::vector<uint8_t>& out)
-{
-	out.clear();
-	if (sound.waveFile.empty() || sound.waveSize == 0)
-	{
-		return false;
-	}
-	// fn_100032D0 (from 0x10011420): the wave is read from the bank's open file when the sample first plays
-	std::unique_ptr<std::istream> stream;
-	if (Locator::filesystem::has_value())
-	{
-		stream = Locator::filesystem::value().GetData(sound.waveFile);
-	}
-	else
-	{
-		stream = std::make_unique<std::ifstream>(sound.waveFile, std::ios::binary);
-	}
-	if (!stream || !*stream)
-	{
-		return false;
-	}
-	out.resize(sound.waveSize);
-	stream->seekg(static_cast<std::streamoff>(sound.waveOffset));
-	stream->read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(out.size()));
-	if (stream->gcount() != static_cast<std::streamsize>(out.size()))
-	{
-		out.clear();
-		return false;
-	}
-	if (Trace())
-	{
-		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Wave of {} read from {} ({} bytes at {})", sound.name,
-		                   sound.waveFile.filename().string(), sound.waveSize, sound.waveOffset);
-	}
-	return true;
-}
-
 bool wave_buffers::Decode(const Sound& sound, Pcm& out)
 {
 	out = {};
@@ -163,7 +118,7 @@ bool wave_buffers::Decode(const Sound& sound, Pcm& out)
 	if (sound.buffer.empty() && !sound.waveFile.empty())
 	{
 		onDemand.emplace_back();
-		if (!ReadWave(sound, onDemand.back()))
+		if (!banks::ReadWave(sound, onDemand.back()))
 		{
 			return false;
 		}
@@ -213,7 +168,7 @@ BufferId wave_buffers::Get(Sound& sound)
 	{
 		return sound.bufferId;
 	}
-	if (alcGetCurrentContext() == nullptr)
+	if (!device::IsOpen())
 	{
 		return 0;
 	}
@@ -227,18 +182,12 @@ BufferId wave_buffers::Get(Sound& sound)
 		return 0;
 	}
 	const int rate = pcm.sampleRate > 0 ? pcm.sampleRate : sound.sampleRate;
-	BufferId id = 0;
-	alCheckCall(alGenBuffers(1, &id));
-	const auto format = pcm.layout == ChannelLayout::Stereo ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
-	alCheckCall(alBufferData(id, format, pcm.samples.data(), static_cast<ALsizei>(pcm.samples.size() * sizeof(int16_t)),
-	                         rate));
+	const BufferId id = device::CreateBuffer(pcm.layout, pcm.samples.data(), pcm.samples.size(), rate);
 	// QMIXPLAYPARAMS +0x18 / +0x1C (0x10012949): only when both are set and start < end; AL wants them inside the wave
 	const auto frames = static_cast<int32_t>(pcm.Frames());
-	if (sound.loopStart >= 0 && sound.loopEnd > sound.loopStart && sound.loopEnd <= frames &&
-	    alIsExtensionPresent("AL_SOFT_loop_points") == AL_TRUE)
+	if (sound.loopStart >= 0 && sound.loopEnd > sound.loopStart && sound.loopEnd <= frames)
 	{
-		const ALint points[2] = {sound.loopStart, sound.loopEnd}; // NOLINT(modernize-avoid-c-arrays)
-		alCheckCall(alBufferiv(id, AL_LOOP_POINTS_SOFT, points));
+		device::SetBufferLoopPoints(id, sound.loopStart, sound.loopEnd);
 	}
 	sound.bufferId = id;
 	sound.channelLayout = pcm.layout;
@@ -264,9 +213,9 @@ void wave_buffers::Release(Sound& sound)
 	const auto found = std::find(g_Buffers.begin(), g_Buffers.end(), sound.bufferId);
 	if (found != g_Buffers.end())
 	{
-		if (alcGetCurrentContext() != nullptr)
+		if (device::IsOpen())
 		{
-			alCheckCall(alDeleteBuffers(1, &sound.bufferId));
+			device::DeleteBuffer(sound.bufferId);
 		}
 		g_Buffers.erase(found);
 	}
@@ -275,9 +224,9 @@ void wave_buffers::Release(Sound& sound)
 
 void wave_buffers::DeleteAll()
 {
-	if (alcGetCurrentContext() != nullptr && !g_Buffers.empty())
+	if (device::IsOpen())
 	{
-		alCheckCall(alDeleteBuffers(static_cast<ALsizei>(g_Buffers.size()), g_Buffers.data()));
+		device::DeleteBuffers(g_Buffers);
 	}
 	g_Buffers.clear();
 }

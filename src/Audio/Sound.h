@@ -17,15 +17,11 @@
 
 #include <entt/core/hashed_string.hpp>
 
-extern "C" {
-#include <AL/al.h>
-#include <AL/alc.h>
-}
-
 namespace openblack::audio
 {
-using SourceId = ALuint;
-using BufferId = ALuint;
+/// OpenAL's names of a source and a buffer (ALuint), made only by the device (Device.h)
+using SourceId = uint32_t;
+using BufferId = uint32_t;
 
 enum class SoundId : entt::id_type
 {

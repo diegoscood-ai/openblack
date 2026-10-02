@@ -35,7 +35,8 @@
 // Rules for the callers (PLAN §2.1, §8.6):
 //  - nobody outside src/Audio calls OpenAL; since B5 every sample plays on the 16 channels through this header (the old
 //    emitters of AudioManager, CreateEmitter / PlayEmitter / PlaySound / PlayMusic, and the AudioEmitter component are
-//    gone);
+//    gone), and since B11a there is one engine: one device (Device.h, the only caller of OpenAL), one bank loader
+//    (Banks.h), no AudioManager and no Locator::audio;
 //  - the audio includes no ECS component: the positions of the owners come from GameQueries (things) and from
 //    RegisterObject (other objects).
 
@@ -280,7 +281,7 @@ void Delete(TagId tag);
 } // namespace tags
 
 /// SOUND_EXISTS 0x710100 -> GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled (milestone B6): the wave device was made.
-/// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
+/// (approximated) openblack's: the audio is initialised on a real OpenAL device (device::Open succeeded).
 [[nodiscard]] bool SoundExists();
 
 // ---- voices (B7) ----------------------------------------------------------------------------------------------------

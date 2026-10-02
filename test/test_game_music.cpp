@@ -23,10 +23,10 @@
 #include <PackFile.h>
 #include <gtest/gtest.h>
 
-#include "Audio/GameMusic.h"
-#include "Audio/MusicBank.h"
-#include "Audio/MusicEngine.h"
-#include "Audio/ScriptAudioState.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/LH/MusicBank.h"
+#include "Audio/LH/MusicEngine.h"
+#include "Audio/Services/ScriptAudioState.h"
 #include "InfoConstants.h"
 
 // Milestones A5, A6, A7 and A9 of dev\tmp_dis\audio\PLAN.md: GAudio's music (GameMusic) over LHMusic (MusicEngine) and

@@ -28,14 +28,14 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include "Audio/Advisor.h"
+#include "Audio/Services/Advisor.h"
 #include "Audio/Audio.h"
-#include "Audio/Banks.h"
+#include "Audio/GAudio/Banks.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/Voices.h"
-#include "Audio/WaveBuffers.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/Voices.h"
+#include "Audio/Device/WaveBuffers.h"
 #include "Common/HelpText.h"
 #include "Help/HelpSystem.h"
 

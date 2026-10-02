@@ -23,7 +23,7 @@
 #include "3D/Implementations/Sky.h"
 #include "3D/Implementations/TempleInterior.h"
 #include "3D/Implementations/UnloadedIsland.h"
-#include "Audio/Device.h"
+#include "Audio/Device/Device.h"
 #include "CHLApi.h"
 #include "Common/EventManager.h"
 #include "Common/RandomNumberManagerProduction.h"

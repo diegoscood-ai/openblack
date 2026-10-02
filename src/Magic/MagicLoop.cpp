@@ -9,7 +9,7 @@
 
 #include "MagicLoop.h"
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Core/OneOffSpellSeed.h"
 #include "Core/Players.h"
 #include "Core/Spell.h"
@@ -116,7 +116,7 @@ void magic::ProcessTurnEnd()
 {
 	// The one swap: the original runs GScript::Process between 11 and 12; openblack's scripts block runs before 9.
 	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 -> fn_006D11A0, the PSys sounds    [S sounds]
-	audio::spell_sounds::ProcessTurn(static_cast<float>(k_TurnMs) * 0.001f); // Audio/SpellSounds.cpp
+	audio::spell_sounds::ProcessTurn(static_cast<float>(k_TurnMs) * 0.001f); // Audio/Services/SpellSounds.cpp
 	// --- (GScript::Process in the original)
 	// 12 the weather things / GClimate::ProcessAll 0x7741A0 / 0x771BE0      [M6a]
 	weather::ProcessTurnEnd(); // ECS/Weather/WeatherLoop.cpp (+ OPENBLACK_TEST_WEATHER)

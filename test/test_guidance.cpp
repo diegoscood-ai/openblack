@@ -21,10 +21,10 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/Guidance.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/Voices.h"
+#include "Audio/Services/Guidance.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/Voices.h"
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 

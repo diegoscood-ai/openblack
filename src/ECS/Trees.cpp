@@ -30,7 +30,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#include "Audio/AnimationSounds.h"
+#include "Audio/Services/AnimationSounds.h"
 #include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Common/RandomNumberManager.h"

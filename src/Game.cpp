@@ -38,25 +38,25 @@
 #include "3D/SkyInterface.h"
 #include "3D/SkyType.h"
 #include "3D/TempleInteriorInterface.h"
-#include "Audio/AnimationSounds.h"
-#include "Audio/AtmosBanks.h"
+#include "Audio/Services/AtmosBanks.h"
 #include "Audio/Audio.h"
-#include "Audio/GameMusic.h"
-#include "Audio/Guidance.h"
-#include "Audio/LanternSounds.h"
-#include "Audio/MusicStream.h"
-#include "Audio/ScriptAudioState.h"
-#include "Audio/Voices.h"
-#include "Audio/SamplePlay.h"
-#include "Audio/SoundMap.h"
-#include "Audio/SoundTags.h"
-#include "Audio/SpookyVoices.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/Services/Guidance.h"
+#include "Audio/Services/LanternSounds.h"
+#include "Audio/LH/MusicStream.h"
+#include "Audio/Services/ScriptAudioState.h"
+#include "Audio/Services/Voices.h"
+#include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/SoundMap.h"
+#include "Audio/Services/SoundTags.h"
+#include "Audio/Services/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
+#include "ECS/AudioQueries.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Fields.h"
@@ -218,6 +218,8 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		}
 		return name;
 	};
+	// What the audio reads of the ECS things (the clips' villagers and animals, the lanterns, the surface, the weather)
+	ecs::audio_queries::Fill(queries);
 	return queries;
 }
 } // namespace
@@ -554,10 +556,10 @@ bool Game::GameLogicLoop() noexcept
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
 		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
-		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Guidance.h
+		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
 		audio::guidance::ProcessGameTurn();
 		audio::ProcessTurn(_dayNightClock->GetSkyType(), turn);
-		audio::AnimationSounds::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
+		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();

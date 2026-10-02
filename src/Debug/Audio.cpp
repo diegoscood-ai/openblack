@@ -14,15 +14,15 @@
 #include <fmt/format.h>
 #include <imgui.h>
 
-#include "Audio/Advisor.h"
+#include "Audio/Services/Advisor.h"
 #include "Audio/Audio.h"
-#include "Audio/BankTables.h"
-#include "Audio/Banks.h"
-#include "Audio/Device.h"
-#include "Audio/GameMusic.h"
-#include "Audio/MusicBank.h"
-#include "Audio/MusicStream.h"
-#include "Audio/WaveBuffers.h"
+#include "Audio/GAudio/BankTables.h"
+#include "Audio/GAudio/Banks.h"
+#include "Audio/Device/Device.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/LH/MusicBank.h"
+#include "Audio/LH/MusicStream.h"
+#include "Audio/Device/WaveBuffers.h"
 #include "EngineConfig.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"

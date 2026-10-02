@@ -16,7 +16,7 @@
 #include <string>
 #include <string_view>
 
-#include "Audio/Voices.h"
+#include "Audio/Services/Voices.h"
 #include "Common/HelpText.h"
 
 // The text part of HelpSystem (runblack.exe W120, g_game+0x25005C), milestone A11 of dev\tmp_dis\audio\PLAN.md: the

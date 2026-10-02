@@ -17,10 +17,10 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/ScriptSound.h"
-#include "Audio/Sound.h"
-#include "Audio/SoundTags.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Services/ScriptSound.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/SoundTags.h"
 
 // Milestone B6 of dev\tmp_dis\audio\PLAN.md (dev\tmp_dis\audio\script.md §2.2, §6): the script's sound effects.
 // PLAY_SOUND_EFFECT 0x70F7F0 owns its channel by the sample number; GAME_SOUND_PLAYING 0x710230 asks that channel;

@@ -25,7 +25,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Common/StringUtils.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"

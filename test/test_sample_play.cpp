@@ -23,10 +23,10 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/QMixerLaws.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/WaveBuffers.h"
+#include "Audio/LH/QMixerLaws.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Device/WaveBuffers.h"
 #include "Resources/Loaders.h"
 
 // Milestones B0 / B1 of dev\tmp_dis\audio\PLAN.md: LHaudio's 16 channels (LHSamplePlay 0x100113B0, allocation

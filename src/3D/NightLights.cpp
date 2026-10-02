@@ -18,7 +18,7 @@
 #include <entt/entity/entity.hpp>
 #include <spdlog/spdlog.h>
 
-#include "Audio/LanternSounds.h"
+#include "Audio/Services/LanternSounds.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"

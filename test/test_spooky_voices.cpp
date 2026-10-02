@@ -25,11 +25,11 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/Guidance.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/SpookyVoices.h"
-#include "Audio/Voices.h"
+#include "Audio/Services/Guidance.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/SpookyVoices.h"
+#include "Audio/Services/Voices.h"
 #include "Common/HelpText.h"
 
 // Milestone B10 of dev\tmp_dis\audio\PLAN.md: GSpookyVoices (0x72E130..0x72E8B0, dev\tmp_dis\audio\spooky_72e130.txt).

@@ -22,7 +22,7 @@
 #include "3D/L3DAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/SkeletalPose.h"
-#include "Audio/AnimationSounds.h"
+#include "Audio/Services/AnimationSounds.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"

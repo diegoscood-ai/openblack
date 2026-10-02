@@ -19,9 +19,9 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/SoundTags.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/SoundTags.h"
 
 // Milestone B3 of dev\tmp_dis\audio\PLAN.md: SoundTag 0x71E300..0x71ED90 on the 16 channels. A tag of a thing replays
 // through GAudio::PlaySoundEffect 0x42A100 every turn (mode 2: only when silent, 0x71E6F2 + LHSamplePlay's mode); a

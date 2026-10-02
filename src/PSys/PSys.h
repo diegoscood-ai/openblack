@@ -120,7 +120,7 @@ struct Atom
 	Atom(Atom&&) = delete;
 	Atom& operator=(const Atom&) = delete;
 	Atom& operator=(Atom&&) = delete;
-	/// Its sounds lose their atom (AtomCore::StopSound 0x674500 on each; defined in Audio/SpellSounds.cpp)
+	/// Its sounds lose their atom (AtomCore::StopSound 0x674500 on each; defined in Audio/Services/SpellSounds.cpp)
 	~Atom();
 
 	Collection* collection {nullptr};
@@ -152,7 +152,7 @@ struct Atom
 	/// +0x24 as the original keeps it: a modifier's own data object (BaseAtomModifierData, +0x1C its modifier),
 	/// destroyed with the atom (UR_HealSpellChakra::AtomData lets go of its target there)
 	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
-	/// +0x2C: the sounds it started, newest first (Audio/SpellSounds.h)
+	/// +0x2C: the sounds it started, newest first (Audio/Services/SpellSounds.h)
 	std::vector<std::shared_ptr<audio::PSysSound>> sounds;
 	/// A ParticleMistCreator atom's LH3DMist +0x84 (its render object, CreateLH3DMist 0x6AA5A0; Creators/Mist.cpp): seeded
 	/// by the ctor 0x7F9560 and advanced by the draw fn_007FA300 only while it is on screen, so it is changed through the

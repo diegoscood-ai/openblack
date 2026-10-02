@@ -60,7 +60,7 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
     `LocalRand(3)` un id de HELP_TEXT entre 0x1352/0x1353/0x1354 (comida) o 0x1355/0x1356/0x1357 (madera), por encima de
     0,25 ([0x980144]) entre 0x135B/0x135C/0x135D (comida; la madera repite los mismos tres) y por debajo nada. Luego
     `GGuidance::PlaySample` 0x71C6F0 (1, la muestra, jugador +0xB5, 1, 0x7F, 0x64, 0x5A, el punto, 200 [0x980148], 1).
-    Falta el canal de guía (`Audio/Voices.h`, hito B7 del plan de audio) y esos campos del pueblo.
+    Falta el canal de guía (`Audio/Services/Voices.h`, hito B7 del plan de audio) y esos campos del pueblo.
   - **El desvío de la madera de un almacén (pendiente, identificado).** `StoragePit::AddResource` 0x732F60, antes de
     nada (0x732F67..0x732F99): si su +0x74 no es nulo y el tipo es WOOD (1) o ANY (−2), reenvía la llamada entera al
     `AddResource` (vt 0x9C) de ese objeto y devuelve su respuesta. **+0x74 es `MultiMapFixed::building_site`**, un

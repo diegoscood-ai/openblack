@@ -19,12 +19,12 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
-#include "Advisor.h"
-#include "AnimEffects.h"
-#include "AudioSystem.h"
-#include "BankTables.h"
-#include "SamplePlay.h"
-#include "Voices.h"
+#include "Audio/GAudio/AudioSystem.h"
+#include "Audio/GAudio/BankTables.h"
+#include "Audio/LH/AnimEffects.h"
+#include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/Advisor.h"
+#include "Audio/Services/Voices.h"
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No

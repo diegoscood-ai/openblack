@@ -22,7 +22,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/BankTables.h"
+#include "Audio/GAudio/BankTables.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"

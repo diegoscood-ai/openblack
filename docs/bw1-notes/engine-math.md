@@ -293,7 +293,7 @@ distancias.
 | `GetX/ZByAngleMetersDistance(a, m)` | 0x74D420 / 0x74D450 | `ftol(float(C) · float(m / 10))` |
 | `GetPosFromGameAngle(a, int whole)` | fn_0074D650 | `{StepFromAngle(a, whole), 0}` |
 | `GetPosFromGameAngle(a, float m)` | fn_0074D6A0 | lo mismo con `whole = ConvertMetersToWholeDistance(m)`; el `sar 4` tira los 4 bits bajos |
-| `GetPosFromAngle(r, m)` | 0x74D580 (60 llamadores) | `x = ftol(float(cos(r)·m) · 65536 / 10)`, z con sin, altitude 0; el `GetDistanceInMetres(0, p)` de 0x74D5F4 se tira |
+| `GetPosFromAngle(r, m)` | 0x74D580 (60 llamadores) | `x = ftol(float(cos(r)·m) · 65536 / 10)`, z con sin, altitude 0 (el literal de `mov [esp+8], 0` 0x74D587); el `GetDistanceInMetres(origen, p)` de 0x74D5F4 se tira, y con él su origen temporal `{ftol(0 / 10), ftol(0 / 10), 0}` |
 | `AddDistanceFromAngle(p, r, m)` | 0x74D510 | `p.x = ftol((float(cos(r)·m) + ToMetres(p.x)) · 65536 / 10)`, igual z; la altitude no cambia |
 | `GetLHPointFromAngle(r, m)` | fn_0074D620 | `(cos(r)·m, 0, sin(r)·m)` en float |
 | `GetAngleDifference(a, b)` *(nombre inferido)* | fn_0074D740 | `d = \|a − b\|`; `d > 0x400 ? 0x800 − d : d` |
@@ -334,7 +334,8 @@ lo llama fn_005E1890, sin portar. **No son de esta familia**: `LH3DMath::GetYAng
    0x53A094, `Tree::GetWorkingPos`, el borde del bosque de fn_0053ADB0 = `GetNearestEdgeToPos`,
    `BigForest::GetArrivePos` y `AddTreeAround` 0x439264), `WorshipSite::GetSpellIconPosFromSlot` 0x77AFC0,
    `AnimalFlee` (`Object::GetWorkingPos` 0x639550) y `Rock::SplitInTwo` 0x6E75B1 (`pos + o` y `pos − o`, 0x6E76A9 /
-   0x6E76CE).
+   0x6E76CE, sobre this +0x14: las dos mitades **conservan la altitude de la roca**, `map_coords::FromWorld` /
+   `ToWorld`, como en el árbol y el bosque del punto 5; antes se ponían en el suelo).
 4. **`GetSpellIconPosFromSlot` pone la altitude a 0** con ring > 0 (0x77B002, `mov [esp+0x14], 0` = MapCoords +8)
    antes del `+=`: el icono queda **en el suelo**. openblack conservaba la altura sobre el suelo del punto especial.
 5. **`Tree::GetWorkingPos` y `BigForest::GetArrivePos` conservan la altitude** del árbol / bosque (`operator+`); antes
@@ -342,9 +343,16 @@ lo llama fn_005E1890, sin portar. **No son de esta familia**: `LH3DMath::GetYAng
 6. **`IsPosValidForTurnAngle`** (0x41B210): los centros de los dos círculos de giro son `me + fn_0074D6A0(a ± 0x200, R)`
    en MapCoords, con el `sar 4` que tira los 4 bits bajos de R, y la distancia es `GetDistanceInMetres` 0x74CD70 (con
    la tabla), no `glm::distance`. R pasa a metros con `ConvertWholeDistanceToMeters` (× 10 / 65536), no con / 6553,6.
+   No hay prueba del giro: con `turnAngle` 0 el cociente es inf (NaN sin velocidad), `__ftol` da 0x80000000,
+   R = −327680 m y las dos distancias lo superan (true); la rama `turn <= 0` que había se quitó (daba lo mismo).
 7. **`CalcRandomPos`** (0x5ED0DB..0x5ED152): el desplazamiento aleatorio es `AddDistanceFromAngle` sobre el MapCoords
    del centro (antes sumaba en metros float). La salida final ya era la del original: `me + fn_0074D650(+0x5C, 10)` es
-   `me + (0, 0)` porque `10 >> 4 = 0`.
+   `me + (0, 0)` porque `10 >> 4 = 0`. Los dos números al azar son `GameFloatRand` (0x5ED0BE el ángulo, 0x5ED0D2 el
+   radio, este **siempre**, sin la rama `range > 0` que había): `GameFloatRand` 0x6DE530 / fn_005106B0 da 0 con 0 y si
+   no `float(LHRand(0xFFFF)) · max · 1/65535` ([0x8D6050] = 0x37800080), también con `max` negativo. `SquarePos`
+   (fn_0074F310) usa el mismo. *(Aproximado)* `LHRand` 0x7DB600 es aquí el generador de openblack (0..0xFFFE). El centro
+   llega en metros, como openblack guarda las posiciones, y pasa a MapCoords con `FromMetres`; el original recibe el
+   MapCoords, así que un centro que no lo fuera ya puede quedar a una unidad (`Quantise` no es idempotente).
 8. **La formación de pájaros** (fn_0041E890, 0x41E96A..0x41EA05) no es `AddDistanceFromAngle`: x usa `row` y z usa
    `column`, y el orden es `(cos·row)·10` (`fimul` y luego `fmul 10`), dos redondeos, sobre el MapCoords del líder.
 9. **`Dove::Dying`** (0x41F1B0): la velocidad es `(sin(s)·v, 0, −cos(s)·v)` con `s = ConvertGameAngleToScawenAngle`;
@@ -354,6 +362,17 @@ lo llama fn_005E1890, sin portar. **No son de esta familia**: `LH3DMath::GetYAng
     AnimalWallHug).
 11. `VillagerFire` `OnFire`: los dos `GameFloatRand` (ángulo y distancia) iban como argumentos de una llamada, sin orden
     garantizado; ahora el ángulo va primero, como en 0x75B32D..0x75B34A.
+12. **`SetNewWander`** (`Animal::SetNewWander(MapCoords const&, int, int)` 0x41A3F0): la distancia pasa a entero con
+    `__ftol` (0x41A421) y se compara **como int** con `rMax` y `rMin` (0x41A426 `cmp; jle`, 0x41A430 `cmp; jge`). Antes
+    se comparaba el float: con `d` en (rMax, rMax + 1) el animal iba hacia el centro y en el original no.
+13. **`__ftol` 0x7A1400** es una sola función, `map_coords::FtoL` (`MapCoords.h`), usada por `ToFixed`,
+    `ToFixedGUtils`, `CellSpiralSize`, `IncrementSpiralSize`, `ConvertMetersToWholeDistance` y GUtilsAngle (antes
+    `static_cast`, indefinido fuera de rango). Imita la rama SSE2 (`HasSSE2` [0xE83A20], `cvttsd2si`, la que toma toda
+    CPU actual): hacia 0, y 0x80000000 para NaN o fuera del rango de int32. La rama x87 (0x7A141F, `fistp qword` y la
+    corrección hacia 0, los 32 bits bajos del int64) daría otro valor fuera de ese rango; no se reproduce.
+14. Copias que quedaban: `VillagerCore.cpp` `setGameAngle` (la constante 0x99A1CC a mano) usa
+    `gutils::ConvertGameAngleTo3D`, como `SetGameAngle` 0x60DAA1; `SpellFlock.cpp` (las dos orientaciones,
+    0x74D240) usa `gutils::GetAngleFromXZ(created, target)` en vez de `AngleOfMapCoords` con la resta hecha.
 
 **Qué usa ya la API.** `town_queries::GetAngleFromXZ` / `Get3DAngleFromXZ` / `GetPosFromAngle` y
 `animal_ai::detail::Cos` / `Sin` / `Step` / `AngleOfMapCoords` son reenvíos de una línea a `gutils` (las copias de las
@@ -750,7 +769,7 @@ ese punto.
   original: `GetAngleFromXZ` → +0x5C y el paso `StepFromAngle(+0x5C, +0x5A)`. Hay que fundirlas y pasarlas a la API,
   pero `WallHug` guarda la velocidad en metros float y el ángulo en radianes. (PathfindingSystem :59 y :541 tienen
   además sus ángulos de rodeo propios.)
-- `ECS/Villager/VillagerCore.cpp:958-960` (`LookAtPos`): lee el ángulo de juego como `lround(yAngle · 2048 / 2π)`. Lo
+- `ECS/Villager/VillagerCore.cpp:959-961` (`LookAtPos`): lee el ángulo de juego como `lround(yAngle · 2048 / 2π)`. Lo
   fiel es guardar el `u16` +0x5C (`SetGameAngle` 0x60DA90 lo guarda tal cual; `SetYAngle` 0x60DAC0 con
   `ConvertAngle3DToGame`). Mientras no exista, el `lround` es lo correcto: `ConvertAngle3DToGame` daría a − 1 en 365 de
   los 2048 ángulos que escribe `setGameAngle`.

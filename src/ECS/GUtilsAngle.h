@@ -117,9 +117,10 @@ constexpr float k_ScawenOffset = 1.5707964f;
 [[nodiscard]] ecs::map_coords::MapCoords GetPosFromGameAngle(uint16_t angle, float metres);
 
 /// GUtils::GetPosFromAngle(float a, float m) 0x74D580: x = ftol(float(cos(a) m) x 65536 [0x8AC408] / 10 [0x99A1BC]),
-/// z the same with sin, altitude 0 (ftol(0 / 10)). fcos / fsin are extended and the `fmul m` rounds once, so the
-/// cosine is taken in double here (std::cos in float rounds twice: 0.19 % of the values one unit off). The
-/// GetDistanceInMetres(0, p) it calls on the way (0x74D5F4) is thrown away
+/// z the same with sin, altitude 0 (the literal of `mov [esp + 8], 0` 0x74D587, copied out at 0x74D60E..0x74D612).
+/// fcos / fsin are extended and the `fmul m` rounds once, so the cosine is taken in double here (std::cos in float
+/// rounds twice: 0.19 % of the values one unit off). The GetDistanceInMetres(origin, p) it calls on the way (0x74D5F4)
+/// is thrown away, with its temporary origin {ftol(0 / 10), ftol(0 / 10), 0} (0x74D5C5..0x74D5EC)
 [[nodiscard]] ecs::map_coords::MapCoords GetPosFromAngle(float radians, float metres);
 /// GUtils::AddDistanceFromAngle(MapCoords* p, float a, float m) 0x74D510: p.x = ftol((float(cos(a) m) +
 /// float(p.x x 10) x 2^-16) x 65536 / 10), the same on z with sin; the altitude stays. The cosine in double as

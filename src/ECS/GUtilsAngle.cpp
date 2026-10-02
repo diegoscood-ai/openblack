@@ -35,16 +35,7 @@ float SinTimes(float radians, float metres)
 	return static_cast<float>(std::sin(static_cast<double>(radians)) * static_cast<double>(metres));
 }
 
-/// __ftol 0x7A1400 (fistp with the rounding set to chop): towards 0, and the "integer indefinite" 0x80000000 for a NaN
-/// or a value out of the int32 range
-int32_t FtoL(float value)
-{
-	if (!(value > -2147483648.0f && value < 2147483648.0f))
-	{
-		return static_cast<int32_t>(0x80000000u);
-	}
-	return static_cast<int32_t>(value);
-}
+using map_coords::FtoL; // __ftol 0x7A1400
 } // namespace
 
 const std::array<uint16_t, 257>& gutils::ArcTanTable()

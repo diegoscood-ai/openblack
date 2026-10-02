@@ -79,6 +79,11 @@ void ApplyReaction(entt::entity villager, const effects::reactions::Reaction& re
 /// (villager_reactions::StopReacting calls it)
 void StopReacting(entt::entity villager);
 
+/// Reaction::ShutDown 0x6E4720 for the villagers that follow `reaction` (+0x94): each one's StopReactingAndSetState
+/// (vt +0x99C, 0x5F11C0), before the reaction goes. Called by the fire when it removes its reactions
+/// (RemoveAllReactionsOfTypeInitiatedByObject 0x6E4780: the fire cooled below its reaction temperature, went or moved)
+void ShutDownReaction(uint32_t reaction);
+
 /// A land is loaded (also registers the villagers' reaction handler)
 void Clear();
 } // namespace openblack::ecs::villager_fire

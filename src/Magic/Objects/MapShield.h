@@ -45,7 +45,7 @@ constexpr float k_FadeTime = 1.5f;
 constexpr float k_DieTimeFactor = 1.5f; ///< 0x9828C8: deleted once dieTime > k_FadeTime x this (2.25 s)
 constexpr float k_EndSpin = 0.15f;
 constexpr float k_BobSpeed = 1.3f;
-constexpr double k_RescaleDelta = 0.3; ///< 0x900C70
+constexpr double k_RescaleDelta = static_cast<double>(0.3f); ///< the double 0x900C70 = 0.30000001192092896 (0.3f widened)
 constexpr uint8_t k_MinAlpha = 40;
 
 /// ProcessShield's curves, t in seconds since the creation turn: the shrink over the first 0.5 s (1 - t / 0.5, the

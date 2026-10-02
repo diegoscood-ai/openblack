@@ -807,6 +807,18 @@ El fuego que encienden (el modelo de calor, `src/ECS/Fire`, sus aldeanos y sus n
   tamaño), `CreateWithInitialDirection` 0x69E950, `AttatchFireBallToAtom` 0x682FD0, `EventAlways`,
   `SetAtomHasBeenDeflected` 0x6A26C0, `UR_SideSpin`, `AR_FadeAlphaWithHeightAboveLandscape`, `AddSubCollectionsToAtom`,
   `UR_Trail`, y las condiciones de desviación, de agua cercana y de vapor.
+  - `CreateWithInitialDirection` 0x69E950, lanzamiento no humano (guion, ordenador, criatura): la nueva solución a 30°
+    se aplica si `|v|² > 0,01` (`fcomp qword [0x8C7620]`, el double 0,01, en 0x69EC60) y `v.y / sqrt(vx² + vz²) >
+    tan(0,52370351552963257)` (double [0x9375F0], `fptan` 0x69EC77), todo en la FPU. El port comparaba con 89129 (los 4
+    bytes bajos del double leídos como float, fallo del desensamblador ya corregido), así que casi nunca la aplicaba
+    (corregido 2026-10-02, `Fireball.cpp`). El tiempo nuevo (0x69EC92..0x69ECC1) es `sqrt((Δy − D·tan)·(−2/g))`, con el radicando a 0,1 si sale negativo (Δ [esp+0x64] 0x69EB1B, D [esp+0x38] 0x69EB3F; releído en la auditoría de fuego2).
+- **Revisión de las constantes double** (2026-10-02; todas las direcciones de .rdata citadas en `src/Magic`, `src/PSys`,
+  `src/ECS/Fire`, `src/ECS/Weather`, `src/ECS/Effects` y `src/Worship` que el exe lee con `qword ptr`): mal solo
+  [0x8C7620] (arriba) y, en el límite, [0x900C70] de `MapShield` (0,30000001192092896 = 0,3f ensanchado, no 0,3). Bien:
+  [0x8C79D8] (1e-4f ensanchado: gestos, `PSys/Utility.cpp`), [0x8D45D8] (2π float ensanchado: MapShield, Forest, Storm,
+  SpellSeedGraphic), [0x9361E8] (−π/2 float), [0x9003C0] (0,99e30), [0x900AE8] (1,1), [0x980518] (1/30), [0x8AB260]
+  (0,5), [0x8CF7D8] / [0x9375E8] (0,6 / 0,3 del tamaño del sonido; `Audio/SpellSounds.cpp` los compara en float, lo que
+  solo difiere con una fracción exactamente 0,6f o 0,3f). Lista completa en `tmp_dis\miracles\polish\fuego2_fix.md`.
 
 ### Rayo (MAGIC_TYPE 4-6, semilla 6 LIGHTNING_BOLT; `PSys/Rules/Lightning.cpp`)
 

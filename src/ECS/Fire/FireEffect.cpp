@@ -122,6 +122,20 @@ bool PlayerOfObject(entt::entity object, PlayerNames& player)
 /// Reaction::RemoveAllReactionsOfTypeInitiatedByObject 0x6E4780
 void RemoveReactions(entt::entity object, Reaction type)
 {
+	// RemoveAllReactionsOfTypeInitiatedByObject 0x6E4780: Reaction::ShutDown 0x6E4720 of each, which first takes every
+	// follower out (StopReactingAndSetState, vt +0x99C): the villagers in 215 and the fire fighters of this fire
+	std::vector<uint32_t> ids;
+	for (const auto& reaction : effects::reactions::All())
+	{
+		if (reaction.initiator == object && reaction.type == type)
+		{
+			ids.push_back(reaction.id);
+		}
+	}
+	for (const auto id : ids)
+	{
+		villager_fire::ShutDownReaction(id);
+	}
 	effects::reactions::RemoveAllReactionsOfTypeInitiatedBy(object, type);
 }
 

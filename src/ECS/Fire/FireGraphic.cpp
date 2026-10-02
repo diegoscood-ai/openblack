@@ -33,6 +33,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Life.h"
 #include "ECS/Registry.h"
+#include "ECS/Trees.h"
 #include "ECS/Weather/Weather.h"
 #include "FireEffect.h"
 #include "FireObjectTraits.h"
@@ -559,25 +560,35 @@ std::optional<glm::u8vec3> graphic::TreeDrawColour(entt::entity object)
 	{
 		return std::nullopt;
 	}
-	// fn_0074B3A0: 50 by default, above 0.9 life max(50, 255 - (1 - life) x 2550), capped by the lighting global
-	// 0xC22FA0 (Tree::PreDraw: 200 + 55 x the sun, inf: 255 here); the colour x that >> 8
+	// fn_0074B3A0 (called by Tree::Draw 0x74B070 instead of the plain brightness tint 0x74B077): 50 by default
+	// (0x74B40F), above 0.9 life (0x74B41A) max(50, 255 - (1 - life) x 2550) (0x74B431..0x74B474, ftol), then the
+	// unsigned min with the frame's tree brightness [0xC22FA0] (0x74B47B..0x74B484: ecs::TreeBrightness, the same value
+	// Tree::Draw multiplies an unburnt tree by); the colour x that >> 8 (0x74B486..0x74B4D3)
 	const float life = life::LifeOf(object);
-	int grey = 50;
+	uint32_t grey = 50;
 	if (life > 0.9f)
 	{
 		const float value = 255.0f - (1.0f - life) * 2550.0f;
-		grey = value < 50.0f ? 50 : static_cast<int>(value);
+		grey = value < 50.0f ? 50u : static_cast<uint32_t>(value);
 	}
-	grey = std::min(grey, 255);
+	grey = std::min(grey, static_cast<uint32_t>(ecs::TreeBrightness()));
 	const auto g = static_cast<uint8_t>(grey);
-	// the render mode 230 + heat x 25 / 255 (the glow material, OverrideRenderMode) is not ported
+	// TODO(render): 0x74B4D6..0x74B51E also force the ALPHAREF of the tree's alpha tested primitives while it is drawn:
+	// OverrideMaterial [0xECA658] = 1 and OverrideRenderMode [0xECA65C] = ftol(min(254 [0x99A17C], 230 [0x99A11C] +
+	// heat x 25 x (1 / 255) [0x900058])), heat = 255 if T > 1.5 Tc (0x74B3AD..0x74B3C9) else ftol((T - Tc) x 255 /
+	// (0.5 Tc)), reset after AddForDrawing (0x74B5D8); the mode functions 0x82E080.. read it as ALPHAREF
+	// (render_modes::AlphaRef `forced`), so the foliage thins out. Not ported: the trees are instanced and fs_object
+	// takes ALPHAREF per draw (u_skyAlphaThreshold.y), so a burning tree would need its own draw call
 	return glm::u8vec3(g, g, g);
 }
 
 uint8_t graphic::CharringGrey(const FireEffect& fire)
 {
+	// fn_00730570: k = ftol(+0x34 x 255 [0x8AB270]) & 0xFF, then each channel ((unsigned)(-175 k) >> 8) - 1
+	// (0x730585..0x7305D7: lea/neg/lea x5 x5, shr 8, dec / sub 0x100 / sub 0x10000) = 255 - ceil(175 k / 256): 255 at
+	// k = 0, 80 at k = 255
 	const int charring = static_cast<int>(fire.charring * 255.0f) & 0xFF;
-	return static_cast<uint8_t>(255 - (charring * 175) / 256);
+	return static_cast<uint8_t>(255 - (charring * 175 + 255) / 256);
 }
 
 glm::u8vec3 graphic::CharringGlow(const FireEffect& fire, float turnTime)

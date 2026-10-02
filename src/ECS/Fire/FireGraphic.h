@@ -39,9 +39,9 @@ void SetTurn(uint32_t turn);
 void Clear();
 
 /// Tree::Draw's fire part fn_0074B3A0: the colour a burning tree is drawn with (x/256 per channel of its colour):
-/// life > 0.9 ? max(50, 255 - (1 - life) 2550) : 50. nullopt when the object has no fire.
+/// min(life > 0.9 ? max(50, 255 - (1 - life) 2550) : 50, ecs::TreeBrightness()). nullopt when the object has no fire.
 [[nodiscard]] std::optional<glm::u8vec3> TreeDrawColour(entt::entity object);
-/// fn_00730570: the charring grey 255 - int(charring x 255) x 175 / 256 (80 when fully charred)
+/// fn_00730570: the charring grey 255 - ceil(int(charring x 255) x 175 / 256) (80 when fully charred)
 [[nodiscard]] uint8_t CharringGrey(const FireEffect& fire);
 /// GetFireEffectCharingColor 0x730480: the glow, (1 - charring) x clamp(0.001 T (1 + 0.2 noise)) x 255 as RGB(c 180 /
 /// 256, c 60 / 256, 0)

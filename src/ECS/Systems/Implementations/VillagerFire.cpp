@@ -572,9 +572,20 @@ uint32_t villager_fire::ReactToFire(LivingAction& action)
 	const auto villager = registry.ToEntity(action);
 	auto& state = StateOf(villager);
 	// 0x765870..0x7658B2: dynamic_cast<Object*>(+0xBC) null -> return 0; its fire (+0x44) null -> return 0, both with
-	// no state change (0x76589A / 0x7658A9). The object going is the validate slot's (+0x80 of 215:
-	// villager_reactions::ReactionValidate 0x756A00, run by ProcessState 0x74FF91 before the state: no object or not
-	// available -> PopFromPrevious 0x751E50); a fire gone out leaves the villager in 215 until what ends the reaction
+	// no state change (0x76589A / 0x7658A9). What takes the villager out of 215 is elsewhere: the object going is the
+	// validate slot's (+0x80 of 215: villager_reactions::ReactionValidate 0x756A00, run by ProcessState 0x74FF91 before
+	// the state: no object or not available -> PopFromPrevious 0x751E50); the fire going out (below its reaction
+	// temperature, deleted, or moved) removes its REACT_TO_FIRE (RemoveAllReactionsOfTypeInitiatedByObject 0x6E4780),
+	// whose Reaction::ShutDown 0x6E4720 runs StopReactingAndSetState (vt +0x99C) on every follower (ShutDownReaction,
+	// called by ECS/Fire/FireEffect.cpp before it removes the reaction)
+	if (state.reaction != 0 && effects::reactions::Find(state.reaction) == nullptr)
+	{
+		// (aproximado) a REACT_TO_FIRE removed by a path that does not go through the fire (Pot::RemoveReaction 0x66D6A0
+		// takes all of an object's reactions; openblack's reactions keep no list of followers): the same ShutDown,
+		// one turn later
+		villager_reactions::StopReactingAndSetState(villager);
+		return 1;
+	}
 	if (!registry.Valid(state.object))
 	{
 		return 0;
@@ -905,6 +916,42 @@ uint32_t villager_fire::ExitOnFire(LivingAction& action, VillagerStates next)
 void villager_fire::ApplyReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
 	ApplyFireReaction(villager, reaction);
+}
+
+void villager_fire::ShutDownReaction(uint32_t reaction)
+{
+	if (reaction == 0)
+	{
+		return;
+	}
+	// Reaction::ShutDown 0x6E4720: +0x34 = 1 (0x6E4723), then while the follower count +0x1C is not 0, the first
+	// follower's (+0x18) StopReactingAndSetState (vt +0x99C, 0x6E4731..0x6E4743), whose Living::StopReacting 0x5F1140
+	// takes it off the list; then ToBeDeleted (vt +0xC, 0x6E474B). (inferido) the list's order is not kept here: the
+	// followers go by entity
+	std::vector<entt::entity> followers;
+	for (const auto& [villager, state] : g_States)
+	{
+		if (state.reaction == reaction)
+		{
+			followers.push_back(villager);
+		}
+	}
+	std::sort(followers.begin(), followers.end());
+	auto& registry = Locator::entitiesRegistry::value();
+	for (const auto villager : followers)
+	{
+		const auto it = g_States.find(villager);
+		if (it == g_States.end() || it->second.reaction != reaction || !registry.Valid(villager))
+		{
+			continue;
+		}
+		if (fire::TraceEnabled())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fire: reaction {} shut down: villager {} stops reacting", reaction,
+			                   static_cast<int>(villager));
+		}
+		villager_reactions::StopReactingAndSetState(villager);
+	}
 }
 
 void villager_fire::Clear()

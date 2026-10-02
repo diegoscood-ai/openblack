@@ -17,6 +17,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "3D/LandMorph.h"
+#include "Lh3dColour.h"
 
 using namespace openblack;
 
@@ -104,9 +105,5 @@ int model_light::Factor(int intensity, int ambient)
 uint32_t model_light::Apply(uint32_t colour, int intensity, int ambient)
 {
 	// 0x84BBEA..0x84BC1D: one imul per channel and the bits of the byte kept, so each channel is (c f) >> 8 truncated
-	const auto factor = static_cast<uint32_t>(Factor(intensity, ambient));
-	const auto red = ((colour >> 16 & 0xFFu) * factor) >> 8;
-	const auto green = ((colour >> 8 & 0xFFu) * factor) >> 8;
-	const auto blue = ((colour & 0xFFu) * factor) >> 8;
-	return (colour & 0xFF000000u) | red << 16 | green << 8 | blue;
+	return lh3d_colour::ScaleShr8_3KeepA(colour, static_cast<uint32_t>(Factor(intensity, ambient)));
 }

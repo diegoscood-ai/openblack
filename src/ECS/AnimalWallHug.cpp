@@ -469,7 +469,7 @@ void AimAlongOrbit(Context& ctx, bool cw, float numCircles)
 	{
 		return;
 	}
-	const int32_t toCentre = AngleOf(circle->centre - Xz(ctx.transform));
+	const int32_t toCentre = gutils::GetAngleFromXZ(Xz(ctx.transform), circle->centre);
 	const int32_t angle = cw ? toCentre + 0x200 - static_cast<int32_t>(numCircles * 64.0f)
 	                         : toCentre - 0x200 - static_cast<int32_t>(numCircles * -64.0f);
 	SetGameAngle(ctx, angle);
@@ -776,7 +776,7 @@ int Orbit(Context& ctx, bool cw)
 	}
 	if (const auto* exit = HugObj(ctx); exit != nullptr)
 	{
-		SetGameAngle(ctx, AngleOf(now - exit->centre));
+		SetGameAngle(ctx, gutils::GetAngleFromXZ(exit->centre, now));
 		RebuildMoveByStep(ctx);
 	}
 	SetMoveState(ctx, cw ? k_MoveExitCircleCw : k_MoveExitCircleCcw);

@@ -261,6 +261,28 @@ TEST_F(ObjectMetrics, Distances)
 	EXPECT_FALSE(object::IsTouching(a, glm::vec3(103.0f, 0.0f, 100.0f)));
 }
 
+TEST_F(ObjectMetrics, PointsAroundAnObject)
+{
+	// this + GetPosFromAngle(Get3DAngleFromXZ(this, other), r) with each routine's own r; this's altitude stays
+	namespace mc = openblack::ecs::map_coords;
+	const auto a = Make(k_Box, 1.0f, {100.0f, 1.0f, 100.0f});  // R2D 2
+	const auto b = Make(k_Wide, 1.0f, {110.0f, 0.0f, 100.0f}); // R2D 3
+	const int32_t x = mc::ToFixed(100.0f);
+	EXPECT_EQ(object::MapCoordsOf(a), (mc::MapCoords {x, x, 1.0f}));
+	// 0x636D30: R2D(b) + R2D(a) = 5 -> 5 x 65536 / 10 = 32768
+	EXPECT_EQ(object::GetNearestPosOfObject(a, b), (mc::MapCoords {x + 32768, x, 1.0f}));
+	// 0x639550: GetRadius of both, the same 5 here
+	EXPECT_EQ(object::GetWorkingPos(a, b), (mc::MapCoords {x + 32768, x, 1.0f}));
+	// 0x74C040: R2D(b) + 0.9 = 3.9 -> ftol(25559.04)
+	EXPECT_EQ(object::TreeGetWorkingPos(a, b), (mc::MapCoords {x + 25559, x, 1.0f}));
+	// 0x439360: R(a) x 0.5 = 1 -> ftol(6553.6)
+	EXPECT_EQ(object::BigForestGetArrivePos(a, b), (mc::MapCoords {x + 6553, x, 1.0f}));
+	// 0x636DA0: R2D(a) = 2 towards the point -> 13107
+	EXPECT_EQ(object::GetNearestEdgeToPos(a, object::MapCoordsOf(b)), (mc::MapCoords {x + 13107, x, 1.0f}));
+	// 0x636DF0: the caller's angle, R2D(a) + extra = 3 -> cos(pi) x 3 x 65536 / 10 = -19660.8
+	EXPECT_EQ(object::GetNearestEdge(a, 3.1415927f, 1.0f), (mc::MapCoords {x - 19660, x, 1.0f}));
+}
+
 TEST_F(ObjectMetrics, BoundingSphere)
 {
 	// 0x637730: r = sqrt(R2D^2 + (H / 2)^2), centre (x, ground + altitude + H / 2, z); no island here, the ground is 0

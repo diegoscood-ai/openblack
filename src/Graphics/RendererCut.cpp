@@ -29,6 +29,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
 #include "Renderer.h"
@@ -58,7 +59,7 @@ void Renderer::DrawCutByPlane(RenderPass viewId, entt::entity entity, int8_t kee
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
 	// "the material mode normal" (cut_notes.txt): opaque with Z, the blended materials as DrawMesh blends them
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.cutByPlane = keep;
 	submitDesc.cutColour = argb;
 	submitDesc.mirrorInSea = mirrored;

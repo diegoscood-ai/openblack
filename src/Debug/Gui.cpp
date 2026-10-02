@@ -47,6 +47,7 @@
 #include "3D/SkyInterface.h"
 #include "3D/SkyType.h"
 #include "Audio.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Console.h"
 #include "ECS/Components/LivingAction.h"
@@ -107,6 +108,22 @@ const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
 
     BGFX_EMBEDDED_SHADER_END(),
 }};
+
+/// fn_004082F0, the click feedback of a SetupBox dialog (the options, save, keyboard and multiplayer boxes): when a
+/// control tells the box's control callback that it was clicked (code 0xA, the mouse released over the control it was
+/// pressed on, fn_00408340 0x408BBE / 0x408D6F with +0x70 == +0xBC; or 0xC, the keyboard, 0x408AA6), fn_004082F0 plays
+/// G_MenuButton (InGame 159) 2D with mode 3 (0x4082F0..0x408307) and starts the mouse-force immersion 0x2C (not ported:
+/// openblack has no force feedback). openblack's own dialogs are these ImGui menus, so each of their controls plays it
+/// when it reports a click. The sample's user parameter is 0, so GAudio drops it inside the citadel.
+/// Returns what it was given, to wrap the `if (ImGui::MenuItem(...))` of the menus.
+bool MenuClick(bool activated) noexcept
+{
+	if (activated)
+	{
+		audio::PlaySoundEffect(audio::Owner::None(), 159, 3, 0, false, false, audio::SfxBank::InGame);
+	}
+	return activated;
+}
 } // namespace
 
 std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPass viewId) noexcept
@@ -480,7 +497,7 @@ void Gui::DrawModsMenu() noexcept
 		ImGui::PushID(info.id.c_str());
 		bool enabled = mod.IsEnabled();
 		const auto label = info.restartRequired ? info.name + " *" : info.name;
-		if (ImGui::Checkbox(label.c_str(), &enabled))
+		if (MenuClick(ImGui::Checkbox(label.c_str(), &enabled)))
 		{
 			registry.SetEnabled(mod, enabled);
 		}
@@ -508,7 +525,7 @@ void Gui::DrawModsMenu() noexcept
 			{
 				for (size_t choice = 0; choice < option.choices.size(); ++choice)
 				{
-					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
+					if (MenuClick(ImGui::Selectable(option.choices[choice].c_str(), choice == option.value)))
 					{
 						registry.SetOption(mod, i, choice);
 					}
@@ -586,7 +603,7 @@ bool Gui::ShowMenu() noexcept
 
 			auto menuItem = [&game](const auto& label, const std::filesystem::path& path, const std::string description,
 			                        bool validLevel) {
-				if (ImGui::MenuItem(label.data(), nullptr, false, validLevel))
+				if (MenuClick(ImGui::MenuItem(label.data(), nullptr, false, validLevel)))
 				{
 					game.LoadMap(path);
 				}
@@ -653,7 +670,7 @@ bool Gui::ShowMenu() noexcept
 			{
 				for (auto& window : _debugWindows)
 				{
-					if (ImGui::MenuItem(window->GetName().c_str()))
+					if (MenuClick(ImGui::MenuItem(window->GetName().c_str())))
 					{
 						window->Open();
 					}
@@ -663,25 +680,25 @@ bool Gui::ShowMenu() noexcept
 
 			if (ImGui::BeginMenu("Villager Names"))
 			{
-				ImGui::Checkbox("Show", &config.showVillagerNames);
-				ImGui::Checkbox("Show States", &config.debugVillagerStates);
-				ImGui::Checkbox("Debug", &config.debugVillagerNames);
+				MenuClick(ImGui::Checkbox("Show", &config.showVillagerNames));
+				MenuClick(ImGui::Checkbox("Show States", &config.debugVillagerStates));
+				MenuClick(ImGui::Checkbox("Debug", &config.debugVillagerNames));
 
 				ImGui::EndMenu();
 			}
 
 			if (ImGui::BeginMenu("View"))
 			{
-				ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay);
-				ImGui::Checkbox("Sky", &config.drawSky);
-				ImGui::Checkbox("Water", &config.drawWater);
-				ImGui::Checkbox("Island", &config.drawIsland);
-				ImGui::Checkbox("Entities", &config.drawEntities);
-				ImGui::Checkbox("Sprites", &config.drawSprites);
-				ImGui::Checkbox("Wireframe", &config.wireframe);
-				ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes);
-				ImGui::Checkbox("Footpaths", &config.drawFootpaths);
-				ImGui::Checkbox("Streams", &config.drawStreams);
+				MenuClick(ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay));
+				MenuClick(ImGui::Checkbox("Sky", &config.drawSky));
+				MenuClick(ImGui::Checkbox("Water", &config.drawWater));
+				MenuClick(ImGui::Checkbox("Island", &config.drawIsland));
+				MenuClick(ImGui::Checkbox("Entities", &config.drawEntities));
+				MenuClick(ImGui::Checkbox("Sprites", &config.drawSprites));
+				MenuClick(ImGui::Checkbox("Wireframe", &config.wireframe));
+				MenuClick(ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes));
+				MenuClick(ImGui::Checkbox("Footpaths", &config.drawFootpaths));
+				MenuClick(ImGui::Checkbox("Streams", &config.drawStreams));
 
 				ImGui::EndMenu();
 			}
@@ -692,7 +709,7 @@ bool Gui::ShowMenu() noexcept
 				float fieldOfView = glm::degrees(camera.GetHorizontalFieldOfView());
 				auto aspect = Locator::windowing::has_value() ? Locator::windowing::value().GetAspectRatio() : 1.0f;
 				ImGui::Text("Aspect Ratio %.3f", aspect);
-				if (ImGui::MenuItem("Reset"))
+				if (MenuClick(ImGui::MenuItem("Reset")))
 				{
 					camera.SetProjectionMatrixPerspective(config.cameraXFov, aspect, config.cameraNearClip,
 					                                      config.cameraFarClip);
@@ -711,15 +728,15 @@ bool Gui::ShowMenu() noexcept
 				float multiplier = game.GetGameSpeed();
 				ImGui::Text("Scaled game duration: %.3fms (%.3f Hz)", multiplier * Game::k_TurnDuration.count(),
 				            1000.0f / (multiplier * Game::k_TurnDuration.count()));
-				if (ImGui::MenuItem("Slow"))
+				if (MenuClick(ImGui::MenuItem("Slow")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierSlow);
 				}
-				if (ImGui::MenuItem("Normal"))
+				if (MenuClick(ImGui::MenuItem("Normal")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 				}
-				if (ImGui::MenuItem("Fast"))
+				if (MenuClick(ImGui::MenuItem("Fast")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierFast);
 				}
@@ -736,7 +753,7 @@ bool Gui::ShowMenu() noexcept
 
 		if (ImGui::BeginMenu("Capture"))
 		{
-			if (ImGui::Button("Capture"))
+			if (MenuClick(ImGui::Button("Capture")))
 			{
 				game.RequestScreenshot(_screenshotFilename);
 			}
@@ -745,7 +762,7 @@ bool Gui::ShowMenu() noexcept
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::MenuItem("Quit", "Esc"))
+		if (MenuClick(ImGui::MenuItem("Quit", "Esc")))
 		{
 			return true;
 		}

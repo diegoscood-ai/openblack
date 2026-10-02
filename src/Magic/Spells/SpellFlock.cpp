@@ -31,6 +31,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/MapCoords.h"
@@ -606,8 +607,7 @@ int FlyingProcess(entt::entity spell)
 			// scale = GetScale() (GameThingWithPos 0x4247E0: 1) x 2.8 + GameFloatRand(3 - 2.8), the random first
 			const float random = GameFloatRand(spell_flock::k_FlyingScaleTop - spell_flock::k_FlyingScale);
 			const float scale = 1.0f * spell_flock::k_FlyingScale + random;
-			const auto angle = animal_ai::detail::AngleOfMapCoords(spawn.target.x - spawn.created.x,
-			                                                       spawn.target.y - spawn.created.y); // 0x74D240
+			const auto angle = gutils::GetAngleFromXZ(spawn.created, spawn.target); // 0x74D240
 			PlaceAnimal(animal, world, scale, angle);
 			AddAnimal(spell, animal, false, world);
 			spell_objects::Add(spell, animal);
@@ -735,11 +735,10 @@ int GroundProcess(entt::entity spell)
 		}
 		// scale = GetScale() x 1.5 + GameFloatRand(2 - 1.5), the random first; SetGameAngle 0x60DA90 (+0x5C and the Y
 		// angle) of GetAngleFromXZ 0x74D240 (the jittered point ebp-0x14, T ebp-0x34; 0x7245E8..0x7245FB) = LHArcTan
-		// 0x74D0C0 of T - S (AngleOfMapCoords)
+		// 0x74D0C0 of T - S
 		const float random = GameFloatRand(spell_flock::k_GroundScaleTop - spell_flock::k_GroundScale);
 		const float scale = 1.0f * spell_flock::k_GroundScale + random;
-		const auto angle = animal_ai::detail::AngleOfMapCoords(spawn.target.x - spawn.created.x,
-		                                                       spawn.target.y - spawn.created.y);
+		const auto angle = gutils::GetAngleFromXZ(spawn.created, spawn.target);
 		PlaceAnimal(animal, world, scale, angle);
 		AddAnimal(spell, animal, true, world);
 		spell_objects::Add(spell, animal);

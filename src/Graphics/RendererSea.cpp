@@ -38,7 +38,9 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/SeaRows.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
@@ -139,8 +141,15 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 
 	mesh->GetIndexBuffer().Bind(mesh->GetIndexBuffer().GetCount(), 0);
 	mesh->GetVertexBuffer().Bind();
-	// ZFUNC ALWAYS, no Z write, no culling (the main view is sequential, so the land drawn next covers it)
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_MSAA);
+	// mode 5 (GLandscape::Open 0x5E546C), ZFUNC ALWAYS and ZWRITEENABLE 0 by hand (fn_00879930 0x879FD9; the main view
+	// is sequential, so the land drawn next covers it); fs_water composes the reflection itself. (aproximado) no
+	// culling: the sea material (+5 = 4, 0x5E5474; passed as [this+4] by GLandscape::Draw 0x5E4E85) gives CULLMODE CCW
+	// (0x879F54..0x879F86), which keeps every row of the original's sea; openblack's sea mesh is not those rows
+	bgfx::setState(render_modes::State(render_modes::Mode::AlphaTexturedAlpha, {.zFunc = render_modes::ZFunc::Always,
+	                                                                            .zWrite = false,
+	                                                                            .writeAlpha = true,
+	                                                                            .msaa = true,
+	                                                                            .blendInShader = true}));
 	auto diffuse = Locator::resources::value().GetTextures().Handle(ocean.GetDiffuseTexture());
 	auto alpha = Locator::resources::value().GetTextures().Handle(ocean.GetAlphaTexture());
 	waterShader->SetTextureSampler("s_diffuse", 0, *diffuse);
@@ -228,8 +237,7 @@ void Renderer::DrawHandWaterGlow(RenderPass viewId) const
 		vertices[i] = corners[k_Indices[i]];
 	}
 	const auto argb = glow->argb;
-	const glm::vec4 colour(static_cast<float>((argb >> 16) & 0xFFu) / 255.0f, static_cast<float>((argb >> 8) & 0xFFu) / 255.0f,
-	                       static_cast<float>(argb & 0xFFu) / 255.0f, static_cast<float>(argb >> 24) / 255.0f);
+	const glm::vec4 colour = lh3d_colour::ToVec4(argb);
 	const glm::vec4 celestial(0.0f, 0.0f, 0.0f, 1.0f);
 	const glm::mat4 identity(1.0f);
 	const auto* program = _shaderManager->GetShader("Celestial");
@@ -240,6 +248,7 @@ void Renderer::DrawHandWaterGlow(RenderPass viewId) const
 	program->SetUniformValue("u_celestial", &celestial);
 	bgfx::setVertexBuffer(0, &buffer);
 	// LH3DAtmos::AdditiveMaterial (0xEDC364, mode 13: SRCALPHA / ONE), ZFUNC ALWAYS (0x5E4281), no Z write, no culling
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+	bgfx::setState(
+	    render_modes::State(render_modes::materials::k_AtmosAdditive, {.zFunc = render_modes::ZFunc::Always}));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }

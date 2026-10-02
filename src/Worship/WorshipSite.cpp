@@ -27,6 +27,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
@@ -156,7 +157,9 @@ int FindNearestFreeSlot(const CitadelWorship& citadel, const glm::vec3& citadelP
 }
 
 /// WorshipSite::GetSpellIconPosFromSlot 0x77AFC0: the slot's point pushed `ring` metres outward along the ray from the
-/// site's origin through it (Get3DAngleFromXZ + GetPosFromAngle; the height above the land stays)
+/// site's origin through it. With ring > 0 (`fcomp 0; test ah, 0x41`, 0x77AFEC) the point's altitude is set to 0
+/// (0x77B002) and point += GetPosFromAngle(Get3DAngleFromXZ(site +0x14, point), ring) (0x77B00A..0x77B02F): it ends
+/// on the ground. With ring 0 the special point stays as it is
 std::optional<glm::vec3> IconPositionFromSlot(entt::entity site, int slot, float ring)
 {
 	const auto point = site::GetSpecialPos(site, slot);
@@ -168,16 +171,12 @@ std::optional<glm::vec3> IconPositionFromSlot(entt::entity site, int slot, float
 	if (ring > 0.0f)
 	{
 		const auto& origin = Locator::entitiesRegistry::value().Get<const Transform>(site).position;
-		const float above = position.y - GroundAt(position);
-		const auto away = glm::vec2(position.x - origin.x, position.z - origin.z);
-		const float length = glm::length(away);
-		if (length > 0.0f)
-		{
-			const auto offset = away / length * ring;
-			position.x += offset.x;
-			position.z += offset.y;
-		}
-		position.y = GroundAt(position) + above;
+		auto coords = ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)); // altitude 0
+		const float angle = gutils::Get3DAngleFromXZ(ecs::map_coords::FromMetres(glm::vec2(origin.x, origin.z)), coords);
+		coords += gutils::GetPosFromAngle(angle, ring);
+		const auto xz = ecs::map_coords::ToMetres(coords);
+		position = glm::vec3(xz.x, 0.0f, xz.y);
+		position.y = GroundAt(position); // GetLHPoint: the ground + the altitude 0
 	}
 	return position;
 }

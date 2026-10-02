@@ -11,8 +11,12 @@
 
 #include <cstdint>
 
+#include <array>
 #include <functional>
 #include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include <glm/vec3.hpp>
 
@@ -47,6 +51,51 @@ struct MusicTown
 	/// GUtils::GetDistanceInMetres 0x74CD70 between the camera's MapCoords and the town's (+0x14): the x/z distance
 	/// (GetDistance 0x74CCB0 is hypotenuse(dx, dz)) times 10 / 65536 (ConvertWholeDistanceToMeters 0x74DCC0)
 	float distance {0.0f};
+};
+
+/// A town as GGuidance's CheckTownDesiresSFX 0x71B130 reads it
+struct DesireTown
+{
+	ThingId id {0};            ///< the Town (the key of GGuidance's LastThings, fn_0071AE10)
+	glm::vec3 position {0.0f}; ///< Town +0x14: where its desire is said
+	/// GetStoragePit 0x73B5B0 +0x14: the distance to the camera is measured from it; nullopt: no storage pit
+	std::optional<glm::vec3> storagePit;
+	uint32_t population {0}; ///< +0x618 + +0x61C (the sum the original tests)
+	struct Desire
+	{
+		float value {0.0f}; ///< +0x37C + 12 k
+		uint32_t type {0};  ///< +0x380 + 12 k, TOWN_DESIRE_INFO
+		float raw {0.0f};   ///< Town::GetRawDesire(type) 0x73E420
+	};
+	std::array<Desire, 17> desires {};
+};
+
+/// The local player's citadel as CheckWorshipSiteDesiresSFX 0x71B270 reads it
+struct WorshipDesire
+{
+	struct Site
+	{
+		ThingId id {0};
+		glm::vec3 position {0.0f}; ///< +0x14
+		bool worshippers {false};  ///< fn_0077B960 (-> 0x77CFB0) > 0
+		float foodDesire {0.0f};   ///< CalculateDesireForFood (vt +0x420)
+	};
+	std::array<std::optional<Site>, 6> sites {}; ///< Citadel +0x34..+0x48
+	glm::vec3 citadelPosition {0.0f};            ///< GetCitadel (vt +0x114) +0x14, where it is said
+	float need {0.0f};                           ///< Citadel +0x70 (capped at 1 by the caller)
+};
+
+/// What GGuidance::ProcessHeartBeatSFX 0x71C190 reads of the local player
+struct HeartBeatInput
+{
+	float protectionDesire {0.0f}; ///< the sum of Town::GetRawDesire(3) over the player's towns (+0xA50, +0x75C)
+	float believers {0.0f};        ///< GPlayer::GetProportionOfWorldPopulationWhoBelieveInMe 0x64B680
+	float beliefShare {0.0f};      ///< fn_0064B700: GPlayer+0x8C over the sum of the active players' (0 for 0)
+	/// For each other player's creature (GPlayer+0xA4C, whose interface is not the local one) whose nearest town
+	/// (MapCoords::GetNearestTown 0x601F90) is the local player's: that distance
+	std::vector<uint32_t> enemyCreatureDistances;
+	/// The local citadel (GPlayer+0xA48) +0x14 when its +0x30 (the heart) answers vt +0x890 and has life (GetLife > 0)
+	std::optional<glm::vec3> citadelHeart;
 };
 
 struct GameQueries
@@ -105,6 +154,45 @@ struct GameQueries
 	/// GInterface+0x44 (GGame::MyInterface 0x555850): in the states 0x10, 0x16 and 0x17 the samples of user parameter 4
 	/// do not play (0x429FA5..0x429FB8). Unset: 0, none of them (openblack has no GInterface states).
 	std::function<int()> interfaceState;
+
+	// ---- GGuidance and GSpookyVoices (milestones B9 / B10, Guidance.h, SpookyVoices.h) ----
+
+	/// g_game+0x205A0C: a playground game (GGame::Init 0x54F75E sets it after ResetAndStartPlaygroundGame). Unset: false.
+	std::function<bool()> playgroundGame;
+	/// GGame::IsMultiplayerGame 0x552F80. Unset: false (openblack has no multiplayer).
+	std::function<bool()> multiplayerGame;
+	/// HelpSystem+0x45F8 ? +0x45F4 : 0 (GGuidance::PlayNow 0x71AF99..0x71AFB1): the help switch (SET_HELP_SYSTEM
+	/// 0x6FC03D; HelpSystem::Reset 0x5C55FC sets 1) and the profile's HELP_LEVEL (fn_005C6CF0, 3 when the profile has none:
+	/// 0x5C6DB6). Unset: 3.
+	std::function<int()> helpLevel;
+	/// GPlayer::GetPlayerNumber 0x64A790 (+0xB5) of the local interface's player: the owner of GGuidance's samples. Unset: 0.
+	std::function<uint32_t()> localPlayerNumber;
+	/// GGameInfo::IsVisualNight 0x5575E0. Unset: false.
+	std::function<bool()> visualNight;
+	/// GInterface+0x3B8 (the hand's MapCoords, inferred) as a world point. Unset: nullopt (no remark that needs it).
+	std::function<std::optional<glm::vec3>()> handPosition;
+	/// fn_0081F1D0: the point is inside the camera's view. Unset: false.
+	std::function<bool(glm::vec3 point)> pointOnScreen;
+	/// Every player's towns for CheckTownDesiresSFX (GetNextPlayer order). Unset: none (openblack's towns have no
+	/// desires yet: the session mapa's V3).
+	std::function<std::vector<DesireTown>()> desireTowns;
+	/// The local player's citadel for CheckWorshipSiteDesiresSFX. Unset: nullopt (no citadel desires).
+	std::function<std::optional<WorshipDesire>()> worshipSites;
+	/// MapCoords::GetNearestTown 0x6020E0(maxDistance) (strictly nearer, every player and the neutral one) and that town's
+	/// three values of a RESOURCE_RAIN_TYPE (GetResourceDropSample 0x71B5F0: food +0x19C + +0x108 + +0xC4, wood +0x1A0 +
+	/// +0x10C + +0xC8, rain +0x1C4 + +0x130 + +0xEC), each summed, indexed food, wood, rain. Unset: nullopt.
+	std::function<std::optional<std::array<float, 3>>(glm::vec3 point, float maxDistance)> townResourceNeeds;
+	/// ProcessHeartBeatSFX's input. Unset: all 0 and no citadel heart (the beat is computed, nothing plays).
+	std::function<HeartBeatInput()> heartBeat;
+	/// HelpSystem::RunMessage 0x5C8CE0(first, last, script): nothing for first > last; StopRunningScripts (0x5C8C40:
+	/// false while a task that is not a help one has the dialogue), +0x560 = turn, the two numbers pushed as floats and
+	/// GScript::StartScript 0x6EB710 (types 0x7F in a single-player game). Unset: nothing.
+	std::function<bool(uint32_t first, uint32_t last, std::string_view script)> helpRunMessage;
+	/// HelpSystem::TriggerCategory 0x5C8280: +0x2D8 + 4 category = turn. Unset: nothing.
+	std::function<void(int category)> helpTriggerCategory;
+	/// GSpookyVoices::GetName 0x72E740's first name: the current profile's (PlayerProfile +0x200, [0xD4BF38]).
+	/// (inferred) openblack has no profiles: the name of OPENBLACK_PLAYER_NAME, if set. Unset: empty.
+	std::function<std::u16string()> profileName;
 };
 
 } // namespace openblack::audio

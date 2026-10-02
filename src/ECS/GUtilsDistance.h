@@ -102,7 +102,7 @@ constexpr float k_MetresPerCell = 10.0f;
 /// so this is ecs::map_coords::ToFixedGUtils, which scales first
 [[nodiscard]] constexpr int32_t ConvertMetersToWholeDistance(float metres)
 {
-	return static_cast<int32_t>(metres / k_MetresPerCell * 65536.0f);
+	return ecs::map_coords::FtoL(metres / k_MetresPerCell * 65536.0f);
 }
 
 /// GUtils::GetDistance(MapCoords const&, MapCoords const&) 0x74CCB0 (= its twin fn_0074CCE0):

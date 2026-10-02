@@ -55,6 +55,9 @@ void SetBankSampleCount(BankId bank, int samples);
 /// (IsAvailable(), vtable +0x2C, returns 0). 0 and -1 (no owner, the atmos mixer) and any other Base are available.
 [[nodiscard]] bool OwnerUnavailable(const Owner& owner);
 
+/// The queries audio::Init got (the services of layer 3 read the game through them)
+[[nodiscard]] const GameQueries& Queries();
+
 /// fn_00427200's position of a Thing (GameQueries::thingPosition) or Object owner (RegisterObject): nullopt for the
 /// other kinds or a gone one
 [[nodiscard]] std::optional<glm::vec3> OwnerSoundPosition(const Owner& owner);

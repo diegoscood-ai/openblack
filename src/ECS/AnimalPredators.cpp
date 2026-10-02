@@ -569,7 +569,7 @@ void HuntingMoveToPos(Context& ctx)
 	if (d <= reach)
 	{
 		// fn_00418CD0(pos, 0x100): the prey within +-22.5 degrees of its heading
-		if (std::abs(AngleDiff(ctx.brain.angle, AngleOf(at - me))) <= 0x80)
+		if (gutils::GetAngleDifference(ctx.brain.angle, gutils::GetAngleFromXZ(me, at)) <= 0x80u)
 		{
 			// saved and restored round the exit from the move state, which drops it
 			const auto kept = ctx.brain.target;

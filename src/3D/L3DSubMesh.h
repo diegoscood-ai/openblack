@@ -21,6 +21,7 @@
 
 #include "AxisAlignedBoundingBox.h"
 
+#include "../Graphics/RenderModes.h"
 #include "../Graphics/RenderPass.h"
 
 namespace openblack::graphics
@@ -29,27 +30,16 @@ class L3DMesh;
 class Mesh;
 class ShaderProgram;
 
-/// GJUtils::MaterialProperties, 5 bytes (GJUtils::GetSharedMesh 0x57DFB0, GJUtils::SetMaterialProperties 0x57E120)
-struct MaterialProperties
-{
-	bool additive;    ///< +0: the additive mode 13 (SRCALPHA / ONE)
-	bool zWrite;      ///< +1: the Z-writing variant (6 -> 5, 13 -> 12, 8 -> 3, 16 -> 9), else the one without Z
-	bool doubleSided; ///< +2: material byte +5 bit 0 set (D3DCULL_NONE), else cleared (back faces culled)
-	bool change;      ///< +3: PGetSharedMesh 0x57DF18 applies the properties to the mesh it loads (fn_0057E1D0)
-	bool alpha;       ///< +4: 0 makes every type TexturedAlpha (3) before the rules above
-};
+/// GJUtils::MaterialProperties (render_modes, GJUtils::SetMaterialProperties 0x57E120)
+using MaterialProperties = render_modes::MaterialProperties;
 
 class L3DSubMesh
 {
 public:
 	struct Primitive
 	{
-		enum class BlendMode : uint8_t
-		{
-			Disabled,
-			Standard, ///< src_alpha, 1 - src_alpha
-			Additive, ///< src_alpha, 1
-		};
+		/// the mode's ALPHABLENDENABLE and SRCBLEND / DESTBLEND (render_modes::k_Modes)
+		using BlendMode = render_modes::Blend;
 
 		uint32_t skinID;
 		uint32_t indicesOffset;
@@ -66,7 +56,8 @@ public:
 		/// material byte +5 bit 4 clear: the object's texture offset (+0x68 / +0x6C) is added to the UVs.
 		/// LH3DRender::DrawTriangle 0x82F8CC skips the materials with the bit (the rock of waterfall3.l3d).
 		bool uvOffset;
-		/// the L3D material type (l3d::L3DMaterial::Type) the fields above come from (SetMaterialProperties changes it)
+		/// the L3D material type (l3d::L3DMaterial::Type) = the mode (render_modes::Mode) the fields above come from
+		/// (SetMaterialProperties changes it)
 		uint32_t materialType;
 	};
 

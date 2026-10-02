@@ -44,9 +44,11 @@ namespace
 /// +0x4C are the draws at vt+0x100 / +0x110 / +0x130 / +0x154, which the net never goes through (fn_00829B50 /
 /// fn_00829BC0 call only SetPosition vt+0x20 and DrawCutByPlane vt+0x11C).
 constexpr uint32_t k_NetColour = 0xFFFFFFFFu;
+/// Its +0x50 specular, the same ctor's 0 (`mov [eax+0x50], ecx`, ecx = 0, 0x8164FE), with the same writers
+constexpr uint32_t k_NetSpecular = 0u;
 } // namespace
 
-void Renderer::DrawFishPlots(RenderPass viewId, int8_t keep) const
+void Renderer::DrawFishPlots(RenderPass viewId, sea_pass::SeaPlane plane) const
 {
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	// the instance of RenderingSystemCommon::ResizeInstances: the model matrix and the fifth column of
@@ -103,10 +105,9 @@ void Renderer::DrawFishPlots(RenderPass viewId, int8_t keep) const
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
 	submitDesc.options = render_modes::k_ModelPass;
-	submitDesc.cutByPlane = keep;
-	submitDesc.cutColour = k_NetColour;
-	// the part under the water goes into the reflection target, which shows through the sea (see DrawPass)
-	submitDesc.mirrorInSea = keep < 0;
+	// DrawCutByPlane; the part under the water goes into the reflection target, which shows through the sea (see
+	// DrawPass), mirrored back there (sea_pass::Cut)
+	submitDesc.sea = sea_pass::Cut(plane, k_NetColour, k_NetSpecular, viewId);
 	submitDesc.instanceDesc = std::make_unique<graphics::InstanceDesc>(fromBgfx(_fishPlotInstances), 0, count);
 	static const auto k_Identity = glm::mat4(1.0f);
 	submitDesc.modelMatrices = &k_Identity;

@@ -41,9 +41,11 @@ uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (
                             // w: 1 = no distance haze (the hand) + 2 x the mesh's land_light::ObjectMode
 uniform vec4 u_window;      // x > 0: a window submesh (L3D isWindow), lit at night by the instance (Abode::Draw)
                             // w: 1 = the primitive takes the object's texture offset
-uniform vec4 u_objectClip;  // y > 0: mirrored in y = 0 (the parts under the water drawn into the reflection target)
 
 #endif // USE_INSTANCING
+// u_objectClip and SeaUnmirror (y: drawn back unmirrored in the reflection target): the GPU side of
+// src/Graphics/SeaPass.h, in both branches (the sky writes 0)
+#include "sea_plane.sh"
 
 void main()
 {
@@ -141,24 +143,19 @@ void main()
 		// obj+0x14 (static 0x80C0EE, animated 0x811D2F), and fn_00858BA0 reads [0xF03140] in both its branches (rigid
 		// 0x858CB1, boned 0x859049), using the bone matrices [0xE9FE48] (0x858F77) only for the positions. So a boned
 		// mesh is lit with the object's light, not per bone: the instance matrix alone, without u_model. rgb =
-		// colour.rgb (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, the object's
-		// specular (0 for every caller)
+		// colour.rgb (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, + the
+		// object's specular obj+0x50 (u_objectLight.w, sea_pass::SeaDraw::specular)
 		vec3 cutLight = ModelLightLocal(i_data0.xyz, i_data1.xyz, i_data2.xyz, i_data3.xyz, u_modelLight.xyz);
 		vec3 cutColour = Lh3dUnpackRgb24(u_objectLight.z);
 		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, cutLight, false), lightAmbient);
 		objectColour = ModelLightDiffuse(cutColour, cutFactor) / 255.0f;
+		specular = Lh3dUnpackRgb24(u_objectLight.w) / 255.0f;
 	}
 	else if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
 	{
-		// a grey 0..1 (the hand's 0xA0A0A0), or above 1 a packed r 65536 + g 256 + b (the boat's 0x303070)
-		if (u_objectLight.z > 1.5f)
-		{
-			objectColour = Lh3dUnpackRgb24(u_objectLight.z) / 255.0f;
-		}
-		else
-		{
-			objectColour = vec3_splat(u_objectLight.z);
-		}
+		// DrawUnderWater in a constant colour (sea_pass::SeaLight::Constant, fn_00811010): obj+0x4C packed
+		// r 65536 + g 256 + b (the hand's 0xA0A0A0, the boat's 0x303070), no vertex light
+		objectColour = Lh3dUnpackRgb24(u_objectLight.z) / 255.0f;
 	}
 	else if (u_objectLight.x > 0.0f)
 	{
@@ -280,12 +277,8 @@ void main()
 #endif // USE_INSTANCING
 	// The specular colour rides in the unused texcoord z/w and position w: vs_object is shared with the sky (fs_sky)
 	// and a new varying broke its interface
-#ifdef USE_INSTANCING
-	// fs_object clips on the real position; only the drawn one is mirrored
-	gl_Position = mul(u_viewProj, u_objectClip.y > 0.0f ? vec4(v_position.x, -v_position.y, v_position.zw) : v_position);
-#else
-	gl_Position = mul(u_viewProj, v_position);
-#endif // USE_INSTANCING
+	// fs_object clips on the real position; only the drawn one is mirrored back
+	gl_Position = mul(u_viewProj, SeaUnmirror(v_position));
 #ifdef USE_INSTANCING
 	// Window submeshes exist only while the house's windows are lit (by day they fail the LOD test)
 	if (u_window.x > 0.0f && !windowLit)

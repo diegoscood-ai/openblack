@@ -77,6 +77,7 @@
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/RenderModes.h"
+#include "Graphics/SeaPass.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "Graphics/VertexBuffer.h"
@@ -528,26 +529,42 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetTextureSampler("s_heightmap", 1, heightMap);   // vs
 				program->SetUniformValue("u_islandExtent", &islandExtent); // vs
 			}
+			if (desc.isSky)
+			{
+				// vs_object reads u_objectClip in both its branches (sea_plane.sh) and bgfx keeps the last value of a
+				// uniform: the sky is never a sea draw, so it must not inherit the last net's or shark's unmirror
+				program->SetUniformValue("u_objectClip", &sea_pass::k_NoClip); // vs
+			}
 			if (!desc.isSky)
 			{
 				const bool lit = _landLight && _landLight->IsLoaded();
 				const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
-				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection), 3 the land colour
-				// only, 4 DrawCutByPlane (y: colour alpha, z: colour r 65536 + g 256 + b)
-				// w: 1 = no haze + 2 x the land light mode (land_light::ObjectMode)
-				glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
-				                           desc.lightBoost, desc.unlitColour,
+				// x, by desc.sea.light (sea_pass::SeaLight): 0 white, 1 lit like the original (Normal), 2 B's constant
+				// colour (Constant: z = obj+0x4C's r 65536 + g 256 + b), 3 the land colour only (LastDraw), 4 C,
+				// DrawCutByPlane (Cut: y = the colour's alpha, z = its rgb, w = the specular obj+0x50's rgb)
+				// y: the colour boost, w: 1 = no haze + 2 x the land light mode (land_light::ObjectMode), modes 1 and 3
+				constexpr uint32_t k_Rgb = 0x00FFFFFFu;
+				glm::vec4 u_objectLight = {lit ? 1.0f : 0.0f, desc.lightBoost, -1.0f,
 				                           (desc.noHaze ? 1.0f : 0.0f) + 2.0f * static_cast<float>(desc.landLightMode)};
-				if (desc.cutByPlane != 0)
+				switch (desc.sea.light)
 				{
-					u_objectLight = {4.0f, static_cast<float>(desc.cutColour >> 24) / 255.0f,
-					                 static_cast<float>(desc.cutColour & 0x00FFFFFFu), 1.0f};
+				case sea_pass::SeaLight::Normal:
+					break;
+				case sea_pass::SeaLight::Constant:
+					u_objectLight.x = 2.0f;
+					u_objectLight.z = static_cast<float>(desc.sea.argb & k_Rgb);
+					break;
+				case sea_pass::SeaLight::LastDraw:
+					u_objectLight.x = lit ? 3.0f : 0.0f;
+					break;
+				case sea_pass::SeaLight::Cut:
+					u_objectLight = {4.0f, static_cast<float>(desc.sea.argb >> 24) / 255.0f,
+					                 static_cast<float>(desc.sea.argb & k_Rgb), static_cast<float>(desc.sea.specular & k_Rgb)};
+					break;
 				}
-				// x: 1 discard y < 0, -1 discard y > 0 (fs); y > 0: mirrored in y = 0 (vs)
-				const glm::vec4 u_objectClip = {desc.cutByPlane != 0 ? static_cast<float>(desc.cutByPlane)
-				                                                     : (desc.clipBelowSea ? 1.0f : 0.0f),
-				                                desc.mirrorInSea ? 1.0f : 0.0f, 0.0f, 0.0f};
+				// x: the plane kept (fs), y: 1 = mirrored back in y = 0 (vs) (sea_plane.sh)
+				const auto u_objectClip = sea_pass::PackClip(desc.sea);
 				program->SetUniformValue("u_objectClip", &u_objectClip); // vs, fs
 				program->SetTextureSampler("s_landLightTable", 3, fromBgfx(_landLightTexture)); // vs
 				// this frame's cells (land_light), or the loaded ones (the same layout) before the first frame's
@@ -568,8 +585,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_modelLight", &u_modelLight);              // vs, fs
 				// y, z: mod graphics.hd-tweaks on villagers lit like the original (lighting mode, mip bias; fs_object)
 				const auto& config = Locator::config::value();
-				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit && !desc.landColourOnly &&
-				                    desc.unlitColour < 0.0f && desc.cutByPlane == 0;
+				const bool person = subMesh.IsHdTweaked() && desc.instanceDesc != nullptr && lit &&
+				                    desc.sea.light == sea_pass::SeaLight::Normal;
 				// w: 1 if the primitive takes the object's texture offset (L3DSubMesh::Primitive::uvOffset)
 				const glm::vec4 u_window = {subMesh.GetFlags().isWindow ? 1.0f : 0.0f,
 				                            person ? static_cast<float>(config.hdTweaksLighting) : 0.0f,
@@ -620,11 +637,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			auto viewId = desc.viewId;
 			// SetMaterial: the culling from the material's +5 bit 0 (D3DCULL_CCW 0x84C34A; the mirrored reflection camera
-			// flips it, and a mesh mirrored in the sea flips it back)
+			// flips it, and a mesh mirrored back in the sea flips it back: sea_pass::SeaPassState::FaceCull)
 			auto options = desc.options;
 			if (!desc.isSky && options.cull == render_modes::Cull::None)
 			{
-				options.cull = render_modes::CullFor(prim.twoSided, viewId == RenderPass::Reflection && !desc.mirrorInSea);
+				options.cull = sea_pass::ForPass(viewId).FaceCull(sea_pass::Surface::Model, prim.twoSided, desc.sea.unmirror);
 			}
 			// Blended: drawn after every opaque model (MainBlended) so what lies behind is already in the target
 			if (blended && modelPass && viewId == RenderPass::Main)
@@ -1067,8 +1084,10 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 	DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive);
 }
 
-void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool mirrored) const
+void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 {
+	const auto pass = sea_pass::ForPass(viewId);
+	const bool mirrored = pass.mirrored;
 	const auto& sky = Locator::skySystem::value();
 	const auto& textures = Locator::resources::value().GetTextures();
 	static const auto k_Weather = entt::hashed_string("raw/weather");
@@ -1144,7 +1163,7 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 	                  86400.0;
 	const double cycles = (days - 10962.0) / 29.5306;
 	const auto phase = static_cast<float>(2.0 * glm::pi<double>() * (1.0 - (cycles - std::floor(cycles))));
-	const auto mainView = mirrored ? frame.view * glm::scale(glm::vec3(1.0f, -1.0f, 1.0f)) : frame.view;
+	const auto mainView = mirrored ? sea_pass::UnmirrorView(frame.view) : frame.view;
 	const auto mainInverseView = mirrored ? glm::inverse(mainView) : frame.inverseView;
 	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
 	const glm::vec4 moonColour(colour, m / 255.0f);
@@ -1152,7 +1171,7 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 	// (inferido) without the Z write of mode 4 (0x82DC20): nothing farther is drawn after it in the sky
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
 	                  render_modes::State(render_modes::Mode::AlphaTextured,
-	                                      {.cull = render_modes::CullFor(false, mirrored), .zWrite = false}),
+	                                      {.cull = pass.FaceCull(sea_pass::Surface::Model, false, false), .zWrite = false}),
 	                  celestial, &*textures.Handle(k_WeatherAlpha));
 }
 
@@ -1486,11 +1505,6 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 			objects.push_back({entity, 0.0f, 0.0f});
 		}
 	}
-	L3DMeshSubmitDesc submitDesc = {};
-	submitDesc.viewId = viewId;
-	submitDesc.options = render_modes::k_ModelPass;
-	submitDesc.landColourOnly = true;
-	submitDesc.clipBelowSea = true;
 	for (const auto& [entity, bodyRadius, centreY] : objects)
 	{
 		const auto instance = renderCtx.entityInstances.find(entity);
@@ -1498,9 +1512,9 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 		{
 			continue;
 		}
-		const auto mesh = meshes.Handle(instance->second.meshId);
 		if (bodyRadius >= 0.0f)
 		{
+			const auto mesh = meshes.Handle(instance->second.meshId);
 			const auto& transform = registry.Get<ecs::components::Transform>(entity);
 			const float radius =
 			    bodyRadius > 0.0f ? bodyRadius : 0.5f * glm::length(mesh->GetBoundingBox().Size()) * transform.scale.x;
@@ -1509,14 +1523,8 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 				continue;
 			}
 		}
-		submitDesc.instanceDesc =
-		    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance->second.index, 1);
-		static const auto k_Identity = glm::mat4(1.0f);
-		submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &k_Identity;
-		submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
-		submitDesc.morphWithTerrain = instance->second.morphWithTerrain;
-		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
-		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+		// vt+0x118 in the colour the last Draw left (0x5E49A2 the held object, 0x6470C6 / 0x64717C the physics objects)
+		DrawUnderWater(viewId, entity, sea_pass::UnderWaterLastDraw());
 	}
 }
 
@@ -1609,8 +1617,9 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 			// LH3DSprite::Draw 0x840530 with flag 0x40 (fn_00824740 0x8247EF): a flat quad turned about Y, its local x
 			// along the heading (billboard::Horizontal); cells 8..23 of the 8 x 8 sheet
 			billboard::Sprite sprite;
-			// mirrored in y = 0 for the reflection target (see DrawPass)
-			sprite.position = glm::vec3(fish.position.x, -fish.position.y, fish.position.z);
+			// drawn before the sea without a mirror (fn_00824740, 0x5E4B2B): mirrored back in the reflection target (see
+			// DrawPass; on the CPU, vs_blob is shared by 6 programs)
+			sprite.position = sea_pass::Unmirror(fish.position);
 			sprite.size = fish.halfSize;
 			sprite.angle = fish.heading;
 			sprite.cell = fish.cell; // fn_008248E0 0x824993..0x8249A4, taken before the frame's wrap (frame_anim::FishFrame)
@@ -1974,8 +1983,11 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		{
 			UpdateReflectionTarget();
 			DrawSceneDesc drawPassDesc = drawDesc;
-			// fn_007FF4F0 draws the mirrored land with UseSmallBump ([0xC37210]) = 0
-			drawPassDesc.smallBumpMapStrength = 0.0f;
+			// fn_007FF4F0 draws the mirrored land with UseSmallBump ([0xC37210]) = 0 (sea_pass::SeaPassState::smallBump)
+			if (!sea_pass::ForPass(graphics::RenderPass::Reflection).smallBump)
+			{
+				drawPassDesc.smallBumpMapStrength = 0.0f;
+			}
 
 			const auto& frameBuffer = Locator::oceanSystem::value().GetReflectionFramebuffer();
 			auto reflectionCamera = drawDesc.camera->Reflect();
@@ -1994,7 +2006,7 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 				drawPassDesc.drawEntities = false;
 				drawPassDesc.drawSprites = false;
 			}
-			drawPassDesc.cullBack = true;
+			// (the culling of the mirrored camera comes from sea_pass::ForPass(Reflection))
 
 			DrawPass(drawPassDesc);
 		}
@@ -2275,8 +2287,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = skyShader;
-			// (inferido) the sky meshes' own modes, culled as a whole
-			submitDesc.options = {.cull = desc.cullBack ? render_modes::Cull::Cw : render_modes::Cull::Ccw,
+			// (inferido) the sky meshes' own modes, culled as a whole (flipped by the mirrored camera)
+			submitDesc.options = {.cull = sea_pass::ForPass(desc.viewId).FaceCull(sea_pass::Surface::Sky, false, false),
 			                      .writeAlpha = true,
 			                      .msaa = true};
 			submitDesc.modelMatrices = &modelMatrix;
@@ -2297,8 +2309,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			else if (desc.viewId == graphics::RenderPass::Reflection)
 			{
-				// the moon is reflected (its halo and DrawUnderWater), the sun is not (fn_0086C140 is called once)
-				DrawMoon(desc.viewId, *desc.camera, true);
+				// the moon is reflected (its halo and DrawUnderWater; mirrored: sea_pass::ForPass), the sun is not
+				// (fn_0086C140 is called once)
+				DrawMoon(desc.viewId, *desc.camera);
 			}
 		}
 	}
@@ -2386,7 +2399,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// Static shadows darken the block texture by up to x0.5 (x0.75 with 128 px textures, fn_008721A0)
 			const float staticShadowStrength =
 			    GetDetailLevel(Locator::config::value().detailLevel).useHighTexture ? 0.5f : 0.25f;
-			const glm::vec4 u_terrainPass = {desc.viewId == graphics::RenderPass::Reflection ? 0.5f : 1.0f,
+			// x: the light table >> 1 of the mirrored land (sea_pass::SeaPassState::landLightScale, 0x7FF53F..0x7FF564)
+			const glm::vec4 u_terrainPass = {sea_pass::ForPass(desc.viewId).landLightScale,
 			                                 Locator::config::value().terrainTextureDensity, staticShadowStrength,
 			                                 Locator::config::value().terrainTriplanar ? 1.0f : 0.0f};
 			terrainShader->SetUniformValue("u_terrainPass", &u_terrainPass);
@@ -2411,7 +2425,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// The mirrored land (fn_007FF4F0) is drawn with ZWRITEENABLE off (GLandscape::Draw 0x5E48C5..0x5E4900), so it
 			// hides nothing drawn after it under the sea (the hand's, the objects' and the boats' reflections, the fish);
 			// here it wrote Z, and a mirrored hill hid the reflections behind it.
-			const auto state = desc.viewId == graphics::RenderPass::Reflection ? defaultState & ~BGFX_STATE_WRITE_Z : defaultState;
+			const auto seaPass = sea_pass::ForPass(desc.viewId);
+			const auto state = seaPass.landWriteZ ? defaultState : defaultState & ~BGFX_STATE_WRITE_Z;
+			// openblack's blocks wind the other way round from the models (sea_pass::Surface::Land)
+			const uint64_t landCull =
+			    seaPass.FaceCull(sea_pass::Surface::Land, false, false) == render_modes::Cull::Ccw ? BGFX_STATE_CULL_CCW
+			                                                                                     : BGFX_STATE_CULL_CW;
 
 			// Block order of both land passes: the list LH3DIsland::PreDraw (0x7FF45F..0x7FF4DD) builds, ascending by
 			// block+0x9BC = distance from the camera to the block centre (x + 80, 0, z + 80) with LandRef on
@@ -2444,7 +2463,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 				block.GetMesh().GetVertexBuffer().Bind();
 
-				bgfx::setState(state | (desc.cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW), 0);
+				bgfx::setState(state | landCull, 0);
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
 			}
 			bgfx::discard(BGFX_DISCARD_BINDINGS);
@@ -2460,8 +2479,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawModels
 		                                                                          : Profiler::Stage::MainPassDrawModels);
-		// The original's "underwater" stage (GLandscape::Draw 0x5E490F): the hand mirrored in the sea, unlit grey
-		// 0xA0A0A0, only its part above the water (CHand DrawUnderWater, vt+0x118)
+		// The original's "underwater" stage (GLandscape::Draw 0x5E490F): the hand mirrored in the sea, unlit in
+		// SetColorSpecular(0x65A0A0A0, 0) (0x5E496C..0x5E4975), only its part above the water (CHand's LH3DObject
+		// DrawUnderWater, vt+0x118 0x5E4985; sea_pass::UnderWater)
 		if (!desc.drawEntities && desc.viewId == graphics::RenderPass::Reflection)
 		{
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
@@ -2472,20 +2492,19 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				const auto mesh = meshManager.Handle(ecs::components::Hand::k_MeshId);
 				if (mesh->GetBoneMatrices().size() == bones->size())
 				{
-					L3DMeshSubmitDesc handSubmit = {};
-					handSubmit.viewId = desc.viewId;
-					handSubmit.program = objectShaderInstanced;
-					handSubmit.options = render_modes::k_ModelPass;
-					handSubmit.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer,
-					                                                                   handDesc->second.offset, handDesc->second.count);
-					handSubmit.modelMatrices = bones->data();
-					handSubmit.matrixCount = static_cast<uint8_t>(bones->size());
-					handSubmit.unlitColour = 160.0f / 255.0f;
-					handSubmit.clipBelowSea = true;
-					DrawMesh(*mesh, handSubmit, std::numeric_limits<uint8_t>::max());
+					DrawUnderWater(desc.viewId, *mesh,
+					               std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer,
+					                                                        handDesc->second.offset, handDesc->second.count),
+					               bones->data(), static_cast<uint8_t>(bones->size()), false,
+					               sea_pass::UnderWater(sea_pass::k_HandColour, sea_pass::k_HandSpecular));
 				}
 			}
 			DrawObjectReflections(desc.viewId);
+			// TODO(sea_pass, R10): the creature's DrawUnderWater (GLandscape::Draw 0x5E4A84..0x5E4AE6) goes here, after
+			// the held and physics objects: SetColorSpecular(sea_pass::k_CreatureColour, k_CreatureSpecular) (0x5E4ACD /
+			// 0x5E4ACF, vt+0x2C 0x5E4AD6), vt+0x58(0) 0x5E4ADF, vt+0x118 0x5E4AE6, only while the tests of
+			// sea_pass::k_CreatureMaxBlockDistance / k_CreatureMaxY / k_CreatureMaxA0 pass (0x5E4A88..0x5E4AC9). There is
+			// no creature in openblack yet
 			DrawBoatReflection(desc.viewId);
 		}
 		if (desc.viewId == graphics::RenderPass::Reflection)
@@ -2494,8 +2513,15 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// land. Here that frame is the reflection target, drawn with the mirrored camera, so they are mirrored too.
 			// the sharks (and whatever else is cut by the plane), then the fish (4d-4e)
 			DrawCutBelowWater(desc.viewId);
+			// TODO(sea_pass, R11): the swimming SuperVillagers go here (GLandscape::Draw 0x5E4B4C..0x5E4D76): each of the
+			// list SuperVillager::g_first [0xEB9A08] whose animation is "M_P_Swim2" (0xBF3598, compared at 0x5E4C07),
+			// after its Draw vt+0x610 (0x5E4BC2) and shadow fn_00874850 (0x5E4BFB): the plane sea_pass::k_SwimPlane
+			// (0x5E4C4A..0x5E4C5E), SetColorSpecular(sea_pass::k_SwimmerColour, k_SwimmerSpecular) (0x5E4C68..0x5E4C70),
+			// vt+0x11C 0x5E4C77 = DrawCutByPlane(viewId, entity, KeepBelow, k_SwimmerColour, k_SwimmerSpecular), then the
+			// default plane again (0x5E4D76). openblack has no SuperVillager list (ScriptControl.cpp)
 			DrawFishShoals(desc.viewId);
-			DrawFishPlots(desc.viewId, -1); // fn_00824B90: each shoal of a bait, then its net (fn_00829BC0)
+			// fn_00824B90: each shoal of a bait, then its net (fn_00829BC0) under the swimmers' plane
+			DrawFishPlots(desc.viewId, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_SwimPlane));
 			// 0x5E4D89: the hand's glow on the water, the last thing before the sea
 			DrawHandWaterGlow(desc.viewId);
 		}
@@ -2551,7 +2577,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				DrawWaterRings(desc.viewId);
 				DrawHumanShadows(desc.viewId);
-				DrawFishPlots(desc.viewId, 1); // fn_00824D60 (0x5E6296): the nets' part over the water
+				// fn_00824D60 (0x5E6296): the nets' part over the water, with the default plane
+				DrawFishPlots(desc.viewId, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_DefaultPlane));
 			}
 			const auto setMatrices = [&submitDesc](entt::id_type meshId, const L3DMesh& mesh) {
 				const auto* handBones =

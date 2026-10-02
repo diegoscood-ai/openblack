@@ -3142,7 +3142,7 @@ void HasPlayerMagic() // 245 HAS_PLAYER_MAGIC
 void SpiritSpeaks() // 246 SPIRIT_SPEAKS
 {
 	// GScript::SpiritSpeaks 0x710C40: POP the text, then the SCRIPT_SPIRIT_TYPE; ConvertScriptSpiritToHelpSpirit 0x710350
-	// (the local player's alignment: inferred, openblack's local player is PLAYER_ONE; LocalRand: openblack's generator);
+	// (the local player's alignment: inferred, openblack's local player is PLAYER_ONE; LocalRand: game_random's local stream);
 	// text 0 past 6974 (0x710C6E); push HelpSystem::GetSpiritWhoTalks 0x5C6E20 == the spirit (type 6)
 	auto text = static_cast<uint32_t>(Pop().intVal);
 	const auto type = Pop().intVal;

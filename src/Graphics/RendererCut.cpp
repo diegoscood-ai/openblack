@@ -21,6 +21,7 @@
 #include <glm/mat4x4.hpp>
 
 #include "3D/L3DMesh.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
 #include "ECS/Components/CutByPlane.h"
@@ -107,7 +108,7 @@ void Renderer::DrawCutAboveWater(RenderPass viewId) const
 			    cut.push_back(entity);
 		    }
 	    });
-	const uint32_t colour = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t colour = _landLight && _landLight->IsLoaded() ? land_light::FullLight(*_landLight) : 0xFFFFFFFFu;
 	for (const auto entity : cut)
 	{
 		DrawCutByPlane(viewId, entity, 1, colour, false);

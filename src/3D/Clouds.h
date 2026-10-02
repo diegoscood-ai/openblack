@@ -95,13 +95,12 @@ public:
 	/// the original sets one UV offset (vt+0xE8, 0x7F9B70) and draws once, so frames switch without a blend
 	[[nodiscard]] static int GetFrame(const Cloud& cloud) noexcept { return graphics::frame_anim::MistCell(cloud.counter); }
 
-	/// Cloud shadows ("CloudShadows" key, fn_0086CFF0 -> fn_0086D360 / fn_00878C70): every cloud stamps
-	/// Data\Textures\sclouds.raw (40 x 40, one texel per 10-unit cell, placed by its top-left corner at the cloud's
-	/// cell) into a luminosity cap, cap = min(cap, max(48, 255 - (255 - s) * alpha / 255)); the landscape and the models
-	/// use min(cell luminosity, cap).
-	/// @param origin world x/z of the map's first cell, @param size map size in cells, @param alpha per cloud 0..255
-	void BuildShadowCap(const std::vector<uint8_t>& shadowImage, glm::vec2 origin, glm::u16vec2 size,
-	                    const std::vector<float>& alpha, std::vector<uint8_t>& cap) const;
+	/// Cloud shadows ("CloudShadows" key, fn_005E25C0 0x5E27CB..0x5E2800): every cloud with an alpha stamps
+	/// Data\Textures\sclouds.raw (40 x 40, one texel per 10-unit cell) at its world (x, 0, z), not centred, with alpha
+	/// / 255 ([0x900058]), mode 2 (the shadow: luminosity = min(luminosity, max(0x30, 255 - (255 - s) alpha / 255)),
+	/// land_light::AddStamp / ApplyStamp). `shadowImage` must stay alive until the stamps are applied.
+	/// @param alpha per cloud 0..255
+	void StampShadows(const std::vector<uint8_t>& shadowImage, const std::vector<float>& alpha) const;
 
 private:
 	std::vector<Cloud> _clouds;

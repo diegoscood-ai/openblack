@@ -450,49 +450,62 @@ std::array<glm::vec2, 4> frame_anim::ChainSegmentUv(int segment, int segments, c
 	        glm::vec2(u0 * k_Texel, v1 * k_Texel + scroll), glm::vec2(u1 * k_Texel, v1 * k_Texel + scroll)};
 }
 
-std::optional<frame_anim::StackedFrames> frame_anim::LoadStackedFrames(std::span<const uint8_t> bytes, int pitch,
-                                                                       int framesInFile)
+std::optional<frame_anim::StackedFrames> frame_anim::LoadBitmapFromFile(std::span<const uint8_t> bytes, int pitch,
+                                                                        int bpp, int framesInFile, int framesInUse)
 {
-	if (pitch <= 0 || framesInFile <= 0)
+	if (pitch <= 0 || bpp <= 0 || framesInFile <= 0)
 	{
 		return std::nullopt;
 	}
-	const auto pixels = static_cast<size_t>(pitch) * static_cast<size_t>(pitch) * static_cast<size_t>(framesInFile);
-	StackedFrames stacked;
-	stacked.channels = bytes.size() >= pixels * 3 ? 3 : 1;
-	if (bytes.size() < pixels * static_cast<size_t>(stacked.channels))
+	const auto frameSize = static_cast<size_t>(pitch) * static_cast<size_t>(pitch) * static_cast<size_t>(bpp);
+	// 0x57CAC7..0x57CAD4: the file must be bpp x pitch^2 x framesInFile bytes exactly
+	if (bytes.size() != frameSize * static_cast<size_t>(framesInFile))
 	{
 		return std::nullopt;
 	}
-	stacked.pitch = pitch;
-	stacked.frames = framesInFile;
-	stacked.data.assign(bytes.begin(), bytes.end());
-	return stacked;
+	StackedFrames bitmap;
+	bitmap.pitch = pitch;
+	bitmap.channels = bpp;
+	bitmap.frames = std::max(std::min(framesInUse, framesInFile), 0); // 0x57CADB..0x57CADF
+	bitmap.data.resize(frameSize * static_cast<size_t>(bitmap.frames));
+	// fn_0057CB40: n = ftol(sqrt(framesInFile)) frames per row of the file; frame f at column f % n, row f / n
+	const auto perRow = std::max(1, static_cast<int>(std::sqrt(static_cast<float>(framesInFile))));
+	size_t out = 0;
+	for (int frame = 0; frame < bitmap.frames; ++frame)
+	{
+		const int column = frame % perRow;
+		const int row = frame / perRow;
+		for (int y = 0; y < pitch; ++y)
+		{
+			for (int x = 0; x < pitch; ++x)
+			{
+				const auto source = ((static_cast<size_t>(row) * static_cast<size_t>(pitch) + static_cast<size_t>(y)) *
+				                         static_cast<size_t>(perRow) +
+				                     static_cast<size_t>(column)) *
+				                        static_cast<size_t>(pitch) +
+				                    static_cast<size_t>(x);
+				for (int c = 0; c < bpp; ++c)
+				{
+					const auto at = source * static_cast<size_t>(bpp) + static_cast<size_t>(c);
+					bitmap.data[out++] = at < bytes.size() ? bytes[at] : 0;
+				}
+			}
+		}
+	}
+	return bitmap;
 }
 
-glm::vec3 frame_anim::SampleStackedFrame(const StackedFrames& stacked, int frame, float u, float v) noexcept
+const uint8_t* frame_anim::FrameTexels(const StackedFrames& bitmap, int frame) noexcept
 {
-	const auto at = [&stacked, frame](int x, int y) {
-		const auto index = (static_cast<size_t>(frame) * static_cast<size_t>(stacked.pitch) * static_cast<size_t>(stacked.pitch) +
-		                    static_cast<size_t>(y) * static_cast<size_t>(stacked.pitch) + static_cast<size_t>(x)) *
-		                   static_cast<size_t>(stacked.channels);
-		if (stacked.channels == 3)
-		{
-			return glm::vec3(stacked.data[index], stacked.data[index + 1], stacked.data[index + 2]);
-		}
-		return glm::vec3(stacked.data[index]);
-	};
-	const float fx = std::clamp(u * static_cast<float>(stacked.pitch) - 0.5f, 0.0f, static_cast<float>(stacked.pitch - 1));
-	const float fy = std::clamp(v * static_cast<float>(stacked.pitch) - 0.5f, 0.0f, static_cast<float>(stacked.pitch - 1));
-	const int x0 = static_cast<int>(fx);
-	const int y0 = static_cast<int>(fy);
-	const int x1 = std::min(x0 + 1, stacked.pitch - 1);
-	const int y1 = std::min(y0 + 1, stacked.pitch - 1);
-	const float tx = fx - static_cast<float>(x0);
-	const float ty = fy - static_cast<float>(y0);
-	const auto top = at(x0, y0) * (1.0f - tx) + at(x1, y0) * tx;
-	const auto bottom = at(x0, y1) * (1.0f - tx) + at(x1, y1) * tx;
-	return top * (1.0f - ty) + bottom * ty;
+	// 0x6CA2E6: no data -> null
+	if (bitmap.frames <= 0 || bitmap.data.empty())
+	{
+		return nullptr;
+	}
+	// 0x6CA2E3..0x6CA30E: frame % frames (unsigned word); bpp x that x pitch x pitch
+	const int index = static_cast<int>(static_cast<uint32_t>(frame) % static_cast<uint32_t>(bitmap.frames));
+	return bitmap.data.data() + static_cast<size_t>(index) * static_cast<size_t>(bitmap.pitch) *
+	                                static_cast<size_t>(bitmap.pitch) * static_cast<size_t>(bitmap.channels);
 }
 
 const uint8_t* frame_anim::GifFrames::Frame(int frame) const noexcept

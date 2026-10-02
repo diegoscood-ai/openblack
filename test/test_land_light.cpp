@@ -8,15 +8,21 @@
  *******************************************************************************/
 
 // LandLightTable::Build (fn_00869850) against tmp_dis\render\light_lut.py build(...) and the haze rules of
-// 0x869CB8..0x869F37, with the overcast cap (0x869ADB) and the lightning flash (0x869C25), on a synthetic palette.raw
+// 0x869CB8..0x869F37, with the overcast cap (0x869ADB) and the lightning flash (0x869C25), on a synthetic palette.raw.
+// Build takes the original's sky type T (sky_type); the generated cases are in openblack's old convention S = 2 - T.
 
+#include <algorithm>
 #include <array>
+#include <bit>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "3D/DayNightClock.h"
 #include "3D/LandLightTable.h"
+#include "3D/SkyType.h"
 #include "ECS/WaterRings.h"
 
 using namespace openblack;
@@ -156,7 +162,7 @@ void Check(float skyType, float alignment, float overcast, uint8_t flash, const 
 {
 	LandLightTable table;
 	ASSERT_TRUE(table.Load(Palette()));
-	table.Build(skyType, alignment, overcast, flash);
+	table.Build(2.0f - skyType, alignment, overcast, flash);
 	for (size_t i = 0; i < expected.size(); ++i)
 	{
 		EXPECT_EQ(table.GetRaw(i), expected[i]) << "entry " << i;
@@ -170,6 +176,145 @@ void Check(float skyType, float alignment, float overcast, uint8_t flash, const 
 	{
 		EXPECT_NEAR(h.colour[c], haze.colour[c], 1e-3f) << "haze channel " << c;
 	}
+}
+
+/// LandLightTable::Build before the sky_type hook-up (U5 c56e678f), in openblack's old convention S = 2 - T, fed by
+/// the forwarder Sky::GetCurrentSkyType = 2 - sky_type::Frame(): kept here as the reference of what changed
+struct OldTable
+{
+	std::array<uint32_t, 256> table {};
+	float nearDistance {0.0f};
+	float farDistance {0.0f};
+	float k {0.0f};
+	std::array<float, 3> colour {};
+};
+
+uint32_t OldLerp(uint32_t a, uint32_t b, uint32_t t)
+{
+	const uint32_t r = (((((b & 0xFF0000u) - (a & 0xFF0000u)) * t) >> 8) + (a & 0xFFFF0000u)) & 0xFF0000u;
+	const uint32_t g = (((((b & 0xFF00u) - (a & 0xFF00u)) * t) >> 8) + (a & 0xFFFFFF00u)) & 0xFF00u;
+	const uint32_t bl = (((((b & 0xFFu) - (a & 0xFFu)) * t) >> 8) + a) & 0xFFu;
+	return r | g | bl | (b & 0xFF000000u);
+}
+
+uint32_t OldRamp(uint32_t a, uint32_t b, uint32_t t)
+{
+	uint32_t result = a & 0xFF000000u;
+	for (const uint32_t shift : {16u, 8u, 0u})
+	{
+		const uint32_t value = (((a >> shift) & 0xFFu) * (255 - t) + ((b >> shift) & 0xFFu) * t) / 200;
+		result |= std::min(255u, value) << shift;
+	}
+	return result;
+}
+
+OldTable OldBuild(const std::vector<uint8_t>& raw, float skyType, float alignment, float overcast, uint8_t flash)
+{
+	std::vector<uint32_t> palette(32 * 32);
+	for (size_t i = 0; i < palette.size(); ++i)
+	{
+		palette[i] = static_cast<uint32_t>(raw[i * 4 + 0]) << 16 | static_cast<uint32_t>(raw[i * 4 + 1]) << 8 |
+		             static_cast<uint32_t>(raw[i * 4 + 2]) | static_cast<uint32_t>(raw[i * 4 + 3]) << 24;
+	}
+	OldTable out;
+	const float timeColumn = std::clamp(skyType, 0.0f, 2.0f) * 6.0f * 2.5f;
+	const float x = std::clamp(1.0f - alignment, 0.0f, 2.0f);
+	const float alignColumn = x * 15.0f;
+	std::array<uint32_t, 8> colours {};
+	for (size_t row = 0; row < colours.size(); ++row)
+	{
+		const float column = row < 3 ? timeColumn : alignColumn;
+		const auto index = std::min(static_cast<size_t>(column), size_t {30});
+		const auto t = static_cast<uint32_t>((column - static_cast<float>(index)) * 256.0f);
+		colours[row] = OldLerp(palette[row * 32 + index], palette[row * 32 + index + 1], t);
+	}
+	const auto k = static_cast<int>(x * 255.0f);
+	uint32_t base = x < 1.0f ? OldLerp(colours[0], colours[1], static_cast<uint32_t>(k))
+	                         : OldLerp(colours[1], colours[2], static_cast<uint32_t>(k - 256));
+	const auto limit = static_cast<int32_t>(255.0f - overcast * 96.0f);
+	uint32_t capped = base & 0xFF000000u;
+	for (const uint32_t shift : {16u, 8u, 0u})
+	{
+		const auto channel = static_cast<int32_t>((base >> shift) & 0xFFu);
+		capped |= static_cast<uint32_t>(std::clamp(std::min(channel, limit), 0, 255)) << shift;
+	}
+	base = capped;
+	const uint32_t r = (base >> 16) & 0xFFu;
+	const uint32_t g = (base >> 8) & 0xFFu;
+	const uint32_t b = base & 0xFFu;
+	out.k = static_cast<float>(std::min(255u, (r + 4 * g + 3 * b) / 8 + 8));
+	std::array<float, 3> colour = {static_cast<float>(r / 3), static_cast<float>(g / 3), static_cast<float>(b / 3)};
+	const float v = 1.0f - std::abs(std::clamp(skyType, 0.0f, 2.0f) - 1.0f);
+	float nearInverse = 0.0025f + 0.0075f * v * v;
+	float farInverse = 0.00111111f + 0.000138889f * v * v;
+	if (overcast > 0.0f)
+	{
+		const float w = std::min(overcast, 1.0f);
+		const std::array<float, 3> storm = {static_cast<float>((r >> 3) + 32), static_cast<float>((g >> 3) + 32),
+		                                    static_cast<float>((b >> 3) + 32)};
+		for (size_t c = 0; c < 3; ++c)
+		{
+			colour.at(c) += (storm.at(c) - colour.at(c)) * w;
+		}
+		out.k = out.k + static_cast<float>(static_cast<int32_t>((48.0f - out.k) * w));
+		nearInverse += (0.0666667f - nearInverse) * w;
+		farInverse += (0.00285714f - farInverse) * w;
+	}
+	if (flash != 0)
+	{
+		const float f = static_cast<float>(flash);
+		for (auto& c : colour)
+		{
+			c += (255.0f - c) * f * 0.00390625f;
+		}
+		const auto kk = static_cast<int32_t>(out.k);
+		out.k = static_cast<float>(kk + ((255 - kk) * static_cast<int32_t>(flash)) / 256);
+	}
+	out.nearDistance = 1.0f / nearInverse;
+	out.farDistance = 1.0f / farInverse;
+	out.colour = colour;
+	const uint32_t n = (g * 48) >> 8;
+	for (uint32_t i = 0; i < n; ++i)
+	{
+		out.table.at(i) = OldRamp(colours[3], base, (i * 256) / n);
+	}
+	for (uint32_t i = n; i < 48; ++i)
+	{
+		out.table.at(i) = OldRamp(base, colours[6], ((i - n) * 256) / (48 - n));
+	}
+	for (uint32_t i = 48; i < 256; ++i)
+	{
+		out.table.at(i) = OldRamp(colours[3], base, i);
+	}
+	if (flash != 0)
+	{
+		for (auto& c : out.table)
+		{
+			c = OldLerp(c, 0xFFFFFFFFu, flash) | 0xFF000000u;
+		}
+	}
+	return out;
+}
+
+/// The haze distances of fn_00869850 0x869D53..0x869F57 with runblack.exe's floats, on the original's T
+std::array<float, 2> OriginalHazeDistances(float skyType, float overcast)
+{
+	const float v = skyType > 1.0f ? 2.0f - skyType : skyType;
+	const float v2 = v * v;
+	float nearInverse = std::bit_cast<float>(0x3B23D70Au); // [0x9A3B18]
+	float farInverse = std::bit_cast<float>(0x3A91A2B4u);  // [0x9A3BE0]
+	if (v2 > 0.0f)
+	{
+		nearInverse = v2 * std::bit_cast<float>(0x3BF5C28Fu) + nearInverse; // [0x9A3BDC]
+		farInverse = v2 * std::bit_cast<float>(0x3911A2B0u) + farInverse;   // [0x9A3BD8]
+	}
+	if (overcast > 0.0f)
+	{
+		const float w = std::min(overcast, 1.0f);
+		nearInverse += (std::bit_cast<float>(0x3D888889u) - nearInverse) * w; // [0x9A3B70]
+		farInverse += (std::bit_cast<float>(0x3B3B3EE7u) - farInverse) * w;   // [0x9A3BD4]
+	}
+	return {1.0f / nearInverse, 1.0f / farInverse};
 }
 } // namespace
 
@@ -207,7 +352,7 @@ TEST(LandLightTable, RingColourFixedAtCreation)
 	// W10: a ring of the landscape light (the hand's splash, table[255]) keeps the colour of the frame it was made in
 	LandLightTable table;
 	ASSERT_TRUE(table.Load(Palette()));
-	table.Build(1.25f, 0.5f, 0.0f);
+	table.Build(0.75f, 0.5f, 0.0f);
 	const uint32_t dusk = table.GetRaw(255) & 0x00FFFFFFu;
 	ecs::WaterRing ring;
 	ring.argb = 0xB0000000u;
@@ -215,9 +360,61 @@ TEST(LandLightTable, RingColourFixedAtCreation)
 	const auto before = ecs::GetWaterRings().size();
 	ASSERT_TRUE(ecs::AddWaterRing(ring));
 	ASSERT_EQ(ecs::GetWaterRings().size(), before + 1);
-	table.Build(2.0f, 0.0f, 0.8f, 128);
+	table.Build(0.0f, 0.0f, 0.8f, 128);
 	ASSERT_NE(table.GetRaw(255) & 0x00FFFFFFu, dusk);
 	const auto& added = ecs::GetWaterRings().back();
 	EXPECT_EQ(added.argb, 0xB0000000u | dusk);
 	EXPECT_FALSE(added.seaLight);
+}
+
+TEST(LandLightTable, MatchesTheOldConventionEveryHour)
+{
+	// The default campaign cycle (1700 / 0.083 / 0.07): A..D = 0.786 / 1.206 / 1.626 / 2.046 visual hours
+	DayNightClock clock;
+	clock.SetCycle(DayNightClock::k_DefaultDuration, DayNightClock::k_DefaultNight, DayNightClock::k_DefaultChange);
+	const auto palette = Palette();
+	struct Weather
+	{
+		float alignment;
+		float overcast;
+		uint8_t flash;
+	};
+	const std::array<Weather, 4> weathers = {{{0.0f, 0.0f, 0}, {0.5f, 0.0f, 0}, {-0.75f, 1.2f, 40}, {0.3f, 0.4f, 0}}};
+	int hazeDifferences = 0;
+	for (int step = 0; step <= 24 * 64; ++step)
+	{
+		// every 1/64 visual hour, through fn_0086A2C0 like DrawSky
+		const float hour = static_cast<float>(step) / 64.0f;
+		sky_type::SampleFrame(hour);
+		const float t = sky_type::Frame();
+		// the same time column bit for bit, (2 - T) * 6 * 2.5 either way (the old clamp and the fold never act)
+		ASSERT_EQ(sky_type::LightColumn(t), std::clamp(2.0f - t, 0.0f, 2.0f) * 6.0f * 2.5f) << "hour " << hour;
+		for (const auto& weather : weathers)
+		{
+			LandLightTable table;
+			ASSERT_TRUE(table.Load(palette));
+			table.Build(t, weather.alignment, weather.overcast, weather.flash);
+			// what the forwarder 2 - Frame() fed the old Build
+			const auto old = OldBuild(palette, 2.0f - t, weather.alignment, weather.overcast, weather.flash);
+			for (size_t i = 0; i < LandLightTable::k_Size; ++i)
+			{
+				ASSERT_EQ(table.GetRaw(i), old.table.at(i)) << "hour " << hour << " entry " << i;
+			}
+			const auto& haze = table.GetHaze();
+			EXPECT_EQ(haze.k, old.k) << "hour " << hour;
+			for (int c = 0; c < 3; ++c)
+			{
+				EXPECT_EQ(haze.colour[c], old.colour.at(static_cast<size_t>(c))) << "hour " << hour;
+			}
+			// near / far: the original's floats and order exactly; the old ones only within their last bits
+			const auto original = OriginalHazeDistances(t, weather.overcast);
+			EXPECT_EQ(haze.nearDistance, original[0]) << "hour " << hour;
+			EXPECT_EQ(haze.farDistance, original[1]) << "hour " << hour;
+			EXPECT_NEAR(haze.nearDistance, old.nearDistance, old.nearDistance * 4e-6f) << "hour " << hour;
+			EXPECT_NEAR(haze.farDistance, old.farDistance, old.farDistance * 4e-6f) << "hour " << hour;
+			hazeDifferences += haze.nearDistance != old.nearDistance || haze.farDistance != old.farDistance ? 1 : 0;
+		}
+	}
+	// the old constants (0.00111111 for 1 / 900, 0.0666667 for 1 / 15, ...) were off in their last bits
+	EXPECT_GT(hazeDifferences, 0);
 }

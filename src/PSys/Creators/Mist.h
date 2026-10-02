@@ -11,8 +11,10 @@
 
 #include <cstdint>
 
+#include <memory>
 #include <string>
 
+#include "3D/FrameAnim.h"
 #include "PSys/PSys.h"
 
 // Mist particles: ParticleMistCreator (props 0x6B3C00, ctor 0x6AA380, CreateParticleMist 0x6AA610, CreateLH3DMist
@@ -37,6 +39,9 @@ struct MistCreator: Creator
 	int numFramesInUse {1};           ///< +0x5C
 	float initialScaleMin {1.0f};     ///< +0x70
 	float ratio {0.0f};               ///< +0x74: the mist's k (+0x8C); 0 = 2.5 + LocalFloatRand(2.5) per mist
+	/// +0x34 GetBitmap 0x6AA540: with LoadLightMap, LoadBitmapFromFile(TextureFileName, Pitch, IsShadowMap ? 1 : 3,
+	/// NumFramesInFile, NumFramesInUse) (land_light::LoadBitmapFile): the land shadow (or light) under each mist
+	std::shared_ptr<const graphics::frame_anim::StackedFrames> landBitmap;
 
 	/// CreateParticleMist 0x6AA610: the scale, RandomiseScale ? PSysFloatRand(InitialScaleMin, InitialScale) :
 	/// InitialScale (atom +0x74)

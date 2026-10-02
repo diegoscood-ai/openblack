@@ -1084,22 +1084,21 @@ corte 0x96: un poco más finos).
 - Reflejos y sombras dinámicas de la criatura y de los SuperVillagers (no existen aún en openblack).
 - Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
   andamio de los talleres.
+- Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la
+  escala del PSR, fn_0081C780), el aro del orbe que a veces tapa la burbuja según la animación, y que la burbuja ya no
+  parpadea al volver a empezar su atlas.
 - Billboards:
-  - capturas del original para confirmar V4-a (la luna en un borde de la pantalla) y V4-b (un rayo en la mano);
   - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
     `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
   - el oy heredado por el vapor y el humo del fuego;
   - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
-  - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
 - Texturas animadas:
   - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
     la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
   - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
-  - en las cadenas, el suavizado por puntos medios (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting
-    (la interpolación de SurfRevol ya está, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
+  - en las cadenas, UseDynamicLighting (el suavizado por puntos medios ya está, de milagros2; la interpolación de
+    SurfRevol también, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
   - HandEffects como efectos PSys de verdad;
-  - una captura del rayo en la mano en el original, para comparar el ancho de las cintas;
-  - capturas antes y después (lista de escenas en `dev\tmp_dis\unify\U2_changes.md`).
 - Mallas pegadas al suelo:
   - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
     de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);

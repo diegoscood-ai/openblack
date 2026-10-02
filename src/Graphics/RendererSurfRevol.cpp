@@ -36,6 +36,7 @@
 
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/ZSorter.h"
@@ -140,13 +141,17 @@ void Renderer::DrawPSysSurface(RenderPass viewId, uint32_t index) const
 			program->SetTextureSampler("s_alpha", 1, alpha, 0);
 			bgfx::setVertexBuffer(0, &vertices);
 			bgfx::setIndexBuffer(&indices);
-			// mode 6 (MaterialUpdateZBuffer: Z write), Z test on; the specular goes on top additively. Not ported: no
-			// cull state, so Surface::doubleSided (MaterialSetDoubleSided) is ignored and every surface draws two-sided
-			const uint64_t blend = pass == 1 || surface.additive
-			                           ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-			                           : BGFX_STATE_BLEND_ALPHA;
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | blend |
-			               (surface.writeDepth && pass == 0 ? BGFX_STATE_WRITE_Z : 0));
+			// CreateMaterial(6) + SetMaterialProperties (ZR_SurfRevol::ModifyAtomCollection 0x6863EC / 0x6863F9): 13 / 6,
+			// 12 / 5 with MaterialUpdateZBuffer, Z test on; the specular goes on top additively (mode 13, (inferido)).
+			// Not ported: no cull state, so Surface::doubleSided (MaterialSetDoubleSided) is ignored and every surface draws
+			// two-sided
+			const auto mode =
+			    pass == 1 ? render_modes::Mode::AlphaTexturedAlphaAdditiveNz
+			              : render_modes::ModeFromProperties(render_modes::Mode::AlphaTexturedAlphaNz,
+			                                                 {.additive = surface.additive,
+			                                                  .zWrite = surface.writeDepth,
+			                                                  .alpha = true});
+			bgfx::setState(render_modes::State(mode));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}

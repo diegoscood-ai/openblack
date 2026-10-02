@@ -11,11 +11,13 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 
 #include "InstanceDesc.h"
+#include "RenderModes.h"
 #include "RenderPass.h"
 
 #include "../EngineConfig.h"
@@ -67,7 +69,16 @@ public:
 	{
 		graphics::RenderPass viewId;
 		const graphics::ShaderProgram* program;
-		uint64_t state;
+		/// What the draw adds to every primitive's mode (render_modes::State): Z func, alpha written, MSAA, a cull for the
+		/// whole mesh (the sky, the hand's shadow); without one, each primitive's material culls (+5 bit 0)
+		render_modes::StateOptions options;
+		/// g_set_render_mode_data [0xECA618]: GlobalAlpha (0xC387C8) for an object drawn with its own alpha
+		render_modes::Table table {render_modes::Table::Normal};
+		/// with the table 0xC387C8: the object's alpha byte (the diffuse [0xC37D8C] >> 24), the ALPHAREF of modes 9 / 15
+		uint8_t globalAlpha {255};
+		/// every primitive drawn in this mode instead of its own, alpha test included (the PSys additive atoms: 13,
+		/// SetMaterialProperties 0x57E120; the hand's shadow on the objects: 6, fn_0080B050 0x80B06A..0x80B08B)
+		std::optional<render_modes::Mode> mode;
 		uint32_t rgba;
 		const glm::mat4* modelMatrices;
 		uint8_t matrixCount;

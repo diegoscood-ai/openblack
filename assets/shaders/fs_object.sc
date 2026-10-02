@@ -6,7 +6,8 @@ $input v_position, v_texcoord0, v_normal, v_color0
 #include "model_light.sh"
 
 SAMPLER2D(s_diffuse, 0);
-uniform vec4 u_skyAlphaThreshold; // x: unused (0), y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
+uniform vec4 u_skyAlphaThreshold; // x: unused (0), y: ALPHAREF / 255 (< 0: no alpha test), z: alpha to coverage (MSAA mod),
+                                  // w: stage 0 alpha (render_modes::PrimitiveAlpha): 0 none, 1 texture, 2 texture x diffuse
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
 uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water),
                                   // x < 0: discard above it (y > 0; DrawCutByPlane with the plane (0, -1, 0, 0))
@@ -33,7 +34,7 @@ void main()
 		opacity = 1.0f;
 	}
 	bool alphaToCoverage = u_skyAlphaThreshold.z > 0.0f;
-	bool blendedMaterial = u_skyAlphaThreshold.w > 0.0f;
+	float alphaSource = u_skyAlphaThreshold.w;
 
 	if ((u_objectClip.x > 0.0f && v_position.y < 0.0f) || (u_objectClip.x < 0.0f && v_position.y > 0.0f))
 	{
@@ -65,13 +66,18 @@ void main()
 			discard;
 		}
 	}
-	else if (alphaThreshold > 0.0f && diffuseTex.a * 255.0f < alphaThreshold * 255.0f - 5.0f)
+	else if (alphaThreshold >= 0.0f && floor(diffuseTex.a * (alphaSource > 1.5f ? opacity : 1.0f) * 255.0f + 0.5f) <
+	                                       floor(alphaThreshold * 255.0f + 0.5f))
 	{
-		// chroma materials: ALPHAFUNC GREATEREQUAL, ALPHAREF = threshold * object alpha / 255 - 5 (0x82E181)
+		// the alpha tested modes: ALPHAFUNC GREATEREQUAL (0x82CBA6) against ALPHAREF (render_modes::AlphaRef: the
+		// material's, scaled by the object's alpha - 5 only for modes 9 / 15 with the table 0xC387C8, 0x82E181), on the
+		// stage 0 output: texture x diffuse alpha in 10, 11, 15, 16 (ALPHAOP MODULATE, 0x82E510 in 15), the texture's in
+		// 9 and 18 (SELECTARG1 0x82E120, 0x82E384) (inferido: the alpha compared as a byte, rounded)
 		discard;
 	}
-	// Textures of primitives without alpha cut-out may carry no meaningful alpha: they are opaque before fading.
-	diffuseTex.a = (alphaThreshold > 0.0f || blendedMaterial ? diffuseTex.a : 1.0f) * opacity;
+	// The opaque modes' textures may carry no meaningful alpha: they are opaque before fading. (aproximado) with 1 the
+	// original's alpha is the texture's alone (SELECTARG1): the same while the object's alpha is 255
+	diffuseTex.a = (alphaSource > 0.5f ? diffuseTex.a : 1.0f) * opacity;
 	vec3 specular = vec3(v_texcoord0.zw, v_position.w); // see vs_object
 	vec3 light = v_color0.rgb;
 	if (u_window.y > 0.0f && v_normal.y < 500.0f)

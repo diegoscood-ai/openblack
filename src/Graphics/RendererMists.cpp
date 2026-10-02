@@ -44,6 +44,7 @@
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Mists.h"
 #include "Graphics/ModelLight.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -306,7 +307,8 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 			}
 			subMesh->GetMesh().GetVertexBuffer().Bind();
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+			// the smoke material [0xEA1ABC] (fn_007FA300 0x7FA30E): mode 6, two-sided
+			bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}

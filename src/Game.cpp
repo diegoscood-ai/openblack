@@ -1631,6 +1631,11 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
+	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
+	if (video::Get().IsPlaying())
+	{
+		video::Get().Stop();
+	}
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{

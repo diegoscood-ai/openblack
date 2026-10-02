@@ -904,11 +904,12 @@ defecto no llega a una instalación que ya haya arrancado una vez; hay que edita
   la cámara sobre el poblado** (`SET_CAMERA_POSITION(1891.04, 31.69, 2520.67)`) y hace `SET_FADE_IN(2.0)`. Con
   `free start` el motor **se come eso**: la **primera tarea del guion que coge la cámara en una partida nueva** es «el
   principio de la tierra», y mientras la tenga, `SET_CAMERA_POSITION` (001), `SET_CAMERA_FOCUS` (002),
-  `SET_WIDESCREEN` (032), `SET_FADE` (241), `SET_FADE_IN` (242), `START_MUSIC` (044) y `STOP_MUSIC` (045) no hacen nada
-  y `HAS_CAMERA_ARRIVED` (035) contesta «ya ha llegado» (si no, el guion esperaría para siempre: `MOVE_CAMERA_POSITION`
-  y `MOVE_CAMERA_FOCUS` tampoco están implementados). `START_CAMERA_CONTROL` **sí se concede**, para que el
-  `loop { START_CAMERA_CONTROL }` del guion pase y suelte la cámara como siempre; en openblack la cámara del jugador no
-  se le quita de todas formas (`Help/ScriptControl.cpp`). En cuanto esa tarea hace `END_CAMERA_CONTROL` (o se para)
+  los demás opcodes de cámara (003, 004, 119, 279, 280, 284, 286, 287), `SET_WIDESCREEN` (032), `SET_FADE` (241),
+  `SET_FADE_IN` (242), `START_MUSIC` (044) y `STOP_MUSIC` (045) no hacen nada y `HAS_CAMERA_ARRIVED` (035) contesta «ya
+  ha llegado». `START_CAMERA_CONTROL` **sí se concede** y crea el modo de cámara del guion como en el original (así
+  ninguna otra tarea coge la cámara mientras la tiene la apertura), para que el `loop { START_CAMERA_CONTROL }` del
+  guion pase y suelte la cámara como siempre; pero ese modo no mueve la cámara del jugador (`script_camera::Drives`,
+  [script-camera.md](script-camera.md)). En cuanto esa tarea hace `END_CAMERA_CONTROL` (o se para)
   todo vuelve a la normalidad: las escenas de los milagros, las misiones y los vórtices siguen igual. Estado:
   `CameraControl::freeStartTask` / `freeStartArmed` (`Help/ScriptControl.h`), armado en `CameraControl::Reset` (cada
   carga de mapa).

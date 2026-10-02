@@ -25,6 +25,7 @@
 #include <LHVMTypes.h>
 #include <entt/entity/entity.hpp>
 #include <entt/entity/fwd.hpp>
+#include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -42,6 +43,7 @@
 #include "Audio/SamplePlay.h"
 #include "Audio/ScriptSound.h"
 #include "Camera/Camera.h"
+#include "Camera/ScriptCamera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
 #include "ECS/Archetypes/BonfireArchetype.h"
@@ -160,6 +162,21 @@ bool FreeStart()
 {
 	return help::script_control::IsFreeStartTask(help::script_control::GetCameraControl(),
 	                                             Locator::vm::value().GetCurrentTaskNumber());
+}
+
+/// The check of GScript's camera opcodes (0x6ECAA0 and the others): no camera mode -> "Script camera has been
+/// removed!" (0xC0C0CC); a mode other than CameraModeScript (__RTDynamicCast to 0x9CE188) -> "We are in the wrong
+/// camera mode!" (0xC0C0EC; SET_CAMERA_POSITION 0x6EC8F0 says nothing). Either way the opcode does nothing. openblack
+/// always has the player's mode, so only the second can happen. The "Script moving camera in citadel" note (0xC0C110) of
+/// 003/004/287 is not ported: the citadel never has a script mode (StartCameraControl 0x6ECD33)
+bool ScriptCameraMode(const char* opcode)
+{
+	if (script_camera::Active())
+	{
+		return true;
+	}
+	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "{}: We are in the wrong camera mode!", opcode);
+	return false;
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -409,42 +426,60 @@ void None() {} // 000 NONE
 
 void SetCameraPosition() // 001 SET_CAMERA_POSITION
 {
+	// GScript::SetCameraPosition 0x6EC8F0 -> CameraModeScript::SetCameraPosition 0x461370
 	const auto position = PopVec();
-	// TODO(Daniels118): check if cinema mode is enabled
 	if (FreeStart())
 	{
 		return; // mod game.skip-intro, "free start": the opening does not move the player's camera
 	}
-	auto& camera = Locator::camera::value();
-	camera.SetOrigin(position);
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::SetPosition(position);
+	}
 }
 
 void SetCameraFocus() // 002 SET_CAMERA_FOCUS
 {
+	// GScript::SetCameraFocus 0x6EC9A0 -> CameraModeScript::SetCameraFocus 0x4612B0
 	const auto position = PopVec();
-	// TODO(Daniels118): check if cinema mode is enabled
 	if (FreeStart())
 	{
 		return; // mod game.skip-intro, "free start"
 	}
-	auto& camera = Locator::camera::value();
-	camera.SetFocus(position);
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::SetFocus(position);
+	}
 }
 
 void MoveCameraPosition() // 003 MOVE_CAMERA_POSITION
 {
-	// const auto time = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveCameraPosition 0x6ECAA0 -> CameraModeScript::MoveCameraPosition 0x4616F0 (seconds of the wall clock)
+	const auto time = Popf();
+	const auto position = PopVec();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::MovePosition(position, time);
+	}
 }
 
 void MoveCameraFocus() // 004 MOVE_CAMERA_FOCUS
 {
-	// const auto time = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveCameraFocus 0x6ECBA0 -> CameraModeScript::MoveCameraFocus 0x461430
+	const auto time = Popf();
+	const auto position = PopVec();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::MoveFocus(position, time);
+	}
 }
 
 void GetCameraPosition() // 005 GET_CAMERA_POSITION
@@ -831,12 +866,18 @@ void DllGettime() // 029 DLL_GETTIME
 void StartCameraControl() // 030 START_CAMERA_CONTROL
 {
 	// GScript::StartCameraControl 0x6ECCA0 (Help/ScriptControl.cpp). Inside the citadel: g_game+0x205A28 == 1 (inferred:
-	// openblack's temple interior being active stands for it). The camera: fn_00461140 creates the script camera mode
-	// unless GCamera::CantExitCurrentMode 0x441B70; openblack has no camera modes, so it is always taken (inferred) and
-	// the camera itself does not change (pending: CameraModeScript)
+	// openblack's temple interior being active stands for it), no camera mode. Outside, fn_00461140 (0x6ECCBA) creates
+	// the script camera mode unless GCamera::CantExitCurrentMode 0x441B70 (Camera/ScriptCamera.h)
 	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
 	auto& cameraControl = help::script_control::GetCameraControl();
-	const bool granted = help::script_control::StartCameraControl(cameraControl, ScriptVm(), insideCitadel, true);
+	bool cameraTaken = false;
+	if (!insideCitadel)
+	{
+		const auto& camera = Locator::camera::value();
+		cameraTaken = script_camera::Begin(camera.GetOrigin(), camera.GetFocus());
+	}
+	const bool granted =
+	    help::script_control::StartCameraControl(cameraControl, ScriptVm(), insideCitadel, cameraTaken);
 	// Not original (mod game.skip-intro, "free start"): the first task that takes the camera after a new game is the
 	// land's opening (CreatureDevSeeHome, or CreaturesInGlade with the other answers). It is still granted, so the
 	// script's `loop { START_CAMERA_CONTROL }` goes through and releases as usual, but from here until it gives the
@@ -853,10 +894,14 @@ void StartCameraControl() // 030 START_CAMERA_CONTROL
 
 void EndCameraControl() // 031 END_CAMERA_CONTROL
 {
-	// GScript::EndCameraControl 0x6ECEF0 (Help/ScriptControl.cpp): the state only; the camera mode and its field of view
-	// going back are pending (no camera modes in openblack)
-	help::script_control::EndCameraControl(help::script_control::GetCameraControl(), audio::GetScriptAudioState(),
-	                                       ScriptVm());
+	// GScript::EndCameraControl 0x6ECEF0 (Help/ScriptControl.cpp): fn_006ECD70 when this task has the camera; its camera
+	// part (the script mode deleted, the player's mode from where the camera is, the FOV back to 70 degrees in 0.5 s)
+	// is script_camera::End
+	if (help::script_control::EndCameraControl(help::script_control::GetCameraControl(), audio::GetScriptAudioState(),
+	                                           ScriptVm()))
+	{
+		script_camera::End();
+	}
 }
 
 void SetWidescreen() // 032 SET_WIDESCREEN
@@ -988,13 +1033,24 @@ void HasCameraArrived() // 035 HAS_CAMERA_ARRIVED
 	if (FreeStart())
 	{
 		// Mod game.skip-intro, "free start": the opening's camera is not moved at all, so it has always arrived. Without
-		// this the script would wait here for ever (MOVE_CAMERA_POSITION / MOVE_CAMERA_FOCUS are not implemented either)
+		// this the script would wait here for ever
 		Pushb(true);
 		return;
 	}
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::HasCameraArrived 0x6ED170 (1 in a network game, not ported) -> GCamera::Arrived 0x443050: the current
+	// mode's vt+0x34. CameraModeScript::Arrived 0x461B40; the player's CameraModeNew3 keeps CameraMode::Arrived 0x441700
+	// (its vtable 0x8C7BFC +0x34), the same squared distance 0.001 to the destinations: here the player's camera
+	// interpolators (aproximado: they are not the original's zoomers)
+	if (script_camera::Active())
+	{
+		Pushb(script_camera::ScriptArrived());
+		return;
+	}
+	const auto& camera = Locator::camera::value();
+	const auto dp = camera.GetOrigin() - camera.GetOrigin(Camera::Interpolation::Target);
+	const auto df = camera.GetFocus() - camera.GetFocus(Camera::Interpolation::Target);
+	Pushb(glm::dot(dp, dp) < script_camera::k_ArrivedDistanceSquared &&
+	      glm::dot(df, df) < script_camera::k_ArrivedDistanceSquared);
 }
 
 void FlockCreate() // 036 FLOCK_CREATE
@@ -1777,11 +1833,16 @@ void GetRealYear() // 118 GET_REAL_YEAR
 
 void RunCameraPath() // 119 RUN_CAMERA_PATH
 {
-	// const auto cameraEnum = Pop().intVal;
-	// GScript::RunCameraPath 0x6ED7F0: the script camera mode (CameraModeScript) fn_00461A80(path); the track is
-	// LoadCameraTrack (3D/CameraTracks.h) with CameraWayRunner on both of its ways. The camera itself is not ported.
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::RunCameraPath 0x6ED7F0 -> CameraModeScript::RunPath fn_00461A80 (camera.edt "Track%d", 3D/CameraTracks.h)
+	const auto path = static_cast<int32_t>(Pop().intVal);
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::RunPath(path);
+	}
 }
 
 void StartDialogue() // 120 START_DIALOGUE
@@ -3195,17 +3256,26 @@ void SetFocusAndPositionFollow() // 278 SET_FOCUS_AND_POSITION_FOLLOW
 
 void SetCameraLens() // 279 SET_CAMERA_LENS
 {
-	// const auto lens = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetCameraLens 0x6EE2E0: GCamera::SetCameraFov(70 degrees, x) (0x6EE302..0x6EE325): the argument is the
+	// TIME and the lens goes back to the default (copied as the original does; its one use is SET_CAMERA_LENS(0))
+	const auto time = Popf();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	script_camera::SetFov(script_camera::k_DefaultFov, time);
 }
 
 void MoveCameraLens() // 280 MOVE_CAMERA_LENS
 {
-	// const auto time = Popf();
-	// const auto lens = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveCameraLens 0x6EE280: GCamera::SetCameraFov(lens * 0.0174533, t) (degrees, seconds of game time)
+	const auto time = Popf();
+	const auto lens = Popf();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	script_camera::SetFov(lens * script_camera::k_DegreesToRadians, time);
 }
 
 void CreatureReaction() // 281 CREATURE_REACTION
@@ -3226,14 +3296,27 @@ void CreatureInDevScript() // 282 CREATURE_IN_DEV_SCRIPT
 
 void StoreCameraDetails() // 283 STORE_CAMERA_DETAILS
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StoreCameraDetails 0x6EE330: GScript +0x54 = LH3DTech::g_camera, +0x60 = the drawn focus (not the FOV)
+	const auto& camera = Locator::camera::value();
+	auto& state = script_camera::Get();
+	state.storedPosition = camera.GetOrigin();
+	state.storedFocus = camera.GetFocus();
 }
 
 void RestoreCameraDetails() // 284 RESTORE_CAMERA_DETAILS
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::RestoreCameraDetails 0x6EE390: GCamera::SetPositionAndFocus 0x4438C0 with them, whatever the mode
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto& state = script_camera::Get();
+	script_camera::SetPositionAndFocus(state.storedPosition, state.storedFocus);
+	if (!script_camera::Active())
+	{
+		// (inferido) the player's mode: openblack's player camera is not on GCamera's zoomers, so it is set here too
+		Locator::camera::value().SetOrigin(state.storedPosition).SetFocus(state.storedFocus);
+	}
 }
 
 void StartAngleSound285() // 285 START_ANGLE_SOUND
@@ -3245,29 +3328,41 @@ void StartAngleSound285() // 285 START_ANGLE_SOUND
 
 void SetCameraPosFocLens() // 286 SET_CAMERA_POS_FOC_LENS
 {
-	// const auto unk6 = Pop().intVal;
-	// const auto unk5 = Pop().intVal;
-	// const auto unk4 = Pop().intVal;
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetCameraPosFocLens 0x6EE3C0: GCamera::SetPositionAndFocus 0x4438C0 and SetCameraFov(lens, 0) with the lens
+	// NOT turned into radians (0x6EE480; copied as the original does, no map uses it)
+	const auto lens = Popf();
+	const auto focus = PopVec();
+	const auto position = PopVec();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	script_camera::SetPositionAndFocus(position, focus);
+	if (!script_camera::Active())
+	{
+		Locator::camera::value().SetOrigin(position).SetFocus(focus); // (inferido) as in 284
+	}
+	script_camera::SetFov(lens, 0.0f);
 }
 
 void MoveCameraPosFocLens() // 287 MOVE_CAMERA_POS_FOC_LENS
 {
-	// const auto unk7 = Pop().intVal;
-	// const auto unk6 = Pop().intVal;
-	// const auto unk5 = Pop().intVal;
-	// const auto unk4 = Pop().intVal;
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveCameraPosFocLens 0x6EE4B0: CameraModeScript::MoveCameraPosition / MoveCameraFocus in t and
+	// SetCameraFov(lens, t), the lens not in radians (0x6EE613; copied, no map uses it)
+	const auto time = Popf();
+	const auto lens = Popf();
+	const auto focus = PopVec();
+	const auto position = PopVec();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::MovePosition(position, time);
+		script_camera::MoveFocus(focus, time);
+		script_camera::SetFov(lens, time);
+	}
 }
 
 void GameTimeOnOff() // 288 GAME_TIME_ON_OFF
@@ -3486,20 +3581,14 @@ void SetComputerPlayerPosition() // 313 SET_COMPUTER_PLAYER_POSITION
 
 void GetStoredCameraPosition() // 314 GET_STORED_CAMERA_POSITION
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	// GScript::GetStoredCameraPosition 0x6EE630: GScript +0x54
+	PushVec(script_camera::Get().storedPosition);
 }
 
 void GetStoredCameraFocus() // 315 GET_STORED_CAMERA_FOCUS
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	// GScript::GetStoredCameraFocus 0x6EE6A0: GScript +0x60
+	PushVec(script_camera::Get().storedFocus);
 }
 
 void CallNearInState() // 316 CALL_NEAR_IN_STATE
@@ -4070,12 +4159,14 @@ void SetCanBuildWorshipsite() // 376 SET_CAN_BUILD_WORSHIPSITE
 
 void GetFacingCameraPosition() // 377 GET_FACING_CAMERA_POSITION
 {
-	// const auto distance = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushv(0.0f); // x
-	Pushv(0.0f); // y
-	Pushv(0.0f); // z
+	// GScript::GetFacingCameraPosition 0x6EE710: LH3DTech::g_camera + d * the camera's forward vector (0xEA1DD4..0xEA1DDC;
+	// taken as the unit vector from the drawn position to the drawn focus: inferido)
+	const auto distance = Popf();
+	const auto& camera = Locator::camera::value();
+	const auto origin = camera.GetOrigin();
+	const auto toFocus = camera.GetFocus() - origin;
+	const float length = glm::length(toFocus);
+	PushVec(length > 0.0f ? origin + toFocus * (distance / length) : origin);
 }
 
 void SetComputerPlayerAttitude() // 378 SET_COMPUTER_PLAYER_ATTITUDE

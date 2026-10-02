@@ -229,7 +229,9 @@ void ReleaseLoop(entt::id_type sound, Owner owner);
 // (0x100016F4, 0x100017DC, 0x10001C2A, 0x10001C5A, 0x10001E74) and LH_AudioSystem::Rand() 0x10015740 (the anim effect
 // lists, 0x100146CF / 0x100147D8). The DLL seeds it with srand(time(0)): at the first LHSamplePlay (0x10011497, flag
 // [0x1005645C]), at the first LH_AudioSystem::Rand() (0x10015749, flag [0x10056464]), at the atmos switch-on
-// fn_10001840 (0x10001843) and at each atmos bank's registration fn_10001610 (0x10001635).
+// fn_10001840 (0x10001843, called once from the LH_AudioSystem's QMixer init 0x10015BDD when +0x90: not emulated, the
+// registrations below seed again before LHAtmos draws) and at each registration of a bank with atmos records
+// (LHBankRegister 0x10002765 when the count of the header's high word > 0 -> fn_10001610 0x10001635).
 
 /// The DLL's CRT rand() 0x1001E7EB: seed = seed * 0x343FD + 0x269EC3, (seed >> 16) & 0x7FFF (0..32767); Backend::rand
 /// when the tests set one

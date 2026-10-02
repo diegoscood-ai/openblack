@@ -184,8 +184,8 @@ void Register()
 			continue;
 		}
 		g_State.banks[i].registered = true;
-		// fn_10001610 0x10001635: srand(time(0)) before the bank's draws (and the switch-on fn_10001840 0x10001843 did
-		// the same just before: the same second)
+		// fn_10001610 0x10001635 (from LHBankRegister 0x10002765): srand(time(0)) before the bank's draws. The switch-on
+		// fn_10001840 0x10001843 seeds once at the DLL's init (0x10015BDD), before these: overwritten, not emulated
 		sample_play::SeedRand();
 		bool anyLoose = false;
 		for (const auto id : banks::Samples(bank))

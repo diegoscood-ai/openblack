@@ -28,8 +28,8 @@
 #include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
-#include "ECS/Rocks.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Weather/Atmos.h"
 #include "Locator.h"
@@ -104,7 +104,7 @@ std::vector<audio::StreetLantern> StreetLanterns()
 	Locator::entitiesRegistry::value().Each<const StreetLantern, const Transform>(
 	    [&lanterns](entt::entity entity, const StreetLantern& /*unused*/, const Transform& transform) {
 		    // Object::GetHeight 0x638120
-		    lanterns.push_back({entity, transform.position, ecs::Rocks::Height(entity)});
+		    lanterns.push_back({entity, transform.position, ecs::object::GetHeight(entity)});
 	    });
 	return lanterns;
 }

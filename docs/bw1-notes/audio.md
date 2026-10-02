@@ -1738,8 +1738,9 @@ de anim-effects, 0x100146CF / 0x100147D8 por `Rand(n)` 0x10015710). Antes había
 `AtmosBanks` y `tags::RandomSample`, los tres sobre `Locator::rng`); ahora:
 - `sample_play::Rand()` es ese `rand` (o `Backend::rand` en los tests), `SeedRand()` su `srand(time(0))`: en el primer
   LHSamplePlay (0x10011497, bandera [0x1005645C]), en el primer `LH_AudioSystem::Rand()` (0x10015749, [0x10056464]) y al
-  registrar cada banco de ambiente (fn_10001610 0x10001635; el encendido fn_10001840 0x10001843 hace lo mismo en el
-  mismo segundo). `AtmosBanks` lo usa.
+  registrar cada banco con registros de ambiente (LHBankRegister 0x10002765 -> fn_10001610 0x10001635). El encendido
+  fn_10001840 0x10001843 siembra una vez en el arranque del DLL (0x10015BDD, con +0x90) y las sembradas de los bancos
+  lo pisan antes de que LHAtmos sortee: no se emula. `AtmosBanks` lo usa.
 - `sample_play::AudioSystemRand()` = `LH_AudioSystem::Rand()`: `rand() / 2`, más 0x3FFF una vez sí y otra no (la bandera
   [0x1003C124] empieza en 1 y cambia en cada llamada, 0x10015768..0x10015783). **Cambio audible, por el original**:
   los sorteos de una lista de anim-effects alternan entre su mitad alta y su mitad baja (pasos, sierra, susurro de
@@ -1764,6 +1765,19 @@ GSoundMap (superficie de la cámara y de la mano), el gancho de la cámara en el
 anim-effects (pasos de animales grupo 18/32/36, aldeanos grupo 1 con las voces 1/2/3 y la sierra 30/31, hojas de los
 árboles); el reparto de las muestras de cada lista cambia por la alternancia de `LH_AudioSystem::Rand`. Sin errores
 nuevos.
+
+**Auditoría de B11b** (TEAM_GUIDELINES §1.7): comprobadas en el desensamblado 0x10015710, 0x10015740 ([0x10056464],
+[0x1003C124]), 0x1001E7EB / 0x1001E7DE, 0x10011483..0x100114A6 ([0x1005645C]), 0x100127DF (rand directo, dentro de la
+rama del nombre "NONE", que en openblack es siempre), 0x10001635 / 0x10002765, 0x10001843 / 0x10015BDD, 0x100146CF /
+0x100147D8 (con 1 muestra no se llama a Rand: la bandera no cambia, igual en openblack), 0x71D950 (6 fuera del mapa),
+0x71ED40 / 0x6DE570, 0x5165BC, 0x5166B1 / 0x5166CC, 0x51675D y 0x73494E. Cambios: el comentario del encendido
+fn_10001840 (es del arranque del DLL, no "el mismo segundo"); `streetLanterns` usa `ecs::object::GetHeight` (0x638120)
+en vez de `Rocks::Height`, que solo lo reenviaba; test nuevo `DllRand.CrtSequenceAndAlternation` (la secuencia del CRT
+desde la semilla 1, la alternancia de 0x10015740 y que `Random(n)` nunca da n). En juego (`_auditudio11b_audit*.log`):
+115 clips, 201 + 3 filas, 15 bucles / 400 sueltas, la sierra con las voces 1/2/3 en el gancho de la vista, 12 farolas
+con las mismas alturas (4 x 1,29 y 8 x 4,95) y el gancho de la farola. Pendiente (anterior a B11b): 0x5165BC llama a
+IsAlive en cualquier cosa animada; openblack solo lo mira en aldeanos (`AnimatedThing::Villager::alive`), así que un
+animal muerto todavía suena **(aproximado)**.
 
 ## Qué suena y cuándo
 

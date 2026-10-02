@@ -40,8 +40,8 @@ class CameraWayRunner;
 ///   follow a thing with the focus (+0x4C, FOCUS_FOLLOW) and with the position (+0x08, POSITION_FOLLOW) once a frame
 ///   (CameraModeFollow::Update 0x44C160).
 /// - openblack has no mode stack: the player's mode is Camera + DefaultWorldCameraModel, and this module stands for
-///   GCamera's zoomers only while a script mode lives (the player's camera is not built on Zoomers, inferred to make
-///   no visible difference: the hand-over copies the drawn camera both ways).
+///   GCamera's zoomers while a script mode lives. The player's Camera keeps its own Zoomer3d (GetOriginZoomer /
+///   GetFocusZoomer): Begin takes them as they are and End hands them back, so the two sets behave as GCamera's one.
 namespace openblack::script_camera
 {
 
@@ -91,22 +91,11 @@ constexpr float k_FaceMaxHeading = 25.1327419f;
 constexpr float k_TwoPi = 6.28318548f;
 constexpr float k_FacePitch = 0.1f;
 
-struct Vec3Zoomer
-{
-	std::array<Zoomer, 3> axis;
-
-	void SetPosition(const glm::vec3& v);
-	void SetDestination(const glm::vec3& v, float seconds); // SetDestinationWithSpeedAndTime(v.i, 0, seconds)
-	void Update(float seconds);
-	[[nodiscard]] glm::vec3 Value() const;
-	[[nodiscard]] glm::vec3 Destination() const;
-};
-
 /// The state: GCamera's zoomers, the script mode and its camera path
 struct State
 {
-	Vec3Zoomer position; ///< GCamera +0x118
-	Vec3Zoomer focus;    ///< GCamera +0x88
+	Zoomer3d position; ///< GCamera +0x118
+	Zoomer3d focus;    ///< GCamera +0x88
 	Zoomer fov;          ///< GCamera +0x1A8, radians
 	/// GCamera +0x68: seconds since the last mode change (0 in SwitchToViewMode 0x441CD0, += the frame's camera seconds
 	/// at 0x441FCD, 2 after fn_0044BB30 0x44C141)
@@ -153,10 +142,16 @@ void Reset();
 /// factor 0.2 and "behind" on (0x461185..0x461193), heading 0 (Set(0) 0x44BA7D), and the mode's seconds from 0
 /// (SwitchToViewMode 0x44B947)
 bool Begin(const glm::vec3& origin, const glm::vec3& focus);
+/// The same with the player's zoomers taken as they are (value, speed, destination and time): GCamera's zoomers are the
+/// same for every mode, so the script mode goes on from wherever the player's was heading (0x461180 does not touch them)
+bool BeginFrom(const Zoomer3d& origin, const Zoomer3d& focus);
 /// fn_006ECD70 0x6ECDB1..0x6ECE48: the script mode deleted (vt+0x30) when it is the current one; the FOV back to 70
 /// degrees in 0.5 s either way (0x6ECE35). Returns true when a script mode was deleted (the player's mode is then
 /// created from where the camera is: CameraModeNew3 0x4572E0 -> Initialise 0x456640)
 bool End();
+/// The zoomers handed back to the player's camera after End (CameraModeNew3::Initialise 0x456640 starts from GCamera's
+/// zoomers): position and focus as the script left them, with their speed and destination
+void HandBack(Zoomer3d& origin, Zoomer3d& focus);
 [[nodiscard]] bool Active();
 /// A script mode drives the camera: alive, and not the land's opening under mod game.skip-intro's "free start" (not
 /// original: that opening keeps its mode but leaves the camera to the player)

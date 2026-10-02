@@ -241,8 +241,8 @@ void ProcessBanks()
 	const bool trace = Trace();
 	for (size_t i = 0; i < k_AtmosTypeCount; ++i)
 	{
-		// 0x428FFA: GAudio+0x190 > -0.6 (the double at 0x8C4A08)
-		g_State.banks[i].group = atmos_banks::Alignment() > -0.6f ? 1 : 2;
+		// 0x428FFA..0x42900B: the float GAudio+0x190 > the double -0.59999999999999998 (fcomp qword [0x8C4A08])
+		g_State.banks[i].group = static_cast<double>(atmos_banks::Alignment()) > -0.6 ? 1 : 2;
 		float& current = g_State.current[i];
 		const float target = g_State.target[i];
 		// slow near the ends

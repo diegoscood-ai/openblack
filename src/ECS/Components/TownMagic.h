@@ -52,7 +52,7 @@ struct TownMagic
 struct TotemWorship
 {
 	float percentage {0.0f}; ///< +0x80
-	Zoomer rise {};          ///< +0x9C: the percentage moving to its new value in |change| x 5.2 s (0x999A98 = 5200 ms)
+	Zoomer rise {};          ///< +0x9C: the percentage moving to its new value in |change| x 5200 ms [0x999A98] (in ms)
 };
 
 } // namespace openblack::ecs::components

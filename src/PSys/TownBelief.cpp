@@ -24,6 +24,7 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/TotemStatue.h"
@@ -271,10 +272,11 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 			const std::array<uint8_t, 3> colour = {static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8),
 			                                       static_cast<uint8_t>(rgb)};
 			const glm::mat3 still(1.0f);
-			// the second glow's +0x14 (frame_anim::PlayerSymbolSpin, written at 0x69D8C5): rotate(-spin, Y) is
-			// SetAngleY(spin), whose roll atan2(M[0][2], M[0][0]) = +spin (billboard::Screen turns it clockwise)
+			// the second glow's sprite angle +0x14 (frame_anim::PlayerSymbolSpin, written at 0x69D8C5) carried as the atom's
+			// SetAngleY 0x674360 matrix (lh_matrix::AngleY), whose roll atan2(M[0][2], M[0][0]) = +spin (billboard::Screen
+			// turns it clockwise)
 			const float spin = graphics::frame_anim::PlayerSymbolSpin(symbol.glowSpin, milliseconds);
-			const glm::mat3 spun = glm::mat3(glm::rotate(glm::mat4(1.0f), -spin, glm::vec3(0.0f, 1.0f, 0.0f)));
+			const glm::mat3 spun = lh_matrix::AngleY(spin);
 			// the cells of the two glows, +0xC and +0x10 (frame_anim::PlayerSymbolCell, 0x69D7E0..0x69D853)
 			const auto cellA = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowA, milliseconds, 0));
 			const auto cellB = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowB, milliseconds, 1));

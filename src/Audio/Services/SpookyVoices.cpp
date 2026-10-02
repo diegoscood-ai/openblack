@@ -280,8 +280,9 @@ void spooky::Process()
 	if (NightNow(LocalTime())) // 0x72E344
 	{
 		// 0x72E34D..0x72E379: r = LocalFloatRand(1), ftol((1 - r^3) x 1000) compared unsigned with the counter
-		const double r = guidance::LocalFloatRand(1.0f);
-		const auto chance = static_cast<uint32_t>(static_cast<int32_t>((1.0 - r * r * r) * 1000.0f));
+		// (float steps: the game's FPU is at 24 bits, fn_007DEE00 `and cw, 0xFCFF` at 0x7DEE0D)
+		const float r = guidance::LocalFloatRand(1.0f);
+		const auto chance = static_cast<uint32_t>(static_cast<int32_t>((1.0f - r * r * r) * 1000.0f));
 		if (chance < g_Spooky.counter)
 		{
 			PlaySpooky();
@@ -297,25 +298,25 @@ void spooky::Process()
 
 void spooky::PlaySpooky()
 {
-	// 0x72E3F6..0x72E42C
-	const double a = guidance::LocalFloatRand(0.65f); // 0x3F266666
-	double p = a * a * a + 1.0;
+	// 0x72E3F6..0x72E42C in float steps (the FPU at 24 bits, fn_007DEE00)
+	const float a = guidance::LocalFloatRand(0.65f); // 0x3F266666
+	float p = a * a * a + 1.0f;
 	if (guidance::LocalRand(2) == 0)
 	{
-		p = 1.0 / p;
+		p = 1.0f / p;
 	}
-	const auto pitchFactor = static_cast<float>(p);
+	const float pitchFactor = p;
 	const auto pan = static_cast<int>(guidance::LocalRand(180)); // 0xB4
-	const double b = guidance::LocalFloatRand(0.8f); // 0x3F4CCCCD
-	double q = b * b * b + 1.0;
+	const float b = guidance::LocalFloatRand(0.8f); // 0x3F4CCCCD
+	float q = b * b * b + 1.0f;
 	if (guidance::LocalRand(2) == 0)
 	{
-		q = 1.0 / q;
+		q = 1.0f / q;
 	}
 	// 0x72E470..0x72E4CD
 	auto& options = g_Spooky.options;
-	options.pitch = static_cast<int>(static_cast<double>(pitchFactor) * 100.0f);
-	options.volume = static_cast<int>(static_cast<double>(options.volume) * q);
+	options.pitch = static_cast<int>(pitchFactor * 100.0f);
+	options.volume = static_cast<int>(static_cast<float>(options.volume) * q); // fild (exact), fmul at 24 bits
 	g_Spooky.field2C = pan;
 	options.is3D = false;
 	PlayOptions play;

@@ -21,6 +21,7 @@
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/NightLights.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
@@ -45,6 +46,7 @@
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/Life.h"
+#include "ECS/PetitNavire.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Components/Alpha.h"
@@ -79,6 +81,47 @@ namespace
 /// The mesh atoms of the particle effects this frame (PSys/Creators/Mesh.h), drawn as instances of their mesh
 std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
 
+/// Whether a mesh atom is drawn with DrawCutByPlane: the particle's +0x24 & 4 (from the creator's +0x5F,
+/// CreateParticle 0x6A8B94..0x6A8B9A), tested by fn_00679F20 (`test al, 4` 0x679F29) on both the immediate and the
+/// sorted path (fn_00679F60's callback is fn_00679F20, `push 0x679F20` 0x679FBC), which then calls vt+0x11C (0x679F4A)
+/// instead of the Draw vt+0x104 (0x679F52). psys::mesh_atoms::Instance does not carry that bit yet (src/PSys, session
+/// milagros2: MeshCreator::drawCutByPlane is read but not passed on): this reads a member `cutByPlane` once it exists,
+/// and false until then
+template <typename Atom>
+[[nodiscard]] bool AtomCutByPlane(const Atom& atom)
+{
+	if constexpr (requires(const Atom& a) { a.cutByPlane; })
+	{
+		return static_cast<bool>(atom.cutByPlane);
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/// A cut atom that also draws with the land colour (fn_0080BEC0 0x67A01C before vt+0x11C) would need the land light of
+/// fn_0080BEC0 under the light of fn_00858BA0 (inferido, no effect known to set both): not ported, drawn as today
+[[nodiscard]] bool AtomDrawnCut(const openblack::psys::mesh_atoms::Instance& atom)
+{
+	if (!AtomCutByPlane(atom))
+	{
+		return false;
+	}
+	if (atom.landscapeColour)
+	{
+		static bool warned = false;
+		if (!warned)
+		{
+			warned = true;
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"),
+			                   "PSys mesh atom with DrawCutByPlane and DrawWithLandscapeColor: the cut is not ported, drawn uncut");
+		}
+		return false;
+	}
+	return true;
+}
+
 /// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
 /// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
 /// ...); villagers and the creature have blob / dynamic shadows instead.
@@ -107,15 +150,34 @@ bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity en
 /// fn_00802120 0x74AB1B then the haze 0x74AB60; WorshipSite::Draw 0x519460 and SpellIcon::Draw 0x5196CC
 /// LH3DIsland::GetAltitudeAndSetColorSpecular 0x803340 without haze, except a burning WorshipSite (Object +0x44, the
 /// FireEffect, 0x5193FF..0x51940A -> fn_00518050 -> fn_0080BEC0: fn_00801C90 + fn_007FEB30); Dove::Draw 0x41F75B
-/// table[255] ([0xEDDD08]) without haze ((inferido) every species of the Dove class draws with it). Pending: the
-/// vt +0x890 == 0 branch of both (0x5193D9, 0x519658 -> DrawBuilding 0x517F90, light without haze: fix 7) and
-/// SpellIcon's +0x10C branch (0x519672, not read)
+/// table[255] ([0xEDDD08]) without haze ((inferido) every species of the Dove class draws with it).
+/// MultiMapFixed::DrawBuilding 0x517F90 (the partly built draw) is fn_00801C90 (0x517FB2) without fn_007FEB30 (to
+/// 0x518046; with a fire only the tint fn_0080BF10, 0x517FD4): MultiMapFixed::Draw 0x518090 takes it while
+/// IsDrawBuilding (vt +0x8A4, 0x5180A6), which for a Feature is Feature::IsDrawBuilding 0x527790 (the ArkDryDock while
+/// not built, ecs/FeatureBuild.h). PetitNavire's hull (+0x28) gets fn_00801C90 in PreDraw (0x5E018D, 0x5E03DF) and
+/// neither PreDraw 0x5DFF20 nor PostDraw 0x5E03F0 calls fn_007FEB30. Pending: the vt +0x890 == 0 branch of
+/// WorshipSite / SpellIcon / Totem (0x5193E9, 0x519668, 0x51ABC3 -> DrawBuilding) and the building site (+0x74) of
+/// MultiMapFixed::IsDrawBuilding 0x52F0C0 (openblack builds nothing on a site); the repair part of a damaged Abode
+/// (Abode::Draw 0x516129 -> DrawBuilding, no haze) is merged into its FragMesh, whose pieces take the haze (fn_007F7ED0
+/// 0x7F7F5F, 0x7F807D), so the whole keeps it (aproximado); the boat's sailors (0x5E073B) and deck objects (they copy
+/// the hull's +0x4C, 0x5E099C..0x5E09A2) share their meshes with villagers and cows (one mode per mesh), so they keep
+/// the haze (aproximado); Scaffold::Draw's phantom building (+0x74, fn_00802120 0x6EA6CA, no haze) is not drawn by
+/// openblack; SpellIcon's +0x10C branch (0x519672, not read)
 openblack::land_light::ObjectLight LandLightOf(const openblack::ecs::Registry& registry, entt::entity entity)
 {
 	using openblack::land_light::ObjectMode;
 	if (registry.AllOf<Tree>(entity))
 	{
 		return {ObjectMode::CellShift, true};
+	}
+	if (const auto* feature = registry.TryGet<const Feature>(entity);
+	    feature != nullptr && feature->type == openblack::FeatureInfo::ArkDryDock && feature->percentBuilt < 1.0f)
+	{
+		return {ObjectMode::Bilinear, false}; // DrawBuilding 0x517F90
+	}
+	if (entity == openblack::ecs::petit_navire::GetHull())
+	{
+		return {ObjectMode::Bilinear, false}; // PetitNavire::PreDraw 0x5E03DF
 	}
 	if (registry.AllOf<WorshipSite>(entity) && openblack::ecs::fire::Find(entity) == nullptr)
 	{
@@ -328,12 +390,18 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	std::erase_if(g_PSysMeshes, [](const auto& atom) {
 		return !openblack::Locator::resources::value().GetMeshes().Contains(atom.meshId);
 	});
+	// the opaque ones drawn with DrawCutByPlane get their own ranges (cutAtomDrawDescs), the translucent ones stay sorted
+	std::unordered_map<entt::id_type, uint32_t> cutAtomIds;
 	for (const auto& atom : g_PSysMeshes)
 	{
 		if (atom.translucent)
 		{
 			++translucentIds[atom.meshId];
 			translucentMorph.try_emplace(atom.meshId, false);
+		}
+		else if (AtomDrawnCut(atom))
+		{
+			++cutAtomIds[atom.meshId];
 		}
 		else
 		{
@@ -382,6 +450,14 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		                                            std::forward_as_tuple(offset, count, translucentMorph[meshId]));
 		offset += count;
 	}
+	_renderContext.cutAtomDrawDescs.clear();
+	_renderContext.cutAtomInstances.clear();
+	for (const auto& [meshId, count] : cutAtomIds)
+	{
+		_renderContext.cutAtomDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
+		                                        std::forward_as_tuple(offset, count, false));
+		offset += count;
+	}
 	_renderContext.shadowCasterDrawDescs.clear();
 	for (const auto& [meshId, count] : shadowCasterIds)
 	{
@@ -416,9 +492,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    const auto* draw = registry.TryGet<const DrawPosition>(entity);
 		    const auto& drawRotation = draw != nullptr ? draw->rotation : transform.rotation;
 		    const auto& drawPosition = draw != nullptr ? draw->position : transform.position;
-		    auto modelMatrix = glm::mat4(drawRotation);
-		    modelMatrix = glm::translate(modelMatrix, drawPosition * drawRotation);
-		    modelMatrix = glm::scale(modelMatrix, transform.scale);
+		    // T(p) R S with the position straight into the translation, as every Set* of the original (0x423195,
+		    // 0x6382B7, 0x607606). It was R T(p R) S, whose translation is R R^T p: a few ulp off p for a rotation, but
+		    // far from it for the matrices that are not one (the hand's bands while they fly, HandMagicFX SetTransform;
+		    // the props of villagers on a slope, CarriedProps; the map shield between two turns, DrawPhysical)
+		    auto modelMatrix = openblack::lh_matrix::Model(drawPosition, drawRotation, transform.scale);
 		    // the one-shot orb is drawn turned to the camera (fn_00518720, Magic/Core/OneOffSpellSeed.cpp)
 		    if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
 		    {
@@ -530,6 +608,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		        transform.rotation[1].z == 0.0f)
 		    {
 			    const glm::vec3 away(tree->bendDirection.x, 0.0f, tree->bendDirection.y);
+			    // (inferido) the turn of Tree::Draw 0x74B016 is not checked against this +angle about up x away
 			    const auto bend =
 			        glm::mat3(glm::rotate(glm::mat4(1.0f), tree->bendAngle, glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), away)));
 			    auto& instance = _renderContext.instanceUniforms[idx];
@@ -615,10 +694,13 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	    entt::exclude<TempleInteriorPart>);
 
 	// the particle effects' mesh atoms, after the entities of the same mesh
+	std::map<entt::id_type, uint32_t> cutAtomOffsets;
 	for (const auto& atom : g_PSysMeshes)
 	{
-		auto& offsets = atom.translucent ? translucentOffsets : uniformOffsets;
-		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs;
+		const bool cut = AtomDrawnCut(atom);
+		auto& offsets = atom.translucent ? translucentOffsets : (cut ? cutAtomOffsets : uniformOffsets);
+		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs
+		                                     : (cut ? _renderContext.cutAtomDrawDescs : _renderContext.instancedDrawDescs);
 		const auto desc = descs.find(atom.meshId);
 		if (desc == descs.end())
 		{
@@ -636,6 +718,10 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		if (atom.additive)
 		{
 			_renderContext.additiveInstances.insert(idx);
+		}
+		if (cut && atom.translucent)
+		{
+			_renderContext.cutAtomInstances.insert(idx);
 		}
 		// the DrawData colour +8 (the creator's colour, x the player's for UsePlayerColor; Particle3DObj::DrawAt 0x67A00C..
 		// 0x67A01C): with DrawWithLandscapeColor the tint of fn_0080BEC0, else the colour of SetColorSpecular (vt 0x2C).

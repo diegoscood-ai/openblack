@@ -14,6 +14,7 @@
 #include <algorithm>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
@@ -61,7 +62,8 @@ entt::entity PotArchetype::Create(const glm::vec3& position, float yAngleRadians
 
 	// MagicFood / MagicWood constructors (0x5FA9F0 / 0x600E20) SetScale 0.3 / 0.7; every other pot is created at 1.
 	const float scale = type == PotInfo::MagicFood ? 0.3f : (type == PotInfo::MagicWood ? 0.7f : 1.0f);
-	registry.Assign<Transform>(entity, position, glm::mat3(glm::eulerAngleY(-yAngleRadians)), glm::vec3(scale));
+	// MobileObject::GetWorldMatrix 0x607560 with x = z = 0: YXZ(a, 0, 0) is AngleY(a) bit for bit
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale));
 	registry.Assign<Pot>(entity, static_cast<uint16_t>(amount), static_cast<uint16_t>(info.maxAmountInPot), type);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));

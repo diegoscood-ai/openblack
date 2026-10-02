@@ -192,31 +192,36 @@ void advisor::Four1(float* data, int nn, int isign)
 		}
 		j += m;
 	}
+	// The FPU is at 24 bits (fn_007DEE00, `and cw, 0xFCFF` at 0x7DEE0D): every fadd / fsub / fmul / fdiv rounds to a
+	// float's mantissa (R), the doubles loaded (0x8C49F8, 0x8AB260, 0x8C49F0, 0x8AB680, 0x8C2C48) are exact and fsin keeps
+	// the full precision (wpi stays unrounded on the FPU)
+	const auto R = [](double v) { return static_cast<float>(v); };
 	int mmax = 2;
 	while (n > mmax) // Danielson-Lanczos 0x428DCA..0x428ED4
 	{
 		const int istep = mmax << 1;
-		const double theta = 6.28318530717959 / static_cast<double>(mmax * isign); // 0x8C49F8
-		const double wtemp = std::sin(0.5 * theta);                                  // 0x8AB260
-		const double wpr = -2.0 * wtemp * wtemp;                                     // 0x8C49F0
-		const double wpi = std::sin(theta);
-		double wr = 1.0;
-		double wi = 0.0;
+		const float theta = R(6.2831853071795898 / static_cast<double>(mmax * isign)); // fdivr qword [0x8C49F8]
+		const double half = std::sin(static_cast<double>(R(theta * 0.5)));              // 0x8AB260, fsin
+		const float wpr = R(static_cast<double>(R(half * half)) * -2.0);              // fmulp, fmul qword [0x8C49F0]
+		const double wpi = std::sin(static_cast<double>(theta));                      // fsin of the stored double
+		float wr = 1.0f;                                                              // 0x8AB680
+		float wi = 0.0f;                                                              // 0x8C2C48
 		for (int m = 1; m < mmax; m += 2)
 		{
 			for (int i = m; i <= n; i += istep)
 			{
 				const int k = i + mmax;
-				const double tempr = wr * d[k] - wi * d[k + 1];
-				const auto tempi = static_cast<float>(wr * d[k + 1] + wi * d[k]); // fstp [esp+0x14] (0x428E53)
-				d[k] = static_cast<float>(d[i] - tempr);
+				const float tempr = d[k] * wr - d[k + 1] * wi; // 0x428E3B..0x428E46
+				const float tempi = d[k] * wi + d[k + 1] * wr; // 0x428E48..0x428E53 (fstp [esp+0x14])
+				d[k] = d[i] - tempr;
 				d[k + 1] = d[i + 1] - tempi;
-				d[i] = static_cast<float>(tempr + d[i]);
+				d[i] = tempr + d[i];
 				d[i + 1] = tempi + d[i + 1];
 			}
-			const double wrOld = wr;
-			wr = wr * wpr - wi * wpi + wr;          // 0x428E85..0x428EAC
-			wi = wi * (wpr + 1.0) + wpi * wrOld;     // 0x428EAE..0x428EBC (wi * wpr + wtemp * wpi + wi)
+			const float wrOld = wr;
+			// 0x428E89..0x428EAC: wr + (wr * wpr - wi * wpi); 0x428EAE..0x428EBC: wi * (wpr + 1) + wpi * wr (the old wr)
+			wr = (wrOld * wpr - R(static_cast<double>(wi) * wpi)) + wrOld;
+			wi = wi * (wpr + 1.0f) + R(wpi * static_cast<double>(wrOld));
 		}
 		mmax = istep;
 	}
@@ -224,59 +229,60 @@ void advisor::Four1(float* data, int nn, int isign)
 
 void advisor::Analyse(const int16_t* pcm, float* out, int n)
 {
-	// 0x428C61..0x428C93: the window's step 1 / (n * 32768) (0x8C49EC) as a float; the window itself in the x87
+	// 0x428C61..0x428C93: the window's step 1 / (n * 32768) (0x8C49EC) as a float; the window itself on the FPU, at
+	// 24 bits (fn_007DEE00) so a float
 	const float step = 1.0f / (static_cast<float>(n) * 32768.0f);
-	double w = 0.0;
+	float w = 0.0f;
 	const int half = n / 2; // cdq, sar (0x428C82..0x428C8B)
 	int i = 0;
 	for (; i < half; ++i) // 0x428CA0
 	{
 		w += step;
-		out[2 * i] = static_cast<float>(static_cast<double>(pcm[i]) * w);
+		out[2 * i] = static_cast<float>(pcm[i]) * w;
 		out[2 * i + 1] = 0.0f;
 	}
 	for (; i < n; ++i) // 0x428CD7
 	{
 		w -= step;
-		out[2 * i] = static_cast<float>(static_cast<double>(pcm[i]) * w);
+		out[2 * i] = static_cast<float>(pcm[i]) * w;
 		out[2 * i + 1] = 0.0f;
 	}
 	Four1(out, n, 1); // 0x428D04
 	const auto count = static_cast<float>(n); // fst [esp+0xC] (0x428C72)
 	for (i = 0; i < n; ++i) // 0x428D16..0x428D3A: in place, the magnitudes packed at the front
 	{
-		const double re = out[2 * i];
-		const double im = out[2 * i + 1];
-		out[i] = static_cast<float>(std::sqrt((re * re + im * im) / count));
+		const float re = out[2 * i];
+		const float im = out[2 * i + 1];
+		out[i] = std::sqrt((re * re + im * im) / count);
 	}
 }
 
 float advisor::BandLevel(const float* spectrum, int n, float rate, float low, float high)
 {
-	// fn_00428A80: ftol of (low / rate) * n and (high / rate) * n, each capped at n (0x428AAB..0x428AB5)
-	int from = static_cast<int>(static_cast<double>(low / rate) * n);
-	int to = static_cast<int>(static_cast<double>(high / rate) * n);
+	// fn_00428A80: ftol of (low / rate) * n and (high / rate) * n, each capped at n (0x428AAB..0x428AB5); the FPU is at
+	// 24 bits (fn_007DEE00), so the steps are float ones (fild n exact)
+	int from = static_cast<int>(low / rate * static_cast<float>(n));
+	int to = static_cast<int>(high / rate * static_cast<float>(n));
 	from = std::min(from, n);
 	to = std::min(to, n);
 	if (from >= to) // 0x428ABF
 	{
 		return 0.0f;
 	}
-	double sum = 0.0;
+	float sum = 0.0f;
 	for (int i = from; i < to; ++i)
 	{
-		sum += spectrum[i];
+		sum += spectrum[i]; // 0x428AD0
 	}
-	return static_cast<float>(sum / (to - from)); // fidiv (0x428ADC)
+	return static_cast<float>(static_cast<double>(sum) / (to - from)); // fidiv (0x428ADC), rounded at 24 bits
 }
 
 void advisor::CalcKey(AutoVoiceParams& params, VoiceKey& key, float dt, float t, const int16_t* pcm, int frames,
                       float rate, float* spectrum, int window)
 {
 	key.time = t; // 0x428859
-	// 0x428860..0x428874: the centre sample
-	const auto centre = static_cast<int>((static_cast<double>(params.offsetMs) * static_cast<double>(0.001f) + dt + t) *
-	                                     static_cast<double>(rate));
+	// 0x428860..0x428874: the centre sample, ((+0 * 0.001f) + dt + t) * rate in float steps (the FPU at 24 bits)
+	const auto centre = static_cast<int>((params.offsetMs * 0.001f + dt + t) * rate);
 	int start = centre - window / 2; // 0x428886
 	start = std::max(start, 0);      // 0x428888
 	start = std::min(start, frames - window); // 0x428892
@@ -326,9 +332,10 @@ void advisor::CalcKey(AutoVoiceParams& params, VoiceKey& key, float dt, float t,
 	for (size_t k = 0; k < params.bands.size(); ++k) // 0x4289C2..0x428A3C
 	{
 		auto& weight = key.weights[static_cast<size_t>(params.index[k])];
-		const double ratio = static_cast<double>(params.bandLevel[k]) / static_cast<double>(b[loudest]);
-		double v = ratio * ratio * level;
-		const auto limit = static_cast<float>(static_cast<double>(dt) * params.rate * static_cast<double>(0.18f));
+		// 0x4289C2..0x428A37 in float steps (the FPU at 24 bits): v and the sum stay on the FPU, the limit is stored
+		const float ratio = params.bandLevel[k] / b[loudest];
+		float v = ratio * ratio * level;
+		const float limit = dt * params.rate * 0.18f; // 0x8C49E8
 		const float previous = weight;
 		if (previous - v > limit) // 0x4289F4..0x428A0B
 		{
@@ -339,7 +346,7 @@ void advisor::CalcKey(AutoVoiceParams& params, VoiceKey& key, float dt, float t,
 		{
 			v = limitUp + previous;
 		}
-		weight = static_cast<float>(v); // 0x428A37
+		weight = v; // 0x428A37
 		sum += weight;
 	}
 	if (sum > 1.0f) // 0x428A3E
@@ -381,18 +388,19 @@ void advisor::Say(int dude, int sample, bool onlyIfSilent)
 	{
 		return;
 	}
-	// 0x5C36DD..0x5C3723
-	double v = std::fabs(static_cast<double>(d->hover)) - 0.949999988079071; // double 0x915438
-	if (v < 0.0)
+	// 0x5C36DD..0x5C3723: |+0x3514| minus the double 0.949999988079071 (0x915438: 0.95f kept as a double, so the
+	// FPU's 24-bit subtraction (fn_007DEE00) is the float one), (v + 1) * 250 and the cap 500, all floats
+	float v = std::fabs(d->hover) - 0.95f;
+	if (v < 0.0f)
 	{
-		v = 0.0;
+		v = 0.0f;
 	}
 	else
 	{
-		v = (v + 1.0) * 250.0; // 0x8AA390, 0x8C7B2C
-		if (v > 500.0)         // 0x8C78EC
+		v = (v + 1.0f) * 250.0f; // 0x8AA390, 0x8C7B2C
+		if (v > 500.0f)          // 0x8C78EC
 		{
-			v = 500.0;
+			v = 500.0f;
 		}
 	}
 	SaySentence(dude, sample, onlyIfSilent, static_cast<uint32_t>(static_cast<int32_t>(v)));
@@ -621,18 +629,18 @@ float advisor::Amplitude(int sample, int window)
 		return 0.0f;
 	}
 	const int frames = g_State.pcm.frames;
-	int from = static_cast<int>(static_cast<double>(t / g_State.pcm.duration) * frames); // 0x5BB4A9..0x5BB4B9
+	// 0x5BB4A9..0x5BB4B9: fdiv, fimul (rounded at 24 bits), __ftol
+	int from = static_cast<int>(static_cast<float>(static_cast<double>(t / g_State.pcm.duration) * frames));
 	int to = from + window;
 	from = from > 0 ? std::min(from, frames) : 0; // 0x5BB4CA..0x5BB4D6
 	to = to > 0 ? std::min(to, frames) : 0;       // 0x5BB4D8..0x5BB4E4
-	double sum = 0.0;
+	float sum = 0.0f; // 0x5BB4FB..0x5BB518 in float steps (the FPU at 24 bits)
 	for (int i = from; i < to; ++i)
 	{
-		const double s =
-		    static_cast<double>(g_State.pcm.samples[static_cast<size_t>(i)]) * static_cast<double>(3.0517578125e-05f);
+		const float s = static_cast<float>(g_State.pcm.samples[static_cast<size_t>(i)]) * 3.0517578125e-05f; // 0x8C5848
 		sum += s * s;
 	}
-	return static_cast<float>(std::sqrt(sum)); // 0x5BB51A
+	return std::sqrt(sum); // 0x5BB51A
 }
 
 int advisor::Sentence()

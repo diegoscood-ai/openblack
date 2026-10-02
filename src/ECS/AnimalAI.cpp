@@ -26,6 +26,7 @@
 #include <LNDFile.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalAnimations.h"
@@ -189,7 +190,7 @@ MapInterface::CellId CellOf(glm::vec2 p)
 void FaceAngle(Transform& transform, uint16_t angle)
 {
 	const float theta = static_cast<float>(angle) * glm::two_pi<float>() / k_Circle;
-	transform.rotation = glm::mat3(glm::eulerAngleY(-theta - glm::half_pi<float>()));
+	transform.rotation = lh_matrix::AngleY(theta + glm::half_pi<float>()); // the "Scawen" angle
 }
 
 /// the angle of a drawn rotation (its forward column)
@@ -773,14 +774,8 @@ void SetTowardsAngle(Context& ctx, uint16_t target, float distance)
 	// the bank zoomer: level again when it needs no turn, else +-GetBankAngle, over GetTimeToBank
 	const float time = TimeToBank(ctx.animal.type);
 	const float bankTarget = diff == 0 ? 0.0f : (diff < 0 ? -BankAngle(ctx.animal.type) : BankAngle(ctx.animal.type));
-	if (time < 0.001f)
-	{
-		ctx.brain.bank.SetPosition(bankTarget);
-	}
-	else
-	{
-		ctx.brain.bank.SetDestinationWithSpeedAndTime(bankTarget, 0.0f, time);
-	}
+	// Animal::SetTowardsAngle 0x4185D5 calls 0x407D60 straight: its own threshold (0x407D67..0x407DA8) sets it below 0.001
+	ctx.brain.bank.SetDestinationWithSpeedAndTime(bankTarget, 0.0f, time);
 }
 
 // ---- needs ----
@@ -1747,7 +1742,7 @@ void PutDown(entt::entity entity)
 	}
 	auto& transform = registry.Get<Transform>(entity);
 	const float yaw = std::atan2(transform.rotation[2].x, transform.rotation[2].z);
-	transform.rotation = glm::mat3(glm::eulerAngleY(yaw));
+	transform.rotation = lh_matrix::AngleY(-yaw); // yaw is glm's angle (the game's is -yaw); (inferido) EndPhysics
 	EndPhysics(entity, transform.rotation, transform.rotation);
 }
 

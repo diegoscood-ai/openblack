@@ -15,6 +15,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Stream.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -45,8 +46,9 @@ void CreateRiverFootprints()
 			const auto& to = stream.points[i + 1];
 			const float angle = std::atan2(to.z - from.z, to.x - from.x);
 			const float stretch = glm::distance(from, to) / k_MeshLength;
-			// eulerAngleY(-angle) turns local x onto (cos, 0, sin) of the segment, like LH3DObject::SetPosition
-			const Transform transform {from, glm::mat3(glm::eulerAngleY(-angle)), glm::vec3(stretch, 1.0f, 1.0f)};
+			// AngleY(angle) turns local x onto (cos, 0, sin) of the segment, like LH3DObject::SetPosition 0x423140
+			// ((inferido) the stretch of local x only: no constructor of the original scales one row alone)
+			const Transform transform {from, lh_matrix::AngleY(angle), glm::vec3(stretch, 1.0f, 1.0f)};
 			footprints.emplace_back(transform, false);
 			footprints.emplace_back(transform, true);
 		}

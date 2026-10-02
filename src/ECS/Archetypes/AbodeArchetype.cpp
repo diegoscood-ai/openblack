@@ -17,6 +17,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/ChimneySmoke.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fixed.h"
@@ -58,13 +59,15 @@ void AddStoragePitComponents(entt::entity entity, const Mesh& pitMesh, const GAb
 	     type = potInfoConstants.at(static_cast<size_t>(type)).nextPotForResource)
 	{
 		const auto& m = extraMetrics.at(i);
-		auto translation = static_cast<glm::vec3>(glm::eulerAngleY(-yAngleRadians) * m[3]);
+		// (inferido) the metric's point turned by the object's rotation and not scaled; worship::SpecialPoint scales it
+		// (Game3DObject::GetSpecialPos 0x63B040), the store's own call is not read
+		auto translation = lh_matrix::AngleY(yAngleRadians) * glm::vec3(m[3]);
 		pit.woodPiles.at(i) = PotArchetype::Create(position + translation, yAngleRadians, type, 0, true);
 		++i;
 	}
 	assert(i == pit.woodPiles.size());
 	const auto& m = extraMetrics.at(5);
-	auto translation = static_cast<glm::vec3>(glm::eulerAngleY(-yAngleRadians) * m[3]);
+	auto translation = lh_matrix::AngleY(yAngleRadians) * glm::vec3(m[3]); // (inferido) as the wood piles above
 	pit.foodPile = PotArchetype::Create(position + translation, yAngleRadians, info.potForResourceFood, 0, true);
 	// The store's totals are spread over its piles as StoragePit::AddResource does.
 	ecs::StoragePitStore::AddResource(entity, ResourceType::Wood, woodAmount);
@@ -105,7 +108,7 @@ void CreateTotemStatue(entt::entity townCentre, const GAbodeInfo& info, float yA
 			point.y = land_morph::Raised(ground, point, ground(glm::vec2(transform.position.x, transform.position.z)));
 		}
 	}
-	const auto rotation = glm::mat3(glm::eulerAngleY(-yAngleRadians));
+	const auto rotation = lh_matrix::AngleY(yAngleRadians); // TotemStatue: Object::GetWorldMatrix 0x638200
 
 	const auto plinth = registry.Create();
 	ecs::object_index::Assign(plinth); // TotemStatue is one Object (the hand on top is part of it)
@@ -164,7 +167,7 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	morphsWithTerrain |= info.abodeType == AbodeType::Field;
 
 	const auto& transform =
-	    registry.Assign<Transform>(entity, position, glm::mat3(glm::eulerAngleY(-yAngleRadians)), glm::vec3(scale));
+	    registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale)); // 0x638200
 	registry.Assign<Abode>(entity, info.abodeNumber, townId, foodAmount, woodAmount);
 	auto resourceId = resources::HashIdentifier(info.meshId);
 	const auto& mesh = registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));

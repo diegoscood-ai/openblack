@@ -25,6 +25,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Audio/Services/SpellSounds.h"
 #include "Common/StringUtils.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -424,11 +425,13 @@ public:
 				}
 				if (randomiseOrientation)
 				{
-					// AtomCore::RandomiseOrientation 0x6743E0: SetAngleXYZ of three PSysFloatRand(2 pi)
-					const float x = effect.Random(2.0f * std::numbers::pi_v<float>);
-					const float y = effect.Random(2.0f * std::numbers::pi_v<float>);
+					// AtomCore::RandomiseOrientation 0x6743E0: three PSysFloatRand(2 pi [0x40C90FDB]), each stored in the
+					// slot of the argument it pushed (fstp [esp], 0x6743ED / 0x6743FA / 0x674407): the first draw is z,
+					// the second y, the third x; then SetAngleXYZ(x, y, z) 0x674200 = Rz(-z) Ry(-y) Rx(-x)
 					const float z = effect.Random(2.0f * std::numbers::pi_v<float>);
-					atom.rotation = glm::mat3(glm::eulerAngleXYZ(x, y, z));
+					const float y = effect.Random(2.0f * std::numbers::pi_v<float>);
+					const float x = effect.Random(2.0f * std::numbers::pi_v<float>);
+					atom.rotation = openblack::lh_matrix::AngleXYZ(x, y, z);
 				}
 				if (!adjustScale.empty())
 				{
@@ -784,12 +787,20 @@ public:
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
 	{
-		// a = dt x AngularVel; every row turned about the axis: Z (x, y) -> (c x + s y, c y - s x) (0x6A116B..0x6A1211),
-		// Y (x, z) -> (c x - s z, c z + s x) (0x6A1218..0x6A12C0), X (y, z) -> (c y + s z, c z - s y) (fn_006A12F0). With
-		// the rows as columns that is glm::rotate(-a, axis) on the left (billboard.h: LH3D turns the other way from glm)
-		glm::vec3 a(0.0f);
-		a[axis] = 1.0f;
-		atom.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), -(effect.GetDt() * speed), a)) * atom.rotation;
+		// a = dt x AngularVel (fld [0xD4E0EC]; fmul [+0x24]); every row turned about the axis: Z (x, y) -> (c x + s y,
+		// c y - s x) (0x6A116B..0x6A1211), Y (x, z) -> (c x - s z, c z + s x) (0x6A1218..0x6A12C0), X (y, z) ->
+		// (c y + s z, c z - s y) (fn_006A12F0) = R_axis(-a) on the left. Z and Y store c as a float (fstp [esp + 8]
+		// 0x6A117C / 0x6A1229) and keep s on the stack; fn_006A12F0 keeps both
+		const float a = effect.GetDt() * speed;
+		if (axis == 0)
+		{
+			openblack::lh_matrix::TurnRows(atom.rotation, 0, a);
+		}
+		else
+		{
+			openblack::lh_matrix::TurnRows(atom.rotation, axis, static_cast<float>(std::cos(static_cast<double>(a))),
+			                    std::sin(static_cast<double>(a)));
+		}
 		return true;
 	}
 	int axis;
@@ -916,11 +927,8 @@ public:
 			data.x = 1.0f;
 			data.y = (1.0f - effect.Random(2.0f)) * range + angle;
 		}
-		// AtomCore::SetAngleY(yaw) every time (0x6A21AC): rows (c, 0, s), (0, 1, 0), (-s, 0, c), the rows being the columns
-		// here, i.e. glm::rotate(-yaw, Y)
-		const float c = std::cos(data.y);
-		const float s = std::sin(data.y);
-		atom.rotation = glm::mat3(glm::vec3(c, 0.0f, s), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-s, 0.0f, c));
+		// AtomCore::SetAngleY(yaw) every time (0x6A21AC)
+		atom.rotation = openblack::lh_matrix::AngleY(data.y);
 		return true;
 	}
 	float angle, range;

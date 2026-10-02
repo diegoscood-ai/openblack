@@ -273,7 +273,8 @@ private:
 	float _loweringMultiplier {0.0f};
 	bool _rooted {false};
 	/// Hand roll towards the side grip (+-pi/2); the original only rolls while giving an object to the creature.
-	float _roll {0.0f};
+	/// CHand +0xD4: the hand's roll Zoomer (ObtainRequiredHandPosition 0x5B42D4)
+	openblack::Zoomer _roll;
 	/// HandStateHolding::Update: the hand follows its required position with a spring in 10 ms steps.
 	bool _springActive {false};
 	float _springTime {0.0f};

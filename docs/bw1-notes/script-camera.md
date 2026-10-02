@@ -116,12 +116,17 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
   (`Begin`/`End`/`Active`/`Drives`), Set/Move/RunPath/SetFov, `ScriptArrived`, `Frame` (pasos 1-5 y 7) y
   `DrawnCamera` (pasos 3-6). `UpdateCamera` lo hace cada fotograma desde `Game.cpp` y, mientras el modo del guion
   conduce, el modelo del jugador (`DefaultWorldCameraModel`) ni mueve la cámara ni lee teclas (Script no tiene teclas,
-  0x44C3BD). Al soltar, el modelo relee la cámara y sigue desde ahí.
+  0x44C3BD). Las posiciones y focos van en `Zoomer3d` (`Common/Zoomer.h`, el mismo de la cámara del jugador).
+- **Cambio de manos de los zoomers (fiel):** GCamera tiene unos solos zoomers para todos los modos. openblack tiene los
+  del jugador (`Camera::GetOriginZoomer/GetFocusZoomer`) y los del guion: `Begin` copia los del jugador tal cual (valor,
+  velocidad, destino y tiempo: el modo del guion sigue hacia donde iba el del jugador, 0x461180 no los toca) y `End`
+  devuelve los del guion a la cámara (`HandBack`), de donde arranca el jugador como `CameraModeNew3::Initialise`
+  0x456640. Con «free start» o los ganchos `OPENBLACK_CAMERA_LOCK/FLY` el jugador nunca soltó la cámara y no se copia.
 - `CHLApi.cpp`: los opcodes de la tabla; `StartCameraControl` pasa `cameraTaken = script_camera::Begin(...)`;
   END_CAMERA_CONTROL y la parada de la tarea (Game.cpp) llaman a `script_camera::End`. Al cargar mapa, `Reset`.
-- **(aproximado)** Al empezar el modo, los zoomers toman la cámara dibujada (en el original ya eran ella y seguían hacia
-  el destino del jugador). Sin modo de guion, 035 compara la cámara del jugador con su destino (sus interpoladores no
-  son zoomers). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
+- **(aproximado)** Mientras conduce el guion, la cámara del jugador lleva lo dibujado (con el empujón y el metro sobre
+  el suelo), no los zoomers del guion. Sin modo de guion, 035 compara los zoomers del jugador con su destino (la misma
+  regla 0x441700). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
   reloj de fotograma anterior (el original actualiza la cámara tras los turnos).
 - **(inferido)** 284/286 sin modo de guion fijan también la cámara del jugador.
 - El FOV va a `config.cameraXFov` (grados) solo cuando su zoomer cambia: un FOV propio del jugador dura hasta que un

@@ -20,6 +20,7 @@
 #include <LNDFile.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -38,55 +39,11 @@ float Altitude(glm::vec3 point)
 	return terrain != nullptr ? terrain->GetHeightAt(glm::vec2(point.x, point.z)) : 0.0f;
 }
 
-/// LH3DIsland::GetNormal (0x803630): the flat normal of the landscape triangle GetAltitude uses, from the raw corner
-/// heights (no sea flattening). The original normalises through a 1024-entry table; this normalises exactly.
+/// LH3DIsland::GetNormal (0x803630): LandIsland::GetNormalAt (land_normal::OfCell); up without an island
 glm::vec3 Normal(glm::vec3 point)
 {
 	const auto* terrain = Terrain();
-	const glm::vec3 up(0.0f, 1.0f, 0.0f);
-	if (terrain == nullptr)
-	{
-		return up;
-	}
-	const auto fixedX = static_cast<int64_t>(point.x * 6553.6f);
-	const auto fixedZ = static_cast<int64_t>(point.z * 6553.6f);
-	const int64_t cells = terrain->GetCellsPerSide();
-	if (fixedX < 0 || fixedZ < 0 || (fixedX >> 16) + 1 >= cells || (fixedZ >> 16) + 1 >= cells)
-	{
-		return up;
-	}
-	const auto x = static_cast<uint16_t>(fixedX >> 16);
-	const auto z = static_cast<uint16_t>(fixedZ >> 16);
-	const auto fx = static_cast<uint32_t>(fixedX & 0xFFFF);
-	const auto fz = static_cast<uint32_t>(fixedZ & 0xFFFF);
-	const auto& c00 = terrain->GetCell(glm::u16vec2(x, z));
-	const auto height = [&](uint16_t dx, uint16_t dz) {
-		return static_cast<float>(terrain->GetCellAltitude(terrain->GetCell(glm::u16vec2(x + dx, z + dz)))) *
-		       LandIslandInterface::k_HeightUnit;
-	};
-	const auto corner = [&](uint16_t dx, uint16_t dz) { return glm::vec3(10.0f * dx, height(dx, dz), 10.0f * dz); };
-	glm::vec3 base;
-	glm::vec3 e;
-	glm::vec3 c;
-	if (c00.properties.split)
-	{
-		base = fz > 0xFFFFu - fx ? corner(1, 1) : corner(0, 0);
-		e = corner(1, 0);
-		c = corner(0, 1);
-	}
-	else
-	{
-		base = fx > fz ? corner(1, 0) : corner(0, 1);
-		e = corner(1, 1);
-		c = corner(0, 0);
-	}
-	auto n = glm::cross(c - base, e - base);
-	if (glm::dot(n, n) <= 0.0f)
-	{
-		return up;
-	}
-	n = glm::normalize(n);
-	return n.y < 0.0f ? -n : n;
+	return terrain != nullptr ? terrain->GetNormalAt(glm::vec2(point.x, point.z)) : glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 /// GroundAndWater: the landscape cell under the point (x 0.1, 0..511) has an altitude of at least 1.
@@ -662,7 +619,12 @@ PhysOb::Result PhysOb::Integrate()
 	const float angle = glm::length(step);
 	if (angle > 1e-05f) // 0x99A100
 	{
-		_rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), angle, step / angle)) * _rotation;
+		// fn_007FE260 0x7FE706..0x7FE748: inv = 1 / angle (fdiv 0x7FE710), axis = step inv, M = fn_007FB180(axis, angle)
+		// (lh_matrix::AxisAngle = glm::rotate(-angle)) and the rows times M (fn_0046D9D0 0x7FE748: r_k' = r_k M, glm's
+		// M * R). The original's torque is F x r (0x7FE0F9..0x7FE11F, 0x7FD7FD..0x7FD823), openblack's r x F, so its
+		// omega and axis are the opposite of openblack's: the original's axis is -(step inv)
+		const float inv = 1.0f / angle;
+		_rotation = lh_matrix::AxisAngle(-(step * inv), angle) * _rotation;
 	}
 	_centre += velocity * k_Dt;
 	return resting ? Result::Pushed : Result::Moved;

@@ -283,8 +283,8 @@ size_t spell_sounds::Count()
 	return g_Sounds.size();
 }
 
-// (inferido) SizeFromRadius / SizeFromImpactSpeed: strict "<" at the thresholds; the compares of 0x69F410 and
-// fn_006A1630 were not noted
+// SizeFromRadius / SizeFromImpactSpeed: strict "<" at both thresholds against the rule's floats (fcom / fcomp dword,
+// test ah 1: 0x69F4CA / 0x69F4F6 with +0x54 / +0x58, fn_006A1630 0x6A16A9 / 0x6A16CF with +0x64 / +0x68)
 int32_t spell_sounds::SizeFromRadius(float radius, float small, float medium)
 {
 	if (radius < small)
@@ -296,12 +296,14 @@ int32_t spell_sounds::SizeFromRadius(float radius, float small, float medium)
 
 int32_t spell_sounds::SizeFromThrow(float fraction)
 {
-	// doubles 0x8CF7D8 = 0.6 and 0x9375E8 = 0.3
-	if (fraction > 0.6f)
+	// 0x69EEC0..0x69EEEE: the float fraction against the doubles 0.59999999999999998 (fcomp qword [0x8CF7D8]) and
+	// 0.29999999999999999 (fcomp qword [0x9375E8]), strict ">" (test ah 0x41): 0.6f and 0.3f are above them
+	const auto f = static_cast<double>(fraction);
+	if (f > 0.6)
 	{
 		return 1;
 	}
-	return fraction > 0.3f ? 2 : 3;
+	return f > 0.3 ? 2 : 3;
 }
 
 int32_t spell_sounds::SizeFromImpactSpeed(float speed, float medium, float large)

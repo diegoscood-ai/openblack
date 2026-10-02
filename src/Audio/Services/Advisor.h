@@ -68,8 +68,9 @@ struct AutoVoiceParams
 };
 
 /// AudioAnalyse::four1 0x428D50: Numerical Recipes' complex FFT in place on `data` (re, im pairs; nn points, a power of
-/// two), isign 1 or -1. (approximated) The x87 keeps the twiddles and the real part of the product in its 80-bit
-/// registers: double here; the data and the imaginary part of the product are floats, as the original stores them.
+/// two), isign 1 or -1. The game's FPU is at 24 bits (fn_007DEE00, `and cw, 0xFCFF` at 0x7DEE0D): every arithmetic step
+/// rounds to a float (the doubles 2 pi 0x8C49F8, 0.5, -2, 1, 0 are applied exactly), only fsin keeps its full precision
+/// (sin(theta) stays unrounded on the FPU). (approximated) openblack's sin is the double one, not the x87's 64-bit.
 void Four1(float* data, int nn, int isign);
 /// AudioAnalyse::Analyse 0x428C60(pcm, out, n): the n samples under a triangle window that rises by 1 / (n * 32768) a
 /// sample to the middle and falls back (int16 -> -1..1 x the window), as complex numbers; four1(out, n, 1); then
@@ -94,7 +95,7 @@ void Init(BankId bank);
 /// clears the sentence by itself (0x5BB7B6). No game code calls it.
 void Reset();
 
-/// HelpDudeControl::Say fn_005C36D0(dude, sample, onlyIfSilent): v = |dude+0x3514| - 0.95 (double 0x915438); the delay
+/// HelpDudeControl::Say fn_005C36D0(dude, sample, onlyIfSilent): v = |dude+0x3514| - 0.95 (double 0x915438 = 0.95f); the delay
 /// is 0 for v < 0, else min((v + 1) * 250, 500) ms (0x8C7B2C, 0x8C78EC); HelpDude::SaySentence; +0x74 + 4 dude = 1
 /// (approximated: +0x3514 belongs to the advisor's flight, which is not ported; it stays at its init value 0,
 /// 0x5C1A61, so the delay is 0)

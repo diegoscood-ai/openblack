@@ -62,6 +62,12 @@ struct RenderContext
 	/// The instances (indices of instanceUniforms) of those that are PSys mesh atoms with UseAdditiveAlpha: material mode
 	/// 13 (GJUtils::SetMaterialProperties 0x57E120: SRCALPHA / ONE, no Z write), PSys/Creators/Mesh.h
 	std::unordered_set<uint32_t> additiveInstances;
+	/// The opaque PSys mesh atoms drawn with DrawCutByPlane (the particle's +0x24 & 4, fn_00679F20 0x679F29 -> vt+0x11C
+	/// 0x679F4A): out of instancedDrawDescs, drawn in Renderer::DrawPass (the cut-atom loop after DrawCutAboveWater)
+	/// with graphics::sea_pass::CutAtoms
+	std::map<entt::id_type, const InstancedDrawDesc> cutAtomDrawDescs;
+	/// The translucent ones (in translucentDrawDescs): their instance indices, drawn cut from the sorted list
+	std::unordered_set<uint32_t> cutAtomInstances;
 	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
 	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
 	std::unordered_map<uint32_t, glm::vec3> sortPoints;

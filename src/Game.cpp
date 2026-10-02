@@ -1475,7 +1475,6 @@ bool Game::Run() noexcept
 			    .drawEntities = config.drawEntities,
 			    .drawSprites = config.drawSprites,
 			    .drawBoundingBoxes = config.drawBoundingBoxes,
-			    .cullBack = false,
 			    .wireframe = config.wireframe,
 			};
 			Locator::rendererInterface::value().DrawScene(drawDesc);

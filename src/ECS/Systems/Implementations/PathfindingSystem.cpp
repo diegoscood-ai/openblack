@@ -21,6 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Transform.h"
@@ -39,7 +40,7 @@ namespace
 
 void InitializeStep(Transform& transform, WallHug& wallHug, float angle)
 {
-	transform.rotation = glm::eulerAngleY(-angle - glm::radians(90.0f));
+	transform.rotation = lh_matrix::AngleY(angle + glm::radians(90.0f)); // the "Scawen" angle, Object::GetWorldMatrix 0x638200
 	wallHug.step = glm::vec2(glm::cos(angle), glm::sin(angle)) * wallHug.speed;
 	wallHug.yAngle = angle;
 }

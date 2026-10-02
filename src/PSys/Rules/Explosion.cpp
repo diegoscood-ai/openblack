@@ -27,6 +27,7 @@
 
 #include "3D/AllMeshes.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
@@ -427,9 +428,7 @@ private:
 				const float angle = effect.Random(6.28318548f); // 0x40C90FDB
 				// SetPosition 0x423140: rows X = (cos, 0, sin) s, Y = (0, s, 0), Z = (-sin, 0, cos) s, the LHMatrix rows
 				// being the axes here
-				const float c = std::cos(angle);
-				const float s = std::sin(angle);
-				const glm::mat3 axes(glm::vec3(c, 0.0f, s) * scale, glm::vec3(0.0f, scale, 0.0f), glm::vec3(-s, 0.0f, c) * scale);
+				const glm::mat3 axes(lh_matrix::SetPosition(glm::vec3(0.0f), angle, scale));
 				explode_object::QueueMesh(rock, axes, position, explosion::BlastOrigin(data.centre), blastSpeed, k_ExplodeSpread);
 			}
 		}

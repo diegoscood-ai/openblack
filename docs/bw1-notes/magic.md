@@ -710,7 +710,8 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
 
 - `Town::SetWorshipPercentage` 0x73C060 (arrastrar el tótem, `TotemStatue::NetworkUnfriendlyLockedSelect` 0x7386A0:
   `pct = clamp(pct + dy × 0,1; 0; 1)`): 0 sin lugar de culto; si no, se guarda, se le pasa al tótem
-  (`TotemStatue::SetWorshipPercentage` 0x738270, que lo sube 8 m con un *Zoomer* de 5,2 s) y se manda a los aldeanos
+  (`TotemStatue::SetWorshipPercentage` 0x738270, que lo sube 8 m con un *Zoomer* de |Δ|·5200 ms, que va en ms:
+  [engine-math.md](engine-math.md#zoomer-lh3dlib)) y se manda a los aldeanos
   que falten.
 - `Town::GetWorshipersNeeded` 0x73C860: `objetivo = pct > 0 ? max(1; int(población × pct + 0,5)) : 0`;
   `resultado = objetivo − (adorando + en camino) + los que piden volver a casa`.

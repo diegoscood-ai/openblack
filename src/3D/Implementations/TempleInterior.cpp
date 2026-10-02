@@ -122,6 +122,7 @@ void TempleInterior::Activate()
 	config.drawWater = false;
 
 	// Create temple entities
+	// (inferido) no source; _templeRotation is never written (0), so the sign does not show
 	auto rotation = glm::eulerAngleY(_templeRotation.y);
 	auto scale = glm::vec3(1.0f);
 

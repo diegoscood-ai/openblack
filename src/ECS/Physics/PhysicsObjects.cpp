@@ -9,6 +9,7 @@
 
 #include "PhysicsObjects.h"
 
+#include "3D/ObjectMatrix.h"
 #include "Buildings.h"
 #include "CollisionSounds.h"
 #include "Audio/Audio.h"
@@ -488,8 +489,8 @@ entt::entity EndPhysics(PhysicsObject& po)
 		auto& transform = registry.Get<Transform>(entity);
 		const auto forward = transform.rotation[2];
 		const float yaw = std::atan2(forward.x, forward.z);
-		transform.rotation = glm::mat3(glm::vec3(std::cos(yaw), 0.0f, -std::sin(yaw)), glm::vec3(0.0f, 1.0f, 0.0f),
-		                               glm::vec3(std::sin(yaw), 0.0f, std::cos(yaw)));
+		// yaw is glm's angle, the game's -yaw; (inferido) the angle EndPhysics gives is not read
+		transform.rotation = lh_matrix::AngleY(-yaw);
 		if (Locator::terrainSystem::has_value())
 		{
 			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));

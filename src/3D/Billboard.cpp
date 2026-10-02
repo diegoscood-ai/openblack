@@ -17,6 +17,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/matrix.hpp>
 
+#include "3D/ObjectMatrix.h"
 #include "Camera/Camera.h"
 
 using namespace openblack;
@@ -166,10 +167,8 @@ float billboard::YawToEyeAngle(const glm::vec3& position, const glm::vec3& eye)
 
 glm::mat3 billboard::YawToEye(const glm::vec3& position, const glm::vec3& eye)
 {
-	const float theta = YawToEyeAngle(position, eye);
-	const float c = std::cos(theta);
-	const float s = std::sin(theta);
-	return {glm::vec3(c, 0.0f, s), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-s, 0.0f, c)};
+	// (inferido) the inline copies keep c and s as SetAngleY 0x674360 does (stored floats): no user is ported to read them
+	return lh_matrix::AngleY(YawToEyeAngle(position, eye));
 }
 
 void billboard::ParticleYaw(glm::mat3& axes, const glm::vec3& position, const glm::vec3& eye, float heightStretch)
@@ -285,23 +284,10 @@ glm::mat3 billboard::MoonBasis(const glm::mat4& view, const glm::mat4& inverseVi
 
 glm::mat4 billboard::MoonModel(const glm::mat3& basis, const glm::vec3& position, float phase)
 {
-	glm::vec3 r0 = basis[0];
-	glm::vec3 r1 = basis[1];
-	glm::vec3 r2 = basis[2];
-	// fn_0086AFA0(alpha) 0x86AFA0..0x86B008
-	const float ca = std::cos(k_MoonTilt);
-	const float sa = std::sin(k_MoonTilt);
-	const glm::vec3 tilted = ca * r0 - sa * r1;
-	r1 = sa * r0 + ca * r1;
-	r0 = tilted;
-	// LHMatrix::RotateY(phase + pi) 0x5198F0
-	const float b = phase + k_Pi;
-	const float cb = std::cos(b);
-	const float sb = std::sin(b);
-	const glm::vec3 turned = cb * r0 + sb * r2;
-	r2 = cb * r2 - sb * r0;
-	r0 = turned;
-	glm::mat4 model(glm::mat3(r0, r1, r2) * k_MoonMeshScale); // 0x86AF30..0x86AF97
+	glm::mat3 rows = basis;
+	lh_matrix::RotateZ(rows, k_MoonTilt);     // fn_0086AFA0(alpha) 0x86AFA0..0x86B008
+	lh_matrix::RotateY(rows, phase + k_Pi);   // LHMatrix::RotateY(phase + pi) 0x5198F0
+	glm::mat4 model(rows * k_MoonMeshScale); // 0x86AF30..0x86AF97
 	model[3] = glm::vec4(position, 1.0f);
 	return model;
 }

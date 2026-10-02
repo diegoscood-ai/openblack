@@ -10,6 +10,7 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+#include "3D/ObjectMatrix.h"
 #include "HandGrain.h"
 #include "HandSystemDetail.h"
 
@@ -379,16 +380,26 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 	auto rotation = FrameRotation(cameraForward);
 	auto position = *groundPoint + glm::vec3(0.0f, _tipClearance, 0.0f) - rotation * (_hotspot * scale);
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
-	// Side grip for trees: the hand rolls to +-pi/2 (Zoomer, speed 0.4) and floats at
-	// 0.6 * (max(lowering, 1.9) + 0.1 * height) with lowering = max(0.1 * height, 3.2 * 0.3) (0x5B3E30, fn_0046DC30).
-	// HandStateHolding::Update rolls to +-pi/2 (tree/side/villager) or +-pi (above) only while an object is being
-	// given to the creature. TODO: creature give.
+	// Side grip for trees: the hand rolls to +-pi/2 and floats at 0.6 * (max(lowering, 1.9) + 0.1 * height) with
+	// lowering = max(0.1 * height, 3.2 * 0.3) (0x5B3E30, fn_0046DC30). HandStateHolding::Update rolls to +-pi/2
+	// (tree/side/villager) or +-pi (above) only while an object is being given to the creature. TODO: creature give.
+	// ObtainRequiredHandPosition: the Zoomer CHand +0xD4 heads for the roll in 0.4 s [0x3ECCCCCD] (a time, not a speed;
+	// 0x5B42A5 / 0x5B42CD), with the speed ebp ((inferido) 0: the register is also written as TimeM2 at 0x5B431F, which
+	// is only ever 0), then the Update inline 0x5B42DF ((aproximado) it adds c4 b before c3 a, Zoomer::Update the other
+	// way: the last bit). (inferido) the destination is set every frame: the conditions 0x5B4251..0x5B42CD are not
+	// ported
+	constexpr float k_RollSeconds = 0.4f;
 	const float rollTarget = 0.0f;
-	_roll += (rollTarget - _roll) * (1.0f - std::exp(-seconds * 8.0f));
-	if (std::abs(_roll) > 1e-3f)
+	_roll.SetDestinationWithSpeedAndTime(rollTarget, 0.0f, k_RollSeconds);
+	_roll.Update(seconds);
+	if (std::abs(_roll.value) > 1e-3f)
 	{
+		// (inferido) the sense of the turn: the original turns by fn_007FB180(dir, [CHand +0xD4] + vt+0x14 + [esp+0x20])
+		// at 0x5B49A0..0x5B49C8 (lh_matrix::AxisAngle = glm::rotate(-a)), but its axis dir ([esp+0xA4]) and how that
+		// matrix reaches the hand's (fn_007FAFF0 0x5B4AE5 and after) are not read: here glm's +roll about forward. Not
+		// seen today (the destination is always 0)
 		const auto forward = rotation * _frameFingers;
-		rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), _roll, forward)) * rotation;
+		rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), _roll.value, forward)) * rotation;
 		position = *groundPoint + glm::vec3(0.0f, _tipClearance, 0.0f) - rotation * (_hotspot * scale);
 	}
 	// Hand state 8 (CHand::GetRequiredState 0x46CD10: the held object IsSpellSeed) is HandStateGrain (HandGrain.cpp)
@@ -445,13 +456,12 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		{
 			// ObtainRequiredHandPosition 0x5B6DE0 with HandStateGrain's tilt (vt 0x14): the hand's up turns by the tilt
 			// about the hand-to-camera direction (fn_007FB180). The original eases the up vector there with 0.4 s
-			// Zoomers (0xD13FB0..). fn_007FB180 writes the Rodrigues matrix R(tilt) by rows ([ecx+0xC] = xy(1 - c) + zs,
-			// 0x7FB207), but 0x5B6EE8 transforms (0, 1, 0) as a row vector (out.x = R00 x + R10 y + R20 z): that is
-			// R(-tilt) on a column vector, hence the minus
+			// Zoomers (0xD13FB0..). fn_007FB180 writes the Rodrigues matrix by rows ([ecx+0xC] = xy(1 - c) + zs,
+			// 0x7FB207) and 0x5B6EE8 transforms (0, 1, 0) as a row vector: lh_matrix::AxisAngle (glm's rotate(-tilt))
 			const auto toCamera = Locator::camera::value().GetOrigin() - grip;
 			if (glm::length(toCamera) > 1e-4f)
 			{
-				up = glm::mat3(glm::rotate(glm::mat4(1.0f), -tilt, glm::normalize(toCamera))) * up;
+				up = lh_matrix::AxisAngle(glm::normalize(toCamera), tilt) * up;
 			}
 		}
 		const auto side = glm::normalize(glm::cross(back, up));

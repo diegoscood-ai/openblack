@@ -297,6 +297,9 @@ void DrawBand(Band& band, float dt, const glm::mat4& bone, const glm::mat4& fly)
 	glm::mat4 local = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, k_BandOffset + k_BandStep * static_cast<float>(band.index), 0.0f));
 	if (f >= 1.0f)
 	{
+		// (inferido) Band::Draw 0x68D6D0 turns each row's (x, y) by -angle (about Z, 0x68D922..0x68D9DB) and steps along
+		// Z (0x68D8BB..0x68D909); this +angle about Y along Y is the same only if this bone has the original's Y and Z
+		// swapped (P Rz(-a) P = Ry(+a)), which is not checked
 		local = local * glm::rotate(glm::mat4(1.0f), band.angle, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 	local = local * glm::scale(glm::mat4(1.0f), glm::vec3(k_BandScale));

@@ -18,6 +18,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/ObjectMatrix.h"
 #include "Audio/Audio.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
@@ -172,7 +173,7 @@ entt::entity icon::Create(const glm::vec3& worldPosition, SpellSeedType seed, en
 	const auto entity = registry.Create();
 	ecs::object_index::Assign(entity);
 	// ctor 0x77F140: SpellIcon(pos, info, seed, the site's scale, the site's angle)
-	registry.Assign<Transform>(entity, worldPosition, glm::mat3(glm::eulerAngleY(-site.yAngle)), siteTransform.scale);
+	registry.Assign<Transform>(entity, worldPosition, lh_matrix::AngleY(site.yAngle), siteTransform.scale);
 	// SpellIcon::Create3DObject 0x7261A0: Game3DObject::Create(pos, 0, info.GetMesh (203), angle, scale)
 	registry.Assign<Mesh>(entity, resources::HashIdentifier(iconInfo.meshId), static_cast<int8_t>(0), static_cast<int8_t>(0));
 	auto& spellIcon = registry.Assign<SpellIcon>(entity);

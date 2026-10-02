@@ -16,6 +16,7 @@ en [parity.md](parity.md).
 - [Neblina de distancia](#neblina-de-distancia-original-detalle-fog-niveles-36)
 - [Cámara](#cámara)
 - [Sombras (tres sistemas del original)](#sombras-tres-sistemas-del-original)
+- [Sombras proyectadas (ShadowInfo)](#sombras-proyectadas-shadowinfo)
 - [Cielo: sol, luna y nubes](#cielo-sol-luna-y-nubes-original)
 - [Ríos](#ríos)
 - [Fundido de pantalla y bandas de cine](#fundido-de-pantalla-y-bandas-de-cine)
@@ -499,13 +500,86 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   openblack: `RenderPass::StaticShadow`, `vs_static_shadow_instanced`/`fs_static_shadow` (MAX), textura R8 de la isla
   (`LandIsland::GetStaticShadowFramebuffer`), rango propio de instancias (`CastsStaticShadow` en
   `RenderingSystem.cpp`), aplicada en `fs_terrain` tras las huellas.
-- **Dinámicas** (la mano, hecha; ver [rendering-objects.md](rendering-objects.md#sombra-dinámica-de-la-mano)): `ShadowInfo` 0x4AC bytes, lista 0xFAA7E0; creature y mano (las únicas que caen sobre
-  objetos), objetos lanzados, barcos, SuperVillagers. Silueta 32×32 ARGB4444 (alfa n/15, máx. 53 %), luz: creature
-  a ≥45°, mano vertical (+200), SuperVillager el sol; se desvanece entre 50 y 80 radios de distancia; sobre la tierra
-  por bloque (`fn_00878350`, modo 6, sin Z, nada en celdas de altitud ≤ 1); sobre objetos con ZFUNC EQUAL.
+- **Proyectadas** (la lista `ShadowInfo`): sección propia, [Sombras proyectadas](#sombras-proyectadas-shadowinfo).
 - **Manchas de aldeanos y animales** (hechas): `human_shadow.raw` 32×32 entre dos huesos (`fn_0081FFF0`), modo 6;
   ver [rendering-objects.md](rendering-objects.md#manchas-de-aldeanos-reflejos-de-objetos-y-lod).
-- Sombras de los objetos físicos y de la mano sobre objetos: [rendering-objects.md](rendering-objects.md#sombras-de-los-objetos-físicos).
+
+## Sombras proyectadas (ShadowInfo)
+
+**Fiel** salvo lo marcado (punto 5 de la sesión «shaders»). Plan y reglas R1..R29 con sus bytes:
+`dev\tmp_dis\unify2\PLAN_5_shadows.md`.
+
+**Original.**
+- Una lista enlazada de `ShadowInfo` (0x4AC bytes, cabeza [0xFAA7E0]); cada nueva va delante (`fn_0087FD50`
+  0x87FEC4..0x87FEF2). Solo hay dos constructores: `CreateDynamicShadow` (0x80C02C, la mano y la criatura) y el
+  holder `fn_008745A0` (0x8745BA: objetos físicos en vuelo `fn_007FCE80`, el barco `PetitNavire::PetitNavire`
+  0x5E11AE, la predicción, PSys y SuperVillagers). Cada una tiene su textura 32×32 ARGB4444 (si+0x45C) y su material
+  `CreateMaterial(6)` con +5 = 0 (una cara, **CLAMP**, 0x87FE12).
+- **Fundido** `fn_00874600`: 0 si el bloque bajo el emisor está a ≥ 100000 ([0xC37200]); 0 si ninguno de los 9
+  bloques a (−60, 0, +60) ([0x8C36A8]) existe, es visible (+0x920 & 1, los 5 outcodes de `fn_00877210` sobre las 8
+  esquinas de `haze::BlockCorners`) y está a < 100000; si no, q = |(x, suelo, z) − cámara| / (escala · radio):
+  255 por debajo de 50 ([0xC398F4]), lineal hasta 0 en 80 ([0xC398F8]).
+- **Alfa**: genérica `ftol(fundido · base / 255)` ([0x900058], 0x874872); compleja (mano) igual por debajo de 255 y 255
+  si no (0x815007..0x815051).
+- **Luz**: vertical pos + (0, 15000, 0) ([0x9A3C10]); el sol fijo [0xEA1C88] si holder+4 (el barco, 0x5E11B6); la mano
+  pos + (0, 200, 0) ([0x8C7B34]); la criatura a 3 radios como mínimo y 45° (0x815058..0x815181, sin portar).
+- **Silueta en la CPU** (`fn_00806F60`): proyección `fn_00850900` con la **y absoluta de la luz** (t = −Ly / (h − Ly),
+  h = max(0, W.y − base)), caja = mín./máx. sin margen, rejilla de 128 × 64 submuestras (4 × 2 por texel), triángulos
+  con la cara trasera descartada (`fn_00850CC0`), aristas 16.16 semiabiertas (`fn_0087FF70`), relleno por nibbles
+  (`fn_00880050`; con si+0x3C las subfilas pares no se escriben, 0x880141). Resolución `fn_00880FC0`: texel = popcount
+  → alfa **n/15**, el **anillo exterior** se queda a 0. Si si+0x10 ≠ 255, **fundido horneado** n' = floor(n·a/255)
+  (0x80769A, `0x80808081`, `and 0xF000`).
+- **Ruta chroma** (el emisor tiene vt+0x94: árboles, árboles muertos, bosques, la comida de la mano): en vez del
+  rasterizado, `DrawTextureShadow32x32` (vt+0x168 = `fn_0080EE80` → `fn_0084B7D0` → `fn_00881DE0`) pinta los
+  triángulos texturizados con el mapa 64×64 del alfa de su textura (`fn_00838F00`: nibble alto & 0xF0), cada texel
+  OR `(a & 0xE0) << 7` (como mucho 7/15), y luego un filtro 2×2 OR de los nibbles (0x807635..0x807688). Si el
+  emisor es chroma se suelta el objeto sostenido (si+0 = 0, 0x8073E8).
+- **Tierra** (`fn_007FF610` 0x7FF749): justo después de cada bloque de la tierra principal (no la espejada), para
+  cada sombra activa cuya caja toque el bloque (bx·160 ≤ x1, (bx + 1)·160 ≥ x0; [0x8D151C]), **todas** (no mira
+  si+0xC). `fn_00878350`: H = GetAltitude(emisor) si si+0x464, si no si+0x18 (la mano: t' = 1), **una H por sombra**;
+  t' = (si+0x18 − Ly)/(H − Ly); u, v en la caja; difuso 0 si el byte de altitud ≤ 1; códigos 0x400 / 0x40..0x200 y se
+  quita el triángulo con un código común. Dibujo **al momento** (`LH3DRender::DrawTriangle` 0x82F810 →
+  IDirect3DDevice7 vt+0x68, 0x82F916).
+- **Objetos** (`fn_0080B050` → `fn_0084E200`): ver
+  [rendering-objects.md](rendering-objects.md#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos).
+- **Dónde va en el fotograma frente al Z-sorter**: ninguna sombra es un Z object propio (`fn_00878350`, `fn_0080B050`
+  y `fn_0084E200` no están entre los 32 llamadores de `NewZObject` 0x83F310). Las de tierra van con la tierra, antes
+  del vaciado (`FinishFrame` 0x82F480); las de objetos, al final del Draw de cada objeto: al momento si es opaco,
+  dentro de su Z object si está en la cola.
+
+**openblack.**
+- `src/Graphics/ShadowMath.{h,cpp}` (`graphics::shadow_math`, sin bgfx ni ECS: fundido, alfas, luces, proyección,
+  rasterizado, resolución, filtro chroma, fundido horneado, prueba de bloque y de visibilidad), con `test_shadow_math`.
+- `src/Graphics/ShadowList.{h,cpp}` (`graphics::shadow_list`): la lista y sus productores (la mano, los objetos físicos
+  en vuelo de `PhysicsObjects::ForEach` con `CastsPhysicsShadow`, y los `components::DynamicShadow`: el barco con
+  `useSun`), una textura R8 32×32 (n·17, CLAMP) por entrada, subida cada fotograma. La pose sale de
+  `L3DSubMesh::GetSkinBones` / `GetSkinLocalPositions` (S2) y de `ecs::PosesByInstance`.
+- `src/Graphics/RendererShadows.cpp`: `UpdateShadows` (una vez por fotograma), `DrawLandShadows` (en el bucle de
+  bloques de `Renderer::DrawPass`, vista Main, justo detrás del `submit` de cada bloque; programa `LandShadow` =
+  `vs_land_shadow` / `fs_land_shadow`, que comparte `land_position.sh` con `vs_terrain` para dar la misma Z; Z GEQUAL
+  por la profundidad invertida, sin escribir Z, modo 6, el culling del bloque; textura en la etapa 11) y las sombras
+  sobre objetos (`CollectShadowReceivers`, `DrawShadowsOnObject`, `DrawShadowsOnOtherObjects`). `shadow.sh`:
+  `LandShadowUv`, `ObjectShadowUv`, `ShadowKept` (el código 0x400).
+- `fs_terrain` ya no tiene sombras (fuera `s7_dynamicShadow`, `u_dynamicShadow*` y el bucle de 16
+  `u_physicsShadow*`); se borraron `PhysicsShadows.{h,cpp}`, `vs_dynamic_shadow_instanced`,
+  `fs_physics_shadow_resolve`, `DrawHandShadowPass` y las vistas `DynamicShadow` / `PhysicsShadow` /
+  `PhysicsShadowResolve`. Sin tope de 16.
+- Orden frente a `graphics::zsorter`: las de tierra, en Main con su bloque (antes de la cola); las de objetos, detrás
+  del `DrawMesh` del objeto en Main o dentro de su entrada de la cola (`MainBlended`); ninguna entrada nueva en la cola.
+
+**Diferencias.**
+- **pendiente (S5, espera una captura del juego original)**: la mano se dibuja aún como antes de la lista
+  (`shadow_list::k_HandShadowAsOriginal = false`): 64×64, densidad completa (8/15), proyectada sobre el suelo bajo la
+  mano y sin el objeto sostenido. El original: si+0x3C = 1 (0x80C037 → 0x880141, como mucho 4/15), 32×32, base en la
+  y de la mano (0x8152B1) y el objeto sostenido dentro a densidad completa (0x807532..0x8075B7). Es un cambio de una
+  línea.
+- **(aproximado)** el código 0x400 se aplica por fragmento (el original quita triángulos enteros); con luz vertical
+  k = 0 y no cambia nada.
+- **(inferido)** filtro lineal de la textura (el de la etapa por defecto de LH3D); la visibilidad del barco con la
+  cámara normal y no con la del espejo (D-O5); un bloque invisible tiene aquí su distancia nueva (el original guarda la
+  vieja).
+- Sin portar: la criatura, la predicción, los SuperVillagers y las mallas PSys (`fn_006CA340` desde 0x6A8B76,
+  `MeshCreator::InitAtom`: hueco de milagros2).
 
 ## Cielo: sol, luna y nubes (original)
 
@@ -695,6 +769,9 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
     a la izquierda de cada 2×2, a 128. No está portada.
   - Los mapas de luz de `Data\Spells\LightMaps` (`PSys/Creators/LightMap.cpp`) pasan también por `fn_0057DBE0`
     (inferido) y no se cortan.
+- [Sombras proyectadas](#sombras-proyectadas-shadowinfo): la mano como el original (S5, espera la captura del
+  original; `k_HandShadowAsOriginal`), la criatura, la predicción, los SuperVillagers y las mallas PSys
+  (`fn_006CA340`, milagros2).
 
 ## Ganchos de prueba
 
@@ -707,9 +784,14 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - `OPENBLACK_CLOUD_SEED=<n>`, `OPENBLACK_TIME_OF_DAY=<h>` y `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (cielo y nubes).
 - `OPENBLACK_TEST_FADE="r,g,b,segundos"` y `OPENBLACK_TEST_WIDESCREEN=1` (fundido y bandas).
 - `OPENBLACK_TEST_TOOLTIP=<n>` (mensaje de la mano).
+- Sombras proyectadas: `OPENBLACK_SHADOW_TRACE=1` (una vez por segundo, cada `ShadowInfo` con su luz, alfa, fundido,
+  caja, t' y máximo n, y los objetos que reciben una sombra con la vista en que se dibuja) y
+  `OPENBLACK_DUMP_SHADOWS=<carpeta>` (cada textura ×8 en PNG cada 300 fotogramas); el test `test_shadow_math`.
 
 ## Fuentes
 
+- Sombras proyectadas: `dev\tmp_dis\unify2\PLAN_5_shadows.md`, `shader_projected_shadows_{original,openblack}.md` y
+  `lh3d_zsorter_original.md`.
 - `dev\tmp_dis\unify2\haze_land_light_{original,openblack}.md`, `dev\tmp_dis\miracles\polish\tormenta_audit.md` y
   `fuego_audit.md` (sellos), `dev\tmp_dis\unify\U5_changes.md`.
 - `dev\tmp_dis\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,

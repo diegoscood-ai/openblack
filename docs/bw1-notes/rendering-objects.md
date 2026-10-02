@@ -156,8 +156,14 @@ openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, sin estado, todo `const
 nombre (`_4`, `_3KeepA`, `_3OpaqueA`), más `Argb`, `Red/Green/Blue/Alpha` y las conversiones de bgfx sin original
 (`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` redondeando y `ToVec4/ToVec3` = byte/255). El gemelo de GPU es
 `assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`). Todavía no lo incluye
-ningún shader: `vs_object.sc` y `vs_foliage.sc` siguen con sus copias hasta el reempaquetado de la instancia. La luz
-de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E1F05..0x5E1F24), las neblinas
+ningún shader: `vs_object.sc` y `vs_foliage.sc` siguen con sus copias hasta el reempaquetado de la instancia.
+`Lh3dMul255` es floor((c·l + 0,5)/255): la división de un shader no redondea bien (a menudo x·rcp(255)) y un
+floor(x/255) a secas puede dar k − 1 cuando x = 255k; con el + 0,5 la fracción queda en [0,002, 0,998]
+(aproximado hasta probarlo en una GPU). `ScaleShr8_3KeepA` vale para cualquier k: las máscaras van tras cada `imul`
+(0x74B099 / 0x74B09F / 0x74B0B2), así que los canales no se pisan; los llamadores pasan 0..255. `fn_0080BEC0` es
+«dibujar con el color del terreno» por la propiedad `DrawWithLandscapeColor` del PSys (`Particle3DObj::DrawAt`
+0x67A00C); symbols.txt la llama `GetPoisonColor@Pot`, y el nombre es nuestro (inferido). La luz
+de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E1ECE..0x5E1F24), las neblinas
 (`RendererMists`), la bola de un uso y las conversiones de `Renderer`, `RendererBoat`, `RendererSea`,
 `RendererSmoke`, `Dust`, `GameFont` y `ScreenFade` ya lo usan, sin cambio visible. `test_lh3d_colour` compara
 `MulShr8_4` con una emulación instrucción a instrucción de 0x80BFA3..0x80C00B y `Mul255` con las dos formas de

@@ -56,7 +56,9 @@ namespace openblack::lh3d_colour
 	return (alpha & 0xFFu) << 24 | (red & 0xFFu) << 16 | (green & 0xFFu) << 8 | (blue & 0xFFu);
 }
 
-/// fn_0080BF10 0x80BFA3..0x80C00B, the diffuse of DrawWithLandscapeColor (fn_0080BEC0): (c t) >> 8 in the four
+/// fn_0080BF10 0x80BFA3..0x80C00B, the diffuse of fn_0080BEC0 (the draw with the land colour: the bit the PSys
+/// property DrawWithLandscapeColor sets sends Particle3DObj::DrawAt 0x67A00C there; the name is ours, symbols.txt
+/// labels 0x80BEC0 ?GetPoisonColor@Pot, inferido): (c t) >> 8 in the four
 /// channels, the alpha too (0x80BFC5..0x80BFD3: ((c >> 8) & 0xFF0000) t.A, masked with 0xFF00FFFF), so a 0xFF alpha
 /// tinted with 0xFF comes out 0xFE. The same inline in Field::Draw 0x528809..0x528862 and SpellWolf::Draw
 /// 0x51C751..0x51C7B7 (the colour times the charring grey of fn_00730570).
@@ -84,7 +86,10 @@ namespace openblack::lh3d_colour
 /// The scalar form of the same product: (c k) >> 8 in R, G and B through the masks 0xFF0000FF / 0xFF0000 / 0xFF00 and
 /// `shr 8`, the alpha of `c` kept. fn_0084BA90's model light (0x84BBEA..0x84BC1D, k = the factor f), Tree::Draw
 /// (0x74B077..0x74B0C4, k = [0xC22FA0], `and eax, 0xFF000000` at 0x74B0BD) and fn_0074B3A0 (k = the burning grey,
-/// alpha kept at 0x74B4C9). `k` is 0..256, so that the masked channels do not run into each other.
+/// alpha kept at 0x74B4C9). The masks come after each `imul` (Tree::Draw 0x74B099 / 0x74B09F / 0x74B0B2), so the
+/// channels never run into each other: each is ((c k) >> 8) & 0xFF modulo 2^32 for any k, what Argb's masks give
+/// here. The callers pass 0..255 ([0xC22FA0] the brightness, the grey, the light factor <= 254): a fact of the
+/// callers, not a condition of this function.
 [[nodiscard]] constexpr uint32_t ScaleShr8_3KeepA(uint32_t c, uint32_t k) noexcept
 {
 	return Argb((Red(c) * k) >> 8, (Green(c) * k) >> 8, (Blue(c) * k) >> 8, Alpha(c));

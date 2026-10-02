@@ -84,8 +84,8 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
   es fn_0080C050, un dibujo directo de sus primitivas. El corte por y = 0 es solo de los objetos animados (fn_00811C70,
   [rendering-objects.md](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane)). La nota de la revisión 3a («sin recorte del suelo») queda resuelta: no hay nada que
   portar.
-- **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la w de la cuarta
-  columna), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
+- **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la x de la quinta
+  columna, `lh3d_colour::PackInstanceTint`; sin `DrawWithLandscapeColor`, 1 + rgb con `PackInstanceColour`), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
   original pone solo el color (`SetColour` vt 0x2C → obj +0x4C / +0x50). Sin portar: `UseScriptHightlightPulse`
   (fn_0070A510), `CastHumanShadow` (lista 0xD4EDCC), `UseDynamicLighting` (bit 0x20), `UseGlobalAlpha` y el orden Z por
   objeto.

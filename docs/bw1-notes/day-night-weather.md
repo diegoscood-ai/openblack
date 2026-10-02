@@ -173,8 +173,9 @@ resta redondeada a float), salto desde `ForceScriptTime`).
 
 - **Ventanas** (`Abode::Draw` 0x515F70): las submallas con la marca `isWindow` del L3D se ven sin luz, con un gris
   plano 224..252 que parpadea un poco. Ocurre solo si hay alguien en casa (Abode +0xB6) y es de noche visual. Cada
-  casa tiene su desfase de hora: la parte fraccionaria de |x + z|·0,1 + y. openblack: `night_lights::WindowGrey`
-  (`src/3D/NightLights.*`). Como openblack todavía no manda a los aldeanos a casa, cuenta "alguien en casa" como
+  casa tiene su desfase de hora: la parte fraccionaria de |x + z|·0,1 + y. openblack: `night_lights::WindowColour`
+  (`src/3D/NightLights.*`), que da el color +0x54 0xFFgggggg o 0 con las ventanas apagadas, y va en la z de la quinta
+  columna de la instancia (`lh3d_colour::PackInstanceWindow`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)). Como openblack todavía no manda a los aldeanos a casa, cuenta "alguien en casa" como
   que la casa tiene habitantes **(aproximado)**.
 - **Casa de los aldeanos del guion**: al crear un aldeano con CREATE_VILLAGER, openblack (b8657f1d) le da la casa
   más cercana a la posición de abode del guion (a 1 unidad o menos) o, si no hay, cualquiera con sitio, y lo añade

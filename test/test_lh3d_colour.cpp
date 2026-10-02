@@ -283,7 +283,7 @@ TEST(Lh3dColour, InstanceColumnRoundTripsThroughTheShader)
 
 TEST(Lh3dColour, WhiteTintTakesOneOff)
 {
-	// fn_0080BF10 with t = 0xFFFFFFFF (SpellIcon 0x5198A8, the villagers with a specular 0x51B424, PhysicalShield
+	// fn_0080BF10 with t = 0xFFFFFFFF (TownCentre::Draw 0x5164AD, the villagers with a specular 0x51B424, PhysicalShield
 	// 0x72D0D4): the land light loses 1 in each channel, as vs_object's Lh3dMulShr8 does with the unpacked tint
 	glm::vec4 lh3d(0.0f);
 	lh3d_colour::PackInstanceTint(lh3d, 0xFFFFFFFFu);
@@ -293,4 +293,18 @@ TEST(Lh3dColour, WhiteTintTakesOneOff)
 		ASSERT_EQ((c * tint.r) >> 8, lh3d_colour::Red(lh3d_colour::MulShr8_4(c << 16, 0xFFFFFFFFu)));
 		ASSERT_EQ((c * tint.r) >> 8, c == 0 ? 0u : c - 1u);
 	}
+}
+
+TEST(Lh3dColour, TreeTintGoesAfterTheHaze)
+{
+	// Tree::Draw multiplies the hazed +0x4C (0x74AB60 -> 0x74B077..0x74B0C4): the same tint, flagged in w; every other
+	// tint (fn_0080BF10) leaves w at 0
+	glm::vec4 tree(0.0f);
+	lh3d_colour::PackInstanceTreeTint(tree, 0xFFC0C0C0u);
+	ASSERT_EQ(lh3d_colour::InstanceTint(tree), 0x00C0C0C0u);
+	ASSERT_TRUE(lh3d_colour::InstanceTintAfterHaze(tree));
+	glm::vec4 other(0.0f);
+	lh3d_colour::PackInstanceTint(other, 0xFFC0C0C0u);
+	ASSERT_EQ(lh3d_colour::InstanceTint(other), 0x00C0C0C0u);
+	ASSERT_FALSE(lh3d_colour::InstanceTintAfterHaze(other));
 }

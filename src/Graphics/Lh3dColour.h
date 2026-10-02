@@ -171,17 +171,22 @@ namespace openblack::lh3d_colour
 /// exactly:
 /// - x, obj+0x4C. 0: the land light alone (fn_00801C90 without fn_0080BF10: MultiMapFixed::Draw 0x5180CF, Animal::Draw
 ///   0x51C4F0, ...). Negative, PackInstanceTint: -1 - the rgb of the tint t that multiplies the land light (fn_0080BF10
-///   from fn_0080BEC0, or DrawBuilding 0x517FD4). Positive, PackInstanceColour: 1 + the rgb set with SetColorSpecular
+///   from fn_0080BEC0, or DrawBuilding 0x517FD4; or Tree::Draw's own product, see w). Positive, PackInstanceColour: 1 + the rgb set with SetColorSpecular
 ///   0x7F9770 (vt 0x2C) instead of the land light (the power-up bands, the PSys mesh atoms).
 /// - y, obj+0x50, PackInstanceSpecular: the specular's rgb, 8 bits a channel, added to the land light's with
 ///   saturation (fn_0080BF10 0x80BF1B..0x80BFB9) or, with SetColorSpecular, the specular itself.
 /// - z, obj+0x54, PackInstanceWindow: 0, or 1 + the rgb of the window colour Abode::Draw sets with vt 0x30
 ///   (fn_007F9780 from 0x516068; 0 when the windows are not lit, 0x51606D..0x516073).
-/// - w: unused (0).
-/// The alpha bytes are not carried. The tint's alpha (0x80BFC0..0x80BFD3) only reaches the fading objects' table
-/// (obj+0x4C -> [0xC37D8C], LH3DObject Draw 0x80DF09), and openblack gives a fading object its alpha in components::Alpha
-/// (aproximado: the original's is (0xFF x t.A) >> 8, so 0xFE for the physical shield's white tint 0x72D0D4 and
-/// (A x 0xFF) >> 8 for a spell wolf's 0x51C70B; the one-shot orb's caller already does that product by hand).
+/// - w, PackInstanceTreeTint: 1 = the tint goes after the haze. Tree::Draw does not call fn_0080BF10: it lights with
+///   fn_00802120 (0x74AB1B), hazes (fn_007FEB30, 0x74AB60) and only then multiplies the hazed +0x4C by the brightness
+///   (0x74B077..0x74B0C4) or by fn_0074B3A0's colour (0x74B48F..0x74B4D3). 0 for every other tint (before the haze).
+/// The alpha bytes are not carried. The LH3DObject draw copies the whole +0x4C into [0xC37D8C] (0x80DEF8; +0x50 into
+/// [0xE9FE2C] at 0x80DEFE) for every object, and that global is read by several render routines (fn_007A4170
+/// 0x7A6A2C, 0x7A7E85, fn_00805CD0 0x805EAA, fn_00809E50). (inferido) its alpha byte only matters for the fading
+/// objects: those readers were not followed to the vertex colour. openblack gives a fading object its alpha in
+/// components::Alpha (aproximado: the original's is (0xFF x t.A) >> 8, so 0xFE for the physical shield's white tint
+/// 0x72D0D4 and (A x 0xFF) >> 8 for a spell wolf's 0x51C70B; the one-shot orb's caller already does that product by
+/// hand).
 /// vs_object.sc decodes them (Lh3dUnpackRgb24, lh3d_colour.sh); the Instance* readers below are its CPU twin.
 [[nodiscard]] constexpr float PackRgb24(uint32_t argb) noexcept
 {
@@ -191,6 +196,13 @@ namespace openblack::lh3d_colour
 inline void PackInstanceTint(glm::vec4& lh3d, uint32_t tint) noexcept
 {
 	lh3d.x = -1.0f - PackRgb24(tint);
+}
+/// Tree::Draw's tint (the brightness 0x74B077..0x74B0C4, fn_0074B3A0 0x74B48F..0x74B4D3): the same (c t) >> 8, after
+/// the haze of 0x74AB60
+inline void PackInstanceTreeTint(glm::vec4& lh3d, uint32_t tint) noexcept
+{
+	lh3d.x = -1.0f - PackRgb24(tint);
+	lh3d.w = 1.0f;
 }
 /// SetColorSpecular 0x7F9770's colour (edx -> obj+0x4C): drawn instead of the land light, without the haze
 inline void PackInstanceColour(glm::vec4& lh3d, uint32_t colour) noexcept
@@ -212,6 +224,10 @@ inline void PackInstanceWindow(glm::vec4& lh3d, uint32_t window) noexcept
 [[nodiscard]] inline std::optional<uint32_t> InstanceTint(const glm::vec4& lh3d) noexcept
 {
 	return lh3d.x < -0.5f ? std::optional(static_cast<uint32_t>(-lh3d.x - 1.0f)) : std::nullopt;
+}
+[[nodiscard]] inline bool InstanceTintAfterHaze(const glm::vec4& lh3d) noexcept
+{
+	return lh3d.w > 0.5f;
 }
 [[nodiscard]] inline std::optional<uint32_t> InstanceColour(const glm::vec4& lh3d) noexcept
 {

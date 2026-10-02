@@ -69,15 +69,17 @@ void main()
 	model[3] = vec4(i_data3.xyz, 1.0f);
 	// The fifth column, the object's LH3DColor fields (lh3d_colour::PackInstance*, src/Graphics/Lh3dColour.h), each
 	// an rgb 0xRRGGBB below 2^24:
-	// x, obj+0x4C: 0 the land light alone; < 0: -1 - the tint t of fn_0080BF10 that multiplies the land light
-	// (Field::Draw, Tree::Draw, the white tint 0xFFFFFFFF, the poison, the charring grey); > 0: 1 + the colour set with
-	// SetColorSpecular 0x7F9770 instead of the land light (the power-up bands, the PSys mesh atoms)
+	// x, obj+0x4C: 0 the land light alone; < 0: -1 - a tint t that multiplies the land light (fn_0080BF10's: Field::Draw,
+	// the white tint 0xFFFFFFFF, the poison, the charring grey; or Tree::Draw's own, see w); > 0: 1 + the colour set
+	// with SetColorSpecular 0x7F9770 instead of the land light (the power-up bands, the PSys mesh atoms)
 	// y, obj+0x50: the specular, 8 bits a channel (Living +0xD0, the poison's, the fire's glow, the bands' 0x141414)
 	// z, obj+0x54: 0, or 1 + the house's window colour at night (Abode::Draw vt 0x30)
+	// w: 1 = the tint after the haze (Tree::Draw: haze 0x74AB60, then the brightness 0x74B077 or fn_0074B3A0 0x74B48F)
 	vec3 drawColour = i_data4.x < -0.5f ? Lh3dUnpackRgb24(-i_data4.x - 1.0f) : vec3_splat(-1.0f);
 	bool setColour = i_data4.x > 0.5f;
 	vec3 setColour255 = setColour ? Lh3dUnpackRgb24(i_data4.x - 1.0f) : vec3_splat(0.0f);
 	vec3 objectSpecular255 = Lh3dUnpackRgb24(i_data4.y);
+	bool tintAfterHaze = i_data4.w > 0.5f;
 	bool windowLit = i_data4.z > 0.5f;
 	vec3 windowColour = windowLit ? Lh3dUnpackRgb24(i_data4.z - 1.0f) / 255.0f : vec3_splat(0.0f);
 
@@ -185,7 +187,7 @@ void main()
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
 		// the tint multiplies the land light byte by byte, (c t) >> 8 (fn_0080BF10 0x80BFA3..0x80C00B): the white
 		// 0xFFFFFFFF takes 1 off each channel
-		if (drawColour.r >= 0.0f)
+		if (drawColour.r >= 0.0f && !tintAfterHaze)
 		{
 			objectColour = Lh3dMulShr8(floor(objectColour * 255.0f + 0.5f), drawColour) / 255.0f;
 		}
@@ -202,6 +204,15 @@ void main()
 			objectColour = ApplyHazeDiffuse(floor(objectColour * 255.0f + 0.5f), HazeFactor(hazeT)) / 255.0f;
 			specular = HazeAddSaturated(floor(specular * 255.0f + 0.5f), HazeColour(hazeT)) / 255.0f;
 		}
+		}
+		// Tree::Draw's tint, the same (c t) >> 8 over the hazed +0x4C (0x74B077..0x74B0C4, 0x74B48F..0x74B4D3); the
+		// specular is left as the haze made it
+		if (drawColour.r >= 0.0f && tintAfterHaze)
+		{
+			objectColour = Lh3dMulShr8(floor(objectColour * 255.0f + 0.5f), drawColour) / 255.0f;
+		}
+		if (u_objectLight.x < 2.5f)
+		{
 		// The vertex light of fn_0084BA90 (model_light.sh) over the object's byte colour, so it is at most 254/256
 		// mod graphics.hd-tweaks (u_window.y > 0): fs_object does this per pixel on the villager
 		if (u_window.y <= 0.0f)

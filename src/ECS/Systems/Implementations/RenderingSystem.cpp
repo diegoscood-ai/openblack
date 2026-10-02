@@ -139,6 +139,8 @@ struct DrawColours
 	std::optional<uint32_t> tint;
 	std::optional<uint32_t> colour;
 	uint32_t specular {0};
+	/// Tree::Draw's own product after the haze (0x74AB60 -> 0x74B077), lh3d_colour::PackInstanceTreeTint
+	bool tintAfterHaze {false};
 };
 /// fn_00518050 (0x518050..0x518070), the Draw of an object with a fire (Object +0x44) of DeadTree 0x510833, FelledTree
 /// 0x51199D, Rock 0x517F1C, MultiMapFixed 0x5180B6, SingleMapFixed 0x51810C, MobileObject 0x51815C, WorshipSite
@@ -162,23 +164,37 @@ DrawColours DrawColoursOf(const openblack::ecs::Registry& registry, entt::entity
 	constexpr uint32_t k_White = 0xFFFFFFFFu; // `or edx, 0xffffffff`: the white tint, every channel - 1 (c 0xFF >> 8)
 	const auto* fire = openblack::ecs::fire::Find(entity);
 	const auto specularOf = [&registry, entity]() -> std::optional<uint32_t> {
-		// Living +0xD0 (Living::GetSpecularColor 0x417490): the component is there only while it is not 0
+		// Living +0xD0 (Living::GetSpecularColor 0x417490), tested as a whole dword with its alpha (0x51B416 / 0x51C4D6
+		// `test eax,eax`). (aproximado) openblack has the component only while its rgb is not 0: the heal chakra writes
+		// alpha 0xFF (fn_006A0E30 0x6A0EF5 before vt 0x5A0), so its fade frames with rgb 0 still take the white tint
+		// in the original and the land light alone here (PSys/Rules/Heal.cpp drops the component at rgb 0)
 		if (const auto* specular = registry.TryGet<const SpecularColour>(entity); specular != nullptr)
 		{
 			return lh3d_colour::Argb(specular->colour.r, specular->colour.g, specular->colour.b);
 		}
 		return std::nullopt;
 	};
-	// SetColorSpecular 0x7F9770 (vt 0x2C): the power-up bands (DrawSpellGraphic 0x51A3BE, PHandFX Band::Draw 0x68D86D)
+	// The power-up bands: DrawSpellGraphic through SetColorSpecular 0x7F9770 (vt 0x2C, 0x51A3BE); PHandFX Band::Draw
+	// writes the same fields directly (+0x4C 0x68D87D / 0x68D8AB, +0x50 0x68D8B1). (inferido) no fn_00801C90 runs on
+	// the hand band between those writes and its AddForDrawing, so both end as a set colour
 	if (const auto* colour = registry.TryGet<const ObjectColour>(entity); colour != nullptr)
 	{
 		return {std::nullopt, lh3d_colour::Argb(colour->rgb[0], colour->rgb[1], colour->rgb[2]), colour->specular};
 	}
-	// SpellIcon::Draw 0x5198A8 (and TownCentre::Draw 0x5164AD for the icons in its slots): the white tint and the
-	// icon's +0x10C (SetSpecularColor 0x55D380; not ported: 0)
-	if (registry.AllOf<SpellIcon>(entity))
+	// TownCentre::Draw 0x5164A6..0x5164B2 (the icons in its slots, while the centre's life > 0): always the white tint
+	// and the icon's +0x10C (SetSpecularColor 0x55D380; not ported: 0). (inferido) this is the write the frame keeps:
+	// TownCentreSpellIcon::Draw 0x519640 is a jmp to SpellIcon::Draw, and whether it also runs for the slot icons in the
+	// same frame (and after TownCentre::Draw) was not read
+	if (registry.AllOf<SpellIcon, TownCentreSpellIcon>(entity))
 	{
 		return {k_White, std::nullopt, 0};
+	}
+	// SpellIcon::Draw 0x519650 (the WorshipSpellIcon's): the white tint 0x5198A8 only when +0x10C != 0
+	// (0x519672..0x51967C); with +0x10C == 0 the light of 0x5196CC alone, and with vt 0x890 == 0 DrawBuilding
+	// 0x519668. +0x10C is not ported (always 0), so never the tint
+	if (registry.AllOf<SpellIcon>(entity))
+	{
+		return {};
 	}
 	// PhysicalShield::DrawShield 0x72D0D4: the white tint, specular 0 (0x72D0D2)
 	if (const auto* shield = registry.TryGet<const MapShield>(entity);
@@ -244,7 +260,10 @@ DrawColours DrawColoursOf(const openblack::ecs::Registry& registry, entt::entity
 		return {openblack::ecs::life::k_PoisonDiffuse, std::nullopt, openblack::ecs::life::k_PoisonSpecular};
 	}
 	// the other classes with a fire (Burning). (inferido) every class drawn here that can burn goes through one of those
-	// Draws; the creature (LH3DCreature) and the hand do not
+	// Draws (fn_00518050, DrawBuilding) or carries the same pair inline (SpellWolf 0x51C751, above); the creature
+	// (LH3DCreature) and the hand do not. Not ported: the damaged Abode's FragMesh (0x5160AF; 0xFFFFFFFF / 0 when not
+	// burning, 0x5160CB..0x5160D8), Object::DrawOutOfMap's own pair (0x51C839), the PhysicsObject prediction object
+	// (0x646F8C) and CitadelHeart::DrawNow (0x4670DD..0x4670EE: tint +0xA4, specular vt 0x5A4)
 	if (fire != nullptr && !registry.AnyOf<Tree, Field, Creature, Hand>(entity))
 	{
 		return Burning(*fire);
@@ -522,6 +541,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    {
 				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
 				    colours.tint = lh3d_colour::Argb(grey, grey, grey, 0xFF);
+				    colours.tintAfterHaze = true;
 			    }
 		    }
 		    else if (const auto* swayTree = registry.TryGet<const Tree>(entity);
@@ -535,6 +555,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    {
 				    const auto grey = static_cast<uint32_t>(ecs::TreeBrightness());
 				    colours.tint = lh3d_colour::Argb(grey, grey, grey, 0xFF);
+				    colours.tintAfterHaze = true;
 			    }
 			    _renderContext.instanceUniforms[idx][1][0] = 0.0f;
 			    _renderContext.instanceUniforms[idx][1][2] = transform.scale.y * ecs::WindSway(slot);
@@ -548,6 +569,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    if (const auto colour = ecs::fire::graphic::TreeDrawColour(entity); colour.has_value())
 			    {
 				    colours.tint = lh3d_colour::Argb(colour->r, colour->g, colour->b, 0xFF);
+				    colours.tintAfterHaze = true;
 				    const float life = ecs::life::LifeOf(entity);
 				    if (life < 0.2f)
 				    {
@@ -561,7 +583,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    }
 		    }
 		    auto& lh3d = _renderContext.instanceColours[idx];
-		    if (colours.tint.has_value())
+		    if (colours.tint.has_value() && colours.tintAfterHaze)
+		    {
+			    lh3d_colour::PackInstanceTreeTint(lh3d, *colours.tint);
+		    }
+		    else if (colours.tint.has_value())
 		    {
 			    lh3d_colour::PackInstanceTint(lh3d, *colours.tint);
 		    }
@@ -610,7 +636,8 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		}
 		// the DrawData colour +8 (the creator's colour, x the player's for UsePlayerColor; Particle3DObj::DrawAt 0x67A00C..
 		// 0x67A01C): with DrawWithLandscapeColor the tint of fn_0080BEC0, else the colour of SetColorSpecular (vt 0x2C).
-		// (aproximado) the specular DrawData +0xC (0x67A019) is not in the atom (psys::mesh_atoms::Instance): 0
+		// (aproximado) the specular DrawData +0xC (read at 0x67A012 for fn_0080BEC0 and at 0x67A023 for vt 0x2C) is not
+		// in the atom (psys::mesh_atoms::Instance): both paths lose it, 0
 		const uint32_t atomColour = lh3d_colour::Argb(atom.colour[0], atom.colour[1], atom.colour[2], 0xFF);
 		auto& lh3d = _renderContext.instanceColours[idx];
 		if (atom.landscapeColour)

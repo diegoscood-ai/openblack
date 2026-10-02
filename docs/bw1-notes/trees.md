@@ -269,8 +269,10 @@ turno, los guiones y lo que falta están en
   tablas 0xEDD90C y celdas +3/+0xB/+0x8B/+0x93). Luego la neblina (0x74AB60). openblack:
   `land_light::ObjectMode::CellShift` (`vs_object`, `LandLightCellShift` de `land_light.sh`); ver
   [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común).
-  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
-  instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
+  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, llevado como tinte en la x de la quinta columna de la
+  instancia con w = 1 (`lh3d_colour::PackInstanceTreeTint`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)): `vs_object` lo aplica después de la neblina, como
+  `Tree::Draw`, que no llama a `fn_0080BF10` sino que multiplica el +0x4C ya con neblina (0x74AB60 → 0x74B077..0x74B0C4;
+  ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3).
 - **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
   suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
   `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.

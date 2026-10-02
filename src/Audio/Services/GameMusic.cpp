@@ -405,6 +405,18 @@ void GameMusic::OnAlignmentMusicFinished(int group)
 
 bool GameMusic::ProcessAlignmentMusic()
 {
+	// (openblack test hook) OPENBLACK_TEST_ALIGNMENT_MUSIC=<turn>: from that game turn on, every turn, as if the script
+	// called ENABLE_DISABLE_ALIGNMENT_MUSIC(1) (0x710120; Land 1's script turns it off at the start), and without the
+	// script's wide screen (openblack's Land 1 keeps it on after the intro)
+	static const long k_TestEnable = [] {
+		const char* env = std::getenv("OPENBLACK_TEST_ALIGNMENT_MUSIC");
+		return env != nullptr ? std::strtol(env, nullptr, 10) : -1L;
+	}();
+	const bool testEnabled = k_TestEnable >= 0 && _queries.turn && _queries.turn() >= static_cast<uint32_t>(k_TestEnable);
+	if (testEnabled)
+	{
+		_script.alignmentMusic = 1;
+	}
 	// 0x4279D7: a camera
 	const auto camera = _queries.camera ? _queries.camera() : std::nullopt;
 	if (!camera)
@@ -412,8 +424,8 @@ bool GameMusic::ProcessAlignmentMusic()
 		return false;
 	}
 	// 0x4279E9..0x427A01: not while the script's wide screen is on; 0x427A07: nor while its bars move
-	if ((_queries.scriptWideScreen && _queries.scriptWideScreen()) ||
-	    (_queries.wideScreenChanging && _queries.wideScreenChanging()))
+	if (!testEnabled && ((_queries.scriptWideScreen && _queries.scriptWideScreen()) ||
+	                     (_queries.wideScreenChanging && _queries.wideScreenChanging())))
 	{
 		return false;
 	}
@@ -448,6 +460,15 @@ bool GameMusic::ProcessAlignmentMusic()
 	}
 	if (_alignmentType != type) // 0x427A81
 	{
+		if (g_Trace)
+		{
+			if (auto logger = Logger())
+			{
+				const float alignment = _queries.cameraAlignment ? _queries.cameraAlignment() : 0.0f;
+				SPDLOG_LOGGER_INFO(logger, "(openblack) alignment music type {} (GAudio+0x190 {:.3f}, discrete {})", type,
+				                   alignment, DiscreteAlignment(alignment));
+			}
+		}
 		SavePositions(); // 0x427A8C
 		const int group = bank->GetGroupId(); // 0x427A95 LHBankGetMusicGroupId
 		MusicPlayOptions options;

@@ -18,6 +18,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/Clouds.h"
 #include "3D/L3DAnim.h"
 #include "Audio/GameQueries.h"
 #include "Camera/Camera.h"
@@ -28,6 +29,7 @@
 #include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Effects/Alignment.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
@@ -123,6 +125,33 @@ audio::CameraWeatherInfo WeatherSmooth(glm::vec3 point)
 	return info;
 }
 
+float CameraAlignment()
+{
+	// fn_005E2240's argument x: fn_0064AC30 (GPlayer::ProcessPlayers 0x64A697, once a turn) passes clamp((the
+	// GPlayer::GetAlignmentValue of MapCoords::CalculateMostInfluentialPlayer at the interface's camera position + 1) / 2,
+	// 0, 1), ecs::effects::alignment::GetInterfaceAlignment(). The sky takes the same x (fn_005E2240 stores 2 (1 - x) at
+	// 0xBF337C), so the sky's openblack overrides (OPENBLACK_TEST_SKY_ALIGNMENT, the debug slider) reach the audio too:
+	// Clouds::InfluentialPlayerAlignment is 2x - 1, or the override's -1..1.
+	float x = ecs::effects::alignment::GetInterfaceAlignment();
+	if (const float sky = Clouds::InfluentialPlayerAlignment(); sky != x * 2.0f - 1.0f)
+	{
+		x = (sky + 1.0f) * 0.5f; // (openblack) an override is on
+	}
+	// fn_005E2240 0x5E2240..0x5E2291, in float steps (the game's x87 at 24 bits, fn_007DEE00): x below 0 (fcom [0x8AA398],
+	// test ah, 1) is 0, above 1 (test ah, 0x41) is 1; s = (1 - x) + (1 - x); GAudio+0x190 = 2 (0x8AB478) - s - 1
+	if (x < 0.0f)
+	{
+		x = 0.0f;
+	}
+	else if (!(x <= 1.0f))
+	{
+		x = 1.0f;
+	}
+	const float s = (1.0f - x) + (1.0f - x);
+	const float twoMinusS = 2.0f - s;
+	return twoMinusS - 1.0f;
+}
+
 void RunViewHook(uint32_t turn)
 {
 	const char* view = std::getenv("OPENBLACK_AUDIO_TEST_VIEW");
@@ -199,6 +228,8 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	// GSoundMap::GetSurfaceType 0x71D8E0: agua's ecs::sea_cells, the single source
 	queries.surfaceType = [](glm::vec3 point) { return ecs::sea_cells::GetSurfaceType(point); };
 	queries.weatherSmooth = &WeatherSmooth;
+	// GAudio+0x190, written by fn_005E2240 (ProcessAtmosBanks' group 0x428FFA, the alignment music fn_00427460)
+	queries.cameraAlignment = &CameraAlignment;
 	queries.animatedThing = &AnimatedThing;
 	queries.animationClipName = &AnimationClipName;
 	queries.streetLanterns = &StreetLanterns;

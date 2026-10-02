@@ -28,7 +28,8 @@ namespace openblack::audio::atmos_banks
 void UpdateBanks();
 void Mix();
 
-/// GAudio+0x190 (-1 evil .. 1 good), which ProcessAtmosBanks compares with -0.6 to put every bank in group 1 or 2
+/// GAudio+0x190 (-1 evil .. 1 good), which ProcessAtmosBanks compares with -0.6 to put every bank in group 1 or 2:
+/// GameQueries::cameraAlignment (0 when unset)
 [[nodiscard]] float Alignment();
 
 /// GAudio::AtmosProcess(0) 0x4286C0 -> LHAtmosProcess(0) (0x10001EBF): the loops stop (their AtmosInfo cleared) and

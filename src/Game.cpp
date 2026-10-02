@@ -128,7 +128,7 @@ const std::string k_WindowTitle = "openblack";
 namespace
 {
 /// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
-/// not have yet (videos, the wide screen bars moving, the camera's alignment, the towns' tribes, citadel, creature, worship)
+/// not have yet (videos, the wide screen bars moving, the towns' tribes, citadel, creature, worship)
 audio::GameQueries MakeMusicQueries(Game& game)
 {
 	audio::GameQueries queries;

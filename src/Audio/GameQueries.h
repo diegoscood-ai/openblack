@@ -153,14 +153,19 @@ struct GameQueries
 	std::function<bool()> scriptWideScreen;
 	/// fn_005C6C50: the wide screen bars are moving (0x427A07). Unset: false.
 	std::function<bool()> wideScreenChanging;
-	/// GAudio+0x190: the alignment (-1..1) of the player with the most influence where the camera is (written by
-	/// fn_005E2240 from fn_0064AC30, tmp_dis\agua\re\NOTES.md). Unset: 0, neutral (GAudio::Reset 0x426CC2 sets 0).
+	/// GAudio+0x190: the alignment (-1..1) of the player with the most influence where the camera is, as fn_005E2240
+	/// writes it once a turn (GPlayer::ProcessPlayers 0x64A697 -> fn_0064AC30: x = clamp((alignment + 1) / 2, 0, 1),
+	/// +0x190 = 2 - 2 (1 - x) - 1). Read by ProcessAtmosBanks (group 1 above -0.6, else 2, 0x428FFA) and the alignment
+	/// music (fn_00427460 0x427466). Game: ecs::audio_queries (ecs::effects::alignment::GetInterfaceAlignment). Unset: 0,
+	/// neutral (GAudio::Reset 0x426CC2 sets 0).
 	std::function<float()> cameraAlignment;
 	/// fn_00602160(camera, maxDistance): the nearest town of every player and the neutral one (GetNextPlayerAndNeutral
 	/// 0x550980, towns from player +0xA50 by +0x75C) closer than maxDistance (strictly, 0x60219C; the distance is
 	/// fn_00605CD0 = GetDistanceInMetres 0x74CD70, the same as MusicTown::distance) that has +0x9A4 set or
 	/// fn_00741020 (a town centre among its buildings +0x754, or an entry of +0x9A8 whose GetComputerSeen is 0xC).
-	/// Unset: nullopt (no tribe music until the towns have tribes).
+	/// Unset: nullopt (no tribe music until the towns have tribes). Pending (C2): openblack's towns get their tribe and
+	/// the +0x9A4 / fn_00741020 test from ecs::map_cells (the session milagros2); until then the music is the generic one
+	/// of the alignment (fn_00427460 0x427579).
 	std::function<std::optional<MusicTown>(float maxDistance)> nearestTown;
 	/// The town GAudio+0x18C keeps, again: nullopt when it is no longer available (IsAvailable, 0x4274AF). Unset:
 	/// nullopt.
@@ -177,7 +182,9 @@ struct GameQueries
 	/// the one reading of the map's cells. Unset: 6 (off the map, 0x71D950).
 	std::function<int32_t(glm::vec3 point)> surfaceType;
 	/// LH3DAtmos::GetWeatherSmooth 0x835180 (recalc) at a point: GCamera::Update fills GCamera+0x80 with it at the camera
-	/// (GSoundMap's weather). Unset: all 0 (no rain, snow nor wind).
+	/// (GSoundMap's weather: the plan's weatherAt(camera); audio::CameraWeather asks it at the camera). Game:
+	/// ecs::audio_queries (weather::atmos::GetWeatherSmooth, the storms and climates of src/ECS/Weather). Unset: all 0 (no
+	/// rain, snow nor wind).
 	std::function<CameraWeatherInfo(glm::vec3 point)> weatherSmooth;
 	/// The animated thing of fn_00516510, nullopt when it is gone or has no position (nothing plays). Unset: nullopt.
 	std::function<std::optional<AnimatedThing>(entt::entity thing)> animatedThing;

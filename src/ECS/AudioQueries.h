@@ -25,7 +25,8 @@ namespace openblack::ecs::audio_queries
 {
 
 /// Fills the queries that read the ECS registry and its systems: surfaceType (ecs::sea_cells::GetSurfaceType, GSoundMap::
-/// GetSurfaceType 0x71D8E0), weatherSmooth (weather::atmos::GetWeatherSmooth 0x835180), animatedThing (fn_00516510's
+/// GetSurfaceType 0x71D8E0), weatherSmooth (weather::atmos::GetWeatherSmooth 0x835180), cameraAlignment (GAudio+0x190
+/// as fn_005E2240 writes it from ecs::effects::alignment::GetInterfaceAlignment), animatedThing (fn_00516510's
 /// reads of a villager or animal), animationClipName (the clips of the resources, LoadAllAnimations 0x550180) and
 /// streetLanterns (the list g_game+0x205C34 with Object::GetHeight 0x638120)
 void Fill(audio::GameQueries& queries);

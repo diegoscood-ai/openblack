@@ -106,7 +106,7 @@ bool mists::InView(const glm::vec3& position, float size)
 std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& camera) const
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs, fn_007FA300 0x7FA3BF): game time, whole ms, 0 while
+	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs, fn_007FA300 0x7FA3BE): game time, whole ms, 0 while
 	// paused, so the animation stops while the game is paused. Collected once a frame (the main view)
 	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
 	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());

@@ -916,8 +916,8 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   **(inferido)**).
 - **Hecho en U7** (`local/sistemas`): `Renderer::UpdateClouds` (nubes, alineamiento del cielo y `night_lights::Update`),
   `CollectChimneySmoke` y `CollectMists` leen `FrameGameMs()` en vez de su `static lastTime` de pared con tope de 100 ms.
-  Lectores de [0xEA9EC0] en el original: DrawSky 0x5E2161, fn_005E25C0 0x5E25FE, fn_00823460 0x8234B7, fn_00823570
-  0x8235A0, fn_007F8E00 0x7F8F26 (el humo recorta a 100 **s**) y fn_007FA300 0x7FA3BF. (pendiente) el «rescan» de 1 s
+  Lectores de [0xEA9EC0] en el original: DrawSky 0x5E2160, fn_005E25C0 0x5E25FD, fn_00823460 0x8234B6, fn_00823570
+  0x82359F, fn_007F8E00 0x7F8F25 (el humo recorta a 100 **s**) y fn_007FA300 0x7FA3BE. (pendiente) el «rescan» de 1 s
   de `night_lights::Update` toma el mismo ms; de dónde sale en el original no está leído.
 - `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
   `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.

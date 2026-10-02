@@ -1180,8 +1180,8 @@ void Renderer::UpdateClouds() const
 	}
 	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs): the game ms of this frame, whole, 0 while paused, faster
 	// or slower with the game speed. The clouds and their animation stop while the game is paused. Its readers here:
-	// DrawSky 0x5E2161 (the sky's alignment), fn_005E25C0 0x5E25FE (the clouds), and for the night lights
-	// fn_00823460 0x8234B7 (the jitter) and fn_00823570 0x8235A0 (the flames)
+	// DrawSky 0x5E2160 (the sky's alignment), fn_005E25C0 0x5E25FD (the clouds), and for the night lights
+	// fn_00823460 0x8234B6 (the jitter) and fn_00823570 0x82359F (the flames)
 	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
 	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
 	if (running)

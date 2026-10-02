@@ -149,7 +149,9 @@ entt::id_type SharedAnim(std::string path)
 	return id;
 }
 
-/// The clip of an animated mesh creator, if it is loaded
+/// The clip of an animated mesh creator, if it is loaded. (openblack guard) without a clip (missing file) or with a
+/// mesh without bones the atom is drawn in its rest pose; the original would read the null clip (fn_006A9570 leaves
+/// +0x40 at 0, GetCycleTimeFromFrame 0x6C85F0 reads [0 + 0x20])
 const L3DAnim* CreatorClip(const MeshCreator& creator)
 {
 	if (!creator.animated || creator.animId == 0 || !Locator::resources::has_value())
@@ -391,7 +393,8 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			// cut at y = 0 is the animated objects' fn_00811C70, rendering.md). Nothing to port for the dome.
 			result.push_back({creator->meshId, model, alpha, uv, creator->additive || alpha < 1.0f, creator->additive, atom.colour,
 			                  creator->drawWithLandscapeColour});
-			if (clip != nullptr && Locator::resources::has_value())
+			// (openblack) no pose for an atom of alpha 0: the renderer does not draw it
+			if (clip != nullptr && alpha > 0.0f && Locator::resources::has_value())
 			{
 				const auto& meshes = Locator::resources::value().GetMeshes();
 				if (meshes.Contains(creator->meshId))

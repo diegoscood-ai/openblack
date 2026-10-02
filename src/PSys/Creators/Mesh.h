@@ -67,7 +67,7 @@ struct MeshCreator: Creator
 	// ParticleAnimCreator (DefineProperties 0x6B3D70; ctor defaults 0x6A93A7..0x6A93E5): the skinned mesh of
 	// Particle3DAnim (DrawAt 0x67A8E0), an LH3DObject of type 2 (CreateLH3DObject 0x6A9760) playing a .anm
 	bool animated {false};
-	entt::id_type animId {0};     ///< +0x40: AnimFileName (+0x80, loaded by fn_00839900; AnimEnum +0x7C is -1)
+	entt::id_type animId {0};     ///< +0x40: AnimFileName (std::string at +0x80, its pointer +0x84 read by fn_006A9570 0x6A959D; loaded by fn_00839900; AnimEnum +0x7C is -1)
 	float speedUpFactor {1.0f};   ///< +0x44 SpeedUpFactor (ctor 1.0)
 	bool animPlay {false};        ///< +0xA1 PlayAnim (ctor 0)
 	bool animRandomInitFrame {false}; ///< +0xA2 RandomiseInitFrame (ctor 0)

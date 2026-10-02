@@ -80,7 +80,7 @@ Todo está en `Mods/` junto al ejecutable:
 ```
 Mods/
   graphics.msaa/settings.cfg              un mod que viene con openblack (su mod.json va dentro del exe)
-  world.foliage/foliage.cfg, *.png ...     sus archivos, y su settings.cfg
+  world.foliage/foliage.json, *.png ...     sus archivos, y su settings.cfg
   mi.mod/mod.json, icon.png, ...           un mod suelto
   mi.pack/modpack.json, icon.png           un modpack...
   mi.pack/mi.pack.uno/mod.json             ...con sus mods dentro
@@ -197,7 +197,7 @@ ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.j
   aplica después a esa malla por su id: p. ej. la burbuja (`O_Bibble_up`) y las bandas de power-up
   (`Power_Up_Band`) quedan con el material aditivo sin Z del original, y los modos de render de `render_modes` (nota
   de la sesión sistemas). Un mod que quiera otro material para esas tendrá que pedirlo cuando el SDK lo ofrezca.
-- **textures**: `pack:<id hex>` una textura de `AllMeshes.g3d` (los ids de HD-Tweaks, `textures.cfg`) por un PNG;
+- **textures**: `pack:<id hex>` una textura de `AllMeshes.g3d` (los ids de HD-Tweaks, `textures.json`) por un PNG;
   `raw:<nombre>` un `Data/Textures/<nombre>.raw` por un PNG o un `.raw` (si el juego no lo tiene, se añade).
 - **objects**: propiedades de los objetos de `info.dat` por tabla y por su nombre de depuración (`debugString`; en
   `abode` también `<TRIBU>_<nombre>`, como los guiones, `GAbodeInfo::GetInfoFromText` 0x405A70: el nombre solo cambia
@@ -480,7 +480,7 @@ off/soft/round, `light` smooth/original, `sharp` on/off, `detail` high/original.
 animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [mods.md](mods.md#mod-hd-tweaks).
 
 - **Texturas** (`textures`): los atlas de 256² (4 aldeanos cada uno, unos 30 px por cara) sustituidos por imágenes ×4
-  de Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.cfg`; `Resources/HdTextures`,
+  de Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.json`; `Resources/HdTextures`,
   `Texture2DLoader::FromImageTag`, siempre con mipmaps). Cada imagen lleva el hash FNV-1a del DDS del que salió: con
   otro AllMeshes.g3d no se usa.
 - **Animales** (2026-09-30): sus 5 atlas en HD, así que también se suavizan y usan la luz por píxel y `sharp`.
@@ -536,8 +536,24 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
 ### world.foliage
 
 "Grass and flowers": hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`;
-voladores en `3D/FoliageFlyers.cpp`). Sin reinicio. Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.cfg`;
+voladores en `3D/FoliageFlyers.cpp`). Sin reinicio. Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.json`;
 en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&W/Asstes_mods`).
+
+**Formato (desde 2026-10-02): `foliage.json`**, JSON con comentarios `//`. Es el mismo contenido que el antiguo
+`foliage.cfg`, que se sigue leyendo si no hay `.json`. Cada sección `[nombre]` es un objeto de la lista `rules`, con
+`"section": "<nombre>"` y sus claves; las listas (`images`, `texture`, `terrain`, `zone`, `not_zone`, `near`, `over`)
+van como `["a", "b"]`, los números como números y los rangos como texto (`"0.68-1.2"`):
+
+```jsonc
+{ "schema": 1, "rules": [
+    { "section": "grass", "images": ["mono_grass_1.png"], "texture": ["green"], "per_cell": 90, "size": "0.68-1.2" },
+    { "section": "field_stage brote", "growth": "0-80", "colour": "90,120,40 - 120,150,60" } ] }
+```
+
+`Mods/RuleFiles.h` convierte el JSON en las mismas líneas `clave = valor` que leía el `.cfg` y se las pasa al mismo
+intérprete, así que el resultado es idéntico. `tools/mod_cfg_to_json.py <foliage.cfg>` convierte un archivo antiguo:
+comprueba antes de escribir que las reglas salen iguales, conserva los comentarios y guarda el `.cfg` como `.cfg.old`.
+Lo que sigue describe las claves por su nombre, igual en los dos formatos.
 
 **Opciones**
 
@@ -547,16 +563,16 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
 | `distance` | near/medium/far = 120/200/320 (por defecto medium) | Distancia de dibujo (`foliageDistance`) |
 | `fields` | wheat (por defecto) / `original` = la malla | [Campos de cultivo](#campos-de-cultivo) |
 
-#### Especies: claves de foliage.cfg
+#### Especies: claves de foliage.json
 
-- Una sección `[nombre]` por planta en `foliage.cfg`: `images` (png, uno al azar por planta), `texture` (aspecto de la
+- Una sección `[nombre]` por planta en `foliage.json`: `images` (png, uno al azar por planta), `texture` (aspecto de la
   textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10
   con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope`
   (grados), `patches` (0 uniforme .. 1 solo en manchas, ruido de valor a escala 45), `sway` (viento), `lean`
   (inclinación máxima al azar) y `tint` (grey/all/none). Crece si cumple `texture` o `terrain`.
 - `cross = on`: la especie se dibuja con los dos planos cruzados (los matorrales secos); en cada bloque esas
   instancias van al final (`Chunk::crossStart`) y se dibujan con los 12 índices del quad.
-- Claves nuevas para las especies de los módulos (valen en cualquier `foliage.cfg`):
+- Claves nuevas para las especies de los módulos (valen en cualquier `foliage.json`):
   - `flat = on`: la imagen va **tumbada en el suelo**, centrada en el punto, con lo alto de la imagen a lo largo del
     `side` del giro e inclinada como el suelo (pendiente a lo ancho y a lo largo en `i_data4.xy`, `i_data4.z = 2`). Se
     mezcla por su alfa sin escribir profundidad (las plantas la tapan igual) y se desvanece con la distancia en vez de
@@ -571,8 +587,8 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
   - `shade`: con `tint` all/grey, escala del color del suelo que toma (va en `i_data3.z` de las planas): la arena
     mojada (`tint = all`, `shade = 0.7`) es la arena de debajo, más oscura, en vez del naranja de la imagen.
 - Tamaños: el 29-09-2026 todos los `size` se redujeron un 25 % (el usuario las veía muy grandes).
-- Módulos: su `foliage.cfg` se lee después del del mod con el mismo parser; las imágenes se buscan junto a cada
-  `foliage.cfg`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las plantas muestran el primero). Se
+- Módulos: su `foliage.json` se lee después del del mod con el mismo parser; las imágenes se buscan junto a cada
+  `foliage.json`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las plantas muestran el primero). Se
   recarga al encender o apagar un módulo (`Renderer::DrawFoliage`, `_foliageLoadKey`).
 
 #### Aspecto del suelo: texture y terrain
@@ -714,7 +730,7 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
 #### Voladores: [flyer nombre]
 
 - **`[flyer nombre]`** (`FoliageFlyers.cpp`): voladores sobre las plantas de las especies de `over` (por nombre, de
-  cualquier `foliage.cfg`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
+  cualquier `foliage.json`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
   (`Chunk::homes`).
 - **Vuelo**: cada fotograma, hasta 110 unidades de la cámara: vuela `flight` s en un lazo de dos senos por eje
   alrededor de su flor (radio `range`, altura `height` sobre la flor, aleteo de ±0,12 rad), despega de la flor y

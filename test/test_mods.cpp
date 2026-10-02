@@ -27,6 +27,7 @@
 #include "Mods/ModRegistry.h"
 #include "Mods/Native/NativeHost.h"
 #include "Mods/Replacements.h"
+#include "Mods/RuleFiles.h"
 #include "Mods/Switches.h"
 
 using namespace openblack;
@@ -639,4 +640,48 @@ TEST_F(ModsTest, RestartIsAskedOnlyForRestartMods)
 	// an option of a restart mod
 	registry.SetOption(*registry.Find("game.skip-intro"), 0, 0);
 	EXPECT_EQ(registry.PendingRestart().size(), 1u);
+}
+
+
+TEST(ModRuleFiles, JsonGivesTheCfgLines)
+{
+	std::string error;
+	const auto cfg = rule_files::JsonToCfg(R"(// a comment
+		{"schema": 1, "rules": [
+			{"section": "grass", "images": ["a.png", "b.png"], "per_cell": 90, "size": "0.68-1.2", "lean": 0.6, "cross": true},
+			{"section": "field_stage brote", "colour": "90,120,40 - 120,150,60"}
+		]})",
+	                                         error);
+	ASSERT_TRUE(cfg) << error;
+	EXPECT_EQ(*cfg, "[grass]\nimages = a.png, b.png\nper_cell = 90\nsize = 0.68-1.2\nlean = 0.6\ncross = on\n\n"
+	                "[field_stage brote]\ncolour = 90,120,40 - 120,150,60\n\n");
+	const auto textures = rule_files::JsonToCfg(R"({"schema": 1, "textures": {"2": "c814f509", "1a": "00000001"}})", error);
+	ASSERT_TRUE(textures) << error;
+	EXPECT_EQ(*textures, "2 = c814f509\n1a = 00000001\n");
+	EXPECT_FALSE(rule_files::JsonToCfg("{ not json", error));
+	EXPECT_FALSE(rule_files::JsonToCfg(R"({"rules": [{"images": []}]})", error));
+}
+
+// The rule files that come with openblack are JSON now and read back as rules
+TEST(ModRuleFiles, BuiltinRuleFilesRead)
+{
+	const auto mods = std::filesystem::current_path() / "Mods";
+	if (!std::filesystem::exists(mods / "world.foliage" / "foliage.json"))
+	{
+		GTEST_SKIP() << "no Mods next to the test";
+	}
+	for (const auto* folder : {"world.foliage", "world.foliage.beach", "world.foliage.butterflies"})
+	{
+		std::filesystem::path used;
+		std::string error;
+		const auto rules = rule_files::Read(mods / folder, "foliage", used, error);
+		ASSERT_TRUE(rules) << folder << ": " << error;
+		EXPECT_EQ(used.filename(), "foliage.json");
+		EXPECT_NE(rules->find('['), std::string::npos) << folder;
+	}
+	std::filesystem::path used;
+	std::string error;
+	const auto textures = rule_files::Read(mods / "graphics.hd-tweaks", "textures", used, error);
+	ASSERT_TRUE(textures) << error;
+	EXPECT_NE(textures->find(" = "), std::string::npos);
 }

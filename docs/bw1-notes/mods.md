@@ -88,7 +88,7 @@ desactivado por defecto como todo mod.
 ### Opciones
 
 - `textures` hd/original: los 18 atlas de aldeanos y los 5 de animales (0x2-0x5, 0x64; 2026-09-30) ×4
-  (Real-ESRGAN), `Resources/HdTextures` + `textures.cfg` (hash FNV-1a del DDS de origen: con otro AllMeshes.g3d no se
+  (Real-ESRGAN), `Resources/HdTextures` + `textures.json` (hash FNV-1a del DDS de origen: con otro AllMeshes.g3d no se
   usan). Los atlas de animales los comparten algunos objetos (lápidas, una puerta, un tipi...), que también salen en
   HD.
   - Generación: Real-ESRGAN `realesrgan-x4plus` (el modelo anime aplana la pintura) desde la resolución nativa, con

@@ -36,11 +36,12 @@ using ThingId = uint32_t;
 struct CameraState
 {
 	/// LH3DTech::g_camera 0xEA1DB8 (the render camera's position), used for the 3D distances of ProcessThingMusic
-	/// (fn_00429420 0x429479..0x4294C1) (inferred: GGame::GetCamera()+0x14, the MapCoords of ProcessAlignmentMusic, is
-	/// the same point)
+	/// (fn_00429420 0x429479..0x4294C1); GGame::GetCamera()+0x14, the MapCoords of ProcessAlignmentMusic, is the same
+	/// point (GCamera::UpdateGameThingWithPosData 0x442EF0 converts g_camera, 0x442EF3..0x442F35)
 	glm::vec3 position {0.0f};
-	/// GGame::GetCamera()+0x14 MapCoords +8: the height above the land (MapCoords::Set 0x603340 stores y - GetAltitude,
-	/// 0x603371..0x60337C), read by fn_00427460 at 0x427498
+	/// GGame::GetCamera()+0x14 MapCoords +8: the height above the land, y - the altitude byte of the camera's cell x 0.67
+	/// (not interpolated; y alone off the map: UpdateGameThingWithPosData 0x442F38..0x442FCE), read by fn_00427460 at
+	/// 0x427498
 	float heightAboveGround {0.0f};
 };
 
@@ -165,12 +166,12 @@ struct GameQueries
 	/// 0x550980, towns from player +0xA50 by +0x75C) closer than maxDistance (strictly, 0x60219C; the distance is
 	/// fn_00605CD0 = GetDistanceInMetres 0x74CD70, the same as MusicTown::distance) that has +0x9A4 set or
 	/// fn_00741020 (a town centre among its buildings +0x754, or an entry of +0x9A8 whose GetComputerSeen is 0xC).
-	/// Unset: nullopt (no tribe music until the towns have tribes). Pending (C2): openblack's towns get their tribe and
-	/// the +0x9A4 / fn_00741020 test from ecs::map_cells (the session milagros2); until then the music is the generic one
-	/// of the alignment (fn_00427460 0x427579).
+	/// Game: ecs::audio_queries (ecs::map_cells::GetNearestTownWithCentre from the camera's MapCoords, the town's Tribe;
+	/// (aproximado) without fn_00741020's test, which map_cells does not port). Unset: nullopt (the generic music of
+	/// the alignment, fn_00427460 0x427579).
 	std::function<std::optional<MusicTown>(float maxDistance)> nearestTown;
-	/// The town GAudio+0x18C keeps, again: nullopt when it is no longer available (IsAvailable, 0x4274AF). Unset:
-	/// nullopt.
+	/// The town GAudio+0x18C keeps, again, with its distance to the camera now (0x427515..0x427522): nullopt when it is
+	/// no longer available (IsAvailable, 0x4274AF). Game: ecs::audio_queries. Unset: nullopt.
 	std::function<std::optional<MusicTown>(uint32_t id)> town;
 	/// The world position of a script object, nullopt when it is gone (GameThing::IsAvailable == 0, vtable +0x2C). The
 	/// original builds it from the thing's MapCoords: (x, GetAltitude + altitude above the land, z) (0x42943F..0x429470).
@@ -242,10 +243,15 @@ struct GameQueries
 	std::function<std::vector<DesireTown>()> desireTowns;
 	/// The local player's citadel for CheckWorshipSiteDesiresSFX. Unset: nullopt (no citadel desires).
 	std::function<std::optional<WorshipDesire>()> worshipSites;
-	/// MapCoords::GetNearestTown 0x6020E0(maxDistance) (strictly nearer, every player and the neutral one) and that town's
-	/// three values of a RESOURCE_RAIN_TYPE (GetResourceDropSample 0x71B5F0: food +0x19C + +0x108 + +0xC4, wood +0x1A0 +
-	/// +0x10C + +0xC8, rain +0x1C4 + +0x130 + +0xEC), each summed, indexed food, wood, rain. Unset: nullopt.
-	std::function<std::optional<std::array<float, 3>>(glm::vec3 point, float maxDistance)> townResourceNeeds;
+	/// MapCoords::GetNearestTown 0x6020E0(maxDistance) at a point (GGuidance::ResourceDropSFX 0x71B591): strictly nearer,
+	/// every player and the neutral one; the town, nullopt for none. Game: ecs::audio_queries (ecs::map_cells::
+	/// GetNearestTown). Unset: nullopt (no town).
+	std::function<std::optional<ThingId>(glm::vec3 point, float maxDistance)> nearestTownAt;
+	/// That town's three values of a RESOURCE_RAIN_TYPE (GetResourceDropSample 0x71B5F0: food +0x19C + +0x108 + +0xC4,
+	/// wood +0x1A0 + +0x10C + +0xC8, rain +0x1C4 + +0x130 + +0xEC: TownDesire (+0x34) +0x168 / +0xD4 / +0x90 of the
+	/// desires 0, 1 and 10), each summed, indexed food, wood, rain. Unset: nullopt, nothing is said (openblack's
+	/// components::TownDesire does not have those three arrays yet: TODO(V3), the session mapa).
+	std::function<std::optional<std::array<float, 3>>(ThingId town)> townResourceNeeds;
 	/// ProcessHeartBeatSFX's input. Unset: all 0 and no citadel heart (the beat is computed, nothing plays).
 	std::function<HeartBeatInput()> heartBeat;
 	/// HelpSystem::RunMessage 0x5C8CE0(first, last, script): nothing for first > last; StopRunningScripts (0x5C8C40:

@@ -1,0 +1,39 @@
+// foliage.json (antes foliage.cfg; tools/mod_cfg_to_json.py): cada {"section": "<nombre>", clave: valor...} de "rules" es
+// una sección [<nombre>] del formato antiguo; las listas van como ["a", "b"]. Mods/RuleFiles.h lo lee.
+// Módulo "Butterflies" de world.foliage: mariposas sobre las flores.
+// Una sección [flyer nombre] por tipo de volador. Claves:
+// images    = gif animados de esta carpeta (uno al azar por mariposa; cada fotograma con su tiempo del gif)
+// over      = plantas donde vive, por el nombre de su sección (de cualquier foliage.cfg: el del mod o un módulo)
+// per_plant = mariposas por planta de esas (la densidad del mod ya cuenta en el número de plantas)
+// size      = ancho mínimo-máximo (unidades del mundo; las flores miden 0,6-0,9, la hierba 0,7-1,2: más grandes que de verdad para que se vean)
+// height    = altura de vuelo sobre su flor
+// range     = cuánto se aleja de su flor
+// flight    = segundos que vuela, y luego
+// rest      = segundos posada en la flor (aletea despacio)
+// speed     = escala de la velocidad de vuelo y del aleteo
+// flee      = huye de la mano a menos de esta distancia (sale disparada lejos de ella y sube, como los peces; luego vuelve a su flor). 0 = nunca. Por defecto 5
+// fold      = 0-1,5: la mariposa es un cuadrado partido por el cuerpo y, además de los fotogramas del gif, cada ala
+// se dobla hacia arriba al ritmo del gif (tanto como cada fotograma se ve más estrecho que el más ancho,
+// por este número). 0 = plana. Por defecto 0,7
+// night     = on: también de noche. Por defecto se van una a una al anochecer (18:30-20) y vuelven al amanecer (5:30-7)
+// Imágenes del usuario (B&W/Asstes_mods/Buterfly), vistas desde arriba con la cabeza hacia arriba.
+{
+  "schema": 1,
+  "rules": [
+    {
+      "section": "flyer butterflies",
+      "images": ["butterfly_1.gif", "butterfly_2.gif", "butterfly_3.gif"],
+      "over": ["wildflowers", "poppies"],
+      "per_plant": 0.04,
+      "size": "0.7-1.0",
+      "height": "0.6-1.8",
+      "range": "2-6",
+      "flight": "6-14",
+      "rest": "2-6",
+      "speed": 1,
+      "flee": 5,
+      "fold": 0.7,
+      "night": "off"
+    }
+  ]
+}

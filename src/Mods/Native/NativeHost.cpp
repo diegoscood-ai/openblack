@@ -296,6 +296,28 @@ int32_t HostMeshHeight(const char* mesh, float scale, float* height)
 	return value ? 1 : 0;
 }
 
+int32_t HostPlaySound(ob_mod* self, const char* bank, const char* sample, const ob_vec3* position)
+{
+	if (self == nullptr || bank == nullptr || sample == nullptr)
+	{
+		return 0;
+	}
+	if (position == nullptr)
+	{
+		return api::PlaySound(*self->mod, bank, sample, nullptr) ? 1 : 0;
+	}
+	const glm::vec3 point(position->x, position->y, position->z);
+	return api::PlaySound(*self->mod, bank, sample, &point) ? 1 : 0;
+}
+
+void HostStopSounds(ob_mod* self)
+{
+	if (self != nullptr)
+	{
+		api::StopSounds(*self->mod);
+	}
+}
+
 const ob_host_api& HostApi()
 {
 	static const ob_host_api k_Api = {
@@ -327,6 +349,8 @@ const ob_host_api& HostApi()
 	    HostPointAt,
 	    HostMeshRadius,
 	    HostMeshHeight,
+	    HostPlaySound,
+	    HostStopSounds,
 	};
 	return k_Api;
 }
@@ -434,6 +458,7 @@ void Stop()
 		{
 			(*it)->unload();
 		}
+		api::StopSounds(*(*it)->mod);
 		api::Withdraw(*(*it)->mod);
 		SDL_UnloadObject((*it)->library);
 	}

@@ -312,6 +312,54 @@ TEST(ShadowMath, ResolveBakeChroma)
 	EXPECT_EQ(chroma[static_cast<size_t>(4 * 32 + 5)], 3);
 }
 
+// The chroma casters' render (fn_00838F00, fn_0084B7D0, fn_00881DE0): the 64 x 64 alpha map, the vertex into the
+// 32 x 32 target and the textured triangle that ORs (a & 0xE0) << 7
+TEST(ShadowMath, Chroma)
+{
+	// fn_00838F00: byte (r, c) = high byte & 0xF0 of the texel (r h / 64, c w / 64); 128 x 128 -> every other one
+	std::vector<uint16_t> source(128 * 128, 0x0FFF);
+	source[static_cast<size_t>(2 * 128 + 4)] = 0xA123;
+	source[static_cast<size_t>(3 * 128 + 4)] = 0xF000; // an odd row: skipped
+	const auto map = MakeAlphaMap(source, 128, 128);
+	EXPECT_EQ(map[static_cast<size_t>(1 * 64 + 2)], 0xA0);
+	EXPECT_EQ(map[0], 0x00); // 0x0FFF: alpha 0
+	EXPECT_EQ(std::count(map.begin(), map.end(), uint8_t {0xF0}), 0);
+
+	// fn_0084B7D0: t = (base - Ly) / (W.y - Ly), x = ((W.x - Lx) t + Lx - x0) 32 / (x1 - x0) in [1, 31], uv x 63
+	Projection projection {glm::vec3(16.0f, 100.0f, 16.0f), glm::vec3(0.0f, -100.0f, 0.0f), 0.0f};
+	Box box;
+	box.x0 = 0.0f;
+	box.x1 = 64.0f;
+	box.z0 = 0.0f;
+	box.z1 = 64.0f;
+	const glm::mat4 identity(1.0f);
+	const auto vertex = ChromaVertex(projection, box, identity, glm::vec3(16.0f, 0.0f, 32.0f), glm::vec2(0.5f, 1.0f));
+	EXPECT_FLOAT_EQ(vertex.x, 8.0f);
+	EXPECT_FLOAT_EQ(vertex.y, 16.0f);
+	EXPECT_FLOAT_EQ(vertex.z, 31.5f);
+	EXPECT_FLOAT_EQ(vertex.w, 63.0f);
+	// h above the base magnifies from the light (no clamp of h): y = 50 halfway to Ly = 100 -> t = 2
+	const auto raised = ChromaVertex(projection, box, identity, glm::vec3(20.0f, 50.0f, 16.0f), glm::vec2(0.0f));
+	EXPECT_FLOAT_EQ(raised.x, 12.0f); // (20 - 16) 2 + 16 = 24, x 0.5
+	EXPECT_FLOAT_EQ(ChromaVertex(projection, box, identity, glm::vec3(-40.0f, 0.0f, 0.0f), glm::vec2(0.0f)).x, 1.0f);
+	EXPECT_FLOAT_EQ(ChromaVertex(projection, box, identity, glm::vec3(200.0f, 0.0f, 0.0f), glm::vec2(0.0f)).x, 31.0f);
+
+	// fn_00881DE0 / fn_00882080: inclusive rows and spans, (map & 0xE0) << 7 ORed in: 0xF0 -> nibble 7
+	AlphaMap opaque {};
+	opaque.fill(0xF0);
+	std::vector<uint16_t> target(32 * 32, 0);
+	ChromaTriangle({glm::vec4(2.0f, 2.0f, 0.0f, 0.0f), glm::vec4(10.0f, 2.0f, 63.0f, 0.0f),
+	                glm::vec4(2.0f, 10.0f, 0.0f, 63.0f)},
+	               opaque, target, 32);
+	EXPECT_EQ(target[static_cast<size_t>(2 * 32 + 2)], 0x7000);
+	EXPECT_EQ(target[static_cast<size_t>(3 * 32 + 3)], 0x7000);
+	EXPECT_EQ(target[static_cast<size_t>(12 * 32 + 12)], 0);
+	EXPECT_EQ(target[static_cast<size_t>(1 * 32 + 1)], 0);
+	EXPECT_EQ(std::count(target.begin(), target.end(), uint16_t {0}) +
+	              std::count(target.begin(), target.end(), uint16_t {0x7000}),
+	          32 * 32);
+}
+
 TEST(ShadowMath, Land)
 {
 	EXPECT_EQ(LandT(50.0f, 250.0f, 50.0f), 1.0f); // no caster: H = si+0x18

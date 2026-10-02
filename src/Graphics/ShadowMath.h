@@ -46,6 +46,8 @@ inline constexpr float k_HandLight = 200.0f;           ///< [0x8C7B34] `00004843
 inline constexpr float k_CreatureRadii = 3.0f;         ///< [0x8C2C50] `00004040`: the creature's light at most 3 R away
 inline constexpr double k_CreatureNear = 0.1;          ///< [0x8C9D40] `9a9999999999b93f` (a double)
 inline constexpr float k_BlockSize = 160.0f;           ///< [0x8D151C] `00002043`: a land block's side
+inline constexpr float k_ChromaSide = 32.0f;         ///< [0x8CF134] `00000042`: the chroma render's side
+inline constexpr float k_SixtyFourth = 0.015625f;    ///< [0x8D8BD0] `0000803c`: 1 / 64, fn_00838F00
 inline constexpr int k_CellLimit = 0x1FF;              ///< fn_00874600 0x87463D / 0x874649: cells 0..0x1FF
 /// The box before the first vertex: 0x60AD78EC / 0xE0AD78EC (fn_00874850 0x87499B / 0x8749AA, fn_00806F60 0x8070DA)
 inline constexpr float k_BoxEmpty = std::bit_cast<float>(0x60AD78ECu);
@@ -141,9 +143,9 @@ void ToGrid(const Box& box, std::span<glm::vec2> points, int texels = k_Texels);
 
 /// fn_00850CC0 on one primitive: triangles of 16-bit indices into `grid`. One-sided ones (no `mat+5 & 1` and not a
 /// mist, vt+0x1F8 = IsMist, 1 only in Mist 0x55EB90) are kept when (r0 - r2)(x1 - x2) >= (r1 - r2)(x0 - x2), rows
-/// r = ftol(z) (0x850D03..0x850DA1), and walked 0 -> 2, 2 -> 1, 1 -> 0; two-sided ones are walked 0 -> 2 -> 1 when (r0 - r1)(x2 - x1) < (r2 - r1)
-/// (x0 - x1), else 0 -> 1 -> 2 (0x850E29..0x850F6D). Edges fn_0087FF70, spans fn_00880050; `halfRows` = si+0x3C
-/// (the even subrows are not written, 0x880141..0x880146).
+/// r = ftol(z) (0x850D03..0x850DA1), and walked 0 -> 2, 2 -> 1, 1 -> 0; two-sided ones are walked 0 -> 2 -> 1 when
+/// (r0 - r1)(x2 - x1) < (r2 - r1) (x0 - x1), else 0 -> 1 -> 2 (0x850E29..0x850F6D). Edges fn_0087FF70, spans
+/// fn_00880050; `halfRows` = si+0x3C (the even subrows are not written, 0x880141..0x880146).
 void RasterTriangles(std::span<const glm::vec2> grid, std::span<const uint16_t> indices, bool bothFaces,
                      bool halfRows, Coverage& coverage);
 
@@ -159,6 +161,24 @@ void ChromaFilter(std::span<const uint16_t> rendered, Texels& texels);
 /// 0x80769A..0x8076EC, when si+0x10 != 255: rows and columns 1..texels - 2 become ((n << 12) a / 255) & 0xF000, that
 /// is n' = floor(n a / 255) (0x80808081 / sar 7: the signed division by 255)
 void BakeAlpha(Texels& texels, int alpha);
+
+// ---- The chroma casters (fn_0080EE80 -> fn_0084B7D0 -> fn_00881DE0) ------------------------------------------------
+
+/// fn_00838F00: the texture's 64 x 64 shadow map, cached at texture+0x12C: byte (r, c) = the high byte of the 16-bit
+/// texel (ftol(r h / 64), ftol(c w / 64)) & 0xF0 (0x838F88..0x838FD0, [0x8D8BD0] = 1/64), the ARGB4444 alpha nibble
+using AlphaMap = std::array<uint8_t, 64 * 64>;
+[[nodiscard]] AlphaMap MakeAlphaMap(std::span<const uint16_t> texels, int width, int height);
+
+/// One vertex of fn_0084B7D0 (0x84B83F..0x84B96D): W = M v; t = (si+0x18 - Ly) / (W.y - Ly) (the base y, no clamp of h);
+/// x = ((W.x - Lx) t + Lx - x0) (32 / (x1 - x0)) clamped to [1, 31] ([0x8AA390] = 1, [0x92B6F4] = 31), z the same;
+/// u, v = the vertex uv x 63 ([0x9A2BF8]). Returns (x, z, u, v), Table1 +0, +8, +0x18, +0x1C
+[[nodiscard]] glm::vec4 ChromaVertex(const Projection& projection, const Box& box, const glm::mat4& matrix, glm::vec3 local,
+                                     glm::vec2 uv);
+/// fn_00881DE0 with the target of fn_008816F0 (side x side 16-bit texels, the 0x800 bytes 0x807339 for 32): the three
+/// vertices ftol'd (0x84B9AA..0x84BA4C), clamped to the target, sorted (0x881E86..0x881EEA), the edges fn_00881A60 (16.16
+/// x, u, v per row, rows inclusive) and the spans fn_00882080 (inclusive, u, v stepped by an integer division): each
+/// texel ORs (map[(v >> 16) 64 + (u >> 16)] & 0xE0) << 7, i.e. alpha nibble (a >> 1)
+void ChromaTriangle(const std::array<glm::vec4, 3>& vertices, const AlphaMap& map, std::span<uint16_t> target, int side);
 
 // ---- Land and objects (fn_007FF610, fn_00878350, fn_0080B050) -------------------------------------------------------
 

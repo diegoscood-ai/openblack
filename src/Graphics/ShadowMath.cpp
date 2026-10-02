@@ -418,6 +418,213 @@ void BakeAlpha(Texels& texels, int alpha)
 	}
 }
 
+AlphaMap MakeAlphaMap(std::span<const uint16_t> texels, int width, int height)
+{
+	AlphaMap map {};
+	if (width <= 0 || height <= 0 || texels.size() < static_cast<size_t>(width) * static_cast<size_t>(height))
+	{
+		return map; // (port guard)
+	}
+	const float rowStep = static_cast<float>(height) * k_SixtyFourth;  // fild [esp+0x2C], fmul [0x8D8BD0]
+	const float columnStep = static_cast<float>(width) * k_SixtyFourth; // fild [esp+0x28], fmul [0x8D8BD0]
+	for (int row = 0; row < 64; ++row)
+	{
+		const int source = Ftol(static_cast<float>(row) * rowStep) * width; // imul by the pitch / 2
+		for (int column = 0; column < 64; ++column)
+		{
+			const auto texel = texels[static_cast<size_t>(source + Ftol(static_cast<float>(column) * columnStep))];
+			map[static_cast<size_t>(row * 64 + column)] = static_cast<uint8_t>((texel >> 8) & 0xF0); // byte +1, and 0xF0
+		}
+	}
+	return map;
+}
+
+glm::vec4 ChromaVertex(const Projection& projection, const Box& box, const glm::mat4& matrix, glm::vec3 local, glm::vec2 uv)
+{
+	// 0x84B804..0x84B82A: 32 / (x1 - x0) and 32 / (z1 - z0) ([0x8CF134] = 32), stored as floats
+	const float scaleX = k_ChromaSide / (box.x1 - box.x0);
+	const float scaleZ = k_ChromaSide / (box.z1 - box.z0);
+	const float base = projection.baseY - projection.light.y; // 0x84B7E0..0x84B7F7: si+0x18 - si+0x448
+	// 0x84B83F..0x84B88D: the object's matrix [0xEA1AE8]+0x14..0x40, (x m00 + z m20) + y m10 + t
+	const float wx = local.x * matrix[0][0] + local.z * matrix[2][0] + local.y * matrix[1][0] + matrix[3][0];
+	const float wy = local.x * matrix[0][1] + local.z * matrix[2][1] + local.y * matrix[1][1] + matrix[3][1];
+	const float wz = local.x * matrix[0][2] + local.z * matrix[2][2] + local.y * matrix[1][2] + matrix[3][2];
+	const float t = base / (wy - projection.light.y); // 0x84B8B5..0x84B8C2: fsub [si+0x448], fdivr
+	float x = ((wx - projection.light.x) * t + projection.light.x - box.x0) * scaleX;
+	if (x < 1.0f) // 0x84B8E0 [0x8AA390]
+	{
+		x = 1.0f;
+	}
+	else if (!(x <= k_ChromaSide - 1.0f)) // 0x84B8F9 [0x92B6F4] = 31, test ah, 0x41
+	{
+		x = k_ChromaSide - 1.0f;
+	}
+	float z = ((wz - projection.light.z) * t + projection.light.z - box.z0) * scaleZ;
+	if (z < 1.0f)
+	{
+		z = 1.0f;
+	}
+	else if (!(z <= k_ChromaSide - 1.0f))
+	{
+		z = k_ChromaSide - 1.0f;
+	}
+	return {x, z, uv.x * 63.0f, uv.y * 63.0f}; // [0x9A2BF8] = 63
+}
+
+namespace
+{
+/// A vertex of fn_00881DE0: x, y (the row), u, v
+struct ChromaPoint
+{
+	int x;
+	int y;
+	int u;
+	int v;
+};
+
+/// fn_00881A60's table entry (12 bytes): x, u, v
+struct ChromaEdge
+{
+	int x {0};
+	int u {0};
+	int v {0};
+};
+
+/// fn_00881A60: a horizontal edge stores its two ends as they are, the lesser x into [+0x10] (u, v NOT in 16.16, as
+/// the original); else from the upper vertex, [+0x10] going down and [+0x14] going up, rows y0..y1 inclusive, x, u, v
+/// in 16.16 with the steps ftol(d (1 / (y1 - y0 + 1)) 65536) ([0x8AA390] = 1, [0x8AC408] = 65536)
+void ChromaEdgeOf(ChromaPoint a, ChromaPoint b, std::vector<ChromaEdge>& down, std::vector<ChromaEdge>& up)
+{
+	if (a.y == b.y) // 0x881A77
+	{
+		const auto& left = a.x < b.x ? a : b;
+		const auto& right = a.x < b.x ? b : a;
+		down[static_cast<size_t>(a.y)] = {left.x, left.u, left.v};
+		up[static_cast<size_t>(a.y)] = {right.x, right.u, right.v};
+		return;
+	}
+	auto* table = &down; // [ecx+0x10] (0x881B9D)
+	if (a.y > b.y)       // 0x881B72
+	{
+		std::swap(a, b);
+		table = &up; // [ecx+0x14]
+	}
+	const int count = b.y - a.y + 1;
+	const float inverse = 1.0f / static_cast<float>(count);
+	const int stepX = static_cast<int>(static_cast<float>(b.x - a.x) * inverse * 65536.0f);
+	const int stepU = static_cast<int>(static_cast<float>(b.u - a.u) * inverse * 65536.0f);
+	const int stepV = static_cast<int>(static_cast<float>(b.v - a.v) * inverse * 65536.0f);
+	int x = a.x << 16;
+	int u = a.u << 16;
+	int v = a.v << 16;
+	for (int row = a.y; row < a.y + count; ++row)
+	{
+		(*table)[static_cast<size_t>(row)] = {x >> 16, u, v}; // 0x881C33..0x881C41: x sar 16, u and v as they are
+		x += stepX;
+		u += stepU;
+		v += stepV;
+	}
+}
+} // namespace
+
+void ChromaTriangle(const std::array<glm::vec4, 3>& vertices, const AlphaMap& map, std::span<uint16_t> target, int side)
+{
+	if (side <= 0 || target.size() < static_cast<size_t>(side) * static_cast<size_t>(side))
+	{
+		return; // (port guard)
+	}
+	std::array<ChromaPoint, 3> points {};
+	for (size_t i = 0; i < 3; ++i)
+	{
+		// 0x84B9AA..0x84BA4C: ftol of x, z, u, v; 0x881DE9..0x881E83: x and y clamped to [0, width - 1] / [0, height - 1]
+		points[i] = {Ftol(vertices[i].x), Ftol(vertices[i].y), Ftol(vertices[i].z), Ftol(vertices[i].w)};
+		points[i].x = std::clamp(points[i].x, 0, side - 1);
+		points[i].y = std::clamp(points[i].y, 0, side - 1);
+	}
+	// 0x881E86..0x881EEA: a (ebx) the upper vertex
+	auto* a = &points[0];
+	auto* b = &points[1];
+	auto* c = &points[2];
+	const bool aFirst = a->y < b->y || (a->y == b->y && a->x >= b->x); // 0x881E8C..0x881E96
+	if (aFirst)
+	{
+		// 0x881E98: c above a (or level and to the right) -> swap a, c
+		if (!(a->y < c->y || (a->y == c->y && a->x >= c->x)))
+		{
+			std::swap(a, c);
+		}
+	}
+	else
+	{
+		// 0x881EC5: b below c (or level and to the left) -> swap a, c; else swap a, b
+		if (b->y > c->y || (b->y == c->y && b->x < c->x))
+		{
+			std::swap(a, c);
+		}
+		else
+		{
+			std::swap(a, b);
+		}
+	}
+	// 0x881EAD..0x881EE8: b and c
+	if (b->x > c->x)
+	{
+		std::swap(b, c);
+	}
+	else if (b->x == c->x)
+	{
+		if (a->x <= b->x ? b->y < c->y : b->y > c->y)
+		{
+			std::swap(b, c);
+		}
+	}
+	const int minRow = a->y;              // [ebp+4] (0x881EED)
+	const int maxRow = std::max(b->y, c->y); // [ebp+8] (0x881EF0..0x881F00)
+	std::vector<ChromaEdge> down(static_cast<size_t>(side));
+	std::vector<ChromaEdge> up(static_cast<size_t>(side));
+	ChromaEdgeOf(*a, *b, down, up); // 0x881F03
+	ChromaEdgeOf(*b, *c, down, up); // 0x881F0C
+	ChromaEdgeOf(*c, *a, down, up); // 0x881F15
+	// fn_00882080: rows minRow..maxRow inclusive, each span from [+0x10] to [+0x14] (or the other way), inclusive
+	for (int row = minRow; row <= maxRow; ++row)
+	{
+		const auto& left = down[static_cast<size_t>(row)];
+		const auto& right = up[static_cast<size_t>(row)];
+		int count = right.x - left.x + 1; // 0x8820D7..0x8820E1
+		int x = left.x;
+		int u = left.u;
+		int v = left.v;
+		int stepU = 0;
+		int stepV = 0;
+		if (count < 0) // 0x8820E1 jns
+		{
+			count = left.x - right.x + 1;
+			x = right.x;
+			u = right.u;
+			v = right.v;
+			stepU = (left.u - right.u) / count; // cdq, idiv
+			stepV = (left.v - right.v) / count;
+		}
+		else if (count != 0)
+		{
+			stepU = (right.u - left.u) / count;
+			stepV = (right.v - left.v) / count;
+		}
+		auto* texel = target.data() + static_cast<size_t>(row) * static_cast<size_t>(side);
+		for (int i = 0; i < count; ++i)
+		{
+			const int index = ((v >> 10) & ~0x3F) + (u >> 16); // 0x882141..0x882150
+			const int px = x + i;
+			if (index >= 0 && index < static_cast<int>(map.size()) && px >= 0 && px < side) // (port guard)
+			{
+				texel[px] = static_cast<uint16_t>(texel[px] | ((map[static_cast<size_t>(index)] & 0xE0) << 7));
+			}
+			u += stepU;
+			v += stepV;
+		}
+	}
+}
+
 float LandT(float baseY, float lightY, float ground)
 {
 	return (baseY - lightY) / (ground - lightY);

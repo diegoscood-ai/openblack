@@ -968,6 +968,8 @@ API pública (sin argumentos por defecto; cada llamador pasa lo que pasa el orig
 | `PlaySoundEffectAt(owner, pos, sample, mode, loops, flag10, is3D, SfxBank / BankId)` | 0x42A000 / 0x42A040 (track = is3D) |
 | `PlaySoundEffectAt(owner, pos, offset, sample, track, mode, loops, flag10, is3D, BankId)` | 0x42A100 (SoundTag fn_0071E680) |
 | `StopSoundEffect(sample, owner, bank)` (sample 0 = todas las del dueño) | 0x42A210 → LHSampleStop |
+| `StopOwner(owner)` (B12, SDK de mods) | (openblack) `LHSampleStop(banco, dueño, 0)` 0x10012C50 en cada banco registrado |
+| `NewOwner()` (B12, SDK de mods) | (openblack) `Owner::Object(NewObjectId())`: un dueño propio |
 | `StopAllSoundEffects()` | fn_004287D0 |
 | `ReleaseLoop(owner, sample, bank)` | 0x42A330 / 0x42A310 |
 | `IsPlaying(owner, sample, bank)`, `IsPlaying(owner, SfxBank)`, `IsPlaying(Channel)` | 0x42A280 / 0x42A2D0, 0x42A2B0, 0x10014070 |
@@ -1626,7 +1628,7 @@ nuevos.
 
 ## Fases B y C
 
-**B0..B10, B11a, B11b y B11c hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B10, B11a, B11b, B11c y B12 hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
@@ -1644,6 +1646,7 @@ nuevos.
 | B11a | **hecho** ([abajo](#fase-b-b11a-un-solo-motor)): un solo motor; fuera `AudioManager*`, `AudioPlayer*`, `AlCheck`, `SoundGroup`, `Locator::audio`; `audio::device` y `audio::banks` |
 | B11b | **hecho** ([abajo](#fase-b-b11b-la-estructura)): `src/Audio` en `Device/`, `LH/`, `GAudio/`, `Services/` + `Audio.h`; sin `ECS/*` dentro (consultas de `src/ECS/AudioQueries.cpp`); un generador del DLL (`sample_play::Rand`) y un reloj (`device::TickCount`) |
 | B11c | **hecho** ([abajo](#fase-b-b11c-las-api-comunes-del-equipo)): `ecs::map_coords`, `gutils`, `game_clock` y `sky_type` dentro de `src/Audio`; `HelpSpritesAlignmentProcess` desde `GAlignment::ProcessForPlayer` |
+| B12 | **hecho** ([abajo](#fase-b-b12-pulido)): `audio::StopOwner` y `audio::NewOwner` para el SDK de mods; auditoría de las constantes double (y de la FPU a 24 bits) en `src/Audio` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | Clima y alineamiento en el ambiente |
 | C3 | Aldeanos, edificios y cánticos |
@@ -1845,6 +1848,91 @@ cuadra. Arreglado: el comentario de CheckDelay aún decía «100 ms (inferred)»
 presente. En Land 1 (`_auditudio11c_audit_view.log`, `b11c_audit_far.log` con `OPENBLACK_AUDIO_TEST_VIEW="90,0"` y
 `"90,0,80"`) los puntos acaban en 5 (JUNGLE 3,905 @ (1585, 2225), COUNTRYSIDE 74,224 @ (1635, 2175)): son centros de
 celda; los volúmenes y los errores de arranque no cambian.
+
+## Fase B: B12, pulido
+
+### Para el SDK de mods (`Audio.h`)
+
+| función | qué hace |
+|---|---|
+| `StopOwner(Owner)` | todos los canales del dueño en **cualquier** banco: `LHSampleStop(banco, dueño, 0)` 0x10012C50 (muestra 0 = cualquiera, 0x10012C76; `sample_play::StopOwner`) para cada banco registrado 1..`banks::Count()`, cada canal con la rampa de 20 ms de QMixer. Con el audio apagado no para nada (cada LHSampleStop acaba en el primer canal, 0x10012CA8). El original no tiene este bucle: sus llamadores paran banco a banco. |
+| `NewOwner()` | un dueño propio: `Owner::Object(NewObjectId())`, nunca igual a un dueño del juego (las cosas son `Owner::Thing`; los números del CHL y las voces 0x270C..0x270F, `Owner::Key`; los demás objetos sacan su id del mismo contador). Un sonido 2D o 3D sin seguimiento (`PlayOptions::track` = 0, o `PlaySoundEffectAt` 0x42A100 con track 0) no necesita más; uno 3D con seguimiento (el `PlaySoundEffectAt` 0x42A040 sigue todo 3D, +0x0C = is3D) sigue a `RegisterObject(owner.id, posición)` y se para en el turno siguiente (dueño ido, LHSampleStop 0x1001439D) si no hay nada registrado o devuelve nullopt. Al acabar: `StopOwner` y `UnregisterObject(owner.id)`. |
+
+Un mod busca su banco con `FindBank(ruta)` (o registra el suyo con `RegisterBank`) y toca con `PlaySoundEffect` /
+`PlaySoundEffectAt` y ese dueño.
+
+### La FPU del juego va a 24 bits
+
+`fn_007DEE00` (`fninit`, `and cw, 0xFCFF` en 0x7DEE0D; desde `GGame::InitOneTimeOnly`, `EndTurn` 0x54E964 y
+`Process3dEngine` 0x54E426) deja el control de precisión en 00: **cada `fadd`/`fsub`/`fmul`/`fdiv`/`fsqrt` del hilo del
+juego redondea a la mantisa de un float**, también dentro de LHaudiodllR y QMixer cuando el juego los llama
+(LHSamplePlay, QSWaveMixSetPolarPosition). Lo que no redondea: la carga de una constante double (`fld`/`fmul qword` la
+usa entera), `fcomp qword` (compara con el double exacto) y `fsin`/`fcos`/`fpatan` (precisión completa). La regla al
+portar:
+
+- comparación con una constante qword: en double (`static_cast<double>(x) > -0.6`);
+- aritmética con una constante qword: el paso en double y el resultado a float (`static_cast<float>(double(a) * c)`);
+- aritmética de floats: en float, paso a paso, en el orden de la pila del x87.
+
+El hilo de la música del DLL (`_lhbeginthread`, `MusicEngine.cpp`) no pasa por fn_007DEE00: arranca con la palabra de
+control del sistema (53 bits); `MusicEngine` sigue en double **(inferido)**.
+
+### Auditoría de las constantes double
+
+`bwdis.py` ya lee las qword como double (lo arregló milagros2: «=… (double)»); `dlldis.py` y `qmdis.py` dan las dos
+lecturas, pero con `%g` (6 cifras). Barrido de todas las instrucciones FPU con operando `qword ptr [constante]` de
+runblack.exe, LHaudiodllR.dll y QMixer.dll, cruzado con las direcciones citadas en `src/Audio`, `CollisionSounds`,
+`FireSound`, `PSys/Rules/Sound`, `SoundAction` y `AudioQueries`:
+
+| dirección | lectura anterior | double real | sitio | cambio |
+|---|---|---|---|---|
+| 0x8CF7D8 / 0x9375E8 (0x69EEC4 / 0x69EEDC) | 0,6f / 0,3f en float | 0,59999999999999998 / 0,29999999999999999 | `SpellSounds.cpp` `SizeFromThrow` | comparación en double: 0,6f y 0,3f quedan **por encima** (tamaño 1 y 2, antes 2 y 3) |
+| 0x8C4A08 (0x429000) | −0,6f | −0,59999999999999998 | `AtmosBanks.cpp` ProcessBanks | comparación en double (con floats da lo mismo: ningún float cae entre −0,6f y −0,6) |
+| 0x10030450 (0x10012363 … 0x10012510) | 0,318471 (6 cifras de `%g`) | 0,31847133757961782 (1 / 3,14) | `QMixerLaws.cpp` `PolarRelative` | el valor entero, `atan · 180 · c` en ese orden, ángulos y distancia en float, pasos a 24 bits |
+| 0x18037658 · 0x18036550 (QMixer 0x1800AA85) | π / 180 en double | π (double) · 0,0055555557f, redondeado a float | `PolarRelative` | k en float; az = k · azimut (float); flat, up, right, ahead en float |
+| 0x980520 / 0x980518 (0x71DEE1 / 0x71DEE7) | 15f y 1 / 30f en float | 15 y 0,033333333333333333 | `SoundMap.cpp` viento | `fild` de la suma entera, `fsqrt`, `− 15`, `· (1/30 double)`, cada paso a float (emulado: 0 diferencias en los 5924 valores; la fórmula vieja difería en 3756) |
+| 0x9A3BE8 / 0x8D45D8 / 0x8AB680 (fn_0086A7F0) | ya en double, pero todo en double | 0,03386318012808897 / 6,2831854820251465 / 1 | `Guidance.cpp` `MoonPhase` | cada paso a float (emulado: igual en los 8 días probados; el modelo double daba 3,3044245 en vez de 3,3044248 el día 10976) |
+| 0x8C49F8, 0x8AB260, 0x8C49F0, 0x8AB680, 0x8C2C48 (four1 0x428D50) | ya en double, todo en double | 6,2831853071795898, 0,5, −2, 1, 0 | `Advisor.cpp` `Four1` | pasos a float; sin(θ) sin redondear (fsin) |
+| 0x915438 (0x5C36E5) | double | 0,94999998807907104 (= 0,95f) | `Advisor.cpp` `Say` | en float (la resta de 24 bits es la de float) |
+| 0x915440 (0x5C3822) | double | 0,90000000000000002 | `Advisor.cpp` (texto del consejero, 0x5C381D) | ya comparaba en double: sin cambio |
+| 0x9804D0 (0x71D210) | double | 0,15000000596046448 | `Guidance.cpp` HelpSpritesCheckMoonPhase | ya comparaba en double: sin cambio |
+| 0x8CF2B8 (fn_0071C400) | double | 0,40000000000000002 | `Guidance.cpp` HeartBeat | ya `float(double(o · 100) · 0,4)`: sin cambio |
+| 0x8C49E0 (fn_00427200 0x427227..0x427259), 0x10030468 (LHSamplePlay 0x100114D1 …) | — | 5000 (exacto) | — | sin cambio de valor; ver pendiente |
+
+Y, por la misma regla de los 24 bits, en float lo que estaba modelado en double sin constantes qword: `Guidance`
+(`Cube`, `LocalFloatRand`, `Interval`, la lista al azar, `DesireSample`, el valor del deseo, `ProcessHeartBeatSFX`,
+`HeartBeat`, `BeliefSample`, `BeliefVisibility`, `HelpSpritesAlignmentProcess`, la cuenta de la luna), `SpookyVoices`
+(la probabilidad 0x72E34D, tono y volumen 0x72E3F6..0x72E4CD), `GameMusic::DiscreteAlignment` 0x414730 y `Advisor`
+(`Analyse`, `BandLevel`, `CalcKey`, `Amplitude`). Comprobado sin cambio: `SpellSounds` `SizeFromRadius` (0x69F4CA /
+0x69F4F6) y `SizeFromImpactSpeed` (fn_006A1630 0x6A16A9 / 0x6A16CF) comparan floats con `<` estricto (quitado el
+**(inferido)**). Sin constantes qword: `AnimationSounds`, `LanternSounds`, `CollisionSounds`, `FireSound`,
+`PSys/Rules/Sound`, `SoundAction`, `AudioQueries`. Fuera del audio (de otros, sin tocar): el 1,5 qword de
+fn_005E5830 0x5E5A6C (luces de noche) y `ReadSpeedFactor` fn_005C6CB0 (`HelpSystem.cpp`, en double; a 24 bits sería
+float por pasos).
+
+Emulaciones (Unicorn, palabra de control 0x7F o la 0 de Unicorn, las dos a 24 bits) en `dev\tmp_dis\audio`:
+`emu_polar2.py` (las dos mitades de la posición polar), `emu_moon.py` (fn_0086A7F0), `emu_wind.py` (el viento).
+
+### Tests y juego
+
+- `test_audio_laws` `RelativeAxesExact`: 9 puntos contra la emulación, a 2·10⁻⁷ relativo (la versión anterior fallaba
+  por 9·10⁻⁵ en (−300,5; 210,25; −15,5)).
+- `test_spell_sounds` `sizeClasses`: 0,6f → 1, 0,3f → 2, el float de debajo → 2 / 3.
+- `test_guidance` `PhaseFromTheRealClock`: seis días contra `emu_moon.py`, exactos.
+- `test_sound_tags` `StopOwnerInEveryBankAndModOwners`: dos bancos, dos dueños de `NewOwner`; `StopOwner` para solo los
+  del dueño, en los dos bancos; un 3D con seguimiento sigue a `RegisterObject` y el que no tiene registro se para.
+- 64/64 tests. Land 1 con `--mod game.skip-intro=off` hasta el fotograma 5900 (`_audit\audio\b12.png`, `b12.log`) y
+  con `OPENBLACK_ATMOS_TRACE=20` (`b12_atmos.log`): los mismos errores de arranque que antes (36); ambiente y campanas
+  como antes.
+
+### (Aproximado), (inferido) y pendiente de B12
+
+- **(aproximado)** el paso en double y luego a float puede redondear dos veces en un empate (float · constante double);
+  `sin`/`cos`/`atan` son los de la biblioteca, no los de 64 bits del x87.
+- **(inferido)** la FPU del hilo de la música del DLL a 53 bits (no pasa por fn_007DEE00).
+- Pendiente: fn_00427200 0x427227..0x42726D pone a 0 cada coordenada del punto del canal (+0x50/54/58) cuyo valor
+  absoluto pasa de 5000 antes de pedir la posición del dueño; openblack no lo hace. LHSamplePlay compara |x| con 5000
+  (0x100114D1 …) para un aviso del registro.
 
 ## Qué suena y cuándo
 

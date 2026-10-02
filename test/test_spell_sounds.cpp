@@ -7,6 +7,7 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -81,10 +82,15 @@ TEST(SpellSounds, sizeClasses)
 	EXPECT_EQ(SizeFromRadius(200.0f, 200.0f, 500.0f), 2);
 	EXPECT_EQ(SizeFromRadius(499.0f, 200.0f, 500.0f), 2);
 	EXPECT_EQ(SizeFromRadius(500.0f, 200.0f, 500.0f), 1);
+	// the doubles 0.6 / 0.3 of 0x69EEC4 / 0x69EEDC (B12): 0.6f = 0.60000002 and 0.3f = 0.30000001 are above them, the
+	// floats just below are not
 	EXPECT_EQ(SizeFromThrow(0.61f), 1);
-	EXPECT_EQ(SizeFromThrow(0.6f), 2);
+	EXPECT_EQ(SizeFromThrow(0.6f), 1);
+	EXPECT_EQ(SizeFromThrow(std::nextafter(0.6f, 0.0f)), 2);
 	EXPECT_EQ(SizeFromThrow(0.31f), 2);
-	EXPECT_EQ(SizeFromThrow(0.3f), 3);
+	EXPECT_EQ(SizeFromThrow(0.3f), 2);
+	EXPECT_EQ(SizeFromThrow(std::nextafter(0.3f, 0.0f)), 3);
+	EXPECT_EQ(SizeFromThrow(0.0f), 3);
 	EXPECT_EQ(SizeFromImpactSpeed(9.0f, 10.0f, 20.0f), 3);
 	EXPECT_EQ(SizeFromImpactSpeed(10.0f, 10.0f, 20.0f), 2);
 	EXPECT_EQ(SizeFromImpactSpeed(20.0f, 10.0f, 20.0f), 1);

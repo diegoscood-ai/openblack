@@ -121,6 +121,19 @@ Channel PlaySoundEffectAt(Owner owner, glm::vec3 position, glm::vec3 offset, int
 /// first channel of the three; sample 0 = every channel of the owner in the bank
 void StopSoundEffect(int sample, Owner owner, SfxBank bank);
 void StopSoundEffect(int sample, Owner owner, BankId bank);
+/// (openblack, for the mods' SDK: the original has no such loop, each of its callers stops in one bank) every channel
+/// of `owner` in any registered bank: LHSampleStop(bank, owner, 0) 0x10012C50 (sample 0 = any sample, 0x10012C76) for
+/// each bank 1..N in turn, each channel with QMixer's 20 ms ramp; the atmos mixer's channels have their own owner. While
+/// the audio is switched off (LHGlobalSwitch 0) nothing stops, as in each LHSampleStop (0x10012CA8).
+void StopOwner(Owner owner);
+/// (openblack, for the mods' SDK) An owner of its own, Owner::Object(NewObjectId()): never equal to an owner of the game
+/// (things are Owner::Thing, the CHL sample numbers and the voices 0x270C..0x270F are Owner::Key, the other objects
+/// take their ids from the same counter). A 2D play or an untracked 3D one (PlayOptions::track false, or the 0x42A100
+/// PlaySoundEffectAt with track false) needs nothing more; a tracked 3D one (the 0x42A040 PlaySoundEffectAt tracks
+/// every 3D play, +0x0C = is3D) follows RegisterObject(owner.id, position),
+/// and stops at the next turn (UpdateChannels: a gone owner, LHSampleStop 0x1001439D) when nothing is registered or
+/// the function answers nullopt. Call StopOwner and UnregisterObject(owner.id) when the mod is done.
+[[nodiscard]] Owner NewOwner();
 /// fn_004287D0 -> LHSampleStopAll 0x10012BF0 (not the atmos channels)
 void StopAllSoundEffects();
 /// fn_0042A330 (owner, sample, type) / fn_0042A310 (owner, sample, bank) -> LHSampleReleaseLoop 0x10012F20

@@ -545,9 +545,15 @@ TEST(GuidanceMoon, PhaseFromTheRealClock)
 {
 	// fn_0086A7F0: days = time / 86400 - 10962 (2000-01-06, a new moon): phase 2 pi
 	EXPECT_FLOAT_EQ(MoonPhase(int64_t {10962} * 86400 + 3600), 6.2831855f);
-	// 14 days later: frac = 14 x 0.03386318
-	const double fraction = 14.0 * 0.03386318012808897;
-	EXPECT_FLOAT_EQ(MoonPhase(int64_t {10976} * 86400), static_cast<float>((1.0 - fraction) * 6.2831854820251465));
+	// the original's arithmetic with the FPU at 24 bits (fn_007DEE00), emulated (Unicorn, dev\tmp_dis\audio\emu_moon.py):
+	// each step rounds to a float, the doubles 0x9A3BE8 / 0x8D45D8 do not (B12; the old all-double model gave 3.3044245
+	// for day 10976 and 5.0752940 for day 19000)
+	EXPECT_EQ(MoonPhase(int64_t {10976} * 86400), 3.30442476272583f);
+	EXPECT_EQ(MoonPhase(int64_t {10963} * 86400 + 3600), 6.0704169273376465f);
+	EXPECT_EQ(MoonPhase(int64_t {12345} * 86400), 1.0506809949874878f);
+	EXPECT_EQ(MoonPhase(int64_t {19000} * 86400), 5.075367450714111f);
+	EXPECT_EQ(MoonPhase(int64_t {20000} * 86400), 5.934971809387207f);
+	EXPECT_EQ(MoonPhase(int64_t {20363} * 86400), 4.098221302032471f);
 }
 
 TEST(GuidanceHelpScript, RunMessagePushesBothTextsAndStartsTheScript)

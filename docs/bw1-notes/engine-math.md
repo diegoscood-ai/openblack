@@ -976,6 +976,21 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 
 ## Ganchos de prueba
 
+**Comprobado en el juego (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
+- Culto (`OPENBLACK_TEST_WORSHIP="1,0.5"` + `OPENBLACK_WORSHIP_TRACE=1`, Land 2): van los 11 aldeanos más cercanos al
+  lugar (232–278 m); con el fallo anterior iban los más lejanos. El desempate por vida³ no se ve (la vida no sale en la
+  traza).
+- Fuego (`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"` + `OPENBLACK_FIRE_TRACE=1`, Land 1): los 12 aldeanos cercanos
+  reaccionan y lo apagan (215 → 220 ⇄ 216). **Sin comprobar en el juego:** el término de 400 m con aldeanos a 150–300 m
+  de su pueblo (no hay gancho; solo `test_gutils_distance`).
+- Curación (`OPENBLACK_TEST_HURT_VILLAGERS="1814.0,2660.5,30,0.3,0,200,1,0"`): cura las celdas que recorre la espiral
+  (aldeanos a 13,3 m con R = 10) y no las que no visita, como el original.
+- Iconos del lugar de culto (`OPENBLACK_TEST_WORSHIP_SITE="NORSE,0,...,11"`): el anillo exterior a ras de suelo
+  (0x77B002), el interior en la plataforma. El paso entre anillos sigue en 7,5 (el original suma 15, 0x77B100): lo
+  arregla milagros2.
+- Reloj (`OPENBLACK_CLOCK_TRACE=1`, 1356 turnos): 10,01 turnos/s, 50 turnos cada 4,995–5,003 s con una sola partida; los
+  tirones de carga se recuperan sin perder turnos.
+
 - `test_map_coords` (`test/test_map_coords.cpp`) comprueba:
   - las constantes, por bits;
   - `ToFixed`, `ToFixedGUtils` y `ToMetres` con los valores de 24 bits (1464 m → 9594471 frente a 9594470;

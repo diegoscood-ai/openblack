@@ -41,13 +41,14 @@ namespace openblack::audio::device
 bool Open();
 /// The channels' sources, then the waves' buffers, then the context and the device (Locator's ShutDownServices)
 void Close();
-/// The device is open (LHWaveIsInstalled 0x426D30 as openblack sees it)
+/// The device is open (GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled 0x10015D20 as openblack sees it)
 [[nodiscard]] bool IsOpen();
 /// The 16 sample channels' device side: AlSampleOutput when the device is open, a NullSampleOutput when Open failed,
 /// nullptr when Open was never called (the tests, which give sample_play an output of their own)
 [[nodiscard]] SampleOutput* Output();
 
-/// QSWaveMixSetListenerPosition / Orientation / Velocity (LHListenerUpdate 0x10003960)
+/// QSWaveMixSetListenerPosition 0x1000398E / Orientation 0x100039A7 (LHListenerUpdate 0x10003850) and Velocity (0 once,
+/// at 0x10015C1A)
 void SetListener(glm::vec3 position, glm::vec3 velocity, glm::vec3 forward, glm::vec3 up);
 /// The listener's point as OpenAL has it (openblack's axes)
 [[nodiscard]] glm::vec3 ListenerPosition();

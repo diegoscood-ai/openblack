@@ -22,10 +22,10 @@
 
 // The banks of openblack's audio: LHBankRegister 0x10002240 (layer 1 of dev\tmp_dis\audio\PLAN.md §2.1, milestone
 // B11a). The only place that reads a .sad: the sample banks (k_SfxBankPaths 0x9CB3F8 and the rest of Audio\, GAudio
-// fn_00429CB0 / fn_0042A350, InitAtmos fn_00428F30), their anim effect tables (0x10002778..0x100029AB), the waves of
-// the dialogue banks read at their first play (0x10011420 -> fn_100032D0) and the music banks of MUSIC_TYPE (0x9C9748,
-// the GAudio ctor 0x426D40). audio::Init loads the sample banks (banks::LoadAll); the music banks are registered at
-// their first use (music::GetBank).
+// fn_00429CB0 / fn_0042A350, InitAtmos 0x428EF0 -> fn_00428F30), their anim effect tables (0x10002778..0x100029AB),
+// the waves of the dialogue banks read at their first play (0x10011420 -> fn_100032D0) and the music banks of
+// MUSIC_TYPE (0x9C9748, the GAudio ctor 0x426D40). audio::Init loads the sample banks (banks::LoadAll); the music banks
+// are registered at their first use (music::GetBank).
 
 namespace openblack::audio
 {
@@ -58,10 +58,12 @@ namespace banks
 {
 
 /// fn_00429CB0 / fn_0042A350 (the 11 types of 0x9CB3F8), InitAtmos fn_00428F30 (the 14 atmos banks) and the creature
-/// banks: every sample bank (.sad) under Audio\, each through LHBankRegister(path, 0) 0x10002240. The dialogue banks
-/// (types 6..10, Audio\Dialogue) keep only their headers, each wave read from the file at its first play (ReadWave);
-/// the others keep their bytes in memory (approximated: the original reads every bank that way, 0x426EEE). A music bank
-/// (its waves are ".mpg") is left to MusicBankOf. Nothing without the file system and the resources (the tests).
+/// banks: every sample bank (.sad) under Audio\, each through LHBankRegister(path, 0) 0x10002240, all from audio::Init
+/// (approximated: InitAtmos 0x428EF0 runs later, from GGame::FinishInitialisation; nothing plays in between). The
+/// dialogue banks (types 6..10, Audio\Dialogue) keep only their headers, each wave read from the file at its first play
+/// (ReadWave); the others keep their bytes in memory (approximated: the original reads every bank that way, 0x426EEE).
+/// A music bank (its waves are ".mpg") is left to MusicBankOf. Nothing without the file system and the resources (the
+/// tests).
 void LoadAll();
 
 /// The banks registered, 1..Count()

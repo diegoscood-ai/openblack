@@ -1575,7 +1575,7 @@ OpenAL (`grep` de `AudioManager|Locator::audio|AL/al.h|alGen|alSource` en `src`,
 | `AudioPlayer::Initialize` (dispositivo, contexto, registro de OpenAL Soft, `AL_INVERSE_DISTANCE_CLAMPED`), `AudioManagerNoOp` si falla | `audio::device::Open()` desde `InitializeEngine` (`LH_AudioSystem::Create`); sin dispositivo, `NullSampleOutput` |
 | `~AudioManager` (fuentes de los canales, búferes, contexto) | `audio::device::Close()` desde `ShutDownServices`, tras `audio::Shutdown` y `music::Shutdown` |
 | `AudioManager::Update` (bucles finitos de los canales) | `sample_play::UpdateFrame()` al principio de `audio::UpdateFrame()` (mismo sitio del fotograma) |
-| `AudioManager::UpdateListener` → `AudioPlayer::UpdateListener` | `device::SetListener(cámara, 0, forward, up)` en `sample_play::UpdateChannels` (LHListenerUpdate 0x10003960 desde fn_004270D0 0x4271EF; velocidad 0, 0x10015C1A) |
+| `AudioManager::UpdateListener` → `AudioPlayer::UpdateListener` | `device::SetListener(cámara, 0, forward, up)` en `sample_play::UpdateChannels` (LHListenerUpdate 0x10003850 desde fn_004270D0 0x4271EF: QSWaveMixSetListenerPosition 0x1000398E / Orientation 0x100039A7; velocidad 0 una vez, 0x10015C1A) |
 | `AudioManager::GetSampleOutput` | `device::Output()` |
 | `AudioManager::GetSound`, `CreateSoundGroup`/`AddToSoundGroup`/`GetSoundGroups` (lista de bancos del panel y de LHAtmos) | `banks::Count/Path/Samples(BankId)`, `BankGroup`, `FindBank` |
 | `SoundExists` mirando si la salida era `NullSampleOutput` | `device::IsOpen()` |
@@ -1592,7 +1592,7 @@ de ejes (x ↔ z, mundo de openblack zurdo, OpenAL diestro) se hace solo aquí: 
 **Bancos** (`src/Audio/Banks.{h,cpp}`, `audio::banks`, capa 1, LHBankRegister 0x10002240): el registro
 (`RegisterBank`, `SetBankSampleCount`, `BankSampleCount`, `Bank(SfxBank)` = GAudio+0x3A8 + 4·tipo de 0x9CB3F8,
 `FindBank`, `BankGroup`, `SampleId`, que estaban en `AudioSystem`) y la carga:
-- `banks::LoadAll()`, al final de `audio::Init` (GAudio ctor 0x426D40 → fn_00429CB0, InitAtmos fn_00428F30): cada .sad
+- `banks::LoadAll()`, al final de `audio::Init` (GAudio ctor 0x426D40 → fn_00429CB0; (aproximado) los 14 de ambiente también aquí, aunque el original los registra después, InitAtmos 0x428EF0 → fn_00428F30 desde GGame::FinishInitialisation, sin nada sonando entre medias): cada .sad
   de `Audio\` en el orden del sistema de ficheros, como el bucle que había en `Game.cpp`. Mismo contenido: tablas de
   anim-effects (`anim_effects::RegisterTables`, 0x10002778..0x100029AB), nombres de onda de la tabla de voz (bancos 6, 7,
   10), muestras vacías saltadas (`continue`), bancos de música (ondas .mpg) fuera.

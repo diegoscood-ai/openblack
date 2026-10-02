@@ -494,8 +494,9 @@ void audio::Init(GameQueries queries)
 	{
 		SPDLOG_LOGGER_INFO(logger, "GAudio: sample master volume {}", sample_play::MasterVolume());
 	}
-	// the GAudio ctor 0x426D40 -> fn_00429CB0: the sample banks of 0x9CB3F8, then (InitAtmos fn_00428F30) the atmos
-	// ones, every .sad of Audio\ through LHBankRegister 0x10002240 (Banks.h)
+	// the GAudio ctor 0x426D40 -> fn_00429CB0 (0x426F58): the sample banks of 0x9CB3F8, and with them the atmos ones,
+	// every .sad of Audio\ through LHBankRegister 0x10002240 (Banks.h). (approximated) the original registers the 14
+	// atmos banks later, InitAtmos 0x428EF0 -> fn_00428F30 from GGame::FinishInitialisation; nothing plays in between
 	banks::LoadAll();
 }
 

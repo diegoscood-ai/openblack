@@ -104,17 +104,15 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   0x5B3FD4 (vt 0x1C) pone la
   posición requerida de la mano en el punto donde empezó, y suma la altura (vt 0x18). `Spell::CoreCloseDown` 0x720160 la
   para.
-  - **El sentido del giro de la inclinación (verificado; openblack lo tiene al revés).** El ángulo viene del fichero y es
-    **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal cual
-    (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
+  - **El sentido del giro de la inclinación (verificado; fiel desde la sesión asistente).** El ángulo viene del fichero y
+    es **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal
+    cual (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
     mano → cámara normalizado (`LH3DTech::g_camera` menos la posición, 0x5B6E1B..0x5B6ECE), llama a fn_007FB180(matriz,
     eje, ángulo) y transforma el vector (0, 1, 0). fn_007FB180 escribe la matriz de Rodrigues **estándar** por filas
     (0x7FB1F7 `[ecx]` = x² + (1 − x²)c, 0x7FB207 `[ecx+0xC]` = xy(1 − c) + zs, 0x7FB21C `[ecx+0x18]` =
     xz(1 − c) − ys, …), pero el transporte de 0x5B6EE8 es por **vector fila**: out.x = R00·v.x + R10·v.y + R20·v.z + t.x,
-    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. openblack hace
-    `glm::mat3(glm::rotate(mat4(1), tilt, eje)) * up`, que es R(+tilt)·up: **la mano se vuelca al lado contrario**. El
-    arreglo es un signo (`-tilt`, o transponer) en `HandPlacement.cpp`; no se toca aquí porque ese fichero es de la lane
-    de la mano (la tarea de «bosque2» pedía solo verificarlo).
+    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. Por eso `HandPlacement.cpp` gira con `-tilt`
+    (`glm::rotate(mat4(1), -tilt, eje)`).
   - **Con ClampHand la mano no se mueve mientras cae el grano**, así que todos los granos caen en el mismo punto y
     hacen una sola pila que crece (el plan esperaba una línea de 20 m: no la hay con `ClampHand 1`, y el agua, que
     tiene `ClampHand 0`, sí sigue a la mano). El punto es el que tenía la mano al empezar el chorro, y el bucle no

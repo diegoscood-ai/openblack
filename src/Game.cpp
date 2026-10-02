@@ -526,6 +526,8 @@ bool Game::GameLogicLoop() noexcept
 		_screenFade->ProcessTurn();
 		// GGame::ProcessTurn: GLandAlignement::UpdateTime once per turn
 		_dayNightClock->ProcessTurn();
+		// GGame::ProcessTurn 0x54E74E: GCamera::Validate 0x441F50, the script camera's things that have gone are dropped
+		script_camera::Validate();
 		// OPENBLACK_TIME_OF_DAY=<script hour> pins the clock there every turn (screenshots), over the scripts' times
 		if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr)
 		{

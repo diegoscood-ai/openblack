@@ -26,8 +26,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/SoundMap.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
@@ -212,7 +211,7 @@ public:
 					{
 						// fn_006A1F90: the surface's factor (0x937574: 1, 0.2 off the land and on water, 1.25 for 9)
 						static constexpr float k_Surface[10] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.2f, 0.2f, 1.0f, 1.25f};
-						const int surface = audio::GetSurfaceType(p);
+						const int surface = ecs::sea_cells::GetSurfaceType(p); // GSoundMap::GetSurfaceType 0x71D8E0
 						bounce *= surface >= 0 && surface < 10 ? k_Surface[surface] : 1.0f;
 					}
 					v = tangent * bounce + normalPart * -verticalBounce;
@@ -340,7 +339,10 @@ public:
 		{
 			// a script, computer or creature cast: a ballistic arc from the gesture position to 0.8 of the way to the origin,
 			// in max(0.025 D, 0.5) s, or at 30 degrees (0x9375F0: 0.5237 rad) when that would be steeper (cwid.txt;
-			// the algebra between the addresses below is UNVERIFIED, destructive.md §3.4). g = the group's
+			// the re-solve 0x69EC3E..0x69ECC1 was re-read in the fuego2 audit: delta [esp+0x64] (0x69EB1B), distance
+			// [esp+0x38] (0x69EB3F), time max(0.025 D, 0.5) (0x69EB43..0x69EB5A), v = delta / t - (0, -g [esp+0x20]
+			// x 0.5 t, 0) (0x69EB62..0x69EC39, re-read by the fuego2 audit); the target at 0.8 and the origin
+			// fallback before 0x69EAF0 stay UNVERIFIED, destructive.md §3.4). g = the group's
 			// UpdateRuleGravity +0x24, 30 without one (0x69E9A0)
 			float g = 30.0f;
 			for (const auto& slot : collection.modifiers)
@@ -367,18 +369,23 @@ public:
 			}
 			glm::vec3 v = delta / time - glm::vec3(0.0f, -g * 0.5f * time, 0.0f);
 			const float horizontal2 = v.x * v.x + v.z * v.z;
-			// the re-solve only for a launch faster than 298.5 (|v|^2 > 89129, double 0x8C7620 at 0x69EC60)
-			if (horizontal2 + v.y * v.y > 89129.0f)
+			// the re-solve for any launch that moves: |v|^2 > 0.01 (fcomp qword [0x8C7620], the double 0.01, at 0x69EC60;
+			// read as a float it looked like 89129), then steeper than 30 degrees: fld qword [0x9375F0] (the double
+			// 0.52370351552963257) fptan 0x69EC77, compared in the FPU with v.y / sqrt(horizontal2) (0x69EC7B..0x69EC85)
+			// horizontal2 is stored as a float (fstp [esp+0x24], 0x69EC50), then + y x y in the FPU (0x69EC54..0x69EC5C)
+			if (static_cast<double>(horizontal2) + static_cast<double>(v.y) * static_cast<double>(v.y) > 0.01)
 			{
-				const float slope = std::tan(0.5237035155296326f);
-				if (v.y / std::sqrt(horizontal2) > slope)
+				const double slope = std::tan(0.52370351552963257);
+				if (static_cast<double>(v.y) / std::sqrt(static_cast<double>(horizontal2)) > slope)
 				{
-					float time2 = (delta.y - distance * slope) * (-2.0f / g);
-					if (time2 < 0.0f) // 0x69ECAC: 0.1 (0x8AB22C), then fsqrt 0x69ECC1
+					// 0x69EC92..0x69ECAA: (delta.y - distance x tan) x (-2 [0x8C7CE0] / g), all in the FPU
+					double time2 = (static_cast<double>(delta.y) - static_cast<double>(distance) * slope) *
+					               (-2.0 / static_cast<double>(g));
+					if (time2 < 0.0) // fcom 0 [0x8AA398] at 0x69ECAC: 0.1 (0x8AB22C, 0x69ECBB), then fsqrt 0x69ECC1
 					{
-						time2 = 0.1f;
+						time2 = static_cast<double>(0.1f);
 					}
-					time = std::sqrt(time2);
+					time = static_cast<float>(std::sqrt(time2));
 					v = delta / time - glm::vec3(0.0f, -g * 0.5f * time, 0.0f);
 				}
 			}

@@ -44,8 +44,10 @@
 extern "C" {
 #endif
 
-/* The API major version this header describes. openblack loads mods of its own major version only. */
+/* The API major version this header describes. openblack loads mods of its own major version only. Minor versions
+ * only add functions at the end of ob_host_api (1.1: the game's geometry and clock): check OB_HOST_HAS. */
 #define OB_MOD_API_VERSION 1
+#define OB_MOD_API_MINOR 1
 
 #if defined(_WIN32)
 #define OB_MOD_EXPORT __declspec(dllexport)
@@ -114,6 +116,24 @@ typedef struct ob_host_api
 	int32_t (*cast_miracle)(const char* magic, float x, float z, float radius, float seconds);
 	/* the name of the land loaded last ("Land1"); returns the length */
 	size_t (*land_name)(char* buffer, size_t capacity);
+
+	/* ---- API 1.1: the game's own geometry and clock, as the original measures (check OB_HOST_HAS first) */
+	float (*game_turn_fraction)(void); /* how far the current turn is, 0..0.99 */
+	int32_t (*game_paused)(void);
+	float (*game_speed)(void); /* 1 = normal */
+	/* the 10 m map cell of a point; 1 if it is inside the map */
+	int32_t (*map_cell)(float x, float z, int32_t* cell_x, int32_t* cell_z);
+	/* distance on the ground as the game mostly measures it (GUtils::GetDistanceInMetres: x and z, 16.16 fixed point) */
+	float (*map_distance)(float x1, float z1, float x2, float z2);
+	/* game angles: 0..2047 is a full turn */
+	int32_t (*map_angle)(float x1, float z1, float x2, float z2);
+	float (*map_angle_to_radians)(int32_t angle);
+	int32_t (*map_radians_to_angle)(float radians);
+	/* the point `metres` away at a game angle */
+	void (*map_point_at)(float x, float z, int32_t angle, float metres, float* out_x, float* out_z);
+	/* a mesh's 2D radius and whole height at a scale, by name ("AnimalBat1") or "#<number>"; 1 if loaded */
+	int32_t (*mesh_radius)(const char* mesh, float scale, float* radius);
+	int32_t (*mesh_height)(const char* mesh, float scale, float* height);
 } ob_host_api;
 
 typedef struct ob_mod_info

@@ -305,7 +305,8 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
   1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
   arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
   lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
-  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %), modo 230 + calor·25/255, escala × 5·vida por
+  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %; tope el brillo [0xC22FA0]), ALPHAREF forzado
+  230 + calor·25/255 (tope 254, `OverrideRenderMode`, sin portar: [magic.md](magic.md#fuego-m5-srcecsfire)), escala × 5·vida por
   debajo de 0,2; llamas `FireGraphic` (sprites `S_Fire.raw`, humo `S_SpriteSheet3.raw`, luz `S_LMFireBall.raw`),
   2 llamas por árbol de 0,2·alto; sonido de fuego en bucle.
 

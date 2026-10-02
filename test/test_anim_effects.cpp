@@ -21,11 +21,11 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include "Audio/AnimEffectBank.h"
+#include "Audio/LH/AnimEffectBank.h"
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
 #include "Resources/Loaders.h"
 
 // Milestone B2 of dev\tmp_dis\audio\PLAN.md: the anim effects in the audio core. The tables of a bank read once as it
@@ -182,13 +182,16 @@ TEST_F(AnimEffectsTest, NumberUsesTheDllRand)
 	const auto list = anim_effects::Tables(editor)->FindList(key);
 	ASSERT_EQ(list.size(), 10u);
 	EXPECT_EQ(list.front(), 259);
-	// LH_AudioSystem::Rand(10) 0x10015710 = rand * 10 / 32767
+	// LH_AudioSystem::Rand(10) 0x10015710 = Rand() * 10 / 32767, Rand() 0x10015740 = rand() / 2 plus 0x3FFF on every
+	// other call (the flag [0x1003C124] starts at 1): the first draw is in the upper half
 	s_Rand = 16383;
-	EXPECT_EQ(anim_effects::Number(key, editor), list[4]);
+	EXPECT_EQ(anim_effects::Number(key, editor), list[7]); // (8191 + 16383) * 10 / 32767
 	s_Rand = 0;
-	EXPECT_EQ(anim_effects::Number(key, editor), list[0]);
-	s_Rand = 32766;
-	EXPECT_EQ(anim_effects::Number(key, editor), list[9]);
+	EXPECT_EQ(anim_effects::Number(key, editor), list[0]); // 0 * 10 / 32767
+	s_Rand = 32767;
+	EXPECT_EQ(anim_effects::Number(key, editor), list[9]); // (16383 + 16383) * 10 / 32767
+	s_Rand = 32767;
+	EXPECT_EQ(anim_effects::Number(key, editor), list[4]); // 16383 * 10 / 32767
 	EXPECT_EQ(anim_effects::Number({1, 2, 1, 2, 9999}, editor), 0); // no row
 }
 

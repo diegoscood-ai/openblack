@@ -11,4 +11,11 @@ ob.on("land_loaded", function(land)
 			ob.log.info(string.format("%s: %s is at %.0f, %.1f, %.0f", land, name, x, y, z))
 		end
 	end
+	-- API 1.1: distances and angles as the game measures them
+	local bx, _, bz = places.where("beach")
+	local cx, _, cz = places.where("citadel")
+	if bx and cx then
+		ob.log.info(string.format("from the beach to the citadel: %.1f m, game angle %d", ob.map.distance(bx, bz, cx, cz),
+			ob.map.angle(bx, bz, cx, cz)))
+	end
 end)

@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "Audio/SamplePlay.h"
+#include "Audio/LH/SamplePlay.h"
 
 using namespace openblack::audio;
 

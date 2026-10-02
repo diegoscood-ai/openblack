@@ -25,6 +25,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/AllMeshes.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
@@ -62,6 +63,7 @@
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
 #include "PSys/PSysWaterRings.h"
+#include "PSys/Rules/ExplodeObject.h"
 #include "PSys/Rules/Shield.h"
 
 using namespace openblack;
@@ -82,9 +84,15 @@ constexpr int k_BeamFxTurns = 60;                ///< 0x67EE92: 60 turns
 constexpr int k_SpotVisualSmoke = 23;            ///< SMOKE on dry land (0x67EEDE)
 constexpr int k_SpotVisualSteam = 22;            ///< STEAM on water (0x67EEF3)
 constexpr float k_SmokeScale = 8.0f;             ///< [0x9357E4]: the smoke's magnitude
-constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol(1000 / [0xD01A38] x 4) turns (TicksForSeconds)
-constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F: fn_00681260's fourth argument
+constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol((1000 div [0xD01A38]) x 4) & 0xFFFF turns
+constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F / 0x67E868: fn_00681260's / fn_006812B0's 6.0f (stored, unread)
 constexpr bool k_DestroyByBeam = true;           ///< [0xC029EC] = 1: the objects are destroyed
+constexpr int k_Rocks = 5;                       ///< 0x67E79E: five rocks
+constexpr uint32_t k_RockMesh = 0x237;           ///< 0x67E7BC: MeshPack 0x237 (567, MSH_Z_SPELLROCK01), 0 past the pack
+constexpr float k_RockSpread = 4.0f;             ///< 0x67E7D9 / 0x67E7DE: PSysFloatRand(-4, 4) on x and z
+constexpr float k_RockScale = 1.0f;              ///< [0x9357DC]
+constexpr float k_RockScaleMin = 0.8f;           ///< [0x8C4A04]: PSysFloatRand(0.8 x scale, 1.2 x scale)
+constexpr float k_RockScaleMax = 1.2f;           ///< [0x8C6C98]
 
 /// UR_Explosion::CollectionData (0x58 bytes, ctor fn_0067E140)
 struct CollectionData
@@ -248,10 +256,11 @@ public:
 			}
 			if (!data.beamDone && age > beamDelay && CanCreateSpotVisuals())
 			{
-				// CreateSpotVisualWithSpecifiedDuration(centre, BEAM_EXPLOSION_FX, 1.0, 60 turns, NULL): the column and cones
-				// (the port's CreateSpotVisual takes seconds: the 60 turns as seconds of a turn)
-				const float beamSeconds = static_cast<float>(k_BeamFxTurns) * game_clock::k_TurnSeconds;
-				data.beamFx = manager::CreateSpotVisual(k_SpotVisualBeamFx, data.centre, beamSeconds, entt::null, 1.0f);
+				// 0x67EE90..0x67EEA6: CreateSpotVisualWithSpecifiedDuration(MapCoords(centre) 0x603160, BEAM_EXPLOSION_FX,
+				// 1.0, 60 turns, NULL): the column and cones. The effect starts at that MapCoords as a point (fn_0063E410
+				// 0x63E418..0x63E47B: fild x, z x 10 / 65536, GetAltitude + the altitude): ToWorld of FromWorld
+				const auto at = ecs::map_coords::ToWorld(ecs::map_coords::FromWorld(data.centre));
+				data.beamFx = manager::CreateSpotVisualTurns(k_SpotVisualBeamFx, at, k_BeamFxTurns, entt::null, 1.0f);
 				data.beamDone = true;
 			}
 			if (!data.smokeDone && age > smokeDelay && CanCreateSpotVisuals())
@@ -259,11 +268,12 @@ public:
 				data.smokeDone = true;
 				// MapCoords::IsDryLand 0x603620: smoke, else steam; magnitude 8 for 4 s
 				const int visual = ecs::pot_resource::IsDryLand(data.centre) ? k_SpotVisualSmoke : k_SpotVisualSteam;
-				// 0x67EEF8..0x67EF1D: ftol(1000 / [0xD01A38] x 4) turns = TicksForSeconds(4) (as seconds of a turn for the
-				// port's CreateSpotVisual)
-				const auto smokeTurns = game_clock::TicksForSeconds(k_SmokeSeconds);
-				const float smokeSeconds = static_cast<float>(smokeTurns) * game_clock::k_TurnSeconds;
-				manager::CreateSpotVisual(visual, data.centre, smokeSeconds, entt::null, k_SmokeScale);
+				// 0x67EEF8..0x67EF2C: an inline copy of NumGameTicksPerSecond 0x711630 (`div [0xD01A38]` of 1000, fild
+				// qword, fmul 4 [0x9357E8], __ftol), the same as TicksForSeconds(4), then `and eax, 0xFFFF`: TURNS to
+				// CreateSpotVisualWithSpecifiedDuration (0x67EF3B), at MapCoords(centre) 0x603160 (0x67EF35)
+				const auto smokeTurns = static_cast<int>(static_cast<uint32_t>(game_clock::TicksForSeconds(k_SmokeSeconds)) & 0xFFFFu);
+				const auto at = ecs::map_coords::ToWorld(ecs::map_coords::FromWorld(data.centre));
+				manager::CreateSpotVisualTurns(visual, at, smokeTurns, entt::null, k_SmokeScale);
 			}
 		}
 		else
@@ -400,21 +410,38 @@ private:
 			}
 		}
 		data.spread = 0.0f;
-		// (no portado) 0x67E79E..0x67E88E: five times LH3DObject::Create(0) with MeshPack 0x237 (567, MSH_Z_SPELLROCK01),
-		// SetPosition(centre + (rand(-4, 4), 0, rand(-4, 4)) (the z rand first), PSysFloatRand(2 pi), rand(0.8, 1.2) x
-		// [0x9357DC] = 1), fn_006812B0(it, its matrix, centre - 5 m (fn_0067E8C0), BlastSpeed, 6, 0) and the object deleted:
-		// only its pieces exist. fn_006812B0 queues {mesh, matrix, origin, speed, 6} in 0xD4E320 (0xD4E308 with the last
-		// argument != 0), emptied every step by UR_ExplodeObject::ModifyAtomCollection 0x6814E0 of the always-on
-		// EXPLODE_OBJECT effect (PSysUtilityPSys, PSysGlobal::InitializeOneTimeOnly 0x68F750; SF_ExplodeObject.txt) with
-		// ExplodeMesh 0x6807B0: per LOD 0 primitive, pieces of joined triangles, one atom each (RenderParticleGJMesh,
-		// DrawAt 0x67C150 through Draw3DWorldTriangle), at their centroid, flying away from the origin at the speed plus
-		// PSysRandR3 x RandomFactor / 2; the file's gravity, tumble, fade (0..3 s) and shrink (1..5 s), gone at 6 s
+		// 0x67E79E..0x67E88E: five times LH3DObject::Create(0) with MeshPack 0x237 (vt 0xF4 SetMesh), SetPosition (vt 0x20
+		// = 0x423140) at centre + (rand(-4, 4), 0, rand(-4, 4)) (the z rand first, 0x67E7E3 / 0x67E7F6), turned
+		// PSysFloatRand(2 pi) (0x67E847) about Y and scaled PSysFloatRand(0.8, 1.2) (0x67E837, drawn before the angle),
+		// fn_006812B0(it, its matrix +0x14, centre - 5 m (fn_0067E8C0), BlastSpeed, 6.0, 0) and the object deleted (vt 4):
+		// only its pieces exist. The queue is emptied by UR_ExplodeObject (Rules/ExplodeObject.cpp) in this turn's
+		// PSysGlobal::GameLoopEnd
+		{
+			const uint32_t rockMesh = k_RockMesh < static_cast<uint32_t>(MeshId::_COUNT) ? k_RockMesh : 0;
+			const auto rock = explode_object::PackMesh(rockMesh);
+			for (int i = 0; i < k_Rocks; ++i)
+			{
+				const float dz = -k_RockSpread + effect.Random(2.0f * k_RockSpread);
+				const float dx = -k_RockSpread + effect.Random(2.0f * k_RockSpread);
+				const glm::vec3 position(data.centre.x + dx, data.centre.y, data.centre.z + dz);
+				const float scale =
+				    k_RockScale * k_RockScaleMin + effect.Random(k_RockScale * k_RockScaleMax - k_RockScale * k_RockScaleMin);
+				const float angle = effect.Random(6.28318548f); // 0x40C90FDB
+				// SetPosition 0x423140: rows X = (cos, 0, sin) s, Y = (0, s, 0), Z = (-sin, 0, cos) s, the LHMatrix rows
+				// being the axes here
+				const float c = std::cos(angle);
+				const float s = std::sin(angle);
+				const glm::mat3 axes(glm::vec3(c, 0.0f, s) * scale, glm::vec3(0.0f, scale, 0.0f), glm::vec3(-s, 0.0f, c) * scale);
+				explode_object::QueueMesh(rock, axes, position, explosion::BlastOrigin(data.centre), blastSpeed, k_ExplodeSpread);
+			}
+		}
 		if (Trace())
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"),
 			                   "Explosion: started at ({:.1f}, {:.1f}, {:.1f}), margin {:.1f}, search r {:.1f} ({} cells), {} "
-			                   "targets; the five rock pieces (ExplodeMesh 0x6807B0) are not ported",
-			                   data.centre.x, data.centre.y, data.centre.z, margin, r, cells, data.targets.size());
+			                   "targets, {} rocks queued",
+			                   data.centre.x, data.centre.y, data.centre.z, margin, r, cells, data.targets.size(),
+			                   explode_object::QueuedCount());
 			for (const auto& target : data.targets)
 			{
 				const auto p = PositionOf(target.object);
@@ -544,10 +571,10 @@ private:
 				    data.exploded < maxObjectsToExplode)
 				{
 					++data.exploded;
-					// (no portado) fn_00681260(object, centre - 5 m, BlastSpeed, 6, 0) 0x67EC86: GetWorldMatrix (vt 0x63C)
-					// and the object's 3D mesh (+0x40) into the 0xD4E320 queue (fn_006812B0), thrown to pieces by the
-					// EXPLODE_OBJECT effect (see the five rocks in InitCollection)
-					static_cast<void>(k_ExplodeSpread);
+					// fn_00681260(object, centre - 5 m (fn_0067E8C0), BlastSpeed, 6.0, 0) 0x67EC86: GetWorldMatrix (vt
+					// 0x63C) and the object's 3D mesh (+0x40) into the 0xD4E320 queue (fn_006812B0), thrown to pieces by
+					// the EXPLODE_OBJECT effect (Rules/ExplodeObject.cpp)
+					explode_object::QueueObject(target.object, explosion::BlastOrigin(data.centre), blastSpeed, k_ExplodeSpread);
 				}
 				if (target.object != entt::null && data.deleted < maxObjectsToDelete)
 				{
@@ -745,4 +772,5 @@ void openblack::psys::RegisterExplosionRules()
 	RegisterModifier("SetPSysCloseDown", MakeModifierOf<SetPSysCloseDown>);
 	RegisterModifier("UR_ChangeScaleXYZ", MakeModifierOf<ChangeScaleXYZ>);
 	RegisterModifier("UR_MoveAtom", MakeModifierOf<MoveAtom>);
+	explode_object::RegisterRules(); // UR_ExplodeObject, UR_ExplodeObject2 (SF_ExplodeObject)
 }

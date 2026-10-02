@@ -22,15 +22,9 @@
 
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
-#include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
-#include "ECS/Components/FishFarm.h"
-#include "ECS/Components/Footpath.h"
 #include "ECS/Components/Forest.h"
-#include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/Mobile.h"
-#include "ECS/Components/SpellIcon.h"
-#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
@@ -117,17 +111,6 @@ glm::u16vec2 CellOf(const glm::vec3& position)
 	return ecs::MapInterface::GetGridCell(position);
 }
 
-/// Is the object one of the MultiMapFixed classes? Its ctor 0x52E1F0 is the only place that sets the flag +0x24 bit 1
-/// (0x52E207 `or byte [esi+0x24], 2`), which is what MapCell::IsFixed reads. The list of classes that derive from it
-/// comes from bw1-decomp (src/Black/*.h): Abode (so Field, Footpath, CreaturePen, BuildingSite and StoragePit too),
-/// BigForest, CitadelPart, Feature, FishFarm, MobileStatic (so MagicTeleport and the street lanterns), PFootball,
-/// PrayerSite, SpellIcon and TotemStatue. SingleMapFixed (Tree, MapShield, ScriptHighlight, PrayerIcon) does not set it.
-bool IsMultiMapFixed(const ecs::Registry& registry, entt::entity object)
-{
-	return registry.AnyOf<Abode, Field, Footpath, BigForest, Feature, FishFarm, MobileStatic, TotemStatue, SpellIcon,
-	                      MagicTeleport>(object);
-}
-
 /// MapCoords::IsFixed 0x603790 -> MapCell::IsFixed 0x601EA0: the cell's first fixed object (MapCell +4, where
 /// Fixed::InsertMapObjectToCell 0x52DEA0 puts the newest) has the flag +0x24 bit 1, so IsFixed is "the newest fixed
 /// object of the cell is a MultiMapFixed". A tree (SingleMapFixed) is in its own cell only.
@@ -170,7 +153,8 @@ bool IsFixedCell(const glm::vec3& position)
 			newest = object;
 		}
 	}
-	return newest != entt::null && IsMultiMapFixed(registry, newest);
+	// the flag +0x24 bit 1 that MapCell::IsFixed reads (MultiMapFixed ctor 0x52E207)
+	return newest != entt::null && ecs::fire::traits::IsMultiMapFixed(newest);
 }
 
 /// fn_005FADF0: no Abode (FindType ABODE in the position's cell) has Get2DRadius > its distance to the point

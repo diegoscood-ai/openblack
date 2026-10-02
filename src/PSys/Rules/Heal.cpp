@@ -22,7 +22,7 @@
 
 #include <glm/geometric.hpp>
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/SpecularColour.h"
 #include "ECS/Components/Transform.h"
@@ -72,7 +72,10 @@ bool UnavailableForStateChange(entt::entity object)
 	return held.has_value() && *held == object;
 }
 
-/// Living::SetSpecularColor 0x417480 (vt 0x5A0; Object 0x4025C0 does nothing): Living +0xD0
+/// Living::SetSpecularColor 0x417480 (vt 0x5A0; Object 0x4025C0 does nothing): Living +0xD0 = the whole dword. The
+/// chakra's fade always writes alpha 0xFF (0x6A0EF5 `mov byte [esp+0x17], 0xff`), so even an RGB of 0 keeps the dword
+/// non-zero and the draw tests (fn_0051B3D0 0x51B416, Animal::Draw 0x51C4D6 `test eax, eax`) still see an own specular
+/// (it wins over the poison tint): the component stays. Only the dtor's SetSpecularColor(0) (0x6A0A28) clears it.
 void SetSpecularColour(entt::entity object, glm::u8vec3 colour)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -80,15 +83,18 @@ void SetSpecularColour(entt::entity object, glm::u8vec3 colour)
 	{
 		return;
 	}
-	if (colour == glm::u8vec3(0))
-	{
-		if (registry.AllOf<ecs::components::SpecularColour>(object))
-		{
-			registry.Remove<ecs::components::SpecularColour>(object);
-		}
-		return;
-	}
 	registry.AssignOrReplace<ecs::components::SpecularColour>(object, colour);
+}
+
+/// fn_006A09A0 0x6A0A28..0x6A0A2A: SetSpecularColor(0), the whole dword 0: no own specular any more
+void ClearSpecularColour(entt::entity object)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AnyOf<ecs::components::Villager, ecs::components::Animal>(object) &&
+	    registry.AllOf<ecs::components::SpecularColour>(object))
+	{
+		registry.Remove<ecs::components::SpecularColour>(object);
+	}
 }
 
 /// UR_HealSpellChakra::AtomData (0x38 bytes, vtable 0x93768C; ctor fn_006A0920, dtor fn_006A09A0)
@@ -111,7 +117,7 @@ struct ChakraData
 		}
 		if (Available(target))
 		{
-			SetSpecularColour(target, glm::u8vec3(0));
+			ClearSpecularColour(target);
 		}
 	}
 	/// fn_006A0A60: the target (+0x28, and +0x20 the one put in the global list, at its front)

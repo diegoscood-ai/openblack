@@ -98,21 +98,6 @@ template <typename Atom>
 	}
 }
 
-/// The DrawData specular +0xC of a mesh atom (SetColorSpecular vt+0x2C 0x67A02F, fn_0080BEC0 0x67A01C), once
-/// psys::mesh_atoms::Instance carries it as `specular` (0xRRGGBB); 0 until then
-template <typename Atom>
-[[nodiscard]] uint32_t AtomSpecular(const Atom& atom)
-{
-	if constexpr (requires(const Atom& a) { a.specular; })
-	{
-		return static_cast<uint32_t>(atom.specular);
-	}
-	else
-	{
-		return 0u;
-	}
-}
-
 /// A cut atom that also draws with the land colour (fn_0080BEC0 0x67A01C before vt+0x11C) would need the land light of
 /// fn_0080BEC0 under the light of fn_00858BA0 (inferido, no effect known to set both): not ported, drawn as today
 [[nodiscard]] bool AtomDrawnCut(const openblack::psys::mesh_atoms::Instance& atom)
@@ -700,7 +685,9 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		auto offset = offsets.insert(std::make_pair(atom.meshId, 0));
 		const uint32_t idx = desc->second.offset + offset.first->second;
 		_renderContext.instanceUniforms[idx] = atom.model;
-		if (atom.translucent)
+		// the colour's alpha: with the global alpha table for the translucent ones, else (no SetGlobalAlpha, Mesh.h) it is
+		// still the diffuse alpha the blending primitives of the mesh take (milagros2 rayo3)
+		if (atom.translucent || atom.alpha < 1.0f)
 		{
 			_renderContext.instanceUniforms[idx][0][3] = 1.0f - atom.alpha;
 		}
@@ -714,8 +701,8 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		}
 		// the DrawData colour +8 (the creator's colour, x the player's for UsePlayerColor; Particle3DObj::DrawAt 0x67A00C..
 		// 0x67A01C): with DrawWithLandscapeColor the tint of fn_0080BEC0, else the colour of SetColorSpecular (vt 0x2C).
-		// (aproximado) the specular DrawData +0xC (read at 0x67A012 for fn_0080BEC0 and at 0x67A023 for vt 0x2C) is not
-		// in the atom yet (psys::mesh_atoms::Instance, AtomSpecular): both paths lose it, 0
+		// the specular DrawData +0xC (read at 0x67A012 for fn_0080BEC0 and at 0x67A023 for vt 0x2C) is
+		// psys::mesh_atoms::Instance::specular, packed below
 		const uint32_t atomColour = lh3d_colour::Argb(atom.colour[0], atom.colour[1], atom.colour[2], 0xFF);
 		auto& lh3d = _renderContext.instanceColours[idx];
 		if (atom.landscapeColour)
@@ -726,9 +713,10 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		{
 			lh3d_colour::PackInstanceColour(lh3d, atomColour);
 		}
-		if (const uint32_t specular = AtomSpecular(atom); specular != 0u)
+		// the DrawData specular +0xC (SetColorSpecular vt 0x2C, 0x67A023; fn_0080BEC0, 0x67A012): obj +0x50
+		if ((atom.specular & 0x00FFFFFFu) != 0)
 		{
-			lh3d_colour::PackInstanceSpecular(lh3d, specular);
+			lh3d_colour::PackInstanceSpecular(lh3d, atom.specular);
 		}
 		if (atom.uv != glm::vec2(0.0f))
 		{

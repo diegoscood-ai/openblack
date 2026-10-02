@@ -3,13 +3,13 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B10 de la fase B están hechos; la fase C queda pendiente.
+y los hitos B0..B11c de la fase B están hechos; la fase C queda pendiente.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
 - [Motor de audio](#motor-de-audio)
   - [Original: GAudio, LHaudio y QMixer](#original-gaudio-lhaudio-y-qmixer)
-  - [Capas del motor de openblack](#capas-del-motor-de-openblack)
+  - [Arquitectura del audio de openblack (B11b)](#arquitectura-del-audio-de-openblack-b11b)
   - [Estado del motor de efectos en openblack](#estado-del-motor-de-efectos-en-openblack)
 - [Bancos y formatos](#bancos-y-formatos)
   - [Tabla de bancos de efectos y diálogo](#tabla-de-bancos-de-efectos-y-diálogo)
@@ -39,6 +39,9 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B7 implementado (voces en canal)](#fase-b-b7-implementado-voces-en-canal)
 - [Fase B: B8 implementado (interfaz y mano)](#fase-b-b8-implementado-interfaz-y-mano)
 - [Fase B: B9 y B10 implementados (Guidance y voces nocturnas)](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)
+- [Fase B: B11a, un solo motor](#fase-b-b11a-un-solo-motor)
+- [Fase B: B11b, la estructura](#fase-b-b11b-la-estructura)
+- [Fase B: B11c, las API comunes del equipo](#fase-b-b11c-las-api-comunes-del-equipo)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -99,24 +102,110 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
      (vídeo, **(inferido)**).
   2. **Siempre**: fn_00429700, que purga la lista ThingMusicInfo.
 
-### Capas del motor de openblack
+### Arquitectura del audio de openblack (B11b)
 
-**Plan** (PLAN §2.1-2.4, con las correcciones de diseño de §8.6). Hay una capa por cada pieza del original:
+Una carpeta por capa del original, la fachada en la raíz. El juego solo incluye `Audio/Audio.h` (y, para lo que no es
+de efectos, la cabecera de su servicio: `GameMusic.h`, `Guidance.h`, `Voices.h`...). Plan: PLAN §2.1-2.4 con las
+correcciones de diseño de §8.6.
 
 ```
-          juego (ECS, mano, cámara, Magic, Worship, CHLApi, Help, menús, Debug)
-                               │  solo #include "Audio/Audio.h"  (fase B)
- 4. API pública  audio::        fachada fina con las firmas de GAudio
- 3. Servicios    GameSfx · AnimEffects · SoundTags · Atmos (SoundMap + AtmosBanks)
-                 GameMusic (+ ThingMusic) · Voices · Advisor · Guidance · Confirmation · Spooky
-                 ScriptSound · ScriptAudioState
- 2. GAudio       AudioSystem: bancos por tipo (0x9CB3F8, 0x9C9748), filtros, volúmenes maestros,
-                 Init/Reset/ProcessTurn/foco, dueños fijos 0x270C..0x270F
- 1. LHaudio/QMixer emulado
-                 Banks (LHBankRegister, caché de ondas) · SamplePlay (16 canales, de agua)
-                 MusicEngine (LHMusic: 6 pistas, hilo de 120 ms) · QMixerLaws (volumen, distancia, polar)
- 0. Dispositivo  AudioPlayer (OpenAL) + decodificadores (dr_wav PCM/ADPCM, dr_mp3 capa II)
+          juego (ECS, mano, cámara, Magic, PSys, Worship, CHLApi, Help, menús, Debug)
+              │ #include "Audio/Audio.h"                    ▲ GameQueries (std::function que registran
+              ▼                                             │ Game.cpp y ecs::audio_queries)
+ 4. Audio.h        fachada: las firmas de GAudio (PlaySoundEffect, StopSoundEffect, SamplePlayAnimEffect, tags,
+                   RegisterObject, Counter, TickCount, Init/ProcessTurn/ClearMap/OnFocus...) · GameQueries.h
+ 3. Services/      SoundTags · SoundMap + AtmosBanks · GameMusic + ThingMusic · Voices · Advisor · Guidance ·
+                   SpookyVoices · ScriptSound · ScriptAudioState · AnimationSounds · LanternSounds · SpellSounds
+ 2. GAudio/        AudioSystem (filtros, dueños, maestros, ProcessTurn) · GameSfx (las 5 variantes de
+                   PlaySoundEffect, contadores) · Banks (LHBankRegister de todos los .sad) · BankTables (0x9CB3F8,
+                   0x9C9748)
+ 1. LH/            LHaudio/QMixer emulados: SamplePlay (16 canales, el generador del DLL) · QMixerLaws · AnimEffects
+                   (+ AnimEffectBank) · MusicBank · MusicEngine (LHMusic) · MusicStream (sus 6 pistas y el hilo)
+ 0. Device/        Device (el único que llama a OpenAL; GetTickCount) · AlSampleOutput · SampleOutput · WaveBuffers ·
+                   Sound (el registro de una muestra) · decodificadores (dr_wav, dr_mp3)
 ```
+
+**Quién llama a quién.** Hacia abajo, salvo lo que el original también hace hacia arriba:
+- `GAudio/AudioSystem` reparte el turno (GGame::EndTurn 0x54E960 → GAudio::ProcessAudioGameTurn 0x427080) entre los
+  servicios: `sound_map::Update`, `lantern_sounds::ProcessTurn`, `tags::ProcessSoundTags`, ProcessMusic, los bancos de
+  ambiente. Es lo que hace GAudio en el original.
+- Los servicios usan las funciones de GAudio declaradas en `Audio.h` (PlaySoundEffect y su familia) y `AudioSystem.h`
+  (`Queries`, `ListenerPoint`, `SurfaceType`, `IslandAltitude`, `OwnerSoundPosition`).
+- `LH/` usa los tipos de `GAudio/` (`BankId`, `SfxBank`, `MusicType`) y el `Get3DSoundPos` de GAudio (fn_00427200, la
+  función 3D que el juego registra en el DLL, 0x426E6B). Los nombres viejos de agua en `SamplePlay` (`SetGameSound`,
+  `IsInsideCitadel`...) reenvían a GAudio.
+- `Device/` no conoce a nadie de arriba, salvo el registro de bancos que lee `WaveBuffers` (`banks::ReadWave`).
+
+**Lo que el audio pregunta al juego**: `audio::GameQueries` (`src/Audio/GameQueries.h`). Ningún archivo de `src/Audio`
+incluye un componente del ECS ni `ECS/*`:
+- `Game.cpp` (`MakeMusicQueries`) registra las del estado del juego: tierra, turno, cámara, posición de una cosa
+  (`thingPosition`, el dueño `Owner::Thing`), mano, pantalla ancha, HelpSystem, noche...
+- `src/ECS/AudioQueries.{h,cpp}` (`ecs::audio_queries::Fill`, llamado desde `MakeMusicQueries`) registra las que leen el
+  registro ECS y sus sistemas: `surfaceType` (`ecs::sea_cells::GetSurfaceType`, el GSoundMap::GetSurfaceType 0x71D8E0
+  único), `weatherSmooth` (`weather::atmos::GetWeatherSmooth` 0x835180), `animatedThing` (lo que lee fn_00516510:
+  posición, TurnsSinceStateChange y, de un aldeano, vivo/niño/mujer/casa), `animationClipName` (LoadAllAnimations
+  0x550180) y `streetLanterns` (la lista g_game+0x205C34 con Object::GetHeight 0x638120). También los ganchos de prueba
+  que mueven la cámara (`OPENBLACK_AUDIO_TEST_VIEW` / `_ANIM` / `_LANTERN`, `ecs::audio_queries::RunTestHooks`).
+- Los objetos que no son cosas (PSysSound, el fuego, la mano...) dan su punto con `RegisterObject` (`Owner::Object`).
+- Una consulta sin registrar da el valor de un juego sin ese sistema (cada una lo dice en su comentario).
+
+**Un solo sitio para cada cosa**:
+
+| qué | dónde |
+|---|---|
+| OpenAL (dispositivo, fuentes, búferes, ejes) | `Device/Device.{h,cpp}`, `audio::device` |
+| GetTickCount (ms reales) | `device::TickCount()` → `game_clock::TickCount()`; la API pública es `audio::TickCount()` |
+| el generador del DLL (rand de su CRT, srand(time(0)), LH_AudioSystem::Rand) | `sample_play::Rand`, `SeedRand`, `AudioSystemRand`, `Random` (`LH/SamplePlay.h`) |
+| GRand::LocalRand / LocalFloatRand (el del juego, g_game+0x205A3C) | `guidance::LocalRand` / `LocalFloatRand` (`Services/Guidance.h`); `tags::RandomSample` lo usa |
+| leer un .sad | `GAudio/Banks.cpp`, `audio::banks` |
+| la superficie de un punto | `ecs::sea_cells::GetSurfaceType` (juego); dentro del audio `audio::SurfaceType` (consulta) |
+
+**Dónde va cada cosa nueva**:
+- un sonido de un sistema del juego: en el archivo del sistema, llamando a `Audio.h` con los argumentos del llamador
+  original (sin argumentos por defecto); nada de `AudioManager`, `PlaySound` ni `CreateEmitter` (no existen);
+- un servicio nuevo de GAudio (GConfirmation C7, la criatura C1...): `Services/`, con su cabecera, llamado por turno
+  desde `AudioSystem` si el original lo hace desde ProcessAudioGameTurn;
+- un dato del juego que el audio necesita: un campo nuevo de `GameQueries` con su valor neutro, registrado en
+  `Game.cpp` o, si lee el ECS, en `src/ECS/AudioQueries.cpp`;
+- una función del DLL (LHSample*, LHMusic*, LHAtmos*): `LH/`; algo de OpenAL: `Device/`;
+- el SDK de mods (skip_intro) se construye solo sobre `Audio.h`, que no cambia de ruta ni de API.
+
+**Mapa de archivos**:
+
+| archivo | capa | original | qué es |
+|---|---|---|---|
+| `Audio.h` | 4 | GAudio | la API pública |
+| `GameQueries.h` | 4 | — | lo que el audio pregunta al juego |
+| `Services/SoundTags.{h,cpp}` | 3 | SoundTag 0x71E300..0x71ED90 | sonidos atados a una cosa o un punto (`audio::tags`) |
+| `Services/SoundMap.{h,cpp}` | 3 | GSoundMap 0x71D6F0 | zonas de ambiente alrededor de la cámara |
+| `Services/AtmosBanks.{h,cpp}` | 3 | InitAtmos 0x428EF0, LHAtmos | los 14 bancos de ambiente y su mezclador |
+| `Services/GameMusic.{h,cpp}` | 3 | GAudio (música) 0x427DF0 | ProcessMusic y sus fuentes, música del guion |
+| `Services/ThingMusic.{h,cpp}` | 3 | ThingMusicInfo | ATTACH_MUSIC |
+| `Services/Voices.{h,cpp}` | 3 | tabla de voz 0x915D40 | voces de los textos y del guion |
+| `Services/Advisor.{h,cpp}` | 3 | HelpDude | los consejeros y su lip-sync |
+| `Services/Guidance.{h,cpp}` | 3 | GGuidance 0x71AB10..0x71D490 | comentarios de aldeanos y consejeros; GRand::LocalRand |
+| `Services/SpookyVoices.{h,cpp}` | 3 | GSpookyVoices 0x72E130 | voces nocturnas |
+| `Services/ScriptSound.{h,cpp}` | 3 | CHL de efectos | PLAY/STOP_SOUND_EFFECT, tags del guion |
+| `Services/ScriptAudioState.{h,cpp}` | 3 | GScript +0x84..+0x9C | interruptores de audio del guion |
+| `Services/AnimationSounds.{h,cpp}` | 3 | fn_00516510, Tree::Draw | eventos de sonido de los clips (`Fire`, `PlayFromTable`) |
+| `Services/LanternSounds.{h,cpp}` | 3 | GStreetLantern +0x60 | el tag de cada farola (`SetOn`, `ProcessTurn`, `Clear`) |
+| `Services/SpellSounds.{h,cpp}` | 3 | PSysSound fn_006D11A0 | sonidos de las partículas (Milagros) |
+| `GAudio/AudioSystem.{h,cpp}` | 2 | GAudio 0x426D40 | estado, filtros, dueños, maestros, turno |
+| `GAudio/GameSfx.cpp` | 2 | GAudio::PlaySoundEffect 0x429D60..0x42A330 | la familia de PlaySoundEffect, contadores |
+| `GAudio/Banks.{h,cpp}` | 2 | LHBankRegister desde fn_00429CB0 | registro y carga de bancos |
+| `GAudio/BankTables.h` | 2 | 0x9CB3F8, 0x9C9748 | tablas de bancos de efectos y de música |
+| `LH/SamplePlay.{h,cpp}` | 1 | LHSample* | los 16 canales; el generador del DLL |
+| `LH/QMixerLaws.{h,cpp}` | 1 | QMixer | volumen, distancia, polar, tono |
+| `LH/AnimEffects.{h,cpp}`, `LH/AnimEffectBank.h` | 1 | LHSamplePlayAnimEffect 0x10014A20 | tablas de anim-effects |
+| `LH/MusicBank.{h,cpp}` | 1 | LHBankRegister (música) | segmentos MP2 de un banco de música |
+| `LH/MusicEngine.{h,cpp}` | 1 | LHMusic | 6 pistas, fundidos, cola |
+| `LH/MusicStream.{h,cpp}` | 1 | LHMusic + QMixer | las 6 pistas en el dispositivo y el hilo de 120 ms |
+| `Device/Device.{h,cpp}` | 0 | LH_AudioSystem::Create, QMixer, GetTickCount | OpenAL |
+| `Device/AlSampleOutput.{h,cpp}`, `Device/SampleOutput.h` | 0 | QSWaveMix* | los canales en OpenAL (y su interfaz) |
+| `Device/WaveBuffers.{h,cpp}` | 0 | fn_100032D0, ACM | ondas decodificadas y su búfer |
+| `Device/Sound.h` | 0 | LH_SampleInfo (+.sad) | el registro de una muestra |
+| `Device/*AudioDecoder*` | 0 | ACM / decodificador MPEG | dr_wav, dr_mp3 |
+| fuera: `src/ECS/AudioQueries.{h,cpp}` | — | — | las consultas que leen el ECS, ganchos de prueba |
 
 Reglas:
 1. **Un solo punto de entrada.** Fuera de `src/Audio` nadie llama a OpenAL ni a `CreateEmitter`/`PlaySound` (fase B).
@@ -124,14 +213,22 @@ Reglas:
 3. **Una muestra es (banco, número).** La clave `"<archivo>.sad/<n>"` no distingue mayúsculas.
 4. **Todo va por turno**, salvo `HelpDude::UpdateSaySentence` (por fotograma, 0x5BDE48, con un retardo en ms reales
    0x5BB554), el woosh de la cámara (`GetTickCount & 3`) y el hilo de música (120 ms reales).
-5. **El audio no incluye componentes del ECS.** Lo que necesita del juego lo pregunta por `audio::GameQueries`
-   (`src/Audio/GameQueries.h`), unas `std::function` que registra `Game.cpp`. Una consulta sin dueño devuelve el valor
+5. **El audio no incluye componentes del ECS** (desde B11b; de `ECS/*` solo las cuentas puras `MapCoords.h` y
+   `GUtilsDistance.h`, desde B11c, sin registro ni componentes). Lo que necesita del juego lo pregunta por
+   `audio::GameQueries` (`src/Audio/GameQueries.h`), unas `std::function` que registran `Game.cpp` y
+   `ecs::audio_queries` (`src/ECS/AudioQueries.cpp`). Una consulta sin dueño devuelve el valor
    de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos y las
    ramas de música de ciudadela, pelea, cántico y baile en false.
 6. **La lógica es pura y se prueba sin AL**, con sinks falsos.
-7. **No se abre un segundo dispositivo OpenAL.** La música usa el contexto que ya abre `AudioPlayer`.
+7. **Un solo motor (B11a).** Un solo dispositivo OpenAL (`src/Audio/Device/Device.{h,cpp}`, `audio::device`): los canales
+   (`AlSampleOutput`), los búferes (`WaveBuffers`) y la música (`MusicStream`) le piden fuentes y búferes; nadie más
+   incluye `AL/al.h`. Una sola carga de bancos (`src/Audio/GAudio/Banks.{h,cpp}`, `audio::banks`), llamada desde `audio::Init`.
+   No hay `AudioManager`, `AudioPlayer`, `AlCheck`, `SoundGroup` ni `Locator::audio`.
 8. **Los contadores cíclicos van en un `enum class Counter`** con la dirección en el comentario, no con direcciones
    como claves. La API no tiene argumentos por defecto inventados.
+9. **Un generador y un reloj (B11b).** Los sorteos del DLL van por `sample_play::Rand` / `Random` y los de GRand por
+   `guidance::LocalRand`; los milisegundos reales (GetTickCount), por `device::TickCount` (`audio::TickCount` en la
+   API). Nadie en `src/Audio` lee `Locator::rng` para el DLL ni `std::chrono` para GetTickCount.
 
 ### Estado del motor de efectos en openblack
 
@@ -142,9 +239,10 @@ Reglas:
 filtros de GAudio (`AudioSystem`) y de la API pública `src/Audio/Audio.h`. Desde B4 todo el mundo (mano, árboles, rocas,
 cámara, física, edificios, barco, montones) y los CHL de efectos van por ahí, y desde B5 también los milagros
 (`SpellSounds`, `FireSound`, `HandSpellSeed`, `Gesture`, `HandMagicFX`, `SpellSeed`, `WorshipSpellIcon`, `MagicTeleport`,
-`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores**: `AudioManager` perdió
-`CreateEmitter`/`PlayEmitter`/`PlaySound`/`PlayAt`/`PlayMusic` y el componente `AudioEmitter` ya no existe; solo abre
-el dispositivo, mueve el oyente, guarda las fuentes de los canales y la lista de bancos.
+`Fireball`, `OneOffSpellSeed`, `FireGraphic`) y el panel de depuración. **Ya no hay emisores** (B5) ni segundo motor
+(B11a, [abajo](#fase-b-b11a-un-solo-motor)): `AudioManager`, `AudioPlayer` y `Locator::audio` se retiraron; el
+dispositivo es `audio::device` y los bancos son `audio::banks`. Desde B11b ([abajo](#fase-b-b11b-la-estructura)) `src/Audio`
+está por capas, no incluye el ECS y tiene un solo generador del DLL y un solo reloj.
 
 ## Bancos y formatos
 
@@ -175,7 +273,7 @@ El juego registra además otros bancos:
 - El de un vídeo (`PlayFullScreenMovie` 0x54D920) y `audio\music\intro\trailer.sad` (0x6427CE).
 - El de HelpDude (fn_005BB1B0, 0x5BB1E6, **(inferido)**).
 
-openblack: `audio::SfxBank` y `k_SfxBankPaths` en `src/Audio/BankTables.h` (hito A1). La carga de `Game.cpp` todavía
+openblack: `audio::SfxBank` y `k_SfxBankPaths` en `src/Audio/GAudio/BankTables.h` (hito A1). La carga de `Game.cpp` todavía
 trata cada .sad como un grupo por nombre de archivo (fase B0).
 
 ### Formato .sad
@@ -234,7 +332,7 @@ openblack: `AudioBankInfo` (los 3 u32) y `PackFile::IsAudioMusicBank()` en `comp
   (fn_10010910, 0x10011CB3/0x10011E25), y HelpDude lo copia para el lip-sync (0x5BB57B..0x5BB5C9).
 - openblack (B0, `src/Audio/WaveBuffers.*`): los .sad se leen enteros al arrancar (como antes), salvo los de diálogo
   (tipos 6..10, `Audio\Dialogue`, desde B7): de esos solo se leen las cabeceras (`PackFile::ReadAudioHeaders`) y cada
-  onda se lee del fichero al decodificarla (`Sound::waveFile`, `wave_buffers::ReadWave`), como `LHBankRegister(path, 0)`.
+  onda se lee del fichero al decodificarla (`Sound::waveFile`, `banks::ReadWave`), como `LHBankRegister(path, 0)`.
   Que el resto de bancos se lea entero es **(aproximado)**: el original los registra todos así (0x426EEE). Cada muestra se
   **decodifica una sola vez, al primer uso**, a un búfer AL que se guarda (`Sound::bufferId`) hasta cerrar el audio.
   **(aproximado)**: un búfer por registro de muestra, no por onda +0x108 (los clones se decodifican cada uno), y sin
@@ -351,7 +449,7 @@ de cada banco se leen una vez al registrarlo ([B2](#b2-los-anim-effects-en-el-n�
   Distancias 3D: PiperTune_M 15/100/4, Pipercave_M 25/80/4, SingingStonesA 100/200/4, MissionariesBackground
   30/100/4, Whistle* 30/80/2, Circus3D 30/120/3, Gregorian3D 60/120/4.
 
-openblack: `MusicBank` (`src/Audio/MusicBank.{h,cpp}`, A2, **fiel**) cubre `Register` (0x10002240), los segmentos, el
+openblack: `MusicBank` (`src/Audio/LH/MusicBank.{h,cpp}`, A2, **fiel**) cubre `Register` (0x10002240), los segmentos, el
 grupo (0x10002F30), las distancias (0x10002EF0/0x10002F10), las banderas, los Hz, `GetVolume`, `GetLoops`,
 `GetDistanceMapping` (0x1000E30A..0x1000E338), `ParseMarkers` (0x1000D9E0) y `ReadSegment`. El fichero queda abierto y
 cada segmento se lee al usarlo. Un marcador sin etiqueta da una etiqueta vacía **(aproximado)**: no se da en los datos.
@@ -403,15 +501,15 @@ cada segmento se lee al usarlo. Un marcador sin etiqueta da una etiqueta vacía 
   | `Close` | 0x1000E7A0 | |
 
 openblack:
-- `MusicEngine` (`src/Audio/MusicEngine.{h,cpp}`, A3, **fiel**) es la lógica del DLL sobre una interfaz `IMusicSink` (lo
+- `MusicEngine` (`src/Audio/LH/MusicEngine.{h,cpp}`, A3, **fiel**) es la lógica del DLL sobre una interfaz `IMusicSink` (lo
   que hace QMixer). Así se prueba sin OpenAL (`test_music_engine`).
-- `MusicStream` + `MusicSystem` (`src/Audio/MusicStream.{h,cpp}`, A4):
-  - Usan el **contexto OpenAL de `AudioPlayer`**, sin abrir otro dispositivo. Tienen una fuente por canal, con su cola de
+- `MusicStream` + `MusicSystem` (`src/Audio/LH/MusicStream.{h,cpp}`, A4):
+  - Usan el **dispositivo de audio** (`audio::device`, desde B11a; antes el contexto de `AudioPlayer`), sin abrir otro. Tienen una fuente por canal, con su cola de
     búferes y un decodificador dr_mp3 continuo por pista (`MusicSegmentDecoder`).
   - El hilo hace una vuelta y luego espera 120/5000 ms. Bombea cada 20 ms.
   - Hay un cerrojo recursivo, que hace de la sección crítica 0x100562B0.
   - Ganancia = volumen QMixer / 32767, por la ley 3D de QMixer.
-  - `AudioManager::PlayMusic` sigue en su sitio: se retira en B1.
+  - Los bancos de MUSIC_TYPE los registra `banks::MusicBankOf` (B11a) al primer uso.
 - **(aproximado)**:
   - Un segmento que no decodifica da una trama de silencio, para que el callback llegue.
   - Si la cola de OpenAL se vacía, la fuente se para y se reanuda en cuanto hay datos; QMixer toca la siguiente onda en
@@ -522,13 +620,13 @@ Las fuentes:
 - **Baile de la criatura** 0x427EC0 (acción 0x17 a < 75, Δaltura < 60; la acción 0x17 es **(inferido)**).
 
 openblack:
-- `GameMusic` (`src/Audio/GameMusic.{h,cpp}`, A5/A7/A9, **fiel**): ctor fn_00426D40 (parte de música), `Reset` 0x426CA0,
+- `GameMusic` (`src/Audio/Services/GameMusic.{h,cpp}`, A5/A7/A9, **fiel**): ctor fn_00426D40 (parte de música), `Reset` 0x426CA0,
   `ProcessAudioGameTurn` 0x427080, `ProcessMusic` 0x427DF0, `StartScriptMusic` 0x428230, `ProcessScriptMusic`
   0x427CA0, los callbacks 0x426B40/0x426B80/0x426BA0, `ProcessAlignmentMusic` 0x4279C0 y fn_00427460, `DiscreteAlignment`
   0x414730, `AlignmentIndex` fn_00426C80, `TribeMusicType` fn_00427410, `SavePositions` fn_004281C0, `ResetPositions`
   fn_00428190, la música de objetos fn_00429790/fn_00429500/fn_00429420/fn_00429680/fn_004296C0, `PurgeThingMusic`
   fn_00429700 y las funciones CHL.
-- `ThingMusicList` (`src/Audio/ThingMusic.{h,cpp}`): 0x429180, 0x429230, 0x429340, 0x4291B0, fn_00429880,
+- `ThingMusicList` (`src/Audio/Services/ThingMusic.{h,cpp}`): 0x429180, 0x429230, 0x429340, 0x4291B0, fn_00429880,
   fn_004298A0, 0x4298C0, 0x4298F0, y la ida y vuelta de `MapCoords` (0x603340, 6553.6 en 0x8AC400, 10/65536 en 0x8AA3A4).
 - Ganchos de `Game.cpp`: `GAudio::ProcessAudioGameTurn` después del turno 5 (0x54E997) y `Reset` en `LoadMap`.
 - Las ramas de ciudadela, pelea, cántico y baile son consultas sin dueño (false) hasta C1/C3/C4. El alineamiento de la
@@ -563,7 +661,7 @@ openblack:
 ### La música en openblack
 
 Resumen de la fase A. La cadena es `Game::Initialize` → `audio::music::Start()` (`LH_AudioSystem` init 0x1000DD50,
-sobre el contexto del `AudioManager`) → `audio::game_music::Start(GameQueries, townTrigger)`. Por fotograma,
+sobre el dispositivo `audio::device`) → `audio::game_music::Start(GameQueries, townTrigger)`. Por fotograma,
 `audio::music::Update()` aplica el maestro de la configuración y el gancho de prueba. En el turno corre
 `game_music::ProcessTurn`. Al cerrar, `game_music::Shutdown` y luego `music::Shutdown` (`LHMusicClose` 0x1000E7A0),
 antes de soltar el contexto. Panel de depuración: la ventana «Music» (`src/Debug/Music.{h,cpp}`), con el maestro, los 6
@@ -674,7 +772,7 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
     fn_007191F0, `GetEntry`, `Count`.
   - `k_TextCount = 0x1B3E` y `k_NarratorGoodSpirit/EvilSpirit = 2/3`.
   - Un número de narrador se lee como `_wtoi` **(inferido)**: el lector `LHScriptX` 0x7E7960 está sin leer.
-- **`audio::VoiceTable`** (`src/Audio/Voices.{h,cpp}`, A10): `Build` con la regla de arriba y `Get`. `voices::BuildTable`
+- **`audio::VoiceTable`** (`src/Audio/Services/Voices.{h,cpp}`, A10): `Build` con la regla de arriba y `Get`. `voices::BuildTable`
   se llama en `Game::Initialize` con los nombres de onda que `Game.cpp` lee de los bancos 7, 6 y 10. Están también
   `VoiceOwner` (0x270C..0x270F) y `TextVoice::HasVoice` (fn_005C62F0).
 - **`help::HelpSystem`** (`src/Help/HelpSystem.{h,cpp}`, A11, **solo la parte de texto**):
@@ -747,7 +845,7 @@ byte, sin el límite de 0x7FF **(aproximado)**: solo cambia en 0x80..0x9F de CP-
 ### Interruptores de GScript
 
 **Fiel.** Están en g_game+0x250090 y son atómicos en openblack, porque el hilo de música escribe la línea y los golpes.
-Viven en `src/Audio/ScriptAudioState.{h,cpp}` (A6), y `GScript::Reset` 0x6EB2D0 (`ScriptAudioState::Reset`, desde
+Viven en `src/Audio/Services/ScriptAudioState.{h,cpp}` (A6), y `GScript::Reset` 0x6EB2D0 (`ScriptAudioState::Reset`, desde
 `LoadMap`) los deja así:
 
 | campo | qué es | tras Reset | quién lo escribe y quién lo lee |
@@ -811,7 +909,7 @@ archivos de `src/Audio` que reescribe agua, ni `Debug/Audio.cpp`, ni retira `Aud
 
 | hito | estado | archivos | test |
 |---|---|---|---|
-| A1 Tablas | hecho | `src/Audio/BankTables.h`, `components/pack` (`AudioBankInfo`) | `test_audio_tables` |
+| A1 Tablas | hecho | `src/Audio/GAudio/BankTables.h`, `components/pack` (`AudioBankInfo`) | `test_audio_tables` |
 | A2 MusicBank | hecho | `src/Audio/MusicBank.*` | `test_music_bank` (contra `music_sad_table.md`) |
 | A3 MusicEngine | hecho | `src/Audio/MusicEngine.*` | `test_music_engine` (0→127 en 32 vueltas, 127→0 en 43, 80→0 en 27, sync, 7.ª pista, maestro) |
 | A4 Streaming MP2 | hecho, sobre el contexto de `AudioPlayer` | `src/Audio/MusicStream.*`, `src/Debug/Music.*`, `Debug/Gui.cpp` (dos líneas) | `test_music_stream` |
@@ -878,7 +976,7 @@ API pública (sin argumentos por defecto; cada llamador pasa lo que pasa el orig
 | `MaxDistance(Sample)`, `CreatureBank(especie)` | 0x42A430, 0x4EBD81 |
 | `RegisterObject(id, fn)` / `UnregisterObject` | Get3DSoundPos (vt +0x10) de un dueño que no es GameThing |
 | `Init(GameQueries)`, `Shutdown()` | ctor 0x426D40 (maestro fn_00428250), ToBeDeleted 0x426FE0 |
-| `ProcessTurn(cielo, turno)` | GGame::EndTurn 0x54E960: GSoundMap::Update, ProcessSoundTags, y tras el turno 5 ProcessAudioGameTurn 0x427080 (con la puerta LHWaveIsActive) o AtmosProcess(0) |
+| `ProcessTurn()` | GGame::EndTurn 0x54E960 (el turno de `game_clock::Turn()`, el tipo de cielo de `sky_type::Frame()`, B11c): GSoundMap::Update, ProcessSoundTags, y tras el turno 5 ProcessAudioGameTurn 0x427080 (con la puerta LHWaveIsActive) o AtmosProcess(0) |
 | `Paused()`, `UpdateFrame()` | EndTurn en pausa (0x54E9B4); el maestro en vivo y los bucles finitos |
 | `ClearMap()` | GAudio::Reset 0x426CA0 (+ las SoundTags y farolas del mapa) |
 | `OnFocus(bool)` | minimizar / restaurar: 0x7DE6D0 / 0x7DE6F0 → 0x642470 → fn_00428720 → LHGlobalSwitch 0x10015790 |
@@ -943,7 +1041,7 @@ Auditoría de B0-B1 (§1.7 de TEAM_GUIDELINES, sesión audio):
   bits 4/8/0x10, 0x10013BCC): openblack mueve el canal del asa y no tiene ejes fijos.
 - La distancia de `SamplePlayAnimEffect` la calcula el llamador (`|LH3DTech::g_camera − pos|`, physics/collision_sounds.md).
 - La música y el ambiente se procesan en el orden de `ProcessAudioGameTurn` (antes la música iba al principio del turno).
-- `audio::GetSurfaceType` llama a `ecs::sea_cells::GetSurfaceType` (una sola fuente).
+- `audio::GetSurfaceType` llamaba a `ecs::sea_cells::GetSurfaceType` (una sola fuente); desde B11b ya no existe: el juego llama a `ecs::sea_cells` y el audio a `audio::SurfaceType` (consulta `surfaceType`).
 
 ## Fase B: B2 y B3 implementados
 
@@ -985,7 +1083,7 @@ gancho (fiel) solo suenan los creaks 320/321. Los rechazos del núcleo (800, max
 
 ### B3: SoundTag completo
 
-`src/Audio/SoundTags.{h,cpp}` (SoundTag.cpp 0x71E300..0x71ED90, volcado `tmp_dis\mapa\d_soundtag.txt`), API `audio::tags`:
+`src/Audio/Services/SoundTags.{h,cpp}` (SoundTag.cpp 0x71E300..0x71ED90, volcado `tmp_dis\mapa\d_soundtag.txt`), API `audio::tags`:
 
 | función | original |
 |---|---|
@@ -1066,7 +1164,7 @@ ancha del guion).
 
 ### B6: CHL de efectos
 
-`src/Audio/ScriptSound.{h,cpp}` (`audio::script_sound`), llamado desde `CHLApi.cpp` con los POP del original:
+`src/Audio/Services/ScriptSound.{h,cpp}` (`audio::script_sound`), llamado desde `CHLApi.cpp` con los POP del original:
 
 | CHL | original | openblack |
 |---|---|---|
@@ -1101,7 +1199,7 @@ desensamblado de 0x5BB060..0x5BB8A7, 0x5BCD00, 0x5C36D0..0x5C3842, 0x5C52C0/0x5C
 fn_00428A80, Analyse, four1), el init de HelpDude 0x5C1EA1..0x5C1F24 y, en el DLL, 0x10012BF0..0x10012F13 (LHSampleStop),
 0x10014C00 (LHSampleGetPlayPosition) y 0x10015180 (LHSampleGetPercentageDone).
 
-### API (`src/Audio/Voices.h`, `src/Audio/Advisor.h`)
+### API (`src/Audio/Services/Voices.h`, `src/Audio/Services/Advisor.h`)
 
 | función | original | qué hace |
 |---|---|---|
@@ -1396,7 +1494,7 @@ StopHelpScriptsForNewHelp 0x5C8C40 / TriggerCategory 0x5C8280 / Reset 0x5C5580 /
 0x6EB710, HelpSystemOn 0x6FBFD0, SetHelpSystem 0x6FC020, GRand 0x6DE570 / 0x6DE590, _LHRand 0x7DB600, la fase de la
 luna fn_0086A7F0 y las tablas 0x980128..0x9804D0, 0x999434 (`tmp_dis\audio\b10_dump.py`; el azar sembrado de los tests: `b9_interval.py`, el Soundex: `b10_soundex.py`; los llamadores: `b9_callers.txt`).
 
-### GGuidance (`src/Audio/Guidance.{h,cpp}`, `audio::guidance`)
+### GGuidance (`src/Audio/Services/Guidance.{h,cpp}`, `audio::guidance`)
 
 **Fiel.** Un solo GGuidance (el original tiene uno por GInterfaceStatus, +0x30, y todos los llamadores usan el de
 `MyInterfaceStatus`). Lo que lee del juego llega por `GameQueries` (sección B9); sin consulta, el valor neutro de un
@@ -1445,7 +1543,7 @@ mano local: RESOURCE_TYPE 1 → 2, 0 → 1) y en `HandSystem::DepositInStore` (c
 de esto en Land 1: los tipos no «siempre» callan en el Land 1 de la campaña, los pueblos no tienen deseos ni valores de
 recursos (consultas neutras) y no hay corazón de ciudadela.
 
-### GSpookyVoices (`src/Audio/SpookyVoices.{h,cpp}`, `audio::spooky`)
+### GSpookyVoices (`src/Audio/Services/SpookyVoices.{h,cpp}`, `audio::spooky`)
 
 **Fiel** salvo el nombre. Objeto estático 0xDA0830: banco +0x8, opciones +0xC, muestra +0x10, contador +0x14, cuenta
 atrás +0x18. La info de info.dat `GSpookyVoiceInfo` (5 entradas, 0xDA0850) no la lee nadie.
@@ -1481,16 +1579,14 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
 
 ### (Aproximado), (inferido) y pendiente de B9/B10
 
-- **(aproximado)**: distancias = longitud exacta x/z de los puntos del mundo (el original: hypotenuse 0x74F680 con la
-  tabla 1/√ de _FUN_0074f620 sobre MapCoords 16.16); x87 en double; el generador; el orden de `ProcessGameTurn` respecto
+- **(aproximado)**: x87 en double; el generador; el orden de `ProcessGameTurn` respecto
   a GInterfaceStatus::Process; los puntos de PlaySample son puntos del mundo (sin el redondeo de MapCoords).
-- **(inferido)**: [0xD01A38] = 100 ms por turno (como SoundTags); GInterface+0x3B8 = la mano; `_isalpha` ASCII; el nombre
+- Desde B11c las distancias son `gutils::GetDistanceInMetres` (hypotenuse 0x74F680 con la tabla 1/√ de _FUN_0074f620
+  sobre los MapCoords 16.16 de los puntos) y [0xD01A38] es `game_clock::MsPerTurn()` (100, GGame::Init 0x54F4A5).
+- **(inferido)**: GInterface+0x3B8 = la mano; `_isalpha` ASCII; el nombre
   por `OPENBLACK_PLAYER_NAME`; el jugador local = PLAYER_ONE.
 - **No modelado**: el +0x2C de las opciones (90, rand(180) en las voces nocturnas): se guarda, SamplePlay no lo usa.
 - **Pendiente (sin llamador en openblack; la API ya está)**:
-  - `Alignment.cpp` (Milagros): `GAlignment::ProcessForPlayer` 0x4141D9 llama cada turno, para el jugador local y antes
-    de `Process`, a `HelpSpritesAlignmentProcess(GetMaxAlignmentChangePerGameTurn · pending, alignment, maxChange)`
-    (también con pending 0: el acumulado decae);
   - `Villager::VillagerDead` 0x7506C0 (aldeanos, V12): fn_0071CE70 (KillingPeople, si lo mató el jugador local y la
     tabla 0x99A368 de la causa), fn_0071C810 (DEATH_IN_VILLAGE, aldeano mío, 0x99A370), fn_0071CFE0 (causa 4),
     LosingVillagers (pueblo con +0x618 > info+0x150, 0x99A36C) y LowOnPeople;
@@ -1524,18 +1620,18 @@ la tabla de saltos 0x72E54C). Dos correcciones:
   PlayNow y la búsqueda del pueblo corren y no suena nada, como el original.
 
 En juego (Land 3, 00:02 de noche real, `OPENBLACK_PLAYER_NAME=Mario OPENBLACK_TEST_GUIDANCE_SAY=90:3326`, logs
-`_auditudio9_audit_land3*.log`): `SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`, y en el turno 90
+`_audit\audio\b9_audit_land3*.log`): `SpookyVoices: Init, name sample 95`, `Guidance: Init at turn 0`, y en el turno 90
 `HelpSpiritSay(3326, type 32) ... not started` (también en Land 3 el guion de la intro tiene el diálogo). Sin errores
 nuevos.
 
 ## Fases B y C
 
-**B0..B10 hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B10, B11a, B11b y B11c hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
 | B0 | **hecho** ([abajo](#fase-b-b0-y-b1-implementados)) |
-| B1 | **hecho** salvo: `MusicStream` sigue con su propio uso del contexto de `AudioPlayer` y el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5) |
+| B1 | **hecho** salvo: el maestro no se guarda en disco (`AudioManager::PlayMusic` se retiró en B5; `MusicStream` va sobre `audio::device` desde B11a) |
 | B2 | **hecho** ([arriba](#b2-los-anim-effects-en-el-núcleo)); desde B5 `SpellSounds` también va por `SamplePlayAnimEffect` |
 | B3 | **hecho** ([arriba](#b3-soundtag-completo)); faltan los llamadores del original (molino, taller, tótem, credo, caída de árboles: B4/C3) y ATTACH/DETACH_SOUND_TAG (B6) |
 | B4 | **hecho** ([arriba](#b4-los-llamadores-del-mundo-en-los-canales)); falta el volcán (`LandscapeVortex` 0x5FEE5A: openblack no lo tiene); el vapor (`FireGraphic` 0x731542) entró con B5 |
@@ -1543,8 +1639,11 @@ nuevos.
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | **hecho** ([abajo](#fase-b-b8-implementado-interfaz-y-mano)): clic de los menús propios 159, llamar a la puerta 110+c%9, cruzar un anillo de influencia 52 (los gritos 180/187/194+rand7 ya estaban, B4). Sin sitio en openblack (pendientes con su dirección): Logo 160 (no hay `DoLogo` 0x5FA070), ClickOnSpell 42 de la arena y del poste de la correa, conquista 205, orden aceptada 1 (criatura), influencia virtual 129, cofre y pergaminos |
-| B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); sin llamador en openblack: alineamiento (Milagros), muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
+| B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); el alineamiento ya llama (B11c, `Alignment.cpp`); sin llamador en openblack: muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
 | B10 | **hecho** ([arriba](#gspookyvoices-srcaudiospookyvoiceshcpp-audiospooky)); el nombre del perfil, por `OPENBLACK_PLAYER_NAME` **(inferido)** |
+| B11a | **hecho** ([abajo](#fase-b-b11a-un-solo-motor)): un solo motor; fuera `AudioManager*`, `AudioPlayer*`, `AlCheck`, `SoundGroup`, `Locator::audio`; `audio::device` y `audio::banks` |
+| B11b | **hecho** ([abajo](#fase-b-b11b-la-estructura)): `src/Audio` en `Device/`, `LH/`, `GAudio/`, `Services/` + `Audio.h`; sin `ECS/*` dentro (consultas de `src/ECS/AudioQueries.cpp`); un generador del DLL (`sample_play::Rand`) y un reloj (`device::TickCount`) |
+| B11c | **hecho** ([abajo](#fase-b-b11c-las-api-comunes-del-equipo)): `ecs::map_coords`, `gutils`, `game_clock` y `sky_type` dentro de `src/Audio`; `HelpSpritesAlignmentProcess` desde `GAlignment::ProcessForPlayer` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | Clima y alineamiento en el ambiente |
 | C3 | Aldeanos, edificios y cánticos |
@@ -1553,8 +1652,199 @@ nuevos.
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
 
-Desde B5 `AudioManager` ya no tiene `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`: todo sonido nuevo va
-por `audio::` (`Audio.h`) con lo que pasa su llamada original.
+Desde B5 no hay `PlaySound`/`CreateEmitter`/`PlayEmitter`/`PlayAt`/`PlayMusic`, y desde B11a tampoco `AudioManager`: todo
+sonido nuevo va por `audio::` (`Audio.h`) con lo que pasa su llamada original.
+
+## Fase B: B11a, un solo motor
+
+Lo prometido: «un solo motor, no dos conviviendo». Fuera de `src/Audio` nadie usa ya `AudioManager` (no existe) ni
+OpenAL (`grep` de `AudioManager|Locator::audio|AL/al.h|alGen|alSource` en `src`, `test` y `apps`: solo `Device.cpp`).
+
+**Retirado**: `AudioManager.{h,cpp}`, `AudioManagerInterface.h`, `AudioManagerNoOp.h`, `AudioPlayer.{h,cpp}`,
+`AudioPlayerInterface.h`, `AlCheck.{h,cpp}`, `SoundGroup.h` y `Locator::audio`. Lo que aún hacían pasa a:
+
+| antes | ahora |
+|---|---|
+| `AudioPlayer::Initialize` (dispositivo, contexto, registro de OpenAL Soft, `AL_INVERSE_DISTANCE_CLAMPED`), `AudioManagerNoOp` si falla | `audio::device::Open()` desde `InitializeEngine` (`LH_AudioSystem::Create`); sin dispositivo, `NullSampleOutput` |
+| `~AudioManager` (fuentes de los canales, búferes, contexto) | `audio::device::Close()` desde `ShutDownServices`, tras `audio::Shutdown` y `music::Shutdown` |
+| `AudioManager::Update` (bucles finitos de los canales) | `sample_play::UpdateFrame()` al principio de `audio::UpdateFrame()` (mismo sitio del fotograma) |
+| `AudioManager::UpdateListener` → `AudioPlayer::UpdateListener` | `device::SetListener(cámara, 0, forward, up)` en `sample_play::UpdateChannels` (LHListenerUpdate 0x10003850 desde fn_004270D0 0x4271EF: QSWaveMixSetListenerPosition 0x1000398E / Orientation 0x100039A7; velocidad 0 una vez, 0x10015C1A) |
+| `AudioManager::GetSampleOutput` | `device::Output()` |
+| `AudioManager::GetSound`, `CreateSoundGroup`/`AddToSoundGroup`/`GetSoundGroups` (lista de bancos del panel y de LHAtmos) | `banks::Count/Path/Samples(BankId)`, `BankGroup`, `FindBank` |
+| `SoundExists` mirando si la salida era `NullSampleOutput` | `device::IsOpen()` |
+
+**Dispositivo** (`src/Audio/Device/Device.{h,cpp}`, `audio::device`, capa 0): `Open`, `Close`, `IsOpen`, `Output`,
+`SetListener`, `ListenerPosition`; fuentes (`CreateSource`, `DeleteSource`, `SetSourceBuffer/Pitch/Gain/Looping/Relative/
+Position/Distance/Rolloff`, `Play/Stop/PauseSource`, `SourceStatus`, `SourceSampleOffset`, `SourceSecondOffset`,
+`SourceBuffersProcessed`, `QueueSourceBuffer`, `UnqueueSourceBuffer`); búferes (`CreateBuffer`, `SetBufferLoopPoints`
+con `AL_SOFT_loop_points`, `DeleteBuffer(s)`). Es el único archivo que incluye OpenAL y el único `alCheckCall`. El cambio
+de ejes (x ↔ z, mundo de openblack zurdo, OpenAL diestro) se hace solo aquí: antes estaba repetido en `AudioPlayer`,
+`AlSampleOutput` y `MusicStream`. Usuarios: `AlSampleOutput` (16 canales; voces y consejeros van por ellos),
+`WaveBuffers` y `MusicStream` (6 pistas).
+
+**Bancos** (`src/Audio/GAudio/Banks.{h,cpp}`, `audio::banks`, capa 1, LHBankRegister 0x10002240): el registro
+(`RegisterBank`, `SetBankSampleCount`, `BankSampleCount`, `Bank(SfxBank)` = GAudio+0x3A8 + 4·tipo de 0x9CB3F8,
+`FindBank`, `BankGroup`, `SampleId`, que estaban en `AudioSystem`) y la carga:
+- `banks::LoadAll()`, al final de `audio::Init` (GAudio ctor 0x426D40 → fn_00429CB0; (aproximado) los 14 de ambiente también aquí, aunque el original los registra después, InitAtmos 0x428EF0 → fn_00428F30 desde GGame::FinishInitialisation, sin nada sonando entre medias): cada .sad
+  de `Audio\` en el orden del sistema de ficheros, como el bucle que había en `Game.cpp`. Mismo contenido: tablas de
+  anim-effects (`anim_effects::RegisterTables`, 0x10002778..0x100029AB), nombres de onda de la tabla de voz (bancos 6, 7,
+  10), muestras vacías saltadas (`continue`), bancos de música (ondas .mpg) fuera.
+- Los de diálogo (tipos 6..10) siguen **perezosos**: solo cabeceras y `banks::ReadWave` lee la onda al primer uso
+  (0x10011420 → fn_100032D0; antes `wave_buffers::ReadWave`).
+- `banks::MusicBankOf(MusicType)` (0x9C9748, GAudio+0x2C + 4·tipo) registra cada banco de música al primer uso (antes en
+  `MusicStream.cpp`); `music::GetBank` se lo cuenta al motor; `banks::ReleaseMusicBanks()` en `music::Shutdown`.
+- `LHAtmos` (`AtmosBanks::Register`) busca sus 14 bancos con `FindBank("/<archivo>.sad")` y lee sus muestras con
+  `banks::Samples`.
+- `AnimEffectTable::Load(path)` solo lee el fichero para un banco no registrado (herramientas y tests).
+
+**Panel de depuración** (`src/Debug/Audio.cpp`): la lista de bancos sale de `audio::banks`; la pestaña «Channels» muestra
+el dispositivo (LHWaveIsInstalled), los 16 canales, los consejeros (`advisor::Speaker/Sentence/IsTalking/SentenceTime`,
+dueño 0x270C) y las 6 pistas de LHMusic (estado +0x24, banco +0x58, trozo +0x48/+0x4C, volumen +0x34 → +0x30).
+
+**Comprobación** (Land 1, 1800 fotogramas, las cinco trazas `OPENBLACK_AUDIO/SFX/MUSIC/ANIM/TEXT_TRACE`, el mismo
+`Mods\`; logs `_audit\audio\b11a_base.log`, segunda pasada, y `b11a_after.log`): mismas líneas de arranque (Atmos 15
+bucles y 400 sueltas, tabla de voz 6974/1922/1328/227, dos muestras vacías, WELCOME_DANCE sin fichero), la misma música
+(`intro.sad`, MUSIC_TYPE_SCRIPT_INTRO) y los mismos tipos de evento; las diferencias son de número (sorteos de
+anim-effects y unos turnos menos en la segunda pasada, que depende del tiempo real). Sin errores de OpenAL.
+
+## Fase B: B11b, la estructura
+
+Lo prometido: envoltorios finos sin el ECS, un solo generador del DLL y un solo reloj, `src/Audio` por capas. La
+arquitectura y el mapa de archivos están [arriba](#arquitectura-del-audio-de-openblack-b11b).
+
+**1. Sin ECS en `src/Audio`.** `grep '#include "ECS/' src/Audio` no da nada. Las firmas públicas no cambian
+(`AnimationSounds::Fire/PlayFromTable/Update`, `lantern_sounds::SetOn/ProcessTurn/Clear`, `spell_sounds::*`); lo que
+leían del registro llega por consultas nuevas de `GameQueries`, que registra `src/ECS/AudioQueries.cpp`:
+
+| envoltorio | leía | ahora |
+|---|---|---|
+| `AnimationSounds::Fire` (fn_00516510) | `Transform`, `Villager` (vida, etapa, sexo, casa), `LivingAction`, `sea_cells` | `animatedThing(entidad)` y `audio::SurfaceType` (`surfaceType`) |
+| `AnimationSounds` (carga de SmallSounds.SAS, LoadAllAnimations 0x550180) | los clips de los recursos (`ecs::ClipId`) | `animationClipName(índice)` |
+| `lantern_sounds::ProcessTurn` | `StreetLantern`, `Transform`, `Rocks::Height` | `streetLanterns()` (mismo orden del registro) |
+| `SoundMap` (CameraWeather, Dump) | `weather::atmos`, la mano (`HandSystem` + `Transform`), `sea_cells` | `weatherSmooth(punto)`, `handPosition()` (ya estaba), `SurfaceType` |
+| `SpellSounds` (USESURFACE 0x674661) | `ecs::sea_cells::GetSurfaceType` | `audio::SurfaceType` |
+
+`audio::GetSurfaceType` (SoundMap.h) ya no existe: duplicaba `ecs::sea_cells::GetSurfaceType`. Su único llamador de
+fuera, `PSys/Rules/Fireball.cpp` (fn_006A1F90), llama ahora a `ecs::sea_cells::GetSurfaceType`. `CameraWeatherInfo`
+pasa de `SoundMap.h` a `GameQueries.h`. Los ganchos que mueven la cámara (`OPENBLACK_AUDIO_TEST_VIEW` / `_ANIM` /
+`_LANTERN`) salen de `src/Audio` a `ecs::audio_queries::RunTestHooks(turn)`, que `Game.cpp` llama tras
+`audio::ProcessTurn` (antes `AnimationSounds::RunTestHooks`; el de la farola cuenta sus llamadas como antes contaba las
+de `lantern_sounds::ProcessTurn`).
+
+**2. Un generador del DLL y un reloj.** `LHaudiodllR.dll` lleva su propio CRT enlazado: `rand` 0x1001E7EB (semilla ·
+0x343FD + 0x269EC3, `(semilla >> 16) & 0x7FFF`, semilla por hilo en `_getptd` 0x100206F1 +0x14) y `srand` 0x1001E7DE,
+separado del de runblack.exe. Lo usan, en el hilo del juego: el tono de LHSamplePlay (0x100127DF, directo), LHAtmos
+(0x100016F4, 0x100017DC, 0x10001C2A, 0x10001C5A, 0x10001E74, directo) y `LH_AudioSystem::Rand()` 0x10015740 (las listas
+de anim-effects, 0x100146CF / 0x100147D8 por `Rand(n)` 0x10015710). Antes había tres generadores (`SamplePlay`,
+`AtmosBanks` y `tags::RandomSample`, los tres sobre `Locator::rng`); ahora:
+- `sample_play::Rand()` es ese `rand` (o `Backend::rand` en los tests), `SeedRand()` su `srand(time(0))`: en el primer
+  LHSamplePlay (0x10011497, bandera [0x1005645C]), en el primer `LH_AudioSystem::Rand()` (0x10015749, [0x10056464]) y al
+  registrar cada banco con registros de ambiente (LHBankRegister 0x10002765 -> fn_10001610 0x10001635). El encendido
+  fn_10001840 0x10001843 siembra una vez en el arranque del DLL (0x10015BDD, con +0x90) y las sembradas de los bancos
+  lo pisan antes de que LHAtmos sortee: no se emula. `AtmosBanks` lo usa.
+- `sample_play::AudioSystemRand()` = `LH_AudioSystem::Rand()`: `rand() / 2`, más 0x3FFF una vez sí y otra no (la bandera
+  [0x1003C124] empieza en 1 y cambia en cada llamada, 0x10015768..0x10015783). **Cambio audible, por el original**:
+  los sorteos de una lista de anim-effects alternan entre su mitad alta y su mitad baja (pasos, sierra, susurro de
+  hojas...). `Random(n)` = `AudioSystemRand() · n / 32767` (0x10015717..0x1001572B) ya no puede dar n (el máximo es
+  0x7FFE): se quita el (aproximado) del tope.
+- `tags::RandomSample` (GRand::LocalRand 0x71ED40) usa `guidance::LocalRand`, el único GRand::LocalRand de `src/Audio`
+  (sigue (aproximado): el generador de openblack, no LHRand).
+- `audio::TickCount()` (Audio.h) y el hilo de música (`MusicStream`, que tenía su propia copia) leen
+  `device::TickCount()`, que lee `game_clock::TickCount()` (el GetTickCount de todo openblack, `src/GameClock.h`).
+
+**3. Capas.** `git mv` de los 60 archivos a `Device/`, `LH/`, `GAudio/` y `Services/`; `Audio.h` y `GameQueries.h`
+quedan en la raíz (la ruta y la API de `Audio.h` no cambian: el SDK de mods de skip_intro se apoya en ella). Los
+`#include` de todo el repositorio (src, test) usan la ruta nueva (`"Audio/LH/SamplePlay.h"`); CMake no cambia
+(`file(GLOB_RECURSE ... *.cpp / *.h)` de `src/CMakeLists.txt` recoge las subcarpetas; hace falta reconfigurar).
+`Banks` pasa a `GAudio/` (es el registro que hace GAudio, fn_00429CB0, con las tablas 0x9CB3F8 / 0x9C9748).
+
+**Comprobación**: build y los 57 tests. Land 1, 1800 y 5000 fotogramas con las trazas de audio, ambiente, farolas,
+tags y anim-effects, y `OPENBLACK_AUDIO_TEST_VIEW="90,0"` + `OPENBLACK_AUDIO_TEST_ANIM=354` (sierra), antes (B11a,
+578b011d) y después (logs `_audit\audio\b11b_base*.log` y `b11b_after*.log`): mismas líneas de arranque (115 clips con
+sonido, 201 + 3 filas, 15 bucles y 400 sueltas de ambiente, 12 farolas con su tag y su altura), el mismo volcado de
+GSoundMap (superficie de la cámara y de la mano), el gancho de la cámara en el turno 90 y las mismas claves de
+anim-effects (pasos de animales grupo 18/32/36, aldeanos grupo 1 con las voces 1/2/3 y la sierra 30/31, hojas de los
+árboles); el reparto de las muestras de cada lista cambia por la alternancia de `LH_AudioSystem::Rand`. Sin errores
+nuevos.
+
+**Auditoría de B11b** (TEAM_GUIDELINES §1.7): comprobadas en el desensamblado 0x10015710, 0x10015740 ([0x10056464],
+[0x1003C124]), 0x1001E7EB / 0x1001E7DE, 0x10011483..0x100114A6 ([0x1005645C]), 0x100127DF (rand directo, dentro de la
+rama del nombre "NONE", que en openblack es siempre), 0x10001635 / 0x10002765, 0x10001843 / 0x10015BDD, 0x100146CF /
+0x100147D8 (con 1 muestra no se llama a Rand: la bandera no cambia, igual en openblack), 0x71D950 (6 fuera del mapa),
+0x71ED40 / 0x6DE570, 0x5165BC, 0x5166B1 / 0x5166CC, 0x51675D y 0x73494E. Cambios: el comentario del encendido
+fn_10001840 (es del arranque del DLL, no "el mismo segundo"); `streetLanterns` usa `ecs::object::GetHeight` (0x638120)
+en vez de `Rocks::Height`, que solo lo reenviaba; test nuevo `DllRand.CrtSequenceAndAlternation` (la secuencia del CRT
+desde la semilla 1, la alternancia de 0x10015740 y que `Random(n)` nunca da n). En juego (`_auditudio11b_audit*.log`):
+115 clips, 201 + 3 filas, 15 bucles / 400 sueltas, la sierra con las voces 1/2/3 en el gancho de la vista, 12 farolas
+con las mismas alturas (4 x 1,29 y 8 x 4,95) y el gancho de la farola. Pendiente (anterior a B11b): 0x5165BC llama a
+IsAlive en cualquier cosa animada; openblack solo lo mira en aldeanos (`AnimatedThing::Villager::alive`), así que un
+animal muerto todavía suena **(aproximado)**.
+
+## Fase B: B11c, las API comunes del equipo
+
+Lo prometido (`tmp_dis\unify2\PLAN.md`, sistemas 1, 2, 4 y 6, y `sky_type` de «shaders»): `src/Audio` deja sus copias de
+las conversiones de MapCoords, de las distancias de GUtils, del reloj de turnos y del tipo de cielo, y usa las del equipo.
+Todas existían ya en la base (`a1c073e0`): `ecs::map_coords` (`src/ECS/MapCoords.h`), `gutils`
+(`src/ECS/GUtilsDistance.h`), `game_clock` (`src/GameClock.h`), `sky_type` (`src/3D/SkyType.h`) y `ecs::object`
+(`src/ECS/ObjectMetrics.h`).
+
+| sitio | antes | ahora |
+|---|---|---|
+| `SoundMap` CalculateRadiusPointAndDistance 0x71D834..0x71D855 | `ToMapCoord` (x · 6553.6, propia) | `ecs::map_coords::ToFixed` |
+| `SoundMap` AtmosMapTypeInfo::Add 0x71D514..0x71D5A4 | `float(x) · 10 / 65536` (dos redondeos por encima de 2^24) | `ecs::map_coords::ToMetres` (fild; fmul 10; fmul 2^-16: un redondeo) |
+| `SoundMap` UpdateFromMap 0x71D76B / 0x71D790 | `r / 10 · 65536` y `>> 16` | `gutils::ConvertMetersToWholeDistance` (fn_0074DC80, gemela de 0x74DCE0) y `map_coords::SignedCellOf` (movsx) |
+| `SoundMap` Dump 0x71D990 | `(x >> 16) & 0xFFFF` | `map_coords::CellOf` |
+| `ThingMusic` SetPlayPosition 0x4298D9 | `MapCoordsRoundTrip` (en double) | `ecs::map_coords::Quantise` (producto en float, como la FPU a 24 bits de fn_007DEE00); `MapCoordsRoundTrip` se quita |
+| `tags::CreateAtMapCoords` 0x71EB60 | solo (x, z, altura) en metros | además `CreateAtMapCoords(const ecs::map_coords::MapCoords&, ...)`: x, z por `ToMetres` (0x71EB8A / 0x71EBA6); la de metros queda para los puntos que ya están en metros de un MapCoords (`magic::ToMap`), sin cuantizar otra vez |
+| `Guidance` Distance (GetDistanceInMetres 0x74CD70 / GetInfo 0x74CD50 / fn_00605CD0) | `std::hypot` de los puntos **(aproximado)** | `gutils::GetDistanceInMetres` (MapCoords 16.16 y la tabla 1/√): 10 m dan 9,9975 m |
+| `SoundTags::CheckDelay` 0x71E766..0x71E79B, latido de `Guidance` 0x71C4C7 | `k_MsPerTurn = 100` **(inferido)** | `game_clock::MsPerTurn()` ([0xD01A38], GGame::Init 0x54F4A5) |
+| `audio::ProcessTurn` | `(skyType, turn)` de `Game.cpp` (`DayNightClock::GetSkyType()` del turno) | `ProcessTurn()`: el turno es `game_clock::Turn()` (g_game+0x205A40, 0x54E997) y el tipo de cielo `sky_type::Frame()` ([0xFA26BC]: lo lee CalculateVolumes en 0x71DDF1 y solo lo escribe DrawSky con fn_0086A2C0, así que es el del último fotograma dibujado) |
+| `lantern_sounds` (consulta `streetLanterns`) | — | ya usaba `ecs::object::GetHeight` 0x638120 desde la auditoría de B11b: nada que cambiar |
+
+Los relojes reales de `src/Audio` ya eran uno (`device::TickCount` = `game_clock::TickCount`, B11b); el `steady_clock` del
+hilo de música es su espera (Sleep de 120 ms) y el del gancho `OPENBLACK_MUSIC_TEST`. `GameMusic` no tiene conversiones
+propias: la distancia de `ThingMusicInRange` (0x429479..0x4294C1) es 3D sobre LHPoint, no GUtils (unify2 lo confirma),
+y `nearestTown` sigue sin asignar. La posición de una cosa (`thingPosition`, `Game.cpp`) sigue siendo su punto en float,
+sin el redondeo de sus MapCoords **(aproximado)**: es el dueño de todos los canales 3D y no se cambia aquí.
+
+**Cambio de fidelidad (con su dirección).** La celda que AddAtmosType compara es su **centro**, no su esquina:
+fn_00601F40 (UpdateFromMap 0x71D7C2) pone la celda en las palabras altas y en las bajas (GMap+0x28 >> 1) · GMap+0x2C
+(g_game+0x59E0 / +0x59E4 / +0x59E8; GMap::Init 0x6014C0, en g_game+0x59B8, pone +0x28 = 8 y +0x2C = +0x30 = 0x2000;
+ningún otro código las lee ni las escribe por g_game) = 0x8000, media celda. La distancia al tipo más cercano y su punto
+(`nearestX/Z`, el que mira HeightFade) son los del centro (x · 10 + 5). En Land 1 el volcado no cambia (JUNGLE 0,950 con
+120 celdas: la cámara queda a menos de 20 m de la selva).
+
+**El alineamiento llama a los consejeros.** `alignment::ProcessForPlayer` (Milagros, `src/ECS/Effects/Alignment.cpp`)
+hace lo de GAlignment::ProcessForPlayer 0x4141A0: para el jugador de MyInterfaceStatus (IsMemberOfThisPlayer 0x64D750;
+PLAYER_ONE **(inferido)**, como `localPlayerNumber`), cada turno y antes de Process 0x414140, también sin nada pendiente,
+`audio::guidance::HelpSpritesAlignmentProcess(máximo · pendiente, alineamiento, máximo)` (0x4141CD..0x4141D9: vt +0x40 ×
++0xC, sin recortar; el alineamiento de antes del cambio, GetAlignmentValue 0x64D6A0; el máximo, GPlayer+0x64 +0x10). En
+Land 1 los consejeros están muteados por tierra (PlayNow 0x71AF6F), así que no suena nada nuevo.
+
+**Comprobación**: build y los 57 tests (nuevos `ThingMusic.PlayPositionQuantised` en `test_game_music` y
+`SoundTagTest.MapCoordsTagIsTheMapPoint` en `test_sound_tags`; `GuidanceTest.TownDesireEveryTenTurns` espera ahora la
+distancia de GUtils). Land 1, 1800 y 5000 fotogramas (`OPENBLACK_ATMOS_TRACE=50`, farolas, guidance, alineamiento, tags y
+`OPENBLACK_AUDIO_TEST_VIEW="90,0"`; logs `_audit\audio\b11c_after*.log` frente a `b11b_after*.log`): el mismo volcado de
+GSoundMap (celdas 159/224, 158/222 y 157/221, GRAVEL, 121 celdas, JUNGLE 0,950, NIGHT 0,050), las 12 farolas con sus
+alturas, el gancho de la vista en el turno 90 y los mismos errores de arranque. Sin errores nuevos.
+
+**Auditoría de B11c.** Comprobadas en el desensamblado: UpdateFromMap 0x71D76B (fn_0074DC80: fdiv 10; fmul 65536;
+__ftol), 0x71D77A / 0x71D784 (fn_00605490 / fn_00605400 restan / suman r a x y z), 0x71D790 (movsx) y 0x71D7C2;
+fn_00601F40 (palabras bajas (g_game+0x59E0 >> 1) · g_game+0x59E4 / +0x59E8); GMap::Init 0x6014C0 (+0x28 = 8, +0x2C =
++0x30 = 0x2000), llamado desde GGame::Init 0x54F650 con `lea ecx, [ebx + 0x59B8]`; ni los 7 métodos de GMap ni ningún
+otro código escriben esas palabras, y solo fn_00601F40 las lee por g_game. AtmosMapTypeInfo::Add 0x71D514..0x71D5A4
+(receptor − celda, `fcom` estricto, `__ftol` de los metros de la celda a +0x8 / +0xA); CalculateRadiusPointAndDistance
+0x71D834..0x71D855; CalculateVolumes 0x71DDF1 (`fld [0xFA26BC]`); CheckDelay 0x71E766 y el latido 0x71C4C7 (`fimul`
+de [0xD01A38], que GGame::Init 0x54F4A5 pone a 0x64); EndTurn 0x54E997 (`cmp [+0x205A40], 5; jbe`); ProcessForPlayer
+0x4141A0..0x4141E1; HelpSpritesAlignmentProcess 0x71CEDA; GPlayer::GetMaxAlignmentChangePerGameTurn 0x64B670 = `mov
+eax, [ecx+0x64]; fld [eax+0x10]` (así que el máximo que lee la guía es el mismo de la vt +0x40: ya no es (inferido));
+GetInfo 0x74CD50 / 0x74CD70 / fn_00605CD0 (los usa el deseo de los pueblos 0x71B19D y 0x71B2D8 tras MapCoords(LHPoint)
+de la cámara 0x71B14A / 0x71B289); SoundTag::Create(MapCoords) 0x71EB71..0x71EBB2; SetPlayPosition 0x4298D9. Todo
+cuadra. Arreglado: el comentario de CheckDelay aún decía «100 ms (inferred)». Añadida la línea de traza
+`(openblack) Sound map nearest:` (con `OPENBLACK_ATMOS_TRACE`): distancia y punto de la celda más cercana de cada tipo
+presente. En Land 1 (`_auditudio11c_audit_view.log`, `b11c_audit_far.log` con `OPENBLACK_AUDIO_TEST_VIEW="90,0"` y
+`"90,0,80"`) los puntos acaban en 5 (JUNGLE 3,905 @ (1585, 2225), COUNTRYSIDE 74,224 @ (1635, 2175)): son centros de
+celda; los volúmenes y los errores de arranque no cambian.
 
 ## Qué suena y cuándo
 
@@ -1591,13 +1881,13 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - **B2/B3, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `IsInScript` (vt +0x448) siempre falso: openblack no tiene aldeanos de guion **(inferido)**;
   - `GameThing::IsFunctional` y `Get3DSoundPos` ≠ 1 de la cosa de un tag = la entidad ya no tiene posición **(inferido)**;
-  - [0xD01A38] = 100 ms por turno en `CheckDelay` **(inferido**, `villager_anims.md`);
+  - [0xD01A38] en `CheckDelay` es `game_clock::MsPerTurn()` desde B11c (100, GGame::Init 0x54F4A5; ya no inferido);
   - el punto de un tag sin cosa en un arranque nuevo de un anim-effect: el original lee el +0x50 del canal recién
     asignado (0x427209, antes de que LHSamplePlay escriba el punto), un valor viejo; openblack da el punto del tag
     **(aproximado**; ningún llamador arranca un anim-effect con un tag de dueño);
   - las vueltas del canal (+0x40 de `LHSampleGetInfo`) son las del arranque y 0 tras `ReleaseLoop` (no se lee el contador de pasadas del DLL) **(inferido)**;
-  - `LH_AudioSystem::Rand(n)` con Rand() = 32767 daría n (una más allá de la lista): se queda dentro **(aproximado)**;
-    `GRand::LocalRand` de `RandomSample` con el generador de openblack **(aproximado)**;
+  - `GRand::LocalRand` de `RandomSample` (desde B11b, `guidance::LocalRand`) con el generador de openblack
+    **(aproximado)**; el generador del DLL ya es el suyo (B11b);
   - las farolas reciben su tag en el `ProcessTurn` siguiente a crearse (no hay gancho de `CallVirtualFunctionsForCreation`) y ninguna tiene la marca UNAVAILABLE **(aproximado)**;
   - `PlayFromTable` no tiene argumento track: el sitio (doblar 0 / susurro 1) se distingue por el soundId de la clave (openblack).
 - **B2/B3, pendiente**: `SpellSounds` por `SamplePlayAnimEffect` (B5); el tag de punto de ambiente fn_0071E920 (el
@@ -1656,9 +1946,6 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - en pausa, el original también hace GSoundMap::Update y ProcessSoundTags (el bit 4 lo pone PauseGame); openblack
     solo hace AtmosProcess(0), porque su pausa no tiene reloj de turnos;
   - g_game / HelpSystem nulos (0x429E37..0x429E4F) no se modelan: openblack siempre los tiene;
-  - `LanternSounds` y `AnimationSounds` (llamadores) leen el ECS; el núcleo (`SoundTags`, `AnimEffects`) no;
-  - `SamplePlay.cpp` y `AudioSystem.cpp` incluyen `AudioManagerInterface.h`, que arrastra el componente
-    `ECS/Components/AudioEmitter.h` (la interfaz vieja): se va cuando B2..B5 retiren `CreateEmitter`;
   - `LHSampleIsPlaying(info)` con el audio apagado (0x1001407A) y los ejes fijos de `LHSampleSet3DPosition`
     (0x10013BCC): ver la auditoría de B0-B1;
   - estéreo en 3D: OpenAL no espacializa los búferes estéreo.
@@ -1716,8 +2003,8 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_ANIM_TRACE=1` | Los sonidos de los clips y de los árboles (`Animation sound: clip … -> editor.sad/n`, `key … -> editor.sad/n`, `no row`, `banter n too far`), con el mismo formato que antes de B2 |
 | `OPENBLACK_SOUND_TAG_TRACE=1` | Cada tag creado, borrado, soltado o con retardo, y cada 50 turnos el canal de cada tag de cosa |
 | `OPENBLACK_SFX_TRACE=1` | Una línea `SFX:` por llamada a `GAudio::PlaySoundEffect` (y a los tags), a `SamplePlayAnimEffect` y a `StopSoundEffect`: banco/muestra (onda), 2D/3D, track, punto, modo y vueltas con que arranca, tono, dueño y qué pasó (canal, `culled`, `filtered (motivo)`); y los `PLAY_SOUND_EFFECT(...)` del guion |
-| `OPENBLACK_AUDIO_TEST_VIEW="turno,n[,distancia]"` / `OPENBLACK_AUDIO_TEST_ANIM=<clip>` | En ese turno la cámara mira al aldeano n desde esa distancia (4), y todos los aldeanos tocan ese clip en bucle (437 bostezo, 354 sierra, 369 sentado) |
-| `OPENBLACK_AUDIO_TEST_LANTERN="turno[,distancia]"` | En ese turno la cámara mira la punta de la primera farola desde esa distancia (3) |
+| `OPENBLACK_AUDIO_TEST_VIEW="turno,n[,distancia]"` / `OPENBLACK_AUDIO_TEST_ANIM=<clip>` | En ese turno la cámara mira al aldeano n desde esa distancia (4), y todos los aldeanos tocan ese clip en bucle (437 bostezo, 354 sierra, 369 sentado). En `src/ECS/AudioQueries.cpp` (`ecs::audio_queries::RunTestHooks`) |
+| `OPENBLACK_AUDIO_TEST_LANTERN="turno[,distancia]"` | En ese turno (contado por las llamadas de `RunTestHooks`) la cámara mira la punta de la primera farola desde esa distancia (3) |
 | `OPENBLACK_AUDIO_TEST_NO_WIDESCREEN=1` | El audio no ve la pantalla ancha del guion (la intro de Land 1 la tiene hasta un clic), para comparar sin ese filtro. No es del original |
 | `OPENBLACK_TEST_SAMPLE_VOLUME=<0..127>` | El maestro de efectos al arrancar |
 | Pestaña «Channels» del panel de audio | Maestro de efectos (deslizador), LHWaveIsActive, búferes vivos/creados y los 16 canales (muestra, banco, dueño, prioridad, volumen, tono, 3D/track/ambiente, sonando) |

@@ -25,8 +25,9 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Common/StringUtils.h"
+#include "ECS/Systems/HandSystemInterface.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
 #include "PSysRegistry.h"
@@ -38,6 +39,18 @@ using namespace openblack::psys;
 
 namespace
 {
+/// fn_00679920 0x679B69..0x679BBF: an atom with a DrawOffset (+0x124) is drawn that much away from its PSR, every frame.
+/// DrawOffsetLT::GetOffset 0x6C7690 reads my interface's hand (GInterface +0x3A0 +0x78): here the hand of the
+/// HandSystem, the one the spells' PSysProcessInfo +0x0C comes from (GetSpellInfo). No hand system (the tests): none
+glm::vec3 DrawOffsetOf(const Atom& atom)
+{
+	if (!atom.drawOffset.has_value() || !openblack::Locator::handSystem::has_value())
+	{
+		return glm::vec3(0.0f);
+	}
+	return atom.drawOffset->GetOffset(glm::vec3(openblack::Locator::handSystem::value().GetHandMatrix()[3]));
+}
+
 // A smooth value noise in [-1, 1] for UR_GustyWind; the original's VLNoise3To1 (0x590CA0) is not ported (inf)
 float Hash(int x, int y, int z)
 {
@@ -1007,6 +1020,9 @@ void openblack::psys::ReadCreatorProperties(const Object& object, Creator& creat
 	creator.g = static_cast<uint8_t>(object.Int("ColorG", 255));
 	creator.b = static_cast<uint8_t>(object.Int("ColorB", 255));
 	creator.a = static_cast<uint8_t>(object.Int("ColorA", 255));
+	creator.specR = object.Int("SpecColorR", 0); // 0x6B3566, ctor 0 (0x6A91CA)
+	creator.specG = object.Int("SpecColorG", 0);
+	creator.specB = object.Int("SpecColorB", 0);
 	creator.usePlayerColour = object.Bool("UsePlayerColor", false);
 	creator.usePlayerColourBlend = object.Float("UsePlayerColorBlend", 1.0f);
 	creator.initialScale = object.Float("InitialScale", 1.0f);
@@ -1439,6 +1455,9 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 		{
 			atom->colour = TintWithPlayerColour(atom->colour, surf_revol::PlayerColour(_player), creator->usePlayerColourBlend);
 		}
+		// 0x6A8748..0x6A875B: ((R << 8 | G) << 8) | B, alpha 0
+		atom->specular = ((static_cast<uint32_t>(creator->specR) << 8u | static_cast<uint32_t>(creator->specG)) << 8u) |
+		                 static_cast<uint32_t>(creator->specB);
 		atom->baseScale = creator->initialScale * (creator->randomiseScale ? 0.3f + Random(0.7f) : 1.0f);
 		atom->stretch = creator->stretch;
 		if (creator->kind == Creator::Kind::Sprite)
@@ -1687,7 +1706,7 @@ void Effect::CollectCollection(const Collection& collection, float t, std::vecto
 				// fn_00679C30: the whole 3x4 frame, rotation included, is blended element by element; the frame between
 				// the steps is fn_00679920's own lerp (0x679A79..0x679B03, frame_anim::PSysFrameLerp, t' up to 5 when
 				// looped), done whatever the +0x38 bit 2
-				out.push_back({atom->creator, a.position + (b.position - a.position) * k,
+				out.push_back({atom->creator, a.position + (b.position - a.position) * k + DrawOffsetOf(*atom),
 				               a.rotation + (b.rotation - a.rotation) * k,
 				               a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k, alpha,
 				               graphics::frame_anim::PSysFrameLerp(a.frame, b.frame, t, atom->creator->loopAnim),
@@ -1723,7 +1742,7 @@ void Effect::CollectChainsOf(const Collection& collection, float t, std::vector<
 			// fn_00679920 0x67999E (the joints' DrawAt goes through it too): no interpolation without +0x38 bit 2
 			const float k = (collection.flags & 2) != 0 ? std::clamp(t, 0.0f, 1.0f) : 1.0f;
 			chain.creator = atom->creator;
-			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k,
+			chain.joints.push_back({atom->creator, a.position + (b.position - a.position) * k + DrawOffsetOf(*atom),
 			                        a.rotation + (b.rotation - a.rotation) * k,
 			                        a.scale + (b.scale - a.scale) * k, a.stretch + (b.stretch - a.stretch) * k,
 			                        a.alpha + (b.alpha - a.alpha) * k,

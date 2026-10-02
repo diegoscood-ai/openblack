@@ -166,8 +166,8 @@ void utility::GestureRecognised(const magic::gestures::GestureSystem& system, co
 	for (int i = 0; i < system.Count(); ++i)
 	{
 		const auto& world = system.At(i).world;
-		// (aproximado) fn_00689790 0x68989E..0x6898C2 compares fabs(x), fabs(y), fabs(z) with the double at 0x8C79D8,
-		// whose value the notes do not decode; 1e-4 stands for it
+		// fn_00689790 0x68989E..0x6898C2 compares fabs(x), fabs(y), fabs(z) with the double at 0x8C79D8 =
+		// 9.9999997473787516e-05, the float 1e-4f widened (so the float compare is exact)
 		if (std::abs(world.x) > 1e-4f || std::abs(world.y) > 1e-4f || std::abs(world.z) > 1e-4f)
 		{
 			stroke.push_back(world);

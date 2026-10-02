@@ -23,7 +23,7 @@ namespace openblack::mods
 {
 
 /// The version of the mod API this openblack offers (mod.json "api" is checked against it)
-inline constexpr Version k_ApiVersion {1, 0, 0};
+inline constexpr Version k_ApiVersion {1, 1, 0}; ///< 1.1: the game's geometry and clock (Api.h)
 /// The newest mod.json / modpack.json "schema" this openblack reads
 inline constexpr int k_ManifestSchema = 1;
 

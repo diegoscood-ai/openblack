@@ -52,8 +52,9 @@ namespace
 constexpr auto k_SiteMesh = entt::hashed_string("temple/B_WORSHIP_l3d");
 /// Citadel::GetWorshipSiteAngle 0x463610: slot x 2 pi / 7 (0x8C836C)
 constexpr float k_SlotAngle = 0.8975979f;
-/// WorshipSite::GetSpellIconPos 0x77B080: the rings (7.5 m apart, 0x8C2C40) up to 30 m (0x8BF51C)
-constexpr float k_IconRingStep = 7.5f;
+/// WorshipSite::GetSpellIconPos 0x77B080: the rings 15 m apart (fadd [0x8C2C40] = 15 at 0x77B100) up to 30 m (fcomp
+/// [0x8BF51C] at 0x77B10A: rings 0, 15, 30)
+constexpr float k_IconRingStep = 15.0f;
 constexpr float k_IconRingMax = 30.0f;
 /// the dance ring (see DancePosition); (inferido): 6 m has no source, the .DAN rings are not ported
 constexpr float k_DanceRadius = 6.0f;
@@ -181,7 +182,7 @@ std::optional<glm::vec3> IconPositionFromSlot(entt::entity site, int slot, float
 	return position;
 }
 
-/// WorshipSite::GetSpellIconPos 0x77B080: for the rings 0, 7.5 .. 30, the first slot 10..15 whose candidate is not
+/// WorshipSite::GetSpellIconPos 0x77B080: for the rings 0, 15, 30, the first slot 10..15 whose candidate is not
 /// within 1.0 of an icon of the site (MapCoords::IsCloseToEqual, inf: per axis); slot -1 when there is no room
 glm::vec3 FindIconPosition(entt::entity site, int16_t& slot)
 {

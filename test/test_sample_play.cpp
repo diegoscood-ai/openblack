@@ -23,10 +23,10 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/QMixerLaws.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/WaveBuffers.h"
+#include "Audio/LH/QMixerLaws.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Device/WaveBuffers.h"
 #include "Resources/Loaders.h"
 
 // Milestones B0 / B1 of dev\tmp_dis\audio\PLAN.md: LHaudio's 16 channels (LHSamplePlay 0x100113B0, allocation
@@ -314,6 +314,38 @@ TEST_F(SamplePlayTest, SetVolumeNeedsActive)
 	sample_play::Switch(true);
 	sample_play::SetVolume(plain, 10);
 	EXPECT_NEAR(output.gain[plainIndex], qmixer::Gain(10, 127), 1e-6f);
+}
+
+TEST(DllRand, CrtSequenceAndAlternation)
+{
+	// No Backend::rand: the DLL's own CRT rand 0x1001E7EB from the seed 1 of the CRT (ResetRand through SetBackend):
+	// seed = seed * 0x343FD + 0x269EC3, (seed >> 16) & 0x7FFF, the MSVC sequence 41, 18467, 6334, 26500
+	sample_play::SetBackend({});
+	EXPECT_EQ(sample_play::Rand(), 41);
+	EXPECT_EQ(sample_play::Rand(), 18467);
+	EXPECT_EQ(sample_play::Rand(), 6334);
+	EXPECT_EQ(sample_play::Rand(), 26500);
+	// LH_AudioSystem::Rand() 0x10015740 (srand(time(0)) the first time): rand() >> 1, + 0x3FFF while [0x1003C124]
+	// (1 at load) is set, then it flips
+	for (int i = 0; i < 8; ++i)
+	{
+		const int upper = sample_play::AudioSystemRand();
+		EXPECT_GE(upper, 0x3FFF);
+		EXPECT_LE(upper, 0x7FFE);
+		const int lower = sample_play::AudioSystemRand();
+		EXPECT_GE(lower, 0);
+		EXPECT_LE(lower, 0x3FFF);
+	}
+	// LH_AudioSystem::Rand(n) 0x10015710 never reaches n
+	for (int i = 0; i < 64; ++i)
+	{
+		const int pick = sample_play::Random(10);
+		EXPECT_GE(pick, 0);
+		EXPECT_LT(pick, 10);
+	}
+	EXPECT_EQ(sample_play::Random(0), 0);
+	sample_play::ResetRand();
+	EXPECT_EQ(sample_play::Rand(), 41);
 }
 
 TEST(LoopCounter, FinitePasses)

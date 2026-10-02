@@ -381,6 +381,28 @@ ENDCLASS
 	weather::storms::Clear();
 }
 
+// ParticleCreator::DefineProperties 0x6B3562..0x6B359B: SpecColorR/G/B (+0x24/+0x28/+0x2C, ctor 0 at 0x6A91C4..0x6A91CA),
+// which fn_006A85E0 0x6A8748..0x6A875B packs into the atom's +0x90 as (R << 16) | (G << 8) | B, alpha 0
+TEST(Storm, creatorSpecColour)
+{
+	psys::Object object;
+	object.className = "ParticleMistCreator";
+	psys::Creator plain;
+	psys::ReadCreatorProperties(object, plain);
+	EXPECT_EQ(plain.specR, 0);
+	EXPECT_EQ(plain.specG, 0);
+	EXPECT_EQ(plain.specB, 0);
+	psys::Object mist = object;
+	mist.properties["SpecColorR"].integer = 10;
+	mist.properties["SpecColorG"].integer = 20;
+	mist.properties["SpecColorB"].integer = 30;
+	psys::Creator creator;
+	psys::ReadCreatorProperties(mist, creator);
+	EXPECT_EQ(creator.specR, 10);
+	EXPECT_EQ(creator.specG, 20);
+	EXPECT_EQ(creator.specB, 30);
+}
+
 TEST(Storm, lightningFlash)
 {
 	weather::storms::Storm::Flash flash;

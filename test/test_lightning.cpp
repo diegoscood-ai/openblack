@@ -16,23 +16,130 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
 #include <vector>
 
+#include <LNDFile.h>
 #include <gtest/gtest.h>
 
+#include "3D/LandIslandInterface.h"
 #include "Common/Zip.h"
+#include "GameClock.h"
+#include "Locator.h"
 #include "PSys/Creators/Chain.h"
 #include "PSys/Creators/LightMap.h"
+#include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
 #include "PSys/PSysRegistry.h"
+#include "PSys/SpellLink.h"
 
 using namespace openblack;
 
 namespace
 {
+/// A bolt cast from the hand with one target (a ground point: no map here) and five joints per fork; group 0 holds the
+/// rule, the forks are group 1
+constexpr const char* k_Bolt = R"(BEGINPROPERTIES
+PROPERTY DeleteOnCloseDown BOOL 0
+PROPERTY Hierarchies ARRAY SIZE 25 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY InitiallyCreated ARRAY SIZE 25 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY MaxSpellAge FLOAT -1
+ENDPROPERTIES
+BEGINCLASS UR_Lightning UR_Lightning0
+BEGINPROPERTIES
+PROPERTY CastingFromHand BOOL 1
+PROPERTY CommonGlowGroup INTEGER 2
+PROPERTY ForkGroup INTEGER 1
+PROPERTY ForkScale FLOAT 2
+PROPERTY Group INTEGER 0
+PROPERTY LightMapGroup INTEGER -1
+PROPERTY MaxJointsPerFork INTEGER 5
+PROPERTY MaxLightningObjects INTEGER 1
+PROPERTY MaxLightningObjectsAtOnce INTEGER 1
+PROPERTY MinLightningObjects INTEGER 1
+PROPERTY DefaultSearchRadius FLOAT 20
+PROPERTY RandomFrac FLOAT 0.05
+PROPERTY SplitAngle FLOAT 0.2
+PROPERTY RenewSearchEvery FLOAT 0
+PROPERTY PCreator PERSIS_PNTR ParticleChainCreator0
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS ParticleChainCreator ParticleChainCreator0
+BEGINPROPERTIES
+PROPERTY NumTexturesForWholeChain INTEGER 4
+PROPERTY TextureFileName STRING .\Data\Textures\S_Lightning.raw
+PROPERTY UseAdditiveAlpha BOOL 1
+ENDPROPERTIES
+ENDCLASS
+)";
+
+/// Keeps the events the rules send and answers 1
+class RecordingSink final: public psys::SpellSink
+{
+public:
+	int SpellEvent(const psys::SpellEventInfo& event) override
+	{
+		events.push_back(event);
+		return 1;
+	}
+	[[nodiscard]] int PowerUpLevel() const override { return -1; }
+	std::vector<psys::SpellEventInfo> events;
+};
+
+/// Every cell at one altitude (height units), for the fork's cut against the land (LandIslandInterface::RayCast)
+class LevelIsland final: public LandIslandInterface
+{
+public:
+	explicit LevelIsland(uint8_t altitude) { _cell.altitude = altitude; }
+	[[nodiscard]] float GetHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const final { return {0.0f, 1.0f, 0.0f}; }
+	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2&) const final { return _cell; }
+	void DumpTextures() const final {}
+	void DumpMaps() const final {}
+	[[nodiscard]] std::vector<LandBlock>& GetBlocks() final { throw std::logic_error("no blocks"); }
+	[[nodiscard]] const std::vector<LandBlock>& GetBlocks() const final { throw std::logic_error("no blocks"); }
+	[[nodiscard]] const std::vector<lnd::LNDCountry>& GetCountries() const final { return _countries; }
+	[[nodiscard]] const graphics::Texture2D& GetAlbedoArray() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetBump() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetSmallBump() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetCellMap() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetLandAlphaFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] U16Extent2 GetIndexExtent() const final { return {}; }
+	[[nodiscard]] glm::mat4 GetOrthoView() const final { return glm::mat4(1.0f); }
+	[[nodiscard]] glm::mat4 GetOrthoProj() const final { return glm::mat4(1.0f); }
+	[[nodiscard]] Extent2 GetExtent() const final { return {}; }
+	uint8_t GetNoise(glm::u8vec2) final { return 0; }
+
+private:
+	lnd::LNDCell _cell {};
+	std::vector<lnd::LNDCountry> _countries;
+};
+
+std::shared_ptr<const psys::File> ParseBolt()
+{
+	auto file = psys::File::Parse(k_Bolt, "SF_LightningBoltTest");
+	return file.has_value() ? std::make_shared<const psys::File>(*file) : nullptr;
+}
+
+/// One step of a bolt cast from `hand` towards +x
+void StepBolt(psys::Effect& effect, const glm::vec3& hand)
+{
+	psys::ProcessInfo info;
+	info.handPos = hand;
+	info.cameraForward = glm::vec3(1.0f, 0.0f, 0.0f);
+	info.enabled = true;
+	effect.SetProcessInfo(info);
+	effect.Step(0.1f);
+}
+
 /// The class of that name in the file, built through the registry (nullptr when nobody registered it)
 std::unique_ptr<psys::Creator> MakeCreator(const psys::File& file, const std::string& name)
 {
@@ -276,4 +383,151 @@ TEST(Lightning, realData)
 	ASSERT_TRUE(raw.is_open());
 	const std::vector<uint8_t> pixels((std::istreambuf_iterator<char>(raw)), std::istreambuf_iterator<char>());
 	EXPECT_EQ(pixels.size(), 5u * 5u * 16u * 3u);
+}
+
+TEST(Lightning, drawOffsetLT)
+{
+	// DrawOffsetLT::SetRefPos 0x6C7600 clamps the weight to 0..1 (a NaN gives 0); GetOffset 0x6C7690 is
+	// (hand - reference) x weight
+	psys::Atom::DrawOffsetLT offset;
+	offset.SetRefPos(glm::vec3(1.0f, 2.0f, 3.0f), 0.5f);
+	const auto moved = offset.GetOffset(glm::vec3(3.0f, 2.0f, -1.0f));
+	EXPECT_FLOAT_EQ(moved.x, 1.0f);
+	EXPECT_FLOAT_EQ(moved.y, 0.0f);
+	EXPECT_FLOAT_EQ(moved.z, -2.0f);
+	offset.SetRefPos(glm::vec3(0.0f), 1.5f);
+	EXPECT_FLOAT_EQ(offset.weight, 1.0f);
+	offset.SetRefPos(glm::vec3(0.0f), -0.5f);
+	EXPECT_FLOAT_EQ(offset.weight, 0.0f);
+	offset.SetRefPos(glm::vec3(0.0f), std::numeric_limits<float>::quiet_NaN());
+	EXPECT_FLOAT_EQ(offset.weight, 0.0f);
+}
+
+TEST(Lightning, trunkJointsFollowTheHand)
+{
+	// cast from the hand with no spell (NetUnsafeIsMyInterfaceCasting 0x673540 answers 1): every joint has a
+	// DrawOffsetLT (0x69131C), and the trunk's carry the step's origin with the weight 1 - i / (n - 1) (0x691FC7..)
+	const auto file = ParseBolt();
+	ASSERT_NE(file, nullptr);
+	game_clock::SetTurn(3);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 7);
+	const glm::vec3 hand(100.0f, 30.0f, 200.0f);
+	std::vector<psys::Effect::DrawChain> chains;
+	for (int i = 0; i < 3 && chains.empty(); ++i)
+	{
+		StepBolt(effect, hand);
+		effect.CollectChains(1.0f, chains);
+	}
+	ASSERT_FALSE(chains.empty());
+	const auto& trunk = chains.front().joints;
+	ASSERT_EQ(trunk.size(), 5u);
+	for (size_t i = 0; i < trunk.size(); ++i)
+	{
+		ASSERT_NE(trunk[i].atom, nullptr);
+		ASSERT_TRUE(trunk[i].atom->drawOffset.has_value());
+		EXPECT_FLOAT_EQ(trunk[i].atom->drawOffset->reference.x, hand.x);
+		EXPECT_FLOAT_EQ(trunk[i].atom->drawOffset->reference.z, hand.z);
+		EXPECT_FLOAT_EQ(trunk[i].atom->drawOffset->weight, 1.0f - static_cast<float>(i) / 4.0f);
+	}
+	// the trunk starts at the hand and is not interpolated (+0x38 bit 2 off, 0x6912A1)
+	EXPECT_FLOAT_EQ(trunk.front().position.x, hand.x);
+	EXPECT_FLOAT_EQ(trunk.front().position.y, hand.y);
+	game_clock::SetTurn(0);
+}
+
+TEST(Lightning, chainTexturesOverride)
+{
+	// UR_Lightning's NumTexturesToTile writes chain +0x30 (0x6923FC): it replaces the creator's repeats
+	psys::ChainCreator chain;
+	chain.numTexturesForWholeChain = 4;
+	const auto own = chain.SegmentUv(1, 8, 0.0f);
+	const auto tiled = chain.SegmentUv(1, 8, 0.0f, 8); // one repeat per segment
+	EXPECT_FLOAT_EQ(own[0].y, 0.125f);
+	EXPECT_FLOAT_EQ(tiled[0].y, 0.0f);
+	EXPECT_FLOAT_EQ(tiled[2].y, 0.25f);
+}
+
+TEST(Lightning, twoBoltsClash)
+{
+	// fn_006916B0: a newer bolt cast from the hand next to an older one aiming the same way links to it. The newer one's
+	// trunk ends at the clash point (+0xB4) and strikes nothing; the older one's trunk ends there too and a fork three
+	// times as thick (opaque, 0x6923FF) goes on to its target, whose event has strength 2 (0x6929DE) and also goes to
+	// the newer bolt's spell (0x692AA0)
+	const auto file = ParseBolt();
+	ASSERT_NE(file, nullptr);
+	RecordingSink olderSink;
+	RecordingSink newerSink;
+	game_clock::SetTurn(20);
+	psys::Effect older(file, glm::vec3(0.0f), 1.0f, 11);
+	older.SetSink(&olderSink);
+	StepBolt(older, glm::vec3(0.0f, 2.0f, 0.0f));
+	game_clock::SetTurn(21);
+	psys::Effect newer(file, glm::vec3(0.0f), 1.0f, 12);
+	newer.SetSink(&newerSink);
+	olderSink.events.clear();
+	newerSink.events.clear();
+	StepBolt(newer, glm::vec3(-4.0f, 2.0f, 0.0f));
+	StepBolt(older, glm::vec3(0.0f, 2.0f, 0.0f));
+	std::vector<psys::Effect::DrawChain> olderChains;
+	std::vector<psys::Effect::DrawChain> newerChains;
+	older.CollectChains(1.0f, olderChains);
+	newer.CollectChains(1.0f, newerChains);
+	ASSERT_EQ(newerChains.size(), 1u); // the trunk only
+	ASSERT_EQ(olderChains.size(), 2u); // the trunk and the fork after the clash point
+	const auto clash = newerChains.front().joints.back().position;
+	EXPECT_NEAR(olderChains[0].joints.back().position.x, clash.x, 1e-4f);
+	EXPECT_NEAR(olderChains[0].joints.back().position.z, clash.z, 1e-4f);
+	EXPECT_NEAR(olderChains[1].joints.front().position.x, clash.x, 1e-4f);
+	for (const auto& joint : olderChains[1].joints)
+	{
+		EXPECT_FLOAT_EQ(joint.alpha, 255.0f);
+	}
+	// the thick fork: depth 1 from S x 3 / 2 to S x 3 / 3, S = 2 (ForkScale)
+	EXPECT_NEAR(olderChains[1].joints.front().scale, 3.0f, 1e-4f);
+	const auto landed = [](const RecordingSink& sink) {
+		int count = 0;
+		for (const auto& event : sink.events)
+		{
+			if (event.type == psys::SpellEventInfo::Landed)
+			{
+				EXPECT_FLOAT_EQ(event.strength, 2.0f);
+				++count;
+			}
+		}
+		return count;
+	};
+	EXPECT_EQ(landed(olderSink), 1);
+	EXPECT_EQ(landed(newerSink), 1);
+	game_clock::SetTurn(0);
+}
+
+TEST(Lightning, landCutsTheFork)
+{
+	// fn_00691F30 0x69220C..0x692262: LH3DIsland::RayCast from the fork's origin through its split point; land met
+	// closer (in x z) than the split point ends the fork there: no strike. The target is a ground point 2 m over
+	// GetHeightAt (0 here) and the hand 30 m up: over land at altitude 0 the ray meets it past the target, over land at
+	// altitude 30 (20.1 m) a third of the way down
+	const auto file = ParseBolt();
+	ASSERT_NE(file, nullptr);
+	const auto strikes = [&file](uint8_t altitude) {
+		Locator::terrainSystem::emplace<LevelIsland>(altitude);
+		RecordingSink sink;
+		game_clock::SetTurn(40);
+		psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 5);
+		effect.SetSink(&sink);
+		for (int i = 0; i < 3; ++i)
+		{
+			StepBolt(effect, glm::vec3(1000.0f, 30.0f, 1000.0f));
+		}
+		int count = 0;
+		for (const auto& event : sink.events)
+		{
+			count += event.type == psys::SpellEventInfo::Landed ? 1 : 0;
+		}
+		Locator::terrainSystem::reset();
+		game_clock::SetTurn(0);
+		return count;
+	};
+	EXPECT_GT(strikes(0), 0);
+	EXPECT_EQ(strikes(30), 0);
 }

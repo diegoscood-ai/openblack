@@ -51,6 +51,10 @@ void SetPerFrame(uint32_t id);
 /// (0x63E4B0 -> fn_0063E410 passes it to PSysInterface::Create as the effect's magnitude; GJPSysInterface::Create
 /// 0x68F3A1 SetScale; 1 for the scripts, 8 for the smoke of UR_Explosion).
 entt::entity CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner, float magnitude = 1.0f);
+/// The same with the duration in game turns, as CreateSpotVisualWithSpecifiedDuration 0x63E580 takes it (its int argument;
+/// < 0: forever, else that many Process turns, 0 closing it at the first one: 0x63E2A0..0x63E2B1): UR_Explosion's 60
+/// (0x67EE92) and TicksForSeconds(4) & 0xFFFF (0x67EF2C)
+entt::entity CreateSpotVisualTurns(int spotVisual, glm::vec3 position, int turns, entt::entity owner, float magnitude = 1.0f);
 /// GParticleContainer::CloseDown 0x63E370 of a container made by CreateSpotVisual (nothing for entt::null)
 void CloseSpotVisual(entt::entity object);
 

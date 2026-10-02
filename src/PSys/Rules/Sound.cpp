@@ -8,13 +8,13 @@
  *******************************************************************************/
 
 // The appearance rules that start and stop an atom's sounds (AppearanceUpdateRule: ModifyAtomCore per atom). The
-// sounds themselves: Audio/SpellSounds.h.
+// sounds themselves: Audio/Services/SpellSounds.h.
 
 #include <cstdlib>
 
 #include <spdlog/spdlog.h>
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysRegistry.h"
 #include "PSys/SoundAction.h"

@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "Common/HelpText.h"
-#include "Audio/ScriptAudioState.h"
+#include "Audio/Services/ScriptAudioState.h"
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 #include "InfoConstants.h"

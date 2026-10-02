@@ -47,6 +47,8 @@ public:
 	void SetCellAltitude(glm::u16vec2 cell, uint16_t altitude) override;
 	void RebuildAltitudes() override;
 	[[nodiscard]] uint16_t GetCellsPerSide() const override { return static_cast<uint16_t>(_blocksPerSide * k_CellCount); }
+	/// From the cell's own block: its border row and column too, also where the next block is missing (fn_0083AE80)
+	[[nodiscard]] std::array<uint16_t, 4> GetCellCorners(glm::u16vec2 cell) const override;
 
 	// Debug
 	void DumpTextures() const override;

@@ -709,8 +709,8 @@ blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()`
   debería decirlo (es de milagros2).
 
 **Audio** (lo migra «audio» en su B11):
-- `Audio/ThingMusic.cpp:81-87`: la ida y vuelta en double.
-- `Audio/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
+- `Audio/Services/ThingMusic.cpp:81-87`: la ida y vuelta en double.
+- `Audio/Services/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
 
 **Dudosas, no migradas:**
 - `CHLApi.cpp:900` (`MOVE_GAME_THING`): truncar ahí haría una segunda conversión al caminar.
@@ -856,7 +856,7 @@ se han borrado.
 - `3D/Foliage.cpp:506-508` (mod `world.foliage`): no porta nada del original; con `object::Get2DRadius` cambiaría lo
   que se ve (el campo pasaría a medir 5 m), así que se deja.
 
-**De «audio» (hito B11):** `Audio/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
+**De «audio» (hito B11):** `Audio/Services/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
 `object::GetHeight`: el valor ya es el de la API; solo falta llamar a la API directamente.
 
 **PLAUSIBLES sin cerrar, no tocados:**
@@ -947,7 +947,7 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
   `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
 
-**De audio (hito B11):** `Audio/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
+**De audio (hito B11):** `Audio/Services/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
 0x54F4A5) → `game_clock::MsPerTurn()`; la copia doble de `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
 
 **Sin portar o dudosos:**
@@ -975,6 +975,21 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   juego).
 
 ## Ganchos de prueba
+
+**Comprobado en el juego (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
+- Culto (`OPENBLACK_TEST_WORSHIP="1,0.5"` + `OPENBLACK_WORSHIP_TRACE=1`, Land 2): van los 11 aldeanos más cercanos al
+  lugar (232–278 m); con el fallo anterior iban los más lejanos. El desempate por vida³ no se ve (la vida no sale en la
+  traza).
+- Fuego (`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"` + `OPENBLACK_FIRE_TRACE=1`, Land 1): los 12 aldeanos cercanos
+  reaccionan y lo apagan (215 → 220 ⇄ 216). **Sin comprobar en el juego:** el término de 400 m con aldeanos a 150–300 m
+  de su pueblo (no hay gancho; solo `test_gutils_distance`).
+- Curación (`OPENBLACK_TEST_HURT_VILLAGERS="1814.0,2660.5,30,0.3,0,200,1,0"`): cura las celdas que recorre la espiral
+  (aldeanos a 13,3 m con R = 10) y no las que no visita, como el original.
+- Iconos del lugar de culto (`OPENBLACK_TEST_WORSHIP_SITE="NORSE,0,...,11"`): el anillo exterior a ras de suelo
+  (0x77B002), el interior en la plataforma. El paso entre anillos sigue en 7,5 (el original suma 15, 0x77B100): lo
+  arregla milagros2.
+- Reloj (`OPENBLACK_CLOCK_TRACE=1`, 1356 turnos): 10,01 turnos/s, 50 turnos cada 4,995–5,003 s con una sola partida; los
+  tirones de carga se recuperan sin perder turnos.
 
 - `test_map_coords` (`test/test_map_coords.cpp`) comprueba:
   - las constantes, por bits;

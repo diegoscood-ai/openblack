@@ -19,6 +19,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "3D/LandIslandInterface.h"
@@ -94,18 +95,11 @@ void PotArchetype::SetSize(entt::entity entity, bool animate)
 		return;
 	}
 
-	// PileResource::SetSize 0x66E900: target offset = (GetProportionRaised - 1) * GetHeight.
-	// GetProportionRaised (PileWood 0x66F1B0 / PileFood 0x66EB60): x = amount / maxInPot clamped to [0, 1],
-	// p = x > 0 ? 0.05 + 0.95 * x : 0 (an empty pile is fully buried and not drawn); food: 1 - (1 - p)^2.
-	const float x = std::clamp(static_cast<float>(pot->amount) / std::max(1.0f, static_cast<float>(info.maxAmountInPot)), 0.0f, 1.0f);
-	const float p = x > 0.0f ? 0.05f + 0.95f * x : 0.0f;
-	const float proportion = info.resourceType == ResourceType::Food ? 1.0f - (1.0f - p) * (1.0f - p) : p;
-	float height = 1.0f;
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (const auto* mesh = registry.TryGet<const Mesh>(entity); mesh != nullptr && meshes.Contains(mesh->id))
-	{
-		height = meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform.scale.y;
-	}
+	// PileResource::SetSize 0x66E900: target offset = (GetProportionRaised (vt +0x86C, 0x66E90A) - 1) * GetHeight (vt
+	// +0x42C, 0x66E918). GetProportionRaised: PileWood 0x66F1B0 / PileFood 0x66EB60 (an empty pile is 0: fully buried
+	// and not drawn); no mesh, no height (0x638140)
+	const float proportion = ecs::object::GetProportionRaised(entity);
+	const float height = ecs::object::GetHeight(entity);
 	auto* sink = registry.TryGet<PileSink>(entity);
 	if (sink == nullptr)
 	{

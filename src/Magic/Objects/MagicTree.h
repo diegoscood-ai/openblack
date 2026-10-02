@@ -41,8 +41,12 @@ void Clear();
 
 /// MagicTree::StartOnFire 0x5FD0D0: its REACT_TO_MAGIC_TREE goes
 void StartOnFire(entt::entity tree);
-/// MagicTree::EndOnFire 0x5FD0E0: REACT_TO_MAGIC_TREE again, unless the game flag g_game +0x14 bit 0x8000 (not known:
-/// taken as clear)
+/// MagicTree::EndOnFire 0x5FD0E0: REACT_TO_MAGIC_TREE again (its player, vt 0x1C), unless g_game +0x14 bit 0x8000 is
+/// set (0x5FD0EB `test ch, 0x80` skips the CreateReaction). That bit marks the inside of GGame::ClearMap 0x552BB0: it
+/// is set at its start and cleared at its end (bw1-decomp src/Black/Game.cpp 1296 / 1388), which is why the objects
+/// being torn down there make no reactions, tell no towns (Abode.cpp 92 / 105) and so on. openblack only calls EndOnFire
+/// from the fire system (ECS/Fire/FireEffect.cpp, when a fire goes out), never while a land is being cleared, so the
+/// condition always holds here: no guard to port.
 void EndOnFire(entt::entity tree);
 
 /// GetWoodValueMultiplier (vt 0x868): MagicTree 0x5FD0C0 = +0x70, Tree 0x74B810 = 1 (Tree::GetWoodValue 0x74B7B0 = life

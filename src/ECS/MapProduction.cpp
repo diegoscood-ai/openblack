@@ -20,6 +20,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
+#include "MapCoords.h"
 
 using namespace openblack::ecs;
 using namespace openblack::ecs::components;
@@ -70,13 +71,22 @@ void MapProduction::Build()
 	registry.Each<const Fixed, const Transform>([this](entt::entity entity, const Fixed& fixed, const Transform& transform) {
 		// TODO(bwrsandman): This is only in the case of a square bb underling the bounding circle (x/z) <= 1.4
 		const float radius = fixed.boundingRadius * glm::compMax(transform.scale) + 1.0f;
-		const auto min = GetGridCell(fixed.boundingCenter - radius);
-		const auto max = GetGridCell(fixed.boundingCenter + radius);
+		// the corners' signed high words (a JustMapXZ, movsx) and only the cells inside the map (InBounds 0x6042C0): a
+		// corner off the map does not wrap to cell 0xFFFF. (inferido) openblack's own grid: the original's
+		// Object::InsertMapObject is not ported
+		const auto low = glm::ivec2(map_coords::SignedCellOf(map_coords::ToFixed(fixed.boundingCenter.x - radius)),
+		                            map_coords::SignedCellOf(map_coords::ToFixed(fixed.boundingCenter.y - radius)));
+		const auto high = glm::ivec2(map_coords::SignedCellOf(map_coords::ToFixed(fixed.boundingCenter.x + radius)),
+		                             map_coords::SignedCellOf(map_coords::ToFixed(fixed.boundingCenter.y + radius)));
 
-		for (uint16_t x = min.x; x < max.x + 1; ++x)
+		for (int32_t x = low.x; x <= high.x; ++x)
 		{
-			for (uint16_t y = min.y; y < max.y + 1; ++y)
+			for (int32_t y = low.y; y <= high.y; ++y)
 			{
+				if (!map_coords::InBounds(glm::ivec2(x, y)))
+				{
+					continue;
+				}
 				const auto cellId = MapProduction::CellId(x, y);
 				if (glm::distance2(GetCellCenter(cellId), fixed.boundingCenter) < radius * radius)
 				{
@@ -89,6 +99,10 @@ void MapProduction::Build()
 	registry.Each<const Mobile, const Transform>(
 	    [this](entt::entity entity, [[maybe_unused]] const Mobile& mobile, const Transform& transform) {
 		    const auto cellId = GetGridCell(transform.position);
+		    if (!map_coords::InBounds(glm::ivec2(cellId))) // ToMap 0x603430: NULL off the map
+		    {
+			    return;
+		    }
 		    auto& cell = _mobileGrid.at(cellId.x + cellId.y * k_GridSize.x);
 		    cell.insert(entity);
 	    });

@@ -20,9 +20,12 @@
 
 #include "3D/DayNightClock.h"
 #include "Atmos.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCoords.h"
 #include "Calendar.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "WeatherLand.h"
 
@@ -38,10 +41,6 @@ constexpr std::array<float, 24> k_HourFactor = {0.5f, 0.4f, 0.3f, 0.2f, 0.3f, 0.
 /// 0xC249A4: by month 1..12 (February 0 as in the exe; [0] is never read)
 constexpr std::array<float, 13> k_MonthFactor = {0.0f, 0.1f, 0.0f, 0.3f, 0.4f, 0.5f, 0.6f,
                                                  0.8f, 1.0f, 0.7f, 0.4f, 0.3f, 0.2f};
-/// MapCoords: metres x 6553.6 (16.16 fixed point of 10 m cells)
-constexpr float k_ToMapCoords = 6553.6f;
-constexpr float k_FromMapCoords = 0.000152588f;
-
 std::list<Climate> g_climates; ///< g_game+0x205CF4, newest first
 Climate* g_world = nullptr;    ///< g_game+0x250534
 bool g_climateSystem = true;   ///< 0xC24759
@@ -53,8 +52,7 @@ int32_t g_nextId = 1;          ///< 0xC2475C
 
 uint32_t Turn()
 {
-	const auto* game = Game::Instance();
-	return game != nullptr ? game->GetTurn() : 0;
+	return game_clock::Turn(); // g_game +0x205A40
 }
 
 const GClimateInfo* Info(int32_t index)
@@ -219,8 +217,10 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 			const float angle = GameFloatRand(std::numbers::pi_v<float> * 2.0f);
 			const float r = GameFloatRand(1.0f);
 			const float distance = r * r * climate.innerRadius * 0.1f; // in 10 m cells
-			const float cx = std::floor(static_cast<float>(climate.x) / 65536.0f);
-			const float cz = std::floor(static_cast<float>(climate.z) / 65536.0f);
+			// 0x772C38 and 0x772C65: the centre's cell is the unsigned high word of its MapCoords ("xor eax, eax; mov ax,
+			// [ebp+0x16]" / "[ebp+0x1a]" = ecs::map_coords::CellOf); "fiadd" adds it and __ftol truncates the sum
+			const float cx = static_cast<float>(ecs::map_coords::CellOf(climate.x));
+			const float cz = static_cast<float>(ecs::map_coords::CellOf(climate.z));
 			place.x = static_cast<float>(static_cast<int32_t>(std::cos(angle) * distance + cx)) * 10.0f;
 			place.z = static_cast<float>(static_cast<int32_t>(std::sin(angle) * distance + cz)) * 10.0f;
 		}
@@ -230,8 +230,10 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 			place.z = static_cast<float>(GameRand(0x200)) * 10.0f;
 			for (const auto& other : g_climates)
 			{
-				const auto centre = other.CellCentre();
-				if (std::hypot(place.x - centre.x, place.z - centre.z) < other.outerRadius)
+				const auto centre = other.Centre();
+				// GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0 = hypotenuse(float, float) 0x74F6C0, the table root
+				// (FindWhereToCreateStorm 0x772D86 / 0x772D97)
+				if (gutils::Hypotenuse(place.x - centre.x, place.z - centre.z) < other.outerRadius)
 				{
 					outside = false;
 					break;
@@ -250,12 +252,13 @@ glm::vec3 FindWhereToCreateStorm(const Climate& climate)
 
 glm::vec3 Climate::Centre() const
 {
-	return {static_cast<float>(x) * k_FromMapCoords, y, static_cast<float>(z) * k_FromMapCoords};
+	return {ecs::map_coords::ToMetres(x), y, ecs::map_coords::ToMetres(z)}; // MapCoords: x [0x8AA3A4] (10 / 65536)
 }
 
 glm::vec3 Climate::CellCentre() const
 {
-	return {static_cast<float>((x >> 16) * 10), y, static_cast<float>((z >> 16) * 10)};
+	// 0x7724A6..0x7724DE: unsigned high word * 10, then fild
+	return {static_cast<float>(ecs::map_coords::CellOf(x) * 10), y, static_cast<float>(ecs::map_coords::CellOf(z) * 10)};
 }
 
 void climate::Reset()
@@ -301,8 +304,8 @@ Climate& climate::Create(const glm::vec3& position, int32_t info, float radius1,
 	else
 	{
 		// fn_00771170
-		climate.x = static_cast<int32_t>(position.x * k_ToMapCoords);
-		climate.z = static_cast<int32_t>(position.z * k_ToMapCoords);
+		climate.x = ecs::map_coords::ToFixed(position.x); // MapCoords(LHPoint): x [0x8AC400], __ftol
+		climate.z = ecs::map_coords::ToFixed(position.z);
 		climate.y = position.y;
 		climate.info = info;
 		climate.innerRadius = radius1 <= radius2 ? radius1 : radius2;
@@ -481,7 +484,8 @@ void climate::CreateStorm(Climate& climate, uint32_t turn)
 	else
 	{
 		const auto centre = climate.Centre();
-		size = static_cast<uint32_t>(static_cast<int32_t>(std::hypot(place.x - centre.x, place.z - centre.z)));
+		// CreateStorm 0x772ED6: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0, then truncated
+		size = static_cast<uint32_t>(static_cast<int32_t>(gutils::Hypotenuse(place.x - centre.x, place.z - centre.z)));
 	}
 	size = std::clamp<uint32_t>(size, 160, 900); // 0xA0 / 0x384 (0x772EFE..0x772F15)
 
@@ -602,7 +606,8 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 				for (const auto& other : g_climates)
 				{
 					const auto centre = other.CellCentre();
-					if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
+					// fn_00772330 0x7724E2: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
+					if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) < other.outerRadius &&
 					    fadeOutAge > storm->age)
 					{
 						storm->age = fadeOutAge;
@@ -614,7 +619,8 @@ void ProcessClimate(Climate& climate, bool newDay, uint32_t turn)
 			else
 			{
 				const auto centre = climate.CellCentre();
-				if (std::hypot(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
+				// fn_00772330 0x77254C: GUtils::GetDistance(LHPoint, LHPoint) 0x74CDE0
+				if (gutils::Hypotenuse(d.position.x - centre.x, d.position.z - centre.z) > climate.outerRadius &&
 				    fadeOutAge > storm->age)
 				{
 					storm->age = fadeOutAge;

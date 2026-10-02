@@ -23,6 +23,10 @@
 // vortex PSys; a player's stones form a list (GPlayer +0xA58 head, +0xA5C count). A living thing that uses a stone
 // comes out of the stone of the same player that brings it nearest to where it is going. Wiki: docs/bw1-notes/magic.md,
 // "Teletransporte".
+// A pool lives off the chants of the seed that cast it (the spell's timer is -1, info.dat effect 12, so only the chants
+// end it): a dispenser orb gives 2000 and the spell spends 1 a turn, about 200 s, unless a player keeps paying. Each
+// useful jump gives chants back (JumpCost: PayFor with a negative cost, research R13), so a pool that is being used
+// lasts longer. That is the original's behaviour, not a defect.
 
 namespace openblack::magic::teleport
 {
@@ -57,9 +61,10 @@ constexpr int k_SpotVisualVillagerTeleport = 14;
 /// (saving > 0) gives the spell chants; only a forced jump backwards costs (research R13, PayFor 0x720990 has no clamp).
 [[nodiscard]] float JumpCost(float saving, float costPerKilometer);
 
-/// GPlayer fn_0064D6B0 (Villager::CanIGetToTheWorshipSite 0x76BC20): the stone nearest `from` (d1) and, separately,
-/// the smallest distance d2 from any stone to `to`, both starting at maxDistance; the first stone if d1 + d2 <
-/// maxDistance. -1 = none.
+/// GPlayer fn_0064D6B0 (Villager::CanIGetToTheWorshipSite 0x76BC20, the call at 0x76BC84): the stone nearest `from` (d1)
+/// and, separately, the smallest distance d2 from any stone to `to`, both starting at maxDistance (0x64D6C5/0x64D6C9);
+/// that nearest stone if d1 + d2 < maxDistance (0x64D720..0x64D731, strictly less). -1 = none. The distances are
+/// GetDistanceInMetres 0x74CD70 (flat, x / z only: GetDistance 0x74CCB0 reads MapCoords +0 and +4).
 [[nodiscard]] int FindRouteStone(const std::vector<glm::vec3>& stones, const glm::vec3& from, const glm::vec3& to,
                                  float maxDistance);
 
@@ -115,6 +120,9 @@ void UpdateFrame(float seconds);
 /// The TELEPORT seed a stone gives the hand: MagicTeleport::ValidForPlaceInHand 0x5FC440 / InterfaceSetInMagicHand
 /// 0x5FC470 forward to the spell's seed (Spell +0xAC); entt::null if the spell has none
 [[nodiscard]] entt::entity SeedOf(entt::entity stone);
+/// The stone's own REACT_TO_TELEPORT (MagicTeleport +0x94), which a Living takes when it starts reacting to it
+/// (CheckWorshipActivity 0x76BBF9 reads it to call StartReacting); 0 when there is none
+[[nodiscard]] uint32_t ReactionOf(entt::entity stone);
 
 /// OPENBLACK_TEST_TELEPORT (TeleportDebugHooks.cpp)
 void RunDebugHooks();

@@ -22,6 +22,7 @@
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "VillagerFire.h"
+#include "VillagerShield.h"
 #include "VillagerTeleport.h"
 
 using namespace openblack;
@@ -39,6 +40,9 @@ void VillagerReaction(entt::entity villager, const effects::reactions::Reaction&
 		break;
 	case openblack::Reaction::ReactToTeleport:
 		villager_teleport::ApplyReaction(villager, reaction);
+		break;
+	case openblack::Reaction::ReactToMagicShield:
+		villager_shield::ApplyReaction(villager, reaction);
 		break;
 	default:
 		break;
@@ -141,7 +145,27 @@ bool villager_reactions::ReactionValidate(LivingAction& action)
 		object = villager_teleport::ReactionObject(villager);
 		type = openblack::Reaction::ReactToTeleport;
 	}
-	// 0x756A03..0x756A15: no object, or IsAvailable (vt 0x2C) != 1 -> PopFromPrevious (0x756A3F)
+	else if (villager_shield::ReactionObject(villager) != entt::null)
+	{
+		object = villager_shield::ReactionObject(villager);
+		type = openblack::Reaction::ReactToMagicShield;
+	}
+	// 0x756A03..0x756A15: no object, or IsAvailable (vt 0x2C) != 1 -> PopFromPrevious (0x756A3F). The shield's object is
+	// the spell itself, which is no fire object: its own availability test (and nothing holds a spell, so the in-hand
+	// branch below cannot fire for it)
+	if (type == openblack::Reaction::ReactToMagicShield)
+	{
+		const bool gone = !villager_shield::IsReactionObjectAvailable(villager);
+		if (gone)
+		{
+			if (villager::TraceOn(villager))
+			{
+				villager::Trace(villager, "ReactionValidate: the shield spell went -> PopFromPrevious");
+			}
+			PopFromPrevious(villager);
+		}
+		return !gone;
+	}
 	bool pop = object == entt::null || !fire::traits::IsAvailable(object);
 	// 0x756A17..0x756A3B: ReactionInfo[type].whetherReactionFinishesIfInitiatorInHand && object +0x24 & 4 (in the hand)
 	if (!pop)
@@ -162,20 +186,23 @@ bool villager_reactions::ReactionValidate(LivingAction& action)
 
 bool villager_reactions::IsReacting(entt::entity villager)
 {
-	return villager_fire::IsReacting(villager) || villager_teleport::IsReacting(villager);
+	return villager_fire::IsReacting(villager) || villager_teleport::IsReacting(villager) ||
+	       villager_shield::IsReacting(villager);
 }
 
 void villager_reactions::StopReacting(entt::entity villager)
 {
 	// Villager::StopReacting 0x7637D0: TOP 203 DANCE_WHILE_REACTING (0x7637D8) and IsDancing (vt +0x978) ->
 	// RemoveFromDance(1) (vt +0xB08). TODO(dance): 203 has no state function in openblack, so no villager is there.
-	// Then Living::StopReacting 0x5F1140 (0x7637F8) for the reaction it follows: the fire's or the teleport's
+	// Then Living::StopReacting 0x5F1140 (0x7637F8) for the reaction it follows: the fire's, the teleport's or the
+	// shield's
 	if (villager::TraceOn(villager) && IsReacting(villager))
 	{
 		villager::Trace(villager, "StopReacting");
 	}
 	villager_fire::StopReacting(villager);
 	villager_teleport::StopReacting(villager);
+	villager_shield::StopReacting(villager);
 }
 
 uint32_t villager_reactions::ExitReaction(LivingAction& action, VillagerStates next)

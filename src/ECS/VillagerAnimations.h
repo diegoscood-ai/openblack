@@ -51,6 +51,10 @@ bool VillagerWaitsForTransition(entt::entity villager, uint16_t turnsSinceStateC
 /// one; `reset` (n != 0 and not dancing) starts it from the beginning
 void VillagerSetStateClip(entt::entity villager, bool reset);
 
+/// Living::SetAnim(clip, n) (0x5ECBA0) with a clip the state names itself instead of GetAnimId's (the amazed villager's
+/// 395 TALKING_AND_POINTING, 0x765FA5)
+void VillagerSetClip(entt::entity villager, int32_t clip, bool reset);
+
 /// Living::IsReadyForNewAnimation (0x5EC960): the current clip has played once (turns in the state * 100 ms)
 bool VillagerAnimationDone(entt::entity villager, uint16_t turnsSinceStateChange);
 

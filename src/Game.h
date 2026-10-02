@@ -19,6 +19,7 @@
 #include <spdlog/common.h>
 
 #include "EngineConfig.h"
+#include "GameClock.h"
 #include "Windowing/WindowingInterface.h" // For DisplayMode
 
 union SDL_Event;
@@ -107,7 +108,8 @@ struct TutorialSkipFlags
 class Game
 {
 public:
-	static constexpr auto k_TurnDuration = std::chrono::milliseconds(100);
+	/// The scheduler's turn (game_clock::k_SchedulerMsPerTurn), for the debug view
+	static constexpr auto k_TurnDuration = std::chrono::milliseconds(game_clock::k_SchedulerMsPerTurn);
 	static constexpr float k_TurnDurationMultiplierSlow = 2.0f;
 	static constexpr float k_TurnDurationMultiplierNormal = 1.0f;
 	static constexpr float k_TurnDurationMultiplierFast = 0.5f;
@@ -125,14 +127,17 @@ public:
 	void LoadLandscape(const std::filesystem::path& path);
 
 	void SetTime(float time) noexcept;
-	void SetGameSpeed(float multiplier) { _gameSpeedMultiplier = multiplier; }
-	[[nodiscard]] float GetGameSpeed() const { return _gameSpeedMultiplier; }
+	/// The turn length multiplier (2 = slow, 0.5 = fast): GGame::SetSpeed 0x5537F0 with the speed-up factor 1 / it
+	void SetGameSpeed(float multiplier) { game_clock::SetSpeed(1.0f / multiplier); }
+	[[nodiscard]] float GetGameSpeed() const { return 1.0f / game_clock::Speed(); }
 
-	[[nodiscard]] uint32_t GetTurn() const { return _turnCount; }
-	[[nodiscard]] bool IsPaused() const { return _paused; }
+	/// g_game +0x205A40 (game_clock::Turn): it goes up at the start of the turn
+	[[nodiscard]] uint32_t GetTurn() const { return game_clock::Turn(); }
+	[[nodiscard]] bool IsPaused() const { return game_clock::IsPaused(); }
+	/// The wall clock time between the last two turns (debug view only)
 	[[nodiscard]] std::chrono::duration<float, std::milli> GetDeltaTime() const { return _turnDeltaTime; }
-	/// How far the current game turn is, 0..1 (GGame::Loop's remainder / 100 ms, g_game+0x205D64): 0 while paused
-	[[nodiscard]] float GetTurnFraction() const;
+	/// How far the current game turn is, 0..0.99 (g_game +0x205D64, game_clock::TurnFraction): kept while paused
+	[[nodiscard]] float GetTurnFraction() const { return game_clock::TurnFraction(); }
 	[[nodiscard]] const glm::ivec2& GetMousePosition() const { return _mousePosition; }
 
 	void RequestScreenshot(const std::filesystem::path& path) noexcept;
@@ -158,10 +163,7 @@ private:
 
 	std::chrono::steady_clock::time_point _lastGameLoopTime;
 	std::chrono::steady_clock::duration _turnDeltaTime;
-	float _gameSpeedMultiplier {1.0f};
 	uint32_t _frameCount {0};
-	uint32_t _turnCount {0};
-	bool _paused {true};
 	glm::ivec2 _mousePosition;
 	bool _handAction {false};
 	bool _handGripping;

@@ -22,9 +22,10 @@ class Rocks
 {
 public:
 	[[nodiscard]] static bool IsRock(entt::entity entity);
-	/// Game3DObject radius 2D: max(half size x, half size z) of the mesh box x scale.
+	/// Get2DRadius vt +0x64 (Object 0x638180, a Rock overrides none): max(half size x, half size z) of the mesh box x
+	/// scale (ecs::object::Get2DRadius).
 	[[nodiscard]] static float Radius2D(entt::entity entity);
-	/// Object::GetHeight (0x638120): 2 x half size y of the mesh box x scale.
+	/// GetHeight vt +0x42C (Object 0x638120): 2 x half size y of the mesh box x scale (ecs::object::GetHeight).
 	[[nodiscard]] static float Height(entt::entity entity);
 	/// Rock::ValidForPlaceInHand (0x6E7030): rocks with a 2D radius over 3.6 cannot be lifted.
 	[[nodiscard]] static bool ValidForPlaceInHand(entt::entity entity);

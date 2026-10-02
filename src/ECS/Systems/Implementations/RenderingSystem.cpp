@@ -29,6 +29,7 @@
 #include "ECS/Fields.h"
 #include "ECS/Trees.h"
 #include "ECS/Components/MeshTint.h"
+#include "ECS/Components/ObjectColour.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
@@ -346,6 +347,14 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    if (const auto* scroll = registry.TryGet<const UvScroll>(entity); scroll != nullptr)
 		    {
 			    _renderContext.instanceUniforms[idx][1][3] = openblack::graphics::frame_anim::PackUvOffset(scroll->u, scroll->v);
+		    }
+		    // components::ObjectColour, SetColour 0x7F9770 (the power-up bands: DrawSpellGraphic 0x51A3BE with
+		    // GetPlayerColour 0x64D800, PHandFX Band::Draw 0x68D86D..0x68D8B1): -1 - (r 65536 + g 256 + b) in the w of the
+		    // third column, the PSys mesh atoms' encoding (vs_object)
+		    if (const auto* colour = registry.TryGet<const ObjectColour>(entity); colour != nullptr)
+		    {
+			    _renderContext.instanceUniforms[idx][2][3] =
+			        -1.0f - static_cast<float>(colour->rgb[0] * 65536 + colour->rgb[1] * 256 + colour->rgb[2]);
 		    }
 		    // The w of the third column: components::MeshTint, 1e6 (2e6 dissolving) + 5 bits each of the ground colour
 		    // (r, g, b from the bottom) and of `own` (bits 15-19)

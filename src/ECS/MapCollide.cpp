@@ -23,6 +23,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Locator.h"
+#include "MapCoords.h"
 #include "Resources/ResourcesInterface.h"
 #include "SeaCells.h"
 
@@ -164,28 +165,24 @@ void openblack::ecs::map_collide::RegisterFixed(entt::id_type meshResource, glm:
 
 void openblack::ecs::map_collide::RegisterTree(glm::vec3 position)
 {
-	const int cx = static_cast<int>(std::floor(position.x / LandIslandInterface::k_CellSize));
-	const int cz = static_cast<int>(std::floor(position.z / LandIslandInterface::k_CellSize));
-	const int side = CellsPerSide();
-	if (cx < 0 || cz < 0 || cx >= side || cz >= side)
+	const auto cell = map_coords::CellOf(position); // MapCoords(LHPoint) 0x603160, the high words
+	if (!map_coords::InBounds(cell, CellsPerSide()))
 	{
 		return;
 	}
-	g_cells[Key(cx, cz)].push_back(Shape {glm::xz(position), k_TreeRadius, {}, 0.0f, "tree"});
+	g_cells[Key(cell.x, cell.y)].push_back(Shape {glm::xz(position), k_TreeRadius, {}, 0.0f, "tree"});
 }
 
 bool openblack::ecs::map_collide::IsOkToCreateAtPos(glm::vec3 position, std::string_view command)
 {
 	// MapCoords::CollideCollideWithFixe 0x604FE0: off the map every bit is set, and then IsWater 0x6035B0 has no land
 	// cell and says yes: true
-	const int cx = static_cast<int>(std::floor(position.x / LandIslandInterface::k_CellSize));
-	const int cz = static_cast<int>(std::floor(position.z / LandIslandInterface::k_CellSize));
-	const int side = CellsPerSide();
-	if (cx < 0 || cz < 0 || cx >= side || cz >= side)
+	const auto cell = map_coords::CellOf(position); // ToMap 0x603430
+	if (!map_coords::InBounds(cell, CellsPerSide()))
 	{
 		return true;
 	}
-	const auto found = g_cells.find(Key(cx, cz));
+	const auto found = g_cells.find(Key(cell.x, cell.y));
 	if (found == g_cells.end())
 	{
 		return true;

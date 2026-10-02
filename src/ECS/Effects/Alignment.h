@@ -58,6 +58,10 @@ void ProcessPlayers();
 /// order) whose CalculatePlayerInfluence(pos, player, 0, type 0, allies 1) is above every earlier one and above 0;
 /// the neutral player (g_game +0x205A5B) when none is. Players that do not exist are skipped.
 [[nodiscard]] PlayerNames MostInfluentialPlayer(const glm::vec3& position);
+/// MapCoords::GetAlignment 0x6057B0: the land's own alignment at a point. Every existing player (GGame::GetNextPlayer
+/// order) adds CalculatePlayerInfluence(pos, player, 0, type 0, allies 1) x GPlayer::GetAlignmentValue, and the sum is
+/// clamped to -1..1 (0x60580F / 0x60582C). Trees grow faster on good land (Tree::Process 0x74A31A).
+[[nodiscard]] float LandAlignmentAt(const glm::vec3& position);
 /// The sky's input (fn_005E2240's argument): x = clamp((alignment of the most influential player at the interface's
 /// position + 1) / 2, 0, 1) for the -1 evil .. 1 good alignment. fn_0064AC30 works it out once a turn at the end of
 /// GPlayer::ProcessPlayers (0x64A697); the interface's position is GInterfaceStatus +0xB0, the camera's position

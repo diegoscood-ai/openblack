@@ -22,6 +22,7 @@
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
@@ -139,12 +140,14 @@ entt::entity FindNearestTown(const glm::vec3& position)
 	entt::entity nearest = entt::null;
 	float best = 0.0f;
 	registry.Each<const Town, const Transform>([&](entt::entity entity, const Town&, const Transform& transform) {
-		const glm::vec2 delta(transform.position.x - position.x, transform.position.z - position.z);
-		const float distance2 = glm::dot(delta, delta);
-		if (nearest == entt::null || distance2 < best)
+		// 0x553016 / 0x55302E: fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70, and the new town wins while its
+		// distance is strictly smaller (fcomp; test ah, 1 at 0x55301B). Not the squared distance: the table root and the
+		// 16.16 quantisation can order two near-equal towns the other way round
+		const float distance = gutils::GetDistanceInMetres(position, transform.position);
+		if (nearest == entt::null || distance < best)
 		{
 			nearest = entity;
-			best = distance2;
+			best = distance;
 		}
 	});
 	return nearest;

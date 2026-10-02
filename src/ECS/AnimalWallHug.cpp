@@ -29,6 +29,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
@@ -185,7 +186,7 @@ bool TouchesCell(glm::vec2 centre, float radius, glm::vec2 cellCentre)
 /// ObjectCircleIterator::Init(int) 0x60D0A0 is the same hasWater bit)
 bool WaterCell(glm::ivec2 cell)
 {
-	if (cell.x < 0 || cell.y < 0 || cell.x >= MapInterface::k_GridSize.x || cell.y >= MapInterface::k_GridSize.y)
+	if (!map_coords::InBounds(cell)) // JustMapXZ::InBounds 0x5E1860: movsx, then the unsigned compare with 512
 	{
 		return true;
 	}
@@ -690,9 +691,13 @@ int MoveToCircleHug(Context& ctx)
 			}
 			SetMoveState(ctx, orbit);
 			CircleSquareSweep(ctx, pos, orbit == k_MoveOrbitCw, 1);
-			// +0x76: the distance to the goal x 128, less 1 (beyond 0xFFFF in g_CircleHugStateInfo)
-			const double v = static_cast<double>(glm::distance(pos, ctx.brain.goal)) * 128.0 - 1.0;
-			ctx.brain.hugGoalDistance = v > 0.0 ? static_cast<uint32_t>(v) : 0u;
+			// +0x76: the distance to the goal x 128 [0x930670], less 1 [0x8AB680] (beyond 0xFFFF in
+			// g_CircleHugStateInfo). 0x60D9F0: MapCoords::GetMetresDistanceSq 0x605FB0 (the exact square, no table) and
+			// `fsqrt` on it; the two qword constants are loaded but the FPU is at 24 bits, so it is all float
+			const float squared =
+			    gutils::GetMetresDistanceSq(map_coords::FromMetres(pos), map_coords::FromMetres(ctx.brain.goal));
+			const float v = std::sqrt(squared) * 128.0f - 1.0f;
+			ctx.brain.hugGoalDistance = v > 0.0f ? static_cast<uint32_t>(v) : 0u;
 		}
 	}
 	return MoveBy(ctx, step) ? 7 : 6;

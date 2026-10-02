@@ -193,15 +193,19 @@ TEST(SpellFlock, fade)
 	EXPECT_TRUE(gone);
 	EXPECT_GE(turns, 20);
 	EXPECT_LE(turns, 21);
-	// a second SetDying does not restart it
+	// a second SetDying does not restart it: 0x420CF0 / 0x41F5C0 test the fade's destination (+0x16C / +0x14C), 0 once
+	// it fades, so the Zoomer keeps its clock
 	SpellFlockAnimal wolf;
 	wolf.fade.SetPosition(spell_flock::k_FullAlpha);
 	spell_flock::StartFade(wolf);
 	(void)spell_flock::ProcessFade(wolf);
 	const float after = wolf.fade.value;
+	const float clock = wolf.fade.time;
 	spell_flock::StartFade(wolf);
 	EXPECT_FLOAT_EQ(wolf.fade.value, after);
 	EXPECT_FLOAT_EQ(wolf.fade.duration, 2.0f);
+	EXPECT_FLOAT_EQ(wolf.fade.time, clock);
+	EXPECT_GT(wolf.fade.time, 0.0f);
 }
 
 /// With OPENBLACK_GAME_PATH set to the install: the FLYING_FLOCK / GROUND_FLOCK rows (resources.md §0.2)

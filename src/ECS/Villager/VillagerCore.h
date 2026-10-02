@@ -151,6 +151,11 @@ uint32_t CallEntryStateFunction(entt::entity villager, VillagerStates current, V
 uint32_t SetupPauseForASecond(entt::entity villager, VillagerStates state);
 /// Living::SetTopStateToFinal 0x5ECA80: SetTopState(FINAL) (the raw +0x8D)
 void SetTopStateToFinal(entt::entity villager);
+/// Villager::SetupWaitForCounter 0x76B060: SetCurrentAndDestinationState(57 WAIT_FOR_COUNTER, final) == 1 and then the
+/// state counter (+0x58, LivingAction::turnsUntilStateChange) = `turns`; 0 when the state change was refused
+uint32_t SetupWaitForCounter(entt::entity villager, uint16_t turns, VillagerStates final);
+/// Living::WaitForCounter 0x5EC310, the state function of 57: one turn off the counter and, at 0, the final state
+uint32_t WaitForCounter(components::LivingAction& action);
 /// Living::SetupMoveToWithHug 0x5F2890 (pos, final): SetCurrentAndDestinationState(GLivingInfo +0x124 moveState =
 /// MOVE_TO_POS, final) first and, only if it returns 1, MobileWallHug::SetupMobileMoveToPos(pos, 0xC) (openblack: the
 /// WallHug goal, a fresh step and a LINEAR move). Returns 1 if the walk was set up, else 0.

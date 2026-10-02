@@ -16,13 +16,13 @@
 #include <array>
 #include <string>
 
-#include <entt/core/hashed_string.hpp>
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
+#include "Audio/BankTables.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
@@ -51,7 +51,6 @@
 #include "Magic/MagicTables.h"
 #include "PSys/PSysManager.h"
 #include "PSys/ParticleTypes.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -455,6 +454,8 @@ int teleport::ApplyVillagerDirectly(entt::entity stone, entt::entity villager)
 	}
 	// SetTopState(FLYING), the interface puts it down at the stone (fn_005DA0C0), SetTopState(LANDED), DecideWhatToDo
 	ecs::villager_teleport::LandAt(villager, MapPositionOf(stone));
+	// GetFinalDestPos (vt 0x884) at 0x5FC549, after DecideWhatToDo. (aproximado) the original's DecideWhatToDo may have
+	// chosen a new walk by then; openblack's only sets the state, so the goal read here is still the one it had
 	RegisterDestination(stone, villager, ecs::villager_teleport::FinalDestination(villager));
 	if (DoTeleport(stone, villager, true) == 1)
 	{
@@ -596,6 +597,12 @@ std::vector<entt::entity> teleport::HandCollisionStones()
 		}
 	});
 	return result;
+}
+
+uint32_t teleport::ReactionOf(entt::entity stone)
+{
+	const auto* component = StoneOf(stone);
+	return component != nullptr ? component->reaction : 0;
 }
 
 entt::entity teleport::SeedOf(entt::entity stone)

@@ -2,8 +2,11 @@ $input v_position, v_texcoord0, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 
+// The same model light as vs_object, for the per-pixel mod below: src/Graphics/ModelLight.h and fn_0084BA90
+#include "model_light.sh"
+
 SAMPLER2D(s_diffuse, 0);
-uniform vec4 u_skyAlphaThreshold; // x: sky type, y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
+uniform vec4 u_skyAlphaThreshold; // x: unused (0), y: alpha cut-out threshold, z: alpha to coverage (MSAA mod), w: blended
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
 uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water),
                                   // x < 0: discard above it (y > 0; DrawCutByPlane with the plane (0, -1, 0, 0))
@@ -73,10 +76,16 @@ void main()
 	vec3 light = v_color0.rgb;
 	if (u_window.y > 0.0f && v_normal.y < 500.0f)
 	{
-		// mod graphics.hd-tweaks: vs_object's vertex light of the original (ambient 90/256 + 166/256 N.L), per pixel on
-		// the smooth normals (a rim of light on the silhouette was tried and looked bad, 2026-09-30)
-		const vec3 lightDirection = vec3(-0.57735027f, 0.57735027f, -0.57735027f);
-		light *= 90.0f / 256.0f + 166.0f / 256.0f * max(0.0f, dot(normalize(v_normal), lightDirection));
+		// mod graphics.hd-tweaks: vs_object's vertex light of the original, with the same functions, light and ambient
+		// (model_light.sh, fn_0084BA90), per pixel on the smooth normals (a rim of light on the silhouette was tried and
+		// looked bad, 2026-09-30). (aproximado) the direction is taken in the world, from the pixel towards the light,
+		// instead of in the mesh's own space from the bone's origin: there is no varying left for the local light. The
+		// two agree only while the light is far away (by day, the sun at 500000); in full night fn_005E5830 puts it 3
+		// units from the hand, and then the pixel -> light and origin -> light directions differ a lot on a nearby
+		// villager (a known night difference of the mod).
+		float factor =
+		    ModelLightFactor(ModelLightI(normalize(v_normal), normalize(u_modelLight.xyz - v_position.xyz), false), u_modelLight.w);
+		light = ModelLightDiffuse(floor(light * 255.0f + 0.5f), factor) / 255.0f;
 	}
 	diffuseTex.rgb = diffuseTex.rgb * light + specular;
 	gl_FragColor = diffuseTex;

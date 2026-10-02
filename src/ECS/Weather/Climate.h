@@ -64,9 +64,13 @@ struct Climate
 	/// +0x84 lightning below 30 degrees too; fn_00771170 zeroes it (0x7712E0), no other writer found (UNVERIFIED)
 	uint8_t lightning {0};
 
-	/// The centre as ComputeWeather reads it (fild x 0.000152588)
+	/// The centre as every reader of it builds its LHPoint: "fild; fmul [0x8AA3A4]" (= 10 / 65536,
+	/// ecs::map_coords::ToMetres) on x and z. ComputeWeather, ProcessAll (0x771DA0) and FindWhereToCreateStorm
+	/// (0x772D3E, 0x772D6F) all do it the same way
 	[[nodiscard]] glm::vec3 Centre() const;
-	/// The centre as ProcessAll and CreateStorm read it: the 10 m cell (the high word x 10)
+	/// The centre as ProcessClimate (fn_00772330) builds it for its two GetDistance 0x74CDE0 calls: the unsigned high
+	/// word alone, times 10 ("xor eax, eax; mov ax, [esi+0x16]; lea eax, [eax+eax*4]; shl eax, 1; fild", and the same
+	/// on +0x1A: 0x7724A6..0x7724DE, and on [ebp+0x16]/[ebp+0x1A]: 0x772510..0x772548), so without the fraction
 	[[nodiscard]] glm::vec3 CellCentre() const;
 };
 

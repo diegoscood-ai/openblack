@@ -40,6 +40,7 @@
 #include "ECS/VillagerSpeed.h"
 #include "Game.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 // Villager.cpp / Living.cpp of runblack.exe W120: the villager's turn and its state changes (VillagerCore.h; the
@@ -164,8 +165,7 @@ uint32_t CurrentTurn()
 	{
 		return *g_TurnForTests;
 	}
-	const auto* game = Game::Instance();
-	return game != nullptr ? game->GetTurn() : 0;
+	return game_clock::Turn();
 }
 
 void SetTurnForTests(std::optional<uint32_t> turn)
@@ -885,6 +885,34 @@ void SetTopStateToFinal(entt::entity villager)
 	SetTopState(villager, GetState(villager, Index::Final));
 }
 
+uint32_t SetupWaitForCounter(entt::entity villager, uint16_t turns, VillagerStates final)
+{
+	// 0x76B06E: SetCurrentAndDestinationState(57 WAIT_FOR_COUNTER, final) (vt +0x8DC); anything but 1 -> 0 with the
+	// counter untouched (0x76B086)
+	if (SetCurrentAndDestinationState(villager, VillagerStates::WaitForCounter, final) != 1)
+	{
+		return 0;
+	}
+	// 0x76B07E: +0x58 = the count (the Object u16 state counter)
+	if (auto* action = Entities().TryGet<LivingAction>(villager); action != nullptr)
+	{
+		action->turnsUntilStateChange = turns;
+	}
+	return 1;
+}
+
+uint32_t WaitForCounter(LivingAction& action)
+{
+	// Living::WaitForCounter 0x5EC310: --+0x58 and, once it is not above 0 (a signed `jg`), SetTopStateToFinal
+	// 0x5ECA80. Always 1
+	--action.turnsUntilStateChange;
+	if (static_cast<int16_t>(action.turnsUntilStateChange) <= 0)
+	{
+		SetTopStateToFinal(Entities().ToEntity(action));
+	}
+	return 1;
+}
+
 uint32_t SetupMoveToWithHug(entt::entity villager, const glm::vec2& goal, VillagerStates final)
 {
 	auto& registry = Entities();
@@ -993,6 +1021,9 @@ bool CheckHungry(entt::entity villager, uint32_t turn)
 		return false;
 	}
 	SetGameTurnLastChecked(villager, turn);
+	// the one half that does not need the hunger states: 0x75BD92..0x75BD9E, a poisoned villager takes the hunger
+	// damage even when it is not hungry (ecs::life::ProcessPoison; the food side comes with V4)
+	ecs::life::ProcessPoison(villager);
 	return false;
 }
 

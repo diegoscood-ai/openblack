@@ -104,6 +104,19 @@ TEST(Teleport, RouteStone)
 	EXPECT_EQ(teleport::FindRouteStone({}, glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), 100.0f), -1);
 }
 
+TEST(Teleport, RouteStoneBothEndsAreLookedForApart)
+{
+	// 0x64D6D5..0x64D71C keeps the two minima apart, so one stone may serve both ends; the stone it gives back is always
+	// the one nearest `from` (0x64D6EF)
+	const std::vector<glm::vec3> one = {glm::vec3(30.0f, 0.0f, 0.0f)};
+	EXPECT_EQ(teleport::FindRouteStone(one, glm::vec3(0.0f), glm::vec3(40.0f, 0.0f, 0.0f), 100.0f), 0); // 30 + 10 < 100
+	// 30 + 70 == 100 is not enough (0x64D72E: strictly less)
+	EXPECT_EQ(teleport::FindRouteStone(one, glm::vec3(0.0f), glm::vec3(100.0f, 0.0f, 0.0f), 100.0f), -1);
+	// the list is the player's (newest first): the nearest to `from` wins even though the other is the nearest to `to`
+	const std::vector<glm::vec3> two = {glm::vec3(60.0f, 0.0f, 0.0f), glm::vec3(10.0f, 0.0f, 0.0f)};
+	EXPECT_EQ(teleport::FindRouteStone(two, glm::vec3(0.0f), glm::vec3(65.0f, 0.0f, 0.0f), 100.0f), 1);
+}
+
 TEST(SurfRevol, Profiles)
 {
 	EXPECT_FLOAT_EQ(surf_revol::Profile(0, 0.5f).x, 0.5f);

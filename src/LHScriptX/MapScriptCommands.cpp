@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "GameClock.h"
 #include "ScriptingBindingUtils.h"
 
 using namespace openblack::lhscriptx;
@@ -76,10 +77,10 @@ void MapScriptCommands::SetTurnsPerYear([[maybe_unused]] int32_t turnsPerYear)
 	                       std::to_string(__LINE__));
 }
 
-void MapScriptCommands::SetGameTickTime([[maybe_unused]] int32_t gameTickTime)
+void MapScriptCommands::SetGameTickTime(int32_t gameTickTime)
 {
-	throw std::logic_error(std::string {} + "Function " + __func__ + " not implemented. " + __FILE__ + ":" +
-	                       std::to_string(__LINE__));
+	// GSetup::MapCommandProcess 0x714DBE: [0xD01A38] = the argument; the scheduler keeps its own 100 (game_clock)
+	openblack::game_clock::SetMsPerTurn(static_cast<uint32_t>(gameTickTime));
 }
 
 void MapScriptCommands::LoadFeatureScript(glm::vec3)

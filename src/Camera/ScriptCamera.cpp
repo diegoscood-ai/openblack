@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
@@ -128,8 +129,12 @@ bool Active()
 
 bool Drives()
 {
+	// Test hooks (not original): OPENBLACK_CAMERA_LOCK / OPENBLACK_CAMERA_FLY hold the camera every turn for the team's
+	// screenshots (Worship/WorshipDebugHooks.cpp), so the script mode leaves it to them
+	static const bool s_testCameraHook =
+	    std::getenv("OPENBLACK_CAMERA_LOCK") != nullptr || std::getenv("OPENBLACK_CAMERA_FLY") != nullptr;
 	const auto& control = help::script_control::GetCameraControl();
-	return Get().scriptMode && !help::script_control::IsFreeStartTask(control, control.owner);
+	return Get().scriptMode && !s_testCameraHook && !help::script_control::IsFreeStartTask(control, control.owner);
 }
 
 void SetPosition(const glm::vec3& position)

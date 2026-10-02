@@ -411,7 +411,8 @@ registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode 
   resto guardado), `src/ECS/SmokyStuff.{h,cpp}` (el mismo módulo que el humo del cadáver de
   [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (la sombra del casco entra en
   `graphics::PhysicsShadows`), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; el
-  reflejo en 0x303070 usa el modo 2 de `vs_object` con el rgb empaquetado cuando z > 1; los sprites, uno a uno en la
+  reflejo en 0x303070 es `Renderer::DrawUnderWater(vista, casco, sea_pass::UnderWater(0xFF303070, 0))`, el modo 2 de
+  `vs_object` con el rgb empaquetado; los sprites, uno a uno en la
   cola común de transparentes, LH3DSprite::AddDrawing 0x840CB3). Diferencias que quedan: la cubierta toma la luz de tierra de su
   propio sitio (no la del casco); la sombra del casco solo cae en tierra (`PhysicsShadows` no se dibuja sobre objetos);
   el modo ≠ 0 de `SmokyStuff::Create` (0x823DA7) no tiene llamadas aquí y no está portado.
@@ -512,7 +513,11 @@ El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [
   mano de noche sobre el agua: [rendering.md](rendering.md#mar-skyraw--skyaraw),
   [Costa](rendering.md#costa), [Ríos](rendering.md#ríos), [Cielo](rendering.md#cielo-sol-luna-y-nubes-original).
 - Reflejos de la mano, los objetos, la criatura y los barcos; los cortes bajo el agua (`DrawCutByPlane`); los bancos
-  de peces de las piscifactorías: [rendering-objects.md](rendering-objects.md#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos),
+  de peces de las piscifactorías. Desde el punto 4 de shaders, todo lo de la zona de agua que se dibuja bajo el mar
+  (`RendererBoat`, `RendererFishPlot`, `RendererCut`, los peces y la luna reflejada) pasa por `graphics::sea_pass`
+  (plano, espejo, cara y luz en un solo sitio):
+  [La pasada bajo el mar](rendering-objects.md#la-pasada-bajo-el-mar-graphicssea_pass),
+  [rendering-objects.md](rendering-objects.md#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos),
   [DrawCutByPlane](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane),
   [bancos de peces](rendering-objects.md#bancos-de-peces-de-las-piscifactorías).
 - Creación de las piscifactorías desde el guion:

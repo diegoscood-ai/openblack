@@ -251,7 +251,8 @@ enum class RainType : uint8_t
 /// interface; Object::DoDeleteObjectAndTakeResource 0x63A9E6, a resource given to a store by the local interface, with
 /// the receiver's point and its GetGuidanceResourceType (vt +0xE0: a StoragePit's is GameThing's 0, silent)):
 /// PlayNow(ResourceDrop), the nearest town within 100 (0x98013C, MapCoords::GetNearestTown 0x6020E0: GameQueries::
-/// townResourceNeeds), GetResourceDropSample 0x71B5F0, then 3D at the point, maxDistance 200 (0x980148)
+/// nearestTownAt), GetResourceDropSample 0x71B5F0 (its values: GameQueries::townResourceNeeds), then 3D at the point,
+/// maxDistance 200 (0x980148)
 void ResourceDropSFX(glm::vec3 point, RainType type);
 /// GetResourceDropSample 0x71B5F0(town, type): the sum of the town's three values for the type >= 0.5 (0x980140) ->
 /// PLEASED_<type>_01 + LocalRand(3); < 0.25 (0x980144) -> DISPLEASED_FOOD for food, PLEASED_<type> for wood and rain

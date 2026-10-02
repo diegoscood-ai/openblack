@@ -28,13 +28,18 @@
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/StreetLantern.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Weather/Atmos.h"
+#include "Enums.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "Video/VideoPlayer.h"
@@ -140,6 +145,77 @@ float CameraAlignment()
 		x = (sky + 1.0f) * 0.5f; // (openblack) an override is on
 	}
 	return ecs::audio_queries::GAudioAlignment(x);
+}
+
+/// GGame::GetCamera()+0x14, the camera's MapCoords (fn_00427460's argument and the point of its GetDistanceInMetres
+/// 0x4274E3 / 0x427519): MapCoords(LHPoint) 0x603160 of the render camera's position (inferido: the same point as
+/// GameQueries::camera's, LH3DTech::g_camera)
+std::optional<ecs::map_coords::MapCoords> CameraMapCoords()
+{
+	if (!Locator::camera::has_value())
+	{
+		return std::nullopt;
+	}
+	return ecs::map_coords::FromWorld(Locator::camera::value().GetOrigin());
+}
+
+/// A town as fn_00427460 reads it: Town +0x5B8 (the Tribe given to CREATE_TOWN, TownArchetype; 0x42753D / 0x42755A) and
+/// GUtils::GetDistanceInMetres 0x74CD70(camera +0x14, town +0x14) (0x4274D9..0x4274EC, 0x427515..0x427522); nullopt
+/// when the entity is no longer a town (GameThing::IsAvailable, vt +0x2C, 0x4274AF)
+std::optional<audio::MusicTown> MusicTownOf(entt::entity town, const ecs::map_coords::MapCoords& camera)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (town == entt::null || !registry.Valid(town) || registry.TryGet<const Town>(town) == nullptr)
+	{
+		return std::nullopt;
+	}
+	audio::MusicTown music;
+	music.id = static_cast<uint32_t>(entt::to_integral(town));
+	const auto* tribe = registry.TryGet<const Tribe>(town);
+	music.tribe = static_cast<int>(tribe != nullptr ? *tribe : Tribe::NONE);
+	music.distance = gutils::GetDistanceInMetres(camera, ecs::object::MapCoordsOf(town));
+	return music;
+}
+
+std::optional<audio::MusicTown> NearestMusicTown(float maxDistance)
+{
+	const auto camera = CameraMapCoords();
+	if (!camera || !Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	// fn_00602160(camera, townTriggerOffDistance) 0x427493: every player and the neutral one, GetDistanceInMetres
+	// (fn_00605CD0) < best (strictly, 0x60219C), only a town with +0x9A4 (0x6021A7). (aproximado) its other test,
+	// fn_00741020 (an IsTownCentre among the abodes +0x754, or an entry of +0x9A8 whose GetComputerSeen is 0xC), is not in
+	// map_cells::GetNearestTownWithCentre: a town without a CREATE_TOWN_CENTRE has no tribe music
+	return MusicTownOf(ecs::map_cells::GetNearestTownWithCentre(*camera, maxDistance), *camera);
+}
+
+std::optional<audio::MusicTown> KeptMusicTown(uint32_t id)
+{
+	const auto camera = CameraMapCoords();
+	if (!camera || !Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	// GAudio+0x18C again: IsAvailable (0x4274AF) and its distance to the camera (0x427515..0x427522)
+	return MusicTownOf(static_cast<entt::entity>(id), *camera);
+}
+
+std::optional<audio::ThingId> NearestTownAt(glm::vec3 point, float maxDistance)
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	// MapCoords::GetNearestTown 0x6020E0(maxDistance) on the MapCoords of ResourceDropSFX 0x71B591 (MapCoords(LHPoint)
+	// 0x603160 of the point): GetDistanceInMetres < best (strictly), every player and the neutral one
+	const auto town = ecs::map_cells::GetNearestTown(ecs::map_coords::FromWorld(point), maxDistance);
+	if (town == entt::null)
+	{
+		return std::nullopt;
+	}
+	return static_cast<audio::ThingId>(entt::to_integral(town));
 }
 
 void RunViewHook(uint32_t turn)
@@ -275,6 +351,14 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	queries.animatedThing = &AnimatedThing;
 	queries.animationClipName = &AnimationClipName;
 	queries.streetLanterns = &StreetLanterns;
+	// fn_00427460's towns (the tribe's music, A9): fn_00602160 0x602160 through ecs::map_cells (milagros2), the tribe
+	// Town +0x5B8 and the distance GUtils::GetDistanceInMetres 0x74CD70 to the camera's MapCoords
+	queries.nearestTown = &NearestMusicTown;
+	queries.town = &KeptMusicTown;
+	// GGuidance::ResourceDropSFX 0x71B570: MapCoords::GetNearestTown 0x6020E0 (map_cells::GetNearestTown). Its three
+	// values (townResourceNeeds: TownDesire +0x90 / +0xD4 / +0x168, Town +0xC4.. +0x108.. +0x19C..) are not in
+	// components::TownDesire yet (TODO(V3)): left unset, so nothing is said (the neutral value)
+	queries.nearestTownAt = &NearestTownAt;
 }
 
 void ecs::audio_queries::RunTestHooks(uint32_t turn)

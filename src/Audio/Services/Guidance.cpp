@@ -792,10 +792,17 @@ void guidance::ResourceDropSFX(glm::vec3 point, RainType type)
 		return;
 	}
 	const auto& queries = Queries();
-	const auto needs = queries.townResourceNeeds ? queries.townResourceNeeds(point, k_ResourceTownDistance) : std::nullopt;
-	if (!needs)
+	// 0x71B585..0x71B591: MapCoords::GetNearestTown 0x6020E0(100, 0x98013C) at the point
+	const auto town = queries.nearestTownAt ? queries.nearestTownAt(point, k_ResourceTownDistance) : std::nullopt;
+	if (!town)
 	{
 		return; // 0x71B598: no town
+	}
+	// GetResourceDropSample 0x71B5F0's reads of the town (openblack: nullopt while they are not ported, silent)
+	const auto needs = queries.townResourceNeeds ? queries.townResourceNeeds(*town) : std::nullopt;
+	if (!needs)
+	{
+		return;
 	}
 	if (type == RainType::None || type > RainType::Rain)
 	{

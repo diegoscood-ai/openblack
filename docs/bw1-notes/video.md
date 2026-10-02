@@ -304,9 +304,8 @@ Diferencias:
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
   estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), y `GAudio+0x1C = −1` (audio no
   tiene cómo; `ProcessMusic` lo repite en el fundido).
-- fn_005C6C40 es `ScreenFade::SnapWideScreen`, llamada desde el gancho `setWideScreen` de `GameHooks()` sólo cuando
-  `Play` enciende las barras; el original la llama siempre (0x54D9E9..0x54D9EF, tras el salto de 0x54D9D2): si el guion
-  ya tenía la pantalla ancha a medio deslizar, openblack la deja seguir deslizándose.
+- fn_005C6C40 es `ScreenFade::SnapWideScreen`, por el gancho `snapWideScreen` de `VideoPlayer::Hooks`, que `Play` llama
+  siempre, como el original (0x54D9EF, tras el salto de 0x54D9D2): también si el guion ya tenía la pantalla ancha.
 - **(inferido)** V3: el alfa de las texturas de 16 bits es 1 (`CreateTexture` flags 0x104; un A1R5G5B5 con el bit 15 a 0
   de Bink no se vería); el filtro bilineal del driver; los píxeles con el centro de bgfx,
   sin el medio píxel de D3D7 (como los demás rectángulos de `ScreenOverlay`).

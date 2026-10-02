@@ -139,6 +139,7 @@ protected:
 			wideScreenCalls.push_back(on);
 			wideScreen = on;
 		};
+		hooks.snapWideScreen = [this]() { ++wideScreenSnaps; };
 		hooks.stopScriptMusic = [this]() { ++musicStops; };
 		hooks.endFallingSpellVideo = [this]() { ++fallingEnds; };
 		hooks.makeDecoder = [this]() { return std::make_unique<ColourDecoder>(decoded); };
@@ -167,6 +168,7 @@ protected:
 	std::vector<bool> pauseCalls;
 	std::vector<int32_t> wideScreenCalls;
 	int musicStops {0};
+	int wideScreenSnaps {0};
 	int fallingEnds {0};
 	std::shared_ptr<std::vector<uint32_t>> decoded = std::make_shared<std::vector<uint32_t>>();
 	std::unique_ptr<VideoPlayer> _player;
@@ -289,6 +291,7 @@ TEST_F(VideoPlayerTest, PlayWhilePausedAndWide)
 	EXPECT_TRUE(_player->PreviousPause());
 	EXPECT_EQ(_player->PreviousWideScreen(), 1);
 	EXPECT_TRUE(wideScreenCalls.empty()); // already on
+	EXPECT_EQ(wideScreenSnaps, 1);       // fn_005C6C40 0x54D9EF even then: the script's bars at 100 % at once
 	RunTo(1000);
 	EXPECT_FALSE(_player->IsPlaying());
 	_player->Process(1); // FinishedVideo

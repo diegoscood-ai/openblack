@@ -20,6 +20,11 @@
 #include "3D/DayNightClock.h"
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
+#include "ECS/GUtilsAngle.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
+#include "GameClock.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -30,6 +35,7 @@
 #include "ModLog.h"
 #include "ModRegistry.h"
 #include "Replacements.h"
+#include "Resources/ResourceManager.h"
 #include "Switches.h"
 
 namespace openblack::mods::api
@@ -224,6 +230,88 @@ bool CastMiracle(std::string_view magic, const glm::vec3& position, float radius
 	const auto spell = magic::script::CastSpellAtPos(position, magicType, from, magic::creator::NeutralPlayer(), true,
 	                                                 radius, duration, 0.0f, glm::vec3(0.0f));
 	return spell != entt::null;
+}
+
+float TurnFraction()
+{
+	return game_clock::TurnFraction();
+}
+
+bool Paused()
+{
+	return game_clock::IsPaused();
+}
+
+float GameSpeed()
+{
+	return game_clock::Speed();
+}
+
+Cell CellAt(float x, float z)
+{
+	const auto cell = ecs::map_coords::CellOf(glm::vec2(x, z));
+	return {cell.x, cell.y, ecs::map_coords::InBounds(cell)};
+}
+
+float Distance(float x1, float z1, float x2, float z2)
+{
+	return gutils::GetDistanceInMetres(glm::vec2(x1, z1), glm::vec2(x2, z2));
+}
+
+int32_t AngleBetween(float x1, float z1, float x2, float z2)
+{
+	return gutils::GetAngleFromXZ(glm::vec2(x1, z1), glm::vec2(x2, z2));
+}
+
+float AngleToRadians(int32_t angle)
+{
+	return gutils::ConvertGameAngleTo3D(angle);
+}
+
+int32_t RadiansToAngle(float radians)
+{
+	return static_cast<int32_t>(gutils::ConvertAngle3DToGame(radians));
+}
+
+std::pair<float, float> PointAtAngle(float x, float z, int32_t angle, float metres)
+{
+	const auto game = static_cast<uint16_t>(angle & gutils::k_GameAngleMask);
+	return {x + gutils::GetXFromAngle(game, metres), z + gutils::GetZFromAngle(game, metres)};
+}
+
+namespace
+{
+std::optional<entt::id_type> MeshResource(std::string_view mesh)
+{
+	for (const auto& [name, index] : Enumeration("meshes"))
+	{
+		if (mesh == name || (mesh.starts_with('#') && mesh.substr(1) == std::to_string(index)))
+		{
+			return resources::HashIdentifier(static_cast<MeshId>(index));
+		}
+	}
+	return std::nullopt;
+}
+} // namespace
+
+std::optional<float> MeshRadius(std::string_view mesh, float scale)
+{
+	const auto id = MeshResource(mesh);
+	if (!id || !ecs::object::MeshHalfExtents(*id))
+	{
+		return std::nullopt;
+	}
+	return ecs::object::MeshRadius2D(*id, scale);
+}
+
+std::optional<float> MeshHeight(std::string_view mesh, float scale)
+{
+	const auto id = MeshResource(mesh);
+	if (!id || !ecs::object::MeshHalfExtents(*id))
+	{
+		return std::nullopt;
+	}
+	return ecs::object::MeshHeight(*id, scale);
 }
 
 } // namespace openblack::mods::api

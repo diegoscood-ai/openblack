@@ -158,8 +158,9 @@ Detalles leídos en el binario:
 openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, sin estado, todo `constexpr`), con la regla del alfa en el
 nombre (`_4`, `_3KeepA`, `_3OpaqueA`), más `Argb`, `Red/Green/Blue/Alpha` y las conversiones de bgfx sin original
 (`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` redondeando y `ToVec4/ToVec3` = byte/255). El gemelo de GPU es
-`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`). Todavía no lo incluye
-ningún shader: `vs_object.sc` y `vs_foliage.sc` siguen con sus copias hasta el reempaquetado de la instancia.
+`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`), que incluyen
+`vs_object.sc` (la columna de colores de la instancia, el color del corte y el color sin luz de `u_objectLight.z`) y
+`vs_foliage.sc` (el color de las cosechas).
 `Lh3dMul255` es floor((c·l + 0,5)/255): la división de un shader no redondea bien (a menudo x·rcp(255)) y un
 floor(x/255) a secas puede dar k − 1 cuando x = 255k; con el + 0,5 la fracción queda en [0,002, 0,998]
 (aproximado hasta probarlo en una GPU). `ScaleShr8_3KeepA` vale para cualquier k: las máscaras van tras cada `imul`
@@ -172,9 +173,59 @@ de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E
 `MulShr8_4` con una emulación instrucción a instrucción de 0x80BFA3..0x80C00B y `Mul255` con las dos formas de
 0x80808081 para todos los productos de dos bytes.
 
-Diferencias que quedan (ver [Pendiente](#pendiente)): los empaquetadores de `RenderingSystem.cpp` (campo, árbol,
-árbol ardiendo, ObjectColour, especular de Living con 7 bits en vez de 8 y sin alfa, átomo PSys sin el especular
-DrawData+0xC) y el tinte T = −1, que no se aplica (el alfa de un campo debería quedar en 254).
+### Los campos de color del objeto en la instancia
+
+**Transporte propio de openblack** (sin original): el motor guarda los colores en el LH3DObject (obj+0x4C difuso,
++0x50 especular, +0x54 ventanas) y los usa la CPU al iluminar; openblack los lleva por instancia a `vs_object`. Cada
+instancia tiene **cinco columnas** (80 bytes, `i_data0..i_data4`): la matriz y una quinta con un float por campo, cada
+uno un entero de como mucho 2^24 que el float guarda exacto. La escriben `lh3d_colour::PackInstance*`
+(`src/Graphics/Lh3dColour.h`) en `RenderContext::instanceColours`, y `RenderingSystemCommon::UploadInstances` intercala
+las dos listas en el búfer.
+
+| Campo | Valor | Qué es |
+|---|---|---|
+| x (+0x4C) | 0 | la luz de tierra sola (`fn_00801C90` sin `fn_0080BF10`) |
+| | −1 − rgb (`PackInstanceTint`) | un tinte t que multiplica la luz de tierra (`(c·t)>>8`): el de `fn_0080BF10`, o el propio de `Tree::Draw` (ver w) |
+| | 1 + rgb (`PackInstanceColour`) | el color de `SetColorSpecular` 0x7F9770 (vt 0x2C), en lugar de la luz de tierra |
+| y (+0x50) | rgb (`PackInstanceSpecular`) | el especular, 8 bits por canal, sumado con saturación al de la tierra (0x80BF1B..0x80BFB9) |
+| z (+0x54) | 0 o 1 + rgb (`PackInstanceWindow`) | el color de las ventanas de `Abode::Draw` (vt 0x30, 0x516068); 0 = apagadas |
+| w | 0 o 1 (`PackInstanceTreeTint`) | 1 = el tinte va después de la neblina: `Tree::Draw` no llama a `fn_0080BF10`, ilumina con `fn_00802120` (0x74AB1B), aplica la neblina (0x74AB60) y luego multiplica el +0x4C (0x74B077..0x74B0C4; ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3) |
+
+Así color y especular van a la vez (antes compartían el w de la cuarta columna y ganaba el último). Quién pasa qué
+(`DrawColoursOf` en `RenderingSystem.cpp`, leído en cada Draw):
+
+| Objeto | Tinte | Especular | Dirección |
+|---|---|---|---|
+| Aldeano | ardiendo: gris de carbonizado; si +0xD0 ≠ 0: blanco 0xFFFFFFFF; envenenado: 0xFFE8FFDD; si no, nada | brillo del fuego / +0xD0 / 0xFF001000 | `fn_0051B3D0` 0x51B402..0x51B488 |
+| Animal | ardiendo: carbonizado; +0xD0 ≠ 0: blanco; si no, nada (no mira el veneno) | brillo / +0xD0 | `Animal::Draw` 0x51C4C6..0x51C51C |
+| Lobo del milagro | siempre blanco (+0x4C = alfa << 24 \| 0xFFFFFF); ardiendo, × carbonizado en los 4 canales | brillo / +0xD0 | 0x51C709..0x51C7E1 |
+| Vasija o pila envenenada sin fuego | 0xFFE8FFDD | 0xFF001000 | `Pot::Draw` 0x51BB8F..0x51BBA3, `PileFood::Draw` 0x51C191..0x51C1B8 |
+| Icono de milagro de un centro (`TownCentreSpellIcon`) | blanco, siempre (con vida del centro > 0) | +0x10C (sin portar: 0) | `TownCentre::Draw` 0x5164A6..0x5164B2 |
+| Icono de milagro de un lugar de culto | blanco solo si +0x10C ≠ 0 (0x519672..0x51967C, 0x5198A8); como +0x10C no está portado, nada | 0 | `SpellIcon::Draw` 0x519650 |
+| Escudo físico | blanco | 0 | `PhysicalShield::DrawShield` 0x72D0D4 |
+| Bola de un uso | blanco (su alfa va en `components::Alpha`) | 0 | 0x519002..0x51901E |
+| Campo | su color; ardiendo, × carbonizado (`MulShr8_4`) | 0 / brillo | `Field::Draw` 0x528809..0x52888A |
+| Árbol | brillo [0xC22FA0]; ardiendo, `TreeDrawColour`; los dos después de la neblina (w = 1) | 0 | `Tree::Draw` 0x74B077..0x74B0C4, `fn_0074B3A0` 0x74B48F..0x74B4D3 |
+| Cualquier otro con fuego (edificios, rocas, árboles muertos, tótems...) | gris de carbonizado `fn_00730570` | brillo `fn_00730480` | `fn_00518050` (11 llamadores) y `DrawBuilding` 0x517FD4 |
+| Bandas de poder | color del jugador (`SetColorSpecular`) | 0x141414 ([0xBE8EA0] = 20) | `DrawSpellGraphic` 0x51A370..0x51A3BE; la de la mano escribe los campos directamente (`PHandFX` Band::Draw +0x4C 0x68D87D / 0x68D8AB, +0x50 0x68D8B1; (inferido) sin `fn_00801C90` detrás) |
+| Átomo de malla PSys | DrawData+8 (tinte con `DrawWithLandscapeColor`, si no `SetColorSpecular`) | 0 (aproximado: falta DrawData+0xC, leído en 0x67A012 y 0x67A023; se pierde en los dos caminos) | `Particle3DObj::DrawAt` 0x67A00C..0x67A02F |
+
+El tinte blanco quita 1 a cada canal (`(c·255)>>8`): antes no se aplicaba. El alfa del tinte no se lleva. El dibujo
+del LH3DObject copia el +0x4C entero a [0xC37D8C] (0x80DEF8; el +0x50 a [0xE9FE2C], 0x80DEFE) para todos los objetos,
+y varias rutinas lo leen (`fn_007A4170` 0x7A6A2C, 0x7A7E85, `fn_00805CD0` 0x805EAA, `fn_00809E50`); que su alfa solo
+cuente en los que se desvanecen es **(inferido)** (no se siguieron esas lecturas hasta el color del vértice). Para
+esos openblack usa `components::Alpha` (aproximado: el escudo debería quedar en 0xFE y el lobo en (A·0xFF)>>8).
+`test_lh3d_colour` comprueba los extremos (−2^24, 2^24, el negro, la ventana negra encendida) y 200 000 colores al azar
+decodificados como en el shader.
+
+**(aproximado)** El especular +0xD0 de los seres vivos: el original mira el dword entero con su alfa (0x51B416 /
+0x51C4D6 `test eax,eax`), y el chakra de curación escribe alfa 0xFF (`fn_006A0E30` 0x6A0EF5), así que sus fotogramas
+con rgb 0 siguen con el tinte blanco; openblack quita `SpecularColour` con rgb 0 (`PSys/Rules/Heal.cpp`) y esos
+fotogramas van con la luz de tierra sola.
+
+**(inferido)** Toda clase de las instancias que puede arder pasa por `fn_00518050` o `DrawBuilding`, o lleva el mismo
+par en línea (el lobo 0x51C751); faltan por portar los pares en línea del FragMesh de la casa (0x5160AF), de
+`Object::DrawOutOfMap` (0x51C839) y del objeto de predicción de la física (0x646F8C) (ver Pendiente).
 
 ## Repetición o recorte de texturas
 
@@ -1066,11 +1117,18 @@ corte 0x96: un poco más finos).
     compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
   - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
 - Aritmética de LH3DColor, lo que falta por pasar a `lh3d_colour`:
-  - con el reempaquetado de la instancia (el especular en otra columna, color y especular a la vez, el tinte
-    T = −1): los empaquetadores de `RenderingSystem.cpp`, el transporte `u_objectLight` (`Renderer.cpp`,
-    `RendererBoat.cpp`), el alfa del lobo (`SpellFlock.cpp`: debería ser (0xFF·a)>>8, con la translucidez decidida
-    aparte con el alfa crudo, 0x51C724), el veneno (0x51BB50 / 0x51BB60), `DrawBuilding` 0x517FD4 y el campo y el
-    lobo ardiendo;
+  - tras el reempaquetado de la instancia: el transporte `u_objectLight` (`Renderer.cpp`, `RendererBoat.cpp`); el
+    alfa del tinte (el lobo, `SpellFlock.cpp`: (0xFF·a)>>8 con la translucidez decidida con el alfa crudo, 0x51C724;
+    el escudo 0xFE); el especular del átomo PSys (DrawData+0xC, leído en 0x67A012 y 0x67A023: falta en `psys::mesh_atoms::Instance` y se pierde en los dos caminos); el
+    especular +0x10C de los iconos (con él, el tinte blanco de los iconos de los lugares de culto, 0x519672); que
+    `DrawBuilding` no aplica la neblina nunca, arda o no (0x517F90..0x518046 no llama a `fn_007FEB30`: Abode 0x516129,
+    MultiMapFixed 0x5180A6, WorshipSite 0x5193E9, SpellIcon 0x519668, Totem 0x51ABC3; el «arreglo 7» de `LandLightOf`);
+    `LandLightOf` da a todos los `SpellIcon` {Cell, sin neblina}, pero los de un centro (`TownCentre::Draw`
+    0x5164B2 → `fn_0080BEC0`) van con la luz bilineal y neblina; los colores pasados en línea sin portar: el objeto de
+    predicción de la física ardiendo (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: blanco + brillo), el FragMesh de la
+    casa dañada (`Abode::Draw` 0x5160A6..0x5160E9, por `fn_007F7960`: +0x10 = 0xFFFFFFFF / +0x14 = 0 sin fuego,
+    carbonizado / brillo ardiendo), `Object::DrawOutOfMap` (0x51C837..0x51C84F) y `CitadelHeart::DrawNow`
+    (0x4670DD..0x4670EE: tinte +0xA4, especular vt 0x5A4); el especular +0xD0 con alfa (ver arriba, `Heal.cpp`);
   - en zonas de otras sesiones: las copias de `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
     0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` y `RendererChain` / `RendererPSys` (`ToAbgr`);
   - `ECS/Fire/FireGraphic.cpp` (dos arreglos exactos): `TreeDrawColour` debe limitar con `ecs::TreeBrightness()`, no

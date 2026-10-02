@@ -89,8 +89,8 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
   `BlendColor` 0x5284C0 (k = 0 da a, 255 da b, `(a(255−k) + b·k)/255` truncado): creciendo, oliva (121,145,25) →
   verde claro (170,212,67) con k = 255·(1 − comida/350); madurando, oliva → blanco con k = 255·(crec − 80)/1120;
   maduro, blanco. Multiplica byte a byte la luz del terreno del objeto, `(c·tinte) >> 8` (fn_0080BF10), antes de la
-  neblina y el N·L: en openblack va en el w de la cuarta columna de la instancia, negativo
-  (`−1 − r·65536 − g·256 − b`; las ventanas usan > 1,5), solo si el mod world.foliage no pone su `MeshTint`. Los
+  neblina y el N·L: en openblack va en la x de la quinta columna de la instancia, negativo
+  (`−1 − r·65536 − g·256 − b`, `lh3d_colour::PackInstanceTint`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)), solo si el mod world.foliage no pone su `MeshTint`. Los
   maduros se mecen: la columna 1 (eje arriba) se cizalla en z world con `1,75 × escala × T0[i]`, `T0 = −0,03·cos(fase)`
   de 16 fases (`Tree::PreDraw` 0x74A7C0: velocidad Random(1, 2) cada 2 s, fase += ms·vel·0,00106061; el ángulo del
   viento es siempre 0), `i` fijo por campo (en el original, bits de su dirección); solo la matriz dibujada.

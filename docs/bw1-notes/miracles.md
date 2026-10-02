@@ -276,8 +276,8 @@ hasta que se cierra**; en openblack es `Modifier::KeepsAlive`), propiedades 0x6B
   `IsAvailableForStateChange`), y el único sitio que lo pone es `GInterface::PlaceObjectInMagicHand` (0x5DA7C1 →
   fn_005DC330 → fn_005DC2A0 → fn_005FAFC0, el `or byte [esi+0x24], 4` de 0x5FB014): **es el aldeano que coge la mano**.
   openblack no tiene esa marca, así que usa el objeto que lleva la mano (`HandSystem::GetHeldObject`) **(aproximado)**.
-- El brillo especular se dibuja en `RenderingSystem` / `vs_object`: `components::SpecularColour` va empaquetado en la w
-  de la cuarta columna de la instancia (3e6 + 7 bits por canal) y se suma al especular de la luz del terreno, como hace
+- El brillo especular se dibuja en `RenderingSystem` / `vs_object`: `components::SpecularColour` va en la y de la quinta
+  columna de la instancia (`lh3d_colour::PackInstanceSpecular`, 8 bits por canal, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)) y se suma al especular de la luz del terreno, como hace
   fn_0080BF10 desde fn_0080BEC0 (`Villager::Draw` fn_0051B3D0, `Animal::Draw` 0x51C4D6).
 
 ### `CreateRuleFusedSphericalExplode` 0x69F610

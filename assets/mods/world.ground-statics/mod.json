@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "world.ground-statics",
+  "name": { "en": "Ground floating static objects", "es": "Bajar al suelo los objetos que flotan" },
+  "version": "1.0.0",
+  "category": "World",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Lowers floating rocks and other static objects onto the landscape (meshes of modded packs float).",
+    "es": "Baja al terreno las rocas y otros objetos estáticos que flotan (las mallas de packs modificados flotan)."
+  },
+  "api": ">=1.0 <2.0",
+  "switches": { "world.ground-statics": true }
+}

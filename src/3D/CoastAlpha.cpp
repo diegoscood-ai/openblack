@@ -16,6 +16,7 @@
 
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
+#include "Graphics/Argb4444.h"
 
 using namespace openblack;
 
@@ -161,7 +162,7 @@ std::vector<uint8_t> coast::BuildIslandCoastAlpha(const LandIslandInterface& isl
 				}
 				const size_t row = static_cast<size_t>(position.y) * texelsPerBlock + static_cast<size_t>(tz);
 				const size_t column = static_cast<size_t>(position.x) * texelsPerBlock + static_cast<size_t>(tx);
-				texels[row * width + column] = static_cast<uint8_t>(nibble * 17);
+				texels[row * width + column] = graphics::argb4444::Expand(nibble);
 			}
 		}
 	}

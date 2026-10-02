@@ -27,6 +27,7 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
@@ -51,8 +52,9 @@ namespace
 constexpr auto k_SiteMesh = entt::hashed_string("temple/B_WORSHIP_l3d");
 /// Citadel::GetWorshipSiteAngle 0x463610: slot x 2 pi / 7 (0x8C836C)
 constexpr float k_SlotAngle = 0.8975979f;
-/// WorshipSite::GetSpellIconPos 0x77B080: the rings (7.5 m apart, 0x8C2C40) up to 30 m (0x8BF51C)
-constexpr float k_IconRingStep = 7.5f;
+/// WorshipSite::GetSpellIconPos 0x77B080: the rings 15 m apart (fadd [0x8C2C40] = 15 at 0x77B100) up to 30 m (fcomp
+/// [0x8BF51C] at 0x77B10A: rings 0, 15, 30)
+constexpr float k_IconRingStep = 15.0f;
 constexpr float k_IconRingMax = 30.0f;
 /// the dance ring (see DancePosition); (inferido): 6 m has no source, the .DAN rings are not ported
 constexpr float k_DanceRadius = 6.0f;
@@ -156,7 +158,9 @@ int FindNearestFreeSlot(const CitadelWorship& citadel, const glm::vec3& citadelP
 }
 
 /// WorshipSite::GetSpellIconPosFromSlot 0x77AFC0: the slot's point pushed `ring` metres outward along the ray from the
-/// site's origin through it (Get3DAngleFromXZ + GetPosFromAngle; the height above the land stays)
+/// site's origin through it. With ring > 0 (`fcomp 0; test ah, 0x41`, 0x77AFEC) the point's altitude is set to 0
+/// (0x77B002) and point += GetPosFromAngle(Get3DAngleFromXZ(site +0x14, point), ring) (0x77B00A..0x77B02F): it ends
+/// on the ground. With ring 0 the special point stays as it is
 std::optional<glm::vec3> IconPositionFromSlot(entt::entity site, int slot, float ring)
 {
 	const auto point = site::GetSpecialPos(site, slot);
@@ -168,21 +172,17 @@ std::optional<glm::vec3> IconPositionFromSlot(entt::entity site, int slot, float
 	if (ring > 0.0f)
 	{
 		const auto& origin = Locator::entitiesRegistry::value().Get<const Transform>(site).position;
-		const float above = position.y - GroundAt(position);
-		const auto away = glm::vec2(position.x - origin.x, position.z - origin.z);
-		const float length = glm::length(away);
-		if (length > 0.0f)
-		{
-			const auto offset = away / length * ring;
-			position.x += offset.x;
-			position.z += offset.y;
-		}
-		position.y = GroundAt(position) + above;
+		auto coords = ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)); // altitude 0
+		const float angle = gutils::Get3DAngleFromXZ(ecs::map_coords::FromMetres(glm::vec2(origin.x, origin.z)), coords);
+		coords += gutils::GetPosFromAngle(angle, ring);
+		const auto xz = ecs::map_coords::ToMetres(coords);
+		position = glm::vec3(xz.x, 0.0f, xz.y);
+		position.y = GroundAt(position); // GetLHPoint: the ground + the altitude 0
 	}
 	return position;
 }
 
-/// WorshipSite::GetSpellIconPos 0x77B080: for the rings 0, 7.5 .. 30, the first slot 10..15 whose candidate is not
+/// WorshipSite::GetSpellIconPos 0x77B080: for the rings 0, 15, 30, the first slot 10..15 whose candidate is not
 /// within 1.0 of an icon of the site (MapCoords::IsCloseToEqual, inf: per axis); slot -1 when there is no room
 glm::vec3 FindIconPosition(entt::entity site, int16_t& slot)
 {

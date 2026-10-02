@@ -23,9 +23,9 @@
 #include <string>
 #include <vector>
 
-#include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/AllMeshes.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
@@ -43,14 +43,18 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -59,6 +63,7 @@
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
 #include "PSys/PSysWaterRings.h"
+#include "PSys/Rules/ExplodeObject.h"
 #include "PSys/Rules/Shield.h"
 
 using namespace openblack;
@@ -79,9 +84,15 @@ constexpr int k_BeamFxTurns = 60;                ///< 0x67EE92: 60 turns
 constexpr int k_SpotVisualSmoke = 23;            ///< SMOKE on dry land (0x67EEDE)
 constexpr int k_SpotVisualSteam = 22;            ///< STEAM on water (0x67EEF3)
 constexpr float k_SmokeScale = 8.0f;             ///< [0x9357E4]: the smoke's magnitude
-constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol(1000 / [0xD01A38] x 4) turns
-constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F: fn_00681260's fourth argument
+constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol(1000 / [0xD01A38] x 4) turns (TicksForSeconds)
+constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F / 0x67E868: fn_00681260's / fn_006812B0's 6.0f (stored, unread)
 constexpr bool k_DestroyByBeam = true;           ///< [0xC029EC] = 1: the objects are destroyed
+constexpr int k_Rocks = 5;                       ///< 0x67E79E: five rocks
+constexpr uint32_t k_RockMesh = 0x237;           ///< 0x67E7BC: MeshPack 0x237 (567, MSH_Z_SPELLROCK01), 0 past the pack
+constexpr float k_RockSpread = 4.0f;             ///< 0x67E7D9 / 0x67E7DE: PSysFloatRand(-4, 4) on x and z
+constexpr float k_RockScale = 1.0f;              ///< [0x9357DC]
+constexpr float k_RockScaleMin = 0.8f;           ///< [0x8C4A04]: PSysFloatRand(0.8 x scale, 1.2 x scale)
+constexpr float k_RockScaleMax = 1.2f;           ///< [0x8C6C98]
 
 /// UR_Explosion::CollectionData (0x58 bytes, ctor fn_0067E140)
 struct CollectionData
@@ -179,28 +190,15 @@ bool IsAvailable(entt::entity object)
 	return object != entt::null && ecs::fire::traits::IsAvailable(object);
 }
 
-/// GUtils::Spiral 0x74D7E0 (the same walk as ECS/Effects/Reactions.cpp): the next step of the square spiral
-struct Spiral
-{
-	int dir {1};
-	int count {1};
-	glm::ivec2 Next()
-	{
-		if (--count == 0)
-		{
-			++dir;
-			count = dir / 2;
-		}
-		static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-		return k_Steps[dir & 3];
-	}
-};
-
-/// The world position of a target (MapCoords +0x14 x/z, GetAltitude + the height above the land +0x1C)
+/// The world position of a target: its MapCoords +0x14 as a point (fild x, z x 10 / 65536, GetAltitude 0x803090 +
+/// the height above the land +0x1C; 0x67E9E1..0x67EA15, 0x67EB8F..0x67EBCF)
 glm::vec3 PositionOf(entt::entity object)
 {
-	const auto* transform = Locator::entitiesRegistry::value().TryGet<const ecs::components::Transform>(object);
-	return transform != nullptr ? transform->position : glm::vec3(0.0f);
+	if (!Locator::entitiesRegistry::value().AllOf<ecs::components::Transform>(object))
+	{
+		return glm::vec3(0.0f);
+	}
+	return ecs::map_coords::ToWorld(ecs::object::MapCoordsOf(object));
 }
 
 /// UR_Explosion (DefineProperties 0x6B0B90, an AtomCreateRule): +0x2C MaxObjectsToDelete, +0x30 MaxObjectsToExplode,
@@ -259,8 +257,9 @@ public:
 			if (!data.beamDone && age > beamDelay && CanCreateSpotVisuals())
 			{
 				// CreateSpotVisualWithSpecifiedDuration(centre, BEAM_EXPLOSION_FX, 1.0, 60 turns, NULL): the column and cones
-				data.beamFx = manager::CreateSpotVisual(k_SpotVisualBeamFx, data.centre, static_cast<float>(k_BeamFxTurns) * 0.1f,
-				                                        entt::null, 1.0f);
+				// (the port's CreateSpotVisual takes seconds: the 60 turns as seconds of a turn)
+				const float beamSeconds = static_cast<float>(k_BeamFxTurns) * game_clock::k_TurnSeconds;
+				data.beamFx = manager::CreateSpotVisual(k_SpotVisualBeamFx, data.centre, beamSeconds, entt::null, 1.0f);
 				data.beamDone = true;
 			}
 			if (!data.smokeDone && age > smokeDelay && CanCreateSpotVisuals())
@@ -268,7 +267,11 @@ public:
 				data.smokeDone = true;
 				// MapCoords::IsDryLand 0x603620: smoke, else steam; magnitude 8 for 4 s
 				const int visual = ecs::pot_resource::IsDryLand(data.centre) ? k_SpotVisualSmoke : k_SpotVisualSteam;
-				manager::CreateSpotVisual(visual, data.centre, k_SmokeSeconds, entt::null, k_SmokeScale);
+				// 0x67EEF8..0x67EF1D: ftol(1000 / [0xD01A38] x 4) turns = TicksForSeconds(4) (as seconds of a turn for the
+				// port's CreateSpotVisual)
+				const auto smokeTurns = game_clock::TicksForSeconds(k_SmokeSeconds);
+				const float smokeSeconds = static_cast<float>(smokeTurns) * game_clock::k_TurnSeconds;
+				manager::CreateSpotVisual(visual, data.centre, smokeSeconds, entt::null, k_SmokeScale);
 			}
 		}
 		else
@@ -354,27 +357,31 @@ private:
 			}
 		}
 		// the targets: every available object of the ceil((r + 20) / 10)^2 cells of the spiral around the centre that is
-		// counted in that cell (fn_00604F40: its own cell) and nearer than its Get2DRadius + r in x/z
-		// (GUtils::GetDistanceInMetres 0x74CD70, a hypotenuse of dx, dz); r = MaxDistance x the tribal power (1..5)
+		// counted in that cell (fn_00604F40: its own cell) and nearer than its Get2DRadius (vt +0x64, 0x67E6CD) + r
+		// (GUtils::GetDistanceInMetres 0x74CD70 from the centre's MapCoords, 0x67E6E1); r = MaxDistance x the tribal power
+		// (1..5)
 		float r = maxDistance;
 		if (hasSpell)
 		{
 			r *= std::clamp(magic::GetTribalPower(spell), k_TribalPowerMin, k_TribalPowerMax);
 		}
-		const int side = static_cast<int>(std::ceil((r + k_SearchExtra) / k_CellMetres));
+		const int side = ecs::map_coords::FtoL(std::ceil((r + k_SearchExtra) / k_CellMetres));
 		const int cells = side * side;
-		const unsigned int turn = magic::CurrentTurn();
+		const unsigned int turn = game_clock::Turn(); // g_game +0x205A40 (0x67E702)
 		if (Locator::entitiesMap::has_value())
 		{
 			const auto& map = Locator::entitiesMap::value();
 			const auto& registry = Locator::entitiesRegistry::value();
-			glm::ivec2 cell = glm::ivec2(ecs::MapInterface::GetGridCell(glm::vec2(data.centre.x, data.centre.z)));
-			Spiral spiral;
+			// the centre's MapCoords (ToFixed of x and z, 0x67E56A..0x67E598) and its copy walked by GUtils::Spiral 0x74D7E0
+			// from dir = count = 1 (0x67E627..0x67E634), MapCoords::InBounds 0x6042C0 on each cell, += JustMapXZ 0x605470
+			const auto centre = ecs::map_coords::FromMetres(glm::vec2(data.centre.x, data.centre.z));
+			auto cell = centre;
+			ecs::map_coords::Spiral spiral;
 			for (int n = 0; n < cells; ++n)
 			{
-				if (cell.x >= 0 && cell.y >= 0 && cell.x < ecs::MapInterface::k_GridSize.x && cell.y < ecs::MapInterface::k_GridSize.y)
+				if (ecs::map_coords::InBounds(cell))
 				{
-					const ecs::MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
+					const ecs::MapInterface::CellId id(ecs::map_coords::CellX(cell), ecs::map_coords::CellZ(cell));
 					for (const auto* list : {&map.GetMobileInGridCell(id), &map.GetFixedInGridCell(id)})
 					{
 						for (const auto object : *list)
@@ -383,13 +390,13 @@ private:
 							{
 								continue;
 							}
-							const auto p = PositionOf(object);
-							if (ecs::MapInterface::GetGridCell(glm::vec2(p.x, p.z)) != id)
+							const auto own = ecs::object::MapCoordsOf(object);
+							if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
 							{
 								continue;
 							}
-							const float d = glm::length(glm::vec2(p.x - data.centre.x, p.z - data.centre.z));
-							if (d < ecs::fire::traits::Radius(object) + r)
+							const float reach = ecs::object::Get2DRadius(object) + r;
+							if (gutils::GetDistanceInMetres(centre, own) < reach)
 							{
 								data.targets.push_back({turn, object});
 								data.anyTarget = true;
@@ -397,32 +404,49 @@ private:
 						}
 					}
 				}
-				cell += spiral.Next();
+				ecs::map_coords::AddCells(cell, spiral.Next());
 			}
 		}
 		data.spread = 0.0f;
-		// (no portado) 0x67E79E..0x67E88E: five times LH3DObject::Create(0) with MeshPack 0x237 (567, MSH_Z_SPELLROCK01),
-		// SetPosition(centre + (rand(-4, 4), 0, rand(-4, 4)) (the z rand first), PSysFloatRand(2 pi), rand(0.8, 1.2) x
-		// [0x9357DC] = 1), fn_006812B0(it, its matrix, centre - 5 m (fn_0067E8C0), BlastSpeed, 6, 0) and the object deleted:
-		// only its pieces exist. fn_006812B0 queues {mesh, matrix, origin, speed, 6} in 0xD4E320 (0xD4E308 with the last
-		// argument != 0), emptied every step by UR_ExplodeObject::ModifyAtomCollection 0x6814E0 of the always-on
-		// EXPLODE_OBJECT effect (PSysUtilityPSys, PSysGlobal::InitializeOneTimeOnly 0x68F750; SF_ExplodeObject.txt) with
-		// ExplodeMesh 0x6807B0: per LOD 0 primitive, pieces of joined triangles, one atom each (RenderParticleGJMesh,
-		// DrawAt 0x67C150 through Draw3DWorldTriangle), at their centroid, flying away from the origin at the speed plus
-		// PSysRandR3 x RandomFactor / 2; the file's gravity, tumble, fade (0..3 s) and shrink (1..5 s), gone at 6 s
+		// 0x67E79E..0x67E88E: five times LH3DObject::Create(0) with MeshPack 0x237 (vt 0xF4 SetMesh), SetPosition (vt 0x20
+		// = 0x423140) at centre + (rand(-4, 4), 0, rand(-4, 4)) (the z rand first, 0x67E7E3 / 0x67E7F6), turned
+		// PSysFloatRand(2 pi) (0x67E847) about Y and scaled PSysFloatRand(0.8, 1.2) (0x67E837, drawn before the angle),
+		// fn_006812B0(it, its matrix +0x14, centre - 5 m (fn_0067E8C0), BlastSpeed, 6.0, 0) and the object deleted (vt 4):
+		// only its pieces exist. The queue is emptied by UR_ExplodeObject (Rules/ExplodeObject.cpp) in this turn's
+		// PSysGlobal::GameLoopEnd
+		{
+			const uint32_t rockMesh = k_RockMesh < static_cast<uint32_t>(MeshId::_COUNT) ? k_RockMesh : 0;
+			const auto rock = explode_object::PackMesh(rockMesh);
+			for (int i = 0; i < k_Rocks; ++i)
+			{
+				const float dz = -k_RockSpread + effect.Random(2.0f * k_RockSpread);
+				const float dx = -k_RockSpread + effect.Random(2.0f * k_RockSpread);
+				const glm::vec3 position(data.centre.x + dx, data.centre.y, data.centre.z + dz);
+				const float scale =
+				    k_RockScale * k_RockScaleMin + effect.Random(k_RockScale * k_RockScaleMax - k_RockScale * k_RockScaleMin);
+				const float angle = effect.Random(6.28318548f); // 0x40C90FDB
+				// SetPosition 0x423140: rows X = (cos, 0, sin) s, Y = (0, s, 0), Z = (-sin, 0, cos) s, the LHMatrix rows
+				// being the axes here
+				const float c = std::cos(angle);
+				const float s = std::sin(angle);
+				const glm::mat3 axes(glm::vec3(c, 0.0f, s) * scale, glm::vec3(0.0f, scale, 0.0f), glm::vec3(-s, 0.0f, c) * scale);
+				explode_object::QueueMesh(rock, axes, position, explosion::BlastOrigin(data.centre), blastSpeed, k_ExplodeSpread);
+			}
+		}
 		if (Trace())
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"),
 			                   "Explosion: started at ({:.1f}, {:.1f}, {:.1f}), margin {:.1f}, search r {:.1f} ({} cells), {} "
-			                   "targets; the five rock pieces (ExplodeMesh 0x6807B0) are not ported",
-			                   data.centre.x, data.centre.y, data.centre.z, margin, r, cells, data.targets.size());
+			                   "targets, {} rocks queued",
+			                   data.centre.x, data.centre.y, data.centre.z, margin, r, cells, data.targets.size(),
+			                   explode_object::QueuedCount());
 			for (const auto& target : data.targets)
 			{
 				const auto p = PositionOf(target.object);
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Explosion:   target {} at ({:.1f}, {:.1f}) d {:.1f} radius {:.1f}{}{}{}",
 				                   static_cast<uint32_t>(target.object), p.x, p.z,
-				                   glm::length(glm::vec2(p.x - data.centre.x, p.z - data.centre.z)),
-				                   ecs::fire::traits::Radius(target.object),
+				                   gutils::GetDistanceInMetres(glm::vec2(data.centre.x, data.centre.z), glm::vec2(p.x, p.z)),
+				                   ecs::object::Get2DRadius(target.object),
 				                   Locator::entitiesRegistry::value().AllOf<ecs::components::Tree>(target.object) ? " tree" : "",
 				                   Locator::entitiesRegistry::value().AllOf<ecs::components::Villager>(target.object) ? " villager" : "",
 				                   Locator::entitiesRegistry::value().AnyOf<ecs::components::Abode, ecs::components::StoragePit>(target.object)
@@ -447,7 +471,7 @@ private:
 		{
 			data.beamFx = entt::null;
 		}
-		const unsigned int turn = magic::CurrentTurn();
+		const unsigned int turn = game_clock::Turn(); // g_game +0x205A40 (0x67E95F, 0x67EB39, 0x67EB76)
 		data.anyTarget = false;
 		for (auto& target : data.targets)
 		{
@@ -500,9 +524,10 @@ private:
 			}
 			glm::vec3 p = PositionOf(target.object);
 			const glm::vec3 d = p - data.centre;
-			// reached by the ring: |p - centre|^2 <= (GetRadius (vt 0x60) + spread)^2, in 3D
-			const float reach = ecs::fire::traits::Radius(target.object) + data.spread;
-			if (reach * reach < glm::dot(d, d))
+			// reached by the ring: |p - centre|^2 <= (GetRadius (vt 0x60) + spread)^2, in 3D: (dz dz + dy dy) + dx dx
+			// (0x67EA1C..0x67EA41) against (R + spread) x (R + spread) (0x67EA4B..0x67EA60)
+			const float reach = ecs::object::GetRadius(target.object) + data.spread;
+			if (reach * reach < (d.z * d.z + d.y * d.y) + d.x * d.x)
 			{
 				continue;
 			}
@@ -544,10 +569,10 @@ private:
 				    data.exploded < maxObjectsToExplode)
 				{
 					++data.exploded;
-					// (no portado) fn_00681260(object, centre - 5 m, BlastSpeed, 6, 0) 0x67EC86: GetWorldMatrix (vt 0x63C)
-					// and the object's 3D mesh (+0x40) into the 0xD4E320 queue (fn_006812B0), thrown to pieces by the
-					// EXPLODE_OBJECT effect (see the five rocks in InitCollection)
-					static_cast<void>(k_ExplodeSpread);
+					// fn_00681260(object, centre - 5 m (fn_0067E8C0), BlastSpeed, 6.0, 0) 0x67EC86: GetWorldMatrix (vt
+					// 0x63C) and the object's 3D mesh (+0x40) into the 0xD4E320 queue (fn_006812B0), thrown to pieces by
+					// the EXPLODE_OBJECT effect (Rules/ExplodeObject.cpp)
+					explode_object::QueueObject(target.object, explosion::BlastOrigin(data.centre), blastSpeed, k_ExplodeSpread);
 				}
 				if (target.object != entt::null && data.deleted < maxObjectsToDelete)
 				{
@@ -745,4 +770,5 @@ void openblack::psys::RegisterExplosionRules()
 	RegisterModifier("SetPSysCloseDown", MakeModifierOf<SetPSysCloseDown>);
 	RegisterModifier("UR_ChangeScaleXYZ", MakeModifierOf<ChangeScaleXYZ>);
 	RegisterModifier("UR_MoveAtom", MakeModifierOf<MoveAtom>);
+	explode_object::RegisterRules(); // UR_ExplodeObject, UR_ExplodeObject2 (SF_ExplodeObject)
 }

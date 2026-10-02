@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "id": "world.crops",
+  "name": { "en": "Crops without farmers", "es": "Cultivos sin granjeros" },
+  "version": "1.0.0",
+  "category": "World",
+  "authors": ["openblack"],
+  "description": {
+    "en": "In the original the town's farmers sow every crop of a field and harvest it; openblack has no villager jobs yet, so its fields stay empty forever. This sows them (at the start they are ripe, as a land starts) and sows them again once harvested, and can make them grow faster.",
+    "es": "En el original los granjeros del pueblo siembran y cosechan cada campo; openblack aún no tiene oficios, así que sus campos se quedan vacíos. Esto los siembra (al empezar están maduros, como al empezar una tierra), los vuelve a sembrar al cosecharlos y puede hacerlos crecer más rápido."
+  },
+  "api": ">=1.0 <2.0",
+  "switches": { "world.crops.without-farmers": true },
+  "options": [
+    {
+      "id": "speed", "type": "slider", "label": { "en": "Growth speed", "es": "Velocidad de crecimiento" },
+      "values": ["x1", "x2", "x5", "x10", "x20", "x50", "x100"], "default": "x1",
+      "bind": "world.crops.growth"
+    }
+  ]
+}

@@ -35,6 +35,7 @@
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
@@ -142,7 +143,8 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	}
 	// GetDefaultFireCentrePos: the object's position (Object 0x639AA0)
 	const float radius = pot_resource::Get2DRadius(object) * pot_resource::RadiusMultiplierForApplyingPotToPos(object);
-	const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(transform->position.x, transform->position.z));
+	// IsCloseToEqual 0x6053C0 (0x66F375): fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70, `test ah, 0x41; je`
+	const float distance = gutils::GetDistanceInMetres(position, transform->position);
 	if (!(distance <= radius))
 	{
 		return 0;

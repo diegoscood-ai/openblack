@@ -35,8 +35,11 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/Weather/Weather.h"
@@ -186,11 +189,11 @@ bool NoAbodeCovers(const glm::vec3& position)
 			continue;
 		}
 		const auto centre = ecs::fire::traits::FireCentre(object); // vt 0x5F0
-		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(centre.x, centre.z));
-		// vt 0x64: Field::Get2DRadius 0x528E80 is the constant 5 m ([0x8AB6E4]); every other class here keeps
-		// Object::Get2DRadius 0x638180 (only Field overrides the slot: checked on the Object, Abode, Field, Tree and
-		// Pot vtables)
-		const float radius = registry.AllOf<Field>(object) ? 5.0f : ecs::effects::Object2DRadius(object);
+		// GUtils::GetDistanceInMetres 0x74CD70 of the point and that centre (0x5FAE30)
+		const float distance = gutils::GetDistanceInMetres(position, centre);
+		// vt 0x64 (0x5FAE40): Field::Get2DRadius 0x528E80 is the constant 5 m ([0x8AB6E4]); every other class here keeps
+		// Object::Get2DRadius 0x638180 (ecs::object::Get2DRadius)
+		const float radius = ecs::object::Get2DRadius(object);
 		// fcomp; test ah, 0x41; je -> radius > distance: no
 		if (radius > distance)
 		{
@@ -259,7 +262,8 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 	if (tree != entt::null)
 	{
 		const auto& castPos = registry.Get<const Spell>(entity).originalCastPos;
-		const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(castPos.x, castPos.z));
+		// fn_007255C0: GUtils::GetDistanceInMetres 0x74CD70 of the tree's MapCoords and the cast one (+0xC0, 0x7255CF)
+		const float distance = gutils::GetDistanceInMetres(position, castPos);
 		registry.Get<Tree>(tree).maxSize = spell_forest::TargetScale(distance); // +0x64
 	}
 	return tree;
@@ -424,10 +428,9 @@ glm::vec2 spell_forest::SpiralOffset(int i, int n)
 
 glm::vec2 spell_forest::ToMapCoords(glm::vec2 point)
 {
-	// fmul by the float 6553.6 in the FPU, __ftol truncates; GetLHPoint: fild x the float 10 / 65536 (0x8AA3A4)
-	const auto x = static_cast<int32_t>(static_cast<double>(point.x) * static_cast<double>(6553.6f));
-	const auto z = static_cast<int32_t>(static_cast<double>(point.y) * static_cast<double>(6553.6f));
-	return {static_cast<float>(x * (10.0 / 65536.0)), static_cast<float>(z * (10.0 / 65536.0))};
+	// 0x725943..0x72595C: fmul [0x8AC400] (6553.6, at 24 bits); __ftol (map_coords::ToFixed); GetLHPoint: fild x the float
+	// 10 / 65536 [0x8AA3A4] (map_coords::ToMetres)
+	return ecs::map_coords::ToMetres(ecs::map_coords::FromMetres(point));
 }
 
 float spell_forest::TargetScale(float distance)

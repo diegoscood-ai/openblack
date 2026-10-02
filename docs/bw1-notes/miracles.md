@@ -104,17 +104,15 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   0x5B3FD4 (vt 0x1C) pone la
   posición requerida de la mano en el punto donde empezó, y suma la altura (vt 0x18). `Spell::CoreCloseDown` 0x720160 la
   para.
-  - **El sentido del giro de la inclinación (verificado; openblack lo tiene al revés).** El ángulo viene del fichero y es
-    **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal cual
-    (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
+  - **El sentido del giro de la inclinación (verificado; fiel desde la sesión asistente).** El ángulo viene del fichero y
+    es **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal
+    cual (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
     mano → cámara normalizado (`LH3DTech::g_camera` menos la posición, 0x5B6E1B..0x5B6ECE), llama a fn_007FB180(matriz,
     eje, ángulo) y transforma el vector (0, 1, 0). fn_007FB180 escribe la matriz de Rodrigues **estándar** por filas
     (0x7FB1F7 `[ecx]` = x² + (1 − x²)c, 0x7FB207 `[ecx+0xC]` = xy(1 − c) + zs, 0x7FB21C `[ecx+0x18]` =
     xz(1 − c) − ys, …), pero el transporte de 0x5B6EE8 es por **vector fila**: out.x = R00·v.x + R10·v.y + R20·v.z + t.x,
-    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. openblack hace
-    `glm::mat3(glm::rotate(mat4(1), tilt, eje)) * up`, que es R(+tilt)·up: **la mano se vuelca al lado contrario**. El
-    arreglo es un signo (`-tilt`, o transponer) en `HandPlacement.cpp`; no se toca aquí porque ese fichero es de la lane
-    de la mano (la tarea de «bosque2» pedía solo verificarlo).
+    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. Por eso `HandPlacement.cpp` gira con `-tilt`
+    (`glm::rotate(mat4(1), -tilt, eje)`).
   - **Con ClampHand la mano no se mueve mientras cae el grano**, así que todos los granos caen en el mismo punto y
     hacen una sola pila que crece (el plan esperaba una línea de 20 m: no la hay con `ClampHand 1`, y el agua, que
     tiene `ClampHand 0`, sí sigue a la mano). El punto es el que tenía la mano al empezar el chorro, y el bucle no
@@ -278,8 +276,8 @@ hasta que se cierra**; en openblack es `Modifier::KeepsAlive`), propiedades 0x6B
   `IsAvailableForStateChange`), y el único sitio que lo pone es `GInterface::PlaceObjectInMagicHand` (0x5DA7C1 →
   fn_005DC330 → fn_005DC2A0 → fn_005FAFC0, el `or byte [esi+0x24], 4` de 0x5FB014): **es el aldeano que coge la mano**.
   openblack no tiene esa marca, así que usa el objeto que lleva la mano (`HandSystem::GetHeldObject`) **(aproximado)**.
-- El brillo especular se dibuja en `RenderingSystem` / `vs_object`: `components::SpecularColour` va empaquetado en la w
-  de la cuarta columna de la instancia (3e6 + 7 bits por canal) y se suma al especular de la luz del terreno, como hace
+- El brillo especular se dibuja en `RenderingSystem` / `vs_object`: `components::SpecularColour` va en la y de la quinta
+  columna de la instancia (`lh3d_colour::PackInstanceSpecular`, 8 bits por canal, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)) y se suma al especular de la luz del terreno, como hace
   fn_0080BF10 desde fn_0080BEC0 (`Villager::Draw` fn_0051B3D0, `Animal::Draw` 0x51C4D6).
 
 ### `CreateRuleFusedSphericalExplode` 0x69F610
@@ -569,16 +567,16 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   (aplazado).
 - **Las mariposas y los murciélagos sí están** (esto corrige la línea vieja de «sin portar»): `UR_ForestPath` y
   `ParticleGoodEvilCreator` en `PSys/Rules/Forest.cpp`, `UR_Flocking` en `PSys/Rules/Flock.cpp` y `ParticleAnimCreator`
-  en `PSys/Creators/Mesh.cpp`. Lo que falta es **el aleteo**: `ParticleAnimCreator_Butterfly` /
-  `ParticleAnimCreator_Bats` (SF_Forest.txt líneas 726 y 756) traen `AnimFileName`
-  `.\Data\SPELLS\Anims\S_Butterfly_Flap.anm` / `M_Bat_Flap.anm` con `PlayAnim 1`, `LoopAnim 1`,
-  `RandomiseInitFrame 1`, `SpeedUpFactor 1`, `InitialScale 4` y mallas `S_Butterfly.l3d` / la del murciélago, y
-  openblack las dibuja como malla quieta en su pose de reposo (se ve en `polish_fix_bosque2_forest_dry.png`).
-  **(pendiente, no es un puerto pequeño):** `Particle3DAnim::DrawAt` 0x67A8E0 necesita animación por partícula
-  (`GetCycleTimeFromFrame` 0x6C85F0 → vt 0x188, el fotograma inicial al azar, el fundido a `MeshFileName1/2` entre
-  `FrameToStartBlend` y `FrameToEndBlend` por la vt 0xDC), y la tubería de mallas del PSys de openblack
-  (`psys::mesh_atoms::Instance`, `RenderingSystem.cpp`) solo dibuja instancias estáticas: no hay huesos ni estado de
-  animación por partícula.
+  en `PSys/Creators/Mesh.cpp`. **Y aletean (U7):** `ParticleAnimCreator_Butterfly` / `ParticleAnimCreator_Bats`
+  (SF_Forest.txt líneas 726 y 756) traen `AnimFileName` `.\Data\SPELLS\Anims\S_Butterfly_Flap.anm` /
+  `M_Bat_Flap.anm` con `PlayAnim 1`, `LoopAnim 1`, `RandomiseInitFrame 1`, `SpeedUpFactor 1`, `InitialScale 4` / 1 y
+  las mallas `S_Butterfly.l3d` / `MSH_A_BAT_1`. Cada átomo toca el clip (un ciclo cada 366 ms la mariposa y cada
+  800 ms el murciélago) desde un fotograma al azar, con sus huesos (`Particle3DAnim::DrawAt` 0x67A8E0,
+  `GetCycleTimeFromFrame` 0x6C85F0). Detalle y lo que queda en
+  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
+  Antes de U7 se dibujaban como malla quieta en su pose de reposo (`polish_fix_bosque2_forest_dry.png`). Capturas del
+  aleteo en `dev\_audit\sistemas\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
+  de caer la semilla) y `close_t80/_t81/_t110.png` (cámara `1782,40,2612,1790,36,2625`, entre los árboles).
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
   Con `OPENBLACK_SPELL_TRACE=1` cada turno escribe `SpellForest trees <n> wanted <N>: grow|decay <suma>` y el evento
@@ -807,6 +805,18 @@ El fuego que encienden (el modelo de calor, `src/ECS/Fire`, sus aldeanos y sus n
   tamaño), `CreateWithInitialDirection` 0x69E950, `AttatchFireBallToAtom` 0x682FD0, `EventAlways`,
   `SetAtomHasBeenDeflected` 0x6A26C0, `UR_SideSpin`, `AR_FadeAlphaWithHeightAboveLandscape`, `AddSubCollectionsToAtom`,
   `UR_Trail`, y las condiciones de desviación, de agua cercana y de vapor.
+  - `CreateWithInitialDirection` 0x69E950, lanzamiento no humano (guion, ordenador, criatura): la nueva solución a 30°
+    se aplica si `|v|² > 0,01` (`fcomp qword [0x8C7620]`, el double 0,01, en 0x69EC60) y `v.y / sqrt(vx² + vz²) >
+    tan(0,52370351552963257)` (double [0x9375F0], `fptan` 0x69EC77), todo en la FPU. El port comparaba con 89129 (los 4
+    bytes bajos del double leídos como float, fallo del desensamblador ya corregido), así que casi nunca la aplicaba
+    (corregido 2026-10-02, `Fireball.cpp`). El tiempo nuevo (0x69EC92..0x69ECC1) es `sqrt((Δy − D·tan)·(−2/g))`, con el radicando a 0,1 si sale negativo (Δ [esp+0x64] 0x69EB1B, D [esp+0x38] 0x69EB3F; releído en la auditoría de fuego2).
+- **Revisión de las constantes double** (2026-10-02; todas las direcciones de .rdata citadas en `src/Magic`, `src/PSys`,
+  `src/ECS/Fire`, `src/ECS/Weather`, `src/ECS/Effects` y `src/Worship` que el exe lee con `qword ptr`): mal solo
+  [0x8C7620] (arriba) y, en el límite, [0x900C70] de `MapShield` (0,30000001192092896 = 0,3f ensanchado, no 0,3). Bien:
+  [0x8C79D8] (1e-4f ensanchado: gestos, `PSys/Utility.cpp`), [0x8D45D8] (2π float ensanchado: MapShield, Forest, Storm,
+  SpellSeedGraphic), [0x9361E8] (−π/2 float), [0x9003C0] (0,99e30), [0x900AE8] (1,1), [0x980518] (1/30), [0x8AB260]
+  (0,5), [0x8CF7D8] / [0x9375E8] (0,6 / 0,3 del tamaño del sonido; `Audio/SpellSounds.cpp` los compara en float, lo que
+  solo difiere con una fracción exactamente 0,6f o 0,3f). Lista completa en `tmp_dis\miracles\polish\fuego2_fix.md`.
 
 ### Rayo (MAGIC_TYPE 4-6, semilla 6 LIGHTNING_BOLT; `PSys/Rules/Lightning.cpp`)
 
@@ -832,9 +842,14 @@ las bolas de fuego, para que nada quede colgando).
   `ParticleChainCreator`. A cada horquilla le quita la interpolación (`and byte [edi+0x38], 0xFD` en 0x6912A1; también
   0x691B42 y 0x692B1D): **fiel** (`Collection::flags`, bit 2; por defecto 3 en el ctor 0x675CA2). fn_00679920 solo
   interpola entre los dos últimos pasos con ese bit (0x67999E); sin él dibuja el PSR actual, así que el rayo cambia de
-  forma de golpe en cada paso (10 Hz), como el original. Con `CastingFromHand` cada átomo recibe un `DrawOffsetLT`
-  (0x69131C): **pendiente**, ver abajo. Al rebuscar objetivos (fn_00691390) la estructura **no** se rehace: si hay más
-  objetivos que horquillas, la recursión se para (0x692786).
+  forma de golpe en cada paso (10 Hz), como el original. Con `CastingFromHand` y la mano propia (fn_00691B80) cada
+  articulación de cada horquilla recibe un `DrawOffsetLT` (0x69130C..0x69134C): **fiel**, ver abajo. Al rebuscar
+  objetivos (fn_00691390) la estructura **no** se rehace: si hay más objetivos que horquillas, la recursión se para
+  (0x692786).
+- **Orden de cada paso** (`ActualModify` 0x6914C0, fiel): origen y rumbo; la primera vez, búsqueda y estructura; el
+  choque con otro rayo (fn_006916B0, 0x6915E5); rebuscar (fn_00691390, 0x6915EE); el sonido; **todas** las horquillas
+  se sueltan de la raíz en **cada** paso, esté o no el gestor en estado 2 (0x691651..0x691681; el port decía que fuera
+  del estado 2 se quedaban como estaban: era un error, ahora no se dibujan); y solo en estado 2 `UpdateForkStructure`.
 - **Cada paso** (`UpdateForkStructure` 0x691BB0):
   - la escala de las horquillas es `ForkScale · FP_ForkScale` (+0xAC);
   - el campo +0x18 de cada objetivo («enfriamiento») baja de uno en uno (0x691C26..0x691C31). Se escribe al buscar
@@ -842,12 +857,38 @@ las bolas de fuego, para que nada quede colgando).
     objetivo**. Es solo un dato. El port lo usaba como filtro y eso era la causa principal del «va a saltos»
     (corregido);
   - sin choque con otro rayo elige cada objetivo activo con probabilidad `min(+0x68, (N+1)/2) / N` hasta llegar a ese
-    número (0x691C5B..0x691CF3). Si el rayo está enlazado con otro (data +0x20 / +0x24, el choque de
-    fn_006916B0 / fn_00691AD0) elige **uno** con una rotación aleatoria (0x691CF5..): no portado;
+    número (0x691C5B..0x691CF3). Si el rayo está enlazado con otro (data +0x20 o +0x24, el choque de
+    fn_006916B0 / fn_00691AD0) elige **uno**: el primero activo desde `PSysRand(N)` (0x691CF5..0x691D56), **fiel**;
+  - antes de la recursión, `PSysRand(2 · horquillas)` elige la colección de +0xA4 (0x691D98..0x691DC3), que nadie usa:
+    el port solo hace la tirada;
   - si no se elige ninguno, ese paso no hay horquillas (0x691D59..0x691D6E);
   - rebusca (fn_00691390) cuando `RenewSearchEvery > 0` y la edad desde la última búsqueda (+0x5C, puesta a 0 en
     0x690F66) la supera, o con `RenewTargetsOnMove` si el origen se ha movido más de `RenewTargetsOnMoveFrac · R` desde
-    +0x3C. fn_006916B0 no es «rebuscar»: es el choque de dos rayos (lista 0xD4EC60), **no portado**.
+    +0x3C. fn_006916B0 no es «rebuscar»: es el choque de dos rayos (lista 0xD4EC60), ver abajo.
+- **Choque de dos rayos** (fn_006916B0 / fn_00691AD0, **fiel** salvo el brillo, ver el final):
+  - los datos de cada colección van a una lista global, el más nuevo delante (0xD4EC60, cuenta 0xD4EC64; ctor
+    0x68FED0..0x68FEEE), con el turno de creación en +0xB0 (g_game +0x205A40, 0x68FEA5) y `CastingFromHand` en +0x59
+    (0x68FECA). El dtor fn_0068FF50 los saca y deshace los enlaces;
+  - cada paso, un rayo lanzado desde la mano y no enlazado (+0x59, +0x20 = 0) pone +0xB4 a 0 y busca en la lista un
+    rayo **más viejo** (+0xB0 menor; del mismo turno no vale) lanzado desde la mano, con objetivos (+0x74) y sin enlace
+    o enlazado con él. Con d1 = su centroide (+0x48) − su origen y d2 = su centroide − este origen, el punto de choque
+    es `T = centroide − 0,7 · 0,5 · (normalize(d1) + (cos h, 0, sin h)) · min(|d1|, |d2|)`, h el rumbo de este rayo
+    (0x6918E8..0x6919F3). Se enlazan si los rumbos van hacia el mismo lado (`cos h' cos h + sin h' sin h > 0`,
+    0x6918AF..0x6918E2), `|T − origen| < SearchRadius` (fn_006901D0) y `normalize(T − origen)` está a menos de
+    1,0367 rad de h (doble 0x936D90, 0x691A47..0x691A72). Si no, el viejo que estuviera enlazado se desengancha;
+  - enlazar (fn_00691AD0(viejo, nuevo, CommonGlowGroup)): viejo +0x20 = nuevo, nuevo +0x24 = viejo, nuevo +0xB4 = T, y
+    si el viejo no tenía enlace, un `CommonGlowGroup` en la última articulación de su horquilla 0 (fn_00691B50) sin
+    interpolación (0x691B42). Al desenganchar, esa articulación pierde sus subcolecciones (fn_00673B20);
+  - en fn_00691F30, prof 0: el nuevo (+0x24) lleva el tronco a su +0xB4 y ahí **para** (ni ramas ni golpe,
+    0x692110..0x692136); el viejo (+0x20) lleva el tronco al +0xB4 del nuevo y sigue con **una** horquilla más, prof 1,
+    desde allí hasta su objetivo con la escala × this +0x60 = **3,0** (solo el ctor 0x690183 la pone; no es una
+    propiedad), así que opaca y gruesa (0x69213B..0x692172, 0x6927EC..0x6928EA). Su golpe tiene fuerza 2 y el mismo
+    evento va también al hechizo del nuevo (fn_00690070, 0x692AA0..0x692AB9);
+  - `CommonGlowGroup` (el brillo de escala 5 de SF_LightningBolt) **solo** se usa aquí (0x691AAF es su única lectura):
+    el port lo ponía en la punta de cada horquilla (inferido, sin base), quitado;
+  - (aproximado) el original toca los átomos del otro rayo en el paso del que busca; el port lo deja para el siguiente
+    paso del rayo afectado (`ApplyGlow`), así que el brillo puede llegar o irse un turno tarde. Un dato cuya colección
+    deja de dar pasos (ninguno este turno ni el anterior, o 10 s de reloj) sale de la lista con la semántica del dtor.
 - **Búsqueda** (fiel): espiral `GUtils::Spiral` 0x74D7E0 con `dir = count = 1` (0x6902A7..0x6902BB): primero actualiza
   (`--count == 0 → dir++, count = dir/2`) y luego devuelve `tabla[dir & 3]`, así que el primer paso es −x. fn_006901E0
   recorre `4·ceil(R/10)²` celdas (0x6902A4) y fn_00690880 (tormenta) solo `ceil(R/10)²` (0x690906, sin ×4). Un objeto
@@ -875,24 +916,43 @@ las bolas de fuego, para que nada quede colgando).
     +0x5C > 0,2 (TODO). Luego viene el `SpellEventInfo` tipo 3 en la punta (fn_00691E00) con **fuerza 1**. Es 2 solo si
     el rayo está enlazado con otro (data +0x20, 0x6929DE..0x6929EE). La wiki decía «2 cuando el rayo sale de un objeto
     padre»: era un error, corregido en el código. El mismo evento va también al gestor del rayo enlazado (0x692AA0,
-    fn_00690070; no portado).
+    fn_00690070), **fiel**.
+  - Al entrar, la horquilla se vuelve a enganchar a la raíz (0x691F6D..0x691F7D) **antes** de las pruebas: si luego
+    sale sin colocarla (le falta el `DrawOffsetLT`, 0x692007, o el terreno, 0x692262) se dibuja con las articulaciones
+    del último paso que la colocó. El port hace lo mismo.
+  - Escudo en el tramo (0x692268..0x692361), **fiel**: `fn_006D0BC0(corte, 2,5)`; dentro de uno, el punto de entrada
+    del tramo desde el origen (vt 0xFC `FindIntersect`, margen 2,5), un `SpellEventInfo` 4 ahí {sin movimiento, fuerza 1
+    (2 enlazado), sin prueba de escudos, objetivo el hechizo del escudo (fn_006D0B10)} al hechizo del rayo; si responde
+    0, la horquilla acaba en ese punto (ni ramas ni golpe). La chispa en el escudo (fn_006D0AF0) va siempre.
+  - `NumTexturesToTile` (this +0x48, ctor −1), **fiel**: si no es −1, la cadena de la horquilla se corta en
+    `max(1, ftol(NTT · longitud / data+0x60))` repeticiones (0x6923D0..0x6923FC; `Collection::chainTextures`).
+    data +0x60 **sí** tiene escritor: fn_00690F50 la pone a la distancia del origen al centroide de **todos** los
+    objetivos (+0x48 = suma de puntas / N, 0x6910BD..0x691177); el 1,0 del ctor (0x68FE7F) solo vale hasta la primera
+    búsqueda (la wiki decía que no había otro escritor: era un error). Lo usan SF_LightningStrike /
+    SF_LightningStormPush (15).
   - La posición de la punta es `fn_00691E00`: el objeto en su celda de mapa, altura `GetAltitude + (+0x1c) +
     GetHeight`; un punto de suelo, él mismo.
   - Sin hechizo (rayo de guion o de clima) el original aplica los `EffectValues` estáticos de la info 0xCC9704 en la
     punta: **UNVERIFIED** qué fila de `GEffectInfo` es; no portado.
-- **Pendiente en el árbol:**
-  - corte con el terreno: fn_00802550 (0x69221C..0x692262; inferido: intersección del tramo con la isla, sin leer);
-  - escudo en el tramo (fn_006D0BC0(corte, 2,5) 0x69226C → `SetPos` y evento 4 al escudo, la rama para): **M6**;
-  - el punto de choque +0xB4 en la profundidad 0 (0x692110..0x692172);
-  - `NumTexturesToTile` (this +0x48): si no es −1, las repeticiones de la cadena de la horquilla pasan a ser
-    `max(1, ftol(NTT · longitud / data+0x60))` (0x6923D0..0x6923FC). data +0x60 vale 1,0 en el ctor (0x68FE7F) y no se
-    le ha encontrado otro escritor, así que no se porta. Solo lo usan SF_LightningStrike / SF_LightningStormPush (15).
-- **`DrawOffsetLT`** (leído, **no portado**: necesita un desplazamiento de dibujo por átomo en `PSys.h`). Cuando se lanza
-  desde la mano propia (fn_00691B80), cada paso llama a `SetRefPos` 0x6C7600 en cada articulación del **tronco** (prof
-  0) con `(origen del paso, peso clamp(1 − i/(n−1), 0, 1))`; en las ramas el peso es **0**, no 1 como decía la
-  auditoría (0x691FC7..0x691FD1). Cada fotograma, `GetOffset` 0x6C7690 da `(posición de la mano ahora, GInterface
-  +0x3A0 +0x78, − origen del paso) · peso`, que fn_00679920 suma a la posición dibujada (átomo +0x124). Sin él, el
-  arranque del rayo sigue a la mano a 10 Hz.
+- **Pendiente en el árbol:** el corte con el terreno. fn_00802550 es `LH3DIsland::RayCast(origen, corte, &x, &z)`
+  (leído): pasa el tramo a celdas (x, z · 0,1 [0x8AC404], y / 0,67 [0xC3720C]) y llama a `RayCastInternal`
+  fn_00802680 (0xA10 bytes), que lo recorta a 0,1..511,9 y lo recorre celda a celda con la prueba fn_0083AE80 sobre
+  las alturas de los `LandBlock` (g_index_block 0xE9C964, g_ptr_blocks 0xE9C564); sin choque, un tramo que baja corta
+  y = 0 si ese punto está a menos de 7500 m de la cámara (0x8025D9..0x802672). Si el terreno se toca más cerca (en x z)
+  del origen que el corte, la horquilla queda como estaba (0x692225..0x692262 → 0x692ABE). **No portado**: es una
+  rutina de la isla con otros siete llamadores (`GCamera::Update` 0x442406, `CameraModeNew3` 0x45DA4A,
+  `GLandscape::Draw` 0x5E4848...), que debe vivir en `3D/LandIsland` y no como copia privada del rayo.
+- **`DrawOffsetLT`** (**fiel**; `Atom::drawOffset` en `PSys.h`, sumado en `Effect::Collect`/`CollectChains`). Cuando se
+  lanza desde la mano propia (fn_00691B80 = `CastingFromHand` y `NetUnsafeIsMyInterfaceCasting` 0x673540: el +0x44 del
+  hechizo, 1 sin hechizo), cada paso llama a `SetRefPos` 0x6C7600 (vt 0x100) en cada articulación de la horquilla con
+  `(origen del paso = data +0x30, peso w − w·i/(n−1))`, w = 1 en el **tronco** (prof 0) y **0** en las ramas
+  (0x691FC7..0x69203E), con el peso recortado a 0..1 (un NaN da 0). Cada fotograma, `GetOffset` 0x6C7690 da
+  `(posición de la mano de mi interfaz ahora, GInterface +0x3A0 = CHand, +0x78, − origen del paso) · peso`, que
+  fn_00679920 suma a la posición dibujada, interpolada o no (átomo +0x124, 0x679B69..0x679BBF): el arranque del rayo
+  va pegado a la mano entre pasos y la punta no se mueve. En el port la mano es la del `HandSystem` (la misma de la
+  que sale `PSysProcessInfo` +0x0C). `DrawOffsetDecay::ProcessList` 0x68F680 no tiene que ver: es el reloj de la otra
+  subclase (`DrawOffsetDecay`). Otras reglas que crean `DrawOffsetLT` y aún no lo usan: `UR_FollowCastPosn` 0x69FEAD
+  (el sprite del origen de SF_LightningBolt, `Rules/HandFollow.cpp`) y `UR_HandSprinkle` 0x6A046B.
 - `UR_LightningStrike` 0x6937A0 (SF_LightningStrike / SF_LightningSingleStrike, el rayo de guion y de clima) solo crea un
   átomo con sus `NextGroups` —donde vive el `UR_Lightning` del golpe— y su `SOUND_SPELL_LIGHTNING`, una vez.
 - **Números por evento** (la tabla de `destructive.md` §4.2, confirmados en el registro): PU0 burn 800, crush 0,0006,
@@ -914,14 +974,27 @@ Las cintas (`ParticleChainCreator`) y los mapas de luz (`ParticleLightMapCreator
 
 - `test_lightning`: las clases registradas, las propiedades de `ParticleChainCreator` y `ParticleLightMapCreator`, la UV
   por tramo y, con `OPENBLACK_GAME_PATH`, los ficheros reales `SF_LightningBolt`, `SF_LightningBoltPUTwo` y
-  `SF_LightningStrike` (grupos, contadores, `SplitAngle`, `ForkScale`, el tamaño del `.raw` del mapa de luz).
+  `SF_LightningStrike` (grupos, contadores, `SplitAngle`, `ForkScale`, el tamaño del `.raw` del mapa de luz). Desde
+  «rayo2»: `drawOffsetLT` (el recorte del peso y `GetOffset`), `trunkJointsFollowTheHand` (cada articulación del tronco
+  con el origen del paso y peso 1 − i/(n−1)), `chainTexturesOverride` (`NumTexturesToTile`) y `twoBoltsClash` (dos
+  efectos: el nuevo para en el punto de choque, el viejo sigue con una horquilla opaca de escala ×3 y su golpe de fuerza
+  2 llega a los dos hechizos).
 - Capturas en `dev\_audit\magic\`:
+  - `polish_fix_rayo2_hand_t25.0.png` / `_t25.05.png` (+ `.log`; `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`,
+    `OPENBLACK_TEST_CAST="press@22,release@28,shot@25"`, `OPENBLACK_TEST_CAST_PATH`, `--mod game.skip-intro=off`): el
+    rayo lanzado de verdad desde la mano, con el arranque en la mano.
+  - `polish_fix_rayo2_clash.png` (+ `.log`; además `OPENBLACK_TEST_SPELL="LIGHTNING_BOLT,1800,2628,10,300"`, mano en
+    (1784, 2598), cámara `1745,85,2560,1805,35,2640`): dos rayos enlazados; el de la mano llega al punto de choque, donde
+    está el brillo `CommonGlowGroup`, y desde ahí sale la horquilla gruesa hacia el objetivo. El registro da `link 2` /
+    `linked by 1` y los dos hechizos reciben el mismo evento con burn 1600 (fuerza 2).
   - `m5_bolt.png` (`OPENBLACK_TEST_SPELL="LIGHTNING_BOLT,1818.6,2628.4,10,300"`): dos horquillas con su cinta
     `S_lightning` desde el origen (a 30 m, que es de donde lanza `SPELL_AT_POS`) hasta las puntas, con los brillos del
     `CommonGlowGroup` y un árbol alcanzado ardiendo. El registro da `Lightning: 3 targets (3 objects), 2 of 8 forks
     struck ... heading 0.00 rad, fork scale 2.00`, `PSys chains: 2 ribbons ... 10 joints` y los eventos tipo 3 con burn
     800 / crush 0,0006 / hit 0,0017 y radio 1. (Captura anterior al arreglo «polish rayo»: entonces el enfriamiento
-    se usaba como filtro y muchos fotogramas no tenían ninguna horquilla; ver las capturas `polish_fix_rayo_*`.)
+    se usaba como filtro y muchos fotogramas no tenían ninguna horquilla; ver las capturas `polish_fix_rayo_*`. Los
+    brillos de las puntas eran el `CommonGlowGroup` puesto por el port en cada punta, que el original solo pone en el
+    choque de dos rayos: ya no salen.)
   - `m5_fireball.png` (`OPENBLACK_TEST_SPELL="1,1826.8,2641.4,10,300"`, MAGIC_TYPE 1): las bolas caen sobre el pueblo;
     el registro muestra el fuego de la propia `MagicFireBall` (Tc 2000, capacidad 18,8) y luego los fuegos nuevos del
     granero (objeto 52, Tc 180, capacidad 4000), de la casa 29 y de los aldeanos 30, 44 y 49, que huyen en estado 219.
@@ -1145,9 +1218,9 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
 - `OPENBLACK_TEST_SHIELD_FRAMES="<turnos>,<n>,<prefijo>[@<lento>]"`: n capturas en fotogramas seguidos desde esos
   turnos tras el primer escudo (`<prefijo>_<i>.png`; el log da el turno y su fracción). Cada captura para el fotograma
   ~0,45 s a 1600×900: con `-W 640 -H 360` salen dos por turno (fracción ~0,07 y ~0,94). `@<lento>` multiplica la
-  duración del turno, pero **el PSys interpola con la duración normal** (`Game.cpp` pasa `k_TurnDuration` a
-  `psys::manager::ProcessTurn` sin el multiplicador de velocidad), así que en cámara lenta la fracción del PSys se
-  queda en 1 a los 0,1 s: no sirve para el PSys.
+  duración del turno; el PSys interpola con la fracción del juego (`game_clock::TurnFraction`, g_game +0x205D64), así
+  que también va lento. La fracción propia de MapShield sigue con el reloj de pared (pendiente:
+  [engine-math.md](engine-math.md#reloj-del-juego-1)).
 - Capturas en `dev\_audit\magic\`: `m6s_shield_dome.png` (SHIELD r 40 en el almacén de Land1, desde arriba: la cúpula
   translúcida de parches MSH_S_SPELLBALLSURFACE02), `m6s_shield_dome_side.png`, `m6s_dome_t10/t30/t100.png` (1, 3 y
   10 s); `m6s_phys_t03/t07/t10/t13/t25.png` (PHYSICAL_SHIELD r 40: oculto a 0,3 s, 0,7, 1,0 (A 0,41), 1,3 (0,67) y
@@ -1761,8 +1834,8 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
   Recorre la lista y **trata como mucho un objeto por paso**: el primero con objeto 3D (+0x40) que el anillo alcance en
   3D (`|p − centro|² ≤ (GetRadius + anillo)²`) recibe, si está dentro de un escudo con margen 2 (fn_006D0BC0), una chispa
   (fn_006D0AF0) y un evento 4 al escudo (con 0 se salva); después `GetActualObjectToEffect` (vt 0x5D8) y la pregunta
-  `SpellEvent 7` (CanDestroy). Con 1: si no es criatura y quedan, explotados + 1 y la malla en pedazos (no portado, ver
-  abajo); si quedan borrados, borrados + 1 y `DestroyedByBeam` (vt 0x500) si [0xC029EC] (1). Conteste lo que conteste,
+  `SpellEvent 7` (CanDestroy). Con 1: si no es criatura y quedan, explotados + 1 y la malla en pedazos (fn_00681260,
+  ver «Los pedazos» abajo); si quedan borrados, borrados + 1 y `DestroyedByBeam` (vt 0x500) si [0xC029EC] (1). Conteste lo que conteste,
   el objeto sale de la lista; el que contesta 1 corta el recorrido de ese paso.
 - **InitCollection 0x67E200**: margen = el radio del efecto del hechizo (`GMagicEffectInfo` +0x2C = archivo 0x1C), 5 sin
   hechizo. Dentro de un escudo (fn_006D0BC0 con ese margen): el punto donde un rayo desde 200 m más arriba corta la
@@ -1774,8 +1847,8 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
   MaxDistance × el poder tribal del hechizo entre 1 y 5; las `ceil((r + 20) / 10)²` celdas de la espiral
   (`GUtils::Spiral` 0x74D7E0) desde la del centro; de cada celda, los objetos móviles y fijos disponibles **cuya celda
   propia es esa** (fn_00604F40) y a menos de `Get2DRadius + r` en x/z (`GetDistanceInMetres` 0x74CD70, una hipotenusa).
-  Anillo = 0. Por último cinco rocas `MSH_Z_SPELLROCK01` (567) en el centro ± 4 m que se rompen en pedazos (no portado,
-  ver «Sin portar / pendiente» más abajo).
+  Anillo = 0. Por último cinco rocas `MSH_Z_SPELLROCK01` (567) en el centro ± 4 m que se rompen en pedazos (ver «Los
+  pedazos» abajo).
 - **El cráter** (`ecs::ground_marks`, `src/ECS/GroundMarks`, de la sesión sistemas; 0x67E35C..0x67E395, solo si `MapCoords::IsDryLand` 0x67E353, es decir, si no salen
   los anillos). La clase se llama `RootsPile` (símbolos del Mac: `__ct__9RootsPileFRC7LHPointffl`,
   `DrawAll__9RootsPileFv`). **No es `TemporaryShadow`**: esa es fn_00825090 (lista 0xEB99FC, una sombra dinámica).
@@ -1873,34 +1946,89 @@ visible la cúpula del escudo y el rayo, está en [Las mallas de partículas](pa
   si el efecto tiene jugador con alineamiento (GPlayer +0x60 → +0x08) < AlignmentSwitch, si no el bueno
   (`Creator::Resolve`, PSys.h). Las mariposas siguen quietas hasta que la lane m4c porte `UR_Flocking`.
 
+### Los pedazos (EXPLODE_OBJECT, `PSys/Rules/ExplodeObject.cpp`; E1 / E2 de la auditoría, fiel)
+
+- **Quién los pide.** `fn_00681260(objeto, origen, velocidad, 6,0f, 0)` (0x67EC86; también `GScript::DeleteObject`
+  0x6F93EF / 0x6F9460, que no se usan aquí) toma la matriz del mundo (vt 0x63C) y el objeto 3D (+0x40);
+  `fn_006812B0(objeto 3D, matriz, origen, velocidad, 6,0f, marca)` toma su malla (vt 0xF8; sin malla no hace nada) y
+  mete {malla, matriz (LHMatrix, 0x30), origen, velocidad, 6,0} (0x48 bytes) al final de la cola 0xD4E320, o de la
+  0xD4E308 con marca ≠ 0. El 6,0 (un float, no un entero) no lo lee nadie. Los cuatro llamadores pasan marca 0: la cola
+  0xD4E308 y `UR_ExplodeObject2` (0x681560 → fn_0067FFB0, RandomFactor +0x2C 0,3, MaxDepth +0x30 4) no hacen nada
+  nunca (registrada, sin portar fn_0067FFB0). En openblack la matriz es la del `Transform` (posición, rotación × escala)
+  y la malla la del componente `Mesh` leída de `AllMeshes.g3d` (`explode_object::PackMesh`): una malla que no es del
+  paquete (p. ej. un edificio ya roto, `BuildingDamage`) no se rompe (se escribe en la traza).
+- **Las cinco rocas** (0x67E79E..0x67E88E, al final de `InitCollection`): `LH3DObject::Create(0)` con `MeshPack[0x237]`
+  (0 si el paquete es más corto); `SetPosition` 0x423140 en centro + (rand(−4, 4), 0, rand(−4, 4)) — el rand de **z**
+  primero (0x67E7E3), luego el de x —, escala `PSysFloatRand(0,8, 1,2)` ([0x8C4A04] / [0x8C6C98] × [0x9357DC] = 1) y
+  después el ángulo `PSysFloatRand(2π)`; filas de la matriz X = (cos, 0, sin) s, Y = (0, s, 0), Z = (−sin, 0, cos) s;
+  `fn_006812B0(roca, su matriz, centro − 5 m (fn_0067E8C0), BlastSpeed, 6,0, 0)` y la roca se borra (vt 4): de las rocas
+  solo existen los pedazos.
+- **Quién vacía la cola.** `PSysGlobal::InitializeOneTimeOnly` 0x68F750 solo crea el singleton `PSysUtilityPSys`
+  (0xD4E0E8). El efecto lo hace `fn_006718E0` cuando +0x10 es NULL: `PSysInterface::Create(NULL, 23, (0, 0, 0), (0, 0,
+  0), 1,0, 0)`, desde fn_006717F0, que `PSysGlobal::GameLoopEnd` 0x68F5B0 → fn_006721B0 llama **una vez por turno** (paso
+  11 de `GGame::ProcessTurn`, después de los hechizos): lo procesa (vt 0x100) y, si devuelve 5 (acabado: `MaxSpellAge`
+  25 de `SF_ExplodeObject`), lo borra (fn_006718C0) y el turno siguiente se hace otro. `OnClearMap` 0x68F820 vacía las
+  dos colas (fn_006811D0, fn_00681200). En openblack: `explode_object::GameLoopEnd` desde `magic::ProcessTurnEnd` y
+  `Clear` desde `magic::OnLoadMap`.
+- **`UR_ExplodeObject`** (vtable 0x938A98; ctor 0x6BECA0: +0x10 |= 6, una regla que crea; DefineProperties 0x6B0C70:
+  `RandomFactor` +0x30 = 0,3 y `MaxTrigsPerFrag` +0x2C = 15; el archivo pone RandomFactor 0,889381 y no da
+  MaxTrigsPerFrag). `ModifyAtomCollection` 0x6814E0 saca las entradas **desde la última** y llama a
+  `ExplodeMesh(colección, NextGroups +0x20, malla, matriz, MaxTrigsPerFrag, origen, velocidad)`.
+- **`ExplodeMesh` 0x6807B0** (corrige lo que se dijo antes: no son vértices sino **aristas**):
+  - Solo las submallas con la marca 0x20000000 (el bit 0 de la máscara de LOD, bits 29..31) y **sin los bits de estado**
+    0x3F0 (bits 4..9: andamios, lápidas). Cada primitiva por separado.
+  - Las tres aristas de cada triángulo (fn_0067DF00: (t0, t1), (t1, t2), (t2, t0)); fn_0067DFD0 guarda primero el
+    extremo de menor (z + y) + x (en el empate, el segundo) y la longitud² ((dz² + dy²) + dx²).
+  - `qsort` (0x7C7E64, el de la CRT de MSVC 6) por longitud con un comparador que **nunca da 0** (0x682550: 1 si
+    a ≥ b); de cada racha de aristas iguales seguidas (los seis floats, fn_00460640) se queda una.
+  - Por arista única, la lista de triángulos que la tienen (búsqueda fn_00682580: `bsearch` con 0x682770, y si falla
+    un recorrido entero por la primera igual).
+  - Los pedazos: desde el primer triángulo sin usar, un **camino**: el triángulo entra (fn_0057D630), y el siguiente es
+    el primer triángulo sin usar que comparte una de sus aristas (esquinas 0, 1, 2; la lista en su orden); sigue
+    mientras encuentre y el pedazo tenga ≤ MaxTrigsPerFrag, así que un pedazo tiene **hasta 16** triángulos. Cuando el
+    último no tiene vecino libre el pedazo acaba. El siguiente empieza en el primer triángulo libre desde el de ahora.
+  - Cada pedazo es un átomo (`AtomCore::Create` + fn_00674DD0 con NextGroups) con un `RenderParticleGJMesh` (ctor
+    0x6C8A90, +0x21 = 1) cuyo `GJMesh` (0x94 bytes, ctor 0x67FF20) tiene 3 vértices nuevos por triángulo (posición por
+    la matriz, uv y la **normal tal cual, sin girar**) y el material de la primitiva (+0 = la primitiva).
+  - Posición +0x80 = el centroide (suma × 1/n) en el mundo, vértices menos el centroide, rotación la identidad.
+  - Velocidad +0x34 (0x680F34..0x6810AC): d = centroide − origen llevado a `velocidad`; r = `PSysRandR3` llevado a
+    |d| × RandomFactor; v = (d.x + r.x, d.y + **r.y × 0,5**, d.z + r.z): el 0,5 ([0x8AA3B4]) solo va en la Y.
+- **Después**, las reglas del archivo (ya portadas): gravedad 3,345 con suelo, giro (`AppearanceRuleTumble`), alfa
+  255→0 de 0 a 3 s, escala 1→0 de 1 a 5 s, y fuera a los 6 s.
+- **El dibujo, `RenderParticleGJMesh::DrawAt` 0x67C150**: color = el de la `DrawData` × la luz de la tierra bajo la
+  posición dibujada (+0x21; fn_00801C90, byte a byte, alfa incluido; fn_00801C90 da dos salidas: en su 2.º argumento
+  la tabla [luminosidad] interpolada, 0x8020F0, y en el 3.º los colores propios de las celdas, dword +0 | 0xFF000000,
+  interpolados igual, 0x801F81; DrawAt 0x67C184 solo usa la primera, la otra va a [ebp − 0x40] y nadie la lee; el 255 ×
+  255 >> 8 deja el alfa opaco en 254), igual para todos los vértices (el GJMesh no tiene
+  colores: +0x24 ≠ vértices); luego la luz del modelo ([0xC029C0] = 1): la luz [0xEA9E90] por la inversa de la matriz
+  dibujada, normalizada, I = fistp(255 n·l), f = I < 0 ? 90 : 90 + ((255 − 90) I >> 8), RGB × f >> 8; la segunda luz
+  [0xD4EC08] es 0. Con alfa de la `DrawData` ≠ 255 se dibuja con la tabla de modos con alfa (0xC387C8).
+  `Draw3DWorldTriangle` 0x81C090 con el material de la primitiva: **sin bruma ni especular**.
+  - En openblack cada pedazo es una malla generada (`L3DSubMesh::LoadGenerated`, con las texturas propias de la malla de
+    origen: `L3DMesh::SetSkinSource`) dibujada como átomo de malla (`mesh_atoms::Collect`, `PSys/Creators/Mesh.cpp`):
+    la matriz PSR, el color ya multiplicado por la luz de la tierra en la CPU (`explode_object::LandLight`, la
+    interpolación entera de fn_00801C90 0x801CB8..0x8020F7: celdas ftol(x × 0,1), pesos ftol(frac × 256), por canal
+    a + ((b − a) w >> 8), fuera del mapa o sin bloque table[255]) en la tercera columna, que es la rama de `vs_object`
+    sin bruma ni especular con la luz del modelo encima; translúcido cuando el alfa ≠ 255. La malla se borra con el
+    átomo.
+  - **(aproximado)** la luz de la tierra de la CPU no lleva el tope de las sombras de las nubes que el port aplica en la
+    GPU a los demás objetos; tampoco la ruta alternativa [0xEA9EB4] → fn_007ACD90 (no leída). Las operaciones en coma
+    flotante son de 32 bits (no se imita la x87). En la última fila / columna del mapa el original lee la celda 17 del
+    bloque (+0x88 / +0x90); el port toma la última celda.
+  - **(aproximado)** como los demás átomos de malla, los translúcidos van con las mallas que se desvanecen y no dentro
+    del objeto Z del efecto.
+- Capturas (`dev\_audit\magic\`, `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,1825,2632"
+  OPENBLACK_CAMERA_FLY="1790,58,2592,1825,30,2632"`, `--mod game.skip-intro=off`, `-n 14000`):
+  `polish_fix_beam2_house_t6.png` (los pedazos del almacén y de las rocas saltando), `_t14.png` (los 490 pedazos del
+  árbol 952, hojas con su textura), `_t40.png` (ya desvanecidos: alfa a 0 a los 3 s), `_t80.png` (el después: el
+  almacén sigue en pie, E4); traza en `polish_fix_beam2_house_end.log` (`ExplodeObject: mesh ... in N pieces`: 70 el
+  almacén, 20 cada roca, 490 el árbol).
+
 ### Sin portar / pendiente
 
-- **Los pedazos** (lo que falta para E1/E2 de la auditoría; leído para el arreglo):
-  - **Quién los pide.** `fn_00681260(objeto, origen, velocidad, 6, 0)` (0x67EC86) toma la matriz del mundo (vt 0x63C)
-    y la malla 3D (+0x40). `fn_006812B0(malla, matriz, origen, velocidad, 6, marca)` mete {malla, matriz, origen,
-    velocidad, 6} (0x48 bytes) en la cola 0xD4E320, o en la 0xD4E308 con marca ≠ 0. El 6 no lo lee nadie.
-  - **Las cinco rocas** (0x67E79E..0x67E88E):
-    - `LH3DObject::Create(0)` con `MeshPack[0x237]` = 567.
-    - `SetPosition(centro + (rand(−4, 4), 0, rand(−4, 4)), PSysFloatRand(2π), rand(0,8; 1,2))`. El rand de z va
-      primero.
-    - `fn_006812B0(…, centro − 5 m, BlastSpeed, 6, 0)`, y el objeto se borra en el acto: de las rocas solo existen
-      los pedazos.
-  - **Quién vacía las colas.** Cada paso, `UR_ExplodeObject::ModifyAtomCollection` 0x6814E0 (y `UR_ExplodeObject2`
-    0x681560 con fn_0067FFB0) del efecto **siempre activo** EXPLODE_OBJECT (23, SF_ExplodeObject.txt). Ese efecto lo
-    guarda el singleton `PSysUtilityPSys`, creado en `PSysGlobal::InitializeOneTimeOnly` 0x68F750.
-  - **`ExplodeMesh` 0x6807B0** (colección, grupos, malla, matriz, regla +0x2C, origen, velocidad):
-    - Recorre las submallas con la marca 0x20000000 y sin LOD (0x3F0).
-    - En cada primitiva deduplica los vértices por posición (qsort 0x682550) y une en pedazos los triángulos que
-      comparten vértice, hasta el tope de la regla +0x2C.
-    - Cada pedazo es un átomo nuevo con `RenderParticleGJMesh` (ctor fn_006C8A90, `DrawAt` 0x67C150, que dibuja con
-      `Draw3DWorldTriangle`), con sus triángulos en el mundo menos su centroide.
-    - Posición = el centroide. Velocidad = (centroide − origen) normalizada × velocidad, más `PSysRandR3` escalado a
-      |v| × RandomFactor (+0x30) × 0,5.
-  - **Después**, las reglas del archivo: gravedad 3,345 con suelo, giro (`AppearanceRuleTumble`), alfa 255→0 de 0 a
-    3 s, escala 1→0 de 1 a 5 s, y fuera a los 6 s.
-  - **Por qué sigue sin portar.** Hace falta el efecto permanente, las dos reglas y un dibujo de malla por átomo
-    (`RenderParticleGJMesh`, 0xA30 bytes, en el render del PSys). Es trabajo de una lane propia con el dueño del render
-    de partículas. Mientras tanto, los objetos borrados desaparecen de golpe y no hay rocas.
+- `UR_ExplodeObject2` → fn_0067FFB0 (no la llama nadie: la cola 0xD4E308 queda vacía).
+- E5 (el aldeano con `life::Kill`, **(aproximado)**, lane mapas) y E7 (la marca +0x25 & 0x40 y los objetos de guion,
+  **(inferido)**): ver `DestroyedByBeam` y `CanBeDestroyedBySpell` arriba; E6, la ciudadela, abajo.
 - El edificio «destruido»: ver «Qué le pasa al edificio en el original» arriba (falta la obra de la ciudad, lane
   mapas).
 - `GetActualObjectToEffect` de la ciudadela (CitadelHeart 0x468C30, CitadelPart 0x469780).
@@ -1913,10 +2041,13 @@ visible la cúpula del escudo y el rayo, está en [Las mallas de partículas](pa
   Loads); `OPENBLACK_TEST_EXPLOSION_SHOT="<turnos>,<ruta.png>[;...]"` pide capturas esos turnos después de empezar la
   primera explosión ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)). Con
   `OPENBLACK_SPELL_TRACE=1`: `Explosion: started ...` con sus objetivos (distancia, radio, clase), `Explosion: ground
-  mark ...` con su ángulo, cada objeto destruido (anillo, explotados, borrados) y lo no portado.
+  mark ...` con su ángulo, cada objeto destruido (anillo, explotados, borrados), las rocas en cola y cada malla rota
+  (`ExplodeObject: mesh ... in N pieces, from ... at ...`).
 - `test_explosion`: ChangeScaleXYZ, MoveAtom, la cadencia de los eventos 2 y el cierre de un archivo como Single, el
   tinte del jugador, FaceCamera, las curvas KP, el creador bueno / malo y el polvo `SmokyStuff` de
-  modo 1 a 1,5 × tamaño (la vida y el alfa de la marca los prueba `ground_marks`).
+  modo 1 a 1,5 × tamaño (la vida y el alfa de la marca los prueba `ground_marks`); los pedazos: el camino por aristas
+  (16 + 4 en una tira de 20, trozos sueltos, MaxTrigsPerFrag 0), la velocidad (la Y del azar a la mitad) y la cola
+  vaciada en átomos en el centroide (solo LOD 0 sin estado).
 - Capturas del cráter (`polish_fix_beam_open_t10/_t40/_t110/_t142.png` + `polish_fix_beam_open_end.log`): BEAM_EXPLOSION
   en (1850, 2612), en la ladera junto al almacén de Land 1, cámara `1822,55,2585,1850,28,2612`.
   - t10: la columna dentro del hoyo.
@@ -1963,8 +2094,8 @@ Lo que falta de cada milagro, en su sección:
   la inclinación de `HandStateGrain`, que está al revés en `HandPlacement.cpp` (lane de la mano). Los vt 0x78/0x80 de
   `MagicFood::CallVirtualFunctionsForCreation` ya están identificados y se cumplen
   ([Comida y madera](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)).
-- Bosque: la diosa y la cámara (aplazado) y el aleteo .anm de las mariposas y los murciélagos (las clases del PSys sí
-  están) ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
+- Bosque: la diosa y la cámara (aplazado; el aleteo de las mariposas y los murciélagos ya está, U7)
+  ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
 - Rayo: `LightningForkFlicker` 0x6B24D0, `NumTexturesToTile`, el árbol de horquillas recursivo, `DrawOffsetLT` y los EffectValues del rayo sin hechizo ([Rayo](miracles.md#rayo-magic_type-4-6-semilla-6-lightning_bolt-psysruleslightningcpp)).
 - Teletransporte: la iluminación de la piscina (`UseLighting` 1, `MaterialSetDoubleSided` 0 de `SF_TeleportVortex`) y la criatura ([Teletransporte](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)).
 - [Milagros de la criatura](miracles.md#milagros-de-la-criatura-m8-pendiente).

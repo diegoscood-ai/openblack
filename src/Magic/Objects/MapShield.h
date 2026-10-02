@@ -45,7 +45,7 @@ constexpr float k_FadeTime = 1.5f;
 constexpr float k_DieTimeFactor = 1.5f; ///< 0x9828C8: deleted once dieTime > k_FadeTime x this (2.25 s)
 constexpr float k_EndSpin = 0.15f;
 constexpr float k_BobSpeed = 1.3f;
-constexpr double k_RescaleDelta = 0.3; ///< 0x900C70
+constexpr double k_RescaleDelta = static_cast<double>(0.3f); ///< the double 0x900C70 = 0.30000001192092896 (0.3f widened)
 constexpr uint8_t k_MinAlpha = 40;
 
 /// ProcessShield's curves, t in seconds since the creation turn: the shrink over the first 0.5 s (1 - t / 0.5, the
@@ -82,9 +82,6 @@ void ToBeDeleted(entt::entity shield);
 /// MapCoords (y above the land).
 [[nodiscard]] bool IsReactionBlockedByShield(const glm::vec3& living, const glm::vec3& source);
 
-/// Object::Get2DRadius 0x638180 / GetHeight 0x638120 of a shield: the mesh's size x Object::GetScale
-[[nodiscard]] float Get2DRadius(entt::entity shield);
-[[nodiscard]] float GetHeight(entt::entity shield);
 /// MapShield::GetPlayer 0x72C150: its spell's player
 [[nodiscard]] bool GetPlayer(entt::entity shield, PlayerNames& player);
 /// MapShield::CreatureMustAvoid 0x72C170 (vt 0x614): a creature that is not controlled by a script (+0x24 & 0x400,

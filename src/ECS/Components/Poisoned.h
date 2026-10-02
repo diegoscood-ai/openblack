@@ -16,7 +16,7 @@ namespace openblack::ecs::components
 /// The heal miracle cures it (Spell::ApplyDefaultSpellEffect 0x720E34, event 5). Everything else about it is in
 /// ECS/Life.h (ecs::life): who sets it (Villager::AddResource 0x7564F3 / GetResourceFrom 0x7533FC, the poisoned food
 /// that reaches a villager), the life it costs on every periodic check (Villager::CheckHungry 0x75BD92) and the tint
-/// the drawing needs, k_PoisonDiffuse / k_PoisonSpecular (fn_0051B3D0 0x51B43D, not drawn yet).
+/// the drawing needs, k_PoisonDiffuse / k_PoisonSpecular (fn_0051B3D0 0x51B43D; drawn by RenderingSystem DrawColoursOf).
 struct Poisoned
 {
 };

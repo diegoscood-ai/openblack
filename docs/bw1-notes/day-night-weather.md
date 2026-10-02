@@ -108,14 +108,15 @@ Quién llama a qué:
   (`model_light::UpdateFrameLight(…, sky_type::At(visual))`, como `fn_005E5830` 0x5E58D1..0x5E58DF; da lo mismo que
   `Frame()` porque `DrawSky` muestrea la misma hora justo después), `DayNightClock::ProcessTurn` (0x5E202B), las
   luciérnagas (`GetSkyType`, 0x52B7CA / 0x52B820) y `IsVisualNight` (luces de noche).
-- Leen el muestreo del fotograma: la cúpula y, por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`
-  (= 2 − `Frame()`), `LandLightTable::Build` (la conecta «sistemas»). El sonido (`GSoundMap`, 0x71DDF1) debe leer
+- Leen el muestreo del fotograma: la cúpula y `LandLightTable::Build(sky_type::Frame(), …)` (columna
+  `LightColumn`, neblina `HazeFactor`; ver [rendering.md](rendering.md)). El sonido (`GSoundMap`, 0x71DDF1) debe leer
   `Frame()`, el T del fotograma anterior (ProcessTurn 0x54D830 y EndTurn 0x54D837 van seguidos, sin `DrawSky`):
   `audio::ProcessTurn` lo lee así desde B11c de «audio» (hecho).
-- Quitado: `Sky::GetCurrentSkyType` con hora de guion y umbrales inventados 3,5 / 7,5 / 8 / 8,5 con `<=` (queda solo
-  el reenviador), `Sky::SetDayNightTimes`, `u_skyAlphaThreshold.x` (fs_object no lo lee), `u_sky` y su rampa de
+- Quitado: `Sky::GetCurrentSkyType` con hora de guion y umbrales inventados 3,5 / 7,5 / 8 / 8,5 con `<=` (y luego
+  su reenviador 2 − `Frame()`), `Sky::SetDayNightTimes`, `u_skyAlphaThreshold.x` (fs_object no lo lee), `u_sky` y su rampa de
   reserva de `fs_water` (sin `palette.raw` el mar va ahora sin luz, blanco, **(inferido)**: el original siempre tiene
-  la tabla). `u_skyAndBump.x` lleva 2 − `Frame()` hasta que «sistemas» lo quite de fs_terrain.
+  la tabla), y `u_skyAndBump.x` (vale 0; fs_terrain ya no lo lee: el tipo de cielo llega a la tierra solo por la
+  tabla de luz y la neblina de vs_terrain).
 - Precisión: se supone la FPU a 24 bits (lo que pone D3D, **(inferido)**), la misma hipótesis que `SetCycle`. Con
   ella las rampas de `Time2SkyType` ya salen redondeadas a float, los bucles de `SampleFrame` van en float (h = −1e-7
   da 24 → 0; con 53/64 bits se quedaría en 23,9999999 y se guardaría 24,0f) y la resta de la histéresis se redondea a
@@ -172,8 +173,9 @@ resta redondeada a float), salto desde `ForceScriptTime`).
 
 - **Ventanas** (`Abode::Draw` 0x515F70): las submallas con la marca `isWindow` del L3D se ven sin luz, con un gris
   plano 224..252 que parpadea un poco. Ocurre solo si hay alguien en casa (Abode +0xB6) y es de noche visual. Cada
-  casa tiene su desfase de hora: la parte fraccionaria de |x + z|·0,1 + y. openblack: `night_lights::WindowGrey`
-  (`src/3D/NightLights.*`). Como openblack todavía no manda a los aldeanos a casa, cuenta "alguien en casa" como
+  casa tiene su desfase de hora: la parte fraccionaria de |x + z|·0,1 + y. openblack: `night_lights::WindowColour`
+  (`src/3D/NightLights.*`), que da el color +0x54 0xFFgggggg o 0 con las ventanas apagadas, y va en la z de la quinta
+  columna de la instancia (`lh3d_colour::PackInstanceWindow`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)). Como openblack todavía no manda a los aldeanos a casa, cuenta "alguien en casa" como
   que la casa tiene habitantes **(aproximado)**.
 - **Casa de los aldeanos del guion**: al crear un aldeano con CREATE_VILLAGER, openblack (b8657f1d) le da la casa
   más cercana a la posición de abode del guion (a 1 unidad o menos) o, si no hay, cualquiera con sitio, y lo añade

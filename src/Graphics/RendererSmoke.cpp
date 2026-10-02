@@ -13,7 +13,6 @@
 // fn_007F8E00 advances and draws its 10 sprites in their own order
 
 #include <algorithm>
-#include <chrono>
 #include <exception>
 #include <filesystem>
 #include <utility>
@@ -38,6 +37,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
@@ -97,14 +97,10 @@ bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, floa
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
 {
-	// g_game_time_inc in milliseconds: it stops while the game is paused (as CollectMists)
-	static auto lastTime = std::chrono::steady_clock::now();
-	const auto now = std::chrono::steady_clock::now();
-	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
+	// g_game_time_inc [0xEA9EC0] in milliseconds (game_clock::FrameGameMs, fn_007F8E00 0x7F8F25): it stops while the
+	// game is paused (as CollectMists). Collected once a frame (the main view)
 	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
-	const float milliseconds =
-	    paused ? 0.0f : std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
-	lastTime = now;
+	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameSmoke.clear();
@@ -184,11 +180,8 @@ void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camer
 		const glm::vec4 sampleRect(uv[2] - uv[0], uv[0]);
 		// mode 6 (SRCALPHA / INVSRCALPHA, no light, no fog): the sprite shader's normal blend is ONE / INVSRCALPHA with
 		// the tint premultiplied by its alpha
-		const float a = static_cast<float>(puff.argb >> 24u) / 255.0f;
-		const glm::vec3 rgb(static_cast<float>((puff.argb >> 16u) & 0xFFu) / 255.0f,
-		                    static_cast<float>((puff.argb >> 8u) & 0xFFu) / 255.0f,
-		                    static_cast<float>(puff.argb & 0xFFu) / 255.0f);
-		const glm::vec4 tint(rgb * a, a);
+		const glm::vec4 colour = lh3d_colour::ToVec4(puff.argb);
+		const glm::vec4 tint(glm::vec3(colour) * colour.a, colour.a);
 
 		bgfx::setTransform(glm::value_ptr(model));
 		program->SetUniformValue("u_sampleRect", glm::value_ptr(sampleRect));

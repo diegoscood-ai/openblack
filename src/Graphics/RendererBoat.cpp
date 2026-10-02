@@ -35,6 +35,7 @@
 #include "ECS/SmokyStuff.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
@@ -156,7 +157,7 @@ void Renderer::DrawBoatSprite(RenderPass viewId, uint32_t index) const
 	};
 	const auto& [quad, argb] = _frameBoatSprites[index];
 	// the cell of the 8 x 8 sheet (+0x30 = 8) is in the quad's UVs, the colour is the vertex diffuse
-	const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+	const uint32_t abgr = lh3d_colour::ToAbgr(argb);
 	std::array<Vertex, billboard::k_SpriteTriangles.size()> vertices {};
 	for (size_t k = 0; k < vertices.size(); ++k)
 	{

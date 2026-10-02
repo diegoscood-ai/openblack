@@ -29,6 +29,7 @@
 #include "Common/Zip.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "EngineConfig.h"
+#include "Graphics/Argb4444.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/TextureUpscale.h"
 #include "Locator.h"
@@ -185,9 +186,35 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 	}
 
 	auto texture = std::make_shared<graphics::Texture2D>(("raw" / rawTexturePath.stem()).string());
-	// Mod graphics.terrain-x2 (upscale option): the sea's sky.raw / skya.raw upscaled 2x with Lanczos-3, like the
-	// landscape materials
 	const auto stem = string_utils::LowerCase(rawTexturePath.stem().string());
+	// The original cuts every texture with the alpha flag (and human_shadow) to ARGB4444 when it loads it, and D3D
+	// filters the cut texels (Graphics/Argb4444.h): fn_00837400 only takes a 0x30000-byte colour file (0x837318) and
+	// reads min(length, 0x10000) bytes of its alpha (0x837600, 0x7BCEC9; openblack cuts an alpha file only if it has
+	// exactly 0x10000 bytes, aproximado);
+	// fn_0081FAA0 cuts human_shadow (0x81FCDD). Mod graphics.smooth-smoke keeps smokea's 8 bits.
+	// An alpha file is cut only with a valid colour file beside it: fn_00837400 needs the 0x30000-byte colour before
+	// it reads xa.raw (argb4444::ColourOfAlpha), so S_IceEnvMapGreya.raw stays 8-bit.
+	const auto validColourOfAlpha = [&]() {
+		const auto fileStem = rawTexturePath.stem().string();
+		const auto colour = graphics::argb4444::ColourOfAlpha(fileStem);
+		if (colour.empty())
+		{
+			return false;
+		}
+		auto& fileSystem = Locator::filesystem::value();
+		const auto colourPath = rawTexturePath.parent_path() / (std::string(colour) + ".raw");
+		return fileSystem.Exists(colourPath) &&
+		       fileSystem.Open(colourPath, filesystem::Stream::Mode::Read)->Size() == graphics::argb4444::k_ColourBytes;
+	};
+	const bool alphaFlagSize =
+	    format == graphics::TextureFormat::RGB8
+	        ? data.size() == graphics::argb4444::k_ColourBytes && graphics::argb4444::IsAlphaFlagColour(stem)
+	        : data.size() == graphics::argb4444::k_AlphaBytes && validColourOfAlpha();
+	const bool cut = (alphaFlagSize &&
+	                  !(stem == "smokea" && Locator::config::value().smoothSmokeAlpha)) ||
+	                 stem == graphics::argb4444::k_HumanShadowStem;
+	// Mod graphics.terrain-x2 (upscale option): the sea's sky.raw / skya.raw upscaled 2x with Lanczos-3, like the
+	// landscape materials, and cut after the upscale
 	if (Locator::config::value().terrainTexturesX2 && (stem == "sky" || stem == "skya"))
 	{
 		const size_t channels = format == graphics::TextureFormat::RGB8 ? 3 : 1;
@@ -199,20 +226,20 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 				rgba[i * 4 + c] = data[i * channels + (channels == 3 ? c : 0)];
 			}
 		}
-		const auto upscaled = graphics::UpscaleRgba8Lanczos2x(rgba.data(), width, height, 1);
+		auto upscaled = graphics::UpscaleRgba8Lanczos2x(rgba.data(), width, height, 1);
+		if (cut)
+		{
+			std::ranges::transform(upscaled, upscaled.begin(), graphics::argb4444::Cut);
+		}
 		texture->Create(width * 2, height * 2, 1, graphics::TextureFormat::RGBA8, graphics::Wrapping::Repeat,
 		                graphics::SurfaceTextureFilter(), bgfx::copy(upscaled.data(), static_cast<uint32_t>(upscaled.size())));
 		return texture;
 	}
-	if (stem == "sky" || stem == "skya")
+	if (cut)
 	{
-		// fn_00837400 packs the sea's sky.raw and skya.raw into one ARGB4444 texture: R, G, B = sky >> 4 and A = skya & 0xF0
-		// (0x8374F4..0x837517, 0x837681), so the sea is posterised to 16 levels per channel (n / 15, as D3D expands them)
-		std::vector<uint8_t> nibbles(data.begin(), data.end());
-		for (auto& v : nibbles)
-		{
-			v = static_cast<uint8_t>((v >> 4) * 17);
-		}
+		// x.raw and xa.raw stay two textures here (fn_00837400 packs them into one): each byte Cut on its own
+		std::vector<uint8_t> nibbles(data.size());
+		std::ranges::transform(data, nibbles.begin(), graphics::argb4444::Cut);
 		texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
 		                bgfx::copy(nibbles.data(), static_cast<uint32_t>(nibbles.size())));
 		return texture;

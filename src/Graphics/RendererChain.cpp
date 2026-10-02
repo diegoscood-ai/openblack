@@ -153,7 +153,8 @@ void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t i
 			// draws through DrawTriangle 0x82F810 (0x81CCB2). Before that, 0x67BFAC..0x67BFEE puts the same scroll in
 			// [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1) and DrawTriangle 0x82F8BE adds it once more: the material of
 			// fn_006AA800 has only bits 0 and 2 of +5 (SetMaterialProperties 0x57E120, 0x6AA84A), so it is not fixed
-			const auto segmentUv = creator->SegmentUv(i, segments, scroll);
+			const auto segmentUv =
+			    creator->SegmentUv(i, segments, scroll, chain.collection != nullptr ? chain.collection->chainTextures : -1);
 			const std::array<glm::vec2, 4> uvs = {
 			    frame_anim::OffsetUv(segmentUv[0], offset, false), frame_anim::OffsetUv(segmentUv[1], offset, false),
 			    frame_anim::OffsetUv(segmentUv[2], offset, false), frame_anim::OffsetUv(segmentUv[3], offset, false)};

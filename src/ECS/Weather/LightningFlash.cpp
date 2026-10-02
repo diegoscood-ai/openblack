@@ -12,6 +12,9 @@
 #include <cmath>
 
 #include <algorithm>
+#include <vector>
+
+#include "3D/LandLight.h"
 
 using namespace openblack;
 using namespace openblack::weather;
@@ -56,8 +59,24 @@ float flash::Frame(storms::Storm::Flash& flash)
 	}
 	flash.f3 *= flash.intensity;
 	flash.f1 *= flash.intensity;
-	// fn_0086CFF0(pos, 0xED92F0, [0xEDC2F0] = 64, 1, f3, 1, 0): the land light stamp. (pendiente) openblack has no
-	// dynamic land light texture (the light maps are drawn as ground quads, PSys/Creators/LightMap.h): not drawn
+	// 0x83724C..0x837278: fn_0086CFF0(pos, 0xED92F0, [0xEDC2F0] = 64, 1, f3, 1, 0): the land light stamp, centred,
+	// mode 1 (land_light::AddStamp); the bitmap of fn_00837110 (rows of 0xC0 bytes, the three channels equal)
+	static const std::vector<uint8_t> k_Bitmap = [] {
+		std::vector<uint8_t> bitmap(64u * 64u * 3u);
+		for (int row = 0; row < 64; ++row)
+		{
+			for (int column = 0; column < 64; ++column)
+			{
+				const uint8_t value = BitmapTexel(row - 32, column - 32);
+				const auto at = (static_cast<size_t>(row) * 64u + static_cast<size_t>(column)) * 3u;
+				bitmap[at] = value;
+				bitmap[at + 1] = value;
+				bitmap[at + 2] = value;
+			}
+		}
+		return bitmap;
+	}();
+	land_light::AddStamp(flash.position, k_Bitmap.data(), 64, true, flash.f3, 1);
 	return flash.f3;
 }
 

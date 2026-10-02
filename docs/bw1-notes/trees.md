@@ -264,12 +264,15 @@ turno, los guiones y lo que falta están en
   [0x8C5838]; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así que los árboles usan la del fotograma
   anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano subida al menos a 10 sobre el terreno:
   entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros.
-- **Color propio del árbol** (`fn_00802120` en `Tree::Draw`): es la misma luz bilineal de las 4 celdas bajo el origen
-  que usan los demás objetos (`fn_00801C90`, mismas tablas 0xEDD90C y celdas +3/+0xB/+0x88/+0x90), solo que en entero
-  (fracción de MapCoords >> 8) en vez de float; la neblina (`fn_007FEB30`) es la de todos los modelos. openblack ya lo
-  hace igual en `vs_object`: no hay nada propio que portar.
-  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, aplicado como color propio en la w de la cuarta columna de la
-  instancia (igual que el tinte de los campos), `RenderingSystem.cpp`.
+- **Color propio del árbol**: `fn_00802120` en `Tree::Draw` 0x74AB1B toma las 4 celdas con pesos `CellX >> 8` y
+  `CellZ >> 8` (0x802206, 0x802237; SSE 0x7A42AC / 0x7A42BC), no la fracción: en la práctica, la celda sola (mismas
+  tablas 0xEDD90C y celdas +3/+0xB/+0x8B/+0x93). Luego la neblina (0x74AB60). openblack:
+  `land_light::ObjectMode::CellShift` (`vs_object`, `LandLightCellShift` de `land_light.sh`); ver
+  [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común).
+  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, llevado como tinte en la x de la quinta columna de la
+  instancia con w = 1 (`lh3d_colour::PackInstanceTreeTint`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)): `vs_object` lo aplica después de la neblina, como
+  `Tree::Draw`, que no llama a `fn_0080BF10` sino que multiplica el +0x4C ya con neblina (0x74AB60 → 0x74B077..0x74B0C4;
+  ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3).
 - **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
   suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
   `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.
@@ -302,7 +305,8 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
   1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
   arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
   lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
-  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %), modo 230 + calor·25/255, escala × 5·vida por
+  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %; tope el brillo [0xC22FA0]), ALPHAREF forzado
+  230 + calor·25/255 (tope 254, `OverrideRenderMode`, sin portar: [magic.md](magic.md#fuego-m5-srcecsfire)), escala × 5·vida por
   debajo de 0,2; llamas `FireGraphic` (sprites `S_Fire.raw`, humo `S_SpriteSheet3.raw`, luz `S_LMFireBall.raw`),
   2 llamas por árbol de 0,2·alto; sonido de fuego en bucle.
 

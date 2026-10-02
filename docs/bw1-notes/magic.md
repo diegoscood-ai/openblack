@@ -1012,9 +1012,22 @@ más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por 
   ranuras 0xDA09CC), un `G_Fire` en bucle sobre el objeto.
 - **Visual** (`FireGraphic.cpp`, `PSysBase` 0xD0, fn_00731160/1560/2200): llamas `S_Fire.raw` en modo 13 naranja
   0xFF713C con celda `int(fmod(-25·edad, 32) + 32)`, vapor blanco aditivo y humo gris `S_SpriteSheet3` (celda
-  `int(fmod(25·edad, 32))`) en rachas de 30 turnos; tinte del árbol ardiendo (fn_0074B3A0), gris del carbonizado
-  (fn_00730570, `255 - int(c·255)·175/256`, 80 al carbonizarse del todo) y brillo `GetFireEffectCharingColor` 0x730480.
-  Falta el mapa de luz `S_LMFireBall` del objeto ardiendo (bit 4).
+  `int(fmod(25·edad, 32))`) en rachas de 30 turnos; tinte del árbol ardiendo (fn_0074B3A0: gris 50, o
+  `max(50, 255 − (1 − vida)·2550)` con vida > 0,9, **con tope sin signo en el brillo de los árboles del fotograma
+  [0xC22FA0]** (0x74B47B, `ecs::TreeBrightness`, el mismo que multiplica a un árbol sin fuego en 0x74B077; antes el port
+  ponía 255, y de noche el árbol quemado salía más claro), gris del carbonizado (fn_00730570: `k = ftol(c·255) & 0xFF`
+  y cada canal `((unsigned)(−175k) >> 8) − 1` (0x730585..0x7305D7) = **`255 − ceil(175k/256)`**: 255 con k = 0, **80**
+  con k = 255; antes el port truncaba y daba 81; `test_fire` lo compara con el código entero del exe para los 256 k) y
+  brillo `GetFireEffectCharingColor` 0x730480. El mapa de luz `S_LMFireBall` del objeto ardiendo (bit 4 de +0xB5,
+  sesión sistemas U5) **solo existe bajo los MultiMapFixed**: la marca `Object +0x24 & 2` (0x7312D5) la pone solo el ctor
+  de `MultiMapFixed` (0x52E207: casas, BigForest, Feature...), no un árbol suelto.
+  - **Pendiente (render)**: mientras dibuja el árbol ardiendo, 0x74B4D6..0x74B51E ponen `OverrideMaterial` [0xECA658] = 1
+    y `OverrideRenderMode` [0xECA65C] = `ftol(min(254, 230 + calor·25/255))` (calor 255 si T > 1,5·Tc, si no
+    `ftol((T − Tc)·255/(0,5·Tc))`; tope 254 [0x99A17C]), y lo quitan tras `AddForDrawing` (0x74B5D8). No es un material de
+    brillo: las funciones de modo 0x82E080.. lo leen como **ALPHAREF** de las primitivas con prueba de alfa
+    (`render_modes::AlphaRef` `forced`), así que el follaje del árbol ardiendo se recorta (solo pasan los texeles casi
+    opacos). Sin portar: los árboles van instanciados y `fs_object` toma el ALPHAREF por dibujo
+    (`u_skyAlphaThreshold.y`), así que hace falta un dibujo propio para cada árbol ardiendo (`FireGraphic.cpp`, TODO).
 - **Aldeanos** (`VillagerFire.cpp`, `VillagerFireman.cpp` 0x75A3D0-0x75B460 y `ReactToFire` 0x765870): estados 215
   `REACT_TO_FIRE`, 216 `PUT_OUT_FIRE_BY_BEATING`, 219 `ON_FIRE` y 220 `MOVE_AROUND_FIRE`. Los de agua (217, 218) **en
   W120 se rinden en el acto** (`DECIDE_WHAT_TO_DO`), así que nadie acarrea agua. Un aldeano que apaga no recibe calor
@@ -1039,6 +1052,20 @@ más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por 
     `LivingActionSystem::VillagerCallValidate` la llama en toda fila sin validate propio cuyo validate original es
     0x756A00 (`VillagerOriginalFns.h`); las salidas propias (inferido) de `ReactToFire` y `GoToTeleportReaction` ya no
     están (detalle en [villagers.md](villagers.md)).
+  - **Qué saca al aldeano de 215 cuando el objeto deja de arder** (2026-10-02): no es el estado. El fuego quita su
+    `REACT_TO_FIRE` al bajar de la temperatura de reacción (fn_0072EFB0 0x72F781), al borrarse (`FireEffect::ToBeDeleted`
+    0x72EC4C) o al moverse, con `RemoveAllReactionsOfTypeInitiatedByObject` 0x6E4780, que llama a `Reaction::ShutDown`
+    0x6E4720 de cada una: +0x34 = 1 y, mientras quede algún seguidor (+0x1C), `StopReactingAndSetState` (vt +0x99C,
+    0x5F11C0: `ResetStateAfterReacting` 0x751E10 = `PopFromPrevious` y `DECIDE_WHAT_TO_DO` si el estado final es de
+    reacción; luego `StopReacting`) del primero de la lista +0x18 (0x6E4731..0x6E4743). Así el aldeano vuelve a lo que
+    hacía en el mismo turno, esté en 215, huyendo hacia 215 o apagando. Portado: `villager_fire::ShutDownReaction`,
+    llamado por `RemoveReactions` de `FireEffect.cpp` antes de quitar la reacción (el orden de los seguidores es
+    (inferido): por entidad). Para una `REACT_TO_FIRE` quitada por otra vía (`Pot::RemoveReaction` 0x66D6A0 quita todas
+    las de un objeto; las reacciones de openblack no guardan la lista de seguidores), `ReactToFire` hace el mismo
+    `StopReactingAndSetState` al ver que su reacción ya no está (aproximado: un turno más tarde). Sigue sin portar
+    `Living::ProcessReaction` 0x5F1270 (cada turno: reacción no disponible → `StopReacting`; objeto +0xBC nulo o no
+    disponible, o pasados los turnos de la tabla 0xC09CF0 de su tipo → `StopReactingAndSetState`), `TODO` en
+    `VillagerCore.cpp` (sesión mapas).
 
 ### Natives CHL (`Magic/Script/CHLFire.cpp`)
 
@@ -1160,7 +1187,9 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
   - Jugador del guion: el byte g_game+0x205A5B es el hueco del **jugador neutral** (7; GGame::SetupPlayers 0x550458,
     GPlayer::IsNeutral 0x64AC00). Por eso el jugador 0 del guion y una pila mágica sin dueño son neutrales.
   - Bola de fuego: la bola rebota en los escudos (DoAnyShieldDeflections 0x6A1FA0 desde GravityWithFloor 0x6A1F48);
-    el lanzamiento no humano se vuelve a resolver solo si v² > 89129 (0x69EC60).
+    el lanzamiento no humano se vuelve a resolver si v² > **0,01** (el double [0x8C7620] de `fcomp qword` en 0x69EC60;
+    leído como float parecía 89129, corregido el 2026-10-02) y la subida pasa de 30° (el double [0x9375F0] =
+    0,52370351552963257, `fptan` 0x69EC77).
   - Rayo: los modos van por orden (mano, gestor, padre; 0x690F88) y el del padre usa un círculo, sin cono; las
     horquillas solo se actualizan con el efecto activo.
   - UR_WillowWisp: la edad de cada átomo es fracción·dt (0x6A70CC).
@@ -1249,10 +1278,12 @@ Lo que falta está en cada tema, al final de su sección:
 - Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
 - Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
 - Lluvia en el crecimiento de los árboles (`GrowTree`, fórmula en [trees.md](trees.md)): el clima es de Milagros.
-- Estado 215 cuando el objeto deja de arder: qué saca al aldeano en el original (`ReactToFire` 0x765870).
+- Árbol ardiendo: el ALPHAREF forzado 230..254 (`OverrideRenderMode`, 0x74B4D6..0x74B51E) necesita un dibujo propio
+  por árbol ([Fuego](magic.md#fuego-m5-srcecsfire)). `Living::ProcessReaction` 0x5F1270 de los aldeanos (mapas).
 - `OPENBLACK_TIME_OF_DAY` no se aplica ya en Land 1 (el guion controla el reloj).
 - Relevo para una sesión nueva de milagros: `Desktop\B&W\Prompts y detalles.md`, sección MILAGROS.
-- Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo ([Fuego](magic.md#fuego-m5-srcecsfire)).
+- Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo, solo bajo los MultiMapFixed (sistemas U5,
+  [Fuego](magic.md#fuego-m5-srcecsfire)).
 - Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
 
 Lo pendiente de cada milagro está en [Pendiente](miracles.md#pendiente).

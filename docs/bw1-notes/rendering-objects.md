@@ -7,6 +7,7 @@ como juego, en [water.md](water.md).
 
 - [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
 - [Luz de los modelos](#luz-de-los-modelos)
+- [Aritmética de LH3DColor](#aritmética-de-lh3dcolor)
 - [Repetición o recorte de texturas](#repetición-o-recorte-de-texturas)
 - [La cola única de transparentes (LH3DZSorter)](#la-cola-única-de-transparentes-lh3dzsorter)
 - [Manchas de aldeanos, reflejos de objetos y LOD](#manchas-de-aldeanos-reflejos-de-objetos-y-lod)
@@ -112,6 +113,119 @@ desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendie
   `Ambient()` a `u_cloud.z`.
 - **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
   especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
+
+## Aritmética de LH3DColor
+
+**Fiel** (del original, no es un mod). Un LH3DColor es un D3DCOLOR, 0xAARRGGBB. El motor combina dos colores con dos
+familias de operaciones, y **todas truncan, ninguna redondea**:
+
+- `(c·t) >> 8` por canal: `imul` sobre el byte enmascarado y `shr 8`. Con t = 0xFF cada canal pierde 1 (0xFF → 0xFE).
+- `c·l / 255` por canal: el truco 0x80808081 (`sar 7` más el bit de signo, o `mul` y `shr 7`), que da exactamente
+  trunc(x/255) para x de 0 a 65025.
+
+Cada rutina tiene su propia regla para el alfa. Cuando el alfa se **conserva**, es siempre el del **primer**
+argumento:
+
+| Rutina | Qué hace | Alfa | openblack |
+|---|---|---|---|
+| `fn_0080BF10` difuso (0x80BFA3..0x80C00B) | `(c·t)>>8` → +0x4C | multiplicado (0x80BFC5..0x80BFD3) | `MulShr8_4` |
+| `fn_0080BF10` especular (0x80BF1B..0x80BFB9) | `min(a+b, 255)` → +0x50 | sumado y saturado (`cmp 0xFF`/`jb`) | `AddSat_4` |
+| `fn_00809D80` (solo 0x80A290: color del objeto × parte) | `(a·b)>>8` | el de a (0x809DCF) | `MulShr8_3KeepA` |
+| `fn_00809DE0` (0x80A2A6: especular del objeto + parte) | `min(a+b, 255)` | el de a (0x809E46) | `AddSat_3KeepA` |
+| `fn_0084BA90` 0x84BBEA, `Tree::Draw` 0x74B077, `fn_0074B3A0` | `(c·k)>>8` por un escalar | el del objeto (0x74B0BD, 0x74B4C9) | `ScaleShr8_3KeepA` |
+| `fn_007ACF70` (0x7ACF79..0x7AD03C) | `trunc(a·b/255)` | multiplicado | `Mul255_4` |
+| `LH3DMist` 0x7FA6C8..0x7FA75F | color × luz `/255` | el del color, no el de la luz (0x7FA753) | `Mul255_3KeepA` |
+| `LH3DCreature::DrawNow` 0x48EF00..0x48EF98 | cuerpo × objeto `/255` | 0xFF (0x48EF8F) | `Mul255_3OpaqueA` |
+| `fn_005E25C0` 0x5E2729..0x5E273B | borde de la nube × alfa `/255` | — (escalar) | `Mul255` |
+
+Detalles leídos en el binario:
+
+- Un campo: `Field::Draw` llama a `fn_0080BEC0` con el color del campo (BlendColor, alfa 0xFF en 0x528510), así que su
+  alfa final es (0xFF·0xFF)>>8 = **254**. Con fuego (0x528809..0x528862) el tinte es antes ese color por el gris de
+  carbonizado de `fn_00730570`, en los 4 canales (= `MulShr8_4`).
+- La bola de un uso (0x518DDA y 0x519002): tinte `([0xBE8E8C] & 0xFF) << 24 | 0xFFFFFF` con [0xBE8E8C] = 0x00010196
+  (sin escritor), así que el alfa es (0xFF·0x96)>>8 = 0x95.
+- `SpellWolf::Draw`: +0x4C = `fistp(alpha) << 24 | 0xFFFFFF` (0x51C701..0x51C714) y la translucidez se decide con ese
+  alfa crudo (0x51C71E..0x51C727); ardiendo, +0x4C × carbonizado en los 4 canales (0x51C751..0x51C7B7) y
+  `fn_0080BEC0` con el brillo `fn_00730480`.
+- **`Tree::Draw` no llama a `fn_0080BEC0`**: su +0x4C es `fn_00802120` (0x74AB1B) más la neblina `fn_007FEB30`
+  (0x74AB60), y después el brillo [0xC22FA0] por `(c·k)>>8` con el alfa conservado (0x74B077..0x74B0C4). La neblina va
+  **antes** del brillo, al revés que en `vs_object`.
+- El árbol ardiendo (`fn_0074B3A0`): gris 50, o `ftol(255 − (1 − vida)·2550)` con un mínimo de 50 si vida > 0,9, y
+  luego `min(gris, [0xC22FA0])` sin signo (`jb`, 0x74B47B..0x74B484); el alfa **se conserva** (0x74B4C9, confirmado).
+- El gris de carbonizado `fn_00730570` es `255 − ceil(175k/256)` (0x730585..0x7305D7): k = 255 da 80.
+
+openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, sin estado, todo `constexpr`), con la regla del alfa en el
+nombre (`_4`, `_3KeepA`, `_3OpaqueA`), más `Argb`, `Red/Green/Blue/Alpha` y las conversiones de bgfx sin original
+(`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` redondeando y `ToVec4/ToVec3` = byte/255). El gemelo de GPU es
+`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`), que incluyen
+`vs_object.sc` (la columna de colores de la instancia, el color del corte y el color sin luz de `u_objectLight.z`) y
+`vs_foliage.sc` (el color de las cosechas).
+`Lh3dMul255` es floor((c·l + 0,5)/255): la división de un shader no redondea bien (a menudo x·rcp(255)) y un
+floor(x/255) a secas puede dar k − 1 cuando x = 255k; con el + 0,5 la fracción queda en [0,002, 0,998]
+(aproximado hasta probarlo en una GPU). `ScaleShr8_3KeepA` vale para cualquier k: las máscaras van tras cada `imul`
+(0x74B099 / 0x74B09F / 0x74B0B2), así que los canales no se pisan; los llamadores pasan 0..255. `fn_0080BEC0` es
+«dibujar con el color del terreno» por la propiedad `DrawWithLandscapeColor` del PSys (`Particle3DObj::DrawAt`
+0x67A00C); symbols.txt la llama `GetPoisonColor@Pot`, y el nombre es nuestro (inferido). La luz
+de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E1ECE..0x5E1F24), las neblinas
+(`RendererMists`), la bola de un uso y las conversiones de `Renderer`, `RendererBoat`, `RendererSea`,
+`RendererSmoke`, `Dust`, `GameFont` y `ScreenFade` ya lo usan, sin cambio visible. `test_lh3d_colour` compara
+`MulShr8_4` con una emulación instrucción a instrucción de 0x80BFA3..0x80C00B y `Mul255` con las dos formas de
+0x80808081 para todos los productos de dos bytes.
+
+### Los campos de color del objeto en la instancia
+
+**Transporte propio de openblack** (sin original): el motor guarda los colores en el LH3DObject (obj+0x4C difuso,
++0x50 especular, +0x54 ventanas) y los usa la CPU al iluminar; openblack los lleva por instancia a `vs_object`. Cada
+instancia tiene **cinco columnas** (80 bytes, `i_data0..i_data4`): la matriz y una quinta con un float por campo, cada
+uno un entero de como mucho 2^24 que el float guarda exacto. La escriben `lh3d_colour::PackInstance*`
+(`src/Graphics/Lh3dColour.h`) en `RenderContext::instanceColours`, y `RenderingSystemCommon::UploadInstances` intercala
+las dos listas en el búfer.
+
+| Campo | Valor | Qué es |
+|---|---|---|
+| x (+0x4C) | 0 | la luz de tierra sola (`fn_00801C90` sin `fn_0080BF10`) |
+| | −1 − rgb (`PackInstanceTint`) | un tinte t que multiplica la luz de tierra (`(c·t)>>8`): el de `fn_0080BF10`, o el propio de `Tree::Draw` (ver w) |
+| | 1 + rgb (`PackInstanceColour`) | el color de `SetColorSpecular` 0x7F9770 (vt 0x2C), en lugar de la luz de tierra |
+| y (+0x50) | rgb (`PackInstanceSpecular`) | el especular, 8 bits por canal, sumado con saturación al de la tierra (0x80BF1B..0x80BFB9) |
+| z (+0x54) | 0 o 1 + rgb (`PackInstanceWindow`) | el color de las ventanas de `Abode::Draw` (vt 0x30, 0x516068); 0 = apagadas |
+| w | 0 o 1 (`PackInstanceTreeTint`) | 1 = el tinte va después de la neblina: `Tree::Draw` no llama a `fn_0080BF10`, ilumina con `fn_00802120` (0x74AB1B), aplica la neblina (0x74AB60) y luego multiplica el +0x4C (0x74B077..0x74B0C4; ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3) |
+
+Así color y especular van a la vez (antes compartían el w de la cuarta columna y ganaba el último). Quién pasa qué
+(`DrawColoursOf` en `RenderingSystem.cpp`, leído en cada Draw):
+
+| Objeto | Tinte | Especular | Dirección |
+|---|---|---|---|
+| Aldeano | ardiendo: gris de carbonizado; si +0xD0 ≠ 0: blanco 0xFFFFFFFF; envenenado: 0xFFE8FFDD; si no, nada | brillo del fuego / +0xD0 / 0xFF001000 | `fn_0051B3D0` 0x51B402..0x51B488 |
+| Animal | ardiendo: carbonizado; +0xD0 ≠ 0: blanco; si no, nada (no mira el veneno) | brillo / +0xD0 | `Animal::Draw` 0x51C4C6..0x51C51C |
+| Lobo del milagro | siempre blanco (+0x4C = alfa << 24 \| 0xFFFFFF); ardiendo, × carbonizado en los 4 canales | brillo / +0xD0 | 0x51C709..0x51C7E1 |
+| Vasija o pila envenenada sin fuego | 0xFFE8FFDD | 0xFF001000 | `Pot::Draw` 0x51BB8F..0x51BBA3, `PileFood::Draw` 0x51C191..0x51C1B8 |
+| Icono de milagro de un centro (`TownCentreSpellIcon`) | blanco, siempre (con vida del centro > 0) | +0x10C (sin portar: 0) | `TownCentre::Draw` 0x5164A6..0x5164B2 |
+| Icono de milagro de un lugar de culto | blanco solo si +0x10C ≠ 0 (0x519672..0x51967C, 0x5198A8); como +0x10C no está portado, nada | 0 | `SpellIcon::Draw` 0x519650 |
+| Escudo físico | blanco | 0 | `PhysicalShield::DrawShield` 0x72D0D4 |
+| Bola de un uso | blanco (su alfa va en `components::Alpha`) | 0 | 0x519002..0x51901E |
+| Campo | su color; ardiendo, × carbonizado (`MulShr8_4`) | 0 / brillo | `Field::Draw` 0x528809..0x52888A |
+| Árbol | brillo [0xC22FA0]; ardiendo, `TreeDrawColour`; los dos después de la neblina (w = 1) | 0 | `Tree::Draw` 0x74B077..0x74B0C4, `fn_0074B3A0` 0x74B48F..0x74B4D3 |
+| Cualquier otro con fuego (edificios, rocas, árboles muertos, tótems...) | gris de carbonizado `fn_00730570` | brillo `fn_00730480` | `fn_00518050` (11 llamadores) y `DrawBuilding` 0x517FD4 |
+| Bandas de poder | color del jugador (`SetColorSpecular`) | 0x141414 ([0xBE8EA0] = 20) | `DrawSpellGraphic` 0x51A370..0x51A3BE; la de la mano escribe los campos directamente (`PHandFX` Band::Draw +0x4C 0x68D87D / 0x68D8AB, +0x50 0x68D8B1; (inferido) sin `fn_00801C90` detrás) |
+| Átomo de malla PSys | DrawData+8 (tinte con `DrawWithLandscapeColor`, si no `SetColorSpecular`) | 0 (aproximado: falta DrawData+0xC, leído en 0x67A012 y 0x67A023; se pierde en los dos caminos) | `Particle3DObj::DrawAt` 0x67A00C..0x67A02F |
+
+El tinte blanco quita 1 a cada canal (`(c·255)>>8`): antes no se aplicaba. El alfa del tinte no se lleva. El dibujo
+del LH3DObject copia el +0x4C entero a [0xC37D8C] (0x80DEF8; el +0x50 a [0xE9FE2C], 0x80DEFE) para todos los objetos,
+y varias rutinas lo leen (`fn_007A4170` 0x7A6A2C, 0x7A7E85, `fn_00805CD0` 0x805EAA, `fn_00809E50`); que su alfa solo
+cuente en los que se desvanecen es **(inferido)** (no se siguieron esas lecturas hasta el color del vértice). Para
+esos openblack usa `components::Alpha` (aproximado: el escudo debería quedar en 0xFE y el lobo en (A·0xFF)>>8).
+`test_lh3d_colour` comprueba los extremos (−2^24, 2^24, el negro, la ventana negra encendida) y 200 000 colores al azar
+decodificados como en el shader.
+
+**(aproximado)** El especular +0xD0 de los seres vivos: el original mira el dword entero con su alfa (0x51B416 /
+0x51C4D6 `test eax,eax`), y el chakra de curación escribe alfa 0xFF (`fn_006A0E30` 0x6A0EF5), así que sus fotogramas
+con rgb 0 siguen con el tinte blanco; openblack quita `SpecularColour` con rgb 0 (`PSys/Rules/Heal.cpp`) y esos
+fotogramas van con la luz de tierra sola.
+
+**(inferido)** Toda clase de las instancias que puede arder pasa por `fn_00518050` o `DrawBuilding`, o lleva el mismo
+par en línea (el lobo 0x51C751); faltan por portar los pares en línea del FragMesh de la casa (0x5160AF), de
+`Object::DrawOutOfMap` (0x51C839) y del objeto de predicción de la física (0x646F8C) (ver Pendiente).
 
 ## Repetición o recorte de texturas
 
@@ -250,7 +364,9 @@ La traza `OPENBLACK_ORB_TRACE` sigue escribiendo la distancia (la raíz de la cl
   quad 1 desde el pie 21 con V = D + (P18 − P21)/2, quad 2 simétrico; esquinas C − 0,02V ± U y C + V ± U con
   U = 0,2·norm(1, 0, −1) (ancho fijo 0,4); UV (0,0)(1,0)(1,1)(0,1), alfa 1 en los pies y 0 en la punta; modo 6, sin
   Z, dos caras, `human_shadow.raw` (byte & 0xF0 como alfa). No si y ≤ 0,2 (en el agua), muerto o en la mano de la
-  criatura. Animales: puntos de sus datos EBone (2 o 4 quads). openblack: `Renderer::DrawHumanShadows`.
+  criatura. Animales: puntos de sus datos EBone (2 o 4 quads). openblack: `Renderer::DrawHumanShadows`;
+  `human_shadow.raw` se corta a 4 bits al cargar (0x81FCDD, [rendering.md](rendering.md#texturas-argb4444)) y
+  `fs_blob` solo lo muestrea.
 - **Reflejos en el mar** (`GLandscape::Draw` 0x5E490F): `DrawUnderWater` dibuja el objeto espejado en y = 0, sin luz,
   recortado para que solo se refleje lo que está sobre el agua: la mano (0x65A0A0A0) y lo que sostiene, **el cuerpo de
   la criatura** (0x65A0A0D0 + especular 0x30; no lo que lleva), barcos (0xFF303070), objetos físicos (su color).
@@ -624,9 +740,10 @@ diminuto, el «+ 32» de las fiolas redondea a 32.
     u = (W/256)·(f % cols) y v = (H/256)·(f / cols), con f sin signo. Con deslizamiento, u = W·f / (N·256) y
     v = H·f / (N·256) ([0x8D45CC] = 256). openblack añade una guarda: cols ≥ 1.
 - Relojes (tabla de abajo).
-- Cargadores: `LoadStackedFrames` (GetBitmap 0x6A9D40: fotogramas Pitch × Pitch apilados, RGB o grises) y
-  `SampleStackedFrame` (openblack, bilineal); `LoadGif` y `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms
-  valen 100 ms, como en los navegadores).
+- Cargadores: `LoadBitmapFromFile` (`GJBitmap::LoadBitmapFromFile` 0x57CA90: solo con el tamaño exacto, 0x57CAD2;
+  mín(framesInUse, framesInFile) fotogramas de Pitch × Pitch sacados de la rejilla de √n por fila de `fn_0057CB40`) y
+  `FrameTexels` (un fotograma, `fn_006CA280` 0x6CA2E3); `land_light::LoadBitmapFile` lee el archivo. `LoadGif` y
+  `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms valen 100 ms, como en los navegadores).
 - Mods: `DelayClock` (duraciones por fotograma, en bucle, fotogramas enteros; da también la fracción dentro del
   fotograma) y `AnimatedSprite` (celdas o capas consecutivas desde `first`, con `blend` apagado por defecto).
 
@@ -724,6 +841,12 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
   la serie de `rand()` de todo el programa, sembrada con srand(time).
 - TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
+- Los faroles (fn_00823570), las nubes del cielo (su movimiento, su contador de atlas y el alineamiento del cielo,
+  `Renderer::UpdateClouds`), las nieblas del mapa (`CollectMists`, fn_007FA300) y el humo de las chimeneas
+  (`CollectChimneySmoke`, fn_007F8E00) toman también g_game_time_inc de `game_clock::FrameGameMs()` (U7). Antes salía
+  del reloj de pared, escalado por la velocidad del juego y con tope de 100 ms, y los faroles guardaban la fracción de
+  ms (`WholeMilliseconds`, que se quita: el reloj del juego ya da ms enteros y guarda él el resto del turno). Las
+  nieblas y el humo se recogen una vez por fotograma, solo en la vista principal.
 - (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
 - (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
 - HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en
@@ -993,28 +1116,46 @@ corte 0x96: un poco más finos).
     cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
     compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
   - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
+- Aritmética de LH3DColor, lo que falta por pasar a `lh3d_colour`:
+  - tras el reempaquetado de la instancia: el transporte `u_objectLight` (`Renderer.cpp`, `RendererBoat.cpp`); el
+    alfa del tinte (el lobo, `SpellFlock.cpp`: (0xFF·a)>>8 con la translucidez decidida con el alfa crudo, 0x51C724;
+    el escudo 0xFE); el especular del átomo PSys (DrawData+0xC, leído en 0x67A012 y 0x67A023: falta en `psys::mesh_atoms::Instance` y se pierde en los dos caminos); el
+    especular +0x10C de los iconos (con él, el tinte blanco de los iconos de los lugares de culto, 0x519672); que
+    `DrawBuilding` no aplica la neblina nunca, arda o no (0x517F90..0x518046 no llama a `fn_007FEB30`: Abode 0x516129,
+    MultiMapFixed 0x5180A6, WorshipSite 0x5193E9, SpellIcon 0x519668, Totem 0x51ABC3; el «arreglo 7» de `LandLightOf`);
+    `LandLightOf` da a todos los `SpellIcon` {Cell, sin neblina}, pero los de un centro (`TownCentre::Draw`
+    0x5164B2 → `fn_0080BEC0`) van con la luz bilineal y neblina; los colores pasados en línea sin portar: el objeto de
+    predicción de la física ardiendo (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: blanco + brillo), el FragMesh de la
+    casa dañada (`Abode::Draw` 0x5160A6..0x5160E9, por `fn_007F7960`: +0x10 = 0xFFFFFFFF / +0x14 = 0 sin fuego,
+    carbonizado / brillo ardiendo), `Object::DrawOutOfMap` (0x51C837..0x51C84F) y `CitadelHeart::DrawNow`
+    (0x4670DD..0x4670EE: tinte +0xA4, especular vt 0x5A4); el especular +0xD0 con alfa (ver arriba, `Heal.cpp`);
+  - en zonas de otras sesiones: las copias de `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
+    0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` y `RendererChain` / `RendererPSys` (`ToAbgr`);
+  - `ECS/Fire/FireGraphic.cpp` (dos arreglos exactos): `TreeDrawColour` debe limitar con `ecs::TreeBrightness()`, no
+    con 255 (0x74B47B); `CharringGrey` debe ser `255 − ceil(175k/256)` (0x730585..0x7305D7; con k = 255 openblack da
+    81 y el original 80);
+  - `fn_00809D80` / `fn_00809DE0` (color por parte de malla, 0x80A290 / 0x80A2A6) y `LH3DCreature::DrawNow` no tienen
+    aún usuario en openblack; `fn_007ACF70` solo existe en GPU (`fs_object.sc`, en float sin truncar).
 - Bancos de peces: el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
 - Sombras de los objetos físicos: el filtro 2×2 de los árboles y el rehorneado de la sombra estática al salir un árbol
   o un MobileObject.
 - Reflejos y sombras dinámicas de la criatura y de los SuperVillagers (no existen aún en openblack).
 - Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
   andamio de los talleres.
+- Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la
+  escala del PSR, fn_0081C780), el aro del orbe que a veces tapa la burbuja según la animación, y que la burbuja ya no
+  parpadea al volver a empezar su atlas.
 - Billboards:
-  - capturas del original para confirmar V4-a (la luna en un borde de la pantalla) y V4-b (un rayo en la mano);
   - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
     `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
   - el oy heredado por el vapor y el humo del fuego;
-  - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
-  - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
 - Texturas animadas:
   - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
     la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
   - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
-  - en las cadenas, el suavizado por puntos medios (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting
-    (la interpolación de SurfRevol ya está, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
+  - en las cadenas, UseDynamicLighting (el suavizado por puntos medios ya está, de milagros2; la interpolación de
+    SurfRevol también, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
   - HandEffects como efectos PSys de verdad;
-  - una captura del rayo en la mano en el original, para comparar el ancho de las cintas;
-  - capturas antes y después (lista de escenas en `dev\tmp_dis\unify\U2_changes.md`).
 - Mallas pegadas al suelo:
   - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
     de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);
@@ -1085,5 +1226,7 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   `lh3d_zsorter_openblack.md` (inventario de openblack) y `dev\tmp_dis\unify\U6_changes.md` (la migración).
 - `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
   (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).
+- `dev\tmp_dis\unify2\shader_lh3dcolour_instance_original.md` (las rutinas, con su verificación),
+  `shader_lh3dcolour_instance_openblack.md` (inventario de openblack) y `SHADERS_PLAN.md` §3 (aritmética de LH3DColor).
 - `dev\tmp_dis\unify2\lh3d_render_modes_original.md` (el original, con su verificación), `lh3d_render_modes_openblack.md`
   (inventario de openblack) y `dev\tmp_dis\unify\U4_changes.md` (la migración).

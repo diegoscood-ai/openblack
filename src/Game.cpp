@@ -52,6 +52,7 @@
 #include "Audio/Services/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
+#include "Camera/ScriptCamera.h"
 #include "Common/EventManager.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
@@ -102,8 +103,11 @@
 #include "LandBalance.h"
 #include "Magic/MagicLoop.h"
 #include "Locator.h"
-#include "Mods/BuiltinMods.h"
 #include "Mods/ModRegistry.h"
+#include "Mods/Lua/LuaHost.h"
+#include "Mods/Native/NativeHost.h"
+#include "Mods/Replacements.h"
+#include "Mods/Switches.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
 #include "Resources/HdTweaks.h"
@@ -279,11 +283,12 @@ Game::Game(Arguments&& args) noexcept
 	config.vsync = args.vsync;
 	config.detailLevel = args.detailLevel;
 
-	// Mods: the built-in ones and the data mods of <executable>/Mods, with the state saved in each Mods/<mod>/settings.cfg,
-	// then the command line for this session. Applied now so the engine starts with them.
+	// Mods (docs/bw1-notes/mod-library.md): the engine switches they may set, then the mods of <executable>/Mods (and
+	// the ones built into openblack), with the state saved in each Mods/<mod>/settings.cfg, then the command line for
+	// this session. Applied now so the engine starts with them.
 	{
+		mods::switches::RegisterEngineSwitches();
 		auto& mods = Locator::mods::emplace();
-		mods::RegisterBuiltinMods(mods);
 		std::filesystem::path baseDirectory;
 		if (char* base = SDL_GetBasePath(); base != nullptr)
 		{
@@ -292,7 +297,7 @@ Game::Game(Arguments&& args) noexcept
 		}
 		// everything about mods lives in <executable>/Mods, a folder per mod with its settings.cfg (and its files); the
 		// old single mods.cfg (next to the executable, or in Mods) is split into them once
-		mods.DiscoverDataMods(baseDirectory / "Mods");
+		mods.Discover(baseDirectory / "Mods");
 		mods.ImportLegacySettings(baseDirectory / "mods.cfg");
 		mods.ImportLegacySettings(baseDirectory / "Mods" / "mods.cfg");
 		mods.LoadSettings();
@@ -304,12 +309,18 @@ Game::Game(Arguments&& args) noexcept
 			}
 		}
 		mods.ApplyAll();
+		// what the active mods replace (meshes, textures, info.dat objects), read before the game data loads
+		mods::replace::Collect(mods);
+		mods.MarkStarted(); // the Mods window offers a restart when a mod that needs one changes
 	}
 	config.guiScale = args.guiScale;
 }
 
 Game::~Game() noexcept
 {
+	// the mods first, while the engine they talk to (audio included) is still up
+	mods::native::Stop();
+	mods::lua::Stop();
 	// GAudio::ToBeDeleted 0x426FE0: the sample channels, then GAudio's music before LHMusic, then the music thread and
 	// its OpenAL sources before the audio context (LHMusicClose 0x1000E7A0)
 	// GInterfaceStatus::UnInit 0x5DD226 -> GGuidance::Close; fn_0054EB40 0x54EC24 -> fn_0072E280 (GSpookyVoices' options)
@@ -565,6 +576,10 @@ bool Game::GameLogicLoop() noexcept
 	magic::ProcessTurnEnd();
 	ecs::effects::reactions::EndTurn();
 
+	// mods: their turn event, at the end of the game's turn (the turn of game_clock, as it began)
+	mods::lua::OnTurn(turn);
+	mods::native::OnTurn(turn);
+
 	return false;
 }
 
@@ -589,6 +604,9 @@ bool Game::Update() noexcept
 	Locator::debugGui::value().SetScale(config.guiScale);
 	// mod graphics.hd-tweaks changed in the Mods menu: its villager textures and meshes, before anything uses them
 	resources::hd_tweaks::Update();
+	// mods: their frame event
+	mods::lua::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
+	mods::native::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
 
 	// Physics
 	{
@@ -613,7 +631,11 @@ bool Game::Update() noexcept
 		{
 			Locator::events::value().Create<SDL_Event>(e);
 		}
-		camera.HandleActions(deltaTime);
+		// CameraModeScript has no keys (CameraModeFollow::Update leaves at 0x44C3BD for it)
+		if (!script_camera::Drives())
+		{
+			camera.HandleActions(deltaTime);
+		}
 	}
 
 	if (!config.running)
@@ -632,7 +654,14 @@ bool Game::Update() noexcept
 
 	{
 		auto cameraSection = profiler.BeginScoped(Profiler::Stage::CameraUpdate);
-		camera.Update(deltaTime);
+		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879): the script camera mode moves it while it
+		// lives, else the player's model. The frame's game ms are those of the last frame clock (aproximado: the
+		// original runs it after the turns of the loop)
+		if (!script_camera::UpdateCamera(camera, static_cast<float>(game_clock::CameraFrameMs()) * 0.001f,
+		                                 game_clock::FrameGameMs(), game_clock::FrameGameSeconds()))
+		{
+			camera.Update(deltaTime);
+		}
 		// The original's near plane follows the camera height above the ground: 0.3 + 0.16 h, clamped to 0.3..3.5
 		if (Locator::terrainSystem::has_value() && Locator::windowing::has_value())
 		{
@@ -971,13 +1000,44 @@ bool Game::Initialize() noexcept
 	for (size_t i = 0; const auto& mesh : meshes)
 	{
 		const auto meshId = static_cast<MeshId>(i);
-		meshManager.Load(meshId, resources::L3DLoader::FromBufferTag {}, k_MeshNames.at(i), mesh);
+		// a modded pack may have more meshes than openblack has names for
+		const auto name = i < k_MeshNames.size() ? k_MeshNames[i] : fmt::format("Mesh{}", i);
+		// a mod's mesh (mod.json "replace": {"meshes": ...}, Mods/Replacements.h) instead of the pack's
+		if (const auto file = mods::replace::Mesh(i))
+		{
+			try
+			{
+				meshManager.Load(meshId, resources::L3DLoader::FromDiskTag {}, *file);
+				++i;
+				continue;
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: mesh {} from {}: {}", name, file->generic_string(),
+				                    error.what());
+			}
+		}
+		meshManager.Load(meshId, resources::L3DLoader::FromBufferTag {}, name, mesh);
 		++i;
 	}
 
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
+		// a mod's image (mod.json "replace": {"textures": {"pack:<id>": ...}}) instead of the pack's texture
+		if (const auto image = mods::replace::PackTexture(g3dTexture.header.id))
+		{
+			try
+			{
+				textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromImageTag {}, name, *image);
+				continue;
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: texture {} from {}: {}", name, image->generic_string(),
+				                    error.what());
+			}
+		}
 		resources::hd_tweaks::LoadTexture(hdTextures, name, g3dTexture);
 	}
 
@@ -1118,7 +1178,17 @@ bool Game::Initialize() noexcept
 			SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Failed to load game info data.");
 			return false;
 		}
-		Locator::infoConstants::reset(result.release());
+		if (mods::replace::HasObjectPatches())
+		{
+			// mods change objects of info.dat (mod.json "replace": {"objects": ...}) before it is published as const
+			auto patched = std::make_unique<InfoConstants>(*result);
+			mods::replace::PatchObjects(*patched);
+			Locator::infoConstants::reset(patched.release());
+		}
+		else
+		{
+			Locator::infoConstants::reset(result.release());
+		}
 	}
 
 	// GAudio's music (the banks of 0x9C9748, fn_00426D40), with the town distances of info.dat (0xD9A934 / 0xD9A938)
@@ -1189,13 +1259,35 @@ bool Game::Initialize() noexcept
 		            std::move(hooks));
 	}
 
-	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false, [&textureManager](const std::filesystem::path& f) {
+	// a mod's image or .raw for Data/Textures/<stem>.raw (mod.json "replace": {"textures": {"raw:<stem>": ...}}),
+	// loaded under the game's own name; the ones the game does not have are added after
+	const auto loadRaw = [&textureManager](const std::string& stem, const std::filesystem::path& file) {
+		const auto key = fmt::format("raw/{}", stem);
+		if (string_utils::LowerCase(file.extension().string()) == ".png")
+		{
+			textureManager.Load(key, resources::Texture2DLoader::FromImageTag {}, key, file);
+		}
+		else
+		{
+			textureManager.Load(key, resources::Texture2DLoader::FromDiskTag {}, file);
+		}
+	};
+	std::vector<std::string> rawLoaded;
+	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false,
+	                   [&textureManager, &loadRaw, &rawLoaded](const std::filesystem::path& f) {
 		if (string_utils::LowerCase(f.extension().string()) == ".raw")
 		{
 			SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading raw texture: {}", f.stem().string());
 			try
 			{
-				textureManager.Load(fmt::format("raw/{}", f.stem().string()), resources::Texture2DLoader::FromDiskTag {}, f);
+				const auto stem = f.stem().string();
+				rawLoaded.push_back(string_utils::LowerCase(stem));
+				if (const auto replacement = mods::replace::RawTexture(stem))
+				{
+					loadRaw(stem, *replacement);
+					return;
+				}
+				textureManager.Load(fmt::format("raw/{}", stem), resources::Texture2DLoader::FromDiskTag {}, f);
 			}
 			catch (std::runtime_error& err)
 			{
@@ -1203,6 +1295,20 @@ bool Game::Initialize() noexcept
 			}
 		}
 	});
+	for (const auto& stem : mods::replace::RawTextureNames())
+	{
+		if (std::ranges::find(rawLoaded, string_utils::LowerCase(stem)) == rawLoaded.end())
+		{
+			try
+			{
+				loadRaw(stem, *mods::replace::RawTexture(stem));
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: raw texture {}: {}", stem, error.what());
+			}
+		}
+	}
 
 	return true;
 }
@@ -1210,6 +1316,11 @@ bool Game::Initialize() noexcept
 bool Game::Run() noexcept
 {
 	auto& config = Locator::config::value();
+
+	// mods: the Lua scripts of the active mods run once the engine is up, before the first land (so they see its
+	// land_loaded)
+	mods::lua::Start(Locator::mods::value());
+	mods::native::Start(Locator::mods::value());
 
 	if (!LoadMap(_startMap))
 	{
@@ -1234,8 +1345,13 @@ bool Game::Run() noexcept
 		    // the task-stop callback 0x6EC6D0 (fn_006EB1D0 gives it to ScriptDLL, 0x6EB1F1): the dialogue, the wide
 		    // screen and the camera of the task go back (Help/ScriptControl.cpp)
 		    [](uint32_t taskNumber) {
-			    help::script_control::OnTaskStopped(taskNumber, help::Get(), help::script_control::GetCameraControl(),
-			                                        audio::GetScriptAudioState());
+			    auto& cameraControl = help::script_control::GetCameraControl();
+			    const auto cameraOwner = cameraControl.owner;
+			    help::script_control::OnTaskStopped(taskNumber, help::Get(), cameraControl, audio::GetScriptAudioState());
+			    if (cameraOwner != 0 && cameraControl.owner == 0)
+			    {
+				    script_camera::End(); // fn_006ECF20 -> fn_006ECD70: the camera part (Camera/ScriptCamera.h)
+			    }
 		    },
 		    nullptr,
 		    [](uint32_t objId) {
@@ -1371,6 +1487,11 @@ bool Game::Run() noexcept
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Requesting a screenshot at frame {}...", _frameCount);
 				Locator::rendererInterface::value().RequestScreenshot(_requestScreenshot->second);
+				// test hook OPENBLACK_SCREENSHOT_GUI=1: the debug UI (menus, the Mods window) in the screenshot too
+				if (std::getenv("OPENBLACK_SCREENSHOT_GUI") != nullptr)
+				{
+					Locator::debugGui::value().Draw();
+				}
 			}
 			else
 			{
@@ -1463,6 +1584,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	audio::GetScriptAudioState().Reset();
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
+	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{
@@ -1527,6 +1649,10 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	audio::spooky::UpdatePlayerName();
 	// The original runs from the first frame; OPENBLACK_START_PAUSED=1 keeps openblack's old paused start (test hook)
 	game_clock::Start(std::getenv("OPENBLACK_START_PAUSED") != nullptr);
+
+	// mods: the land is ready (their land_loaded event)
+	mods::lua::OnLandLoaded(path.stem().string());
+	mods::native::OnLandLoaded(path.stem().string());
 
 	return true;
 }

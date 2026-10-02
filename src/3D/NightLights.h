@@ -22,17 +22,19 @@ class DayNightClock;
 namespace night_lights
 {
 
-/// Abode::Draw 0x515F70: the grey (0..1) of a house's window submeshes (L3D isWindow) at night, or a negative value
-/// when they are lit normally (day, or nobody at home). The windows are drawn unlit in that flat colour, which
-/// flickers a little (table 0x8D86D0) and has a per-house time offset from the position.
-[[nodiscard]] float WindowGrey(const DayNightClock& clock, const glm::vec3& position, bool someoneHome);
+/// Abode::Draw 0x515F70: the window colour it gives the house's LH3DObject (vt 0x30, fn_007F9780 -> +0x54), a grey
+/// 0xFFgggggg for its window submeshes (L3D isWindow) at night, or 0 when they are lit normally (day, or nobody at
+/// home: 0x51606D..0x516073). The windows are drawn unlit in that flat colour, which flickers a little (table 0x8D86D0)
+/// and has a per-house time offset from the position. vs_object gets it by lh3d_colour::PackInstanceWindow.
+[[nodiscard]] uint32_t WindowColour(const DayNightClock& clock, const glm::vec3& position, bool someoneHome);
 
 /// fn_0086C220: strength 0..255 of the village lights by script time: off from 7 to 16.5 h, fading in over
 /// 16.5..17.5 h and out over 6..7 h
 [[nodiscard]] float VillageLightIntensity(float scriptHour);
 
-/// The land cells the lights are stamped into: luminosity caps with the layout of the island's cell map (the
-/// shaders take min(cell luminosity, cap)), the cells' own luminosity and the green of light table[255]
+/// The land cells the lights are stamped into: `cap` is this frame's luminosity byte +3 of every cell (land_light,
+/// after the stamps), the island's cell map layout, written directly like fn_008229B0 0x822DC3; the cells' loaded
+/// luminosity (0 = no block) and the green of light table[255]
 struct LightCells
 {
 	glm::ivec2 firstCell {0}; ///< global cell of cap index 0

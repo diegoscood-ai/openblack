@@ -87,9 +87,8 @@ struct AnimTexturedSheet
 // ---------------------------------------------------------------------------------------------------------------------
 // The clocks of the original. The state is the caller's, kept where the original keeps it.
 
-/// (openblack) the whole milliseconds of g_game_time_inc [0xEA9EC0] from a float frame time, the fraction kept for the
-/// next frame (openblack runs uncapped: under 1 ms a frame the integer clocks would stop)
-[[nodiscard]] uint32_t WholeMilliseconds(float& remainder, float milliseconds) noexcept;
+/// The integer clocks take g_game_time_inc [0xEA9EC0] as it is: game_clock::FrameGameMs() (whole ms, the remainder of
+/// the turn kept by the game clock itself, GGame::Loop 0x54D2B2..0x54D3A6).
 
 /// OneOffSpellSeed::UpdateFrame 0x72A570 (the miracle bubble, O_Bibble_up.l3d 4 x 4): +0x74 = fmod(+0x74 + ms x 18
 /// ([0x981FB4]) x 0.001, 16 (double [0x982820])), f = ftol, SetAnimatedUV_1((f % 4) x 0.25, (f / 4) x 0.25 [0x981FB8])
@@ -296,19 +295,26 @@ struct ChainSheet
 // ---------------------------------------------------------------------------------------------------------------------
 // Loaders
 
-/// GJBitmap::LoadBitmapFromFile(name, Pitch, 3, NumFramesInFile, NumFramesInUse) (ParticleLightMapCreator::GetBitmap
-/// 0x6A9D40): Pitch x Pitch square frames stacked in the file
+/// A GJBitmap of GJBitmap::LoadBitmapFromFile 0x57CA90: `frames` frames of pitch x pitch texels of `channels` bytes,
+/// one after the other, rows along the first axis (the land stamps' x, fn_0086D060 0x86D1EC)
 struct StackedFrames
 {
 	int pitch {0};
 	int frames {0};
-	int channels {0}; ///< 3 (RGB) or 1 (grey)
+	int channels {0}; ///< the bpp asked for: 3 (RGB, the light maps) or 1 (grey, the shadow maps)
 	std::vector<uint8_t> data;
 };
-/// (inferido) RGB when the file holds pitch^2 x frames x 3 bytes, else grey; nothing when it is shorter than that
-[[nodiscard]] std::optional<StackedFrames> LoadStackedFrames(std::span<const uint8_t> bytes, int pitch, int framesInFile);
-/// (openblack) bilinear sample of one frame at (u, v) in 0..1 (the frames are 5 x 5 or so, drawn upscaled)
-[[nodiscard]] glm::vec3 SampleStackedFrame(const StackedFrames& stacked, int frame, float u, float v) noexcept;
+/// GJBitmap::LoadBitmapFromFile 0x57CA90 (name, pitch, bpp, framesInFile, framesInUse) on the file's bytes: nothing
+/// unless the file is exactly bpp x pitch^2 x framesInFile bytes (0x57CAC7..0x57CAD4); min(framesInUse, framesInFile)
+/// frames (0x57CADB..0x57CADF), which fn_0057CB40 (0x57CB40..0x57CC3F) takes out of the file's grid of
+/// ftol(sqrt(framesInFile)) frames per row (frame f at column f % n, row f / n) into pitch x pitch frames one after
+/// the other. Callers: ParticleLightMapCreator::GetBitmap 0x6A9D40 (bpp 3), ParticleMistCreator::GetBitmap 0x6AA540
+/// (bpp 1 or 3), fn_007311A0 0x7312B6 (S_LMFireBall); the file reading is land_light::LoadBitmapFile's
+[[nodiscard]] std::optional<StackedFrames> LoadBitmapFromFile(std::span<const uint8_t> bytes, int pitch, int bpp,
+                                                             int framesInFile, int framesInUse);
+/// The texels of one frame (fn_006CA280 0x6CA2D0..0x6CA30E): frame % frames (unsigned word), bpp x that x pitch^2
+/// bytes in; null for a bitmap without data (0x6CA2E6)
+[[nodiscard]] const uint8_t* FrameTexels(const StackedFrames& bitmap, int frame) noexcept;
 
 /// (mod) an animated GIF: its frames as RGBA images of the same size, one after the other, and their delays
 struct GifFrames

@@ -14,13 +14,24 @@
 namespace openblack::mods
 {
 
-Mod::Mod(Info info)
+Mod::Mod(Info info, std::filesystem::path root)
     : _info(std::move(info))
+    , _root(std::move(root))
     , _enabled(_info.enabledByDefault)
 {
 }
 
 Mod::~Mod() = default;
+
+void Mod::CollectSwitches(std::map<std::string, double, std::less<>>& switches) const
+{
+	for (const auto& [name, value] : _runtimeSwitches)
+	{
+		switches[name] = value;
+	}
+}
+
+void Mod::Apply() {}
 
 void Mod::AddOption(ModOption option)
 {

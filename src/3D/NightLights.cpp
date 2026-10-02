@@ -27,6 +27,8 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "FrameAnim.h"
+#include "GameClock.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
 #include "LandIslandInterface.h"
 #include "Locator.h"
@@ -37,12 +39,12 @@
 using namespace openblack;
 using namespace openblack::ecs::components;
 
-float night_lights::WindowGrey(const DayNightClock& clock, const glm::vec3& position, bool someoneHome)
+uint32_t night_lights::WindowColour(const DayNightClock& clock, const glm::vec3& position, bool someoneHome)
 {
 	// Abode +0xB6 (villagers at home) and GGameInfo::IsVisualNight
 	if (!someoneHome || !clock.IsVisualNight())
 	{
-		return -1.0f;
+		return 0; // 0x51606D: vt 0x30 with 0
 	}
 	const float f = std::abs(position.x + position.z) * 0.1f + position.y;
 	const float t = clock.GetVisualTime() + (f - std::trunc(f));
@@ -57,15 +59,14 @@ float night_lights::WindowGrey(const DayNightClock& clock, const glm::vec3& posi
 	}
 	if (intensity <= 0)
 	{
-		return -1.0f;
+		return 0; // 0x51606D: vt 0x30 with 0
 	}
 	static constexpr std::array<int32_t, 8> k_Flicker = {0, 7, 3, 5, 4, 2, 6, 1}; // 0x8D86D0
-	int32_t v = ((k_Flicker[static_cast<int32_t>(t * 1000.0f) & 7] << 2) & 0x1F) | 0xE0;
-	if (intensity < 256)
-	{
-		v = (v * intensity) >> 8;
-	}
-	return static_cast<float>(v) / 255.0f;
+	const auto v = static_cast<uint32_t>(((k_Flicker[static_cast<int32_t>(t * 1000.0f) & 7] << 2) & 0x1F) | 0xE0);
+	// 0x516054..0x516064: the grey in r, g and b with alpha 0xFF; below 256 the intensity scales it, (g k) >> 8
+	// (0x516044..0x51604F; the same product per channel as lh3d_colour::ScaleShr8_3KeepA)
+	const uint32_t colour = lh3d_colour::Argb(v, v, v, 0xFF);
+	return intensity < 256 ? lh3d_colour::ScaleShr8_3KeepA(colour, static_cast<uint32_t>(intensity)) : colour;
 }
 
 float night_lights::VillageLightIntensity(float t)
@@ -273,7 +274,6 @@ struct State
 	std::vector<VillageLight> lights;
 	float rescanMs {0.0f};
 	int flameMs {0};               // [0xEB99C4], one clock for every light (frame_anim::LanternAdvance)
-	float flameMsRemainder {0.0f}; // (openblack) the fraction of the frame's milliseconds
 	// 0xC383BC: the start of each sprite's cells, one table for every light, rewritten by every new light
 	// (frame_anim::LanternStarts); kept from land to land as the original's global
 	graphics::frame_anim::LanternStarts flameStarts {graphics::frame_anim::k_LanternFileStarts};
@@ -442,8 +442,8 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 
 	// fn_00823460 / fn_00823570: jitter every 30 ms, the flames play backwards over 700 ms. 0x82357A..0x823593: the
 	// clock only runs while the village light alpha [0xEB99BC] is not 0 and there are lights (frame_anim::LanternAdvance,
-	// g_game_time_inc in whole milliseconds)
-	const uint32_t wholeMs = graphics::frame_anim::WholeMilliseconds(g_state.flameMsRemainder, milliseconds);
+	// g_game_time_inc [0xEA9EC0] in whole milliseconds: game_clock::FrameGameMs, 0 while paused)
+	const uint32_t wholeMs = game_clock::FrameGameMs();
 	const bool running = villageAlpha != 0.0f && !g_state.lights.empty();
 	const int a = graphics::frame_anim::LanternAdvance(g_state.flameMs, running ? wholeMs : 0u);
 	const float alpha = std::trunc(villageAlpha) / 255.0f;

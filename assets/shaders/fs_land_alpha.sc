@@ -1,8 +1,10 @@
 $input v_texcoord0
 
 // River channel footprint (data\river.l3d) into the land alpha target, blended with MIN (fn_00872AB0: the block
-// texture's alpha nibble becomes min(dst, src)). Only the footprint's alpha is used; nearest texel, 4-bit like the
-// original's ARGB4444.
+// texture's alpha nibble becomes min(dst, src)). Only the footprint's alpha is used, nearest texel. The footprint is
+// a BGRA4 texture (L3DMesh), so the texel is already one of the 16 levels of the original's ARGB4444; it is created
+// with Filter::Linear, though, so the value is rounded to its level again: that absorbs any error of the hardware's
+// bilinear weights at the snapped texel centre and changes nothing when the sample is exact.
 
 #include <bgfx_shader.sh>
 

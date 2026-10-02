@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Graphics/Lh3dColour.h"
+
 using namespace openblack;
 
 namespace
@@ -27,7 +29,7 @@ void ScreenFade::FadeTo(uint8_t red, uint8_t green, uint8_t blue, float seconds)
 {
 	// SET_FADE truncates its float arguments and passes the time as a signed char
 	const auto time = static_cast<int8_t>(static_cast<int>(seconds));
-	const uint32_t rgb = (static_cast<uint32_t>(red) << 16) | (static_cast<uint32_t>(green) << 8) | blue;
+	const uint32_t rgb = lh3d_colour::Argb(red, green, blue);
 	if (time <= 0)
 	{
 		_colour = WithAlpha(rgb, 255);

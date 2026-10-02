@@ -16,6 +16,7 @@
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/LandLight.h"
 #include "Graphics/GraphicsHandle.h"
 #include "Graphics/Mesh.h"
 
@@ -49,6 +50,10 @@ struct RenderContext
 	/// If debug bounding boxes are enabled, it will double in size to fit all
 	/// bounding boxes in the second half of the list.
 	std::vector<glm::mat4> instanceUniforms;
+	/// The fifth column of every instance (i_data4), at the same indices: the object's LH3DColor fields obj+0x4C / +0x50
+	/// / +0x54 packed by lh3d_colour::PackInstanceTint / Colour / Specular / Window (src/Graphics/Lh3dColour.h), zero for
+	/// the land light alone. Zeroed before every refill; instanceUniformBuffer holds the two interleaved (80 bytes each).
+	std::vector<glm::vec4> instanceColours;
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
 	std::map<entt::id_type, const InstancedDrawDesc> instancedDrawDescs;
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
@@ -60,6 +65,10 @@ struct RenderContext
 	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
 	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
 	std::unordered_map<uint32_t, glm::vec3> sortPoints;
+	/// How the models of a mesh take the land light (land_light::ObjectMode): the plain models fn_00801C90 +
+	/// fn_007FEB30, trees, worship sites, spell icons, the Dove class; one per mesh (RenderingSystem LandLightOf),
+	/// refilled at every PrepareDraw
+	std::unordered_map<entt::id_type, land_light::ObjectLight> meshLandLight;
 	/// Where each entity's model matrix is this frame
 	struct EntityInstance
 	{
@@ -70,6 +79,9 @@ struct RenderContext
 		bool receivesDynamicShadow;
 	};
 	std::unordered_map<entt::entity, EntityInstance> entityInstances;
+	/// The bones of the instances that are not entities: the PSys mesh atoms of a ParticleAnimCreator (Particle3DAnim::
+	/// DrawAt 0x67A8E0, PSys/Creators/Mesh.h), instance index -> the bones' model matrices, refilled at every PrepareDraw
+	std::unordered_map<uint32_t, std::vector<glm::mat4>> instancePoses;
 	/// The objects that cast a static shadow (see RenderingSystem.cpp, CastsStaticShadow), again, in their own range
 	std::map<entt::id_type, const InstancedDrawDesc> shadowCasterDrawDescs;
 	/// Not an actual vertex buffer, but a dynamic general purpose buffer which

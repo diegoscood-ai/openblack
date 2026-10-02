@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "water.living",
+  "name": { "en": "Living water", "es": "Agua viva" },
+  "version": "1.0.0",
+  "category": "Water",
+  "authors": ["openblack"],
+  "description": {
+    "en": "The sea reflects everything, the reflection ripples with slow waves and the sea surface drifts (no per-row shimmer).",
+    "es": "El mar lo refleja todo, el reflejo ondula con olas lentas y la superficie del mar se desliza (sin el brillo por filas)."
+  },
+  "api": ">=1.0 <2.0",
+  "switches": { "water.living": true }
+}

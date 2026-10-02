@@ -10,7 +10,8 @@
 // The beam explosion (M6b): UR_ChangeScaleXYZ 0x6A5240, UR_MoveAtom 0x6A5E50, the UR_Explosion event cadence
 // (0x67ECE0: a SpellEvent 2 per step for TimeToDoEventsFor after InitialDelay), SetPSysCloseDown 0x6A26D0, and the mesh
 // particles' draw: UsePlayerColor (fn_006A85E0) and FaceCamera (Particle3DObj::DrawAt 0x679FD0); the key-point splines
-// (KPSplineInterpolator, fn_005B3760 / EvalAtT 0x6A7EB0) and ParticleGoodEvilCreator 0x6AAA00.
+// (KPSplineInterpolator, fn_005B3760 / EvalAtT 0x6A7EB0) and ParticleGoodEvilCreator 0x6AAA00; the exploded meshes
+// (UR_ExplodeObject 0x6814E0, ExplodeMesh 0x6807B0).
 
 #include <cmath>
 
@@ -23,10 +24,12 @@
 #include <gtest/gtest.h>
 
 #include "3D/Billboard.h"
+#include "3D/LandLightTable.h"
 #include "ECS/SmokyStuff.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
+#include "PSys/Rules/ExplodeObject.h"
 #include "PSys/Rules/Explosion.h"
 #include "PSys/Rules/KeyPoints.h"
 #include "PSys/SpellLink.h"
@@ -322,4 +325,174 @@ TEST(Explosion, groundMarkDustIsSmokyStuffMode1)
 		EXPECT_NEAR(glm::length(puff.velocity), 1.5f, 1e-4f);
 	}
 	ecs::smoky_stuff::Clear();
+}
+
+namespace
+{
+/// A strip of `count` triangles (k, k + 1, k + 2) on zig-zag points: each one shares an edge with the one before and the
+/// one after, and many edges have the same length (the qsort's ties)
+psys::explode_object::SourcePrimitive Strip(int count)
+{
+	psys::explode_object::SourcePrimitive strip;
+	for (int k = 0; k < count + 2; ++k)
+	{
+		strip.positions.emplace_back(static_cast<float>(k / 2), static_cast<float>(k % 2), 0.0f);
+		strip.uvs.emplace_back(0.0f);
+		strip.normals.emplace_back(0.0f, 0.0f, 1.0f);
+	}
+	for (int k = 0; k < count; ++k)
+	{
+		strip.triangles.push_back({static_cast<uint16_t>(k), static_cast<uint16_t>(k + 1), static_cast<uint16_t>(k + 2)});
+	}
+	return strip;
+}
+
+/// SF_ExplodeObject's group 0 (UR_ExplodeObject and the fragments' remove rule)
+constexpr std::string_view k_ExplodeObject = R"(BEGINPROPERTIES
+PROPERTY DeleteOnCloseDown BOOL 0
+PROPERTY Hierarchies ARRAY SIZE 25 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY InitiallyCreated ARRAY SIZE 25 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+PROPERTY MaxSpellAge FLOAT 25
+ENDPROPERTIES
+BEGINCLASS UR_ExplodeObject UR_ExplodeObject0
+BEGINPROPERTIES
+PROPERTY Condition PERSIS_PNTR NULL_STRING
+PROPERTY Group INTEGER 0
+PROPERTY RandomFactor FLOAT 0.889381
+PROPERTY RemoveOnCloseDown BOOL 1
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS RemoveRuleOldAgeOnly RemoveRuleOldAgeOnly_Fragments
+BEGINPROPERTIES
+PROPERTY Condition PERSIS_PNTR NULL_STRING
+PROPERTY DieAge FLOAT 6
+PROPERTY Group INTEGER 0
+PROPERTY MinAtoms INTEGER 0
+PROPERTY RemoveOnCloseDown BOOL 0
+ENDPROPERTIES
+ENDCLASS
+BEGINCLASS UR_ExplodeObject2 UR_ExplodeObject2_0
+BEGINPROPERTIES
+PROPERTY Condition PERSIS_PNTR NULL_STRING
+PROPERTY Group INTEGER 2
+PROPERTY RandomFactor FLOAT 0.889381
+PROPERTY RemoveOnCloseDown BOOL 1
+ENDPROPERTIES
+ENDCLASS
+)";
+} // namespace
+
+// ExplodeMesh 0x6807B0: pieces walked from triangle to triangle over shared edges, MaxTrigsPerFrag (15) + 1 at most
+TEST(Explosion, explodeMeshWalksSharedEdges)
+{
+	const auto pieces = psys::explode_object::SplitPrimitive(Strip(20), 15);
+	ASSERT_EQ(pieces.size(), 2u);
+	ASSERT_EQ(pieces[0].size(), 16u); // the walk adds while made <= 15 (0x680D36..0x680D41)
+	for (uint32_t i = 0; i < 16; ++i)
+	{
+		EXPECT_EQ(pieces[0][i], i);
+	}
+	ASSERT_EQ(pieces[1].size(), 4u); // the next start is the first unused triangle (0x680D47..0x680D68)
+	EXPECT_EQ(pieces[1].front(), 16u);
+	EXPECT_EQ(pieces[1].back(), 19u);
+	// a walk ends where the last triangle has no unused neighbour: two separate triangles are two pieces
+	psys::explode_object::SourcePrimitive apart = Strip(1);
+	apart.positions.emplace_back(10.0f, 0.0f, 0.0f);
+	apart.positions.emplace_back(11.0f, 0.0f, 0.0f);
+	apart.positions.emplace_back(10.0f, 1.0f, 0.0f);
+	apart.triangles.push_back({3, 4, 5});
+	EXPECT_EQ(psys::explode_object::SplitPrimitive(apart, 15).size(), 2u);
+	// MaxTrigsPerFrag 0: the walk stops after the first triangle (made 1 <= 0 fails): pieces of one triangle each
+	EXPECT_EQ(psys::explode_object::SplitPrimitive(Strip(5), 0).size(), 5u);
+	EXPECT_TRUE(psys::explode_object::SplitPrimitive({}, 15).empty());
+}
+
+// ExplodeMesh 0x680F34..0x6810AC: d to the speed, the random part to |d| x RandomFactor, its Y halved (0x681068)
+TEST(Explosion, explodeMeshPieceVelocity)
+{
+	const auto v = psys::explode_object::PieceVelocity(glm::vec3(3.0f, 0.0f, 4.0f), glm::vec3(0.0f), 10.0f, 0.5f,
+	                                                   glm::vec3(0.0f, 2.0f, 0.0f));
+	EXPECT_NEAR(v.x, 6.0f, 1e-5f);
+	EXPECT_NEAR(v.y, 2.5f, 1e-5f);
+	EXPECT_NEAR(v.z, 8.0f, 1e-5f);
+	const auto side = psys::explode_object::PieceVelocity(glm::vec3(0.0f, 5.0f, 0.0f), glm::vec3(0.0f), 10.0f, 1.0f,
+	                                                      glm::vec3(0.0f, 0.0f, -3.0f));
+	EXPECT_NEAR(side.y, 10.0f, 1e-5f);
+	EXPECT_NEAR(side.z, -10.0f, 1e-5f); // X and Z keep their full length
+	// at the origin d stays 0 and so does the random part (|d| x RandomFactor = 0)
+	const auto still = psys::explode_object::PieceVelocity(glm::vec3(1.0f), glm::vec3(1.0f), 10.0f, 0.9f, glm::vec3(1.0f));
+	EXPECT_FLOAT_EQ(glm::length(still), 0.0f);
+}
+
+// RenderParticleGJMesh::DrawAt 0x67C175..0x67C1F6: the DrawData colour times the land light byte by byte ((c l) >> 8,
+// alpha included); fn_00801C90 off the map (0x8020F8) gives table[255]
+TEST(Explosion, explodedPieceLitColour)
+{
+	const glm::vec3 off(-10000.0f, 0.0f, -10000.0f);
+	const uint32_t light = psys::explode_object::LandLight(off);
+	EXPECT_EQ(light, LandLightTable::Current().GetRaw(255));
+	const uint32_t argb = 0xFF804020u;
+	uint32_t expected = 0;
+	for (const int shift : {24, 16, 8, 0})
+	{
+		expected |= ((((argb >> shift) & 0xFFu) * ((light >> shift) & 0xFFu)) >> 8) << shift;
+	}
+	EXPECT_EQ(psys::explode_object::LitColour(argb, off), expected);
+	if (light == 0xFFFFFFFFu)
+	{
+		EXPECT_EQ(expected, 0xFE7F3F1Fu); // 255 x 255 >> 8 = 254: an opaque DrawData alpha comes out 254
+	}
+}
+
+// UR_ExplodeObject::ModifyAtomCollection 0x6814E0: the queue (fn_006812B0) emptied into one atom per piece, at its
+// centroid in the world; only the LOD 0 sub-meshes without status bits
+TEST(Explosion, explodeObjectQueueToPieces)
+{
+	psys::explode_object::Clear();
+	auto mesh = std::make_shared<psys::explode_object::SourceMesh>();
+	mesh->subMeshes.push_back({0xE0000800u, {Strip(20)}}); // the rock's flags: LOD mask 7, status 0
+	mesh->subMeshes.push_back({0x80000800u, {Strip(3)}});  // no LOD 0
+	mesh->subMeshes.push_back({0xE0000810u, {Strip(3)}});  // a status bit
+	const glm::vec3 position(100.0f, 10.0f, 200.0f);
+	const glm::mat3 axes(2.0f); // scaled x2
+	psys::explode_object::QueueMesh(mesh, axes, position, position - glm::vec3(0.0f, 5.0f, 0.0f), 10.0f, 6.0f);
+	psys::explode_object::QueueMesh(nullptr, axes, position, position, 10.0f, 6.0f); // no mesh: not queued
+	EXPECT_EQ(psys::explode_object::QueuedCount(), 1u);
+
+	const auto file = Parse(k_ExplodeObject, "SF_ExplodeObjectTest");
+	ASSERT_NE(file, nullptr);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 9);
+	effect.Step(0.1f);
+	EXPECT_EQ(psys::explode_object::QueuedCount(), 0u);
+	std::vector<psys::Effect::DrawAtom> atoms;
+	effect.Collect(1.0f, atoms, psys::Creator::Kind::Mesh);
+	ASSERT_EQ(atoms.size(), 2u);
+	for (const auto& atom : atoms)
+	{
+		ASSERT_NE(atom.atom, nullptr);
+		const auto* piece = psys::explode_object::PieceOf(*atom.atom);
+		ASSERT_NE(piece, nullptr);
+		EXPECT_EQ(piece->meshId, 0u); // no renderer in the tests
+	}
+	EXPECT_EQ(psys::explode_object::PieceOf(*atoms[0].atom)->triangles + psys::explode_object::PieceOf(*atoms[1].atom)->triangles, 20u);
+	// the first piece (triangles 0..15 of the strip, 48 vertices) at its centroid: the strip's points k / 2, k % 2 through
+	// the matrix
+	glm::vec3 sum(0.0f);
+	const auto strip = Strip(20);
+	for (uint32_t t = 0; t < 16; ++t)
+	{
+		for (const auto i : strip.triangles[t])
+		{
+			sum += position + axes * strip.positions[i];
+		}
+	}
+	const glm::vec3 centre = sum / 48.0f;
+	const auto& first = *atoms[0].atom;
+	// no movement rule in this file: the atom is still at the centroid it was made at (+0x80, 0x680F22)
+	EXPECT_NEAR(first.position.x, centre.x, 1e-3f);
+	EXPECT_NEAR(first.position.y, centre.y, 1e-3f);
+	EXPECT_NEAR(first.position.z, centre.z, 1e-3f);
+	// flying away from the origin 5 m under the matrix's position, at 10 plus the random part
+	EXPECT_GT(first.velocity.y, 0.0f);
+	psys::explode_object::Clear();
 }

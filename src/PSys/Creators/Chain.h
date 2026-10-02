@@ -41,8 +41,9 @@ struct ChainCreator: Creator
 	/// fn_006C8920 (frame_anim::ChainSegmentUv): the four UVs of segment `index` of a chain of `segments` (joints - 1),
 	/// in 0..1 of the 256 x 256 texture: uv0 = (u0, v0), uv1 = (u1, v0) at its first joint, uv2 = (u0, v1),
 	/// uv3 = (u1, v1) at the next. U runs across the ribbon (u0 on the joint + side vertices, u1 on the joint - side
-	/// ones), V along it; `scroll` is chain +0x3C, added to the four v
-	[[nodiscard]] std::array<glm::vec2, 4> SegmentUv(int index, int segments, float scroll) const;
+	/// ones), V along it; `scroll` is chain +0x3C, added to the four v. `textures`: the chain's repeats when a rule
+	/// rewrote them (Collection::chainTextures), -1 for the creator's
+	[[nodiscard]] std::array<glm::vec2, 4> SegmentUv(int index, int segments, float scroll, int textures = -1) const;
 };
 
 namespace chain_atoms

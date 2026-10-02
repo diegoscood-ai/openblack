@@ -15,8 +15,8 @@ SAMPLER2DARRAY(s2_materials, 2);
 
 uniform vec4 u_foliageEye;    // xyz: camera position, w: draw distance
 uniform vec4 u_foliageParams; // x: seconds, y: ground material repeats per block
-uniform vec4 u_haze;          // x: near, y: far, z: k, w: on (as the terrain)
-uniform vec4 u_hazeColour;    // rgb: fog colour 0..255
+#include "haze.sh"          // u_haze, u_hazeColour (as the terrain)
+#include "lh3d_colour.sh"    // Lh3dUnpackRgb24 (the colour in i_data4.w)
 
 void main()
 {
@@ -66,10 +66,7 @@ void main()
 	vec3 ground = texture2DArrayLod(s2_materials, vec3(i_data3.xy * u_foliageParams.y, i_data2.z), 3.0f).rgb;
 	if (i_data4.z > 0.5f && i_data4.z < 1.5f)
 	{
-		float packedColour = i_data4.w;
-		float red = floor(packedColour / 65536.0f);
-		float green = floor((packedColour - red * 65536.0f) / 256.0f);
-		ground = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f) / 255.0f;
+		ground = Lh3dUnpackRgb24(i_data4.w) / 255.0f;
 	}
 	// flat ones: i_data3.z scales the ground colour they take (shade, e.g. darker wet sand)
 	if (i_data4.z > 1.5f && i_data3.z > 0.0f)
@@ -81,9 +78,10 @@ void main()
 	// lit like the land under it: landscape light table[luminosity], then the distance haze
 	vec3 light = texture2DLod(s1_landLight, vec2((floor(i_data1.z * 255.0f + 0.5f) + 0.5f) / 256.0f, 0.5f), 0.0f).rgb;
 	vec4 viewPosition = mul(u_view, vec4(position, 1.0f));
-	float hazeT = u_haze.w * saturate((viewPosition.z - u_haze.x) / (u_haze.y - u_haze.x));
-	v_landLight = light * (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
-	v_landSpecular = floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f;
+	// (the land's class 1 per vertex, haze.sh: the same rounding as vs_terrain)
+	float hazeT = u_haze.w * HazeT(viewPosition.z);
+	v_landLight = ApplyHazeDiffuse(floor(light * 255.0f + 0.5f), HazeFactor(hazeT)) / 255.0f;
+	v_landSpecular = HazeColour(hazeT) / 255.0f;
 
 	gl_Position = mul(u_proj, viewPosition);
 }

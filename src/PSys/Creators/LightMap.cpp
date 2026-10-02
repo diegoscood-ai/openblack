@@ -15,132 +15,20 @@
 
 #include <algorithm>
 #include <memory>
-#include <optional>
 #include <vector>
 
-#include <entt/core/hashed_string.hpp>
-#include <spdlog/spdlog.h>
-
 #include "3D/FrameAnim.h"
-#include "Common/StringUtils.h"
-#include "FileSystem/FileSystemInterface.h"
-#include "Locator.h"
+#include "3D/LH3DRandom.h"
+#include "3D/LandLight.h"
 #include "PSys/PSysFile.h"
+#include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
-#include "Resources/Loaders.h"
-#include "Resources/ResourceManager.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
 using namespace openblack::psys;
 
 namespace
 {
-constexpr int k_AtlasCell = 32; ///< one frame upscaled to 32 x 32 in an 8 x 8 atlas: the sprite path's cell layout
-constexpr int k_AtlasSide = 8;
-
-/// GJBitmap::LoadBitmapFromFile(name, Pitch, 3, NumFramesInFile, NumFramesInUse) (GetBitmap 0x6A9D40): Pitch x Pitch
-/// square frames stacked in the file (frame_anim::LoadStackedFrames)
-std::optional<graphics::frame_anim::StackedFrames> LoadBitmap(const std::string& path, int pitch, int framesInFile)
-{
-	if (!Locator::filesystem::has_value() || pitch <= 0 || framesInFile <= 0)
-	{
-		return std::nullopt;
-	}
-	auto name = path;
-	std::replace(name.begin(), name.end(), '\\', '/');
-	if (name.starts_with("./"))
-	{
-		name = name.substr(2);
-	}
-	if (string_utils::LowerCase(name).starts_with("data/"))
-	{
-		name = name.substr(5);
-	}
-	try
-	{
-		auto& fileSystem = Locator::filesystem::value();
-		const auto bytes = fileSystem.ReadAll(fileSystem.GetPath<filesystem::Path::Data>() / name);
-		auto stacked = graphics::frame_anim::LoadStackedFrames(bytes, pitch, framesInFile);
-		if (!stacked.has_value())
-		{
-			SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: light map {}: {} bytes, {} x {} x {} expected", name, bytes.size(),
-			                   pitch, pitch, framesInFile);
-		}
-		return stacked;
-	}
-	catch (const std::exception& e)
-	{
-		SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: light map {}: {}", name, e.what());
-	}
-	return std::nullopt;
-}
-
-/// The frames of the .raw as one 8 x 8 atlas of 32 x 32 cells, registered under "raw/<name>" and "raw/<name>a" so that
-/// the sprite pass (RendererPSys.cpp) draws them like any other animated sprite
-std::string BuildAtlas(const std::string& path, int pitch, int framesInFile)
-{
-	auto name = path;
-	std::replace(name.begin(), name.end(), '\\', '/');
-	if (const auto slash = name.find_last_of('/'); slash != std::string::npos)
-	{
-		name = name.substr(slash + 1);
-	}
-	if (const auto dot = name.find_last_of('.'); dot != std::string::npos)
-	{
-		name = name.substr(0, dot);
-	}
-	const std::string id = "lightmap_" + name;
-	if (!Locator::resources::has_value())
-	{
-		return id;
-	}
-	auto& textures = Locator::resources::value().GetTextures();
-	const auto diffuseId = entt::hashed_string(("raw/" + id).c_str()).value();
-	const auto alphaId = entt::hashed_string(("raw/" + id + "a").c_str()).value();
-	if (textures.Contains(diffuseId))
-	{
-		return id;
-	}
-	const auto bitmap = LoadBitmap(path, pitch, framesInFile);
-	if (!bitmap.has_value())
-	{
-		return id;
-	}
-	constexpr int side = k_AtlasSide * k_AtlasCell;
-	resources::Texture2DLoader::DecodedImage diffuse {static_cast<uint16_t>(side), static_cast<uint16_t>(side),
-	                                                 std::vector<uint8_t>(static_cast<size_t>(side) * side * 4, 0)};
-	auto alpha = diffuse;
-	for (int frame = 0; frame < std::min(bitmap->frames, k_AtlasSide * k_AtlasSide); ++frame)
-	{
-		const int cellX = (frame % k_AtlasSide) * k_AtlasCell;
-		const int cellY = (frame / k_AtlasSide) * k_AtlasCell;
-		for (int y = 0; y < k_AtlasCell; ++y)
-		{
-			for (int x = 0; x < k_AtlasCell; ++x)
-			{
-				const auto colour = graphics::frame_anim::SampleStackedFrame(*bitmap, frame, (static_cast<float>(x) + 0.5f) / k_AtlasCell,
-				                                                             (static_cast<float>(y) + 0.5f) / k_AtlasCell);
-				// (aproximado) the port's quad: alpha = max(R, G, B), the frame bilinearly upscaled to 32 x 32, and the
-				// global light-map level 0xECA664 = clamp(fade) x 190 of AddDrawing 0x6CA6E0 is not applied
-				// (part_render.md §8)
-				const auto luminance = static_cast<uint8_t>(std::clamp(std::max({colour.r, colour.g, colour.b}), 0.0f, 255.0f));
-				const auto offset = (static_cast<size_t>(cellY + y) * side + static_cast<size_t>(cellX + x)) * 4;
-				for (int c = 0; c < 3; ++c)
-				{
-					diffuse.rgba[offset + static_cast<size_t>(c)] = static_cast<uint8_t>(std::clamp(colour[c], 0.0f, 255.0f));
-					alpha.rgba[offset + static_cast<size_t>(c)] = luminance;
-				}
-				diffuse.rgba[offset + 3] = luminance;
-				alpha.rgba[offset + 3] = luminance;
-			}
-		}
-	}
-	textures.Load(diffuseId, resources::Texture2DLoader::FromImageTag {}, "raw/" + id, diffuse);
-	textures.Load(alphaId, resources::Texture2DLoader::FromImageTag {}, "raw/" + id + "a", alpha);
-	return id;
-}
-
 std::unique_ptr<Creator> MakeLightMapCreator(const Object& object)
 {
 	auto creator = std::make_unique<LightMapCreator>();
@@ -153,34 +41,84 @@ std::unique_ptr<Creator> MakeLightMapCreator(const Object& object)
 	creator->useRandJitter = object.Bool("UseRandJitter", false);
 	creator->shiftX = object.Float("ShiftX", 0.0f);
 	creator->shiftZ = object.Float("ShiftZ", 0.0f);
-	// drawn by the sprite pass: a flat additive quad of the atlas, one cell per frame
-	creator->kind = Creator::Kind::Sprite;
-	creator->texture = BuildAtlas(object.String("TextureFileName"), creator->pitch, creator->numFramesInFile);
-	creator->spritesPerRow = k_AtlasSide;
+	// not drawn by the sprite pass: stamped into the land (light_map_atoms::SubmitFrame)
+	creator->kind = Creator::Kind::Other;
+	creator->texture = object.String("TextureFileName");
+	// GetBitmap 0x6A9D40: LoadBitmapFromFile(TextureFileName, Pitch, 3, NumFramesInFile, NumFramesInUse)
+	creator->bitmap = land_light::LoadBitmapFile(creator->texture, creator->pitch, 3, creator->numFramesInFile, creator->numFramesInUse);
 	creator->numFrames = creator->numFramesInUse;
 	creator->fileOffset = 0;
 	creator->initFrame = 0;
 	creator->frameRate = object.Float("FrameRate", 1.0f);
 	creator->playAnim = object.Bool("PlayAnim", false);
 	creator->loopAnim = object.Bool("LoopAnim", false);
-	creator->additive = true;
-	creator->writeDepth = false;
-	creator->horizontal = true; // it lies on the ground
-	creator->ignoreRotation = false;
-	creator->stretch = 1.0f;
-	creator->scaleAlpha = 255;
 	return creator;
 }
 } // namespace
 
-void LightMapCreator::InitAtom(Effect& effect, Atom& atom) const
+void LightMapCreator::InitAtom(Effect& /*effect*/, Atom& atom) const
 {
-	if (useRandJitter && randJitter != 0.0f)
+	// CreateParticleLightMap 0x6A9DEF..0x6A9E16: the atom's frame rate (+0x110 = FrameRate +0x78), its frames (+0x114 =
+	// NumFramesInUse +0x6C) and PlayAnim (+0x118 = +0x7C); the frame starts at 0. The light fades through the bitmap's
+	// frames (PSys.cpp steps them, FramesPerAtom = numFrames)
+	atom.frame = 0.0f;
+	atom.frameRate = frameRate;
+	atom.playAnim = playAnim;
+}
+
+void light_map_atoms::SubmitFrame()
+{
+	// (openblack guard) DrawAt 0x67B220 appends each atom's record once a frame to the list 0xD4EDB8 (0x67B35A), which
+	// fn_006CA660 empties after PSysLightMaps::AddDrawing 0x6CA6E0: a second call before this frame's stamps are taken
+	// out (land_light::ClearStamps) would stamp every atom twice, so it is skipped
+	static uint32_t s_Submitted = ~0u;
+	if (s_Submitted == land_light::StampFrame())
 	{
-		// DrawAt 0x67B220: LocalFloatRand(RandJitter) per axis. (aproximado) the original adds it on every draw (the
-		// light flickers); here it is added once, when the atom is made
-		atom.position += glm::vec3(effect.Random(randJitter), effect.Random(randJitter), effect.Random(randJitter));
+		return;
 	}
+	s_Submitted = land_light::StampFrame();
+	Stamp(manager::Collect(Creator::Kind::Other));
+}
+
+int light_map_atoms::Stamp(const std::vector<manager::Drawable>& drawables)
+{
+	int stamped = 0;
+	for (const auto& drawable : drawables)
+	{
+		for (const auto& atom : drawable.atoms)
+		{
+			const auto* creator = dynamic_cast<const LightMapCreator*>(atom.creator);
+			// 0x67B2A6..0x67B2B6 and fn_006CA280 0x6CA284..0x6CA2A2: a bitmap with data, 3 or 1 bytes per texel
+			if (creator == nullptr || !creator->bitmap || (creator->bitmap->channels != 3 && creator->bitmap->channels != 1))
+			{
+				continue;
+			}
+			// DrawAt 0x67B228..0x67B261: the frame (DrawData +0x10), the position (the atom's +0x24) and alpha = DrawData
+			// alpha / 255 ([0x9357AC])
+			const int frame = graphics::frame_anim::PSysFrameIndex(atom.frame, creator->numFrames, creator->loopAnim) & 0xFF;
+			glm::vec3 position = atom.position;
+			const float alpha = static_cast<float>(static_cast<int>(std::clamp(atom.alpha, 0.0f, 255.0f))) * (1.0f / 255.0f);
+			// 0x67B264..0x67B2A3: with UseRandJitter, LocalFloatRand(RandJitter) three times at every draw; the first
+			// goes to z (0x67B29C..0x67B2A3), the second to y (0x67B292..0x67B299) and the third to x (0x67B289..0x67B28F)
+			if (creator->useRandJitter)
+			{
+				const float first = grand_local::LocalFloatRand(creator->randJitter);
+				const float second = grand_local::LocalFloatRand(creator->randJitter);
+				const float third = grand_local::LocalFloatRand(creator->randJitter);
+				position += glm::vec3(third, second, first);
+			}
+			// fn_006CA280: + (10, 0, 10) ([0x8AB414], 0x6CA2AE / 0x6CA2CA), the frame frame % frames, centred, mode 1 for
+			// 3 bytes per texel and 2 for 1 (0x6CA317..0x6CA320), keepBrighter 0
+			const auto* texels = graphics::frame_anim::FrameTexels(*creator->bitmap, frame);
+			const int mode = creator->bitmap->channels == 3 ? 1 : 2;
+			if (land_light::AddStamp(position + glm::vec3(10.0f, 0.0f, 10.0f), texels, creator->bitmap->pitch, true, alpha,
+			                         mode))
+			{
+				++stamped;
+			}
+		}
+	}
+	return stamped;
 }
 
 void openblack::psys::RegisterLightMapCreator()

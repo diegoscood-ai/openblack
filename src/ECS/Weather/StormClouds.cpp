@@ -22,10 +22,13 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/LH3DRandom.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
+#include "FileSystem/FileSystemInterface.h"
 #include "Graphics/DetailLevel.h"
+#include "Graphics/Haze.h"
 #include "Graphics/Mists.h"
 #include "Locator.h"
 #include "Storms.h"
@@ -44,30 +47,42 @@ float Random(float a, float b)
 	return graphics::lh3d::Random(a, b);
 }
 
-/// fn_007FEB30 on the colour (the "light" argument): with the haze on and the view depth z >= near, each RGB byte x
-/// (256 - trunc((256 - k) t)) >> 8 with t = clamp((z - near) / (far - near), 0, 1); the specular it returns (the haze
-/// colour x t) is not drawn by the mists' effect branch (fn_007FA300)
-uint32_t Haze(uint32_t argb, const glm::vec3& position)
+/// 0x83FFEE..0x840027: fn_007FEB30(pos, specular, &colour) (graphics::haze::ApplyObject) with the specular a grey
+/// min(255, ftol(flash f3 [storm +0x8C] x 127 [0x8C4A00])) in all four bytes; it darkens the colour and returns the
+/// specular SetColorSpecular puts in +0x50 (0x84002F..0x840039), drawn by the mists' effect branch (fn_0080DB30 0x80DEF5)
+uint32_t Haze(uint32_t& argb, const glm::vec3& position, float flash)
 {
-	if (!Locator::config::has_value() || !graphics::GetDetailLevel(Locator::config::value().detailLevel).fog || !Locator::camera::has_value())
+	const auto grey = std::min(static_cast<uint32_t>(static_cast<int32_t>(flash * 127.0f)), 0xFFu);
+	const uint32_t specular = grey << 24 | grey << 16 | grey << 8 | grey;
+	if (!Locator::camera::has_value())
 	{
-		return argb;
+		return specular;
 	}
-	const auto& haze = LandLightTable::Current().GetHaze();
 	const auto view = Locator::camera::value().GetViewMatrix(Camera::Interpolation::Current);
-	const float depth = (view * glm::vec4(position, 1.0f)).z;
-	if (depth < haze.nearDistance)
-	{
-		return argb;
-	}
-	const float t = std::clamp((depth - haze.nearDistance) / (haze.farDistance - haze.nearDistance), 0.0f, 1.0f);
-	const auto f = static_cast<uint32_t>(256.0f - std::trunc((256.0f - haze.k) * t));
-	uint32_t out = argb & 0xFF000000u;
-	for (const uint32_t shift : {16u, 8u, 0u})
-	{
-		out |= ((((argb >> shift) & 0xFFu) * f) >> 8u) << shift;
-	}
-	return out;
+	return graphics::haze::ApplyObject(graphics::haze::Frame(), graphics::haze::Depth(view, position), specular, &argb);
+}
+
+/// sstorm.raw (40 x 40 grey, 0x640 bytes) that fn_00835AD0 0x835E15 loads into 0xEE9D3C: the storms' land shadow
+const std::vector<uint8_t>& StormShadowImage()
+{
+	static const std::vector<uint8_t> k_Image = [] {
+		std::vector<uint8_t> image;
+		if (!Locator::filesystem::has_value())
+		{
+			return image;
+		}
+		try
+		{
+			auto& fileSystem = Locator::filesystem::value();
+			image = fileSystem.ReadAll(fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Textures>() / "sstorm.raw"));
+		}
+		catch (const std::exception& e)
+		{
+			SPDLOG_LOGGER_WARN(spdlog::get("game"), "No storm shadows (sstorm.raw): {}", e.what());
+		}
+		return image;
+	}();
+	return k_Image;
 }
 } // namespace
 
@@ -187,7 +202,8 @@ void storm_clouds::DrawFrame(float milliseconds)
 			position.x = spread * puff.offset.x * 0.5f + storm.drawPosition.x;
 			position.z = spread * puff.offset.z * 0.5f + storm.drawPosition.z;
 			position.y = LandHeightAt(position.x, position.z) + puff.offset.y;
-			const uint32_t colour = Haze(PuffColour(base, d.blackness, storm.fade), position);
+			uint32_t colour = PuffColour(base, d.blackness, storm.fade);
+			const uint32_t specular = Haze(colour, position, storm.flash.f3);
 			// vt 0x100 (AddDrawing) only above alpha 5
 			if ((colour >> 24u) > 5u)
 			{
@@ -208,11 +224,23 @@ void storm_clouds::DrawFrame(float milliseconds)
 				mist.edgeShrink = true;
 				mist.k = puff.k;
 				mist.counter = puff.counter;
+				mist.specular = specular;
 				mists::Submit(mist);
 			}
 		}
-		// 0x840069: the storm's shadow, s = (blackness + 0.7) x fade capped at 1, stamped above 0.01 with the bitmap
-		// 0xEE9D3C (40, mode 2) by fn_0086CFF0. (pendiente) no dynamic land light texture in openblack: not drawn
+		// 0x840069..0x8400C6: the storm's shadow, s = (blackness + 0.7 [0x8AB238]) x fade; at 1 or more stamped with 1,
+		// else only above 0.01 ([0x8C5840]); with "CloudShadows" ([0xC381F4]): fn_0086CFF0(+0xA0, 0xEE9D3C, 40, 1, s, 2, 0)
+		float shadow = (d.blackness + 0.7f) * storm.fade;
+		const bool cloudShadows = Locator::config::has_value() && graphics::GetDetailLevel(Locator::config::value().detailLevel).clouds;
+		if (shadow > 1.0f)
+		{
+			shadow = 1.0f;
+		}
+		const auto& image = StormShadowImage();
+		if (shadow > 0.01f && cloudShadows && image.size() == 40u * 40u)
+		{
+			land_light::AddStamp(storm.drawPosition, image.data(), 40, true, shadow, 2);
+		}
 	});
 }
 

@@ -29,8 +29,8 @@ namespace openblack::psys::explosion
 /// ReduceLife(GetLife(0)).
 void DestroyedByBeam(entt::entity object);
 
-/// fn_0067E8C0: the point a blast throws things away from, 5 m under its centre (read for the mesh-pieces call
-/// fn_00681260, which is not ported: the exploding objects just vanish)
+/// fn_0067E8C0: the point a blast throws things away from, 5 m under its centre (the origin of the pieces of the
+/// exploded objects and of the five rocks, fn_00681260 / fn_006812B0: Rules/ExplodeObject.h)
 [[nodiscard]] inline glm::vec3 BlastOrigin(const glm::vec3& centre)
 {
 	return {centre.x, centre.y - 5.0f, centre.z};

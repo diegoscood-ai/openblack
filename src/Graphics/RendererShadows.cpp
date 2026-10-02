@@ -182,7 +182,10 @@ void Renderer::CollectShadowReceivers(bool mainView) const
 		{
 			continue;
 		}
-		const auto& model = renderCtx.instanceUniforms[instance.index]; // obj+0x14, the drawn matrix (x and z read only)
+		// obj+0x14, the drawn matrix (x and z read only). (inferido) valid while no MorphWithTerrain entity gets
+		// RenderingSystem's per-instance edits of that matrix (the fields' and trees' wind sway, the trees' bend, the
+		// burning trees' shrink): those edits are the original's draw matrix, not obj+0x14; none carries the component
+		const auto& model = renderCtx.instanceUniforms[instance.index];
 		const float scale = transform->scale.x;                          // obj+0x44
 		const float halfDiagonal = ecs::object::MeshHalfDiagonal(instance.meshId); // mesh+0x30
 		const glm::vec2 centre =
@@ -197,6 +200,10 @@ void Renderer::CollectShadowReceivers(bool mainView) const
 				continue;
 			}
 			const auto& box = shadow->box;
+			// (inferido) MorphWithTerrain stands for the morphable class here (vtable 0x9A2E34, Get3DType 1, Draw
+			// fn_0080E550). The CITADEL class (Get3DType 8, CitadelHeart 0x464B40; vtable 0x9A2BFC) draws through
+			// fn_00882A40 -> the static Draw fn_0080DB30 (0x882AB5): ContainsThisBoundingBox and ZFUNC EQUAL. No type 8
+			// entity carries the component today (CitadelArchetype has none; CitadelPart is type 1, 0x4694B0)
 			if (instance.morphWithTerrain)
 			{
 				// fn_0080E550 0x80E78E..0x80E857 (no vt+0x1A8 / vt+0x1B8 test there, only si+0x464 0x80E782)
@@ -253,8 +260,9 @@ void Renderer::DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const g
 	// (0x80E484) and LESSEQUAL after the loop (0x80E4CE), and so does fn_00810720 (vt+0x15C, 0x810C8F / 0x810CF2); the
 	// animated one fn_00812170 (vt+0x108 of 0x9A32A0, the loop 0x81311A..0x81317C) sets nothing, so the frame's
 	// LESSEQUAL holds (0x82CCC5): LessEqualInclusive (GEQUAL in openblack's reversed depth), which lets the redraw's
-	// equal depth pass (as DrawLandShadows). The morphable Draw fn_0080E550 (vt+0x108 of 0x9A2E34) sets nothing either around its loop
-	// (0x80E768..0x80E874 -> fn_0080AE40): LESSEQUAL too. (inferido) that a boned mesh is one of the animated class
+	// equal depth pass (as DrawLandShadows). The morphable Draw fn_0080E550 (vt+0x108 of 0x9A2E34) sets nothing either
+	// around its loop (0x80E768..0x80E874 -> fn_0080AE40): LESSEQUAL too. (inferido) that a boned mesh is one of the
+	// animated class
 	const bool lessEqual = mesh->IsBoned() || receiver.morphWithTerrain;
 	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
 	submitDesc.options = {.zFunc = lessEqual ? render_modes::ZFunc::LessEqualInclusive : render_modes::ZFunc::Equal,

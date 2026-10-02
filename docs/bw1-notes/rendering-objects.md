@@ -551,7 +551,13 @@ El original tiene tres mecanismos y un solo plano:
     ([0x932D08] `8104b53f` = 1,41419995, **no** es el float más cercano a √2), el centro de la malla +0x18..0x20 por la
     matriz del objeto obj+0x14 y la distancia en x, z al centro de la caja ((x0 + x1) · 0,5 [0x8AA3B4]); se dibuja si
     dx² + dz² < R², estricto (0x80E84E). No mira vt+0x1A8 / vt+0x1B8, solo si+0x464 (0x80E782).
-    `shadow_math::ReachesMorphable`, probado en `test_shadow_math`.
+    `shadow_math::ReachesMorphable`, probado en `test_shadow_math`. **(inferido)** que `MorphWithTerrain` sea la
+    clase morfable (vtable 0x9A2E34, Get3DType 1): la clase CITADEL (Get3DType 8, `CitadelHeart` 0x464B40; vtable
+    0x9A2BFC) dibuja con `fn_00882A40`, que llama al Draw estático `fn_0080DB30` (0x882AB5), con
+    `ContainsThisBoundingBox` y ZFUNC EQUAL; hoy ninguna entidad de tipo 8 lleva el componente (`CitadelArchetype` no lo
+    pone; `CitadelPart` es tipo 1, 0x4694B0). La prueba lee obj+0x14 de la matriz que openblack dibuja; vale mientras
+    ninguna entidad `MorphWithTerrain` reciba los retoques de `RenderingSystem` (vaivén de campos y árboles, la
+    inclinación y el encogimiento de los árboles), que son la matriz de dibujo del original y no obj+0x14 (inferido).
 
 ## Cortar por el plano del agua (`DrawCutByPlane`)
 

@@ -2235,6 +2235,35 @@ y 0x7886E0 177 G_WaterCreatureCave 3D en (160, −45, −30); su vfunc 11 0x7871
 0x463850). Quién toca 2 / 12 con dueño 0 dentro del templo (lo que para fn_00793D00) no está en el inventario
 **(inferido: nadie en W120; la parada queda igual)**.
 
+### Auditoría de C4
+
+Revisado contra el desensamblado: fn_00427200 entero (0x427209..0x42726D la copia sin tope y el tope del +0x50,
+0x4272AD / 0x4272E1 la bandera 0, 0x427321..0x42738E el punto devuelto con tope, 0x427399..0x427400 la distancia sin
+tope + desplazamiento), LHSampleUpdate3DChannels 0x10014310 (bandera 0 → LHSampleStop y +0x18 = 0; `fcomp` +0x6C,
+`test ah, 1`: un NaN no para; LHSampleSet3DPosition con el punto con tope), LHSampleSet3DPosition 0x10013AC0 (la fuente
+de QMixer en punto + desplazamiento 0x10013E76..0x10013E99, +0x50 = el punto 0x10013EBA), LHSamplePlayAnimEffect
+0x10014B91 (el punto devuelto va a las opciones), ProcessCitadelMusic 0x427B60..0x427C8F (opciones +0x00/+0x04/+0x14/
++0x1C/+0x20/+0x24/+0x28; el banco que comprueba, GAudio+0xDC + 4·índice, es el de tipo 44 + índice), 0x4282F0
+(`== 1`), ProcessMusic 0x427DF0..0x427EBB, 0x426C80, 0x64D6A0, 0x429F6D, 0x42A554, Temple fn_00793D00
+(0x793D3C..0x793D59), StopPlayingSoundEffect 0x42A210, LeaveInsideCitadel 0x553B1F / 0x553B25, GoInsideCitadel
+0x553E10..0x55405E (sus llamadas: ninguna de audio; fn_00463A50 → fn_00469E70 es de la ciudadela, no de sonido),
+fn_005C6CB0 y fn_005C61B0. Todo coincide con el código; nada que corregir.
+
+- `ReadSpeedFactor`: la regla del equipo (paso en double, resultado a float) podría redondear dos veces en el `fmul`
+  y el `fadd` qword; comprobado **exhaustivo** para los 2^23 floats de la segunda rama (b = 2 − 2r es exacto; el
+  doble redondeo solo difiere si el double cae en un punto medio de float: no cae ninguno) y la primera rama es un
+  solo redondeo (3 − 4r es exacto en double): **fiel** para todo READ_SPEED.
+- Sin fuentes ni búferes AL nuevos, sin dependencias ECS en `src/Audio`, sin hilo de música nuevo (`LHMusicPlay`
+  desde el turno del juego, como las demás ramas); el cerrojo [0xC56164] es global como en el original.
+- En juego (Land 1, `_audit\audio\c4_audit_citadel.log`, segunda ejecución desde la línea ~2400;
+  `OPENBLACK_AUDIO_TEST_CITADEL="100,180"`, trazas AUDIO/SFX/MUSIC/ATMOS): al entrar `LHSampleStopAll` para los
+  crujidos de árbol de los canales 0, 2 y 4; dentro no arranca ninguna muestra (todo `filtered (inside the citadel…)`),
+  citadel.sad (CITADEL_NEUTRAL) sube 4 → 127 mientras intro.sad baja; al salir `SFX: stop InGame.sad/2` y `/12`
+  dueño 0, vuelve `MUSIC_TYPE_SCRIPT_INTRO` desde el trozo 1 de golpe (fn_00427CA0 pasa fundido 0, 0x427D41) y
+  citadel.sad se funde, los bucles de ambiente arrancan de nuevo y los crujidos vuelven a sonar.
+- Pendiente de comprobar (no es de C4): si se carga otra isla con el templo abierto, openblack no llama a
+  `TempleInterior::Deactivate` y `insideCitadel` seguiría a 1.
+
 ## Ganchos de prueba
 
 | Gancho | Qué hace |

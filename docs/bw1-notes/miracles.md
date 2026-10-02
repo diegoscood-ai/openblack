@@ -104,17 +104,15 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   0x5B3FD4 (vt 0x1C) pone la
   posición requerida de la mano en el punto donde empezó, y suma la altura (vt 0x18). `Spell::CoreCloseDown` 0x720160 la
   para.
-  - **El sentido del giro de la inclinación (verificado; openblack lo tiene al revés).** El ángulo viene del fichero y es
-    **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal cual
-    (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
+  - **El sentido del giro de la inclinación (verificado; fiel desde la sesión asistente).** El ángulo viene del fichero y
+    es **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal
+    cual (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
     mano → cámara normalizado (`LH3DTech::g_camera` menos la posición, 0x5B6E1B..0x5B6ECE), llama a fn_007FB180(matriz,
     eje, ángulo) y transforma el vector (0, 1, 0). fn_007FB180 escribe la matriz de Rodrigues **estándar** por filas
     (0x7FB1F7 `[ecx]` = x² + (1 − x²)c, 0x7FB207 `[ecx+0xC]` = xy(1 − c) + zs, 0x7FB21C `[ecx+0x18]` =
     xz(1 − c) − ys, …), pero el transporte de 0x5B6EE8 es por **vector fila**: out.x = R00·v.x + R10·v.y + R20·v.z + t.x,
-    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. openblack hace
-    `glm::mat3(glm::rotate(mat4(1), tilt, eje)) * up`, que es R(+tilt)·up: **la mano se vuelca al lado contrario**. El
-    arreglo es un signo (`-tilt`, o transponer) en `HandPlacement.cpp`; no se toca aquí porque ese fichero es de la lane
-    de la mano (la tarea de «bosque2» pedía solo verificarlo).
+    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. Por eso `HandPlacement.cpp` gira con `-tilt`
+    (`glm::rotate(mat4(1), -tilt, eje)`).
   - **Con ClampHand la mano no se mueve mientras cae el grano**, así que todos los granos caen en el mismo punto y
     hacen una sola pila que crece (el plan esperaba una línea de 20 m: no la hay con `ClampHand 1`, y el agua, que
     tiene `ClampHand 0`, sí sigue a la mano). El punto es el que tenía la mano al empezar el chorro, y el bucle no
@@ -569,16 +567,16 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   (aplazado).
 - **Las mariposas y los murciélagos sí están** (esto corrige la línea vieja de «sin portar»): `UR_ForestPath` y
   `ParticleGoodEvilCreator` en `PSys/Rules/Forest.cpp`, `UR_Flocking` en `PSys/Rules/Flock.cpp` y `ParticleAnimCreator`
-  en `PSys/Creators/Mesh.cpp`. Lo que falta es **el aleteo**: `ParticleAnimCreator_Butterfly` /
-  `ParticleAnimCreator_Bats` (SF_Forest.txt líneas 726 y 756) traen `AnimFileName`
-  `.\Data\SPELLS\Anims\S_Butterfly_Flap.anm` / `M_Bat_Flap.anm` con `PlayAnim 1`, `LoopAnim 1`,
-  `RandomiseInitFrame 1`, `SpeedUpFactor 1`, `InitialScale 4` y mallas `S_Butterfly.l3d` / la del murciélago, y
-  openblack las dibuja como malla quieta en su pose de reposo (se ve en `polish_fix_bosque2_forest_dry.png`).
-  **(pendiente, no es un puerto pequeño):** `Particle3DAnim::DrawAt` 0x67A8E0 necesita animación por partícula
-  (`GetCycleTimeFromFrame` 0x6C85F0 → vt 0x188, el fotograma inicial al azar, el fundido a `MeshFileName1/2` entre
-  `FrameToStartBlend` y `FrameToEndBlend` por la vt 0xDC), y la tubería de mallas del PSys de openblack
-  (`psys::mesh_atoms::Instance`, `RenderingSystem.cpp`) solo dibuja instancias estáticas: no hay huesos ni estado de
-  animación por partícula.
+  en `PSys/Creators/Mesh.cpp`. **Y aletean (U7):** `ParticleAnimCreator_Butterfly` / `ParticleAnimCreator_Bats`
+  (SF_Forest.txt líneas 726 y 756) traen `AnimFileName` `.\Data\SPELLS\Anims\S_Butterfly_Flap.anm` /
+  `M_Bat_Flap.anm` con `PlayAnim 1`, `LoopAnim 1`, `RandomiseInitFrame 1`, `SpeedUpFactor 1`, `InitialScale 4` / 1 y
+  las mallas `S_Butterfly.l3d` / `MSH_A_BAT_1`. Cada átomo toca el clip (un ciclo cada 366 ms la mariposa y cada
+  800 ms el murciélago) desde un fotograma al azar, con sus huesos (`Particle3DAnim::DrawAt` 0x67A8E0,
+  `GetCycleTimeFromFrame` 0x6C85F0). Detalle y lo que queda en
+  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
+  Antes de U7 se dibujaban como malla quieta en su pose de reposo (`polish_fix_bosque2_forest_dry.png`). Capturas del
+  aleteo en `dev\_audit\sistemas\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
+  de caer la semilla) y `close_t80/_t81/_t110.png` (cámara `1782,40,2612,1790,36,2625`, entre los árboles).
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
   Con `OPENBLACK_SPELL_TRACE=1` cada turno escribe `SpellForest trees <n> wanted <N>: grow|decay <suma>` y el evento
@@ -1963,8 +1961,8 @@ Lo que falta de cada milagro, en su sección:
   la inclinación de `HandStateGrain`, que está al revés en `HandPlacement.cpp` (lane de la mano). Los vt 0x78/0x80 de
   `MagicFood::CallVirtualFunctionsForCreation` ya están identificados y se cumplen
   ([Comida y madera](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)).
-- Bosque: la diosa y la cámara (aplazado) y el aleteo .anm de las mariposas y los murciélagos (las clases del PSys sí
-  están) ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
+- Bosque: la diosa y la cámara (aplazado; el aleteo de las mariposas y los murciélagos ya está, U7)
+  ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
 - Rayo: `LightningForkFlicker` 0x6B24D0, `NumTexturesToTile`, el árbol de horquillas recursivo, `DrawOffsetLT` y los EffectValues del rayo sin hechizo ([Rayo](miracles.md#rayo-magic_type-4-6-semilla-6-lightning_bolt-psysruleslightningcpp)).
 - Teletransporte: la iluminación de la piscina (`UseLighting` 1, `MaterialSetDoubleSided` 0 de `SF_TeleportVortex`) y la criatura ([Teletransporte](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)).
 - [Milagros de la criatura](miracles.md#milagros-de-la-criatura-m8-pendiente).

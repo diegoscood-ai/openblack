@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "examples",
+  "name": { "en": "Example mods", "es": "Mods de ejemplo" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "How to make a mod: one of each kind (data only, Lua, native C), a library mod for others and a mod that uses it. They change nothing of the game; they write in the Log tab. Their folders are the templates to copy (see the wiki page mod-library.md).",
+    "es": "Cómo hacer un mod: uno de cada tipo (solo datos, Lua, nativo en C), un mod librería para otros y un mod que la usa. No cambian nada del juego; escriben en la pestaña Log. Sus carpetas son las plantillas para copiar (ver la página de la wiki mod-library.md)."
+  }
+}

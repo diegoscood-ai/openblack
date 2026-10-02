@@ -45,8 +45,11 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
@@ -841,15 +844,14 @@ uint32_t TornadoDustColour(const glm::vec3& point)
 	const auto& island = Locator::terrainSystem::value();
 	const auto& countries = island.GetCountries();
 	const auto& materials = island.GetMaterialInfo();
-	// MapCoords from an LHPoint: the 10 m cell (as Audio/SoundMap.cpp)
-	const auto cx = static_cast<int32_t>(std::floor(point.x / 10.0f));
-	const auto cz = static_cast<int32_t>(std::floor(point.z / 10.0f));
-	const int32_t last = island.GetCellsPerSide() - 1;
-	if (cx < 0 || cx > last || cz < 0 || cz > last)
+	// UpdateDebrisAtoms 0x6D2B9B..0x6D2BB2: MapCoords(LHPoint) 0x603160 of the tornado's position, then its high words
+	// (the port keeps the check against the island's side: the original passes them on unchecked)
+	const auto dustCell = ecs::map_coords::CellOf(point);
+	if (!ecs::map_coords::InBounds(dustCell, static_cast<uint32_t>(island.GetCellsPerSide())))
 	{
 		return 0xFFFFFFFFu;
 	}
-	const auto& cell = island.GetCell(glm::u16vec2(cx, cz));
+	const auto& cell = island.GetCell(glm::u16vec2(dustCell.x, dustCell.y));
 	if (cell.properties.country >= countries.size())
 	{
 		return 0xFFFFFFFFu;
@@ -878,9 +880,9 @@ std::unordered_map<int32_t, std::vector<entt::entity>> PotsByCell()
 	std::unordered_map<int32_t, std::vector<entt::entity>> pots;
 	Locator::entitiesRegistry::value().Each<const ecs::components::Pot, const ecs::components::Transform>(
 	    [&](entt::entity entity, const ecs::components::Pot& /*pot*/, const ecs::components::Transform& transform) {
-		    const int32_t x = static_cast<int32_t>(transform.position.x * 0.1f);
-		    const int32_t z = static_cast<int32_t>(transform.position.z * 0.1f);
-		    pots[x + z * 0x10000].push_back(entity);
+		    // the cell of the pot's MapCoords (ToFixed, the high words), as the original's cell lists hold it
+		    const auto cell = ecs::map_coords::CellOf(transform.position);
+		    pots[cell.x + cell.y * 0x10000].push_back(entity);
 	    });
 	for (auto& [cell, list] : pots)
 	{
@@ -889,13 +891,13 @@ std::unordered_map<int32_t, std::vector<entt::entity>> PotsByCell()
 	return pots;
 }
 
-/// The objects of one 10 m cell, the mobile list (+4) first and then the fixed one (+0) (0x6D2327)
+/// The objects of one 10 m cell, the mobile list (+4) first and then the fixed one (+0) (0x6D2327). The caller has
+/// already checked map_coords::InBounds (0x6D2311)
 void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out,
                  const std::unordered_map<int32_t, std::vector<entt::entity>>& pots)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || cell.x < 0 || cell.y < 0 || cell.x >= ecs::MapInterface::k_GridSize.x ||
-	    cell.y >= ecs::MapInterface::k_GridSize.y)
+	if (!Locator::entitiesMap::has_value())
 	{
 		return;
 	}
@@ -912,21 +914,6 @@ void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out,
 	}
 	out = std::move(mobile);
 	out.insert(out.end(), fixed.begin(), fixed.end());
-}
-
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z): `if (--count == 0) { ++direction; count = direction / 2; }`
-/// (0x74D7E9..0x74D7F7), then the step table[direction & 3]; fn_006D21B0 starts it with direction 1, count 1
-/// (0x6D22E9..0x6D22F7). (audit4: the port returned the step before the update with another count rule, which walks
-/// the mirror image of the original's spiral: +x, +z, -x... instead of -x, -z, +x, +x...)
-glm::ivec2 SpiralStep(int& direction, int& count)
-{
-	constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0), glm::ivec2(0, -1)};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
 }
 
 /// PileResource::IsPileResource 0x66ED60 (vt 0x4CC): the piles (openblack: a Pot that sinks, PileSink) (inferido)
@@ -1262,7 +1249,7 @@ private:
 	bool CanSuckUp(entt::entity object, const TornadoData& data) const
 	{
 		auto& registry = Locator::entitiesRegistry::value();
-		const float radius = ecs::effects::Object2DRadius(object);
+		const float radius = ecs::object::Get2DRadius(object); // vt +0x64 (0x6D214C)
 		// vt 0x7B0: Pot::CanBecomeAPhysicsObject 0x66E8F0 (every pot and pile class) is its GPotInfo's flag (+0x12C);
 		// the other classes as the physics have them
 		if (const auto* pot = registry.TryGet<const ecs::components::Pot>(object); pot != nullptr)
@@ -1302,18 +1289,24 @@ private:
 			reach *= std::clamp(magic::GetTribalPower(spell), 1.0f, 5.0f);
 		}
 		auto& registry = Locator::entitiesRegistry::value();
-		const glm::ivec2 start(static_cast<int>(data.base.x * 0.1f), static_cast<int>(data.base.z * 0.1f));
-		const int side = static_cast<int>(std::ceil(reach / 10.0f)) + 2; // 0x93A564
+		// the tornado's MapCoords (ToFixed of x and z, 0x6D228D..0x6D22A7) and its copy walked by GUtils::Spiral 0x74D7E0
+		// from dir = count = 1 (0x6D22E9..0x6D22F7), MapCoords::InBounds 0x6042C0 on each cell, += JustMapXZ 0x605470
+		const auto start = ecs::map_coords::FromMetres(glm::vec2(data.base.x, data.base.z));
+		const int side = ecs::map_coords::FtoL(std::ceil(reach / 10.0f)) + 2; // 0x93A564
 		const int cells = side * side;
-		glm::ivec2 cell = start;
-		int direction = 1; // 0x6D22E9..0x6D22F7: [ebp-0x34] direction = 1, [ebp-0x28] count = 1
-		int count = 1;
+		auto cell = start;
+		ecs::map_coords::Spiral spiral;
 		std::vector<entt::entity> objects;
 		entt::entity taken = entt::null;
 		const auto pots = PotsByCell();
 		for (int i = 0; i < cells && taken == entt::null; ++i)
 		{
-			CellObjects(cell, objects, pots);
+			if (!ecs::map_coords::InBounds(cell))
+			{
+				ecs::map_coords::AddCells(cell, spiral.Next());
+				continue;
+			}
+			CellObjects(ecs::map_coords::Cell(cell), objects, pots);
 			for (const auto object : objects)
 			{
 				if (taken != entt::null)
@@ -1325,15 +1318,17 @@ private:
 				{
 					continue;
 				}
-				const auto& transform = registry.Get<const ecs::components::Transform>(object);
+				// the object's MapCoords +0x14
+				const auto own = ecs::object::MapCoordsOf(object);
 				// fn_00604F40: the object's own cell is this one (a fixed object in several cells is seen once)
-				if (static_cast<int>(transform.position.x * 0.1f) != cell.x || static_cast<int>(transform.position.z * 0.1f) != cell.y)
+				if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
 				{
 					continue;
 				}
-				// GUtils::GetDistanceInMetres 0x74CD70 (inferido: in x, z; both on the ground)
-				const float distance = glm::distance(glm::vec2(data.base.x, data.base.z), glm::vec2(transform.position.x, transform.position.z));
-				if (!(distance < ecs::effects::Object2DRadius(object) + reach))
+				// GUtils::GetDistanceInMetres 0x74CD70 from the tornado's MapCoords (0x6D2398) against Get2DRadius (vt +0x64,
+				// 0x6D238A) + reach
+				const float reachOfObject = ecs::object::Get2DRadius(object) + reach;
+				if (!(gutils::GetDistanceInMetres(start, own) < reachOfObject))
 				{
 					continue;
 				}
@@ -1342,7 +1337,7 @@ private:
 					// SpellEvent 7 (CanBeDestroyedBySpell) at the object, strength 1, the object as the target
 					SpellEventInfo event;
 					event.type = SpellEventInfo::CanDestroy;
-					event.position = transform.position;
+					event.position = ecs::map_coords::ToWorld(own); // 0x6D23BA..0x6D2419: the MapCoords as a point
 					event.velocity = glm::vec3(0.0f);
 					event.strength = 1.0f;
 					event.checkShields = false;
@@ -1358,7 +1353,7 @@ private:
 				}
 				// a creature: fn_00477060 (no creature in openblack)
 			}
-			cell += SpiralStep(direction, count);
+			ecs::map_coords::AddCells(cell, spiral.Next());
 		}
 		if (taken != entt::null)
 		{

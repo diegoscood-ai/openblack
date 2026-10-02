@@ -34,8 +34,10 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/CastRules.h"
@@ -186,11 +188,6 @@ void ShowSeedMesh(entt::entity seed, bool show)
 		registry.Remove<Mesh>(seed);
 		registry.SetDirty();
 	}
-}
-
-uint32_t CurrentTurn()
-{
-	return Game::Instance() != nullptr ? Game::Instance()->GetTurn() : 0;
 }
 
 /// OPENBLACK_TEST_CAST="press@t0,release@t1[,press@t2,release@t3...][,shot@t]" (seconds after the land exists); shot
@@ -401,7 +398,7 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 	{
 		return 0;
 	}
-	const auto turn = CurrentTurn();
+	const auto turn = game_clock::Turn(); // g_game +0x205A40
 	if (_applySentTurn && *_applySentTurn == turn)
 	{
 		return 1; // one apply packet per turn (m_ApplySentTurn)
@@ -409,6 +406,7 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 	const auto seed = *_held;
 	auto& state = gestures::State();
 	glm::vec3 point = _interactionPoint.value_or(glm::vec3(0.0f));
+	std::optional<glm::vec3> circleCoords;
 	if (state.circlePending)
 	{
 		state.gesture.position = state.circlePosition;
@@ -416,7 +414,9 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 		state.gesture.gesture = state.circleGesture;
 		if (SizingGesture(seed) != 0)
 		{
-			// MapCoords(circlePos.x * 6553.6, circlePos.z * 6553.6, altitude 0)
+			// MapCoords(ftol(circlePos.x * 6553.6), ftol(circlePos.z * 6553.6), altitude 0) (0x5D33DD..0x5D3400)
+			const auto coords = ecs::map_coords::FromMetres(glm::vec2(state.circlePosition.x, state.circlePosition.z));
+			circleCoords = glm::vec3(ecs::map_coords::ToMetres(coords.x), 0.0f, ecs::map_coords::ToMetres(coords.z));
 			point = glm::vec3(state.circlePosition.x, 0.0f, state.circlePosition.z);
 			point.y = magic::ToWorld(glm::vec3(point.x, 0.0f, point.z)).y;
 		}
@@ -425,7 +425,7 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 	{
 		state.gesture.gesture = gestures::k_None;
 	}
-	const auto position = magic::ToMap(point);
+	const auto position = circleCoords.value_or(magic::ToMap(point));
 	if (!magic::cast_rules::InBounds(position) || !ValidToApplyThisToMapCoord(seed, position) ||
 	    !gestures::GetHandStatus().inInfluence)
 	{
@@ -524,7 +524,7 @@ int HandSystem::SendSeedApplyToObject() noexcept
 		worship::ApplySeedToObject(seed, target);
 		return 1;
 	}
-	const auto turn = CurrentTurn();
+	const auto turn = game_clock::Turn(); // g_game +0x205A40
 	auto& state = gestures::State();
 	if (!_applySentTurn || *_applySentTurn != turn)
 	{

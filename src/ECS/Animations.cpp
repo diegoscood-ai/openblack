@@ -132,6 +132,16 @@ PoseMap PosesByInstance(const std::unordered_map<entt::entity, systems::RenderCo
 	return poses;
 }
 
+PoseMap PosesByInstance(const systems::RenderContext& context)
+{
+	auto poses = PosesByInstance(context.entityInstances);
+	for (const auto& [index, pose] : context.instancePoses)
+	{
+		poses.emplace(index, &pose);
+	}
+	return poses;
+}
+
 bool HasPose(const PoseMap& poses, uint32_t offset, uint32_t count)
 {
 	if (poses.empty())

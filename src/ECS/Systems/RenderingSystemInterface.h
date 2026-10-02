@@ -79,6 +79,9 @@ struct RenderContext
 		bool receivesDynamicShadow;
 	};
 	std::unordered_map<entt::entity, EntityInstance> entityInstances;
+	/// The bones of the instances that are not entities: the PSys mesh atoms of a ParticleAnimCreator (Particle3DAnim::
+	/// DrawAt 0x67A8E0, PSys/Creators/Mesh.h), instance index -> the bones' model matrices, refilled at every PrepareDraw
+	std::unordered_map<uint32_t, std::vector<glm::mat4>> instancePoses;
 	/// The objects that cast a static shadow (see RenderingSystem.cpp, CastsStaticShadow), again, in their own range
 	std::map<entt::id_type, const InstancedDrawDesc> shadowCasterDrawDescs;
 	/// Not an actual vertex buffer, but a dynamic general purpose buffer which

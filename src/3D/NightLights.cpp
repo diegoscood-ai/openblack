@@ -27,6 +27,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "FrameAnim.h"
+#include "GameClock.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
 #include "LandIslandInterface.h"
@@ -273,7 +274,6 @@ struct State
 	std::vector<VillageLight> lights;
 	float rescanMs {0.0f};
 	int flameMs {0};               // [0xEB99C4], one clock for every light (frame_anim::LanternAdvance)
-	float flameMsRemainder {0.0f}; // (openblack) the fraction of the frame's milliseconds
 	// 0xC383BC: the start of each sprite's cells, one table for every light, rewritten by every new light
 	// (frame_anim::LanternStarts); kept from land to land as the original's global
 	graphics::frame_anim::LanternStarts flameStarts {graphics::frame_anim::k_LanternFileStarts};
@@ -442,8 +442,8 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 
 	// fn_00823460 / fn_00823570: jitter every 30 ms, the flames play backwards over 700 ms. 0x82357A..0x823593: the
 	// clock only runs while the village light alpha [0xEB99BC] is not 0 and there are lights (frame_anim::LanternAdvance,
-	// g_game_time_inc in whole milliseconds)
-	const uint32_t wholeMs = graphics::frame_anim::WholeMilliseconds(g_state.flameMsRemainder, milliseconds);
+	// g_game_time_inc [0xEA9EC0] in whole milliseconds: game_clock::FrameGameMs, 0 while paused)
+	const uint32_t wholeMs = game_clock::FrameGameMs();
 	const bool running = villageAlpha != 0.0f && !g_state.lights.empty();
 	const int a = graphics::frame_anim::LanternAdvance(g_state.flameMs, running ? wholeMs : 0u);
 	const float alpha = std::trunc(villageAlpha) / 255.0f;

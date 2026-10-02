@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "id": "graphics.hd-tweaks",
+  "name": "HD-Tweaks",
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Better looking villagers, animals and hand: villager and animal textures upscaled 4x (images in Mods/graphics.hd-tweaks, made with its tools), rounder villagers, animals and hand (each triangle curved and split in 4 or 9), the original's light per pixel on those smooth shapes, textures kept sharp far away, and the high detail meshes of villagers and animals (the original only draws the standard ones).",
+    "es": "Aldeanos, animales y mano con mejor aspecto: texturas de aldeanos y animales ampliadas x4 (imágenes en Mods/graphics.hd-tweaks, hechas con sus herramientas), aldeanos, animales y mano más redondeados (cada triángulo curvado y partido en 4 o 9), la luz del original por píxel sobre esas formas, texturas nítidas a lo lejos y las mallas de alto detalle (el original solo dibuja las normales)."
+  },
+  "api": ">=1.0 <2.0",
+  "options": [
+    {
+      "id": "textures", "label": { "en": "Textures", "es": "Texturas" },
+      "values": ["hd", "original"], "default": "hd",
+      "bind": { "graphics.hd-tweaks.textures": { "hd": true } }
+    },
+    {
+      "id": "smooth", "label": { "en": "Rounder shapes", "es": "Formas redondeadas" },
+      "values": ["off", "soft", "round"], "default": "round",
+      "bind": { "graphics.hd-tweaks.smooth": { "off": 0, "soft": 2, "round": 3 } }
+    },
+    {
+      "id": "light", "label": { "en": "Lighting", "es": "Iluminación" },
+      "values": ["smooth", "original"], "default": "smooth",
+      "bind": { "graphics.hd-tweaks.lighting": { "smooth": 1 } }
+    },
+    {
+      "id": "sharp", "label": { "en": "Sharp far away", "es": "Nítido a lo lejos" },
+      "values": ["on", "off"], "default": "on",
+      "bind": { "graphics.hd-tweaks.mip-bias": { "on": -1.0 } }
+    },
+    {
+      "id": "detail", "label": { "en": "Villager and animal meshes", "es": "Mallas de aldeanos y animales" },
+      "values": ["high", "original"], "default": "high",
+      "bind": { "graphics.hd-tweaks.high-detail": { "high": true } }
+    }
+  ]
+}

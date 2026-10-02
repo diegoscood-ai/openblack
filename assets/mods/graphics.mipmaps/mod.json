@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "graphics.mipmaps",
+  "name": { "en": "Mipmaps (trilinear filtering)", "es": "Mipmaps (filtrado trilineal)" },
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Mip levels for model, landscape and water textures: no shimmering in the distance.",
+    "es": "Niveles de mip para las texturas de modelos, terreno y agua: sin parpadeo a lo lejos."
+  },
+  "api": ">=1.0 <2.0",
+  "restart_required": true,
+  "switches": { "graphics.mipmaps": true }
+}

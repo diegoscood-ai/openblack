@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "example.lua-consumer",
+  "name": { "en": "Lua consumer", "es": "Consumidor Lua" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A Lua mod that uses the library mod Lua library: once the land loads it logs where each of its places is.",
+    "es": "Un mod Lua que usa el mod librería Librería Lua: al cargar la tierra escribe dónde está cada uno de sus lugares."
+  },
+  "api": ">=1.0 <2.0",
+  "dependencies": { "example.lua-library": "^1.0" },
+  "entry": { "lua": "scripts/main.lua" }
+}

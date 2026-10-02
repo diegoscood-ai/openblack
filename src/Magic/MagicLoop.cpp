@@ -37,6 +37,7 @@
 #include "ECS/Systems/Implementations/VillagerFire.h"
 #include "ECS/Systems/Implementations/VillagerShield.h"
 #include "ECS/Weather/WeatherLoop.h"
+#include "GameClock.h"
 #include "Hand/HandCasting.h"
 #include "Locator.h"
 #include "PSys/Creators/Chain.h"
@@ -117,13 +118,15 @@ void magic::ProcessTurnEnd()
 {
 	// The one swap: the original runs GScript::Process between 11 and 12; openblack's scripts block runs before 9.
 	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 -> fn_006D11A0, the PSys sounds    [S sounds]
-	audio::spell_sounds::ProcessTurn(static_cast<float>(k_TurnMs) * 0.001f); // Audio/SpellSounds.cpp
+	//    (fn_006D11A0 0x6D11AB..0x6D11C5: [0xD01A38] x 0.001)
+	audio::spell_sounds::ProcessTurn(static_cast<float>(game_clock::MsPerTurn()) * 0.001f); // Audio/SpellSounds.cpp
 	// --- (GScript::Process in the original)
 	// 12 the weather things / GClimate::ProcessAll 0x7741A0 / 0x771BE0      [M6a]
 	weather::ProcessTurnEnd(); // ECS/Weather/WeatherLoop.cpp (+ OPENBLACK_TEST_WEATHER)
 	// 13 CHand::GameTurnUpdate 0x46E4E0: first HandStateGrain's raise (fn_005B2D70, ECS/.../HandGrain.cpp), then the held
 	//    object's ProcessInHand (a spell seed: SpellSeed::ProcessInHand)
-	ecs::systems::hand_grain::GameTurnUpdate(static_cast<float>(k_TurnMs) * 0.001f);
+	//    (0x46E4E3..0x46E4FB: [0xD01A38] x 0.001 [0x8AA3B0])
+	ecs::systems::hand_grain::GameTurnUpdate(static_cast<float>(game_clock::MsPerTurn()) * 0.001f);
 	if (Locator::handSystem::has_value())
 	{
 		const auto held = Locator::handSystem::value().GetHeldObject();
@@ -150,7 +153,7 @@ void magic::Update(float seconds)
 	// LH3DAtmos::Update3D 0x8357A0 (GGame::Process3dEngine): the rain streaks (ECS/Weather/Rain.cpp)
 	weather::UpdateFrame(seconds);
 	// the effects' mesh atoms move between turns: the instances are rebuilt every frame while there are any
-	if (!psys::mesh_atoms::Collect().empty())
+	if (psys::mesh_atoms::Any())
 	{
 		Locator::entitiesRegistry::value().SetDirty();
 	}

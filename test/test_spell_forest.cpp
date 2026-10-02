@@ -32,6 +32,7 @@
 #include "Magic/Core/SpellSeed.h"
 #include "Magic/MagicTables.h"
 #include "Magic/Spells/SpellForest.h"
+#include "PSys/Creators/Mesh.h"
 
 using namespace openblack;
 using namespace openblack::magic;
@@ -123,6 +124,25 @@ TEST(SpellForest, treeGrowthAmount)
 	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 0.0f, -1.0f), 0.005f); // the worst halves it
 	// the two factors multiply, they do not add
 	EXPECT_FLOAT_EQ(ecs::TreeGrowthAmount(0.01f, 1.0f, 100.0f, 1.0f), 0.01f * 2.0f * 1.5f);
+}
+
+/// The butterflies and bats of the forest (ParticleAnimCreator, PSys/Creators/Mesh.h): fn_006A97F0's frame rate (1000 /
+/// the clip's ms x SpeedUpFactor x 1000, 1000 frames a cycle) and Particle3DAnim::GetCycleTimeFromFrame 0x6C85F0 (ms x
+/// frame / 1000 in integers). S_Butterfly_Flap.anm lasts 366 ms (header 0x20), M_Bat_Flap.anm 800 ms
+TEST(SpellForest, butterflyFlap)
+{
+	EXPECT_FLOAT_EQ(psys::AnimFrameRate(366, 1.0f), 1000.0f / 366.0f * 1.0f * 1000.0f);
+	EXPECT_FLOAT_EQ(psys::AnimFrameRate(800, 1.0f), 1250.0f);
+	EXPECT_FLOAT_EQ(psys::AnimFrameRate(800, 0.6f), 1000.0f / 800.0f * 0.6f * 1000.0f);
+	EXPECT_FLOAT_EQ(psys::AnimFrameRate(0, 1.0f), 0.0f);
+	EXPECT_EQ(psys::AnimCycleTime(366, 999), 365);
+	EXPECT_EQ(psys::AnimCycleTime(366, 500), 183);
+	EXPECT_EQ(psys::AnimCycleTime(800, 1), 0);
+	EXPECT_EQ(psys::AnimCycleTime(800, 999), 799);
+	psys::MeshCreator creator;
+	creator.animated = true;
+	EXPECT_EQ(creator.FramesPerAtom(), psys::k_AnimFrames);
+	EXPECT_EQ(psys::k_AnimFrames, 1000);
 }
 
 /// SpellForest::AdjustSpellSeedPos 0x725750

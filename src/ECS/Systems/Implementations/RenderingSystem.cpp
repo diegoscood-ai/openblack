@@ -400,6 +400,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	std::map<entt::id_type, uint32_t> translucentOffsets;
 	std::map<entt::id_type, uint32_t> shadowCasterOffsets;
 	_renderContext.entityInstances.clear();
+	_renderContext.instancePoses.clear();
 	_renderContext.sortPoints.clear();
 	_renderContext.meshLandLight.clear();
 
@@ -651,6 +652,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		if (atom.uv != glm::vec2(0.0f))
 		{
 			_renderContext.instanceUniforms[idx][1][3] = openblack::graphics::frame_anim::PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));
+		}
+		// a ParticleAnimCreator atom's bones (Particle3DAnim::DrawAt 0x67A8E0), drawn like a posed entity's
+		if (!atom.pose.empty())
+		{
+			_renderContext.instancePoses.insert_or_assign(idx, atom.pose);
 		}
 		offset.first->second++;
 	}

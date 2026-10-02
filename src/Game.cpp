@@ -54,6 +54,7 @@
 #include "Audio/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
+#include "Camera/ScriptCamera.h"
 #include "Common/EventManager.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
@@ -629,7 +630,11 @@ bool Game::Update() noexcept
 		{
 			Locator::events::value().Create<SDL_Event>(e);
 		}
-		camera.HandleActions(deltaTime);
+		// CameraModeScript has no keys (CameraModeFollow::Update leaves at 0x44C3BD for it)
+		if (!script_camera::Drives())
+		{
+			camera.HandleActions(deltaTime);
+		}
 	}
 
 	if (!config.running)
@@ -648,7 +653,14 @@ bool Game::Update() noexcept
 
 	{
 		auto cameraSection = profiler.BeginScoped(Profiler::Stage::CameraUpdate);
-		camera.Update(deltaTime);
+		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879): the script camera mode moves it while it
+		// lives, else the player's model. The frame's game ms are those of the last frame clock (aproximado: the
+		// original runs it after the turns of the loop)
+		if (!script_camera::UpdateCamera(camera, static_cast<float>(game_clock::CameraFrameMs()) * 0.001f,
+		                                 game_clock::FrameGameMs(), game_clock::FrameGameSeconds()))
+		{
+			camera.Update(deltaTime);
+		}
 		// The original's near plane follows the camera height above the ground: 0.3 + 0.16 h, clamped to 0.3..3.5
 		if (Locator::terrainSystem::has_value() && Locator::windowing::has_value())
 		{
@@ -1430,8 +1442,13 @@ bool Game::Run() noexcept
 		    // the task-stop callback 0x6EC6D0 (fn_006EB1D0 gives it to ScriptDLL, 0x6EB1F1): the dialogue, the wide
 		    // screen and the camera of the task go back (Help/ScriptControl.cpp)
 		    [](uint32_t taskNumber) {
-			    help::script_control::OnTaskStopped(taskNumber, help::Get(), help::script_control::GetCameraControl(),
-			                                        audio::GetScriptAudioState());
+			    auto& cameraControl = help::script_control::GetCameraControl();
+			    const auto cameraOwner = cameraControl.owner;
+			    help::script_control::OnTaskStopped(taskNumber, help::Get(), cameraControl, audio::GetScriptAudioState());
+			    if (cameraOwner != 0 && cameraControl.owner == 0)
+			    {
+				    script_camera::End(); // fn_006ECF20 -> fn_006ECD70: the camera part (Camera/ScriptCamera.h)
+			    }
 		    },
 		    nullptr,
 		    [](uint32_t objId) {
@@ -1664,6 +1681,7 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	audio::GetScriptAudioState().Reset();
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
+	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{

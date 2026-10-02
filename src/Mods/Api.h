@@ -133,4 +133,17 @@ struct Cell
 [[nodiscard]] std::optional<float> MeshRadius(std::string_view mesh, float scale);
 [[nodiscard]] std::optional<float> MeshHeight(std::string_view mesh, float scale);
 
+// ---- sound (API 1.2): only through src/Audio/Audio.h, as agreed with the session audio. Each mod plays as an owner of
+// its own (audio::NewOwner), so its sounds stop together (audio::StopOwner, with the original's 20 ms ramp) when the
+// mod stops or is switched off
+
+/// A sound effect of a bank, by the bank's name ("InGame", "Spells", "Creature", "ScriptSfx"...: enumeration
+/// "sound_banks") and the sample's .sad name ("G_PickUpFood.wav", case ignored) or 1-based number. Played as the
+/// original plays a one-shot effect: mode 3, no loop (the LH_SamplePlayOptions defaults, 0x10010E90), the sample's own
+/// volume, pitch and distances; 2D without a position, else 3D left at that point (PlaySoundEffectAt 0x42A100, track
+/// false). False if there is no such bank or sample
+bool PlaySound(const Mod& mod, std::string_view bank, std::string_view sample, const glm::vec3* position);
+/// Every sound of the mod stops
+void StopSounds(const Mod& mod);
+
 } // namespace openblack::mods::api

@@ -137,7 +137,7 @@ Mods/<id>/                  la carpeta se llama como el id (minúsculas, cifras,
 | `authors` | lista de textos | |
 | `icon` | ruta | su imagen (por defecto `icon.png` si existe) |
 | `url` | texto | página del mod (opcional) |
-| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.1.0: la 1.1 añade la geometría y el reloj del juego) |
+| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.2.0: la 1.1 añade la geometría y el reloj del juego, la 1.2 el sonido) |
 | `enabled_by_default` | sí/no | encendido la primera vez (solo si el usuario lo pide; lo normal es `false`) |
 | `restart_required` | sí/no | sus cambios cuentan al reiniciar |
 | `parent` | id | módulo de otro mod: sale debajo y solo cuenta si el padre está activo |
@@ -244,6 +244,8 @@ al arrancar, un mod con `entry` o `replace` es siempre de reinicio. No hay que c
 | `ob.map.point_at(x, z, ángulo, metros)` | (1.1) el punto a esa distancia y ángulo (`gutils::GetXFromAngle` / `GetZFromAngle`) |
 | `ob.map.cell(x, z)` | (1.1) la celda de 10 m y si está dentro del mapa de 512 x 512 (`map_coords::CellOf`, `InBounds`) |
 | `ob.mesh.radius(nombre [, escala])`, `ob.mesh.height(nombre [, escala])` | (1.1) radio 2D y altura entera de una malla (`object::MeshRadius2D`, `MeshHeight`); nil si no está cargada |
+| `ob.sound.play(banco, muestra [, x, y, z])` | (1.2) un efecto de sonido como los del juego: banco por nombre (`ob.enums.sound_banks`: `InGame`, `Spells`, `Creature`, `ScriptSfx` (el de los guiones)…), muestra por su nombre del `.sad` (`"G_PickUpFood.wav"`) o su número; sin posición 2D, con ella 3D quieto en ese punto. Modo 3 sin bucle (lo de un efecto suelto del original, `LH_SamplePlayOptions` 0x10010E90) y el volumen, tono y distancias de la propia muestra. Devuelve si sonó |
+| `ob.sound.stop()` | (1.2) para todos los sonidos del mod (`audio::StopOwner`, con la rampa de 20 ms) |
 
 ### Mods nativos (DLL)
 
@@ -263,7 +265,7 @@ OB_MOD_EXPORT void ob_mod_unload(void);                         // opcional
   `_LAND_LOADED`), `provide_interface`, `get_interface`, `enumeration`, `game_turn`, `game_hour`, `ground_height`,
   `camera`, `set_camera`, `cast_miracle`, `land_name`; y desde la 1.1 `game_turn_fraction`, `game_paused`,
   `game_speed`, `map_cell`, `map_distance`, `map_angle`, `map_angle_to_radians`, `map_radians_to_angle`,
-  `map_point_at`, `mesh_radius`, `mesh_height` (las de la tabla de Lua). Empieza por su tamaño: las funciones nuevas
+  `map_point_at`, `mesh_radius`, `mesh_height`; desde la 1.2 `play_sound` y `stop_sounds` (las de la tabla de Lua). Empieza por su tamaño: las funciones nuevas
   solo se añaden al final (`OB_HOST_HAS(host, función)` para saber si el openblack que corre la tiene; así lo hace
   `example.native-hello` con `map_distance`).
 - Reglas: todo en el hilo del juego; ninguna excepción C++ sale de la librería; los textos que da openblack valen
@@ -363,7 +365,8 @@ Una sola implementación, `src/Mods/Api.h`; JSON, Lua (`Mods/Lua/LuaHost.cpp`) y
 traducciones de ella. Solo usa la API pública de cada área, acordada con su dueño: altura `LandIsland`, milagros
 `magic::script::CastSpellAtPos` (por las reglas del juego, como `SPELL_AT_POS`, con la comprobación de la clase; el
 «desde» 30 m sobre el punto, como `OPENBLACK_TEST_SPELL` **(inferido)**), cámara, reloj e interruptores. Pendiente:
-sonido (solo `src/Audio/Audio.h`, con un dueño por mod; acordado con la sesión audio).
+el sonido va solo por `src/Audio/Audio.h` (acordado con la sesión audio): cada mod tiene su dueño (`audio::NewOwner`) y sus
+sonidos se paran juntos (`audio::StopOwner`) al apagarlo, bloquearlo o cerrar openblack.
 
 ## Cómo está hecho (src/Mods)
 
@@ -945,8 +948,7 @@ escriben en la pestaña Log. Son las plantillas.
 
 ## Pendiente
 
-- SDK de mods (2026-10-01), lo que falta: sonido en Lua y C (envoltorio de `Audio.h` con un dueño por mod, acordado
-  con audio), lanzar orbes (cuando la API `one_off::` de milagros sea estable), medidas de un objeto concreto (hacen falta
+- SDK de mods (2026-10-01), lo que falta: sonidos en bucle o que sigan a un objeto (hoy solo efectos sueltos), lanzar orbes (cuando la API `one_off::` de milagros sea estable), medidas de un objeto concreto (hacen falta
   identificadores de objetos en la API; hoy solo por malla),
   límite de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
   audio, B11), reemplazar mallas en vivo (hoy al arrancar: las formas físicas se toman al crear cada objeto), texturas

@@ -351,9 +351,13 @@ float frame_anim::WaterfallScroll(float& v, float seconds) noexcept
 
 frame_anim::Gooloo frame_anim::GoolooFrame(float t) noexcept
 {
-	const double x = static_cast<double>(t / k_GoolooMs);
+	// the game thread runs the x87 at 24 bits (fn_007DEE00, and cw 0xFCFF at 0x7DEE0D): every fmul / fdiv rounds to
+	// float even against the double constants; fcos / fsin are not affected by the precision control
+	const float x = t / k_GoolooMs;
+	const float rateX = static_cast<float>(k_GoolooRate * static_cast<double>(x));
 	Gooloo frame;
-	frame.uv = {k_GoolooU * static_cast<float>(std::cos(x)), static_cast<float>(k_GoolooV * std::sin(k_GoolooRate * x))};
+	frame.uv = {static_cast<float>(k_GoolooU * static_cast<double>(static_cast<float>(std::cos(static_cast<double>(x))))),
+	             static_cast<float>(k_GoolooV * static_cast<double>(static_cast<float>(std::sin(static_cast<double>(rateX)))))};
 	frame.materialByte = static_cast<uint8_t>(255 - static_cast<int>(255.0f * t / k_GoolooMs));
 	return frame;
 }

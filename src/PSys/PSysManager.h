@@ -38,16 +38,20 @@ using DrawPath = psys::DrawPath;
 inline constexpr bool k_DrawByPath = false;
 
 /// PSysInterface::Create: an effect from a spell file (e.g. "SF_Smoke"); 0 if the file is missing. Its draw path is
-/// DrawPath::Sorted, Spell::Draw's (0x720441), until SetDrawPath changes it
-uint32_t Start(const std::string& file, glm::vec3 origin, float magnitude);
+/// DrawPath::Sorted, Spell::Draw's (0x720441), until SetDrawPath changes it. `type` is Create's NET_GAME_TYPE (its 6th
+/// argument, 0x68F3AE): Synced for a spell's own effect and the spot visuals, Local for the others (Effect)
+uint32_t Start(const std::string& file, glm::vec3 origin, float magnitude,
+               game_random::psys::NetGameType type = game_random::psys::NetGameType::Local);
 /// The same with a file already parsed (File::Parse, the tests); 0 for nullptr
-uint32_t Start(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude);
+uint32_t Start(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude,
+               game_random::psys::NetGameType type = game_random::psys::NetGameType::Local);
 void CloseDown(uint32_t id);
 void SetOrigin(uint32_t id, glm::vec3 origin);
 
 /// PSysInterface::Create 0x68E910 for a Spell: the spell owns the effect and steps it itself once per turn with its
 /// PSysProcessInfo (Spell::CoreProcess 0x720660), so ProcessTurn leaves it alone. 0 if the file is missing.
-uint32_t StartForSpell(const std::string& file, glm::vec3 origin, glm::vec3 direction, float magnitude, SpellSink* sink);
+uint32_t StartForSpell(const std::string& file, glm::vec3 origin, glm::vec3 direction, float magnitude, SpellSink* sink,
+                       game_random::psys::NetGameType type = game_random::psys::NetGameType::Local);
 /// The spell's PSys vt 0x100: one step of dt with that info; false (5) once it is finished, and then it is gone
 bool ProcessForSpell(uint32_t id, const ProcessInfo& info, float dt);
 /// delete psys (Spell::ToBeDeleted, CoreProcess on 5)

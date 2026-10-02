@@ -119,30 +119,30 @@ struct Container
 std::unordered_map<uint32_t, Running> g_Effects;
 std::vector<Container> g_Containers;
 uint32_t g_NextId = 1;
-uint32_t g_Seed = 12345;
 bool g_DebugDone = false;
 } // namespace
 
-uint32_t manager::Start(const std::string& file, glm::vec3 origin, float magnitude)
+uint32_t manager::Start(const std::string& file, glm::vec3 origin, float magnitude, game_random::psys::NetGameType type)
 {
-	return Start(File::Load(file), origin, magnitude);
+	return Start(File::Load(file), origin, magnitude, type);
 }
 
-uint32_t manager::Start(std::shared_ptr<const File> data, glm::vec3 origin, float magnitude)
+uint32_t manager::Start(std::shared_ptr<const File> data, glm::vec3 origin, float magnitude,
+                        game_random::psys::NetGameType type)
 {
 	if (!data)
 	{
 		return 0;
 	}
 	const uint32_t id = g_NextId++;
-	g_Effects[id].effect = std::make_unique<Effect>(std::move(data), origin, magnitude, g_Seed++ * 2654435761u);
+	g_Effects[id].effect = std::make_unique<Effect>(std::move(data), origin, magnitude, type);
 	return id;
 }
 
 uint32_t manager::StartForSpell(const std::string& file, glm::vec3 origin, glm::vec3 direction, float magnitude,
-                                SpellSink* sink)
+                                SpellSink* sink, game_random::psys::NetGameType type)
 {
-	const uint32_t id = Start(file, origin, magnitude);
+	const uint32_t id = Start(file, origin, magnitude, type);
 	if (id == 0)
 	{
 		return 0;
@@ -255,7 +255,8 @@ entt::entity CreateSpotVisualFor(int spotVisual, glm::vec3 position, std::option
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "PSys: spot visual {} has no spell file", spotVisual);
 		return entt::null;
 	}
-	const uint32_t id = manager::Start(std::string(info.file), position, magnitude);
+	// GParticleContainer::Create 0x63E508 -> fn_0063E410: Create(..., NET_GAME_TYPE 1) (push 1 at 0x63E436), synced
+	const uint32_t id = manager::Start(std::string(info.file), position, magnitude, game_random::psys::NetGameType::Synced);
 	if (id == 0)
 	{
 		return entt::null;

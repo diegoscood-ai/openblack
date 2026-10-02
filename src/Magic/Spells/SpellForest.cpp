@@ -39,7 +39,7 @@
 #include "ECS/Trees.h"
 #include "ECS/Weather/Weather.h"
 #include "InfoConstants.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "Locator.h"
 #include "Magic/CastRules.h"
 #include "Magic/Core/Spell.h"
@@ -194,7 +194,8 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 		data.forestId = ecs::CreateForest(0, glm::vec3(position.x, 0.0f, position.z));
 		data.forestCreated = true;
 	}
-	const float angle = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>()); // GameFloatRand(2 pi)
+	// fn_00725600 0x725665: GameFloatRand(2 pi [0x40C90FDB])
+	const float angle = game_random::GameFloatRand(glm::two_pi<float>());
 	const float woodMultiplier = ForestInfoOf(entity).woodValueMultiplier * GetTribalPower(entity);
 	// fn_00725600 -> fn_005FD000(pos, spell, info, forest, angle, scale 0, woodMul) (resources.md)
 	const auto tree = magic_tree::Create(position, entity, type, data.forestId, angle, 0.0f, woodMultiplier);
@@ -433,7 +434,7 @@ TreeInfo spell_forest::RandomTreeType(const glm::vec3& position)
 	{
 		material = 0;
 	}
-	const auto pick = Locator::rng::value().NextValue<uint32_t>(0, 3); // GameRand(4)
+	const auto pick = game_random::GameRand(4); // GetRandomTreeInfo 0x72559F
 	return materials[material].magicTreeTypes[pick];
 }
 

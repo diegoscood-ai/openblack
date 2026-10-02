@@ -198,7 +198,7 @@ TEST(FoodWood, sprinkleEmitsAtTheRateEvenWhenStill)
 	EXPECT_FLOAT_EQ(sprinkle->Float("TotalTime", 0.0f), 4.0f);
 	auto shared = std::make_shared<const psys::File>(*file);
 	HumanSink sink;
-	psys::Effect effect(shared, glm::vec3(100.0f, 30.0f, 100.0f), 1.0f, 1234);
+	psys::Effect effect(shared, glm::vec3(100.0f, 30.0f, 100.0f), 1.0f);
 	effect.SetSink(&sink);
 	psys::ProcessInfo info;
 	info.handPos = glm::vec3(100.0f, 30.0f, 100.0f);

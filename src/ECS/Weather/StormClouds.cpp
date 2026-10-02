@@ -21,10 +21,10 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/FrameAnim.h"
-#include "3D/LH3DRandom.h"
 #include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "Camera/Camera.h"
+#include "Common/GameRandom.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/DetailLevel.h"
@@ -41,10 +41,10 @@ namespace
 {
 std::unordered_map<storms::StormId, std::vector<storm_clouds::Puff>> g_Puffs;
 
-/// ?Random@@YAMMM@Z 0x81D180 (graphics::lh3d::Random)
+/// ?Random@@YAMMM@Z 0x81D180 (GWeather::DrawClouds): the CRT rand (game_random::crt)
 float Random(float a, float b)
 {
-	return graphics::lh3d::Random(a, b);
+	return game_random::crt::Random(a, b);
 }
 
 /// 0x83FFEE..0x840027: fn_007FEB30(pos, specular, &colour) (graphics::haze::ApplyObject) with the specular a grey

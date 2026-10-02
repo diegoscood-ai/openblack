@@ -212,7 +212,7 @@ TEST(Shield, defensiveSphereRegistryAndDeflection)
 	const auto file = Parse(k_Sphere, "SF_DefenseSphereTest");
 	ASSERT_NE(file, nullptr);
 	{
-		psys::Effect effect(file, glm::vec3(100.0f, 20.0f, 200.0f), 40.0f, 7);
+		psys::Effect effect(file, glm::vec3(100.0f, 20.0f, 200.0f), 40.0f);
 		effect.Step(0.1f);
 		// UR_AddDefensiveSphere 0x6A2A60: at the parent position (the effect's origin for the root collection)
 		ASSERT_EQ(psys::shields::All().size(), 1u);
@@ -250,7 +250,7 @@ TEST(Shield, hierarchyFrameIsTheFlaggedAncestorsWithTheirScale)
 	// point unless the parent is flagged), fn_006752D0 / fn_00673DB0 (the frame: the flagged atoms' rotation x scale)
 	const auto file = Parse(k_Frames, "SF_FramesTest");
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(10.0f, 0.0f, 0.0f), 1.0f, 7);
+	psys::Effect effect(file, glm::vec3(10.0f, 0.0f, 0.0f), 1.0f);
 	effect.Step(0.1f);
 	effect.Step(0.1f);
 	std::vector<psys::Effect::DrawAtom> atoms;

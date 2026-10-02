@@ -160,6 +160,8 @@ private:
 	const std::filesystem::path _gamePath;
 
 	std::filesystem::path _startMap;
+	/// (openblack) whether a land was loaded already: only the first one keeps GGame::Init's seeds (game_random)
+	bool _firstMapLoaded {false};
 
 	std::chrono::steady_clock::time_point _lastGameLoopTime;
 	std::chrono::steady_clock::duration _turnDeltaTime;

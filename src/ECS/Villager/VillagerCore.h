@@ -50,9 +50,9 @@ inline constexpr uint32_t k_EntryRefused = 0x2F;  ///< the entry function refuse
 /// GGame +0x205A40, the game turn (Game::GetTurn), or the test's
 [[nodiscard]] uint32_t CurrentTurn();
 void SetTurnForTests(std::optional<uint32_t> turn);
-/// GRand::GameRand 0x6DE510: 0 .. n - 1 (0 for 0). (aproximado: openblack's RandomNumberManager, not GRand's sequence)
+/// GRand::GameRand 0x6DE510: 0 .. n - 1 (0 for 0); forwards to game_random::GameRand
 [[nodiscard]] uint32_t GameRand(uint32_t n);
-/// GRand::GameFloatRand 0x6DE530: [0, x), 0 for 0. (aproximado: as GameRand)
+/// GRand::GameFloatRand 0x6DE530: 0 for 0, signed like x; forwards to game_random::GameFloatRand
 [[nodiscard]] float GameFloatRand(float x);
 /// The tests' scripted draws (empty functions: back to the game's)
 void SetRandForTests(std::function<uint32_t(uint32_t)> rand, std::function<float(float)> floatRand);

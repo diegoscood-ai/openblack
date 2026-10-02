@@ -451,7 +451,9 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
 1. **(aproximado)** "Bailando" (Living +0xD8, el DanceGroup) se aproxima con `WorshipVillager::dancing` (lo ponen
    AddDancer / FindDanceGroup y lo quitan ExitAtWorshipSite / RemoveVillagerFromWorshipSite) o `TOP == IN_DANCE`
    (VillagerSpeed.cpp).
-2. **(aproximado)** GRand: las tiradas usan el mt19937 de openblack, no la secuencia de GRand; solo se respeta el orden.
+2. GRand: `villager::GameRand/GameFloatRand` reenvían a `game_random` (LHRand sobre la semilla sincronizada,
+   engine-math.md «Números aleatorios»). **(aproximado)** la secuencia no es la de una partida del original: otros
+   sistemas que tiran del mismo flujo (animales, árboles…) siguen con el generador de openblack o no están portados.
 3. **(aproximado)** El arquetipo pone la velocidad de 85 CREATED al crear el aldeano; en el original la pone el primer
    SetTopState. No se ve: CREATED no anda.
 4. **(aproximado)** UniqueId (UniqueKeyHeap::GetUniqueIdFromAddress 0x7E19A0) es el índice de creación (`object_index`,

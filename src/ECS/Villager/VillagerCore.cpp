@@ -18,7 +18,7 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/LivingAction.h"
@@ -56,8 +56,6 @@ using state_info::StateInfo;
 namespace
 {
 std::optional<uint32_t> g_TurnForTests;
-std::function<uint32_t(uint32_t)> g_RandForTests;
-std::function<float(float)> g_FloatRandForTests;
 
 /// The villagers VillagerDead marked this turn (FlushDeaths kills them after the turn)
 struct PendingDeath
@@ -176,29 +174,12 @@ void SetTurnForTests(std::optional<uint32_t> turn)
 
 uint32_t GameRand(uint32_t n)
 {
-	if (g_RandForTests)
-	{
-		return g_RandForTests(n);
-	}
-	if (n == 0 || !Locator::rng::has_value())
-	{
-		return 0;
-	}
-	return Locator::rng::value().NextValue<uint32_t>(0, n - 1);
+	return game_random::GameRand(n);
 }
 
 float GameFloatRand(float x)
 {
-	if (g_FloatRandForTests)
-	{
-		return g_FloatRandForTests(x);
-	}
-	if (x == 0.0f || !Locator::rng::has_value())
-	{
-		return 0.0f;
-	}
-	const float value = Locator::rng::value().NextValue(0.0f, std::abs(x));
-	return x < 0.0f ? -value : value;
+	return game_random::GameFloatRand(x);
 }
 
 void SetGoHomeEnabledForTests(bool enabled)
@@ -208,8 +189,7 @@ void SetGoHomeEnabledForTests(bool enabled)
 
 void SetRandForTests(std::function<uint32_t(uint32_t)> rand, std::function<float(float)> floatRand)
 {
-	g_RandForTests = std::move(rand);
-	g_FloatRandForTests = std::move(floatRand);
+	game_random::testing::SetGameRand(std::move(rand), std::move(floatRand));
 }
 
 // ---- data --------------------------------------------------------------------------------------------------------

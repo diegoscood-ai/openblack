@@ -293,7 +293,7 @@ TEST(Storm, gatherRegistersOneStorm)
 	const auto file = Parse(k_Gather, "SF_GatherTest");
 	ASSERT_NE(file, nullptr);
 	{
-		psys::Effect effect(file, glm::vec3(500.0f, 0.0f, 700.0f), 60.0f, 3);
+		psys::Effect effect(file, glm::vec3(500.0f, 0.0f, 700.0f), 60.0f);
 		effect.Step(0.1f);
 		// the first core's gather registers the LH3DStorm at its core (no spell: level -1, no lightning, rain 100)
 		int count = 0;
@@ -360,7 +360,7 @@ ENDCLASS
 	const auto file = Parse(text, "SF_GatherMistTest");
 	ASSERT_NE(file, nullptr);
 	{
-		psys::Effect effect(file, glm::vec3(500.0f, 0.0f, 700.0f), 60.0f, 3);
+		psys::Effect effect(file, glm::vec3(500.0f, 0.0f, 700.0f), 60.0f);
 		for (int i = 0; i < 40; ++i)
 		{
 			effect.Step(0.1f);
@@ -572,7 +572,7 @@ TEST(Storm, realData)
 	// SF_StormCast stepped alone: 30 atoms under the root, gone after DispersalAge + FadeOutTime (2.4 + 2)
 	{
 		auto file = std::make_shared<const psys::File>(*cast);
-		psys::Effect effect(file, glm::vec3(0.0f), 60.0f, 11);
+		psys::Effect effect(file, glm::vec3(0.0f), 60.0f);
 		effect.Step(0.1f);
 		effect.Step(0.1f);
 		EXPECT_EQ(effect.AtomCount(), 1u + 30u);

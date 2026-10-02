@@ -24,7 +24,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
@@ -173,10 +173,10 @@ int Process(entt::entity entity)
 	// C = (castPos(+0xCC).x, GetAltitude(castPos) + castPos.y(+0xD4), castPos.z): only x and z are used below
 	const glm::vec3 centre(spell.castPos.x, LandAt(spell.castPos.x, spell.castPos.z) + spell.castPos.y, spell.castPos.z);
 	// r = GameFloatRand(R) x 0.7 + 0.3, a = GameFloatRand(2 pi) (0x40C90FDB)
-	auto& rng = Locator::rng::value();
+	// (0x724F65, then 0x724F89)
 	const float radius = water::RainRadius(spell.magicType);
-	const float r = water::DropDistance(rng.NextValue(0.0f, radius));
-	const float a = rng.NextValue(0.0f, glm::two_pi<float>());
+	const float r = water::DropDistance(game_random::GameFloatRand(radius));
+	const float a = game_random::GameFloatRand(glm::two_pi<float>());
 	glm::vec3 drop(centre.x + r * std::cos(a), 0.0f, centre.z + r * std::sin(a));
 	// P.y = GetAltitude(MapCoords(ftol(x x 65536 x 0.1), ftol(z x 65536 x 0.1), 0)) + 0.2 (0x8AB244)
 	drop.y = LandAt(drop.x, drop.z) + 0.2f;
@@ -241,8 +241,8 @@ int Process(entt::entity entity)
 	if (water::RippleDue(after.age, data.lastRipple))
 	{
 		data.lastRipple = after.age;
-		const auto colour = water::k_RippleColours[rng.NextValue<uint32_t>(0, 4)]; // GameRand(5)
-		const float angle = rng.NextValue(0.0f, glm::two_pi<float>());           // GameFloatRand(2 pi)
+		const auto colour = water::k_RippleColours[game_random::GameRand(5)]; // GameRand(5) 0x7251ED
+		const float angle = game_random::GameFloatRand(glm::two_pi<float>()); // GameFloatRand(2 pi) 0x725205
 		AddDropRing(drop, water::RippleGrowth(after.magicType), angle, colour);
 	}
 	if (TraceEnabled())

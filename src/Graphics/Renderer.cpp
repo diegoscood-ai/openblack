@@ -82,9 +82,11 @@
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "Graphics/VertexBuffer.h"
+#include "Graphics/WorldTriangles.h" // milagros2 pieces (pieces_shadows_PLAN.md §1.3 d)
 #include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
+#include "PSys/Rules/ExplodeObject.h" // milagros2 pieces (pieces_shadows_PLAN.md §1.3 d)
 #include "Profiler.h"
 #include "Renderer.h"
 
@@ -316,6 +318,9 @@ std::unique_ptr<RendererInterface> RendererInterface::Create(GraphicsBackend bac
 	}
 	init.resolution.reset = bgfxReset | GraphicsOptionResetFlags();
 	init.callback = dynamic_cast<bgfx::CallbackI*>(bgfxCallback.get());
+	// milagros2 pieces (pieces_shadows_PLAN.md §1.3 b), (openblack guard): the exploded pieces' triangles go up in the
+	// frame's transient vertex buffer (world_triangles), a tree is about 0.5 MB of them; bgfx's default is 6 MB for all
+	init.limits.transientVbSize = 32 << 20;
 
 	if (!bgfx::init(init))
 	{
@@ -2765,6 +2770,19 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				}
 				submitDesc.sea = {};
 			}
+			// ---- milagros2 pieces (pieces_shadows_PLAN.md §1.3 d) ----
+			// RenderParticleGJMesh::DrawAt 0x67C150 of the exploded pieces (PSysGlobal::DrawLoop 0x68F60C -> fn_006718A0
+			// Draw_(1)): at once, no Z object (0x67C150 does not read [0xC0215D]), after the models GGame::Draw 0x54E00A
+			// draws at once and before the queue's drain (FinishFrame 0x82F460)
+			if (psys::explode_object::k_PiecesAsWorldTriangles && desc.viewId == graphics::RenderPass::Main &&
+			    desc.drawEntities)
+			{
+				static world_triangles::Frame s_pieces; // refilled every frame, kept for its capacity
+				s_pieces.Clear();
+				psys::gj_mesh::Build(s_pieces, psys::DrawPath::Sorted);
+				world_triangles::Submit(graphics::RenderPass::Main, s_pieces, *_shaderManager);
+			}
+			// ---- end milagros2 pieces ----
 			if (sortBlended)
 			{
 				for (const auto& [meshId, placers] : renderCtx.translucentDrawDescs)

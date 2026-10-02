@@ -24,7 +24,7 @@
 #include <glm/gtx/norm.hpp>
 #include <spdlog/spdlog.h>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
@@ -105,11 +105,8 @@ float Distance2D(const glm::vec3& a, const glm::vec3& b)
 	return gutils::GetDistanceInMetres(a, b);
 }
 
-/// GRand::GameFloatRand
-float GameFloatRand(float max)
-{
-	return Locator::rng::value().NextValue(0.0f, max);
-}
+/// GRand::GameFloatRand 0x6DE530 (0 for 0, signed like max)
+using game_random::GameFloatRand;
 
 /// Villager::SetTopState 0x752010 (vt +0x8E8): the villager core's (ECS/Villager/VillagerCore.h), which runs the exit
 /// functions of TOP and of the final state (CallExitStateFunction 0x752320) and the entry of the new state

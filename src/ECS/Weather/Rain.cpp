@@ -13,11 +13,11 @@
 
 #include <algorithm>
 #include <limits>
-#include <random>
 
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "Atmos.h"
+#include "Common/GameRandom.h"
 #include "Locator.h"
 #include "Storms.h"
 #include "WeatherLand.h"
@@ -32,13 +32,11 @@ std::array<Drop, k_Drops> g_drops;
 float g_elevation = 160.0f; ///< 0xC38E10
 float g_fallSpeed = 1.0f;   ///< 0xC38E14
 bool g_drawn = false;       ///< 0xEDC300
-/// Random@@YAMMM 0x81D180 is the 3D engine's own generator, not the game's: a separate one here too. (aproximado: the
-/// generator, its seed and the distribution are the port's, not 0x81D180's)
-std::minstd_rand g_random(12345);
-
+/// ?Random@@YAMMM@Z 0x81D180 (fn_00833D10 / fn_00834700): ((rand() x k) x (max - min)) + min on the CRT rand, not
+/// GRand (game_random::crt)
 float Random(float min, float max)
 {
-	return std::uniform_real_distribution<float>(min, max)(g_random);
+	return game_random::crt::Random(min, max);
 }
 
 /// fn_00833D10

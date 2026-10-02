@@ -15,16 +15,17 @@
 #include <array>
 #include <chrono>
 #include <numbers>
-#include <random>
 #include <set>
 #include <string>
 #include <unordered_map>
 
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/ObjectMatrix.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/TotemStatue.h"
@@ -51,6 +52,8 @@ constexpr float k_PhaseSpeed = 0.2f;
 constexpr float k_SpeedUpDuringFight = 2.0f;
 constexpr float k_FightAt0 = 1.5f, k_FightAt1 = 3.0f;
 constexpr float k_BetweenFightsAt0 = 10.0f, k_BetweenFightsAt1 = 3.0f;
+/// (aproximado, port previo) the rule adds the step's dt [0xD4E0EC] (fn_00673340 0x673402..0x67340C: ms x 0.001;
+/// 0x69C3AD / 0x69C476) to the fight timer and wait; here a fixed 0.1 per Collect call
 constexpr float k_Step = 0.1f;
 
 /// the player colours (0xBFF0B8, by GetRemapedPlayer; the remap comes from the profile, identity here)
@@ -61,9 +64,12 @@ struct Symbol
 	/// PlayerSymbolSprite +0xC, +0x10: the two glows' cells, +0x14: the second glow's angle (ctor fn_0069D5A0: all 0;
 	/// frame_anim::PlayerSymbolCell / PlayerSymbolSpin)
 	float glowA {0.0f}, glowB {0.0f}, glowSpin {0.0f};
+	/// AtomData +0x24 / +0x28 / +0x2C (0x69C4AE..0x69C510); a1 and a2 start at PSysFloatRand(2 pi) each (0x69C0C3,
+	/// 0x69C0D0), phase at 0
 	float a1 {0.0f}, a2 {0.0f}, phase {0.0f};
-	float fightTimer {0.0f}, fightLength {0.0f}, waitLength {-1.0f};
-	bool fighting {false};
+	/// AtomData +0x30 (the wait before the next fight, counted down), +0x34 (the fight's timer), +0x38 (its length):
+	/// all 0 from the ctor (0x69C6C4..0x69C6D6)
+	float waitLength {0.0f}, fightTimer {0.0f}, fightLength {0.0f};
 };
 
 struct Centre
@@ -74,11 +80,12 @@ struct Centre
 std::unordered_map<entt::entity, Centre> g_Centres;
 /// (openblack) the visual clock of the last collect: a frame's game ms count once however many passes collect
 uint32_t g_LastVisualMs {0};
-std::mt19937 g_Random(4242);
 
+/// PSysFloatRand(a, b) 0x6729C0 of the rule (UR_TownCentreBelief 0x69C3E1 / 0x69C40E): the effect of a town centre is
+/// local (TownCentre::CreatePSys 0x69BC31, push 0), so the local stream (Collect opens its step scope)
 float Rand(float a, float b)
 {
-	return a + std::uniform_real_distribution<float>(0.0f, 1.0f)(g_Random) * (b - a);
+	return game_random::psys::FloatRand(a, b);
 }
 
 int PlayerIndex(const std::string& name)
@@ -162,6 +169,8 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 	const bool newFrame = game_clock::VisualMs() != g_LastVisualMs;
 	g_LastVisualMs = game_clock::VisualMs();
 	const auto milliseconds = newFrame ? static_cast<float>(game_clock::FrameGameMs()) : 0.0f;
+	// the rule's draws run in the town centre effect's step (fn_00673340), a local one (TownCentre::CreatePSys 0x69BC31)
+	const game_random::psys::StepScope step(game_random::psys::NetGameType::Local);
 
 	registry.Each<const Abode, const Transform, const Mesh>([&](entt::entity entity, const Abode& abode,
 	                                                            const Transform& transform, const Mesh& mesh) {
@@ -225,37 +234,50 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 					++rank;
 				}
 			}
-			auto& symbol = centre.symbols[player];
+			const auto [slot, created] = centre.symbols.try_emplace(player);
+			auto& symbol = slot->second;
+			if (created)
+			{
+				// 0x69C0B8..0x69C0D5: the new symbol's two angles, a1 then a2
+				symbol.a1 = game_random::psys::FloatRand(glm::two_pi<float>());
+				symbol.a2 = game_random::psys::FloatRand(glm::two_pi<float>());
+			}
 			const float radius = rank == 0 ? 0.0f : k_RadiusAt0 + (k_RadiusAt1 - k_RadiusAt0) * b;
 			float speed = rank == 0 ? 0.0f : (k_SpeedAt0 + (k_SpeedAt1 - k_SpeedAt0) * b) / std::max(radius, 1e-3f);
 			const float scale = k_ScaleAt0 + (k_ScaleAt1 - k_ScaleAt0) * b;
 			float fight = 0.0f;
 			if (rank == 1)
 			{
-				if (symbol.waitLength < 0.0f)
+				// 0x69C388..0x69C3A7: the second symbol only. While its wait (+0x30) is > 0 it counts down (0x69C473)
+				if (symbol.waitLength > 0.0f)
 				{
-					symbol.waitLength = (k_BetweenFightsAt0 + (k_BetweenFightsAt1 - k_BetweenFightsAt0) * b) * Rand(0.5f, 1.5f);
+					symbol.waitLength -= k_Step;
 				}
-				symbol.fightTimer += k_Step;
-				if (!symbol.fighting && symbol.fightTimer > symbol.waitLength)
+				else
 				{
-					symbol.fighting = true;
-					symbol.fightTimer = 0.0f;
-					symbol.fightLength = (k_FightAt0 + (k_FightAt1 - k_FightAt0) * b) * Rand(0.5f, 1.5f);
-				}
-				if (symbol.fighting)
-				{
-					const float f = symbol.fightTimer / std::max(symbol.fightLength, 1e-3f);
-					if (f >= 1.0f)
+					// 0x69C3AD..0x69C3C1: the fight's timer (+0x34); past the fight's length (+0x38), the next wait and
+					// fight are drawn together, wait first (0x69C3C3..0x69C424), and the timer is back to 0
+					symbol.fightTimer += k_Step;
+					if (symbol.fightTimer > symbol.fightLength)
 					{
-						symbol.fighting = false;
+						const float wait = k_BetweenFightsAt0 + (k_BetweenFightsAt1 - k_BetweenFightsAt0) * b;
+						symbol.waitLength = Rand(0.5f, 1.5f) * wait;
+						const float length = k_FightAt0 + (k_FightAt1 - k_FightAt0) * b;
 						symbol.fightTimer = 0.0f;
-						symbol.waitLength = -1.0f;
+						symbol.fightLength = Rand(0.5f, 1.5f) * length;
 					}
-					else
+					// 0x69C427..0x69C46B: f = timer / length, 0 for <= 0 or NaN, at most 1; fight = 1 - (2f - 1)^2
+					float f = symbol.fightTimer / symbol.fightLength;
+					if (!(f > 0.0f))
 					{
-						fight = 1.0f - (2.0f * f - 1.0f) * (2.0f * f - 1.0f);
+						f = 0.0f;
 					}
+					else if (!(f < 1.0f))
+					{
+						f = 1.0f;
+					}
+					const float g = 2.0f * f - 1.0f;
+					fight = 1.0f - g * g;
 				}
 				speed *= 1.0f + (k_SpeedUpDuringFight - 1.0f) * fight;
 			}

@@ -169,6 +169,23 @@ void ForEachMobile(glm::ivec2 cell, const std::function<bool(entt::entity)>& fn)
 [[nodiscard]] entt::entity FindFixedOnMap(glm::ivec2 cell, entt::entity after = entt::null);
 /// MapCoords::IsFixed 0x603790 -> MapCell::IsFixed 0x601EA0: only the head of the fixed list, a MultiMapFixed
 [[nodiscard]] bool IsFixed(glm::ivec2 cell);
+/// The fixed list only (+4, GetFirstObjectFixed 0x6034B0 + GetMapChild vt +0x53C) from the head, filtered like the
+/// other readers; the next is taken before fn runs. The chain 0x60CAA0 (ObjectCircleIterator), 0x74B9C0
+/// (Tree::EndPhysics) and 0x601D56 (CollideWithFixe) walk. fn returns false to stop. Off the map: nothing
+void ForEachFixed(glm::ivec2 cell, const std::function<bool(entt::entity)>& fn);
+/// GetCollideData vt +0x858 of an object in the map: the shape its CreateCollideData built on insert (a tree's 0.3
+/// circle 0x74C5F0, the mesh's NewCollide 0x52F510 / 0x52F550); null for the Object class (0x419B30), a BigForest
+/// (0x439580), a FishFarm (0x52CA10), an object not in the map or (aproximado) one without a mesh
+[[nodiscard]] const map_collide::Shape* CollideDataOf(entt::entity object);
+/// MapCoords::Collide 0x6033C0 -> MapCell::Collide(MapCoords) 0x601CE0 -> MapCell::Collide 0x601BD0: 0xFFFFFFFF off the
+/// map (0x6033CC); else the landscape's 0x10 (off the game map) or 1 water / 2 land (sea_cells::CollideLandscape), with
+/// 0x20 for a type 6 (FOREST_TREE) and 4 for a type 0x12 (FIELD) in the fixed list (0x601C78..0x601CAE). Never 8: the
+/// CollideWithFixe branch of 0x601CE0 (0x601CEB) tests a bit 0x601BD0 never sets
+[[nodiscard]] uint32_t Collide(const map_coords::MapCoords& coords);
+/// MapCoords::CollideCollideWithFixe 0x604FE0 -> MapCell::CollideWithFixe 0x601D10: 0xFFFFFFFF off the map (0x604FEC);
+/// else 0x601BD0's bits, | 8 when a 0.5 m circle at the MapCoords' x, z touches the collide data of an object of the
+/// fixed list (CollideDataOf)
+[[nodiscard]] uint32_t CollideWithFixed(const map_coords::MapCoords& coords);
 /// fn_00604F40: the MapCoords' cell is this one (the effects walk a multi-cell object only in its own cell)
 [[nodiscard]] constexpr bool IsOwnCell(const map_coords::MapCoords& coords, glm::ivec2 cell)
 {
@@ -236,14 +253,17 @@ constexpr int32_t k_AnyAbodeType = 0x7FFF;
 /// it in (it accepts the towns WITHOUT that abode type)
 [[nodiscard]] entt::entity GetNearestTownToPos(const map_coords::MapCoords& coords, std::optional<Tribe> tribe,
                                                int32_t abodeType, float radius);
+/// GScript::FindPlayerTownAtPos 0x6F72E0 (GET_NEAREST_TOWN_OF_PLAYER, 0x6F2ADD): only TownsOf(player), GetDistanceInMetres
+/// (0x74CD70) <= best, best = r ("test ah, 0x41" 0x6F7312): a tie goes to the later town. Not GetNearestTown 0x6020E0
+[[nodiscard]] entt::entity FindPlayerTownAtPos(const map_coords::MapCoords& coords, float radius, PlayerNames player);
 /// fn_00552FF0 (`ret 4`, one MapCoords): the global town list g_game+0x205C84 (inferido: by Town::id), the first
 /// always taken, then GetDistanceInMetres < best. It has no id branch
 [[nodiscard]] entt::entity FindNearestTownInList(const map_coords::MapCoords& coords);
 
 namespace detail
 {
-/// Test hook: when set and it gives a shape, a MultiMapFixed's cells are DescriptorCells(shape, reach) of it (the
-/// tests have no meshes)
+/// Test hook: when set and it gives a shape, it stands in for the mesh's NewCollide: a MultiMapFixed's cells are
+/// DescriptorCells(shape, reach) of it and its collide data the shape (the tests have no meshes)
 using ShapeProvider = bool (*)(entt::entity object, map_collide::Shape& shape, float& reach);
 void SetShapeProviderForTests(ShapeProvider provider);
 } // namespace detail

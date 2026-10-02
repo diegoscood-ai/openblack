@@ -116,6 +116,8 @@ entt::id_type SharedMesh(std::string path)
 	return id;
 }
 
+/// (old way, explode_object::k_PiecesAsWorldTriangles false: the pieces are Kind::GJMesh otherwise, drawn by
+/// psys::gj_mesh and never met here)
 /// RenderParticleGJMesh::DrawAt 0x67C150 of an exploded piece (PSys/Rules/ExplodeObject.h): the GJ mesh through the
 /// drawn PSR matrix (0x67C279..0x67C30A, the same matrix as the mesh atoms'), every vertex of the colour of the DrawData
 /// times the land light (+0x21, 0x67C175..0x67C1F6) since the GJ mesh has no colours of its own (+0x24 != the vertex
@@ -247,6 +249,21 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", true);
 	creator->neverClip = object.Bool("NeverClip", false);
+	// CastHumanShadow: ParticleMeshCreator's +0x5D only (DefineProperties 0x6B393E..0x6B3949); AnimTextured's +0x5D is
+	// its NeverClip and ParticleAnimCreator has none. (pendiente) read, not ported: see MeshCreator::castHumanShadow
+	creator->castHumanShadow = !creator->animTextured && !creator->animated && object.Bool("CastHumanShadow", false);
+	if (creator->castHumanShadow)
+	{
+		static bool told = false;
+		if (!told)
+		{
+			told = true;
+			SPDLOG_LOGGER_WARN(spdlog::get("game"),
+			                   "PSys: {} {} sets CastHumanShadow: the original casts a human shadow for each atom "
+			                   "(fn_006CA340, updated by fn_006CA540 -> fn_006CA3D0), not ported here",
+			                   object.className, object.name);
+		}
+	}
 	// DrawWithLandscapeColor: ParticleMeshCreator's DefineProperties 0x6B38B0 reads it into +0x5E (0x6B390E; CreateParticle
 	// 0x6A8B82 puts it in the particle's +0x24 bit 1, which Particle3DObj::DrawAt 0x67A00C tests for fn_0080BEC0), and
 	// ParticleMeshCreatorAnimTextured's DefineProperties 0x6B3970 reads it too, into its own +0x84 (its last property,
@@ -321,20 +338,21 @@ void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 		// ParticleAnimCreator::CreateParticle (vt 0x10 0x6A98C0 -> fn_006A97F0): the particle's own object of type 2
 		// (vt 0x1C, CreateLH3DObject 0x6A9760), then on the atom (0x6A9843..0x6A98AD) the rate +0x110 from the clip's
 		// length (AnimFrameRate), +0x114 = 1000 frames, +0x118 PlayAnim (+0xA1) and +0x119 LoopAnim (+0xC), and with
-		// RandomiseInitFrame (+0xA2) SetFrame 0x674100 (+0x108 and +0x10C) of PSysRand(1000) 0x6729E0. (aproximado) the
-		// PSysRand of the function pointer [0xD4E0BC] by the effect's generator, as every random of this PSys port
+		// RandomiseInitFrame (+0xA2) SetFrame 0x674100 (+0x108 and +0x10C) of PSysRand(1000) 0x6729E0 (0x6A98A2)
 		const auto* clip = CreatorClip(*this);
 		atom.frameRate = AnimFrameRate(clip != nullptr ? clip->GetDurationMs() : 0, speedUpFactor);
 		atom.playAnim = animPlay;
 		if (animRandomInitFrame)
 		{
-			atom.frame = std::floor(effect.Random(static_cast<float>(k_AnimFrames)));
+			atom.frame = static_cast<float>(effect.Rand(k_AnimFrames));
 		}
 		return;
 	}
 	if (!animTextured)
 	{
-		return; // ParticleMeshCreator::CreateParticle 0x6A8B00: the Particle3DObj only
+		// ParticleMeshCreator::CreateParticle 0x6A8B00: the Particle3DObj only. Its CastHumanShadow node
+		// (0x6A8B55..0x6A8B7F) is left out on purpose: Mesh.h, castHumanShadow
+		return;
 	}
 	// ParticleMeshCreatorAnimTextured::CreateParticle 0x6A8DA0
 	float rate = frameRate;
@@ -354,7 +372,8 @@ void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 	}
 	if (randomiseInitFrame)
 	{
-		atom.frame = std::floor(effect.Random(static_cast<float>(FramesPerAtom()))); // PSysRand(N)
+		// 0x6A8EE2: PSysRand(N), N = NumFrames (+0x64) or the slide's 1000 (0x6A8E6E)
+		atom.frame = static_cast<float>(effect.Rand(FramesPerAtom()));
 	}
 	atom.frameRate = rate;         // +0x110
 	atom.playAnim = playAnimation; // +0x118 PlayAnim
@@ -393,6 +412,7 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 	{
 		for (const auto& atom : drawable.atoms)
 		{
+			// (old way) the pieces as mesh atoms; with explode_object::k_PiecesAsWorldTriangles they are Kind::GJMesh
 			if (const auto* piece = atom.atom != nullptr ? explode_object::PieceOf(*atom.atom) : nullptr; piece != nullptr)
 			{
 				if (piece->meshId != 0)

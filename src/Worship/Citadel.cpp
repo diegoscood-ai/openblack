@@ -14,15 +14,14 @@
 #include <limits>
 #include <vector>
 
-#include <glm/geometric.hpp>
-#include <glm/vec2.hpp>
-
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "Magic/Core/Players.h"
@@ -46,40 +45,6 @@ bool IsCitadel(entt::entity citadel)
 	return citadel != entt::null && Registry().Valid(citadel) && Registry().AllOf<CitadelWorship, Temple, Transform>(citadel);
 }
 
-/// Town::GetNearestTownToPos 0x73B170 (pos, tribe, 0x7FFF, FLT_MAX): the nearest town of that tribe.
-/// (inferido): 0x7FFF is taken as "any player" and the distance as x/z; 0x73B170 is not read
-entt::entity NearestTownOfTribe(const glm::vec3& position, Tribe tribe)
-{
-	entt::entity best = entt::null;
-	float bestDistance = std::numeric_limits<float>::max();
-	Registry().Each<const Town, const Tribe, const Transform>(
-	    [&](entt::entity town, const Town&, const Tribe& t, const Transform& transform) {
-		    if (t != tribe)
-		    {
-			    return;
-		    }
-		    const float distance = glm::distance(glm::vec2(position.x, position.z),
-		                                         glm::vec2(transform.position.x, transform.position.z));
-		    if (distance < bestDistance)
-		    {
-			    bestDistance = distance;
-			    best = town;
-		    }
-	    });
-	return best;
-}
-
-std::vector<entt::entity> TownsOf(PlayerNames player)
-{
-	std::vector<entt::entity> towns;
-	Registry().Each<const Town>([&](entt::entity town, const Town& data) {
-		if (data.owner == player)
-		{
-			towns.push_back(town);
-		}
-	});
-	return towns;
-}
 } // namespace
 
 entt::entity citadel::Of(PlayerNames player)
@@ -140,9 +105,13 @@ entt::entity citadel::FindOrCreateWorshipSite(entt::entity citadelEntity, Tribe 
 	{
 		return site;
 	}
-	// Citadel::RequestANewWorshipSite 0x4633F0
+	// Citadel::RequestANewWorshipSite 0x4633F0: Town::GetNearestTownToPos 0x73B170 (the citadel's MapCoords +0x14, the
+	// tribe, 0x7FFF = any abode type, FLT_MAX [0x8C7E1C]) at 0x46345C; that town's MapCoords, else the citadel's
 	auto near = Registry().Get<const Transform>(citadelEntity).position;
-	if (const auto town = NearestTownOfTribe(near, tribe); town != entt::null)
+	if (const auto town = ecs::map_cells::GetNearestTownToPos(ecs::map_coords::FromWorld(near), tribe,
+	                                                          ecs::map_cells::k_AnyAbodeType,
+	                                                          std::numeric_limits<float>::max());
+	    town != entt::null)
 	{
 		near = Registry().Get<const Transform>(town).position;
 	}
@@ -218,7 +187,7 @@ entt::entity citadel::CreateBuiltWorshipSite(entt::entity citadelEntity, Tribe t
 		return entt::null;
 	}
 	const auto player = Registry().Get<const Temple>(citadelEntity).owner;
-	for (const auto town : TownsOf(player))
+	for (const auto town : ecs::map_cells::TownsOf(player))
 	{
 		const auto* townTribe = Registry().TryGet<const Tribe>(town);
 		if (townTribe == nullptr || *townTribe != tribe) // Town +0x5B8: the tribe index
@@ -242,7 +211,7 @@ void citadel::OpenWorshipSites(entt::entity citadelEntity)
 	{
 		return;
 	}
-	for (const auto town : TownsOf(Registry().Get<const Temple>(citadelEntity).owner))
+	for (const auto town : ecs::map_cells::TownsOf(Registry().Get<const Temple>(citadelEntity).owner))
 	{
 		AddTown(citadelEntity, town);
 	}
@@ -275,7 +244,7 @@ void citadel::PostLoadCleanup()
 	});
 	for (const auto& [citadelEntity, player] : citadels)
 	{
-		for (const auto town : TownsOf(player))
+		for (const auto town : ecs::map_cells::TownsOf(player))
 		{
 			const auto* magic = Registry().TryGet<const TownMagic>(town);
 			if (magic != nullptr && magic->worshipSite == entt::null) // vt 0x30C GetWorshipSite

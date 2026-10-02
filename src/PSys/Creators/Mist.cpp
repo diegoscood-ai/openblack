@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "3D/LH3DRandom.h"
+#include "Common/GameRandom.h"
 #include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "Graphics/Mists.h"
@@ -63,17 +63,29 @@ std::unique_ptr<Creator> MakeMistCreator(const Object& object)
 
 void MistCreator::InitAtom(Effect& effect, Atom& atom) const
 {
-	// CreateParticleMist 0x6AA610: RandomiseScale ? PSysFloatRand(InitialScaleMin (+0x70), InitialScale (+0x30)) :
-	// InitialScale -> atom +0x74 (it replaces fn_006A85E0's)
-	atom.baseScale = randomiseScale ? initialScaleMin + effect.Random(initialScale - initialScaleMin) : initialScale;
+	// CreateParticleMist 0x6AA610, after fn_006A85E0 (0x6AA61D, NewAtom's common part): CreateLH3DMist 0x6AA5A0
+	// (0x6AA649) first. LH3DObject::Create(7) 0x6AA5A9 runs the LH3DMist ctor 0x7F9560, which starts +0x84 at
+	// ftol(Random(0, 16)) & 15 (0x7F95DC..0x7F95FB) on the CRT rand (game_random::crt), not the PSys stream
+	atom.mist = {graphics::frame_anim::MistStartCounter(game_random::crt::Random(0.0f, 16.0f)), 0.0f};
+	// 0x6AA5C0..0x6AA5EE: k (+0x8C) = Ratio (+0x74), or LocalFloatRand(2.5) + 2.5 ([0x8C581C]) when it is 0 (or NaN:
+	// fcomp 0; test ah,0x40)
+	if (ratio == 0.0f || std::isnan(ratio))
+	{
+		const float r = game_random::LocalFloatRand(2.5f);
+		atom.mistK = r + 2.5f;
+	}
+	else
+	{
+		atom.mistK = ratio;
+	}
+	// then (0x6AA65E..0x6AA680): RandomiseScale (+0x78) ? PSysFloatRand(InitialScaleMin (+0x70), InitialScale (+0x30))
+	// (0x6AA66D) : InitialScale -> atom +0x74 (it replaces fn_006A85E0's)
+	atom.baseScale = randomiseScale ? effect.Random(initialScaleMin, initialScale) : initialScale;
 	// 0x6AA683..0x6AA6AF: atom +0x110 = 1.0, +0x114 = 1, +0x118 PlayAnim = 0, +0x119 LoopAnim = the creator's +0x0C:
 	// one frame that never steps
 	atom.frame = 0.0f;
 	atom.frameRate = 1.0f;
 	atom.playAnim = false;
-	// CreateLH3DMist 0x6AA5A0 makes the atom's own LH3DMist: its ctor 0x7F9560 starts +0x84 at ftol(Random(0, 16)) & 15
-	// (0x7F95DC..0x7F95FB), LH3D's generator (graphics::lh3d::Random), not the PSys one
-	atom.mist = {graphics::frame_anim::MistStartCounter(graphics::lh3d::Random(0.0f, 16.0f)), 0.0f};
 }
 
 uint32_t mist_atoms::MistColour(uint32_t atomArgb, uint32_t baseArgb)
@@ -94,10 +106,9 @@ bool mist_atoms::Describe(const Effect::DrawAtom& atom, mists::MistDesc& mist)
 	mist = {};
 	mist.position = atom.position; // vt 0x24 SetPos(PSR +0x24)
 	mist.size = atom.scale;        // mist +0x88 = PSR +0x30
-	// CreateLH3DMist 0x6AA5A0: +0x80 |= 2 (the effect branch) and k = Ratio, or 2.5 + LocalFloatRand(2.5) when 0.
-	// (aproximado) with Ratio 0 the per-mist random k has no per-atom slot here: its mean, 3.75
+	// CreateLH3DMist 0x6AA5A0: +0x80 |= 2 (the effect branch, 0x6AA5F4) and the k it drew for this mist (+0x8C)
 	mist.edgeShrink = true;
-	mist.k = creator->ratio != 0.0f ? creator->ratio : 3.75f;
+	mist.k = atom.atom != nullptr ? atom.atom->mistK : creator->ratio;
 	// DrawAt: TakeRatioFromMatrix -> k = M[1][1] / M[0][0] when |M[0][0]| > 0.0001 (0x8BF518)
 	// (the PSR matrix's Y axis carries the stretch, fn_00673DB0: the storm clouds' cloud ratio, UR_CloudGather)
 	const glm::mat3 matrix = atom.rotation * glm::mat3(atom.scale, 0.0f, 0.0f, 0.0f, atom.scale * atom.stretch, 0.0f, 0.0f,

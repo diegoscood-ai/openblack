@@ -18,8 +18,8 @@
 #include <vector>
 
 #include "3D/FrameAnim.h"
-#include "3D/LH3DRandom.h"
 #include "3D/LandLight.h"
+#include "Common/GameRandom.h"
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
@@ -102,9 +102,9 @@ int light_map_atoms::Stamp(const std::vector<manager::Drawable>& drawables)
 			// goes to z (0x67B29C..0x67B2A3), the second to y (0x67B292..0x67B299) and the third to x (0x67B289..0x67B28F)
 			if (creator->useRandJitter)
 			{
-				const float first = grand_local::LocalFloatRand(creator->randJitter);
-				const float second = grand_local::LocalFloatRand(creator->randJitter);
-				const float third = grand_local::LocalFloatRand(creator->randJitter);
+				const float first = game_random::LocalFloatRand(creator->randJitter);
+				const float second = game_random::LocalFloatRand(creator->randJitter);
+				const float third = game_random::LocalFloatRand(creator->randJitter);
 				position += glm::vec3(third, second, first);
 			}
 			// fn_006CA280: + (10, 0, 10) ([0x8AB414], 0x6CA2AE / 0x6CA2CA), the frame frame % frames, centred, mode 1 for

@@ -36,14 +36,13 @@ entt::entity objects::CreateMagicResourcePile(const glm::vec3& position, std::op
 {
 	// fn_005FA8B0; CallVirtualFunctionsForCreation (vt 0x658) is the pile's rise out of the land (PotArchetype::Create).
 	// MagicFood::CallVirtualFunctionsForCreation 0x5FAAB0, after PileFood's (0x66E1A0), also calls two setters on its
-	// Game3DObject (+0x40): vt 0x78(0) at 0x5FAAC8 and vt 0x80(0) at 0x5FAAD2. Game3DObject derives from LH3DObject with
-	// no virtuals of its own (bw1-decomp src/Black/Game3DObject.h), so those slots are LH3DObject::SetCastDynamicShadow
-	// and LH3DObject::SetShadowOnTexture (bw1-decomp src/Lionhead/LH3DLib/development/LH3DObject.h, slots 0x78 / 0x80):
-	// the magic food pile casts neither a dynamic shadow nor a baked one. (aproximado) that header does not mark vt 0x80
-	// __fastcall, yet the exe passes its argument in edx (0x5FAAD0 `xor edx, edx`), as it does for vt 0x78.
-	// Nothing to do here: openblack already leaves the pile out of both, and for the same reason. RenderingSystem.cpp's
-	// CastsStaticShadow rejects every Pot and its ReceivesDynamicShadow names this very call (0x5FAAC8) for the MagicFood
-	// and HandFood pot types; Graphics/PhysicsShadows.cpp's CastsPhysicsShadow rejects every Pot too.
+	// Game3DObject (+0x40): vt 0x78(0) at 0x5FAAC8 and vt 0x80(0) at 0x5FAAD2, LH3DObject's fn_008168A0 and
+	// fn_007F9880 (vtable 0x9A2974): obj+4 bit 0x40 cleared, so the pile receives no projected shadow (the receiver test
+	// 0x80E457, vt+0x7C fn_007F9870), and bit 0x1000 cleared. (aproximado) bw1-decomp names the slots
+	// SetCastDynamicShadow / SetShadowOnTexture; both take their argument in edx (0x5FAAD0 `xor edx, edx`).
+	// Nothing to do here: RenderingSystem.cpp's ReceivesDynamicShadow names this very call (0x5FAAC8) for the MagicFood
+	// and HandFood pot types, CastsStaticShadow rejects every Pot, and Graphics/PhysicsShadows.cpp's CastsPhysicsShadow
+	// (graphics::shadow_list's in local/shaders) rejects every Pot too.
 	switch (type)
 	{
 	case ResourceType::Food:

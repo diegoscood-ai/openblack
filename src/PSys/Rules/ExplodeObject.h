@@ -18,14 +18,23 @@
 #include <entt/core/fwd.hpp>
 #include <entt/entity/entity.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+
+#include "PSys/PSys.h"
 
 // The meshes thrown to pieces (PSysExplosion.cpp of the original): the queues fn_00681260 / fn_006812B0 fill, the
 // always-on EXPLODE_OBJECT effect (SF_ExplodeObject, PARTICLE_TYPE 23) of PSysUtilityPSys that empties them once a turn
 // (fn_006717F0 from PSysGlobal::GameLoopEnd 0x68F5B0 -> fn_006721B0), its rule UR_ExplodeObject
 // (ModifyAtomCollection 0x6814E0 -> ExplodeMesh 0x6807B0) and the pieces' draw (RenderParticleGJMesh::DrawAt 0x67C150,
-// here mesh atoms of PSys/Creators/Mesh.cpp). Wiki: docs/bw1-notes/miracles.md, "Explosión de rayo".
+// here world triangles: gj_mesh below and Graphics/WorldTriangles.h). Wiki: docs/bw1-notes/miracles.md, "Explosión de
+// rayo".
+
+namespace openblack::graphics::world_triangles
+{
+struct Frame;
+}
 
 namespace openblack::psys
 {
@@ -33,6 +42,13 @@ struct Atom;
 
 namespace explode_object
 {
+
+/// The pieces drawn as the original does (RenderParticleGJMesh::DrawAt 0x67C150 -> Draw3DWorldTriangle 0x81C090): one
+/// CPU-made triangle list per frame (gj_mesh::Build, graphics::world_triangles), Creator::Kind::GJMesh, no bgfx buffer
+/// per piece and no handle limit. false keeps the old way (a generated L3D mesh per piece drawn as a mesh atom, behind
+/// the GpuBuffersLeft guard) until session sistemas accepts the Renderer.cpp hunk (pieces_shadows_PLAN.md §1.3 d,
+/// §3); that code goes in the commit that makes this final
+inline constexpr bool k_PiecesAsWorldTriangles = true;
 
 /// What ExplodeMesh reads of an LH3DMesh: the sub-meshes (LH3DMesh +0xC count, +0x10 table) with their flags (+0) and
 /// primitives (+4 count, +8 table); of each primitive its vertices (+0x14, 32 bytes: position, uv, normal), its
@@ -94,7 +110,10 @@ void Clear();
 [[nodiscard]] glm::vec3 PieceVelocity(const glm::vec3& centre, const glm::vec3& origin, float speed, float randomFactor,
                                       glm::vec3 random);
 
-/// A piece atom (its RenderParticleGJMesh +0x128): the generated mesh it is drawn with (0 without the renderer)
+/// A piece atom (its RenderParticleGJMesh +0x128) and its GJMesh (ctor 0x67FF20, filled by fn_0057D630): three vertices
+/// per triangle (+8 positions about the centroid, 0x680E5A..0x680E89; +0x44 uvs; +0x80 normals, the source's as they
+/// are, not turned by the matrix), the triangles b, b + 1, b + 2 (+0x6C), no colours of its own (+0x24 != the vertex
+/// count) and the source primitive as its material (GJMesh +0, 0x680C49)
 struct Piece
 {
 	Piece() = default;
@@ -102,9 +121,16 @@ struct Piece
 	Piece(Piece&&) = delete;
 	Piece& operator=(const Piece&) = delete;
 	Piece& operator=(Piece&&) = delete;
-	~Piece(); ///< the generated mesh goes with the atom
-	entt::id_type meshId {0};
+	~Piece(); ///< (old way) the generated mesh goes with the atom
+	std::shared_ptr<const SourceMesh> source; ///< the mesh of its material
+	uint16_t subMesh {0};
+	uint16_t primitive {0};
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec2> uvs;
+	std::vector<glm::vec3> normals;
 	uint32_t triangles {0};
+	/// (old way, !k_PiecesAsWorldTriangles) the generated mesh it is drawn with (0 without the renderer)
+	entt::id_type meshId {0};
 };
 /// The piece an atom carries, nullptr for the other atoms
 [[nodiscard]] const Piece* PieceOf(const Atom& atom);
@@ -119,4 +145,36 @@ struct Piece
 void RegisterRules();
 
 } // namespace explode_object
+
+/// RenderParticleGJMesh::DrawAt 0x67C150 of the exploded pieces, to graphics::world_triangles. Called WHERE THEY ARE
+/// DRAWN (after model_light::UpdateFrameLight of the frame): the original draws them at once, no Z object (0x67C150 does
+/// not read [0xC0215D]); EXPLODE_OBJECT is Sorted, drawn by fn_006718A0's Draw_(1) (0x6718A9..0x6718AB) from
+/// PSysGlobal::DrawLoop 0x68F60C (fn_00672210 0x672228), after GGame::Draw 0x54E00A and before the queue's drain
+/// (FinishFrame 0x82F460).
+namespace gj_mesh
+{
+/// The DrawData colour of a drawn atom, 0xAARRGGBB: its colour and its alpha byte (0..255, truncated)
+[[nodiscard]] uint32_t DrawDataColour(const Effect::DrawAtom& atom);
+/// fn_00679920's PSR matrix of a drawn atom: rotation x scale, the Y axis x the stretch, the translation its position
+[[nodiscard]] glm::mat4 DrawMatrix(const Effect::DrawAtom& atom);
+/// DrawAt 0x67C150 of one piece with the drawn matrix `model` and the DrawData colour `argb`:
+/// - the base colour: argb x the land light under the matrix's translation (+0x21, 0x67C175..0x67C1F6, LitColour);
+/// - every vertex through the matrix into the world (0x67C279..0x67C30A); +0x22 (the vertices stuck to the land,
+///   0x67C310..0x67C38C) stays 0 for the pieces (ctor fn_006C8A90, 0x6C8AA5);
+/// - every vertex of the base colour (+0x24 != the count, 0x67C47F..0x67C4C4), then the model light ([0xC029C0] = 1
+///   and one normal per vertex, 0x67C4CE..0x67C6B2): the light [0xEA9E90] through SetInverse of the matrix
+///   (0x67C508..0x67C51E), I = fistp(255 n.l) (0x67C61D..0x67C62C), the ambient [0xC39264] (model_light::Apply). The
+///   second light [0xD4EC08] (0x67C6C3) is 0;
+/// - the alpha table 0xC387C8 when the DrawData alpha byte is not 0xFF (0x67C9B7..0x67C9C0), back to 0xC38728 after
+///   the draw (0x67C9F7).
+/// Appends one batch (or joins the last one) with `tag`
+void AppendPiece(graphics::world_triangles::Frame& out, const explode_object::Piece& piece, const glm::mat4& model,
+                 uint32_t argb, const void* tag = nullptr);
+/// Every piece of the running effects drawn by `path`, in effect order and, inside, their collections' order
+/// (Effect::Collect). Sorted: no tag; Queued / Immediate: tagged with their atom (Effect::DrawAtom::atom), for
+/// world_triangles::Submit's `only` at the atom's place among its effect's items
+void Build(graphics::world_triangles::Frame& out, DrawPath path);
+/// One piece atom (an item of a Queued / Immediate effect whose creator is Kind::GJMesh), tagged with its atom
+void BuildAtom(graphics::world_triangles::Frame& out, const Effect::DrawAtom& atom);
+} // namespace gj_mesh
 } // namespace openblack::psys

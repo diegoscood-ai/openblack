@@ -410,7 +410,7 @@ TEST(Lightning, trunkJointsFollowTheHand)
 	const auto file = ParseBolt();
 	ASSERT_NE(file, nullptr);
 	game_clock::SetTurn(3);
-	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 7);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 	const glm::vec3 hand(100.0f, 30.0f, 200.0f);
 	std::vector<psys::Effect::DrawChain> chains;
 	for (int i = 0; i < 3 && chains.empty(); ++i)
@@ -458,11 +458,11 @@ TEST(Lightning, twoBoltsClash)
 	RecordingSink olderSink;
 	RecordingSink newerSink;
 	game_clock::SetTurn(20);
-	psys::Effect older(file, glm::vec3(0.0f), 1.0f, 11);
+	psys::Effect older(file, glm::vec3(0.0f), 1.0f);
 	older.SetSink(&olderSink);
 	StepBolt(older, glm::vec3(0.0f, 2.0f, 0.0f));
 	game_clock::SetTurn(21);
-	psys::Effect newer(file, glm::vec3(0.0f), 1.0f, 12);
+	psys::Effect newer(file, glm::vec3(0.0f), 1.0f);
 	newer.SetSink(&newerSink);
 	olderSink.events.clear();
 	newerSink.events.clear();
@@ -513,7 +513,7 @@ TEST(Lightning, landCutsTheFork)
 		Locator::terrainSystem::emplace<LevelIsland>(altitude);
 		RecordingSink sink;
 		game_clock::SetTurn(40);
-		psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 5);
+		psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 		effect.SetSink(&sink);
 		for (int i = 0; i < 3; ++i)
 		{

@@ -101,7 +101,7 @@ TEST(Heal, chakraWaitsForTargetsUntilClosed)
 	                        "PROPERTY PCreator PERSIS_PNTR P0\nPROPERTY NextGroups ARRAY SIZE 1 1\n"
 	                        "ENDPROPERTIES\nENDCLASS\n");
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 1);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 	for (int i = 0; i < 5; ++i)
 	{
 		effect.Step(0.1f);
@@ -127,7 +127,7 @@ TEST(Heal, fusedSphericalExplode)
 	                        "PROPERTY Gravity FLOAT 0\nPROPERTY MaxSpeed FLOAT 100\nPROPERTY UseDamping BOOL 0\n"
 	                        "ENDPROPERTIES\nENDCLASS\n");
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(10.0f, 5.0f, 20.0f), 1.0f, 7);
+	psys::Effect effect(file, glm::vec3(10.0f, 5.0f, 20.0f), 1.0f);
 	// the fuse: nothing while the collection is younger than FuseTime (ages 0, 0.1, 0.2)
 	for (int i = 0; i < 3; ++i)
 	{
@@ -162,7 +162,7 @@ TEST(Heal, healInHandWiggle)
 	                        "PROPERTY WiggleFreq FLOAT 0.25\nENDPROPERTIES\nENDCLASS\n");
 	ASSERT_NE(file, nullptr);
 	const glm::vec3 origin(4.0f, 2.0f, -1.0f);
-	psys::Effect effect(file, origin, 1.0f, 3);
+	psys::Effect effect(file, origin, 1.0f);
 	effect.Step(0.1f);
 	effect.Step(0.1f);
 	std::vector<psys::Effect::DrawAtom> atoms;

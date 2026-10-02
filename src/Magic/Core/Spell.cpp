@@ -389,7 +389,9 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	if (!file.empty())
 	{
 		auto sink = std::make_unique<Sink>(entity);
-		spell.psys = psys::manager::StartForSpell(std::string(file), point, spell.direction, spell.magnitude, sink.get());
+		// PSysInterface::Create(..., NET_GAME_TYPE 1) (push 1 at 0x71FF63): the spell's own effect draws on the synced seed
+		spell.psys = psys::manager::StartForSpell(std::string(file), point, spell.direction, spell.magnitude, sink.get(),
+		                                          game_random::psys::NetGameType::Synced);
 		g_Sinks[entity] = std::move(sink);
 	}
 	// player +0xDC: the last cast's position, magic type and game turn

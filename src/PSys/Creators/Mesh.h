@@ -59,6 +59,18 @@ struct MeshCreator: Creator
 	/// fn_006A8CC0 / fn_006A95E0 do when they first fetch the mesh (+0x50 / +0x34 still 0)
 	mutable bool materialsSet {false};
 	bool neverClip {false};           ///< +0x5B
+	/// +0x5D CastHumanShadow (DefineProperties 0x6B393E; ParticleMeshCreator only: AnimTextured's +0x5D is its NeverClip,
+	/// vt+0x98 0x6A8D7C). CreateParticle 0x6A8B55..0x6A8B7F makes a ShadowInfo for each atom (fn_006CA340 ->
+	/// fn_008745A0 -> fn_0087FD50, whose +0xC = 1 at 0x8745C8) and Particle3DObj::DrawAt puts the particle's object
+	/// (+0x20) in its +0xC and pushes it on the list [0xD4EDCC] (0x67A45D..0x67A494); every frame GGame::Process3dEngine
+	/// 0x54DEAD -> PSysLightMaps::AddDrawing 0x6CA6E0 -> fn_006CA540 (0xD4EDB0, its +0x1C is that list) walks it and
+	/// updates each shadow with its object (fn_006CA3D0 0x6CA5A9 -> fn_00874850). So the original does cast one, but the
+	/// property is 0 in all 20 mesh creators of the spell files (tmp_dis\psys\stats.txt). (pendiente) read and not
+	/// ported: no shadow list entry, a warning once if a file sets it
+	bool castHumanShadow {false};
+	/// +0x54, the argument of vt+0x78 / vt+0x80 (CreateLH3DObject 0x6A8ACE / 0x6A8D65; fn_008168A0: obj+4 bit 0x40, the
+	/// receiver of the projected shadows): 0 from the ctors (0x6A8986, 0x6A8BDE), no property. The atoms never receive
+	static constexpr bool k_ReceivesShadow = false;
 	bool drawWithLandscapeColour {false}; ///< +0x5E: the particle's +0x24 bit 2 (CreateParticle 0x6A8B82)
 	bool drawCutByPlane {false};          ///< +0x5F: the particle's +0x24 bit 4
 	// ParticleMeshCreatorAnimTextured

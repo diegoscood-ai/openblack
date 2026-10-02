@@ -154,7 +154,7 @@ TEST(Water, mistCreatorMakesTheCloudAtom)
 	ASSERT_NE(psys::FindCreatorFactory("ParticleMistCreator"), nullptr);
 	const auto file = Parse(k_Cloud);
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 1);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 	psys::ProcessInfo info;
 	info.handPos = glm::vec3(100.0f, 30.0f, 200.0f);
 	effect.SetProcessInfo(info);
@@ -236,7 +236,7 @@ TEST(Water, realData)
 		EXPECT_FLOAT_EQ(cloud->Float("Ratio", 0.0f), 2.0f);
 		EXPECT_NE(spell->Find("ParticleMeshCreator_RainCone"), nullptr) << name;
 		// run it: the cloud atom (a mist) at the hand and, in its group 4, the rain cone (a mesh atom) under it
-		psys::Effect effect(std::make_shared<const psys::File>(*spell), glm::vec3(0.0f), 1.0f, 3);
+		psys::Effect effect(std::make_shared<const psys::File>(*spell), glm::vec3(0.0f), 1.0f);
 		psys::ProcessInfo processInfo;
 		processInfo.handPos = glm::vec3(50.0f, 40.0f, 60.0f);
 		effect.SetProcessInfo(processInfo);

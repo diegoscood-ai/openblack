@@ -1141,11 +1141,11 @@ bool Modifier::ModifyCollection(Effect& effect, Collection& collection, Collecti
 	return true;
 }
 
-Effect::Effect(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude, uint32_t seed)
+Effect::Effect(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude, game_random::psys::NetGameType type)
     : _file(std::move(file))
     , _origin(origin)
     , _magnitude(magnitude)
-    , _random(seed)
+    , _netType(type)
 {
 	const auto hierarchies = _file->header.Array("Hierarchies");
 	for (size_t g = 0; g < _hierarchies.size() && g < hierarchies.size(); ++g)
@@ -1202,22 +1202,25 @@ int Effect::SendSpellEvent(const SpellEventInfo& event) const
 	return _sink != nullptr ? _sink->SpellEvent(event) : 0;
 }
 
-float Effect::Random(float max)
+float Effect::Random(float max, std::source_location where)
 {
-	return std::uniform_real_distribution<float>(0.0f, 1.0f)(_random) * max;
+	// PSysFloatRand 0x6729B0 -> [0xD4E0C0]: the stream fn_00673340 set for the step running now (Step's scope)
+	return game_random::psys::FloatRand(max, where);
 }
 
-glm::vec3 Effect::RandomInBall()
+float Effect::Random(float a, float b, std::source_location where)
 {
-	for (int i = 0; i < 64; ++i)
-	{
-		const glm::vec3 p(Random(2.0f) - 1.0f, Random(2.0f) - 1.0f, Random(2.0f) - 1.0f);
-		if (glm::dot(p, p) <= 1.0f)
-		{
-			return p;
-		}
-	}
-	return glm::vec3(0.0f);
+	return game_random::psys::FloatRand(a, b, where);
+}
+
+int32_t Effect::Rand(int32_t n, std::source_location where)
+{
+	return game_random::psys::Rand(n, where);
+}
+
+glm::vec3 Effect::RandomInBall(std::source_location where)
+{
+	return game_random::psys::RandR3(where);
 }
 
 float Effect::FloatProvider(const std::string& name, float fallback) const
@@ -1472,7 +1475,8 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 	atom->creator = creator;
 	atom->birth = _age;
 	atom->position = SpawnPosition(collection);
-	atom->random = static_cast<uint32_t>(Random(256.0f));
+	// AtomCore::Create 0x673816..0x673820: PSysRand(0x100) -> +0x12C
+	atom->random = static_cast<uint32_t>(Rand(0x100));
 	if (creator != nullptr)
 	{
 		atom->colour = {creator->r, creator->g, creator->b, creator->a};
@@ -1483,15 +1487,28 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 		// 0x6A8748..0x6A875B: ((R << 8 | G) << 8) | B, alpha 0
 		atom->specular = ((static_cast<uint32_t>(creator->specR) << 8u | static_cast<uint32_t>(creator->specG)) << 8u) |
 		                 static_cast<uint32_t>(creator->specB);
-		atom->baseScale = creator->initialScale * (creator->randomiseScale ? 0.3f + Random(0.7f) : 1.0f);
+		// fn_006A85E0 0x6A8761: +0x74 = InitialScale; only CreateParticle3DSprite draws a scale (0x6AA1B4..0x6AA1D6:
+		// RandomiseScale +0x7A ? (PSysFloatRand(0.7) + 0.3) x InitialScale): the other creators' CreateParticle do not
+		// (no other PSysFloatRand caller among them; the mist and the animated meshes draw their own in InitAtom)
+		atom->baseScale = creator->initialScale;
+		if (creator->kind == Creator::Kind::Sprite && creator->randomiseScale)
+		{
+			float scale = Random(0.7f);
+			scale = scale + 0.3f;
+			atom->baseScale = scale * creator->initialScale;
+		}
 		atom->stretch = creator->stretch;
 		if (creator->kind == Creator::Kind::Sprite)
 		{
-			atom->frame = creator->randomiseInitFrame ? std::floor(Random(static_cast<float>(creator->numFrames)))
+			// 0x6AA1D9..0x6AA1F5: RandomiseInitFrame (+0x7B) ? PSysRand(NumFrames +0x4C) : InitFrame (+0x70). The
+			// SetAngleY(PSysFloatRand(2 pi)) of +0x80 (0x6AA1FA..0x6AA213) never runs: +0x80 is 0 from the ctor
+			// (0x6A9F66) and no property sets it (DefineProperties 0x6B4380)
+			atom->frame = creator->randomiseInitFrame ? static_cast<float>(Rand(creator->numFrames))
 			                                          : static_cast<float>(creator->initFrame);
 			atom->frameRate = creator->frameRate;
 			atom->playAnim = creator->playAnim;
-			if (creator->randomiseFrameDirection && Random(1.0f) < 0.5f)
+			// 0x6AA218..0x6AA24A: RandomiseFrameDirection (+0x7F): PSysRand(0x100) > 0x80 reverses the rate
+			if (creator->randomiseFrameDirection && Rand(0x100) > 0x80)
 			{
 				atom->frameRate = -atom->frameRate;
 			}
@@ -1601,6 +1618,8 @@ void Effect::PostUpdate(Collection& collection, const glm::vec3& parentPosition,
 
 void Effect::Step(float dt)
 {
+	// fn_00673340: the step's random stream by +0xAC (0x673346..0x673371), back to the "0" one at its end (0x67349B)
+	const game_random::psys::StepScope scope(_netType);
 	_dt = dt;
 	_floatValues.clear();
 	for (const auto& object : _file->objects)

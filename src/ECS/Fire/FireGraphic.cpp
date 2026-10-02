@@ -23,11 +23,11 @@
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
-#include "3D/LH3DRandom.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandLight.h"
 #include "3D/LandMorph.h"
 #include "Audio/Audio.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
@@ -98,9 +98,9 @@ struct Graphic
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
 bool g_SourceAdded = false;
 
-/// GRand::LocalRand 0x6DE570 / LocalFloatRand 0x6DE590 (grand_local, aproximado: another generator)
-using grand_local::LocalFloatRand;
-using grand_local::LocalRand;
+/// GRand::LocalRand 0x6DE570 / LocalFloatRand 0x6DE590 (GData +0xC, the local seed)
+using game_random::LocalFloatRand;
+using game_random::LocalRand;
 
 psys::Creator MakeCreator(const char* texture, bool additive, float originY, float stretch)
 {
@@ -199,7 +199,7 @@ bool LocalRandomFlamePosition(entt::entity object, glm::vec3& position, int& ind
 	}
 	else
 	{
-		index = LocalRand(static_cast<int>(triangles.size()));
+		index = static_cast<int>(LocalRand(static_cast<int32_t>(triangles.size())));
 		float a = LocalFloatRand(1.0f);
 		float b = LocalFloatRand(1.0f);
 		if (a + b > 1.0f)

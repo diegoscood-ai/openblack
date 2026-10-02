@@ -158,7 +158,7 @@ Result Drop(bool water, const char* impactSound)
 	ecs::UpdateWaterRings(100000.0f); // empty the pool
 	auto file = psys::File::Parse(SpellFile(impactSound), "test");
 	EXPECT_TRUE(file.has_value());
-	psys::Effect effect(std::make_shared<const psys::File>(std::move(*file)), glm::vec3(85.0f, 0.0f, 85.0f), 1.0f, 1);
+	psys::Effect effect(std::make_shared<const psys::File>(std::move(*file)), glm::vec3(85.0f, 0.0f, 85.0f), 1.0f);
 	Result result;
 	for (int i = 0; i < 20; ++i)
 	{

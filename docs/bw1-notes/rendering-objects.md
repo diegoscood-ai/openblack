@@ -926,9 +926,10 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
 - (aproximado) Todos los relojes de niebla y humo guardan la fracción de ms·0,255 (o dt·255) de un fotograma al
   siguiente. El `ftol` del original pararía la animación a más de 250 fps. `MistAdvanceExact` es la fórmula tal cual.
 - (aproximado) Las bocanadas de tormenta empiezan con el contador a 0, no en Random(0, 16) & 15: es la misma celda 0.
-- (aproximado) `graphics::lh3d::Random` (src/3D/LH3DRandom.h) es Random 0x81D180 con un `rand()` de MSVC propio que
-  empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
-  la serie de `rand()` de todo el programa, sembrada con srand(time).
+- `graphics::lh3d::Random` (src/3D/LH3DRandom.h) reenvía a `game_random::crt::Random` (Random 0x81D180 sobre el
+  `rand()` de la CRT, semilla 1 al arrancar: `__initptd` 0x7D2323; el `srand(time)` de 0x577721 solo corre al guardar
+  `creature.lhp`). Lo comparten las nieblas del mapa, las de PSys, las bocanadas de tormenta, la lluvia y el temblor de
+  cámara. (aproximado) el original tiene una semilla por hilo; aquí una.
 - TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
 - Los faroles (fn_00823570), las nubes del cielo (su movimiento, su contador de atlas y el alineamiento del cielo,
   `Renderer::UpdateClouds`), las nieblas del mapa (`CollectMists`, fn_007FA300) y el humo de las chimeneas

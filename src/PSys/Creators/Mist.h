@@ -49,8 +49,8 @@ struct MistCreator: Creator
 	/// NumFramesInFile, NumFramesInUse) (land_light::LoadBitmapFile): the land shadow (or light) under each mist
 	std::shared_ptr<const graphics::frame_anim::StackedFrames> landBitmap;
 
-	/// CreateParticleMist 0x6AA610: the scale, RandomiseScale ? PSysFloatRand(InitialScaleMin, InitialScale) :
-	/// InitialScale (atom +0x74)
+	/// CreateParticleMist 0x6AA610: CreateLH3DMist 0x6AA5A0 (the CRT counter, then k), then the scale,
+	/// RandomiseScale ? PSysFloatRand(InitialScaleMin, InitialScale) : InitialScale (atom +0x74)
 	void InitAtom(Effect& effect, Atom& atom) const override;
 };
 

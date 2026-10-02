@@ -29,6 +29,7 @@
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/GUtilsAngle.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
@@ -289,17 +290,16 @@ entt::entity site::Create(entt::entity citadelEntity, Tribe tribe, const glm::ve
 	site.yAngle = yAngle;
 	citadel.sites[static_cast<size_t>(slot)] = entity; // fn_00463770
 
-	// WorshipSite::AssignTownsToWorshipSite 0x77AF70: the player's towns (GPlayer +0xA50) of the site's tribe
-	std::vector<entt::entity> towns;
-	registry.Each<const Town, const Tribe>([&](entt::entity town, const Town& data, const Tribe& t) {
-		if (data.owner == site.player && t == tribe)
-		{
-			towns.push_back(town);
-		}
-	});
-	for (const auto town : towns)
+	// WorshipSite::AssignTownsToWorshipSite 0x77AF70: the player's town list (GetPlayer vt +0x1C, [eax + 0xA50], next
+	// +0x75C), each whose GetTribe 0x73C840 (Town +0x5B8) is the site's ([edi + 0x8C]) -> AddTown 0x77C800, in the
+	// list's order (the oldest first)
+	for (const auto town : ecs::map_cells::TownsOf(site.player))
 	{
-		AddTown(entity, town);
+		const auto* townTribe = registry.TryGet<const Tribe>(town);
+		if (townTribe != nullptr && *townTribe == tribe)
+		{
+			AddTown(entity, town);
+		}
 	}
 	auto& created = SiteOf(entity);
 	created.totem = CreateTotem(entity);
@@ -656,38 +656,32 @@ void site::SetDanceIntensity(entt::entity siteEntity, float intensity)
 
 entt::entity site::FindAt(const glm::vec3& position)
 {
-	// MapCoords::FindWorshipSite 0x602460: the first object of type 8 in the cell that is a WorshipSite, or a
-	// WorshipSpellIcon's site. The site's cells are its collide footprint (CreateCollideData 0x77E490, not ported):
-	// (inf) the B_WORSHIP mesh's box in the site's frame
+	// MapCoords::FindWorshipSite 0x602460: ToMap (null off the map, 0x602468), then ONE FindTypeOnMap(8 CITADEL, 0)
+	// (0x602479): the first object of type 8 of the cell's fixed list. A WorshipSite (dynamic_cast 0x602493) is the
+	// answer; a WorshipSpellIcon (0x6024AC) gives its GetWorshipSite (vt +0x30C); anything else (the citadel heart,
+	// a town centre's icon) gives null. The site and its icons are MultiMapFixed: in every cell of their
+	// NewCollideDescriptor (ecs::map_cells). (aproximado) the site's own collide shape (CreateCollideData 0x77E490) is
+	// not ported: its cells come from the mesh's NewCollide
 	auto& registry = Locator::entitiesRegistry::value();
-	entt::entity found = entt::null;
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	registry.Each<const WorshipSite, const Transform>([&](entt::entity entity, const WorshipSite&, const Transform& transform) {
-		if (found != entt::null || !meshes.Contains(k_SiteMesh))
-		{
-			return;
-		}
-		const auto box = meshes.Handle(k_SiteMesh)->GetBoundingBox();
-		const auto local = glm::transpose(transform.rotation) * (position - transform.position);
-		if (local.x >= box.minima.x && local.x <= box.maxima.x && local.z >= box.minima.z && local.z <= box.maxima.z)
-		{
-			found = entity;
-		}
-	});
-	if (found != entt::null)
+	const auto coords = ecs::map_coords::FromWorld(position);
+	if (!ecs::map_coords::InBounds(coords))
 	{
-		return found;
+		return entt::null;
 	}
-	// the MapCoords cell: 10 units (16.16 coordinate x 0.1, see LandIsland.cpp / SoundMap.cpp); (inferido): an icon is
-	// only in the cell of its position (its collide footprint is not ported)
-	registry.Each<const WorshipSpellIcon, const Transform>(
-	    [&](entt::entity, const WorshipSpellIcon& icon, const Transform& transform) {
-		    if (found == entt::null && ecs::map_coords::CellOf(transform.position) == ecs::map_coords::CellOf(position))
-		    {
-			    found = icon.site;
-		    }
-	    });
-	return found;
+	const auto object = ecs::map_cells::FindType(ecs::map_coords::Cell(coords), ObjectType::Citadel);
+	if (object == entt::null)
+	{
+		return entt::null;
+	}
+	if (registry.AllOf<WorshipSite>(object))
+	{
+		return object;
+	}
+	if (const auto* icon = registry.TryGet<const WorshipSpellIcon>(object); icon != nullptr)
+	{
+		return icon->site;
+	}
+	return entt::null;
 }
 
 void site::AddDancer(entt::entity siteEntity, entt::entity villager)

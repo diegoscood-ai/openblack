@@ -89,8 +89,14 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 - **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la x de la quinta
   columna, `lh3d_colour::PackInstanceTint`; sin `DrawWithLandscapeColor`, 1 + rgb con `PackInstanceColour`), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
   original pone solo el color (`SetColour` vt 0x2C → obj +0x4C / +0x50). Sin portar: `UseScriptHightlightPulse`
-  (fn_0070A510), `CastHumanShadow` (lista 0xD4EDCC), `UseDynamicLighting` (bit 0x20), `UseGlobalAlpha` y el orden Z por
-  objeto.
+  (fn_0070A510), `UseDynamicLighting` (bit 0x20), `UseGlobalAlpha` y el orden Z por
+  objeto. `CastHumanShadow` (+0x5D) se lee y **no está portado** (pendiente): CreateParticle 0x6A8B76 crea una
+  ShadowInfo por átomo (fn_006CA340) y DrawAt la mete, con el objeto de la partícula, en la lista [0xD4EDCC]
+  (0x67A45D..0x67A494); cada fotograma GGame::Process3dEngine 0x54DEAD → PSysLightMaps::AddDrawing 0x6CA6E0 →
+  fn_006CA540 recorre la lista y actualiza cada sombra (fn_006CA3D0, llamado en 0x6CA5A9 → fn_00874850), así que el
+  original sí la proyecta. No se nota porque vale 0 en los 20 creadores de malla de los datos; si un archivo trae 1,
+  aviso único (`MeshCreator::castHumanShadow`). (Corrige la auditoría del plan, que decía que fn_006CA3D0 no tenía
+  llamadores.) Tampoco reciben sombra: +0x54 (vt+0x78) es 0 siempre (`k_ReceivesShadow`).
 - **`ParticleAnimCreator`** (las mariposas y los murciélagos del bosque, SF_Butterflies, SF_ButterfliesOnObject; U7):
   cada átomo es una malla con huesos que toca un .anm. **Fiel**, salvo lo marcado.
   - **Al crear** (CreateParticle, vt 0x10 0x6A98C0 → `fn_006A97F0`): cada partícula tiene su propio objeto de tipo 2
@@ -116,8 +122,8 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
     de las entidades. El renderer dibuja cada átomo con sus huesos, como un aldeano: las variantes de 32 huesos de
     `vs_object` (`Renderer::BonesVariant32`), sin shader nuevo. `mesh_atoms::Any()` sustituye a `!Collect().empty()`
     en `magic::Update`, para no calcular las poses dos veces por fotograma.
-  - (aproximado) `PSysRand` (puntero a función [0xD4E0BC]) sale del generador del efecto, como todo el azar de este
-    PSys.
+  - (fiel, game_random) `PSysRand` (puntero a función [0xD4E0BC]) es el de `game_random::psys`: `s % n` sobre el flujo
+    del paso (0x6A98A2 en ParticleAnimCreator, 0x6A8EE2 en AnimTextured).
   - (pendiente) `AnimEnum` (+0x7C, `LH3DAnim::AnimPack` [0xEDD508], pack[0] fuera de rango, 0x6A957C..0x6A959A):
     ningún archivo lo usa. El fundido de DrawAt 0x67A946..0x67A9B1 a `MeshFileName1/2` (+0x38 / +0x3C, hacen falta
     las dos) entre `FrameToStartBlend` y `FrameToEndBlend` (vt 0xDC fn_007F9A80): `NULL_STRING` en todos.
@@ -178,10 +184,16 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
   `mists::Submit` de «mapa» (el mismo `DrawMist`). La base la lee
   `LandLightTable::Current().GetRawBase()` (la copia global de la última tabla, de la lane del agua; antes
   `LastBuiltBase` de la lane de la tormenta).
+- **Azar del PSys** (`game_random::psys`, engine-math.md «Números aleatorios»): cada efecto lleva su NET_GAME_TYPE
+  (+0xAC, `Effect(…, NetGameType)`); su paso (`Effect::Step` = fn_00673340) pone el flujo sincronizado o el local y
+  al acabar el «0» (0x67349B). Fuera de un paso `PSysFloatRand`/`PSysRand` dan 0 sin tirar (lo que crea
+  `fn_00673070` al nacer el efecto va fuera de un paso, como en el original). `RandR3` sin tope de 64 intentos.
+  `CreateParticle3DSprite`: la escala aleatoria (0x6AA1B4) es solo de los sprites, el fotograma inicial es
+  `PSysRand(NumFrames)` (0x6AA1E4), el sentido `PSysRand(0x100) > 0x80` (0x6AA231), `AtomCore::Create` tira
+  `PSysRand(0x100)` (0x673816); la red de ruido sale de la semilla 0 (inferido).
 - Cada niebla del PSys lleva su contador de atlas (`Atom::mist`), como el original lleva uno por objeto. Empieza en
-  `Random(0,16) & 15` (0x7F95F8; **(aproximado)** con `graphics::lh3d::Random`, un `rand()` de MSVC propio que comparte con las nieblas del mapa y las bocanadas de tormenta y no toca la serie del PSys) y solo
-  avanza si la niebla sale en pantalla (`mists::InView`). **(aproximado)** con Ratio 0 se usa la media 3,75 en vez
-  del azar por niebla. El mapa de sombra /
+  `Random(0,16) & 15` (0x7F95F8; el `rand()` de la CRT, `game_random::crt`, el mismo que las nieblas del mapa y las bocanadas de tormenta, no la serie del PSys) y solo
+  avanza si la niebla sale en pantalla (`mists::InView`). La k de cada niebla es `Ratio`, o `LocalFloatRand(2,5) + 2,5` cuando es 0 (CreateLH3DMist 0x6AA5C0..0x6AA5EE, `Atom::mistK`), y el orden de CreateParticleMist 0x6AA610 es el del original: el contador (CRT), la k (GRand local) y luego la escala (`PSysFloatRand(min, max)` 0x6AA66D). El mapa de sombra /
   luz del terreno de una niebla con `TextureFileName` (la tormenta) no está portado.
 - SF_Water: la nube (183, 181, 255, 200), escala 0,2 (0,4 en PU), Ratio 2, y en su grupo 4 el cono de lluvia
   `MSH_S_RAIN_CONE` (`ParticleMeshCreatorAnimTextured`, de 0,1 a −24 m, escala 0,7 / 1,4, UV que se desliza).
@@ -385,7 +397,7 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
   y el tope global de distancia (ver [Sonido de las partículas](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp)).
 - Cadenas: `UseDynamicLighting` (el desplazamiento de V es 0 en todos los datos); mapas de luz
   estampados en una textura de luz dinámica del terreno (no existe en el port).
-- Mallas: `UseScriptHightlightPulse`, `CastHumanShadow`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
+- Mallas: `UseScriptHightlightPulse`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
   objeto y `FaceCameraSprite`; de `ParticleAnimCreator`, `AnimEnum`, el fundido a `MeshFileName1/2`,
   `UseDynamicLighting` y `UseGlobalAlpha`.
 - Niebla: un contador de atlas por niebla y el mapa de sombra / luz del terreno.

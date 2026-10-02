@@ -14,7 +14,7 @@
 #include <array>
 #include <memory>
 #include <optional>
-#include <random>
+#include <source_location>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,6 +24,7 @@
 #include <glm/vec4.hpp>
 
 #include "3D/FrameAnim.h"
+#include "Common/GameRandom.h"
 #include "PSysFile.h"
 #include "SpellLink.h"
 
@@ -81,6 +82,9 @@ struct Creator
 		Sprite,
 		Mesh,  ///< ParticleMeshCreator / ParticleMeshCreatorAnimTextured (Creators/Mesh.cpp)
 		Chain, ///< ParticleChainCreator: the joints of one collection are drawn as a ribbon (Creators/Chain.cpp)
+		/// RenderParticleGJMesh (the exploded pieces, Rules/ExplodeObject.h): drawn at once as world triangles, no Z
+		/// object (DrawAt 0x67C150 does not read [0xC0215D])
+		GJMesh,
 		Other,
 	};
 	Kind kind {Kind::Point};
@@ -183,6 +187,9 @@ struct Atom
 	/// by the ctor 0x7F9560 and advanced by the draw fn_007FA300 only while it is on screen, so it is changed through the
 	/// const atoms of the draw; unused by other atoms
 	mutable graphics::frame_anim::MistClock mist;
+	/// That LH3DMist's k (+0x8C, CreateLH3DMist 0x6AA5C0..0x6AA5EE: Ratio, or LocalFloatRand(2.5) + 2.5); unused by
+	/// other atoms
+	float mistK {0.0f};
 	/// +0x124 its DrawOffset (AtomCore::SetDrawOffset 0x673AF0). Only DrawOffsetLT (0x28 bytes, ctor 0x6C75A0) is
 	/// ported; UR_Lightning's CreateForkStructure gives one to every fork joint (0x69131C..0x69134C). fn_00679920 adds
 	/// GetOffset to the atom's drawn position every frame, interpolated between the steps or not (0x679B69..0x679BBF)
@@ -266,7 +273,10 @@ public:
 class Effect
 {
 public:
-	Effect(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude, uint32_t seed);
+	/// GJPSysInterface::Create 0x68F2F0: `type` is its NET_GAME_TYPE, +0xAC = (type == 1) (0x68F3AE): the stream of the
+	/// effect's draws (game_random::psys)
+	Effect(std::shared_ptr<const File> file, glm::vec3 origin, float magnitude,
+	       game_random::psys::NetGameType type = game_random::psys::NetGameType::Local);
 	~Effect();
 
 	/// fn_00673340: one step of dt seconds
@@ -342,8 +352,15 @@ public:
 	[[nodiscard]] float GetGlobalAlpha() const { return _globalAlpha; }
 
 	// used by the modifiers
-	[[nodiscard]] float Random(float max);            ///< PSysFloatRand, [0, max)
-	[[nodiscard]] glm::vec3 RandomInBall();            ///< PSysRandR3
+	/// PSysFloatRand 0x6729B0 on the active stream (0 outside a step)
+	[[nodiscard]] float Random(float max, std::source_location where = std::source_location::current());
+	/// PSysFloatRand(a, b) 0x6729C0: Random(b - a) + a
+	[[nodiscard]] float Random(float a, float b, std::source_location where = std::source_location::current());
+	/// PSysRand 0x6729E0: 0 .. n - 1 (0 for 0)
+	[[nodiscard]] int32_t Rand(int32_t n, std::source_location where = std::source_location::current());
+	/// PSysRandR3 0x6729F0: a point in the unit ball
+	[[nodiscard]] glm::vec3 RandomInBall(std::source_location where = std::source_location::current());
+	[[nodiscard]] game_random::psys::NetGameType NetType() const { return _netType; }
 	[[nodiscard]] float FloatProvider(const std::string& name, float fallback) const;
 	[[nodiscard]] bool ConditionForCollection(const std::string& name, const Collection& collection) const;
 	[[nodiscard]] bool ConditionForAtom(const std::string& name, const Atom& atom) const;
@@ -444,7 +461,7 @@ private:
 	bool _deleteOnCloseDown {true};
 	float _maxSpellAge {-1.0f};
 	size_t _atomCount {0};
-	std::mt19937 _random;
+	game_random::psys::NetGameType _netType; ///< +0xAC
 	SpellSink* _sink {nullptr};
 	ProcessInfo _info {};
 	std::vector<entt::entity> _targets;

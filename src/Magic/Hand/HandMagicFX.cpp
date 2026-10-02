@@ -177,6 +177,10 @@ Band MakeBand(int index, float start, bool permanent, float duration, uint8_t al
 		    band.entity,
 		    ObjectColour {{static_cast<uint8_t>(lh3d_colour::Red(rgb)), static_cast<uint8_t>(lh3d_colour::Green(rgb)),
 		                   static_cast<uint8_t>(lh3d_colour::Blue(rgb))}});
+		// Band ctor fn_0068CA30: LH3DObject::Create 0x68CA98 and vt+0xF4 (0x68CAAA) only, no vt+0x78; the ctor's +4 =
+		// 0x10009 (0x816537) leaves bit 0x40 clear, so no projected shadow falls on the band (RenderingSystem's
+		// ReceivesDynamicShadow leaves HandFxPart out in local/shaders), and it is no
+		// shadow list caster (fn_0087FD50 is not called for it)
 		registry.Assign<HandFxPart>(band.entity);
 		registry.SetDirty();
 	}

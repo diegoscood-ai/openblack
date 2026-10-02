@@ -14,7 +14,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/FireFlies.h"
 #include "ECS/Registry.h"
@@ -31,18 +31,6 @@ namespace
 constexpr size_t k_Magic = 42;
 std::array<float, k_Magic> g_Probabilities {}; ///< 0xCCFBAC
 std::array<float, k_Magic> g_Sums {};          ///< 0xCCFB04..0xCCFBA8
-
-/// GRand::GameFloatRand 0x6DE530: 0 for 0, else [0, x). (aproximado): openblack's RNG, whose end point (r == x) is
-/// not checked against the original's generator
-float GameFloatRand(float x)
-{
-	if (x == 0.0f || !Locator::rng::has_value())
-	{
-		return 0.0f;
-	}
-	const float value = Locator::rng::value().NextValue(0.0f, std::abs(x));
-	return x < 0.0f ? -value : value;
-}
 } // namespace
 
 void fire_fly::SetRewardProbability(MagicType magic, float probability)
@@ -77,7 +65,8 @@ void fire_fly::OnPlacedInMagicHand(entt::entity object)
 
 entt::entity fire_fly::Reward(const glm::vec3& position)
 {
-	const float r = GameFloatRand(Total());
+	// fn_0052B6F0: GRand::GameFloatRand 0x6DE530 of the sum
+	const float r = game_random::GameFloatRand(Total());
 	if (r == 0.0f)
 	{
 		return entt::null;

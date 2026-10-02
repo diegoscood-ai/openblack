@@ -85,17 +85,10 @@ void CellObjects(const ecs::map_coords::MapCoords& coords, std::vector<entt::ent
 /// PSysManager::PSysRand 0x6729E0: the function at [0xD4E0BC] (fn_00673340 sets 0x672AF0 GRand::GameRand or 0x672B40
 /// GRand::LocalRand): 0 for n == 0 without a draw (GData::Rand 0x510693 / LocalRand 0x6DE574), else LHRand 0x7DB600
 /// modulo n as an UNSIGNED number (`div` 0x7DB62B): a negative n draws from 0 .. 2^32 - |n| - 1, kept in a signed int
-/// (0x80000000, the ftol of an infinite step count, gives 0 .. 2^31 - 1). (aproximado) the draw is the effect's float
-/// generator, ftol(Random(n)), the convention of this PSys port
+/// (0x80000000, the ftol of an infinite step count, gives 0 .. 2^31 - 1)
 int32_t PSysRand(Effect& effect, int32_t n)
 {
-	if (n == 0)
-	{
-		return 0;
-	}
-	const auto range = static_cast<uint32_t>(n);
-	const auto draw = static_cast<uint32_t>(effect.Random(static_cast<float>(range)));
-	return static_cast<int32_t>(draw < range ? draw : range - 1u);
+	return effect.Rand(n);
 }
 
 /// GameThing::IsAvailable 0x401810 (vt +0x2C): not being deleted (+0xA & 1; openblack's entity is gone instead), and
@@ -776,7 +769,7 @@ private:
 		{
 			// 0x691C3F..0x691C55 -> 0x691CF5..0x691D56: a bolt in a clash strikes ONE target, the first active one from
 			// PSysRand(N) on
-			const int start = static_cast<int>(effect.Random(static_cast<float>(total)));
+			const int start = effect.Rand(total); // UpdateForkStructure 0x691CF9
 			for (int i = 0; i < total; ++i)
 			{
 				const int index = (start + i) % total;
@@ -809,7 +802,7 @@ private:
 		// 0x691D70..0x691DE6: fork 0 is the trunk, the next free fork is 1 (+0xA0), depth 0, scale 1.0. +0xA4, the
 		// collection of fork PSysRand(2 x forks) or none (0x691D98..0x691DC3), is set but not used by the recursion:
 		// only its draw from the random stream is kept
-		static_cast<void>(effect.Random(static_cast<float>(2 * data.root->subCollections.size())));
+		static_cast<void>(effect.Rand(static_cast<int32_t>(2 * data.root->subCollections.size()))); // 0x691DA0
 		size_t nextFork = 1;
 		size_t used = 0;
 		Fork(effect, data, 0, *data.root->subCollections.front(), data.origin, data.striking, 1.0f, nextFork, used);
@@ -991,8 +984,8 @@ private:
 			}
 			atom.position = position;                                // +0x80
 			atom.ruleScale = scaleFrom + (scaleTo - scaleFrom) * t; // +0x78 (0x692515..0x692545)
-			// +0x8F, the colour's alpha byte (0x692548..0x69257C)
-			atom.colour[3] = opaque ? 255 : static_cast<uint8_t>(128 + static_cast<int>(effect.Random(127.0f)));
+			// +0x8F, the colour's alpha byte (0x692548..0x69257C): 0xFF, or PSysRand(0x7F) + 0x80 (0x692551..0x69255D)
+			atom.colour[3] = opaque ? 255 : static_cast<uint8_t>(effect.Rand(0x7F) + 0x80);
 		}
 		const glm::vec3 end = fork.atoms.back()->position; // the last joint, `lea ebx, [ecx+0x80]` (0x69279A)
 		if (targets.size() >= 2 && !stop)

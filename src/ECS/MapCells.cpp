@@ -20,6 +20,7 @@
 #include <glm/mat3x3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/LandIslandInterface.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimatedStatic.h"
@@ -56,6 +57,7 @@
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -85,6 +87,10 @@ constexpr float k_SpiralStopFactor = 1.5f;
 constexpr float k_SpiralStopAdd = 10.0f;
 /// GetNearestTown (cells) 0x601F90: the best starts at 10 000 000 (0x989680)
 constexpr uint32_t k_TownCellsStart = 10000000u;
+/// Tree::CreateCollideData 0x74C5F0: fn_00829590(the world matrix's position, 0.3) (push 0x3E99999A at 0x74C622)
+constexpr float k_TreeCollideRadius = 0.3f;
+/// MapCell::CollideWithFixe 0x601D10: NewCollide::Obj(0.5, point) (push 0x3F000000 at 0x601D4C, ctor 0x82AD90)
+constexpr float k_FixedTestRadius = 0.5f;
 
 /// MapCell (bw1-decomp src/Black/Map.h): +0 the first mobile object, +4 the first fixed one
 struct Cell
@@ -118,6 +124,10 @@ struct Link
 	glm::mat3 rotation {1.0f};
 	glm::vec3 scale {1.0f};
 	entt::id_type mesh {0};
+	/// GetCollideData vt +0x858 (SingleMapFixed +0x58 0x52EB30, MultiMapFixed +0x78 0x401630; Object 0x419B30 is 0),
+	/// built by CreateCollideData on insert (SingleMapFixed::InsertMapObject 0x52E633 vt +0x864, MultiMapFixed's
+	/// 0x52E669 vt +0x908), so kept here from the same insert
+	std::optional<map_collide::Shape> collide;
 };
 
 std::vector<Cell> g_Cells;
@@ -769,9 +779,44 @@ std::vector<glm::ivec2> map_cells::DescriptorCells(const map_collide::Shape& sha
 	return cells;
 }
 
-std::vector<glm::ivec2> map_cells::CellsOf(entt::entity object)
+namespace
 {
-	const auto kind = KindOf(object);
+/// NewCollide(LH3DObject) 0x829390 of the object's mesh (map_collide::FromMesh) at its position, turned and scaled, and
+/// the descriptor's reach = [obj3d +0x44] (the scale) x mesh +0x30 + 1 (0x46AB68..0x46AB6E). The tests' provider first.
+/// False without a mesh (openblack: no NewCollide to build)
+bool MeshShape(entt::entity object, const Transform& transform, map_collide::Shape& shape, float& reach)
+{
+	if (g_ShapeProvider != nullptr && g_ShapeProvider(object, shape, reach))
+	{
+		return true;
+	}
+	const auto* mesh = Locator::entitiesRegistry::value().TryGet<const Mesh>(object);
+	const float scale = object::GetScale(object);
+	if (mesh == nullptr || !map_collide::FromMesh(mesh->id, glm::vec2(transform.position.x, transform.position.z),
+	                                              YAngleOf(transform.rotation), scale, shape))
+	{
+		return false;
+	}
+	reach = scale * object::MeshHalfDiagonal(mesh->id) + k_DescriptorReachAdd;
+	return true;
+}
+
+/// The cells InsertMapObject puts the object in and, when asked, the collide data its insert builds (GetCollideData
+/// vt +0x858 afterwards):
+/// - Object (0x636740): none, Object::GetCollideData 0x419B30 is `xor eax, eax` (villagers, animals, pots and piles,
+///   street lanterns, mobile objects: the vtables of Object, MobileObject, Pot, GStreetLantern, Villager read).
+/// - SingleMapFixed (0x52E620 -> vt +0x864 at 0x52E633): Tree / MagicTree a 0.3 circle at the position
+///   (Tree::CreateCollideData 0x74C5F0, both vtables); MapShield and the rest SingleMapFixed::CreateCollideData 0x52F510,
+///   NewCollide(LH3DObject +0x40) 0x829390: the mesh's shape.
+/// - MultiMapFixed (0x52E650 -> vt +0x908 at 0x52E669): MultiMapFixed::CreateCollideData 0x52F550, the mesh's shape;
+///   BigForest's 0x439580 is a jmp to ReleaseCollideData 0x52F6D0: none. (aproximado) WorshipSite 0x77E490 and
+///   CitadelHeart 0x468FB0 build their own shapes (not ported): the mesh's.
+/// - FishFarm (0x52CA10 never calls vt +0x908; the MultiMapFixed ctor zeroes +0x78 at 0x52E26F): none.
+/// (aproximado) a fixed object without a mesh in openblack has no shape (and only the cell of its position)
+std::vector<glm::ivec2> CellsAndCollide(entt::entity object, map_cells::InsertKind kind,
+                                        std::optional<map_collide::Shape>* collide)
+{
+	using map_cells::InsertKind;
 	if (kind == InsertKind::None)
 	{
 		return {};
@@ -781,41 +826,57 @@ std::vector<glm::ivec2> map_cells::CellsOf(entt::entity object)
 	// Object::InsertMapObject 0x636740 (and SingleMapFixed, FishFarm::GetNextPos 0x52C940: one position, its MapCoords
 	// +0x14): ToMap of the position, nothing off the map
 	const auto own = map_coords::CellOf(transform.position);
+	const auto ownCell = [&own]() -> std::vector<glm::ivec2> {
+		if (!map_coords::InBounds(own))
+		{
+			return {};
+		}
+		return {own};
+	};
+	if (kind == InsertKind::SingleMapFixed)
+	{
+		if (collide != nullptr)
+		{
+			if (registry.AnyOf<Tree, MagicTree>(object))
+			{
+				*collide = map_collide::Shape {glm::vec2(transform.position.x, transform.position.z), k_TreeCollideRadius,
+				                               {}, 0.0f, "tree"};
+			}
+			else
+			{
+				map_collide::Shape shape;
+				float reach = 0.0f;
+				if (MeshShape(object, transform, shape, reach))
+				{
+					*collide = std::move(shape);
+				}
+			}
+		}
+		return ownCell();
+	}
 	if (kind != InsertKind::MultiMapFixed)
 	{
-		if (!map_coords::InBounds(own))
-		{
-			return {};
-		}
-		return {own};
+		return ownCell();
 	}
-	// NewCollideDescriptor(this) 0x46A860: NewCollide(LH3DObject) 0x829390 of the mesh (map_collide::FromMesh) at the
-	// position, turned and scaled; reach = [obj3d +0x44] (the scale) x mesh +0x30 + 1 (0x46AB68..0x46AB6E)
-	if (g_ShapeProvider != nullptr)
-	{
-		map_collide::Shape shape;
-		float reach = 0.0f;
-		if (g_ShapeProvider(object, shape, reach))
-		{
-			return DescriptorCells(shape, reach);
-		}
-	}
-	const auto* mesh = registry.TryGet<const Mesh>(object);
-	const float scale = object::GetScale(object);
+	// NewCollideDescriptor(this) 0x46A860: the same NewCollide(LH3DObject) as CreateCollideData 0x52F550
 	map_collide::Shape shape;
-	if (mesh == nullptr ||
-	    !map_collide::FromMesh(mesh->id, glm::vec2(transform.position.x, transform.position.z), YAngleOf(transform.rotation),
-	                           scale, shape))
+	float reach = 0.0f;
+	if (!MeshShape(object, transform, shape, reach))
 	{
-		// (aproximado) no mesh in openblack (no NewCollide to build): the cell of its position
-		if (!map_coords::InBounds(own))
-		{
-			return {};
-		}
-		return {own};
+		return ownCell(); // (aproximado) no mesh: the cell of its position
 	}
-	const float reach = scale * object::MeshHalfDiagonal(mesh->id) + k_DescriptorReachAdd;
-	return DescriptorCells(shape, reach);
+	auto cells = map_cells::DescriptorCells(shape, reach);
+	if (collide != nullptr && !registry.AllOf<BigForest>(object))
+	{
+		*collide = std::move(shape);
+	}
+	return cells;
+}
+} // namespace
+
+std::vector<glm::ivec2> map_cells::CellsOf(entt::entity object)
+{
+	return CellsAndCollide(object, KindOf(object), nullptr);
 }
 
 // ---- The hooks ------------------------------------------------------------------------------------------------------
@@ -833,12 +894,12 @@ void map_cells::InsertMapObject(entt::entity object)
 	{
 		return;
 	}
-	const auto cells = CellsOf(object);
+	Link link;
+	const auto cells = CellsAndCollide(object, kind, &link.collide);
 	if (cells.empty() && kind != InsertKind::MultiMapFixed)
 	{
 		return; // ToMap NULL: not in the map, +0x24 bit 0 stays clear
 	}
-	Link link;
 	link.kind = kind;
 	link.type = TypeOf(object);
 	link.fixedList = CountsAsFixed(link.type); // InitialiseIsFixedForMapList 0x63A640
@@ -1280,6 +1341,104 @@ bool map_cells::IsFixed(glm::ivec2 cellXZ)
 	return link != nullptr && (link->kind == InsertKind::MultiMapFixed || link->kind == InsertKind::FishFarm);
 }
 
+void map_cells::ForEachFixed(glm::ivec2 cellXZ, const std::function<bool(entt::entity)>& fn)
+{
+	const auto* cell = CellIfAny(cellXZ);
+	if (cell == nullptr)
+	{
+		return;
+	}
+	const FilterRef filter;
+	for (auto object = cell->fixed; object != entt::null;)
+	{
+		const auto next = ChildOf(object, cellXZ); // GetMapChild vt +0x53C
+		if (!filter.Out(object) && !fn(object))
+		{
+			return;
+		}
+		object = next;
+	}
+}
+
+const map_collide::Shape* map_cells::CollideDataOf(entt::entity object)
+{
+	const auto* link = LinkOf(object);
+	return link != nullptr && link->collide ? &*link->collide : nullptr;
+}
+
+namespace
+{
+/// MapCell::Collide 0x601BD0 on a cell that ToMap gave
+uint32_t CellCollide(glm::ivec2 cellXZ)
+{
+	// 0x601BEE..0x601C62: the landscape cell's water bit (1 when no block), fn_00601E00 0x10 off the game map, then
+	// "sete dl; inc edx" 0x601C7D: 1 water, 2 land (ecs::sea_cells::CollideLandscape). No island (the unit tests): no
+	// block, so water (0x601C5D)
+	uint32_t bits = Locator::terrainSystem::has_value()
+	                    ? sea_cells::CollideLandscape(Locator::terrainSystem::value(), cellXZ)
+	                    : static_cast<uint32_t>(sea_cells::k_CollideWater);
+	if (bits == sea_cells::k_CollideEdge)
+	{
+		return bits; // 0x601C6E: no object bits
+	}
+	// 0x601C78..0x601CAE: the fixed list from the head ([edi + 4], next vt +0x53C at 0x601CA6), the type of each
+	// ([obj + 0x28] + 0x10): 6 FOREST_TREE |= 0x20 (0x601C9E), 0x12 FIELD |= 4 (0x601C99); the mobile list is not
+	// read. openblack's filter stands in for the objects the original has already taken out of the list
+	map_cells::ForEachFixed(cellXZ, [&bits](entt::entity object) {
+		const auto type = LinkType(object);
+		if (type == ObjectType::ForestTree)
+		{
+			bits |= sea_cells::k_CollideTree;
+		}
+		else if (type == ObjectType::Field)
+		{
+			bits |= sea_cells::k_CollideField;
+		}
+		return true;
+	});
+	return bits;
+}
+} // namespace
+
+uint32_t map_cells::Collide(const map_coords::MapCoords& coords)
+{
+	// MapCoords::Collide 0x6033C0: ToMap NULL -> "or eax, 0xFFFFFFFF" (0x6033CC)
+	if (!map_coords::InBounds(coords))
+	{
+		return 0xFFFFFFFFu;
+	}
+	// MapCell::Collide(MapCoords) 0x601CE0: 0x601BD0, then CollideWithFixe only when its result has bit 8
+	// ("test bl, 8" 0x601CEB). 0x601BD0 only ever gives 0x10, or 1 / 2 with 4 and 0x20: that branch is dead
+	return CellCollide(map_coords::Cell(coords));
+}
+
+uint32_t map_cells::CollideWithFixed(const map_coords::MapCoords& coords)
+{
+	// MapCoords::CollideCollideWithFixe 0x604FE0: ToMap NULL -> 0xFFFFFFFF (0x604FEC)
+	if (!map_coords::InBounds(coords))
+	{
+		return 0xFFFFFFFFu;
+	}
+	// MapCell::CollideWithFixe 0x601D10: 0x601BD0 (0x601D18), then a 0.5 circle at (x, z) = fild x fmul [0x8AA3A4]
+	// (10 / 65536, 0x601D23..0x601D3C; the altitude is the point's y, the collision is in x, z) against the
+	// GetCollideData (vt +0x858, 0x601D61) of every object of the fixed list (0x601D56..0x601D8A, none skipped but
+	// those without data); the first hit (NewCollide::Obj::Collide 0x829140) gives | 8 (0x601DAD)
+	const auto cellXZ = map_coords::Cell(coords);
+	uint32_t bits = CellCollide(cellXZ);
+	const glm::vec2 point = map_coords::ToMetres(coords);
+	bool hit = false;
+	ForEachFixed(cellXZ, [&](entt::entity object) {
+		const auto* shape = CollideDataOf(object);
+		hit = shape != nullptr && map_collide::Collide(point, k_FixedTestRadius, *shape);
+		return !hit;
+	});
+	if (hit)
+	{
+		bits |= sea_cells::k_CollideFixed;
+	}
+	return bits;
+}
+
 // ---- Searches -------------------------------------------------------------------------------------------------------
 
 entt::entity map_cells::FindNearType(const map_coords::MapCoords& coords, ObjectType type, float radius)
@@ -1642,6 +1801,25 @@ entt::entity map_cells::GetNearestTownToPos(const map_coords::MapCoords& coords,
 		});
 		return !found;
 	});
+}
+
+entt::entity map_cells::FindPlayerTownAtPos(const map_coords::MapCoords& coords, float radius, PlayerNames player)
+{
+	// GScript::FindPlayerTownAtPos 0x6F72E0: only that player's list (GPlayer +0xA50, next +0x75C), best = r;
+	// GUtils::GetDistanceInMetres 0x74CD70 to the town's MapCoords (+0x14); "fcom; test ah, 0x41; je" (0x6F7312) keeps
+	// it unless it is farther: <=, so a tie goes to the later town (and a NaN distance is taken)
+	entt::entity best = entt::null;
+	float bestDistance = radius;
+	for (const auto town : TownsOf(player))
+	{
+		const float distance = gutils::GetDistanceInMetres(coords, object::MapCoordsOf(town));
+		if (!(distance > bestDistance))
+		{
+			bestDistance = distance;
+			best = town;
+		}
+	}
+	return best;
 }
 
 entt::entity map_cells::FindNearestTownInList(const map_coords::MapCoords& coords)

@@ -9,50 +9,26 @@
 
 #include "LH3DRandom.h"
 
-#include <cstdint>
-
-#include <random>
+#include "Common/GameRandom.h"
 
 using namespace openblack::graphics;
 
-namespace
-{
-constexpr float k_InverseRandMax = 3.0518509e-05f; ///< [0x9A3700], 1 / 32767
-uint32_t g_Seed = 1;                               ///< (aproximado) the CRT's seed before any srand
-} // namespace
-
+// (game_random phase A) forwarders to the one CRT and GRand state of Common/GameRandom; to be removed once no caller
+// is left (unify2 game_random_PLAN_A.md, section 4.2)
 float lh3d::Random(float a, float b) noexcept
 {
-	// rand() 0x7C8837
-	g_Seed = g_Seed * 214013u + 2531011u;
-	const auto r = static_cast<float>((g_Seed >> 16u) & 0x7FFFu);
-	// 0x81D180: rand() x [0x9A3700] x (b - a) + a
-	return r * k_InverseRandMax * (b - a) + a;
+	// ?Random@@YAMMM@Z 0x81D180
+	return openblack::game_random::crt::Random(a, b);
 }
-
-namespace
-{
-std::mt19937 g_LocalStream(0x5EED); ///< (aproximado) not LHRand's generator nor its seed
-} // namespace
 
 int openblack::grand_local::LocalRand(int count) noexcept
 {
-	// 0x6DE574: 0 for 0
-	if (count <= 0)
-	{
-		return 0;
-	}
-	return static_cast<int>(g_LocalStream() % static_cast<uint32_t>(count));
+	// GRand::LocalRand 0x6DE570
+	return static_cast<int>(openblack::game_random::LocalRand(count));
 }
 
 float openblack::grand_local::LocalFloatRand(float max) noexcept
 {
-	// 0x6DE597..0x6DE5AD: 0 for 0
-	if (max == 0.0f)
-	{
-		return 0.0f;
-	}
-	// 0x6DE5B9..0x6DE5DA: LHRand(0xFFFF), 0 .. 0xFFFE, x max x [0x8D6050] (1 / 65535)
-	const auto r = static_cast<float>(g_LocalStream() % 0xFFFFu);
-	return r * max * (1.0f / 65535.0f);
+	// GRand::LocalFloatRand 0x6DE590
+	return openblack::game_random::LocalFloatRand(max);
 }

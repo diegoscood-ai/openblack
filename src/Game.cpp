@@ -54,6 +54,7 @@
 #include "Camera/Camera.h"
 #include "Camera/ScriptCamera.h"
 #include "Common/EventManager.h"
+#include "Common/GameRandom.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
@@ -1586,6 +1587,20 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)
 	ecs::object_index::OnLoadMap();
+	// GGame::Init 0x54F4AF puts both GRand seeds at 0x88F89F once, before the first land of a new campaign (start mode
+	// GGame +0x25017C, jump table 0x54FF60: case 1 -> GSetup::LoadMapScript 0x54F7AB, no ClearMap); ClearMap 0x552BB0 ->
+	// ResetState 0x5557A0 -> GData::Reset 0x510750 puts them at 0 for every later LOAD_MAP (GScript::LoadMap 0x6FB36A ->
+	// StartPlaygroundGame 0x552F4F) and for the skirmish playground (case 4: ResetAndStartPlaygroundGame 0x54F759).
+	// (inferido) openblack has no start mode: "a script in Playgrounds" stands for case 4
+	if (!_firstMapLoaded && path.parent_path().filename() != "Playgrounds")
+	{
+		game_random::Init();
+	}
+	else
+	{
+		game_random::Reset();
+	}
+	_firstMapLoaded = true;
 	// GGame::Init 0x54F66F: both influence multipliers back to 1 before the map script
 	_mapScriptGlobals.townInfluenceMultiplier = 1.0f;
 	_mapScriptGlobals.playerInfluenceMultiplier = 1.0f;

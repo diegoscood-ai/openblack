@@ -260,8 +260,9 @@ private:
 			std::iota(data.order.begin(), data.order.end(), 0);
 			for (int i = 0; !data.order.empty() && i < 2 * numAtoms; ++i)
 			{
-				const auto a = std::min(static_cast<size_t>(effect.Random(static_cast<float>(numAtoms))), data.order.size() - 1);
-				const auto b = std::min(static_cast<size_t>(effect.Random(static_cast<float>(numAtoms))), data.order.size() - 1);
+				// UR_GesturingRecognised 0x688E01 / 0x688E0C
+				const auto a = static_cast<size_t>(effect.Rand(numAtoms));
+				const auto b = static_cast<size_t>(effect.Rand(numAtoms));
 				std::swap(data.order[a], data.order[b]);
 			}
 		}

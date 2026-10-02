@@ -75,11 +75,12 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   0x600E20 (PotInfo 9, MSH_B_WOOD_01, escala 0,7, dueño +0xB4); sin Process ni caducidad.
   - **Las sombras de la pila de comida (identificado; ya se cumple).** `MagicFood::CallVirtualFunctionsForCreation`
     0x5FAAB0, después de la de PileFood 0x66E1A0, llama a dos setters del Game3DObject +0x40: vt 0x78(0) en 0x5FAAC8 y
-    vt 0x80(0) en 0x5FAAD2. Game3DObject hereda de LH3DObject sin virtuales propias (bw1-decomp
-    `src/Black/Game3DObject.h`), así que son `LH3DObject::SetCastDynamicShadow` y `LH3DObject::SetShadowOnTexture`
-    (huecos 0x78 y 0x80 de `src/Lionhead/LH3DLib/development/LH3DObject.h`): **la pila de comida mágica no da sombra ni
-    dinámica ni horneada**. (aproximado) esa cabecera no marca la vt 0x80 como `__fastcall` y el exe le pasa el argumento
-    en edx (0x5FAAD0 `xor edx, edx`), igual que a la vt 0x78. openblack ya la deja fuera de las tres: `CastsStaticShadow`
+    vt 0x80(0) en 0x5FAAD2. En la vtable de LH3DObject 0x9A2974 son fn_008168A0 (borra el bit 0x40 de obj+4: el bit
+    que mira el receptor de las sombras proyectadas, vt+0x7C fn_007F9870, prueba 0x80E457) y fn_007F9880 (borra el bit
+    0x1000): **la pila de comida mágica no recibe sombra proyectada**. bw1-decomp llama a esos huecos
+    `SetCastDynamicShadow` / `SetShadowOnTexture`, pero el código del exe es el de recibir (corregido por la lane
+    «pieces» de milagros2; antes aquí ponía «no da sombra»). Los dos toman el argumento en edx (0x5FAAD0 `xor edx,
+    edx`). openblack ya cumple, y además la deja fuera de las tres sombras: `CastsStaticShadow`
     de `RenderingSystem.cpp` rechaza cualquier Pot y su `ReceivesDynamicShadow` cita esta misma llamada (0x5FAAC8) para
     los tipos MagicFood y HandFood; `CastsPhysicsShadow` de `Graphics/PhysicsShadows.cpp` rechaza también cualquier Pot.
     Visto en `polish_fix_bosque2_food_drop.png`: ni la pila mágica ni el grano del granero proyectan sombra.
@@ -1032,8 +1033,8 @@ las bolas de fuego, para que nada quede colgando).
   - el `ftol` de `LightmapSteps` le llega tal cual (0x691091 / 0x69292F). Un turno de 0 ms da +inf, el ftol da
     0x80000000 y la tirada sale en 0 .. 2³¹−1;
   - el comentario anterior («sin enfriamiento») era *(inferido)* y estaba mal;
-  - el port lo hace con `PSysRand(effect, n)` en `Lightning.cpp`. **(aproximado)** sale del generador float del efecto,
-    la convención de este PSys.
+  - el port lo hace con `PSysRand(effect, n)` en `Lightning.cpp`, que ya es `game_random::psys::Rand` (fiel, también
+    0x691CF9, 0x691DA0 y el alfa `PSysRand(0x7F) + 0x80` de 0x692551).
 - **`DrawOffsetLT`** (**fiel**; `Atom::drawOffset` en `PSys.h`, sumado en `Effect::Collect`/`CollectChains`). Cuando se
   lanza desde la mano propia (fn_00691B80 = `CastingFromHand` y `NetUnsafeIsMyInterfaceCasting` 0x673540: el +0x44 del
   hechizo, 1 sin hechizo), cada paso llama a `SetRefPos` 0x6C7600 (vt 0x100) en cada articulación de la horquilla con
@@ -1826,7 +1827,7 @@ suelo; el padre avanza por el rumbo **escalado a 20** (+0x64 del ctor, sin propi
   suelo (`fn_0086CFF0` modo 2 con el mapa 0xEE9D3C, fuerza `(negrura + 0,7) × fundido`) se estampa con
   `land_light::AddStamp` (`StormClouds.cpp`, sesión sistemas); con 0 nubes (el milagro) `DrawClouds` sale antes
   (0x83FC9E `jle 0x8400CB`), así que la tormenta del milagro no pone esa sombra, solo la de sus nubes de partículas.
-  `Random` 0x81D180 es el `rand()` del CRT (aproximado: aquí un generador propio del mismo tipo). El milagro no tiene
+  `Random` 0x81D180 es el `rand()` del CRT (`game_random::crt`, semilla 1 al arrancar, fiel). El milagro no tiene
   estas nubes (0); las climáticas y las de los objetos de tiempo sí (8 por defecto).
 - **Nublado en la cámara** (`Clouds::WeatherOvercastAtCamera`, de mapa): `GCamera::Update` 0x4426BA, el byte de nublado
   de `LH3DAtmos::GetWeatherSmooth(cámara, 1)` × 0,01 → [0xD1A26C], que `DrawSky` 0x5E2215 copia a [0xFA2754] para la
@@ -1871,7 +1872,7 @@ La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), qu
   Storm/Mist): el orden fila/columna del texel en `land_light::ApplyStamp` frente a fn_00878C70; y siguen sin portar
   las criaturas (fn_00477060) y fn_006D1AD0.
 - (aproximado) El contador del atlas de cada nube (`Atom::mistCounter`, el +0x84 de su `LH3DMist`, que el ctor 0x7F9560
-  empieza en `ftol(Random(0, 16)) & 15`, 0x7F95DC..0x7F95FB): el `Random` 0x81D180 con un generador propio, y avanza en
+  empieza en `ftol(Random(0, 16)) & 15`, 0x7F95DC..0x7F95FB): el `Random` 0x81D180 con el `rand()` de la CRT (`game_random::crt`), y avanza en
   cada fotograma aunque la nube no esté en pantalla (el original solo avanza las que `LH3DMist::AddDrawing` 0x7FA7F0 ve).
   Antes era un contador global para todas: ya no laten a la vez.
 - **El embudo del tornado**: `ParticleMeshCreatorAnimTextured` **sí tiene** la propiedad `DrawWithLandscapeColor`
@@ -2198,31 +2199,65 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
   255 >> 8 deja el alfa opaco en 254), igual para todos los vértices (el GJMesh no tiene
   colores: +0x24 ≠ vértices); luego la luz del modelo ([0xC029C0] = 1): la luz [0xEA9E90] por la inversa de la matriz
   dibujada, normalizada, I = fistp(255 n·l), f = I < 0 ? 90 : 90 + ((255 − 90) I >> 8), RGB × f >> 8; la segunda luz
-  [0xD4EC08] es 0. Con alfa de la `DrawData` ≠ 255 se dibuja con la tabla de modos con alfa (0xC387C8).
-  `Draw3DWorldTriangle` 0x81C090 con el material de la primitiva: **sin bruma ni especular**.
-  - En openblack cada pedazo es una malla generada (`L3DSubMesh::LoadGenerated`, con las texturas propias de la malla de
-    origen: `L3DMesh::SetSkinSource`) dibujada como átomo de malla (`mesh_atoms::Collect`, `PSys/Creators/Mesh.cpp`):
-    la matriz PSR, el color ya multiplicado por la luz de la tierra en la CPU (`explode_object::LandLight`, la
-    interpolación entera de fn_00801C90 0x801CB8..0x8020F7: celdas ftol(x × 0,1), pesos ftol(frac × 256), por canal
-    a + ((b − a) w >> 8), fuera del mapa o sin bloque table[255]) en la tercera columna, que es la rama de `vs_object`
-    sin bruma ni especular con la luz del modelo encima; translúcido cuando el alfa ≠ 255. La malla se borra con el
-    átomo.
+  [0xD4EC08] es 0. Con alfa de la `DrawData` ≠ 255 (el byte +0xB, antes de la luz de la tierra) se dibuja con la tabla
+  de modos con alfa (0xC387C8, 0x67C9B7..0x67C9C0; vuelve a 0xC38728 en 0x67C9F7). Matriz del mundo identidad
+  (0x67C8ED..0x67C979: los vértices ya están en el mundo) y `Draw3DWorldTriangle` 0x81C090 con el material de la
+  primitiva (GJMesh +0, 0x67C9DD..0x67C9F2): **sin bruma ni especular** (0x81C2BF), el culling del material (+5 bit 0,
+  0x81C30C / 0x81C556..0x81C58F) y **una** `DrawTriangle` por primitiva, **al momento**: no mira [0xC0215D], no hay
+  objeto Z. EXPLODE_OBJECT es Sorted: lo dibuja fn_006718A0 con `Draw_(1)` desde `PSysGlobal::DrawLoop` 0x68F60C,
+  después de `GGame::Draw` 0x54E00A y antes del vaciado de la cola (`FinishFrame` 0x82F460).
+  - **En openblack (fiel, lane «pieces» de milagros2)**: los pedazos son `Creator::Kind::GJMesh` (fuera de
+    `mesh_atoms`, de `psysAtoms` y de toda cola Z). Cada fotograma, al dibujar, `psys::gj_mesh::Build`
+    (`PSys/Rules/ExplodeObject.cpp`) hace en la CPU lo de DrawAt: la PSR de fn_00679920, cada vértice al mundo en el orden
+    de sumas de 0x67C29B..0x67C303, el color de la `DrawData` × la luz de la tierra (`LitColour`, la interpolación entera
+    de fn_00801C90 0x801CB8..0x8020F7: celdas ftol(x × 0,1), pesos ftol(frac × 256), por canal a + ((b − a) w >> 8),
+    fuera del mapa o sin bloque table[255]), la luz del modelo por vértice con `model_light::LightInMeshSpace` /
+    `Intensity` / `Apply` (ambiente [0xC39264]) y la tabla 0xC387C8 si el alfa ≠ 0xFF. Lo junta en lotes por primitiva
+    de origen (`graphics::world_triangles::Frame`, `Graphics/WorldTriangles.{h,cpp}`, ayudante común) y
+    `world_triangles::Submit` lo sube en **un solo transient vertex buffer** por fotograma y dibuja un lote por
+    primitiva con el programa `WorldTriangles` (`vs_world_triangles` + `fs_object`: la prueba de alfa y el alfa de la
+    etapa 0 de los modelos, `render_modes::PrimitiveAlpha` / `PrimitiveState` con el culling del material), en
+    `RenderPass::Main` detrás de los modelos y antes de la cola (hunk marcado en `Renderer.cpp::DrawPass`, de
+    sistemas). Ya no hay una malla bgfx por pedazo ni el tope `GpuBuffersLeft`: 6000 pedazos vivos a la vez en
+    BEAM_EXPLOSION_PU2 sin cuelgue. El camino viejo (malla generada por pedazo) sigue detrás de
+    `explode_object::k_PiecesAsWorldTriangles` (= true) hasta que sistemas acepte el hunk de `Renderer.cpp`; se borra
+    entonces.
   - **(aproximado)** la luz de la tierra de la CPU no lleva el tope de las sombras de las nubes que el port aplica en la
     GPU a los demás objetos; tampoco la ruta alternativa [0xEA9EB4] → fn_007ACD90 (no leída). Las operaciones en coma
     flotante son de 32 bits (no se imita la x87). En la última fila / columna del mapa el original lee la celda 17 del
-    bloque (+0x88 / +0x90); el port toma la última celda.
-  - **(aproximado)** como los demás átomos de malla, los translúcidos van con las mallas que se desvanecen y no dentro
-    del objeto Z del efecto.
+    bloque (+0x88 / +0x90); el port toma la última celda. La normalización de la luz suma x² + y² + z² donde
+    0x67C5AE..0x67C5BF hace (x² + z²) + y² (último bit del float).
+  - **(aproximado)** ALPHAREF de los modos 9 / 15 con la tabla 0xC387C8: el original lo escala con el difuso del
+    objeto [0xC37D8C], que DrawAt no escribe (es el del último LH3DObject dibujado); aquí, con el alfa de la `DrawData`.
+    El recorte por software (0x81C28B..0x81C2A0) y el descarte de triángulos de área ≤ 0 en la CPU (0x81C4C6..0x81C510)
+    quedan en la GPU (CULLMODE, mismo resultado salvo degenerados). Todos los pedazos Sorted van juntos en ese punto de
+    `Main`, no intercalados con los demás efectos de DrawLoop.
+  - **(inferido)** sin niebla (Draw3DWorldTriangle no llama a fn_007FEB30); sin segundo juego de colores en los pedazos
+    (+0x30 / +0x38, fn_0057D630 no leído entero), así que nunca la rama 0x67CAEE; el muestreo de la textura con o sin
+    repetición como los modelos ([0xECA614] g_b_need_tilling no comprobado en DrawLoop); no hay pedazos en el reflejo
+    (DrawLoop va una vez por fotograma).
+  - (openblack guard) si el transient vertex buffer (32 MB, `init.limits.transientVbSize` del hunk de `Renderer.cpp`)
+    no basta, los últimos lotes no se dibujan ese fotograma (aviso único `world_triangles: ...`).
+  - Los caminos Queued / Immediate (pedazos de un efecto con un solo objeto Z o de la mano) tienen `gj_mesh::BuildAtom`
+    y la etiqueta del lote (`Submit(..., only)`), pero ningún efecto de los datos los usa y el vaciado de sistemas aún no
+    los llama.
 - Capturas (`dev\_audit\magic\`, `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,1825,2632"
   OPENBLACK_CAMERA_FLY="1790,58,2592,1825,30,2632"`, `--mod game.skip-intro=off`, `-n 14000`):
   `polish_fix_beam2_house_t6.png` (los pedazos del almacén y de las rocas saltando), `_t14.png` (los 490 pedazos del
   árbol 952, hojas con su textura), `_t40.png` (ya desvanecidos: alfa a 0 a los 3 s), `_t80.png` (el después: el
   almacén sigue en pie, E4); traza en `polish_fix_beam2_house_end.log` (`ExplodeObject: mesh ... in N pieces`: 70 el
   almacén, 20 cada roca, 490 el árbol).
+- Capturas del dibujo nuevo (lane «pieces», mismas variables): `polish_fix_pieces_beam_t6.png` (los pedazos del almacén
+  con su textura de madera), `_t14.png` (los del árbol con hojas y prueba de alfa, como antes);
+  `polish_fix_pieces_pu2_t95.png` (BEAM_EXPLOSION_PU2 en (1790, 2600), cámara `1730,95,2530,1790,25,2620`: miles de
+  pedazos en el aire; `polish_fix_pieces_pu2b.log`: 8894 pedazos de 215 mallas, unos 6000 vivos en ese turno, sin aviso
+  de `world_triangles` ni cuelgue).
 
 ### Sin portar / pendiente
 
 - `UR_ExplodeObject2` → fn_0067FFB0 (no la llama nadie: la cola 0xD4E308 queda vacía).
+- `manager::SortedFrame` no tiene fila propia para los pedazos (`Kind::GJMesh` cae en `others`, `PSysManager.cpp`); el
+  vaciado por caminos de sistemas tendrá que llamar a `gj_mesh::BuildAtom` para un Queued / Immediate.
 - E5 (el aldeano con `life::Kill`, **(aproximado)**, lane mapas) y E7 (la marca +0x25 & 0x40 y los objetos de guion,
   **(inferido)**): ver `DestroyedByBeam` y `CanBeDestroyedBySpell` arriba; E6, la ciudadela, abajo.
 - El edificio «destruido»: ver «Qué le pasa al edificio en el original» arriba (falta la obra de la ciudad, lane

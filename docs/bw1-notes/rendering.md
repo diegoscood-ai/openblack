@@ -459,7 +459,7 @@ bit 1, si no 2.
   fotograma: un registro por átomo, como `DrawAt` 0x67B220). Cada átomo recorre los fotogramas del mapa
   (`LightMapCreator::InitAtom` = `CreateParticleLightMap` 0x6A9DEF..0x6A9E16: FrameRate a +0x110, NumFramesInUse a
   +0x114, PlayAnim a +0x118), así que la luz se apaga; parado en el fotograma 0, el rayo dejaba el suelo en blanco. El temblor `UseRandJitter` sale de
-  `grand_local::LocalFloatRand` (`src/3D/LH3DRandom.h`, el mismo que usa `FireGraphic`): el 1.º sorteo va a z, el 2.º
+  `game_random::LocalFloatRand` (la semilla local de GRand, la misma que usa `FireGraphic`): el 1.º sorteo va a z, el 2.º
   a y y el 3.º a x (0x67B264..0x67B2A3).
 
 **Diferencias que quedan.**
@@ -472,7 +472,8 @@ bit 1, si no 2.
   el id del fuego en vez de `this & 0xFFFF`.
 - (aproximado) Un modo de luz por malla, no por instancia: si dos clases comparten malla (un `DeadTree` o `FelledTree`,
   que usan `fn_00801C90`, con la de un árbol vivo), gana el modo especial y se avisa una vez en el registro.
-- (aproximado) `grand_local::LocalRand` / `LocalFloatRand` usan otro generador que `LHRand`.
+- `grand_local::LocalRand` / `LocalFloatRand` (3D/LH3DRandom) reenvían a `game_random` (LHRand sobre GData +0xC): ya
+  no es otro generador.
 - PLAUSIBLE, sin hacer: el reflejo bajo el agua (`vs_object` x = 3) va sin neblina, pero el original guarda en +0x4C /
   +0x50 la luz ya con neblina (`MobileObject::Draw` 0x51818E, `PhysicsObject::DrawAll` 0x646FB1), que
   `DrawUnderWater` reutiliza.
@@ -568,8 +569,10 @@ Informe: `tmp_dis\render\sky_*.txt`.
     (`GWeather::DrawClouds` 0x83FC90: hasta 16 bolas por tormenta alrededor de su centro, oscurecidas y con neblina;
     openblack no las tiene aún, ver [day-night-weather.md](day-night-weather.md)).
   - `Random` 0x81D180 = min + (max − min)·(rand()·3,0518509e−05f) con el `rand()` de la CRT de MSVC (0x7C8837,
-    s = s·214013 + 2531011, (s >> 16) & 0x7FFF), sembrado una vez con `srand(time(NULL))` (0x577721), no el GRand
-    sincronizado: **otro cielo en cada sesión y en cada tierra**. `GLandscape::Open` → `GLandAlignement::Open` 0x5E1D10
+    s = s·214013 + 2531011, (s >> 16) & 0x7FFF), no el GRand sincronizado. **Corrección (game_random)**: el `srand(time(NULL))` de 0x577721 está en
+    fn_005776E0, al que solo se llega al guardar `creature.lhp`: el `rand()` arranca en semilla 1 (`__initptd`
+    0x7D2323) y es por hilo; lo que cambia el cielo entre sesiones y tierras son los `rand()` que se gastan antes
+    **(inferido)**. `GLandscape::Open` → `GLandAlignement::Open` 0x5E1D10
     → `CloudInSky::Open` rehace las 70 nubes en cada carga de tierra. openblack: `Clouds` (el mismo generador; semilla
     fija con `OPENBLACK_CLOUD_SEED=<n>`; `Clouds::OnLandscapeOpened` desde `InitializeLevel`).
   - Paso (`fn_005E25C0`): x += inc·70·0,001; pasado 8000, t = x + 8000, x = t − ftol(t/16000)·16000 − 8000 (solo x:

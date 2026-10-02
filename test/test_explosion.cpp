@@ -26,6 +26,8 @@
 #include "3D/Billboard.h"
 #include "3D/LandLightTable.h"
 #include "ECS/SmokyStuff.h"
+#include "Graphics/ModelLight.h"
+#include "Graphics/WorldTriangles.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
@@ -169,7 +171,7 @@ TEST(Explosion, blastEventsCadenceAndCloseDown)
 	const auto file = Parse(k_Blast, "SF_BeamExplosionTest");
 	ASSERT_NE(file, nullptr);
 	RecordingSink sink;
-	psys::Effect effect(file, glm::vec3(100.0f, 0.0f, 200.0f), 1.0f, 3);
+	psys::Effect effect(file, glm::vec3(100.0f, 0.0f, 200.0f), 1.0f);
 	effect.SetSink(&sink);
 	sink.events.clear(); // the start event
 	int steps = 0;
@@ -300,7 +302,7 @@ ENDCLASS
 )";
 	const auto file = Parse(k_Creators, "SF_GoodEvilTest");
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 5);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 	effect.Step(0.1f);
 	effect.Step(0.1f);
 	std::vector<psys::Effect::DrawAtom> atoms;
@@ -461,18 +463,28 @@ TEST(Explosion, explodeObjectQueueToPieces)
 
 	const auto file = Parse(k_ExplodeObject, "SF_ExplodeObjectTest");
 	ASSERT_NE(file, nullptr);
-	psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 9);
+	psys::Effect effect(file, glm::vec3(0.0f), 1.0f);
 	effect.Step(0.1f);
 	EXPECT_EQ(psys::explode_object::QueuedCount(), 0u);
 	std::vector<psys::Effect::DrawAtom> atoms;
-	effect.Collect(1.0f, atoms, psys::Creator::Kind::Mesh);
+	effect.Collect(1.0f, atoms,
+	               psys::explode_object::k_PiecesAsWorldTriangles ? psys::Creator::Kind::GJMesh : psys::Creator::Kind::Mesh);
 	ASSERT_EQ(atoms.size(), 2u);
 	for (const auto& atom : atoms)
 	{
 		ASSERT_NE(atom.atom, nullptr);
 		const auto* piece = psys::explode_object::PieceOf(*atom.atom);
 		ASSERT_NE(piece, nullptr);
-		EXPECT_EQ(piece->meshId, 0u); // no renderer in the tests
+		EXPECT_EQ(piece->meshId, 0u); // no renderer in the tests (and none at all for the world triangles)
+		EXPECT_EQ(piece->source, mesh); // GJMesh +0: the source primitive (0x680C49)
+		EXPECT_EQ(piece->subMesh, 0u);
+		EXPECT_EQ(piece->primitive, 0u);
+		if constexpr (psys::explode_object::k_PiecesAsWorldTriangles)
+		{
+			EXPECT_EQ(piece->positions.size(), 3u * piece->triangles); // three vertices per triangle (fn_0057D630)
+			EXPECT_EQ(piece->uvs.size(), piece->positions.size());
+			EXPECT_EQ(piece->normals.size(), piece->positions.size());
+		}
 	}
 	EXPECT_EQ(psys::explode_object::PieceOf(*atoms[0].atom)->triangles + psys::explode_object::PieceOf(*atoms[1].atom)->triangles, 20u);
 	// the first piece (triangles 0..15 of the strip, 48 vertices) at its centroid: the strip's points k / 2, k % 2 through
@@ -495,4 +507,112 @@ TEST(Explosion, explodeObjectQueueToPieces)
 	// flying away from the origin 5 m under the matrix's position, at 10 plus the random part
 	EXPECT_GT(first.velocity.y, 0.0f);
 	psys::explode_object::Clear();
+}
+
+namespace
+{
+/// A piece of `triangles` triangles of a source mesh with the id `meshId`: positions about the centroid, uvs, the
+/// source normals
+std::unique_ptr<psys::explode_object::Piece> TestPiece(const std::shared_ptr<const psys::explode_object::SourceMesh>& source,
+                                                       uint16_t primitive, uint32_t triangles)
+{
+	auto piece = std::make_unique<psys::explode_object::Piece>();
+	piece->source = source;
+	piece->primitive = primitive;
+	piece->triangles = triangles;
+	for (uint32_t i = 0; i < triangles * 3; ++i)
+	{
+		const auto f = static_cast<float>(i);
+		piece->positions.emplace_back(f - 1.0f, 0.5f * f, 2.0f - f);
+		piece->uvs.emplace_back(0.1f * f, 1.0f - 0.1f * f);
+		piece->normals.push_back(glm::normalize(glm::vec3(std::sin(f), 1.0f, std::cos(f))));
+	}
+	return piece;
+}
+} // namespace
+
+// RenderParticleGJMesh::DrawAt 0x67C150: the vertices through the drawn matrix into the world (0x67C279..0x67C30A),
+// each of the DrawData colour x the land light (0x67C175..0x67C1F6) lit by the model light with the ambient
+// (0x67C4CE..0x67C6B2), the alpha table 0xC387C8 when the DrawData alpha is not 0xFF (0x67C9B7..0x67C9C0)
+TEST(Explosion, gjMeshBuildWorldAndLight)
+{
+	auto source = std::make_shared<psys::explode_object::SourceMesh>();
+	source->meshId = 0x1234u;
+	const auto piece = TestPiece(source, 0, 2);
+	// off the map: the land light is table[255] (0x8020F8)
+	psys::Effect::DrawAtom atom {nullptr, glm::vec3(-10000.0f, 3.0f, -10000.0f), glm::mat3(1.0f), 2.0f, 1.5f, 255.0f, 0.0f,
+	                             {0x80, 0x40, 0x20}};
+	atom.rotation = glm::mat3(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	const auto model = psys::gj_mesh::DrawMatrix(atom);
+	EXPECT_FLOAT_EQ(model[1][1], 3.0f); // the Y axis x the scale x the stretch
+	const uint32_t argb = psys::gj_mesh::DrawDataColour(atom);
+	EXPECT_EQ(argb, 0xFF804020u);
+
+	graphics::world_triangles::Frame frame;
+	psys::gj_mesh::AppendPiece(frame, *piece, model, argb);
+	ASSERT_EQ(frame.vertices.size(), 6u);
+	ASSERT_EQ(frame.batches.size(), 1u);
+	EXPECT_EQ(frame.batches[0].material.meshId, 0x1234u);
+	EXPECT_EQ(frame.batches[0].table, graphics::render_modes::Table::Normal);
+	EXPECT_EQ(frame.batches[0].globalAlpha, 255u);
+	EXPECT_EQ(frame.batches[0].firstVertex, 0u);
+	EXPECT_EQ(frame.batches[0].vertexCount, 6u);
+	const uint32_t base = psys::explode_object::LitColour(argb, atom.position);
+	const auto light = model_light::LightInMeshSpace(model);
+	for (size_t i = 0; i < 6; ++i)
+	{
+		const auto world = glm::vec3(model * glm::vec4(piece->positions[i], 1.0f));
+		EXPECT_NEAR(frame.vertices[i].position.x, world.x, 1e-4f);
+		EXPECT_NEAR(frame.vertices[i].position.y, world.y, 1e-4f);
+		EXPECT_NEAR(frame.vertices[i].position.z, world.z, 1e-4f);
+		EXPECT_EQ(frame.vertices[i].uv, piece->uvs[i]);
+		const auto& n = piece->normals[i];
+		const uint32_t lit = model_light::Apply(
+		    base, model_light::Intensity((light.z * n.z + light.y * n.y) + light.x * n.x), model_light::k_DefaultAmbient);
+		EXPECT_EQ(frame.vertices[i].abgr, graphics::world_triangles::ToAbgr(lit));
+		// Apply keeps the alpha: 255 x 255 >> 8 = 254 when the land light's alpha is 0xFF
+		EXPECT_EQ(frame.vertices[i].abgr >> 24, base >> 24);
+	}
+
+	// fading: the table 0xC387C8 and the alpha byte for ALPHAREF
+	atom.alpha = 128.0f;
+	frame.Clear();
+	psys::gj_mesh::AppendPiece(frame, *piece, model, psys::gj_mesh::DrawDataColour(atom));
+	ASSERT_EQ(frame.batches.size(), 1u);
+	EXPECT_EQ(frame.batches[0].table, graphics::render_modes::Table::GlobalAlpha);
+	EXPECT_EQ(frame.batches[0].globalAlpha, 128u);
+	EXPECT_EQ(graphics::world_triangles::ToAbgr(0x80112233u), 0x80332211u);
+}
+
+// The pieces of one source primitive come one after the other: one batch; another primitive, another alpha or another
+// tag starts a new one, in order (world_triangles::Frame::Append)
+TEST(Explosion, gjMeshBatchesMerge)
+{
+	auto source = std::make_shared<psys::explode_object::SourceMesh>();
+	source->meshId = 0x99u;
+	const auto a = TestPiece(source, 0, 1);
+	const auto b = TestPiece(source, 0, 3);
+	const auto c = TestPiece(source, 1, 2);
+	const glm::mat4 model(1.0f);
+	graphics::world_triangles::Frame frame;
+	psys::gj_mesh::AppendPiece(frame, *a, model, 0xFFFFFFFFu);
+	psys::gj_mesh::AppendPiece(frame, *b, model, 0xFFFFFFFFu);
+	ASSERT_EQ(frame.batches.size(), 1u);
+	EXPECT_EQ(frame.batches[0].vertexCount, 12u);
+	psys::gj_mesh::AppendPiece(frame, *c, model, 0xFFFFFFFFu);
+	psys::gj_mesh::AppendPiece(frame, *a, model, 0x80FFFFFFu);
+	psys::gj_mesh::AppendPiece(frame, *a, model, 0x80FFFFFFu, &frame);
+	ASSERT_EQ(frame.batches.size(), 4u);
+	EXPECT_EQ(frame.batches[1].material.primitive, 1u);
+	EXPECT_EQ(frame.batches[1].firstVertex, 12u);
+	EXPECT_EQ(frame.batches[1].vertexCount, 6u);
+	EXPECT_EQ(frame.batches[2].table, graphics::render_modes::Table::GlobalAlpha);
+	EXPECT_EQ(frame.batches[2].firstVertex, 18u);
+	EXPECT_EQ(frame.batches[3].tag, &frame);
+	EXPECT_EQ(frame.batches[3].firstVertex, 21u);
+	EXPECT_EQ(frame.vertices.size(), 24u);
+	// a piece without a source or without vertices adds nothing
+	psys::explode_object::Piece empty;
+	psys::gj_mesh::AppendPiece(frame, empty, model, 0xFFFFFFFFu);
+	EXPECT_EQ(frame.batches.size(), 4u);
 }

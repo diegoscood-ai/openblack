@@ -21,7 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/Components/Animal.h"
@@ -186,11 +186,8 @@ glm::vec3 WorldOf(glm::ivec2 mapCoords, float height)
 	return {xz.x, LandHeight(xz) + height, xz.y};
 }
 
-/// GameFloatRand(max) (GRand 0x6DE530): [0, max)
-float GameFloatRand(float max)
-{
-	return max > 0.0f ? Locator::rng::value().NextValue(0.0f, max) : 0.0f;
-}
+/// GameFloatRand(max) (GRand 0x6DE530)
+using game_random::GameFloatRand;
 
 /// The spawn loop's jitter (0x723DB6..0x723E49): ftol((metres + GameFloatRand(0.2) - 0.1) x 65536 / 10), x then z
 int32_t Jitter(int32_t mapCoord)

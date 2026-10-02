@@ -20,6 +20,8 @@ en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendien
 - [Normal del terreno](#normal-del-terreno): `LH3DIsland::GetNormal` y sus dos tablas (`land_normal`)
 - [Matrices LH](#matrices-lh): los constructores de LHMatrix, la inversa y el modelo (`lh_matrix`)
 - [Zoomer (LH3DLib)](#zoomer-lh3dlib): `Zoomer` y `Zoomer3d`, exactos al bit
+- [Números aleatorios (`game_random`)](#números-aleatorios-game_random): LHRand, las dos semillas de GRand, los
+  flujos del PSys y el `rand()` de la CRT
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
 ## MapCoords
@@ -667,6 +669,41 @@ objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMap
 - `FindFixedOnMap` 0x601690. `IsFixed` (0x603790 → 0x601EA0) mira **solo la cabeza** de la fija: que sea un
   MultiMapFixed (+0x24 bit 1). `IsOwnCell` es fn_00604F40.
 
+**Choque con lo que hay en la celda** (fase B, 2026-10-02):
+
+- `ForEachFixed(celda, fn)`: solo la lista fija desde la cabeza (`GetFirstObjectFixed` 0x6034B0 + `GetMapChild`), con
+  el mismo filtro que las demás lecturas. Es la cadena de 0x60CAA0 (ObjectCircleIterator), 0x74B9C0
+  (`Tree::EndPhysics`) y 0x601D56.
+- `Collide(MapCoords)` = `MapCoords::Collide` 0x6033C0 → `MapCell::Collide(MapCoords)` 0x601CE0 → `MapCell::Collide`
+  0x601BD0:
+  - fuera de ToMap, `0xFFFFFFFF` (0x6033CC);
+  - si no, la parte del terreno (`sea_cells::CollideLandscape`): 0x10 fuera del mapa de juego (fn_00601E00, y entonces
+    ya no se mira ningún objeto), si no 1 agua (o sin bloque) / 2 tierra (0x601C7D);
+  - luego la **lista fija** desde la cabeza (0x601C78..0x601CAE; la móvil no se lee): tipo 6 `|= 0x20` (0x601C9E),
+    tipo 0x12 `|= 4` (0x601C99);
+  - **el bit 8 no sale nunca**: 0x601CE0 llama a `CollideWithFixe` solo si el resultado de 0x601BD0 tiene el bit 8
+    (`test bl, 8`, 0x601CEB), y 0x601BD0 no lo pone nunca. Esa rama está muerta.
+- `CollideWithFixed(MapCoords)` = `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe` 0x601D10:
+  - fuera de ToMap, `0xFFFFFFFF` (0x604FEC);
+  - si no, los bits de 0x601BD0 (0x601D18) y `| 8` (0x601DAD) si un círculo de **0,5 m** (`push 0x3F000000`,
+    `NewCollide::Obj` 0x82AD90) en `(x, z) = MapCoords · 10/65536` ([0x8AA3A4], 0x601D23..0x601D3C) toca el
+    `GetCollideData` (vt+0x858, 0x601D61) de algún objeto de la lista fija (`Obj::Collide` 0x829140).
+- Los datos de choque (`CollideDataOf`) se guardan en el enlace **al insertar**, porque el original los crea ahí:
+  `SingleMapFixed::InsertMapObject` llama a vt+0x864 en 0x52E633 y `MultiMapFixed::InsertMapObject` a vt+0x908 en
+  0x52E669. Leído en las vtables:
+
+  | Clase | GetCollideData / CreateCollideData | En openblack |
+  |---|---|---|
+  | Object, MobileObject, Pot, GStreetLantern, Villager | `Object::GetCollideData` 0x419B30 = `xor eax, eax` | ninguno: las ollas, pilas y farolas de la cola de la fija no chocan |
+  | Tree, MagicTree | `Tree::CreateCollideData` 0x74C5F0: círculo de 0,3 (`push 0x3E99999A`) en la posición | igual |
+  | MapShield y demás SingleMapFixed | 0x52F510: `NewCollide(LH3DObject)` 0x829390 | `map_collide::FromMesh` de su malla |
+  | MultiMapFixed (casas, campos, rasgos, rocas, tocones, pedazos, tótems, iconos, piedras) | 0x52F550: `NewCollide(LH3DObject)` | `FromMesh`, la misma forma que da sus celdas |
+  | BigForest | 0x439580 = `jmp ReleaseCollideData` | ninguno |
+  | FishFarm | 0x52CA10 no llama a vt+0x908; el ctor de MultiMapFixed pone +0x78 = 0 (0x52E26F) | ninguno |
+  | WorshipSite, CitadelHeart | 0x77E490 / 0x468FB0, formas propias | (aproximado) la de la malla |
+
+  (aproximado) Un objeto fijo sin malla en openblack no tiene forma.
+
 **Búsquedas.**
 
 - `FindNearType` 0x6045F0: una sola lista (−1 es la móvil); no recorta a r.
@@ -688,6 +725,16 @@ objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMap
 - `GetNearestTownToPos` 0x73B170: `0x7FFF` es cualquier casa; con otro tipo **acepta las ciudades que no lo tienen**.
 - `FindNearestTownInList` fn_00552FF0: la lista global. **No tiene rama de ID** (leído): la primera siempre y luego
   `<`.
+- `FindPlayerTownAtPos` = `GScript::FindPlayerTownAtPos` 0x6F72E0 (la usa GET_NEAREST_TOWN_OF_PLAYER, 0x6F2ADD): solo
+  la lista de **ese** jugador (GPlayer+0xA50, siguiente +0x75C), `GetDistanceInMetres` 0x74CD70, mejor = r y
+  **`≤`** (`fcom; test ah, 0x41`, 0x6F7312): en un empate gana la ciudad que va después. No es `GetNearestTown`
+  0x6020E0.
+- Usuarios en `src/Worship`: `Citadel::RequestANewWorshipSite` 0x4633F0 llama a `GetNearestTownToPos(coords de la
+  ciudadela, tribu, 0x7FFF, FLT_MAX)` en 0x46345C. `AssignTownsToWorshipSite` 0x77AF70, `CreateBuiltWorshipSite`
+  0x465110, fn_00464F50 y `GPlayer::PostLoadCleanup` 0x64AB90 recorren `TownsOf(jugador)`.
+- `site::FindAt` = `MapCoords::FindWorshipSite` 0x602460: **un solo** `FindTypeOnMap(8, 0)` (0x602479). Si es un
+  WorshipSite (0x602493), ese; si es un WorshipSpellIcon (0x6024AC), su sitio (vt+0x30C); si es otra cosa (el corazón
+  de la ciudadela, un icono de centro de ciudad), null.
 
 **Mantenimiento en openblack.**
 
@@ -700,7 +747,7 @@ objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMap
 - Toda lectura se salta además lo que el original ya habría sacado: no válido, en la mano o volando.
 - `OPENBLACK_MAPCELLS_CHECK=1` comprueba las listas en cada `Sync` y escribe `map_cells: N objects, M cells, E errors`.
 - La API vieja (`MapInterface` / `MapProduction`, `effects::ObjectsInMapCell`) sigue para quien no ha migrado. Lo que
-  le queda a cada dueño está en `map_cell_queries_A_impl.md`.
+  le queda a cada dueño está en `map_cell_queries_A_impl.md` y en `map_cell_queries_PLAN_B.md` (fase B).
 
 ## Altura del terreno
 
@@ -946,6 +993,75 @@ aceleración 0. Todo va en float y en el orden del x87:
 Comprobado: `test_camera` `ZoomerMatchesRecording` recorre las 11 grabaciones del original. Los coeficientes de cada
 curva (51 669) y el valor y la velocidad de cada estado (51 636) salen **bit a bit**.
 
+## Números aleatorios (`game_random`)
+
+`src/Common/GameRandom.{h,cpp}` (namespace `openblack::game_random`, sesión milagros2, fase A). Un solo estado para
+todo el juego, como el original: las dos semillas de GRand, el flujo activo del PSys y la semilla del `rand()` de la
+CRT. Todo **fiel** (leído en runblack.exe W120), salvo lo marcado.
+
+- **`_LHRand` 0x7DB600**: `s = ror32(s·9377 + 0x24DF, 13)`, guardada rotada (0x7DB629), y devuelve `s % n` **sin signo**
+  (`div` 0x7DB62B). Con n = 0 el original divide entre 0: todos los llamadores lo miran antes.
+- **GRand** (las semillas son de `GData`, g_game +0x205A30):
+  - `GameRand(n)` 0x6DE510 → `GData::Rand` 0x510650: 0 para n = 0 sin tirar (0x510693); si no, LHRand sobre la
+    semilla **sincronizada** (+8).
+  - `GameFloatRand(x)` 0x6DE530 → `GData::FloatRand` 0x5106B0: 0 para ±0 y **NaN** sin tirar (`fcomp 0; test ah,0x40`,
+    0x6DE53C / 0x5106FE); si no, `(u·x)·k` con u = LHRand(0xFFFF) y k = [0x8D6050] = **0x37800080** (≈ 1/65535).
+    Sale con el signo de x y |r| ≤ 65534/65535·|x|.
+  - `LocalRand(n)` 0x6DE570 (long, división sin signo) y `LocalFloatRand(x)` 0x6DE590: lo mismo sobre la semilla
+    **local** (+0xC).
+  - `GameFloatRange(a, b)` 0x5E1CE0 (el callback [0xEEA380] de `GLandAlignement::Open`): `GameFloatRand(b − a) + a`,
+    con b − a redondeado antes (`fstp`).
+- **Semillas** (`Init` / `Reset` / `Save` / `Load`):
+  - `GGame::Init` 0x54F4AF pone las dos a **0x88F89F** (local 0x54F4B4, sincronizada 0x54F4BA);
+  - `GData::Reset` 0x510750 (`ResetState` 0x5557A0 ← `ClearMap` 0x552BB0 en 0x552E62 ← `StartPlaygroundGame` en
+    0x552F4F) las pone a **0**: cada LOAD_MAP después de la primera tierra (`GScript::LoadMap` 0x6FB36A) y la partida
+    de escaramuza (`ResetAndStartPlaygroundGame` 0x54F759). Solo la primera tierra de una campaña nueva arranca en
+    0x88F89F: `Init` elige por el modo de arranque GGame +0x25017C (tabla 0x54FF60: 1 = campaña nueva →
+    `GSetup::LoadMapScript` 0x54F7AB sin `ClearMap`; 4 = escaramuza → playground; 0 autoguardado, 2 cargar partida);
+  - `WriteSafe(GData&)` 0x563440 guarda las dos (+8 en 0x56345C, +0xC en 0x563494); `ReadSafe` 0x563620 las lee en el
+    mismo orden. openblack no tiene partidas guardadas: `Save`/`Load` no tienen llamador;
+  - openblack: `Game::LoadMap` llama a `Init()` en la primera carga y a `Reset()` en las demás (miembro
+    `_firstMapLoaded`). **(inferido)** openblack no tiene modo de arranque: «un guion de la carpeta Playgrounds» hace
+    de caso 4 y da `Reset()` también en la primera carga.
+- **PSys** (`game_random::psys`): `PSysFloatRand` 0x6729B0 / `PSysRand` 0x6729E0 llaman a los punteros [0xD4E0C0] /
+  [0xD4E0BC]:
+  - fuera de un paso valen 0x672990 / 0x6729A0: **0** sin tirar (inicializador 0x672A80);
+  - `fn_00673340` (el paso de cada efecto) los pone según +0xAC: sincronizados (0x672AB0 / 0x672AF0, por `GameRand`)
+    o locales (0x672B10 / 0x672B40, por `LocalRand`), y al acabar vuelve a los de 0 (0x67349B), **no** a los de antes:
+    el ámbito no se anida (`psys::StepScope`, abierto en `Effect::Step`);
+  - +0xAC = `NET_GAME_TYPE == 1`, el sexto argumento de `GJPSysInterface::Create` 0x68F2F0 (`sete` 0x68F3AE). Es
+    sincronizado el efecto propio de un hechizo (`Spell::InitWithPos`, push 1 en 0x71FF63) y los visuales puntuales
+    (`GParticleContainer::Create` → fn_0063E410, push 1 en 0x63E436); los demás leídos son locales (la mano
+    fn_0046E7B0, MagicTeleport, la bandada, la tormenta, el dispensador, el escudo físico fn_0072CD40 (push 0 en
+    0x72CDA1), las utilidades, la explosión de objetos fn_006718E0, el centro del pueblo 0x69BC31…). openblack:
+    `psys::Effect(…, NetGameType)` y `manager::Start/StartForSpell(…, NetGameType)`, Local por defecto;
+  - el float es `(u·k)·x` (0x672AD7 / 0x672ADD), **en otro orden** que GRand: desde 0x88F89F con x = 2π,
+    GameFloatRand da 4,314674377441406 y el del PSys 4,3146748542785645. Sin «0 para 0»: con x = 0 tira igual;
+  - `PSysRand(n)` es `s % n`, no `floor(PSysFloatRand(n))` (primer sorteo desde 0x88F89F: 8 frente a 6 con n = 10);
+  - `FloatRand(a, b)` 0x6729C0 = `FloatRand(b − a) + a`; `RandR3` 0x6729F0: x, y, z = FloatRand(2) − 1 por ese orden,
+    otra vez mientras `(z² + y²) + x² > 1`. **(aproximado)** fuera de un paso el original no acabaría nunca (−1, −1,
+    −1): aquí devuelve ese punto una vez y avisa (no es alcanzable en el original).
+- **CRT** (`game_random::crt`): `rand()` 0x7C8837 (`s = s·0x343FD + 0x269EC3`, `(s >> 16) & 0x7FFF`), `srand` 0x7C882A y
+  `Random(a, b)` 0x81D180 = `((rand()·k)·(b − a)) + a`, k = [0x9A3700] = **0x38000100**. La semilla es por hilo en el
+  original y empieza en **1** (`__initptd` 0x7D2323); `srand(time)` solo está en fn_005776E0 (al guardar
+  `creature.lhp`), no al arrancar. openblack: una semilla, la del hilo del juego.
+- **Aritmética**: todo en float, una operación por sentencia (la FPU va a 24 bits: fn_007DEE00, `and 0xFCFF` en
+  0x7DEE0D), así que cada `fmul`/`fadd` del x87 redondea como una operación float; las constantes se escriben con
+  `std::bit_cast` de sus bits.
+- **Red de ruido del PSys** 0xD066D8 (fn_00590DF0, desde `GGame::InitOneTimeOnly` 0x54F0F4, antes de Init): 256 ×
+  `1 − GameFloatRand(2)` desde la semilla con que nace g_game, **0 (inferido)**: los mismos valores en cada partida
+  (`PSys/Noise.cpp`).
+- **Ya migrado** (fase A): Magic (SpellFlock, SpellForest, SpellWater), Worship (FireFlyReward), ECS/Weather (Climate,
+  Storms, WeatherThing, StormClouds, Rain), VillagerFire, ECS/Fire/FireGraphic, PSys (Effect, Mist, LightMap, Mesh,
+  Gesture, Lightning, Storm, TownBelief, Noise). `villager::GameRand/GameFloatRand/SetRandForTests` y
+  `graphics::lh3d::Random` / `grand_local::*` (3D/LH3DRandom) reenvían al módulo, así que CameraShake, MistArchetype y
+  los aldeanos ya van por él.
+- **Lo que sigue en `Locator::rng`** (fase B, de otros dueños): animales, árboles, peces, luciérnagas, campos, rocas,
+  fragmentos, polvo, sonido y ayuda (`guidance::LocalRand`), Clouds (su `CrtRandom`), SmokyStuff, ChimneySmoke,
+  VillagerSpeed, VillagerAnimations; CHL RANDOM / RANDOM_ULONG (A6, pendiente del usuario). Por eso la secuencia
+  **nunca** coincidirá con una partida del original: lo que es fiel es la fórmula, la resolución y el ciclo de las
+  semillas.
+
 ## Pendiente
 
 ### MapCoords
@@ -1047,7 +1163,8 @@ GUtils las distancias ya no son exactas (100 m dan 100,02 m: `test_teleport` lo 
   `Audio/GameQueries.h:47, :72-76` (`nearestTown`, descrito pero sin implementar en `Game.cpp`).
 
 **Dudosas, no migradas** (no consta en el binario que el original use ahí la rutina):
-- `Worship/Citadel.cpp:61` (`NearestTownOfTribe`) y `ECS/Trees.cpp:244, :718, :799, :1038`: sin dirección en la cita.
+- `ECS/Trees.cpp:244, :718, :799, :1038`: sin dirección en la cita. (`Worship/Citadel.cpp` `NearestTownOfTribe` ya
+  no existe: 0x46345C llama a 0x73B170, ahora `map_cells::GetNearestTownToPos`; ver «Listas de objetos por celda».)
 - `ECS/Weather/Climate.cpp:431` (`ProcessAll`): hace `d2 > r²` y luego `sqrt(d2)`, que no es la forma de una llamada a
   `GetDistance`; `GClimate::ProcessAll` 0x771DBA sí llama una vez a 0x74CDE0, pero no se ha leído dónde.
 - `ECS/AnimalFlee.cpp:596, :619, :653` y `ECS/AnimalPredators.cpp:379, :488, :549, :692`: el informe los marca
@@ -1290,7 +1407,26 @@ y `U8_changes.md`):
 - La interpolación del escudo físico entre turnos: el original interpola la matriz con la escala dentro (0x72CEEC);
   openblack interpola por separado las filas de la rotación y la escala.
 
+### Números aleatorios
+
+- A6: CHL `RANDOM` (`GScript::Random` 0x6F8DA0: `ftol(min + GameFloatRand(max − min + 1))`, empujado como float) y
+  `RANDOM_ULONG` (0x6F8E20: `GameRand(max − min + 1) + min`) siguen con el generador de openblack (CHLApi.cpp), a la
+  espera del usuario.
+- La fase B: las copias de otros dueños (`unify2/game_random_PLAN_A.md` §6).
+- La traza `OPENBLACK_TRACE_GAME_RAND` toma el sitio con `std::source_location`, no la pila (`GetCurrentStackString`).
+- Hilos: sin mutex; en Debug un `assert` comprueba que solo tira el hilo que llamó a Init/Reset.
+
 ## Ganchos de prueba
+
+- `game_random` (`test/test_game_random.cpp`): LHRand desde 0x88F89F y desde 0, GameRand tras Init y tras Reset, los
+  float bit a bit (el orden (u·x)·k frente a (u·k)·x), 0 para 0 / −0 / NaN sin tocar la semilla, x < 0, PSysRand ≠
+  floor(PSysFloatRand), el PSys fuera de un paso (0, sin tirar), RandR3, el ámbito que no se anida, la CRT desde 1,
+  Save/Load y los ganchos. `game_random::testing::ScopedState` guarda y restaura todo el estado;
+  `testing::SetGameRand` es el gancho que antes estaba en VillagerCore.
+- `OPENBLACK_TRACE_GAME_RAND=1`: la traza del original ([0xCD3C80], formatos 0xBE899C / 0xBE89D0: semilla, turno y
+  sitio) por spdlog a nivel trace.
+- `OPENBLACK_TEST_PSYS_RAND_OUTSIDE=1`: cada tirada del PSys fuera del paso de un efecto se cuenta, su sitio sale una
+  vez en el log y el total por sitio al salir. En Land 1 con una tormenta y un agua (2026-10-02, gamerandom): ninguna.
 
 **Comprobado en el juego (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
 - Culto (`OPENBLACK_TEST_WORSHIP="1,0.5"` + `OPENBLACK_WORSHIP_TRACE=1`, Land 2): van los 11 aldeanos más cercanos al

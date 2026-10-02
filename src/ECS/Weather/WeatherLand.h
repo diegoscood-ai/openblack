@@ -17,7 +17,7 @@
 #include <glm/vec2.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/MapCoords.h"
 #include "Locator.h"
 
@@ -64,25 +64,7 @@ namespace openblack::weather
 	return std::memcmp(&cell, &empty, sizeof(empty)) == 0;
 }
 
-/// GRand::GameFloatRand 0x6DE530: 0 for 0, else a float in [0, x) (GData::FloatRand, the game's seeded generator).
-/// (aproximado: openblack's RandomNumberManager, not GRand's sequence: storm places and rain desire differ)
-[[nodiscard]] inline float GameFloatRand(float x)
-{
-	if (x == 0.0f || !Locator::rng::has_value())
-	{
-		return 0.0f;
-	}
-	const float value = Locator::rng::value().NextValue(0.0f, std::abs(x));
-	return x < 0.0f ? -value : value;
-}
-
-/// GRand::GameRand 0x6DE510: 0 .. n - 1 (aproximado: not GRand's sequence, as above)
-[[nodiscard]] inline uint32_t GameRand(uint32_t n)
-{
-	if (n == 0 || !Locator::rng::has_value())
-	{
-		return 0;
-	}
-	return Locator::rng::value().NextValue<uint32_t>(0, n - 1);
-}
+/// GRand::GameFloatRand 0x6DE530 / GameRand 0x6DE510 on GData +8, the game's synced seed (Common/GameRandom.h)
+using game_random::GameFloatRand;
+using game_random::GameRand;
 } // namespace openblack::weather

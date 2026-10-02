@@ -30,7 +30,7 @@ LightningCallback g_sheetCallback;
 /// 0xEEA380 = 0x5E1CE0 (set by GLandAlignement::Open): min + GameFloatRand(max - min)
 float RandomRange(float min, float max)
 {
-	return GameFloatRand(max - min) + min;
+	return openblack::game_random::GameFloatRange(min, max);
 }
 
 /// GWeather::Update 0x83F900

@@ -10,7 +10,8 @@
 // The meshes thrown to pieces: fn_00681260 / fn_006812B0 (the queues), UR_ExplodeObject::ModifyAtomCollection 0x6814E0
 // with ExplodeMesh 0x6807B0, UR_ExplodeObject2 0x681560, and the always-on EXPLODE_OBJECT effect of PSysUtilityPSys
 // (fn_006717F0 / fn_006718E0 / fn_006718C0). Disassembly: dev\_scratch\Milagros\polish\explodemesh.asm,
-// gjmesh_drawat.asm, beam2\landlight.asm; wiki: docs/bw1-notes/miracles.md, "Explosión de rayo".
+// gjmesh_drawat.asm, beam2\landlight.asm; the pieces' draw RenderParticleGJMesh::DrawAt 0x67C150 (gj_mesh, to
+// Graphics/WorldTriangles.h); wiki: docs/bw1-notes/miracles.md, "Explosión de rayo".
 
 #include "ExplodeObject.h"
 
@@ -40,6 +41,8 @@
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "GameClock.h"
+#include "Graphics/ModelLight.h"
+#include "Graphics/WorldTriangles.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
 #include "PSys/ParticleTypes.h"
@@ -308,11 +311,12 @@ constexpr uint32_t k_SubMeshLod0 = 0x20000000u;
 constexpr uint32_t k_SubMeshStatus = 0x3F0u;
 
 /// The piece atoms' "creator": the original's atoms have none (AtomCore::Create 0x6737F0 + fn_00674DD0) and carry their
-/// RenderParticleGJMesh at +0x128. Here a mesh-kind creator (the mesh atoms' draw, PSys/Creators/Mesh.cpp) and the piece
-/// in the atom's modifier data under k_PieceKey.
+/// RenderParticleGJMesh at +0x128. Here a creator of Kind::GJMesh (drawn by gj_mesh, at once, out of every mesh atom
+/// list and Z object) and the piece in the atom's modifier data under k_PieceKey. (old way) Kind::Mesh, the mesh atoms'
+/// draw of PSys/Creators/Mesh.cpp
 struct PieceCreator final: Creator
 {
-	PieceCreator() { kind = Kind::Mesh; }
+	PieceCreator() { kind = k_PiecesAsWorldTriangles ? Kind::GJMesh : Kind::Mesh; }
 };
 const PieceCreator g_PieceCreator;
 /// The key of the piece in Atom::modifierData (no modifier owns it)
@@ -337,6 +341,8 @@ int PackIndexOf(entt::id_type meshId)
 	const auto it = k_Index.find(meshId);
 	return it != k_Index.end() ? it->second : -1;
 }
+
+// ---- (old way, !k_PiecesAsWorldTriangles) a generated L3D mesh per piece; goes once sistemas takes the new draw ----
 
 /// (openblack guard) the bgfx vertex / index buffer handles left to the rest of the game (building fragments, feature
 /// meshes, loads) when pieces are made
@@ -481,7 +487,20 @@ void ExplodeMesh(Effect& effect, Collection& collection, const std::vector<int>&
 				atom.velocity = PieceVelocity(centre, entry.origin, entry.speed, randomFactor, effect.RandomInBall());
 				auto piece = std::make_shared<Piece>();
 				piece->triangles = static_cast<uint32_t>(triangles.size());
-				piece->meshId = MakePieceMesh(mesh, s, p, std::move(positions), std::move(uvs), std::move(normals));
+				// GJMesh +0: the source primitive, its material (0x680C49)
+				piece->source = entry.mesh;
+				piece->subMesh = static_cast<uint16_t>(s);
+				piece->primitive = static_cast<uint16_t>(p);
+				if constexpr (k_PiecesAsWorldTriangles)
+				{
+					piece->positions = std::move(positions);
+					piece->uvs = std::move(uvs);
+					piece->normals = std::move(normals);
+				}
+				else
+				{
+					piece->meshId = MakePieceMesh(mesh, s, p, std::move(positions), std::move(uvs), std::move(normals));
+				}
 				atom.modifierData[&g_PieceKey] = std::move(piece);
 				++made;
 			}
@@ -983,6 +1002,114 @@ uint32_t explode_object::LitColour(uint32_t argb, const glm::vec3& position)
 		out |= ((((argb >> shift) & 0xFFu) * ((light >> shift) & 0xFFu)) >> 8) << shift;
 	}
 	return out;
+}
+
+// ---- the pieces' draw, RenderParticleGJMesh::DrawAt 0x67C150 ----
+
+uint32_t gj_mesh::DrawDataColour(const Effect::DrawAtom& atom)
+{
+	// fn_00679920: DrawData +8, the atom's colour and its alpha byte
+	const auto alphaByte = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
+	return (alphaByte << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) | (static_cast<uint32_t>(atom.colour[1]) << 8) |
+	       atom.colour[2];
+}
+
+glm::mat4 gj_mesh::DrawMatrix(const Effect::DrawAtom& atom)
+{
+	// fn_00679920: the PSR matrix (rotation x scale, the Y axis x the stretch): the LHMatrix rows are the columns here
+	glm::mat3 axes = atom.rotation * atom.scale;
+	axes[1] *= atom.stretch;
+	glm::mat4 model(axes);
+	model[3] = glm::vec4(atom.position, 1.0f);
+	return model;
+}
+
+void gj_mesh::AppendPiece(graphics::world_triangles::Frame& out, const Piece& piece, const glm::mat4& model, uint32_t argb,
+                          const void* tag)
+{
+	namespace wt = graphics::world_triangles;
+	const size_t count = piece.positions.size();
+	if (count == 0 || !piece.source)
+	{
+		return;
+	}
+	// +0x21 (set by ExplodeMesh 0x680B9B): the DrawData colour x the land light under the matrix's translation
+	// (fn_00801C90 on DrawData+4 +0x24, 0x67C175..0x67C184), byte by byte (0x67C189..0x67C1F6)
+	const uint32_t base = LitColour(argb, glm::vec3(model[3]));
+	// 0x67C4CE..0x67C4E4: the model light needs [0xC029C0] (1 in .data) and a normal per vertex (+0x88 == +0x10)
+	const bool lit = piece.normals.size() == count;
+	// 0x67C508..0x67C5E4: the light [0xEA9E90] as a point through SetInverse 0x7FB290 of the drawn matrix, normalised
+	// unless null. (aproximado) model_light::LightInMeshSpace sums the squares x, y, z where 0x67C5AE..0x67C5BF does
+	// (x x + z z) + y y: the last bit of the float may differ
+	const glm::vec3 light = lit ? model_light::LightInMeshSpace(model) : glm::vec3(0.0f);
+	const int ambient = model_light::Ambient(); // [0xC39264] (0x67C635 / 0x67C63D)
+	const glm::vec3 r0(model[0]);
+	const glm::vec3 r1(model[1]);
+	const glm::vec3 r2(model[2]);
+	const glm::vec3 t(model[3]);
+	std::vector<wt::Vertex> vertices(count);
+	for (size_t i = 0; i < count; ++i)
+	{
+		const auto& v = piece.positions[i];
+		// 0x67C29B..0x67C303: ((z r2 + y r1) + x r0) + t per axis, into 0xD4E2A0
+		const glm::vec3 world((v.z * r2.x + v.y * r1.x) + v.x * r0.x + t.x, (v.z * r2.y + v.y * r1.y) + v.x * r0.y + t.y,
+		                      (v.z * r2.z + v.y * r1.z) + v.x * r0.z + t.z);
+		uint32_t colour = base; // 0x67C47F..0x67C4C4: no colours of its own, all of the base colour
+		if (lit)
+		{
+			// 0x67C602..0x67C62C: I = fistp(255 ((l.z n.z + l.y n.y) + l.x n.x)); 0x67C631..0x67C6A3: f and RGB x f >> 8,
+			// the alpha kept
+			const auto& n = piece.normals[i];
+			const float dot = (light.z * n.z + light.y * n.y) + light.x * n.x;
+			colour = model_light::Apply(base, model_light::Intensity(dot), ambient);
+		}
+		const glm::vec2 uv = i < piece.uvs.size() ? piece.uvs[i] : glm::vec2(0.0f);
+		vertices[i] = {world, uv, wt::ToAbgr(colour)};
+	}
+	// 0x67C9B7..0x67C9C0: the DrawData alpha byte (+0xB) not 0xFF -> g_set_render_mode_data = 0xC387C8 for this draw
+	const auto alphaByte = static_cast<uint8_t>(argb >> 24);
+	const auto table =
+	    alphaByte != 0xFFu ? graphics::render_modes::Table::GlobalAlpha : graphics::render_modes::Table::Normal;
+	// Draw3DWorldTriangle 0x81C090 with the GJMesh's material (+0, the source primitive) at 0x67C9DD..0x67C9F2.
+	// (inferido) the pieces have no second colour set (+0x30 / +0x38, fn_0057D630), so never the 0x67CAEE branch
+	out.Append({piece.source->meshId, piece.subMesh, piece.primitive}, table, alphaByte, vertices, tag);
+}
+
+void gj_mesh::Build(graphics::world_triangles::Frame& out, DrawPath path)
+{
+	if constexpr (!k_PiecesAsWorldTriangles)
+	{
+		return;
+	}
+	for (const auto& drawable : manager::Collect(Creator::Kind::GJMesh))
+	{
+		if (drawable.path != path)
+		{
+			continue;
+		}
+		for (const auto& atom : drawable.atoms)
+		{
+			if (path == DrawPath::Sorted)
+			{
+				if (const auto* piece = atom.atom != nullptr ? PieceOf(*atom.atom) : nullptr; piece != nullptr)
+				{
+					AppendPiece(out, *piece, DrawMatrix(atom), DrawDataColour(atom));
+				}
+			}
+			else
+			{
+				BuildAtom(out, atom);
+			}
+		}
+	}
+}
+
+void gj_mesh::BuildAtom(graphics::world_triangles::Frame& out, const Effect::DrawAtom& atom)
+{
+	if (const auto* piece = atom.atom != nullptr ? PieceOf(*atom.atom) : nullptr; piece != nullptr)
+	{
+		AppendPiece(out, *piece, DrawMatrix(atom), DrawDataColour(atom), atom.atom);
+	}
 }
 
 void explode_object::RegisterRules()

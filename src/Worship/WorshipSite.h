@@ -101,8 +101,8 @@ void UpdateStrainVisual(entt::entity site, float milliseconds);
 /// fn_0077B8D0: the dance starts (k > 0 while still) or stops (k <= 0 while dancing), its speed is k (fn_0050C340)
 void SetDanceIntensity(entt::entity site, float intensity);
 
-/// The site of a position (MapCoords::FindWorshipSite 0x602460, for seeds put down there): the site whose ground (the
-/// B_WORSHIP mesh's footprint, inf: the mesh's bounding box in x/z in the site's frame) holds the point
+/// The site of a position (MapCoords::FindWorshipSite 0x602460, for seeds put down there): the first type 8 object of
+/// the cell's fixed list (ecs::map_cells::FindType) if it is a site, or a worship icon's site; else null
 [[nodiscard]] entt::entity FindAt(const glm::vec3& position);
 
 /// A villager joins the dance (StartWorshippingAtWorshipSite 0x76C4C0: GroupBehaviour, Dance +0x90) or leaves it

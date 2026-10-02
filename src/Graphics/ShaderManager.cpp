@@ -125,6 +125,8 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_physics_shadow_resolve
 #include "ShaderIncluder.h"
+#define SHADER_NAME vs_world_triangles
+#include "ShaderIncluder.h"
 // clang-format on
 
 namespace openblack::graphics
@@ -137,7 +139,7 @@ struct ShaderDefinition
 	const std::string_view fragmentShaderName;
 };
 
-const std::array<bgfx::EmbeddedShader, 38> k_EmbeddedShaders = {{
+const std::array<bgfx::EmbeddedShader, 39> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_line), BGFX_EMBEDDED_SHADER(vs_line_instanced),                                                   //
     BGFX_EMBEDDED_SHADER(fs_line),                                                                                            //
     BGFX_EMBEDDED_SHADER(vs_object), BGFX_EMBEDDED_SHADER(vs_object_instanced), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced), //
@@ -157,6 +159,7 @@ const std::array<bgfx::EmbeddedShader, 38> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_object_instanced_b32), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced_b32),
     BGFX_EMBEDDED_SHADER(fs_text),
     BGFX_EMBEDDED_SHADER(fs_physics_shadow_resolve),
+    BGFX_EMBEDDED_SHADER(vs_world_triangles), // Graphics/WorldTriangles.h (Draw3DWorldTriangle 0x81C090)
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
 
@@ -192,6 +195,7 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"Text", "vs_blob", "fs_text"},
     ShaderDefinition {"Foliage", "vs_foliage", "fs_foliage"},
     ShaderDefinition {"LandAlphaInstanced", "vs_footprint_instanced", "fs_land_alpha"},
+    ShaderDefinition {"WorldTriangles", "vs_world_triangles", "fs_object"},
 };
 
 ShaderManager::~ShaderManager()

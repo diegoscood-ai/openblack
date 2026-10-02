@@ -85,7 +85,7 @@ float LandAt(float x, float z)
 /// PSysManager::PSysFloatRand(a, b) 0x6729C0: a + rand(b - a)
 float RandRange(Effect& effect, float a, float b)
 {
-	return a + effect.Random(b - a);
+	return effect.Random(a, b);
 }
 
 float Clamp01(float x)
@@ -624,8 +624,8 @@ private:
 			interval /= std::max(magic::GetTribalPower(spell), 1.0f);
 		}
 		data.nextStrike = effect.CollectionAge(collection) + interval;
-		// PSysRand(count) 0x6729E0
-		const auto index = std::min(static_cast<size_t>(effect.Random(static_cast<float>(g_Clouds.size()))), g_Clouds.size() - 1);
+		// PSysRand(count) 0x6729E0 (UR_CloudGather 0x6D535C)
+		const auto index = static_cast<size_t>(effect.Rand(static_cast<int32_t>(g_Clouds.size())));
 		Atom* cloud = g_Clouds[index];
 		data.lightningCloud = nullptr;
 		if (data.lightning == nullptr)

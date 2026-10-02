@@ -26,6 +26,7 @@
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Field.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/MapShield.h"
@@ -665,4 +666,142 @@ TEST_F(MapCells, ReadBatchSharesOneSnapshot)
 	map_cells::Sync();
 	EXPECT_EQ(map_cells::ObjectsInCell(k_C), (V {b}));
 	EXPECT_EQ(map_cells::CheckConsistency(), 0u);
+}
+
+TEST_F(MapCells, CollideBitsFromTheFixedList)
+{
+	// MapCell::Collide 0x601BD0: no island here, so the landscape part is 1 (no block = water, 0x601C5D); a type 6 in the
+	// fixed list gives 0x20, a type 0x12 gives 4 (0x601C99 / 0x601C9E); nothing from the mobile list nor the tail's pots
+	map_cells::detail::SetShapeProviderForTests([](entt::entity, map_collide::Shape& shape, float& reach) {
+		shape = {{10.0f, 10.0f}, 3.0f, {}, 0.0f, "test"};
+		reach = 4.0f;
+		return true;
+	});
+	const auto at = [](float x, float z) { return map_coords::FromMetres(glm::vec2(x, z)); };
+	const auto tree = TreeAt(k_P);
+	const auto pot = PotAt(k_P);
+	const auto animal = AnimalAt(glm::vec3(65.0f, 0.0f, 55.0f));
+	const auto field = Make(glm::vec3(10.0f, 0.0f, 10.0f));
+	Reg().Assign<Field>(field);
+	for (const auto e : {tree, pot, animal, field})
+	{
+		map_cells::InsertMapObject(e);
+	}
+	EXPECT_EQ(map_cells::Collide(at(55.0f, 55.0f)), 0x21u);
+	EXPECT_EQ(map_cells::Collide(at(65.0f, 55.0f)), 0x01u); // an animal only
+	EXPECT_EQ(map_cells::Collide(at(85.0f, 85.0f)), 0x01u); // nothing
+	for (const auto cell : {glm::vec2(5.0f, 5.0f), glm::vec2(5.0f, 15.0f), glm::vec2(15.0f, 5.0f), glm::vec2(15.0f, 15.0f)})
+	{
+		EXPECT_EQ(map_cells::Collide(at(cell.x, cell.y)), 0x05u); // the field is in its four cells
+	}
+	// bit 8 never: the CollideWithFixe branch of 0x601CE0 is dead, even right on the tree
+	EXPECT_EQ(map_cells::Collide(at(55.0f, 55.0f)) & 8u, 0u);
+	// off the map (ToMap NULL): every bit (0x6033CC)
+	EXPECT_EQ(map_cells::Collide(at(-5.0f, 55.0f)), 0xFFFFFFFFu);
+	EXPECT_EQ(map_cells::Collide(at(55.0f, 5125.0f)), 0xFFFFFFFFu);
+	// what the original has out of the list does not count (held out by a storm)
+	map_cells::SetHeldOutOfMap(tree, true);
+	EXPECT_EQ(map_cells::Collide(at(55.0f, 55.0f)), 0x01u);
+}
+
+TEST_F(MapCells, CollideWithFixedAgainstTheCollideData)
+{
+	// MapCell::CollideWithFixe 0x601D10: a 0.5 circle against GetCollideData of each object of the fixed list
+	map_cells::detail::SetShapeProviderForTests([](entt::entity, map_collide::Shape& shape, float& reach) {
+		shape = {{10.0f, 10.0f}, 3.0f, {}, 0.0f, "test"};
+		reach = 4.0f;
+		return true;
+	});
+	const auto at = [](float x, float z) { return map_coords::FromMetres(glm::vec2(x, z)); };
+	const auto tree = TreeAt(k_P);
+	const auto pot = PotAt(glm::vec3(52.0f, 0.0f, 52.0f));
+	const auto rock = Rock(glm::vec3(10.0f, 0.0f, 10.0f));
+	for (const auto e : {tree, pot, rock})
+	{
+		map_cells::InsertMapObject(e);
+	}
+	// the tree's 0.3 circle (Tree::CreateCollideData 0x74C5F0): 0.4 m away hits (0.3 + 0.5), 1 m away does not
+	ASSERT_NE(map_cells::CollideDataOf(tree), nullptr);
+	EXPECT_FLOAT_EQ(map_cells::CollideDataOf(tree)->radius, 0.3f);
+	EXPECT_EQ(map_cells::CollideWithFixed(at(55.4f, 55.0f)), 0x29u);
+	EXPECT_EQ(map_cells::CollideWithFixed(at(56.0f, 55.0f)), 0x21u);
+	// a pot (Object::GetCollideData 0x419B30 = 0): never, even on it
+	EXPECT_EQ(map_cells::CollideDataOf(pot), nullptr);
+	EXPECT_EQ(map_cells::CollideWithFixed(at(52.0f, 52.0f)) & 8u, 0u);
+	// the rock's shape (MultiMapFixed::CreateCollideData 0x52F550), in every cell of the rock
+	ASSERT_NE(map_cells::CollideDataOf(rock), nullptr);
+	EXPECT_EQ(map_cells::CollideWithFixed(at(13.2f, 10.0f)), 0x09u); // 3.2 < 3 + 0.5, cell (1, 1)
+	EXPECT_EQ(map_cells::CollideWithFixed(at(9.0f, 9.0f)), 0x09u);   // cell (0, 0)
+	EXPECT_EQ(map_cells::CollideWithFixed(at(14.0f, 10.0f)), 0x01u); // 4 > 3.5
+	EXPECT_EQ(map_cells::CollideWithFixed(at(-5.0f, 10.0f)), 0xFFFFFFFFu);
+	// a BigForest has none (0x439580 = ReleaseCollideData)
+	const auto forest = Make(glm::vec3(10.0f, 0.0f, 10.0f));
+	Reg().Assign<BigForest>(forest);
+	map_cells::InsertMapObject(forest);
+	EXPECT_EQ(map_cells::CollideDataOf(forest), nullptr);
+	// out of the map: no data, and the cell no longer collides
+	map_cells::RemoveMapObject(rock);
+	EXPECT_EQ(map_cells::CollideDataOf(rock), nullptr);
+	EXPECT_EQ(map_cells::CollideWithFixed(at(13.2f, 10.0f)), 0x01u);
+	EXPECT_EQ(map_cells::CheckConsistency(), 0u);
+}
+
+TEST_F(MapCells, ForEachFixedWalksTheFixedListOnly)
+{
+	const auto rock = Rock(k_P);
+	const auto pot = PotAt(k_P);
+	const auto tree = TreeAt(k_P);
+	const auto animal = AnimalAt(k_P);
+	for (const auto e : {rock, pot, tree, animal})
+	{
+		map_cells::InsertMapObject(e);
+	}
+	V seen;
+	map_cells::ForEachFixed(k_C, [&seen](entt::entity e) {
+		seen.push_back(e);
+		return true;
+	});
+	EXPECT_EQ(seen, (V {tree, rock, pot}));
+	// stops when fn says so; filtered like the other readers
+	seen.clear();
+	map_cells::SetHeldOutOfMap(tree, true);
+	map_cells::ForEachFixed(k_C, [&seen](entt::entity e) {
+		seen.push_back(e);
+		return false;
+	});
+	EXPECT_EQ(seen, (V {rock}));
+	seen.clear();
+	map_cells::ForEachFixed({512, 0}, [&seen](entt::entity e) {
+		seen.push_back(e);
+		return true;
+	});
+	EXPECT_TRUE(seen.empty());
+}
+
+TEST_F(MapCells, FindPlayerTownAtPosOnePlayerAndTiesToTheLater)
+{
+	const auto town = [](uint32_t id, PlayerNames owner, glm::vec3 p) {
+		const auto e = Make(p);
+		auto& t = Reg().Assign<Town>(e);
+		t.id = id;
+		t.owner = owner;
+		Reg().Assign<Tribe>(e, Tribe::NORSE);
+		return e;
+	};
+	const auto other = town(0, PlayerNames::PLAYER_TWO, glm::vec3(110.0f, 0.0f, 100.0f));
+	const auto first = town(1, PlayerNames::PLAYER_ONE, glm::vec3(150.0f, 0.0f, 100.0f));
+	const auto second = town(2, PlayerNames::PLAYER_ONE, glm::vec3(50.0f, 0.0f, 100.0f));
+	const auto at = map_coords::FromMetres(glm::vec2(100.0f, 100.0f));
+	// the same distance (50): <= (0x6F7312), the later one of the player's list wins; the other player's nearer town is
+	// not looked at
+	EXPECT_EQ(map_cells::FindPlayerTownAtPos(at, 1000.0f, PlayerNames::PLAYER_ONE), second);
+	EXPECT_EQ(map_cells::FindPlayerTownAtPos(at, 1000.0f, PlayerNames::PLAYER_TWO), other);
+	// r itself counts; below it, nothing
+	const float d = gutils::GetDistanceInMetres(at, map_coords::FromMetres(glm::vec2(150.0f, 100.0f)));
+	EXPECT_EQ(map_cells::FindPlayerTownAtPos(at, d, PlayerNames::PLAYER_ONE), second);
+	EXPECT_EQ(map_cells::FindPlayerTownAtPos(at, d - 1.0f, PlayerNames::PLAYER_ONE), k_Null);
+	EXPECT_EQ(map_cells::FindPlayerTownAtPos(at, 1000.0f, PlayerNames::PLAYER_THREE), k_Null);
+	// GetNearestTown (strict <, every player) would give the other one
+	EXPECT_EQ(map_cells::GetNearestTown(at, 1000.0f), other);
+	(void)first;
 }

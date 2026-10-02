@@ -13,7 +13,8 @@
 #include <cstdint>
 
 #include <array>
-#include <random>
+
+#include "Common/GameRandom.h"
 
 using namespace openblack::psys;
 
@@ -34,17 +35,20 @@ constexpr std::array<uint8_t, 256> k_Permutation {
     206, 14,  118, 127, 48,  79,  147, 85,  30,  207, 219, 54,  88,  234, 190, 122, 95,  67,  143, 109, 137, 214,
     145, 93,  92,  100, 245, 0,   216, 186, 60,  83,  105, 97,  204, 52};
 
-/// The lattice values 0xD066D8: fn_00590DF0 (PSysGlobal::InitializeOneTimeOnly) fills them once with 1 - GameFloatRand(2),
-/// so they differ from game to game. Here a fixed seed gives the same kind of values (inf).
+/// The lattice values 0xD066D8: fn_00590DF0 (PSysGlobal::InitializeOneTimeOnly 0x68F75C, from GGame::InitOneTimeOnly
+/// 0x54F0F4) fills them once with 1 - GameFloatRand(2) (0x590DFC..0x590E1D). That runs before GGame::Init sets the
+/// seeds (0x54F4AF), on the seed g_game was made with: 0 (inferido: the `new GGame` site is not read; the LH operator
+/// new 0x7DB790 is calloc and GData::GData 0x510500 does not set +8). The same values every game, and Init's 0x88F89F
+/// is not moved by these 256 draws
 const std::array<float, 256>& Values()
 {
 	static const auto values = [] {
 		std::array<float, 256> v {};
-		std::mt19937 random(0x590DF0);
-		std::uniform_real_distribution<float> twice(0.0f, 2.0f);
+		uint32_t seed = 0;
 		for (auto& value : v)
 		{
-			value = 1.0f - twice(random);
+			const float r = openblack::game_random::FloatRand(2.0f, seed);
+			value = 1.0f - r; // fsubr [0x8AA390] (0x590E10)
 		}
 		return v;
 	}();

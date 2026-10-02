@@ -233,7 +233,8 @@ public:
 			auto& atom = effect.NewAtom(collection, particleCreator, nextGroups);
 			atom.position = local;
 			openblack::audio::spell_sounds::StartSound(effect, atom, sound);
-			// AtomData +0x20..+0x28: PSysFloatRand(2 pi) x 3; +0x2C: ftol(PSysFloatRand(4) + 2); +0x30: the orientation
+			// AtomData +0x20..+0x28: PSysFloatRand(2 pi) x 3 (0x6A2CF7..0x6A2D16); +0x2C: ftol(PSysFloatRand(4) + 2)
+			// (0x6A2D1E..0x6A2D31, a float draw, not PSysRand); +0x30: the orientation
 			// (rebuilt from the position each step: the spark atom never moves)
 			const float a1 = effect.Random(k_TwoPi);
 			const float a2 = effect.Random(k_TwoPi);

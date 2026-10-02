@@ -512,8 +512,8 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
     - el dibujo de la `LightSheet` de LH3D (50 puntos en la ideal, altura escala × 9, alfa 1 − (2f − 1)²); los datos
       sí están;
     - el pulso de color de la mano (vt 0x2C del objeto de la mano, sin identificar).
-  - En el original los valores de la red de ruido son aleatorios en cada partida (1 − GameFloatRand(2)); aquí salen de
-    una semilla fija (inf).
+  - La red de ruido: 256 × `1 − GameFloatRand(2)` (fn_00590DF0) desde la semilla 0 (inferido: antes de
+    `GGame::Init`), los mismos valores en cada partida (`PSys/Noise.cpp`, game_random).
 - Sin portar: alimentar una bola de fuego en vuelo con una semilla de fuego en la mano (el principio de
   `ProcessPowerUpSystem`); necesita que el cursor pueda señalar la MagicFireBall.
 
@@ -1229,7 +1229,8 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
   - Rayo: la segunda horquilla en lugar del árbol fn_00691F30.
   - Mapas de luz: alfa = máximo RGB, sin nivel ×190.
   - Gráfico de fuego: el ruido del carbonizado es de dos senos (no VLNoise 0x590C30); se actualizan todos los fuegos.
-  - Números aleatorios: los de openblack, no GameRand (tormentas, luciérnagas, lluvia).
+  - Números aleatorios: las tormentas, la lluvia, el fuego y los milagros ya van por `game_random` (GRand, el PSys y la
+    CRT del original); las luciérnagas y otros sistemas siguen con los de openblack (fase B).
   - Aldeanos: MOVE_AROUND_FIRE va recto (GetViaPoint 0x75A440 sin portar); la decisión de luchar contra el fuego
     (0x765870: fórmula leída, sin término aleatorio) toma fn_00730290 / fn_007302E0 sin trazar; FLYING / LANDED no se
     ejecutan al aterrizar tras un teletransporte.

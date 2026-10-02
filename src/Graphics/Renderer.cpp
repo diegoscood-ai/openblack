@@ -78,6 +78,7 @@
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "Graphics/VertexBuffer.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
 #include "Profiler.h"
@@ -1173,7 +1174,7 @@ void Renderer::UpdateClouds() const
 	{
 		_clouds->Update(milliseconds);
 	}
-	// DrawClouds advances the animation counters of the clouds it draws by this step
+	// CollectClouds advances the animation counters of the clouds it queues by this step
 	_cloudMilliseconds = running ? milliseconds : 0.0f;
 	// GLandAlignement::DrawSky 0x5E2160: the sky's alignment moves towards the most influential player's
 	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), running ? milliseconds : 0.0f);
@@ -1226,98 +1227,108 @@ void Renderer::UpdateClouds() const
 	                      bgfx::copy(_cloudShadowCap.data(), static_cast<uint32_t>(_cloudShadowCap.size())));
 }
 
-void Renderer::DrawClouds(graphics::RenderPass viewId, const Camera& camera) const
+std::vector<std::pair<float, uint32_t>> Renderer::CollectClouds(const Camera& camera) const
 {
+	std::vector<std::pair<float, uint32_t>> order;
 	if (!_clouds || !GetDetailLevel(Locator::config::value().detailLevel).clouds)
 	{
-		return;
+		return order;
 	}
-	const auto rgb = _cloudRgb;
-
 	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
 	if (mesh.GetNumSubMeshes() == 0)
 	{
-		return;
+		return order;
 	}
 	const auto origin = camera.GetOrigin();
-	// the same billboard as the map mists (Renderer::DrawMist): 0xEA1C98 after its in-place inverse fn_007FB3F0
-	// (0x819AF3), in glm mat3(right, -forward, up): local X = screen right, local Y (the dome's axis) towards the
-	// camera, local Z = screen up (billboard::MistBasis)
-	const auto cameraFrame = billboard::CameraFrame::From(camera);
-	const auto& rotation = billboard::MistBasis(cameraFrame);
-	std::vector<std::pair<float, size_t>> order;
-	order.reserve(_clouds->GetClouds().size());
-	for (size_t i = 0; i < _clouds->GetClouds().size(); ++i)
-	{
-		order.emplace_back(glm::distance(Clouds::WorldPosition(_clouds->GetClouds()[i]), origin), i);
-	}
-	std::sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-
 	// LH3DMist::AddDrawing 0x7FA7F0 (vt+0x100 of the cloud objects, called by fn_005E25C0): only a cloud whose sphere
-	// (the mesh's bounding-box half diagonal x size x 0.55) touches the screen is drawn and advances its counter
+	// (the mesh's bounding-box half diagonal x size x 0.55) touches the screen is queued and advances its counter
 	const float meshRadius = glm::length(mesh.GetBoundingBox().Size()) * 0.5f;
 	const auto viewProjection = camera.GetViewProjectionMatrix(Camera::Interpolation::Current);
 	const float milliseconds = _cloudMilliseconds;
 	_cloudMilliseconds = 0.0f;
-	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
-	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above.
-	const glm::vec4 u_cloudSpecular(0.0f);
-	const auto* program = _shaderManager->GetShader("Cloud");
 	// mist.l3d is loaded without skins; LH3DMist::Draw (fn_007FA300) uses the smoke material instead
 	const auto& textures = Locator::resources::value().GetTextures();
 	static const auto k_Smoke = entt::hashed_string("raw/smoke");
 	static const auto k_SmokeAlpha = entt::hashed_string("raw/smokea");
 	if (!textures.Contains(k_Smoke) || !textures.Contains(k_SmokeAlpha))
 	{
-		return;
+		return order;
 	}
-	const auto& smoke = *textures.Handle(k_Smoke);
-	const auto& smokeAlpha = *textures.Handle(k_SmokeAlpha);
-	for (const auto& [distance, index] : order)
+	order.reserve(_clouds->GetClouds().size());
+	for (size_t index = 0; index < _clouds->GetClouds().size(); ++index)
 	{
 		const auto& cloud = _clouds->GetClouds()[index];
 		const auto position = Clouds::WorldPosition(cloud);
-		// 0x7FA4DC..0x7FA539: row 0 (local X, the screen width) is scaled by the size and rows 1-2 (local Y = depth,
-		// local Z = screen height) by the shrunk one, so a cloud is round only straight overhead and near the horizon
-		// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall (billboard::MistShrunkSize)
-		const float shrunk = billboard::MistShrunkSize(cloud.size, cloud.k, position - origin);
-		const auto model =
-		    glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
-		const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
-		if (u_cloudColour.a <= 0.0f || !SphereInView(viewProjection, position, meshRadius * cloud.size * 0.55f))
+		if (_cloudAlpha[index] / 255.0f <= 0.0f || !SphereInView(viewProjection, position, meshRadius * cloud.size * 0.55f))
 		{
 			continue;
 		}
 		_clouds->AdvanceAnimation(index, milliseconds);
-		// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step;
-		// frame_anim::MistCellUv of the effect branch)
-		const auto cell = frame_anim::MistCellUv(Clouds::GetFrame(_clouds->GetClouds()[index]), true);
-		// fn_007FA300 0x7FA53C..0x7FA563: LH3DMist::Draw saves [0xEA9E90] and moves the light straight above with
-		// fn_0081E1F0 while it draws the clouds, with the ambient at 210 (0x7FA56D); both go back at 0x7FA586 / 0x7FA590.
-		// fn_00855340 (model_light::LightInMeshSpace) brings the light into the mesh's own space, normalised
-		const model_light::ScopedLight cloudLight(glm::vec3(0.0f, 500000.0f, 0.0f));
-		const model_light::ScopedAmbient cloudAmbient(model_light::k_MistAmbient);
-		const glm::vec4 u_cloud(cell.x, cell.y, static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
-		const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
-		for (const auto& subMesh : mesh.GetSubMeshes())
+		// the Z-sorter key: |+0x38 - g_camera|^2, (x^2 + y^2) + z^2 (0x7FA83C..0x7FA86B, NewZObject call 0x7FA87B)
+		order.emplace_back(zsorter::Key(position, origin), static_cast<uint32_t>(index));
+	}
+	return order;
+}
+
+void Renderer::DrawCloud(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const
+{
+	if (!_clouds || index >= _clouds->GetClouds().size())
+	{
+		return;
+	}
+	const auto rgb = _cloudRgb;
+	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
+	const auto origin = camera.GetOrigin();
+	// the same billboard as the map mists (Renderer::DrawMist): 0xEA1C98 after its in-place inverse fn_007FB3F0
+	// (0x819AF3), in glm mat3(right, -forward, up): local X = screen right, local Y (the dome's axis) towards the
+	// camera, local Z = screen up (billboard::MistBasis)
+	const auto cameraFrame = billboard::CameraFrame::From(camera);
+	const auto& rotation = billboard::MistBasis(cameraFrame);
+	// The clouds are LH3DMist objects too (+0x88 the size, +0x8C the shrink), so their draw is the effect branch of the
+	// same fn_007FA300: no specular (+0x50 is never written) and the temporary light straight above.
+	const glm::vec4 u_cloudSpecular(0.0f);
+	const auto* program = _shaderManager->GetShader("Cloud");
+	const auto& textures = Locator::resources::value().GetTextures();
+	static const auto k_Smoke = entt::hashed_string("raw/smoke");
+	static const auto k_SmokeAlpha = entt::hashed_string("raw/smokea");
+	const auto& smoke = *textures.Handle(k_Smoke);
+	const auto& smokeAlpha = *textures.Handle(k_SmokeAlpha);
+	const auto& cloud = _clouds->GetClouds()[index];
+	const auto position = Clouds::WorldPosition(cloud);
+	// 0x7FA4DC..0x7FA539: row 0 (local X, the screen width) is scaled by the size and rows 1-2 (local Y = depth,
+	// local Z = screen height) by the shrunk one, so a cloud is round only straight overhead and near the horizon
+	// it is about k (2.5 to 5, CloudInSky::Open 0x5E23F0) times wider than tall (billboard::MistShrunkSize)
+	const float shrunk = billboard::MistShrunkSize(cloud.size, cloud.k, position - origin);
+	const auto model = glm::translate(position) * glm::mat4(rotation) * glm::scale(glm::vec3(cloud.size, shrunk, shrunk));
+	const glm::vec4 u_cloudColour(rgb, _cloudAlpha[index] / 255.0f);
+	// fn_007FA300 0x7FA3F4..0x7FA466: one whole atlas cell, rows 2-3 (the frame after this frame's step;
+	// frame_anim::MistCellUv of the effect branch)
+	const auto cell = frame_anim::MistCellUv(Clouds::GetFrame(cloud), true);
+	// fn_007FA300 0x7FA53C..0x7FA563: LH3DMist::Draw saves [0xEA9E90] and moves the light straight above with
+	// fn_0081E1F0 while it draws the clouds, with the ambient at 210 (0x7FA56D); both go back at 0x7FA586 / 0x7FA590.
+	// fn_00855340 (model_light::LightInMeshSpace) brings the light into the mesh's own space, normalised
+	const model_light::ScopedLight cloudLight(glm::vec3(0.0f, 500000.0f, 0.0f));
+	const model_light::ScopedAmbient cloudAmbient(model_light::k_MistAmbient);
+	const glm::vec4 u_cloud(cell.x, cell.y, static_cast<float>(model_light::Ambient()) / 256.0f, 0.0f);
+	const glm::vec4 u_cloudLight(model_light::LightInMeshSpace(model), 0.0f);
+	for (const auto& subMesh : mesh.GetSubMeshes())
+	{
+		for (const auto& prim : subMesh->GetPrimitives())
 		{
-			for (const auto& prim : subMesh->GetPrimitives())
+			bgfx::setTransform(&model);
+			program->SetTextureSampler("s_diffuse", 0, smoke);
+			program->SetTextureSampler("s_alpha", 1, smokeAlpha);
+			program->SetUniformValue("u_cloud", &u_cloud);
+			program->SetUniformValue("u_cloudColour", &u_cloudColour);
+			program->SetUniformValue("u_cloudLight", &u_cloudLight);
+			program->SetUniformValue("u_cloudSpecular", &u_cloudSpecular);
+			if (subMesh->GetMesh().IsIndexed())
 			{
-				bgfx::setTransform(&model);
-				program->SetTextureSampler("s_diffuse", 0, smoke);
-				program->SetTextureSampler("s_alpha", 1, smokeAlpha);
-				program->SetUniformValue("u_cloud", &u_cloud);
-				program->SetUniformValue("u_cloudColour", &u_cloudColour);
-				program->SetUniformValue("u_cloudLight", &u_cloudLight);
-				program->SetUniformValue("u_cloudSpecular", &u_cloudSpecular);
-				if (subMesh->GetMesh().IsIndexed())
-				{
-					subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
-				}
-				subMesh->GetMesh().GetVertexBuffer().Bind();
-				bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
-				bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
+				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 			}
+			subMesh->GetMesh().GetVertexBuffer().Bind();
+			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}
 }
@@ -2151,6 +2162,34 @@ void Renderer::DrawScreenOverlay() const
 	bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
 }
 
+namespace
+{
+/// One entry of the frame's transparency queue (zsorter::Queue, LH3DZSorter::NewZObject 0x83F310): what DrawPass needs
+/// to draw it when the queue is drained (fn_0082F280), in place of the original's object and callback. One of the
+/// indices is set; with none, an instance of the models (fading or with blended primitives, or the hand).
+/// (aproximado) the arrival order, which breaks ties between equal keys, is not the original's: here clouds, then the
+/// models mesh by mesh (an unordered_map), fading ones, effects, surfaces, chains, sprites, mists, smoke, rain, boat;
+/// there the order of the frame's AddDrawing calls (tmp_dis original-frame.md steps 4m..22)
+struct ZObject
+{
+	entt::id_type meshId {0};
+	uint32_t index {0};
+	bool morphWithTerrain {false};
+	bool fading {false};
+	entt::entity sprite {entt::null};
+	int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
+	int mist {-1};   ///< an index of _frameMists
+	int smoke {-1};  ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
+	/// an index of _frameSurfaces: a ZR_SurfRevol atom of an effect, drawn inside that effect's single Z object
+	/// (PSysManager::AddDrawing 0x6797D0), so with the effect's key and right after its sprites
+	int surface {-1};
+	int chain {-1}; ///< an index of _frameChains, likewise inside its effect's Z object (fn_0067B370)
+	int cloud {-1}; ///< a cloud of _clouds (LH3DMist::AddDrawing 0x7FA87B from fn_005E25C0)
+	int rain {-1};  ///< an index of _frameRain (fn_008341B0 0x83427F, one per raining tile)
+	int boat {-1};  ///< an index of _frameBoatSprites (LH3DSprite::AddDrawing 0x840CB3, one per sprite)
+};
+} // namespace
+
 void Renderer::DrawPass(const DrawSceneDesc& desc) const
 {
 	const auto& meshManager = Locator::resources::value().GetMeshes();
@@ -2184,6 +2223,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const glm::vec4 u_hazeColour = {haze.colour, 0.0f};
 	_hazeUniforms = {u_haze, u_hazeColour};
 
+	// LH3DRender::StartFrame 0x82F1F9 -> fn_0083F3B0: the frame's single queue of everything blended, filled while the
+	// main view is drawn and drained once, far to near, after all of it (FinishFrame 0x82F480 -> fn_0082F280)
+	zsorter::Queue<ZObject> sorted;
+	sorted.Begin();
+
 	{
 		auto section = profiler.BeginScoped(desc.viewId == RenderPass::Reflection ? Profiler::Stage::ReflectionDrawSky
 		                                                                          : Profiler::Stage::MainPassDrawSky);
@@ -2214,6 +2258,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				DrawMoon(desc.viewId, *desc.camera);
 				DrawSun(desc.viewId, *desc.camera, false);
+				// fn_005E25C0 0x5E2813: each cloud's vt+0x100, LH3DMist::AddDrawing 0x7FA7F0, queues it with the blended
+				// things of the frame (it used to be sorted on its own and drawn after all of them)
+				for (const auto& [key, index] : CollectClouds(*desc.camera))
+				{
+					sorted.Submit({.cloud = static_cast<int>(index)}, key);
+				}
 			}
 			else if (desc.viewId == graphics::RenderPass::Reflection)
 			{
@@ -2490,24 +2540,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			};
 			// The original draws opaque meshes at once and sends meshes with alpha to the Z-sorter, drawn back to front
 			// at the end of the frame (fn_0082F280); here every instance with blended primitives, and every fading
-			// one, is drawn on its own in that order in the blended view
-			struct SortedInstance
-			{
-				float distance;
-				entt::id_type meshId;
-				uint32_t index;
-				bool morphWithTerrain;
-				bool fading;
-				entt::entity sprite {entt::null};
-				int effect {-1}; ///< a particle effect (PSysManager::AddDrawing: one Z object per effect)
-				int mist {-1}; ///< an index of _frameMists
-				int smoke {-1}; ///< an index of _frameSmoke (LH3DSmoke::AddDrawing: one Z object per chimney)
-				/// an index of _frameSurfaces: a ZR_SurfRevol atom of an effect, drawn inside that effect's single Z object
-				/// (PSysManager::AddDrawing 0x6797D0), so with the effect's key and right after its sprites
-				int surface {-1};
-				int chain {-1}; ///< an index of _frameChains, likewise inside its effect's Z object (fn_0067B370)
-			};
-			std::vector<SortedInstance> sorted;
+			// one, is drawn on its own in that order in the blended view (the queue `sorted`)
 			const bool sortBlended = desc.viewId == graphics::RenderPass::Main;
 			const auto cameraOrigin = desc.camera->GetOrigin();
 			const auto hasBlended = [](const L3DMesh& mesh) {
@@ -2544,8 +2577,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
 
+				// CHand::AddDrawing 0x46D100 queues the whole hand, always (0x46D1B7..0x46D203, no test): in the main view
+				// it is drawn only from the queue, opaque primitives included
+				const bool handQueued = sortBlended && meshId == ecs::components::Hand::k_MeshId;
 				// TODO(bwrsandman): choose the correct LOD
-				if (mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
+				if (!handQueued && mesh->IsBoned() && ecs::HasPose(poses, placers.offset, placers.count))
 				{
 					// animated (ecs/Animations.h): each instance on its own, with its pose. Only the ones in the view: every
 					// draw copies the bones into the backend's per-frame uniform buffer (see vs_object.sc)
@@ -2573,11 +2609,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 					}
 				}
-				else
+				else if (!handQueued)
 				{
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
-				if (sortBlended && hasBlended(*mesh))
+				if (sortBlended && (handQueued || hasBlended(*mesh)))
 				{
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
@@ -2585,8 +2621,17 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						{
 							continue;
 						}
+						// the key of LH3DObject::AddDrawing fn_00815A70 (0x815F0F..0x815F45: +0x38, (x^2 + z^2) + y^2) or,
+						// for the hand, of CHand::AddDrawing: the origin +0x38 of the LH3DObject [CHand+0x482C]
+						// (0x46D1B7..0x46D1C0), (x^2 + y^2) + z^2 (0x46D1BD..0x46D1F3). (inferido) that the hand instance's
+						// translation is that object's origin. (aproximado) the objects of fn_00813340 (vtable 0x9A3068,
+						// 0x8133CF..0x813403) sum (x^2 + y^2) + z^2 and are not told apart
 						const auto origin = glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
-						sorted.push_back({glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, false});
+						const auto order = handQueued ? zsorter::SumOrder::XYZ : zsorter::SumOrder::XZY;
+						sorted.Submit({.meshId = meshId,
+						               .index = placers.offset + i,
+						               .morphWithTerrain = placers.morphWithTerrain},
+						              zsorter::Key(origin, cameraOrigin, order));
 					}
 				}
 			}
@@ -2606,20 +2651,28 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						{
 							continue;
 						}
-						// the sort point of the one-shot orb (OneOffSpellSeed::Draw 0x518E90), else the matrix's translation
+						// the sort point of the one-shot orb (OneOffSpellSeed::Draw 0x518E90), else the matrix's translation.
+						// The key of LH3DObject::AddDrawing (0x815F0F..0x815F45), which the orb reaches through
+						// Game3DObject::AddForDrawing 0x519027. (aproximado) the PSys mesh atoms (fn_00679F60
+						// 0x679F87..0x679FB7) and the objects of fn_00813340 (0x8133CF..0x813403) sum (x^2 + y^2) + z^2: the
+						// list does not tell them apart, and only the last bit of the key can differ
 						const auto point = renderCtx.sortPoints.find(placers.offset + i);
 						const auto origin = point != renderCtx.sortPoints.end()
 						                        ? point->second
 						                        : glm::vec3(renderCtx.instanceUniforms[placers.offset + i][3]);
-						sorted.push_back(
-						    {glm::distance(origin, cameraOrigin), meshId, placers.offset + i, placers.morphWithTerrain, true});
+						sorted.Submit({.meshId = meshId,
+						               .index = placers.offset + i,
+						               .morphWithTerrain = placers.morphWithTerrain,
+						               .fading = true},
+						              zsorter::Key(origin, cameraOrigin, zsorter::SumOrder::XZY));
 					}
 				}
 			}
 			const auto effects = sortBlended ? psys::manager::Collect() : std::vector<psys::manager::Drawable>();
 			for (size_t i = 0; i < effects.size(); ++i)
 			{
-				sorted.push_back({glm::distance(effects[i].origin, cameraOrigin), 0, 0, false, false, entt::null, static_cast<int>(i)});
+				// PSysManager::AddDrawing 0x6797E5..0x679834: the point it is given, (x^2 + y^2) + z^2
+				sorted.Submit({.effect = static_cast<int>(i)}, zsorter::Key(effects[i].origin, cameraOrigin));
 			}
 			if (sortBlended)
 			{
@@ -2630,39 +2683,85 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				// as the original's stable insertion does (NewZObject 0x83F36A..0x83F376).
 				// (aproximado) the original interleaves them atom by atom inside the collection; here an effect's sprites come
 				// first, then its surfaces, then its ribbons.
-				for (const auto& [distance, index] : CollectPSysSurfaces(*desc.camera))
+				// (aproximado) they also take entries of the queue (its 0x800 cap) that the original's effect does not
+				for (const auto& [key, index] : CollectPSysSurfaces(*desc.camera))
 				{
-					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, -1, static_cast<int>(index)});
+					sorted.Submit({.surface = static_cast<int>(index)}, key);
 				}
-				for (const auto& [distance, index] : CollectPSysChains(*desc.camera))
+				for (const auto& [key, index] : CollectPSysChains(*desc.camera))
 				{
-					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, -1, -1, static_cast<int>(index)});
+					sorted.Submit({.chain = static_cast<int>(index)}, key);
 				}
 			}
 			if (spritesSorted)
 			{
 				Locator::entitiesRegistry::value().Each<const ecs::components::Sprite, const ecs::components::Transform>(
 				    [&sorted, &cameraOrigin](entt::entity entity, const auto&, const ecs::components::Transform& transform) {
-					    sorted.push_back({glm::distance(transform.position, cameraOrigin), 0, 0, false, false, entity});
+					    // LH3DSprite::AddDrawing 0x840C70: the sprite's +0/+4/+8, (x^2 + y^2) + z^2
+					    sorted.Submit({.sprite = entity}, zsorter::Key(transform.position, cameraOrigin));
 				    });
 			}
 			if (mistsSorted)
 			{
-				for (const auto& [distance, index] : CollectMists(*desc.camera))
+				for (const auto& [key, index] : CollectMists(*desc.camera))
 				{
-					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, static_cast<int>(index)});
+					sorted.Submit({.mist = static_cast<int>(index)}, key);
 				}
 			}
 			if (spritesSorted)
 			{
-				for (const auto& [distance, index] : CollectChimneySmoke(*desc.camera))
+				for (const auto& [key, index] : CollectChimneySmoke(*desc.camera))
 				{
-					sorted.push_back({distance, 0, 0, false, false, entt::null, -1, -1, static_cast<int>(index)});
+					sorted.Submit({.smoke = static_cast<int>(index)}, key);
 				}
 			}
-			// stable: NewZObject 0x83F310 puts a new entry before the first one with a strictly smaller key
-			// (0x83F36A..0x83F376), so entries with an equal key keep the order they arrived in
-			std::stable_sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.distance > b.distance; });
+			if (sortBlended)
+			{
+				// LH3DAtmos::Render3D 0x836250: one Z object per raining tile (fn_008341B0, NewZObject call 0x83427F);
+				// they used to be drawn as one group after the queue
+				for (const auto& [key, index] : CollectRain(*desc.camera))
+				{
+					sorted.Submit({.rain = static_cast<int>(index)}, key);
+				}
+				// the boat's LH3DSprites, each one on its own (LH3DSprite::AddDrawing 0x840CB3); they used to be one batch
+				// after the queue
+				for (const auto& [key, index] : CollectBoatSprites(*desc.camera))
+				{
+					sorted.Submit({.boat = static_cast<int>(index)}, key);
+				}
+			}
+
+			// OPENBLACK_ZSORTER_TRACE=1: once a second, what the frame's queue holds (docs/bw1-notes/openblack-internals.md)
+			static const bool k_ZSorterTrace = std::getenv("OPENBLACK_ZSORTER_TRACE") != nullptr;
+			static uint32_t zsorterTraceFrame = 0;
+			if (k_ZSorterTrace && sortBlended && ++zsorterTraceFrame % 60 == 0)
+			{
+				std::array<int, 11> counts {};
+				const auto ordered = sorted.Ordered();
+				for (const auto& entry : ordered)
+				{
+					const auto& z = *entry.item;
+					const size_t kind = z.cloud >= 0     ? 1
+					                    : z.rain >= 0    ? 2
+					                    : z.boat >= 0    ? 3
+					                    : z.effect >= 0  ? 4
+					                    : z.surface >= 0 ? 5
+					                    : z.chain >= 0   ? 6
+					                    : z.mist >= 0    ? 7
+					                    : z.smoke >= 0   ? 8
+					                    : z.sprite != entt::null ? 9
+					                    : z.meshId == ecs::components::Hand::k_MeshId && !z.fading ? 10
+					                                                                               : 0;
+					++counts.at(kind);
+				}
+				SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
+				                   "ZSorter trace: {} entries ({} dropped): models {}, clouds {}, rain tiles {}, "
+				                   "boat sprites {}, effects {}, surfaces {}, chains {}, mists {}, smoke {}, sprites {}, "
+				                   "hand {}; farthest key {:.1f}, nearest {:.1f}",
+				                   ordered.size(), sorted.Dropped(), counts[0], counts[1], counts[2], counts[3], counts[4],
+				                   counts[5], counts[6], counts[7], counts[8], counts[9], counts[10],
+				                   ordered.empty() ? 0.0f : ordered.front().key, ordered.empty() ? 0.0f : ordered.back().key);
+			}
 
 			// OPENBLACK_ORB_TRACE=1: one line a drawn frame per one-shot orb (docs/bw1-notes/openblack-internals.md), to
 			// follow the bubble across the 15 -> 0 wrap of its 4 x 4 sheet (OneOffSpellSeed::UpdateFrame 0x72A570)
@@ -2670,17 +2769,19 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			if (k_OrbTrace && sortBlended && Locator::entitiesRegistry::has_value())
 			{
 				const auto viewProjection = desc.camera->GetViewProjectionMatrix();
+				// the queue in draw order; the key printed is the distance (the root of the queue's key) as before
+				const auto ordered = sorted.Ordered();
 				// the ZR_SurfRevol discs in the same list, to see that each one is drawn before the bubble of its dispenser
-				for (size_t k = 0; k < sorted.size(); ++k)
+				for (size_t k = 0; k < ordered.size(); ++k)
 				{
-					if (sorted[k].surface >= 0)
+					if (ordered[k].item->surface >= 0)
 					{
-						const auto& surface = _frameSurfaces[static_cast<size_t>(sorted[k].surface)];
+						const auto& surface = _frameSurfaces[static_cast<size_t>(ordered[k].item->surface)];
 						SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
 						                   "Orb trace: surface {} ({}) sorted {}/{} key {:.2f} origin ({:.1f}, {:.1f}, {:.1f})",
-						                   sorted[k].surface, surface.texture, static_cast<int>(k),
-						                   static_cast<int>(sorted.size()), sorted[k].distance, surface.origin.x, surface.origin.y,
-						                   surface.origin.z);
+						                   ordered[k].item->surface, surface.texture, static_cast<int>(k),
+						                   static_cast<int>(ordered.size()), std::sqrt(ordered[k].key), surface.origin.x,
+						                   surface.origin.y, surface.origin.z);
 					}
 				}
 				Locator::entitiesRegistry::value().Each<const ecs::components::OneOffSpellSeed, const ecs::components::Mesh>(
@@ -2696,12 +2797,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					    const auto& model = renderCtx.instanceUniforms[index];
 					    int at = -1;
 					    float key = -1.0f;
-					    for (size_t k = 0; k < sorted.size(); ++k)
+					    for (size_t k = 0; k < ordered.size(); ++k)
 					    {
-						    if (sorted[k].fading && sorted[k].index == index && sorted[k].meshId == mesh.id)
+						    if (ordered[k].item->fading && ordered[k].item->index == index && ordered[k].item->meshId == mesh.id)
 						    {
 							    at = static_cast<int>(k);
-							    key = sorted[k].distance;
+							    key = std::sqrt(ordered[k].key);
 							    break;
 						    }
 					    }
@@ -2720,19 +2821,36 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					        static_cast<uint32_t>(entity), orb.phase, static_cast<int>(orb.phase), model[1][3],
 					        static_cast<float>(static_cast<int>(orb.phase) % 4) * 0.25f,
 					        static_cast<float>(static_cast<int>(orb.phase) / 4) * 0.25f, alpha, at,
-					        static_cast<int>(sorted.size()), key, orb.sortPoint.x, orb.sortPoint.y, orb.sortPoint.z, inView);
+					        static_cast<int>(ordered.size()), key, orb.sortPoint.x, orb.sortPoint.y, orb.sortPoint.z, inView);
 				    });
 			}
 
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
 			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
-			if (!sorted.empty())
+			// (fn_0082F280: far to near; the full queue dropped the entries over 0x800, NewZObject 0x83F31C)
+			if (!sorted.Empty())
 			{
 				const auto opaqueState = submitDesc.state;
 				submitDesc.viewId = graphics::RenderPass::MainBlended;
 				auto& spriteRegistry = Locator::entitiesRegistry::value();
-				for (const auto& instance : sorted)
+				for (const auto& entry : sorted.Drain())
 				{
+					const auto& instance = *entry.item;
+					if (instance.cloud >= 0)
+					{
+						DrawCloud(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(instance.cloud));
+						continue;
+					}
+					if (instance.rain >= 0)
+					{
+						DrawRainTile(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.rain));
+						continue;
+					}
+					if (instance.boat >= 0)
+					{
+						DrawBoatSprite(graphics::RenderPass::MainBlended, static_cast<uint32_t>(instance.boat));
+						continue;
+					}
 					if (instance.effect >= 0)
 					{
 						DrawPSysEffect(effects[static_cast<size_t>(instance.effect)], *desc.camera, graphics::RenderPass::MainBlended);
@@ -2775,7 +2893,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
 					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
-					submitDesc.blendFilter = instance.fading ? 0 : 2;
+					// the hand's Z object draws all of it (CHand::Draw 0x46D210); a blended model's only its blended primitives
+					submitDesc.blendFilter = instance.fading || instance.meshId == ecs::components::Hand::k_MeshId ? 0 : 2;
 					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
 					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
 					                                      BGFX_STATE_MSAA)
@@ -2794,17 +2913,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
-				// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0) are no longer a group of their own: they go
-				// through the back-to-front list above, inside their effect's Z object, as the original draws them.
-				// The rain keeps its group: LH3DAtmos::Render3D queues one Z object per raining tile of its own
-				// (fn_008341B0 0x83427F, key = dist2 to (x, GetAltitude(x, z), z), the tile and the alpha packed in K), not
-				// through PSysManager::AddDrawing, so giving it an effect's key would be wrong (hole H3).
-				// (inferido: draw order) the rain as a group after the sorted sprites; its order against them is not read.
-				// LH3DAtmos::Render3D 0x836250: the rain streaks (RendererRain.cpp)
-				DrawRain(graphics::RenderPass::MainBlended, *desc.camera);
+				// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0), the rain tiles, the boat's sprites and the
+				// clouds are no longer groups of their own: they all went through the queue above.
+				// (inferido) the hand's shadow on the objects (fn_0080B050) is not read to go through the queue: after it.
+				// That moves it after the clouds and the boat's sprites too, which used to be drawn after it (the rain was
+				// already before it)
 				DrawHandShadowOnObjects();
-				// the boat's LH3DSprites (wake, dust, spray), after the blended models (the original Z-sorts them)
-				DrawBoatSprites(graphics::RenderPass::MainBlended, *desc.camera);
 			}
 
 			// Debug
@@ -2863,10 +2977,25 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 	if (desc.drawSky && desc.viewId == graphics::RenderPass::Main)
 	{
-		DrawClouds(graphics::RenderPass::MainBlended, *desc.camera);
 		if (!mistsSorted)
 		{
-			DrawMists(graphics::RenderPass::MainBlended, *desc.camera);
+			// without the entities the models' section did not drain the queue: the mists join the clouds in it here and
+			// it is drained (fn_0082F280); nothing else can be in it
+			for (const auto& [key, index] : CollectMists(*desc.camera))
+			{
+				sorted.Submit({.mist = static_cast<int>(index)}, key);
+			}
+			for (const auto& entry : sorted.Drain())
+			{
+				if (entry.item->cloud >= 0)
+				{
+					DrawCloud(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(entry.item->cloud));
+				}
+				else if (entry.item->mist >= 0)
+				{
+					DrawMist(graphics::RenderPass::MainBlended, *desc.camera, static_cast<uint32_t>(entry.item->mist));
+				}
+			}
 		}
 		DrawSun(graphics::RenderPass::MainBlended, *desc.camera, true);
 	}

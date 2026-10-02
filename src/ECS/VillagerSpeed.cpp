@@ -28,6 +28,7 @@
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 namespace openblack::ecs
@@ -42,11 +43,10 @@ float FloatRand(float x)
 	return x > 0.0f ? Locator::rng::value().NextValue(0.0f, x) : 0.0f;
 }
 
-/// g_game +0x205A40, the game turn (0 without a Game, in the tests)
+/// g_game +0x205A40, the game turn
 uint32_t CurrentGameTurn()
 {
-	const auto* game = Game::Instance();
-	return game != nullptr ? game->GetTurn() : 0;
+	return game_clock::Turn();
 }
 
 uint32_t Raw(SpeedState state)

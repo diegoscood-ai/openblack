@@ -22,7 +22,9 @@ Los árboles están en [trees.md](trees.md) y la carga del mapa en [map-loading.
 - **Montón**: no escala; se hunde. `PileResource::SetSize` (0x66E900): objetivo `(GetProportionRaised − 1)·altura`,
   animado en 1 s con el Zoomer; se dibuja en `GetAltitude(pos) + desplazamiento` y no se ve si está enterrado del todo.
 - `GetProportionRaised` (0x66F1B0 madera / 0x66EB60 comida): x = cantidad/maxInPot en [0,1];
-  p = x > 0 ? 0.05 + 0.95x : 0; comida: 1 − (1 − p)².
+  p = x > 0 ? 0.05 + 0.95x : 0; comida: 1 − (1 − p)². Una sola copia, `ecs::object::GetProportionRaised`
+  ([engine-math.md](engine-math.md#tamaño-de-los-objetos)); el radio 2D de una pila de comida es
+  `GetProportionRaised × Object::Get2DRadius` (0x66F180), así que vacía mide 0.
 - Al crearse, todo montón empieza enterrado (`−altura`) y sube en 1 s (`CallVirtualFunctionsForCreation` 0x66E300).
 - Escalas de creación: **MagicFood 0.3**, **MagicWood 0.7** (constructores 0x5FA9F0 / 0x600E20); el resto 1.
 - `PileFood::Draw` (0x51BF80): el montón de comida del almacén (info 2) y la comida mágica (info 10) desplazan la

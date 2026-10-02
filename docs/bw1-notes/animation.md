@@ -134,7 +134,8 @@ pueblo, hambre, cargas, creencia, maravilla) cuenta como neutro: ver [Pendiente]
 `ECS/MobileDrawing` (`draw_interp.md`): la simulación mueve a aldeanos y animales una vez por turno; cada fotograma
 el original los dibuja entre su posición al empezar el turno (Living +0x2C, copiada en `Living::ProcessLiving`
 0x5EC810) y la del final, con la fracción del turno (0..0,99; fn_0051AF00): un turno por detrás, sin extrapolar,
-con las dos alturas interpoladas.
+con las dos alturas interpoladas. La fracción y los ms del fotograma salen de `game_clock`
+([engine-math.md](engine-math.md#reloj-del-juego)): en pausa la fracción se congela y los ms valen 0.
 
 - Solo en los estados que se mueven para la animación y con clip de zancada (los animales: si se movieron).
 - Giro: el aldeano gira su yaw dibujado hacia el real a 0,003 rad/ms (más de 90°: 0,012·|d|/π rad/ms;

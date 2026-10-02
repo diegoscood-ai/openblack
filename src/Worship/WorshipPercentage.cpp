@@ -25,6 +25,7 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerWorship.h"
 #include "InfoConstants.h"
@@ -299,8 +300,7 @@ float percentage::WorshipScore(entt::entity villager)
 		return 0.0f;
 	}
 	// WorshipSite::CalculateCentrePos 0x77DD40
-	const auto& site = registry.Get<const Transform>(magic->worshipSite);
-	const auto centre = site.position + site.rotation * glm::vec3(12.55f, 0.0f, -26.1f);
+	const auto centre = ecs::object::WorshipSiteCentre(magic->worshipSite);
 	const auto flat = [](const glm::vec3& p) { return glm::vec2(p.x, p.z); };
 	// fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70, twice (0x73C5ED and 0x73C607), then + 100 [0x8AB41C]
 	const float toVillager = gutils::GetDistanceInMetres(flat(registry.Get<const Transform>(villager).position), flat(centre));

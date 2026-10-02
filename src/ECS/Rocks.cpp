@@ -23,6 +23,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/Fire/FireEffect.h"
@@ -38,19 +39,6 @@ namespace
 {
 /// info.dat GMobileStaticInfo::mobileType of the Rock class
 constexpr int k_RockMobileType = 2;
-
-/// Mesh box size x scale, zero without a loaded mesh.
-glm::vec3 ScaledSize(entt::entity entity)
-{
-	const auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(entity);
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return glm::vec3(0.0f);
-	}
-	return meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(entity).scale;
-}
 } // namespace
 
 bool Rocks::IsRock(entt::entity entity)
@@ -66,13 +54,12 @@ bool Rocks::IsRock(entt::entity entity)
 
 float Rocks::Radius2D(entt::entity entity)
 {
-	const auto size = ScaledSize(entity);
-	return 0.5f * std::max(size.x, size.z);
+	return object::Get2DRadius(entity);
 }
 
 float Rocks::Height(entt::entity entity)
 {
-	return ScaledSize(entity).y;
+	return object::GetHeight(entity);
 }
 
 bool Rocks::ValidForPlaceInHand(entt::entity entity)

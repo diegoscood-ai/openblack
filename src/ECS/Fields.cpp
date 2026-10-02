@@ -17,7 +17,6 @@
 
 #include <glm/geometric.hpp>
 
-#include "3D/L3DMesh.h"
 #include "Common/RandomNumberManager.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
@@ -27,9 +26,9 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::components;
 
@@ -179,7 +178,6 @@ void openblack::ecs::UpdateFields(float seconds)
 	// the wind the ripe fields (and trees) sway in, once per frame like GLandscape::Draw -> Tree::PreDraw
 	g_windSway.Update(seconds * 1000.0f);
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto& meshes = Locator::resources::value().GetMeshes();
 	registry.Each<Field, Transform, const Mesh>([&](entt::entity entity, Field& field, Transform& transform, const Mesh& mesh) {
 		// Mod world.crops, standing in for the farmers (Villager::FarmerPlantsCrop sows a crop at a time): they would
 		// take what the hand leaves (a ripe field only clears when asked for more than it has, and the hand's halved,
@@ -198,11 +196,12 @@ void openblack::ecs::UpdateFields(float seconds)
 				field.crops = Field::k_TimesToSow;
 			}
 		}
-		// v = food / 350 - 1, eased over 1 s; y += 2 v scale height (mesh +0x28, taken as the box height)
+		// v = food / 350 - 1, eased over 1 s; y += 2 v scale half height (Field::Draw 0x5287B9..0x5287D3: the mesh's
+		// +0x28 read inline, the half height, so the mesh level)
 		auto* sink = registry.TryGet<PileSink>(entity);
 		if (sink == nullptr)
 		{
-			const float height = meshes.Contains(mesh.id) ? meshes.Handle(mesh.id)->GetBoundingBox().Size().y : 1.0f;
+			const float height = ecs::object::MeshHalfHeight(mesh.id);
 			sink = &registry.Assign<PileSink>(entity, transform.position.y, height);
 		}
 		// mod world.foliage, fields = wheat: the mesh is only the far view of the plants, whole and tinted by the
@@ -244,7 +243,9 @@ void openblack::ecs::UpdateFields(float seconds)
 			}
 			alpha = std::min(alpha, far);
 		}
-		sink->offset.SetPosition(2.0f * shown * transform.scale.y * sink->height);
+		// fld [g3d + 0x44]; fmul [m + 0x28]; fmul v; fadd st0, st0 (0x5287C2..0x5287D1)
+		const float sunk = transform.scale.y * sink->height * shown;
+		sink->offset.SetPosition(sunk + sunk);
 		transform.position.y = sink->baseY + sink->offset.value;
 		auto* fade = registry.TryGet<Alpha>(entity);
 		if (alpha < 1.0f && fade == nullptr)

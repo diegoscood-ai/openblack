@@ -51,10 +51,6 @@ namespace
 /// 0xDCB984: one int timer for all the sharks, each one adds the frame's whole milliseconds to it (two sharks share
 /// the rings)
 int32_t s_WakeTimer = 0;
-/// The game clock in milliseconds, so that the frame's whole milliseconds are the difference of two whole clock
-/// readings like g_game+0x250540 (GGame::Loop 0x54D374: the integer game time now minus the last one): no time is
-/// lost at high frame rates
-double s_Clock = 0.0;
 
 /// fn_00775170(point): a ring at (point.x, 0, point.z) once the timer passes 50 ms (cmp 0x32 / jle, then idiv: %= 50)
 void EmitWakeRing(const glm::vec3& point, float heading, int32_t frameMilliseconds)
@@ -102,9 +98,8 @@ void UpdateSharks(float turnFraction, float gameMilliseconds)
 	const auto& island = Locator::terrainSystem::value();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	const float f = turnFraction;
-	const double clock = s_Clock + static_cast<double>(gameMilliseconds);
-	const auto frameMilliseconds = static_cast<int32_t>(std::floor(clock) - std::floor(s_Clock));
-	s_Clock = std::fmod(clock, 1000.0 * 3600.0); // wrapped at a whole hour, so the difference stays exact
+	// g_game +0x250540 (GGame::Loop 0x54D366): the frame's whole game ms, game_clock::FrameGameMs from Game
+	const auto frameMilliseconds = static_cast<int32_t>(gameMilliseconds);
 	std::vector<entt::entity> undrawn;
 	registry.Each<Shark, Transform>([&](entt::entity entity, Shark& shark, Transform& transform) {
 		const auto pos = transform.position;

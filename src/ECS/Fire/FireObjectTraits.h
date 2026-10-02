@@ -42,11 +42,12 @@ namespace openblack::ecs::fire::traits
 /// GetDefaultFireCentrePos (vt 0x5F0): the object's position (0x639AA0); DeadTree 0x510CE0: its mesh centre in x, z
 /// (with its own height above the land). World x, z and the height above the land (MapCoords y) in y.
 [[nodiscard]] glm::vec3 FireCentre(entt::entity object);
-/// GetDefaultFireRadius (vt 0x5F4): Get2DRadius (0x639AC0); DeadTree 0x510E10: 0.35 x its height
+/// GetDefaultFireRadius (vt 0x5F4): Get2DRadius (0x639AC0); DeadTree 0x510E10: 0.35 x its height; WorshipSite 0x77DE10:
+/// 14 (ecs::object::GetDefaultFireRadius)
 [[nodiscard]] float DefaultFireRadius(entt::entity object);
-/// Object::GetHeight (vt 0x42C, 0x638120)
+/// GetHeight (vt 0x42C, Object 0x638120; ecs::object::GetHeight)
 [[nodiscard]] float Height(entt::entity object);
-/// Object::GetRadius (vt 0x60, 0x638110) = Get2DRadius
+/// GetRadius (vt 0x60, Object 0x638110 = Get2DRadius; ecs::object::GetRadius)
 [[nodiscard]] float Radius(entt::entity object);
 /// GetRainCoolingMultiplier (vt 0x5EC): 0.01; MagicFireBall 0x682DB0: 0 when the script cast it
 [[nodiscard]] float RainCoolingMultiplier(entt::entity object);

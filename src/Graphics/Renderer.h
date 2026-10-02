@@ -15,6 +15,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -28,8 +29,10 @@
 #include <glm/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/Billboard.h"
 #include "3D/Clouds.h"
 #include "ECS/ChimneySmoke.h"
+#include "ECS/Weather/Rain.h"
 #include "Graphics/Mists.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
@@ -75,23 +78,28 @@ class Renderer final: public RendererInterface
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
 	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each
-	/// with the distance to the camera of the effect that owns it: the original draws the ribbon inside that effect's
-	/// single Z object (fn_006798B0 0x6798DD -> fn_0067B370 "draw now"), so it shares its key
+	/// with the Z-sorter key of the effect that owns it: the original draws the ribbon inside that effect's single Z
+	/// object (fn_006798B0 0x6798DD -> fn_0067B370 "draw now"), so it shares its key
 	std::vector<std::pair<float, uint32_t>> CollectPSysChains(const Camera& camera) const;
 	/// One ribbon of _frameChains, from the back-to-front list
 	void DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t index) const;
 	/// The ribbons of this frame, filled by CollectPSysChains
 	mutable std::vector<psys::Effect::DrawChain> _frameChains;
 	/// The effects' surfaces of revolution (ZR_SurfRevol: the teleport pool, the dispensers' discs;
-	/// RendererSurfRevol.cpp), each with the distance to the camera of the effect it belongs to: the surface is one of
-	/// its atoms, drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0 -> 0x67CBA0)
+	/// RendererSurfRevol.cpp), each with the Z-sorter key of the effect it belongs to: the surface is one of its atoms,
+	/// drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0 -> 0x67CBA0)
 	std::vector<std::pair<float, uint32_t>> CollectPSysSurfaces(const Camera& camera) const;
 	/// One surface of _frameSurfaces, from the back-to-front list
 	void DrawPSysSurface(RenderPass viewId, uint32_t index) const;
 	/// The surfaces of this frame, filled by CollectPSysSurfaces
 	mutable std::vector<psys::surf_revol::Surface> _frameSurfaces;
-	/// The rain streaks where the weather grid rains (LH3DAtmos::Render3D 0x836250; RendererRain.cpp)
-	void DrawRain(RenderPass viewId, const Camera& camera) const;
+	/// LH3DAtmos::Render3D 0x836250: the raining tiles (weather::rain::CollectTiles), each one Z object of its own
+	/// (fn_008341B0, NewZObject call 0x83427F) with its Z-sorter key and its index in _frameRain (RendererRain.cpp)
+	std::vector<std::pair<float, uint32_t>> CollectRain(const Camera& camera) const;
+	/// One tile of _frameRain, as the Z-sorter's callback 0x833F80 (fn_00834370): its streaks
+	void DrawRainTile(RenderPass viewId, uint32_t index) const;
+	/// The tiles of this frame, filled by CollectRain
+	mutable std::vector<weather::rain::Tile> _frameRain;
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
 	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
 	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)
@@ -103,22 +111,22 @@ class Renderer final: public RendererInterface
 	void UpdateReflectionTarget() const;
 	/// The hand's glow on the water at night (0x5E4D89, fn_005E3F70), into the reflection target (RendererSea.cpp)
 	void DrawHandWaterGlow(graphics::RenderPass viewId) const;
-	/// The sky clouds (fn_005E25C0 / CloudInSky), back to front in the blended view
-	void DrawClouds(graphics::RenderPass viewId, const Camera& camera) const;
-	/// The map's mist banks (CREATE_MIST, LH3DMist::Draw fn_007FA300), back to front on their own (RendererMists.cpp);
-	/// only when they cannot go through the main pass's back-to-front list
-	void DrawMists(graphics::RenderPass viewId, const Camera& camera) const;
-	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen (the map's and the ones of mists::Submit) with their distance
-	/// to the camera (their Z-sorter key) and their index in _frameMists; the map mists' counters advanced (once per
-	/// frame)
+	/// The sky clouds (fn_005E25C0 / CloudInSky) are LH3DMists: 0x5E2813 calls their vt+0x100, LH3DMist::AddDrawing
+	/// 0x7FA7F0, which queues the ones on screen (NewZObject call 0x7FA87B). Their Z-sorter keys and indices, and the
+	/// counters of those advanced
+	std::vector<std::pair<float, uint32_t>> CollectClouds(const Camera& camera) const;
+	/// One cloud, as the Z-sorter's callback 0x7FA980 (LH3DMist::Draw fn_007FA300, effect branch)
+	void DrawCloud(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
+	/// LH3DMist::AddDrawing 0x7FA7F0: the mists on screen (the map's and the ones of mists::Submit) with their Z-sorter
+	/// key and their index in _frameMists; the map mists' counters advanced (once per frame)
 	std::vector<std::pair<float, uint32_t>> CollectMists(const Camera& camera) const;
 	/// One mist of _frameMists, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
 	void DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
 	/// The mists of this frame, filled by CollectMists
 	mutable std::vector<mists::MistDesc> _frameMists;
 	/// LH3DSmoke::AddDrawing 0x7F8D30 for every Abode with a chimney on screen (Abode::Draw 0x516288): the smoke's
-	/// state and puffs advanced (fn_007F8E00 simulates while it draws), its distance to the camera (the Z-sorter key)
-	/// and its index in _frameSmoke (RendererSmoke.cpp)
+	/// state and puffs advanced (fn_007F8E00 simulates while it draws), its Z-sorter key and its index in _frameSmoke
+	/// (RendererSmoke.cpp)
 	std::vector<std::pair<float, uint32_t>> CollectChimneySmoke(const Camera& camera) const;
 	/// One smoke of _frameSmoke: its visible puffs in their order 0..9 (LH3DSprite::Draw 0x840530, material g_smoke_mat)
 	void DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
@@ -129,7 +137,19 @@ class Renderer final: public RendererInterface
 	/// The missionaries' boat hull in the reflection (PetitNavire::PreDraw 0x5DFF20: DrawUnderWater in 0xFF303070), and
 	/// the boat's sprites: the wake and the SmokyStuff puffs, smoke material mode 6 (RendererBoat.cpp)
 	void DrawBoatReflection(graphics::RenderPass viewId) const;
-	void DrawBoatSprites(graphics::RenderPass viewId, const Camera& camera) const;
+	/// Each of the boat's LH3DSprites goes to the Z-sorter on its own (LH3DSprite::AddDrawing 0x840C70, NewZObject call
+	/// 0x840CB3; the wake from PetitNavire::PostDraw 0x5E08D0, the puffs from fn_00823F70 0x82411A): their keys and
+	/// indices in _frameBoatSprites
+	std::vector<std::pair<float, uint32_t>> CollectBoatSprites(const Camera& camera) const;
+	/// One sprite of _frameBoatSprites, as the Z-sorter's callback LH3DSprite::Draw 0x840530
+	void DrawBoatSprite(graphics::RenderPass viewId, uint32_t index) const;
+	/// A boat sprite of this frame: its quad (none at or before the near plane, 0x840585) and its colour
+	struct BoatSpriteDraw
+	{
+		std::optional<billboard::Quad> quad;
+		uint32_t argb {0};
+	};
+	mutable std::vector<BoatSpriteDraw> _frameBoatSprites;
 	/// DrawCutByPlane (animated fn_00811C70, static fn_0080C050) of an entity's model: keep -1 the part under y = 0, 1
 	/// the part over it; lit 90 + N.L in argb (0xAARRGGBB); mirrored in y = 0 for the reflection target (RendererCut.cpp)
 	void DrawCutByPlane(graphics::RenderPass viewId, entt::entity entity, int8_t keep, uint32_t argb, bool mirrored) const;

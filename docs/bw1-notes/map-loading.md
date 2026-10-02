@@ -54,7 +54,7 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
   0..255); `Get2DRadius` 0x606660 = escala × la mayor semiextensión x/z de la malla. Lo usan `CREATE_MIST` 263 y
   `SET_MIST_FADE` 264 de CHL (una llamada de cada en challenge.chl; aún sin hacer).
 - Land1 tiene 17 (pantano, cueva del flautista...). openblack: `MistArchetype`, `components::Mist`,
-  `Renderer::DrawMists` (dibujo más abajo).
+  `Renderer::CollectMists` / `DrawMist` (dibujo más abajo).
 
 ### Dibujo (LH3DMist, `fn_007FA300`)
 
@@ -97,7 +97,8 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
   0,55) y manda la niebla al `LH3DZSorter` (clave |pos − cámara|², callback 0x7FA980), junto a los modelos
   transparentes y los sprites.
 - openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) entran en la lista de atrás adelante de la
-  pasada principal (`DrawPass`, `SortedInstance::mist`); `DrawMists` solo si esa lista no se usa. `vs_cloud`
+  pasada principal (`DrawPass`, `ZObject::mist` de la cola `graphics::zsorter`); sin entidades las nieblas van a la
+  misma cola con las nubes (ya no hay `DrawMists`). `vs_cloud`
   recibe `u_cloudLight` (L_local) y `fs_cloud` suma `u_cloudSpecular` (0 en las nubes y en la rama efecto).
   Desviación: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
   el paso truncado del original sería 0. La textura alfa `smokea.raw` se corta a 4 bits al cargar, como en el

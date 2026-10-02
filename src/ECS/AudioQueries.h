@@ -31,6 +31,10 @@ namespace openblack::ecs::audio_queries
 /// streetLanterns (the list g_game+0x205C34 with Object::GetHeight 0x638120)
 void Fill(audio::GameQueries& queries);
 
+/// fn_005E2240 0x5E2240 as it writes GAudio+0x190 from its argument x (fn_0064AC30's (alignment + 1) / 2): x clamped to
+/// 0..1 (a NaN is 0, as the x87's unordered C0), then 2 - 2 (1 - x) - 1 in float steps
+[[nodiscard]] float GAudioAlignment(float x);
+
 /// (openblack test hooks, audio session) once a game turn, after audio::ProcessTurn:
 ///  - OPENBLACK_AUDIO_TEST_VIEW="turn,n[,distance]" flies the camera to look at the n-th villager from that distance (4)
 ///    at that game turn, and OPENBLACK_AUDIO_TEST_ANIM="clip" plays that clip in a loop on every villager from the same

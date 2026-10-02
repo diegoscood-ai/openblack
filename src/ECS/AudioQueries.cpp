@@ -137,19 +137,7 @@ float CameraAlignment()
 	{
 		x = (sky + 1.0f) * 0.5f; // (openblack) an override is on
 	}
-	// fn_005E2240 0x5E2240..0x5E2291, in float steps (the game's x87 at 24 bits, fn_007DEE00): x below 0 (fcom [0x8AA398],
-	// test ah, 1) is 0, above 1 (test ah, 0x41) is 1; s = (1 - x) + (1 - x); GAudio+0x190 = 2 (0x8AB478) - s - 1
-	if (x < 0.0f)
-	{
-		x = 0.0f;
-	}
-	else if (!(x <= 1.0f))
-	{
-		x = 1.0f;
-	}
-	const float s = (1.0f - x) + (1.0f - x);
-	const float twoMinusS = 2.0f - s;
-	return twoMinusS - 1.0f;
+	return ecs::audio_queries::GAudioAlignment(x);
 }
 
 void RunViewHook(uint32_t turn)
@@ -222,6 +210,24 @@ void RunLanternHook()
 	                   static_cast<uint32_t>(lantern.thing), top.x, top.y, top.z);
 }
 } // namespace
+
+float ecs::audio_queries::GAudioAlignment(float x)
+{
+	// fn_005E2240 0x5E2240..0x5E2291, in float steps (the game's x87 at 24 bits, fn_007DEE00): fcom [0x8AA398] (0),
+	// test ah, 1 (C0: below or unordered) -> 0; else fcom [0x8AA390] (1), test ah, 0x41 (C0 | C3: below or equal) keeps
+	// it, else 1; s = (1 - x) + (1 - x) (fsubr, fadd st0, st0; to [0xBF337C], the sky); GAudio+0x190 = 2 (0x8AB478) - s - 1
+	if (!(x >= 0.0f))
+	{
+		x = 0.0f;
+	}
+	else if (x > 1.0f)
+	{
+		x = 1.0f;
+	}
+	const float s = (1.0f - x) + (1.0f - x);
+	const float twoMinusS = 2.0f - s;
+	return twoMinusS - 1.0f;
+}
 
 void ecs::audio_queries::Fill(audio::GameQueries& queries)
 {

@@ -241,9 +241,7 @@ void ProcessBanks()
 {
 	const bool trace = Trace();
 	const float alignment = atmos_banks::Alignment();
-	// 0x428FFA..0x42900B (for each bank): the float GAudio+0x190 > the double -0.59999999999999998 (fcomp qword
-	// [0x8C4A08], test ah, 0x41) -> LHAtmosSetGroup(bank, 1), else 2
-	const uint32_t group = static_cast<double>(alignment) > -0.6 ? 1 : 2;
+	const uint32_t group = atmos_banks::GroupFor(alignment);
 	if (TraceEvents() && group != g_State.banks[0].group)
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos group {} (alignment {:.3f})", group, alignment);
@@ -425,6 +423,13 @@ void Process()
 	Enqueue(loose);
 }
 } // namespace
+
+uint32_t atmos_banks::GroupFor(float alignment)
+{
+	// 0x428FFA..0x42900B (for each bank): fld the float GAudio+0x190, fcomp the double -0.59999999999999998 (qword
+	// [0x8C4A08]), test ah, 0x41 (C0 | C3: below, equal or unordered) -> LHAtmosSetGroup(bank, 2) (0x429015), else 1
+	return static_cast<double>(alignment) > -0.6 ? 1 : 2;
+}
 
 float atmos_banks::Alignment()
 {

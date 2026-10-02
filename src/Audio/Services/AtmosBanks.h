@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace openblack::audio::atmos_banks
 {
 
@@ -31,6 +33,10 @@ void Mix();
 /// GAudio+0x190 (-1 evil .. 1 good), which ProcessAtmosBanks compares with -0.6 to put every bank in group 1 or 2:
 /// GameQueries::cameraAlignment (0 when unset)
 [[nodiscard]] float Alignment();
+
+/// ProcessAtmosBanks 0x428FFA: the group of every bank for that GAudio+0x190, 1 when it is above the double -0.6, else 2
+/// (a NaN too)
+[[nodiscard]] uint32_t GroupFor(float alignment);
 
 /// GAudio::AtmosProcess(0) 0x4286C0 -> LHAtmosProcess(0) (0x10001EBF): the loops stop (their AtmosInfo cleared) and
 /// every channel with an AtmosInfo (the loops' 1, the loose samples' entries) is stopped; the other samples play on.

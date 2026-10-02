@@ -2153,6 +2153,23 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   discrete 0)`, `MUSIC_TYPE_GENERIC_EVIL` y suena evil.sad; con 0,8, `type 3 (… discrete 6)`, `GENERIC_GOOD`, good.sad.
   Sin el gancho, `Music Playing=NONE` tras la intro (el guion la tiene apagada), igual que antes.
 
+**Auditoría de C2** (2026-10-02). Revisadas en el desensamblado: fn_005E2240 0x5E2240..0x5E2299, fn_0064AC30
+0x64AC30..0x64ACAB, la llamada 0x64A697, ProcessAtmosBanks 0x428FFA..0x42901E (`push 2` en 0x429015), GAudio::Reset
+0x426CC2, fn_00427460 0x427466 / 0x427579, ProcessAlignmentMusic 0x4279C0..0x427A46, ENABLE_DISABLE_ALIGNMENT_MUSIC
+0x710120 (g_game+0x250090 +0x94), GetDiscreteAlignmentValue 0x414730 y fn_00426C80; los llamadores de
+ProcessAudioGameTurn 0x427080 (GGame::EndTurn 0x54E9A6, tras ProcessTurn, y Temple::ProcessGameTurn 0x794A5A) y de
+GAudio::Reset (GGame::Init 0x54F474, ClearMap 0x552D98). Todo cuadra. Arreglado: el corte de fn_005E2240 con un NaN
+(el `fcom` deja C0 en desordenado: `test ah, 1` lo lleva a 0, +0x190 = −1; openblack lo llevaba a 1); la fórmula queda
+en `ecs::audio_queries::GAudioAlignment(x)` y el umbral del grupo en `atmos_banks::GroupFor(alignment)`, con tests
+nuevos (`AudioLaws.GAudioAlignment`, `AudioLaws.AtmosGroupByAlignment`: el float −0,6 está por debajo del double
+−0,59999999999999998, grupo 2). Sin fuentes ni búferes AL nuevos, sin componentes ECS en `src/Audio`, la consulta se
+lee solo en el hilo del juego (ni el hilo de la música ni sus retrollamadas la usan). En juego
+(`_audit\audio\c2audit_*.log`, con `-l stdout`): `Atmos group 2 (alignment -1.000)` / `Atmos group 1 (alignment
+0.800)`; con −1 y el gancho de la música, `alignment music type 1 (… discrete 0)`, GENERIC_EVIL y evil.sad. Notas: en la
+ciudadela el original corre el turno del audio desde Temple::ProcessGameTurn sin fn_0064AC30 (+0x190 se queda con el
+último valor; C4); `GetDiscreteAlignmentValue` con un NaN (0x414756 lo deja pasar a `__ftol`) no está igualado (no
+llega: +0x190 nunca es NaN).
+
 ## Ganchos de prueba
 
 | Gancho | Qué hace |

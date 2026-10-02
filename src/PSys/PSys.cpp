@@ -871,6 +871,7 @@ public:
 	    , thetaSpeed(object.Float("ThetaSpeed", 1.0f))
 	    , phiSpeed(object.Float("PhiSpeed", 1.0f))
 	    , scale(object.Float("ScaleX", 1.0f), object.Float("ScaleY", 1.0f), object.Float("ScaleZ", 1.0f))
+	    , orientToSurface(object.Bool("OrientToSurface", false))
 	{
 	}
 	bool ModifyAtom(Effect& effect, Atom& atom, Collection::Slot& /*slot*/) const override
@@ -897,7 +898,22 @@ public:
 		const float a = alphaScale.empty() ? static_cast<float>(alpha)
 		                                   : std::clamp(static_cast<float>(alpha) * effect.FloatProvider(alphaScale, 1.0f), 0.0f, 255.0f);
 		atom.colour[3] = static_cast<uint8_t>(static_cast<int>(a) & 0xFF);
-		// TODO: OrientToSurface (+0x44, fn_006743A0 and the rotations after it); no ported file sets it
+		// OrientToSurface (+0x44, 0x6A351D; set by SF_DefenseSphereInHand and SF_DefenseSphereOnHolder): each patch
+		// turns to face out of the sphere at its (theta, phi), so the 15 MSH_S_SPELLBALLSURFACE02 patches tile one ball
+		// instead of all keeping the same orientation. fn_006743A0(pi/2 - phi) [0x8C78D8]: rows (ca, -sa, 0),
+		// (sa, ca, 0), (0, 0, 1) (the cos and sin stored as floats) and the 4th row (+0x68..+0x70) zeroed (not kept
+		// here); then every row's (x, z) -> (c x - s z, c z + s x) with c = cos theta, s = sin theta (the floats stored
+		// at [esp + 0x18] / [esp + 0x14], 0x6A33B3 / 0x6A33D3), 0x6A353D..0x6A35C4
+		if (orientToSurface)
+		{
+			const float angle = std::numbers::pi_v<float> * 0.5f - ph;
+			const auto ca = static_cast<float>(std::cos(static_cast<double>(angle)));
+			const auto sa = static_cast<float>(std::sin(static_cast<double>(angle)));
+			atom.rotation = glm::mat3(glm::vec3(ca, -sa, 0.0f), glm::vec3(sa, ca, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			const auto c = static_cast<float>(std::cos(static_cast<double>(th)));
+			const auto s = static_cast<float>(std::sin(static_cast<double>(th)));
+			openblack::lh_matrix::TurnRows(atom.rotation, 1, static_cast<double>(c), static_cast<double>(s));
+		}
 		return true;
 	}
 	float radius;
@@ -906,6 +922,7 @@ public:
 	int alpha;
 	float thetaSpeed, phiSpeed;
 	glm::vec3 scale;
+	bool orientToSurface;
 };
 
 /// UR_OrientSpriteWithRandomAngle 0x6A2100: a fixed yaw per atom (DefineProperties 0x6AC660: +0x20 RandomAngle, +0x24

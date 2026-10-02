@@ -632,8 +632,9 @@ openblack:
 - Ganchos de `Game.cpp`: `GAudio::ProcessAudioGameTurn` después del turno 5 (0x54E997) y `Reset` en `LoadMap`.
 - Las ramas de pelea, cántico y baile son consultas sin dueño (false) hasta C1/C3; la de la ciudadela es
   `GameMusic::ProcessCitadelMusic` desde C4. El alineamiento de la
-  cámara (GAudio+0x190) y los pueblos con tribu tampoco tienen dueño todavía: **hoy suena siempre la genérica neutral
-  (tipo 2) a volumen 80** a partir del turno 20 en las tierras ≠ 6.
+  cámara (GAudio+0x190) lo da C2 y el pueblo con su tribu `ecs::map_cells` (ver [C2](#fase-c-c2-clima-y-alineamiento)):
+  con la cámara sobre un pueblo con centro suena la de su tribu, si no la genérica del alineamiento, a volumen 80, a
+  partir del turno 20 en las tierras ≠ 6.
 - **(aproximado)**:
   - Un tipo fuera de 0..84 no tiene banco: el original lee los campos siguientes.
   - El grupo 0 lee `pos[-1]`, fuera del array: aquí da 0, y el DLL arranca en el trozo 1 (pregunta 5 de PLAN §6).
@@ -919,7 +920,7 @@ archivos de `src/Audio` que reescribe agua, ni `Debug/Audio.cpp`, ni retira `Aud
 | A6 Estado del guion | hecho | `src/Audio/ScriptAudioState.*`, `CHLApi.cpp` | `test_game_music` |
 | A7 ThingMusic | hecho | `src/Audio/ThingMusic.*`, `CHLApi.cpp` | `test_game_music` |
 | A8 Volumen de música | parcial: `EngineConfig::audioMusicMasterVolume` y el deslizador de depuración; no se guarda, y no está en el menú | `src/EngineConfig.h`, `src/Debug/Music.cpp` | traza `gain=` |
-| A9 Alineamiento y tribu | lógica hecha; sin dueño para el alineamiento en la cámara ni para la tribu de los pueblos | `src/Audio/GameMusic.*`, `src/Audio/GameQueries.h` | `test_game_music` (con consultas falsas) |
+| A9 Alineamiento y tribu | hecho: alineamiento en la cámara (C2) y pueblo/tribu por `ecs::map_cells` (`ECS/AudioQueries.cpp`); auditado (TOWNS): altura de la cámara como UpdateGameThingWithPosData 0x442EF0 | `src/Audio/GameMusic.*`, `src/Audio/GameQueries.h` | `test_game_music` (con consultas falsas) |
 | A10 Tabla de voz | hecho | `src/Common/HelpText.*`, `src/Audio/Voices.*` | `test_voice_table` (6974 / 3477 / 1922 / 1328 / 227, WORKSHOP_10 → villagers 399) |
 | A11 HelpSystem (texto) | hecho, sin dibujo | `src/Help/HelpSystem.*`, `CHLApi.cpp`, `Game.cpp` (clic) | `test_help_system` |
 
@@ -1534,7 +1535,7 @@ original; el generador es el de openblack **(aproximado)** salvo en los tests, q
 
 **Consultas nuevas** (`GameQueries.h`): `playgroundGame`, `multiplayerGame` (falso), `helpLevel` (HelpSystem; 3 sin él),
 `localPlayerNumber` (PLAYER_ONE), `visualNight`, `handPosition` (la mano, **(inferido)** GInterface+0x3B8), `pointOnScreen`
-(sin ella: falso), `desireTowns`, `worshipSites`, `townResourceNeeds`, `heartBeat` (sin ellas: nada), `helpRunMessage`,
+(sin ella: falso), `desireTowns`, `worshipSites`, `nearestTownAt` (asignada: `map_cells::GetNearestTown`), `townResourceNeeds`, `heartBeat` (sin ellas: nada), `helpRunMessage`,
 `helpTriggerCategory`, `profileName`.
 
 **HelpSystem** (A11/B7, de audio): `+0x45F8` interruptor (Reset 0x5C55FC = 1; **SET_HELP_SYSTEM 253** hecho), `+0x45F4`
@@ -1598,7 +1599,7 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
     LosingVillagers (pueblo con +0x618 > info+0x150, 0x99A36C) y LowOnPeople;
   - `Town::UpdateAggressor` 0x73C9B0 (TownAttackSFX, fn_0071C960, fn_0071C9F0), `Town::CalculateDesireForFood`
     0x747FA0 / 0x7481BC (LowOnFood/Wood), `TownDesire::Process` 0x745C8A (VillagerUnhappy), los deseos de los pueblos
-    (V3 de mapa: `desireTowns`, `townResourceNeeds`, `heartBeat`), el corazón de la ciudadela;
+    (V3 de mapa: `desireTowns`, `townResourceNeeds` —TownDesire +0x90 / +0xD4 / +0x168 de los deseos 0, 1 y 10, que `components::TownDesire` no tiene—, `heartBeat`), el corazón de la ciudadela;
   - `Abode::ApplyEffectsDueToPhysicalDestruction` 0x406781 (DestroyBuilding: +0x90 +0x18 < 0,4 y el jugador que lo
     rompió), `Object::InitialisePhysicsFromHand` 0x6372EA (MakeDiscipleSFX, TODO de HandHolding.cpp), el tótem
     0x738620/0x738666, `GBelief::AddToBelief` 0x437F2A, la criatura (0x45A772, 0x5039E7), fn_0071D100 (otras manos,
@@ -1652,7 +1653,7 @@ nuevos.
 | B11c | **hecho** ([abajo](#fase-b-b11c-las-api-comunes-del-equipo)): `ecs::map_coords`, `gutils`, `game_clock` y `sky_type` dentro de `src/Audio`; `HelpSpritesAlignmentProcess` desde `GAlignment::ProcessForPlayer` |
 | B12 | **hecho** ([abajo](#fase-b-b12-pulido)): `audio::StopOwner` y `audio::NewOwner` para el SDK de mods; auditoría de las constantes double (y de la FPU a 24 bits) en `src/Audio` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
-| C2 | **hecho** ([abajo](#fase-c-c2-clima-y-alineamiento)): `weatherSmooth` (el `weatherAt` del plan) desde `weather::atmos`, GAudio+0x190 (`cameraAlignment`, fn_005E2240) para el grupo del ambiente (0x428FE0) y la música de alineamiento (0x4279C0); la tribu del pueblo, **pendiente** de `ecs::map_cells` |
+| C2 | **hecho** ([abajo](#fase-c-c2-clima-y-alineamiento)): `weatherSmooth` (el `weatherAt` del plan) desde `weather::atmos`, GAudio+0x190 (`cameraAlignment`, fn_005E2240) para el grupo del ambiente (0x428FE0) y la música de alineamiento (0x4279C0); la tribu del pueblo (`nearestTown` / `town`) por `ecs::map_cells` |
 | C3 | Aldeanos, edificios y cánticos |
 | C4 | **hecho** ([abajo](#fase-c-c4-el-interior-de-la-ciudadela)): `insideCitadel` desde el interior del templo, `ProcessCitadelMusic` 0x427B60 con su `LHSampleStopAll`, `audio::LeaveCitadel` (fn_00793D00); y el tope de 5000 de fn_00427200 y `ReadSpeedFactor` en float. Los sonidos de las salas, **pendientes** (el interior de openblack no tiene salas, puertas ni cámara) |
 | C5 | Vídeos (tráiler, `PlayFullScreenMovie`) |
@@ -1811,7 +1812,7 @@ Todas existían ya en la base (`a1c073e0`): `ecs::map_coords` (`src/ECS/MapCoord
 Los relojes reales de `src/Audio` ya eran uno (`device::TickCount` = `game_clock::TickCount`, B11b); el `steady_clock` del
 hilo de música es su espera (Sleep de 120 ms) y el del gancho `OPENBLACK_MUSIC_TEST`. `GameMusic` no tiene conversiones
 propias: la distancia de `ThingMusicInRange` (0x429479..0x4294C1) es 3D sobre LHPoint, no GUtils (unify2 lo confirma),
-y `nearestTown` sigue sin asignar. La posición de una cosa (`thingPosition`, `Game.cpp`) sigue siendo su punto en float,
+y `nearestTown` / `town` usan las MapCoords de la cámara y `gutils::GetDistanceInMetres`. La posición de una cosa (`thingPosition`, `Game.cpp`) sigue siendo su punto en float,
 sin el redondeo de sus MapCoords **(aproximado)**: es el dueño de todos los canales 3D y no se cambia aquí.
 
 **Cambio de fidelidad (con su dirección).** La celda que AddAtmosType compara es su **centro**, no su esquina:
@@ -2044,8 +2045,8 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   consejero solo decodifica PCM (ningún búfer AL), `ReadWave` cierra su flujo; las voces no tienen entidad dueña y
   `ClearMap` → LHSampleStopAll las corta; el hilo de música no toca `sample_play`.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
-- **A9 en juego**: falta quién da el alineamiento en la cámara (GAudio+0x190, fn_005E2240 desde fn_0064AC30) y la tribu
-  de los pueblos (Town +0x5B8). Hoy suena la genérica neutral.
+- **A9**: fn_00741020 (centro del pueblo entre sus edificios +0x754 o +0x9A8 con GetComputerSeen 0xC) no está en
+  `map_cells::GetNearestTownWithCentre`: un pueblo sin CREATE_TOWN_CENTRE no da música de tribu **(aproximado)**.
 - **Música**:
   - quién pone ThingMusicInfo+0x20;
   - `LandNumber` 6 y `g_game+0x205A0C`;
@@ -2140,10 +2141,26 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
 - **Música de alineamiento** (`ProcessAlignmentMusic` 0x4279C0, `fn_00427460`): `GetDiscreteAlignmentValue` 0x414730
   de +0x190 (0..6), la tabla 0x9C99F0 (0,0,1,1,1,2,2) y GENERIC_EVIL / NEUTRAL / GOOD = índice + 1 (0x427579). Traza:
   `(openblack) alignment music type t (GAudio+0x190 a, discrete d)` al cambiar (`OPENBLACK_MUSIC_TRACE`).
-- **Pendiente**: la tribu del pueblo (`nearestTown` / `town`: Town +0x5B8, +0x9A4, fn_00741020) espera a
-  `ecs::map_cells` (milagros2); sin ella `nearestTown` queda sin registrar y la música es la genérica del
-  alineamiento (el valor neutro). Falta en la API de Milagros/mapa una consulta «pueblo más cercano a un punto con su
-  tribu y si cuenta para la música (+0x9A4 o fn_00741020)».
+- **Pueblo y tribu** (`ECS/AudioQueries.cpp`, `NearestMusicTown` / `KeptMusicTown`): fn_00427460 recibe
+  GetCamera()+0x14 (0x427A3B..0x427A46) = las MapCoords de `Camera::GetOrigin`, el mismo punto que
+  `GameQueries::camera` (GCamera::UpdateGameThingWithPosData 0x442EF0 las saca de LH3DTech::g_camera, 0x442EF3..0x442F35;
+  auditoría TOWNS); su +8, la altura que compara 0x4274C4, es y − el byte de altitud de la celda de la cámara × 0.67,
+  sin interpolar, o y fuera del mapa / sin bloque (0x442F38..0x442FCE; antes openblack usaba GetHeightAt interpolado);
+  `nearestTown` = fn_00602160 (`map_cells::GetNearestTownWithCentre`, < estricto, solo los
+  de +0x9A4) con townTriggerOffDistance; la tribu, el componente `Tribe` del pueblo (Town +0x5B8, 0x42753D /
+  0x42755A); la distancia, `gutils::GetDistanceInMetres` 0x74CD70 (0x4274EC, 0x427522); `town` = el pueblo de
+  GAudio+0x18C mientras sea válido (IsAvailable 0x4274AF). La lógica (≤ 300 y altura < 400, 0x4274C4..0x427535) ya
+  estaba en `GameMusic::AlignmentMusicType`. **(aproximado)** sin fn_00741020 (ver pendientes).
+- **Guidance**: `ResourceDropSFX` 0x71B570 busca el pueblo con `nearestTownAt` = `map_cells::GetNearestTown`
+  0x6020E0(100, 0x98013C) en las MapCoords del punto; sus tres valores (`townResourceNeeds`, GetResourceDropSample
+  0x71B5F0: Town +0xC4/+0x108/+0x19C… = TownDesire +0x90/+0xD4/+0x168 de los deseos 0, 1 y 10) no existen en
+  `components::TownDesire`: sin asignar, no suena nada (como antes). `desireTowns` (+0x37C, GetRawDesire) tampoco:
+  sigue sin asignar.
+- Comprobación (Land 1, `OPENBLACK_TEST_ALIGNMENT_MUSIC=1 OPENBLACK_TEST_TEXT_CLICK=1 OPENBLACK_MUSIC_TRACE=1`,
+  `-n 60000`): `OPENBLACK_CAMERA_LOCK="1850,90,2620,1865,30,2650"` (pueblo 0, NORSE, con centro) → `alignment music
+  type 23`, `MUSIC_TYPE_NORSE_TOWN_NEUTRAL`, suena **celt_neutral.sad** (22..24 apuntan a las cadenas celtas);
+  `"2440,90,2560,2450,30,2580"` (pueblo 4, AZTEC) → tipo 8, `AZTEC_TOWN_NEUTRAL`, **aztc_neutral.sad**. Logs
+  `_auditudio	owns_norse.log` / `towns_aztec.log`.
 
 **Comprobación en juego** (Land 1, logs `_audit\audio\c2_*.log`):
 - `OPENBLACK_TEST_WEATHER="1818,2628,100,100"` con `OPENBLACK_CAMERA_LOCK="1775,60,2595,1830,45,2650"` y

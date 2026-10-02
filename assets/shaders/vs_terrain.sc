@@ -13,6 +13,7 @@ SAMPLER2D(s_landLightTable, 4); // the landscape light table [0xEDD90C], 256 x 1
 SAMPLER2D(s_landCells, 6);      // this frame's cells (land_light::Texels): the stamps of fn_0086D360 are in them
 #include "land_light.sh"
 #include "haze.sh"
+#include "land_position.sh" // the same depth as vs_land_shadow, which redraws the block (LEQUAL)
 
 uniform vec4 u_blockPositionAndSize;
 uniform vec4 u_islandExtent;
@@ -47,7 +48,7 @@ void main()
 	vec3 landSpecular = landCell.rgb;
 	v_shoreFade = a_color3; // 0 at altitude 1 or less: no small bump there, dynamic shadows fade out
 
-	vec3 transformedPosition = vec3(a_position.x + blockPosition.x, a_position.y, a_position.z + blockPosition.y);
+	vec3 transformedPosition = LandWorldPosition(a_position.xyz, blockPosition);
 
 	// Small bump pass vertex diffuse (x87 fn_00874AA0 0x8758E7..0x87598B, SSE fn_007A1800 0x7A2FD0..0x7A3136), d the
 	// signed distance to the fade line (fn_007FE7B0: e = 20, ramp 40): d >= e -> specular alpha | 0xFFFFFF (white, alpha
@@ -72,7 +73,7 @@ void main()
 	v_normal = a_normal;
 	v_worldXZ = transformedPosition.xz;
 	v_worldY = transformedPosition.y;
-	vec4 cs_position = mul(u_view, vec4(transformedPosition, 1.0f));
+	vec4 cs_position = LandViewPosition(transformedPosition);
 	v_distToCamera = cs_position.z;
 
 	// Distance haze per vertex (fn_00874AA0, haze.sh) by the block's class: 2 (0x874C48) f = k and the colour
@@ -91,5 +92,5 @@ void main()
 	}
 	v_landLight = landDiffuse / 255.0f;
 	v_landSpecular = landSpecular / 255.0f;
-	gl_Position = mul(u_proj, cs_position);
+	gl_Position = LandClipPosition(cs_position);
 }

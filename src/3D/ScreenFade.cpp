@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "Graphics/Lh3dColour.h"
 
@@ -85,18 +86,29 @@ void ScreenFade::SetWideScreen(bool on, float transitionSeconds)
 	{
 		return;
 	}
+	// a reversal in the middle of the slide goes on from where the bars are: GetWideScreenPercentage 0x5C6AE3 before
+	// +0x45E8 changes, then +0x45F0 = (on ? p : 1 - p) * wideScreenTime * 1000 (0x5C6B1F..0x5C6B4E)
+	const float p = WideScreenPercentage();
 	_wideTime = transitionSeconds;
-	// a reversal in the middle of the slide goes on from where the bars are
-	const float p = _wideFraction;
 	_wideOn = on;
 	_wideTimer = (on ? p : 1.0f - p) * _wideTime * 1000.0f;
+}
+
+float ScreenFade::WideScreenPercentage() const
+{
+	const float x = _wideTime > 0.0f ? std::abs(_wideTimer * 0.001f / _wideTime) : 1.0f;
+	return std::clamp(_wideOn ? x : 1.0f - x, 0.0f, 1.0f);
 }
 
 void ScreenFade::UpdateWideScreen(float gameMilliseconds)
 {
 	_wideTimer += gameMilliseconds;
-	const float x = _wideTime > 0.0f ? std::abs(_wideTimer * 0.001f / _wideTime) : 1.0f;
-	_wideFraction = std::clamp(_wideOn ? x : 1.0f - x, 0.0f, 1.0f);
+	_wideFraction = WideScreenPercentage();
+}
+
+void ScreenFade::SnapWideScreen()
+{
+	_wideTimer = -std::numeric_limits<float>::max(); // 0x5C6C40..0x5C6C48: fld [0x915D18] FLT_MAX, fchs
 }
 
 int ScreenFade::LetterboxHeight(int width, int height, float fraction)

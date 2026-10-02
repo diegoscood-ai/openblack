@@ -35,7 +35,7 @@ using DrawPath = psys::DrawPath;
 /// CollectSorted / CollectQueued / HandEffects and RenderContext::psysAtoms: then only the Sorted mists go to
 /// mists::Submit and RenderingSystem puts every PSys mesh atom in RenderContext::psysAtomDrawDescs, out of the old
 /// ranges. Interface: dev\tmp_dis\miracles\polish\drawpath_fix.md
-inline constexpr bool k_DrawByPath = false;
+inline constexpr bool k_DrawByPath = true;
 
 /// PSysInterface::Create: an effect from a spell file (e.g. "SF_Smoke"); 0 if the file is missing. Its draw path is
 /// DrawPath::Sorted, Spell::Draw's (0x720441), until SetDrawPath changes it. `type` is Create's NET_GAME_TYPE (its 6th

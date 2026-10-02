@@ -119,8 +119,12 @@ protected:
 		queries.landNumber = []() { return s_Land; };
 		queries.helpLevel = []() { return s_HelpLevel; };
 		queries.camera = []() -> std::optional<CameraState> { return CameraState {}; };
-		queries.townResourceNeeds = [](glm::vec3, float maxDistance) {
+		queries.nearestTownAt = [](glm::vec3, float maxDistance) -> std::optional<ThingId> {
 			EXPECT_EQ(maxDistance, 100.0f); // 0x98013C
+			return s_Needs ? std::optional<ThingId>(7) : std::nullopt;
+		};
+		queries.townResourceNeeds = [](ThingId town) {
+			EXPECT_EQ(town, 7u);
 			return s_Needs;
 		};
 		queries.desireTowns = []() { return s_Towns; };

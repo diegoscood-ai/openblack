@@ -15,10 +15,11 @@
 // it and NumTexturesForWholeChain repeats along it (fn_006C8920). Report: tmp_dis\psys\part_render.md §10;
 // PSys/Creators/Chain.h.
 //
-// The ribbons go through the back-to-front list with everything else: the original draws them inside their effect's
-// single Z object (fn_006798B0 0x6798DD takes fn_0067B370, "draw now", because PSysManager::AddDrawing 0x6797DE clears
-// the +0xAE flag that [0xC0215D] carries), so CollectPSysChains keys them with the effect's origin and Renderer.cpp
-// draws them from the sorted loop (hole H1 of tmp_dis\unify2\lh3d_zsorter_openblack.md).
+// Where a ribbon is drawn depends on its effect's draw path (psys::DrawPath, fn_006798B0 0x6798D6 reads [0xC0215D], the
+// manager's +0xAE): Sorted (Draw_(t, 1), fn_00679840 0x67984E) gives it its own Z object at the joint n / 2 through
+// fn_0067B380 (manager::SortedChain::key); Queued (PSysManager::AddDrawing 0x6797DE) and Immediate (Draw_(t, 0)) take
+// fn_0067B370, "draw now", at its place in its effect's items (manager::OrderedEffect). Renderer.cpp does both; the
+// callback is 0x67B3F0 either way.
 
 #include <cmath>
 #include <cstring>
@@ -39,7 +40,6 @@
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
-#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "PSys/Creators/Chain.h"
 #include "Renderer.h"
@@ -48,41 +48,18 @@
 using namespace openblack;
 using namespace openblack::graphics;
 
-std::vector<std::pair<float, uint32_t>> Renderer::CollectPSysChains(const Camera& camera) const
-{
-	_frameChains = psys::chain_atoms::Collect();
-	std::vector<std::pair<float, uint32_t>> order;
-	order.reserve(_frameChains.size());
-	const auto eye = camera.GetOrigin();
-	for (size_t i = 0; i < _frameChains.size(); ++i)
-	{
-		// fn_006798B0 0x6798D6: with [0xC0215D] = 0 (what PSysManager::AddDrawing 0x6797DE leaves when the manager is
-		// queued) the ribbon takes the fn_0067B370 branch and is drawn inside the effect's own Z object, so its key is the
-		// effect's (zsorter::Key, PSysManager::AddDrawing 0x6797E5..0x679828). Only the direct Draw_(float, bool) path
-		// (fn_00679840 with the flag set) gives a chain its own Z object through fn_0067B380, with the central joint as
-		// the point
-		order.emplace_back(zsorter::Key(_frameChains[i].origin, eye), static_cast<uint32_t>(i));
-	}
-	return order;
-}
-
-void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t index) const
+void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, const psys::Effect::DrawChain& chain) const
 {
 	struct Vertex
 	{
 		float x, y, z, u, v;
 		uint32_t abgr;
 	};
-	if (index >= _frameChains.size())
-	{
-		return;
-	}
 	const auto& textures = Locator::resources::value().GetTextures();
 	const auto* program = _shaderManager->GetShader("WorldQuad");
 	const glm::vec3 eye = camera.GetOrigin();
 
 	{
-		const auto& chain = _frameChains[index];
 		const auto* creator = dynamic_cast<const psys::ChainCreator*>(chain.creator);
 		if (creator == nullptr)
 		{

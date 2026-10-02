@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include <array>
+#include <span>
 #include <string>
 
 #include <bgfx/bgfx.h>
@@ -35,7 +36,7 @@
 using namespace openblack;
 using namespace openblack::graphics;
 
-void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const
+void Renderer::DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, const Camera& camera, RenderPass viewId) const
 {
 	struct Vertex
 	{
@@ -46,9 +47,11 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 	const auto* program = _shaderManager->GetShader("WorldQuad");
 	const auto cameraFrame = billboard::CameraFrame::From(camera);
 
-	// atoms in list order (one Z-sorter object per effect, AddDrawing); consecutive atoms with the same material batched
+	// atoms in the order given: one sprite of a Sorted effect (its own Z object, LH3DSprite::AddDrawing 0x840C70 from
+	// 0x67B0D2), a run of such sprites next to each other in the queue, or the sprites of a Queued / Immediate effect
+	// between its other items (LH3DSprite::Draw 0x840530 from 0x67B0DF). Consecutive atoms with the same material go in
+	// one draw call: drawn in the same order with the same states, the same pixels as one call each
 	size_t i = 0;
-	const auto& atoms = effect.atoms;
 	while (i < atoms.size())
 	{
 		const auto* creator = atoms[i].creator;

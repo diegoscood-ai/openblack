@@ -33,11 +33,17 @@ public:
 	void ProcessTurn();
 	/// [0xFA51D8] as ARGB: alpha 0 means nothing is drawn
 	[[nodiscard]] uint32_t GetColour() const { return _colour; }
+	/// fn_0053CE60: [0xFA51D8] = argb, as Temple::UpdateFade 0x794361 writes it every frame it runs (the falling
+	/// spell's white fade, video/FallingSpellVideo.h); the rate and the current alpha of ProcessFade stay
+	void SetColour(uint32_t argb) { _colour = argb; }
 
 	/// HelpSystem::SetWideScreen 0x5C6AD0 (SET_WIDESCREEN)
 	void SetWideScreen(bool on, float transitionSeconds);
 	/// fn_005C6BB0, every frame with the game-time milliseconds of this frame (0 while the game is paused)
 	void UpdateWideScreen(float gameMilliseconds);
+	/// fn_005C6C40 (PlayFullScreenMovie 0x54D9EF, after SetWideScreen(1, 0) 0x54D9E4): +0x45F0 = -FLT_MAX, so
+	/// GetWideScreenPercentage 0x5C6B60 is 1 at once (with the bars on) and stays there while 0 ms are added
+	void SnapWideScreen();
 	/// [0xEB9950], 0 (no bars) .. 1 (the picture is 16:9)
 	[[nodiscard]] float GetWideScreenFraction() const { return _wideFraction; }
 	/// HelpSystem::GetWideScreenControl 0x4282F0 (+0x45E8 == 1): the bars are on or coming
@@ -48,6 +54,9 @@ public:
 	[[nodiscard]] static int LetterboxHeight(int width, int height, float fraction);
 
 private:
+	/// GetWideScreenPercentage 0x5C6B60: |+0x45F0 * 0.001 / wideScreenTime|, 1 - that with the bars off, in [0, 1]
+	[[nodiscard]] float WideScreenPercentage() const;
+
 	float _rate {0.0f};      ///< +0xB0: alpha per turn, 0 when idle
 	float _current {0.0f};   ///< +0xB4: alpha 0..255
 	uint32_t _colour {0};    ///< +0xB8: ARGB

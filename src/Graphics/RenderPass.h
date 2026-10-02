@@ -24,12 +24,6 @@ enum class RenderPass : uint8_t
 	StaticShadow,
 	/// Land alpha lowered by the river channels (the original's river footprints lower the block textures' alpha)
 	LandAlpha,
-	/// Dynamic shadow silhouettes (the hand)
-	DynamicShadow,
-	/// The physics objects' shadow silhouettes (PhysicsShadows), 4 x 2 subsamples per texel
-	PhysicsShadow,
-	/// Their subsample count into the 32 x 32 shadow textures
-	PhysicsShadowResolve,
 	Reflection,
 	Main,
 	/// Blended (fading) models, drawn over the finished main pass so the water cannot be sorted over them.
@@ -46,9 +40,6 @@ static constexpr std::array<std::string_view, static_cast<uint8_t>(RenderPass::_
     "Footprint Pass",   //
     "Static Shadow Pass", //
     "Land Alpha Pass",    //
-    "Dynamic Shadow Pass", //
-    "Physics Shadow Pass", //
-    "Physics Shadow Resolve Pass", //
     "Reflection Pass",  //
     "Main Pass",        //
     "Main Blended Pass", //

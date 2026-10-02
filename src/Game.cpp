@@ -82,6 +82,7 @@
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/CameraBookmarkSystemInterface.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
@@ -115,6 +116,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
+#include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
 
 #ifdef __ANDROID__
@@ -130,7 +132,7 @@ const std::string k_WindowTitle = "openblack";
 namespace
 {
 /// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
-/// not have yet (videos, the wide screen bars moving, the towns' tribes, creature, worship)
+/// not have yet (videos, the wide screen bars moving, the towns' desires, creature, worship)
 audio::GameQueries MakeMusicQueries(Game& game)
 {
 	audio::GameQueries queries;
@@ -144,9 +146,21 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		}
 		audio::CameraState camera;
 		camera.position = Locator::camera::value().GetOrigin();
-		const float ground = Locator::terrainSystem::has_value() ?
-		                         Locator::terrainSystem::value().GetHeightAt(glm::vec2(camera.position.x, camera.position.z)) :
-		                         0.0f;
+		// GetCamera()+0x14 is written by GCamera::UpdateGameThingWithPosData 0x442EF0 (GCamera::Update 0x4426EB) from
+		// LH3DTech::g_camera: x, z x 6553.6 __ftol (0x442EF3..0x442F35); +0x1C = y - the altitude byte (LandCell +4) of
+		// the cell (x >> 16, z >> 16) x 0.67 [0xC3720C], not interpolated (0x442F38..0x442FB7); y alone off the map
+		// (a cell > 0x1FF) or where no block is (0x442FC1..0x442FCE)
+		float ground = 0.0f;
+		if (Locator::terrainSystem::has_value())
+		{
+			const auto& island = Locator::terrainSystem::value();
+			const glm::u16vec2 cell {ecs::map_coords::CellOf(ecs::map_coords::ToFixed(camera.position.x)),
+			                         ecs::map_coords::CellOf(ecs::map_coords::ToFixed(camera.position.z))};
+			if (cell.x <= 0x1FF && cell.y <= 0x1FF && island.HasBlockAt(cell))
+			{
+				ground = static_cast<float>(island.GetCellAltitude(island.GetCell(cell))) * LandIslandInterface::k_HeightUnit;
+			}
+		}
 		camera.heightAboveGround = camera.position.y - ground;
 		return camera;
 	};
@@ -723,6 +737,9 @@ bool Game::Update() noexcept
 	// Process3dEngine 0x54DAB5..0x54DD76: the full screen film's frame (Video/VideoPlayer.h), paced by the wall
 	// clock (the game is paused while it plays)
 	video::Get().Process(game_clock::FrameRealMs());
+	// Process3dEngine case 2 0x54DD83..0x54DDDB (the FallingSpell's update, its end at state 4 or without a film) and
+	// 0x54E2A4..0x54E2DE Temple::UpdateFade with g_delta_time (Video/FallingSpellVideo.h)
+	video::GetFallingSpell().ProcessFrame(game_clock::FrameRealMs());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());
@@ -1434,6 +1451,37 @@ bool Game::Run() noexcept
 		// as SET_WIDESCREEN: the HelpSystem's owning task (+0x45EC) is set too (the user-param-1 samples are skipped)
 		audio::SetScriptWideScreen(true);
 	}
+	// OPENBLACK_TEST_VIDEO=<intro|fall|path> plays a full screen film (video.md): intro as StartAVISequence(1) 0x68F450
+	// (data\intro.bik, 60 s), fall as KickOffFallingSpellVideo without its creature test (0x5539C9..0x5539F9: mode 2,
+	// data\Spells\fall\fall.bik with alpha 0x50 and no world drawn, Video/FallingSpellVideo.h), else the given .bik
+	if (const char* film = std::getenv("OPENBLACK_TEST_VIDEO"); film != nullptr)
+	{
+		const std::string name = film;
+		const auto& data = fileSystem.GetPath<filesystem::Path::Data>();
+		const std::filesystem::path path = name == "intro"  ? data / "intro.bik"
+		                                   : name == "fall" ? data / "Spells" / "fall" / "fall.bik"
+		                                                    : std::filesystem::path(name);
+		std::filesystem::path found = path;
+		try
+		{
+			found = fileSystem.FindPath(path);
+		}
+		catch (const std::exception&)
+		{
+		}
+		if (name == "fall")
+		{
+			video::GetFallingSpell().Start();
+		}
+		else
+		{
+			video::Get().Play(found);
+			if (name == "intro")
+			{
+				video::Get().ScheduleIntro();
+			}
+		}
+	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
 	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)
 	{
@@ -1621,6 +1669,11 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
+	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
+	if (video::Get().IsPlaying())
+	{
+		video::Get().Stop();
+	}
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{

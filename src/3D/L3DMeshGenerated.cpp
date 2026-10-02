@@ -59,6 +59,7 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 	_collisionPositions.clear();
 	_collisionIndices.clear();
 	_collisionUVs.clear();
+	_collisionRanges.clear();
 	_primitives.clear();
 	uint32_t vertex = 0;
 	uint32_t index = 0;
@@ -74,6 +75,7 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 			_boundingBox.maxima = glm::max(_boundingBox.maxima, p.positions[i]);
 			_boundingBox.minima = glm::min(_boundingBox.minima, p.positions[i]);
 		}
+		_collisionRanges.emplace_back(index, static_cast<uint32_t>(p.indices.size()));
 		auto material = p.material;
 		material.indicesOffset = index;
 		material.indicesCount = static_cast<uint32_t>(p.indices.size());
@@ -85,6 +87,9 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 		}
 		_primitives.push_back(material);
 	}
+	// not boned: every vertex in the object's space
+	_skinBones.assign(_collisionPositions.size(), 0);
+	_skinLocalPositions = _collisionPositions;
 	VertexDecl decl;
 	decl.reserve(4);
 	decl.emplace_back(VertexAttrib::Attribute::Position, static_cast<uint8_t>(3), VertexAttrib::Type::Float);

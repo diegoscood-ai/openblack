@@ -35,7 +35,8 @@
 ## Render
 
 - Matriz de instancia (mat4 por objeto): se aprovechan las `w` de las columnas de rotación:
-  - `[0][3]` = 1 − opacidad (`components::Alpha`; esos objetos van en la vista `RenderPass::MainBlended`);
+  - `[0][3]` = 1 − opacidad (`components::Alpha`; con la tabla 0xC387C8, en la cola si su malla tiene la marca 0x200 y
+    si no al momento en la vista principal);
   - `[1][3]` = desplazamiento de textura V (`components::UvScroll`);
   - `[2][3]` = `components::MeshTint` (1e6 y más; ver mod-library.md). El shader de huellas usa solo xyz de esas columnas.
 - `MorphWithTerrain` (el original: `LH3DObject::UpdateMelting` 0x8168F0; objetos de tipo 3D 1 = morphable, ver
@@ -212,18 +213,25 @@ dibuja» de «en ese fotograma no había ninguna» (el rayo parpadea: una horqui
 
 `OPENBLACK_ZSORTER_TRACE=1` escribe una vez por segundo (cada 60 fotogramas dibujados) una línea `ZSorter trace:` con
 lo que lleva la cola única de transparentes del fotograma (`graphics::zsorter`, `Renderer::DrawPass`): el total, las
-entradas perdidas por el tope de 0x800 (`NewZObject` 0x83F31C), cuántas hay de cada clase (modelos, nubes, casillas de
-lluvia, sprites del barco, efectos, superficies, cintas, nieblas, humo, sprites, mano) y la clave (distancia al
+entradas perdidas por el tope de 0x800 (`NewZObject` 0x83F31C), cuántas hay de cada clase (modelos, desvanecidos, nubes,
+casillas de lluvia, sprites del barco, sprites, mallas y cadenas de los efectos `Sorted`, efectos `Queued`, nieblas,
+humo, sprites, mano) y la clave (distancia al
 cuadrado) de la primera y de la última; ver
 [rendering-objects.md](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter).
+
+`OPENBLACK_SHADOW_TRACE=1` escribe una vez por segundo las sombras proyectadas (`graphics::shadow_list`): por cada
+`ShadowInfo` (`shadow <n> caster <entidad> light <tipo> alpha <a> fade <f> box (...) kMin <k> t' <t> max n <n>
+points <p>`, o por qué no se dibuja), los objetos que reciben una (`shadow receiver: instance <i> mesh <m> shadows <n>`)
+y en qué vista se les dibuja (`shadow on object: ... view <v>`: 4 = Main, al momento; 5 = MainBlended, dentro de su
+entrada de la cola). `OPENBLACK_DUMP_SHADOWS=<carpeta>` guarda cada 300 fotogramas cada textura ×8 en PNG
+(`shadow_<fotograma>_<n>_<entidad>.png`). Ver [rendering.md](rendering.md#sombras-proyectadas-shadowinfo).
 
 `OPENBLACK_ORB_TRACE=1` escribe, **cada fotograma dibujado** y desde `Renderer::DrawScene` (justo después de ordenar la
 lista de atrás a delante), dos clases de línea en el registro con el logger `graphics`:
 
-- `Orb trace: surface <i> (<textura>) sorted <k>/<n> key <d> origin (x, y, z)` por cada superficie `ZR_SurfRevol` que
-  entró en la lista (el disco del dispensador, el charco del teletransporte): su índice en `_frameSurfaces`, su sitio
-  `k` de `n` en la lista ordenada, la clave (distancia a la cámara del **origen del efecto**,
-  `PSysManager::AddDrawing` 0x6797D0) y ese origen.
+- `Orb trace: surface (<textura>) path <p> sorted <k>/<n> origin (x, y, z)` por cada superficie `ZR_SurfRevol` (el
+  disco del dispensador, el charco del teletransporte): el camino de su efecto (0 `Sorted`: dibujada al momento, antes
+  de toda la cola, `k` = −1; 1 `Queued`: `k` es el sitio de la entrada de su efecto) y el origen del efecto.
 - `Orb trace: orb <entidad> phase <p> frame <f> packed[1][3] <v> uv (u, v) alpha <a> sorted <k>/<n> key <d> sortPoint (x, y, z) inView <b>`
   por cada `components::OneOffSpellSeed` (la burbuja de una bola de un uso): la fase y el fotograma de su hoja 4×4
   (`OneOffSpellSeed::UpdateFrame` 0x72A570), el valor empaquetado que lleva al shader en `[1][3]`
@@ -232,7 +240,7 @@ lista de atrás a delante), dos clases de línea en el registro con el logger `g
   `OneOffSpellSeed::Draw` 0x518E90 y el resultado de la prueba de volumen de vista. Si la entidad no tiene instancia
   este fotograma escribe `Orb trace: orb <entidad> has no instance this frame`.
 
-Sirve para dos cosas: comprobar que el disco del dispensador se dibuja **antes** que la burbuja (su `sorted k` menor) y
+Sirve para dos cosas: comprobar que el disco del dispensador se dibuja **antes** que la burbuja y
 seguir la burbuja en la vuelta 15 → 0 de su hoja. La escena es
 `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1826,2670,10,2"` con
 `OPENBLACK_CAMERA_LOCK="1816,52,2656,1826,37,2670"` (guion en `dev\_scratch\sistemas\orbfix\shot_orb.sh`). Son unas 2

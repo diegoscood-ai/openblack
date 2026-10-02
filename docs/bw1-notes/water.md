@@ -410,11 +410,11 @@ registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode 
 - openblack: `src/ECS/PetitNavire.{h,cpp}` (estado, entidades, PreDraw y PostDraw en `Update` con el tiempo entero y el
   resto guardado), `src/ECS/SmokyStuff.{h,cpp}` (el mismo módulo que el humo del cadáver de
   [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (la sombra del casco entra en
-  `graphics::PhysicsShadows`), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; el
+  `graphics::shadow_list` con el sol fijo, `useSun`, y cae también sobre objetos), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; el
   reflejo en 0x303070 es `Renderer::DrawUnderWater(vista, casco, sea_pass::UnderWater(0xFF303070, 0))`, el modo 2 de
   `vs_object` con el rgb empaquetado; los sprites, uno a uno en la
   cola común de transparentes, LH3DSprite::AddDrawing 0x840CB3). Diferencias que quedan: la cubierta toma la luz de tierra de su
-  propio sitio (no la del casco); la sombra del casco solo cae en tierra (`PhysicsShadows` no se dibuja sobre objetos);
+  propio sitio (no la del casco); la sombra del casco sale con la visibilidad de la cámara normal (el original lee la del espejo, (inferido) D-O5);
   el modo ≠ 0 de `SmokyStuff::Create` (0x823DA7) no tiene llamadas aquí y no está portado.
 
 ## Decorado fijo por tierra: cascada de Land 3, arca y dinosaurio de Land 4

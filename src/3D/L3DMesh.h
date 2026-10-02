@@ -22,6 +22,7 @@
 #include "AxisAlignedBoundingBox.h"
 #include "Graphics/Mesh.h"
 #include "Graphics/ShaderProgram.h"
+#include "Graphics/ShadowMath.h"
 #include "L3DSubMesh.h"
 
 class btConvexShape;
@@ -135,6 +136,17 @@ public:
 	void SetFootprintSource(std::shared_ptr<const L3DMesh> source) noexcept;
 	/// A generated mesh made of another one's primitives (the PSys exploded pieces) draws with that mesh's embedded skins
 	void SetSkinSource(std::shared_ptr<const L3DMesh> source) noexcept { _skinSource = std::move(source); }
+	/// The 64 x 64 shadow map of one of the mesh's own skins (fn_00838F00, cached at texture+0x12C), for the chroma
+	/// casters' shadow (graphics::shadow_list); nullptr for a skin that is not embedded
+	[[nodiscard]] const graphics::shadow_math::AlphaMap* GetShadowAlphaMap(SkinId skin) const
+	{
+		if (_shadowAlphaMaps.empty() && _skinSource)
+		{
+			return _skinSource->GetShadowAlphaMap(skin);
+		}
+		const auto found = _shadowAlphaMaps.find(skin);
+		return found != _shadowAlphaMaps.end() ? &found->second : nullptr;
+	}
 	[[nodiscard]] const std::vector<uint32_t>& GetBoneParents() const { return _bonesParents; }
 	[[nodiscard]] const std::vector<glm::mat4>& GetBoneMatrices() const { return _bonesDefaultMatrices; }
 	[[nodiscard]] const std::optional<glm::vec3>& GetDoorPos() const { return _doorPos; }
@@ -163,6 +175,7 @@ private:
 	std::vector<Footprint> _footprints; ///< If ContainsLandscapeFeature() is true
 	std::shared_ptr<const L3DMesh> _footprintSource;
 	std::shared_ptr<const L3DMesh> _skinSource;
+	std::unordered_map<SkinId, graphics::shadow_math::AlphaMap> _shadowAlphaMaps;
 	std::vector<std::unique_ptr<L3DSubMesh>> _subMeshes;
 	std::vector<uint32_t> _bonesParents;
 	std::vector<glm::mat4> _bonesDefaultMatrices;
@@ -191,6 +204,12 @@ public:
 	[[nodiscard]] bool HasChimney() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::HasChimney); }
 	[[nodiscard]] bool IsPacked() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::Packed); }
 	[[nodiscard]] bool IsNoDraw() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::NoDraw); }
+	/// The header's 0x200 (L3DMeshFlags::Unknown10), the LH3DMesh's +4 (the file image: GetChimneyPos 0x7F9F17 tests
+	/// its 0x400): LH3DObject::SetMesh 0x7F9E10 copies it into the object's +4 bit 0x10 (vt+0x3C fn_007F9D40 = mesh +4 &
+	/// 0x200, 0x7F9E48; vt+0x40 fn_007F97A0, 0x7F9E51..0x7F9E64), the only bit LH3DObject::AddDrawing 0x815A70 queues
+	/// the whole object by (vt+0x44 fn_007F97C0 0x815AC2, tested at 0x815F0B: NewZObject 0x815F53, else Draw vt+0x108
+	/// at once 0x815F62)
+	[[nodiscard]] bool IsZSorted() const { return static_cast<bool>(_flags & l3d::L3DMeshFlags::Unknown10); }
 	[[nodiscard]] bool ContainsLandscapeFeature() const
 	{
 		return static_cast<bool>(_flags & l3d::L3DMeshFlags::ContainsLandscapeFeature);

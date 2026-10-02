@@ -3,7 +3,7 @@
 Cómo reproduce runblack.exe v1.42 (W120) sus cinco vídeos Bink y qué tiene openblack: los ficheros y cuándo sale cada
 uno, la clase `LHVideoPlayer` y su copia a 16 bits, el vídeo a pantalla completa de `GGame` (ritmo, pausa, pantalla
 ancha, fundido, ESC, el mundo 3D sin dibujar), la caída del hechizo, el arranque y la pantalla de carga, el audio de
-cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V2) con el plan V3..V8.
+cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V3) con el plan V4..V8.
 
 - [Los cinco vídeos](#los-cinco-vídeos)
 - [binkw32.dll y el contenedor](#binkw32dll-y-el-contenedor)
@@ -75,6 +75,16 @@ texturas, **+0x48 el framebuffer** `ancho*alto*2` bytes a cero, +0x4C..+0x64 lo 
   siempre `++frame` 0x845164.
 - `DrawToScreen` 0x8456C0 sólo guarda los parámetros; el dibujo lo hace el callback `thedraw` 0x844E30 → fn_00845740,
   un quad por tile con el color de vértice dado.
+- Los materiales del mosaico: `CreateMaterial(modo 6, textura)` 0x844FC6 (SRCALPHA / INVSRCALPHA, color y alfa
+  MODULATE, sin escritura de Z), `+5 &= ~4` 0x844FD7 (sin repetición: `SetD3DTillingOff` 0x8459B1) y `+5 |= 1` 0x844FE4
+  (dos caras: CULLMODE 1 = NONE, 0x8459E4).
+- fn_00845740 (leído en `tmp_dis\psys\lh3d.asm`): `w`/`h` 0 → la pantalla (`[0xE85058]`/`[0xE8505A]`, 0x845798..0x8457B5);
+  escala `sx = w / ancho`, `sy = h / alto` (0x8457B9..0x8457D3); por tile `x0 = x + tx·256·sx`, `x1 = x0 + n·sx` (igual
+  en y), con `n` = 256 salvo la última columna/fila, `ancho & 0xFF` / `alto & 0xFF` (0x84583A..0x845870); u, v de 1/512
+  a `n/256 − 1/512` (0x845891..0x84596C: medio texel hacia dentro); el color en los cuatro vértices (0x8458C1..0x8458DB);
+  ZFUNC (0x845A16) = **ALWAYS** si el 2º `bool` es 0 (si no LESSEQUAL), ZWRITEENABLE (0x845A49) = el 1er `bool`;
+  `DrawAndClip2D` FVF 0x1C4 0x845A7D; al final ZFUNC vuelve a 4 (0x845ADC). `Process3dEngine` pasa los dos `bool` a 0
+  (0x54DC56 / 0x54DC58).
 - `EnterVideoSection`/`LeaveVideoSection` 0x844C80/0x844CA0: la sección crítica 0xEF74F8 entre el hilo del temporizador
   y el del juego.
 
@@ -122,7 +132,10 @@ symbols.txt, y los dos llamadores pasan NULL):
    `BinkService`/`Sleep(0)` que no descodifica nada.
 6. `fn_0054AB00` 0x54D9AD: `timeSetEvent(16 ms, resolución 5, 0x54AAE0, periódico)`.
 7. `0xD019A0 = HelpSystem+0x45E8` 0x54D9BE y, si no había pantalla ancha, `HelpSystem::SetWideScreen(1, 0)` 0x54D9E4.
-8. `HelpSystem` fn_005C6C40 0x54D9EF, **(inferido)** esconder el HUD.
+8. `HelpSystem` fn_005C6C40 0x54D9EF, **siempre** (también si la pantalla ancha ya estaba puesta): +0x45F0 = −FLT_MAX
+   (0x5C6C40), así que `GetWideScreenPercentage` 0x5C6B60 = |t·0,001/wideScreenTime| limitado a [0, 1] da 1 en el acto:
+   las barras salen enteras en el primer frame y siguen así (en pausa se suma 0, fn_005C6BB0). Al acabar,
+   `SetWideScreen(0)` deja +0x45F0 = (1 − 1)·2000 = 0 y las barras se van en 2 s de reloj de juego.
 
 Si el fichero no abre: fps 1, frames 0 → fin 0 y el siguiente `Process3dEngine` lo borra (0 ≥ 0).
 Si un vídeo sustituye a otro, `VideoPreviousPause` y 0xD019A0 se toman **ya en pausa y con pantalla ancha**: al acabar el
@@ -133,7 +146,8 @@ segundo el juego sigue en pausa (fiel por lectura, sin verlo en el juego).
 **Fiel.** Por defecto el vídeo dura hasta su último frame con 5 s de fundido. `StartAVISequence(1)` 0x68F450, si hay
 reproductor, pisa el calendario: **fundido = fps·58** (`fps*7`, `+fps*28`, `*2`, 0x68F4A1..0x68F4AF) y **fin = fps·60**
 (`imul 0x3C` 0x68F4C3), +0x250530 = 1, y `SetupScreenFadeBackToNormal(0)` 0x68F4E9 (sólo si hay reproductor, que siempre
-lo hay). INTRO.bik: fundido de 1392 a 1440; **los frames 1440..1600 nunca se ven**. fall.bik: fundido de 1080 a 1200.
+lo hay). INTRO.bik: fundido de 1392 a 1440; **los frames 1440..1600 nunca se ven**. fall.bik: **sin fundido propio**
+(`FallingSpell::Init` pone fundido = fin, 0x5262C4..0x5262CF); se funde sólo al acabar el hechizo (48 frames).
 `SET_AVI_SEQUENCE(2)`: `KickOffFallingSpellVideo` y `SetupScreenFadeBackToNormal(0)`.
 
 ### Ritmo
@@ -204,13 +218,54 @@ perfil nuevo no se puede saltar** (inferido: lo que se ve en el juego).
 
 ## La caída del hechizo (fall.bik)
 
-**Fiel por lectura (sin hecho en openblack).** `KickOffFallingSpellVideo` 0x5539A0: `EndFallingSpellVideo` del anterior,
-`+0x205A28 = 2`, `new(0x40)` `FallingSpell`, `FallingSpellVideo = obj`, `Init` 0x526060 → `PlayFullScreenMovie` (pausa
-y pantalla ancha como la intro). Se dibuja **encima del mundo**, que sí se dibuja, con alpha base 0x50 (31 %);
-`Process3dEngine` caso 2 (0x54DD9B..0x54DDE0) llama `FallingSpell::Draw` 0x5267D0 y, si ya no hay vídeo o
-`FallingSpell+0x20 == 4`, `EndFallingSpellVideo` 0x553A10: `+0x205A28 = 0`, `Close`, `delete`, `FallingSpellVideo = NULL`
-y `fn_0054DA00`. Como ya no hay `FallingSpellVideo`, ese salto es el normal: si el vídeo sigue, 48 frames de fundido
-**con base 0xFF** (y el primer fotograma, alpha 1.0, tapa el mundo). Fundido propio: los últimos 5 s (frames 1080..1200).
+**Fiel (V6, `src/Video/FallingSpellVideo.{h,cpp}`).** Leído entero: `KickOffFallingSpellVideo` 0x5539A0,
+`EndFallingSpellVideo` 0x553A10, `FallingSpell::Init` 0x526060, `Close` 0x5264A0, la actualización sin símbolo 0x526E00
+(la llama `fn_00553A60` 0x553A6A), `Draw` 0x5267D0, la retrollamada 0x526480 → 0x526530 y `Temple::UpdateFade` 0x794280.
+
+- **Arranque.** `SET_AVI_SEQUENCE(on, 2)` → `StartAVISequence` 0x68F45F → `KickOffFallingSpellVideo` y siempre
+  `SetupScreenFadeBackToNormal(0)` 0x68F471. KickOff **no hace nada** si el jugador local no tiene criatura
+  (0x5539A5..0x5539C0: `g_game + 0xA64 + 0xA60·[+0x205A59]` = `players[PlayerIndex].creature`, `GPlayer` de 0xA60 bytes
+  desde +0x18 con `creature` en +0xA4C). Si la tiene: `EndFallingSpellVideo` del anterior (0x5539C4), `+0x205A28 = 2`,
+  `new(0x40)` (Game.cpp línea 0x1ADD), ctor fn_00527240 (+0 = +4 = 0), `FallingSpellVideo` = el objeto, `Init`.
+  `SET_AVI_SEQUENCE(off, 2)` → `StopAVISequence` 0x68F4F7 → `EndFallingSpellVideo` (sin objeto, nada).
+- **Init.** Carga la ruta de cámara `data\spells\fall\fall.cm2`, hace una `CreatureFalling` (0x57B8 bytes, vtable
+  0x8D8BD8) de la criatura del jugador con sus brillos de mano, `PlayFullScreenMovie("data\spells\fall\fall.bik",
+  NULL)` 0x5261FC (**pausa y pantalla ancha como la intro**: el juego sí se para) y, con reproductor: fps ≤ 0 → 0x18,
+  la cámara en el punto de la ruta del ms 0 (×0,8), y **+0x25018C = +0x250190** (0x5262C4..0x5262CF): **el vídeo no tiene
+  fundido propio** (los 5 s de `fn_0054AB20` se anulan). Luego +0 = 1, +0x10 la posición de cámara guardada, un
+  `LH3DSprite` y 16 chispas (+0x34/+0x38), `+0x1C = +0x20 = +0x24 = 0`, dos `LightBurst` (+0x3C), +0x28 = 0,
+  +0x30 = 1.0, +0x2C = 0 y la retrollamada de fin de frame 0x526480 (los destellos de luz, desde el estado 2).
+- **Cada frame (modo 2).** `Process3dEngine` 0x54DD83: con `+0x205A28 == 2` (caso 2, 0x54DD9B..0x54DE02) **no se dibuja
+  la tierra** (el caso 0 es 0x54DE57): `LH3DAtmos::Update3D`, `g_mode_cleaning = 0`, la actualización 0x526E00, y si no
+  hay vídeo o **`+0x20 == 4`** → `EndFallingSpellVideo` 0x54DDD6; si no `FallingSpell::Draw` (el vídeo **primero**, con
+  `LHVideoPlayer::thedraw(0)` 0x52689F y alpha base 0x50, luego la criatura que cae `DrawNow` 0x526A42 con su tinte por
+  tiempo, y las chispas) y las partículas líquidas. Otros lectores de +0x205A28: `GCamera::Update` 0x44233C..,
+  fn_00516CB0, fn_00517080, `AddPlayerSparkles` 0x55264D, fn_005739F0, `Process3dEngine` 0x54E3D2 / 0x54E4BC
+  (`Render2D` del clima se salta en modo 2) **(no portados)**.
+- **La actualización 0x526E00.** Sin vídeo: `++(+0x20)` y nada más. Con vídeo, `t = frame·1000/fps` (0x526E61, enteros):
+  la criatura avanza `t − (+0xC)` (+0xC = 100 tras Init), la cámara por la ruta y `ChangeFov(π/4)`. Sonidos por
+  `+0x24` (cada `if` tras el anterior: una sola llamada puede pasar varios): **> 17 450 ms** 151 ScreenRumble (ScriptSfx);
+  **> 19 450** 56 S_LasersbeamExplode_02 (Spells) y para 172 (InGame, dueño 1); **> 31 650** 166 G_Creed_01.
+  Estado `+0x20`: **0 → 1 a > 13 450 ms** (+0x1C = 1; 168 G_CitadelExplode_01 y 172 G_Volcano_02 dueño 1);
+  **1 → 2 a > 37 750** (30 S_HealChakra; 166 dueño 2 con tono 0x85); **2 → 3 a > 43 900**: fundido del templo a blanco
+  (`[0xE06024] = 0xFFFFFF`, objetivo `[0xE06020] = 1.0`, actual `[0xC2A150] = 0`, `[0xE06028] = 0`), para 166 (dueños 0 y
+  2), **`LHMusicStop(1)` 0x5271B0** (toda la música se funde) y 168; **3 → 4** cuando `[0xE06028] ≠ 0` (el fundido llegó
+  al blanco): objetivo 0, actual 1.0, `[0xE06028] = 0` (vuelve del blanco). Bancos: +0x3AC InGame, +0x3B4 Spells,
+  +0x3BC ScriptSfx (`sfx_inventory.md` 0x526F6E..0x5271E1).
+- **`Temple::UpdateFade`** (0x54E2DE, cada frame salvo que objetivo == actual y el modo no sea 1; modo 3 ninguno):
+  avanza `g_delta_time · 0,001` por frame (1,0 por segundo, reloj real, también en pausa). Subiendo, al pasarse:
+  `++[0xE06028]`, actual = objetivo y **objetivo = 0** (vuelve a bajar solo); bajando, al pasarse: actual = objetivo,
+  `++[0xE06028]` y con objetivo ≤ 0 el color a 0. Escribe `(alpha << 24) + rgb` (alpha 0xFF por encima de 1, si no
+  `ftol(actual·255)`) en `[0xFA51D8]` con fn_0053CE60: **el mismo color de fundido de pantalla del guion**. La FPU va
+  a 24 bits (fn_007DEE00, llamada tras `FinishFrame` 0x54E426 / 0x54E4D1 y en `EndTurn`): cada paso redondea a `float`
+  y se comparan `float`s; un paso que cae **justo** en el objetivo no cuenta (objetivo == actual: `Process3dEngine` deja
+  de llamarlo y el fundido se queda) **(inferido: que nada suba la precisión entre medias)**. Al arrancar, `DoLogo`
+  (0x5FA0E1..0x5FA0FF, primera vuelta de `GGame::Loop`) pone actual = objetivo = 0 y `[0xE06028] = 0`: en reposo.
+- **El final.** `EndFallingSpellVideo`: `+0x205A28 = 0`, `Close` (quita la retrollamada, borra la criatura y la ruta,
+  devuelve la cámara, libera chispas y destellos), `delete`, `FallingSpellVideo = NULL` y `fn_0054DA00`. Sin
+  `FallingSpellVideo` ese salto es el **normal**: fundido de 48 frames desde el actual **con base 0xFF** (el primer
+  fotograma, alpha 1.0, tapa el mundo) y la pausa devuelta. Por tiempo: a 43,9 s el blanco sube en 1 s, a ~44,9 s acaba
+  el hechizo, el vídeo se funde en 2 s y el blanco baja en 1 s. ESC (`fn_0054DA00` 0x54DA0C) hace lo mismo antes.
 
 ## Arranque y pantalla de carga
 
@@ -292,9 +347,37 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
   `FullScreenRect` (barras sin recortar), `FramesDue`. `video::Get()` / `video::IsPlaying()` con `GameHooks()`:
   `game_clock::Pause/IsPaused`, `help::Get()->SetWideScreen(on, 0)` (que mueve las barras de `ScreenFade` y avisa al
   audio con dueño 0) y `game_music::ScriptStopMusic`.
+- `src/Video/FallingSpellVideo.{h,cpp}` (**V6**): `video::FallingSpellVideo` (el `FallingSpell` en lo que toca al vídeo,
+  y +0x205A28): `KickOff` (0x5539A0, con el gancho `hasCreature`: **(inferido)** una entidad `Creature` de `PLAYER_ONE`),
+  `Start` (lo de después de la prueba; lo usa `OPENBLACK_TEST_VIDEO=fall`), `End` (0x553A10 → `VideoPlayer::Skip`),
+  `ProcessFrame(realMs)` (caso 2 + `Temple::UpdateFade`), `Update` (0x526E00), `HidesWorld()` (modo 2), `State()`,
+  `SoundState()`; `TempleFade` puro (0x794280, en `float` como la FPU a 24 bits). Ganchos (`GameHooks()`):
+  `sound(FallingSpellSound)` → `audio::PlaySoundEffect(PlayOptions)` 2D (dueño `Owner::None()` / `Key(1)` / `Key(2)`,
+  tono 133 sólo en 0x527119) o `audio::StopSoundEffect(muestra, dueño, banco)`; `musicStop(1)` → `audio::MusicStop(1)`;
+  `setScreenFadeColour` → `ScreenFade::SetColour` (nuevo, fn_0053CE60). `VideoPlayer::GameHooks().endFallingSpellVideo` → `End()`. Opcode 203
+  (`CHLApi.cpp`): secuencia 2 con `on` → `KickOff()` + `FadeBackToNormal(0)`, sin `on` → `End()`, tras el `FreeStart()`
+  como V4. `Game.cpp`: `GetFallingSpell().ProcessFrame(FrameRealMs())` justo tras `video::Get().Process`.
+  `Renderer::DrawScene`: con `HidesWorld()` el mismo camino que `CoversScreen()` (sólo el vídeo y las capas finales).
 - `src/Game.cpp`: `video::Get().Process(game_clock::FrameRealMs())` tras `UpdateRealClock()` (después de los turnos,
   como `Process3dEngine` tras el bucle de turnos); en `ProcessEvents`, ESC con vídeo → `EscapeKey` (sin vídeo sale de
   openblack como siempre: el ESC de openblack no es el del original).
+- `src/Graphics/Renderer.cpp` (**V3**, sesión *sistemas*): `Renderer::DrawVideoOverlay` en `RenderPass::ScreenOverlay`,
+  tras el mensaje de la mano, en el orden de `LH3DRender::FinishFrame` 0x82F460 (`Renderer::DrawFinishFrameOverlays`):
+  primero las barras si pct ≠ 0 (0x82F652..0x82F6DD, fn_0081E590 dos veces, alto (int)((h − w·0,5625)·pct)/2 de
+  fn_0081E8B0), luego las retrollamadas con el bit 0x80000000 (0x82F6E5..0x82F718), entre ellas `thedraw` 0x844E30
+  (registrada con 1 en 0x54B62D; `RegisterFinishFrameCallback` 0x82F2C0 pone el bit), y al final el fundido del guion
+  fn_0086FEE0 (0x82F753), que vuelve a pintar las barras encima de su color. El vídeo tapa las barras justo en su borde:
+  con pct = 1 el rectángulo de `FullScreenRect` encaja exacto entre ellas. Una textura RGBA8 `clamp` del tamaño del
+  vídeo, rehecha si cambia el tamaño y subida con `updateTexture2D` sólo cuando cambia `serial` (`UploadToTextures`
+  0x84514E). Los quads de fn_00845740 tile a tile sobre `video::FullScreenRect` (0x54DBEB..0x54DC6D) con los **mismos
+  texels** que cada tile de 256x256 (medio texel hacia dentro, sin repetición: el filtro no llega al tile vecino), el
+  color `Frame::colour` (0x54DC11..0x54DC4D) como color de vértice, y el estado `render_modes::State` del material modo 6
+  de dos caras con ZFUNC ALWAYS y sin Z. Programa `WorldQuad` (vs_blob + fs_world_quad: color = textura × difuso,
+  alfa = `s_alpha.r` × difuso) con una textura R8 1x1 blanca como `s_alpha`: **no hay shader nuevo**.
+  `Renderer::DrawScene`: con `video::Get().CoversScreen()` (0x54DD5E..0x54DD7D → 0x54E2A4) no se dibuja nada del mundo
+  (ni sombras, ni reflejo, ni cielo, ni el mensaje de la mano); sólo el vídeo y `DrawScreenOverlay` (el fundido del guion
+  y las barras, 0x54E2D7..0x54E2ED), en el mismo orden barras, vídeo, fundido. Comprobado en el juego: con `fall` el mundo sale × 0,686 = 1 − 0x50/255 en todos
+  los píxeles medidos; con `intro` la pantalla es el negro del descodificador nulo (sin el azul del borrado).
 
 Diferencias:
 
@@ -306,30 +389,57 @@ Diferencias:
 - Fiel desde V5: el paso a 16 bits parte del RGBA8 del descodificador y da el mismo 555/565 que el YUV→555 de la DLL
   (comprobado contra los frames de oro).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
+- V6 no portado: la `CreatureFalling`, la ruta `fall.cm2` y la cámara con `ChangeFov(π/4)`, las 16 chispas, los
+  `LightBurst`, el tinte de la criatura y los `SetScalePowerTime` de `Draw`, `LH3DAtmos::Update3D`/`Render2D`, los otros
+  lectores de +0x205A28 y la reescritura de +0x1C por `Draw`. Lo que se ve en openblack en modo 2: el vídeo al 31 % sobre
+  **(inferido)** el color de borrado de openblack (no se ha leído qué queda debajo en el original: no hay borrado
+  identificado en `StartFrame`).
+- **(aproximado)** V6: el fps ≤ 0 → 0x18 de `Init`/0x526E4E no se escribe en el reproductor (se usa al calcular `t`;
+  `BikFile` no abre fps 0).
+- **(aproximado)** V6: en modo 2 el original dibuja el vídeo dentro de `Process3dEngine` (`thedraw` 0x52689F) y las
+  bandas y el fundido de `FinishFrame` van encima; openblack dibuja bandas, vídeo, fundido. Misma imagen con las bandas
+  al 100 % (el *letterbox* del vídeo es su altura). El frame en que corre `EndFallingSpellVideo` el original aún dibuja
+  el vídeo con base 0x50 (el color lo guardó `DrawToScreen` 0x54DC6D); openblack, con 0xFF (bajo el blanco casi opaco).
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
-  estadísticas, el mosaico de 256x256 (V3 usará una textura), `GAudio+0x1C = −1` (audio no tiene cómo; `ProcessMusic`
-  lo repite en el fundido) y fn_005C6C40 (inferido: esconder el HUD).
+  estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), y `GAudio+0x1C = −1` (audio no
+  tiene cómo; `ProcessMusic` lo repite en el fundido).
+- fn_005C6C40 es `ScreenFade::SnapWideScreen`, por el gancho `snapWideScreen` de `VideoPlayer::Hooks`, que `Play` llama
+  siempre, como el original (0x54D9EF, tras el salto de 0x54D9D2): también si el guion ya tenía la pantalla ancha.
+- **(inferido)** V3: el alfa de las texturas de 16 bits es 1 (`CreateTexture` flags 0x104; un A1R5G5B5 con el bit 15 a 0
+  de Bink no se vería); el filtro bilineal del driver; los píxeles con el centro de bgfx,
+  sin el medio píxel de D3D7 (como los demás rectángulos de `ScreenOverlay`).
+- **(aproximado)** V3: mientras el vídeo tapa la pantalla openblack borra a 0x274659 como siempre (el original no borra);
+  sólo se ve fuera del rectángulo del vídeo, en pantallas que no son 16:9 y antes de que lleguen las barras.
 
 ## Plan V3..V8
 
 | hito | qué | dueño / bloqueo |
 |---|---|---|
-| V3 | El dibujo: textura RGBA8 que se sube cuando cambia `serial`, quad 2D con `FullScreenRect` (no `LetterboxHeight`) y `colour` como color de vértice, en `RenderPass::ScreenOverlay`; no dibujar el mundo mientras `CoversScreen()` pero sí el fundido del guion y las barras/textos de `HelpSystem::Draw3D`; `OPENBLACK_TEST_VIDEO` | sesión *sistemas* / *shaders* (Renderer, shaders) |
-| V4 | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
+| V3 | **Hecho** (sesión *sistemas*): `Renderer::DrawVideoOverlay`, el mundo sin dibujar con `CoversScreen()`, `OPENBLACK_TEST_VIDEO`; sin shader nuevo (`WorldQuad`) | — |
+| V4 (hecho, sesión asistente) | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
 | V5 | **Hecho**: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, bit a bit igual a binkw32 en los frames de oro | — |
-| V6 | `fall.bik`: `KickOff/EndFallingSpellVideo`, alpha 0x50, el mundo debajo, fin con `FallingSpell+0x20 == 4`, `SetFallingSpellVideo` y el gancho `endFallingSpellVideo` | con *milagros* (no hay `FallingSpell`) |
+| V6 | **Hecho** (sesión *asistente*): `fall.bik` con `FallingSpellVideo` (modo 2, sin fundido propio, estados y sonidos por el tiempo del vídeo, el blanco del templo, fin a estado 4), opcode 203 secuencia 2, ESC; sin la criatura que cae ni la cámara; sonidos y `LHMusicStop(1)` por `Audio.h` | la criatura, la cámara y los destellos: *milagros* |
 | V7 | `tips.bik` en la pantalla de carga | bloqueado: no hay pantalla de carga |
 | V8 | `logo.bik` y `pre_intro.bik` al arrancar, con `trailer.sad` | bloqueado: no hay front end ni perfiles; audio de *audio* |
 
+
+**V4 (hecho):** `SET_AVI_SEQUENCE(on, 1)` llama a `video::Get().Play(FindPath("Data/intro.bik"))` y `ScheduleIntro()` (58/60 s) y
+quita el fundido (0x68F477..0x68F4E9); una carga de mapa para la película que suene (`GGame::ClearVariables` 0x54BF28). Con
+«free start» del mod `game.skip-intro` no hay película. **Pendiente de probar en el juego:** en Land 1 sin el mod, FollowUs
+no llega todavía al 203 (en 4 min de juego se queda antes, con opcodes sin portar como DANCE_CREATE); la película se
+ve ya con `OPENBLACK_TEST_VIDEO=intro`.
+
 ## Pendiente
 
-- V3..V8 (tabla de arriba); `parity.md` («Vídeo Bink | Superposición | falta») pasará a «en curso» con V3.
+- V4..V8 (tabla de arriba); `parity.md` («Vídeo Bink») está «en curso» desde V3.
+- `OPENBLACK_VIDEO_TRACE` no existe todavía.
 - *audio*: conectar `GameQueries::videoPlaying` a `video::IsPlaying()` (`MakeMusicQueries` en `Game.cpp` y las queries
   de `AudioSystem`); un modo de olvidar `GameMusic::_alignmentType` para 0x54D963.
 - ProcessKey 0x63EF7A..0x63F2A4: los otros caminos de ESC, sin leer del todo.
-- El orden entre el dibujo del vídeo (`thedraw` 0x844E30) y `HelpSystem::Draw3D`: quién queda encima.
-- Comprobar en el juego que el primer vídeo de un perfil nuevo no se salta y el fundido de fall.bik tras
-  `EndFallingSpellVideo`.
+- Comprobar en el juego que el primer vídeo de un perfil nuevo no se salta, y con `OPENBLACK_TEST_VIDEO=fall` el
+  blanco a 43,9 s, el fin a ~44,9 s y el fundido opaco de 48 frames.
+- Oír en el juego los 11 sonidos y la parada de música a 43,9 s (`OPENBLACK_TEST_VIDEO=fall`).
+- *milagros*: la `CreatureFalling`, la cámara de `fall.cm2`, las chispas y los destellos de `FallingSpell::Draw`.
 
 ## Ganchos de prueba
 
@@ -339,11 +449,18 @@ Diferencias:
   fichero que no abre, ritmo, fundido y fin, calendario de la intro (1392/1440), salto (48 frames, tope, segundo
   salto), ESC con Shift/Ctrl/byte 0xD01984, hechizo, película sustituida, 555 y 565, decodificador nulo, frames
   fallidos.
+- `test_falling_spell_video` (15): `FallingSpellFilmMs`, `TempleFade` (sube, se da la vuelta sola, baja, color a 0,
+  justo en el objetivo, por encima de 1, cuándo corre), sin criatura nada, KickOff (modo 2, pausa, 0x50, fundido = fin), sin fundido
+  propio pasado el frame 1080, estados y los 11 sonidos con sus direcciones, el blanco y el fin a estado 4 (26
+  frames de 40 ms, el salto normal de 48), ESC, StopAVISequence, vídeo corto, vídeo que no abre, KickOff dos veces.
 - `test_rgb16` (5): las ramas 555 y 565 de fn_00837400 emuladas, expansión, cortes, spans.
 - `test_ffmpeg_decoder` (7): las tablas de color y el croma sin interpolar; con la carpeta del juego, el CRC-32 del
   555 de logo.bik (frames 0 y 1, y vuelta al 0), tips.bik por salto (34, 20, 34) e INTRO.bik frame 10 en orden,
   contra los `.bin` de oro de la DLL (sólo los CRC están en el test).
-- Juego: ninguno hasta V3/V4 (`OPENBLACK_TEST_VIDEO=<ruta|intro|fall|…>`, de sistemas con V3).
+- Juego: `OPENBLACK_TEST_VIDEO=<intro|fall|ruta>` (Game.cpp, al cargar el mapa): `intro` = `Data\intro.bik` +
+  `ScheduleIntro()` (60 s), `fall` = `video::GetFallingSpell().Start()` (KickOff sin la prueba de la criatura:
+  modo 2, alfa 0x50 sin mundo, estados, blanco y fin; V6), si no la ruta dada. Fotos de V3: `dev\_audit\sistemas\video\intro_mid.png`
+  (frame 1800, el vídeo tapa la pantalla) y `fall_mid.png` (frame 1500, el mundo × 0,686).
 
 ## Fuentes
 

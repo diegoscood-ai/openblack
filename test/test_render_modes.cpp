@@ -222,6 +222,9 @@ TEST(RenderModes, SitesKeepTheirBits)
 	EXPECT_EQ(State(Mode::TexturedChromaAlphaNz, {.zFunc = ZFunc::Always}), BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
 	EXPECT_EQ(State(Mode::SmoothAlpha, {.zFunc = ZFunc::Always, .zWrite = false}),
 	          BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// the projected shadows' redraw (fn_00878350, fn_0080E550): LESSEQUAL with the equal depth, GEQUAL in inverted Z
+	EXPECT_EQ(State(Mode::AlphaTexturedAlphaNz, {.zFunc = ZFunc::LessEqualInclusive, .msaa = true}),
+	          BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GEQUAL | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA);
 }
 
 // The L3D primitives: every type in every pass of DrawSubMesh, against the old code; only the fixes may differ

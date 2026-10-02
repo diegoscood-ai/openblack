@@ -15,8 +15,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/ScreenFade.h"
 #include "Audio/Services/GameMusic.h"
+#include "FallingSpellVideo.h"
 #include "FfmpegDecoder.h"
+#include "Game.h"
 #include "GameClock.h"
 #include "Help/HelpSystem.h"
 
@@ -80,6 +83,13 @@ VideoPlayer::Hooks VideoPlayer::GameHooks()
 			helpSystem->SetWideScreen(on, 0);
 		}
 	};
+	// fn_005C6C40 0x54D9EF: the bars at 100 % at once (ScreenFade::SnapWideScreen)
+	hooks.snapWideScreen = []() {
+		if (Game::Instance() != nullptr)
+		{
+			Game::Instance()->GetScreenFade().SnapWideScreen();
+		}
+	};
 	hooks.stopScriptMusic = []() {
 		const auto lock = audio::game_music::Lock();
 		if (auto* gameMusic = audio::game_music::Get(); gameMusic != nullptr)
@@ -87,6 +97,9 @@ VideoPlayer::Hooks VideoPlayer::GameHooks()
 			gameMusic->ScriptStopMusic();
 		}
 	};
+	// fn_0054DA00 0x54DA0C: GGame::EndFallingSpellVideo 0x553A10 (FallingSpellVideo.h), which skips again without
+	// FallingSpellVideo
+	hooks.endFallingSpellVideo = []() { GetFallingSpell().End(); };
 	hooks.makeDecoder = []() -> std::unique_ptr<IVideoDecoder> { return std::make_unique<FfmpegDecoder>(); };
 	return hooks;
 }
@@ -119,7 +132,12 @@ bool VideoPlayer::Play(const std::filesystem::path& path)
 	{
 		_hooks.setWideScreen(1); // 0x54D9D0..0x54D9E4 SetWideScreen(+0x45E8 == 0, 0)
 	}
-	// 0x54D9EF HelpSystem fn_005C6C40 (inferido: hides the HUD): not ported
+	// 0x54D9EF HelpSystem fn_005C6C40 (+0x45F0 = -FLT_MAX, the bars at 100 % at once): reached after the test of
+	// 0x54D9D0 whether the bars were turned on here or were already on
+	if (_hooks.snapWideScreen)
+	{
+		_hooks.snapWideScreen();
+	}
 	return opened;
 }
 

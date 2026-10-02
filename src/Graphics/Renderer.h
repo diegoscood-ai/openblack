@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -47,6 +48,7 @@
 namespace openblack
 {
 struct BgfxCallback;
+class LandBlock;
 class LandLightTable;
 class Clouds;
 class Foliage;
@@ -60,7 +62,11 @@ class Registry;
 namespace graphics
 {
 class L3DSubMesh;
-class PhysicsShadows;
+namespace shadow_list
+{
+class List;
+struct ShadowInfo;
+}
 class Mesh;
 class GameFont;
 
@@ -74,26 +80,32 @@ class Renderer final: public RendererInterface
 	/// land alpha target with MIN blending
 	void DrawRiverFootprints(bgfx::ViewId viewId, bool channel) const;
 	void DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const;
-	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
-	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
-	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
-	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
-	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each
-	/// with the Z-sorter key of the effect that owns it: the original draws the ribbon inside that effect's single Z
-	/// object (fn_006798B0 0x6798DD -> fn_0067B370 "draw now"), so it shares its key
-	std::vector<std::pair<float, uint32_t>> CollectPSysChains(const Camera& camera) const;
-	/// One ribbon of _frameChains, from the back-to-front list
-	void DrawPSysChain(RenderPass viewId, const Camera& camera, uint32_t index) const;
-	/// The ribbons of this frame, filled by CollectPSysChains
-	mutable std::vector<psys::Effect::DrawChain> _frameChains;
-	/// The effects' surfaces of revolution (ZR_SurfRevol: the teleport pool, the dispensers' discs;
-	/// RendererSurfRevol.cpp), each with the Z-sorter key of the effect it belongs to: the surface is one of its atoms,
-	/// drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0 -> 0x67CBA0)
-	std::vector<std::pair<float, uint32_t>> CollectPSysSurfaces(const Camera& camera) const;
-	/// One surface of _frameSurfaces, from the back-to-front list
-	void DrawPSysSurface(RenderPass viewId, uint32_t index) const;
-	/// The surfaces of this frame, filled by CollectPSysSurfaces
-	mutable std::vector<psys::surf_revol::Surface> _frameSurfaces;
+	/// The projected shadows of this frame (shadow_list::List::Frame; RendererShadows.cpp)
+	void UpdateShadows(const DrawSceneDesc& drawDesc) const;
+	/// The projected shadows over one land block just drawn (fn_007FF610 -> fn_00878350; RendererShadows.cpp)
+	void DrawLandShadows(RenderPass viewId, const LandBlock& block, uint64_t cull) const;
+	/// The projected shadows that fall on objects too (the hand, the boat): which objects of the main view are in which
+	/// shadow's box this frame (_shadowReceivers; RendererShadows.cpp). Cleared, and left empty, for the other views
+	void CollectShadowReceivers(bool mainView) const;
+	/// The shadows over one object, right after its own draw, as the tail loop of the objects' Draw does
+	/// (0x80E457..0x80E4D7 in fn_0080DB30 -> fn_0080B050): in the main view for an object drawn at once, in the queue's
+	/// view inside its Z object for one drawn from the Z-sorter. `matrices` are the ones the object was drawn with
+	void DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const glm::mat4* matrices, uint8_t matrixCount) const;
+	/// The shadows over the sharks' parts above the water (`cut`, the instances DrawCutAboveWater has just drawn), which
+	/// the per-mesh loop leaves out. The PSys mesh atoms never receive (RenderingSystem's ReceivesDynamicShadow)
+	void DrawShadowsOnCutObjects(RenderPass viewId, const std::unordered_set<uint32_t>& cut) const;
+	/// The receivers left at the end of the frame's objects were not drawn: none of them gets a shadow
+	void ClearShadowReceivers() const { _shadowReceivers.clear(); }
+	/// Particle sprites in the order given, consecutive ones with the same material in one call (RendererPSys.cpp): a
+	/// Sorted effect's sprite (or a run of them, each its own Z object, LH3DSprite::AddDrawing 0x840C70), or the sprites
+	/// of a Queued / Immediate effect between its other items (LH3DSprite::Draw 0x840530)
+	void DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, const Camera& camera, RenderPass viewId) const;
+	/// One chain ribbon (fn_0067B3F0, RendererChain.cpp): from its own Z object for a Sorted effect (fn_0067B380, the
+	/// joint n / 2), else inside its effect (fn_0067B370)
+	void DrawPSysChain(RenderPass viewId, const Camera& camera, const psys::Effect::DrawChain& chain) const;
+	/// One surface of revolution (ZR_SurfRevol: the teleport pool, the dispensers' discs; 0x67CBA0, RendererSurfRevol.cpp),
+	/// never queued on its own: at once for a Sorted effect, inside its effect otherwise
+	void DrawPSysSurface(RenderPass viewId, const psys::surf_revol::Surface& surface) const;
 	/// LH3DAtmos::Render3D 0x836250: the raining tiles (weather::rain::CollectTiles), each one Z object of its own
 	/// (fn_008341B0, NewZObject call 0x83427F) with its Z-sorter key and its index in _frameRain (RendererRain.cpp)
 	std::vector<std::pair<float, uint32_t>> CollectRain(const Camera& camera) const;
@@ -124,6 +136,9 @@ class Renderer final: public RendererInterface
 	std::vector<std::pair<float, uint32_t>> CollectMists(const Camera& camera) const;
 	/// One mist of _frameMists, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
 	void DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
+	/// The mist of a Queued or Immediate effect, drawn at once inside its effect (RenderParticleMist::DrawAt 0x67A78C ->
+	/// LH3DMist vt+0x104 fn_007FA790: the screen test, then Draw); appended to _frameMists
+	void DrawEffectMist(graphics::RenderPass viewId, const Camera& camera, const mists::MistDesc& mist) const;
 	/// The mists of this frame, filled by CollectMists
 	mutable std::vector<mists::MistDesc> _frameMists;
 	/// LH3DSmoke::AddDrawing 0x7F8D30 for every Abode with a chimney on screen (Abode::Draw 0x516288): the smoke's
@@ -172,8 +187,6 @@ class Renderer final: public RendererInterface
 	void DrawCutAboveWater(graphics::RenderPass viewId) const;
 	/// the instance indices (RenderContext::entityInstances) that DrawCutAboveWater draws instead of the normal pass
 	[[nodiscard]] std::unordered_set<uint32_t> CutAboveInstances() const;
-	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)
-	void DrawHandShadowOnObjects() const;
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
@@ -186,12 +199,25 @@ class Renderer final: public RendererInterface
 	void DrawWaterRings(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
-	/// FinishFrame (e) and (h): the cinema bars and the screen fade (fn_0081E590, fn_0086FEE0)
-	void DrawScreenOverlay() const;
+	/// LH3DRender::FinishFrame 0x82F460 (e) or (h): `drawFade` false, the cinema bars if [0xEB9950] != 0
+	/// (0x82F652..0x82F6DD, fn_0081E590 twice), before the 0x80000000 callbacks (the film, 0x82F6E5..0x82F718);
+	/// `drawFade` true, the screen fade fn_0086FEE0 (0x82F753) after them, which draws the bars again over its colour
+	void DrawScreenOverlay(bool drawFade) const;
 	/// HelpSystem::Draw3D -> CameraHelp::DrawKeyOrMouse 0x447EA0: the tooltip next to the hand (the amount in the hand)
 	void DrawHandToolTip(const Camera& camera) const;
 	mutable std::unique_ptr<GameFont> _font; ///< Data\j0, font 0 of the tooltips
 	mutable bool _fontLoadTried {false};
+	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
+	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
+	void DrawVideoOverlay() const;
+	/// The end of LH3DRender::FinishFrame 0x82F460: the bars, the film, the fade, in that order
+	void DrawFinishFrameOverlays() const;
+	/// The film's picture, (re)made when its size changes and updated when its serial changes
+	mutable bgfx::TextureHandle _videoTexture = BGFX_INVALID_HANDLE;
+	mutable glm::u16vec2 _videoTextureSize {0, 0};
+	mutable std::optional<uint32_t> _videoSerial;
+	/// 1x1 white R8: the s_alpha of the WorldQuad program, the alpha 1 of the X1R5G5B5 tiles (inferido)
+	mutable bgfx::TextureHandle _videoAlphaTexture = BGFX_INVALID_HANDLE;
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),
@@ -238,11 +264,17 @@ private:
 	mutable std::unique_ptr<Foliage> _foliage;
 	mutable std::string _foliageLoadKey; ///< what _foliage was loaded with (its modules), empty: not tried yet
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
-	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
-	/// The physics objects' shadows on the land (fn_007FCE80)
-	std::unique_ptr<PhysicsShadows> _physicsShadows;
-	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
-	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
+	/// The projected shadows, the ShadowInfo list [0xFAA7E0] (shadow_list)
+	std::unique_ptr<shadow_list::List> _shadows;
+	/// The objects of this frame's main view under a shadow with si+0xC == 0 (fn_00881030 && !si+0xC && si+0x464 !=
+	/// obj && ContainsThisBoundingBox, 0x80E46C..0x80E49F): instance index -> the shadows, newest first
+	struct ShadowReceiver
+	{
+		entt::id_type meshId {0};
+		bool morphWithTerrain {false};
+		std::vector<const shadow_list::ShadowInfo*> shadows;
+	};
+	mutable std::unordered_map<uint32_t, ShadowReceiver> _shadowReceivers;
 	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame
 	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw
 	/// This frame's land cells (land_light::Texels: the stamps and the night lights in them), the cell map's layout

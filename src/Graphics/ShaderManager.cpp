@@ -99,8 +99,6 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME vs_celestial
 #include "ShaderIncluder.h"
-#define SHADER_NAME vs_dynamic_shadow_instanced
-#include "ShaderIncluder.h"
 #define SHADER_NAME vs_blob
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_blob
@@ -123,7 +121,9 @@
 #include "ShaderIncluder.h"
 #define SHADER_NAME fs_land_alpha
 #include "ShaderIncluder.h"
-#define SHADER_NAME fs_physics_shadow_resolve
+#define SHADER_NAME vs_land_shadow
+#include "ShaderIncluder.h"
+#define SHADER_NAME fs_land_shadow
 #include "ShaderIncluder.h"
 #define SHADER_NAME vs_world_triangles
 #include "ShaderIncluder.h"
@@ -151,14 +151,13 @@ const std::array<bgfx::EmbeddedShader, 39> k_EmbeddedShaders = {{
     BGFX_EMBEDDED_SHADER(vs_static_shadow_instanced), BGFX_EMBEDDED_SHADER(fs_static_shadow),                                 //
     BGFX_EMBEDDED_SHADER(vs_celestial), BGFX_EMBEDDED_SHADER(fs_celestial),                                                   //
     BGFX_EMBEDDED_SHADER(vs_cloud), BGFX_EMBEDDED_SHADER(fs_cloud),                                                           //
-    BGFX_EMBEDDED_SHADER(vs_dynamic_shadow_instanced),                                                                        //
+    BGFX_EMBEDDED_SHADER(vs_land_shadow), BGFX_EMBEDDED_SHADER(fs_land_shadow),                                                                        //
     BGFX_EMBEDDED_SHADER(vs_blob), BGFX_EMBEDDED_SHADER(fs_blob), BGFX_EMBEDDED_SHADER(fs_world_quad),                                                             //
     BGFX_EMBEDDED_SHADER(vs_foliage), BGFX_EMBEDDED_SHADER(fs_foliage), BGFX_EMBEDDED_SHADER(fs_land_alpha),                                                       //
     BGFX_EMBEDDED_SHADER(vs_object_instanced_static), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced_static),
     BGFX_EMBEDDED_SHADER(vs_static_shadow_instanced_static),
     BGFX_EMBEDDED_SHADER(vs_object_instanced_b32), BGFX_EMBEDDED_SHADER(vs_object_hm_instanced_b32),
     BGFX_EMBEDDED_SHADER(fs_text),
-    BGFX_EMBEDDED_SHADER(fs_physics_shadow_resolve),
     BGFX_EMBEDDED_SHADER(vs_world_triangles), // Graphics/WorldTriangles.h (Draw3DWorldTriangle 0x81C090)
     BGFX_EMBEDDED_SHADER_END()                                                                                                //
 }};
@@ -179,8 +178,8 @@ constexpr std::array k_Shaders {
     ShaderDefinition {"StaticShadowInstanced", "vs_static_shadow_instanced", "fs_static_shadow"},
     ShaderDefinition {"Celestial", "vs_celestial", "fs_celestial"},
     ShaderDefinition {"Cloud", "vs_cloud", "fs_cloud"},
-    ShaderDefinition {"DynamicShadowInstanced", "vs_dynamic_shadow_instanced", "fs_static_shadow"},
-    ShaderDefinition {"PhysicsShadowResolve", "vs_blob", "fs_physics_shadow_resolve"},
+    // a projected shadow over a land block (fn_00878350, graphics::shadow_list)
+    ShaderDefinition {"LandShadow", "vs_land_shadow", "fs_land_shadow"},
     ShaderDefinition {"Blob", "vs_blob", "fs_blob"},
     ShaderDefinition {"ObjectInstancedStatic", "vs_object_instanced_static", "fs_object"},
     ShaderDefinition {"ObjectHeightMapInstancedStatic", "vs_object_hm_instanced_static", "fs_object"},

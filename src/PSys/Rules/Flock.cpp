@@ -27,7 +27,7 @@
 
 #include "3D/Billboard.h"
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"

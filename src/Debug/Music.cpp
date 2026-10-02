@@ -14,10 +14,10 @@
 
 #include <imgui.h>
 
-#include "Audio/BankTables.h"
-#include "Audio/GameMusic.h"
-#include "Audio/ScriptAudioState.h"
-#include "Audio/MusicStream.h"
+#include "Audio/GAudio/BankTables.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/Services/ScriptAudioState.h"
+#include "Audio/LH/MusicStream.h"
 #include "EngineConfig.h"
 #include "Locator.h"
 
@@ -158,7 +158,7 @@ void Music::Draw() noexcept
 		ImGui::EndTable();
 	}
 
-	// GAudio's music (Audio/GameMusic.h) and GScript's switches (Audio/ScriptAudioState.h)
+	// GAudio's music (Audio/Services/GameMusic.h) and GScript's switches (Audio/Services/ScriptAudioState.h)
 	const auto lock = game_music::Lock();
 	if (auto* gameMusic = game_music::Get(); gameMusic != nullptr)
 	{

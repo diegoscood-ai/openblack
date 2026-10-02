@@ -16,6 +16,7 @@ SAMPLER2DARRAY(s2_materials, 2);
 uniform vec4 u_foliageEye;    // xyz: camera position, w: draw distance
 uniform vec4 u_foliageParams; // x: seconds, y: ground material repeats per block
 #include "haze.sh"          // u_haze, u_hazeColour (as the terrain)
+#include "lh3d_colour.sh"    // Lh3dUnpackRgb24 (the colour in i_data4.w)
 
 void main()
 {
@@ -65,10 +66,7 @@ void main()
 	vec3 ground = texture2DArrayLod(s2_materials, vec3(i_data3.xy * u_foliageParams.y, i_data2.z), 3.0f).rgb;
 	if (i_data4.z > 0.5f && i_data4.z < 1.5f)
 	{
-		float packedColour = i_data4.w;
-		float red = floor(packedColour / 65536.0f);
-		float green = floor((packedColour - red * 65536.0f) / 256.0f);
-		ground = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f) / 255.0f;
+		ground = Lh3dUnpackRgb24(i_data4.w) / 255.0f;
 	}
 	// flat ones: i_data3.z scales the ground colour they take (shade, e.g. darker wet sand)
 	if (i_data4.z > 1.5f && i_data3.z > 0.0f)

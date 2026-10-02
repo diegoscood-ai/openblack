@@ -13,6 +13,7 @@
 #include "LandIsland.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <array>
 #include <stdexcept>
@@ -727,4 +728,478 @@ void LandIsland::DumpMaps() const
 	FILE* fptr = fopen("dump.raw", "wb");
 	fwrite(data.data(), data.size() * sizeof(data[0]), 1, fptr);
 	fclose(fptr);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// LH3DIsland::RayCast fn_00802550 -> RayCastInternal fn_00802680 -> the cell test fn_0083AE80 (session milagros2, lane
+// rayo3; reviewed by session sistemas). Float arithmetic where the original keeps x87 extended values between the
+// stores: (aproximado) only at the exact borders of a cell or of a triangle.
+
+std::array<uint16_t, 4> LandIslandInterface::GetCellCorners(glm::u16vec2 cell) const
+{
+	const auto next = [](uint16_t v) { return static_cast<uint16_t>(v + 1u); };
+	return {GetCellAltitude(GetCell(cell)), GetCellAltitude(GetCell({cell.x, next(cell.y)})),
+	        GetCellAltitude(GetCell({next(cell.x), cell.y})), GetCellAltitude(GetCell({next(cell.x), next(cell.y)}))};
+}
+
+std::array<uint16_t, 4> LandIsland::GetCellCorners(glm::u16vec2 cell) const
+{
+	const auto blockIndex = BlockIndexAt(cell >> static_cast<uint16_t>(0x4));
+	if (blockIndex == 0)
+	{
+		return {0, 0, 0, 0};
+	}
+	// ((x & 15) x 17 + (z & 15)) x 8 bytes (0x83AED6..0x83AEEC); the neighbours are +1 (z) and +17 (x)
+	const auto* base = &_landBlocks[blockIndex - 1].GetCells()[(cell.x & 0xFu) * 0x11u + (cell.y & 0xFu)];
+	return {GetCellAltitude(base[0]), GetCellAltitude(base[1]), GetCellAltitude(base[0x11]), GetCellAltitude(base[0x12])};
+}
+
+namespace
+{
+constexpr float k_RayCellsPerMetre = 0.1f;  ///< [0x8AC404]: x and z in cells (fn_00802550 0x802566 / 0x802573)
+constexpr float k_RayMetresPerCell = 10.0f; ///< [0x8AB414]: the hit back in metres (0x8025B5 / 0x8025C7)
+constexpr float k_RayClipMargin = 0.1f;     ///< [0x8AB22C]: the walk is clipped to 0.1 .. 511.9 ([0x9A2BD8])
+constexpr float k_RayNoBorder = 1e20f;      ///< [0x8FFED8] / 0x60AD78EC: no map edge in that direction
+constexpr double k_RayFlatTriangle = 9.9999997473787516e-05; ///< qword [0x8C79D8]: |denominator| below it, no hit
+constexpr float k_RayTriangleMax = 1.1f;    ///< [0x8AB230]: the cell's local u, v up to 1.1
+constexpr float k_RayTriangleMin = -0.1f;   ///< [0x8C9B2C]: and from -0.1
+constexpr float k_RayDiagonalLow = 1.1f;    ///< [0x8AB230]: the first triangle, u + v <= 1.1 (0x83B0E5)
+constexpr float k_RayDiagonalHigh = 0.9f;   ///< [0x8C5844]: the second one, u + v >= 0.9 (0x83B202)
+constexpr float k_RayMinDrop = 0.0001f;     ///< [0x8BF518]: a ray flatter than this never meets y = 0
+constexpr float k_RaySeaDistanceSq = 5.625e7f; ///< [0x9A2BD4] = 7500^2: the y = 0 point counts this close to the camera
+
+/// __ftol 0x7A1400: towards 0, 0x80000000 out of range (ecs::map_coords::FtoL, inlined to keep 3D free of ECS)
+int32_t RayFtoL(float value)
+{
+	if (!(value > -2147483648.0f && value < 2147483648.0f))
+	{
+		return static_cast<int32_t>(0x80000000u);
+	}
+	return static_cast<int32_t>(value);
+}
+
+/// fn_0083AE80 (ecx = cell x, edx = cell z; the segment p0 -> p1 as x, z, y in cell units): the two triangles of the
+/// cell, (0,0) (1,0) (0,1) then (1,1) (1,0) (0,1), as planes through its corner altitudes. A hit must lie in front of p0
+/// (dot with the segment >= 0) but may be past p1: only the cell's altitude range bounds it
+bool RayCellTest(const LandIslandInterface& island, int32_t cellX, int32_t cellZ, float p0x, float p0z, float p0y,
+                 float p1x, float p1z, float p1y, glm::vec2& hit)
+{
+	// 0x83AE83..0x83AEB0: 0 .. 0x1FF on both axes (the 512 cells of the original; BWLandEditor maps have more)
+	const auto last = static_cast<int32_t>(island.GetCellsPerSide()) - 1;
+	if (cellX < 0 || cellX > last || cellZ < 0 || cellZ > last)
+	{
+		return false;
+	}
+	// 0x83AEB6..0x83AEF1: g_index_block 0xE9C964 [x >> 4][z >> 4] != 0 and its LandBlock (g_ptr_blocks 0xE9C564)
+	const glm::u16vec2 cell(static_cast<uint16_t>(cellX), static_cast<uint16_t>(cellZ));
+	if (!island.HasBlockAt(cell))
+	{
+		return false;
+	}
+	const auto corners = island.GetCellCorners(cell);
+	const int32_t h00 = corners[0]; // +4
+	const int32_t h01 = corners[1]; // +0xC
+	const int32_t h10 = corners[2]; // +0x8C
+	const int32_t h11 = corners[3]; // +0x94
+	// 0x83AF13..0x83AF85: the highest and the lowest corner
+	const int32_t highX0 = h00 > h10 ? h00 : h10;
+	const int32_t highX1 = h01 > h11 ? h01 : h11;
+	const auto high = static_cast<float>(highX0 > highX1 ? highX0 : highX1);
+	const int32_t lowX0 = h00 < h10 ? h00 : h10;
+	const int32_t lowX1 = h01 < h11 ? h01 : h11;
+	const auto low = static_cast<float>(lowX0 < lowX1 ? lowX0 : lowX1);
+	// 0x83AF89..0x83AFCE: both ends under the lowest corner, or both over the highest: no hit
+	if (p0y < low && p1y < low)
+	{
+		return false;
+	}
+	if (!(p0y <= high) && !(p1y <= high))
+	{
+		return false;
+	}
+	const float dx = p1x - p0x; // [esp + 0xC]
+	const float dz = p1z - p0z; // [esp + 0x40]
+	const float dy = p1y - p0y; // [esp + 0x18]
+	const float u0 = p0x - static_cast<float>(cellX); // [esp + 0x20]
+	const float v0 = p0z - static_cast<float>(cellZ); // [esp + 0x1C]
+	const auto localAt = [&](float t) {
+		// u = (t dx + p0x) - x, v = (t dz + p0z) - z, stored as floats (0x83B07B..0x83B099)
+		return glm::vec2(t * dx + p0x - static_cast<float>(cellX), t * dz + p0z - static_cast<float>(cellZ));
+	};
+	const auto inFront = [&](glm::vec2 uv) {
+		// 0x83B0FA..0x83B12B: the point (x + u, z + v) is not behind p0: (wx - p0x) dx + (wz - p0z) dz >= 0; the hit
+		// goes to [0xE9CD80] / [0xE9CD84] (0x83B24B / 0x83B252)
+		const glm::vec2 world(static_cast<float>(cellX) + uv.x, static_cast<float>(cellZ) + uv.y);
+		if ((world.x - p0x) * dx + (world.y - p0z) * dz < 0.0f)
+		{
+			return false;
+		}
+		hit = world;
+		return true;
+	};
+	// The first triangle (0x83AFD4..0x83B131): the plane h00 + a u + b v, a = h10 - h00, b = h01 - h00. A flat
+	// denominator ends the test without trying the second triangle (0x83B031 -> 0x83B264)
+	const auto a = static_cast<float>(h10 - h00);
+	const auto b = static_cast<float>(h01 - h00);
+	const float denominator = (dy - a * dx) - b * dz;
+	if (static_cast<double>(std::fabs(denominator)) < k_RayFlatTriangle)
+	{
+		return false;
+	}
+	const float t = (((v0 * b + u0 * a) + static_cast<float>(h00)) - p0y) / denominator;
+	const auto uv = localAt(t);
+	if (!(uv.x > k_RayTriangleMax) && !(uv.y > k_RayTriangleMax) && !(uv.x < k_RayTriangleMin) &&
+	    !(uv.y < k_RayTriangleMin) && !(k_RayDiagonalLow - uv.y < uv.x) && inFront(uv))
+	{
+		return true;
+	}
+	// The second triangle (0x83B135..0x83B248): the plane h11 + sx (u - 1) + sz (v - 1), sx = h11 - h01, sz = h11 - h10,
+	// written as (h10 - sx) + v sz + u sx
+	const auto sz = static_cast<float>(h11 - h10);
+	const auto sx = static_cast<float>(h11 - h01);
+	const float denominator2 = (dy - sx * dx) - sz * dz;
+	if (static_cast<double>(std::fabs(denominator2)) < k_RayFlatTriangle)
+	{
+		return false;
+	}
+	const float t2 = ((((static_cast<float>(h10) - sx) + v0 * sz) + u0 * sx) - p0y) / denominator2;
+	const auto uv2 = localAt(t2);
+	if (uv2.x > k_RayTriangleMax || uv2.y > k_RayTriangleMax || uv2.x < k_RayTriangleMin || uv2.y < k_RayTriangleMin ||
+	    k_RayDiagonalHigh - uv2.y > uv2.x)
+	{
+		return false;
+	}
+	return inFront(uv2);
+}
+
+/// The Cohen-Sutherland code of RayCastInternal (0x80276B..0x80281C): 1 x < 0.1, 2 x > 511.9, 4 z < 0.1, 8 z > 511.9
+uint32_t RayOutCode(float x, float z, float high)
+{
+	uint32_t code = 0;
+	if (x < k_RayClipMargin)
+	{
+		code = 1;
+	}
+	else if (x > high)
+	{
+		code = 2;
+	}
+	if (z < k_RayClipMargin)
+	{
+		code |= 4;
+	}
+	else if (z > high)
+	{
+		code |= 8;
+	}
+	return code;
+}
+} // namespace
+
+bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, float z1, float y1, glm::vec2& hit) const
+{
+	const auto cells = static_cast<float>(GetCellsPerSide()); // 512 [0x8A99F0] in the original
+	const float high = cells - k_RayClipMargin;              // 511.9 [0x9A2BD8] for 512 cells
+	// 0x802683..0x802724: the ray parameter t of the first map edge (0 or 512) it meets in x and in z, the smaller one
+	float t = k_RayNoBorder;
+	if (x0 > x1)
+	{
+		t = x0 / (x0 - x1);
+	}
+	else if (x0 < x1)
+	{
+		t = (cells - x0) / (x1 - x0);
+	}
+	float tz = k_RayNoBorder; // [esp + 0x1C]
+	if (z0 > z1)
+	{
+		tz = z0 / (z0 - z1);
+	}
+	else if (z0 < z1)
+	{
+		tz = (cells - z0) / (z1 - z0);
+	}
+	if (!(t <= tz))
+	{
+		t = tz;
+	}
+	// 0x802726..0x802765: the END is moved on by t x (end - start), to the edge plus one more (end - start): the walk
+	// below casts a ray to the map's edge, not the segment. The `t == 1e20` guard compares the float 1e20 (0x60AD78EC)
+	// with the double 1e20 (qword [0x9A2BE0]), which are not equal: the end is always moved, also without an edge
+	x1 = (x1 - x0) * t + x1;
+	z1 = (z1 - z0) * t + z1;
+	y1 = (y1 - y0) * t + y1;
+	// 0x80276B..0x802AEE: clipped to 0.1 .. 511.9 (Cohen-Sutherland, x then z)
+	uint32_t code0 = RayOutCode(x0, z0, high); // edx
+	uint32_t code1 = RayOutCode(x1, z1, high); // ecx
+	if ((code0 & code1) != 0)
+	{
+		return false;
+	}
+	if ((code0 | code1) != 0)
+	{
+		uint32_t differ = code0 ^ code1;
+		// x = edge: the end that is out on that side moves there and gets the code of its new z alone (0x802849..0x80290E,
+		// 0x802928..0x8029ED)
+		const auto clipX = [&](float edge, uint32_t bit) {
+			const float s = (edge - x0) / (x1 - x0);
+			const float z = (z1 - z0) * s + z0;
+			const float y = (y1 - y0) * s + y0;
+			if ((code1 & bit) != 0)
+			{
+				y1 = y;
+				z1 = z;
+				x1 = edge;
+				code1 = RayOutCode(k_RayClipMargin, z, high);
+			}
+			else
+			{
+				y0 = y;
+				z0 = z;
+				x0 = edge;
+				code0 = RayOutCode(k_RayClipMargin, z, high);
+			}
+		};
+		// z = edge: that end's code becomes 0, its x is not tested again (0x802A03..0x802A66, 0x802A7E..0x802ADD)
+		const auto clipZ = [&](float edge, uint32_t bit) {
+			const float s = (edge - z0) / (z1 - z0); // [esp + 0x38]
+			const float x = (x1 - x0) * s + x0;
+			const float y = (y1 - y0) * s + y0;
+			if ((code1 & bit) != 0)
+			{
+				y1 = y;
+				z1 = edge;
+				code1 = 0;
+				x1 = x;
+			}
+			else
+			{
+				y0 = y;
+				z0 = edge;
+				code0 = 0;
+				x0 = x;
+			}
+		};
+		if ((differ & 1u) != 0)
+		{
+			clipX(k_RayClipMargin, 1u);
+			differ = code0 ^ code1;
+		}
+		if ((code0 & code1) != 0)
+		{
+			return false;
+		}
+		if ((differ & 2u) != 0)
+		{
+			clipX(high, 2u);
+			differ = code0 ^ code1;
+		}
+		if ((code0 & code1) != 0)
+		{
+			return false;
+		}
+		if ((differ & 4u) != 0)
+		{
+			clipZ(k_RayClipMargin, 4u);
+			differ = code0 ^ code1;
+		}
+		if ((code0 & code1) != 0)
+		{
+			return false;
+		}
+		if ((differ & 8u) != 0)
+		{
+			clipZ(high, 8u); // (no new `differ` after this one, 0x802ACF..0x802AE1)
+		}
+		if ((code0 & code1) != 0)
+		{
+			return false;
+		}
+	}
+	// 0x802AF1..0x802B43: the cells of both ends (__ftol, towards 0), and the start as the first piece's start
+	int32_t xi = RayFtoL(x0);          // esi, [esp + 0x10]
+	int32_t zi = RayFtoL(z0);          // edi, [esp + 0x14]
+	const int32_t lastZ = RayFtoL(z1); // ebp, [esp + 0x24]
+	const int32_t lastX = RayFtoL(x1); // ebx, [esp + 0x2C]
+	glm::vec3 previous(x0, z0, y0);    // x, z, y: [esp + 0x20], [esp + 0x1C], [esp + 0x18]
+	const glm::vec3 start(x0, z0, y0);
+	const auto test = [&](int32_t cx, int32_t cz, const glm::vec3& from, float tx, float tz, float ty) {
+		return RayCellTest(*this, cx, cz, from.x, from.y, from.z, tx, tz, ty, hit);
+	};
+	// 0x802B87..0x802BBB: the last cell gets the piece to the (moved) end, and its answer is the answer
+	const auto last = [&]() { return test(xi, zi, previous, x1, z1, y1); };
+	if (xi == lastX)
+	{
+		// 0x802B4D..0x802BF6: one column: every cell is tested with the whole clipped segment
+		for (; zi < lastZ; ++zi)
+		{
+			if (test(xi, zi, start, x1, z1, y1))
+			{
+				return true;
+			}
+		}
+		for (; zi > lastZ; --zi)
+		{
+			if (test(xi, zi, start, x1, z1, y1))
+			{
+				return true;
+			}
+		}
+		return last();
+	}
+	if (zi == lastZ)
+	{
+		// 0x802BF8..0x802C7B: one row, the same
+		for (; xi < lastX; ++xi)
+		{
+			if (test(xi, zi, start, x1, z1, y1))
+			{
+				return true;
+			}
+		}
+		for (; xi > lastX; --xi)
+		{
+			if (test(xi, zi, start, x1, z1, y1))
+			{
+				return true;
+			}
+		}
+		return last();
+	}
+	// 0x802C80..0x802CC4: the slopes, kxz = dx / dz, kzx = 1 / kxz (not dz / dx), kyz = dy / dz, kyx = dy / dx
+	const float dx = x1 - x0;
+	const float dz = z1 - z0;
+	const float kxz = dx / dz;    // [esp + 0x28]
+	const float kzx = 1.0f / kxz; // [esp + 0x30] ([0x8AA390] = 1)
+	const float dy = y1 - y0;     // [esp + 0x34] first
+	const float kyz = dy / dz;    // [esp + 0x38]
+	const float kyx = dy / dx;    // [esp + 0x34]
+	const bool zUp = z0 <= z1;    // 0x802CC6..0x802CDD (`test ah, 0x41; jne`)
+	const bool xUp = x0 <= x1;
+	// (openblack guard) the walk visits at most |dx| + |dz| + 1 cells; a float drift that kept it going ends it here
+	const int32_t guard = 4 * static_cast<int32_t>(GetCellsPerSide()) + 4;
+	// The current point (x0, z0, y0) moves from cell to cell: across the z edge when the x there is still in the
+	// column (ftol(x) == the column), else across the x edge. Each cell is tested with the piece from the previous point
+	for (int32_t steps = 0; steps < guard; ++steps)
+	{
+		// 0x802CEC / 0x802DD0 / 0x802EBB / 0x802F9F
+		const bool more = (xUp ? xi < lastX : xi > lastX) || (zUp ? zi < lastZ : zi > lastZ);
+		if (!more)
+		{
+			return last();
+		}
+		const int32_t cellX = xi;
+		const int32_t cellZ = zi;
+		if (!zUp)
+		{
+			// 0x802CF8 / 0x802DDC: the cell's lower z edge, fild of the cell z
+			const auto edge = static_cast<float>(zi);
+			const float toEdge = z0 - edge;
+			const float xAt = x0 - toEdge * kxz;
+			if (RayFtoL(xAt) == xi)
+			{
+				// 0x802D63 / 0x802E3F
+				x0 = xAt;
+				--zi;
+				y0 = y0 - toEdge * kyz;
+				z0 = edge;
+			}
+			else if (xUp)
+			{
+				// 0x802D1D..0x802D61: the column's upper x edge
+				++xi;
+				const auto edgeX = static_cast<float>(xi);
+				const float across = edgeX - x0;
+				z0 = z0 + across * kzx;
+				zi = RayFtoL(z0);
+				y0 = y0 + across * kyx;
+				x0 = edgeX;
+			}
+			else
+			{
+				// 0x802DFF..0x802E3D: the column's lower x edge
+				const auto edgeX = static_cast<float>(xi);
+				const float across = x0 - edgeX;
+				z0 = z0 - across * kzx;
+				zi = RayFtoL(z0);
+				--xi;
+				y0 = y0 - across * kyx;
+				x0 = edgeX;
+			}
+		}
+		else
+		{
+			// 0x802EC7 / 0x802FAB: the cell's upper z edge
+			++zi;
+			const auto edge = static_cast<float>(zi);
+			const float toEdge = edge - z0;
+			const float xAt = x0 + toEdge * kxz;
+			if (RayFtoL(xAt) == xi)
+			{
+				// 0x802F2D / 0x80300B
+				x0 = xAt;
+				y0 = toEdge * kyz + y0;
+				z0 = edge;
+			}
+			else if (xUp)
+			{
+				// 0x802EED..0x802F2B
+				++xi;
+				const auto edgeX = static_cast<float>(xi);
+				const float across = edgeX - x0;
+				z0 = z0 + across * kzx;
+				zi = RayFtoL(z0);
+				y0 = y0 + across * kyx;
+				x0 = edgeX;
+			}
+			else
+			{
+				// 0x802FD1..0x803009
+				const auto edgeX = static_cast<float>(xi);
+				const float across = x0 - edgeX;
+				z0 = z0 - across * kzx;
+				zi = RayFtoL(z0);
+				--xi;
+				y0 = y0 - across * kyx;
+				x0 = edgeX;
+			}
+		}
+		// 0x802D7E / 0x802E5E / 0x802F4B / 0x80302D: fn_0083AE80(the cell left, previous point -> new point)
+		if (test(cellX, cellZ, previous, x0, z0, y0))
+		{
+			return true;
+		}
+		previous = glm::vec3(x0, z0, y0);
+	}
+	return false;
+}
+
+bool LandIslandInterface::RayCast(const glm::vec3& from, const glm::vec3& to, glm::vec2& hit, const glm::vec3& camera) const
+{
+	// fn_00802550 (ecx = from, edx = to): RayCastInternal(from.x 0.1, from.z 0.1, from.y / 0.67, to.x 0.1, to.z 0.1,
+	// to.y / 0.67) ([0xC3720C] = 0.67, k_HeightUnit)
+	glm::vec2 cellsHit(0.0f);
+	if (RayCastCells(from.x * k_RayCellsPerMetre, from.z * k_RayCellsPerMetre, from.y / k_HeightUnit,
+	                 to.x * k_RayCellsPerMetre, to.z * k_RayCellsPerMetre, to.y / k_HeightUnit, cellsHit))
+	{
+		hit = cellsHit * k_RayMetresPerCell; // 0x8025AB..0x8025CD
+		return true;
+	}
+	// 0x8025D9..0x802672: a ray going down (to.y <= from.y) and not flat meets y = 0 at t = -(from.y / dy); the point is
+	// written either way, and counts when (dx^2 + dz^2) from the camera <= 7500^2
+	if (!(to.y <= from.y))
+	{
+		return false;
+	}
+	const float dy = to.y - from.y;
+	if (std::fabs(dy) < k_RayMinDrop)
+	{
+		return false;
+	}
+	const float t = -(from.y / dy);
+	hit.x = (to.x - from.x) * t + from.x;
+	hit.y = (to.z - from.z) * t + from.z;
+	const float cx = hit.x - camera.x;
+	const float cz = hit.y - camera.z;
+	return cx * cx + cz * cz <= k_RaySeaDistanceSq;
 }

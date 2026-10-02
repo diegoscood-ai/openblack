@@ -85,7 +85,7 @@ constexpr int k_BeamFxTurns = 60;                ///< 0x67EE92: 60 turns
 constexpr int k_SpotVisualSmoke = 23;            ///< SMOKE on dry land (0x67EEDE)
 constexpr int k_SpotVisualSteam = 22;            ///< STEAM on water (0x67EEF3)
 constexpr float k_SmokeScale = 8.0f;             ///< [0x9357E4]: the smoke's magnitude
-constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol(1000 / [0xD01A38] x 4) turns (TicksForSeconds)
+constexpr float k_SmokeSeconds = 4.0f;           ///< [0x9357E8]: ftol((1000 div [0xD01A38]) x 4) & 0xFFFF turns
 constexpr float k_ExplodeSpread = 6.0f;          ///< 0x67EC6F / 0x67E868: fn_00681260's / fn_006812B0's 6.0f (stored, unread)
 constexpr bool k_DestroyByBeam = true;           ///< [0xC029EC] = 1: the objects are destroyed
 constexpr int k_Rocks = 5;                       ///< 0x67E79E: five rocks
@@ -257,10 +257,11 @@ public:
 			}
 			if (!data.beamDone && age > beamDelay && CanCreateSpotVisuals())
 			{
-				// CreateSpotVisualWithSpecifiedDuration(centre, BEAM_EXPLOSION_FX, 1.0, 60 turns, NULL): the column and cones
-				// (the port's CreateSpotVisual takes seconds: the 60 turns as seconds of a turn)
-				const float beamSeconds = static_cast<float>(k_BeamFxTurns) * game_clock::k_TurnSeconds;
-				data.beamFx = manager::CreateSpotVisual(k_SpotVisualBeamFx, data.centre, beamSeconds, entt::null, 1.0f);
+				// 0x67EE90..0x67EEA6: CreateSpotVisualWithSpecifiedDuration(MapCoords(centre) 0x603160, BEAM_EXPLOSION_FX,
+				// 1.0, 60 turns, NULL): the column and cones. The effect starts at that MapCoords as a point (fn_0063E410
+				// 0x63E418..0x63E47B: fild x, z x 10 / 65536, GetAltitude + the altitude): ToWorld of FromWorld
+				const auto at = ecs::map_coords::ToWorld(ecs::map_coords::FromWorld(data.centre));
+				data.beamFx = manager::CreateSpotVisualTurns(k_SpotVisualBeamFx, at, k_BeamFxTurns, entt::null, 1.0f);
 				data.beamDone = true;
 			}
 			if (!data.smokeDone && age > smokeDelay && CanCreateSpotVisuals())
@@ -268,11 +269,12 @@ public:
 				data.smokeDone = true;
 				// MapCoords::IsDryLand 0x603620: smoke, else steam; magnitude 8 for 4 s
 				const int visual = ecs::pot_resource::IsDryLand(data.centre) ? k_SpotVisualSmoke : k_SpotVisualSteam;
-				// 0x67EEF8..0x67EF1D: ftol(1000 / [0xD01A38] x 4) turns = TicksForSeconds(4) (as seconds of a turn for the
-				// port's CreateSpotVisual)
-				const auto smokeTurns = game_clock::TicksForSeconds(k_SmokeSeconds);
-				const float smokeSeconds = static_cast<float>(smokeTurns) * game_clock::k_TurnSeconds;
-				manager::CreateSpotVisual(visual, data.centre, smokeSeconds, entt::null, k_SmokeScale);
+				// 0x67EEF8..0x67EF2C: an inline copy of NumGameTicksPerSecond 0x711630 (`div [0xD01A38]` of 1000, fild
+				// qword, fmul 4 [0x9357E8], __ftol), the same as TicksForSeconds(4), then `and eax, 0xFFFF`: TURNS to
+				// CreateSpotVisualWithSpecifiedDuration (0x67EF3B), at MapCoords(centre) 0x603160 (0x67EF35)
+				const auto smokeTurns = static_cast<int>(static_cast<uint32_t>(game_clock::TicksForSeconds(k_SmokeSeconds)) & 0xFFFFu);
+				const auto at = ecs::map_coords::ToWorld(ecs::map_coords::FromWorld(data.centre));
+				manager::CreateSpotVisualTurns(visual, at, smokeTurns, entt::null, k_SmokeScale);
 			}
 		}
 		else

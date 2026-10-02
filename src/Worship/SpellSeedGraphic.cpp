@@ -116,8 +116,8 @@ entt::entity NewBand(const glm::vec3& position)
 /// SetColour 0x51A3BE (fn_007F9770): +0x4C = GetPlayerColour 0x64D800 of the owner (vt 0x1C), or of the local player
 /// (g_game +0x205A59) when the owner is the neutral one (g_game +0x205A5B, 0x51A322..0x51A36D), its rgb with the alpha
 /// (+0x70 x the caller's alpha) >> 8 (0x51A397..0x51A3B9); +0x50 (the specular) = 0x141414, the byte [0xBE8EA0] = 20
-/// in r, g and b (0x51A370..0x51A38D). (inferido) openblack's local player is PLAYER_ONE. (aproximado) the specular is
-/// not drawn: the ObjectColour path of vs_object has none
+/// in r, g and b (0x51A370..0x51A38D; refs.py: nothing writes the byte). (inferido) openblack's local player is
+/// PLAYER_ONE.
 void SetBandColour(entt::entity band, PlayerNames owner, uint8_t alpha)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -127,8 +127,10 @@ void SetBandColour(entt::entity band, PlayerNames owner, uint8_t alpha)
 	}
 	const auto player = owner == PlayerNames::NEUTRAL ? PlayerNames::PLAYER_ONE : owner;
 	const uint32_t rgb = psys::surf_revol::PlayerColour(static_cast<int>(player)); // 0xBFF0B8 (identity remap)
+	constexpr uint32_t k_BandSpecular = 0x141414u; // [0xBE8EA0] = 20 in each channel
 	registry.AssignOrReplace<ObjectColour>(
-	    band, ObjectColour {{static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8), static_cast<uint8_t>(rgb)}});
+	    band, ObjectColour {{static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8), static_cast<uint8_t>(rgb)},
+	                        k_BandSpecular});
 	const uint32_t a = (k_BandAlpha * alpha) >> 8; // imul, and 0xFFFFFF00, shl 0x10: the byte above bit 8
 	registry.AssignOrReplace<Alpha>(band, static_cast<float>(a & 0xFF) / 255.0f);
 }

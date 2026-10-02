@@ -19,7 +19,6 @@
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/FishFarm.h"
-#include "ECS/Components/Footpath.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Fragment.h"
@@ -30,6 +29,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/Temple.h"
 #include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
@@ -235,10 +235,12 @@ bool fire::traits::IsObjectInMap(entt::entity object)
 
 bool fire::traits::IsMultiMapFixed(entt::entity object)
 {
-	// (aproximado) CitadelPart, PFootball and PrayerSite have no component of their own in openblack yet
+	// bw1-decomp src/Black: WorshipSite and CitadelHeart (openblack's Temple entity) are CitadelParts, AnimatedStatic
+	// is a Feature. GFootpath is a GameThing, not a MultiMapFixed. (aproximado) The other CitadelParts, PFootball and
+	// PrayerSite have no component of their own in openblack yet
 	return Locator::entitiesRegistry::value()
-	    .AnyOf<Abode, Field, Footpath, BigForest, Feature, FishFarm, MobileStatic, TotemStatue, SpellIcon, MagicTeleport>(
-	        object);
+	    .AnyOf<Abode, Field, BigForest, Feature, AnimatedStatic, FishFarm, MobileStatic, MagicTeleport, SpellIcon,
+	           TotemStatue, WorshipSite, Temple>(object);
 }
 
 bool fire::traits::IsVillager(entt::entity object)

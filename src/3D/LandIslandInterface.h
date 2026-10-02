@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <filesystem>
 #include <vector>
 
@@ -66,6 +67,22 @@ public:
 	[[nodiscard]] virtual uint16_t GetCellsPerSide() const { return 512; }
 	/// The cell's altitude in height units (k_HeightUnit), with the extra altitude bits of BWLandEditor maps
 	[[nodiscard]] uint16_t GetCellAltitude(const lnd::LNDCell& cell) const;
+	/// The altitudes (height units) of a cell's corners (x, z), (x, z + 1), (x + 1, z), (x + 1, z + 1) as LH3DIsland reads
+	/// them from the cell's own block, its shared border row included (the block's cells +4, +0xC, +0x8C, +0x94:
+	/// fn_0083AE80 0x83AEF7..0x83AF17). The default goes through GetCell; LandIsland reads the block
+	[[nodiscard]] virtual std::array<uint16_t, 4> GetCellCorners(glm::u16vec2 cell) const;
+	/// LH3DIsland::RayCast fn_00802550 (session milagros2 lane rayo3; implemented in Implementations/LandIsland.cpp):
+	/// the RAY from `from` through `to` (cell units: x, z x 0.1, y / 0.67), extended to the map's edge, walked cell by cell
+	/// against the two triangles of each cell (RayCastInternal fn_00802680, the cell test fn_0083AE80). On a hit `hit` is
+	/// its x, z in metres and the answer is true. Without one, a ray going down (to.y <= from.y, |dy| >= 0.0001) gets
+	/// its crossing of y = 0 in `hit`, and true when that point is within 7500 m (in x z) of `camera`
+	/// (LH3DTech::g_camera 0xEA1DB8, 0x8025D9..0x802672).
+	/// Callers in runblack.exe: the lightning's fork (fn_00691F30 0x69221C, PSys/Rules/Lightning.cpp) and, not ported
+	/// yet, GCamera::Update 0x442406, fn_0044EF60 0x44F046, CameraModeNew3::Update 0x45DA4A, GLandscape::Draw 0x5E4848,
+	/// fn_005E5620 0x5E5660, fn_00800C30 0x800D79, fn_0086BD00 0x86BF1C (callers.py 0x802550)
+	[[nodiscard]] bool RayCast(const glm::vec3& from, const glm::vec3& to, glm::vec2& hit, const glm::vec3& camera) const;
+	/// RayCastInternal fn_00802680 in cell units (x, z, y / 0.67): the hit's x, z in cells ([0xE9CD80] / [0xE9CD84])
+	[[nodiscard]] bool RayCastCells(float x0, float z0, float y0, float x1, float z1, float y1, glm::vec2& hit) const;
 
 	// Debug
 	virtual void DumpTextures() const = 0;

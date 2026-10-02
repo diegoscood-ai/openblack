@@ -16,7 +16,7 @@
 #include "3D/L3DAnim.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/Light.h"
-#include "Audio/Sound.h"
+#include "Audio/Device/Sound.h"
 #include "Creature/CreatureMind.h"
 #include "Level.h"
 

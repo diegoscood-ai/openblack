@@ -18,7 +18,7 @@
 #include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"

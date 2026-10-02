@@ -104,8 +104,9 @@ class Renderer final: public RendererInterface
 	/// The sun (fn_0086C140, right after the sky dome) and its glare (fn_0086BB60, at the end of the frame)
 	void DrawSun(graphics::RenderPass viewId, const Camera& camera, bool glare) const;
 	/// The moon and its glow (LH3DAtmos::UpdateGame 0x8356E0, fn_0086A930, fn_0086A7F0)
-	/// @param mirrored in the reflection pass: the mirrored glow and the moon's DrawUnderWater (fn_0086B010 0x86B61D)
-	void DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool mirrored = false) const;
+	/// In the reflection pass (sea_pass::ForPass(viewId).mirrored): the mirrored glow and the moon's DrawUnderWater
+	/// (fn_0086B010 0x86B61D)
+	void DrawMoon(graphics::RenderPass viewId, const Camera& camera) const;
 	/// The sea: the screen rows of fn_00879930, or the level-0 quad of fn_0087A090 (RendererSea.cpp)
 	void DrawSea(const DrawSceneDesc& desc) const;
 	/// The reflection target follows the main view's size (RendererSea.cpp)
@@ -151,9 +152,19 @@ class Renderer final: public RendererInterface
 		uint32_t argb {0};
 	};
 	mutable std::vector<BoatSpriteDraw> _frameBoatSprites;
-	/// DrawCutByPlane (animated fn_00811C70, static fn_0080C050) of an entity's model: keep -1 the part under y = 0, 1
-	/// the part over it; lit 90 + N.L in argb (0xAARRGGBB); mirrored in y = 0 for the reflection target (RendererCut.cpp)
-	void DrawCutByPlane(graphics::RenderPass viewId, entt::entity entity, int8_t keep, uint32_t argb, bool mirrored) const;
+	/// LH3DObject vt+0x118 DrawUnderWater (fn_00811010 / fn_00810E20 / fn_00813300 -> fn_00850FC0) of a mesh: mirrored by
+	/// the pass's camera, the part kept by sea.plane, in sea's light (sea_pass::UnderWater / UnderWaterLastDraw)
+	/// (RendererCut.cpp)
+	void DrawUnderWater(graphics::RenderPass viewId, const L3DMesh& mesh, std::unique_ptr<const InstanceDesc> instances,
+	                    const glm::mat4* matrices, uint8_t matrixCount, bool morphWithTerrain,
+	                    const sea_pass::SeaDraw& sea) const;
+	/// DrawUnderWater of an entity's instance (its mesh's bones, or the identity)
+	void DrawUnderWater(graphics::RenderPass viewId, entt::entity entity, const sea_pass::SeaDraw& sea) const;
+	/// LH3DObject vt+0x11C DrawCutByPlane (animated fn_00811C70, static fn_0080C050 -> fn_00858BA0) of an entity's model:
+	/// the side of y = 0 the plane keeps, lit 90 + N.L in argb (0xAARRGGBB) + specular; mirrored back in the reflection
+	/// target (sea_pass::Cut) (RendererCut.cpp)
+	void DrawCutByPlane(graphics::RenderPass viewId, entt::entity entity, sea_pass::SeaPlane plane, uint32_t argb,
+	                    uint32_t specular) const;
 	/// The parts under the water of the objects with components::CutByPlane, before the sea (GLandscape::Draw 4d-4e)
 	void DrawCutBelowWater(graphics::RenderPass viewId) const;
 	/// The parts above the water of the objects whose owner draws them cut (components::CutByPlane::drawAbove: the
@@ -166,9 +177,9 @@ class Renderer final: public RendererInterface
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
-	/// The fish puzzle's nets of floats (FishPlot), cut by the plane: keep -1 the part under the water (fn_00829BC0, into
-	/// the reflection target, mirrored), 1 the part over it (fn_00829B50) (RendererFishPlot.cpp)
-	void DrawFishPlots(graphics::RenderPass viewId, int8_t keep) const;
+	/// The fish puzzle's nets of floats (FishPlot), cut by the plane: KeepBelow the part under the water (fn_00829BC0,
+	/// into the reflection target, mirrored back), KeepAbove the part over it (fn_00829B50) (RendererFishPlot.cpp)
+	void DrawFishPlots(graphics::RenderPass viewId, sea_pass::SeaPlane plane) const;
 	/// Mod world.foliage: loads Mods/world.foliage on first use, places the plants for the island and draws them
 	void DrawFoliage(const DrawSceneDesc& desc) const;
 	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13

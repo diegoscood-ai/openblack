@@ -50,6 +50,10 @@ struct RenderContext
 	/// If debug bounding boxes are enabled, it will double in size to fit all
 	/// bounding boxes in the second half of the list.
 	std::vector<glm::mat4> instanceUniforms;
+	/// The fifth column of every instance (i_data4), at the same indices: the object's LH3DColor fields obj+0x4C / +0x50
+	/// / +0x54 packed by lh3d_colour::PackInstanceTint / Colour / Specular / Window (src/Graphics/Lh3dColour.h), zero for
+	/// the land light alone. Zeroed before every refill; instanceUniformBuffer holds the two interleaved (80 bytes each).
+	std::vector<glm::vec4> instanceColours;
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
 	std::map<entt::id_type, const InstancedDrawDesc> instancedDrawDescs;
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
@@ -58,6 +62,12 @@ struct RenderContext
 	/// The instances (indices of instanceUniforms) of those that are PSys mesh atoms with UseAdditiveAlpha: material mode
 	/// 13 (GJUtils::SetMaterialProperties 0x57E120: SRCALPHA / ONE, no Z write), PSys/Creators/Mesh.h
 	std::unordered_set<uint32_t> additiveInstances;
+	/// The opaque PSys mesh atoms drawn with DrawCutByPlane (the particle's +0x24 & 4, fn_00679F20 0x679F29 -> vt+0x11C
+	/// 0x679F4A): out of instancedDrawDescs, drawn in Renderer::DrawPass (the cut-atom loop after DrawCutAboveWater)
+	/// with graphics::sea_pass::CutAtoms
+	std::map<entt::id_type, const InstancedDrawDesc> cutAtomDrawDescs;
+	/// The translucent ones (in translucentDrawDescs): their instance indices, drawn cut from the sorted list
+	std::unordered_set<uint32_t> cutAtomInstances;
 	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
 	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
 	std::unordered_map<uint32_t, glm::vec3> sortPoints;

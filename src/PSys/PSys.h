@@ -64,6 +64,8 @@ struct Creator
 	Kind kind {Kind::Point};
 	std::string className;
 	uint8_t r {255}, g {255}, b {255}, a {255};
+	/// +0x24/+0x28/+0x2C SpecColorR/G/B (DefineProperties 0x6B3562..0x6B359B; ctor 0x6A91C4..0x6A91CA: 0)
+	int specR {0}, specG {0}, specB {0};
 	bool usePlayerColour {false};     ///< +0x0D UsePlayerColor (ctor 0)
 	float usePlayerColourBlend {1.0f}; ///< +0x10 UsePlayerColorBlend (ctor 1.0)
 	float initialScale {1.0f};
@@ -121,7 +123,7 @@ struct Atom
 	Atom(Atom&&) = delete;
 	Atom& operator=(const Atom&) = delete;
 	Atom& operator=(Atom&&) = delete;
-	/// Its sounds lose their atom (AtomCore::StopSound 0x674500 on each; defined in Audio/SpellSounds.cpp)
+	/// Its sounds lose their atom (AtomCore::StopSound 0x674500 on each; defined in Audio/Services/SpellSounds.cpp)
 	~Atom();
 
 	Collection* collection {nullptr};
@@ -133,8 +135,8 @@ struct Atom
 	float ruleScale {1.0f};    ///< +0x78
 	float stretch {1.0f};      ///< +0x7C
 	std::array<uint8_t, 4> colour {255, 255, 255, 255}; ///< +0x8C ARGB as r, g, b, a
-	/// +0x90 the specular, D3DCOLOR ARGB: fn_006A85E0 0x6A8748..0x6A875B puts SpecColorR/G/B there, alpha 0
-	/// (pendiente: not read from the creator yet, 0 in every dumped spell file); copied raw to DrawData +0xC (0x679BF4)
+	/// +0x90 the specular, D3DCOLOR ARGB: fn_006A85E0 0x6A8748..0x6A875B puts SpecColorR/G/B there, alpha 0 (0 in
+	/// every dumped spell file); copied raw to DrawData +0xC (0x679BF4)
 	uint32_t specular {0};
 	float birth {0.0f};
 	bool visible {true}; ///< flag 0x10 (EventConditionAtomInUse)
@@ -153,7 +155,7 @@ struct Atom
 	/// +0x24 as the original keeps it: a modifier's own data object (BaseAtomModifierData, +0x1C its modifier),
 	/// destroyed with the atom (UR_HealSpellChakra::AtomData lets go of its target there)
 	std::unordered_map<const Modifier*, std::shared_ptr<void>> modifierData;
-	/// +0x2C: the sounds it started, newest first (Audio/SpellSounds.h)
+	/// +0x2C: the sounds it started, newest first (Audio/Services/SpellSounds.h)
 	std::vector<std::shared_ptr<audio::PSysSound>> sounds;
 	/// A ParticleMistCreator atom's LH3DMist +0x84 (its render object, CreateLH3DMist 0x6AA5A0; Creators/Mist.cpp): seeded
 	/// by the ctor 0x7F9560 and advanced by the draw fn_007FA300 only while it is on screen, so it is changed through the

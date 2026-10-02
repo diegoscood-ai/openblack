@@ -22,7 +22,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/BankTables.h"
+#include "Audio/GAudio/BankTables.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
@@ -31,14 +31,11 @@
 #include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Spell.h"
-#include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/SpellSeed.h"
-#include "ECS/Components/Temple.h"
-#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
-#include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
@@ -91,14 +88,6 @@ void PlayInGameSample(int sample, const glm::vec3& mapPosition)
 {
 	audio::tags::CreateAtMapCoords(mapPosition.x, mapPosition.z, mapPosition.y, sample, false, 2, 0, false, true,
 	                               audio::SfxBank::InGame, 0);
-}
-
-/// Object::AsMultiMapFixed (vt 0x678) != NULL: the MultiMapFixed classes openblack has as components
-bool IsMultiMapFixed(entt::entity entity)
-{
-	using namespace ecs::components;
-	return Reg().AnyOf<Abode, Field, Feature, TotemStatue, FishFarm, SpellIcon, WorshipSite, Temple, AnimatedStatic,
-	                        MobileStatic, MagicTeleport>(entity);
 }
 
 /// fn_005FCBA0 for one stone: the travellers that are gone, not available (vt 0x2C) or not reacting to the stone's
@@ -498,7 +487,7 @@ bool teleport::AnyMultiMapFixedNear(const glm::vec3& mapPosition, float radius)
 	const int cells = side * side;
 	ecs::map_coords::Spiral spiral;
 	const auto test = [&](entt::entity entity) {
-		if (!registry.Valid(entity) || !IsMultiMapFixed(entity))
+		if (!registry.Valid(entity) || !ecs::fire::traits::IsMultiMapFixed(entity)) // Object::AsMultiMapFixed (vt 0x678)
 		{
 			return false;
 		}

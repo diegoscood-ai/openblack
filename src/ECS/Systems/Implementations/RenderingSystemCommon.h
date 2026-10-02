@@ -37,6 +37,12 @@ private:
 	virtual void PrepareDrawUploadUniforms(bool drawBoundingBox) = 0;
 
 protected:
+	/// (Re)creates instanceUniformBuffer for `capacity` instances of five columns (i_data0..i_data4: the model matrix,
+	/// then instanceColours) and sizes both CPU lists to it
+	void ResizeInstances(uint32_t capacity);
+	/// Interleaves instanceUniforms and instanceColours into the buffer (copied: bgfx reads it a frame later)
+	void UploadInstances();
+
 	RenderContext _renderContext;
 };
 } // namespace openblack::ecs::systems

@@ -15,6 +15,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "Audio/Services/Guidance.h"
 #include "ECS/Life.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "EffectValues.h"
@@ -155,12 +156,22 @@ void alignment::ProcessForPlayer(PlayerNames player)
 		return;
 	}
 	auto& alignment = Of(player);
+	const float cap = Locator::infoConstants::value().player.maxAlignmentChangePerGameTurn;
+	// 0x4141AB..0x4141D9: for the player of MyInterfaceStatus (IsMemberOfThisPlayer 0x64D750; (inferido) openblack's
+	// local player is PLAYER_ONE, as Game.cpp's localPlayerNumber), every turn and before Process, even with nothing
+	// pending (the advisors' running sum decays): GGuidance::HelpSpritesAlignmentProcess 0x71CEB0 with
+	// GetMaxAlignmentChangePerGameTurn (vt +0x40) x the pending change +0xC, not clamped yet; the guidance reads the
+	// alignment before this turn's change (GetAlignmentValue 0x64D6A0, 0x71CF05) and the same maximum (GPlayer+0x64
+	// +0x10, 0x71CEDA)
+	if (player == PlayerNames::PLAYER_ONE && magic::players::EntityOf(player) != entt::null)
+	{
+		audio::guidance::HelpSpritesAlignmentProcess(cap * alignment.pending, alignment.value, cap);
+	}
+	// GAlignment::Process 0x414140: with nothing pending its CrudeUpdate(0) changes nothing
 	if (alignment.pending == 0.0f)
 	{
 		return;
 	}
-	// TODO(pendiente): GGuidance::HelpSpritesAlignmentProcess 0x71CEB0 for the local player (the good and evil advisors)
-	const float cap = Locator::infoConstants::value().player.maxAlignmentChangePerGameTurn;
 	const float change = cap * std::clamp(alignment.pending, -1.0f, 1.0f);
 	CrudeUpdate(player, change);
 	alignment.pending = 0.0f;

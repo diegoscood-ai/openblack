@@ -11,6 +11,10 @@
 
 #include "RenderingSystemCommon.h"
 
+#include <algorithm>
+#include <cstring>
+
+#include <bgfx/bgfx.h>
 #include <glm/gtx/transform.hpp>
 
 #include "3D/L3DMesh.h"
@@ -45,6 +49,44 @@ RenderContext::~RenderContext()
 
 RenderingSystemCommon::~RenderingSystemCommon() = default;
 
+void RenderingSystemCommon::ResizeInstances(uint32_t capacity)
+{
+	if (bgfx::isValid(toBgfx(_renderContext.instanceUniformBuffer)))
+	{
+		bgfx::destroy(toBgfx(_renderContext.instanceUniformBuffer));
+	}
+	// i_data0..i_data3 the model matrix's columns, i_data4 the colours (bgfx maps i_data k to TEXCOORD 7 - k)
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
+	    .end();
+	_renderContext.instanceUniformBuffer = graphics::fromBgfx(bgfx::createDynamicVertexBuffer(capacity, layout));
+	_renderContext.instanceUniforms.resize(capacity);
+	_renderContext.instanceColours.assign(capacity, glm::vec4(0.0f));
+}
+
+void RenderingSystemCommon::UploadInstances()
+{
+	const auto count = static_cast<uint32_t>(_renderContext.instanceUniforms.size());
+	if (count == 0)
+	{
+		return;
+	}
+	constexpr uint32_t k_Stride = sizeof(glm::mat4) + sizeof(glm::vec4);
+	const bgfx::Memory* memory = bgfx::alloc(count * k_Stride);
+	for (uint32_t i = 0; i < count; ++i)
+	{
+		std::memcpy(memory->data + i * k_Stride, &_renderContext.instanceUniforms[i], sizeof(glm::mat4));
+		std::memcpy(memory->data + i * k_Stride + sizeof(glm::mat4), &_renderContext.instanceColours[i],
+		            sizeof(glm::vec4));
+	}
+	bgfx::update(toBgfx(_renderContext.instanceUniformBuffer), 0, memory);
+}
+
 void RenderingSystemCommon::SetDirty()
 {
 	_renderContext.dirty = true;
@@ -58,6 +100,7 @@ void RenderingSystemCommon::PrepareDraw(bool drawBoundingBox, bool drawFootpaths
 	    (_renderContext.footpaths != nullptr) != drawFootpaths || (_renderContext.streams != nullptr) != drawStreams)
 	{
 		PrepareDrawDescs(drawBoundingBox);
+		std::fill(_renderContext.instanceColours.begin(), _renderContext.instanceColours.end(), glm::vec4(0.0f));
 		PrepareDrawUploadUniforms(drawBoundingBox);
 
 		_renderContext.boundingBox.reset();

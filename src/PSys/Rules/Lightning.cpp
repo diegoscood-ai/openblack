@@ -34,13 +34,16 @@
 #include <glm/vec3.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
+#include "Camera/Camera.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "GameClock.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -80,6 +83,35 @@ void CellObjects(const ecs::map_coords::MapCoords& coords, std::vector<entt::ent
 	out.insert(out.end(), map.GetFixedInGridCell(id).begin(), map.GetFixedInGridCell(id).end());
 	out.insert(out.end(), map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
 	std::sort(out.begin(), out.end()); // (inf) the cell lists are unordered sets here: a stable order
+}
+
+/// PSysManager::PSysRand 0x6729E0: the function at [0xD4E0BC] (fn_00673340 sets 0x672AF0 GRand::GameRand or 0x672B40
+/// GRand::LocalRand): 0 for n == 0 without a draw (GData::Rand 0x510693 / LocalRand 0x6DE574), else LHRand 0x7DB600
+/// modulo n as an UNSIGNED number (`div` 0x7DB62B): a negative n draws from 0 .. 2^32 - |n| - 1, kept in a signed int
+/// (0x80000000, the ftol of an infinite step count, gives 0 .. 2^31 - 1). (aproximado) the draw is the effect's float
+/// generator, ftol(Random(n)), the convention of this PSys port
+int32_t PSysRand(Effect& effect, int32_t n)
+{
+	if (n == 0)
+	{
+		return 0;
+	}
+	const auto range = static_cast<uint32_t>(n);
+	const auto draw = static_cast<uint32_t>(effect.Random(static_cast<float>(range)));
+	return static_cast<int32_t>(draw < range ? draw : range - 1u);
+}
+
+/// GameThing::IsAvailable 0x401810 (vt +0x2C): not being deleted (+0xA & 1; openblack's entity is gone instead), and
+/// for a villager Villager::IsAvailable 0x751D50: its final state is not DYING (ecs::villager::IsAvailable). The other
+/// vt +0x2C overrides of the image (GGame 0x54B9A0 and the rooms of the front end) are not things on the map
+bool IsAvailable(entt::entity object)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(object))
+	{
+		return false;
+	}
+	return !registry.AllOf<ecs::components::Villager>(object) || ecs::villager::IsAvailable(object);
 }
 
 /// fn_00690090: a spell seed is never struck (the bolt must not shoot at the miracle icons lying about)
@@ -521,7 +553,7 @@ private:
 	}
 
 	/// 0x691072..0x691091 / 0x6928FD..0x69292F: ftol(AverageLightmapLife / (fild [0xD01A38] x 0.001 [0x8AA3B0])), the
-	/// turns of AverageLightmapLife seconds (a 0 ms turn gives +inf, ftol 0x80000000: no cooldown)
+	/// turns of AverageLightmapLife seconds, passed to PSysRand as it is (a 0 ms turn gives +inf, ftol 0x80000000)
 	[[nodiscard]] int LightmapSteps() const
 	{
 		return ecs::map_coords::FtoL(averageLightmapLife /
@@ -592,7 +624,7 @@ private:
 		glm::vec3 sum(0.0f);
 		for (auto& target : data.targets)
 		{
-			target.cooldown = steps > 0 ? static_cast<int>(effect.Random(static_cast<float>(steps))) : 0;
+			target.cooldown = PSysRand(effect, steps); // 0x6910C9
 			sum += target.Tip();
 		}
 		const float inverse = 1.0f / static_cast<float>(data.targets.size());
@@ -627,7 +659,8 @@ private:
 				{
 					break;
 				}
-				if (!CanBeStruck(object))
+				// 0x69038E / 0x690997: IsAvailable (vt +0x2C) == 1, then the own cell (fn_00604F40) and fn_00690090
+				if (!IsAvailable(object) || !CanBeStruck(object))
 				{
 					continue;
 				}
@@ -874,14 +907,36 @@ private:
 			const float f = 0.2f + effect.Random(0.4f);
 			split = origin + (centroid - origin) * f;
 		}
-		// TODO(M5): 0x69220C..0x692262: LH3DIsland::RayCast fn_00802550(origin, split), read: the segment in cell units
-		// (x, z x 0.1 [0x8AC404], y / 0.67 [0xC3720C]) goes to RayCastInternal fn_00802680, which clips it to
-		// 0.1..511.9 and walks it cell by cell with the cell test fn_0083AE80 on the LandBlock altitudes
-		// (g_index_block 0xE9C964, g_ptr_blocks 0xE9C564); without a hit, a segment going down meets y = 0 when that
-		// point is within 7500 m of the camera (0x8025D9..0x802672). When the land is hit closer (in x z) to the origin
-		// than the split point the fork is left as it is (0x692225..0x692262 -> 0x692ABE). Not ported: an island
-		// routine with seven other callers (GCamera::Update 0x442406, CameraModeNew3 0x45DA4A, GLandscape::Draw
-		// 0x5E4848...) that belongs to 3D/LandIsland, not to a private copy here
+		// 0x69220C..0x692262: LH3DIsland::RayCast fn_00802550(origin, split) (LandIslandInterface::RayCast: the RAY from
+		// the origin through the split point to the map's edge, or its y = 0 point within 7500 m of the camera). When it
+		// meets the land closer to the origin in x z than the split point, `(hz - oz)^2 + (hx - ox)^2 < (sz - oz)^2 +
+		// (sx - ox)^2` (fcompp, `test ah, 1`), the whole of fn_00691F30 ends (jne 0x692ABE): the fork is not laid out
+		// again (it keeps the joints of the last step), no children, no strike, no shield test
+		if (Locator::terrainSystem::has_value())
+		{
+			// LH3DTech::g_camera 0xEA1DB8 for the y = 0 point; (openblack) the origin when there is no camera (tests)
+			const glm::vec3 camera = Locator::camera::has_value() ? Locator::camera::value().GetOrigin() : origin;
+			glm::vec2 land(0.0f); // [esp + 0x2C], [esp + 0x50]
+			if (Locator::terrainSystem::value().RayCast(origin, split, land, camera))
+			{
+				const float splitX = split.x - origin.x;
+				const float splitZ = split.z - origin.z;
+				const float landX = land.x - origin.x;
+				const float landZ = land.y - origin.z;
+				if (landZ * landZ + landX * landX < splitZ * splitZ + splitX * splitX)
+				{
+					if (std::getenv("OPENBLACK_SPELL_TRACE") != nullptr)
+					{
+						SPDLOG_LOGGER_INFO(spdlog::get("game"),
+						                   "Lightning {}: fork at depth {} from ({:.1f}, {:.1f}, {:.1f}) cut by the land at "
+						                   "({:.1f}, {:.1f}) before its split point ({:.1f}, {:.1f}, {:.1f})",
+						                   data.key, depth, origin.x, origin.y, origin.z, land.x, land.y, split.x, split.y,
+						                   split.z);
+					}
+					return;
+				}
+			}
+		}
 
 		// 0x692268..0x692361: fn_006D0BC0(split, 2.5): inside a shield, the segment's way in (vt 0xFC FindIntersect from
 		// the origin), a SpellEvent 4 there {no movement, strength 1 (2 when linked, data +0x20), no shield test,
@@ -1008,7 +1063,7 @@ private:
 	{
 		// 0x6928FD..0x692949: +0x18 = PSysRand(LightmapSteps()); data only
 		const auto steps = LightmapSteps();
-		target.cooldown = steps > 0 ? static_cast<int>(effect.Random(static_cast<float>(steps))) : 0;
+		target.cooldown = PSysRand(effect, steps); // 0x692935
 		if (lightMapGroup >= 0)
 		{
 			if (auto* atom = effect.NewAtomInGroup(lightMapGroup, effect.FindCreator(lightMapCreator)); atom != nullptr)

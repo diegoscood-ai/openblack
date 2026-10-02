@@ -137,7 +137,7 @@ Mods/<id>/                  la carpeta se llama como el id (minúsculas, cifras,
 | `authors` | lista de textos | |
 | `icon` | ruta | su imagen (por defecto `icon.png` si existe) |
 | `url` | texto | página del mod (opcional) |
-| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.0.0) |
+| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.1.0: la 1.1 añade la geometría y el reloj del juego) |
 | `enabled_by_default` | sí/no | encendido la primera vez (solo si el usuario lo pide; lo normal es `false`) |
 | `restart_required` | sí/no | sus cambios cuentan al reiniciar |
 | `parent` | id | módulo de otro mod: sale debajo y solo cuenta si el padre está activo |
@@ -238,6 +238,12 @@ al arrancar, un mod con `entry` o `replace` es siempre de reinicio. No hay que c
 | `ob.game.ground_height(x, z)` | altura del terreno (nil sin tierra) |
 | `ob.game.camera()`, `ob.game.set_camera(x, y, z, fx, fy, fz)` | la cámara (posición y foco) |
 | `ob.game.cast_miracle(nombre, x, z [, radio, segundos])` | un milagro en el suelo, del jugador neutral, por el camino de `SPELL_AT_POS` |
+| `ob.game.turn_fraction()`, `ob.game.paused()`, `ob.game.speed()` | (1.1) fracción del turno 0..0,99, pausa y velocidad (`game_clock`) |
+| `ob.map.distance(x1, z1, x2, z2)` | (1.1) distancia en el suelo como la mide el juego (`GUtils::GetDistanceInMetres` 0x74CD70, la que más usa el juego: solo x y z, en coma fija 16.16) |
+| `ob.map.angle(x1, z1, x2, z2)`, `ob.map.angle_to_radians(a)`, `ob.map.radians_to_angle(r)` | (1.1) ángulos del juego: 0..2047 es una vuelta (`gutils::GetAngleFromXZ`, `ConvertGameAngleTo3D`, `ConvertAngle3DToGame`) |
+| `ob.map.point_at(x, z, ángulo, metros)` | (1.1) el punto a esa distancia y ángulo (`gutils::GetXFromAngle` / `GetZFromAngle`) |
+| `ob.map.cell(x, z)` | (1.1) la celda de 10 m y si está dentro del mapa de 512 x 512 (`map_coords::CellOf`, `InBounds`) |
+| `ob.mesh.radius(nombre [, escala])`, `ob.mesh.height(nombre [, escala])` | (1.1) radio 2D y altura entera de una malla (`object::MeshRadius2D`, `MeshHeight`); nil si no está cargada |
 
 ### Mods nativos (DLL)
 
@@ -255,8 +261,11 @@ OB_MOD_EXPORT void ob_mod_unload(void);                         // opcional
   más de la librería.
 - `ob_host_api`: `log`, `get_option`, `set_switch`, `get_switch`, `on_event` (`OB_EVENT_TURN`, `_FRAME`,
   `_LAND_LOADED`), `provide_interface`, `get_interface`, `enumeration`, `game_turn`, `game_hour`, `ground_height`,
-  `camera`, `set_camera`, `cast_miracle`, `land_name`. Empieza por su tamaño: las funciones nuevas solo se añaden al
-  final (`OB_HOST_HAS(host, función)` para saber si el openblack que corre la tiene).
+  `camera`, `set_camera`, `cast_miracle`, `land_name`; y desde la 1.1 `game_turn_fraction`, `game_paused`,
+  `game_speed`, `map_cell`, `map_distance`, `map_angle`, `map_angle_to_radians`, `map_radians_to_angle`,
+  `map_point_at`, `mesh_radius`, `mesh_height` (las de la tabla de Lua). Empieza por su tamaño: las funciones nuevas
+  solo se añaden al final (`OB_HOST_HAS(host, función)` para saber si el openblack que corre la tiene; así lo hace
+  `example.native-hello` con `map_distance`).
 - Reglas: todo en el hilo del juego; ninguna excepción C++ sale de la librería; los textos que da openblack valen
   durante la llamada, los que se le piden van a un búfer del mod. Un mod nativo no se puede aislar como uno Lua: solo
   hay que instalar los de confianza.
@@ -937,7 +946,8 @@ escriben en la pestaña Log. Son las plantillas.
 ## Pendiente
 
 - SDK de mods (2026-10-01), lo que falta: sonido en Lua y C (envoltorio de `Audio.h` con un dueño por mod, acordado
-  con audio), lanzar orbes (cuando la API `one_off::` de milagros sea estable), `ecs::object` y `game_clock` (sistemas2),
+  con audio), lanzar orbes (cuando la API `one_off::` de milagros sea estable), medidas de un objeto concreto (hacen falta
+  identificadores de objetos en la API; hoy solo por malla),
   límite de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
   audio, B11), reemplazar mallas en vivo (hoy al arrancar: las formas físicas se toman al crear cada objeto), texturas
   incrustadas en un `.l3d` (`L3DMesh::_skins`) y materiales sueltos del `.lnd`, traducciones `lang/<idioma>.json`

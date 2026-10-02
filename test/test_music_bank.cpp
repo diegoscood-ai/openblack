@@ -19,8 +19,8 @@
 
 #include <gtest/gtest.h>
 
-#include "Audio/BankTables.h"
-#include "Audio/MusicBank.h"
+#include "Audio/GAudio/BankTables.h"
+#include "Audio/LH/MusicBank.h"
 
 // Milestone A2 of dev\tmp_dis\audio\PLAN.md. Expected values: dev\tmp_dis\audio\music_sad_table.md (segments, group,
 // flags, loops, volume, min/max/scale of the first segment) and music_types.md; markers and segment layout from the

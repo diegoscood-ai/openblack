@@ -77,19 +77,7 @@ void RenderingSystemTemple::PrepareDrawDescs(bool drawBoundingBox)
 	// Recreate instancing uniform buffer if it is too small
 	if (_renderContext.instanceUniforms.size() < instanceCount)
 	{
-		if (bgfx::isValid(toBgfx(_renderContext.instanceUniformBuffer)))
-		{
-			bgfx::destroy(toBgfx(_renderContext.instanceUniformBuffer));
-		}
-		bgfx::VertexLayout layout;
-		layout.begin()
-		    .add(bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
-		    .end();
-		_renderContext.instanceUniformBuffer = graphics::fromBgfx(bgfx::createDynamicVertexBuffer(instanceCount, layout));
-		_renderContext.instanceUniforms.resize(instanceCount);
+		ResizeInstances(instanceCount);
 	}
 
 	// Determine uniform buffer offsets and instance count for draw
@@ -135,10 +123,5 @@ void RenderingSystemTemple::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    }
 	    });
 
-	if (!_renderContext.instanceUniforms.empty())
-	{
-		const auto size = static_cast<uint32_t>(_renderContext.instanceUniforms.size() * sizeof(glm::mat4));
-		bgfx::update(toBgfx(_renderContext.instanceUniformBuffer), 0,
-		             bgfx::makeRef(_renderContext.instanceUniforms.data(), size));
-	}
+	UploadInstances();
 }

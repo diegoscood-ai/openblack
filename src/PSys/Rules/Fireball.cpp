@@ -26,8 +26,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/SoundMap.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
@@ -212,7 +211,7 @@ public:
 					{
 						// fn_006A1F90: the surface's factor (0x937574: 1, 0.2 off the land and on water, 1.25 for 9)
 						static constexpr float k_Surface[10] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.2f, 0.2f, 1.0f, 1.25f};
-						const int surface = audio::GetSurfaceType(p);
+						const int surface = ecs::sea_cells::GetSurfaceType(p); // GSoundMap::GetSurfaceType 0x71D8E0
 						bounce *= surface >= 0 && surface < 10 ? k_Surface[surface] : 1.0f;
 					}
 					v = tangent * bounce + normalPart * -verticalBounce;

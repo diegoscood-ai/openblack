@@ -61,29 +61,12 @@ void Renderer::DrawBoatReflection(RenderPass viewId) const
 	{
 		return;
 	}
-	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	const auto instance = renderCtx.entityInstances.find(entity);
-	if (!Locator::entitiesRegistry::value().Valid(entity) || instance == renderCtx.entityInstances.end() ||
-	    !meshes.Contains(instance->second.meshId))
-	{
-		return;
-	}
-	const auto mesh = meshes.Handle(instance->second.meshId);
-	// DrawUnderWater (static 0x811010 -> fn_00850FC0): mirrored in y = 0 (the reflection camera here), what had y < 0
-	// clipped away, unlit in the diffuse obj+0x4C = 0xFF303070 (vs_object mode 2 with the packed rgb)
-	L3DMeshSubmitDesc submitDesc = {};
-	submitDesc.viewId = viewId;
-	submitDesc.options = render_modes::k_ModelPass;
-	submitDesc.clipBelowSea = true;
-	submitDesc.unlitColour = static_cast<float>(ecs::petit_navire::k_ReflectionColour & 0x00FFFFFFu);
-	submitDesc.instanceDesc =
-	    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance->second.index, 1);
-	static const auto k_Identity = glm::mat4(1.0f);
-	submitDesc.modelMatrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &k_Identity;
-	submitDesc.matrixCount = mesh->IsBoned() ? static_cast<uint8_t>(mesh->GetBoneMatrices().size()) : 1;
-	submitDesc.program = _shaderManager->GetShader("ObjectInstanced");
-	DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+	// DrawUnderWater (static 0x811010 -> fn_00850FC0, 0x5E0178): mirrored in y = 0 (the reflection camera here), what had
+	// y < 0 clipped away, unlit in the diffuse obj+0x4C = 0xFF303070 (`mov [eax+0x4C]` 0x5E016C; vs_object mode 2,
+	// sea_pass::UnderWater). (inferido) +0x50 is left as it was (0x5E016C writes only +0x4C): the hull's last Draw's
+	// specular is not kept in openblack, 0. The hull (petit_navire, PetitNavire.cpp) never gets MorphWithTerrain, so its
+	// instance's morphWithTerrain is false and DrawUnderWater draws it with ObjectInstanced, as before
+	DrawUnderWater(viewId, entity, sea_pass::UnderWater(ecs::petit_navire::k_ReflectionColour, 0u));
 }
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectBoatSprites(const Camera& camera) const

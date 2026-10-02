@@ -4,13 +4,13 @@ $input v_position, v_texcoord0, v_normal, v_color0
 
 // The same model light as vs_object, for the per-pixel mod below: src/Graphics/ModelLight.h and fn_0084BA90
 #include "model_light.sh"
+// u_objectClip and SeaPlaneDiscard: the plane of the pass under the sea, src/Graphics/SeaPass.h
+#include "sea_plane.sh"
 
 SAMPLER2D(s_diffuse, 0);
 uniform vec4 u_skyAlphaThreshold; // x: unused (0), y: ALPHAREF / 255 (< 0: no alpha test), z: alpha to coverage (MSAA mod),
                                   // w: stage 0 alpha (render_modes::PrimitiveAlpha): 0 none, 1 texture, 2 texture x diffuse
 uniform vec4 u_materialColour;    // rgb: L3D material colour, w > 0: untextured primitive (Smooth*)
-uniform vec4 u_objectClip;        // x > 0: discard below the sea (y < 0; reflections draw only the part above water),
-                                  // x < 0: discard above it (y > 0; DrawCutByPlane with the plane (0, -1, 0, 0))
 uniform vec4 u_window;            // y: mod graphics.hd-tweaks lighting (1 per pixel), z: its mip bias
 
 // The original lights models on the CPU (fn_0084BA90, D3DTLVERTEX): the vertex diffuse is computed in vs_object and
@@ -36,7 +36,9 @@ void main()
 	bool alphaToCoverage = u_skyAlphaThreshold.z > 0.0f;
 	float alphaSource = u_skyAlphaThreshold.w;
 
-	if ((u_objectClip.x > 0.0f && v_position.y < 0.0f) || (u_objectClip.x < 0.0f && v_position.y > 0.0f))
+	// the side of the sea's plane this draw keeps (KeepAbove: reflections and cuts over the water, KeepBelow: the cuts
+	// under it), on the real position
+	if (SeaPlaneDiscard(v_position.y))
 	{
 		discard;
 	}

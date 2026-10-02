@@ -99,4 +99,38 @@ void SetCamera(const glm::vec3& position, const glm::vec3& focus);
 /// False if there is no such miracle, no land, or the miracle refused
 bool CastMiracle(std::string_view magic, const glm::vec3& position, float radius, float seconds);
 
+// ---- the game's own geometry and clock (API 1.1): the original's functions, through the common APIs of sistemas2
+// (ECS/MapCoords.h, ECS/GUtilsDistance.h, ECS/GUtilsAngle.h, ECS/ObjectMetrics.h, GameClock.h), so a mod measures
+// exactly as the game does (fixed point, quantised angles, the table square root)
+
+/// How far the current turn is, 0..0.99 (game_clock::TurnFraction)
+[[nodiscard]] float TurnFraction();
+/// The game is paused (game_clock::IsPaused)
+[[nodiscard]] bool Paused();
+/// The game speed (game_clock::Speed: 1 = normal)
+[[nodiscard]] float GameSpeed();
+/// The map cell (10 m) of a point, and whether it is inside the 512 x 512 map (map_coords::CellOf, InBounds)
+struct Cell
+{
+	int32_t x {0};
+	int32_t z {0};
+	bool inMap {false};
+};
+[[nodiscard]] Cell CellAt(float x, float z);
+/// The distance between two points on the ground, as the game measures it most of the time (GUtils::GetDistanceInMetres
+/// 0x74CD70, 383 calls: only x and z, through 16.16 fixed point; not the scripts' GetDistance, which gives 0 under 0.5 m)
+[[nodiscard]] float Distance(float x1, float z1, float x2, float z2);
+/// The game angle (0..2047, a full turn) from one point to another (gutils::GetAngleFromXZ)
+[[nodiscard]] int32_t AngleBetween(float x1, float z1, float x2, float z2);
+/// A game angle in radians (gutils::ConvertGameAngleTo3D)
+[[nodiscard]] float AngleToRadians(int32_t angle);
+/// Radians to a game angle (gutils::ConvertAngle3DToGame)
+[[nodiscard]] int32_t RadiansToAngle(float radians);
+/// The point `metres` away from x, z at a game angle (gutils::GetXFromAngle / GetZFromAngle)
+[[nodiscard]] std::pair<float, float> PointAtAngle(float x, float z, int32_t angle, float metres);
+/// The 2D radius and the whole height of a mesh at a scale (object::MeshRadius2D / MeshHeight), by its name
+/// (enumeration "meshes") or "#<number>"; nullopt if there is no such mesh or it is not loaded
+[[nodiscard]] std::optional<float> MeshRadius(std::string_view mesh, float scale);
+[[nodiscard]] std::optional<float> MeshHeight(std::string_view mesh, float scale);
+
 } // namespace openblack::mods::api

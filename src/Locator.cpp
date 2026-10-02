@@ -23,8 +23,7 @@
 #include "3D/Implementations/Sky.h"
 #include "3D/Implementations/TempleInterior.h"
 #include "3D/Implementations/UnloadedIsland.h"
-#include "Audio/AudioManager.h"
-#include "Audio/AudioManagerNoOp.h"
+#include "Audio/Device/Device.h"
 #include "CHLApi.h"
 #include "Common/EventManager.h"
 #include "Common/RandomNumberManagerProduction.h"
@@ -112,15 +111,8 @@ bool openblack::InitializeEngine(GraphicsBackend backend, bool vsync) noexcept
 	Locator::filesystem::emplace<DefaultFileSystem>();
 #endif
 	Locator::rng::emplace<RandomNumberManagerProduction>();
-	try
-	{
-		Locator::audio::emplace<AudioManager>();
-	}
-	catch (std::runtime_error& error)
-	{
-		SPDLOG_LOGGER_ERROR(spdlog::get("audio"), "Falling back to no-op audio: {}", error.what());
-		Locator::audio::emplace<AudioManagerNoOp>();
-	}
+	// LH_AudioSystem::Create's wave device (the GAudio ctor 0x426D40): without one nothing plays
+	audio::device::Open();
 
 	Locator::chlapi::emplace<CHLApi>();
 	Locator::vm::emplace<LHVM>();
@@ -158,12 +150,6 @@ void openblack::InitializeLevel(const std::filesystem::path& path)
 
 void openblack::ShutDownServices()
 {
-	// Stop all sounds
-	if (Locator::audio::has_value())
-	{
-		Locator::audio::value().Stop();
-	}
-
 	// Manually delete the assets here before BGFX renderer clears its buffers resulting in invalid handles in our assets
 	if (Locator::resources::has_value())
 	{
@@ -174,11 +160,9 @@ void openblack::ShutDownServices()
 		resources.GetSounds().Clear();
 	}
 
-	// The audio resources have been cleared and all sounds have been stopped. It is now safe to reset audio
-	if (Locator::audio::has_value())
-	{
-		Locator::audio::reset();
-	}
+	// The audio resources have been cleared and all sounds have been stopped (audio::Shutdown): the channels' sources,
+	// the wave buffers and the OpenAL context go
+	audio::device::Close();
 
 	Locator::rendereringSystem::reset();
 	Locator::dynamicsSystem::reset();

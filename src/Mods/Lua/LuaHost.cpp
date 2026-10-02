@@ -382,7 +382,36 @@ sol::table MakeOb(sol::state& lua, Script& script)
 		}
 		return api::CastMiracle(magic, {x, *height, z}, radius.value_or(10.0f), seconds.value_or(-1.0f));
 	};
+	game["turn_fraction"] = []() { return api::TurnFraction(); };
+	game["paused"] = []() { return api::Paused(); };
+	game["speed"] = []() { return api::GameSpeed(); };
 	ob["game"] = game;
+
+	// API 1.1: the game's geometry, as the original measures it
+	auto map = lua.create_table();
+	map["cell"] = [](float x, float z) {
+		const auto cell = api::CellAt(x, z);
+		return std::make_tuple(cell.x, cell.z, cell.inMap);
+	};
+	map["distance"] = [](float x1, float z1, float x2, float z2) { return api::Distance(x1, z1, x2, z2); };
+	map["angle"] = [](float x1, float z1, float x2, float z2) { return api::AngleBetween(x1, z1, x2, z2); };
+	map["angle_to_radians"] = [](int32_t angle) { return api::AngleToRadians(angle); };
+	map["radians_to_angle"] = [](float radians) { return api::RadiansToAngle(radians); };
+	map["point_at"] = [](float x, float z, int32_t angle, float metres) {
+		const auto [px, pz] = api::PointAtAngle(x, z, angle, metres);
+		return std::make_tuple(px, pz);
+	};
+	ob["map"] = map;
+	auto mesh = lua.create_table();
+	mesh["radius"] = [](const std::string& name, sol::optional<float> scale) -> sol::optional<float> {
+		const auto radius = api::MeshRadius(name, scale.value_or(1.0f));
+		return radius ? sol::optional<float>(*radius) : sol::nullopt;
+	};
+	mesh["height"] = [](const std::string& name, sol::optional<float> scale) -> sol::optional<float> {
+		const auto height = api::MeshHeight(name, scale.value_or(1.0f));
+		return height ? sol::optional<float>(*height) : sol::nullopt;
+	};
+	ob["mesh"] = mesh;
 
 	ob["api_version"] = k_ApiVersion.ToString();
 	return ob;

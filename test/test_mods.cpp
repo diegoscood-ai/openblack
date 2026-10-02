@@ -10,12 +10,15 @@
 // The mod library (src/Mods): versions and ranges, mod.json, engine switches, dependencies and load order, modpacks
 // and the built-in manifests (the 11 mods that come with openblack).
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <limits>
 
 #include <gtest/gtest.h>
 
+#include "ECS/GUtilsAngle.h"
+#include "ECS/GUtilsDistance.h"
 #include "EngineConfig.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -684,4 +687,43 @@ TEST(ModRuleFiles, BuiltinRuleFilesRead)
 	const auto textures = rule_files::Read(mods / "graphics.hd-tweaks", "textures", used, error);
 	ASSERT_TRUE(textures) << error;
 	EXPECT_NE(textures->find(" = "), std::string::npos);
+}
+
+// API 1.1: the game's own geometry, the same numbers in C++, Lua and the C API
+TEST_F(ModsTest, GeometryApiMatchesTheGame)
+{
+	EXPECT_FLOAT_EQ(api::Distance(0, 0, 30, 40), gutils::GetDistanceInMetres(glm::vec2(0, 0), glm::vec2(30, 40)));
+	// GetDistanceInMetres 0x74CD70 goes through 16.16 fixed point: not exactly the float hypotenuse
+	EXPECT_NEAR(api::Distance(0, 0, 0.2f, 0.2f), 0.2828f, 0.01f);
+	EXPECT_EQ(api::AngleBetween(0, 0, 10, 0), gutils::GetAngleFromXZ(glm::vec2(0, 0), glm::vec2(10, 0)));
+	const auto cell = api::CellAt(1434, 2233);
+	EXPECT_EQ(cell.x, 143);
+	EXPECT_EQ(cell.z, 223);
+	EXPECT_TRUE(cell.inMap);
+	EXPECT_FALSE(api::CellAt(-5, 10).inMap);
+	const auto [px, pz] = api::PointAtAngle(100, 100, 0, 10);
+	EXPECT_NEAR(std::hypot(px - 100, pz - 100), 10.0f, 0.01f);
+	EXPECT_EQ(api::RadiansToAngle(api::AngleToRadians(512)), 512);
+	EXPECT_FALSE(api::MeshRadius("AnimalBat1", 1.0f)); // no meshes loaded in the test
+	EXPECT_FALSE(api::MeshRadius("NoSuchMesh", 1.0f));
+
+	WriteFile("lua.geo/mod.json", R"({"id": "lua.geo", "entry": {"lua": "scripts/main.lua"}})");
+	WriteFile("lua.geo/scripts/main.lua", "x = 1");
+	auto& registry = Locator::mods::emplace();
+	registry.Discover(_folder);
+	EXPECT_EQ(registry.ApplyArgument("lua.geo"), "");
+	registry.ApplyAll();
+	lua::Start(registry);
+	EXPECT_EQ(lua::RunForTest("lua.geo", R"(
+		assert(math.abs(ob.map.distance(0, 0, 30, 40) - 50) < 0.5)
+		local cx, cz, inside = ob.map.cell(1434, 2233)
+		assert(cx == 143 and cz == 223 and inside)
+		assert(ob.map.radians_to_angle(ob.map.angle_to_radians(512)) == 512)
+		assert(ob.mesh.radius("AnimalBat1") == nil)
+		assert(ob.api_version == "1.1.0")
+		assert(type(ob.game.turn_fraction()) == "number" and type(ob.game.paused()) == "boolean")
+	)"),
+	          "");
+	lua::Stop();
+	Locator::mods::reset();
 }

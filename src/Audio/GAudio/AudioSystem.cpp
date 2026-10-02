@@ -509,6 +509,16 @@ bool audio::IsInsideCitadel()
 	return g_State.queries.insideCitadel && g_State.queries.insideCitadel();
 }
 
+void audio::MusicStop(int fade)
+{
+	// LHMusicStop(int) 0x1000E530 (MusicEngine::Stop), under the music thread's lock
+	if (auto* system = music::Get(); system != nullptr)
+	{
+		const std::lock_guard<std::recursive_mutex> lock(system->GetMutex());
+		system->GetEngine().Stop(fade);
+	}
+}
+
 void audio::LeaveCitadel()
 {
 	// fn_00793D00 0x793D3C..0x793D59: push 1 (AUDIO_SFX_BANK_TYPE InGame), push 0 (no owner), push sample

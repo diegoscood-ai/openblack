@@ -13,10 +13,10 @@
 #include <cstring>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <optional>
 #include <string>
-#include <unordered_map>
 
 #include <LNDFile.h>
 #include <glm/geometric.hpp>
@@ -102,7 +102,7 @@ glm::mat4 InstanceMatrix(const glm::mat4& instance)
 
 /// LH3DObject::IsShadowOnTextureChroma (vt+0x94 = fn_007F98D0, flags +4 bit 13), set through vt+0x90(1)
 /// (fn_007F98B0) by Tree (0x749F96), BigForest (0x43908B), DeadTree (0x510AC6), FelledTree::Create's fn_00510880
-/// (0x5108DA; a FelledTree keeps its DeadTree here) and the Pot of info 12 (0x66D164, HandFood); FieldCrop clears it
+/// (0x5108DA; a FelledTree keeps its DeadTree here) and the Pot of info 12 (vt+0x90(1) at 0x66D173, after the cmp 0xC of 0x66D164; HandFood); FieldCrop clears it
 /// (0x607EAB)
 bool IsChroma(const ecs::Registry& registry, entt::entity entity)
 {
@@ -220,25 +220,36 @@ void ProjectCaster(const L3DMesh& mesh, const glm::mat4& instance, const glm::ma
 }
 
 /// The block states of this frame for fn_00874600: g_index_block -> +0x920 & 1 (fn_00877210's outcodes with the main
-/// camera) and +0x9BC (|centre - camera|, 0x877C8A..0x877CCD)
+/// camera) and +0x9BC (|centre - camera|, 0x877C8A..0x877CCD). Flat as g_index_block (0xE9C964, 32 x 32 blocks,
+/// bx * 32 + bz: 0x874650..0x87466F), refilled each frame in the same storage
 struct Blocks
 {
-	std::unordered_map<int, shadow_math::BlockState> states;
+	static constexpr int k_Side = 32;
+	std::array<shadow_math::BlockState, static_cast<size_t>(k_Side * k_Side)> states {};
 	[[nodiscard]] shadow_math::BlockState At(int x, int z) const
 	{
-		const auto found = states.find(x * 4096 + z);
-		return found != states.end() ? found->second : shadow_math::BlockState {};
+		if (x < 0 || z < 0 || x >= k_Side || z >= k_Side)
+		{
+			return {};
+		}
+		return states[static_cast<size_t>(x * k_Side + z)];
 	}
 };
 
-Blocks BuildBlocks(const LandIslandInterface& island, const FrameInputs& inputs)
+void BuildBlocks(const LandIslandInterface& island, const FrameInputs& inputs, Blocks& blocks)
 {
-	Blocks blocks;
+	blocks.states.fill({});
 	for (const auto& block : island.GetBlocks())
 	{
+		const auto mapPosition = block.GetMapPosition();
+		const int bx = static_cast<int>(mapPosition.x / shadow_math::k_BlockSize);
+		const int bz = static_cast<int>(mapPosition.y / shadow_math::k_BlockSize);
+		if (bx < 0 || bz < 0 || bx >= Blocks::k_Side || bz >= Blocks::k_Side)
+		{
+			continue; // (port guard)
+		}
 		const auto& lnd = block.GetLndBlock();
 		const float height = lnd ? static_cast<float>(static_cast<int32_t>(lnd->highestAltitude)) : 0.0f; // fild +0x924
-		const auto mapPosition = block.GetMapPosition();
 		const auto corners = haze::BlockCorners(mapPosition, height, inputs.landRef);
 		// the centre: x, z + 80 ([0x8D060C]); y 0 with LandRef, else h 0.67 0.5 (0x877232..0x877292)
 		const glm::vec3 centre(mapPosition.x + 80.0f, inputs.landRef ? 0.0f : height * 0.67f * 0.5f, mapPosition.y + 80.0f);
@@ -250,11 +261,8 @@ Blocks BuildBlocks(const LandIslandInterface& island, const FrameInputs& inputs)
 		state.visible = shadow_math::BlockVisible(corners, inputs.worldToClip, inputs.nearW);
 		// (inferido: no visible effect) the original keeps an invisible block's old +0x9BC; here every block's is fresh
 		state.distance = std::sqrt(dz * dz + dy * dy + dx * dx);
-		const int bx = static_cast<int>(mapPosition.x / shadow_math::k_BlockSize);
-		const int bz = static_cast<int>(mapPosition.y / shadow_math::k_BlockSize);
-		blocks.states[bx * 4096 + bz] = state;
+		blocks.states[static_cast<size_t>(bx * Blocks::k_Side + bz)] = state;
 	}
-	return blocks;
 }
 
 void Upload(ShadowInfo& shadow)
@@ -439,8 +447,10 @@ void List::Frame(const FrameInputs& inputs)
 	}
 
 	// ---- the updates ----
-	const auto blocks = BuildBlocks(island, inputs);
-	const shadow_math::BlockAt blockAt = [&blocks](int x, int z) { return blocks.At(x, z); };
+	// the storage is kept between frames (one list, updated once a frame on the render thread)
+	static Blocks s_Blocks;
+	BuildBlocks(island, inputs, s_Blocks);
+	const shadow_math::BlockAt blockAt = [](int x, int z) { return s_Blocks.At(x, z); };
 	const int cellLimit = static_cast<int>(island.GetCellsPerSide()) - 1; // 0x1FF in the original's 512 cells
 	const auto poses = ecs::PosesByInstance(renderCtx);
 	const bool trace = std::getenv("OPENBLACK_SHADOW_TRACE") != nullptr && _frame % 60 == 0;
@@ -603,7 +613,9 @@ void List::Frame(const FrameInputs& inputs)
 			if (IsChroma(registry, shadow.held))
 			{
 				rendered.resize(static_cast<size_t>(shadow.texels) * static_cast<size_t>(shadow.texels), 0);
-				RenderChroma(*heldMesh, heldMatrix, heldProjection, shadow.box, rendered, shadow.texels);
+				// with the ShadowInfo's own base, not the held object's: fn_0084B7D0 reads si+0x18 (0x84B7E0 fld [esi+0x18],
+				// fsub [esi+0x448]) and vt+0x168 is given si (push ebx 0x807519); 0x807163 only changes [0xEA1AE8]
+				RenderChroma(*heldMesh, heldMatrix, shadow.projection, shadow.box, rendered, shadow.texels);
 			}
 			else
 			{

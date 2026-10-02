@@ -275,26 +275,26 @@ void Renderer::DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const g
 	_shadowReceivers.erase(found);
 }
 
-void Renderer::DrawShadowsOnOtherObjects(RenderPass viewId, const std::unordered_set<uint32_t>& queued) const
+void Renderer::DrawShadowsOnCutObjects(RenderPass viewId, const std::unordered_set<uint32_t>& cut) const
 {
-	if (_shadowReceivers.empty())
+	if (_shadowReceivers.empty() || cut.empty())
 	{
 		return;
 	}
 	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 	const auto& meshes = Locator::resources::value().GetMeshes();
 	const auto poses = ecs::PosesByInstance(renderCtx);
-	std::vector<uint32_t> rest;
+	// (inferido) after all of them instead of right after each one: they are opaque and drawn with the Z test of the
+	// receivers, so nothing drawn in between can take their shadow. Only the instances DrawCutAboveWater drew
+	std::vector<uint32_t> drawn;
 	for (const auto& [instance, receiver] : _shadowReceivers)
 	{
-		if (!queued.contains(instance))
+		if (cut.contains(instance))
 		{
-			rest.push_back(instance);
+			drawn.push_back(instance);
 		}
 	}
-	// (inferido) at the end of the main view's objects instead of right after each one: they are opaque and the shadow
-	// is drawn with ZFUNC EQUAL, so what was drawn in between in front of them already fails the test
-	for (const auto instance : rest)
+	for (const auto instance : drawn)
 	{
 		const auto mesh = meshes.Handle(_shadowReceivers.at(instance).meshId);
 		const glm::mat4* matrices = nullptr;

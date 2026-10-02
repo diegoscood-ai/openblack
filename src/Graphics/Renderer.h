@@ -90,9 +90,11 @@ class Renderer final: public RendererInterface
 	/// (0x80E457..0x80E4D7 in fn_0080DB30 -> fn_0080B050): in the main view for an object drawn at once, in the queue's
 	/// view inside its Z object for one drawn from the Z-sorter. `matrices` are the ones the object was drawn with
 	void DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const glm::mat4* matrices, uint8_t matrixCount) const;
-	/// The receivers not drawn by DrawShadowsOnObject yet and not in the Z-sorter (`queued`), at the end of the main
-	/// view's objects (the sharks' parts above the water, the PSys cut atoms)
-	void DrawShadowsOnOtherObjects(RenderPass viewId, const std::unordered_set<uint32_t>& queued) const;
+	/// The shadows over the sharks' parts above the water (`cut`, the instances DrawCutAboveWater has just drawn), which
+	/// the per-mesh loop leaves out. The PSys mesh atoms never receive (RenderingSystem's ReceivesDynamicShadow)
+	void DrawShadowsOnCutObjects(RenderPass viewId, const std::unordered_set<uint32_t>& cut) const;
+	/// The receivers left at the end of the frame's objects were not drawn: none of them gets a shadow
+	void ClearShadowReceivers() const { _shadowReceivers.clear(); }
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
 	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each

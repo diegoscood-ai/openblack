@@ -38,7 +38,9 @@ BlockState BlockOfCell(const BlockAt& blocks, int cellX, int cellZ, int cellLimi
 }
 
 /// The span tables of fn_0087FF70 / fn_00880050: [0xFA9FC8] the left ends (edges going up), [0xFA97C4] the right ends
-/// (edges going down), and the rows [0xFAA7D0] .. [0xFAA7CC] the triangle touched
+/// (edges going down), and the rows [0xFAA7D0] .. [0xFAA7CC] the triangle touched. The tables are static in the
+/// original and never cleared: each triangle only resets the rows (Begin), and every row of [minRow, maxRow) is written
+/// again by its edges
 struct Spans
 {
 	explicit Spans(int rows)
@@ -46,6 +48,12 @@ struct Spans
 	    , right(static_cast<size_t>(rows), 0)
 	    , minRow(rows)
 	{
+	}
+	/// [0xFAA7D0] = [0xC39B0C], [0xFAA7CC] = 0 (0x850DB2 / 0x850DBD)
+	void Begin(int rows)
+	{
+		minRow = rows;
+		maxRow = 0;
 	}
 	std::vector<int> left;
 	std::vector<int> right;
@@ -316,6 +324,7 @@ void RasterTriangles(std::span<const glm::vec2> grid, std::span<const uint16_t> 
                      bool halfRows, Coverage& coverage)
 {
 	const int rows = coverage.GridZ();
+	Spans spans(rows);
 	for (size_t i = 0; i + 2 < indices.size(); i += 3)
 	{
 		if (indices[i] >= grid.size() || indices[i + 1] >= grid.size() || indices[i + 2] >= grid.size())
@@ -328,7 +337,7 @@ void RasterTriangles(std::span<const glm::vec2> grid, std::span<const uint16_t> 
 		const int r0 = Ftol(p0.y);
 		const int r1 = Ftol(p1.y);
 		const int r2 = Ftol(p2.y);
-		Spans spans(rows); // [0xFAA7D0] = [0xC39B0C], [0xFAA7CC] = 0 (0x850DB2 / 0x850DBD)
+		spans.Begin(rows);
 		if (!bothFaces)
 		{
 			// 0x850D6A..0x850DA1: back faces dropped (C0 of the fcompp)
@@ -580,8 +589,12 @@ void ChromaTriangle(const std::array<glm::vec4, 3>& vertices, const AlphaMap& ma
 	}
 	const int minRow = a->y;              // [ebp+4] (0x881EED)
 	const int maxRow = std::max(b->y, c->y); // [ebp+8] (0x881EF0..0x881F00)
-	std::vector<ChromaEdge> down(static_cast<size_t>(side));
-	std::vector<ChromaEdge> up(static_cast<size_t>(side));
+	// fn_00881A60's two tables (the triangle's [+0x10] / [+0x14]), static and not cleared as the original's: every row of
+	// minRow..maxRow is written by the edges first
+	thread_local std::vector<ChromaEdge> down;
+	thread_local std::vector<ChromaEdge> up;
+	down.resize(static_cast<size_t>(side));
+	up.resize(static_cast<size_t>(side));
 	ChromaEdgeOf(*a, *b, down, up); // 0x881F03
 	ChromaEdgeOf(*b, *c, down, up); // 0x881F0C
 	ChromaEdgeOf(*c, *a, down, up); // 0x881F15

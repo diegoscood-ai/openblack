@@ -2576,10 +2576,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 				}
 			}
-			// Whale::Draw 0x774E10: the sharks' parts above the water, in the normal object list
+			// Whale::Draw 0x774E10: the sharks' parts above the water, in the normal object list, and the shadows over
+			// them (RendererShadows.cpp)
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
 				DrawCutAboveWater(desc.viewId);
+				DrawShadowsOnCutObjects(desc.viewId, cutAbove);
 			}
 			// The opaque PSys mesh atoms with DrawCutByPlane (fn_00679F20 0x679F29 -> vt+0x11C 0x679F4A,
 			// RenderContext::cutAtomDrawDescs): cut by the default plane, each in its DrawData colour (sea_pass::CutAtoms).
@@ -2797,24 +2799,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				    });
 			}
 
-			// The shadows over the objects drawn at once that did not get theirs right after their draw (the sharks' parts
-			// above the water, the cut PSys atoms): still in the main view, before the queue. The queued models get theirs
-			// inside their Z objects below
-			if (!_shadowReceivers.empty())
-			{
-				std::unordered_set<uint32_t> queued;
-				for (const auto& entry : sorted.Ordered())
-				{
-					const auto& z = *entry.item;
-					if (z.cloud < 0 && z.rain < 0 && z.boat < 0 && z.effect < 0 && z.mist < 0 && z.smoke < 0 &&
-					    z.surface < 0 && z.chain < 0 && z.sprite == entt::null)
-					{
-						queued.insert(z.index);
-					}
-				}
-				DrawShadowsOnOtherObjects(desc.viewId, queued);
-			}
-
 			// Back to front: blended primitives and fading meshes (components::Alpha), in their own view right after the
 			// main pass (same target and camera, no clear), so that nothing drawn in the main pass is sorted over them
 			// (fn_0082F280: far to near; the full queue dropped the entries over 0x800, NewZObject 0x83F31C)
@@ -2917,7 +2901,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0), the rain tiles, the boat's sprites and the
 			// clouds are no longer groups of their own: they all went through the queue above. The shadows on the objects
 			// (fn_0080B050) went with their objects: right after each one drawn at once, inside the Z object of each queued
-			// one (RendererShadows.cpp)
+			// one (RendererShadows.cpp). A receiver not drawn this frame (out of view, faded out, past the queue's 0x800)
+			// gets none, as the tail of a Draw that did not run (0x80E457..0x80E4D7)
+			ClearShadowReceivers();
 
 			// Debug
 			if (desc.viewId == graphics::RenderPass::Main)

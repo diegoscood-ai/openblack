@@ -202,10 +202,10 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
     GAudio+0x190 lo pone `fn_005E2240(a)` = 2a − 1 con a = clamp(a, 0, 1), desde `fn_0064AC30` en
     `GPlayer::ProcessPlayers` cada turno: a = (alineamiento del **jugador de más influencia en la posición de la
     cámara**, `MapCoords::CalculateMostInfluentialPlayer` + `GPlayer::GetAlignmentValue`, + 1) / 2; `GAudio::Reset` (al
-    limpiar el mapa) lo deja en 0. openblack: `atmos_banks::Alignment()` lee
-    `Clouds::InfluentialPlayerAlignment()`, el mismo valor que el objetivo del alineamiento del cielo (fn_0064AC30),
-    así que tiene una sola fuente: `ecs::effects::alignment::GetInterfaceAlignment()` × 2 − 1 (el fn_0064AC30 de
-    Milagros, una vez por turno), salvo el gancho de prueba o el deslizador de depuración.
+    limpiar el mapa) lo deja en 0. openblack: `atmos_banks::Alignment()` lee `GameQueries::cameraAlignment`, que
+    `ecs::audio_queries` saca de `ecs::effects::alignment::GetInterfaceAlignment()` (el fn_0064AC30 de Milagros, una
+    vez por turno) con la fórmula de fn_005E2240; la misma x que el objetivo del alineamiento del cielo, así que el
+    gancho de prueba del cielo y el deslizador de depuración también le llegan (audio.md, «Fase C: C2»).
     Solo desde el turno 6 y sin pausa (`g_game+0x14 & 4`); si no, `AtmosProcess(0)`: se paran los bucles y **solo los
     canales con AtmosInfo** (0x10001EBF: bucles = 1, sueltos = su entrada), no los demás samples. Con un vídeo
     (`g_game+0x250188`) no corre `LHAtmosProcess(1)` (openblack no tiene vídeos en partida). Al cambiar de mapa

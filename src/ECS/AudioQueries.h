@@ -25,10 +25,15 @@ namespace openblack::ecs::audio_queries
 {
 
 /// Fills the queries that read the ECS registry and its systems: surfaceType (ecs::sea_cells::GetSurfaceType, GSoundMap::
-/// GetSurfaceType 0x71D8E0), weatherSmooth (weather::atmos::GetWeatherSmooth 0x835180), animatedThing (fn_00516510's
+/// GetSurfaceType 0x71D8E0), weatherSmooth (weather::atmos::GetWeatherSmooth 0x835180), cameraAlignment (GAudio+0x190
+/// as fn_005E2240 writes it from ecs::effects::alignment::GetInterfaceAlignment), animatedThing (fn_00516510's
 /// reads of a villager or animal), animationClipName (the clips of the resources, LoadAllAnimations 0x550180) and
 /// streetLanterns (the list g_game+0x205C34 with Object::GetHeight 0x638120)
 void Fill(audio::GameQueries& queries);
+
+/// fn_005E2240 0x5E2240 as it writes GAudio+0x190 from its argument x (fn_0064AC30's (alignment + 1) / 2): x clamped to
+/// 0..1 (a NaN is 0, as the x87's unordered C0), then 2 - 2 (1 - x) - 1 in float steps
+[[nodiscard]] float GAudioAlignment(float x);
 
 /// (openblack test hooks, audio session) once a game turn, after audio::ProcessTurn:
 ///  - OPENBLACK_AUDIO_TEST_VIEW="turn,n[,distance]" flies the camera to look at the n-th villager from that distance (4)

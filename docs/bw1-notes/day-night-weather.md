@@ -30,7 +30,7 @@ Hay **dos relojes** en horas 0..24:
 
 - Velocidad: `n = ftol(duración · 0,41666666f)` ([0x8DF8F0] = 0x3ED55555) y `10/n` horas por segundo, igual de día
   y de noche (0xBF338C y 0xBF3390 valen lo mismo). El producto se queda en el registro x87 antes de `__ftol`: con la
-  FPU a 24 bits (lo que pone D3D, **(inferido)**) es el producto en float que hace openblack; con 53 bits las
+  FPU a 24 bits (`fn_007DEE00`, `and cw, 0xFCFF` en 0x7DEE0D) es el producto en float que hace openblack; con 53 bits las
   duraciones múltiplo de 2,4 (1200, 2400) darían un `n` menos.
 - Umbrales (`LH3DSky::SetDayNightTimes` 0x869FA0 → 0xFA26A0..94): N = 12·noche, E = 12·cambio + N (guardado en
   float), c = min((E − N)·0,25, N), y `SetDayNightTimes(N − c, c + N, E − c, E + c)` (0x55768F..0x5576E4; **fiel**,
@@ -117,7 +117,7 @@ Quién llama a qué:
   reserva de `fs_water` (sin `palette.raw` el mar va ahora sin luz, blanco, **(inferido)**: el original siempre tiene
   la tabla), y `u_skyAndBump.x` (vale 0; fs_terrain ya no lo lee: el tipo de cielo llega a la tierra solo por la
   tabla de luz y la neblina de vs_terrain).
-- Precisión: se supone la FPU a 24 bits (lo que pone D3D, **(inferido)**), la misma hipótesis que `SetCycle`. Con
+- Precisión: la FPU va a 24 bits (`fn_007DEE00`, `and cw, 0xFCFF` en 0x7DEE0D), la misma hipótesis que `SetCycle`. Con
   ella las rampas de `Time2SkyType` ya salen redondeadas a float, los bucles de `SampleFrame` van en float (h = −1e-7
   da 24 → 0; con 53/64 bits se quedaría en 23,9999999 y se guardaría 24,0f) y la resta de la histéresis se redondea a
   float antes de compararla con el double 0,03f.

@@ -42,6 +42,7 @@ public:
 	[[nodiscard]] uint32_t GetStride() const;
 	[[nodiscard]] Type GetType() const;
 
+	[[nodiscard]] bool IsValid() const noexcept;
 	void Bind(uint32_t count, uint32_t startIndex = 0) const;
 
 private:

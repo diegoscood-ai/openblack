@@ -15,6 +15,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
@@ -91,6 +92,38 @@ constexpr float k_FaceMaxHeading = 25.1327419f;
 constexpr float k_TwoPi = 6.28318548f;
 constexpr float k_FacePitch = 0.1f;
 
+/// CameraModeTwoObjects (START_DUAL_CAMERA 0x6ED2E0 -> ctor 0x461BB0; CREATE_DUAL_CAMERA_WITH_POINT 0x6ED460 ->
+/// fn_00461CB0): heading +0x20 = 0x3F490FDB (pi / 4), pitch +0x24 = 0x3EC90FDB (pi / 8) and the distance factor +0x28 =
+/// 1 (0x461C2C) with two things, 0x3F99999A with a point (0x461D62)
+constexpr float k_DualHeading = 0.785398185f;            // 0x3F490FDB
+constexpr float k_DualPitch = 0.392699093f;              // 0x3EC90FDB
+constexpr float k_DualDistanceFactor = 1.0f;             // 0x3F800000
+constexpr float k_DualPointDistanceFactor = 1.20000005f; // 0x3F99999A
+/// CameraModeTwoObjects::Update 0x461DED..0x461E26: the seconds of a destination are 2 ([0x8C7DBC]) right after the mode
+/// change, down to 1 ([0x8C7DC0]) at 1.5 s ([0x8C7DC4]) and on
+constexpr float k_DualSettleSeconds = 1.5f;
+/// 0x461F2A: the second height of the mean when B is a point
+constexpr float k_DualPointHeight = 1.0f;
+/// 0x46204A (0x41F00000) / 0x46207C ([0x8BF51C]): the radius of a thing that is not an Object
+constexpr float k_DualDefaultRadius = 30.0f;
+/// 0x4620B1: the larger height x [0x8C7E18] (0x3FB33333)
+constexpr float k_DualHeightFactor = 1.39999998f;
+/// 0x4620E9 / 0x4620FC: [0x8C7A10], a double: B straight over A keeps the heading +0x20
+constexpr double k_DualFlatEpsilon = 0.0099999997764825821;
+
+/// A CameraModeTwoObjects (0x30 bytes, vtable 0x8C7DD0, debug name "Dual Cam" 0x461C60) on GCamera's mode stack
+struct DualMode
+{
+	entt::entity a = entt::null;                 ///< +0x08
+	entt::entity b = entt::null;                 ///< +0x0C (fn_00461CB0 does not write it: only read with +0x1C)
+	glm::vec3 point {0.0f};                      ///< +0x10 (fn_00461CB0)
+	bool twoObjects = true;                      ///< +0x1C (SetObjects 0x461C90 sets it)
+	float heading = k_DualHeading;               ///< +0x20, radians
+	float pitch = k_DualPitch;                   ///< +0x24, radians, kept >= 0.241661 by Update (0x462003..0x462021)
+	float distanceFactor = k_DualDistanceFactor; ///< +0x28
+	bool alive = true;                           ///< +0x2C (Delete 0x461C50 = 0)
+};
+
 /// The state: GCamera's zoomers, the script mode and its camera path
 struct State
 {
@@ -124,6 +157,12 @@ struct State
 	/// The FOV last given to the renderer (radians). The config's FOV is only rewritten when the zoomer leaves it, so a
 	/// player's own FOV stays until a script changes the lens
 	float appliedFov = k_DefaultFov;
+
+	/// The CameraModeTwoObjects above the script mode on GCamera's stack (+0x28, index +0x58), the last the current one.
+	/// (aproximado) openblack has no stack: they always sit above the script mode (a dual camera started over the
+	/// player's mode stays above a later script mode here, where SwitchToViewMode 0x441CD0 would put that one on top),
+	/// and the stack's 12 places (0x441CEA) are not counted
+	std::vector<DualMode> duals;
 
 	State();
 	~State();
@@ -202,6 +241,10 @@ struct ThingInfo
 	/// GetFacingDirection vt +0x4EC (GameThingWithPos 0x4024B0 = 0; MobileWallHug 0x60C020 =
 	/// ConvertGameAngleToScawenAngle(+0x5C); Creature 0x477EC0 = its LH3DCreature's angle + 2 pi - 2.5)
 	float facingDirection = 0.0f;
+	/// dynamic_cast<Object*> (CameraModeTwoObjects::Update 0x462031 / 0x462067): its Get2DRadius (vt +0x64); none for a
+	/// Container (Flock, Town: bw1-decomp Black/Flock.h, Black/Town.h). (inferido) every thing with a Transform but a
+	/// flock stands for an Object
+	std::optional<float> radius2d;
 };
 /// nullopt: no such thing, or GameThing::IsAvailable (vt +0x2C) is 0
 using ThingReader = std::function<std::optional<ThingInfo>(entt::entity)>;
@@ -291,6 +334,37 @@ struct Drawn
 /// not shown (GCamera::Update 0x442337..0x4423F4 keeps the drawn camera there): Frame + DrawnCamera written to the camera. Always: the FOV to the
 /// projection when it changed. Returns true when the script drove the camera (the player's model must not)
 bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float gameSeconds);
+/// Game.cpp, once a frame after the camera moved (script or player): SHAKE_CAMERA on the drawn camera only
+/// (fn_008210C0 from LH3DTech::UpdateCamera 0x819920, every mode), as Camera's draw offset; `lastDrawn` is the camera
+/// drawn the frame before (g_camera). Then the shakes' clock (fn_00821270)
+void ApplyShake(Camera& camera, const glm::vec3& lastDrawn);
+
+// ---- CameraModeTwoObjects (the dual camera) -------------------------------------------------------------------------
+
+/// A mode of this module is GCamera's current one: the script mode, or a dual camera (Drives, HAS_CAMERA_ARRIVED)
+[[nodiscard]] bool HasMode();
+/// GCamera's current mode is the CameraModeScript (the __RTDynamicCast to 0x9CE188 of GScript's camera opcodes): alive
+/// and no dual camera on top of it
+[[nodiscard]] bool ScriptModeCurrent();
+/// GCamera's current mode is a CameraModeTwoObjects (__RTDynamicCast to 0x9CE790, 0x6ED3F0 / 0x6ED43D)
+[[nodiscard]] bool DualCurrent();
+/// START_DUAL_CAMERA 0x6ED2E0 -> CameraModeTwoObjects(camera, a, b) 0x461BB0: nothing when the current mode is one of
+/// the same a and b (the new one deletes itself, 0x461BF3..0x461C1E); else pushed with SwitchToViewMode 0x441CD0 (the
+/// mode's seconds from 0). No mode nor citadel check. When no mode of this module was current the zoomers are the
+/// player's `origin` / `focus` as they are (value, speed, destination and time, as BeginFrom: GCamera's zoomers are the
+/// same for every mode)
+void StartDual(entt::entity a, entt::entity b, const Zoomer3d& origin, const Zoomer3d& focus);
+/// CREATE_DUAL_CAMERA_WITH_POINT 0x6ED460 -> fn_00461CB0(camera, a, &point): nothing when the current mode is a
+/// CameraModeTwoObjects with the same +0x08 and the same point (0x461D07..0x461D54); else +0x1C = 0, +0x28 = 1.2
+void StartDualWithPoint(entt::entity a, const glm::vec3& point, const Zoomer3d& origin, const Zoomer3d& focus);
+/// UPDATE_DUAL_CAMERA 0x6ED370 -> CameraModeTwoObjects::SetObjects(a, b) 0x461C90 on the current mode when it is one
+/// (+0x08 = a, +0x0C = b, +0x1C = 1: a point camera becomes a two things one). False when it is not
+bool UpdateDual(entt::entity a, entt::entity b);
+/// GScript::ReleaseDualCamera 0x6ED410 (RELEASE_DUAL_CAMERA, and fn_006ECD70 0x6ECDB1): the current mode, when it is a
+/// CameraModeTwoObjects, Delete (vt+0x30) and GCamera::PopViewMode 0x441C50 (deleted, the mode under it Restart vt+0x10:
+/// nothing for CameraModeScript 0x44A390, and the mode's seconds +0x68 = 0). With the player's mode under it, the zoomers
+/// go back to the player's camera (as End: HandBack). False when it is not
+bool ReleaseDual();
 
 namespace detail
 {

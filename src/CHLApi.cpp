@@ -43,6 +43,8 @@
 #include "Audio/LH/SamplePlay.h"
 #include "Audio/Services/ScriptSound.h"
 #include "Camera/Camera.h"
+#include "Camera/CameraShake.h"
+#include "Camera/PlayerCameraScript.h"
 #include "Camera/ScriptCamera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -171,7 +173,8 @@ bool FreeStart()
 /// 003/004/287 is not ported: the citadel never has a script mode (StartCameraControl 0x6ECD33)
 bool ScriptCameraMode(const char* opcode)
 {
-	if (script_camera::Active())
+	// A dual camera on top of the script mode (START_DUAL_CAMERA) is the current mode: the opcode does nothing
+	if (script_camera::ScriptModeCurrent())
 	{
 		return true;
 	}
@@ -1055,7 +1058,7 @@ void HasCameraArrived() // 035 HAS_CAMERA_ARRIVED
 	// mode's vt+0x34. CameraModeScript::Arrived 0x461B40; the player's CameraModeNew3 keeps CameraMode::Arrived 0x441700
 	// (its vtable 0x8C7BFC +0x34), the same squared distance 0.001 to the destinations: here the player's Camera
 	// zoomers (Zoomer3d, GCamera +0x118 / +0x88; (inferido) the original has one GCamera for both modes)
-	if (script_camera::Active())
+	if (script_camera::HasMode()) // the script mode, or a dual camera (CameraMode::Arrived 0x441700)
 	{
 		Pushb(script_camera::ScriptArrived());
 		return;
@@ -1661,24 +1664,57 @@ void GetCountdownTimer() // 092 GET_COUNTDOWN_TIMER
 
 void StartDualCamera() // 093 START_DUAL_CAMERA
 {
-	// const auto obj2 = Pop().uintVal;
-	// const auto obj1 = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartDualCamera 0x6ED2E0: POP b then a (GetScriptGameThing 0x70D220 each); either missing -> "Thing invalid
+	// for dual cam" (0xC0C1EC) and nothing; else new(0x30) CameraModeTwoObjects(camera, a, b) 0x461BB0 on top of
+	// whatever mode is current (no mode nor citadel check): the camera looks at the two things' middle from their
+	// distance apart (Camera/ScriptCamera.h)
+	const auto objectB = Pop().uintVal;
+	const auto objectA = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto b = CameraThing(objectB, __func__);
+	const auto a = CameraThing(objectA, __func__);
+	if (!a.has_value() || !b.has_value())
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Thing invalid for dual cam", __func__);
+		return;
+	}
+	const auto& camera = Locator::camera::value();
+	script_camera::StartDual(*a, *b, camera.GetOriginZoomer(), camera.GetFocusZoomer());
 }
 
 void UpdateDualCamera() // 094 UPDATE_DUAL_CAMERA
 {
-	// const auto obj2 = Pop().uintVal;
-	// const auto obj1 = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::UpdateDualCamera 0x6ED370: POP b then a; either missing -> "Thing invalid for dual cam" and nothing; else
+	// when the current mode is a CameraModeTwoObjects (0x6ED3F0) SetObjects(a, b) 0x461C90 (a point camera becomes a two
+	// things one)
+	const auto objectB = Pop().uintVal;
+	const auto objectA = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto b = CameraThing(objectB, __func__);
+	const auto a = CameraThing(objectA, __func__);
+	if (!a.has_value() || !b.has_value())
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Thing invalid for dual cam", __func__);
+		return;
+	}
+	script_camera::UpdateDual(*a, *b);
 }
 
 void ReleaseDualCamera() // 095 RELEASE_DUAL_CAMERA
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ReleaseDualCamera 0x6ED410: a current CameraModeTwoObjects is deleted (vt+0x30) and popped (PopViewMode
+	// 0x441C50): the mode under it (the script mode) moves the camera again, its seconds from 0
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	script_camera::ReleaseDual();
 }
 
 void SetCreatureHelp() // 096 SET_CREATURE_HELP
@@ -1753,10 +1789,18 @@ void GetActionTextForObject() // 104 GET_ACTION_TEXT_FOR_OBJECT
 
 void CreateDualCameraWithPoint() // 105 CREATE_DUAL_CAMERA_WITH_POINT
 {
-	// const auto position = PopVec();
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::CreateDualCameraWithPoint 0x6ED460: POP the point (z, y, x) then the thing; new(0x30) fn_00461CB0(camera,
+	// thing, &point) with no check: a thing that is not there leaves a mode that moves nothing (its Update would read
+	// through null in the original) until the turn's CheckStackedModesForValidity drops it (IsStillValid 0x461D90)
+	const auto point = PopVec();
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	const auto& camera = Locator::camera::value();
+	script_camera::StartDualWithPoint(thing.value_or(entt::null), point, camera.GetOriginZoomer(), camera.GetFocusZoomer());
 }
 
 void SetCameraToFaceObject() // 106 SET_CAMERA_TO_FACE_OBJECT
@@ -2090,9 +2134,15 @@ void CallInNotNear() // 141 CALL_IN_NOT_NEAR
 
 void SetCameraZone() // 142 SET_CAMERA_ZONE
 {
-	// const auto filename = PopString();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetCameraZone 0x6ED890: POP the string; CameraExclusion::ResetExclusionFile(1), then ".\Data\Zones\%s"
+	// (CameraExclusion::LoadExclusionFile 0x455370) and the force field on (Camera/PlayerCameraScript.h). It limits the
+	// player's camera (CameraModeNew3), which openblack does not read yet; the script camera is not affected
+	const auto zone = PopString();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening does not shut the player's camera in (user, 2026-10-02)
+	}
+	player_camera::SetCameraZone(zone);
 }
 
 void GetObjectState() // 143 GET_OBJECT_STATE
@@ -2158,9 +2208,9 @@ void MoveMusic() // 149 MOVE_MUSIC
 
 void GetInclusionDistance() // 150 GET_INCLUSION_DISTANCE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetInclusionDistance 0x6ED990: PUSH [0xC5E13C] as a float. (aproximado) CameraModeNew3::Update, which
+	// writes it (0x45FBFD / 0x45FCD9 / 0x45FCE1), is not ported: it stays at its start value FLT_MAX (0x4548D0)
+	Pushf(player_camera::Get().inclusionDistance);
 }
 
 void GetLandHeight() // 151 GET_LAND_HEIGHT
@@ -2643,12 +2693,18 @@ void HelpSystemOn() // 200 HELP_SYSTEM_ON
 
 void ShakeCamera() // 201 SHAKE_CAMERA
 {
-	// const auto duration = Popf();
-	// const auto amplitude = Popf();
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ShakeCamera 0x6EE0F0: POP the seconds, the amplitude, the radius and the point (z, y, x) ->
+	// PSysGlobal::StartCameraShake(point, radius, amplitude, seconds) 0x68F400 -> LH3DCameraChecker::Create 0x821050:
+	// the drawn camera shakes while it is within the radius of the point, less and less (Camera/CameraShake.h)
+	const auto seconds = Popf();
+	const auto amplitude = Popf();
+	const auto radius = Popf();
+	const auto position = PopVec();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	camera_shake::StartCameraShake(position, radius, amplitude, seconds);
 }
 
 void SetAnimationModify() // 202 SET_ANIMATION_MODIFY
@@ -2743,12 +2799,21 @@ void SetCreatureDevStage() // 208 SET_CREATURE_DEV_STAGE
 
 void SetFixedCamRotation() // 209 SET_FIXED_CAM_ROTATION
 {
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetFixedCamRotation 0x6EE1A0: POP the point (z, y, x) then "on"; only with the player's CameraModeNew3
+	// current ("Wrong camera mode" 0xC0C29C otherwise): ForceRotateAboutPoint(on ? &point : 0) (vt+0x5C, 0x457330), the
+	// player's camera then turns about that point (Camera/PlayerCameraScript.h; not read by DefaultWorldCameraModel yet)
+	const auto point = PopVec();
+	const bool on = Pop().uintVal != 0;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening does not fix the player's camera (user, 2026-10-02)
+	}
+	if (script_camera::HasMode())
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Wrong camera mode", __func__);
+		return;
+	}
+	player_camera::ForceRotateAboutPoint(on ? std::optional<glm::vec3>(point) : std::nullopt);
 }
 
 void SwapCreature() // 210 SWAP_CREATURE

@@ -71,6 +71,15 @@ public:
 	[[nodiscard]] Zoomer3d& GetFocusZoomer() { return _focus; }
 	[[nodiscard]] const Zoomer3d& GetOriginZoomer() const { return _origin; }
 	[[nodiscard]] const Zoomer3d& GetFocusZoomer() const { return _focus; }
+	/// The camera shake, fn_008210C0 in LH3DTech::UpdateCamera 0x819920 (from GCamera::Update 0x442622): a world-space
+	/// translation of the DRAWN position and focus only, before they are copied to g_camera 0xEA1DB8 / 0xEA1DC4; the
+	/// Zoomer3d are never touched, so it does not build up. GetOrigin / GetFocus (Current) and GetViewMatrix add it
+	/// (GET_CAMERA_POSITION sees the shaking camera). Set every frame (camera_shake::Adjust), zero when there is none
+	void SetDrawOffset(const glm::vec3& origin, const glm::vec3& focus)
+	{
+		_originDrawOffset = origin;
+		_focusDrawOffset = focus;
+	}
 	/// The time of the zoomers since their last destination (the position's x Zoomer, CurrentTime +0x14)
 	[[nodiscard]] std::chrono::microseconds GetInterpolatorTime() const;
 
@@ -104,6 +113,8 @@ public:
 protected:
 	Zoomer3d _origin; ///< GCamera +0x118
 	Zoomer3d _focus;  ///< GCamera +0x88
+	glm::vec3 _originDrawOffset {0.0f}; ///< the shake added to the drawn position (fn_008210C0)
+	glm::vec3 _focusDrawOffset {0.0f};  ///< the shake added to the drawn focus (fn_008210C0)
 	float _xFov = 0.0f; // TODO(#707): This should be a zoomer for animations
 	glm::mat4 _projectionMatrix = glm::mat4 {1.0f};
 	glm::mat4 _projectionMatrixReversedZ = glm::mat4 {1.0f};

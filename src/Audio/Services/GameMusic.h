@@ -128,6 +128,7 @@ public:
 	[[nodiscard]] uint32_t GetSilenceTurns() const { return _silenceTurns; } ///< +0x20
 	[[nodiscard]] int GetFinishedType() const { return _finishedType; }      ///< +0x24
 	[[nodiscard]] std::optional<uint32_t> GetCurrentTown() const { return _currentTown; } ///< +0x18C
+	[[nodiscard]] int GetCitadelSamplesStopped() const { return _citadelSamplesStopped; } ///< [0xC56164]
 	[[nodiscard]] const std::vector<int>& GetGroupPositions() const { return _positions; } ///< +0x18
 	[[nodiscard]] const ThingMusicList& GetThingMusic() const { return _thingMusic; }
 	/// The text of GDebug::SetMessage: "Music Playing=<MUSIC_TYPE name>" or "Music Playing=NONE"
@@ -143,6 +144,8 @@ private:
 	/// GAudio+0x18[group - 1] as the callers read it
 	[[nodiscard]] int GroupPosition(int group) const;
 
+	/// ProcessCitadelMusic 0x427B60
+	bool ProcessCitadelMusic();
 	/// fn_00427CA0
 	bool ProcessScriptMusic();
 	/// fn_00429790
@@ -182,6 +185,8 @@ private:
 	int _scriptStarted {0};                 ///< +0x180
 	ThingMusicList _thingMusic;             ///< +0x184 / +0x188
 	std::optional<uint32_t> _currentTown;   ///< +0x18C
+	/// [0xC56164]: the samples were stopped on entering the citadel (a global: GAudio::Reset does not clear it)
+	int _citadelSamplesStopped {0};
 	std::string_view _playing {"Music Playing=NONE"};
 	/// The engine keeps the callbacks after a channel is freed: they reach this object only while it lives
 	std::shared_ptr<GameMusic*> _self;

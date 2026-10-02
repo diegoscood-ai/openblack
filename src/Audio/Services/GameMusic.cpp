@@ -21,6 +21,7 @@
 #include "Audio/LH/MusicBank.h"
 #include "Audio/LH/MusicEngine.h"
 #include "Audio/LH/MusicStream.h"
+#include "Audio/LH/SamplePlay.h"
 #include "Audio/Services/ScriptAudioState.h"
 
 namespace openblack::audio
@@ -260,7 +261,7 @@ void GameMusic::ProcessMusic()
 	{
 		return;
 	}
-	if (_queries.citadelMusic && _queries.citadelMusic()) // 0x427E2C ProcessCitadelMusic
+	if (ProcessCitadelMusic()) // 0x427E2C
 	{
 		none();
 		return;
@@ -295,6 +296,53 @@ void GameMusic::StartScriptMusic(int type)
 	{
 		_scriptStarted = 0; // 0x42823B
 	}
+}
+
+bool GameMusic::ProcessCitadelMusic()
+{
+	// 0x427B67: g_game+0x205A28 == 1 (0x4282F0, the symbol says HelpSystem::GetWideScreenControl)
+	if (!(_queries.insideCitadel && _queries.insideCitadel()))
+	{
+		_citadelSamplesStopped = 0; // 0x427C7F
+		return false;
+	}
+	// 0x427B74..0x427B86: the first turn inside, LHSampleStopAll (the 16 channels, not the atmos mixer's)
+	if (_citadelSamplesStopped == 0)
+	{
+		sample_play::StopAll();
+		_citadelSamplesStopped = 1;
+		if (g_Trace)
+		{
+			if (auto logger = Logger())
+			{
+				SPDLOG_LOGGER_INFO(logger, "(openblack) citadel: LHSampleStopAll");
+			}
+		}
+	}
+	// 0x427B9A..0x427BDA: 44 + fn_00426C80(GAlignment::GetDiscreteAlignmentValue(GPlayer::GetAlignmentValue of the local
+	// player)): CITADEL_EVIL / NEUTRAL / GOOD, the three on citadel.sad (group 4)
+	const float alignment = _queries.localPlayerAlignment ? _queries.localPlayerAlignment() : 0.0f;
+	const int type = static_cast<int>(MusicType::CitadelEvil) + AlignmentIndex(DiscreteAlignment(alignment));
+	auto* bank = GetBank(type); // 0x427BD3 GAudio+0xDC + 4 index
+	if (bank == nullptr)
+	{
+		return false; // 0x427BDF -> 0x427C6C (the stop's latch stays set)
+	}
+	const int group = bank->GetGroupId(); // 0x427BE5 LHBankGetMusicGroupId
+	MusicPlayOptions options;             // LH_MusicPlayOptions ctor (0x427B94)
+	// 0x427BEB..0x427BFA: GAudio+0x18[group - 1] -> opts+0x14, read before fn_004281C0 saves the positions (0x427C28;
+	// ProcessAlignmentMusic saves first, 0x427A8C)
+	options.startChunk = GroupPosition(group);
+	options.sync = 1;                     // 0x427BEE opts+0x1C
+	options.bank = bank;                  // 0x427C04 opts+0x00
+	options.volume = 0x7F;                // 0x427C08 opts+0x04
+	options.fade = 1;                     // 0x427C10 opts+0x20
+	options.is3D = 0;                     // 0x427C18 opts+0x24
+	options.pitch = 0x64;                 // 0x427C20 opts+0x28
+	SavePositions();                      // 0x427C28 fn_004281C0
+	_engine->Play(options);               // 0x427C35 LHMusicPlay, every turn (the engine re-triggers the same bank)
+	SetPlaying(PlayingMessage(type));     // 0x427C3B..0x427C4F "Music Playing=%s"
+	return true;
 }
 
 bool GameMusic::ProcessScriptMusic()
@@ -405,6 +453,18 @@ void GameMusic::OnAlignmentMusicFinished(int group)
 
 bool GameMusic::ProcessAlignmentMusic()
 {
+	// (openblack test hook) OPENBLACK_TEST_ALIGNMENT_MUSIC=<turn>: from that game turn on, every turn, as if the script
+	// called ENABLE_DISABLE_ALIGNMENT_MUSIC(1) (0x710120; Land 1's script turns it off at the start), and without the
+	// script's wide screen (openblack's Land 1 keeps it on after the intro)
+	static const long k_TestEnable = [] {
+		const char* env = std::getenv("OPENBLACK_TEST_ALIGNMENT_MUSIC");
+		return env != nullptr ? std::strtol(env, nullptr, 10) : -1L;
+	}();
+	const bool testEnabled = k_TestEnable >= 0 && _queries.turn && _queries.turn() >= static_cast<uint32_t>(k_TestEnable);
+	if (testEnabled)
+	{
+		_script.alignmentMusic = 1;
+	}
 	// 0x4279D7: a camera
 	const auto camera = _queries.camera ? _queries.camera() : std::nullopt;
 	if (!camera)
@@ -412,8 +472,8 @@ bool GameMusic::ProcessAlignmentMusic()
 		return false;
 	}
 	// 0x4279E9..0x427A01: not while the script's wide screen is on; 0x427A07: nor while its bars move
-	if ((_queries.scriptWideScreen && _queries.scriptWideScreen()) ||
-	    (_queries.wideScreenChanging && _queries.wideScreenChanging()))
+	if (!testEnabled && ((_queries.scriptWideScreen && _queries.scriptWideScreen()) ||
+	                     (_queries.wideScreenChanging && _queries.wideScreenChanging())))
 	{
 		return false;
 	}
@@ -448,6 +508,15 @@ bool GameMusic::ProcessAlignmentMusic()
 	}
 	if (_alignmentType != type) // 0x427A81
 	{
+		if (g_Trace)
+		{
+			if (auto logger = Logger())
+			{
+				const float alignment = _queries.cameraAlignment ? _queries.cameraAlignment() : 0.0f;
+				SPDLOG_LOGGER_INFO(logger, "(openblack) alignment music type {} (GAudio+0x190 {:.3f}, discrete {})", type,
+				                   alignment, DiscreteAlignment(alignment));
+			}
+		}
 		SavePositions(); // 0x427A8C
 		const int group = bank->GetGroupId(); // 0x427A95 LHBankGetMusicGroupId
 		MusicPlayOptions options;

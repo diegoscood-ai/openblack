@@ -45,9 +45,10 @@ constexpr int k_ClickTaken = 0x14;
 [[nodiscard]] uint32_t CountWords(std::u16string_view text);
 
 /// fn_005C6CB0: the factor of READ_SPEED r on the reading time, r <= 0.5 ? 3 - 4r : (1 - 2(r - 0.5)) * 0.8 + 0.2
-/// (constants 0.5 0x8AB260, 4 0x8AB418, 3 0x8C2C50, 1 0x8AB680, 0.8 0x900AC8, 0.2 0x8C7C68)
-/// (in the x87 registers: kept in double here, as the original multiplies it in fn_005C61B0 without rounding to float)
-[[nodiscard]] double ReadSpeedFactor(float readSpeed);
+/// (constants 0.5 qword 0x8AB260, 4 dword 0x8AB418, 3 dword 0x8C2C50, 1 qword 0x8AB680, 0.80000000000000004 qword
+/// 0x900AC8, 0.20000000000000001 qword 0x8C7C68). NaN takes the first branch (fcom, test ah 0x41). The game thread's
+/// FPU is at 24 bits (fn_007DEE00): every step rounds to a float, the qword constants used whole (audio.md B12)
+[[nodiscard]] float ReadSpeedFactor(float readSpeed);
 
 /// Where fn_005C5F90 sends the voice of a text (0x5C6025..0x5C60DB)
 enum class VoiceRoute : uint8_t

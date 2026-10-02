@@ -20,9 +20,10 @@
 
 #include <spdlog/spdlog.h>
 
-#include "3D/Clouds.h"
 #include "Audio/Device/Sound.h"
+#include "Audio/GAudio/AudioSystem.h"
 #include "Audio/GAudio/Banks.h"
+#include "Audio/GameQueries.h"
 #include "Audio/LH/SamplePlay.h"
 #include "Audio/Services/SoundMap.h"
 #include "Locator.h"
@@ -239,10 +240,15 @@ void SetTargets(bool insideCitadel)
 void ProcessBanks()
 {
 	const bool trace = Trace();
+	const float alignment = atmos_banks::Alignment();
+	const uint32_t group = atmos_banks::GroupFor(alignment);
+	if (TraceEvents() && group != g_State.banks[0].group)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Atmos group {} (alignment {:.3f})", group, alignment);
+	}
 	for (size_t i = 0; i < k_AtmosTypeCount; ++i)
 	{
-		// 0x428FFA..0x42900B: the float GAudio+0x190 > the double -0.59999999999999998 (fcomp qword [0x8C4A08])
-		g_State.banks[i].group = static_cast<double>(atmos_banks::Alignment()) > -0.6 ? 1 : 2;
+		g_State.banks[i].group = group;
 		float& current = g_State.current[i];
 		const float target = g_State.target[i];
 		// slow near the ends
@@ -418,16 +424,20 @@ void Process()
 }
 } // namespace
 
+uint32_t atmos_banks::GroupFor(float alignment)
+{
+	// 0x428FFA..0x42900B (for each bank): fld the float GAudio+0x190, fcomp the double -0.59999999999999998 (qword
+	// [0x8C4A08]), test ah, 0x41 (C0 | C3: below, equal or unordered) -> LHAtmosSetGroup(bank, 2) (0x429015), else 1
+	return static_cast<double>(alignment) > -0.6 ? 1 : 2;
+}
+
 float atmos_banks::Alignment()
 {
-	// GPlayer::ProcessPlayers 0x64A697 -> fn_0064AC30 (every turn): the GPlayer::GetAlignmentValue (player+0x60 -> +8)
-	// of MapCoords::CalculateMostInfluentialPlayer at the camera (the interface status' CameraPos, +0xB0), through
-	// fn_005E2240: a = clamp((alignment + 1) / 2, 0, 1), GAudio+0x190 = 2a - 1 (DoCitadelMultiplayer passes 0.5 = 0).
-	// The same value as the sky's alignment target (fn_0064AC30 -> fn_005E2240), so it has a single source:
-	// Clouds::InfluentialPlayerAlignment, which is ecs::effects::alignment::GetInterfaceAlignment() x 2 - 1 (fn_0064AC30's
-	// value, once a turn; the test hook OPENBLACK_TEST_SKY_ALIGNMENT and the debug slider override both alike).
-	const float a = std::clamp((Clouds::InfluentialPlayerAlignment() + 1.0f) * 0.5f, 0.0f, 1.0f);
-	return 2.0f - 2.0f * (1.0f - a) - 1.0f;
+	// GAudio+0x190, read as it is (ProcessAtmosBanks 0x428FFA, fn_00427460 0x427466): fn_005E2240 writes it once a turn
+	// (GPlayer::ProcessPlayers 0x64A697 -> fn_0064AC30), and GameQueries::cameraAlignment gives that value. Unset: 0
+	// (GAudio::Reset 0x426CC2).
+	const auto& query = Queries().cameraAlignment;
+	return query ? query() : 0.0f;
 }
 
 void atmos_banks::UpdateBanks()

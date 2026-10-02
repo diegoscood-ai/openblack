@@ -142,7 +142,8 @@ incluye un componente del ECS ni `ECS/*`:
   (`thingPosition`, el dueño `Owner::Thing`), mano, pantalla ancha, HelpSystem, noche...
 - `src/ECS/AudioQueries.{h,cpp}` (`ecs::audio_queries::Fill`, llamado desde `MakeMusicQueries`) registra las que leen el
   registro ECS y sus sistemas: `surfaceType` (`ecs::sea_cells::GetSurfaceType`, el GSoundMap::GetSurfaceType 0x71D8E0
-  único), `weatherSmooth` (`weather::atmos::GetWeatherSmooth` 0x835180), `animatedThing` (lo que lee fn_00516510:
+  único), `weatherSmooth` (`weather::atmos::GetWeatherSmooth` 0x835180), `cameraAlignment` (GAudio+0x190 como lo
+  escribe fn_005E2240 desde `ecs::effects::alignment::GetInterfaceAlignment`, C2), `animatedThing` (lo que lee fn_00516510:
   posición, TurnsSinceStateChange y, de un aldeano, vivo/niño/mujer/casa), `animationClipName` (LoadAllAnimations
   0x550180) y `streetLanterns` (la lista g_game+0x205C34 con Object::GetHeight 0x638120). También los ganchos de prueba
   que mueven la cámara (`OPENBLACK_AUDIO_TEST_VIEW` / `_ANIM` / `_LANTERN`, `ecs::audio_queries::RunTestHooks`).
@@ -217,8 +218,8 @@ Reglas:
    `GUtilsDistance.h`, desde B11c, sin registro ni componentes). Lo que necesita del juego lo pregunta por
    `audio::GameQueries` (`src/Audio/GameQueries.h`), unas `std::function` que registran `Game.cpp` y
    `ecs::audio_queries` (`src/ECS/AudioQueries.cpp`). Una consulta sin dueño devuelve el valor
-   de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos y las
-   ramas de música de ciudadela, pelea, cántico y baile en false.
+   de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos, fuera de la ciudadela y las
+   ramas de música de pelea, cántico y baile en false.
 6. **La lógica es pura y se prueba sin AL**, con sinks falsos.
 7. **Un solo motor (B11a).** Un solo dispositivo OpenAL (`src/Audio/Device/Device.{h,cpp}`, `audio::device`): los canales
    (`AlSampleOutput`), los búferes (`WaveBuffers`) y la música (`MusicStream`) le piden fuentes y búferes; nadie más
@@ -629,7 +630,8 @@ openblack:
 - `ThingMusicList` (`src/Audio/Services/ThingMusic.{h,cpp}`): 0x429180, 0x429230, 0x429340, 0x4291B0, fn_00429880,
   fn_004298A0, 0x4298C0, 0x4298F0, y la ida y vuelta de `MapCoords` (0x603340, 6553.6 en 0x8AC400, 10/65536 en 0x8AA3A4).
 - Ganchos de `Game.cpp`: `GAudio::ProcessAudioGameTurn` después del turno 5 (0x54E997) y `Reset` en `LoadMap`.
-- Las ramas de ciudadela, pelea, cántico y baile son consultas sin dueño (false) hasta C1/C3/C4. El alineamiento de la
+- Las ramas de pelea, cántico y baile son consultas sin dueño (false) hasta C1/C3; la de la ciudadela es
+  `GameMusic::ProcessCitadelMusic` desde C4. El alineamiento de la
   cámara (GAudio+0x190) y los pueblos con tribu tampoco tienen dueño todavía: **hoy suena siempre la genérica neutral
   (tipo 2) a volumen 80** a partir del turno 20 en las tierras ≠ 6.
 - **(aproximado)**:
@@ -971,6 +973,8 @@ API pública (sin argumentos por defecto; cada llamador pasa lo que pasa el orig
 | `StopOwner(owner)` (B12, SDK de mods) | (openblack) `LHSampleStop(banco, dueño, 0)` 0x10012C50 en cada banco registrado |
 | `NewOwner()` (B12, SDK de mods) | (openblack) `Owner::Object(NewObjectId())`: un dueño propio |
 | `StopAllSoundEffects()` | fn_004287D0 |
+| `LeaveCitadel()` (C4) | Temple fn_00793D00 desde LeaveInsideCitadel 0x553B25: Stop 2 y 12 de InGame, dueño 0 |
+| `GuardSoundPoint(p)` (C4, AudioSystem.h) | fn_00427200: |v| > 5000 → 0 por coordenada |
 | `ReleaseLoop(owner, sample, bank)` | 0x42A330 / 0x42A310 |
 | `IsPlaying(owner, sample, bank)`, `IsPlaying(owner, SfxBank)`, `IsPlaying(Channel)` | 0x42A280 / 0x42A2D0, 0x42A2B0, 0x10014070 |
 | `SetPitch(bank, owner, sample, percent)`, `SetVolume(Channel, v)` | 0x428740, 0x10013400 |
@@ -1648,9 +1652,9 @@ nuevos.
 | B11c | **hecho** ([abajo](#fase-b-b11c-las-api-comunes-del-equipo)): `ecs::map_coords`, `gutils`, `game_clock` y `sky_type` dentro de `src/Audio`; `HelpSpritesAlignmentProcess` desde `GAlignment::ProcessForPlayer` |
 | B12 | **hecho** ([abajo](#fase-b-b12-pulido)): `audio::StopOwner` y `audio::NewOwner` para el SDK de mods; auditoría de las constantes double (y de la FPU a 24 bits) en `src/Audio` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
-| C2 | Clima y alineamiento en el ambiente |
+| C2 | **hecho** ([abajo](#fase-c-c2-clima-y-alineamiento)): `weatherSmooth` (el `weatherAt` del plan) desde `weather::atmos`, GAudio+0x190 (`cameraAlignment`, fn_005E2240) para el grupo del ambiente (0x428FE0) y la música de alineamiento (0x4279C0); la tribu del pueblo, **pendiente** de `ecs::map_cells` |
 | C3 | Aldeanos, edificios y cánticos |
-| C4 | Ciudadela interior y `ProcessCitadelMusic` |
+| C4 | **hecho** ([abajo](#fase-c-c4-el-interior-de-la-ciudadela)): `insideCitadel` desde el interior del templo, `ProcessCitadelMusic` 0x427B60 con su `LHSampleStopAll`, `audio::LeaveCitadel` (fn_00793D00); y el tope de 5000 de fn_00427200 y `ReadSpeedFactor` en float. Los sonidos de las salas, **pendientes** (el interior de openblack no tiene salas, puertas ni cámara) |
 | C5 | Vídeos (tráiler, `PlayFullScreenMovie`) |
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
 | C7 | GConfirmation (necesita `CameraModeNew3` 0x454900/30) |
@@ -1777,7 +1781,7 @@ rama del nombre "NONE", que en openblack es siempre), 0x10001635 / 0x10002765, 0
 0x71ED40 / 0x6DE570, 0x5165BC, 0x5166B1 / 0x5166CC, 0x51675D y 0x73494E. Cambios: el comentario del encendido
 fn_10001840 (es del arranque del DLL, no "el mismo segundo"); `streetLanterns` usa `ecs::object::GetHeight` (0x638120)
 en vez de `Rocks::Height`, que solo lo reenviaba; test nuevo `DllRand.CrtSequenceAndAlternation` (la secuencia del CRT
-desde la semilla 1, la alternancia de 0x10015740 y que `Random(n)` nunca da n). En juego (`_auditudio11b_audit*.log`):
+desde la semilla 1, la alternancia de 0x10015740 y que `Random(n)` nunca da n). En juego (`_audit\audio\b11b_audit*.log`):
 115 clips, 201 + 3 filas, 15 bucles / 400 sueltas, la sierra con las voces 1/2/3 en el gancho de la vista, 12 farolas
 con las mismas alturas (4 x 1,29 y 8 x 4,95) y el gancho de la farola. Pendiente (anterior a B11b): 0x5165BC llama a
 IsAlive en cualquier cosa animada; openblack solo lo mira en aldeanos (`AnimatedThing::Villager::alive`), así que un
@@ -1845,7 +1849,7 @@ GetInfo 0x74CD50 / 0x74CD70 / fn_00605CD0 (los usa el deseo de los pueblos 0x71B
 de la cámara 0x71B14A / 0x71B289); SoundTag::Create(MapCoords) 0x71EB71..0x71EBB2; SetPlayPosition 0x4298D9. Todo
 cuadra. Arreglado: el comentario de CheckDelay aún decía «100 ms (inferred)». Añadida la línea de traza
 `(openblack) Sound map nearest:` (con `OPENBLACK_ATMOS_TRACE`): distancia y punto de la celda más cercana de cada tipo
-presente. En Land 1 (`_auditudio11c_audit_view.log`, `b11c_audit_far.log` con `OPENBLACK_AUDIO_TEST_VIEW="90,0"` y
+presente. En Land 1 (`_audit\audio\b11c_audit_view.log`, `b11c_audit_far.log` con `OPENBLACK_AUDIO_TEST_VIEW="90,0"` y
 `"90,0,80"`) los puntos acaban en 5 (JUNGLE 3,905 @ (1585, 2225), COUNTRYSIDE 74,224 @ (1635, 2175)): son centros de
 celda; los volúmenes y los errores de arranque no cambian.
 
@@ -2107,6 +2111,159 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - si `_vox` es el cántico completo más las voces;
   - si vuelve la música tras un Alt-Tab.
 
+## Fase C: C2, clima y alineamiento
+
+Con el clima (`src/ECS/Weather`) y el alineamiento (`src/ECS/Effects/Alignment`) de Milagros en la base, el ambiente y
+la música leen los valores reales. Solo por las API públicas de esos módulos y por `GameQueries` (el audio no incluye el
+ECS: lo registra `src/ECS/AudioQueries.cpp`).
+
+- **Clima** (`GameQueries::weatherSmooth`, el `weatherAt(camera)` del plan; ya estaba registrado desde B11c):
+  `GCamera::Update` llena GCamera+0x80 con `LH3DAtmos::GetWeatherSmooth(posición de la cámara, 1)` 0x835180 y
+  `GSoundMap` lo lee (temperatura, lluvia, nieve, nublado, viento x/z: weatherFade, RAIN, WIND; tmp_dis\agua\audio.md
+  §2.4). openblack: `audio::CameraWeather()` pide `weather::atmos::GetWeatherSmooth(origen de la cámara, true)` al
+  calcular el mapa de sonido. `GetWeatherSmooth` no tiene estado (bilineal entre celdas, la caché de la rejilla por
+  fotograma), así que pedirlo otra vez en el turno del audio da lo mismo que GCamera+0x80 **(aproximado: el original
+  lo toma en GCamera::Update del fotograma, openblack en el turno del audio con la cámara de ese momento)**.
+- **GAudio+0x190** (`GameQueries::cameraAlignment`, `ecs::audio_queries`): `fn_0064AC30` (al final de
+  `GPlayer::ProcessPlayers` 0x64A697, una vez por turno) llama a `fn_005E2240(x)` con x = clamp((alineamiento del
+  jugador más influyente en la cámara + 1) / 2, 0, 1) = `ecs::effects::alignment::GetInterfaceAlignment()`.
+  fn_005E2240 (0x5E2240..0x5E2291, en pasos de float por la FPU a 24 bits): x < 0 → 0 (`fcom [0x8AA398]; test ah, 1`),
+  x > 1 → 1 (`test ah, 0x41`), s = (1 − x) + (1 − x) (a [0xBF337C], el cielo), +0x190 = 2 (0x8AB478) − s − 1. El cielo
+  usa la misma x, así que los ajustes de openblack del cielo (`OPENBLACK_TEST_SKY_ALIGNMENT`, el deslizador de
+  depuración) llegan también al audio: si `Clouds::InfluentialPlayerAlignment()` no es 2x − 1, x = (valor + 1) / 2.
+  El audio ya no incluye `3D/Clouds.h`: `atmos_banks::Alignment()` lee la consulta (0 sin ella, `GAudio::Reset`
+  0x426CC2). El turno del audio va tras el de Milagros (Game.cpp), como `GGame::EndTurn` tras `ProcessPlayers`.
+- **Grupo del ambiente** (`ProcessAtmosBanks` 0x428FE0, 0x428FFA..0x42901E): para cada banco,
+  `LHAtmosSetGroup(banco, +0x190 > −0,59999999999999998 (double 0x8C4A08) ? 1 : 2)`; los bucles y sueltos de otro grupo
+  se funden o no arrancan (agua). Traza: `(openblack) Atmos group g (alignment a)` cuando cambia
+  (`OPENBLACK_ATMOS_TRACE`).
+- **Música de alineamiento** (`ProcessAlignmentMusic` 0x4279C0, `fn_00427460`): `GetDiscreteAlignmentValue` 0x414730
+  de +0x190 (0..6), la tabla 0x9C99F0 (0,0,1,1,1,2,2) y GENERIC_EVIL / NEUTRAL / GOOD = índice + 1 (0x427579). Traza:
+  `(openblack) alignment music type t (GAudio+0x190 a, discrete d)` al cambiar (`OPENBLACK_MUSIC_TRACE`).
+- **Pendiente**: la tribu del pueblo (`nearestTown` / `town`: Town +0x5B8, +0x9A4, fn_00741020) espera a
+  `ecs::map_cells` (milagros2); sin ella `nearestTown` queda sin registrar y la música es la genérica del
+  alineamiento (el valor neutro). Falta en la API de Milagros/mapa una consulta «pueblo más cercano a un punto con su
+  tribu y si cuenta para la música (+0x9A4 o fn_00741020)».
+
+**Comprobación en juego** (Land 1, logs `_audit\audio\c2_*.log`):
+- `OPENBLACK_TEST_WEATHER="1818,2628,100,100"` con `OPENBLACK_CAMERA_LOCK="1775,60,2595,1830,45,2650"` y
+  `OPENBLACK_ATMOS_TRACE=50` (`c2_rain.log`): `ATMOS_TYPE_RAIN Vol=1.000 Sent=127`, arranca el bucle `rainconst.wav`
+  de rain.sad y suenan sueltos `thunder_*.wav`; WIND 0 (viento de 6 m/s en la tormenta de prueba).
+- `OPENBLACK_TEST_SKY_ALIGNMENT=-1` (`c2_evil*.log`): `Atmos group 2 (alignment -1.000)`; sin él, grupo 1 con 0;
+  con 0,8, grupo 1.
+- Con `OPENBLACK_TEST_ALIGNMENT_MUSIC=1` y `OPENBLACK_TEST_TEXT_CLICK=1` (el guion de Land 1 hace
+  `ENABLE_DISABLE_ALIGNMENT_MUSIC(0)` al empezar), al acabar intro.sad: con −1, `alignment music type 1 (… −1.000,
+  discrete 0)`, `MUSIC_TYPE_GENERIC_EVIL` y suena evil.sad; con 0,8, `type 3 (… discrete 6)`, `GENERIC_GOOD`, good.sad.
+  Sin el gancho, `Music Playing=NONE` tras la intro (el guion la tiene apagada), igual que antes.
+
+**Auditoría de C2** (2026-10-02). Revisadas en el desensamblado: fn_005E2240 0x5E2240..0x5E2299, fn_0064AC30
+0x64AC30..0x64ACAB, la llamada 0x64A697, ProcessAtmosBanks 0x428FFA..0x42901E (`push 2` en 0x429015), GAudio::Reset
+0x426CC2, fn_00427460 0x427466 / 0x427579, ProcessAlignmentMusic 0x4279C0..0x427A46, ENABLE_DISABLE_ALIGNMENT_MUSIC
+0x710120 (g_game+0x250090 +0x94), GetDiscreteAlignmentValue 0x414730 y fn_00426C80; los llamadores de
+ProcessAudioGameTurn 0x427080 (GGame::EndTurn 0x54E9A6, tras ProcessTurn, y Temple::ProcessGameTurn 0x794A5A) y de
+GAudio::Reset (GGame::Init 0x54F474, ClearMap 0x552D98). Todo cuadra. Arreglado: el corte de fn_005E2240 con un NaN
+(el `fcom` deja C0 en desordenado: `test ah, 1` lo lleva a 0, +0x190 = −1; openblack lo llevaba a 1); la fórmula queda
+en `ecs::audio_queries::GAudioAlignment(x)` y el umbral del grupo en `atmos_banks::GroupFor(alignment)`, con tests
+nuevos (`AudioLaws.GAudioAlignment`, `AudioLaws.AtmosGroupByAlignment`: el float −0,6 está por debajo del double
+−0,59999999999999998, grupo 2). Sin fuentes ni búferes AL nuevos, sin componentes ECS en `src/Audio`, la consulta se
+lee solo en el hilo del juego (ni el hilo de la música ni sus retrollamadas la usan). En juego
+(`_audit\audio\c2audit_*.log`, con `-l stdout`): `Atmos group 2 (alignment -1.000)` / `Atmos group 1 (alignment
+0.800)`; con −1 y el gancho de la música, `alignment music type 1 (… discrete 0)`, GENERIC_EVIL y evil.sad. Notas: en la
+ciudadela el original corre el turno del audio desde Temple::ProcessGameTurn sin fn_0064AC30 (+0x190 se queda con el
+último valor; C4); `GetDiscreteAlignmentValue` con un NaN (0x414756 lo deja pasar a `__ftol`) no está igualado (no
+llega: +0x190 nunca es NaN).
+
+## Fase C: C4, el interior de la ciudadela
+
+`g_game+0x205A28` (0x4282F0, el símbolo dice `HelpSystem::GetWideScreenControl`) lo pone a 1 `GGame::GoInsideCitadel`
+0x554004 y a 0 `GGame::LeaveInsideCitadel` 0x553B1F. En openblack la ciudadela es el interior del templo
+(`Locator::temple`, `TempleInteriorInterface::Active`, que abren y cierran `ENTER_EXIT_CITADEL` y la ventana de
+depuración), como ya lo lee `StartCameraControl` (CHLApi.cpp). `Game.cpp` registra `GameQueries::insideCitadel` con
+eso: el `SetInsideCitadel` del plan es esa consulta. Lo que hace el audio dentro (todo desensamblado de nuevo):
+
+- **Filtros** (ya estaban desde B0/B2, ahora con dato): `GAudio::PlaySoundEffect` 0x429F6D y `SamplePlayAnimEffect`
+  0x42A554 solo dejan sonar las muestras de userParam 2 (`cmp di/bp, 2`); el corte 3D se mide desde
+  `LH3DTech::g_camera` (0x429EB1), que en openblack es la misma cámara (la del templo dentro). El ambiente se apaga
+  (fn_00429100, `atmos_banks::SetTargets`, de agua) y el consejero no interrumpe (0x5C3810).
+- **Música** (`GameMusic::ProcessCitadelMusic`, `ProcessCitadelMusic` 0x427B60, primera rama de `ProcessMusic`
+  0x427E2C): dentro, el primer turno `LHSampleStopAll` (`sample_play::StopAll`, los 16 canales; el cerrojo es el
+  global [0xC56164], que `GAudio::Reset` no toca y que vuelve a 0 al salir, 0x427C7F); tipo = 44 + fn_00426C80(
+  `GetDiscreteAlignmentValue` 0x414730 de `GPlayer::GetAlignmentValue` 0x64D6A0 del jugador local g_game+0x205A59),
+  CITADEL_EVIL / NEUTRAL / GOOD, las tres en `citadel.sad` (grupo 4); sin banco devuelve 0 y `ProcessMusic` sigue
+  (0x427BDF). Opciones: banco, volumen 127, inicio `pos[grupo − 1]` leído (0x427BF6) **antes** de que `fn_004281C0` guarde las posiciones (0x427C28; el alineamiento guarda primero), sync 1, fundido 1, 2D, tono 100;
+  `LHMusicPlay` **cada turno** (el motor re-dispara el mismo banco, 0x1000DFD4), "Music Playing=%s" y
+  devuelve 1 → `ProcessMusic` pone "Music Playing=NONE", +0x180 = 0, +0x1C = −1 (al salir el alineamiento arranca de
+  nuevo). El alineamiento es la consulta nueva `GameQueries::localPlayerAlignment` (`ecs::audio_queries`:
+  `ecs::effects::alignment::Get(PLAYER_ONE)`; 0 sin ella), no GAudio+0x190. Sustituye a la consulta `citadelMusic`.
+- **Salir** (`audio::LeaveCitadel`, desde `TempleInterior::Deactivate`): `LeaveInsideCitadel` 0x553B25 → Temple
+  `fn_00793D00` (si su motor estaba arrancado, Temple+0x24): `StopPlayingSoundEffect(2 G_Fire_01, dueño 0, InGame)`
+  0x793D48 y `(12 G_WaterFlow, 0, InGame)` 0x793D59. Entrar no tiene llamada de audio propia (0x553E10..0x55405E;
+  `Temple::InitEngine` 0x793C60 no toca el audio).
+- **fn_00427200** (la función 3D del juego que LHaudio llama en 0x1001438C, 0x1001487B y 0x10014B91): cada coordenada
+  con |v| > 5000 pasa a 0 (`fabs; fcomp qword 5000.0` 0x8C49E0, `test ah, 0x41`: igual, menor y NaN se quedan), en el
+  punto guardado del canal (+0x50, 0x427222..0x42726D, después de copiarlo para el caso por defecto) y en el punto
+  que devuelve (0x427349..0x42738E); la distancia que devuelve (0x427399..0x427400) es la del punto **sin** tope más
+  el desplazamiento a `g_camera`. `audio::GuardSoundPoint`, en `sample_play::UpdateChannels` (LHSampleUpdate3DChannels
+  0x10014310: para el canal si esa distancia no es menor que el máximo +0x6C, 0x100143AF; si no,
+  LHSampleSet3DPosition con el punto con tope) y en `audio::Get3DSoundPos` (el arranque de los anim-effects).
+- **HelpSystem** `ReadSpeedFactor` fn_005C6CB0: con la FPU del hilo del juego a 24 bits (fn_007DEE00) cada paso
+  redondea a float (las constantes qword 0.5, 1, 0,80000000000000004 y 0,20000000000000001 enteras, las dword 4 y 3);
+  devuelve float; un NaN va a la primera rama (`fcom`, `test ah, 0x41`). Ej.: 0,1 → 2,5999999 (no 2,59999999404);
+  0,7 → 0,68000001.
+
+**API**: `audio::LeaveCitadel()` (Audio.h), `audio::GuardSoundPoint(p)` (AudioSystem.h),
+`GameQueries::insideCitadel` (ahora registrada), `GameQueries::localPlayerAlignment` (nueva), fuera
+`GameQueries::citadelMusic`; `GameMusic::GetCitadelSamplesStopped()` ([0xC56164], para los tests).
+
+**Tests**: `GameMusicTest.CitadelMusicInsideTheCitadel`, `GameMusicTest.CitadelMusicWithoutItsBank`,
+`GameSfx.GuardSoundPoint`, `SamplePlayTest.TrackedPointGuardedAt5000`, `HelpSystem.ReadSpeedFactor` (valores a 24 bits).
+
+**(Aproximado)**: el original pausa el juego al entrar (un jugador: `PauseGame(1)` 0x553F83) y entonces llama a
+`ProcessAudioGameTurn` desde `Temple::ProcessGameTurn` 0x794A5A cada 100 ms de `GetTickCount` (bucle de pausa de
+`ProcessNetworkPackets` 0x54CC66..0x54CCFF), con el `EndTurn` en pausa (`AtmosProcess(0)`) entre medias; openblack no
+pausa en el templo y hace su turno normal (con la puerta del turno 5 y el mapa de sonido y las tags). Lo audible es lo
+mismo salvo el ritmo (turno de openblack frente a 100 ms) y que el mundo de openblack sigue vivo (sus muestras pasan
+por el filtro de userParam 2).
+
+**Pendiente** (el interior de openblack solo tiene las mallas y los brillos, `TempleInterior.cpp`; sin salas, puertas,
+botones ni cámara del templo): puertas 60/61 (`Temple::Update` 0x794D30, `InnerRoom::FastCloseDoor` 0x794F8D,
+fn_00794FB0), botones 62/63 con tonos 95..110 (WorldRoom 0x79E940..0x79EDA0), pergaminos 54 + tick % 6 (0x784210,
+0x789420.., 0x78B590.., 0x791F90), la sala de la criatura (`CreatureRoom::DrawAdditional` 0x78869A 175 G_FireCreatureCave
+y 0x7886E0 177 G_WaterCreatureCave 3D en (160, −45, −30); su vfunc 11 0x7871D5 / 0x7871EC los para), el woosh de
+`InnerCamera::FocusOnSubMesh` 0x7957A6 y de `ChallengeRoom` 0x782486, las chispas del corazón 206 + c (0x468815,
+0x468B32: el corazón de la ciudadela no existe en openblack) y la tensión del culto (`Citadel::SetWorshipStrainSoundFrac`
+0x463850). Quién toca 2 / 12 con dueño 0 dentro del templo (lo que para fn_00793D00) no está en el inventario
+**(inferido: nadie en W120; la parada queda igual)**.
+
+### Auditoría de C4
+
+Revisado contra el desensamblado: fn_00427200 entero (0x427209..0x42726D la copia sin tope y el tope del +0x50,
+0x4272AD / 0x4272E1 la bandera 0, 0x427321..0x42738E el punto devuelto con tope, 0x427399..0x427400 la distancia sin
+tope + desplazamiento), LHSampleUpdate3DChannels 0x10014310 (bandera 0 → LHSampleStop y +0x18 = 0; `fcomp` +0x6C,
+`test ah, 1`: un NaN no para; LHSampleSet3DPosition con el punto con tope), LHSampleSet3DPosition 0x10013AC0 (la fuente
+de QMixer en punto + desplazamiento 0x10013E76..0x10013E99, +0x50 = el punto 0x10013EBA), LHSamplePlayAnimEffect
+0x10014B91 (el punto devuelto va a las opciones), ProcessCitadelMusic 0x427B60..0x427C8F (opciones +0x00/+0x04/+0x14/
++0x1C/+0x20/+0x24/+0x28; el banco que comprueba, GAudio+0xDC + 4·índice, es el de tipo 44 + índice), 0x4282F0
+(`== 1`), ProcessMusic 0x427DF0..0x427EBB, 0x426C80, 0x64D6A0, 0x429F6D, 0x42A554, Temple fn_00793D00
+(0x793D3C..0x793D59), StopPlayingSoundEffect 0x42A210, LeaveInsideCitadel 0x553B1F / 0x553B25, GoInsideCitadel
+0x553E10..0x55405E (sus llamadas: ninguna de audio; fn_00463A50 → fn_00469E70 es de la ciudadela, no de sonido),
+fn_005C6CB0 y fn_005C61B0. Todo coincide con el código; nada que corregir.
+
+- `ReadSpeedFactor`: la regla del equipo (paso en double, resultado a float) podría redondear dos veces en el `fmul`
+  y el `fadd` qword; comprobado **exhaustivo** para los 2^23 floats de la segunda rama (b = 2 − 2r es exacto; el
+  doble redondeo solo difiere si el double cae en un punto medio de float: no cae ninguno) y la primera rama es un
+  solo redondeo (3 − 4r es exacto en double): **fiel** para todo READ_SPEED.
+- Sin fuentes ni búferes AL nuevos, sin dependencias ECS en `src/Audio`, sin hilo de música nuevo (`LHMusicPlay`
+  desde el turno del juego, como las demás ramas); el cerrojo [0xC56164] es global como en el original.
+- En juego (Land 1, `_audit\audio\c4_audit_citadel.log`, segunda ejecución desde la línea ~2400;
+  `OPENBLACK_AUDIO_TEST_CITADEL="100,180"`, trazas AUDIO/SFX/MUSIC/ATMOS): al entrar `LHSampleStopAll` para los
+  crujidos de árbol de los canales 0, 2 y 4; dentro no arranca ninguna muestra (todo `filtered (inside the citadel…)`),
+  citadel.sad (CITADEL_NEUTRAL) sube 4 → 127 mientras intro.sad baja; al salir `SFX: stop InGame.sad/2` y `/12`
+  dueño 0, vuelve `MUSIC_TYPE_SCRIPT_INTRO` desde el trozo 1 de golpe (fn_00427CA0 pasa fundido 0, 0x427D41) y
+  citadel.sad se funde, los bucles de ambiente arrancan de nuevo y los crujidos vuelven a sonar.
+- Pendiente de comprobar (no es de C4): si se carga otra isla con el templo abierto, openblack no llama a
+  `TempleInterior::Deactivate` y `insideCitadel` seguiría a 1.
+
 ## Ganchos de prueba
 
 | Gancho | Qué hace |
@@ -2114,6 +2271,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_MUSIC_TRACE=1` | Una línea `music:` por vuelta del hilo con cada canal ocupado: banco, estado, cur/target/sad, trozo, vueltas, cola, volumen QMixer, ganancia y muestras decodificadas. También escribe `game music: Music Playing=…` cada vez que cambia |
 | `OPENBLACK_TEST_MUSIC="<tipo>[,<tipo>@<s>][,stop@<s>][,cut@<s>]"` | La primera pista se toca como el tráiler (vol 127, sin sync ni fundido, 2D). Cada una de las siguientes, a los `s` segundos, con sync y fundido, como `ProcessCitadelMusic` (para oír un cambio sincronizado). `stop` = `LHMusicStop(1)`, `cut` = `LHMusicStop(0)`. Es un gancho, no un comportamiento del original |
 | `OPENBLACK_TEST_MUSIC_VOLUME=<0..127>` | El maestro de música al arrancar |
+| `OPENBLACK_TEST_ALIGNMENT_MUSIC=<turno>` | Desde ese turno, cada turno, `ENABLE_DISABLE_ALIGNMENT_MUSIC(1)` y sin el filtro de la pantalla ancha del guion (que Land 1 deja puesta en openblack), para oír la música de alineamiento (C2). No es del original |
 | `OPENBLACK_TEST_SCRIPT_MUSIC="<tipo>[@<turno>]"` | Un START_MUSIC del guion en ese turno (30 por defecto) |
 | `OPENBLACK_AUDIO_TRACE=1` | Cada arranque, robo, parada y corte de canal (`Sample play:`), cada búfer creado (`Wave buffer … N made`), los cambios de la pantalla ancha del guion, los anim-effects rechazados por distancia (`Anim effect: banco/n (onda) too far`) y las trazas viejas de `AudioManager` |
 | `OPENBLACK_ANIM_TRACE=1` | Los sonidos de los clips y de los árboles (`Animation sound: clip … -> editor.sad/n`, `key … -> editor.sad/n`, `no row`, `banter n too far`), con el mismo formato que antes de B2 |
@@ -2121,6 +2279,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 | `OPENBLACK_SFX_TRACE=1` | Una línea `SFX:` por llamada a `GAudio::PlaySoundEffect` (y a los tags), a `SamplePlayAnimEffect` y a `StopSoundEffect`: banco/muestra (onda), 2D/3D, track, punto, modo y vueltas con que arranca, tono, dueño y qué pasó (canal, `culled`, `filtered (motivo)`); y los `PLAY_SOUND_EFFECT(...)` del guion |
 | `OPENBLACK_AUDIO_TEST_VIEW="turno,n[,distancia]"` / `OPENBLACK_AUDIO_TEST_ANIM=<clip>` | En ese turno la cámara mira al aldeano n desde esa distancia (4), y todos los aldeanos tocan ese clip en bucle (437 bostezo, 354 sierra, 369 sentado). En `src/ECS/AudioQueries.cpp` (`ecs::audio_queries::RunTestHooks`) |
 | `OPENBLACK_AUDIO_TEST_LANTERN="turno[,distancia]"` | En ese turno (contado por las llamadas de `RunTestHooks`) la cámara mira la punta de la primera farola desde esa distancia (3) |
+| `OPENBLACK_AUDIO_TEST_CITADEL="<entrar>[,<salir>]"` | En esas llamadas de `RunTestHooks` (una por turno) entra / sale del interior del templo, como `ENTER_EXIT_CITADEL(1)` / `(0)`: la música y los filtros de la ciudadela (C4). No es del original |
 | `OPENBLACK_AUDIO_TEST_NO_WIDESCREEN=1` | El audio no ve la pantalla ancha del guion (la intro de Land 1 la tiene hasta un clic), para comparar sin ese filtro. No es del original |
 | `OPENBLACK_TEST_SAMPLE_VOLUME=<0..127>` | El maestro de efectos al arrancar |
 | Pestaña «Channels» del panel de audio | Maestro de efectos (deslizador), LHWaveIsActive, búferes vivos/creados y los 16 canales (muestra, banco, dueño, prioridad, volumen, tono, 3D/track/ambiente, sonando) |

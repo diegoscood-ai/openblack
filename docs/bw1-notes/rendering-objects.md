@@ -439,8 +439,8 @@ El original tiene tres mecanismos y un solo plano:
   especular)` (tiburones: especular 0, `push 0` 0x775027) y `DrawFishPlots(vista, SeaPlane)` (la red: +0x50 = 0 del
   ctor 0x8164FE). El orden es el del binario: tiburones (`fn_00775120` 0x5E4B26), peces y redes (`fn_00824B90`
   0x5E4B2B), el sitio de los nadadores (0x5E4B4C..0x5E4D76) y el brillo de la mano (0x5E4D89). El reflejo del barco
-  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. **(openblack)** una instancia que se pega al suelo sigue dibujando su reflejo con el mapa de alturas,
-  aunque el `DrawUnderWater` de las vtables morfables es un `ret` (0x80BA40).
+  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. Una instancia que se pega al suelo no se dibuja bajo el mar: el `DrawUnderWater` de las vtables
+  morfables (vt+0x118 de 0x9A2E34 / 0x9A2BFC) es un `ret` (0x80BA40), como su `DrawCutByPlane` (0x80BA50).
 - Colores de la pasada (`SetColorSpecular` vt+0x2C antes de la llamada): mano 0x65A0A0A0 / 0 (0x5E496E / 0x5E496C),
   criatura 0x65A0A0D0 / 0x30 (0x5E4ACF / 0x5E4ACD), nadadores 0xFF303070 / 0 (0x5E4C69 / 0x5E4C68), barco 0xFF303070
   (`mov [eax+0x4C]` 0x5E016C, sin tocar +0x50: **(inferido)** openblack pone 0).
@@ -1237,7 +1237,7 @@ corte 0x96: un poco más finos).
   entonces la cúpula del escudo y los demás átomos con `DrawCutByPlane` pierden lo que quede bajo y = 0 sin tocar
   `Renderer` ni los shaders. Captura pendiente: la cúpula más metida en el mar (p. ej. `PHYSICAL_SHIELD,1800,3120`;
   la de 1825,3140 queda casi toda sobre la playa). El especular +0x50 del casco del barco (lo que dejó su último Draw,
-  **(inferido)** 0). El reflejo de los morfables (su `DrawUnderWater` es un `ret`, 0x80BA40; openblack los dibuja).
+  **(inferido)** 0).
 - Pasada bajo el mar, pruebas con capturas: que los pasos 1-6 no cambian ningún píxel **no está demostrado** con
   capturas (el código sí lo da: mano 0xA0/255, especular 0 del modo 4, mismo culling, `UnmirrorView` = vista·diag(1,
   −1, 1, 1)); dos ejecuciones del mismo exe ya difieren porque el mar y las nubes siguen el reloj real, y algunas

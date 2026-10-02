@@ -78,7 +78,7 @@ float sky_type::At(float hour)
 void sky_type::SampleFrame(float visualHour)
 {
 	// 0x86A2C4..0x86A308: while (h < 0) h += 24; if (!(h < 24)) do h -= 24 while (!(h < 24)), in the x87 register.
-	// Float here: the same hypothesis as DayNightClock::SetCycle, the FPU at 24 bits (D3D's default, inferido), so
+	// Float here: the same hypothesis as DayNightClock::SetCycle, the FPU at 24 bits (fn_007DEE00, and cw 0xFCFF at 0x7DEE0D), so
 	// h = -1e-7 gives 24 - 1e-7 -> 24 -> 0 (with 53 / 64 bits it would stay 23.9999999 and be stored as 24.0f).
 	// A NaN loops forever in the original (fcom unordered sets C0); here it falls through (openblack difference).
 	float h = visualHour;
@@ -192,7 +192,7 @@ sky_type::DomeBlend::Blocks sky_type::DomeBlend::Advance(float frameSkyType)
 		_rebuildPending = false;
 	}
 	// 0x86A34E..0x86A379: fld / fsub / fabs in the x87 register, rounded to float under the 24-bit FPU hypothesis
-	// of DayNightClock::SetCycle (inferido), then fcomp against the double [0x99A168]
+	// of DayNightClock::SetCycle (the FPU at 24 bits, fn_007DEE00, and cw 0xFCFF at 0x7DEE0D), then fcomp against the double [0x99A168]
 	if (_rowsDone >= k_Rows && static_cast<double>(std::fabs(frameSkyType - _built)) > k_Hysteresis)
 	{
 		_built = frameSkyType;

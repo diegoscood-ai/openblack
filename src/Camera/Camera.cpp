@@ -259,7 +259,7 @@ glm::vec3 Camera::GetOrigin(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _origin.GetCurrentValue();
+		return _origin.GetCurrentValue() + _originDrawOffset; // fn_008210C0's shake, drawn only
 	case Interpolation::Start:
 		return _origin.GetStartValue();
 	case Interpolation::Target:
@@ -275,7 +275,7 @@ glm::vec3 Camera::GetFocus(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _focus.GetCurrentValue();
+		return _focus.GetCurrentValue() + _focusDrawOffset; // fn_008210C0's shake, drawn only
 	case Interpolation::Start:
 		return _focus.GetStartValue();
 	case Interpolation::Target:

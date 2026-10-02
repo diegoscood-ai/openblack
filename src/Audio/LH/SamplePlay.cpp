@@ -788,6 +788,10 @@ void sample_play::UpdateChannels()
 		{
 			continue;
 		}
+		// fn_00427200 0x427209..0x42726D: the channel's point (+0x50) copied for the default, then each of its
+		// coordinates beyond 5000 cleared (GuardSoundPoint)
+		const glm::vec3 stored = channel.position;
+		channel.position = GuardSoundPoint(channel.position);
 		glm::vec3 at = *camera;
 		switch (channel.owner.kind)
 		{
@@ -805,7 +809,7 @@ void sample_play::UpdateChannels()
 			// channel keeps its point (+0x50, read first at 0x427209); it never stops the channel
 			const auto position = g_State.backend.ownerPosition ? g_State.backend.ownerPosition(channel.owner)
 			                                                    : std::optional<glm::vec3> {};
-			at = position ? *position : channel.position;
+			at = position ? *position : stored;
 			break;
 		}
 		case Owner::Kind::Key:
@@ -831,15 +835,17 @@ void sample_play::UpdateChannels()
 			break;
 		}
 		}
-		channel.position = at;
-		at += channel.offset;
-		// 0x100143BC: the camera at or beyond the channel's max distance stops it
-		if (glm::distance(at, *camera) >= channel.maxDistance)
+		// 0x427399..0x427400: the distance it returns is from the unguarded point + the offset (+0x5C..+0x64) to
+		// LH3DTech::g_camera; 0x100143AB..0x100143BC: at or beyond the channel's max distance (+0x6C) it stops (a NaN
+		// does not)
+		if (glm::distance(at + channel.offset, *camera) >= channel.maxDistance)
 		{
 			Halt(channel, "tracked, beyond its max distance", true); // LHSampleStop(info) 0x10012DF0: the ramp
 			continue;
 		}
-		output->SetPosition(IndexOf(channel), at);
+		// 0x427349..0x42738E: the point handed to LHSampleSet3DPosition 0x10013AC0, guarded
+		channel.position = GuardSoundPoint(at);
+		output->SetPosition(IndexOf(channel), channel.position + channel.offset);
 	}
 	// LHListenerUpdate (fn_004270D0 0x4271EF -> 0x10003850: QSWaveMixSetListenerPosition 0x1000398E / Orientation
 	// 0x100039A7): QMixer's listener at the camera's position, forward and up; the velocity stays 0

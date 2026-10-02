@@ -80,7 +80,7 @@ void DayNightClock::Reset()
 void DayNightClock::SetCycle(float duration, float night, float change)
 {
 	// 0x557625..0x557640: trunc(duration * 0.41666666f) with [0x8DF8F0] = 0x3ED55555 (10 / 24 in tenths of a second).
-	// The product stays in the x87 register before __ftol; with the FPU at 24 bits (D3D's default, inferido) that is
+	// The product stays in the x87 register before __ftol; with the FPU at 24 bits (fn_007DEE00, and cw 0xFCFF at 0x7DEE0D) that is
 	// the float product taken here, with 53 bits (the CRT's __setdefaultprecision 0x7CC96C) durations that are
 	// multiples of 2.4 would truncate one lower.
 	const auto tenths = static_cast<int>(duration * 0.41666666f);

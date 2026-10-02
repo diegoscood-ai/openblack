@@ -50,7 +50,7 @@ std::unique_ptr<Creator> MakeChainCreator(const Object& object)
 }
 } // namespace
 
-std::array<glm::vec2, 4> ChainCreator::SegmentUv(int index, int segments, float scroll) const
+std::array<glm::vec2, 4> ChainCreator::SegmentUv(int index, int segments, float scroll, int textures) const
 {
 	// fn_006C8920 (called from fn_0067B3F0 at 0x67BEFD with frame 0): the chain is cut in T repeats (chain +0x30);
 	// segment s falls in repeat k = ((s + 1) T - 1) / (n - 1) (integer division), which starts at segment
@@ -67,6 +67,11 @@ std::array<glm::vec2, 4> ChainCreator::SegmentUv(int index, int segments, float 
 	// only -1 is replaced; 0 (which DefineProperties allows) is left to ChainSegmentUv's openblack guard, where the
 	// original would divide by zero (idiv 0x6C893E)
 	sheet.textures = numTexturesForWholeChain == -1 ? segments : numTexturesForWholeChain;
+	// UR_Lightning 0x6923FC rewrites chain +0x30 itself (NumTexturesToTile), always >= 1
+	if (textures != -1)
+	{
+		sheet.textures = textures;
+	}
 	return graphics::frame_anim::ChainSegmentUv(index, segments, sheet, scroll);
 }
 

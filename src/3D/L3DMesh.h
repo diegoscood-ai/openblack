@@ -122,13 +122,19 @@ public:
 
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }
-	[[nodiscard]] const std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>>& GetSkins() const { return _skins; }
+	/// The mesh's own skins, or (a generated mesh without any) those of its skin source
+	[[nodiscard]] const std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>>& GetSkins() const
+	{
+		return _skins.empty() && _skinSource ? _skinSource->GetSkins() : _skins;
+	}
 	[[nodiscard]] const std::vector<Footprint>& GetFootprints() const
 	{
 		return _footprintSource ? _footprintSource->GetFootprints() : _footprints;
 	}
 	/// A generated mesh (a broken building) keeps the landscape footprint of the mesh it was made from.
 	void SetFootprintSource(std::shared_ptr<const L3DMesh> source) noexcept;
+	/// A generated mesh made of another one's primitives (the PSys exploded pieces) draws with that mesh's embedded skins
+	void SetSkinSource(std::shared_ptr<const L3DMesh> source) noexcept { _skinSource = std::move(source); }
 	[[nodiscard]] const std::vector<uint32_t>& GetBoneParents() const { return _bonesParents; }
 	[[nodiscard]] const std::vector<glm::mat4>& GetBoneMatrices() const { return _bonesDefaultMatrices; }
 	[[nodiscard]] const std::optional<glm::vec3>& GetDoorPos() const { return _doorPos; }
@@ -156,6 +162,7 @@ private:
 	std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>> _skins;
 	std::vector<Footprint> _footprints; ///< If ContainsLandscapeFeature() is true
 	std::shared_ptr<const L3DMesh> _footprintSource;
+	std::shared_ptr<const L3DMesh> _skinSource;
 	std::vector<std::unique_ptr<L3DSubMesh>> _subMeshes;
 	std::vector<uint32_t> _bonesParents;
 	std::vector<glm::mat4> _bonesDefaultMatrices;

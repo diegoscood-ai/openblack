@@ -341,8 +341,9 @@ public:
 			// a script, computer or creature cast: a ballistic arc from the gesture position to 0.8 of the way to the origin,
 			// in max(0.025 D, 0.5) s, or at 30 degrees (0x9375F0: 0.5237 rad) when that would be steeper (cwid.txt;
 			// the re-solve 0x69EC3E..0x69ECC1 was re-read in the fuego2 audit: delta [esp+0x64] (0x69EB1B), distance
-			// [esp+0x38] (0x69EB3F), time max(0.025 D, 0.5) (0x69EB43..0x69EB5A); the rest stays UNVERIFIED,
-			// destructive.md §3.4). g = the group's
+			// [esp+0x38] (0x69EB3F), time max(0.025 D, 0.5) (0x69EB43..0x69EB5A), v = delta / t - (0, -g [esp+0x20]
+			// x 0.5 t, 0) (0x69EB62..0x69EC39, re-read by the fuego2 audit); the target at 0.8 and the origin
+			// fallback before 0x69EAF0 stay UNVERIFIED, destructive.md §3.4). g = the group's
 			// UpdateRuleGravity +0x24, 30 without one (0x69E9A0)
 			float g = 30.0f;
 			for (const auto& slot : collection.modifiers)
@@ -381,7 +382,7 @@ public:
 					// 0x69EC92..0x69ECAA: (delta.y - distance x tan) x (-2 [0x8C7CE0] / g), all in the FPU
 					double time2 = (static_cast<double>(delta.y) - static_cast<double>(distance) * slope) *
 					               (-2.0 / static_cast<double>(g));
-					if (time2 < 0.0) // 0x69ECAC: 0.1 (0x8AB22C), then fsqrt 0x69ECC1
+					if (time2 < 0.0) // fcom 0 [0x8AA398] at 0x69ECAC: 0.1 (0x8AB22C, 0x69ECBB), then fsqrt 0x69ECC1
 					{
 						time2 = static_cast<double>(0.1f);
 					}

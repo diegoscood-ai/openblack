@@ -33,6 +33,7 @@
 #include "PSys/PSysFile.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
+#include "PSys/Rules/ExplodeObject.h"
 #include "PSys/SoundAction.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -104,6 +105,31 @@ entt::id_type SharedMesh(std::string path)
 		SPDLOG_LOGGER_WARN(spdlog::get("game"), "PSys: mesh {}: {}", path, e.what());
 	}
 	return id;
+}
+
+/// RenderParticleGJMesh::DrawAt 0x67C150 of an exploded piece (PSys/Rules/ExplodeObject.h): the GJ mesh through the
+/// drawn PSR matrix (0x67C279..0x67C30A, the same matrix as the mesh atoms'), every vertex of the colour of the DrawData
+/// times the land light (+0x21, 0x67C175..0x67C1F6) since the GJ mesh has no colours of its own (+0x24 != the vertex
+/// count: 0x67C47F..0x67C4C4), then lit by the model light ([0xC029C0] = 1: 0x67C4CE..0x67C6B2, I = fistp(255 n.l) with
+/// the light [0xEA9E90] through the inverse of the drawn matrix, f = I < 0 ? amb : amb + ((255 - amb) I >> 8), RGB x f
+/// >> 8: vs_object's PSys mesh atom branch, the colour in the third column). [0xD4EC08] (the second light) is 0. The
+/// DrawData alpha != 255 draws through the alpha render modes (0x67C9BA..0x67C9C0, 0xC387C8): the translucent pass.
+/// Draw3DWorldTriangle 0x81C090 with the primitive's material: no haze (fn_007FEB30), no specular.
+mesh_atoms::Instance PieceInstance(const Effect::DrawAtom& atom, entt::id_type meshId)
+{
+	glm::mat3 axes = atom.rotation * atom.scale;
+	axes[1] *= atom.stretch;
+	glm::mat4 model(axes);
+	model[3] = glm::vec4(atom.position, 1.0f);
+	// the DrawData colour 0xAARRGGBB: the atom's colour and its alpha byte
+	const auto alphaByte = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
+	const uint32_t argb = (alphaByte << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) |
+	                      (static_cast<uint32_t>(atom.colour[1]) << 8) | atom.colour[2];
+	const uint32_t lit = explode_object::LitColour(argb, atom.position);
+	const std::array<uint8_t, 3> colour {static_cast<uint8_t>(lit >> 16), static_cast<uint8_t>(lit >> 8),
+	                                     static_cast<uint8_t>(lit)};
+	const float alpha = static_cast<float>(lit >> 24) / 255.0f;
+	return {meshId, model, alpha, glm::vec2(0.0f), alphaByte != 255u, false, colour, false};
 }
 
 std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
@@ -224,6 +250,14 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 	{
 		for (const auto& atom : drawable.atoms)
 		{
+			if (const auto* piece = atom.atom != nullptr ? explode_object::PieceOf(*atom.atom) : nullptr; piece != nullptr)
+			{
+				if (piece->meshId != 0)
+				{
+					result.push_back(PieceInstance(atom, piece->meshId));
+				}
+				continue;
+			}
 			const auto* creator = dynamic_cast<const MeshCreator*>(atom.creator);
 			if (creator == nullptr || creator->meshId == 0)
 			{

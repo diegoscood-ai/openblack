@@ -42,6 +42,7 @@
 #include "PSys/Creators/Chain.h"
 #include "PSys/Creators/Mesh.h"
 #include "PSys/Creators/Mist.h"
+#include "PSys/Rules/ExplodeObject.h"
 #include "PSys/Rules/Storm.h"
 #include "Worship/Worship.h"
 
@@ -68,6 +69,7 @@ void magic::OnLoadMap()
 	ecs::systems::hand_grain::Reset();
 	weather::OnLoadMap(); // ECS/Weather/WeatherLoop.cpp
 	hand_casting::OnLoadMap(); // Hand/HandCasting.cpp: the gestures, the hand FX, the utility effects
+	psys::explode_object::Clear(); // PSysGlobal::OnClearMap 0x68F820: the exploded meshes' queues
 	worship::OnLoadMap();      // Worship/Worship.cpp (after hand_casting: it registers the icon provider)
 	ResetDebugHooks();
 }
@@ -116,6 +118,8 @@ void magic::ProcessTurnEnd()
 {
 	// The one swap: the original runs GScript::Process between 11 and 12; openblack's scripts block runs before 9.
 	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 -> fn_006D11A0, the PSys sounds    [S sounds]
+	//    (first fn_006721B0 -> fn_006717F0: the EXPLODE_OBJECT effect empties the exploded meshes' queue)
+	psys::explode_object::GameLoopEnd(); // PSys/Rules/ExplodeObject.cpp
 	audio::spell_sounds::ProcessTurn(static_cast<float>(k_TurnMs) * 0.001f); // Audio/SpellSounds.cpp
 	// --- (GScript::Process in the original)
 	// 12 the weather things / GClimate::ProcessAll 0x7741A0 / 0x771BE0      [M6a]

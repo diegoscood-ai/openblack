@@ -1091,7 +1091,6 @@ corte 0x96: un poco más finos).
   - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
     `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
   - el oy heredado por el vapor y el humo del fuego;
-  - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
 - Texturas animadas:
   - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
     la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;

@@ -16,6 +16,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/Billboard.h"
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "Audio/Audio.h"
@@ -154,10 +155,10 @@ void one_off::UpdateFrames(float milliseconds)
 		any = true;
 	});
 	// Draw 0x518E90 -> fn_00518720 (on while the byte [0xBE8E8D] is set, 1): the mesh is turned about the centre c of
-	// its box (LH3DMesh::ComputeBoundingBox, all the submeshes) so that its +Y points at the camera. D = normalize(centre
-	// - camera), U = normalize(Y - (Y.D) D), and the axes x, y, z go to U x D, -D, U. The visible submesh is the half
-	// sphere above c, so the bubble looks round from every side. The object's position does not move (only its 3D
-	// matrix does) and the physics sphere is the same after the turn.
+	// its box (LH3DMesh::ComputeBoundingBox, all the submeshes) so that its +Y points at the camera (graphics::billboard::
+	// LookAtCentre, which has the addresses: the push off the vertical 0x518875..0x5188B4 and the scaled pivot). The
+	// visible submesh is the half sphere above c, so the bubble looks round from every side. The object's position does
+	// not move (only its 3D matrix does) and the physics sphere is the same after the turn.
 	const auto camera = Locator::camera::has_value() ? Locator::camera::value().GetOrigin() : glm::vec3(0.0f);
 	registry.Each<OneOffSpellSeed, const Transform, const Mesh>(
 	    [&camera, hasCamera = Locator::camera::has_value()](OneOffSpellSeed& orb, const Transform& transform, const Mesh& mesh) {
@@ -167,20 +168,10 @@ void one_off::UpdateFrames(float milliseconds)
 		    }
 		    const auto l3d = Locator::resources::value().GetMeshes().Handle(mesh.id);
 		    const glm::vec3 centre = l3d ? l3d->GetBoundingBox().Center() : glm::vec3(0.0f);
-		    const glm::vec3 toOrb = transform.position + centre - camera;
-		    if (glm::dot(toOrb, toOrb) <= 0.0f)
-		    {
-			    return;
-		    }
-		    const glm::vec3 d = glm::normalize(toOrb);
-		    const glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f) - glm::dot(glm::vec3(0.0f, 1.0f, 0.0f), d) * d;
-		    if (glm::dot(up, up) <= 0.0f)
-		    {
-			    return;
-		    }
-		    const glm::vec3 u = glm::normalize(up);
-		    orb.facing = glm::mat3(glm::cross(u, d), -d, u);
-		    orb.facingOffset = centre - orb.facing * centre;
+		    // the 3D object's scale +0x44 (the orb is scaled uniformly)
+		    const auto lookAt = graphics::billboard::LookAtCentre(transform.position, centre, transform.scale.x, camera);
+		    orb.facing = lookAt.axes;
+		    orb.facingOffset = lookAt.offset;
 	    });
 	// Draw 0x518E90, the rest: the orb is added for drawing (AddForDrawing 0x63B5D0) with its matrix moved to the box
 	// centre + normalize(camera - centre) x GetRadius (vt 0x60 -> Object::Get2DRadius: the larger half extent x/z x

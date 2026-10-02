@@ -20,6 +20,7 @@
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/NightLights.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
@@ -286,9 +287,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    const auto* draw = registry.TryGet<const DrawPosition>(entity);
 		    const auto& drawRotation = draw != nullptr ? draw->rotation : transform.rotation;
 		    const auto& drawPosition = draw != nullptr ? draw->position : transform.position;
-		    auto modelMatrix = glm::mat4(drawRotation);
-		    modelMatrix = glm::translate(modelMatrix, drawPosition * drawRotation);
-		    modelMatrix = glm::scale(modelMatrix, transform.scale);
+		    // T(p) R S with the position straight into the translation, as every Set* of the original (0x423195,
+		    // 0x6382B7, 0x607606). It was R T(p R) S, whose translation is R R^T p: a few ulp off p for a rotation, but
+		    // far from it for the matrices that are not one (the hand's bands while they fly, HandMagicFX SetTransform;
+		    // the props of villagers on a slope, CarriedProps; the map shield between two turns, DrawPhysical)
+		    auto modelMatrix = openblack::lh_matrix::Model(drawPosition, drawRotation, transform.scale);
 		    // the one-shot orb is drawn turned to the camera (fn_00518720, Magic/Core/OneOffSpellSeed.cpp)
 		    if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
 		    {
@@ -395,6 +398,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		        transform.rotation[1].z == 0.0f)
 		    {
 			    const glm::vec3 away(tree->bendDirection.x, 0.0f, tree->bendDirection.y);
+			    // (inferido) the turn of Tree::Draw 0x74B016 is not checked against this +angle about up x away
 			    const auto bend =
 			        glm::mat3(glm::rotate(glm::mat4(1.0f), tree->bendAngle, glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), away)));
 			    auto& instance = _renderContext.instanceUniforms[idx];

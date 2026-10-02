@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "3D/Billboard.h"
+#include "3D/ObjectMatrix.h"
 #include "Camera/Camera.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -34,14 +35,6 @@ struct OrientData
 	glm::vec3 velocity {0.0f};
 	float rate {0.0f};
 };
-
-/// AtomCore::SetAngleY 0x674360: rows (c, 0, s), (0, 1, 0), (-s, 0, c), the rows being the columns here
-glm::mat3 AngleY(float angle)
-{
-	const float c = std::cos(angle);
-	const float s = std::sin(angle);
-	return {glm::vec3(c, 0.0f, s), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-s, 0.0f, c)};
-}
 
 /// UR_OrientSpriteWithVelocity::ModifyAtomCore 0x69A790 (DefineProperties 0x6AC610: +0x20 SmoothFactor,
 /// +0x24 ProportionDefault)
@@ -79,7 +72,7 @@ public:
 		}
 		const auto& camera = Locator::camera::value();
 		// SetAngleY(atan2(-y, x) + pi / 2) ([0x8C78D8]), billboard::ScreenVelocity
-		atom.rotation = AngleY(graphics::billboard::ScreenVelocity(u, camera.GetRight(), camera.GetUp()));
+		atom.rotation = lh_matrix::AngleY(graphics::billboard::ScreenVelocity(u, camera.GetRight(), camera.GetUp()));
 		return true;
 	}
 	float smoothFactor, proportionDefault;

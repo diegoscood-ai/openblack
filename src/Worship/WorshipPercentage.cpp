@@ -72,23 +72,18 @@ entt::entity TotemOf(entt::entity town)
 	return found;
 }
 
-/// TotemStatue::SetWorshipPercentage 0x738270: a change of more than 0.001 ms moves the Zoomer in |change| x 5200 ms,
-/// else it jumps
+/// TotemStatue::SetWorshipPercentage 0x738270: the Zoomer +0x9C moves in |change| x 5200 [0x999A98] ms, and the Zoomer
+/// runs in milliseconds (TotemStatue::Draw 0x738960 updates it with ms): the time is given in ms, not in seconds, which
+/// matters to the threshold 0.001 [0x8AA3B0] (0x738293) and to SetInverse's clamp (T < 0.0493 ms, not s). The code is
+/// an inline copy of 0x407D60 (0x7382FC..), threshold included
 void SetTotemPercentage(entt::entity totem, float percentage)
 {
 	auto& registry = Registry();
 	auto& worship = registry.TryGet<TotemWorship>(totem) != nullptr ? registry.Get<TotemWorship>(totem)
 	                                                                 : registry.Assign<TotemWorship>(totem);
-	const float milliseconds = std::abs(worship.percentage - percentage) * 5200.0f;
+	const float milliseconds = std::abs(worship.percentage - percentage) * 5200.0f; // 0x73827A..0x73828D
 	worship.percentage = percentage;
-	if (milliseconds < 0.001f)
-	{
-		worship.rise.SetPosition(percentage);
-	}
-	else
-	{
-		worship.rise.SetDestinationWithSpeedAndTime(percentage, 0.0f, milliseconds * 0.001f);
-	}
+	worship.rise.SetDestinationWithSpeedAndTime(percentage, 0.0f, milliseconds);
 }
 
 std::vector<entt::entity> VillagersOf(entt::entity town)
@@ -320,7 +315,9 @@ void percentage::UpdateTotems(float seconds)
 	bool changed = false;
 	registry.Each<TotemStatue, TotemWorship, Transform>(
 	    [&](entt::entity, TotemStatue& statue, TotemWorship& worship, Transform& plinth) {
-		    worship.rise.Update(seconds);
+		    // 0x738967..0x7389B5: the dt in ms. (aproximado) the original's is the integer ms of the game clock minus
+		    // +0xD0 (fild qword 0x7389B1), here the frame's seconds x 1000
+		    worship.rise.Update(seconds * 1000.0f);
 		    const float rise = TotemStatue::k_WorshipRise * worship.rise.value;
 		    if (rise == statue.rise)
 		    {

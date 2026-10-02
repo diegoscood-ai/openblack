@@ -12,6 +12,7 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "3D/AllMeshes.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/CutByPlane.h"
 #include "ECS/Components/Mesh.h"
@@ -35,7 +36,7 @@ entt::entity SharkArchetype::Create(const glm::vec3& position, float yAngleRadia
 
 	// 0x774CA0: SetScale(GetScale() * 2); the matrix Scale(2) . Translate(x, GetAltitude + relY, z) . RotateY(angle).
 	// (info.dat's mesh 370 MSH_O_LARGE_FISH_DEAD of MobileObject 24 is not used.)
-	registry.Assign<Transform>(entity, position, glm::eulerAngleY(-yAngleRadians), glm::vec3(scale * 2.0f));
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale * 2.0f));
 	registry.Assign<Mesh>(entity, resources::HashIdentifier(MeshId::SharkBoned), static_cast<int8_t>(0),
 	                      static_cast<int8_t>(1));
 	// SetAnim(AnimPack[129]); the time advances in fn_00774E30 by g_game_time_inc, wrapped (clip flag 0x100)

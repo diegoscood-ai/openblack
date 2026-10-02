@@ -28,6 +28,7 @@
 #include "3D/AllMeshes.h"
 #include "3D/L3DAnim.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Audio/Audio.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/DynamicShadow.h"
@@ -157,10 +158,10 @@ float Altitude(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// LH RotateY(angle) of a row matrix, as the glm matrix of the same transform
+/// LHMatrix::RotateY(angle) 0x5198F0 of a row matrix as a factor on the right (M RotY = lh_matrix::RotateY(M, angle))
 glm::mat4 RotY(float angle)
 {
-	return glm::eulerAngleY(-angle);
+	return glm::mat4(lh_matrix::AngleY(angle));
 }
 
 entt::entity MakeObject(MeshId mesh, uint32_t clip)

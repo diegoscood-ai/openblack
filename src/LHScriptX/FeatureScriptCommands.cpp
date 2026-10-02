@@ -20,6 +20,7 @@
 
 #include "3D/DayNightClock.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/GUtilsDistance.h"
@@ -281,7 +282,7 @@ const std::array<const ScriptCommandSignature, 106> FeatureScriptCommands::k_Sig
 
 inline glm::mat4 GetRotation(int rotation)
 {
-	return glm::eulerAngleY(static_cast<float>(rotation) * -0.001f);
+	return glm::mat4(lh_matrix::AngleY(static_cast<float>(rotation) * 0.001f));
 }
 
 inline glm::vec3 GetSize(int size)

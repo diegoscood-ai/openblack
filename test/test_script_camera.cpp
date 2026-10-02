@@ -108,7 +108,7 @@ TEST(ScriptCamera, DiscOfTheWorld)
 	script_camera::MovePosition({2560 + 7000, 50, 2560}, 1.0f);
 	Frames(1, 0.01f);
 	// 0x44222C..0x44232A: the destination pulled back to d / (|d| 0.000285796) + centre in 3 s
-	const auto destination = script_camera::Get().position.Destination();
+	const auto destination = script_camera::Get().position.GetDestination();
 	const float d = std::sqrt(7000.0f * 7000.0f + 50.0f * 50.0f);
 	EXPECT_NEAR(destination.x, 2560.0f + 7000.0f / (d * script_camera::k_DiscScale), 0.05f);
 	EXPECT_NEAR(destination.y, 50.0f / (d * script_camera::k_DiscScale), 0.01f);

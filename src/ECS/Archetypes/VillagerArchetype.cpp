@@ -17,6 +17,7 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/ObjectMatrix.h"
 #include "ECS/DetailMeshes.h"
 #include "ECS/VillagerSpeed.h"
 #include "ECS/SeaCells.h"
@@ -52,7 +53,8 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	// Villager::Create 0x74FBE0: the first draw (GameRand(10) <= 1 tries a SpecialVillager; TODO(V14))
 	ecs::villager::RollSpecialVillager();
 
-	registry.Assign<Transform>(entity, position, glm::eulerAngleY(glm::radians(180.0f)), glm::vec3(1.0));
+	// (inferido) the first angle of Villager::Create 0x74FBE0 -> ctor 0x74F950 is not read: kept at glm's +pi
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(-glm::radians(180.0f)), glm::vec3(1.0));
 	registry.Assign<Mobile>(entity);
 	// Living::Living 0x5EBEC0: SetLife(info.life); the rest of Villager comes from the constructor below
 	auto& villager = registry.Assign<Villager>(entity);

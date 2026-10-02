@@ -37,6 +37,7 @@
 #include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
+#include "3D/ObjectMatrix.h"
 #include "3D/SkyWeather.h"
 #include "3D/NightLights.h"
 #include "3D/LandBlock.h"
@@ -802,8 +803,7 @@ void Renderer::DrawRiverFootprints(bgfx::ViewId viewId, bool channel) const
 	    [&matrices, channel](const ecs::components::StreamFootprint& footprint, const ecs::components::Transform& transform) {
 		    if (footprint.channel == channel)
 		    {
-			    matrices.push_back(glm::translate(transform.position) * glm::mat4(transform.rotation) *
-			                       glm::scale(transform.scale));
+			    matrices.push_back(lh_matrix::Model(transform));
 		    }
 	    });
 	const auto count = static_cast<uint32_t>(matrices.size());
@@ -1014,6 +1014,7 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 	}
 	// A vertical quad at (-30000, y, -30000) turned by 3*pi/4 about Y, i.e. facing the island
 	const glm::vec3 position(-30000.0f, height, -30000.0f);
+	// (inferido) fn_0086C020's turn (+3 pi / 4 in the original's sense = glm's -3 pi / 4) is not read
 	auto model = glm::translate(position) * glm::rotate(-3.0f * glm::pi<float>() / 4.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 	const auto& texture = *textures.Handle(k_SunTexture);
 	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none; the glare with
@@ -1833,8 +1834,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    }
 		    const auto* draw = registry.TryGet<const ecs::components::DrawPosition>(entity);
 		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2
-		    auto model = glm::translate(draw != nullptr ? draw->position : transform.position) *
-		                 glm::mat4(draw != nullptr ? draw->rotation : transform.rotation) * glm::scale(transform.scale);
+		    auto model = lh_matrix::Model(draw != nullptr ? draw->position : transform.position,
+		                                  draw != nullptr ? draw->rotation : transform.rotation, transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 			    p.y = land_morph::OnGround(ground, glm::vec2(p.x, p.z), land_morph::k_BlobLift);
@@ -1842,7 +1843,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    };
 		    const auto a = foot(21);
 		    const auto b = foot(18);
-		    // the light offset projected onto the land's plane: D = O s - ((O s) . n) n
+		    // the light offset projected onto the land's plane: D = O s - ((O s) . n) n, n = LH3DIsland::GetNormal 0x803630
+		    // (fn_00812170 0x8126FD)
 		    const auto n = island.GetNormalAt(glm::vec2(transform.position.x, transform.position.z));
 		    const auto os = o * transform.scale.x;
 		    const auto d = os - glm::dot(os, n) * n;
@@ -1864,7 +1866,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    {
 			    return;
 		    }
-		    const auto model = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		    const auto model = lh_matrix::Model(transform);
+		    // LH3DIsland::GetNormal 0x803630 (fn_00812170 0x812859)
 		    const auto n = island.GetNormalAt(glm::vec2(transform.position.x, transform.position.z));
 		    const auto os = o * transform.scale.x;
 		    const auto d = os - glm::dot(os, n) * n;

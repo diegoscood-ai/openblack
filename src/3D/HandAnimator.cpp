@@ -18,6 +18,8 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/ObjectMatrix.h"
+
 using namespace openblack;
 
 namespace
@@ -60,20 +62,12 @@ Affine MulAffine(const Affine& a, const Affine& b)
 	return {Mul3(a.r, b.r), RowVecMul(a.t, b.r) + b.t};
 }
 
-/// 0x7FAC10 in runblack.exe. CAnim passes the stored float3 (x, y, z) as Y, X, Z.
+/// LHMatrix::SetYXZMatrixOnly 0x7FAC10 (lh_matrix::YXZ) by rows. CAnim passes the stored float3 (x, y, z) as Y, X, Z
+/// (pushes v2, v0, v1, 0x85F28E..0x85F29D).
 R3 LionheadEulerYXZ(const glm::vec3& v)
 {
-	const float ca = std::cos(v.y);
-	const float sa = std::sin(v.y);
-	const float cb = std::cos(v.x);
-	const float sb = std::sin(v.x);
-	const float cc = std::cos(v.z);
-	const float sc = std::sin(v.z);
-	return {
-	    cc * ca - sc * sb * sa, -sc * cb, sc * sb * ca + cc * sa, //
-	    cc * sa * sb + sc * ca, cc * cb,  sc * sa - cc * ca * sb, //
-	    -cb * sa,               sb,       cb * ca,                //
-	};
+	const auto m = lh_matrix::YXZ(v.y, v.x, v.z);
+	return {m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]};
 }
 
 R3 NormalizeRows(R3 r)

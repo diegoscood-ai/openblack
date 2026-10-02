@@ -19,6 +19,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Systems/Implementations/HandGrain.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
@@ -119,27 +120,10 @@ public:
 		{
 			speed = std::clamp(speed, -maxTumbleSpeed, maxTumbleSpeed);
 		}
-		const float angle = speed * effect.GetDt();
-		const float c = std::cos(angle);
-		const float s = std::sin(angle);
-		// the rows of the atom's matrix (+0x44) are its axes, glm's columns here
+		const float angle = speed * effect.GetDt(); // [esp + 0x14] (0x6A626C)
+		// every row's (x, y) about Z when |vz| < |vx| (0x6A6293..0x6A62AC), else its (y, z) about X (0x6A6317..0x6A6330)
 		const bool aboutZ = std::abs(v.z) < std::abs(v.x);
-		for (int r = 0; r < 3; ++r)
-		{
-			auto& axis = atom.rotation[r];
-			if (aboutZ)
-			{
-				const float x = axis.x;
-				axis.x = c * x + s * axis.y;
-				axis.y = c * axis.y - s * x;
-			}
-			else
-			{
-				const float y = axis.y;
-				axis.y = c * y + s * axis.z;
-				axis.z = c * axis.z - s * y;
-			}
-		}
+		openblack::lh_matrix::TurnRows(atom.rotation, aboutZ ? 2 : 0, angle);
 		return true;
 	}
 	float tumbleSpeed;

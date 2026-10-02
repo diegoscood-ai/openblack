@@ -18,7 +18,7 @@
 #include <glm/vec3.hpp>
 
 #include "CameraModel.h"
-#include "Common/ZoomInterpolator.h"
+#include "Common/Zoomer.h"
 #include "ECS/Components/Transform.h"
 
 namespace openblack
@@ -66,26 +66,13 @@ public:
 	Camera& SetOrigin(const glm::vec3& position);
 	Camera& SetFocus(const glm::vec3& position);
 
-	Camera& SetOriginInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1);
-	Camera& SetFocusInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1);
-
-	[[nodiscard]] std::chrono::microseconds GetInterpolatorTime() const { return _interpolatorTime; }
-	[[nodiscard]] float GetInterpolatorT() const
-	{
-		const auto duration = GetInterpolatorDuration();
-		return (duration == decltype(duration)::zero())
-		           ? 1.0f
-		           : static_cast<float>(GetInterpolatorTime().count()) / GetInterpolatorDuration().count();
-	}
-	[[nodiscard]] std::chrono::microseconds GetInterpolatorDuration() const { return _interpolatorDuration; }
-
-	Camera& SetInterpolatorTime(std::chrono::microseconds t);
-	Camera& AddInterpolatorTime(std::chrono::microseconds t) { return SetInterpolatorTime(t + GetInterpolatorTime()); }
-	Camera& SetInterpolatorT(float t)
-	{
-		return SetInterpolatorTime(std::chrono::duration_cast<std::chrono::microseconds>(t * GetInterpolatorDuration()));
-	}
-	Camera& SetInterpolatorDuration(std::chrono::microseconds duration);
+	/// GCamera's Zoomer3d of the position (+0x118) and of the focus (+0x88)
+	[[nodiscard]] Zoomer3d& GetOriginZoomer() { return _origin; }
+	[[nodiscard]] Zoomer3d& GetFocusZoomer() { return _focus; }
+	[[nodiscard]] const Zoomer3d& GetOriginZoomer() const { return _origin; }
+	[[nodiscard]] const Zoomer3d& GetFocusZoomer() const { return _focus; }
+	/// The time of the zoomers since their last destination (the position's x Zoomer, CurrentTime +0x14)
+	[[nodiscard]] std::chrono::microseconds GetInterpolatorTime() const;
 
 	Camera& SetProjectionMatrixPerspective(float xFov, float aspect, float nearClip, float farClip);
 	Camera& SetProjectionMatrix(const glm::mat4& projection);
@@ -102,6 +89,10 @@ public:
 	                          Interpolation interpolation = Camera::Interpolation::Current) const;
 
 	void Update(std::chrono::microseconds dt);
+	/// The zoomers' part of GCamera::Update 0x441F80, after the mode's Update (vt+8, 0x441FD9): the mode's new
+	/// destinations (CameraModeNew3::Update sets them every frame with Zoomer3d::SetDestinationWithTime 0x44E760,
+	/// 0x4604A4..0x4604D2), then each Zoomer::Update(min(dt, 0.1 [0x8AB22C])) (0x441FB0..0x442029)
+	void UpdateZoomers(const std::optional<CameraModel::CameraInterpolationUpdateInfo>& updateInfo, float seconds);
 	void HandleActions(std::chrono::microseconds dt);
 
 	[[nodiscard]] glm::mat4 GetRotationMatrix() const;
@@ -111,11 +102,8 @@ public:
 	[[nodiscard]] const CameraModel& GetModel() const { return *_model; }
 
 protected:
-	ZoomInterpolator3f _originInterpolators;
-	ZoomInterpolator3f _focusInterpolators;
-	// As a value between 0 and _interpolatorDuration
-	std::chrono::microseconds _interpolatorTime = std::chrono::microseconds::zero();
-	std::chrono::microseconds _interpolatorDuration = std::chrono::microseconds::zero();
+	Zoomer3d _origin; ///< GCamera +0x118
+	Zoomer3d _focus;  ///< GCamera +0x88
 	float _xFov = 0.0f; // TODO(#707): This should be a zoomer for animations
 	glm::mat4 _projectionMatrix = glm::mat4 {1.0f};
 	glm::mat4 _projectionMatrixReversedZ = glm::mat4 {1.0f};

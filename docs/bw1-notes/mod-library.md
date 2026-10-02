@@ -618,8 +618,9 @@ Lo que sigue describe las claves por su nombre, igual en los dos formatos.
 
 #### Altura y agua
 
-- **Altura** (29-09-2026, estudio en `dev\tmp_dis\heights`): `GetHeightAt` y `GetNormalAt` **aplanan** junto al mar
-  (si la esquina base de la celda vale ≤ 4, las esquinas ≤ 3 cuentan como 0: lo que usan las físicas y vs_object),
+- **Altura** (29-09-2026, estudio en `dev\tmp_dis\heights`): `GetHeightAt` **aplana** junto al mar
+  (si la esquina base de la celda vale ≤ 4, las esquinas ≤ 3 cuentan como 0: lo que usan las físicas y vs_object;
+  `GetNormalAt` ya no aplana desde 2026-10-02: es `LH3DIsland::GetNormal` 0x803630, con las alturas en bruto),
   pero la malla del terreno que se dibuja no. Las plantas usan `GetUnflattenedHeightAt` y una normal por diferencias
   centrales de esa altura (`GroundNormal`): antes quedaban hasta 2 unidades bajo el suelo dibujado en la primera
   franja de tierra y toda la playa daba altura 0.

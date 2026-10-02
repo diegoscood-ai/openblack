@@ -490,6 +490,7 @@ void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
 		}
 
 		const auto bestAngleIndex = std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()));
+		// CameraModeNew3::FindBestAngle 0x459144: LH3DIsland::GetNormal 0x803630, then point + n (0x459149)
 		const auto normal = Locator::terrainSystem::value().GetNormalAt(glm::xz(point));
 		const auto offsetPoint = point + normal;
 

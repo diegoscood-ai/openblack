@@ -35,8 +35,8 @@ class CameraWayRunner;
 ///   does not move the camera and no other task gets it (CameraModeScript::CanExit 0x461B70). Releasing it
 ///   (fn_006ECD70) gives the player a new CameraModeNew3 that starts where the script left the camera.
 /// - openblack has no mode stack: the player's mode is Camera + DefaultWorldCameraModel, and this module stands for
-///   GCamera's zoomers only while a script mode lives (the player's camera is not built on Zoomers, inferred to make
-///   no visible difference: the hand-over copies the drawn camera both ways).
+///   GCamera's zoomers only while a script mode lives (the player's Camera has its own Zoomer3d, not these: inferred
+///   to make no visible difference, the hand-over copies the drawn camera both ways).
 namespace openblack::script_camera
 {
 
@@ -57,22 +57,11 @@ constexpr float k_GroundClearance = 1.0f;
 /// SET_CAMERA_LENS 0x6EE2E0 / MOVE_CAMERA_LENS 0x6EE280: degrees to radians [0x92B20C]
 constexpr float k_DegreesToRadians = 0.0174532924f; // 0x3C8EFA35
 
-struct Vec3Zoomer
-{
-	std::array<Zoomer, 3> axis;
-
-	void SetPosition(const glm::vec3& v);
-	void SetDestination(const glm::vec3& v, float seconds); // SetDestinationWithSpeedAndTime(v.i, 0, seconds)
-	void Update(float seconds);
-	[[nodiscard]] glm::vec3 Value() const;
-	[[nodiscard]] glm::vec3 Destination() const;
-};
-
 /// The state: GCamera's zoomers, the script mode and its camera path
 struct State
 {
-	Vec3Zoomer position; ///< GCamera +0x118
-	Vec3Zoomer focus;    ///< GCamera +0x88
+	Zoomer3d position; ///< GCamera +0x118
+	Zoomer3d focus;    ///< GCamera +0x88
 	Zoomer fov;          ///< GCamera +0x1A8, radians
 	/// The CameraModeScript is alive (+0x48 = 1 from the ctor 0x461180; Delete 0x4611E0 sets 0)
 	bool scriptMode = false;

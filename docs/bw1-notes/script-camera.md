@@ -88,8 +88,9 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 - `CHLApi.cpp`: los opcodes de la tabla; `StartCameraControl` pasa `cameraTaken = script_camera::Begin(...)`;
   END_CAMERA_CONTROL y la parada de la tarea (Game.cpp) llaman a `script_camera::End`. Al cargar mapa, `Reset`.
 - **(aproximado)** Al empezar el modo, los zoomers toman la cámara dibujada (en el original ya eran ella y seguían hacia
-  el destino del jugador). Sin modo de guion, 035 compara la cámara del jugador con su destino (sus interpoladores no
-  son zoomers). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
+  el destino del jugador). Sin modo de guion, 035 compara la cámara del jugador con su destino (desde 2026-10-02 la
+  cámara del jugador también va en `Zoomer3d`, pero son otros, no los de `script_camera`: **(inferido)** el original
+  tiene una sola GCamera). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
   reloj de fotograma anterior (el original actualiza la cámara tras los turnos).
 - **(inferido)** 284/286 sin modo de guion fijan también la cámara del jugador.
 - El FOV va a `config.cameraXFov` (grados) solo cuando su zoomer cambia: un FOV propio del jugador dura hasta que un

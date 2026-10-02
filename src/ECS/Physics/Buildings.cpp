@@ -21,6 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fragment.h"
@@ -60,8 +61,7 @@ void RedrawBuilding(entt::entity building, BuildingDamage& damage)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<const Transform>(building);
-	const auto toWorld = glm::translate(glm::mat4(1.0f), transform.position) * glm::mat4(transform.rotation) *
-	                     glm::scale(glm::mat4(1.0f), transform.scale);
+	const auto toWorld = lh_matrix::Model(transform);
 	// Abode::Draw: the FragMesh, then the intact model partly built at GetPercentForDrawBuilding (no repair yet: the
 	// percent stays where the last hit left it, 1/11)
 	const auto* life = registry.TryGet<const Life>(building);

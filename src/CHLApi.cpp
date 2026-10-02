@@ -1039,8 +1039,8 @@ void HasCameraArrived() // 035 HAS_CAMERA_ARRIVED
 	}
 	// GScript::HasCameraArrived 0x6ED170 (1 in a network game, not ported) -> GCamera::Arrived 0x443050: the current
 	// mode's vt+0x34. CameraModeScript::Arrived 0x461B40; the player's CameraModeNew3 keeps CameraMode::Arrived 0x441700
-	// (its vtable 0x8C7BFC +0x34), the same squared distance 0.001 to the destinations: here the player's camera
-	// interpolators (aproximado: they are not the original's zoomers)
+	// (its vtable 0x8C7BFC +0x34), the same squared distance 0.001 to the destinations: here the player's Camera
+	// zoomers (Zoomer3d, GCamera +0x118 / +0x88; (inferido) the original has one GCamera for both modes)
 	if (script_camera::Active())
 	{
 		Pushb(script_camera::ScriptArrived());
@@ -3314,7 +3314,8 @@ void RestoreCameraDetails() // 284 RESTORE_CAMERA_DETAILS
 	script_camera::SetPositionAndFocus(state.storedPosition, state.storedFocus);
 	if (!script_camera::Active())
 	{
-		// (inferido) the player's mode: openblack's player camera is not on GCamera's zoomers, so it is set here too
+		// (inferido) the player's mode: openblack's player Camera has its own zoomers (not script_camera's), so it is set
+		// here too
 		Locator::camera::value().SetOrigin(state.storedPosition).SetFocus(state.storedFocus);
 	}
 }

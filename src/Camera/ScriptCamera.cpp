@@ -27,41 +27,6 @@
 namespace openblack::script_camera
 {
 
-void Vec3Zoomer::SetPosition(const glm::vec3& v)
-{
-	for (int i = 0; i < 3; ++i)
-	{
-		axis[i].SetPosition(v[i]);
-	}
-}
-
-void Vec3Zoomer::SetDestination(const glm::vec3& v, float seconds)
-{
-	// 0x407D60 for x and the same code inline for y and z (0x46147B..0x4616DC, 0x46173B..0x46199C)
-	for (int i = 0; i < 3; ++i)
-	{
-		axis[i].SetDestinationWithSpeedAndTime(v[i], 0.0f, seconds);
-	}
-}
-
-void Vec3Zoomer::Update(float seconds)
-{
-	for (auto& zoomer : axis)
-	{
-		zoomer.Update(seconds); // Zoomer::Update 0x442720
-	}
-}
-
-glm::vec3 Vec3Zoomer::Value() const
-{
-	return {axis[0].value, axis[1].value, axis[2].value};
-}
-
-glm::vec3 Vec3Zoomer::Destination() const
-{
-	return {axis[0].destination, axis[1].destination, axis[2].destination};
-}
-
 State::State()
 {
 	fov.SetPosition(k_DefaultFov);
@@ -150,14 +115,14 @@ void MovePosition(const glm::vec3& position, float seconds)
 {
 	auto& state = Get();
 	DropPath(state);
-	state.position.SetDestination(position, seconds);
+	state.position.SetDestinationWithTime(position, seconds); // 0x46173B..0x46199C
 }
 
 void MoveFocus(const glm::vec3& focus, float seconds)
 {
 	auto& state = Get();
 	DropPath(state);
-	state.focus.SetDestination(focus, seconds);
+	state.focus.SetDestinationWithTime(focus, seconds); // 0x46147B..0x4616DC
 }
 
 void SetPositionAndFocus(const glm::vec3& position, const glm::vec3& focus)
@@ -195,8 +160,8 @@ bool ScriptArrived()
 		return state.track->position.duration <= state.pathMs;
 	}
 	// CameraMode::Arrived 0x441700..0x441835
-	const auto dp = state.position.Value() - state.position.Destination();
-	const auto df = state.focus.Value() - state.focus.Destination();
+	const auto dp = state.position.GetCurrentValue() - state.position.GetDestination();
+	const auto df = state.focus.GetCurrentValue() - state.focus.GetDestination();
 	return glm::dot(dp, dp) < k_ArrivedDistanceSquared && glm::dot(df, df) < k_ArrivedDistanceSquared;
 }
 
@@ -227,10 +192,10 @@ void Frame(float cameraSeconds, uint32_t gameMs, float gameSeconds)
 	state.focus.Update(dt);
 	// 0x44222C..0x44232A: the position's destination kept inside the disc of the world
 	const glm::vec3 centre(k_DiscCentre, 0.0f, k_DiscCentre);
-	const auto d = state.position.Destination() - centre;
+	const auto d = state.position.GetDestination() - centre;
 	if (const float d2 = glm::dot(d, d); d2 > k_DiscRadiusSquared)
 	{
-		state.position.SetDestination(d / (std::sqrt(d2) * k_DiscScale) + centre, k_DiscSeconds);
+		state.position.SetDestinationWithTime(d / (std::sqrt(d2) * k_DiscScale) + centre, k_DiscSeconds);
 	}
 	state.fov.Update(gameSeconds); // 0x4424F6..0x4425C3: g_game_time_inc * 0.001, not the camera's seconds
 }
@@ -240,7 +205,7 @@ Drawn DrawnCamera(const std::function<float(float, float)>& groundAt)
 	const auto& state = Get();
 	static glm::vec3 s_goodOrigin(1000.0f, 0.0f, 1000.0f); // 0xC59B48
 	static glm::vec3 s_goodFocus(1000.0f, 0.0f, 1000.0f);  // 0xC59B38
-	Drawn drawn {state.position.Value(), state.focus.Value()};
+	Drawn drawn {state.position.GetCurrentValue(), state.focus.GetCurrentValue()};
 	// 0x4420D9..0x4421D5: a NaN component -> the last good one
 	for (int i = 0; i < 3; ++i)
 	{

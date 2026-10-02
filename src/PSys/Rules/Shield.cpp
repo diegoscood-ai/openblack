@@ -386,7 +386,10 @@ public:
 				if (lengths > 0.0f && glm::dot(axis, axis) > 0.0f)
 				{
 					const float angle = std::acos(std::clamp(glm::dot(last, p) / lengths, -1.0f, 1.0f));
-					// fn_0057D2B0: the rotation about the axis applied to the matrix (every row)
+					// fn_0057D2B0 (0x6A3D7C): the quaternion (cos(a/2), sin(a/2) n) of fn_0057D1D0, its matrix by fn_0057D0B0
+					// (m1 = xy + wz: the rows of the right-handed turn by +a, as glm::rotate(+a, n)) and the rows times it
+					// (fn_007FAFF0: r_k' = r_k M), so every row turns by +a about n = cross(last, p) (fn_006A3E20 a x b).
+					// (aproximado) glm::rotate is not the quaternion's cell arithmetic: the last bits
 					const glm::vec3 n = glm::normalize(axis);
 					for (int i = 0; i < 3; ++i)
 					{

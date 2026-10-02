@@ -30,7 +30,9 @@
 #include "3D/BlockTexture.h"
 #include "3D/CoastAlpha.h"
 #include "3D/LandBlock.h"
+#include "3D/LandNormal.h"
 #include "Dynamics/LandBlockBulletMeshInterface.h"
+#include "ECS/MapCoords.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/Argb4444.h"
@@ -352,17 +354,22 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening, bool meshFlattenin
 	// integer arithmetic. MapCoords are 16.16 fixed point with 10 units per cell; each cell is split into two triangles
 	// along the diagonal chosen by its split bit, and the fourth corner is extrapolated from the other three so that
 	// the bilinear blend below is planar on that triangle.
-	const auto fixedX = static_cast<int64_t>(vec.x * 6553.6f);
-	const auto fixedZ = static_cast<int64_t>(vec.y * 6553.6f);
-	const int64_t cellsPerSide = GetCellsPerSide();
-	if (fixedX < 0 || fixedZ < 0 || (fixedX >> 16) >= cellsPerSide || (fixedZ >> 16) >= cellsPerSide)
+	// The MapCoords of the point: ToFixed (x 6553.6f [0x8AC400], __ftol), as GetNormalAt
+	const int32_t fixedX = ecs::map_coords::ToFixed(vec.x);
+	const int32_t fixedZ = ecs::map_coords::ToFixed(vec.y);
+	// the high words read signed, 0 when negative or past the side (0x803095..0x8030B5, against 0x200; openblack's
+	// islands may be larger than 512)
+	const int32_t signedX = ecs::map_coords::SignedCellOf(fixedX);
+	const int32_t signedZ = ecs::map_coords::SignedCellOf(fixedZ);
+	const int32_t cellsPerSide = GetCellsPerSide();
+	if (signedX < 0 || signedZ < 0 || signedX >= cellsPerSide || signedZ >= cellsPerSide)
 	{
 		return 0.0f;
 	}
-	const auto cellX = static_cast<uint16_t>(fixedX >> 16);
-	const auto cellZ = static_cast<uint16_t>(fixedZ >> 16);
-	const auto fracX = static_cast<uint32_t>(fixedX & 0xFFFF);
-	const auto fracZ = static_cast<uint32_t>(fixedZ & 0xFFFF);
+	const auto cellX = static_cast<uint16_t>(signedX);
+	const auto cellZ = static_cast<uint16_t>(signedZ);
+	const auto fracX = static_cast<uint32_t>(fixedX) & 0xFFFFu;
+	const auto fracZ = static_cast<uint32_t>(fixedZ) & 0xFFFFu;
 
 	// The block stores 17 x 17 cells (one shared border row), so the neighbours are +1 (z) and +17 (x).
 	const auto mapCoordinates = glm::u16vec2(cellX, cellZ) >> static_cast<uint16_t>(0x4);
@@ -429,29 +436,32 @@ float LandIsland::HeightAt(glm::vec2 vec, bool seaFlattening, bool meshFlattenin
 
 glm::vec3 LandIsland::GetNormalAt(glm::vec2 vec) const
 {
-	const auto delta = 0.1f;
-	const auto posLeft = vec - glm::vec2(delta, 0.0f);
-	const auto posRight = vec + glm::vec2(delta, 0.0f);
-	const auto posBack = vec - glm::vec2(0.0f, delta);
-	const auto posForward = vec + glm::vec2(0.0f, delta);
-
-	const auto heightLeft = GetHeightAt(posLeft);
-	const auto heightRight = GetHeightAt(posRight);
-	const auto heightBack = GetHeightAt(posBack);
-	const auto heightForward = GetHeightAt(posForward);
-
-	const auto slopeLeftRight = glm::vec3(2.0f * delta, heightRight - heightLeft, 0.0f);
-	const auto slopeBackForward = glm::vec3(0.0f, heightForward - heightBack, 2.0f * delta);
-
-	auto normal = glm::cross(slopeBackForward, slopeLeftRight);
-	normal = glm::normalize(normal);
-
-	if (normal.y < 0)
+	// LH3DIsland::GetNormal 0x803630 of the MapCoords of the point: every caller builds it with ftol(x 65536 [0x8AC408]
+	// 0.1 [0x8AC404]) (fn_004427B0, 0x8126C0, 0x459105, 0x7FCBA2), and 65536 0.1f is exactly 6553.6f: ToFixed
+	const glm::vec3 up(0.0f, 1.0f, 0.0f);
+	const int32_t fixedX = ecs::map_coords::ToFixed(vec.x);
+	const int32_t fixedZ = ecs::map_coords::ToFixed(vec.y);
+	// the high words read signed, against 0x200 (0x80363B..0x80366B); openblack's islands may be larger than 512
+	const int32_t cellX = ecs::map_coords::SignedCellOf(fixedX);
+	const int32_t cellZ = ecs::map_coords::SignedCellOf(fixedZ);
+	const int32_t cellsPerSide = GetCellsPerSide();
+	if (cellX < 0 || cellX >= cellsPerSide || cellZ < 0 || cellZ >= cellsPerSide)
 	{
-		normal = -normal;
+		return up;
 	}
-
-	return normal;
+	// GetCell 0x516AA0: NULL where g_index_block is 0 (0x516ADC) -> up (0x803681..0x803697)
+	const auto blockIndex = BlockIndexAt(glm::u16vec2(cellX, cellZ) >> static_cast<uint16_t>(0x4));
+	if (blockIndex == 0)
+	{
+		return up;
+	}
+	// the cell inside its block of 17 x 17 (the shared border row): +0x11 cells = x + 1, +1 = z + 1 (the cell is 8 bytes,
+	// so the altitudes at +4, +0xC, +0x8C, +0x94); raw altitudes, no sea flattening
+	const auto* cells = _landBlocks[blockIndex - 1].GetCells();
+	const auto* base = &cells[static_cast<uint32_t>(cellX & 0xF) * 0x11u + static_cast<uint32_t>(cellZ & 0xF)];
+	return land_normal::OfCell(static_cast<uint32_t>(fixedX) & 0xFFFFu, static_cast<uint32_t>(fixedZ) & 0xFFFFu,
+	                           base[0].properties.split, GetCellAltitude(base[0]), GetCellAltitude(base[1]),
+	                           GetCellAltitude(base[0x11]), GetCellAltitude(base[0x12]));
 }
 
 uint8_t LandIsland::GetNoise(glm::u8vec2 pos)

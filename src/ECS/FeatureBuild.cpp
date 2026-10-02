@@ -24,6 +24,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Archetypes/FeatureArchetype.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Feature.h"
@@ -77,8 +78,7 @@ void Redraw(entt::entity entity, Feature& feature)
 		{
 			// PartialBuild works in world space: back into the Feature's own
 			const auto& transform = registry.Get<const Transform>(entity);
-			const glm::mat4 toWorld = glm::translate(glm::mat4(1.0f), transform.position) * glm::mat4(transform.rotation) *
-			                          glm::scale(glm::mat4(1.0f), transform.scale);
+			const glm::mat4 toWorld = lh_matrix::Model(transform);
 			const glm::mat4 toLocal = glm::inverse(toWorld);
 			const glm::mat3 normals(glm::transpose(glm::inverse(glm::mat3(toLocal))));
 			for (auto& p : primitives)

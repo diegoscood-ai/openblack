@@ -9,15 +9,19 @@
 
 #include "DayNightClock.h"
 
+#include "SkyType.h"
+
 #include <algorithm>
 #include <cmath>
+
+#include "GameClock.h"
 
 using namespace openblack;
 
 namespace
 {
-// Game turn length in seconds, as passed by GGame::ProcessTurn
-constexpr float k_TurnSeconds = 0.1f;
+// Game turn length in seconds, as passed by GGame::ProcessTurn (0x54E6AE..0x54E6C3: [0xD01A3C] * 0.1, 0.1)
+constexpr float k_TurnSeconds = game_clock::k_TurnSeconds;
 
 float WrapHours(float t)
 {
@@ -75,16 +79,22 @@ void DayNightClock::Reset()
 
 void DayNightClock::SetCycle(float duration, float night, float change)
 {
-	// 1 / (hours per second) in tenths of a second: trunc(duration * 10 / 24); the day and night rates are the same
-	const auto tenths = static_cast<int>(duration * 0.416667f);
+	// 0x557625..0x557640: trunc(duration * 0.41666666f) with [0x8DF8F0] = 0x3ED55555 (10 / 24 in tenths of a second).
+	// The product stays in the x87 register before __ftol; with the FPU at 24 bits (D3D's default, inferido) that is
+	// the float product taken here, with 53 bits (the CRT's __setdefaultprecision 0x7CC96C) durations that are
+	// multiples of 2.4 would truncate one lower.
+	const auto tenths = static_cast<int>(duration * 0.41666666f);
+	// 0x557645..0x557685: [0xBF338C] = [0xBF3390] = 10 / n (0 for n = 0), the day and night rates are the same
 	_dayRate = tenths != 0 ? 10.0f / static_cast<float>(tenths) : 0.0f;
 	_nightRate = _dayRate;
 
+	// 0x55768F..0x5576E4: N = night 12, E = 12 change + N (kept as a float at [esp+8]), c = (E - N) * 0.25
+	// ([0x8AB3D4]) limited to N, SetDayNightTimes(N - c, c + N, E - c, E + c)
 	const float halfNight = night * 12.0f;
-	const float halfChange = change * 12.0f;
-	const float end = halfNight + halfChange;
-	const float ramp = std::min(halfChange * 0.25f, halfNight);
-	_times = {halfNight - ramp, halfNight + ramp, end - ramp, end + ramp};
+	const float end = change * 12.0f + halfNight;
+	const float ramp = std::min((end - halfNight) * 0.25f, halfNight);
+	_times = {halfNight - ramp, ramp + halfNight, end - ramp, end + ramp};
+	sky_type::SetThresholds(_times[0], _times[1], _times[2], _times[3]); // 0x5576E4 -> 0x869FA0
 }
 
 void DayNightClock::SetCycleFromMapEditor(float duration, float night, float change)
@@ -99,6 +109,9 @@ void DayNightClock::ForceScriptTime(float hour)
 	_moveSeconds = 0.0f;
 	SetTarget(ScriptToVisual(hour), 0.0f);
 	_visualTime = _target;
+	// fn_005E22A0 0x5E22CB: fn_0086A270, the sky type is sampled at once and the dome rebuilt whole. Its following
+	// call fn_005E1DE0 (0x5E22D3, reads [0xBF3378]) is not sky type and is not done here.
+	sky_type::Jump(_visualTime);
 }
 
 void DayNightClock::MoveScriptTime(float hour, float seconds)
@@ -176,22 +189,11 @@ float DayNightClock::VisualToScript(float hour) const
 
 float DayNightClock::Time2SkyType(float hour) const
 {
-	const float t = hour > 12.0f ? 24.0f - hour : hour;
-	if (t < _times[0])
-	{
-		return 2.0f;
-	}
-	if (t < _times[1])
-	{
-		return 2.0f - (t - _times[0]) / (_times[1] - _times[0]);
-	}
-	if (t < _times[2])
-	{
-		return 1.0f;
-	}
-	if (t < _times[3])
-	{
-		return 1.0f - (t - _times[2]) / (_times[3] - _times[2]);
-	}
-	return 0.0f;
+	// LH3DSky::Time2SkyType 0x86A1B0, on this clock's copy of the thresholds (the same as LH3DSky's after SetCycle)
+	return sky_type::At(hour, _times);
+}
+
+bool DayNightClock::IsVisualNight() const
+{
+	return sky_type::IsVisualNight(GetSkyType());
 }

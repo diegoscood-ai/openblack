@@ -23,10 +23,14 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/ReactionRecords.h"
+#include "ECS/Components/Spell.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -40,7 +44,6 @@ namespace
 {
 std::vector<reactions::Reaction> g_Reactions;
 uint32_t g_NextId = 1;
-uint32_t g_Turn = 0;
 /// between BeginTurn and EndTurn the map cells were rebuilt at the start of the turn (Game::GameLogicLoop)
 bool g_InTurn = false;
 std::array<reactions::LivingReactionHandler, 3> g_Handlers {};
@@ -56,40 +59,38 @@ reactions::Reaction* FindMutable(uint32_t id)
 	return it != g_Reactions.end() ? &*it : nullptr;
 }
 
-/// GUtils::Spiral 0x74D7E0: the next step of the square spiral
-struct Spiral
+/// MapCoords::InBounds 0x6042C0 (0x6E3E7A): the cell's unsigned high words inside the map (the island's cells per side,
+/// as ecs::sea_cells; out without a land)
+bool InMap(const ecs::map_coords::MapCoords& coords)
 {
-	int dir {1};
-	int count {1};
-	glm::ivec2 Next()
-	{
-		if (--count == 0)
-		{
-			++dir;
-			count = dir / 2;
-		}
-		static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-		return k_Steps[dir & 3];
-	}
-};
-
-/// In the map (the land's extent). (aproximado) The original tests MapCoords::InBounds 0x6042C0 (the cell under the
-/// map size in cells, g_game +0x59C8); this land-extent test with a strict ">" is openblack's.
-bool InBounds(glm::vec2 p)
-{
-	if (!Locator::terrainSystem::has_value())
-	{
-		return false;
-	}
-	const auto extent = Locator::terrainSystem::value().GetExtent();
-	return p.x > std::max(extent.minimum.x, 0.0f) && p.y > std::max(extent.minimum.y, 0.0f) && p.x < extent.maximum.x &&
-	       p.y < extent.maximum.y;
+	return Locator::terrainSystem::has_value() &&
+	       ecs::map_coords::InBounds(coords, Locator::terrainSystem::value().GetCellsPerSide());
 }
 
 glm::vec2 PosOf(entt::entity entity)
 {
 	const auto& position = Locator::entitiesRegistry::value().Get<const ecs::components::Transform>(entity).position;
 	return {position.x, position.z};
+}
+
+/// Reaction::GetPos 0x6E45C0 = its initiator's GetPos (GameThingWithPos +0x14), as MapCoords in metres (x, z and the
+/// altitude above the land in y). Most initiators are objects with a Transform (a world point); a Spell has no
+/// Transform in openblack and keeps its own position (components::Spell +0x14), and a spell IS the initiator of the
+/// shield reactions (REACTION 13 / 35 / 36, Magic/Spells/SpellShield) and of Spell +0x28. False: no position at all
+bool MapPosOf(entt::entity entity, glm::vec3& out)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* transform = registry.TryGet<const ecs::components::Transform>(entity); transform != nullptr)
+	{
+		out = magic::ToMap(transform->position);
+		return true;
+	}
+	if (const auto* spell = registry.TryGet<const ecs::components::Spell>(entity); spell != nullptr)
+	{
+		out = spell->position;
+		return true;
+	}
+	return false;
 }
 
 /// The Living class of an object of a cell's list (-1: not a Living)
@@ -125,7 +126,7 @@ uint32_t reactions::CreateReaction(entt::entity initiator, openblack::Reaction t
 	reaction.initiator = initiator;
 	reaction.type = type;
 	reaction.player = player;
-	reaction.turnCreated = stamp ? g_Turn : 0;
+	reaction.turnCreated = stamp ? game_clock::Turn() : 0;
 	// Reaction::Reaction 0x6E39D0: +0x3C = whetherReactionGrows ? 1 : maxReactionDistance
 	if (Locator::infoConstants::has_value())
 	{
@@ -151,7 +152,8 @@ void reactions::SpreadReaction(uint32_t id)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto* found = Find(id);
-	if (found == nullptr || !registry.Valid(found->initiator) || !registry.AllOf<components::Transform>(found->initiator))
+	glm::vec3 initiator(0.0f);
+	if (found == nullptr || !registry.Valid(found->initiator) || !MapPosOf(found->initiator, initiator))
 	{
 		return;
 	}
@@ -162,19 +164,21 @@ void reactions::SpreadReaction(uint32_t id)
 	{
 		Locator::entitiesMap::value().Rebuild();
 	}
-	const glm::vec2 at = PosOf(reaction.initiator);
-	const int side = std::max(1, static_cast<int>(reaction.radius * 0.2f));
-	const int cells = side * side;
-	glm::vec2 cell = at;
-	Spiral spiral;
+	const glm::vec2 at(initiator.x, initiator.z); // MapPosOf: a Spell initiator has no Transform (Reaction::GetPos 0x6E45C0)
+	const int cells = ecs::map_coords::CellSpiralSize(reaction.radius); // GetMapCellSpiralSizeFromRadius 0x74F520
+	const auto atCoords = ecs::map_coords::FromMetres(at);
+	auto coords = atCoords;
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, dir = count = 1 (0x6E3E51..0x6E3E5E)
 	for (int i = 0; i < cells; ++i)
 	{
-		if (InBounds(cell) && glm::distance(cell, at) <= reaction.radius)
+		// 0x6E3E91 fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 from the reaction to the cell, then the radius is
+		// compared against it (fcomp; test ah, 1 at 0x6E3EA4: the cell is kept while radius >= d)
+		if (InMap(coords) && gutils::GetDistanceInMetres(atCoords, coords) <= reaction.radius)
 		{
 			// the cell's list (inferido: the mobile one, animals/audit_r3.md; its order as openblack keeps it): every
 			// Living of it, whatever its class, in that order
 			const auto& list =
-			    Locator::entitiesMap::value().GetMobileInGridCell(MapInterface::GetGridCell(glm::max(cell, glm::vec2(0.0f))));
+			    Locator::entitiesMap::value().GetMobileInGridCell(MapInterface::CellId(ecs::map_coords::Cell(coords)));
 			const std::vector<entt::entity> livings(list.begin(), list.end());
 			for (const auto entity : livings)
 			{
@@ -193,8 +197,7 @@ void reactions::SpreadReaction(uint32_t id)
 				// 0x6E4031 fn_0072B990 (after the class's vt+0x984 test, before the distance): a Living under a shield the
 				// reaction's source is not definitely inside ignores it, villagers and animals alike
 				if (magic::map_shield::IsReactionBlockedByShield(
-				        magic::ToMap(registry.Get<const components::Transform>(entity).position),
-				        magic::ToMap(registry.Get<const components::Transform>(reaction.initiator).position)))
+				        magic::ToMap(registry.Get<const components::Transform>(entity).position), initiator))
 				{
 					continue;
 				}
@@ -204,7 +207,7 @@ void reactions::SpreadReaction(uint32_t id)
 				g_Handlers.at(static_cast<size_t>(living))(entity, copy, d);
 			}
 		}
-		cell += 10.0f * glm::vec2(spiral.Next());
+		ecs::map_coords::AddCells(coords, spiral.Next()); // MapCoords += JustMapXZ 0x605470 (0x6E3F6E): the fraction stays
 	}
 }
 
@@ -234,7 +237,7 @@ void reactions::Stamp(uint32_t reaction)
 {
 	if (auto* entry = FindMutable(reaction); entry != nullptr)
 	{
-		entry->turnCreated = g_Turn;
+		entry->turnCreated = game_clock::Turn();
 	}
 }
 
@@ -386,12 +389,11 @@ bool reactions::MaySwitch(float currentScore, float newScore, float seconds, uin
 
 uint32_t reactions::Turn()
 {
-	return g_Turn;
+	return game_clock::Turn();
 }
 
-void reactions::BeginTurn(uint32_t turn)
+void reactions::BeginTurn()
 {
-	g_Turn = turn;
 	g_InTurn = true;
 	Prune();
 }
@@ -405,6 +407,5 @@ void reactions::Clear()
 {
 	g_Reactions.clear();
 	g_NextId = 1;
-	g_Turn = 0;
 	g_InTurn = false;
 }

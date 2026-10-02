@@ -33,7 +33,9 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
 #include "ECS/Fire/FireEffect.h"
-#include "ECS/Map.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/WaterRings.h"
@@ -64,27 +66,11 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z), started with direction 1 and count 1 (0x7250BF..0x7250C3)
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2 {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
-}
-
 /// GameThing::GetRadius vt 0x60: Object 0x638110 jumps to Get2DRadius (vt 0x64): Field 0x528E80 = 5 m, Object 0x638180
-/// = the mesh's half extent x the scale (ECS/Effects Object2DRadius). No class of the water's targets overrides vt 0x60.
+/// = the mesh's half extent x the scale (ecs::object::GetRadius). No class of the water's targets overrides vt 0x60.
 float ObjectRadius(entt::entity object)
 {
-	if (Locator::entitiesRegistry::value().AllOf<Field>(object))
-	{
-		return 5.0f; // fld 5.0 (0x8AB6E4)
-	}
-	return ecs::effects::Object2DRadius(object);
+	return ecs::object::GetRadius(object);
 }
 
 /// The ring of a drop (0x725243..0x7252B9): the first free of the 1024 slots at 0xEAB7C8; +0x0C flags |= 1, +0x10 age 0,
@@ -212,13 +198,16 @@ int Process(entt::entity entity)
 	// ApplyWaterSpell (vt 0x67C). GetDistanceInMetres 0x74CD70 is 2D (hypotenuse 0x74F680 of the MapCoords x, z).
 	// (inferido) once per object per drop: openblack's grid puts a big fixed object (a field) in every cell it covers
 	std::unordered_set<entt::entity> seen;
-	const auto first = ecs::MapInterface::GetGridCell(glm::vec2(drop.x, drop.z));
-	glm::ivec2 cell(first);
-	int direction = 1;
-	int count = 1;
-	std::string watered; // the trace's list
+	// the spiral walks the drop's MapCoords (0x7250A2..0x7250BB): GetFirstIterator / GetMapChild on it, Spiral 0x74D7E0
+	// (0x725166) and operator+= 0x605470 (0x725173), which adds the step to the high words only (the fraction stays and
+	// the 16-bit add wraps at the map's edge)
+	const auto dropCoords = ecs::map_coords::FromMetres(glm::vec2(drop.x, drop.z));
+	auto coords = dropCoords;
+	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, direction 1 and count 1 (0x7250BF..0x7250C3)
+	std::string watered;            // the trace's list
 	for (int i = 0; i < 9; ++i)
 	{
+		const auto cell = ecs::map_coords::Cell(coords);
 		for (const auto object : ecs::effects::ObjectsInMapCell(cell.x, cell.y))
 		{
 			if (!seen.insert(object).second || !registry.Valid(object) || object == entity)
@@ -230,9 +219,10 @@ int Process(entt::entity entity)
 			{
 				continue;
 			}
-			// (aproximado) exact float distance: the original's hypotenuse goes through an inverse square root
-			// (FUN_0074F620) on 16.16 map coordinates, a sub-millimetre difference
-			const float distance = glm::length(glm::vec2(transform->position.x - drop.x, transform->position.z - drop.z));
+			// GUtils::GetDistanceInMetres 0x74CD70: the table hypotenuse 0x74F680 on the 16.16 map coordinates
+			// (ECS/GUtilsDistance)
+			const float distance = gutils::GetDistanceInMetres(
+			    dropCoords, ecs::map_coords::FromMetres(glm::vec2(transform->position.x, transform->position.z)));
 			if (water::InReach(distance, ObjectRadius(object)))
 			{
 				water::ApplyWaterSpell(object, entity);
@@ -242,7 +232,7 @@ int Process(entt::entity entity)
 				}
 			}
 		}
-		cell += Spiral(direction, count);
+		ecs::map_coords::AddCells(coords, spiral.Next());
 	}
 	// a ring when GetRippleEvery < age - lastRipple
 	const auto& after = registry.Get<const Spell>(entity);

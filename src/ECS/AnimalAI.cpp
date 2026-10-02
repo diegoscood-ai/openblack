@@ -41,6 +41,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -51,6 +52,7 @@
 #include "ECS/SmokyStuff.h"
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 namespace openblack::ecs::animal_ai
@@ -116,7 +118,7 @@ Hunter HunterOf(AnimalInfo type)
 float g_VisualTime = 12.0f;
 uint32_t Turn()
 {
-	return effects::reactions::Turn();
+	return game_clock::Turn(); // g_game +0x205A40, the reactions' clock too
 }
 
 // ---- MapCoords and the angle tables ----
@@ -216,7 +218,7 @@ glm::vec2 Xz(const Transform& transform)
 
 MapInterface::CellId CellOf(glm::vec2 p)
 {
-	return MapInterface::GetGridCell(glm::max(p, glm::vec2(0.0f)));
+	return MapInterface::GetGridCell(p); // map_coords::CellOf: off the map (>= 512, 0xFFFF when negative) stays off it
 }
 
 /// the drawn rotation of a mobile heading along the angle (as PathfindingSystem's InitializeStep)
@@ -238,13 +240,8 @@ uint16_t AngleOfRotation(const glm::mat3& rotation)
 
 bool InBounds(glm::vec2 p)
 {
-	if (!Locator::terrainSystem::has_value())
-	{
-		return false;
-	}
-	const auto extent = Locator::terrainSystem::value().GetExtent();
-	return p.x > std::max(extent.minimum.x, 0.0f) && p.y > std::max(extent.minimum.y, 0.0f) && p.x < extent.maximum.x &&
-	       p.y < extent.maximum.y;
+	// MapCoords::InBounds (0x6042C0): the cell's unsigned high words inside the map, not the land's extent
+	return sea_cells::InBounds(glm::vec3(p.x, 0.0f, p.y));
 }
 
 /// Object::Collide(info.collideType) [inferred]: the sea or a fixed object's footprint
@@ -326,15 +323,20 @@ glm::vec2 CalcRandomPos(const Context& ctx, glm::vec2 c, float rMin, float rMax)
 		const float a = rng.NextValue(0.0f, glm::two_pi<float>());
 		const float range = rMax - rMin;
 		const float r = (range > 0.0f ? rng.NextValue(0.0f, range) : 0.0f) + rMin;
-		glm::vec2 p = c + r * glm::vec2(std::cos(a), std::sin(a));
+		// 0x5ED0FE..0x5ED152: the centre's x and z go to metres (fild, x 10 [0x92B400], x 1/65536 [0x8AC41C]), the random
+		// offset is added and the sum goes back to 16.16 with GUtils' x 65536 [0x8AC408] / 10 and __ftol; the spiral then
+		// walks that MapCoords (InBounds 0x5ED16C, Collide 0x5ED181, the two vt tests, += 0x5ED1C8)
+		const glm::vec2 offset = r * glm::vec2(std::cos(a), std::sin(a));
+		map_coords::MapCoords coords {map_coords::ToFixedGUtils(c.x + offset.x), map_coords::ToFixedGUtils(c.y + offset.y), 0.0f};
 		Spiral spiral;
 		for (int i = 0; i < 25; ++i)
 		{
+			const glm::vec2 p = map_coords::ToMetres(coords);
 			if (InBounds(p) && !Collides(p, collideType) && IsPosValidForTurnAngle(ctx, p) && IsPosValidForMapCellExistance(ctx, p))
 			{
 				return p;
 			}
-			p += 10.0f * glm::vec2(spiral.Next());
+			spiral.Advance(coords);
 		}
 	}
 	// the centre if it is outside its turning circles, else its own position
@@ -399,7 +401,9 @@ bool PosWithinDomain(const Context& ctx, glm::vec2 p)
 	{
 		return true;
 	}
-	return glm::distance(glm::vec2(flock->domainCentre.x, flock->domainCentre.z), p) <= static_cast<float>(flock->domainRadius);
+	// fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 (PosWithinDomain 0x5ED010), then <= the radius
+	return gutils::GetDistanceInMetres(glm::vec2(flock->domainCentre.x, flock->domainCentre.z), p) <=
+	       static_cast<float>(flock->domainRadius);
 }
 
 uint16_t FlockDistance(const Context& ctx)
@@ -737,7 +741,7 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 {
 	glm::ivec2 out(0);
 	const glm::vec2 me = Xz(ctx.transform);
-	const float d = glm::distance(c, me);
+	const float d = gutils::GetDistanceInMetres(c, me); // fn_0074CD50 = GetDistanceInMetres 0x74CD70
 	if (d > rMax || d < rMin)
 	{
 		const auto a = AngleOf(d > rMax ? c - me : me - c);
@@ -862,13 +866,13 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 	const auto myCell = CellOf(me);
 	const auto* flock = FlockOf(ctx.animal);
 	const int cells = (DomainRadius(ctx) / 10) * (DomainRadius(ctx) / 10);
-	// the square spiral from its own cell [inferred order]
-	// GUtils::Spiral (0x74D7E0), from its own cell
+	// GUtils::Spiral (0x74D7E0) over a copy of its own MapCoords (0x41A8C5..0x41A8D5): PosWithinDomain 0x41A906,
+	// InBounds 0x41A913, FindGrazingPosition 0x41A924, then += 0x41A945 (whole cells on the high words)
 	Spiral spiral;
-	glm::ivec2 spiralCell(0);
+	map_coords::MapCoords coords = map_coords::FromMetres(me);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
+		const glm::vec2 c = map_coords::ToMetres(coords);
 		const auto cell = CellOf(c);
 		bool ok = cell != myCell && PosWithinDomain(ctx, c) && InBounds(c);
 		// fn_00418CD0: within viewAngle / 2 of its heading
@@ -896,7 +900,7 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 			out = c;
 			return true;
 		}
-		spiralCell += spiral.Next();
+		spiral.Advance(coords);
 	}
 	return false;
 }
@@ -1015,13 +1019,13 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 	const auto mineEntity = ctx.animal.flock;
 	const glm::vec2 me = Xz(ctx.transform);
 	const int cells = std::max(1, static_cast<int>((radius / 10.0f) * (radius / 10.0f)));
-	// the spiral's cells, in order, looking for another flock of my species
-	// GUtils::Spiral (0x74D7E0), from its own cell
+	// the spiral's cells, in order, looking for another flock of my species: GUtils::Spiral (0x74D7E0 at 0x41A75D) over a
+	// copy of its own MapCoords, InBounds 0x41A736, LookForFlocksAtPos 0x41A748 and += 0x41A76A (whole cells)
 	Spiral spiral;
-	glm::ivec2 spiralCell(0);
+	map_coords::MapCoords coords = map_coords::FromMetres(me);
 	for (int i = 0; i < cells; ++i)
 	{
-		const glm::vec2 c = me + 10.0f * glm::vec2(spiralCell);
+		const glm::vec2 c = map_coords::ToMetres(coords);
 		if (InBounds(c))
 		{
 			for (const auto entity : Locator::entitiesMap::value().GetMobileInGridCell(CellOf(c)))
@@ -1067,7 +1071,7 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 				return;
 			}
 		}
-		spiralCell += spiral.Next();
+		spiral.Advance(coords);
 	}
 }
 
@@ -1096,7 +1100,8 @@ int KeepFlockMemberWithinFlockArea(Context& ctx)
 	const glm::vec2 me = Xz(ctx.transform);
 	const glm::vec2 leader = FlockPos(ctx);
 	const auto flockDistance = static_cast<float>(FlockDistance(ctx));
-	if (PosWithinDomain(ctx, me) && glm::distance(leader, me) <= flockDistance)
+	// fn_0074CD50 = GetDistanceInMetres 0x74CD70 to the leader
+	if (PosWithinDomain(ctx, me) && gutils::GetDistanceInMetres(leader, me) <= flockDistance)
 	{
 		return 1;
 	}
@@ -1226,7 +1231,9 @@ void Eat(Context& ctx)
 	}
 	// Lion::Eat (0x41FE40), every predator: its prey is gone (also once the meal is over: then the up-from-eat clip
 	// never shows, straight to DECIDE)
-	if (HunterOf(ctx.animal.type) != Hunter::None && !Available(ctx.brain.foodTarget))
+	// (SpellWolf's vt+0xB50 is Lion::Eat too)
+	if ((HunterOf(ctx.animal.type) != Hunter::None || ctx.animal.type == AnimalInfo::SpellWolf) &&
+	    !Available(ctx.brain.foodTarget))
 	{
 		ctx.brain.counter = 0;
 		SetTopState(ctx, AnimalState::DecideWhatToDo);
@@ -1368,11 +1375,17 @@ bool ProcessState(Context& ctx)
 		SetTopState(ctx, AnimalState::DecideWhatToDo);
 		return false;
 	}
-	const bool walker = IsGrazer(ctx.animal.type) || HunterOf(ctx.animal.type) != Hunter::None;
+	// (SpellWolf's vt+0xB48 is Animal::StartWander 0x417C90 too: after a hunt it wanders, and its Wander runs on)
+	const bool walker = IsGrazer(ctx.animal.type) || HunterOf(ctx.animal.type) != Hunter::None ||
+	                    ctx.animal.type == AnimalInfo::SpellWolf;
 	switch (static_cast<AnimalState>(ctx.brain.topState))
 	{
 	case AnimalState::MoveToPos:
 		MoveToPos(ctx);
+		if (ctx.animal.type == AnimalInfo::SpellWolf)
+		{
+			SpellWolfMoveToPos(ctx); // SpellWolf::MoveToPos 0x421300 (vt+0xB40)
+		}
 		break;
 	case AnimalState::Landed:
 		// Animal::Landed (0x417D50): CalculeLairPos, the flock now centres where it landed (the predators: their lair)

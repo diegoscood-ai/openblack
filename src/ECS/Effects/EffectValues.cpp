@@ -17,10 +17,8 @@
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
-#include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Alignment.h"
-#include "ECS/Components/Mesh.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Town.h"
@@ -29,7 +27,10 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -38,7 +39,6 @@
 #include "Locator.h"
 #include "Magic/Core/Players.h"
 #include "Reactions.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
 using namespace openblack::ecs;
@@ -162,39 +162,12 @@ bool EffectValues::IsDestructive() const
 
 float effects::ObjectHeight(entt::entity object)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(object);
-	const auto* transform = registry.TryGet<const Transform>(object);
-	if (mesh == nullptr || transform == nullptr || !Locator::resources::has_value())
-	{
-		return 0.0f;
-	}
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (!meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	// 2 x the mesh's half height (+0x28) x the scale (inf: the bounding box height)
-	return meshes.Handle(mesh->id)->GetBoundingBox().Size().y * transform->scale.y;
+	return object::ObjectGetHeight(object);
 }
 
 float effects::Object2DRadius(entt::entity object)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(object);
-	const auto* transform = registry.TryGet<const Transform>(object);
-	if (mesh == nullptr || transform == nullptr || !Locator::resources::has_value())
-	{
-		return 0.0f;
-	}
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (!meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	// (inf) half the larger horizontal side of the bounding box, as the hand's hold radius does
-	const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size();
-	return 0.5f * std::max(size.x * transform->scale.x, size.z * transform->scale.z);
+	return object::ObjectGet2DRadius(object);
 }
 
 bool effects::IsEffectReceiver(entt::entity object, const EffectValues& /*values*/)
@@ -313,15 +286,25 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& map = Locator::entitiesMap::value();
-	const auto low = MapInterface::GetGridCell(glm::vec2(position.x - radius, position.z - radius));
-	const auto high = MapInterface::GetGridCell(glm::vec2(position.x + radius, position.z + radius));
+	// the corners: MapCoords x * 10 * (1 / 65536) -/+ radius, back with GUtils' * 65536 / 10 and __ftol
+	// (0x52514F..0x5251F6); the cells are their signed high words (movsx, 0x525212) and each one is tested with
+	// MapCoords::InBounds (0x525259), so a corner off the map does not wrap
+	const auto corner = [](float metres, float offset) {
+		return static_cast<int32_t>(map_coords::SignedCellOf(map_coords::ToFixedGUtils(map_coords::Quantise(metres) + offset)));
+	};
+	const glm::ivec2 low(corner(position.x, -radius), corner(position.z, -radius));
+	const glm::ivec2 high(corner(position.x, radius), corner(position.z, radius));
 	const float altitude = LandAt(position.x, position.z) + position.y;
 	entt::entity hit = entt::null;
 	std::unordered_set<entt::entity> seen;
-	for (uint32_t x = low.x; x <= high.x; ++x)
+	for (int32_t x = low.x; x <= high.x; ++x) // cmp ax, cx; jg (0x525209)
 	{
-		for (uint32_t z = low.y; z <= high.y; ++z)
+		for (int32_t z = low.y; z <= high.y; ++z)
 		{
+			if (!map_coords::InBounds(glm::ivec2(x, z)))
+			{
+				continue;
+			}
 			const MapInterface::CellId cell(static_cast<uint16_t>(x), static_cast<uint16_t>(z));
 			std::vector<entt::entity> objects(map.GetMobileInGridCell(cell).begin(), map.GetMobileInGridCell(cell).end());
 			// the grid's fixed objects plus the small ones it leaves out (FixedObjectsInMapCell)
@@ -343,7 +326,9 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 				// GetDefaultFireCentrePos (vt 0x5F0: the position; DeadTree its mesh centre) and GetDefaultFireRadius (vt
 				// 0x5F4: Get2DRadius; DeadTree 0.35 x its height), ECS/Fire/FireObjectTraits
 				const glm::vec3 centre = fire::traits::FireCentre(object);
-				const float distance = glm::length(glm::vec2(centre.x - position.x, centre.z - position.z));
+				// 0x525307: GUtils::GetDistanceInMetres 0x74CD70 of the position and that centre, then the radius sum is
+				// compared with it (fcomp; test ah, 1 at 0x525320)
+				const float distance = gutils::GetDistanceInMetres(position, centre);
 				if (fire::traits::DefaultFireRadius(object) + radius < distance)
 				{
 					continue;

@@ -15,6 +15,7 @@
 #include <glm/fwd.hpp>
 
 #include "3D/SkyInterface.h"
+#include "3D/SkyType.h"
 #include "Graphics/RenderPass.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -37,15 +38,11 @@ public:
 	Sky() noexcept;
 	~Sky() noexcept;
 
-	void SetDayNightTimes(float nightFull, float duskStart, float duskEnd, float dayFull) noexcept;
 	/// Time between 0 and 24 in hours
 	void SetTime(float time) noexcept override;
-	/// Return index in times as a float for interpolation between adjacent times
-	/// Will use _nightFullTime, _duskStartTime, _duskEndTime and _dayFullTime to determine value
-	/// 0 -> Night (min value)
-	/// 1 -> Dawn/Dusk
-	/// 2 -> Day (max value)
+	/// Deprecated: 2 - sky_type::Frame()
 	[[nodiscard]] float GetCurrentSkyType() const noexcept override;
+	void UpdateDome() noexcept override;
 	[[nodiscard]] graphics::L3DMesh& GetMesh() const noexcept override { return *_mesh; }
 	[[nodiscard]] graphics::L3DMesh& GetSunMesh() const noexcept override { return *_sunMesh; }
 	[[nodiscard]] graphics::L3DMesh& GetMoonMesh() const noexcept override { return *_moonMesh; }
@@ -64,25 +61,27 @@ private:
 	    "dusk",
 	    "day",
 	};
-	static constexpr std::array<uint16_t, 3> k_TextureResolution = {
-	    256,
-	    256,
-	    static_cast<uint16_t>(k_Alignments.size() * k_Times.size()),
-	};
+	static constexpr uint16_t k_Size = 256;
+	static constexpr size_t k_LayerTexels = static_cast<size_t>(k_Size) * k_Size;
+
+	/// fn_0086B7F0 on rows [block.firstRow, block.firstRow + block.rowCount) of the three dome textures; the texture
+	/// goes to the GPU once the last row is done
+	void BlendDome(const sky_type::DomeBlock& block) noexcept;
 
 	std::unique_ptr<graphics::L3DMesh> _mesh;
 	std::unique_ptr<graphics::L3DMesh> _sunMesh;
 	std::unique_ptr<graphics::L3DMesh> _moonMesh;
 	std::unique_ptr<graphics::L3DMesh> _cloudMesh;
+	/// The three dynamic dome textures [0xFA2738 + 4a] as the layers of one array, in k_Alignments order
 	std::unique_ptr<graphics::Texture2D> _texture; // TODO(bwrsandman): put in a resource manager and store look-up
 
-	std::array<uint16_t, k_TextureResolution[0] * k_TextureResolution[1] * k_TextureResolution[2]> _bitmaps;
+	/// The nine sky_<alignment>_<time>.555 sources ([0xFA26E8 + 4 (3 time + alignment)]), here at layer
+	/// 3 alignment + time in k_Alignments / k_Times order
+	std::array<uint16_t, k_LayerTexels * k_Alignments.size() * k_Times.size()> _bitmaps;
+	/// The dome textures' texels, CPU side
+	std::array<uint16_t, k_LayerTexels * k_Alignments.size()> _dome;
 
 	float _timeOfDay;
-	float _nightFullTime;
-	float _duskStartTime;
-	float _duskEndTime;
-	float _dayFullTime;
 };
 
 } // namespace openblack

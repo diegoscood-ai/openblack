@@ -80,7 +80,9 @@ float ApplyEffect(entt::entity object, EffectValues& values);
 /// (T - Tc) / Tc x defenceMultiplierBurn x 0.1
 [[nodiscard]] float ConvertTemperatureToDamage(entt::entity object, float temperature);
 
-/// Object::GetHeight 0x638120 (the mesh's height x scale) and Get2DRadius 0x638180 / GetDefaultFireRadius 0x639AC0
+/// Object::GetHeight 0x638120 and Object::Get2DRadius 0x638180 themselves, without the class overrides
+/// (ecs::object::ObjectGetHeight / ObjectGet2DRadius). The virtual calls are ecs::object::GetHeight / Get2DRadius: what is
+/// left here is for the callers not moved yet
 [[nodiscard]] float ObjectHeight(entt::entity object);
 [[nodiscard]] float Object2DRadius(entt::entity object);
 

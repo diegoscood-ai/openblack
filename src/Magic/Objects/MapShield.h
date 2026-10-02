@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include <optional>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -86,6 +87,11 @@ void ToBeDeleted(entt::entity shield);
 [[nodiscard]] float GetHeight(entt::entity shield);
 /// MapShield::GetPlayer 0x72C150: its spell's player
 [[nodiscard]] bool GetPlayer(entt::entity shield, PlayerNames& player);
+/// MapShield::CreatureMustAvoid 0x72C170 (vt 0x614): a creature that is not controlled by a script (+0x24 & 0x400,
+/// 0x72C17B) and whose player (vt 0x1C) is not the shield's (0x72C190) must keep out of it; anything else, including no
+/// creature at all, is 0. openblack has no creature class, so its player comes as an argument (std::nullopt = the
+/// original's NULL GPlayer) and (pendiente) nobody asks yet: in the original the caller is the creature's path finding
+[[nodiscard]] bool CreatureMustAvoid(entt::entity shield, entt::entity creature, std::optional<PlayerNames> creaturePlayer);
 
 // ---- physics (ECS/Physics/PhysicsObjects.cpp asks) ----
 

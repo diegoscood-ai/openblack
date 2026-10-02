@@ -29,9 +29,11 @@
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
@@ -69,31 +71,17 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// GUtils::GetDistanceInMetres 0x74CD70: x, z only
+/// GUtils::GetDistanceInMetres 0x74CD70 (and its twin fn_0074CD50): x, z only, through the table hypotenuse 0x74F680
 float Distance2D(const glm::vec3& a, const glm::vec3& b)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
-}
-
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z): the next cell step
-glm::ivec2 Spiral(int& direction, int& count)
-{
-	static constexpr glm::ivec2 k_Steps[4] = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[direction & 3];
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 /// MapCoords::InBounds 0x6042C0: the 10 m cell inside the map ((port) 512 cells when no land is loaded: tests only)
 bool InBounds(const glm::vec3& position)
 {
 	const uint16_t side = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-	const auto cellX = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.x * 6553.6f)) >> 16);
-	const auto cellZ = static_cast<uint16_t>(static_cast<int32_t>(std::floor(position.z * 6553.6f)) >> 16);
-	return cellX < side && cellZ < side;
+	return map_coords::InBounds(position, side); // MapCoords(LHPoint) truncates (__ftol), then the unsigned high words
 }
 
 /// MapCoords::IsWater 0x6035B0: the cell's hasWater bit; 1 outside the map or without a block (ecs::sea_cells)
@@ -142,8 +130,8 @@ void RemoveReactions(entt::entity object, Reaction type)
 void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || cell.x < 0 || cell.y < 0 || cell.x >= MapInterface::k_GridSize.x ||
-	    cell.y >= MapInterface::k_GridSize.y)
+	// MapCoords::ToMap 0x603430 gives NULL off the map (InBounds 0x6042C0: the cell unsigned against 512)
+	if (!Locator::entitiesMap::has_value() || !map_coords::InBounds(cell, MapInterface::k_GridSize.x))
 	{
 		return;
 	}
@@ -326,7 +314,7 @@ void HeatTransfer(FireEffect& source, entt::entity target)
 	}
 	const auto targetCentre = traits::FireCentre(target);
 	const auto sourceCentre = traits::FireCentre(source.object);
-	const float distance = Distance2D(targetCentre, sourceCentre);
+	const float distance = Distance2D(targetCentre, sourceCentre); // GetDistanceInMetres 0x74CD70 at 0x72FA44
 	if (!(traits::DefaultFireRadius(target) + radius > distance))
 	{
 		return;
@@ -531,21 +519,24 @@ void Process(FireEffect& fire)
 		if (search)
 		{
 			const float reach = radius + 10.0f;
-			const auto start = MapInterface::GetGridCell(glm::vec2(centre.x, centre.z));
-			glm::ivec2 cell(start);
-			int direction = 1;
-			int count = 1;
+			// the spiral walks the fire's own MapCoords (copied at 0x72F5E1..0x72F608): the distance is
+			// GetDistanceInMetres 0x74CD70 (0x72F674) between it and the centre, and the step is Spiral 0x74D7E0
+			// (0x72F6C3) then operator+= 0x605470 (0x72F6D0), which only adds to the high words: the fraction is the
+			// same in both, so the difference is a whole number of 10 m cells, and the 16-bit add wraps at the edge
+			const auto start = map_coords::FromMetres(glm::vec2(centre.x, centre.z));
+			auto coords = start;
+			map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, from dir = count = 1
 			std::vector<entt::entity> objects;
 			std::unordered_set<entt::entity> heated; // (inf) an object spanning several cells is heated once
 			for (int steps = 99999; steps != 0; --steps)
 			{
-				const glm::vec3 cellPosition(centre.x + static_cast<float>(cell.x - start.x) * 10.0f, 0.0f,
-				                             centre.z + static_cast<float>(cell.y - start.y) * 10.0f);
-				if (!(Distance2D(cellPosition, centre) <= reach))
+				const auto cell = map_coords::Cell(coords);
+				// 0x72F674: GetDistanceInMetres 0x74CD70 (table hypotenuse, ConvertWholeDistanceToMeters 0x74DCC0)
+				if (!(gutils::GetDistanceInMetres(coords, start) <= reach))
 				{
 					break;
 				}
-				CellObjects(cell, objects);
+				CellObjects(glm::ivec2(cell), objects);
 				for (const auto object : objects)
 				{
 					if (object != fire.object && heated.insert(object).second)
@@ -557,7 +548,7 @@ void Process(FireEffect& fire)
 						}
 					}
 				}
-				cell += Spiral(direction, count);
+				map_coords::AddCells(coords, spiral.Next());
 			}
 		}
 	}
@@ -757,9 +748,8 @@ FireEffect* FireEffect::NearestFireToFight(const glm::vec3& position) const
 		const float objectRadius = traits::DefaultFireRadius(member->object);
 		const float safe = member->SafeFireRadius();
 		const float keep = safe < objectRadius ? objectRadius : safe;
-		// fn_0074CD50 (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire centre.
-		// (aproximado: the original takes the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters
-		// 0x74DCC0; this is the float distance)
+		// fn_0074CD50 at 0x73010A (the symbol says ReactionInfo::GetInfo): the distance from the position to the fire
+		// centre, the 16.16 x/z delta (fn_0074CCE0) through ConvertWholeDistanceToMeters 0x74DCC0
 		const float distance = Distance2D(position, centre) - keep;
 		if (distance < bestDistance && member->IsAboveReactionTemperature())
 		{

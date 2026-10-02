@@ -1299,14 +1299,7 @@ bool PhysicsObjects::IsFlying(entt::entity entity)
 void PhysicsObjects::Update(float seconds)
 {
 	Dust::Update(std::min(seconds, 0.25f));
-	// objects with timers of their own (fragments) count game turns even when nothing moves
-	static float s_TurnClock = 0.0f;
-	s_TurnClock += std::min(seconds, 0.25f);
-	while (s_TurnClock >= PhysOb::k_Dt * PhysOb::k_SubstepsPerTurn)
-	{
-		s_TurnClock -= PhysOb::k_Dt * PhysOb::k_SubstepsPerTurn;
-		Buildings::ProcessTurn();
-	}
+	// the fragments' timers (Fragment::ProcessTimer 0x76EAF0) run from GGame::ProcessTurn 0x54E768: Game::GameLogicLoop
 	const bool anyMoving = std::any_of(g_Objects.begin(), g_Objects.end(), [](const auto& po) { return !po->body.resting; });
 	if (!anyMoving && g_Substep == 0)
 	{

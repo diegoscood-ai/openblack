@@ -178,7 +178,8 @@ TEST(FoodWood, pileHelpers)
 	EXPECT_EQ(PileSoundSample(ResourceType::Wood, 500, 11), 91);
 	// PileFood::GetProportionRaised: 200 of 1000 -> p = 0.24 -> 1 - 0.76^2
 	EXPECT_NEAR(PileFoodProportionRaised(200, 1000), 1.0f - 0.76f * 0.76f, 1e-6f);
-	EXPECT_NEAR(PileFoodProportionRaised(0, 1000), 1.0f - 0.95f * 0.95f, 1e-6f);
+	// an empty pile: p == 0 skips the floor (0x66EBB7..0x66EBC2), so 0
+	EXPECT_EQ(PileFoodProportionRaised(0, 1000), 0.0f);
 	EXPECT_NEAR(PileFoodProportionRaised(5000, 1000), 1.0f, 1e-6f);
 }
 

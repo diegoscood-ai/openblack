@@ -42,6 +42,7 @@
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "Primitive.h"
 #include "Renderer.h"
@@ -142,11 +143,12 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Came
 		{
 			return;
 		}
-		// LH3DSmoke::AddDrawing 0x7F8D30: the Z-sorter key is |chimney - camera|^2; the distance sorts the same way.
-		// The callback simulates while it draws, so it is advanced here, once per frame for the smoke drawn
+		// LH3DSmoke::AddDrawing 0x7F8D30: the Z-sorter key is |chimney - g_camera|^2, (x^2 + y^2) + z^2
+		// (0x7F8D3E..0x7F8D7E, NewZObject call 0x7F8D8E). The callback simulates while it draws, so it is advanced
+		// here, once per frame for the smoke drawn
 		std::vector<ecs::chimney_smoke::DrawnPuff> drawn;
 		ecs::chimney_smoke::Advance(smoke, milliseconds, drawn);
-		order.emplace_back(glm::distance(smoke.position, origin), static_cast<uint32_t>(_frameSmoke.size()));
+		order.emplace_back(zsorter::Key(smoke.position, origin), static_cast<uint32_t>(_frameSmoke.size()));
 		_frameSmoke.push_back(std::move(drawn));
 	});
 	return order;

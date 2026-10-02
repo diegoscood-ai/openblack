@@ -39,6 +39,7 @@
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
+#include "Graphics/ZSorter.h"
 #include "Locator.h"
 #include "PSys/Creators/Chain.h"
 #include "Renderer.h"
@@ -57,9 +58,10 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectPSysChains(const Camera
 	{
 		// fn_006798B0 0x6798D6: with [0xC0215D] = 0 (what PSysManager::AddDrawing 0x6797DE leaves when the manager is
 		// queued) the ribbon takes the fn_0067B370 branch and is drawn inside the effect's own Z object, so its key is the
-		// effect's: |origin - g_camera|. Only the direct Draw_(float, bool) path (fn_00679840 with the flag set) gives a
-		// chain its own Z object through fn_0067B380, with the central joint as the point
-		order.emplace_back(glm::distance(_frameChains[i].origin, eye), static_cast<uint32_t>(i));
+		// effect's (zsorter::Key, PSysManager::AddDrawing 0x6797E5..0x679828). Only the direct Draw_(float, bool) path
+		// (fn_00679840 with the flag set) gives a chain its own Z object through fn_0067B380, with the central joint as
+		// the point
+		order.emplace_back(zsorter::Key(_frameChains[i].origin, eye), static_cast<uint32_t>(i));
 	}
 	return order;
 }

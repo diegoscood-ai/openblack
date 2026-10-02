@@ -46,8 +46,9 @@ namespace openblack::magic::cast_rules
 [[nodiscard]] bool CanCastOn(MagicType type, entt::entity object);
 
 /// GMagicHealInfo::FindTargets 0x5FBB00 (pos, spell): the available Living effect receivers that the heal can heal
-/// (CanBeHealedByHealSpell) within R = dummyVar (x the spell's tribal power), searched in a spiral of ceil(2R / 10)^2
-/// cells, at most maxToHeal (x tribal power, rounded). With a spell each one becomes a target of its PSys. Returns
-/// the number found.
+/// (CanBeHealedByHealSpell) within R = dummyVar (x the spell's tribal power) of the spiral's point that visits their
+/// cell (not of the cast position: 0x5FBBEE measures from the MapCoords the spiral moves), searched in a spiral of
+/// ceil(2R / 10)^2 cells, at most maxToHeal (x tribal power, rounded). With a spell each one becomes a target of its
+/// PSys. Returns the number found.
 int FindHealTargets(const glm::vec3& position, entt::entity spell);
 } // namespace openblack::magic::cast_rules

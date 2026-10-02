@@ -30,6 +30,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -70,9 +71,8 @@ struct Centre
 };
 
 std::unordered_map<entt::entity, Centre> g_Centres;
-/// (openblack) g_game_time_inc: the real time between two collects, in whole milliseconds with the fraction kept
-std::chrono::steady_clock::time_point g_LastCollect {};
-float g_MsRemainder {0.0f};
+/// (openblack) the visual clock of the last collect: a frame's game ms count once however many passes collect
+uint32_t g_LastVisualMs {0};
 std::mt19937 g_Random(4242);
 
 float Rand(float a, float b)
@@ -157,12 +157,10 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& towns = registry.Context().towns;
 	const auto& meshes = Locator::resources::value().GetMeshes();
-	const auto now = std::chrono::steady_clock::now();
-	const float elapsed = g_LastCollect == std::chrono::steady_clock::time_point {}
-	                          ? 0.0f
-	                          : std::chrono::duration<float, std::milli>(now - g_LastCollect).count();
-	g_LastCollect = now;
-	const auto milliseconds = static_cast<float>(graphics::frame_anim::WholeMilliseconds(g_MsRemainder, elapsed));
+	// g_game_time_inc [0xEA9EC0] (0x69D855 fild): the frame's whole game ms, 0 in pause
+	const bool newFrame = game_clock::VisualMs() != g_LastVisualMs;
+	g_LastVisualMs = game_clock::VisualMs();
+	const auto milliseconds = newFrame ? static_cast<float>(game_clock::FrameGameMs()) : 0.0f;
 
 	registry.Each<const Abode, const Transform, const Mesh>([&](entt::entity entity, const Abode& abode,
 	                                                            const Transform& transform, const Mesh& mesh) {

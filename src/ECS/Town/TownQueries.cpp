@@ -29,8 +29,11 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
@@ -47,12 +50,6 @@ std::function<float(entt::entity)> g_RadiusForTests;
 
 /// ConvertGameAngleTo3D 0x74DC50's factor (0x99A1CC, 0x3B490FDB)
 constexpr float k_GameAngleTo3D = 0.0030679617f;
-/// MapCoords per map cell (10 m: the high word of x / z, MapCoords::InBounds 0x6042C0 and operator+= JustMapXZ 0x605470)
-constexpr int32_t k_MapCoordsPerCell = 65536;
-
-/// The steps of GUtils::Spiral's table (0xDA59FC, words x / z; the same table as ecs::animal_ai::detail::Spiral)
-constexpr std::array<glm::ivec2, 4> k_SpiralSteps = {{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}};
-
 std::vector<entt::entity> CellObjects(int cellX, int cellZ)
 {
 	if (g_CellObjectsForTests)
@@ -69,11 +66,12 @@ float Radius2D(entt::entity object)
 	{
 		return g_RadiusForTests(object);
 	}
-	return effects::Object2DRadius(object);
+	return object::Get2DRadius(object);
 }
 
-/// ftol of a value the x87 keeps in extended precision (double here)
-int32_t Ftol(double value)
+/// __ftol 0x7A1400: truncates towards zero. The game runs with the FPU at 24 bits (fn_007DEE00, "and cw, 0xFCFF" at
+/// 0x7DEE0D), so what it is given is always a float
+int32_t Ftol(float value)
 {
 	return static_cast<int32_t>(value);
 }
@@ -143,12 +141,12 @@ void TraceCongregation(const Town& town, const std::string& line)
 
 glm::ivec2 ToMapCoords(glm::vec2 metres)
 {
-	return {Ftol(static_cast<double>(metres.x) * k_MapCoordsPerMetre), Ftol(static_cast<double>(metres.y) * k_MapCoordsPerMetre)};
+	return {map_coords::ToFixed(metres.x), map_coords::ToFixed(metres.y)}; // fmul [0x8AC400]; __ftol
 }
 
 glm::vec2 ToMetres(glm::ivec2 mapCoords)
 {
-	return {static_cast<float>(mapCoords.x / k_MapCoordsPerMetre), static_cast<float>(mapCoords.y / k_MapCoordsPerMetre)};
+	return {map_coords::ToMetres(mapCoords.x), map_coords::ToMetres(mapCoords.y)}; // fild; fmul [0x8AA3A4]
 }
 
 glm::ivec2 PosOf(entt::entity object)
@@ -159,10 +157,9 @@ glm::ivec2 PosOf(entt::entity object)
 
 float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b)
 {
-	// 0x74CCB0: hypotenuse(b.x - a.x, b.z - a.z) (whole MapCoords); 0x74DCC0: 10 x 1/65536 x that
-	const auto d = static_cast<double>(std::hypot(static_cast<double>(b.x - a.x), static_cast<double>(b.y - a.y)));
-	const auto whole = static_cast<int32_t>(d);
-	return 10.0f * (1.0f / 65536.0f) * static_cast<float>(whole);
+	// 0x74CD70 = ConvertWholeDistanceToMeters 0x74DCC0(GetDistance 0x74CCB0): the shared table hypotenuse 0x74F680,
+	// not std::hypot (the table is 0.024 % long at 100 m), and the whole units are multiplied exactly (`fimul`)
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b)
@@ -179,48 +176,30 @@ float Get3DAngleFromXZ(glm::ivec2 a, glm::ivec2 b)
 
 glm::ivec2 GetPosFromAngle(float angle, float metres)
 {
-	// 0x74D58F..0x74D5C0: fcos / fsin, x d, x 65536, / 10, ftol (y = ftol(0 / 10) = 0)
-	const double a = angle;
-	const double d = metres;
-	return {Ftol(std::cos(a) * d * 65536.0 / 10.0), Ftol(std::sin(a) * d * 65536.0 / 10.0)};
+	// 0x74D58F..0x74D5C0: fcos / fsin, x metres, then GUtils' own x 65536 [0x8AC408] / 10 [0x99A1BC] and ftol
+	// (y = ftol(0 / 10) = 0). All of it in float: the FPU is at 24 bits
+	return {map_coords::ToFixedGUtils(std::cos(angle) * metres), map_coords::ToFixedGUtils(std::sin(angle) * metres)};
 }
 
 uint32_t GetMapCellSpiralSizeFromRadius(float radius)
 {
-	// 0x74F520: ftol(r x 0.2) (0x8AA3AC); below 1 (unsigned, jae) -> 1; squared
-	auto n = static_cast<uint32_t>(Ftol(static_cast<double>(radius) * static_cast<double>(0.2f)));
-	if (n < 1)
-	{
-		n = 1;
-	}
-	return n * n;
+	return static_cast<uint32_t>(map_coords::CellSpiralSize(radius)); // 0x74F520
 }
 
 uint32_t GetIncrementSpiralSizeFromRadius(float a, float b)
 {
-	// 0x74F540: ftol(a x -2 / b) (0x8C7CE0 = -2); (1 - that)^2
-	const int32_t t = Ftol(static_cast<double>(a) * -2.0 / static_cast<double>(b));
-	const int32_t s = 1 - t;
-	return static_cast<uint32_t>(s * s);
+	return static_cast<uint32_t>(map_coords::IncrementSpiralSize(a, b)); // 0x74F540
 }
 
 void SpiralIncrement(glm::ivec2& pos, int32_t& dir, int32_t& count, float step)
 {
-	// 0x74D81B..0x74D82B: --count == 0 -> ++dir, count = dir / 2 (cdq, sub, sar: towards 0)
-	if (--count == 0)
-	{
-		++dir;
-		count = dir / 2;
-	}
-	const auto& s = k_SpiralSteps.at(static_cast<size_t>(dir & 3));
-	// 0x74D836..0x74D8A8: x = ftol((x x 10 x 1/65536 + table.x x step) x 65536 / 10), the same for z
-	const auto move = [step](int32_t value, int32_t table) {
-		const double metres = static_cast<double>(value) * 10.0 * static_cast<double>(1.0f / 65536.0f) +
-		                      static_cast<double>(table) * static_cast<double>(step);
-		return Ftol(metres * 65536.0 / 10.0);
-	};
-	pos.x = move(pos.x, s.x);
-	pos.y = move(pos.y, s.y);
+	// 0x74D810 (ecs::map_coords::SpiralIncrement)
+	map_coords::Spiral spiral {dir, count};
+	map_coords::MapCoords coords {pos.x, pos.y, 0.0f};
+	map_coords::SpiralIncrement(coords, spiral, step);
+	dir = spiral.dir;
+	count = spiral.count;
+	pos = {coords.x, coords.z};
 }
 
 bool IsInStateOfEmergency(const Town& town)
@@ -258,17 +237,14 @@ bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filt
 	auto& registry = Locator::entitiesRegistry::value();
 	// 0x7413F4: the number of cells; 0x7413FB: dir = count = 1
 	uint32_t cells = GetMapCellSpiralSizeFromRadius(radius);
-	int32_t dir = 1;
-	int32_t count = 1;
-	glm::ivec2 cell = pos; // the walk's MapCoords: pos plus whole cells
+	map_coords::Spiral spiral;
+	map_coords::MapCoords cell {pos.x, pos.y, 0.0f}; // the walk's MapCoords: pos plus whole cells
 	while (cells != 0)
 	{
 		// 0x741421 MapCoords::InBounds: the high words (unsigned) inside the map
-		const auto cx = static_cast<uint32_t>(cell.x) >> 16;
-		const auto cz = static_cast<uint32_t>(cell.y) >> 16;
-		if (cx < MapInterface::k_GridSize.x && cz < MapInterface::k_GridSize.y)
+		if (map_coords::InBounds(cell))
 		{
-			for (const auto object : CellObjects(static_cast<int>(cx), static_cast<int>(cz)))
+			for (const auto object : CellObjects(map_coords::CellX(cell), map_coords::CellZ(cell)))
 			{
 				if (!registry.Valid(object) || !registry.AllOf<Transform>(object))
 				{
@@ -292,14 +268,7 @@ bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filt
 		}
 		// 0x7414B2..0x7414D3: --cells; Spiral (the cell step); MapCoords += JustMapXZ (whole cells)
 		--cells;
-		if (--count == 0)
-		{
-			++dir;
-			count = dir / 2;
-		}
-		const auto& s = k_SpiralSteps.at(static_cast<size_t>(dir & 3));
-		cell.x += s.x * k_MapCoordsPerCell;
-		cell.y += s.y * k_MapCoordsPerCell;
+		map_coords::AddCells(cell, spiral.Next());
 	}
 	return true;
 }
@@ -389,9 +358,11 @@ glm::ivec2 GetCongregationPos(entt::entity townEntity)
 			sumZ += static_cast<uint32_t>(item.xz.y);
 			y = item.y;
 		}
-		// 0x7409F3..0x740A1E: fild qword / fild qword n, ftol (truncated)
-		pos.x = Ftol(static_cast<double>(sumX) / static_cast<double>(n));
-		pos.y = Ftol(static_cast<double>(sumZ) / static_cast<double>(n));
+		// 0x7409F3..0x740A1E: fild qword sum / fild qword n; fdiv st(1); __ftol (truncated). The fild are exact and the
+		// quotient is rounded once to 24 bits, so it is divided in double (exact) and rounded to float once, as the FPU
+		// does: with 100 positions the quotient is above 2^24 and its ulp is 2 or more
+		pos.x = Ftol(static_cast<float>(static_cast<double>(sumX) / static_cast<double>(n)));
+		pos.y = Ftol(static_cast<float>(static_cast<double>(sumZ) / static_cast<double>(n)));
 		// 0x740A25..0x740A5D: FindClearArea(pos, pos, 130, 3, 10, BlocksTownClearArea (0x743690), none)
 		if (FindClearArea(pos, pos, 130.0f, 3.0f, 10.0f, &BlocksTownClearArea, entt::null))
 		{

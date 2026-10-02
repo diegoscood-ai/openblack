@@ -23,6 +23,7 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/HandGrain.h"
 #include "InfoConstants.h"
@@ -48,7 +49,6 @@ namespace
 std::vector<entt::entity> g_Spells;
 std::array<SpellOps, static_cast<size_t>(SpellClass::_COUNT)> g_Ops {};
 bool g_OpsRegistered = false;
-unsigned int g_Turn = 0;
 
 /// The PSysManager's Spell* (PSysInterface::Create's first argument)
 class Sink final: public psys::SpellSink
@@ -157,9 +157,10 @@ void ProcessMaintainRequest(entt::entity entity)
 	creator::UpdateSpellInfo(spell.creator, entity, spell.processInfo);
 	if (IsCastFromHand(entity))
 	{
-		// castPos follows the hand (ftol(x * 6553.6), altitude 0). fn_00720460 / fn_005D1260 (the interface's
+		// castPos follows the hand (ftol(x * 6553.6), altitude 0: 0x72056B..0x720595). fn_00720460 / fn_005D1260 (the interface's
 		// "can't cast here" feedback for a human caster) come with the hand casting (M2).
-		spell.castPos = glm::vec3(spell.processInfo.handPos.x, 0.0f, spell.processInfo.handPos.z);
+		spell.castPos = glm::vec3(ecs::map_coords::Quantise(spell.processInfo.handPos.x), 0.0f,
+		                          ecs::map_coords::Quantise(spell.processInfo.handPos.z));
 	}
 	if (!spell.closedDown)
 	{
@@ -201,7 +202,7 @@ void Trace(entt::entity entity, const char* what)
 	SPDLOG_LOGGER_INFO(spdlog::get("game"),
 	                   "Spell trace: turn {} spell {} {} ({}) {}: chants {:.2f} safety {:.2f} strength {:.3f} upkeep {:.2f} "
 	                   "age {:.1f}/{:.1f} closed {} psys {} atoms {}",
-	                   g_Turn, static_cast<uint32_t>(entity), EffectInfoOf(entity).debugString.data(),
+	                   game_clock::Turn(), static_cast<uint32_t>(entity), EffectInfoOf(entity).debugString.data(),
 	                   static_cast<int>(spell.magicType), what, spell.chants, chants::GetChantSafetyLevel(spell, context),
 	                   chants::GetSpellStrength(spell, context), context.costToMaintain, spell.age, spell.duration,
 	                   spell.closedDown, spell.psys, effect != nullptr ? effect->AtomCount() : 0);
@@ -216,12 +217,16 @@ bool magic::TraceEnabled()
 
 glm::vec3 magic::ToWorld(const glm::vec3& mapPosition)
 {
+	// GetLHPoint 0x605C40: x, z are the MapCoords' (already whole 16.16 units in metres: not truncated again, a second
+	// round trip can lose a unit), y = GetAltitude + the altitude
 	return {mapPosition.x, LandAt(mapPosition) + mapPosition.y, mapPosition.z};
 }
 
 glm::vec3 magic::ToMap(const glm::vec3& worldPoint)
 {
-	return {worldPoint.x, worldPoint.y - LandAt(worldPoint), worldPoint.z};
+	// MapCoords(LHPoint) 0x603160: x, z truncated to 16.16 (ftol(x * 6553.6f)), altitude = y - GetAltitude there
+	const auto coords = ecs::map_coords::FromWorld(worldPoint);
+	return {ecs::map_coords::ToMetres(coords.x), coords.altitude, ecs::map_coords::ToMetres(coords.z)};
 }
 
 void magic::RegisterSpellClasses()
@@ -342,7 +347,7 @@ chants::Context magic::ChantContextOf(entt::entity spell)
 		}
 	}
 	context.costToMaintain = OpsOf(component.spellClass).costToMaintain(spell);
-	context.turnMs = k_TurnMs;
+	context.turnMs = game_clock::MsPerTurn(); // *(u32*)0xD01A38
 	const auto creator = component.creator;
 	context.maintain = [creator, spell](float amount) { return creator::MaintainSpell(creator, spell, amount); };
 	// TODO(M7): CreateSpellPoint 0x7213D0 (the mana path sprites of a spell with a worship site)
@@ -389,7 +394,7 @@ int base::InitWithPos(entt::entity entity, const glm::vec3& position, SpellCastD
 	}
 	// player +0xDC: the last cast's position, magic type and game turn
 	auto& last = players::MagicOf(spell.player).lastCast;
-	last = {spell.castPos, spell.magicType, g_Turn};
+	last = {spell.castPos, spell.magicType, game_clock::Turn()};
 	if (spell.psys != 0)
 	{
 		if (auto* effect = psys::manager::Find(spell.psys); effect != nullptr)
@@ -621,9 +626,8 @@ void magic::DeleteSpell(entt::entity spell)
 	registry.Destroy(spell);
 }
 
-void magic::ProcessSpells(unsigned int turn)
+void magic::ProcessSpells([[maybe_unused]] unsigned int turn)
 {
-	g_Turn = turn;
 	auto& registry = Locator::entitiesRegistry::value();
 	spell_grid::Decay(); // fn_007215C0
 	map_shield::ProcessShields(); // fn_0072BF80: ProcessShield (vt 0x868) of the MapShields (Magic/Objects/MapShield)
@@ -653,7 +657,7 @@ void magic::ProcessSpells(unsigned int turn)
 
 unsigned int magic::CurrentTurn()
 {
-	return g_Turn;
+	return game_clock::Turn();
 }
 
 const std::vector<entt::entity>& magic::Spells()
@@ -666,5 +670,4 @@ void magic::ClearSpells()
 	// the entities go with the registry's reset; the PSys with psys::manager::Clear
 	g_Spells.clear();
 	g_Sinks.clear();
-	g_Turn = 0;
 }

@@ -29,17 +29,15 @@ struct Town;
 
 namespace openblack::ecs::town_queries
 {
-/// MapCoords per metre: 65536 / 10 (GUtils::GetPosFromAngle 0x74D580: x 65536 / 10)
-inline constexpr double k_MapCoordsPerMetre = 6553.6;
-
-/// metres -> MapCoords (ftol: truncation towards 0). (aproximado) openblack keeps the positions in float metres
+/// metres -> MapCoords (ecs::map_coords::ToFixed, MapCoords(LHPoint) 0x603160: fmul [0x8AC400], truncated towards 0).
+/// (aproximado) openblack keeps the positions in float metres
 [[nodiscard]] glm::ivec2 ToMapCoords(glm::vec2 metres);
 [[nodiscard]] glm::vec2 ToMetres(glm::ivec2 mapCoords);
 /// The x / z of an object's Transform as MapCoords (Object +0x14); (0, 0) without one
 [[nodiscard]] glm::ivec2 PosOf(entt::entity object);
 
 /// GUtils::GetDistanceInMetres 0x74CD70: GetDistance 0x74CCB0 (hypotenuse 0x74F680 of dx, dz) x 10 / 65536
-/// (ConvertWholeDistanceToMeters 0x74DCC0). (aproximado) hypotenuse is a table square root (~0.1 %); here std::hypot
+/// (ConvertWholeDistanceToMeters 0x74DCC0), through ECS/GUtilsDistance (gutils::GetDistanceInMetres)
 [[nodiscard]] float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b);
 /// GUtils::GetAngleFromXZ 0x74D240 = GetAngleFromDXDZ 0x74D200(b - a) = LHArcTan 0x74D0C0: 2048ths, from a towards b
 [[nodiscard]] uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b);
@@ -77,7 +75,7 @@ using ClearAreaFilter = std::function<bool(entt::entity)>;
 /// `blocker` (openblack, for the trace): the object that made it not clear
 [[nodiscard]] bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filter, entt::entity excluded,
                                      entt::entity* blocker = nullptr);
-/// Object::Get2DRadius (vt +0x64, 0x638180): effects::Object2DRadius, or the tests'
+/// Get2DRadius (vt +0x64, Object 0x638180 and the class overrides): ecs::object::Get2DRadius, or the tests'
 [[nodiscard]] float Get2DRadius(entt::entity object);
 /// Town::FindClearArea 0x7412F0: GetIncrementSpiralSizeFromRadius(a, b) points from `start` (SpiralIncrement, steps of
 /// b metres, dir = count = 1), the first one with CheckForClearArea(p, r) goes to `result` (true). None: `result` is
@@ -91,7 +89,7 @@ bool FindClearArea(glm::ivec2& result, glm::ivec2 start, float a, float b, float
 [[nodiscard]] glm::ivec2 GetCongregationPos(entt::entity town);
 
 /// The tests: the objects of a map cell and their 2D radius (empty functions: effects::ObjectsInMapCell and
-/// effects::Object2DRadius, which need the map and the meshes)
+/// ecs::object::Get2DRadius, which need the map and the meshes)
 void SetCellObjectsForTests(std::function<std::vector<entt::entity>(int cellX, int cellZ)> objects,
                             std::function<float(entt::entity)> radius);
 } // namespace openblack::ecs::town_queries

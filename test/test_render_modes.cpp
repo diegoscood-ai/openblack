@@ -160,10 +160,10 @@ TEST(RenderModes, StatesOfTheModes)
 TEST(RenderModes, SitesKeepTheirBits)
 {
 	constexpr uint64_t k_Depth = BGFX_STATE_DEPTH_TEST_GREATER;
-	// #1 DrawClouds, #2 DrawMist, #4 the boat's sprites, #5 DrawHumanShadows: mode 6
+	// #1 DrawCloud, #2 DrawMist, #4 DrawBoatSprite, #5 DrawHumanShadows: mode 6
 	EXPECT_EQ(State(materials::k_Smoke), BGFX_STATE_WRITE_RGB | k_Depth | BGFX_STATE_BLEND_ALPHA);
 	EXPECT_EQ(State(Mode::AlphaTexturedAlphaNz), BGFX_STATE_WRITE_RGB | k_Depth | BGFX_STATE_BLEND_ALPHA);
-	// #3 DrawRain
+	// #3 DrawRainTile
 	EXPECT_EQ(State(materials::k_Atmos, {.extra = BGFX_STATE_PT_LINES}),
 	          BGFX_STATE_WRITE_RGB | k_Depth | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_PT_LINES);
 	// #6 DrawFishShoals

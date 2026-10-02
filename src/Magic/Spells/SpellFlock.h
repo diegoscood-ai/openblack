@@ -43,8 +43,8 @@ struct SpellFlockData
 };
 
 /// What the animal classes SpellDove / SpellBat (0x178 bytes) and SpellWolf (0x19C bytes) add to their Animal: the
-/// fade (SpellDove +0x148..+0x174, SpellWolf +0x168..+0x194, an LH3DLib Zoomer on the alpha 0..255) and the wolf's
-/// corridor (+0x154..+0x164) and player (+0x198)
+/// fade (SpellDove +0x148..+0x174, SpellWolf +0x168..+0x194, an LH3DLib Zoomer on the alpha 0..255: value +0x148 /
+/// +0x168, destination +0x14C / +0x16C) and the wolf's corridor (+0x154..+0x164) and player (+0x198)
 struct SpellFlockAnimal
 {
 	entt::entity spell {entt::null};
@@ -119,13 +119,14 @@ bool Destination(glm::ivec2 spawn, glm::vec2 direction, float distance, InBounds
 /// fn_00420F50 (SpellWolf, start, destination, halfWidth): the corridor's normal (DZ, -DX) / |D| of D = destination -
 /// start ((1, 0) when |D|^2 < 0.0001) and its offset -(normal . start); both in metres
 void SetupCorridor(SpellFlockAnimal& wolf, glm::vec2 start, glm::vec2 destination, float halfWidth);
-/// SpellWolf::MoveToPos 0x421300's end: GUtils::GetDistanceInMetres 0x74CD70 (position, +0x148) < 30 -> SetDying
+/// SpellWolf::MoveToPos 0x421300's end: GUtils::GetDistanceInMetres 0x74CD70 (position, +0x148) < 30 -> SetDying (the
+/// state itself is the animals': ECS/AnimalPredators.cpp SpellWolfMoveToPos)
 [[nodiscard]] bool WolfArrived(const SpellFlockAnimal& wolf, glm::vec2 position);
 /// SpellWolf::IsPosOnCorridor 0x420E10: |normal . p + offset| <= halfWidth, and the point is not more than halfWidth
 /// behind the wolf along the corridor (measured from the corner of the wolf's 10 m cell, its MapCoords' high words)
 [[nodiscard]] bool IsPosOnCorridor(const SpellFlockAnimal& wolf, glm::vec2 wolfPosition, glm::vec2 point);
 
-/// SpellDove::SetDying 0x41F5C0 / SpellWolf::SetDying 0x420CF0: while the fade's destination is not 0, the Zoomer
+/// SpellDove::SetDying 0x41F5C0 / SpellWolf::SetDying 0x420CF0: while the fade's destination is not 0 (once only), the Zoomer
 /// (vt+0xBD4, fn_0041F2F0 / fn_00420A20 = SetDestinationWithSpeedAndTime(0, 0, t)) goes to 0 over GetNumTurnsToDieOver
 /// turns (20 x 100 ms = 2 s). Never Living::SetDying: the animal keeps moving while it fades.
 void StartFade(SpellFlockAnimal& animal);
@@ -137,7 +138,8 @@ void StartFade(SpellFlockAnimal& animal);
 
 /// The spell data of an animal of a flock miracle, nullptr for any other
 [[nodiscard]] const SpellFlockAnimal* AnimalOf(entt::entity animal);
-/// IsPosOnCorridor 0x420E10 on the entities (false when `wolf` is not a flock wolf)
+/// IsPosOnCorridor 0x420E10 on the entities (false when `wolf` is not a flock wolf); SpellWolf::IsHuntingTargetValid
+/// 0x420D60 (ECS/AnimalPredators.cpp, the prey search fn_004196D0 and Animal::HuntingMoveToPos 0x418DB0) uses it
 [[nodiscard]] bool IsOnCorridor(entt::entity wolf, glm::vec2 point);
 } // namespace spell_flock
 } // namespace openblack::magic

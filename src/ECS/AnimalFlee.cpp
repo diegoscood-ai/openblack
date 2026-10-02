@@ -26,7 +26,9 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
@@ -182,7 +184,8 @@ uint32_t Priority(uint8_t type, entt::entity entity, const AnimalBrain& brain, c
 		{
 			return 0;
 		}
-		if (glm::distance(PosOf(entity), PosOf(initiator)) > Info(type).maxDistanceToRunAwayFromObject)
+		// fn_0074CD50 = GUtils::GetDistanceInMetres 0x74CD70 (ReactToFoodPriority 0x5F1710)
+		if (gutils::GetDistanceInMetres(PosOf(entity), PosOf(initiator)) > Info(type).maxDistanceToRunAwayFromObject)
 		{
 			return 0;
 		}
@@ -296,7 +299,7 @@ void StartReacting(entt::entity entity, AnimalBrain& brain, const Reaction& reac
 		// Animal::SetupReactToFlyingObject (0x4204A0): it flees only when 2 x the object's speed beats the distance
 		const auto* po = physics::PhysicsObjects::Find(reaction.initiator);
 		const float speed = po != nullptr ? glm::length(po->body.velocity) : 0.0f;
-		if (2.0f * speed > glm::distance(PosOf(entity), PosOf(reaction.initiator)))
+		if (2.0f * speed > gutils::GetDistanceInMetres(PosOf(entity), PosOf(reaction.initiator))) // fn_0074CD50
 		{
 			AddReaction(entity, brain, reaction, AnimalState::FleeingFromObjectReaction);
 		}
@@ -333,9 +336,13 @@ void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 	{
 		return;
 	}
-	const glm::vec2 p = PosOf(entity);
-	const float cur = static_cast<float>(
-	    Score(TypeOf(*current), entity, *brain, current->initiator, glm::distance(p, PosOf(current->initiator))));
+	// the current reaction's distance: Reaction::GetPos 0x6E45C0 (0x6E4142; the initiator's position, as in
+	// ECS/Effects/Reactions), only its cell (fn_005E17C0 at 0x6E414C keeps the high words) and fn_0074CD90 at 0x6E4157
+	// from the animal's MapCoords (+0x14) to that cell's centre, not to the initiator itself
+	const auto at = ecs::map_coords::FromMetres(PosOf(current->initiator));
+	const ecs::map_coords::JustMapXZ cell {ecs::map_coords::SignedCellOf(at.x), ecs::map_coords::SignedCellOf(at.z)};
+	const float distance = gutils::GetDistanceInMetresToCell(ecs::map_coords::FromMetres(PosOf(entity)), cell);
+	const float cur = static_cast<float>(Score(TypeOf(*current), entity, *brain, current->initiator, distance));
 	const float now = static_cast<float>(Score(type, entity, *brain, reaction.initiator, d));
 	const float seconds = static_cast<float>((detail::Turn() - reactions::RecordTurn(entity, TypeOf(*current))) / 10);
 	if (!reactions::MaySwitch(cur, now, seconds, TypeOf(*current)))
@@ -438,17 +445,10 @@ glm::vec2 FleeingPosition(glm::vec2 me, glm::vec2 object, glm::vec2 movement, fl
 	return glm::dot(perp, me - object) >= 0.0f ? me + f : me - f;
 }
 
+/// GetRadius vt +0x60 (0x639574, 0x63957F): ecs::object::GetRadius, with the class overrides (a Field is 5 m)
 float Radius2D(entt::entity entity)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const components::Mesh>(entity);
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(entity).scale;
-	return 0.5f * std::max(size.x, size.z);
+	return object::GetRadius(entity);
 }
 
 /// Object::GetWorkingPos(me) (0x639550): on the object's rim facing it, the two radii apart
@@ -572,7 +572,7 @@ void ProcessReaction(Context& ctx)
 		return;
 	}
 	const uint32_t elapsed = Turn() - effects::reactions::RecordTurn(ctx.entity, TypeOf(*reaction));
-	const float d = glm::distance(Xz(ctx.transform), PosOf(ctx.brain.predator));
+	const float d = gutils::GetDistanceInMetres(Xz(ctx.transform), PosOf(ctx.brain.predator)); // fn_0074CD50
 	if (elapsed > TurnsToReact(TypeOf(*reaction), ctx.brain, ctx.brain.predator, d))
 	{
 		StopReactingAndSetState(ctx);

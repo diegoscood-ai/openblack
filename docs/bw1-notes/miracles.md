@@ -49,15 +49,42 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
     almacén/objeto 1,2); el primero que cumple toma lo que acepta (`AddResource(tipo, resto, IS, envenenado, &pos, 0)`,
     vt 0x9C), no el más cercano;
   - lo que sobra, si pos no es agua, hace una pila nueva (fn_005FA8B0) con el sonido de pila fn_0066D1A0 (< 200:
-    `77 + t % 6` / `92 + t % 6`; si no `75 + (t & 1)` / `86 + t % 6`), `SetPoisoned` y `SetSpeedUp`. La voz de guía
-    `GGuidance::ResourceDropSFX` no está portada.
+    `77 + t % 6` / `92 + t % 6`; si no `75 + (t & 1)` / `86 + t % 6`), `SetPoisoned` y `SetSpeedUp`.
+  - **La voz de guía al soltar (pendiente, leída entera).** 0x66F4D8..0x66F509: solo si el IS es
+    `GGame::MyInterfaceStatus` 0x555880 (en openblack, `dropper.isMyInterface`), con el punto y un `RESOURCE_RAIN_TYPE`
+    = 1 para comida (tipo 0) y 2 para madera (tipo 1), 0 para lo demás (0x66F4EB..0x66F502). `GGuidance::ResourceDropSFX`
+    0x71B570 pide: `GGuidance::PlayNow(1)` 0x71AF50 sobre la guía del IS (+0x30) distinto de 0; un pueblo a menos de
+    100 m ([0x98013C], `MapCoords::GetNearestTown` 0x6020E0); y `GGuidance::GetResourceDropSample` 0x71B5F0, que suma
+    tres flotantes de ese pueblo (comida +0xC4 + +0x108 + +0x19C; madera +0xC8 + +0x10C + +0x1A0; el tipo 3, el de
+    `DoDeleteObjectAndTakeResource` 0x63A9E6, usa +0xEC + +0x130 + +0x1C4) y por encima de 0,5 ([0x980140]) elige con
+    `LocalRand(3)` un id de HELP_TEXT entre 0x1352/0x1353/0x1354 (comida) o 0x1355/0x1356/0x1357 (madera), por encima de
+    0,25 ([0x980144]) entre 0x135B/0x135C/0x135D (comida; la madera repite los mismos tres) y por debajo nada. Luego
+    `GGuidance::PlaySample` 0x71C6F0 (1, la muestra, jugador +0xB5, 1, 0x7F, 0x64, 0x5A, el punto, 200 [0x980148], 1).
+    Falta el canal de guía (`Audio/Voices.h`, hito B7 del plan de audio) y esos campos del pueblo.
+  - **El desvío de la madera de un almacén (pendiente, identificado).** `StoragePit::AddResource` 0x732F60, antes de
+    nada (0x732F67..0x732F99): si su +0x74 no es nulo y el tipo es WOOD (1) o ANY (−2), reenvía la llamada entera al
+    `AddResource` (vt 0x9C) de ese objeto y devuelve su respuesta. **+0x74 es `MultiMapFixed::building_site`**, un
+    `BuildingSite*` (bw1-decomp `src/Black/MultiMapFixed.h`; StoragePit hereda de Abode, cuyos campos propios empiezan en
+    0x7C): un almacén en obras manda su madera a la obra. openblack no tiene obras ni nadie construye casas
+    (`ECS/Components/Town.h`), así que ningún almacén puede tener una y el desvío es inalcanzable.
   - **R16, el radio 2D de la pila:** `Object::Get2DRadius` 0x638180 = escala × max(+0x24, +0x2C) de la malla, que
     `LH3DMesh::ComputeBoundingBox` 0x8081B0 llena con la media extensión (max − min)/2 de todas las submallas;
     `PileFood::Get2DRadius` 0x66F180 lo multiplica por `GetProportionRaised` (vt 0x86C). En Land1: MagicFood de 200
     → 1,95 m (acepta a 3,9 m), crece con la pila (acepta a 4,14 m con 218); MagicWood de 500 → 2,04 m (acepta a 4,07 m).
 - **Pilas** (`Magic/Objects`): MagicFood 0x5FA9F0 (PotInfo 10, MSH_S_GRAIN_PILE, escala 0,3, dueño +0xBC) y MagicWood
-  0x600E20 (PotInfo 9, MSH_B_WOOD_01, escala 0,7, dueño +0xB4); sin Process ni caducidad. Los vt 0x78(0)/0x80(0) de
-  `MagicFood::CallVirtualFunctionsForCreation` 0x5FAAB0 no están portados (UNVERIFIED qué son).
+  0x600E20 (PotInfo 9, MSH_B_WOOD_01, escala 0,7, dueño +0xB4); sin Process ni caducidad.
+  - **Las sombras de la pila de comida (identificado; ya se cumple).** `MagicFood::CallVirtualFunctionsForCreation`
+    0x5FAAB0, después de la de PileFood 0x66E1A0, llama a dos setters del Game3DObject +0x40: vt 0x78(0) en 0x5FAAC8 y
+    vt 0x80(0) en 0x5FAAD2. Game3DObject hereda de LH3DObject sin virtuales propias (bw1-decomp
+    `src/Black/Game3DObject.h`), así que son `LH3DObject::SetCastDynamicShadow` y `LH3DObject::SetShadowOnTexture`
+    (huecos 0x78 y 0x80 de `src/Lionhead/LH3DLib/development/LH3DObject.h`): **la pila de comida mágica no da sombra ni
+    dinámica ni horneada**. (aproximado) esa cabecera no marca la vt 0x80 como `__fastcall` y el exe le pasa el argumento
+    en edx (0x5FAAD0 `xor edx, edx`), igual que a la vt 0x78. openblack ya la deja fuera de las tres: `CastsStaticShadow`
+    de `RenderingSystem.cpp` rechaza cualquier Pot y su `ReceivesDynamicShadow` cita esta misma llamada (0x5FAAC8) para
+    los tipos MagicFood y HandFood; `CastsPhysicsShadow` de `Graphics/PhysicsShadows.cpp` rechaza también cualquier Pot.
+    Visto en `polish_fix_bosque2_food_drop.png`: ni la pila mágica ni el grano del granero proyectan sombra.
+  - **La pila de madera sí las conserva:** `MagicWood::CallVirtualFunctionsForCreation` 0x600F10 es solo una llamada a la
+    de PileResource 0x66E300, sin esos dos setters.
 - **Efecto SF_Food / SF_Wood** (`PSys/Rules/Sprinkle.cpp`, `PSys/Creators/Mesh.cpp`):
   - `UR_HandSprinkle` 0x6A0220: un átomo fuente en la posición del gesto (como mucho 58 m sobre el suelo); en el primer
     paso, si lanza la interfaz de este ordenador, arranca `HandStateGrain` (fn_005B2F70). Velocidad
@@ -75,8 +102,19 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   0x5B2CF2; el pico vale 1,61); altura = v × 10 m, inclinación =
   v × 1,07 rad (pico a t = 2 s: 16,1 m y 1,73 rad). Con ClampHand (comida y madera) `HandStateHolding::Update`
   0x5B3FD4 (vt 0x1C) pone la
-  posición requerida de la mano en el punto donde empezó, y suma la altura (vt 0x18). El sentido del giro de la
-  inclinación es UNVERIFIED. `Spell::CoreCloseDown` 0x720160 la para.
+  posición requerida de la mano en el punto donde empezó, y suma la altura (vt 0x18). `Spell::CoreCloseDown` 0x720160 la
+  para.
+  - **El sentido del giro de la inclinación (verificado; openblack lo tiene al revés).** El ángulo viene del fichero y es
+    **positivo**: `AngleToRaise 1,07257` (SF_Food.txt línea 143, SF_Wood.txt línea 114), y fn_005B2DA0 lo usa tal cual
+    (0x5B2EF3: altura = v × +0x134, inclinación = v × +0x138). `ObtainRequiredHandPosition` 0x5B6DE0 arma el eje
+    mano → cámara normalizado (`LH3DTech::g_camera` menos la posición, 0x5B6E1B..0x5B6ECE), llama a fn_007FB180(matriz,
+    eje, ángulo) y transforma el vector (0, 1, 0). fn_007FB180 escribe la matriz de Rodrigues **estándar** por filas
+    (0x7FB1F7 `[ecx]` = x² + (1 − x²)c, 0x7FB207 `[ecx+0xC]` = xy(1 − c) + zs, 0x7FB21C `[ecx+0x18]` =
+    xz(1 − c) − ys, …), pero el transporte de 0x5B6EE8 es por **vector fila**: out.x = R00·v.x + R10·v.y + R20·v.z + t.x,
+    es decir vᵗ·M = Rᵗ·v = R(−ángulo)·v. openblack hace
+    `glm::mat3(glm::rotate(mat4(1), tilt, eje)) * up`, que es R(+tilt)·up: **la mano se vuelca al lado contrario**. El
+    arreglo es un signo (`-tilt`, o transponer) en `HandPlacement.cpp`; no se toca aquí porque ese fichero es de la lane
+    de la mano (la tarea de «bosque2» pedía solo verificarlo).
   - **Con ClampHand la mano no se mueve mientras cae el grano**, así que todos los granos caen en el mismo punto y
     hacen una sola pila que crece (el plan esperaba una línea de 20 m: no la hay con `ClampHand 1`, y el agua, que
     tiene `ClampHand 0`, sí sigue a la mano). El punto es el que tenía la mano al empezar el chorro, y el bucle no
@@ -90,6 +128,9 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
   con la mano (`OPENBLACK_TEST_SEED=FOOD` + `OPENBLACK_TEST_CAST=press@2,release@20` de la lane M2),
   `m3_hand_raise_730.png` (la mano alzada y volcada, el chorro de grano y la pila junto al almacén) con
   `m3_hand_raise.log`, donde `Grain trace` da el pico 16,14 m / 1,731 rad a t = 0,50 de los 4 s.
+  `polish_fix_bosque2_food_drop.png` (`OPENBLACK_TEST_SPELL=FOOD,1790,2625`, cámara `1780,42,2612,1790,34,2625`): la
+  pila mágica de 200 + 18 por grano, sin sombra; la traza `Pot trace: new MagicFood pile … 2D radius 1.95` y los
+  `18 of food into pile …` con el radio creciendo de 3,91 a 5,25 m.
 
 ## Agua (M4a, `Magic/Spells/SpellWater`, `PSys/Creators/Mist`)
 
@@ -215,8 +256,12 @@ hasta que se cierra**; en openblack es `Modifier::KeepsAlive`), propiedades 0x6B
    - la posición es fn_006A0AB0: el punto del objetivo con la altura del terreno y, con `TakeCentrePos`, **media altura
      del objeto** más arriba.
 2. Recorre sus átomos: el **primero** de la lista, en cuanto tiene edad > 0, suena `SoundHeal` (SOUND_SPELL_HEAL, una
-   sola vez por átomo; `SoundSpacing` 0.2 se lee y no se usa). Cada chakra sigue a su objetivo y, con
-   `ScalePropObjectSize`, su escala de regla (+0x78) es el `Get2DRadius` del objetivo.
+   sola vez por átomo; `SoundSpacing` 0.2 se lee y no se usa). La lista del original crece **por la cabeza**
+   (`AtomCollection+0x40`; fn_00674BD0, el `mov [ecx+0x40], eax` de 0x674BEE, llamada desde
+   `AtomCollection::CommonInitNewAtom` 0x674C7A), así que ese primer átomo es el **más nuevo**; el vector de openblack
+   crece por el final (`PSys.cpp`, `NewAtom`), así que el sonido va en el último (arreglado en la tanda 2 de
+   milagros2; un átomo recién hecho tiene edad 0, así que en los dos casos el sonido espera al paso siguiente). Cada
+   chakra sigue a su objetivo y, con `ScalePropObjectSize`, su escala de regla (+0x78) es el `Get2DRadius` del objetivo.
 3. `fn_006A0E30` da la intensidad del chakra con la edad de su **subcolección** (el estallido del grupo siguiente):
    `t = edad / AtomAgeMaxAlpha` hasta 1 y luego `1 − (edad − AtomAgeMaxAlpha) / (AtomAgeZeroAlpha − AtomAgeMaxAlpha)`,
    recortada a 0..1 (`psys::heal::ChakraFade`). Con ella:
@@ -225,8 +270,14 @@ hasta que se cierra**; en openblack es `Modifier::KeepsAlive`), propiedades 0x6B
      (200, 255, 255) × t: **el aldeano se ilumina** mientras dura el chakra.
    Cuando el estallido se queda sin átomos (a los 3 s) el chakra se borra, y al destruirse su `AtomData` (fn_006A09A0)
    sale de la lista global y le quita el brillo al objetivo (`SetSpecularColor(0)`).
-- Un chakra cuyo objetivo desaparece se borra; si un chakra no tiene subcolección la regla se suelta (0x6A0E1C
-  devuelve 0). El bit 4 de `Objeto+0x24` (sin identificar) también termina el chakra en el original: no portado.
+- Un chakra cuyo objetivo desaparece se borra (0x6A0D7D: además el átomo olvida el objetivo); si un chakra no tiene
+  subcolección la regla se suelta (0x6A0E1C devuelve 0).
+- El bit 4 de `Objeto+0x24` (0x6A0D8B) también termina el chakra, **sin** olvidar el objetivo, así que el destructor del
+  `AtomData` le quita el brillo. Ese bit está identificado: es `GameThingWithPos::Flags` 1 << 2, el
+  `UNAVAILABLE_FOR_STATE_CHANGE` de `bw1-decomp/src/Black/GameThingWithPos.h` (solo se lee invertido, en
+  `IsAvailableForStateChange`), y el único sitio que lo pone es `GInterface::PlaceObjectInMagicHand` (0x5DA7C1 →
+  fn_005DC330 → fn_005DC2A0 → fn_005FAFC0, el `or byte [esi+0x24], 4` de 0x5FB014): **es el aldeano que coge la mano**.
+  openblack no tiene esa marca, así que usa el objeto que lleva la mano (`HandSystem::GetHeldObject`) **(aproximado)**.
 - El brillo especular se dibuja en `RenderingSystem` / `vs_object`: `components::SpecularColour` va empaquetado en la w
   de la cuarta columna de la instancia (3e6 + 7 bits por canal) y se suma al especular de la luz del terreno, como hace
   fn_0080BF10 desde fn_0080BEC0 (`Villager::Draw` fn_0051B3D0, `Animal::Draw` 0x51C4D6).
@@ -253,22 +304,62 @@ literalmente una multiplicación de la posición del padre, no un desplazamiento
   efecto de curar es `Object::GetHealEffect` 0x637D80 = `EV.heal × defenceMultiplierHeal` (R9 resuelta: no hay más
   recorte que el 1).
 - Con efecto de curar 1 (la fila HEAL de info.dat), un aldeano a 0,3 de vida pasa a 1 de golpe.
-- Envenenado: bit 1 de `Living+0xB4` (`Living::IsPoisoned` 0x416F90 / `SetPoisoned` 0x416FA0). En openblack es
-  `components::Poisoned`, y `ApplyDefaultSpellEffect` lo quita con HEAL o HEAL_PU_ONE. Quién envenena (comer comida
-  envenenada) aún no está portado; el tinte del aldeano envenenado (difuso 0xFFE8FFDD y especular 0xFF001000,
-  `Pot::GetPoisonColor` / `GetPoisonSpecular` 0x51BB50, fn_0051B3D0) tampoco.
+#### Veneno (`ECS/Life.h`, `ecs::life`)
+
+- Envenenado: bit 1 de `Living+0xB4` (`Living::IsPoisoned` 0x416F90 vt 0x4A4 / `SetPoisoned` 0x416FA0 vt 0x69C; el
+  `Object::SetPoisoned` 0x402780 de las vasijas es otra marca, `components::Pot::poisoned`). En openblack es
+  `components::Poisoned`, con `ecs::life::IsPoisoned` / `SetPoisoned`, y `ApplyDefaultSpellEffect` (0x720E34) lo quita
+  con HEAL o HEAL_PU_ONE.
+- **Quién envenena**: no hay ningún hechizo que envenene. Las dos llamadas a `SetPoisoned(1)` sobre un vivo son
+  `Villager::AddResource` 0x7564D0 (0x7564E5..0x7564F3: comida con la marca «envenenada», p. ej. un montón envenenado
+  que le ponen en las manos) y `Villager::GetResourceFrom` 0x753390 (0x7533E8..0x7533FC: coger un recurso de un objeto
+  cuyo `IsPoisoned` es 1 — `Pot::IsPoisoned` 0x55D4E0, `StoragePit::IsPoisonedResource` 0x733550 —, que además pasa el
+  `IsSpeedUp`). Es decir, **se envenena al recibir la comida, no al comerla**. Comer solo cambia la animación:
+  `Villager::EatFood` 0x75C00E y `EatFoodAtHome` 0x75C0BE eligen 0xD4 en vez de 0xA3 / 0x26 si está envenenado. En
+  openblack el lado de comer es de la sesión de aldeanos: la API es `ecs::life::TakePoisonedResource`.
+- **Lo que le hace el veneno**: `Villager::CheckHungry` 0x75BCC0 aplica el daño del hambre también cuando el aldeano
+  **no** tiene hambre, solo por estar envenenado (0x75BD83..0x75BD9E). La cantidad (0x75BDA6..0x75BDE0) se escribe
+  `max(1 − comida / hungryForFood, 1) × hungerToLifeMultiplier`, con el `max` leído en 0x75BDBB..0x75BDCA (`fcom 1.0`,
+  `test ah,0x41`, `je` se queda con el valor solo si es **mayor** que 1): como la comida nunca es negativa
+  (0x75BD59..0x75BD6E la recorta a 0), el primer término nunca gana y **el daño es `hungerToLifeMultiplier` fijo** por
+  comprobación periódica. Portado como `ecs::life::ProcessPoison`, llamado desde `CheckHungry` (el resto de
+  `CheckHungry` sigue siendo V4 de la sesión de aldeanos). Además `Villager::DoSleeping` 0x760DB6 **se salta la
+  recuperación de vida al dormir** mientras está envenenado (ese estado no está portado).
+- **El tinte**: fn_0051B3D0 (el ayudante de dibujo de `Living::Draw` 0x51AEEC y `Villager::Draw` 0x51BA74/0x51BAD5), en
+  0x51B43D..0x51B45D: si el vivo **no** tiene color especular propio (`Living+0xD0`, el del chakra, que gana) y está
+  envenenado, se dibuja con difuso 0xFFE8FFDD (0x51BB50, que el fichero de símbolos llama `Pot::GetPoisonSpecular`
+  pero va en la ranura del difuso de fn_0080BEC0, la misma que usa el blanco 0xFFFFFFFF) y especular 0xFF001000
+  (0x51BB60, que el fichero de símbolos llama `Object::GetFireEffect`); fn_0080BF10 **suma** el especular al color del
+  objeto canal a canal con saturación (0x80BF2D..0x80BF68). En openblack son los datos `ecs::life::k_PoisonDiffuse` y
+  `k_PoisonSpecular`: **dibujarlo es de la sesión de shaders** (`LH3DColor`), todavía no se ve.
+  El `Pot::GetPoisonColor` 0x80BEC0 del fichero de símbolos no es un color: es el «pinta con estos dos colores y
+  `AddForDrawing`» del objeto 3D.
 
 ### Sin portar / sin verificar (curar)
 
 - **La niebla (`ParticleMistCreator`) no hace falta para curar**: SF_HealChakra solo usa `ParticlePointCreator` y
   `ParticleSpriteCreator`. Queda para el agua y el tiempo.
-- El power-up (SF_HealChakraPU) añade la malla `MSH_S_HEAL_MESH` (532) con `UR_KPStretchHeight` 0x6A50C0 y
+- El power-up (SF_HealChakraPU) añade la malla `MSH_S_HEAL_MESH` (532, la seta) con `UR_KPStretchHeight` 0x6A50C0 y
   `UR_KPMoveAtoms` 0x6A60B0 (interpolación de puntos clave `KPSplineInterpolator::EvalAtT` 0x6A7EB0, un spline cúbico
   con el factor 1/6; `MovePropAtomIndex` escala el desplazamiento por `índice / (NumAtoms − 1)`) y el sonido
-  HEAL_MUSHROOM: **desensamblado, no portado**. El chakra sí funciona en el PU (radio 35, hasta 100 objetivos).
-- El orden del sonido: el original toca `SoundHeal` en el primer átomo de **su** lista, que va del más nuevo al más
-  viejo; en openblack la lista va al contrario, así que suena en el chakra más antiguo (inf).
-- `CanBeHealedByHealSpell` (vt 0xB18) da 1 en la criatura y 0 en la paloma (M4c/M8).
+  HEAL_MUSHROOM. **Ya está portado** (lo de «desensamblado, no portado» estaba desfasado, auditoría de milagros2):
+  las dos reglas se registran en `PSys/Rules/KeyPoints.cpp`, el creador `ParticleMeshCreatorAnimTextured` está en
+  `PSys/Creators/Mesh.cpp` y el `SoundOfCreate` en `PSys/PSys.cpp`. El chakra funciona igual en el PU (radio 35, hasta
+  100 objetivos).
+- La malla 532 es tipo 4 con el byte +5 = 5 (dos caras) y 192 de sus 512 triángulos miran hacia dentro, pero el original
+  **no le cambia el material**: `ParticleMeshCreatorAnimTextured::CreateLH3DObject` 0x6A8D20 solo hace
+  `LH3DObject::Create` y seis llamadas de su vtable, ninguna a `GJUtils::SetMaterialProperties` 0x57E220 (el cambio
+  4 → 13 del escudo físico). openblack ya lee la marca de dos caras de la propia malla (`L3DSubMesh.h`, byte +5 bit 0),
+  así que aquí no hay nada que arreglar (H8 cerrada).
+- `CanBeHealedByHealSpell` (vt 0xB18) es `!IsDead` en `Living` (0x5EE550 → vt 0xAF4, `Living::IsDead` 0x417270) y da 0
+  en **toda la clase `Dove`** (`Dove::CanBeHealedByHealSpell` 0x41EAB0 es un `xor eax,eax`), no solo en la paloma del
+  hechizo: ningún pájaro se cura (cuervo, paloma, golondrina, pichón, gaviota, murciélago, los dos de hechizo y
+  también el **buitre**, `class Vulture : public Dove`, cuya vtable 0x8BB7F8 +0xB18 es 0x41EAB0).
+  Portado en `CastRules.cpp` con `ecs::animal_ai::IsFlyingSpecies` + el buitre aparte (IsFlyingSpecies no lo
+  incluye). CitadelDove / CitadelBat: clase sin identificar, openblack no los crea (inferido: se curan). La criatura da
+  1 (M8).
+- Sigue inferido que los muertos no se curan: openblack no tiene `IsDead` (los estados de morir no están portados), así
+  que un aldeano o animal vivo siempre pasa el filtro.
 
 ### Ganchos, pruebas y capturas
 
@@ -276,12 +367,17 @@ literalmente una multiplicación de la posición del padre, no un desplazamiento
   ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)): hiere a los aldeanos del radio,
   puede lanzar el milagro ahí mismo y escribe cada cambio de vida, veneno y brillo.
 - `test_heal`: la curva del chakra (`ChakraFade`, el alfa 100 del pico y el brillo 160 a 1,2 s), que la regla mantiene
-  el efecto vivo sin átomos hasta el `CloseDown`, la mecha y la velocidad única del estallido, la onda de la mano y,
-  con `OPENBLACK_GAME_PATH`, los valores reales de SF_HealChakra y SF_HealChakraInHand.
+  el efecto vivo sin átomos hasta el `CloseDown`, la mecha y la velocidad única del estallido, la onda de la mano, los
+  dos colores del tinte del veneno con su daño por comprobación (`Heal.poisonData`) y, con `OPENBLACK_GAME_PATH`, los
+  valores reales de SF_HealChakra y SF_HealChakraInHand.
 - Capturas en `dev\_audit\magic\`: `m4h_heal_chakra.png` (Land1, aldeanos de 1800, 2648 con la cámara en
   `1789,35,2639`: tres chakras encendidos, con el aldeano iluminado dentro de cada estallido) y
   `m4h_heal_trace.log` (vidas 0,300 → 1,000 y veneno curado en los tres, el brillo subiendo 40 → 106 → 160 y bajando a
   0, 18 átomos —1 punto + 5 sprites por chakra— durante 3 s y el hechizo abierto hasta sus 20 s).
+- `polish_fix_curar_chakra.png` / `.log` (tanda 2 de milagros2): `OPENBLACK_TEST_HURT_VILLAGERS="1794.4,2646.6,6,0.3,1,200,1,16"`
+  con `OPENBLACK_TIME_OF_DAY=12` y la cámara en `1785,33,2640,1794.4,29,2646.6`: el aldeano envenenado iluminado dentro
+  de su estallido. En `polish_fix_curar_heal_poison.log` se ve el veneno haciendo daño poco a poco (vida 0,300 → 0,299
+  → 0,298 … en los aldeanos que el milagro no alcanza) y curándose en cuanto les llega un chakra.
 
 ## Bosque (M4b, `Magic/Spells/SpellForest`, `Magic/Objects/MagicTree`, `ECS/Trees`)
 
@@ -294,12 +390,23 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   - `CanCast` 0x5FAE80 (vt 0x30): dentro del mapa, tierra, `fn_005FADF0` (ningún Abode de **la celda** del punto,
     `FindType(0)`, tiene `Get2DRadius > distancia` a su centro de fuego) y `ValidPlaceForTree` 0x725C50 (dentro,
     tierra y no `MapCoords::IsFixed`).
+  - El radio de `fn_005FADF0` es la vt 0x64 de cada objeto, y **`Field::Get2DRadius` 0x528E80 es la constante 5 m**
+    ([0x8AB6E4]): es la única clase que redefine el hueco (las vtables de Object, Abode, Field, Tree y Pot dan
+    `Object::Get2DRadius` 0x638180 menos la de Field). Portado en `SpellForest.cpp` `NoAbodeCovers`, que antes usaba el
+    radio genérico también para los campos.
   - **`IsFixed` 0x603790 → `MapCell::IsFixed` 0x601EA0 mira solo el primer objeto fijo de la celda** (MapCell +4,
     donde `Fixed::InsertMapObjectToCell` 0x52DEA0 pone el más nuevo con `SetFirstObjectFixed`) y su bit +0x24 & 2, que
-    solo pone el ctor de `MultiMapFixed` 0x52E1F0 (edificios, campos, features, estáticos, bosques grandes...). Un árbol
-    es `SingleMapFixed` (solo en su celda) y no lo tiene: una celda cuyo último fijo es un árbol no está «ocupada»,
-    aunque tenga un edificio debajo. openblack toma el más nuevo por el índice de creación (inf: un árbol replantado
-    vuelve a ser el más nuevo de su celda y openblack no lo sabe) y cuenta los árboles del propio evento.
+    solo pone el ctor de `MultiMapFixed` 0x52E1F0 (`or byte [esi+0x24], 2` en 0x52E207). O sea: `IsFixed` = «el fijo más
+    nuevo de la celda es un MultiMapFixed». Las clases que heredan de él, según bw1-decomp (`src/Black/*.h`): Abode (y
+    con él Field, Footpath, CreaturePen, BuildingSite y StoragePit), BigForest, CitadelPart, Feature, FishFarm,
+    MobileStatic (y con él MagicTeleport y las farolas), PFootball, PrayerSite, SpellIcon y TotemStatue; `SingleMapFixed`
+    (Tree, MapShield, ScriptHighlight, PrayerIcon) no lo pone. Un árbol está solo en su celda: una celda cuyo último fijo
+    es un árbol no está «ocupada», aunque tenga un edificio debajo. openblack prueba ahora esa lista de componentes
+    (`SpellForest.cpp` `IsMultiMapFixed`; antes solo preguntaba «no es un árbol», lo que ocupaba la celda con cualquier
+    SingleMapFixed) y cuenta los árboles del propio evento. **(aproximado)** el más nuevo sigue siendo el del índice de
+    creación: el grid de openblack es un `unordered_set` que se reconstruye entero (`ECS/Map.h`) y no guarda orden de
+    inserción. Solo se nota con un objeto que salió del mapa y volvió sin crearse de nuevo (cogido y soltado): en el
+    original vuelve a ser el más nuevo, aquí conserva su índice.
   - `SpellEvent` 0x725830: nada con el tipo 1 o si ya hay Forest; `ApplyDefaultSpellEffect` (paga costPerEvent 1;
     EffectValues de NATURE: alineamiento 1; reacción 21) y, si aplica, **todo el bosque de golpe**: N = `fn_00725790` =
     round(+0xF4 × (fuerza > 0)); paso = N > 1 ? 1/(N − 1) : 1; vueltas = N × **17/13** (el float 0x9819FC =
@@ -387,8 +494,13 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   hechizo (sin hechizo, el de g_game +0x205A5B) y `CreateReaction(this, REACT_TO_MAGIC_TREE 8, GetPlayer, 0)`.
   - `ToBeDeleted` 0x5FD070: sus reacciones, `Tree::ToBeDeleted` y, si el bosque sigue disponible y se quedó sin
     árboles, el bosque.
-  - `StartOnFire` 0x5FD0D0 quita la reacción 8; `EndOnFire` 0x5FD0E0 la crea otra vez salvo con la bandera g_game
-    +0x14 & 0x8000 (sin identificar: se toma como apagada).
+  - `StartOnFire` 0x5FD0D0 quita la reacción 8; `EndOnFire` 0x5FD0E0 la crea otra vez salvo si la bandera g_game
+    +0x14 & 0x8000 está puesta (0x5FD0EB `test ch, 0x80` se salta el `CreateReaction`). **Esa bandera es «estoy dentro de
+    `GGame::ClearMap` 0x552BB0»:** se pone al principio y se quita al final (bw1-decomp `src/Black/Game.cpp` 1296 y
+    1388), y por eso los objetos que se destruyen al cambiar de tierra no crean reacciones ni avisan a su pueblo
+    (`Abode.cpp` 92 y 105) ni nada parecido. openblack solo llama a `EndOnFire` desde el sistema de fuego
+    (`ECS/Fire/FireEffect.cpp`, cuando se apaga un fuego), nunca mientras limpia una tierra: la condición se cumple
+    siempre y no hay guarda que portar.
   - `GetWoodValueMultiplier` (vt 0x868) = +0x70; el de Tree 0x74B810 da 1. `Tree::GetWoodValue` 0x74B7B0 = vida × eso
     × woodValue × escala × [0xD1A294]; `HandSystem::DepositInStore` ya lo multiplica. `GetImpressiveType` 14.
 - **Tree** (`ECS/Trees` de la sesión «arboles», `components::Tree`): el ctor 0x749E00 recibe (pos, info, bosque, maxScale → +0x64,
@@ -399,10 +511,21 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     nada si la escala ya es maxScale; si no, min(escala + cantidad, maxScale) con `SetScale` (vt 0x124) o con
     `SetJustScale` (vt 0x51C) y la matriz 3D rehecha con la escala, el ángulo Y y la posición. Devuelve lo que creció.
   - `Tree::Process` 0x74A290 (vt 0x5FC, lista de los que crecen): baja la cuenta; en 0 vuelve a
-    growsAfterNumGameTurns y, si crece por debajo de maxScale, `Grow(growthAmount × (1 + GetMaxRainingOrSnowing × 0,01
-    × rainingAcceleratorMultiplier) × (1 + alineamiento del sitio × 0,5), 0, 0)`; devuelve 1 si sigue creciendo.
-    En openblack es `ecs::ProcessTreesTurn` (sin lluvia ni alineamiento todavía) y alcanza también a los árboles del
-    milagro, como en el original (su bosque es uno más de la lista).
+    growsAfterNumGameTurns y, si crece por debajo de maxScale, `Grow(cantidad, 0, 0)`; devuelve 1 si sigue creciendo.
+    La cantidad se arma en 0x74A2D7..0x74A33E: `growthAmount` (info +0x11C) × (1 + 0,01 [0x8C5840] ×
+    `rainingAcceleratorMultiplier` (info +0x130) × `GClimate::GetMaxRainingOrSnowing` 0x771600) × (1 + 0,5 [0x8AA3B4] ×
+    `MapCoords::GetAlignment` 0x6057B0). Las dos consultas se hacen en `MapCoords::GetLHPoint` 0x605C40 del propio árbol
+    (el suelo más su y).
+  - **`MapCoords::GetAlignment` 0x6057B0 (el «alineamiento del sitio») es del terreno, no de un jugador:** empieza en 0 y
+    por cada jugador que existe (orden de `GGame::GetNextPlayer` 0x5508A0) suma
+    `Influence::CalculatePlayerInfluence(pos, jugador, 0, tipo 0, aliados 1)` 0x5CD170 × `GPlayer::GetAlignmentValue`
+    0x64D6A0, y recorta a −1..1 (0x60580F y 0x60582C). Es decir, el bien o el mal de quien manda allí, pesado por su
+    influencia. (`fn_00605850` lo pasa luego por `GetDiscreteAlignmentValue` 0x414730, que no se usa aquí.)
+  - Portado (lane «bosque2» de milagros2): `ecs::TreeGrowthAmount` (`ECS/Trees.h`, con prueba en `test_spell_forest`
+    `treeGrowthAmount`), la lluvia con `weather::GetMaxRainingOrSnowingAt` y el alineamiento con
+    `effects::alignment::LandAlignmentAt` (nuevo en `ECS/Effects/Alignment`). Con `OPENBLACK_TREE_TRACE=1` cada turno de
+    crecimiento escribe `growth <a> = <growthAmount> x rain <r> (mult <m>) x alignment <al>`. Alcanza también a los
+    árboles del milagro, como en el original (su bosque es uno más de la lista).
   - `Tree::ToBeDeleted` 0x74A210: sale de su bosque (fn_0053A220) y de la lista global de árboles g_game +0x205CDC.
 - **Forest** (en openblack, los ids de `ECS/Trees`: `CreateForest`, `IsInForest`, `GrowAllTrees`, `ShrinkAllTrees`,
   `TallestTreeHeight`; los árboles guardan el id en `forestId` y no hay listas; 0x58 bytes: id +0x40, siguiente +0x44, `Trees0` +0x48/+0x4C
@@ -413,8 +536,9 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   - `Forest::ProcessForests` 0x539D70 (ranura 5 del turno) → `Forest::Process` 0x539DA0: un bosque vacío (con +0x38 =
     0) pone +0x34 = 2000 y lo baja cada turno; por debajo de 2 se borra. Si no, y con +0x3C ≠ 1, `Tree::Process` de
     cada árbol que crece; los que devuelven 0 pasan a `Trees0`. Luego los árboles nuevos naturales (cada 2000 +
-    GameFloatRand(1000) × 0,05 × crecidos, junto a uno al azar, fn_00539FD0 / fn_0053A010, y FUN_0064da80(14, 1) al
-    jugador más influyente) los hace `ECS/Trees` (sin el alineamiento) también en los bosques del milagro: un árbol
+    GameFloatRand(1000) × 0,05 × crecidos, junto a uno al azar, fn_00539FD0 / fn_0053A010, y
+    `GPlayer::FUN_0064da80(14, 1)` 0x539FB7 al jugador más influyente del árbol nuevo,
+    `CalculateMostInfluentialPlayer` 0x603830 en 0x539F9B, si no es neutral) los hace `ECS/Trees` también en los bosques del milagro: un árbol
     nuevo en uno de ellos hace que haya más árboles que N y el bosque entero mengua, como haría el original. +0x38 y +0x3C no se sabe qué son (0 en el ctor).
   - `ToBeDeleted` 0x539C60: `ToBeDeleted` de cada árbol de las dos listas y sale de la lista.
   - **No hay unión de bosques**: el milagro siempre hace un Forest nuevo (`CreateForest(0, punto del primer árbol)`).
@@ -426,8 +550,12 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     recibe cómo se va el árbol: `Removed` (la entidad se destruye: también se van su fuego, FireEffect::ToBeDeleted
     0x72EBE0, y la mano lo suelta) o `BecameDeadTree` (`FellTree` o el árbol muerto de la mano: el DeadTree se queda la
     malla y el fuego, fn_00730960 en su ctor 0x510880, y deja de ser MagicTree). El multiplicador de madera del MagicTree
-    (0,25 × poder tribal, +0x70, 0x5FD0C0) va en `Tree::woodValueMultiplier` y el DeadTree lo copia (+0x9C, 0x5108F7). El jugador del Forest (solo para el alineamiento de los árboles nuevos
-    naturales) no se guarda.
+    (0,25 × poder tribal, +0x70, 0x5FD0C0) va en `Tree::woodValueMultiplier` y el DeadTree lo copia (+0x9C, 0x5108F7).
+  - **El jugador del Forest no hace falta** (esto corrige la auditoría, que lo daba por el alineamiento de los árboles
+    nuevos): fn_005399E0 lo guarda (0x5399F4 `GetPlayer` del creador → el ctor de GameThing fn_0046B8A0), pero
+    `Forest::Process` 0x539DA0 no lo lee nunca; la estadística 14 de un árbol nuevo (0x539FB7) va al jugador más
+    influyente de ese árbol y `GPlayer::FUN_0064da80` sale enseguida fuera de una partida multijugador
+    (`IsMultiplayerGame` en 0x64DA90). (inferido) no se encontró otro lector. openblack sigue con `CreateForest(0, …)`.
 - **El efecto SF_Forest sin la escena** (lo que se ve): la semilla `Seed.L3D` (escala 0,207) cae desde 9,4 m con
   gravedad 1,6 (máx. 3,35 m/s) girando, con SOUND_SPELL_FOREST_1 y un disco de manchas azules; al tocar tierra (turno
   41, 4,1 s) salen los 18 árboles. **Todo lo demás cuelga del átomo de la cámara** (grupo 2,
@@ -438,7 +566,19 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   S_Butterfly_Flap.anm, o murciélagos M_Bat_Flap.anm); y a los 3,5 s el mapa de luz `Forest_LMap.raw` con chispas
   permanentes. Con el creador de la cámara sin portar el átomo existe pero no dibuja ni mueve la cámara, así que se
   ven la semilla, las manchas, las chispas, el vórtice y el mapa de luz. **Sin portar:** la diosa y la cámara
-  (aplazado) y las mariposas (esas cuatro clases; `ParticleAnimCreator` es una malla animada .anm dentro del PSys).
+  (aplazado).
+- **Las mariposas y los murciélagos sí están** (esto corrige la línea vieja de «sin portar»): `UR_ForestPath` y
+  `ParticleGoodEvilCreator` en `PSys/Rules/Forest.cpp`, `UR_Flocking` en `PSys/Rules/Flock.cpp` y `ParticleAnimCreator`
+  en `PSys/Creators/Mesh.cpp`. Lo que falta es **el aleteo**: `ParticleAnimCreator_Butterfly` /
+  `ParticleAnimCreator_Bats` (SF_Forest.txt líneas 726 y 756) traen `AnimFileName`
+  `.\Data\SPELLS\Anims\S_Butterfly_Flap.anm` / `M_Bat_Flap.anm` con `PlayAnim 1`, `LoopAnim 1`,
+  `RandomiseInitFrame 1`, `SpeedUpFactor 1`, `InitialScale 4` y mallas `S_Butterfly.l3d` / la del murciélago, y
+  openblack las dibuja como malla quieta en su pose de reposo (se ve en `polish_fix_bosque2_forest_dry.png`).
+  **(pendiente, no es un puerto pequeño):** `Particle3DAnim::DrawAt` 0x67A8E0 necesita animación por partícula
+  (`GetCycleTimeFromFrame` 0x6C85F0 → vt 0x188, el fotograma inicial al azar, el fundido a `MeshFileName1/2` entre
+  `FrameToStartBlend` y `FrameToEndBlend` por la vt 0xDC), y la tubería de mallas del PSys de openblack
+  (`psys::mesh_atoms::Instance`, `RenderingSystem.cpp`) solo dibuja instancias estáticas: no hay huesos ni estado de
+  animación por partícula.
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
   Con `OPENBLACK_SPELL_TRACE=1` cada turno escribe `SpellForest trees <n> wanted <N>: grow|decay <suma>` y el evento
@@ -450,6 +590,10 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   caer la semilla: los 18 brotes en espiral y el destello), `m4b_forest_saplings12.png` (12 turnos: escala 0,12),
   `m4b_forest_40.png`, `m4b_forest_grown.png` (120 turnos: cada árbol en su escala objetivo, 0,91 dentro y 0,5 en el
   borde) y `m4b_forest_decay.log` (duración 8 s: el bosque mengua y desaparece).
+  La lluvia del crecimiento, con `OPENBLACK_TEST_WEATHER="1790,2625,100,100"` y `OPENBLACK_TREE_TRACE=1`:
+  `polish_fix_bosque2_forest_rain.png` (lluvia sobre el bosque; la traza da
+  `growth 0.0300 = 0.0100 x rain 100 (mult 2.00) x alignment 0.000`) contra `polish_fix_bosque2_forest_dry.png` (sin
+  tormenta: `growth 0.0100 = 0.0100 x rain 0`, y se ven las mariposas quietas).
 
 ## Bandadas (M4c, `Magic/Spells/SpellFlock`, `PSys/Rules/Flock.cpp`)
 
@@ -524,19 +668,33 @@ SpellWolf (AnimalSpellWolf.cpp) hacen distinto vive en `SpellFlock.cpp` (compone
   llama a Living::SetDying**: si el destino aún no es 0, `vt+0xBD4` (fn_0041F2F0 / fn_00420A20, el
   `SetDestinationWithSpeedAndTime(0, 0, t)` del Zoomer: cuártica desde el valor y la velocidad de ahora) con
   t = `GetNumTurnsToDieOver` (20, 0x41F620 / 0x420D50) × 100 ms = 2 s. `ProcessFadeOut` (0x41F4C0 / 0x420BF0) avanza
-  0,1 s por turno y con el alfa exactamente 0 hace `ToBeDeleted`. El color de la malla es `fistp(alfa) << 24 |
+  0,1 s por turno y con el alfa exactamente 0 hace `ToBeDeleted`. «El destino» es el segundo campo del Zoomer
+  (+0x14C / +0x16C; el valor es +0x148 / +0x168): una vez empezado, otro `SetDying` (escudo, CloseDown, la llegada) no
+  lo reinicia (corregido en milagros2: el puerto miraba el valor y lo rearrancaba en cada llamada). El color de la malla es `fistp(alfa) << 24 |
   0xFFFFFF` y translúcida si no es 255 (SetColor 0x41F630; SpellWolf::Draw 0x51C6EC): aquí `SetAlpha(alfa / 255)` en
   el turno (el alfa solo cambia en el turno). El animal sigue moviéndose mientras se desvanece.
 - **Lobo, el pasillo** (fn_00420F50, fiel): normal `(DZ, −DX)/|D|` de D = destino − inicio ((1, 0) si |D|² < 0,0001;
   la nota de resources.md decía «dirección»: es la normal), desplazamiento `−normal·inicio`, medio ancho 45 m,
-  `+0x148` = destino y luego `SetRunToFinalDest` 0x4209C0 (velocidad = escala × info.speed4 × 1,1,
-  `SetupMoveToPos(+0x148, SET_DYING)`). `IsPosOnCorridor` 0x420E10: `|normal·p + desp| <= 45` y el punto no más de 45 m
+  `+0x80` y `+0x148` = destino (0x421054..0x421081; resources.md decía +0x80 = inicio) y luego `SetRunToFinalDest`
+  0x4209C0 (0x421084: velocidad = escala × info.speed4 × 1,1, `SetupMoveToPos(+0x148, SET_DYING)`) **en el turno del
+  hechizo** (`SetupWolf`: el lobo corre desde su primer turno). Los que siguen al jefe toman su `GetDestPos` (vt 0x860 =
+  `MobileWallHug` +0x80, 0x416F70; llamada en 0x724737): **mientras el jefe caza, +0x80 es la presa**
+  (`SetupMobileMoveToObject` 0x60ACE3 escribe ahí su `GetWorkingPos`), así que esos lobos corren a ella y se
+  desvanecen al llegar a 30 m (leído así; en Land 1 junto al pueblo casi todos se van en 2-4 s). El ctor de la clase
+  (AllocSpell 0x4207F0) no usa la edad de fn_00419D10: `fn_0041FD30` recibe `grownUpAge + 1` (0x420816..0x420822: un
+  adulto, que caza presas vivas) y el hambre +0xE4 = `info.hunger` (150, 0x420885..0x42088E). `IsPosOnCorridor` 0x420E10: `|normal·p + desp| <= 45` y el punto no más de 45 m
   por detrás de la esquina de la celda de 10 m del lobo a lo largo del pasillo (no del inicio, como decía resources.md).
   `SpellWolf::MoveToPos` 0x421300: `Living::MoveToPos`; si el hambre +0xE4 `>=` info+0x20C (el ctor 0x4207F0 la pone
   así: con hambre desde el principio) `ReactToAnimalFoodNeeds` (vt+0xBC0, la caza del león); y a menos de 30 m
   (0x8BF51C, `GetDistanceInMetres` 0x74CD70 en XZ) del destino final, `SetDying` (el desvanecido).
   `IsHuntingTargetValid` 0x420D60: un Living que no está en DYING/DEAD/DOWNED/BEING_EATEN (0xE, 0xF, 0x11, 0x12) ni
-  tumbado (+0xB4 & 0x80), dentro del pasillo y con `IsPosValidForTurnAngle` (vt+0xB3C).
+  tumbado (+0xB4 & 0x80), dentro del pasillo y con `IsPosValidForTurnAngle` (vt+0xB3C); además el lobo no se está
+  desvaneciendo (+0x16C ≠ 0). Es vt+0xBB4: lo llaman la búsqueda de presa fn_004196D0 (0x419715) y
+  `Animal::HuntingMoveToPos` 0x418DB0 (0x418E36, si no vale → vt+0xBB8). **Portado (milagros2, lane bandadas)** con
+  ganchos pequeños en los archivos de «animales»: `AnimalPredators.cpp` (`IsHuntingTargetValid`, la rama SpellWolf de
+  `Abandon` = `HuntingMoveToPosAbaondon` 0x420F30, `SpellWolfMoveToPos`), `AnimalAI.cpp` (el estado MOVE_TO_POS del
+  SpellWolf llama a `SpellWolfMoveToPos`; `Lion::Eat` vt+0xB50 y `Animal::StartWander` vt+0xB48 también para él) y
+  `AnimalAIDetail.h` (la declaración). La llegada a 30 m ya no se mira en el turno del hechizo.
 - **Otros:** SpellDove/SpellBat `GetTimeToBank` 0,5 s, `ReactToAnimalNeeds` 0x24, SpellBat
   `CanBeFrighteningToCreature` = 1; SpellWolf `SetSpeed` no hace nada, `DecideWhatToDo` / `Wander` /
   `HuntingMoveToPosAbaondon` = SetRunToFinalDest (en `ECS/AnimalAI` y `AnimalPredators`, sesión «animales»).
@@ -578,21 +736,27 @@ SpellWolf (AnimalSpellWolf.cpp) hacen distinto vive en `SpellFlock.cpp` (compone
 
 ### Pendiente / no fiel
 
-- **(inferido)** Los lobos empiezan a correr un turno más tarde: el `SetRunToFinalDest` del final de fn_00420F50 lo
-  hace aquí su primer turno (DECIDE_WHAT_TO_DO → SpellWolf::DecideWhatToDo) porque `ECS/AnimalAI.h` no lo expone
-  (pedido a «animales»). Hasta ese turno el `GetDestPos` del jefe se toma de su destino final (es el mismo valor).
-- **(inferido)** La llegada a 30 m del destino se mira en el turno del hechizo, con el lobo en MOVE_TO_POS, no en la
-  función de estado del lobo; la caza dentro del pasillo (`ReactToAnimalFoodNeeds` + `IsHuntingTargetValid`) es del
-  módulo de los animales: `spell_flock::IsOnCorridor` / `IsPosOnCorridor` está para que la llamen (pedido).
-- **(inferido)** Si el código de los animales mata a uno de estos (la mano, el fuego, un depredador),
-  `Living::SetDying` sigue con DYING y el cadáver; el original solo desvanece. La llamada de muerte
-  (`SetDeathCallback`) arranca el desvanecido y a los 2 s el animal se borra (pedido: que la llamada pueda sustituir
-  a Living::SetDying en estas tres clases).
-- **(aproximado)** El ángulo de nacimiento y la cara usan `detail::AngleOfMapCoords` / `FaceAngle` de los animales;
-  la posición previa (+0x2C) para el escudo es la del turno anterior del hechizo.
+- **Hecho en milagros2:** la caza en el pasillo, el arranque en el turno del hechizo, la llegada en el estado del lobo
+  (arriba), y la vt+0x6A4 de las tres clases ya sustituye a `Living::SetDying` (`animal_ai::SetSpeciesDying`,
+  `ECS/AnimalApi.cpp`; ya no hay DYING ni cadáver para ellos).
+- **Ángulo de nacimiento (fiel por lectura):** `SetGameAngle` 0x60DA90 (+0x5C y `SetYAngle`) de `GetAngleFromXZ`
+  0x74D240 (punto con temblor, T; 0x7245E8..0x7245FB) = `LHArcTan` 0x74D0C0 de T − S: es `detail::AngleOfMapCoords`;
+  la cara dibujada es la de `FaceAngle` de los animales (su convención de `ConvertGameAngleTo3D`).
+- **(aproximado)** La posición previa (+0x2C) para el escudo es la del turno anterior del hechizo (F5, sin tocar).
+- **(pendiente, animales)** En openblack los lobos persiguen (HUNTING_MOVE_TO_POS 41 contra aldeanos dentro del
+  pasillo) pero no llegan al salto: dan vueltas a 30-50 m de la presa. Su `SetSpeed` no hace nada (0x4209B0), así que
+  corren a ~1,5 m/turno y el radio de `SetTowardsAngle` (2 × velocidad / giro, 0x418681) es ~29 m; dentro de él la
+  reducción de 0x4186B4..0x4186FC casi anula el giro. Leído igual en el original (el radio y la fórmula), pero no
+  comprobado contra el juego original: puede ser fiel o un fallo del movimiento de los animales.
 - **(inferido)** UR_Flocking con `SpriteRotation` (moscas, picor): la matriz 0xEA1D28 se toma como la rotación
   mundo→cámara (x = v·derecha, y = v·arriba), como hace `UR_OrientSpriteWithVelocity` (Rules/Orient.cpp).
-- Sin portar: `NeedsContinualPackets` 0x723280 (paquetes del interfaz mientras faltan animales), Load/Save.
+- **Duración real con una semilla de la mano (inferido por las reglas de cánticos, medido):** 5000 cánticos iniciales
+  / 40 (palomas) o 35 (lobos) por turno, sin recarga: 12,5 s y 14,5 s, no los 25 s / 60 s del temporizador (el
+  lanzamiento de guion es del jugador neutral, que repone: allí se cierra por el temporizador).
+- Sin portar: `NeedsContinualPackets` 0x723280 (true mientras `creados < N` si lanza un humano y es el jugador del
+  interfaz; si no, `Spell::NeedsContinualPackets` 0x7214C0): decide si el interfaz manda paquetes con la mano; en
+  local openblack refresca `PSysProcessInfo` cada turno (`creator::UpdateSpellInfo`), así que no cambia nada (inferido).
+  Load/Save tampoco.
 
 ### Ganchos, pruebas y capturas
 
@@ -600,7 +764,8 @@ SpellWolf (AnimalSpellWolf.cpp) hacen distinto vive en `SpellFlock.cpp` (compone
   neutral lanza desde 30 m sobre el punto, así que d = (1, 0) y el lado alterna; `OPENBLACK_TEST_FLOCK_SHOT=
   "<turnos>,<ruta.png>[;...]"` pide capturas esos turnos después del lanzamiento. Con `OPENBLACK_SPELL_TRACE=1` cada
   animal escribe `SpellFlockFlying|Ground <n> #<N> entity e at (x, z) +h m -> (Tx, Tz)` y cada 10 turnos cada miembro
-  su posición, estado y alfa. Para seguirlos con la cámara: `OPENBLACK_TEST_VIEW_ANIMAL="0,35,-90"
+  su posición, estado, alfa, presa (`target`, su distancia) y velocidad; `SetDying (state, final)` dice cuándo y en qué
+  estado empezó el desvanecido. Para seguirlos con la cámara: `OPENBLACK_TEST_VIEW_ANIMAL="0,35,-90"
   OPENBLACK_TEST_ANIMAL_SPECIES=20` (22 los lobos) `OPENBLACK_TEST_VIEW_LOCK=1`.
 - `test_flock`: N con el redondeo de fistp, bueno/malo, el abanico (dirección, lado, ángulo, giro), el destino (celda,
   truncado hacia 0, las mitades), la interpolación de salida, el pasillo del lobo (normal, borde, por detrás de la
@@ -613,7 +778,10 @@ SpellWolf (AnimalSpellWolf.cpp) hacen distinto vive en `SpellFlock.cpp` (compone
   MAGIC_OBJECT_CREATED), `m4c_wolves_60.png` (corriendo con el polvo), `m4c_butterflies_75.png` / `_110.png` (un bosque
   en 1912, 2605 junto a los cerdos: las mariposas de UR_Flocking entre los árboles) y los registros `m4c_doves.log`
   (las 12 salidas con su T en abanico; cerrado a los 25 s, el desvanecido y el hechizo borrado a los 27,2 s) y
-  `m4c_wolves.log`.
+  `m4c_wolves.log`. De milagros2 (GROUND_FLOCK en 1750, 2625, junto al pueblo): `polish_fix_bandadas_close15.png`
+  (15 turnos: los lobos se abren hacia los aldeanos del pueblo, cazando), `polish_fix_bandadas_hunt25.png` (25 turnos,
+  más lejos: persiguiendo junto a las casas) y `_hunt60.png` (60 turnos: casi todos desvanecidos al llegar a la presa
+  del jefe), registro `polish_fix_bandadas_close.log`.
 
 ## Bola de fuego y rayo (M5, `Magic/Objects/MagicFireBall`, `PSys/Rules/{Fireball,Lightning}`)
 
@@ -856,6 +1024,60 @@ la cúpula es el PSys del hechizo, SF_DefenseSphere) o `PhysicalShield` (la mall
   ignora una reacción cuyo origen no está dentro de él → `map_shield::IsReactionBlockedByShield(vivo, origen)`, para
   los repartos de reacciones de los aldeanos (el de fuego tiene su `TODO(M6)` en `VillagerFire.cpp`).
 
+### Las reacciones de los aldeanos (`ECS/Systems/Implementations/VillagerShield`)
+
+Portado en la tanda 2 de «milagros2» (leído entero en el exe). La reacción 13 la crea el hechizo al lanzarse y se
+reparte **una sola vez** (`SpreadReaction`), así que solo tienen ocasión los aldeanos que están cerca en ese momento.
+
+- **Arreglo del reparto**: el iniciador de las reacciones 13 / 35 / 36 es el **propio hechizo**, y en openblack una
+  entidad `Spell` no tiene `Transform`, así que `reactions::SpreadReaction` cortaba antes de empezar y **ninguna
+  reacción de escudo llegaba a nadie**. `Reactions.cpp` lee ahora la posición del iniciador con `MapPosOf`: el
+  `Transform` si lo tiene y, si no, `components::Spell::position` (+0x14, que es lo que devuelve `Reaction::GetPos`
+  0x6E45C0).
+- `Villager::ReactToMagicShieldPriority` 0x765BB0: 0 si el iniciador no es un `SpellShield` (0x765BCD) o no está
+  disponible (vt 0x2C, 0x765BDD); **sin pueblo devuelve ya la prioridad** de ReactionInfo[13] (+0x10, 0xD4FBD4,
+  0x765C08 → 0x765C48); con pueblo, 0 si `TownDesire::GetDesireSignificanceToVillager(pueblo +0x34,
+  TOWN_DESIRE_FOR_PROTECTION 3)` 0x746660 es 0 (`test ah, 0x40`) o si `turno − pueblo +0xEB0` (el turno del último
+  agresor) pasa de `GVillagerInfo` +0x364 (`numGameTurnsAfterAggressionInterestedInShield`). La distancia que calcula en
+  0x765BEF **se descarta** (`fstp st(0)`): no influye.
+- `Villager::SetupReactToMagicShield` 0x765C60: `AddReaction(reacción, 168)` (vt +0x990 → `Living::AddReaction`
+  0x5F0F30: guarda la reacción y apila el estado final) y +0xBC = el hechizo; si **no** está ya bajo el escudo
+  (`SpellShield::IsUnder(su posición, 0,2 R)` 0x72BD20, 0x765CC4) camina con `SetupMoveToWithHug` a
+  `centro + GetPosFromAngle(rumbo centro→él ± π/8, 0,8 R (1 − aleatorio³))` con estado final 168 —es decir se mete
+  debajo, sesgado hacia el borde—; y en los dos casos deja el punto de mira (+0x10C, `JustWholeMapXZ`) a **1 m de sí
+  mismo en ese mismo rumbo**, o sea mirando hacia fuera de la cúpula (0x765D8B..0x765DEF).
+- `Villager::AmazedByMagicShieldReaction` 0x765E00 (fila 168 de la tabla de estados; su salida es el thunk 0x5B0100 =
+  `Villager::ExitReaction` 0x7527A0): con pueblo, el hechizo todavía disponible y el deseo de protección > 0
+  (`test ah, 0x41`), `LookAtPos(+0x10C, 0)` un paso por turno y, cuando ya mira, 1 vez de cada 4 (`GameRand(4)`) un
+  punto nuevo; el clip del estado (`AnimFn::AmazedByShield` = `Villager::AmazedByShieldAnimation` 0x4240C0) se mantiene
+  `(GameFloatRand(10) + 20) × 1000 / duración` vueltas (`IsReadyForNewAnimation` 0x5EC960) y luego se vuelve a sortear,
+  salvo si es el 286 INTO_POINTING, que tras una vuelta pasa al 395 TALKING_AND_POINTING (0x765F55..0x765F8D). Si falta
+  el pueblo, el escudo o el deseo: `SetupWaitForCounter(ftol(GameRand(60) + 20), 163)` 0x76B060 (0x765FC0), con lo que
+  también queda portada la fila 57 WAIT_FOR_COUNTER (`Living::WaitForCounter` 0x5EC310).
+- `Town::UpdateAggressor` 0x73C9B0: portado **solo el registro** (+0xEAC el jugador agresor y +0xEB0 el turno,
+  0x73CA82 / 0x73CA98; `components::Town::aggressor` / `aggressorTurn`), que escribe el impacto del escudo físico
+  (0x72D74F..0x72D788: `EffectValues(2, 0, el que golpea, 1.0, PhysicsObject::GetPlayer 0x647460)` y valor 0). Sin
+  portar: los huecos de agresión por jugador (`fn_0073E0F0` sobre pueblo + n × 0x80 + 0x9F4, con el valor + GTownInfo
+  +0xAC cuando el hueco está a 0 y × el peso +0xEB4 / +0xEB8, que luego decae × 0,9), el `TownAttackSFX` 0x71B7C0 y el
+  mimetismo de la criatura (0x73CAAA..0x73CB29).
+- `MapShield::CreatureMustAvoid` 0x72C170 (vt 0x614): portada la condición (no controlado por script, +0x24 & 0x400, y
+  jugador distinto del del escudo; si el escudo ya no tiene hechizo, +0x60 = 0 en 0x72C155, su jugador es el de
+  `GameThing::GetPlayer` 0x570130 = el del interfaz, g_game +0x205A5B, el PLAYER_ONE de openblack, no NULL); como openblack no tiene criatura, su jugador entra por parámetro y **nadie la llama
+  todavía** (en el original la usa el camino de la criatura).
+- `GetImpressiveValue` **sigue sin portar** porque no hay nada que lo pida (el sistema de impresionar / creencia no
+  está): `SpellShield::GetImpressiveValue` 0x72BA80 da 0 para un aldeano cuyo pueblo tiene como agresor (+0xEAC) al
+  jugador del escudo si la reacción es la 13 o la 35, y si no `Spell::GetImpressiveValue` 0x721630, × 4 cuando es la
+  36 (0x72BAED); `PhysicalShield::GetImpressiveValue` 0x72D7F0 es igual con la 13 y de base
+  `Object::GetImpressiveValue` 0x639860, sin el × 4.
+- Lo que no se ha portado del reparto: cambiar la reacción que ya sigue un aldeano por otra que puntué más
+  (0x6E4134, `reactions::MaySwitch`), igual que en el fuego y el teletransporte; y las reacciones 35 (golpe) y 36
+  (destrucción), que ningún vivo atiende aún.
+- Las dos entradas que openblack no tiene (el deseo de protección del pueblo y, mientras nada más haga de agresor, el
+  turno del agresor) dejan la reacción **inalcanzable para un aldeano con pueblo**; para verla en el juego está el
+  gancho `OPENBLACK_TEST_SHIELD_REACTION=1`, que da las dos por buenas (capturas
+  `polish_fix_escudo2_react_magic.png` / `_phys.png`: 8 aldeanos pasan a 168 en el turno del lanzamiento, uno de ellos
+  entra andando).
+
 ### Las partículas (`PSys/Rules/Shield.cpp`)
 
 - **Registro `DefensiveShield`** (lista 0xD4EE48, `PSysShield.cpp`): `UR_AddDefensiveSphere` 0x6A2A60 crea la primera
@@ -937,9 +1159,13 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
 
 ### Sin portar / UNVERIFIED
 
-- Las reacciones de los aldeanos al escudo (`ReactToMagicShieldPriority` 0x765BB0, `SetupReactToMagicShield`
-  0x765C60, las de golpe y destrucción) y de la criatura (`CreatureMustAvoid` 0x72C170, la ruta 0x54AF60): solo están los
-  datos de las reacciones; `GetImpressiveValue` 0x72BA80 / 0x72D7F0; `Town::UpdateAggressor`.
+- (Portado, arriba) las reacciones de los aldeanos al escudo y el predicado `CreatureMustAvoid`. Siguen fuera: la ruta
+  de la criatura que lo usa (0x54AF60), las reacciones 35 (golpe) y 36 (destrucción) —nadie las atiende—,
+  `GetImpressiveValue` 0x72BA80 / 0x72D7F0 (sin sistema de impresionar que lo pida) y todo `Town::UpdateAggressor`
+  menos su registro. Pendiente de la sesión «towns»: el deseo de protección del pueblo
+  (`TownDesire::GetDesireSignificanceToVillager` 0x746660 necesita las tres tablas de deseos, TownDesire +0x90 / +0xD4 /
+  +0x118, que no están) y que alguna otra agresión (daño, fuego, edificios) escriba el agresor; hasta entonces solo
+  reaccionan los aldeanos **sin pueblo** (o con el gancho `OPENBLACK_TEST_SHIELD_REACTION=1`).
 - Los escudos no están en la rejilla de objetos del mapa: `ApplyEffectToMapPos` no los alcanza (el físico admitiría
   efectos sin quemar, `IsEffectReceiver` 0x72CC80; el mágico ninguno).
 - `CallVirtualFunctionsForCreation` 0x72CCB0: la base `SingleMapFixed::CallVirtualFunctionsForCreation` 0x52E880 y
@@ -961,7 +1187,15 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
   `GetBoundingBox().Size()` (× 0,5 en el radio, tal cual en la altura).
 - (Corregido) la bola de fuego ya llama a `DoAnyShieldDeflections` (`PSys/Rules/Fireball.cpp`).
 - Las dos claves de orden iguales (el escudo físico y su SF_PhysicalShieldFX en el mismo punto) con `std::sort` no
-  estable: qué hace fn_0082F280 con los empates no se ha leído.
+  estable: qué hace el Z-sorter con los empates sigue sin leerse (0x82F280 resultó ser el bucle de callbacks de
+  `FinishFrame`, no el orden; hay que leer 0x82F460). Dueño: render común.
+- La roca rápida (33 m/s) que atraviesa la cáscara del escudo físico **no está demostrado que sea una desviación**: el
+  original usa el mismo modelo que openblack porta —20 subpasos de 5 ms por turno (`GameTurnUpdate` 0x646046), contacto
+  por vértice contra las caras del otro cuerpo (`CollideVertices` fn_007FDA60 con el segmento centro→vértice,
+  fn_007FBF80) y muelles de `PhysicsConstants.txt` fila 10 (`GetPhysicsConstantsType` 0x72D7E0)—, y la rama de malla de
+  fn_007FDD60 (el otro cuerpo con +0x168, fn_008683C0) no la usa ningún cuerpo de openblack. El golpe **sí se detecta**
+  (paga cánticos), pero el muelle no frena 33 m/s en los dos subpasos que dura el contacto. Falta una captura del
+  original para comparar; no se ha tocado nada de Physics.
 - En el camino de los objetos con `Alpha` (`Renderer.cpp`), una primitiva Standard con `depthWrite` = false (tipos 6,
   7, 8) sigue escribiendo Z y no se cambia de tabla de modos (0xC387C8) por primitiva; al 554 ya no le afecta.
 - `Primitive::modulateAlpha` (α = textura × difuso de los modos 3, 5, 6, 8, 10..13, 15, 16) **no lo lee nadie**:
@@ -998,6 +1232,10 @@ piedra del mismo jugador que más lo acerca a donde va.
 - Coste y temporizadores (efecto 12): costToCreate 5000, initialChants 2000, costPerGameTurn 1, costPerEvent 1,
   `divideCostsByTribalPower = 1`, `costPerKilometer = 200` (GMagicTeleportInfo +0x58). Temporizador del jugador **-1**
   (las piedras persisten), criatura/CP 25 s, un uso 120 s.
+- **Cuánto vive una piscina (no es un fallo):** al no tener temporizador, la cierran los cánticos. Una semilla de orbe
+  de dispensador le da `initialChants` 2000 y el hechizo gasta 1 por turno, o sea unos **200 s** (traza: 2000 → 1814 en
+  186 turnos), salvo que un jugador siga pagando (`CostToMaintain`). Cada salto útil le **devuelve** cánticos
+  (`PayFor` con coste negativo, R13), así que una piscina que se usa dura más. Igual que en el original.
 - `MagicTeleport::ToBeDeleted` 0x5FC310: quita reacciones, borra el PSys, se desenlaza de la lista del jugador y libera
   la lista de viajeros. `SpellWithObjects::CloseDown` 0x721300 pone a morir cada objeto (`SetDying` 0x4027A0 =
   `ToBeDeleted(0)`), así que cerrar el hechizo borra la piedra. En el código la función se llama `TeleportCloseDown`:
@@ -1010,18 +1248,40 @@ piedra del mismo jugador que más lo acerca a donde va.
 - `MagicTeleport::ShouldLivingThingReact` 0x5FC590: el vivo se mueve (IsMoving vt 0x174) y hay otra piedra T del mismo
   jugador con `1.2 · (|vivo−esta| + |T−destino|) < |vivo−destino|` (0x8C6C98 = 1.2), con `dest = GetFinalDestPos`
   (vt 0x884) y `FastDistance` 0x74CE10 (punto fijo, 6553,6 por metro: `max + min/2`).
+  - `Object::IsMoving` 0x402710 (leído): la posición actual (`GameThingWithPos::Pos` +0x14 x, +0x18 z) no es la de
+    `Object::coords` (+0x2C, +0x30), que es la del turno anterior; es decir, **se movió en el último turno**, en
+    cualquier estado. **(aproximado)** openblack no guarda la posición del turno anterior: `villager_teleport::IsMoving`
+    mira que tenga una etiqueta de movimiento que no sea ARRIVED y velocidad > 0 (antes solo valía el estado
+    MOVE_TO_POS, así que un aldeano que iba al lugar de culto o a otra reacción no contaba).
+  - `Villager::GetFinalDestPos` 0x756AD0 → `Living::GetFinalDestPos` 0x5EC1E0 (leído): si tiene sendero y nodo
+    (+0xC8/+0xCC), el último nodo no oculto del sendero (`GFootpath::GetEndNonHiddenNode` 0x535120 con la bandera
+    (+0xB4 >> 3) & 1); si no, `MobileWallHug::GetDestPos` (vt 0x860, 0x416F70) = **la meta +0x80, se mueva o no**.
+    openblack usa siempre la meta del WallHug (fiel); **(pendiente)** la rama del sendero, porque ningún `Living` de
+    openblack anda sobre un `components::Footpath`. Nota: un aldeano que nunca ha andado tiene meta (0, 0) (como el
+    +0x80 del original tras `SetToZero`), así que un salto forzado sobre él se calcula contra (0, 0).
 - `Villager::ReactToTeleportPriority` 0x766200 = `(ShouldLivingThingReact ? 0xFF : 0) & prioridad de la reacción 20`
   (la fila REACT_TO_TELEPORT de `ReactionInfo`). `SetupReactToTeleport` 0x766250 registra el destino en la piedra
-  (`fn_005FC6A0`), pone +0xBC = la piedra y entra en `GO_TOWARDS_TELEPORT_REACTION` (201; su gemela rápida 251
-  0x766380 es un `jmp` a la de 201). `GoToTeleportReaction` 0x7662F0: al llegar (`AreWeThere`) pasa a
+  (`GetFinalDestPos` vt 0x884 en 0x766297 y `fn_005FC6A0` en 0x7662A5), pone +0xBC = la piedra y entra en
+  `GO_TOWARDS_TELEPORT_REACTION` (201) o en su gemela rápida 251 (0x766380 es un `jmp` a la de 201, así que solo cambia
+  la fila de la tabla de estados: animación e índice de velocidad). **La condición, leída (0x7662B2..0x7662CE):**
+  `0xC9 + 0x32 · (velocidad > umbral)`, con la velocidad propia del aldeano (`MobileWallHug` +0x5A, el u16 que
+  `GetSpeedInMetres` 0x60C070 convierte a metros) y el umbral `GMobileWallHugInfo` +0x10C, que es
+  `speedGroup.speed2` del info.dat (el mismo campo que lee `Living::FleeFromPredatorPriority` en 0x5F15ED);
+  `setle` sobre el u16, así que 251 solo si es **estrictamente** más rápido. Portado en
+  `villager_teleport::SetupReactToTeleport` (un aldeano que ya corría al lugar de culto sale con 251: ver la prueba de
+  abajo). `GoToTeleportReaction` 0x7662F0: al llegar (`AreWeThere`) pasa a
   `TELEPORT_REACTION` (202), si no `SetupMoveToWithHug(piedra)`. `TeleportReaction` 0x7663F0 llama
   `DoTeleport(vivo, false)` y `StopReactingAndSetState`.
 - La reacción se **reparte una sola vez**, al crear la piedra (`Reaction::CreateReaction` con marca 0; `ProcessReactions`
   no la vuelve a repartir, su bandera 0xD00DD4 nunca se pone). Por eso solo reaccionan los aldeanos que ya se están
   moviendo en ese instante (comprobado: los aldeanos que deambulan por el pueblo reaccionan y saltan).
 - Soltar con la mano: `fn_005FC4B0` exige que el jugador del aldeano sea el de la piedra y `teleportCount != 1`.
-  `fn_005FC4F0` deja al aldeano en la piedra (FLYING→LANDED→DecideWhatToDo), registra su destino y hace un `DoTeleport`
-  **forzado**; devuelve 1 o 0x17.
+  `fn_005FC4F0`, en su orden exacto (leído): `SetTopState(FLYING 10)` 0x5FC4FD, `fn_005DA0C0` (la interfaz lo deja en el
+  MapCoords de la piedra) 0x5FC517, `SetTopState(LANDED 11)` 0x5FC51E, `DecideWhatToDo` (vt 0x8C8) 0x5FC52C,
+  `GetFinalDestPos` (vt 0x884) 0x5FC549 → `fn_005FC6A0`, y `DoTeleport(forzado)`; devuelve 1 si saltó, si no 0x17.
+  `villager_teleport::LandAt` ya pasa por FLYING y LANDED (los dos estados existen en la tabla de openblack: 10
+  `VillagerCarried`, 11 `VillagerLanded`). **(aproximado)** el `DecideWhatToDo` de openblack solo cambia el estado, así
+  que la meta que se registra después es la que el aldeano traía.
 
 ### La mano y las piedras (fiel, lane «mano» de milagros2; era el «no funciona» del usuario)
 
@@ -1084,20 +1344,68 @@ salto útil (s > 0) le da cánticos al hechizo; solo un salto forzado hacia atr�
 forzado de −30 m cobra 6 (=30·200·0,001); los saltos naturales de +50..60 m tienen ahorro positivo. Luego
 `CreateSpotVisual(SPOT_VISUAL 14 VILLAGER_TELEPORT = SF_TeleportVillager, 1,0)` en los dos extremos y
 `Living::MoveByTeleport` 0x5EC340: sonido `G_SpellTeleportEnergiseGo` (InGame 39) donde estaba, `..Arrive` (InGame 38)
-donde llega, y `MoveMapObject`.
+donde llega, y `MoveMapObject`. Los dos son `SoundTag::Create(MapCoords, muestra, track 0, modo 2, loops 0, +0x40 0,
+3D 1, AUDIO_SFX_BANK_TYPE **1 = InGame**, retardo 0)` 0x71EB60 (0x5EC342..0x5EC372; el banco es 1, no 2 como decía el
+comentario viejo): ya van por `audio::tags::CreateAtMapCoords`, no por un emisor directo.
 
 - `GPlayer::Process` 0x6496BC → `fn_005FCC70`/`fn_005FCBA0`: cada turno, por cada piedra disponible, se caen de la
   lista de viajeros los que ya no existen o no siguen la reacción de la piedra (`teleport::ProcessPlayers`, ranura 3
   del turno).
-- La ruta al lugar de culto por piedras (`Villager::CanIGetToTheWorshipSite` 0x76BC20 → `GPlayer::fn_0064D6B0`) está
-  portada como `teleport::FindRouteStone` (la piedra más cercana al inicio si `d1 + d2 < maxDist`), pero aún no la usa
-  nadie (es M7).
+### Los aldeanos van al lugar de culto por las piedras (fiel, lane «teleport2» de milagros2)
+
+`Villager::CheckWorshipActivity` 0x76BAE0 → `Villager::CanIGetToTheWorshipSite` 0x76BC20 → `GPlayer::fn_0064D6B0`
+(= `teleport::FindRouteStone`), todo releído:
+
+- `CanIGetToTheWorshipSite(MagicTeleport*& out)`: sin pueblo (vt 0x48) o sin lugar de culto (vt 0x30C) devuelve 1;
+  si `GetDistanceInMetres` 0x74CD70 (plana: `GetDistance` 0x74CCB0 solo usa los dos primeros dwords del MapCoords) del
+  aldeano al lugar es `<=` `maxDistanceThatVillagersWillGoToWorship` (la info del pueblo +0x148, 500 m en Land 1)
+  devuelve 1 sin piedra (0x76BC5E..0x76BC69); si es mayor, pide el jugador (vt 0x1C; sin jugador también 1) y llama a
+  `fn_0064D6B0(pos del aldeano, pos del lugar, maxDist)`: 0 → no puede ir (0x76BCA3), si no `out` = la piedra y 1.
+- `fn_0064D6B0` recorre la lista de piedras del jugador (+0xA58, la más nueva primero) y guarda **por separado** la
+  distancia mínima al origen (d1, con la piedra que la da) y al destino (d2), las dos empezando en `maxDist`
+  (0x64D6C5/0x64D6C9); al final devuelve esa piedra si `d1 + d2 < maxDist` (0x64D720..0x64D731, estrictamente). Una
+  sola piedra puede servir para los dos extremos. Pruebas nuevas en `test_teleport` (`RouteStoneBothEndsAreLookedForApart`).
+- Con piedra, `CheckWorshipActivity` (0x76BB99..0x76BC07) hace: `SetReactionDoneWhen(REACT_TO_TELEPORT)` 0x6E44A0 (la
+  ficha de la reacción se marca con el turno; si no la tiene, la **añade** al final y, con 3 ya, quita la más vieja,
+  0x6E4507..0x6E4540; sin el olvido de 1800 turnos de `fn_006E4340`. Portada aparte en `VillagerWorship.cpp`
+  `SetReactionDoneWhen`: `RefreshRecord` de `StopReacting` solo actualiza y no servía), el aldeano sale de la lista de reactores de la reacción que seguía
+  (0x76BBAF..0x76BBF2; openblack no guarda esa lista en una `Reaction`, y `SetupReactToTeleport` le cambia +0x94 / +0xBC
+  de todas formas) y `StartReacting(REACT_TO_TELEPORT, piedra, la reacción de la piedra +0x94)` (vt 0x994 =
+  `Living::StartReacting` 0x6E4590, que despacha por tipo a `Villager::SetupReactToTeleport`). Es decir: primero
+  `GotoWorshipSiteForWorship` pone el estado 59 y la meta (el punto de llegada del lugar), y encima se apila
+  201/251 hacia la piedra; al saltar, `StopReactingAndSetState` → `PopFromPrevious` devuelve el estado 58
+  (`GOTO_WORSHIP_SITE_FOR_WORSHIP`, el estado de reanudación de 59 en el info.dat), cuya **propia función de estado es
+  0x76BCC0 = `GotoWorshipSiteForWorship`** (`VillagerOriginalFns.h`), que vuelve a poner 59 y a andar: el aldeano sigue
+  hacia el lugar desde la piedra por la que ha salido. Esa fila 58 no tenía función en openblack (el aldeano se quedaba
+  quieto): ahora es `villager_worship::GotoWorshipSiteForWorshipState`.
+- El ahorro del salto es positivo (va hacia el lugar), así que **el salto le devuelve cánticos al hechizo** (R13).
+- Gancho `OPENBLACK_TEST_TELEPORT="x0,z0,0,0,0,worship"` (con `OPENBLACK_TEST_WORSHIP_SITE="NORSE"`): pone la piedra A
+  lejos del lugar (x0,z0, o un punto de tierra a 1,15 × maxDist que busca él), la piedra B a 20 m del lugar, mueve al
+  aldeano de PLAYER_ONE más cercano 80 m más allá de A (así queda fuera de alcance) y llama a `CheckWorshipActivity`.
+  Prueba (`polish_fix_teleport2_worship_walk.log`): el aldeano 27, a 655 m del lugar, da `CheckWorshipActivity -> true`,
+  «reacts to stone 2698 … state **251**», anda 80 m hasta A, salta a B («saving 530.87 m», `PayFor(-106.17)`: el hechizo
+  gana cánticos), aparece en estado **59** junto a B, anda hasta el punto de llegada y pasa a **60** (baila).
+  Capturas: `polish_fix_teleport2_worship_toA.png` (el aldeano andando hacia la piedra A, a 18 m) y
+  `polish_fix_teleport2_worship_toSite.png` (recién salido de B, al lado de la ciudadela del lugar de culto).
+- `Creature::MoveByTeleport` 0x479F70 y `Creature::ReactToTeleportPriority` 0x4F3A10 / `SetupReactToTeleport` 0x4F3A60
+  siguen **pendientes** (no hay criatura).
 
 ### SF_TeleportVortex y ZR_SurfRevol (`src/PSys/Rules/SurfRevol`, `src/Graphics/RendererSurfRevol.cpp`)
 
-- El fichero `SF_TeleportVortex`: `ZR_SurfRevol` FunctionIndex 0 (disco plano), textura `S_TileLandscape.raw` (256×256,
-  con alfa `S_TileLandscapeA.raw`), NumU 12 × NumV 5, SpeedV 0,2137, alfa de entrada/salida 0,4, iluminado; escala 5 por
-  `UR_ChangeScale` sobre el átomo padre; bucle de sonido `TELEPORT_POOL` (lane S).
+- El fichero `SF_TeleportVortex` (descomprimido de `Data\Spells\ZSpellFiles\SF_TeleportVortex_txt.zzz`, verificado):
+  `ZR_SurfRevol` FunctionIndex 0 (disco plano), textura `S_TileLandscape.raw` (256×256, con alfa
+  `S_TileLandscapeA.raw`), NumU 12 × NumV 5, SpeedU 0 / SpeedV 0,213717, `AlphaFadeIn`/`Out` 0,4, `FadeAlphas` 1,
+  `ChangeSpecColor` 1, `MaxUVChange` 1, `MaxVertexChange` 0,35, `HeightAboveLandscape` 0,5,
+  `DoRaiseAboveLandscape` 1, `RaiseAboveLandscapeRadius` 30, `MaterialUpdateZBuffer` **0**,
+  `MaterialUseTextureAlpha` 1, `UseAdditiveAlpha` 0, `MaterialSetDoubleSided` **0** y `UseLighting` **1**; escala 5 por
+  `UR_ChangeScale` sobre el átomo padre (`InitialScale` 2); bucle de sonido `SOUND_SPELL_TELEPORT_POOL` en el
+  `SoundOfCreate` del `CreateRuleAnAtom` del grupo 0 (LOOPING 1, SOFTRELEASE 1).
+  **(pendiente)** `UseLighting 1` y `MaterialSetDoubleSided 0`: openblack dibuja la piscina sin luz y siempre a dos
+  caras (`RendererSurfRevol.cpp`), por lo que se ve más tenue que en el original. `UseLighting` (+0x88) pide las
+  normales de la malla (`fn_006C9340`) y una luz de D3D que el programa `WorldQuad` no tiene, y el culling pide saber el
+  sentido de los triángulos: es trabajo del renderizador de partículas (lane m7/sistemas), no de esta lane, y hacerlo a
+  medias dejaría la piscina invisible desde arriba. La `S_TileLandscape.raw` instalada es de 2021 (parche), así que el
+  tono tampoco es comparable.
 - `ZR_SurfRevol::ModifyAtomCollection` 0x686370 (props 0x6B2E80): crea un `RenderParticleGJMeshRotatingUV` (ctor
   0x6C8B60) con una malla de revolución construida en `fn_006858F0`. El perfil sale de FunctionIndex (tabla 0x6868CC):
   0 `TestDisk` (r=t, y=0), 1 `TestFunnel` (r=t, y=3(√t−1)), 2 `TestFunnelSpout` (r=1,5t, y=3(√2t−1)), 3
@@ -1126,18 +1434,24 @@ donde llega, y `MoveMapObject`.
     `atom.scale` (que `Effect::PostUpdate` ya multiplica por el padre en una jerarquía). `RendererSurfRevol.cpp` la dibuja con el programa `WorldQuad` en dos pasadas (la textura mezclada y el
     especular sumado con una textura blanca 1×1). La `S_TileLandscape.raw` de esta instalación está fechada en 2021
     (reemplazada por un parche/mod). **Lo comparte la lane m7** para los discos de los dispensadores.
-- `SF_TeleportInHand` (sprite, le falta `UR_FollowLocalHand`) y `SF_TeleportOnHolder` son de M2/M7; el destello del
-  aldeano SV 14 `SF_TeleportVillager` ya funciona (`psys::manager::CreateSpotVisual`).
+- `SF_TeleportInHand` y `SF_TeleportOnHolder` (sprites) son de M2/M7; `UR_FollowLocalHand` **ya está portada**
+  (`src/PSys/Rules/HandFollow.cpp`, registrada en `PSysRegistry.h`: la nota vieja de que faltaba era falsa), aunque su
+  efecto en la mano no se ha comprobado en juego. El destello del aldeano SV 14 `SF_TeleportVillager` ya funciona
+  (`psys::manager::CreateSpotVisual`).
 
 ### Pruebas y capturas
 
 - `test_teleport`: `FastDistance`, la regla del desvío (1,2), `ChooseTarget`, el signo del coste (R13: 500 m útiles
-  devuelven 100 cánticos, −20 m forzados cuestan 4) con `Spell::PayFor` real, `FindRouteStone`, los cuatro perfiles de
+  devuelven 100 cánticos, −20 m forzados cuestan 4) con `Spell::PayFor` real, `FindRouteStone` (dos pruebas: la básica y
+  `RouteStoneBothEndsAreLookedForApart`, los dos mínimos por separado y el `<` estricto), los cuatro perfiles de
   `ZR_SurfRevol` y la malla del vórtice (12×5, fundidos, triángulos, torsión de UV y vértices, colores de jugador).
 - Gancho `OPENBLACK_TEST_TELEPORT="x0,z0,x1,z1[,jugador[,modo]]"` (`OPENBLACK_TEST_TELEPORT_TURN=<n>`,
   `OPENBLACK_TELEPORT_TRACE=1`): planta dos piedras (como `SPELL_AT_POS`) y, en modo `walk`, hace andar al aldeano más
-  cercano hacia B; en `drop`, lo suelta forzado sobre A; `none` solo las piedras.
-- Capturas en `dev\_audit\magic\`:
+  cercano hacia B; en `drop`, lo suelta forzado sobre A; `none` solo las piedras; `hand`, el camino real de la mano;
+  `worship`, el viaje al lugar de culto por dos piedras (ver arriba).
+- Capturas en `dev\_audit\magic\` (**ninguna de las de abajo sigue en la carpeta**: se borraron en limpiezas
+  posteriores y aquí quedan solo como registro de lo que se comprobó; las de las lanes «mano» y «teleport2» de
+  milagros2, citadas arriba, sí están):
   - `teleport_discs.png`: las dos piscinas `S_TileLandscape` translúcidas sobre el suelo del pueblo de Land1;
   - `disc_dispenser_before.png` / `disc_dispenser_after.png` (`OPENBLACK_TEST_DISPENSER=NORSE_ABODE_SPELL_DISPENSER,1812,2652,1`,
     `OPENBLACK_CAMERA_LOCK=1800,75,2600,1812,30,2652`, `-n 8000 --screenshot-frame 7800`): el disco de estrellas del
@@ -1644,10 +1958,15 @@ Lo que falta de cada milagro, en su sección:
 - Escudos: [Sin portar / UNVERIFIED](#sin-portar--unverified)
 - Tormenta, tormenta eléctrica y tornado: [Inferido, aproximado y pendiente (tormenta)](#inferido-aproximado-y-pendiente-tormenta)
 - Explosión de rayo y clases de PSys que faltaban: [Sin portar / pendiente](#sin-portar--pendiente)
-- Comida y madera: los vt 0x78/0x80 de `MagicFood::CallVirtualFunctionsForCreation` 0x5FAAB0 (UNVERIFIED) y la voz `GGuidance::ResourceDropSFX` ([Comida y madera](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)).
-- Bosque: la diosa y la cámara (aplazado) y las mariposas ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
+- Comida y madera: la voz `GGuidance::ResourceDropSFX` 0x71B570 (falta el canal de guía y los campos del pueblo), el
+  desvío de la madera de un almacén en obras (`StoragePit` +0x74 = `BuildingSite`, inalcanzable sin obras) y el signo de
+  la inclinación de `HandStateGrain`, que está al revés en `HandPlacement.cpp` (lane de la mano). Los vt 0x78/0x80 de
+  `MagicFood::CallVirtualFunctionsForCreation` ya están identificados y se cumplen
+  ([Comida y madera](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)).
+- Bosque: la diosa y la cámara (aplazado) y el aleteo .anm de las mariposas y los murciélagos (las clases del PSys sí
+  están) ([Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
 - Rayo: `LightningForkFlicker` 0x6B24D0, `NumTexturesToTile`, el árbol de horquillas recursivo, `DrawOffsetLT` y los EffectValues del rayo sin hechizo ([Rayo](miracles.md#rayo-magic_type-4-6-semilla-6-lightning_bolt-psysruleslightningcpp)).
-- Teletransporte: `SF_TeleportInHand` (le falta `UR_FollowLocalHand`) y la ruta al lugar de culto, que aún no usa nadie ([Teletransporte](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)).
+- Teletransporte: la iluminación de la piscina (`UseLighting` 1, `MaterialSetDoubleSided` 0 de `SF_TeleportVortex`) y la criatura ([Teletransporte](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)).
 - [Milagros de la criatura](miracles.md#milagros-de-la-criatura-m8-pendiente).
 
 ## Ganchos de prueba

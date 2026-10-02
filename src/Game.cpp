@@ -783,7 +783,7 @@ bool Game::Update() noexcept
 			// fn_0x005e5cd0 0x5E61A1..0x5E61B5: after the landscape and the hand are placed, the hand's point
 			// ([0xE9A100], written by GLandscape::Draw 0x5E4395) goes to fn_00827820 unless the game is paused
 			// (g_game+0x14 & 4, 0x5E61A6): crossing a player's influence circle rings G_HandThroughInfluence_01.
-			if (!_paused)
+			if (!game_clock::IsPaused())
 			{
 				if (const auto& hands = Locator::handSystem::value().GetPlayerHandPositions(); hands[0].has_value())
 				{

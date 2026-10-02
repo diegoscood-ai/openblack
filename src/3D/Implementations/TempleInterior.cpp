@@ -15,6 +15,7 @@
 
 #include <glm/gtx/euler_angles.hpp>
 
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
 #include "ECS/Archetypes/GlowArchetype.h"
@@ -122,6 +123,7 @@ void TempleInterior::Activate()
 	config.drawWater = false;
 
 	// Create temple entities
+	// (inferido) no source; _templeRotation is never written (0), so the sign does not show
 	auto rotation = glm::eulerAngleY(_templeRotation.y);
 	auto scale = glm::vec3(1.0f);
 
@@ -153,6 +155,10 @@ void TempleInterior::Deactivate()
 	config.drawWater = true;
 	registry.Each<const ecs::components::TempleInteriorPart>(
 	    [&registry](const entt::entity entity, auto&&...) { registry.Destroy(entity); });
+
+	// GGame::LeaveInsideCitadel 0x553B25 -> Temple fn_00793D00: the temple's fire and water samples stop (0x793D48,
+	// 0x793D59)
+	audio::LeaveCitadel();
 
 	auto& camera = Locator::camera::value();
 	Locator::rendereringSystem::emplace<ecs::systems::RenderingSystem>();

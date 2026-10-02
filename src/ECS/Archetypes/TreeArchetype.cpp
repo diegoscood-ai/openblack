@@ -15,6 +15,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
+#include "3D/ObjectMatrix.h"
 #include "Common/RandomNumberManager.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
@@ -41,7 +42,7 @@ entt::entity TreeArchetype::Create(uint32_t forestId, const glm::vec3& position,
 
 	const auto& info = Locator::infoConstants::value().tree.at(static_cast<size_t>(type));
 
-	const auto& transform = registry.Assign<Transform>(entity, position, glm::eulerAngleY(-yAngleRadians), glm::vec3(scale));
+	const auto& transform = registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale)); // 0x74A06B..0x74A0C7
 	const auto [point, radius] = GetFixedObstacleBoundingCircle(info.normal, transform);
 	registry.Assign<Fixed>(entity, point, radius);
 	// Tree ctor 0x749E00: a tree grows only when maxSize differs from the size it is created at, and its first growth

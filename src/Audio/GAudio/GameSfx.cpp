@@ -16,6 +16,7 @@
 
 #include "Audio/Audio.h"
 #include "Audio/Device/Sound.h"
+#include "Audio/GAudio/Banks.h"
 
 using namespace openblack;
 using namespace openblack::audio;
@@ -168,6 +169,28 @@ void audio::StopSoundEffect(int sample, Owner owner, BankId bank)
 		return;
 	}
 	sample_play::Stop(SampleId(bank, sample), owner);
+}
+
+void audio::StopOwner(Owner owner)
+{
+	// (openblack, the mods' SDK) LHSampleStop(bank, owner, 0) 0x10012C50 (sample 0 = any, 0x10012C76) for each
+	// registered bank, 1..banks::Count() in the order they were registered; each bank's pass is sample_play::StopOwner
+	// (the 20 ms ramp per channel; while switched off the first channel met ends that bank's pass, 0x10012CA8)
+	if (SfxTrace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "SFX: stop owner kind {} {} in every bank", static_cast<int>(owner.kind),
+		                   owner.kind == Owner::Kind::Thing ? static_cast<uint32_t>(owner.thing) : owner.id);
+	}
+	const size_t count = banks::Count();
+	for (size_t bank = 1; bank <= count; ++bank)
+	{
+		sample_play::StopOwner(static_cast<BankId>(bank), owner);
+	}
+}
+
+Owner audio::NewOwner()
+{
+	return Owner::Object(NewObjectId());
 }
 
 void audio::StopAllSoundEffects()

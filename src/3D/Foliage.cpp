@@ -180,7 +180,8 @@ float ValueNoise(glm::vec2 p, uint32_t seed)
 }
 
 /// The normal of the ground as it is drawn (GetDrawnHeightAt: the landscape mesh flattens every altitude of 3 or
-/// less to 0, GetHeightAt and GetNormalAt only next to a base corner of 4 or less)
+/// less to 0, GetHeightAt only next to a base corner of 4 or less, and GetNormalAt never: LH3DIsland::GetNormal
+/// 0x803630 reads the raw altitudes)
 static glm::vec3 GroundNormal(const LandIslandInterface& island, glm::vec2 point)
 {
 	const float dx = island.GetDrawnHeightAt(point + glm::vec2(1.0f, 0.0f)) - island.GetDrawnHeightAt(point - glm::vec2(1.0f, 0.0f));

@@ -114,6 +114,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
+#include "Video/VideoPlayer.h"
 
 #ifdef __ANDROID__
 #include <spdlog/sinks/android_sink.h>
@@ -128,7 +129,7 @@ const std::string k_WindowTitle = "openblack";
 namespace
 {
 /// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
-/// not have yet (videos, the wide screen bars moving, the camera's alignment, the towns' tribes, citadel, creature, worship)
+/// not have yet (videos, the wide screen bars moving, the towns' tribes, creature, worship)
 audio::GameQueries MakeMusicQueries(Game& game)
 {
 	audio::GameQueries queries;
@@ -178,6 +179,9 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr ? helpSystem->GetGuidanceLevel() : 3;
 	};
+	// g_game+0x205A28 == 1 (0x4282F0): GoInsideCitadel 0x554004 / LeaveInsideCitadel 0x553B1F are openblack's temple
+	// interior Activate / Deactivate (ENTER_EXIT_CITADEL, the debug window), as StartCameraControl reads it (CHLApi.cpp)
+	queries.insideCitadel = []() { return Locator::temple::has_value() && Locator::temple::value().Active(); };
 	// GPlayer::GetPlayerNumber 0x64A790 of the local interface's player: openblack's local player is PLAYER_ONE
 	queries.localPlayerNumber = []() { return static_cast<uint32_t>(PlayerNames::PLAYER_ONE); };
 	// GGameInfo::IsVisualNight 0x5575E0 (HelpSpritesCheckMoonPhase 0x71D1DC)
@@ -398,6 +402,17 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		switch (event.key.keysym.sym)
 		{
 		case SDLK_ESCAPE:
+			// GGame::ProcessKey 0x63F3B9..0x63F402: with a full screen film ESC skips it (Video/VideoPlayer.h);
+			// without one openblack quits. (inferido) one skip a press: SDL's key repeats are not keys of the original
+			if (video::IsPlaying())
+			{
+				if (event.key.repeat == 0)
+				{
+					video::Get().EscapeKey((event.key.keysym.mod & KMOD_SHIFT) != 0,
+					                        (event.key.keysym.mod & KMOD_CTRL) != 0);
+				}
+				break;
+			}
 			return false;
 		case SDLK_f:
 			window.SetDisplayMode(windowing::DisplayMode::Fullscreen);
@@ -572,7 +587,7 @@ bool Game::GameLogicLoop() noexcept
 		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
 		audio::guidance::ProcessGameTurn();
 		audio::ProcessTurn();
-		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN
+		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN / _CITADEL
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -659,11 +674,13 @@ bool Game::Update() noexcept
 		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879): the script camera mode moves it while it
 		// lives, else the player's model. The frame's game ms are those of the last frame clock (aproximado: the
 		// original runs it after the turns of the loop)
+		const auto lastDrawn = camera.GetOrigin(); // g_camera: the camera drawn the frame before, shake included
 		if (!script_camera::UpdateCamera(camera, static_cast<float>(game_clock::CameraFrameMs()) * 0.001f,
 		                                 game_clock::FrameGameMs(), game_clock::FrameGameSeconds()))
 		{
 			camera.Update(deltaTime);
 		}
+		script_camera::ApplyShake(camera, lastDrawn); // SHAKE_CAMERA on whichever camera is drawn
 		// The original's near plane follows the camera height above the ground: 0.3 + 0.16 h, clamped to 0.3..3.5
 		if (Locator::terrainSystem::has_value() && Locator::windowing::has_value())
 		{
@@ -702,6 +719,9 @@ bool Game::Update() noexcept
 	// LH3DRender::StartFrame 0x82F14E: g_delta_time
 	game_clock::UpdateFrameClock();
 	game_clock::UpdateRealClock();
+	// Process3dEngine 0x54DAB5..0x54DD76: the full screen film's frame (Video/VideoPlayer.h), paced by the wall
+	// clock (the game is paused while it plays)
+	video::Get().Process(game_clock::FrameRealMs());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());

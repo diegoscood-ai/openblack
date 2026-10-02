@@ -29,8 +29,9 @@ class Camera;
 /// Conventions. LH3D uses row vectors (p' = p M, fn_0084BA90: x' = m0 x + m3 y + m6 z + m9): row k of an LHMatrix is
 /// the image of local axis k and m9..m11 the translation. glm uses column vectors, so column k here is row k there,
 /// with the same memory. LH3D's rotations turn the other way from glm::rotate: SetAngleY(a) 0x674360 (rows (c, 0, s),
-/// (0, 1, 0), (-s, 0, c)) is glm::rotate(-a, Y), and the in-place rotations (RotateY 0x5198F0, fn_0086AFA0,
-/// UpdateRuleRotatePrincipalAxis 0x6A1150) are glm::rotate(-a, axis) on the left of the matrix.
+/// (0, 1, 0), (-s, 0, c)) is glm::rotate(-a, Y). The in-place rotations RotateY 0x5198F0 and fn_0086AFA0 mix rows:
+/// m * R(-a), on the right; UpdateRuleRotatePrincipalAxis 0x6A1150 mixes each row's components: R(-a) * m, on the left
+/// (3D/ObjectMatrix.h, lh_matrix).
 namespace openblack::graphics::billboard
 {
 
@@ -117,7 +118,8 @@ inline constexpr std::array<int, 6> k_SpriteTriangles = {0, 1, 2, 0, 2, 3};
 
 /// Mode C, the inline billboards (TownCentre::DrawPSys 0x69BE76..0x69BE8A, fn_00466BB0, TownDesireFlags::Draw
 /// 0x746BFC, fn_00719E90, ScriptHighlight::Draw): theta = atan2(eye.z - p.z, eye.x - p.x) + pi/2 ([0x8C78D8]) and the
-/// axes Ry(theta) (SetAngleY's layout): local +Z points from the eye to the object in XZ. No user is ported yet.
+/// axes lh_matrix::AngleY(theta) (SetAngleY 0x674360's rows): local +Z points from the eye to the object in XZ. No user
+/// is ported yet.
 [[nodiscard]] float YawToEyeAngle(const glm::vec3& position, const glm::vec3& eye);
 [[nodiscard]] glm::mat3 YawToEye(const glm::vec3& position, const glm::vec3& eye);
 

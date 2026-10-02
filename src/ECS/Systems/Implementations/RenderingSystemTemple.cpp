@@ -14,6 +14,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Stream.h"
@@ -108,9 +109,7 @@ void RenderingSystemTemple::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    auto offset = uniformOffsets.insert(std::make_pair(mesh.id, 0));
 			    auto desc = _renderContext.instancedDrawDescs.find(mesh.id);
 
-			    auto modelMatrix = glm::mat4(transform.rotation);
-			    modelMatrix = glm::translate(modelMatrix, transform.position * transform.rotation);
-			    modelMatrix = glm::scale(modelMatrix, transform.scale);
+			    const auto modelMatrix = openblack::lh_matrix::Model(transform); // T(p) R S, as RenderingSystem
 
 			    const uint32_t idx = desc->second.offset + offset.first->second;
 			    _renderContext.instanceUniforms[idx] = modelMatrix;

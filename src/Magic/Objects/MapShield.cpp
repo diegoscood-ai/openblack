@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/MapShield.h"
@@ -158,16 +159,11 @@ void ProcessPhysical(entt::entity entity, MapShield& shield)
 	{
 		SetScale(entity, shield, scale);
 	}
-	// the matrix: the identity x scale turned by the angle about Y (rows 0 and 2: r0' = c r0 + s r2, r2' = c r2 - s r0),
-	// at (x, land + height, z)
-	const float c = std::cos(shield.angle);
-	const float s = std::sin(shield.angle);
-	glm::mat3 rotation(1.0f);
-	const glm::vec3 r0 = rotation[0];
-	const glm::vec3 r2 = rotation[2];
-	rotation[0] = c * r0 + s * r2;
-	rotation[2] = c * r2 - s * r0;
-	shield.rotation = rotation;
+	// the matrix: diag(scale) (0x72D438..0x72D4BA) turned by the angle +0xEC about Y inline, RotateY 0x5198F0's turn
+	// (0x72D4DB..0x72D558: r0' = c r0 + s r2, r2' = c r2 - s r0, c stored as a float 0x72D4E5, s on the stack), at
+	// (x, land + height, z). On the identity that is lh_matrix::AngleY bit for bit; the scale is kept apart here, so its
+	// cells are rounded twice (s x scale): the last bit
+	shield.rotation = lh_matrix::AngleY(shield.angle);
 	shield.translation = WorldOf(shield.position);
 	if (TraceEnabled())
 	{

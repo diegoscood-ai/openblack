@@ -47,7 +47,7 @@ extern "C" {
 /* The API major version this header describes. openblack loads mods of its own major version only. Minor versions
  * only add functions at the end of ob_host_api (1.1: the game's geometry and clock): check OB_HOST_HAS. */
 #define OB_MOD_API_VERSION 1
-#define OB_MOD_API_MINOR 1
+#define OB_MOD_API_MINOR 2 /* 1.1: the game's geometry and clock; 1.2: sound */
 
 #if defined(_WIN32)
 #define OB_MOD_EXPORT __declspec(dllexport)
@@ -134,6 +134,13 @@ typedef struct ob_host_api
 	/* a mesh's 2D radius and whole height at a scale, by name ("AnimalBat1") or "#<number>"; 1 if loaded */
 	int32_t (*mesh_radius)(const char* mesh, float scale, float* radius);
 	int32_t (*mesh_height)(const char* mesh, float scale, float* height);
+
+	/* ---- API 1.2: sound, as the original plays a one-shot effect (mode 3, no loop, the sample's own volume and
+	 * distances). `bank` by name ("InGame", "Spells", "Creature", "ScriptSfx"... enumeration "sound_banks"), `sample`
+	 * by its .sad name ("G_PickUpFood.wav") or number ("12"). position NULL = 2D, else 3D left at that point. 1 = played.
+	 * All the mod's sounds stop with stop_sounds, when the mod is switched off and when openblack closes. */
+	int32_t (*play_sound)(ob_mod* self, const char* bank, const char* sample, const ob_vec3* position);
+	void (*stop_sounds)(ob_mod* self);
 } ob_host_api;
 
 typedef struct ob_mod_info

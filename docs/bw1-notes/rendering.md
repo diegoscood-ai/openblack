@@ -400,6 +400,7 @@ tierra SSE `fn_007A1800`) y cuatro maneras de tomar la luz de la tierra bajo un 
 | `fn_00801C90` (SSE `fn_007A3EC0`) | bilineal **entera** de 4 celdas: pesos `ftol(frac·256)` [0x8D45CC], primero en z (+0x08) y luego en x (+0x88), `a + ((b − a)·w >> 8)` por byte; fuera del mapa tabla[255] y especular 0xFF000000 (0x8020F8) | casi todos los modelos (48 llamadas) |
 | `fn_00802120` (SSE `fn_007A4170`) | la misma, con pesos `CellX >> 8` y `CellZ >> 8` (0x802206, 0x802237): **casi sin interpolar** | `Tree::Draw` 0x74AB1B (y la neblina en 0x74AB60), `Scaffold::Draw` 0x6EA6CA, `TownArtifact::Draw` 0x51CB14 |
 | `GetAltitudeAndSetColorSpecular` 0x803340 | la celda sola (0x8033FA..0x803413), sin neblina | `WorshipSite::Draw` 0x519460 (salvo si arde: con `Object +0x44`, el FireEffect, va por `fn_00518050` → `fn_0080BEC0`, bilineal y neblina; 0x5193FF..0x51940A), `SpellIcon::Draw` 0x5196CC, `Totem::Draw` 0x51ACD1 |
+| `fn_00801C90` sin `fn_007FEB30` | la bilineal, sin neblina | `MultiMapFixed::DrawBuilding` 0x517F90 (0x517FB2; con fuego solo el tinte `fn_0080BF10` 0x517FD4): el edificio a medio construir. Lo llaman `MultiMapFixed::Draw` 0x5180A6 si `IsDrawBuilding` (vt +0x8A4: el solar +0x74, 0x52F0C0; para un Feature, 0x527790: el ArkDryDock sin terminar), `Abode::Draw` 0x516129 (con DestructionMesh +0x90: la parte reparada) y, con `IsBuilt` (vt +0x890) = 0, `WorshipSite::Draw` 0x5193E9, `SpellIcon::Draw` 0x519668 y `Totem::Draw` 0x51ABC3. `PetitNavire::PreDraw` 0x5DFF20 (casco +0x28, 0x5E018D y 0x5E03DF) y `PostDraw` 0x5E03F0 (marineros 0x5E073B; la cubierta copia el +0x4C del casco, 0x5E099C..0x5E09A2) no llaman nunca a `fn_007FEB30`. `Scaffold::Draw` 0x6EA5C0: el andamio por `MobileObject::Draw` (con neblina) y el edificio fantasma +0x74 con `fn_00802120` (0x6EA6CA), sin neblina |
 | [0xEDDD08] = tabla[255] | luz fija | `Dove::Draw` 0x41F75B, `CitadelHeart` 0x466958, nubes `fn_005E1DE0`, mar `fn_00879930` |
 
 Clase de neblina de cada bloque (`fn_00877210` 0x87743D..0x87749B): la profundidad de las 8 esquinas de su caja
@@ -448,7 +449,8 @@ bit 1, si no 2.
 - `vs_object`: `u_objectLight.w` = sin neblina + 2 × `land_light::ObjectMode` por malla
   (`RenderContext::meshLandLight`). Los árboles van con `CellShift` y neblina; los lugares de culto (si no arden) y
   los iconos, con `Cell` y sin neblina; la clase Dove, con `Full` y sin neblina (`Dove::Draw` solo escribe +0x4C;
-  (inferido) +0x50 queda a 0).
+  (inferido) +0x50 queda a 0). El ArkDryDock a medio construir (`ecs/FeatureBuild.h`) y el casco del barco
+  (`petit_navire::GetHull`) van bilineales y sin neblina (`DrawBuilding` 0x517F90, `PetitNavire` 0x5E03DF).
 - `vs_terrain`: la luz y el color de la celda del fotograma, y la neblina según la clase del bloque (`u_hazeBlock`).
 - La sombra de las nubes del mapa ya no es un tope aparte: son sellos de modo 2 (`Clouds::StampShadows`).
 - Las luces nocturnas (`night_lights`, `fn_008229B0`) escriben en la luminosidad del fotograma, después de los
@@ -481,8 +483,12 @@ bit 1, si no 2.
   la sesión «shaders»).
 - (inferido) Los modos «celda >> 8» y «una celda» solo se dan a `Tree`, `WorshipSite` y `SpellIcon`: los andamios, los
   artefactos y los tótems aún no tienen componente propio.
-- Pendiente: la «luz sin neblina» de `DrawBuilding` 0x517FB2 y `PetitNavire`, los sprites UseLandscapeColor
-  (0x67AFD9) y `RenderParticleGJMesh` (0x67C184).
+- Pendiente: la «luz sin neblina» de `DrawBuilding` para los solares (MultiMapFixed +0x74; openblack no construye
+  en solares) y para WorshipSite / SpellIcon / Totem sin construir; (aproximado) la parte reparada de un Abode dañado
+  va fundida con su FragMesh, cuyas piezas sí llevan neblina (`fn_007F7ED0` 0x7F7F5F, 0x7F807D), y conserva la
+  neblina; (aproximado) los marineros y la cubierta del barco comparten malla con aldeanos y vacas (un modo por malla)
+  y conservan la neblina; el edificio fantasma del andamio no se dibuja; los sprites UseLandscapeColor (0x67AFD9) y
+  `RenderParticleGJMesh` (0x67C184).
 
 ## Cámara
 

@@ -10,6 +10,9 @@ Las pistas de `camera.edt` están en [camera-tracks.md](camera-tracks.md); los c
 - [Regla de llegada](#regla-de-llegada)
 - [Un fotograma de GCamera::Update](#un-fotograma-de-gcameraupdate)
 - [Seguimientos](#seguimientos)
+- [Cámara doble](#cámara-doble)
+- [Temblor](#temblor)
+- [Zonas y giro fijo](#zonas-y-giro-fijo)
 - [Opcodes](#opcodes)
 - [Soltar la cámara](#soltar-la-cámara)
 - [openblack](#openblack)
@@ -77,6 +80,45 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
 - FollowUs: `SET_FOCUS_AND_POSITION_FOLLOW(Son, 3)` y `CAMERA_PROPERTIES(3, 0, 22.5, true)`: la cámara va pegada al niño,
   22,5° respecto a hacia dónde mira.
 
+## Cámara doble
+
+**Fiel** salvo lo marcado (`CameraModeTwoObjects`, 0x30 bytes, vtable 0x8C7DD0, «Dual Cam»; lectura completa en
+`dev\tmp_dis\camara\step3.md`). Se apila encima del modo del guion (ctor 0x461BB0; con un punto fn_00461CB0; uno igual
+al actual se borra a sí mismo).
+- `Update` 0x461DE0, por fotograma: T = (+0x68 > 1.5 ? 1 : 2 − +0x68 / 1.5), **sin factor**; A y B = MapCoords de las
+  dos cosas (o el punto); foco = punto medio subido por el alto medio · 0.5; distancia = ((separación en x/z + los dos
+  `Get2DRadius`, 30 si no es un Object) · factor (1, o 1.2 con punto) + alto mayor · 1.4; rumbo = π/4 − la dirección de
+  B − A; cabeceo π/8; los zoomers hacia esos destinos en T.
+- 093 START (0x6ED2E0), 094 UPDATE (0x6ED370, `SetObjects` 0x461C90), 095 RELEASE (0x6ED410: `Delete` y `PopViewMode`,
+  GCamera+0x68 = 0), 105 CON PUNTO (0x6ED460, sin comprobaciones). El fin del control (fn_006ECD70) quita una doble
+  antes de borrar el modo del guion. Con la doble encima, los opcodes del guion encuentran «el modo equivocado».
+- Por turno, `CheckStackedModesForValidity` 0x441D40 quita la doble cuyas cosas ya no están (`IsStillValid` 0x461D90).
+- openblack: `script_camera::State::duals`, capa encima del modo del guion (sin pila de modos: **(aproximado)**); la
+  doble toma los zoomers del jugador como `BeginFrom` y, si se va sin guion debajo, se los devuelve.
+
+## Temblor
+
+**Fiel.** SHAKE_CAMERA 201 (0x6EE0F0) → `PSysGlobal::StartCameraShake` 0x68F400 → `LH3DCameraChecker::Create` 0x821050
+(radio, punto, amplitud, ms). Lo aplica fn_008210C0 desde `LH3DTech::UpdateCamera` 0x819920, **solo a lo dibujado**
+(nunca a los zoomers): el temblor más cercano a la cámara, si está dentro de su radio (sin caída con la distancia);
+amplitud = restante / total · amplitud; seis tiradas `Random` 0x81D180 (pos.z, pos.y, pos.x, foco.z, foco.y, foco.x) o
+dos con «solo y». Cada fotograma dibujado (fn_00821270) resta `g_delta_time` y se libera al llegar a 0.
+openblack: `src/Camera/CameraShake.{h,cpp}` (`camera_shake::`, con `graphics::lh3d::Random`) y
+`script_camera::ApplyShake`, cada fotograma desde `Game.cpp` con la cámara que se dibuje (la del guion o la del
+jugador), como desplazamiento solo de dibujo de `Camera::SetDrawOffset` (de sistemas): los zoomers no tiemblan.
+
+## Zonas y giro fijo
+
+- SET_CAMERA_ZONE 142 (0x6ED890): `ResetExclusionFile(1)` 0x455320 y `LoadExclusionFile` 0x455370 de
+  `.\Data\Zones\%s` (segmento «cameraexc»: flags, dos límites de 500, n puntos del campo de fuerza, exclusiones),
+  campo de fuerza encendido. **Fiel** el cargador y `InsideInclusion` 0x455E20 (`src/Camera/PlayerCameraScript.{h,cpp}`,
+  `player_camera::`); los nueve `.exc` de `Data\Zones` se leen bien. **Pendiente:** lo que hace con ella la cámara del
+  jugador (`CameraModeNew3::Update` 0x45F982: recolocar, temblor, pulso, dibujo del campo, influencia 0x5CD32F).
+  GET_INCLUSION_DISTANCE 150 (0x6ED990) da por eso siempre FLT_MAX **(aproximado)**.
+- SET_FIXED_CAM_ROTATION 209 (0x6EE1A0): solo con el modo del jugador; `ForceRotateAboutPoint` 0x457330 guarda el punto
+  (`player_camera::Get().fixedRotation`). **Pendiente:** que `DefaultWorldCameraModel` gire alrededor de él (0x45AB00,
+  0x460135). Ningún mapa lo usa.
+
 ## Opcodes
 
 **Fiel** salvo lo marcado. Los que mueven comprueban el modo: sin modo «Script camera has been removed!»; otro modo
@@ -102,7 +144,13 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
 | 106 / 107 SET / MOVE_CAMERA_TO_FACE_OBJECT | 0x6ED500 / 0x6ED600 | cara de un objeto, fijar / mover en t |
 | 203 SET_AVI_SEQUENCE | 0x6FC050 | (aproximado) sin vídeo: solo quita el fundido a negro (`SetupScreenFadeBackToNormal(0)` 0x6EBB00), como si el vídeo acabara al instante |
 
-Sin portar: cámara doble 093-095/105, 142, 201, 209 y el seguimiento del jugador PC 372/373 (0x6EDC00 / 0x6EDCD0).
+| 093 / 094 / 095 START / UPDATE / RELEASE_DUAL_CAMERA | 0x6ED2E0 / 0x6ED370 / 0x6ED410 | cámara doble |
+| 105 CREATE_DUAL_CAMERA_WITH_POINT | 0x6ED460 | cámara doble con un punto |
+| 201 SHAKE_CAMERA | 0x6EE0F0 | temblor (solo lo dibujado) |
+| 142 SET_CAMERA_ZONE / 150 GET_INCLUSION_DISTANCE | 0x6ED890 / 0x6ED990 | zona de la cámara del jugador (cargada; su efecto, pendiente) |
+| 209 SET_FIXED_CAM_ROTATION | 0x6EE1A0 | punto de giro fijo del jugador (guardado; su efecto, pendiente) |
+
+Sin portar: el seguimiento del jugador PC 372/373 (0x6EDC00 / 0x6EDCD0).
 
 ## Soltar la cámara
 
@@ -116,12 +164,17 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
   (`Begin`/`End`/`Active`/`Drives`), Set/Move/RunPath/SetFov, `ScriptArrived`, `Frame` (pasos 1-5 y 7) y
   `DrawnCamera` (pasos 3-6). `UpdateCamera` lo hace cada fotograma desde `Game.cpp` y, mientras el modo del guion
   conduce, el modelo del jugador (`DefaultWorldCameraModel`) ni mueve la cámara ni lee teclas (Script no tiene teclas,
-  0x44C3BD). Al soltar, el modelo relee la cámara y sigue desde ahí.
+  0x44C3BD). Las posiciones y focos van en `Zoomer3d` (`Common/Zoomer.h`, el mismo de la cámara del jugador).
+- **Cambio de manos de los zoomers (fiel):** GCamera tiene unos solos zoomers para todos los modos. openblack tiene los
+  del jugador (`Camera::GetOriginZoomer/GetFocusZoomer`) y los del guion: `Begin` copia los del jugador tal cual (valor,
+  velocidad, destino y tiempo: el modo del guion sigue hacia donde iba el del jugador, 0x461180 no los toca) y `End`
+  devuelve los del guion a la cámara (`HandBack`), de donde arranca el jugador como `CameraModeNew3::Initialise`
+  0x456640. Con «free start» o los ganchos `OPENBLACK_CAMERA_LOCK/FLY` el jugador nunca soltó la cámara y no se copia.
 - `CHLApi.cpp`: los opcodes de la tabla; `StartCameraControl` pasa `cameraTaken = script_camera::Begin(...)`;
   END_CAMERA_CONTROL y la parada de la tarea (Game.cpp) llaman a `script_camera::End`. Al cargar mapa, `Reset`.
-- **(aproximado)** Al empezar el modo, los zoomers toman la cámara dibujada (en el original ya eran ella y seguían hacia
-  el destino del jugador). Sin modo de guion, 035 compara la cámara del jugador con su destino (sus interpoladores no
-  son zoomers). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
+- **(aproximado)** Mientras conduce el guion, la cámara del jugador lleva lo dibujado (con el empujón y el metro sobre
+  el suelo), no los zoomers del guion. Sin modo de guion, 035 compara los zoomers del jugador con su destino (la misma
+  regla 0x441700). `SetPositionAndFocus` no tiene la salida temprana de 0x4438C0. Los ms de juego del fotograma son los del
   reloj de fotograma anterior (el original actualiza la cámara tras los turnos).
 - **(inferido)** 284/286 sin modo de guion fijan también la cámara del jugador.
 - El FOV va a `config.cameraXFov` (grados) solo cuando su zoomer cambia: un FOV propio del jugador dura hasta que un
@@ -137,8 +190,9 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
   58 s; sin Bink en openblack no hay película ni pausa (aproximado). La secuencia 2 (vídeo de la caída del hechizo).
 - (aproximado) El ángulo de la criatura (LH3DCreature +0x84) no existe: sin ajuste de rumbo y `GetFacingDirection` 0.
   El GameAngle de un aldeano sale de `WallHug::yAngle` redondeado a 2048 por vuelta.
-- Cámara doble (`CameraModeTwoObjects::Update` 0x461DE0, sin leer), SHAKE_CAMERA (`LH3DCameraChecker` 0x821050, sin
-  leer), SET_CAMERA_ZONE 142, SET_FIXED_CAM_ROTATION 209, `CheckStackedModesForValidity` por turno.
+- Cámara del jugador: temblor, zona (recolocar, campo de fuerza) y giro fijo (planes en step3.md §B-D).
+- (aproximado) Sin pila de modos: la doble va siempre encima del guion; una doble sobre el modo del jugador se
+  aproxima.
 - `CameraModeNew3::Reinitialise` 0x4589B0 (cómo recoge el jugador la cámara), sin leer.
 
 ## Ganchos de prueba
@@ -146,6 +200,8 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 - `test_script_camera`: un solo modo, llegada, tope de 0,1 s, colocar con T < 0,001, disco, empujón y suelo, FOV con
   tiempo de juego y la vuelta a 70° en 0,5 s; `ScriptCameraFollow.*`: regla de T, distancia y cabeceo, punto desde
   distancia/rumbo/cabeceo, rumbo y cabeceo entre puntos, «detrás», colocar ya, cara de un objeto, cosas que desaparecen.
+- `test_script_camera_dual`: la doble (ritmo, foco, distancia, rumbo, con punto, validez, fin del control), el temblor
+  (radio, decaimiento, tiradas), el cargador de zonas e `InsideInclusion`.
 - `OPENBLACK_CAMERA_LOCK` / `OPENBLACK_CAMERA_FLY` ganan a la cámara del guion (`Drives()`, no original).
 - En el juego: Land 1 sin el mod `game.skip-intro` (`--mod game.skip-intro=off`) corre FollowUs y CreaturesInGlade
   con la cámara del guion.
@@ -153,4 +209,5 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 ## Fuentes
 
 - `dev\tmp_dis\camara\original.md` (paso 1) y `dev\tmp_dis\camara\step2.md` (seguimientos, cara de un objeto,
-  SET_AVI_SEQUENCE), con sus auditorías `audit_step1.md` / `audit_step2.md` en la misma carpeta.
+  SET_AVI_SEQUENCE), `dev\tmp_dis\camara\step3.md` (cámara doble, temblor, zonas, giro fijo), con sus auditorías
+  `audit_step1.md` / `audit_step2.md` / `audit_step3.md` en la misma carpeta.

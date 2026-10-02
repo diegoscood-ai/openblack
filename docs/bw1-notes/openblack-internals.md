@@ -7,7 +7,7 @@
   (las fuentes se recogen con GLOB).
 - Tests en `cmake-build-presets\ninja-multi-vcpkg\bin\Release`: `test_camera` (11 grabaciones del original),
   `test_set_camera_pos`, `test_game_initialize`, `test_load_scene`, `test_mobile_wall_hug`, `test_fixed`,
-  `test_interpolator`. Deben pasar todos.
+  `test_zoomer`, `test_lh_matrix`, `test_land_normal`… (todos los `test_*.exe`). Deben pasar todos.
 - Copia portable: `B&W\BnW_openblack\openblack.exe` + `Jugar.bat`.
 - Sin `-W/-H`, la ventana ocupa el 85 % del escritorio útil y va centrada; tamaños mayores se reducen.
 - openblack arranca **en pausa**: los scripts y la búsqueda de caminos no corren hasta quitarla.
@@ -24,7 +24,9 @@
 | `HandEffects.cpp` | Polvo al agarrar, partículas al coger (grano, madera, destellos de pez) |
 | `HandFish.cpp` | Chapoteo al agarrar el agua, pescar en las piscifactorías |
 | `HandDebugHooks.cpp` | Todas las variables de entorno de prueba |
-| `Common/Zoomer` | Zoomer de LH3DLib |
+| `Common/Zoomer` | Zoomer y Zoomer3d de LH3DLib ([engine-math.md](engine-math.md#zoomer-lh3dlib)) |
+| `3D/ObjectMatrix` | `lh_matrix`: constructores de LHMatrix ([engine-math.md](engine-math.md#matrices-lh)) |
+| `3D/LandNormal` | `land_normal`: LH3DIsland::GetNormal ([engine-math.md](engine-math.md#normal-del-terreno)) |
 | `ECS/StoragePitStore` | Lógica del almacén |
 | `ECS/StaticGrounding` | Mod: asentar objetos estáticos |
 | `Graphics/TextureMipmaps` | Mod: cadena de mips en CPU |

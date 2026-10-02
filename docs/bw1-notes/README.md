@@ -53,6 +53,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [water.md](water.md) | El agua en el juego: celdas de agua (SeaCells), consultas (costa, río y agua potable) y máscara `LandAvoid`, el agua en los guiones, golpes y caídas al agua, hundirse y ahogarse, anillos, tiburones, puzle de los peces, barco de los misioneros, cascada y arca, audio del agua |
 | [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: cámaras `Cam%d`, pistas `Track%d` (`LH3DWay`), `WALK_PATH` de los MobileObject (tiburones) |
 | [script-camera.md](script-camera.md) | Cámara del guion: zoomers de GCamera, CameraModeScript, regla de llegada, opcodes CHL de cámara, FOV, soltar el control |
+| [video.md](video.md) | Vídeos Bink (.bik): los cinco vídeos y cuándo sale cada uno, `LHVideoPlayer`, la copia a 16 bits (555/565), ritmo, pausa, pantalla ancha, fundido, ESC, el mundo 3D sin dibujar, el audio de cada vídeo; `video::VideoPlayer` y el plan V3..V8 |
 
 **Magia**
 
@@ -97,6 +98,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Hundirse y ahogarse, tiburones, puzle de los peces, barco de los misioneros, cascada, qué suena en el agua | [water.md](water.md) |
 | Cámaras y pistas de `camera.edt`, recorridos de los tiburones | [camera-tracks.md](camera-tracks.md) |
 | Cómo mueve el guion la cámara (MOVE_CAMERA_*, HAS_CAMERA_ARRIVED, lentes) | [script-camera.md](script-camera.md) |
+| El vídeo de la introducción o de la caída del hechizo, saltarlo con ESC, los .bik | [video.md](video.md) |
 | Activar o programar un mod | [mod-library.md](mod-library.md) |
 | Ganchos de prueba (`OPENBLACK_*`), compilar, depurar | [openblack-internals.md](openblack-internals.md) y la sección «Ganchos de prueba» de cada página |
 

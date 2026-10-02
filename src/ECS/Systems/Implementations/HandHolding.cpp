@@ -624,6 +624,9 @@ glm::mat3 HandSystem::HeldSway(glm::vec3 at) const noexcept
 	const float tiltX = glm::clamp(_smoothMouse.x - _mouse.x, -80.0f, 80.0f) * (0.3f / 80.0f);
 	const float tiltY = glm::clamp(_mouse.y - _smoothMouse.y, -80.0f, 80.0f) * (0.3f / 80.0f);
 	const auto side = glm::vec3(-toCamera.z, 0.0f, toCamera.x);
+	// (inferido) ObtainRequiredHandPosition builds this from two fn_007FB180 (lh_matrix::AxisAngle, glm's rotate(-a),
+	// 0x5B49C8 and 0x5B4AD5) joined by fn_007FAFF0 0x5B4AE5; which angle and axis each one takes (0x5B49B6..0x5B4ACE) is
+	// not read, so the +tilt and the order here are kept as they were
 	sway = glm::mat3(glm::rotate(glm::mat4(1.0f), tiltX, toCamera));
 	if (glm::length(side) > 1e-4f)
 	{

@@ -12,6 +12,7 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "3D/CreatureBody.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
@@ -34,6 +35,7 @@ entt::entity CreatureArchetype::Create(const glm::vec3& position, PlayerNames pl
 	auto meshId = creature::GetIdFromType(creatureType, CreatureBody::Appearance::Base);
 	registry.Assign<Creature>(entity, playerName, creatureType, creatureMindId);
 	registry.Assign<Mesh>(entity, meshId);
-	registry.Assign<Transform>(entity, position, glm::eulerAngleY(yAngleRadians), glm::vec3(scale));
+	// Creature's GetWorldMatrix (vtable 0x8CCE4C +0x63C) is Object::GetWorldMatrix 0x638200: Ry(-a), not Ry(+a)
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale));
 	return entity;
 }

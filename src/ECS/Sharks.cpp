@@ -27,6 +27,7 @@
 #include "3D/CameraTracks.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Archetypes/SharkArchetype.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Mesh.h"
@@ -119,7 +120,7 @@ void UpdateSharks(float turnFraction, float gameMilliseconds)
 		const float y1 = island.GetHeightAt(glm::vec2(pos.x, pos.z));
 		const glm::vec3 drawn((1.0f - f) * prev.x + f * pos.x, (1.0f - f) * y0 + f * y1, (1.0f - f) * prev.z + f * pos.z);
 		// obj3d->SetPosition(P, heading, GetScale()) (vt+0x20): RotateY(heading), the same turn as at the creation
-		transform.rotation = glm::mat3(glm::eulerAngleY(-shark.heading));
+		transform.rotation = lh_matrix::AngleY(shark.heading);
 		if (auto* draw = registry.TryGet<DrawPosition>(entity); draw != nullptr)
 		{
 			draw->position = drawn;
@@ -153,7 +154,7 @@ void UpdateSharks(float turnFraction, float gameMilliseconds)
 		                        ? animation->pose
 		                        : l3d->GetBoneMatrices();
 		const auto bone = point->first < bones.size() ? bones[point->first] : glm::mat4(1.0f);
-		const auto model = glm::translate(drawn) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+		const auto model = lh_matrix::Model(drawn, transform.rotation, transform.scale);
 		EmitWakeRing(glm::vec3(model * bone * glm::vec4(point->second, 1.0f)), shark.heading, frameMilliseconds);
 	});
 	for (const auto entity : undrawn)

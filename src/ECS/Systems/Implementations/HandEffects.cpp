@@ -10,6 +10,7 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+#include "3D/ObjectMatrix.h"
 #include "HandSystemDetail.h"
 
 #include <glm/gtc/constants.hpp>
@@ -322,12 +323,12 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		transform.position = position;
 		if (particle.mesh)
 		{
-			// AppearanceRuleTumble::ModifyAtomCore 0x6A6200: turn by clamp(|v| * TumbleSpeed, +-Max) * dt about the
-			// atom's own Z axis when |vz| < |vx|, else about its X axis.
+			// AppearanceRuleTumble::ModifyAtomCore 0x6A6200: turn by clamp(|v| * TumbleSpeed, +-Max) * dt, every row's
+			// (x, y) about the world Z when |vz| < |vx| (0x6A6293..0x6A62AC), else its (y, z) about X (0x6A6317..0x6A6330):
+			// R(-a) on the left, as PSys/Rules/Sprinkle.cpp (it was R(+a) on the right, the atom's own axes)
 			const float rate = std::clamp(glm::length(velocity) * k_TumbleSpeed, -k_MaxTumbleSpeed, k_MaxTumbleSpeed);
 			const float angle = rate * seconds;
-			const glm::vec3 axis = std::abs(velocity.z) < std::abs(velocity.x) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
-			transform.rotation = transform.rotation * glm::mat3(glm::rotate(glm::mat4(1.0f), angle, axis));
+			lh_matrix::TurnRows(transform.rotation, std::abs(velocity.z) < std::abs(velocity.x) ? 2 : 0, angle);
 		}
 		else
 		{

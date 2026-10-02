@@ -16,6 +16,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "3D/AllMeshes.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
@@ -67,8 +68,7 @@ entt::entity ecs::ground_marks::Create(const glm::vec3& position, const glm::mat
 
 entt::entity ecs::ground_marks::CreateExplosionMark(const glm::vec3& position, float angle)
 {
-	// SetAngleY's rows are glm::rotate(-angle, Y) (3D/Billboard.h's conventions)
-	const auto rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), -angle, glm::vec3(0.0f, 1.0f, 0.0f)));
+	const auto rotation = lh_matrix::AngleY(angle); // LH3DObject::SetPosition 0x423140
 	return Create(position, rotation, k_ExplosionScale);
 }
 

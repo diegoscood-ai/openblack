@@ -413,6 +413,23 @@ sol::table MakeOb(sol::state& lua, Script& script)
 	};
 	ob["mesh"] = mesh;
 
+	// API 1.2: sound, as the original plays a one-shot effect (only through Audio.h)
+	auto sound = lua.create_table();
+	sound["play"] = [&mod](const std::string& bank, sol::object sample, sol::optional<float> x, sol::optional<float> y,
+	                       sol::optional<float> z) {
+		const auto name = sample.is<std::string>() ? sample.as<std::string>()
+		                  : sample.is<double>()    ? std::to_string(static_cast<int>(sample.as<double>()))
+		                                           : std::string();
+		if (x && y && z)
+		{
+			const glm::vec3 position(*x, *y, *z);
+			return api::PlaySound(mod, bank, name, &position);
+		}
+		return api::PlaySound(mod, bank, name, nullptr);
+	};
+	sound["stop"] = [&mod]() { api::StopSounds(mod); };
+	ob["sound"] = sound;
+
 	ob["api_version"] = k_ApiVersion.ToString();
 	return ob;
 }
@@ -492,6 +509,7 @@ void Stop()
 	auto& host = Get();
 	for (const auto& script : host.scripts)
 	{
+		api::StopSounds(*script->mod);
 		api::Withdraw(*script->mod);
 	}
 	host.scripts.clear();

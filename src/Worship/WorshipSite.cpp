@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SpellIcon.h"
@@ -110,7 +111,7 @@ Transform SiteTransform(const glm::vec3& citadelPosition, float yAngle)
 {
 	glm::vec3 origin = citadelPosition;
 	origin.y = GroundAt(origin);
-	return Transform {origin, glm::mat3(glm::eulerAngleY(-yAngle)), glm::vec3(1.0f)};
+	return Transform {origin, lh_matrix::AngleY(yAngle), glm::vec3(1.0f)};
 }
 
 /// fn_00467890(heart, 9, angle) (called at 0x463587): the heart's B_WORSHIP special point 9 turned to the angle.
@@ -223,7 +224,7 @@ entt::entity CreateTotem(entt::entity siteEntity)
 	}
 	const auto totem = registry.Create();
 	ecs::object_index::Assign(totem);
-	registry.Assign<Transform>(totem, *point, glm::mat3(glm::eulerAngleY(-site.yAngle)), glm::vec3(1.0f));
+	registry.Assign<Transform>(totem, *point, lh_matrix::AngleY(site.yAngle), glm::vec3(1.0f));
 	// WorshipTotem::GetMesh 0x780A70: GWorshipSiteInfo +0x124 (file +0x114 = meshType)
 	registry.Assign<Mesh>(totem, resources::HashIdentifier(site::InfoOf(site).meshType), static_cast<int8_t>(0),
 	                      static_cast<int8_t>(0));

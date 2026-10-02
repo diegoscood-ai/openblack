@@ -198,6 +198,7 @@ void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool place
 	direction.y = 0.0f;
 	direction = glm::length(direction) > 1e-4f ? glm::normalize(direction) : glm::vec3(0.0f, 0.0f, 1.0f);
 	const auto axis = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), direction));
+	// (inferido) no source for the lying-down turn: the crown goes towards `direction`, not checked against the original
 	transform.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), axis)) * transform.rotation;
 	float trunk = 0.3f;
 	auto& meshes = Locator::resources::value().GetMeshes();
@@ -313,6 +314,8 @@ void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 		pull /= distance;
 		const float lean = 0.25f * distance / threshold;
 		const auto axis = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), pull));
+		// (inferido) HandStateTug::Update turns with fn_007FB180 (lh_matrix::AxisAngle, 0x5B8700); its angle and axis are
+		// not checked, so the lean keeps glm's +angle about up x pull
 		transform.rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), lean, axis)) * _tugRotation;
 	}
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)

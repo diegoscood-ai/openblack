@@ -15,6 +15,7 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "3D/AllMeshes.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Fixed.h"
@@ -67,7 +68,7 @@ entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, Animated
 	const auto& info = Locator::infoConstants::value().animatedStatic.at(static_cast<size_t>(type));
 
 	// The exact same as Feature but info is different and type is a different enum
-	const auto& transform = registry.Assign<Transform>(entity, position, glm::eulerAngleY(-yAngleRadians), glm::vec3(scale));
+	const auto& transform = registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale)); // 0x4223A4: 0x423140
 	const auto [point, radius] = GetFixedObstacleBoundingCircle(info.meshId, transform);
 	registry.Assign<Fixed>(entity, point, radius);
 	// const auto& feature = registry.Assign<Feature>(entity, type);

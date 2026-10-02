@@ -11,6 +11,7 @@
 
 #include <glm/gtx/euler_angles.hpp>
 
+#include "3D/ObjectMatrix.h"
 #include "AbodeArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -33,7 +34,8 @@ entt::entity MobileObjectArchetype::Create(const glm::vec3& position, MobileObje
 
 	const auto& info = Locator::infoConstants::value().mobileObject.at(static_cast<size_t>(type));
 
-	registry.Assign<Transform>(entity, position, glm::eulerAngleY(-yAngleRadians), glm::vec3(scale));
+	// CallVirtualFunctionsForCreation -> Game3DObject::SetPosition 0x63B680 with x = z = 0 = AngleY(a)
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale));
 	registry.Assign<Mobile>(entity);
 	registry.Assign<MobileObject>(entity, type);
 	const auto resourceId = resources::HashIdentifier(info.meshId);

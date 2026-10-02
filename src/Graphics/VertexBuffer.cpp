@@ -13,6 +13,8 @@
 
 #include <array>
 
+#include <spdlog/spdlog.h>
+
 #include "GraphicsHandleBgfx.h"
 
 using namespace openblack::graphics;
@@ -72,6 +74,13 @@ VertexBuffer::VertexBuffer(std::string name, const void* mem, VertexDecl decl) n
 
 	_handle = fromBgfx(bgfx::createVertexBuffer(bgfxMem, layout));
 	_layoutHandle = fromBgfx(bgfx::createVertexLayout(layout));
+	if (!bgfx::isValid(toBgfx(_handle)))
+	{
+		// (openblack guard) bgfx is out of handles (4096 of each kind): setName on kInvalidHandle writes out of bgfx's
+		// array in Release and corrupts the heap; the buffer stays empty and is not drawn
+		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "{}: out of bgfx buffer handles, not created", _name);
+		return;
+	}
 	bgfx::setName(toBgfx(_handle), _name.c_str());
 }
 
@@ -102,7 +111,16 @@ uint32_t VertexBuffer::GetSizeInBytes() const noexcept
 	return _vertexCount * _strideBytes;
 }
 
+bool VertexBuffer::IsValid() const noexcept
+{
+	return bgfx::isValid(toBgfx(_handle));
+}
+
 void VertexBuffer::Bind() const
 {
+	if (!IsValid())
+	{
+		return; // (openblack guard) never hand bgfx an invalid handle
+	}
 	bgfx::setVertexBuffer(0, toBgfx(_handle), 0, _vertexCount, toBgfx(_layoutHandle));
 }

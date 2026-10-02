@@ -21,6 +21,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "3D/L3DAnim.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/AnimalBrain.h"
@@ -174,8 +175,8 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 				draw.yaw += d > 0.0f ? step : -step;
 			}
 			draw.yaw = Wrap(draw.yaw);
-			// the same rotation the pathfinding gives the transform (InitializeStep: eulerAngleY(-angle - 90 degrees))
-			draw.rotation = glm::mat3(glm::eulerAngleY(-draw.yaw - glm::half_pi<float>()));
+			// the same rotation the pathfinding gives the transform (InitializeStep: AngleY(angle + 90 degrees))
+			draw.rotation = lh_matrix::AngleY(draw.yaw + glm::half_pi<float>());
 		}
 		// Dove::Draw (0x41F680): the bank zoomer advances by the frame's game time and rolls the drawn matrix about its
 		// forward axis (rows 0 and 1 rotated by the bank)

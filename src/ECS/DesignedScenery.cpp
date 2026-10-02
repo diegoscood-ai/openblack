@@ -23,6 +23,7 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "Audio/Device/Sound.h"
 #include "Audio/Services/SoundTags.h"
 #include "ECS/Components/Mesh.h"
@@ -121,7 +122,7 @@ entt::entity MakeObject(const char* file, const glm::vec3& position, float angle
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
-	registry.Assign<Transform>(entity, position, glm::mat3(glm::eulerAngleY(-angle)), glm::vec3(scale));
+	registry.Assign<Transform>(entity, position, lh_matrix::AngleY(angle), glm::vec3(scale));
 	registry.Assign<Mesh>(entity, mesh, static_cast<int8_t>(0), static_cast<int8_t>(0));
 	if (Trace())
 	{

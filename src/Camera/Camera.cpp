@@ -27,15 +27,15 @@ using namespace openblack;
 namespace
 {
 constexpr auto k_DefaultCameraOriginOffset = glm::vec3(0.0f, 0.0f, 120.0f);
+constexpr float k_MaxFrameSeconds = 0.1f; ///< [0x8AB22C] (GCamera::Update 0x441FB0..0x441FC1)
 constexpr auto k_ReverseZMatrix = glm::mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
 } // namespace
 
 Camera::Camera(glm::vec3 focus)
-    // Maybe a struct is not the right thing... Maybe an optional?
-    : _originInterpolators(ZoomInterpolator3f(focus + k_DefaultCameraOriginOffset))
-    , _focusInterpolators(ZoomInterpolator3f(focus))
-    , _model(CameraModel::CreateModel(CameraModel::Model::DefaultWorld))
+    : _model(CameraModel::CreateModel(CameraModel::Model::DefaultWorld))
 {
+	_origin.SetPosition(focus + k_DefaultCameraOriginOffset);
+	_focus.SetPosition(focus);
 }
 
 Camera::~Camera() = default;
@@ -111,11 +111,9 @@ Camera& Camera::SetProjectionMatrixPerspective(float xFov, float aspect, float n
 	return *this;
 }
 
-Camera& Camera::SetInterpolatorTime(std::chrono::microseconds t)
+std::chrono::microseconds Camera::GetInterpolatorTime() const
 {
-	_interpolatorTime = t;
-
-	return *this;
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<float>(_origin.axis[0].time));
 }
 
 glm::vec3 Camera::GetForward() const
@@ -213,30 +211,23 @@ bool Camera::ProjectWorldToScreen(glm::vec3 worldPosition, glm::vec4 viewport, g
 
 void Camera::Update(std::chrono::microseconds dt)
 {
-	using namespace std::chrono_literals;
-
 	const auto updateInfo = _model->Update(dt, *this);
+	// (aproximado) the original's dt is the integer ms of GetCameraTimeInc 0x555820 times 0.001 (0x441F95..0x441FAA)
+	UpdateZoomers(updateInfo, std::chrono::duration<float>(dt).count());
+}
 
+void Camera::UpdateZoomers(const std::optional<CameraModel::CameraInterpolationUpdateInfo>& updateInfo, float seconds)
+{
 	if (updateInfo)
 	{
-		const auto m1 = glm::zero<glm::vec3>();
-		// You have to normalize the velocity with the NEW duration
-		const auto durationSeconds = std::chrono::duration_cast<std::chrono::duration<float>>(updateInfo->duration);
-		SetOriginInterpolator(GetOrigin(), updateInfo->origin, GetOriginVelocity() * durationSeconds.count(), m1);
-		SetFocusInterpolator(GetFocus(), updateInfo->focus, GetFocusVelocity() * durationSeconds.count(), m1);
-		SetInterpolatorDuration(updateInfo->duration);
-		SetInterpolatorTime(0us);
+		// Zoomer3d::SetDestinationWithTime 0x44E760: from the current value and speed to the target with speed 0
+		const float duration = std::chrono::duration<float>(updateInfo->duration).count();
+		_origin.SetDestinationWithTime(updateInfo->origin, duration);
+		_focus.SetDestinationWithTime(updateInfo->focus, duration);
 	}
-
-	const auto duration = GetInterpolatorDuration().count();
-	if (duration == 0.0f)
-	{
-		SetInterpolatorT(1.0f);
-	}
-	else
-	{
-		AddInterpolatorTime(std::min(100'000us, dt));
-	}
+	const float dt = std::min(seconds, k_MaxFrameSeconds); // 0x441FB0..0x441FC1
+	_origin.Update(dt);                                     // 0x441FEE..0x442000
+	_focus.Update(dt);                                      // 0x442017..0x442029
 }
 
 void Camera::HandleActions(std::chrono::microseconds dt)
@@ -268,11 +259,11 @@ glm::vec3 Camera::GetOrigin(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _originInterpolators.PositionAt(GetInterpolatorT());
+		return _origin.GetCurrentValue() + _originDrawOffset; // fn_008210C0's shake, drawn only
 	case Interpolation::Start:
-		return _originInterpolators.p0;
+		return _origin.GetStartValue();
 	case Interpolation::Target:
-		return _originInterpolators.p1;
+		return _origin.GetDestination();
 	default:
 		assert(false);
 		std::unreachable();
@@ -284,11 +275,11 @@ glm::vec3 Camera::GetFocus(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _focusInterpolators.PositionAt(GetInterpolatorT());
+		return _focus.GetCurrentValue() + _focusDrawOffset; // fn_008210C0's shake, drawn only
 	case Interpolation::Start:
-		return _focusInterpolators.p0;
+		return _focus.GetStartValue();
 	case Interpolation::Target:
-		return _focusInterpolators.p1;
+		return _focus.GetDestination();
 	default:
 		assert(false);
 		std::unreachable();
@@ -297,54 +288,34 @@ glm::vec3 Camera::GetFocus(Interpolation interpolation) const
 
 glm::vec3 Camera::GetOriginVelocity(Interpolation interpolation) const
 {
-	glm::vec3 result;
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		result = _originInterpolators.VelocityAt(GetInterpolatorT());
-		break;
+		return _origin.GetSpeed();
 	case Interpolation::Start:
-		result = _originInterpolators.v0;
-		break;
+		return _origin.GetStartSpeed();
 	case Interpolation::Target:
-		result = _originInterpolators.v1;
-		break;
+		return _origin.GetDestinationSpeed();
 	default:
 		assert(false);
 		std::unreachable();
 	}
-
-	if (_interpolatorDuration == decltype(_interpolatorDuration)::zero())
-	{
-		return result;
-	}
-	return result / std::chrono::duration_cast<std::chrono::duration<float>>(_interpolatorDuration).count();
 }
 
 glm::vec3 Camera::GetFocusVelocity(Interpolation interpolation) const
 {
-	glm::vec3 result;
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		result = _focusInterpolators.VelocityAt(GetInterpolatorT());
-		break;
+		return _focus.GetSpeed();
 	case Interpolation::Start:
-		result = _focusInterpolators.v0;
-		break;
+		return _focus.GetStartSpeed();
 	case Interpolation::Target:
-		result = _focusInterpolators.v1;
-		break;
+		return _focus.GetDestinationSpeed();
 	default:
 		assert(false);
 		std::unreachable();
 	}
-
-	if (_interpolatorDuration == decltype(_interpolatorDuration)::zero())
-	{
-		return result;
-	}
-	return result / std::chrono::duration_cast<std::chrono::duration<float>>(_interpolatorDuration).count();
 }
 
 glm::vec3 Camera::GetRotation() const
@@ -367,35 +338,14 @@ glm::vec3 Camera::GetRotation() const
 
 Camera& Camera::SetOrigin(const glm::vec3& position)
 {
-	_originInterpolators = ZoomInterpolator3f(position);
+	_origin.SetPosition(position); // Zoomer::SetPosition 0x441AC0 on each axis
 
 	return *this;
 }
 
 Camera& Camera::SetFocus(const glm::vec3& position)
 {
-	_focusInterpolators = ZoomInterpolator3f(position);
-
-	return *this;
-}
-
-Camera& Camera::SetOriginInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1)
-{
-	_originInterpolators = ZoomInterpolator3f(p0, p1, m0, m1);
-
-	return *this;
-}
-
-Camera& Camera::SetFocusInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1)
-{
-	_focusInterpolators = ZoomInterpolator3f(p0, p1, m0, m1);
-
-	return *this;
-}
-
-Camera& Camera::SetInterpolatorDuration(std::chrono::microseconds duration)
-{
-	_interpolatorDuration = duration;
+	_focus.SetPosition(position);
 
 	return *this;
 }

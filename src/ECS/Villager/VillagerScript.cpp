@@ -13,6 +13,7 @@
 #include <glm/gtx/norm.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
@@ -87,7 +88,7 @@ void InitStepsXZ(Transform& transform, WallHug& wallHug)
 {
 	const auto diff = wallHug.goal - glm::xz(transform.position);
 	const auto angle = glm::atan(diff.y, diff.x);
-	transform.rotation = glm::eulerAngleY(-angle - glm::radians(90.0f));
+	transform.rotation = lh_matrix::AngleY(angle + glm::radians(90.0f)); // the "Scawen" angle
 	wallHug.step = glm::vec2(glm::cos(angle), glm::sin(angle)) * wallHug.speed;
 	wallHug.yAngle = angle;
 }

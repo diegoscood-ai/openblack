@@ -16,6 +16,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "3D/AllMeshes.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
@@ -100,8 +101,8 @@ void UpdateCarriedProps()
 		// the villager's model matrix (as RenderingSystem builds it) * bone 15 * the axis swap
 		const auto& owner = registry.Get<const Transform>(villager);
 		const auto* draw = registry.TryGet<const DrawPosition>(villager);
-		auto model = glm::translate(glm::mat4(1.0f), draw != nullptr ? draw->position : owner.position) *
-		             glm::mat4(draw != nullptr ? draw->rotation : owner.rotation) * glm::scale(glm::mat4(1.0f), owner.scale);
+		auto model = lh_matrix::Model(draw != nullptr ? draw->position : owner.position,
+		                              draw != nullptr ? draw->rotation : owner.rotation, owner.scale);
 		if (draw != nullptr)
 		{
 			model[0] += draw->shearX * model[1];

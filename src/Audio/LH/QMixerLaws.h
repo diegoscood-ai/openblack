@@ -36,9 +36,15 @@ inline constexpr int k_MaxVolume = 127;
 [[nodiscard]] float DistanceGain(float minDistance, float maxDistance, float scale, float distance);
 
 /// The listener-space point QMixer hears a relative LHaudio position at (0x10012269: LHaudio's (x, y, z) -> azimuth
-/// atan2(x, y) and elevation atan(z / |(x, y)|) in degrees with pi taken as 1 / 0.318471, range |(x, y, z)|;
-/// QSWaveMixSetPolarPosition -> QMixer 0x1800AA85: right = r cos(el) sin(az), up = r sin(el), ahead = r cos(el) cos(az)).
-/// So LHaudio's relative x is right, y ahead and z up. Returns (right, up, ahead).
+/// atan2(x, y) and elevation atan(z / |(x, y)|) in degrees, atan * 180 * the double 0.31847133757961782 (1 / 3.14,
+/// 0x10030450), range |(x, y, z)|, all three sent as floats; QSWaveMixSetPolarPosition -> QMixer 0x1800AA85 with
+/// pi * 0.0055555557f: right = r cos(el) sin(az), up = r sin(el), ahead = r cos(el) cos(az), stored as floats).
+/// LHaudio's half runs on the game's thread with the FPU at 24 bits (fn_007DEE00): every step rounds to a float.
+/// QMixer's half (0x1800AA70) is not called by QSWaveMixSetPolarPosition 0x180040B0, which only stores the polar point:
+/// QSWaveMixPump 0x18003900 reaches it, driven every 20 ms by LHaudio's timeSetEvent (0x10015800) on winmm's timer
+/// thread, at that thread's 53 bits (the Win32 start control word 0x27F; (inferred) nothing in that thread changes it;
+/// the one pass at QSWaveMixPlay on the game thread is at 24 bits and is redone by the next pump). So LHaudio's
+/// relative x is right, y ahead and z up. Returns (right, up, ahead).
 [[nodiscard]] glm::vec3 PolarRelative(glm::vec3 position);
 
 /// QSWaveMixSetFrequency(rate * percent / 100) as a ratio of the wave's rate: the unsigned integer division of

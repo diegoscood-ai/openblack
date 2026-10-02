@@ -80,6 +80,7 @@ public:
 	[[nodiscard]] uint32_t GetStrideBytes() const noexcept;
 	[[nodiscard]] uint32_t GetSizeInBytes() const noexcept;
 
+	[[nodiscard]] bool IsValid() const noexcept;
 	void Bind() const;
 
 private:

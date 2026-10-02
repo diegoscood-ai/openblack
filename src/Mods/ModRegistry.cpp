@@ -19,6 +19,7 @@
 
 #include <fmt/format.h>
 
+#include "Api.h"
 #include "BuiltinManifests.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Manifest.h"
@@ -901,6 +902,14 @@ void ModRegistry::ApplyAll()
 {
 	Resolve();
 	ApplySwitches();
+	// a mod that is not active any more falls silent (its sound owner, Api.h)
+	for (const auto* mod : _order)
+	{
+		if (!IsActive(*mod))
+		{
+			api::StopSounds(*mod);
+		}
+	}
 	for (auto* mod : _order)
 	{
 		mod->Apply();

@@ -238,6 +238,26 @@ float audio::MaxDistance(Sample sample)
 	return sound != nullptr ? sound->maxDistance : 0.0f;
 }
 
+std::optional<audio::Sample> audio::FindSample(BankId bank, std::string_view wavName)
+{
+	// (openblack: the original addresses samples by number only; this is for the mod SDK and tools) the first sample of
+	// the bank whose .sad name (+0x00, the file name part) equals wavName, ignoring case; its number is the .sad's +0x104
+	const auto sameName = [wavName](const std::string& name) {
+		return name.size() == wavName.size() &&
+		       std::equal(name.begin(), name.end(), wavName.begin(), [](char a, char b) {
+			       return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+		       });
+	};
+	for (const auto id : banks::Samples(bank))
+	{
+		if (const auto* sound = sample_play::GetSound(id); sound != nullptr && sameName(sound->name))
+		{
+			return Sample {bank, sound->id};
+		}
+	}
+	return std::nullopt;
+}
+
 // ---- owners -------------------------------------------------------------------------------------------------------
 
 const GameQueries& audio::Queries()
@@ -250,13 +270,23 @@ std::optional<glm::vec3> audio::OwnerSoundPosition(const Owner& owner)
 	return OwnerPosition(owner);
 }
 
+glm::vec3 audio::GuardSoundPoint(glm::vec3 point)
+{
+	// fn_00427200: fld; fabs; fcomp qword 5000.0 (0x8C49E0); test ah, 0x41; jne keep: only "above" (C0 = C3 = 0) clears
+	// the coordinate, per coordinate (x 0x427349, y 0x427360, z 0x427377)
+	const auto guard = [](float v) { return std::abs(static_cast<double>(v)) > 5000.0 ? 0.0f : v; };
+	return {guard(point.x), guard(point.y), guard(point.z)};
+}
+
 std::optional<glm::vec3> audio::Get3DSoundPos(const Owner& owner)
 {
+	std::optional<glm::vec3> point;
 	switch (owner.kind)
 	{
 	case Owner::Kind::None:
 		// 0x4272F9: LH3DTech::g_camera
-		return CameraPoint();
+		point = CameraPoint();
+		break;
 	case Owner::Kind::Atmos:
 		// 0x42726D: -1 gives 0
 		return std::nullopt;
@@ -265,18 +295,26 @@ std::optional<glm::vec3> audio::Get3DSoundPos(const Owner& owner)
 		// +0x50, 0x427209). For a new start (LHSamplePlayAnimEffect 0x10014B91 asks it on the channel just allocated,
 		// before LHSamplePlay writes the options' point) that +0x50 is the channel's previous point, a stale value:
 		// openblack gives the tag's own point (approximated; no caller starts an anim effect owned by a tag)
-		if (const auto at = tags::Get3DSoundPos(owner.id))
+		point = tags::Get3DSoundPos(owner.id);
+		if (!point)
 		{
-			return at;
+			point = tags::Point(owner.id);
 		}
-		return tags::Point(owner.id);
+		break;
 	case Owner::Kind::Key:
 		// a plain number is never given to the 3D function (the voices' keys play 2D or untracked) (inferred)
 		return std::nullopt;
 	default:
 		// 0x4272A6: a GameThing not IsAvailable gives 0; else Get3DSoundPos
-		return OwnerPosition(owner);
+		point = OwnerPosition(owner);
+		break;
 	}
+	if (!point)
+	{
+		return std::nullopt;
+	}
+	// 0x427349..0x42738E: the point handed back, guarded
+	return GuardSoundPoint(*point);
 }
 
 std::optional<glm::vec3> audio::ListenerPoint()
@@ -469,6 +507,13 @@ bool audio::IsScriptWideScreen()
 bool audio::IsInsideCitadel()
 {
 	return g_State.queries.insideCitadel && g_State.queries.insideCitadel();
+}
+
+void audio::LeaveCitadel()
+{
+	// fn_00793D00 0x793D3C..0x793D59: push 1 (AUDIO_SFX_BANK_TYPE InGame), push 0 (no owner), push sample
+	StopSoundEffect(2, Owner {}, SfxBank::InGame);
+	StopSoundEffect(12, Owner {}, SfxBank::InGame);
 }
 
 bool audio::IsVideoPlaying()

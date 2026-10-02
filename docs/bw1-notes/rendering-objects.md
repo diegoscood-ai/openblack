@@ -441,8 +441,8 @@ El original tiene tres mecanismos y un solo plano:
   especular)` (tiburones: especular 0, `push 0` 0x775027) y `DrawFishPlots(vista, SeaPlane)` (la red: +0x50 = 0 del
   ctor 0x8164FE). El orden es el del binario: tiburones (`fn_00775120` 0x5E4B26), peces y redes (`fn_00824B90`
   0x5E4B2B), el sitio de los nadadores (0x5E4B4C..0x5E4D76) y el brillo de la mano (0x5E4D89). El reflejo del barco
-  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. **(openblack)** una instancia que se pega al suelo sigue dibujando su reflejo con el mapa de alturas,
-  aunque el `DrawUnderWater` de las vtables morfables es un `ret` (0x80BA40).
+  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. Una instancia que se pega al suelo no se dibuja bajo el mar: el `DrawUnderWater` de las vtables
+  morfables (vt+0x118 de 0x9A2E34 / 0x9A2BFC) es un `ret` (0x80BA40), como su `DrawCutByPlane` (0x80BA50).
 - Colores de la pasada (`SetColorSpecular` vt+0x2C antes de la llamada): mano 0x65A0A0A0 / 0 (0x5E496E / 0x5E496C),
   criatura 0x65A0A0D0 / 0x30 (0x5E4ACF / 0x5E4ACD), nadadores 0xFF303070 / 0 (0x5E4C69 / 0x5E4C68), barco 0xFF303070
   (`mov [eax+0x4C]` 0x5E016C, sin tocar +0x50: **(inferido)** openblack pone 0).
@@ -704,8 +704,9 @@ desensamblado de W1.20; los puntos dudosos (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_
 - LH3D usa vector fila (p' = p·M, fn_0084BA90). La fila k es la imagen del eje local k; en glm es la columna k, con la
   misma memoria.
 - Los giros de LH3D van al revés que `glm::rotate`: `SetAngleY(a)` 0x674360 (filas (c,0,s) / (0,1,0) / (−s,0,c)) es
-  `glm::rotate(−a, Y)`. Lo mismo pasa con RotateY 0x5198F0, fn_0086AFA0 y UpdateRuleRotatePrincipalAxis 0x6A1150, que
-  giran en el sitio y en glm van a la izquierda.
+  `glm::rotate(−a, Y)`. Los giros en el sitio RotateY 0x5198F0 y fn_0086AFA0 mezclan **filas**: en glm van **a la
+  derecha** (`M·R(−a)`). UpdateRuleRotatePrincipalAxis 0x6A1150 mezcla las componentes de cada fila: va **a la
+  izquierda** (`R(−a)·M`). Todo está en `lh_matrix` ([engine-math.md](engine-math.md#matrices-lh)).
 
 **Cámara de la pasada.** `CameraFrame::From(camera)` se construye una vez por pasada, con la cámara principal o la
 reflejada. Contiene:
@@ -748,7 +749,7 @@ el ángulo +0x14.
 | `ScreenSpriteModel` | el mismo modo A en `vs_sprite.sc` | T(pos)·Rz(−ángulo)·S(media anchura, media altura, 1). El shader suma u_invView·(modelo·(x, y, 0, 0)) en el plano −1..1, con v = 0 arriba: es `Screen` con origen 0. El corte por near se hace en la CPU | `drawSprite` (luces de noche, luciérnagas, polvo, efectos de la mano, brillos del templo, marcadores de cámara) y `DrawChimneySmoke` |
 | `Horizontal` (modo B) | flag 0x40 (0x8405FE..0x840704): `SetHorozontal` 0x6AA093, `GWater::InitialiseCircles` 0x54BA84, fn_00824740 0x8247EF | Ry(ángulo), con filas (c,0,s) / (0,1,0) / (−s,0,c), más la posición. x = {−s − ox, s − ox}, z = {−hs − oy, hs − oy} (0x84085D). No depende de la cámara ni tiene corte por near | estela del barco, peces de las piscifactorías, anillos de agua, la rama horizontal de PSys (SF_ManaPathNew, mapas de luz) |
 | `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | El cuadrado del modo B en el plano XZ de una matriz dada, girado sobre su Y local si el ángulo ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). No usa la posición del sprite | nadie (los 7 anillos de fn_008274A0 están sin portar) |
-| `YawToEye` (modo C) | código inline: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(ojo.z − p.z, ojo.x − p.x) + π/2 ([0x8C78D8]); ejes Ry(θ). El +Z local va del ojo al objeto | nadie (columnas de influencia, banderas de deseo, ShowNeeds y ScriptHighlight están sin portar) |
+| `YawToEye` (modo C) | código inline: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(ojo.z − p.z, ojo.x − p.x) + π/2 ([0x8C78D8]); ejes `lh_matrix::AngleY(θ)` (las filas de SetAngleY 0x674360). El +Z local va del ojo al objeto | nadie (columnas de influencia, banderas de deseo, ShowNeeds y ScriptHighlight están sin portar) |
 | `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), con d = p − ojo en XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | mallas de PSys con FaceCamera (`PSys/Creators/Mesh.cpp`) |
 | `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identidad × escala. Luego cada fila (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), con φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), y después fn_0067A4A0(ψ), con ψ = atan2(d.z, d.x). El +Y local mira al ojo y la Z queda horizontal | `Mesh.cpp`, después de FaceCamera como en el original; ningún SF lo activa |
 | `LookAtCentre` | la burbuja: fn_00518720, desde `OneOffSpellSeed::Draw` 0x518E90 | d = W − ojo, con W = el centro de la caja en el mundo (0x518746..0x5187B8). Si \|d.x\| y \|d.z\| son < 1e-4 (el double [0x8C79D8]), d.x pasa a ±1e-4 (0x518875..0x5188B4). D = normalize(d), U = normalize(Y − (Y·D)D). Las filas (U×D, −D, U) salen de invertir con fn_007FB3F0 (0x518B0C). Luego M = T(−c)·R·s y traslación W − c·R·s (fn_00518B90, fn_00518BF0, fn_0044CF90). Tras el empujón de 1e-4, d y U nunca son cero, así que la prueba de ceros de 0x5188BC..0x5188ED no salta nunca y no se porta | nadie todavía. `Magic/Core/OneOffSpellSeed.cpp` (de Milagros, sin commitear) sigue con su copia sin el empujón; pasará a `LookAtCentre` después de su HEAD |
@@ -1273,7 +1274,7 @@ corte 0x96: un poco más finos).
   entonces la cúpula del escudo y los demás átomos con `DrawCutByPlane` pierden lo que quede bajo y = 0 sin tocar
   `Renderer` ni los shaders. Captura pendiente: la cúpula más metida en el mar (p. ej. `PHYSICAL_SHIELD,1800,3120`;
   la de 1825,3140 queda casi toda sobre la playa). El especular +0x50 del casco del barco (lo que dejó su último Draw,
-  **(inferido)** 0). El reflejo de los morfables (su `DrawUnderWater` es un `ret`, 0x80BA40; openblack los dibuja).
+  **(inferido)** 0).
 - Pasada bajo el mar, pruebas con capturas: que los pasos 1-6 no cambian ningún píxel **no está demostrado** con
   capturas (el código sí lo da: mano 0xA0/255, especular 0 del modo 4, mismo culling, `UnmirrorView` = vista·diag(1,
   −1, 1, 1)); dos ejecuciones del mismo exe ya difieren porque el mar y las nubes siguen el reloj real, y algunas

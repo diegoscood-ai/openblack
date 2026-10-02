@@ -13,6 +13,7 @@
 
 #include <glm/gtx/euler_angles.hpp>
 
+#include "3D/ObjectMatrix.h"
 #include "AbodeArchetype.h"
 #include "BonfireArchetype.h"
 #include "ECS/Components/Mesh.h"
@@ -58,14 +59,7 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 
 glm::mat3 MobileStaticArchetype::XYZRotation(float xAngleRadians, float yAngleRadians, float zAngleRadians)
 {
-	const float ca = std::cos(yAngleRadians);
-	const float sa = std::sin(yAngleRadians);
-	const float cb = std::cos(xAngleRadians);
-	const float sb = std::sin(xAngleRadians);
-	const float cc = std::cos(zAngleRadians);
-	const float sc = std::sin(zAngleRadians);
-	return {glm::vec3(ca * cc - sa * sb * sc, -cb * sc, sa * cc + ca * sb * sc),
-	        glm::vec3(sa * sb * cc + ca * sc, cb * cc, sa * sc - ca * sb * cc), glm::vec3(-sa * cb, sb, ca * cb)};
+	return lh_matrix::YXZ(yAngleRadians, xAngleRadians, zAngleRadians); // SetYXZMatrixOnly 0x7FAC10
 }
 
 entt::entity MobileStaticArchetype::CreateFromInfo(const glm::vec3& position, MobileStaticInfo type, float altitude,

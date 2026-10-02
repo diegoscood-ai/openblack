@@ -2,7 +2,7 @@
 
 Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, con sus
 celdas y su espiral; las distancias y sigmoides de `GUtils`; el reloj del juego; la altura exacta del terreno; la
-convención de las matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
+normal del terreno; las matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
 en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendiente).
 
 - [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
@@ -15,8 +15,9 @@ en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendien
 - [Reloj del juego](#reloj-del-juego): el turno, los ms del turno, la fracción, el dt del fotograma, la pausa y la
   velocidad (`game_clock`)
 - [Altura del terreno](#altura-del-terreno)
-- [Matrices LH](#matrices-lh)
-- [Zoomer (LH3DLib)](#zoomer-lh3dlib)
+- [Normal del terreno](#normal-del-terreno): `LH3DIsland::GetNormal` y sus dos tablas (`land_normal`)
+- [Matrices LH](#matrices-lh): los constructores de LHMatrix, la inversa y el modelo (`lh_matrix`)
+- [Zoomer (LH3DLib)](#zoomer-lh3dlib): `Zoomer` y `Zoomer3d`, exactos al bit
 - [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
 
 ## MapCoords
@@ -631,32 +632,232 @@ paran en pausa; el grano de la mano, las luciérnagas y los efectos de partícul
 Verificado: Land1 en (1788.4, 2710) = **28.9173050**, el valor grabado del original. El render del terreno de openblack
 usa la misma triangulación (coincide con el terreno físico de Bullet hasta el milímetro).
 
+## Normal del terreno
+
+**Fiel.** `LH3DIsland::GetNormal(const LH3DMapCoords&, LHPoint*)` 0x803630 (fastcall: ecx = coords, edx = out), portado
+en `land_normal::OfCell` (`src/3D/LandNormal.{h,cpp}`) y llamado desde `LandIsland::GetNormalAt`, al lado de
+`HeightAt`. Todos los llamadores del original construyen el MapCoords con `ftol(x·65536 [0x8AC408]·0,1 [0x8AC404])`
+(fn_004427B0, 0x8126C0, 0x459105, 0x7FCBA2): `65536·0,1f` es exactamente `6553,6f`, así que es `map_coords::ToFixed`.
+
+1. Celda `(int16)(x >> 16)`, `(int16)(z >> 16)`; fuera de [0, 0x200) → (0, 1, 0) (0x80363B..0x80366B). openblack
+   compara con `GetCellsPerSide()` (512 en los mapas del juego).
+2. `GetCell` 0x516AA0: NULL si no hay bloque (`g_index_block` = 0, 0x516ADC) → (0, 1, 0).
+3. Alturas **en bruto** (sin aplanar junto al mar): h00 = [+4], h01 = [+0xC] (z+1), h10 = [+0x8C] (x+1),
+   h11 = [+0x94], dentro del bloque de 17×17 (la fila del borde es del bloque: la celda 511 se lee).
+4. Triángulo (bit `split` = [+6] & 0x80, 0x803698..0x803752):
+   - con split: B = h11 en (10, 10) si `fz > 0xFFFF − fx`, si no h00 en (0, 0); P = h10 en (10, 0); Q = h01 en (0, 10);
+   - sin split: B = h10 en (10, 0) si `fx > fz`, si no h01 en (0, 10); P = h11 en (10, 10); Q = h00 en (0, 0).
+5. `dP = hP − hB`, `dQ = hQ − hB` en entero; `s = T1[|dP|]·T1[|dQ|]`; `P' = (Px − Bx, dP·0,67 [0xC3720C], Pz − Bz)`,
+   `Q'` igual (Q'x = `−Bx`, un `fchs`).
+6. `n = ((P'z·Q'y − P'y·Q'z)·s, (Q'z·P'x − P'z·Q'x)·s, (P'y·Q'x − Q'y·P'x)·s)` (0x8037BA..0x8037F5).
+7. `k = fistp(((nz·nz + nx·nx) + ny·ny)·1023 [0x9A2BE8])` (al más cercano), `n *= T2[k]`; si `n.y < 0`, `n = −n`.
+
+Tablas de la inicialización de la isla fn_00803890 (cada paso a 24 bits):
+- T1 en 0xE9B2D8: `T1[i] = 1/√((0,67·i)² + 100)`, i = 0..255 (0x8038E3..0x803934). Las aristas P' y Q' son
+  perpendiculares en xz y miden `√(100 + (0,67·d)²)`, así que `s = 1/(|P'||Q'|)`.
+- T2 en 0xE9A2D8: `T2[0] = 1`, `T2[j] = 1/√(j·0,000977517 [0x9A2BEC = 1/1023])`, j = 1..1023 (0x803936..0x80396F).
+
+El resultado es **casi unitario**: la cuantización de T2 deja un error relativo de hasta ~0,5/k (en una celda muy
+empinada con k = 7, la longitud es 0,998). Nunca es nulo: la comprobación `dot(n, n) <= 0` que tenía PhysOb era código
+muerto. **(port)** Con las altitudes de 16 bits de BWLandEditor, `|d|` puede pasar de 255: se calcula con la misma
+fórmula; y el índice de T2 se limita a 1023 (en el original, `|n|² ≤ 1` lo garantiza).
+
+**Quién la usa:**
+- física (`PhysOb.cpp` `Normal`/`LandscapeNormal`: `AdjustToGroundLevel` 0x7FCBE2, `GroundAndWater` 0x7FD93F);
+- la mano (`HandHolding.cpp`, `InitialisePhysicsFromHand` 0x63729E);
+- la bola de fuego (`Fireball.cpp`, `GravityWithFloor` 0x6A1C7F);
+- las sombras de aldeanos y animales (`Renderer.cpp`, fn_00812170 0x8126FD / 0x812859);
+- la cámara del jugador (`DefaultWorldCameraModel.cpp`, `CameraModeNew3::FindBestAngle` 0x459144).
+
+Antes, `GetNormalAt` eran diferencias centrales de ±0,1 m sobre `GetHeightAt` (que aplana junto al mar) y la física
+tenía su propia copia (`glm::normalize` en lugar de T2, arriba en la celda 511 y sin mirar si hay bloque). No son
+`GetNormal`, y no se tocan: `Foliage.cpp` `GroundNormal` (mod de plantas: sigue la malla dibujada) y `LandBlock.cpp`
+(normal suave por vértice del render).
+
 ## Matrices LH
 
-- `LHMatrix` es 3×3 por filas + traslación (convención de vectores fila, estilo D3D): **las filas de LH son las
-  columnas de `glm::mat3`** en openblack.
-- `LHMatrix::SetYXZMatrixOnly(y, x, z)` (0x7FAC10), con a=Y, b=X, c=Z:
-  - fila 0 = (ca·cc − sa·sb·sc, −cb·sc, sa·cc + ca·sb·sc)
-  - fila 1 = (sa·sb·cc + ca·sc, cb·cc, sa·sc − ca·sb·cc)
-  - fila 2 = (−sa·cb, sb, ca·cb)
-- La escala se aplica multiplicando las 9 componentes (uniforme).
-- Solo Y: `glm::eulerAngleY(-yAngle)` da lo mismo que el original (así lo usan pots, árboles...).
+**Convenio.** Un `LHMatrix` son 3 filas + traslación (vector fila, p' = p·M): la fila k es la imagen del eje local k.
+En glm es la **columna** k, con la misma memoria (`glm::mat4x3` son los 12 floats de un LHMatrix). Los giros de LH3D
+van al revés que los de glm: el ángulo a del original es el −a de `glm::rotate`.
+
+**Precisión.** La FPU va a 24 bits, pero fsin/fcos no los redondea el control de precisión. Lo que el original deja en
+la pila se toma en double y lo redondea una vez el producto que lo usa. Lo que guarda (`fstp dword`) es un float.
+Es la regla de gutils («Ángulos de GUtils»). **(aproximado)** El double no es el registro de 80 bits: en casos raros
+cambia el último bit.
+
+**API `openblack::lh_matrix`** (`src/3D/ObjectMatrix.{h,cpp}`):
+
+| Función | Original | En glm |
+|---|---|---|
+| `YXZ(y, x, z)` | `LHMatrix::SetYXZMatrixOnly` 0x7FAC10 | `eulerAngleYXZ(−y, −x, −z)` = `Ry(−y)·Rx(−x)·Rz(−z)` |
+| `AngleY(a)` | `AtomCore::SetAngleY` 0x674360; la rotación de `LH3DObject::SetPosition` 0x423140 y `Object::GetWorldMatrix` 0x638200 | `eulerAngleY(−a)` = `Ry(−a)`; = `YXZ(a, 0, 0)` bit a bit |
+| `AngleXYZ(x, y, z)` | `AtomCore::SetAngleXYZ` 0x674200 | `Rz(−z)·Ry(−y)·Rx(−x)` (no es `eulerAngleXYZ`) |
+| `RotateY(m, a)` | `LHMatrix::RotateY` 0x5198F0, en el sitio | `m·Ry(−a)` (**a la derecha**: los ejes del objeto) |
+| `RotateZ(m, a)` | fn_0086AFA0, en el sitio | `m·Rz(−a)` (a la derecha) |
+| `TurnRows(m, eje, a)` / `(m, eje, c, s)` | `UpdateRuleRotatePrincipalAxis` 0x6A1150, `AppearanceRuleTumble` 0x6A6200 | `R_eje(−a)·m` (**a la izquierda**: el mundo) |
+| `AxisAngle(eje, a)` | fn_007FB180 (Rodrigues por filas) | `rotate(−a, eje)` |
+| `Inverse(m)` | `LHMatrix::SetInverse` 0x7FB290 | inversa, con el tope del determinante |
+| `SetPosition(p, a, s)` | `LH3DObject::SetPosition` 0x423140 (vt+0x20) | `T(p)·Ry(−a)·S(s)` |
+| `Model(p, R, s)`, `Model(Transform)` | lo que escriben todos los `Set*` | `T(p)·R·S`, la posición tal cual |
+
+Detalles, celda por celda:
+- **SetYXZMatrixOnly 0x7FAC10** (a = Y, b = X, c = Z): `m0 = (ca·cc) − ((sc·sb)·sa)`, `m1 = −(sc·cb)`,
+  `m2 = ((sc·sb)·ca) + (sa·cc)`, `m3 = ((sa·cc)·sb) + (sc·ca)`, `m4 = cc·cb`, `m5 = (sc·sa) − ((ca·cc)·sb)`,
+  `m6 = −(cb·sa)`, `m7 = sb`, `m8 = cb·ca`. Se guardan en float `cb` (0x7FAC23), `sc` (0x7FAC39), `ca·cc` (0x7FAC41) y
+  `sa·cc` (0x7FAC4F); `ca`, `sa`, `sb` y `cc` se quedan en la pila. No toca la traslación. CAnim lo llama con el float3
+  guardado (v0, v1, v2) como `YXZ(v1, v0, v2)` (0x85F28E..0x85F29D).
+- **SetAngleY 0x674360**: filas (c, 0, s) / (0, 1, 0) / (−s, 0, c), con `c` y `s` guardados en float.
+- **SetAngleXYZ 0x674200**: filas (1, 0, 0) / (0, cx, −sx) / (0, sx, cx) (cx, sx en float). Luego, en cada fila,
+  `(e0, e2) → (cy·e0 − sy·e2, cy·e2 + sy·e0)` (0x674244..0x6742A2) y `(e0, e1) → (cz·e0 + sz·e1, cz·e1 − sz·e0)`
+  (0x6742D2..0x674330). `AtomCore::RandomiseOrientation` 0x6743E0 saca tres `PSysFloatRand(2π)`: el **primero es z**,
+  el segundo y, el tercero x (cada `fstp [esp]` cae en el hueco del argumento que acaba de empujar).
+- **RotateY 0x5198F0**: `r0' = c·r0 + s·r2`, `r2' = c·r2 − s·r0`; r1 y la traslación igual. **fn_0086AFA0**:
+  `r0' = c·r0 − s·r1`, `r1' = c·r1 + s·r0`.
+- **TurnRows**: en cada fila, eje Z (x, y) → (c·x + s·y, c·y − s·x); eje Y (x, z) → (c·x − s·z, c·z + s·x); eje X
+  (y, z) → (c·y + s·z, c·z − s·y); la tercera componente no se toca. 0x6A1150 guarda `c` en float en Z e Y
+  (0x6A117C, 0x6A1229) y deja `s` en la pila; su eje X (fn_006A12F0) y el Tumble 0x6A627E dejan los dos. Por eso hay
+  dos sobrecargas.
+- **fn_007FB180**: `m0 = ((1 − xx)·c) + xx`, `m3 = (xy − xy·c) + s·z`, `m1 = (xy − xy·c) − s·z`,
+  `m6 = (xz − xz·c) − s·y`, `m2 = (xz − xz·c) + s·y`, `m4`, `m7 = (zy − zy·c) + s·x`, `m5 = (zy − zy·c) − s·x`, `m8`;
+  traslación 0. La mano transforma (0, 1, 0) como vector fila (0x5B6EE8): `AxisAngle(eje, a)·v`.
+- **SetInverse 0x7FB290**: `det = ((m2·m7 − m8·m1)·m3 + (m5·m1 − m2·m4)·m6) + (m8·m4 − m7·m5)·m0`. Si
+  `|det| < 1e-10` [0xC371D4], `det = ±1e-10` con el signo de det (+ para 0; 0x7FB2C8..0x7FB2EE). Luego cada cofactor
+  × `1/det`, y la traslación `−(t·A⁻¹)` (0x7FB392..0x7FB3DF).
+- **SetPosition 0x423140**: cuatro ramas por a == 0 y s == 1 (0x423145 / 0x423151); con a ≠ 0, RotateY en línea sobre
+  diag(s) (0x4231B3..0x42321C): filas (c·s, 0, s·s) / (0, s, 0) / (−s·s, 0, c·s). Con s ≠ 1 la traslación es `0 + p`
+  (las celdas puestas a 0 más p: 0x423195..0x4231B0 y 0x423312..0x42332D), que convierte −0 en +0; con s == 1 se copia
+  (mov, 0x42325A..0x423268). `lh_matrix::SetPosition` hace lo mismo.
+- La escala multiplica las filas (en glm, las columnas) y la traslación se escribe tal cual (0x423195, 0x6382B7,
+  0x607606): `Model`.
+
+**Qué constructor usa cada objeto** (vt+0x63C, búsqueda en las vtables):
+- `Object::GetWorldMatrix` 0x638200, solo Y (`T(x, GetAltitude + y, z)·Ry(−GetYAngle)·S`): Abode, Windmill, los
+  animales, AnimatedStatic, Feature, BigForest, la criatura (vtable 0x8CCE4C), Field, Tree, Villager, los
+  lugares de culto, los iconos de hechizo, Totem, StoragePit…
+- `MobileObject::GetWorldMatrix` 0x607560 y `MobileStatic::GetWorldMatrix` 0x608DE0, YXZ:
+  - MobileObject 0x607560: Arrow, Ball, Pot, PileWood, PileFood, Whale, MagicFood, MagicWood…
+  - MobileStatic 0x608DE0: Bonfire, DeadTree, FelledTree, Rock, MagicTeleport, Fragment…
+- `Game3DObject::SetPosition` 0x63B740 (LHPoint) / 0x63B680 (MapCoords): `T(p)·YXZ(y, x, z)·S`, con las 9 celdas × s.
+
+**Cómo se usa en openblack.** Las creaciones con `AngleY` son los arquetipos de Abode, AnimatedStatic, BigForest,
+Feature, Tree, Pot, MobileObject y Shark, además de la criatura, `DesignedScenery`, los ríos, los lugares de culto y sus
+iconos, la ciudadela del guion y las marcas del suelo. Lo usan también al moverse: el tiburón, los caminos y el dibujo
+de aldeanos y animales (ángulo «Scawen» = `angle + π/2`). También el escudo físico (`MapShield.cpp`: el RotateY en línea
+de 0x72D4DB..0x72D558 sobre la identidad, con `c` en float, es `AngleY` bit a bit), el brillo que gira de los símbolos
+de creencia (`TownBelief.cpp`: el ángulo del sprite +0x14 de 0x69D8C5 llevado como la matriz de SetAngleY) y
+`billboard::YawToEye`. `YXZ` lo usan MobileStatic, DeadTree y la mano (`HandAnimator`). `AngleXYZ` va en
+`RandomiseOrientation` (PSys). `RotateY`/`RotateZ` van en la luna (`billboard::MoonModel`) y en los barcos
+(`PetitNavire`). `TurnRows` lo usan RotateAxis (PSys), el Tumble (`Sprinkle`) y las partículas de recoger
+(`HandEffects`). `AxisAngle` va en la inclinación de la mano (`HandPlacement`) y en el giro de la física
+(`PhysOb::Integrate`). `Model` lo usan el render y las cajas: `RenderingSystem`, `RenderingSystemTemple`, `Renderer`,
+`CarriedProps`, `FeatureBuild`, `Buildings`, `Sharks` y `Archetypes/Utils`.
+
+**Arreglado (2026-10-02, demostrado en el binario):**
+- `PSys.cpp` RandomiseOrientation: era `eulerAngleXYZ(x, y, z)` (la composición transpuesta), con los aleatorios en
+  orden x, y, z. Ahora es `z, y, x` y `AngleXYZ`.
+- `HandEffects.cpp`, el volteo de los pedazos al recoger: iba a la derecha con +a y ahora va a la izquierda con −a,
+  como 0x6A6200 y `Sprinkle.cpp`.
+- `CreatureArchetype.cpp`: `eulerAngleY(+y)` pasa a `AngleY(y)`. Hoy no se ve: el guion pasa π.
+- `RenderingSystem.cpp` / `RenderingSystemTemple.cpp`: el modelo era `R·T(p·R)·S`; ahora es `T(p)·R·S`. La traslación
+  de antes era `R·Rᵀ·p`: a unos ulp de p si R es una rotación, pero lejos de p (proporcional a |p| ≈ 1000-3000 m) si no
+  lo es. Hay tres usuarios cuya R no es una rotación, y en ellos el cambio se ve:
+  - las bandas de la mano mientras vuelan (`HandMagicFX.cpp` SetTransform: `mat3(M)/escala` de una interpolación lineal
+    de dos matrices);
+  - los objetos que llevan los aldeanos en pendiente (`CarriedProps.cpp`: la cizalla shearX/shearZ de fn_0051B220);
+  - el escudo físico entre dos turnos (`MapShield.cpp` DrawPhysical: interpola las filas, 0x72CEEC).
+- `PhysOb::Integrate`, el giro: el sentido ya era el del original y ahora se construye como él. fn_007FE260
+  (0x7FE706..0x7FE748) hace `inv = 1/ángulo` (fdiv), `eje = paso·inv`, `fn_007FB180(eje, ángulo)` y las filas por esa
+  matriz (fn_0046D9D0: `r_k' = r_k·M`). Su par es `F × r` (0x7FE0F9..0x7FE11F y 0x7FD7FD..0x7FD823) y el de openblack
+  `r × F`, así que la ω y el eje del original son los de openblack cambiados de signo: `AxisAngle(−paso·inv, ángulo)·R`.
+  ≈ulp.
+- `PSys/Rules/Shield.cpp` (VapourEndEffect, fn_0057D2B0 en 0x6A3D7C): se ha leído el sentido. Es el cuaternión
+  `(cos(a/2), sin(a/2)·n)` de fn_0057D1D0, su matriz por fn_0057D0B0 (`m1 = xy + wz`: el giro de +a con la regla de la
+  mano derecha, por filas) y las filas por ella (fn_007FAFF0). Gira cada fila +a sobre `n = last × p` (fn_006A3E20),
+  como el `glm::rotate(+a, n)` de openblack. Las celdas no son las del cuaternión **(aproximado)**.
+
+**Sin fuente, se dejan como estaban y quedan marcadas (inferido):**
+- `HandHolding.cpp` HeldSway: falta leer qué ángulo y qué eje lleva cada fn_007FB180 (0x5B49B6..0x5B4ACE).
+- Las bandas de la mano (`HandMagicFX.cpp`): solo cuadran si el hueso tiene Y y Z cambiados.
+- `HandTrees.cpp`: el árbol tumbado y el tirón (0x5B8700).
+- La flexión del árbol en `RenderingSystem.cpp` (0x74B016).
+- El sol (`Renderer.cpp`, fn_0086C020).
+- `TempleInterior.cpp` (siempre 0) y `HandArchetype.cpp` (`eulerAngleXYZ`, sin efecto: HandPlacement lo reescribe).
+- El ángulo inicial del aldeano (0x74F950).
+- Los montones del almacén: falta la escala en `AbodeArchetype.cpp`.
+- La escala de solo X de los ríos.
+- El sentido del alabeo de la mano (`HandPlacement.cpp`, el Zoomer CHand+0xD4). El original gira con
+  `fn_007FB180(dir, [CHand+0xD4] + vt+0x14 + [esp+0x20])` (0x5B49A0..0x5B49C8, `rotate(−a)`), pero falta leer el eje
+  dir ([esp+0xA4]) y cómo llega esa matriz a la de la mano (fn_007FAFF0 0x5B4AE5). openblack gira +roll de glm sobre
+  `forward`. Hoy no se ve: el destino siempre es 0.
 
 ## Zoomer (LH3DLib)
 
-`Zoomer::SetDestinationWithSpeedAndTime(dest, destSpeed, T)` (0x407D60) y `Update(dt)` (0x442720). Polinomio de grado 4
-en t que parte del valor y la velocidad actuales y llega a `dest` en T con velocidad `destSpeed` y aceleración 0.
-Solución en tiempo normalizado (inversa de `[[1/24,1/6,1/2],[1/6,1/2,1],[1/2,1,1]]`):
+**Fiel, comprobado bit a bit con el original.** API `openblack::Zoomer` y `openblack::Zoomer3d` en
+`src/Common/Zoomer.{h,cpp}` (estructura de 0x30 bytes de bw1-decomp `Lionhead/LH3DLib/development/Zoomer.h`):
+- `value` +0x00;
+- `destination` +0x04;
+- `destinationSpeed` +0x08;
+- `speed` +0x0C;
+- TimeM2 +0x10 (solo se pone a 0; no se guarda);
+- `time` +0x14;
+- `duration` +0x18;
+- `startValue` +0x1C;
+- `startSpeed` +0x20;
+- `c2`, `c3`, `c4` +0x24..+0x2C (coeficientes de t²/2, t³/6, t⁴/24).
 
-```
-r1 = dest - v0 - s0*T;  r2 = (destSpeed - s0)*T
-e = 72 r1 - 48 r2;  d = -2 r2 - 2e/3;  c = 2 r2 + e/6
-c2 = c/T²; c3 = d/T³; c4 = e/T⁴
-valor(t) = v0 + s0 t + c2 t²/2 + c3 t³/6 + c4 t⁴/24
-```
+Es una cuártica que parte del valor y la velocidad de ahora y llega al destino en T con la velocidad de destino y
+aceleración 0. Todo va en float y en el orden del x87:
+- **`SetPosition(p)` 0x441AC0**: valor = destino = inicio = p, y lo demás a 0.
+- **`SetDestinationWithSpeedAndTime(dest, vDest, T)` 0x407D60**:
+  - con `T < 0,001` [0x8AA3B0] (o NaN), `SetPosition(dest)`;
+  - si no: `A = (T·T)·0,5`, `B = (A·T)·0,33333334` [0x8AB26C], `C = (A·A)·0,16666667` [0x8AB268];
+  - la matriz M (filas (C, B, A) / (B, A, T) / (A, T, 1)) se invierte con `lh_matrix::Inverse` (0x7FB290);
+  - `r1 = (dest − inicio) − T·v_inicio`, `r2 = vDest − v_inicio`;
+  - `c4 = (inv10·r2 + inv00·r1) + inv.t.x`, `c3 = (inv01·r1 + inv11·r2) + inv.t.y`,
+    `c2 = (inv12·r2 + inv02·r1) + inv.t.z` (0x407E6D..0x407EC5).
+- **El tope del determinante.** Para esta M, `det = −T⁶/144`, que baja de 1e-10 con **T < 0,0493 s**. Entonces los
+  coeficientes salen × `(T⁶/144)/1e-10`. El zoomer casi no se mueve y salta al destino al acabar. Un paso de 0 a 10
+  vale, a T/4: 2,6171875 con T = 2,5 s y 0,7444 con T = 0,04 s (la forma cerrada daría 2,617).
+- **`Update(dt)` 0x442720**: `t = dt + time`. Si `t ≥ duration`, se queda en el destino y su velocidad, con
+  `time = duration`: no extrapola. Si no, con `a = (t·t)·0,5`, `b = (t·a)·0,33333334` y `C = (a·a)·0,16666667`:
+  - `speed = ((t·c2 + a·c3) + b·c4) + v_inicio`;
+  - `value = ((((C·c4) + b·c3) + a·c2) + t·v_inicio) + inicio`.
+- **`Zoomer3d`** (0x90 bytes: x +0x00, y +0x30, z +0x60):
+  - `SetDestinationWithTime` 0x44E760: velocidad de destino 0. No hay `SetDestinationWithSpeedAndTime` de tres ejes:
+    no se ha visto ningún sitio del binario que dé a un Zoomer3d una velocidad de destino distinta de 0. El eje x llama a 0x407D60; y y z son el mismo código en
+    línea, y fn_00418A50 solo suma un 0 de más;
+  - `GetCurrentValue` 0x4605D0;
+  - `Update`: los tres `Zoomer::Update` (GCamera::Update 0x441FEE..0x442029).
 
-T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan, entre otros, la distancia de la mano
-(g_HandDistZoomer) y el hundimiento de los montones (T = 1 s).
+**Usuarios:**
+- La cámara del jugador (`Camera`): `Zoomer3d` de la posición (GCamera +0x118) y del foco (+0x88).
+  - `CameraModeNew3` les da destino cada fotograma con `SetDestinationWithTime` (0x4604A4..0x4604D2).
+  - GCamera::Update llama primero al modo (vt+8, 0x441FD9) y después a `Update(min(dt, 0,1 [0x8AB22C]))`.
+  - `Camera::UpdateZoomers` hace eso.
+- La cámara del guion (`script_camera`: posición, foco y FOV).
+- El alabeo de la mano (`HandPlacement`, CHand+0xD4, 0,4 s) y su distancia (g_HandDistZoomer).
+- Los animales (alabeo), los montones (hundimiento, 1 s), los campos (1 s), el tótem y las palomas y lobos del hechizo
+  (fundido).
+- **Las unidades importan.** El umbral de 0,001 y el tope del determinante dependen de T, así que un Zoomer tiene que
+  ir en la unidad del original. El del tótem (TotemStatue +0x9C) va en **milisegundos**: SetWorshipPercentage 0x738270
+  le da T = |Δ|·5200 [0x999A98] ms (con el umbral en ms, 0x738293, y una copia en línea de 0x407D60 desde 0x7382FC), y
+  TotemStatue::Draw 0x738960 lo actualiza con los ms enteros del reloj (0x738967..0x7389B5). openblack le pasa ms y
+  `segundos·1000` **(aproximado: no son ms enteros)**. En segundos, el tope habría frenado los cambios de |Δ| < 0,0095;
+  en ms solo frena los de |Δ| < 9,5·10⁻⁶.
+- Los llamadores no repiten el umbral: `Animal::SetTowardsAngle` llama a 0x407D60 directamente (0x4185D5), y el umbral
+  de 0x407D67..0x407DA8 ya hace el `SetPosition`.
+- Desaparece `ZoomInterpolator` (la cámara del jugador). Era la misma cuártica con t normalizado, no una quíntica. Sus
+  diferencias eran estas:
+  - con p0 == p1 ignoraba la velocidad;
+  - dividía por p1 − p0;
+  - extrapolaba con t > 1;
+  - no tenía el umbral de 0,001 ni el tope del determinante.
+- El `Vec3Zoomer` de ScriptCamera (sesión asistente) sigue siendo una copia de `Zoomer3d` (SetDestination =
+  `SetDestinationWithTime`, Value / Destination = `GetCurrentValue` / `GetDestination`): pendiente de que su dueño lo
+  migre (ver la Pendiente).
+
+Comprobado: `test_camera` `ZoomerMatchesRecording` recorre las 11 grabaciones del original. Los coeficientes de cada
+curva (51 669) y el valor y la velocidad de cada estado (51 636) salen **bit a bit**.
 
 ## Pendiente
 
@@ -974,6 +1175,34 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - `Magic/Objects/ShieldDebugHooks.h:23` dice que el PSys no sigue la velocidad: ya no es así (su fracción es la del
   juego).
 
+### Matrices, Zoomer y normal
+
+Estado a 2026-10-02, rama `local/sistemas` (informes `dev\tmp_dis\unify\U8_object_matrix.md`, `U9_zoomer_normal.md`
+y `U8_changes.md`):
+- Las rotaciones sin fuente de [Matrices LH](#matrices-lh) (HeldSway, bandas, árbol tumbado y tirón, flexión, sol,
+  templo, mano, aldeano, almacén, ríos): se dejan como estaban hasta leer sus constructores.
+- `Game3DObject::SetPositionAndXZYScale` 0x63B390 (`T(p)·Ry(−a)·diag(s·xz, (s·xz)·(y/xz), s·xz)`) y
+  `Game3DObject::SetPosition` 0x63B740 no tienen función propia: openblack guarda la rotación y la escala por separado
+  en `Transform`, y ningún sitio las necesita.
+- `script_camera::Vec3Zoomer` (asistente) es una copia de `Zoomer3d` con la misma salida: pendiente de migrar.
+- La cámara del jugador y la del guion tienen cada una sus `Zoomer3d`; en el original son los mismos de GCamera
+  **(inferido)**. El dt de la cámara del jugador es el del fotograma en µs, no los ms enteros de `GetCameraTimeInc`
+  0x555820 **(aproximado)**.
+- `CameraModeNew3`: faltan el segundo ×2 de la duración, el 1,0 de `MaintainSpell & 0x40` y `[esp+0xB8]`
+  (0x4601A9..0x46024A). No es del Zoomer.
+- Mano: el Zoomer3d 0xD13FB0 del «arriba» al sostener (0,4 s), el estiramiento del tirón +0x11C (0,3 s) y las
+  condiciones de 0x5B4251..0x5B42CD del alabeo. El sentido del giro del alabeo **(inferido)**: falta leer el eje de
+  0x5B49C8 y lo que hace fn_007FAFF0 en 0x5B4AE5. La suma de 0x5B42DF pone c4·b antes que c3·a, otro orden que
+  `Zoomer::Update`: el último bit **(aproximado)**.
+- El FOV del jugador (TODO #707) no es un Zoomer.
+- `LandIsland::GetNormalAt` compara con `GetCellsPerSide()` en lugar de 0x200 (igual en los mapas del juego).
+- Las tablas de la normal se calculan como en fn_00803890 suponiendo la FPU a 24 bits durante la inicialización de la
+  isla **(inferido)**.
+- El dt del Zoomer del tótem: `segundos·1000` y no los ms enteros de 0x738967..0x7389B5 **(aproximado)**.
+- `PSys/Rules/Shield.cpp`: las celdas del cuaternión de fn_0057D0B0 (el sentido sí está leído) **(aproximado)**.
+- La interpolación del escudo físico entre turnos: el original interpola la matriz con la escala dentro (0x72CEEC);
+  openblack interpola por separado las filas de la rotación y la escala.
+
 ## Ganchos de prueba
 
 **Comprobado en el juego (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
@@ -1062,6 +1291,27 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - Variable de entorno: `OPENBLACK_START_PAUSED=1` empieza la partida en pausa (`game_clock::Start(true)`).
 - No tienen variables de entorno propias.
 
+- `test_zoomer` (`test/test_zoomer.cpp`):
+  - `SetPosition`, el umbral de 0,001 s (también NaN y negativos) y la llegada en `t ≥ duration` sin extrapolar;
+  - el paso de 0 a 10 en 2,5 s (2,6171875 a T/4) y el tope del determinante con T = 0,05 / 0,04 / 0,02 s, por bits;
+  - velocidades de inicio y destino;
+  - dos fotogramas grabados de la cámara del original;
+  - `Zoomer3d`.
+- `test_camera` `ZoomerMatchesRecording`: cada estado de zoomer de las 11 grabaciones, coeficientes y valores bit a
+  bit. `ValidateRecordedData` carga los zoomers grabados en la `Camera` y usa `Camera::UpdateZoomers`.
+- `test_lh_matrix` (`test/test_lh_matrix.cpp`):
+  - adónde va cada eje con un cuarto de vuelta de cada constructor (los signos);
+  - las igualdades bit a bit que salen de las celdas: `YXZ(a, 0, 0) = AngleY(a)`, `RotateY(I, a) = AngleY(a)` y
+    `AxisAngle(X, a) = AngleXYZ(a, 0, 0)`;
+  - la composición en glm de cada uno y las que no son (izquierda / derecha, `eulerAngleXYZ`, los +ángulos);
+  - el tope de `Inverse` (±100 en lugar de 1e4);
+  - `SetPosition` y `Model`.
+- `test_land_normal` (`test/test_land_normal.cpp`):
+  - las dos tablas, por bits;
+  - una celda llana (1 + 1 ulp) y una pendiente;
+  - los cuatro triángulos (por bits y contra el plano de las tres esquinas);
+  - la cuantización de T2 en una celda empinada (longitud 0,998).
+
 ## Fuentes
 
 - Desensamblado W120 (`dev\tmp_dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
@@ -1098,3 +1348,10 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   0x439240:50, 0x439360:70, 0x53A060:70, 0x6E7560:200, 0x77AFC0:C0, 0x75AA90:F0, 0x75B320:80, 0x41B210:140,
   0x418CD0:60, 0x41E930:F0 y 0x41F1B0:80; tablas 0xC2307C y 0xC31614 volcadas del exe. Informes:
   `dev\tmp_dis\unify2\angles_original.md` (con su «Verificación adversaria», que manda) y `angles_openblack.md`.
+- Matrices, Zoomer y normal (2026-10-02, sistemas):
+  - desensamblado de 0x7FAC10:B0, 0x5198F0:70, 0x86AFA0:70, 0x674200:160, 0x674360:50, 0x6743E0:60, 0x6A1150:D0,
+    0x6A1218, 0x6A12C7, 0x6A12F0, 0x6A6250:70, 0x7FB180:110, 0x7FB290:160, 0x423140:250, 0x407D60:170, 0x442720:90,
+    0x441F80:C0, 0x5B4200:180, 0x803630:260, 0x803890:F0 y 0x516AA0:50;
+  - constantes leídas del exe: 0x9A2BEC, 0x9A2BE8, 0xC3720C, 0x8AB41C, 0xC371D4, 0x8AA3B0, 0x8AB26C, 0x8AB268 y
+    0x8AB414;
+  - informes `dev\tmp_dis\unify\U8_object_matrix.md`, `U9_zoomer_normal.md` y `U8_changes.md`.

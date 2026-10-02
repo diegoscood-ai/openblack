@@ -22,6 +22,7 @@
 #include "3D/Billboard.h"
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
@@ -442,10 +443,8 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 	// GMagicCreatureSpellInfo +0x58) are only for the creature spell phials (12..27); of that branch only the UV frames
 	// (+0x34, above) are ported.
 	auto& transform = registry.Get<Transform>(graphicEntity);
-	const float c = std::cos(graphic.spin);
-	const float s = std::sin(graphic.spin);
 	transform.position = graphic.meshPosition;
-	transform.rotation = glm::mat3(glm::vec3(c, 0.0f, s), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-s, 0.0f, c));
+	transform.rotation = lh_matrix::AngleY(graphic.spin);
 	transform.scale = glm::vec3(info.scale * graphic.scale);
 	if (alpha != 0xFF)
 	{

@@ -114,6 +114,7 @@
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 #include "Serializer/FotFile.h"
+#include "Video/VideoPlayer.h"
 
 #ifdef __ANDROID__
 #include <spdlog/sinks/android_sink.h>
@@ -401,6 +402,17 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		switch (event.key.keysym.sym)
 		{
 		case SDLK_ESCAPE:
+			// GGame::ProcessKey 0x63F3B9..0x63F402: with a full screen film ESC skips it (Video/VideoPlayer.h);
+			// without one openblack quits. (inferido) one skip a press: SDL's key repeats are not keys of the original
+			if (video::IsPlaying())
+			{
+				if (event.key.repeat == 0)
+				{
+					video::Get().EscapeKey((event.key.keysym.mod & KMOD_SHIFT) != 0,
+					                        (event.key.keysym.mod & KMOD_CTRL) != 0);
+				}
+				break;
+			}
 			return false;
 		case SDLK_f:
 			window.SetDisplayMode(windowing::DisplayMode::Fullscreen);
@@ -707,6 +719,9 @@ bool Game::Update() noexcept
 	// LH3DRender::StartFrame 0x82F14E: g_delta_time
 	game_clock::UpdateFrameClock();
 	game_clock::UpdateRealClock();
+	// Process3dEngine 0x54DAB5..0x54DD76: the full screen film's frame (Video/VideoPlayer.h), paced by the wall
+	// clock (the game is paused while it plays)
+	video::Get().Process(game_clock::FrameRealMs());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());

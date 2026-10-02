@@ -76,6 +76,7 @@
 #include "Graphics/Primitive.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Graphics/VertexBuffer.h"
 #include "Graphics/ZSorter.h"
 #include "Locator.h"
@@ -1161,22 +1162,22 @@ void Renderer::UpdateClouds() const
 			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "No cloud shadows (sclouds.raw): {}", e.what());
 		}
 	}
-	// game time: the clouds and their animation stop while the game is paused
+	// g_game_time_inc [0xEA9EC0], the frame's whole game ms (0 while the game is paused): the clouds move with it
+	// (fn_005E25C0 0x5E25FD fild) and so does their animation
+	const auto gameMilliseconds = static_cast<float>(game_clock::FrameGameMs());
+	_clouds->Update(gameMilliseconds);
+	// CollectClouds advances the animation counters of the clouds it queues by this step
+	_cloudMilliseconds = gameMilliseconds;
+	// GLandAlignement::DrawSky 0x5E2160 (fild g_game_time_inc): the sky's alignment moves towards the most influential
+	// player's
+	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), gameMilliseconds);
+	// (inferido) the night lights' step: which clock fn_005E5830 reads is not read yet; the wall clock capped at 100 ms
+	// and over the game speed stays
 	static auto lastTime = std::chrono::steady_clock::now();
 	const auto now = std::chrono::steady_clock::now();
-	// g_game_time_inc: game time, faster or slower with the game speed
 	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
 	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
 	lastTime = now;
-	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
-	if (running)
-	{
-		_clouds->Update(milliseconds);
-	}
-	// CollectClouds advances the animation counters of the clouds it queues by this step
-	_cloudMilliseconds = running ? milliseconds : 0.0f;
-	// GLandAlignement::DrawSky 0x5E2160: the sky's alignment moves towards the most influential player's
-	_skyAlignment.Update(Clouds::InfluentialPlayerAlignment(), running ? milliseconds : 0.0f);
 
 	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
 	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;

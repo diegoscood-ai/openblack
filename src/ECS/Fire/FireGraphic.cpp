@@ -36,6 +36,7 @@
 #include "ECS/Weather/Weather.h"
 #include "FireEffect.h"
 #include "FireObjectTraits.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "PSys/PSysManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -91,7 +92,6 @@ struct Graphic
 };
 
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
-uint32_t g_Turn = 0;
 std::mt19937 g_Random(0x5EED); // (aproximado: not GRand::LocalRand 0x6DE590's generator nor its seed)
 bool g_SourceAdded = false;
 
@@ -329,7 +329,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 		if ((fire.flags & FireEffect::Cooling) != 0 && fire.temperature > 75.0f && // 75 [0x999638] (0x731AD9)
 		    fire.temperature > graphic.steamTemperature)
 		{
-			graphic.steamStart = g_Turn;
+			graphic.steamStart = game_clock::Turn(); // g_game +0x205A40 (0x731AF8)
 			graphic.steamCount = 0;
 			graphic.steamAccumulator = 0.0f;
 			graphic.steamTemperature = fire.temperature;
@@ -350,7 +350,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 			audio::PlaySoundEffect(options);
 		}
 	}
-	else if (g_Turn > graphic.steamStart + k_BurstTurns)
+	else if (game_clock::Turn() > graphic.steamStart + k_BurstTurns) // 0x731B27
 	{
 		graphic.steamStart = 0;
 	}
@@ -377,13 +377,13 @@ void UpdateSmoke(Graphic& graphic, const FireEffect& fire, float dt)
 	{
 		if ((fire.flags & FireEffect::JustExtinguished) != 0)
 		{
-			graphic.smokeStart = g_Turn;
+			graphic.smokeStart = game_clock::Turn(); // 0x731E7B
 			graphic.smokeCount = 0;
 			graphic.smokeAccumulator = 0.0f;
 			LocalRandomFlamePosition(graphic.object, graphic.smokeLocal, graphic.smokeIndex);
 		}
 	}
-	else if (g_Turn > graphic.smokeStart + k_BurstTurns)
+	else if (game_clock::Turn() > graphic.smokeStart + k_BurstTurns) // 0x731EAE
 	{
 		graphic.smokeStart = 0;
 	}
@@ -526,7 +526,6 @@ void graphic::Update(float seconds)
 
 void graphic::SetTurn(uint32_t turn)
 {
-	g_Turn = turn;
 	// OPENBLACK_FIRE_TRACE: what each burning object is drawing, so that the flames can be checked without a screenshot
 	if (turn % 20 != 0 || !TraceEnabled())
 	{

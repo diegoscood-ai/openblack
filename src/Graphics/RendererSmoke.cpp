@@ -13,7 +13,6 @@
 // fn_007F8E00 advances and draws its 10 sprites in their own order
 
 #include <algorithm>
-#include <chrono>
 #include <exception>
 #include <filesystem>
 #include <utility>
@@ -36,7 +35,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
-#include "Game.h"
+#include "GameClock.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
@@ -96,14 +95,8 @@ bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, floa
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
 {
-	// g_game_time_inc in milliseconds: it stops while the game is paused (as CollectMists)
-	static auto lastTime = std::chrono::steady_clock::now();
-	const auto now = std::chrono::steady_clock::now();
-	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
-	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
-	const float milliseconds =
-	    paused ? 0.0f : std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
-	lastTime = now;
+	// g_game_time_inc [0xEA9EC0] (LH3DSmoke fn_007F8E00 0x7F8F25 fild): the frame's whole game ms, 0 while paused
+	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
 
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameSmoke.clear();

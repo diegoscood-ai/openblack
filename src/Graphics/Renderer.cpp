@@ -1953,13 +1953,12 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
 	// Process3dEngine 0x54DD5E..0x54DD7D: with the full screen film, alpha == 1.0 and not the falling spell's film, the
 	// 3D world is not drawn (0x54DD7D jumps to 0x54E2A4); the film, the script fade and HelpSystem::Draw3D's bars still
-	// are (0x54E2D7..0x54E2ED). (aproximado) the main view is cleared to openblack's colour as always (the original does
-	// not clear: the film covers the screen)
+	// are (0x54E2D7..0x54E2ED), in FinishFrame's order: bars, film, fade (DrawFinishFrameOverlays). (aproximado) the main
+	// view is cleared to openblack's colour as always (the original does not clear: the film covers the screen)
 	if (video::Get().CoversScreen())
 	{
 		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
-		DrawVideoOverlay();
-		DrawScreenOverlay();
+		DrawFinishFrameOverlays();
 		return;
 	}
 	// DrawSky 0x5E21FD..0x5E222B, once a frame from GLandscape::Draw (0x5E48AE): fn_0086A2C0 samples the sky type of
@@ -2061,8 +2060,19 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		DrawPass(drawDesc);
 	}
 	DrawHandToolTip(*drawDesc.camera);
+	DrawFinishFrameOverlays();
+}
+
+void Renderer::DrawFinishFrameOverlays() const
+{
+	// LH3DRender::FinishFrame 0x82F460, all in the Sequential ScreenOverlay view: (e) the bars (0x82F652..0x82F6DD), then
+	// the callbacks with the bit 0x80000000 (0x82F6E5..0x82F718), among them LHVideoPlayer::thedraw 0x844E30
+	// (registered with 1 at 0x54B62D, RegisterFinishFrameCallback 0x82F2C0 ORs the bit), so the film is drawn over the
+	// bars and fits between them at 100 % (FullScreenRect's letterbox is barH at pct 1); (h) the fade fn_0086FEE0
+	// (0x82F753) last, over the film
+	DrawScreenOverlay(false);
 	DrawVideoOverlay();
-	DrawScreenOverlay();
+	DrawScreenOverlay(true);
 }
 
 void Renderer::DrawVideoOverlay() const
@@ -2299,7 +2309,7 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
-void Renderer::DrawScreenOverlay() const
+void Renderer::DrawScreenOverlay(bool drawFade) const
 {
 	if (Game::Instance() == nullptr || _resolution.x == 0 || _resolution.y == 0)
 	{
@@ -2310,7 +2320,7 @@ void Renderer::DrawScreenOverlay() const
 	const int width = _resolution.x;
 	const int height = _resolution.y;
 	const int bar = ScreenFade::LetterboxHeight(width, height, fade.GetWideScreenFraction());
-	if ((colour >> 24) == 0 && bar == 0)
+	if (drawFade ? (colour >> 24) == 0 : bar == 0)
 	{
 		return;
 	}
@@ -2340,14 +2350,13 @@ void Renderer::DrawScreenOverlay() const
 			addRect(0, height - bar, width, height, 0xFF000000u);
 		}
 	};
-	addBars();
-	if ((colour >> 24) != 0)
+	if (drawFade)
 	{
 		// (h) fn_0086FEE0: x 0..W-1, y h'..H-1-h' with h' = h ? h - 1 : 0, then the bars again so the fade never tints them
 		const int inset = bar > 0 ? bar - 1 : 0;
 		addRect(0, inset, width - 1, height - 1 - inset, colour);
-		addBars();
 	}
+	addBars();
 	bgfx::VertexLayout layout;
 	layout.begin()
 	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)

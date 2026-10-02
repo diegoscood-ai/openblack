@@ -132,7 +132,10 @@ symbols.txt, y los dos llamadores pasan NULL):
    `BinkService`/`Sleep(0)` que no descodifica nada.
 6. `fn_0054AB00` 0x54D9AD: `timeSetEvent(16 ms, resolución 5, 0x54AAE0, periódico)`.
 7. `0xD019A0 = HelpSystem+0x45E8` 0x54D9BE y, si no había pantalla ancha, `HelpSystem::SetWideScreen(1, 0)` 0x54D9E4.
-8. `HelpSystem` fn_005C6C40 0x54D9EF, **(inferido)** esconder el HUD.
+8. `HelpSystem` fn_005C6C40 0x54D9EF, **siempre** (también si la pantalla ancha ya estaba puesta): +0x45F0 = −FLT_MAX
+   (0x5C6C40), así que `GetWideScreenPercentage` 0x5C6B60 = |t·0,001/wideScreenTime| limitado a [0, 1] da 1 en el acto:
+   las barras salen enteras en el primer frame y siguen así (en pausa se suma 0, fn_005C6BB0). Al acabar,
+   `SetWideScreen(0)` deja +0x45F0 = (1 − 1)·2000 = 0 y las barras se van en 2 s de reloj de juego.
 
 Si el fichero no abre: fps 1, frames 0 → fin 0 y el siguiente `Process3dEngine` lo borra (0 ≥ 0).
 Si un vídeo sustituye a otro, `VideoPreviousPause` y 0xD019A0 se toman **ya en pausa y con pantalla ancha**: al acabar el
@@ -271,7 +274,12 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
   como `Process3dEngine` tras el bucle de turnos); en `ProcessEvents`, ESC con vídeo → `EscapeKey` (sin vídeo sale de
   openblack como siempre: el ESC de openblack no es el del original).
 - `src/Graphics/Renderer.cpp` (**V3**, sesión *sistemas*): `Renderer::DrawVideoOverlay` en `RenderPass::ScreenOverlay`,
-  tras el mensaje de la mano y antes de `DrawScreenOverlay` (fundido y barras). Una textura RGBA8 `clamp` del tamaño del
+  tras el mensaje de la mano, en el orden de `LH3DRender::FinishFrame` 0x82F460 (`Renderer::DrawFinishFrameOverlays`):
+  primero las barras si pct ≠ 0 (0x82F652..0x82F6DD, fn_0081E590 dos veces, alto (int)((h − w·0,5625)·pct)/2 de
+  fn_0081E8B0), luego las retrollamadas con el bit 0x80000000 (0x82F6E5..0x82F718), entre ellas `thedraw` 0x844E30
+  (registrada con 1 en 0x54B62D; `RegisterFinishFrameCallback` 0x82F2C0 pone el bit), y al final el fundido del guion
+  fn_0086FEE0 (0x82F753), que vuelve a pintar las barras encima de su color. El vídeo tapa las barras justo en su borde:
+  con pct = 1 el rectángulo de `FullScreenRect` encaja exacto entre ellas. Una textura RGBA8 `clamp` del tamaño del
   vídeo, rehecha si cambia el tamaño y subida con `updateTexture2D` sólo cuando cambia `serial` (`UploadToTextures`
   0x84514E). Los quads de fn_00845740 tile a tile sobre `video::FullScreenRect` (0x54DBEB..0x54DC6D) con los **mismos
   texels** que cada tile de 256x256 (medio texel hacia dentro, sin repetición: el filtro no llega al tile vecino), el
@@ -280,7 +288,7 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
   alfa = `s_alpha.r` × difuso) con una textura R8 1x1 blanca como `s_alpha`: **no hay shader nuevo**.
   `Renderer::DrawScene`: con `video::Get().CoversScreen()` (0x54DD5E..0x54DD7D → 0x54E2A4) no se dibuja nada del mundo
   (ni sombras, ni reflejo, ni cielo, ni el mensaje de la mano); sólo el vídeo y `DrawScreenOverlay` (el fundido del guion
-  y las barras, 0x54E2D7..0x54E2ED). Comprobado en el juego: con `fall` el mundo sale × 0,686 = 1 − 0x50/255 en todos
+  y las barras, 0x54E2D7..0x54E2ED), en el mismo orden barras, vídeo, fundido. Comprobado en el juego: con `fall` el mundo sale × 0,686 = 1 − 0x50/255 en todos
   los píxeles medidos; con `intro` la pantalla es el negro del descodificador nulo (sin el azul del borrado).
 
 Diferencias:
@@ -294,11 +302,13 @@ Diferencias:
   comprobará V5 contra los frames de oro (el 555 de la DLL es exactamente `rgb32 >> 3`).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
-  estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), `GAudio+0x1C = −1` (audio no
-  tiene cómo; `ProcessMusic` lo repite en el fundido) y fn_005C6C40 (inferido: esconder el HUD).
+  estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), y `GAudio+0x1C = −1` (audio no
+  tiene cómo; `ProcessMusic` lo repite en el fundido).
+- fn_005C6C40 es `ScreenFade::SnapWideScreen`, llamada desde el gancho `setWideScreen` de `GameHooks()` sólo cuando
+  `Play` enciende las barras; el original la llama siempre (0x54D9E9..0x54D9EF, tras el salto de 0x54D9D2): si el guion
+  ya tenía la pantalla ancha a medio deslizar, openblack la deja seguir deslizándose.
 - **(inferido)** V3: el alfa de las texturas de 16 bits es 1 (`CreateTexture` flags 0x104; un A1R5G5B5 con el bit 15 a 0
-  de Bink no se vería); el filtro bilineal del driver; el vídeo debajo del fundido y las barras (`thedraw` es una
-  retrollamada de render: no se ha leído cuándo la llama LH3D frente a FinishFrame); los píxeles con el centro de bgfx,
+  de Bink no se vería); el filtro bilineal del driver; los píxeles con el centro de bgfx,
   sin el medio píxel de D3D7 (como los demás rectángulos de `ScreenOverlay`).
 - **(aproximado)** V3: mientras el vídeo tapa la pantalla openblack borra a 0x274659 como siempre (el original no borra);
   sólo se ve fuera del rectángulo del vídeo, en pantallas que no son 16:9 y antes de que lleguen las barras.
@@ -317,13 +327,10 @@ Diferencias:
 ## Pendiente
 
 - V4..V8 (tabla de arriba); `parity.md` («Vídeo Bink») está «en curso» desde V3.
-- Las barras de `SetWideScreen(1, 0)` no se ven durante el vídeo: `ScreenFade::UpdateWideScreen` avanza con el tiempo de
-  juego (fn_005C6BB0) y el juego está en pausa; comprobar en el original si se deslizan con el juego en pausa.
 - `OPENBLACK_VIDEO_TRACE` no existe todavía.
 - *audio*: conectar `GameQueries::videoPlaying` a `video::IsPlaying()` (`MakeMusicQueries` en `Game.cpp` y las queries
   de `AudioSystem`); un modo de olvidar `GameMusic::_alignmentType` para 0x54D963.
 - ProcessKey 0x63EF7A..0x63F2A4: los otros caminos de ESC, sin leer del todo.
-- El orden entre el dibujo del vídeo (`thedraw` 0x844E30) y `HelpSystem::Draw3D`: quién queda encima.
 - Comprobar en el juego que el primer vídeo de un perfil nuevo no se salta y el fundido de fall.bik tras
   `EndFallingSpellVideo`.
 

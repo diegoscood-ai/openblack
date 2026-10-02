@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 
+#include "3D/ScreenFade.h"
 #include "Graphics/Rgb16.h"
 #include "Video/BikFile.h"
 #include "Video/VideoDecoder.h"
@@ -220,6 +221,31 @@ TEST(VideoPlayerMaths, FullScreenRect)
 	EXPECT_EQ(r.y, 0);
 	r = FullScreenRect(1924, 1080); // -2.25 -> -2 -> -1
 	EXPECT_EQ(r.y, -1);
+}
+
+TEST(VideoPlayerMaths, BarsFullAtOnceDuringTheFilm)
+{
+	// PlayFullScreenMovie: SetWideScreen(1, 0) 0x54D9E4 then fn_005C6C40 0x54D9EF (+0x45F0 = -FLT_MAX): 100 % at once,
+	// and still 100 % with the game paused (0 ms)
+	openblack::ScreenFade fade;
+	fade.SetWideScreen(true, 2.0f);
+	fade.SnapWideScreen();
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	// barH at 100 % (0x81E8B0) is where the film starts (0x54DBEB): the film fits between the bars
+	EXPECT_EQ(openblack::ScreenFade::LetterboxHeight(1024, 768, fade.GetWideScreenFraction()),
+	          FullScreenRect(1024, 768).y);
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	// FinishedVideo SetWideScreen(0, 0): +0x45F0 = (1 - 1) * 2000 = 0, the bars leave in 2 s of game time
+	fade.SetWideScreen(false, 2.0f);
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	fade.UpdateWideScreen(500.0f);
+	EXPECT_FLOAT_EQ(fade.GetWideScreenFraction(), 0.75f);
+	fade.UpdateWideScreen(1500.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 0.0f);
+	EXPECT_TRUE(fade.IsWideScreenTransitionFinished());
 }
 
 TEST(VideoPlayerMaths, FramesDue)

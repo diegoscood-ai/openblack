@@ -15,7 +15,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include "3D/ScreenFade.h"
 #include "Audio/Services/GameMusic.h"
+#include "Game.h"
 #include "GameClock.h"
 #include "Help/HelpSystem.h"
 
@@ -72,11 +74,17 @@ VideoPlayer::Hooks VideoPlayer::GameHooks()
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr ? helpSystem->GetWideScreen() : 0;
 	};
-	// HelpSystem's hook moves the bars (ScreenFade::SetWideScreen) and tells audio (Game.cpp)
+	// HelpSystem's hook moves the bars (ScreenFade::SetWideScreen) and tells audio (Game.cpp); on, fn_005C6C40 0x54D9EF
+	// puts the bars at 100 % at once (ScreenFade::SnapWideScreen). The original calls it even when the bars were already
+	// on (0x54D9E9..0x54D9EF after the test 0x54D9D0); here only when Play turns them on
 	hooks.setWideScreen = [](int32_t on) {
 		if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 		{
 			helpSystem->SetWideScreen(on, 0);
+			if (on != 0 && Game::Instance() != nullptr)
+			{
+				Game::Instance()->GetScreenFade().SnapWideScreen();
+			}
 		}
 	};
 	hooks.stopScriptMusic = []() {
@@ -118,7 +126,7 @@ bool VideoPlayer::Play(const std::filesystem::path& path)
 	{
 		_hooks.setWideScreen(1); // 0x54D9D0..0x54D9E4 SetWideScreen(+0x45E8 == 0, 0)
 	}
-	// 0x54D9EF HelpSystem fn_005C6C40 (inferido: hides the HUD): not ported
+	// 0x54D9EF HelpSystem fn_005C6C40 (+0x45F0 = -FLT_MAX, the bars at 100 % at once): in the setWideScreen hook
 	return opened;
 }
 

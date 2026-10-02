@@ -445,11 +445,13 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		{
 			// ObtainRequiredHandPosition 0x5B6DE0 with HandStateGrain's tilt (vt 0x14): the hand's up turns by the tilt
 			// about the hand-to-camera direction (fn_007FB180). The original eases the up vector there with 0.4 s
-			// Zoomers (0xD13FB0..); the sign of the turn is UNVERIFIED.
+			// Zoomers (0xD13FB0..). fn_007FB180 writes the Rodrigues matrix R(tilt) by rows ([ecx+0xC] = xy(1 - c) + zs,
+			// 0x7FB207), but 0x5B6EE8 transforms (0, 1, 0) as a row vector (out.x = R00 x + R10 y + R20 z): that is
+			// R(-tilt) on a column vector, hence the minus
 			const auto toCamera = Locator::camera::value().GetOrigin() - grip;
 			if (glm::length(toCamera) > 1e-4f)
 			{
-				up = glm::mat3(glm::rotate(glm::mat4(1.0f), tilt, glm::normalize(toCamera))) * up;
+				up = glm::mat3(glm::rotate(glm::mat4(1.0f), -tilt, glm::normalize(toCamera))) * up;
 			}
 		}
 		const auto side = glm::normalize(glm::cross(back, up));

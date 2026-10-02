@@ -1,23 +1,33 @@
 # Librería de mods
 
 Todo lo que cambia el juego original es un **mod**, desactivado por defecto (la única excepción, pedida por el usuario,
-es [`game.skip-intro`](#gameskip-intro): `Mod::Info::enabledByDefault`). La librería (`src/Mods/`) los registra,
-genera el menú **Mods**, guarda el estado de cada uno en su carpeta `Mods/<mod>/settings.cfg` y los activa desde la
-línea de comandos. Esta página cubre cómo se usan, los tres tipos de mod, cómo se programa uno y el catálogo de los
-integrados. Todo lo de esta página es **mod/propio** salvo que se diga lo contrario (**fiel**, **(aproximado)**).
+es [`game.skip-intro`](#gameskip-intro)). Un mod es una **carpeta** de `Mods/` con un **`mod.json`**: lo que el mod
+es (nombre, versión, categoría, imagen…), sus opciones y qué cambia. Puede no tener código (solo datos), tener un
+script **Lua** o una librería **nativa** (DLL / .so, en C). Los mods pueden ser **librerías** para otros mods y se
+agrupan en **modpacks**. La librería (`src/Mods/`) los descubre solos al arrancar, resuelve dependencias y orden de
+carga, dibuja la ventana **Mods** y guarda el estado de cada uno en su `settings.cfg`. Todo lo de esta página es
+**mod/propio** salvo que se diga lo contrario (**fiel**, **(aproximado)**).
 
 - [Para el jugador](#para-el-jugador)
-  - [Menú Mods](#menú-mods)
-  - [Carpeta Mods y settings.cfg](#carpeta-mods-y-settingscfg)
+  - [Ventana Mods](#ventana-mods)
+  - [Carpeta Mods](#carpeta-mods)
   - [Línea de comandos](#línea-de-comandos)
-- [Tipos de mod](#tipos-de-mod)
-  - [Mods integrados](#mods-integrados)
-  - [Mods de datos](#mods-de-datos)
-  - [Módulos](#módulos)
-- [Para programar un mod](#para-programar-un-mod)
-  - [Mod integrado: API ModRegistry](#mod-integrado-api-modregistry)
-  - [Opciones y deslizadores](#opciones-y-deslizadores)
-  - [Módulos con option.\<id\>](#módulos-con-optionid)
+- [Para crear mods](#para-crear-mods)
+  - [Estructura de un mod](#estructura-de-un-mod)
+  - [mod.json](#modjson)
+  - [Opciones e interruptores](#opciones-e-interruptores)
+  - [Reemplazar mallas, texturas, objetos y archivos](#reemplazar-mallas-texturas-objetos-y-archivos)
+  - [Mods Lua](#mods-lua)
+  - [Mods nativos (DLL)](#mods-nativos-dll)
+  - [Mods librería](#mods-librería)
+  - [Modpacks](#modpacks)
+  - [Dependencias y orden de carga](#dependencias-y-orden-de-carga)
+  - [Carpetas antiguas (mod.cfg)](#carpetas-antiguas-modcfg)
+- [Referencia](#referencia)
+  - [Interruptores del motor](#interruptores-del-motor)
+  - [Enumeraciones](#enumeraciones)
+  - [API: JSON, Lua y C](#api-json-lua-y-c)
+- [Cómo está hecho (src/Mods)](#cómo-está-hecho-srcmods)
 - [Catálogo de mods](#catálogo-de-mods)
   - [graphics.msaa](#graphicsmsaa)
   - [graphics.mipmaps](#graphicsmipmaps)
@@ -33,53 +43,347 @@ integrados. Todo lo de esta página es **mod/propio** salvo que se diga lo contr
   - [Módulo world.foliage.butterflies](#módulo-worldfoliagebutterflies)
   - [test.miracle-dispensers](#testmiracle-dispensers)
   - [game.skip-intro](#gameskip-intro)
+  - [Modpack examples](#modpack-examples)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
 - [Fuentes](#fuentes)
 
 ## Para el jugador
 
-### Menú Mods
+### Ventana Mods
 
-- Menú **Mods** del juego: una casilla por mod (con descripción al pasar el ratón), agrupadas por categoría; las
-  opciones (p. ej. muestras de MSAA) debajo. `*` = hace falta reiniciar.
-- Los módulos salen debajo de su mod padre, sangrados ([Módulos](#módulos)).
+El botón **Mods** de la barra de menú abre la ventana de mods (`src/Debug/ModsWindow.*`), estilo Project Zomboid, con
+cuatro pestañas:
 
-### Carpeta Mods y settings.cfg
+- **Modpacks**: cada pack con su imagen, nombre, versión, autor y descripción, y una casilla para encender o apagar
+  todos sus mods. Al pulsar un pack se va a la pestaña Mods filtrada, «Mods (<nombre del pack>)».
+- **Mods**: a la izquierda la lista (imagen, casilla, nombre; `*` = hace falta reiniciar; en rojo los bloqueados),
+  agrupada por categoría, con los módulos sangrados bajo su mod y un buscador. Sin filtro salen los mods sueltos; con
+  filtro, los del pack (y «< All loose mods» para volver). A la derecha, el mod elegido: imagen grande, nombre, id,
+  versión, autores, categoría, pack, estado (activo / apagado / **bloqueado: por qué** / esperando a su padre),
+  descripción, **ajustes**, lo que necesita (con su estado), lo que ofrece a otros mods y su carpeta. Debajo, las
+  carpetas de `Mods/` que no se pudieron leer, con el error.
+- **Load order**: el orden de carga resuelto (de arriba abajo; con dos mods cambiando lo mismo gana el de abajo), con
+  el estado y de quién depende cada uno, y flechas para subir o bajar un mod. Las dependencias siempre mandan. Se
+  guarda en `Mods/load_order.cfg`.
+- **Reinicio**: al encender, apagar o cambiar un mod que necesita reiniciar (`*`), la ventana pregunta «Restart
+  needed» con **Restart openblack now** / **Later**, y mientras quede alguno pendiente muestra arriba «Takes effect
+  after a restart: …» con el mismo botón. Reiniciar cierra openblack como «Quit» y lo vuelve a abrir con la misma línea
+  de comandos (`Mods/Restart.*`, `main.cpp`); la ventana está en inglés.
+- **Log**: los mensajes de la librería de mods (mods encontrados, errores de manifiesto, bloqueos, conflictos de
+  reemplazos, errores de Lua y de los DLL, y lo que los mods escriben), con filtro por nivel y por mod.
 
-- Todo lo de los mods está en la carpeta `Mods/` junto al ejecutable, **una carpeta por mod**:
-  ```
-  Mods/
-    graphics.msaa/settings.cfg
-    graphics.terrain-x2/settings.cfg
-    water.living/settings.cfg
-    world.foliage/settings.cfg + foliage.cfg + imágenes   (los archivos del mod, si los tiene)
-    world.ground-statics/settings.cfg
-    MiPackDeTexturas/settings.cfg + mod.cfg + Data/...    (un mod de datos)
-  ```
-- Las carpetas con el id de un mod integrado son de ese mod; las demás son mods de datos (o módulos, si su `mod.cfg`
-  tiene `module_of`). Cada mod escribe su `settings.cfg` al arrancar si no lo tiene (con su estado por defecto) y al
-  cambiarlo en el menú:
+### Carpeta Mods
+
+Todo está en `Mods/` junto al ejecutable:
+
+```
+Mods/
+  graphics.msaa/settings.cfg              un mod que viene con openblack (su mod.json va dentro del exe)
+  world.foliage/foliage.json, *.png ...     sus archivos, y su settings.cfg
+  mi.mod/mod.json, icon.png, ...           un mod suelto
+  mi.pack/modpack.json, icon.png           un modpack...
+  mi.pack/mi.pack.uno/mod.json             ...con sus mods dentro
+  load_order.cfg                           el orden de carga del usuario
+```
+
+- Cada mod guarda su estado en su `settings.cfg` (lo escribe openblack al arrancar si falta y al cambiarlo en la
+  ventana; un `settings.cfg` que ya existe **manda** sobre los valores por defecto del `mod.json`):
   ```
   # Anti-aliasing (MSAA) (graphics.msaa). For one session only: --mod graphics.msaa[=off], --mod graphics.msaa.<option>=<choice>
   enabled = on
   samples = 4x  # Samples: 2x, 4x, 8x, 16x
   ```
-- El antiguo `mods.cfg` único (junto al ejecutable o en `Mods/`) se reparte solo en los `settings.cfg` al arrancar y se
-  borra (`ModRegistry::ImportLegacySettings`).
+- Los mods que vienen con openblack tienen su `mod.json` compilado dentro del exe (`assets/mods/<id>/mod.json`), así
+  que existen aunque su carpeta solo tenga el `settings.cfg`; un `mod.json` en la carpeta con el mismo id lo sustituye.
+  El build copia `assets/mods` y `mods/examples` junto al exe (`bin/<config>/Mods`), sin tocar los `settings.cfg`.
+- El antiguo `mods.cfg` único se reparte solo en los `settings.cfg` y se borra (`ModRegistry::ImportLegacySettings`).
 
 ### Línea de comandos
 
 - Solo para esa sesión (no se guarda): `--mod water.living`, `--mod graphics.msaa=off`,
-  `--mod graphics.msaa.samples=8x`.
-- Los interruptores anteriores siguen como atajos (`src/main.cpp`): `--msaa N`, `--mipmaps`, `--anisotropic`,
-  `--enhanced-graphics` (= MSAA 4× + anisótropo), `--living-water`, `--ground-static-objects`.
+  `--mod graphics.msaa.samples=8x`, `--mod "game.skip-intro.free start=off"`.
+- Atajos antiguos (`src/main.cpp`): `--msaa N`, `--mipmaps`, `--anisotropic`, `--enhanced-graphics` (= MSAA 4× +
+  anisótropo), `--living-water`, `--ground-static-objects`.
 
-## Tipos de mod
+## Para crear mods
 
-### Mods integrados
+La forma rápida: copiar una carpeta del [modpack examples](#modpack-examples) (`Mods/examples/`), cambiarle el id y
+el nombre, y editar. Hay uno de cada tipo.
 
-Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálogo de mods](#catálogo-de-mods).
+### Estructura de un mod
+
+```
+Mods/<id>/                  la carpeta se llama como el id (minúsculas, cifras, . - _; 2-64 caracteres)
+  mod.json                  el manifiesto (obligatorio)
+  icon.png                  su imagen (cuadrada, 64-256 px; opcional)
+  settings.cfg              lo escribe openblack
+  replace/                  archivos del juego que sustituye, con su misma ruta (Data/..., Scripts/...)
+  textures/  meshes/  data/ sus archivos, nombrados desde el mod.json
+  scripts/main.lua          su script (mods Lua); scripts/<módulo>.lua con require("<módulo>")
+  src/  bin/<id>.dll        su código y su librería (mods nativos)
+  include/<id>_v1.h         la cabecera pública (solo los mods librería nativos)
+```
+
+### mod.json
+
+| Campo | Tipo | Qué es |
+|---|---|---|
+| `schema` | número | versión del formato (1) |
+| `id` | texto | identificador estable, igual que la carpeta (`world.foliage`) |
+| `name`, `description` | texto o `{"en": …, "es": …}` | nombre y descripción (por idioma) |
+| `version` | texto | versión semver, `"1.2.0"` |
+| `category` | texto | sección de la ventana (`Graphics`, `World`, `Game`…) |
+| `authors` | lista de textos | |
+| `icon` | ruta | su imagen (por defecto `icon.png` si existe) |
+| `url` | texto | página del mod (opcional) |
+| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.0.0) |
+| `enabled_by_default` | sí/no | encendido la primera vez (solo si el usuario lo pide; lo normal es `false`) |
+| `restart_required` | sí/no | sus cambios cuentan al reiniciar |
+| `parent` | id | módulo de otro mod: sale debajo y solo cuenta si el padre está activo |
+| `dependencies` / `optional` / `incompatible` | `{"id": "rango"}` | ver [Dependencias](#dependencias-y-orden-de-carga) |
+| `load_after` / `load_before` | lista de ids | pistas de orden (el otro no tiene que existir) |
+| `provides` | lista | interfaces que ofrece a otros mods (`"foliage.v1"`) |
+| `entry` | `{"lua": ruta, "native": {"windows": ruta, "linux": ruta}}` | su código |
+| `switches` | `{"interruptor": valor}` | interruptores que pone mientras está activo |
+| `options` | lista | sus ajustes ([Opciones](#opciones-e-interruptores)) |
+| `replace` | objeto | lo que sustituye ([Reemplazar](#reemplazar-mallas-texturas-objetos-y-archivos)) |
+
+Se admiten comentarios `//` en el JSON. Un error de formato deja el mod fuera (sale en la pestaña Mods, «Could not be
+read», y en el Log); un interruptor o un valor desconocido solo quita esa parte, con un aviso.
+
+### Opciones e interruptores
+
+El motor nunca decide por su cuenta: todo lo que no es original lee un **interruptor** de `EngineConfig`, y los mods
+ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.json` no necesita código para eso:
+
+```json
+"switches": { "world.crops.without-farmers": true },
+"options": [
+  { "id": "density", "label": {"en": "Density", "es": "Densidad"},
+    "values": ["low", "medium", "high"], "default": "medium",
+    "bind": { "world.foliage.density": { "low": 0.5, "medium": 1.0, "high": 2.0 } } },
+  { "id": "speed", "type": "slider", "values": ["x1", "x2", "x10"], "default": "x1",
+    "bind": "world.crops.growth" },
+  { "id": "sharp", "type": "bool", "default": true,
+    "bind": { "graphics.hd-tweaks.mip-bias": -1.0 } }
+]
+```
+
+- `type`: `choice` (lista, por defecto), `slider` (deslizador sobre los valores) o `bool` (valores `on` / `off`).
+- `values` y `default` (el valor o su número de orden); `label` y `description` por idioma.
+- `bind`: por cada interruptor, el valor de cada elección (las que no salen dejan el valor por defecto); o un nombre de
+  interruptor solo: en `bool` vale 1 con `on`, y en las demás el número que haya en el texto de la elección
+  (`"x10"` → 10, `"4x"` → 4, `"10s"` → 10).
+- Con el mod apagado o bloqueado sus interruptores vuelven al valor por defecto (el del original). Con dos mods
+  poniendo el mismo, gana el que va después en el orden de carga.
+- Cada interruptor dice cuándo cuenta (`live` al momento, `map` al cargar una tierra, `restart` al reiniciar): si el
+  mod tiene alguno de reinicio, pon `"restart_required": true`.
+
+### Reemplazar mallas, texturas, objetos y archivos
+
+```json
+"replace": {
+  "meshes":   { "AnimalBat1": "meshes/bat.l3d", "#12": "meshes/otro.l3d" },
+  "textures": { "pack:47": "textures/47.png", "raw:ATMOS": "textures/atmos.png" },
+  "objects":  { "tree": { "Beech": { "woodValue": 500, "normal": "TreeBeech" } },
+                "feature": { "Rock1": { "weight": 50 } } }
+}
+```
+
+- **meshes**: una malla de `AllMeshes.g3d` por su nombre (la [enumeración `meshes`](#enumeraciones), sin mayúsculas
+  que importen) o `#<número>`, cambiada por un `.l3d` (o `.zzz`) del mod. Se carga en lugar de la del pack (la caché
+  de recursos guarda la primera carga, `Game::Initialize`) por el mismo `L3DLoader`, así que hereda lo que el motor
+  aplica después a esa malla por su id: p. ej. la burbuja (`O_Bibble_up`) y las bandas de power-up
+  (`Power_Up_Band`) quedan con el material aditivo sin Z del original, y los modos de render de `render_modes` (nota
+  de la sesión sistemas). Un mod que quiera otro material para esas tendrá que pedirlo cuando el SDK lo ofrezca.
+- **textures**: `pack:<id hex>` una textura de `AllMeshes.g3d` (los ids de HD-Tweaks, `textures.json`) por un PNG;
+  `raw:<nombre>` un `Data/Textures/<nombre>.raw` por un PNG o un `.raw` (si el juego no lo tiene, se añade).
+- **objects**: propiedades de los objetos de `info.dat` por tabla y por su nombre de depuración (`debugString`; en
+  `abode` también `<TRIBU>_<nombre>`, como los guiones, `GAbodeInfo::GetInfoFromText` 0x405A70: el nombre solo cambia
+  el edificio de todas las tribus): tablas
+  `feature`, `abode`, `mobileStatic`, `mobileObject`, `pot`, `tree`, `animatedStatic`, `animal`, `bigForest`,
+  `fieldType`; campos comunes (`foodValue`, `woodValue`, `weight`, `heatCapacity`, `combustionTemperature`,
+  `sacrificeValue`, `impressiveValue`, `drawImportance`, los `defenceEffect*` / `defenceMultiplier*`, los
+  `canCreature*`…) y de malla o escala donde la tabla los tiene (`meshId`, `normal`, `growing`, `burning`, `high`,
+  `std`, `low`, `startScale`, `finalScale`; una malla por nombre o número). También `"objects": "data/objects.json"`
+  con lo mismo en un archivo. Se aplica a `info.dat` antes de publicarlo (`Game.cpp`, tras `InfoFile::LoadFromFile`).
+- **replace/**: cualquier archivo del juego con su misma ruta dentro de la carpeta `replace/` del mod (`replace/Data/
+  Sky.raw`, `replace/Scripts/Land1.txt`…) lo sustituye; los que solo tiene el mod también se ven
+  (`FileSystemInterface::AddOverridePath`, en orden de carga: gana el último).
+- Todo esto se lee **al arrancar** (`mods::replace::Collect`): los mods con `replace` deben llevar
+  `"restart_required": true`. Si dos mods sustituyen lo mismo, gana el último y el Log lo dice.
+
+### Mods Lua
+
+`"entry": {"lua": "scripts/main.lua"}`. El script corre una vez al arrancar el motor (antes de la primera tierra), en
+un **entorno propio** por mod: sin `io`, `os` (salvo `os.time`, `os.clock`, `os.date`), `package`, `debug`, `load` ni
+`dofile`; `string.dump`; las librerías `string`, `table`, `math`, `utf8` y `coroutine` son copias propias de cada mod;
+`require("a.b")` carga `scripts/a/b.lua` del mismo mod (sin rutas, unidades ni `..`); `print` escribe en el Log; solo
+se ejecuta código fuente, nunca Lua precompilado). Un error de un script se apunta en el Log y nunca para el juego;
+tras 10 errores se quitan sus funciones de eventos, y una llamada que pase de unos 20 millones de instrucciones se
+corta (reglas del anfitrión, no del original). Un mod apagado o bloqueado no recibe eventos, y como el script se carga
+al arrancar, un mod con `entry` o `replace` es siempre de reinicio. No hay que cambiar la metatabla de las cadenas
+(`getmetatable("")`): es la única tabla que comparten todos los mods. Tabla `ob`:
+
+| Función | Qué hace |
+|---|---|
+| `ob.log.info(t)`, `.warn(t)`, `.error(t)` | escribe en el Log |
+| `ob.mod.id`, `.name`, `.version`, `.folder`, `ob.mod.option(id)` | el mod y la elección de una opción |
+| `ob.switch.get(nombre)`, `ob.switch.set(nombre, valor)`, `ob.switch.list()` | interruptores (los que pone un script cuentan mientras el mod está activo) |
+| `ob.on("turn" \| "frame" \| "land_loaded", función)` | eventos: el número de turno, los segundos del fotograma, el nombre de la tierra |
+| `ob.interfaces.provide(nombre, tabla)`, `ob.interfaces.get(nombre)` | [mods librería](#mods-librería) |
+| `ob.enums.meshes`, `ob.enums.magic`…, `ob.enum(nombre)` | [enumeraciones](#enumeraciones) como tablas nombre → número |
+| `ob.game.turn()`, `ob.game.hour()` | turno y hora del reloj de la tierra |
+| `ob.game.ground_height(x, z)` | altura del terreno (nil sin tierra) |
+| `ob.game.camera()`, `ob.game.set_camera(x, y, z, fx, fy, fz)` | la cámara (posición y foco) |
+| `ob.game.cast_miracle(nombre, x, z [, radio, segundos])` | un milagro en el suelo, del jugador neutral, por el camino de `SPELL_AT_POS` |
+
+### Mods nativos (DLL)
+
+`"entry": {"native": {"windows": "bin/<id>.dll", "linux": "bin/<id>.so"}}`. Una librería en C (o en cualquier lenguaje
+que haga una librería C) que incluye **una sola cabecera**, `components/modsdk/include/openblack/mod_api.h`, y no
+enlaza nada de openblack: el motor le pasa sus funciones al cargarla (`SDL_LoadObject`). Exporta:
+
+```c
+OB_MOD_EXPORT const ob_mod_info* ob_mod_query(void);           // versión de API e id, sin efectos
+OB_MOD_EXPORT int32_t ob_mod_load(const ob_host_api* host, ob_mod* self);  // 0 = bien
+OB_MOD_EXPORT void ob_mod_unload(void);                         // opcional
+```
+
+- openblack comprueba `ob_mod_query` (misma versión mayor de API, mismo id que su `mod.json`) antes de ejecutar nada
+  más de la librería.
+- `ob_host_api`: `log`, `get_option`, `set_switch`, `get_switch`, `on_event` (`OB_EVENT_TURN`, `_FRAME`,
+  `_LAND_LOADED`), `provide_interface`, `get_interface`, `enumeration`, `game_turn`, `game_hour`, `ground_height`,
+  `camera`, `set_camera`, `cast_miracle`, `land_name`. Empieza por su tamaño: las funciones nuevas solo se añaden al
+  final (`OB_HOST_HAS(host, función)` para saber si el openblack que corre la tiene).
+- Reglas: todo en el hilo del juego; ninguna excepción C++ sale de la librería; los textos que da openblack valen
+  durante la llamada, los que se le piden van a un búfer del mod. Un mod nativo no se puede aislar como uno Lua: solo
+  hay que instalar los de confianza.
+- Compilar uno en el repo: `openblack_add_native_mod(<target> <id> <carpeta> <fuentes>)` en `mods/CMakeLists.txt`
+  (lo deja en `Mods/<carpeta>/bin`).
+
+### Mods librería
+
+Un mod que no cambia nada por sí mismo y ofrece funciones a otros, como las librerías de mods de Minecraft:
+
+- Lo declara en `"provides": ["<nombre>.v1"]` y lo publica al cargar: en Lua `ob.interfaces.provide("x.v1", tabla)`;
+  en C `host->provide_interface(self, "x.v1", &tabla, sizeof tabla)` con una tabla de punteros a funciones que empieza
+  por su tamaño (y una cabecera pública `include/x_v1.h` para quien la use).
+- Quien la usa la pone en `"dependencies"` (así carga después y se bloquea si falta) y la pide:
+  `ob.interfaces.get("x.v1")` / `host->get_interface("x.v1", sizeof(x_v1))`.
+- Una interfaz solo crece al final; un cambio incompatible es otro nombre (`x.v2`). Las tablas de Lua son para mods Lua
+  y las nativas para mods nativos.
+- Ejemplos: `example.lua-library` + `example.lua-consumer`, `example.native-library` + `example.native-consumer`.
+
+### Modpacks
+
+Una carpeta de `Mods/` con un **`modpack.json`** (`schema`, `id`, `name`, `version`, `category`, `description`,
+`authors`, `icon`, como un `mod.json`) y sus mods dentro, cada uno en su subcarpeta con su `mod.json`. Los ids de los
+mods son globales. La casilla del pack enciende o apaga todos sus mods; cada uno se ajusta por separado. Ejemplo:
+[examples](#modpack-examples).
+
+### Dependencias y orden de carga
+
+- `"dependencies": {"lib.x": "^1.2"}`: hace falta, encendido y en ese rango; si no, este mod se **bloquea** (sale en rojo
+  con el porqué: «needs lib.x ^1.2, found 1.0.0», «needs X, which is off»…), y lo que depende de él también.
+- `"optional"`: si está, carga antes; si no, nada. `"incompatible"`: este mod se bloquea mientras el otro esté activo.
+- `"api"` fuera del rango de openblack → bloqueado.
+- Rangos: `*`, `1.2.3` / `=1.2.3`, `>`, `>=`, `<`, `<=`, `^1.2` (misma mayor, al menos 1.2), `~1.2` (misma mayor y
+  menor), varios separados por espacios (`">=1.0 <2.0"`).
+- Orden: primero lo que cada mod necesita (dependencias, opcionales presentes, `load_after`, `load_before`, el padre),
+  luego el orden del usuario (`Mods/load_order.cfg`) y luego el id. Un círculo de dependencias carga por id y lo dice
+  el Log.
+
+### Carpetas antiguas (mod.cfg)
+
+Se siguen leyendo, traducidas al formato nuevo:
+
+- Una carpeta con `mod.cfg` sin `module_of` es un **mod de datos** `data.<carpeta>`: sus archivos con la ruta del juego
+  lo sustituyen (como `replace/` de un `mod.json`), con reinicio.
+- Con `module_of = <id>` es un **módulo** de ese mod: `name`, `description` y opciones
+  `option.<id> = <etiqueta> | <opción>, <opción>... | <por defecto> [| slider]`.
+- Un `mod.json` en la carpeta manda sobre su `mod.cfg`.
+
+## Referencia
+
+### Interruptores del motor
+
+La tabla está en `src/Mods/EngineSwitches.cpp` (cada uno un campo de `EngineConfig`; los campos y quién los lee no
+cambian). Valor por defecto = el original.
+
+| Interruptor | Tipo | Cuándo | Qué hace |
+|---|---|---|---|
+| `graphics.msaa.samples` | int 0-16 | live | MSAA del búfer (0 = el original); al cambiar se rehace el búfer |
+| `graphics.mipmaps` | bool | restart | mipmaps y filtrado trilineal |
+| `graphics.anisotropic` | bool | restart | filtrado anisótropo |
+| `graphics.smooth-smoke` | bool | restart | `smokea.raw` con su alfa de 8 bits (sin el corte ARGB4444 del original) |
+| `graphics.terrain.upscale` | bool | map | texturas del terreno ampliadas x2 (Lanczos-3) |
+| `graphics.terrain.repeat` | float 1-4 | map | repeticiones de la textura del terreno por bloque |
+| `graphics.terrain.triplanar` | bool | map | acantilados con la textura de lado |
+| `graphics.hd-tweaks.textures` | bool | live | texturas HD de aldeanos y animales |
+| `graphics.hd-tweaks.smooth` | int 0-3 | live | nivel de redondeo PN (0 = no) |
+| `graphics.hd-tweaks.lighting` | int 0-1 | live | 1 = luz por píxel |
+| `graphics.hd-tweaks.mip-bias` | float -4-0 | live | sesgo de mip (negativo = más nítido) |
+| `graphics.hd-tweaks.high-detail` | bool | live | mallas de alto detalle |
+| `water.living` | bool | live | el mar lo refleja todo y ondula |
+| `world.ground-statics` | bool | live | baja al suelo los estáticos que flotan (mueve también los que ya existen) |
+| `world.foliage.density` | float 0-8 | live | plantas por celda (0 = sin hierba) |
+| `world.foliage.distance` | float 50-1000 | live | distancia de dibujo de la hierba |
+| `world.foliage.fields` | bool | live | campos como plantas que crecen |
+| `world.crops.without-farmers` | bool | live | campos que se siembran solos |
+| `world.crops.growth` | float 1-100 | live | velocidad de crecimiento |
+| `game.skip-tutorial` | int 0-3 | restart | respuesta al SkipBox (0 jugar todo … 3 sin el claro) |
+| `game.free-start` | bool | map | **no original**: el principio de la tierra no mueve la cámara ni bloquea |
+| `test.dispensers` | bool | map | dispensadores de prueba junto al templo |
+| `test.dispensers.level` | int 0-3 | map | su nivel |
+| `test.dispensers.seconds` | float 1-600 | live | su recarga |
+| `test.dispensers.seed` | bool | live | bola de fuego en la mano al empezar |
+
+Añadir uno: el campo en `EngineConfig` (apagado = el original), leerlo en el motor y una línea en `EngineSwitches.cpp`.
+
+### Enumeraciones
+
+`ob.enums.<nombre>` (Lua) y `host->enumeration("<nombre>", i, …)` (C): `meshes` (los 626 nombres de `k_MeshNames`),
+`magic` (los `MagicType` por el nombre de su efecto en `info.dat`, tras cargar los datos), `object_tables` y
+`object_fields` (lo que `replace.objects` admite), `switches`.
+
+### API: JSON, Lua y C
+
+Una sola implementación, `src/Mods/Api.h`; JSON, Lua (`Mods/Lua/LuaHost.cpp`) y C (`Mods/Native/NativeHost.cpp`) son
+traducciones de ella. Solo usa la API pública de cada área, acordada con su dueño: altura `LandIsland`, milagros
+`magic::script::CastSpellAtPos` (por las reglas del juego, como `SPELL_AT_POS`, con la comprobación de la clase; el
+«desde» 30 m sobre el punto, como `OPENBLACK_TEST_SPELL` **(inferido)**), cámara, reloj e interruptores. Pendiente:
+sonido (solo `src/Audio/Audio.h`, con un dueño por mod; acordado con la sesión audio).
+
+## Cómo está hecho (src/Mods)
+
+| Archivo | Qué |
+|---|---|
+| `Mod.h` | `Mod` (Info, opciones, estado, bloqueo), `Modpack`, `Dependency` |
+| `Manifest.*` | lee `mod.json` / `modpack.json` (nlohmann-json); `PackageMod`: opciones atadas a interruptores |
+| `Semver.*` | versiones y rangos |
+| `Switches.*`, `EngineSwitches.cpp` | registro de interruptores con nombre y la tabla de `EngineConfig` |
+| `ModRegistry.*` | descubrir carpetas, ajustes, dependencias, orden de carga, aplicar, modpacks, montar `replace/` |
+| `BuiltinManifests.h` | los `mod.json` de `assets/mods` compilados en el exe (generado por `src/CMakeLists.txt`) |
+| `Replacements.*` | `replace`: mallas, texturas, objetos de `info.dat`, carpetas `replace/` |
+| `Api.*` | las funciones simplificadas |
+| `Lua/LuaHost.*` | mods Lua (Lua 5.4 + sol2) |
+| `Native/NativeHost.*` | mods nativos; la cabecera C en `components/modsdk/include/openblack/mod_api.h` |
+| `ModLog.*` | los mensajes de la pestaña Log |
+| `Debug/ModsWindow.*` | la ventana Mods |
+
+Arranque (`Game::Game`): `switches::RegisterEngineSwitches` → `ModRegistry::Discover(<exe>/Mods)` → legacy →
+`LoadSettings` → `--mod` → `ApplyAll` (resolver, interruptores, `Apply`) → `replace::Collect`. `Game::Initialize`
+monta `replace/` y los mods de datos, y carga mallas, texturas e `info.dat` con los reemplazos. `Game::Run` arranca Lua
+y los nativos antes de la primera tierra; `land_loaded` al final de `LoadMap`, `turn` al final de cada turno, `frame`
+en cada `Update`. Tests: `test/test_mods.cpp`.
+
+## Catálogo de mods
+
+Los que vienen con openblack (`assets/mods/<id>/mod.json`, sin código propio: solo opciones atadas a
+[interruptores](#interruptores-del-motor); antes eran clases C++ en `src/Mods/Builtin/`, con los mismos ids, opciones y
+valores, comprobado en `test_mods` `BuiltinModsSetTheOldValues`):
 
 | Id | Opciones (por defecto en negrita) | Resumen | Reinicio |
 |---|---|---|---|
@@ -91,81 +395,12 @@ Código en `src/Mods/Builtin/<Nombre>Mod.cpp`; uno por subsección del [Catálog
 | [`graphics.hd-tweaks`](#graphicshd-tweaks) | `textures` **hd**/original, `smooth` off/soft/**round**, `light` **smooth**/original, `sharp` **on**/off, `detail` **high**/original | Aldeanos, animales y mano mejor vistos | no |
 | [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
-| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos | no |
-| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s (deslizadores), `seed` **on**/off | Un dispensador de cada milagro junto al templo (más uno vacío) y una bola de fuego en la mano, para probarlos | no |
-| [`game.skip-intro`](#gameskip-intro) (**activado por defecto**) | `skip` tutorial/tutorial and creature training/**tutorial, creature training and the glade**, `free start` **on**/off | Empieza Land 1 sin la intro (la respuesta «saltar» del original) y, con `free start`, con el jugador libre desde el primer fotograma | sí |
+| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos (apagado ya no deja su velocidad puesta: la clase C++ antigua la ponía aunque estuviera apagado, un fallo de fidelidad) | no |
 | [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
-
-Más detalles en [rendering.md](rendering.md), [rendering-objects.md](rendering-objects.md), [openblack-internals.md](openblack-internals.md) y
-[mods.md](mods.md#mod-hd-tweaks) (HD-Tweaks).
-
-### Mods de datos
-
-- Una carpeta por mod en `Mods/` (salvo las que se llaman como un mod integrado o son módulos), con la misma estructura
-  que el juego (`Data/...`, `Scripts/...`) y un `mod.cfg` opcional:
-  ```
-  name = Agua azul
-  description = Sustituye Sky.raw y Skya.raw
-  ```
-- Id `data.<carpeta>`. Se activan en el menú (con reinicio) o con `--mod data.<carpeta>`.
-- Un archivo del mod sustituye al del juego con la misma ruta; si dos mods lo tienen, gana la carpeta posterior en
-  orden alfabético. Los archivos que solo están en el mod también se ven (p. ej. mapas o texturas nuevas).
-- Cómo funciona: `FileSystemInterface::AddOverridePath`; `FindPath` mira primero los mods (solo archivos, nunca
-  carpetas) y `Iterate` mezcla la carpeta del juego con la de cada mod.
-
-### Módulos
-
-Enchufables a otro mod.
-
-- Una carpeta de `Mods/` cuyo `mod.cfg` dice `module_of = <id de un mod>` es un **módulo** de ese mod, no un mod de
-  datos: no sustituye archivos, trae más archivos del tipo que lee el mod padre, con sus mismas reglas. Id = el nombre
-  de la carpeta (`world.foliage.beach`), `name` / `description` del `mod.cfg`, misma categoría que el padre.
-- En el menú sale debajo del padre, sangrado y deshabilitado si el padre está apagado. Solo cuenta si él y su padre
-  están encendidos (`ModRegistry::IsActive`). Tiene su `settings.cfg` en su carpeta, apagado por defecto, y
-  `--mod <id>` como cualquier mod.
-- Puede declarar opciones propias ([Módulos con option.\<id\>](#módulos-con-optionid)).
-- Hoy solo `world.foliage` tiene módulos: [Beach](#módulo-worldfoliagebeach) y
-  [Butterflies](#módulo-worldfoliagebutterflies). Módulos del repo en `assets/mods/world.foliage.beach` y
-  `assets/mods/world.foliage.butterflies` (solo los `.cfg`; las imágenes del usuario están en `B&W/Asstes_mods/Beach`
-  y `Buterfly` y se copian a la carpeta del juego).
-
-## Para programar un mod
-
-### Mod integrado: API ModRegistry
-
-1. Un archivo propio en `src/Mods/Builtin/<Nombre>Mod.cpp` con una clase derivada de `mods::Mod` y una función
-   `Register<Nombre>Mod`, declarada y llamada en `BuiltinMods.h`. Sus archivos van en el repo en `assets/mods/<id>/`
-   y en el juego en `Mods/<id>/` (junto a su `settings.cfg`); los lee con `ModRegistry::GetModFilesDirectory(id)`.
-2. `Info`: id estable (`categoria.nombre`), nombre, descripción, categoría, `restartRequired` y, solo si el usuario lo
-   pide para ese mod, `enabledByDefault` (lo normal es dejarlo en `false`: los mods vienen apagados).
-3. Opciones: ver [Opciones y deslizadores](#opciones-y-deslizadores).
-4. `Apply()`: pone en marcha el estado actual. Se llama al arrancar (después de los `settings.cfg` y la línea de
-   comandos) y cada vez que el mod o una opción cambia. Lo normal es escribir un interruptor de `EngineConfig` que lee
-   el motor.
-5. El motor nunca decide por su cuenta: todo lo que no es original mira un interruptor que solo pone un mod.
-6. Si tiene módulos, el padre pide sus carpetas con `ModRegistry::GetModuleDirectories("<su id>")` (orden alfabético)
-   o, con sus opciones, con `ModRegistry::GetModules` (carpeta + opciones).
-
-### Opciones y deslizadores
-
-- `AddOption({"id", "Etiqueta", {"elección1", "elección2"}, índicePorDefecto})`; se leen con `GetChoice("id")`.
-- Con un quinto campo `true` (`ModOption::slider`) se dibuja como deslizador sobre las opciones en vez de lista
-  desplegable, para las que son una escala (`world.crops` `speed`). El `settings.cfg` guarda igual el nombre de la
-  opción elegida.
-
-### Módulos con option.\<id\>
-
-- Opciones de un módulo: su `mod.cfg` las declara con `option.<id> = <etiqueta> | <opción>, <opción>... | <por
-  defecto> [| slider]` (`ModuleMod`); salen en el menú y en su `settings.cfg` como las de cualquier mod, y el padre las
-  lee con `ModRegistry::GetModules` (carpeta + opciones).
-- `world.foliage` lee `density` de cada módulo (very low 0,25, low 0,5, medium 1, high 2, very high 4, como su propia
-  densidad): multiplica los `per_cell` de ese módulo (`Foliage::Load`, `moduleDensities`) y recarga al cambiarla.
-  Beach la tiene (deslizador; commit 8c024d07):
-  ```
-  option.density = Density | very low, low, medium, high, very high | medium | slider
-  ```
-
-## Catálogo de mods
+| [`world.foliage.beach`](#módulo-worldfoliagebeach) | `density` very low…**medium**…very high | Módulo: playa | no |
+| [`world.foliage.butterflies`](#módulo-worldfoliagebutterflies) | — | Módulo: mariposas | no |
+| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s, `seed` **on**/off | Dispensadores de milagros de prueba | no |
+| [`game.skip-intro`](#gameskip-intro) (**activado por defecto**) | `skip` tutorial/tutorial and creature training/**tutorial, creature training and the glade**, `free start` **on**/off | Empieza Land 1 sin la intro | sí |
 
 ### graphics.msaa
 
@@ -235,7 +470,7 @@ Opciones `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. H
 - `smokea.raw` conserva sus 8 bits de alfa en todo lo que lo usa: humo de chimeneas, nubes, nieblas, anillos de agua,
   bocanadas de barco y el brillo de las luces nocturnas (`NightLights`). El original lo corta a 16 niveles (ARGB4444,
   `fn_00837400`; ver [rendering.md](rendering.md#texturas-argb4444)), por ejemplo 228 → 238/255.
-- Implementación: `Mods/Builtin/SmoothSmokeMod.cpp` pone `EngineConfig::smoothSmokeAlpha`, y `Texture2DLoader` se
+- Implementación: `assets/mods/graphics.smooth-smoke/mod.json` pone el interruptor `graphics.smooth-smoke` (`EngineConfig::smoothSmokeAlpha`, reinicio), y `Texture2DLoader` se
   salta el corte de `smokea`. Era el aspecto de openblack antes de que existiera el corte al cargar.
 
 ### graphics.hd-tweaks
@@ -245,7 +480,7 @@ off/soft/round, `light` smooth/original, `sharp` on/off, `detail` high/original.
 animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [mods.md](mods.md#mod-hd-tweaks).
 
 - **Texturas** (`textures`): los atlas de 256² (4 aldeanos cada uno, unos 30 px por cara) sustituidos por imágenes ×4
-  de Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.cfg`; `Resources/HdTextures`,
+  de Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.json`; `Resources/HdTextures`,
   `Texture2DLoader::FromImageTag`, siempre con mipmaps). Cada imagen lleva el hash FNV-1a del DDS del que salió: con
   otro AllMeshes.g3d no se usa.
 - **Animales** (2026-09-30): sus 5 atlas en HD, así que también se suavizan y usan la luz por píxel y `sharp`.
@@ -301,8 +536,24 @@ animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [m
 ### world.foliage
 
 "Grass and flowers": hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`;
-voladores en `3D/FoliageFlyers.cpp`). Sin reinicio. Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.cfg`;
+voladores en `3D/FoliageFlyers.cpp`). Sin reinicio. Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.json`;
 en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&W/Asstes_mods`).
+
+**Formato (desde 2026-10-02): `foliage.json`**, JSON con comentarios `//`. Es el mismo contenido que el antiguo
+`foliage.cfg`, que se sigue leyendo si no hay `.json`. Cada sección `[nombre]` es un objeto de la lista `rules`, con
+`"section": "<nombre>"` y sus claves; las listas (`images`, `texture`, `terrain`, `zone`, `not_zone`, `near`, `over`)
+van como `["a", "b"]`, los números como números y los rangos como texto (`"0.68-1.2"`):
+
+```jsonc
+{ "schema": 1, "rules": [
+    { "section": "grass", "images": ["mono_grass_1.png"], "texture": ["green"], "per_cell": 90, "size": "0.68-1.2" },
+    { "section": "field_stage brote", "growth": "0-80", "colour": "90,120,40 - 120,150,60" } ] }
+```
+
+`Mods/RuleFiles.h` convierte el JSON en las mismas líneas `clave = valor` que leía el `.cfg` y se las pasa al mismo
+intérprete, así que el resultado es idéntico. `tools/mod_cfg_to_json.py <foliage.cfg>` convierte un archivo antiguo:
+comprueba antes de escribir que las reglas salen iguales, conserva los comentarios y guarda el `.cfg` como `.cfg.old`.
+Lo que sigue describe las claves por su nombre, igual en los dos formatos.
 
 **Opciones**
 
@@ -312,16 +563,16 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
 | `distance` | near/medium/far = 120/200/320 (por defecto medium) | Distancia de dibujo (`foliageDistance`) |
 | `fields` | wheat (por defecto) / `original` = la malla | [Campos de cultivo](#campos-de-cultivo) |
 
-#### Especies: claves de foliage.cfg
+#### Especies: claves de foliage.json
 
-- Una sección `[nombre]` por planta en `foliage.cfg`: `images` (png, uno al azar por planta), `texture` (aspecto de la
+- Una sección `[nombre]` por planta en `foliage.json`: `images` (png, uno al azar por planta), `texture` (aspecto de la
   textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10
   con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope`
   (grados), `patches` (0 uniforme .. 1 solo en manchas, ruido de valor a escala 45), `sway` (viento), `lean`
   (inclinación máxima al azar) y `tint` (grey/all/none). Crece si cumple `texture` o `terrain`.
 - `cross = on`: la especie se dibuja con los dos planos cruzados (los matorrales secos); en cada bloque esas
   instancias van al final (`Chunk::crossStart`) y se dibujan con los 12 índices del quad.
-- Claves nuevas para las especies de los módulos (valen en cualquier `foliage.cfg`):
+- Claves nuevas para las especies de los módulos (valen en cualquier `foliage.json`):
   - `flat = on`: la imagen va **tumbada en el suelo**, centrada en el punto, con lo alto de la imagen a lo largo del
     `side` del giro e inclinada como el suelo (pendiente a lo ancho y a lo largo en `i_data4.xy`, `i_data4.z = 2`). Se
     mezcla por su alfa sin escribir profundidad (las plantas la tapan igual) y se desvanece con la distancia en vez de
@@ -336,8 +587,8 @@ en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&
   - `shade`: con `tint` all/grey, escala del color del suelo que toma (va en `i_data3.z` de las planas): la arena
     mojada (`tint = all`, `shade = 0.7`) es la arena de debajo, más oscura, en vez del naranja de la imagen.
 - Tamaños: el 29-09-2026 todos los `size` se redujeron un 25 % (el usuario las veía muy grandes).
-- Módulos: su `foliage.cfg` se lee después del del mod con el mismo parser; las imágenes se buscan junto a cada
-  `foliage.cfg`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las plantas muestran el primero). Se
+- Módulos: su `foliage.json` se lee después del del mod con el mismo parser; las imágenes se buscan junto a cada
+  `foliage.json`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las plantas muestran el primero). Se
   recarga al encender o apagar un módulo (`Renderer::DrawFoliage`, `_foliageLoadKey`).
 
 #### Aspecto del suelo: texture y terrain
@@ -479,7 +730,7 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
 #### Voladores: [flyer nombre]
 
 - **`[flyer nombre]`** (`FoliageFlyers.cpp`): voladores sobre las plantas de las especies de `over` (por nombre, de
-  cualquier `foliage.cfg`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
+  cualquier `foliage.json`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
   (`Chunk::homes`).
 - **Vuelo**: cada fotograma, hasta 110 unidades de la cámara: vuela `flight` s en un lazo de dos senos por eje
   alrededor de su flor (radio `range`, altura `height` sobre la flor, aleteo de ±0,12 rad), despega de la flor y
@@ -527,7 +778,7 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
 ### test.miracle-dispensers
 
 «Máquinas de milagros de prueba» (categoría **Test**). **No existe en el original**: es una ayuda para probar los
-milagros, desactivada por defecto. Código: `src/Mods/Builtin/MiracleDispensersMod.cpp` (el mod, que pone
+milagros, desactivada por defecto. Código: `assets/mods/test.miracle-dispensers/mod.json` (el mod, que pone
 `EngineConfig::testDispensers*`) y `src/Worship/TestDispensers.cpp` (lo que hace en el juego). Todo es **mod**; solo
 los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luciérnagas-worshipspelldispensercpp-worshipfireflyrewardcpp)).
 
@@ -665,9 +916,30 @@ defecto no llega a una instalación que ya haya arrancado una vez; hay que edita
   como en el original) y la música de alineamiento/tribu, que en el original también suena desde el principio cuando se
   salta el tutorial (el `ENABLE_DISABLE_ALIGNMENT_MUSIC(false)` está dentro de `FollowUs`, challenge.chl 50102).
 
+### Modpack examples
+
+`mods/examples/` en el repo, `Mods/examples/` junto al exe (el build copia los archivos y compila los nativos en sus
+`bin/`). Apagado por defecto. No cambian nada del juego salvo `example.data-only` (agua viva mientras está encendido);
+escriben en la pestaña Log. Son las plantillas.
+
+| Mod | Tipo | Qué enseña |
+|---|---|---|
+| `example.data-only` | solo `mod.json` | `switches`, una opción con `bind`, `replace` vacío |
+| `example.lua-hello` | Lua | `require` de un módulo propio, opción, interruptor, enumeraciones, eventos `land_loaded` y `turn`, cámara y altura |
+| `example.lua-library` | Lua, librería | `provides` + `ob.interfaces.provide("example.places.v1", tabla)` |
+| `example.lua-consumer` | Lua | `dependencies` + `ob.interfaces.get` |
+| `example.native-hello` | C | `ob_mod_query` / `ob_mod_load` / `ob_mod_unload`, opción, eventos, enumeración, altura, hora |
+| `example.native-library` | C, librería | `provide_interface("example.counter.v1")` con su cabecera pública `include/example_counter_v1.h` |
+| `example.native-consumer` | C | `dependencies` + `get_interface` |
+
 ## Pendiente
 
-- Nivel 3: mods externos (Lua o DLL) sobre esta misma API.
+- SDK de mods (2026-10-01), lo que falta: sonido en Lua y C (envoltorio de `Audio.h` con un dueño por mod, acordado
+  con audio), lanzar orbes (cuando la API `one_off::` de milagros sea estable), `ecs::object` y `game_clock` (sistemas2),
+  límite de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
+  audio, B11), reemplazar mallas en vivo (hoy al arrancar: las formas físicas se toman al crear cada objeto), texturas
+  incrustadas en un `.l3d` (`L3DMesh::_skins`) y materiales sueltos del `.lnd`, traducciones `lang/<idioma>.json`
+  (hoy los textos por idioma van dentro del `mod.json`), y el idioma de la ventana (hoy inglés; `mods::SetLanguage`).
 - `world.crops`: sin el mod los campos se quedan vacíos hasta que openblack tenga oficios (granjeros).
 - HD-Tweaks: lo que queda por comprobar está en [mods.md](mods.md#mod-hd-tweaks).
 - Revisión de todos los mods tras la base 0e10b735 (2026-10-01): todos compilan, leen su `settings.cfg` y funcionan
@@ -690,11 +962,14 @@ Cámaras: playa de Land1 `1702,7,1992,1706,0.5,2004`; mariposas de Land1 `1428,6
 
 ## Fuentes
 
-- Código: `src/Mods/` (`ModRegistry`, `Mod`, `Builtin/*Mod.cpp`; `game.skip-intro` en `Builtin/SkipIntroMod.cpp`, `Game::Run` y
-  `CHLApi.cpp` `CanSkipTutorial`), `src/Worship/TestDispensers.cpp`, `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`,
-  `src/Resources/HdTweaks`, `src/main.cpp` (atajos de la línea de comandos).
-- Datos del mod en el repo: `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`,
-  `assets/mods/world.foliage.butterflies`, `assets/mods/graphics.hd-tweaks`.
+- Código: `src/Mods/` ([Cómo está hecho](#cómo-está-hecho-srcmods)), `src/Debug/ModsWindow.*`,
+  `components/modsdk/include/openblack/mod_api.h`, `mods/` (ejemplos y su CMake), `test/test_mods.cpp`;
+  `game.skip-intro` en `Game::Run` y `CHLApi.cpp` (`CanSkipTutorial`, `FreeStart`), `src/Worship/TestDispensers.cpp`,
+  `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`, `src/Resources/HdTweaks`, `src/main.cpp` (atajos).
+- Manifiestos en el repo: `assets/mods/<id>/mod.json` (los 13 que vienen con openblack) y sus datos:
+  `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`, `assets/mods/world.foliage.butterflies`,
+  `assets/mods/graphics.hd-tweaks`.
+- Diseño del SDK: `dev\tmp_dis\modding\PLAN.md` (con lo que se tomó de Factorio, Fabric, RimWorld, SKSE y Luanti).
 - Imágenes del usuario: `B&W/Asstes_mods/{Plants,Beach,Buterfly}`; `mono_*` en `B&W/BnW_openblack/Mods/world.foliage`.
 - Estudios: `dev\tmp_dis\heights` (altura junto al mar), `dev\tmp_dis\biomes` (mapas de zonas `Land*_snd.png`).
 - Scripts del LND: `dev\tools\lnd\` (`lnd_hash.py`, `lnd_zones.py`, `lnd_countries.py`, `lnd_beaches.py`).

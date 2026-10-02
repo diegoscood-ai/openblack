@@ -34,7 +34,7 @@ void Create(FireEffect& fire);
 void Destroy(FireEffect& fire);
 /// fn_00731560 for every fire, `seconds` of frame time (g_game_time_inc x 0.001)
 void Update(float seconds);
-/// The game turn (g_game +0x205A40), for the 30-turn steam and smoke bursts
+/// The turn hook of the fire graphics: OPENBLACK_FIRE_TRACE (the bursts read game_clock::Turn(), g_game +0x205A40)
 void SetTurn(uint32_t turn);
 void Clear();
 

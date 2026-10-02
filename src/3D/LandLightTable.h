@@ -31,7 +31,9 @@ public:
 	/// @param palette the 4096 bytes of palette.raw
 	bool Load(const std::vector<uint8_t>& palette) noexcept;
 
-	/// @param skyType openblack's sky type (0 night .. 2 day; the original's Time2SkyType is 2 - skyType)
+	/// @param skyType the original's sky type T (sky_type: 0 day .. 1 dusk .. 2 night): fn_00869850 takes its time
+	/// column from Time2SkyType([0xFA26C4]) (0x869859, sky_type::LightColumn) and its haze factor from [0xFA26BC]
+	/// (0x869D5F, sky_type::HazeFactor), both this frame's sample, sky_type::Frame()
 	/// @param alignment -1 evil .. 1 good (the original's X = 1 - alignment: 0 good, 2 evil)
 	/// @param overcast [0xFA2754], the overcast amount at the camera (Clouds::WeatherOvercastAtCamera): caps the base colour
 	/// at ftol(255 - 96 * overcast) (0x869ADB) and moves the haze towards the storm's (0x869DB1)

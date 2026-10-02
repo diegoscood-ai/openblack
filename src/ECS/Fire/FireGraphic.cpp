@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <list>
 #include <memory>
-#include <random>
 #include <unordered_map>
 #include <array>
 #include <vector>
@@ -24,7 +23,9 @@
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
+#include "3D/LH3DRandom.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandLight.h"
 #include "3D/LandMorph.h"
 #include "Audio/Audio.h"
 #include "ECS/Components/Mesh.h"
@@ -37,6 +38,7 @@
 #include "ECS/Weather/Weather.h"
 #include "FireEffect.h"
 #include "FireObjectTraits.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "PSys/PSysManager.h"
 #include "Resources/ResourcesInterface.h"
@@ -89,22 +91,16 @@ struct Graphic
 	std::list<SpritePos> smoke;    ///< +0xC8
 	/// the FireGraphic as a channel owner (fn_007314E0 0x73152A: owner +0x20 = this), given at its first sizzle
 	uint32_t soundOwner {0};
+	/// +0x30 the light map S_LMFireBall (the GJBitmap 0xDA0960), set by fn_007311A0 0x7312EF; null: none
+	std::shared_ptr<const graphics::frame_anim::StackedFrames> lightMap;
 };
 
 std::unordered_map<uint32_t, std::unique_ptr<Graphic>> g_Graphics;
-uint32_t g_Turn = 0;
-std::mt19937 g_Random(0x5EED); // (aproximado: not GRand::LocalRand 0x6DE590's generator nor its seed)
 bool g_SourceAdded = false;
 
-/// GRand::LocalRand / LocalFloatRand (aproximado: another generator, so the sequences differ from the original)
-float LocalFloatRand(float max)
-{
-	return std::uniform_real_distribution<float>(0.0f, 1.0f)(g_Random) * max;
-}
-int LocalRand(int count)
-{
-	return count > 0 ? static_cast<int>(g_Random() % static_cast<uint32_t>(count)) : 0;
-}
+/// GRand::LocalRand 0x6DE570 / LocalFloatRand 0x6DE590 (grand_local, aproximado: another generator)
+using grand_local::LocalFloatRand;
+using grand_local::LocalRand;
 
 psys::Creator MakeCreator(const char* texture, bool additive, float originY, float stretch)
 {
@@ -330,7 +326,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 		if ((fire.flags & FireEffect::Cooling) != 0 && fire.temperature > 75.0f && // 75 [0x999638] (0x731AD9)
 		    fire.temperature > graphic.steamTemperature)
 		{
-			graphic.steamStart = g_Turn;
+			graphic.steamStart = game_clock::Turn(); // g_game +0x205A40 (0x731AF8)
 			graphic.steamCount = 0;
 			graphic.steamAccumulator = 0.0f;
 			graphic.steamTemperature = fire.temperature;
@@ -351,7 +347,7 @@ void UpdateSteam(Graphic& graphic, const FireEffect& fire, float dt)
 			audio::PlaySoundEffect(options);
 		}
 	}
-	else if (g_Turn > graphic.steamStart + k_BurstTurns)
+	else if (game_clock::Turn() > graphic.steamStart + k_BurstTurns) // 0x731B27
 	{
 		graphic.steamStart = 0;
 	}
@@ -378,13 +374,13 @@ void UpdateSmoke(Graphic& graphic, const FireEffect& fire, float dt)
 	{
 		if ((fire.flags & FireEffect::JustExtinguished) != 0)
 		{
-			graphic.smokeStart = g_Turn;
+			graphic.smokeStart = game_clock::Turn(); // 0x731E7B
 			graphic.smokeCount = 0;
 			graphic.smokeAccumulator = 0.0f;
 			LocalRandomFlamePosition(graphic.object, graphic.smokeLocal, graphic.smokeIndex);
 		}
 	}
-	else if (g_Turn > graphic.smokeStart + k_BurstTurns)
+	else if (game_clock::Turn() > graphic.smokeStart + k_BurstTurns) // 0x731EAE
 	{
 		graphic.smokeStart = 0;
 	}
@@ -490,7 +486,12 @@ void graphic::Create(FireEffect& fire)
 	// GetPSysFireLocalFlameScale 0x732950: trees 0.2 x height, the rest 0.5 x height (impressive objects and citadel
 	// parts 0.3, not ported)
 	graphic->localScale = (tree ? 0.2f : 0.5f) * height;
-	// TODO(M5): the light map S_LMFireBall (bit 4, Object +0x24 bit 1 and 2D radius > 2; GJBitmap 0xDA0960)
+	// fn_007311A0 0x7312B6..0x7312EF: S_LMFireBall (6, 3 bytes, 1 frame) once into 0xDA0960, given to +0x30 when the
+	// object has Object +0x24 bit 1 (test at 0x7312D5: a MultiMapFixed, ctor 0x52E207) and Get2DRadius > 2 ([0x8AB478])
+	if (fire::traits::IsMultiMapFixed(fire.object) && radius > 2.0f)
+	{
+		graphic->lightMap = land_light::LoadBitmapFile("Data/Spells/LightMaps/S_LMFireBall.raw", 6, 3, 1, 1);
+	}
 	g_Graphics[fire.id] = std::move(graphic);
 }
 
@@ -522,12 +523,29 @@ void graphic::Update(float seconds)
 		{
 			UpdateSmoke(*graphic, *fire, seconds);
 		}
+		// 0x731633..0x7317B2: with flag bit 4 (+0xB5 & 0x10) and the light map, alpha = 0.6 ([0x8C7BDC]) x GetFireFraction
+		// x (1 + 0.2 ([0x99964C]) x VLNoise(0.6 ([0x999644]) x (turn + fraction) + (this & 0xFFFF))) x (1 - charring
+		// +0x34), only above 0, at most 1; a record at +0x98 into the list 0xD4EDB8, stamped by PSysLightMaps fn_006CA280
+		// (+ (10, 0, 10), centred, mode 1). (inferido) +0x98 the object's position; (aproximado) the noise is
+		// CharringGlow's two sines (VLNoise 0x590C30 not ported), the turn fraction is left out and the fire's
+		// id stands in for `this & 0xFFFF` (the FireGraphic's pointer)
+		if ((graphic->flags & 0x10) != 0 && graphic->lightMap)
+		{
+			const float x = 0.6f * static_cast<float>(game_clock::Turn()) + static_cast<float>(fire->id & 0xFFFF);
+			const float noise = std::sin(x * 1.7f) * 0.6f + std::sin(x * 3.1f + 1.3f) * 0.4f;
+			const float alpha = 0.6f * fire->FireFraction() * (1.0f + 0.2f * noise) * (1.0f - fire->charring);
+			if (alpha > 0.0f)
+			{
+				land_light::AddStamp(ObjectPosition(graphic->object) + glm::vec3(10.0f, 0.0f, 10.0f),
+				                     graphics::frame_anim::FrameTexels(*graphic->lightMap, 0), graphic->lightMap->pitch,
+				                     true, std::min(alpha, 1.0f), 1);
+			}
+		}
 	}
 }
 
 void graphic::SetTurn(uint32_t turn)
 {
-	g_Turn = turn;
 	// OPENBLACK_FIRE_TRACE: what each burning object is drawing, so that the flames can be checked without a screenshot
 	if (turn % 20 != 0 || !TraceEnabled())
 	{

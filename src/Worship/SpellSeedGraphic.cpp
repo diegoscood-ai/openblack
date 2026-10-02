@@ -32,7 +32,7 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
-#include "Game.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -514,8 +514,8 @@ void seed_graphic::ProcessTurn()
 	// fn_00727350 -> fn_007273A0: the auto-updated graphics step their holder PSys with the zeroed info (vt 0x100);
 	// fn_00727440 every 30 turns (g_game +0x205A40 % 0x1E) redoes the FLYING_FLOCK mesh for the player's alignment
 	auto& registry = Locator::entitiesRegistry::value();
-	// g_game +0x205A40 read as the game's turn count (inferido: the field is only divided here)
-	const uint32_t turn = Game::Instance() != nullptr ? Game::Instance()->GetTurn() : 0;
+	// g_game +0x205A40, the game's turn (fn_00727350 0x72736E)
+	const uint32_t turn = game_clock::Turn();
 	const bool refreshMesh = (turn % 0x1E) == 0;
 	registry.Each<SpellSeedGraphic>([&registry, turnMilliseconds, refreshMesh](entt::entity entity, SpellSeedGraphic& graphic) {
 		if (graphic.autoUpdate)

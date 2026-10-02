@@ -293,17 +293,31 @@ TEST(FrameAnim, bandToEye)
 	EXPECT_NEAR(glm::dot(above[0], above[1]), 0.0f, 1e-4f);
 }
 
-TEST(FrameAnim, stackedFrames)
+TEST(FrameAnim, loadBitmapFromFile)
 {
-	// GetBitmap 0x6A9D40: RGB when 3 bytes a pixel fit, else grey; nothing when short
-	const std::vector<uint8_t> rgb(2 * 2 * 3 * 3, 100);
-	const auto stacked = frame_anim::LoadStackedFrames(rgb, 2, 3);
-	ASSERT_TRUE(stacked.has_value());
-	EXPECT_EQ(stacked->channels, 3);
-	EXPECT_FLOAT_EQ(frame_anim::SampleStackedFrame(*stacked, 2, 0.5f, 0.5f).g, 100.0f);
-	const std::vector<uint8_t> grey(2 * 2 * 3, 7);
-	EXPECT_EQ(frame_anim::LoadStackedFrames(grey, 2, 3)->channels, 1);
-	EXPECT_FALSE(frame_anim::LoadStackedFrames(std::vector<uint8_t>(5, 0), 2, 3).has_value());
+	// GJBitmap::LoadBitmapFromFile 0x57CA90: the exact size only (0x57CAD2)
+	EXPECT_FALSE(frame_anim::LoadBitmapFromFile(std::vector<uint8_t>(10, 0), 2, 1, 4, 4).has_value());
+	EXPECT_FALSE(frame_anim::LoadBitmapFromFile(std::vector<uint8_t>(2 * 2 * 3 * 3 + 1, 0), 2, 3, 3, 3).has_value());
+	// 4 frames of 2 x 2 grey in the file's 2 x 2 grid (fn_0057CB40): rows of 4 bytes
+	std::vector<uint8_t> bytes(16);
+	for (size_t i = 0; i < bytes.size(); ++i)
+	{
+		bytes[i] = static_cast<uint8_t>(i);
+	}
+	const auto bitmap = frame_anim::LoadBitmapFromFile(bytes, 2, 1, 4, 4);
+	ASSERT_TRUE(bitmap.has_value());
+	EXPECT_EQ(bitmap->channels, 1);
+	EXPECT_EQ(bitmap->frames, 4);
+	const auto* frame1 = frame_anim::FrameTexels(*bitmap, 1);
+	EXPECT_EQ(frame1[0], 2);
+	EXPECT_EQ(frame1[1], 3);
+	EXPECT_EQ(frame1[2], 6);
+	EXPECT_EQ(frame_anim::FrameTexels(*bitmap, 2)[0], 8);
+	// fn_006CA280 0x6CA2E3: frame % frames
+	EXPECT_EQ(frame_anim::FrameTexels(*bitmap, 5), frame1);
+	// min(framesInUse, framesInFile) frames (0x57CADB)
+	EXPECT_EQ(frame_anim::LoadBitmapFromFile(bytes, 2, 1, 4, 2)->frames, 2);
+	EXPECT_EQ(frame_anim::FrameTexels(frame_anim::StackedFrames {}, 0), nullptr);
 }
 
 TEST(FrameAnim, gifAndDelayClock)

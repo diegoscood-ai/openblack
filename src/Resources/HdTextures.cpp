@@ -10,10 +10,13 @@
 #include "HdTextures.h"
 
 #include <fstream>
+#include <sstream>
 #include <string>
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
+
+#include "Mods/RuleFiles.h"
 
 namespace openblack::resources
 {
@@ -21,12 +24,16 @@ namespace openblack::resources
 HdTextures::HdTextures(const std::filesystem::path& modDirectory)
     : _directory(modDirectory / "textures")
 {
-	std::ifstream file(modDirectory / "textures.cfg");
-	if (!file)
+	// textures.json (or the old textures.cfg: Mods/RuleFiles.h), as "<id> = <hash>" lines
+	std::filesystem::path used;
+	std::string error;
+	const auto rules = mods::rule_files::Read(modDirectory, "textures", used, error);
+	if (!rules)
 	{
-		SPDLOG_LOGGER_WARN(spdlog::get("game"), "HD textures: no {}", (modDirectory / "textures.cfg").string());
+		SPDLOG_LOGGER_WARN(spdlog::get("game"), "HD textures: {}: {}", used.generic_string(), error.empty() ? "not found" : error);
 		return;
 	}
+	std::istringstream file(*rules);
 	std::string line;
 	while (std::getline(file, line))
 	{
@@ -44,7 +51,7 @@ HdTextures::HdTextures(const std::filesystem::path& modDirectory)
 		}
 		catch (const std::exception&)
 		{
-			SPDLOG_LOGGER_WARN(spdlog::get("game"), "HD textures: bad line in textures.cfg: {}", line);
+			SPDLOG_LOGGER_WARN(spdlog::get("game"), "HD textures: bad line in {}: {}", used.generic_string(), line);
 		}
 	}
 }

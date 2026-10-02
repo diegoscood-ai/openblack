@@ -29,6 +29,8 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Registry.h"
@@ -70,34 +72,24 @@ bool IsSpellCastInHand(const SpellSeed& seed)
 	return seed::InfoOf(seed).castType == SpellCastType::SpellCastInHand;
 }
 
-/// Object::Get2DRadius 0x638180 of the seed: max(mesh +0x24, +0x2C) x GetScale, from SpellSeed::GetMesh 0x729850 (the
-/// info's mesh, which the Game3DObject +0x40 keeps even while the seed is not drawn). (aproximado) the mesh's +0x24 /
-/// +0x2C are not mapped to openblack's L3DMesh: half the larger horizontal side of its bounding box stands in, as
-/// ecs::effects::Object2DRadius does for the other objects
+/// Object::Get2DRadius 0x638180 of the seed (vt +0x64, 0x6022D9): GetScale x max(mesh +0x24, +0x2C), from
+/// SpellSeed::GetMesh 0x729850 (the info's mesh, which the Game3DObject +0x40 keeps even while the seed is not drawn:
+/// so the info's mesh, not the Mesh component, which goes while the seed is hidden)
 float SeedRadius(entt::entity entity, const SpellSeed& seed)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* transform = registry.TryGet<const Transform>(entity);
-	if (transform == nullptr || !Locator::resources::has_value())
+	if (!Locator::entitiesRegistry::value().AllOf<Transform>(entity))
 	{
 		return 0.0f;
 	}
-	auto& meshes = Locator::resources::value().GetMeshes();
-	const auto id = resources::HashIdentifier(seed::InfoOf(seed).mesh);
-	if (!meshes.Contains(id))
-	{
-		return 0.0f;
-	}
-	const auto size = meshes.Handle(id)->GetBoundingBox().Size();
-	return 0.5f * std::max(size.x * transform->scale.x, size.z * transform->scale.z);
+	return ecs::object::MeshRadius2D(resources::HashIdentifier(seed::InfoOf(seed).mesh), ecs::object::GetScale(entity));
 }
 
-/// The MapCoords' low word of a coordinate (fixed point, 6553.6 a metre: the offset in its 10 m cell) back in metres
-/// (fn_006022C0: movzx word ptr [obj+0x14] x 1/65536 x 10)
+/// The MapCoords' low word of a coordinate (the offset in its 10 m cell) back in metres (fn_006022C0 0x6022E2..0x602300:
+/// movzx word ptr [obj+0x14]; fild; fmul 1/65536 [0x8AC41C]; fmul 10 [0x930050]). The MapCoords is ToFixed of the metres
 float CellOffset(float metres)
 {
-	const auto fixed = static_cast<int32_t>(static_cast<double>(metres) * static_cast<double>(6553.6f)); // __ftol
-	return static_cast<float>(static_cast<uint32_t>(fixed) & 0xFFFFu) * 1.52588e-05f * 10.0f;
+	const auto low = static_cast<uint32_t>(ecs::map_coords::ToFixed(metres)) & 0xFFFFu;
+	return static_cast<float>(low) * (1.0f / 65536.0f) * 10.0f;
 }
 
 /// fn_006022C0 (MapCoords this = the seed's, obj = the seed, 1): the highest GetTopPos (Object 0x638160: the MapCoords
@@ -114,8 +106,9 @@ float TopOfObjectsUnder(entt::entity entity, const SpellSeed& seed, const glm::v
 	const float seedRadius = SeedRadius(entity, seed);
 	const glm::vec2 seedOffset(CellOffset(position.x), CellOffset(position.z));
 	// MapCoords::ToMap 0x603430: the cell of x >> 16, z >> 16
-	const int cellX = static_cast<int>(static_cast<double>(position.x) * static_cast<double>(6553.6f)) >> 16;
-	const int cellZ = static_cast<int>(static_cast<double>(position.z) * static_cast<double>(6553.6f)) >> 16;
+	const auto cell = ecs::map_coords::CellOf(position);
+	const int cellX = cell.x;
+	const int cellZ = cell.y;
 	float best = 0.0f;
 	for (const auto object : ecs::effects::ObjectsInMapCell(cellX, cellZ))
 	{
@@ -134,13 +127,14 @@ float TopOfObjectsUnder(entt::entity entity, const SpellSeed& seed, const glm::v
 		{
 			continue;
 		}
-		const float top = ToMap(transform->position).y + ecs::effects::ObjectHeight(object);
+		// GetTopPos vt +0x630 (0x602388): the MapCoords altitude + GetHeight (vt +0x42C); MapShield 0
+		const float top = ecs::object::GetTopPos(object);
 		if (!(top > best)) // fcomp; test ah, 0x41; jne
 		{
 			continue;
 		}
 		const glm::vec2 d = seedOffset - glm::vec2(CellOffset(transform->position.x), CellOffset(transform->position.z));
-		const float radius = ecs::effects::Object2DRadius(object);
+		const float radius = ecs::object::Get2DRadius(object); // vt +0x64 (0x6023E9, 0x6023F4)
 		if (d.x * d.x + d.y * d.y < radius * radius + seedRadius * seedRadius)
 		{
 			best = top;

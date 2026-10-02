@@ -80,12 +80,6 @@ float ApplyEffect(entt::entity object, EffectValues& values);
 /// (T - Tc) / Tc x defenceMultiplierBurn x 0.1
 [[nodiscard]] float ConvertTemperatureToDamage(entt::entity object, float temperature);
 
-/// Object::GetHeight 0x638120 and Object::Get2DRadius 0x638180 themselves, without the class overrides
-/// (ecs::object::ObjectGetHeight / ObjectGet2DRadius). The virtual calls are ecs::object::GetHeight / Get2DRadius: what is
-/// left here is for the callers not moved yet
-[[nodiscard]] float ObjectHeight(entt::entity object);
-[[nodiscard]] float Object2DRadius(entt::entity object);
-
 /// The fixed list (+4) of one 10 m map cell. (aproximado) openblack's grid (ECS/MapProduction) puts a fixed object only
 /// in the cells whose centre is within its bounding radius + 1 m, so a small tree away from a cell centre is in no cell
 /// at all, while the original links every object into the cell of its position: here the list is the grid's plus every

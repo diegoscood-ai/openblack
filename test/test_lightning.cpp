@@ -272,12 +272,10 @@ TEST(Lightning, lightMapCreatorProperties)
 	EXPECT_EQ(lightMap->numFramesInUse, 16);
 	EXPECT_TRUE(lightMap->useRandJitter);
 	EXPECT_FLOAT_EQ(lightMap->shiftX, 9.97788f);
-	// drawn as a flat additive quad of the 8 x 8 frame atlas
-	EXPECT_EQ(lightMap->kind, psys::Creator::Kind::Sprite);
-	EXPECT_EQ(lightMap->spritesPerRow, 8);
+	// not a sprite: stamped into the land's cells (light_map_atoms::SubmitFrame -> land_light::AddStamp, fn_006CA280)
+	EXPECT_EQ(lightMap->kind, psys::Creator::Kind::Other);
 	EXPECT_EQ(lightMap->numFrames, 16);
-	EXPECT_TRUE(lightMap->horizontal);
-	EXPECT_TRUE(lightMap->additive);
+	EXPECT_EQ(lightMap->bitmap, nullptr); // no such file here
 	EXPECT_TRUE(lightMap->playAnim);
 	EXPECT_FALSE(lightMap->loopAnim);
 	EXPECT_FLOAT_EQ(lightMap->frameRate, 26.0f);

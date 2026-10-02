@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "graphics.smooth-smoke",
+  "name": { "en": "Smooth smoke alpha", "es": "Humo con transparencia suave" },
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Everything drawn with smokea.raw (chimney smoke, clouds, mists, water rings, boat puffs, the night lights' glow) keeps its 8-bit alpha instead of the original's 16 levels.",
+    "es": "Todo lo que se dibuja con smokea.raw (humo de chimeneas, nubes, nieblas, anillos de agua, humo del barco, el brillo de las luces nocturnas) conserva su alfa de 8 bits en vez de los 16 niveles del original."
+  },
+  "api": ">=1.0 <2.0",
+  "restart_required": true,
+  "switches": { "graphics.smooth-smoke": true }
+}

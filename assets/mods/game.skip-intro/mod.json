@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "id": "game.skip-intro",
+  "name": { "en": "Skip the intro", "es": "Saltar la intro" },
+  "version": "1.1.0",
+  "category": "Game",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Gives one of the original's \"skip\" answers to the skip-tutorial question it asked at the start of a new game (openblack does not ask it): Land 1 starts without the opening (FollowUs) and the citadel guide, with the citadel already built, and with the last answer without the creature glade either. \"Free start\" goes further than the original and leaves the opening to the player: nothing moves the camera, locks the interface or plays the script's music.",
+    "es": "Da una de las respuestas «saltar» a la pregunta de saltar el tutorial que el original hacía al empezar partida (openblack no la hace): Land 1 empieza sin la intro (FollowUs) ni el guía de la ciudadela, con la ciudadela ya construida y, con la última respuesta, sin el claro de las criaturas. «Free start» va más allá del original y deja el principio al jugador: nada mueve la cámara, bloquea la interfaz ni pone la música del guion."
+  },
+  "api": ">=1.0 <2.0",
+  "restart_required": true,
+  "enabled_by_default": true,
+  "options": [
+    {
+      "id": "skip", "label": { "en": "Skip", "es": "Saltar" },
+      "values": ["tutorial", "tutorial and creature training", "tutorial, creature training and the glade"],
+      "default": "tutorial, creature training and the glade",
+      "bind": { "game.skip-tutorial": {
+        "tutorial": 1, "tutorial and creature training": 2, "tutorial, creature training and the glade": 3 } }
+    },
+    {
+      "id": "free start", "label": { "en": "Free start", "es": "Inicio libre" },
+      "values": ["on", "off"], "default": "on",
+      "bind": { "game.free-start": { "on": true } }
+    }
+  ]
+}

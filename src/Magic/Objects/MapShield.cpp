@@ -12,7 +12,6 @@
 #include <cmath>
 
 #include <algorithm>
-#include <chrono>
 #include <numbers>
 #include <string>
 
@@ -28,11 +27,14 @@
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -56,8 +58,6 @@ std::vector<entt::entity> g_Shields;
 /// The first shield's creation turn (OPENBLACK_TEST_SHIELD_SHOT counts from it)
 bool g_AnyCreated = false;
 unsigned int g_FirstCreated = 0;
-/// When the last ProcessShields ran: DrawShield lerps with the fraction of the turn since then (g_game +0x205D64)
-std::chrono::steady_clock::time_point g_LastTurn = std::chrono::steady_clock::now();
 
 constexpr float k_TwoPi = 2.0f * std::numbers::pi_v<float>;
 
@@ -80,23 +80,6 @@ float WrapAngle(float angle)
 		wrapped += k_TwoPi;
 	}
 	return wrapped;
-}
-
-/// The mesh's bounding box (the LH3DMesh fields Object::Get2DRadius and GetHeight read: +0x24 / +0x2C and +0x28)
-bool MeshSize(glm::vec3& size)
-{
-	if (!Locator::resources::has_value())
-	{
-		return false;
-	}
-	auto& meshes = Locator::resources::value().GetMeshes();
-	const auto id = resources::HashIdentifier(map_shield::k_Mesh);
-	if (!meshes.Contains(id))
-	{
-		return false;
-	}
-	size = meshes.Handle(id)->GetBoundingBox().Size();
-	return true;
 }
 
 const GMagicShieldInfo* ShieldInfoOf(const MapShield& shield)
@@ -386,7 +369,6 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 
 void map_shield::ProcessShields()
 {
-	g_LastTurn = std::chrono::steady_clock::now();
 	if (g_AnyCreated)
 	{
 		shield_debug::OnTurn(g_FirstCreated, CurrentTurn()); // OPENBLACK_TEST_SHIELD_SHOT (ShieldDebugHooks.cpp)
@@ -407,8 +389,8 @@ void map_shield::ProcessShields()
 
 void map_shield::DrawShields()
 {
-	const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - g_LastTurn).count();
-	const float fraction = std::clamp(elapsed / TurnSeconds(), 0.0f, 1.0f);
+	// PhysicalShield::DrawShield 0x72CEEC / 0x72CF01: the lerps with g_game +0x205D64, the fraction of the turn
+	const float fraction = game_clock::TurnFraction();
 	auto& registry = Locator::entitiesRegistry::value();
 	bool any = false;
 	for (const auto entity : g_Shields)
@@ -489,7 +471,7 @@ bool map_shield::IsPointDefinitelyWithinShieldVolume(entt::entity shield, const 
 	}
 	// 0x72B8E0: a cone of its own 2D radius R and height H: d^2 < R^2 (x, z) and the point's MapCoords altitude (above
 	// the land) below H (1 - d / R)
-	const float r = Get2DRadius(shield);
+	const float r = ecs::object::Get2DRadius(shield); // vt +0x64 (0x72B908)
 	const float dx = p.x - c.x;
 	const float dz = p.z - c.z;
 	const float d2 = dx * dx + dz * dz;
@@ -497,7 +479,7 @@ bool map_shield::IsPointDefinitelyWithinShieldVolume(entt::entity shield, const 
 	{
 		return false;
 	}
-	const float h = GetHeight(shield);
+	const float h = ecs::object::GetHeight(shield); // vt +0x42C (0x72B948)
 	return point.y < h - h * (std::sqrt(d2) / r);
 }
 
@@ -515,38 +497,14 @@ bool map_shield::IsReactionBlockedByShield(const glm::vec3& living, const glm::v
 		{
 			continue;
 		}
-		// GetDistanceInMetres 0x74CD70 (x, z)
-		const float d = glm::length(glm::vec2(living.x - component->position.x, living.z - component->position.z));
-		if (Get2DRadius(entity) > d && !IsPointDefinitelyWithinShieldVolume(entity, source))
+		// GetDistanceInMetres 0x74CD70 (x, z; 0x72B9B2) against the shield's Get2DRadius (vt +0x64, 0x72B9C2)
+		const float d = gutils::GetDistanceInMetres(living, component->position);
+		if (ecs::object::Get2DRadius(entity) > d && !IsPointDefinitelyWithinShieldVolume(entity, source))
 		{
 			return true;
 		}
 	}
 	return false;
-}
-
-float map_shield::Get2DRadius(entt::entity shield)
-{
-	// Object::Get2DRadius 0x638180: the bigger of the mesh's x and z half sizes x GetScale
-	const auto* component = Locator::entitiesRegistry::value().TryGet<const MapShield>(shield);
-	glm::vec3 size;
-	if (component == nullptr || !MeshSize(size))
-	{
-		return 0.0f;
-	}
-	return 0.5f * std::max(size.x, size.z) * component->objectScale;
-}
-
-float map_shield::GetHeight(entt::entity shield)
-{
-	// Object::GetHeight 0x638120: mesh +0x28 x scale x 2 (the half height twice)
-	const auto* component = Locator::entitiesRegistry::value().TryGet<const MapShield>(shield);
-	glm::vec3 size;
-	if (component == nullptr || !MeshSize(size))
-	{
-		return 0.0f;
-	}
-	return size.y * component->objectScale;
 }
 
 bool map_shield::GetPlayer(entt::entity shield, PlayerNames& player)
@@ -593,7 +551,8 @@ bool map_shield::InteractsWithPhysicsObjects(entt::entity shield)
 float map_shield::CollisionScale(entt::entity shield)
 {
 	const auto* component = Locator::entitiesRegistry::value().TryGet<const MapShield>(shield);
-	return component != nullptr ? component->objectScale : 1.0f;
+	// Object::GetScale vt +0x120: the shield's +0x50 (SetScale 0x639200)
+	return component != nullptr ? ecs::object::GetScale(shield) : 1.0f;
 }
 
 void map_shield::ReactToPhysicsImpact(entt::entity shield, const ecs::physics::PhysicsObject& po)

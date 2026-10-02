@@ -689,9 +689,10 @@ diminuto, el «+ 32» de las fiolas redondea a 32.
     u = (W/256)·(f % cols) y v = (H/256)·(f / cols), con f sin signo. Con deslizamiento, u = W·f / (N·256) y
     v = H·f / (N·256) ([0x8D45CC] = 256). openblack añade una guarda: cols ≥ 1.
 - Relojes (tabla de abajo).
-- Cargadores: `LoadStackedFrames` (GetBitmap 0x6A9D40: fotogramas Pitch × Pitch apilados, RGB o grises) y
-  `SampleStackedFrame` (openblack, bilineal); `LoadGif` y `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms
-  valen 100 ms, como en los navegadores).
+- Cargadores: `LoadBitmapFromFile` (`GJBitmap::LoadBitmapFromFile` 0x57CA90: solo con el tamaño exacto, 0x57CAD2;
+  mín(framesInUse, framesInFile) fotogramas de Pitch × Pitch sacados de la rejilla de √n por fila de `fn_0057CB40`) y
+  `FrameTexels` (un fotograma, `fn_006CA280` 0x6CA2E3); `land_light::LoadBitmapFile` lee el archivo. `LoadGif` y
+  `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms valen 100 ms, como en los navegadores).
 - Mods: `DelayClock` (duraciones por fotograma, en bucle, fotogramas enteros; da también la fracción dentro del
   fotograma) y `AnimatedSprite` (celdas o capas consecutivas desde `first`, con `blend` apagado por defecto).
 
@@ -789,6 +790,12 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
   la serie de `rand()` de todo el programa, sembrada con srand(time).
 - TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
+- Los faroles (fn_00823570), las nubes del cielo (su movimiento, su contador de atlas y el alineamiento del cielo,
+  `Renderer::UpdateClouds`), las nieblas del mapa (`CollectMists`, fn_007FA300) y el humo de las chimeneas
+  (`CollectChimneySmoke`, fn_007F8E00) toman también g_game_time_inc de `game_clock::FrameGameMs()` (U7). Antes salía
+  del reloj de pared, escalado por la velocidad del juego y con tope de 100 ms, y los faroles guardaban la fracción de
+  ms (`WholeMilliseconds`, que se quita: el reloj del juego ya da ms enteros y guarda él el resto del turno). Las
+  nieblas y el humo se recogen una vez por fotograma, solo en la vista principal.
 - (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
 - (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
 - HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en
@@ -1077,22 +1084,21 @@ corte 0x96: un poco más finos).
 - Reflejos y sombras dinámicas de la criatura y de los SuperVillagers (no existen aún en openblack).
 - Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
   andamio de los talleres.
+- Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la
+  escala del PSR, fn_0081C780), el aro del orbe que a veces tapa la burbuja según la animación, y que la burbuja ya no
+  parpadea al volver a empezar su atlas.
 - Billboards:
-  - capturas del original para confirmar V4-a (la luna en un borde de la pantalla) y V4-b (un rayo en la mano);
   - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
     `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
   - el oy heredado por el vapor y el humo del fuego;
   - la burbuja con `LookAtCentre`, después del HEAD de Milagros (el trozo está en `U1_changes.md`);
-  - la aprobación de D2b, D2c, RotateAxis, RandomAngle y el corte por near.
 - Texturas animadas:
   - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
     la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
   - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
-  - en las cadenas, el suavizado por puntos medios (0x67BD43..0x67BE78, con [0xD4EC14] = 0) y UseDynamicLighting
-    (la interpolación de SurfRevol ya está, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
+  - en las cadenas, UseDynamicLighting (el suavizado por puntos medios ya está, de milagros2; la interpolación de
+    SurfRevol también, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
   - HandEffects como efectos PSys de verdad;
-  - una captura del rayo en la mano en el original, para comparar el ancho de las cintas;
-  - capturas antes y después (lista de escenas en `dev\tmp_dis\unify\U2_changes.md`).
 - Mallas pegadas al suelo:
   - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
     de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);

@@ -82,9 +82,6 @@ void ToBeDeleted(entt::entity shield);
 /// MapCoords (y above the land).
 [[nodiscard]] bool IsReactionBlockedByShield(const glm::vec3& living, const glm::vec3& source);
 
-/// Object::Get2DRadius 0x638180 / GetHeight 0x638120 of a shield: the mesh's size x Object::GetScale
-[[nodiscard]] float Get2DRadius(entt::entity shield);
-[[nodiscard]] float GetHeight(entt::entity shield);
 /// MapShield::GetPlayer 0x72C150: its spell's player
 [[nodiscard]] bool GetPlayer(entt::entity shield, PlayerNames& player);
 /// MapShield::CreatureMustAvoid 0x72C170 (vt 0x614): a creature that is not controlled by a script (+0x24 & 0x400,

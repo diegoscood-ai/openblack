@@ -19,6 +19,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
@@ -70,7 +71,8 @@ entt::entity NearestTown(const glm::vec3& position, float radius)
 	float bestDistance = radius;
 	Locator::entitiesRegistry::value().Each<const Town, const Transform>(
 	    [&](entt::entity town, const Town& /*unused*/, const Transform& transform) {
-		    const float distance = glm::distance(glm::vec2(position.x, position.z), glm::vec2(transform.position.x, transform.position.z));
+		    // fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70 (0x602112, 0x602193)
+		    const float distance = gutils::GetDistanceInMetres(position, transform.position);
 		    if (distance < bestDistance)
 		    {
 			    bestDistance = distance;
@@ -236,7 +238,7 @@ bool spell_shield::IsUnder(entt::entity spell, const glm::vec3& point, float mar
 {
 	// GetRadius (vt 0x60 -> Get2DRadius 0x72B440: the magnitude) - margin, against the distance to castPos (+0xCC)
 	const auto& component = Locator::entitiesRegistry::value().Get<const Spell>(spell);
-	const float distance = glm::distance(glm::vec2(point.x, point.z), glm::vec2(component.castPos.x, component.castPos.z));
+	const float distance = gutils::GetDistanceInMetres(point, component.castPos); // 0x74CD70 (0x72BD3C)
 	return distance < component.magnitude - margin;
 }
 
@@ -255,8 +257,10 @@ entt::entity spell_shield::FindShieldAt(const glm::vec3& point, uint32_t mask)
 		{
 			continue;
 		}
-		const float distance = glm::distance(glm::vec2(point.x, point.z), glm::vec2(component.castPos.x, component.castPos.z));
-		if (distance <= component.magnitude)
+		// 0x72BA43: GetDistanceInMetres 0x74CD70 (0x72BA4B) from originalCastPos (+0xC0, not castPos +0xCC) to the
+		// point, then Get2DRadius (vt +0x64, 0x72BA5B: the magnitude) `fcomp; test ah, 0x41; je`: radius > distance
+		const float distance = gutils::GetDistanceInMetres(component.originalCastPos, point);
+		if (component.magnitude > distance)
 		{
 			return spell;
 		}

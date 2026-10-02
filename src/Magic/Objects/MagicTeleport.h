@@ -17,6 +17,7 @@
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
+#include "ECS/ObjectMetrics.h"
 #include "Enums.h"
 
 // The teleport stones (MagicTeleport.cpp 0x5FBF50..0x5FCE00): each TELEPORT cast leaves one invisible stone with a
@@ -30,9 +31,9 @@
 
 namespace openblack::magic::teleport
 {
-/// fn_005FCCA0: 6.0 (also MagicTeleport::Get2DRadius 0x5FCCB0), the radius GMagicTeleportInfo's CanCast keeps free of
-/// MultiMapFixed objects
-constexpr float k_Radius = 6.0f;
+/// fn_005FCCA0: 6.0 [0x92C108] (also MagicTeleport::Get2DRadius 0x5FCCB0), the radius GMagicTeleportInfo's CanCast keeps
+/// free of MultiMapFixed objects
+constexpr float k_Radius = ecs::object::k_MagicTeleportRadius;
 /// 0x8C6C98: ShouldLivingThingReact's detour factor
 constexpr float k_DetourFactor = 1.2f;
 /// MagicTeleport::Draw 0x5FCCC0: the invisible hand-collision sphere while the spell still has its seed

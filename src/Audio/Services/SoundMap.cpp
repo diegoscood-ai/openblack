@@ -250,9 +250,15 @@ void CalculateVolumes(const GSoundInfo& info, float skyType, const CameraWeather
 	const float bad = 1.0f - clear;
 	const float maxFade = info.weatherPercentageForMaxFade * 0.01f;
 	const float weatherFade = bad < maxFade ? 1.0f - bad / maxFade : 0.0f;
-	const float windX = weather.windX;
-	const float windZ = weather.windZ;
-	float wind = (std::sqrt(windX * windX + windZ * windZ) - 15.0f) * (1.0f / 30.0f);
+	// 0x71DEC3..0x71DF19: the int8 wind (+4, +5) squared and summed in integers, fild (exact), fsqrt, minus the double 15
+	// (0x980520), times the double 0.033333333333333333 (1 / 30, 0x980518; not the float 1 / 30), stored as a float
+	// (fst [esp+0x10]); then > 1 -> 1, < 0.01f (dword 0x8C5840) -> 0. The FPU is at 24 bits (fn_007DEE00): each step
+	// rounds to a float, the double constant itself does not
+	const int windX = weather.windX;
+	const int windZ = weather.windZ;
+	const float speed = std::sqrt(static_cast<float>(windX * windX + windZ * windZ));
+	const auto above = static_cast<float>(static_cast<double>(speed) - 15.0);
+	auto wind = static_cast<float>(static_cast<double>(above) * 0.033333333333333333);
 	wind = wind > 1.0f ? 1.0f : (wind < 0.01f ? 0.0f : wind);
 
 	vol[static_cast<size_t>(AtmosType::Stratosphere)] = high;

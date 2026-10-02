@@ -238,6 +238,26 @@ float audio::MaxDistance(Sample sample)
 	return sound != nullptr ? sound->maxDistance : 0.0f;
 }
 
+std::optional<audio::Sample> audio::FindSample(BankId bank, std::string_view wavName)
+{
+	// (openblack: the original addresses samples by number only; this is for the mod SDK and tools) the first sample of
+	// the bank whose .sad name (+0x00, the file name part) equals wavName, ignoring case; its number is the .sad's +0x104
+	const auto sameName = [wavName](const std::string& name) {
+		return name.size() == wavName.size() &&
+		       std::equal(name.begin(), name.end(), wavName.begin(), [](char a, char b) {
+			       return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+		       });
+	};
+	for (const auto id : banks::Samples(bank))
+	{
+		if (const auto* sound = sample_play::GetSound(id); sound != nullptr && sameName(sound->name))
+		{
+			return Sample {bank, sound->id};
+		}
+	}
+	return std::nullopt;
+}
+
 // ---- owners -------------------------------------------------------------------------------------------------------
 
 const GameQueries& audio::Queries()

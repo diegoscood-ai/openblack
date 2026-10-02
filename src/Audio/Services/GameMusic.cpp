@@ -76,11 +76,12 @@ bool g_Trace = std::getenv("OPENBLACK_MUSIC_TRACE") != nullptr;
 int DiscreteAlignment(float alignment)
 {
 	// 0x414730: fld a; fsub -1.0 (0x8AB640); fld 1.0; fsub -1.0; fdivp; fmul 7.0 (0x8AB688); below 6.0 (0x8AB35C) it is
-	// kept, else 6.0; __ftol (truncation). The constants are exact in double, as on the x87.
-	double value = (static_cast<double>(alignment) - -1.0) / (1.0 - -1.0) * 7.0;
-	if (!(value < 6.0))
+	// kept, else 6.0; __ftol (truncation). The constants are exact; the game's FPU is at 24 bits (fn_007DEE00, `and cw,
+	// 0xFCFF` at 0x7DEE0D), so each step rounds to a float
+	float value = (alignment - -1.0f) / (1.0f - -1.0f) * 7.0f;
+	if (!(value < 6.0f))
 	{
-		value = 6.0;
+		value = 6.0f;
 	}
 	return static_cast<int>(value);
 }

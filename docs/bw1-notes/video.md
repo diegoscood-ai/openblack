@@ -239,6 +239,37 @@ y `fn_0054DA00`. Como ya no hay `FallingSpellVideo`, ese salto es el normal: si 
 | fall | igual, más los efectos de `FallingSpell::Draw` a tiempo del vídeo (`t = frame·1000/fps`) y `LHMusicStop(1)` a 43,9 s |
 | ESC | `StartScriptMusic(0)`: la música del guion se suelta |
 
+## El descodificador (V5): FFmpeg + los colores de binkw32
+
+**Fiel (comprobado bit a bit).** La imagen sale idéntica a la de `binkw32.dll` 1.0w del juego en los 55 frames de oro
+de los cinco vídeos (0,1,2,10,100 y el último de INTRO/pre_intro/fall; todos los de logo y tips): 19 673 088 téxeles
+555 iguales, el 565 del frame 0 de los cinco también, y el RGBA8 igual al `BINKSURFACE32` del oráculo; también por
+`BinkGoto` (tips/logo en orden revuelto). Prueba: `dev\_scratch\asistente\video\ffmpeg\check\` y su `README.md`.
+
+- **Descodificador:** el `bink` de libavcodec (FFmpeg 7.1.2) alimentado con los paquetes de `BikFile`: `codec_tag` =
+  `BIK` + revisión, tamaño de la imagen y los 4 bytes de flags de vídeo de la cabecera como *extradata* (lo mismo que
+  daría `libavformat/bink.c`; no se usa libavformat). Da YUV 4:2:0 y sus planos coinciden con los de RAD en todos los
+  frames de oro.
+- **Los colores de BinkCopyToBuffer** (dentro de la DLL, no del exe; reconstruidos de los frames de oro):
+  croma **sin interpolar** (un U/V por bloque 2x2) y cuatro tablas 16.16 truncadas hacia cero por separado, sumadas a
+  una luma con *floor* y luego recortadas a 0..255:
+  `y' = max(0, 76309·(Y−16) >> 16)` (Y < 16 → 0; Y > 235 no se recorta);
+  `R = y' + trunc(104597·(V−128)/65536)`; `G = y' + trunc(−25675·(U−128)/65536) + trunc(−53279·(V−128)/65536)`;
+  `B = y' + trunc(132202·(U−128)/65536)`. Son las constantes BT.601 de rango limitado de siempre **salvo la de B**:
+  la clásica 132201 falla en U = 70 (RAD da −117). R, G y B quedan determinados por (Y, U, V) en los 449 685 casos
+  distintos de los frames de oro y el modelo acierta todos.
+- **(aproximado)** Los datos fijan cada constante sólo a un intervalo (Y 76305..76309, Rv 104579..104605, Bu
+  132202..132221, Gu 25674..25683, Gv 53248..53302); dentro de ellos las tablas sólo cambian en cromas extremos. En los
+  cinco vídeos enteros U va de 16 a 212 y V de 40 a 219: el único caso dudoso que aparece es **V = 219** (10 muestras
+  de croma en todo pre_intro.bik), donde G podría ser 1 menos (`k_GreenFromV` en `src/Video/BinkYuv.h`).
+- **FFmpeg recortado:** `vcpkg-overlay-ports/ffmpeg` (el port 7.1.2#3 de vcpkg con
+  `--disable-everything --disable-network --enable-decoder=bink --enable-demuxer=bink --enable-protocol=file`, sin
+  aceleración por hardware ni Media Foundation) y en `vcpkg.json` sólo la *feature* `avcodec`. En Windows x64:
+  `avcodec-61.dll` + `avutil-59.dll` (~1,2 MB), copiadas junto al exe por el paso *applocal* de vcpkg (como `lua.dll`).
+  Primera compilación ~25 min (casi todo el `configure` en msys).
+- **Licencia:** sin `gpl`/`version3`/`nonfree` FFmpeg es **LGPL-2.1-or-later** (`libavcodec/bink.c` incluido),
+  compatible con la GPL-3 de openblack; el overlay aborta si se pide alguna de esas *features*.
+
 ## openblack
 
 Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie llama todavía a `Play`).
@@ -247,7 +278,11 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
   imagen y fps no nulos, tablas dentro, offsets crecientes con el último = tamaño, tamaños de audio); `Fps()` = la
   división entera de 0x844EC2; `FrameData`/`VideoData`/`AudioData`, keyframes.
 - `src/Video/VideoDecoder.h`: `IVideoDecoder` (`Open`, `DecodeNext(i)` → RGBA8; vacío = el frame falló y se queda la
-  imagen anterior) y `NullVideoDecoder` (negro opaco). El de verdad es V5.
+  imagen anterior) y `NullVideoDecoder` (negro opaco: para los tests, y de reserva si el descodificador rechaza una
+  película válida, que entonces se ve en negro con su pausa, fundido y salto).
+- `src/Video/FfmpegDecoder.{h,cpp}` (**V5**, fiel: ver arriba) y `src/Video/BinkYuv.h` (las tablas de color de
+  binkw32): el descodificador por defecto de `GameHooks()`. `DecodeNext(i)` en orden descodifica un paquete; otro `i`
+  (`BinkGoto`) vuelve al último *key frame* <= i y descodifica desde ahí.
 - `src/Video/VideoPlayer.{h,cpp}` (**V2**): `video::VideoPlayer` con los campos del original y su dirección. `Play` =
   `PlayFullScreenMovie` + `fn_0054AB20` (el reproductor existe aunque no abra); `SetSchedule`/`ScheduleIntro` = 58·fps /
   60·fps; `Process(realMs)` = `Process3dEngine` 0x54DAB5..0x54DD76 + `VideoPoll` + `DecodeNextFrame`; `Skip` =
@@ -268,8 +303,8 @@ Diferencias:
   parón largo openblack descodifica de golpe lo atrasado (sólo se ve el último) donde el original iría de uno en uno
   cada 16 ms.
 - **(aproximado)** La espera de hasta 0,5 s (0x54DB85..0x54DBD1) no bloquea: se queda la última imagen.
-- **(aproximado)** El paso a 16 bits parte del RGBA8 del descodificador (`v >> 3`), no del YUV→555 de la DLL: lo
-  comprobará V5 contra los frames de oro (el 555 de la DLL es exactamente `rgb32 >> 3`).
+- Fiel desde V5: el paso a 16 bits parte del RGBA8 del descodificador y da el mismo 555/565 que el YUV→555 de la DLL
+  (comprobado contra los frames de oro).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
   estadísticas, el mosaico de 256x256 (V3 usará una textura), `GAudio+0x1C = −1` (audio no tiene cómo; `ProcessMusic`
@@ -281,7 +316,7 @@ Diferencias:
 |---|---|---|
 | V3 | El dibujo: textura RGBA8 que se sube cuando cambia `serial`, quad 2D con `FullScreenRect` (no `LetterboxHeight`) y `colour` como color de vértice, en `RenderPass::ScreenOverlay`; no dibujar el mundo mientras `CoversScreen()` pero sí el fundido del guion y las barras/textos de `HelpSystem::Draw3D`; `OPENBLACK_TEST_VIDEO` | sesión *sistemas* / *shaders* (Renderer, shaders) |
 | V4 | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
-| V5 | El descodificador: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, comprobado contra los frames de oro | OK del usuario a la dependencia |
+| V5 | **Hecho**: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, bit a bit igual a binkw32 en los frames de oro | — |
 | V6 | `fall.bik`: `KickOff/EndFallingSpellVideo`, alpha 0x50, el mundo debajo, fin con `FallingSpell+0x20 == 4`, `SetFallingSpellVideo` y el gancho `endFallingSpellVideo` | con *milagros* (no hay `FallingSpell`) |
 | V7 | `tips.bik` en la pantalla de carga | bloqueado: no hay pantalla de carga |
 | V8 | `logo.bik` y `pre_intro.bik` al arrancar, con `trailer.sad` | bloqueado: no hay front end ni perfiles; audio de *audio* |
@@ -305,7 +340,10 @@ Diferencias:
   salto), ESC con Shift/Ctrl/byte 0xD01984, hechizo, película sustituida, 555 y 565, decodificador nulo, frames
   fallidos.
 - `test_rgb16` (5): las ramas 555 y 565 de fn_00837400 emuladas, expansión, cortes, spans.
-- Juego: ninguno hasta V3/V4 (`OPENBLACK_TEST_VIDEO=<ruta|intro|fall|…>`, `OPENBLACK_VIDEO_TRACE`).
+- `test_ffmpeg_decoder` (7): las tablas de color y el croma sin interpolar; con la carpeta del juego, el CRC-32 del
+  555 de logo.bik (frames 0 y 1, y vuelta al 0), tips.bik por salto (34, 20, 34) e INTRO.bik frame 10 en orden,
+  contra los `.bin` de oro de la DLL (sólo los CRC están en el test).
+- Juego: ninguno hasta V3/V4 (`OPENBLACK_TEST_VIDEO=<ruta|intro|fall|…>`, de sistemas con V3).
 
 ## Fuentes
 
@@ -314,3 +352,5 @@ Diferencias:
 - `dev\_scratch\asistente\video\golden\README.md` (frames de oro de la DLL; 555 = flag 9 en 0x845146) y
   `oracle\` (el exe de 32 bits que los saca).
 - `dev\_scratch\asistente\video\patch12\README.md` y `audit.md` (V1-V2 y su auditoría).
+- `dev\_scratch\asistente\video\ffmpeg\README.md` (V5: el overlay, tamaños, la reconstrucción de los colores y
+  la comparación con los frames de oro) y `patch5\README.md` (cómo se aplica).

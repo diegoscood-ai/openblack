@@ -128,7 +128,7 @@ public:
 		std::function<std::unique_ptr<IVideoDecoder>()> makeDecoder;
 	};
 	/// openblack's hooks: game_clock::Pause / IsPaused, help::Get()'s wide screen (nothing without a HelpSystem),
-	/// audio::game_music's ScriptStopMusic, NullVideoDecoder
+	/// audio::game_music's ScriptStopMusic, FfmpegDecoder (NullVideoDecoder when it refuses the film)
 	[[nodiscard]] static Hooks GameHooks();
 
 	/// What the renderer draws (milestone V3): LHVideoPlayer::DrawToScreen's colour and the textures of the mosaic

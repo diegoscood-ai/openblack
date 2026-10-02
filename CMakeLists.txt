@@ -112,6 +112,7 @@ find_package(EnTT 3.7.0 CONFIG REQUIRED) # only available as a config
 find_package(nlohmann_json CONFIG REQUIRED) # mod manifests (src/Mods/Manifest.cpp)
 find_package(Lua REQUIRED) # Lua mods (src/Mods/Lua)
 find_package(sol2 CONFIG REQUIRED)
+find_package(FFMPEG REQUIRED) # Bink video (src/Video/FfmpegDecoder.cpp): vcpkg-overlay-ports/ffmpeg, libavcodec
 find_path(CXXOPTS_INCLUDE_DIRS "cxxopts.hpp")
 
 include(ClangFormat)

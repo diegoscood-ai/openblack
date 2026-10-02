@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/GameMusic.h"
+#include "FfmpegDecoder.h"
 #include "GameClock.h"
 #include "Help/HelpSystem.h"
 
@@ -86,7 +87,7 @@ VideoPlayer::Hooks VideoPlayer::GameHooks()
 			gameMusic->ScriptStopMusic();
 		}
 	};
-	hooks.makeDecoder = []() -> std::unique_ptr<IVideoDecoder> { return std::make_unique<NullVideoDecoder>(); };
+	hooks.makeDecoder = []() -> std::unique_ptr<IVideoDecoder> { return std::make_unique<FfmpegDecoder>(); };
 	return hooks;
 }
 
@@ -141,6 +142,17 @@ bool VideoPlayer::Open(const std::filesystem::path& path, int32_t fadeSeconds)
 	{
 		movie.decoder = _hooks.makeDecoder ? _hooks.makeDecoder() : std::make_unique<NullVideoDecoder>();
 		opened = movie.decoder != nullptr && movie.decoder->Open(movie.file);
+		if (!opened)
+		{
+			// openblack: binkw32 decodes whatever BinkOpen opened; here a decoder can still refuse a valid container
+			// (FFmpeg built without the bink decoder): the film then plays black, with its pause, fade and skip
+			if (auto logger = spdlog::get("game"); logger != nullptr)
+			{
+				logger->warn("Video: the decoder refused the film {}: playing it black", path.string());
+			}
+			movie.decoder = std::make_unique<NullVideoDecoder>();
+			opened = movie.decoder->Open(movie.file);
+		}
 	}
 	movie.fps = 1; // 0x844EA1
 	if (opened)

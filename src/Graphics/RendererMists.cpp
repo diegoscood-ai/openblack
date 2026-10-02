@@ -42,8 +42,10 @@
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mists.h"
 #include "Graphics/ModelLight.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -278,8 +280,13 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 		const float t = depth < haze.x ? 0.0f : haze.w * glm::clamp((depth - haze.x) / (haze.y - haze.x), 0.0f, 1.0f);
 		light = glm::floor(light * (256.0f - std::trunc((256.0f - haze.z) * t)) / 256.0f);
 		specular = glm::min(sample.specular + glm::floor(glm::vec3(_hazeUniforms[1]) * t + 0.5f), glm::vec3(255.0f));
-		// 0x7FA6C8: the colour times that light, byte by byte (c l / 255), then the models' light and ambient 90
-		rgb = glm::floor(rgb * light / 255.0f);
+		// 0x7FA6C8: the colour times that light, byte by byte (c l / 255, the colour's alpha kept), then the models'
+		// light and ambient 90
+		const uint32_t lit = lh3d_colour::Mul255_3KeepA(
+		    mist.colour, lh3d_colour::Argb(static_cast<uint32_t>(light.r), static_cast<uint32_t>(light.g),
+		                                   static_cast<uint32_t>(light.b)));
+		rgb = glm::vec3(static_cast<float>(lh3d_colour::Red(lit)), static_cast<float>(lh3d_colour::Green(lit)),
+		                static_cast<float>(lh3d_colour::Blue(lit)));
 	}
 	// fn_007FA300 0x7FA3F4..0x7FA466 / 0x7FA69E: one whole cell, no blend (frame_anim::MistCell, MistCellUv)
 	const auto cell = frame_anim::MistCellUv(frame_anim::MistCell(mist.counter), mist.edgeShrink);
@@ -306,7 +313,8 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 			}
 			subMesh->GetMesh().GetVertexBuffer().Bind();
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+			// the smoke material [0xEA1ABC] (fn_007FA300 0x7FA30E): mode 6, two-sided
+			bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}

@@ -445,19 +445,11 @@ glm::vec2 FleeingPosition(glm::vec2 me, glm::vec2 object, glm::vec2 movement, fl
 	return glm::dot(perp, me - object) >= 0.0f ? me + f : me - f;
 }
 
-/// GetRadius vt +0x60 (0x639574, 0x63957F): ecs::object::GetRadius, with the class overrides (a Field is 5 m)
-float Radius2D(entt::entity entity)
-{
-	return object::GetRadius(entity);
-}
-
-/// Object::GetWorkingPos(me) (0x639550): on the object's rim facing it, the two radii apart
+/// Object::GetWorkingPos(me) (0x639550): on the object's rim facing it, the two radii (GetRadius vt +0x60) apart
+/// (ecs::object::GetWorkingPos)
 glm::vec2 WorkingPos(entt::entity object, entt::entity me)
 {
-	const glm::vec2 at = PosOf(object);
-	const glm::vec2 d = PosOf(me) - at;
-	const float r = Radius2D(object) + Radius2D(me);
-	return glm::length(d) > 0.0f ? at + glm::normalize(d) * r : at;
+	return map_coords::ToMetres(object::GetWorkingPos(object, me));
 }
 } // namespace
 
@@ -628,7 +620,7 @@ void FleeingFromObjectReaction(Context& ctx)
 	if (d > Info(TypeOf(*reaction)).minDistanceToRunAwayFromObject && !ComingTowards(me, at, movement))
 	{
 		SetTopState(ctx, AnimalState::FleeingAndLookingAtObjectReaction);
-		ctx.brain.angle = AngleOf(at - me);
+		ctx.brain.angle = gutils::GetAngleFromXZ(me, at);
 		FaceAngle(ctx.transform, ctx.brain.angle);
 		return;
 	}
@@ -655,7 +647,7 @@ void FleeingAndLookingReaction(Context& ctx)
 		StopReactingAndSetState(ctx);
 		return;
 	}
-	SetTowardsAngle(ctx, AngleOf(at - me), glm::distance(me, at));
+	SetTowardsAngle(ctx, gutils::GetAngleFromXZ(me, at), glm::distance(me, at));
 	FaceAngle(ctx.transform, ctx.brain.angle);
 }
 

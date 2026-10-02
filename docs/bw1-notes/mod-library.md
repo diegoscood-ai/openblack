@@ -33,6 +33,7 @@ carga, dibuja la ventana **Mods** y guarda el estado de cada uno en su `settings
   - [graphics.mipmaps](#graphicsmipmaps)
   - [graphics.anisotropic](#graphicsanisotropic)
   - [graphics.terrain-x2](#graphicsterrain-x2)
+  - [graphics.smooth-smoke](#graphicssmooth-smoke)
   - [graphics.hd-tweaks](#graphicshd-tweaks)
   - [water.living](#waterliving)
   - [world.ground-statics](#worldground-statics)
@@ -389,6 +390,7 @@ valores, comprobado en `test_mods` `BuiltinModsSetTheOldValues`):
 | [`graphics.mipmaps`](#graphicsmipmaps) | — | Mipmaps y filtrado trilineal | sí |
 | [`graphics.anisotropic`](#graphicsanisotropic) | — | Filtrado anisótropo (incluye los mipmaps) | sí |
 | [`graphics.terrain-x2`](#graphicsterrain-x2) | `repeat` x1/**x2**/x3/x4, `upscale` **off**/on, `cliffs` **triplanar**/stretched | Terreno y mar más nítidos | sí |
+| [`graphics.smooth-smoke`](#graphicssmooth-smoke) | — | Todo lo que usa `smokea.raw` (humo, nubes, nieblas, anillos de agua, bocanadas de barco, brillo de las luces nocturnas) con el alfa de 8 bits (sin el corte a 16 niveles) | sí |
 | [`graphics.hd-tweaks`](#graphicshd-tweaks) | `textures` **hd**/original, `smooth` off/soft/**round**, `light` **smooth**/original, `sharp` **on**/off, `detail` **high**/original | Aldeanos, animales y mano mejor vistos | no |
 | [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
 | [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
@@ -458,7 +460,17 @@ Opciones `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. H
 - **El mar** también: su periodo de repetición (560 a nivel de detalle 4) se divide por las repeticiones, la
   ondulación por filas del original se divide igual (si no, mueve la textura el triple y deja bandas) y con `upscale`
   `sky.raw`/`skya.raw` se escalan ×2 con Lanczos al cargarse (`Texture2DLoader`, que además copia los datos: antes
-  pasaba a bgfx una referencia a un vector local).
+  pasaba a bgfx una referencia a un vector local). Después del escalado se cortan a ARGB4444 como en el original
+  ([rendering.md](rendering.md#texturas-argb4444)).
+
+### graphics.smooth-smoke
+
+- Sin opciones. Hace falta reiniciar.
+- `smokea.raw` conserva sus 8 bits de alfa en todo lo que lo usa: humo de chimeneas, nubes, nieblas, anillos de agua,
+  bocanadas de barco y el brillo de las luces nocturnas (`NightLights`). El original lo corta a 16 niveles (ARGB4444,
+  `fn_00837400`; ver [rendering.md](rendering.md#texturas-argb4444)), por ejemplo 228 → 238/255.
+- Implementación: `Mods/Builtin/SmoothSmokeMod.cpp` pone `EngineConfig::smoothSmokeAlpha`, y `Texture2DLoader` se
+  salta el corte de `smokea`. Era el aspecto de openblack antes de que existiera el corte al cargar.
 
 ### graphics.hd-tweaks
 

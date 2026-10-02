@@ -88,6 +88,8 @@ void RegisterEngineSwitches()
 	      "Landscape material textures repeated this many times per block (1 = the original)");
 	Field("graphics.terrain.triplanar", &C::terrainTriplanar, When::MapLoad, 0, 1,
 	      "Steep landscape faces take the materials from the side instead of stretching them");
+	Field("graphics.smooth-smoke", &C::smoothSmokeAlpha, When::Restart, 0, 1,
+	      "raw/smokea (smoke, clouds, mists...) keeps its 8-bit alpha instead of the original's ARGB4444 cut (16 levels)");
 	Field("graphics.hd-tweaks.textures", &C::hdTweaksTextures, When::Live, 0, 1,
 	      "Villager and animal textures replaced by the HD images of Mods/graphics.hd-tweaks");
 	Field("graphics.hd-tweaks.smooth", &C::hdTweaksSmoothLevel, When::Live, 0, 3,

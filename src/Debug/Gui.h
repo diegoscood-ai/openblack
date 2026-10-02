@@ -27,6 +27,7 @@
 
 namespace openblack::debug::gui
 {
+
 class Window;
 
 class Gui final: public DebugGuiInterface

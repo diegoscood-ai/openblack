@@ -21,7 +21,6 @@
 #include <glm/gtc/constants.hpp>
 #include <spdlog/spdlog.h>
 
-#include "ECS/AnimalAIDetail.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Mobile.h"
@@ -29,6 +28,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
@@ -48,8 +48,6 @@ namespace
 std::function<std::vector<entt::entity>(int, int)> g_CellObjectsForTests;
 std::function<float(entt::entity)> g_RadiusForTests;
 
-/// ConvertGameAngleTo3D 0x74DC50's factor (0x99A1CC, 0x3B490FDB)
-constexpr float k_GameAngleTo3D = 0.0030679617f;
 std::vector<entt::entity> CellObjects(int cellX, int cellZ)
 {
 	if (g_CellObjectsForTests)
@@ -164,21 +162,19 @@ float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b)
 
 uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b)
 {
-	// 0x74D200: LHArcTan(dx, dz) & 0xFFFF
-	return animal_ai::detail::AngleOfMapCoords(b.x - a.x, b.y - a.y);
+	return gutils::GetAngleFromXZ(a, b); // 0x74D240
 }
 
 float Get3DAngleFromXZ(glm::ivec2 a, glm::ivec2 b)
 {
-	// 0x74D270 -> 0x74DC50: (angle & 0x7FF), fild qword, fmul 0x99A1CC
-	return static_cast<float>(GetAngleFromXZ(a, b) & 0x7FF) * k_GameAngleTo3D;
+	return gutils::Get3DAngleFromXZ(a, b); // 0x74D270
 }
 
 glm::ivec2 GetPosFromAngle(float angle, float metres)
 {
-	// 0x74D58F..0x74D5C0: fcos / fsin, x metres, then GUtils' own x 65536 [0x8AC408] / 10 [0x99A1BC] and ftol
-	// (y = ftol(0 / 10) = 0). All of it in float: the FPU is at 24 bits
-	return {map_coords::ToFixedGUtils(std::cos(angle) * metres), map_coords::ToFixedGUtils(std::sin(angle) * metres)};
+	// 0x74D580: the cosine in double, rounded once by the product with the distance as the fcos; fmul of the original
+	const auto pos = gutils::GetPosFromAngle(angle, metres);
+	return {pos.x, pos.z};
 }
 
 uint32_t GetMapCellSpiralSizeFromRadius(float radius)

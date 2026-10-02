@@ -28,6 +28,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
+#include "Audio/Guidance.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Pot.h"
@@ -364,16 +365,18 @@ uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper
 		                   position.z, Get2DRadius(pile));
 	}
 	SetSpeedUp(pile, speedUp || pot.speedUp); // vt 0x864
-	// (pendiente) the guidance voice. Pot::AddResourceToPos 0x66F4D8..0x66F509 calls GGuidance::ResourceDropSFX 0x71B570
-	// only with a status that is GGame::MyInterfaceStatus 0x555880 (this is `dropper.isMyInterface`), passing the drop
-	// point and a RESOURCE_RAIN_TYPE: 1 for food (type 0) and 2 for wood (type 1), 0 for anything else (0x66F4EB..0x66F502).
-	// 0x71B570 then: GGuidance::PlayNow(1) on the status's guidance (+0x30) must answer non-zero; the nearest town within
-	// 100 m ([0x98013C], MapCoords::GetNearestTown 0x6020E0); GGuidance::GetResourceDropSample 0x71B5F0, which sums three
-	// of that town's floats (food: +0xC4 + +0x108 + +0x19C; wood: +0xC8 + +0x10C + +0x1A0) and, above 0.5 ([0x980140]),
-	// picks a HELP_TEXT id with LocalRand(3) out of 0x1352/0x1353/0x1354 for food or 0x1355/0x1356/0x1357 for wood,
-	// above 0.25 ([0x980144]) out of 0x135B/0x135C/0x135D for food (wood keeps the same three), and nothing below; then
-	// GGuidance::PlaySample 0x71C6F0 (1, sample, player +0xB5, 1, 0x7F, 0x64, 0x5A, the drop point, 200 [0x980148], 1).
-	// Not ported: openblack has neither the guidance channel (Audio/Voices.h, milestone B7) nor those town fields.
-	static_cast<void>(dropper.isMyInterface);
+	// Pot::AddResourceToPos 0x66F4D8..0x66F509 calls GGuidance::ResourceDropSFX 0x71B570 only with a status that is
+	// GGame::MyInterfaceStatus 0x555880 (this is `dropper.isMyInterface`), passing the drop point and a RESOURCE_RAIN_TYPE:
+	// 1 for food (type 0) and 2 for wood (type 1), 0 for anything else (0x66F4EB..0x66F502). 0x71B570 then: GGuidance::
+	// PlayNow(1); the nearest town within 100 m ([0x98013C], MapCoords::GetNearestTown 0x6020E0); GetResourceDropSample
+	// 0x71B5F0 (the town's three need floats; above 0.5 [0x980140] 0x1352..0x1354 food / 0x1355..0x1357 wood, above 0.25
+	// [0x980144] 0x135B..0x135D food, wood keeps the same three); GGuidance::PlaySample 0x71C6F0 (Audio/Guidance.*)
+	if (dropper.isMyInterface)
+	{
+		const auto rain = type == ResourceType::Wood   ? audio::guidance::RainType::Wood
+		                  : type == ResourceType::Food ? audio::guidance::RainType::Food
+		                                               : audio::guidance::RainType::None;
+		audio::guidance::ResourceDropSFX(position, rain);
+	}
 	return amount - left; // 0x66F511: eax = amount - left on every path, so the new pile's part is not counted
 }

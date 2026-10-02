@@ -157,12 +157,23 @@ bool Formation(Context& ctx, const Flock& flock)
 	}
 	const int column = ((b * b - k) * s + 1) / 2;
 	const int row = b - 5;
-	const glm::vec2 at = Xz(registry.Get<const Transform>(leader));
-	const auto a = static_cast<uint16_t>(
-	    (AngleOfMapCoords(row, column) + AngleOf(at - Xz(ctx.transform)) + 0x400) & 0x7FF);
-	const float radians = static_cast<float>(a) * glm::two_pi<float>() / k_Circle;
-	const glm::vec2 goal = at + glm::vec2(std::cos(radians) * static_cast<float>(row) * 10.0f,
-	                                      std::sin(radians) * static_cast<float>(column) * 10.0f);
+	const auto at = map_coords::FromMetres(Xz(registry.Get<const Transform>(leader)));
+	// 0x41E96A..0x41E98A: ConvertGameAngleTo3D(GetAngleFromDXDZ(row, column) + GetAngleFromXZ(me, leader) + 0x400),
+	// the mask the conversion's own
+	const float radians = gutils::ConvertGameAngleTo3D(gutils::GetAngleFromDXDZ(row, column) +
+	                                                   gutils::GetAngleFromXZ(map_coords::FromMetres(Xz(ctx.transform)), at) + 0x400);
+	// 0x41E98F..0x41EA05: not AddDistanceFromAngle (row on x, column on z, and fimul then fmul 10 [0x8AB470]: two
+	// roundings): x = ftol(((cos(a) row) 10 + leader.x x 10 x 2^-16) x 65536 / 10), z the same with sin and column.
+	// fcos is extended and the fimul rounds it once: the cosine in double
+	const auto axis = [](double trig, int32_t count, int32_t centre) {
+		const auto scaled = static_cast<float>(trig * static_cast<double>(count)); // fimul
+		const float metres = scaled * 10.0f;                                     // fmul qword 10
+		const float sum = metres + map_coords::ToMetres(centre);                 // fild; fmul 10; fmul 2^-16; faddp
+		return map_coords::ToFixedGUtils(sum);                                   // fmul 65536; fdiv 10; __ftol
+	};
+	const map_coords::MapCoords coords {axis(std::cos(static_cast<double>(radians)), row, at.x),
+	                                    axis(std::sin(static_cast<double>(radians)), column, at.z), 0.0f};
+	const glm::vec2 goal = map_coords::ToMetres(coords);
 	const auto* leaderBrain = registry.TryGet<const AnimalBrain>(leader);
 	SetupMoveTo(ctx, goal, leaderBrain != nullptr ? leaderBrain->altitude : ctx.brain.altitude, AnimalState::DecideWhatToDo);
 	return true;
@@ -318,10 +329,14 @@ void FollowFlock(Context& ctx)
 
 void BirdDying(Context& ctx)
 {
-	// Dove::Dying (0x41F1B0): InitialisePhysics with its flight velocity along its heading
-	const float theta = static_cast<float>(ctx.brain.angle) * glm::two_pi<float>() / k_Circle;
+	// Dove::Dying (0x41F1B0): InitialisePhysics with its flight velocity along its heading: s =
+	// ConvertGameAngleToScawenAngle(+0x5C) (0x41F1BB), then (sin(s) v, 0, -(cos(s) v)) (0x41F1D5..0x41F220; fsin /
+	// fcos extended, rounded once by the fmul: in double here)
+	const double scawen = gutils::ConvertGameAngleToScawenAngle(ctx.brain.angle);
 	const float speed = Metres(ctx.brain.speed) * 10.0f;
-	const glm::vec3 velocity(std::cos(theta) * speed, 0.0f, std::sin(theta) * speed);
+	const auto x = static_cast<float>(std::sin(scawen) * static_cast<double>(speed));
+	const auto z = static_cast<float>(std::cos(scawen) * static_cast<double>(speed));
+	const glm::vec3 velocity(x, 0.0f, -z);
 	// the spin (5, 0, 0) is about the BODY's x axis: PhysicsObject::AddObject 0x6443A0 adds (w I) through the matrix rows,
 	// and PhysOb::Integrate 0x7FE260 turns the other way to openblack's PhysOb, so here it is -(R (5, 0, 0))
 	const glm::vec3 spin = -(ctx.transform.rotation * glm::vec3(5.0f, 0.0f, 0.0f));

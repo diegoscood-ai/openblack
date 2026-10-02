@@ -9,6 +9,7 @@
 
 #include "PhysicsShadows.h"
 
+#include <cmath>
 #include <cstring>
 
 #include <algorithm>
@@ -46,6 +47,7 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/RenderPass.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/VertexBuffer.h"
@@ -242,8 +244,11 @@ void PhysicsShadows::Draw(const ShaderManager& shaders)
 					{
 						texture = skin->second.get();
 					}
-					const glm::vec4 u_shadowParams = {prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-					                                  texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
+					// x: ALPHAREF / 255 of the primitive's mode, -1 without alpha test (inferido: the normal table)
+					const auto alpha = render_modes::PrimitiveAlpha(
+					    static_cast<render_modes::Mode>(prim.materialType), render_modes::Table::Normal,
+					    static_cast<uint8_t>(std::lround(prim.alphaCutoutThreshold * 255.0f)));
+					const glm::vec4 u_shadowParams = {alpha.ref, texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
 					program->SetUniformValue("u_shadowParams", &u_shadowParams);
 					if (texture != nullptr)
 					{

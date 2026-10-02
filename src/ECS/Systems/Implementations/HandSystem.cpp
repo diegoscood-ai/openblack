@@ -69,6 +69,7 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Abodes.h"
 #include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -377,6 +378,20 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		{
 			_pendingPick = _hovered;
 			_pendingPickTime = 0.0f;
+		}
+	}
+	else if (actionPressed && !_held && !_hovered && !gripping && _cursorObject &&
+	         Locator::entitiesRegistry::value().Valid(*_cursorObject) && abodes::InterfaceValidToTap(*_cursorObject))
+	{
+		// GInterface::ActionPressed fn_005D1330 sends the object under the cursor to StartGrab 0x5D1740 when it can go into
+		// the hand or it is only tappable (Abode::InterfaceValidToTap 0x406820 = 1, so FindObjectUnderHand leaves abodes
+		// out: they are never hovered for a pick-up). An abode cannot go into the hand (Object::ValidForPlaceInHand
+		// 0x402870 = 0), so StartGrab taps it at once -> Tap 0x5D3930 -> SendTap 0x5D38A0, which needs the hand inside the
+		// influence (Object::InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1) -> packet 0x20 ->
+		// Abode::InterfaceTap 0x406830: knocking on the roof.
+		if (TapInInfluence())
+		{
+			abodes::InterfaceTap(*_cursorObject, _interactionPoint.value_or(glm::vec3(0.0f)));
 		}
 	}
 	else if (actionPressed && !_held && !_hovered && !gripping && _interactionPoint && TryPickUpFish(*_interactionPoint))

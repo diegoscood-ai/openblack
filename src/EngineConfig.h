@@ -71,6 +71,8 @@ struct EngineConfig
 	float terrainTextureDensity {1.0f};
 	/// Steep landscape faces take the materials from the side (triplanar) instead of stretching the top-down projection.
 	bool terrainTriplanar {false};
+	/// raw/smokea (smoke, clouds, mists) keeps its 8-bit alpha instead of the original's ARGB4444 cut (16 levels).
+	bool smoothSmokeAlpha {false};
 	/// Grass, flowers and bushes over the landscape (3D/Foliage, rules in Mods/world.foliage/foliage.cfg): plants per
 	/// cell multiplier, 0 = none, and the distance they are drawn to.
 	float foliageDensity {0.0f};

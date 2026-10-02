@@ -34,6 +34,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Enums.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "Graphics/Lh3dColour.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/SpellSeed.h"
@@ -173,7 +174,8 @@ Band MakeBand(int index, float start, bool permanent, float duration, uint8_t al
 		const uint32_t rgb = psys::surf_revol::PlayerColour(static_cast<int>(PlayerNames::PLAYER_ONE));
 		registry.Assign<ObjectColour>(
 		    band.entity,
-		    ObjectColour {{static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8), static_cast<uint8_t>(rgb)}});
+		    ObjectColour {{static_cast<uint8_t>(lh3d_colour::Red(rgb)), static_cast<uint8_t>(lh3d_colour::Green(rgb)),
+		                   static_cast<uint8_t>(lh3d_colour::Blue(rgb))}});
 		registry.Assign<HandFxPart>(band.entity);
 		registry.SetDirty();
 	}

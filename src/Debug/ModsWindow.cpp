@@ -259,7 +259,7 @@ void ModsWindow::DrawRestartNotice() noexcept
 
 	ImGui::TextColored(k_Yellow, "Takes effect after a restart: %s", names.c_str());
 	ImGui::SameLine();
-	if (ImGui::SmallButton("Restart openblack now"))
+	if (MenuClick(ImGui::SmallButton("Restart openblack now")))
 	{
 		mods::restart::Request();
 	}
@@ -273,13 +273,13 @@ void ModsWindow::DrawRestartNotice() noexcept
 			ImGui::BulletText("%s", mod->GetInfo().name.c_str());
 		}
 		ImGui::Spacing();
-		if (ImGui::Button("Restart openblack now"))
+		if (MenuClick(ImGui::Button("Restart openblack now")))
 		{
 			mods::restart::Request();
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Later"))
+		if (MenuClick(ImGui::Button("Later")))
 		{
 			ImGui::CloseCurrentPopup();
 		}
@@ -305,7 +305,7 @@ void ModsWindow::DrawModpacks() noexcept
 		ImGui::SameLine();
 		ImGui::BeginGroup();
 		bool enabled = registry.IsModpackEnabled(pack);
-		if (ImGui::Checkbox("##on", &enabled))
+		if (MenuClick(ImGui::Checkbox("##on", &enabled)))
 		{
 			registry.SetModpackEnabled(pack, enabled);
 		}
@@ -345,7 +345,7 @@ void ModsWindow::DrawModEntry(Mod& mod, int indent) noexcept
 	bool enabled = mod.IsEnabled();
 	ImGui::BeginDisabled(!info.parent.empty() && registry.Find(info.parent) != nullptr &&
 	                     !registry.IsActive(*registry.Find(info.parent)));
-	if (ImGui::Checkbox("##on", &enabled))
+	if (MenuClick(ImGui::Checkbox("##on", &enabled)))
 	{
 		registry.SetEnabled(mod, enabled);
 	}
@@ -379,7 +379,7 @@ void ModsWindow::DrawMods() noexcept
 	ImGui::BeginChild("ModList", ImVec2(k_ListWidth, 0.0f), true);
 	if (!_packFilter.empty())
 	{
-		if (ImGui::SmallButton("< All loose mods"))
+		if (MenuClick(ImGui::SmallButton("< All loose mods")))
 		{
 			_packFilter.clear();
 			_selectedMod.clear();
@@ -388,7 +388,7 @@ void ModsWindow::DrawMods() noexcept
 		{
 			ImGui::SameLine();
 			bool enabled = registry.IsModpackEnabled(*pack);
-			if (ImGui::Checkbox("Whole pack", &enabled))
+			if (MenuClick(ImGui::Checkbox("Whole pack", &enabled)))
 			{
 				registry.SetModpackEnabled(*pack, enabled);
 			}
@@ -486,7 +486,7 @@ void ModsWindow::DrawModDetails(Mod& mod) noexcept
 	ImGui::TextColored(k_Grey, "%s%s%s", info.category.c_str(), info.pack.empty() ? "" : "  -  modpack ",
 	                   info.pack.c_str());
 	bool enabled = mod.IsEnabled();
-	if (ImGui::Checkbox("Enabled", &enabled))
+	if (MenuClick(ImGui::Checkbox("Enabled", &enabled)))
 	{
 		registry.SetEnabled(mod, enabled);
 	}
@@ -529,7 +529,7 @@ void ModsWindow::DrawModDetails(Mod& mod) noexcept
 			{
 				for (size_t choice = 0; choice < option.choices.size(); ++choice)
 				{
-					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
+					if (MenuClick(ImGui::Selectable(option.choices[choice].c_str(), choice == option.value)))
 					{
 						registry.SetOption(mod, i, choice);
 					}
@@ -645,12 +645,12 @@ void ModsWindow::DrawLoadOrder() noexcept
 		}
 		ImGui::TextColored(k_Grey, "%s", after.c_str());
 		ImGui::TableNextColumn();
-		if (ImGui::ArrowButton("up", ImGuiDir_Up))
+		if (MenuClick(ImGui::ArrowButton("up", ImGuiDir_Up)))
 		{
 			registry.MoveInLoadOrder(mod, -1);
 		}
 		ImGui::SameLine();
-		if (ImGui::ArrowButton("down", ImGuiDir_Down))
+		if (MenuClick(ImGui::ArrowButton("down", ImGuiDir_Down)))
 		{
 			registry.MoveInLoadOrder(mod, 1);
 		}

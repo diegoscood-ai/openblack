@@ -25,6 +25,7 @@
 #include "3D/FrameAnim.h"
 #include "Camera/Camera.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
@@ -126,11 +127,12 @@ void Renderer::DrawPSysEffect(const psys::manager::Drawable& effect, const Camer
 		program->SetTextureSampler("s_diffuse", 0, *textures.Handle(texture));
 		program->SetTextureSampler("s_alpha", 1, textures.Contains(alphaTexture) ? *textures.Handle(alphaTexture) : *textures.Handle(texture));
 		bgfx::setVertexBuffer(0, &buffer);
-		// modes 13 / 6 (12 / 5 with MaterialUpdateZBuffer), Z test on, two-sided
-		const uint64_t blend = creator->additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-		                                         : BGFX_STATE_BLEND_ALPHA;
-		bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | blend |
-		               (creator->writeDepth ? BGFX_STATE_WRITE_Z : 0));
+		// CreateMaterial(6) + SetMaterialProperties 0x57E120 (fn_006AA030 0x6AA052 / 0x6AA05F): modes 13 / 6 (12 / 5 with
+		// MaterialUpdateZBuffer), Z test on, two-sided. (inferido) +4 alpha = 1: with 0 they would be 8 / 3, the same states
+		const auto mode = render_modes::ModeFromProperties(
+		    render_modes::Mode::AlphaTexturedAlphaNz,
+		    {.additive = creator->additive, .zWrite = creator->writeDepth, .alpha = true});
+		bgfx::setState(render_modes::State(mode));
 		bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 	}
 }

@@ -45,7 +45,8 @@ Una sola clase (constructor 0x41D0B0, vtable "Cow"); cambian solo los clips. Cic
   miembro a más de `flockDistance` del líder vuelve a su lado; si no, las necesidades; si no, START_WANDER.
 - **WANDER** (`Cow::Wander` 0x41D280): en línea recta a `step` por turno y solo cambia de rumbo al entrar en otra celda
   de 10 m (sin wall-hug ni agua). El rumbo nuevo (`SetNewWander` 0x41A3F0) suma, con un presupuesto de la velocidad
-  por el eje mayor (`fn_0041A5B0`), 0,9 × velocidad hacia el líder si está lejos, la bandada (`fn_0041AD70`: 1/5 hacia el
+  por el eje mayor (`fn_0041A5B0`), 0,9 × velocidad hacia el líder si está lejos (la distancia en metros enteros,
+`__ftol` 0x41A421, comparada como int con los radios int), la bandada (`fn_0041AD70`: 1/5 hacia el
   centro de los demás, el vecino más cercano por ejes, **otra vez** el vector de cohesión, 3/5 del paso del vecino; la
   distancia se compara con MapCoords crudos, así que casi siempre atrae) y un giro al azar de ±turnAngle/2.
 - **Hambre** (50 turnos, caballo 100): `LookForGrazePos` recorre en espiral (dominio/10)² celdas desde la suya, delante

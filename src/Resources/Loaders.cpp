@@ -10,11 +10,13 @@
 #include "Resources/Loaders.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <ranges>
+#include <string_view>
 #include <utility>
 
 #include <GLWFile.h>
@@ -30,6 +32,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "EngineConfig.h"
 #include "Graphics/Argb4444.h"
+#include "Graphics/Rgb16.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/TextureUpscale.h"
 #include "Locator.h"
@@ -37,6 +40,27 @@
 using namespace openblack;
 using namespace openblack::filesystem;
 using namespace openblack::resources;
+
+namespace
+{
+/// The .raw colour files the original creates without the alpha flag 0x40 and loads through fn_00837400, which then
+/// cuts them to 16 bits (no alpha: `[tex+0x10] & 0x40` = 0, 0x838079 / 0x838D37, `je` 0x8374D2) on the switch
+/// [0xEDD46C] (0 on the hardware the game targets, graphics::rgb16): the 555 branch 0x837765..0x83779F, 5 bits per
+/// channel (Pack555; D3D samples Unpack555, so each byte is rgb16::Cut5). Only a colour file of exactly 0x30000 bytes
+/// gets there (fn_00837300 0x837318); another one goes through fn_0087F980 (0x8380A0). Of the 69 calls to Create
+/// 0x8379E0, the ones with a file and no 0x40 are Sun.raw (flags 1, 0x81E844..0x81E851) and the saved games' pictures
+/// screenshots_lores_%i_map_0.raw / screenshots_hires_%i_map_0.raw (flags 1, fn_00784070 0x78408F, fn_00784640
+/// 0x78466A), which openblack does not load. (The landscape converter fn_008227A0 0x822874, a command-line mode, is
+/// not in the game.) The halving of [0xEDD470] (step 6, 0x8374BB) is not ported, as for the 4444 cut.
+constexpr auto k_Rgb555Stems = std::to_array<std::string_view>({
+    "sun", // Create(".\Data\Textures\Sun.raw", 1) 0x81E844..0x81E851
+});
+
+bool IsRgb555Stem(std::string_view lowerStem)
+{
+	return std::ranges::find(k_Rgb555Stems, lowerStem) != k_Rgb555Stems.end();
+}
+} // namespace
 
 L3DLoader::result_type L3DLoader::operator()(FromBufferTag, const std::string& debugName,
                                              const std::vector<uint8_t>& data) const
@@ -233,6 +257,16 @@ Texture2DLoader::result_type Texture2DLoader::operator()(FromDiskTag, const std:
 		}
 		texture->Create(width * 2, height * 2, 1, graphics::TextureFormat::RGBA8, graphics::Wrapping::Repeat,
 		                graphics::SurfaceTextureFilter(), bgfx::copy(upscaled.data(), static_cast<uint32_t>(upscaled.size())));
+		return texture;
+	}
+	// the 555 branch of fn_00837400 (0x837765..0x83779F): each of R, G, B to 5 bits and back as D3D samples it
+	if (!cut && format == graphics::TextureFormat::RGB8 && data.size() == graphics::argb4444::k_ColourBytes &&
+	    IsRgb555Stem(stem))
+	{
+		std::vector<uint8_t> cut555(data.size());
+		std::ranges::transform(data, cut555.begin(), graphics::rgb16::Cut5);
+		texture->Create(width, height, 1, format, graphics::Wrapping::Repeat, graphics::SurfaceTextureFilter(),
+		                bgfx::copy(cut555.data(), static_cast<uint32_t>(cut555.size())));
 		return texture;
 	}
 	if (cut)

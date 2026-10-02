@@ -217,6 +217,13 @@ lluvia, sprites del barco, efectos, superficies, cintas, nieblas, humo, sprites,
 cuadrado) de la primera y de la última; ver
 [rendering-objects.md](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter).
 
+`OPENBLACK_SHADOW_TRACE=1` escribe una vez por segundo las sombras proyectadas (`graphics::shadow_list`): por cada
+`ShadowInfo` (`shadow <n> caster <entidad> light <tipo> alpha <a> fade <f> box (...) kMin <k> t' <t> max n <n>
+points <p>`, o por qué no se dibuja), los objetos que reciben una (`shadow receiver: instance <i> mesh <m> shadows <n>`)
+y en qué vista se les dibuja (`shadow on object: ... view <v>`: 4 = Main, al momento; 5 = MainBlended, dentro de su
+entrada de la cola). `OPENBLACK_DUMP_SHADOWS=<carpeta>` guarda cada 300 fotogramas cada textura ×8 en PNG
+(`shadow_<fotograma>_<n>_<entidad>.png`). Ver [rendering.md](rendering.md#sombras-proyectadas-shadowinfo).
+
 `OPENBLACK_ORB_TRACE=1` escribe, **cada fotograma dibujado** y desde `Renderer::DrawScene` (justo después de ordenar la
 lista de atrás a delante), dos clases de línea en el registro con el logger `graphics`:
 

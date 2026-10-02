@@ -81,7 +81,7 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
     dinámica ni horneada**. (aproximado) esa cabecera no marca la vt 0x80 como `__fastcall` y el exe le pasa el argumento
     en edx (0x5FAAD0 `xor edx, edx`), igual que a la vt 0x78. openblack ya la deja fuera de las tres: `CastsStaticShadow`
     de `RenderingSystem.cpp` rechaza cualquier Pot y su `ReceivesDynamicShadow` cita esta misma llamada (0x5FAAC8) para
-    los tipos MagicFood y HandFood; `CastsPhysicsShadow` de `Graphics/PhysicsShadows.cpp` rechaza también cualquier Pot.
+    los tipos MagicFood y HandFood; `CastsPhysicsShadow` de `Graphics/ShadowList.cpp` rechaza también cualquier Pot.
     Visto en `polish_fix_bosque2_food_drop.png`: ni la pila mágica ni el grano del granero proyectan sombra.
   - **La pila de madera sí las conserva:** `MagicWood::CallVirtualFunctionsForCreation` 0x600F10 es solo una llamada a la
     de PileResource 0x66E300, sin esos dos setters.

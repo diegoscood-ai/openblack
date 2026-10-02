@@ -144,6 +144,9 @@ enum class ZFunc : uint8_t
 	           ///< strict, as every openblack pass)
 	Equal,     ///< 3: the shadows on the objects (0x80E488), the object fade (0x80EBD6)
 	Always,    ///< 8: drawn over everything (FinishFrame 0x82F460, the 2D rectangles, the sea, text, the sun's glare)
+	LessEqualInclusive, ///< 4 (D3DCMP_LESSEQUAL, SetRenderState(0x17 ZFUNC, 4) 0x82CCC1..0x82CCC5) where the equal depth
+	                    ///< must pass: a redraw over what was just drawn (the shadows over the land blocks, fn_00878350,
+	                    ///< and over the animated and morphable objects, fn_00812170 / fn_0080E550). Inverted Z: GEQUAL
 };
 
 /// D3DRS_CULLMODE: the inline SetMaterial puts ((~flags5) & 1) * 2 + 1, 1 = NONE, 3 = CCW

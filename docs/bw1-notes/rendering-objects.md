@@ -332,12 +332,14 @@ juntaba.
 
 **Lo que no entra, a propósito.** El orden de bloques del paisaje (`LH3DIsland::PreDraw` 0x7FF2D0, opaco, de cerca a
 lejos), los anillos del agua (`LH3DSprite::Draw` **inmediato**, 0x5E526C), las manchas de los aldeanos, el brillo de la
-mano en el agua (0x5E4D89) y el sol (`fn_0086BB60`, después del vaciado, **(inferido)**). La sombra de la mano sobre los
-objetos (`fn_0080B050`) sigue justo detrás del vaciado: no se ha leído que vaya a la cola **(inferido)**. Cambia: las
-nubes y los sprites del barco van ahora antes de esa sombra (antes, después; la lluvia ya iba antes), así que donde una
-nube o una bocanada está delante de una casa con la sombra de la mano, la sombra oscurece ahora la nube; es consecuencia
-del **(inferido)** de fn_0080B050. El reflejo no
-tiene cola (en el original no se ha leído **(inferido)**); se queda como estaba.
+mano en el agua (0x5E4D89) y el sol (`fn_0086BB60`, después del vaciado, **(inferido)**). Las sombras proyectadas
+tampoco son Z objects (ninguna rutina de sombra está entre los 32 llamadores): las de tierra van con cada bloque
+(`fn_007FF610` 0x7FF749) y las de objetos al final del Draw de cada receptor (`fn_0080DB30` 0x80E457..0x80E4D7,
+`fn_00812170` 0x81311A..0x81317C), así que van al momento con un objeto opaco y **dentro de su Z object** con uno
+encolado (0x7FA980 → vt+0x108). openblack lo hace igual (`Renderer::DrawShadowsOnObject` detrás de su `DrawMesh`, en
+Main o desde el vaciado; ver [Sombra dinámica sobre objetos](#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos)); hasta el punto 5 iban
+todas detrás del vaciado y oscurecían las burbujas, nubes y sprites que había delante. El reflejo no tiene cola (en
+el original no se ha leído **(inferido)**); se queda como estaba.
 
 **(aproximado)**:
 - El orden de llegada (el desempate con claves iguales) no es el del original: aquí nubes, modelos por malla (un
@@ -389,7 +391,7 @@ la usa como casco) y **nunca se dibuja**. Ejemplos: el dispensador de milagros (
 (radio 1,9 abajo, 1,5 arriba, alto 3,1, UV 0, piel 0x4F), y el orbe `O_Bibble_up` una esfera lisa. En openblack
 todos los caminos la saltan: `Renderer::DrawSubMesh` (todo lo que pasa por `DrawMesh`: objetos, transparentes
 ordenados, átomos de malla del PSys, reflejos, la mano, barcos, tiburones, peces; solo el visor de mallas la pinta
-con `drawAll`), la sombra estática (`DrawStaticShadowPass`), la sombra de la mano, `PhysicsShadows`, `FragMesh` (trozos
+con `drawAll`), la sombra estática (`DrawStaticShadowPass`), las sombras proyectadas (`ShadowList.cpp`), `FragMesh` (trozos
 de edificios), `PartialBuild` y el picado (`L3DMesh::RayIntersect`). Comprobado el 2026-10-01 (capturas
 `dev\_audit\magic\prism_*.png` con el mod `test.miracle-dispensers`): el prisma no aparece en ningún dispensador.
 
@@ -501,18 +503,60 @@ El original tiene tres mecanismos y un solo plano:
     r = `PhysOb::Radius`; los lanzados de la mano que no estén en física, con el radio de la caja), cada uno por
     `Renderer::DrawUnderWater(vista, entidad, sea_pass::UnderWaterLastDraw())` (modo 3 de `u_objectLight` en
     `vs_object`, plano KeepAbove).
-- **Sombra dinámica sobre objetos**: al final de cada Draw (estático 0x80E457, animado 0x81311A, morfable 0x80E74B...),
-  si el objeto tiene Flags1 0x40, para cada `ShadowInfo` con alfa ≠ 0, si+0xC = 0 (solo la mano y la criatura; barcos,
-  objetos físicos y SuperVillagers ponen 1: solo tierra), que no sea el emisor, y cuya caja si+0x2C {x0, z0, x1, z1}
-  toque la caja XZ de la malla (centro ± mitad + posición, sin giro ni escala; `fn_007F9E80`): ZFUNC EQUAL y `fn_0080B050`
-  (modo 6, color blanco, u = (Wx − x0)/(x1 − x0), v = (Wz − z0)/(z1 − z0): **proyección vertical**; todo el oscurecimiento
-  va en el alfa de la textura, con el mismo fundido de 50–80 radios).
-  - Reciben (Flags1 0x40, `Object::Create3DObject` 0x6365F0 si ShadowsOnObjects): todos los objetos salvo árboles
-    (0x749FA3), bosques (0x439098), flores, comida mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), cultivos,
-    credos, escudos, semillas... Al coger un objeto se guarda y se quita; al lanzarlo se restaura.
-  - openblack: `Renderer::DrawHandShadowOnObjects` al final de `MainBlended` (tras los transparentes, para que EQUAL
-    encuentre su profundidad), `fs_object_shadow`, `RenderContext::entityInstances` (índice de instancia por entidad y
-    `receivesDynamicShadow`). Clave de detalle `shadowsOnObjects` (niveles 3–6).
+- **Sombra dinámica sobre objetos**: al final de cada Draw (estático `fn_0080DB30` 0x80E457..0x80E4D7, animado
+  `fn_00812170` 0x81311A..0x81317C, vt+0x15C `fn_00810720` 0x810CD6 y `fn_00817930` 0x8185AB, morfable 0x80E74B...),
+  si el objeto tiene Flags1 0x40 (vt+0x7C), para cada `ShadowInfo` de la lista (de la más nueva a la más vieja) con
+  `fn_00881030`, si+0xC = 0 (la mano, la criatura y el barco, 0x5E11BE; objetos físicos y SuperVillagers ponen 1: solo
+  tierra), que no sea el emisor (si+0x464 ≠ obj) ni la si propia del objeto complejo (vt+0x1A8 / vt+0x1B8), y cuya caja
+  si+0x2C {x0, z0, x1, z1} toque la caja XZ de la malla (centro ± mitad + posición, sin giro ni escala; vt+0x1BC =
+  `fn_007F9E80`): `fn_0080B050` (modo 6 por la tabla actual, que ya vuelve a ser la normal también en un objeto que se
+  funde, 0x80E197; color blanco; `fn_0084E200` con u = (Wx − x0)/(x1 − x0), v = (Wz − z0)/(z1 − z0), `fn_00880770`:
+  **proyección vertical**; todo el oscurecimiento va en el alfa de la textura, con el fundido horneado).
+  - Prueba de Z: el estático y `fn_00810720` ponen ZFUNC EQUAL antes de cada sombra (0x80E484 / 0x810C8F) y LESSEQUAL
+    al acabar (0x80E4CE / 0x810CF2); el animado no toca ZFUNC: queda el LESSEQUAL del fotograma.
+  - **Dónde**: dentro del Draw del receptor, así que al momento con un objeto opaco y en su hueco de la cola con uno
+    encolado (0x7FA980 → vt+0x108); nunca detrás del vaciado ([la cola](#la-cola-única-de-transparentes-lh3dzsorter)).
+  - Reciben (Flags1 0x40, `Object::Create3DObject` 0x6365F0 si ShadowsOnObjects): todos los objetos salvo los que llaman
+    vt+0x78(0) (`xor edx, edx; call [eax+0x78]`): árboles (0x749FA3), bosques (0x439098), flores (0x527A5D), comida
+    mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), los credos (0x50B46E), las banderas del pueblo
+    (`TownDesireFlags`, 0x746DD4), las bolas de un uso (`OneOffSpellSeed`, 0x72A4B4), los escudos (MagicShield
+    0x72C2B4, PhysicalShield 0x72CCF4), la carga de iconos y tótems (`TChargingData` 0x72675F, 0x780BBB) y los cultivos al borrarse (0x607EC5). Al coger
+    un objeto se le quita (`SetHeldObject` 0x816842); al lanzarlo se restaura.
+  - Y no reciben los que no pasan por `Create3DObject`: un LH3DObject nuevo tiene el bit a 0 (el ctor de
+    `LH3DMeshedObject` pone +4 = 0x10009, 0x816537) y vt+0x78 (`fn_008168A0`) solo lo pone con argumento ≠ 0 y
+    [0xC38220] ≠ 0. Así, las bandas de power-up de la mano (`Band`, `fn_0068CA30` → `LH3DObject::Create` 0x68CA98) y la
+    del icono de hechizo (`CreatePUBand` 0x727080 → `Game3DObject::Create` 0x63ABB0, que salta a `LH3DObject::Create`)
+    no reciben. La malla del icono sí (`fn_00727190`, vt+0x78(1) en 0x727245).
+  - Corrección: las mallas PSys no llaman vt+0x78(0), sino vt+0x78 con el byte +0x54 del creador (`mov dl, [edi+0x54]`
+    en 0x6A8ACE / 0x6A8D65; el mismo byte va a vt+0x80). Ese byte vale 0 en los dos ctores (0x6A8986, 0x6A8BDE) y
+    ninguna propiedad lo escribe (`DefineProperties` 0x6B37A0 / 0x6B38B0 / 0x6B3970; no hay otra escritura en
+    0x6A8000..0x6B4000), así que tampoco reciben. `ParticleAnimCreator::CreateLH3DObject` (0x6A9760) no llama vt+0x78.
+  - openblack: `RendererShadows.cpp`. `CollectShadowReceivers` (al empezar los objetos de la vista Main: receptores de
+    `RenderContext::entityInstances` con `receivesDynamicShadow`, sombras con `onObjects`), `DrawShadowsOnObject`
+    (detrás del `DrawMesh` de cada malla opaca en Main, o detrás de su entrada en el vaciado de `graphics::zsorter`, en
+    `MainBlended`; con las matrices con que se dibujó) y `DrawShadowsOnCutObjects` (las partes de los tiburones sobre el agua, justo detrás de
+    `DrawCutAboveWater` y no una a una **(inferido: son opacas y la prueba Z del receptor ya descarta lo que se dibuja
+    delante)**). Un receptor que no se dibujó en el fotograma (fuera de la vista, ya transparente del todo, o pasado el
+    tope 0x800 de la cola) no recibe sombra: `ClearShadowReceivers` vacía la lista al final de los objetos, como la
+    cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos y las
+    morfables (`ZFunc::LessEqualInclusive`: GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada;
+    el Draw morfable `fn_0080E550` no toca ZFUNC alrededor de su bucle 0x80E768..0x80E874).
+    `fs_object_shadow` con `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) deja fuera también las bolas de
+    un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6).
+  - **Receptores morfables** (hecho, sesión «shaders», 2026-10-02): el Draw morfable (`fn_0080E550`, vt+0x108 de
+    0x9A2E34; en openblack `MorphWithTerrain`) no usa `ContainsThisBoundingBox` sino su propia prueba de círculo
+    (0x80E78E..0x80E857), y dibuja con `fn_0080AE40` (la misma tabla de modos y el mismo CULLMODE que `fn_0080B050`,
+    con los vértices fundidos de [0xF05180]): R = (obj+0x44 · malla+0x30) + máx(x1 − x0, z1 − z0) · 1,4142
+    ([0x932D08] `8104b53f` = 1,41419995, **no** es el float más cercano a √2), el centro de la malla +0x18..0x20 por la
+    matriz del objeto obj+0x14 y la distancia en x, z al centro de la caja ((x0 + x1) · 0,5 [0x8AA3B4]); se dibuja si
+    dx² + dz² < R², estricto (0x80E84E). No mira vt+0x1A8 / vt+0x1B8, solo si+0x464 (0x80E782).
+    `shadow_math::ReachesMorphable`, probado en `test_shadow_math`. **(inferido)** que `MorphWithTerrain` sea la
+    clase morfable (vtable 0x9A2E34, Get3DType 1): la clase CITADEL (Get3DType 8, `CitadelHeart` 0x464B40; vtable
+    0x9A2BFC) dibuja con `fn_00882A40`, que llama al Draw estático `fn_0080DB30` (0x882AB5), con
+    `ContainsThisBoundingBox` y ZFUNC EQUAL; hoy ninguna entidad de tipo 8 lleva el componente (`CitadelArchetype` no lo
+    pone; `CitadelPart` es tipo 1, 0x4694B0). La prueba lee obj+0x14 de la matriz que openblack dibuja; vale mientras
+    ninguna entidad `MorphWithTerrain` reciba los retoques de `RenderingSystem` (vaivén de campos y árboles, la
+    inclinación y el encogimiento de los árboles), que son la matriz de dibujo del original y no obj+0x14 (inferido).
 
 ## Cortar por el plano del agua (`DrawCutByPlane`)
 
@@ -587,13 +631,13 @@ El original tiene tres mecanismos y un solo plano:
 - Luz: la posición del objeto + (0, 15000, 0) (0x9A3C10), no el sol: proyección prácticamente vertical. Caja = la
   mínima de los vértices proyectados (sin margen). Silueta 32×32 con 4×2 submuestras por texel (`fn_00806F60`), alfa =
   submuestras cubiertas / 15 (máx. 8/15) sin escribir el anillo exterior (`fn_00880FC0`, tabla 0xFA95C4); los árboles
-  por la ruta con prueba de alfa y un filtro 2×2 (este último no se hace aquí). Fundido 50–80 radios desde la cámara
-  hasta el suelo bajo el objeto (`fn_00874600`). Sobre la tierra (`fn_00878350`): UV = XZ del vértice en la caja
-  (aumento 1 + h/15000, despreciable), sin atenuar con la altura, nada en celdas de altitud ≤ 1; modo 6 negro.
-- openblack: `Graphics/PhysicsShadows` (`PhysicsObjects::ForEach`): atlas de 4×4 siluetas a 4×2 de resolución
-  (vista `PhysicsShadow`), un pase que cuenta las submuestras en texels 32×32 (`PhysicsShadowResolve`,
-  `fs_physics_shadow_resolve`) y un bucle en `fs_terrain` sobre las cajas (hasta 16). Las cajas de mallas con huesos
-  salen de las 8 esquinas de su caja (piel rígida en espacio de hueso).
+  por la ruta chroma (textura con alfa y filtro 2×2). Fundido 50–80 radios desde la cámara hasta el suelo bajo el
+  objeto (`fn_00874600`, con la prueba de los 9 bloques), **horneado** a saltos de nibble. Sobre la tierra
+  (`fn_00878350`): t' con H = GetAltitude del emisor (una por sombra), nada en celdas de altitud ≤ 1; modo 6 negro.
+  Todo el detalle, en [rendering.md](rendering.md#sombras-proyectadas-shadowinfo).
+- openblack: una entrada más de `graphics::shadow_list` (`PhysicsObjects::ForEach` + `CastsPhysicsShadow` de
+  `ShadowList.cpp`), rasterizada en la CPU con la pose de cada vértice, sin tope; se dibuja sobre cada bloque que toca
+  (`Renderer::DrawLandShadows`). `Graphics/PhysicsShadows` y su bucle de 16 en `fs_terrain` ya no existen (punto 5).
 - **Sombra estática de lo que no está en el mapa**: el horneado (`fn_008721A0`) toma los emisores de las celdas del mapa
   (`0x5E2A90` / `0x5E2C30`); coger un objeto (`fn_005DC330`) o darle físicas (`Object::InitialisePhysics*`) lo saca de
   ellas hasta que aterriza (`EndPhysics` → `InsertMapObject`). openblack: `CastsStaticShadow` excluye el objeto en la
@@ -604,13 +648,26 @@ El original tiene tres mecanismos y un solo plano:
 
 ## Sombra dinámica de la mano
 
-**Fiel** (hecha).
+**Fiel** (S5, hecho; fuente: capturas del original del usuario, 2026-10-02; ver
+[rendering.md](rendering.md#sombras-proyectadas-shadowinfo)).
 
-- Silueta de la mano (las dos instancias del mesh) en un R8 de 64×64 (`RenderPass::DynamicShadow`,
-  `vs_dynamic_shadow_instanced`), proyectada desde la luz 200 unidades encima de la mano sobre el plano del suelo,
-  en una caja de ±2 radios; `fs_terrain` la cuelga vertical y oscurece × (1 − 8/15 · cobertura · fundido), fundido
-  entre 50 y 80 radios desde la cámara; hacia el agua se funde con el color de vértice 0 de las altitudes ≤ 1
-  (`fn_00878350`, ver [Costa](rendering.md#costa)).
+- Original: `CHand::CHand` 0x46BC0B → `CreateDynamicShadow` 0x80C020 (si [0xC3820C] ≠ 0, 1 en los datos), una
+  `ShadowInfo` compleja (`fn_00814FD0`) con si+0x3C = 1 (0x80C037: el relleno se salta las subfilas pares, 0x880141,
+  como mucho **4/15**), la luz 200 sobre la mano (0x8151C4, [0x8C7B34]), la base en la y de la mano (0x8152B1), t' = 1
+  sobre la tierra (no hay si+0x464) y el objeto sostenido (si+0, `SetHeldObject` vt+0x234 = `fn_00816830`, solo si
+  `IsG3DObjectDrawnInHand`) dentro de la misma textura a densidad completa (0x807532..0x8075B7). Cae sobre la tierra
+  y sobre los objetos (si+0xC = 0).
+- openblack: la entrada de la mano de `graphics::shadow_list`, con `k_HandShadowAsOriginal = true` (`ShadowList.h`):
+  32×32, 4/15 como mucho, la base en la y de la mano y el objeto sostenido (un orbe cogido del dispensador, por
+  ejemplo) a densidad completa en la misma textura, dibujada como las demás (sobre cada bloque y sobre los objetos en
+  su sitio de la cola). Comparada con cuatro capturas del original
+  ([img/original_hand_shadow_over_dispenser.png](img/original_hand_shadow_over_dispenser.png),
+  [img/original_hand_shadow_orb_over_dispenser.png](img/original_hand_shadow_orb_over_dispenser.png),
+  [img/original_hand_shadow_red_orb_over_dispenser.png](img/original_hand_shadow_red_orb_over_dispenser.png),
+  [img/original_hand_shadow_orb_over_ground.png](img/original_hand_shadow_orb_over_ground.png)): silueta clara con los
+  dedos, sombra oscura y redonda del orbe sostenido, orbes enteros encima. Con `false` vuelve el aspecto de antes de
+  la lista (64×64, 8/15, sobre el suelo bajo la mano, sin el sostenido; la vieja `DrawHandShadowPass`), solo para
+  comparar.
 
 ## Animales: manchas y malla
 
@@ -1277,6 +1334,29 @@ corte 0x96: un poco más finos).
   quién lo pone; las superficies y cintas dentro del objeto de su efecto, sin entradas propias; el reflejo (no leído);
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
+
+### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
+
+Se implementó todo «como el original» leído en el binario; estas dudas solo dependen de cómo se veía el juego.
+Resueltas por el usuario (2026-10-02, capturas del original `img/original_hand_shadow_*.png`): la sombra de la mano es
+su silueta gris clara y semitransparente (4/15), el orbe sostenido da una sombra más oscura, los orbes se dibujan
+enteros por encima de las sombras (paso S5 aplicado).
+
+- **Luz de los modelos de noche** (`model_light`): con tipo de cielo > 1,5 (double de 0x8C5838) la luz se pone a 3
+  unidades de la mano, del lado de la cámara (fn_005E5830 0x5E5A7D..0x5E5B64). ¿Se parece a lo que recuerdas de noche?
+- **Pasada bajo el mar** (`sea_pass`): (1) ¿la cúpula del escudo y los efectos de malla del PSys junto al mar se
+  cortaban a ras de agua y sin reflejo? (0x679F4A → fn_00858BA0; hecho así); (2) el reflejo de la mano tiene color
+  0x65A0A0A0: ¿gris y semitransparente?; (3) el original mezcla el mar sobre el cielo sin espejarlo y openblack refleja
+  el cielo: ¿se notaba en el agua lejana?; (4) los objetos morfables (casas, campos, arca, escudo físico) no se reflejan
+  (su DrawUnderWater es un `ret`, 0x80BA40; hecho así): ¿lo recuerdas igual?
+- **Sombras proyectadas** (`shadow_list`): (1) el barco de los misioneros de Land 1: ¿su sombra iba en diagonal (sol
+  fijo) y caía sobre el dique y los marineros? (0x5E11B6 / 0x5E11BE); (2) entre 50 y 80 radios, ¿las sombras de los
+  objetos lanzados se aclaraban a saltos o suave? (0x80769A); (3) ¿la sombra de un árbol lanzado era suave y tan oscura
+  como la de una roca?; (4) la sombra del orbe sostenido sale algo más oscura que en las capturas (el máximo 8/15 del
+  código con alfa 255, **(aproximado)**); (5) la sombra propia del dispensador es la estática (Abode, fn_008721A0), que
+  apenas se distingue en las tomas de openblack.
+- **Para milagros2** (no es de shaders): en las capturas el orbe del original es una burbuja verde translúcida con el
+  icono rojo dentro; en openblack tiene un núcleo blanco quemado que tapa el icono (OneOffSpellSeed::Draw 0x518E90).
 
 ## Ganchos de prueba
 

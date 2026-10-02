@@ -9,6 +9,8 @@
 
 #include "L3DMesh.h"
 
+#include <cstring>
+
 #include <filesystem>
 #include <stdexcept>
 
@@ -49,6 +51,11 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		_skins[skin.id]->Create(
 		    l3d::L3DTexture::k_Width, l3d::L3DTexture::k_Height, 1, TextureFormat::BGRA4, Wrapping::Repeat, SurfaceTextureFilter(),
 		    bgfx::makeRef(skin.texels.data(), static_cast<uint32_t>(skin.texels.size() * sizeof(skin.texels[0]))));
+		// fn_00838F00: the ARGB4444 alpha nibbles at 64 x 64 for the chroma shadows (the texels as 16-bit words)
+		std::vector<uint16_t> words(skin.texels.size());
+		std::memcpy(words.data(), skin.texels.data(), words.size() * sizeof(uint16_t));
+		_shadowAlphaMaps[skin.id] =
+		    shadow_math::MakeAlphaMap(words, l3d::L3DTexture::k_Width, l3d::L3DTexture::k_Height);
 	}
 
 	if (HasDoorPosition() && !l3d.GetExtraPoints().empty())

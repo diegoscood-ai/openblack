@@ -790,6 +790,12 @@ mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·
   empieza en la semilla 1. Lo comparten las nieblas del mapa, las de PSys y las bocanadas de tormenta. El original usa
   la serie de `rand()` de todo el programa, sembrada con srand(time).
 - TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
+- Los faroles (fn_00823570), las nubes del cielo (su movimiento, su contador de atlas y el alineamiento del cielo,
+  `Renderer::UpdateClouds`), las nieblas del mapa (`CollectMists`, fn_007FA300) y el humo de las chimeneas
+  (`CollectChimneySmoke`, fn_007F8E00) toman también g_game_time_inc de `game_clock::FrameGameMs()` (U7). Antes salía
+  del reloj de pared, escalado por la velocidad del juego y con tope de 100 ms, y los faroles guardaban la fracción de
+  ms (`WholeMilliseconds`, que se quita: el reloj del juego ya da ms enteros y guarda él el resto del turno). Las
+  nieblas y el humo se recogen una vez por fotograma, solo en la vista principal.
 - (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
 - (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
 - HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en

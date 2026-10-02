@@ -39,7 +39,7 @@
 #include "ECS/Components/Mist.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
-#include "GameClock.h"
+#include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Lh3dColour.h"
@@ -106,8 +106,10 @@ bool mists::InView(const glm::vec3& position, float size)
 std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& camera) const
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// g_game_time_inc [0xEA9EC0] (fn_007FA300 0x7FA3BD fild): the frame's whole game ms, 0 while the game is paused
-	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
+	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs, fn_007FA300 0x7FA3BE): game time, whole ms, 0 while
+	// paused, so the animation stops while the game is paused. Collected once a frame (the main view)
+	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
+	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameMists.clear();

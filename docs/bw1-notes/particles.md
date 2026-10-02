@@ -89,9 +89,41 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
   original pone solo el color (`SetColour` vt 0x2C → obj +0x4C / +0x50). Sin portar: `UseScriptHightlightPulse`
   (fn_0070A510), `CastHumanShadow` (lista 0xD4EDCC), `UseDynamicLighting` (bit 0x20), `UseGlobalAlpha` y el orden Z por
   objeto.
-- **(aproximado)** `ParticleAnimCreator` (mariposas y murciélagos del bosque) se dibuja como malla quieta en su postura
-  de reposo; falta el .anm (Particle3DAnim::DrawAt 0x67A8E0: `GetCycleTimeFromFrame` 0x6C85F0, `SpeedUpFactor`, la
-  mezcla con MeshFileName1/2 entre FrameToStartBlend y FrameToEndBlend).
+- **`ParticleAnimCreator`** (las mariposas y los murciélagos del bosque, SF_Butterflies, SF_ButterfliesOnObject; U7):
+  cada átomo es una malla con huesos que toca un .anm. **Fiel**, salvo lo marcado.
+  - **Al crear** (CreateParticle, vt 0x10 0x6A98C0 → `fn_006A97F0`): cada partícula tiene su propio objeto de tipo 2
+    (`CreateLH3DObject` 0x6A9760: `LH3DObject::Create(2)`, la malla con vt 0xF4 y el clip con vt 0x180). En el átomo
+    (0x6A9843..0x6A98AD): el ritmo +0x110 = 1000 ([0x8AB228]) / ms del clip (LH3DAnim +0x20) × `SpeedUpFactor` (+0x44)
+    × 1000; +0x114 = 1000 fotogramas por ciclo; +0x118 `PlayAnim` (+0xA1) y +0x119 `LoopAnim` (+0xC). Con
+    `RandomiseInitFrame` (+0xA2), el primer fotograma es `PSysRand(1000)` (SetFrame 0x674100, en +0x108 y +0x10C).
+    Valores por defecto del ctor (0x6A93A7..0x6A93E5): SpeedUpFactor 1, PlayAnim 0, RandomiseInitFrame 0,
+    NeverClip 0, UseDynamicLighting 1, UseGlobalAlpha 1, FrameToStartBlend 0, FrameToEndBlend 1000.
+  - **Al dibujar** (`Particle3DAnim::DrawAt` 0x67A8E0): el fotograma entero de fn_00679920 (DrawData +0x10, 0..999)
+    pasa a tiempo del clip con `GetCycleTimeFromFrame` 0x6C85F0: ms × f / 1000, en enteros (imul y luego
+    × 0x10624DD3 sar 6, que redondea hacia 0). Ese tiempo va a la partícula (+0x28) y al objeto (vt 0x188 fn_0080B880:
+    +0x84). El dibujo del objeto de tipo 2 (fn_008175B0, 0x8177B8..0x8177CE) pone los huesos con `LH3DAnim::GetPose`
+    0x839980 del clip +0x80 a ese tiempo. **El fotograma 0 no se dibuja**: 0x67A9B7..0x67A9BE sale antes de vt 0xF8 y
+    del dibujo.
+  - **El clip** (`fn_006A9570`): con AnimEnum −1, el `AnimFileName` cargado con fn_00839900 (el fichero entero con
+    LHLoadData 0x83993C, luego los arreglos de fn_0083A610; así LH3DAnim +0x20 es el 0x20 de la cabecera).
+    S_Butterfly_Flap.anm dura 366 ms (2732 fotogramas por segundo) y M_Bat_Flap.anm 800 ms (1250 por segundo). Las
+    mallas: `S_Butterfly.l3d` (con huesos, flags 0x22103) y `MSH_A_BAT_1`.
+  - **En openblack**: `psys::AnimFrameRate` y `psys::AnimCycleTime` (`PSys/Creators/Mesh.h`). `mesh_atoms::Collect`
+    pone los huesos en `Instance::pose` con `graphics::ComputePose`, el mismo código de los aldeanos y los animales.
+    `RenderingSystem` los pasa a `RenderContext::instancePoses`, y `ecs::PosesByInstance(renderCtx)` los junta con los
+    de las entidades. El renderer dibuja cada átomo con sus huesos, como un aldeano: las variantes de 32 huesos de
+    `vs_object` (`Renderer::BonesVariant32`), sin shader nuevo. `mesh_atoms::Any()` sustituye a `!Collect().empty()`
+    en `magic::Update`, para no calcular las poses dos veces por fotograma.
+  - (aproximado) `PSysRand` (puntero a función [0xD4E0BC]) sale del generador del efecto, como todo el azar de este
+    PSys.
+  - (pendiente) `AnimEnum` (+0x7C, `LH3DAnim::AnimPack` [0xEDD508], pack[0] fuera de rango, 0x6A957C..0x6A959A):
+    ningún archivo lo usa. El fundido de DrawAt 0x67A946..0x67A9B1 a `MeshFileName1/2` (+0x38 / +0x3C, hacen falta
+    las dos) entre `FrameToStartBlend` y `FrameToEndBlend` (vt 0xDC fn_007F9A80): `NULL_STRING` en todos.
+    `UseSuperSortedPolys` (vt 0xD4; 0 en todos), `UseDynamicLighting` (vt 0x58 fn_008168C0, la luz de los modelos de
+    la sesión shaders), `UseGlobalAlpha` (vt 0x48 fn_007F9D60, bit 0x80 del +4 del objeto; 1 en todos: el alfa se
+    dibuja como en toda malla de PSys) y `NeverClip` (vt 0x98 fn_007F98E0 con !NeverClip). El renderer descarta por
+    la esfera de la caja de reposo, que no es el recorte del original. `ParticleAnimWithCameraCreator` (la diosa y
+    la cámara) sigue sin portar.
 
 ### Cadenas y mapas de luz (`PSys/Creators/{Chain,LightMap}.cpp`, `Graphics/RendererChain.cpp`)
 
@@ -312,7 +344,7 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 | `UR_KPStretchHeight`, `UR_KPMoveAtoms` | 0x6A50C0, 0x6A60B0 | `Rules/KeyPoints.cpp` | [Las otras clases que faltaban](miracles.md#las-otras-clases-que-faltaban) |
 | `UR_FollowTargets`, `UR_Flocking`, `EventConditionAtomNearVillagers` | 0x6A04B0, 0x683580, 0x67D8E0 | `Rules/Flock.cpp` | [Las partículas](miracles.md#las-partículas-psysrulesflockcpp-fiel) |
 | `UR_ForestPath`, `ParticleGoodEvilCreator` | 0x6A3770, 0x6AAA00 | `Rules/Forest.cpp`, `PSys.h` | [Las otras clases que faltaban](miracles.md#las-otras-clases-que-faltaban) |
-| `ParticleAnimWithCameraCreator`, `ParticleAnimCreator` | — | sin portar / (aproximado) | [Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees) |
+| `ParticleAnimWithCameraCreator`, `ParticleAnimCreator` | —; fn_006A97F0, DrawAt 0x67A8E0 | sin portar; `Creators/Mesh.cpp` | [Las mallas de partículas](#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo), [Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees) |
 | `UpdateRuleGravityWithFloor`, `CreateWithInitialDirection`, `AttatchFireBallToAtom`, `SetAtomHasBeenDeflected`, `UR_SideSpin`, `AR_FadeAlphaWithHeightAboveLandscape`, `AddSubCollectionsToAtom`, `UR_Trail` | 0x6A1880, 0x69E950, 0x682FD0, 0x6A26C0 | `Rules/Fireball.cpp` | [Bola de fuego](miracles.md#bola-de-fuego-magic_type-1-3-semilla-2-fire) |
 | `UR_OrientSpriteWithVelocity` | 0x69A790 | `Rules/Orient.cpp` | [Las otras clases que faltaban](miracles.md#las-otras-clases-que-faltaban) |
 | `UR_Lightning`, `UR_LightningStrike` | 0x6914C0, 0x6937A0 | `Rules/Lightning.cpp` | [Rayo](miracles.md#rayo-magic_type-4-6-semilla-6-lightning_bolt-psysruleslightningcpp) |
@@ -339,7 +371,8 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 - Cadenas: `UseDynamicLighting` (el desplazamiento de V es 0 en todos los datos); mapas de luz
   estampados en una textura de luz dinámica del terreno (no existe en el port).
 - Mallas: `UseScriptHightlightPulse`, `CastHumanShadow`, `UseDynamicLighting`, `UseGlobalAlpha`, el orden Z por
-  objeto, `FaceCameraSprite` y el .anm de `ParticleAnimCreator`.
+  objeto y `FaceCameraSprite`; de `ParticleAnimCreator`, `AnimEnum`, el fundido a `MeshFileName1/2`,
+  `UseDynamicLighting` y `UseGlobalAlpha`.
 - Niebla: un contador de atlas por niebla y el mapa de sombra / luz del terreno.
 - PSys del mundo: creadores de malla, niebla, cadenas, animación, mapas de luz (se estampan en la luz del terreno), las
   reglas de hechizos y del pueblo (`UR_TownCentreBelief` ya está: ver arriba), `CreateRule_GameObjectRef` (el brillo de las llaves de la

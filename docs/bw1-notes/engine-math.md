@@ -927,19 +927,23 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - `FireGraphic.cpp`: las ráfagas de vapor y humo leen `game_clock::Turn()` (fn_00731AB0 0x731AF8 / 0x731B27,
   fn_00731E50 0x731E7B / 0x731EAE); `g_Turn` se ha borrado (`SetTurn` queda para la traza).
 - `SpellSeedGraphic.cpp`: el turno de fn_00727350 (0x72736E) es `game_clock::Turn()`.
-- `RendererMists.cpp` (fn_007FA300 0x7FA3BD), `RendererSmoke.cpp` (fn_007F8E00 0x7F8F25) y las nubes y la alineación
+- `RendererMists.cpp` (fn_007FA300 0x7FA3BE), `RendererSmoke.cpp` (fn_007F8E00 0x7F8F25) y las nubes y la alineación
   del cielo de `Renderer.cpp` (fn_005E25C0 0x5E25FD, `GLandAlignement::DrawSky` 0x5E2160) hacen `fild
   g_game_time_inc`: usan `FrameGameMs()` en vez de su `static lastTime` con tope de 100 ms y la velocidad dividida.
 
 **Siguen sin migrar:**
 - `Graphics/Renderer.cpp`: el brillo del sol (reloj de pared sin pausa ni velocidad: qué dt usa el original es
-  **(inferido)**) y `night_lights::Update` (sigue con el reloj de pared con tope de 100 y `IsPaused() ? 0`; fn_005E5830
-  no lee `g_game_time_inc` directamente: falta seguir sus llamadas).
+  **(inferido)**).
 - `Magic/MagicLoop.cpp` `magic::Update`: pasa `FrameGameSeconds() · 1000` a `one_off::UpdateFrames`,
   `mist_atoms::SubmitFrame` y `chain_atoms::AdvanceScroll`; el original les da los ms enteros (`FrameGameMs()`), y la
   ida y vuelta por 0,001f puede no ser exacta.
 - Los lectores de `magic::k_TurnMs` (13 usos, `SpellSeedGraphic::ProcessTurn` entre ellos): es la constante
   `k_MsPerTurn`, no `MsPerTurn()`; da lo mismo mientras nadie cambie [0xD01A38].
+- **Hecho en U7** («sistemas»): `Renderer::UpdateClouds` (nubes, alineamiento del cielo y `night_lights::Update`),
+  `CollectChimneySmoke` y `CollectMists` leen `FrameGameMs()` en vez de su `static lastTime` de pared con tope de 100 ms.
+  Lectores de [0xEA9EC0] en el original: DrawSky 0x5E2160, fn_005E25C0 0x5E25FD, fn_00823460 0x8234B6, fn_00823570
+  0x82359F, fn_007F8E00 0x7F8F25 (el humo recorta a 100 **s**) y fn_007FA300 0x7FA3BE. (pendiente) el «rescan» de 1 s
+  de `night_lights::Update` toma el mismo ms; de dónde sale en el original no está leído.
 - `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
   `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
 

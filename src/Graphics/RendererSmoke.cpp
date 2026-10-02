@@ -35,7 +35,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
-#include "GameClock.h"
+#include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/RenderModes.h"
@@ -97,8 +97,10 @@ bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, floa
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
 {
-	// g_game_time_inc [0xEA9EC0] (LH3DSmoke fn_007F8E00 0x7F8F25 fild): the frame's whole game ms, 0 while paused
-	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
+	// g_game_time_inc [0xEA9EC0] in milliseconds (game_clock::FrameGameMs, fn_007F8E00 0x7F8F25): it stops while the
+	// game is paused (as CollectMists). Collected once a frame (the main view)
+	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
+	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameSmoke.clear();

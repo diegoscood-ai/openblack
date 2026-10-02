@@ -87,9 +87,8 @@ struct AnimTexturedSheet
 // ---------------------------------------------------------------------------------------------------------------------
 // The clocks of the original. The state is the caller's, kept where the original keeps it.
 
-/// (openblack) the whole milliseconds of g_game_time_inc [0xEA9EC0] from a float frame time, the fraction kept for the
-/// next frame (openblack runs uncapped: under 1 ms a frame the integer clocks would stop)
-[[nodiscard]] uint32_t WholeMilliseconds(float& remainder, float milliseconds) noexcept;
+/// The integer clocks take g_game_time_inc [0xEA9EC0] as it is: game_clock::FrameGameMs() (whole ms, the remainder of
+/// the turn kept by the game clock itself, GGame::Loop 0x54D2B2..0x54D3A6).
 
 /// OneOffSpellSeed::UpdateFrame 0x72A570 (the miracle bubble, O_Bibble_up.l3d 4 x 4): +0x74 = fmod(+0x74 + ms x 18
 /// ([0x981FB4]) x 0.001, 16 (double [0x982820])), f = ftol, SetAnimatedUV_1((f % 4) x 0.25, (f / 4) x 0.25 [0x981FB8])

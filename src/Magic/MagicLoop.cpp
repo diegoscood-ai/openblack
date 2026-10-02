@@ -153,7 +153,7 @@ void magic::Update(float seconds)
 	// LH3DAtmos::Update3D 0x8357A0 (GGame::Process3dEngine): the rain streaks (ECS/Weather/Rain.cpp)
 	weather::UpdateFrame(seconds);
 	// the effects' mesh atoms move between turns: the instances are rebuilt every frame while there are any
-	if (!psys::mesh_atoms::Collect().empty())
+	if (psys::mesh_atoms::Any())
 	{
 		Locator::entitiesRegistry::value().SetDirty();
 	}

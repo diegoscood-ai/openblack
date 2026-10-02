@@ -37,6 +37,7 @@
 #include "ECS/Effects/EffectValues.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
@@ -91,22 +92,6 @@ const lnd::LNDCell* LandCellOf(const glm::vec3& position)
 		return nullptr;
 	}
 	return &Locator::terrainSystem::value().GetCell(glm::u16vec2(*cell));
-}
-
-bool InHandOrFlying(entt::entity entity)
-{
-	// An object in the hand or in physics is out of the map lists
-	if (!Locator::handSystem::has_value())
-	{
-		return false;
-	}
-	const auto& hand = Locator::handSystem::value();
-	if (const auto held = hand.GetHeldObject(); held && *held == entity)
-	{
-		return true;
-	}
-	const auto thrown = hand.GetThrownObjects();
-	return std::find(thrown.begin(), thrown.end(), entity) != thrown.end();
 }
 
 ResourceType ResourceOf(const Pot& pot)
@@ -186,40 +171,19 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 	return add;
 }
 
-/// A cell's lists in the order AddResourceToPos walks them: the fixed list (+4), then the mobile one (+0). The original
-/// lists' order is not known: here each list is in entity order (inf).
+/// A cell's lists in the order Pot::AddResourceToPos walks them (the inline iterator at 0x66F2CA: the fixed list +4,
+/// then the mobile one +0, each from its head; ecs::map_cells), the storage pits and the pots / piles among them. The
+/// pots (type 21) are at the tail of the fixed list. In the original every new pile is there at once
+/// (CallVirtualFunctionsForCreation 0x607150 calls InsertMapObject vt +0x544 at 0x6071F9); here only the ones made
+/// with an InsertMapObject hook (CreateMagicResourcePile: MagicFood / MagicWood, the storm's piles) are, the others
+/// (PotArchetype::Create from the villagers or the hand) wait for the next map_cells::Sync (aproximado, their owners
+/// add the hook)
 std::vector<entt::entity> CellObjects(glm::ivec2 cell)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	std::vector<entt::entity> fixed;
-	if (Locator::entitiesMap::has_value())
-	{
-		const MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-		for (const auto entity : Locator::entitiesMap::value().GetFixedInGridCell(id))
-		{
-			if (registry.Valid(entity) && registry.AllOf<StoragePit>(entity))
-			{
-				fixed.push_back(entity);
-			}
-		}
-	}
-	std::sort(fixed.begin(), fixed.end());
-	// the mobile list: the pots (MobileObjects), found by their position so that a pile made this turn counts at once
-	std::vector<entt::entity> mobile;
-	registry.Each<const Pot, const Transform>([&](entt::entity entity, const Pot&, const Transform& transform) {
-		if (transform.position.x < 0.0f || transform.position.z < 0.0f)
-		{
-			return;
-		}
-		const auto at = CellOf(MapCoordsOf(transform.position));
-		if (at && *at == cell && !InHandOrFlying(entity))
-		{
-			mobile.push_back(entity);
-		}
-	});
-	std::sort(mobile.begin(), mobile.end());
-	fixed.insert(fixed.end(), mobile.begin(), mobile.end());
-	return fixed;
+	auto objects = map_cells::ObjectsInCell(cell);
+	std::erase_if(objects, [&registry](entt::entity entity) { return !registry.AnyOf<StoragePit, Pot>(entity); });
+	return objects;
 }
 } // namespace
 

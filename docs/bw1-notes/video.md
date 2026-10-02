@@ -3,7 +3,7 @@
 Cómo reproduce runblack.exe v1.42 (W120) sus cinco vídeos Bink y qué tiene openblack: los ficheros y cuándo sale cada
 uno, la clase `LHVideoPlayer` y su copia a 16 bits, el vídeo a pantalla completa de `GGame` (ritmo, pausa, pantalla
 ancha, fundido, ESC, el mundo 3D sin dibujar), la caída del hechizo, el arranque y la pantalla de carga, el audio de
-cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V2) con el plan V3..V8.
+cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V3) con el plan V4..V8.
 
 - [Los cinco vídeos](#los-cinco-vídeos)
 - [binkw32.dll y el contenedor](#binkw32dll-y-el-contenedor)
@@ -75,6 +75,16 @@ texturas, **+0x48 el framebuffer** `ancho*alto*2` bytes a cero, +0x4C..+0x64 lo 
   siempre `++frame` 0x845164.
 - `DrawToScreen` 0x8456C0 sólo guarda los parámetros; el dibujo lo hace el callback `thedraw` 0x844E30 → fn_00845740,
   un quad por tile con el color de vértice dado.
+- Los materiales del mosaico: `CreateMaterial(modo 6, textura)` 0x844FC6 (SRCALPHA / INVSRCALPHA, color y alfa
+  MODULATE, sin escritura de Z), `+5 &= ~4` 0x844FD7 (sin repetición: `SetD3DTillingOff` 0x8459B1) y `+5 |= 1` 0x844FE4
+  (dos caras: CULLMODE 1 = NONE, 0x8459E4).
+- fn_00845740 (leído en `tmp_dis\psys\lh3d.asm`): `w`/`h` 0 → la pantalla (`[0xE85058]`/`[0xE8505A]`, 0x845798..0x8457B5);
+  escala `sx = w / ancho`, `sy = h / alto` (0x8457B9..0x8457D3); por tile `x0 = x + tx·256·sx`, `x1 = x0 + n·sx` (igual
+  en y), con `n` = 256 salvo la última columna/fila, `ancho & 0xFF` / `alto & 0xFF` (0x84583A..0x845870); u, v de 1/512
+  a `n/256 − 1/512` (0x845891..0x84596C: medio texel hacia dentro); el color en los cuatro vértices (0x8458C1..0x8458DB);
+  ZFUNC (0x845A16) = **ALWAYS** si el 2º `bool` es 0 (si no LESSEQUAL), ZWRITEENABLE (0x845A49) = el 1er `bool`;
+  `DrawAndClip2D` FVF 0x1C4 0x845A7D; al final ZFUNC vuelve a 4 (0x845ADC). `Process3dEngine` pasa los dos `bool` a 0
+  (0x54DC56 / 0x54DC58).
 - `EnterVideoSection`/`LeaveVideoSection` 0x844C80/0x844CA0: la sección crítica 0xEF74F8 entre el hilo del temporizador
   y el del juego.
 
@@ -122,7 +132,10 @@ symbols.txt, y los dos llamadores pasan NULL):
    `BinkService`/`Sleep(0)` que no descodifica nada.
 6. `fn_0054AB00` 0x54D9AD: `timeSetEvent(16 ms, resolución 5, 0x54AAE0, periódico)`.
 7. `0xD019A0 = HelpSystem+0x45E8` 0x54D9BE y, si no había pantalla ancha, `HelpSystem::SetWideScreen(1, 0)` 0x54D9E4.
-8. `HelpSystem` fn_005C6C40 0x54D9EF, **(inferido)** esconder el HUD.
+8. `HelpSystem` fn_005C6C40 0x54D9EF, **siempre** (también si la pantalla ancha ya estaba puesta): +0x45F0 = −FLT_MAX
+   (0x5C6C40), así que `GetWideScreenPercentage` 0x5C6B60 = |t·0,001/wideScreenTime| limitado a [0, 1] da 1 en el acto:
+   las barras salen enteras en el primer frame y siguen así (en pausa se suma 0, fn_005C6BB0). Al acabar,
+   `SetWideScreen(0)` deja +0x45F0 = (1 − 1)·2000 = 0 y las barras se van en 2 s de reloj de juego.
 
 Si el fichero no abre: fps 1, frames 0 → fin 0 y el siguiente `Process3dEngine` lo borra (0 ≥ 0).
 Si un vídeo sustituye a otro, `VideoPreviousPause` y 0xD019A0 se toman **ya en pausa y con pantalla ancha**: al acabar el
@@ -239,6 +252,37 @@ y `fn_0054DA00`. Como ya no hay `FallingSpellVideo`, ese salto es el normal: si 
 | fall | igual, más los efectos de `FallingSpell::Draw` a tiempo del vídeo (`t = frame·1000/fps`) y `LHMusicStop(1)` a 43,9 s |
 | ESC | `StartScriptMusic(0)`: la música del guion se suelta |
 
+## El descodificador (V5): FFmpeg + los colores de binkw32
+
+**Fiel (comprobado bit a bit).** La imagen sale idéntica a la de `binkw32.dll` 1.0w del juego en los 55 frames de oro
+de los cinco vídeos (0,1,2,10,100 y el último de INTRO/pre_intro/fall; todos los de logo y tips): 19 673 088 téxeles
+555 iguales, el 565 del frame 0 de los cinco también, y el RGBA8 igual al `BINKSURFACE32` del oráculo; también por
+`BinkGoto` (tips/logo en orden revuelto). Prueba: `dev\_scratch\asistente\video\ffmpeg\check\` y su `README.md`.
+
+- **Descodificador:** el `bink` de libavcodec (FFmpeg 7.1.2) alimentado con los paquetes de `BikFile`: `codec_tag` =
+  `BIK` + revisión, tamaño de la imagen y los 4 bytes de flags de vídeo de la cabecera como *extradata* (lo mismo que
+  daría `libavformat/bink.c`; no se usa libavformat). Da YUV 4:2:0 y sus planos coinciden con los de RAD en todos los
+  frames de oro.
+- **Los colores de BinkCopyToBuffer** (dentro de la DLL, no del exe; reconstruidos de los frames de oro):
+  croma **sin interpolar** (un U/V por bloque 2x2) y cuatro tablas 16.16 truncadas hacia cero por separado, sumadas a
+  una luma con *floor* y luego recortadas a 0..255:
+  `y' = max(0, 76309·(Y−16) >> 16)` (Y < 16 → 0; Y > 235 no se recorta);
+  `R = y' + trunc(104597·(V−128)/65536)`; `G = y' + trunc(−25675·(U−128)/65536) + trunc(−53279·(V−128)/65536)`;
+  `B = y' + trunc(132202·(U−128)/65536)`. Son las constantes BT.601 de rango limitado de siempre **salvo la de B**:
+  la clásica 132201 falla en U = 70 (RAD da −117). R, G y B quedan determinados por (Y, U, V) en los 449 685 casos
+  distintos de los frames de oro y el modelo acierta todos.
+- **(aproximado)** Los datos fijan cada constante sólo a un intervalo (Y 76305..76309, Rv 104579..104605, Bu
+  132202..132221, Gu 25674..25683, Gv 53248..53302); dentro de ellos las tablas sólo cambian en cromas extremos. En los
+  cinco vídeos enteros U va de 16 a 212 y V de 40 a 219: el único caso dudoso que aparece es **V = 219** (10 muestras
+  de croma en todo pre_intro.bik), donde G podría ser 1 menos (`k_GreenFromV` en `src/Video/BinkYuv.h`).
+- **FFmpeg recortado:** `vcpkg-overlay-ports/ffmpeg` (el port 7.1.2#3 de vcpkg con
+  `--disable-everything --disable-network --enable-decoder=bink --enable-demuxer=bink --enable-protocol=file`, sin
+  aceleración por hardware ni Media Foundation) y en `vcpkg.json` sólo la *feature* `avcodec`. En Windows x64:
+  `avcodec-61.dll` + `avutil-59.dll` (~1,2 MB), copiadas junto al exe por el paso *applocal* de vcpkg (como `lua.dll`).
+  Primera compilación ~25 min (casi todo el `configure` en msys).
+- **Licencia:** sin `gpl`/`version3`/`nonfree` FFmpeg es **LGPL-2.1-or-later** (`libavcodec/bink.c` incluido),
+  compatible con la GPL-3 de openblack; el overlay aborta si se pide alguna de esas *features*.
+
 ## openblack
 
 Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie llama todavía a `Play`).
@@ -247,7 +291,11 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
   imagen y fps no nulos, tablas dentro, offsets crecientes con el último = tamaño, tamaños de audio); `Fps()` = la
   división entera de 0x844EC2; `FrameData`/`VideoData`/`AudioData`, keyframes.
 - `src/Video/VideoDecoder.h`: `IVideoDecoder` (`Open`, `DecodeNext(i)` → RGBA8; vacío = el frame falló y se queda la
-  imagen anterior) y `NullVideoDecoder` (negro opaco). El de verdad es V5.
+  imagen anterior) y `NullVideoDecoder` (negro opaco: para los tests, y de reserva si el descodificador rechaza una
+  película válida, que entonces se ve en negro con su pausa, fundido y salto).
+- `src/Video/FfmpegDecoder.{h,cpp}` (**V5**, fiel: ver arriba) y `src/Video/BinkYuv.h` (las tablas de color de
+  binkw32): el descodificador por defecto de `GameHooks()`. `DecodeNext(i)` en orden descodifica un paquete; otro `i`
+  (`BinkGoto`) vuelve al último *key frame* <= i y descodifica desde ahí.
 - `src/Video/VideoPlayer.{h,cpp}` (**V2**): `video::VideoPlayer` con los campos del original y su dirección. `Play` =
   `PlayFullScreenMovie` + `fn_0054AB20` (el reproductor existe aunque no abra); `SetSchedule`/`ScheduleIntro` = 58·fps /
   60·fps; `Process(realMs)` = `Process3dEngine` 0x54DAB5..0x54DD76 + `VideoPoll` + `DecodeNextFrame`; `Skip` =
@@ -260,6 +308,23 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
 - `src/Game.cpp`: `video::Get().Process(game_clock::FrameRealMs())` tras `UpdateRealClock()` (después de los turnos,
   como `Process3dEngine` tras el bucle de turnos); en `ProcessEvents`, ESC con vídeo → `EscapeKey` (sin vídeo sale de
   openblack como siempre: el ESC de openblack no es el del original).
+- `src/Graphics/Renderer.cpp` (**V3**, sesión *sistemas*): `Renderer::DrawVideoOverlay` en `RenderPass::ScreenOverlay`,
+  tras el mensaje de la mano, en el orden de `LH3DRender::FinishFrame` 0x82F460 (`Renderer::DrawFinishFrameOverlays`):
+  primero las barras si pct ≠ 0 (0x82F652..0x82F6DD, fn_0081E590 dos veces, alto (int)((h − w·0,5625)·pct)/2 de
+  fn_0081E8B0), luego las retrollamadas con el bit 0x80000000 (0x82F6E5..0x82F718), entre ellas `thedraw` 0x844E30
+  (registrada con 1 en 0x54B62D; `RegisterFinishFrameCallback` 0x82F2C0 pone el bit), y al final el fundido del guion
+  fn_0086FEE0 (0x82F753), que vuelve a pintar las barras encima de su color. El vídeo tapa las barras justo en su borde:
+  con pct = 1 el rectángulo de `FullScreenRect` encaja exacto entre ellas. Una textura RGBA8 `clamp` del tamaño del
+  vídeo, rehecha si cambia el tamaño y subida con `updateTexture2D` sólo cuando cambia `serial` (`UploadToTextures`
+  0x84514E). Los quads de fn_00845740 tile a tile sobre `video::FullScreenRect` (0x54DBEB..0x54DC6D) con los **mismos
+  texels** que cada tile de 256x256 (medio texel hacia dentro, sin repetición: el filtro no llega al tile vecino), el
+  color `Frame::colour` (0x54DC11..0x54DC4D) como color de vértice, y el estado `render_modes::State` del material modo 6
+  de dos caras con ZFUNC ALWAYS y sin Z. Programa `WorldQuad` (vs_blob + fs_world_quad: color = textura × difuso,
+  alfa = `s_alpha.r` × difuso) con una textura R8 1x1 blanca como `s_alpha`: **no hay shader nuevo**.
+  `Renderer::DrawScene`: con `video::Get().CoversScreen()` (0x54DD5E..0x54DD7D → 0x54E2A4) no se dibuja nada del mundo
+  (ni sombras, ni reflejo, ni cielo, ni el mensaje de la mano); sólo el vídeo y `DrawScreenOverlay` (el fundido del guion
+  y las barras, 0x54E2D7..0x54E2ED), en el mismo orden barras, vídeo, fundido. Comprobado en el juego: con `fall` el mundo sale × 0,686 = 1 − 0x50/255 en todos
+  los píxeles medidos; con `intro` la pantalla es el negro del descodificador nulo (sin el azul del borrado).
 
 Diferencias:
 
@@ -268,31 +333,45 @@ Diferencias:
   parón largo openblack descodifica de golpe lo atrasado (sólo se ve el último) donde el original iría de uno en uno
   cada 16 ms.
 - **(aproximado)** La espera de hasta 0,5 s (0x54DB85..0x54DBD1) no bloquea: se queda la última imagen.
-- **(aproximado)** El paso a 16 bits parte del RGBA8 del descodificador (`v >> 3`), no del YUV→555 de la DLL: lo
-  comprobará V5 contra los frames de oro (el 555 de la DLL es exactamente `rgb32 >> 3`).
+- Fiel desde V5: el paso a 16 bits parte del RGBA8 del descodificador y da el mismo 555/565 que el YUV→555 de la DLL
+  (comprobado contra los frames de oro).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
-  estadísticas, el mosaico de 256x256 (V3 usará una textura), `GAudio+0x1C = −1` (audio no tiene cómo; `ProcessMusic`
-  lo repite en el fundido) y fn_005C6C40 (inferido: esconder el HUD).
+  estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), y `GAudio+0x1C = −1` (audio no
+  tiene cómo; `ProcessMusic` lo repite en el fundido).
+- fn_005C6C40 es `ScreenFade::SnapWideScreen`, por el gancho `snapWideScreen` de `VideoPlayer::Hooks`, que `Play` llama
+  siempre, como el original (0x54D9EF, tras el salto de 0x54D9D2): también si el guion ya tenía la pantalla ancha.
+- **(inferido)** V3: el alfa de las texturas de 16 bits es 1 (`CreateTexture` flags 0x104; un A1R5G5B5 con el bit 15 a 0
+  de Bink no se vería); el filtro bilineal del driver; los píxeles con el centro de bgfx,
+  sin el medio píxel de D3D7 (como los demás rectángulos de `ScreenOverlay`).
+- **(aproximado)** V3: mientras el vídeo tapa la pantalla openblack borra a 0x274659 como siempre (el original no borra);
+  sólo se ve fuera del rectángulo del vídeo, en pantallas que no son 16:9 y antes de que lleguen las barras.
 
 ## Plan V3..V8
 
 | hito | qué | dueño / bloqueo |
 |---|---|---|
-| V3 | El dibujo: textura RGBA8 que se sube cuando cambia `serial`, quad 2D con `FullScreenRect` (no `LetterboxHeight`) y `colour` como color de vértice, en `RenderPass::ScreenOverlay`; no dibujar el mundo mientras `CoversScreen()` pero sí el fundido del guion y las barras/textos de `HelpSystem::Draw3D`; `OPENBLACK_TEST_VIDEO` | sesión *sistemas* / *shaders* (Renderer, shaders) |
-| V4 | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
-| V5 | El descodificador: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, comprobado contra los frames de oro | OK del usuario a la dependencia |
+| V3 | **Hecho** (sesión *sistemas*): `Renderer::DrawVideoOverlay`, el mundo sin dibujar con `CoversScreen()`, `OPENBLACK_TEST_VIDEO`; sin shader nuevo (`WorldQuad`) | — |
+| V4 (hecho, sesión asistente) | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
+| V5 | **Hecho**: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, bit a bit igual a binkw32 en los frames de oro | — |
 | V6 | `fall.bik`: `KickOff/EndFallingSpellVideo`, alpha 0x50, el mundo debajo, fin con `FallingSpell+0x20 == 4`, `SetFallingSpellVideo` y el gancho `endFallingSpellVideo` | con *milagros* (no hay `FallingSpell`) |
 | V7 | `tips.bik` en la pantalla de carga | bloqueado: no hay pantalla de carga |
 | V8 | `logo.bik` y `pre_intro.bik` al arrancar, con `trailer.sad` | bloqueado: no hay front end ni perfiles; audio de *audio* |
 
+
+**V4 (hecho):** `SET_AVI_SEQUENCE(on, 1)` llama a `video::Get().Play(FindPath("Data/intro.bik"))` y `ScheduleIntro()` (58/60 s) y
+quita el fundido (0x68F477..0x68F4E9); una carga de mapa para la película que suene (`GGame::ClearVariables` 0x54BF28). Con
+«free start» del mod `game.skip-intro` no hay película. **Pendiente de probar en el juego:** en Land 1 sin el mod, FollowUs
+no llega todavía al 203 (en 4 min de juego se queda antes, con opcodes sin portar como DANCE_CREATE); la película se
+ve ya con `OPENBLACK_TEST_VIDEO=intro`.
+
 ## Pendiente
 
-- V3..V8 (tabla de arriba); `parity.md` («Vídeo Bink | Superposición | falta») pasará a «en curso» con V3.
+- V4..V8 (tabla de arriba); `parity.md` («Vídeo Bink») está «en curso» desde V3.
+- `OPENBLACK_VIDEO_TRACE` no existe todavía.
 - *audio*: conectar `GameQueries::videoPlaying` a `video::IsPlaying()` (`MakeMusicQueries` en `Game.cpp` y las queries
   de `AudioSystem`); un modo de olvidar `GameMusic::_alignmentType` para 0x54D963.
 - ProcessKey 0x63EF7A..0x63F2A4: los otros caminos de ESC, sin leer del todo.
-- El orden entre el dibujo del vídeo (`thedraw` 0x844E30) y `HelpSystem::Draw3D`: quién queda encima.
 - Comprobar en el juego que el primer vídeo de un perfil nuevo no se salta y el fundido de fall.bik tras
   `EndFallingSpellVideo`.
 
@@ -305,7 +384,13 @@ Diferencias:
   salto), ESC con Shift/Ctrl/byte 0xD01984, hechizo, película sustituida, 555 y 565, decodificador nulo, frames
   fallidos.
 - `test_rgb16` (5): las ramas 555 y 565 de fn_00837400 emuladas, expansión, cortes, spans.
-- Juego: ninguno hasta V3/V4 (`OPENBLACK_TEST_VIDEO=<ruta|intro|fall|…>`, `OPENBLACK_VIDEO_TRACE`).
+- `test_ffmpeg_decoder` (7): las tablas de color y el croma sin interpolar; con la carpeta del juego, el CRC-32 del
+  555 de logo.bik (frames 0 y 1, y vuelta al 0), tips.bik por salto (34, 20, 34) e INTRO.bik frame 10 en orden,
+  contra los `.bin` de oro de la DLL (sólo los CRC están en el test).
+- Juego: `OPENBLACK_TEST_VIDEO=<intro|fall|ruta>` (Game.cpp, al cargar el mapa): `intro` = `Data\intro.bik` +
+  `ScheduleIntro()` (60 s), `fall` = `Data\Spells\fall\fall.bik` con `SetFallingSpellVideo(true)` (alfa 0x50 sobre el
+  mundo; el objeto `FallingSpell` es V6), si no la ruta dada. Fotos de V3: `dev\_audit\sistemas\video\intro_mid.png`
+  (frame 1800, el vídeo tapa la pantalla) y `fall_mid.png` (frame 1500, el mundo × 0,686).
 
 ## Fuentes
 
@@ -314,3 +399,5 @@ Diferencias:
 - `dev\_scratch\asistente\video\golden\README.md` (frames de oro de la DLL; 555 = flag 9 en 0x845146) y
   `oracle\` (el exe de 32 bits que los saca).
 - `dev\_scratch\asistente\video\patch12\README.md` y `audit.md` (V1-V2 y su auditoría).
+- `dev\_scratch\asistente\video\ffmpeg\README.md` (V5: el overlay, tamaños, la reconstrucción de los colores y
+  la comparación con los frames de oro) y `patch5\README.md` (cómo se aplica).

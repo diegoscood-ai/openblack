@@ -84,6 +84,43 @@ uint32_t mist_atoms::MistColour(uint32_t atomArgb, uint32_t baseArgb)
 	       channel(0, baseArgb & 0xFFu);
 }
 
+bool mist_atoms::Describe(const Effect::DrawAtom& atom, mists::MistDesc& mist)
+{
+	const auto* creator = dynamic_cast<const MistCreator*>(atom.creator);
+	if (creator == nullptr)
+	{
+		return false;
+	}
+	mist = {};
+	mist.position = atom.position; // vt 0x24 SetPos(PSR +0x24)
+	mist.size = atom.scale;        // mist +0x88 = PSR +0x30
+	// CreateLH3DMist 0x6AA5A0: +0x80 |= 2 (the effect branch) and k = Ratio, or 2.5 + LocalFloatRand(2.5) when 0.
+	// (aproximado) with Ratio 0 the per-mist random k has no per-atom slot here: its mean, 3.75
+	mist.edgeShrink = true;
+	mist.k = creator->ratio != 0.0f ? creator->ratio : 3.75f;
+	// DrawAt: TakeRatioFromMatrix -> k = M[1][1] / M[0][0] when |M[0][0]| > 0.0001 (0x8BF518)
+	// (the PSR matrix's Y axis carries the stretch, fn_00673DB0: the storm clouds' cloud ratio, UR_CloudGather)
+	const glm::mat3 matrix = atom.rotation * glm::mat3(atom.scale, 0.0f, 0.0f, 0.0f, atom.scale * atom.stretch, 0.0f, 0.0f,
+	                                                   0.0f, atom.scale);
+	if (creator->takeRatioFromMatrix && std::abs(matrix[0][0]) > 0.0001f)
+	{
+		mist.k = matrix[1][1] / matrix[0][0];
+	}
+	// DrawData colour (the atom's, its alpha with the collection's) x [0xFA26A4], the land light table's base
+	// colour (the renderer's last Build, LandLightTable::Current().GetRawBase(): (aproximado) the previous frame's)
+	const auto alpha = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
+	const uint32_t argb = (alpha << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) |
+	                      (static_cast<uint32_t>(atom.colour[1]) << 8) | static_cast<uint32_t>(atom.colour[2]);
+	mist.colour = MistColour(argb, LandLightTable::Current().GetRawBase());
+	if (atom.atom != nullptr)
+	{
+		mist.counter = atom.atom->mist.counter;
+	}
+	// DrawData +0xC, the atom's +0x90 (0x679BF4), to SetColour 0x7F9770 as the specular (0x67A6C4/0x67A6D6)
+	mist.specular = atom.specular;
+	return true;
+}
+
 void mist_atoms::SubmitFrame(float milliseconds)
 {
 	for (const auto& drawable : manager::Collect(Creator::Kind::Other))
@@ -95,47 +132,30 @@ void mist_atoms::SubmitFrame(float milliseconds)
 			{
 				continue;
 			}
-			mists::MistDesc mist {};
-			mist.position = atom.position; // vt 0x24 SetPos(PSR +0x24)
-			mist.size = atom.scale;        // mist +0x88 = PSR +0x30
-			// CreateLH3DMist 0x6AA5A0: +0x80 |= 2 (the effect branch) and k = Ratio, or 2.5 + LocalFloatRand(2.5) when 0.
-			// (aproximado) with Ratio 0 the per-mist random k has no per-atom slot here: its mean, 3.75
-			mist.edgeShrink = true;
-			mist.k = creator->ratio != 0.0f ? creator->ratio : 3.75f;
-			// DrawAt: TakeRatioFromMatrix -> k = M[1][1] / M[0][0] when |M[0][0]| > 0.0001 (0x8BF518)
-			// (the PSR matrix's Y axis carries the stretch, fn_00673DB0: the storm clouds' cloud ratio, UR_CloudGather)
-			const glm::mat3 matrix = atom.rotation * glm::mat3(atom.scale, 0.0f, 0.0f, 0.0f, atom.scale * atom.stretch, 0.0f,
-			                                                   0.0f, 0.0f, atom.scale);
-			if (creator->takeRatioFromMatrix && std::abs(matrix[0][0]) > 0.0001f)
-			{
-				mist.k = matrix[1][1] / matrix[0][0];
-			}
-			// DrawData colour (the atom's, its alpha with the collection's) x [0xFA26A4], the land light table's base
-			// colour (the renderer's last Build, LandLightTable::Current().GetRawBase(): (aproximado) the previous frame's)
-			const auto alpha = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
-			const uint32_t argb = (alpha << 24) | (static_cast<uint32_t>(atom.colour[0]) << 16) |
-			                      (static_cast<uint32_t>(atom.colour[1]) << 8) | static_cast<uint32_t>(atom.colour[2]);
-			mist.colour = MistColour(argb, LandLightTable::Current().GetRawBase());
 			// fn_007FA300: every LH3DMist its own counter += ftol(g_game_time_inc x 0.255), modulo 900 once past it, run
 			// only for a mist on screen (AddDrawing 0x7FA7F0, mists::InView); the fraction kept as the map mists do
 			// (frame_anim::MistAdvance)
-			if (atom.atom != nullptr)
+			if (atom.atom != nullptr && mists::InView(atom.position, atom.scale))
 			{
-				if (mists::InView(mist.position, mist.size))
-				{
-					graphics::frame_anim::MistAdvance(atom.atom->mist, milliseconds);
-				}
-				mist.counter = atom.atom->mist.counter;
+				graphics::frame_anim::MistAdvance(atom.atom->mist, milliseconds);
 			}
-			// DrawData +0xC, the atom's +0x90 (0x679BF4), to SetColour 0x7F9770 as the specular (0x67A6C4/0x67A6D6)
-			mist.specular = atom.specular;
-			// vt 0x100 (Z-sorted, [0xC0215D] set) / vt 0x104: the sorting is mists::Submit's
-			mists::Submit(mist);
+			mists::MistDesc mist {};
+			Describe(atom, mist);
+			// RenderParticleMist::DrawAt 0x67A774: with [0xC0215D] set (the effect drawn with Draw_(t, 1), DrawPath::Sorted)
+			// vt 0x100 = fn_007FA7F0, the mist's own Z object at mist +0x38 (NewZObject 0x7FA87B): mists::Submit; else
+			// vt 0x104 = fn_007FA790 (0x67A78C), drawn at once inside its effect's draw (manager::CollectQueued /
+			// HandEffects, mist_atoms::Describe). Until the renderer draws by path (manager::k_DrawByPath) every mist
+			// still goes to mists::Submit
+			if (!manager::k_DrawByPath || drawable.path == DrawPath::Sorted)
+			{
+				mists::Submit(mist);
+			}
 			// 0x67A792..0x67A8C1: with the creator's bitmap a record in the list 0xD4EDB8 at (x, 0, z), frame 0, alpha =
 			// DrawData alpha / 255 ([0x9357AC]) clamped to [0, 1]; PSysLightMaps fn_006CA280: + (10, 0, 10), centred,
 			// mode 1 for bpp 3 / 2 for bpp 1 (the storm's shadow: fn_00878C70, land_light::AddStamp)
 			if (creator->landBitmap)
 			{
+				const auto alpha = static_cast<uint32_t>(std::clamp(atom.alpha, 0.0f, 255.0f));
 				const int mode = creator->landBitmap->channels == 3 ? 1 : 2;
 				land_light::AddStamp(glm::vec3(mist.position.x + 10.0f, 0.0f, mist.position.z + 10.0f),
 				                     graphics::frame_anim::FrameTexels(*creator->landBitmap, 0), creator->landBitmap->pitch, true,

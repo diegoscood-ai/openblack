@@ -16,6 +16,7 @@
 
 namespace openblack
 {
+struct GAbodeInfo;
 struct GObjectInfo;
 } // namespace openblack
 
@@ -29,6 +30,10 @@ namespace openblack::ecs::fire::traits
 /// The object's GObjectInfo (Object +0x28): trees, dead trees, abodes, fields, features, villagers, animals, mobile
 /// statics and objects, pots, magic fireballs. nullptr: no info, the object never burns.
 [[nodiscard]] const GObjectInfo* InfoOf(entt::entity object);
+/// An abode's GAbodeInfo (Object +0x28 of an Abode), a field's too: Field::Field 0x527DD0 hands its GAbodeInfo to
+/// Abode::Abode (0x527DFA), which keeps it as the object's info (InfoOf gives a field's GFieldTypeInfo instead).
+/// nullptr when the object is not an abode
+[[nodiscard]] const GAbodeInfo* AbodeInfo(entt::entity object);
 
 /// Object::GetCombustionTemperature 0x639A30 (info +0xB4); 0 without an info (FireEffect::Create refuses it)
 [[nodiscard]] float CombustionTemperature(entt::entity object);
@@ -59,7 +64,7 @@ namespace openblack::ecs::fire::traits
 /// Object +0x24 bit 1: set only by the MultiMapFixed ctor 0x52E1F0 (0x52E207 `or byte [esi+0x24], 2`, its only
 /// writer in .text). The classes (bw1-decomp src/Black/*.h): Abode (Field, StoragePit...), BigForest, CitadelPart
 /// (CitadelHeart, WorshipSite, CreaturePen, WorshipTotem), Feature (AnimatedStatic), FishFarm, MobileStatic
-/// (MagicTeleport, street lanterns), PFootball, PrayerSite, SpellIcon, TotemStatue. SingleMapFixed (Tree, MapShield...)
+/// (MagicTeleport; Rock: DeadTree, Fragment, Bonfire), PFootball, PrayerSite, SpellIcon, TotemStatue. SingleMapFixed (Tree, MapShield...)
 /// does not set it, nor do GFootpath and BuildingSite (GameThings).
 /// Also Object::AsMultiMapFixed (vt 0x678) != NULL
 [[nodiscard]] bool IsMultiMapFixed(entt::entity object);

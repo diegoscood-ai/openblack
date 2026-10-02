@@ -1433,6 +1433,31 @@ bool Game::Run() noexcept
 		// as SET_WIDESCREEN: the HelpSystem's owning task (+0x45EC) is set too (the user-param-1 samples are skipped)
 		audio::SetScriptWideScreen(true);
 	}
+	// OPENBLACK_TEST_VIDEO=<intro|fall|path> plays a full screen film (video.md): intro as StartAVISequence(1) 0x68F450
+	// (data\intro.bik, 60 s), fall as the falling spell's film (data\Spells\fall\fall.bik, alpha 0x50 over the world;
+	// the FallingSpell object is milestone V6), else the given .bik
+	if (const char* film = std::getenv("OPENBLACK_TEST_VIDEO"); film != nullptr)
+	{
+		const std::string name = film;
+		const auto& data = fileSystem.GetPath<filesystem::Path::Data>();
+		const std::filesystem::path path = name == "intro"  ? data / "intro.bik"
+		                                   : name == "fall" ? data / "Spells" / "fall" / "fall.bik"
+		                                                    : std::filesystem::path(name);
+		std::filesystem::path found = path;
+		try
+		{
+			found = fileSystem.FindPath(path);
+		}
+		catch (const std::exception&)
+		{
+		}
+		video::Get().SetFallingSpellVideo(name == "fall");
+		video::Get().Play(found);
+		if (name == "intro")
+		{
+			video::Get().ScheduleIntro();
+		}
+	}
 	// OPENBLACK_TEST_MOVE_TIME="hour,seconds" runs MOVE_GAME_TIME; OPENBLACK_CLOCK_TRACE=1 logs the clock every 50 turns
 	if (const char* move = std::getenv("OPENBLACK_TEST_MOVE_TIME"); move != nullptr)
 	{
@@ -1606,6 +1631,11 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
+	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
+	if (video::Get().IsPlaying())
+	{
+		video::Get().Stop();
+	}
 	// GScript::Reset 0x6EB2D0 also calls HelpSystem::Reset (0x6EB340): the text part
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{

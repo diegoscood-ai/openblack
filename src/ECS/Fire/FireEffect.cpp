@@ -33,6 +33,7 @@
 #include "ECS/Influence/Influence.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -139,24 +140,20 @@ void RemoveReactions(entt::entity object, Reaction type)
 	effects::reactions::RemoveAllReactionsOfTypeInitiatedBy(object, type);
 }
 
-/// The objects of the 10 m map cell (MapCoords::FindType(-1) walks the cell's list): fixed and mobile, the held
-/// object excluded (it is out of the map while in the hand)
+/// The objects of the 10 m map cell in the order MapCoords::FindType(-1) walks them (0x72F68E / 0x7308B8, then with
+/// the previous one): the fixed list, then the mobile one only when the last fixed one's type counts as fixed
+/// (MapCell::FindTypeOnMap 0x6015E0, 0x601621; ecs::map_cells::FindType), as a snapshot. The held object is out of the
+/// map (the module skips it, with the flying ones)
 void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out)
 {
-	out.clear();
 	// MapCoords::ToMap 0x603430 gives NULL off the map (InBounds 0x6042C0: the cell unsigned against 512)
-	if (!Locator::entitiesMap::has_value() || !map_coords::InBounds(cell, MapInterface::k_GridSize.x))
+	out.clear();
+	const map_cells::ReadBatch batch;
+	for (auto object = map_cells::FindType(cell, ObjectType::Any); object != entt::null;
+	     object = map_cells::FindType(cell, ObjectType::Any, object))
 	{
-		return;
+		out.push_back(object);
 	}
-	const auto& map = Locator::entitiesMap::value();
-	const MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-	out.insert(out.end(), map.GetFixedInGridCell(id).begin(), map.GetFixedInGridCell(id).end());
-	out.insert(out.end(), map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-	// (inf) the cell lists are unordered sets here: sort for a stable order
-	std::sort(out.begin(), out.end());
-	auto& registry = Locator::entitiesRegistry::value();
-	std::erase_if(out, [&registry](entt::entity e) { return !registry.Valid(e) || traits::InHand(e); });
 }
 
 // ---- fire groups (the +0x40 / +0x44 chain and the root's firemen list) ----
@@ -541,7 +538,6 @@ void Process(FireEffect& fire)
 			auto coords = start;
 			map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0, from dir = count = 1
 			std::vector<entt::entity> objects;
-			std::unordered_set<entt::entity> heated; // (inf) an object spanning several cells is heated once
 			for (int steps = 99999; steps != 0; --steps)
 			{
 				const auto cell = map_coords::Cell(coords);
@@ -551,9 +547,11 @@ void Process(FireEffect& fire)
 					break;
 				}
 				CellObjects(glm::ivec2(cell), objects);
+				// FindType(-1) 0x72F68E / 0x72F6AD: every object of the cell but the fire's own ([edi + 0x1C], 0x72F699);
+				// no "done" set, so an object in several cells of the spiral is heated once per cell (as in the original)
 				for (const auto object : objects)
 				{
-					if (object != fire.object && heated.insert(object).second)
+					if (object != fire.object)
 					{
 						HeatTransfer(fire, object);
 						if ((fire.flags & FireEffect::Deleted) != 0)
@@ -970,7 +968,7 @@ void fire::CheckToSeeIfObjectIsNearOnFireObject(entt::entity object)
 		return;
 	}
 	std::vector<entt::entity> objects;
-	CellObjects(glm::ivec2(MapInterface::GetGridCell(glm::vec2(centre.x, centre.z))), objects);
+	CellObjects(map_coords::CellOf(glm::vec2(centre.x, centre.z)), objects); // 0x7308B8 / 0x7308DB FindType(-1)
 	for (const auto other : objects)
 	{
 		if (other == object)

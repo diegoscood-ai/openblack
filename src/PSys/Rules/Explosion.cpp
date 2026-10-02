@@ -48,6 +48,7 @@
 #include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/PotResource.h"
@@ -371,9 +372,7 @@ private:
 		const int side = ecs::map_coords::FtoL(std::ceil((r + k_SearchExtra) / k_CellMetres));
 		const int cells = side * side;
 		const unsigned int turn = game_clock::Turn(); // g_game +0x205A40 (0x67E702)
-		if (Locator::entitiesMap::has_value())
 		{
-			const auto& map = Locator::entitiesMap::value();
 			const auto& registry = Locator::entitiesRegistry::value();
 			// the centre's MapCoords (ToFixed of x and z, 0x67E56A..0x67E598) and its copy walked by GUtils::Spiral 0x74D7E0
 			// from dir = count = 1 (0x67E627..0x67E634), MapCoords::InBounds 0x6042C0 on each cell, += JustMapXZ 0x605470
@@ -384,26 +383,25 @@ private:
 			{
 				if (ecs::map_coords::InBounds(cell))
 				{
-					const ecs::MapInterface::CellId id(ecs::map_coords::CellX(cell), ecs::map_coords::CellZ(cell));
-					for (const auto* list : {&map.GetMobileInGridCell(id), &map.GetFixedInGridCell(id)})
+					// 0x67E65C..0x67E678: [eax+4] (the fixed list) first, then the mobile one (fn_006827E0), each from
+					// its head (ecs::map_cells)
+					for (const auto object : ecs::map_cells::ObjectsInCell(ecs::map_coords::Cell(cell)))
 					{
-						for (const auto object : *list)
+						if (!registry.Valid(object) || !IsAvailable(object))
 						{
-							if (!registry.Valid(object) || !IsAvailable(object))
-							{
-								continue;
-							}
-							const auto own = ecs::object::MapCoordsOf(object);
-							if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
-							{
-								continue;
-							}
-							const float reach = ecs::object::Get2DRadius(object) + r;
-							if (gutils::GetDistanceInMetres(centre, own) < reach)
-							{
-								data.targets.push_back({turn, object});
-								data.anyTarget = true;
-							}
+							continue;
+						}
+						// fn_00604F40 (0x67E6AA): only in the cell of its own MapCoords
+						const auto own = ecs::object::MapCoordsOf(object);
+						if (!ecs::map_cells::IsOwnCell(own, ecs::map_coords::Cell(cell)))
+						{
+							continue;
+						}
+						const float reach = ecs::object::Get2DRadius(object) + r;
+						if (gutils::GetDistanceInMetres(centre, own) < reach)
+						{
+							data.targets.push_back({turn, object});
+							data.anyTarget = true;
 						}
 					}
 				}

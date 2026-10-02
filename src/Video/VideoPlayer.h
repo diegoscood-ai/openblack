@@ -119,6 +119,9 @@ public:
 		std::function<int32_t()> wideScreen;
 		/// HelpSystem::SetWideScreen(on, 0) 0x5C6AD0 (0x54D9E4, FinishedVideo 0x54D902)
 		std::function<void(int32_t on)> setWideScreen;
+		/// HelpSystem fn_005C6C40 (0x54D9EF): +0x45F0 = -FLT_MAX, the wide screen bars at 100 % at once
+		/// (ScreenFade::SnapWideScreen); Play calls it every time, also when the script had the bars on already
+		std::function<void()> snapWideScreen;
 		/// GAudio::StartScriptMusic(0) 0x428230 after the ESC skip (ProcessKey 0x63F3FA..0x63F402)
 		std::function<void()> stopScriptMusic;
 		/// GGame::EndFallingSpellVideo 0x553A10 (fn_0054DA00 0x54DA0C: the skip of the falling spell's film). Unset:
@@ -128,7 +131,7 @@ public:
 		std::function<std::unique_ptr<IVideoDecoder>()> makeDecoder;
 	};
 	/// openblack's hooks: game_clock::Pause / IsPaused, help::Get()'s wide screen (nothing without a HelpSystem),
-	/// audio::game_music's ScriptStopMusic, NullVideoDecoder
+	/// audio::game_music's ScriptStopMusic, FfmpegDecoder (NullVideoDecoder when it refuses the film)
 	[[nodiscard]] static Hooks GameHooks();
 
 	/// What the renderer draws (milestone V3): LHVideoPlayer::DrawToScreen's colour and the textures of the mosaic

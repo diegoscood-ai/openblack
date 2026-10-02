@@ -203,12 +203,25 @@ class Renderer final: public RendererInterface
 	void DrawWaterRings(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
-	/// FinishFrame (e) and (h): the cinema bars and the screen fade (fn_0081E590, fn_0086FEE0)
-	void DrawScreenOverlay() const;
+	/// LH3DRender::FinishFrame 0x82F460 (e) or (h): `drawFade` false, the cinema bars if [0xEB9950] != 0
+	/// (0x82F652..0x82F6DD, fn_0081E590 twice), before the 0x80000000 callbacks (the film, 0x82F6E5..0x82F718);
+	/// `drawFade` true, the screen fade fn_0086FEE0 (0x82F753) after them, which draws the bars again over its colour
+	void DrawScreenOverlay(bool drawFade) const;
 	/// HelpSystem::Draw3D -> CameraHelp::DrawKeyOrMouse 0x447EA0: the tooltip next to the hand (the amount in the hand)
 	void DrawHandToolTip(const Camera& camera) const;
 	mutable std::unique_ptr<GameFont> _font; ///< Data\j0, font 0 of the tooltips
 	mutable bool _fontLoadTried {false};
+	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
+	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
+	void DrawVideoOverlay() const;
+	/// The end of LH3DRender::FinishFrame 0x82F460: the bars, the film, the fade, in that order
+	void DrawFinishFrameOverlays() const;
+	/// The film's picture, (re)made when its size changes and updated when its serial changes
+	mutable bgfx::TextureHandle _videoTexture = BGFX_INVALID_HANDLE;
+	mutable glm::u16vec2 _videoTextureSize {0, 0};
+	mutable std::optional<uint32_t> _videoSerial;
+	/// 1x1 white R8: the s_alpha of the WorldQuad program, the alpha 1 of the X1R5G5B5 tiles (inferido)
+	mutable bgfx::TextureHandle _videoAlphaTexture = BGFX_INVALID_HANDLE;
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),

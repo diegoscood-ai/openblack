@@ -468,9 +468,8 @@ El original tiene tres mecanismos y un solo plano:
   translúcidos, en la cola ordenada), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia;
   **(aproximado)** alfa de vértice 0xFF: `fn_00858BA0` lo toma de obj+0x4C & 0xFF000000, 0x858C42 → [ebp−0x24], OR en
   0x858D60, es decir el alfa de DrawData+8, que la instancia no lleva).
-  **Pendiente de milagros2**: `psys::mesh_atoms::Instance` todavía no lleva el bit, ni el especular DrawData+0xC, ni el
-  alfa de DrawData+8;
-  `RenderingSystem` lee `cutByPlane` / `specular` en cuanto existan, y hasta entonces ningún átomo se corta. Un átomo
+  `psys::mesh_atoms::Instance` lleva el bit (`cutByPlane`, desde `MeshCreator::drawCutByPlane`) y el especular
+  DrawData+0xC (`specular`), que `RenderingSystem` lee; el alfa de DrawData+8 (`alpha`) no llega al corte. Un átomo
   con `DrawCutByPlane` y `DrawWithLandscapeColor` se apunta una vez en el registro y se dibuja sin cortar
   **(inferido: no se conoce ningún efecto con los dos)**. La prueba de caja en pantalla 0x679F3C la da el recorte de
   bgfx **(aproximado)**.

@@ -14,6 +14,8 @@ en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendien
   las derivadas, a nivel de malla y de objeto (`ecs::object`)
 - [Reloj del juego](#reloj-del-juego): el turno, los ms del turno, la fracción, el dt del fotograma, la pausa y la
   velocidad (`game_clock`)
+- [Listas de objetos por celda](#listas-de-objetos-por-celda-ecsmap_cells): las dos listas ordenadas de cada celda,
+  las celdas de un objeto, las búsquedas y el recorrido de las ciudades (`ecs::map_cells`)
 - [Altura del terreno](#altura-del-terreno)
 - [Normal del terreno](#normal-del-terreno): `LH3DIsland::GetNormal` y sus dos tablas (`land_normal`)
 - [Matrices LH](#matrices-lh): los constructores de LHMatrix, la inversa y el modelo (`lh_matrix`)
@@ -615,6 +617,91 @@ velocidad constante; las pilas que se recogen de piscifactorías, campos y monto
 paran en pausa; el grano de la mano, las luciérnagas y los efectos de partículas interpolan con la fracción del juego
 (se paran en pausa y siguen la velocidad); los símbolos de creencia de los pueblos se paran en pausa.
 
+## Listas de objetos por celda (`ecs::map_cells`)
+
+`src/ECS/MapCells.{h,cpp}` (fase A de map_cell_queries, 2026-10-02, milagros2; investigación en
+`dev\tmp_dis\unify2\map_cell_queries_original.md`, `map_cell_queries_PLAN_A.md` y `map_cell_queries_A_impl.md`). Es la
+rejilla GMap del original (g_game+0x59B8, MapCell de 8 bytes en +0x59FC, 512 × 512 por `GMap::Init(0x200, 0x200)`
+0x6014C0): cada celda tiene **dos listas enlazadas y ordenadas**, +0 la móvil (`SetFirstObjectMobile` 0x601B60) y +4
+la fija (0x601B70).
+
+**Qué lista.** La decide el **tipo** de la info (+0x10), no la clase: `DoesObjectTypeCountAsFixed` 0x601510, tabla
+0x60152C (fijos 0, 6-9, 11, 12, 14, 18, 19, 21-26, 28, 29, 31-41, 43, 44; por encima de 0x2C, también −1 y −2 sin
+signo, no). `InitialiseIsFixedForMapList` 0x63A640 lo guarda en el bit 15 de Object +0x24. El tipo se lee de info.dat
+(`map_cells::TypeOf`); lo que openblack no guarda con fila va marcado (inferido) en el código.
+
+**Qué extremo.**
+
+| Clase (`InsertKind`) | Inserción | Extremo |
+|---|---|---|
+| SingleMapFixed (Tree, MagicTree, MapShield) | 0x52E620 → `Fixed::InsertMapObjectToCell` 0x52DEA0 | cabeza de la fija, su celda |
+| MultiMapFixed (Abode, Field, Feature, AnimatedStatic, MobileStatic, DeadTree, BigForest, TotemStatue, WorshipSite, Temple, SpellIcon, MagicTeleport, Fragment) | 0x52E650 → `AssumeFixed` 0x52DEE0 en cada celda; hijos ordenados por x y z (`SortChildren` 0x52DC10) | cabeza de la fija, todas sus celdas |
+| FishFarm | 0x52CA10; `GetNextPos` 0x52C940 da **una sola** posición, la suya | cabeza de la fija, su celda |
+| Object (Villager, Animal, Creature, StreetLantern, Pot y pilas, OneOffSpellSeed, MobileObject, Shark) | 0x636740 → `Object::InsertMapObjectToCell` 0x636830 | con el bit 15, **cola** de la fija (ollas y pilas, farolas); sin él, cabeza de la móvil (doble enlace, +0x38; los orbes: su info `GMobileObjectInfo` 25 es del tipo 20) |
+| SpellSeed, MagicFireBall, Town, Forest... | `ret` (0x728F30, 0x682D10) | fuera del mapa |
+
+Borrar (`RemoveMapObjectFromCell` 0x6368D0) no cambia el orden de los demás. Mover (`MoveMapObject` vt+0x55C): un
+objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMapFixed, si cambia su MapCoords
+(0x52E4F0, `operator==` 0x605660). `ActualMoveMapObject` 0x638040 lo deja **en la cabeza**. `SetXYZAnglesAndScale`
+(0x638F80 / 0x6074E0 / 0x608D60) también lo quita y lo vuelve a meter.
+
+**Celdas de un MultiMapFixed** (`NewCollideDescriptor` 0x46A860 / `Init` 0x46AB10 / `GetNext` 0x46AD80;
+`DescriptorCells`):
+
+1. La forma es `map_collide::FromMesh` (NewCollide 0x829390) y `reach = escala · mesh+0x30 + 1` ([0x8AA390]).
+2. Caja `ftol((c ∓ reach) · 0,1)` ([0x8AC404]). Si la esquina baja es negativa pasa a 0, y solo entonces la alta
+   también (0x46ABC9..0x46ABE7).
+3. x por fuera, z por dentro. Se marca la celda cuyo círculo de **7,1 m** (0x40E33333) en `(10i + 5, 10j + 5)` toca la
+   forma, solo si está en el mapa. Si no se marca ninguna, la del medio, `(w/2)·d + d/2` (0x46AD06..0x46AD3B).
+4. La inserción **se corta** en la primera celda marcada fuera del mapa (0x52E70D).
+5. (aproximado) Sin malla en openblack (campos, piedras de teletransporte): la celda de su posición.
+
+**Lecturas de una celda.**
+
+- El recorrido del original (`GetFirstIterator` 0x6034D0 + fn_006827E0, y las copias en línea) es **la fija desde su
+  cabeza y luego la móvil desde la suya** (`ForEachInCell` / `ObjectsInCell`). `MobileInCell` es solo la móvil
+  (0x603490).
+- `FindType(celda, t, anterior)` (0x6045C0 → `FindTypeOnMap` 0x6015E0): con −1, la fija y luego la móvil (al acabar la
+  fija salta a la móvil si el tipo del anterior cuenta como fijo, 0x601621); con otro tipo, **solo su lista**
+  (0x601646).
+- `FindFixedOnMap` 0x601690. `IsFixed` (0x603790 → 0x601EA0) mira **solo la cabeza** de la fija: que sea un
+  MultiMapFixed (+0x24 bit 1). `IsOwnCell` es fn_00604F40.
+
+**Búsquedas.**
+
+- `FindNearType` 0x6045F0: una sola lista (−1 es la móvil); no recorta a r.
+- `FindNearForScript` 0x604370: cuadrado ±r con signo, la cuenta de z es `(alto & 0xFFFF) − bajo + 1`, el tótem de un
+  sitio de culto (0x77CF30), `<` estricto desde FLT_MAX.
+- `FindNearestInSpiral` fn_00604AF0 / fn_00604C30: `max(3, ceil(2r/10))²` celdas, `d < r`, corte `1,5·mejor + 10`
+  ([0x8AB24C] / [0x930050]).
+- `FindNearInfluenced` 0x604870: `GetDistanceModifier(d, r)` 0x74F290 (r es el último argumento, leído en 0x604A33).
+  Aún no la usa nadie.
+- `TallestOverlapping` fn_006022C0.
+
+**Ciudades** (no usan celdas):
+
+- `ForEachTown` / `TownsOf` = `GetNextPlayerAndNeutral` 0x550980 (huecos 0..7, el neutral el último) × la lista de cada
+  jugador, que se rellena **por la cola** (fn_0064C090): la más vieja primero ((inferido) por `Town::id`).
+- `GetNearestTown` 0x6020E0 y `GetNearestCitadel` 0x602200: `<` estricto desde r. `GetNearestTownWithCentre`
+  fn_00602160.
+- `GetNearestTownCells` 0x601F90: distancia octogonal en celdas; (aproximado) sin el rectángulo de la ciudad.
+- `GetNearestTownToPos` 0x73B170: `0x7FFF` es cualquier casa; con otro tipo **acepta las ciudades que no lo tienen**.
+- `FindNearestTownInList` fn_00552FF0: la lista global. **No tiene rama de ID** (leído): la primera siempre y luego
+  `<`.
+
+**Mantenimiento en openblack.**
+
+- Ganchos `InsertMapObject` / `RemoveMapObject` / `MoveMapObject` / `OnAnglesOrScaleChanged` donde el original llama a
+  la vtable. En la fase A los pone milagros2 en lo suyo: árboles de SpellForest, pilas, pedazos de la tormenta, orbes,
+  MapShield, las piedras y el vivo teletransportado, y lo que lleva el tornado (`SetHeldOutOfMap`).
+- Lo de los demás dueños entra por `Sync()`, que llama `MapProduction::Rebuild` al empezar cada turno, al cargar y en
+  `Reactions`: primero las bajas (destruidos, en la mano, en física, cambio de clase) y luego las altas y los
+  movimientos por índice de creación (inferido).
+- Toda lectura se salta además lo que el original ya habría sacado: no válido, en la mano o volando.
+- `OPENBLACK_MAPCELLS_CHECK=1` comprueba las listas en cada `Sync` y escribe `map_cells: N objects, M cells, E errors`.
+- La API vieja (`MapInterface` / `MapProduction`, `effects::ObjectsInMapCell`) sigue para quien no ha migrado. Lo que
+  le queda a cada dueño está en `map_cell_queries_A_impl.md`.
+
 ## Altura del terreno
 
 `LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
@@ -867,7 +954,7 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-02, ram
 
 **Tanda 2 de los aplazados de milagros2, migrada (2026-10-02, sistemas2):**
 - `PSys/Rules/Storm.cpp`: el polvo del tornado toma la celda de `MapCoords(LHPoint)` (0x6D2BA3; el port conserva la
-  comprobación contra el lado de la isla, que el original no hace); `PotsByCell` usa `map_coords::CellOf`; la búsqueda
+  comprobación contra el lado de la isla, que el original no hace); `PotsByCell` usaba `map_coords::CellOf` (se borró en la fase A de map_cell_queries: las ollas van en la cola de la lista fija, y cada celda se recorre fija y luego móvil, 0x6D2327); la búsqueda
   de lo que el tornado se lleva (fn_006D21B0) recorre `map_coords::Spiral` + `AddCells` desde el MapCoords del tornado
   (`ToFixed`, 0x6D228D..0x6D22A7), con `InBounds` en cada celda (0x6D2311), la celda propia por el MapCoords del objeto
   (fn_00604F40), `GetDistanceInMetres` desde el MapCoords **inicial** (0x6D2398, no desde la celda que se recorre) y la

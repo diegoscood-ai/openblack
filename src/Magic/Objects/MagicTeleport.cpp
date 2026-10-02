@@ -38,6 +38,7 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
@@ -240,9 +241,11 @@ entt::entity teleport::Create(const glm::vec3& mapPosition, entt::entity spell)
 		// Reaction::CreateReaction(this, REACT_TO_TELEPORT, GetPlayer(), 0): spread at once over the cells in its radius
 		stone.reaction = ecs::effects::reactions::CreateReaction(entity, openblack::Reaction::ReactToTeleport, stone.player, false);
 	}
-	// CallVirtualFunctionsForCreation 0x5FC260: MobileStatic's (0x609700), then, unless the object is already being
+	// CallVirtualFunctionsForCreation 0x5FC260: MobileStatic's (0x609700: MultiMapFixed's 0x52E890+0x184, the stone
+	// into its cells, ecs::map_cells), then, unless the object is already being
 	// deleted (+0xA bit 0), PSysInterface::Create(no spell, PT 73, the world position (altitude + MapCoords y), direction
 	// 0, magnitude 1.0, 0) and psys->SetPlayer(GetPlayer()) (vt 0x20)
+	ecs::map_cells::InsertMapObject(entity);
 	const auto file = psys::ParticleTypeFile(static_cast<ParticleType>(k_VortexParticleType));
 	if (!file.empty())
 	{
@@ -464,71 +467,20 @@ void teleport::MoveByTeleport(entt::entity living, const glm::vec3& mapPosition)
 	PlayInGameSample(39, ToMap(transform->position));
 	PlayInGameSample(38, mapPosition);
 	const auto world = ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
-	// MoveMapObject (vt 0x55C): the new position, at the land
-	transform->position = world;
+	// MoveMapObject (vt 0x55C, Object 0x636A40): the new position, at the land; at the head of the new cell's list when
+	// the cell changes
+	ecs::map_cells::MoveMapObject(living, world);
 	ecs::villager_teleport::OnMoved(living);
 	registry.SetDirty();
 }
 
 bool teleport::AnyMultiMapFixedNear(const glm::vec3& mapPosition, float radius)
 {
-	if (!Locator::entitiesMap::has_value())
-	{
-		return false;
-	}
-	auto& registry = Reg();
-	const auto& map = Locator::entitiesMap::value();
-	// fn_00604C30: max(ceil(2R / 10), 3)^2 cells in a spiral around the point; the objects of each cell (FindType -1)
-	// that pass the predicate, other than the excluded one, nearer than R. Here only whether there is one.
-	// the point's MapCoords walked by GUtils::Spiral 0x74D7E0 from dir = count = 1 (0x604C85..0x604C8E, 0x604D43),
-	// MapCoords::InBounds 0x6042C0 on each cell (0x604CC9), += JustMapXZ 0x605470 (0x604D50)
-	auto cellCoords = ecs::map_coords::FromMetres(glm::vec2(mapPosition.x, mapPosition.z));
-	const int side = std::max(ecs::map_coords::FtoL(std::ceil(2.0f * radius / 10.0f)), 3);
-	const int cells = side * side;
-	ecs::map_coords::Spiral spiral;
-	const auto test = [&](entt::entity entity) {
-		if (!registry.Valid(entity) || !ecs::fire::traits::IsMultiMapFixed(entity)) // Object::AsMultiMapFixed (vt 0x678)
-		{
-			return false;
-		}
-		const auto* transform = registry.TryGet<const Transform>(entity);
-		return transform != nullptr && Distance2D(transform->position, mapPosition) < radius;
-	};
-	for (int n = 0; n < cells; ++n, ecs::map_coords::AddCells(cellCoords, spiral.Next()))
-	{
-		if (!ecs::map_coords::InBounds(cellCoords))
-		{
-			continue;
-		}
-		const ecs::MapInterface::CellId cell(ecs::map_coords::CellX(cellCoords), ecs::map_coords::CellZ(cellCoords));
-		for (const auto entity : map.GetFixedInGridCell(cell))
-		{
-			if (test(entity))
-			{
-				return true;
-			}
-		}
-		for (const auto entity : map.GetMobileInGridCell(cell))
-		{
-			if (test(entity))
-			{
-				return true;
-			}
-		}
-	}
-	// the stones are MultiMapFixed in the cells too (MultiMapFixed::InsertMapObject); openblack keeps them out of the
-	// grid (no mesh, no footprint), so they are looked up in the players' lists
-	for (size_t p = 0; p < static_cast<size_t>(PlayerNames::_COUNT); ++p)
-	{
-		for (const auto stone : ListOf(static_cast<PlayerNames>(p)))
-		{
-			if (Distance2D(MapPositionOf(stone), mapPosition) < radius)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
+	// GMagicTeleportInfo vt +0x30 0x5FBE50 -> fn_00604C30 (pred 0x5FBE90 Object::AsMultiMapFixed vt +0x678, r, no
+	// excluded object): the spiral of max(3, ceil(2r / 10))^2 cells, FindType(-1) in each, d < r, stopped at
+	// best x 1.5 + 10 (ecs::map_cells::FindNearestInSpiral). The stones are in the cells too (MultiMapFixed)
+	const auto coords = ecs::map_coords::FromMetres(glm::vec2(mapPosition.x, mapPosition.z));
+	return ecs::map_cells::FindNearestInSpiral(coords, ecs::map_cells::IsMultiMapFixedClass, radius) != entt::null;
 }
 
 void teleport::ProcessPlayers()

@@ -398,6 +398,9 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 				if (piece->meshId != 0)
 				{
 					result.push_back(PieceInstance(atom, piece->meshId));
+					result.back().path = drawable.path;
+					result.back().effect = drawable.effect;
+					result.back().atom = atom.atom;
 				}
 				continue;
 			}
@@ -445,11 +448,12 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			// UseScriptHightlightPulse (A x fn_0070A510, the script highlight's pulse): not ported
 			const float alpha = std::clamp(atom.alpha / 255.0f, 0.0f, 1.0f);
 			// (inferido: port routing) translucent, with the fading meshes, when additive or drawn with the global alpha
-			// and not fully opaque (the routing is the port's; the modes are the original's). DrawCutByPlane (+0x24 bit 4) only
-			// changes the call: fn_00679F20 draws through vt 0x11C instead of vt 0x104, and for the static LH3DObject a
+			// and not fully opaque (the routing is the port's; the modes are the original's). DrawCutByPlane (+0x24 bit 4):
+			// fn_00679F20 draws through vt 0x11C instead of vt 0x104 (0x679F29..0x679F52), and for the static LH3DObject a
 			// particle mesh is (LH3DObject::Create(0) 0x80B4F8 -> LH3DStaticObject, vtable 0x9A2974) vt 0x11C is
-			// fn_0080C050, a plain draw of its primitives with the world-to-clip matrix: no plane cuts a static mesh (the
-			// cut at y = 0 is the animated objects' fn_00811C70, rendering.md). Nothing to port for the dome.
+			// fn_0080C050, which does cut: the plane of fn_00822560, a CPU clip per triangle (fn_0081D2C0) and the light of
+			// fn_00858BA0, as the animated objects' fn_00811C70 (rendering-objects.md, "Cortar por el plano del agua"):
+			// Instance::cutByPlane, drawn by the renderer with sea_pass::CutAtoms
 			// The particle's +0x24 bit 0 (SetGlobalAlpha, Mesh.h globalAlpha): AnimTextured's and ParticleAnimCreator's
 			// UseGlobalAlpha, never for ParticleMeshCreator (0x6A8B00). Without it the atom is drawn with its materials'
 			// own modes: with the other meshes, its alpha (1 - [0][3]) only showing in the primitives that blend. The
@@ -458,6 +462,11 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			const bool translucent = creator->additive || (globalAlpha && alpha < 1.0f);
 			result.push_back({creator->meshId, model, alpha, uv, translucent, creator->additive, atom.colour,
 			                  creator->drawWithLandscapeColour, atom.specular, globalAlpha});
+			// the particle's +0x24 bit 4 from the creator's +0x5F (CreateParticle 0x6A8B94..0x6A8B9A)
+			result.back().cutByPlane = creator->drawCutByPlane;
+			result.back().path = drawable.path;
+			result.back().effect = drawable.effect;
+			result.back().atom = atom.atom;
 			// (openblack) no pose for an atom of alpha 0: the renderer does not draw it
 			if (clip != nullptr && alpha > 0.0f && Locator::resources::has_value())
 			{

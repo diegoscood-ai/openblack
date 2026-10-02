@@ -39,6 +39,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
 #include "ECS/Life.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -89,6 +90,22 @@ const GAbodeInfo* AbodeInfoOf(const Abode& abode, entt::id_type mesh)
 	return first;
 }
 } // namespace
+
+const GAbodeInfo* fire::traits::AbodeInfo(entt::entity object)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return nullptr;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* abode = registry.TryGet<const Abode>(object);
+	if (abode == nullptr)
+	{
+		return nullptr;
+	}
+	const auto* mesh = registry.TryGet<const Mesh>(object);
+	return AbodeInfoOf(*abode, mesh != nullptr ? mesh->id : 0);
+}
 
 const GObjectInfo* fire::traits::InfoOf(entt::entity object)
 {
@@ -235,12 +252,12 @@ bool fire::traits::IsObjectInMap(entt::entity object)
 
 bool fire::traits::IsMultiMapFixed(entt::entity object)
 {
-	// bw1-decomp src/Black: WorshipSite and CitadelHeart (openblack's Temple entity) are CitadelParts, AnimatedStatic
-	// is a Feature. GFootpath is a GameThing, not a MultiMapFixed. (aproximado) The other CitadelParts, PFootball and
-	// PrayerSite have no component of their own in openblack yet
-	return Locator::entitiesRegistry::value()
-	    .AnyOf<Abode, Field, BigForest, Feature, AnimatedStatic, FishFarm, MobileStatic, MagicTeleport, SpellIcon,
-	           TotemStatue, WorshipSite, Temple>(object);
+	// the class ecs::map_cells inserts with MultiMapFixed::InsertMapObject 0x52E650 (or FishFarm's 0x52CA10): one
+	// list of classes for both. bw1-decomp src/Black: WorshipSite and CitadelHeart (openblack's Temple entity) are
+	// CitadelParts, AnimatedStatic is a Feature, DeadTree and Fragment are Rocks (: MobileStatic). GFootpath is a
+	// GameThing, not a MultiMapFixed. (aproximado) The other CitadelParts, PFootball and PrayerSite have no component of
+	// their own in openblack yet
+	return ecs::map_cells::IsMultiMapFixedClass(object);
 }
 
 bool fire::traits::IsVillager(entt::entity object)

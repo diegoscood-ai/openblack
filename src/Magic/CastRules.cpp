@@ -28,6 +28,7 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
@@ -153,7 +154,7 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 	const auto magicType =
 	    spell != entt::null ? registry.Get<ecs::components::Spell>(spell).magicType : MagicType::Heal;
 	const auto* info = GetMagicInfoAs<GMagicHealInfo>(tables, magicType);
-	if (info == nullptr || !Locator::entitiesMap::has_value())
+	if (info == nullptr)
 	{
 		return 0;
 	}
@@ -168,7 +169,6 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 	const int side = static_cast<int>(std::ceil(2.0f * radius / 10.0f));
 	int cells = side * side;
 	const auto values = ecs::effects::EffectValues::FromEffectInfo(GetMagicEffectInfo(tables, magicType));
-	const auto& map = Locator::entitiesMap::value();
 	// the spiral walks the MapCoords itself (a copy of the cast position, 0x5FBB6B..0x5FBB82): InBounds 0x6042C0 at
 	// 0x5FBBBA and ToMap 0x603430 at 0x5FBBCB on it, and operator+= 0x605470 at 0x5FBCF1 adds the step to the high words
 	// only, so the fraction stays and the 16-bit add wraps (from cell 0xFFFF, left of the map, a +1 step enters cell 0)
@@ -181,10 +181,8 @@ int cast_rules::FindHealTargets(const glm::vec3& position, entt::entity spell)
 		if (ecs::map_coords::InBounds(coords, MapSide()))
 		{
 			const auto cell = ecs::map_coords::Cell(coords);
-			const ecs::MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-			// the cell's mobile list, in entity order (inf: the original's list order)
-			std::vector<entt::entity> objects(map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-			std::sort(objects.begin(), objects.end());
+			// 0x5FBBCB: the cell's mobile list only (+0), from its head (ecs::map_cells)
+			const auto objects = ecs::map_cells::MobileInCell(glm::ivec2(cell));
 			for (const auto object : objects)
 			{
 				if (healed >= maximum)

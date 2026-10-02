@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 
+#include "3D/ScreenFade.h"
 #include "Graphics/Rgb16.h"
 #include "Video/BikFile.h"
 #include "Video/VideoDecoder.h"
@@ -138,6 +139,7 @@ protected:
 			wideScreenCalls.push_back(on);
 			wideScreen = on;
 		};
+		hooks.snapWideScreen = [this]() { ++wideScreenSnaps; };
 		hooks.stopScriptMusic = [this]() { ++musicStops; };
 		hooks.endFallingSpellVideo = [this]() { ++fallingEnds; };
 		hooks.makeDecoder = [this]() { return std::make_unique<ColourDecoder>(decoded); };
@@ -166,6 +168,7 @@ protected:
 	std::vector<bool> pauseCalls;
 	std::vector<int32_t> wideScreenCalls;
 	int musicStops {0};
+	int wideScreenSnaps {0};
 	int fallingEnds {0};
 	std::shared_ptr<std::vector<uint32_t>> decoded = std::make_shared<std::vector<uint32_t>>();
 	std::unique_ptr<VideoPlayer> _player;
@@ -222,6 +225,31 @@ TEST(VideoPlayerMaths, FullScreenRect)
 	EXPECT_EQ(r.y, -1);
 }
 
+TEST(VideoPlayerMaths, BarsFullAtOnceDuringTheFilm)
+{
+	// PlayFullScreenMovie: SetWideScreen(1, 0) 0x54D9E4 then fn_005C6C40 0x54D9EF (+0x45F0 = -FLT_MAX): 100 % at once,
+	// and still 100 % with the game paused (0 ms)
+	openblack::ScreenFade fade;
+	fade.SetWideScreen(true, 2.0f);
+	fade.SnapWideScreen();
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	// barH at 100 % (0x81E8B0) is where the film starts (0x54DBEB): the film fits between the bars
+	EXPECT_EQ(openblack::ScreenFade::LetterboxHeight(1024, 768, fade.GetWideScreenFraction()),
+	          FullScreenRect(1024, 768).y);
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	// FinishedVideo SetWideScreen(0, 0): +0x45F0 = (1 - 1) * 2000 = 0, the bars leave in 2 s of game time
+	fade.SetWideScreen(false, 2.0f);
+	fade.UpdateWideScreen(0.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 1.0f);
+	fade.UpdateWideScreen(500.0f);
+	EXPECT_FLOAT_EQ(fade.GetWideScreenFraction(), 0.75f);
+	fade.UpdateWideScreen(1500.0f);
+	EXPECT_EQ(fade.GetWideScreenFraction(), 0.0f);
+	EXPECT_TRUE(fade.IsWideScreenTransitionFinished());
+}
+
 TEST(VideoPlayerMaths, FramesDue)
 {
 	EXPECT_EQ(FramesDue(0, 24, 1), 1u);
@@ -263,6 +291,7 @@ TEST_F(VideoPlayerTest, PlayWhilePausedAndWide)
 	EXPECT_TRUE(_player->PreviousPause());
 	EXPECT_EQ(_player->PreviousWideScreen(), 1);
 	EXPECT_TRUE(wideScreenCalls.empty()); // already on
+	EXPECT_EQ(wideScreenSnaps, 1);       // fn_005C6C40 0x54D9EF even then: the script's bars at 100 % at once
 	RunTo(1000);
 	EXPECT_FALSE(_player->IsPlaying());
 	_player->Process(1); // FinishedVideo

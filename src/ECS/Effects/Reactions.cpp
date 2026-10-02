@@ -28,6 +28,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "GameClock.h"
@@ -175,11 +176,9 @@ void reactions::SpreadReaction(uint32_t id)
 		// compared against it (fcomp; test ah, 1 at 0x6E3EA4: the cell is kept while radius >= d)
 		if (InMap(coords) && gutils::GetDistanceInMetres(atCoords, coords) <= reaction.radius)
 		{
-			// the cell's list (inferido: the mobile one, animals/audit_r3.md; its order as openblack keeps it): every
-			// Living of it, whatever its class, in that order
-			const auto& list =
-			    Locator::entitiesMap::value().GetMobileInGridCell(MapInterface::CellId(ecs::map_coords::Cell(coords)));
-			const std::vector<entt::entity> livings(list.begin(), list.end());
+			// the cell's mobile list (+0, 0x6E3EEA / 0x6E3FDB), from its head (ecs::map_cells): every Living of it,
+			// whatever its class, in that order
+			const auto livings = ecs::map_cells::MobileInCell(ecs::map_coords::Cell(coords));
 			for (const auto entity : livings)
 			{
 				// the handlers may create or remove reactions: this one is looked up again for each Living

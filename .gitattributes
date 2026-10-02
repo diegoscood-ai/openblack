@@ -11,3 +11,6 @@
 *.h     text diff=cpp
 *.h++   text diff=cpp
 *.hh    text diff=cpp
+
+# The ffmpeg overlay port keeps LF in every checkout: its build.sh.in runs in bash, and vcpkg hashes the port files
+vcpkg-overlay-ports/ffmpeg/** text eol=lf

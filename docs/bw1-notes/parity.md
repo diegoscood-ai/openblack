@@ -40,7 +40,7 @@ Estado: **igual** (verificado), **aprox.** (funciona pero difiere), **falta**.
 | [Nombres, contadores, ayuda](rendering.md#texto-fuentes-del-original-y-el-mensaje-de-la-mano) | Z-sorter y retrollamadas de fin de fotograma; fuentes `j0`/`f1`/`f3`; textos de `InfoScript2.txt` | Fuente `j0` original y el mensaje de la cantidad en la mano; faltan los demás mensajes, nombres y contadores | aprox. |
 | [Sprites](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter) | `LH3DSprite` en el Z-sorter | En la pasada principal, en la cola común (`components::Sprite`, humo, sprites del barco uno a uno) | igual |
 | [Fundido de pantalla y bandas](rendering.md#fundido-de-pantalla-y-bandas-de-cine) | `SET_FADE`/`SET_FADE_IN` por turno; bandas de `SET_WIDESCREEN` en 2 s; quads en FinishFrame | Igual (vista `ScreenOverlay`); sin el negro inicial de `OnNewGame` porque la intro aún no llega a su `SET_FADE_IN` | aprox. |
-| Vídeo Bink | Superposición | — | falta |
+| [Vídeo Bink](video.md#openblack) | `DrawToScreen` 0x54DC6D → `thedraw` 0x844E30 → fn_00845740: un quad por mosaico de 256x256 en modo 6, ZFUNC ALWAYS, sin Z; sin mundo mientras tapa la pantalla (0x54DD7D) | `Renderer::DrawVideoOverlay` en `ScreenOverlay` (una textura, los mismos texels por mosaico), el mundo no se dibuja con `CoversScreen()`; aún sin descodificador (negro, V5) ni opcode 203 (V4) | en curso |
 | Templo y ciudadela | Luces propias, claves Citadel* | `TempleInterior` | aprox. |
 | Gamma, posproceso, niebla D3D | No hay | No hay | igual |
 

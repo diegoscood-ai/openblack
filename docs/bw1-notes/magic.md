@@ -454,6 +454,15 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
     interpolar por turno.
 - **PHandFX** (ctor 0x68CB10, `Draw` 0x68D0C0, `Band::Draw` 0x68D6D0): bandas `Power_Up_Band.L3d` de escala 10 en el
   hueso raíz, a 10 + 40·índice, girando a (1 + 0,2·índice)·12 rad/s.
+  - **Matriz** (`Band::Draw` 0x68D8BB..0x68D9EA): la local es 10·I con la traslación (0, 0, +0x18 + índice·+0x1C)
+    (0x68D900..0x68D909), es decir, a lo largo del **eje Z propio del hueso raíz** (el antebrazo). Solo cuando ha
+    llegado (f ≥ 1, 0x68D90D) cada fila gira su (x, y) por el ángulo +0x20 alrededor de esa Z (0x68D922..0x68D9DB:
+    (x, y) → (c x + s y, c y − s x), c guardado como float en 0x68D929, s en la pila; `lh_matrix::TurnRows(2)`).
+    Después fn_007FAFF0 0x68D9EA = local × hueso (filas; en glm hueso · local). El hueso son los 0x30 primeros bytes
+    de la matriz apuntada por CHand +0x47F0 (copiados en 0x68D0F2..0x68D100; `PrepareForDrawing` 0x46CAE5 copia la
+    misma en la matriz del objeto de la mano). Resultado: una pulsera que rodea la muñeca y gira sobre el eje del
+    antebrazo. openblack lo tenía a lo largo de la Y y girando sobre la Y (el anillo colgaba bajo la mano y daba
+    vueltas de canto); corregido (`DrawBand`, capturas `_audit/magic/wristring_{before,after}_1500{0,1}.png`).
   - Permanentes: `SetPULevel(pu + 1, 1)` desde `SpellSeed::SetPowerUp` 0x729BFC..0x729BFE (pu = POWER_UP_TYPE: −1 sin
     power-up, 0 = PU1, 1 = PU2), así que 0 / 1 / 2 anillos (máximo 5); empiezan a los 2,4 s; alfa 20→130 en 0,85 s,
     con lerp de matrices. Vuelan desde delante de la cámara hasta el hueso raíz de la mano (la muñeca).
@@ -640,7 +649,10 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
     0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27. Portados solo los
     cuadros UV (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, ver
     [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas)); el bote y los aplastamientos no.
-  - alfa difuso = el del dueño y `SetGlobalAlpha(alfa ≠ 0xFF)`: en la bola la semilla es translúcida (0x95).
+  - alfa difuso = el del dueño (0x51A0B3..0x51A0E1) y `SetGlobalAlpha(alfa ≠ 0xFF)` (0x51A0EB), pero con arg 2 = 0
+    `GetAltitudeAndSetColorSpecular` (0x51A187) reescribe todo +0x4C con tabla[luminosidad] (0x803409..0x803413) o
+    tabla[255] (0x803365 / 0x8033DA), de alfa 0xFF (todo `palette.raw` tiene alfa 0xFF): en la bola la semilla va por
+    la tabla 0xC387C8 con alfa 0xFF ([0xC37D8C], 0x80DEF8), **opaca** (no 0x95). openblack: `components::Alpha` = 1.
   - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
     **no portado** (aproximado).
   - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.

@@ -917,7 +917,7 @@ defecto no llega a una instalación que ya haya arrancado una vez; hay que edita
   la cámara sobre el poblado** (`SET_CAMERA_POSITION(1891.04, 31.69, 2520.67)`) y hace `SET_FADE_IN(2.0)`. Con
   `free start` el motor **se come eso**: la **primera tarea del guion que coge la cámara en una partida nueva** es «el
   principio de la tierra», y mientras la tenga, `SET_CAMERA_POSITION` (001), `SET_CAMERA_FOCUS` (002),
-  los demás opcodes de cámara (003, 004, 119, 279, 280, 284, 286, 287), `SET_WIDESCREEN` (032), `SET_FADE` (241),
+  los demás opcodes de cámara (003, 004, 093, 094, 095, 105, 119, 142, 201, 209, 279, 280, 284, 286, 287), `SET_WIDESCREEN` (032), `SET_FADE` (241),
   `SET_FADE_IN` (242), `START_MUSIC` (044) y `STOP_MUSIC` (045) no hacen nada y `HAS_CAMERA_ARRIVED` (035) contesta «ya
   ha llegado». `START_CAMERA_CONTROL` **sí se concede** y crea el modo de cámara del guion como en el original (así
   ninguna otra tarea coge la cámara mientras la tiene la apertura), para que el `loop { START_CAMERA_CONTROL }` del

@@ -69,25 +69,26 @@ TEST(AudioLaws, RelativeAxes)
 TEST(AudioLaws, RelativeAxesExact)
 {
 	// Milestone B12 (the double audit): both halves emulated with the original x87 code (Unicorn,
-	// dev\tmp_dis\audio\emu_polar2.py: LHaudiodllR 0x100122BC..0x10012522 and QMixer 0x1800AA85..0x1800AB0B), all
-	// digits, with the FPU at 24 bits as on the game thread (fn_007DEE00). The doubles 180 * 0.31847133757961782
-	// (0x10030458, 0x10030450), the float angles and range, pi * 0.0055555557f and the float flat / up of QMixer.
+	// dev\tmp_dis\audio\emu_qm53.py): LHaudiodllR 0x100122BC..0x10012522 with the FPU at 24 bits as on the game thread
+	// (fn_007DEE00), QMixer 0x1800AA85..0x1800AB0B at 53 bits as on the timer thread of QSWaveMixPump (B12 audit: the
+	// first emulation, emu_polar2.py, ran QMixer at 24 bits too), all digits. The doubles 180 * 0.31847133757961782
+	// (0x10030458, 0x10030450), the float angles and range, pi * 0.0055555557f and the float az / flat / up of QMixer.
 	struct Case
 	{
 		glm::vec3 lh;
 		glm::vec3 heard;
 	};
 	const Case cases[] = {
-	    {{2, 2, 0}, {1.99920321f, 0.0f, 2.00079656f}},
-	    {{-2, 1, 0}, {-1.99976516f, 0.0f, 1.00046968f}},
-	    {{-5, -5, 0}, {-4.9980073f, 0.0f, -5.00199175f}},
+	    {{2, 2, 0}, {1.99920309f, 0.0f, 2.00079656f}},
+	    {{-2, 1, 0}, {-1.99976468f, 0.0f, 1.00047064f}},
+	    {{-5, -5, 0}, {-4.99800825f, 0.0f, -5.0019908f}},
 	    {{1, -2, 0}, {0.998876214f, 0.0f, -2.00056148f}},
-	    {{2, -1.5f, 0}, {2.23580527f, 0.0f, -1.11855948f}},
-	    {{1, 1, 1}, {0.999380767f, 1.00044143f, 1.0001775f}},
-	    {{123.25f, -48.5f, 7.75f}, {123.410576f, 7.75392675f, -48.0893059f}},
-	    {{-300.5f, 210.25f, -15.5f}, {-300.269928f, -15.5078564f, 210.577866f}},
+	    {{2, -1.5f, 0}, {2.2358048f, 0.0f, -1.11855996f}},
+	    {{1, 1, 1}, {0.999380827f, 1.00044143f, 1.00017738f}},
+	    {{123.25f, -48.5f, 7.75f}, {123.410568f, 7.75392675f, -48.0893211f}},
+	    {{-300.5f, 210.25f, -15.5f}, {-300.269836f, -15.5078573f, 210.578003f}},
 	    // |y| truncated to 0 by __ftol: the azimuth is 90 (0x10012444..0x10012470)
-	    {{0.75f, -0.25f, 2.5f}, {0.788965821f, 2.50050664f, -3.44867921e-08f}},
+	    {{0.75f, -0.25f, 2.5f}, {0.788965642f, 2.50050664f, -3.4486785e-08f}},
 	};
 	for (const auto& c : cases)
 	{

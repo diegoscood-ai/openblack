@@ -94,19 +94,23 @@ glm::vec3 qmixer::PolarRelative(glm::vec3 position)
 		azimuth = y < 0.0f ? R(270.0 - degrees(std::atan(static_cast<double>(ftolAbs(y) / ftolAbs(x))))) // 0x1001249B..
 		                   : R(270.0 + degrees(std::atan(static_cast<double>(y / ftolAbs(x)))));          // 0x100124EE..
 	}
-	// QMixer 0x1800AA85..0x1800AAFC, also at 24 bits: k = pi (the double 0x18037658) * the float 1 / 180 (0x18036550,
-	// 0.0055555557), rounded; az = k * azimuth (stored, fstp [esp+0x64]) and el = k * elevation; flat = cos(el) * range
-	// and up = sin(el) * range; right = sin(az) * flat and ahead = cos(az) * flat (fsin / fcos at full precision, each
-	// fmul rounded)
+	// QMixer 0x1800AA85..0x1800AAFC is run by QSWaveMixPump (0x18003900 -> .. -> 0x180084A0 -> 0x1800AA70) on winmm's
+	// timer thread (LHaudio's timeSetEvent 20 ms, 0x10015800), so at 53 bits, not at the game's 24
+	// (QSWaveMixSetPolarPosition 0x180040B0 only stores the polar point; (inferred) the timer thread keeps the Win32
+	// start control word 0x27F): k = pi (the double 0x18037658) * the float 1 / 180 (0x18036550, 0.0055555557) in
+	// double; az = k * azimuth stored as a float (fstp [esp+0x64]); el = k * elevation stays on the FPU (a double);
+	// flat = cos(el) * range and up = sin(el) * range stored as floats; right = sin(az) * flat and ahead = cos(az) * flat
+	// stored as floats (fsin / fcos at full precision). Emulated (Unicorn with the control word 0x27F,
+	// dev\tmp_dis\audio\emu_qm53.py): identical on the 9 points of test_audio_laws RelativeAxesExact.
 	constexpr double k_Pi = 3.1415926535897931;            // 0x18037658
 	constexpr float k_InvDegrees = 0.0055555556900799274f; // 0x18036550
-	const float k = R(k_Pi * static_cast<double>(k_InvDegrees));
-	const float az = k * azimuth;
-	const float el = k * elevation;
-	const float flat = R(std::cos(static_cast<double>(el)) * range);
-	const float up = R(std::sin(static_cast<double>(el)) * range);
-	const float right = R(std::sin(static_cast<double>(az)) * flat);
-	const float ahead = R(std::cos(static_cast<double>(az)) * flat);
+	constexpr double k = k_Pi * static_cast<double>(k_InvDegrees);
+	const float az = R(k * static_cast<double>(azimuth));
+	const double el = k * static_cast<double>(elevation);
+	const float flat = R(std::cos(el) * static_cast<double>(range));
+	const float up = R(std::sin(el) * static_cast<double>(range));
+	const float right = R(std::sin(static_cast<double>(az)) * static_cast<double>(flat));
+	const float ahead = R(std::cos(static_cast<double>(az)) * static_cast<double>(flat));
 	return {right, up, ahead};
 }
 

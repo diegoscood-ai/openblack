@@ -1866,7 +1866,12 @@ Un mod busca su banco con `FindBank(ruta)` (o registra el suyo con `RegisterBank
 `fn_007DEE00` (`fninit`, `and cw, 0xFCFF` en 0x7DEE0D; desde `GGame::InitOneTimeOnly`, `EndTurn` 0x54E964 y
 `Process3dEngine` 0x54E426) deja el control de precisión en 00: **cada `fadd`/`fsub`/`fmul`/`fdiv`/`fsqrt` del hilo del
 juego redondea a la mantisa de un float**, también dentro de LHaudiodllR y QMixer cuando el juego los llama
-(LHSamplePlay, QSWaveMixSetPolarPosition). Lo que no redondea: la carga de una constante double (`fld`/`fmul qword` la
+(LHSamplePlay, el paso a polar de LHaudio 0x100122BC). **Pero no en el hilo del bombeo de QMixer** (auditoría de B12):
+QSWaveMixSetPolarPosition 0x180040B0 solo guarda el punto polar; el paso a cartesianas 0x1800AA70 lo hace
+QSWaveMixPump 0x18003900 (…→0x180084A0→0x1800AA70), y a QSWaveMixPump lo llama cada 20 ms el `timeSetEvent` de LHaudio
+(0x10015800) en el hilo del temporizador de winmm, con la palabra de control con la que Win32 arranca los hilos (0x27F,
+53 bits) **(inferido: nada de ese hilo la cambia)**; la única pasada en el hilo del juego (QSWaveMixPlay) la rehace el
+bombeo siguiente. Lo que no redondea: la carga de una constante double (`fld`/`fmul qword` la
 usa entera), `fcomp qword` (compara con el double exacto) y `fsin`/`fcos`/`fpatan` (precisión completa). La regla al
 portar:
 
@@ -1889,7 +1894,7 @@ runblack.exe, LHaudiodllR.dll y QMixer.dll, cruzado con las direcciones citadas 
 | 0x8CF7D8 / 0x9375E8 (0x69EEC4 / 0x69EEDC) | 0,6f / 0,3f en float | 0,59999999999999998 / 0,29999999999999999 | `SpellSounds.cpp` `SizeFromThrow` | comparación en double: 0,6f y 0,3f quedan **por encima** (tamaño 1 y 2, antes 2 y 3) |
 | 0x8C4A08 (0x429000) | −0,6f | −0,59999999999999998 | `AtmosBanks.cpp` ProcessBanks | comparación en double (con floats da lo mismo: ningún float cae entre −0,6f y −0,6) |
 | 0x10030450 (0x10012363 … 0x10012510) | 0,318471 (6 cifras de `%g`) | 0,31847133757961782 (1 / 3,14) | `QMixerLaws.cpp` `PolarRelative` | el valor entero, `atan · 180 · c` en ese orden, ángulos y distancia en float, pasos a 24 bits |
-| 0x18037658 · 0x18036550 (QMixer 0x1800AA85) | π / 180 en double | π (double) · 0,0055555557f, redondeado a float | `PolarRelative` | k en float; az = k · azimut (float); flat, up, right, ahead en float |
+| 0x18037658 · 0x18036550 (QMixer 0x1800AA85) | π / 180 en double | π (double) · 0,0055555557f, en double (53 bits: el hilo del bombeo) | `PolarRelative` | k y el = k · elevación en double; az = k · azimut guardado en float; flat, up, right, ahead guardados en float (auditoría: B12 lo había puesto a 24 bits) |
 | 0x980520 / 0x980518 (0x71DEE1 / 0x71DEE7) | 15f y 1 / 30f en float | 15 y 0,033333333333333333 | `SoundMap.cpp` viento | `fild` de la suma entera, `fsqrt`, `− 15`, `· (1/30 double)`, cada paso a float (emulado: 0 diferencias en los 5924 valores; la fórmula vieja difería en 3756) |
 | 0x9A3BE8 / 0x8D45D8 / 0x8AB680 (fn_0086A7F0) | ya en double, pero todo en double | 0,03386318012808897 / 6,2831854820251465 / 1 | `Guidance.cpp` `MoonPhase` | cada paso a float (emulado: igual en los 8 días probados; el modelo double daba 3,3044245 en vez de 3,3044248 el día 10976) |
 | 0x8C49F8, 0x8AB260, 0x8C49F0, 0x8AB680, 0x8C2C48 (four1 0x428D50) | ya en double, todo en double | 6,2831853071795898, 0,5, −2, 1, 0 | `Advisor.cpp` `Four1` | pasos a float; sin(θ) sin redondear (fsin) |
@@ -1911,12 +1916,15 @@ fn_005E5830 0x5E5A6C (luces de noche) y `ReadSpeedFactor` fn_005C6CB0 (`HelpSyst
 float por pasos).
 
 Emulaciones (Unicorn, palabra de control 0x7F o la 0 de Unicorn, las dos a 24 bits) en `dev\tmp_dis\audio`:
-`emu_polar2.py` (las dos mitades de la posición polar), `emu_moon.py` (fn_0086A7F0), `emu_wind.py` (el viento).
+`emu_polar2.py` (las dos mitades de la posición polar, las dos a 24 bits: la de QMixer ya no vale), `emu_moon.py`
+(fn_0086A7F0), `emu_wind.py` (el viento); y `emu_qm53.py` (auditoría): LHaudio a 24 bits y QMixer con 0x7F, 0x27F y
+0x37F (Unicorn respeta el control de precisión: 0x7F da otros dígitos); con 0x27F el modelo double de `PolarRelative`
+da los 9 puntos idénticos.
 
 ### Tests y juego
 
-- `test_audio_laws` `RelativeAxesExact`: 9 puntos contra la emulación, a 2·10⁻⁷ relativo (la versión anterior fallaba
-  por 9·10⁻⁵ en (−300,5; 210,25; −15,5)).
+- `test_audio_laws` `RelativeAxesExact`: 9 puntos contra la emulación (`emu_qm53.py` desde la auditoría: QMixer a 53
+  bits), a 2·10⁻⁷ relativo + 10⁻⁶ (el modelo de 24 bits de QMixer falla por 9·10⁻⁵ en (−300,5; 210,25; −15,5)).
 - `test_spell_sounds` `sizeClasses`: 0,6f → 1, 0,3f → 2, el float de debajo → 2 / 3.
 - `test_guidance` `PhaseFromTheRealClock`: seis días contra `emu_moon.py`, exactos.
 - `test_sound_tags` `StopOwnerInEveryBankAndModOwners`: dos bancos, dos dueños de `NewOwner`; `StopOwner` para solo los
@@ -1929,10 +1937,29 @@ Emulaciones (Unicorn, palabra de control 0x7F o la 0 de Unicorn, las dos a 24 bi
 
 - **(aproximado)** el paso en double y luego a float puede redondear dos veces en un empate (float · constante double);
   `sin`/`cos`/`atan` son los de la biblioteca, no los de 64 bits del x87.
-- **(inferido)** la FPU del hilo de la música del DLL a 53 bits (no pasa por fn_007DEE00).
+- **(inferido)** la FPU del hilo de la música del DLL a 53 bits (no pasa por fn_007DEE00), y la del hilo del
+  temporizador de winmm que bombea QMixer, también a 53 bits.
 - Pendiente: fn_00427200 0x427227..0x42726D pone a 0 cada coordenada del punto del canal (+0x50/54/58) cuyo valor
   absoluto pasa de 5000 antes de pedir la posición del dueño; openblack no lo hace. LHSamplePlay compara |x| con 5000
   (0x100114D1 …) para un aviso del registro.
+
+### Auditoría de B12
+
+Comprobado en el desensamblado: fn_007DEE00 (`and cw, 0xFCFF` 0x7DEE0D; fn_007DEE20 luego llama a `_controlfp` con la
+máscara 0x8001F, que no toca la precisión; llamadores EndTurn 0x54E964/74/84, Process3dEngine 0x54E426/0x54E4D1,
+InitOneTimeOnly, RenderLoadingFrame, GAudio 0x426F66 / 0x427061), 0x69EEC4 / 0x69EEDC (`test ah, 0x41`: `>` estricto),
+0x429000, 0x71DEE1 / 0x71DEE7 (int8 al cuadrado, `fild`, `fsqrt`), 0x86A86B..0x86A888, 0x5C36E5, 0x69F4CA / 0x69F4F6,
+0x6A16A9 / 0x6A16CF, four1 0x428DCA..0x428ED4 (orden de la pila igual que el código), HeartBeat 0x71C491..0x71C546,
+CalcKey 0x4289C2..0x4289F0, LHaudio 0x100122BC..0x10012522 (orden de `fadd`, `__ftol` y `fdivr` igual que el código),
+las cinco constantes double de LHaudio (0x10030440..0x10030460), LHSampleStop 0x10012C50 / 0x10012C76 / 0x10012CA8 y
+0x1001439D, QMixer 0x18037658 / 0x18036550 y 0x1800AA85..0x1800AAFC. Todo cuadra salvo:
+
+- **Arreglado**: la mitad de QMixer de `PolarRelative` no corre en el hilo del juego sino en el del bombeo (ver arriba),
+  a 53 bits: `k` y la elevación en double, az / flat / up / right / ahead guardados en float; `RelativeAxesExact` con los
+  valores de `emu_qm53.py` (0x27F). La diferencia es de pocos ulp de float (inaudible), pero ahora es la del original.
+- Sin cambios: `StopOwner` / `NewOwner` (no hay llamadores en el juego; los dueños `Owner::Object` del resto salen todos
+  de `NewObjectId`, así que no chocan), sin dependencias ECS nuevas en `src/Audio`, sin fuentes/búferes AL nuevos, sin
+  tocar el hilo de la música, firmas públicas de otros dueños iguales; los tests nuevos comprueban valores emulados.
 
 ## Qué suena y cuándo
 

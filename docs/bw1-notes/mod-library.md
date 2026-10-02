@@ -749,7 +749,7 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
 ### test.miracle-dispensers
 
 «Máquinas de milagros de prueba» (categoría **Test**). **No existe en el original**: es una ayuda para probar los
-milagros, desactivada por defecto. Código: `src/Mods/Builtin/MiracleDispensersMod.cpp` (el mod, que pone
+milagros, desactivada por defecto. Código: `assets/mods/test.miracle-dispensers/mod.json` (el mod, que pone
 `EngineConfig::testDispensers*`) y `src/Worship/TestDispensers.cpp` (lo que hace en el juego). Todo es **mod**; solo
 los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luciérnagas-worshipspelldispensercpp-worshipfireflyrewardcpp)).
 

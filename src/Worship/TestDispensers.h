@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-// Mod test.miracle-dispensers (openblack only, not in the original; Mods/Builtin/MiracleDispensersMod.cpp sets its
+// Mod test.miracle-dispensers (openblack only, not in the original; assets/mods/test.miracle-dispensers/mod.json sets its
 // EngineConfig switches): once a land's script has run and the human player has a citadel, one miracle dispenser
 // (the original's SpellDispenser, as the Land 1 challenge script's GiveSpellDispenserReward makes one) per player
 // miracle seed on open dry land in a ring around the temple, with a short recharge period. They and their orbs take

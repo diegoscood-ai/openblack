@@ -17,6 +17,7 @@
 #include <array>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 
@@ -210,8 +211,11 @@ void manager::SetOrigin(uint32_t id, glm::vec3 origin)
 	}
 }
 
-entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner,
-                                       float magnitude)
+namespace
+{
+/// The container of CreateSpotVisual / CreateSpotVisualTurns, for `turns` (nullopt: the entry's own life)
+entt::entity CreateSpotVisualFor(int spotVisual, glm::vec3 position, std::optional<int> turns, entt::entity owner,
+                                 float magnitude)
 {
 	if (spotVisual < 0 || spotVisual >= static_cast<int>(k_SpotVisuals.size()))
 	{
@@ -223,7 +227,7 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "PSys: spot visual {} has no spell file", spotVisual);
 		return entt::null;
 	}
-	const uint32_t id = Start(std::string(info.file), position, magnitude);
+	const uint32_t id = manager::Start(std::string(info.file), position, magnitude);
 	if (id == 0)
 	{
 		return entt::null;
@@ -231,8 +235,19 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto object = registry.Create();
 	registry.Assign<ecs::components::Transform>(object, position, glm::mat3(1.0f), glm::vec3(1.0f));
+	const int life = turns.value_or(info.life);
+	g_Containers.push_back({id, object, owner, life, owner != entt::null});
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys: spot visual {} ({}) at ({:.1f}, {:.1f}, {:.1f}) for {} turns", spotVisual,
+	                   info.file, position.x, position.y, position.z, life);
+	return object;
+}
+} // namespace
+
+entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float seconds, entt::entity owner,
+                                       float magnitude)
+{
 	// turns = ftol(seconds x 1000 / turn ms); 0 takes the entry's life
-	int turns = info.life;
+	std::optional<int> turns;
 	if (seconds < 0.0f)
 	{
 		turns = -1;
@@ -241,10 +256,16 @@ entt::entity manager::CreateSpotVisual(int spotVisual, glm::vec3 position, float
 	{
 		turns = static_cast<int>(seconds * 1000.0f / static_cast<float>(game_clock::MsPerTurn()));
 	}
-	g_Containers.push_back({id, object, owner, turns, owner != entt::null});
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys: spot visual {} ({}) at ({:.1f}, {:.1f}, {:.1f}) for {} turns", spotVisual,
-	                   info.file, position.x, position.y, position.z, turns);
-	return object;
+	return CreateSpotVisualFor(spotVisual, position, turns, owner, magnitude);
+}
+
+entt::entity manager::CreateSpotVisualTurns(int spotVisual, glm::vec3 position, int turns, entt::entity owner,
+                                            float magnitude)
+{
+	// 0x63E580 passes its int straight to Create 0x63E4B0 -> fn_0063E410's +0x30 (0x63E489), unlike CreateSpotVisual
+	// 0x63E540, which passes the entry's life (+0x44). Process 0x63E2A0..0x63E2B1: < 0 forever, else dec and closed when
+	// <= 0, so 0 closes it at its first Process (not the entry's life)
+	return CreateSpotVisualFor(spotVisual, position, std::optional(turns < 0 ? -1 : turns), owner, magnitude);
 }
 
 void manager::CloseSpotVisual(entt::entity object)

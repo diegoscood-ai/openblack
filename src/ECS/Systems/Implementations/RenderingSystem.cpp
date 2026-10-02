@@ -489,7 +489,9 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		auto offset = offsets.insert(std::make_pair(atom.meshId, 0));
 		const uint32_t idx = desc->second.offset + offset.first->second;
 		_renderContext.instanceUniforms[idx] = atom.model;
-		if (atom.translucent)
+		// the colour's alpha: with the global alpha table for the translucent ones, else (no SetGlobalAlpha, Mesh.h) it is
+		// still the diffuse alpha the blending primitives of the mesh take (milagros2 rayo3)
+		if (atom.translucent || atom.alpha < 1.0f)
 		{
 			_renderContext.instanceUniforms[idx][0][3] = 1.0f - atom.alpha;
 		}
@@ -502,6 +504,16 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		// the land light by; otherwise in the w of the third column, the colour alone (SetColour vt 0x2C, vs_object)
 		const float packed = -1.0f - static_cast<float>(atom.colour[0] * 65536 + atom.colour[1] * 256 + atom.colour[2]);
 		_renderContext.instanceUniforms[idx][atom.landscapeColour ? 3 : 2][3] = packed;
+		// (milagros2 rayo3, for session shaders) the DrawData specular +0xC (SetColour vt 0x2C, 0x67A023): in the free w of
+		// the fourth column as 3e6 + r 16384 + g 128 + b, 7 bits each, as components::SpecularColour. (aproximado) the
+		// lowest bit of each channel is lost, and with DrawWithLandscapeColor (fn_0080BEC0's specular, 0x67A012) that w
+		// holds the colour, so it is not sent: no spell file gives a mesh creator a specular (SpecColorR/G/B 0)
+		if (!atom.landscapeColour && (atom.specular & 0x00FFFFFFu) != 0)
+		{
+			const auto bits = [&atom](uint32_t shift) { return ((atom.specular >> shift) & 0xFFu) >> 1u; };
+			_renderContext.instanceUniforms[idx][3][3] =
+			    3e6f + static_cast<float>(bits(16) * 16384u + bits(8) * 128u + bits(0));
+		}
 		if (atom.uv != glm::vec2(0.0f))
 		{
 			_renderContext.instanceUniforms[idx][1][3] = openblack::graphics::frame_anim::PackUvOffset(atom.uv.x, atom.uv.y - std::floor(atom.uv.y));

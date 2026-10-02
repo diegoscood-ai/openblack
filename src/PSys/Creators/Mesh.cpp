@@ -226,8 +226,8 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 		// LH3DAnim::AnimPack [0xEDD508], pack[0] out of range, 0x6A957C..0x6A959A); the blend of DrawAt
 		// 0x67A946..0x67A9B1 to MeshFileName1/2 (+0x38 / +0x3C, both needed) between FrameToStartBlend and
 		// FrameToEndBlend (vt 0xDC fn_007F9A80): NULL_STRING in every file; UseSuperSortedPolys (vt 0xD4, 0 everywhere),
-		// UseDynamicLighting (vt 0x58 fn_008168C0), UseGlobalAlpha (vt 0x48 fn_007F9D60, the object's +4 bit 0x80; 1
-		// everywhere, the alpha is drawn as for every mesh atom) and NeverClip (vt 0x98 fn_007F98E0 with !NeverClip)
+		// UseDynamicLighting (vt 0x58 fn_008168C0) and NeverClip (vt 0x98 fn_007F98E0 with !NeverClip). UseGlobalAlpha
+		// (+0xA5, 1 in every file) is honoured: Instance::globalAlpha
 		creator->animated = true;
 		creator->animId = SharedAnim(object.String("AnimFileName"));
 		creator->speedUpFactor = object.Float("SpeedUpFactor", 1.0f);
@@ -239,6 +239,10 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 			                   object.String("AnimFileName"));
 		}
 	}
+	// UseGlobalAlpha: ParticleMeshCreator / AnimTextured +0x5A (DefineProperties 0x6B3902 / 0x6B39C2, ctor 0 at 0x6A8980
+	// / 0x6A8BD8), ParticleAnimCreator +0xA5 (0x6B405C, ctor 1 at 0x6A93CA). The comment above on UseGlobalAlpha: every
+	// spell file of a ParticleAnimCreator sets it to 1
+	creator->useGlobalAlpha = object.Bool("UseGlobalAlpha", creator->animated);
 	creator->additive = creator->changeMaterialProps && object.Bool("UseAdditiveAlpha", false);
 	creator->writeDepth = object.Bool("MaterialUpdateZBuffer", false);
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", true);
@@ -292,6 +296,26 @@ int32_t openblack::psys::AnimCycleTime(int32_t clipMs, int frame) noexcept
 
 void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 {
+	// The mesh is fetched at the creator's first particle (CreateParticle 0x6A8B33 / 0x6A8DE7 / 0x6A97FE while +0x50 /
+	// +0x34 is 0), and with it GJUtils::SetMaterialProperties fn_0057E1D0 rewrites every material of the mesh:
+	// fn_006A8A40 0x6A8A5F..0x6A8A6E (a pack mesh, if MeshChangeMaterialProps +0x58), fn_006A8CC0 0x6A8CDF..0x6A8CEE (the
+	// same for AnimTextured), GetSharedMesh 0x57DFB0 -> PGetSharedMesh 0x57DF18..0x57DF24 (a mesh file, if +0x58, when it
+	// is first loaded), fn_006A95E0 0x6A9602..0x6A9617 (ParticleAnimCreator's pack mesh, if +0x93: 1 from the ctor, no
+	// property) or fn_0057D420 0x57D433 (its mesh file, always). The pack meshes are changed in place, for every user, as
+	// in the original. (aproximado) a mesh file two creators load with different properties: each creator applies its
+	// own here, where the original kept the first loader's
+	if (!materialsSet)
+	{
+		materialsSet = true;
+		if (changeMaterialProps && meshId != 0 && Locator::resources::has_value() &&
+		    Locator::resources::value().GetMeshes().Contains(meshId))
+		{
+			// MaterialProperties +0x55..+0x59 (ParticleAnimCreator +0x90..+0x94): additive, Z write, double-sided, change,
+			// alpha
+			Locator::resources::value().GetMeshes().Handle(meshId)->SetMaterialProperties(
+			    {.additive = additive, .zWrite = writeDepth, .doubleSided = doubleSided, .change = true, .alpha = materialAlpha});
+		}
+	}
 	if (animated)
 	{
 		// ParticleAnimCreator::CreateParticle (vt 0x10 0x6A98C0 -> fn_006A97F0): the particle's own object of type 2
@@ -420,13 +444,20 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			}
 			// UseScriptHightlightPulse (A x fn_0070A510, the script highlight's pulse): not ported
 			const float alpha = std::clamp(atom.alpha / 255.0f, 0.0f, 1.0f);
-			// (inferido: port routing) translucent when additive or not fully opaque. DrawCutByPlane (+0x24 bit 4) only
+			// (inferido: port routing) translucent, with the fading meshes, when additive or drawn with the global alpha
+			// and not fully opaque (the routing is the port's; the modes are the original's). DrawCutByPlane (+0x24 bit 4) only
 			// changes the call: fn_00679F20 draws through vt 0x11C instead of vt 0x104, and for the static LH3DObject a
 			// particle mesh is (LH3DObject::Create(0) 0x80B4F8 -> LH3DStaticObject, vtable 0x9A2974) vt 0x11C is
 			// fn_0080C050, a plain draw of its primitives with the world-to-clip matrix: no plane cuts a static mesh (the
 			// cut at y = 0 is the animated objects' fn_00811C70, rendering.md). Nothing to port for the dome.
-			result.push_back({creator->meshId, model, alpha, uv, creator->additive || alpha < 1.0f, creator->additive, atom.colour,
-			                  creator->drawWithLandscapeColour});
+			// The particle's +0x24 bit 0 (SetGlobalAlpha, Mesh.h globalAlpha): AnimTextured's and ParticleAnimCreator's
+			// UseGlobalAlpha, never for ParticleMeshCreator (0x6A8B00). Without it the atom is drawn with its materials'
+			// own modes: with the other meshes, its alpha (1 - [0][3]) only showing in the primitives that blend. The
+			// additive ones are mode 13 / 12 in both tables (0xC38728 / 0xC387C8 entries 12 and 13 are the same)
+			const bool globalAlpha = creator->animTextured || creator->animated ? creator->useGlobalAlpha : false;
+			const bool translucent = creator->additive || (globalAlpha && alpha < 1.0f);
+			result.push_back({creator->meshId, model, alpha, uv, translucent, creator->additive, atom.colour,
+			                  creator->drawWithLandscapeColour, atom.specular, globalAlpha});
 			// (openblack) no pose for an atom of alpha 0: the renderer does not draw it
 			if (clip != nullptr && alpha > 0.0f && Locator::resources::has_value())
 			{

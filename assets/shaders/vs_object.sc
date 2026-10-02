@@ -243,7 +243,8 @@ void main()
 			float factor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
 			objectColour = ModelLightDiffuse(particleColour, factor) / 255.0f;
 		}
-		specular = vec3_splat(0.0f);
+		// (milagros2 rayo3) SetColour's specular (obj +0x50): the DrawData +0xC, 3e6-packed in the fourth column's w
+		specular = objectSpecular;
 	}
 	float opacity = 1.0f - fade;
 	if (u_objectLight.x > 3.5f)

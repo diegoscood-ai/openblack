@@ -268,6 +268,11 @@ hasta que se cierra**; en openblack es `Modifier::KeepsAlive`), propiedades 0x6B
      (200, 255, 255) × t: **el aldeano se ilumina** mientras dura el chakra.
    Cuando el estallido se queda sin átomos (a los 3 s) el chakra se borra, y al destruirse su `AtomData` (fn_006A09A0)
    sale de la lista global y le quita el brillo al objetivo (`SetSpecularColor(0)`).
+   `SetSpecularColor` guarda el dword entero (0x417484) y el fundido pone siempre el alfa a 0xFF (0x6A0EF5), así que
+   aunque el RGB llegue a 0 el dword no es 0: los dibujos, que prueban el dword entero (fn_0051B3D0 0x51B416,
+   `Animal::Draw` 0x51C4D6), siguen viendo un especular propio (que gana al tinte del veneno) hasta el
+   `SetSpecularColor(0)` del destructor (0x6A0A28). openblack: `components::SpecularColour` se queda con RGB 0 y solo lo
+   quita el destructor (`Heal.cpp` `ClearSpecularColour`; sesión milagros2, petición de shaders).
 - Un chakra cuyo objetivo desaparece se borra (0x6A0D7D: además el átomo olvida el objetivo); si un chakra no tiene
   subcolección la regla se suelta (0x6A0E1C devuelve 0).
 - El bit 4 de `Objeto+0x24` (0x6A0D8B) también termina el chakra, **sin** olvidar el objetivo, así que el destructor del
@@ -396,11 +401,12 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     donde `Fixed::InsertMapObjectToCell` 0x52DEA0 pone el más nuevo con `SetFirstObjectFixed`) y su bit +0x24 & 2, que
     solo pone el ctor de `MultiMapFixed` 0x52E1F0 (`or byte [esi+0x24], 2` en 0x52E207). O sea: `IsFixed` = «el fijo más
     nuevo de la celda es un MultiMapFixed». Las clases que heredan de él, según bw1-decomp (`src/Black/*.h`): Abode (y
-    con él Field, Footpath, CreaturePen, BuildingSite y StoragePit), BigForest, CitadelPart, Feature, FishFarm,
+    con él Field y StoragePit), BigForest, CitadelPart (CitadelHeart, WorshipSite, CreaturePen, WorshipTotem), Feature
+    (y AnimatedStatic), FishFarm,
     MobileStatic (y con él MagicTeleport y las farolas), PFootball, PrayerSite, SpellIcon y TotemStatue; `SingleMapFixed`
-    (Tree, MapShield, ScriptHighlight, PrayerIcon) no lo pone. Un árbol está solo en su celda: una celda cuyo último fijo
+    (Tree, MapShield, ScriptHighlight, PrayerIcon) no lo pone, ni GFootpath ni BuildingSite (son GameThing). Un árbol está solo en su celda: una celda cuyo último fijo
     es un árbol no está «ocupada», aunque tenga un edificio debajo. openblack prueba ahora esa lista de componentes
-    (`SpellForest.cpp` `IsMultiMapFixed`; antes solo preguntaba «no es un árbol», lo que ocupaba la celda con cualquier
+    (`ecs::fire::traits::IsMultiMapFixed`, el rasgo común; antes solo preguntaba «no es un árbol», lo que ocupaba la celda con cualquier
     SingleMapFixed) y cuenta los árboles del propio evento. **(aproximado)** el más nuevo sigue siendo el del índice de
     creación: el grid de openblack es un `unordered_set` que se reconstruye entero (`ECS/Map.h`) y no guarda orden de
     inserción. Solo se nota con un objeto que salió del mapa y volvió sin crearse de nuevo (cogido y soltado): en el
@@ -852,9 +858,9 @@ las bolas de fuego, para que nada quede colgando).
   del estado 2 se quedaban como estaban: era un error, ahora no se dibujan); y solo en estado 2 `UpdateForkStructure`.
 - **Cada paso** (`UpdateForkStructure` 0x691BB0):
   - la escala de las horquillas es `ForkScale · FP_ForkScale` (+0xAC);
-  - el campo +0x18 de cada objetivo («enfriamiento») baja de uno en uno (0x691C26..0x691C31). Se escribe al buscar
-    (`PSysRand(AverageLightmapLife / dt)`, 0x6910CE) y en cada golpe (0x692949), pero **nadie lo lee para saltarse un
-    objetivo**. Es solo un dato. El port lo usaba como filtro y eso era la causa principal del «va a saltos»
+  - el campo +0x18 de cada objetivo («enfriamiento») baja de uno en uno (0x691C26..0x691C31; con signo, `jle`). Se
+    escribe al buscar (`PSysRand(ftol(AverageLightmapLife / ([0xD01A38] · 0,001)))`, 0x6910C9) y en cada golpe
+    (0x692935), pero **nadie lo lee para saltarse un objetivo**. Es solo un dato. El port lo usaba como filtro y eso era la causa principal del «va a saltos»
     (corregido);
   - sin choque con otro rayo elige cada objetivo activo con probabilidad `min(+0x68, (N+1)/2) / N` hasta llegar a ese
     número (0x691C5B..0x691CF3). Si el rayo está enlazado con otro (data +0x20 o +0x24, el choque de
@@ -934,14 +940,51 @@ las bolas de fuego, para que nada quede colgando).
     GetHeight`; un punto de suelo, él mismo.
   - Sin hechizo (rayo de guion o de clima) el original aplica los `EffectValues` estáticos de la info 0xCC9704 en la
     punta: **UNVERIFIED** qué fila de `GEffectInfo` es; no portado.
-- **Pendiente en el árbol:** el corte con el terreno. fn_00802550 es `LH3DIsland::RayCast(origen, corte, &x, &z)`
-  (leído): pasa el tramo a celdas (x, z · 0,1 [0x8AC404], y / 0,67 [0xC3720C]) y llama a `RayCastInternal`
-  fn_00802680 (0xA10 bytes), que lo recorta a 0,1..511,9 y lo recorre celda a celda con la prueba fn_0083AE80 sobre
-  las alturas de los `LandBlock` (g_index_block 0xE9C964, g_ptr_blocks 0xE9C564); sin choque, un tramo que baja corta
-  y = 0 si ese punto está a menos de 7500 m de la cámara (0x8025D9..0x802672). Si el terreno se toca más cerca (en x z)
-  del origen que el corte, la horquilla queda como estaba (0x692225..0x692262 → 0x692ABE). **No portado**: es una
-  rutina de la isla con otros siete llamadores (`GCamera::Update` 0x442406, `CameraModeNew3` 0x45DA4A,
-  `GLandscape::Draw` 0x5E4848...), que debe vivir en `3D/LandIsland` y no como copia privada del rayo.
+- **Corte con el terreno** (**fiel**, lane «rayo3» de milagros2; `LandIslandInterface::RayCast`, API común en
+  `3D/LandIslandInterface.h` + `3D/Implementations/LandIsland.cpp`, revisada por la sesión sistemas). En fn_00691F30
+  0x69220C..0x692262, tras elegir el punto de corte y antes de los escudos:
+  - `LH3DIsland::RayCast` fn_00802550(origen, corte, &x, &z) pasa los dos puntos a celdas (x, z · 0,1 [0x8AC404],
+    y / 0,67 [0xC3720C]) y llama a `RayCastInternal` fn_00802680. Si acierta, el punto en metros (× 10 [0x8AB414],
+    globales 0xE9CD80 / 0xE9CD84).
+  - `RayCastInternal` lanza un **rayo**, no un tramo: mueve el final a `final + t·(final − inicio)`, con t el primer
+    borde del mapa (0 o 512) en x o en z, o sea, hasta el borde más un tramo (0x802683..0x802765). La guarda
+    `t == 1e20` compara el float 1e20 (0x60AD78EC) con el double 1e20 (0x9A2BE0), que no son iguales: el final se mueve
+    **siempre**. Luego lo recorta a 0,1 .. 511,9 (Cohen-Sutherland, primero x y luego z; tras recortar en z, el código de
+    ese extremo pasa a 0 sin volver a mirar x) y lo recorre celda a celda con las cuatro variantes del DDA
+    (0x802C80..0x803078: pendientes `dx/dz`, `1/(dx/dz)`, `dy/dz`, `dy/dx`; se cruza el borde en z si la x de ese cruce
+    sigue en la columna, si no el de x). Una sola columna o una sola fila prueban cada celda con el tramo entero.
+  - La prueba de celda fn_0083AE80 lee las cuatro esquinas del propio bloque (celdas +4, +0xC, +0x8C, +0x94, también
+    la fila del borde; `GetCellCorners`). Si los dos extremos quedan bajo la esquina más baja o sobre la más alta, no hay
+    choque. Si no, prueba el plano de los dos triángulos (0,0)(1,0)(0,1) y (1,1)(1,0)(0,1):
+    - u, v dentro de −0,1 .. 1,1 [0x8C9B2C / 0x8AB230];
+    - `u + v ≤ 1,1` en el primero y `≥ 0,9` [0x8C5844] en el segundo;
+    - el punto delante del inicio;
+    - un denominador menor que 1e-4 (qword 0x8C79D8) en el primer triángulo acaba la prueba sin mirar el segundo.
+  - Sin choque, un rayo que baja (fin.y ≤ inicio.y, |dy| ≥ 0,0001 [0x8BF518]) da su cruce con y = 0. Solo cuenta si está
+    a ≤ 7500 m (`dx² + dz² ≤ 5,625e7` [0x9A2BD4]) de la cámara (`g_camera` 0xEA1DB8; 0x8025D9..0x802672).
+  - Si el terreno queda más cerca del origen (en x z) que el corte (`fcompp; test ah, 1`), sale de **toda** la función
+    (0x692262 → 0x692ABE). Esa horquilla no se recoloca: ya se volvió a enganchar al entrar (0x691F6D) y se dibuja como
+    la dejó el paso anterior. Tampoco hay ramas, golpe ni prueba de escudos.
+  - Los otros siete llamadores del exe, listados en el comentario de `RayCast` para quien los porte: `GCamera::Update`
+    0x442406, fn_0044EF60 0x44F046, `CameraModeNew3::Update` 0x45DA4A, `GLandscape::Draw` 0x5E4848, fn_005E5620
+    0x5E5660, fn_00800C30 0x800D79 y fn_0086BD00 0x86BF1C.
+  - **(aproximado)**: aritmética en float donde el original guarda valores x87 extendidos entre los `fstp`; solo cambia
+    algo justo en el borde de una celda o de un triángulo.
+  - **(guarda del port)**: un tope de 4·512 + 4 pasos en el recorrido.
+  - Con `OPENBLACK_SPELL_TRACE` sale la traza «fork at depth N ... cut by the land at (x, z)».
+- **`IsAvailable`** (fiel, rayo3): `SearchAround` (fn_006901E0 / fn_00690880) pregunta `IsAvailable` (vt +0x2C,
+  0x69038E / 0x690997) antes de la celda propia y de fn_00690090. Es `GameThing::IsAvailable` 0x401810 (no se está
+  borrando) y, para un aldeano, `Villager::IsAvailable` 0x751D50 (no está DYING, `ecs::villager::IsAvailable`). El modo
+  del gestor (fn_00690C70, sin leer) no lo usa en el port.
+- **Enfriamiento** (rayo3): `PSysRand` 0x6729E0 es la función de [0xD4E0BC] (`GameRand` 0x672AF0 o `LocalRand`
+  0x672B40, según fn_00673340):
+  - con n = 0 da 0 sin tirar (0x510693 / 0x6DE574);
+  - si no, `LHRand % n` **sin signo** (`div` 0x7DB62B);
+  - el `ftol` de `LightmapSteps` le llega tal cual (0x691091 / 0x69292F). Un turno de 0 ms da +inf, el ftol da
+    0x80000000 y la tirada sale en 0 .. 2³¹−1;
+  - el comentario anterior («sin enfriamiento») era *(inferido)* y estaba mal;
+  - el port lo hace con `PSysRand(effect, n)` en `Lightning.cpp`. **(aproximado)** sale del generador float del efecto,
+    la convención de este PSys.
 - **`DrawOffsetLT`** (**fiel**; `Atom::drawOffset` en `PSys.h`, sumado en `Effect::Collect`/`CollectChains`). Cuando se
   lanza desde la mano propia (fn_00691B80 = `CastingFromHand` y `NetUnsafeIsMyInterfaceCasting` 0x673540: el +0x44 del
   hechizo, 1 sin hechizo), cada paso llama a `SetRefPos` 0x6C7600 (vt 0x100) en cada articulación de la horquilla con
@@ -978,8 +1021,19 @@ Las cintas (`ParticleChainCreator`) y los mapas de luz (`ParticleLightMapCreator
   «rayo2»: `drawOffsetLT` (el recorte del peso y `GetOffset`), `trunkJointsFollowTheHand` (cada articulación del tronco
   con el origen del paso y peso 1 − i/(n−1)), `chainTexturesOverride` (`NumTexturesToTile`) y `twoBoltsClash` (dos
   efectos: el nuevo para en el punto de choque, el viejo sigue con una horquilla opaca de escala ×3 y su golpe de fuerza
-  2 llega a los dos hechizos).
+  2 llega a los dos hechizos). Desde «rayo3»: `landCutsTheFork` (con tierra a la altura 30 —20,1 m— entre la mano a
+  30 m y el punto de suelo, la horquilla se corta y no hay golpe; con tierra a 0, sí). `test_land_raycast` (7 pruebas)
+  cubre `RayCast` / `RayCastCells`: la ladera, el rayo que pasa de su punto final, por encima, la caída sobre llano, el
+  y = 0 cerca o lejos de la cámara, el recorrido diagonal y el recorte fuera del mapa.
 - Capturas en `dev\_audit\magic\`:
+  - `polish_fix_rayo3_cliff.png` (+ `.log`; `OPENBLACK_SPELL_TRACE=1 OPENBLACK_TEST_MAGIC_TURN=150
+    OPENBLACK_TEST_SPELL="LIGHTNING_BOLT,2100,2835,10,300" OPENBLACK_TEST_CAST="shot@17"`, cámara
+    `2075,150,2770,2118,62,2842`, `--mod game.skip-intro=off`):
+    - es el rayo de guion al pie del acantilado al este de (2100, 2835), donde el suelo sube de 46 m a 70 m en 10 m;
+    - el tronco sale del origen (74,9 m) y acaba en la pared, con el mapa de luz encima;
+    - el registro da las horquillas de profundidad 0 y 1 «cut by the land at (2115, 2840)», antes de sus puntos de corte
+      en (2131, 60, 2843).
+
   - `polish_fix_rayo2_hand_t25.0.png` / `_t25.05.png` (+ `.log`; `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`,
     `OPENBLACK_TEST_CAST="press@22,release@28,shot@25"`, `OPENBLACK_TEST_CAST_PATH`, `--mod game.skip-intro=off`): el
     rayo lanzado de verdad desde la mano, con el arranque en la mano.
@@ -1294,7 +1348,8 @@ piedra del mismo jugador que más lo acerca a donde va.
   piedra), así que InitWithPos manda `SpellEvent 11` (`particleType == 0`) y no crea PSys propio.
 - `GMagicTeleportInfo` vt+0x30 (CanCast en pos) 0x5FBE50: falla si hay un MultiMapFixed (edificio, campo, otra
   piedra...) a menos de `fn_005FCCA0` = **6 m** (`fn_00604C30` con el predicado AsMultiMapFixed); si no,
-  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`. Como
+  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`, con el
+  rasgo común `ecs::fire::traits::IsMultiMapFixed` (bit 2 de +0x24, ctor 0x52E207; = `AsMultiMapFixed` vt 0x678). Como
   `SPELL_AT_POS` no comprueba nada (creador neutral, bandera a 0), el guion planta la piedra igual (el gancho lo
   confirma: «CanCastAt(A) now false» pero la piedra se crea).
 - `MagicTeleport::Create` 0x5FC1F0: `new MagicTeleport(pos, spell)` (ctor 0x5FC130: `MobileStatic(pos, 0xD3B614,...)`),
@@ -1595,8 +1650,9 @@ mejora que leen sus reglas (−1, 0, 1: el derivado de la semilla, R3 sin verifi
     puntos a 0,33 R del núcleo (con el tornado, la del origen del PSys, que es la base del tornado).
   - Se dibujan como `LH3DMist` con el creador de niebla de la lane del agua (`PSys/Creators/Mist.cpp`): corregido ahí
     que la k tome el estirado y que el color se multiplique por el color base de la tabla de luz [0xFA26A4]
-    (`LandLightTable::Current().GetRawBase()`, la del fotograma anterior). El mapa de sombra `S_SMClouds16` **no se dibuja**
-    (pendiente: no hay luz dinámica por vértice del terreno; ver «Inferido, aproximado y pendiente»).
+    (`LandLightTable::Current().GetRawBase()`, la del fotograma anterior). El mapa de sombra `S_SMClouds16` **se
+    estampa** en el suelo (0x67A7BE..0x67A8C1 → fn_006CA280 → fn_0086CFF0 modo 2 → fn_00878C70): `mist_atoms::SubmitFrame`
+    llama a `land_light::AddStamp` (sesión sistemas, U5) en `(x + 10, 0, z + 10)`, centrado, alfa del átomo / 255.
 - **La tormenta registrada** (fn_006D5730, sobre los valores de fn_0083F3F0): interior `max(R, 60)`, exterior
   `max(2,5 R, interior + 20, 80)` (los tres `fcomp; test ah, 0x41; je` se quedan con el valor solo si es mayor: el
   informe, el gancho `OPENBLACK_TEST_WEATHER` y esta wiki los tenían como mínimos; corregido); fundido
@@ -1627,8 +1683,18 @@ mejora que leen sus reglas (−1, 0, 1: el derivado de la semilla, R3 sin verifi
   que la nube se aclara hacia blanco azulado (color = textura × difuso + especular; el alfa no cambia) y se apaga en
   0,5 s. openblack: `Atom::specular` (+0x90) y `DrawAtom::specular` (`PSys/PSys.h`), escrito por `CloudGather`
   (`Storm.cpp`), pasado por `mist_atoms::SubmitFrame` a `MistDesc::specular` (`Graphics/Mists.h`) y sumado en la rama
-  de efecto de `Renderer::DrawMist` (`u_cloudSpecular`, `fs_cloud.sc`). El `SpecColorR/G/B` del creador (fn_006A85E0
-  0x6A8748..0x6A875B) no se lee aún: es 0 en todos los ficheros volcados.
+  de efecto de `Renderer::DrawMist` (`u_cloudSpecular`, `fs_cloud.sc`). El `SpecColorR/G/B` del creador
+  (`ParticleCreator::DefineProperties` 0x6B3562..0x6B359B, +0x24/+0x28/+0x2C, 0 en el ctor 0x6A91C4..0x6A91CA) ya se
+  lee (`psys::ReadCreatorProperties`) y `Effect::NewAtom` lo pone en +0x90 como fn_006A85E0 0x6A8748..0x6A875B:
+  `(R << 16) | (G << 8) | B`, alfa 0; es 0 en todos los ficheros volcados.
+  - **El alfa del especular no es niebla** (cerrado, milagros2): en D3D7 el alfa del especular de un vértice TL es el
+    factor de niebla de vértice solo con `D3DRS_FOGENABLE` (0x1C). El juego nunca la pone: no hay ningún `push 0x1c`
+    ante `SetRenderState` 0x412940 ni ante `IDirect3DDevice7::SetRenderState` (vt +0x50) en todo `.text` (barrido de
+    bytes; tampoco `FOGTABLEMODE` 0x23 ni `FOGVERTEXMODE` 0x8C), y el valor por defecto de D3D7 es FALSE. La neblina del
+    motor es por software (luz y especular de cada vértice, fn_007FEB30). Así que el alfa 0xFF / `(255v) >> 8` del +0x90
+    no cambia nada en el dibujo y el port, que solo usa el RGB, es fiel. La rama de efecto de fn_007FA300 solo cambia la
+    luz (fn_0081E1F0 = `SetLight(0)` del dispositivo, vt +0x48, con la posición (0, 500000, 0) y vuelta,
+    0x7FA4F2..0x7FA590) y el [0xC39264] (0xD2 → 0x5A).
 
 ### El tornado (`UR_Tornado` 0x6D18B0; ctor 0x6D1680)
 
@@ -1698,7 +1764,9 @@ suelo; el padre avanza por el rumbo **escalado a 20** (+0x64 del ctor, sin propi
   posición `(exterior + interior)/2 × (x, z)` desde la posición dibujada, y la altura sobre el suelo; color = el base de
   la tabla de luz con cada byte × (1 − negrura/2), alfa `fundido × 0,75 × alfa base`, y la neblina por distancia de
   fn_007FEB30; se dibujan por encima de alfa 5. Van a `mists::Submit` (la rama de efecto). La sombra de la tormenta en el
-  suelo (`fn_0086CFF0` modo 2 con el mapa 0xEE9D3C, fuerza `(negrura + 0,7) × fundido`) **no se dibuja** (pendiente).
+  suelo (`fn_0086CFF0` modo 2 con el mapa 0xEE9D3C, fuerza `(negrura + 0,7) × fundido`) se estampa con
+  `land_light::AddStamp` (`StormClouds.cpp`, sesión sistemas); con 0 nubes (el milagro) `DrawClouds` sale antes
+  (0x83FC9E `jle 0x8400CB`), así que la tormenta del milagro no pone esa sombra, solo la de sus nubes de partículas.
   `Random` 0x81D180 es el `rand()` del CRT (aproximado: aquí un generador propio del mismo tipo). El milagro no tiene
   estas nubes (0); las climáticas y las de los objetos de tiempo sí (8 por defecto).
 - **Nublado en la cámara** (`Clouds::WeatherOvercastAtCamera`, de mapa): `GCamera::Update` 0x4426BA, el byte de nublado
@@ -1708,7 +1776,8 @@ suelo; el padre avanza por el rumbo **escalado a 20** (+0x64 del ctor, sin propi
   `storms::CalcAtmos` (lleno dentro del radio interior, 72 m con radio 60; traza `overcast 80`) y `LandLightTable::Build`
   lo aplica como el original: tope del color base `ftol(255 − 96 × 0,8)` = 178 (0x869ADB) y la neblina hacia la de
   tormenta (color `(c >> 3) + 32`, k 48, cerca 15, lejos 350; 0x869DB1..0x869F37). En la tarde de Land 1 el cambio se
-  nota poco (`polish_fix_tormenta_overcast90.png`): lo que más oscurece en el original es la sombra de las nubes, pendiente.
+  nota poco (`polish_fix_tormenta_overcast90.png`): lo que más oscurece en el original es la sombra de las nubes, que ya
+  se estampa (ver abajo).
 
 La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), que también cambia las nubes, está en
 [La alineación del cielo](magic.md#la-alineación-del-cielo-alignmentgetinterfacealignment).
@@ -1728,14 +1797,20 @@ La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), qu
 - (aproximado) Las nubes de las tormentas registradas cuentan fotogramas como el original, pero openblack dibuja más
   fotogramas por segundo; su contador del atlas avanza siempre (no solo en pantalla); la base de la tabla de luz es la
   del fotograma anterior.
-- (pendiente, tanda con la sesión sistemas) El sello de luz del destello, la sombra de la tormenta y **la sombra de las
-  nubes del milagro**: `RenderParticleMist::DrawAt` 0x67A7BE..0x67A8C1 mete por nube un registro en la lista 0xD4EDB8
+- (hecho con `land_light::Stamp`, sesión sistemas U5; comprobado en el juego por milagros2 «pulido3») El sello de luz
+  del destello (`LightningFlash.cpp`), la sombra de la tormenta registrada (`StormClouds.cpp`) y **la sombra de las
+  nubes del milagro** (`Mist.cpp`): `RenderParticleMist::DrawAt` 0x67A7BE..0x67A8C1 mete por nube un registro en la lista 0xD4EDB8
   (posición `(x, 0, z)`, cuadro 0, alfa = byte de alfa del DrawData × 1/255 recortado a [0, 1]); `PSysLightMaps::AddDrawing`
   0x6CA6E0 → fn_006CA280 lo estampa con fn_0086CFF0 en modo 2 (sombra: bpp 1 porque `IsShadowMap`,
   `ParticleMistCreator::GetBitmap` 0x6AA540), 16 × 16 celdas de 10 m; fn_0086D360 → fn_0086D060 → **fn_00878C70**:
   bilineal, `v = 255 − (255 − texel) × fuerza / 255` con suelo 0x30, y `min(v, byte +3)` en el color por vértice de las
-  celdas del LandBlock (bit 4 de +0x920; ClearLight fn_0086D460). No hay en openblack luz dinámica por vértice del
-  terreno; las criaturas (fn_00477060); fn_006D1AD0.
+  celdas del LandBlock (bit 4 de +0x920; ClearLight fn_0086D460); la luz del rayo es el modo 1 (fn_00878780).
+  En el juego (`polish_fix_pulido3_*`, de día): el suelo bajo la tormenta queda más oscuro que sin ella
+  (`polish_fix_pulido3_ctrl_t80.png`), con manchas oscuras de bordes marcados que se mueven con las nubes, y cada rayo
+  enciende el suelo (y los árboles, que toman la luz de su celda) en un parche azulado. Sin el original al lado no se
+  puede afirmar si la intensidad es la misma (el suelo 0x30 deja manchas casi negras). Pendiente (de terreno, no de
+  Storm/Mist): el orden fila/columna del texel en `land_light::ApplyStamp` frente a fn_00878C70; y siguen sin portar
+  las criaturas (fn_00477060) y fn_006D1AD0.
 - (aproximado) El contador del atlas de cada nube (`Atom::mistCounter`, el +0x84 de su `LH3DMist`, que el ctor 0x7F9560
   empieza en `ftol(Random(0, 16)) & 15`, 0x7F95DC..0x7F95FB): el `Random` 0x81D180 con un generador propio, y avanza en
   cada fotograma aunque la nube no esté en pantalla (el original solo avanza las que `LH3DMist::AddDrawing` 0x7FA7F0 ve).
@@ -1750,9 +1825,10 @@ La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), qu
   del material (tipo 4 → 6 en 0x57E120: `SRCALPHA/INVSRCALPHA`, alfa = textura × difuso). Que se vea poco **es fiel en
   buena parte**: la textura de la malla (piel 0x16AA, 256 × 256 ARGB4444 dentro del .l3d) es blanca con alfa 1/15..12/15
   (media ≈ 0,45), × `ColorA` 60/255 → ≈ 0,1 por capa; son 2 mallas de dos caras (`CreateRuleSphere_TornadoMesh`
-  `NumAtoms=2`). Nota: `ParticleMeshCreator::CreateParticle` 0x6A8B00 nunca pone el bit 0 (`UseGlobalAlpha`) y
-  openblack usa el alfa en todas las mallas: con un material opaco de las tablas 0..5 el original no lo mezclaría
-  (pendiente de revisar en las otras mallas de partículas).
+  `NumAtoms=2`). `ParticleMeshCreator::CreateParticle` 0x6A8B00 nunca pone el bit 0 (`UseGlobalAlpha`). Revisado en
+  «rayo3» y ya portado: ver [Las mallas de partículas](#las-mallas-de-partículas-y-la-cúpula-del-escudo). Comprobado de nuevo de día con la luz del suelo
+  (`polish_fix_pulido3_tornado150.png` / `230.png`, milagros2 «pulido3»): el embudo se ve como una columna gris
+  translúcida con lo que arrastra dentro; tenue pero visible, como dan los datos.
 
 ### Ganchos, pruebas y capturas (tormenta)
 
@@ -1783,7 +1859,13 @@ La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), qu
     `polish_fix_tormenta_game120.png` (cámara de juego bajo la tormenta: nube oscura y lluvia),
     `polish_fix_tormenta_overcast90.png` (STORM con nublado 80 en la cámara) y `polish_fix_tormenta_tornado150.png`
     (el embudo sin la luz del suelo, con el cambio que la auditoría deshizo). `test_storm` `cloudMistAtoms`: el contador propio de cada nube y el especular en
-    los átomos de dibujo.
+    los átomos de dibujo; `creatorSpecColour`: `SpecColorR/G/B` del creador.
+  - Tanda «pulido3» (de día, `--mod game.skip-intro=off`, lanzado en el turno 200): `polish_fix_pulido3_pu1_t80.png`
+    (STORM_PU1 sobre el almacén, cámara de juego, 80 turnos: suelo a la sombra) frente a
+    `polish_fix_pulido3_ctrl_t80.png` (la misma toma con la tormenta lejos), `polish_fix_pulido3_pu1_strike3.png` (rayo
+    n.º 3: la luz del rayo en el suelo), `polish_fix_pulido3_storm_high90.png` (STORM desde 260 m: la masa parda de nubes
+    sobre el pueblo), `polish_fix_pulido3_tornado150.png` / `230.png` (STORM_PU2 con un montón de 400: el embudo y las
+    sombras de las nubes en la ladera).
 
 ## Explosión de rayo y clases de PSys que faltaban (M6b, `PSys/Rules/{Explosion,KeyPoints,Orient,Forest}.cpp`)
 
@@ -1825,8 +1907,22 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
   defecto del hechizo, burn / crush / hit del efecto (BEAM 200 / 0,01 / 0,01, PU1 400, PU2 800 / 0,02 / 0,02) en su
   radio (5, 5, 10) con `ApplyEffectToMapPos`, pagando `costPerEvent` (10 cánticos) cada vez: unos 50 eventos. Con edad >
   BeamDelay, el spot visual 36 `BEAM_EXPLOSION_FX` en el centro (escala 1, 60 turnos); con edad > SmokeDelay, el 23
-  SMOKE en tierra seca o el 22 STEAM en el agua (`MapCoords::IsDryLand` 0x603620), **magnitud 8** durante 4 s
-  (ftol(1000 / [0xD01A38] × 4) turnos). Parado o cerrándose: se cierra el rayo (`GParticleContainer::CloseDown`
+  SMOKE en tierra seca o el 22 STEAM en el agua (`MapCoords::IsDryLand` 0x603620), **magnitud 8** durante 4 s.
+  - **Turnos, no segundos** (rayo3, fiel): `CreateSpotVisualWithSpecifiedDuration` 0x63E580 recibe turnos. Son los 60
+    de 0x67EE92 y, para el humo, una copia en línea de `NumGameTicksPerSecond`: `(1000 div [0xD01A38]) · 4`, ftol,
+    `and 0xFFFF` (0x67EEF8..0x67EF2C; no llama a 0x711630).
+  - El port los pasa por `manager::CreateSpotVisualTurns`. Antes pasaba segundos y `CreateSpotVisual` los volvía a
+    convertir: con un turno distinto de 100 ms la cuenta no salía igual.
+  - Los dos efectos salen en `MapCoords(centro)` 0x603160. El efecto del contenedor arranca en ese MapCoords como punto:
+    fn_0063E410 0x63E418..0x63E47B, `GetAltitude` + la altitud.
+  - Captura `polish_fix_rayo3_smoke_t40.png` / `_t80.png` (+ `.log`; `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,1825,2632"`,
+    `OPENBLACK_TEST_MAGIC_TURN=300`, `OPENBLACK_TEST_EXPLOSION_SHOT` a los turnos 40 y 80, cámara
+    `1770,75,2575,1825,35,2632`, `--mod game.skip-intro=off`):
+    - el registro da `spot visual 36 (SF_BeamExplosionFX) ... for 60 turns` y `spot visual 23 (SF_Smoke) ... for 40 turns`;
+    - en t40 el humo aún sube del centro;
+    - en t80 ya no queda.
+
+  Parado o cerrándose: se cierra el rayo (`GParticleContainer::CloseDown`
   0x63E370) y se vacía la lista. Después, siempre, la actualización 0x67E900.
 - **El símbolo `RecursiveUpdateForkStructure@UR_Lightning` 0x67E900 está mal puesto**: es la actualización de
   `UR_Explosion` (sin recursión). Cada paso el anillo crece `SpreadSpeed × dt` ([0xD4E0EC]); los objetivos que ya no
@@ -1924,6 +2020,47 @@ tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). 
 
 El dibujo de las mallas del PSys (`ParticleMeshCreator`, `UsePlayerColor`, `FaceCamera`, `DrawCutByPlane`), que hace
 visible la cúpula del escudo y el rayo, está en [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
+
+Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino de `mesh_atoms::Instance` en
+`RenderingSystem.cpp` y la rama PSys de `vs_object`):
+
+- **Materiales** (fiel). Cada creador reescribe los materiales de su malla con `GJUtils::SetMaterialProperties` fn_0057E1D0
+  la primera vez que la busca, en su primera partícula. El port lo hace en la primera `InitAtom`, con
+  `L3DMesh::SetMaterialProperties`. Según el creador:
+  - `ParticleMeshCreator`: fn_006A8A40 0x6A8A5F..0x6A8A6E con la malla del paquete y `MeshChangeMaterialProps`;
+  - `ParticleMeshCreatorAnimTextured`: fn_006A8CC0 0x6A8CDF..0x6A8CEE;
+  - el fichero de malla: `PGetSharedMesh` 0x57DF18 al cargarlo;
+  - `ParticleAnimCreator`: fn_006A95E0 0x6A9602 con +0x93 = 1, o fn_0057D420 0x57D433 con el fichero, siempre.
+
+  `MaterialProperties` = +0x55 aditivo, +0x56 Z, +0x57 dos caras, +0x58 cambiar, +0x59 alfa (sin propiedad, 1 en los
+  ctors 0x6A897D / 0x6A8BD0; del animado, +0x90..+0x94). Las mallas del paquete cambian para todos sus usuarios, como en
+  el original. La semilla del bosque (Seed.L3D, tipo 2) queda en 8 `TexturedAlphaNz`, que mezcla con el alfa.
+  **(aproximado)** si dos creadores cargan el mismo fichero con propiedades distintas, aquí aplica cada uno las suyas; el
+  original guardaba las del primero.
+- **`UseGlobalAlpha`** (fiel). Es el bit 0 del +0x24 de la partícula. `Particle3DObj::DrawAt` 0x67A216..0x67A227 /
+  `Particle3DAnim::DrawAt` 0x67A9D6 lo pasan a `SetGlobalAlpha` (vt 0x48 fn_007F9D60, bit 0x80 del +4 del objeto). Con
+  él, el dibujo usa la tabla 0xC387C8 (fn_0080DB30 0x80DEED..0x80DF09), que lleva los modos opacos 0, 2, 4, 9 y 17 a
+  sus versiones con alfa. Sin él usa la 0xC38728: el alfa del color solo se nota en los modos que mezclan. Quién lo pone:
+  - `ParticleMeshCreator`: **nunca**. Su propiedad +0x5A se lee (0x6B3902), pero `CreateParticle` 0x6A8B00 no la usa, y
+    el ctor 0x6C7A23 borra el bit;
+  - `AnimTextured`: sí, desde +0x5A (0x6A8E04..0x6A8E17);
+  - `ParticleAnimCreator`: sí, desde +0xA5 (ctor 1 en 0x6A93CA, 0x6A983A..0x6A9840; 0 mientras mezcla dos mallas en
+    0x67A9A4, cosa que no hace ningún fichero).
+
+  En el port, `Instance::globalAlpha`:
+  - solo las aditivas y las de alfa global con alfa < 1 van con las mallas que se desvanecen (tabla 0xC387C8);
+  - las demás van con su malla, y el alfa (1 − [0][3]) solo lo toman sus primitivas que mezclan;
+  - los modos 12 y 13 son iguales en las dos tablas, así que las aditivas no cambian;
+  - en los ficheros, la única `ParticleMeshCreator` no aditiva es la semilla de SF_Forest, y su modo 8 también es igual
+    en las dos tablas.
+- **Especular de la DrawData** (+0xC, el +0x90 del átomo; pedido de la sesión shaders). `Particle3DObj::DrawAt` se lo
+  da al objeto junto al color: fn_0080BEC0(color, especular) 0x67A012, que fn_0080BF10 suma al especular del suelo, o
+  `SetColour` vt 0x2C 0x67A023 (obj +0x50, fn_007F9770).
+  - `mesh_atoms::Instance::specular` lo lleva. Va en la w de la cuarta columna como 3e6 + 7 bits por canal, como
+    `components::SpecularColour`, y la rama PSys de `vs_object` ya no lo pone a 0.
+  - **(aproximado)**: se pierde el bit bajo de cada canal.
+  - Con `DrawWithLandscapeColor` esa w lleva el color, así que el especular no se manda. Ningún fichero da especular a
+    una malla (`SpecColorR/G/B` 0).
 
 ### Las otras clases que faltaban
 

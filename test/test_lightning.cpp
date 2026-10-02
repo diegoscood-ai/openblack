@@ -16,16 +16,20 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <fstream>
 #include <iterator>
 #include <limits>
 #include <string>
 #include <vector>
 
+#include <LNDFile.h>
 #include <gtest/gtest.h>
 
+#include "3D/LandIslandInterface.h"
 #include "Common/Zip.h"
 #include "GameClock.h"
+#include "Locator.h"
 #include "PSys/Creators/Chain.h"
 #include "PSys/Creators/LightMap.h"
 #include "PSys/PSys.h"
@@ -84,6 +88,39 @@ public:
 	}
 	[[nodiscard]] int PowerUpLevel() const override { return -1; }
 	std::vector<psys::SpellEventInfo> events;
+};
+
+/// Every cell at one altitude (height units), for the fork's cut against the land (LandIslandInterface::RayCast)
+class LevelIsland final: public LandIslandInterface
+{
+public:
+	explicit LevelIsland(uint8_t altitude) { _cell.altitude = altitude; }
+	[[nodiscard]] float GetHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const final { return {0.0f, 1.0f, 0.0f}; }
+	[[nodiscard]] const lnd::LNDCell& GetCell(const glm::u16vec2&) const final { return _cell; }
+	void DumpTextures() const final {}
+	void DumpMaps() const final {}
+	[[nodiscard]] std::vector<LandBlock>& GetBlocks() final { throw std::logic_error("no blocks"); }
+	[[nodiscard]] const std::vector<LandBlock>& GetBlocks() const final { throw std::logic_error("no blocks"); }
+	[[nodiscard]] const std::vector<lnd::LNDCountry>& GetCountries() const final { return _countries; }
+	[[nodiscard]] const graphics::Texture2D& GetAlbedoArray() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetBump() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetSmallBump() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::Texture2D& GetCellMap() const final { throw std::logic_error("no textures"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetLandAlphaFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const final { throw std::logic_error("no fb"); }
+	[[nodiscard]] U16Extent2 GetIndexExtent() const final { return {}; }
+	[[nodiscard]] glm::mat4 GetOrthoView() const final { return glm::mat4(1.0f); }
+	[[nodiscard]] glm::mat4 GetOrthoProj() const final { return glm::mat4(1.0f); }
+	[[nodiscard]] Extent2 GetExtent() const final { return {}; }
+	uint8_t GetNoise(glm::u8vec2) final { return 0; }
+
+private:
+	lnd::LNDCell _cell {};
+	std::vector<lnd::LNDCountry> _countries;
 };
 
 std::shared_ptr<const psys::File> ParseBolt()
@@ -462,4 +499,35 @@ TEST(Lightning, twoBoltsClash)
 	EXPECT_EQ(landed(olderSink), 1);
 	EXPECT_EQ(landed(newerSink), 1);
 	game_clock::SetTurn(0);
+}
+
+TEST(Lightning, landCutsTheFork)
+{
+	// fn_00691F30 0x69220C..0x692262: LH3DIsland::RayCast from the fork's origin through its split point; land met
+	// closer (in x z) than the split point ends the fork there: no strike. The target is a ground point 2 m over
+	// GetHeightAt (0 here) and the hand 30 m up: over land at altitude 0 the ray meets it past the target, over land at
+	// altitude 30 (20.1 m) a third of the way down
+	const auto file = ParseBolt();
+	ASSERT_NE(file, nullptr);
+	const auto strikes = [&file](uint8_t altitude) {
+		Locator::terrainSystem::emplace<LevelIsland>(altitude);
+		RecordingSink sink;
+		game_clock::SetTurn(40);
+		psys::Effect effect(file, glm::vec3(0.0f), 1.0f, 5);
+		effect.SetSink(&sink);
+		for (int i = 0; i < 3; ++i)
+		{
+			StepBolt(effect, glm::vec3(1000.0f, 30.0f, 1000.0f));
+		}
+		int count = 0;
+		for (const auto& event : sink.events)
+		{
+			count += event.type == psys::SpellEventInfo::Landed ? 1 : 0;
+		}
+		Locator::terrainSystem::reset();
+		game_clock::SetTurn(0);
+		return count;
+	};
+	EXPECT_GT(strikes(0), 0);
+	EXPECT_EQ(strikes(30), 0);
 }

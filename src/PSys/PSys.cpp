@@ -1020,6 +1020,9 @@ void openblack::psys::ReadCreatorProperties(const Object& object, Creator& creat
 	creator.g = static_cast<uint8_t>(object.Int("ColorG", 255));
 	creator.b = static_cast<uint8_t>(object.Int("ColorB", 255));
 	creator.a = static_cast<uint8_t>(object.Int("ColorA", 255));
+	creator.specR = object.Int("SpecColorR", 0); // 0x6B3566, ctor 0 (0x6A91CA)
+	creator.specG = object.Int("SpecColorG", 0);
+	creator.specB = object.Int("SpecColorB", 0);
 	creator.usePlayerColour = object.Bool("UsePlayerColor", false);
 	creator.usePlayerColourBlend = object.Float("UsePlayerColorBlend", 1.0f);
 	creator.initialScale = object.Float("InitialScale", 1.0f);
@@ -1452,6 +1455,9 @@ Atom& Effect::NewAtom(Collection& collection, const Creator* creator, const std:
 		{
 			atom->colour = TintWithPlayerColour(atom->colour, surf_revol::PlayerColour(_player), creator->usePlayerColourBlend);
 		}
+		// 0x6A8748..0x6A875B: ((R << 8 | G) << 8) | B, alpha 0
+		atom->specular = ((static_cast<uint32_t>(creator->specR) << 8u | static_cast<uint32_t>(creator->specG)) << 8u) |
+		                 static_cast<uint32_t>(creator->specB);
 		atom->baseScale = creator->initialScale * (creator->randomiseScale ? 0.3f + Random(0.7f) : 1.0f);
 		atom->stretch = creator->stretch;
 		if (creator->kind == Creator::Kind::Sprite)

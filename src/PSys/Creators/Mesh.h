@@ -47,6 +47,17 @@ struct MeshCreator: Creator
 	bool writeDepth {false};          ///< +0x56 MaterialUpdateZBuffer
 	bool doubleSided {true};          ///< +0x57 MaterialSetDoubleSided
 	bool changeMaterialProps {true};  ///< +0x58 MeshChangeMaterialProps
+	/// +0x59, MaterialProperties +4 (no property; 1 from the ctors 0x6A897D / 0x6A8BD0, ParticleAnimCreator's +0x94
+	/// 0x6A9225): 0 would make every material TexturedAlpha (GJUtils::SetMaterialProperties 0x57E13D)
+	bool materialAlpha {true};
+	/// UseGlobalAlpha: +0x5A (ctor 0) of ParticleMeshCreator / AnimTextured, +0xA5 (ctor 1, 0x6A93CA) of ParticleAnimCreator.
+	/// Only AnimTextured's CreateParticle (0x6A8E04..0x6A8E17) and ParticleAnimCreator's (0x6A983A..0x6A9840) pass it to
+	/// the particle's +0x24; ParticleMeshCreator::CreateParticle 0x6A8B00 never does (the Particle3DObj ctor 0x6C7A23
+	/// clears the bit), so its atoms never use their object's alpha table (see globalAlpha below)
+	bool useGlobalAlpha {false};
+	/// GJUtils::SetMaterialProperties fn_0057E1D0 on the mesh, done once at the creator's first particle as fn_006A8A40 /
+	/// fn_006A8CC0 / fn_006A95E0 do when they first fetch the mesh (+0x50 / +0x34 still 0)
+	mutable bool materialsSet {false};
 	bool neverClip {false};           ///< +0x5B
 	bool drawWithLandscapeColour {false}; ///< +0x5E: the particle's +0x24 bit 2 (CreateParticle 0x6A8B82)
 	bool drawCutByPlane {false};          ///< +0x5F: the particle's +0x24 bit 4
@@ -105,6 +116,15 @@ struct Instance
 	bool additive;     ///< material mode 13 (GJUtils::SetMaterialProperties 0x57E120): SRCALPHA / ONE, no Z write
 	std::array<uint8_t, 3> colour; ///< the DrawData colour's r, g, b (SetColour vt 0x2C, or x the land light)
 	bool landscapeColour; ///< DrawWithLandscapeColor: the colour x the land light (fn_0080BEC0), else the colour alone
+	/// (milagros2 rayo3, asked by session shaders) the DrawData specular +0xC (the atom's +0x90, D3DCOLOR) that
+	/// Particle3DObj::DrawAt gives the object with the colour: fn_0080BEC0(colour, specular) 0x67A012..0x67A01C (added to
+	/// the land's specular by fn_0080BF10) or SetColour vt 0x2C (obj +0x50, 0x67A023..0x67A02F, fn_007F9770)
+	uint32_t specular {0};
+	/// The particle's +0x24 bit 0: LH3DObject::SetGlobalAlpha (vt 0x48 fn_007F9D60, flags +4 bit 0x80; 0x67A216..0x67A227 /
+	/// 0x67A9D6), whose draw then takes the mode table 0xC387C8 (fn_0080DB30 0x80DEED..0x80DF09) and so blends the
+	/// opaque modes 0, 2, 4, 9, 17 with the colour's alpha. Without it the materials' own modes (table 0xC38728): the
+	/// alpha only shows in the modes that blend
+	bool globalAlpha {true};
 	/// A ParticleAnimCreator atom's bones (graphics::ComputePose at the time of its frame, what the type 2 object's draw
 	/// fn_008175B0 gets from LH3DAnim::GetPose 0x8177B8..0x8177CE); empty for the still meshes
 	std::vector<glm::mat4> pose {};

@@ -47,6 +47,7 @@
 namespace openblack
 {
 struct BgfxCallback;
+class LandBlock;
 class LandLightTable;
 class Clouds;
 class Foliage;
@@ -60,10 +61,10 @@ class Registry;
 namespace graphics
 {
 class L3DSubMesh;
-class PhysicsShadows;
 namespace shadow_list
 {
 class List;
+struct ShadowInfo;
 }
 class Mesh;
 class GameFont;
@@ -78,10 +79,20 @@ class Renderer final: public RendererInterface
 	/// land alpha target with MIN blending
 	void DrawRiverFootprints(bgfx::ViewId viewId, bool channel) const;
 	void DrawLandAlphaPass(const DrawSceneDesc& drawDesc) const;
-	/// The hand's dynamic shadow (CHand, LH3DComplexObject::CreateDynamicShadow): silhouette into a small texture
-	void DrawHandShadowPass(const DrawSceneDesc& drawDesc) const;
 	/// The projected shadows of this frame (shadow_list::List::Frame; RendererShadows.cpp)
 	void UpdateShadows(const DrawSceneDesc& drawDesc) const;
+	/// The projected shadows over one land block just drawn (fn_007FF610 -> fn_00878350; RendererShadows.cpp)
+	void DrawLandShadows(RenderPass viewId, const LandBlock& block, uint64_t cull) const;
+	/// The projected shadows that fall on objects too (the hand, the boat): which objects of the main view are in which
+	/// shadow's box this frame (_shadowReceivers; RendererShadows.cpp). Cleared, and left empty, for the other views
+	void CollectShadowReceivers(bool mainView) const;
+	/// The shadows over one object, right after its own draw, as the tail loop of the objects' Draw does
+	/// (0x80E457..0x80E4D7 in fn_0080DB30 -> fn_0080B050): in the main view for an object drawn at once, in the queue's
+	/// view inside its Z object for one drawn from the Z-sorter. `matrices` are the ones the object was drawn with
+	void DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const glm::mat4* matrices, uint8_t matrixCount) const;
+	/// The receivers not drawn by DrawShadowsOnObject yet and not in the Z-sorter (`queued`), at the end of the main
+	/// view's objects (the sharks' parts above the water, the PSys cut atoms)
+	void DrawShadowsOnOtherObjects(RenderPass viewId, const std::unordered_set<uint32_t>& queued) const;
 	/// One particle effect's sprites, in the back-to-front list (RendererPSys.cpp)
 	void DrawPSysEffect(const psys::manager::Drawable& effect, const Camera& camera, RenderPass viewId) const;
 	/// The chain ribbons of the particle effects (lightning forks, gesture trail; fn_0067B3F0, RendererChain.cpp), each
@@ -178,8 +189,6 @@ class Renderer final: public RendererInterface
 	void DrawCutAboveWater(graphics::RenderPass viewId) const;
 	/// the instance indices (RenderContext::entityInstances) that DrawCutAboveWater draws instead of the normal pass
 	[[nodiscard]] std::unordered_set<uint32_t> CutAboveInstances() const;
-	/// The hand's dynamic shadow on the objects under it (the Draw tail loop over ShadowInfo, fn_0080B050)
-	void DrawHandShadowOnObjects() const;
 	/// The fish farm shoals (fn_00824B90, before the sea): misc0.raw sprites lying on the water, mode 6; drawn
 	/// mirrored into the reflection target, which is what shows through the sea here
 	void DrawFishShoals(graphics::RenderPass viewId) const;
@@ -244,13 +253,17 @@ private:
 	mutable std::unique_ptr<Foliage> _foliage;
 	mutable std::string _foliageLoadKey; ///< what _foliage was loaded with (its modules), empty: not tried yet
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
-	mutable std::unique_ptr<FrameBuffer> _handShadowFrameBuffer;
-	/// The physics objects' shadows on the land (fn_007FCE80)
-	std::unique_ptr<PhysicsShadows> _physicsShadows;
 	/// The projected shadows, the ShadowInfo list [0xFAA7E0] (shadow_list)
 	std::unique_ptr<shadow_list::List> _shadows;
-	mutable glm::vec4 _handShadowBox {0.0f};    ///< xy: box minimum x/z, zw: 1 / size
-	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
+	/// The objects of this frame's main view under a shadow with si+0xC == 0 (fn_00881030 && !si+0xC && si+0x464 !=
+	/// obj && ContainsThisBoundingBox, 0x80E46C..0x80E49F): instance index -> the shadows, newest first
+	struct ShadowReceiver
+	{
+		entt::id_type meshId {0};
+		bool morphWithTerrain {false};
+		std::vector<const shadow_list::ShadowInfo*> shadows;
+	};
+	mutable std::unordered_map<uint32_t, ShadowReceiver> _shadowReceivers;
 	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame
 	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw
 	/// This frame's land cells (land_light::Texels: the stamps and the night lights in them), the cell map's layout

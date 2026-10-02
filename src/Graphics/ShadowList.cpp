@@ -70,6 +70,8 @@ constexpr bool k_HandHoldsInShadow = k_HandShadowAsOriginal;
 /// fn_007FCE80 0x7FCE9D..0x7FCEC7 gives a ShadowInfo to the physics object that IsShadowOnTextureChroma (vt+0x94,
 /// LH3DObject flags +4 bit 13, fn_007F98D0), IsShadowOnTexture (vt+0x84, bit 12, fn_007F98A0) or is animated
 /// (vt+0x1AC): the casters of a static shadow (RenderingSystem's CastsStaticShadow) and the villagers and animals
+bool IsChroma(const ecs::Registry& registry, entt::entity entity);
+
 bool CastsPhysicsShadow(const ecs::Registry& registry, entt::entity entity)
 {
 	using namespace ecs::components;
@@ -78,7 +80,8 @@ bool CastsPhysicsShadow(const ecs::Registry& registry, entt::entity entity)
 	{
 		return false;
 	}
-	if (registry.AnyOf<Villager, Animal>(entity))
+	// vt+0x94 first (0x7FCEA1): the trees, dead trees and the hand's food pot
+	if (IsChroma(registry, entity) || registry.AnyOf<Villager, Animal>(entity))
 	{
 		return true;
 	}
@@ -95,6 +98,65 @@ glm::mat4 InstanceMatrix(const glm::mat4& instance)
 	matrix[2].w = 0.0f;
 	matrix[3].w = 1.0f;
 	return matrix;
+}
+
+/// LH3DObject::IsShadowOnTextureChroma (vt+0x94 = fn_007F98D0, flags +4 bit 13), set through vt+0x90(1)
+/// (fn_007F98B0) by Tree (0x749F96), BigForest (0x43908B), DeadTree (0x510AC6), FelledTree::Create's fn_00510880
+/// (0x5108DA; a FelledTree keeps its DeadTree here) and the Pot of info 12 (0x66D164, HandFood); FieldCrop clears it
+/// (0x607EAB)
+bool IsChroma(const ecs::Registry& registry, entt::entity entity)
+{
+	using namespace ecs::components;
+	if (registry.AnyOf<Tree, BigForest, DeadTree>(entity))
+	{
+		return true;
+	}
+	const auto* pot = registry.TryGet<const Pot>(entity);
+	return pot != nullptr && pot->type == PotInfo::HandFood;
+}
+
+/// fn_0080EE80 (vt+0x168, DrawTextureShadow32x32) into the 16-bit target of fn_008816F0: every sub-mesh with the LOD 0
+/// bit (0x80EECA..0x80EED5), not the boned ones (fn_0084B7D0 0x84B7F5: [0xFA93BC] & 1), each primitive (fn_0084B7D0)
+/// with the 64 x 64 map of its texture (fn_00838F00 0x84B97E) through the object's matrix [0xEA1AE8] (no bones)
+void RenderChroma(const L3DMesh& mesh, const glm::mat4& matrix, const shadow_math::Projection& projection,
+                  const shadow_math::Box& box, std::vector<uint16_t>& target, int side)
+{
+	for (const auto& subMesh : mesh.GetSubMeshes())
+	{
+		if (subMesh->IsPhysics() || (subMesh->GetFlags().lodMask & 1) != 1 || subMesh->GetFlags().hasBones)
+		{
+			continue;
+		}
+		const auto& local = subMesh->GetSkinLocalPositions();
+		const auto& uvs = subMesh->GetCollisionUVs();
+		const auto& collision = subMesh->GetCollisionIndices();
+		std::vector<glm::vec4> table(local.size()); // LH3DP3::Table1 0xE437E0
+		for (size_t i = 0; i < local.size(); ++i)
+		{
+			table[i] = shadow_math::ChromaVertex(projection, box, matrix, local[i], i < uvs.size() ? uvs[i] : glm::vec2(0.0f));
+		}
+		const auto& primitives = subMesh->GetPrimitives();
+		const auto& ranges = subMesh->GetCollisionRanges();
+		for (size_t p = 0; p < primitives.size() && p < ranges.size(); ++p)
+		{
+			// (inferido) a primitive whose skin is not the mesh's own (a shared texture) has no map here: skipped
+			const auto* map = mesh.GetShadowAlphaMap(primitives[p].skinID);
+			if (map == nullptr)
+			{
+				continue;
+			}
+			const auto end = std::min<size_t>(collision.size(), size_t {ranges[p].first} + ranges[p].second);
+			for (size_t i = ranges[p].first; i + 2 < end; i += 3) // its triangles, 6 bytes each (0x84B99C..0x84BA71)
+			{
+				if (collision[i] >= table.size() || collision[i + 1] >= table.size() || collision[i + 2] >= table.size())
+				{
+					continue; // (port guard)
+				}
+				shadow_math::ChromaTriangle({table[collision[i]], table[collision[i + 1]], table[collision[i + 2]]}, *map,
+				                            target, side);
+			}
+		}
+	}
 }
 
 /// One caster's part of the silhouette: its projected points and its primitives' triangles into them
@@ -391,6 +453,11 @@ void List::Frame(const FrameInputs& inputs)
 		    instance->second.index >= renderCtx.instanceUniforms.size())
 		{
 			shadow.active = false; // (inferido) not drawn this frame: like obj+0xAC of fn_00814FD0 (D-B1)
+			if (trace)
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "shadow {} caster {}: not drawn", index,
+				                   static_cast<uint32_t>(shadow.caster));
+			}
 			continue;
 		}
 		shadow.active = true;
@@ -408,6 +475,13 @@ void List::Frame(const FrameInputs& inputs)
 		                                                : shadow_math::AlphaComplex(fade, shadow.baseAlpha);
 		if (shadow.alpha == 0) // 0x874898 / 0x815041
 		{
+			if (trace)
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
+				                   "shadow {} caster {}: alpha 0, at ({:.1f}, {:.1f}, {:.1f}) ground {:.1f} scale {:.2f} radius {:.2f}",
+				                   index, static_cast<uint32_t>(shadow.caster), position.x, position.y, position.z, ground,
+				                   scale, radius);
+			}
 			continue;
 		}
 		glm::vec3 light;
@@ -431,8 +505,9 @@ void List::Frame(const FrameInputs& inputs)
 		{
 			// TODO(S5): the look of the hand's shadow before the list, until the original's is seen (D-U1): projected
 			// from the light onto the ground under the hand, s = (ground - Ly) / (y - Ly) (the old
-			// vs_dynamic_shadow_instanced). fn_00850900's t = -Ly / (h - Ly) with h = y - base gives the same with the base
-			// at the ground and the light's y taken from it. The original's base is the hand's own y (0x8152B1, R12).
+			// vs_dynamic_shadow_instanced, gone with point 5). fn_00850900's t = -Ly / (h - Ly) with h = y - base gives
+			// the same with the base at the ground and the light's y taken from it. The original's base is the hand's own
+			// y (0x8152B1, R12).
 			shadow.projection.baseY = ground;
 			shadow.projection.light.y = light.y - ground;
 		}
@@ -464,17 +539,20 @@ void List::Frame(const FrameInputs& inputs)
 		}
 		Silhouette silhouette;
 		ProjectCaster(*mesh, matrix, bones, boneCount, shadow.projection, shadow.halfRows, shadow.box, silhouette);
+		const size_t casterPrimitives = silhouette.primitives.size();
 
 		// the held object: its own base y ([0xEA1AE8] = held, 0x807163), its pose, the same light and box, full density
+		const L3DMesh* heldMesh = nullptr;
+		glm::mat4 heldMatrix(1.0f);
+		shadow_math::Projection heldProjection = shadow.projection;
 		if (shadow.held != entt::null)
 		{
 			const auto heldInstance = renderCtx.entityInstances.find(shadow.held);
 			if (heldInstance != renderCtx.entityInstances.end() && meshes.Contains(heldInstance->second.meshId) &&
 			    heldInstance->second.index < renderCtx.instanceUniforms.size())
 			{
-				const auto heldMesh = meshes.Handle(heldInstance->second.meshId);
-				const auto heldMatrix = InstanceMatrix(renderCtx.instanceUniforms[heldInstance->second.index]);
-				auto heldProjection = shadow.projection;
+				heldMesh = meshes.Handle(heldInstance->second.meshId).operator->();
+				heldMatrix = InstanceMatrix(renderCtx.instanceUniforms[heldInstance->second.index]);
 				heldProjection.baseY = heldMatrix[3].y;
 				const glm::mat4* heldBones = nullptr;
 				uint8_t heldCount = 0;
@@ -493,16 +571,50 @@ void List::Frame(const FrameInputs& inputs)
 			continue;
 		}
 
-		// fn_00806F60: the grid, the raster, the resolve (0x807601) and the baked fade (0x80769A)
+		// fn_00806F60: the grid, then a chroma caster (vt+0x94, 0x80732B) drawn textured into a 16-bit render
+		// (0x807339..0x8073E3, its raster 0x8073F5..0x807466 skipped) and its held object dropped (si+0 = 0,
+		// 0x8073E8..0x8073F3), else the raster; the held object the same way (0x807466..0x8075B7); the resolve
+		// (0x807601), the chroma blur (0x807635..0x807688) and the baked fade (0x80769A)
 		shadow_math::ToGrid(shadow.box, silhouette.points, shadow.texels);
 		shadow_math::Coverage coverage(shadow.texels);
-		for (const auto& primitive : silhouette.primitives)
+		const auto raster = [&](size_t first, size_t last) {
+			for (size_t p = first; p < last; ++p)
+			{
+				const auto& primitive = silhouette.primitives[p];
+				shadow_math::RasterTriangles(
+				    silhouette.points, std::span<const uint16_t>(silhouette.indices).subspan(primitive.first, primitive.count),
+				    primitive.bothFaces, primitive.halfRows, coverage);
+			}
+		};
+		std::vector<uint16_t> rendered; // the 0x800 bytes of 0x807339, cleared
+		const bool chroma = IsChroma(registry, shadow.caster);
+		if (chroma)
 		{
-			shadow_math::RasterTriangles(silhouette.points,
-			                             std::span<const uint16_t>(silhouette.indices).subspan(primitive.first, primitive.count),
-			                             primitive.bothFaces, primitive.halfRows, coverage);
+			rendered.assign(static_cast<size_t>(shadow.texels) * static_cast<size_t>(shadow.texels), 0);
+			RenderChroma(*mesh, matrix, shadow.projection, shadow.box, rendered, shadow.texels);
+			heldMesh = nullptr;
+		}
+		else
+		{
+			raster(0, casterPrimitives);
+		}
+		if (heldMesh != nullptr)
+		{
+			if (IsChroma(registry, shadow.held))
+			{
+				rendered.resize(static_cast<size_t>(shadow.texels) * static_cast<size_t>(shadow.texels), 0);
+				RenderChroma(*heldMesh, heldMatrix, heldProjection, shadow.box, rendered, shadow.texels);
+			}
+			else
+			{
+				raster(casterPrimitives, silhouette.primitives.size());
+			}
 		}
 		shadow_math::Resolve(coverage, shadow.texels16);
+		if (!rendered.empty())
+		{
+			shadow_math::ChromaFilter(rendered, shadow.texels16);
+		}
 		shadow_math::BakeAlpha(shadow.texels16, shadow.alpha);
 
 		// fn_00878350's t': H = GetAltitude(caster) with si+0x464, else si+0x18

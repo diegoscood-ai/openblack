@@ -192,6 +192,15 @@ class Renderer final: public RendererInterface
 	void DrawHandToolTip(const Camera& camera) const;
 	mutable std::unique_ptr<GameFont> _font; ///< Data\j0, font 0 of the tooltips
 	mutable bool _fontLoadTried {false};
+	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
+	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
+	void DrawVideoOverlay() const;
+	/// The film's picture, (re)made when its size changes and updated when its serial changes
+	mutable bgfx::TextureHandle _videoTexture = BGFX_INVALID_HANDLE;
+	mutable glm::u16vec2 _videoTextureSize {0, 0};
+	mutable std::optional<uint32_t> _videoSerial;
+	/// 1x1 white R8: the s_alpha of the WorldQuad program, the alpha 1 of the X1R5G5B5 tiles (inferido)
+	mutable bgfx::TextureHandle _videoAlphaTexture = BGFX_INVALID_HANDLE;
 	/// A mesh with the celestial shader: model matrix, texture, colour, render state
 	void DrawCelestialMesh(graphics::RenderPass viewId, const L3DMesh& mesh, const glm::mat4& model, const Texture2D& texture,
 	                       const glm::vec4& colour, uint64_t state, const glm::vec4& celestial = glm::vec4(0.0f),

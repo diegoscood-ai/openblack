@@ -78,6 +78,7 @@
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/RenderModes.h"
+#include "Video/VideoPlayer.h"
 #include "Graphics/SeaPass.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
@@ -372,6 +373,14 @@ Renderer::~Renderer() noexcept
 	if (bgfx::isValid(_landCellsTexture))
 	{
 		bgfx::destroy(_landCellsTexture);
+	}
+	if (bgfx::isValid(_videoTexture))
+	{
+		bgfx::destroy(_videoTexture);
+	}
+	if (bgfx::isValid(_videoAlphaTexture))
+	{
+		bgfx::destroy(_videoAlphaTexture);
 	}
 	if (bgfx::isValid(_fishPlotInstances))
 	{
@@ -1942,6 +1951,17 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 {
+	// Process3dEngine 0x54DD5E..0x54DD7D: with the full screen film, alpha == 1.0 and not the falling spell's film, the
+	// 3D world is not drawn (0x54DD7D jumps to 0x54E2A4); the film, the script fade and HelpSystem::Draw3D's bars still
+	// are (0x54E2D7..0x54E2ED). (aproximado) the main view is cleared to openblack's colour as always (the original does
+	// not clear: the film covers the screen)
+	if (video::Get().CoversScreen())
+	{
+		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
+		DrawVideoOverlay();
+		DrawScreenOverlay();
+		return;
+	}
 	// DrawSky 0x5E21FD..0x5E222B, once a frame from GLandscape::Draw (0x5E48AE): fn_0086A2C0 samples the sky type of
 	// the visual time [0xBF3380], then fn_0086A330 rebuilds the land light table (UpdateLandLight below) and advances
 	// the dome. Here once per DrawScene, so the reflection pass does not advance the dome a second time.
@@ -2041,7 +2061,124 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		DrawPass(drawDesc);
 	}
 	DrawHandToolTip(*drawDesc.camera);
+	DrawVideoOverlay();
 	DrawScreenOverlay();
+}
+
+void Renderer::DrawVideoOverlay() const
+{
+	const auto frame = video::Get().GetFrame();
+	if (!frame || frame->width == 0 || frame->height == 0 || _resolution.x == 0 || _resolution.y == 0)
+	{
+		return;
+	}
+	const glm::u16vec2 size(static_cast<uint16_t>(frame->width), static_cast<uint16_t>(frame->height));
+	if (!bgfx::isValid(_videoTexture) || _videoTextureSize != size)
+	{
+		if (bgfx::isValid(_videoTexture))
+		{
+			bgfx::destroy(_videoTexture);
+		}
+		// the tiles are clamped: the material's +5 bit 2 (tiling) is cleared at 0x844FD7, SetD3DTillingOff 0x8459B1.
+		// (inferido) the driver's bilinear filter
+		_videoTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::RGBA8,
+		                                      BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+		bgfx::setName(_videoTexture, "Video");
+		_videoTextureSize = size;
+		_videoSerial.reset();
+	}
+	if (_videoSerial != frame->serial)
+	{
+		// UploadToTextures fn_00845420 after each picture decoded (0x84514E)
+		bgfx::updateTexture2D(_videoTexture, 0, 0, 0, 0, size.x, size.y,
+		                      bgfx::copy(frame->rgba.data(), static_cast<uint32_t>(frame->rgba.size())));
+		_videoSerial = frame->serial;
+	}
+	if (!bgfx::isValid(_videoAlphaTexture))
+	{
+		const uint8_t white = 0xFF;
+		_videoAlphaTexture = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::R8,
+		                                           BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy(&white, 1));
+	}
+
+	// DrawToScreen(colour, 0, bars, W + 1, H - 2 bars + 1) 0x54DC56..0x54DC6D with W, H = [0xE839E4] / [0xE839E8]
+	const int width = _resolution.x;
+	const int height = _resolution.y;
+	const auto rect = video::FullScreenRect(width, height);
+	// fn_00845740 0x8457B9..0x8457D3: the size of a texel on screen, w / +0x00 and h / +0x04
+	const float sx = static_cast<float>(rect.width) / static_cast<float>(frame->width);
+	const float sy = static_cast<float>(rect.height) / static_cast<float>(frame->height);
+	// the mosaic of Open fn_00844E70: ceil(size / 256) tiles a side (+0x28, +0x2C)
+	constexpr uint32_t k_Tile = 0x100;
+	const uint32_t tilesX = (frame->width + k_Tile - 1) / k_Tile;
+	const uint32_t tilesY = (frame->height + k_Tile - 1) / k_Tile;
+	const uint32_t abgr = lh3d_colour::ToAbgr(frame->colour); // the diffuse of the four vertices (0x8458C1..0x8458DB)
+	struct Vertex
+	{
+		float x, y, z, u, v;
+		uint32_t abgr;
+	};
+	std::vector<Vertex> vertices;
+	vertices.reserve(static_cast<size_t>(tilesX) * tilesY * 6);
+	const auto toClipX = [width](float px) { return 2.0f * px / static_cast<float>(width) - 1.0f; };
+	const auto toClipY = [height](float py) { return 1.0f - 2.0f * py / static_cast<float>(height); };
+	for (uint32_t ty = 0; ty < tilesY; ++ty)
+	{
+		// 0x84583A..0x845854: the last row has height & 0xFF texels (256 if that is 0)
+		const uint32_t rows = (ty == tilesY - 1 && (frame->height & 0xFFu) != 0) ? (frame->height & 0xFFu) : k_Tile;
+		for (uint32_t tx = 0; tx < tilesX; ++tx)
+		{
+			// 0x84585C..0x845870: the last column width & 0xFF
+			const uint32_t columns = (tx == tilesX - 1 && (frame->width & 0xFFu) != 0) ? (frame->width & 0xFFu) : k_Tile;
+			// 0x845878..0x8458F1: x0 = x + tx * 256 * sx, x1 = x0 + columns * sx, likewise y (pre-transformed, FVF 0x1C4)
+			const float x0 = static_cast<float>(rect.x) + static_cast<float>(tx * k_Tile) * sx;
+			const float x1 = x0 + static_cast<float>(columns) * sx;
+			const float y0 = static_cast<float>(rect.y) + static_cast<float>(ty * k_Tile) * sy;
+			const float y1 = y0 + static_cast<float>(rows) * sy;
+			// 0x845891..0x84596C: u, v from 1/512 to n/256 - 1/512 of the 256x256 tile, half a texel inside each edge;
+			// the same texels of the one texture here (clamped, so the filter never reaches the next tile)
+			const float u0 = (static_cast<float>(tx * k_Tile) + 0.5f) / static_cast<float>(frame->width);
+			const float u1 = (static_cast<float>(tx * k_Tile + columns) - 0.5f) / static_cast<float>(frame->width);
+			const float v0 = (static_cast<float>(ty * k_Tile) + 0.5f) / static_cast<float>(frame->height);
+			const float v1 = (static_cast<float>(ty * k_Tile + rows) - 0.5f) / static_cast<float>(frame->height);
+			const Vertex a {toClipX(x0), toClipY(y0), 0.5f, u0, v0, abgr};
+			const Vertex b {toClipX(x1), toClipY(y0), 0.5f, u1, v0, abgr};
+			const Vertex c {toClipX(x1), toClipY(y1), 0.5f, u1, v1, abgr};
+			const Vertex d {toClipX(x0), toClipY(y1), 0.5f, u0, v1, abgr};
+			for (const auto& vertex : {a, b, c, a, c, d})
+			{
+				vertices.push_back(vertex);
+			}
+		}
+	}
+	bgfx::VertexLayout layout;
+	layout.begin()
+	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+	    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+	    .end();
+	const auto count = static_cast<uint32_t>(vertices.size());
+	if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
+	{
+		return;
+	}
+	bgfx::TransientVertexBuffer buffer;
+	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
+	const glm::mat4 identity(1.0f);
+	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
+	// mode 6 (MODULATE colour and alpha): colour = texture x diffuse, alpha = texture alpha (1) x diffuse alpha
+	const auto* program = _shaderManager->GetShader("WorldQuad");
+	program->SetTextureSampler("s_diffuse", 0, fromBgfx(_videoTexture));
+	program->SetTextureSampler("s_alpha", 1, fromBgfx(_videoAlphaTexture));
+	bgfx::setVertexBuffer(0, &buffer);
+	// CreateMaterial(mode 6) 0x844FC6 with +5 |= 1 (two-sided, 0x844FE4: CULLMODE NONE 0x8459E4): SRCALPHA /
+	// INVSRCALPHA, no Z write; ZFUNC (0x845A16) ALWAYS and ZWRITEENABLE (0x845A49) 0 from DrawToScreen's two false
+	// bools (0x54DC56 / 0x54DC58)
+	constexpr render_modes::Material k_VideoMaterial {render_modes::Mode::AlphaTexturedAlphaNz, render_modes::k_TwoSided};
+	bgfx::setState(render_modes::State(k_VideoMaterial, {.zFunc = render_modes::ZFunc::Always, .zWrite = false}));
+	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
 void Renderer::DrawHandToolTip(const Camera& camera) const

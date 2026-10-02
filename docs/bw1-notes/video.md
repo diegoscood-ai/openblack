@@ -3,7 +3,7 @@
 Cómo reproduce runblack.exe v1.42 (W120) sus cinco vídeos Bink y qué tiene openblack: los ficheros y cuándo sale cada
 uno, la clase `LHVideoPlayer` y su copia a 16 bits, el vídeo a pantalla completa de `GGame` (ritmo, pausa, pantalla
 ancha, fundido, ESC, el mundo 3D sin dibujar), la caída del hechizo, el arranque y la pantalla de carga, el audio de
-cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V2) con el plan V3..V8.
+cada vídeo, y el reproductor de openblack (`src/Video/`, hitos V1-V3) con el plan V4..V8.
 
 - [Los cinco vídeos](#los-cinco-vídeos)
 - [binkw32.dll y el contenedor](#binkw32dll-y-el-contenedor)
@@ -75,6 +75,16 @@ texturas, **+0x48 el framebuffer** `ancho*alto*2` bytes a cero, +0x4C..+0x64 lo 
   siempre `++frame` 0x845164.
 - `DrawToScreen` 0x8456C0 sólo guarda los parámetros; el dibujo lo hace el callback `thedraw` 0x844E30 → fn_00845740,
   un quad por tile con el color de vértice dado.
+- Los materiales del mosaico: `CreateMaterial(modo 6, textura)` 0x844FC6 (SRCALPHA / INVSRCALPHA, color y alfa
+  MODULATE, sin escritura de Z), `+5 &= ~4` 0x844FD7 (sin repetición: `SetD3DTillingOff` 0x8459B1) y `+5 |= 1` 0x844FE4
+  (dos caras: CULLMODE 1 = NONE, 0x8459E4).
+- fn_00845740 (leído en `tmp_dis\psys\lh3d.asm`): `w`/`h` 0 → la pantalla (`[0xE85058]`/`[0xE8505A]`, 0x845798..0x8457B5);
+  escala `sx = w / ancho`, `sy = h / alto` (0x8457B9..0x8457D3); por tile `x0 = x + tx·256·sx`, `x1 = x0 + n·sx` (igual
+  en y), con `n` = 256 salvo la última columna/fila, `ancho & 0xFF` / `alto & 0xFF` (0x84583A..0x845870); u, v de 1/512
+  a `n/256 − 1/512` (0x845891..0x84596C: medio texel hacia dentro); el color en los cuatro vértices (0x8458C1..0x8458DB);
+  ZFUNC (0x845A16) = **ALWAYS** si el 2º `bool` es 0 (si no LESSEQUAL), ZWRITEENABLE (0x845A49) = el 1er `bool`;
+  `DrawAndClip2D` FVF 0x1C4 0x845A7D; al final ZFUNC vuelve a 4 (0x845ADC). `Process3dEngine` pasa los dos `bool` a 0
+  (0x54DC56 / 0x54DC58).
 - `EnterVideoSection`/`LeaveVideoSection` 0x844C80/0x844CA0: la sección crítica 0xEF74F8 entre el hilo del temporizador
   y el del juego.
 
@@ -260,6 +270,18 @@ Hitos V1 y V2 (borrador patch12, sesión *asistente*; inertes hasta V4: nadie ll
 - `src/Game.cpp`: `video::Get().Process(game_clock::FrameRealMs())` tras `UpdateRealClock()` (después de los turnos,
   como `Process3dEngine` tras el bucle de turnos); en `ProcessEvents`, ESC con vídeo → `EscapeKey` (sin vídeo sale de
   openblack como siempre: el ESC de openblack no es el del original).
+- `src/Graphics/Renderer.cpp` (**V3**, sesión *sistemas*): `Renderer::DrawVideoOverlay` en `RenderPass::ScreenOverlay`,
+  tras el mensaje de la mano y antes de `DrawScreenOverlay` (fundido y barras). Una textura RGBA8 `clamp` del tamaño del
+  vídeo, rehecha si cambia el tamaño y subida con `updateTexture2D` sólo cuando cambia `serial` (`UploadToTextures`
+  0x84514E). Los quads de fn_00845740 tile a tile sobre `video::FullScreenRect` (0x54DBEB..0x54DC6D) con los **mismos
+  texels** que cada tile de 256x256 (medio texel hacia dentro, sin repetición: el filtro no llega al tile vecino), el
+  color `Frame::colour` (0x54DC11..0x54DC4D) como color de vértice, y el estado `render_modes::State` del material modo 6
+  de dos caras con ZFUNC ALWAYS y sin Z. Programa `WorldQuad` (vs_blob + fs_world_quad: color = textura × difuso,
+  alfa = `s_alpha.r` × difuso) con una textura R8 1x1 blanca como `s_alpha`: **no hay shader nuevo**.
+  `Renderer::DrawScene`: con `video::Get().CoversScreen()` (0x54DD5E..0x54DD7D → 0x54E2A4) no se dibuja nada del mundo
+  (ni sombras, ni reflejo, ni cielo, ni el mensaje de la mano); sólo el vídeo y `DrawScreenOverlay` (el fundido del guion
+  y las barras, 0x54E2D7..0x54E2ED). Comprobado en el juego: con `fall` el mundo sale × 0,686 = 1 − 0x50/255 en todos
+  los píxeles medidos; con `intro` la pantalla es el negro del descodificador nulo (sin el azul del borrado).
 
 Diferencias:
 
@@ -272,14 +294,20 @@ Diferencias:
   comprobará V5 contra los frames de oro (el 555 de la DLL es exactamente `rgb32 >> 3`).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de
-  estadísticas, el mosaico de 256x256 (V3 usará una textura), `GAudio+0x1C = −1` (audio no tiene cómo; `ProcessMusic`
-  lo repite en el fundido) y fn_005C6C40 (inferido: esconder el HUD).
+  estadísticas, el mosaico de 256x256 (una sola textura con los mismos texels por tile), `GAudio+0x1C = −1` (audio no
+  tiene cómo; `ProcessMusic` lo repite en el fundido) y fn_005C6C40 (inferido: esconder el HUD).
+- **(inferido)** V3: el alfa de las texturas de 16 bits es 1 (`CreateTexture` flags 0x104; un A1R5G5B5 con el bit 15 a 0
+  de Bink no se vería); el filtro bilineal del driver; el vídeo debajo del fundido y las barras (`thedraw` es una
+  retrollamada de render: no se ha leído cuándo la llama LH3D frente a FinishFrame); los píxeles con el centro de bgfx,
+  sin el medio píxel de D3D7 (como los demás rectángulos de `ScreenOverlay`).
+- **(aproximado)** V3: mientras el vídeo tapa la pantalla openblack borra a 0x274659 como siempre (el original no borra);
+  sólo se ve fuera del rectángulo del vídeo, en pantallas que no son 16:9 y antes de que lleguen las barras.
 
 ## Plan V3..V8
 
 | hito | qué | dueño / bloqueo |
 |---|---|---|
-| V3 | El dibujo: textura RGBA8 que se sube cuando cambia `serial`, quad 2D con `FullScreenRect` (no `LetterboxHeight`) y `colour` como color de vértice, en `RenderPass::ScreenOverlay`; no dibujar el mundo mientras `CoversScreen()` pero sí el fundido del guion y las barras/textos de `HelpSystem::Draw3D`; `OPENBLACK_TEST_VIDEO` | sesión *sistemas* / *shaders* (Renderer, shaders) |
+| V3 | **Hecho** (sesión *sistemas*): `Renderer::DrawVideoOverlay`, el mundo sin dibujar con `CoversScreen()`, `OPENBLACK_TEST_VIDEO`; sin shader nuevo (`WorldQuad`) | — |
 | V4 | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
 | V5 | El descodificador: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, comprobado contra los frames de oro | OK del usuario a la dependencia |
 | V6 | `fall.bik`: `KickOff/EndFallingSpellVideo`, alpha 0x50, el mundo debajo, fin con `FallingSpell+0x20 == 4`, `SetFallingSpellVideo` y el gancho `endFallingSpellVideo` | con *milagros* (no hay `FallingSpell`) |
@@ -288,7 +316,10 @@ Diferencias:
 
 ## Pendiente
 
-- V3..V8 (tabla de arriba); `parity.md` («Vídeo Bink | Superposición | falta») pasará a «en curso» con V3.
+- V4..V8 (tabla de arriba); `parity.md` («Vídeo Bink») está «en curso» desde V3.
+- Las barras de `SetWideScreen(1, 0)` no se ven durante el vídeo: `ScreenFade::UpdateWideScreen` avanza con el tiempo de
+  juego (fn_005C6BB0) y el juego está en pausa; comprobar en el original si se deslizan con el juego en pausa.
+- `OPENBLACK_VIDEO_TRACE` no existe todavía.
 - *audio*: conectar `GameQueries::videoPlaying` a `video::IsPlaying()` (`MakeMusicQueries` en `Game.cpp` y las queries
   de `AudioSystem`); un modo de olvidar `GameMusic::_alignmentType` para 0x54D963.
 - ProcessKey 0x63EF7A..0x63F2A4: los otros caminos de ESC, sin leer del todo.
@@ -305,7 +336,10 @@ Diferencias:
   salto), ESC con Shift/Ctrl/byte 0xD01984, hechizo, película sustituida, 555 y 565, decodificador nulo, frames
   fallidos.
 - `test_rgb16` (5): las ramas 555 y 565 de fn_00837400 emuladas, expansión, cortes, spans.
-- Juego: ninguno hasta V3/V4 (`OPENBLACK_TEST_VIDEO=<ruta|intro|fall|…>`, `OPENBLACK_VIDEO_TRACE`).
+- Juego: `OPENBLACK_TEST_VIDEO=<intro|fall|ruta>` (Game.cpp, al cargar el mapa): `intro` = `Data\intro.bik` +
+  `ScheduleIntro()` (60 s), `fall` = `Data\Spells\fall\fall.bik` con `SetFallingSpellVideo(true)` (alfa 0x50 sobre el
+  mundo; el objeto `FallingSpell` es V6), si no la ruta dada. Fotos de V3: `dev\_audit\sistemas\video\intro_mid.png`
+  (frame 1800, el vídeo tapa la pantalla) y `fall_mid.png` (frame 1500, el mundo × 0,686).
 
 ## Fuentes
 

@@ -8,6 +8,8 @@ en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendien
 - [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
 - [Distancias de GUtils](#distancias-de-gutils): raíz de tabla, `hypotenuse`, `GetDistanceInMetres`,
   `FastDistance` y las sigmoides (`gutils`)
+- [Ángulos de GUtils](#ángulos-de-gutils): `LHArcTan`, las tablas COS/SIN, las conversiones, del ángulo a una
+  posición, la diferencia y el sentido (`gutils`), y los puntos alrededor de un objeto (`ecs::object`)
 - [Tamaño de los objetos](#tamaño-de-los-objetos): radio 2D, radio y altura, con las redefiniciones de las clases y
   las derivadas, a nivel de malla y de objeto (`ecs::object`)
 - [Reloj del juego](#reloj-del-juego): el turno, los ms del turno, la fracción, el dt del fotograma, la pausa y la
@@ -130,7 +132,8 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
 - `TownQueries`: `Ftol` recibe un **float** (el comentario decía «x87 extendida», que contradice el `and cw, 0xFCFF` de
   0x7DEE0D). La media de la congregación (0x7409F3..0x740A1E) hace `fild qword` (exacto) y `fdiv` a 24 bits, así que el
   cociente se redondea una vez a float antes del `__ftol`: con 100 posiciones pasa de 2^24 y el truncado podía salir una
-  unidad distinto. `GetPosFromAngle` (0x74D580) ya es `ToFixedGUtils` en float.
+  unidad distinto. `GetPosFromAngle` (0x74D580) usa `ToFixedGUtils`; el coseno va en double (ver
+  [Ángulos de GUtils](#ángulos-de-gutils)).
 - `Climate`: se quita `CellCentre()` (la palabra alta con desplazamiento **con signo** × 10). Ni `ProcessAll`
   (0x771DA0) ni `FindWhereToCreateStorm` (0x772D3E, 0x772D6F) leen la palabra alta: las dos construyen el LHPoint con
   `fild; fmul [0x8AA3A4]`, o sea `Centre()`. La celda del centro en `FindWhereToCreateStorm` (0x772C38, 0x772C65) sí es
@@ -252,6 +255,128 @@ gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cua
   0x7346E0: recorre la celda con `MapCoords::FindType(0x1C)` 0x6045C0 y corta con `d < 0,5` [0x8AA3B4], `test ah, 1`
   en 0x73470C) y `FeatureScriptCommands::FindNearestTown` (fn_00552FF0). Ojo: `GStreetLantern::IsALaternWithinDistance`
   0x734A30 es **otra** rutina (la lista global de faroles g_game+0x205C34 y `d <= r`, `test ah, 0x41`), sin portar.
+
+## Ángulos de GUtils
+
+✅ Fiel y portado en `src/ECS/GUtilsAngle.{h,cpp}`, namespace `openblack::gutils` (sesión «sistemas2», 2026-10-02).
+Es la familia de ángulos de la unidad `Utils` (0x74D0C0..0x74E2D0). Va encima de `ecs::map_coords` y de las
+distancias.
+
+- **Ángulo de juego**: entero de 11 bits, **2048 por vuelta**, guardado como `u16` (MobileWallHug +0x5C). 0 = +x,
+  0x200 = +z, 0x400 = −x, 0x600 = −z. Es `atan2(dz, dx)` en 2048avos con la tabla de arcotangente: como mucho
+  **2,27 pasos** de error (≈ 0,4°; a 10 m, unos 7 cm).
+- **Ángulo 3D**: radianes en float, el mismo sentido, en [0, 2π) cuando sale de GUtils. `Get3DAngleFromXZ` **no** es
+  `atan2` en float: es el ángulo de juego cuantizado y pasado a radianes.
+- **Ángulo «Scawen»**: el 3D + π/2 (criatura, PBall, `Dove::Dying`, `GetFacingDirection`).
+- Las rutinas de ángulo de juego son enteras (`LHArcTan` hace `shl 8; div`). La FPU va a 24 bits, pero **fsin/fcos no
+  los redondea el control de precisión**: salen en extendida y los redondea a float, una sola vez, el `fmul` siguiente.
+  Por eso `GetPosFromAngle`, `AddDistanceFromAngle` y `GetLHPointFromAngle` toman el coseno en **double** y redondean
+  el producto una vez. Con `cosf` se redondea dos veces: con un modelo exacto de fcos, 38 de 20 000 valores (0,19 %)
+  salen 1 unidad MapCoords distintos; con el double, ninguno.
+
+| API (`openblack::gutils`) | Original | Notas |
+|---|---|---|
+| `ArcTanTable()` | tabla 0xC2307C (257 `u16`, .data) | `trunc(atan(i/256)·1024/π)`; en double con trunc da las 257 entradas (con round, 122 distintas). Solo la lee LHArcTan |
+| `SinTable()`, `Sin(a)`, `Cos(a)` | tablas 0xC31614 (2560 `i32`) / 0xC31E14 = SIN + 512 | `trunc(65536·sin(i·2π/2048))`; las 2560 entradas coinciden (con round, 1220 distintas). El original indexa con `a & 0xFFFF`; aquí `a & 0x7FF` *(inferido: igual para todo lo que pasa el juego)* |
+| `LHArcTan(dx, dz)` | `?LHArcTan@@YAXHH@Z` 0x74D0C0 | x = −dx (0x74D0C5); las ocho ramas con comparaciones con signo (`jl`) y divisiones sin signo; los empates a la primera rama; `& 0x7FF` (0x74D1E2). `n << 8` se queda con los 32 bits bajos, como el `shl` |
+| `GetAngleFromDXDZ(dx, dz)` | 0x74D200 | `LHArcTan & 0xFFFF` |
+| `GetAngleFromXZ(from, to)` | 0x74D240 (0x74D220 con cuatro enteros) | sobrecargas MapCoords, `ivec2` (16.16) y `vec2` (metros: cada punto pasa a MapCoords **antes** de restar) |
+| `Get3DAngleFromXZ(from, to)` | 0x74D270 | `ConvertGameAngleTo3D(GetAngleFromDXDZ(to − from))` |
+| `ConvertAngle3DToGame(r)` | 0x74DC30 | `ftol(r · 325,94931 [0x99A1C8]) & 0x7FF`: trunca, y un negativo da la vuelta (−0,5 → 1886). Ida y vuelta pierde 1 en **365 de 2048** ángulos |
+| `ConvertGameAngleTo3D(a)` | 0x74DC50 | `(a & 0x7FF) · 0,0030679617 [0x99A1CC]`, un redondeo; es bit a bit `float(a) · 2π_f / 2048` |
+| `ConvertScawenAngleToGameAngle(r)` | 0x74E290 | `ConvertAngle3DToGame(float(r − π/2 [0x8C78D8]))` |
+| `ConvertGameAngleToScawenAngle(a)` | 0x74E2B0 | `float(2a) · 0,0015339808 [0x8C78DC] + π/2`, **sin** `& 0x7FF` |
+| `GetXFromAngle` / `GetZFromAngle(a, int d)` | fn_0074D320 / 0x74D340 | `(C·d) >> 16` con `imul` de 32 bits y `sar` |
+| `GetXFromAngle` / `GetZFromAngle(a, float d)` | fn_0074D360 / 0x74D380 | `float(C) · d · 2^-16` |
+| `StepFromAngle(a, whole)` | fn_0074D3A0 / 0x74D3C0 | `((whole >> 4)·C) >> 12`, los dos `sar` (con signo: `whole` es `int32_t`). El paso de MobileWallHug |
+| `StepFromAngle8(a, whole)` | fn_0074D3E0 / 0x74D400 | `((whole >> 8)·C) >> 8` |
+| `GetX/ZByAngleMetersDistance(a, m)` | 0x74D420 / 0x74D450 | `ftol(float(C) · float(m / 10))` |
+| `GetPosFromGameAngle(a, int whole)` | fn_0074D650 | `{StepFromAngle(a, whole), 0}` |
+| `GetPosFromGameAngle(a, float m)` | fn_0074D6A0 | lo mismo con `whole = ConvertMetersToWholeDistance(m)`; el `sar 4` tira los 4 bits bajos |
+| `GetPosFromAngle(r, m)` | 0x74D580 (60 llamadores) | `x = ftol(float(cos(r)·m) · 65536 / 10)`, z con sin, altitude 0 (el literal de `mov [esp+8], 0` 0x74D587); el `GetDistanceInMetres(origen, p)` de 0x74D5F4 se tira, y con él su origen temporal `{ftol(0 / 10), ftol(0 / 10), 0}` |
+| `AddDistanceFromAngle(p, r, m)` | 0x74D510 | `p.x = ftol((float(cos(r)·m) + ToMetres(p.x)) · 65536 / 10)`, igual z; la altitude no cambia |
+| `GetLHPointFromAngle(r, m)` | fn_0074D620 | `(cos(r)·m, 0, sin(r)·m)` en float |
+| `GetAngleDifference(a, b)` *(nombre inferido)* | fn_0074D740 | `d = \|a − b\|`; `d > 0x400 ? 0x800 − d : d` |
+| `GetAngleDirection(from, to)` *(nombre inferido)* | fn_0074D6F0 | `d = to − from`; 0 → 0; si `\|d\| > 0x400` (sin signo) da la vuelta; −1 si d < 0, si no +1. **Con \|d\| == 0x400 no da la vuelta**: +0x400 → +1, −0x400 → −1 |
+
+`MapCoords` gana `operator+` 0x605520, `operator-` 0x6055C0, `+=` 0x605410 y `-=` 0x6054A0 (en `ECS/MapCoords.h`):
+suman o restan x, z **y la altitude**.
+
+**Puntos alrededor de un objeto** (`ecs::object`, `ObjectMetrics.h`): todas son `this + GetPosFromAngle(ángulo, r)`
+con `MapCoords::operator+`, así que conservan la **altitude de this**. Cada una tiene su radio, y no se cambian unas por
+otras:
+
+| API (`ecs::object`) | Original | Ángulo y radio |
+|---|---|---|
+| `MapCoordsOf(e)` | Object +0x14 | `map_coords::FromWorld` de su `Transform` |
+| `GetNearestPosOfObject(this, o)` | 0x636D30 | `G3D(this, o)`, `R2D(o) + R2D(this)` (vt +0x64 de los dos) |
+| `GetNearestEdgeToPos(this, p)` | 0x636DA0 | `G3D(this, p)`, `R2D(this)` |
+| `GetNearestEdge(this, ángulo, extra)` | 0x636DF0 | el ángulo lo da quien llama; `R2D(this) + extra` |
+| `GetWorkingPos(this, o)` | 0x639550 | `G3D(this, o)`, `R(this) + R(o)` (**GetRadius**, vt +0x60) |
+| `TreeGetWorkingPos(árbol, o)` | `Tree::GetWorkingPos` 0x74C040 | `G3D(árbol, o)`, `R2D(o) + 0,9` [0x8C5844]: solo el radio del otro |
+| `BigForestGetArrivePos(bosque, v)` | `BigForest::GetArrivePos` 0x439360 | `G3D(bosque, v)`, `R(bosque) · 0,5` [0x8AA3B4] |
+
+**Fuera de la API** (sin llamadores en el original): 0x74D2A0 (el ángulo entre dos LHPoint) y 0x74D770 (girar hacia un
+ángulo con un paso máximo), sin `call`, `jmp`, `jcc` ni punteros en toda la imagen. 0x74D480 (el paso «octogonal») solo
+lo llama fn_005E1890, sin portar. **No son de esta familia**: `LH3DMath::GetYAngle` 0x841290 y fn_007FAA50 (LH3D),
+`Atan2Positive` 0x7DB770 (gestos), la conversión propia de PuzzleGame 0x6F184C.
+
+**Arreglos de fidelidad que trajo.**
+
+1. **`AngleDiff` de los animales a 180°** (`AnimalAI.cpp`): `((b − a + 1024) & 2047) − 1024` daba −0x400 cuando el
+   giro era justo de +0x400, y el original (`GetAngleDirection` 0x74D6F0, `jbe` en 0x74D709) gira en positivo. Un animal
+   que miraba justo al revés de su meta giraba al lado contrario, y el alabeo de los pájaros salía con el signo
+   cambiado. `SetTowardsAngle` (0x418560) usa ahora `GetAngleDirection` y `GetAngleDifference`, como el original.
+2. **`GetPosFromAngle` con el coseno en double** (antes `std::cos(float)`, doble redondeo): llega a todos los
+   llamadores de `town_queries::GetPosFromAngle` (Abode, VillagerDecide, VillagerShield, la congregación).
+3. **Ángulos en float sin cuantizar** pasados a `Get3DAngleFromXZ` + `GetPosFromAngle` sobre MapCoords:
+   `VillagerFire` (`GetFireFightingPos` 0x75AAE2 / 0x75AB59 y la huida de `OnFire` 0x75B368), `Trees` (fn_0053A010
+   0x53A094, `Tree::GetWorkingPos`, el borde del bosque de fn_0053ADB0 = `GetNearestEdgeToPos`,
+   `BigForest::GetArrivePos` y `AddTreeAround` 0x439264), `WorshipSite::GetSpellIconPosFromSlot` 0x77AFC0,
+   `AnimalFlee` (`Object::GetWorkingPos` 0x639550) y `Rock::SplitInTwo` 0x6E75B1 (`pos + o` y `pos − o`, 0x6E76A9 /
+   0x6E76CE, sobre this +0x14: las dos mitades **conservan la altitude de la roca**, `map_coords::FromWorld` /
+   `ToWorld`, como en el árbol y el bosque del punto 5; antes se ponían en el suelo).
+4. **`GetSpellIconPosFromSlot` pone la altitude a 0** con ring > 0 (0x77B002, `mov [esp+0x14], 0` = MapCoords +8)
+   antes del `+=`: el icono queda **en el suelo**. openblack conservaba la altura sobre el suelo del punto especial.
+5. **`Tree::GetWorkingPos` y `BigForest::GetArrivePos` conservan la altitude** del árbol / bosque (`operator+`); antes
+   se tomaba la altura del terreno sin más.
+6. **`IsPosValidForTurnAngle`** (0x41B210): los centros de los dos círculos de giro son `me + fn_0074D6A0(a ± 0x200, R)`
+   en MapCoords, con el `sar 4` que tira los 4 bits bajos de R, y la distancia es `GetDistanceInMetres` 0x74CD70 (con
+   la tabla), no `glm::distance`. R pasa a metros con `ConvertWholeDistanceToMeters` (× 10 / 65536), no con / 6553,6.
+   No hay prueba del giro: con `turnAngle` 0 el cociente es inf (NaN sin velocidad), `__ftol` da 0x80000000,
+   R = −327680 m y las dos distancias lo superan (true); la rama `turn <= 0` que había se quitó (daba lo mismo).
+7. **`CalcRandomPos`** (0x5ED0DB..0x5ED152): el desplazamiento aleatorio es `AddDistanceFromAngle` sobre el MapCoords
+   del centro (antes sumaba en metros float). La salida final ya era la del original: `me + fn_0074D650(+0x5C, 10)` es
+   `me + (0, 0)` porque `10 >> 4 = 0`. Los dos números al azar son `GameFloatRand` (0x5ED0BE el ángulo, 0x5ED0D2 el
+   radio, este **siempre**, sin la rama `range > 0` que había): `GameFloatRand` 0x6DE530 / fn_005106B0 da 0 con 0 y si
+   no `float(LHRand(0xFFFF)) · max · 1/65535` ([0x8D6050] = 0x37800080), también con `max` negativo. `SquarePos`
+   (fn_0074F310) usa el mismo. *(Aproximado)* `LHRand` 0x7DB600 es aquí el generador de openblack (0..0xFFFE). El centro
+   llega en metros, como openblack guarda las posiciones, y pasa a MapCoords con `FromMetres`; el original recibe el
+   MapCoords, así que un centro que no lo fuera ya puede quedar a una unidad (`Quantise` no es idempotente).
+8. **La formación de pájaros** (fn_0041E890, 0x41E96A..0x41EA05) no es `AddDistanceFromAngle`: x usa `row` y z usa
+   `column`, y el orden es `(cos·row)·10` (`fimul` y luego `fmul 10`), dos redondeos, sobre el MapCoords del líder.
+9. **`Dove::Dying`** (0x41F1B0): la velocidad es `(sin(s)·v, 0, −cos(s)·v)` con `s = ConvertGameAngleToScawenAngle`;
+   igual en matemáticas, distinta en bits.
+10. **`AngleOf(vec2)` de los animales** restaba en metros y luego truncaba: ahora cada punto pasa a MapCoords y se resta
+    (`GetAngleFromXZ`), como el original. Nueve usos (AnimalAI, AnimalBirds, AnimalFlee, AnimalPredators,
+    AnimalWallHug).
+11. `VillagerFire` `OnFire`: los dos `GameFloatRand` (ángulo y distancia) iban como argumentos de una llamada, sin orden
+    garantizado; ahora el ángulo va primero, como en 0x75B32D..0x75B34A.
+12. **`SetNewWander`** (`Animal::SetNewWander(MapCoords const&, int, int)` 0x41A3F0): la distancia pasa a entero con
+    `__ftol` (0x41A421) y se compara **como int** con `rMax` y `rMin` (0x41A426 `cmp; jle`, 0x41A430 `cmp; jge`). Antes
+    se comparaba el float: con `d` en (rMax, rMax + 1) el animal iba hacia el centro y en el original no.
+13. **`__ftol` 0x7A1400** es una sola función, `map_coords::FtoL` (`MapCoords.h`), usada por `ToFixed`,
+    `ToFixedGUtils`, `CellSpiralSize`, `IncrementSpiralSize`, `ConvertMetersToWholeDistance` y GUtilsAngle (antes
+    `static_cast`, indefinido fuera de rango). Imita la rama SSE2 (`HasSSE2` [0xE83A20], `cvttsd2si`, la que toma toda
+    CPU actual): hacia 0, y 0x80000000 para NaN o fuera del rango de int32. La rama x87 (0x7A141F, `fistp qword` y la
+    corrección hacia 0, los 32 bits bajos del int64) daría otro valor fuera de ese rango; no se reproduce.
+14. Copias que quedaban: `VillagerCore.cpp` `setGameAngle` (la constante 0x99A1CC a mano) usa
+    `gutils::ConvertGameAngleTo3D`, como `SetGameAngle` 0x60DAA1; `SpellFlock.cpp` (las dos orientaciones,
+    0x74D240) usa `gutils::GetAngleFromXZ(created, target)` en vez de `AngleOfMapCoords` con la resta hecha.
+
+**Qué usa ya la API.** `town_queries::GetAngleFromXZ` / `Get3DAngleFromXZ` / `GetPosFromAngle` y
+`animal_ai::detail::Cos` / `Sin` / `Step` / `AngleOfMapCoords` son reenvíos de una línea a `gutils` (las copias de las
+tablas y de `LHArcTan` se borraron de `AnimalAI.cpp`). `AngleOf(vec2)` y `AngleDiff` ya no existen.
 
 ## Tamaño de los objetos
 
@@ -539,22 +664,33 @@ T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan, e
 Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, rama `local/sistemas2`):
 
 **Aplazadas, porque milagros2 está editando esos archivos:**
-- `PSys/Rules/Lightning.cpp`: ⚠ la espiral de `SpiralStep` (:58-70) está **mal**.
-  - Lee la tabla antes de actualizar, usa `count = dir%2==0 ? dir/2+1 : (dir+1)/2` y arranca con `direction = 0`
-    (:314). El original arranca con `dir = count = 1` (0x6902A7..0x6902BB) y llama a 0x74D7E0 en 0x69058B.
-  - Por eso recorre la espiral negada y, como el lado es par (`4·ceil(R/10)²`), un conjunto de celdas distinto.
-    `fn_00690880` comparte el fallo.
-  - La celda inicial `(int)(x·0.1f)` (:310): antes de cambiarla hay que comprobar en el binario si el original hace
-    ahí `ftol(x·0.1)`, como `CitadelHeart`.
 - `PSys/Rules/Storm.cpp`:
   - la celda del polvo, `floor(x/10)` (:843-850);
   - `PotsByCell` y `start`, con `(int)(x·0.1f)` (:880, :1304, :1329): misma comprobación que en el rayo;
   - `SpiralStep` (:916-930): ya es correcta, solo falta usar `map_coords::Spiral`.
-- `PSys/Rules/Explosion.cpp`: la espiral (:181-195) y las celdas de `GetGridCell`.
 - `Magic/Objects/MagicTeleport.cpp`: `k_UnitsPerMetre` y `ToUnits` (:63, :86-89). El barrido cuadrado (:504-535)
   sustituye a `Spiral` (0x604D43), pero no cambia el resultado.
 - `Magic/Spells/SpellForest.cpp`: `CellOf` y `spell_forest::ToMapCoords`, en double (:104-107, :395-401).
 - `ECS/Systems/Implementations/HandSpellSeed.cpp:434`: el MapCoords del círculo, sin truncar.
+
+**Rayo y explosión, migrados (2026-10-02, sistemas2):** `PSys/Rules/Lightning.cpp` y `PSys/Rules/Explosion.cpp` ya
+recorren sus celdas con `map_coords::Spiral` + `AddCells` desde el MapCoords del origen (`ToFixed`, 0x69024A /
+0x6908B7 / 0x67E56A; ya no `(int)(x·0.1f)`), `InBounds` en cada celda y la celda propia por el MapCoords del objeto
+(fn_00604F40). El rayo mide desde el MapCoords del objeto en metros (`fild · 10/65536`) con sus sumas en el orden del
+x87 (cono 0x690410, círculo 0x690A06, renovar 0x6913BD sin raíz, largo de la rama 0x6923A0), la punta es
+`ToWorld(MapCoordsOf) + object::GetHeight` (fn_00691E00, vt+0x42C), el suelo de los puntos de tierra es el del MapCoords
+fn_004427B0 (= `ToFixed`: 65536·0,1f es 6553,6f exacto) y el enfriamiento `ftol(AverageLightmapLife / ([0xD01A38]·0,001))`
+(0x691072, 0x6928FD) ya no usa el dt. La explosión busca con `gutils::GetDistanceInMetres` (0x74CD70) contra
+`object::Get2DRadius` (vt+0x64), el anillo usa `object::GetRadius` (vt+0x60) y `(dz² + dy²) + dx²` (0x67EA1C), los
+blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()` (+0x205A40) y el humo dura
+`TicksForSeconds(4)` turnos (0x67EEF8). Queda:
+- `Lightning.cpp` `CanBeStruck`: el original pregunta antes `IsAvailable` (vt+0x2C, 0x69038E / 0x690997); el port no
+  (es de milagros2).
+- `Lightning.cpp`: `fn_00690C70` (blancos del gestor), `fn_00691E80` (altura del mapa de luz, ahora `LandAt + 0,1`) sin
+  leer; el enfriamiento usa `effect.Random` en float donde el original llama a `PSysRand(int)` 0x6729E0.
+- `Explosion.cpp`: `manager::CreateSpotVisual` recibe segundos y los vuelve a pasar a turnos con `MsPerTurn()`; el
+  original pasa turnos (`CreateSpotVisualWithSpecifiedDuration` 0x63E580, 60 y `TicksForSeconds(4) & 0xFFFF`), así que
+  con un turno distinto de 100 ms la cuenta no es la misma. Su posición tampoco pasa por `MapCoords(LHPoint)` 0x603160.
 
 **Audio** (lo migra «audio» en su B11):
 - `Audio/ThingMusic.cpp:81-87`: la ida y vuelta en double.
@@ -591,7 +727,7 @@ migrar **solo** donde se ha leído en el binario que el original llama a `GetDis
 **Aplazadas, porque milagros2 está editando esos archivos:**
 - `Magic/Objects/MagicTeleport.cpp:148-153`: `FastDistance` 0x74CE10 (ya es exacta; solo hay que borrar la copia) y
   `Distance2D` (:81-84, usos :171, :198 «fn_00605CD0», :204, :515, :550).
-- `Magic/Objects/MapShield.cpp:499-500`, `PSys/Rules/Explosion.cpp:354-414`, `PSys/Rules/Storm.cpp:1333-1334`,
+- `Magic/Objects/MapShield.cpp:499-500`, `PSys/Rules/Storm.cpp:1333-1334`,
   `Magic/Spells/SpellStormAndTornado.cpp:196-198` y `Magic/Spells/SpellForest.cpp:167, :232`: `glm::length` /
   `glm::distance` donde el original llama a 0x74CD70 / fn_00605CD0.
 
@@ -632,6 +768,53 @@ agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la 
 **Siguen con `glm::length` (para migrar cuando milagros2 suba su tanda 2a):** MagicTeleport.cpp:81-83 (cita
 fn_00605CD0), SpellShield.cpp:73/239/258, SpellForest.cpp:167/232, MapShield.cpp:517 y SpellStormAndTornado.cpp:198.
 
+### Ángulos de GUtils
+
+Estado a 2026-10-02, rama `local/sistemas2`. Solo se ha migrado donde se ha leído que el original llama a esa rutina en
+ese punto.
+
+**Con el dueño del wall hug** (es un cambio de estado):
+- `MobileWallHug::InitStepsXZ` 0x60BFA0 está copiada dos veces, en
+  `ECS/Systems/Implementations/PathfindingSystem.cpp:40-51` (`InitializeStep(ToGoal)`) y
+  `ECS/Villager/VillagerScript.cpp:86-93` (`InitStepsXZ`), con `glm::atan` en float y el paso `(cos, sin) · speed`. El
+  original: `GetAngleFromXZ` → +0x5C y el paso `StepFromAngle(+0x5C, +0x5A)`. Hay que fundirlas y pasarlas a la API,
+  pero `WallHug` guarda la velocidad en metros float y el ángulo en radianes. (PathfindingSystem :59 y :541 tienen
+  además sus ángulos de rodeo propios.)
+- `ECS/Villager/VillagerCore.cpp:959-961` (`LookAtPos`): lee el ángulo de juego como `lround(yAngle · 2048 / 2π)`. Lo
+  fiel es guardar el `u16` +0x5C (`SetGameAngle` 0x60DA90 lo guarda tal cual; `SetYAngle` 0x60DAC0 con
+  `ConvertAngle3DToGame`). Mientras no exista, el `lround` es lo correcto: `ConvertAngle3DToGame` daría a − 1 en 365 de
+  los 2048 ángulos que escribe `setGameAngle`.
+
+**Avisar a «animales»**: los cambios de `AnimalAI.cpp` (`AngleDiff`, `IsPosValidForTurnAngle`, `CalcRandomPos`, los
+usos de `AngleOf`), `AnimalBirds.cpp` (formación y `BirdDying`), `AnimalFlee.cpp`, `AnimalPredators.cpp` y
+`AnimalWallHug.cpp`.
+
+**Revisar con el dueño de Worship**: con la altitude a 0 de `GetSpellIconPosFromSlot`, los iconos de los anillos > 0
+quedan en el suelo (el del anillo 0 conserva la altura del punto especial).
+
+**Aplazado (dueño)**: `PSys/Rules/Lightning.cpp:212` y `PSys/Rules/Storm.cpp:1504` (atan2 de PSys),
+`Magic/Objects/MapShield.cpp:180` y `Magic/Spells/SpellForest.cpp:422` (la espiral polar de 0x725830): ninguno es copia
+de GUtils, no hace falta tocarlos.
+
+**Ya exactas, solo estilo**: las conversiones a mano `a · 2π_f / 2048` que quedan en `AnimalAI.cpp` (`FaceAngle`,
+`SetTowardsAngle`) dan bit a bit `ConvertGameAngleTo3D` (sin el `& 0x7FF`). `AngleOfRotation` es la inversa de
+`FaceAngle`, no una rutina del original.
+
+**Sin copia que migrar**: `GScript::CastSpellAtPos` 0x70BDD1 calcula el ángulo y lo tira;
+`Living::GetFleeingPositionFromStationaryObject` 0x5F2010 normaliza en float también en el original; 0x463670
+(Citadel) es código muerto. FishShoals:207, TestDispensers:281/304, PhysicsObjects:490, Rivers:46,
+FishFarmArchetype:68, WorshipSite:721, Climate:224 y SpellWater:179 hacen su propia trigonometría; Sharks:110 es
+`LH3DMath::GetYAngle` (LH3D).
+
+**Sin portar** (no hay copia, la API ya los tiene): la sobrecarga de cuatro enteros 0x74D220 (3 llamadores, ninguno
+portado), `GetXByAngleMetersDistance` (`Creature::GetMovementDirection`, `GetRandomLookAhead`,
+`RunAwayFromObjectReaction`), `StepFromAngle8` (Villager `Approach*`, PuzzleHorse), `GetLHPointFromAngle`
+(`SetupInspectObject`) y las funciones de `ecs::object` que aún no llama nadie.
+
+**Cambios que se ven y hay que comprobar con captura:** los iconos de hechizo de los anillos exteriores del lugar de
+culto (ahora en el suelo), hacia dónde gira un animal que mira justo al revés de su meta, y las posiciones de trabajo
+junto a árboles y bosques (con la altitude del árbol).
+
 ### Tamaño de los objetos
 
 Estado a 2026-10-01, rama `local/sistemas2`. La regla ha sido migrar **solo** donde se ha leído qué nivel usa el
@@ -640,14 +823,12 @@ original (la llamada virtual o la lectura en línea).
 **Aplazadas, porque milagros2 está editando esos archivos** (usan todavía `effects::Object2DRadius` / `ObjectHeight`,
 la rutina de `Object` sin redefiniciones):
 - `PSys/Rules/Storm.cpp:1265, :1336` → `object::Get2DRadius` (vt+0x64).
-- `PSys/Rules/Lightning.cpp:126` → `object::GetHeight` (vt+0x42C).
 - `Magic/Spells/SpellForest.cpp:169` → `object::Get2DRadius` (el comentario de :161 dice que Field 0x528E80 no está
   portado: ya lo está).
 - `Magic/Core/SpellSeed.cpp:137, :143` → `object::GetHeight` / `Get2DRadius` (falta leer el original).
 - `Magic/Objects/MapShield.cpp:526-547` (`map_shield::Get2DRadius` / `GetHeight`, ya con `objectScale`) →
   `object::Get2DRadius` / `GetHeight`; `CollisionScale` (:568) es `object::GetScale`.
 - `Magic/Objects/MagicTeleport.h:31` (`k_Radius = 6`) → `object::k_MagicTeleportRadius` / `Get2DRadius`.
-- `PSys/Rules/Explosion.cpp:392, :425, :504` usa `fire::traits::Radius`, que ya es la API; no hace falta tocarlo.
 - Cuando se muevan todos, se borran los dos envoltorios de `EffectValues`.
 
 **De «sistemas» (tiene los archivos abiertos):**
@@ -689,8 +870,8 @@ la rutina de `Object` sin redefiniciones):
 proporción (0x66F180) y MagicTeleport = 6 (0x5FCCB0) cuentan ya en el fuego y en el agua, y el MapShield se mide con su
 `objectScale`. El centro del fuego de un WorshipSite es `GetDefaultFireCentrePos` 0x77DDE0 (= `CalculateCentrePos`
 0x77DD40, altitud sobre la tierra por `Set` 0x603340), junto a su radio de 14 m (0x77DE10). Siguen con
-`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): SpellForest.cpp:169/193, Storm.cpp:1265,
-Lightning.cpp:126 y SpellSeed.cpp:137/143.
+`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): SpellForest.cpp:169/193, Storm.cpp:1265 y
+SpellSeed.cpp:137/143.
 
 **Sin portar:**
 - `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 leen el LH3DCreature (`[[+0x160]+0x58]+0x5228`), que openblack
@@ -701,8 +882,8 @@ Lightning.cpp:126 y SpellSeed.cpp:137/143.
   **(inferido)**.
 - Las clases que no son `Object` (Citadel, SpellShield, SpellStormAndTornado, Town, GArena, Reaction, BuildingSite,
   AtomCore, GStreetLight, Mist: ver arriba) no pasan por la API; si alguna llega a pedirla, hay que añadir su rama.
-- `GetNearestPosOfObject` 0x636D30 (necesita `Get3DAngleFromXZ` 0x74D270 y `GetPosFromAngle` 0x74D580 en `gutils`; no
-  hay llamador).
+- `GetNearestPosOfObject` 0x636D30: portado (ver [Ángulos de GUtils](#ángulos-de-gutils)); aún no lo llama nadie en
+  openblack.
 - Los otros `GetScale`: `ShowNeedsVisuals` 0x55DD80 (+0x58), `PlannedMultiMapFixed` 0x4050C0 y `SpellSeedGraphic`
   0x727340.
 - Los sitios del nivel de malla que openblack aún no tiene (`IsSuitableForFixed` 0x603E1E, `Scaffold` 0x6E956A /
@@ -723,8 +904,6 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 **Aplazadas, porque milagros2 está editando esos archivos:**
 - `Magic/Objects/MapShield.cpp:58, :387, :408-409`: su fracción propia (`g_LastTurn`, reloj de pared, tope 1) →
   `game_clock::TurnFraction()` (`PhysicalShield::DrawShield` 0x72CEEC/0x72CF01 es un lerp con la fracción).
-- `PSys/Rules/Explosion.cpp:82, :262`: el `k_BeamFxTurns · 0,1f` → `game_clock::k_TurnSeconds` y el
-  `ftol(1000/[0xD01A38]·4)` del comentario → `TicksForSeconds(4)`.
 - `ECS/Systems/Implementations/HandSpellSeed.cpp:194-197`: el envoltorio `CurrentTurn()` → `game_clock::Turn()`.
 
 **Abiertos por «sistemas»** (no imprescindibles; se dejan para cuando fusione):
@@ -793,6 +972,19 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   - `GetDistanceModifier` con los 400 m de `ReactToFire` y los 3 de `Tree::ApplyWaterSpell`, y el `max = 0`;
   - `DistanceChangeToBelief`.
   - el corte de `Hypotenuse(float)` con un lado NaN (devuelve 0, como la comparación no ordenada del original).
+- `test_gutils_angle` (`test/test_gutils_angle.cpp`) comprueba:
+  - las constantes por bits;
+  - las dos tablas contra el volcado del exe (sumas, una suma ponderada y entradas sueltas) y `COS = SIN + 512`;
+  - `LHArcTan` en los ejes, las diagonales, un punto por octante, el desbordamiento del `shl 8` y el error ≤ 2,27
+    pasos frente a atan2;
+  - las conversiones: −0,5 → 1886, el NaN, los 365 ángulos que pierden 1 en la ida y vuelta, y Scawen por bits;
+  - `StepFromAngle` con `whole` negativo (`sar`), el `imul` de 32 bits de 0x74D320, el (0, 0) de
+    `GetPosFromGameAngle(a, 10)` y los 4 bits perdidos de 0x74D6A0;
+  - `GetPosFromAngle` con dos casos en que `cosf` da otra unidad, y `AddDistanceFromAngle`;
+  - `GetAngleDifference` y `GetAngleDirection` en ±0x400;
+  - `MapCoords::operator+` / `operator-` con la altitude.
+- `test_object_metrics` `PointsAroundAnObject`: las seis funciones de puntos alrededor de un objeto, cada una con su
+  radio y la altitude de `this`.
 - `test_worship` llama a `worship::percentage::WorshipScore` de verdad: un aldeano con vida 0,5 en el centro del
   lugar de culto da 0,5³ · 0,99996 y uno con vida 1 a más de d2 da 3,6e-5 (con los argumentos al revés o con vida²
   falla).
@@ -858,3 +1050,8 @@ Estado a 2026-10-02, rama `local/sistemas2`.
   Informes: `dev\tmp_dis\unify2\PLAN.md` §4, `object_radius_height_original.md` (con su «Verificación adversaria»)
   y `object_radius_height_openblack.md`. bw1-decomp: `src/Black/Object.cpp:1062-1104`; decomp_pickup:
   `multi.cpp:285-330`.
+- Ángulos de GUtils: desensamblado de 0x74D0C0:120, 0x74D200:A0, 0x74D320:180, 0x74D510:180, 0x74D6F0:80,
+  0x74DC30:50, 0x74E290:40, 0x605410, 0x6054A0, 0x605520, 0x6055C0, 0x636D30:110, 0x639550:60, 0x74C040:70,
+  0x439240:50, 0x439360:70, 0x53A060:70, 0x6E7560:200, 0x77AFC0:C0, 0x75AA90:F0, 0x75B320:80, 0x41B210:140,
+  0x418CD0:60, 0x41E930:F0 y 0x41F1B0:80; tablas 0xC2307C y 0xC31614 volcadas del exe. Informes:
+  `dev\tmp_dis\unify2\angles_original.md` (con su «Verificación adversaria», que manda) y `angles_openblack.md`.

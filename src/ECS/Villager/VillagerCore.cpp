@@ -28,6 +28,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/Life.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
@@ -959,9 +960,10 @@ uint32_t LookAtPos(entt::entity villager, glm::ivec2 pos, uint32_t mode)
 	    static_cast<uint32_t>(std::lround(static_cast<double>(wallHug->yAngle) * 2048.0 / (2.0 * 3.14159265358979323846))) &
 	    0x7FF);
 	const auto setGameAngle = [&](int32_t angle) {
-		// MobileWallHug::SetGameAngle 0x60DA90: the angle and the drawn rotation (PathfindingSystem's convention)
+		// MobileWallHug::SetGameAngle 0x60DA90: the angle and the drawn rotation (PathfindingSystem's convention),
+		// SetYAngle 0x639260(ConvertGameAngleTo3D 0x74DC50(a)) (0x60DAA1)
 		const auto a = static_cast<uint16_t>(angle & 0x7FF);
-		wallHug->yAngle = static_cast<float>(a) * 0.0030679617f;
+		wallHug->yAngle = gutils::ConvertGameAngleTo3D(a);
 		animal_ai::detail::FaceAngle(*transform, a);
 	};
 	// 0x5EC594..0x5EC5BF: d = target - current; |d| < step -> SetGameAngle(target); 1

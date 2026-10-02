@@ -40,6 +40,7 @@
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
@@ -69,6 +70,15 @@ namespace
 {
 /// Tree::PreDraw's global 0xC22FA0, recomputed once a frame.
 uint8_t g_brightness = 255;
+
+/// from + GetPosFromAngle 0x74D580(angle, metres) through MapCoords::operator+ 0x605520, on the (x, z) in metres (each a
+/// MapCoords, as the original holds them)
+glm::vec2 PosFromAngle(const glm::vec3& from, float angle, float metres)
+{
+	namespace map_coords = openblack::ecs::map_coords;
+	const auto at = map_coords::FromMetres(glm::vec2(from.x, from.z)) + gutils::GetPosFromAngle(angle, metres);
+	return map_coords::ToMetres(at);
+}
 
 /// A Forest (0x58 bytes, ctor 0x539BD0): its centre, the empty timer (+0x34) and the planting attempts (+0x36). Its
 /// trees are the ones whose Tree::forestId is its id (the original keeps two lists sorted by distance to the centre).
@@ -266,9 +276,8 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 		int radius = static_cast<int>(rng.NextValue<uint32_t>(0, 4)) + 5;
 		for (int attempt = 0; attempt < 5; ++attempt)
 		{
-			// GUtils::GetPosFromAngle 0x74D580: x + cos(a) r, z + sin(a) r
-			const glm::vec2 at(origin.x + std::cos(angle) * static_cast<float>(radius),
-			                   origin.z + std::sin(angle) * static_cast<float>(radius));
+			// 0x53A086..0x53A0A6: origin + GetPosFromAngle(a, float(r)) (fild qword)
+			const glm::vec2 at = PosFromAngle(origin, angle, static_cast<float>(radius));
 			const glm::vec3 point(at.x, Locator::terrainSystem::value().GetHeightAt(at), at.y);
 			if (IsFreeForTree(point))
 			{
@@ -646,18 +655,9 @@ std::vector<entt::entity> openblack::ecs::TreesInCell(glm::ivec2 cell)
 
 glm::vec3 openblack::ecs::TreeWorkingPos(entt::entity tree, entt::entity who)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto& at = registry.Get<const Transform>(tree).position;
-	const auto& from = registry.Get<const Transform>(who).position;
-	const glm::vec2 towards(from.x - at.x, from.z - at.z);
-	const float length = glm::length(towards);
-	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
-	// 0.9: 0x8C5844. (aproximado: the original's angle goes through GetAngleFromDXDZ, quantised to 2048 steps, and
-	// the point's height is the land's here, the tree's altitude plus GetPosFromAngle's y = 0 there)
-	const float reach = Object2DRadius(who) + 0.9f;
-	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * reach;
-	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
-	return {point.x, ground, point.y};
+	// Tree::GetWorkingPos 0x74C040: the tree + GetPosFromAngle(Get3DAngleFromXZ(tree, who), R2D(who) + 0.9), with the
+	// tree's altitude (MapCoords::operator+); the point is the ground there plus that altitude (GetLHPoint)
+	return map_coords::ToWorld(object::TreeGetWorkingPos(tree, who));
 }
 
 entt::entity openblack::ecs::FindTreeNearVillager(entt::entity who)
@@ -804,7 +804,9 @@ glm::vec2 ForestNearestPoint(uint32_t forestId, glm::vec3 at, bool insideIsZero)
 		{
 			return target;
 		}
-		return d > 1e-6f ? centre + (target - centre) / d * radius : centre;
+		// vt +0x83C = Object::GetNearestEdgeToPos 0x636DA0
+		namespace map_coords = openblack::ecs::map_coords;
+		return map_coords::ToMetres(openblack::ecs::object::GetNearestEdgeToPos(bigForest, map_coords::FromMetres(target)));
 	}
 	const auto c = openblack::ecs::ForestCentre(forestId);
 	return {c.x, c.z};
@@ -938,16 +940,9 @@ std::optional<uint32_t> openblack::ecs::FindNearestForestToPos(uint32_t townId, 
 
 glm::vec3 openblack::ecs::BigForestArrivePos(entt::entity bigForest, entt::entity who)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto& at = registry.Get<const Transform>(bigForest).position;
-	const auto& from = registry.Get<const Transform>(who).position;
-	const glm::vec2 towards(from.x - at.x, from.z - at.z);
-	const float length = glm::length(towards);
-	const glm::vec2 direction = length > 1e-6f ? towards / length : glm::vec2(1.0f, 0.0f);
-	// (aproximado: the angle is not quantised to the 2048 game angles, the height is the land's)
-	const glm::vec2 point = glm::vec2(at.x, at.z) + direction * (0.5f * Object2DRadius(bigForest));
-	const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(point) : at.y;
-	return {point.x, ground, point.y};
+	// BigForest::GetArrivePos 0x439360: the forest + GetPosFromAngle(Get3DAngleFromXZ(forest, who), R x 0.5), with the
+	// forest's altitude (MapCoords::operator+); the point is the ground there plus that altitude (GetLHPoint)
+	return map_coords::ToWorld(object::BigForestGetArrivePos(bigForest, who));
 }
 
 uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t amount)
@@ -985,7 +980,8 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 		for (int attempt = 0; attempt < 10 && Locator::terrainSystem::has_value(); ++attempt)
 		{
 			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
-			const glm::vec2 point(position.x + std::cos(angle) * radius, position.z + std::sin(angle) * radius);
+			// 0x439250..0x439274: position + GetPosFromAngle(GameFloatRand(2 pi), R)
+			const glm::vec2 point = PosFromAngle(position, angle, radius);
 			const float ground = Locator::terrainSystem::value().GetHeightAt(point);
 			// MapCoords::IsLand 0x603720
 			if (!systems::hand_detail::IsLand(glm::vec3(point.x, ground, point.y)))

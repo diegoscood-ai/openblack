@@ -23,6 +23,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -102,15 +103,16 @@ std::array<entt::entity, 2> Rocks::SplitInTwo(entt::entity entity, glm::vec3 vel
 	// Only the Y angle is kept. MobileStaticArchetype's rotation has column 2 = (-sin y cos x, sin x, cos y cos x).
 	const float yAngle = std::atan2(-transform.rotation[2].x, transform.rotation[2].z);
 	const float a = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>());
-	const glm::vec2 direction(std::cos(a), std::sin(a));
-	const glm::vec2 centre(transform.position.x, transform.position.z);
+	// 0x6E75B1: o = GetPosFromAngle(a, R2D x 0.7935); 0x6E76A9 / 0x6E76CE: the halves at pos + o and pos - o
+	// (MapCoords::operator+ 0x605520 / operator- 0x6055C0 on this +0x14, `lea edi, [esi + 0x14]` 0x6E76A3): both keep
+	// the rock's altitude (o's is 0), so each half is the ground at its own point plus that altitude (GetLHPoint)
+	const auto o = gutils::GetPosFromAngle(a, offset);
+	const auto centre = map_coords::FromWorld(transform.position);
 	std::array<entt::entity, 2> halves {};
 	for (size_t i = 0; i < halves.size(); ++i)
 	{
-		const auto at = centre + (i == 0 ? offset : -offset) * direction;
-		const float ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(at) : 0.0f;
-		halves.at(i) = archetypes::MobileStaticArchetype::Create(glm::vec3(at.x, ground, at.y), type, 0.0f, 0.0f, yAngle,
-		                                                         0.0f, scale);
+		const auto at = map_coords::ToWorld(i == 0 ? centre + o : centre - o);
+		halves.at(i) = archetypes::MobileStaticArchetype::Create(at, type, 0.0f, 0.0f, yAngle, 0.0f, scale);
 	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Rock: split type {} scale {:.2f} -> 2 x {:.2f}", static_cast<int>(type),
 	                   transform.scale.x, scale);

@@ -40,11 +40,13 @@ namespace openblack::ecs::town_queries
 /// (ConvertWholeDistanceToMeters 0x74DCC0), through ECS/GUtilsDistance (gutils::GetDistanceInMetres)
 [[nodiscard]] float GetDistanceInMetres(glm::ivec2 a, glm::ivec2 b);
 /// GUtils::GetAngleFromXZ 0x74D240 = GetAngleFromDXDZ 0x74D200(b - a) = LHArcTan 0x74D0C0: 2048ths, from a towards b
+/// (gutils::GetAngleFromXZ)
 [[nodiscard]] uint16_t GetAngleFromXZ(glm::ivec2 a, glm::ivec2 b);
 /// GUtils::Get3DAngleFromXZ 0x74D270 = ConvertGameAngleTo3D 0x74DC50(GetAngleFromDXDZ(b - a)): (angle & 0x7FF) x
 /// 0.0030679617 (0x99A1CC) radians
 [[nodiscard]] float Get3DAngleFromXZ(glm::ivec2 a, glm::ivec2 b);
 /// GUtils::GetPosFromAngle 0x74D580: (ftol(cos(angle) x d x 65536 / 10), ftol(sin(angle) x d x 65536 / 10))
+/// (gutils::GetPosFromAngle, the x and z)
 [[nodiscard]] glm::ivec2 GetPosFromAngle(float angle, float metres);
 
 /// GUtils::GetMapCellSpiralSizeFromRadius 0x74F520: max(ftol(0.2 r), 1)^2 map cells

@@ -17,6 +17,7 @@
 #include <glm/vec3.hpp>
 
 #include "3D/AxisAlignedBoundingBox.h"
+#include "ECS/MapCoords.h"
 #include "Enums.h"
 
 /// The original's object size family: Object::Get2DRadius 0x638180 (vt +0x64), Object::GetRadius 0x638110 (vt +0x60),
@@ -202,6 +203,34 @@ struct BoundingSphere
 /// component in that order (0x77DD61..0x77DDB1), then made a MapCoords (0x77DDBD; openblack keeps the point). The
 /// matrix is the site's Transform (inferido: [this + 0x40] + 0x14, the same reading as WorshipScore's)
 [[nodiscard]] glm::vec3 WorshipSiteCentre(entt::entity site);
+
+// ---- Points around an object (GUtils angles, ECS/GUtilsAngle) -------------------------------------------------------
+// Each one is this + GetPosFromAngle 0x74D580(an angle, a radius) through MapCoords::operator+ 0x605520, so the result
+// keeps this object's altitude (GetPosFromAngle's is 0). Each has its own radius: do not swap one for another.
+
+/// The object's MapCoords (Object +0x14): map_coords::FromWorld of its Transform (the altitude above the island's
+/// ground); a zero MapCoords without one
+[[nodiscard]] map_coords::MapCoords MapCoordsOf(entt::entity object);
+/// Object::GetNearestPosOfObject(Object* other) 0x636D30 (vt): this + GetPosFromAngle(Get3DAngleFromXZ(this, other),
+/// R2D(other) + R2D(this)) (vt +0x64 of both, 0x636D54 / 0x636D5F)
+[[nodiscard]] map_coords::MapCoords GetNearestPosOfObject(entt::entity object, entt::entity other);
+/// Object::GetNearestEdgeToPos(MapCoords const& p) 0x636DA0: this + GetPosFromAngle(Get3DAngleFromXZ(this, p),
+/// R2D(this))
+[[nodiscard]] map_coords::MapCoords GetNearestEdgeToPos(entt::entity object, const map_coords::MapCoords& pos);
+/// Object::GetNearestEdge(float angle, float extra) 0x636DF0: this + GetPosFromAngle(angle, R2D(this) + extra). The
+/// angle is the caller's, not worked out here
+[[nodiscard]] map_coords::MapCoords GetNearestEdge(entt::entity object, float angle, float extra);
+/// Object::GetWorkingPos(Object* other) 0x639550 (vt): this + GetPosFromAngle(Get3DAngleFromXZ(this, other),
+/// R(this) + R(other)), GetRadius vt +0x60 of both (0x639574 / 0x63957F), not Get2DRadius
+[[nodiscard]] map_coords::MapCoords GetWorkingPos(entt::entity object, entt::entity other);
+/// Tree::GetWorkingPos(MapCoords* out, Object* other) 0x74C040: this + GetPosFromAngle(Get3DAngleFromXZ(this, other),
+/// R2D(other) + 0.9 [0x8C5844]): the other object's radius only
+[[nodiscard]] map_coords::MapCoords TreeGetWorkingPos(entt::entity tree, entt::entity other);
+/// [0x8C5844] = 0.9, Tree::GetWorkingPos 0x74C064
+constexpr float k_TreeWorkingReach = 0.9f;
+/// BigForest::GetArrivePos(Villager* v) 0x439360: this + GetPosFromAngle(Get3DAngleFromXZ(this, v), R(this) x 0.5
+/// [0x8AA3B4]), GetRadius vt +0x60
+[[nodiscard]] map_coords::MapCoords BigForestGetArrivePos(entt::entity bigForest, entt::entity villager);
 
 namespace detail
 {

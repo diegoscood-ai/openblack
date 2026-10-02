@@ -48,6 +48,7 @@
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
 #include "Common/RandomNumberManager.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Hand.h"
@@ -962,6 +963,92 @@ void HandSystem::UpdateTestAbode(float seconds) noexcept
 		else if (_testDropIn <= 0.0f)
 		{
 			_testDropAt.reset();
+		}
+	}
+	// Debug: OPENBLACK_TEST_KNOCK="[count[,index[,delay[,interval]]]]" taps the index-th living-quarters abode `count`
+	// times, `interval` seconds apart (0.4 by default) once `delay` seconds have passed (2 by default, so that
+	// OPENBLACK_CAMERA_FLY has arrived): Abode::InterfaceTap 0x406830. With OPENBLACK_SFX_TRACE=1 the log must show
+	// G_KnockRoofMulti 110..118 and 110 again (milestone B8 of the audio PLAN).
+	if (const char* knock = std::getenv("OPENBLACK_TEST_KNOCK"); knock != nullptr)
+	{
+		static int s_Left = -1;
+		static int s_Wanted = 0;
+		static float s_Delay = 2.0f;
+		static float s_Interval = 0.4f;
+		static float s_Next = 0.0f;
+		if (s_Left < 0)
+		{
+			s_Left = 10;
+			std::sscanf(knock, "%d,%d,%f,%f", &s_Left, &s_Wanted, &s_Delay, &s_Interval);
+			s_Next = s_Delay;
+		}
+		if (s_Left > 0)
+		{
+			s_Next -= seconds;
+			if (s_Next <= 0.0f)
+			{
+				s_Next = s_Interval;
+				auto& registry = Locator::entitiesRegistry::value();
+				std::optional<entt::entity> target;
+				int index = 0;
+				registry.Each<const Abode, const Transform>([&](entt::entity e, const Abode&, const Transform&) {
+					const auto type = abodes::TypeOf(e);
+					if (target || !type.has_value() ||
+					    (static_cast<uint32_t>(*type) & static_cast<uint32_t>(AbodeType::LivingQuarters)) == 0)
+					{
+						return;
+					}
+					if (index++ == s_Wanted)
+					{
+						target = e;
+					}
+				});
+				if (target)
+				{
+					// the hand's point of the tap: the house itself here (the original uses the interface status' +0xC8)
+					const auto point = registry.Get<const Transform>(*target).position;
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "Knock test: abode {} tapped at ({:.1f}, {:.1f}, {:.1f}), {} left",
+					                   static_cast<uint32_t>(*target), point.x, point.y, point.z, s_Left);
+					abodes::InterfaceTap(*target, point);
+				}
+				--s_Left;
+			}
+		}
+	}
+	// Debug: OPENBLACK_TEST_PICK_VILLAGER="[index[,delay]]" puts the index-th villager in the hand `delay` seconds in
+	// (2 by default, so that OPENBLACK_TEST_VIEW_VILLAGER has arrived): GenericPickup 0x5D2800. The trace must show two
+	// samples, G_PickUpObject 10 and the scream of its kind (180 / 187 / 194 + rand 7).
+	if (const char* pick = std::getenv("OPENBLACK_TEST_PICK_VILLAGER"); pick != nullptr)
+	{
+		static int s_Wanted = -1;
+		static float s_Delay = 2.0f;
+		static bool s_Done = false;
+		if (s_Wanted < 0)
+		{
+			s_Wanted = 0;
+			std::sscanf(pick, "%d,%f", &s_Wanted, &s_Delay);
+		}
+		if (!s_Done)
+		{
+			s_Delay -= seconds;
+			if (s_Delay <= 0.0f)
+			{
+				s_Done = true;
+				auto& registry = Locator::entitiesRegistry::value();
+				std::optional<entt::entity> target;
+				int index = 0;
+				registry.Each<const Villager, const Transform>([&](entt::entity e, const Villager&, const Transform&) {
+					if (!target && index++ == s_Wanted)
+					{
+						target = e;
+					}
+				});
+				if (target)
+				{
+					SPDLOG_LOGGER_INFO(spdlog::get("game"), "Pick test: villager {} picked up", static_cast<uint32_t>(*target));
+					PickUp(*target);
+				}
+			}
 		}
 	}
 	if (_testActionHold > 0.0f)

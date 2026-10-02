@@ -13,6 +13,8 @@
 
 #include <LHVMTypes.h>
 
+#include "Help/ScriptControl.h"
+
 namespace openblack::chlapi
 {
 
@@ -35,5 +37,9 @@ private:
 
 	std::vector<lhvm::NativeFunction> _functionsTable;
 };
+
+/// The script VM as GScript asks it (ScriptDLL::TaskNumber 0x6F69F0, GetCurrentTaskScriptType 0x6F6A90, GetScriptType
+/// 0x6F6C50, StopTasksOfType 0x6F68F0, PUSH 0x6F6BA0, StartScript 0x6F6880) on Locator::vm
+[[nodiscard]] help::script_control::Vm ScriptVm();
 
 } // namespace openblack::chlapi

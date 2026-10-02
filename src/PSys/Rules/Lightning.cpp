@@ -40,6 +40,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
@@ -69,20 +70,16 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// The objects of one 10 m map cell (MapCoords::FindType(-1) walks the cell's list); MapCoords::InBounds 0x6042C0
-/// first (0x690333 / 0x690939)
+/// The objects of one 10 m map cell in the inline iterator's order (0x690344 / 0x69094B: the fixed list +4, then the
+/// mobile one +0, each from its head; ecs::map_cells); MapCoords::InBounds 0x6042C0 first (0x690333 / 0x690939)
 void CellObjects(const ecs::map_coords::MapCoords& coords, std::vector<entt::entity>& out)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || !ecs::map_coords::InBounds(coords))
+	if (!ecs::map_coords::InBounds(coords))
 	{
 		return;
 	}
-	const auto& map = Locator::entitiesMap::value();
-	const ecs::MapInterface::CellId id(ecs::map_coords::CellX(coords), ecs::map_coords::CellZ(coords));
-	out.insert(out.end(), map.GetFixedInGridCell(id).begin(), map.GetFixedInGridCell(id).end());
-	out.insert(out.end(), map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-	std::sort(out.begin(), out.end()); // (inf) the cell lists are unordered sets here: a stable order
+	out = ecs::map_cells::ObjectsInCell(ecs::map_coords::Cell(coords));
 }
 
 /// PSysManager::PSysRand 0x6729E0: the function at [0xD4E0BC] (fn_00673340 sets 0x672AF0 GRand::GameRand or 0x672B40
@@ -668,7 +665,7 @@ private:
 				// fn_00604F40 (0x6903AE / 0x6909B4): only in the cell its own MapCoords (+0x14) is in, so an object
 				// listed in several cells is found once
 				const auto own = ecs::object::MapCoordsOf(object);
-				if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
+				if (!ecs::map_cells::IsOwnCell(own, ecs::map_coords::Cell(cell)))
 				{
 					continue;
 				}

@@ -295,6 +295,9 @@ entt::entity seed_graphic::Create(const glm::vec3& worldPosition, SpellSeedType 
 			if (component.psys != 0)
 			{
 				psys::manager::SetPerFrame(component.psys);
+				// DrawSpellGraphic on a ball / an icon (arg2 0): AddDrawing(t, GetOrigin) 0x51A2CA, one Z object for the
+				// whole effect. (CreatureRoom / WorldRoom's Draw_(t, 0) 0x51A291 is not ported)
+				psys::manager::SetDrawPath(component.psys, psys::manager::DrawPath::Queued);
 			}
 		}
 	}
@@ -446,9 +449,15 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 	transform.position = graphic.meshPosition;
 	transform.rotation = lh_matrix::AngleY(graphic.spin);
 	transform.scale = glm::vec3(info.scale * graphic.scale);
+	// The alpha byte does not survive: 0x51A0B3..0x51A0E1 put it in +0x4C's top byte and SetGlobalAlpha(alpha != 0xFF)
+	// (0x51A0EB), but with arg 2 = 0 GetAltitudeAndSetColorSpecular (0x51A187) then writes the whole +0x4C with
+	// table[luminosity] (0x803409..0x803413) or table[255] (0x803365 / 0x8033DA, off the map), whose alpha is 0xFF
+	// (every palette.raw texel's alpha is 0xFF, LandLightTable). So the mesh goes through the global alpha table
+	// 0xC387C8 (LH3DObject Draw 0x80DF09, chosen by the flag alone) with [0xC37D8C] = 0xFF (0x80DEF8): it looks opaque.
+	// Only the bands (0x51A3A4) and the holder PSys (0x51A252) take the caller's alpha
 	if (alpha != 0xFF)
 	{
-		registry.AssignOrReplace<Alpha>(graphicEntity, static_cast<float>(alpha) / 255.0f);
+		registry.AssignOrReplace<Alpha>(graphicEntity, 1.0f);
 	}
 	else if (registry.AllOf<Alpha>(graphicEntity))
 	{

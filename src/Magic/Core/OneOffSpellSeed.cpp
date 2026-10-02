@@ -27,6 +27,7 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -51,6 +52,9 @@ entt::entity one_off::Create(const glm::vec3& worldPosition, SpellSeedType seedT
 	const auto orb = ecs::archetypes::OneOffSpellSeedArchetype::Create(worldPosition, seedType, powerUp, scale);
 	if (orb != entt::null)
 	{
+		// CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9 -> 0x636740): into its cell at once; its info
+		// (GMobileObjectInfo 25, 0xD39F3C) is type 20 MOBILE_OBJECT, so the head of the mobile list (0x636830)
+		ecs::map_cells::InsertMapObject(orb);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Magic: one-shot orb {} (seed {}, pu {}) at ({:.1f}, {:.1f}, {:.1f})",
 		                   static_cast<uint32_t>(orb), static_cast<int>(seedType), powerUp, worldPosition.x,
 		                   worldPosition.y, worldPosition.z);

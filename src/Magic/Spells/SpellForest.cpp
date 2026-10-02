@@ -31,6 +31,7 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
@@ -54,10 +55,6 @@ using namespace openblack::ecs::components;
 
 namespace
 {
-/// The trees this SpellEvent made so far: they are the newest objects of their cells (Tree::CallVirtualFunctionsForCreation
-/// puts each in its cell at once), while openblack's map grid is only rebuilt at the next turn
-std::vector<entt::entity> g_NewTrees;
-
 const GMagicForestInfo& ForestInfoOf(entt::entity spell)
 {
 	// SpellForest::GetMagicInfo 0x725A20
@@ -106,77 +103,35 @@ int TreesWanted(entt::entity spell)
 	return spell_forest::TreesWanted(GetSpellStrength(spell), DataFor(spell).maxTrees, ForestInfoOf(spell).finalNoTrees);
 }
 
-glm::u16vec2 CellOf(const glm::vec3& position)
+/// The cell of a point's MapCoords (MapCoords(LHPoint) 0x603160, the high words)
+glm::ivec2 CellOf(const glm::vec3& position)
 {
-	return ecs::MapInterface::GetGridCell(position);
+	return ecs::map_coords::CellOf(position);
 }
 
 /// MapCoords::IsFixed 0x603790 -> MapCell::IsFixed 0x601EA0: the cell's first fixed object (MapCell +4, where
 /// Fixed::InsertMapObjectToCell 0x52DEA0 puts the newest) has the flag +0x24 bit 1, so IsFixed is "the newest fixed
-/// object of the cell is a MultiMapFixed". A tree (SingleMapFixed) is in its own cell only.
-/// (aproximado) The newest is taken by the creation index: openblack's map grid is an unordered_set rebuilt from
-/// scratch (ECS/Map.h), so it has no insertion order. The two differ only for an object that was taken out of the map
-/// and put back without being created again (picked up and dropped): the original makes it the newest again, here it
-/// keeps its old index.
+/// object of the cell is a MultiMapFixed" (ecs::map_cells, the ordered lists). A tree (SingleMapFixed) is in its own
+/// cell only; this event's trees are already at the heads (MagicTree's CallVirtualFunctionsForCreation hook in
+/// CreateTree)
 bool IsFixedCell(const glm::vec3& position)
 {
-	const auto cell = CellOf(position);
-	auto& registry = Locator::entitiesRegistry::value();
-	for (const auto tree : g_NewTrees)
-	{
-		if (registry.Valid(tree) && CellOf(registry.Get<const Transform>(tree).position) == cell)
-		{
-			return false; // this event's tree is the cell's newest object
-		}
-	}
-	if (!Locator::entitiesMap::has_value())
-	{
-		return false;
-	}
-	entt::entity newest = entt::null;
-	int64_t newestIndex = -1;
-	for (const auto object : Locator::entitiesMap::value().GetFixedInGridCell(cell))
-	{
-		if (!registry.Valid(object))
-		{
-			continue;
-		}
-		// openblack's grid puts a fixed object in every cell its circle touches; a tree only counts in its own
-		if (registry.AllOf<Tree>(object) && CellOf(registry.Get<const Transform>(object).position) != cell)
-		{
-			continue;
-		}
-		const auto index = ecs::object_index::Of(object);
-		if (index >= newestIndex)
-		{
-			newestIndex = index;
-			newest = object;
-		}
-	}
-	// the flag +0x24 bit 1 that MapCell::IsFixed reads (MultiMapFixed ctor 0x52E207)
-	return newest != entt::null && ecs::fire::traits::IsMultiMapFixed(newest);
+	return ecs::map_cells::IsFixed(CellOf(position));
 }
 
-/// fn_005FADF0: no Abode (FindType ABODE in the position's cell) has Get2DRadius > its distance to the point
+/// fn_005FADF0: no object of type ABODE (MapCoords::FindType(0) 0x5FAE00 / 0x5FAE52 in the position's cell: the fixed
+/// list, info +0x10 == 0) has Get2DRadius > its distance to the point. A field is type 18 FIELD (info.dat
+/// fieldType[].type), so it is not one of them
 bool NoAbodeCovers(const glm::vec3& position)
 {
-	if (!Locator::entitiesMap::has_value())
+	const auto cell = CellOf(position);
+	for (auto object = ecs::map_cells::FindType(cell, ObjectType::Abode); object != entt::null;
+	     object = ecs::map_cells::FindType(cell, ObjectType::Abode, object))
 	{
-		return true;
-	}
-	auto& registry = Locator::entitiesRegistry::value();
-	for (const auto object : Locator::entitiesMap::value().GetFixedInGridCell(CellOf(position)))
-	{
-		// OBJECT_TYPE 0: the abodes, the fields among them (Field : Abode)
-		if (!registry.Valid(object) || !registry.AnyOf<Abode, Field>(object))
-		{
-			continue;
-		}
 		const auto centre = ecs::fire::traits::FireCentre(object); // vt 0x5F0
 		// GUtils::GetDistanceInMetres 0x74CD70 of the point and that centre (0x5FAE30)
 		const float distance = gutils::GetDistanceInMetres(position, centre);
-		// vt 0x64 (0x5FAE40): Field::Get2DRadius 0x528E80 is the constant 5 m ([0x8AB6E4]); every other class here keeps
-		// Object::Get2DRadius 0x638180 (ecs::object::Get2DRadius)
+		// vt 0x64 (0x5FAE40): Object::Get2DRadius 0x638180 (ecs::object::Get2DRadius)
 		const float radius = ecs::object::Get2DRadius(object);
 		// fcomp; test ah, 0x41; je -> radius > distance: no
 		if (radius > distance)
@@ -245,6 +200,9 @@ entt::entity CreateTree(entt::entity entity, const glm::vec3& position, TreeInfo
 	const auto tree = magic_tree::Create(position, entity, type, data.forestId, angle, 0.0f, woodMultiplier);
 	if (tree != entt::null)
 	{
+		// Tree's CallVirtualFunctionsForCreation -> SingleMapFixed::InsertMapObject 0x52E620: the head of its cell's
+		// fixed list at once (so the next tree of this event sees it with IsFixed)
+		ecs::map_cells::InsertMapObject(tree);
 		const auto& castPos = registry.Get<const Spell>(entity).originalCastPos;
 		// fn_007255C0: GUtils::GetDistanceInMetres 0x74CD70 of the tree's MapCoords and the cast one (+0xC0, 0x7255CF)
 		const float distance = gutils::GetDistanceInMetres(position, castPos);
@@ -283,7 +241,6 @@ int SpellEvent(entt::entity entity, const psys::SpellEventInfo& event)
 	auto& registry = Locator::entitiesRegistry::value();
 	const int n = TreesWanted(entity);
 	const auto castPos = registry.Get<const Spell>(entity).originalCastPos; // +0xC0
-	g_NewTrees.clear();
 	int made = 0;
 	for (int i = 0; i < n; ++i)
 	{
@@ -298,11 +255,9 @@ int SpellEvent(entt::entity entity, const psys::SpellEventInfo& event)
 		const auto tree = CreateTree(entity, position, spell_forest::RandomTreeType(castPos));
 		if (tree != entt::null)
 		{
-			g_NewTrees.push_back(tree);
 			++made;
 		}
 	}
-	g_NewTrees.clear();
 	forest_debug::OnLanded(entity, CurrentTurn()); // OPENBLACK_TEST_FOREST_SHOT
 	if (TraceEnabled())
 	{

@@ -189,6 +189,13 @@ La niebla del agua (`ParticleMistCreator`, también la de las nubes de la tormen
 
 ### Arreglo en `ECS/Effects`: las celdas del mapa
 
+**Sustituido (2026-10-02, map_cell_queries fase A):** `ApplyEffectToMapPos`, el agua, el fuego, el rayo, la explosión,
+la tormenta, la curación y las vasijas recorren ya las listas ordenadas de `ecs::map_cells`
+([engine-math.md](engine-math.md#listas-de-objetos-por-celda-ecsmap_cells)): la fija desde la cabeza y luego la móvil,
+**sin «ya visto»** (`ApplyEffectToMapPos` 0x525274..0x5253BF, el agua 0x7250CC..0x725179 y el calor del fuego
+0x72F699..0x72F6B6 con `HeatTransfer` 0x72F980 no tienen ninguno: un multicelda recibe el efecto una vez por celda).
+Las dos funciones de abajo quedan como API vieja para TownQueries (mapa). Texto anterior:
+
 `effects::FixedObjectsInMapCell` / `ObjectsInMapCell` (EffectValues.h). **(aproximado)** La rejilla de openblack
 (`MapProduction`) solo mete un objeto fijo en las celdas cuyo centro está a menos de su radio + 1 m, así que un árbol
 pequeño lejos del centro de su celda no estaba en ninguna, y ni `ApplyEffectToMapPos` (fuego, rayo, agua) ni el agua lo
@@ -395,8 +402,10 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     tierra y no `MapCoords::IsFixed`).
   - El radio de `fn_005FADF0` es la vt 0x64 de cada objeto, y **`Field::Get2DRadius` 0x528E80 es la constante 5 m**
     ([0x8AB6E4]): es la única clase que redefine el hueco (las vtables de Object, Abode, Field, Tree y Pot dan
-    `Object::Get2DRadius` 0x638180 menos la de Field). Portado en `SpellForest.cpp` `NoAbodeCovers`, que antes usaba el
-    radio genérico también para los campos.
+    `Object::Get2DRadius` 0x638180 menos la de Field). Pero `FindType(0)` (`FindTypeOnMap` 0x6015E0) compara el tipo de
+    la info (+0x10) con 0 ABODE, y el de un campo es 18 FIELD (info.dat `fieldType[].type`, lo comprueba
+    `test_map_cells`): **un campo nunca impide el bosque**. `NoAbodeCovers` recorre ahora
+    `ecs::map_cells::FindType(celda, ABODE, anterior)` y ya no mira los campos (antes los contaba con 5 m).
   - **`IsFixed` 0x603790 → `MapCell::IsFixed` 0x601EA0 mira solo el primer objeto fijo de la celda** (MapCell +4,
     donde `Fixed::InsertMapObjectToCell` 0x52DEA0 pone el más nuevo con `SetFirstObjectFixed`) y su bit +0x24 & 2, que
     solo pone el ctor de `MultiMapFixed` 0x52E1F0 (`or byte [esi+0x24], 2` en 0x52E207). O sea: `IsFixed` = «el fijo más
@@ -407,10 +416,11 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     (Tree, MapShield, ScriptHighlight, PrayerIcon) no lo pone, ni GFootpath ni BuildingSite (son GameThing). Un árbol está solo en su celda: una celda cuyo último fijo
     es un árbol no está «ocupada», aunque tenga un edificio debajo. openblack prueba ahora esa lista de componentes
     (`ecs::fire::traits::IsMultiMapFixed`, el rasgo común; antes solo preguntaba «no es un árbol», lo que ocupaba la celda con cualquier
-    SingleMapFixed) y cuenta los árboles del propio evento. **(aproximado)** el más nuevo sigue siendo el del índice de
-    creación: el grid de openblack es un `unordered_set` que se reconstruye entero (`ECS/Map.h`) y no guarda orden de
-    inserción. Solo se nota con un objeto que salió del mapa y volvió sin crearse de nuevo (cogido y soltado): en el
-    original vuelve a ser el más nuevo, aquí conserva su índice.
+    SingleMapFixed). Desde la fase A de map_cell_queries `IsFixedCell` es `ecs::map_cells::IsFixed`: la cabeza real de
+    la lista fija ordenada ([engine-math.md](engine-math.md#listas-de-objetos-por-celda-ecsmap_cells)); cada árbol del
+    evento entra por la cabeza al crearse (gancho `InsertMapObject` en `CreateTree`, SingleMapFixed 0x52E620), así que
+    `g_NewTrees` se ha borrado. **(aproximado)** lo que crean o mueven los otros dueños sin gancho (un árbol replantado
+    con la mano) entra en el `Sync` del turno siguiente, por orden de creación.
   - `SpellEvent` 0x725830: nada con el tipo 1 o si ya hay Forest; `ApplyDefaultSpellEffect` (paga costPerEvent 1;
     EffectValues de NATURE: alineamiento 1; reacción 21) y, si aplica, **todo el bosque de golpe**: N = `fn_00725790` =
     round(+0xF4 × (fuerza > 0)); paso = N > 1 ? 1/(N − 1) : 1; vueltas = N × **17/13** (el float 0x9819FC =
@@ -463,6 +473,28 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     objetos de su celda, lista +4 y luego +0, que no son vivos ni se mueven y cuyo círculo se solapa: d² < r_obj² +
     r_semilla², 0 si ninguno), vt 0x540, y `LHMatrix::Translation` a (x, suelo + altitud, z), +0x44 = 1, +0x48 = 0 y
     `AddForDrawing(semilla)` 0x63B5D0, que manda la colisión de dibujo: la mano la ve.
+  - **La semilla del suelo no gira (lane «forestseed» de milagros2).** `LHMatrix::Translation` 0x403530 reescribe la
+    matriz entera: filas identidad (0x403532..0x403558) y luego el punto. +0x44 y +0x48 son la `scale` y el `y_angle`
+    de LH3DObject (bw1-decomp `LH3DObject.h`; `Game3DObject::SetPosition` 0x63B740 los escribe igual), no «alfa y
+    banderas». Así que cada fotograma la `I_Forest` se dibuja derecha, sin girar y a escala 1, sea cual sea el giro que
+    traía de la mano. openblack lo hacía mal (dejaba la rotación de la mano): `DrawFromSpell` pone ahora la rotación
+    identidad y escala 1 (las cuatro semillas que llegan aquí, STORM, NATURE, SHIELD y PHYSICAL_SHIELD, tienen escala
+    1 en `GSpellSeedInfo`). Nada más mueve esa semilla: `SpellSeed::Draw` 0x518710 es un `ret`; `DrawOutOfMap`
+    0x5190A0 solo la dibuja en la mano.
+  - **Lo que cae y gira es el átomo** `Seed.L3D` del PSys (`SF_Forest`, grupo 0): nace 9,435 m sobre el punto,
+    `UpdateRuleGravity_Seed` (gravedad 1,6, `MaxSpeed` 3,34513, sin amortiguar: unos 4 s de caída) y
+    `UpdateRuleRotatePrincipalAxis_Seed` (`AngularVel` 12,2611 rad/s ≈ 1,95 vueltas/s alrededor de su Y,
+    `AxisChosen` 1 → 0x6A1218; el ángulo es dt × AngularVel, `fld [0xD4E0EC]; fmul [+0x24]`, sin ligarlo a nada más).
+    0x6A1150 gira también la cuarta fila de la matriz del átomo (+0x68), pero `SetRotationMatrix` 0x674120 la deja a 0
+    y la posición del átomo es +0x80: no hay órbita, la «espiral» es el ala descentrada de la malla. Su único evento es
+    `LandscapeCollide_Seed` (tipo 3): los árboles salen todos al tocar tierra, no mientras cae.
+  - **Recuerdo del usuario (2026-10-02):** «la semilla del bosque cae girando a la misma velocidad a la que crecen los
+    árboles; desde el templo se queda en el suelo mientras dura el bosque y se puede coger y volver a lanzar; desde un
+    orbe ni se queda ni se coge». Lo que da el exe: el giro y la caída son del átomo (antes de que haya árboles); lo que
+    va «a la velocidad de los árboles» es la `I_Forest`, cuya altura es la del árbol más alto (fn_0053A740) y por eso
+    **sube** exactamente al ritmo del crecimiento (0,01 de escala por turno × lluvia × alineamiento). No se encontró
+    nada que la haga bajar mientras el bosque vive (cuando el hechizo cierra, `fn_00728FC0` falla y deja de dibujarse).
+    Lo demás del recuerdo coincide.
   - Corregido el «(inferido) cuenta el suelo dos veces» de la auditoría: la altitud de un MapCoords es sobre el suelo
     (`GetLHPoint` 0x605C40 = `GetAltitude` + y), así que `GetTopPos` también lo es.
   - Resultado: −5 m (bajo tierra) mientras cae el átomo; al salir el bosque, en el suelo en el centro; luego sube con el
@@ -476,13 +508,30 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     (`HandApplyToObject.cpp`).
   - **(aproximado):** `IsMoving` vt 0x174 de un objeto fijo se toma como «está en físicas» (openblack no guarda la
     posición del turno anterior); las listas de la celda son las de `effects::ObjectsInMapCell` (aproximado allí).
-    **(inferido):** +0x44 / +0x48 del Game3DObject (alfa y banderas de dibujo; no es la escala, que es +0x50).
+    +0x44 / +0x48 del Game3DObject son la escala de dibujo y el `y_angle` (corregido; antes «alfa y banderas»); la
+    escala del Object (+0x50, `GetScale` 0x402520) es otra.
   - Sin portar en `Spell::DrawSpells`: fn_0064AF20 (por jugador y neutral, los seis huecos +0x34 de player +0xA48 con
     fn_0077B3B0; sin identificar), fn_00682950 (la colisión invisible de las bolas de fuego, lista g_game +0x205C9C,
     fn_00682F30) y la vt 0x108(1) del objeto +0xB0 en `Spell::Draw`. fn_00725FE0 es un `ret`; fn_0072BF50 son los
     escudos (`map_shield::DrawShields`).
   - Solo con una semilla de icono: la de un orbe de un uso o `OPENBLACK_TEST_SEED` (sin icono) ni se dibuja ni se
     recoge, como el original. `OPENBLACK_TEST_SPELL` (guion) no crea semilla.
+  - **Templo frente a orbe.** No hay bandera propia del orbe: `seedFollowsSpell` (+0x120) = 1 y `deleteSeedOnceCast`
+    (+0x168) = 0 valen para las dos (fila NATURE de `seed_table.md`). La diferencia es el icono +0x5C:
+    `OneOffSpellSeed::CreateSpellIntoHand` 0x72A730 pide `GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40 (el icono
+    de esa semilla en los lugares de culto del jugador que pase `WorshipSpellIcon::ValidForRequestSpell` 0x77FBA0, el
+    de más cánticos disponibles fn_0077CBC0) y con icono crea la semilla con fn_007282A0 → fn_00727FF0 (+0x5C = icono,
+    escala = escala del icono × la de la semilla); sin icono, fn_00728300 → fn_007280A0 (+0x5C = 0). Sin icono
+    `fn_00728FC0` falla: 0x729020 no la dibuja ni manda la colisión de dibujo, así que la mano no la ve
+    (`ValidForPlaceInHand` 0x728580 no llega a preguntarse). La semilla sigue viva, invisible y atada al hechizo, hasta
+    que `Spell::ToBeDeleted` 0x71FD90 la borra (vt 0xC de +0xAC en 0x71FE16) junto con el hechizo. **Matiz fiel:** un
+    orbe tocado por un jugador que ya tiene el icono del bosque en su templo da una semilla atada a ese icono, que sí
+    se queda y se coge (openblack lo porta igual: `one_off::CreateSpellIntoHand`).
+  - **Cuándo se va.** Con el hechizo cerrado (al cogerla, por `ClearSpellLink` 0x728200; o por
+    `ProcessFromSpell` 0x728F70 si sale de la influencia de su jugador) deja de dibujarse en el acto. El bosque mengua
+    0,05 por turno; cuando el Forest se borra (`ProcessTrees` 0x725A30: bandera +0xA & 1 → +0xEC = 0 y `CloseDown`) y
+    el PSys ha terminado, `ProcessTrees` devuelve 5 y el hechizo se borra con su semilla (0x71FE16). openblack:
+    `Spell.cpp` `base::ToBeDeleted`, `SpellForest.cpp` `Process` (`psys != 0 ? 1 : 5`).
   - Capturas (`dev\_audit\magic\`; `OPENBLACK_TEST_WORSHIP_SITE="NORSE,NATURE"`, `OPENBLACK_TEST_TOWN_SPELL="0,13"`,
     `OPENBLACK_TEST_MANA=20000`, `OPENBLACK_TEST_TAP_ICON="NATURE,200"`, `OPENBLACK_TEST_CAST="press@26,release@26.3,..."`,
     `OPENBLACK_MOUSE_AT=0.5,0.5`): `polish_fix_mano_forest_side.png` (cámara `1772,52,2604,1790,36,2625`, 7 s después:
@@ -1065,7 +1114,7 @@ la cúpula es el PSys del hechizo, SF_DefenseSphere) o `PhysicalShield` (la mall
 - `InitWithPos` 0x72B5F0, en orden: el radio (castData +0) se recorta **primero por arriba y luego por abajo**
   (`maxRadius` 1000 si no es menor, luego `minRadius` 5 si no es menor) y se reescribe en castData; `Spell::InitWithPos`
   (la magnitud queda en el radio); la reacción REACT_TO_MAGIC_SHIELD (13) del jugador del hechizo con radio r + 30
-  (reaction +0x3C, `reactions::SetRadius`); la ciudad más cercana a menos de 250 m (`MapCoords::GetNearestTown`
+  (reaction +0x3C, `reactions::SetRadius`); la ciudad más cercana a menos de 500 m (0x43FA0000, `push` en 0x72B683; `MapCoords::GetNearestTown`
   0x6020E0, todas las ciudades de todos los jugadores y del neutral); **un anillo anti de radio = la magnitud por cada
   otro jugador activo** (`GGame::GetNextActivePlayer` 0x5508D0: los siete huecos con +0x8E0 ≠ 0; aquí los jugadores
   que la tierra creó); y `MapShield::Create` 0x72BE20 en la lista de objetos. Si `Spell::InitWithPos` falla, el
@@ -1257,6 +1306,15 @@ reparte **una sola vez** (`SpreadReaction`), así que solo tienen ocasión los a
 - **`UR_SphereSurfaceTracer` 0x6A32B0 corregido** (PSys.cpp): la propiedad del radio es `ScaleSphereRadius` (no
   `SphereRadiusFP`, que no existe: la cúpula salía de 1 m), los ángulos con `fmod 2π`, el alfa `Alpha × ScaleAlpha`
   y, fuera de jerarquía, + la posición del padre.
+- **`OrientToSurface` del trazador portado** (+0x44, 0x6A351D..0x6A35C4; lo ponen a 1 solo SF_DefenseSphereInHand y
+  SF_DefenseSphereOnHolder, la cúpula SF_DefenseSphere lo tiene a 0). Cada parche se gira hacia fuera de la esfera en
+  su (θ, φ): `fn_006743A0(π/2 − φ)` (filas (cos a, −sin a, 0), (sin a, cos a, 0), (0, 0, 1) y la cuarta fila a 0) y
+  luego en cada fila (x, z) → (c x − s z, c z + s x) con c, s = cos θ, sin θ (= `lh_matrix::TurnRows(eje 1)`); el eje
+  Y local del parche queda en la normal. Sin él los 15 parches MSH_S_SPELLBALLSURFACE02 del efecto en la mano
+  (`particleTypeInHand` 65 de `GMagicShieldInfo`[0], `SF_DefenseSphereInHand`: un átomo raíz que sigue a la mano con
+  `SetScale` = `RenderHandScale` × 3,5 y `CreateRuleSphere` de 15 parches en el grupo 1) iban todos con la misma
+  orientación y se veían como muchas piezas girando en corro; con él forman **una sola bola** que gira en la mano,
+  como el original. Capturas `dev\_audit\magic\shieldhand_before*.png` / `shieldhand_after*.png`.
 
 La corrección de las jerarquías del PSys que necesita la cúpula está en
 [Corrección en el núcleo del PSys: las jerarquías](particles.md#corrección-en-el-núcleo-del-psys-las-jerarquías).
@@ -1299,10 +1357,9 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
   los enlaces de caminos (vt 0x78 / 0x80 / 0x88 / 0x98 / 0x1E8 sobre [esi+0x40], fn_00644DF0 si (obj+0xA & 1) == 0).
   El cambio de material `fn_0057E220` sí está portado (arriba).
 - El dibujo de los parches de la cúpula es el de `Creators/Mesh.cpp`: **resuelto en M6b** (color del jugador con mezcla
-  0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` no recorta una malla estática); ver
-  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo). `OrientToSurface` del trazador (lo usan
-  SF_DefenseSphereInHand/OnHolder) y `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) siguen sin usarse
-  aquí.
+  0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` sí recorta también la malla estática, fn_0080C050: `mesh_atoms::Instance::cutByPlane`); ver
+  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo). `OrientToSurface` del trazador ya está
+  portado (arriba); `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) sigue sin usarse aquí.
 - Los puntos extra de las mallas no se cargan (`UR_AtomsAtEPTarget` usa la posición del objeto, exacto para 554).
 - `Get2DRadius` / `GetHeight` salen de la caja de la malla. **Igual que el original** (ya comprobado del todo en la
   auditoría de suposiciones): `LH3DMesh::ComputeBoundingBox` 0x8081B0 recorre todas las submallas (+0xC / +0x10, la
@@ -1348,8 +1405,10 @@ piedra del mismo jugador que más lo acerca a donde va.
   piedra), así que InitWithPos manda `SpellEvent 11` (`particleType == 0`) y no crea PSys propio.
 - `GMagicTeleportInfo` vt+0x30 (CanCast en pos) 0x5FBE50: falla si hay un MultiMapFixed (edificio, campo, otra
   piedra...) a menos de `fn_005FCCA0` = **6 m** (`fn_00604C30` con el predicado AsMultiMapFixed); si no,
-  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`, con el
-  rasgo común `ecs::fire::traits::IsMultiMapFixed` (bit 2 de +0x24, ctor 0x52E207; = `AsMultiMapFixed` vt 0x678). Como
+  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`, que es
+  `ecs::map_cells::FindNearestInSpiral(pos, IsMultiMapFixedClass, 6) != null` (espiral, `d < r` y corte
+  `1,5·mejor + 10` como fn_00604C30); las piedras están en sus celdas (gancho `InsertMapObject` en `teleport::Create`,
+  MultiMapFixed 0x52E890+0x184), así que ya no se buscan en las listas de los jugadores. Como
   `SPELL_AT_POS` no comprueba nada (creador neutral, bandera a 0), el guion planta la piedra igual (el gancho lo
   confirma: «CanCastAt(A) now false» pero la piedra se crea).
 - `MagicTeleport::Create` 0x5FC1F0: `new MagicTeleport(pos, spell)` (ctor 0x5FC130: `MobileStatic(pos, 0xD3B614,...)`),

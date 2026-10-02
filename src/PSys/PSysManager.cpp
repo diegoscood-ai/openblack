@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <memory>
@@ -29,7 +30,9 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "GameClock.h"
+#include "InfoConstants.h"
 #include "Locator.h"
+#include "PSys/Creators/Mist.h"
 
 using namespace openblack;
 using namespace openblack::psys;
@@ -101,6 +104,7 @@ struct Running
 	std::unique_ptr<Effect> effect;
 	bool ownedBySpell {false}; ///< stepped by its spell (StartForSpell), not by ProcessTurn
 	bool perFrame {false};     ///< stepped every frame (the hand's and the interface's effects): drawn as last stepped
+	DrawPath path {DrawPath::Sorted}; ///< SetDrawPath; Spell::Draw's Draw_(1) (0x720441) until changed
 };
 
 struct Container
@@ -121,7 +125,11 @@ bool g_DebugDone = false;
 
 uint32_t manager::Start(const std::string& file, glm::vec3 origin, float magnitude)
 {
-	auto data = File::Load(file);
+	return Start(File::Load(file), origin, magnitude);
+}
+
+uint32_t manager::Start(std::shared_ptr<const File> data, glm::vec3 origin, float magnitude)
+{
 	if (!data)
 	{
 		return 0;
@@ -175,6 +183,26 @@ void manager::SetPerFrame(uint32_t id)
 	{
 		it->second.perFrame = true;
 	}
+}
+
+void manager::SetDrawPath(uint32_t id, DrawPath path)
+{
+	if (const auto it = g_Effects.find(id); it != g_Effects.end())
+	{
+		it->second.path = path;
+	}
+}
+
+manager::DrawPath manager::GetDrawPath(uint32_t id)
+{
+	const auto it = g_Effects.find(id);
+	return it == g_Effects.end() ? DrawPath::Sorted : it->second.path;
+}
+
+manager::DrawPath manager::SpotVisualDrawPath(uint32_t singleZSort)
+{
+	// 0x63E190 cmp [info +0x4C], 1; sete -> container +0x38; fn_0063E240 0x63E24A: AddDrawing when set
+	return singleZSort == 1 ? DrawPath::Queued : DrawPath::Sorted;
 }
 
 Effect* manager::Find(uint32_t id)
@@ -232,6 +260,13 @@ entt::entity CreateSpotVisualFor(int spotVisual, glm::vec3 position, std::option
 	{
 		return entt::null;
 	}
+	// the container draws its effect by the entry's SingleZSort (fn_0063E0F0 0x63E190, fn_0063E240 0x63E26A / 0x63E277).
+	// (inferido) without the info block, 1: every entry of info.dat that has a spell file has SingleZSort 1
+	// (tmp_dis\psys\psys_report.md, the SPOT_VISUAL table)
+	const uint32_t singleZSort = Locator::infoConstants::has_value()
+	                                 ? Locator::infoConstants::value().spotVisual.at(static_cast<size_t>(spotVisual)).singleZSort
+	                                 : 1u;
+	manager::SetDrawPath(id, manager::SpotVisualDrawPath(singleZSort));
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto object = registry.Create();
 	registry.Assign<ecs::components::Transform>(object, position, glm::mat3(1.0f), glm::vec3(1.0f));
@@ -402,7 +437,7 @@ std::vector<manager::Drawable> manager::Collect(Creator::Kind kind)
 	std::vector<Drawable> result;
 	for (const auto& [id, running] : g_Effects)
 	{
-		Drawable drawable {running.effect->GetOrigin(), {}, running.perFrame ? 1.0f : t};
+		Drawable drawable {running.effect->GetOrigin(), {}, running.perFrame ? 1.0f : t, running.path, id};
 		running.effect->Collect(drawable.t, drawable.atoms, kind);
 		if (!drawable.atoms.empty())
 		{
@@ -427,7 +462,13 @@ std::vector<Effect::DrawChain> manager::CollectChains()
 	std::vector<Effect::DrawChain> result;
 	for (const auto& [id, running] : g_Effects)
 	{
+		const size_t first = result.size();
 		running.effect->CollectChains(running.perFrame ? 1.0f : t, result);
+		for (size_t i = first; i < result.size(); ++i)
+		{
+			result[i].path = running.path;
+			result[i].effect = id;
+		}
 	}
 	return result;
 }
@@ -435,4 +476,147 @@ std::vector<Effect::DrawChain> manager::CollectChains()
 void manager::AddDrawableSource(DrawableSource source)
 {
 	DrawableSources().push_back(source);
+}
+
+namespace
+{
+/// The town belief and the DrawableSources, as Collect appends them to the sprites
+std::vector<manager::Drawable> CollectSources()
+{
+	std::vector<manager::Drawable> result;
+	if (Locator::camera::has_value() && Locator::entitiesRegistry::has_value())
+	{
+		town_belief::Collect(Locator::camera::value().GetOrigin(), result);
+	}
+	for (const auto source : DrawableSources())
+	{
+		source(result);
+	}
+	return result;
+}
+
+/// The ordered walk (Effect::CollectOrdered) of every effect of one path
+std::vector<manager::OrderedEffect> CollectOrderedOf(manager::DrawPath path)
+{
+	// g_game +0x205D64, the fraction of the turn GJPSysInterface::Draw_ 0x67370D passes on
+	const float t = game_clock::TurnFraction();
+	std::vector<manager::OrderedEffect> result;
+	for (const auto& [id, running] : g_Effects)
+	{
+		if (running.path != path)
+		{
+			continue;
+		}
+		manager::OrderedEffect effect {id, path, running.effect->GetOrigin(), running.perFrame ? 1.0f : t, {}, {}};
+		running.effect->CollectOrdered(effect.t, effect.items, effect.chains);
+		for (auto& chain : effect.chains)
+		{
+			chain.path = path;
+			chain.effect = id;
+		}
+		if (!effect.items.empty())
+		{
+			result.push_back(std::move(effect));
+		}
+	}
+	return result;
+}
+} // namespace
+
+manager::SortedFrame manager::CollectSorted()
+{
+	// g_game +0x205D64, the fraction of the turn GJPSysInterface::Draw_ 0x67370D passes on
+	const float t = game_clock::TurnFraction();
+	SortedFrame frame;
+	const auto add = [&frame](const Effect::DrawAtom& atom, uint32_t effect, float drawT) {
+		const auto* creator = atom.creator;
+		if (creator->kind == Creator::Kind::Sprite)
+		{
+			// Particle3DSprite::DrawAt 0x67AF8A..0x67AFD6: the sprite's position is the PSR's +0x24, raised by
+			// sprite +0x10 (the height) x +0xC (the size) x 0.5 ([0x8AA3B4]) with the flag +0x25 & 1 (CentreAtBase); the
+			// size is the scale, at least 0.0001 (0x67AEA4..0x67AEBE), the height the stretch
+			glm::vec3 key = atom.position;
+			if (creator->centreAtBase)
+			{
+				key.y += atom.stretch * std::max(atom.scale, 1e-4f) * 0.5f;
+			}
+			frame.sprites.push_back({key, atom, effect, drawT});
+		}
+		else if (creator->kind == Creator::Kind::Mesh)
+		{
+			frame.meshes.push_back({atom.position, atom, effect, drawT});
+		}
+		else if (dynamic_cast<const MistCreator*>(creator) != nullptr)
+		{
+			frame.mists.push_back({atom.position, atom, effect, drawT});
+		}
+		else if (creator->className == "ZR_SurfRevol")
+		{
+			frame.surfaces.push_back({atom.position, atom, effect, drawT});
+		}
+		else
+		{
+			frame.others.push_back({atom.position, atom, effect, drawT});
+		}
+	};
+	for (const auto& [id, running] : g_Effects)
+	{
+		if (running.path != DrawPath::Sorted)
+		{
+			continue;
+		}
+		const float drawT = running.perFrame ? 1.0f : t;
+		std::vector<Effect::OrderedItem> items;
+		std::vector<Effect::DrawChain> chains;
+		running.effect->CollectOrdered(drawT, items, chains);
+		for (const auto& item : items)
+		{
+			if (item.chain >= 0)
+			{
+				// fn_0067B380: the joint n / 2 (the item's atom, Effect::CollectOrdered)
+				auto& chain = chains[static_cast<size_t>(item.chain)];
+				chain.path = DrawPath::Sorted;
+				chain.effect = id;
+				frame.chains.push_back({item.atom.position, std::move(chain), id, drawT});
+				continue;
+			}
+			add(item.atom, id, drawT);
+		}
+	}
+	for (const auto& drawable : CollectSources())
+	{
+		if (drawable.path != DrawPath::Sorted)
+		{
+			continue;
+		}
+		for (const auto& atom : drawable.atoms)
+		{
+			add(atom, drawable.effect, drawable.t);
+		}
+	}
+	return frame;
+}
+
+std::vector<manager::OrderedEffect> manager::CollectQueued()
+{
+	auto result = CollectOrderedOf(DrawPath::Queued);
+	for (auto& drawable : CollectSources())
+	{
+		if (drawable.path != DrawPath::Queued || drawable.atoms.empty())
+		{
+			continue;
+		}
+		OrderedEffect effect {drawable.effect, DrawPath::Queued, drawable.origin, drawable.t, {}, {}};
+		for (auto& atom : drawable.atoms)
+		{
+			effect.items.push_back({atom, -1});
+		}
+		result.push_back(std::move(effect));
+	}
+	return result;
+}
+
+std::vector<manager::OrderedEffect> manager::HandEffects()
+{
+	return CollectOrderedOf(DrawPath::Immediate);
 }

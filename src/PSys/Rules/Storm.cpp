@@ -48,6 +48,7 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -792,6 +793,8 @@ void TornadoCarrier::Release(const glm::vec3& position)
 		return;
 	}
 	Carried().erase(object);
+	// let go: it may enter the map again (ecs::map_cells::Sync, once it is out of the physics)
+	ecs::map_cells::SetHeldOutOfMap(object, false);
 	if (!Locator::entitiesRegistry::has_value())
 	{
 		return;
@@ -872,48 +875,12 @@ uint32_t TornadoDustColour(const glm::vec3& point)
 	return 0xFF000000u | ((c.x & 0xFFu) << 16u) | ((c.y & 0xFFu) << 8u) | (c.z & 0xFFu);
 }
 
-/// The pots of the land by 10 m cell: openblack's map grid lists only the Fixed and Mobile entities, and the pots and
-/// piles (MobileObjects in the original's cell lists) have neither, so a pick-up adds them by their cell
-/// ((aproximado): port bookkeeping, built from the registry at each pick-up instead of the cell lists)
-std::unordered_map<int32_t, std::vector<entt::entity>> PotsByCell()
+/// The objects of one 10 m cell as 0x6D2327 walks them: the fixed list (+4) first, then the mobile one (+0), each from
+/// its head (ecs::map_cells). The pots and piles (type 21, counted as fixed) are at the tail of the fixed list
+/// (Object::InsertMapObjectToCell 0x636830). The caller has already checked map_coords::InBounds (0x6D2311)
+void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out)
 {
-	std::unordered_map<int32_t, std::vector<entt::entity>> pots;
-	Locator::entitiesRegistry::value().Each<const ecs::components::Pot, const ecs::components::Transform>(
-	    [&](entt::entity entity, const ecs::components::Pot& /*pot*/, const ecs::components::Transform& transform) {
-		    // the cell of the pot's MapCoords (ToFixed, the high words), as the original's cell lists hold it
-		    const auto cell = ecs::map_coords::CellOf(transform.position);
-		    pots[cell.x + cell.y * 0x10000].push_back(entity);
-	    });
-	for (auto& [cell, list] : pots)
-	{
-		std::sort(list.begin(), list.end());
-	}
-	return pots;
-}
-
-/// The objects of one 10 m cell, the mobile list (+4) first and then the fixed one (+0) (0x6D2327). The caller has
-/// already checked map_coords::InBounds (0x6D2311)
-void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out,
-                 const std::unordered_map<int32_t, std::vector<entt::entity>>& pots)
-{
-	out.clear();
-	if (!Locator::entitiesMap::has_value())
-	{
-		return;
-	}
-	const auto& map = Locator::entitiesMap::value();
-	const ecs::MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
-	std::vector<entt::entity> mobile(map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
-	std::vector<entt::entity> fixed(map.GetFixedInGridCell(id).begin(), map.GetFixedInGridCell(id).end());
-	// (inferido) the cell lists are unordered sets here: sorted, for a stable order
-	std::sort(mobile.begin(), mobile.end());
-	std::sort(fixed.begin(), fixed.end());
-	if (const auto it = pots.find(cell.x + cell.y * 0x10000); it != pots.end())
-	{
-		mobile.insert(mobile.end(), it->second.begin(), it->second.end());
-	}
-	out = std::move(mobile);
-	out.insert(out.end(), fixed.begin(), fixed.end());
+	out = ecs::map_cells::ObjectsInCell(cell);
 }
 
 /// PileResource::IsPileResource 0x66ED60 (vt 0x4CC): the piles (openblack: a Pot that sinks, PileSink) (inferido)
@@ -1298,7 +1265,6 @@ private:
 		ecs::map_coords::Spiral spiral;
 		std::vector<entt::entity> objects;
 		entt::entity taken = entt::null;
-		const auto pots = PotsByCell();
 		for (int i = 0; i < cells && taken == entt::null; ++i)
 		{
 			if (!ecs::map_coords::InBounds(cell))
@@ -1306,7 +1272,7 @@ private:
 				ecs::map_coords::AddCells(cell, spiral.Next());
 				continue;
 			}
-			CellObjects(ecs::map_coords::Cell(cell), objects, pots);
+			CellObjects(ecs::map_coords::Cell(cell), objects);
 			for (const auto object : objects)
 			{
 				if (taken != entt::null)
@@ -1320,8 +1286,8 @@ private:
 				}
 				// the object's MapCoords +0x14
 				const auto own = ecs::object::MapCoordsOf(object);
-				// fn_00604F40: the object's own cell is this one (a fixed object in several cells is seen once)
-				if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
+				// fn_00604F40 (0x6D2369): the object's own cell is this one (a fixed object in several cells is seen once)
+				if (!ecs::map_cells::IsOwnCell(own, ecs::map_coords::Cell(cell)))
 				{
 					continue;
 				}
@@ -1402,6 +1368,8 @@ private:
 		const float s = data.tornadoScale < 0.2f ? 0.2f : (data.tornadoScale < 1.0f ? data.tornadoScale : 1.0f);
 		auto& transform = registry.Get<ecs::components::Transform>(piece);
 		transform.scale *= RandRange(effect, 0.7f, 1.2f) * s; // vt 0x124 SetScale(vt 0x120 GetScale x ...)
+		// Pot::Create's CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9): into its cell at once
+		ecs::map_cells::InsertMapObject(piece);
 		return piece;
 	}
 
@@ -1432,6 +1400,9 @@ private:
 			ecs::animal_ai::PlaceInHand(object);
 		}
 		Carried().insert(object);
+		// InitialisePhysics 0x637480+0x3A: Object::RemoveMapObject, out of its cells until it is let go (inferido: the
+		// tornado takes it out with the physics)
+		ecs::map_cells::SetHeldOutOfMap(object, true);
 		auto& atom = effect.NewAtom(flying, carried.get(), {});
 		const auto& transform = registry.Get<const ecs::components::Transform>(object);
 		// fn_00674150: position, ruleScale = |row 1| (the matrix's Y axis), rotation = the rows / that

@@ -29,11 +29,13 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "ECS/AnimalAI.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -270,12 +272,7 @@ std::vector<entt::entity> effects::ObjectsInMapCell(int cellX, int cellZ)
 
 entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 {
-	if (!Locator::entitiesMap::has_value())
-	{
-		return entt::null;
-	}
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto& map = Locator::entitiesMap::value();
 	// the corners: MapCoords x * 10 * (1 / 65536) -/+ radius, back with GUtils' * 65536 / 10 and __ftol
 	// (0x52514F..0x5251F6); the cells are their signed high words (movsx, 0x525212) and each one is tested with
 	// MapCoords::InBounds (0x525259), so a corner off the map does not wrap
@@ -286,7 +283,6 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 	const glm::ivec2 high(corner(position.x, radius), corner(position.z, radius));
 	const float altitude = LandAt(position.x, position.z) + position.y;
 	entt::entity hit = entt::null;
-	std::unordered_set<entt::entity> seen;
 	for (int32_t x = low.x; x <= high.x; ++x) // cmp ax, cx; jg (0x525209)
 	{
 		for (int32_t z = low.y; z <= high.y; ++z)
@@ -295,16 +291,17 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 			{
 				continue;
 			}
-			const MapInterface::CellId cell(static_cast<uint16_t>(x), static_cast<uint16_t>(z));
-			std::vector<entt::entity> objects(map.GetMobileInGridCell(cell).begin(), map.GetMobileInGridCell(cell).end());
-			// the grid's fixed objects plus the small ones it leaves out (FixedObjectsInMapCell)
-			const auto fixed = FixedObjectsInMapCell(static_cast<int>(x), static_cast<int>(z));
-			objects.insert(objects.end(), fixed.begin(), fixed.end());
-			for (const auto object : objects)
+			// GetFirstIterator 0x52526F: the cell's fixed list, then its mobile one (ecs::map_cells). 0x525274..0x5253BF keep
+			// no "done" set and no own-cell test (fn_00604F40): a multi-cell object is offered the effect once per cell of
+			// the square it is in (inferido: unless ApplyEffect vt +0x5CC limits it itself)
+			for (const auto object : map_cells::ObjectsInCell(glm::ivec2(x, z)))
 			{
-				// (inferido) once per object: 0x525100 was not read for a per-object "done" flag; openblack's grid puts a
-				// fixed object in every cell it touches, so without this it would be hit once per cell
-				if (!seen.insert(object).second || !registry.Valid(object) || !IsEffectReceiver(object, *this))
+				// 0x5252BD..0x5252C3: IsAvailable (vt +0x2C) == 1 (GameThing 0x401810: not being deleted, here a
+				// valid entity; Villager 0x751D50: its final state is not DYING), then IsEffectReceiver (vt +0x774,
+				// 0x5252D0); both skip to 0x5253BF
+				if (!registry.Valid(object) ||
+				    (registry.AllOf<Villager>(object) && !villager::IsAvailable(object)) ||
+				    !IsEffectReceiver(object, *this))
 				{
 					continue;
 				}

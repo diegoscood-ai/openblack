@@ -12,6 +12,7 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "Magic/Script/ScriptPlayer.h"
@@ -63,6 +64,9 @@ entt::entity objects::CreateMagicFood(const glm::vec3& position, std::optional<P
 	{
 		// +0xBC (0x5FA9F0): NULL -> g_game +0x18 + byte g_game[0x205A5B] * 0xA60, the neutral player (ScriptPlayer.h)
 		Locator::entitiesRegistry::value().Get<ecs::components::Pot>(pile).owner = player.value_or(k_NeutralPlayerSlot);
+		// CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9 -> Object::InsertMapObject 0x636740): the pile
+		// (type 21, counted as fixed) at the tail of its cell's fixed list at once
+		ecs::map_cells::InsertMapObject(pile);
 	}
 	return pile;
 }

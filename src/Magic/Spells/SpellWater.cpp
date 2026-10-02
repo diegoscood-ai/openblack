@@ -34,6 +34,7 @@
 #include "ECS/Fields.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
@@ -196,8 +197,8 @@ int Process(entt::entity entity)
 	}
 	// the 3 x 3 cells from P's (GUtils::Spiral, 9 steps): every object whose edge is within 2.5 x GetPower of P gets
 	// ApplyWaterSpell (vt 0x67C). GetDistanceInMetres 0x74CD70 is 2D (hypotenuse 0x74F680 of the MapCoords x, z).
-	// (inferido) once per object per drop: openblack's grid puts a big fixed object (a field) in every cell it covers
-	std::unordered_set<entt::entity> seen;
+	// 0x7250CC..0x725179 keep no "done" set and no own-cell test: a multi-cell object (a field) in several of the 9 cells
+	// gets ApplyWaterSpell once per cell, as in the original
 	// the spiral walks the drop's MapCoords (0x7250A2..0x7250BB): GetFirstIterator / GetMapChild on it, Spiral 0x74D7E0
 	// (0x725166) and operator+= 0x605470 (0x725173), which adds the step to the high words only (the fraction stays and
 	// the 16-bit add wraps at the map's edge)
@@ -208,9 +209,10 @@ int Process(entt::entity entity)
 	for (int i = 0; i < 9; ++i)
 	{
 		const auto cell = ecs::map_coords::Cell(coords);
-		for (const auto object : ecs::effects::ObjectsInMapCell(cell.x, cell.y))
+		// GetFirstIterator / GetMapChild (0x7250C3..0x725166): the fixed list, then the mobile one, from the heads
+		for (const auto object : ecs::map_cells::ObjectsInCell(glm::ivec2(cell)))
 		{
-			if (!seen.insert(object).second || !registry.Valid(object) || object == entity)
+			if (!registry.Valid(object) || object == entity)
 			{
 				continue;
 			}

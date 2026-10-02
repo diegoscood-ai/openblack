@@ -32,6 +32,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
@@ -424,7 +425,7 @@ private:
 /// 0x6015E0 with any type) is a villager (vt 0x2C8 IsVillager). No ConditionTrueForCollection of its own: false.
 bool AtomNearVillagers(const Effect& /*effect*/, const Object& /*object*/, const Atom* atom, const Collection& /*collection*/)
 {
-	if (atom == nullptr || !Locator::entitiesMap::has_value() || !Locator::terrainSystem::has_value())
+	if (atom == nullptr || !Locator::terrainSystem::has_value())
 	{
 		return false;
 	}
@@ -434,9 +435,13 @@ bool AtomNearVillagers(const Effect& /*effect*/, const Object& /*object*/, const
 		return false; // MapCoords::InBounds 0x6042C0
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	for (const auto object : Locator::entitiesMap::value().GetMobileInGridCell(ecs::MapInterface::CellId(cell)))
+	// FindTypeOnMap(-1, prev) 0x67D936 / 0x67D95F: the fixed list, then the mobile one (ecs::map_cells; one read
+	// snapshot for the whole walk)
+	const ecs::map_cells::ReadBatch batch;
+	for (auto object = ecs::map_cells::FindType(cell, ObjectType::Any); object != entt::null;
+	     object = ecs::map_cells::FindType(cell, ObjectType::Any, object))
 	{
-		if (registry.Valid(object) && registry.AllOf<ecs::components::Villager>(object))
+		if (registry.AllOf<ecs::components::Villager>(object)) // vt 0x2C8 IsVillager
 		{
 			return true;
 		}

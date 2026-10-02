@@ -15,8 +15,13 @@
 #include <spdlog/spdlog.h>
 
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 
@@ -59,24 +64,25 @@ void magic::script::IsFireNear()
 	const auto z = vm.Popf();
 	const auto y = vm.Popf();
 	const auto x = vm.Popf();
-	static_cast<void>(y);
-	auto& registry = Locator::entitiesRegistry::value();
-	bool found = false;
-	for (const auto* burning : fire::All())
-	{
-		// MapCoords::FindNearForScript walks the map cells: a fireball (not in the map) is not found. TODO(M7): a worship
-		// site answers with its totem's position (WorshipSite::GetTotemPos 0x77CF30)
-		if (burning->object == entt::null || !burning->IsOnFire() || !fire::traits::IsObjectInMap(burning->object))
+	// GScript::IsFireNear 0x6F7910: MapCoords::FindNearForScript(pred 0x6F7100, 0, 0, r) != 0 (0x604370: the cells of
+	// the square +-r, fixed then mobile). The predicate: IsOnFire(0) (vt 0x298) and GetDistanceInMetres 0x74CD70 from
+	// the script's point to the object (a worship site: GetTotemPos 0x77CF30) <= r (fcomp; test ah, 0x41 at 0x6F7171). A
+	// fireball is not in the map (MagicFireBall::InsertMapObject 0x682D10 is a bare ret)
+	const auto at = ecs::map_coords::FromWorld(glm::vec3(x, y, z));
+	const auto onFireNear = [&at, radius](entt::entity object) {
+		if (!fire::IsOnFire(object))
 		{
-			continue;
+			return false;
 		}
-		const auto* transform = registry.TryGet<const components::Transform>(burning->object);
-		if (transform != nullptr && glm::length(glm::vec2(transform->position.x - x, transform->position.z - z)) <= radius)
+		auto point = ecs::object::MapCoordsOf(object);
+		if (const auto* site = Locator::entitiesRegistry::value().TryGet<const components::WorshipSite>(object);
+		    site != nullptr && site->totem != entt::null && Locator::entitiesRegistry::value().Valid(site->totem))
 		{
-			found = true;
-			break;
+			point = ecs::object::MapCoordsOf(site->totem); // (inferido) openblack's totem entity
 		}
-	}
+		return gutils::GetDistanceInMetres(at, point) <= radius;
+	};
+	const bool found = ecs::map_cells::FindNearForScript(at, onFireNear, radius) != entt::null;
 	vm.Pushb(found);
 }
 

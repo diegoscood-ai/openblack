@@ -440,6 +440,9 @@ std::vector<surf_revol::Surface> surf_revol::Collect()
 			}
 			Surface surface;
 			surface.origin = drawable.origin; // the key of the effect's Z object (PSysManager::AddDrawing 0x6797D0)
+			surface.path = drawable.path;
+			surface.effect = drawable.effect;
+			surface.atom = atom.atom;
 			surface.texture = creator->texture;
 			surface.additive = creator->additive;
 			surface.writeDepth = creator->writeDepth;

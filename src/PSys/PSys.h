@@ -42,6 +42,28 @@ struct Atom;
 struct Collection;
 class Modifier;
 
+/// How the original draws an effect: which of GJPSysInterface's three draw entries (vtable 0x8FA8A0) its owner calls.
+/// The byte PSysManager +0xAE that fn_00679860 copies to [0xC0215D] (0x67987E..0x679884) is what each atom's DrawAt
+/// reads to queue itself or draw at once. Decided where the effect is started (manager::SetDrawPath). Report:
+/// dev\tmp_dis\miracles\polish\psys_draw_paths_verdict.md
+enum class DrawPath : uint8_t
+{
+	/// Draw_(t, 1) (vt+0x104 0x55EDA0 -> fn_00679840, +0xAE = 1 at 0x67984E): the effect has no Z object; each sprite
+	/// (0x67B0D2 -> LH3DSprite::AddDrawing 0x840C70), each mesh, opaque ones too (0x67A246 -> fn_00679F60), each mist
+	/// (0x67A782 -> fn_007FA7F0) and each chain (0x6798DF -> fn_0067B380) goes into the queue on its own; a ZR_SurfRevol
+	/// surface is drawn at once, unsorted (0x67CBA0 does not read the flag). Spell::Draw 0x720441 and nearly every other
+	/// site: the default
+	Sorted,
+	/// AddDrawing (vt+0x10C 0x55EDC0 -> PSysManager::AddDrawing 0x6797D0, +0xAE = 0 at 0x6797DE): one Z object at GetOrigin
+	/// (vt+0x130), and in it every atom drawn at once in fn_006798B0's order. Only the seed graphic on a ball or an icon
+	/// (SpellSeedGraphic::DrawSpellGraphic 0x51A2CA) and the containers with GSpotVisualInfo +0x4C SingleZSort == 1
+	/// (fn_0063E240 0x63E26A)
+	Queued,
+	/// Draw_(t, 0): every atom drawn at once in fn_006798B0's order, where the call is: the seed's effect in the hand
+	/// (CHand::DrawSpellInHand 0x46E76A, inside the hand's Z object, CHand::Draw 0x46D2AE)
+	Immediate,
+};
+
 /// ParticleCreator (fn_006A85E0) and its sprite form (ParticleSpriteCreator, 0x6AA0D0); the other kinds (point, mesh,
 /// mist, chain, light map...) are not drawn yet. Those derive from it in their own files (PSysRegistry.h).
 struct Creator
@@ -373,13 +395,26 @@ public:
 		const Creator* creator;
 		std::vector<DrawAtom> joints;
 		const Collection* collection {nullptr}; ///< the chain's collection (its scroll)
-		/// The effect's origin: the ribbon is drawn inside the effect's single Z object (fn_006798B0 0x6798DD takes the
-		/// fn_0067B370 branch, "draw now", whenever the manager is drawn from the Z-sorter), so its sort key is the
-		/// effect's own, PSysManager::AddDrawing 0x6797D0
+		/// The effect's origin: the key of a Queued effect's single Z object (PSysManager::AddDrawing 0x6797D0), which
+		/// the ribbon is drawn inside (fn_006798B0 0x6798DD takes the fn_0067B370 branch, "draw now", with [0xC0215D] 0).
+		/// A Sorted effect's ribbon has its own Z object at the joint n / 2 (fn_0067B380, manager::SortedChain)
 		glm::vec3 origin {0.0f};
+		DrawPath path {DrawPath::Sorted}; ///< its effect's (set by manager::CollectChains)
+		uint32_t effect {0};              ///< its effect's id (set by manager::CollectChains)
 	};
 	/// Every collection made of Kind::Chain atoms, interpolated as Collect does
 	void CollectChains(float t, std::vector<DrawChain>& out) const;
+	/// One step of fn_006798B0's walk: an atom (any kind but Chain, through fn_00679920 -> vt+0xFC DrawAt) or, with
+	/// chain >= 0, the ribbon chains[chain] of the collection walked
+	struct OrderedItem
+	{
+		DrawAtom atom;
+		int chain {-1};
+	};
+	/// Every drawn atom of every kind in the order fn_006798B0 (0x6798B0..0x679912) draws them, per root collection: the
+	/// collection's atoms in list order (+0x40, next +0x18), then its chain (+0x48, when it has two joints or more), then
+	/// for each atom in turn its child collections (atom +0x1C, next +0x18), each walked the same way
+	void CollectOrdered(float t, std::vector<OrderedItem>& items, std::vector<DrawChain>& chains) const;
 	[[nodiscard]] size_t AtomCount() const { return _atomCount; }
 
 private:
@@ -389,6 +424,8 @@ private:
 	                const glm::vec3& parentScale);
 	void CollectCollection(const Collection& collection, float t, std::vector<DrawAtom>& out, Creator::Kind kind) const;
 	void CollectChainsOf(const Collection& collection, float t, std::vector<DrawChain>& out) const;
+	void CollectOrderedOf(const Collection& collection, float t, std::vector<OrderedItem>& items,
+	                      std::vector<DrawChain>& chains) const;
 	[[nodiscard]] bool AnyCreatorLeft(const Collection& collection) const;
 
 	std::shared_ptr<const File> _file;

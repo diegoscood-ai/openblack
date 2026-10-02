@@ -16,6 +16,15 @@
 // white texture and the same alpha (alpha x specular is what the specular adds under that blend). Unlit (UseLighting is
 // not ported). PSys/Rules/SurfRevol.h.
 //
+// The draw DrawAt 0x67C150 makes for a surface is fn_0081C780 (0x67CAEE), not Draw3DWorldTriangle 0x81C090 (0x67C9F2):
+// the branch at 0x67C9CD takes it when the primitive has as many speculars (+0x30, count +0x38) as colours, and
+// ZR_SurfRevol sizes both to NumU x NumV (0x685A0E..0x685A3D). fn_0081C780 is Draw3DWorldTriangle with a specular per
+// vertex (colour / specular pairs, 0x81C9B9..0x81C9C4; Draw3DWorldTriangle writes 0, 0x81C2BF), always through
+// g_world_to_clipping (0x81C783), the material's culling (+5 bit 0, 0x81CA0C..0x81CA1C; CULLMODE 0x81CC5E..0x81CC6E)
+// and SetMaterial through the current table (0x81CB8F..0x81CBA1). So the surfaces stay here and do not go through
+// graphics::world_triangles (WorldTriangles.h): that one has no specular and takes an L3D primitive's material, while a
+// surface has its CreateMaterial(6) with the .raw texture and its alpha file.
+//
 // RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 never reads [0xC0215D] (the manager's +0xAE): a surface has no Z
 // object of its own on any path. A Sorted effect's (Draw_(t, 1): the teleport pool, MagicTeleport::Draw 0x5FCDC5; the
 // dispensers' discs, SpellDispenser::Draw 0x722A13) is drawn at once when the effect is drawn, in the main view after
@@ -124,15 +133,18 @@ void Renderer::DrawPSysSurface(RenderPass viewId, const psys::surf_revol::Surfac
 			bgfx::setIndexBuffer(&indices);
 			// CreateMaterial(6) + SetMaterialProperties (ZR_SurfRevol::ModifyAtomCollection 0x6863EC / 0x6863F9): 13 / 6,
 			// 12 / 5 with MaterialUpdateZBuffer, Z test on; the specular goes on top additively (mode 13, (inferido)).
-			// Not ported: no cull state, so Surface::doubleSided (MaterialSetDoubleSided) is ignored and every surface draws
-			// two-sided
+			// The table 0xC387C8 DrawAt puts with a DrawData alpha != 0xFF (0x67C9B7..0x67C9C0) leaves 5, 6, 12 and 13 as
+			// they are (render_modes::k_GlobalAlphaModes), so the mode is the material's
 			const auto mode =
 			    pass == 1 ? render_modes::Mode::AlphaTexturedAlphaAdditiveNz
 			              : render_modes::ModeFromProperties(render_modes::Mode::AlphaTexturedAlphaNz,
 			                                                 {.additive = surface.additive,
 			                                                  .zWrite = surface.writeDepth,
 			                                                  .alpha = true});
-			bgfx::setState(render_modes::State(mode));
+			// CULLMODE ((~material +5) & 1) * 2 + 1 (fn_0081C780 0x81CC5E..0x81CC6E): +5 bit 0 is MaterialSetDoubleSided
+			// (SetMaterialProperties 0x57E1B7..0x57E1C9), so a one-sided surface (the teleport pool's SF_TeleportVortex)
+			// culls D3DCULL_CCW as the models do (render_modes::CullFor; the vertices are in the world, no mirror)
+			bgfx::setState(render_modes::State(mode, {.cull = render_modes::CullFor(surface.doubleSided, false)}));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}

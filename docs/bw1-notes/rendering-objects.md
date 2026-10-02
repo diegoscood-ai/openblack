@@ -521,18 +521,28 @@ El original tiene tres mecanismos y un solo plano:
     vt+0x78(0) (`xor edx, edx; call [eax+0x78]`): árboles (0x749FA3), bosques (0x439098), flores (0x527A5D), comida
     mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), los credos (0x50B46E), las banderas del pueblo
     (`TownDesireFlags`, 0x746DD4), las bolas de un uso (`OneOffSpellSeed`, 0x72A4B4), los escudos (MagicShield
-    0x72C2B4, PhysicalShield 0x72CCF4), la carga de iconos y tótems (`TChargingData` 0x72675F, 0x780BBB), las mallas
-    PSys (`ParticleMeshCreator*::CreateLH3DObject` 0x6A8AD3, 0x6A8D6A) y los cultivos al borrarse (0x607EC5). Al coger
+    0x72C2B4, PhysicalShield 0x72CCF4), la carga de iconos y tótems (`TChargingData` 0x72675F, 0x780BBB) y los cultivos al borrarse (0x607EC5). Al coger
     un objeto se le quita (`SetHeldObject` 0x816842); al lanzarlo se restaura.
+  - Y no reciben los que no pasan por `Create3DObject`: un LH3DObject nuevo tiene el bit a 0 (el ctor de
+    `LH3DMeshedObject` pone +4 = 0x10009, 0x816537) y vt+0x78 (`fn_008168A0`) solo lo pone con argumento ≠ 0 y
+    [0xC38220] ≠ 0. Así, las bandas de power-up de la mano (`Band`, `fn_0068CA30` → `LH3DObject::Create` 0x68CA98) y la
+    del icono de hechizo (`CreatePUBand` 0x727080 → `Game3DObject::Create` 0x63ABB0, que salta a `LH3DObject::Create`)
+    no reciben. La malla del icono sí (`fn_00727190`, vt+0x78(1) en 0x727245).
+  - Corrección: las mallas PSys no llaman vt+0x78(0), sino vt+0x78 con el byte +0x54 del creador (`mov dl, [edi+0x54]`
+    en 0x6A8ACE / 0x6A8D65; el mismo byte va a vt+0x80). Ese byte vale 0 en los dos ctores (0x6A8986, 0x6A8BDE) y
+    ninguna propiedad lo escribe (`DefineProperties` 0x6B37A0 / 0x6B38B0 / 0x6B3970; no hay otra escritura en
+    0x6A8000..0x6B4000), así que tampoco reciben. `ParticleAnimCreator::CreateLH3DObject` (0x6A9760) no llama vt+0x78.
   - openblack: `RendererShadows.cpp`. `CollectShadowReceivers` (al empezar los objetos de la vista Main: receptores de
     `RenderContext::entityInstances` con `receivesDynamicShadow`, sombras con `onObjects`), `DrawShadowsOnObject`
     (detrás del `DrawMesh` de cada malla opaca en Main, o detrás de su entrada en el vaciado de `graphics::zsorter`, en
-    `MainBlended`; con las matrices con que se dibujó) y `DrawShadowsOnOtherObjects` (los receptores que no pasan por
-    ninguno de los dos, como las partes de los tiburones sobre el agua, al final de los objetos de Main **(inferido:
-    son opacos y la prueba EQUAL ya descarta lo que se dibujó delante)**). ZFUNC Equal, salvo las mallas con huesos
+    `MainBlended`; con las matrices con que se dibujó) y `DrawShadowsOnCutObjects` (las partes de los tiburones sobre el agua, justo detrás de
+    `DrawCutAboveWater` y no una a una **(inferido: son opacas y la prueba Z del receptor ya descarta lo que se dibuja
+    delante)**). Un receptor que no se dibujó en el fotograma (fuera de la vista, ya transparente del todo, o pasado el
+    tope 0x800 de la cola) no recibe sombra: `ClearShadowReceivers` vacía la lista al final de los objetos, como la
+    cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos
     (GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada).
     `fs_object_shadow` con `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) deja fuera también las bolas de
-    un uso y los escudos. Clave de detalle `shadowsOnObjects` (niveles 3–6). Falta la prueba propia de los morfables
+    un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6). Falta la prueba propia de los morfables
     (`fn_0080E550` 0x80E74B..0x80E874 → `fn_0080AE40`) **pendiente**.
 
 ## Cortar por el plano del agua (`DrawCutByPlane`)

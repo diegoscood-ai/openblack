@@ -552,13 +552,13 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   rasterizado, resolución, filtro chroma, fundido horneado, prueba de bloque y de visibilidad), con `test_shadow_math`.
 - `src/Graphics/ShadowList.{h,cpp}` (`graphics::shadow_list`): la lista y sus productores (la mano, los objetos físicos
   en vuelo de `PhysicsObjects::ForEach` con `CastsPhysicsShadow`, y los `components::DynamicShadow`: el barco con
-  `useSun`), una textura R8 32×32 (n·17, CLAMP) por entrada, subida cada fotograma. La pose sale de
+  `useSun`), una textura R8 32×32 (64×64 la de la mano mientras S5 espera; n·17, CLAMP) por entrada, subida cada fotograma. La pose sale de
   `L3DSubMesh::GetSkinBones` / `GetSkinLocalPositions` (S2) y de `ecs::PosesByInstance`.
 - `src/Graphics/RendererShadows.cpp`: `UpdateShadows` (una vez por fotograma), `DrawLandShadows` (en el bucle de
   bloques de `Renderer::DrawPass`, vista Main, justo detrás del `submit` de cada bloque; programa `LandShadow` =
   `vs_land_shadow` / `fs_land_shadow`, que comparte `land_position.sh` con `vs_terrain` para dar la misma Z; Z GEQUAL
   por la profundidad invertida, sin escribir Z, modo 6, el culling del bloque; textura en la etapa 11) y las sombras
-  sobre objetos (`CollectShadowReceivers`, `DrawShadowsOnObject`, `DrawShadowsOnOtherObjects`). `shadow.sh`:
+  sobre objetos (`CollectShadowReceivers`, `DrawShadowsOnObject`, `DrawShadowsOnCutObjects`, `ClearShadowReceivers`). `shadow.sh`:
   `LandShadowUv`, `ObjectShadowUv`, `ShadowKept` (el código 0x400).
 - `fs_terrain` ya no tiene sombras (fuera `s7_dynamicShadow`, `u_dynamicShadow*` y el bucle de 16
   `u_physicsShadow*`); se borraron `PhysicsShadows.{h,cpp}`, `vs_dynamic_shadow_instanced`,
@@ -573,8 +573,16 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   mano y sin el objeto sostenido. El original: si+0x3C = 1 (0x80C037 → 0x880141, como mucho 4/15), 32×32, base en la
   y de la mano (0x8152B1) y el objeto sostenido dentro a densidad completa (0x807532..0x8075B7). Es un cambio de una
   línea.
-- **(aproximado)** el código 0x400 se aplica por fragmento (el original quita triángulos enteros); con luz vertical
-  k = 0 y no cambia nada.
+- **(aproximado)** el código 0x400, que en el original quita triángulos enteros: sobre la tierra, `fs_land_shadow`
+  quita el triángulo cuando sus tres vértices llevan el código, pero lo hace por fragmento con el valor interpolado,
+  así que en las aristas quedan fragmentos sueltos de más o de menos; sobre los objetos, `fs_object_shadow` lo aplica
+  por fragmento. Con luz vertical k = 0 y no cambia nada.
+- **(aproximado)** el redibujado sobre la tierra (Z GEQUAL sin escribir Z) depende de que `vs_terrain` y
+  `vs_land_shadow` den la misma profundidad bit a bit: comparten `land_position.sh`, pero no llevan `precise` /
+  `invariant`. En el backend actual (D3D11) no hay motas en las capturas. Si aparecen en otro backend o con otro
+  compilador de shaders, el plan B es un sesgo mínimo hacia la cámara en `vs_land_shadow` (con la Z invertida,
+  `gl_Position.z += ε·w`) o declarar la posición invariant en los dos. Lo mismo vale para la sombra sobre los objetos
+  estáticos (ZFUNC EQUAL contra el dibujo instanciado del objeto).
 - **(inferido)** filtro lineal de la textura (el de la etapa por defecto de LH3D); la visibilidad del barco con la
   cámara normal y no con la del espejo (D-O5); un bloque invisible tiene aquí su distancia nueva (el original guarda la
   vieja).

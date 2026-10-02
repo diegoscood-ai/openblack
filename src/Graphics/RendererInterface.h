@@ -16,6 +16,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 
+#include "GraphicsHandle.h"
 #include "InstanceDesc.h"
 #include "RenderModes.h"
 #include "RenderPass.h"
@@ -95,10 +96,11 @@ public:
 		/// A draw of the pass under the sea (graphics::sea_pass): DrawUnderWater (vt+0x118) in a constant or the last
 		/// Draw's colour, DrawCutByPlane (vt+0x11C), the plane kept and whether it is mirrored back
 		sea_pass::SeaDraw sea {};
-		/// The dynamic shadow drawn on the object (programs *ShadowInstanced): texture, box and opacity
-		const graphics::Texture2D* dynamicShadow {nullptr};
+		/// A projected shadow drawn on the object (programs *ShadowInstanced, shadow_list): its texture (si+0x45C), its
+		/// box (x0, z0, 1 / (x1 - x0), 1 / (z1 - z0)) and the code 0x400 (d.x, d.z, the least k)
+		std::optional<graphics::TextureHandle> dynamicShadow;
 		glm::vec4 dynamicShadowBox {0.0f};
-		glm::vec4 dynamicShadowParams {0.0f};
+		glm::vec4 dynamicShadowCull {0.0f};
 	};
 
 	static std::unique_ptr<RendererInterface> Create(GraphicsBackend backend, bool vsync) noexcept;

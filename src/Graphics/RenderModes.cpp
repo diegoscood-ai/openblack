@@ -40,6 +40,9 @@ uint64_t State(Mode mode, const StateOptions& options)
 		break;
 	case ZFunc::Always:
 		break;
+	case ZFunc::LessEqualInclusive:
+		state |= BGFX_STATE_DEPTH_TEST_GEQUAL; // D3DCMP_LESSEQUAL (0x82CCC5) with openblack's inverted Z
+		break;
 	}
 	if (!options.blendInShader)
 	{

@@ -75,7 +75,7 @@
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/ModelLight.h"
-#include "Graphics/PhysicsShadows.h"
+#include "Graphics/ShadowList.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/RenderModes.h"
 #include "Video/VideoPlayer.h"
@@ -338,7 +338,7 @@ std::unique_ptr<RendererInterface> RendererInterface::Create(GraphicsBackend bac
 
 Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallback) noexcept
     : _shaderManager(std::make_unique<ShaderManager>())
-    , _physicsShadows(std::make_unique<PhysicsShadows>())
+    , _shadows(std::make_unique<shadow_list::List>())
     , _bgfxCallback(std::move(bgfxCallback))
     , _bgfxReset(bgfxReset)
 {
@@ -366,8 +366,7 @@ Renderer::~Renderer() noexcept
 	_clouds.reset();
 	_font.reset(); // its texture before bgfx::shutdown
 	_foliage.reset();
-	_handShadowFrameBuffer.reset(); // before bgfx::shutdown
-	_physicsShadows.reset();
+	_shadows.reset(); // its textures before bgfx::shutdown
 	if (bgfx::isValid(_landLightTexture))
 	{
 		bgfx::destroy(_landLightTexture);
@@ -614,11 +613,11 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				program->SetUniformValue("u_window", &u_window);                      // vs
 				const glm::vec4 u_materialColour = {glm::vec3(prim.colour), texture == nullptr ? 1.0f : 0.0f};
 				program->SetUniformValue("u_materialColour", &u_materialColour);      // fs
-				if (desc.dynamicShadow != nullptr)
+				if (desc.dynamicShadow.has_value())
 				{
 					program->SetTextureSampler("s_dynamicShadow", 5, *desc.dynamicShadow);
 					program->SetUniformValue("u_dynamicShadowBox", &desc.dynamicShadowBox);
-					program->SetUniformValue("u_dynamicShadow", &desc.dynamicShadowParams);
+					program->SetUniformValue("u_dynamicShadowCull", &desc.dynamicShadowCull);
 				}
 			}
 			if (!desc.isSky)
@@ -1414,90 +1413,6 @@ void Renderer::DrawCloud(graphics::RenderPass viewId, const Camera& camera, uint
 	}
 }
 
-void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
-{
-	_handShadowParams = glm::vec4(0.0f);
-	if (!drawDesc.drawIsland || !drawDesc.drawEntities || !Locator::handSystem::has_value())
-	{
-		return;
-	}
-	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
-	const auto desc = renderCtx.instancedDrawDescs.find(ecs::components::Hand::k_MeshId);
-	const auto* bones = Locator::handSystem::value().GetBoneMatrices();
-	if (desc == renderCtx.instancedDrawDescs.end() || desc->second.count == 0 || bones == nullptr ||
-	    desc->second.offset >= renderCtx.instanceUniforms.size())
-	{
-		return;
-	}
-	const auto mesh = Locator::resources::value().GetMeshes().Handle(ecs::components::Hand::k_MeshId);
-	if (mesh->GetBoneMatrices().size() != bones->size())
-	{
-		return;
-	}
-	if (!_handShadowFrameBuffer)
-	{
-		// the original's silhouette is 32 x 32 with 4 x 2 subsamples per texel; 64 x 64 sampled bilinearly is as soft
-		_handShadowFrameBuffer = std::make_unique<FrameBuffer>("HandShadow", 64, 64, TextureFormat::R8);
-	}
-	// the hand's transform (its pose is in the bone matrices, the instance only carries its scale and origin)
-	const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
-	const auto& handTransform = Locator::entitiesRegistry::value().Get<ecs::components::Transform>(hand);
-	const glm::vec3 position = handTransform.position;
-	const float scale = handTransform.scale.x;
-	const float radius = 0.5f * glm::length(mesh->GetBoundingBox().Size()) * scale;
-	const auto& island = Locator::terrainSystem::value();
-	const float ground = island.GetHeightAt(glm::vec2(position.x, position.z));
-
-	// fn_00874600: full up to 50 radii from the camera, gone at 80
-	const float q = glm::distance(drawDesc.camera->GetOrigin(), glm::vec3(position.x, ground, position.z)) /
-	                std::max(radius, 0.001f);
-	const float fade = q < 50.0f ? 1.0f : std::max(0.0f, 1.0f - (q - 50.0f) / 30.0f);
-	if (fade <= 0.0f)
-	{
-		return;
-	}
-	// the hand's light is straight above it (+200, CHand::PrepareForDrawing sets [obj+0xBC])
-	const glm::vec4 light(position + glm::vec3(0.0f, 200.0f, 0.0f), ground);
-	const float extent = radius * 2.0f;
-	_handShadowBox = glm::vec4(position.x - extent, position.z - extent, 1.0f / (2.0f * extent), 1.0f / (2.0f * extent));
-	_handShadowParams = glm::vec4(8.0f / 15.0f * fade, ground, 0.0f, 0.0f);
-
-	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::DynamicShadow);
-	_handShadowFrameBuffer->Bind(graphics::RenderPass::DynamicShadow);
-	bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0x00000000);
-	bgfx::setViewRect(viewId, 0, 0, 64, 64);
-	bgfx::touch(viewId);
-	const auto* program = _shaderManager->GetShader("DynamicShadowInstanced");
-	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
-	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
-	const glm::vec4 u_shadowParams(-1.0f, 0.0f, 0.0f, 0.0f); // no alpha test
-	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
-	for (const auto& subMesh : mesh->GetSubMeshes())
-	{
-		if (subMesh->IsPhysics() || (subMesh->GetFlags().lodMask & 1) != 1)
-		{
-			continue;
-		}
-		for (const auto& prim : subMesh->GetPrimitives())
-		{
-			program->SetUniformValue("u_shadowSlot", &u_shadowSlot);
-			program->SetUniformValue("u_shadowLight", &light);
-			program->SetUniformValue("u_shadowBox", &_handShadowBox);
-			program->SetUniformValue("u_shadowParams", &u_shadowParams);
-			bgfx::setTransform(bones->data(), static_cast<uint16_t>(bones->size()));
-			// both player hands share the mesh; the one outside the box leaves nothing
-			bgfx::setInstanceDataBuffer(toBgfx(renderCtx.instanceUniformBuffer), desc->second.offset, desc->second.count);
-			if (subMesh->GetMesh().IsIndexed())
-			{
-				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
-			}
-			subMesh->GetMesh().GetVertexBuffer().Bind();
-			bgfx::setState(k_State);
-			bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
-		}
-	}
-}
-
 void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 {
 	if (!Locator::handSystem::has_value())
@@ -1557,68 +1472,6 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 		}
 		// vt+0x118 in the colour the last Draw left (0x5E49A2 the held object, 0x6470C6 / 0x64717C the physics objects)
 		DrawUnderWater(viewId, entity, sea_pass::UnderWaterLastDraw());
-	}
-}
-
-void Renderer::DrawHandShadowOnObjects() const
-{
-	// "ShadowsOnObjects" detail key; only the hand's (and the creature's) shadow holder falls on objects (si+0xC == 0)
-	if (_handShadowParams.x <= 0.0f || !_handShadowFrameBuffer ||
-	    !GetDetailLevel(Locator::config::value().detailLevel).shadowsOnObjects)
-	{
-		return;
-	}
-	const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	const auto& registry = Locator::entitiesRegistry::value();
-	const auto held = Locator::handSystem::value().GetHeldObject();
-	// si+0x2C: the shadow box {x0, z0, x1, z1}
-	const glm::vec2 boxMin(_handShadowBox.x, _handShadowBox.y);
-	const glm::vec2 boxMax = boxMin + 1.0f / glm::vec2(_handShadowBox.z, _handShadowBox.w);
-	L3DMeshSubmitDesc submitDesc = {};
-	submitDesc.viewId = graphics::RenderPass::MainBlended;
-	// fn_0080B050 0x80B06A..0x80B08B: SetMaterial of the shadow material [si+0x460] (CreateMaterial(6) fn_0087FD50
-	// 0x87FE12) through the current table, mode 6 (SRCALPHA / INVSRCALPHA, no Z write); fn_0084E200 draws each primitive
-	// with no state of its own. ZFUNC EQUAL over the object as it was drawn (0x80E488). The shadow material's culling:
-	// +5 = 0 (CreateMaterial 0x87FE12), CULLMODE CCW (fn_0080B050 0x80B0AD..0x80B0E6), two-sided primitives too
-	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
-	submitDesc.options = {.zFunc = render_modes::ZFunc::Equal, .cull = render_modes::Cull::Ccw, .msaa = true};
-	submitDesc.dynamicShadow = &_handShadowFrameBuffer->GetColorAttachment();
-	submitDesc.dynamicShadowBox = _handShadowBox;
-	submitDesc.dynamicShadowParams = _handShadowParams;
-	for (const auto& [entity, instance] : renderCtx.entityInstances)
-	{
-		if (!instance.receivesDynamicShadow || (held.has_value() && *held == entity) || !meshes.Contains(instance.meshId))
-		{
-			continue;
-		}
-		const auto mesh = meshes.Handle(instance.meshId);
-		// ContainsThisBoundingBox (fn_007F9E80): the mesh box centre +- half its size, moved to the object, x and z only
-		const auto& box = mesh->GetBoundingBox();
-		const auto& transform = registry.Get<ecs::components::Transform>(entity);
-		const glm::vec2 centre =
-		    glm::vec2(box.Center().x, box.Center().z) + glm::vec2(transform.position.x, transform.position.z);
-		const glm::vec2 half = glm::vec2(box.Size().x, box.Size().z) * 0.5f;
-		if (centre.x + half.x < boxMin.x || centre.x - half.x > boxMax.x || centre.y + half.y < boxMin.y ||
-		    centre.y - half.y > boxMax.y)
-		{
-			continue;
-		}
-		submitDesc.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
-		if (mesh->IsBoned())
-		{
-			submitDesc.modelMatrices = mesh->GetBoneMatrices().data();
-			submitDesc.matrixCount = static_cast<uint8_t>(mesh->GetBoneMatrices().size());
-		}
-		else
-		{
-			static const auto k_Identity = glm::mat4(1.0f);
-			submitDesc.modelMatrices = &k_Identity;
-			submitDesc.matrixCount = 1;
-		}
-		submitDesc.morphWithTerrain = instance.morphWithTerrain;
-		submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain, land_morph::ObjectPass::Shadow);
-		DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 	}
 }
 
@@ -2003,12 +1856,7 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		// its day branch, the default sun (0x5E5B70), instead of keeping an old frame's (inferido)
 		model_light::SetLight(model_light::k_DefaultSun);
 	}
-	DrawHandShadowPass(drawDesc);
-	if (drawDesc.drawIsland && drawDesc.drawEntities)
-	{
-		_physicsShadows->Update(*drawDesc.camera);
-		_physicsShadows->Draw(*_shaderManager);
-	}
+	UpdateShadows(drawDesc);
 	if (drawDesc.drawIsland)
 	{
 		UpdateClouds();
@@ -2411,6 +2259,14 @@ struct ZObject
 	int cloud {-1}; ///< a cloud of _clouds (LH3DMist::AddDrawing 0x7FA87B from fn_005E25C0)
 	int rain {-1};  ///< an index of _frameRain (fn_008341B0 0x83427F, one per raining tile)
 	int boat {-1};  ///< an index of _frameBoatSprites (LH3DSprite::AddDrawing 0x840CB3, one per sprite)
+
+	/// a model instance (meshId / index): none of the other kinds is set. The drain draws it with drawInstance, its
+	/// shadows inside it (DrawShadowsOnObject); a new kind must be added here too
+	[[nodiscard]] bool IsModel() const
+	{
+		return sprite == entt::null && psysSprite < 0 && psysMesh < 0 && psysChain < 0 && queuedEffect < 0 && mist < 0 &&
+		       smoke < 0 && cloud < 0 && rain < 0 && boat < 0;
+	}
 };
 
 // The renderer draws the PSys effects by their draw path (manager::CollectSorted / CollectQueued / HandEffects and
@@ -2561,16 +2417,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				terrainShader->SetTextureSampler("s10_blockTexture", 10, island.GetLandAlphaFramebuffer().GetColorAttachment());
 			}
 			terrainShader->SetUniformValue("u_blockTexture", &u_blockTexture);
-			if (_handShadowFrameBuffer)
-			{
-				terrainShader->SetTextureSampler("s7_dynamicShadow", 7, _handShadowFrameBuffer->GetColorAttachment());
-			}
-			const auto dynamicParams = desc.viewId == graphics::RenderPass::Main ? _handShadowParams : glm::vec4(0.0f);
-			terrainShader->SetUniformValue("u_dynamicShadowBox", &_handShadowBox);
-			terrainShader->SetUniformValue("u_dynamicShadow", &dynamicParams);
-			_physicsShadows->BindTerrain(*terrainShader,
-			                             desc.viewId == graphics::RenderPass::Main && desc.drawEntities);
-
 			terrainShader->SetUniformValue("u_skyAndBump", &u_skyAndBump);
 			terrainShader->SetUniformValue("u_smallBumpLine", &u_smallBumpLine);
 			terrainShader->SetUniformValue("u_haze", &u_haze);
@@ -2644,6 +2490,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 				bgfx::setState(state | landCull, 0);
 				bgfx::submit(static_cast<bgfx::ViewId>(desc.viewId), toBgfx(terrainShader->GetRawHandle()), 0, discard);
+				// fn_007FF610 0x7FF6BF..0x7FF749: the shadows over the block just drawn, only in the main land (the mirrored
+				// one, fn_007FF4F0, draws none)
+				if (desc.viewId == graphics::RenderPass::Main && desc.drawEntities)
+				{
+					DrawLandShadows(desc.viewId, block, landCull);
+				}
 			}
 			bgfx::discard(BGFX_DISCARD_BINDINGS);
 
@@ -2757,6 +2609,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			submitDesc.program = objectShaderInstanced;
 			submitDesc.options = render_modes::k_ModelPass;
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
+			// the objects under a shadow that falls on objects: each one gets it right after its own draw
+			// (RendererShadows.cpp: the tail loop of the objects' Draw, 0x80E457..0x80E4D7)
+			CollectShadowReceivers(desc.viewId == graphics::RenderPass::Main);
 
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
@@ -2853,11 +2708,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						setMatrices(meshId, *mesh);
 						ecs::UsePose(poses, placers.offset + i, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
 						DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+						// drawn at once (0x815F62): the shadows over it right after, the tail of its Draw vt+0x108
+						// (fn_0080DB30 0x80E457..0x80E4D7 -> fn_0080B050); a queued one gets them in its Z object
+						DrawShadowsOnObject(desc.viewId, placers.offset + i, submitDesc.modelMatrices, submitDesc.matrixCount);
 					}
 				}
 				else if (!queued)
 				{
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+					for (uint32_t i = 0; i < placers.count; ++i)
+					{
+						DrawShadowsOnObject(desc.viewId, placers.offset + i, submitDesc.modelMatrices, submitDesc.matrixCount);
+					}
 				}
 				if (queued)
 				{
@@ -2880,10 +2742,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 				}
 			}
-			// Whale::Draw 0x774E10: the sharks' parts above the water, in the normal object list
+			// Whale::Draw 0x774E10: the sharks' parts above the water, in the normal object list, and the shadows over
+			// them (RendererShadows.cpp)
 			if (desc.viewId == graphics::RenderPass::Main)
 			{
 				DrawCutAboveWater(desc.viewId);
+				DrawShadowsOnCutObjects(desc.viewId, cutAbove);
 			}
 			// One model instance drawn on its own: from the queue, or a fading one at once (in the main view). The table
 			// 0xC387C8 with its alpha byte for a fading object (components::Alpha; LH3DObject Draw 0x80DEED..0x80DF09, obj
@@ -2909,6 +2773,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.mode = std::nullopt;
 				submitDesc.sea = {};
 				DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				// the tail loop of its Draw vt+0x108 (fn_0080DB30 0x80E457..0x80E4D7 -> fn_0080B050): the shadows over it
+				// right after it, inside its Z object for a queued one (callback 0x7FA980), in the main view for a fading
+				// one drawn at once (0x815F62). (inferido) that the hand's mesh draw (CHand::Draw 0x46D258) runs that tail too,
+				// so its shadows come before the held object (0x46D27C) and its effects (0x46D2AE)
+				DrawShadowsOnObject(viewId, instance.index, submitDesc.modelMatrices, submitDesc.matrixCount);
 				submitDesc.options = opaqueOptions;
 				submitDesc.table = render_modes::Table::Normal;
 				submitDesc.globalAlpha = 255;
@@ -3163,7 +3032,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			static uint32_t zsorterTraceFrame = 0;
 			if (k_ZSorterTrace && sortBlended && ++zsorterTraceFrame % 60 == 0)
 			{
-				std::array<int, 13> counts {};
+				std::array<int, 14> counts {};
 				const auto ordered = sorted.Ordered();
 				for (const auto& entry : ordered)
 				{
@@ -3180,7 +3049,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					                    : z.sprite != entt::null ? 10
 					                    : z.meshId == ecs::components::Hand::k_MeshId && !z.fading ? 11
 					                    : z.fading                                                 ? 12
-					                                                                               : 0;
+					                    : z.IsModel()                                              ? 0
+					                                                                               : 13;
 					++counts.at(kind);
 				}
 				SPDLOG_LOGGER_INFO(spdlog::get("graphics"),
@@ -3336,6 +3206,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						drawSprite(sprite, transform, k_Blended);
 						continue;
 					}
+					if (!instance.IsModel())
+					{
+						continue;
+					}
 					drawInstance(instance, k_Blended);
 					// CHand::Draw 0x46D210: after the hand's mesh (0x46D258) and the held object (0x46D27C),
 					// DrawSpellInHand (0x46D2AE -> 0x46E680) draws the hand's effects with Draw_(1.0, 0) (0x46E76A): at
@@ -3351,15 +3225,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 				}
 			}
-			if (desc.viewId == graphics::RenderPass::Main)
-			{
-				// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0), the rain tiles, the boat's sprites and the
-				// clouds are no longer groups of their own: they all went at once or through the queue above.
-				// (inferido) the hand's shadow on the objects (fn_0080B050) is not read to go through the queue: after it.
-				// That moves it after the clouds and the boat's sprites too, which used to be drawn after it (the rain was
-				// already before it)
-				DrawHandShadowOnObjects();
-			}
+			// The effects' ribbons (fn_0067B3F0) and surfaces (0x67CBA0), the rain tiles, the boat's sprites and the
+			// clouds are no longer groups of their own: they all went at once or through the queue above. The shadows on the objects
+			// (fn_0080B050) went with their objects: right after each one drawn at once, inside the Z object of each queued
+			// one (RendererShadows.cpp). A receiver not drawn this frame (out of view, faded out, past the queue's 0x800)
+			// gets none, as the tail of a Draw that did not run (0x80E457..0x80E4D7)
+			ClearShadowReceivers();
 
 			// Debug
 			if (desc.viewId == graphics::RenderPass::Main)

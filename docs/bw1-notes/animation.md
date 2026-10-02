@@ -203,5 +203,3 @@ aldeanos.
 - Edad: el crecimiento cada 375 turnos (openblack no envejece a los aldeanos).
 - Clips: los oficios (objetos en la mano) y las ramas de `GetAnimId` que dependen de lo que aún no existe (ver
   [Qué clip toca](#qué-clip-toca)).
-- Sombras dinámicas con la pose: `Graphics/PhysicsShadows` (aldeanos y animales lanzados) usa las matrices de
-  reposo de la malla, no la pose animada.

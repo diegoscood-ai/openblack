@@ -14,6 +14,7 @@
 #include <optional>
 #include <unordered_set>
 
+#include <entt/core/hashed_string.hpp>
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
 
@@ -36,6 +37,7 @@
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
+#include "ECS/Components/HandFxPart.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Poisoned.h"
@@ -330,11 +332,26 @@ entt::id_type ShadowMeshOf(const openblack::ecs::Registry& registry, entt::entit
 	const auto* damage = registry.TryGet<const openblack::ecs::components::BuildingDamage>(entity);
 	return damage != nullptr && damage->intactMesh != 0 ? damage->intactMesh : drawn;
 }
-/// Object::Create3DObject (0x6365F0) turns the dynamic shadow on for every game object; trees (0x749FA3), forests
-/// (0x439098), flowers, magic food (0x5FAAC8), the food in the hand (pot info 12, 0x66D180) and a few others turn it off.
-bool ReceivesDynamicShadow(const openblack::ecs::Registry& registry, entt::entity entity)
+/// The receivers of the projected shadows: the LH3DObject's +4 bit 0x40, read by vt+0x7C (fn_007F9870, +4 >> 6 & 1)
+/// and set only by vt+0x78(1) (fn_008168A0: 0x40 when [0xC38220] != 0 and the argument != 0). A new LH3DObject has it
+/// clear (the LH3DMeshedObject ctor puts +4 = 0x10009, 0x816537), so only what turns it on receives:
+/// - Object::Create3DObject (0x6365F0, vt+0x78(1) at 0x63661E) for every game object; trees (0x749FA3), forests
+///   (0x439098), flowers, magic food (0x5FAAC8), the food in the hand (pot info 12, 0x66D180) and a few others turn it
+///   off again. So do the one-shot orb, the dispensers' bubble (OneOffSpellSeed::CallVirtualFunctionsForCreation
+///   0x72A4B4), and the two shields (MagicShield 0x72C2B4, PhysicalShield 0x72CCF4): vt+0x78(0) on their LH3DObject
+///   (obj+0x40), the same call as the trees' 0x749FA3;
+/// - the spell seed graphic's mesh (fn_00727190, vt+0x78(1) at 0x727245);
+/// and not the objects made with LH3DObject::Create alone, which never call it: the hand FX's power-up bands (Band,
+/// fn_0068CA30 0x68CA98; components::HandFxPart) and the seed graphic's power-up band (CreatePUBand 0x727080 ->
+/// Game3DObject::Create 0x63ABB0 = jmp LH3DObject::Create; the same Power_Up_Band mesh, which no game object uses), nor
+/// the PSys mesh atoms (vt+0x78 with the creator's +0x54, 0x6A8ACE / 0x6A8D65, 0 from the ctors 0x6A8986 / 0x6A8BDE
+/// and no property; not entities here anyway)
+bool ReceivesDynamicShadow(const openblack::ecs::Registry& registry, entt::entity entity, entt::id_type meshId)
 {
-	if (registry.AnyOf<Tree, DeadTree, BigForest, Forest, Hand, TempleInteriorPart>(entity))
+	static constexpr auto k_PowerUpBand = entt::hashed_string("Power_Up_Band");
+	if (meshId == k_PowerUpBand.value() ||
+	    registry.AnyOf<Tree, DeadTree, BigForest, Forest, Hand, TempleInteriorPart, OneOffSpellSeed, MapShield, HandFxPart>(
+	        entity))
 	{
 		return false;
 	}
@@ -542,7 +559,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    }
 		    _renderContext.entityInstances.insert_or_assign(
 		        entity, RenderContext::EntityInstance {mesh.id, idx, registry.AllOf<MorphWithTerrain>(entity),
-		                                               ReceivesDynamicShadow(registry, entity)});
+		                                               ReceivesDynamicShadow(registry, entity, mesh.id)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
 			    const auto casterMesh = ShadowMeshOf(registry, entity, mesh.id);

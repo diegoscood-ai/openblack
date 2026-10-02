@@ -9,18 +9,11 @@ SAMPLER2D(s1_bump, 1);
 SAMPLER2D(s2_smallBump, 2);
 SAMPLER2D(s3_footprints, 3);
 SAMPLER2D(s5_staticShadow, 5);
-SAMPLER2D(s7_dynamicShadow, 7);
 SAMPLER2D(s8_landAlpha, 8); // 1, or lower in the river channels (the sea drawn before the land shows through)
 SAMPLER2D(s10_blockTexture, 10); // the original's block textures (BlockTexture.h), RGBA8 of ARGB4444, rows along +z
 uniform vec4 u_blockTexture;      // x: 1 = colour from it (else the per-vertex materials of the terrain mods),
                                   // y: 1 = its alpha is the coast alpha (else no block texture: 1)
 uniform vec4 u_islandExtent;   // xy: minimum x/z, zw: maximum x/z
-uniform vec4 u_dynamicShadowBox; // xy: box minimum x/z, zw: 1 / size
-uniform vec4 u_dynamicShadow;    // x: opacity (8/15 x fade), y: the silhouette's plane height
-SAMPLER2D(s9_physicsShadow, 9);         // the physics objects' 32 x 32 shadows (PhysicsShadows), alpha n / 15
-uniform vec4 u_physicsShadowCount;      // x: how many
-uniform vec4 u_physicsShadowBox[16];    // xy: box minimum x/z, zw: 1 / size
-uniform vec4 u_physicsShadowSlot[16];   // xy: the shadow's corner in the atlas, z: its size, w: fade
 
 uniform vec4 u_skyAndBump; // x unused, y: bump strength, z: small bump strength (w: vs_terrain)
 uniform vec4 u_terrainPass; // x: light scale (0.5 for the mirrored land in the reflection, like fn_007FF4F0),
@@ -116,40 +109,7 @@ void main()
 	col.rgb = (col.rgb + v_landSpecular) * landAlpha * (1.0f - bumpAlpha) + (smallBump.rgb + v_landSpecular) * bumpAlpha;
 	float transmitted = (1.0f - landAlpha) * (1.0f - bumpAlpha);
 
-	// Dynamic shadow (fn_00878350, render mode 6: black, SRCALPHA / INVSRCALPHA over the drawn block, so over the
-	// sea seen through it too): draped vertically inside its box; vertices at altitude 1 or less get colour 0, so it
-	// fades out towards the water (v_shoreFade) and there is none over the open sea cells, which are not drawn
-	float shade = 1.0f;
-	if (u_dynamicShadow.x > 0.0f)
-	{
-		vec2 shadowUv = (v_worldXZ - u_dynamicShadowBox.xy) * u_dynamicShadowBox.zw;
-		#if !BGFX_SHADER_LANGUAGE_GLSL
-			shadowUv.y = 1.0f - shadowUv.y; // render target rows start at the top outside OpenGL
-		#endif
-		if (all(greaterThanEqual(shadowUv, vec2_splat(0.0f))) && all(lessThanEqual(shadowUv, vec2_splat(1.0f))))
-		{
-			shade *= 1.0f - u_dynamicShadow.x * v_shoreFade * texture2D(s7_dynamicShadow, shadowUv).r;
-		}
-	}
-	// The physics objects' shadows (fn_00878350 per shadow and block, mode 6: each one blended over the last),
-	// draped vertically; the land projection's 1 + h/15000 magnification is left out
-	for (int i = 0; i < 16; ++i)
-	{
-		if (float(i) >= u_physicsShadowCount.x)
-		{
-			break;
-		}
-		vec2 uv = (v_worldXZ - u_physicsShadowBox[i].xy) * u_physicsShadowBox[i].zw;
-		if (all(greaterThanEqual(uv, vec2_splat(0.0f))) && all(lessThanEqual(uv, vec2_splat(1.0f))))
-		{
-			vec2 atlasUv = u_physicsShadowSlot[i].xy + uv * u_physicsShadowSlot[i].z;
-			#if !BGFX_SHADER_LANGUAGE_GLSL
-				atlasUv.y = 1.0f - atlasUv.y; // render target rows start at the top outside OpenGL
-			#endif
-			shade *= 1.0f - u_physicsShadowSlot[i].w * v_shoreFade * texture2DLod(s9_physicsShadow, atlasUv, 0.0f).r;
-		}
-	}
-
-	// the shadows darken what the passes left, the sea behind included: colour x shade, transmitted x shade
-	gl_FragColor = vec4(col.rgb * shade, 1.0f - shade * transmitted);
+	// The projected shadows are drawn over the block afterwards, one draw per shadow (fn_007FF610 -> fn_00878350,
+	// vs_land_shadow / fs_land_shadow): black, SRCALPHA / INVSRCALPHA over the block, so over the sea seen through it too
+	gl_FragColor = vec4(col.rgb, 1.0f - transmitted);
 }

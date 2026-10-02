@@ -352,11 +352,18 @@ Diferencias:
 | hito | qué | dueño / bloqueo |
 |---|---|---|
 | V3 | **Hecho** (sesión *sistemas*): `Renderer::DrawVideoOverlay`, el mundo sin dibujar con `CoversScreen()`, `OPENBLACK_TEST_VIDEO`; sin shader nuevo (`WorldQuad`) | — |
-| V4 | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
+| V4 (hecho, sesión asistente) | Opcode 203 `SetAviSequence` (`CHLApi.cpp`): secuencia 1 → `video::Get().Play(data\intro.bik)` + `ScheduleIntro()` antes del `FadeBackToNormal(0)`; el `FreeStart()` del mod `game.skip-intro` se queda (sin vídeo) | `CHLApi.cpp` compartido |
 | V5 | **Hecho**: FFmpeg recortado (`--enable-decoder=bink`, sólo LGPL) detrás de `IVideoDecoder`, bit a bit igual a binkw32 en los frames de oro | — |
 | V6 | `fall.bik`: `KickOff/EndFallingSpellVideo`, alpha 0x50, el mundo debajo, fin con `FallingSpell+0x20 == 4`, `SetFallingSpellVideo` y el gancho `endFallingSpellVideo` | con *milagros* (no hay `FallingSpell`) |
 | V7 | `tips.bik` en la pantalla de carga | bloqueado: no hay pantalla de carga |
 | V8 | `logo.bik` y `pre_intro.bik` al arrancar, con `trailer.sad` | bloqueado: no hay front end ni perfiles; audio de *audio* |
+
+
+**V4 (hecho):** `SET_AVI_SEQUENCE(on, 1)` llama a `video::Get().Play(FindPath("Data/intro.bik"))` y `ScheduleIntro()` (58/60 s) y
+quita el fundido (0x68F477..0x68F4E9); una carga de mapa para la película que suene (`GGame::ClearVariables` 0x54BF28). Con
+«free start» del mod `game.skip-intro` no hay película. **Pendiente de probar en el juego:** en Land 1 sin el mod, FollowUs
+no llega todavía al 203 (en 4 min de juego se queda antes, con opcodes sin portar como DANCE_CREATE); la película se
+ve ya con `OPENBLACK_TEST_VIDEO=intro`.
 
 ## Pendiente
 

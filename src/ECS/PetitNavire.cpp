@@ -402,8 +402,9 @@ void Create(int32_t mode)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (mode == 0)
 	{
-		// +0x2C: its dynamic shadow (fn_008745A0), which falls on objects too ([holder]+0xC = 0)
-		registry.Assign<DynamicShadow>(boat.hullEntity, true);
+		// +0x2C: its dynamic shadow (fn_008745A0), lit by the fixed sun (holder+4 = 1, 0x5E11B6) and falling on objects
+		// too ([holder]+0xC = 0, 0x5E11BE)
+		registry.Assign<DynamicShadow>(boat.hullEntity, DynamicShadow {.onObjects = true, .useSun = true});
 		// +0x3C: the sailor with ANM_P_PUSH_OBJECT, drawn five times
 		for (int i = 0; i < 5; ++i)
 		{

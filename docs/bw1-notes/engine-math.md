@@ -1158,7 +1158,7 @@ se han borrado.
 
 **Dudosas, no migradas** (no consta qué hace el original en ese sitio):
 - `HandHolding.cpp` (el anillo de agua de lo lanzado, `0,5 × |Size| × escala`, 1 sin malla) y
-  `Graphics/PhysicsShadows.cpp:155` (la misma semidiagonal × escala): en el original el anillo usa el campo +0x178 del
+  la sombra de los lanzados (antes `Graphics/PhysicsShadows.cpp:155`; ahora `ShadowList.cpp` usa mesh+0x30 × obj+0x44, el radio de `fn_00874600`): en el original el anillo usa el campo +0x178 del
   `PhysicsObject` (0x6466AA: `1 / r` y `2 r`), que viene de su inicialización; no se ha leído de dónde sale.
 - `Physics/PhysicsObjects.cpp:302, :308` (`rockHalfHeight = 0,5 × Size().y`): ¿es la semialtura en línea de
   `PhysOb::Initialise` 0x7FB7D9 (`MeshHalfHeight`, sin escala)? Sin comprobar.

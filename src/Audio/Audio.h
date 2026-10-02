@@ -195,6 +195,14 @@ enum class Counter : uint8_t
 // (0x4282F0), IsVideoPlaying (g_game+0x250188): AudioSystem.h. The citadel and the interface states come from
 // GameQueries::insideCitadel / interfaceState.
 
+// ---- the music engine, for callers outside GAudio --------------------------------------------------------------------
+
+/// LHMusicStop(int fade) 0x1000E530 on every music channel: fade 1 sets every target to 0 (they fade out at -3 per
+/// 120 ms pass), anything else cuts them at once. Its game callers: FallingSpell::Draw at 43.9 s of fall.bik (fade 1,
+/// 0x5271B0) and PlayPreIntroVideo at the end of the pre-intro (fade 0, 0x642907). GAudio's script music keeps its
+/// own state (StartScriptMusic is not reset: the original leaves +0x180 as it is)
+void MusicStop(int fade);
+
 // ---- the citadel (C4) ------------------------------------------------------------------------------------------------
 // g_game+0x205A28 (GoInsideCitadel 0x554004 sets 1, LeaveInsideCitadel 0x553B1F sets 0) is GameQueries::insideCitadel:
 // the plan's SetInsideCitadel. Entering has no audio call of its own (0x553E10..0x55405E: InitEngine 0x793C60 plays

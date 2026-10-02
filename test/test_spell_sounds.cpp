@@ -20,8 +20,8 @@
 #include <PackFile.h>
 #include <gtest/gtest.h>
 
-#include "Audio/AnimEffectBank.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/LH/AnimEffectBank.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Common/Zip.h"
 #include "PSys/PSysFile.h"
 #include "PSys/SoundAction.h"

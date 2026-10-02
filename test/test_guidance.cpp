@@ -21,10 +21,11 @@
 
 #include "Audio/Audio.h"
 #include "Audio/GameQueries.h"
-#include "Audio/Guidance.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/Voices.h"
+#include "Audio/Services/Guidance.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/Voices.h"
+#include "ECS/GUtilsDistance.h"
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 
@@ -427,8 +428,12 @@ TEST_F(GuidanceTest, TownDesireEveryTenTurns)
 	ASSERT_TRUE(info);
 	EXPECT_EQ(info->sample, GuidanceSampleOf(4967));
 	EXPECT_EQ(GetState().lastDesireSample, 4967u);
-	// max distance 200 x (value - 0): the value is 2 x 1 x 1 x (1 - 0.05^2) x 1
-	EXPECT_FLOAT_EQ(GetState().options.maxDistance, 200.0f * static_cast<float>(2.0 * (1.0 - 0.0025)));
+	// max distance 200 x (value - 0): the value is 2 x 1 x 1 x (1 - (d / 200)^2) x 1, d the pit's distance to the
+	// camera by GetInfo 0x74CD50 = GUtils::GetDistanceInMetres (the 1 / sqrt table: 10 m comes out a little short)
+	const float d = gutils::GetDistanceInMetres(glm::vec3(10.0f, 0.0f, 0.0f), glm::vec3(0.0f));
+	EXPECT_NEAR(d, 10.0f, 0.01f);
+	const double near = static_cast<double>(d / 200.0f);
+	EXPECT_FLOAT_EQ(GetState().options.maxDistance, 200.0f * static_cast<float>(2.0 * (1.0 - near * near)));
 	// a town without people or storage pit says nothing
 	ClearMap();
 	ResetForTests();

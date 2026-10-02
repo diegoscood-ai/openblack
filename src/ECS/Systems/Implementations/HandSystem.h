@@ -15,7 +15,7 @@
 #include <entt/entity/entity.hpp>
 
 #include "3D/HandAnimator.h"
-#include "Audio/SamplePlay.h"
+#include "Audio/LH/SamplePlay.h"
 #include "Common/Zoomer.h"
 #include "Enums.h"
 #include "ECS/Systems/HandSystemInterface.h"

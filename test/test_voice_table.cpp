@@ -21,7 +21,7 @@
 #include <PackFile.h>
 #include <gtest/gtest.h>
 
-#include "Audio/Voices.h"
+#include "Audio/Services/Voices.h"
 #include "Common/HelpText.h"
 
 // Milestone A10 of dev\tmp_dis\audio\PLAN.md: the help texts with their narrator, first argument and name, and the voice

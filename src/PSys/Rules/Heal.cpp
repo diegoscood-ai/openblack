@@ -22,7 +22,7 @@
 
 #include <glm/geometric.hpp>
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/SpecularColour.h"
 #include "ECS/Components/Transform.h"

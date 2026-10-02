@@ -23,10 +23,11 @@
 #include <PackFile.h>
 #include <gtest/gtest.h>
 
-#include "Audio/GameMusic.h"
-#include "Audio/MusicBank.h"
-#include "Audio/MusicEngine.h"
-#include "Audio/ScriptAudioState.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/LH/MusicBank.h"
+#include "Audio/LH/MusicEngine.h"
+#include "Audio/Services/ScriptAudioState.h"
+#include "ECS/MapCoords.h"
 #include "InfoConstants.h"
 
 // Milestones A5, A6, A7 and A9 of dev\tmp_dis\audio\PLAN.md: GAudio's music (GameMusic) over LHMusic (MusicEngine) and
@@ -607,7 +608,7 @@ TEST_F(GameMusicTest, ThingMusicPlays3DEveryTurnAndBlocksTheAlignment)
 	music->SetPlayPosition(11, glm::vec3(1.25f, 7.0f, -2.5f));
 	music->ProcessMusic();
 	EXPECT_EQ(sink.positions[static_cast<size_t>(channel)],
-	          glm::vec3(MapCoordsRoundTrip(1.25f), 7.0f, MapCoordsRoundTrip(-2.5f)));
+	          glm::vec3(ecs::map_coords::Quantise(1.25f), 7.0f, ecs::map_coords::Quantise(-2.5f)));
 
 	// disabled but in range: nothing plays, and the alignment music does not come either (0x4297F7)
 	music->EnableThingMusic(11, 0);
@@ -671,13 +672,20 @@ TEST_F(GameMusicTest, ThingMusicList)
 	EXPECT_EQ(music->GetThingMusic().GetCount(), 0u);
 }
 
-TEST(ThingMusic, MapCoordsRoundTrip)
+TEST(ThingMusic, PlayPositionQuantised)
 {
-	// ftol(v * 6553.6f) * 10 / 65536: truncated to the 16.16 grid of 10-unit cells
-	EXPECT_EQ(MapCoordsRoundTrip(0.0f), 0.0f);
-	EXPECT_EQ(MapCoordsRoundTrip(1.0f), static_cast<float>(6553.0 * 10.0 / 65536.0));
-	EXPECT_EQ(MapCoordsRoundTrip(-1.0f), static_cast<float>(-6553.0 * 10.0 / 65536.0));
-	EXPECT_EQ(MapCoordsRoundTrip(2560.0f), 2560.0f);
+	// SetPlayPosition 0x4298C0 keeps a MapCoords: ftol(v * 6553.6f) * 10 / 65536 (ecs::map_coords::Quantise), truncated
+	// to the 16.16 grid of 10-unit cells
+	EXPECT_EQ(ecs::map_coords::Quantise(0.0f), 0.0f);
+	EXPECT_EQ(ecs::map_coords::Quantise(1.0f), static_cast<float>(6553.0 * 10.0 / 65536.0));
+	EXPECT_EQ(ecs::map_coords::Quantise(-1.0f), static_cast<float>(-6553.0 * 10.0 / 65536.0));
+	EXPECT_EQ(ecs::map_coords::Quantise(2560.0f), 2560.0f);
+	ThingMusicList list;
+	list.AddFront(static_cast<int>(MusicType::ScriptPiperTune), 7);
+	list.SetPlayPosition(7, glm::vec3(1.0f, 3.0f, -1.0f));
+	const auto* info = list.Get(7);
+	ASSERT_NE(info, nullptr);
+	EXPECT_EQ(info->playPosition, glm::vec3(ecs::map_coords::Quantise(1.0f), 3.0f, ecs::map_coords::Quantise(-1.0f)));
 }
 
 // --- A9: the alignment and tribe music -------------------------------------------------------------------------------

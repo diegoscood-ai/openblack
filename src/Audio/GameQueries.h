@@ -18,6 +18,7 @@
 #include <string_view>
 #include <vector>
 
+#include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
 // What GAudio reads from the rest of the game (dev\tmp_dis\audio\PLAN.md §2.4). The audio does not include the ECS:
@@ -98,6 +99,43 @@ struct HeartBeatInput
 	std::optional<glm::vec3> citadelHeart;
 };
 
+/// What fn_00516510 (the sound events of an animation clip, audio::AnimationSounds::Fire) reads of the animated thing
+struct AnimatedThing
+{
+	glm::vec3 position {0.0f}; ///< this->Get3DSoundPos (0x516548: GameThingWithPos, its position)
+	/// Living::TurnsSinceStateChange (P_THROWN 0x5166B1 / P_THROWN_VORTEX 0x5166F8); 0 for a thing without one
+	uint16_t turnsSinceStateChange {0};
+	/// The villager's part (IsVillager): nullopt for an animal or any other thing
+	struct Villager
+	{
+		bool alive {true};  ///< IsAlive (vtable +0x5B4, 0x5165BC): Object +0x48 life > 0
+		bool child {false}; ///< the voice 3 of the clip's group 1 (a child)
+		bool female {false}; ///< the voice 2 (else 1, a man)
+		/// Villager::GetAbode (0x51675D, the banter 0x92 at the house): nullopt for none or a gone one
+		std::optional<entt::entity> abode;
+	};
+	std::optional<Villager> villager;
+};
+
+/// A street lantern as the lanterns' SoundTags read it (GStreetLantern, the list g_game+0x205C34)
+struct StreetLantern
+{
+	entt::entity thing {};
+	glm::vec3 position {0.0f};
+	float height {0.0f}; ///< Object::GetHeight 0x638120 (the tag's offset (0, height, 0), 0x734810)
+};
+
+/// GCamera+0x80 (WeatherInfo, filled by GCamera::Update with LH3DAtmos::GetWeatherSmooth): the weather at the camera
+struct CameraWeatherInfo
+{
+	int8_t temperature {0};
+	int8_t rain {0};
+	int8_t snow {0};
+	int8_t overcast {0};
+	int8_t windX {0};
+	int8_t windZ {0};
+};
+
 struct GameQueries
 {
 	/// g_game+0x250188 != 0 (a full screen video: ProcessMusic 0x427DF8, ProcessAudioGameTurn 0x4270B1) (inferred:
@@ -134,6 +172,20 @@ struct GameQueries
 	/// LH3DIsland::GetAltitude 0x803090 at a world x / z (SoundTag::Create(MapCoords&) 0x71EB71: the land under a
 	/// MapCoords). Unset: 0.
 	std::function<float(float x, float z)> landAltitude;
+	/// GSoundMap::GetSurfaceType 0x71D8E0 at a world point (the "surface" attribute of the anim effect keys: the clips'
+	/// events 0x51662B, the PSys sounds with USESURFACE 0x674661, the dump of GSoundMap): ecs::sea_cells::GetSurfaceType,
+	/// the one reading of the map's cells. Unset: 6 (off the map, 0x71D950).
+	std::function<int32_t(glm::vec3 point)> surfaceType;
+	/// LH3DAtmos::GetWeatherSmooth 0x835180 (recalc) at a point: GCamera::Update fills GCamera+0x80 with it at the camera
+	/// (GSoundMap's weather). Unset: all 0 (no rain, snow nor wind).
+	std::function<CameraWeatherInfo(glm::vec3 point)> weatherSmooth;
+	/// The animated thing of fn_00516510, nullopt when it is gone or has no position (nothing plays). Unset: nullopt.
+	std::function<std::optional<AnimatedThing>(entt::entity thing)> animatedThing;
+	/// The name of the animation clip ANM_ `index` (LoadAllAnimations 0x550180 matches Data\SmallSounds.SAS by it), nullopt
+	/// when there is no such clip. Unset: nullopt (no clip has sounds).
+	std::function<std::optional<std::string>(int32_t index)> animationClipName;
+	/// Every street lantern (the list g_game+0x205C34), in the registry's order. Unset: none.
+	std::function<std::vector<StreetLantern>()> streetLanterns;
 
 	/// The branches of ProcessMusic 0x427DF0 that need systems openblack does not have yet. Each one is "the original
 	/// function returned non-zero" (it took the music); unset = false, so ProcessMusic goes on to the next one.

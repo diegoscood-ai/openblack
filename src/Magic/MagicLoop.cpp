@@ -9,7 +9,7 @@
 
 #include "MagicLoop.h"
 
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Core/OneOffSpellSeed.h"
 #include "Core/Players.h"
 #include "Core/Spell.h"
@@ -123,7 +123,7 @@ void magic::ProcessTurnEnd()
 	//    (first fn_006721B0 -> fn_006717F0: the EXPLODE_OBJECT effect empties the exploded meshes' queue)
 	psys::explode_object::GameLoopEnd(); // PSys/Rules/ExplodeObject.cpp
 	//    (fn_006D11A0 0x6D11AB..0x6D11C5: [0xD01A38] x 0.001)
-	audio::spell_sounds::ProcessTurn(static_cast<float>(game_clock::MsPerTurn()) * 0.001f); // Audio/SpellSounds.cpp
+	audio::spell_sounds::ProcessTurn(static_cast<float>(game_clock::MsPerTurn()) * 0.001f); // Audio/Services/SpellSounds.cpp
 	// --- (GScript::Process in the original)
 	// 12 the weather things / GClimate::ProcessAll 0x7741A0 / 0x771BE0      [M6a]
 	weather::ProcessTurnEnd(); // ECS/Weather/WeatherLoop.cpp (+ OPENBLACK_TEST_WEATHER)

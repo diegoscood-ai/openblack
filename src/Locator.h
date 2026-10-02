@@ -36,11 +36,6 @@ struct InfoConstants;
 }
 using InfoConstants = v120::InfoConstants;
 
-namespace audio
-{
-class AudioManagerInterface;
-}
-
 namespace chlapi
 {
 class CHLApi;
@@ -126,7 +121,6 @@ struct Locator
 	using terrainSystem = entt::locator<LandIslandInterface>;
 	using oceanSystem = entt::locator<OceanInterface>;
 	using skySystem = entt::locator<SkyInterface>;
-	using audio = entt::locator<audio::AudioManagerInterface>;
 	using camera = entt::locator<Camera>;
 	using gameActionSystem = entt::locator<input::GameActionInterface>;
 	using rendereringSystem = entt::locator<ecs::systems::RenderingSystemInterface>;

@@ -19,12 +19,12 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
 
-#include "Advisor.h"
-#include "AnimEffects.h"
-#include "AudioSystem.h"
-#include "BankTables.h"
-#include "SamplePlay.h"
-#include "Voices.h"
+#include "Audio/GAudio/AudioSystem.h"
+#include "Audio/GAudio/BankTables.h"
+#include "Audio/LH/AnimEffects.h"
+#include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/Advisor.h"
+#include "Audio/Services/Voices.h"
 
 // The public audio API of openblack (layer 4 of dev\tmp_dis\audio\PLAN.md §2.1, §2.3 with the design fixes of §8.6):
 // the game includes only this header. The names follow GAudio (runblack.exe); every function cites its original. No
@@ -35,9 +35,16 @@
 // Rules for the callers (PLAN §2.1, §8.6):
 //  - nobody outside src/Audio calls OpenAL; since B5 every sample plays on the 16 channels through this header (the old
 //    emitters of AudioManager, CreateEmitter / PlayEmitter / PlaySound / PlayMusic, and the AudioEmitter component are
-//    gone);
+//    gone), and since B11a there is one engine: one device (Device.h, the only caller of OpenAL), one bank loader
+//    (Banks.h), no AudioManager and no Locator::audio;
 //  - the audio includes no ECS component: the positions of the owners come from GameQueries (things) and from
-//    RegisterObject (other objects).
+//    RegisterObject (other objects). It does use the team's plain maths and clocks: ecs::map_coords (MapCoords.h),
+//    gutils (GUtilsDistance.h), game_clock (GameClock.h) and sky_type (3D/SkyType.h).
+
+namespace openblack::ecs::map_coords
+{
+struct MapCoords;
+}
 
 namespace openblack::audio
 {
@@ -183,8 +190,10 @@ void Shutdown();
 /// lanterns' too), then after turn 5 (g_game+0x205A40 > 5, 0x54E997) GAudio::ProcessAudioGameTurn 0x427080, else
 /// AtmosProcess(0) 0x4286C0. ProcessAudioGameTurn, only while LHWaveIsActive (0x427086): ProcessMusic 0x427DF0, the atmos
 /// targets fn_00429100 and ProcessAtmosBanks 0x428FE0, fn_004270D0 (UpdateChannels + LHListenerUpdate) and
-/// LHAtmosProcess(1) unless a video plays (0x4270B1); always fn_00429700 (the ThingMusicInfo purge).
-void ProcessTurn(float skyType, uint32_t turn);
+/// LHAtmosProcess(1) unless a video plays (0x4270B1); always fn_00429700 (the ThingMusicInfo purge). The turn is
+/// game_clock::Turn() (g_game+0x205A40) and the sky type GSoundMap reads is sky_type::Frame() ([0xFA26BC], 0x71DDF1: the
+/// last frame's, written by DrawSky).
+void ProcessTurn();
 /// GGame::EndTurn while paused (g_game+0x14 & 4, 0x54E993; PauseGame 0x54AE20 toggles that bit): AtmosProcess(0)
 /// 0x4286C0. (Pending: the paused EndTurn of the original also runs GSoundMap::Update 0x54E96F and
 /// SoundTag::ProcessSoundTags 0x54E989 before that test; openblack's pause has no turn clock, Game calls this once a
@@ -253,13 +262,16 @@ TagId Create(entt::entity thing, glm::vec3 offset, int sample, bool track, int m
 TagId Create(glm::vec3 point, int sample, bool track, int mode, int loops, bool flag10, bool is3D, SfxBank bank,
              int delay);
 /// SoundTag::Create(MapCoords&, ...) 0x71EB60: the point (x, LH3DIsland::GetAltitude + the height above the land, z)
-/// (0x71EB71..0x71EBBF; the altitude from GameQueries::landAltitude), then fn_0071EA40. x / z are world units: the
-/// original's MapCoords keeps them as integers that it scales by 1/6553.6 ([0x8AA3A4], 0x71EB8A / 0x71EBA6), a
-/// caller holding a MapCoords converts it first.
+/// (0x71EB71..0x71EBBF; the altitude from GameQueries::landAltitude), x and z scaled by 10 / 65536 ([0x8AA3A4],
+/// 0x71EB8A / 0x71EBA6: ecs::map_coords::ToMetres), then fn_0071EA40.
 /// (Not ported: fn_0071E920, the same point tag in an atmos bank (ctor fn_0071E460 sets +0x34, so GetBank 0x71E610
 /// takes GAudio+0x194 + 4 * type), played at once through 0x429E30 unless 3D with a delay; its only caller is the
 /// thunder of GWeather::Update 0x83FC62 through the callback [0xEEA388] = 0x429CE0: sample 2 + GetTickCount() % 11,
 /// mode 2, 3D, type 12, delay 1. Pending with the weather's thunder.)
+TagId CreateAtMapCoords(const ecs::map_coords::MapCoords& coords, int sample, bool track, int mode, int loops,
+                        bool flag10, bool is3D, SfxBank bank, int delay);
+/// The same for a MapCoords its caller already holds in metres (x, z = ToMetres of the 16.16 values, the altitude
+/// above the land: magic::ToMap's map positions); x and z are not quantised again
 TagId CreateAtMapCoords(float x, float z, float heightAboveLand, int sample, bool track, int mode, int loops, bool flag10,
                         bool is3D, SfxBank bank, int delay);
 /// fn_0071E640 (SoundTag::SetActive): an active tag (+0x4C == 1) turned off stops its sample (GAudio 0x42A210); +0x4C
@@ -280,7 +292,7 @@ void Delete(TagId tag);
 } // namespace tags
 
 /// SOUND_EXISTS 0x710100 -> GAudio::IsInstalled 0x426D30 -> LHWaveIsInstalled (milestone B6): the wave device was made.
-/// (approximated) openblack's: the audio is initialised on a real OpenAL device (not AudioManagerNoOp).
+/// (approximated) openblack's: the audio is initialised on a real OpenAL device (device::Open succeeded).
 [[nodiscard]] bool SoundExists();
 
 // ---- voices (B7) ----------------------------------------------------------------------------------------------------

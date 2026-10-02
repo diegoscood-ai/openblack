@@ -79,6 +79,62 @@ namespace
 /// The mesh atoms of the particle effects this frame (PSys/Creators/Mesh.h), drawn as instances of their mesh
 std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
 
+/// Whether a mesh atom is drawn with DrawCutByPlane: the particle's +0x24 & 4 (from the creator's +0x5F,
+/// CreateParticle 0x6A8B94..0x6A8B9A), tested by fn_00679F20 (`test al, 4` 0x679F29) on both the immediate and the
+/// sorted path (fn_00679F60's callback is fn_00679F20, `push 0x679F20` 0x679FBC), which then calls vt+0x11C (0x679F4A)
+/// instead of the Draw vt+0x104 (0x679F52). psys::mesh_atoms::Instance does not carry that bit yet (src/PSys, session
+/// milagros2: MeshCreator::drawCutByPlane is read but not passed on): this reads a member `cutByPlane` once it exists,
+/// and false until then
+template <typename Atom>
+[[nodiscard]] bool AtomCutByPlane(const Atom& atom)
+{
+	if constexpr (requires(const Atom& a) { a.cutByPlane; })
+	{
+		return static_cast<bool>(atom.cutByPlane);
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/// The DrawData specular +0xC of a mesh atom (SetColorSpecular vt+0x2C 0x67A02F, fn_0080BEC0 0x67A01C), once
+/// psys::mesh_atoms::Instance carries it as `specular` (0xRRGGBB); 0 until then
+template <typename Atom>
+[[nodiscard]] uint32_t AtomSpecular(const Atom& atom)
+{
+	if constexpr (requires(const Atom& a) { a.specular; })
+	{
+		return static_cast<uint32_t>(atom.specular);
+	}
+	else
+	{
+		return 0u;
+	}
+}
+
+/// A cut atom that also draws with the land colour (fn_0080BEC0 0x67A01C before vt+0x11C) would need the land light of
+/// fn_0080BEC0 under the light of fn_00858BA0 (inferido, no effect known to set both): not ported, drawn as today
+[[nodiscard]] bool AtomDrawnCut(const openblack::psys::mesh_atoms::Instance& atom)
+{
+	if (!AtomCutByPlane(atom))
+	{
+		return false;
+	}
+	if (atom.landscapeColour)
+	{
+		static bool warned = false;
+		if (!warned)
+		{
+			warned = true;
+			SPDLOG_LOGGER_WARN(spdlog::get("graphics"),
+			                   "PSys mesh atom with DrawCutByPlane and DrawWithLandscapeColor: the cut is not ported, drawn uncut");
+		}
+		return false;
+	}
+	return true;
+}
+
 /// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
 /// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
 /// ...); villagers and the creature have blob / dynamic shadows instead.
@@ -328,12 +384,18 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	std::erase_if(g_PSysMeshes, [](const auto& atom) {
 		return !openblack::Locator::resources::value().GetMeshes().Contains(atom.meshId);
 	});
+	// the opaque ones drawn with DrawCutByPlane get their own ranges (cutAtomDrawDescs), the translucent ones stay sorted
+	std::unordered_map<entt::id_type, uint32_t> cutAtomIds;
 	for (const auto& atom : g_PSysMeshes)
 	{
 		if (atom.translucent)
 		{
 			++translucentIds[atom.meshId];
 			translucentMorph.try_emplace(atom.meshId, false);
+		}
+		else if (AtomDrawnCut(atom))
+		{
+			++cutAtomIds[atom.meshId];
 		}
 		else
 		{
@@ -380,6 +442,14 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	{
 		_renderContext.translucentDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
 		                                            std::forward_as_tuple(offset, count, translucentMorph[meshId]));
+		offset += count;
+	}
+	_renderContext.cutAtomDrawDescs.clear();
+	_renderContext.cutAtomInstances.clear();
+	for (const auto& [meshId, count] : cutAtomIds)
+	{
+		_renderContext.cutAtomDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
+		                                        std::forward_as_tuple(offset, count, false));
 		offset += count;
 	}
 	_renderContext.shadowCasterDrawDescs.clear();
@@ -615,10 +685,13 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	    entt::exclude<TempleInteriorPart>);
 
 	// the particle effects' mesh atoms, after the entities of the same mesh
+	std::map<entt::id_type, uint32_t> cutAtomOffsets;
 	for (const auto& atom : g_PSysMeshes)
 	{
-		auto& offsets = atom.translucent ? translucentOffsets : uniformOffsets;
-		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs;
+		const bool cut = AtomDrawnCut(atom);
+		auto& offsets = atom.translucent ? translucentOffsets : (cut ? cutAtomOffsets : uniformOffsets);
+		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs
+		                                     : (cut ? _renderContext.cutAtomDrawDescs : _renderContext.instancedDrawDescs);
 		const auto desc = descs.find(atom.meshId);
 		if (desc == descs.end())
 		{
@@ -635,10 +708,14 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		{
 			_renderContext.additiveInstances.insert(idx);
 		}
+		if (cut && atom.translucent)
+		{
+			_renderContext.cutAtomInstances.insert(idx);
+		}
 		// the DrawData colour +8 (the creator's colour, x the player's for UsePlayerColor; Particle3DObj::DrawAt 0x67A00C..
 		// 0x67A01C): with DrawWithLandscapeColor the tint of fn_0080BEC0, else the colour of SetColorSpecular (vt 0x2C).
 		// (aproximado) the specular DrawData +0xC (read at 0x67A012 for fn_0080BEC0 and at 0x67A023 for vt 0x2C) is not
-		// in the atom (psys::mesh_atoms::Instance): both paths lose it, 0
+		// in the atom yet (psys::mesh_atoms::Instance, AtomSpecular): both paths lose it, 0
 		const uint32_t atomColour = lh3d_colour::Argb(atom.colour[0], atom.colour[1], atom.colour[2], 0xFF);
 		auto& lh3d = _renderContext.instanceColours[idx];
 		if (atom.landscapeColour)
@@ -648,6 +725,10 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		else
 		{
 			lh3d_colour::PackInstanceColour(lh3d, atomColour);
+		}
+		if (const uint32_t specular = AtomSpecular(atom); specular != 0u)
+		{
+			lh3d_colour::PackInstanceSpecular(lh3d, specular);
 		}
 		if (atom.uv != glm::vec2(0.0f))
 		{

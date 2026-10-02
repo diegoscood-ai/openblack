@@ -141,6 +141,16 @@ struct SeaDraw
 	        .specular = specular};
 }
 
+/// C for the PSys mesh atoms with DrawCutByPlane (fn_00679F20: +0x24 & 4 `test al, 4` 0x679F29, vt+0x11C 0x679F4A),
+/// in the pass's default plane (they draw in the model pass, after GLandscape::Draw put it back, 0x5E4D76) and each in
+/// its own DrawData colour and specular (SetColorSpecular vt+0x2C 0x67A02F)
+[[nodiscard]] constexpr SeaDraw CutAtoms(RenderPass pass)
+{
+	auto draw = Cut(Kept(Mechanism::CutByPlane, k_DefaultPlane), 0xFFFFFFFFu, 0u, pass);
+	draw.perInstanceColour = true;
+	return draw;
+}
+
 /// The surfaces whose culling the pass decides
 enum class Surface : uint8_t
 {

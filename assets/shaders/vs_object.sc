@@ -144,18 +144,22 @@ void main()
 		// 0x858CB1, boned 0x859049), using the bone matrices [0xE9FE48] (0x858F77) only for the positions. So a boned
 		// mesh is lit with the object's light, not per bone: the instance matrix alone, without u_model. rgb =
 		// colour.rgb (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, + the
-		// object's specular obj+0x50 (u_objectLight.w, sea_pass::SeaDraw::specular)
+		// object's specular obj+0x50 (u_objectLight.w, sea_pass::SeaDraw::specular). z < 0: each instance's own
+		// obj+0x4C / +0x50 from the fifth column (sea_pass::CutAtoms: the PSys mesh atoms' DrawData +8 / +0xC, set by
+		// SetColorSpecular vt+0x2C 0x67A02F before vt+0x11C 0x679F4A)
+		bool cutOwnColour = u_objectLight.z < -0.5f;
 		vec3 cutLight = ModelLightLocal(i_data0.xyz, i_data1.xyz, i_data2.xyz, i_data3.xyz, u_modelLight.xyz);
-		vec3 cutColour = Lh3dUnpackRgb24(u_objectLight.z);
+		vec3 cutColour = cutOwnColour ? setColour255 : Lh3dUnpackRgb24(u_objectLight.z);
 		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, cutLight, false), lightAmbient);
 		objectColour = ModelLightDiffuse(cutColour, cutFactor) / 255.0f;
-		specular = Lh3dUnpackRgb24(u_objectLight.w) / 255.0f;
+		specular = (cutOwnColour ? objectSpecular255 : Lh3dUnpackRgb24(u_objectLight.w)) / 255.0f;
 	}
 	else if (u_objectLight.x > 1.5f && u_objectLight.x < 2.5f)
 	{
-		// DrawUnderWater in a constant colour (sea_pass::SeaLight::Constant, fn_00811010): obj+0x4C packed
-		// r 65536 + g 256 + b (the hand's 0xA0A0A0, the boat's 0x303070), no vertex light
+		// DrawUnderWater in a constant colour (sea_pass::SeaLight::Constant, fn_00811010 -> fn_00850FC0): obj+0x4C packed
+		// r 65536 + g 256 + b (the hand's 0xA0A0A0, the boat's 0x303070), no vertex light, + the specular obj+0x50 (w)
 		objectColour = Lh3dUnpackRgb24(u_objectLight.z) / 255.0f;
+		specular = Lh3dUnpackRgb24(u_objectLight.w) / 255.0f;
 	}
 	else if (u_objectLight.x > 0.0f)
 	{
@@ -228,8 +232,8 @@ void main()
 	// and without fn_007FEB30's haze: a PSys mesh atom's DrawData colour (Particle3DObj::DrawAt 0x679FD0,
 	// PSys/Creators/Mesh.h) and the power-up bands (components::ObjectColour). The model light stays: the object is an
 	// LH3DObject that draws like every other model, fn_00855340 -> fn_0084BA90 (inferido: the draw that follows
-	// Particle3DObj::DrawAt is not disassembled)
-	if (setColour && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
+	// Particle3DObj::DrawAt is not disassembled). Not in the cut (mode 4), which lights that colour itself
+	if (setColour && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || (u_objectLight.x > 2.5f && u_objectLight.x < 3.5f)))
 	{
 		objectColour = setColour255 / 255.0f;
 		if (u_window.y <= 0.0f)

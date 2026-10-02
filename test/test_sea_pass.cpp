@@ -164,6 +164,13 @@ TEST(SeaPass, Draws)
 	EXPECT_EQ(UnderWaterLastDraw().light, SeaLight::LastDraw);
 	EXPECT_EQ(SeaDraw {}.light, SeaLight::Normal);
 	EXPECT_EQ(SeaDraw {}.plane, SeaPlane::None);
+	const auto atoms = CutAtoms(RenderPass::Main);
+	EXPECT_EQ(atoms.light, SeaLight::Cut);
+	EXPECT_EQ(atoms.plane, SeaPlane::KeepAbove);
+	EXPECT_TRUE(atoms.perInstanceColour);
+	EXPECT_FALSE(atoms.unmirror);
+	EXPECT_EQ(atoms.argb >> 24, 0xFFu);
+	EXPECT_FALSE(Cut(SeaPlane::KeepAbove, 0u, 0u, RenderPass::Main).perInstanceColour);
 }
 
 TEST(SeaPass, PackClip)

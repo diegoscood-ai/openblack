@@ -552,15 +552,22 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				case sea_pass::SeaLight::Normal:
 					break;
 				case sea_pass::SeaLight::Constant:
-					u_objectLight.x = 2.0f;
-					u_objectLight.z = static_cast<float>(desc.sea.argb & k_Rgb);
+					// fn_00811010 0x811033..0x81103F: obj+0x4C -> [0xC37D8C], obj+0x50 -> [0xE9FE2C], both read per vertex
+					// by fn_00850FC0 (0x851082, 0x85102F). The colour's alpha (the hand's 0x65) only reaches what the
+					// stage's alpha takes from the diffuse: no table 0xC387C8 here (fn_00811010 0x8110CF tests Flags1 &
+					// 0x80, which the hand's object never gets, see Renderer::DrawUnderWater) and the hand's
+					// AlphaTextured takes the texture's alpha, so it is left out
+					u_objectLight = {2.0f, desc.lightBoost, static_cast<float>(desc.sea.argb & k_Rgb),
+					                 static_cast<float>(desc.sea.specular & k_Rgb)};
 					break;
 				case sea_pass::SeaLight::LastDraw:
 					u_objectLight.x = lit ? 3.0f : 0.0f;
 					break;
 				case sea_pass::SeaLight::Cut:
+					// z = -1: each instance's own colour and specular (sea_pass::CutAtoms, the PSys mesh atoms)
 					u_objectLight = {4.0f, static_cast<float>(desc.sea.argb >> 24) / 255.0f,
-					                 static_cast<float>(desc.sea.argb & k_Rgb), static_cast<float>(desc.sea.specular & k_Rgb)};
+					                 desc.sea.perInstanceColour ? -1.0f : static_cast<float>(desc.sea.argb & k_Rgb),
+					                 static_cast<float>(desc.sea.specular & k_Rgb)};
 					break;
 				}
 				// x: the plane kept (fs), y: 1 = mirrored back in y = 0 (vs) (sea_plane.sh)
@@ -2705,6 +2712,37 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				DrawCutAboveWater(desc.viewId);
 			}
+			// The opaque PSys mesh atoms with DrawCutByPlane (fn_00679F20 0x679F29 -> vt+0x11C 0x679F4A,
+			// RenderContext::cutAtomDrawDescs): cut by the default plane, each in its DrawData colour (sea_pass::CutAtoms).
+			// (aproximado) after the other models instead of in the effect's own order, and all their primitives here
+			// (DrawMesh sends the blended ones to MainBlended unsorted). Only in the main pass: the original's reflection
+			// draws no models, and the living water mod's leaves the cut atoms out
+			for (const auto& [meshId, placers] : renderCtx.cutAtomDrawDescs)
+			{
+				if (desc.viewId != graphics::RenderPass::Main)
+				{
+					break;
+				}
+				auto mesh = meshManager.Handle(meshId);
+				submitDesc.isSky = false;
+				submitDesc.lightBoost = 1.0f;
+				submitDesc.noHaze = false;
+				ApplyLandLightMode(renderCtx, meshId, submitDesc);
+				submitDesc.morphWithTerrain = false;
+				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, false);
+				submitDesc.blendFilter = 0;
+				submitDesc.sea = sea_pass::CutAtoms(desc.viewId);
+				for (uint32_t i = 0; i < placers.count; ++i)
+				{
+					// one at a time: a ParticleAnimCreator atom has its own pose (ecs::UsePose)
+					submitDesc.instanceDesc =
+					    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset + i, 1);
+					setMatrices(meshId, *mesh);
+					ecs::UsePose(poses, placers.offset + i, *mesh, submitDesc.modelMatrices, submitDesc.matrixCount);
+					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
+				}
+				submitDesc.sea = {};
+			}
 			if (sortBlended)
 			{
 				for (const auto& [meshId, placers] : renderCtx.translucentDrawDescs)
@@ -2971,8 +3009,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.mode = instance.fading && renderCtx.additiveInstances.contains(instance.index)
 					                      ? std::optional(render_modes::Mode::AlphaTexturedAlphaAdditiveNz)
 					                      : std::nullopt;
+					// a translucent PSys mesh atom with DrawCutByPlane: the sorted path cuts too (fn_00679F60's callback is
+					// fn_00679F20, `push 0x679F20` 0x679FBC)
+					submitDesc.sea = renderCtx.cutAtomInstances.contains(instance.index) ? sea_pass::CutAtoms(submitDesc.viewId)
+					                                                                     : sea_pass::SeaDraw {};
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
+				submitDesc.sea = {};
 				submitDesc.options = opaqueOptions;
 				submitDesc.table = render_modes::Table::Normal;
 				submitDesc.globalAlpha = 255;

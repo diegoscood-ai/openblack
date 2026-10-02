@@ -138,8 +138,10 @@ struct CameraWeatherInfo
 
 struct GameQueries
 {
-	/// g_game+0x250188 != 0 (a full screen video: ProcessMusic 0x427DF8, ProcessAudioGameTurn 0x4270B1) (inferred:
-	/// nobody has read who writes it). Unset: false (openblack plays no video).
+	/// g_game+0x250188 != 0 (a full screen video: ProcessMusic 0x427DF8, ProcessAudioGameTurn 0x4270B1): the
+	/// LHVideoPlayer, written by fn_0054AB20 (0x54AC23), cleared by DeleteVideo 0x54A969 and ClearVariables 0x54BF28;
+	/// only the intro and fall films set it, not the tips or the pre-intro (tmp_dis\audio\video_audio.md). Filled with
+	/// video::IsPlaying (ECS/AudioQueries.cpp). Unset: false.
 	std::function<bool()> videoPlaying;
 	/// g_game+0x205A08, SET_LAND_NUMBER (0x7177A4); ProcessMusic plays nothing on land 6 (0x427E1D). Unset: 0.
 	std::function<int()> landNumber;

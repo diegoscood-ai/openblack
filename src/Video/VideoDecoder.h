@@ -37,7 +37,8 @@ public:
 	[[nodiscard]] virtual std::span<const uint8_t> DecodeNext(uint32_t index) = 0;
 };
 
-/// No picture yet (the Bink decoder is milestone V5): every frame is opaque black, so the player behaves as the
+/// The picture when there is no decoder: every frame is opaque black (the tests, and the fallback when FfmpegDecoder
+/// refuses a film), so the player behaves as the
 /// original (pause, wide screen, fade, skip) over a black screen
 class NullVideoDecoder final: public IVideoDecoder
 {

@@ -24,6 +24,12 @@
         "openal-soft",
         "drlibs",
         {
+            "name": "ffmpeg",
+            "default-features": false,
+            "features": [ "avcodec" ],
+            "$reason": "Bink 1 video (src/Video/FfmpegDecoder.cpp): vcpkg-overlay-ports/ffmpeg trims it to the bink decoder, LGPL only"
+        },
+        {
             "name": "bgfx",
             "default-features": false,
             "features": [ "tools", "multithreaded" ],

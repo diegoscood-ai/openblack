@@ -611,6 +611,18 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
     tenía sombra; ahora la silueta es gris clara con los dedos, como en la primera captura, y con el orbe en la mano
     sale debajo la sombra oscura y redonda de las capturas 2 y 4, sobre la hierba y al pie del dispensador; el orbe
     queda entero por encima. Capturas en `dev\_audit\shaders\p6_*`.
+  - **(aproximado)** la oscuridad de la sombra del orbe: sobre la hierba, openblack queda a 0,46 de la luminancia del
+    suelo (65 / 142) y la captura 4 del original a 0,55 (63 / 114). openblack da el máximo del código: con la traza
+    (`OPENBLACK_SHADOW_TRACE=1`, `p7_orb_ground_trace`) la sombra lleva alfa 255 (fundido 255, sin `BakeAlpha`) y
+    n = 8 como mucho (4×2 submuestras por texel, `fn_00880FC0`), 8/15 → 1 − 0,533 = 0,467. La diferencia cabe en un
+    fundido del original por debajo de 255 (n' = floor(8·a/255) = 7 para a = 223..254, 0x80769A..0x8076EC; la cámara
+    de la captura no se conoce), en texels de borde a medio cubrir o en la luz de la captura; no se ha leído nada en
+    el binario que la explique, así que el código se queda como está.
+  - La sombra **propia del dispensador** no es una `ShadowInfo` (la traza solo lista la de la mano): el dispensador es
+    un `Abode`, así que proyecta una sombra **estática** (`CastsStaticShadow`, `fn_008721A0`, cizalla x + h, z + h).
+    Con la cámara del lado contrario (`OPENBLACK_CAMERA_LOCK=1846,47,2690,1826,37,2670`, `p7_disp_back`) se ve como
+    una mancha suave delante del trípode, aclarada por el disco y las chispas del dispensador; con la cámara de las
+    capturas cae detrás de la mesa.
 - **(aproximado)** el código 0x400, que en el original quita triángulos enteros: sobre la tierra, `fs_land_shadow`
   quita el triángulo cuando sus tres vértices llevan el código, pero lo hace por fragmento con el valor interpolado,
   así que en las aristas quedan fragmentos sueltos de más o de menos; sobre los objetos, `fs_object_shadow` lo aplica

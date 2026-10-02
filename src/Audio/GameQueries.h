@@ -36,11 +36,12 @@ using ThingId = uint32_t;
 struct CameraState
 {
 	/// LH3DTech::g_camera 0xEA1DB8 (the render camera's position), used for the 3D distances of ProcessThingMusic
-	/// (fn_00429420 0x429479..0x4294C1) (inferred: GGame::GetCamera()+0x14, the MapCoords of ProcessAlignmentMusic, is
-	/// the same point)
+	/// (fn_00429420 0x429479..0x4294C1); GGame::GetCamera()+0x14, the MapCoords of ProcessAlignmentMusic, is the same
+	/// point (GCamera::UpdateGameThingWithPosData 0x442EF0 converts g_camera, 0x442EF3..0x442F35)
 	glm::vec3 position {0.0f};
-	/// GGame::GetCamera()+0x14 MapCoords +8: the height above the land (MapCoords::Set 0x603340 stores y - GetAltitude,
-	/// 0x603371..0x60337C), read by fn_00427460 at 0x427498
+	/// GGame::GetCamera()+0x14 MapCoords +8: the height above the land, y - the altitude byte of the camera's cell x 0.67
+	/// (not interpolated; y alone off the map: UpdateGameThingWithPosData 0x442F38..0x442FCE), read by fn_00427460 at
+	/// 0x427498
 	float heightAboveGround {0.0f};
 };
 

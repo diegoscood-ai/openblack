@@ -920,7 +920,7 @@ archivos de `src/Audio` que reescribe agua, ni `Debug/Audio.cpp`, ni retira `Aud
 | A6 Estado del guion | hecho | `src/Audio/ScriptAudioState.*`, `CHLApi.cpp` | `test_game_music` |
 | A7 ThingMusic | hecho | `src/Audio/ThingMusic.*`, `CHLApi.cpp` | `test_game_music` |
 | A8 Volumen de música | parcial: `EngineConfig::audioMusicMasterVolume` y el deslizador de depuración; no se guarda, y no está en el menú | `src/EngineConfig.h`, `src/Debug/Music.cpp` | traza `gain=` |
-| A9 Alineamiento y tribu | hecho: alineamiento en la cámara (C2) y pueblo/tribu por `ecs::map_cells` (`ECS/AudioQueries.cpp`) | `src/Audio/GameMusic.*`, `src/Audio/GameQueries.h` | `test_game_music` (con consultas falsas) |
+| A9 Alineamiento y tribu | hecho: alineamiento en la cámara (C2) y pueblo/tribu por `ecs::map_cells` (`ECS/AudioQueries.cpp`); auditado (TOWNS): altura de la cámara como UpdateGameThingWithPosData 0x442EF0 | `src/Audio/GameMusic.*`, `src/Audio/GameQueries.h` | `test_game_music` (con consultas falsas) |
 | A10 Tabla de voz | hecho | `src/Common/HelpText.*`, `src/Audio/Voices.*` | `test_voice_table` (6974 / 3477 / 1922 / 1328 / 227, WORKSHOP_10 → villagers 399) |
 | A11 HelpSystem (texto) | hecho, sin dibujo | `src/Help/HelpSystem.*`, `CHLApi.cpp`, `Game.cpp` (clic) | `test_help_system` |
 
@@ -2142,8 +2142,11 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   de +0x190 (0..6), la tabla 0x9C99F0 (0,0,1,1,1,2,2) y GENERIC_EVIL / NEUTRAL / GOOD = índice + 1 (0x427579). Traza:
   `(openblack) alignment music type t (GAudio+0x190 a, discrete d)` al cambiar (`OPENBLACK_MUSIC_TRACE`).
 - **Pueblo y tribu** (`ECS/AudioQueries.cpp`, `NearestMusicTown` / `KeptMusicTown`): fn_00427460 recibe
-  GetCamera()+0x14 (0x427A3B..0x427A46) = las MapCoords de `Camera::GetOrigin` **(inferido: el mismo punto que
-  `GameQueries::camera`)**; `nearestTown` = fn_00602160 (`map_cells::GetNearestTownWithCentre`, < estricto, solo los
+  GetCamera()+0x14 (0x427A3B..0x427A46) = las MapCoords de `Camera::GetOrigin`, el mismo punto que
+  `GameQueries::camera` (GCamera::UpdateGameThingWithPosData 0x442EF0 las saca de LH3DTech::g_camera, 0x442EF3..0x442F35;
+  auditoría TOWNS); su +8, la altura que compara 0x4274C4, es y − el byte de altitud de la celda de la cámara × 0.67,
+  sin interpolar, o y fuera del mapa / sin bloque (0x442F38..0x442FCE; antes openblack usaba GetHeightAt interpolado);
+  `nearestTown` = fn_00602160 (`map_cells::GetNearestTownWithCentre`, < estricto, solo los
   de +0x9A4) con townTriggerOffDistance; la tribu, el componente `Tribe` del pueblo (Town +0x5B8, 0x42753D /
   0x42755A); la distancia, `gutils::GetDistanceInMetres` 0x74CD70 (0x4274EC, 0x427522); `town` = el pueblo de
   GAudio+0x18C mientras sea válido (IsAvailable 0x4274AF). La lógica (≤ 300 y altura < 400, 0x4274C4..0x427535) ya

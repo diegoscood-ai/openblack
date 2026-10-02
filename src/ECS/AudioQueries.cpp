@@ -148,8 +148,8 @@ float CameraAlignment()
 }
 
 /// GGame::GetCamera()+0x14, the camera's MapCoords (fn_00427460's argument and the point of its GetDistanceInMetres
-/// 0x4274E3 / 0x427519): MapCoords(LHPoint) 0x603160 of the render camera's position (inferido: the same point as
-/// GameQueries::camera's, LH3DTech::g_camera)
+/// 0x4274E3 / 0x427519): LH3DTech::g_camera, the render camera's position, x and z x 6553.6 __ftol
+/// (GCamera::UpdateGameThingWithPosData 0x442EF3..0x442F35, from GCamera::Update 0x4426EB), GameQueries::camera's point
 std::optional<ecs::map_coords::MapCoords> CameraMapCoords()
 {
 	if (!Locator::camera::has_value())

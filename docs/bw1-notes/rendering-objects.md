@@ -381,8 +381,8 @@ lejos), los anillos del agua (`LH3DSprite::Draw` **inmediato**, 0x5E526C), las m
 mano en el agua (0x5E4D89) y el sol (`fn_0086BB60`, después del vaciado, **(inferido)**). Las sombras proyectadas
 tampoco son Z objects (ninguna rutina de sombra está entre los 32 llamadores): las de tierra van con cada bloque
 (`fn_007FF610` 0x7FF749) y las de objetos al final del Draw de cada receptor (`fn_0080DB30` 0x80E457..0x80E4D7,
-`fn_00812170` 0x81311A..0x81317C), así que van al momento con un objeto opaco y **dentro de su Z object** con uno
-encolado (0x7FA980 → vt+0x108). openblack lo hace igual (`Renderer::DrawShadowsOnObject` detrás de su `DrawMesh`, en
+`fn_00812170` 0x81311A..0x81317C), así que van al momento con un objeto dibujado al momento (sin la marca 0x200 de su malla,
+0x815F62) y **dentro de su Z object** con uno encolado (0x7FA980 → vt+0x108). openblack lo hace igual (`Renderer::DrawShadowsOnObject` detrás de su `DrawMesh`, en
 Main o desde el vaciado; ver [Sombra dinámica sobre objetos](#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos)); hasta el punto 5 iban
 todas detrás del vaciado y oscurecían las burbujas, nubes y sprites que había delante. El reflejo no tiene cola (en
 el original no se ha leído **(inferido)**); se queda como estaba.
@@ -560,8 +560,8 @@ El original tiene tres mecanismos y un solo plano:
   **proyección vertical**; todo el oscurecimiento va en el alfa de la textura, con el fundido horneado).
   - Prueba de Z: el estático y `fn_00810720` ponen ZFUNC EQUAL antes de cada sombra (0x80E484 / 0x810C8F) y LESSEQUAL
     al acabar (0x80E4CE / 0x810CF2); el animado no toca ZFUNC: queda el LESSEQUAL del fotograma.
-  - **Dónde**: dentro del Draw del receptor, así que al momento con un objeto opaco y en su hueco de la cola con uno
-    encolado (0x7FA980 → vt+0x108); nunca detrás del vaciado ([la cola](#la-cola-única-de-transparentes-lh3dzsorter)).
+  - **Dónde**: dentro del Draw del receptor, así que al momento con un objeto dibujado al momento (sin la marca 0x200,
+    0x815F62) y en su hueco de la cola con uno encolado (0x7FA980 → vt+0x108); nunca detrás del vaciado ([la cola](#la-cola-única-de-transparentes-lh3dzsorter)).
   - Reciben (Flags1 0x40, `Object::Create3DObject` 0x6365F0 si ShadowsOnObjects): todos los objetos salvo los que llaman
     vt+0x78(0) (`xor edx, edx; call [eax+0x78]`): árboles (0x749FA3), bosques (0x439098), flores (0x527A5D), comida
     mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), los credos (0x50B46E), las banderas del pueblo

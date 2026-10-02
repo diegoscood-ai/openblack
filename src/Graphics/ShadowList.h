@@ -35,14 +35,15 @@
 namespace openblack::graphics::shadow_list
 {
 
-/// TODO(S5) (pendiente, waits for a screenshot of the original game, D-U1 / D-U2 of the plan): the hand's shadow as the
-/// original draws it. false keeps the look openblack had before the list: full density (8/15 at most), a 64 x 64
-/// texture, projected onto the ground under the hand and nothing of the held object. true is the original's:
+/// The hand's shadow as the original draws it (S5, checked against the user's captures of the original game,
+/// 2026-10-02: the hand's silhouette with its fingers, light and see-through, a held orb darker and round under it):
 /// CreateDynamicShadow sets si+0x3C = 1 (0x80C037), so fn_00880050 skips the even subrows (0x880141..0x880146: 4/15 at
-/// most), 32 x 32 (fn_0087FD50), projected onto the hand's own y (si+0x18 = obj+0x3C, 0x8152B1), and the held object
-/// si+0x00 is rasterized into the same texture at full density (si+0x3C saved, cleared and restored around it,
-/// 0x807532 / 0x80753D / 0x8075B7).
-inline constexpr bool k_HandShadowAsOriginal = false;
+/// most), 32 x 32 (fn_0087FD50), projected onto the hand's own y (si+0x18 = obj+0x3C, 0x8152B1..0x8152B4), and the
+/// held object si+0x00 (= obj+0x8C: 0x80C044..0x80C04A, SetHeldObject fn_00816830 0x816855) is rasterized into the
+/// same texture at full density (its own base y 0x807163, si+0x3C saved, cleared and restored around it, 0x807532 /
+/// 0x80753D / 0x8075B7). false gives back openblack's look from before the list (64 x 64 at full density, projected
+/// onto the ground under the hand, nothing of the held object), kept only to compare.
+inline constexpr bool k_HandShadowAsOriginal = true;
 
 /// fn_00874850 (holder, the generic casters) or fn_00814FD0 (LH3DComplexObject: the hand, the creature)
 enum class Update : uint8_t

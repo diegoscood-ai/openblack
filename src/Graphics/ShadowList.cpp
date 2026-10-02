@@ -62,7 +62,8 @@ using namespace openblack::graphics::shadow_list;
 
 namespace
 {
-/// The hand's texture size and density while S5 waits (k_HandShadowAsOriginal): openblack's old 64 x 64 at full density
+/// The hand's texture size and density (k_HandShadowAsOriginal): fn_0087FD50's 32 x 32 and si+0x3C = 1 (0x80C037);
+/// openblack's old 64 x 64 at full density with the flag off
 constexpr int k_HandTexels = k_HandShadowAsOriginal ? shadow_math::k_Texels : 64;
 constexpr bool k_HandHalfRows = k_HandShadowAsOriginal;
 constexpr bool k_HandHoldsInShadow = k_HandShadowAsOriginal;
@@ -513,7 +514,7 @@ void List::Frame(const FrameInputs& inputs)
 		shadow.projection = shadow_math::MakeProjection(position, light);
 		if (shadow.light == LightKind::Hand && !k_HandShadowAsOriginal)
 		{
-			// TODO(S5): the look of the hand's shadow before the list, until the original's is seen (D-U1): projected
+			// k_HandShadowAsOriginal off: the look of the hand's shadow before the list, to compare (D-U1): projected
 			// from the light onto the ground under the hand, s = (ground - Ly) / (y - Ly) (the old
 			// vs_dynamic_shadow_instanced, gone with point 5). fn_00850900's t = -Ly / (h - Ly) with h = y - base gives
 			// the same with the base at the ground and the light's y taken from it. The original's base is the hand's own

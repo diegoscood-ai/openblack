@@ -558,7 +558,7 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   rasterizado, resolución, filtro chroma, fundido horneado, prueba de bloque y de visibilidad), con `test_shadow_math`.
 - `src/Graphics/ShadowList.{h,cpp}` (`graphics::shadow_list`): la lista y sus productores (la mano, los objetos físicos
   en vuelo de `PhysicsObjects::ForEach` con `CastsPhysicsShadow`, y los `components::DynamicShadow`: el barco con
-  `useSun`), una textura R8 32×32 (64×64 la de la mano mientras S5 espera; n·17, CLAMP) por entrada, subida cada fotograma. La pose sale de
+  `useSun`), una textura R8 32×32 (n·17, CLAMP) por entrada, subida cada fotograma. La pose sale de
   `L3DSubMesh::GetSkinBones` / `GetSkinLocalPositions` (S2) y de `ecs::PosesByInstance`.
 - `src/Graphics/RendererShadows.cpp`: `UpdateShadows` (una vez por fotograma), `DrawLandShadows` (en el bucle de
   bloques de `Renderer::DrawPass`, vista Main, justo detrás del `submit` de cada bloque; programa `LandShadow` =
@@ -575,11 +575,32 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   del `DrawMesh` del objeto en Main o dentro de su entrada de la cola (`MainBlended`); ninguna entrada nueva en la cola.
 
 **Diferencias.**
-- **pendiente (S5, espera una captura del juego original)**: la mano se dibuja aún como antes de la lista
-  (`shadow_list::k_HandShadowAsOriginal = false`): 64×64, densidad completa (8/15), proyectada sobre el suelo bajo la
-  mano y sin el objeto sostenido. El original: si+0x3C = 1 (0x80C037 → 0x880141, como mucho 4/15), 32×32, base en la
-  y de la mano (0x8152B1) y el objeto sostenido dentro a densidad completa (0x807532..0x8075B7). Es un cambio de una
-  línea.
+- **La mano (S5, hecho; fuente: capturas del original del usuario, 2026-10-02)**: `shadow_list::k_HandShadowAsOriginal
+  = true`, como el original: si+0x3C = 1 (`CreateDynamicShadow` 0x80C037), así que `fn_00880050` no escribe las
+  subfilas pares (0x880141..0x880146) y la mano llega como mucho a 4/15; 32×32 (`fn_0087FD50`); base en la y de la
+  propia mano (si+0x18 = obj+0x3C, 0x8152B1..0x8152B4), con t' = 1 en la tierra; el objeto sostenido si+0x00
+  (= obj+0x8C, `SetHeldObject` `fn_00816830` 0x816855) rasterizado en la misma `ShadowInfo` con su propia base
+  (0x807163) y a densidad completa (si+0x3C guardado, a 0 y repuesto, 0x807532 / 0x80753D / 0x8075B7; en el bucle de
+  sus primitivas 0x80714F..0x807259). Un sostenido chroma usa la base de la `ShadowInfo` (si+0x18, `fn_0084B7D0`
+  0x84B7E0), no la suya. Con `false` vuelve el aspecto de openblack de antes de la lista (64×64, densidad completa,
+  sobre el suelo bajo la mano, sin el sostenido), solo para comparar.
+  - Lo que enseñan las capturas: la sombra de la mano es su silueta, con los dedos, gris claro y medio transparente
+    (4/15); un orbe sostenido echa debajo una sombra más oscura y redonda (densidad completa); los orbes se dibujan
+    enteros encima de las sombras; el dispensador conserva su sombra.
+    - [img/original_hand_shadow_over_dispenser.png](img/original_hand_shadow_over_dispenser.png): la mano sobre el
+      orbe del dispensador; detrás, en el suelo, la silueta clara de la mano.
+    - [img/original_hand_shadow_orb_over_dispenser.png](img/original_hand_shadow_orb_over_dispenser.png): la mano con
+      un orbe sobre el dispensador; sombra oscura y redonda al pie.
+    - [img/original_hand_shadow_red_orb_over_dispenser.png](img/original_hand_shadow_red_orb_over_dispenser.png): lo
+      mismo con otro orbe.
+    - [img/original_hand_shadow_orb_over_ground.png](img/original_hand_shadow_orb_over_ground.png): la mano con un
+      orbe sobre la hierba; sombra oscura y redonda desplazada abajo a la izquierda.
+  - Comparación (openblack, escena `OPENBLACK_TEST_DISPENSER=NORSE_ABODE_SPELL_DISPENSER,1826,2670,10,2`,
+    `OPENBLACK_CAMERA_LOCK=1816,52,2656,1826,37,2670`, 13 h; la mano coge el orbe con `OPENBLACK_TEST_TUG=1700,2500,10,3`
+    y `OPENBLACK_TEST_TUG_MOUSE2`): antes, la sombra de la mano era una silueta oscura (8/15) y el orbe sostenido no
+    tenía sombra; ahora la silueta es gris clara con los dedos, como en la primera captura, y con el orbe en la mano
+    sale debajo la sombra oscura y redonda de las capturas 2 y 4, sobre la hierba y al pie del dispensador; el orbe
+    queda entero por encima. Capturas en `dev\_audit\shaders\p6_*`.
 - **(aproximado)** el código 0x400, que en el original quita triángulos enteros: sobre la tierra, `fs_land_shadow`
   quita el triángulo cuando sus tres vértices llevan el código, pero lo hace por fragmento con el valor interpolado,
   así que en las aristas quedan fragmentos sueltos de más o de menos; sobre los objetos, `fs_object_shadow` lo aplica
@@ -784,8 +805,7 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
     a la izquierda de cada 2×2, a 128. No está portada.
   - Los mapas de luz de `Data\Spells\LightMaps` (`PSys/Creators/LightMap.cpp`) pasan también por `fn_0057DBE0`
     (inferido) y no se cortan.
-- [Sombras proyectadas](#sombras-proyectadas-shadowinfo): la mano como el original (S5, espera la captura del
-  original; `k_HandShadowAsOriginal`), la criatura, la predicción, los SuperVillagers y las mallas PSys
+- [Sombras proyectadas](#sombras-proyectadas-shadowinfo): la criatura, la predicción, los SuperVillagers y las mallas PSys
   (`fn_006CA340`, milagros2).
 
 ## Ganchos de prueba

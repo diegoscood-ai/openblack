@@ -643,7 +643,8 @@ El original tiene tres mecanismos y un solo plano:
 
 ## Sombra dinámica de la mano
 
-**(aproximado)**: el aspecto de antes de la lista, a la espera de una captura del original (S5).
+**Fiel** (S5, hecho; fuente: capturas del original del usuario, 2026-10-02; ver
+[rendering.md](rendering.md#sombras-proyectadas-shadowinfo)).
 
 - Original: `CHand::CHand` 0x46BC0B → `CreateDynamicShadow` 0x80C020 (si [0xC3820C] ≠ 0, 1 en los datos), una
   `ShadowInfo` compleja (`fn_00814FD0`) con si+0x3C = 1 (0x80C037: el relleno se salta las subfilas pares, 0x880141,
@@ -651,11 +652,17 @@ El original tiene tres mecanismos y un solo plano:
   sobre la tierra (no hay si+0x464) y el objeto sostenido (si+0, `SetHeldObject` vt+0x234 = `fn_00816830`, solo si
   `IsG3DObjectDrawnInHand`) dentro de la misma textura a densidad completa (0x807532..0x8075B7). Cae sobre la tierra
   y sobre los objetos (si+0xC = 0).
-- openblack: la entrada de la mano de `graphics::shadow_list`, con `k_HandShadowAsOriginal = false` (TODO(S5) en
-  `ShadowList.h`): textura de 64×64, densidad completa (8/15 como mucho), proyectada sobre el suelo bajo la mano y sin
-  el objeto sostenido, como la vieja `DrawHandShadowPass`; pero ya con la caja ajustada (la vieja usaba ±2 radios),
-  el fundido horneado a nibbles y dibujada como las demás (sobre cada bloque y sobre los objetos en su sitio de la
-  cola). Con `true` es la del original.
+- openblack: la entrada de la mano de `graphics::shadow_list`, con `k_HandShadowAsOriginal = true` (`ShadowList.h`):
+  32×32, 4/15 como mucho, la base en la y de la mano y el objeto sostenido (un orbe cogido del dispensador, por
+  ejemplo) a densidad completa en la misma textura, dibujada como las demás (sobre cada bloque y sobre los objetos en
+  su sitio de la cola). Comparada con cuatro capturas del original
+  ([img/original_hand_shadow_over_dispenser.png](img/original_hand_shadow_over_dispenser.png),
+  [img/original_hand_shadow_orb_over_dispenser.png](img/original_hand_shadow_orb_over_dispenser.png),
+  [img/original_hand_shadow_red_orb_over_dispenser.png](img/original_hand_shadow_red_orb_over_dispenser.png),
+  [img/original_hand_shadow_orb_over_ground.png](img/original_hand_shadow_orb_over_ground.png)): silueta clara con los
+  dedos, sombra oscura y redonda del orbe sostenido, orbes enteros encima. Con `false` vuelve el aspecto de antes de
+  la lista (64×64, 8/15, sobre el suelo bajo la mano, sin el sostenido; la vieja `DrawHandShadowPass`), solo para
+  comparar.
 
 ## Animales: manchas y malla
 

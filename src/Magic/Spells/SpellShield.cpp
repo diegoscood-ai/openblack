@@ -21,6 +21,8 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -43,7 +45,7 @@ namespace
 std::vector<entt::entity> g_ShieldSpells;
 
 constexpr float k_ReactionRadiusAdd = 30.0f; ///< 0x8BF51C
-constexpr float k_TownRadius = 250.0f;       ///< 0x43FA0000
+constexpr float k_TownRadius = 500.0f;       ///< 0x43FA0000 (push at 0x72B683, SpellShield::InitWithPos)
 
 const GMagicShieldInfo& ShieldInfoOf(entt::entity spell)
 {
@@ -64,22 +66,11 @@ SpellShieldData& DataOf(entt::entity spell)
 	return registry.Assign<SpellShieldData>(spell);
 }
 
-/// MapCoords::GetNearestTown 0x6020E0 (r): every player's (and the neutral one's) towns, the nearest closer than r
+/// MapCoords::GetNearestTown 0x6020E0 (r): every player's (and the neutral one's) towns in their lists' order, the
+/// nearest strictly closer than r (ecs::map_cells)
 entt::entity NearestTown(const glm::vec3& position, float radius)
 {
-	entt::entity best = entt::null;
-	float bestDistance = radius;
-	Locator::entitiesRegistry::value().Each<const Town, const Transform>(
-	    [&](entt::entity town, const Town& /*unused*/, const Transform& transform) {
-		    // fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70 (0x602112, 0x602193)
-		    const float distance = gutils::GetDistanceInMetres(position, transform.position);
-		    if (distance < bestDistance)
-		    {
-			    bestDistance = distance;
-			    best = town;
-		    }
-	    });
-	return best;
+	return ecs::map_cells::GetNearestTown(ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)), radius);
 }
 
 /// SpellShield::InitWithPos 0x72B5F0

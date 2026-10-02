@@ -28,6 +28,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/Buildings.h"
@@ -291,6 +292,8 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 		shield.kind = MapShield::Kind::Magic;
 		SetScale(entity, shield, k_ScalePerRadius * radius);
 		registry.Get<Transform>(entity).scale = glm::vec3(shield.objectScale);
+		// CallVirtualFunctionsForCreation -> SingleMapFixed::InsertMapObject 0x52E620: the head of its cell's fixed list
+		ecs::map_cells::InsertMapObject(entity);
 		return entity;
 	}
 	// fn_0072C9F0 (after fn_0072CB70's zeros and ones)
@@ -364,6 +367,8 @@ entt::entity map_shield::Create(const glm::vec3& position, entt::entity spell, f
 		                   static_cast<uint32_t>(entity), position.x, position.z, radius, physical.startScale,
 		                   physical.finalScale, physical.startSpin, physical.endSpin, physical.fx);
 	}
+	// SingleMapFixed::InsertMapObject 0x52E620 (CallVirtualFunctionsForCreation): the head of its cell's fixed list
+	ecs::map_cells::InsertMapObject(entity);
 	return entity;
 }
 

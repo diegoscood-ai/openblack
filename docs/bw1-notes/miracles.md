@@ -189,6 +189,13 @@ La niebla del agua (`ParticleMistCreator`, también la de las nubes de la tormen
 
 ### Arreglo en `ECS/Effects`: las celdas del mapa
 
+**Sustituido (2026-10-02, map_cell_queries fase A):** `ApplyEffectToMapPos`, el agua, el fuego, el rayo, la explosión,
+la tormenta, la curación y las vasijas recorren ya las listas ordenadas de `ecs::map_cells`
+([engine-math.md](engine-math.md#listas-de-objetos-por-celda-ecsmap_cells)): la fija desde la cabeza y luego la móvil,
+**sin «ya visto»** (`ApplyEffectToMapPos` 0x525274..0x5253BF, el agua 0x7250CC..0x725179 y el calor del fuego
+0x72F699..0x72F6B6 con `HeatTransfer` 0x72F980 no tienen ninguno: un multicelda recibe el efecto una vez por celda).
+Las dos funciones de abajo quedan como API vieja para TownQueries (mapa). Texto anterior:
+
 `effects::FixedObjectsInMapCell` / `ObjectsInMapCell` (EffectValues.h). **(aproximado)** La rejilla de openblack
 (`MapProduction`) solo mete un objeto fijo en las celdas cuyo centro está a menos de su radio + 1 m, así que un árbol
 pequeño lejos del centro de su celda no estaba en ninguna, y ni `ApplyEffectToMapPos` (fuego, rayo, agua) ni el agua lo
@@ -395,8 +402,10 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     tierra y no `MapCoords::IsFixed`).
   - El radio de `fn_005FADF0` es la vt 0x64 de cada objeto, y **`Field::Get2DRadius` 0x528E80 es la constante 5 m**
     ([0x8AB6E4]): es la única clase que redefine el hueco (las vtables de Object, Abode, Field, Tree y Pot dan
-    `Object::Get2DRadius` 0x638180 menos la de Field). Portado en `SpellForest.cpp` `NoAbodeCovers`, que antes usaba el
-    radio genérico también para los campos.
+    `Object::Get2DRadius` 0x638180 menos la de Field). Pero `FindType(0)` (`FindTypeOnMap` 0x6015E0) compara el tipo de
+    la info (+0x10) con 0 ABODE, y el de un campo es 18 FIELD (info.dat `fieldType[].type`, lo comprueba
+    `test_map_cells`): **un campo nunca impide el bosque**. `NoAbodeCovers` recorre ahora
+    `ecs::map_cells::FindType(celda, ABODE, anterior)` y ya no mira los campos (antes los contaba con 5 m).
   - **`IsFixed` 0x603790 → `MapCell::IsFixed` 0x601EA0 mira solo el primer objeto fijo de la celda** (MapCell +4,
     donde `Fixed::InsertMapObjectToCell` 0x52DEA0 pone el más nuevo con `SetFirstObjectFixed`) y su bit +0x24 & 2, que
     solo pone el ctor de `MultiMapFixed` 0x52E1F0 (`or byte [esi+0x24], 2` en 0x52E207). O sea: `IsFixed` = «el fijo más
@@ -407,10 +416,11 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     (Tree, MapShield, ScriptHighlight, PrayerIcon) no lo pone, ni GFootpath ni BuildingSite (son GameThing). Un árbol está solo en su celda: una celda cuyo último fijo
     es un árbol no está «ocupada», aunque tenga un edificio debajo. openblack prueba ahora esa lista de componentes
     (`ecs::fire::traits::IsMultiMapFixed`, el rasgo común; antes solo preguntaba «no es un árbol», lo que ocupaba la celda con cualquier
-    SingleMapFixed) y cuenta los árboles del propio evento. **(aproximado)** el más nuevo sigue siendo el del índice de
-    creación: el grid de openblack es un `unordered_set` que se reconstruye entero (`ECS/Map.h`) y no guarda orden de
-    inserción. Solo se nota con un objeto que salió del mapa y volvió sin crearse de nuevo (cogido y soltado): en el
-    original vuelve a ser el más nuevo, aquí conserva su índice.
+    SingleMapFixed). Desde la fase A de map_cell_queries `IsFixedCell` es `ecs::map_cells::IsFixed`: la cabeza real de
+    la lista fija ordenada ([engine-math.md](engine-math.md#listas-de-objetos-por-celda-ecsmap_cells)); cada árbol del
+    evento entra por la cabeza al crearse (gancho `InsertMapObject` en `CreateTree`, SingleMapFixed 0x52E620), así que
+    `g_NewTrees` se ha borrado. **(aproximado)** lo que crean o mueven los otros dueños sin gancho (un árbol replantado
+    con la mano) entra en el `Sync` del turno siguiente, por orden de creación.
   - `SpellEvent` 0x725830: nada con el tipo 1 o si ya hay Forest; `ApplyDefaultSpellEffect` (paga costPerEvent 1;
     EffectValues de NATURE: alineamiento 1; reacción 21) y, si aplica, **todo el bosque de golpe**: N = `fn_00725790` =
     round(+0xF4 × (fuerza > 0)); paso = N > 1 ? 1/(N − 1) : 1; vueltas = N × **17/13** (el float 0x9819FC =
@@ -1065,7 +1075,7 @@ la cúpula es el PSys del hechizo, SF_DefenseSphere) o `PhysicalShield` (la mall
 - `InitWithPos` 0x72B5F0, en orden: el radio (castData +0) se recorta **primero por arriba y luego por abajo**
   (`maxRadius` 1000 si no es menor, luego `minRadius` 5 si no es menor) y se reescribe en castData; `Spell::InitWithPos`
   (la magnitud queda en el radio); la reacción REACT_TO_MAGIC_SHIELD (13) del jugador del hechizo con radio r + 30
-  (reaction +0x3C, `reactions::SetRadius`); la ciudad más cercana a menos de 250 m (`MapCoords::GetNearestTown`
+  (reaction +0x3C, `reactions::SetRadius`); la ciudad más cercana a menos de 500 m (0x43FA0000, `push` en 0x72B683; `MapCoords::GetNearestTown`
   0x6020E0, todas las ciudades de todos los jugadores y del neutral); **un anillo anti de radio = la magnitud por cada
   otro jugador activo** (`GGame::GetNextActivePlayer` 0x5508D0: los siete huecos con +0x8E0 ≠ 0; aquí los jugadores
   que la tierra creó); y `MapShield::Create` 0x72BE20 en la lista de objetos. Si `Spell::InitWithPos` falla, el
@@ -1348,8 +1358,10 @@ piedra del mismo jugador que más lo acerca a donde va.
   piedra), así que InitWithPos manda `SpellEvent 11` (`particleType == 0`) y no crea PSys propio.
 - `GMagicTeleportInfo` vt+0x30 (CanCast en pos) 0x5FBE50: falla si hay un MultiMapFixed (edificio, campo, otra
   piedra...) a menos de `fn_005FCCA0` = **6 m** (`fn_00604C30` con el predicado AsMultiMapFixed); si no,
-  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`, con el
-  rasgo común `ecs::fire::traits::IsMultiMapFixed` (bit 2 de +0x24, ctor 0x52E207; = `AsMultiMapFixed` vt 0x678). Como
+  `GMagicInfo::CanCast` = 1. En openblack `cast_rules::CanCastAt` lo llama `teleport::AnyMultiMapFixedNear`, que es
+  `ecs::map_cells::FindNearestInSpiral(pos, IsMultiMapFixedClass, 6) != null` (espiral, `d < r` y corte
+  `1,5·mejor + 10` como fn_00604C30); las piedras están en sus celdas (gancho `InsertMapObject` en `teleport::Create`,
+  MultiMapFixed 0x52E890+0x184), así que ya no se buscan en las listas de los jugadores. Como
   `SPELL_AT_POS` no comprueba nada (creador neutral, bandera a 0), el guion planta la piedra igual (el gancho lo
   confirma: «CanCastAt(A) now false» pero la piedra se crea).
 - `MagicTeleport::Create` 0x5FC1F0: `new MagicTeleport(pos, spell)` (ctor 0x5FC130: `MobileStatic(pos, 0xD3B614,...)`),

@@ -29,6 +29,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/EffectValues.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -84,63 +85,17 @@ float SeedRadius(entt::entity entity, const SpellSeed& seed)
 	return ecs::object::MeshRadius2D(resources::HashIdentifier(seed::InfoOf(seed).mesh), ecs::object::GetScale(entity));
 }
 
-/// The MapCoords' low word of a coordinate (the offset in its 10 m cell) back in metres (fn_006022C0 0x6022E2..0x602300:
-/// movzx word ptr [obj+0x14]; fild; fmul 1/65536 [0x8AC41C]; fmul 10 [0x930050]). The MapCoords is ToFixed of the metres
-float CellOffset(float metres)
-{
-	const auto low = static_cast<uint32_t>(ecs::map_coords::ToFixed(metres)) & 0xFFFFu;
-	return static_cast<float>(low) * (1.0f / 65536.0f) * 10.0f;
-}
-
-/// fn_006022C0 (MapCoords this = the seed's, obj = the seed, 1): the highest GetTopPos (Object 0x638160: the MapCoords
-/// altitude above the land +0x1C plus GetHeight 0x638120) of the objects in the seed's map cell (its list +4, then +0)
-/// that are not the seed, not living (vt 0x3C4) and not moving (vt 0x174), and whose circle overlaps the seed's: the
-/// squared distance of their in-cell offsets below r_obj^2 + r_seed^2 (0x6023E9..0x60241E). 0 if none or out of bounds.
+/// fn_006022C0 (MapCoords this = the seed's, obj = the seed, 1): ecs::map_cells::TallestOverlapping, the highest
+/// GetTopPos of the objects of the seed's cell (fixed list, then mobile) that are not the seed, not living and not
+/// moving, overlapping the seed's circle (its own Get2DRadius, the seed's override). 0 if none or out of bounds
 float TopOfObjectsUnder(entt::entity entity, const SpellSeed& seed, const glm::vec3& position)
 {
-	auto& registry = Locator::entitiesRegistry::value();
 	if (!cast_rules::InBounds(position))
 	{
 		return 0.0f; // MapCoords::InBounds 0x6042C0
 	}
-	const float seedRadius = SeedRadius(entity, seed);
-	const glm::vec2 seedOffset(CellOffset(position.x), CellOffset(position.z));
-	// MapCoords::ToMap 0x603430: the cell of x >> 16, z >> 16
-	const auto cell = ecs::map_coords::CellOf(position);
-	const int cellX = cell.x;
-	const int cellZ = cell.y;
-	float best = 0.0f;
-	for (const auto object : ecs::effects::ObjectsInMapCell(cellX, cellZ))
-	{
-		if (object == entity || !registry.Valid(object))
-		{
-			continue;
-		}
-		// IsLiving vt 0x3C4 (the villagers and animals here); IsMoving vt 0x174 (Object 0x402710: the position is not the
-		// last turn's). (aproximado) openblack keeps no last position for a fixed object: one in physics is the moving one
-		if (registry.AnyOf<Villager, Animal>(object) || ecs::physics::PhysicsObjects::Find(object) != nullptr)
-		{
-			continue;
-		}
-		const auto* transform = registry.TryGet<const Transform>(object);
-		if (transform == nullptr)
-		{
-			continue;
-		}
-		// GetTopPos vt +0x630 (0x602388): the MapCoords altitude + GetHeight (vt +0x42C); MapShield 0
-		const float top = ecs::object::GetTopPos(object);
-		if (!(top > best)) // fcomp; test ah, 0x41; jne
-		{
-			continue;
-		}
-		const glm::vec2 d = seedOffset - glm::vec2(CellOffset(transform->position.x), CellOffset(transform->position.z));
-		const float radius = ecs::object::Get2DRadius(object); // vt +0x64 (0x6023E9, 0x6023F4)
-		if (d.x * d.x + d.y * d.y < radius * radius + seedRadius * seedRadius)
-		{
-			best = top;
-		}
-	}
-	return best;
+	const auto coords = ecs::map_coords::FromMetres(glm::vec2(position.x, position.z));
+	return ecs::map_cells::TallestOverlapping(coords, entity, coords, SeedRadius(entity, seed), true);
 }
 
 /// The seed's Game3DObject drawn or not this frame (openblack: its Mesh, which the renderer and the hand's pick see)

@@ -20,6 +20,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
+#include "MapCells.h"
 #include "MapCoords.h"
 
 using namespace openblack::ecs;
@@ -51,6 +52,8 @@ void MapProduction::Rebuild()
 {
 	Clear();
 	Build();
+	// the ordered cell lists (ECS/MapCells) take in what the owners without hooks did since the last rebuild
+	map_cells::Sync();
 }
 
 void MapProduction::Clear()

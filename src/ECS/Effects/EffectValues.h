@@ -80,11 +80,13 @@ float ApplyEffect(entt::entity object, EffectValues& values);
 /// (T - Tc) / Tc x defenceMultiplierBurn x 0.1
 [[nodiscard]] float ConvertTemperatureToDamage(entt::entity object, float temperature);
 
+/// Legacy (TownQueries is its last user): use ecs::map_cells, the ordered lists of the original.
 /// The fixed list (+4) of one 10 m map cell. (aproximado) openblack's grid (ECS/MapProduction) puts a fixed object only
 /// in the cells whose centre is within its bounding radius + 1 m, so a small tree away from a cell centre is in no cell
 /// at all, while the original links every object into the cell of its position: here the list is the grid's plus every
 /// fixed object whose position is in the cell, sorted by entity (the grid's sets have no order). Out of the grid: empty.
 [[nodiscard]] std::vector<entt::entity> FixedObjectsInMapCell(int cellX, int cellZ);
+/// Legacy (TownQueries is its last user): use ecs::map_cells::ObjectsInCell.
 /// fn_00603500 / fn_007252D0 over one map cell: its fixed list, then its mobile list (+0, sorted by entity)
 [[nodiscard]] std::vector<entt::entity> ObjectsInMapCell(int cellX, int cellZ);
 

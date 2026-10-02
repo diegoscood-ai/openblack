@@ -31,6 +31,7 @@
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/Implementations/HandGrain.h"
@@ -55,6 +56,9 @@ void magic::OnLoadMap()
 {
 	ClearSpells();
 	players::Reset();
+	// GlobalGameLists::ClearMap 0x591A92 -> fn_006013D0 (g_game +0x59B8, the GMap): MapCell::Clean 0x601380 on every
+	// cell (0x6013FF), both object lists emptied (ECS/MapCells). openblack's Registry::Reset follows (Game.cpp)
+	ecs::map_cells::Clear();
 	teleport::Clear(); // Objects/MagicTeleport: the players' stone lists (also registers the REACT_TO_TELEPORT spread)
 	ecs::effects::reactions::Clear();
 	ecs::fire::Clear();                   // ECS/Fire

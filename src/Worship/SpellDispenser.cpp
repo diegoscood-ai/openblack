@@ -26,6 +26,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
@@ -104,22 +105,16 @@ bool OrbStillThere(entt::entity dispenser, entt::entity orb)
 	return glm::distance(glm::vec2(at.x, at.z), glm::vec2(spawn.x, spawn.z)) <= 0.001f + 0.5f;
 }
 
-/// fn_00723010: no town -> GetPlayer(0)'s town list head; openblack: the player's first town, else AbodeArchetype's
-/// nearest town
+/// fn_00723010: no town -> GetPlayer(0)'s town list head (GPlayer +0xA50: the oldest town of PLAYER_ONE, filled at the
+/// tail by fn_0064C090; ecs::map_cells::TownsOf)
 uint32_t TownIdFor(int townId)
 {
 	if (townId >= 0)
 	{
 		return static_cast<uint32_t>(townId);
 	}
-	uint32_t found = 0xFFFFFFFFu;
-	Registry().Each<const Town>([&](const Town& town) {
-		if (found == 0xFFFFFFFFu && town.owner == PlayerNames::PLAYER_ONE)
-		{
-			found = town.id;
-		}
-	});
-	return found;
+	const auto towns = ecs::map_cells::TownsOf(PlayerNames::PLAYER_ONE);
+	return towns.empty() ? 0xFFFFFFFFu : Registry().Get<const Town>(towns.front()).id;
 }
 } // namespace
 

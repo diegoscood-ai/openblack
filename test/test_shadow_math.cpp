@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -375,6 +376,38 @@ TEST(ShadowMath, Land)
 	EXPECT_FALSE(TouchesBlock(box, 3, 1));
 	EXPECT_TRUE(TouchesBlock(box, 2, 0)); // (bz + 1) 160 >= z0
 	EXPECT_FALSE(TouchesBlock(box, 2, 2));
+}
+
+TEST(ShadowMath, ReachesMorphable)
+{
+	EXPECT_EQ(std::bit_cast<uint32_t>(k_MorphableBoxFactor), 0x3FB50481u); // [0x932D08] 8104b53f
+	Box box;
+	box.x0 = -5.0f;
+	box.x1 = 5.0f; // width 10
+	box.z0 = -2.0f;
+	box.z1 = 2.0f; // depth 4: the width is the side; the centre (0, 0)
+	// an object at (d, 0, 0) with no mesh offset, scale 1, half diagonal 2: R = 2 + 10 x 1.4142
+	const float reach = 2.0f + 10.0f * k_MorphableBoxFactor;
+	glm::mat4 model(1.0f);
+	model[3] = glm::vec4(reach, 0.0f, 0.0f, 1.0f);
+	EXPECT_FALSE(ReachesMorphable(box, glm::vec3(0.0f), model, 1.0f, 2.0f)); // d == R: not drawn (strict)
+	model[3].x = reach - 0.01f;
+	EXPECT_TRUE(ReachesMorphable(box, glm::vec3(0.0f), model, 1.0f, 2.0f));
+	// the mesh centre goes through the matrix (90 degrees about y: local x -> world -z); the scale multiplies the half
+	// diagonal
+	model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	model[3] = glm::vec4(0.0f, 0.0f, 30.0f, 1.0f);
+	EXPECT_FALSE(ReachesMorphable(box, glm::vec3(0.0f), model, 1.0f, 2.0f));              // 30 > 16.142
+	EXPECT_TRUE(ReachesMorphable(box, glm::vec3(20.0f, 0.0f, 0.0f), model, 1.0f, 2.0f)); // the centre at z 10
+	EXPECT_TRUE(ReachesMorphable(box, glm::vec3(0.0f), model, 8.0f, 2.0f));              // R = 16 + 14.142 > 30
+	// the depth is the side when the width is not greater
+	box.z0 = -15.0f;
+	box.z1 = 15.0f; // depth 30
+	model = glm::mat4(1.0f);
+	model[3] = glm::vec4(0.0f, 0.0f, 40.0f, 1.0f);
+	EXPECT_TRUE(ReachesMorphable(box, glm::vec3(0.0f), model, 1.0f, 2.0f)); // 40 < 2 + 42.43
+	model[3].z = 45.0f;
+	EXPECT_FALSE(ReachesMorphable(box, glm::vec3(0.0f), model, 1.0f, 2.0f));
 }
 
 TEST(ShadowMath, BlockVisible)

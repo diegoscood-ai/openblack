@@ -189,6 +189,17 @@ void ChromaTriangle(const std::array<glm::vec4, 3>& vertices, const AlphaMap& ma
 /// fn_007FF610 0x7FF6D8..0x7FF744: bx 160 <= x1, (bx + 1) 160 >= x0 and the same in z, with the box +0x2C {x0, z0, x1,
 /// z1}
 [[nodiscard]] bool TouchesBlock(const Box& box, int blockX, int blockZ);
+/// [0x932D08] `8104b53f` = 1.41419995 (not the float nearest sqrt 2, 0x3FB504F3): the morphable receiver's box factor
+inline constexpr float k_MorphableBoxFactor = std::bit_cast<float>(0x3FB50481u);
+/// The morphable Draw's own receiver test (fn_0080E550 0x80E78E..0x80E857, in place of ContainsThisBoundingBox): the
+/// reach R = (obj+0x44 x mesh+0x30) + max(x1 - x0, z1 - z0) x 1.4142 [0x932D08] (si+0x20 - si+0x1C against si+0x28 -
+/// si+0x24, the z one stored, 0x80E7A3; the x one kept only when the z one is less, 0x80E7AD), the mesh centre
+/// mesh+0x18..0x20 through the object's matrix obj+0x14 (x = ((cy m3 + cz m6) + cx m0) + m9, z = ((cy m5 + cx m2) +
+/// cz m8) + m11; rows m0..m11 = glm columns), dx = x - bx and dz = z - bz with the box centre (x0 + x1) x 0.5
+/// [0x8AA3B4] (stored, 0x80E814) and (z0 + z1) x 0.5, dx and dz stored (0x80E828, 0x80E832); the shadow is drawn
+/// (fn_0080AE40, 0x80E86A) when dx dx + dz dz < R R, strictly (0x80E84E: C0 or C3 of R R against it skips)
+[[nodiscard]] bool ReachesMorphable(const Box& box, glm::vec3 meshCentre, const glm::mat4& model, float scale,
+                                    float halfDiagonal);
 /// fn_00877210 0x8773E4..0x8774E8: the 8 corners of the block (graphics::haze::BlockCorners) through g_world_to_clipping
 /// [0xEA9E40] (x, y, w; glm: worldToClip * (corner, 1)); outcodes w < near ([0xE839E0], read by CameraModePath::
 /// SetUpNearClipping 0x460F10), x > w, else -w > x, y > w, else -w > y. Not visible when one outcode holds for all 8.

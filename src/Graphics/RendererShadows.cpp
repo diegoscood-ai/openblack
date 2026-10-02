@@ -44,6 +44,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
@@ -175,13 +176,16 @@ void Renderer::CollectShadowReceivers(bool mainView) const
 		}
 		const auto mesh = meshes.Handle(instance.meshId);
 		// ContainsThisBoundingBox (vt+0x1BC, fn_007F9E80, 0x80E497): the mesh box centre +- half its size, moved to the
-		// object, x and z only
+		// object, x and z only; the morphable Draw has its own test instead (fn_0080E550, shadow_math::ReachesMorphable)
 		const auto& meshBox = mesh->GetBoundingBox();
 		const auto* transform = registry.TryGet<const ecs::components::Transform>(entity);
 		if (transform == nullptr)
 		{
 			continue;
 		}
+		const auto& model = renderCtx.instanceUniforms[instance.index]; // obj+0x14, the drawn matrix (x and z read only)
+		const float scale = transform->scale.x;                          // obj+0x44
+		const float halfDiagonal = ecs::object::MeshHalfDiagonal(instance.meshId); // mesh+0x30
 		const glm::vec2 centre =
 		    glm::vec2(meshBox.Center().x, meshBox.Center().z) + glm::vec2(transform->position.x, transform->position.z);
 		const glm::vec2 half = glm::vec2(meshBox.Size().x, meshBox.Size().z) * 0.5f;
@@ -194,8 +198,16 @@ void Renderer::CollectShadowReceivers(bool mainView) const
 				continue;
 			}
 			const auto& box = shadow->box;
-			if (centre.x + half.x < box.x0 || centre.x - half.x > box.x1 || centre.y + half.y < box.z0 ||
-			    centre.y - half.y > box.z1)
+			if (instance.morphWithTerrain)
+			{
+				// fn_0080E550 0x80E78E..0x80E857 (no vt+0x1A8 / vt+0x1B8 test there, only si+0x464 0x80E782)
+				if (!shadow_math::ReachesMorphable(box, meshBox.Center(), model, scale, halfDiagonal))
+				{
+					continue;
+				}
+			}
+			else if (centre.x + half.x < box.x0 || centre.x - half.x > box.x1 || centre.y + half.y < box.z0 ||
+			         centre.y - half.y > box.z1)
 			{
 				continue;
 			}
@@ -242,15 +254,17 @@ void Renderer::DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const g
 	// (0x80E484) and LESSEQUAL after the loop (0x80E4CE), and so does fn_00810720 (vt+0x15C, 0x810C8F / 0x810CF2); the
 	// animated one fn_00812170 (vt+0x108 of 0x9A32A0, the loop 0x81311A..0x81317C) sets nothing, so the frame's
 	// LESSEQUAL holds (0x82CCC5): GEQUAL in openblack's reversed depth, which lets the redraw's equal depth pass (as
-	// DrawLandShadows). (inferido) that a boned mesh is one of the animated class
+	// DrawLandShadows). The morphable Draw fn_0080E550 (vt+0x108 of 0x9A2E34) sets nothing either around its loop
+	// (0x80E768..0x80E874 -> fn_0080AE40): LESSEQUAL too. (inferido) that a boned mesh is one of the animated class
+	const bool lessEqual = mesh->IsBoned() || receiver.morphWithTerrain;
 	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
-	submitDesc.options = mesh->IsBoned() ? render_modes::StateOptions {.zFunc = render_modes::ZFunc::Always,
-	                                                                   .cull = render_modes::Cull::Ccw,
-	                                                                   .msaa = true,
-	                                                                   .extra = BGFX_STATE_DEPTH_TEST_GEQUAL}
-	                                     : render_modes::StateOptions {.zFunc = render_modes::ZFunc::Equal,
-	                                                                   .cull = render_modes::Cull::Ccw,
-	                                                                   .msaa = true};
+	submitDesc.options = lessEqual ? render_modes::StateOptions {.zFunc = render_modes::ZFunc::Always,
+	                                                             .cull = render_modes::Cull::Ccw,
+	                                                             .msaa = true,
+	                                                             .extra = BGFX_STATE_DEPTH_TEST_GEQUAL}
+	                               : render_modes::StateOptions {.zFunc = render_modes::ZFunc::Equal,
+	                                                             .cull = render_modes::Cull::Ccw,
+	                                                             .msaa = true};
 	submitDesc.morphWithTerrain = receiver.morphWithTerrain;
 	submitDesc.program =
 	    land_morph::ObjectProgram(*_shaderManager, receiver.morphWithTerrain, land_morph::ObjectPass::Shadow);

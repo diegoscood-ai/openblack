@@ -539,11 +539,19 @@ El original tiene tres mecanismos y un solo plano:
     `DrawCutAboveWater` y no una a una **(inferido: son opacas y la prueba Z del receptor ya descarta lo que se dibuja
     delante)**). Un receptor que no se dibujó en el fotograma (fuera de la vista, ya transparente del todo, o pasado el
     tope 0x800 de la cola) no recibe sombra: `ClearShadowReceivers` vacía la lista al final de los objetos, como la
-    cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos
-    (GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada).
+    cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos y las
+    morfables (GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada;
+    el Draw morfable `fn_0080E550` no toca ZFUNC alrededor de su bucle 0x80E768..0x80E874).
     `fs_object_shadow` con `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) deja fuera también las bolas de
-    un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6). Falta la prueba propia de los morfables
-    (`fn_0080E550` 0x80E74B..0x80E874 → `fn_0080AE40`) **pendiente**.
+    un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6).
+  - **Receptores morfables** (hecho, sesión «shaders», 2026-10-02): el Draw morfable (`fn_0080E550`, vt+0x108 de
+    0x9A2E34; en openblack `MorphWithTerrain`) no usa `ContainsThisBoundingBox` sino su propia prueba de círculo
+    (0x80E78E..0x80E857), y dibuja con `fn_0080AE40` (la misma tabla de modos y el mismo CULLMODE que `fn_0080B050`,
+    con los vértices fundidos de [0xF05180]): R = (obj+0x44 · malla+0x30) + máx(x1 − x0, z1 − z0) · 1,4142
+    ([0x932D08] `8104b53f` = 1,41419995, **no** es el float más cercano a √2), el centro de la malla +0x18..0x20 por la
+    matriz del objeto obj+0x14 y la distancia en x, z al centro de la caja ((x0 + x1) · 0,5 [0x8AA3B4]); se dibuja si
+    dx² + dz² < R², estricto (0x80E84E). No mira vt+0x1A8 / vt+0x1B8, solo si+0x464 (0x80E782).
+    `shadow_math::ReachesMorphable`, probado en `test_shadow_math`.
 
 ## Cortar por el plano del agua (`DrawCutByPlane`)
 

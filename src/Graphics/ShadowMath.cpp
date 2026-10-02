@@ -649,6 +649,25 @@ bool TouchesBlock(const Box& box, int blockX, int blockZ)
 	       static_cast<float>(blockZ) * k_BlockSize <= box.z1 && static_cast<float>(blockZ + 1) * k_BlockSize >= box.z0;
 }
 
+bool ReachesMorphable(const Box& box, glm::vec3 meshCentre, const glm::mat4& model, float scale, float halfDiagonal)
+{
+	const float radius = scale * halfDiagonal; // 0x80E78E..0x80E794
+	const float width = box.x1 - box.x0;      // 0x80E797
+	const float depth = box.z1 - box.z0;      // 0x80E79D..0x80E7A3
+	// fcom, then C0 | C3 (width < depth, equal or unordered) takes depth (0x80E7A7..0x80E7B4)
+	const float side = width > depth ? width : depth;
+	const float reach = radius + side * k_MorphableBoxFactor; // 0x80E7B8, faddp 0x80E836
+	const glm::vec3 c = meshCentre;
+	const float x = ((c.y * model[1].x + c.z * model[2].x) + c.x * model[0].x) + model[3].x; // 0x80E7CF..0x80E7E9
+	const float z = ((c.y * model[1].z + c.x * model[0].z) + c.z * model[2].z) + model[3].z; // 0x80E7EC..0x80E805
+	const float boxX = (box.x0 + box.x1) * 0.5f;                                             // 0x80E808..0x80E814
+	const float boxZ = (box.z0 + box.z1) * 0.5f;                                             // 0x80E818..0x80E81E
+	const float dz = z - boxZ;                                                               // 0x80E826..0x80E828
+	const float dx = x - boxX;                                                               // 0x80E82E..0x80E832
+	const float distance = dx * dx + dz * dz;                                                // 0x80E838..0x80E848
+	return reach * reach > distance;                                                         // 0x80E84A..0x80E857
+}
+
 bool BlockVisible(const std::array<glm::vec3, 8>& corners, const glm::mat4& worldToClip, float nearW)
 {
 	uint32_t nearCodes = 0;

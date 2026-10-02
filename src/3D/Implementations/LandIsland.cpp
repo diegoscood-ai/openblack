@@ -91,7 +91,8 @@ std::unique_ptr<Texture2D> CreateSmallBumpTexture()
 		const auto directory = fileSystem.GetPath<filesystem::Path::Textures>();
 		const auto rgb = fileSystem.ReadAll(fileSystem.FindPath(directory / "smallbump.raw"));
 		// a missing smallbumpa.raw only makes fn_00837400 report it (0x837616): PackRaw takes the alpha from the colour
-		// bytes left in the buffer (0x83761E)
+		// bytes left in the buffer (0x83761E); a shorter one is read as far as it goes and a longer one truncated
+		// (LHLoadData min(length, 0x10000), 0x7BCEC9), which PackRaw does too
 		std::vector<uint8_t> alpha;
 		try
 		{
@@ -101,7 +102,9 @@ std::unique_ptr<Texture2D> CreateSmallBumpTexture()
 		{
 			alpha.clear();
 		}
-		if (rgb.size() != argb4444::k_ColourBytes || (!alpha.empty() && alpha.size() != argb4444::k_AlphaBytes))
+		// a colour of another size does not pass fn_00837300 (0x837318) and goes to the DDS path, which openblack does
+		// not have: no small bump then (aproximado)
+		if (rgb.size() != argb4444::k_ColourBytes)
 		{
 			throw std::runtime_error("unexpected size");
 		}

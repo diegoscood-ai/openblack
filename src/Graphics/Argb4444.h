@@ -68,17 +68,18 @@ namespace openblack::graphics::argb4444
 /// original samples (Cut in the four channels). An empty `alpha` is a missing xa.raw: LHLoadData(name, [0xEDD3D8],
 /// 0x10000) (0x837600) failed, fn_00837400 only reports it (Report3D 0x837616) and carries on at 0x83761E with the
 /// buffer that still holds the colour file, so pixel i takes the alpha (colour stream byte i) & 0xF0 (R0, G0, B0, R1..).
+/// A shorter xa.raw is not an error either: LHLoadData reads min(length, 0x10000) (`cmp / jbe` 0x7BCEC7..0x7BCECD)
+/// over the same buffer, so the pixels past its end keep the colour stream; a longer one is truncated.
 [[nodiscard]] inline std::vector<uint8_t> PackRaw(std::span<const uint8_t> rgb, std::span<const uint8_t> alpha)
 {
 	const size_t pixels = rgb.size() / 3;
 	std::vector<uint8_t> rgba(pixels * 4);
-	const auto source = alpha.empty() ? rgb : alpha;
 	for (size_t i = 0; i < pixels; ++i)
 	{
 		rgba[i * 4 + 0] = Cut(rgb[i * 3 + 0]);
 		rgba[i * 4 + 1] = Cut(rgb[i * 3 + 1]);
 		rgba[i * 4 + 2] = Cut(rgb[i * 3 + 2]);
-		rgba[i * 4 + 3] = i < source.size() ? Cut(source[i]) : uint8_t {0};
+		rgba[i * 4 + 3] = Cut(i < alpha.size() ? alpha[i] : rgb[i]);
 	}
 	return rgba;
 }
@@ -153,23 +154,36 @@ inline constexpr auto k_AlphaFlagStems = std::to_array<std::string_view>({
     // converter, and the save-game pictures (0x7926DA, 0x79286F) are made by the game: neither has a stem here.
 });
 
-/// Whether the texture `stem` (the file name without ".raw", any case) is cut to ARGB4444 by the original: a colour
-/// stem of k_AlphaFlagStems or its alpha, the same stem plus "a" (fn_00837400 builds the alpha name as the colour
-/// name without its last 4 characters plus "a.raw", 0xC384AC / 0x8375B4..0x8375C1).
-[[nodiscard]] constexpr bool HasAlphaFlag(std::string_view stem) noexcept
+/// Whether `stem` (the file name without ".raw", any case) is one of the colour stems of k_AlphaFlagStems
+[[nodiscard]] constexpr bool IsAlphaFlagColour(std::string_view stem) noexcept
 {
 	const auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; };
-	const auto listed = [&](std::string_view name) {
-		return std::ranges::any_of(k_AlphaFlagStems, [&](std::string_view entry) {
-			return entry.size() == name.size() &&
-			       std::ranges::equal(entry, name, [&](char a, char b) { return a == lower(b); });
-		});
-	};
-	if (listed(stem))
+	return std::ranges::any_of(k_AlphaFlagStems, [&](std::string_view entry) {
+		return entry.size() == stem.size() &&
+		       std::ranges::equal(entry, stem, [&](char a, char b) { return a == lower(b); });
+	});
+}
+
+/// The colour stem of an alpha stem: `stem` without its final "a" (any case) when that is an IsAlphaFlagColour stem,
+/// else empty. fn_00837400 builds the alpha name as the colour name without its last 4 characters plus "a.raw"
+/// (0xC384AC / 0x8375B4..0x8375C1). That alpha is cut only together with its colour: fn_00837400 runs only for a
+/// colour file of 0x30000 bytes (0x837318) and only then reads xa.raw (0x837600), so the caller checks the colour
+/// file too (S_IceEnvMapGreya.raw is not cut: its colour is 194823 bytes).
+[[nodiscard]] constexpr std::string_view ColourOfAlpha(std::string_view stem) noexcept
+{
+	if (stem.empty() || (stem.back() != 'a' && stem.back() != 'A'))
 	{
-		return true;
+		return {};
 	}
-	return !stem.empty() && lower(stem.back()) == 'a' && listed(stem.substr(0, stem.size() - 1));
+	const auto colour = stem.substr(0, stem.size() - 1);
+	return IsAlphaFlagColour(colour) ? colour : std::string_view {};
+}
+
+/// Whether the texture `stem` (the file name without ".raw", any case) is cut to ARGB4444 by the original: a colour
+/// stem of k_AlphaFlagStems or its alpha, the same stem plus "a" (ColourOfAlpha)
+[[nodiscard]] constexpr bool HasAlphaFlag(std::string_view stem) noexcept
+{
+	return IsAlphaFlagColour(stem) || !ColourOfAlpha(stem).empty();
 }
 
 /// fn_0081FAA0 builds the blob shadow from ".\Data\Textures\human_shadow.raw" (LHLoadData 0x400 bytes, 0x81FC86 /

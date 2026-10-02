@@ -69,11 +69,19 @@ propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x8
   - API: `Quantize(v) = v >> 4`, `Expand(n) = n·17`, `Cut(v) = Expand(Quantize(v)) = (v & 0xF0) | (v >> 4)`;
     `Pack`/`Unpack` del texel de 16 bits; `PackRaw(rgb, alpha)` para la pareja `x.raw` + `xa.raw`.
 - **Sin la bandera**, la rama 4444 no corre (`cmp [esp+0x834],0 / je`, 0x8374CB/0x8374D2). Va a 565
-  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F), con 5 bits por canal. Es el caso de `sun.raw` (flags 1, 0x81E851)
-  y de las imágenes de ChallengeRoom (ver [Pendiente](#pendiente)).
+  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F), con 5 bits por canal. Es el caso de `sun.raw` (flags 1, 0x81E851;
+  ver [Pendiente](#pendiente)).
+- **Las 0x44 sí llevan la bandera** (0x44 & 0x40; `Create` guarda los flags enteros en [tex+0x10], 0x837A76): son
+  superficies 4444, pero de tipo 4 (flags & 0x3F, tablas 0x837CD4 / 0x838E84 → 0x838C2E), texturas en memoria que no
+  cargan su archivo por `fn_00837400`. Así `ChallengeScroll.raw` (0x44, 0x781BDC y 0x79D59F; cadenas 0xC25048 y
+  0xC2A5D0) y `human_shadow` (abajo). `ChallengeScroll` no está en la lista porque el juego la rellena él mismo, no
+  porque le falte la bandera; cómo la rellena no está leído (ver [Pendiente](#pendiente)).
 - **Guardas.** El color tiene que medir 0x30000 bytes justos (`fn_00837300`, `cmp ecx,0x30000 / sete`, 0x837318); si
-  no, va por DDS. Por eso `S_IceEnvMapGrey.raw`, de 194823 bytes, no se corta. El alfa se lee con 0x10000 bytes
-  (0x837600) y su tamaño no se comprueba.
+  no, va por DDS. Por eso `S_IceEnvMapGrey.raw`, de 194823 bytes, no se corta, y tampoco su `S_IceEnvMapGreya.raw`
+  (0x10000 bytes): sin un color válido `fn_00837400` no llega a leer el alfa. El alfa se lee con 0x10000 bytes
+  (0x837600): `LHLoadData` lee min(longitud, 0x10000) (0x7BCEC0..0x7BCECD) y no falla si es más corto; el resto del
+  búfer se queda con el flujo de color (la regla del sobrante de abajo, a partir de su longitud), y uno más largo se
+  trunca sin error.
 - **Sin `a.raw`.** El nombre del alfa es el del color sin sus 4 últimos caracteres más `"a.raw"` (0xC384AC,
   0x8375B4..0x8375C1). Si `LHLoadData` falla, solo llama a `Report3D` (0x837616) y sigue en 0x83761E con el búfer que
   aún tiene el color. El alfa del píxel i sale entonces del byte i del flujo de color (R0, G0, B0, R1…) & 0xF0.
@@ -108,22 +116,29 @@ propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x8
 
 **openblack.**
 - `Texture2DLoader` (FromDiskTag, `Resources/Loaders.cpp`) corta con `Cut` al cargar:
-  - cada `.raw` cuyo nombre cumple `HasAlphaFlag` y mide 0x30000 (color) o 0x10000 (alfa; aproximado: el original
-    solo mira el color);
+  - cada `.raw` cuyo nombre cumple `HasAlphaFlag` y mide 0x30000 (color) o, si es el alfa (el color más `a`), mide
+    0x10000 y su color hermano existe y mide 0x30000 (aproximado: el original solo mira el color; un alfa de otro
+    tamaño no se corta aquí);
   - y `human_shadow`.
 - openblack guarda `x.raw` y `xa.raw` como dos texturas. Cada una se corta por separado, y el filtro lineal de bgfx
   trabaja ya sobre los 16 niveles, como D3D.
 - Con el mod `graphics.terrain-x2` (opción `upscale`), el mar se corta después del Lanczos.
-- `PackRaw` lo usa el small bump (`LandIsland.cpp`), que junta color y alfa en una textura.
+- `PackRaw` lo usa el small bump (`LandIsland.cpp`), que junta color y alfa en una textura. Un alfa más corto toma
+  la cola del flujo de color y uno más largo se trunca, como `LHLoadData`; un color que no mida 0x30000 se rechaza
+  (aproximado: el original iría por DDS).
 - Las copias que solo expanden nibbles ya hechos usan `Expand` (`CoastAlpha.cpp`, `GameFont.cpp`) o `Unpack`
   (`BlockTexture.cpp`).
 - Shaders:
   - `fs_blob.sc` ya no cuantiza. Antes hacía floor(v/17) tras el filtrado: un nivel menos en 120 de los 256 valores y
     el degradado en escalones. Ahora la mancha sale algo más oscura y sin escalones.
-  - `fs_land_alpha.sc` lee el alfa tal cual, porque la huella ya es BGRA4.
+  - `fs_land_alpha.sc` mantiene el redondeo a 16 niveles (floor(a·15 + 0,5)/15) aunque la huella ya es BGRA4: la
+    textura se crea con filtro lineal (`L3DMesh.cpp`) y el redondeo absorbe el error del hardware al muestrear el
+    centro del texel; si el valor ya es exacto, no cambia nada.
   - `fs_physics_shadow_resolve.sc` (`covered/15`, 0xFA95C4) ya era exacto.
 - Desviación aceptada, como mod: `graphics.smooth-smoke` (desactivado por defecto) deja `smokea.raw` con sus 8 bits
   (ver [map-loading.md](map-loading.md) y [mod-library.md](mod-library.md#graphicssmooth-smoke)).
+- Quien usa estas texturas recibe ya los 16 niveles: también el brillo de las luces nocturnas (`NightLights.cpp`
+  carga `S_Firea` y `smokea`), los anillos de agua y las bocanadas de los barcos.
 
 ## Mods gráficos
 
@@ -569,6 +584,7 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
 - Ríos: el sonido `ATMOS_TYPE_RUNNING_WATER` (sin analizar, ver [water.md](water.md#audio-del-agua)).
 - [Texturas ARGB4444](#texturas-argb4444), lo que falta:
   - `sun.raw` (flags 1) va en el original por la rama 555, con 5 bits por canal (>> 3); openblack no lo corta.
+  - `ChallengeScroll.raw` (0x44, textura de tipo 4 en memoria): cómo la rellena el juego no está leído.
   - Las pieles L3D con la bandera 0x10000 (`L3DMeshFlags::Unknown17`) deberían subirse en X1R5G5B5 y no en BGRA4
     (`L3DMesh.cpp`). Solo `Data\d_sky.l3d` la lleva y openblack no lo carga, así que hoy no se ve. Las mallas de
     `AllMeshes.g3d` no están revisadas (inferido).

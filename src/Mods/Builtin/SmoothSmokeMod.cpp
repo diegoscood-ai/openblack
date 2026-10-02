@@ -15,7 +15,8 @@
 
 // The original keeps smokea.raw as ARGB4444 like every texture with the alpha flag (fn_00837400, a.raw 0x8375C1):
 // 16 alpha levels, 228 -> 238/255 (Graphics/Argb4444.h, docs/bw1-notes/rendering.md "Texturas ARGB4444"). This mod
-// keeps the file's 8 bits, for smoother smoke, clouds and mists.
+// keeps the file's 8 bits for everything drawn with it: chimney smoke, clouds, mists, water rings, boat puffs and the
+// night lights' glow (NightLights).
 
 namespace openblack::mods
 {
@@ -26,7 +27,8 @@ class SmoothSmokeMod final: public Mod
 public:
 	SmoothSmokeMod()
 	    : Mod({"graphics.smooth-smoke", "Smooth smoke alpha",
-	           "Smoke, clouds and mists keep the 8-bit alpha of smokea.raw instead of the original's 16 levels",
+	           "Everything drawn with smokea.raw (chimney smoke, clouds, mists, water rings, boat puffs, the night "
+	           "lights' glow) keeps its 8-bit alpha instead of the original's 16 levels",
 	           "Graphics", true})
 	{
 	}

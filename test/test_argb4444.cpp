@@ -112,6 +112,14 @@ TEST(Argb4444, PackRaw)
 	EXPECT_EQ(leftover[7], argb4444::Cut(0x34));
 	EXPECT_EQ(leftover[0], argb4444::Cut(0x12));
 	EXPECT_EQ(leftover[4], argb4444::Cut(0xFF));
+	// a short a.raw: LHLoadData reads min(length, 0x10000) (0x7BCEC9), the tail keeps the colour stream
+	const std::vector<uint8_t> shortAlpha = {0xE4};
+	const auto partial = argb4444::PackRaw(rgb, shortAlpha);
+	EXPECT_EQ(partial[3], argb4444::Cut(0xE4));
+	EXPECT_EQ(partial[7], argb4444::Cut(0x34));
+	// a longer one is truncated to the pixels
+	const std::vector<uint8_t> longAlpha = {0xE4, 0x07, 0xAA};
+	EXPECT_EQ(argb4444::PackRaw(rgb, longAlpha), rgba);
 }
 
 TEST(Argb4444, HumanShadowTexel)
@@ -143,8 +151,10 @@ TEST(Argb4444, AlphaFlagStems)
 	EXPECT_TRUE(argb4444::HasAlphaFlag("S_Volcano_Base_Alpha"));
 	EXPECT_TRUE(argb4444::HasAlphaFlag("S_Volcano_Base_Alphaa"));
 	EXPECT_TRUE(argb4444::HasAlphaFlag("blobsa"));
-	// no alpha flag: sun (flags 1, 0x81E851: the 555 / 565 branch), ChallengeScroll (0x44), human_shadow (its own 0x44
-	// texture, fn_0081FAA0), the LightMaps, files the original never loads
+	// not cut on load: sun (flags 1, 0x81E851: no alpha flag, the 555 / 565 branch); ChallengeScroll and human_shadow
+	// are 0x44, so they do have the alpha flag (a 4444 surface), but of type 4 (flags & 0x3F), memory textures the game
+	// fills itself without fn_00837400 (human_shadow has its own cut, fn_0081FAA0); the LightMaps, files the original
+	// never loads
 	EXPECT_FALSE(argb4444::HasAlphaFlag("sun"));
 	EXPECT_FALSE(argb4444::HasAlphaFlag("ChallengeScroll"));
 	EXPECT_FALSE(argb4444::HasAlphaFlag(argb4444::k_HumanShadowStem));
@@ -153,5 +163,14 @@ TEST(Argb4444, AlphaFlagStems)
 	EXPECT_FALSE(argb4444::HasAlphaFlag(""));
 	EXPECT_FALSE(argb4444::HasAlphaFlag("a"));
 	EXPECT_FALSE(argb4444::HasAlphaFlag("skyaa"));
+	// the alpha's colour, which has to pass the 0x30000 guard (0x837318) before xa.raw is read
+	EXPECT_EQ(argb4444::ColourOfAlpha("Skya"), "Sky");
+	EXPECT_EQ(argb4444::ColourOfAlpha("S_IceEnvMapGreya"), "S_IceEnvMapGrey");
+	EXPECT_EQ(argb4444::ColourOfAlpha("S_Volcano_Base_Alphaa"), "S_Volcano_Base_Alpha");
+	EXPECT_TRUE(argb4444::ColourOfAlpha("S_Volcano_Base_Alpha").empty());
+	EXPECT_TRUE(argb4444::ColourOfAlpha("sky").empty());
+	EXPECT_TRUE(argb4444::ColourOfAlpha("skyaa").empty());
+	EXPECT_TRUE(argb4444::IsAlphaFlagColour("ATMOS"));
+	EXPECT_FALSE(argb4444::IsAlphaFlagColour("ATMOSA"));
 	static_assert(argb4444::HasAlphaFlag("misc0a"));
 }

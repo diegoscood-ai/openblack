@@ -2045,8 +2045,9 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   consejero solo decodifica PCM (ningún búfer AL), `ReadWave` cierra su flujo; las voces no tienen entidad dueña y
   `ClearMap` → LHSampleStopAll las corta; el hilo de música no toca `sample_play`.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
-- **A9**: fn_00741020 (centro del pueblo entre sus edificios +0x754 o +0x9A8 con GetComputerSeen 0xC) no está en
-  `map_cells::GetNearestTownWithCentre`: un pueblo sin CREATE_TOWN_CENTRE no da música de tribu **(aproximado)**.
+- ~~**A9**~~ hecho (milagros2, a57b3db1): `map_cells::TownHasCentre` = fn_00741020 (un TownCentre entre los
+  edificios +0x754, IsTownCentre vt+0x1E0 0x55DB70, o un edificio planeado +0x9A8 con GetAbodeNumber 0x401260 == 0xC;
+  vt+0x44 es GetAbodeNumber, no GetComputerSeen): un pueblo sin CREATE_TOWN_CENTRE ya da música de tribu.
 - **Música**:
   - quién pone ThingMusicInfo+0x20;
   - `LandNumber` 6 y `g_game+0x205A0C`;
@@ -2150,7 +2151,8 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   de +0x9A4) con townTriggerOffDistance; la tribu, el componente `Tribe` del pueblo (Town +0x5B8, 0x42753D /
   0x42755A); la distancia, `gutils::GetDistanceInMetres` 0x74CD70 (0x4274EC, 0x427522); `town` = el pueblo de
   GAudio+0x18C mientras sea válido (IsAvailable 0x4274AF). La lógica (≤ 300 y altura < 400, 0x4274C4..0x427535) ya
-  estaba en `GameMusic::AlignmentMusicType`. **(aproximado)** sin fn_00741020 (ver pendientes).
+  estaba en `GameMusic::AlignmentMusicType`. El otro test de fn_00602160, fn_00741020 (0x6021B3), es
+  `map_cells::TownHasCentre`.
 - **Guidance**: `ResourceDropSFX` 0x71B570 busca el pueblo con `nearestTownAt` = `map_cells::GetNearestTown`
   0x6020E0(100, 0x98013C) en las MapCoords del punto; sus tres valores (`townResourceNeeds`, GetResourceDropSample
   0x71B5F0: Town +0xC4/+0x108/+0x19C… = TownDesire +0x90/+0xD4/+0x168 de los deseos 0, 1 y 10) no existen en

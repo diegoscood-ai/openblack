@@ -134,8 +134,8 @@ void ToBeDeleted(Tag& tag)
 	}
 }
 
-/// SoundTag::CheckDelay 0x71E760: the time since it was made, (+0x50) x [0xD01A38] ms (100 ms a turn, inferred:
-/// villager_anims.md) x 0.001, at 347 a second ([0x980530], the speed of sound) against the camera's distance
+/// SoundTag::CheckDelay 0x71E760: the time since it was made, (+0x50) x [0xD01A38] ms (game_clock::MsPerTurn(), 100 from
+/// GGame::Init 0x54F4A5) x 0.001, at 347 a second ([0x980530], the speed of sound) against the camera's distance
 void CheckDelay(Tag& tag)
 {
 	const auto camera = ListenerPoint();

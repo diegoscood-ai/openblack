@@ -1828,6 +1828,24 @@ distancia de GUtils). Land 1, 1800 y 5000 fotogramas (`OPENBLACK_ATMOS_TRACE=50`
 GSoundMap (celdas 159/224, 158/222 y 157/221, GRAVEL, 121 celdas, JUNGLE 0,950, NIGHT 0,050), las 12 farolas con sus
 alturas, el gancho de la vista en el turno 90 y los mismos errores de arranque. Sin errores nuevos.
 
+**Auditoría de B11c.** Comprobadas en el desensamblado: UpdateFromMap 0x71D76B (fn_0074DC80: fdiv 10; fmul 65536;
+__ftol), 0x71D77A / 0x71D784 (fn_00605490 / fn_00605400 restan / suman r a x y z), 0x71D790 (movsx) y 0x71D7C2;
+fn_00601F40 (palabras bajas (g_game+0x59E0 >> 1) · g_game+0x59E4 / +0x59E8); GMap::Init 0x6014C0 (+0x28 = 8, +0x2C =
++0x30 = 0x2000), llamado desde GGame::Init 0x54F650 con `lea ecx, [ebx + 0x59B8]`; ni los 7 métodos de GMap ni ningún
+otro código escriben esas palabras, y solo fn_00601F40 las lee por g_game. AtmosMapTypeInfo::Add 0x71D514..0x71D5A4
+(receptor − celda, `fcom` estricto, `__ftol` de los metros de la celda a +0x8 / +0xA); CalculateRadiusPointAndDistance
+0x71D834..0x71D855; CalculateVolumes 0x71DDF1 (`fld [0xFA26BC]`); CheckDelay 0x71E766 y el latido 0x71C4C7 (`fimul`
+de [0xD01A38], que GGame::Init 0x54F4A5 pone a 0x64); EndTurn 0x54E997 (`cmp [+0x205A40], 5; jbe`); ProcessForPlayer
+0x4141A0..0x4141E1; HelpSpritesAlignmentProcess 0x71CEDA; GPlayer::GetMaxAlignmentChangePerGameTurn 0x64B670 = `mov
+eax, [ecx+0x64]; fld [eax+0x10]` (así que el máximo que lee la guía es el mismo de la vt +0x40: ya no es (inferido));
+GetInfo 0x74CD50 / 0x74CD70 / fn_00605CD0 (los usa el deseo de los pueblos 0x71B19D y 0x71B2D8 tras MapCoords(LHPoint)
+de la cámara 0x71B14A / 0x71B289); SoundTag::Create(MapCoords) 0x71EB71..0x71EBB2; SetPlayPosition 0x4298D9. Todo
+cuadra. Arreglado: el comentario de CheckDelay aún decía «100 ms (inferred)». Añadida la línea de traza
+`(openblack) Sound map nearest:` (con `OPENBLACK_ATMOS_TRACE`): distancia y punto de la celda más cercana de cada tipo
+presente. En Land 1 (`_auditudio11c_audit_view.log`, `b11c_audit_far.log` con `OPENBLACK_AUDIO_TEST_VIEW="90,0"` y
+`"90,0,80"`) los puntos acaban en 5 (JUNGLE 3,905 @ (1585, 2225), COUNTRYSIDE 74,224 @ (1635, 2175)): son centros de
+celda; los volúmenes y los errores de arranque no cambian.
+
 ## Qué suena y cuándo
 
 Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:

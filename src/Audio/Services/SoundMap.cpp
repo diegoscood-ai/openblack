@@ -372,6 +372,18 @@ void sound_map::Update(float skyType)
 			volumes += fmt::format(" {}={:.3f}({})", k_AtmosTypes[t].name + 11, g_Map.volumes[t], g_Map.entries[t].count);
 		}
 		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Sound map volumes (count):{}", volumes);
+		// (openblack) the nearest cell of each type present (AtmosMapTypeInfo +0x4 / +0x8 / +0xA): the distance and the
+		// point of the cell's centre (fn_00601F40), what Radial and NearestFade read
+		std::string nearest;
+		for (size_t t = 1; t < k_AtmosTypeCount; ++t)
+		{
+			if (g_Map.entries[t].count != 0)
+			{
+				nearest += fmt::format(" {}={:.3f}@({},{})", k_AtmosTypes[t].name + 11, std::sqrt(g_Map.entries[t].dist2),
+				                       g_Map.entries[t].nearestX, g_Map.entries[t].nearestZ);
+			}
+		}
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "(openblack) Sound map nearest:{}", nearest);
 	}
 }
 

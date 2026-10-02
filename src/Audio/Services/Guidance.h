@@ -392,7 +392,8 @@ void HelpSpritesGeneralGood(glm::vec3 point);
 void HelpSpritesKillingPeople(bool onScreen);
 /// HelpSpritesAlignmentProcess 0x71CEB0(change) (GAlignment::ProcessForPlayer 0x4141D9 for the local player, every
 /// turn: GetMaxAlignmentChangePerGameTurn x the pending change +0xC): +0xC0 = 0.95 +0xC0 + change (0x980178); past
-/// 2 (0x98017C) x maxChange (GPlayer+0x64 +0x10), with the alignment a: same sign as +0xC0 and |a| > 0.75 (0x980180) ->
+/// 2 (0x98017C) x maxChange (GPlayer+0x64 +0x10, which is GPlayer::GetMaxAlignmentChangePerGameTurn 0x64B670 itself),
+/// with the alignment a: same sign as +0xC0 and |a| > 0.75 (0x980180) ->
 /// a > 0 ? VeryEvil (fn_0071D040, list 20) : VeryGood (fn_0071D010, list 19) (sic); opposite and |a| > 0.4 (0x980184)
 /// -> a > 0 ? GoodBeingEvil (25, list 16) : EvilBeingGood (26, list 17) (fn_0071CF90)
 void HelpSpritesAlignmentProcess(float change, float alignment, float maxChangePerTurn);

@@ -26,6 +26,9 @@ $output v_position, v_texcoord0, v_normal, v_color0
 // ModelLightI / ModelLightFactor / ModelLightDiffuse / ModelLightLocal and u_modelLight: the GPU side of
 // src/Graphics/ModelLight.h (fn_0084BA90, the light [0xEA9E90] and the ambient [0xC39264] = 90)
 #include "model_light.sh"
+// Lh3dMulShr8 / Lh3dAddSat / Lh3dUnpackRgb24: the GPU side of src/Graphics/Lh3dColour.h (LH3DColor's byte arithmetic
+// and the instance's colour column)
+#include "lh3d_colour.sh"
 
 // Model lighting of the original (fn_00801C90 + fn_0084BA90): the object takes the landscape light of the ground it
 // stands on, table[cell luminosity] interpolated bilinearly over the 4 cells around its origin, and the cells' r, g, b
@@ -64,27 +67,21 @@ void main()
 	model[1] = vec4(i_data1.xyz, 0.0f);
 	model[2] = vec4(i_data2.xyz, 0.0f);
 	model[3] = vec4(i_data3.xyz, 1.0f);
-	// The w of the fourth column: 2 + the grey of the house's windows at night (1 when they are lit normally), or
-	// negative: -1 - the object colour r 65536 + g 256 + b (Field::Draw, fn_0080BF10)
-	// or 3e6 + the specular colour Living::SetSpecularColor adds (components::SpecularColour: r 16384 + g 128 + b, 7
-	// bits each, the heal chakra's glow)
-	float windowGrey = i_data3.w > 1.5f && i_data3.w < 2500000.0f ? i_data3.w - 2.0f : -1.0f;
-	vec3 objectSpecular = vec3_splat(0.0f);
-	if (i_data3.w > 2500000.0f)
-	{
-		float packedSpecular = i_data3.w - 3000000.0f;
-		float red = floor(packedSpecular / 16384.0f);
-		float green = floor((packedSpecular - red * 16384.0f) / 128.0f);
-		objectSpecular = vec3(red, green, packedSpecular - red * 16384.0f - green * 128.0f) * 2.0f / 255.0f;
-	}
-	vec3 drawColour = vec3_splat(-1.0f);
-	if (i_data3.w < -0.5f)
-	{
-		float packedColour = -i_data3.w - 1.0f;
-		float red = floor(packedColour / 65536.0f);
-		float green = floor((packedColour - red * 65536.0f) / 256.0f);
-		drawColour = vec3(red, green, packedColour - red * 65536.0f - green * 256.0f);
-	}
+	// The fifth column, the object's LH3DColor fields (lh3d_colour::PackInstance*, src/Graphics/Lh3dColour.h), each
+	// an rgb 0xRRGGBB below 2^24:
+	// x, obj+0x4C: 0 the land light alone; < 0: -1 - a tint t that multiplies the land light (fn_0080BF10's: Field::Draw,
+	// the white tint 0xFFFFFFFF, the poison, the charring grey; or Tree::Draw's own, see w); > 0: 1 + the colour set
+	// with SetColorSpecular 0x7F9770 instead of the land light (the power-up bands, the PSys mesh atoms)
+	// y, obj+0x50: the specular, 8 bits a channel (Living +0xD0, the poison's, the fire's glow, the bands' 0x141414)
+	// z, obj+0x54: 0, or 1 + the house's window colour at night (Abode::Draw vt 0x30)
+	// w: 1 = the tint after the haze (Tree::Draw: haze 0x74AB60, then the brightness 0x74B077 or fn_0074B3A0 0x74B48F)
+	vec3 drawColour = i_data4.x < -0.5f ? Lh3dUnpackRgb24(-i_data4.x - 1.0f) : vec3_splat(-1.0f);
+	bool setColour = i_data4.x > 0.5f;
+	vec3 setColour255 = setColour ? Lh3dUnpackRgb24(i_data4.x - 1.0f) : vec3_splat(0.0f);
+	vec3 objectSpecular255 = Lh3dUnpackRgb24(i_data4.y);
+	bool tintAfterHaze = i_data4.w > 0.5f;
+	bool windowLit = i_data4.z > 0.5f;
+	vec3 windowColour = windowLit ? Lh3dUnpackRgb24(i_data4.z - 1.0f) / 255.0f : vec3_splat(0.0f);
 
 	v_position = instMul(model, v_position);
 	normal = instMul(model, vec4(normal, 0.0f)).xyz;
@@ -100,7 +97,7 @@ void main()
 	// and not with the hd-tweaks per-pixel light (u_window.y > 0); the cut (mode 4) takes its own light below.
 	vec3 lightLocal = vec3_splat(0.0f);
 	if (u_window.y <= 0.0f && u_objectLight.x > 0.0f &&
-	    (u_objectLight.x < 1.5f || (u_objectLight.x > 2.5f && u_objectLight.x < 3.5f && i_data2.w < -0.5f)))
+	    (u_objectLight.x < 1.5f || (u_objectLight.x > 2.5f && u_objectLight.x < 3.5f && setColour)))
 	{
 		vec3 lightAxisX = instMul(model, vec4(mul(u_model[modelIndex], vec4(1.0f, 0.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
 		vec3 lightAxisY = instMul(model, vec4(mul(u_model[modelIndex], vec4(0.0f, 1.0f, 0.0f, 0.0f)).xyz, 0.0f)).xyz;
@@ -147,10 +144,7 @@ void main()
 		// colour.rgb (the colour of SetColorSpecular, u_objectLight.z) x f >> 8, no land light, no haze, the object's
 		// specular (0 for every caller)
 		vec3 cutLight = ModelLightLocal(i_data0.xyz, i_data1.xyz, i_data2.xyz, i_data3.xyz, u_modelLight.xyz);
-		float packedCut = u_objectLight.z;
-		float cutRed = floor(packedCut / 65536.0f);
-		float cutGreen = floor((packedCut - cutRed * 65536.0f) / 256.0f);
-		vec3 cutColour = vec3(cutRed, cutGreen, packedCut - cutRed * 65536.0f - cutGreen * 256.0f);
+		vec3 cutColour = Lh3dUnpackRgb24(u_objectLight.z);
 		float cutFactor = ModelLightFactor(ModelLightI(a_normal.xyz, cutLight, false), lightAmbient);
 		objectColour = ModelLightDiffuse(cutColour, cutFactor) / 255.0f;
 	}
@@ -159,9 +153,7 @@ void main()
 		// a grey 0..1 (the hand's 0xA0A0A0), or above 1 a packed r 65536 + g 256 + b (the boat's 0x303070)
 		if (u_objectLight.z > 1.5f)
 		{
-			float packedRed = floor(u_objectLight.z / 65536.0f);
-			float packedGreen = floor((u_objectLight.z - packedRed * 65536.0f) / 256.0f);
-			objectColour = vec3(packedRed, packedGreen, u_objectLight.z - packedRed * 65536.0f - packedGreen * 256.0f) / 255.0f;
+			objectColour = Lh3dUnpackRgb24(u_objectLight.z) / 255.0f;
 		}
 		else
 		{
@@ -190,14 +182,14 @@ void main()
 			landDiffuse = LandLightCell(i_data3.xz, landSpecular);
 		}
 		objectColour = landDiffuse / 255.0f;
-		specular = landSpecular / 255.0f;
-		// + the object's own specular, per channel with saturation (fn_0080BF10 from fn_0080BEC0: Villager / Animal Draw)
-		specular = min(specular + objectSpecular, vec3_splat(1.0f));
+		// + the object's own specular, per channel with saturation (fn_0080BF10 0x80BF1B..0x80BFB9, before the haze)
+		specular = Lh3dAddSat(landSpecular, objectSpecular255) / 255.0f;
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
-		// the object colour multiplies the land light byte by byte, (c x tint) >> 8 (fn_0080BF10)
-		if (drawColour.r >= 0.0f)
+		// the tint multiplies the land light byte by byte, (c t) >> 8 (fn_0080BF10 0x80BFA3..0x80C00B): the white
+		// 0xFFFFFFFF takes 1 off each channel
+		if (drawColour.r >= 0.0f && !tintAfterHaze)
 		{
-			objectColour = floor(floor(objectColour * 255.0f + 0.5f) * drawColour / 256.0f) / 255.0f;
+			objectColour = Lh3dMulShr8(floor(objectColour * 255.0f + 0.5f), drawColour) / 255.0f;
 		}
 		// x = 3: only that colour and specular, as fn_00801C90 leaves them in the object (obj+0x4C / +0x50) for
 		// DrawUnderWater (reflections: no haze, no vertex lighting)
@@ -212,6 +204,15 @@ void main()
 			objectColour = ApplyHazeDiffuse(floor(objectColour * 255.0f + 0.5f), HazeFactor(hazeT)) / 255.0f;
 			specular = HazeAddSaturated(floor(specular * 255.0f + 0.5f), HazeColour(hazeT)) / 255.0f;
 		}
+		}
+		// Tree::Draw's tint, the same (c t) >> 8 over the hazed +0x4C (0x74B077..0x74B0C4, 0x74B48F..0x74B4D3); the
+		// specular is left as the haze made it
+		if (drawColour.r >= 0.0f && tintAfterHaze)
+		{
+			objectColour = Lh3dMulShr8(floor(objectColour * 255.0f + 0.5f), drawColour) / 255.0f;
+		}
+		if (u_objectLight.x < 2.5f)
+		{
 		// The vertex light of fn_0084BA90 (model_light.sh) over the object's byte colour, so it is at most 254/256
 		// mod graphics.hd-tweaks (u_window.y > 0): fs_object does this per pixel on the villager
 		if (u_window.y <= 0.0f)
@@ -220,31 +221,26 @@ void main()
 			objectColour = ModelLightDiffuse(floor(objectColour * 255.0f + 0.5f), factor) / 255.0f;
 		}
 		}
-		// Windows at night (fn_00856D40): unlit, the flat grey instead of the land light, the specular kept
-		if (u_window.x > 0.0f && windowGrey >= 0.0f)
+		// Windows at night (fn_00856D40): unlit, the flat colour obj+0x54 instead of the land light, the specular kept
+		if (u_window.x > 0.0f && windowLit)
 		{
-			objectColour = vec3_splat(windowGrey);
+			objectColour = windowColour;
 		}
 	}
-	// A PSys mesh atom (PSys/Creators/Mesh.h): -1 - (r 65536 + g 256 + b) in the w of the third column is its DrawData
-	// colour, which Particle3DObj::DrawAt 0x679FD0 gives the object with SetColour (vt 0x2C: obj +0x4C) instead of the
-	// land light of fn_00801C90 and without fn_007FEB30's haze; the model light stays: the atom is an LH3DObject that
-	// draws like every other model, fn_00855340 -> fn_0084BA90 (inferido: the draw that follows Particle3DObj::DrawAt
-	// is not disassembled)
-	if (i_data2.w < -0.5f && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
+	// The colour of SetColorSpecular (vt 0x2C, 0x7F9770: obj+0x4C and +0x50) instead of the land light of fn_00801C90
+	// and without fn_007FEB30's haze: a PSys mesh atom's DrawData colour (Particle3DObj::DrawAt 0x679FD0,
+	// PSys/Creators/Mesh.h) and the power-up bands (components::ObjectColour). The model light stays: the object is an
+	// LH3DObject that draws like every other model, fn_00855340 -> fn_0084BA90 (inferido: the draw that follows
+	// Particle3DObj::DrawAt is not disassembled)
+	if (setColour && u_objectLight.x > 0.0f && (u_objectLight.x < 1.5f || u_objectLight.x > 2.5f))
 	{
-		float packedParticle = -i_data2.w - 1.0f;
-		float particleRed = floor(packedParticle / 65536.0f);
-		float particleGreen = floor((packedParticle - particleRed * 65536.0f) / 256.0f);
-		vec3 particleColour = vec3(particleRed, particleGreen, packedParticle - particleRed * 65536.0f - particleGreen * 256.0f);
-		objectColour = particleColour / 255.0f;
+		objectColour = setColour255 / 255.0f;
 		if (u_window.y <= 0.0f)
 		{
 			float factor = ModelLightFactor(ModelLightI(a_normal.xyz, lightLocal, false), lightAmbient);
-			objectColour = ModelLightDiffuse(particleColour, factor) / 255.0f;
+			objectColour = ModelLightDiffuse(setColour255, factor) / 255.0f;
 		}
-		// (milagros2 rayo3) SetColour's specular (obj +0x50): the DrawData +0xC, 3e6-packed in the fourth column's w
-		specular = objectSpecular;
+		specular = objectSpecular255 / 255.0f;
 	}
 	float opacity = 1.0f - fade;
 	if (u_objectLight.x > 3.5f)
@@ -292,7 +288,7 @@ void main()
 #endif // USE_INSTANCING
 #ifdef USE_INSTANCING
 	// Window submeshes exist only while the house's windows are lit (by day they fail the LOD test)
-	if (u_window.x > 0.0f && windowGrey < 0.0f)
+	if (u_window.x > 0.0f && !windowLit)
 	{
 		gl_Position = vec4(2.0f, 2.0f, 2.0f, 1.0f);
 	}

@@ -70,7 +70,7 @@ float ProcessPoison(entt::entity villager);
 /// Pot::GetPoisonSpecular, but it goes in the diffuse slot of fn_0080BEC0, the same one the white 0xFFFFFFFF uses).
 constexpr uint32_t k_PoisonDiffuse = 0xFFE8FFDDU;
 /// ... and this specular, from 0x51BB60 (the symbol file calls it Object::GetFireEffect): fn_0080BF10 adds it to the
-/// object's colour channel by channel with saturation (0x80BF2D..0x80BF68). Data only: drawing the tint is the
-/// shaders' session (LH3DColor), nothing reads these two yet.
+/// object's specular channel by channel with saturation (0x80BF2D..0x80BF68). RenderingSystem (DrawColoursOf) packs
+/// the pair for vs_object, the villagers' and the poisoned pots' (Pot::Draw 0x51BB8F..0x51BBA3).
 constexpr uint32_t k_PoisonSpecular = 0xFF001000U;
 } // namespace openblack::ecs::life

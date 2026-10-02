@@ -34,7 +34,7 @@
 #include <glm/vec3.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/SpellSounds.h"
+#include "Audio/Services/SpellSounds.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"

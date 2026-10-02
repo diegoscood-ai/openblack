@@ -19,9 +19,9 @@
 
 #include <gtest/gtest.h>
 
-#include "Audio/MusicBank.h"
-#include "Audio/MusicEngine.h"
-#include "Audio/MusicStream.h"
+#include "Audio/LH/MusicBank.h"
+#include "Audio/LH/MusicEngine.h"
+#include "Audio/LH/MusicStream.h"
 
 // Milestone A4 of dev\tmp_dis\audio\PLAN.md: the continuous MP2 decoding of the music segments (the bank's decoder,
 // 0x1000F740) and MusicStream under the engine. Expected values from the data (music.md §3.1-3.2, music_sad_table.md):

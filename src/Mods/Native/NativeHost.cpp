@@ -214,6 +214,88 @@ size_t HostLandName(char* buffer, size_t capacity)
 	return CopyOut(Get().land, buffer, capacity);
 }
 
+float HostTurnFraction()
+{
+	return api::TurnFraction();
+}
+
+int32_t HostPaused()
+{
+	return api::Paused() ? 1 : 0;
+}
+
+float HostSpeed()
+{
+	return api::GameSpeed();
+}
+
+int32_t HostMapCell(float x, float z, int32_t* cellX, int32_t* cellZ)
+{
+	const auto cell = api::CellAt(x, z);
+	if (cellX != nullptr)
+	{
+		*cellX = cell.x;
+	}
+	if (cellZ != nullptr)
+	{
+		*cellZ = cell.z;
+	}
+	return cell.inMap ? 1 : 0;
+}
+
+float HostMapDistance(float x1, float z1, float x2, float z2)
+{
+	return api::Distance(x1, z1, x2, z2);
+}
+
+int32_t HostMapAngle(float x1, float z1, float x2, float z2)
+{
+	return api::AngleBetween(x1, z1, x2, z2);
+}
+
+float HostAngleToRadians(int32_t angle)
+{
+	return api::AngleToRadians(angle);
+}
+
+int32_t HostRadiansToAngle(float radians)
+{
+	return api::RadiansToAngle(radians);
+}
+
+void HostPointAt(float x, float z, int32_t angle, float metres, float* outX, float* outZ)
+{
+	const auto [px, pz] = api::PointAtAngle(x, z, angle, metres);
+	if (outX != nullptr)
+	{
+		*outX = px;
+	}
+	if (outZ != nullptr)
+	{
+		*outZ = pz;
+	}
+}
+
+int32_t HostMeshRadius(const char* mesh, float scale, float* radius)
+{
+	const auto value = mesh != nullptr ? api::MeshRadius(mesh, scale) : std::nullopt;
+	if (value && radius != nullptr)
+	{
+		*radius = *value;
+	}
+	return value ? 1 : 0;
+}
+
+int32_t HostMeshHeight(const char* mesh, float scale, float* height)
+{
+	const auto value = mesh != nullptr ? api::MeshHeight(mesh, scale) : std::nullopt;
+	if (value && height != nullptr)
+	{
+		*height = *value;
+	}
+	return value ? 1 : 0;
+}
+
 const ob_host_api& HostApi()
 {
 	static const ob_host_api k_Api = {
@@ -234,6 +316,17 @@ const ob_host_api& HostApi()
 	    HostSetCamera,
 	    HostCastMiracle,
 	    HostLandName,
+	    HostTurnFraction,
+	    HostPaused,
+	    HostSpeed,
+	    HostMapCell,
+	    HostMapDistance,
+	    HostMapAngle,
+	    HostAngleToRadians,
+	    HostRadiansToAngle,
+	    HostPointAt,
+	    HostMeshRadius,
+	    HostMeshHeight,
 	};
 	return k_Api;
 }

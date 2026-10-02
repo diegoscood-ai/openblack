@@ -28,13 +28,14 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include "Audio/Advisor.h"
+#include "Audio/Services/Advisor.h"
 #include "Audio/Audio.h"
+#include "Audio/GAudio/Banks.h"
 #include "Audio/GameQueries.h"
-#include "Audio/SampleOutput.h"
-#include "Audio/Sound.h"
-#include "Audio/Voices.h"
-#include "Audio/WaveBuffers.h"
+#include "Audio/Device/SampleOutput.h"
+#include "Audio/Device/Sound.h"
+#include "Audio/Services/Voices.h"
+#include "Audio/Device/WaveBuffers.h"
 #include "Common/HelpText.h"
 #include "Help/HelpSystem.h"
 
@@ -571,7 +572,7 @@ TEST(LazyDialogueBank, HeadersOnlyThenTheWaveAtItsFirstUse)
 		sound.waveOffset = lazy.GetAudioWaveDataOffset() + header.offset;
 		sound.waveSize = header.size;
 		std::vector<uint8_t> bytes;
-		ASSERT_TRUE(wave_buffers::ReadWave(sound, bytes)) << i;
+		ASSERT_TRUE(banks::ReadWave(sound, bytes)) << i;
 		EXPECT_EQ(bytes, eager.GetAudioSampleData(static_cast<uint32_t>(i))) << i;
 	}
 	// HelpSprites 1 decodes from the file to about 5.2 s (milestone B0's measure) of 22050 Hz mono

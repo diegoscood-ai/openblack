@@ -38,20 +38,18 @@
 #include "3D/SkyInterface.h"
 #include "3D/SkyType.h"
 #include "3D/TempleInteriorInterface.h"
-#include "Audio/AnimationSounds.h"
-#include "Audio/AtmosBanks.h"
+#include "Audio/Services/AtmosBanks.h"
 #include "Audio/Audio.h"
-#include "Audio/AudioManagerInterface.h"
-#include "Audio/GameMusic.h"
-#include "Audio/Guidance.h"
-#include "Audio/LanternSounds.h"
-#include "Audio/MusicStream.h"
-#include "Audio/ScriptAudioState.h"
-#include "Audio/Voices.h"
-#include "Audio/SamplePlay.h"
-#include "Audio/SoundMap.h"
-#include "Audio/SoundTags.h"
-#include "Audio/SpookyVoices.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/Services/Guidance.h"
+#include "Audio/Services/LanternSounds.h"
+#include "Audio/LH/MusicStream.h"
+#include "Audio/Services/ScriptAudioState.h"
+#include "Audio/Services/Voices.h"
+#include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/SoundMap.h"
+#include "Audio/Services/SoundTags.h"
+#include "Audio/Services/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Camera/ScriptCamera.h"
@@ -59,6 +57,7 @@
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
+#include "ECS/AudioQueries.h"
 #include "ECS/Components/CameraBookmark.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Fields.h"
@@ -223,6 +222,8 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		}
 		return name;
 	};
+	// What the audio reads of the ECS things (the clips' villagers and animals, the lanterns, the surface, the weather)
+	ecs::audio_queries::Fill(queries);
 	return queries;
 }
 } // namespace
@@ -526,6 +527,8 @@ bool Game::GameLogicLoop() noexcept
 		_screenFade->ProcessTurn();
 		// GGame::ProcessTurn: GLandAlignement::UpdateTime once per turn
 		_dayNightClock->ProcessTurn();
+		// GGame::ProcessTurn 0x54E74E: GCamera::Validate 0x441F50, the script camera's things that have gone are dropped
+		script_camera::Validate();
 		// OPENBLACK_TIME_OF_DAY=<script hour> pins the clock there every turn (screenshots), over the scripts' times
 		if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr)
 		{
@@ -566,10 +569,10 @@ bool Game::GameLogicLoop() noexcept
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
 		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
-		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Guidance.h
+		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
 		audio::guidance::ProcessGameTurn();
-		audio::ProcessTurn(_dayNightClock->GetSkyType(), turn);
-		audio::AnimationSounds::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
+		audio::ProcessTurn();
+		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
@@ -835,7 +838,6 @@ bool Game::Update() noexcept
 	// Update Audio
 	{
 		auto updateAudio = profiler.BeginScoped(Profiler::Stage::UpdateAudio);
-		Locator::audio::value().Update();
 		// the sample master of the configuration, live (the options dialog's slider 0x5145A3)
 		audio::UpdateFrame();
 		audio::music::Update();
@@ -927,7 +929,6 @@ bool Game::Initialize() noexcept
 	auto& textureManager = resources.GetTextures();
 	auto& animationManager = resources.GetAnimations();
 	auto& levelManager = resources.GetLevels();
-	auto& soundManager = resources.GetSounds();
 	auto& glowManager = resources.GetGlows();
 
 	fileSystem.Iterate(
@@ -1161,110 +1162,14 @@ bool Game::Initialize() noexcept
 		}
 	});
 
-	// The GAudio ctor 0x426D40: the sample master and the channels' queries, before its banks (fn_00429CB0)
+	// The GAudio ctor 0x426D40: the sample master and the channels' queries, then its banks (fn_00429CB0: every .sad
+	// of the Audio directory, audio::banks)
 	audio::Init(MakeMusicQueries(*this));
-
-	// Load all sound packs in the Audio directory
-	auto& audioManager = Locator::audio::value();
-	fileSystem.Iterate(
-	    fileSystem.GetPath<Path::Audio>(), true, [&audioManager, &soundManager, &fileSystem](const std::filesystem::path& f) {
-		    if (f.extension() != ".sad")
-		    {
-			    return;
-		    }
-
-		    pack::PackFile soundPack;
-		    SPDLOG_LOGGER_DEBUG(spdlog::get("audio"), "Opening sound pack {}", f.filename().string());
-		    // The dialogue banks of 0x9CB3F8 (types 6..10, Audio\Dialogue) are registered as LHBankRegister(path, 0)
-		    // 0x10002240 does: only the headers are read, and each wave is read from the file at its first play
-		    // (0x10011420 -> fn_100032D0; Sound::waveFile). The other banks keep their bytes in memory (approximated: the
-		    // original reads every bank that way, 0x426EEE).
-		    bool onDemand = false;
-		    for (const auto bank : {audio::SfxBank::HelpSprites, audio::SfxBank::Villagers, audio::SfxBank::VillagersBanter,
-		                            audio::SfxBank::SpellDialogue, audio::SfxBank::Guidance})
-		    {
-			    const auto path = string_utils::LowerCase(f.generic_string());
-			    const auto wanted = string_utils::LowerCase(std::string(audio::SfxBankPath(bank)));
-			    onDemand = onDemand || (path.size() >= wanted.size() &&
-			                            path.compare(path.size() - wanted.size(), wanted.size(), wanted) == 0);
-		    }
-		    const auto result =
-		        onDemand ? soundPack.ReadAudioHeaders(*fileSystem.GetData(f)) : soundPack.ReadFile(*fileSystem.GetData(f));
-		    if (result != pack::PackResult::Success)
-		    {
-			    SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Unable to load sound pack {}: {}", f.filename().string(),
-			                        pack::ResultToStr(result));
-			    return;
-		    }
-		    const auto& audioHeaders = soundPack.GetAudioSampleHeaders();
-		    const auto& audioData = soundPack.GetAudioSamplesData();
-		    if (audioHeaders.empty())
-		    {
-			    SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Empty sound pack found for {}. Skipping", f.filename().string());
-			    return;
-		    }
-		    auto soundName = std::filesystem::path(audioHeaders[0].name.data());
-
-		    auto groupName = f.filename().string();
-
-		    // The wave names of the dialogue banks of the voice table 0x915D40 (k_SfxBankPaths 6, 7, 10)
-		    for (const auto bank : {audio::SfxBank::Villagers, audio::SfxBank::HelpSprites, audio::SfxBank::Guidance})
-		    {
-			    const auto path = string_utils::LowerCase(f.generic_string());
-			    const auto wanted = string_utils::LowerCase(std::string(audio::SfxBankPath(bank)));
-			    if (path.size() >= wanted.size() && path.compare(path.size() - wanted.size(), wanted.size(), wanted) == 0)
-			    {
-				    std::vector<std::string> names;
-				    names.reserve(audioHeaders.size());
-				    for (const auto& header : audioHeaders)
-				    {
-					    names.emplace_back(header.name.begin(), std::find(header.name.begin(), header.name.end(), '\0'));
-				    }
-				    audio::voices::SetBankSampleNames(bank, std::move(names));
-			    }
-		    }
-
-		    // A music bank (its waves are ".mpg"): LHMusic registers it by MUSIC_TYPE (audio::music, k_MusicBanks 0x9C9748)
-		    if (soundName.extension() != ".mpg")
-		    {
-			    audioManager.CreateSoundGroup(groupName);
-			    // LHBankRegister 0x10002240: the bank of its samples (the 11 types of 0x9CB3F8 by path, any case)
-			    const auto bankId = audio::RegisterBank(f, groupName);
-			    audio::SetBankSampleCount(bankId, static_cast<int>(audioHeaders.size()));
-			    // 0x10002778..0x100029AB: its anim effect tables, read once here (audio::anim_effects)
-			    audio::anim_effects::RegisterTables(bankId, soundPack);
-			    for (size_t i = 0; i < audioHeaders.size(); i++)
-			    {
-				    soundName = std::filesystem::path(audioHeaders[i].name.data());
-				    if (onDemand ? audioHeaders[i].size == 0 : audioData[i].empty())
-				    {
-					    SPDLOG_LOGGER_WARN(spdlog::get("audio"), "Empty sound buffer found for {}. Skipping",
-					                       soundName.string());
-					    continue; // the next ones still load (spells.sad has an empty entry 31 before 32..88)
-				    }
-
-				    const auto stringId = fmt::format("{}/{}", groupName, audioHeaders[i].id);
-				    const entt::id_type id = entt::hashed_string(stringId.c_str());
-				    const std::vector<std::vector<uint8_t>> buffer =
-				        onDemand ? std::vector<std::vector<uint8_t>> {} : std::vector<std::vector<uint8_t>> {audioData[i]};
-				    SPDLOG_LOGGER_DEBUG(spdlog::get("audio"), "Loading sound {}: {}", stringId, audioHeaders[i].name.data());
-				    soundManager.Load(id, resources::SoundLoader::FromBufferTag {}, audioHeaders[i], buffer);
-				    soundManager.Handle(id)->bank = bankId;
-				    if (onDemand)
-				    {
-					    soundManager.Handle(id)->waveFile = f;
-					    soundManager.Handle(id)->waveOffset = soundPack.GetAudioWaveDataOffset() + audioHeaders[i].offset;
-					    soundManager.Handle(id)->waveSize = audioHeaders[i].size;
-				    }
-				    audioManager.AddToSoundGroup(groupName, id);
-			    }
-		    }
-	    });
 
 	// The voices of the help texts (0x915D40), rebuilt from the wave names of villagers, HelpSprites and Guidance
 	audio::voices::BuildTable();
 
-	// LHMusic on the OpenAL context of the audio manager (LH_AudioSystem init 0x1000DD50, from the GAudio constructor)
+	// LHMusic on the audio device (LH_AudioSystem init 0x1000DD50, from the GAudio constructor)
 	audio::music::Start();
 
 	{

@@ -22,7 +22,12 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/BankTables.h"
+#include "Audio/GAudio/BankTables.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/AnimatedStatic.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/FishFarm.h"
 #include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Spell.h"

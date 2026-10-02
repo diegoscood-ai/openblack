@@ -709,8 +709,8 @@ blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()`
   debería decirlo (es de milagros2).
 
 **Audio** (lo migra «audio» en su B11):
-- `Audio/ThingMusic.cpp:81-87`: la ida y vuelta en double.
-- `Audio/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
+- `Audio/Services/ThingMusic.cpp:81-87`: la ida y vuelta en double.
+- `Audio/Services/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
 
 **Dudosas, no migradas:**
 - `CHLApi.cpp:900` (`MOVE_GAME_THING`): truncar ahí haría una segunda conversión al caminar.
@@ -856,7 +856,7 @@ se han borrado.
 - `3D/Foliage.cpp:506-508` (mod `world.foliage`): no porta nada del original; con `object::Get2DRadius` cambiaría lo
   que se ve (el campo pasaría a medir 5 m), así que se deja.
 
-**De «audio» (hito B11):** `Audio/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
+**De «audio» (hito B11):** `Audio/Services/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
 `object::GetHeight`: el valor ya es el de la API; solo falta llamar a la API directamente.
 
 **PLAUSIBLES sin cerrar, no tocados:**
@@ -947,7 +947,7 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
   `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
 
-**De audio (hito B11):** `Audio/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
+**De audio (hito B11):** `Audio/Services/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
 0x54F4A5) → `game_clock::MsPerTurn()`; la copia doble de `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
 
 **Sin portar o dudosos:**

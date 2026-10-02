@@ -18,8 +18,8 @@
 
 #include <gtest/gtest.h>
 
-#include "Audio/MusicBank.h"
-#include "Audio/MusicEngine.h"
+#include "Audio/LH/MusicBank.h"
+#include "Audio/LH/MusicEngine.h"
 
 // Milestone A3 of dev\tmp_dis\audio\PLAN.md: LHMusic (MusicEngine) over a fake QMixer. Expected values come from the
 // DLL's code (music.md §2.3 and the disassembly cited in MusicEngine.cpp): +4 / -3 per pass, entry without fade, sync

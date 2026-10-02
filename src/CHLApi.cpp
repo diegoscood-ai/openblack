@@ -38,10 +38,10 @@
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/Audio.h"
-#include "Audio/GameMusic.h"
-#include "Audio/ScriptAudioState.h"
-#include "Audio/SamplePlay.h"
-#include "Audio/ScriptSound.h"
+#include "Audio/Services/GameMusic.h"
+#include "Audio/Services/ScriptAudioState.h"
+#include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/ScriptSound.h"
 #include "Camera/Camera.h"
 #include "Camera/ScriptCamera.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
@@ -177,6 +177,20 @@ bool ScriptCameraMode(const char* opcode)
 	}
 	SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "{}: We are in the wrong camera mode!", opcode);
 	return false;
+}
+
+/// GScript::GetScriptGameThing 0x70D220 for the camera opcodes: the thing, or nullopt with the original's "Thing no
+/// longer valid" (0xC0C258). (aproximado) As MusicThing: 0 is null and a valid entity stands for a live thing (the
+/// original looks the id up in its script table 0xD967F8)
+std::optional<entt::entity> CameraThing(uint32_t object, const char* opcode)
+{
+	const auto entity = static_cast<entt::entity>(object);
+	if (object != 0 && Locator::entitiesRegistry::value().Valid(entity))
+	{
+		return entity;
+	}
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Thing no longer valid", opcode);
+	return std::nullopt;
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -1200,16 +1214,36 @@ void ObjectDelete() // 048 OBJECT_DELETE
 
 void FocusFollow() // 049 FOCUS_FOLLOW
 {
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::FocusFollow 0x6EDF30: POP the thing (GetScriptGameThing 0x70D220; none -> "Thing no longer valid") ->
+	// CameraModeScript::SetCameraFocus(thing) 0x4619B0: the path dropped, and the focus heads for the thing every frame
+	// (CameraModeFollow::Update 0x44C160)
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::FocusFollow(*thing);
+	}
 }
 
 void PositionFollow() // 050 POSITION_FOLLOW
 {
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::PositionFollow 0x6EDE70: POP the thing -> CameraModeFollow::Set(thing) 0x44BA00: the position follows it
+	// every frame, from the heading and pitch the camera has now, at GetThingViewingDistance (its height x 8); with
+	// "behind" (on in the script mode) the heading is 0, relative to a MobileWallHug's angle. The path is kept
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::PositionFollow(*thing);
+	}
 }
 
 void CallNear() // 051 CALL_NEAR
@@ -1727,19 +1761,52 @@ void CreateDualCameraWithPoint() // 105 CREATE_DUAL_CAMERA_WITH_POINT
 
 void SetCameraToFaceObject() // 106 SET_CAMERA_TO_FACE_OBJECT
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetCameraToFaceObject 0x6ED500: POP the distance, then the thing (GetScriptGameThing 0x70D220); with the
+	// script mode, fn_006ED710(thing, distance, &position, &focus): the focus on the thing (half its height up), the
+	// position `distance` away along its facing (GetFacingDirection vt +0x4EC) and 0.1 rad up; then
+	// CameraModeScript::SetCameraPosition 0x461370 and SetCameraFocus 0x4612B0 (both drop the path and the follows)
+	const auto distance = Popf();
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (!ScriptCameraMode(__func__))
+	{
+		return;
+	}
+	// (inferido) no thing: fn_006ED710 says "no object to face" (0xC0C218) and then reads through the null pointer;
+	// here nothing more is done
+	const auto thing = object != 0 ? static_cast<entt::entity>(object) : entt::null;
+	if (const auto points = script_camera::FaceObject(thing, distance); points.has_value())
+	{
+		script_camera::SetPosition(points->position);
+		script_camera::SetFocus(points->focus);
+	}
 }
 
 void MoveCameraToFaceObject() // 107 MOVE_CAMERA_TO_FACE_OBJECT
 {
-	// const auto time = Popf();
-	// const auto distance = Popf();
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::MoveCameraToFaceObject 0x6ED600: POP the time, the distance, then the thing; with the script mode,
+	// fn_006ED710 (as 106) and CameraModeScript::MoveCameraPosition 0x4616F0 / MoveCameraFocus 0x461430 in that time
+	// (seconds of the wall clock)
+	const auto time = Popf();
+	const auto distance = Popf();
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (!ScriptCameraMode(__func__))
+	{
+		return;
+	}
+	const auto thing = object != 0 ? static_cast<entt::entity>(object) : entt::null; // (inferido) as in 106
+	if (const auto points = script_camera::FaceObject(thing, distance); points.has_value())
+	{
+		script_camera::MovePosition(points->position, time);
+		script_camera::MoveFocus(points->focus, time);
+	}
 }
 
 void GetMoonPercentage() // 108 GET_MOON_PERCENTAGE
@@ -2341,10 +2408,20 @@ void WalkPath() // 177 WALK_PATH
 
 void FocusAndPositionFollow() // 178 FOCUS_AND_POSITION_FOLLOW
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::FocusAndPositionFollow 0x6EDDA0: POP the distance, then the thing -> fn_0044BA90(thing, distance): as
+	// POSITION_FOLLOW with that distance and the heading kept (no "behind" reset); the focus follows the same thing
+	// (GetFocusThing 0x4611F0) unless FOCUS_FOLLOW gave another
+	const auto distance = Popf();
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::FocusAndPositionFollow(*thing, distance);
+	}
 }
 
 void GetWalkPathPercentage() // 179 GET_WALK_PATH_PERCENTAGE
@@ -2365,12 +2442,21 @@ void GetWalkPathPercentage() // 179 GET_WALK_PATH_PERCENTAGE
 
 void CameraProperties() // 180 CAMERA_PROPERTIES
 {
-	// const auto enableBehind = static_cast<bool>(Pop().intVal);
-	// const auto angle = Popf();
-	// const auto speed = Popf();
-	// const auto distance = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::CameraProperties 0x6EDFF0: POP behind (raw, tested != 0 at 0x44C7E6), the angle (degrees, x 0.0174533
+	// [0x92B20C]), the speed, the distance; with the script mode +0x14 = distance, +0x18 = speed (the follow's time
+	// factor: 0 places at once), +0x1C = behind, +0x0C = angle, +0x20 = 0 (0x6EE0C1..0x6EE0D9)
+	const bool behind = Pop().uintVal != 0;
+	const auto angle = Popf() * script_camera::k_DegreesToRadians;
+	const auto speed = Popf();
+	const auto distance = Popf();
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	if (ScriptCameraMode(__func__))
+	{
+		script_camera::SetFollowProperties(distance, speed, angle, behind);
+	}
 }
 
 void EnableDisableMusic() // 181 ENABLE_DISABLE_MUSIC
@@ -2575,10 +2661,44 @@ void SetAnimationModify() // 202 SET_ANIMATION_MODIFY
 
 void SetAviSequence() // 203 SET_AVI_SEQUENCE
 {
-	// const auto aviSequence = Pop().intVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetAviSequence 0x6FC050: POP the sequence (raw, compared with 1 and 2), then on (raw, != 0) ->
+	// PSysGlobal::StartAVISequence 0x68F450 / StopAVISequence 0x68F4F0. It returns at once
+	const auto sequence = Pop().intVal;
+	const bool on = Pop().uintVal != 0;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start": the opening plays no film
+	}
+	if (!on)
+	{
+		// StopAVISequence 0x68F4F0: 2 -> GGame::EndFallingSpellVideo 0x553A10; anything else nothing
+		if (sequence == 2)
+		{
+			NotImplemented("SetAviSequence (EndFallingSpellVideo)");
+		}
+		return;
+	}
+	if (sequence == 1)
+	{
+		// StartAVISequence(1) 0x68F477..0x68F4E9: PlayFullScreenMovie("data\intro.bik", 0) 0x54D920 (the tip video
+		// cleared, the pause kept in VideoPreviousPause and PauseGame(1), the wide screen on, the Bink opened; the
+		// player object is made even when the file does not open, 0x54AC05), then g+0x25018C = 58 x fps,
+		// g+0x250190 = 60 x fps (the film's first 60 s: the pause given back after 58 s and the picture faded out up to
+		// 60 s, Process3dEngine 0x54DB27..0x54DB7F), g+0x250530 = 1, and GScript::SetupScreenFadeBackToNormal(0)
+		// 0x6EBB00: the black fade gone at once.
+		// (aproximado) openblack plays no Bink film: as if it had ended at once (the pause and the wide screen as they
+		// were, GGame::FinishedVideo 0x54D8D0), only the fade is cleared
+		NotImplemented("SetAviSequence (data\\intro.bik)");
+		Game::Instance()->GetScreenFade().FadeBackToNormal(0.0f);
+		return;
+	}
+	if (sequence == 2)
+	{
+		// StartAVISequence(2) 0x68F459..0x68F471: GGame::KickOffFallingSpellVideo 0x5539A0 (not ported) and
+		// SetupScreenFadeBackToNormal(0)
+		NotImplemented("SetAviSequence (KickOffFallingSpellVideo)");
+		Game::Instance()->GetScreenFade().FadeBackToNormal(0.0f);
+	}
 }
 
 void PlayGesture() // 204 PLAY_GESTURE
@@ -3234,24 +3354,54 @@ void GetObjectLeashType() // 275 GET_OBJECT_LEASH_TYPE
 
 void SetFocusFollow() // 276 SET_FOCUS_FOLLOW
 {
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetFocusFollow 0x6EDB40: the same code as FOCUS_FOLLOW 0x6EDF30 (CameraModeScript::SetCameraFocus(thing)
+	// 0x4619B0, no placing at once)
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::FocusFollow(*thing);
+	}
 }
 
 void SetPositionFollow() // 277 SET_POSITION_FOLLOW
 {
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetPositionFollow 0x6EDA80: POP the thing -> CameraModeFollow::Set(thing) 0x44BA00 and fn_0044BB30: the
+	// focus and the position placed at once on the follow's points (the mode's seconds at 2: then followed at the
+	// time factor's pace)
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::PositionFollow(*thing);
+		script_camera::PlaceFollowNow();
+	}
 }
 
 void SetFocusAndPositionFollow() // 278 SET_FOCUS_AND_POSITION_FOLLOW
 {
-	// const auto distance = Popf();
-	// const auto target = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetFocusAndPositionFollow 0x6ED9B0: POP the distance, then the thing -> fn_0044BA90(thing, distance) and
+	// fn_0044BB30 (placed at once)
+	const auto distance = Popf();
+	const auto object = Pop().uintVal;
+	if (FreeStart())
+	{
+		return; // mod game.skip-intro, "free start"
+	}
+	const auto thing = CameraThing(object, __func__);
+	if (thing.has_value() && ScriptCameraMode(__func__))
+	{
+		script_camera::FocusAndPositionFollow(*thing, distance);
+		script_camera::PlaceFollowNow();
+	}
 }
 
 void SetCameraLens() // 279 SET_CAMERA_LENS
@@ -4121,15 +4271,17 @@ void SetComputerPlayerSpeed() // 371 SET_COMPUTER_PLAYER_SPEED
 
 void SetFocusFollowComputerPlayer() // 372 SET_FOCUS_FOLLOW_COMPUTER_PLAYER
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
+	// GScript 0x6EDC00: POP the player (a float, ftol), ConvertScriptPlayerToGamePlayer 0x6EB9A0, the mode checks, then
+	// fn_004619F0: the path dropped, SetCameraFocus(0) 0x4619B0 and +0x50 = the player (CameraModeFollow::Update follows
+	// GComputerPlayer::GetHandPos 0x657FE0). Not ported: openblack has no computer players
+	[[maybe_unused]] const auto player = Popf();
 	NotImplemented(__func__);
 }
 
 void SetPositionFollowComputerPlayer() // 373 SET_POSITION_FOLLOW_COMPUTER_PLAYER
 {
-	// const auto player = Popf();
-	// TODO(Daniels118): implement this
+	// GScript 0x6EDCD0: as 372 with fn_00461A10: the path dropped, Set(0) 0x44BA00 and +0x54 = the player. Not ported
+	[[maybe_unused]] const auto player = Popf();
 	NotImplemented(__func__);
 }
 

@@ -18,7 +18,7 @@
 #include <entt/entity/entity.hpp>
 #include <spdlog/spdlog.h>
 
-#include "Audio/LanternSounds.h"
+#include "Audio/Services/LanternSounds.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"
@@ -28,6 +28,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "FrameAnim.h"
 #include "GameClock.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
 #include "LandIslandInterface.h"
 #include "Locator.h"
@@ -38,12 +39,12 @@
 using namespace openblack;
 using namespace openblack::ecs::components;
 
-float night_lights::WindowGrey(const DayNightClock& clock, const glm::vec3& position, bool someoneHome)
+uint32_t night_lights::WindowColour(const DayNightClock& clock, const glm::vec3& position, bool someoneHome)
 {
 	// Abode +0xB6 (villagers at home) and GGameInfo::IsVisualNight
 	if (!someoneHome || !clock.IsVisualNight())
 	{
-		return -1.0f;
+		return 0; // 0x51606D: vt 0x30 with 0
 	}
 	const float f = std::abs(position.x + position.z) * 0.1f + position.y;
 	const float t = clock.GetVisualTime() + (f - std::trunc(f));
@@ -58,15 +59,14 @@ float night_lights::WindowGrey(const DayNightClock& clock, const glm::vec3& posi
 	}
 	if (intensity <= 0)
 	{
-		return -1.0f;
+		return 0; // 0x51606D: vt 0x30 with 0
 	}
 	static constexpr std::array<int32_t, 8> k_Flicker = {0, 7, 3, 5, 4, 2, 6, 1}; // 0x8D86D0
-	int32_t v = ((k_Flicker[static_cast<int32_t>(t * 1000.0f) & 7] << 2) & 0x1F) | 0xE0;
-	if (intensity < 256)
-	{
-		v = (v * intensity) >> 8;
-	}
-	return static_cast<float>(v) / 255.0f;
+	const auto v = static_cast<uint32_t>(((k_Flicker[static_cast<int32_t>(t * 1000.0f) & 7] << 2) & 0x1F) | 0xE0);
+	// 0x516054..0x516064: the grey in r, g and b with alpha 0xFF; below 256 the intensity scales it, (g k) >> 8
+	// (0x516044..0x51604F; the same product per channel as lh3d_colour::ScaleShr8_3KeepA)
+	const uint32_t colour = lh3d_colour::Argb(v, v, v, 0xFF);
+	return intensity < 256 ? lh3d_colour::ScaleShr8_3KeepA(colour, static_cast<uint32_t>(intensity)) : colour;
 }
 
 float night_lights::VillageLightIntensity(float t)

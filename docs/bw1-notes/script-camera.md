@@ -9,6 +9,7 @@ Las pistas de `camera.edt` están en [camera-tracks.md](camera-tracks.md); los c
 - [El modo del guion](#el-modo-del-guion)
 - [Regla de llegada](#regla-de-llegada)
 - [Un fotograma de GCamera::Update](#un-fotograma-de-gcameraupdate)
+- [Seguimientos](#seguimientos)
 - [Opcodes](#opcodes)
 - [Soltar la cámara](#soltar-la-cámara)
 - [openblack](#openblack)
@@ -51,6 +52,31 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
    foco (0x44242B).
 7. FOV: su zoomer con `g_game_time_inc` · 0,001 (**tiempo de juego**, no de pared) y `LH3DTech::ChangeFov` 0x8195B0.
 
+## Seguimientos
+
+**Fiel** salvo lo marcado (`CameraModeFollow`, del que hereda el modo del guion; lectura completa en
+`dev\tmp_dis\camara\step2.md`).
+- Campos: +0x08 cosa seguida con la posición, +0x4C (Script) cosa seguida con el foco (`GetFocusThing` 0x4611F0 = +0x4C
+  o, si es nula, +0x08), +0x0C rumbo, +0x10 cabeceo, +0x14 distancia, +0x18 factor de tiempo (0.2 en Script), +0x1C
+  «detrás» (1 en Script).
+- `Set(cosa)` 0x44BA00: rumbo y cabeceo de los **destinos** de los zoomers (`GetHeadingAndPitchFromPoints` 0x4428D0),
+  distancia = alto · 8 (`GetThingViewingDistance` 0x441F20); con «detrás», rumbo 0. `fn_0044BA90(cosa, d)`: igual con
+  distancia d y sin poner el rumbo a 0. `fn_0044BB30` coloca ya (Zoomer::SetPosition) y pone GCamera+0x68 = 2.
+- `CameraModeFollow::Update` 0x44C160, por fotograma: distancia recortada a 2..1500 y guardada; T = (+0x68 > 2 ? 1 :
+  2 − +0x68 / 2) · factor (0x44C1A5: 0.4 s tras el cambio de modo, 0.2 s pasados 2 s; factor 0 → colocar); foco hacia el
+  punto de la cosa (MapCoords: x, z / 6553.6, y = suelo + altitud +0x1C; en `Update` la traslación del Game3DObject si
+  la tiene; más media altura; rebaño: `Flock::GetFlockPos` 0x530570 con la media altura del líder); posición =
+  `SetPointFromPointDistanceHeadingAndPitch` 0x442810 desde ese punto con la distancia, cabeceo ≥ 0.241661 (guardado) y
+  el rumbo, que con «detrás» sobre un MobileWallHug es rumbo − (ángulo del objeto − π/2) (0x44C785).
+- `Validate` (0x461270 + 0x44BB10, **una vez por turno** desde `GGame::ProcessTurn` 0x54E74E): suelta la cosa que ya no
+  está.
+- Set/Move de un punto sueltan el seguimiento de su lado (0x461370 `Set(0)`, 0x4612B0 `SetCameraFocus(0)`);
+  `RunPath` suelta solo +0x4C.
+- Cara de un objeto (`fn_006ED710`, 106/107): foco = punto del MapCoords + media altura; posición a distancia d con el
+  rumbo `GetFacingDirection` (vt+0x4EC; normalizado a ≤ 2π) y cabeceo 0.1.
+- FollowUs: `SET_FOCUS_AND_POSITION_FOLLOW(Son, 3)` y `CAMERA_PROPERTIES(3, 0, 22.5, true)`: la cámara va pegada al niño,
+  22,5° respecto a hacia dónde mira.
+
 ## Opcodes
 
 **Fiel** salvo lo marcado. Los que mueven comprueban el modo: sin modo «Script camera has been removed!»; otro modo
@@ -68,9 +94,15 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
 | 286 / 287 SET / MOVE_CAMERA_POS_FOC_LENS | 0x6EE3C0 / 0x6EE4B0 | posición, foco y FOV, **la lente sin pasar a radianes** (copiado; ningún mapa los usa) |
 | 314 / 315 GET_STORED_CAMERA_POSITION / FOCUS | 0x6EE630 / 0x6EE6A0 | lo guardado |
 | 377 GET_FACING_CAMERA_POSITION | 0x6EE710 | posición + d · vector delante (inferido: unitario hacia el foco) |
+| 049 / 276 FOCUS_FOLLOW / SET_FOCUS_FOLLOW | 0x6EDF30 / 0x6EDB40 | el foco sigue a la cosa (0x4619B0) |
+| 050 POSITION_FOLLOW | 0x6EDE70 | la posición sigue a la cosa (`Set` 0x44BA00) |
+| 277 SET_POSITION_FOLLOW | 0x6EDA80 | `Set` + colocar ya (fn_0044BB30) |
+| 178 / 278 (SET_)FOCUS_AND_POSITION_FOLLOW | 0x6EDDA0 / 0x6ED9B0 | `fn_0044BA90(cosa, d)` (278 además coloca ya) |
+| 180 CAMERA_PROPERTIES | 0x6EDFF0 | distancia, factor de tiempo, rumbo (° · 0.0174533), «detrás» |
+| 106 / 107 SET / MOVE_CAMERA_TO_FACE_OBJECT | 0x6ED500 / 0x6ED600 | cara de un objeto, fijar / mover en t |
+| 203 SET_AVI_SEQUENCE | 0x6FC050 | (aproximado) sin vídeo: solo quita el fundido a negro (`SetupScreenFadeBackToNormal(0)` 0x6EBB00), como si el vídeo acabara al instante |
 
-El resto (seguimientos 049/050/178/180/276-278, 106/107, cámara doble 093-095/105, 142, 201, 203, 209, 372/373) está en
-el informe con direcciones y aún no se ha portado.
+Sin portar: cámara doble 093-095/105, 142, 201, 209 y el seguimiento del jugador PC 372/373 (0x6EDC00 / 0x6EDCD0).
 
 ## Soltar la cámara
 
@@ -100,8 +132,11 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 
 ## Pendiente
 
-- Seguimientos `CameraModeFollow::Update` 0x44C160 (049, 050, 178, 180, 276-278, 372/373) y 106/107 (fn_006ED710).
-- SET_AVI_SEQUENCE 203 (pausa, `data\intro.bik`, `SetupScreenFadeBackToNormal(0)`).
+- 372/373 (seguir la mano del jugador PC, `GComputerPlayer::GetHandPos` 0x657FE0).
+- SET_AVI_SEQUENCE 203 con vídeo: `PlayFullScreenMovie("data\intro.bik")` 0x54D920 pausa el juego y lo devuelve a los
+  58 s; sin Bink en openblack no hay película ni pausa (aproximado). La secuencia 2 (vídeo de la caída del hechizo).
+- (aproximado) El ángulo de la criatura (LH3DCreature +0x84) no existe: sin ajuste de rumbo y `GetFacingDirection` 0.
+  El GameAngle de un aldeano sale de `WallHug::yAngle` redondeado a 2048 por vuelta.
 - Cámara doble (`CameraModeTwoObjects::Update` 0x461DE0, sin leer), SHAKE_CAMERA (`LH3DCameraChecker` 0x821050, sin
   leer), SET_CAMERA_ZONE 142, SET_FIXED_CAM_ROTATION 209, `CheckStackedModesForValidity` por turno.
 - `CameraModeNew3::Reinitialise` 0x4589B0 (cómo recoge el jugador la cámara), sin leer.
@@ -109,11 +144,13 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 ## Ganchos de prueba
 
 - `test_script_camera`: un solo modo, llegada, tope de 0,1 s, colocar con T < 0,001, disco, empujón y suelo, FOV con
-  tiempo de juego y la vuelta a 70° en 0,5 s.
+  tiempo de juego y la vuelta a 70° en 0,5 s; `ScriptCameraFollow.*`: regla de T, distancia y cabeceo, punto desde
+  distancia/rumbo/cabeceo, rumbo y cabeceo entre puntos, «detrás», colocar ya, cara de un objeto, cosas que desaparecen.
+- `OPENBLACK_CAMERA_LOCK` / `OPENBLACK_CAMERA_FLY` ganan a la cámara del guion (`Drives()`, no original).
 - En el juego: Land 1 sin el mod `game.skip-intro` (`--mod game.skip-intro=off`) corre FollowUs y CreaturesInGlade
   con la cámara del guion.
 
 ## Fuentes
 
-- `dev\tmp_dis\camara\original.md` (desensamblado; volcados en `dev\_scratch\asistente\`), auditoría
-  `dev\_scratch\asistente\audit_step1.md`.
+- `dev\tmp_dis\camara\original.md` (paso 1) y `dev\tmp_dis\camara\step2.md` (seguimientos, cara de un objeto,
+  SET_AVI_SEQUENCE), con sus auditorías `audit_step1.md` / `audit_step2.md` en la misma carpeta.

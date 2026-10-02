@@ -74,6 +74,7 @@
 #include "ECS/SeaCells.h"
 #include "ECS/VillagerDrowning.h"
 #include "ECS/Life.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -170,6 +171,14 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 			_pickLock = _interactionPoint.value_or(position);
 			entity = pile;
 		}
+	}
+	// fn_005DC330, the object entering the hand: out of the map cells (IsObjectInMap vt +0x178 at 0x5DC377,
+	// RemoveMapObject vt +0x548 at 0x5DC385). (inferido) The early returns above put nothing in the hand and take
+	// nothing out, the same end as PlaceObjectInMagicHand 0x5DA6F0's failure path (fn_005DC330 != 1 at 0x5DA7C9 ->
+	// InsertMapObject 0x5DA849)
+	if (ecs::map_cells::IsObjectInMap(entity))
+	{
+		ecs::map_cells::RemoveMapObject(entity);
 	}
 	// Carried objects must not be glued to the landscape by the height-map shader.
 	if (registry.AllOf<MorphWithTerrain>(entity))
@@ -292,6 +301,9 @@ void HandSystem::PlaceWithoutBody(entt::entity entity) noexcept
 	{
 		fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
 	}
+	// its EndPhysics at once (Living::InitialisePhysicsFromHand 0x5EFDF8): Object::EndPhysics 0x6375A0 puts it back in
+	// the map cells (InsertMapObject vt +0x544 at 0x63762C)
+	ecs::map_cells::InsertMapObject(entity);
 	if (registry.AllOf<Villager>(entity) && ecs::sea_cells::IsWater(transform.position))
 	{
 		ecs::VillagerEndPhysicsInWater(entity);

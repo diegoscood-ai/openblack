@@ -31,6 +31,8 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -45,9 +47,6 @@ using components::Transform;
 
 namespace
 {
-/// NewCollideDescriptor::Init (0x46AC23): a multi-cell fixed object is in the map cells whose 7.1 m circle round the
-/// cell's centre its collide circles touch
-constexpr float k_CellCircleRadius = 7.1f;
 /// ObjectCircleIterator::Init (0x60D21C): the circle of a water cell, round its centre
 constexpr float k_WaterCircleRadius = 7.2f;
 /// Tree::CreateCollideData (0x74C622): a tree's trunk
@@ -175,13 +174,6 @@ void RowOfCircles(entt::entity entity, const Fixed& fixed, const Transform& tran
 	}
 }
 
-/// NewCollide::Obj::Collide (0x829140) against a cell's circle: d^2 <= (r1 + r2)^2
-bool TouchesCell(glm::vec2 centre, float radius, glm::vec2 cellCentre)
-{
-	const float reach = radius + k_CellCircleRadius;
-	return glm::distance2(centre, cellCentre) <= reach * reach;
-}
-
 /// the land cell under a cell index is water, or there is none (LH3DIsland::IsWater 0x60D3A0; the neighbours' test in
 /// ObjectCircleIterator::Init(int) 0x60D0A0 is the same hasWater bit)
 bool WaterCell(glm::ivec2 cell)
@@ -194,47 +186,52 @@ bool WaterCell(glm::ivec2 cell)
 }
 
 /// ObjectCircleIterator over the map cell of p (Init 0x60D280 / 0x60D0A0, GetMapChild 0x638560): the collide circles of
-/// the cell's fixed objects that have any (not a field, whose circles the iterator skips; a forest has none, a tree only
-/// its trunk in its own cell; a multi-cell object in each cell it touches), then the water circles of the cell and of
-/// its 8 neighbours in the original's order. openblack's order of the objects is its registry's, not the cell list's.
+/// the objects of the cell's fixed list in its order (MoveToCircleHugLinearSquareSweep 0x60CA50 takes
+/// GetFirstObjectFixed 0x6034B0 at 0x60CAA0) that have any (Init skips an object without GetCollideData vt +0x858,
+/// 0x60D29D, and a field by its RTTI, 0x60D2B1..0x60D2C8), then the water circles of the cell and of its 8 neighbours
+/// in the original's order. Which objects are in the cell is the list's: a multi-cell object is in the cells of its
+/// NewCollideDescriptor.
 std::vector<Circle> CellCircles(glm::vec2 p)
 {
 	std::vector<Circle> out;
 	const auto cell = CellOf(p);
-	const glm::vec2 cellCentre = glm::vec2(cell) * 10.0f + 5.0f;
 	auto& registry = Locator::entitiesRegistry::value();
 	std::vector<Circle> row;
-	registry.Each<const Fixed, const Transform>([&](entt::entity entity, const Fixed& fixed, const Transform& transform) {
-		if (registry.AnyOf<components::Field, components::BigForest>(entity))
+	map_cells::ForEachFixed(glm::ivec2(cell), [&](entt::entity entity) {
+		// no collide data: the Object class (pots and piles, street lanterns: Object::GetCollideData 0x419B30 is 0;
+		// inferido), a fish farm (0x52CA10 builds none) and a big forest (0x439580); a field by its RTTI
+		const auto kind = map_cells::KindOf(entity);
+		if (kind == map_cells::InsertKind::Object || kind == map_cells::InsertKind::FishFarm ||
+		    registry.AnyOf<components::Field, components::BigForest>(entity))
 		{
-			return;
+			return true;
 		}
+		const auto& transform = registry.Get<const Transform>(entity);
 		if (registry.AllOf<components::Tree>(entity))
 		{
-			// SingleMapFixed: in the cell of its position only [inferred]
-			const glm::vec2 at = Xz(transform);
-			if (CellOf(at) == cell)
-			{
-				out.push_back({at, k_TreeCircleRadius, entity});
-			}
-			return;
+			// Tree::CreateCollideData 0x74C5F0: its trunk
+			out.push_back({Xz(transform), k_TreeCircleRadius, entity});
+			return true;
 		}
-		if (!TouchesCell(fixed.boundingCenter, fixed.boundingRadius, cellCentre))
+		const auto* fixed = registry.TryGet<const Fixed>(entity);
+		if (fixed == nullptr)
 		{
-			return;
+			// (aproximado) a mobile static, rock, dead tree or fragment (fixed in the original, without openblack's Fixed):
+			// one circle of its Get2DRadius at its position, not its mesh's NewCollide
+			out.push_back({Xz(transform), object::Get2DRadius(entity), entity});
+			return true;
 		}
 		row.clear();
-		RowOfCircles(entity, fixed, transform, row);
+		RowOfCircles(entity, *fixed, transform, row);
 		if (row.empty())
 		{
-			out.push_back({fixed.boundingCenter, fixed.boundingRadius, entity});
-			return;
+			out.push_back({fixed->boundingCenter, fixed->boundingRadius, entity});
 		}
-		const auto touches = [&cellCentre](const Circle& c) { return TouchesCell(c.centre, c.radius, cellCentre); };
-		if (std::any_of(row.begin(), row.end(), touches))
+		else
 		{
 			out.insert(out.end(), row.begin(), row.end());
 		}
+		return true;
 	});
 	// Init(Object*) at the end of the objects: the cell itself, then Init(n) for n = 1..8
 	static constexpr glm::ivec2 k_Neighbours[] = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1}};

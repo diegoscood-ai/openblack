@@ -23,6 +23,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Locator.h"
@@ -216,8 +217,8 @@ void PathFinding::Update() noexcept
 
 		if (!found)
 		{
-			auto& map = Locator::entitiesMap::value();
-			for (const auto& entity : map.GetMobileInGridCell(_handPosition))
+			// the mobile list of the hand's map cell, from its head (ecs::map_cells)
+			for (const auto entity : ecs::map_cells::MobileInCell(ecs::map_coords::CellOf(_handPosition)))
 			{
 				if (registry.AllOf<Villager>(entity))
 				{

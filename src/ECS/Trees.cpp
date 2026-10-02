@@ -16,7 +16,6 @@
 #include <limits>
 #include <array>
 #include <map>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -42,8 +41,10 @@
 #include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
+#include "ECS/SeaCells.h"
 #include "ECS/Weather/Weather.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Systems/Implementations/HandSystemDetail.h"
@@ -93,7 +94,6 @@ struct ForestData
 };
 /// Town +0x608: each town's forests, head first
 std::unordered_map<uint32_t, std::vector<uint32_t>> g_townForestLists;
-uint32_t g_mapInsertions = 0;
 uint32_t g_forestsCreated = 0;
 std::map<uint32_t, ForestData> g_forests;
 /// 0xBEA238: the next free forest id
@@ -103,25 +103,19 @@ uint32_t g_nextForestId = 1;
 uint32_t g_lastTreeCreatedTurn = 0;
 
 
-/// fn_0074C180: nothing fixed in the way (a 0.5 circle against the fixed objects' circles) and on land. The original
-/// reads `(collide & 8) == 0 || IsWater(p)`; the water half looks inverted and is taken as "not in water" (inferido).
-bool IsFreeForTree(glm::vec3 point)
+/// fn_0074C180 (its only caller PlantTreeNear, 0x53A0B0): free when a 0.5 m circle at the point touches no collide
+/// data of the cell's fixed list (MapCoords::CollideCollideWithFixe 0x604FE0 at 0x74C187, "test al, 8" 0x74C18C),
+/// or else when the cell is water (MapCoords::IsWater 0x6035B0 at 0x74C192, its result returned, 0x74C199). Read
+/// literally: a water cell is always free; neither this nor fn_0053A010 (0x53A010..0x53A18F) tests land before
+/// Tree::Create 0x749EE0. Off the map CollideWithFixed is 0xFFFFFFFF (bit 8 set) and IsWater 1 (no cell)
+bool IsFreeForTree(const openblack::ecs::map_coords::MapCoords& coords)
 {
-	if (!Locator::terrainSystem::has_value())
+	if ((openblack::ecs::map_cells::CollideWithFixed(coords) & openblack::ecs::sea_cells::k_CollideFixed) == 0)
 	{
-		return false;
+		return true;
 	}
-	const glm::vec2 at(point.x, point.z);
-	// MapCoords::IsWater 0x6035B0: the cell's water bit (the negation of MapCoords::IsLand 0x603720)
-	if (!openblack::ecs::systems::hand_detail::IsLand(point))
-	{
-		return false;
-	}
-	bool blocked = false;
-	Locator::entitiesRegistry::value().Each<const Fixed>([&](const Fixed& fixed) {
-		blocked = blocked || glm::distance(at, fixed.boundingCenter) < fixed.boundingRadius + 0.5f;
-	});
-	return !blocked;
+	return openblack::ecs::sea_cells::IsWater(Locator::terrainSystem::value(),
+	                                          openblack::ecs::map_coords::Cell(coords));
 }
 } // namespace
 
@@ -276,10 +270,13 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 		int radius = static_cast<int>(rng.NextValue<uint32_t>(0, 4)) + 5;
 		for (int attempt = 0; attempt < 5; ++attempt)
 		{
-			// 0x53A086..0x53A0A6: origin + GetPosFromAngle(a, float(r)) (fild qword)
-			const glm::vec2 at = PosFromAngle(origin, angle, static_cast<float>(radius));
+			// 0x53A086..0x53A0A6: origin + GetPosFromAngle(a, float(r)) (fild qword), MapCoords::operator+ 0x605520;
+			// fn_0074C180 tests that MapCoords (0x53A0B0)
+			const auto coords = map_coords::FromMetres(glm::vec2(origin.x, origin.z)) +
+			                    gutils::GetPosFromAngle(angle, static_cast<float>(radius));
+			const glm::vec2 at = map_coords::ToMetres(coords);
 			const glm::vec3 point(at.x, Locator::terrainSystem::value().GetHeightAt(at), at.y);
-			if (IsFreeForTree(point))
+			if (IsFreeForTree(coords))
 			{
 				g_lastTreeCreatedTurn = game_clock::Turn();
 				const auto tree = archetypes::TreeArchetype::Create(forestId, point, type, true,
@@ -416,6 +413,8 @@ void openblack::ecs::DeleteTree(entt::entity tree)
 	{
 		ecs::physics::PhysicsObjects::RemoveObject(tree);
 	}
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cell's fixed list
+	map_cells::RemoveMapObject(tree);
 	registry.Destroy(tree);
 	registry.SetDirty();
 }
@@ -566,6 +565,9 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	// is the same entity.
 	NotifyTreeDeleted(tree, TreeDeletion::BecameDeadTree);
 	const float multiplier = treeComponent->woodValueMultiplier;
+	// the ToBeDeleted of 0x75FAE7 -> CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548. The DeadTree enters the
+	// map when the physics puts it to rest (EndPhysics, vt +0x544)
+	map_cells::RemoveMapObject(tree);
 	registry.Remove<Tree>(tree);
 	registry.Assign<DeadTree>(tree, type, multiplier);
 	registry.AssignOrReplace<FelledTree>(tree, chopper);
@@ -602,20 +604,6 @@ std::vector<glm::ivec2> SpiralOffsets(size_t count)
 	return offsets;
 }
 
-/// Whether the object is on the map, i.e. in its cell's lists: not in the hand and not flying (in the original both are
-/// taken out of the map cells, RemoveMapObject)
-bool IsOnMap(entt::entity entity)
-{
-	if (openblack::Locator::handSystem::has_value())
-	{
-		if (const auto held = openblack::Locator::handSystem::value().GetHeldObject(); held && *held == entity)
-		{
-			return false;
-		}
-	}
-	return openblack::ecs::physics::PhysicsObjects::Find(entity) == nullptr;
-}
-
 /// The MapCoords cell (ecs::map_coords::CellOf: ftol(x * 6553.6f), the unsigned high words)
 glm::ivec2 CellOf(glm::vec3 position)
 {
@@ -626,31 +614,6 @@ glm::ivec2 CellOf(glm::vec3 position)
 float openblack::ecs::Object2DRadius(entt::entity entity)
 {
 	return ecs::object::Get2DRadius(entity);
-}
-
-uint32_t openblack::ecs::NextMapInsertion()
-{
-	return ++g_mapInsertions;
-}
-
-std::vector<entt::entity> openblack::ecs::TreesInCell(glm::ivec2 cell)
-{
-	std::vector<std::pair<uint32_t, entt::entity>> found;
-	Locator::entitiesRegistry::value().Each<const Tree, const Transform>(
-	    [&](entt::entity entity, const Tree& tree, const Transform& transform) {
-		    if (CellOf(transform.position) == cell && IsOnMap(entity))
-		    {
-			    found.emplace_back(tree.mapInsertion, entity);
-		    }
-	    });
-	// the list is filled at its head: the tree inserted last is first
-	std::ranges::sort(found, [](const auto& lhs, const auto& rhs) { return lhs.first > rhs.first; });
-	std::vector<entt::entity> trees;
-	for (const auto& [stamp, entity] : found)
-	{
-		trees.push_back(entity);
-	}
-	return trees;
 }
 
 glm::vec3 openblack::ecs::TreeWorkingPos(entt::entity tree, entt::entity who)
@@ -678,13 +641,14 @@ entt::entity openblack::ecs::FindTreeNearVillager(entt::entity who)
 	float nearest = 99999.0f; // 0x47C34F80
 	for (const auto& c : cells)
 	{
-		const auto trees = TreesInCell(c);
-		if (trees.empty())
+		// MapCoords::FindType(6, 0) 0x75FD57: only the first FOREST_TREE of the cell's fixed list; when it is not a Tree
+		// (__RTDynamicCast 0x75FD5D) the cell is skipped. INDESTRUCTIBLE (+0x25 & 0x40, 0x75FD6B) is never set on a tree
+		// outside puzzles
+		const auto tree = map_cells::FindType(c, ObjectType::ForestTree);
+		if (tree == entt::null || !registry.AllOf<Tree>(tree))
 		{
 			continue;
 		}
-		// only the first of the cell (INDESTRUCTIBLE 0x4000 never set on a tree outside puzzles)
-		const auto tree = trees.front();
 		const auto working = TreeWorkingPos(tree, who);
 		const float d = glm::distance(glm::vec2(from.x, from.z), glm::vec2(working.x, working.z));
 		if (d < nearest)
@@ -826,53 +790,54 @@ void openblack::ecs::MakeScenicForest(uint32_t townId, glm::vec3 townCentre)
 			break;
 		}
 	}
-	// R = 250 (GTownInfo +0x164) + 10 (0x8AB414). The spiral (0x741BB9) from the town centre's cell stops at the first
-	// cell farther than R (|offset| x 10 > R): 1369 cells, a Chebyshev radius of 18, not the whole disc.
+	// R = 250 (GTownInfo +0x164) + 10 (0x8AB414). The spiral (GUtils::Spiral 0x74D7E0 at 0x741CC5, MapCoords +=
+	// JustMapXZ 0x605470) walks a copy of the town centre's MapCoords (fn_0073AE10), at most 99999 (0x1869F) cells, and
+	// stops at the first one farther than R from the centre (fn_00605CD0; "fcomp; test ah, 0x41" 0x741BC2..0x741BD0).
+	// In each cell FindType(-1, 0) 0x741BDE .. FindType(-1, obj) 0x741CA1: the fixed list, then the mobile one, each
+	// from its head; CastTree vt +0xBC. The trees join the scenic forest in that order
 	const float radius = Locator::infoConstants::value().town.maxDistanceForTownForest + 10.0f;
-	const auto centreCell = CellOf(townCentre);
-	std::vector<glm::ivec2> cells;
-	glm::ivec2 walked(0);
-	ecs::map_coords::Spiral spiral; // GUtils::Spiral 0x74D7E0
-	for (int n = 0; n < 99999; ++n)
+	const auto centre = map_coords::FromMetres(glm::vec2(townCentre.x, townCentre.z));
+	auto coords = centre;
+	ecs::map_coords::Spiral spiral;
+	const glm::vec2 centre2(townCentre.x, townCentre.z);
+	std::vector<entt::entity> taken;
+	for (int n = 99999; n != 0; --n)
 	{
-		if (glm::length(glm::vec2(walked)) * 10.0f > radius)
+		if (gutils::GetDistanceInMetres(coords, centre) > radius)
 		{
 			break;
 		}
-		cells.push_back(centreCell + walked);
-		const auto& step = spiral.Next();
-		walked += glm::ivec2(step.x, step.z);
-	}
-	std::set<std::pair<int, int>> inside;
-	for (const auto& c : cells)
-	{
-		inside.emplace(c.x, c.y);
-	}
-	const glm::vec2 centre2(townCentre.x, townCentre.z);
-	std::vector<entt::entity> taken;
-	registry.Each<const Tree, const Transform>([&](entt::entity entity, const Tree& tree, const Transform& transform) {
-		const auto cell = CellOf(transform.position);
-		if (!inside.contains({cell.x, cell.y}) || !IsOnMap(entity))
+		const auto cell = map_coords::Cell(coords);
+		for (auto entity = map_cells::FindType(cell, ObjectType::Any); entity != entt::null;
+		     entity = map_cells::FindType(cell, ObjectType::Any, entity))
 		{
-			return;
-		}
-		if (!IsInForest(tree.forestId))
-		{
-			taken.push_back(entity);
-			return;
-		}
-		if (IsScenicForest(tree.forestId))
-		{
-			// fn_00605CD0 = GetDistanceInMetres 0x74CD70: 2D
-			const auto forestCentre = ForestCentre(tree.forestId);
-			const glm::vec2 at(transform.position.x, transform.position.z);
-			if (gutils::GetDistanceInMetres(at, centre2) <
-			    gutils::GetDistanceInMetres(at, glm::vec2(forestCentre.x, forestCentre.z)))
+			const auto* tree = registry.TryGet<const Tree>(entity);
+			if (tree == nullptr)
+			{
+				continue;
+			}
+			// GetForest vt +0x86C: none (0x741C17), or a scenic one (+0x3C, 0x741C1B) whose centre is farther from the
+			// tree than the town centre (0x741C21..0x741C44, then fn_0053A220 takes it out of it)
+			if (!IsInForest(tree->forestId))
 			{
 				taken.push_back(entity);
+				continue;
+			}
+			if (IsScenicForest(tree->forestId))
+			{
+				// fn_00605CD0 = GetDistanceInMetres 0x74CD70: 2D
+				const auto forestCentre = ForestCentre(tree->forestId);
+				const auto& position = registry.Get<const Transform>(entity).position;
+				const glm::vec2 at(position.x, position.z);
+				if (gutils::GetDistanceInMetres(at, centre2) <
+				    gutils::GetDistanceInMetres(at, glm::vec2(forestCentre.x, forestCentre.z)))
+				{
+					taken.push_back(entity);
+				}
 			}
 		}
-	});
+		map_coords::AddCells(coords, spiral.Next());
+	}
 	// the scenic forest is made only before its first tree (0x741C52-0x741C8C): no trees, no forest
 	if (taken.empty())
 	{
@@ -963,6 +928,8 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 		forest->wood = 0.0f;
 		// BigForest::ToBeDeleted 0x438EA7: forest +0x38 = 0, the Forest stays
 		SetForestBigForest(forest->forestId, entt::null);
+		// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (MultiMapFixed 0x52E7B0), out of all its cells
+		map_cells::RemoveMapObject(bigForest);
 		registry.Destroy(bigForest);
 		registry.SetDirty();
 		return had;
@@ -988,17 +955,21 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 			{
 				continue;
 			}
-			// 0x4392A1-0x4392B5: over the objects of p's cell (FindType(-1): the fixed list, then the mobile one), none
-			// with Dist2D(object, p) + its radius under 4 (the BigForest itself counts too)
-			const auto pointCell = CellOf(glm::vec3(point.x, 0.0f, point.y));
+			// 0x43928E..0x4392C9: MapCoords::FindType(-1, 0) / FindType(-1, obj) over p's cell (the fixed list, then the
+			// mobile one; the BigForest itself counts too): none with fn_00605CD0 (GetDistanceInMetres, 0x4392A1) plus its
+			// GetRadius (vt +0x60 at 0x4392AE, not Get2DRadius) under 4 ("fcomp 4.0; test ah, 1")
+			const auto pointCell = map_coords::CellOf(glm::vec3(point.x, 0.0f, point.y));
 			bool blocked = false;
-			registry.Each<const Transform, const Mesh>([&](entt::entity other, const Transform& t, const Mesh&) {
-				if (blocked || CellOf(t.position) != pointCell || !IsOnMap(other))
+			for (auto other = map_cells::FindType(pointCell, ObjectType::Any); other != entt::null;
+			     other = map_cells::FindType(pointCell, ObjectType::Any, other))
+			{
+				const auto& at = registry.Get<const Transform>(other).position;
+				if (gutils::GetDistanceInMetres(glm::vec2(at.x, at.z), point) + object::GetRadius(other) < 4.0f)
 				{
-					return;
+					blocked = true;
+					break;
 				}
-				blocked = glm::distance(glm::vec2(t.position.x, t.position.z), point) + Object2DRadius(other) < 4.0f;
-			});
+			}
 			if (blocked)
 			{
 				continue;

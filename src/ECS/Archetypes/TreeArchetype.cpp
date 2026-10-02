@@ -21,6 +21,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -53,10 +54,12 @@ entt::entity TreeArchetype::Create(uint32_t forestId, const glm::vec3& position,
 	    growing ? Locator::rng::value().NextValue<uint32_t>(0, std::max(1u, info.growsAfterNumGameTurns)) : 0u);
 	const auto slot =
 	    static_cast<uint8_t>(static_cast<int>(std::floor(yAngleRadians * 16.0f / glm::two_pi<float>() + 0.5f)) & 0xF);
-	auto& tree = registry.Assign<Tree>(entity, type, maxSize, forestId, isNonScenic, growing, turns, slot);
-	tree.mapInsertion = ecs::NextMapInsertion();
+	registry.Assign<Tree>(entity, type, maxSize, forestId, isNonScenic, growing, turns, slot);
 	const auto resourceId = resources::HashIdentifier(info.normal);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(-1));
+	// Tree::Create 0x749EE0 -> CallVirtualFunctionsForCreation vt +0x658 (0x749F49) -> InsertMapObject vt +0x544:
+	// SingleMapFixed 0x52E620 -> 0x52F440 -> Fixed::InsertMapObjectToCell 0x52DEA0, the head of its cell's fixed list
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

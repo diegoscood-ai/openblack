@@ -53,6 +53,7 @@
 #include "ECS/Components/Stream.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCollide.h"
 #include "ECS/Trees.h"
 #include "ECS/Registry.h"
@@ -134,39 +135,13 @@ entt::entity FindTown(int32_t townId)
 	return town != towns.end() ? town->second : entt::null;
 }
 
-/// fn_00552FF0: the town nearest (in x and z) to the position, or none
+/// fn_00552FF0 (`ret 4`, one MapCoords, no id branch; called at 0x7156A6, 0x7157FF, 0x715AD6, 0x715B79, 0x7168FE and
+/// 0x717E15): the global town list g_game+0x205C84 (ecs::map_cells, by Town::id: inferido), the first always taken,
+/// then fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70 strictly smaller (fcomp; test ah, 1 at 0x55301B); none
+/// without towns. MapCoords x, z only (FromMetres: the altitude is not read)
 entt::entity FindNearestTown(const glm::vec3& position)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	entt::entity nearest = entt::null;
-	float best = 0.0f;
-	registry.Each<const Town, const Transform>([&](entt::entity entity, const Town&, const Transform& transform) {
-		// 0x553016 / 0x55302E: fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70, and the new town wins while its
-		// distance is strictly smaller (fcomp; test ah, 1 at 0x55301B). Not the squared distance: the table root and the
-		// 16.16 quantisation can order two near-equal towns the other way round
-		const float distance = gutils::GetDistanceInMetres(position, transform.position);
-		if (nearest == entt::null || distance < best)
-		{
-			nearest = entity;
-			best = distance;
-		}
-	});
-	return nearest;
-}
-
-/// MultiMapFixed::InsertMapObject 0x52E650 for an object the script made: its collide data (the mesh's, with the
-/// script's angle and scale, not openblack's transform, which has the altitude and the x/z angles) for the
-/// IsOkToCreateAtPos of the trees, pots and mobile objects after it
-void RegisterFixed(entt::entity entity, const glm::vec3& position, float yAngle, float scale, std::string_view what)
-{
-	if (entity == entt::null)
-	{
-		return;
-	}
-	if (const auto* mesh = Locator::entitiesRegistry::value().TryGet<Mesh>(entity); mesh != nullptr)
-	{
-		ecs::map_collide::RegisterFixed(mesh->id, position, yAngle, scale, what);
-	}
+	return ecs::map_cells::FindNearestTownInList(ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)));
 }
 
 } // namespace
@@ -382,9 +357,8 @@ void FeatureScriptCommands::CreateAbode(int32_t townId, glm::vec3 position, cons
 	{
 		return; // openblack: the original has no check (see GAbodeInfo::Find)
 	}
-	const auto abode = AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f,
-	                                          static_cast<uint32_t>(foodAmount), static_cast<uint32_t>(woodAmount));
-	RegisterFixed(abode, position, rotation * 0.001f, size * 0.001f, abodeInfo);
+	AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f, static_cast<uint32_t>(foodAmount),
+	                       static_cast<uint32_t>(woodAmount));
 }
 
 void FeatureScriptCommands::CreatePlannedAbode(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
@@ -420,7 +394,6 @@ void FeatureScriptCommands::CreateTownCentre(int32_t townId, glm::vec3 position,
 	}
 	const auto centre = AbodeArchetype::Create(townId, position, type, rotation * 0.001f, size * 0.001f,
 	                                           static_cast<uint32_t>(0), static_cast<uint32_t>(0));
-	RegisterFixed(centre, position, rotation * 0.001f, size * 0.001f, abodeInfo);
 	if (centre == entt::null || type == AbodeInfo::None ||
 	    Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).abodeType != AbodeType::TownCentre)
 	{
@@ -591,8 +564,7 @@ void FeatureScriptCommands::CreateDeadTree(glm::vec3 position, [[maybe_unused]] 
 {
 	// case 43 (0x716E64): fn_00510BB0(pos, GTreeInfo[type], GetPlayerFromText(player), F3 life, F4, F5, F6, 0): a DeadTree
 	// with the type's normal mesh, SetLife(F3) and SetXYZAnglesAndScale(F4, F5, F6, 1). The player is not drawn.
-	const auto deadTree = DeadTreeArchetype::Create(position, treeType, life, xAngle, yAngle, zAngle);
-	RegisterFixed(deadTree, position, yAngle, 1.0f, "dead tree");
+	DeadTreeArchetype::Create(position, treeType, life, xAngle, yAngle, zAngle);
 }
 
 void FeatureScriptCommands::CreateNewTree(int32_t forestId, glm::vec3 position, TreeInfo treeType, int32_t isNonScenic,
@@ -606,7 +578,6 @@ void FeatureScriptCommands::CreateNewTree(int32_t forestId, glm::vec3 position, 
 	// the script's forest id is looked up in the forest list (0x7162BE): a tree whose forest does not exist has none
 	TreeArchetype::Create(ecs::ResolveForestId(forestId), position, treeType, static_cast<bool>(isNonScenic), rotation,
 	                      maxSize, currentSize);
-	ecs::map_collide::RegisterTree(position);
 }
 
 void FeatureScriptCommands::CreateField(glm::vec3 position, FieldTypeInfo type)
@@ -638,8 +609,7 @@ void FeatureScriptCommands::CreateTownFishFarm(int32_t townId, glm::vec3 positio
 
 void FeatureScriptCommands::CreateFeature(glm::vec3 position, FeatureInfo type, int32_t rotation, int32_t scale, int32_t)
 {
-	const auto feature = FeatureArchetype::Create(position, type, rotation * 0.001f, scale * 0.001f);
-	RegisterFixed(feature, position, rotation * 0.001f, scale * 0.001f, "feature");
+	FeatureArchetype::Create(position, type, rotation * 0.001f, scale * 0.001f);
 }
 
 void FeatureScriptCommands::CreateFlowers([[maybe_unused]] glm::vec3 position, int32_t, float, float)
@@ -697,17 +667,14 @@ void FeatureScriptCommands::CreateMobileObject(glm::vec3 position, MobileObjectI
 void FeatureScriptCommands::CreateMobileStatic(glm::vec3 position, MobileStaticInfo type, float yRotation, float scale)
 {
 	// CREATE_MOBILESTATIC "ANFF", case 41 (0x716D46): fn_00608770(pos, info, 0, 0, F2, F3)
-	const auto object = MobileStaticArchetype::CreateFromInfo(position, type, 0.0f, yRotation, scale);
-	RegisterFixed(object, position, yRotation, scale, "mobile static");
+	MobileStaticArchetype::CreateFromInfo(position, type, 0.0f, yRotation, scale);
 }
 
 void FeatureScriptCommands::CreateMobileUStatic(glm::vec3 position, MobileStaticInfo type, float verticalOffset,
                                                 float xRotation, float yRotation, float zRotation, float scale)
 {
 	// CREATE_MOBILE_STATIC "ANFFFFF", case 42 (0x716DC1): fn_00608840(pos with relY = F2, info, 0, 0, F3, F4, F5, F6)
-	const auto object =
-	    MobileStaticArchetype::CreateWithXYZAngles(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
-	RegisterFixed(object, position, yRotation, scale, "mobile static");
+	MobileStaticArchetype::CreateWithXYZAngles(position, type, verticalOffset, xRotation, yRotation, zRotation, scale);
 }
 
 void FeatureScriptCommands::CreateScaffold(int32_t, [[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t)
@@ -779,7 +746,6 @@ void FeatureScriptCommands::CreateFlock(int32_t flockId, glm::vec3 position, glm
 void FeatureScriptCommands::LoadLandscape(const std::string& path)
 {
 	Game::Instance()->LoadLandscape(path);
-	ecs::map_collide::Clear();
 }
 
 void FeatureScriptCommands::Version(float version)
@@ -949,7 +915,7 @@ void FeatureScriptCommands::LinkFootpath(int32_t footpathId)
 void FeatureScriptCommands::CreateBonfire(glm::vec3 position, [[maybe_unused]] float temperature, float yAngle, float scale)
 {
 	// case 73 (0x7176AE): fn_00439850(pos, F1 temperature, F2 Y angle, F3 scale); the ctor 0x4395C0 ignores F1
-	RegisterFixed(BonfireArchetype::Create(position, yAngle, scale), position, yAngle, scale, "bonfire");
+	BonfireArchetype::Create(position, yAngle, scale);
 }
 
 void FeatureScriptCommands::CreateBase([[maybe_unused]] glm::vec3 position, int32_t)
@@ -973,8 +939,7 @@ void FeatureScriptCommands::CreateNewFeature(glm::vec3 position, const std::stri
 	{
 		return; // openblack: the original has no check (see GFeatureInfo::Find)
 	}
-	RegisterFixed(FeatureArchetype::Create(position, info, rotation * 0.001f, scale * 0.001f), position, rotation * 0.001f,
-	              scale * 0.001f, type);
+	FeatureArchetype::Create(position, info, rotation * 0.001f, scale * 0.001f);
 }
 
 void FeatureScriptCommands::SetInteractDesire(float)
@@ -1048,8 +1013,7 @@ void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::
 	{
 		return; // openblack: the original has no check (see GAnimatedStaticInfo::Find)
 	}
-	RegisterFixed(AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f), position,
-	              rotation * 0.001f, scale * 0.001f, type);
+	AnimatedStaticArchetype::Create(position, animatedStaticType, rotation * 0.001f, scale * 0.001f);
 }
 
 void FeatureScriptCommands::FireFlySpellRewardProb(const std::string& spell, float probability)
@@ -1089,7 +1053,7 @@ void FeatureScriptCommands::CreateNewTownField(int32_t townId, glm::vec3 positio
 {
 	// Rotation is in radians and not scaled
 	// the town's ABODE_FIELD abode (mesh 594), angle F3, scale 1
-	RegisterFixed(FieldArchetype::Create(townId, position, townFieldType, rotation), position, rotation, 1.0f, "field");
+	FieldArchetype::Create(townId, position, townFieldType, rotation);
 }
 
 void FeatureScriptCommands::CreateSpellDispenser(int32_t townId, glm::vec3 position, const std::string& abodeInfo,
@@ -1098,12 +1062,7 @@ void FeatureScriptCommands::CreateSpellDispenser(int32_t townId, glm::vec3 posit
 	// the dispenser Abode and its one-shot orb take their own creation indices
 	magic::script::CreateSpellDispenser(townId, position, GAbodeInfo::Find(abodeInfo), magicName, yAngle, scale,
 	                                    period); // Magic/Script/MapScriptMagic.cpp
-	// it is a MultiMapFixed with the abode's mesh, the angle F4 and the scale F5: it blocks the trees made after it
-	if (const auto type = GAbodeInfo::Find(abodeInfo); type != AbodeInfo::None)
-	{
-		const auto meshId = Locator::infoConstants::value().abode.at(static_cast<size_t>(type)).meshId;
-		ecs::map_collide::RegisterFixed(resources::HashIdentifier(meshId), position, yAngle, scale, abodeInfo);
-	}
+	// it is a MultiMapFixed (its Abode's InsertMapObject, AbodeArchetype::Create): it blocks the trees made after it
 }
 
 void FeatureScriptCommands::LoadComputerPlayerPersonality(int32_t, glm::vec3)

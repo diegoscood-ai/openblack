@@ -31,6 +31,7 @@
 #include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
@@ -54,7 +55,9 @@ std::vector<entt::entity> CellObjects(int cellX, int cellZ)
 	{
 		return g_CellObjectsForTests(cellX, cellZ);
 	}
-	return effects::ObjectsInMapCell(cellX, cellZ);
+	// Town::CheckForClearArea 0x7413D0: GetFirstIterator 0x6034D0 (0x741437), the next vt +0x53C (0x741488), then the
+	// mobile list (0x741496..0x7414A4): the cell's lists from their heads (ecs::map_cells)
+	return map_cells::ObjectsInCell(glm::ivec2(cellX, cellZ));
 }
 
 /// Object::Get2DRadius (vt +0x64, 0x638180)

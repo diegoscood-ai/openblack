@@ -14,6 +14,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
@@ -45,6 +46,9 @@ entt::entity DeadTreeArchetype::Create(const glm::vec3& position, TreeInfo type,
 	registry.Assign<Life>(entity, life);
 	const auto resourceId = resources::HashIdentifier(info.normal);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
+	// CallVirtualFunctionsForCreation (MultiMapFixed 0x52E890+0x184): InsertMapObject (vt +0x544, 0x52E650). The
+	// SetXYZAnglesAndScale after it removes and inserts again (in the map): the same as inserting with the angles
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

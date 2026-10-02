@@ -18,6 +18,7 @@
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/DetailMeshes.h"
+#include "ECS/MapCells.h"
 #include "ECS/Components/Flock.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
@@ -135,6 +136,9 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	// high one, mod graphics.hd-tweaks)
 	registry.Assign<Mesh>(entity, resources::HashIdentifier(ecs::detail_meshes::Animal(info)), static_cast<int8_t>(0),
 	                      static_cast<int8_t>(0));
+	// CallVirtualFunctionsForCreation 0x636BE0+0xD8 -> InsertMapObject vt +0x544 (Object 0x636740 -> 0x636830): the
+	// head of its cell's mobile list
+	ecs::map_cells::InsertMapObject(entity);
 	// fn_0041FD30: a predator's flee-from-predator reaction, spread once to the animals already around it
 	ecs::animal_ai::SpreadPredatorReaction(entity);
 	return entity;

@@ -21,6 +21,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -39,23 +40,24 @@ glm::ivec2 MapCell(const glm::vec3& position)
 	return ecs::map_coords::CellOf(position);
 }
 
-/// MapCoords::FindType(OBJECT_TYPE_MOBILE_STATIC) 0x6045C0 walked with GUtils::GetDistanceInMetres 0x74CD70: whether
-/// an object of type 0x1C in the position's map cell is less than 0.5 m away (in x and z). Every GMobileStaticInfo has
-/// that type (info.dat), so it is anything made from one: rocks and mobile statics, bonfires, lanterns, dead trees.
+/// GStreetLantern::Create 0x7346E0: MapCoords::FindType(OBJECT_TYPE_MOBILE_STATIC 0x1C, prev) 0x6045C0 (0x7346EC /
+/// 0x734716) on the position's map cell (type 28 counts as fixed: the cell's fixed list from its head, ecs::map_cells),
+/// GUtils::GetDistanceInMetres 0x74CD70 of each (0x7346FC, the table hypotenuse 0x74F680 on the two MapCoords) against
+/// 0.5 m ("fcomp 0.5; test ah, 1"). Every GMobileStaticInfo has that type (info.dat), so it is anything made from one:
+/// rocks and mobile statics, bonfires, lanterns, dead trees; a multi-cell one in every cell of its NewCollideDescriptor
 bool MobileStaticWithinHalfMetre(const glm::vec3& position)
 {
 	const auto& registry = Locator::entitiesRegistry::value();
 	const auto cell = MapCell(position);
-	bool found = false;
-	registry.Each<const Transform>([&](entt::entity entity, const Transform& transform) {
-		if (found || !registry.AnyOf<MobileStatic, StreetLantern, DeadTree>(entity) || MapCell(transform.position) != cell)
+	for (auto entity = ecs::map_cells::FindType(cell, ObjectType::MobileStatic); entity != entt::null;
+	     entity = ecs::map_cells::FindType(cell, ObjectType::MobileStatic, entity))
+	{
+		if (gutils::GetDistanceInMetres(registry.Get<const Transform>(entity).position, position) < 0.5f)
 		{
-			return;
+			return true;
 		}
-		// GUtils::GetDistanceInMetres 0x74CD70 (the table hypotenuse 0x74F680 on the two MapCoords) against 0.5 m
-		found = gutils::GetDistanceInMetres(transform.position, position) < 0.5f;
-	});
-	return found;
+	}
+	return false;
 }
 } // namespace
 
@@ -79,5 +81,8 @@ entt::entity StreetLanternArchetype::Create(const glm::vec3& position, MobileSta
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
 	registry.Assign<StreetLantern>(entity, country);
 	registry.Assign<LanternLight>(entity, static_cast<uint8_t>(country ? 1 : 0));
+	// CallVirtualFunctionsForCreation (Object 0x636BE0+0xD8): InsertMapObject (vt +0x544, Object 0x636740): a
+	// GStreetLantern is an Object of type 28 (counted as fixed), at the tail of its cell's fixed list
+	ecs::map_cells::InsertMapObject(entity);
 	return entity;
 }

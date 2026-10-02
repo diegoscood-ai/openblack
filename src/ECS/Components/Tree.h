@@ -46,10 +46,6 @@ struct Tree
 	glm::vec2 bendDirection {0.0f, 1.0f};
 	/// bent last frame too: the rubbing sound plays when a bend starts
 	bool wasBent = false;
-	/// When it went into its map cell's fixed list (Object::InsertMapObject 0x636740 -> Fixed::InsertMapObjectToCell
-	/// 0x52DEA0 puts it at the HEAD): MapCell::FindTypeOnMap finds the tree inserted last first. Set at creation and when
-	/// it is planted again.
-	uint32_t mapInsertion = 0;
 	/// Tree::GetWoodValueMultiplier 0x74B810: 1.0 for a Tree; a class that overrides it (MagicTree) sets its own
 	float woodValueMultiplier = 1.0f;
 };

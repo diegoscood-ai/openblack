@@ -20,6 +20,7 @@
 #include "3D/ObjectMatrix.h"
 #include "ECS/DetailMeshes.h"
 #include "ECS/VillagerSpeed.h"
+#include "ECS/MapCells.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Components/Abode.h"
@@ -88,7 +89,11 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	// The town and the house, as openblack had them (the original does it after the constructor:
 	// CallVirtualFunctionsForCreation vt +0x658 and the creators' AddVillagerToAbode; V4 ports those)
 	// TODO(bwrsandman): Might be better to make a FindClosestAbode
-	const entt::entity town = joinTown ? Locator::townSystem::value().FindClosestTown(abodePosition) : entt::null;
+	// fn_00552FF0 on the abode position (the land script's villager, Villager::Create 0x715A90 / 0x715B33: 0x715AD6 /
+	// 0x715B79): the global town list, the first always taken, then GetDistanceInMetres < best. (aproximado) the
+	// script's FindTownWithID([ebp+0x6000]) before it (0x715AB5 / 0x715B58) is not here (villagers V4)
+	const auto abodeCoords = ecs::map_coords::FromMetres(glm::vec2(abodePosition.x, abodePosition.z));
+	const entt::entity town = joinTown ? ecs::map_cells::FindNearestTownInList(abodeCoords) : entt::null;
 	entt::entity abode = entt::null;
 	if (town != entt::null)
 	{
@@ -125,6 +130,9 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	// (aproximado) the original's first speed comes with the first SetTopState (CREATED -> 163); openblack sets the
 	// CREATED one now, as before (CREATED does not walk, so it is not seen)
 	ecs::SetVillagerStateSpeed(entity);
+	// Villager::Create 0x74FBE0 -> CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9): InsertMapObject
+	// (vt +0x544, Object 0x636740), the head of its cell's mobile list. (inferido) after the town and the house
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

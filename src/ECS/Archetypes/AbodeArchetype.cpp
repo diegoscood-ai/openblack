@@ -26,6 +26,7 @@
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
@@ -132,7 +133,11 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	if (registry.Context().towns.find(townId) == registry.Context().towns.end())
 	{
 		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "Function {} has invalid Town ({}).", __func__, townId);
-		const auto town = Locator::townSystem::value().FindClosestTown(position);
+		// fn_00552FF0 (the land script's CREATE_ABODE / CREATE_TOWN_CENTRE without their town, cases 8 and 9: 0x7156A6,
+		// 0x7157FF): the global town list, the first always taken, then GetDistanceInMetres < best. MapCoords x, z only
+		// (FromMetres: the altitude is not read)
+		const auto town =
+		    ecs::map_cells::FindNearestTownInList(ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)));
 		if (town != entt::null)
 		{
 			townId = registry.Get<Town>(town).id;
@@ -239,5 +244,9 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 		ecs::object_index::Skip(1);
 	}
 
+	// Abode::CallVirtualFunctionsForCreation -> MultiMapFixed 0x52E890+0x184: InsertMapObject (vt +0x544, 0x52E650),
+	// the head of every cell of its NewCollideDescriptor. (inferido) After the store's piles, the totem and the spell
+	// icons made above: their order against it is not read
+	ecs::map_cells::InsertMapObject(entity);
 	return entity;
 }

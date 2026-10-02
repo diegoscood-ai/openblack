@@ -37,6 +37,7 @@
 #include "ECS/VillagerSpeed.h"
 #include "ECS/WaterQueries.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
 #include "ECS/Villager/VillagerCore.h"
@@ -280,7 +281,6 @@ bool IsPrey(const Context& ctx, entt::entity entity)
 /// fn_00419490: the first prey of a spiral of that many map cells from its own
 bool FindPrey(Context& ctx, int cells)
 {
-	const auto& map = Locator::entitiesMap::value();
 	const glm::vec2 me = Xz(ctx.transform);
 	// GUtils::Spiral (0x74D7E0 at 0x41953E) over a copy of its own MapCoords (0x41949A..0x4194B6): InBounds 0x4194D6, the
 	// cell's object list 0x4194E9, and += 0x41954B (whole cells on the high words, the fraction kept)
@@ -291,13 +291,22 @@ bool FindPrey(Context& ctx, int cells)
 		const glm::vec2 c = map_coords::ToMetres(coords);
 		if (InBounds(c))
 		{
-			for (const auto entity : map.GetMobileInGridCell(CellOf(c)))
-			{
-				if (IsPrey(ctx, entity))
+			// GetFirstIterator 0x6034D0 at 0x4194E9: the fixed list, then the mobile one (0x41951B..0x419531), each from
+			// its head (GetMapChild 0x41950D); the first IsPrey (fn_004196D0, 0x4194F9) wins. IsPrey refuses all but
+			// villagers and animals (info type 2 / 4, 0x41975A) and its tests before take any object (no Living part)
+			bool found = false;
+			map_cells::ForEachInCell(map_coords::Cell(coords), [&](entt::entity entity) {
+				if (!IsPrey(ctx, entity))
 				{
-					ctx.brain.target = entity;
 					return true;
 				}
+				ctx.brain.target = entity;
+				found = true;
+				return false;
+			});
+			if (found)
+			{
+				return true;
 			}
 		}
 		spiral.Advance(coords);

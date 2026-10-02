@@ -50,6 +50,10 @@ struct RenderContext
 	/// If debug bounding boxes are enabled, it will double in size to fit all
 	/// bounding boxes in the second half of the list.
 	std::vector<glm::mat4> instanceUniforms;
+	/// The fifth column of every instance (i_data4), at the same indices: the object's LH3DColor fields obj+0x4C / +0x50
+	/// / +0x54 packed by lh3d_colour::PackInstanceTint / Colour / Specular / Window (src/Graphics/Lh3dColour.h), zero for
+	/// the land light alone. Zeroed before every refill; instanceUniformBuffer holds the two interleaved (80 bytes each).
+	std::vector<glm::vec4> instanceColours;
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
 	std::map<entt::id_type, const InstancedDrawDesc> instancedDrawDescs;
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the

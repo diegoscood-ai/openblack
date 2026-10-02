@@ -33,6 +33,13 @@ static void OnEvent(void* user, int32_t event, double value)
 			         g_host->game_hour(), height);
 			g_host->log(g_self, OB_LOG_INFO, text);
 		}
+		/* an API 1.1 function: only if the openblack running has it */
+		if (OB_HOST_HAS(g_host, map_distance))
+		{
+			snprintf(text, sizeof text, "the camera is %.1f m from its focus on the ground",
+			         g_host->map_distance(position.x, position.z, focus.x, focus.z));
+			g_host->log(g_self, OB_LOG_INFO, text);
+		}
 	}
 }
 

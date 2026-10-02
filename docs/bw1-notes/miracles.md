@@ -1145,9 +1145,9 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
 - `OPENBLACK_TEST_SHIELD_FRAMES="<turnos>,<n>,<prefijo>[@<lento>]"`: n capturas en fotogramas seguidos desde esos
   turnos tras el primer escudo (`<prefijo>_<i>.png`; el log da el turno y su fracción). Cada captura para el fotograma
   ~0,45 s a 1600×900: con `-W 640 -H 360` salen dos por turno (fracción ~0,07 y ~0,94). `@<lento>` multiplica la
-  duración del turno; el PSys interpola con la fracción del juego (`game_clock::TurnFraction`, g_game +0x205D64), así
-  que también va lento. La fracción propia de MapShield sigue con el reloj de pared (pendiente:
-  [engine-math.md](engine-math.md#reloj-del-juego-1)).
+  duración del turno, pero **el PSys interpola con la duración normal** (`Game.cpp` pasa `k_TurnDuration` a
+  `psys::manager::ProcessTurn` sin el multiplicador de velocidad), así que en cámara lenta la fracción del PSys se
+  queda en 1 a los 0,1 s: no sirve para el PSys.
 - Capturas en `dev\_audit\magic\`: `m6s_shield_dome.png` (SHIELD r 40 en el almacén de Land1, desde arriba: la cúpula
   translúcida de parches MSH_S_SPELLBALLSURFACE02), `m6s_shield_dome_side.png`, `m6s_dome_t10/t30/t100.png` (1, 3 y
   10 s); `m6s_phys_t03/t07/t10/t13/t25.png` (PHYSICAL_SHIELD r 40: oculto a 0,3 s, 0,7, 1,0 (A 0,41), 1,3 (0,67) y

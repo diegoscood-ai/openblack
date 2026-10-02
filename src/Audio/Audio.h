@@ -195,6 +195,15 @@ enum class Counter : uint8_t
 // (0x4282F0), IsVideoPlaying (g_game+0x250188): AudioSystem.h. The citadel and the interface states come from
 // GameQueries::insideCitadel / interfaceState.
 
+// ---- the citadel (C4) ------------------------------------------------------------------------------------------------
+// g_game+0x205A28 (GoInsideCitadel 0x554004 sets 1, LeaveInsideCitadel 0x553B1F sets 0) is GameQueries::insideCitadel:
+// the plan's SetInsideCitadel. Entering has no audio call of its own (0x553E10..0x55405E: InitEngine 0x793C60 plays
+// nothing); ProcessMusic's ProcessCitadelMusic 0x427B60 stops every sample the first turn inside and plays citadel.sad.
+
+/// Temple fn_00793D00 (LeaveInsideCitadel 0x553B25, the temple's engine going: Temple+0x24 set) its audio part:
+/// GAudio::StopPlayingSoundEffect(2 G_Fire_01, owner 0, InGame) 0x793D48 and (12 G_WaterFlow, owner 0, InGame) 0x793D59
+void LeaveCitadel();
+
 // ---- life cycle (GGame / GAudio) -------------------------------------------------------------------------------------
 
 /// The GAudio ctor 0x426D40 (after the 11 banks of 0x9CB3F8, which Game registers as it reads the .sad): the sample

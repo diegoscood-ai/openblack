@@ -196,8 +196,6 @@ struct GameQueries
 
 	/// The branches of ProcessMusic 0x427DF0 that need systems openblack does not have yet. Each one is "the original
 	/// function returned non-zero" (it took the music); unset = false, so ProcessMusic goes on to the next one.
-	/// ProcessCitadelMusic 0x427B60 (inside the citadel, 0x4282F0; milestone C4)
-	std::function<bool()> citadelMusic;
 	/// fn_00427660 (the local creature fighting; milestone C1)
 	std::function<bool()> creatureFightMusic;
 	/// ProcessChantMusic 0x427790 (a worship site's dance near the camera; milestone C3)
@@ -207,9 +205,14 @@ struct GameQueries
 
 	/// g_game+0x205A28 == 1 (0x4282F0, misnamed HelpSystem::GetWideScreenControl; GoInsideCitadel 0x554004 sets 1,
 	/// LeaveInsideCitadel 0x553B1F sets 0): inside the citadel GAudio::PlaySoundEffect plays only the samples of user
-	/// parameter 2 (0x429F6D) and measures the 3D cull from LH3DTech::g_camera (0x429EB1). Unset: false (openblack has no
-	/// citadel interior yet).
+	/// parameter 2 (0x429F6D, SamplePlayAnimEffect 0x42A554), measures the 3D cull from LH3DTech::g_camera (0x429EB1) and
+	/// ProcessMusic plays the citadel's music (ProcessCitadelMusic 0x427B60). Game: openblack's temple interior
+	/// (Locator::temple, TempleInteriorInterface::Active: ENTER_EXIT_CITADEL and the debug window). Unset: false.
 	std::function<bool()> insideCitadel;
+	/// GPlayer::GetAlignmentValue 0x64D6A0 of the local player (g_game+0x205A59, ProcessCitadelMusic 0x427B9A..0x427BB8),
+	/// -1..1. Game: ecs::audio_queries (ecs::effects::alignment::Get of PLAYER_ONE). Unset: 0 (neutral, a new game's,
+	/// GGame::Init 0x54FEA0 without a profile).
+	std::function<float()> localPlayerAlignment;
 	/// GInterface+0x44 (GGame::MyInterface 0x555850): in the states 0x10, 0x16 and 0x17 the samples of user parameter 4
 	/// do not play (0x429FA5..0x429FB8). Unset: 0, none of them (openblack has no GInterface states).
 	std::function<int()> interfaceState;

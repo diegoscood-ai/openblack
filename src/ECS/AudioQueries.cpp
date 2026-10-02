@@ -20,6 +20,7 @@
 
 #include "3D/Clouds.h"
 #include "3D/L3DAnim.h"
+#include "3D/TempleInteriorInterface.h"
 #include "Audio/GameQueries.h"
 #include "Camera/Camera.h"
 #include "Camera/CameraModel.h"
@@ -209,6 +210,35 @@ void RunLanternHook()
 	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio test: camera on lantern {} top ({:.1f}, {:.1f}, {:.1f})",
 	                   static_cast<uint32_t>(lantern.thing), top.x, top.y, top.z);
 }
+/// (openblack test hook, audio session) OPENBLACK_AUDIO_TEST_CITADEL="<in>[,<out>]": at those hook turns the temple
+/// interior is entered / left, as ENTER_EXIT_CITADEL(1) / (0) would (C4: the citadel's music and filters)
+void RunCitadelHook()
+{
+	static uint32_t s_HookTurn = 0;
+	++s_HookTurn;
+	const char* hook = std::getenv("OPENBLACK_AUDIO_TEST_CITADEL");
+	if (hook == nullptr || !Locator::temple::has_value())
+	{
+		return;
+	}
+	unsigned in = 0;
+	unsigned out = 0;
+	if (std::sscanf(hook, "%u,%u", &in, &out) < 1)
+	{
+		return;
+	}
+	auto& temple = Locator::temple::value();
+	if (s_HookTurn == in && !temple.Active())
+	{
+		temple.Activate();
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio test: inside the citadel");
+	}
+	else if (out != 0 && s_HookTurn == out && temple.Active())
+	{
+		temple.Deactivate();
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Audio test: out of the citadel");
+	}
+}
 } // namespace
 
 float ecs::audio_queries::GAudioAlignment(float x)
@@ -236,6 +266,8 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	queries.weatherSmooth = &WeatherSmooth;
 	// GAudio+0x190, written by fn_005E2240 (ProcessAtmosBanks' group 0x428FFA, the alignment music fn_00427460)
 	queries.cameraAlignment = &CameraAlignment;
+	// GPlayer::GetAlignmentValue 0x64D6A0 of the local player (ProcessCitadelMusic 0x427BB8): openblack's is PLAYER_ONE
+	queries.localPlayerAlignment = []() { return ecs::effects::alignment::Get(PlayerNames::PLAYER_ONE); };
 	queries.animatedThing = &AnimatedThing;
 	queries.animationClipName = &AnimationClipName;
 	queries.streetLanterns = &StreetLanterns;
@@ -245,4 +277,5 @@ void ecs::audio_queries::RunTestHooks(uint32_t turn)
 {
 	RunViewHook(turn);
 	RunLanternHook();
+	RunCitadelHook();
 }

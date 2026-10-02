@@ -256,6 +256,8 @@ protected:
 		queries.camera = [this]() { return camera; };
 		queries.scriptWideScreen = [this]() { return wideScreen; };
 		queries.cameraAlignment = [this]() { return alignment; };
+		queries.insideCitadel = [this]() { return insideCitadel; };
+		queries.localPlayerAlignment = [this]() { return playerAlignment; };
 		queries.nearestTown = [this](float maxDistance) -> std::optional<MusicTown> {
 			lastTownSearch = maxDistance;
 			return nearest;
@@ -314,6 +316,8 @@ protected:
 	bool wideScreen {false};
 	std::optional<CameraState> camera {CameraState {}};
 	float alignment {0.0f};
+	bool insideCitadel {false};
+	float playerAlignment {0.0f};
 	std::optional<MusicTown> nearest;
 	float lastTownSearch {0.0f};
 	std::map<uint32_t, MusicTown> towns;
@@ -747,6 +751,73 @@ TEST_F(GameMusicTest, AlignmentMusicGenericAt80WithFade)
 	EXPECT_EQ(engine.GetChannel(good).startChunk, static_cast<int>(playing) + 2);
 	EXPECT_EQ(engine.GetChannel(good).sync, 1);
 	EXPECT_EQ(engine.GetChannel(good).loops, static_cast<int>(playing) + 2 >= 10 ? 1 : 0);
+}
+
+TEST_F(GameMusicTest, CitadelMusicInsideTheCitadel)
+{
+	// ProcessCitadelMusic 0x427B60, first in ProcessMusic (0x427E2C)
+	AddBank(MusicType::GenericNeutral, BankSpec {.segments = 20, .group = 1});
+	AddBank(MusicType::CitadelEvil, BankSpec {.segments = 20, .group = 1});
+	AddBank(MusicType::CitadelNeutral, BankSpec {.segments = 20, .group = 1});
+	AddBank(MusicType::CitadelGood, BankSpec {.segments = 20, .group = 1});
+	Make();
+	music->ProcessMusic();
+	const int outside = ChannelOf(MusicType::GenericNeutral);
+	ASSERT_NE(outside, k_NoMusicChannel);
+	EXPECT_EQ(music->GetCitadelSamplesStopped(), 0);
+	for (int i = 0; i < 4; ++i)
+	{
+		Pass();
+		sink.PlayOne(outside);
+	}
+	const auto playing = engine.GetChannel(outside).playingChunk;
+
+	// inside (g_game+0x205A28 == 1): the samples stop once ([0xC56164]); 44 + fn_00426C80(discrete(local player's
+	// alignment)): 0 -> 3 -> 1, CITADEL_NEUTRAL, volume 127, fade 1, sync 1
+	insideCitadel = true;
+	alignment = 1.0f; // the camera's alignment (GAudio+0x190) is not the one read
+	music->ProcessMusic();
+	const int citadel = ChannelOf(MusicType::CitadelNeutral);
+	ASSERT_NE(citadel, k_NoMusicChannel);
+	const auto& ch = engine.GetChannel(citadel);
+	EXPECT_EQ(ch.target, 127);  // 0x427C08
+	EXPECT_EQ(ch.fade, 1);      // 0x427C10
+	EXPECT_EQ(ch.sync, 1);      // 0x427BEE
+	EXPECT_FALSE(sink.enabled3D[static_cast<size_t>(citadel)]); // 0x427C18
+	// the start is read (0x427BF6) before fn_004281C0 saves the group's position (0x427C28): the old one, 1 (the sync
+	// puts the new channel on the playing one's chunk anyway)
+	EXPECT_EQ(ch.startChunk, 1);
+	EXPECT_EQ(music->GetGroupPositions()[0], static_cast<int>(playing) + 2);
+	EXPECT_EQ(music->GetCitadelSamplesStopped(), 1);
+	// 0x427E95: ProcessMusic's "Music Playing=NONE" after it, +0x1C = -1
+	EXPECT_EQ(music->GetPlayingMessage(), "Music Playing=NONE");
+	EXPECT_EQ(music->GetAlignmentType(), -1);
+
+	// the local player's alignment picks the track: -1 -> 0 -> CITADEL_EVIL, 1 -> 6 -> CITADEL_GOOD
+	playerAlignment = -1.0f;
+	music->ProcessMusic();
+	EXPECT_NE(ChannelOf(MusicType::CitadelEvil), k_NoMusicChannel);
+	playerAlignment = 1.0f;
+	music->ProcessMusic();
+	EXPECT_NE(ChannelOf(MusicType::CitadelGood), k_NoMusicChannel);
+
+	// out again: the latch goes back to 0 (0x427C7F) and the alignment music comes back
+	insideCitadel = false;
+	alignment = 0.0f;
+	music->ProcessMusic();
+	EXPECT_EQ(music->GetCitadelSamplesStopped(), 0);
+	EXPECT_EQ(music->GetAlignmentType(), 2);
+}
+
+TEST_F(GameMusicTest, CitadelMusicWithoutItsBank)
+{
+	// 0x427BDF: no bank for the type -> 0, ProcessMusic goes on (the latch is already set)
+	AddBank(MusicType::GenericNeutral, BankSpec {.segments = 20, .group = 1});
+	Make();
+	insideCitadel = true;
+	music->ProcessMusic();
+	EXPECT_EQ(music->GetCitadelSamplesStopped(), 1);
+	EXPECT_NE(ChannelOf(MusicType::GenericNeutral), k_NoMusicChannel);
 }
 
 TEST_F(GameMusicTest, AlignmentMusicFromTheSecondHalfLoopsOnce)

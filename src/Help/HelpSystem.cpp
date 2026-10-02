@@ -237,15 +237,22 @@ uint32_t CountWords(std::u16string_view text)
 	return words;
 }
 
-double ReadSpeedFactor(float readSpeed)
+float ReadSpeedFactor(float readSpeed)
 {
-	// fn_005C6CB0 (fcom 0.5, test ah 0x41: the first branch includes 0.5)
-	const double r = readSpeed;
-	if (r <= 0.5)
+	// fn_005C6CB0: fld r (fn_005C6CA0); fcom qword 0.5, test ah 0x41: below, equal or unordered -> the first branch
+	if (!(static_cast<double>(readSpeed) > 0.5))
 	{
-		return 3.0 - r * 4.0;
+		// 0x5C6CC2 fmul dword 4, 0x5C6CC8 fsubr dword 3
+		const float scaled = readSpeed * 4.0f;
+		return 3.0f - scaled;
 	}
-	return (1.0 - (r - 0.5) * 2.0) * 0.8 + 0.2;
+	// 0x5C6CCF fsub qword 0.5, 0x5C6CD5 fadd st, st, 0x5C6CD7 fsubr qword 1, 0x5C6CDD fmul qword 0.8, 0x5C6CE3 fadd
+	// qword 0.2: each result rounded to 24 bits
+	float value = static_cast<float>(static_cast<double>(readSpeed) - 0.5);
+	value = value + value;
+	value = static_cast<float>(1.0 - static_cast<double>(value));
+	value = static_cast<float>(static_cast<double>(value) * 0.80000000000000004);
+	return static_cast<float>(static_cast<double>(value) + 0.20000000000000001);
 }
 
 VoiceRoute RouteOf(int32_t narrator, audio::TextVoice voice)
@@ -398,14 +405,14 @@ void HelpSystem::StartReadingTime(std::u16string_view text)
 {
 	// fn_005C61B0
 	const uint32_t words = CountWords(text);           // 0x5C61C0
-	const double factor = ReadSpeedFactor(_readSpeed); // 0x5C61C9
+	const float factor = ReadSpeedFactor(_readSpeed); // 0x5C61C9
 	const auto gameTurns =
 	    static_cast<int32_t>(_info.readDefaultWordGTTime * words + _info.readDefaultAdjustGTTime); // 0x5C61DA
 	const uint32_t turn = Turn();
 	_startTurn = turn; // 0x5C61FB
 	// 0x5C6211..0x5C6225: fild gt, fimul [0xD01A38], fmul 0.001f (0x8AA3B0), fmul factor, fstp float (the FPU at 24 bits)
 	const float seconds = static_cast<float>(gameTurns) * static_cast<float>(game_clock::MsPerTurn()) *
-	                      game_clock::k_SecondsPerMs * static_cast<float>(factor);
+	                      game_clock::k_SecondsPerMs * factor;
 	// 0x5C61F6..0x5C623E: 1000 / [0xD01A38] (div) * seconds, ftol: the NumGameTicksPerSecond 0x711630 conversion
 	_endTurn = turn + static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	const int32_t now = NowMs();

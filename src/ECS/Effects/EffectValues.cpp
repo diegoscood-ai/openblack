@@ -160,16 +160,6 @@ bool EffectValues::IsDestructive() const
 	return numbers[Burn] > 0.0f || numbers[Crush] > 0.0f || numbers[Hit] > 0.0f || numbers[FlyAway] > 0.0f;
 }
 
-float effects::ObjectHeight(entt::entity object)
-{
-	return object::ObjectGetHeight(object);
-}
-
-float effects::Object2DRadius(entt::entity object)
-{
-	return object::ObjectGet2DRadius(object);
-}
-
 bool effects::IsEffectReceiver(entt::entity object, const EffectValues& /*values*/)
 {
 	// Villager 0x751D70: a heal only for the living (dead villagers are gone from openblack's world); otherwise vt
@@ -333,7 +323,8 @@ entt::entity EffectValues::ApplyEffectToMapPos(const glm::vec3& position)
 				{
 					continue;
 				}
-				if (ObjectHeight(object) + radius < std::abs(altitude - (LandAt(centre.x, centre.z) + centre.y)))
+				// GetHeight vt +0x42C (0x52536E) + the radius against the altitude difference (0x525377)
+				if (object::GetHeight(object) + radius < std::abs(altitude - (LandAt(centre.x, centre.z) + centre.y)))
 				{
 					continue;
 				}

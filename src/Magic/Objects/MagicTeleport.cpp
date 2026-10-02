@@ -39,7 +39,9 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerTeleport.h"
@@ -59,8 +61,6 @@ using ecs::components::Transform;
 
 namespace
 {
-constexpr float k_UnitsPerMetre = ecs::MapInterface::k_PositionToGridFactor; // MapCoords: 6553.6 a metre
-
 auto& Reg()
 {
 	return Locator::entitiesRegistry::value();
@@ -77,14 +77,11 @@ std::vector<entt::entity>& ListOf(PlayerNames player)
 	return players::MagicOf(player).teleportStones;
 }
 
+/// GUtils::GetDistanceInMetres 0x74CD70 (MapCoords::GetDistanceInMetres fn_00605CD0, the twin 0x74CD50) of two map
+/// positions, each made a MapCoords (MapCoords(LHPoint) 0x603160: x and z truncated to 16.16)
 float Distance2D(const glm::vec3& a, const glm::vec3& b)
 {
-	return glm::length(glm::vec2(a.x - b.x, a.z - b.z));
-}
-
-int32_t ToUnits(float metres)
-{
-	return static_cast<int32_t>(metres * k_UnitsPerMetre); // MapCoords(LHPoint) 0x603160: ftol
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 /// Living::MoveByTeleport 0x5EC342..0x5EC372: SoundTag::Create(MapCoords&, sample, track 0, mode 2, loops 0, +0x10 0,
@@ -135,9 +132,8 @@ void ProcessTravellers(entt::entity stone)
 
 int32_t teleport::FastDistance(const glm::vec3& a, const glm::vec3& b)
 {
-	const int32_t dx = std::abs(ToUnits(a.x) - ToUnits(b.x));
-	const int32_t dz = std::abs(ToUnits(a.z) - ToUnits(b.z));
-	return dx < dz ? (dx >> 1) + dz : (dz >> 1) + dx;
+	// the two MapCoords (MapCoords(LHPoint) 0x603160: ToFixed of x and z)
+	return gutils::FastDistance(ecs::map_coords::FromMetres(glm::vec2(a.x, a.z)), ecs::map_coords::FromMetres(glm::vec2(b.x, b.z)));
 }
 
 bool teleport::IsWorthTheDetour(const glm::vec3& living, const glm::vec3& destination, const glm::vec3& stone,
@@ -494,9 +490,12 @@ bool teleport::AnyMultiMapFixedNear(const glm::vec3& mapPosition, float radius)
 	const auto& map = Locator::entitiesMap::value();
 	// fn_00604C30: max(ceil(2R / 10), 3)^2 cells in a spiral around the point; the objects of each cell (FindType -1)
 	// that pass the predicate, other than the excluded one, nearer than R. Here only whether there is one.
-	const auto centre = ecs::MapInterface::GetGridCell(glm::vec2(mapPosition.x, mapPosition.z));
-	const int side = std::max(static_cast<int>(std::ceil(2.0f * radius / 10.0f)), 3);
-	const int half = side / 2;
+	// the point's MapCoords walked by GUtils::Spiral 0x74D7E0 from dir = count = 1 (0x604C85..0x604C8E, 0x604D43),
+	// MapCoords::InBounds 0x6042C0 on each cell (0x604CC9), += JustMapXZ 0x605470 (0x604D50)
+	auto cellCoords = ecs::map_coords::FromMetres(glm::vec2(mapPosition.x, mapPosition.z));
+	const int side = std::max(ecs::map_coords::FtoL(std::ceil(2.0f * radius / 10.0f)), 3);
+	const int cells = side * side;
+	ecs::map_coords::Spiral spiral;
 	const auto test = [&](entt::entity entity) {
 		if (!registry.Valid(entity) || !IsMultiMapFixed(entity))
 		{
@@ -505,30 +504,25 @@ bool teleport::AnyMultiMapFixedNear(const glm::vec3& mapPosition, float radius)
 		const auto* transform = registry.TryGet<const Transform>(entity);
 		return transform != nullptr && Distance2D(transform->position, mapPosition) < radius;
 	};
-	for (int dz = -half; dz <= side - 1 - half; ++dz)
+	for (int n = 0; n < cells; ++n, ecs::map_coords::AddCells(cellCoords, spiral.Next()))
 	{
-		for (int dx = -half; dx <= side - 1 - half; ++dx)
+		if (!ecs::map_coords::InBounds(cellCoords))
 		{
-			const int x = static_cast<int>(centre.x) + dx;
-			const int z = static_cast<int>(centre.y) + dz;
-			if (x < 0 || z < 0 || x >= ecs::MapInterface::k_GridSize.x || z >= ecs::MapInterface::k_GridSize.y)
+			continue;
+		}
+		const ecs::MapInterface::CellId cell(ecs::map_coords::CellX(cellCoords), ecs::map_coords::CellZ(cellCoords));
+		for (const auto entity : map.GetFixedInGridCell(cell))
+		{
+			if (test(entity))
 			{
-				continue;
+				return true;
 			}
-			const ecs::MapInterface::CellId cell(static_cast<uint16_t>(x), static_cast<uint16_t>(z));
-			for (const auto entity : map.GetFixedInGridCell(cell))
+		}
+		for (const auto entity : map.GetMobileInGridCell(cell))
+		{
+			if (test(entity))
 			{
-				if (test(entity))
-				{
-					return true;
-				}
-			}
-			for (const auto entity : map.GetMobileInGridCell(cell))
-			{
-				if (test(entity))
-				{
-					return true;
-				}
+				return true;
 			}
 		}
 	}

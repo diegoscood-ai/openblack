@@ -17,6 +17,7 @@
 
 #include "ECS/Components/Spell.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -195,8 +196,7 @@ void spell_storm::ReactToRainOnFire(const glm::vec3& objectPosition)
 		const auto& component = registry.Get<const Spell>(spell);
 		// fn_00605CD0 (the distance to +0x14) against Get2DRadius 0x72D950 (GetSpellMagnitude): `test ah, 0x41; je`
 		// -> the radius must be above the distance
-		const float distance = glm::distance(glm::vec2(objectPosition.x, objectPosition.z),
-		                                     glm::vec2(component.position.x, component.position.z));
+		const float distance = gutils::GetDistanceInMetres(objectPosition, component.position);
 		if (component.magnitude > distance)
 		{
 			data.waterReaction = reactions::CreateReaction(spell, Reaction::ReactToMagicWaterPuttingOutFire, component.player, true);

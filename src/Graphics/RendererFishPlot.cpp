@@ -26,6 +26,7 @@
 #include "ECS/Registry.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/InstanceDesc.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
 #include "Renderer.h"
@@ -91,7 +92,7 @@ void Renderer::DrawFishPlots(RenderPass viewId, int8_t keep) const
 	const auto mesh = meshes.Handle(meshId);
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.cutByPlane = keep;
 	submitDesc.cutColour = k_NetColour;
 	// the part under the water goes into the reflection target, which shows through the sea (see DrawPass)

@@ -34,6 +34,7 @@
 #include "3D/Clouds.h"
 #include "3D/Foliage.h"
 #include "3D/DayNightClock.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
 #include "3D/SkyWeather.h"
@@ -71,9 +72,11 @@
 #include "Graphics/GameFont.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/ModelLight.h"
 #include "Graphics/PhysicsShadows.h"
 #include "Graphics/Primitive.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
 #include "GameClock.h"
@@ -365,9 +368,9 @@ Renderer::~Renderer() noexcept
 	{
 		bgfx::destroy(_landLightTexture);
 	}
-	if (bgfx::isValid(_cloudShadowTexture))
+	if (bgfx::isValid(_landCellsTexture))
 	{
-		bgfx::destroy(_cloudShadowTexture);
+		bgfx::destroy(_landCellsTexture);
 	}
 	if (bgfx::isValid(_fishPlotInstances))
 	{
@@ -467,9 +470,10 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 
 	auto const& skins = mesh.GetSkins();
 	bool lastPreserveState = false;
+	// the pass of the opaque models: the normal table and every primitive in its own mode
+	const bool modelPass = desc.table == render_modes::Table::Normal && !desc.mode.has_value();
 	// MSAA mod: smooth alpha cut-out edges in the multisampled opaque passes (not in blended ones)
-	const bool alphaToCoverage = Locator::config::value().msaa != 0 && desc.viewId != RenderPass::Reflection &&
-	                             (desc.state & BGFX_STATE_BLEND_MASK) == 0;
+	const bool alphaToCoverage = Locator::config::value().msaa != 0 && desc.viewId != RenderPass::Reflection && modelPass;
 	const auto& primitives = subMesh.GetPrimitives();
 	for (auto it = primitives.begin(); it != primitives.end(); ++it)
 	{
@@ -483,8 +487,15 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		// Material blending of the original (L3D material type): AlphaTextured & co. blend with the texture alpha, e.g.
 		// the fading wrist of the hand and the soft edges of buildings. Chroma materials stay alpha tested.
 		const bool blended = prim.blend != L3DSubMesh::Primitive::BlendMode::Disabled && !prim.thresholdAlpha;
+		// SetMaterial (0x412662..0x4126BD): the mode of the primitive's material through the current table, or the mode
+		// every primitive is drawn in
+		const auto drawn =
+		    render_modes::Select(desc.mode.value_or(static_cast<render_modes::Mode>(prim.materialType)), desc.table);
+		// MSAA mod (only in the model pass, so the primitive's own mode)
+		const bool a2c = render_modes::AlphaToCoverage(drawn, alphaToCoverage);
 		const auto sameMaterial = [&prim](const L3DSubMesh::Primitive& other) {
-			return other.blend == prim.blend && other.thresholdAlpha == prim.thresholdAlpha &&
+			return other.materialType == prim.materialType && other.blend == prim.blend &&
+			       other.thresholdAlpha == prim.thresholdAlpha &&
 			       other.depthWrite == prim.depthWrite && other.alphaCutoutThreshold == prim.alphaCutoutThreshold &&
 			       other.wrap == prim.wrap && other.uvOffset == prim.uvOffset;
 		};
@@ -525,9 +536,10 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				const glm::vec4 u_cellMap = {extent.minimum, cellMapSize};
 				// x: 0 white, 1 lit like the original, 2 unlit constant colour z (the hand's reflection), 3 the land colour
 				// only, 4 DrawCutByPlane (y: colour alpha, z: colour r 65536 + g 256 + b)
+				// w: 1 = no haze + 2 x the land light mode (land_light::ObjectMode)
 				glm::vec4 u_objectLight = {desc.unlitColour >= 0.0f ? 2.0f : (lit ? (desc.landColourOnly ? 3.0f : 1.0f) : 0.0f),
-				                           desc.lightBoost,
-				                           desc.unlitColour, desc.noHaze ? 1.0f : 0.0f};
+				                           desc.lightBoost, desc.unlitColour,
+				                           (desc.noHaze ? 1.0f : 0.0f) + 2.0f * static_cast<float>(desc.landLightMode)};
 				if (desc.cutByPlane != 0)
 				{
 					u_objectLight = {4.0f, static_cast<float>(desc.cutColour >> 24) / 255.0f,
@@ -538,11 +550,15 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				                                                     : (desc.clipBelowSea ? 1.0f : 0.0f),
 				                                desc.mirrorInSea ? 1.0f : 0.0f, 0.0f, 0.0f};
 				program->SetUniformValue("u_objectClip", &u_objectClip); // vs, fs
-				program->SetTextureSampler("s_cellMap", 2, island.GetCellMap());      // vs
-				program->SetTextureSampler("s_landLight", 3, fromBgfx(_landLightTexture)); // vs
-				if (bgfx::isValid(_cloudShadowTexture))
+				program->SetTextureSampler("s_landLightTable", 3, fromBgfx(_landLightTexture)); // vs
+				// this frame's cells (land_light), or the loaded ones (the same layout) before the first frame's
+				if (bgfx::isValid(_landCellsTexture) && glm::vec2(_landCellsSize) == cellMapSize)
 				{
-					program->SetTextureSampler("s_cloudShadow", 4, fromBgfx(_cloudShadowTexture)); // vs
+					program->SetTextureSampler("s_landCells", 4, fromBgfx(_landCellsTexture)); // vs
+				}
+				else
+				{
+					program->SetTextureSampler("s_landCells", 4, island.GetCellMap()); // vs
 				}
 				program->SetUniformValue("u_cellMap", &u_cellMap);                    // vs
 				program->SetUniformValue("u_objectLight", &u_objectLight);            // vs
@@ -571,11 +587,14 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 			}
 			if (!desc.isSky)
 			{
+				// y: the drawn mode's ALPHAREF / 255 (-1 without alpha test), w: its stage 0 alpha
+				const auto alpha = render_modes::PrimitiveAlpha(
+				    drawn, desc.table, static_cast<uint8_t>(std::lround(prim.alphaCutoutThreshold * 255.0f)), desc.globalAlpha);
 				const glm::vec4 u_skyAlphaThreshold = {
 				    0.0f, // x: unused (fs_object reads only y, z, w)
-				    prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-				    alphaToCoverage && prim.thresholdAlpha ? 1.0f : 0.0f,
-				    blended ? 1.0f : 0.0f,
+				    alpha.ref,
+				    a2c ? 1.0f : 0.0f,
+				    static_cast<float>(alpha.source),
 				};
 				program->SetUniformValue("u_skyAlphaThreshold", &u_skyAlphaThreshold);
 			}
@@ -601,47 +620,22 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 				subMesh.GetMesh().GetVertexBuffer().Bind();
 			}
 			auto viewId = desc.viewId;
-			auto state = desc.state;
-			if (!desc.isSky && (state & BGFX_STATE_CULL_MASK) == 0 && !prim.twoSided)
+			// SetMaterial: the culling from the material's +5 bit 0 (D3DCULL_CCW 0x84C34A; the mirrored reflection camera
+			// flips it, and a mesh mirrored in the sea flips it back)
+			auto options = desc.options;
+			if (!desc.isSky && options.cull == render_modes::Cull::None)
 			{
-				// D3DCULL_CCW of the original (0x84C34A) is bgfx's CCW here; the mirrored reflection camera flips it (and a
-				// mesh mirrored in the sea flips it back)
-				state |= viewId == RenderPass::Reflection && !desc.mirrorInSea ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
+				options.cull = render_modes::CullFor(prim.twoSided, viewId == RenderPass::Reflection && !desc.mirrorInSea);
 			}
-			if (blended && (state & BGFX_STATE_BLEND_MASK) == 0)
+			// Blended: drawn after every opaque model (MainBlended) so what lies behind is already in the target
+			if (blended && modelPass && viewId == RenderPass::Main)
 			{
-				// Drawn after every opaque model (MainBlended) so what lies behind is already in the target
-				state &= ~(BGFX_STATE_WRITE_A | (prim.depthWrite ? 0 : BGFX_STATE_WRITE_Z));
-				state |= prim.blend == L3DSubMesh::Primitive::BlendMode::Additive
-				             ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-				             : BGFX_STATE_BLEND_ALPHA;
-				if (viewId == RenderPass::Main)
-				{
-					viewId = RenderPass::MainBlended;
-				}
+				viewId = RenderPass::MainBlended;
 			}
-			else if (blended && prim.blend == L3DSubMesh::Primitive::BlendMode::Additive &&
-			         (state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ALPHA)
-			{
-				// An object drawn with its own alpha (components::Alpha: SetGlobalAlpha, mode table 0xC387C8) keeps the
-				// additive modes 10..13 of its additive primitives (SRCALPHA / ONE), 11 and 13 without Z write: the one-shot
-				// orb's bubble (mode 12 by GJUtils::SetMaterialProperties, Game.cpp)
-				state = (state & ~BGFX_STATE_BLEND_MASK) | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
-				if (!prim.depthWrite)
-				{
-					state &= ~BGFX_STATE_WRITE_Z;
-				}
-			}
-			if (prim.thresholdAlpha && !alphaToCoverage && (state & BGFX_STATE_BLEND_MASK) == 0)
-			{
-				// Chroma materials (fn_0082E080 & co.): alpha test and SRCALPHA / INVSRCALPHA blending, drawn in the
-				// normal (unsorted) model order like the original
-				state |= BGFX_STATE_BLEND_ALPHA;
-			}
+			const auto state = render_modes::PrimitiveState(drawn, options, blended, alphaToCoverage);
 			if ((skip & Mesh::SkipState::SkipRenderState) == 0)
 			{
-				const auto a2c = alphaToCoverage && prim.thresholdAlpha ? BGFX_STATE_BLEND_ALPHA_TO_COVERAGE : 0;
-				bgfx::setState(state | a2c, desc.rgba);
+				bgfx::setState(state, desc.rgba);
 			}
 
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()), 0,
@@ -650,6 +644,21 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 		lastPreserveState = primitivePreserveState;
 	}
 }
+
+namespace
+{
+/// The land light mode and haze of a mesh's models (RenderContext::meshLandLight, land_light::ObjectLight)
+void ApplyLandLightMode(const RenderContext& context, entt::id_type meshId, RendererInterface::L3DMeshSubmitDesc& desc)
+{
+	const auto mode = context.meshLandLight.find(meshId);
+	desc.landLightMode = 0;
+	if (mode != context.meshLandLight.end())
+	{
+		desc.landLightMode = static_cast<uint8_t>(mode->second.mode);
+		desc.noHaze = desc.noHaze || !mode->second.haze;
+	}
+}
+} // namespace
 
 namespace
 {
@@ -875,7 +884,9 @@ void Renderer::UpdateLandLight() const
 	}
 	// The overcast at the camera caps the base colour (Clouds::WeatherOvercastAtCamera, [0xFA2754]); the lightning flash
 	// at the camera lerps the table to white ([0xFA2768], sky_weather::LightningFlash -> weather::LightningFlashAtCamera)
-	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(),
+	// with this frame's sky type: fn_00869850 runs from fn_0086A330 right after fn_0086A2C0 (DrawSky 0x5E2226..0x5E222B), so
+	// its Time2SkyType([0xFA26C4]) (0x869859) is [0xFA26BC] = sky_type::Frame(), the value its haze reads (0x869D5F)
+	_landLight->Build(sky_type::Frame(), _skyAlignment.Get(),
 	                  Clouds::WeatherOvercastAtCamera(), sky_weather::LightningFlash());
 	const auto& texels = _landLight->GetTexels();
 	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
@@ -924,8 +935,11 @@ void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
 			for (const auto& prim : subMesh->GetPrimitives())
 			{
 				const auto* texture = GetTexture(prim.skinID, skins);
-				const glm::vec4 u_shadowParams = {prim.thresholdAlpha ? prim.alphaCutoutThreshold : 0.0f,
-				                                  texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
+				// x: ALPHAREF / 255 of the primitive's mode, -1 without alpha test (inferido: the normal table)
+				const auto alpha = render_modes::PrimitiveAlpha(
+				    static_cast<render_modes::Mode>(prim.materialType), render_modes::Table::Normal,
+				    static_cast<uint8_t>(std::lround(prim.alphaCutoutThreshold * 255.0f)));
+				const glm::vec4 u_shadowParams = {alpha.ref, texture != nullptr ? 1.0f : 0.0f, 0.0f, 0.0f};
 				program->SetUniformValue("u_shadowParams", &u_shadowParams);
 				if (texture != nullptr)
 				{
@@ -1003,12 +1017,15 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 	const glm::vec3 position(-30000.0f, height, -30000.0f);
 	auto model = glm::translate(position) * glm::rotate(-3.0f * glm::pi<float>() / 4.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 	const auto& texture = *textures.Handle(k_SunTexture);
-	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none
-	const uint64_t additive = BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+	// mode 13: additive SRCALPHA / ONE, colour and alpha = texture x diffuse, no Z write, cull none; the glare with
+	// ZFUNC ALWAYS (fn_0086BB60)
+	const uint64_t additive =
+	    render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz, {.zFunc = render_modes::ZFunc::Always});
 	if (!glare)
 	{
 		const glm::vec4 colour(glm::vec3(0x95, 0x7C, 0x63) / 255.0f, alpha / 255.0f);
-		DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour, additive | BGFX_STATE_DEPTH_TEST_GREATER);
+		DrawCelestialMesh(viewId, sky.GetSunMesh(), model, texture, colour,
+		                  render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz));
 		return;
 	}
 
@@ -1115,8 +1132,7 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 			program->SetUniformValue("u_colour", &glowColour);
 			program->SetUniformValue("u_celestial", &celestial);
 			bgfx::setVertexBuffer(0, &buffer);
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-			               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+			bgfx::setState(render_modes::State(render_modes::Mode::AlphaTexturedAlphaAdditiveNz));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}
@@ -1134,9 +1150,10 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera, bool 
 	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
 	const glm::vec4 moonColour(colour, m / 255.0f);
 	const glm::vec4 celestial(std::cos(phase), std::sin(phase), 1.0f, 1.0f);
+	// (inferido) without the Z write of mode 4 (0x82DC20): nothing farther is drawn after it in the sky
 	DrawCelestialMesh(viewId, sky.GetMoonMesh(), model, *textures.Handle(k_Weather), moonColour,
-	                  BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
-	                      (mirrored ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW),
+	                  render_modes::State(render_modes::Mode::AlphaTextured,
+	                                      {.cull = render_modes::CullFor(false, mirrored), .zWrite = false}),
 	                  celestial, &*textures.Handle(k_WeatherAlpha));
 }
 
@@ -1180,9 +1197,9 @@ void Renderer::UpdateClouds() const
 	lastTime = now;
 
 	// fn_005E1DE0 (called by DrawSky): the colour and the alpha byte from the sky's alignment and light table[255]
-	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t table255 = _landLight && _landLight->IsLoaded() ? land_light::FullLight(*_landLight) : 0xFFFFFFFFu;
 	const uint32_t colour = Clouds::Colour(_skyAlignment.Get(), table255);
-	_cloudRgb = glm::vec3((colour >> 16) & 0xFFu, (colour >> 8) & 0xFFu, colour & 0xFFu) / 255.0f;
+	_cloudRgb = lh3d_colour::ToVec3(colour);
 	const auto alignAlpha = static_cast<int>(colour >> 24);
 	_cloudAlpha.resize(_clouds->GetClouds().size());
 	for (size_t i = 0; i < _cloudAlpha.size(); ++i)
@@ -1192,39 +1209,54 @@ void Renderer::UpdateClouds() const
 		    detail.clouds ? static_cast<float>(Clouds::EdgeAlpha(_clouds->GetClouds()[i]) * alignAlpha / 255) : 0.0f;
 	}
 
-	// shadows into the luminosity cap (same cell layout as the island's cell map)
+	// This frame's land cells (land_light, the cell map's layout): the loaded ones back (ClearLight fn_0086D460), then
+	// fn_005E5830: the map clouds' stamps (fn_005E25C0 0x5E2800, "CloudShadows"), fn_0086D360 0x5E592F with every
+	// stamp of this frame in the list 0xFA2920 (PSys light maps, the storms, the flashes, the fires), then the hand's
+	// and the village lights (fn_008229B0)
 	if (!Locator::terrainSystem::has_value())
 	{
+		land_light::ClearStamps();
 		return;
 	}
 	const auto& island = Locator::terrainSystem::value();
 	const auto size = island.GetCellMap().GetResolution();
-	if (size != _cloudShadowSize)
+	if (size != _landCellsSize)
 	{
-		if (bgfx::isValid(_cloudShadowTexture))
+		if (bgfx::isValid(_landCellsTexture))
 		{
-			bgfx::destroy(_cloudShadowTexture);
+			bgfx::destroy(_landCellsTexture);
 		}
-		_cloudShadowTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::R8,
-		                                            BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-		_cloudShadowSize = size;
+		_landCellsTexture = bgfx::createTexture2D(size.x, size.y, false, 1, bgfx::TextureFormat::RGBA8,
+		                                          BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+		_landCellsSize = size;
 	}
-	static const std::vector<float> k_NoClouds;
-	_clouds->BuildShadowCap(_cloudShadowImage, island.GetExtent().minimum, size, detail.clouds ? _cloudAlpha : k_NoClouds,
-	                        _cloudShadowCap);
-	// Night lights (fn_005E5830): the hand light and the village lights go into the same luminosity cap
+	land_light::BeginFrame(island, Clouds::GetLandscapeGeneration());
+	if (detail.clouds)
+	{
+		_clouds->StampShadows(_cloudShadowImage, _cloudAlpha);
+	}
+	land_light::ApplyStamps();
+	land_light::ClearStamps();
+	// Night lights (fn_005E5830): the hand light and the village lights into this frame's luminosities, after the
+	// stamps: fn_008229B0 reads the cell's byte +3 and writes it directly (0x822D9D, 0x822DC3), no min with the loaded one
 	if (_landLight && _landLight->IsLoaded() && Game::Instance() != nullptr)
 	{
+		auto luminosity = land_light::Luminosity();
 		night_lights::LightCells cells;
-		cells.firstCell = glm::ivec2(glm::floor(island.GetExtent().minimum * 0.1f + 0.5f));
+		cells.firstCell = land_light::GetCells().firstCell;
 		cells.size = glm::ivec2(size);
-		cells.cap = &_cloudShadowCap;
-		cells.fullLightGreen = static_cast<uint8_t>(std::lround(_landLight->GetColour(255).g * 255.0f));
+		cells.cap = &luminosity;
+		cells.fullLightGreen = static_cast<uint8_t>((land_light::FullLight(*_landLight) >> 8) & 0xFFu); // [0xEDDD09]
 		night_lights::Update(Game::Instance()->IsPaused() ? 0.0f : milliseconds,
 		                     Game::Instance()->GetDayNightClock().GetScriptTime(), _landLight->GetBaseColour(), cells);
+		land_light::SetLuminosity(luminosity);
 	}
-	bgfx::updateTexture2D(_cloudShadowTexture, 0, 0, 0, 0, size.x, size.y,
-	                      bgfx::copy(_cloudShadowCap.data(), static_cast<uint32_t>(_cloudShadowCap.size())));
+	const auto texels = land_light::Texels();
+	if (texels.size() == static_cast<size_t>(size.x) * size.y * 4)
+	{
+		bgfx::updateTexture2D(_landCellsTexture, 0, 0, 0, 0, size.x, size.y,
+		                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size())));
+	}
 }
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectClouds(const Camera& camera) const
@@ -1327,7 +1359,8 @@ void Renderer::DrawCloud(graphics::RenderPass viewId, const Camera& camera, uint
 				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 			}
 			subMesh->GetMesh().GetVertexBuffer().Bind();
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+			// the smoke material [0xEA1ABC] (fn_007FA300): mode 6, two-sided
+			bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}
@@ -1389,7 +1422,7 @@ void Renderer::DrawHandShadowPass(const DrawSceneDesc& drawDesc) const
 	const auto* program = _shaderManager->GetShader("DynamicShadowInstanced");
 	constexpr uint64_t k_State = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
 	                             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
-	const glm::vec4 u_shadowParams(0.0f);
+	const glm::vec4 u_shadowParams(-1.0f, 0.0f, 0.0f, 0.0f); // no alpha test
 	const glm::vec4 u_shadowSlot(0.0f, 0.0f, 1.0f, 0.0f);
 	for (const auto& subMesh : mesh->GetSubMeshes())
 	{
@@ -1458,7 +1491,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	}
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.landColourOnly = true;
 	submitDesc.clipBelowSea = true;
 	for (const auto& [entity, bodyRadius, centreY] : objects)
@@ -1507,8 +1540,12 @@ void Renderer::DrawHandShadowOnObjects() const
 	const glm::vec2 boxMax = boxMin + 1.0f / glm::vec2(_handShadowBox.z, _handShadowBox.w);
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = graphics::RenderPass::MainBlended;
-	// fn_0080B050: mode 6 (no Z write) with ZFUNC EQUAL over the object as it was drawn
-	submitDesc.state = BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_MSAA;
+	// fn_0080B050 0x80B06A..0x80B08B: SetMaterial of the shadow material [si+0x460] (CreateMaterial(6) fn_0087FD50
+	// 0x87FE12) through the current table, mode 6 (SRCALPHA / INVSRCALPHA, no Z write); fn_0084E200 draws each primitive
+	// with no state of its own. ZFUNC EQUAL over the object as it was drawn (0x80E488). The shadow material's culling:
+	// +5 = 0 (CreateMaterial 0x87FE12), CULLMODE CCW (fn_0080B050 0x80B0AD..0x80B0E6), two-sided primitives too
+	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
+	submitDesc.options = {.zFunc = render_modes::ZFunc::Equal, .cull = render_modes::Cull::Ccw, .msaa = true};
 	submitDesc.dynamicShadow = &_handShadowFrameBuffer->GetColorAttachment();
 	submitDesc.dynamicShadowBox = _handShadowBox;
 	submitDesc.dynamicShadowParams = _handShadowParams;
@@ -1612,8 +1649,10 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6: SRCALPHA / INVSRCALPHA, no Z write; two-sided. The mirrored land under them wrote no Z in the original.
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// misc0 [0xEA1AB0] (inferido: reference 0x8247CC, not decoded), mode 6: SRCALPHA / INVSRCALPHA, no Z write;
+	// two-sided. ZFUNC ALWAYS (aproximado: the original keeps LESSEQUAL 0x82CCC5; equivalent because the mirrored land
+	// under them wrote no Z, 0x5E48C5)
+	bgfx::setState(render_modes::State(render_modes::materials::k_Misc0, {.zFunc = render_modes::ZFunc::Always}));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -1703,10 +1742,7 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 		const auto alpha = static_cast<uint32_t>(static_cast<int>((255.0f - static_cast<float>(ring.age % 700) * 0.364286f) *
 		                                                          static_cast<float>(ring.argb >> 24)) >> 8) & 0xFFu;
 		// +0x34 as the creator left it (the light colour was fixed at creation, ecs::AddWaterRing)
-		const uint32_t r = (ring.argb >> 16) & 0xFFu;
-		const uint32_t g = (ring.argb >> 8) & 0xFFu;
-		const uint32_t b = ring.argb & 0xFFu;
-		const uint32_t abgr = (alpha << 24) | (b << 16) | (g << 8) | r;
+		const uint32_t abgr = lh3d_colour::ToAbgr(ring.argb, alpha);
 		// LH3DSprite flag 0x40 (GWater::InitialiseCircles 0x54BA84): a flat quad turned about Y (billboard::Horizontal),
 		// the z half size x the aspect (+0x10)
 		billboard::Sprite sprite;
@@ -1742,9 +1778,8 @@ void Renderer::DrawWaterRings(graphics::RenderPass viewId) const
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	program->SetTextureSampler("s_alpha", 1, *textures.Handle(k_Alpha));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 13: SRCALPHA / ONE, no Z write
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-	               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE));
+	// smoke.raw in mode 13 [0xEA1AC4] (inferido: reference 0x54BA72, not decoded): SRCALPHA / ONE, no Z write
+	bgfx::setState(render_modes::State(render_modes::materials::k_SmokeAdditive));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -1871,8 +1906,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	const auto* program = _shaderManager->GetShader("Blob");
 	program->SetTextureSampler("s_diffuse", 0, *textures.Handle(k_Texture));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 6, no Z write, cull none
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+	// mode 6 ([0xEB998C], fn_0081FAA0 0x81FD42), no Z write, cull none
+	bgfx::setState(render_modes::State(render_modes::Mode::AlphaTexturedAlphaNz));
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
@@ -2089,8 +2124,9 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	const auto* program = _shaderManager->GetShader("Text");
 	program->SetTextureSampler("s_diffuse", 0, _font->GetTexture());
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 16: SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0)
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// mode 16 (CachePage::Init 0x830244): SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0); its alpha test
+	// (+4 = 5) is fs_text's
+	bgfx::setState(render_modes::State(render_modes::Mode::TexturedChromaAlphaNz, {.zFunc = render_modes::ZFunc::Always}));
 	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
@@ -2117,7 +2153,7 @@ void Renderer::DrawScreenOverlay() const
 	std::vector<Vertex> vertices;
 	// pre-transformed rectangles in pixels (FVF 0x1C4, rhw 1), here straight to clip space
 	const auto addRect = [&vertices, width, height](int x0, int y0, int x1, int y1, uint32_t argb) {
-		const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFFu) | ((argb & 0xFFu) << 16);
+		const uint32_t abgr = lh3d_colour::ToAbgr(argb);
 		const float l = 2.0f * static_cast<float>(x0) / static_cast<float>(width) - 1.0f;
 		const float r = 2.0f * static_cast<float>(x1) / static_cast<float>(width) - 1.0f;
 		const float t = 1.0f - 2.0f * static_cast<float>(y0) / static_cast<float>(height);
@@ -2160,8 +2196,9 @@ void Renderer::DrawScreenOverlay() const
 	const glm::mat4 identity(1.0f);
 	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS, no Z write
-	bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA);
+	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS and ZWRITEENABLE 0 by hand (fn_0081E590 0x81E64C)
+	bgfx::setState(render_modes::State(render_modes::Mode::SmoothAlpha,
+	                                   {.zFunc = render_modes::ZFunc::Always, .zWrite = false}));
 	bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
 }
 
@@ -2215,16 +2252,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
 
-	// u_skyAndBump.x keeps openblack's old convention (0 night .. 2 day) of this frame's sample; fs_terrain does not use
-	// it for anything visible (its owner drops it)
-	const float skyType = 2.0f - sky_type::Frame();
-
-	// Distance haze of this frame (LandLightTable::Haze), on with the "Fog" detail key
-	const bool hazeOn = _landLight && _landLight->IsLoaded() && GetDetailLevel(Locator::config::value().detailLevel).fog;
-	const auto haze = hazeOn ? _landLight->GetHaze() : LandLightTable::Haze {};
-	const glm::vec4 u_haze = {haze.nearDistance, haze.farDistance, haze.k, hazeOn ? 1.0f : 0.0f};
-	const glm::vec4 u_hazeColour = {haze.colour, 0.0f};
-	_hazeUniforms = {u_haze, u_hazeColour};
+	// Distance haze of this frame (graphics::haze::Frame: fn_007FEAA0 / fn_007FEAD0 and the "Fog" detail key)
+	_haze = _landLight && _landLight->IsLoaded() ? haze::Frame() : haze::Params {};
+	_hazeUniforms = haze::Uniforms(_haze);
+	const glm::vec4 u_haze = _hazeUniforms[0];
+	const glm::vec4 u_hazeColour = _hazeUniforms[1];
 
 	// LH3DRender::StartFrame 0x82F1F9 -> fn_0083F3B0: the frame's single queue of everything blended, filled while the
 	// main view is drawn and drained once, far to near, after all of it (FinishFrame 0x82F480 -> fn_0082F280)
@@ -2246,12 +2278,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = skyShader;
-			submitDesc.state = k_BgfxDefaultStateInvertedZ;
-			if (!desc.cullBack)
-			{
-				submitDesc.state &= ~BGFX_STATE_CULL_MASK;
-				submitDesc.state |= BGFX_STATE_CULL_CCW;
-			}
+			// (inferido) the sky meshes' own modes, culled as a whole
+			submitDesc.options = {.cull = desc.cullBack ? render_modes::Cull::Cw : render_modes::Cull::Ccw,
+			                      .writeAlpha = true,
+			                      .msaa = true};
 			submitDesc.modelMatrices = &modelMatrix;
 			submitDesc.matrixCount = 1;
 			submitDesc.isSky = true;
@@ -2304,17 +2334,25 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			const float lineDistance =
 			    (50.0f + cameraForward.y * std::max(0.0f, cameraOrigin.y - 0.67f * 165.0f)) / forwardLength;
 			const glm::vec4 u_smallBumpLine = {cameraOrigin.x, cameraOrigin.z, forwardXZ / forwardLength};
-			const glm::vec4 u_skyAndBump = {skyType, desc.bumpMapStrength, desc.smallBumpMapStrength, lineDistance};
+			// x unused: the sky type reaches the land through the land light table and the haze (vs_terrain)
+			const glm::vec4 u_skyAndBump = {0.0f, desc.bumpMapStrength, desc.smallBumpMapStrength, lineDistance};
 
 			terrainShader->SetTextureSampler("s0_materials", 0, island.GetAlbedoArray());
 			terrainShader->SetTextureSampler("s1_bump", 1, island.GetBump());
 			terrainShader->SetTextureSampler("s2_smallBump", 2, island.GetSmallBump());
 			terrainShader->SetTextureSampler("s3_footprints", 3, island.GetFootprintFramebuffer().GetColorAttachment());
-			terrainShader->SetTextureSampler("s4_landLight", 4, fromBgfx(_landLightTexture)); // vs
-			if (bgfx::isValid(_cloudShadowTexture))
+			terrainShader->SetTextureSampler("s_landLightTable", 4, fromBgfx(_landLightTexture)); // vs
+			const auto cellMapSize = glm::vec2(island.GetCellMap().GetResolution());
+			if (bgfx::isValid(_landCellsTexture) && glm::vec2(_landCellsSize) == cellMapSize)
 			{
-				terrainShader->SetTextureSampler("s6_cloudShadow", 6, fromBgfx(_cloudShadowTexture)); // vs
+				terrainShader->SetTextureSampler("s_landCells", 6, fromBgfx(_landCellsTexture)); // vs
 			}
+			else
+			{
+				terrainShader->SetTextureSampler("s_landCells", 6, island.GetCellMap()); // vs
+			}
+			const glm::vec4 u_cellMap = {island.GetExtent().minimum, cellMapSize};
+			terrainShader->SetUniformValue("u_cellMap", &u_cellMap); // vs
 			terrainShader->SetTextureSampler("s5_staticShadow", 5, island.GetStaticShadowFramebuffer().GetColorAttachment());
 			terrainShader->SetTextureSampler("s8_landAlpha", 8, island.GetLandAlphaFramebuffer().GetColorAttachment());
 			// x: 1 = the colour comes from the block texture (the original's, BlockTexture.h); 0 = the per-vertex materials
@@ -2360,12 +2398,9 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// clang-format off
 			// fs_terrain writes the land and small bump passes premultiplied (the coast alpha does not fade the small
 			// bump, as in the original); Z is written even where the land is transparent (render mode 14)
-			constexpr auto defaultState = 0u
-				| BGFX_STATE_WRITE_MASK
-				| BGFX_STATE_DEPTH_TEST_GREATER
-				| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA)
-				| BGFX_STATE_MSAA
-			;
+			// (the land blocks' material, fn_007FEDB0 0x7FEDE2: the function of mode 5, 0x82DD90)
+			const auto defaultState = render_modes::State(render_modes::Mode::Landscape,
+				{.writeAlpha = true, .msaa = true, .premultiplied = true});
 
 			constexpr auto discard = 0u
 				| BGFX_DISCARD_INSTANCE_DATA
@@ -2397,12 +2432,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			std::stable_sort(blockOrder.begin(), blockOrder.end(),
 			                 [](const auto& a, const auto& b) { return a.first < b.first; });
 
+			// fn_00877210: the block's haze class from its box (graphics::haze::BlockClassOf), LandRef [0xE9CD8C] (inferido)
+			const auto view = desc.camera->GetViewMatrix(Camera::Interpolation::Current);
+			const bool landRef = GetDetailLevel(Locator::config::value().detailLevel).landReflection;
 			for (const auto& [distance, blockIndex] : blockOrder)
 			{
 				const auto& block = blocks[blockIndex];
 				// pack uniforms
 				const glm::vec4 mapPositionAndSize = glm::vec4(block.GetMapPosition(), 160.0f, 160.0f);
 				terrainShader->SetUniformValue("u_blockPositionAndSize", &mapPositionAndSize);
+				const glm::vec4 u_hazeBlock = {static_cast<float>(haze::BlockClassOf(_haze, view, block, landRef)), 0.0f,
+				                               0.0f, 0.0f};
+				terrainShader->SetUniformValue("u_hazeBlock", &u_hazeBlock);
 
 				block.GetMesh().GetVertexBuffer().Bind();
 
@@ -2437,7 +2478,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					L3DMeshSubmitDesc handSubmit = {};
 					handSubmit.viewId = desc.viewId;
 					handSubmit.program = objectShaderInstanced;
-					handSubmit.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+					handSubmit.options = render_modes::k_ModelPass;
 					handSubmit.instanceDesc = std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer,
 					                                                                   handDesc->second.offset, handDesc->second.count);
 					handSubmit.modelMatrices = bones->data();
@@ -2485,10 +2526,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 
 			_plane->GetVertexBuffer().Bind();
 
-			const auto blend = sprite.additive ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE)
-			                                   : BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-			bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | blend |
-			               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+			// mode 13, or mode 6 with the tint premultiplied (fs_sprite) (inferido: the materials of the sprites' owners)
+			bgfx::setState(render_modes::State(sprite.additive ? render_modes::Mode::AlphaTexturedAlphaAdditiveNz
+			                                                   : render_modes::Mode::AlphaTexturedAlphaNz,
+			                                   {.writeAlpha = true, .premultiplied = true}));
 
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
 		};
@@ -2506,11 +2547,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			L3DMeshSubmitDesc submitDesc = {};
 			submitDesc.viewId = desc.viewId;
 			submitDesc.program = objectShaderInstanced;
-			submitDesc.state = 0u                              //
-			                   | BGFX_STATE_WRITE_MASK         //
-			                   | BGFX_STATE_DEPTH_TEST_GREATER //
-			                   | BGFX_STATE_MSAA               //
-			    ;
+			submitDesc.options = render_modes::k_ModelPass;
 			const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 
 			if (desc.viewId == graphics::RenderPass::Main)
@@ -2576,6 +2613,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				submitDesc.isSky = false;
 				submitDesc.lightBoost = meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 				submitDesc.noHaze = meshId == ecs::components::Hand::k_MeshId;
+				ApplyLandLightMode(renderCtx, meshId, submitDesc);
 				submitDesc.morphWithTerrain = placers.morphWithTerrain;
 				submitDesc.program = land_morph::ObjectProgram(*_shaderManager, submitDesc.morphWithTerrain);
 				submitDesc.blendFilter = sortBlended ? 1 : 0;
@@ -2833,7 +2871,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// (fn_0082F280: far to near; the full queue dropped the entries over 0x800, NewZObject 0x83F31C)
 			if (!sorted.Empty())
 			{
-				const auto opaqueState = submitDesc.state;
+				const auto opaqueOptions = submitDesc.options;
 				submitDesc.viewId = graphics::RenderPass::MainBlended;
 				auto& spriteRegistry = Locator::entitiesRegistry::value();
 				for (const auto& entry : sorted.Drain())
@@ -2894,23 +2932,27 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					submitDesc.isSky = false;
 					submitDesc.lightBoost = instance.meshId == ecs::components::Hand::k_MeshId ? 1.5f : 1.0f;
 					submitDesc.noHaze = instance.meshId == ecs::components::Hand::k_MeshId;
+					ApplyLandLightMode(renderCtx, instance.meshId, submitDesc);
 					submitDesc.morphWithTerrain = instance.morphWithTerrain;
 					submitDesc.program = land_morph::ObjectProgram(*_shaderManager, instance.morphWithTerrain);
 					// the hand's Z object draws all of it (CHand::Draw 0x46D210); a blended model's only its blended primitives
 					submitDesc.blendFilter = instance.fading || instance.meshId == ecs::components::Hand::k_MeshId ? 0 : 2;
-					submitDesc.state = instance.fading ? (0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_Z |
-					                                      BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA |
-					                                      BGFX_STATE_MSAA)
-					                                   : opaqueState;
+					// a fading object (components::Alpha) through the table 0xC387C8 with its alpha byte (LH3DObject Draw
+					// 0x80DF09; obj+0x4C -> [0xC37D8C])
+					submitDesc.options = instance.fading ? render_modes::StateOptions {.msaa = true} : opaqueOptions;
+					submitDesc.table = instance.fading ? render_modes::Table::GlobalAlpha : render_modes::Table::Normal;
+					submitDesc.globalAlpha =
+					    render_modes::AlphaByte(1.0f - renderCtx.instanceUniforms[instance.index][0][3]);
 					// a PSys mesh atom with UseAdditiveAlpha (Creators/Mesh.h): mode 13, SRCALPHA / ONE without Z write
-					if (instance.fading && renderCtx.additiveInstances.contains(instance.index))
-					{
-						submitDesc.state = 0u | BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER |
-						                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) | BGFX_STATE_MSAA;
-					}
+					submitDesc.mode = instance.fading && renderCtx.additiveInstances.contains(instance.index)
+					                      ? std::optional(render_modes::Mode::AlphaTexturedAlphaAdditiveNz)
+					                      : std::nullopt;
 					DrawMesh(*mesh, submitDesc, std::numeric_limits<uint8_t>::max());
 				}
-				submitDesc.state = opaqueState;
+				submitDesc.options = opaqueOptions;
+				submitDesc.table = render_modes::Table::Normal;
+				submitDesc.globalAlpha = 255;
+				submitDesc.mode = std::nullopt;
 				submitDesc.viewId = desc.viewId;
 				submitDesc.blendFilter = 0;
 			}

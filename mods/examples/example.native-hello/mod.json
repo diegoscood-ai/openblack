@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "example.native-hello",
+  "name": { "en": "Native hello", "es": "Hola nativo" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A native mod in plain C (src/hello.c): logs the land when it loads and, every 100 game turns, the hour and the ground height under the camera. The template for a DLL mod.",
+    "es": "Un mod nativo en C (src/hello.c): escribe en el log la tierra al cargarla y, cada 100 turnos, la hora y la altura del suelo bajo la cámara. La plantilla de un mod DLL."
+  },
+  "api": ">=1.0 <2.0",
+  "entry": { "native": { "windows": "bin/example.native-hello.dll", "linux": "bin/example.native-hello.so" } },
+  "options": [
+    { "id": "every", "type": "slider", "label": { "en": "Log every", "es": "Escribir cada" },
+      "values": ["50 turns", "100 turns", "500 turns"], "default": "100 turns" }
+  ]
+}

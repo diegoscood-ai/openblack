@@ -28,6 +28,7 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
+#include "Mods/Replacements.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -185,7 +186,8 @@ void Update()
 		auto& textureManager = resources.GetTextures();
 		for (const auto& [name, g3dTexture] : pack.GetTextures())
 		{
-			if (!IsSkin(skins, g3dTexture.header.id))
+			// not a skin, or a mod's image (mod.json "replace"): it stays as it is
+			if (!IsSkin(skins, g3dTexture.header.id) || mods::replace::PackTexture(g3dTexture.header.id))
 			{
 				continue;
 			}
@@ -212,7 +214,15 @@ void Update()
 				continue;
 			}
 			meshManager.Erase(meshId);
-			meshManager.Load(meshId, L3DLoader::FromBufferTag {}, k_MeshNames.at(i), packMeshes[i]);
+			// a mod's mesh (mod.json "replace") is loaded again from its file, so it gets the new smoothing too
+			if (const auto file = mods::replace::Mesh(i))
+			{
+				meshManager.Load(meshId, L3DLoader::FromDiskTag {}, *file);
+			}
+			else
+			{
+				meshManager.Load(meshId, L3DLoader::FromBufferTag {}, k_MeshNames.at(i), packMeshes[i]);
+			}
 			++meshes;
 		}
 		// the hand (Game: Hand_Boned_Base2.l3d)

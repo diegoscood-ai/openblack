@@ -334,6 +334,11 @@ float audio::MaxDistance(Sample sample)
 
 // ---- owners -------------------------------------------------------------------------------------------------------
 
+const GameQueries& audio::Queries()
+{
+	return g_State.queries;
+}
+
 std::optional<glm::vec3> audio::OwnerSoundPosition(const Owner& owner)
 {
 	return OwnerPosition(owner);

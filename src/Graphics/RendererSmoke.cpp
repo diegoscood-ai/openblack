@@ -37,6 +37,8 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "GameClock.h"
 #include "Graphics/GraphicsHandleBgfx.h"
+#include "Graphics/Lh3dColour.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -176,21 +178,18 @@ void Renderer::DrawChimneySmoke(graphics::RenderPass viewId, const Camera& camer
 		const glm::vec4 sampleRect(uv[2] - uv[0], uv[0]);
 		// mode 6 (SRCALPHA / INVSRCALPHA, no light, no fog): the sprite shader's normal blend is ONE / INVSRCALPHA with
 		// the tint premultiplied by its alpha
-		const float a = static_cast<float>(puff.argb >> 24u) / 255.0f;
-		const glm::vec3 rgb(static_cast<float>((puff.argb >> 16u) & 0xFFu) / 255.0f,
-		                    static_cast<float>((puff.argb >> 8u) & 0xFFu) / 255.0f,
-		                    static_cast<float>(puff.argb & 0xFFu) / 255.0f);
-		const glm::vec4 tint(rgb * a, a);
+		const glm::vec4 colour = lh3d_colour::ToVec4(puff.argb);
+		const glm::vec4 tint(glm::vec3(colour) * colour.a, colour.a);
 
 		bgfx::setTransform(glm::value_ptr(model));
 		program->SetUniformValue("u_sampleRect", glm::value_ptr(sampleRect));
 		program->SetUniformValue("u_tint", glm::value_ptr(tint));
 		program->SetTextureSampler("s_diffuse", 0, alpha);
 		_plane->GetVertexBuffer().Bind();
-		// depth test, no depth write (the material is two sided: no culling)
-		bgfx::setState(0 | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-		               BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) |
-		               BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_ADD));
+		// g_smoke_mat [0xEA1ABC] (LH3DSmoke::Create 0x7F8CEC), mode 6 with the tint premultiplied: depth test, no depth
+		// write (the material is two sided: no culling)
+		bgfx::setState(render_modes::State(render_modes::materials::k_Smoke,
+		                                   {.writeAlpha = true, .premultiplied = true}));
 		bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 	}
 }

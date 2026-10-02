@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <functional>
+#include <string_view>
 
 // Which script task has the dialogue, the wide screen and the camera: the GScript side (runblack.exe W120) of CHL 030
 // START_CAMERA_CONTROL, 031 END_CAMERA_CONTROL, 032 SET_WIDESCREEN, 120 START_DIALOGUE, 121 END_DIALOGUE and 122
@@ -56,7 +57,25 @@ struct Vm
 	std::function<uint32_t(uint32_t task)> taskType;
 	/// ScriptDLL::StopTasksOfType 0x6F68F0 (GScript::StopScriptsOfType 0x6F0CC0)
 	std::function<void(uint32_t typeMask)> stopTasksOfType;
+	/// ScriptDLL::PUSH 0x6F6BA0 of a float (VMType 2)
+	std::function<void(float value)> pushFloat;
+	/// ScriptDLL::StartScript 0x6F6880(name, VMScriptType mask): the parameters come from the stack
+	std::function<void(std::string_view name, uint32_t typeMask)> startScript;
+	/// GGame::IsMultiplayerGame 0x552F80 (GScript::StartScript 0x6EB724). Unset: false.
+	std::function<bool()> multiplayer;
 };
+
+/// GScript::StartScript 0x6EB710: the types a script may have, 0x7F in a single-player game, 0x60 in a multiplayer one
+constexpr uint32_t k_SinglePlayerScriptTypes = 0x7F;
+constexpr uint32_t k_MultiplayerScriptTypes = 0x60;
+/// HelpSystem::StopHelpScriptsForNewHelp 0x5C8C40 (StopRunningScripts 0x5C8C80 jumps to it): a task that has the
+/// dialogue (+0x45CC) and whose type has neither Help (2) nor MultiplayerHelp (0x40) (`test al, 0x42`) keeps it: false;
+/// else GScript::StopHelpScripts 0x6EC780 (the types 0x4A) and true
+bool StopHelpScriptsForNewHelp(const HelpSystem& help, const Vm& vm);
+/// HelpSystem::RunMessage 0x5C8CE0(first, last, script): false for first > last or when StopRunningScripts refuses;
+/// else +0x560 = the turn, PUSH(float first), PUSH(float last) and GScript::StartScript(script) (GGuidance::HelpSpiritSay
+/// 0x71D2AC: "MultiHelpJustTalkWithText", whose two parameters WhichTextFirst / WhichTextLast are these); true
+bool RunMessage(HelpSystem& help, uint32_t first, uint32_t last, std::string_view script, const Vm& vm, uint32_t turn);
 
 /// The GScript fields (g_game+0x250090) of the script camera. GScript::Reset 0x6EB2D0 sets +0x80 = +0x78 = 1
 /// (0x6EB2FA, 0x6EB300) and +0x7C = 0 (0x6EB303); it does not write +0xA8 (0 from the constructor: inferred)

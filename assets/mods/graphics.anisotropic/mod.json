@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "graphics.anisotropic",
+  "name": { "en": "Anisotropic filtering", "es": "Filtrado anisótropo" },
+  "version": "1.0.0",
+  "category": "Graphics",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Sharper textures at grazing angles (includes the mip levels).",
+    "es": "Texturas más nítidas vistas de lado (incluye los niveles de mip)."
+  },
+  "api": ">=1.0 <2.0",
+  "restart_required": true,
+  "switches": { "graphics.anisotropic": true }
+}

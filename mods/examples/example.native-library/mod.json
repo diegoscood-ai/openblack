@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "example.native-library",
+  "name": { "en": "Native library", "es": "Librería nativa" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A library mod (src/library.c): it changes nothing itself and offers functions to other native mods under the interface example.counter.v1 (include/example_counter_v1.h is its public header). Native consumer uses it.",
+    "es": "Un mod librería (src/library.c): no cambia nada por sí mismo y ofrece funciones a otros mods nativos con la interfaz example.counter.v1 (include/example_counter_v1.h es su cabecera pública). Consumidor nativo la usa."
+  },
+  "api": ">=1.0 <2.0",
+  "provides": ["example.counter.v1"],
+  "entry": { "native": { "windows": "bin/example.native-library.dll", "linux": "bin/example.native-library.so" } }
+}

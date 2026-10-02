@@ -10,6 +10,9 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+
+#include "Audio/Guidance.h"
+
 #include "HandSystemDetail.h"
 
 #include <glm/gtc/constants.hpp>
@@ -313,6 +316,11 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 	auto wood = ecs::TreeWood(object);
 	const uint32_t total = wood;
 	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
+	// 0x63A9C7..0x63A9E6, after DoCreatureMimicAfterAddingResource (vt +0x68C): the IS is the local one (inferred: the
+	// hand) -> ResourceDropSFX(IS, this+0x14, this->GetGuidanceResourceType()) where `this` (edi) is the receiver, the
+	// store (esi is the object: GetPos 0x63AA2B, ToBeDeleted 0x63AAB1): StoragePit keeps GameThing's 0x71BDD0 (0), so
+	// GetResourceDropSample 0x71B5F0 gives 0 and nothing is said (PlayNow and GetNearestTown still run)
+	audio::guidance::ResourceDropSFX(registry.Get<const Transform>(store).position, audio::guidance::RainType::None);
 	// 0x63AA13..0x63AA93: GAudio::PlaySoundEffect 0x429E30 with bank InGame (GAudio+0x3AC), owner the object (+0x20), is3D
 	// 1, track 0, sample 155 G_TreeMulch_01 + the counter [0xD4437C] = ([0xD4437C] + 1) & 3, at the object's point
 	// (GetPos -> MapCoords::GetLHPoint 0x605C40)

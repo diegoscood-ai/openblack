@@ -21,6 +21,7 @@
 #include <glm/mat4x4.hpp>
 
 #include "3D/L3DMesh.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
 #include "ECS/Components/CutByPlane.h"
@@ -28,6 +29,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "Graphics/Mesh.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
 #include "Renderer.h"
@@ -57,7 +59,7 @@ void Renderer::DrawCutByPlane(RenderPass viewId, entt::entity entity, int8_t kee
 	L3DMeshSubmitDesc submitDesc = {};
 	submitDesc.viewId = viewId;
 	// "the material mode normal" (cut_notes.txt): opaque with Z, the blended materials as DrawMesh blends them
-	submitDesc.state = BGFX_STATE_WRITE_MASK | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_MSAA;
+	submitDesc.options = render_modes::k_ModelPass;
 	submitDesc.cutByPlane = keep;
 	submitDesc.cutColour = argb;
 	submitDesc.mirrorInSea = mirrored;
@@ -106,7 +108,7 @@ void Renderer::DrawCutAboveWater(RenderPass viewId) const
 			    cut.push_back(entity);
 		    }
 	    });
-	const uint32_t colour = _landLight && _landLight->IsLoaded() ? _landLight->GetRaw(255) : 0xFFFFFFFFu;
+	const uint32_t colour = _landLight && _landLight->IsLoaded() ? land_light::FullLight(*_landLight) : 0xFFFFFFFFu;
 	for (const auto entity : cut)
 	{
 		DrawCutByPlane(viewId, entity, 1, colour, false);

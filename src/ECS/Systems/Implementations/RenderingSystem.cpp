@@ -11,13 +11,18 @@
 
 #include "RenderingSystem.h"
 
+#include <unordered_set>
+
 #include <glm/gtx/transform.hpp>
+#include <spdlog/spdlog.h>
 
 #include "3D/DayNightClock.h"
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
 #include "3D/NightLights.h"
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Abode.h"
+#include "ECS/Components/Animal.h"
 #include "ECS/Components/Creature.h"
 #include "ECS/Components/Feature.h"
 #include "ECS/Components/Field.h"
@@ -32,10 +37,13 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpecularColour.h"
+#include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/Life.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Fragment.h"
@@ -89,6 +97,35 @@ bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity en
 		}
 	}
 	return !openblack::ecs::physics::PhysicsObjects::IsFlying(entity);
+}
+/// How a model's Draw takes the land light (land_light::ObjectMode): fn_00801C90 + fn_007FEB30 for most; Tree::Draw
+/// fn_00802120 0x74AB1B then the haze 0x74AB60; WorshipSite::Draw 0x519460 and SpellIcon::Draw 0x5196CC
+/// LH3DIsland::GetAltitudeAndSetColorSpecular 0x803340 without haze, except a burning WorshipSite (Object +0x44, the
+/// FireEffect, 0x5193FF..0x51940A -> fn_00518050 -> fn_0080BEC0: fn_00801C90 + fn_007FEB30); Dove::Draw 0x41F75B
+/// table[255] ([0xEDDD08]) without haze ((inferido) every species of the Dove class draws with it). Pending: the
+/// vt +0x890 == 0 branch of both (0x5193D9, 0x519658 -> DrawBuilding 0x517F90, light without haze: fix 7) and
+/// SpellIcon's +0x10C branch (0x519672, not read)
+openblack::land_light::ObjectLight LandLightOf(const openblack::ecs::Registry& registry, entt::entity entity)
+{
+	using openblack::land_light::ObjectMode;
+	if (registry.AllOf<Tree>(entity))
+	{
+		return {ObjectMode::CellShift, true};
+	}
+	if (registry.AllOf<WorshipSite>(entity) && openblack::ecs::fire::Find(entity) == nullptr)
+	{
+		return {ObjectMode::Cell, false};
+	}
+	if (registry.AllOf<SpellIcon>(entity))
+	{
+		return {ObjectMode::Cell, false};
+	}
+	if (const auto* animal = registry.TryGet<const Animal>(entity);
+	    animal != nullptr && openblack::ecs::animal_ai::IsFlyingSpecies(animal->type))
+	{
+		return {ObjectMode::Full, false};
+	}
+	return {};
 }
 /// A broken building keeps the static shadow of its intact mesh (the FragMesh casts none); fragments cast none either
 /// (Fragment: SetShadowOnTexture(0)), which CastsStaticShadow already leaves out.
@@ -234,6 +271,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	std::map<entt::id_type, uint32_t> shadowCasterOffsets;
 	_renderContext.entityInstances.clear();
 	_renderContext.sortPoints.clear();
+	_renderContext.meshLandLight.clear();
 
 	// Set transforms for instanced draw at offsets
 	registry.Each<const Mesh, const Transform>(
@@ -268,6 +306,25 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;
 		    _renderContext.instanceUniforms[idx] = modelMatrix;
+		    // (aproximado) one land light mode per mesh (the uniform of its draw), not per instance: a mesh drawn by
+		    // two kinds (a dead or felled tree, DeadTree::Draw 0x51084C / FelledTree::Draw 0x5119B3: fn_00801C90, on
+		    // a living tree's mesh; a burning worship site beside another) takes the other mode than the plain one,
+		    // logged once
+		    const auto light = LandLightOf(registry, entity);
+		    if (const auto [it, inserted] = _renderContext.meshLandLight.try_emplace(mesh.id, light);
+		        !inserted && (it->second.mode != light.mode || it->second.haze != light.haze))
+		    {
+			    if (it->second.mode == openblack::land_light::ObjectMode::Bilinear && it->second.haze)
+			    {
+				    it->second = light;
+			    }
+			    static std::unordered_set<entt::id_type> s_Logged;
+			    if (s_Logged.insert(mesh.id).second)
+			    {
+				    SPDLOG_LOGGER_DEBUG(spdlog::get("graphics"), "Mesh {}: instances with two land light modes",
+				                        mesh.id);
+			    }
+		    }
 		    _renderContext.entityInstances.insert_or_assign(
 		        entity, RenderContext::EntityInstance {mesh.id, idx, registry.AllOf<MorphWithTerrain>(entity),
 		                                               ReceivesDynamicShadow(registry, entity)});

@@ -47,6 +47,7 @@
 #include "3D/SkyInterface.h"
 #include "3D/SkyType.h"
 #include "Audio.h"
+#include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Console.h"
 #include "ECS/Components/LivingAction.h"
@@ -65,8 +66,9 @@
 #include "LHVMViewer.h"
 #include "LandIsland.h"
 #include "Locator.h"
-#include "Mods/ModRegistry.h"
 #include "MeshViewer.h"
+#include "ModsWindow.h"
+#include "Mods/Restart.h"
 #include "Music.h"
 #include "PathFinding.h"
 #include "Profiler.h"
@@ -107,8 +109,24 @@ const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
 
     BGFX_EMBEDDED_SHADER_END(),
 }};
+
 } // namespace
 
+/// fn_004082F0, the click feedback of a SetupBox dialog (the options, save, keyboard and multiplayer boxes): when a
+/// control tells the box's control callback that it was clicked (code 0xA, the mouse released over the control it was
+/// pressed on, fn_00408340 0x408BBE / 0x408D6F with +0x70 == +0xBC; or 0xC, the keyboard, 0x408AA6), fn_004082F0 plays
+/// G_MenuButton (InGame 159) 2D with mode 3 (0x4082F0..0x408307) and starts the mouse-force immersion 0x2C (not ported:
+/// openblack has no force feedback). openblack's own dialogs are these ImGui menus, so each of their controls plays it
+/// when it reports a click. The sample's user parameter is 0, so GAudio drops it inside the citadel.
+/// Returns what it was given, to wrap the `if (ImGui::MenuItem(...))` of the menus.
+bool openblack::debug::gui::MenuClick(bool activated) noexcept
+{
+	if (activated)
+	{
+		audio::PlaySoundEffect(audio::Owner::None(), 159, 3, 0, false, false, audio::SfxBank::InGame);
+	}
+	return activated;
+}
 std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPass viewId) noexcept
 {
 	IMGUI_CHECKVERSION();
@@ -126,6 +144,7 @@ std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPas
 	debugWindows.emplace_back(new Audio);
 	debugWindows.emplace_back(new Music);
 	debugWindows.emplace_back(new TempleInterior);
+	debugWindows.emplace_back(new ModsWindow);
 
 	auto gui = std::unique_ptr<DebugGuiInterface>(
 	    new Gui(imgui, static_cast<bgfx::ViewId>(viewId), std::move(debugWindows), !Locator::windowing::has_value()));
@@ -309,7 +328,8 @@ bool Gui::Loop() noexcept
 
 	ImGui::Render();
 
-	return false;
+	// the Mods window's "Restart openblack now": the game loop ends as with Quit (main() starts openblack again)
+	return mods::restart::Requested();
 }
 
 /// Returns true if both internal transient index and vertex buffer have
@@ -466,97 +486,6 @@ void Gui::Draw() noexcept
 	RenderDrawDataBgfx(ImGui::GetDrawData());
 }
 
-void Gui::DrawModsMenu() noexcept
-{
-	auto& registry = Locator::mods::value();
-	ImGui::TextDisabled("Changes to the original game, all off by default (saved in Mods/<mod>/settings.cfg)");
-	std::string category;
-	bool anyRestart = false;
-	bool anyDataMod = false;
-	const auto drawMod = [&registry, &anyRestart, &anyDataMod](auto& mod) {
-		const auto& info = mod.GetInfo();
-		anyRestart |= info.restartRequired;
-		anyDataMod |= info.id.starts_with("data.");
-		ImGui::PushID(info.id.c_str());
-		bool enabled = mod.IsEnabled();
-		const auto label = info.restartRequired ? info.name + " *" : info.name;
-		if (ImGui::Checkbox(label.c_str(), &enabled))
-		{
-			registry.SetEnabled(mod, enabled);
-		}
-		if (ImGui::IsItemHovered())
-		{
-			ImGui::SetTooltip("%s\n--mod %s", info.description.c_str(), info.id.c_str());
-		}
-		const auto& options = mod.GetOptions();
-		for (size_t i = 0; i < options.size(); ++i)
-		{
-			const auto& option = options[i];
-			ImGui::Indent();
-			ImGui::BeginDisabled(!mod.IsEnabled());
-			ImGui::SetNextItemWidth(120.0f);
-			if (option.slider)
-			{
-				auto choice = static_cast<int>(option.value);
-				if (ImGui::SliderInt(option.label.c_str(), &choice, 0, static_cast<int>(option.choices.size()) - 1,
-				                     option.choices.at(option.value).c_str(), ImGuiSliderFlags_NoInput))
-				{
-					registry.SetOption(mod, i, static_cast<size_t>(choice));
-				}
-			}
-			else if (ImGui::BeginCombo(option.label.c_str(), option.choices.at(option.value).c_str()))
-			{
-				for (size_t choice = 0; choice < option.choices.size(); ++choice)
-				{
-					if (ImGui::Selectable(option.choices[choice].c_str(), choice == option.value))
-					{
-						registry.SetOption(mod, i, choice);
-					}
-				}
-				ImGui::EndCombo();
-			}
-			ImGui::EndDisabled();
-			ImGui::Unindent();
-		}
-		ImGui::PopID();
-	};
-	for (const auto& mod : registry.GetMods())
-	{
-		const auto& info = mod->GetInfo();
-		if (!info.parent.empty())
-		{
-			continue; // a module: drawn under its parent
-		}
-		if (info.category != category)
-		{
-			category = info.category;
-			ImGui::Separator();
-			ImGui::TextUnformatted(category.c_str());
-		}
-		drawMod(*mod);
-		for (const auto& module : registry.GetMods())
-		{
-			if (module->GetInfo().parent == info.id)
-			{
-				ImGui::Indent();
-				ImGui::BeginDisabled(!registry.IsActive(*mod));
-				drawMod(*module);
-				ImGui::EndDisabled();
-				ImGui::Unindent();
-			}
-		}
-	}
-	ImGui::Separator();
-	if (!anyDataMod)
-	{
-		ImGui::TextDisabled("Data mods: folders in %s", registry.GetModsDirectory().generic_string().c_str());
-	}
-	if (anyRestart)
-	{
-		ImGui::TextDisabled("* takes effect after a restart");
-	}
-}
-
 bool Gui::ShowMenu() noexcept
 {
 	if (ImGui::BeginMainMenuBar())
@@ -586,7 +515,7 @@ bool Gui::ShowMenu() noexcept
 
 			auto menuItem = [&game](const auto& label, const std::filesystem::path& path, const std::string description,
 			                        bool validLevel) {
-				if (ImGui::MenuItem(label.data(), nullptr, false, validLevel))
+				if (MenuClick(ImGui::MenuItem(label.data(), nullptr, false, validLevel)))
 				{
 					game.LoadMap(path);
 				}
@@ -641,10 +570,16 @@ bool Gui::ShowMenu() noexcept
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Mods"))
+		// the Mods window (Modpacks, Mods, Load order, Log)
+		if (ImGui::MenuItem(ModsWindow::k_Name))
 		{
-			DrawModsMenu();
-			ImGui::EndMenu();
+			for (auto& window : _debugWindows)
+			{
+				if (window->GetName() == ModsWindow::k_Name)
+				{
+					window->Toggle();
+				}
+			}
 		}
 
 		if (ImGui::BeginMenu("Debug"))
@@ -653,7 +588,7 @@ bool Gui::ShowMenu() noexcept
 			{
 				for (auto& window : _debugWindows)
 				{
-					if (ImGui::MenuItem(window->GetName().c_str()))
+					if (MenuClick(ImGui::MenuItem(window->GetName().c_str())))
 					{
 						window->Open();
 					}
@@ -663,25 +598,25 @@ bool Gui::ShowMenu() noexcept
 
 			if (ImGui::BeginMenu("Villager Names"))
 			{
-				ImGui::Checkbox("Show", &config.showVillagerNames);
-				ImGui::Checkbox("Show States", &config.debugVillagerStates);
-				ImGui::Checkbox("Debug", &config.debugVillagerNames);
+				MenuClick(ImGui::Checkbox("Show", &config.showVillagerNames));
+				MenuClick(ImGui::Checkbox("Show States", &config.debugVillagerStates));
+				MenuClick(ImGui::Checkbox("Debug", &config.debugVillagerNames));
 
 				ImGui::EndMenu();
 			}
 
 			if (ImGui::BeginMenu("View"))
 			{
-				ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay);
-				ImGui::Checkbox("Sky", &config.drawSky);
-				ImGui::Checkbox("Water", &config.drawWater);
-				ImGui::Checkbox("Island", &config.drawIsland);
-				ImGui::Checkbox("Entities", &config.drawEntities);
-				ImGui::Checkbox("Sprites", &config.drawSprites);
-				ImGui::Checkbox("Wireframe", &config.wireframe);
-				ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes);
-				ImGui::Checkbox("Footpaths", &config.drawFootpaths);
-				ImGui::Checkbox("Streams", &config.drawStreams);
+				MenuClick(ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay));
+				MenuClick(ImGui::Checkbox("Sky", &config.drawSky));
+				MenuClick(ImGui::Checkbox("Water", &config.drawWater));
+				MenuClick(ImGui::Checkbox("Island", &config.drawIsland));
+				MenuClick(ImGui::Checkbox("Entities", &config.drawEntities));
+				MenuClick(ImGui::Checkbox("Sprites", &config.drawSprites));
+				MenuClick(ImGui::Checkbox("Wireframe", &config.wireframe));
+				MenuClick(ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes));
+				MenuClick(ImGui::Checkbox("Footpaths", &config.drawFootpaths));
+				MenuClick(ImGui::Checkbox("Streams", &config.drawStreams));
 
 				ImGui::EndMenu();
 			}
@@ -692,7 +627,7 @@ bool Gui::ShowMenu() noexcept
 				float fieldOfView = glm::degrees(camera.GetHorizontalFieldOfView());
 				auto aspect = Locator::windowing::has_value() ? Locator::windowing::value().GetAspectRatio() : 1.0f;
 				ImGui::Text("Aspect Ratio %.3f", aspect);
-				if (ImGui::MenuItem("Reset"))
+				if (MenuClick(ImGui::MenuItem("Reset")))
 				{
 					camera.SetProjectionMatrixPerspective(config.cameraXFov, aspect, config.cameraNearClip,
 					                                      config.cameraFarClip);
@@ -711,15 +646,15 @@ bool Gui::ShowMenu() noexcept
 				float multiplier = game.GetGameSpeed();
 				ImGui::Text("Scaled game duration: %.3fms (%.3f Hz)", multiplier * Game::k_TurnDuration.count(),
 				            1000.0f / (multiplier * Game::k_TurnDuration.count()));
-				if (ImGui::MenuItem("Slow"))
+				if (MenuClick(ImGui::MenuItem("Slow")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierSlow);
 				}
-				if (ImGui::MenuItem("Normal"))
+				if (MenuClick(ImGui::MenuItem("Normal")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 				}
-				if (ImGui::MenuItem("Fast"))
+				if (MenuClick(ImGui::MenuItem("Fast")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierFast);
 				}
@@ -736,7 +671,7 @@ bool Gui::ShowMenu() noexcept
 
 		if (ImGui::BeginMenu("Capture"))
 		{
-			if (ImGui::Button("Capture"))
+			if (MenuClick(ImGui::Button("Capture")))
 			{
 				game.RequestScreenshot(_screenshotFilename);
 			}
@@ -745,7 +680,7 @@ bool Gui::ShowMenu() noexcept
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::MenuItem("Quit", "Esc"))
+		if (MenuClick(ImGui::MenuItem("Quit", "Esc")))
 		{
 			return true;
 		}

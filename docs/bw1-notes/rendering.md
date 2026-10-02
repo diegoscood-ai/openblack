@@ -7,6 +7,7 @@ mapa. Los modelos (materiales, luz, reflejos, sombras de objetos, sprites, humo)
 en [parity.md](parity.md).
 
 - [Estados de Direct3D 7 del original](#estados-de-direct3d-7-del-original)
+- [Texturas ARGB4444](#texturas-argb4444)
 - [Mods gráficos](#mods-gráficos)
 - [Detalle del terreno ("small bump")](#detalle-del-terreno-small-bump)
 - [Mar](#mar-skyraw--skyaraw)
@@ -52,6 +53,92 @@ constantes, usa `tmp_dis\render\scan_states.py` (envoltorios) y `scan_vt.py` (vt
   intermedio.
 
 openblack ya coincide por defecto: bilineal, sin mips y sin MSAA.
+
+## Texturas ARGB4444
+
+**Fiel** (del original, no es un mod). Código: `src/Graphics/Argb4444.h` (`graphics::argb4444`, sin estado y, a
+propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x837533 y 0x83767E..0x837687).
+
+- **El corte.** `LH3DTexture` guarda en ARGB4444 las texturas creadas con la bandera de alfa 0x40 (`Create` 0x8379E0
+  con flags 0x41). El formato 0 tiene las máscaras 0xF000/0xF00/0xF0/0xF (0x85DCA1..0x85DCC2). `fn_00837400` se
+  queda con el nibble alto de cada byte, sin redondear:
+  - B = byte[+2] >> 4 (0x8374F4), G = byte[+1] & 0xF0 (0x837502), R = (byte[+0] & 0xF0) << 4 (0x837512);
+  - el alfa de `xa.raw` = byte & 0xF0 (0x837681).
+  - D3D7 expande el nibble al muestrear, n·17 (inferido: lo hace el controlador). El original **filtra nibbles ya
+    cortados**, así que el corte va en la carga y no en un shader.
+  - API: `Quantize(v) = v >> 4`, `Expand(n) = n·17`, `Cut(v) = Expand(Quantize(v)) = (v & 0xF0) | (v >> 4)`;
+    `Pack`/`Unpack` del texel de 16 bits; `PackRaw(rgb, alpha)` para la pareja `x.raw` + `xa.raw`.
+- **Sin la bandera**, la rama 4444 no corre (`cmp [esp+0x834],0 / je`, 0x8374CB/0x8374D2). Va a 565
+  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F), con 5 bits por canal. Es el caso de `sun.raw` (flags 1, 0x81E851;
+  ver [Pendiente](#pendiente)).
+- **Las 0x44 sí llevan la bandera** (0x44 & 0x40; `Create` guarda los flags enteros en [tex+0x10], 0x837A76): son
+  superficies 4444, pero de tipo 4 (flags & 0x3F, tablas 0x837CD4 / 0x838E84 → 0x838C2E), texturas en memoria que no
+  cargan su archivo por `fn_00837400`. Así `ChallengeScroll.raw` (0x44, 0x781BDC y 0x79D59F; cadenas 0xC25048 y
+  0xC2A5D0) y `human_shadow` (abajo). `ChallengeScroll` no está en la lista porque el juego la rellena él mismo, no
+  porque le falte la bandera; cómo la rellena no está leído (ver [Pendiente](#pendiente)).
+- **Guardas.** El color tiene que medir 0x30000 bytes justos (`fn_00837300`, `cmp ecx,0x30000 / sete`, 0x837318); si
+  no, va por DDS. Por eso `S_IceEnvMapGrey.raw`, de 194823 bytes, no se corta, y tampoco su `S_IceEnvMapGreya.raw`
+  (0x10000 bytes): sin un color válido `fn_00837400` no llega a leer el alfa. El alfa se lee con 0x10000 bytes
+  (0x837600): `LHLoadData` lee min(longitud, 0x10000) (0x7BCEC0..0x7BCECD) y no falla si es más corto; el resto del
+  búfer se queda con el flujo de color (la regla del sobrante de abajo, a partir de su longitud), y uno más largo se
+  trunca sin error.
+- **Sin `a.raw`.** El nombre del alfa es el del color sin sus 4 últimos caracteres más `"a.raw"` (0xC384AC,
+  0x8375B4..0x8375C1). Si `LHLoadData` falla, solo llama a `Report3D` (0x837616) y sigue en 0x83761E con el búfer que
+  aún tiene el color. El alfa del píxel i sale entonces del byte i del flujo de color (R0, G0, B0, R1…) & 0xF0.
+  - En la práctica no pasa: todas las texturas 0x41 traen su `a.raw` (quizá las imágenes de partidas guardadas,
+    inferido). `PackRaw` lo reproduce.
+- **Quién la lleva.** Solo hay dos llamadas a `fn_00837400`: 0x838087 en `fn_00837DF0` y 0x838D41 en `fn_00838AF0`.
+  Las dos pasan `[tex+0x10] & 0x40` (0x838079 / 0x838D37).
+  - De las 69 llamadas a `Create`, 32 empujan 0x41 inmediato y 22 usan 0x44.
+  - Una más lo calcula: `fn_00822560` 0x822855..0x822874 pone 1, más 0x40 si existe el `a.raw` (el conversor .cmp del
+    terreno).
+- **La lista `k_AlphaFlagStems`**, cada nombre con su dirección:
+  - fijos: `Front_end_buttons`, `mousehelp`, `forcefield`, `pin`, `rainbow`, `PlayersSymbols`, `ChooseSymbol`,
+    `OriginalChooseSymbol`, `sky` (0x5E5432), `gatheringtext`, `Data\C_Ape_Hair`, `icons`, `PictureTexture`,
+    `smallbump`, `Weather`, `atmos`, `snow`, `Data\blobs`, `leash`;
+  - partículas de `fn_0080BBD0`: `p4t`, `p4`, `smoke`, `s_fire`, `cool_effect`, `misc0`, `burn`;
+  - mapas de entorno (tabla 0xC37EAC): `envmap`, `envmap_glass_fx`, `envmap_glass_fx_inv`, `envmap_glass_fx2_inv`;
+  - por `fn_0057DBE0` → `fn_0057DB10` (0x57DB78/0x57DB7B, flags 0x41):
+    - GlobalTextures: `S_SpriteSheet1/2/3`, `S_Static`, `S_Hand_Flow`, `S_Fire` y las tablas 0xBEF478, 0xBEF484 y
+      0xBEF4A0;
+    - los `TextureFileName` de los ficheros de hechizos, por ParticleSpriteCreator (`fn_006AA030` 0x6AA047) y
+      ParticleChainCreator (`fn_006AA800` 0x6AA817): `S_Beam`, `S_lightning`, `S_Spangle_A` (inferido),
+      `S_Teleport_Vortex_Texture(01)`, `S_Volcano_Fire`, `S_Volcano_Rock`;
+    - ZR_SurfRevol (0x6863E4);
+    - LandscapeVortex `fn_005FEA70`, tablas 0xBF3F5C / 0xBF3F68: `S_VortexBaseMultiRing`, `S_Volcano_Base`,
+      `S_VortexBaseAlphacopy`, `S_Volcano_Base_Alpha`.
+  - `HasAlphaFlag(stem)` acepta el nombre del color y el del alfa (el mismo más `a`), sin distinguir mayúsculas.
+- **`human_shadow.raw`** no está en la lista. `fn_0081FAA0` crea su propia textura 0x44 (0x81FC58) y lee 0x400 bytes
+  (0x81FC86). Escribe texel = (v & 0xF0) << 8 (`and cl,0xF0 / mov bh,cl`, 0x81FCDD..0x81FCEC): alfa `Quantize(v)` y
+  RGB 0. Es el mismo corte, con su propia entrada (`k_HumanShadowStem`).
+- **Pieles L3D**: se copian tal cual (`rep movsd` 0x837B41), porque ya vienen en 4444. Con la bandera de malla 0x10000
+  (`test edi,edx` 0x80656D) serían RGB555 (ver [Pendiente](#pendiente)).
+
+**openblack.**
+- `Texture2DLoader` (FromDiskTag, `Resources/Loaders.cpp`) corta con `Cut` al cargar:
+  - cada `.raw` cuyo nombre cumple `HasAlphaFlag` y mide 0x30000 (color) o, si es el alfa (el color más `a`), mide
+    0x10000 y su color hermano existe y mide 0x30000 (aproximado: el original solo mira el color; un alfa de otro
+    tamaño no se corta aquí);
+  - y `human_shadow`.
+- openblack guarda `x.raw` y `xa.raw` como dos texturas. Cada una se corta por separado, y el filtro lineal de bgfx
+  trabaja ya sobre los 16 niveles, como D3D.
+- Con el mod `graphics.terrain-x2` (opción `upscale`), el mar se corta después del Lanczos.
+- `PackRaw` lo usa el small bump (`LandIsland.cpp`), que junta color y alfa en una textura. Un alfa más corto toma
+  la cola del flujo de color y uno más largo se trunca, como `LHLoadData`; un color que no mida 0x30000 se rechaza
+  (aproximado: el original iría por DDS).
+- Las copias que solo expanden nibbles ya hechos usan `Expand` (`CoastAlpha.cpp`, `GameFont.cpp`) o `Unpack`
+  (`BlockTexture.cpp`).
+- Shaders:
+  - `fs_blob.sc` ya no cuantiza. Antes hacía floor(v/17) tras el filtrado: un nivel menos en 120 de los 256 valores y
+    el degradado en escalones. Ahora la mancha sale algo más oscura y sin escalones.
+  - `fs_land_alpha.sc` mantiene el redondeo a 16 niveles (floor(a·15 + 0,5)/15) aunque la huella ya es BGRA4: la
+    textura se crea con filtro lineal (`L3DMesh.cpp`) y el redondeo absorbe el error del hardware al muestrear el
+    centro del texel; si el valor ya es exacto, no cambia nada.
+  - `fs_physics_shadow_resolve.sc` (`covered/15`, 0xFA95C4) ya era exacto.
+- Desviación aceptada, como mod: `graphics.smooth-smoke` (desactivado por defecto) deja `smokea.raw` con sus 8 bits
+  (ver [map-loading.md](map-loading.md) y [mod-library.md](mod-library.md#graphicssmooth-smoke)).
+- Quien usa estas texturas recibe ya los 16 niveles: también el brillo de las luces nocturnas (`NightLights.cpp`
+  carga `S_Firea` y `smokea`), los anillos de agua y las bocanadas de los barcos.
 
 ## Mods gráficos
 
@@ -272,8 +359,14 @@ de la textura de bloque**.
   columnas en float caen al otro lado de un entero que los double de Python). La alineación es la suavizada del cielo (`Renderer::_skyAlignment`, [0xBF3378]).
   El tipo de cielo de la columna es el muestreo del fotograma [0xFA26BC] (`sky_type::Frame()`; columna
   `sky_type::LightColumn` = (2 − T)·15, neblina `sky_type::HazeFactor`, ver
-  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype)); `Build` lo recibe todavía en el convenio
-  viejo de openblack (2 − T) por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`.
+  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype)); `Build(T, …)` lo recibe tal cual. El
+  original calcula la columna con `Time2SkyType([0xFA26C4])` (0x869859) y la neblina con [0xFA26BC] (0x869D5F): es
+  el mismo valor, porque `fn_00869850` corre en `fn_0086A330` justo tras `fn_0086A2C0` (DrawSky 0x5E2226..0x5E222B).
+  Con el convenio viejo (2 − T por el reenviador) la tabla salía idéntica a toda hora (misma columna en float);
+  solo cambian los últimos bits de near/far: v'² = v·v y luego `v'²·c + base` (0x869D7A..0x869DAB) en vez de
+  `base + c·v·v` con v = 1 − |S − 1|, y las constantes exactas del exe [0x9A3BE0] = 1/900, [0x9A3BD8] =
+  0,00013888883, [0x9A3B70] = 1/15, [0x9A3BD4] = 1/350 en vez de 0,00111111 / 0,000138889 / 0,0666667 /
+  0,00285714 (`test_land_light`, `LandLightTable.MatchesTheOldConventionEveryHour`).
 
 ## Neblina de distancia (original, detalle "Fog", niveles 3–6)
 
@@ -291,7 +384,104 @@ de la textura de bloque**.
 - Valores (neutral, despejado): mediodía near 400 far 900 k 211 color (63, 70, 65); ocaso 100/800 k 120 (56, 37,
   31); medianoche 400/900 k 81 (16, 24, 28). Referencia:
   `tmp_dis\render\haze_calc.py`.
-- openblack: `LandLightTable::GetHaze`, `u_haze` / `u_hazeColour` en `vs_terrain` y `vs_object`.
+- openblack: una sola API, `graphics::haze` (`src/Graphics/Haze.{h,cpp}`) y `assets/shaders/haze.sh` (ver la
+  sección siguiente). Fiel en el redondeo: `f = 256 − ftol((256 − k)·t)` (0x7FEBC3), difuso `(c·f) >> 8` por byte con
+  el alfa conservado (0x7FEBED), color con `fistp` (al par, 0x7FEC4A), clase 2 con el color truncado [0xE9B6D8]
+  (0x874C48, empaquetado en 0x7FEB26) y suma saturada.
+
+## Neblina y luz de la tierra: la API común
+
+**Original.** Una fórmula de neblina con tres implementaciones (objetos `fn_007FEB30`, tierra x87 `fn_00874AA0`,
+tierra SSE `fn_007A1800`) y cuatro maneras de tomar la luz de la tierra bajo un objeto, que no se funden:
+
+| Rutina | Qué hace | Usuarios |
+|---|---|---|
+| `fn_00801C90` (SSE `fn_007A3EC0`) | bilineal **entera** de 4 celdas: pesos `ftol(frac·256)` [0x8D45CC], primero en z (+0x08) y luego en x (+0x88), `a + ((b − a)·w >> 8)` por byte; fuera del mapa tabla[255] y especular 0xFF000000 (0x8020F8) | casi todos los modelos (48 llamadas) |
+| `fn_00802120` (SSE `fn_007A4170`) | la misma, con pesos `CellX >> 8` y `CellZ >> 8` (0x802206, 0x802237): **casi sin interpolar** | `Tree::Draw` 0x74AB1B (y la neblina en 0x74AB60), `Scaffold::Draw` 0x6EA6CA, `TownArtifact::Draw` 0x51CB14 |
+| `GetAltitudeAndSetColorSpecular` 0x803340 | la celda sola (0x8033FA..0x803413), sin neblina | `WorshipSite::Draw` 0x519460 (salvo si arde: con `Object +0x44`, el FireEffect, va por `fn_00518050` → `fn_0080BEC0`, bilineal y neblina; 0x5193FF..0x51940A), `SpellIcon::Draw` 0x5196CC, `Totem::Draw` 0x51ACD1 |
+| [0xEDDD08] = tabla[255] | luz fija | `Dove::Draw` 0x41F75B, `CitadelHeart` 0x466958, nubes `fn_005E1DE0`, mar `fn_00879930` |
+
+Clase de neblina de cada bloque (`fn_00877210` 0x87743D..0x87749B): la profundidad de las 8 esquinas de su caja
+(0x877232..0x877370, una por caso de la tabla de saltos 0x877D04: centro +0x90C / +0x910 + 80 [0x8D060C] ± 80; en y,
+de 0 a `fild(+0x924)` × 0,67 [0xC3720C], o ± esa altura con [0xE9CD8C]). (inferido) +0x924 es
+`LNDBlock::highestAltitude` y [0xE9CD8C] la clave de detalle LandRef.
+Bit 2 si una esquina pasa de far, bit 1 si está en (near, far]. Clase 0 con Fog apagado o sin bits, 1 si hay algún
+bit 1, si no 2.
+
+**Sellos de luz y sombra en la tierra.** No hay una textura aparte: se escriben en las celdas del LandBlock.
+- `fn_0086CFF0(pos, texels, pitch, centrar, alfa, modo, máximo)` → `fn_0086CF50`: hasta 200 sellos (0x86CFF5) en la
+  lista 0xFA2920 (0x34 bytes, cuenta [0xFA51C0]). El alfa × 255 se recorta y pasa por `ftol`. Con `centrar`, la
+  posición retrocede (pitch − 1)·5 [0x8AB6E4] en x y z.
+- `fn_005E5830` → `fn_0086D360` (0x5E592F) aplica la lista con `fn_0086D060`: celda `ftol(x·0,1)`, peso
+  `fistp(255 − frac·255)` & 0xFF, recorte a 0x200 celdas y solo bloques con +0x920 & 4. Los modos 1..8 de la tabla
+  0x86D338 solo fijan un bpp (3, 1, 1, 1, 1, 1, 1, 4); solo el 1 y el 2 estampan.
+  - Modo 2, sombra (`fn_00878C70`): bilineal del mapa (z con wz, luego x con wx), `v = 255 − (255 − r)·alfa/255`
+    (0x80808081), **suelo 0x30** (0x878DAD) y luminosidad = **mín**(luminosidad, v) (0x878DBD..0x878DC6).
+  - Modo 1, luz (`fn_00878780`): por canal, `v = r·alfa/255` sumado al color de la celda con tope 0xFF (0x878B09), o
+    el máximo si el último argumento no es 0 (0x87890D). El R del mapa va al rojo del D3DCOLOR.
+- `ClearLight` 0x5E57B0 → `fn_0086D460`: `fn_00878700` deja color 0 y luminosidad = byte +5 (que en los .lnd vale lo
+  mismo que el +3: comprobado en Land1, Land2 y Norse) y vacía la lista (0x86D487).
+- Llamadores:
+  - PSysLightMaps `fn_006CA280`: + (10, 0, 10) [0x8AB414], centrado, modo 1 con bpp 3 y 2 con bpp 1. Lo alimentan
+    `ParticleLightMap::DrawAt` 0x67B220, la sombra de las nubes PSys (0x67A7BE, `GetBitmap` 0x6AA540) y `FireGraphic`
+    (0x731633).
+  - Las nubes del mapa, `fn_005E25C0` 0x5E2800: sclouds.raw de 40, sin centrar, modo 2. Cubre pitch − 1 = 39
+    celdas. Las filas del mapa van a lo largo de x (`fn_0086D060` 0x86D1EC avanza `ix·pitch·bpp`) y los bytes a lo
+    largo de z (`fn_00878C70` 0x878DD1): la sombra queda **traspuesta** respecto a la de antes de U5, que leía
+    `image[z·40 + x]` y cubría 41 celdas.
+  - La sombra de la tormenta, `GWeather::DrawClouds` 0x8400C6: sstorm.raw de 40, centrada, modo 2, s = (negrura +
+    0,7)·fundido.
+  - El destello, `fn_00837200` 0x837278: el mapa radial 0xED92F0 de 64, modo 1.
+  - `DanceLight` 0x50F919: sin portar.
+
+**openblack.**
+- `graphics::haze`: `Params` (los 7 globales), `Frame()` (la clave Fog en un solo sitio), `ApplyObject` =
+  `fn_007FEB30`, `BlockClass` = `fn_00877210`, `ApplyVertex` = `fn_00874AA0` y `Uniforms`. `haze.sh`: `HazeT`,
+  `HazeFactor`, `ApplyHazeDiffuse`, `HazeColour` (al par), `HazeColourFull` y `HazeAddSaturated`.
+- `land_light` (`src/3D/LandLight.{h,cpp}`, `assets/shaders/land_light.sh`): las celdas del fotograma (`BeginFrame`,
+  `ApplyStamps`), `At` / `AtCellShift` / `AtCell` / `FullLight`, `AddStamp` / `ApplyStamp` y `LoadBitmapFile` (lee
+  el archivo y lo pasa a `graphics::frame_anim::LoadBitmapFromFile` = `GJBitmap::LoadBitmapFromFile` 0x57CA90, con el
+  reparto de fotogramas de `fn_0057CB40`; `frame_anim::FrameTexels` da un fotograma, 0x6CA2E3). `Renderer::UpdateClouds`
+  sube las celdas como una textura RGBA (color y luminosidad) que leen `vs_terrain` y `vs_object`.
+- La clase de neblina de cada bloque: `haze::BlockCorners` (las 8 esquinas) y `haze::BlockClassOf`.
+- `vs_object`: `u_objectLight.w` = sin neblina + 2 × `land_light::ObjectMode` por malla
+  (`RenderContext::meshLandLight`). Los árboles van con `CellShift` y neblina; los lugares de culto (si no arden) y
+  los iconos, con `Cell` y sin neblina; la clase Dove, con `Full` y sin neblina (`Dove::Draw` solo escribe +0x4C;
+  (inferido) +0x50 queda a 0).
+- `vs_terrain`: la luz y el color de la celda del fotograma, y la neblina según la clase del bloque (`u_hazeBlock`).
+- La sombra de las nubes del mapa ya no es un tope aparte: son sellos de modo 2 (`Clouds::StampShadows`).
+- Las luces nocturnas (`night_lights`, `fn_008229B0`) escriben en la luminosidad del fotograma, después de los
+  sellos. `fn_008229B0` lee el byte +3 de la celda y lo escribe directamente (0x822D9D, 0x822DC3). Antes de U5 se
+  recortaban con `min(luminosidad cargada, tope)`, así que una luz no subía una celda de luminosidad < 48; ahora sí.
+- `PSys/Creators/LightMap` ya no es un sprite plano: estampa en la tierra (`light_map_atoms::SubmitFrame`, una vez por
+  fotograma: un registro por átomo, como `DrawAt` 0x67B220). Cada átomo recorre los fotogramas del mapa
+  (`LightMapCreator::InitAtom` = `CreateParticleLightMap` 0x6A9DEF..0x6A9E16: FrameRate a +0x110, NumFramesInUse a
+  +0x114, PlayAnim a +0x118), así que la luz se apaga; parado en el fotograma 0, el rayo dejaba el suelo en blanco. El temblor `UseRandJitter` sale de
+  `grand_local::LocalFloatRand` (`src/3D/LH3DRandom.h`, el mismo que usa `FireGraphic`): el 1.º sorteo va a z, el 2.º
+  a y y el 3.º a x (0x67B264..0x67B2A3).
+
+**Diferencias que quedan.**
+- (aproximado) Se estampan todos los bloques, no solo los que se dibujan en el fotograma (+0x920 bit 4).
+- (aproximado) Fuera del mapa, o con c00 en un bloque que falta, la bilineal del shader trata cada celda como sin
+  bloque (luminosidad 255, color 0), en vez de dar tabla[255] y 0xFF000000 a toda la muestra (0x801D17..0x801D43 →
+  0x8020F8).
+- (inferido) En `FireGraphic`, `Object +0x24 & 2` = objeto del mapa y +0x98 = la posición del objeto.
+- (aproximado) En `FireGraphic`, el ruido de dos senos (`VLNoise` 0x590C30 sin portar), sin la fracción del turno, y
+  el id del fuego en vez de `this & 0xFFFF`.
+- (aproximado) Un modo de luz por malla, no por instancia: si dos clases comparten malla (un `DeadTree` o `FelledTree`,
+  que usan `fn_00801C90`, con la de un árbol vivo), gana el modo especial y se avisa una vez en el registro.
+- (aproximado) `grand_local::LocalRand` / `LocalFloatRand` usan otro generador que `LHRand`.
+- PLAUSIBLE, sin hacer: el reflejo bajo el agua (`vs_object` x = 3) va sin neblina, pero el original guarda en +0x4C /
+  +0x50 la luz ya con neblina (`MobileObject::Draw` 0x51818E, `PhysicsObject::DrawAll` 0x646FB1), que
+  `DrawUnderWater` reutiliza.
+- Pendiente: las ramas `vt+0x890 == 0` de `WorshipSite::Draw` y `SpellIcon::Draw` (0x5193D9, 0x519658 →
+  `DrawBuilding`) y la rama +0x10C de `SpellIcon::Draw` (0x519672, sin leer).
+- Pendiente: `RendererSea.cpp:164` lee tabla[255] con `GetColour(255)` y no con `land_light::FullLight` (el mar es de
+  la sesión «shaders»).
+- (inferido) Los modos «celda >> 8» y «una celda» solo se dan a `Tree`, `WorshipSite` y `SpellIcon`: los andamios, los
+  artefactos y los tótems aún no tienen componente propio.
+- Pendiente: la «luz sin neblina» de `DrawBuilding` 0x517FB2 y `PetitNavire`, los sprites UseLandscapeColor
+  (0x67AFD9) y `RenderParticleGJMesh` (0x67C184).
 
 ## Cámara
 
@@ -495,6 +685,16 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
 - Texto: los demás mensajes (al pasar sobre montones y almacenes, "Recoger"...); el margen del texto respecto a la
   mano es una estimación.
 - Ríos: el sonido `ATMOS_TYPE_RUNNING_WATER` (sin analizar, ver [water.md](water.md#audio-del-agua)).
+- [Texturas ARGB4444](#texturas-argb4444), lo que falta:
+  - `sun.raw` (flags 1) va en el original por la rama 555, con 5 bits por canal (>> 3); openblack no lo corta.
+  - `ChallengeScroll.raw` (0x44, textura de tipo 4 en memoria): cómo la rellena el juego no está leído.
+  - Las pieles L3D con la bandera 0x10000 (`L3DMeshFlags::Unknown17`) deberían subirse en X1R5G5B5 y no en BGRA4
+    (`L3DMesh.cpp`). Solo `Data\d_sky.l3d` la lleva y openblack no lo carga, así que hoy no se ve. Las mallas de
+    `AllMeshes.g3d` no están revisadas (inferido).
+  - La reducción a la mitad de `[0xEDD470]` con fmt ≠ 3 (paso 6 y salto 0x300, 0x8374BB/0x8374C3): el píxel de arriba
+    a la izquierda de cada 2×2, a 128. No está portada.
+  - Los mapas de luz de `Data\Spells\LightMaps` (`PSys/Creators/LightMap.cpp`) pasan también por `fn_0057DBE0`
+    (inferido) y no se cortan.
 
 ## Ganchos de prueba
 
@@ -502,12 +702,16 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 
 - `OPENBLACK_SEA_TRACE=1` (filas del mar cada 500 fotogramas) y el test `test_sea_rows`.
 - `OPENBLACK_DUMP_BLOCK_TEXTURE` (textura de bloque de la costa) y el test `test_land_light` (tabla de luz).
+- `test_haze_land_light` (neblina, luz de la tierra y sellos); `OPENBLACK_TEST_STORM_CLOUDS`, `OPENBLACK_TEST_SPELL`
+  y `OPENBLACK_TEST_WEATHER` para ver los sellos (sombra de tormenta, luz de rayo y bola de fuego).
 - `OPENBLACK_CLOUD_SEED=<n>`, `OPENBLACK_TIME_OF_DAY=<h>` y `OPENBLACK_TEST_SKY_ALIGNMENT=<-1..1>` (cielo y nubes).
 - `OPENBLACK_TEST_FADE="r,g,b,segundos"` y `OPENBLACK_TEST_WIDESCREEN=1` (fundido y bandas).
 - `OPENBLACK_TEST_TOOLTIP=<n>` (mensaje de la mano).
 
 ## Fuentes
 
+- `dev\tmp_dis\unify2\haze_land_light_{original,openblack}.md`, `dev\tmp_dis\miracles\polish\tormenta_audit.md` y
+  `fuego_audit.md` (sellos), `dev\tmp_dis\unify\U5_changes.md`.
 - `dev\tmp_dis\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,
   `haze_calc.py`, `fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
 - `dev\tmp_dis\agua\`: `sea_render.md`, `sea_coast_alpha.py`, `light_lut_testgen.py`, `re\emu_sea_range.py`,

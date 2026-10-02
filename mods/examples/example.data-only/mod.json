@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "example.data-only",
+  "name": { "en": "Data only", "es": "Solo datos" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A mod without code, only this mod.json: an option bound to engine switches, a switch set while it is on, and \"replace\" (here empty: a mesh, a texture or an object of info.dat would go there, see the wiki). The template for a data mod.",
+    "es": "Un mod sin código, solo este mod.json: una opción atada a interruptores del motor, un interruptor puesto mientras está activo y «replace» (aquí vacío: ahí irían una malla, una textura o un objeto de info.dat, ver la wiki). La plantilla de un mod de datos."
+  },
+  "api": ">=1.0 <2.0",
+  "switches": { "water.living": true },
+  "options": [
+    {
+      "id": "grass", "label": { "en": "Grass", "es": "Hierba" },
+      "values": ["none", "some", "a lot"], "default": "none",
+      "bind": { "world.foliage.density": { "some": 1.0, "a lot": 4.0 } }
+    }
+  ],
+  "replace": {
+    "meshes": {},
+    "textures": {},
+    "objects": {}
+  }
+}

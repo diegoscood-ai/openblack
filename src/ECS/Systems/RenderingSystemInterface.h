@@ -16,6 +16,7 @@
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "3D/LandLight.h"
 #include "Graphics/GraphicsHandle.h"
 #include "Graphics/Mesh.h"
 
@@ -60,6 +61,10 @@ struct RenderContext
 	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
 	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
 	std::unordered_map<uint32_t, glm::vec3> sortPoints;
+	/// How the models of a mesh take the land light (land_light::ObjectMode): the plain models fn_00801C90 +
+	/// fn_007FEB30, trees, worship sites, spell icons, the Dove class; one per mesh (RenderingSystem LandLightOf),
+	/// refilled at every PrepareDraw
+	std::unordered_map<entt::id_type, land_light::ObjectLight> meshLandLight;
 	/// Where each entity's model matrix is this frame
 	struct EntityInstance
 	{

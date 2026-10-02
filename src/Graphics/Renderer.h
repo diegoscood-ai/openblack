@@ -33,6 +33,7 @@
 #include "3D/Clouds.h"
 #include "ECS/ChimneySmoke.h"
 #include "ECS/Weather/Rain.h"
+#include "Graphics/Haze.h"
 #include "Graphics/Mists.h"
 #include "Graphics/RenderPass.h"
 #include "PSys/PSysManager.h"
@@ -220,6 +221,7 @@ private:
 	mutable std::unique_ptr<LandLightTable> _landLight;
 	mutable bgfx::TextureHandle _landLightTexture = BGFX_INVALID_HANDLE;
 	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
+	mutable haze::Params _haze;                         ///< the haze of the pass being drawn (graphics::haze::Frame)
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
 	mutable std::unique_ptr<Foliage> _foliage;
@@ -232,13 +234,14 @@ private:
 	mutable glm::vec4 _handShadowParams {0.0f}; ///< x: opacity (max 8/15 x fade), y: ground height
 	mutable std::vector<float> _cloudAlpha;          ///< per cloud 0..255 this frame
 	mutable std::vector<uint8_t> _cloudShadowImage;  ///< sclouds.raw
-	mutable std::vector<uint8_t> _cloudShadowCap;
-	mutable bgfx::TextureHandle _cloudShadowTexture = BGFX_INVALID_HANDLE;
+	/// This frame's land cells (land_light::Texels: the stamps and the night lights in them), the cell map's layout
+	mutable bgfx::TextureHandle _landCellsTexture = BGFX_INVALID_HANDLE;
 	/// The instances of the fish puzzle nets' floats (RendererFishPlot.cpp), made on first use
 	mutable bgfx::DynamicVertexBufferHandle _fishPlotInstances = BGFX_INVALID_HANDLE;
 	mutable uint32_t _fishPlotCapacity {0};
-	mutable glm::u16vec2 _cloudShadowSize {0, 0};
-	/// Moves the clouds, computes their colour / alpha and bakes their shadows into the luminosity cap texture
+	mutable glm::u16vec2 _landCellsSize {0, 0};
+	/// Moves the clouds and computes their colour / alpha; then this frame's land cells (land_light): the stamps of
+	/// fn_0086D360 with the clouds' shadows among them, the night lights, uploaded to _landCellsTexture
 	void UpdateClouds() const;
 	mutable glm::vec3 _cloudRgb {1.0f};
 	mutable SkyAlignment _skyAlignment;       ///< [0xBF3378], moved towards the target every frame

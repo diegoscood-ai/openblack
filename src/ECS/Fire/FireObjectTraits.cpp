@@ -18,13 +18,19 @@
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Feature.h"
+#include "ECS/Components/FishFarm.h"
+#include "ECS/Components/Footpath.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/MagicFireBall.h"
 #include "ECS/Components/MagicTree.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/MagicTeleport.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
@@ -225,6 +231,14 @@ bool fire::traits::IsAvailable(entt::entity object)
 bool fire::traits::IsObjectInMap(entt::entity object)
 {
 	return !Locator::entitiesRegistry::value().AllOf<MagicFireBall>(object);
+}
+
+bool fire::traits::IsMultiMapFixed(entt::entity object)
+{
+	// (aproximado) CitadelPart, PFootball and PrayerSite have no component of their own in openblack yet
+	return Locator::entitiesRegistry::value()
+	    .AnyOf<Abode, Field, Footpath, BigForest, Feature, FishFarm, MobileStatic, TotemStatue, SpellIcon, MagicTeleport>(
+	        object);
 }
 
 bool fire::traits::IsVillager(entt::entity object)

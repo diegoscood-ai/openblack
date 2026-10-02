@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "example.lua-hello",
+  "name": { "en": "Lua hello", "es": "Hola Lua" },
+  "version": "1.0.0",
+  "category": "Examples",
+  "authors": ["openblack"],
+  "description": {
+    "en": "A Lua mod (scripts/main.lua): events, options, engine switches, enumerations and the world, all written to the Log tab. The template for a script mod.",
+    "es": "Un mod Lua (scripts/main.lua): eventos, opciones, interruptores del motor, enumeraciones y el mundo, todo escrito en la pestaña Log. La plantilla de un mod con script."
+  },
+  "api": ">=1.0 <2.0",
+  "entry": { "lua": "scripts/main.lua" },
+  "options": [
+    { "id": "greeting", "label": { "en": "Greeting", "es": "Saludo" },
+      "values": ["hello", "hola", "bonjour"], "default": "hola" }
+  ]
+}

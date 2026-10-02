@@ -9,6 +9,8 @@
 
 #include "Game.h"
 
+#include <cstring>
+
 #include <sstream>
 #include <string>
 
@@ -41,6 +43,7 @@
 #include "Audio/Audio.h"
 #include "Audio/AudioManagerInterface.h"
 #include "Audio/GameMusic.h"
+#include "Audio/Guidance.h"
 #include "Audio/LanternSounds.h"
 #include "Audio/MusicStream.h"
 #include "Audio/ScriptAudioState.h"
@@ -48,6 +51,7 @@
 #include "Audio/SamplePlay.h"
 #include "Audio/SoundMap.h"
 #include "Audio/SoundTags.h"
+#include "Audio/SpookyVoices.h"
 #include "CHLApi.h"
 #include "Camera/Camera.h"
 #include "Common/EventManager.h"
@@ -67,6 +71,7 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FireFlies.h"
 #include "ECS/Effects/Reactions.h"
+#include "ECS/Influence/Influence.h"
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
 #include "ECS/GroundMarks.h"
@@ -98,8 +103,11 @@
 #include "LandBalance.h"
 #include "Magic/MagicLoop.h"
 #include "Locator.h"
-#include "Mods/BuiltinMods.h"
 #include "Mods/ModRegistry.h"
+#include "Mods/Lua/LuaHost.h"
+#include "Mods/Native/NativeHost.h"
+#include "Mods/Replacements.h"
+#include "Mods/Switches.h"
 #include "Parsers/InfoFile.h"
 #include "Profiler.h"
 #include "Resources/HdTweaks.h"
@@ -165,6 +173,55 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr && helpSystem->IsScriptWideScreen();
 	};
+	// GGuidance (B9): HelpSystem+0x45F8 ? +0x45F4 : 0 (PlayNow 0x71AF99); 3 without a HelpSystem (its defaults)
+	queries.helpLevel = []() {
+		const auto* helpSystem = help::Get();
+		return helpSystem != nullptr ? helpSystem->GetGuidanceLevel() : 3;
+	};
+	// GPlayer::GetPlayerNumber 0x64A790 of the local interface's player: openblack's local player is PLAYER_ONE
+	queries.localPlayerNumber = []() { return static_cast<uint32_t>(PlayerNames::PLAYER_ONE); };
+	// GGameInfo::IsVisualNight 0x5575E0 (HelpSpritesCheckMoonPhase 0x71D1DC)
+	queries.visualNight = [&game]() { return game.GetDayNightClock().IsVisualNight(); };
+	// GInterface+0x3B8 (inferred: the hand's MapCoords, as SoundMap::Dump takes it): the player's first hand
+	queries.handPosition = []() -> std::optional<glm::vec3> {
+		if (!Locator::handSystem::has_value() || !Locator::entitiesRegistry::has_value())
+		{
+			return std::nullopt;
+		}
+		const auto hand = Locator::handSystem::value().GetPlayerHands()[0];
+		auto& registry = Locator::entitiesRegistry::value();
+		if (!registry.Valid(hand))
+		{
+			return std::nullopt;
+		}
+		const auto* transform = registry.TryGet<const ecs::components::Transform>(hand);
+		return transform != nullptr ? std::optional<glm::vec3>(transform->position) : std::nullopt;
+	};
+	// GGuidance::HelpSpiritSay 0x71D270: HelpSystem::RunMessage 0x5C8CE0 and TriggerCategory 0x5C8280
+	queries.helpRunMessage = [&game](uint32_t first, uint32_t last, std::string_view script) {
+		auto* helpSystem = help::Get();
+		return helpSystem != nullptr && Locator::vm::has_value() &&
+		       help::script_control::RunMessage(*helpSystem, first, last, script, chlapi::ScriptVm(), game.GetTurn());
+	};
+	queries.helpTriggerCategory = [](int category) {
+		if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+		{
+			helpSystem->TriggerCategory(category);
+		}
+	};
+	// GSpookyVoices::GetName 0x72E740: the profile's name. (inferred) openblack has no profiles: OPENBLACK_PLAYER_NAME
+	// (ASCII / UTF-8 letters as they are), else none
+	queries.profileName = []() {
+		std::u16string name;
+		if (const char* env = std::getenv("OPENBLACK_PLAYER_NAME"); env != nullptr)
+		{
+			for (const char* c = env; *c != 0; ++c)
+			{
+				name.push_back(static_cast<char16_t>(static_cast<unsigned char>(*c)));
+			}
+		}
+		return name;
+	};
 	return queries;
 }
 } // namespace
@@ -224,11 +281,12 @@ Game::Game(Arguments&& args) noexcept
 	config.vsync = args.vsync;
 	config.detailLevel = args.detailLevel;
 
-	// Mods: the built-in ones and the data mods of <executable>/Mods, with the state saved in each Mods/<mod>/settings.cfg,
-	// then the command line for this session. Applied now so the engine starts with them.
+	// Mods (docs/bw1-notes/mod-library.md): the engine switches they may set, then the mods of <executable>/Mods (and
+	// the ones built into openblack), with the state saved in each Mods/<mod>/settings.cfg, then the command line for
+	// this session. Applied now so the engine starts with them.
 	{
+		mods::switches::RegisterEngineSwitches();
 		auto& mods = Locator::mods::emplace();
-		mods::RegisterBuiltinMods(mods);
 		std::filesystem::path baseDirectory;
 		if (char* base = SDL_GetBasePath(); base != nullptr)
 		{
@@ -237,7 +295,7 @@ Game::Game(Arguments&& args) noexcept
 		}
 		// everything about mods lives in <executable>/Mods, a folder per mod with its settings.cfg (and its files); the
 		// old single mods.cfg (next to the executable, or in Mods) is split into them once
-		mods.DiscoverDataMods(baseDirectory / "Mods");
+		mods.Discover(baseDirectory / "Mods");
 		mods.ImportLegacySettings(baseDirectory / "mods.cfg");
 		mods.ImportLegacySettings(baseDirectory / "Mods" / "mods.cfg");
 		mods.LoadSettings();
@@ -249,14 +307,23 @@ Game::Game(Arguments&& args) noexcept
 			}
 		}
 		mods.ApplyAll();
+		// what the active mods replace (meshes, textures, info.dat objects), read before the game data loads
+		mods::replace::Collect(mods);
+		mods.MarkStarted(); // the Mods window offers a restart when a mod that needs one changes
 	}
 	config.guiScale = args.guiScale;
 }
 
 Game::~Game() noexcept
 {
+	// the mods first, while the engine they talk to (audio included) is still up
+	mods::native::Stop();
+	mods::lua::Stop();
 	// GAudio::ToBeDeleted 0x426FE0: the sample channels, then GAudio's music before LHMusic, then the music thread and
 	// its OpenAL sources before the audio context (LHMusicClose 0x1000E7A0)
+	// GInterfaceStatus::UnInit 0x5DD226 -> GGuidance::Close; fn_0054EB40 0x54EC24 -> fn_0072E280 (GSpookyVoices' options)
+	audio::guidance::Close();
+	audio::spooky::Shutdown();
 	audio::Shutdown();
 	audio::game_music::Shutdown();
 	audio::music::Shutdown();
@@ -497,12 +564,19 @@ bool Game::GameLogicLoop() noexcept
 		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
+		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
+		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Guidance.h
+		audio::guidance::ProcessGameTurn();
 		audio::ProcessTurn(_dayNightClock->GetSkyType(), turn);
 		audio::AnimationSounds::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
 	ecs::effects::reactions::EndTurn();
+
+	// mods: their turn event, at the end of the game's turn (the turn of game_clock, as it began)
+	mods::lua::OnTurn(turn);
+	mods::native::OnTurn(turn);
 
 	return false;
 }
@@ -528,6 +602,9 @@ bool Game::Update() noexcept
 	Locator::debugGui::value().SetScale(config.guiScale);
 	// mod graphics.hd-tweaks changed in the Mods menu: its villager textures and meshes, before anything uses them
 	resources::hd_tweaks::Update();
+	// mods: their frame event
+	mods::lua::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
+	mods::native::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
 
 	// Physics
 	{
@@ -719,6 +796,17 @@ bool Game::Update() noexcept
 			auto handPlace = profiler.BeginScoped(Profiler::Stage::HandPlace);
 			Locator::handSystem::value().Place(overLand ? std::optional(intersectionTransform.position) : std::nullopt,
 			                                   camera.GetForward(), _handGripping, deltaTime);
+
+			// fn_0x005e5cd0 0x5E61A1..0x5E61B5: after the landscape and the hand are placed, the hand's point
+			// ([0xE9A100], written by GLandscape::Draw 0x5E4395) goes to fn_00827820 unless the game is paused
+			// (g_game+0x14 & 4, 0x5E61A6): crossing a player's influence circle rings G_HandThroughInfluence_01.
+			if (!game_clock::IsPaused())
+			{
+				if (const auto& hands = Locator::handSystem::value().GetPlayerHandPositions(); hands[0].has_value())
+				{
+					influence::ProcessHandCrossing(*hands[0]);
+				}
+			}
 		}
 
 		// Update Entities
@@ -901,13 +989,44 @@ bool Game::Initialize() noexcept
 	for (size_t i = 0; const auto& mesh : meshes)
 	{
 		const auto meshId = static_cast<MeshId>(i);
-		meshManager.Load(meshId, resources::L3DLoader::FromBufferTag {}, k_MeshNames.at(i), mesh);
+		// a modded pack may have more meshes than openblack has names for
+		const auto name = i < k_MeshNames.size() ? k_MeshNames[i] : fmt::format("Mesh{}", i);
+		// a mod's mesh (mod.json "replace": {"meshes": ...}, Mods/Replacements.h) instead of the pack's
+		if (const auto file = mods::replace::Mesh(i))
+		{
+			try
+			{
+				meshManager.Load(meshId, resources::L3DLoader::FromDiskTag {}, *file);
+				++i;
+				continue;
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: mesh {} from {}: {}", name, file->generic_string(),
+				                    error.what());
+			}
+		}
+		meshManager.Load(meshId, resources::L3DLoader::FromBufferTag {}, name, mesh);
 		++i;
 	}
 
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
+		// a mod's image (mod.json "replace": {"textures": {"pack:<id>": ...}}) instead of the pack's texture
+		if (const auto image = mods::replace::PackTexture(g3dTexture.header.id))
+		{
+			try
+			{
+				textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromImageTag {}, name, *image);
+				continue;
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: texture {} from {}: {}", name, image->generic_string(),
+				                    error.what());
+			}
+		}
 		resources::hd_tweaks::LoadTexture(hdTextures, name, g3dTexture);
 	}
 
@@ -1144,7 +1263,17 @@ bool Game::Initialize() noexcept
 			SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Failed to load game info data.");
 			return false;
 		}
-		Locator::infoConstants::reset(result.release());
+		if (mods::replace::HasObjectPatches())
+		{
+			// mods change objects of info.dat (mod.json "replace": {"objects": ...}) before it is published as const
+			auto patched = std::make_unique<InfoConstants>(*result);
+			mods::replace::PatchObjects(*patched);
+			Locator::infoConstants::reset(patched.release());
+		}
+		else
+		{
+			Locator::infoConstants::reset(result.release());
+		}
 	}
 
 	// GAudio's music (the banks of 0x9C9748, fn_00426D40), with the town distances of info.dat (0xD9A934 / 0xD9A938)
@@ -1152,6 +1281,20 @@ bool Game::Initialize() noexcept
 		const auto& sound = Locator::infoConstants::value().sound;
 		audio::game_music::Start(MakeMusicQueries(*this), {sound.townTriggerDistance, sound.townTriggerOffDistance});
 	}
+
+	// GGuidance's HELP_SPRITES_GUIDANCE lists (info.dat GHelpSpritesGuidance, the objects 0xD99BD8 + 0x98 k)
+	{
+		std::array<audio::guidance::SpriteList, audio::guidance::k_SpriteLists> lists {};
+		const auto& guidance = Locator::infoConstants::value().helpSpritesGuidance;
+		static_assert(sizeof(guidance[0]) == sizeof(lists[0]), "GHelpSpritesGuidance is 34 HELP_TEXT ids");
+		for (size_t k = 0; k < lists.size() && k < guidance.size(); ++k)
+		{
+			std::memcpy(lists.at(k).data(), &guidance.at(k), sizeof(lists[0]));
+		}
+		audio::guidance::SetSpriteLists(lists);
+	}
+	// GGame::InitOneTimeOnly 0x54F024: GSpookyVoices::Init (the help texts and the voice table are ready)
+	audio::spooky::Init();
 
 	// HelpSystem::CallVirtualFunctionsForCreation 0x5C5860: HelpDudeControl::Init with the HelpSprites bank for both
 	// advisors (fn_005C3660 -> fn_005BB060); the models MarkGood.Hd / MarkEvil.Hd are not ported
@@ -1201,13 +1344,35 @@ bool Game::Initialize() noexcept
 		            std::move(hooks));
 	}
 
-	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false, [&textureManager](const std::filesystem::path& f) {
+	// a mod's image or .raw for Data/Textures/<stem>.raw (mod.json "replace": {"textures": {"raw:<stem>": ...}}),
+	// loaded under the game's own name; the ones the game does not have are added after
+	const auto loadRaw = [&textureManager](const std::string& stem, const std::filesystem::path& file) {
+		const auto key = fmt::format("raw/{}", stem);
+		if (string_utils::LowerCase(file.extension().string()) == ".png")
+		{
+			textureManager.Load(key, resources::Texture2DLoader::FromImageTag {}, key, file);
+		}
+		else
+		{
+			textureManager.Load(key, resources::Texture2DLoader::FromDiskTag {}, file);
+		}
+	};
+	std::vector<std::string> rawLoaded;
+	fileSystem.Iterate(fileSystem.GetPath<Path::Textures>(), false,
+	                   [&textureManager, &loadRaw, &rawLoaded](const std::filesystem::path& f) {
 		if (string_utils::LowerCase(f.extension().string()) == ".raw")
 		{
 			SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading raw texture: {}", f.stem().string());
 			try
 			{
-				textureManager.Load(fmt::format("raw/{}", f.stem().string()), resources::Texture2DLoader::FromDiskTag {}, f);
+				const auto stem = f.stem().string();
+				rawLoaded.push_back(string_utils::LowerCase(stem));
+				if (const auto replacement = mods::replace::RawTexture(stem))
+				{
+					loadRaw(stem, *replacement);
+					return;
+				}
+				textureManager.Load(fmt::format("raw/{}", stem), resources::Texture2DLoader::FromDiskTag {}, f);
 			}
 			catch (std::runtime_error& err)
 			{
@@ -1215,6 +1380,20 @@ bool Game::Initialize() noexcept
 			}
 		}
 	});
+	for (const auto& stem : mods::replace::RawTextureNames())
+	{
+		if (std::ranges::find(rawLoaded, string_utils::LowerCase(stem)) == rawLoaded.end())
+		{
+			try
+			{
+				loadRaw(stem, *mods::replace::RawTexture(stem));
+			}
+			catch (const std::exception& error)
+			{
+				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Mods: raw texture {}: {}", stem, error.what());
+			}
+		}
+	}
 
 	return true;
 }
@@ -1222,6 +1401,11 @@ bool Game::Initialize() noexcept
 bool Game::Run() noexcept
 {
 	auto& config = Locator::config::value();
+
+	// mods: the Lua scripts of the active mods run once the engine is up, before the first land (so they see its
+	// land_loaded)
+	mods::lua::Start(Locator::mods::value());
+	mods::native::Start(Locator::mods::value());
 
 	if (!LoadMap(_startMap))
 	{
@@ -1383,6 +1567,11 @@ bool Game::Run() noexcept
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Requesting a screenshot at frame {}...", _frameCount);
 				Locator::rendererInterface::value().RequestScreenshot(_requestScreenshot->second);
+				// test hook OPENBLACK_SCREENSHOT_GUI=1: the debug UI (menus, the Mods window) in the screenshot too
+				if (std::getenv("OPENBLACK_SCREENSHOT_GUI") != nullptr)
+				{
+					Locator::debugGui::value().Draw();
+				}
 			}
 			else
 			{
@@ -1533,8 +1722,16 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	// too), then the start of GGame::Loop: the timer from 0 and ResetLocalGameTimer
 	game_clock::SetTurn(0);
 	game_clock::OnLoad();
+	// GInterfaceStatus::Init 0x5DD1CB -> GGuidance::Init 0x71AC70 (its turn is the new land's), and GGame::Init 0x54FD10
+	// -> GSpookyVoices::GetPlayerName 0x72E870
+	audio::guidance::Init();
+	audio::spooky::UpdatePlayerName();
 	// The original runs from the first frame; OPENBLACK_START_PAUSED=1 keeps openblack's old paused start (test hook)
 	game_clock::Start(std::getenv("OPENBLACK_START_PAUSED") != nullptr);
+
+	// mods: the land is ready (their land_loaded event)
+	mods::lua::OnLandLoaded(path.stem().string());
+	mods::native::OnLandLoaded(path.stem().string());
 
 	return true;
 }

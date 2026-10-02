@@ -56,6 +56,10 @@ namespace openblack::ecs::fire::traits
 [[nodiscard]] bool IsAvailable(entt::entity object);
 /// Object::IsObjectInMap (vt 0x178): a MagicFireBall is not (InsertMapObject is empty)
 [[nodiscard]] bool IsObjectInMap(entt::entity object);
+/// Object +0x24 bit 1: set only by the MultiMapFixed ctor 0x52E1F0 (0x52E207 `or byte [esi+0x24], 2`, its only
+/// writer in .text). The classes (bw1-decomp src/Black/*.h): Abode (Field, Footpath...), BigForest, CitadelPart, Feature,
+/// FishFarm, MobileStatic (MagicTeleport, street lanterns), PFootball, PrayerSite, SpellIcon, TotemStatue
+[[nodiscard]] bool IsMultiMapFixed(entt::entity object);
 [[nodiscard]] bool IsVillager(entt::entity object);
 [[nodiscard]] bool IsCreature(entt::entity object);
 /// Object +0x24 bit 2: in the hand (GetPlayerHoldingThis 0x63A190 gives the holder)

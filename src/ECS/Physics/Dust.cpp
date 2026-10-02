@@ -23,6 +23,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
@@ -93,9 +94,9 @@ void Dust::Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size)
 	{
 		return;
 	}
-	const float a = static_cast<float>((argb >> 24) & 0xFF) / 255.0f;
-	const glm::vec3 rgb(static_cast<float>((argb >> 16) & 0xFF) / 255.0f, static_cast<float>((argb >> 8) & 0xFF) / 255.0f,
-	                    static_cast<float>(argb & 0xFF) / 255.0f);
+	const glm::vec4 colour = lh3d_colour::ToVec4(argb);
+	const float a = colour.a;
+	const glm::vec3 rgb(colour);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
 	const auto seed = static_cast<uint32_t>(Locator::rng::value().NextValue(0, 15));

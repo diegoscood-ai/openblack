@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "world.foliage",
+  "name": { "en": "Grass and flowers", "es": "Hierba y flores" },
+  "version": "1.0.0",
+  "category": "World",
+  "authors": ["openblack"],
+  "description": {
+    "en": "Grass, flowers, rushes and bushes over the landscape, chosen by the ground's material, altitude and slope (rules and images in Mods/world.foliage); crop fields can grow wheat plants instead of their mesh. Its modules (beach, butterflies...) add more.",
+    "es": "Hierba, flores, juncos y matorrales sobre el terreno, según el material del suelo, la altura y la pendiente (reglas e imágenes en Mods/world.foliage); los campos de cultivo pueden crecer como trigo en vez de su malla. Sus módulos (playa, mariposas...) añaden más."
+  },
+  "api": ">=1.0 <2.0",
+  "provides": ["foliage.v1"],
+  "options": [
+    {
+      "id": "density", "label": { "en": "Density", "es": "Densidad" },
+      "values": ["low", "medium", "high", "very high"], "default": "medium",
+      "bind": { "world.foliage.density": { "low": 0.5, "medium": 1.0, "high": 2.0, "very high": 4.0 } }
+    },
+    {
+      "id": "distance", "label": { "en": "Draw distance", "es": "Distancia de dibujo" },
+      "values": ["near", "medium", "far"], "default": "medium",
+      "bind": { "world.foliage.distance": { "near": 120, "medium": 200, "far": 320 } }
+    },
+    {
+      "id": "fields", "label": { "en": "Crop fields", "es": "Campos de cultivo" },
+      "values": ["wheat", "original"], "default": "wheat",
+      "bind": { "world.foliage.fields": { "wheat": true } }
+    }
+  ]
+}

@@ -32,6 +32,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandLight.h"
 #include "3D/LandLightTable.h"
 #include "3D/SkyInterface.h"
 #include "Camera/Camera.h"
@@ -41,8 +42,10 @@
 #include "GameClock.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
+#include "Graphics/Lh3dColour.h"
 #include "Graphics/Mists.h"
 #include "Graphics/ModelLight.h"
+#include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
@@ -60,48 +63,6 @@ constexpr float k_MistSphereScale = 0.55f; ///< [0x8D3E80], LH3DMist::AddDrawing
 
 /// mists::Submit: the other LH3DMist objects of this frame
 std::vector<mists::MistDesc> g_submitted;
-/// What fn_00801C90 leaves in the object: the land light in +0x4C and the cells' own colour in +0x50 (the specular)
-struct LandLightSample
-{
-	glm::vec3 light;    ///< table[cell luminosity], 0..1
-	glm::vec3 specular; ///< the cells' colour, 0..255
-};
-
-/// fn_00801C90: the land light under a point, table[cell luminosity] of the 4 cells around it, bilinear (like the
-/// models' base colour in vs_object); the cells off the map have the full light and no colour. The luminosities are
-/// capped by the cloud shadows when that cap matches the map. The cell's first dword is read as a D3DCOLOR, so the
-/// specular's red is the cell's blue byte (the same swap as vs_object / LandIsland::CreateCellMap).
-LandLightSample LandLightAt(const LandIslandInterface& island, const LandLightTable& table, const std::vector<uint8_t>& cap,
-                            glm::u16vec2 capSize, glm::vec2 point)
-{
-	const auto extent = island.GetExtent();
-	const auto size = glm::ivec2(island.GetCellMap().GetResolution());
-	const glm::vec2 cellPosition = (point - extent.minimum) * 0.1f;
-	const glm::ivec2 first(glm::floor(cellPosition));
-	const glm::vec2 w = cellPosition - glm::vec2(first);
-	const auto lightOf = [&](glm::ivec2 cell) {
-		if (cell.x < 0 || cell.y < 0 || cell.x >= size.x || cell.y >= size.y)
-		{
-			return LandLightSample {table.GetColour(255), glm::vec3(0.0f)};
-		}
-		const auto& texel = island.GetCell(glm::u16vec2(cell));
-		auto luminosity = texel.luminosity;
-		if (glm::ivec2(capSize) == size && cap.size() == static_cast<size_t>(size.x) * size.y)
-		{
-			luminosity = std::min(luminosity, cap[static_cast<size_t>(cell.y) * size.x + cell.x]);
-		}
-		return LandLightSample {table.GetColour(luminosity),
-		                        glm::vec3(static_cast<float>(texel.b), static_cast<float>(texel.g),
-		                                  static_cast<float>(texel.r))};
-	};
-	const auto c00 = lightOf(first);
-	const auto c10 = lightOf(first + glm::ivec2(1, 0));
-	const auto c01 = lightOf(first + glm::ivec2(0, 1));
-	const auto c11 = lightOf(first + glm::ivec2(1, 1));
-	return {glm::mix(glm::mix(c00.light, c01.light, w.y), glm::mix(c10.light, c11.light, w.y), w.x),
-	        glm::mix(glm::mix(c00.specular, c01.specular, w.y), glm::mix(c10.specular, c11.specular, w.y), w.x)};
-}
-
 /// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann), the
 /// stand-in for LH3DBoundingBox::CheckRegionOnScreen 0x868C80 (a copy of the one in Renderer.cpp)
 bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
@@ -260,19 +221,22 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	}
 	else if (landLight)
 	{
-		// 0x7FA6A4: fn_00801C90 gives the land light and the cells' colour, then fn_007FEB30 darkens that light
-		// with the distance haze and adds the haze colour to the colour (the object's specular)
-		const auto sample = LandLightAt(Locator::terrainSystem::value(), *_landLight, _cloudShadowCap, _cloudShadowSize,
-		                                glm::vec2(mist.position.x, mist.position.z));
-		auto light = glm::floor(sample.light * 255.0f + 0.5f);
-		// _hazeUniforms: x near, y far, z k, w on; the depth is the origin's, like vs_object
-		const auto& haze = _hazeUniforms[0];
-		const float depth = (view * glm::vec4(mist.position, 1.0f)).z;
-		const float t = depth < haze.x ? 0.0f : haze.w * glm::clamp((depth - haze.x) / (haze.y - haze.x), 0.0f, 1.0f);
-		light = glm::floor(light * (256.0f - std::trunc((256.0f - haze.z) * t)) / 256.0f);
-		specular = glm::min(sample.specular + glm::floor(glm::vec3(_hazeUniforms[1]) * t + 0.5f), glm::vec3(255.0f));
-		// 0x7FA6C8: the colour times that light, byte by byte (c l / 255), then the models' light and ambient 90
-		rgb = glm::floor(rgb * light / 255.0f);
+		// 0x7FA6A4: fn_00801C90 (land_light::At) gives the land light (+0x4C) and the cells' colour (+0x50), then
+		// fn_007FEB30 (graphics::haze::ApplyObject, at the origin) darkens that light and adds the haze colour to the
+		// colour, the object's specular
+		auto sample = land_light::At(*_landLight, glm::vec2(mist.position.x, mist.position.z));
+		const uint32_t hazed = haze::ApplyObject(_haze, haze::Depth(view, mist.position), sample.specular, &sample.diffuse);
+		specular = glm::vec3(static_cast<float>((hazed >> 16u) & 0xFFu), static_cast<float>((hazed >> 8u) & 0xFFu),
+		                     static_cast<float>(hazed & 0xFFu));
+		const glm::vec3 light(static_cast<float>((sample.diffuse >> 16u) & 0xFFu),
+		                      static_cast<float>((sample.diffuse >> 8u) & 0xFFu), static_cast<float>(sample.diffuse & 0xFFu));
+		// 0x7FA6C8: the colour times that light, byte by byte (c l / 255, the colour's alpha kept), then the models'
+		// light and ambient 90
+		const uint32_t lit = lh3d_colour::Mul255_3KeepA(
+		    mist.colour, lh3d_colour::Argb(static_cast<uint32_t>(light.r), static_cast<uint32_t>(light.g),
+		                                   static_cast<uint32_t>(light.b)));
+		rgb = glm::vec3(static_cast<float>(lh3d_colour::Red(lit)), static_cast<float>(lh3d_colour::Green(lit)),
+		                static_cast<float>(lh3d_colour::Blue(lit)));
 	}
 	// fn_007FA300 0x7FA3F4..0x7FA466 / 0x7FA69E: one whole cell, no blend (frame_anim::MistCell, MistCellUv)
 	const auto cell = frame_anim::MistCellUv(frame_anim::MistCell(mist.counter), mist.edgeShrink);
@@ -299,7 +263,8 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 				subMesh->GetMesh().GetIndexBuffer().Bind(prim.indicesCount, prim.indicesOffset);
 			}
 			subMesh->GetMesh().GetVertexBuffer().Bind();
-			bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
+			// the smoke material [0xEA1ABC] (fn_007FA300 0x7FA30E): mode 6, two-sided
+			bgfx::setState(render_modes::State(render_modes::materials::k_Smoke));
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 		}
 	}

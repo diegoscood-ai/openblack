@@ -22,6 +22,7 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "ECS/Components/Alpha.h"
@@ -60,7 +61,7 @@ constexpr auto k_BandMesh = entt::hashed_string("Power_Up_Band");
 // The PHandFX constants (ctor 0x68CB10)
 constexpr float k_BandScale = 10.0f;          ///< +0x0C
 constexpr float k_BandSpin = 12.0f;           ///< +0x14 rad/s, x (1 + 0.2 index)
-constexpr float k_BandOffset = 10.0f;         ///< +0x18 along the bone's y
+constexpr float k_BandOffset = 10.0f;         ///< +0x18 along the root bone's z (the forearm)
 constexpr float k_BandStep = 40.0f;           ///< +0x1C per index
 constexpr float k_ChargeDurationFrom = 3.5f;  ///< +0x24
 constexpr float k_ChargeDurationTo = 1.0f;    ///< +0x28
@@ -293,16 +294,19 @@ void DrawBand(Band& band, float dt, const glm::mat4& bone, const glm::mat4& fly)
 	}
 	f = std::clamp(f, 0.0f, 1.0f);
 	const float alpha = (static_cast<float>(band.alpha0) + (static_cast<float>(band.alpha1) - static_cast<float>(band.alpha0)) * f) / 255.0f;
-	// 10 I, spun about y only once it has arrived, at y = 10 + 40 index along the bone (hand model units)
-	glm::mat4 local = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, k_BandOffset + k_BandStep * static_cast<float>(band.index), 0.0f));
+	// Band::Draw 0x68D8BB..0x68D909: the local LHMatrix is 10 I (+0x0C) with the translation (0, 0, 10 + 40 index)
+	// (+0x18 + index * +0x1C, 0x68D900..0x68D909): the band sits on the root bone's own Z axis (the forearm), like a
+	// bracelet. Once it has arrived (f >= 1, 0x68D90D..0x68D91C) every row's (x, y) turns by the angle about that Z
+	// (0x68D922..0x68D9DB: (x, y) -> (c x + s y, c y - s x), c stored as a float at 0x68D929, s on the FPU stack; the
+	// translation's (x, y) is 0 and stays 0) = TurnRows(2). Then fn_007FAFF0 0x68D9EA: local * bone (rows) = bone * local
+	glm::mat3 rows(k_BandScale);
 	if (f >= 1.0f)
 	{
-		// (inferido) Band::Draw 0x68D6D0 turns each row's (x, y) by -angle (about Z, 0x68D922..0x68D9DB) and steps along
-		// Z (0x68D8BB..0x68D909); this +angle about Y along Y is the same only if this bone has the original's Y and Z
-		// swapped (P Rz(-a) P = Ry(+a)), which is not checked
-		local = local * glm::rotate(glm::mat4(1.0f), band.angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		const auto c = static_cast<double>(static_cast<float>(std::cos(static_cast<double>(band.angle))));
+		lh_matrix::TurnRows(rows, 2, c, std::sin(static_cast<double>(band.angle)));
 	}
-	local = local * glm::scale(glm::mat4(1.0f), glm::vec3(k_BandScale));
+	glm::mat4 local(rows);
+	local[3] = glm::vec4(0.0f, 0.0f, k_BandOffset + static_cast<float>(band.index) * k_BandStep, 1.0f);
 	const glm::mat4 onHand = bone * local;
 	if (f >= 1.0f)
 	{
@@ -500,6 +504,8 @@ void hand_fx::CreateInHandEffect(entt::entity seed)
 	// PSysInterface::Create(NULL, type, 0, 0, 1.0, NET 0), SetPlayer, SetOrigin(hand +0x78); stepped by the hand
 	g_State.inHandEffect = psys::manager::StartForSpell(std::string(file), handPos, glm::vec3(0.0f), 1.0f, nullptr);
 	psys::manager::SetPerFrame(g_State.inHandEffect);
+	// CHand::DrawSpellInHand 0x46E76A: Draw_(1.0, 0), drawn at once inside the hand's Z object (CHand::Draw 0x46D2AE)
+	psys::manager::SetDrawPath(g_State.inHandEffect, psys::manager::DrawPath::Immediate);
 	if (auto* effect = psys::manager::Find(g_State.inHandEffect); effect != nullptr)
 	{
 		effect->SetPlayer(static_cast<int>(component.creator.player));

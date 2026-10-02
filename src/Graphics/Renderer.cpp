@@ -1178,13 +1178,11 @@ void Renderer::UpdateClouds() const
 			SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "No cloud shadows (sclouds.raw): {}", e.what());
 		}
 	}
-	// game time: the clouds and their animation stop while the game is paused
-	static auto lastTime = std::chrono::steady_clock::now();
-	const auto now = std::chrono::steady_clock::now();
-	// g_game_time_inc: game time, faster or slower with the game speed
-	const float speed = Game::Instance() != nullptr ? Game::Instance()->GetGameSpeed() : 1.0f;
-	const float milliseconds = std::min(100.0f, std::chrono::duration<float, std::milli>(now - lastTime).count() / speed);
-	lastTime = now;
+	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs): the game ms of this frame, whole, 0 while paused, faster
+	// or slower with the game speed. The clouds and their animation stop while the game is paused. Its readers here:
+	// DrawSky 0x5E2161 (the sky's alignment), fn_005E25C0 0x5E25FE (the clouds), and for the night lights
+	// fn_00823460 0x8234B7 (the jitter) and fn_00823570 0x8235A0 (the flames)
+	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
 	const bool running = Game::Instance() != nullptr && !Game::Instance()->IsPaused();
 	if (running)
 	{
@@ -2596,8 +2594,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				return false;
 			};
 
-			// the poses of the animated boned meshes (ecs/Animations.h), by instance
-			const auto poses = ecs::PosesByInstance(renderCtx.entityInstances);
+			// the poses of the animated boned meshes (ecs/Animations.h), by instance; the PSys mesh atoms' too
+			const auto poses = ecs::PosesByInstance(renderCtx);
 			// the sharks (components::CutByPlane::drawAbove): their owner draws them cut by the water instead
 			const auto cutAbove = desc.viewId == graphics::RenderPass::Main ? CutAboveInstances() : std::unordered_set<uint32_t>();
 

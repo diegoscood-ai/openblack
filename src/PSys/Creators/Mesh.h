@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <vector>
 
 #include <entt/core/fwd.hpp>
@@ -20,13 +21,20 @@
 #include "PSys/PSys.h"
 
 // Mesh particles: ParticleMeshCreator (CreateParticle 0x6A8B00, Particle3DObj::DrawAt 0x679FD0) and
-// ParticleMeshCreatorAnimTextured (0x6A8DA0, Particle3DObjAnimTextured::DrawAt 0x67A530, a UV frame offset). The atoms
-// are drawn as mesh instances with the objects (ECS RenderingSystem). Wiki: docs/bw1-notes/magic.md.
+// ParticleMeshCreatorAnimTextured (0x6A8DA0, Particle3DObjAnimTextured::DrawAt 0x67A530, a UV frame offset) and
+// ParticleAnimCreator (fn_006A97F0, Particle3DAnim::DrawAt 0x67A8E0, a skinned mesh playing a .anm). The atoms are drawn
+// as mesh instances with the objects (ECS RenderingSystem), the animated ones with their bones. Wiki:
+// docs/bw1-notes/magic.md.
 
 namespace openblack::psys
 {
 
-/// ParticleBaseMeshCreator (0x6B37A0) + ParticleMeshCreator (0x6B38B0) / ParticleMeshCreatorAnimTextured (0x6B3970)
+/// The frames of a cycle of a ParticleAnimCreator atom: fn_006A97F0 0x6A9854 (+0x114 = 0x3E8) and the / 1000 of
+/// GetCycleTimeFromFrame 0x6C85F0
+inline constexpr int k_AnimFrames = 1000;
+
+/// ParticleBaseMeshCreator (0x6B37A0) + ParticleMeshCreator (0x6B38B0) / ParticleMeshCreatorAnimTextured (0x6B3970) /
+/// ParticleAnimCreator (0x6B3D70)
 struct MeshCreator: Creator
 {
 	entt::id_type meshId {0}; ///< MeshEnum (+0x44, a mesh of the pack) or MeshFileName (+0x34, GJUtils::GetSharedMesh)
@@ -56,14 +64,33 @@ struct MeshCreator: Creator
 	bool playAnimation {false}; ///< +0x5E
 	float initialOffsetFrac {0.0f}; ///< +0x7C
 	float stretchY {1.0f};          ///< +0x80
+	// ParticleAnimCreator (DefineProperties 0x6B3D70; ctor defaults 0x6A93A7..0x6A93E5): the skinned mesh of
+	// Particle3DAnim (DrawAt 0x67A8E0), an LH3DObject of type 2 (CreateLH3DObject 0x6A9760) playing a .anm
+	bool animated {false};
+	entt::id_type animId {0};     ///< +0x40: AnimFileName (+0x80, loaded by fn_00839900; AnimEnum +0x7C is -1)
+	float speedUpFactor {1.0f};   ///< +0x44 SpeedUpFactor (ctor 1.0)
+	bool animPlay {false};        ///< +0xA1 PlayAnim (ctor 0)
+	bool animRandomInitFrame {false}; ///< +0xA2 RandomiseInitFrame (ctor 0)
 
-	/// fn_006A85E0's atom part is Effect::NewAtom's; this is CreateParticle's (0x6A8DA0: frame, frame rate, StretchY)
+	/// fn_006A85E0's atom part is Effect::NewAtom's; this is CreateParticle's (0x6A8DA0: frame, frame rate, StretchY;
+	/// ParticleAnimCreator's fn_006A97F0: the clip's frame rate, PlayAnim, the random first frame)
 	void InitAtom(Effect& effect, Atom& atom) const override;
-	/// The frame count of an atom (+0x114): NumFrames, or 1000 for the sliding textures
-	[[nodiscard]] int FramesPerAtom() const override { return slideU || slideV ? 1000 : std::max(1, numFrames); }
+	/// The frame count of an atom (+0x114): NumFrames, or 1000 for the sliding textures and the animated meshes
+	/// (fn_006A97F0 0x6A9854 / 0x6A988C: 0x3E8)
+	[[nodiscard]] int FramesPerAtom() const override
+	{
+		return animated || slideU || slideV ? k_AnimFrames : std::max(1, numFrames);
+	}
 	/// Particle3DObjAnimTextured::DrawAt 0x67A530: the UV offset (vt 0xE8) of a frame
 	[[nodiscard]] glm::vec2 UvOffset(int frame) const;
 };
+
+/// fn_006A97F0 0x6A985F..0x6A9882: the atom's frame rate +0x110 = 1000 ([0x8AB228]) / the clip's ms (LH3DAnim +0x20,
+/// fild) x SpeedUpFactor x 1000 ([0x8AB228]): one cycle of 1000 frames in the clip's length, faster by the factor
+[[nodiscard]] float AnimFrameRate(int32_t clipMs, float speedUpFactor) noexcept;
+/// Particle3DAnim::GetCycleTimeFromFrame 0x6C85F0: the clip's ms (LH3DAnim +0x20) x frame / 1000 in integers (imul,
+/// then x 0x10624DD3 sar 6 and the sign bit added: the / 1000 rounds towards 0), the time DrawAt gives vt 0x188
+[[nodiscard]] int32_t AnimCycleTime(int32_t clipMs, int frame) noexcept;
 
 namespace mesh_atoms
 {
@@ -78,9 +105,14 @@ struct Instance
 	bool additive;     ///< material mode 13 (GJUtils::SetMaterialProperties 0x57E120): SRCALPHA / ONE, no Z write
 	std::array<uint8_t, 3> colour; ///< the DrawData colour's r, g, b (SetColour vt 0x2C, or x the land light)
 	bool landscapeColour; ///< DrawWithLandscapeColor: the colour x the land light (fn_0080BEC0), else the colour alone
+	/// A ParticleAnimCreator atom's bones (graphics::ComputePose at the time of its frame, what the type 2 object's draw
+	/// fn_008175B0 gets from LH3DAnim::GetPose 0x8177B8..0x8177CE); empty for the still meshes
+	std::vector<glm::mat4> pose {};
 };
 /// Every mesh atom of the running effects, interpolated since the last turn
 [[nodiscard]] std::vector<Instance> Collect();
+/// Whether any effect has a mesh atom (without interpolating them or working out their poses)
+[[nodiscard]] bool Any();
 } // namespace mesh_atoms
 
 } // namespace openblack::psys

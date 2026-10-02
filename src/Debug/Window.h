@@ -18,6 +18,9 @@ union SDL_Event;
 namespace openblack::debug::gui
 {
 
+/// The menus' click sound (Gui.cpp): G_MenuButton when `activated`; returns `activated`, to wrap an ImGui control
+bool MenuClick(bool activated) noexcept;
+
 class Window
 {
 public:

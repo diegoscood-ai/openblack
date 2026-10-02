@@ -720,8 +720,38 @@ TEST_F(ModsTest, GeometryApiMatchesTheGame)
 		assert(cx == 143 and cz == 223 and inside)
 		assert(ob.map.radians_to_angle(ob.map.angle_to_radians(512)) == 512)
 		assert(ob.mesh.radius("AnimalBat1") == nil)
-		assert(ob.api_version == "1.1.0")
+		assert(ob.api_version == "1.2.0")
 		assert(type(ob.game.turn_fraction()) == "number" and type(ob.game.paused()) == "boolean")
+	)"),
+	          "");
+	lua::Stop();
+	Locator::mods::reset();
+}
+
+// API 1.2: sound, through Audio.h; without the audio running nothing plays and nothing breaks
+TEST_F(ModsTest, SoundApiIsSafeWithoutAudio)
+{
+	const auto banks = api::Enumeration("sound_banks");
+	EXPECT_TRUE(std::ranges::any_of(banks, [](const auto& bank) { return bank.first == "ScriptSfx"; }));
+	EXPECT_TRUE(std::ranges::any_of(banks, [](const auto& bank) { return bank.first == "InGame"; }));
+	auto mod = Make(R"({"id": "test.sound"})");
+	EXPECT_FALSE(api::PlaySound(*mod, "NoSuchBank", "1", nullptr));
+	EXPECT_FALSE(api::PlaySound(*mod, "InGame", "G_PickUpFood.wav", nullptr)); // no banks loaded in the test
+	api::StopSounds(*mod); // nothing to stop: fine
+
+	WriteFile("lua.snd/mod.json", R"({"id": "lua.snd", "entry": {"lua": "scripts/main.lua"}})");
+	WriteFile("lua.snd/scripts/main.lua", "x = 1");
+	auto& registry = Locator::mods::emplace();
+	registry.Discover(_folder);
+	EXPECT_EQ(registry.ApplyArgument("lua.snd"), "");
+	registry.ApplyAll();
+	lua::Start(registry);
+	EXPECT_EQ(lua::RunForTest("lua.snd", R"(
+		assert(ob.sound.play("InGame", "G_PickUpFood.wav") == false)
+		assert(ob.sound.play("InGame", 3, 1700, 10, 2000) == false)
+		ob.sound.stop()
+		assert(ob.api_version == "1.2.0")
+		assert(ob.enums.sound_banks.ScriptSfx ~= nil)
 	)"),
 	          "");
 	lua::Stop();

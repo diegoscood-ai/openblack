@@ -1410,8 +1410,11 @@ enteros por encima de las sombras (paso S5 aplicado).
   como la de una roca?; (4) la sombra del orbe sostenido sale algo más oscura que en las capturas (el máximo 8/15 del
   código con alfa 255, **(aproximado)**); (5) la sombra propia del dispensador es la estática (Abode, fn_008721A0), que
   apenas se distingue en las tomas de openblack.
-- **Para milagros2** (no es de shaders): en las capturas el orbe del original es una burbuja verde translúcida con el
-  icono rojo dentro; en openblack tiene un núcleo blanco quemado que tapa el icono (OneOffSpellSeed::Draw 0x518E90).
+- ~~Para milagros2: el núcleo blanco quemado del orbe~~ **resuelto** por milagros2 (hand-hbn `78c4cfa8`): el PSys de
+  soporte de la semilla se dibujaba sin el alfa 0x95 del orbe (DrawSpellGraphic 0x51A252 → SetAlpha 0x55ED50 →
+  [0xC0215C], aplicado en fn_00679920 0x679BC2) y la semilla del jugador se ilumina con la celda de tierra
+  (0x803340); la burbuja ya era fiel (textura cian × la luz de la hierba). Comparación con las capturas del original:
+  `dev\_audit\magic\orbcolour_compare.png`.
 
 ## Ganchos de prueba
 

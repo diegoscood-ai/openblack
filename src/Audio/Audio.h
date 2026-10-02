@@ -68,6 +68,10 @@ struct Sample
 /// GAudio::GetGSFXSampleMaxDistance 0x42A430: LHSampleGetMaxDistance (the .sad +0x26C raw), 0 for no bank
 [[nodiscard]] float MaxDistance(Sample sample);
 
+/// (openblack, for the mod SDK and tools: the original addresses samples by number) the sample of `bank` whose .sad name
+/// is `wavName` (e.g. "G_PickUpFood.wav", case ignored); nullopt when the bank has none
+[[nodiscard]] std::optional<Sample> FindSample(BankId bank, std::string_view wavName);
+
 // ---- owners --------------------------------------------------------------------------------------------------------
 // Owner, k_OwnerAdvisor .. k_OwnerVoice (SamplePlay.h).
 

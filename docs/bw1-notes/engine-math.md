@@ -664,22 +664,33 @@ T < 0.001 fija el valor. Implementado en `src/Common/Zoomer.{h,cpp}`. Lo usan, e
 Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-01, rama `local/sistemas2`):
 
 **Aplazadas, porque milagros2 está editando esos archivos:**
-- `PSys/Rules/Lightning.cpp`: ⚠ la espiral de `SpiralStep` (:58-70) está **mal**.
-  - Lee la tabla antes de actualizar, usa `count = dir%2==0 ? dir/2+1 : (dir+1)/2` y arranca con `direction = 0`
-    (:314). El original arranca con `dir = count = 1` (0x6902A7..0x6902BB) y llama a 0x74D7E0 en 0x69058B.
-  - Por eso recorre la espiral negada y, como el lado es par (`4·ceil(R/10)²`), un conjunto de celdas distinto.
-    `fn_00690880` comparte el fallo.
-  - La celda inicial `(int)(x·0.1f)` (:310): antes de cambiarla hay que comprobar en el binario si el original hace
-    ahí `ftol(x·0.1)`, como `CitadelHeart`.
 - `PSys/Rules/Storm.cpp`:
   - la celda del polvo, `floor(x/10)` (:843-850);
   - `PotsByCell` y `start`, con `(int)(x·0.1f)` (:880, :1304, :1329): misma comprobación que en el rayo;
   - `SpiralStep` (:916-930): ya es correcta, solo falta usar `map_coords::Spiral`.
-- `PSys/Rules/Explosion.cpp`: la espiral (:181-195) y las celdas de `GetGridCell`.
 - `Magic/Objects/MagicTeleport.cpp`: `k_UnitsPerMetre` y `ToUnits` (:63, :86-89). El barrido cuadrado (:504-535)
   sustituye a `Spiral` (0x604D43), pero no cambia el resultado.
 - `Magic/Spells/SpellForest.cpp`: `CellOf` y `spell_forest::ToMapCoords`, en double (:104-107, :395-401).
 - `ECS/Systems/Implementations/HandSpellSeed.cpp:434`: el MapCoords del círculo, sin truncar.
+
+**Rayo y explosión, migrados (2026-10-02, sistemas2):** `PSys/Rules/Lightning.cpp` y `PSys/Rules/Explosion.cpp` ya
+recorren sus celdas con `map_coords::Spiral` + `AddCells` desde el MapCoords del origen (`ToFixed`, 0x69024A /
+0x6908B7 / 0x67E56A; ya no `(int)(x·0.1f)`), `InBounds` en cada celda y la celda propia por el MapCoords del objeto
+(fn_00604F40). El rayo mide desde el MapCoords del objeto en metros (`fild · 10/65536`) con sus sumas en el orden del
+x87 (cono 0x690410, círculo 0x690A06, renovar 0x6913BD sin raíz, largo de la rama 0x6923A0), la punta es
+`ToWorld(MapCoordsOf) + object::GetHeight` (fn_00691E00, vt+0x42C), el suelo de los puntos de tierra es el del MapCoords
+fn_004427B0 (= `ToFixed`: 65536·0,1f es 6553,6f exacto) y el enfriamiento `ftol(AverageLightmapLife / ([0xD01A38]·0,001))`
+(0x691072, 0x6928FD) ya no usa el dt. La explosión busca con `gutils::GetDistanceInMetres` (0x74CD70) contra
+`object::Get2DRadius` (vt+0x64), el anillo usa `object::GetRadius` (vt+0x60) y `(dz² + dy²) + dx²` (0x67EA1C), los
+blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()` (+0x205A40) y el humo dura
+`TicksForSeconds(4)` turnos (0x67EEF8). Queda:
+- `Lightning.cpp` `CanBeStruck`: el original pregunta antes `IsAvailable` (vt+0x2C, 0x69038E / 0x690997); el port no
+  (es de milagros2).
+- `Lightning.cpp`: `fn_00690C70` (blancos del gestor), `fn_00691E80` (altura del mapa de luz, ahora `LandAt + 0,1`) sin
+  leer; el enfriamiento usa `effect.Random` en float donde el original llama a `PSysRand(int)` 0x6729E0.
+- `Explosion.cpp`: `manager::CreateSpotVisual` recibe segundos y los vuelve a pasar a turnos con `MsPerTurn()`; el
+  original pasa turnos (`CreateSpotVisualWithSpecifiedDuration` 0x63E580, 60 y `TicksForSeconds(4) & 0xFFFF`), así que
+  con un turno distinto de 100 ms la cuenta no es la misma. Su posición tampoco pasa por `MapCoords(LHPoint)` 0x603160.
 
 **Audio** (lo migra «audio» en su B11):
 - `Audio/ThingMusic.cpp:81-87`: la ida y vuelta en double.
@@ -716,7 +727,7 @@ migrar **solo** donde se ha leído en el binario que el original llama a `GetDis
 **Aplazadas, porque milagros2 está editando esos archivos:**
 - `Magic/Objects/MagicTeleport.cpp:148-153`: `FastDistance` 0x74CE10 (ya es exacta; solo hay que borrar la copia) y
   `Distance2D` (:81-84, usos :171, :198 «fn_00605CD0», :204, :515, :550).
-- `Magic/Objects/MapShield.cpp:499-500`, `PSys/Rules/Explosion.cpp:354-414`, `PSys/Rules/Storm.cpp:1333-1334`,
+- `Magic/Objects/MapShield.cpp:499-500`, `PSys/Rules/Storm.cpp:1333-1334`,
   `Magic/Spells/SpellStormAndTornado.cpp:196-198` y `Magic/Spells/SpellForest.cpp:167, :232`: `glm::length` /
   `glm::distance` donde el original llama a 0x74CD70 / fn_00605CD0.
 
@@ -812,14 +823,12 @@ original (la llamada virtual o la lectura en línea).
 **Aplazadas, porque milagros2 está editando esos archivos** (usan todavía `effects::Object2DRadius` / `ObjectHeight`,
 la rutina de `Object` sin redefiniciones):
 - `PSys/Rules/Storm.cpp:1265, :1336` → `object::Get2DRadius` (vt+0x64).
-- `PSys/Rules/Lightning.cpp:126` → `object::GetHeight` (vt+0x42C).
 - `Magic/Spells/SpellForest.cpp:169` → `object::Get2DRadius` (el comentario de :161 dice que Field 0x528E80 no está
   portado: ya lo está).
 - `Magic/Core/SpellSeed.cpp:137, :143` → `object::GetHeight` / `Get2DRadius` (falta leer el original).
 - `Magic/Objects/MapShield.cpp:526-547` (`map_shield::Get2DRadius` / `GetHeight`, ya con `objectScale`) →
   `object::Get2DRadius` / `GetHeight`; `CollisionScale` (:568) es `object::GetScale`.
 - `Magic/Objects/MagicTeleport.h:31` (`k_Radius = 6`) → `object::k_MagicTeleportRadius` / `Get2DRadius`.
-- `PSys/Rules/Explosion.cpp:392, :425, :504` usa `fire::traits::Radius`, que ya es la API; no hace falta tocarlo.
 - Cuando se muevan todos, se borran los dos envoltorios de `EffectValues`.
 
 **De «sistemas» (tiene los archivos abiertos):**
@@ -861,8 +870,8 @@ la rutina de `Object` sin redefiniciones):
 proporción (0x66F180) y MagicTeleport = 6 (0x5FCCB0) cuentan ya en el fuego y en el agua, y el MapShield se mide con su
 `objectScale`. El centro del fuego de un WorshipSite es `GetDefaultFireCentrePos` 0x77DDE0 (= `CalculateCentrePos`
 0x77DD40, altitud sobre la tierra por `Set` 0x603340), junto a su radio de 14 m (0x77DE10). Siguen con
-`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): SpellForest.cpp:169/193, Storm.cpp:1265,
-Lightning.cpp:126 y SpellSeed.cpp:137/143.
+`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): SpellForest.cpp:169/193, Storm.cpp:1265 y
+SpellSeed.cpp:137/143.
 
 **Sin portar:**
 - `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 leen el LH3DCreature (`[[+0x160]+0x58]+0x5228`), que openblack
@@ -895,8 +904,6 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 **Aplazadas, porque milagros2 está editando esos archivos:**
 - `Magic/Objects/MapShield.cpp:58, :387, :408-409`: su fracción propia (`g_LastTurn`, reloj de pared, tope 1) →
   `game_clock::TurnFraction()` (`PhysicalShield::DrawShield` 0x72CEEC/0x72CF01 es un lerp con la fracción).
-- `PSys/Rules/Explosion.cpp:82, :262`: el `k_BeamFxTurns · 0,1f` → `game_clock::k_TurnSeconds` y el
-  `ftol(1000/[0xD01A38]·4)` del comentario → `TicksForSeconds(4)`.
 - `ECS/Systems/Implementations/HandSpellSeed.cpp:194-197`: el envoltorio `CurrentTurn()` → `game_clock::Turn()`.
 
 **Abiertos por «sistemas»** (no imprescindibles; se dejan para cuando fusione):

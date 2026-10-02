@@ -891,13 +891,13 @@ std::unordered_map<int32_t, std::vector<entt::entity>> PotsByCell()
 	return pots;
 }
 
-/// The objects of one 10 m cell, the mobile list (+4) first and then the fixed one (+0) (0x6D2327)
+/// The objects of one 10 m cell, the mobile list (+4) first and then the fixed one (+0) (0x6D2327). The caller has
+/// already checked map_coords::InBounds (0x6D2311)
 void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out,
                  const std::unordered_map<int32_t, std::vector<entt::entity>>& pots)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || cell.x < 0 || cell.y < 0 || cell.x >= ecs::MapInterface::k_GridSize.x ||
-	    cell.y >= ecs::MapInterface::k_GridSize.y)
+	if (!Locator::entitiesMap::has_value())
 	{
 		return;
 	}

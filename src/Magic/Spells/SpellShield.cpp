@@ -257,8 +257,10 @@ entt::entity spell_shield::FindShieldAt(const glm::vec3& point, uint32_t mask)
 		{
 			continue;
 		}
-		const float distance = gutils::GetDistanceInMetres(point, component.castPos); // 0x74CD70 (0x72BA4B)
-		if (distance <= component.magnitude)
+		// 0x72BA43: GetDistanceInMetres 0x74CD70 (0x72BA4B) from originalCastPos (+0xC0, not castPos +0xCC) to the
+		// point, then Get2DRadius (vt +0x64, 0x72BA5B: the magnitude) `fcomp; test ah, 0x41; je`: radius > distance
+		const float distance = gutils::GetDistanceInMetres(component.originalCastPos, point);
+		if (component.magnitude > distance)
 		{
 			return spell;
 		}

@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 
 #include "ECS/Components/Spell.h"
-#include "ECS/GUtilsDistance.h"
 #include "InfoConstants.h"
 #include "Magic/Core/Chants.h"
 #include "Magic/Objects/MagicTeleport.h"
@@ -57,15 +56,16 @@ TEST(Teleport, ChooseTargetTakesTheBiggestSaving)
 	const std::vector<glm::vec3> others = {glm::vec3(50.0f, 0.0f, 0.0f), glm::vec3(90.0f, 0.0f, 0.0f), glm::vec3(-20.0f, 0.0f, 0.0f)};
 	float saving = 0.0f;
 	EXPECT_EQ(teleport::ChooseTarget(living, destination, others, false, &saving), 1);
-	// |dest - l| - |dest - T| = 100 - 10, each GUtils::GetDistanceInMetres 0x74CD70 (its table root: not exactly 90)
-	EXPECT_EQ(saving, gutils::GetDistanceInMetres(destination, living) - gutils::GetDistanceInMetres(destination, others[1]));
-	EXPECT_NEAR(saving, 90.0f, 0.05f);
+	// |dest - l| - |dest - T| = 100 - 10, each GUtils::GetDistanceInMetres 0x74CD70 (its table root: not exactly 90).
+	// Worked by hand: 100 m = 655360 units -> hypotenuse 655520 -> 100.0244140625 m (as in test_gutils_distance);
+	// 10 m = 65536 -> InvSqrt(1) = 0x3F7FE000 -> 65568 -> 10.0048828125 m
+	EXPECT_EQ(saving, 90.01953125f);
 	// only a stone that brings it further: none unless forced (then the least bad one)
 	const std::vector<glm::vec3> worse = {glm::vec3(-20.0f, 0.0f, 0.0f), glm::vec3(-50.0f, 0.0f, 0.0f)};
 	EXPECT_EQ(teleport::ChooseTarget(living, destination, worse, false, &saving), -1);
 	EXPECT_EQ(teleport::ChooseTarget(living, destination, worse, true, &saving), 0);
-	EXPECT_EQ(saving, gutils::GetDistanceInMetres(destination, living) - gutils::GetDistanceInMetres(destination, worse[0]));
-	EXPECT_NEAR(saving, -20.0f, 0.05f);
+	// 120 m = 786432 units -> hypotenuse 786624 -> 120.029296875 m
+	EXPECT_EQ(saving, -20.0048828125f);
 	EXPECT_EQ(teleport::ChooseTarget(living, destination, {}, true, &saving), -1);
 }
 

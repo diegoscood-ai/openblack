@@ -123,7 +123,8 @@ El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su 
     `map_coords::InBounds(coords)`.
   - `ECS/Fire/FireEffect.cpp` (copia 0x72F5E1, `InBounds` 0x72F60C, `GetDistanceInMetres` 0x72F674, `Spiral` 0x72F6C3,
     `+=` 0x72F6D0). La distancia se mide entre los dos MapCoords: como la fracción es la misma, la diferencia son
-    celdas enteras. `CellObjects` usa `map_coords::InBounds` en vez de su propia copia.
+    celdas enteras. `CellObjects` usa `map_coords::InBounds` en vez de su propia copia. El `CellObjects` de
+    `PSys/Rules/Storm.cpp` ya no repite el `InBounds`: lo hace su único llamador, el bucle de fn_006D21B0 (0x6D2311).
   - `Magic/Spells/SpellWater.cpp` (copia 0x7250A2, `Spiral` 0x725166, `+=` 0x725173; 9 celdas, `ebp = 9`).
   - `ECS/AnimalAI.cpp`: `CalcRandomPos` ← `Living::CalcRandomPos` (0x5ED0FE..0x5ED152 el punto inicial con
     `ToFixedGUtils`, `+=` 0x5ED1C8), `LookForFoodPos` ← `Animal::LookForGrazePos` (`+=` 0x41A945) y la fusión de bandadas
@@ -694,10 +695,16 @@ blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()`
 - `Lightning.cpp` `CanBeStruck`: el original pregunta antes `IsAvailable` (vt+0x2C, 0x69038E / 0x690997); el port no
   (es de milagros2).
 - `Lightning.cpp`: `fn_00690C70` (blancos del gestor), `fn_00691E80` (altura del mapa de luz, ahora `LandAt + 0,1`) sin
-  leer; el enfriamiento usa `effect.Random` en float donde el original llama a `PSysRand(int)` 0x6729E0.
+  leer; el enfriamiento usa `effect.Random` en float donde el original llama a `PSysRand(int)` 0x6729E0. El original
+  pasa el `ftol` directo a `PSysRand` (0x691091 / 0x69292F, sin mirar el signo) y el port se salta `PSysRand` con
+  `steps <= 0`; `PSysRand` salta por el puntero [0xD4E0BC], sin leer qué hace con un negativo, así que el comentario
+  de `LightmapSteps` («0 ms da +inf, sin enfriamiento») es *(inferido)*.
 - `Explosion.cpp`: `manager::CreateSpotVisual` recibe segundos y los vuelve a pasar a turnos con `MsPerTurn()`; el
   original pasa turnos (`CreateSpotVisualWithSpecifiedDuration` 0x63E580, 60 y `TicksForSeconds(4) & 0xFFFF`), así que
   con un turno distinto de 100 ms la cuenta no es la misma. Su posición tampoco pasa por `MapCoords(LHPoint)` 0x603160.
+  Además 0x67EEF8..0x67EF2C es una **copia en línea** (`div [0xD01A38]; fild qword; fmul 4; ftol; and 0xFFFF`), no una
+  llamada a `NumGameTicksPerSecond` 0x711630; el resultado es el de `TicksForSeconds(4)`, pero el comentario del código
+  debería decirlo (es de milagros2).
 
 **Audio** (lo migra «audio» en su B11):
 - `Audio/ThingMusic.cpp:81-87`: la ida y vuelta en double.
@@ -735,7 +742,9 @@ migrar **solo** donde se ha leído en el binario que el original llama a `GetDis
 DoTeleport 0x5FC818 / 0x5FC826 por el gemelo 0x74CD50, fn_00604C30 0x604CFD, fn_0064D6B0; `FastDistance` por la API),
 `MapShield.cpp` (`IsReactionBlockedByShield` 0x72B9B2), `Storm.cpp` (0x6D2398), `SpellStormAndTornado.cpp`
 (`ReactToRainOnFire`, fn_0072DCC0 0x72DCE0), `SpellForest.cpp` (fn_005FADF0 0x5FAE30 y fn_007255C0 0x7255CF),
-`SpellShield.cpp` (`GetNearestTown` 0x602112 / 0x602193, `IsUnder` 0x72BD3C, `FindShieldAt` 0x72BA4B) y
+`SpellShield.cpp` (`GetNearestTown` 0x602112 / 0x602193, `IsUnder` 0x72BD3C desde castPos +0xCC, `FindShieldAt`
+0x72BA4B desde **originalCastPos +0xC0** y con `Get2DRadius > distancia` estricto: antes medía desde castPos y aceptaba
+`<=`) y
 `ECS/PotResource.cpp` (`IsCloseToEqual` 0x6053C0, desde `Pot::AddResourceToPos` 0x66F375). Con la raíz de tabla de
 GUtils las distancias ya no son exactas (100 m dan 100,02 m: `test_teleport` lo comprueba así).
 
@@ -835,7 +844,8 @@ se han borrado.
 **Sin migrar (dudosas o con más cambio que una sustitución):**
 - `HandPlacement.cpp:411-422` (pila bloqueada): el original no mide ahí la pila con `GetHeight`. Con
   `IsLockedInInteract` (vt+0x6A0, 0x5B3EB3) toma la posición guardada en CHand+0x78, la pasa a MapCoords con
-  `ftol(x · 65536 · 0,1)` (0x5B3ECD..0x5B3F26: **no** es `ToFixed`), mide `GetAltitude` (0x5B3F3B) y llama a
+  `ftol(x · 65536 · 0,1)` (0x5B3ECD..0x5B3F26; es `ToFixed`: multiplicar por 2^16 es exacto y 0x3DCCCCCD · 2^16 =
+  0x45CCCCCD = 6553,6f, así que redondea el mismo número real que `x · 6553,6f`, como en fn_004427B0), mide `GetAltitude` (0x5B3F3B) y llama a
   `GetHeightForHandAboveInteractObject` (vt+0x64C, 0x5B3F49). Falta leer qué hace con eso en 0x5B3FDE; cambiarlo toca
   el estado de la mano.
 - `HandPlacement.cpp:719-725` (radio del ser vivo bajo la mano) y `:741-749` (radio de lo sostenido): sin dirección.

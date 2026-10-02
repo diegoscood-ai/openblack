@@ -204,7 +204,8 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 		const float s = std::clamp(glm::distance(camera, base) * 0.01f, 1.0f, 10.0f);
 		auto& centre = g_Centres[entity];
 
-		manager::Drawable drawable {base, {}};
+		// TownCentre::DrawPSys 0x69BF19: Draw_(1), each symbol its own Z object (PlayerSymbolSprite::AddDrawing 0x69D790)
+		manager::Drawable drawable {base, {}, 1.0f, manager::DrawPath::Sorted};
 		for (const auto& [name, value] : beliefs)
 		{
 			const int player = PlayerIndex(name);

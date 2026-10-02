@@ -295,6 +295,9 @@ entt::entity seed_graphic::Create(const glm::vec3& worldPosition, SpellSeedType 
 			if (component.psys != 0)
 			{
 				psys::manager::SetPerFrame(component.psys);
+				// DrawSpellGraphic on a ball / an icon (arg2 0): AddDrawing(t, GetOrigin) 0x51A2CA, one Z object for the
+				// whole effect. (CreatureRoom / WorldRoom's Draw_(t, 0) 0x51A291 is not ported)
+				psys::manager::SetDrawPath(component.psys, psys::manager::DrawPath::Queued);
 			}
 		}
 	}

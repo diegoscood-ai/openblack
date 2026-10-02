@@ -86,10 +86,15 @@ struct Surface
 	};
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> indices;
-	/// The effect's origin: the surface is drawn inside the effect's single Z object (PSysManager::AddDrawing 0x6797D0
-	/// -> fn_00679860 -> fn_006798B0 -> fn_00679920 -> vt+0xFC DrawAt 0x67CBA0), so it sorts with the effect's own key
-	/// and not with one of its own
+	/// The effect's origin: the key of a Queued effect's single Z object (PSysManager::AddDrawing 0x6797D0 -> fn_00679860
+	/// -> fn_006798B0 -> fn_00679920 -> vt+0xFC DrawAt 0x67CBA0), which the surface is drawn inside
 	glm::vec3 origin {0.0f};
+	/// Its effect's draw path. DrawAt 0x67CBA0 never reads [0xC0215D] (RenderParticleGJMesh::DrawAt 0x67C150 ->
+	/// Draw3DWorldTriangle 0x81C090, 0x67C9F2): Sorted, drawn at once when its effect is drawn, unsorted; Queued /
+	/// Immediate, at its place in its effect's items (manager::OrderedEffect, matched by `atom`)
+	DrawPath path {DrawPath::Sorted};
+	uint32_t effect {0};        ///< the effect's id
+	const Atom* atom {nullptr}; ///< the ZR_SurfRevol atom
 };
 /// Every ZR_SurfRevol atom of the running effects
 [[nodiscard]] std::vector<Surface> Collect();

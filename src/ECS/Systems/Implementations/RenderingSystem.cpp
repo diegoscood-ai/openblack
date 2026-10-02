@@ -69,6 +69,7 @@
 #include "GameClock.h"
 #include "Locator.h"
 #include "PSys/Creators/Mesh.h"
+#include "PSys/PSysManager.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::systems;
@@ -84,20 +85,10 @@ std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
 /// Whether a mesh atom is drawn with DrawCutByPlane: the particle's +0x24 & 4 (from the creator's +0x5F,
 /// CreateParticle 0x6A8B94..0x6A8B9A), tested by fn_00679F20 (`test al, 4` 0x679F29) on both the immediate and the
 /// sorted path (fn_00679F60's callback is fn_00679F20, `push 0x679F20` 0x679FBC), which then calls vt+0x11C (0x679F4A)
-/// instead of the Draw vt+0x104 (0x679F52). psys::mesh_atoms::Instance does not carry that bit yet (src/PSys, session
-/// milagros2: MeshCreator::drawCutByPlane is read but not passed on): this reads a member `cutByPlane` once it exists,
-/// and false until then
-template <typename Atom>
-[[nodiscard]] bool AtomCutByPlane(const Atom& atom)
+/// instead of the Draw vt+0x104 (0x679F52): psys::mesh_atoms::Instance::cutByPlane
+[[nodiscard]] bool AtomCutByPlane(const openblack::psys::mesh_atoms::Instance& atom)
 {
-	if constexpr (requires(const Atom& a) { a.cutByPlane; })
-	{
-		return static_cast<bool>(atom.cutByPlane);
-	}
-	else
-	{
-		return false;
-	}
+	return atom.cutByPlane;
 }
 
 /// A cut atom that also draws with the land colour (fn_0080BEC0 0x67A01C before vt+0x11C) would need the land light of
@@ -390,11 +381,19 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	std::erase_if(g_PSysMeshes, [](const auto& atom) {
 		return !openblack::Locator::resources::value().GetMeshes().Contains(atom.meshId);
 	});
-	// the opaque ones drawn with DrawCutByPlane get their own ranges (cutAtomDrawDescs), the translucent ones stay sorted
+	// the opaque ones drawn with DrawCutByPlane get their own ranges (cutAtomDrawDescs), the translucent ones stay sorted.
+	// Once the renderer draws by path (psys::manager::k_DrawByPath) all of them go to psysAtomDrawDescs instead: a Sorted
+	// one is its own Z object at its translation, opaque or cut alike (fn_00679F60 from 0x67A246), a Queued / Immediate
+	// one an item of its effect (RenderContext::psysAtoms)
 	std::unordered_map<entt::id_type, uint32_t> cutAtomIds;
+	std::map<entt::id_type, uint32_t> psysAtomIds;
 	for (const auto& atom : g_PSysMeshes)
 	{
-		if (atom.translucent)
+		if constexpr (openblack::psys::manager::k_DrawByPath)
+		{
+			++psysAtomIds[atom.meshId];
+		}
+		else if (atom.translucent)
 		{
 			++translucentIds[atom.meshId];
 			translucentMorph.try_emplace(atom.meshId, false);
@@ -456,6 +455,13 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	{
 		_renderContext.cutAtomDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
 		                                        std::forward_as_tuple(offset, count, false));
+		offset += count;
+	}
+	_renderContext.psysAtomDrawDescs.clear();
+	for (const auto& [meshId, count] : psysAtomIds)
+	{
+		_renderContext.psysAtomDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
+		                                         std::forward_as_tuple(offset, count, false));
 		offset += count;
 	}
 	_renderContext.shadowCasterDrawDescs.clear();
@@ -695,12 +701,18 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 
 	// the particle effects' mesh atoms, after the entities of the same mesh
 	std::map<entt::id_type, uint32_t> cutAtomOffsets;
+	std::map<entt::id_type, uint32_t> psysAtomOffsets;
+	_renderContext.psysAtoms.clear();
+	_renderContext.psysAtomIndex.clear();
+	constexpr bool byPath = openblack::psys::manager::k_DrawByPath;
 	for (const auto& atom : g_PSysMeshes)
 	{
 		const bool cut = AtomDrawnCut(atom);
-		auto& offsets = atom.translucent ? translucentOffsets : (cut ? cutAtomOffsets : uniformOffsets);
-		const auto& descs = atom.translucent ? _renderContext.translucentDrawDescs
-		                                     : (cut ? _renderContext.cutAtomDrawDescs : _renderContext.instancedDrawDescs);
+		auto& offsets = byPath ? psysAtomOffsets
+		                       : (atom.translucent ? translucentOffsets : (cut ? cutAtomOffsets : uniformOffsets));
+		const auto& descs = byPath ? _renderContext.psysAtomDrawDescs
+		                           : (atom.translucent ? _renderContext.translucentDrawDescs
+		                                               : (cut ? _renderContext.cutAtomDrawDescs : _renderContext.instancedDrawDescs));
 		const auto desc = descs.find(atom.meshId);
 		if (desc == descs.end())
 		{
@@ -719,10 +731,17 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		{
 			_renderContext.additiveInstances.insert(idx);
 		}
-		if (cut && atom.translucent)
+		if (cut && (atom.translucent || byPath))
 		{
 			_renderContext.cutAtomInstances.insert(idx);
 		}
+		if (atom.atom != nullptr)
+		{
+			_renderContext.psysAtomIndex.insert_or_assign(atom.atom, static_cast<uint32_t>(_renderContext.psysAtoms.size()));
+		}
+		// fn_00679F60 0x679F7E..0x679F9F: the key of a Sorted atom's own Z object, the object's +0x38, its translation
+		_renderContext.psysAtoms.push_back({idx, atom.meshId, atom.path, atom.effect, atom.atom, glm::vec3(atom.model[3]),
+		                                    atom.translucent, atom.additive, cut});
 		// the DrawData colour +8 (the creator's colour, x the player's for UsePlayerColor; Particle3DObj::DrawAt 0x67A00C..
 		// 0x67A01C): with DrawWithLandscapeColor the tint of fn_0080BEC0, else the colour of SetColorSpecular (vt 0x2C).
 		// the specular DrawData +0xC (read at 0x67A012 for fn_0080BEC0 and at 0x67A023 for vt 0x2C) is

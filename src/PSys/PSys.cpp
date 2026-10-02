@@ -1792,3 +1792,69 @@ void Effect::CollectChains(float t, std::vector<DrawChain>& out) const
 		CollectChainsOf(*root, t, out);
 	}
 }
+
+void Effect::CollectOrderedOf(const Collection& collection, float t, std::vector<OrderedItem>& items,
+                              std::vector<DrawChain>& chains) const
+{
+	// fn_006798B0: the collection's atoms through fn_00679920 (0x6798B9..0x6798CD), then its chain (0x6798CF..0x6798E6:
+	// fn_0067B380 / fn_0067B370 by [0xC0215D]), then every atom's child collections (0x6798EB..0x67990D). The atoms are
+	// interpolated as CollectCollection does (its alpha cut-off) and the joints as CollectChainsOf does (none)
+	// fn_00679920 0x67999E: interpolated only when the collection's +0x38 bit 2 is set, else the current PSR
+	const float k = (collection.flags & 2) != 0 ? std::clamp(t, 0.0f, 1.0f) : 1.0f;
+	DrawChain chain {nullptr, {}, &collection, _origin};
+	for (const auto& atom : collection.atoms)
+	{
+		if (!atom->visible || !atom->drawn || atom->creator == nullptr)
+		{
+			continue;
+		}
+		const auto& a = atom->previous;
+		const auto& b = atom->current;
+		const bool joint = atom->creator->kind == Creator::Kind::Chain;
+		const float lerped = a.alpha + (b.alpha - a.alpha) * k;
+		const float alpha = joint ? lerped : lerped * _globalAlpha / 255.0f;
+		if (!joint && alpha < 1.0f)
+		{
+			continue;
+		}
+		const DrawAtom drawn {atom->creator,
+		                      a.position + (b.position - a.position) * k + DrawOffsetOf(*atom),
+		                      a.rotation + (b.rotation - a.rotation) * k,
+		                      a.scale + (b.scale - a.scale) * k,
+		                      a.stretch + (b.stretch - a.stretch) * k,
+		                      alpha,
+		                      graphics::frame_anim::PSysFrameLerp(a.frame, b.frame, t, atom->creator->loopAnim),
+		                      {atom->colour[0], atom->colour[1], atom->colour[2]},
+		                      atom->specular,
+		                      atom.get()};
+		if (joint)
+		{
+			chain.creator = atom->creator;
+			chain.joints.push_back(drawn);
+		}
+		else
+		{
+			items.push_back({drawn, -1});
+		}
+	}
+	if (chain.joints.size() > 1)
+	{
+		items.push_back({chain.joints[chain.joints.size() / 2], static_cast<int>(chains.size())});
+		chains.push_back(std::move(chain));
+	}
+	for (const auto& atom : collection.atoms)
+	{
+		for (const auto& sub : atom->subCollections)
+		{
+			CollectOrderedOf(*sub, t, items, chains);
+		}
+	}
+}
+
+void Effect::CollectOrdered(float t, std::vector<OrderedItem>& items, std::vector<DrawChain>& chains) const
+{
+	for (const auto& root : _roots)
+	{
+		CollectOrderedOf(*root, t, items, chains);
+	}
+}

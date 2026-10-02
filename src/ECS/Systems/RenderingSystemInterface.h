@@ -9,16 +9,26 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 #include "3D/LandLight.h"
 #include "Graphics/GraphicsHandle.h"
 #include "Graphics/Mesh.h"
+
+namespace openblack::psys
+{
+struct Atom;
+enum class DrawPath : uint8_t;
+} // namespace openblack::psys
 
 namespace openblack::ecs::systems
 {
@@ -68,6 +78,29 @@ struct RenderContext
 	std::map<entt::id_type, const InstancedDrawDesc> cutAtomDrawDescs;
 	/// The translucent ones (in translucentDrawDescs): their instance indices, drawn cut from the sorted list
 	std::unordered_set<uint32_t> cutAtomInstances;
+	/// Every PSys mesh atom of this frame (psys::mesh_atoms::Instance) with its effect's draw path (psys::DrawPath), in
+	/// mesh_atoms::Collect's order, refilled at every PrepareDraw. Its instance is in the old ranges (instancedDrawDescs,
+	/// translucentDrawDescs, cutAtomDrawDescs) while psys::manager::k_DrawByPath is false, and in psysAtomDrawDescs only
+	/// once it is true. Sorted: its own Z object at `key` (fn_00679F60, opaque, translucent or cut alike); Queued /
+	/// Immediate: drawn at its place in its effect's items (psys::manager::OrderedEffect, by psysAtomIndex[atom]).
+	/// Interface: dev\tmp_dis\miracles\polish\drawpath_fix.md
+	struct PSysAtomInstance
+	{
+		uint32_t index;          ///< its instance in instanceUniforms / instanceColours / instancePoses
+		entt::id_type meshId;
+		psys::DrawPath path;
+		uint32_t effect;         ///< the effect's id (psys::manager)
+		const psys::Atom* atom;  ///< the atom (Effect::DrawAtom::atom)
+		glm::vec3 key;           ///< the object's +0x38..+0x40, its translation (fn_00679F60 0x679F7E..0x679F9F)
+		bool translucent;        ///< additive or faded with the global alpha (mesh_atoms::Instance::translucent)
+		bool additive;           ///< also in additiveInstances
+		bool cut;                ///< DrawCutByPlane drawn cut (vt+0x11C 0x679F4A, sea_pass::CutAtoms); also in cutAtomInstances
+	};
+	std::vector<PSysAtomInstance> psysAtoms;
+	/// atom -> its index in psysAtoms
+	std::unordered_map<const psys::Atom*, uint32_t> psysAtomIndex;
+	/// With psys::manager::k_DrawByPath: the ranges of every PSys mesh atom, drawn by none of the other loops
+	std::map<entt::id_type, const InstancedDrawDesc> psysAtomDrawDescs;
 	/// Blended instances sorted at another point than their model matrix's translation (the one-shot orb, whose sort key
 	/// OneOffSpellSeed::Draw 0x518E90 pushes toward the camera by its radius): instance index -> the point
 	std::unordered_map<uint32_t, glm::vec3> sortPoints;

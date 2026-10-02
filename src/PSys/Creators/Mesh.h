@@ -128,6 +128,15 @@ struct Instance
 	/// A ParticleAnimCreator atom's bones (graphics::ComputePose at the time of its frame, what the type 2 object's draw
 	/// fn_008175B0 gets from LH3DAnim::GetPose 0x8177B8..0x8177CE); empty for the still meshes
 	std::vector<glm::mat4> pose {};
+	/// The particle's +0x24 bit 4, DrawCutByPlane: the creator's +0x5F (CreateParticle 0x6A8B94..0x6A8B9A), tested by
+	/// fn_00679F20 (`test al, 4` 0x679F29) on both paths, which then draws through vt+0x11C (0x679F4A, cut by the
+	/// default plane) instead of vt+0x104 (0x679F52)
+	bool cutByPlane {false};
+	/// Its effect's draw path: Sorted, its own Z object at the model's translation (fn_00679F60, opaque too); Queued /
+	/// Immediate, drawn at its place in its effect's items (manager::OrderedEffect, matched by `atom`)
+	DrawPath path {DrawPath::Sorted};
+	uint32_t effect {0};      ///< the effect's id (manager::Drawable::effect)
+	const Atom* atom {nullptr}; ///< the atom (Effect::DrawAtom::atom), the key into its effect's items
 };
 /// Every mesh atom of the running effects, interpolated since the last turn
 [[nodiscard]] std::vector<Instance> Collect();

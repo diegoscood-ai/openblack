@@ -1357,7 +1357,7 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
   los enlaces de caminos (vt 0x78 / 0x80 / 0x88 / 0x98 / 0x1E8 sobre [esi+0x40], fn_00644DF0 si (obj+0xA & 1) == 0).
   El cambio de material `fn_0057E220` sí está portado (arriba).
 - El dibujo de los parches de la cúpula es el de `Creators/Mesh.cpp`: **resuelto en M6b** (color del jugador con mezcla
-  0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` no recorta una malla estática); ver
+  0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` sí recorta también la malla estática, fn_0080C050: `mesh_atoms::Instance::cutByPlane`); ver
   [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo). `OrientToSurface` del trazador ya está
   portado (arriba); `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) sigue sin usarse aquí.
 - Los puntos extra de las mallas no se cargan (`UR_AtomsAtEPTarget` usa la posición del objeto, exacto para 554).

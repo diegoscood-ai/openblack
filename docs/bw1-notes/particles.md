@@ -79,11 +79,13 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 - Con esto **la cúpula del escudo ya se ve** (nota de la revisión 3a): las 32 placas
   `MSH_S_SPELLBALLSURFACE02` se dibujan en modo aditivo con el color del jugador y forman una burbuja clara
   (`m6b_dome4_t30.png`), en vez del parche apenas visible de antes.
-- **`DrawCutByPlane` no recorta nada en la cúpula:** solo cambia la llamada (fn_00679F20: vt 0x11C en vez de vt 0x104),
-  y la malla de una partícula es un `LH3DStaticObject` (`LH3DObject::Create(0)` 0x80B4F8, vtable 0x9A2974) cuyo vt 0x11C
-  es fn_0080C050, un dibujo directo de sus primitivas. El corte por y = 0 es solo de los objetos animados (fn_00811C70,
-  [rendering-objects.md](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane)). La nota de la revisión 3a («sin recorte del suelo») queda resuelta: no hay nada que
-  portar.
+- **`DrawCutByPlane` sí recorta:** cambia la llamada (fn_00679F20 `test al, 4` 0x679F29: vt 0x11C 0x679F4A en vez de
+  vt 0x104 0x679F52, en los dos caminos), y para el `LH3DStaticObject` de una partícula (`LH3DObject::Create(0)`
+  0x80B4F8, vtable 0x9A2974) vt 0x11C es fn_0080C050, que **no** es un dibujo directo: plano de fn_00822560, recorte
+  por triángulo (fn_0081D2C0) y luz fn_00858BA0, igual que el animado fn_00811C70
+  ([rendering-objects.md](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane)). El bit es +0x24 & 4 del
+  átomo, puesto desde +0x5F del creador (0x6A8B94..0x6A8B9A): `psys::mesh_atoms::Instance::cutByPlane`, que
+  `RenderingSystem` manda a `sea_pass::CutAtoms` (plano por defecto, se ve lo de y ≥ 0).
 - **(aproximado)** el color va por el tinte de objeto de `vs_object` (−1 − r·65536 − g·256 − b en la x de la quinta
   columna, `lh3d_colour::PackInstanceTint`; sin `DrawWithLandscapeColor`, 1 + rgb con `PackInstanceColour`), que multiplica la luz del suelo: es lo que hace `DrawWithLandscapeColor` (fn_0080BEC0); sin esa marca el
   original pone solo el color (`SetColour` vt 0x2C → obj +0x4C / +0x50). Sin portar: `UseScriptHightlightPulse`
@@ -271,7 +273,20 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   `PSysFrameLerp` / `PSysFrameIndex`, ver [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas).
   Fin: sin átomos ni reglas de creación, o edad > MaxSpellAge; `CloseDown` activa `TrueOnCloseDown`, suelta las
   reglas `RemoveOnCloseDown` y borra al momento si `DeleteOnCloseDown`.
-- Dibujo: cada efecto es un objeto del Z-sorter (`PSysManager::AddDrawing`), sus átomos en orden de lista; sprites de
+- Dibujo: **tres caminos** según quién dibuja el efecto (`psys::DrawPath`, `PSysManager::SetDrawPath`; veredicto en
+  `tmp_dis\miracles\polish\psys_draw_paths_verdict.md`, interfaz en `drawpath_fix.md`). **Sorted** = `Draw_(t, 1)`
+  (fn_00679840, +0xAE = 1 en 0x67984E): el efecto no tiene objeto del Z-sorter; cada sprite (0x840C70), cada malla,
+  también las opacas (fn_00679F60, clave su traslación), cada niebla (fn_007FA7F0, clave mist+0x38) y cada cadena
+  (fn_0067B380, clave la articulación n/2) entran en la cola por su cuenta; las superficies ZR_SurfRevol se dibujan al
+  momento (0x67CBA0). Lo usan `Spell::Draw` 0x720441, la tormenta 0x72DCB7, el escudo 0x72D160, el teletransporte
+  0x5FCDC5, el dispensador 0x722A13, la bandada 0x72420D, las utilidades de la mano, `TownCentre::DrawPSys` 0x69BF19:
+  es el camino por defecto. **Queued** = `AddDrawing` 0x6797D0 (+0xAE = 0 en 0x6797DE): **un** objeto en `GetOrigin`
+  y dentro todos los átomos en el orden de fn_006798B0 (átomos de la colección, su cadena, colecciones hijas); solo la
+  semilla en la bola o el icono (0x51A2CA) y los contenedores con `GSpotVisualInfo` +0x4C `SingleZSort` = 1
+  (0x63E190, 0x63E26A; todas las entradas de info.dat con archivo lo tienen). **Immediate** = `Draw_(t, 0)`: todo al
+  momento donde está la llamada; el efecto en la mano (`CHand::DrawSpellInHand` 0x46E76A, dentro del objeto de la
+  mano). openblack: `manager::CollectSorted` / `CollectQueued` / `HandEffects`; hasta que el renderer los use
+  (`manager::k_DrawByPath`) todo se sigue dibujando como un objeto por efecto en su origen. Sprites de
   `S_SpriteSheet{1,2,3}` (8×8 celdas de 32 px, celda = (FileOffset + fotograma) & 63), quad orientado a la pantalla
   con giro atan2(M[0][2], M[0][0]) o plano XZ (`SetHorozontal`); modo 13 aditivo (102 de 137) o 6, sin escribir Z
   salvo `MaterialUpdateZBuffer`; sin luz ni neblina salvo `UseLandscapeColor` (no hecho).

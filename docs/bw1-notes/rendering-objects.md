@@ -540,7 +540,7 @@ El original tiene tres mecanismos y un solo plano:
     delante)**). Un receptor que no se dibujó en el fotograma (fuera de la vista, ya transparente del todo, o pasado el
     tope 0x800 de la cola) no recibe sombra: `ClearShadowReceivers` vacía la lista al final de los objetos, como la
     cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos y las
-    morfables (GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada;
+    morfables (`ZFunc::LessEqualInclusive`: GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada;
     el Draw morfable `fn_0080E550` no toca ZFUNC alrededor de su bucle 0x80E768..0x80E874).
     `fs_object_shadow` con `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) deja fuera también las bolas de
     un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6).

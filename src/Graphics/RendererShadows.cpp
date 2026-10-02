@@ -110,13 +110,12 @@ void Renderer::DrawLandShadows(RenderPass viewId, const LandBlock& block, uint64
 	const glm::vec4 u_blockPositionAndSize(corner, shadow_math::k_BlockSize, shadow_math::k_BlockSize);
 	// The shadow material: CreateMaterial(6, texture) with +5 = 0 (fn_0087FD50 0x87FE12): mode 6, SRCALPHA /
 	// INVSRCALPHA, no Z write, Z LESSEQUAL over the block just drawn, the block's own culling. openblack's depth is
-	// reversed and State's LessEqual is GREATER, which would drop the equal depth of the redraw: GEQUAL here
-	// (vs_land_shadow computes it as vs_terrain does, land_position.sh). The colour's alpha is not written.
-	const uint64_t state = render_modes::State(render_modes::Mode::AlphaTexturedAlphaNz,
-	                                           {.zFunc = render_modes::ZFunc::Always,
-	                                            .msaa = true,
-	                                            .extra = BGFX_STATE_DEPTH_TEST_GEQUAL}) |
-	                       cull;
+	// reversed and State's LessEqual is GREATER, which would drop the equal depth of the redraw: LessEqualInclusive
+	// (GEQUAL; vs_land_shadow computes the depth as vs_terrain does, land_position.sh). The colour's alpha is not written.
+	const uint64_t state =
+	    render_modes::State(render_modes::Mode::AlphaTexturedAlphaNz,
+	                        {.zFunc = render_modes::ZFunc::LessEqualInclusive, .msaa = true}) |
+	    cull;
 	// the vertex streams, the state and the transform go after each draw; the terrain's bindings stay
 	constexpr auto k_Discard = BGFX_DISCARD_INSTANCE_DATA | BGFX_DISCARD_INDEX_BUFFER | BGFX_DISCARD_TRANSFORM |
 	                           BGFX_DISCARD_VERTEX_STREAMS | BGFX_DISCARD_STATE;
@@ -253,18 +252,14 @@ void Renderer::DrawShadowsOnObject(RenderPass viewId, uint32_t instance, const g
 	// The Z test over the object as it was just drawn: the static Draw fn_0080DB30 sets ZFUNC EQUAL before each shadow
 	// (0x80E484) and LESSEQUAL after the loop (0x80E4CE), and so does fn_00810720 (vt+0x15C, 0x810C8F / 0x810CF2); the
 	// animated one fn_00812170 (vt+0x108 of 0x9A32A0, the loop 0x81311A..0x81317C) sets nothing, so the frame's
-	// LESSEQUAL holds (0x82CCC5): GEQUAL in openblack's reversed depth, which lets the redraw's equal depth pass (as
-	// DrawLandShadows). The morphable Draw fn_0080E550 (vt+0x108 of 0x9A2E34) sets nothing either around its loop
+	// LESSEQUAL holds (0x82CCC5): LessEqualInclusive (GEQUAL in openblack's reversed depth), which lets the redraw's
+	// equal depth pass (as DrawLandShadows). The morphable Draw fn_0080E550 (vt+0x108 of 0x9A2E34) sets nothing either around its loop
 	// (0x80E768..0x80E874 -> fn_0080AE40): LESSEQUAL too. (inferido) that a boned mesh is one of the animated class
 	const bool lessEqual = mesh->IsBoned() || receiver.morphWithTerrain;
 	submitDesc.mode = render_modes::Mode::AlphaTexturedAlphaNz;
-	submitDesc.options = lessEqual ? render_modes::StateOptions {.zFunc = render_modes::ZFunc::Always,
-	                                                             .cull = render_modes::Cull::Ccw,
-	                                                             .msaa = true,
-	                                                             .extra = BGFX_STATE_DEPTH_TEST_GEQUAL}
-	                               : render_modes::StateOptions {.zFunc = render_modes::ZFunc::Equal,
-	                                                             .cull = render_modes::Cull::Ccw,
-	                                                             .msaa = true};
+	submitDesc.options = {.zFunc = lessEqual ? render_modes::ZFunc::LessEqualInclusive : render_modes::ZFunc::Equal,
+	                      .cull = render_modes::Cull::Ccw,
+	                      .msaa = true};
 	submitDesc.morphWithTerrain = receiver.morphWithTerrain;
 	submitDesc.program =
 	    land_morph::ObjectProgram(*_shaderManager, receiver.morphWithTerrain, land_morph::ObjectPass::Shadow);

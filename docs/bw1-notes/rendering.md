@@ -562,8 +562,9 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
   `L3DSubMesh::GetSkinBones` / `GetSkinLocalPositions` (S2) y de `ecs::PosesByInstance`.
 - `src/Graphics/RendererShadows.cpp`: `UpdateShadows` (una vez por fotograma), `DrawLandShadows` (en el bucle de
   bloques de `Renderer::DrawPass`, vista Main, justo detrás del `submit` de cada bloque; programa `LandShadow` =
-  `vs_land_shadow` / `fs_land_shadow`, que comparte `land_position.sh` con `vs_terrain` para dar la misma Z; Z GEQUAL
-  por la profundidad invertida, sin escribir Z, modo 6, el culling del bloque; textura en la etapa 11) y las sombras
+  `vs_land_shadow` / `fs_land_shadow`, que comparte `land_position.sh` con `vs_terrain` para dar la misma Z;
+  `render_modes::ZFunc::LessEqualInclusive` (el D3DCMP_LESSEQUAL de 0x82CCC5, que con la profundidad invertida es
+  GEQUAL; también el de los receptores animados y morfables), sin escribir Z, modo 6, el culling del bloque; textura en la etapa 11) y las sombras
   sobre objetos (`CollectShadowReceivers`, `DrawShadowsOnObject`, `DrawShadowsOnCutObjects`, `ClearShadowReceivers`). `shadow.sh`:
   `LandShadowUv`, `ObjectShadowUv`, `ShadowKept` (el código 0x400).
 - `fs_terrain` ya no tiene sombras (fuera `s7_dynamicShadow`, `u_dynamicShadow*` y el bucle de 16

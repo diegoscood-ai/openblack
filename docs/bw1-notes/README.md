@@ -45,8 +45,8 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Página | Contenido |
 |---|---|
 | [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima; tiempo y clima del juego (LH3DAtmos, GClimate, tormentas, lluvia) |
-| [rendering.md](rendering.md) | Render del mundo: estados D3D, terreno y small bump, mar y costa, tabla de luz, neblina, cámara, sombras sobre el terreno, cielo y nubes, ríos, fundido, fuentes y texto, niebla del mapa |
-| [rendering-objects.md](rendering-objects.md) | Render de los modelos: materiales L3D, luz de los modelos, texturas, sprites, manchas, reflejos en el mar, cortes por el plano del agua, bancos de peces, sombras de objetos y de la mano, LOD, humo de las chimeneas |
+| [rendering.md](rendering.md) | Render del mundo: estados D3D, terreno y small bump, mar y costa, tabla de luz, neblina, cámara, sombras sobre el terreno, cielo y nubes, ríos, fundido, fuentes y texto, niebla del mapa, neblina y luz de la tierra (`graphics::haze`, `land_light`, sellos de luz y sombra) |
+| [rendering-objects.md](rendering-objects.md) | Render de los modelos: materiales L3D, luz de los modelos, texturas, sprites, manchas, reflejos en el mar, cortes por el plano del agua, bancos de peces, sombras de objetos y de la mano, LOD, humo de las chimeneas; los sistemas comunes: cola de transparentes (`graphics::zsorter`), objetos a cámara (`graphics::billboard`), texturas animadas (`graphics::frame_anim`), mallas pegadas al suelo (`land_morph`), modos de render (`graphics::render_modes`) |
 | [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
 | [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
 | [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
@@ -87,6 +87,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | Hora del día, ventanas iluminadas, clima, tormentas, lluvia | [day-night-weather.md](day-night-weather.md) |
 | Cómo se dibuja el mundo (terreno, mar, cielo); si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
 | Cómo se dibuja un modelo (materiales, luz, reflejos, sombras, sprites, humo) | [rendering-objects.md](rendering-objects.md) |
+| Qué API usar para un billboard, una textura animada, algo pegado al suelo, un modo de mezcla o el orden de transparentes (no escribirlo a mano) | [rendering-objects.md](rendering-objects.md) (secciones de cada sistema), [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común) |
 | Orden del fotograma original | [original-frame.md](original-frame.md) |
 | Magia: hechizos y cánticos, lanzar desde la mano, gestos, culto, influencia, alineación, reacciones, fuego | [magic.md](magic.md) |
 | Un milagro concreto (comida, agua, curar, bosque, bandadas, bola de fuego, rayo, escudos, teletransporte, tormenta, explosión de rayo) | [miracles.md](miracles.md) |

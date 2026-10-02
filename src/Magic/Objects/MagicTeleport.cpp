@@ -133,7 +133,8 @@ void ProcessTravellers(entt::entity stone)
 int32_t teleport::FastDistance(const glm::vec3& a, const glm::vec3& b)
 {
 	// the two MapCoords (MapCoords(LHPoint) 0x603160: ToFixed of x and z)
-	return gutils::FastDistance(ecs::map_coords::FromMetres(glm::vec2(a.x, a.z)), ecs::map_coords::FromMetres(glm::vec2(b.x, b.z)));
+	return gutils::FastDistance(ecs::map_coords::FromMetres(glm::vec2(a.x, a.z)),
+	                            ecs::map_coords::FromMetres(glm::vec2(b.x, b.z)));
 }
 
 bool teleport::IsWorthTheDetour(const glm::vec3& living, const glm::vec3& destination, const glm::vec3& stone,

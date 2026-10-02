@@ -52,7 +52,8 @@ void SetUpDestroyedReaction(entt::entity spell);
 /// SpellShield::IsUnder 0x72BD20: dist(p, castPos) < GetRadius() - margin (MapCoords)
 [[nodiscard]] bool IsUnder(entt::entity spell, const glm::vec3& point, float margin);
 /// fn_0072BA00 (GScript::SpellAtPoint 0x70C5F0 / fn_007217A0 with mask 3): the first available shield spell whose
-/// 2D radius around originalCastPos (+0xC0) is strictly greater than its distance to the point. The type bit (19 -> 2, 20 -> 1) is tested as `(bit | mask) != 0`, so no mask filters.
+/// 2D radius around originalCastPos (+0xC0) is strictly greater than its distance to the point. The type bit
+/// (19 -> 2, 20 -> 1) is tested as `(bit | mask) != 0`, so no mask filters.
 [[nodiscard]] entt::entity FindShieldAt(const glm::vec3& point, uint32_t mask);
 /// The town of the spell (+0xFC)
 [[nodiscard]] entt::entity TownOf(entt::entity spell);

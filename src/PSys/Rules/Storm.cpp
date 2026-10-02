@@ -846,12 +846,12 @@ uint32_t TornadoDustColour(const glm::vec3& point)
 	const auto& materials = island.GetMaterialInfo();
 	// UpdateDebrisAtoms 0x6D2B9B..0x6D2BB2: MapCoords(LHPoint) 0x603160 of the tornado's position, then its high words
 	// (the port keeps the check against the island's side: the original passes them on unchecked)
-	const auto cell2 = ecs::map_coords::CellOf(point);
-	if (!ecs::map_coords::InBounds(cell2, static_cast<uint32_t>(island.GetCellsPerSide())))
+	const auto dustCell = ecs::map_coords::CellOf(point);
+	if (!ecs::map_coords::InBounds(dustCell, static_cast<uint32_t>(island.GetCellsPerSide())))
 	{
 		return 0xFFFFFFFFu;
 	}
-	const auto& cell = island.GetCell(glm::u16vec2(cell2.x, cell2.y));
+	const auto& cell = island.GetCell(glm::u16vec2(dustCell.x, dustCell.y));
 	if (cell.properties.country >= countries.size())
 	{
 		return 0xFFFFFFFFu;

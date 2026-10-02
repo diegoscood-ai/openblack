@@ -680,6 +680,8 @@ Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-02, ram
   (0x6022E2..0x602300).
 - `ECS/Systems/Implementations/HandSpellSeed.cpp`: el MapCoords del círculo es `ftol(x·6553,6)`, `ftol(z·6553,6)`,
   altitud 0 (0x5D33DD..0x5D3400).
+- Paso de double a float (FPU del original a 24 bits, 0x7DEE0D), revisado por milagros2: `CellOffset` de SpellSeed
+  (0x6022E2..0x602300), `TopOfObjectsUnder` (0x602388) y `ToMapCoords` de SpellForest (0x725943).
 
 **Rayo y explosión, migrados (2026-10-02, sistemas2):** `PSys/Rules/Lightning.cpp` y `PSys/Rules/Explosion.cpp` ya
 recorren sus celdas con `map_coords::Spiral` + `AddCells` desde el MapCoords del origen (`ToFixed`, 0x69024A /

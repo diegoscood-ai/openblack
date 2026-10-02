@@ -486,9 +486,8 @@ void graphic::Create(FireEffect& fire)
 	// parts 0.3, not ported)
 	graphic->localScale = (tree ? 0.2f : 0.5f) * height;
 	// fn_007311A0 0x7312B6..0x7312EF: S_LMFireBall (6, 3 bytes, 1 frame) once into 0xDA0960, given to +0x30 when the
-	// object has Object +0x24 bit 1 and Get2DRadius > 2 ([0x8AB478]). (inferido) that bit taken as "a map object"
-	// (IsObjectInMap)
-	if (fire::traits::IsObjectInMap(fire.object) && radius > 2.0f)
+	// object has Object +0x24 bit 1 (test at 0x7312D5: a MultiMapFixed, ctor 0x52E207) and Get2DRadius > 2 ([0x8AB478])
+	if (fire::traits::IsMultiMapFixed(fire.object) && radius > 2.0f)
 	{
 		graphic->lightMap = land_light::LoadBitmapFile("Data/Spells/LightMaps/S_LMFireBall.raw", 6, 3, 1, 1);
 	}

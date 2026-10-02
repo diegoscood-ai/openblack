@@ -28,7 +28,7 @@
 /// visual time itself in the original (fn_005E5830, IsVisualNight, UpdateTime, the fireflies) uses At(visual hour).
 ///
 /// Convention: this is the original's sky type. openblack's old Sky::GetCurrentSkyType ran the other way (0 night ..
-/// 2 day, = 2 - sky type) on the script hour with made-up thresholds; its deprecated forwarder returns 2 - Frame().
+/// 2 day, = 2 - sky type) on the script hour with made-up thresholds; it is gone (LandLightTable::Build takes T).
 namespace openblack::sky_type
 {
 

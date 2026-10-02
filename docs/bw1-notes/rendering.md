@@ -272,8 +272,14 @@ de la textura de bloque**.
   columnas en float caen al otro lado de un entero que los double de Python). La alineación es la suavizada del cielo (`Renderer::_skyAlignment`, [0xBF3378]).
   El tipo de cielo de la columna es el muestreo del fotograma [0xFA26BC] (`sky_type::Frame()`; columna
   `sky_type::LightColumn` = (2 − T)·15, neblina `sky_type::HazeFactor`, ver
-  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype)); `Build` lo recibe todavía en el convenio
-  viejo de openblack (2 − T) por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`.
+  [day-night-weather.md](day-night-weather.md#tipo-de-cielo-src3dskytype)); `Build(T, …)` lo recibe tal cual. El
+  original calcula la columna con `Time2SkyType([0xFA26C4])` (0x869859) y la neblina con [0xFA26BC] (0x869D5F): es
+  el mismo valor, porque `fn_00869850` corre en `fn_0086A330` justo tras `fn_0086A2C0` (DrawSky 0x5E2226..0x5E222B).
+  Con el convenio viejo (2 − T por el reenviador) la tabla salía idéntica a toda hora (misma columna en float);
+  solo cambian los últimos bits de near/far: v'² = v·v y luego `v'²·c + base` (0x869D7A..0x869DAB) en vez de
+  `base + c·v·v` con v = 1 − |S − 1|, y las constantes exactas del exe [0x9A3BE0] = 1/900, [0x9A3BD8] =
+  0,00013888883, [0x9A3B70] = 1/15, [0x9A3BD4] = 1/350 en vez de 0,00111111 / 0,000138889 / 0,0666667 /
+  0,00285714 (`test_land_light`, `LandLightTable.MatchesTheOldConventionEveryHour`).
 
 ## Neblina de distancia (original, detalle "Fog", niveles 3–6)
 

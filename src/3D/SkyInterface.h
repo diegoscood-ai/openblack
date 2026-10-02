@@ -21,10 +21,6 @@ class Texture2D;
 class SkyInterface
 {
 public:
-	/// Deprecated in favour of sky_type::Frame() (3D/SkyType.h): openblack's old convention, 0 night .. 2 day,
-	/// = 2 - sky_type::Frame(). Kept only for Renderer::UpdateLandLight -> LandLightTable::Build until that takes the
-	/// original's sky type.
-	[[nodiscard]] virtual float GetCurrentSkyType() const noexcept = 0;
 	/// fn_0086A330's dome part, once a frame after sky_type::SampleFrame: sky_type::Dome().Advance and the rows it asks
 	/// for blended into the dome textures (fn_0086B7F0)
 	virtual void UpdateDome() noexcept = 0;

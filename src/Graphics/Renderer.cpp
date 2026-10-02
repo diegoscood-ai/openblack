@@ -895,7 +895,9 @@ void Renderer::UpdateLandLight() const
 	}
 	// The overcast at the camera caps the base colour (Clouds::WeatherOvercastAtCamera, [0xFA2754]); the lightning flash
 	// at the camera lerps the table to white ([0xFA2768], sky_weather::LightningFlash -> weather::LightningFlashAtCamera)
-	_landLight->Build(Locator::skySystem::value().GetCurrentSkyType(), _skyAlignment.Get(),
+	// with this frame's sky type: fn_00869850 runs from fn_0086A330 right after fn_0086A2C0 (DrawSky 0x5E2226..0x5E222B), so
+	// its Time2SkyType([0xFA26C4]) (0x869859) is [0xFA26BC] = sky_type::Frame(), the value its haze reads (0x869D5F)
+	_landLight->Build(sky_type::Frame(), _skyAlignment.Get(),
 	                  Clouds::WeatherOvercastAtCamera(), sky_weather::LightningFlash());
 	const auto& texels = _landLight->GetTexels();
 	bgfx::updateTexture2D(_landLightTexture, 0, 0, 0, 0, LandLightTable::k_Size, 1,
@@ -2250,10 +2252,6 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
 
-	// u_skyAndBump.x keeps openblack's old convention (0 night .. 2 day) of this frame's sample; fs_terrain does not use
-	// it for anything visible (its owner drops it)
-	const float skyType = 2.0f - sky_type::Frame();
-
 	// Distance haze of this frame (graphics::haze::Frame: fn_007FEAA0 / fn_007FEAD0 and the "Fog" detail key)
 	_haze = _landLight && _landLight->IsLoaded() ? haze::Frame() : haze::Params {};
 	_hazeUniforms = haze::Uniforms(_haze);
@@ -2338,7 +2336,8 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			const float lineDistance =
 			    (50.0f + cameraForward.y * std::max(0.0f, cameraOrigin.y - 0.67f * 165.0f)) / forwardLength;
 			const glm::vec4 u_smallBumpLine = {cameraOrigin.x, cameraOrigin.z, forwardXZ / forwardLength};
-			const glm::vec4 u_skyAndBump = {skyType, desc.bumpMapStrength, desc.smallBumpMapStrength, lineDistance};
+			// x unused: the sky type reaches the land through the land light table and the haze (vs_terrain)
+			const glm::vec4 u_skyAndBump = {0.0f, desc.bumpMapStrength, desc.smallBumpMapStrength, lineDistance};
 
 			terrainShader->SetTextureSampler("s0_materials", 0, island.GetAlbedoArray());
 			terrainShader->SetTextureSampler("s1_bump", 1, island.GetBump());

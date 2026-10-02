@@ -22,7 +22,7 @@ uniform vec4 u_physicsShadowCount;      // x: how many
 uniform vec4 u_physicsShadowBox[16];    // xy: box minimum x/z, zw: 1 / size
 uniform vec4 u_physicsShadowSlot[16];   // xy: the shadow's corner in the atlas, z: its size, w: fade
 
-uniform vec4 u_skyAndBump;
+uniform vec4 u_skyAndBump; // x unused, y: bump strength, z: small bump strength (w: vs_terrain)
 uniform vec4 u_terrainPass; // x: light scale (0.5 for the mirrored land in the reflection, like fn_007FF4F0),
                             // y: material repeats per block (1 in the original; terrain-x2 mod; pictures stay at 1),
                             // z: static shadow strength (0.5, or 0.25 with low textures),
@@ -50,7 +50,6 @@ vec3 MaterialRepeats(float bits)
 void main()
 {
 	// unpack uniforms
-	float skyType = u_skyAndBump.x;
 	float bumpMapStrength = u_skyAndBump.y;
 	float smallBumpMapStrength = u_skyAndBump.z;
 
@@ -97,7 +96,6 @@ void main()
 	col.rgb *= 1.0f - u_terrainPass.z * texture2D(s5_staticShadow, v_texcoord1.xy).r;
 
 	// apply light map
-	float skyBightness = skyType / 2.0f;
 	col.rgb = col.rgb * v_landLight * u_terrainPass.x;
 
 	// Small bump (render mode 0xE, fn_0082DD90: TEXTURE * DIFFUSE in colour and alpha): a second pass over the lit

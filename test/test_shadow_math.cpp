@@ -17,12 +17,23 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <vector>
 
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <gtest/gtest.h>
+#include <spdlog/sinks/null_sink.h>
+#include <spdlog/spdlog.h>
 
+#include "3D/L3DMesh.h"
+#include "3D/L3DSubMesh.h"
 #include "Graphics/ShadowMath.h"
+#include "Locator.h"
 
 using namespace openblack::graphics::shadow_math;
 
@@ -368,3 +379,86 @@ TEST(ShadowMath, PipelineCube)
 	}
 }
 
+// L3DSubMesh's skin (S2): the rest pose bone matrices on the local positions give the collision positions, and the hand
+// in its rest pose casts a texture of at most 4 with halfRows (CreateDynamicShadow 0x80C037), 8 with a held object
+TEST(ShadowMath, HandRestPose)
+{
+	const char* game = std::getenv("OPENBLACK_GAME_PATH");
+	if (game == nullptr)
+	{
+		GTEST_SKIP() << "OPENBLACK_GAME_PATH not set";
+	}
+	for (const auto* name : {"game", "graphics"})
+	{
+		if (spdlog::get(name) == nullptr)
+		{
+			spdlog::create<spdlog::sinks::null_sink_mt>(name);
+		}
+	}
+	if (!openblack::Locator::config::has_value())
+	{
+		openblack::Locator::config::emplace();
+	}
+	bgfx::renderFrame(); // single-threaded
+	bgfx::Init init {};
+	init.type = bgfx::RendererType::Noop;
+	ASSERT_TRUE(bgfx::init(init));
+	{
+		openblack::graphics::L3DMesh mesh("Hand_Boned_Base2");
+		std::ifstream file(std::filesystem::path(game) / "Data" / "CreatureMesh" / "Hand_Boned_Base2.l3d", std::ios::binary);
+		ASSERT_TRUE(file.good());
+		const std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+		ASSERT_TRUE(mesh.LoadFromBuffer(data));
+		ASSERT_TRUE(mesh.IsBoned());
+		const auto& bones = mesh.GetBoneMatrices();
+		const glm::vec3 position(1000.0f, 40.0f, 1200.0f);
+		const auto instance = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(0.01f));
+		const auto projection = MakeProjection(position, LightHand(position));
+		Box box;
+		std::vector<glm::vec2> points;
+		std::vector<uint16_t> indices;
+		for (const auto& subMesh : mesh.GetSubMeshes())
+		{
+			if (subMesh->IsPhysics() || (subMesh->GetFlags().lodMask & 1) != 1)
+			{
+				continue;
+			}
+			const auto& local = subMesh->GetSkinLocalPositions();
+			const auto& skin = subMesh->GetSkinBones();
+			const auto& rest = subMesh->GetCollisionPositions();
+			ASSERT_EQ(local.size(), rest.size());
+			ASSERT_EQ(skin.size(), rest.size());
+			const auto base = static_cast<uint16_t>(points.size());
+			for (size_t i = 0; i < local.size(); ++i)
+			{
+				ASSERT_LT(skin[i], bones.size());
+				const auto posed = glm::vec3(bones[skin[i]] * glm::vec4(local[i], 1.0f));
+				EXPECT_NEAR(glm::distance(posed, rest[i]), 0.0f, 1e-2f * std::max(1.0f, glm::length(rest[i])));
+				points.push_back(Project(projection, instance * bones[skin[i]], local[i], box));
+			}
+			for (const auto index : subMesh->GetCollisionIndices())
+			{
+				indices.push_back(static_cast<uint16_t>(base + index));
+			}
+		}
+		ASSERT_FALSE(points.empty());
+		ASSERT_LT(box.x0, box.x1);
+		ASSERT_LT(box.z0, box.z1);
+		auto grid = points;
+		ToGrid(box, grid);
+		for (const bool halfRows : {true, false})
+		{
+			Coverage coverage;
+			RasterTriangles(grid, indices, true, halfRows, coverage);
+			Texels texels;
+			Resolve(coverage, texels);
+			EXPECT_EQ(*std::max_element(texels.begin(), texels.end()), halfRows ? 4 : 8);
+			for (int i = 0; i < k_Texels; ++i)
+			{
+				EXPECT_EQ(texels[static_cast<size_t>(i)], 0);
+				EXPECT_EQ(texels[static_cast<size_t>(i * k_Texels)], 0);
+			}
+		}
+	}
+	bgfx::shutdown();
+}

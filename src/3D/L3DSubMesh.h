@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <L3DFile.h>
@@ -98,6 +99,14 @@ public:
 	[[nodiscard]] const std::vector<uint16_t>& GetCollisionIndices() const { return _collisionIndices; }
 	/// Texture coordinates of the collision positions (FragMesh copies them)
 	[[nodiscard]] const std::vector<glm::vec2>& GetCollisionUVs() const { return _collisionUVs; }
+	/// Per collision vertex: the bone of its vertex group (0 without bones, like vs_object's max(0, -1)) and its position
+	/// in that bone's space as the file has it, to pose it on the CPU with the bone matrices: the rigid skin of the
+	/// skinned branch of fn_00850900 (0x850B04..0x850B2B: one bone matrix per vertex group {count, bone})
+	[[nodiscard]] const std::vector<uint16_t>& GetSkinBones() const { return _skinBones; }
+	[[nodiscard]] const std::vector<glm::vec3>& GetSkinLocalPositions() const { return _skinLocalPositions; }
+	/// Each primitive's triangles in GetCollisionIndices (first index, index count), in the order of GetPrimitives: the
+	/// file's, which the hd-tweaks smoothing does not keep in the primitives' own offsets
+	[[nodiscard]] const std::vector<std::pair<uint32_t, uint32_t>>& GetCollisionRanges() const { return _collisionRanges; }
 
 private:
 	graphics::L3DMesh& _l3dMesh;
@@ -112,5 +121,8 @@ private:
 	std::vector<glm::vec3> _collisionPositions;
 	std::vector<uint16_t> _collisionIndices;
 	std::vector<glm::vec2> _collisionUVs;
+	std::vector<uint16_t> _skinBones;
+	std::vector<glm::vec3> _skinLocalPositions;
+	std::vector<std::pair<uint32_t, uint32_t>> _collisionRanges;
 };
 } // namespace openblack::graphics

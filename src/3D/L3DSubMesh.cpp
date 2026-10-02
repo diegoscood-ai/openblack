@@ -242,11 +242,15 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 
 	_collisionPositions.resize(nVertices);
 	_collisionUVs.resize(nVertices);
+	_skinBones.assign(nVertices, 0);
 	for (uint32_t i = 0; i < nVertices; ++i)
 	{
 		_collisionPositions[i] = verticesMemAccess[i].pos;
 		_collisionUVs[i] = verticesMemAccess[i].uv;
+		_skinBones[i] = static_cast<uint16_t>(std::max<int32_t>(0, verticesMemAccess[i].index[0]));
 	}
+	// before the rest pose below and the hd-tweaks smoothing, which changes the vertex buffer (not these)
+	_skinLocalPositions = _collisionPositions;
 
 	uint16_t startIndex = 0;
 	uint16_t startVertex = 0;
@@ -280,6 +284,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 		    0,
 		});
 		ApplyMode(added, static_cast<uint32_t>(primitive.material.type));
+		_collisionRanges.emplace_back(startIndex, primitive.numTriangles * 3);
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);
 		startIndex += static_cast<uint16_t>(primitive.numTriangles * 3);

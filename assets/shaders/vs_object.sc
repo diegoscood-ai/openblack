@@ -30,34 +30,16 @@ $output v_position, v_texcoord0, v_normal, v_color0
 // Model lighting of the original (fn_00801C90 + fn_0084BA90): the object takes the landscape light of the ground it
 // stands on, table[cell luminosity] interpolated bilinearly over the 4 cells around its origin, and the cells' r, g, b
 // as specular; each vertex is then lit by the one point light of LH3DTech with the integer rule of model_light.sh.
-SAMPLER2D(s_cellMap, 2);   // per cell: rgb = the cell colour read as a D3DCOLOR (R and B swapped), a = luminosity
-SAMPLER2D(s_landLight, 3); // landscape light table, 256x1
-SAMPLER2D(s_cloudShadow, 4); // cloud shadow luminosity cap per cell
-uniform vec4 u_cellMap;     // xy: world position of the map's first cell, zw: map size in cells
+SAMPLER2D(s_landLightTable, 3); // landscape light table [0xEDD90C], 256x1
+SAMPLER2D(s_landCells, 4);      // this frame's cells (land_light::Texels): rgb = the colour as a D3DCOLOR, a = luminosity
+#include "land_light.sh"
+#include "haze.sh"
 uniform vec4 u_objectLight; // x > 0: light like the original, y: colour boost (the hand: x1.5, CHand::AddDrawing),
-                            // w > 0: no distance haze (the hand)
-uniform vec4 u_haze;        // x: near, y: far, z: k, w: on ("Fog" detail key)
-uniform vec4 u_hazeColour;  // rgb: fog colour 0..255
+                            // w: 1 = no distance haze (the hand) + 2 x the mesh's land_light::ObjectMode
 uniform vec4 u_window;      // x > 0: a window submesh (L3D isWindow), lit at night by the instance (Abode::Draw)
                             // w: 1 = the primitive takes the object's texture offset
 uniform vec4 u_objectClip;  // y > 0: mirrored in y = 0 (the parts under the water drawn into the reflection target)
 
-vec4 CellTexel(vec2 cell)
-{
-	// off the map: the full light and no specular, like the cells of missing blocks (fn_00801C90, 0x8020F8)
-	if (any(lessThan(cell, vec2_splat(0.0f))) || any(greaterThanEqual(cell, u_cellMap.zw)))
-	{
-		return vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	}
-	vec4 texel = texture2DLod(s_cellMap, (cell + 0.5f) / u_cellMap.zw, 0.0f);
-	texel.a = min(texel.a, texture2DLod(s_cloudShadow, (cell + 0.5f) / u_cellMap.zw, 0.0f).r);
-	return texel;
-}
-
-vec3 LandLight(float luminosity)
-{
-	return texture2DLod(s_landLight, vec2((floor(luminosity * 255.0f + 0.5f) + 0.5f) / 256.0f, 0.5f), 0.0f).rgb;
-}
 #endif // USE_INSTANCING
 
 void main()
@@ -188,15 +170,27 @@ void main()
 	}
 	else if (u_objectLight.x > 0.0f)
 	{
-		vec2 cellPosition = (i_data3.xz - u_cellMap.xy) * 0.1f;
-		vec2 cell = floor(cellPosition);
-		vec2 w = cellPosition - cell;
-		vec4 c00 = CellTexel(cell);
-		vec4 c10 = CellTexel(cell + vec2(1.0f, 0.0f));
-		vec4 c01 = CellTexel(cell + vec2(0.0f, 1.0f));
-		vec4 c11 = CellTexel(cell + vec2(1.0f, 1.0f));
-		objectColour = mix(mix(LandLight(c00.a), LandLight(c01.a), w.y), mix(LandLight(c10.a), LandLight(c11.a), w.y), w.x);
-		specular = mix(mix(c00.rgb, c01.rgb, w.y), mix(c10.rgb, c11.rgb, w.y), w.x);
+		// The land light at the origin by the mesh's mode (land_light.sh, land_light::ObjectMode): fn_00801C90 bilinear,
+		// fn_00802120 cell >> 8, 0x803340 the cell alone, [0xEDDD08] alone (Dove::Draw 0x41F75B writes +0x4C only;
+		// (inferido) +0x50 left at 0, nothing in Dove::Draw sets it)
+		float landMode = floor(u_objectLight.w / 2.0f);
+		bool hazeOff = u_objectLight.w - landMode * 2.0f > 0.5f;
+		vec3 landSpecular = vec3_splat(0.0f);
+		vec3 landDiffuse = LandLightFull();
+		if (landMode < 0.5f)
+		{
+			landDiffuse = LandLightBilinear(i_data3.xz, landSpecular);
+		}
+		else if (landMode < 1.5f)
+		{
+			landDiffuse = LandLightCellShift(i_data3.xz, landSpecular);
+		}
+		else if (landMode < 2.5f)
+		{
+			landDiffuse = LandLightCell(i_data3.xz, landSpecular);
+		}
+		objectColour = landDiffuse / 255.0f;
+		specular = landSpecular / 255.0f;
 		// + the object's own specular, per channel with saturation (fn_0080BF10 from fn_0080BEC0: Villager / Animal Draw)
 		specular = min(specular + objectSpecular, vec3_splat(1.0f));
 		objectColour = min(objectColour * u_objectLight.y, vec3_splat(1.0f));
@@ -209,13 +203,15 @@ void main()
 		// DrawUnderWater (reflections: no haze, no vertex lighting)
 		if (u_objectLight.x < 2.5f)
 		{
-		// Distance haze once per object at its origin (fn_007FEB30); none closer than near
+		// Distance haze once per object at its origin (fn_007FEB30, haze.sh): none with the key off or closer than near
+		// (0x7FEB36, 0x7FEB7D); the colour (c f) >> 8 per byte, the specular + the fistp colour, saturated
 		float originDepth = mul(u_view, vec4(i_data3.xyz, 1.0f)).z;
-		float hazeT = originDepth < u_haze.x || u_objectLight.w > 0.0f
-		                  ? 0.0f
-		                  : u_haze.w * saturate((originDepth - u_haze.x) / (u_haze.y - u_haze.x));
-		objectColour *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
-		specular = min(specular + floor(u_hazeColour.rgb * hazeT + 0.5f) / 255.0f, vec3_splat(1.0f));
+		if (u_haze.w > 0.0f && !hazeOff && !(originDepth < u_haze.x))
+		{
+			float hazeT = HazeT(originDepth);
+			objectColour = ApplyHazeDiffuse(floor(objectColour * 255.0f + 0.5f), HazeFactor(hazeT)) / 255.0f;
+			specular = HazeAddSaturated(floor(specular * 255.0f + 0.5f), HazeColour(hazeT)) / 255.0f;
+		}
 		// The vertex light of fn_0084BA90 (model_light.sh) over the object's byte colour, so it is at most 254/256
 		// mod graphics.hd-tweaks (u_window.y > 0): fs_object does this per pixel on the villager
 		if (u_window.y <= 0.0f)

@@ -41,7 +41,6 @@ public:
 	/// Time between 0 and 24 in hours
 	void SetTime(float time) noexcept override;
 	/// Deprecated: 2 - sky_type::Frame()
-	[[nodiscard]] float GetCurrentSkyType() const noexcept override;
 	void UpdateDome() noexcept override;
 	[[nodiscard]] graphics::L3DMesh& GetMesh() const noexcept override { return *_mesh; }
 	[[nodiscard]] graphics::L3DMesh& GetSunMesh() const noexcept override { return *_sunMesh; }

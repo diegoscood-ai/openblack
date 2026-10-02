@@ -31,8 +31,9 @@ namespace night_lights
 /// 16.5..17.5 h and out over 6..7 h
 [[nodiscard]] float VillageLightIntensity(float scriptHour);
 
-/// The land cells the lights are stamped into: luminosity caps with the layout of the island's cell map (the
-/// shaders take min(cell luminosity, cap)), the cells' own luminosity and the green of light table[255]
+/// The land cells the lights are stamped into: `cap` is this frame's luminosity byte +3 of every cell (land_light,
+/// after the stamps), the island's cell map layout, written directly like fn_008229B0 0x822DC3; the cells' loaded
+/// luminosity (0 = no block) and the green of light table[255]
 struct LightCells
 {
 	glm::ivec2 firstCell {0}; ///< global cell of cap index 0

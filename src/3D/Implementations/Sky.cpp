@@ -94,12 +94,6 @@ void Sky::SetTime(float time) noexcept
 	_timeOfDay = time;
 }
 
-float Sky::GetCurrentSkyType() const noexcept
-{
-	// Deprecated forwarder in openblack's old convention (0 night .. 2 day) for the callers not moved to sky_type yet
-	return 2.0f - sky_type::Frame();
-}
-
 void Sky::UpdateDome() noexcept
 {
 	const auto blocks = sky_type::Dome().Advance(sky_type::Frame());

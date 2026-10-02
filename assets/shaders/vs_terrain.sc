@@ -9,15 +9,16 @@ $output v_normal, v_texcoord0, v_texcoord1, v_weight, v_materialID0, v_materialI
 #   define materialIdFix(x) (ivec4(x))
 #endif
 
-SAMPLER2D(s4_landLight, 4);
-SAMPLER2D(s6_cloudShadow, 6); // cloud shadow luminosity cap per cell (Clouds::BuildShadowCap), same layout as the cells
+SAMPLER2D(s_landLightTable, 4); // the landscape light table [0xEDD90C], 256 x 1
+SAMPLER2D(s_landCells, 6);      // this frame's cells (land_light::Texels): the stamps of fn_0086D360 are in them
+#include "land_light.sh"
+#include "haze.sh"
 
 uniform vec4 u_blockPositionAndSize;
 uniform vec4 u_islandExtent;
 uniform vec4 u_skyAndBump;    // w: distance of the small bump fade line ahead of the camera
 uniform vec4 u_smallBumpLine; // xy: camera x/z, zw: normalised horizontal camera forward
-uniform vec4 u_haze;          // x: near, y: far, z: k, w: on ("Fog" detail key)
-uniform vec4 u_hazeColour;    // rgb: fog colour 0..255
+uniform vec4 u_hazeBlock;     // x: the block's haze class +0x940 (fn_00877210, graphics::haze::BlockClass): 0, 1, 2
 
 void main()
 {
@@ -38,12 +39,12 @@ void main()
 	v_materialID1 = materialIdFix(a_color2);
 	v_materialBlend = a_texcoord2;
 	v_lightLevel = a_color0.x;
-	// Vertex diffuse = landscape light table[luminosity] (fn_00874AA0), interpolated across the triangle like D3D
+	// Vertex diffuse = table[cell byte 3] (0x874B89) and specular = the cell colour (0x874B7A), the cells of this frame
+	// (land_light.sh), interpolated across the triangle like D3D
 	vec2 cellIndex = floor((blockPosition + a_position.xz - u_islandExtent.xy) * 0.1f + 0.5f);
-	vec2 cellMapSize = (u_islandExtent.zw - u_islandExtent.xy) * 0.1f + 1.0f;
-	float cloudCap = texture2DLod(s6_cloudShadow, (cellIndex + 0.5f) / cellMapSize, 0.0f).r;
-	float luminosity = min(a_color0.x, cloudCap);
-	v_landLight = texture2DLod(s4_landLight, vec2((floor(luminosity * 255.0f + 0.5f) + 0.5f) / 256.0f, 0.5f), 0.0f).rgb;
+	vec4 landCell = LandCell(cellIndex);
+	vec3 landDiffuse = LandTable(landCell.a);
+	vec3 landSpecular = landCell.rgb;
 	v_shoreFade = a_color3; // 0 at altitude 1 or less: no small bump there, dynamic shadows fade out
 
 	vec3 transformedPosition = vec3(a_position.x + blockPosition.x, a_position.y, a_position.z + blockPosition.y);
@@ -74,9 +75,21 @@ void main()
 	vec4 cs_position = mul(u_view, vec4(transformedPosition, 1.0f));
 	v_distToCamera = cs_position.z;
 
-	// Distance haze per vertex (fn_00874AA0 0x874C5B / fn_007A1800), with the view depth along the camera axis
-	float hazeT = u_haze.w * saturate((cs_position.z - u_haze.x) / (u_haze.y - u_haze.x));
-	v_landLight *= (256.0f - floor((256.0f - u_haze.z) * hazeT)) / 256.0f;
-	v_landSpecular = min(a_color0.yzw * 255.0f + floor(u_hazeColour.rgb * hazeT + 0.5f), vec3_splat(255.0f)) / 255.0f;
+	// Distance haze per vertex (fn_00874AA0, haze.sh) by the block's class: 2 (0x874C48) f = k and the colour
+	// truncated, 1 (0x874C5B..0x874D1E) from the view depth clamped to [near, far]; the specular first (saturated), then
+	// the diffuse (c f) >> 8 (0x874D21..0x874DF0)
+	if (u_hazeBlock.x > 1.5f)
+	{
+		landSpecular = HazeAddSaturated(landSpecular, HazeColourFull());
+		landDiffuse = ApplyHazeDiffuse(landDiffuse, u_haze.z);
+	}
+	else if (u_hazeBlock.x > 0.5f)
+	{
+		float hazeT = HazeT(cs_position.z);
+		landSpecular = HazeAddSaturated(landSpecular, HazeColour(hazeT));
+		landDiffuse = ApplyHazeDiffuse(landDiffuse, HazeFactor(hazeT));
+	}
+	v_landLight = landDiffuse / 255.0f;
+	v_landSpecular = landSpecular / 255.0f;
 	gl_Position = mul(u_proj, cs_position);
 }

@@ -1382,6 +1382,13 @@ corte 0x96: un poco más finos).
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
 
+### Dudas para el usuario (sesión «sistemas», cola de transparentes)
+
+- **Llamas detrás de los árboles** (D7: solo van a la cola las mallas con la marca 0x200, SetMesh 0x7F9E48 /
+  AddDrawing 0x815F0B): los árboles se dibujan ahora al momento y con Z, así que las llamas de un árbol de atrás
+  quedan tapadas por el follaje de los de delante, y por encima se ven más claras y sin el humo oscuro
+  (`dev\_audit\sistemas\drawpath\fire_tree_*`). ¿Era así en el original?
+
 ### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
 
 Se implementó todo «como el original» leído en el binario; estas dudas solo dependen de cómo se veía el juego.

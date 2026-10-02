@@ -473,6 +473,28 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     objetos de su celda, lista +4 y luego +0, que no son vivos ni se mueven y cuyo círculo se solapa: d² < r_obj² +
     r_semilla², 0 si ninguno), vt 0x540, y `LHMatrix::Translation` a (x, suelo + altitud, z), +0x44 = 1, +0x48 = 0 y
     `AddForDrawing(semilla)` 0x63B5D0, que manda la colisión de dibujo: la mano la ve.
+  - **La semilla del suelo no gira (lane «forestseed» de milagros2).** `LHMatrix::Translation` 0x403530 reescribe la
+    matriz entera: filas identidad (0x403532..0x403558) y luego el punto. +0x44 y +0x48 son la `scale` y el `y_angle`
+    de LH3DObject (bw1-decomp `LH3DObject.h`; `Game3DObject::SetPosition` 0x63B740 los escribe igual), no «alfa y
+    banderas». Así que cada fotograma la `I_Forest` se dibuja derecha, sin girar y a escala 1, sea cual sea el giro que
+    traía de la mano. openblack lo hacía mal (dejaba la rotación de la mano): `DrawFromSpell` pone ahora la rotación
+    identidad y escala 1 (las cuatro semillas que llegan aquí, STORM, NATURE, SHIELD y PHYSICAL_SHIELD, tienen escala
+    1 en `GSpellSeedInfo`). Nada más mueve esa semilla: `SpellSeed::Draw` 0x518710 es un `ret`; `DrawOutOfMap`
+    0x5190A0 solo la dibuja en la mano.
+  - **Lo que cae y gira es el átomo** `Seed.L3D` del PSys (`SF_Forest`, grupo 0): nace 9,435 m sobre el punto,
+    `UpdateRuleGravity_Seed` (gravedad 1,6, `MaxSpeed` 3,34513, sin amortiguar: unos 4 s de caída) y
+    `UpdateRuleRotatePrincipalAxis_Seed` (`AngularVel` 12,2611 rad/s ≈ 1,95 vueltas/s alrededor de su Y,
+    `AxisChosen` 1 → 0x6A1218; el ángulo es dt × AngularVel, `fld [0xD4E0EC]; fmul [+0x24]`, sin ligarlo a nada más).
+    0x6A1150 gira también la cuarta fila de la matriz del átomo (+0x68), pero `SetRotationMatrix` 0x674120 la deja a 0
+    y la posición del átomo es +0x80: no hay órbita, la «espiral» es el ala descentrada de la malla. Su único evento es
+    `LandscapeCollide_Seed` (tipo 3): los árboles salen todos al tocar tierra, no mientras cae.
+  - **Recuerdo del usuario (2026-10-02):** «la semilla del bosque cae girando a la misma velocidad a la que crecen los
+    árboles; desde el templo se queda en el suelo mientras dura el bosque y se puede coger y volver a lanzar; desde un
+    orbe ni se queda ni se coge». Lo que da el exe: el giro y la caída son del átomo (antes de que haya árboles); lo que
+    va «a la velocidad de los árboles» es la `I_Forest`, cuya altura es la del árbol más alto (fn_0053A740) y por eso
+    **sube** exactamente al ritmo del crecimiento (0,01 de escala por turno × lluvia × alineamiento). No se encontró
+    nada que la haga bajar mientras el bosque vive (cuando el hechizo cierra, `fn_00728FC0` falla y deja de dibujarse).
+    Lo demás del recuerdo coincide.
   - Corregido el «(inferido) cuenta el suelo dos veces» de la auditoría: la altitud de un MapCoords es sobre el suelo
     (`GetLHPoint` 0x605C40 = `GetAltitude` + y), así que `GetTopPos` también lo es.
   - Resultado: −5 m (bajo tierra) mientras cae el átomo; al salir el bosque, en el suelo en el centro; luego sube con el
@@ -486,13 +508,30 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
     (`HandApplyToObject.cpp`).
   - **(aproximado):** `IsMoving` vt 0x174 de un objeto fijo se toma como «está en físicas» (openblack no guarda la
     posición del turno anterior); las listas de la celda son las de `effects::ObjectsInMapCell` (aproximado allí).
-    **(inferido):** +0x44 / +0x48 del Game3DObject (alfa y banderas de dibujo; no es la escala, que es +0x50).
+    +0x44 / +0x48 del Game3DObject son la escala de dibujo y el `y_angle` (corregido; antes «alfa y banderas»); la
+    escala del Object (+0x50, `GetScale` 0x402520) es otra.
   - Sin portar en `Spell::DrawSpells`: fn_0064AF20 (por jugador y neutral, los seis huecos +0x34 de player +0xA48 con
     fn_0077B3B0; sin identificar), fn_00682950 (la colisión invisible de las bolas de fuego, lista g_game +0x205C9C,
     fn_00682F30) y la vt 0x108(1) del objeto +0xB0 en `Spell::Draw`. fn_00725FE0 es un `ret`; fn_0072BF50 son los
     escudos (`map_shield::DrawShields`).
   - Solo con una semilla de icono: la de un orbe de un uso o `OPENBLACK_TEST_SEED` (sin icono) ni se dibuja ni se
     recoge, como el original. `OPENBLACK_TEST_SPELL` (guion) no crea semilla.
+  - **Templo frente a orbe.** No hay bandera propia del orbe: `seedFollowsSpell` (+0x120) = 1 y `deleteSeedOnceCast`
+    (+0x168) = 0 valen para las dos (fila NATURE de `seed_table.md`). La diferencia es el icono +0x5C:
+    `OneOffSpellSeed::CreateSpellIntoHand` 0x72A730 pide `GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40 (el icono
+    de esa semilla en los lugares de culto del jugador que pase `WorshipSpellIcon::ValidForRequestSpell` 0x77FBA0, el
+    de más cánticos disponibles fn_0077CBC0) y con icono crea la semilla con fn_007282A0 → fn_00727FF0 (+0x5C = icono,
+    escala = escala del icono × la de la semilla); sin icono, fn_00728300 → fn_007280A0 (+0x5C = 0). Sin icono
+    `fn_00728FC0` falla: 0x729020 no la dibuja ni manda la colisión de dibujo, así que la mano no la ve
+    (`ValidForPlaceInHand` 0x728580 no llega a preguntarse). La semilla sigue viva, invisible y atada al hechizo, hasta
+    que `Spell::ToBeDeleted` 0x71FD90 la borra (vt 0xC de +0xAC en 0x71FE16) junto con el hechizo. **Matiz fiel:** un
+    orbe tocado por un jugador que ya tiene el icono del bosque en su templo da una semilla atada a ese icono, que sí
+    se queda y se coge (openblack lo porta igual: `one_off::CreateSpellIntoHand`).
+  - **Cuándo se va.** Con el hechizo cerrado (al cogerla, por `ClearSpellLink` 0x728200; o por
+    `ProcessFromSpell` 0x728F70 si sale de la influencia de su jugador) deja de dibujarse en el acto. El bosque mengua
+    0,05 por turno; cuando el Forest se borra (`ProcessTrees` 0x725A30: bandera +0xA & 1 → +0xEC = 0 y `CloseDown`) y
+    el PSys ha terminado, `ProcessTrees` devuelve 5 y el hechizo se borra con su semilla (0x71FE16). openblack:
+    `Spell.cpp` `base::ToBeDeleted`, `SpellForest.cpp` `Process` (`psys != 0 ? 1 : 5`).
   - Capturas (`dev\_audit\magic\`; `OPENBLACK_TEST_WORSHIP_SITE="NORSE,NATURE"`, `OPENBLACK_TEST_TOWN_SPELL="0,13"`,
     `OPENBLACK_TEST_MANA=20000`, `OPENBLACK_TEST_TAP_ICON="NATURE,200"`, `OPENBLACK_TEST_CAST="press@26,release@26.3,..."`,
     `OPENBLACK_MOUSE_AT=0.5,0.5`): `polish_fix_mano_forest_side.png` (cámara `1772,52,2604,1790,36,2625`, 7 s después:
@@ -1267,6 +1306,15 @@ reparte **una sola vez** (`SpreadReaction`), así que solo tienen ocasión los a
 - **`UR_SphereSurfaceTracer` 0x6A32B0 corregido** (PSys.cpp): la propiedad del radio es `ScaleSphereRadius` (no
   `SphereRadiusFP`, que no existe: la cúpula salía de 1 m), los ángulos con `fmod 2π`, el alfa `Alpha × ScaleAlpha`
   y, fuera de jerarquía, + la posición del padre.
+- **`OrientToSurface` del trazador portado** (+0x44, 0x6A351D..0x6A35C4; lo ponen a 1 solo SF_DefenseSphereInHand y
+  SF_DefenseSphereOnHolder, la cúpula SF_DefenseSphere lo tiene a 0). Cada parche se gira hacia fuera de la esfera en
+  su (θ, φ): `fn_006743A0(π/2 − φ)` (filas (cos a, −sin a, 0), (sin a, cos a, 0), (0, 0, 1) y la cuarta fila a 0) y
+  luego en cada fila (x, z) → (c x − s z, c z + s x) con c, s = cos θ, sin θ (= `lh_matrix::TurnRows(eje 1)`); el eje
+  Y local del parche queda en la normal. Sin él los 15 parches MSH_S_SPELLBALLSURFACE02 del efecto en la mano
+  (`particleTypeInHand` 65 de `GMagicShieldInfo`[0], `SF_DefenseSphereInHand`: un átomo raíz que sigue a la mano con
+  `SetScale` = `RenderHandScale` × 3,5 y `CreateRuleSphere` de 15 parches en el grupo 1) iban todos con la misma
+  orientación y se veían como muchas piezas girando en corro; con él forman **una sola bola** que gira en la mano,
+  como el original. Capturas `dev\_audit\magic\shieldhand_before*.png` / `shieldhand_after*.png`.
 
 La corrección de las jerarquías del PSys que necesita la cúpula está en
 [Corrección en el núcleo del PSys: las jerarquías](particles.md#corrección-en-el-núcleo-del-psys-las-jerarquías).
@@ -1310,9 +1358,8 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
   El cambio de material `fn_0057E220` sí está portado (arriba).
 - El dibujo de los parches de la cúpula es el de `Creators/Mesh.cpp`: **resuelto en M6b** (color del jugador con mezcla
   0,5, aditivo por el `MeshChangeMaterialProps` del ctor, y `DrawCutByPlane` no recorta una malla estática); ver
-  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo). `OrientToSurface` del trazador (lo usan
-  SF_DefenseSphereInHand/OnHolder) y `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) siguen sin usarse
-  aquí.
+  [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo). `OrientToSurface` del trazador ya está
+  portado (arriba); `MoveToBaseGroup` (ya en el núcleo, de la lane de la tormenta) sigue sin usarse aquí.
 - Los puntos extra de las mallas no se cargan (`UR_AtomsAtEPTarget` usa la posición del objeto, exacto para 554).
 - `Get2DRadius` / `GetHeight` salen de la caja de la malla. **Igual que el original** (ya comprobado del todo en la
   auditoría de suposiciones): `LH3DMesh::ComputeBoundingBox` 0x8081B0 recorre todas las submallas (+0xC / +0x10, la

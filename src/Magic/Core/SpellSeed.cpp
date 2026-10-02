@@ -147,17 +147,24 @@ void DrawFromSpell(entt::entity entity)
 		altitude = spell_forest::AdjustSpellSeedPos(seed.spell, altitude);
 	}
 	// LHPoint (x, GetAltitudeAndSetColorSpecular 0x803340 + altitude, z) -> LHMatrix::Translation 0x403530 on the
-	// Game3DObject's matrix (the rotation stays); +0x44 = 1.0 and +0x48 = 0 (inferido: the Game3DObject's draw alpha and
-	// flags; not the scale, which is +0x50); AddForDrawing(seed) 0x63B5D0, which sends the object draw collision
+	// Game3DObject's matrix (+0x14). Translation rewrites the whole matrix: identity rows (0x403532..0x403558), then
+	// the point, so the seed is drawn upright, unturned and unscaled whatever the hand left in it (the spin of the
+	// worship icon / hand is not kept). +0x44 = 1.0 and +0x48 = 0 are LH3DObject's scale and y_angle (bw1-decomp
+	// LH3DObject.h; Game3DObject::SetPosition 0x63B740 writes them the same way). openblack's Transform is both the
+	// matrix and the Object scale (+0x50): the four seeds that reach here (STORM, NATURE, SHIELD, PHYSICAL_SHIELD:
+	// seedFollowsSpell, neither cast nor kept in the hand) all have the info scale 1, so scale 1 is the same.
+	// AddForDrawing(seed) 0x63B5D0, which sends the object draw collision
 	const glm::vec3 at = ToWorld(glm::vec3(transform->position.x, altitude, transform->position.z));
 	if (TraceEnabled() && (!registry.AllOf<Mesh>(entity) || std::abs(transform->position.y - at.y) > 0.25f))
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Spell trace: seed {} drawn over spell {} at ({:.1f}, {:.2f}, {:.1f}), altitude {:.2f}",
 		                   static_cast<uint32_t>(entity), static_cast<uint32_t>(seed.spell), at.x, at.y, at.z, altitude);
 	}
-	if (transform->position != at)
+	if (transform->position != at || transform->rotation != glm::mat3(1.0f) || transform->scale != glm::vec3(1.0f))
 	{
 		transform->position = at;
+		transform->rotation = glm::mat3(1.0f); // LHMatrix::Translation 0x403530 (+0x48 y_angle 0)
+		transform->scale = glm::vec3(1.0f);    // +0x44 = 1.0
 		registry.SetDirty();
 	}
 	ShowMesh(entity, seed, true);

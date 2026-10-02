@@ -191,7 +191,8 @@ void ShowSeedMesh(entt::entity seed, bool show)
 }
 
 /// OPENBLACK_TEST_CAST="press@t0,release@t1[,press@t2,release@t3...][,shot@t]" (seconds after the land exists); shot
-/// takes a screenshot then into OPENBLACK_TEST_SHOT_PATH (for screenshots at a game time rather than a frame)
+/// takes a screenshot then into OPENBLACK_TEST_SHOT_PATH (for screenshots at a game time rather than a frame; a "{}" in
+/// the path is replaced by the shot's time in tenths of a second, for several shots in one run)
 struct TestCastEvent
 {
 	enum class Kind
@@ -762,7 +763,13 @@ bool HandSystem::TestCastActionHeld(float seconds, bool actionHeld) noexcept
 			const char* path = std::getenv("OPENBLACK_TEST_SHOT_PATH");
 			if (!event.done && path != nullptr && Game::Instance() != nullptr)
 			{
-				Game::Instance()->RequestScreenshot(path);
+				// several shots in one run: a "{}" in the path becomes the shot's time in tenths of a second
+				std::string file(path);
+				if (const auto mark = file.find("{}"); mark != std::string::npos)
+				{
+					file.replace(mark, 2, std::to_string(static_cast<int>(event.time * 10.0f + 0.5f)));
+				}
+				Game::Instance()->RequestScreenshot(file);
 			}
 			event.done = true;
 			continue;

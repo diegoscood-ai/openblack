@@ -640,7 +640,10 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
     0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27. Portados solo los
     cuadros UV (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, ver
     [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas)); el bote y los aplastamientos no.
-  - alfa difuso = el del dueño y `SetGlobalAlpha(alfa ≠ 0xFF)`: en la bola la semilla es translúcida (0x95).
+  - alfa difuso = el del dueño (0x51A0B3..0x51A0E1) y `SetGlobalAlpha(alfa ≠ 0xFF)` (0x51A0EB), pero con arg 2 = 0
+    `GetAltitudeAndSetColorSpecular` (0x51A187) reescribe todo +0x4C con tabla[luminosidad] (0x803409..0x803413) o
+    tabla[255] (0x803365 / 0x8033DA), de alfa 0xFF (todo `palette.raw` tiene alfa 0xFF): en la bola la semilla va por
+    la tabla 0xC387C8 con alfa 0xFF ([0xC37D8C], 0x80DEF8), **opaca** (no 0x95). openblack: `components::Alpha` = 1.
   - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
     **no portado** (aproximado).
   - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.

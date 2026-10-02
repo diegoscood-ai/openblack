@@ -19,6 +19,7 @@ verificado en `runblack.exe` al portarlo, por hitos.
 - [Teletransporte](#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)
 - [Tormenta, tormenta eléctrica y tornado](#tormenta-tormenta-eléctrica-y-tornado-m6-storm-magicspellsspellstormandtornado-psysrulesstorm-ecsweatherlightningflashstormclouds)
 - [Explosión de rayo y clases de PSys que faltaban](#explosión-de-rayo-y-clases-de-psys-que-faltaban-m6b-psysrulesexplosionkeypointsorientforestcpp)
+- [La caída del hechizo](#la-caída-del-hechizo-lo-que-dibuja-fallingspell-magicobjectsfallingspell-graphicsrendererfallingspellcpp)
 - [Milagros de la criatura](#milagros-de-la-criatura-m8-pendiente)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
@@ -2296,6 +2297,83 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
   aditiva clara, frente al parche apenas visible de `m6s_shield_dome.png`); `m6b_forest_t80/_t110.png` (las mariposas del bosque como mallas quietas en
   sus cinco grupos, moviéndose con `UR_ForestPath`); `m6b_healpu.png` (HEAL_PU_ONE: el champiñón de las curvas KP sobre
   el almacén); `m6b_fire_hand.png` (las llamas de la bola de fuego en la mano con `UR_OrientSpriteWithVelocity`).
+
+## La caída del hechizo: lo que dibuja FallingSpell (`Magic/Objects/FallingSpell`, `Graphics/RendererFallingSpell.cpp`)
+
+El vídeo `fall.bik`, sus estados, sonidos, el blanco del templo y el fin son de la sesión *asistente*
+(`Video/FallingSpellVideo`, [video.md](video.md#la-caída-del-hechizo-fallbik)). Aquí, lo demás de `FallingSpell`
+(fallingspell.cpp, 0x525CB0..0x527290, leído entero: `LightBurst::Init` 0x525D30, `LightBurst::Draw` 0x525DF0,
+`FallingSpell::Init` 0x526060, la retrollamada 0x526480 → 0x526530, `Close` 0x5264A0, `Draw` 0x5267D0, la
+actualización 0x526E00). Lanzar: CHL 203 `SET_AVI_SEQUENCE(on, 2)`; en pruebas `OPENBLACK_TEST_VIDEO=fall`.
+
+**Fiel:**
+- **Las 16 «chispas»** no son chispas: son 16 bocanadas grandes de `smoke.raw` (material [0xEA1ABC], modo 6) en
+  naranja, ancladas a la pantalla. `LH3DSprite::Create(0x10, 1)` 0x52631E (+0x34) y 16 registros de 0x20 bytes
+  (new(0x200) 0x526335, +0x38): `x`, `y` = Random(−0,1; 1,1) (fracción de pantalla), profundidad Random(5, 25),
+  tamaño Random(4, 8), giro Random(−2, 2), encogido 2 − y, color (min(2v, 255), v, v/3) con v = ftol(Random(16, 100))
+  (0x526352..0x526400). Sólo con `+0x1C` (la actualización lo pone **una vez** a 1 al pasar al estado 1, 13,45 s,
+  0x527047; `Draw` lo reescribe con «se vio alguna», 0x526DCA). Cada `Draw` (0x526BFD..0x526DCA, g_delta_time):
+  alfa = ftol(255 − 32·edad) con la edad **anterior**, edad += 0,0013·dt; sin alfa no se dibuja; medio ancho
+  ((tamaño − encogido·edad·0,5) + 1)·0,75 (mín. 1e−4), ángulo giro·edad + i, celda ftol(edad·8) & 15 (filas 0-1 de la
+  hoja 8×8), posición `Get3DPointFromScreen((ftol(W·x), ftol(H·y)), prof)` 0x81B370 y luego
+  y += (giro + 1)(1 − y)·0,0013·dt·0,1; `AddDrawing` 0x840C70 (Z-sorter, de lejos a cerca). Se dibujan con
+  `LH3DSprite::Draw` modo A (`billboard::Screen`) y FOV π/4 (`ChangeFov` 0x526EB3 antes de cada `Draw`): en píxeles,
+  medio ancho = tamaño·(W/2)/(tan(π/8)·prof), cientos de píxeles. Se ven de 13,45 s a unos 19,6 s (255/32 de edad).
+- **Los destellos** (`LightBurst`, **uno** de 0x400 bytes en +0x3C, `Init` llamado **dos veces**: 0x52643E y
+  0x52644C; no son «dos LightBurst»): 64 radios (R = LocalFloatRand(1) + 0,5, ×1,4 con LocalRand(16) < 2, ×0,714286
+  con LocalRand(16) < 1; fase Random(0, 2π); ritmo Random(2, 20), negativo si Random(0, 1) < 0,5; vaivén
+  Random(−0,8; 0,8)). La retrollamada de fin de frame 0x526530, **desde el estado 2** (37,75 s): centro = el punto
+  medio de dos puntos de la criatura (fn_004813D0, 0x48F180) proyectado (fn_008190D0; nada si queda tras el plano
+  cercano, **sin avanzar**); d = 0,7·dt s: +0x2C += 0,1·d (alfa ftol(255·+0x2C), tope 255), +0x28 += 0,25·d y, pasado
+  0,5, +0x30 += 5·d. Cuatro `LightBurst::Draw`: radio 10·g³, 25·g, 50·g, 75·g² (g = +0x30), a5 = +0x2C, −+0x2C,
+  −2·+0x2C, 2·+0x2C, colores (R,G,B) (0x20,0xFF,0x40), (0xFF,0x40,0xFF), (0x40,0x80,0xFF), (0xFF,0x40,0x40) con ese
+  alfa. Cada uno: abanico de 64 triángulos (2i, 2i+1, 2((i+1)&63)+1), radio
+  (R + W·sin(a5·B + P))·radio·(4s²k + 1 − k), s = |sin((i+1)·a6²·π/4)|, k = clamp(1 − a6², 0, 1), ángulo i·π/32 + a5
+  (sin a x, cos a y), centro con el color y borde sólo con el alfa; UV u = 0,5 + frac(i/64)/4, v = 0,25 + frac(0,4·a5)/4
+  (centro) o 0,25 + frac(|1 + 0,4·a5|)/4 (borde; iguales con a5 ≥ 0) de `atmos.raw` con `LH3DAtmos::AdditiveMaterial` [0xEDC364] (modo 13),
+  `Draw3DWorldTriangle` 0x526047. Con a6 = 0 el abanico es un punto: crece con +0x28.
+- **El orden de modo 2**: `FallingSpell::Draw` dibuja el vídeo él mismo (`thedraw(0)` 0x52689F, que borra la marca
+  +0x64 del reproductor: la retrollamada 0x8000 de `FinishFrame` ya no lo pinta, 0x844E3A..0x844E49), luego
+  `FinishFrame`: el Z-sorter (las bocanadas), la retrollamada 0x526480 (los destellos), las bandas y el fundido.
+  `Renderer::DrawFinishFrameOverlays` lo hace así con `HidesWorld()`.
+- **La luz de los modelos**: `Init` guarda [0xEA9E90] en +0x10 (0x5262E0..0x526311), `Draw` la pone en (0, 0, 1000)
+  (fn_0081E1F0, para la criatura), `Close` devuelve la guardada (0x5264E8..0x5264F4). **Corrige video.md**: lo que
+  `Close` devuelve no es la cámara, es esta luz (fn_0081E1F0 = `model_light::SetLight`).
+- **La ruta `fall.cm2`** (es del hechizo, no del vídeo): `LHLoadData` 0x52609C + copia fn_0086D4A0: cabecera
+  {tamaño, duración 48 333 ms, 1449 claves} y claves de 0x48 bytes (posición, foco y 12 floats de matriz).
+  fn_0086D760(ms): clave (n−1)·t/dur, fracción **(t − ftol(t/paso)·ftol(paso))/paso** con paso = dur/(n−1) = 33,379:
+  el resto usa la parte entera del paso, así que la fracción pasa de 1 a partir de unos 2,9 s y la cámara del original
+  **extrapola** desde la clave (portado igual); a·(1−f) + b·f para posición, foco y matriz. La actualización
+  (0x526E9B..0x526F1C) e `Init` (0x526259..0x5262BF) dan posición y foco ×0,8 y la matriz a fn_00819F50, y
+  `ChangeFov(π/4)`. En openblack: cargada y muestreada cada frame (`FallingSpell::CameraNow()`).
+
+**(aproximado)** `Get3DPointFromScreen` sin pasar por el plano cercano (se cancela; el original redondea con él); la
+clave del Z-sorter calculada en espacio de cámara; `Init` corre en el primer frame del vídeo y no en el turno del
+CHL 203 (los Random/LocalRand salen un poco después en sus secuencias); un `KickOff` sobre otro sólo se detecta
+cuando el anterior ya había tenido sus bocanadas. Bocanadas y destellos se dibujan en píxeles en la vista
+`ScreenOverlay` con ZFUNC ALWAYS: en modo 2 nada escribe Z antes y el quad de reinicio de `FinishFrame` (d) deja
+z = 1, así que su LESSEQUAL siempre pasa. **(inferido)** el plano cercano [0xE839E0] de modo 2 es el de la cámara de
+openblack (las profundidades 5..25 lo pasan).
+
+**Pendiente (necesita la criatura, que openblack no tiene):** la `CreatureFalling` (new(0x57B8) 0x5260D1, copia
+`LH3DCreature` de la criatura del jugador, ctor 0x47F490, vtable 0x8D8BD8; `UpdateTime(1)`, +0x4A90 = 1, `ResetLook`,
+`StartIndividualAction(0xD7, 0)`, `HandGlows` 0 y 2 con `SetScalePowerTime(·, 1, 1, 1)`, 0x526105..0x5261EB); su
+dibujo en `Draw` (0x5268A4..0x526BFB): oculta de 19 550 a 27 350 ms ([0xC64204] = criatura + 0x57B8), si no un tinte
+al azar A = 0xFF, R = 0x20 + LocalRand(32), G = 8 + LocalRand(8), B = LocalRand(4) (0x526971..0x526998) escalado por 255·t/19 450 o 255·(t − 19 450)/7900, `DrawNow` 0x526A42, y
+las ventanas de `SetScalePowerTime` de los brillos de mano (16 350..19 350 y 31 650..32 650 ms el 0; 17 200..20 200 y
+36 500..37 500 el 2); su avance `UpdateTime(t − +0xC)` en la actualización; las teclas de depuración
+0xE85376..0xE85379 que la giran (0, π/2, π, 3π/2); **el centro de los destellos** (sin criatura no hay centro: ni se
+dibujan ni avanzan); aplicar la cámara de `fall.cm2` (fn_00819F50, 0x800 bytes, sólo la llama FallingSpell, sin leer;
+la rama de modo 2 de `GCamera::Update` 0x44233C sin leer; sin tierra ni criatura no se vería nada).
+
+**Pruebas y capturas.** `test_falling_spell` (13): índices y geometría del abanico, rangos de `LightBurst::Init`,
+la luz guardada y devuelta, `Init` de las bocanadas, sin `+0x1C` nada, posición/tamaño/ángulo/celda/alfa en pantalla
+y orden de lejos a cerca, el fundido y el `+0x1C` reescrito, destellos sólo desde el estado 2 y con centro (alfa,
++0x28, +0x30), la fracción de fn_0086D760 y su deriva (t = 48 000: f = 16,36), la cámara ×0,8 y el `fall.cm2` real.
+Ganchos: `OPENBLACK_TEST_FALL_LOG=1` (una línea por segundo de vídeo: estado, bocanadas, destellos) y
+`OPENBLACK_TEST_FALL_BURST_AT=fx,fy` (prueba: un centro en esa fracción de pantalla en lugar de la criatura). Fotos
+(`dev\_audit\magic\`): `polish_fix_fallspell_sparks.png` (15,6 s: las bocanadas naranjas sobre el vídeo al 31 %) y
+`polish_fix_fallspell_bursts.png` (40,1 s con el centro de prueba: los cuatro abanicos aditivos).
 
 ## Milagros de la criatura (M8, pendiente)
 

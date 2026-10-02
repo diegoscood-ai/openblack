@@ -1930,6 +1930,17 @@ void Renderer::DrawFinishFrameOverlays() const
 	// (registered with 1 at 0x54B62D, RegisterFinishFrameCallback 0x82F2C0 ORs the bit), so the film is drawn over the
 	// bars and fits between them at 100 % (FullScreenRect's letterbox is barH at pct 1); (h) the fade fn_0086FEE0
 	// (0x82F753) last, over the film
+	if (video::GetFallingSpell().HidesWorld())
+	{
+		// (milagros2, fallspell) mode 2: FallingSpell::Draw draws the film itself (thedraw(0) 0x52689F, which clears
+		// the player's pending flag +0x64 so the 0x8000 callback draws nothing, 0x844E3A..0x844E49), before FinishFrame:
+		// then the Z-sorter (its sparks), the callback 0x526480 (its bursts), the bars and the fade
+		DrawVideoOverlay();
+		DrawFallingSpellOverlay();
+		DrawScreenOverlay(false);
+		DrawScreenOverlay(true);
+		return;
+	}
 	DrawScreenOverlay(false);
 	DrawVideoOverlay();
 	DrawScreenOverlay(true);

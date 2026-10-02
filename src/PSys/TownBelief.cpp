@@ -18,6 +18,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -31,6 +32,7 @@
 #include "ECS/Components/TotemStatue.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "GameClock.h"
 #include "InfoConstants.h"
@@ -52,9 +54,9 @@ constexpr float k_PhaseSpeed = 0.2f;
 constexpr float k_SpeedUpDuringFight = 2.0f;
 constexpr float k_FightAt0 = 1.5f, k_FightAt1 = 3.0f;
 constexpr float k_BetweenFightsAt0 = 10.0f, k_BetweenFightsAt1 = 3.0f;
-/// (aproximado, port previo) the rule adds the step's dt [0xD4E0EC] (fn_00673340 0x673402..0x67340C: ms x 0.001;
-/// 0x69C3AD / 0x69C476) to the fight timer and wait; here a fixed 0.1 per Collect call
-constexpr float k_Step = 0.1f;
+/// fmod's 2 pi, the double [0x8D45D8] = 6.2831854820251465 (the float 2 pi widened) of the rule's __CIfmod calls
+/// 0x69C4B7 / 0x69C4F0 / 0x69C50B
+constexpr double k_FmodTwoPi = 6.2831854820251465;
 
 /// the player colours (0xBFF0B8, by GetRemapedPlayer; the remap comes from the profile, identity here)
 constexpr std::array<uint32_t, 7> k_PlayerColours = {0xFF4646, 0x47FF54, 0xE347FF, 0x47F9FF, 0xFFFD47, 0x4777FF, 0xFFA247};
@@ -70,6 +72,11 @@ struct Symbol
 	/// AtomData +0x30 (the wait before the next fight, counted down), +0x34 (the fight's timer), +0x38 (its length):
 	/// all 0 from the ctor (0x69C6C4..0x69C6D6)
 	float waitLength {0.0f}, fightTimer {0.0f}, fightLength {0.0f};
+	/// the last step's fight curve (the rule's local [esp+0x14]: 1 - (2f - 1)^2 in a fight, else 0), which lowers the
+	/// symbol in the position the same step writes (0x69C537..)
+	float fight {0.0f};
+	/// this frame's glow cells and spin (PlayerSymbolSprite::Draw 0x69D7E0, from Draw_(1) 0x69BF19 once a frame)
+	float cellA {0.0f}, cellB {0.0f}, spin {0.0f};
 };
 
 struct Centre
@@ -78,11 +85,9 @@ struct Centre
 };
 
 std::unordered_map<entt::entity, Centre> g_Centres;
-/// (openblack) the visual clock of the last collect: a frame's game ms count once however many passes collect
-uint32_t g_LastVisualMs {0};
 
 /// PSysFloatRand(a, b) 0x6729C0 of the rule (UR_TownCentreBelief 0x69C3E1 / 0x69C40E): the effect of a town centre is
-/// local (TownCentre::CreatePSys 0x69BC31, push 0), so the local stream (Collect opens its step scope)
+/// local (TownCentre::CreatePSys 0x69BC31, push 0), so the local stream (Step opens its step scope)
 float Rand(float a, float b)
 {
 	return game_random::psys::FloatRand(a, b);
@@ -152,6 +157,143 @@ bool IsTownCentre(const ecs::components::Abode& abode)
 	}();
 	return k_Centres.contains(abode.type);
 }
+
+/// A belief symbol shown over a centre: the player, its belief clamped to 0..1 and its rank
+struct Shown
+{
+	int player;
+	float belief;
+	int rank;
+};
+
+/// The players with some belief in the town and their rank (fn_0073BB10): the players with more belief, or as much and a
+/// higher number
+std::vector<Shown> ShownSymbols(const std::unordered_map<std::string, float>& beliefs)
+{
+	std::vector<Shown> result;
+	for (const auto& [name, value] : beliefs)
+	{
+		const int player = PlayerIndex(name);
+		const float b = std::clamp(value, 0.0f, 1.0f);
+		if (player < 0 || b <= 0.0f)
+		{
+			continue;
+		}
+		int rank = 0;
+		for (const auto& [otherName, otherValue] : beliefs)
+		{
+			const int other = PlayerIndex(otherName);
+			const float ob = std::clamp(otherValue, 0.0f, 1.0f);
+			if (other >= 0 && other != player && (ob > b || (ob == b && other > player)))
+			{
+				++rank;
+			}
+		}
+		result.push_back({player, b, rank});
+	}
+	return result;
+}
+
+float Radius(const Shown& shown)
+{
+	return shown.rank == 0 ? 0.0f : k_RadiusAt0 + (k_RadiusAt1 - k_RadiusAt0) * shown.belief;
+}
+
+/// The town centres (an Abode whose number is a TownCentre's, with a Mesh) and their town's beliefs, in the order of
+/// TownCentre::DrawAll 0x7447F0: the list g_game +0x205CFC, which the TownCentre ctor pushes at the head (0x743AC3..
+/// 0x743ACA), so the newest first (here by the object creation index, Object +0x3C). (aproximado) its IsAvailable test
+/// (vt+0x2C == 1, 0x744808) is not ported
+template <typename Fn>
+void ForEachCentre(Fn&& fn)
+{
+	using namespace ecs::components;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& towns = registry.Context().towns;
+	std::vector<std::pair<int64_t, entt::entity>> centres;
+	registry.Each<const Abode, const Transform, const Mesh>(
+	    [&centres](entt::entity entity, const Abode& abode, const Transform&, const Mesh&) {
+		    if (IsTownCentre(abode))
+		    {
+			    centres.emplace_back(ecs::object_index::Of(entity), entity);
+		    }
+	    });
+	std::stable_sort(centres.begin(), centres.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+	for (const auto& [index, entity] : centres)
+	{
+		const auto& abode = registry.Get<const Abode>(entity);
+		const auto town = towns.find(abode.townId);
+		if (town == towns.end() || !registry.Valid(town->second))
+		{
+			continue;
+		}
+		fn(entity, registry.Get<const Town>(town->second).beliefs);
+	}
+}
+
+/// One step of the centre's effect (fn_00673340) through UR_TownCentreBelief::ModifyAtomCollection 0x69BF30, with the
+/// step's dt [0xD4E0EC]
+void StepCentre(Centre& centre, const std::vector<Shown>& shown, float dt)
+{
+	for (const auto& symbolOf : shown)
+	{
+		const auto [slot, created] = centre.symbols.try_emplace(symbolOf.player);
+		auto& symbol = slot->second;
+		if (created)
+		{
+			// 0x69C0B8..0x69C0D5: the new symbol's two angles, a1 then a2
+			symbol.a1 = game_random::psys::FloatRand(glm::two_pi<float>());
+			symbol.a2 = game_random::psys::FloatRand(glm::two_pi<float>());
+		}
+		const float b = symbolOf.belief;
+		const float radius = Radius(symbolOf);
+		float speed = symbolOf.rank == 0 ? 0.0f : (k_SpeedAt0 + (k_SpeedAt1 - k_SpeedAt0) * b) / std::max(radius, 1e-3f);
+		float fight = 0.0f;
+		if (symbolOf.rank == 1)
+		{
+			// 0x69C388..0x69C3A7: the second symbol only. While its wait (+0x30) is > 0 it counts down by dt (0x69C473)
+			if (symbol.waitLength > 0.0f)
+			{
+				symbol.waitLength -= dt;
+			}
+			else
+			{
+				// 0x69C3AD..0x69C3C1: the fight's timer (+0x34) += dt; past the fight's length (+0x38), the next wait
+				// and fight are drawn together, wait first (0x69C3C3..0x69C424), and the timer is back to 0
+				symbol.fightTimer += dt;
+				if (symbol.fightTimer > symbol.fightLength)
+				{
+					const float wait = k_BetweenFightsAt0 + (k_BetweenFightsAt1 - k_BetweenFightsAt0) * b;
+					symbol.waitLength = Rand(0.5f, 1.5f) * wait;
+					const float length = k_FightAt0 + (k_FightAt1 - k_FightAt0) * b;
+					symbol.fightTimer = 0.0f;
+					symbol.fightLength = Rand(0.5f, 1.5f) * length;
+				}
+				// 0x69C427..0x69C46B: f = timer / length, 0 for <= 0 or NaN, at most 1; fight = 1 - (2f - 1)^2
+				float f = symbol.fightTimer / symbol.fightLength;
+				if (!(f > 0.0f))
+				{
+					f = 0.0f;
+				}
+				else if (!(f < 1.0f))
+				{
+					f = 1.0f;
+				}
+				const float g = 2.0f * f - 1.0f;
+				fight = 1.0f - g * g;
+			}
+			// 0x69C47F..0x69C496: speed x ((SpeedUpDuringFight - 1) x fight + 1)
+			speed *= (k_SpeedUpDuringFight - 1.0f) * fight + 1.0f;
+		}
+		symbol.fight = fight;
+		// 0x69C4A5..0x69C510: phase += dt x PhaseSpeed, a1 += ((cos(phase) + 1) x 0.25 + 0.5) x speed x dt x 0.846,
+		// a2 += speed x dt, each one fmod 2 pi. (aproximado) the exe keeps each sum on the x87 stack (extended) into
+		// __CIfmod and takes fcos of the unrounded fmod result (0x69C4BF); here float sums and cos of the stored float
+		const auto wrap = [](float x) { return static_cast<float>(std::fmod(static_cast<double>(x), k_FmodTwoPi)); };
+		symbol.phase = wrap(dt * k_PhaseSpeed + symbol.phase);
+		symbol.a1 = wrap(((std::cos(symbol.phase) + 1.0f) * 0.25f + 0.5f) * speed * dt * 0.846f + symbol.a1);
+		symbol.a2 = wrap(speed * dt + symbol.a2);
+	}
+}
 } // namespace
 
 void town_belief::Clear()
@@ -159,37 +301,65 @@ void town_belief::Clear()
 	g_Centres.clear();
 }
 
+void town_belief::Step()
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	// TownCentre::ProcessPSys 0x69BCC0 -> GJPSysInterface::Process_ 0x673690 (ms = [0xD01A38], the ms of a turn, not
+	// the frame's) -> fn_00673300 -> fn_00673340: dt [0xD4E0EC] = ms x 0.001 (0x673402..0x67340C)
+	const float dt = static_cast<float>(game_clock::MsPerTurn()) * 0.001f;
+	// PlayerSymbolSprite::Draw 0x69D7E0's g_game_time_inc [0xEA9EC0] (0x69D855 fild): the frame's whole game ms, 0 paused
+	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
+	// the rule's draws run in the town centre effect's step (fn_00673340), a local one (TownCentre::CreatePSys 0x69BC31)
+	const game_random::psys::StepScope step(game_random::psys::NetGameType::Local);
+	ForEachCentre([&](entt::entity entity, const std::unordered_map<std::string, float>& beliefs) {
+		const auto shown = ShownSymbols(beliefs);
+		const auto [slot, created] = g_Centres.try_emplace(entity);
+		auto& centre = slot->second;
+		// a new effect: CreatePSys 0x69BC10 calls ProcessPSys at once (0x69BC95) and an effect's first Process steps
+		// twice (+0xAD = 1 from fn_00672B50 0x672BF7; fn_00673300 0x673308..0x67331E); then this frame's own step.
+		// (aproximado) the original makes it in TownCentre::MakeFunctional (0x743F18) / ResolveLoad (0x7448D8),
+		// openblack on the first frame that sees the centre
+		const int steps = created ? 3 : 1;
+		for (int i = 0; i < steps; ++i)
+		{
+			StepCentre(centre, shown, dt);
+		}
+		// DrawPSys 0x69BF19 Draw_(1): each symbol's PlayerSymbolSprite::Draw 0x69D7E0, once a frame
+		for (const auto& symbolOf : shown)
+		{
+			auto& symbol = centre.symbols[symbolOf.player];
+			// the second glow's sprite angle +0x14 (frame_anim::PlayerSymbolSpin, written at 0x69D8C5) and the cells of
+			// the two glows, +0xC and +0x10 (frame_anim::PlayerSymbolCell, 0x69D7E0..0x69D853)
+			symbol.spin = graphics::frame_anim::PlayerSymbolSpin(symbol.glowSpin, milliseconds);
+			symbol.cellA = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowA, milliseconds, 0));
+			symbol.cellB = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowB, milliseconds, 1));
+		}
+	});
+}
+
 void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable>& out)
 {
 	using namespace ecs::components;
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto& towns = registry.Context().towns;
 	const auto& meshes = Locator::resources::value().GetMeshes();
-	// g_game_time_inc [0xEA9EC0] (0x69D855 fild): the frame's whole game ms, 0 in pause
-	const bool newFrame = game_clock::VisualMs() != g_LastVisualMs;
-	g_LastVisualMs = game_clock::VisualMs();
-	const auto milliseconds = newFrame ? static_cast<float>(game_clock::FrameGameMs()) : 0.0f;
-	// the rule's draws run in the town centre effect's step (fn_00673340), a local one (TownCentre::CreatePSys 0x69BC31)
-	const game_random::psys::StepScope step(game_random::psys::NetGameType::Local);
-
-	registry.Each<const Abode, const Transform, const Mesh>([&](entt::entity entity, const Abode& abode,
-	                                                            const Transform& transform, const Mesh& mesh) {
-		if (!IsTownCentre(abode))
+	ForEachCentre([&](entt::entity entity, const std::unordered_map<std::string, float>& beliefs) {
+		const auto found = g_Centres.find(entity);
+		if (found == g_Centres.end())
 		{
-			return;
+			return; // not stepped yet
 		}
-		const auto town = towns.find(abode.townId);
-		if (town == towns.end() || !registry.Valid(town->second))
-		{
-			return;
-		}
-		const auto& beliefs = registry.Get<const Town>(town->second).beliefs;
+		const auto& centre = found->second;
+		const auto& transform = registry.Get<const Transform>(entity);
+		const auto& mesh = registry.Get<const Mesh>(entity);
 		// the totem (TotemStatue, TownCentre::GetTotemPos 0x743F20) + its height (Object::GetHeight 0x638120 of the icon
 		// on the plinth, GBelief::DrawBelief 0x438800) + HeightAt1; without a totem, the top of the town centre's mesh
 		glm::vec3 base = transform.position;
-		bool found = false;
+		bool totem = false;
 		registry.Each<const TotemStatue, const Transform>([&](const TotemStatue& statue, const Transform& plinth) {
-			if (found || statue.townCentre != entity)
+			if (totem || statue.townCentre != entity)
 			{
 				return;
 			}
@@ -204,108 +374,45 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 				}
 			}
 			base = glm::vec3(plinth.position.x, statue.baseY + height + k_HeightAt1, plinth.position.z);
-			found = true;
+			totem = true;
 		});
-		if (!found && meshes.Contains(mesh.id))
+		if (!totem && meshes.Contains(mesh.id))
 		{
 			base.y += meshes.Handle(mesh.id)->GetBoundingBox().maxima.y * transform.scale.y + k_HeightAt1;
 		}
 		const float s = std::clamp(glm::distance(camera, base) * 0.01f, 1.0f, 10.0f);
-		auto& centre = g_Centres[entity];
 
 		// TownCentre::DrawPSys 0x69BF19: Draw_(1), each symbol its own Z object (PlayerSymbolSprite::AddDrawing 0x69D790)
 		manager::Drawable drawable {base, {}, 1.0f, manager::DrawPath::Sorted};
-		for (const auto& [name, value] : beliefs)
+		for (const auto& symbolOf : ShownSymbols(beliefs))
 		{
-			const int player = PlayerIndex(name);
-			const float b = std::clamp(value, 0.0f, 1.0f);
-			if (player < 0 || b <= 0.0f)
+			const auto symbolIt = centre.symbols.find(symbolOf.player);
+			if (symbolIt == centre.symbols.end())
 			{
-				continue;
+				continue; // not stepped yet
 			}
-			// rank (fn_0073BB10): the players with more belief, or as much and a higher number
-			int rank = 0;
-			for (const auto& [otherName, otherValue] : beliefs)
-			{
-				const int other = PlayerIndex(otherName);
-				const float ob = std::clamp(otherValue, 0.0f, 1.0f);
-				if (other >= 0 && other != player && (ob > b || (ob == b && other > player)))
-				{
-					++rank;
-				}
-			}
-			const auto [slot, created] = centre.symbols.try_emplace(player);
-			auto& symbol = slot->second;
-			if (created)
-			{
-				// 0x69C0B8..0x69C0D5: the new symbol's two angles, a1 then a2
-				symbol.a1 = game_random::psys::FloatRand(glm::two_pi<float>());
-				symbol.a2 = game_random::psys::FloatRand(glm::two_pi<float>());
-			}
-			const float radius = rank == 0 ? 0.0f : k_RadiusAt0 + (k_RadiusAt1 - k_RadiusAt0) * b;
-			float speed = rank == 0 ? 0.0f : (k_SpeedAt0 + (k_SpeedAt1 - k_SpeedAt0) * b) / std::max(radius, 1e-3f);
-			const float scale = k_ScaleAt0 + (k_ScaleAt1 - k_ScaleAt0) * b;
-			float fight = 0.0f;
-			if (rank == 1)
-			{
-				// 0x69C388..0x69C3A7: the second symbol only. While its wait (+0x30) is > 0 it counts down (0x69C473)
-				if (symbol.waitLength > 0.0f)
-				{
-					symbol.waitLength -= k_Step;
-				}
-				else
-				{
-					// 0x69C3AD..0x69C3C1: the fight's timer (+0x34); past the fight's length (+0x38), the next wait and
-					// fight are drawn together, wait first (0x69C3C3..0x69C424), and the timer is back to 0
-					symbol.fightTimer += k_Step;
-					if (symbol.fightTimer > symbol.fightLength)
-					{
-						const float wait = k_BetweenFightsAt0 + (k_BetweenFightsAt1 - k_BetweenFightsAt0) * b;
-						symbol.waitLength = Rand(0.5f, 1.5f) * wait;
-						const float length = k_FightAt0 + (k_FightAt1 - k_FightAt0) * b;
-						symbol.fightTimer = 0.0f;
-						symbol.fightLength = Rand(0.5f, 1.5f) * length;
-					}
-					// 0x69C427..0x69C46B: f = timer / length, 0 for <= 0 or NaN, at most 1; fight = 1 - (2f - 1)^2
-					float f = symbol.fightTimer / symbol.fightLength;
-					if (!(f > 0.0f))
-					{
-						f = 0.0f;
-					}
-					else if (!(f < 1.0f))
-					{
-						f = 1.0f;
-					}
-					const float g = 2.0f * f - 1.0f;
-					fight = 1.0f - g * g;
-				}
-				speed *= 1.0f + (k_SpeedUpDuringFight - 1.0f) * fight;
-			}
-			symbol.phase += k_PhaseSpeed * k_Step;
-			symbol.a1 += (0.5f + 0.25f * (1.0f + std::cos(symbol.phase))) * speed * k_Step * 0.846f;
-			symbol.a2 += speed * k_Step;
+			const auto& symbol = symbolIt->second;
+			const float radius = Radius(symbolOf);
+			const float scale = k_ScaleAt0 + (k_ScaleAt1 - k_ScaleAt0) * symbolOf.belief;
 			const glm::vec3 position =
 			    base + s * glm::vec3(radius * std::cos(symbol.a2) * std::cos(symbol.a1),
-			                         radius * std::sin(symbol.a1) + (1.0f - fight) * static_cast<float>(rank) * k_HeightPerLevel,
+			                         radius * std::sin(symbol.a1) +
+			                             (1.0f - symbol.fight) * static_cast<float>(symbolOf.rank) * k_HeightPerLevel,
 			                         radius * std::sin(symbol.a2) * std::cos(symbol.a1));
 
 			// PlayerSymbolSprite::Draw 0x69D7E0: two glows then the symbol, all additive billboards
 			const float size = 1.5f * scale;
-			const uint32_t rgb = k_PlayerColours[static_cast<size_t>(player) % k_PlayerColours.size()];
+			const uint32_t rgb = k_PlayerColours[static_cast<size_t>(symbolOf.player) % k_PlayerColours.size()];
 			const std::array<uint8_t, 3> colour = {static_cast<uint8_t>(rgb >> 16), static_cast<uint8_t>(rgb >> 8),
 			                                       static_cast<uint8_t>(rgb)};
 			const glm::mat3 still(1.0f);
-			// the second glow's sprite angle +0x14 (frame_anim::PlayerSymbolSpin, written at 0x69D8C5) carried as the atom's
-			// SetAngleY 0x674360 matrix (lh_matrix::AngleY), whose roll atan2(M[0][2], M[0][0]) = +spin (billboard::Screen
-			// turns it clockwise)
-			const float spin = graphics::frame_anim::PlayerSymbolSpin(symbol.glowSpin, milliseconds);
-			const glm::mat3 spun = lh_matrix::AngleY(spin);
-			// the cells of the two glows, +0xC and +0x10 (frame_anim::PlayerSymbolCell, 0x69D7E0..0x69D853)
-			const auto cellA = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowA, milliseconds, 0));
-			const auto cellB = static_cast<float>(graphics::frame_anim::PlayerSymbolCell(symbol.glowB, milliseconds, 1));
-			drawable.atoms.push_back({&GlowCreator(), position, still, 1.5f * size, 1.0f, 99.0f, cellA, colour});
-			drawable.atoms.push_back({&GlowCreator(), position, spun, 1.5f * size, 1.0f, 99.0f, cellB, {255, 255, 255}});
-			drawable.atoms.push_back({&SymbolCreator(player), position, still, size, 1.0f, 255.0f, 0.0f, colour});
+			// the second glow's spin carried as the atom's SetAngleY 0x674360 matrix (lh_matrix::AngleY), whose roll
+			// atan2(M[0][2], M[0][0]) = +spin (billboard::Screen turns it clockwise)
+			const glm::mat3 spun = lh_matrix::AngleY(symbol.spin);
+			drawable.atoms.push_back({&GlowCreator(), position, still, 1.5f * size, 1.0f, 99.0f, symbol.cellA, colour});
+			drawable.atoms.push_back(
+			    {&GlowCreator(), position, spun, 1.5f * size, 1.0f, 99.0f, symbol.cellB, {255, 255, 255}});
+			drawable.atoms.push_back({&SymbolCreator(symbolOf.player), position, still, size, 1.0f, 255.0f, 0.0f, colour});
 		}
 		if (!drawable.atoms.empty())
 		{

@@ -30,6 +30,7 @@
 #include "3D/DayNightClock.h"
 #include "3D/NightLights.h"
 #include "PSys/PSysManager.h"
+#include "PSys/TownBelief.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandAvoid.h"
 #include "3D/LandIslandInterface.h"
@@ -771,6 +772,8 @@ bool Game::Update() noexcept
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(game_clock::FrameGameSeconds(), camera.GetOrigin());
+	// Process3dEngine 0x54E032 TownCentre::DrawAll: the town belief symbols' PSys step, once a rendered frame
+	psys::town_belief::Step();
 
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));

@@ -805,3 +805,75 @@ TEST_F(MapCells, FindPlayerTownAtPosOnePlayerAndTiesToTheLater)
 	EXPECT_EQ(map_cells::GetNearestTown(at, 1000.0f), other);
 	(void)first;
 }
+
+TEST_F(MapCells, NearestTownWithCentreFromAbodesOrPlanned)
+{
+	// fn_00602160: +0x9A4, or else fn_00741020 (a TownCentre among the abodes +0x754, or a planned info of number 0xC)
+	auto info = std::make_unique<InfoConstants>();
+	const auto plannedCentre = AbodeInfo::CelticTownCentre;
+	const auto plannedHouse = AbodeInfo::CelticTempleY;
+	info->abode[static_cast<size_t>(plannedCentre)].abodeNumber = AbodeNumber::TownCentre;
+	info->abode[static_cast<size_t>(plannedHouse)].abodeNumber = AbodeNumber::F;
+	Locator::infoConstants::reset(info.release());
+	const auto town = [](uint32_t id, glm::vec3 p) {
+		const auto e = Make(p);
+		auto& t = Reg().Assign<Town>(e);
+		t.id = id;
+		t.owner = PlayerNames::PLAYER_ONE;
+		Reg().Assign<Tribe>(e, Tribe::NORSE);
+		return e;
+	};
+	const auto abode = [](uint32_t townId, AbodeNumber number) {
+		const auto e = Reg().Create();
+		Reg().Assign<Abode>(e, number, townId, 0u, 0u);
+		return e;
+	};
+	const auto at = map_coords::FromMetres(glm::vec2(0.0f, 0.0f));
+	const auto bare = town(1, glm::vec3(10.0f, 0.0f, 0.0f));
+	abode(1, AbodeNumber::A);
+	Reg().Get<Town>(bare).plannedAbodes.push_back({plannedHouse, glm::vec3(0.0f), 0.0f, 1.0f, false});
+	const auto planned = town(2, glm::vec3(20.0f, 0.0f, 0.0f));
+	Reg().Get<Town>(planned).plannedAbodes.push_back({plannedCentre, glm::vec3(0.0f), 0.0f, 1.0f, true});
+	const auto built = town(3, glm::vec3(30.0f, 0.0f, 0.0f));
+	abode(3, AbodeNumber::TownCentre);
+	const auto scripted = town(4, glm::vec3(40.0f, 0.0f, 0.0f));
+	Reg().Get<Town>(scripted).centre = Reg().Create(); // +0x9A4 alone
+	// an abode of another town (by Abode::townId) does not count
+	abode(9, AbodeNumber::TownCentre);
+
+	EXPECT_FALSE(map_cells::TownHasCentre(bare));
+	EXPECT_TRUE(map_cells::TownHasCentre(planned));
+	EXPECT_TRUE(map_cells::TownHasCentre(built));
+	EXPECT_FALSE(map_cells::TownHasCentre(scripted)); // fn_00741020 alone does not read +0x9A4
+	EXPECT_EQ(map_cells::GetNearestTownWithCentre(at, 1000.0f), planned);
+	EXPECT_EQ(map_cells::GetNearestTown(at, 1000.0f), bare);
+	Reg().Get<Town>(planned).plannedAbodes.clear();
+	EXPECT_EQ(map_cells::GetNearestTownWithCentre(at, 1000.0f), built);
+	Reg().Destroy(built);
+	EXPECT_EQ(map_cells::GetNearestTownWithCentre(at, 1000.0f), scripted);
+	Locator::infoConstants::reset();
+}
+
+/// With OPENBLACK_TEST_GAME_PATH: in info.dat the abodes of type 0x404 (TownCentre: the class whose IsTownCentre is 1)
+/// are exactly those of number 12 (ABODE_NUMBER_TOWN_CENTRE), so map_cells::TownHasCentre can test the Abode's number
+TEST(MapCellsInfo, TownCentreInfosAreNumber12)
+{
+	const char* game = std::getenv("OPENBLACK_TEST_GAME_PATH");
+	if (game == nullptr)
+	{
+		GTEST_SKIP() << "OPENBLACK_TEST_GAME_PATH not set";
+	}
+	std::ifstream file(std::filesystem::path(game) / "Scripts" / "info.dat", std::ios::binary);
+	ASSERT_TRUE(file.is_open());
+	const std::vector<char> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	ASSERT_EQ(data.size(), 0x2C + sizeof(InfoConstants));
+	auto info = std::make_unique<InfoConstants>();
+	std::memcpy(info.get(), data.data() + 0x2C, sizeof(InfoConstants));
+	int centres = 0;
+	for (const auto& row : info->abode)
+	{
+		EXPECT_EQ(row.abodeType == AbodeType::TownCentre, row.abodeNumber == AbodeNumber::TownCentre);
+		centres += row.abodeType == AbodeType::TownCentre ? 1 : 0;
+	}
+	EXPECT_GT(centres, 0);
+}

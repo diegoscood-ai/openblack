@@ -15,6 +15,7 @@
 #include "Core/Spell.h"
 #include "Core/SpellGrid.h"
 #include "Core/SpellSeed.h"
+#include "Objects/FallingSpell.h"
 #include "Objects/MagicFireBall.h"
 #include "Objects/MapShield.h"
 #include "Objects/ShieldDebugHooks.h"
@@ -188,4 +189,7 @@ void magic::Update(float seconds)
 	shield_debug::OnFrame(); // OPENBLACK_TEST_SHIELD_FRAMES (test hook, ShieldDebugHooks.cpp)
 	// MagicTeleport::Draw 0x5FCCC0: the stones' vortex, stepped with the frame time (Objects/MagicTeleport.cpp)
 	teleport::UpdateFrame(seconds);
+	// Process3dEngine case 2 0x54DDE0 FallingSpell::Draw and its finish frame callback 0x526480 (the sparks, the
+	// light bursts, the fall.cm2 camera) with g_delta_time, after video::GetFallingSpell().ProcessFrame (Game.cpp)
+	falling_spell::FrameUpdate();
 }

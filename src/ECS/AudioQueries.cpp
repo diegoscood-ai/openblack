@@ -185,9 +185,8 @@ std::optional<audio::MusicTown> NearestMusicTown(float maxDistance)
 		return std::nullopt;
 	}
 	// fn_00602160(camera, townTriggerOffDistance) 0x427493: every player and the neutral one, GetDistanceInMetres
-	// (fn_00605CD0) < best (strictly, 0x60219C), only a town with +0x9A4 (0x6021A7). (aproximado) its other test,
-	// fn_00741020 (an IsTownCentre among the abodes +0x754, or an entry of +0x9A8 whose GetComputerSeen is 0xC), is not in
-	// map_cells::GetNearestTownWithCentre: a town without a CREATE_TOWN_CENTRE has no tribe music
+	// (fn_00605CD0) < best (strictly, 0x60219C), only a town with +0x9A4 (0x6021A7) or else fn_00741020 (0x6021B3: a
+	// TownCentre among its abodes +0x754, or a planned one of abode number 0xC in +0x9A8; map_cells::TownHasCentre)
 	return MusicTownOf(ecs::map_cells::GetNearestTownWithCentre(*camera, maxDistance), *camera);
 }
 

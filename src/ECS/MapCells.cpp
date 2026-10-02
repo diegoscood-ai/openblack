@@ -1106,7 +1106,10 @@ void map_cells::Sync()
 		{
 			used += (cell.mobile != entt::null || cell.fixed != entt::null) ? 1 : 0;
 		}
-		SPDLOG_LOGGER_INFO(spdlog::get("game"), "map_cells: {} objects, {} cells, {} errors", g_Links.size(), used, errors);
+		if (auto logger = spdlog::get("game")) // (openblack) the tests have no "game" logger
+		{
+			SPDLOG_LOGGER_INFO(logger, "map_cells: {} objects, {} cells, {} errors", g_Links.size(), used, errors);
+		}
 	}
 }
 
@@ -1703,12 +1706,42 @@ entt::entity map_cells::GetNearestTown(const map_coords::MapCoords& coords, floa
 	return NearestTown(coords, radius, [](entt::entity) { return true; });
 }
 
+bool map_cells::TownHasCentre(entt::entity town)
+{
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto& data = registry.Get<const Town>(town);
+	// fn_00741020 0x741024..0x741044: the town's abodes (+0x754, next +0x9C), one whose IsTownCentre (vt+0x1E0) is 1:
+	// only TownCentre's (0x55DB70 `mov eax, 1`; GameThingWithPos 0x401AF0 gives 0). A TownCentre is the abode of an info
+	// of type 0x404 (CREATE_TOWN_CENTRE / CREATE_ABODE -> AbodeArchetype), and in info.dat those are exactly the infos of
+	// number ABODE_NUMBER_TOWN_CENTRE (12; test_map_cells TownCentreInfosAreNumber12), the only thing the Abode keeps
+	bool found = false;
+	registry.Each<const Abode>([&](const Abode& abode) {
+		found = found || (abode.townId == data.id && abode.type == AbodeNumber::TownCentre);
+	});
+	if (found)
+	{
+		return true; // 0x74103A jne 0x741069: 1
+	}
+	// 0x741046..0x741062: the planned list (+0x9A8, next +0x44), one whose info (+0x40) GetAbodeNumber (vt+0x44) is 0xC:
+	// GAbodeInfo::GetAbodeNumber 0x401260 reads info +0x124 (the other planned things' infos, GFeatureInfo 0x421E90,
+	// give -1; openblack's plannedAbodes are CREATE_PLANNED_ABODE's only)
+	if (!Locator::infoConstants::has_value())
+	{
+		return false;
+	}
+	const auto& infos = Locator::infoConstants::value().abode;
+	return std::any_of(data.plannedAbodes.begin(), data.plannedAbodes.end(), [&infos](const PlannedAbode& planned) {
+		const auto i = static_cast<size_t>(planned.info);
+		return i < infos.size() && infos[i].abodeNumber == AbodeNumber::TownCentre;
+	});
+}
+
 entt::entity map_cells::GetNearestTownWithCentre(const map_coords::MapCoords& coords, float radius)
 {
 	const auto& registry = Locator::entitiesRegistry::value();
 	return NearestTown(coords, radius, [&registry](entt::entity town) {
-		const auto& data = registry.Get<const Town>(town);
-		return data.centre != entt::null; // +0x9A4 != 0 (0x6021A7)
+		// 0x6021A7..0x6021BA: +0x9A4 != 0, or else fn_00741020 (0x6021B3) != 0
+		return registry.Get<const Town>(town).centre != entt::null || TownHasCentre(town);
 	});
 }
 

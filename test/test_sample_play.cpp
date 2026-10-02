@@ -7,11 +7,13 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include <cmath>
 #include <cstdlib>
 
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -48,6 +50,7 @@ public:
 	std::array<bool, 16> released {};
 	std::array<float, 16> gain {};
 	std::array<Start, 16> starts {};
+	std::array<glm::vec3, 16> positions {};
 	int plays {0};
 
 	bool Play(size_t channel, Sound&, const Start& start) override
@@ -64,7 +67,7 @@ public:
 	[[nodiscard]] bool Playing(size_t channel) const override { return playing[channel]; }
 	void SetGain(size_t channel, float g) override { gain[channel] = g; }
 	void SetPitch(size_t, float) override {}
-	void SetPosition(size_t, glm::vec3) override {}
+	void SetPosition(size_t channel, glm::vec3 at) override { positions[channel] = at; }
 	void ReleaseLoop(size_t channel) override { released[channel] = true; }
 	void SetListener(glm::vec3) override {}
 	void Update() override {}
@@ -527,4 +530,53 @@ TEST_F(SamplePlayTest, TapSoundKeepsTheOptionsPitch)
 	const auto other = sample_play::Start(options);
 	ASSERT_NE(other, k_NoChannel);
 	EXPECT_FLOAT_EQ(output.starts[(other - 1) % 16].pitch, qmixer::FrequencyRatio(click.sampleRate, 100));
+}
+
+TEST(GameSfx, GuardSoundPoint)
+{
+	// fn_00427200 (fabs, fcomp qword 5000.0 0x8C49E0, test ah 0x41): only a coordinate above 5000 becomes 0
+	EXPECT_EQ(GuardSoundPoint(glm::vec3(5000.0f, -5000.0f, 4999.5f)), glm::vec3(5000.0f, -5000.0f, 4999.5f));
+	EXPECT_EQ(GuardSoundPoint(glm::vec3(5000.001f, -6000.0f, 12.0f)), glm::vec3(0.0f, 0.0f, 12.0f));
+	EXPECT_EQ(GuardSoundPoint(glm::vec3(1e30f, 3.0f, -1e30f)), glm::vec3(0.0f, 3.0f, 0.0f));
+	const auto nan = GuardSoundPoint(glm::vec3(std::numeric_limits<float>::quiet_NaN(), 1.0f, 2.0f));
+	EXPECT_TRUE(std::isnan(nan.x)); // unordered: C0 = C3 = 1, kept
+}
+
+TEST_F(SamplePlayTest, TrackedPointGuardedAt5000)
+{
+	// LHSampleUpdate3DChannels 0x10014310 -> fn_00427200: the point handed to LHSampleSet3DPosition has each coordinate
+	// beyond 5000 cleared (0x427349..0x42738E), the distance it returns is the unguarded one (0x427399..0x427400)
+	glm::vec3 at(6000.0f, 10.0f, -7000.0f);
+	RegisterObject(5, [&at]() { return std::optional<glm::vec3>(at); });
+	sample_play::Backend backend;
+	backend.output = &output;
+	backend.sound = [this](entt::id_type id) -> Sound* {
+		const auto found = sounds.find(id);
+		return found != sounds.end() ? &found->second : nullptr;
+	};
+	backend.rand = []() { return 16383; };
+	backend.camera = []() -> std::optional<glm::vec3> { return glm::vec3(0.0f); };
+	backend.ownerPosition = [](const Owner& owner) { return OwnerSoundPosition(owner); };
+	sample_play::SetBackend(std::move(backend));
+
+	sample_play::Options options;
+	options.sound = Add(1, 5, 100);
+	options.mode = 1;
+	options.owner = Owner::Object(5);
+	options.is3D = true;
+	options.track = true;
+	options.position = at;
+	const auto channel = sample_play::Start(options);
+	ASSERT_NE(channel, k_NoChannel);
+	const auto index = static_cast<size_t>((channel - 1) % 16);
+	sample_play::UpdateChannels();
+	EXPECT_TRUE(output.playing[index]); // 9219.5 < 9999
+	EXPECT_EQ(output.positions[index], glm::vec3(0.0f, 10.0f, 0.0f));
+	// the anim effects' start asks the same function (0x10014B91): guarded too
+	EXPECT_EQ(Get3DSoundPos(Owner::Object(5)), std::optional<glm::vec3>(glm::vec3(0.0f, 10.0f, 0.0f)));
+	// 6000, 8000: the guarded point is the camera's, but the distance 10000 is past the max 9999: it stops
+	at = glm::vec3(6000.0f, 0.0f, 8000.0f);
+	sample_play::UpdateChannels();
+	EXPECT_FALSE(output.playing[index]);
+	UnregisterObject(5);
 }

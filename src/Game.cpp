@@ -128,7 +128,7 @@ const std::string k_WindowTitle = "openblack";
 namespace
 {
 /// What GAudio's music reads from the game (Audio/GameQueries.h); the queries left unset are the systems openblack does
-/// not have yet (videos, the wide screen bars moving, the camera's alignment, the towns' tribes, citadel, creature, worship)
+/// not have yet (videos, the wide screen bars moving, the towns' tribes, creature, worship)
 audio::GameQueries MakeMusicQueries(Game& game)
 {
 	audio::GameQueries queries;
@@ -178,6 +178,9 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr ? helpSystem->GetGuidanceLevel() : 3;
 	};
+	// g_game+0x205A28 == 1 (0x4282F0): GoInsideCitadel 0x554004 / LeaveInsideCitadel 0x553B1F are openblack's temple
+	// interior Activate / Deactivate (ENTER_EXIT_CITADEL, the debug window), as StartCameraControl reads it (CHLApi.cpp)
+	queries.insideCitadel = []() { return Locator::temple::has_value() && Locator::temple::value().Active(); };
 	// GPlayer::GetPlayerNumber 0x64A790 of the local interface's player: openblack's local player is PLAYER_ONE
 	queries.localPlayerNumber = []() { return static_cast<uint32_t>(PlayerNames::PLAYER_ONE); };
 	// GGameInfo::IsVisualNight 0x5575E0 (HelpSpritesCheckMoonPhase 0x71D1DC)
@@ -572,7 +575,7 @@ bool Game::GameLogicLoop() noexcept
 		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
 		audio::guidance::ProcessGameTurn();
 		audio::ProcessTurn();
-		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN
+		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN / _CITADEL
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();

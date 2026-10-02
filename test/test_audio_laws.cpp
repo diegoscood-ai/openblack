@@ -8,10 +8,13 @@
  *******************************************************************************/
 
 #include <cmath>
+#include <limits>
 
 #include <gtest/gtest.h>
 
 #include "Audio/LH/SamplePlay.h"
+#include "Audio/Services/AtmosBanks.h"
+#include "ECS/AudioQueries.h"
 
 using namespace openblack::audio;
 
@@ -98,4 +101,29 @@ TEST(AudioLaws, RelativeAxesExact)
 		EXPECT_NEAR(p.y, c.heard.y, tolerance(c.heard.y)) << c.lh.x << "," << c.lh.y << "," << c.lh.z;
 		EXPECT_NEAR(p.z, c.heard.z, tolerance(c.heard.z)) << c.lh.x << "," << c.lh.y << "," << c.lh.z;
 	}
+}
+
+TEST(AudioLaws, GAudioAlignment)
+{
+	// fn_005E2240 0x5E2240: x clamped to 0..1 (a NaN is 0: fcom sets C0 when unordered, test ah, 1), 2 - 2 (1 - x) - 1
+	using openblack::ecs::audio_queries::GAudioAlignment;
+	EXPECT_EQ(GAudioAlignment(0.0f), -1.0f);
+	EXPECT_EQ(GAudioAlignment(0.5f), 0.0f);
+	EXPECT_EQ(GAudioAlignment(1.0f), 1.0f);
+	EXPECT_EQ(GAudioAlignment(0.25f), -0.5f);
+	EXPECT_EQ(GAudioAlignment(0.9f), 2.0f - ((1.0f - 0.9f) + (1.0f - 0.9f)) - 1.0f);
+	EXPECT_EQ(GAudioAlignment(-3.0f), -1.0f);
+	EXPECT_EQ(GAudioAlignment(2.0f), 1.0f);
+	EXPECT_EQ(GAudioAlignment(std::numeric_limits<float>::quiet_NaN()), -1.0f);
+}
+
+TEST(AudioLaws, AtmosGroupByAlignment)
+{
+	// ProcessAtmosBanks 0x428FFA: the float +0x190 against the double -0.59999999999999998 (0x8C4A08); C0 | C3 -> 2
+	EXPECT_EQ(atmos_banks::GroupFor(-1.0f), 2u);
+	EXPECT_EQ(atmos_banks::GroupFor(-0.6f), 2u); // the float -0.6 is -0.60000002384, below the double
+	EXPECT_EQ(atmos_banks::GroupFor(std::nextafter(-0.6f, 0.0f)), 1u);
+	EXPECT_EQ(atmos_banks::GroupFor(0.0f), 1u);
+	EXPECT_EQ(atmos_banks::GroupFor(1.0f), 1u);
+	EXPECT_EQ(atmos_banks::GroupFor(std::numeric_limits<float>::quiet_NaN()), 2u);
 }

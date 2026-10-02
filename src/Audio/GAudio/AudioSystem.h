@@ -43,10 +43,16 @@ struct GameQueries;
 /// other kinds or a gone one
 [[nodiscard]] std::optional<glm::vec3> OwnerSoundPosition(const Owner& owner);
 
+/// fn_00427200's guard on the points it hands LHaudio: each coordinate whose absolute value is more than 5000 becomes 0
+/// (fabs, fcomp qword 5000.0 0x8C49E0, test ah 0x41: equal, below and NaN are kept). Done on the channel's point (+0x50,
+/// 0x427222..0x42726D, after copying it for the default) and on the point it returns (0x427349..0x42738E); the
+/// distance it returns is measured from the unguarded point (0x427399..0x427400)
+[[nodiscard]] glm::vec3 GuardSoundPoint(glm::vec3 point);
+
 /// fn_00427200, the game's 3D function of LHaudio (LHSampleRegister3DObjectFunction 0x426E6B) as the anim effects ask
 /// it: no owner = the camera (0x4272F9); the atmos owner gives 0 (0x42726D); a GameThing gives 0 when not available
 /// (0x4272AD), else its Get3DSoundPos; any other Base its own Get3DSoundPos (a SoundTag's: SoundTag::Get3DSoundPos
-/// 0x71EC90). nullopt = 0 (nothing plays).
+/// 0x71EC90). nullopt = 0 (nothing plays). The point is guarded (GuardSoundPoint, 0x427349..0x42738E).
 [[nodiscard]] std::optional<glm::vec3> Get3DSoundPos(const Owner& owner);
 /// The listener's point (GGame::GetCamera / LH3DTech::g_camera), nullopt without a camera
 [[nodiscard]] std::optional<glm::vec3> ListenerPoint();

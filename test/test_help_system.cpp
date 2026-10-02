@@ -153,11 +153,17 @@ TEST(HelpSystem, CountWords)
 TEST(HelpSystem, ReadSpeedFactor)
 {
 	// fn_005C6CB0
-	EXPECT_DOUBLE_EQ(ReadSpeedFactor(0.5f), 1.0);
-	EXPECT_DOUBLE_EQ(ReadSpeedFactor(0.0f), 3.0);
-	EXPECT_DOUBLE_EQ(ReadSpeedFactor(0.25f), 2.0);
-	EXPECT_NEAR(ReadSpeedFactor(1.0f), 0.2, 1e-12);
-	EXPECT_NEAR(ReadSpeedFactor(0.75f), 0.6, 1e-12);
+	EXPECT_EQ(ReadSpeedFactor(0.5f), 1.0f);
+	EXPECT_EQ(ReadSpeedFactor(0.0f), 3.0f);
+	EXPECT_EQ(ReadSpeedFactor(0.25f), 2.0f);
+	EXPECT_EQ(ReadSpeedFactor(1.0f), 0.2f);
+	EXPECT_EQ(ReadSpeedFactor(0.75f), 0.6f);
+	// each step rounded to 24 bits (the game thread's FPU, fn_007DEE00): 3 - 4 * 0.1f is 2.5999999f, not the
+	// 2.59999999404 of double; (1 - 2 (0.7f - 0.5)) * 0.8 + 0.2 is 0.68000001f, not 0.68000001907
+	EXPECT_EQ(ReadSpeedFactor(0.1f), 0x1.4ccccc0p+1f);
+	EXPECT_EQ(ReadSpeedFactor(0.7f), 0x1.5c28f6p-1f);
+	EXPECT_EQ(ReadSpeedFactor(0.9f), 0x1.70a3dap-2f);
+	EXPECT_EQ(ReadSpeedFactor(0.55f), 0x1.d70a3cp-1f);
 }
 
 TEST(HelpSystem, ReadingTimeWithoutVoice)

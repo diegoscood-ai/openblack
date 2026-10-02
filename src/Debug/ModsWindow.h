@@ -71,6 +71,10 @@ private:
 	bool _logWarnings {true};
 	bool _logErrors {true};
 	std::string _logMod;
+	/// how many mods were waiting for a restart last frame: one more opens the "Restart needed" question
+	size_t _pendingRestart {0};
+
+	void DrawRestartNotice() noexcept;
 };
 
 } // namespace openblack::debug::gui

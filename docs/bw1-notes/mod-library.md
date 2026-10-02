@@ -65,6 +65,10 @@ cuatro pestañas:
 - **Load order**: el orden de carga resuelto (de arriba abajo; con dos mods cambiando lo mismo gana el de abajo), con
   el estado y de quién depende cada uno, y flechas para subir o bajar un mod. Las dependencias siempre mandan. Se
   guarda en `Mods/load_order.cfg`.
+- **Reinicio**: al encender, apagar o cambiar un mod que necesita reiniciar (`*`), la ventana pregunta «Restart
+  needed» con **Restart openblack now** / **Later**, y mientras quede alguno pendiente muestra arriba «Takes effect
+  after a restart: …» con el mismo botón. Reiniciar cierra openblack como «Quit» y lo vuelve a abrir con la misma línea
+  de comandos (`Mods/Restart.*`, `main.cpp`); la ventana está en inglés.
 - **Log**: los mensajes de la librería de mods (mods encontrados, errores de manifiesto, bloqueos, conflictos de
   reemplazos, errores de Lua y de los DLL, y lo que los mods escriben), con filtro por nivel y por mod.
 

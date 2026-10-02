@@ -87,6 +87,12 @@ public:
 	void SetEnabled(Mod& mod, bool enabled);
 	void SetOption(Mod& mod, size_t optionIndex, size_t choice);
 
+	/// Remembers how the mods that need a restart started (Game, once the mods are applied at start-up)
+	void MarkStarted();
+	/// The mods that need a restart whose state (on, options) differs from how openblack started: their change takes
+	/// effect only after a restart (the Mods window offers it)
+	[[nodiscard]] std::vector<const Mod*> PendingRestart() const;
+
 	/// A switch set by a mod's Lua script or native library while it runs (it counts only while the mod is active, in
 	/// its place of the load order). Returns false if there is no such switch
 	bool SetRuntimeSwitch(Mod& mod, std::string_view name, double value);
@@ -138,6 +144,9 @@ private:
 	std::vector<Broken> _broken;
 	std::vector<Mod*> _order;
 	std::vector<std::string> _userOrder; ///< Mods/load_order.cfg
+	/// MarkStarted: id -> state of each mod that needs a restart, as openblack started
+	std::map<std::string, std::string, std::less<>> _started;
+	[[nodiscard]] std::string RestartState(const Mod& mod) const;
 	std::filesystem::path _modsDirectory;
 	/// What the settings files say, so that command line changes are not saved along with a window change
 	std::unique_ptr<SavedState> _saved;

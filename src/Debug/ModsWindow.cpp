@@ -24,6 +24,7 @@
 #include "Mods/Manifest.h"
 #include "Mods/ModLog.h"
 #include "Mods/ModRegistry.h"
+#include "Mods/Restart.h"
 
 using namespace openblack;
 using namespace openblack::debug::gui;
@@ -199,6 +200,7 @@ void ModsWindow::Draw() noexcept
 		ImGui::TextUnformatted("The mod library is not running");
 		return;
 	}
+	DrawRestartNotice();
 	if (ImGui::BeginTabBar("ModsTabs"))
 	{
 		const auto tab = [this](const char* label, Tab which) {
@@ -232,6 +234,56 @@ void ModsWindow::Draw() noexcept
 		}
 		_switchTab = false;
 		ImGui::EndTabBar();
+	}
+}
+
+void ModsWindow::DrawRestartNotice() noexcept
+{
+	const auto pending = Locator::mods::value().PendingRestart();
+	if (pending.empty())
+	{
+		_pendingRestart = 0;
+		return;
+	}
+	std::string names;
+	for (const auto* mod : pending)
+	{
+		names += (names.empty() ? "" : ", ") + mod->GetInfo().name;
+	}
+	// a mod that needs a restart has just been switched or changed: ask
+	if (pending.size() > _pendingRestart)
+	{
+		ImGui::OpenPopup("Restart needed");
+	}
+	_pendingRestart = pending.size();
+
+	ImGui::TextColored(k_Yellow, "Takes effect after a restart: %s", names.c_str());
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Restart openblack now"))
+	{
+		mods::restart::Request();
+	}
+	ImGui::Separator();
+
+	if (ImGui::BeginPopupModal("Restart needed", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextUnformatted("These changes take effect when openblack starts again:");
+		for (const auto* mod : pending)
+		{
+			ImGui::BulletText("%s", mod->GetInfo().name.c_str());
+		}
+		ImGui::Spacing();
+		if (ImGui::Button("Restart openblack now"))
+		{
+			mods::restart::Request();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Later"))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 

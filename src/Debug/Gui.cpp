@@ -67,6 +67,7 @@
 #include "Locator.h"
 #include "MeshViewer.h"
 #include "ModsWindow.h"
+#include "Mods/Restart.h"
 #include "Music.h"
 #include "PathFinding.h"
 #include "Profiler.h"
@@ -310,7 +311,8 @@ bool Gui::Loop() noexcept
 
 	ImGui::Render();
 
-	return false;
+	// the Mods window's "Restart openblack now": the game loop ends as with Quit (main() starts openblack again)
+	return mods::restart::Requested();
 }
 
 /// Returns true if both internal transient index and vertex buffer have

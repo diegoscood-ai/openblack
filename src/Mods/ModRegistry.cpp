@@ -931,6 +931,42 @@ void ModRegistry::SetOption(Mod& mod, size_t optionIndex, size_t choice)
 	SaveSettings(mod);
 }
 
+std::string ModRegistry::RestartState(const Mod& mod) const
+{
+	std::string state = IsActive(mod) ? "on" : "off";
+	for (const auto& option : mod.GetOptions())
+	{
+		state += "|" + option.choices.at(option.value);
+	}
+	return state;
+}
+
+void ModRegistry::MarkStarted()
+{
+	_started.clear();
+	for (const auto& mod : _mods)
+	{
+		if (mod->GetInfo().restartRequired)
+		{
+			_started[mod->GetInfo().id] = RestartState(*mod);
+		}
+	}
+}
+
+std::vector<const Mod*> ModRegistry::PendingRestart() const
+{
+	std::vector<const Mod*> pending;
+	for (const auto& mod : _mods)
+	{
+		const auto it = _started.find(mod->GetInfo().id);
+		if (it != _started.end() && it->second != RestartState(*mod))
+		{
+			pending.push_back(mod.get());
+		}
+	}
+	return pending;
+}
+
 bool ModRegistry::SetRuntimeSwitch(Mod& mod, std::string_view name, double value)
 {
 	if (switches::Find(name) == nullptr || !std::isfinite(value))

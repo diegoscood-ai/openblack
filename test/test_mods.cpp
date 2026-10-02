@@ -619,3 +619,24 @@ TEST_F(ModsTest, ObjectPatchEdges)
 	EXPECT_TRUE(LogHas("rep.abode", "woodValue must be 0 or more"));
 	replace::Clear();
 }
+
+TEST_F(ModsTest, RestartIsAskedOnlyForRestartMods)
+{
+	ModRegistry registry;
+	registry.Discover(_folder);
+	registry.ApplyAll();
+	registry.MarkStarted();
+	EXPECT_TRUE(registry.PendingRestart().empty());
+	// a live mod: nothing to restart
+	registry.SetEnabled(*registry.Find("water.living"), true);
+	EXPECT_TRUE(registry.PendingRestart().empty());
+	// a restart mod switched on, then back: pending, then not
+	registry.SetEnabled(*registry.Find("graphics.mipmaps"), true);
+	ASSERT_EQ(registry.PendingRestart().size(), 1u);
+	EXPECT_EQ(registry.PendingRestart().front()->GetInfo().id, "graphics.mipmaps");
+	registry.SetEnabled(*registry.Find("graphics.mipmaps"), false);
+	EXPECT_TRUE(registry.PendingRestart().empty());
+	// an option of a restart mod
+	registry.SetOption(*registry.Find("game.skip-intro"), 0, 0);
+	EXPECT_EQ(registry.PendingRestart().size(), 1u);
+}

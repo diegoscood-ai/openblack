@@ -25,6 +25,7 @@
 #include "Common/CrashHandler.h"
 #include "EngineConfig.h"
 #include "Game.h"
+#include "Mods/Restart.h"
 
 bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& returnCode)
 {
@@ -268,6 +269,12 @@ int main(int argc, char* argv[]) noexcept
 		if (!game->Run())
 		{
 			return EXIT_FAILURE;
+		}
+		// the Mods window's "Restart openblack now": everything shut down first, then the same command line again
+		game.reset();
+		if (openblack::mods::restart::Requested() && !openblack::mods::restart::Relaunch(argc, argv))
+		{
+			std::cerr << "Could not start openblack again" << std::endl;
 		}
 	}
 	catch (std::exception& e)

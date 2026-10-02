@@ -255,6 +255,7 @@ Game::Game(Arguments&& args) noexcept
 		mods.ApplyAll();
 		// what the active mods replace (meshes, textures, info.dat objects), read before the game data loads
 		mods::replace::Collect(mods);
+		mods.MarkStarted(); // the Mods window offers a restart when a mod that needs one changes
 	}
 	config.guiScale = args.guiScale;
 }

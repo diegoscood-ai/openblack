@@ -558,7 +558,7 @@ bool Game::GameLogicLoop() noexcept
 		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
 		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
 		audio::guidance::ProcessGameTurn();
-		audio::ProcessTurn(_dayNightClock->GetSkyType(), turn);
+		audio::ProcessTurn();
 		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)

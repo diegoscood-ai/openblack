@@ -59,7 +59,8 @@ public:
 	/// SetPlayPosition 0x4298C0 (SET_MUSIC_PLAY_POSITION): +0x28 = 1, +0x2C = MapCoords(point). MapCoords::Set 0x603340
 	/// keeps x and z as ftol(v * 6553.6) and the height above the land; fn_00429500 adds GetAltitude back
 	/// (0x42954C..0x42955D) and multiplies x and z by 1 / 6553.6 (0x8AA3A4), so the point comes back with x and z
-	/// truncated to the 16.16 grid and the same y.
+	/// truncated to the 16.16 grid and the same y (ecs::map_coords::Quantise: 6553.6f at 0x8AC400, 0x39200000 = 10 / 65536
+	/// exactly at 0x8AA3A4).
 	void SetPlayPosition(ThingId thing, glm::vec3 point);
 	/// IsMusicThingFinished 0x4298F0: +0x20, or 1 without an info
 	[[nodiscard]] int IsFinished(ThingId thing);
@@ -72,9 +73,5 @@ private:
 	/// In the order of the linked list (head first)
 	std::vector<ThingMusicInfo> _infos;
 };
-
-/// MapCoords::Set 0x603340 then the read back of fn_00429500 for x or z: ftol(v * 6553.6f) * (10 / 65536)
-/// (6553.6f at 0x8AC400, 0x39200000 = 10 / 65536 exactly at 0x8AA3A4)
-[[nodiscard]] float MapCoordsRoundTrip(float v);
 
 } // namespace openblack::audio

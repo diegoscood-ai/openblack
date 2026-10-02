@@ -22,6 +22,7 @@
 #include "Audio/Device/SampleOutput.h"
 #include "Audio/Device/Sound.h"
 #include "Audio/Services/SoundTags.h"
+#include "ECS/MapCoords.h"
 
 // Milestone B3 of dev\tmp_dis\audio\PLAN.md: SoundTag 0x71E300..0x71ED90 on the 16 channels. A tag of a thing replays
 // through GAudio::PlaySoundEffect 0x42A100 every turn (mode 2: only when silent, 0x71E6F2 + LHSamplePlay's mode); a
@@ -251,6 +252,25 @@ TEST_F(SoundTagTest, PointTagPlaysOnceAndGoes)
 	output.playing[static_cast<size_t>(channel)] = false;
 	tags::ProcessSoundTags();
 	EXPECT_FALSE(tags::Exists(tag));
+}
+
+TEST_F(SoundTagTest, MapCoordsTagIsTheMapPoint)
+{
+	Add(10, 100.0f);
+	// SoundTag::Create(MapCoords&) 0x71EB60: x and z x 10 / 65536 ([0x8AA3A4]), y = GetAltitude (0 without a land)
+	// + the altitude above the land
+	const ecs::map_coords::MapCoords coords {3 * 0x10000 + 0x8000, 0x10000 + 0x4000, 2.0f};
+	tags::CreateAtMapCoords(coords, 10, false, 3, 0, false, true, SfxBank::InGame, 0);
+	const int channel = output.Single();
+	ASSERT_GE(channel, 0);
+	EXPECT_EQ(output.starts[static_cast<size_t>(channel)].position, glm::vec3(35.0f, 2.0f, 12.5f));
+	// the same map point already in metres (magic::ToMap's): not quantised again
+	output = FakeOutput {};
+	tags::CreateAtMapCoords(ecs::map_coords::ToMetres(coords.x), ecs::map_coords::ToMetres(coords.z), 2.0f, 10, false, 3,
+	                        0, false, true, SfxBank::InGame, 0);
+	const int second = output.Single();
+	ASSERT_GE(second, 0);
+	EXPECT_EQ(output.starts[static_cast<size_t>(second)].position, glm::vec3(35.0f, 2.0f, 12.5f));
 }
 
 TEST_F(SoundTagTest, DelayedPointTagWaitsForTheSound)

@@ -22,6 +22,7 @@
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
+#include "3D/SkyType.h"
 #include "Audio/Audio.h"
 #include "Audio/Device/Device.h"
 #include "Audio/Device/Sound.h"
@@ -39,6 +40,7 @@
 #include "Audio/Services/SoundTags.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -535,19 +537,22 @@ bool audio::SfxTrace()
 	return k_Trace;
 }
 
-void audio::ProcessTurn(float skyType, uint32_t turn)
+void audio::ProcessTurn()
 {
 	if (!g_State.initialised)
 	{
 		return;
 	}
-	// GGame::EndTurn 0x54E96F: GSoundMap::Update (+ Dump 0x54E981)
-	sound_map::Update(skyType);
+	// GGame::EndTurn 0x54E96F: GSoundMap::Update (+ Dump 0x54E981). Its CalculateVolumes reads LH3DSky's sky type
+	// [0xFA26BC] (0x71DDF1), which only DrawSky's fn_0086A2C0 writes, once a frame (sky_type::SampleFrame from the
+	// Renderer): the value of the last frame drawn, one frame behind the turn's visual time
+	sound_map::Update(sky_type::Frame());
 	// 0x54E989 SoundTag::ProcessSoundTags (the street lanterns' tags among the others; openblack first gives the
 	// lanterns made since the last turn their tag, GStreetLantern::CallVirtualFunctionsForCreation 0x734810)
 	lantern_sounds::ProcessTurn();
 	tags::ProcessSoundTags();
-	// 0x54E997: GAudio::ProcessAudioGameTurn past turn 5, else AtmosProcess(0) 0x54E9B4
+	// 0x54E997: GAudio::ProcessAudioGameTurn past turn 5 (g_game+0x205A40, unsigned: jbe), else AtmosProcess(0) 0x54E9B4
+	const uint32_t turn = game_clock::Turn();
 	if (turn > 5)
 	{
 		ProcessAudioGameTurn(turn);

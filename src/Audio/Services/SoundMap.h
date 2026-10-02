@@ -69,7 +69,7 @@ namespace sound_map
 
 /// GSoundMap::Update 0x71D6F0 (CalculateRadiusPointAndDistance 0x71D800 + UpdateFromMap 0x71D720 + the volumes
 /// fn_0071DD60), then GSoundMap::Dump 0x71D990 when OPENBLACK_ATMOS_TRACE is set. Once per game turn from GGame::EndTurn
-/// (0x54E960). `skyType` = LH3DSky's 0..2 ([0xFA26BC], DayNightClock::GetSkyType).
+/// (0x54E960). `skyType` = LH3DSky's 0..2 ([0xFA26BC] read at 0x71DDF1: sky_type::Frame(), audio::ProcessTurn).
 void Update(float skyType);
 
 /// +0xB4: the 14 atmos volumes 0..1 of the last Update (GAudio fn_00429100 copies them as the banks' targets)

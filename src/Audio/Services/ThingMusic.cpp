@@ -11,6 +11,8 @@
 
 #include <algorithm>
 
+#include "ECS/MapCoords.h"
+
 namespace openblack::audio
 {
 
@@ -68,7 +70,8 @@ void ThingMusicList::SetPlayPosition(ThingId thing, glm::vec3 point)
 	if (auto* info = Get(thing); info != nullptr)
 	{
 		info->hasPlayPosition = 1; // 0x4298D2
-		info->playPosition = {MapCoordsRoundTrip(point.x), point.y, MapCoordsRoundTrip(point.z)}; // 0x4298D9..0x4298E9
+		// 0x4298D9..0x4298E9: MapCoords::Set 0x603340 (ToFixed), read back by fn_00429500 (ToMetres, 0x429580..0x429587)
+		info->playPosition = {ecs::map_coords::Quantise(point.x), point.y, ecs::map_coords::Quantise(point.z)};
 	}
 }
 
@@ -76,14 +79,6 @@ int ThingMusicList::IsFinished(ThingId thing)
 {
 	const auto* info = Get(thing);
 	return info != nullptr ? info->finished : 1; // 0x4298FE / 0x429904
-}
-
-float MapCoordsRoundTrip(float v)
-{
-	// fld v; fmul 6553.6f; __ftol (truncation) (0x603346..0x603350); then fild; fmul 10 / 65536 (0x429580..0x429587).
-	// Both products are exact in double for these magnitudes, as on the x87.
-	const auto fixed = static_cast<int32_t>(static_cast<double>(v) * static_cast<double>(6553.6f));
-	return static_cast<float>(static_cast<double>(fixed) * (10.0 / 65536.0));
 }
 
 } // namespace openblack::audio

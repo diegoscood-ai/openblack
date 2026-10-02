@@ -25,6 +25,8 @@
 #include "Audio/Services/SpookyVoices.h"
 #include "Audio/Services/Voices.h"
 #include "Common/RandomNumberManager.h"
+#include "ECS/GUtilsDistance.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 // Every function cites its original in Guidance.h; the comments here give the instructions the order comes from.
@@ -51,7 +53,6 @@ constexpr float k_BeliefVisibility = 0.3f;          // 0x980168
 constexpr float k_HelpSpritesRange = 300.0f;        // 0x980174
 constexpr float k_HeartBeatMaxDistance = 500.0f;    // 0x71C5D7: push 0x43FA0000
 constexpr int k_HeartBeatSample = 45;               // 0x71C600 / 0x71C63B: G_HeartBeat (InGame)
-constexpr float k_MsPerTurn = 100.0f;               // [0xD01A38] (inferred: 100 ms a turn, SoundTags.cpp)
 constexpr uint32_t k_DeathInVillageText = 0x1658;   // 0x71C846: HELP_TEXT_DEATH_IN_VILLAGE_06
 constexpr std::string_view k_ScriptWithText = "MultiHelpJustTalkWithText";     // 0xBF1988
 constexpr std::string_view k_ScriptWithNoText = "MultiHelpJustTalkWithNoText"; // 0xC22254
@@ -89,12 +90,12 @@ Owner PlayerOwner(uint32_t number)
 	return number == 0 ? Owner::None() : Owner::Key(number);
 }
 
-/// GUtils::GetDistanceInMetres 0x74CD70 / fn_0074CCE0 + 0x74DCC0: hypotenuse(dx, dz) of the MapCoords x 10 / 65536.
-/// (approximated) the exact length of the world points; the original's hypotenuse 0x74F680 uses the table 1 / sqrt of
-/// _FUN_0074f620 (about 0.1 %) on the 16.16 MapCoords
+/// GUtils::GetDistanceInMetres 0x74CD70 (and its twins 0x74CD50 / fn_00605CD0): hypotenuse 0x74F680 (the 1 / sqrt table
+/// of _FUN_0074f620) of the MapCoords' dx, dz, x 10 / 65536 (0x74DCC0), gutils::GetDistanceInMetres. The points are
+/// world points that the original holds as MapCoords: they are truncated to 16.16 first (MapCoords(LHPoint) 0x603160)
 float Distance(glm::vec3 a, glm::vec3 b)
 {
-	return std::hypot(b.x - a.x, b.z - a.z);
+	return gutils::GetDistanceInMetres(a, b);
 }
 
 std::optional<glm::vec3> CameraPosition()
@@ -1089,7 +1090,9 @@ void guidance::HeartBeat(float value)
 	}
 	// 0x71C4BF..0x71C518: fn_0071C420 (x 0.025, 0x8D150C) x [0xD01A38] x 0.001, brought to <= 1
 	const double rate = static_cast<double>(g.heartBeatPitch) * 0.025f;
-	g.heartBeatPhase = static_cast<float>(rate * k_MsPerTurn * 0.001f + g.heartBeatPhase);
+	// fimul [0xD01A38] (0x71C4C7..0x71C4D8): game_clock::MsPerTurn()
+	g.heartBeatPhase =
+	    static_cast<float>(rate * static_cast<double>(game_clock::MsPerTurn()) * 0.001f + g.heartBeatPhase);
 	if (g.heartBeatPhase > 1.0f)
 	{
 		do

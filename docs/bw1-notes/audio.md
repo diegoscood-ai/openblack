@@ -3,7 +3,7 @@
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
 de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B11b de la fase B están hechos; la fase C queda pendiente.
+y los hitos B0..B11c de la fase B están hechos; la fase C queda pendiente.
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -41,6 +41,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B9 y B10 implementados (Guidance y voces nocturnas)](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)
 - [Fase B: B11a, un solo motor](#fase-b-b11a-un-solo-motor)
 - [Fase B: B11b, la estructura](#fase-b-b11b-la-estructura)
+- [Fase B: B11c, las API comunes del equipo](#fase-b-b11c-las-api-comunes-del-equipo)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
 - [Pendiente](#pendiente)
@@ -212,7 +213,8 @@ Reglas:
 3. **Una muestra es (banco, número).** La clave `"<archivo>.sad/<n>"` no distingue mayúsculas.
 4. **Todo va por turno**, salvo `HelpDude::UpdateSaySentence` (por fotograma, 0x5BDE48, con un retardo en ms reales
    0x5BB554), el woosh de la cámara (`GetTickCount & 3`) y el hilo de música (120 ms reales).
-5. **El audio no incluye componentes del ECS** (desde B11b, ni `ECS/*`). Lo que necesita del juego lo pregunta por
+5. **El audio no incluye componentes del ECS** (desde B11b; de `ECS/*` solo las cuentas puras `MapCoords.h` y
+   `GUtilsDistance.h`, desde B11c, sin registro ni componentes). Lo que necesita del juego lo pregunta por
    `audio::GameQueries` (`src/Audio/GameQueries.h`), unas `std::function` que registran `Game.cpp` y
    `ecs::audio_queries` (`src/ECS/AudioQueries.cpp`). Una consulta sin dueño devuelve el valor
    de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos y las
@@ -974,7 +976,7 @@ API pública (sin argumentos por defecto; cada llamador pasa lo que pasa el orig
 | `MaxDistance(Sample)`, `CreatureBank(especie)` | 0x42A430, 0x4EBD81 |
 | `RegisterObject(id, fn)` / `UnregisterObject` | Get3DSoundPos (vt +0x10) de un dueño que no es GameThing |
 | `Init(GameQueries)`, `Shutdown()` | ctor 0x426D40 (maestro fn_00428250), ToBeDeleted 0x426FE0 |
-| `ProcessTurn(cielo, turno)` | GGame::EndTurn 0x54E960: GSoundMap::Update, ProcessSoundTags, y tras el turno 5 ProcessAudioGameTurn 0x427080 (con la puerta LHWaveIsActive) o AtmosProcess(0) |
+| `ProcessTurn()` | GGame::EndTurn 0x54E960 (el turno de `game_clock::Turn()`, el tipo de cielo de `sky_type::Frame()`, B11c): GSoundMap::Update, ProcessSoundTags, y tras el turno 5 ProcessAudioGameTurn 0x427080 (con la puerta LHWaveIsActive) o AtmosProcess(0) |
 | `Paused()`, `UpdateFrame()` | EndTurn en pausa (0x54E9B4); el maestro en vivo y los bucles finitos |
 | `ClearMap()` | GAudio::Reset 0x426CA0 (+ las SoundTags y farolas del mapa) |
 | `OnFocus(bool)` | minimizar / restaurar: 0x7DE6D0 / 0x7DE6F0 → 0x642470 → fn_00428720 → LHGlobalSwitch 0x10015790 |
@@ -1577,16 +1579,14 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
 
 ### (Aproximado), (inferido) y pendiente de B9/B10
 
-- **(aproximado)**: distancias = longitud exacta x/z de los puntos del mundo (el original: hypotenuse 0x74F680 con la
-  tabla 1/√ de _FUN_0074f620 sobre MapCoords 16.16); x87 en double; el generador; el orden de `ProcessGameTurn` respecto
+- **(aproximado)**: x87 en double; el generador; el orden de `ProcessGameTurn` respecto
   a GInterfaceStatus::Process; los puntos de PlaySample son puntos del mundo (sin el redondeo de MapCoords).
-- **(inferido)**: [0xD01A38] = 100 ms por turno (como SoundTags); GInterface+0x3B8 = la mano; `_isalpha` ASCII; el nombre
+- Desde B11c las distancias son `gutils::GetDistanceInMetres` (hypotenuse 0x74F680 con la tabla 1/√ de _FUN_0074f620
+  sobre los MapCoords 16.16 de los puntos) y [0xD01A38] es `game_clock::MsPerTurn()` (100, GGame::Init 0x54F4A5).
+- **(inferido)**: GInterface+0x3B8 = la mano; `_isalpha` ASCII; el nombre
   por `OPENBLACK_PLAYER_NAME`; el jugador local = PLAYER_ONE.
 - **No modelado**: el +0x2C de las opciones (90, rand(180) en las voces nocturnas): se guarda, SamplePlay no lo usa.
 - **Pendiente (sin llamador en openblack; la API ya está)**:
-  - `Alignment.cpp` (Milagros): `GAlignment::ProcessForPlayer` 0x4141D9 llama cada turno, para el jugador local y antes
-    de `Process`, a `HelpSpritesAlignmentProcess(GetMaxAlignmentChangePerGameTurn · pending, alignment, maxChange)`
-    (también con pending 0: el acumulado decae);
   - `Villager::VillagerDead` 0x7506C0 (aldeanos, V12): fn_0071CE70 (KillingPeople, si lo mató el jugador local y la
     tabla 0x99A368 de la causa), fn_0071C810 (DEATH_IN_VILLAGE, aldeano mío, 0x99A370), fn_0071CFE0 (causa 4),
     LosingVillagers (pueblo con +0x618 > info+0x150, 0x99A36C) y LowOnPeople;
@@ -1626,7 +1626,7 @@ nuevos.
 
 ## Fases B y C
 
-**B0..B10, B11a y B11b hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
+**B0..B10, B11a, B11b y B11c hechos; falta la fase C** (PLAN §4-5). Milagros y agua ya están fusionados en `local/hand-hbn`:
 
 | hito | contenido |
 |---|---|
@@ -1639,10 +1639,11 @@ nuevos.
 | B6 | **hecho** ([arriba](#b6-chl-de-efectos)); el ambiente (`GSoundMap` 0x71D6F0, LHAtmos 0x428FE0 / 0x100018B0) ya era de agua y va por `audio::` |
 | B7 | **hecho** ([arriba](#fase-b-b7-implementado-voces-en-canal)); falta la parte visual de los consejeros (modelos, vuelo, boca) |
 | B8 | **hecho** ([abajo](#fase-b-b8-implementado-interfaz-y-mano)): clic de los menús propios 159, llamar a la puerta 110+c%9, cruzar un anillo de influencia 52 (los gritos 180/187/194+rand7 ya estaban, B4). Sin sitio en openblack (pendientes con su dirección): Logo 160 (no hay `DoLogo` 0x5FA070), ClickOnSpell 42 de la arena y del poste de la correa, conquista 205, orden aceptada 1 (criatura), influencia virtual 129, cofre y pergaminos |
-| B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); sin llamador en openblack: alineamiento (Milagros), muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
+| B9 | **hecho** ([arriba](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)); el alineamiento ya llama (B11c, `Alignment.cpp`); sin llamador en openblack: muerte de aldeanos (V12), agresor y deseos del pueblo, derribo, discípulos, tótem, creencia, criatura |
 | B10 | **hecho** ([arriba](#gspookyvoices-srcaudiospookyvoiceshcpp-audiospooky)); el nombre del perfil, por `OPENBLACK_PLAYER_NAME` **(inferido)** |
 | B11a | **hecho** ([abajo](#fase-b-b11a-un-solo-motor)): un solo motor; fuera `AudioManager*`, `AudioPlayer*`, `AlCheck`, `SoundGroup`, `Locator::audio`; `audio::device` y `audio::banks` |
 | B11b | **hecho** ([abajo](#fase-b-b11b-la-estructura)): `src/Audio` en `Device/`, `LH/`, `GAudio/`, `Services/` + `Audio.h`; sin `ECS/*` dentro (consultas de `src/ECS/AudioQueries.cpp`); un generador del DLL (`sample_play::Rand`) y un reloj (`device::TickCount`) |
+| B11c | **hecho** ([abajo](#fase-b-b11c-las-api-comunes-del-equipo)): `ecs::map_coords`, `gutils`, `game_clock` y `sky_type` dentro de `src/Audio`; `HelpSpritesAlignmentProcess` desde `GAlignment::ProcessForPlayer` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | Clima y alineamiento en el ambiente |
 | C3 | Aldeanos, edificios y cánticos |
@@ -1779,6 +1780,54 @@ con las mismas alturas (4 x 1,29 y 8 x 4,95) y el gancho de la farola. Pendiente
 IsAlive en cualquier cosa animada; openblack solo lo mira en aldeanos (`AnimatedThing::Villager::alive`), así que un
 animal muerto todavía suena **(aproximado)**.
 
+## Fase B: B11c, las API comunes del equipo
+
+Lo prometido (`tmp_dis\unify2\PLAN.md`, sistemas 1, 2, 4 y 6, y `sky_type` de «shaders»): `src/Audio` deja sus copias de
+las conversiones de MapCoords, de las distancias de GUtils, del reloj de turnos y del tipo de cielo, y usa las del equipo.
+Todas existían ya en la base (`a1c073e0`): `ecs::map_coords` (`src/ECS/MapCoords.h`), `gutils`
+(`src/ECS/GUtilsDistance.h`), `game_clock` (`src/GameClock.h`), `sky_type` (`src/3D/SkyType.h`) y `ecs::object`
+(`src/ECS/ObjectMetrics.h`).
+
+| sitio | antes | ahora |
+|---|---|---|
+| `SoundMap` CalculateRadiusPointAndDistance 0x71D834..0x71D855 | `ToMapCoord` (x · 6553.6, propia) | `ecs::map_coords::ToFixed` |
+| `SoundMap` AtmosMapTypeInfo::Add 0x71D514..0x71D5A4 | `float(x) · 10 / 65536` (dos redondeos por encima de 2^24) | `ecs::map_coords::ToMetres` (fild; fmul 10; fmul 2^-16: un redondeo) |
+| `SoundMap` UpdateFromMap 0x71D76B / 0x71D790 | `r / 10 · 65536` y `>> 16` | `gutils::ConvertMetersToWholeDistance` (fn_0074DC80, gemela de 0x74DCE0) y `map_coords::SignedCellOf` (movsx) |
+| `SoundMap` Dump 0x71D990 | `(x >> 16) & 0xFFFF` | `map_coords::CellOf` |
+| `ThingMusic` SetPlayPosition 0x4298D9 | `MapCoordsRoundTrip` (en double) | `ecs::map_coords::Quantise` (producto en float, como la FPU a 24 bits de fn_007DEE00); `MapCoordsRoundTrip` se quita |
+| `tags::CreateAtMapCoords` 0x71EB60 | solo (x, z, altura) en metros | además `CreateAtMapCoords(const ecs::map_coords::MapCoords&, ...)`: x, z por `ToMetres` (0x71EB8A / 0x71EBA6); la de metros queda para los puntos que ya están en metros de un MapCoords (`magic::ToMap`), sin cuantizar otra vez |
+| `Guidance` Distance (GetDistanceInMetres 0x74CD70 / GetInfo 0x74CD50 / fn_00605CD0) | `std::hypot` de los puntos **(aproximado)** | `gutils::GetDistanceInMetres` (MapCoords 16.16 y la tabla 1/√): 10 m dan 9,9975 m |
+| `SoundTags::CheckDelay` 0x71E766..0x71E79B, latido de `Guidance` 0x71C4C7 | `k_MsPerTurn = 100` **(inferido)** | `game_clock::MsPerTurn()` ([0xD01A38], GGame::Init 0x54F4A5) |
+| `audio::ProcessTurn` | `(skyType, turn)` de `Game.cpp` (`DayNightClock::GetSkyType()` del turno) | `ProcessTurn()`: el turno es `game_clock::Turn()` (g_game+0x205A40, 0x54E997) y el tipo de cielo `sky_type::Frame()` ([0xFA26BC]: lo lee CalculateVolumes en 0x71DDF1 y solo lo escribe DrawSky con fn_0086A2C0, así que es el del último fotograma dibujado) |
+| `lantern_sounds` (consulta `streetLanterns`) | — | ya usaba `ecs::object::GetHeight` 0x638120 desde la auditoría de B11b: nada que cambiar |
+
+Los relojes reales de `src/Audio` ya eran uno (`device::TickCount` = `game_clock::TickCount`, B11b); el `steady_clock` del
+hilo de música es su espera (Sleep de 120 ms) y el del gancho `OPENBLACK_MUSIC_TEST`. `GameMusic` no tiene conversiones
+propias: la distancia de `ThingMusicInRange` (0x429479..0x4294C1) es 3D sobre LHPoint, no GUtils (unify2 lo confirma),
+y `nearestTown` sigue sin asignar. La posición de una cosa (`thingPosition`, `Game.cpp`) sigue siendo su punto en float,
+sin el redondeo de sus MapCoords **(aproximado)**: es el dueño de todos los canales 3D y no se cambia aquí.
+
+**Cambio de fidelidad (con su dirección).** La celda que AddAtmosType compara es su **centro**, no su esquina:
+fn_00601F40 (UpdateFromMap 0x71D7C2) pone la celda en las palabras altas y en las bajas (GMap+0x28 >> 1) · GMap+0x2C
+(g_game+0x59E0 / +0x59E4 / +0x59E8; GMap::Init 0x6014C0, en g_game+0x59B8, pone +0x28 = 8 y +0x2C = +0x30 = 0x2000;
+ningún otro código las lee ni las escribe por g_game) = 0x8000, media celda. La distancia al tipo más cercano y su punto
+(`nearestX/Z`, el que mira HeightFade) son los del centro (x · 10 + 5). En Land 1 el volcado no cambia (JUNGLE 0,950 con
+120 celdas: la cámara queda a menos de 20 m de la selva).
+
+**El alineamiento llama a los consejeros.** `alignment::ProcessForPlayer` (Milagros, `src/ECS/Effects/Alignment.cpp`)
+hace lo de GAlignment::ProcessForPlayer 0x4141A0: para el jugador de MyInterfaceStatus (IsMemberOfThisPlayer 0x64D750;
+PLAYER_ONE **(inferido)**, como `localPlayerNumber`), cada turno y antes de Process 0x414140, también sin nada pendiente,
+`audio::guidance::HelpSpritesAlignmentProcess(máximo · pendiente, alineamiento, máximo)` (0x4141CD..0x4141D9: vt +0x40 ×
++0xC, sin recortar; el alineamiento de antes del cambio, GetAlignmentValue 0x64D6A0; el máximo, GPlayer+0x64 +0x10). En
+Land 1 los consejeros están muteados por tierra (PlayNow 0x71AF6F), así que no suena nada nuevo.
+
+**Comprobación**: build y los 57 tests (nuevos `ThingMusic.PlayPositionQuantised` en `test_game_music` y
+`SoundTagTest.MapCoordsTagIsTheMapPoint` en `test_sound_tags`; `GuidanceTest.TownDesireEveryTenTurns` espera ahora la
+distancia de GUtils). Land 1, 1800 y 5000 fotogramas (`OPENBLACK_ATMOS_TRACE=50`, farolas, guidance, alineamiento, tags y
+`OPENBLACK_AUDIO_TEST_VIEW="90,0"`; logs `_audit\audio\b11c_after*.log` frente a `b11b_after*.log`): el mismo volcado de
+GSoundMap (celdas 159/224, 158/222 y 157/221, GRAVEL, 121 celdas, JUNGLE 0,950, NIGHT 0,050), las 12 farolas con sus
+alturas, el gancho de la vista en el turno 90 y los mismos errores de arranque. Sin errores nuevos.
+
 ## Qué suena y cuándo
 
 Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
@@ -1814,7 +1863,7 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - **B2/B3, (inferido)/(aproximado)** (todos con su comentario en el código):
   - `IsInScript` (vt +0x448) siempre falso: openblack no tiene aldeanos de guion **(inferido)**;
   - `GameThing::IsFunctional` y `Get3DSoundPos` ≠ 1 de la cosa de un tag = la entidad ya no tiene posición **(inferido)**;
-  - [0xD01A38] = 100 ms por turno en `CheckDelay` **(inferido**, `villager_anims.md`);
+  - [0xD01A38] en `CheckDelay` es `game_clock::MsPerTurn()` desde B11c (100, GGame::Init 0x54F4A5; ya no inferido);
   - el punto de un tag sin cosa en un arranque nuevo de un anim-effect: el original lee el +0x50 del canal recién
     asignado (0x427209, antes de que LHSamplePlay escriba el punto), un valor viejo; openblack da el punto del tag
     **(aproximado**; ningún llamador arranca un anim-effect con un tag de dueño);

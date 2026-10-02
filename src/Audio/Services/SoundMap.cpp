@@ -24,6 +24,8 @@
 #include "3D/LandIslandInterface.h"
 #include "Audio/GAudio/AudioSystem.h"
 #include "Camera/Camera.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCoords.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 
@@ -113,12 +115,6 @@ float Altitude(float x, float z)
 	return Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z));
 }
 
-/// MapCoords(LHPoint): world x 6553.6 (16.16 fixed point of 10-unit cells)
-int32_t ToMapCoord(float world)
-{
-	return static_cast<int32_t>(world * 6553.6f);
-}
-
 /// GSoundMap::Reset 0x71D6D0
 void Reset()
 {
@@ -130,20 +126,30 @@ void Reset()
 	g_Map.total = 0;
 }
 
-/// GSoundMap::AddAtmosType 0x71E260 + AtmosMapTypeInfo::Add 0x71D510: distances from the receiver to the cell's corner
+/// GSoundMap::AddAtmosType 0x71E260 + AtmosMapTypeInfo::Add 0x71D510: distances from the receiver to the cell's centre
 void AddAtmosType(int32_t type, int32_t cellX, int32_t cellZ)
 {
 	auto& entry = g_Map.entries[(type >= 0 && type < static_cast<int32_t>(k_AtmosTypeCount)) ? type : 0];
-	const float cornerX = static_cast<float>(cellX) * 10.0f;
-	const float cornerZ = static_cast<float>(cellZ) * 10.0f;
-	const float dx = cornerX - static_cast<float>(g_Map.receiverX) * 10.0f / 65536.0f;
-	const float dz = cornerZ - static_cast<float>(g_Map.receiverZ) * 10.0f / 65536.0f;
+	// The cell's MapCoords, fn_00601F40 (UpdateFromMap 0x71D7C2): the cell in the high words and, in the low ones,
+	// (GMap+0x28 >> 1) x GMap+0x2C (g_game+0x59E0 / +0x59E4 / +0x59E8; GMap::Init 0x6014C0 at g_game+0x59B8 sets +0x28
+	// = 8 and +0x2C = +0x30 = 0x2000, and no other code reads or writes them by g_game): 4 x 0x2000 = 0x8000, the
+	// centre of the cell
+	constexpr int32_t k_HalfCell = (8 >> 1) * 0x2000;
+	const int32_t centreX = cellX * ecs::map_coords::k_FixedPerCell + k_HalfCell;
+	const int32_t centreZ = cellZ * ecs::map_coords::k_FixedPerCell + k_HalfCell;
+	// 0x71D514..0x71D558: fild; fmul 10 [0x9804D8]; fmul 2^-16 [0x8AC41C] of each MapCoords, one rounding of the exact
+	// product (ecs::map_coords::ToMetres); the receiver minus the cell, squared and summed (0x71D55A..0x71D562)
+	const float cellMetresX = ecs::map_coords::ToMetres(centreX);
+	const float cellMetresZ = ecs::map_coords::ToMetres(centreZ);
+	const float dx = ecs::map_coords::ToMetres(g_Map.receiverX) - cellMetresX;
+	const float dz = ecs::map_coords::ToMetres(g_Map.receiverZ) - cellMetresZ;
 	const float d2 = dx * dx + dz * dz;
-	if (d2 < entry.dist2)
+	if (d2 < entry.dist2) // 0x71D568..0x71D570: fcom; test ah, 1 (strictly nearer)
 	{
 		entry.dist2 = d2;
-		entry.nearestX = static_cast<int16_t>(cellX * 10);
-		entry.nearestZ = static_cast<int16_t>(cellZ * 10);
+		// 0x71D575..0x71D5A4: __ftol of the cell's metres, kept as words
+		entry.nearestX = static_cast<int16_t>(static_cast<int32_t>(cellMetresX));
+		entry.nearestZ = static_cast<int16_t>(static_cast<int32_t>(cellMetresZ));
 	}
 	++entry.count;
 	if (type != 0)
@@ -158,8 +164,9 @@ void CalculateRadiusPointAndDistance(const GSoundInfo& info)
 	// LH3DTech::g_camera 0xEA1DB8: the render camera's position
 	const auto camera = Locator::camera::value().GetOrigin();
 	g_Map.receiver = camera;
-	g_Map.receiverX = ToMapCoord(camera.x);
-	g_Map.receiverZ = ToMapCoord(camera.z);
+	// 0x71D834..0x71D855: fmul 6553.6 [0x8AC400]; __ftol, MapCoords(LHPoint) 0x603160
+	g_Map.receiverX = ecs::map_coords::ToFixed(camera.x);
+	g_Map.receiverZ = ecs::map_coords::ToFixed(camera.z);
 	g_Map.receiverHeight = camera.y;
 	g_Map.heightAboveLand = camera.y - Altitude(camera.x, camera.z);
 	g_Map.radius = info.radiusForMinAtmosVolume;
@@ -168,11 +175,15 @@ void CalculateRadiusPointAndDistance(const GSoundInfo& info)
 /// GSoundMap::UpdateFromMap 0x71D720: the (2r/10 + 1)^2 cells around the receiver (11 x 11 with r = 50)
 void UpdateFromMap()
 {
-	const auto r = static_cast<int32_t>(g_Map.radius / 10.0f * 65536.0f);
+	// 0x71D76B: fn_0074DC80, the twin of GUtils::ConvertMetersToWholeDistance 0x74DCE0 (fdiv 10; fmul 65536; __ftol)
+	const auto r = gutils::ConvertMetersToWholeDistance(g_Map.radius);
 	Reset();
-	for (int32_t cx = (g_Map.receiverX - r) >> 16; cx <= (g_Map.receiverX + r) >> 16; ++cx)
+	// 0x71D77A / 0x71D784: the MapCoords minus / plus r on both axes (fn_00605490 / fn_00605400); 0x71D790..0x71D7E9:
+	// the cells are their high words read signed (movsx), both ends included
+	using ecs::map_coords::SignedCellOf;
+	for (int32_t cx = SignedCellOf(g_Map.receiverX - r); cx <= SignedCellOf(g_Map.receiverX + r); ++cx)
 	{
-		for (int32_t cz = (g_Map.receiverZ - r) >> 16; cz <= (g_Map.receiverZ + r) >> 16; ++cz)
+		for (int32_t cz = SignedCellOf(g_Map.receiverZ - r); cz <= SignedCellOf(g_Map.receiverZ + r); ++cz)
 		{
 			AddAtmosType(GetAtmosType(cx, cz), cx, cz);
 		}
@@ -303,8 +314,8 @@ void Dump()
 	std::array<char, 256> line {};
 	// X, Z = the high words of the receiver's MapCoords (its cell)
 	std::snprintf(line.data(), line.size(), "Sound Map Calc Update X=%d Z=%d %s Count=%d",
-	              static_cast<int>((static_cast<uint32_t>(g_Map.receiverX) >> 16) & 0xFFFF),
-	              static_cast<int>((static_cast<uint32_t>(g_Map.receiverZ) >> 16) & 0xFFFF),
+	              static_cast<int>(ecs::map_coords::CellOf(g_Map.receiverX)),
+	              static_cast<int>(ecs::map_coords::CellOf(g_Map.receiverZ)),
 	              SurfaceName(SurfaceType(g_Map.receiver)), g_Map.total);
 	SPDLOG_LOGGER_INFO(spdlog::get("audio"), "{}", line.data());
 	// GInterface+0x3B8: the hand's MapCoords [G: taken as the player's (left) hand position] (GameQueries::handPosition)
@@ -313,8 +324,8 @@ void Dump()
 		if (const auto position = handPosition(); position)
 		{
 			std::snprintf(line.data(), line.size(), "Sound Map At Hand X=%d Z=%d %s Count=%d",
-			              static_cast<int>((static_cast<uint32_t>(ToMapCoord(position->x)) >> 16) & 0xFFFF),
-			              static_cast<int>((static_cast<uint32_t>(ToMapCoord(position->z)) >> 16) & 0xFFFF),
+			              static_cast<int>(ecs::map_coords::CellOf(ecs::map_coords::ToFixed(position->x))),
+			              static_cast<int>(ecs::map_coords::CellOf(ecs::map_coords::ToFixed(position->z))),
 			              SurfaceName(SurfaceType(*position)), g_Map.total);
 			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "{}", line.data());
 		}

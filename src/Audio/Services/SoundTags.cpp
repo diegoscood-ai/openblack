@@ -19,6 +19,8 @@
 
 #include "Audio/Device/Sound.h"
 #include "Audio/Services/Guidance.h"
+#include "ECS/MapCoords.h"
+#include "GameClock.h"
 
 using namespace openblack;
 using namespace openblack::audio;
@@ -141,9 +143,10 @@ void CheckDelay(Tag& tag)
 	{
 		return;
 	}
-	constexpr float k_MsPerTurn = 100.0f;    // [0xD01A38] (inferred)
-	constexpr float k_SoundSpeed = 347.0f;   // [0x980530]
-	const float seconds = static_cast<float>(tag.turns) * k_MsPerTurn * 0.001f; // 0x71E78D..0x71E79B
+	constexpr float k_SoundSpeed = 347.0f; // [0x980530]
+	// 0x71E766..0x71E79B: fild (the word +0x50); fimul [0xD01A38] (game_clock::MsPerTurn()); fmul 0.001 [0x8AA3B0]
+	const float seconds =
+	    static_cast<float>(tag.turns) * static_cast<float>(game_clock::MsPerTurn()) * 0.001f;
 	const auto d = tag.position - *camera;   // GCamera::GetDistanceSq 0x71E7A6 of +0x10
 	const float distanceSq = glm::dot(d, d);
 	const auto bank = Bank(tag.bank);
@@ -305,10 +308,20 @@ tags::TagId tags::Create(glm::vec3 point, int sample, bool track, int mode, int 
 	return id;
 }
 
+tags::TagId tags::CreateAtMapCoords(const ecs::map_coords::MapCoords& coords, int sample, bool track, int mode, int loops,
+                                    bool flag10, bool is3D, SfxBank bank, int delay)
+{
+	// 0x71EB71..0x71EBBF: LHPoint(x, GetAltitude(mc) + mc.altitude, z), x and z by fild; fmul [0x8AA3A4]
+	// (0x71EB8A / 0x71EBA6), ecs::map_coords::ToMetres
+	return CreateAtMapCoords(ecs::map_coords::ToMetres(coords.x), ecs::map_coords::ToMetres(coords.z), coords.altitude,
+	                         sample, track, mode, loops, flag10, is3D, bank, delay);
+}
+
 tags::TagId tags::CreateAtMapCoords(float x, float z, float heightAboveLand, int sample, bool track, int mode, int loops,
                                     bool flag10, bool is3D, SfxBank bank, int delay)
 {
-	// 0x71EB60: LHPoint(x, GetAltitude(mc) + mc.y, z)
+	// 0x71EB60 on a MapCoords already in metres (x, z = ToMetres of its 16.16 values: magic::ToMap): not quantised again
+	// (a second round trip may lose a unit). LHPoint(x, GetAltitude(mc) + mc.altitude, z)
 	return Create(glm::vec3(x, IslandAltitude(x, z) + heightAboveLand, z), sample, track, mode, loops, flag10, is3D, bank,
 	              delay);
 }

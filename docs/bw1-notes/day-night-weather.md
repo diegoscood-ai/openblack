@@ -111,7 +111,7 @@ Quién llama a qué:
 - Leen el muestreo del fotograma: la cúpula y, por el reenviador obsoleto `SkyInterface::GetCurrentSkyType`
   (= 2 − `Frame()`), `LandLightTable::Build` (la conecta «sistemas»). El sonido (`GSoundMap`, 0x71DDF1) debe leer
   `Frame()`, el T del fotograma anterior (ProcessTurn 0x54D830 y EndTurn 0x54D837 van seguidos, sin `DrawSky`):
-  hoy `Game.cpp` le pasa `GetSkyType()` del turno; lo cambia «audio» (B11). **pendiente**.
+  `audio::ProcessTurn` lo lee así desde B11c de «audio» (hecho).
 - Quitado: `Sky::GetCurrentSkyType` con hora de guion y umbrales inventados 3,5 / 7,5 / 8 / 8,5 con `<=` (queda solo
   el reenviador), `Sky::SetDayNightTimes`, `u_skyAlphaThreshold.x` (fs_object no lo lee), `u_sky` y su rampa de
   reserva de `fs_water` (sin `palette.raw` el mar va ahora sin luz, blanco, **(inferido)**: el original siempre tiene

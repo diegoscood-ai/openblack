@@ -70,8 +70,18 @@ propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x8
   - API: `Quantize(v) = v >> 4`, `Expand(n) = n·17`, `Cut(v) = Expand(Quantize(v)) = (v & 0xF0) | (v >> 4)`;
     `Pack`/`Unpack` del texel de 16 bits; `PackRaw(rgb, alpha)` para la pareja `x.raw` + `xa.raw`.
 - **Sin la bandera**, la rama 4444 no corre (`cmp [esp+0x834],0 / je`, 0x8374CB/0x8374D2). Va a 565
-  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F), con 5 bits por canal. Es el caso de `sun.raw` (flags 1, 0x81E851;
-  ver [Pendiente](#pendiente)).
+  (0x8376E3..0x83771E) o a 555 (0x837765..0x83779F) según [0xEDD46C] (0 en el hardware al que apunta el juego:
+  555, ver `Graphics/Rgb16.h`), con 5 bits por canal: texel = ((R & 0xF8) << 7) | ((G & 0xF8) << 2) | (B >> 3), sin
+  redondear. **Hecho** (sesión «shaders», 2026-10-02): `Texture2DLoader` corta cada byte con `rgb16::Cut5`
+  (= `Unpack555(Pack555(...))`, la expansión por repetición de bits que hace D3D al muestrear, inferido) en las
+  texturas de `k_Rgb555Stems` (`Loaders.cpp`) que miden 0x30000 bytes justos (la misma guarda `fn_00837300`).
+  - Quién va por ahí: de las 69 llamadas a `Create` 0x8379E0, las que cargan un archivo sin 0x40 son `Sun.raw`
+    (flags 1, 0x81E844..0x81E851) y las imágenes de las partidas guardadas, `screenshots_lores_%i_map_0.raw` y
+    `screenshots_hires_%i_map_0.raw` (flags 1, `fn_00784070` 0x78408F y `fn_00784640` 0x78466A, nombres de
+    `fn_00784430` / `fn_007843F0`), que openblack no carga. Las demás son 0x41 (la lista de abajo), 0x44 / 0xC4 / 0x104
+    (en memoria, tipo 4), 0x48, 4 (pieles de malla), 2 (`SetPackedTexture`) o el vídeo; la de 0x822874 está en
+    `fn_008227A0`, un modo de línea de órdenes (el conversor .cmp del terreno), no en el juego.
+  - openblack: solo `sun`.
 - **Las 0x44 sí llevan la bandera** (0x44 & 0x40; `Create` guarda los flags enteros en [tex+0x10], 0x837A76): son
   superficies 4444, pero de tipo 4 (flags & 0x3F, tablas 0x837CD4 / 0x838E84 → 0x838C2E), texturas en memoria que no
   cargan su archivo por `fn_00837400`. Así `ChallengeScroll.raw` (0x44, 0x781BDC y 0x79D59F; cadenas 0xC25048 y
@@ -91,7 +101,7 @@ propósito, sin gemelo en shader); pruebas `test_argb4444` (emulan 0x8374F0..0x8
 - **Quién la lleva.** Solo hay dos llamadas a `fn_00837400`: 0x838087 en `fn_00837DF0` y 0x838D41 en `fn_00838AF0`.
   Las dos pasan `[tex+0x10] & 0x40` (0x838079 / 0x838D37).
   - De las 69 llamadas a `Create`, 32 empujan 0x41 inmediato y 22 usan 0x44.
-  - Una más lo calcula: `fn_00822560` 0x822855..0x822874 pone 1, más 0x40 si existe el `a.raw` (el conversor .cmp del
+  - Una más lo calcula: `fn_008227A0` (no `fn_00822560`) 0x822855..0x822874 pone 1, más 0x40 si existe el `a.raw` (el conversor .cmp del
     terreno).
 - **La lista `k_AlphaFlagStems`**, cada nombre con su dirección:
   - fijos: `Front_end_buttons`, `mousehelp`, `forcefield`, `pin`, `rainbow`, `PlayersSymbols`, `ChooseSymbol`,
@@ -796,7 +806,6 @@ está en [map-loading.md](map-loading.md#dibujo-lh3dmist-fn_007fa300), junto con
   mano es una estimación.
 - Ríos: el sonido `ATMOS_TYPE_RUNNING_WATER` (sin analizar, ver [water.md](water.md#audio-del-agua)).
 - [Texturas ARGB4444](#texturas-argb4444), lo que falta:
-  - `sun.raw` (flags 1) va en el original por la rama 555, con 5 bits por canal (>> 3); openblack no lo corta.
   - `ChallengeScroll.raw` (0x44, textura de tipo 4 en memoria): cómo la rellena el juego no está leído.
   - Las pieles L3D con la bandera 0x10000 (`L3DMeshFlags::Unknown17`) deberían subirse en X1R5G5B5 y no en BGRA4
     (`L3DMesh.cpp`). Solo `Data\d_sky.l3d` la lleva y openblack no lo carga, así que hoy no se ve. Las mallas de

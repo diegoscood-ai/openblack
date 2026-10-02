@@ -33,6 +33,9 @@ public:
 	void ProcessTurn();
 	/// [0xFA51D8] as ARGB: alpha 0 means nothing is drawn
 	[[nodiscard]] uint32_t GetColour() const { return _colour; }
+	/// fn_0053CE60: [0xFA51D8] = argb, as Temple::UpdateFade 0x794361 writes it every frame it runs (the falling
+	/// spell's white fade, video/FallingSpellVideo.h); the rate and the current alpha of ProcessFade stay
+	void SetColour(uint32_t argb) { _colour = argb; }
 
 	/// HelpSystem::SetWideScreen 0x5C6AD0 (SET_WIDESCREEN)
 	void SetWideScreen(bool on, float transitionSeconds);

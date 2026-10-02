@@ -17,6 +17,7 @@
 
 #include "3D/ScreenFade.h"
 #include "Audio/Services/GameMusic.h"
+#include "FallingSpellVideo.h"
 #include "FfmpegDecoder.h"
 #include "Game.h"
 #include "GameClock.h"
@@ -96,6 +97,9 @@ VideoPlayer::Hooks VideoPlayer::GameHooks()
 			gameMusic->ScriptStopMusic();
 		}
 	};
+	// fn_0054DA00 0x54DA0C: GGame::EndFallingSpellVideo 0x553A10 (FallingSpellVideo.h), which skips again without
+	// FallingSpellVideo
+	hooks.endFallingSpellVideo = []() { GetFallingSpell().End(); };
 	hooks.makeDecoder = []() -> std::unique_ptr<IVideoDecoder> { return std::make_unique<FfmpegDecoder>(); };
 	return hooks;
 }

@@ -78,6 +78,7 @@
 #include "Graphics/ShadowList.h"
 #include "Graphics/Primitive.h"
 #include "Graphics/RenderModes.h"
+#include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
 #include "Graphics/SeaPass.h"
 #include "Graphics/ShaderManager.h"
@@ -1807,8 +1808,12 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 	// Process3dEngine 0x54DD5E..0x54DD7D: with the full screen film, alpha == 1.0 and not the falling spell's film, the
 	// 3D world is not drawn (0x54DD7D jumps to 0x54E2A4); the film, the script fade and HelpSystem::Draw3D's bars still
 	// are (0x54E2D7..0x54E2ED), in FinishFrame's order: bars, film, fade (DrawFinishFrameOverlays). (aproximado) the main
-	// view is cleared to openblack's colour as always (the original does not clear: the film covers the screen)
-	if (video::Get().CoversScreen())
+	// view is cleared to openblack's colour as always (the original does not clear: the film covers the screen).
+	// In mode 2 (+0x205A28, the falling spell, Video/FallingSpellVideo.h) case 2 0x54DD9B..0x54DE02 draws no land
+	// either: the film with base alpha 0x50 (FallingSpell::Draw's thedraw 0x52689F) and, not ported, the falling
+	// creature, its sprites and the liquid particles. (inferido) what lies under that 31 % film in the original (no
+	// clear read): here openblack's clear colour
+	if (video::Get().CoversScreen() || video::GetFallingSpell().HidesWorld())
 	{
 		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
 		DrawFinishFrameOverlays();

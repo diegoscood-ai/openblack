@@ -893,6 +893,30 @@ Drawn DrawnCamera(const std::function<float(float, float)>& groundAt)
 	return drawn;
 }
 
+void ApplyShake(Camera& camera, const glm::vec3& lastDrawn)
+{
+	// LH3DTech::UpdateCamera 0x819920 (GCamera::Update 0x442622, outside the citadel and not playing back), whatever the
+	// mode: fn_008210C0 shakes the drawn camera only, from the camera drawn the frame before (g_camera); GCamera's
+	// zoomers keep their values. openblack: Camera::SetDrawOffset, which GetOrigin/GetFocus(Current) and the view add
+	auto position = camera.GetOriginZoomer().GetCurrentValue();
+	auto focus = camera.GetFocusZoomer().GetCurrentValue();
+	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	if (insideCitadel)
+	{
+		camera.SetDrawOffset(glm::vec3(0.0f), glm::vec3(0.0f));
+	}
+	else
+	{
+		const auto base = position;
+		const auto baseFocus = focus;
+		camera_shake::Adjust(lastDrawn, position, focus);
+		camera.SetDrawOffset(position - base, focus - baseFocus); // 0 when no shake moved it (the offset stays otherwise)
+	}
+	// LH3DRender::StartFrame 0x82F270 -> fn_00821270 with g_delta_time, once a drawn frame (inferido: after the camera,
+	// GGame::ProcessGraphicsEngine 0x54D879 runs before the draw)
+	camera_shake::Tick(game_clock::FrameRealMs());
+}
+
 bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float gameSeconds)
 {
 	auto& state = Get();

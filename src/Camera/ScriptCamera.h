@@ -334,6 +334,10 @@ struct Drawn
 /// not shown (GCamera::Update 0x442337..0x4423F4 keeps the drawn camera there): Frame + DrawnCamera written to the camera. Always: the FOV to the
 /// projection when it changed. Returns true when the script drove the camera (the player's model must not)
 bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float gameSeconds);
+/// Game.cpp, once a frame after the camera moved (script or player): SHAKE_CAMERA on the drawn camera only
+/// (fn_008210C0 from LH3DTech::UpdateCamera 0x819920, every mode), as Camera's draw offset; `lastDrawn` is the camera
+/// drawn the frame before (g_camera). Then the shakes' clock (fn_00821270)
+void ApplyShake(Camera& camera, const glm::vec3& lastDrawn);
 
 // ---- CameraModeTwoObjects (the dual camera) -------------------------------------------------------------------------
 

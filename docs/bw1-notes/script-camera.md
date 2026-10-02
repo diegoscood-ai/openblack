@@ -103,9 +103,9 @@ al actual se borra a sí mismo).
 (nunca a los zoomers): el temblor más cercano a la cámara, si está dentro de su radio (sin caída con la distancia);
 amplitud = restante / total · amplitud; seis tiradas `Random` 0x81D180 (pos.z, pos.y, pos.x, foco.z, foco.y, foco.x) o
 dos con «solo y». Cada fotograma dibujado (fn_00821270) resta `g_delta_time` y se libera al llegar a 0.
-openblack: `src/Camera/CameraShake.{h,cpp}` (`camera_shake::`, con `graphics::lh3d::Random`). **Pendiente:** solo tiembla
-cuando el guion conduce la cámara; la del jugador necesita un desplazamiento solo de dibujo en `Camera` (plan en
-step3.md §B).
+openblack: `src/Camera/CameraShake.{h,cpp}` (`camera_shake::`, con `graphics::lh3d::Random`) y
+`script_camera::ApplyShake`, cada fotograma desde `Game.cpp` con la cámara que se dibuje (la del guion o la del
+jugador), como desplazamiento solo de dibujo de `Camera::SetDrawOffset` (de sistemas): los zoomers no tiemblan.
 
 ## Zonas y giro fijo
 

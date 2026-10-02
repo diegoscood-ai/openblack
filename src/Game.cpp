@@ -659,11 +659,13 @@ bool Game::Update() noexcept
 		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879): the script camera mode moves it while it
 		// lives, else the player's model. The frame's game ms are those of the last frame clock (aproximado: the
 		// original runs it after the turns of the loop)
+		const auto lastDrawn = camera.GetOrigin(); // g_camera: the camera drawn the frame before, shake included
 		if (!script_camera::UpdateCamera(camera, static_cast<float>(game_clock::CameraFrameMs()) * 0.001f,
 		                                 game_clock::FrameGameMs(), game_clock::FrameGameSeconds()))
 		{
 			camera.Update(deltaTime);
 		}
+		script_camera::ApplyShake(camera, lastDrawn); // SHAKE_CAMERA on whichever camera is drawn
 		// The original's near plane follows the camera height above the ground: 0.3 + 0.16 h, clamped to 0.3..3.5
 		if (Locator::terrainSystem::has_value() && Locator::windowing::has_value())
 		{

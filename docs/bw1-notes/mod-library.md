@@ -317,6 +317,7 @@ cambian). Valor por defecto = el original.
 | `graphics.msaa.samples` | int 0-16 | live | MSAA del búfer (0 = el original); al cambiar se rehace el búfer |
 | `graphics.mipmaps` | bool | restart | mipmaps y filtrado trilineal |
 | `graphics.anisotropic` | bool | restart | filtrado anisótropo |
+| `graphics.smooth-smoke` | bool | restart | `smokea.raw` con su alfa de 8 bits (sin el corte ARGB4444 del original) |
 | `graphics.terrain.upscale` | bool | map | texturas del terreno ampliadas x2 (Lanczos-3) |
 | `graphics.terrain.repeat` | float 1-4 | map | repeticiones de la textura del terreno por bloque |
 | `graphics.terrain.triplanar` | bool | map | acantilados con la textura de lado |
@@ -469,7 +470,7 @@ Opciones `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. H
 - `smokea.raw` conserva sus 8 bits de alfa en todo lo que lo usa: humo de chimeneas, nubes, nieblas, anillos de agua,
   bocanadas de barco y el brillo de las luces nocturnas (`NightLights`). El original lo corta a 16 niveles (ARGB4444,
   `fn_00837400`; ver [rendering.md](rendering.md#texturas-argb4444)), por ejemplo 228 → 238/255.
-- Implementación: `Mods/Builtin/SmoothSmokeMod.cpp` pone `EngineConfig::smoothSmokeAlpha`, y `Texture2DLoader` se
+- Implementación: `assets/mods/graphics.smooth-smoke/mod.json` pone el interruptor `graphics.smooth-smoke` (`EngineConfig::smoothSmokeAlpha`, reinicio), y `Texture2DLoader` se
   salta el corte de `smokea`. Era el aspecto de openblack antes de que existiera el corte al cargar.
 
 ### graphics.hd-tweaks

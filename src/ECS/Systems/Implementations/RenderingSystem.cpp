@@ -320,9 +320,12 @@ entt::id_type ShadowMeshOf(const openblack::ecs::Registry& registry, entt::entit
 }
 /// Object::Create3DObject (0x6365F0) turns the dynamic shadow on for every game object; trees (0x749FA3), forests
 /// (0x439098), flowers, magic food (0x5FAAC8), the food in the hand (pot info 12, 0x66D180) and a few others turn it off.
+/// So do the one-shot orb, the dispensers' bubble (OneOffSpellSeed::CallVirtualFunctionsForCreation 0x72A4B4), and the
+/// two shields (MagicShield 0x72C2B4, PhysicalShield 0x72CCF4): vt+0x78(0) on their LH3DObject (obj+0x40), the same
+/// call as the trees' 0x749FA3, so no projected shadow is drawn over them.
 bool ReceivesDynamicShadow(const openblack::ecs::Registry& registry, entt::entity entity)
 {
-	if (registry.AnyOf<Tree, DeadTree, BigForest, Forest, Hand, TempleInteriorPart>(entity))
+	if (registry.AnyOf<Tree, DeadTree, BigForest, Forest, Hand, TempleInteriorPart, OneOffSpellSeed, MapShield>(entity))
 	{
 		return false;
 	}

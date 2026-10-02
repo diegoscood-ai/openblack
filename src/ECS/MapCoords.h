@@ -58,13 +58,57 @@ struct MapCoords
 	float altitude {0.0f};
 
 	constexpr bool operator==(const MapCoords& other) const = default;
+
+	/// MapCoords::operator+= 0x605410: x and z added as integers, the altitude too (fld [b + 8]; fadd [a + 8])
+	constexpr MapCoords& operator+=(const MapCoords& other)
+	{
+		x = static_cast<int32_t>(static_cast<uint32_t>(x) + static_cast<uint32_t>(other.x));
+		z = static_cast<int32_t>(static_cast<uint32_t>(z) + static_cast<uint32_t>(other.z));
+		altitude = other.altitude + altitude;
+		return *this;
+	}
+	/// MapCoords::operator-= 0x6054A0: the same with sub and fsub
+	constexpr MapCoords& operator-=(const MapCoords& other)
+	{
+		x = static_cast<int32_t>(static_cast<uint32_t>(x) - static_cast<uint32_t>(other.x));
+		z = static_cast<int32_t>(static_cast<uint32_t>(z) - static_cast<uint32_t>(other.z));
+		altitude = altitude - other.altitude;
+		return *this;
+	}
+	/// MapCoords::operator+ 0x605520 (a copy, then += 0x605410)
+	[[nodiscard]] constexpr MapCoords operator+(const MapCoords& other) const
+	{
+		MapCoords sum = *this;
+		sum += other;
+		return sum;
+	}
+	/// MapCoords::operator- 0x6055C0 (a copy, then -= 0x6054A0)
+	[[nodiscard]] constexpr MapCoords operator-(const MapCoords& other) const
+	{
+		MapCoords difference = *this;
+		difference -= other;
+		return difference;
+	}
 };
+
+/// __ftol 0x7A1400, the branch every SSE2 CPU takes (HasSSE2 [0xE83A20] set): fstp qword; cvttsd2si eax, xmm0
+/// (0x7A1414..0x7A141A), towards 0 and the "integer indefinite" 0x80000000 for a NaN or a value out of the int32 range.
+/// The x87 branch (0x7A141F: fistp qword, then corrected towards 0, the low 32 bits of the int64) would give another
+/// value out of that range; it is not reproduced
+[[nodiscard]] constexpr int32_t FtoL(float value)
+{
+	if (!(value > -2147483648.0f && value < 2147483648.0f))
+	{
+		return static_cast<int32_t>(0x80000000u);
+	}
+	return static_cast<int32_t>(value);
+}
 
 /// Metres -> 16.16: fld; fmul [0x8AC400]; __ftol 0x7A1400 (truncated towards 0), MapCoords::Set 0x603346..0x603367 and
 /// its 258 inline copies
 [[nodiscard]] constexpr int32_t ToFixed(float metres)
 {
-	return static_cast<int32_t>(metres * k_FixedPerMetre);
+	return FtoL(metres * k_FixedPerMetre);
 }
 
 /// 16.16 -> metres: fild; fmul [0x8AA3A4] (GetLHPoint 0x605C40 = ConvertToLHPoint 0x6041C0). fild is exact and the
@@ -80,7 +124,7 @@ struct MapCoords
 /// is not 65536 / 10, so a value on a boundary truncates one unit apart
 [[nodiscard]] constexpr int32_t ToFixedGUtils(float metres)
 {
-	return static_cast<int32_t>(metres * 65536.0f / 10.0f);
+	return FtoL(metres * 65536.0f / 10.0f);
 }
 
 /// A metre value through a MapCoords and back (ToMetres(ToFixed(m))): what a position stored in a MapCoords is. Not
@@ -205,7 +249,7 @@ constexpr void SpiralIncrement(MapCoords& coords, Spiral& spiral, float step)
 /// becomes 1); n^2
 [[nodiscard]] constexpr int32_t CellSpiralSize(float radius)
 {
-	auto n = static_cast<int32_t>(radius * 0.2f);
+	auto n = FtoL(radius * 0.2f);
 	if (static_cast<uint32_t>(n) < 1u)
 	{
 		n = 1;
@@ -216,7 +260,7 @@ constexpr void SpiralIncrement(MapCoords& coords, Spiral& spiral, float step)
 /// GUtils::GetIncrementSpiralSizeFromRadius 0x74F540: n = ftol(r * -2 [0x8C7CE0] / step); (1 - n)^2
 [[nodiscard]] constexpr int32_t IncrementSpiralSize(float radius, float step)
 {
-	const auto n = static_cast<int32_t>(radius * -2.0f / step);
+	const auto n = FtoL(radius * -2.0f / step);
 	return (1 - n) * (1 - n);
 }
 

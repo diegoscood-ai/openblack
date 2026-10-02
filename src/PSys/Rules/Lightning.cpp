@@ -18,7 +18,6 @@
 #include <cstdlib>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <memory>
 #include <ranges>
@@ -28,7 +27,6 @@
 #include <vector>
 
 #include <entt/entity/entity.hpp>
-#include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 #include <glm/vec3.hpp>
 
@@ -36,9 +34,11 @@
 #include "Audio/SpellSounds.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
-#include "ECS/Effects/EffectValues.h"
 #include "ECS/Map.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "PSys/PSys.h"
 #include "PSys/PSysFile.h"
@@ -55,32 +55,17 @@ float LandAt(float x, float z)
 	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(x, z)) : 0.0f;
 }
 
-/// GUtils::Spiral 0x74D7E0 (table 0xDA59FC: +x, +z, -x, -z, filled at start-up; the same walk as Explosion.cpp's
-/// Spiral): `--count == 0` -> ++direction, count = direction / 2, and only then the step table[direction & 3] is
-/// returned. fn_006901E0 / fn_00690880 start it at direction = count = 1 (0x6902A7..0x6902BB, 0x69090D..0x69091E), so
-/// the first step is -x
-glm::ivec2 SpiralStep(int& direction, int& count)
-{
-	constexpr std::array<glm::ivec2, 4> k_Steps = {glm::ivec2(1, 0), glm::ivec2(0, 1), glm::ivec2(-1, 0), glm::ivec2(0, -1)};
-	if (--count == 0)
-	{
-		++direction;
-		count = direction / 2;
-	}
-	return k_Steps[static_cast<size_t>(direction & 3)];
-}
-
-/// The objects of one 10 m map cell (MapCoords::FindType(-1) walks the cell's list)
-void CellObjects(const glm::ivec2& cell, std::vector<entt::entity>& out)
+/// The objects of one 10 m map cell (MapCoords::FindType(-1) walks the cell's list); MapCoords::InBounds 0x6042C0
+/// first (0x690333 / 0x690939)
+void CellObjects(const ecs::map_coords::MapCoords& coords, std::vector<entt::entity>& out)
 {
 	out.clear();
-	if (!Locator::entitiesMap::has_value() || cell.x < 0 || cell.y < 0 || cell.x >= ecs::MapInterface::k_GridSize.x ||
-	    cell.y >= ecs::MapInterface::k_GridSize.y)
+	if (!Locator::entitiesMap::has_value() || !ecs::map_coords::InBounds(coords))
 	{
 		return;
 	}
 	const auto& map = Locator::entitiesMap::value();
-	const ecs::MapInterface::CellId id(static_cast<uint16_t>(cell.x), static_cast<uint16_t>(cell.y));
+	const ecs::MapInterface::CellId id(ecs::map_coords::CellX(coords), ecs::map_coords::CellZ(coords));
 	out.insert(out.end(), map.GetFixedInGridCell(id).begin(), map.GetFixedInGridCell(id).end());
 	out.insert(out.end(), map.GetMobileInGridCell(id).begin(), map.GetMobileInGridCell(id).end());
 	std::sort(out.begin(), out.end()); // (inf) the cell lists are unordered sets here: a stable order
@@ -110,7 +95,9 @@ struct Target
 	/// (0x691C26..0x691C31) but never read to skip a target: kept as data only
 	int cooldown {0};
 
-	/// fn_00691E00: an object's tip is its centre raised by its height, a ground point is itself
+	/// fn_00691E00: an object's tip is its MapCoords as a point (x, z = fild x 10 / 65536 0x691E30..0x691E43, y =
+	/// GetAltitude 0x803090 + its altitude +0x1C 0x691E22..0x691E2D) raised by GetHeight (vt +0x42C, 0x691E48); a
+	/// ground point is itself
 	[[nodiscard]] glm::vec3 Tip() const
 	{
 		if (!isObject)
@@ -122,9 +109,9 @@ struct Target
 		{
 			return ground;
 		}
-		const auto& transform = registry.Get<const ecs::components::Transform>(object);
-		return {transform.position.x, LandAt(transform.position.x, transform.position.z) + ecs::effects::ObjectHeight(object),
-		        transform.position.z};
+		auto tip = ecs::map_coords::ToWorld(ecs::object::MapCoordsOf(object));
+		tip.y = ecs::object::GetHeight(object) + tip.y; // fadd [edi + 4] (0x691E4E)
+		return tip;
 	}
 };
 
@@ -244,6 +231,14 @@ public:
 	}
 
 private:
+	/// 0x691072..0x691091 / 0x6928FD..0x69292F: ftol(AverageLightmapLife / (fild [0xD01A38] x 0.001 [0x8AA3B0])), the
+	/// turns of AverageLightmapLife seconds (a 0 ms turn gives +inf, ftol 0x80000000: no cooldown)
+	[[nodiscard]] int LightmapSteps() const
+	{
+		return ecs::map_coords::FtoL(averageLightmapLife /
+		                             (static_cast<float>(game_clock::MsPerTurn()) * game_clock::k_SecondsPerMs));
+	}
+
 	[[nodiscard]] float SearchRadius(const Effect& effect) const
 	{
 		return searchRadius.empty() ? defaultSearchRadius : effect.FloatProvider(searchRadius, defaultSearchRadius);
@@ -254,12 +249,19 @@ private:
 	/// from where it was searched (+0x3C). (fn_006916B0 is the clash of two bolts, not ported: TODO(M5))
 	[[nodiscard]] bool Renew(const Effect& effect, const Data& data) const
 	{
-		if (renewTargetsOnMove &&
-		    glm::distance(data.origin, data.searchOrigin) > renewTargetsOnMoveFrac * SearchRadius(effect))
+		if (renewSearchEvery > 0.0f && data.life > renewSearchEvery)
 		{
 			return true;
 		}
-		return renewSearchEvery > 0.0f && data.life > renewSearchEvery;
+		if (!renewTargetsOnMove)
+		{
+			return false;
+		}
+		// 0x6913BD..0x69140B: d = +0x3C - +0x30 squared as (dz dz + dy dy) + dx dx, against (R x frac)^2: no root
+		const auto d = data.searchOrigin - data.origin;
+		const float distanceSq = (d.z * d.z + d.y * d.y) + d.x * d.x;
+		const float limit = SearchRadius(effect) * renewTargetsOnMoveFrac;
+		return limit * limit < distanceSq;
 	}
 
 	/// fn_00690F50: the three target modes, tested in this order (0x690F88 CastingFromHand +0x75, 0x690F9E
@@ -294,9 +296,8 @@ private:
 		}
 		// (inferido) the manager mode gets the ground points too: fn_00690C70 was not read
 		AddGroundPoints(effect, data, castingFromHand || takeTargetsFromManager);
-		// 0x691072..0x6910CE: every target starts with +0x18 = PSysRand(AverageLightmapLife / (ms per turn [0xD01A38]
-		// x 0.001)); the max(dt, eps) is a port guard
-		const auto steps = static_cast<int>(averageLightmapLife / std::max(effect.GetDt(), 1e-3f));
+		// 0x691072..0x6910CE: every target starts with +0x18 = PSysRand(LightmapSteps())
+		const auto steps = LightmapSteps();
 		for (auto& target : data.targets)
 		{
 			target.cooldown = steps > 0 ? static_cast<int>(effect.Random(static_cast<float>(steps))) : 0;
@@ -306,18 +307,19 @@ private:
 	/// fn_006901E0: the spiral of 4 ceil(R/10)^2 cells around the origin (0x6902A1..0x6902A4); an object counts when it
 	/// is available, not a spell seed, and its horizontal direction is inside the cone of half-angle SplitAngle about
 	/// the heading. fn_00690880 (`cone` false): ceil(R/10)^2 cells only (0x690902..0x690906, no x4), and an object
-	/// counts when dx^2 + dz^2 < R^2 (0x6909E5..0x690A1D)
+	/// counts when dx^2 + dz^2 < R^2 (0x6909E5..0x690A1D). dx, dz are the object's MapCoords in metres minus the
+	/// origin (fild x 10 / 65536, 0x6903DF / 0x6909E5)
 	void SearchAround(Effect& effect, Data& data, bool cone) const
 	{
 		const float radius = SearchRadius(effect);
-		const auto side = static_cast<int>(std::ceil(radius / 10.0f));
+		const auto side = ecs::map_coords::FtoL(std::ceil(radius / 10.0f)); // fdiv [0x936C60]; _ceil; __ftol
 		const int cells = cone ? 4 * side * side : side * side;
-		const glm::ivec2 start(static_cast<int>(data.origin.x * 0.1f), static_cast<int>(data.origin.z * 0.1f));
 		const float limit = std::cos(splitAngle);
 		const glm::vec2 heading(std::cos(data.heading), std::sin(data.heading));
-		glm::ivec2 cell(start);
-		int direction = 1;
-		int count = 1;
+		// the origin's MapCoords (ToFixed of x and z, 0x69024A..0x690286 / 0x6908B7..0x6908EA), walked by GUtils::Spiral
+		// 0x74D7E0 from dir = count = 1 (0x6902A7..0x6902BB / 0x69090D..0x69091E) and MapCoords += JustMapXZ 0x605470
+		auto cell = ecs::map_coords::FromMetres(glm::vec2(data.origin.x, data.origin.z));
+		ecs::map_coords::Spiral spiral;
 		std::vector<entt::entity> objects;
 		for (int i = 0; i < cells && static_cast<int>(data.targets.size()) < maxObjects; ++i)
 		{
@@ -333,24 +335,40 @@ private:
 					continue;
 				}
 				const auto& transform = Locator::entitiesRegistry::value().Get<const ecs::components::Transform>(object);
-				// fn_00604F40 (0x6903AE / 0x6909B4): only in the cell its own position is in, so an object listed in
-				// several cells is found once
-				const auto own = ecs::MapInterface::GetGridCell(glm::vec2(transform.position.x, transform.position.z));
-				if (static_cast<int>(own.x) != cell.x || static_cast<int>(own.y) != cell.y)
+				// fn_00604F40 (0x6903AE / 0x6909B4): only in the cell its own MapCoords (+0x14) is in, so an object
+				// listed in several cells is found once
+				const auto own = ecs::object::MapCoordsOf(object);
+				if (ecs::map_coords::Cell(own) != ecs::map_coords::Cell(cell))
 				{
 					continue;
 				}
-				const glm::vec2 offset(transform.position.x - data.origin.x, transform.position.z - data.origin.z);
-				const float length = glm::length(offset);
-				const bool outside = cone ? length > 0.0f && glm::dot(offset / length, heading) <= limit
-				                          : !(length * length < radius * radius);
+				float dx = ecs::map_coords::ToMetres(own.x) - data.origin.x;
+				float dz = ecs::map_coords::ToMetres(own.z) - data.origin.z;
+				bool outside = false;
+				if (cone)
+				{
+					// 0x690410..0x6904A8: LHPoint(dx, 0, dz) normalised unless it is zero (x 1 / sqrt((x x + z z) + y y)),
+					// then counted when dx cos(heading) + sin(heading) dz > cos(SplitAngle)
+					if (dx != 0.0f || dz != 0.0f)
+					{
+						const float inverse = 1.0f / std::sqrt(dx * dx + dz * dz);
+						dx = dx * inverse;
+						dz = dz * inverse;
+					}
+					outside = !(dx * heading.x + heading.y * dz > limit);
+				}
+				else
+				{
+					// 0x690A06..0x690A1D: dz dz + dx dx < R R ([esp + 0x18] = R x R, 0x690902..0x69091A)
+					outside = !(dz * dz + dx * dx < radius * radius);
+				}
 				if (outside)
 				{
 					continue;
 				}
 				data.targets.push_back({object, transform.position, true, true, false, 0});
 			}
-			cell += SpiralStep(direction, count);
+			ecs::map_coords::AddCells(cell, spiral.Next());
 		}
 	}
 
@@ -367,8 +385,10 @@ private:
 			const float distance = effect.Random(0.6f * radius);
 			const glm::vec3 point(data.origin.x + distance * std::cos(angle), 0.0f,
 			                      data.origin.z + distance * std::sin(angle));
-			data.targets.push_back({entt::null, glm::vec3(point.x, LandAt(point.x, point.z) + 2.0f, point.z), false, true,
-			                        false, 0});
+			// 0x6906A1..0x6906AF: GetAltitude 0x803090 at the MapCoords fn_004427B0(x, z) = ftol(x x 65536 x 0.1), which is
+			// ToFixed (65536 x 0.1f is 6553.6f exactly), + 2 [0x8AB478]; x and z stay the float point
+			const float ground = ecs::map_coords::ToWorld(ecs::map_coords::FromMetres(glm::vec2(point.x, point.z))).y;
+			data.targets.push_back({entt::null, glm::vec3(point.x, ground + 2.0f, point.z), false, true, false, 0});
 		}
 	}
 
@@ -514,7 +534,8 @@ private:
 		const float scaleFrom = s / static_cast<float>(depth + 1);
 		const float scaleTo = s / static_cast<float>(depth + 2);
 		const auto direction = split - origin;
-		const float length = glm::length(direction);
+		// 0x6923A0..0x6923C6: sqrt((dz dz + dy dy) + dx dx), inline (not a GUtils call)
+		const float length = std::sqrt((direction.z * direction.z + direction.y * direction.y) + direction.x * direction.x);
 		// TODO(M5): 0x6923D0..0x6923FC: with NumTexturesToTile (this +0x48) != -1 the chain's repeats become
 		// max(1, ftol(NumTexturesToTile x length / data +0x60)); data +0x60 is 1.0 from the data ctor (0x68FE7F) and no
 		// other writer was found, so it is left out (SF_LightningStrike / SF_LightningStormPush give 15)
@@ -592,9 +613,8 @@ private:
 	/// actually damages
 	void StrikeTarget(Effect& effect, Data& data, Target& target, const glm::vec3& centroid) const
 	{
-		// 0x6928FD..0x692949: +0x18 = PSysRand(AverageLightmapLife / (ms per turn x 0.001)); data only
-		// the max(dt, eps) is a port guard
-		const auto steps = static_cast<int>(averageLightmapLife / std::max(effect.GetDt(), 1e-3f));
+		// 0x6928FD..0x692949: +0x18 = PSysRand(LightmapSteps()); data only
+		const auto steps = LightmapSteps();
 		target.cooldown = steps > 0 ? static_cast<int>(effect.Random(static_cast<float>(steps))) : 0;
 		if (lightMapGroup >= 0)
 		{

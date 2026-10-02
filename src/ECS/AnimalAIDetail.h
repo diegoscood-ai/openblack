@@ -18,6 +18,8 @@
 #include <glm/vec2.hpp>
 
 #include "ECS/AnimalAI.h"
+#include "ECS/GUtilsAngle.h"
+#include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "Enums.h"
@@ -94,10 +96,10 @@ struct Spiral
 
 // MapCoords and angles (2048 per circle)
 glm::ivec2 Step(uint16_t angle, uint32_t speed);
-/// GUtils::GetAngleFromDXDZ (0x74D200) on metres (converted to MapCoords) and on raw MapCoords / whole units
-uint16_t AngleOf(glm::vec2 d);
+/// GUtils::GetAngleFromDXDZ (0x74D200) on raw MapCoords / whole units (gutils::GetAngleFromDXDZ). Two positions go
+/// through gutils::GetAngleFromXZ, the difference / side of two angles through gutils::GetAngleDifference /
+/// GetAngleDirection
 uint16_t AngleOfMapCoords(int32_t dx, int32_t dz);
-int32_t AngleDiff(uint16_t a, uint16_t b);
 float Metres(uint32_t speed);
 glm::vec2 Xz(const components::Transform& transform);
 MapInterface::CellId CellOf(glm::vec2 p);

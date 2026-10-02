@@ -123,81 +123,27 @@ uint32_t Turn()
 
 // ---- MapCoords and the angle tables ----
 
-/// COS / SIN tables 0xC31E14 / 0xC31614: 2048 entries per circle, 65536 = 1
-/// the static tables: trunc(65536 cos), trunc(65536 sin) (not rounded: 976 entries of each differ)
+/// COS / SIN tables 0xC31E14 / 0xC31614 (gutils::Cos / Sin): 2048 entries per circle, 65536 = 1
 int32_t Cos(uint16_t a)
 {
-	return static_cast<int32_t>(std::trunc(65536.0 * std::cos(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
+	return gutils::Cos(a);
 }
 int32_t Sin(uint16_t a)
 {
-	return static_cast<int32_t>(std::trunc(65536.0 * std::sin(static_cast<double>(a & 0x7FF) * glm::two_pi<double>() / k_Circle)));
+	return gutils::Sin(a);
 }
 
-/// the step of that speed along the angle: ((speed >> 4) * COS[a]) >> 12, MapCoords per turn
+/// the step of that speed along the angle: ((speed >> 4) * COS[a]) >> 12, MapCoords per turn (fn_0074D3A0 / 0x74D3C0,
+/// gutils::StepFromAngle)
 glm::ivec2 Step(uint16_t angle, uint32_t speed)
 {
-	const auto s = static_cast<int32_t>(speed >> 4);
-	return {(s * Cos(angle)) >> 12, (s * Sin(angle)) >> 12};
+	return gutils::StepFromAngle(angle, static_cast<int32_t>(speed));
 }
 
-/// LHArcTan (0x74D0C0): the octant rules on the 257-entry table 0xC2307C = trunc(atan(i / 256) x 2048 / 2 pi)
+/// GUtils::GetAngleFromDXDZ 0x74D200 = LHArcTan 0x74D0C0 (gutils::GetAngleFromDXDZ)
 uint16_t AngleOfMapCoords(int32_t dx, int32_t dz)
 {
-	static const auto k_Table = []() {
-		std::array<uint16_t, 257> table {};
-		for (size_t i = 0; i < table.size(); ++i)
-		{
-			table[i] = static_cast<uint16_t>(std::trunc(std::atan(static_cast<double>(i) / 256.0) * k_Circle / glm::two_pi<double>()));
-		}
-		return table;
-	}();
-	const auto t = [](uint32_t num, uint32_t den) { return static_cast<int32_t>(k_Table[std::min<uint32_t>((num << 8) / den, 256)]); };
-	const int32_t x = -dx;
-	const int32_t z = dz;
-	if (z == 0 && x == 0)
-	{
-		return 0;
-	}
-	int32_t a;
-	if (z >= 0)
-	{
-		if (x >= 0)
-		{
-			a = z >= x ? 0x200 + t(static_cast<uint32_t>(x), static_cast<uint32_t>(z)) : 0x400 - t(static_cast<uint32_t>(z), static_cast<uint32_t>(x));
-		}
-		else
-		{
-			const int32_t nx = -x;
-			a = z >= nx ? 0x200 - t(static_cast<uint32_t>(nx), static_cast<uint32_t>(z)) : t(static_cast<uint32_t>(z), static_cast<uint32_t>(nx));
-		}
-	}
-	else
-	{
-		const int32_t nz = -z;
-		if (x >= 0)
-		{
-			a = nz >= x ? 0x600 - t(static_cast<uint32_t>(x), static_cast<uint32_t>(nz)) : 0x400 + t(static_cast<uint32_t>(nz), static_cast<uint32_t>(x));
-		}
-		else
-		{
-			const int32_t nx = -x;
-			a = nz >= nx ? 0x600 + t(static_cast<uint32_t>(nx), static_cast<uint32_t>(nz)) : 0x800 - t(static_cast<uint32_t>(nz), static_cast<uint32_t>(nx));
-		}
-	}
-	return static_cast<uint16_t>(a & 0x7FF);
-}
-
-/// GUtils::GetAngleFromDXDZ (0x74D200) of a vector in metres (as MapCoords, 6553.6 per metre)
-uint16_t AngleOf(glm::vec2 d)
-{
-	return AngleOfMapCoords(static_cast<int32_t>(d.x * k_MapCoordsPerMetre), static_cast<int32_t>(d.y * k_MapCoordsPerMetre));
-}
-
-/// the shortest signed difference b - a in 2048ths
-int32_t AngleDiff(uint16_t a, uint16_t b)
-{
-	return ((static_cast<int32_t>(b) - static_cast<int32_t>(a) + k_Circle / 2) & (k_Circle - 1)) - k_Circle / 2;
+	return gutils::GetAngleFromDXDZ(dx, dz);
 }
 
 /// fn_0041A590: v * num / den, truncated
@@ -298,19 +244,27 @@ bool IsPosValidForMapCellExistance(const Context& ctx, glm::vec2 p)
 
 bool IsPosValidForTurnAngle(const Context& ctx, glm::vec2 p)
 {
-	const float turn = static_cast<float>(ctx.info.turnAngle) * glm::two_pi<float>() / k_Circle;
+	const float turn = gutils::ConvertGameAngleTo3D(static_cast<int32_t>(ctx.info.turnAngle)); // 0x41B229
 	if (turn <= 0.0f)
 	{
 		return true;
 	}
-	// R = ConvertWholeDistanceToMeters(ftol(2 x speed / turn)): the speed in MapCoords per turn
-	const float radius = std::trunc(2.0f * static_cast<float>(ctx.brain.speed) / turn) / k_MapCoordsPerMetre;
-	const glm::vec2 me = Xz(ctx.transform);
+	// 0x41B229..0x41B246: R = ConvertWholeDistanceToMeters(ftol(2 x speed (+0x5A, fild; fadd st0, st0) / turn)), the
+	// speed in MapCoords per turn and turn = ConvertGameAngleTo3D(turnAngle) (= the product above, bit for bit)
+	const float twice = static_cast<float>(ctx.brain.speed) * 2.0f;
+	const float radius = gutils::ConvertWholeDistanceToMeters(static_cast<int32_t>(twice / turn));
+	// 0x41B24F..0x41B27B and 0x41B29D..0x41B2C4: the two centres me + fn_0074D6A0(+0x5C +- 0x200, R) (MapCoords, the
+	// `sar 4` of 0x74D3A0 drops the low 4 bits of R), then GetDistanceInMetres 0x74CD70(p, centre) > R for both
+	// (`fcomp; test ah, 0x41; jne` -> 0)
+	const auto me = map_coords::FromMetres(Xz(ctx.transform));
+	const auto at = map_coords::FromMetres(p);
 	const auto left = static_cast<uint16_t>((ctx.brain.angle + 0x200) & 0x7FF);
 	const auto right = static_cast<uint16_t>((ctx.brain.angle - 0x200) & 0x7FF);
-	const glm::vec2 a = me + glm::vec2(Step(left, static_cast<uint32_t>(radius * k_MapCoordsPerMetre) << 4)) / k_MapCoordsPerMetre / 16.0f;
-	const glm::vec2 b = me + glm::vec2(Step(right, static_cast<uint32_t>(radius * k_MapCoordsPerMetre) << 4)) / k_MapCoordsPerMetre / 16.0f;
-	return glm::distance(p, a) > radius && glm::distance(p, b) > radius;
+	if (!(gutils::GetDistanceInMetres(at, me + gutils::GetPosFromGameAngle(left, radius)) > radius))
+	{
+		return false;
+	}
+	return gutils::GetDistanceInMetres(at, me + gutils::GetPosFromGameAngle(right, radius)) > radius;
 }
 
 glm::vec2 CalcRandomPos(const Context& ctx, glm::vec2 c, float rMin, float rMax)
@@ -323,11 +277,12 @@ glm::vec2 CalcRandomPos(const Context& ctx, glm::vec2 c, float rMin, float rMax)
 		const float a = rng.NextValue(0.0f, glm::two_pi<float>());
 		const float range = rMax - rMin;
 		const float r = (range > 0.0f ? rng.NextValue(0.0f, range) : 0.0f) + rMin;
-		// 0x5ED0FE..0x5ED152: the centre's x and z go to metres (fild, x 10 [0x92B400], x 1/65536 [0x8AC41C]), the random
-		// offset is added and the sum goes back to 16.16 with GUtils' x 65536 [0x8AC408] / 10 and __ftol; the spiral then
-		// walks that MapCoords (InBounds 0x5ED16C, Collide 0x5ED181, the two vt tests, += 0x5ED1C8)
-		const glm::vec2 offset = r * glm::vec2(std::cos(a), std::sin(a));
-		map_coords::MapCoords coords {map_coords::ToFixedGUtils(c.x + offset.x), map_coords::ToFixedGUtils(c.y + offset.y), 0.0f};
+		// 0x5ED0DB..0x5ED152: AddDistanceFromAngle 0x74D510 inline, bit for bit: the centre's x and z go to metres
+		// (fild, x 10 [0x92B400], x 1/65536 [0x8AC41C]), cos(a) r is added and the sum goes back to 16.16 with GUtils'
+		// x 65536 [0x8AC408] / 10 and __ftol; the spiral then walks that MapCoords (InBounds 0x5ED16C, Collide 0x5ED181,
+		// the two vt tests, += 0x5ED1C8)
+		map_coords::MapCoords coords = map_coords::FromMetres(c);
+		gutils::AddDistanceFromAngle(coords, a, r);
 		Spiral spiral;
 		for (int i = 0; i < 25; ++i)
 		{
@@ -561,7 +516,7 @@ bool AreWeThere(const Context& ctx)
 void InitStepsXZ(Context& ctx)
 {
 	const glm::vec2 d = ctx.brain.goal - Xz(ctx.transform);
-	SetTowardsAngle(ctx, AngleOf(d), glm::length(d));
+	SetTowardsAngle(ctx, gutils::GetAngleFromXZ(Xz(ctx.transform), ctx.brain.goal), glm::length(d));
 	ctx.brain.step = Step(ctx.brain.angle, ctx.brain.speed);
 	FaceAngle(ctx.transform, ctx.brain.angle);
 }
@@ -744,7 +699,7 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 	const float d = gutils::GetDistanceInMetres(c, me); // fn_0074CD50 = GetDistanceInMetres 0x74CD70
 	if (d > rMax || d < rMin)
 	{
-		const auto a = AngleOf(d > rMax ? c - me : me - c);
+		const auto a = d > rMax ? gutils::GetAngleFromXZ(me, c) : gutils::GetAngleFromXZ(c, me);
 		if (a != 0)
 		{
 			const auto full = Step(a, ctx.brain.speed);
@@ -771,8 +726,11 @@ void SetNewWander(Context& ctx, glm::vec2 c, float rMin, float rMax)
 /// (R = 2 x speed / turnAngle in radians) it turns |diff| - turnAngle x d / R instead, nearly all the way when close
 void SetTowardsAngle(Context& ctx, uint16_t target, float distance)
 {
-	const int32_t diff = AngleDiff(ctx.brain.angle, target);
-	const int32_t absDiff = std::abs(diff);
+	// 0x4185E9: GetAngleDirection 0x74D6F0(+0x5C, target) and GetAngleDifference 0x74D740: the side and the size of
+	// the turn (+0x400 turns +1, as the original)
+	const int32_t direction = gutils::GetAngleDirection(ctx.brain.angle, target);
+	const auto absDiff = static_cast<int32_t>(gutils::GetAngleDifference(ctx.brain.angle, target));
+	const int32_t diff = direction * absDiff;
 	const auto turnAngle = static_cast<int32_t>(ctx.info.turnAngle);
 	int32_t turn = std::min(absDiff, turnAngle);
 	if (absDiff > turnAngle)
@@ -876,7 +834,8 @@ bool LookForFoodPos(const Context& ctx, glm::vec2& out)
 		const auto cell = CellOf(c);
 		bool ok = cell != myCell && PosWithinDomain(ctx, c) && InBounds(c);
 		// fn_00418CD0: within viewAngle / 2 of its heading
-		ok = ok && std::abs(AngleDiff(ctx.brain.angle, AngleOf(c - me))) <= static_cast<int32_t>(ctx.info.viewAngle) / 2;
+		ok = ok && static_cast<int32_t>(gutils::GetAngleDifference(ctx.brain.angle, gutils::GetAngleFromXZ(map_coords::FromMetres(me), coords))) <=
+		               static_cast<int32_t>(ctx.info.viewAngle) / 2;
 		// fn_00419980: no other member of its flock stands there or goes there
 		if (ok && flock != nullptr)
 		{

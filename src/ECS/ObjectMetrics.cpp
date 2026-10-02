@@ -29,6 +29,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
@@ -531,6 +532,59 @@ glm::vec3 WorshipSiteCentre(entt::entity site)
 		centre[i] = d + transform->position[i];
 	}
 	return centre;
+}
+
+map_coords::MapCoords MapCoordsOf(entt::entity object)
+{
+	const auto position = PositionOf(object);
+	return position ? map_coords::FromWorld(*position) : map_coords::MapCoords {};
+}
+
+map_coords::MapCoords GetNearestPosOfObject(entt::entity object, entt::entity other)
+{
+	const auto me = MapCoordsOf(object);
+	const float angle = gutils::Get3DAngleFromXZ(me, MapCoordsOf(other)); // 0x636D44
+	const float otherRadius = Get2DRadius(other);                         // 0x636D54
+	const float radius = Get2DRadius(object) + otherRadius;               // 0x636D5F..0x636D62
+	return me + gutils::GetPosFromAngle(angle, radius);                   // 0x636D74, + 0x636D84
+}
+
+map_coords::MapCoords GetNearestEdgeToPos(entt::entity object, const map_coords::MapCoords& pos)
+{
+	const auto me = MapCoordsOf(object);
+	const float angle = gutils::Get3DAngleFromXZ(me, pos);               // 0x636DB0
+	return me + gutils::GetPosFromAngle(angle, Get2DRadius(object));     // 0x636DC0, 0x636DD1, + 0x636DE1
+}
+
+map_coords::MapCoords GetNearestEdge(entt::entity object, float angle, float extra)
+{
+	const float radius = Get2DRadius(object) + extra;                    // 0x636DF9..0x636DFC
+	return MapCoordsOf(object) + gutils::GetPosFromAngle(angle, radius); // 0x636E0E, + 0x636E1F
+}
+
+map_coords::MapCoords GetWorkingPos(entt::entity object, entt::entity other)
+{
+	const auto me = MapCoordsOf(object);
+	const float angle = gutils::Get3DAngleFromXZ(me, MapCoordsOf(other)); // 0x639564
+	const float myRadius = GetRadius(object);                             // 0x639574
+	const float radius = GetRadius(other) + myRadius;                     // 0x63957F..0x639582
+	return me + gutils::GetPosFromAngle(angle, radius);                   // 0x639594, + 0x605520
+}
+
+map_coords::MapCoords TreeGetWorkingPos(entt::entity tree, entt::entity other)
+{
+	const auto me = MapCoordsOf(tree);
+	const float angle = gutils::Get3DAngleFromXZ(me, MapCoordsOf(other)); // 0x74C051
+	const float radius = Get2DRadius(other) + k_TreeWorkingReach;         // 0x74C061..0x74C064
+	return me + gutils::GetPosFromAngle(angle, radius);                   // 0x74C07D, + 0x74C08D
+}
+
+map_coords::MapCoords BigForestGetArrivePos(entt::entity bigForest, entt::entity villager)
+{
+	const auto me = MapCoordsOf(bigForest);
+	const float angle = gutils::Get3DAngleFromXZ(me, MapCoordsOf(villager)); // 0x439373
+	const float radius = GetRadius(bigForest) * k_Half;                      // 0x439383..0x439386
+	return me + gutils::GetPosFromAngle(angle, radius);                      // 0x43939F, + 0x4393AF
 }
 
 void detail::SetMeshBoxProviderForTests(MeshBoxProvider provider)

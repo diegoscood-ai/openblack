@@ -58,6 +58,37 @@ struct MapCoords
 	float altitude {0.0f};
 
 	constexpr bool operator==(const MapCoords& other) const = default;
+
+	/// MapCoords::operator+= 0x605410: x and z added as integers, the altitude too (fld [b + 8]; fadd [a + 8])
+	constexpr MapCoords& operator+=(const MapCoords& other)
+	{
+		x = static_cast<int32_t>(static_cast<uint32_t>(x) + static_cast<uint32_t>(other.x));
+		z = static_cast<int32_t>(static_cast<uint32_t>(z) + static_cast<uint32_t>(other.z));
+		altitude = other.altitude + altitude;
+		return *this;
+	}
+	/// MapCoords::operator-= 0x6054A0: the same with sub and fsub
+	constexpr MapCoords& operator-=(const MapCoords& other)
+	{
+		x = static_cast<int32_t>(static_cast<uint32_t>(x) - static_cast<uint32_t>(other.x));
+		z = static_cast<int32_t>(static_cast<uint32_t>(z) - static_cast<uint32_t>(other.z));
+		altitude = altitude - other.altitude;
+		return *this;
+	}
+	/// MapCoords::operator+ 0x605520 (a copy, then += 0x605410)
+	[[nodiscard]] constexpr MapCoords operator+(const MapCoords& other) const
+	{
+		MapCoords sum = *this;
+		sum += other;
+		return sum;
+	}
+	/// MapCoords::operator- 0x6055C0 (a copy, then -= 0x6054A0)
+	[[nodiscard]] constexpr MapCoords operator-(const MapCoords& other) const
+	{
+		MapCoords difference = *this;
+		difference -= other;
+		return difference;
+	}
 };
 
 /// Metres -> 16.16: fld; fmul [0x8AC400]; __ftol 0x7A1400 (truncated towards 0), MapCoords::Set 0x603346..0x603367 and

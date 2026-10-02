@@ -353,3 +353,62 @@ TEST_F(SoundTagTest, RandomSample)
 	// 0x71ED40: GRand::LocalRand(0) is 0
 	EXPECT_EQ(tags::RandomSample(180, 0), 180);
 }
+
+// Milestone B12: audio::StopOwner (the mods' SDK) stops an owner's channels in every registered bank, each through
+// LHSampleStop(bank, owner, 0) 0x10012C50; audio::NewOwner gives a mod an owner no game owner equals
+TEST_F(SoundTagTest, StopOwnerInEveryBankAndModOwners)
+{
+	Add(1, 0.0f);
+	Add(2, 0.0f);
+	const BankId other = RegisterBank("audio/sfx/game/ModTest.sad", "ModTest.sad");
+	ASSERT_NE(other, k_NoBank);
+	ASSERT_NE(other, inGame);
+	{
+		Sound sound;
+		sound.name = "ModTest 1";
+		sound.id = 1;
+		sound.bank = other;
+		sound.priority = 100;
+		sound.sampleRate = 22050;
+		sound.pitch = 100;
+		sound.pitchDeviation = 0;
+		sounds.emplace(SampleId(other, 1), std::move(sound));
+	}
+	const Owner mod = NewOwner();
+	const Owner second = NewOwner();
+	EXPECT_EQ(mod.kind, Owner::Kind::Object);
+	EXPECT_FALSE(mod == second);
+	EXPECT_FALSE(mod == Owner::Key(mod.id));
+	EXPECT_FALSE(mod == Owner::None());
+
+	// three 2D plays (mode 1: a free channel each): two of the mod's in two banks, one of another owner
+	const Channel a = PlaySoundEffectAt(mod, glm::vec3(0.0f), 1, 1, 0, false, false, inGame);
+	const Channel b = PlaySoundEffectAt(mod, glm::vec3(0.0f), 1, 1, 0, false, false, other);
+	const Channel c = PlaySoundEffectAt(second, glm::vec3(0.0f), 2, 1, 0, false, false, inGame);
+	ASSERT_NE(a, k_NoChannel);
+	ASSERT_NE(b, k_NoChannel);
+	ASSERT_NE(c, k_NoChannel);
+	EXPECT_EQ(output.plays, 3);
+
+	StopOwner(mod);
+	EXPECT_FALSE(IsPlaying(a));
+	EXPECT_FALSE(IsPlaying(b));
+	EXPECT_TRUE(IsPlaying(c));
+
+	StopOwner(second);
+	EXPECT_FALSE(IsPlaying(c));
+
+	// a tracked 3D play of a mod's owner follows RegisterObject; unregistered it stops at the next turn
+	s_Camera = glm::vec3(0.0f);
+	RegisterObject(mod.id, []() -> std::optional<glm::vec3> { return glm::vec3(5.0f, 0.0f, 0.0f); });
+	const Channel tracked = PlaySoundEffectAt(mod, glm::vec3(5.0f, 0.0f, 0.0f), 1, 1, 0, false, true, inGame);
+	const Channel lost = PlaySoundEffectAt(second, glm::vec3(5.0f, 0.0f, 0.0f), 2, 1, 0, false, true, inGame);
+	ASSERT_NE(tracked, k_NoChannel);
+	ASSERT_NE(lost, k_NoChannel);
+	sample_play::UpdateChannels();
+	EXPECT_TRUE(IsPlaying(tracked));
+	EXPECT_FALSE(IsPlaying(lost));
+	UnregisterObject(mod.id);
+	StopOwner(mod);
+	EXPECT_FALSE(IsPlaying(tracked));
+}

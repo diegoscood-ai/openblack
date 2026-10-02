@@ -138,8 +138,10 @@ uint32_t ListCount(const SpriteList& list)
 	return n - 1;
 }
 
-/// The cube of the x87 loops (mov eax, 2; dec; fmul; jne): x * x * x
-double Cube(double x)
+/// The cube of the x87 loops (mov eax, 2; dec; fmul; jne): x * x * x. The game's FPU is at 24 bits (fn_007DEE00,
+/// `and cw, 0xFCFF` at 0x7DEE0D): every fadd / fsub / fmul / fdiv of this file rounds to a float, so the arithmetic is
+/// written in float; a double constant (fmul qword) is applied exactly and the result rounded (static_cast<float>)
+float Cube(float x)
 {
 	return x * x * x;
 }
@@ -287,7 +289,7 @@ float guidance::LocalFloatRand(float x)
 	}
 	// 0x6DE5B9..0x6DE5DA: LHRand(0xFFFF) as a 64-bit integer, x it, x 0x37800080
 	constexpr float k_Scale = 1.5259022e-5f;
-	return static_cast<float>(static_cast<double>(LocalRand(0xFFFF)) * x * k_Scale);
+	return static_cast<float>(LocalRand(0xFFFF)) * x * k_Scale; // fild qword (exact), two fmul at 24 bits
 }
 
 void guidance::SetSpriteLists(const std::array<SpriteList, k_SpriteLists>& lists)
@@ -370,8 +372,8 @@ uint32_t guidance::Interval(Type type)
 	// 0x71AEE3..0x71AF49: r = LocalFloatRand(1.0) kept as a float; r^3 in the x87; 5 base as a 64-bit integer x (1 - r^3)
 	const float r = LocalFloatRand(1.0f);
 	const uint32_t base = k_Types.at(static_cast<size_t>(type)).base;
-	const auto five = static_cast<double>(static_cast<int32_t>(base * 5u));
-	const auto spread = static_cast<int32_t>(five * (1.0 - Cube(r))); // __ftol: truncation
+	const auto five = static_cast<float>(static_cast<int32_t>(base * 5u));
+	const auto spread = static_cast<int32_t>(five * (1.0f - Cube(r))); // __ftol: truncation
 	return LocalRand(static_cast<uint32_t>(spread)) + base;
 }
 
@@ -518,7 +520,7 @@ uint32_t guidance::GetRandomSampleBasedOnValue(size_t list, float value)
 		value = 1.0f;
 	}
 	const auto& entries = g_Guidance.lists.at(list);
-	const auto n = static_cast<int32_t>(static_cast<double>(ListCount(entries)) * value); // fild qword, fmul, __ftol
+	const auto n = static_cast<int32_t>(static_cast<float>(ListCount(entries)) * value); // fild qword, fmul, __ftol
 	return entries.at(LocalRand(static_cast<uint32_t>(n))); // r < n <= ListCount <= 33
 }
 
@@ -543,7 +545,7 @@ uint32_t guidance::TimeSinceThingSeen(uint32_t thing)
 uint32_t guidance::DesireSample(uint32_t desire, float value)
 {
 	// 0x71AA90..0x71AAA7: x = value - LocalFloatRand(value x 0x3EAAAAAB) in the x87
-	const double x = static_cast<double>(value) - static_cast<double>(LocalFloatRand(value * 0.33333334f));
+	const float x = value - LocalFloatRand(value * 0.33333334f);
 	if (desire >= k_DesireTexts.size())
 	{
 		return 0; // (openblack) the original reads past the table
@@ -582,22 +584,22 @@ float guidance::DesireScore(uint32_t thing, float distance, float value, uint32_
 	{
 		t1 = 1.0f;
 	}
-	const double seen = 1.0 - Cube(t1); // 0x71B4B4..0x71B4C4
+	const float seen = 1.0f - Cube(t1); // 0x71B4B4..0x71B4C4
 	// 0x71B4CA..0x71B4ED: d = min(distance / 200, 1), 1 - d^2
-	double d = static_cast<double>(distance / k_DesireDistance);
-	if (!(d < 1.0))
+	float d = distance / k_DesireDistance;
+	if (!(d < 1.0f))
 	{
-		d = 1.0;
+		d = 1.0f;
 	}
-	const double near = 1.0 - d * d;
+	const float near = 1.0f - d * d;
 	// 0x71B4F3..0x71B51E: v = min(value, 1) (stored as a float), v^3
 	const float v = value < 1.0f ? value : 1.0f;
-	const double v3 = Cube(v);
+	const float v3 = Cube(v);
 	// 0x71B520..0x71B549: the sample said last time (+0x98) -> t0^3
-	const double s = sample == g_Guidance.lastDesireSample ? Cube(t0) : 1.0;
+	const float s = sample == g_Guidance.lastDesireSample ? Cube(t0) : 1.0f;
 	// 0x71B549..0x71B55D: 2 t0 (s v^3 near seen)
-	const double r = seen * (v3 * s * near);
-	return static_cast<float>(2.0 * (r * static_cast<double>(t0)));
+	const float r = seen * (v3 * s * near);
+	return 2.0f * (r * t0);
 }
 
 // ---- the turn ------------------------------------------------------------------------------------------------------
@@ -627,13 +629,13 @@ void guidance::ProcessTownDesireSFX()
 		return;
 	}
 	// 0x71B0AC..0x71B0C8: x = value - LocalFloatRand(value x 0.5)
-	const double x = static_cast<double>(value) - static_cast<double>(LocalFloatRand(value * 0.5f));
+	const float x = value - LocalFloatRand(value * 0.5f);
 	if (!thing)
 	{
 		return; // 0x71B0CC
 	}
 	PlaySample(true, sample, LocalPlayer(), static_cast<int>(Type::TownDesire), 127, 100, 90, thing,
-	           static_cast<float>(k_DesireDistance * x), true);
+	           k_DesireDistance * x, true);
 	g_Guidance.lastDesireSample = sample; // 0x71B114: +0x98
 }
 
@@ -652,29 +654,31 @@ void guidance::ProcessHeartBeatSFX()
 	g.heartBeatValue = 0.0f + input.protectionDesire;
 	const float p = input.believers;   // 0x71C20E
 	const float q = input.beliefShare; // fn_0064B700 0x71C224
-	// 0x71C229..0x71C26C: ((+0xC8 + 0.001) / (q + 0.001) - 1) + ((+0xC4 + 0.001) / (p + 0.001) - 1) + +0xA4
-	constexpr double k_Small = 0.0010000000474974513; // 0x8AA3B0
-	const double shareTerm = (static_cast<double>(g.beliefShare) + k_Small) / (static_cast<double>(q) + k_Small) - 1.0;
-	const double believersTerm =
-	    (static_cast<double>(g.believers) + k_Small) / (static_cast<double>(p) + k_Small) - 1.0;
-	g.heartBeatValue = static_cast<float>(shareTerm + believersTerm + static_cast<double>(g.heartBeatValue));
+	// 0x71C229..0x71C26C: ((+0xC8 + 0.001) / (q + 0.001) - 1) + ((+0xC4 + 0.001) / (p + 0.001) - 1) + +0xA4, all with
+	// the float constants 0.001 (0x8AA3B0) and 1 (0x8AA390); the FPU is at 24 bits (fn_007DEE00), so each step is a
+	// float operation (q stays on the FPU from fn_0064B700, already a float's precision)
+	constexpr float k_Small = 0.001f; // 0x8AA3B0
+	const float shareTerm = (g.beliefShare + k_Small) / (q + k_Small) - 1.0f;
+	const float believersTerm = (g.believers + k_Small) / (p + k_Small) - 1.0f;
+	g.heartBeatValue = (shareTerm + believersTerm) + g.heartBeatValue;
 	// 0x71C272..0x71C2A0: both smoothed by 0.1 (0x8AB22C)
-	g.believers = static_cast<float>((static_cast<double>(p) - g.believers) * 0.1f + g.believers);
-	g.beliefShare = static_cast<float>((static_cast<double>(q) - g.beliefShare) * 0.1f + g.beliefShare);
+	g.believers = (p - g.believers) * 0.1f + g.believers;
+	g.beliefShare = (q - g.beliefShare) * 0.1f + g.beliefShare;
 	// 0x71C2A6..0x71C379: another player's creature near the local player's town: 1 - max(d - 100, 0) / 400 when d < 400
+	// (fild qword of the distance: exact; 400 and 100 are floats, 0x980170 / 0x98016C)
 	for (const uint32_t distance : input.enemyCreatureDistances)
 	{
-		const auto d = static_cast<double>(distance);
-		if (!(d < 400.0)) // 0x980170
+		const auto d = static_cast<float>(distance);
+		if (!(d < 400.0f)) // 0x980170
 		{
 			continue;
 		}
-		double over = d - 100.0; // 0x98016C
-		if (!(over > 0.0))
+		float over = d - 100.0f; // 0x98016C
+		if (!(over > 0.0f))
 		{
-			over = 0.0;
+			over = 0.0f;
 		}
-		g.heartBeatValue = static_cast<float>(1.0 - over / 400.0 + g.heartBeatValue);
+		g.heartBeatValue = (1.0f - over / 400.0f) + g.heartBeatValue;
 	}
 	// 0x71C37F..0x71C3AE
 	if (g.heartBeatValue < 0.0f)
@@ -690,12 +694,15 @@ void guidance::ProcessHeartBeatSFX()
 
 float guidance::MoonPhase(int64_t unixTime)
 {
-	// 0x86A845..0x86A888: the whole days (the magic division by 86400, truncated) - 0x2AD2, x the double 0x9A3BE8; the
-	// fraction by __ftol (truncation) and (1 - it) x the double 0x8D45D8
+	// 0x86A845..0x86A888: the whole days (the magic division by 86400, truncated) - 0x2AD2 (fild: exact), times the
+	// double 0.03386318012808897 (0x9A3BE8); the fraction by __ftol (truncation) and (1 - it) times the double
+	// 6.2831854820251465 (0x8D45D8, the float 2 pi kept as a double); 1 is the double 0x8AB680. With the FPU at 24 bits
+	// (fn_007DEE00) every fmul / fsub rounds to a float, the doubles themselves do not
 	const auto days = static_cast<int32_t>(unixTime / 86400) - 0x2AD2;
-	const double cycles = static_cast<double>(days) * 0.03386318012808897;
-	const double fraction = cycles - static_cast<double>(static_cast<int64_t>(cycles));
-	return static_cast<float>((1.0 - fraction) * 6.2831854820251465);
+	const auto cycles = static_cast<float>(static_cast<double>(days) * 0.03386318012808897);
+	const float fraction = cycles - static_cast<float>(static_cast<int32_t>(cycles));
+	const auto rest = static_cast<float>(1.0 - static_cast<double>(fraction));
+	return static_cast<float>(static_cast<double>(rest) * 6.2831854820251465);
 }
 
 void guidance::HelpSpritesCheckMoonPhase()
@@ -719,7 +726,7 @@ void guidance::HelpSpritesCheckMoonPhase()
 		countdown = 0x927C0;    // 600000
 		return;
 	}
-	countdown = static_cast<uint32_t>(static_cast<int32_t>(static_cast<double>(x) * x * 12000.0f)); // 0x9804C8
+	countdown = static_cast<uint32_t>(static_cast<int32_t>(x * x * 12000.0f)); // 0x9804C8 (float steps at 24 bits)
 }
 
 void guidance::ProcessGameTurn()
@@ -999,7 +1006,7 @@ void guidance::BeliefSFX(const std::array<float, 8>& beliefs, uint32_t player, g
 	{
 		return;
 	}
-	const auto value = static_cast<float>((static_cast<double>(mine) + 0.0001f) / (static_cast<double>(strongest) + 0.0001f));
+	const float value = (mine + 0.0001f) / (strongest + 0.0001f);
 	BeliefSample(point, distanceToCamera, value, alignment);
 }
 
@@ -1010,7 +1017,7 @@ void guidance::BeliefSample(glm::vec3 point, float distance, float value, int al
 		return;
 	}
 	// 0x71BF89..0x71BFAA: x = value - LocalFloatRand(value x 1/3) (0x8AB26C), kept as a float
-	const auto x = static_cast<float>(static_cast<double>(value) - LocalFloatRand(value * 0.33333334f));
+	const float x = value - LocalFloatRand(value * 0.33333334f);
 	if (alignment != 1 && alignment != 2)
 	{
 		alignment = LocalRand(2) != 0 ? 2 : 1; // 0x71BFB5..0x71BFC7
@@ -1047,17 +1054,17 @@ float guidance::BeliefVisibility(float distance, uint32_t text)
 	{
 		t0 = 1.0f;
 	}
-	double d = static_cast<double>(distance / k_BeliefMaxDistance);
-	if (!(d < 1.0))
+	float d = distance / k_BeliefMaxDistance;
+	if (!(d < 1.0f))
 	{
-		d = 1.0;
+		d = 1.0f;
 	}
-	const double near = 1.0 - d * d;
+	const float near = 1.0f - d * d;
 	if (text == g_Guidance.lastBeliefSample) // 0x71C154: +0x9C
 	{
-		return static_cast<float>(Cube(t0) * near * t0);
+		return Cube(t0) * near * t0;
 	}
-	return static_cast<float>(near * t0);
+	return near * t0;
 }
 
 void guidance::DeathInVillageSFX()
@@ -1085,14 +1092,13 @@ void guidance::HeartBeat(float value)
 	}
 	else
 	{
-		g.heartBeatPitch = static_cast<float>((static_cast<double>(value) * 70.0f + 30.0f - g.heartBeatPitch) * 0.1f +
-		                                      g.heartBeatPitch);
+		g.heartBeatPitch = (value * 70.0f + 30.0f - g.heartBeatPitch) * 0.1f + g.heartBeatPitch; // 0x71C491..0x71C4AD
 	}
 	// 0x71C4BF..0x71C518: fn_0071C420 (x 0.025, 0x8D150C) x [0xD01A38] x 0.001, brought to <= 1
-	const double rate = static_cast<double>(g.heartBeatPitch) * 0.025f;
-	// fimul [0xD01A38] (0x71C4C7..0x71C4D8): game_clock::MsPerTurn()
-	g.heartBeatPhase =
-	    static_cast<float>(rate * static_cast<double>(game_clock::MsPerTurn()) * 0.001f + g.heartBeatPhase);
+	const float rate = g.heartBeatPitch * 0.025f;
+	// fimul [0xD01A38] (0x71C4C7..0x71C4D8): game_clock::MsPerTurn() (the integer exact, the product rounded)
+	const auto turn = static_cast<float>(static_cast<double>(rate) * static_cast<double>(game_clock::MsPerTurn()));
+	g.heartBeatPhase = turn * 0.001f + g.heartBeatPhase;
 	if (g.heartBeatPhase > 1.0f)
 	{
 		do
@@ -1102,7 +1108,9 @@ void guidance::HeartBeat(float value)
 	}
 	// 0x71C51A..0x71C546
 	g.heartBeatPulsePrevious = g.heartBeatPulse;
-	g.heartBeatPulse = static_cast<float>((1.0 - std::cos(static_cast<double>(g.heartBeatPhase) * 6.2831854820251465)) * 0.5);
+	// fmul by the float 2 pi (0x8AB210), fcos (full precision), fsubr 1, fmul 0.5 (0x8AA3B4)
+	const float angle = g.heartBeatPhase * 6.2831855f;
+	g.heartBeatPulse = static_cast<float>(1.0 - std::cos(static_cast<double>(angle))) * 0.5f;
 	// 0x71C54C..0x71C645: the local interface (openblack's only one) with a living citadel heart
 	const auto& queries = Queries();
 	const auto input = queries.heartBeat ? queries.heartBeat() : HeartBeatInput {};
@@ -1265,14 +1273,14 @@ void guidance::HelpSpritesAlignmentProcess(float change, float alignment, float 
 {
 	auto& g = g_Guidance;
 	// 0x71CEB0..0x71CEC9: +0xC0 = 0.95 (0x980178) x +0xC0 + change
-	g.alignmentChange = static_cast<float>(static_cast<double>(0.95f) * g.alignmentChange + change);
+	g.alignmentChange = 0.95f * g.alignmentChange + change;
 	// 0x71CED4..0x71CEEF: only past 2 (0x98017C) x the player's maximum change a turn
 	if (!(2.0f * maxChangePerTurn < std::abs(g.alignmentChange)))
 	{
 		return;
 	}
 	// 0x71CF05..0x71CF32
-	const bool same = static_cast<double>(alignment) * g.alignmentChange > 0.0;
+	const bool same = alignment * g.alignmentChange > 0.0f;
 	const float threshold = same ? 0.75f : 0.4f; // 0x980180 / 0x980184
 	if (!(threshold < std::abs(alignment)))
 	{

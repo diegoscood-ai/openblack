@@ -88,6 +88,10 @@ struct SpellSeedGraphic
 	float uvPhase {0.0f};
 	float bandSpin {0.0f};                     ///< +0x44 the bands' angle (+10.3 rad/s [0xBE8E94], 0x51A2EA)
 	float bandSpin2 {0.0f};                    ///< +0x40 (+1 rad/s [0xBE8E90], 0x51A305; no reader found)
+	/// DrawSpellGraphic's light on the mesh: a player seed (0x51A0B3, arg 2 = 0) takes
+	/// LH3DIsland::GetAltitudeAndSetColorSpecular 0x803340 at +0x14 (0x51A187, no haze: land_light::ObjectMode::Cell),
+	/// a creature spell phial fn_00801C90 + fn_007FEB30 (0x519D90 / 0x519D9E, the models' light)
+	bool landCellLight {true};
 };
 
 } // namespace openblack::ecs::components

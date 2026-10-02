@@ -425,8 +425,11 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 		// fn_0072AF50(0) the GMagicInfo [0xD37D10 + 4 x fn_0072AF10(0)], and fn_0072AF10(0) reads +0x124 (0x72AF1C),
 		// the field GetMagicTypeFromPULevel(-1) reads (0x72AFC9): magicTypes[0], file offset 0x114
 		const auto magicType = info.magicTypes[0];
-		if (static_cast<size_t>(magicType) < magic::k_MagicTypeCount &&
-		    magic::GetMagicInfoAs<GMagicCreatureSpellInfo>(Locator::infoConstants::value(), magicType) != nullptr)
+		const bool phial = static_cast<size_t>(magicType) < magic::k_MagicTypeCount &&
+		                   magic::GetMagicInfoAs<GMagicCreatureSpellInfo>(Locator::infoConstants::value(), magicType) != nullptr;
+		// the light the mesh takes (components::SpellSeedGraphic::landCellLight, RenderingSystem LandLightOf)
+		graphic.landCellLight = !phial;
+		if (phial)
 		{
 			const auto uv = graphics::frame_anim::SpellIconFrame(graphic.uvPhase, seconds);
 			auto* scroll = registry.TryGet<UvScroll>(graphicEntity);
@@ -440,7 +443,8 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 	}
 	// A player seed (GMagicInfo::AsMagicCreatureSpellInfo (vt 0x38) of its base magic is NULL: 0x519B73 -> 0x51A0B3):
 	// diffuse alpha = the owner's alpha, SetGlobalAlpha (vt 0x48)(alpha != 0xFF), then with arg 2 = 0 (every caller in
-	// the world) LH3DIsland::GetAltitudeAndSetColorSpecular (the land's light on it, not ported) and
+	// the world) LH3DIsland::GetAltitudeAndSetColorSpecular 0x51A187 at +0x14 (the land's light of the cell under it, with
+	// no haze after it: landCellLight, land_light::ObjectMode::Cell as SpellIcon::Draw 0x5196CC) and
 	// LH3DObject::SetPosition 0x423140(point, +0x3C, size): rows X = (cos, 0, sin), Z = (-sin, 0, cos), and
 	// AddForDrawing. No bob and no pulse: those (+0x38 and the 0.7 / 0.8 / 1.5 squashes of the switch 0x519D76 by
 	// GMagicCreatureSpellInfo +0x58) are only for the creature spell phials (12..27); of that branch only the UV frames
@@ -463,7 +467,14 @@ void seed_graphic::DrawSpellGraphic(entt::entity graphicEntity, uint8_t alpha, f
 	{
 		registry.Remove<Alpha>(graphicEntity);
 	}
-	// 0x51A24B: the holder PSys gets the alpha (vt 0x12C, not ported) and is drawn
+	// 0x51A24B..0x51A259: the holder PSys gets the caller's alpha (GJPSysInterface::SetAlpha 0x55ED50, vt 0x12C: the
+	// manager's byte +0x6C), and is drawn. fn_00679860 0x679875 copies that byte into [0xC0215C] and every atom's alpha
+	// becomes (alpha x it) >> 8 unless it is 0xFF (fn_00679920 0x679BC2..0x679BDF): in a one-shot orb (0x95) the
+	// seed's additive effect (FIRE's SF_FireBallOnHolder...) adds 149/256 of its light, on an icon (0xFF) all of it
+	if (auto* effect = graphic.psys != 0 ? psys::manager::Find(graphic.psys) : nullptr; effect != nullptr)
+	{
+		effect->SetGlobalAlpha(static_cast<float>(alpha));
+	}
 
 	// 0x51A2D0: the bands when +0x60 != -1 and the band object exists: +0x44 += 10.3 dt, +0x40 += dt (fmod 2 pi), one
 	// drawing per level 0..pu at +0x64 with size 0.2 x +0x58 x +0x54, turned to the camera by fn_0051A830

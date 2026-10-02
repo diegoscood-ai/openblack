@@ -178,6 +178,11 @@ openblack::land_light::ObjectLight LandLightOf(const openblack::ecs::Registry& r
 	{
 		return {ObjectMode::Cell, false};
 	}
+	// a player seed's mesh in an icon or a one-shot orb: DrawSpellGraphic 0x51A187 (Worship/SpellSeedGraphic.cpp)
+	if (const auto* seed = registry.TryGet<const SpellSeedGraphic>(entity); seed != nullptr && seed->landCellLight)
+	{
+		return {ObjectMode::Cell, false};
+	}
 	if (const auto* animal = registry.TryGet<const Animal>(entity);
 	    animal != nullptr && openblack::ecs::animal_ai::IsFlyingSpecies(animal->type))
 	{

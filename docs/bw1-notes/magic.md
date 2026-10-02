@@ -653,9 +653,15 @@ punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fic
     `GetAltitudeAndSetColorSpecular` (0x51A187) reescribe todo +0x4C con tabla[luminosidad] (0x803409..0x803413) o
     tabla[255] (0x803365 / 0x8033DA), de alfa 0xFF (todo `palette.raw` tiene alfa 0xFF): en la bola la semilla va por
     la tabla 0xC387C8 con alfa 0xFF ([0xC37D8C], 0x80DEF8), **opaca** (no 0x95). openblack: `components::Alpha` = 1.
-  - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` pone la luz del terreno en la malla:
-    **no portado** (aproximado).
-  - el PSys recibe el alfa (vt 0x12C, no portado) y se pinta tal como se dio el último paso.
+  - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` 0x803340 (0x51A187, en +0x14) pone
+    la luz de la casilla en la malla, sin neblina después: el modo `land_light::ObjectMode::Cell` de `SpellIcon::Draw`
+    (`SpellSeedGraphic::landCellLight`, `LandLightOf` de `RenderingSystem.cpp`). Las fiolas de criatura van por
+    fn_00801C90 + fn_007FEB30 (0x519D90 / 0x519D9E), la luz de los modelos.
+  - el PSys recibe el alfa: `GJPSysInterface::SetAlpha` 0x55ED50 (vt 0x12C) escribe el byte +0x6C del gestor;
+    fn_00679860 0x679875 lo copia en [0xC0215C] y fn_00679920 0x679BC2..0x679BDF hace alfa del átomo × él >> 8 si no
+    es 0xFF. En la bola (0x95) el efecto aditivo de la semilla suma 149/256 de su luz: sin eso (antes) el centro de la
+    burbuja salía blanco quemado y tapaba el icono (`orbcolour_compare.png`). Luego se pinta tal como se dio el último
+    paso.
   - la banda si pu ≠ −1: +0x44 += 10,3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 dibujos en +0x64 con tamaño
     0,2 × +0x58 × +0x54, filas: identidad con la fila 1 y la 2 cambiadas (la vieja 1 negada), giro (x, z) por base
     + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. Después

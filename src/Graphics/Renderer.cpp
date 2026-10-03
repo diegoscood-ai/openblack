@@ -2848,8 +2848,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// RenderParticleGJMesh::DrawAt 0x67C150 of the exploded pieces (PSysGlobal::DrawLoop 0x68F60C -> fn_006718A0
 			// Draw_(1)): at once, no Z object (0x67C150 does not read [0xC0215D]), after the models GGame::Draw 0x54E00A
 			// draws at once and before the queue's drain (FinishFrame 0x82F460)
-			if (psys::explode_object::k_PiecesAsWorldTriangles && desc.viewId == graphics::RenderPass::Main &&
-			    desc.drawEntities)
+			if (desc.viewId == graphics::RenderPass::Main && desc.drawEntities)
 			{
 				static world_triangles::Frame s_pieces; // refilled every frame, kept for its capacity
 				s_pieces.Clear();
@@ -2871,7 +2870,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// atom: each is drawn by drawOrderedEffect at its atom's place (world_triangles::Submit's `only`)
 			static world_triangles::Frame s_orderedPieces; // refilled every frame, kept for its capacity
 			s_orderedPieces.Clear();
-			if (psys::explode_object::k_PiecesAsWorldTriangles && sortBlended)
+			if (sortBlended)
 			{
 				psys::gj_mesh::Build(s_orderedPieces, psys::DrawPath::Queued);
 				psys::gj_mesh::Build(s_orderedPieces, psys::DrawPath::Immediate);

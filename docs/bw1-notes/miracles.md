@@ -2225,9 +2225,10 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
     etapa 0 de los modelos, `render_modes::PrimitiveAlpha` / `PrimitiveState` con el culling del material), en
     `RenderPass::Main` detrás de los modelos y antes de la cola (hunk marcado en `Renderer.cpp::DrawPass`, de
     sistemas). Ya no hay una malla bgfx por pedazo ni el tope `GpuBuffersLeft`: 6000 pedazos vivos a la vez en
-    BEAM_EXPLOSION_PU2 sin cuelgue. El camino viejo (malla generada por pedazo) sigue detrás de
-    `explode_object::k_PiecesAsWorldTriangles` (= true). Sistemas ya aceptó el hunk de `Renderer.cpp` (b67cc5a5):
-    **(pendiente, milagros2)** borrar el camino viejo y la constante.
+    BEAM_EXPLOSION_PU2 sin cuelgue. Sistemas aceptó el hunk de `Renderer.cpp` (b67cc5a5) y milagros2 borró el camino
+    viejo (una malla L3D generada por pedazo dibujada como átomo malla, `Kind::Mesh`, con el tope `GpuBuffersLeft`) y
+    la constante `explode_object::k_PiecesAsWorldTriangles`: los pedazos son siempre `Kind::GJMesh` (triángulos del
+    mundo).
   - **(aproximado)** la luz de la tierra de la CPU no lleva el tope de las sombras de las nubes que el port aplica en la
     GPU a los demás objetos; tampoco la ruta alternativa [0xEA9EB4] → fn_007ACD90 (no leída). Las operaciones en coma
     flotante son de 32 bits (no se imita la x87). En la última fila / columna del mapa el original lee la celda 17 del

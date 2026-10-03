@@ -26,14 +26,10 @@
 
 #include <L3DFile.h>
 #include <LNDFile.h>
-#include <bgfx/bgfx.h>
-#include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/AllMeshes.h"
-#include "3D/L3DMesh.h"
-#include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandLightTable.h"
 #include "ECS/Components/Mesh.h"
@@ -49,9 +45,7 @@
 #include "PSys/PSys.h"
 #include "PSys/PSysManager.h"
 #include "PSys/PSysRegistry.h"
-#include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
-#include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
 using namespace openblack::psys;
@@ -312,11 +306,10 @@ constexpr uint32_t k_SubMeshStatus = 0x3F0u;
 
 /// The piece atoms' "creator": the original's atoms have none (AtomCore::Create 0x6737F0 + fn_00674DD0) and carry their
 /// RenderParticleGJMesh at +0x128. Here a creator of Kind::GJMesh (drawn by gj_mesh, at once, out of every mesh atom
-/// list and Z object) and the piece in the atom's modifier data under k_PieceKey. (old way) Kind::Mesh, the mesh atoms'
-/// draw of PSys/Creators/Mesh.cpp
+/// list and Z object) and the piece in the atom's modifier data under k_PieceKey
 struct PieceCreator final: Creator
 {
-	PieceCreator() { kind = k_PiecesAsWorldTriangles ? Kind::GJMesh : Kind::Mesh; }
+	PieceCreator() { kind = Kind::GJMesh; }
 };
 const PieceCreator g_PieceCreator;
 /// The key of the piece in Atom::modifierData (no modifier owns it)
@@ -324,8 +317,6 @@ class PieceKey final: public Modifier
 {
 };
 const PieceKey g_PieceKey;
-
-uint32_t g_NextPieceMesh = 0;
 
 /// The LH3DMesh of a game object: MeshPack index of its Mesh component (the resources' hashed MeshId), -1 if none
 int PackIndexOf(entt::id_type meshId)
@@ -340,90 +331,6 @@ int PackIndexOf(entt::id_type meshId)
 	}();
 	const auto it = k_Index.find(meshId);
 	return it != k_Index.end() ? it->second : -1;
-}
-
-// ---- (old way, !k_PiecesAsWorldTriangles) a generated L3D mesh per piece; goes once sistemas takes the new draw ----
-
-/// (openblack guard) the bgfx vertex / index buffer handles left to the rest of the game (building fragments, feature
-/// meshes, loads) when pieces are made
-constexpr uint32_t k_GpuBufferReserve = 256;
-
-/// (openblack guard) whether one more piece mesh (one vertex and one index buffer) fits in bgfx's handles. The original
-/// has no such limit: AtomCore::Create 0x6737F0 is a plain allocation and DrawAt 0x67C150 draws the GJ mesh's triangles
-/// one by one (Draw3DWorldTriangle 0x81C090), with no GPU buffer per piece. Here every piece is a generated mesh, and
-/// bgfx has BGFX_CONFIG_MAX_VERTEX_BUFFERS / _INDEX_BUFFERS (4096) handles in all: a few beam explosions in a forest
-/// make thousands of pieces that live 6 s (SF_ExplodeObject's DieAge), and past the limit createVertexBuffer gives
-/// kInvalidHandle and bgfx::setName (VertexBuffer.cpp) writes the name into m_vertexBuffers[0xFFFF]: a heap corruption
-/// that crashed in RtlFreeHeap a few turns later. A piece past the budget keeps its atom (it moves and fades as the
-/// others) but is not drawn
-bool GpuBuffersLeft()
-{
-	const auto* caps = bgfx::getCaps();
-	if (caps == nullptr || caps->limits.maxVertexBuffers == 0 || caps->limits.maxIndexBuffers == 0)
-	{
-		return true; // bgfx not initialised (the tests): no mesh is made anyway
-	}
-	// live counts (Context::getPerfStats): the handles destroyed this frame are only freed at its end, so this errs safe
-	const auto* stats = bgfx::getStats();
-	const bool left = stats->numVertexBuffers + k_GpuBufferReserve < caps->limits.maxVertexBuffers &&
-	                  stats->numIndexBuffers + k_GpuBufferReserve < caps->limits.maxIndexBuffers;
-	static bool warned = false;
-	if (!left && !warned)
-	{
-		warned = true;
-		SPDLOG_LOGGER_WARN(spdlog::get("game"),
-		                   "ExplodeObject: {} / {} vertex and {} / {} index buffers in use, the new pieces are not drawn",
-		                   stats->numVertexBuffers, caps->limits.maxVertexBuffers, stats->numIndexBuffers,
-		                   caps->limits.maxIndexBuffers);
-	}
-	return left;
-}
-
-/// The mesh of a piece (GJMesh, ctor 0x67FF20, filled by fn_0057D630): three new vertices per triangle (+8 positions,
-/// +0x44 uvs, +0x80 normals: the source's normals as they are, not turned by the matrix) and the triangles (+0x6C) b,
-/// b + 1, b + 2; drawn with the source primitive's material (GJMesh +0 = the primitive, 0x680C49)
-entt::id_type MakePieceMesh(const SourceMesh& mesh, size_t subMesh, size_t primitive, std::vector<glm::vec3> positions,
-                            std::vector<glm::vec2> uvs, std::vector<glm::vec3> normals)
-{
-	if (!Locator::resources::has_value() || mesh.meshId == 0)
-	{
-		return 0;
-	}
-	auto& meshes = Locator::resources::value().GetMeshes();
-	if (!meshes.Contains(mesh.meshId) || !GpuBuffersLeft())
-	{
-		return 0;
-	}
-	const auto source = meshes.Handle(mesh.meshId);
-	const auto& subMeshes = source->GetSubMeshes();
-	if (subMesh >= subMeshes.size() || primitive >= subMeshes[subMesh]->GetPrimitives().size())
-	{
-		return 0;
-	}
-	graphics::L3DSubMesh::GeneratedPrimitive generated;
-	generated.material = subMeshes[subMesh]->GetPrimitives()[primitive];
-	generated.indices.resize(positions.size());
-	for (size_t i = 0; i < positions.size(); ++i)
-	{
-		generated.indices[i] = static_cast<uint16_t>(i);
-	}
-	generated.positions = std::move(positions);
-	generated.uvs = std::move(uvs);
-	generated.normals = std::move(normals);
-	const std::string name = "psys/explode/" + std::to_string(g_NextPieceMesh++);
-	const auto id = entt::hashed_string(name.c_str()).value();
-	try
-	{
-		meshes.Load(id, resources::L3DLoader::FromGeneratedTag {}, name, std::vector {std::move(generated)});
-		// the source's skins: a mesh with embedded textures (the rock 567, the trees) keeps them
-		meshes.Handle(id)->SetSkinSource(source.handle());
-	}
-	catch (const std::exception& e)
-	{
-		SPDLOG_LOGGER_WARN(spdlog::get("game"), "ExplodeObject: {}", e.what());
-		return 0;
-	}
-	return id;
 }
 
 /// UR_ExplodeObject::ExplodeMesh 0x6807B0 (collection, NextGroups (+0x20), mesh, matrix, MaxTrigsPerFrag (+0x2C),
@@ -491,16 +398,9 @@ void ExplodeMesh(Effect& effect, Collection& collection, const std::vector<int>&
 				piece->source = entry.mesh;
 				piece->subMesh = static_cast<uint16_t>(s);
 				piece->primitive = static_cast<uint16_t>(p);
-				if constexpr (k_PiecesAsWorldTriangles)
-				{
-					piece->positions = std::move(positions);
-					piece->uvs = std::move(uvs);
-					piece->normals = std::move(normals);
-				}
-				else
-				{
-					piece->meshId = MakePieceMesh(mesh, s, p, std::move(positions), std::move(uvs), std::move(normals));
-				}
+				piece->positions = std::move(positions);
+				piece->uvs = std::move(uvs);
+				piece->normals = std::move(normals);
 				atom.modifierData[&g_PieceKey] = std::move(piece);
 				++made;
 			}
@@ -920,14 +820,6 @@ std::shared_ptr<const SourceMesh> explode_object::PackMesh(uint32_t index)
 
 // ---- the pieces ----
 
-explode_object::Piece::~Piece()
-{
-	if (meshId != 0 && Locator::resources::has_value())
-	{
-		Locator::resources::value().GetMeshes().Erase(meshId);
-	}
-}
-
 const Piece* explode_object::PieceOf(const Atom& atom)
 {
 	if (atom.creator != &g_PieceCreator)
@@ -1077,10 +969,6 @@ void gj_mesh::AppendPiece(graphics::world_triangles::Frame& out, const Piece& pi
 
 void gj_mesh::Build(graphics::world_triangles::Frame& out, DrawPath path)
 {
-	if constexpr (!k_PiecesAsWorldTriangles)
-	{
-		return;
-	}
 	for (const auto& drawable : manager::Collect(Creator::Kind::GJMesh))
 	{
 		if (drawable.path != path)

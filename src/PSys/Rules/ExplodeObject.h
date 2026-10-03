@@ -43,13 +43,6 @@ struct Atom;
 namespace explode_object
 {
 
-/// The pieces drawn as the original does (RenderParticleGJMesh::DrawAt 0x67C150 -> Draw3DWorldTriangle 0x81C090): one
-/// CPU-made triangle list per frame (gj_mesh::Build, graphics::world_triangles), Creator::Kind::GJMesh, no bgfx buffer
-/// per piece and no handle limit. false keeps the old way (a generated L3D mesh per piece drawn as a mesh atom, behind
-/// the GpuBuffersLeft guard) until session sistemas accepts the Renderer.cpp hunk (pieces_shadows_PLAN.md §1.3 d,
-/// §3); that code goes in the commit that makes this final
-inline constexpr bool k_PiecesAsWorldTriangles = true;
-
 /// What ExplodeMesh reads of an LH3DMesh: the sub-meshes (LH3DMesh +0xC count, +0x10 table) with their flags (+0) and
 /// primitives (+4 count, +8 table); of each primitive its vertices (+0x14, 32 bytes: position, uv, normal), its
 /// triangles (+0x18 count, +0x1C uint16 x 3) and its material (+0). Read from the mesh's own L3D data.
@@ -113,15 +106,11 @@ void Clear();
 /// A piece atom (its RenderParticleGJMesh +0x128) and its GJMesh (ctor 0x67FF20, filled by fn_0057D630): three vertices
 /// per triangle (+8 positions about the centroid, 0x680E5A..0x680E89; +0x44 uvs; +0x80 normals, the source's as they
 /// are, not turned by the matrix), the triangles b, b + 1, b + 2 (+0x6C), no colours of its own (+0x24 != the vertex
-/// count) and the source primitive as its material (GJMesh +0, 0x680C49)
+/// count) and the source primitive as its material (GJMesh +0, 0x680C49). Drawn as the original does
+/// (RenderParticleGJMesh::DrawAt 0x67C150 -> Draw3DWorldTriangle 0x81C090): one CPU-made triangle list per frame
+/// (gj_mesh::Build, graphics::world_triangles), Creator::Kind::GJMesh, no bgfx buffer per piece and no handle limit
 struct Piece
 {
-	Piece() = default;
-	Piece(const Piece&) = delete;
-	Piece(Piece&&) = delete;
-	Piece& operator=(const Piece&) = delete;
-	Piece& operator=(Piece&&) = delete;
-	~Piece(); ///< (old way) the generated mesh goes with the atom
 	std::shared_ptr<const SourceMesh> source; ///< the mesh of its material
 	uint16_t subMesh {0};
 	uint16_t primitive {0};
@@ -129,8 +118,6 @@ struct Piece
 	std::vector<glm::vec2> uvs;
 	std::vector<glm::vec3> normals;
 	uint32_t triangles {0};
-	/// (old way, !k_PiecesAsWorldTriangles) the generated mesh it is drawn with (0 without the renderer)
-	entt::id_type meshId {0};
 };
 /// The piece an atom carries, nullptr for the other atoms
 [[nodiscard]] const Piece* PieceOf(const Atom& atom);

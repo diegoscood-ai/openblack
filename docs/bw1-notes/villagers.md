@@ -378,6 +378,13 @@ bucle de jugadores), `Town/TownStats.{h,cpp}`, `Villager/VillagerSatisfy.{h,cpp}
 (`TownDesire`, `DesireSort`, `TownStats` y los campos nuevos del pueblo); tests `test/test_town_desire.cpp` (16 casos) y
 un caso nuevo en `test/test_villager_decide.cpp`.
 
+- **Orden en el turno** (milagros2, con el OK de asistente): `town_process::ProcessPlayers` se llama una vez por turno
+  desde `magic::ProcessTurnStart` (Magic/MagicLoop.cpp, ranura 3 de GGame::ProcessTurn). Va después de
+  `InfluenceRing::ProcessRings` (0x54E63C), así que Town::Process ve los anillos de este turno. Después vienen los viajeros
+  del teletransporte (fn_005FCC70, 0x6496BC) y el alineamiento (0x6496C5), y luego los bailes, GlobalGameLists, los
+  bosques y, al final, Living (0x54E65B). **(aproximado)**: GPlayer::Process 0x6494E0 hace pueblos, teletransporte y
+  alineamiento jugador a jugador; aquí cada paso recorre todos los jugadores antes de pasar al siguiente.
+
 - **Tabla** (fiel): 0xDA32C8 + d·0x68, rellena por crt_xc 0x744BD0: nombre, función (+0x10), Amount/Desired (+0x20/+0x30,
   solo 5, 6, 7; solo los lee la traza 0x745EC0), CheckSatisfy del aldeano (+0x40), modificación (+0x50), niños (+0x60:
   2, 3, 4, 15, 16) y +0x64 (sin lector). Info por deseo 0xDA2930 + d·0x90 (+0x18 trigger, +0x58 TribeMultiplier[9]).

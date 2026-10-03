@@ -19,7 +19,12 @@ namespace openblack::magic
 /// The land is loaded (after psys::manager::Clear and before the script runs): the spells, reactions and the players
 /// without an entity are cleared
 void OnLoadMap();
-/// One game turn, where the original's Living step ends (after livingActionSystem.Update): slots 1..8
+/// The start of the game turn (GGame::ProcessTurn 0x54E637..0x54E646), before GlobalGameLists::Process (the puzzle
+/// games) and the villagers: the hand's casting, slots 1..4 (weather, influence rings, players, dances)
+void ProcessTurnStart(uint32_t turn);
+/// Slot 5, Forest::ProcessForests 0x539D70 (0x54E656): after GlobalGameLists, before Living::ProcessLiving
+void ProcessForests(uint32_t turn);
+/// Where the original's Living step ends (after livingActionSystem.Update): slots 6..8
 void ProcessTurn(uint32_t turn);
 /// The rest of the turn, after psys::manager::ProcessTurn (the original's slot 9, which openblack runs at the end of
 /// the scripts block): slots 11..14, so that the PSys sounds see this turn's atoms

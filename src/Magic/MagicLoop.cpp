@@ -38,6 +38,7 @@
 #include "ECS/Systems/Implementations/HandGrain.h"
 #include "ECS/Systems/Implementations/VillagerFire.h"
 #include "ECS/Systems/Implementations/VillagerShield.h"
+#include "ECS/Town/TownProcess.h"
 #include "ECS/Weather/WeatherLoop.h"
 #include "GameClock.h"
 #include "Hand/HandCasting.h"
@@ -81,7 +82,7 @@ void magic::OnLoadMap()
 	ResetDebugHooks();
 }
 
-void magic::ProcessTurn(uint32_t turn)
+void magic::ProcessTurnStart(uint32_t turn)
 {
 	// GGame::ProcessOneGameTurn 0x54D620 runs ProcessGameInputs (GInterface::Process: ProcessPowerUpSystem with the last
 	// frame's time) before ProcessGameCode; here it goes first                [M2 gestures]
@@ -92,20 +93,32 @@ void magic::ProcessTurn(uint32_t turn)
 	//  2 InfluenceRing::ProcessRings 0x5CDB90 (+ the towns' influence)       [M1i influence]
 	influence::ProcessTurn();
 	influence::RunDebugHooks(); // OPENBLACK_TEST_INFLUENCE (ECS/Influence/InfluenceDebugHooks.cpp)
-	//  3 GPlayer::ProcessPlayers 0x649A20: of GPlayer::Process the alignment (0x6496C5 -> GAlignment::ProcessForPlayer
-	//    0x4141A0) and fn_005FCC70, the teleport stones' travellers
-	ecs::effects::alignment::ProcessPlayers(); // ECS/Effects/Alignment.cpp
+	//  3 GPlayer::ProcessPlayers 0x649A20 -> GPlayer::Process 0x6494E0: first each town's Town::Process (0x649551, ECS/Town
+	//    of the session asistente), then fn_005FCC70 (0x6496BC), the teleport stones' travellers, and the alignment
+	//    (0x6496C5 -> GAlignment::ProcessForPlayer 0x4141A0). (aproximado) The original does the three player by player;
+	//    here each runs for all the players
+	ecs::town_process::ProcessPlayers(); // ECS/Town/TownProcess.cpp
 	teleport::ProcessPlayers(); // Objects/MagicTeleport.cpp
+	ecs::effects::alignment::ProcessPlayers(); // ECS/Effects/Alignment.cpp
 	teleport::RunDebugHooks();  // OPENBLACK_TEST_TELEPORT (Objects/TeleportDebugHooks.cpp)
 	// fn_0064AC30 on the local player, after the GetNextActivePlayer loop of GPlayer::Process (0x64A666..0x64A697)
 	ecs::effects::alignment::UpdateInterfaceAlignment();
 	//  4 Dance::ProcessDances 0x50BB60                                      [M7]
 	//    (and the first turn's GPlayer::PostLoadCleanup, the worship test hooks, the spell dispensers)
 	worship::ProcessTurn(turn); // Worship/Worship.cpp
+	// --- GlobalGameLists::Process 0x591370 (0x54E651): Game.cpp's ProcessPuzzleGamesTurn, between 4 and 5
+}
+
+void magic::ProcessForests(uint32_t turn)
+{
 	//  5 Forest::ProcessForests 0x539D70 -> Forest::Process 0x539DA0 (Tree::Process 0x74A290 of their trees): ECS/Trees.cpp
 	//    of the "arboles" session (the spell forests are made by Magic/Spells/SpellForest)
 	ecs::ProcessTreesTurn(turn);
-	// --- Living: openblack's livingActionSystem, already run
+	// --- Living::ProcessLiving 0x5EC810 (0x54E65B): Game.cpp's livingActionSystem, between 5 and 6
+}
+
+void magic::ProcessTurn(uint32_t turn)
+{
 	//  6 FireEffect::ProcessList 0x730760                                   [M5 fire]
 	ecs::fire::RunDebugHooks(turn); // OPENBLACK_TEST_FIRE (ECS/Fire/FireDebugHooks.cpp)
 	ecs::fire::graphic::SetTurn(turn);

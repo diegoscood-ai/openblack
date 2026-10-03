@@ -538,11 +538,13 @@ bool Game::GameLogicLoop() noexcept
 	ecs::BeginMobileTurn();
 	// fn_00775140 (0x54E5C7): the sharks' turn (Whale::Process), then the WALK_PATH list (GlobalGameLists::Process)
 	ecs::ProcessSharksTurn();
-	// GPlayer::ProcessPlayers 0x54E641: Town::Process 0x747380 for each player's towns (the desires, ECS/Town), before
-	// the villagers (Living::ProcessLiving 0x54E65B)
-	ecs::town_process::ProcessPlayers();
+	// GGame::ProcessTurn 0x54E637..0x54E646: the influence rings, the players (their towns' Town::Process, ECS/Town) and
+	// the dances before GlobalGameLists and the villagers (Magic/MagicLoop.cpp, slots 1..4)
+	magic::ProcessTurnStart(turn);
 	// GlobalGameLists::Process 0x591449: the PuzzleGames (fn_006D7480), before the scripts
 	ecs::ProcessPuzzleGamesTurn();
+	// 0x54E656 Forest::ProcessForests, before Living::ProcessLiving (slot 5)
+	magic::ProcessForests(turn);
 
 	auto& profiler = Locator::profiler::value();
 
@@ -556,7 +558,7 @@ bool Game::GameLogicLoop() noexcept
 		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
 		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
-	// The miracles' part of GGame::ProcessTurn (Magic/MagicLoop.cpp: fire, reactions, spells, the seed in the hand...)
+	// The miracles' part of GGame::ProcessTurn after Living (Magic/MagicLoop.cpp: fire, reactions, spells...)
 	magic::ProcessTurn(turn);
 
 	{

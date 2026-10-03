@@ -22,6 +22,9 @@ namespace openblack::ecs::systems
 class LivingActionSystem final: public LivingActionSystemInterface
 {
 public:
+	/// Registers the Living classes' physics virtuals (ECS/LivingPhysics)
+	LivingActionSystem();
+
 	void Update() override;
 
 	[[nodiscard]] VillagerStates VillagerGetState(const components::LivingAction& action,

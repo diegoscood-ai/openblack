@@ -24,6 +24,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/LivingPhysics.h"
 #include "ECS/Registry.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Villager/VillagerAge.h"
@@ -667,6 +668,11 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* 253 WAIT_FOR_ARTIFACT_DANCE */ k_TodoEntry,
     /* 254 BREEDER_JUST_LANDED */ k_TodoEntry,
 };
+
+LivingActionSystem::LivingActionSystem()
+{
+	ecs::living::RegisterPhysicsHandlers();
+}
 
 void LivingActionSystem::Update()
 {

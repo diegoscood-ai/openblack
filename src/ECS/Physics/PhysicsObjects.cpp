@@ -52,8 +52,6 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/AnimalAI.h"
-#include "ECS/StoragePitStore.h"
-#include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Life.h"
 #include "ECS/MapCells.h"
@@ -76,9 +74,7 @@ using namespace openblack;
 using namespace openblack::ecs;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::physics;
-using openblack::ecs::life::Kill;
 using openblack::ecs::life::LifeOf;
-using openblack::ecs::life::ReduceLife;
 
 namespace
 {
@@ -389,26 +385,6 @@ void AddRipple(const PhysicsObject& po)
 	AddWaterRing(ring);
 }
 
-/// Living::ReactToPhysicsImpact's damage: Object::ApplyEffect with the crush preset g_EffectInfo[3] (crush 1.0) x the
-/// object's defenceMultiplierCrush, then Object::ReduceLife. It dies at 0 (the dying states are not ported).
-void HurtByImpact(entt::entity entity, float damage)
-{
-	const bool villager = Locator::entitiesRegistry::value().AllOf<Villager>(entity);
-	const float life = ReduceLife(entity, damage);
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: {} hurt {:.3f}, life {:.2f}", villager ? "villager" : "animal", damage,
-	                   life);
-	if (life <= 0.0f)
-	{
-		if (Locator::entitiesRegistry::value().AllOf<Animal>(entity))
-		{
-			// Object::ApplyEffect -> Animal::DestroyedByEffect: SetDying (nothing while it flies, EndPhysics does it)
-			ecs::animal_ai::DestroyedByEffect(entity);
-			return;
-		}
-		Kill(entity, "impact");
-	}
-}
-
 /// ReactToPhysicsImpact (vt +0x7AC), per class. Returns false when the entry went away.
 bool ReactToPhysicsImpact(PhysicsObject& po)
 {
@@ -428,35 +404,6 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 		return Buildings::ReactToPhysicsImpact(entity, po);
 	}
 	const float g = po.GLoad();
-	// Animal::ReactToPhysicsImpact (0x41BC10): landing on an available food store it becomes food (info.foodValue)
-	if (const auto* animal = registry.TryGet<const Animal>(entity);
-	    animal != nullptr && po.hitBy != nullptr && registry.Valid(po.hitBy->entity) && registry.AllOf<StoragePit>(po.hitBy->entity) &&
-	    Locator::infoConstants::has_value())
-	{
-		const auto& info = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type));
-		const auto food = static_cast<uint32_t>(info.foodValue);
-		if (food > 0)
-		{
-			StoragePitStore::AddResource(po.hitBy->entity, ResourceType::Food, food);
-			ecs::animal_ai::Remove(entity);
-			return false;
-		}
-	}
-	if (registry.AnyOf<Villager, Animal>(entity))
-	{
-		// Living::ReactToPhysicsImpact 0x5ED3E0
-		if (g > 2.0f)
-		{
-			float multiplier = 1.0f;
-			if (const auto* animal = registry.TryGet<const Animal>(entity); animal != nullptr && Locator::infoConstants::has_value())
-			{
-				multiplier = Locator::infoConstants::value().animal.at(static_cast<size_t>(animal->type)).defenceMultiplierCrush;
-			}
-			HurtByImpact(entity, (g - 2.0f) * 0.03f * multiplier);
-			return registry.Valid(entity);
-		}
-		return true;
-	}
 	if (Rocks::IsRock(entity))
 	{
 		// Rock::ReactToPhysicsImpact 0x6E7930: not from another rock
@@ -494,48 +441,6 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 		entity = handlers.endPhysics(entity, po);
 		registry.SetDirty();
 		return entity;
-	}
-	if (registry.AllOf<Animal>(entity))
-	{
-		// Animal::EndPhysics (0x5F0D80): the landType from the body, back on the land (altitude 0) and out of the
-		// physics; LANDED, or dying / dead. There is no drowning for animals (only a sunk corpse goes, HasSunk).
-		// the landType is read from the turn-start matrix (po+0xD8), the heading from the current one
-		const auto rotation = po.body.Rotation();
-		auto& transform = registry.Get<Transform>(entity);
-		if (Locator::terrainSystem::has_value())
-		{
-			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
-		}
-		ecs::animal_ai::EndPhysics(entity, rotation, po.turnStartRotation);
-		registry.SetDirty();
-		return entt::null;
-	}
-	if (registry.AnyOf<Villager, Animal>(entity))
-	{
-		// Villager/Animal::EndPhysics: stands up where it landed (the three landing poses are not done yet)
-		auto& transform = registry.Get<Transform>(entity);
-		const auto forward = transform.rotation[2];
-		const float yaw = std::atan2(forward.x, forward.z);
-		// yaw is glm's angle, the game's -yaw; (inferido) the angle EndPhysics gives is not read
-		transform.rotation = lh_matrix::AngleY(-yaw);
-		if (Locator::terrainSystem::has_value())
-		{
-			transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
-		}
-		// 0x5F0BAF: MapCoords::IsWater of Pos (the cell's water bit, the shallow shore too; not the body's inWater)
-		if (ecs::sea_cells::IsWater(transform.position))
-		{
-			ecs::RememberLastPlayerToInteract(entity, po.byPlayer);
-			ecs::VillagerEndPhysicsInWater(entity);
-			return entt::null;
-		}
-		if (LifeOf(entity) <= 0.0f)
-		{
-			Kill(entity, "landed dead");
-			return entt::null;
-		}
-		// Villager::EndPhysics: LANDED, its landing clip, then deciding what to do
-		ecs::SetVillagerState(entity, VillagerStates::Landed);
 	}
 	if (registry.AllOf<Fragment>(entity))
 	{
@@ -1234,17 +1139,8 @@ PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVel
 	po->byPlayer = fromHand;
 	if (const auto& handlers = HandlersOf(entity); handlers.initialisePhysics)
 	{
+		// Living::InitialisePhysics(FromHand) of a villager or an animal: ECS/LivingPhysics
 		handlers.initialisePhysics(entity, *po, fromHand);
-	}
-	else if (po->villager)
-	{
-		// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
-		ecs::SetVillagerState(entity, VillagerStates::Flying);
-	}
-	else if (registry.AllOf<Animal>(entity))
-	{
-		// Living::InitialisePhysicsFromHand: FLYING, the species' THROWN clip
-		ecs::animal_ai::InitialisePhysics(entity);
 	}
 	g_Objects.push_back(std::move(po));
 	// Object::InitialisePhysics 0x637480: out of the map cells while it flies (IsObjectInMap vt +0x178 at 0x6374AC,

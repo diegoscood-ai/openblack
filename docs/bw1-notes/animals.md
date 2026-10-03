@@ -209,7 +209,7 @@ reactions in the same distribution (fire and teleport ported).
   deletes it (`SetDying`, state 15, `ToBeDeleted(0)`) — alive or carcass. In a shallow cell with water of altitude ≥ 2
   it lands **alive** (unlike the villager, who drowns); see
   [water.md](water.md#sinking-drowning-and-being-deleted). Dropping gently
-  over the sea already puts it into physics like the original; on land openblack still places it standing.
+  puts it into physics like the original, over the sea and on land (see [Differences and pending](#differences-and-pending)).
 - Death (`Living::SetDying` 0x5EC390, nothing while it is flying): DYING (falling clip) → DEAD (lying according to landType; the
   predators with the sleeping clip) 600 turns (never if a script controls it) → its smoke (`CreateSmokyStuff`, below) and it disappears. A thrown carcass
   goes back to DEAD with another 600.
@@ -298,7 +298,9 @@ gets up (LANDED) instead of dying; openblack puts it in LANDED when the 300 turn
 - **Villagers** (maps): the eaten one dies via `ecs::villager::VillagerDead`; `villager::IsAtHome` is awaited (V4, excluding
   from the prey those who are at home) and the list of shepherds (V10).
 - **Hand and physics** (water): `PlaceInHand`, `InitialisePhysics`, `EndPhysics`, `PutDown` (only for openblack's
-  bodiless case, `HandSystem::PlaceWithoutBody`; the original ends the physics immediately, 0x5EFDF8).
+  bodiless case, `physics::from_hand::PlaceWithoutBody`; the original ends the physics immediately, 0x5EFDF8). The
+  physics and the hand reach them through `ECS/LivingPhysics` (the Animal class's physics handlers and
+  `living::InterfaceSetInMagicHand`).
 
 ## Blobs and mesh of the animals
 

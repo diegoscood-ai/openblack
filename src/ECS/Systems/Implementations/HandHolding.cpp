@@ -60,6 +60,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/AnimalAI.h"
+#include "ECS/LivingPhysics.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Components/Sprite.h"
@@ -109,13 +110,8 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)
 	const bool caught = physics::PhysicsObjects::Find(entity) != nullptr;
 	physics::PhysicsObjects::RemoveObject(entity);
-	// Living::PlaceInHand: IN_HAND (its clip SCARED_STIFF, ECS/VillagerAnimations)
-	ecs::SetVillagerState(entity, VillagerStates::InHand);
-	// Animal::InterfaceSetInMagicHand: off its flock, IN_HAND
-	if (registry.AllOf<Animal>(entity))
-	{
-		ecs::animal_ai::PlaceInHand(entity);
-	}
+	// Living / Animal::InterfaceSetInMagicHand (ECS/LivingPhysics)
+	ecs::living::InterfaceSetInMagicHand(entity);
 	// Pot / PileResource::InterfaceSetInMagicHand: Pot::RemoveReaction
 	if (registry.AllOf<Pot>(entity))
 	{

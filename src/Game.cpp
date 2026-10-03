@@ -103,6 +103,7 @@
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 #include "Input/GameActionMapInterface.h"
+#include "Input/HandDemo.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
 #include "Magic/MagicLoop.h"
@@ -388,8 +389,12 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		rightMouseButton = event.type == SDL_MOUSEBUTTONDOWN;
 	}
 
-	_handGripping = middleMouseButton || leftMouseButton;
-	_handAction = rightMouseButton;
+	// A hand demo plays the recorded buttons (CMouse::ProcessButtons is skipped while it plays, 0x54C390)
+	if (!hand_demo::IsPlaying())
+	{
+		_handGripping = middleMouseButton || leftMouseButton;
+		_handAction = rightMouseButton;
+	}
 
 	auto& window = Locator::windowing::value();
 	auto& camera = Locator::camera::value();
@@ -677,8 +682,9 @@ bool Game::Update() noexcept
 		{
 			Locator::events::value().Create<SDL_Event>(e);
 		}
-		// CameraModeScript has no keys (CameraModeFollow::Update leaves at 0x44C3BD for it)
-		if (!script_camera::Drives())
+		// CameraModeScript has no keys (CameraModeFollow::Update leaves at 0x44C3BD for it); nor does a hand demo, which
+		// sets the camera from its records (CameraModeNew3 0x45D276 / 0x46057A)
+		if (!script_camera::Drives() && !hand_demo::IsPlaying())
 		{
 			camera.HandleActions(deltaTime);
 		}
@@ -803,6 +809,22 @@ bool Game::Update() noexcept
 			const auto scale = glm::vec3(50.0f, 50.0f, 50.0f);
 			if (screenSize.x > 0 && screenSize.y > 0)
 			{
+				// A hand demo (Input/HandDemo, fn_005DAEE0 from GInterface::Process): the recorded mouse (fn_0081E920, rounded),
+				// buttons and camera. GCamera::SetPositionAndFocus 0x4438C0 sets the camera's zoomers (here the script
+				// camera's) and LH3DTech::UpdateCamera 0x819920 the drawn camera; GCamera::Update skips its own while it
+				// plays (0x442614), so the record wins.
+				if (const auto demo = hand_demo::Update(game_clock::VisualMs()); demo)
+				{
+					_mousePosition = glm::ivec2(glm::vec2(screenSize) * demo->mouse + 0.5f);
+					_handGripping = demo->grip;
+					_handAction = demo->action;
+					if (demo->eye && demo->focus)
+					{
+						script_camera::SetPositionAndFocus(*demo->eye, *demo->focus);
+						camera.SetOrigin(*demo->eye);
+						camera.SetFocus(*demo->focus);
+					}
+				}
 				// Test hook: fixed cursor at a fraction of the window ("0.5,0.6"), for screenshots without the real mouse
 				if (const char* at = std::getenv("OPENBLACK_MOUSE_AT"); at != nullptr)
 				{

@@ -87,3 +87,65 @@ Each state has a "cursor state" (`GInterface+0x3AC`); IN THROW = **0x17**.
   immediately.
 - Rocks with a 2D radius > 3.6 cannot be lifted (`Rock::ValidForPlaceInHand`). Pressing on them strikes them and splits them in two; see [physics.md](physics.md).
 - The hand never calls `CanBePickedUp`; the gate is `GInterface::PlaceObjectInMagicHand` (0x5DA6F0).
+- **Influence.** Every ported class keeps `Object::InterfaceMustBeInInfluenceForInteraction` (0x4028A0 = 1; only
+  ScriptHighlight 0x709840 overrides it, not ported), so nothing is picked up, scooped or tapped with the action
+  position outside the player's influence (`GInterface +0x48`, fn_005D1120: `CalculatePlayerInfluence(pos, type 1,
+  allies) > 0`). The checks: `ActionPressed` fn_005D1330 before a locked select (piles, fields, fish farms);
+  `StartGrab` 0x5D1740 turns an object out of the influence (or not placeable) into a tap; `GenericPickup` 0x5D2800
+  checks again when the 225 ms grab completes; `SendTap` 0x5D38A0 refuses the tap. While scooping,
+  `GInterfaceStatus::Process` 0x5DC558 ends the locked select when the hand leaves the influence.
+- `IsCannotBePickedUp` (0x401A10, flag 0x2000) is checked by all of these too. **(not ported)**: its setters are
+  `GameOSFile::LoadInstance` 0x559999 and the puzzles (fn_006D71D0, HanoiBlock), none of which openblack has.
+
+## Tapping objects
+
+A short click (released within 225 ms), or a press on an object that cannot go into the hand, is a tap:
+`Tap` 0x5D3930 → `SendTap` 0x5D38A0 → packet 0x20 → 0x5DA650 → the class's `InterfaceValidToTap` (vt 0x740, Object
+0x4196B0 = 0) and `InterfaceTap` (vt 0x744). Villagers, animals and trees keep Object's defaults: they cannot be
+tapped. In openblack each owner registers its classes in `ecs::hand_tap` (`src/ECS/Systems/HandTap.h`):
+
+| Class | ValidToTap | Tap | Registered by |
+|---|---|---|---|
+| Rock | 0x6E7450 (height > 0.7) | 0x6E7480 (SplitInTwo, G_RockTap) | hand, through `Rocks::` (owner: physics) |
+| Abode | 0x406820 (always 1) | 0x406830 (knock on the roof) | hand, through `abodes::` (owner: buildings) |
+| SpellIcon | 0x7263C0 | 0x726430 | hand, through `worship::` |
+| OneOffSpellSeed | 0x72A630 (1) | 0x72A640 | hand, through `worship::` |
+
+**(not ported)**: CitadelEntrance 0x468EF0, PuzzleTotem 0x6DA610, Scaffold 0x6E9DD0, Reward 0x6E5D00,
+ScriptHighlight 0x70AC70, LeashObj 0x464490, MagicFireBall 0x682E50.
+
+## Hand demos
+
+The tutorial's hand demos (`Data\HandDemo\*.hnd`) replay recorded interface input through the real hand, and set the
+camera from each record. Full reverse engineering: `dev\documentacion\hand\handdemo\README.md`. openblack:
+`src/Input/HandDemo.{h,cpp}` (`hand_demo::Play / IsPlaying / ConsumeTrigger / End / EndIfTask / Update`); the script
+opcodes are wired by the intro session.
+
+- `PLAY_HAND_DEMO(string, waitTrigger, keepHand)` 0x6FDAD0: `.\Data\HandDemo\%s.hnd`, where the name is the CHL string
+  itself (challenge.chl offset 279 = "drag"). Then `GInterface::StartPlayBack` 0x5DAD60:
+  - without keepHand, it drops the held object (fn_005D4350) and cancels the spells being charged;
+  - it sets the game speed to 1, turns the widescreen on (`HelpSystem::SetWideScreen(1, 0)`) and snaps it (fn_005C6C40);
+  - it processes the first record at once.
+- `IS_PLAYING_HAND_DEMO` 0x6FDB80 pushes **not** `IsPlayBack(0)`. `HAND_DEMO_TRIGGER` 0x6FE280 reads and clears the
+  pending trigger. `SET_HAND_DEMO_KEYS` 0x709540 is an empty `ret`.
+- **File:** no header. Records are 124 bytes:
+  - +0 the message: 0 mouse move, 1/2 grab down/up, 3/4 action down/up;
+  - +0x34 the mouse (normalised);
+  - +0x3C the camera eye and +0x48 its focus;
+  - +0x5C the trigger (**(inferred)** the space key);
+  - +0x60 the game ms (g_game +0x25053C).
+- **Playback** (fn_005DAEE0, every frame from GInterface::Process):
+  - every record that is due is applied, in order, at the visual clock;
+  - while waiting for the trigger with one pending, the time stands still;
+  - message 0 moves the mouse; the camera goes through `GCamera::SetPositionAndFocus` 0x4438C0 and
+    `LH3DTech::UpdateCamera` 0x819920;
+  - the end of the file ends the demo.
+  - The real buttons (0x54C390), the real mouse and the camera keys are blocked meanwhile.
+- **(approximate)**: openblack's hand reads the button state once a frame, so a press and a release in the same frame
+  would be lost.
+- **(pending)**:
+  - the recorded throw information (CHand +0x48C8);
+  - finding the target object of an action message again within 3 m (FindNearPos 0x6F7280);
+  - GInterface::SetActive (intro's InterfaceActive).
+- **(not ported)**: the camera tricon flags (+0x54 / +0x58).
+- **Test hook:** `OPENBLACK_TEST_HAND_DEMO=<name>` plays `Data\HandDemo\<name>.hnd` once the landscape exists.

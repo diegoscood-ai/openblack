@@ -10,6 +10,7 @@
 #define LOCATOR_IMPLEMENTATIONS
 
 #include "HandSystem.h"
+#include "Input/HandDemo.h"
 #include "HandSystemDetail.h"
 
 #include <glm/gtc/constants.hpp>
@@ -114,6 +115,11 @@ void HandSystem::RunDebugHooks() noexcept
 {
 	ecs::RunSeaDebugHooks(); // OPENBLACK_TEST_SEA
 	ecs::RunSharkDebugHook(); // OPENBLACK_TEST_SHARK
+	// OPENBLACK_TEST_HAND_DEMO=<name>: PLAY_HAND_DEMO(name, 0, 0) at once (Data\HandDemo\<name>.hnd, Input/HandDemo)
+	if (const char* demo = std::getenv("OPENBLACK_TEST_HAND_DEMO"); demo != nullptr)
+	{
+		hand_demo::Play(demo, 0, false, false);
+	}
 	if (const char* at = std::getenv("OPENBLACK_HAND_TEST_ROCK"); at != nullptr)
 	{
 		float x = 0.0f;

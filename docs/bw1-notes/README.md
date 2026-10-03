@@ -1,131 +1,131 @@
-# Notas de Black & White 1 para openblack (rama local `local/hand-hbn`)
+# Black & White 1 notes for openblack (local branch `local/hand-hbn`)
 
-Guía de lo descubierto al reconstruir el comportamiento original a partir de `runblack.exe` (v1.42 no oficial sobre
-v1.20, disposición W120) y de los datos originales, y de cómo lo hace openblack. Todo lo que aquí se afirma está
-verificado en el ejecutable o medido, salvo donde se marca **(inferido)** o **(aproximado)**.
+Guide to what was discovered while rebuilding the original behaviour from `runblack.exe` (unofficial v1.42 on top of
+v1.20, W120 layout) and from the original data, and to how openblack does it. Everything stated here is
+verified in the executable or measured, except where marked **(inferred)** or **(approximate)**.
 
-Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
+**Local-only** project: nothing is published (no push, no PRs, no forks).
 
-- [Páginas por área](#páginas-por-área)
-- [¿Dónde busco…?](#dónde-busco)
-- [Cómo están escritas las páginas](#cómo-están-escritas-las-páginas)
-- [Filosofía](#filosofía)
-- [Referencias externas locales](#referencias-externas-locales)
+- [Pages by area](#pages-by-area)
+- [Where do I look for…?](#where-do-i-look-for)
+- [How the pages are written](#how-the-pages-are-written)
+- [Philosophy](#philosophy)
+- [Local external references](#local-external-references)
 
-## Páginas por área
+## Pages by area
 
-**Herramientas y base del motor**
+**Tools and engine basics**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [tooling.md](tooling.md) | Desensamblado, símbolos, herramientas de openblack, formatos de datos, LND y mapas de BWLandEditor |
-| [engine-math.md](engine-math.md) | Coordenadas (MapCoords 16.16, celdas, InBounds, espiral: `ecs::map_coords`), distancias y sigmoides de GUtils (`gutils`), tamaño de los objetos (radio 2D, altura y redefiniciones: `ecs::object`), reloj del juego (turno, fracción, dt, pausa: `game_clock`), altura del terreno, matrices LH, Zoomer |
-| [openblack-internals.md](openblack-internals.md) | Dónde está cada cosa en el código, compilar, tests, ganchos de prueba, depurar cierres, trampas (Vulkan, makeRef), commits con varias sesiones |
+| [tooling.md](tooling.md) | Disassembly, symbols, openblack tools, data formats, LND and BWLandEditor maps |
+| [engine-math.md](engine-math.md) | Coordinates (MapCoords 16.16, cells, InBounds, spiral: `ecs::map_coords`), GUtils distances and sigmoids (`gutils`), object size (2D radius, height and overrides: `ecs::object`), game clock (turn, fraction, dt, pause: `game_clock`), terrain height, LH matrices, Zoomer |
+| [openblack-internals.md](openblack-internals.md) | Where everything is in the code, building, tests, test hooks, debugging crashes, pitfalls (Vulkan, makeRef), commits with several sessions |
 
-**La mano y los objetos**
+**The hand and objects**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [hand-and-interface.md](hand-and-interface.md) | Mano: colocación, estados, agarre, lanzamiento, objeto bajo el cursor |
-| [objects-and-resources.md](objects-and-resources.md) | Montones y vasijas, coger por tandas, almacén, objetos estáticos y rocas, campos, sonidos (coger, LHAudio y QMixer, canales, ambiente) |
-| [trees.md](trees.md) | Árboles y bosques: arrancar y el tirón, reglas de coger, soltar y replantar, madera y GTreeInfo, API para los oficios de aldeano, búsquedas, crecimiento, dibujado, fuego del árbol, sacrificio |
-| [map-loading.md](map-loading.md) | Carga del mapa y funciones del guion: CREATE de CHL, niebla del mapa, rebaños y animales, datos de simulación, piscifactorías, `BUILT_PERCENTAGE`, objetos del guion (farolas, hogueras, árboles muertos, puertas, ciudadela planeada), `IsOkToCreateAtPos`, ciudades y ciudadela |
-| [physics.md](physics.md) | Físicas del original: objetos lanzados, choques, daño, flotación, soltar desde la mano, edificios y rocas que se rompen |
+| [hand-and-interface.md](hand-and-interface.md) | Hand: placement, states, grabbing, throwing, object under the cursor |
+| [objects-and-resources.md](objects-and-resources.md) | Piles and pots, picking up in batches, store, static objects and rocks, fields, sounds (pick-up, LHAudio and QMixer, channels, ambience) |
+| [trees.md](trees.md) | Trees and forests: uprooting and the tug, pick-up rules, dropping and replanting, wood and GTreeInfo, API for villager jobs, searches, growth, drawing, tree fire, sacrifice |
+| [map-loading.md](map-loading.md) | Map loading and script functions: CHL CREATE, map fog, herds and animals, simulation data, fish farms, `BUILT_PERCENTAGE`, script objects (street lamps, bonfires, dead trees, gates, planned citadel), `IsOkToCreateAtPos`, towns and citadel |
+| [physics.md](physics.md) | Original physics: thrown objects, collisions, damage, floating, dropping from the hand, buildings and rocks that break |
 
-**Seres vivos**
+**Living beings**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [animation.md](animation.md) | Aldeanos y animales: clips ANM, qué clip por estado, velocidad, tamaño, índice de creación, sonidos de los clips, objetos en la mano, dibujo entre turnos |
-| [villagers.md](villagers.md) | Aldeanos: campos del original, flags +0xE0, creación, cambios de estado (SetTopState / SetCurrentAndDestinationState), saltos de la velocidad, supuestos |
-| [animals.md](animals.md) | Animales: IA completa del original (herbívoros, depredadores y caza, aves, reacciones, bandadas, edad, mano, física, muerte, aldeanos como presa), clips por especie, diferencias que quedan |
+| [animation.md](animation.md) | Villagers and animals: ANM clips, which clip per state, speed, size, creation index, clip sounds, objects in the hand, drawing between turns |
+| [villagers.md](villagers.md) | Villagers: original fields, +0xE0 flags, creation, state changes (SetTopState / SetCurrentAndDestinationState), speed jumps, assumptions |
+| [animals.md](animals.md) | Animals: complete original AI (herbivores, predators and hunting, birds, reactions, flocks, age, hand, physics, death, villagers as prey), clips per species, remaining differences |
 
-**Mundo, tiempo y gráficos**
+**World, time and graphics**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [day-night-weather.md](day-night-weather.md) | Reloj de día y noche (hora visual y de guion, ciclo, guiones), luces de noche, clima; tiempo y clima del juego (LH3DAtmos, GClimate, tormentas, lluvia) |
-| [rendering.md](rendering.md) | Render del mundo: estados D3D, terreno y small bump, mar y costa, tabla de luz, neblina, cámara, sombras sobre el terreno, cielo y nubes, ríos, fundido, fuentes y texto, niebla del mapa, neblina y luz de la tierra (`graphics::haze`, `land_light`, sellos de luz y sombra) |
-| [rendering-objects.md](rendering-objects.md) | Render de los modelos: materiales L3D, luz de los modelos, texturas, sprites, manchas, reflejos en el mar, cortes por el plano del agua, bancos de peces, sombras de objetos y de la mano, LOD, humo de las chimeneas; los sistemas comunes: cola de transparentes (`graphics::zsorter`), objetos a cámara (`graphics::billboard`), texturas animadas (`graphics::frame_anim`), mallas pegadas al suelo (`land_morph`), modos de render (`graphics::render_modes`) |
-| [parity.md](parity.md) | Tabla de paridad del motor gráfico: cada etapa del original y su estado en openblack |
-| [original-frame.md](original-frame.md) | Mapa del fotograma original (orden de dibujo, modos de render, estados, niveles de detalle) |
-| [audio.md](audio.md) | Motor de audio (GAudio, LHaudio, QMixer, capas de openblack), bancos y formatos (.sad, .sas, música MP2), música (LHMusic, GameMusic), voces y textos, CHL de audio, fase A hecha y fases B/C |
-| [water.md](water.md) | El agua en el juego: celdas de agua (SeaCells), consultas (costa, río y agua potable) y máscara `LandAvoid`, el agua en los guiones, golpes y caídas al agua, hundirse y ahogarse, anillos, tiburones, puzle de los peces, barco de los misioneros, cascada y arca, audio del agua |
-| [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: cámaras `Cam%d`, pistas `Track%d` (`LH3DWay`), `WALK_PATH` de los MobileObject (tiburones) |
-| [script-camera.md](script-camera.md) | Cámara del guion: zoomers de GCamera, CameraModeScript, regla de llegada, opcodes CHL de cámara, FOV, soltar el control |
-| [video.md](video.md) | Vídeos Bink (.bik): los cinco vídeos y cuándo sale cada uno, `LHVideoPlayer`, la copia a 16 bits (555/565), ritmo, pausa, pantalla ancha, fundido, ESC, el mundo 3D sin dibujar, el audio de cada vídeo; `video::VideoPlayer` y el plan V3..V8 |
+| [day-night-weather.md](day-night-weather.md) | Day and night clock (visual and script time, cycle, scripts), night lights, weather; game time and weather (LH3DAtmos, GClimate, storms, rain) |
+| [rendering.md](rendering.md) | World rendering: D3D states, terrain and small bump, sea and coast, light table, haze, camera, shadows on the terrain, sky and clouds, rivers, fade, fonts and text, map fog, land haze and light (`graphics::haze`, `land_light`, light and shadow stamps) |
+| [rendering-objects.md](rendering-objects.md) | Model rendering: L3D materials, model lighting, textures, sprites, splats, reflections in the sea, clipping by the water plane, fish shoals, object and hand shadows, LOD, chimney smoke; the shared systems: transparent queue (`graphics::zsorter`), camera-facing objects (`graphics::billboard`), animated textures (`graphics::frame_anim`), ground-hugging meshes (`land_morph`), render modes (`graphics::render_modes`) |
+| [parity.md](parity.md) | Graphics engine parity table: each stage of the original and its status in openblack |
+| [original-frame.md](original-frame.md) | Map of the original frame (draw order, render modes, states, levels of detail) |
+| [audio.md](audio.md) | Audio engine (GAudio, LHaudio, QMixer, openblack layers), banks and formats (.sad, .sas, MP2 music), music (LHMusic, GameMusic), voices and texts, audio CHL, phase A done and phases B/C |
+| [water.md](water.md) | Water in the game: water cells (SeaCells), queries (coast, river and drinking water) and the `LandAvoid` mask, water in the scripts, hits and falls into the water, sinking and drowning, rings, sharks, the fish puzzle, the missionaries' boat, waterfall and ark, water audio |
+| [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: `Cam%d` cameras, `Track%d` tracks (`LH3DWay`), `WALK_PATH` of the MobileObjects (sharks) |
+| [script-camera.md](script-camera.md) | Script camera: GCamera zoomers, CameraModeScript, arrival rule, camera CHL opcodes, FOV, releasing control |
+| [video.md](video.md) | Bink videos (.bik): the five videos and when each one plays, `LHVideoPlayer`, the 16-bit copy (555/565), pacing, pause, widescreen, fade, ESC, the 3D world not being drawn, the audio of each video; `video::VideoPlayer` and the V3..V8 plan |
 
-**Magia**
+**Magic**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [magic.md](magic.md) | Núcleo de la magia: tablas de info.dat, ciclo de vida de los hechizos, cánticos, eventos y efectos, reglas de lanzamiento, semillas y milagros de un uso, lanzar desde la mano y gestos, culto y poder de oración, influencia, alineación, reacciones, vida, modelo del fuego, orden en el turno; suposiciones auditadas |
-| [miracles.md](miracles.md) | Cada milagro: comida y madera, agua, curar, bosque, bandadas, bola de fuego y rayo, escudos, teletransporte, tormenta y tornado, explosión de rayo; los de la criatura (pendientes) |
-| [particles.md](particles.md) | Motor de partículas (PSys): tipos de partícula, registro de clases, PSys enlazado al hechizo, jerarquías, creadores (mallas, cadenas, mapas de luz, niebla), sonido de las partículas, índice de reglas |
+| [magic.md](magic.md) | Magic core: info.dat tables, spell life cycle, chants, events and effects, casting rules, seeds and single-use miracles, casting from the hand and gestures, worship and prayer power, influence, alignment, reactions, life, fire model, order within the turn; audited assumptions |
+| [miracles.md](miracles.md) | Each miracle: food and wood, water, heal, forest, flocks, fireball and lightning, shields, teleport, storm and tornado, lightning explosion; the creature's ones (pending) |
+| [particles.md](particles.md) | Particle engine (PSys): particle types, class registry, PSys linked to the spell, hierarchies, creators (meshes, chains, light maps, fog), particle sound, index of rules |
 
 **Mods**
 
-| Página | Contenido |
+| Page | Contents |
 |---|---|
-| [mod-library.md](mod-library.md) | Librería de mods: menú, `settings.cfg`, `--mod`, tipos de mod, cómo programar uno, catálogo |
-| [mods.md](mods.md) | El `AllMeshes.g3d` modificado de la instalación y el mod HD-Tweaks |
+| [mod-library.md](mod-library.md) | Mod library: menu, `settings.cfg`, `--mod`, mod types, how to write one, catalogue |
+| [mods.md](mods.md) | The modified `AllMeshes.g3d` of the installation and the HD-Tweaks mod |
 
-**En camino** (plan `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md`): `villagers.md` (oficios de los aldeanos).
+**Coming up** (plan `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md`): `villagers.md` (villager jobs).
 
-## ¿Dónde busco…?
+## Where do I look for…?
 
-| Tema | Página |
+| Topic | Page |
 |---|---|
-| Una dirección o símbolo de `runblack.exe`, los scripts de desensamblado | [tooling.md](tooling.md) |
-| Altura del terreno, coordenadas, matrices, radio y altura de los objetos, el turno y el dt del fotograma | [engine-math.md](engine-math.md) |
-| Coger, soltar, lanzar, el cursor | [hand-and-interface.md](hand-and-interface.md) |
-| Comida y madera, almacén, campos | [objects-and-resources.md](objects-and-resources.md) |
-| Árboles y bosques (tirón, replantar, crecimiento, fuego, sacrificio) | [trees.md](trees.md) |
-| Qué crea el guion del mapa (CHL), nieblas, rebaños, farolas, ciudades | [map-loading.md](map-loading.md) |
-| Golpes, daño, edificios que se rompen, soltar desde la mano | [physics.md](physics.md) |
-| Animaciones y velocidad de aldeanos y animales | [animation.md](animation.md) |
-| Datos y estados de los aldeanos | [villagers.md](villagers.md) |
-| Comportamiento de los animales | [animals.md](animals.md) |
-| Hora del día, ventanas iluminadas, clima, tormentas, lluvia | [day-night-weather.md](day-night-weather.md) |
-| Cómo se dibuja el mundo (terreno, mar, cielo); si ya está como el original | [rendering.md](rendering.md), [parity.md](parity.md) |
-| Cómo se dibuja un modelo (materiales, luz, reflejos, sombras, sprites, humo) | [rendering-objects.md](rendering-objects.md) |
-| Qué API usar para un billboard, una textura animada, algo pegado al suelo, un modo de mezcla o el orden de transparentes (no escribirlo a mano) | [rendering-objects.md](rendering-objects.md) (secciones de cada sistema), [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común) |
-| Orden del fotograma original | [original-frame.md](original-frame.md) |
-| Magia: hechizos y cánticos, lanzar desde la mano, gestos, culto, influencia, alineación, reacciones, fuego | [magic.md](magic.md) |
-| Un milagro concreto (comida, agua, curar, bosque, bandadas, bola de fuego, rayo, escudos, teletransporte, tormenta, explosión de rayo) | [miracles.md](miracles.md) |
-| Partículas: tipos, clases de PSys, creadores, sonido de las partículas, qué regla está dónde | [particles.md](particles.md) |
-| Qué celda es agua; costa, río o agua potable más cercana; `LandAvoid` de la criatura | [water.md](water.md#celdas-de-agua-seacells) |
-| Hundirse y ahogarse, tiburones, puzle de los peces, barco de los misioneros, cascada, qué suena en el agua | [water.md](water.md) |
-| Cámaras y pistas de `camera.edt`, recorridos de los tiburones | [camera-tracks.md](camera-tracks.md) |
-| Cómo mueve el guion la cámara (MOVE_CAMERA_*, HAS_CAMERA_ARRIVED, lentes) | [script-camera.md](script-camera.md) |
-| El vídeo de la introducción o de la caída del hechizo, saltarlo con ESC, los .bik | [video.md](video.md) |
-| Activar o programar un mod | [mod-library.md](mod-library.md) |
-| Ganchos de prueba (`OPENBLACK_*`), compilar, depurar | [openblack-internals.md](openblack-internals.md) y la sección «Ganchos de prueba» de cada página |
+| An address or symbol of `runblack.exe`, the disassembly scripts | [tooling.md](tooling.md) |
+| Terrain height, coordinates, matrices, object radius and height, the turn and the frame dt | [engine-math.md](engine-math.md) |
+| Picking up, dropping, throwing, the cursor | [hand-and-interface.md](hand-and-interface.md) |
+| Food and wood, store, fields | [objects-and-resources.md](objects-and-resources.md) |
+| Trees and forests (tug, replanting, growth, fire, sacrifice) | [trees.md](trees.md) |
+| What the map script (CHL) creates, fogs, herds, street lamps, towns | [map-loading.md](map-loading.md) |
+| Hits, damage, buildings that break, dropping from the hand | [physics.md](physics.md) |
+| Animations and speed of villagers and animals | [animation.md](animation.md) |
+| Villager data and states | [villagers.md](villagers.md) |
+| Animal behaviour | [animals.md](animals.md) |
+| Time of day, lit windows, weather, storms, rain | [day-night-weather.md](day-night-weather.md) |
+| How the world is drawn (terrain, sea, sky); whether it already matches the original | [rendering.md](rendering.md), [parity.md](parity.md) |
+| How a model is drawn (materials, lighting, reflections, shadows, sprites, smoke) | [rendering-objects.md](rendering-objects.md) |
+| Which API to use for a billboard, an animated texture, something stuck to the ground, a blend mode or the transparent order (do not hand-write it) | [rendering-objects.md](rendering-objects.md) (sections for each system), [rendering.md](rendering.md#haze-and-land-light-the-common-api) |
+| Order of the original frame | [original-frame.md](original-frame.md) |
+| Magic: spells and chants, casting from the hand, gestures, worship, influence, alignment, reactions, fire | [magic.md](magic.md) |
+| A specific miracle (food, water, heal, forest, flocks, fireball, lightning, shields, teleport, storm, lightning explosion) | [miracles.md](miracles.md) |
+| Particles: types, PSys classes, creators, particle sound, which rule is where | [particles.md](particles.md) |
+| Which cell is water; nearest coast, river or drinking water; the creature's `LandAvoid` | [water.md](water.md#water-cells-seacells) |
+| Sinking and drowning, sharks, the fish puzzle, the missionaries' boat, waterfall, what sounds in the water | [water.md](water.md) |
+| Cameras and tracks of `camera.edt`, shark routes | [camera-tracks.md](camera-tracks.md) |
+| How the script moves the camera (MOVE_CAMERA_*, HAS_CAMERA_ARRIVED, lenses) | [script-camera.md](script-camera.md) |
+| The intro video or the spell-drop video, skipping it with ESC, the .bik files | [video.md](video.md) |
+| Enabling or writing a mod | [mod-library.md](mod-library.md) |
+| Test hooks (`OPENBLACK_*`), building, debugging | [openblack-internals.md](openblack-internals.md) and the «Test hooks» section of each page |
 
-## Cómo están escritas las páginas
+## How the pages are written
 
-Cada página empieza con qué cubre y un índice. Cada tema lleva su estado: **fiel** (verificado en el original),
-**(aproximado)**, **(inferido)**, **mod/propio** o **pendiente**. Al final: **Pendiente**, **Ganchos de prueba** y
-**Fuentes** (informes de `C:\Users\diewgarc\dev\documentacion\…`). Un tema vive en una sola página; las demás enlazan.
-Nunca se borran direcciones ni cifras al editar. Detalle en `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md` §2.
+Each page starts with what it covers and an index. Each topic carries its status: **faithful** (verified in the original),
+**(approximate)**, **(inferred)**, **mod/own** or **pending**. At the end: **Pending**, **Test hooks** and
+**Sources** (reports in `C:\Users\diewgarc\dev\documentacion\…`). A topic lives on a single page; the others link to it.
+Addresses and figures are never deleted when editing. Details in `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md` §2.
 
-## Filosofía
+## Philosophy
 
-1. Primero todo lo original, verificado en el ejecutable: openblack es una réplica, sin suposiciones. Cada constante o
-   regla lleva su dirección o su dato de origen; lo que no se puede leer se marca y se dice.
-2. Lo que se aparte del original va como **mod**, desactivado por defecto, en la librería de mods (`src/Mods/`,
-   menú **Mods** del juego, [mod-library.md](mod-library.md)). No confundir con el `AllMeshes.g3d` modificado de la
-   instalación ([mods.md](mods.md)).
-3. Verificar antes de dar algo por bueno: compilar, tests y capturas automáticas (sin ratón si el usuario está usando
-   el PC).
-4. Varias sesiones trabajan a la vez: directrices en `C:\Users\diewgarc\dev\TEAM_GUIDELINES.md`, protocolo de build y
-   commits en `BUILD_PROTOCOL.md` y tablero en `TEAM_STATUS.md` (misma carpeta).
+1. First everything original, verified in the executable: openblack is a replica, with no assumptions. Every constant or
+   rule carries its address or its source data; what cannot be read is marked and stated.
+2. Whatever departs from the original goes in as a **mod**, disabled by default, in the mod library (`src/Mods/`,
+   the game's **Mods** menu, [mod-library.md](mod-library.md)). Not to be confused with the modified `AllMeshes.g3d` of the
+   installation ([mods.md](mods.md)).
+3. Verify before accepting something as good: build, tests and automatic screenshots (without the mouse if the user is using
+   the PC).
+4. Several sessions work at the same time: guidelines in `C:\Users\diewgarc\dev\TEAM_GUIDELINES.md`, build and
+   commit protocol in `BUILD_PROTOCOL.md` and board in `TEAM_STATUS.md` (same folder).
 
-## Referencias externas locales
+## Local external references
 
-- `C:\Users\diewgarc\dev\bw1-decomp`: decompilación coincidente de openblack/bw1-decomp; `config\BW1W120\symbols.txt`
-  da nombres a las direcciones.
-- `C:\Users\diewgarc\dev\decomp_pickup`: pseudo-C++ reconstruido de la mano, la interfaz y los objetos
-  (`hand.cpp`, `interface.cpp`, `objects.cpp`, `multi.cpp` y sus `NOTES_*.md`).
-- `C:\Users\diewgarc\dev\documentacion`: scripts de desensamblado, volcados e informes por tema.
-- `C:\Users\diewgarc\dev\herramientas`: herramientas propias (scripts `lnd_*`, capturas, Real-ESRGAN).
+- `C:\Users\diewgarc\dev\bw1-decomp`: matching decompilation from openblack/bw1-decomp; `config\BW1W120\symbols.txt`
+  gives names to the addresses.
+- `C:\Users\diewgarc\dev\decomp_pickup`: reconstructed pseudo-C++ of the hand, the interface and the objects
+  (`hand.cpp`, `interface.cpp`, `objects.cpp`, `multi.cpp` and their `NOTES_*.md`).
+- `C:\Users\diewgarc\dev\documentacion`: disassembly scripts, dumps and reports by topic.
+- `C:\Users\diewgarc\dev\herramientas`: own tools (`lnd_*` scripts, screenshots, Real-ESRGAN).

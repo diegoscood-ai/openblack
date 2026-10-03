@@ -1,1610 +1,1610 @@
-# Coordenadas, terreno, tamaño de los objetos, reloj del juego, matrices y Zoomer
+# Coordinates, terrain, object size, game clock, matrices and Zoomer
 
-Matemáticas básicas del motor original (LH3D) y cómo se portan a openblack: el punto fijo de las posiciones, con sus
-celdas y su espiral; las distancias y sigmoides de `GUtils`; el reloj del juego; la altura exacta del terreno; la
-normal del terreno; las matrices LH; el tamaño de los objetos (radio 2D y altura), y el interpolador `Zoomer`. Todo es **fiel** (verificado
-en el ejecutable) y está portado, salvo lo que se marca en [Pendiente](#pendiente).
+Basic mathematics of the original engine (LH3D) and how they are ported to openblack: the fixed point of positions, with its
+cells and its spiral; the `GUtils` distances and sigmoids; the game clock; the exact terrain height; the
+terrain normal; the LH matrices; object size (2D radius and height), and the `Zoomer` interpolator. Everything is **faithful** (verified
+in the executable) and ported, except what is marked in [Pending](#pending).
 
-- [MapCoords](#mapcoords): punto fijo, celdas, `InBounds`, vecinos y espiral (`ecs::map_coords`)
-- [Distancias de GUtils](#distancias-de-gutils): raíz de tabla, `hypotenuse`, `GetDistanceInMetres`,
-  `FastDistance` y las sigmoides (`gutils`)
-- [Ángulos de GUtils](#ángulos-de-gutils): `LHArcTan`, las tablas COS/SIN, las conversiones, del ángulo a una
-  posición, la diferencia y el sentido (`gutils`), y los puntos alrededor de un objeto (`ecs::object`)
-- [Tamaño de los objetos](#tamaño-de-los-objetos): radio 2D, radio y altura, con las redefiniciones de las clases y
-  las derivadas, a nivel de malla y de objeto (`ecs::object`)
-- [Reloj del juego](#reloj-del-juego): el turno, los ms del turno, la fracción, el dt del fotograma, la pausa y la
-  velocidad (`game_clock`)
-- [Listas de objetos por celda](#listas-de-objetos-por-celda-ecsmap_cells): las dos listas ordenadas de cada celda,
-  las celdas de un objeto, las búsquedas y el recorrido de las ciudades (`ecs::map_cells`)
-- [Altura del terreno](#altura-del-terreno)
-- [Normal del terreno](#normal-del-terreno): `LH3DIsland::GetNormal` y sus dos tablas (`land_normal`)
-- [Matrices LH](#matrices-lh): los constructores de LHMatrix, la inversa y el modelo (`lh_matrix`)
-- [Zoomer (LH3DLib)](#zoomer-lh3dlib): `Zoomer` y `Zoomer3d`, exactos al bit
-- [Números aleatorios (`game_random`)](#números-aleatorios-game_random): LHRand, las dos semillas de GRand, los
-  flujos del PSys y el `rand()` de la CRT
-- [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
+- [MapCoords](#mapcoords): fixed point, cells, `InBounds`, neighbours and spiral (`ecs::map_coords`)
+- [GUtils distances](#gutils-distances): table root, `hypotenuse`, `GetDistanceInMetres`,
+  `FastDistance` and the sigmoids (`gutils`)
+- [GUtils angles](#gutils-angles): `LHArcTan`, the COS/SIN tables, the conversions, from an angle to a
+  position, the difference and the direction (`gutils`), and the points around an object (`ecs::object`)
+- [Object size](#object-size): 2D radius, radius and height, with the class overrides and
+  the derived ones, at mesh level and at object level (`ecs::object`)
+- [Game clock](#game-clock): the turn, the turn's ms, the fraction, the frame dt, the pause and the
+  speed (`game_clock`)
+- [Object lists per cell](#object-lists-per-cell-ecsmap_cells): the two sorted lists of each cell,
+  the cells of an object, the searches and the town traversal (`ecs::map_cells`)
+- [Terrain height](#terrain-height)
+- [Terrain normal](#terrain-normal): `LH3DIsland::GetNormal` and its two tables (`land_normal`)
+- [LH matrices](#lh-matrices): the LHMatrix constructors, the inverse and the model (`lh_matrix`)
+- [Zoomer (LH3DLib)](#zoomer-lh3dlib): `Zoomer` and `Zoomer3d`, bit-exact
+- [Random numbers (`game_random`)](#random-numbers-game_random): LHRand, the two GRand seeds, the
+  PSys streams and the CRT `rand()`
+- [Pending](#pending), [Test hooks](#test-hooks), [Sources](#sources)
 
 ## MapCoords
 
-✅ Fiel y portado en `src/ECS/MapCoords.{h,cpp}`, namespace `openblack::ecs::map_coords` (sesión «sistemas2»,
-2026-10-01). Es la única representación de posición en el mapa del original y la usa todo: hay 136 llamadas al
-constructor `MapCoords(LHPoint)`, 196 a `GetLHPoint`, 71 a `ToMap`, 80 a `InBounds` y 58 a `GUtils::Spiral`.
+✅ Faithful and ported in `src/ECS/MapCoords.{h,cpp}`, namespace `openblack::ecs::map_coords` («sistemas2» session,
+2026-10-01). It is the original's only representation of a position on the map and everything uses it: there are 136 calls to the
+`MapCoords(LHPoint)` constructor, 196 to `GetLHPoint`, 71 to `ToMap`, 80 to `InBounds` and 58 to `GUtils::Spiral`.
 
-**Estructura** (bw1-decomp `MapCoords.h`): `{int32 x (+0), int32 z (+4), float altitude (+8)}`. x y z van en 16.16: la
-palabra alta es la celda de 10 m y la baja la fracción (una celda = 0x10000). `altitude` es la altura **sobre el
-suelo**; la absoluta es `GetAltitude(pos) + altitude`. `JustMapXZ = {int16 x, z}` es un paso de celdas.
+**Structure** (bw1-decomp `MapCoords.h`): `{int32 x (+0), int32 z (+4), float altitude (+8)}`. x and z are in 16.16: the
+high word is the 10 m cell and the low word the fraction (one cell = 0x10000). `altitude` is the height **above the
+ground**; the absolute one is `GetAltitude(pos) + altitude`. `JustMapXZ = {int16 x, z}` is a step in cells.
 
-**La FPU va a 24 bits** (fn_007DEE00, `and 0xFCFF` en 0x7DEE0D; se llama en `pc_main` y en cada `GGame::EndTurn`).
-Por eso cada producto se redondea a float. La réplica exacta es `(int32)(m * 6553.6f)` hecho en float. Hacer el
-producto en double da ±1 unidad (0,15 mm) en el 41 % de los valores.
+**The FPU runs at 24 bits** (fn_007DEE00, `and 0xFCFF` at 0x7DEE0D; called in `pc_main` and in every `GGame::EndTurn`).
+That is why every product is rounded to float. The exact replica is `(int32)(m * 6553.6f)` done in float. Doing the
+product in double gives ±1 unit (0.15 mm) in 41 % of the values.
 
-| API (`ecs::map_coords`) | Original | Qué hace |
+| API (`ecs::map_coords`) | Original | What it does |
 |---|---|---|
-| `k_FixedPerMetre` = 6553.6f | [0x8AC400] = 0x45CCCCCD (6553.60009765625) | metros → 16.16 |
-| `k_MetresPerFixed` = 10/65536 | [0x8AA3A4] = 0x39200000, exacto | 16.16 → metros |
-| `k_MapCells` = 512 | g_game+0x59C4 / +0x59C8 (`GMap::Init(0x200, 0x200)`, 0x6014C8 / 0x6014F1) | celdas por lado |
-| `ToFixed(m)` | `fld; fmul [0x8AC400]; __ftol` 0x7A1400 (`Set` 0x603346..0x603367, 258 copias en línea) | trunca hacia 0 |
-| `ToMetres(f)` | `fild; fmul [0x8AA3A4]` (`GetLHPoint` 0x605C40 = `ConvertToLHPoint` 0x6041C0) | un solo redondeo (con más de 2^24, un `(float)f` previo redondearía dos veces) |
-| `ToFixedGUtils(m)` | `fmul 65536 [0x8AC408]; fdiv 10 [0x99A1BC]; __ftol` (0x74D52F, 0x74D595, 0x74D85A … 0x74F3A3; `MapCoords::SetX` de bw1-decomp) | **otra** función: 1464 m da 9594470, y `ToFixed` da 9594471 |
-| `Quantise(m)` | `ToMetres(ToFixed(m))` | la posición tal como la guarda un MapCoords; **no es idempotente** (`ToFixed(ToMetres(8090858))` = 8090857, como en el original) |
-| `CellOf(f)`, `CellX`/`CellZ`, `Cell`, `CellOf(vec2/vec3)` | `xor; mov si, [ecx+2]` (palabra alta **sin signo**, `ToMap` 0x603433) | un negativo es la celda 0xFFFF: fuera |
-| `SignedCellOf(f)` | `movsx` de `JustMapXZ` (0x5E1950; `ApplyEffectToMapPos` 0x525212) | la palabra alta con signo |
-| `InBounds(MapCoords / ivec2 / vec3, cells = 512)` | `MapCoords::InBounds` 0x6042C0 = `JustMapXZ::InBounds` 0x5E1860: `jae` contra +0x59C8 (cx) y +0x59C4 (cz) | el mapa de 512, no la extensión de la tierra |
-| `CellIndex` | `ToMap` 0x603430 = 0x5E1950: `cx * [+0x59C4] + cz`; la celda está en g_game + 0x59FC + índice·8 | −1 en vez de NULL |
-| `AddCells(MapCoords&, JustMapXZ)` | `operator+=(JustMapXZ)` 0x605470: `add word [ecx+2]`, `add word [ecx+6]` | suma de 16 bits: la fracción se conserva |
-| `k_Neighbours4` | 0xDA59FC (lo rellena 0x74CA10): (1,0), (0,1), (−1,0), (0,−1) | la tabla de la espiral; también se lee sola (0x602CC4, 0x768374, 0x770104) |
-| `k_Neighbours8` | 0xDA59D8 (lo rellena 0x74CA60 y lo lee fn_00504143): (1,0), (1,1), (0,1), (−1,1), (−1,0), (−1,−1), (0,−1), (1,−1), (0,0) | otra tabla |
-| `Spiral{dir = 1, count = 1}.Next()` | `GUtils::Spiral` 0x74D7E0: `dec [count]; jne` (0x74D7E9); `++dir; count = dir/2` (cdq/sub/sar, 0x74D7EF..0x74D7F7); luego `&tabla[dir & 3]` (0x74D7FE) | primero actualiza y luego lee |
-| `SpiralIncrement(MapCoords&, Spiral&, step)` | `GUtils::SpiralIncrement` 0x74D810 (solo la llama `Town::FindClearArea`, en 0x741384) | la misma regla y luego `x = ToFixedGUtils(tabla.x · step + ToMetres(x))` (0x74D836..0x74D8A8) |
-| `CellSpiralSize(r)` | `GetMapCellSpiralSizeFromRadius` 0x74F520: `n = ftol(r · 0.2 [0x8AA3AC])`; `cmp eax, 1; jae` (sin signo: solo el 0 pasa a 1); n² | 4 llamadores |
-| `IncrementSpiralSize(r, step)` | `GetIncrementSpiralSizeFromRadius` 0x74F540: `n = ftol(r · −2 [0x8C7CE0] / step)`; (1 − n)² | 1 llamador |
-| `FromWorld(vec3)` / `ToWorld(MapCoords)` | `MapCoords(LHPoint)` 0x603160 / `Set` 0x603340 (`altitude = y − GetAltitude(this)` en la posición truncada, 0x603371..0x60337C) y `GetLHPoint` 0x605C40 | la altura la da `GetHeightAt` de la isla (U3 de «sistemas»); sin isla es 0 |
+| `k_FixedPerMetre` = 6553.6f | [0x8AC400] = 0x45CCCCCD (6553.60009765625) | metres → 16.16 |
+| `k_MetresPerFixed` = 10/65536 | [0x8AA3A4] = 0x39200000, exact | 16.16 → metres |
+| `k_MapCells` = 512 | g_game+0x59C4 / +0x59C8 (`GMap::Init(0x200, 0x200)`, 0x6014C8 / 0x6014F1) | cells per side |
+| `ToFixed(m)` | `fld; fmul [0x8AC400]; __ftol` 0x7A1400 (`Set` 0x603346..0x603367, 258 inline copies) | truncates towards 0 |
+| `ToMetres(f)` | `fild; fmul [0x8AA3A4]` (`GetLHPoint` 0x605C40 = `ConvertToLHPoint` 0x6041C0) | a single rounding (above 2^24, a prior `(float)f` would round twice) |
+| `ToFixedGUtils(m)` | `fmul 65536 [0x8AC408]; fdiv 10 [0x99A1BC]; __ftol` (0x74D52F, 0x74D595, 0x74D85A … 0x74F3A3; `MapCoords::SetX` of bw1-decomp) | a **different** function: 1464 m gives 9594470, and `ToFixed` gives 9594471 |
+| `Quantise(m)` | `ToMetres(ToFixed(m))` | the position as a MapCoords stores it; **it is not idempotent** (`ToFixed(ToMetres(8090858))` = 8090857, as in the original) |
+| `CellOf(f)`, `CellX`/`CellZ`, `Cell`, `CellOf(vec2/vec3)` | `xor; mov si, [ecx+2]` (**unsigned** high word, `ToMap` 0x603433) | a negative is cell 0xFFFF: outside |
+| `SignedCellOf(f)` | `movsx` of `JustMapXZ` (0x5E1950; `ApplyEffectToMapPos` 0x525212) | the signed high word |
+| `InBounds(MapCoords / ivec2 / vec3, cells = 512)` | `MapCoords::InBounds` 0x6042C0 = `JustMapXZ::InBounds` 0x5E1860: `jae` against +0x59C8 (cx) and +0x59C4 (cz) | the 512 map, not the extent of the land |
+| `CellIndex` | `ToMap` 0x603430 = 0x5E1950: `cx * [+0x59C4] + cz`; the cell is at g_game + 0x59FC + index·8 | −1 instead of NULL |
+| `AddCells(MapCoords&, JustMapXZ)` | `operator+=(JustMapXZ)` 0x605470: `add word [ecx+2]`, `add word [ecx+6]` | 16-bit addition: the fraction is preserved |
+| `k_Neighbours4` | 0xDA59FC (filled by 0x74CA10): (1.0), (0.1), (−1.0), (0,−1) | the spiral table; also read on its own (0x602CC4, 0x768374, 0x770104) |
+| `k_Neighbours8` | 0xDA59D8 (filled by 0x74CA60 and read by fn_00504143): (1.0), (1.1), (0.1), (−1.1), (−1.0), (−1,−1), (0,−1), (1,−1), (0.0) | another table |
+| `Spiral{dir = 1, count = 1}.Next()` | `GUtils::Spiral` 0x74D7E0: `dec [count]; jne` (0x74D7E9); `++dir; count = dir/2` (cdq/sub/sar, 0x74D7EF..0x74D7F7); then `&tabla[dir & 3]` (0x74D7FE) | first updates and then reads |
+| `SpiralIncrement(MapCoords&, Spiral&, step)` | `GUtils::SpiralIncrement` 0x74D810 (only called by `Town::FindClearArea`, at 0x741384) | the same rule and then `x = ToFixedGUtils(tabla.x · step + ToMetres(x))` (0x74D836..0x74D8A8) |
+| `CellSpiralSize(r)` | `GetMapCellSpiralSizeFromRadius` 0x74F520: `n = ftol(r · 0.2 [0x8AA3AC])`; `cmp eax, 1; jae` (unsigned: only 0 becomes 1); n² | 4 callers |
+| `IncrementSpiralSize(r, step)` | `GetIncrementSpiralSizeFromRadius` 0x74F540: `n = ftol(r · −2 [0x8C7CE0] / step)`; (1 − n)² | 1 caller |
+| `FromWorld(vec3)` / `ToWorld(MapCoords)` | `MapCoords(LHPoint)` 0x603160 / `Set` 0x603340 (`altitude = y − GetAltitude(this)` at the truncated position, 0x603371..0x60337C) and `GetLHPoint` 0x605C40 | the height is given by the island's `GetHeightAt` (U3 of «sistemas»); without an island it is 0 |
 
-**La espiral.** Todos los llamadores revisados empiezan con `dir = count = 1`: por ejemplo `Reaction::SpreadReaction`
-0x6E3E51, `GMagicHealInfo::FindTargets` 0x5FBB9A, el rayo 0x6902A7..0x6902BB, el tornado 0x6D22E9 o `Tree::EndPhysics`
-0x74B98A. Procesan primero la celda central y luego avanzan con `+= *Spiral()`. La comprobación de `InBounds` se hace en
-cada celda; el radio no se recorta. Los pasos desde el arranque son (−1,0), (0,−1), (+1,0)×2, (0,+1)×2, (−1,0)×3,
-(0,−1)×3, (+1,0)×4…
+**The spiral.** All the callers reviewed start with `dir = count = 1`: for example `Reaction::SpreadReaction`
+0x6E3E51, `GMagicHealInfo::FindTargets` 0x5FBB9A, lightning 0x6902A7..0x6902BB, the tornado 0x6D22E9 or `Tree::EndPhysics`
+0x74B98A. They process the central cell first and then advance with `+= *Spiral()`. The `InBounds` check is done on
+each cell; the radius is not clipped. The steps from the start are (−1.0), (0,−1), (+1.0)×2, (0,+1)×2, (−1.0)×3,
+(0,−1)×3, (+1.0)×4…
 
-El número de celdas lo calcula cada llamador, y esas fórmulas se quedan en su sitio:
-- `CellSpiralSize`, en 4 sitios.
-- `ceil(2R/10)²` en la curación (0x5FBB51).
-- `max(3, ceil(2R/10))²` en 0x604AF8.
-- `ceil((r+20)/10)²` en la explosión (0x67E5F2).
-- `4·ceil(R/10)²` en el rayo (0x690276).
-- `ftol(ceil(…))²` en FireFly (0x52A6A7).
+The number of cells is computed by each caller, and those formulas stay where they are:
+- `CellSpiralSize`, in 4 places.
+- `ceil(2R/10)²` in heal (0x5FBB51).
+- `max(3, ceil(2R/10))²` at 0x604AF8.
+- `ceil((r+20)/10)²` in the explosion (0x67E5F2).
+- `4·ceil(R/10)²` in lightning (0x690276).
+- `ftol(ceil(…))²` in FireFly (0x52A6A7).
 
-**Lo que no es MapCoords** (no se funde):
-- La rejilla de 64×64 de fn_005E1890 / `SpellGrid` (`x>>16>>3`).
-- La espiral polar de `SpellForest::SpellEvent` 0x725830.
-- `fistp(x·0.1)` de `AttemptToAddSoundEvent` 0x6465DF (`sea_cells::RoundedCellOf`).
-- `ftol(x·0.1 [0x8AC404])` de `GScript::GetLandHeight` 0x6FB1F0, de `LandAvoid` ([0x8AB22C]) y de la creación de
-  `CitadelHeart` (0x8827C7..0x882810, con `jl`/`jg` contra 0..0x1FF). `CitadelArchetype.cpp` ya lo hace así, así que el
-  «arreglo» que proponía el plan para la ciudadela era un falso positivo.
-- Las distancias (`GetDistance` 0x74CCB0, `GetDistanceInMetres` 0x74CD70): ver [Distancias de GUtils](#distancias-de-gutils).
+**What is not MapCoords** (not merged):
+- The 64×64 grid of fn_005E1890 / `SpellGrid` (`x>>16>>3`).
+- The polar spiral of `SpellForest::SpellEvent` 0x725830.
+- `fistp(x·0.1)` of `AttemptToAddSoundEvent` 0x6465DF (`sea_cells::RoundedCellOf`).
+- `ftol(x·0.1 [0x8AC404])` of `GScript::GetLandHeight` 0x6FB1F0, of `LandAvoid` ([0x8AB22C]) and of the creation of
+  `CitadelHeart` (0x8827C7..0x882810, with `jl`/`jg` against 0..0x1FF). `CitadelArchetype.cpp` already does it that way, so the
+  «fix» the plan proposed for the citadel was a false positive.
+- The distances (`GetDistance` 0x74CCB0, `GetDistanceInMetres` 0x74CD70): see [GUtils distances](#gutils-distances).
 
-**Qué usa ya la API.**
-- `sea_cells::CellOf/InBounds` y `MapInterface::GetGridCell` son envoltorios. `GetGridCell` ya no es UB con negativos:
-  devuelve la palabra alta sin signo (0xFFFF).
-- Se migraron estas copias:
-  - animales: AnimalAI y AnimalAIDetail (la constante, `CellOf`, `InBounds` y la espiral), AnimalLairs,
-    AnimalPredators y AnimalWallHug;
-  - aldeanos y ciudad: VillagerSpeed y TownQueries (conversiones, tamaños, `SpiralIncrement` y la espiral de
-    `CheckForClearArea`), AbodeQueries, StreetLantern y WorshipSite;
-  - mapa y objetos: WaterQueries, PotResource, MapProduction, MapCollide, Trees y MobileWalkPaths;
-  - efectos y magia: Reactions, EffectValues, FireEffect, CastRules, `magic::ToMap`, `Spell::castPos`, SpellFlock y
+**What already uses the API.**
+- `sea_cells::CellOf/InBounds` and `MapInterface::GetGridCell` are wrappers. `GetGridCell` is no longer UB with negatives:
+  it returns the unsigned high word (0xFFFF).
+- These copies were migrated:
+  - animals: AnimalAI and AnimalAIDetail (the constant, `CellOf`, `InBounds` and the spiral), AnimalLairs,
+    AnimalPredators and AnimalWallHug;
+  - villagers and town: VillagerSpeed and TownQueries (conversions, sizes, `SpiralIncrement` and the spiral of
+    `CheckForClearArea`), AbodeQueries, StreetLantern and WorshipSite;
+  - map and objects: WaterQueries, PotResource, MapProduction, MapCollide, Trees and MobileWalkPaths;
+  - effects and magic: Reactions, EffectValues, FireEffect, CastRules, `magic::ToMap`, `Spell::castPos`, SpellFlock and
     SpellWater;
-  - clima: Climate y WeatherLand;
-  - partículas: PSys `Flock`.
+  - weather: Climate and WeatherLand;
+  - particles: PSys `Flock`.
 
-**Arreglos de fidelidad** que trajo:
-- Productos en double pasados a float:
-  - WaterQueries: `k_WorldToFixed` era double, y también el `x·65536.0·0.1f` de `FindNearestStreamPos`.
-  - TownQueries: usaba el double 6553.6 (ni siquiera el valor float); también `SpiralIncrement` y los tamaños.
-  - AbodeQueries (la puerta, 0x63AFF2), SpellFlock y PSys `Flock`.
-- Climate: la vuelta usaba 0.000152588f = 0x39200008 en lugar de [0x8AA3A4] = 0x39200000 (3,9 mm a 5 km).
-- `InBounds` por la extensión de la tierra, con `>` estricto (AnimalAI.cpp, Reactions.cpp), pasa a 0x6042C0: x = 0 y
-  las celdas sin bloque dentro del mapa ya cuentan.
-- `floor` en lugar de truncar (FireEffect, CastRules): difería en x ∈ (−1,5e−4, 0).
-- `GetGridCell(pos − radius)` con negativos (UB):
-  - `ApplyEffectToMapPos` hace ahora lo del original: esquinas con `ToFixedGUtils(ToMetres(x) ∓ r)`, palabras altas
-    con signo e `InBounds` en cada celda (0x52514F..0x525259).
-  - `MapProduction` recorre las celdas con signo y salta las de fuera.
-  - Un móvil fuera del mapa no entra en la rejilla (`ToMap` da NULL).
-- `magic::ToMap` y el `castPos` de la mano (0x72056B..0x720595) ya truncan a 16.16. `ToWorld` no vuelve a truncar,
-  porque una segunda ida y vuelta puede perder una unidad.
-- `SpreadReaction`: el tamaño es `CellSpiralSize` (0x74F520, con su `jae` sin signo) y la posición avanza con `AddCells`
-  sobre MapCoords (0x6E3F6E), en vez de sumar 10 m en float.
-- `MobileWalkPaths`: la vuelta ya no redondea dos veces con más de 2^24 unidades.
+**Fidelity fixes** it brought:
+- Double products changed to float:
+  - WaterQueries: `k_WorldToFixed` was double, and so was the `x·65536.0·0.1f` of `FindNearestStreamPos`.
+  - TownQueries: it used the double 6553.6 (not even the float value); also `SpiralIncrement` and the sizes.
+  - AbodeQueries (the door, 0x63AFF2), SpellFlock and PSys `Flock`.
+- Climate: the return conversion used 0.000152588f = 0x39200008 instead of [0x8AA3A4] = 0x39200000 (3.9 mm at 5 km).
+- `InBounds` by the extent of the land, with strict `>` (AnimalAI.cpp, Reactions.cpp), changes to 0x6042C0: x = 0 and
+  the cells without a block inside the map now count.
+- `floor` instead of truncating (FireEffect, CastRules): it differed for x ∈ (−1.5e−4, 0).
+- `GetGridCell(pos − radius)` with negatives (UB):
+  - `ApplyEffectToMapPos` now does what the original does: corners with `ToFixedGUtils(ToMetres(x) ∓ r)`, signed
+    high words and `InBounds` on each cell (0x52514F..0x525259).
+  - `MapProduction` walks the cells with sign and skips the ones outside.
+  - A mobile outside the map does not enter the grid (`ToMap` gives NULL).
+- `magic::ToMap` and the hand's `castPos` (0x72056B..0x720595) now truncate to 16.16. `ToWorld` does not truncate again,
+  because a second round trip can lose one unit.
+- `SpreadReaction`: the size is `CellSpiralSize` (0x74F520, with its unsigned `jae`) and the position advances with `AddCells`
+  on MapCoords (0x6E3F6E), instead of adding 10 m in float.
+- `MobileWalkPaths`: the return conversion no longer rounds twice above 2^24 units.
 
-**Segunda pasada (auditoría, 2026-10-01).** Lo que faltaba de la primera, comprobado otra vez en el binario:
-- **Todas las espirales avanzan ya sobre un MapCoords**, no sobre una celda en un `int` ni sobre metros en float. En el
-  original el llamador copia su MapCoords y lo mueve con `operator+=(JustMapXZ)` 0x605470, que suma **16 bits a la
-  palabra alta**: la fracción no cambia y la celda da la vuelta. Por eso una espiral que empieza a la izquierda del mapa
-  (x ∈ (−10, 0), celda 0xFFFF) entra en la celda 0 con el primer paso `+1`, mientras que con la celda en un `int` llega
-  a 0x10000 y se queda fuera para siempre. Sitios corregidos y su original:
-  - `Magic/CastRules.cpp` `FindHealTargets` ← `FindTargets` (copia 0x5FBB6B, `InBounds` 0x5FBBBA, `ToMap` 0x5FBBCB,
-    `Spiral` 0x5FBCE5, `+=` 0x5FBCF1); el `InBounds(vec3(celda·10))` que daba la vuelta celda → metros → fijo pasa a
+**Second pass (audit, 2026-10-01).** What was missing from the first, checked again in the binary:
+- **All spirals now advance on a MapCoords**, not on a cell in an `int` nor on metres in float. In the
+  original the caller copies its MapCoords and moves it with `operator+=(JustMapXZ)` 0x605470, which adds **16 bits to the
+  high word**: the fraction does not change and the cell wraps around. That is why a spiral that starts to the left of the map
+  (x ∈ (−10, 0), cell 0xFFFF) enters cell 0 with the first `+1` step, whereas with the cell in an `int` it reaches
+  0x10000 and stays outside forever. Places corrected and their original:
+  - `Magic/CastRules.cpp` `FindHealTargets` ← `FindTargets` (copy 0x5FBB6B, `InBounds` 0x5FBBBA, `ToMap` 0x5FBBCB,
+    `Spiral` 0x5FBCE5, `+=` 0x5FBCF1); the `InBounds(vec3(celda·10))` that went round cell → metres → fixed becomes
     `map_coords::InBounds(coords)`.
-  - `ECS/Fire/FireEffect.cpp` (copia 0x72F5E1, `InBounds` 0x72F60C, `GetDistanceInMetres` 0x72F674, `Spiral` 0x72F6C3,
-    `+=` 0x72F6D0). La distancia se mide entre los dos MapCoords: como la fracción es la misma, la diferencia son
-    celdas enteras. `CellObjects` usa `map_coords::InBounds` en vez de su propia copia. El `CellObjects` de
-    `PSys/Rules/Storm.cpp` ya no repite el `InBounds`: lo hace su único llamador, el bucle de fn_006D21B0 (0x6D2311).
-  - `Magic/Spells/SpellWater.cpp` (copia 0x7250A2, `Spiral` 0x725166, `+=` 0x725173; 9 celdas, `ebp = 9`).
-  - `ECS/AnimalAI.cpp`: `CalcRandomPos` ← `Living::CalcRandomPos` (0x5ED0FE..0x5ED152 el punto inicial con
-    `ToFixedGUtils`, `+=` 0x5ED1C8), `LookForFoodPos` ← `Animal::LookForGrazePos` (`+=` 0x41A945) y la fusión de bandadas
+  - `ECS/Fire/FireEffect.cpp` (copy 0x72F5E1, `InBounds` 0x72F60C, `GetDistanceInMetres` 0x72F674, `Spiral` 0x72F6C3,
+    `+=` 0x72F6D0). The distance is measured between the two MapCoords: since the fraction is the same, the difference is
+    whole cells. `CellObjects` uses `map_coords::InBounds` instead of its own copy. The `CellObjects` of
+    `PSys/Rules/Storm.cpp` no longer repeats the `InBounds`: its only caller does it, the loop of fn_006D21B0 (0x6D2311).
+  - `Magic/Spells/SpellWater.cpp` (copy 0x7250A2, `Spiral` 0x725166, `+=` 0x725173; 9 cells, `ebp = 9`).
+  - `ECS/AnimalAI.cpp`: `CalcRandomPos` ← `Living::CalcRandomPos` (0x5ED0FE..0x5ED152 the starting point with
+    `ToFixedGUtils`, `+=` 0x5ED1C8), `LookForFoodPos` ← `Animal::LookForGrazePos` (`+=` 0x41A945) and the merging of flocks
     (`+=` 0x41A76A); `ECS/AnimalPredators.cpp` `FindPrey` ← fn_00419490 (`+=` 0x41954B). `detail::Spiral::Advance`
-    envuelve `AddCells`.
-- `TownQueries`: `Ftol` recibe un **float** (el comentario decía «x87 extendida», que contradice el `and cw, 0xFCFF` de
-  0x7DEE0D). La media de la congregación (0x7409F3..0x740A1E) hace `fild qword` (exacto) y `fdiv` a 24 bits, así que el
-  cociente se redondea una vez a float antes del `__ftol`: con 100 posiciones pasa de 2^24 y el truncado podía salir una
-  unidad distinto. `GetPosFromAngle` (0x74D580) usa `ToFixedGUtils`; el coseno va en double (ver
-  [Ángulos de GUtils](#ángulos-de-gutils)).
-- `Climate`: se quita `CellCentre()` (la palabra alta con desplazamiento **con signo** × 10). Ni `ProcessAll`
-  (0x771DA0) ni `FindWhereToCreateStorm` (0x772D3E, 0x772D6F) leen la palabra alta: las dos construyen el LHPoint con
-  `fild; fmul [0x8AA3A4]`, o sea `Centre()`. La celda del centro en `FindWhereToCreateStorm` (0x772C38, 0x772C65) sí es
-  la palabra alta, pero **sin signo** (`xor eax, eax; mov ax, [ebp+0x16]`), y se suma con `fiadd`: ya es `CellOf`.
-- `SpellFlock`: `DestinationAt` (0x7238E2..0x723905) lee la palabra alta sin signo (`CellOf`) y calcula en float, no en
-  double; `IsPosOnCorridor` (0x420E67) usa `CellOf` igual.
-- `VillagerSpeed`: la vuelta a metros va marcada **(inferido)**. `MobileWallHug::SetSpeed` 0x60FC50 guarda el u16 tal
-  cual en +0x5A y el original nunca convierte esa velocidad a metros (la suma a un MapCoords); openblack la guarda en
-  metros, así que usa `ToMetres` por ser la conversión del original en todos los demás sitios.
-- `k_MapCells`: la cita estaba mal atribuida. 0x6014C8 y 0x6014F1 están **dentro** de `GMap::Init` 0x6014C0; la llamada
-  `GMap::Init(0x200, 0x200)` está en `GGame::Init` (0x54F650+0x2A0).
+    wraps `AddCells`.
+- `TownQueries`: `Ftol` receives a **float** (the comment said «x87 extended», which contradicts the `and cw, 0xFCFF` at
+  0x7DEE0D). The congregation average (0x7409F3..0x740A1E) does `fild qword` (exact) and `fdiv` at 24 bits, so the
+  quotient is rounded once to float before the `__ftol`: with 100 positions it goes above 2^24 and the truncation could come out one
+  unit different. `GetPosFromAngle` (0x74D580) uses `ToFixedGUtils`; the cosine is in double (see
+  [GUtils angles](#gutils-angles)).
+- `Climate`: `CellCentre()` is removed (the high word with a **signed** offset × 10). Neither `ProcessAll`
+  (0x771DA0) nor `FindWhereToCreateStorm` (0x772D3E, 0x772D6F) reads the high word: both build the LHPoint with
+  `fild; fmul [0x8AA3A4]`, i.e. `Centre()`. The centre cell in `FindWhereToCreateStorm` (0x772C38, 0x772C65) is indeed
+  the high word, but **unsigned** (`xor eax, eax; mov ax, [ebp+0x16]`), and it is added with `fiadd`: it is already `CellOf`.
+- `SpellFlock`: `DestinationAt` (0x7238E2..0x723905) reads the unsigned high word (`CellOf`) and computes in float, not in
+  double; `IsPosOnCorridor` (0x420E67) uses `CellOf` likewise.
+- `VillagerSpeed`: the conversion back to metres is marked **(inferred)**. `MobileWallHug::SetSpeed` 0x60FC50 stores the u16 as
+  is in +0x5A and the original never converts that speed to metres (it adds it to a MapCoords); openblack stores it in
+  metres, so it uses `ToMetres` because it is the original's conversion everywhere else.
+- `k_MapCells`: the citation was wrongly attributed. 0x6014C8 and 0x6014F1 are **inside** `GMap::Init` 0x6014C0; the call
+  `GMap::Init(0x200, 0x200)` is in `GGame::Init` (0x54F650+0x2A0).
 
-## Distancias de GUtils
+## GUtils distances
 
-✅ Fiel y portado en `src/ECS/GUtilsDistance.{h,cpp}`, namespace `openblack::gutils` (sesión «sistemas2», 2026-10-01).
-Es la familia de distancias del original (la unidad `Utils`, 0x74CCA0..0x74F780, más dos funciones de `MapCoords`): unas
-**450 llamadas directas** en `runblack.exe`. Va encima de `ecs::map_coords`. Todas las distancias «buenas» son **2D
-(x, z)**: la y no se usa nunca.
+✅ Faithful and ported in `src/ECS/GUtilsDistance.{h,cpp}`, namespace `openblack::gutils` («sistemas2» session, 2026-10-01).
+It is the original's family of distances (the `Utils` unit, 0x74CCA0..0x74F780, plus two `MapCoords` functions): about
+**450 direct calls** in `runblack.exe`. It sits on top of `ecs::map_coords`. All the «good» distances are **2D
+(x, z)**: y is never used.
 
-**Todo pasa por una raíz inversa de tabla.** `InvSqrt` 0x74F620 lee una tabla de 1024 entradas en 0xDA5A10 que se llena
-una sola vez (fn_0074F590, con la bandera [0xDA6A10]; `GUtils::SetupUtils` 0x74CCA0 es solo un `jmp` a ella, y la llama
-`GGame::InitOneTimeOnly` en 0x54F07B, justo **después** de poner la FPU a 24 bits). El error de la raíz es de **−0,097 %
-a +0,092 %** (recorrido completo). Consecuencias que se ven: una celda de 10 m mide 10,0049 m, 100 m miden 100,0244 m y
-400 m miden 400,0977 m. `1/InvSqrt(1)` no da 1, da 0,99951171875 (0x3F7FE000).
+**Everything goes through a table-based inverse root.** `InvSqrt` 0x74F620 reads a 1024-entry table at 0xDA5A10 that is filled
+only once (fn_0074F590, with the flag [0xDA6A10]; `GUtils::SetupUtils` 0x74CCA0 is just a `jmp` to it, and it is called by
+`GGame::InitOneTimeOnly` at 0x54F07B, right **after** setting the FPU to 24 bits). The error of the root is from **−0.097 %
+to +0.092 %** (full sweep). Visible consequences: a 10 m cell measures 10.0049 m, 100 m measure 100.0244 m and
+400 m measure 400.0977 m. `1/InvSqrt(1)` does not give 1, it gives 0.99951171875 (0x3F7FE000).
 
-**La FPU va a 24 bits** (fn_007DEE00, `and cw, 0xFCFF` en 0x7DEE0D). Por eso **todo el módulo está en float**, sin
-double y sin FMA: tres de las copias de openblack hacían la suma o el cociente en double y se desviaban (ver abajo).
+**The FPU runs at 24 bits** (fn_007DEE00, `and cw, 0xFCFF` at 0x7DEE0D). That is why **the whole module is in float**, without
+double and without FMA: three of the openblack copies did the sum or the quotient in double and drifted (see below).
 
-| API (`openblack::gutils`) | Original | Notas |
+| API (`openblack::gutils`) | Original | Notes |
 |---|---|---|
-| `InvSqrtTable()` | fn_0074F590, tabla 0xDA5A10, bandera [0xDA6A10] | entrada i = los 10 bits altos de la mantisa (`& 0x7FE000`) de 1/√f, con f = `0x3F000000 \| i << 14`; un 1 exacto se guarda como 0x7FE000 (0x74F5ED) |
-| `InvSqrt(x)` | `_FUN_0074f620` 0x74F620 | `exp = ((0xBE000000 − (bits & 0x7F800000)) >> 1) & 0x7F800000`, mantisa de la tabla en `(bits >> 14) & 0x3FF`; el signo no se mira, y x = 0 da ≈ 2^63 |
-| `Hypotenuse(int32, int32)` | `hypotenuse` 0x74F680 | 16.16 dentro y fuera: `x = dx·2^-16` [0x99A1D4], `s = float(z·z + x·x)`, `ftol(65536.0 [0x99A1D8] / InvSqrt(s))`. **Trunca** y no tiene corte en el cero |
-| `Hypotenuse(float, float)` | `hypotenuse` 0x74F6C0 | 0 si \|a\| y \|b\| son los dos ≤ 1e-4 [0x8BF518] (`test ah, 0x41` también se cumple con una comparación no ordenada: un lado NaN cuenta como «≤ 1e-4»); si no `1 / InvSqrt(float(a·a + b·b))` [0x8AA390]. **No** trunca |
-| `ConvertWholeDistanceToMeters(i)` | 0x74DCC0 | `fld 10 [0x99A1BC]; fmul 2^-16 [0x8AC41C]; fimul i`: el entero es exacto antes del redondeo (= `map_coords::ToMetres`) |
-| `ConvertMetersToWholeDistance(m)` | 0x74DCE0 | `ftol(m / 10 · 65536 [0x8AC408])`; 65536 es potencia de dos, así que es `ToFixedGUtils` |
-| `GetDistance(MapCoords, MapCoords)` | 0x74CCB0 = su gemela 0x74CCE0 (byte a byte) | `Hypotenuse(b.x − a.x, b.z − a.z)` |
-| `GetDistanceToCell(MapCoords, JustMapXZ)` | fn_0074CD10, con fn_0074E2D0 = `(short(celda) << 16) + 0x8000` | al **centro** de la celda |
-| `GetDistanceInMetres(...)` | 0x74CD70 = 0x74CD50 = `MapCoords::GetDistanceInMetres` 0x605CD0 | `ConvertWholeDistanceToMeters(GetDistance(a, b))`. **383 llamadas** (202 + 62 + 119). Sobrecargas: MapCoords, `vec3`/`vec2` en metros (truncando a 16.16 como 0x603160) e `ivec2` en 16.16 |
+| `InvSqrtTable()` | fn_0074F590, table 0xDA5A10, flag [0xDA6A10] | entry i = the top 10 bits of the mantissa (`& 0x7FE000`) of 1/√f, with f = `0x3F000000 \| i << 14`; an exact 1 is stored as 0x7FE000 (0x74F5ED) |
+| `InvSqrt(x)` | `_FUN_0074f620` 0x74F620 | `exp = ((0xBE000000 − (bits & 0x7F800000)) >> 1) & 0x7F800000`, mantissa from the table at `(bits >> 14) & 0x3FF`; the sign is not checked, and x = 0 gives ≈ 2^63 |
+| `Hypotenuse(int32, int32)` | `hypotenuse` 0x74F680 | 16.16 in and out: `x = dx·2^-16` [0x99A1D4], `s = float(z·z + x·x)`, `ftol(65536.0 [0x99A1D8] / InvSqrt(s))`. It **truncates** and has no cutoff at zero |
+| `Hypotenuse(float, float)` | `hypotenuse` 0x74F6C0 | 0 if \|a\| and \|b\| are both ≤ 1e-4 [0x8BF518] (`test ah, 0x41` is also satisfied by an unordered comparison: a NaN side counts as «≤ 1e-4»); otherwise `1 / InvSqrt(float(a·a + b·b))` [0x8AA390]. It does **not** truncate |
+| `ConvertWholeDistanceToMeters(i)` | 0x74DCC0 | `fld 10 [0x99A1BC]; fmul 2^-16 [0x8AC41C]; fimul i`: the integer is exact before rounding (= `map_coords::ToMetres`) |
+| `ConvertMetersToWholeDistance(m)` | 0x74DCE0 | `ftol(m / 10 · 65536 [0x8AC408])`; 65536 is a power of two, so it is `ToFixedGUtils` |
+| `GetDistance(MapCoords, MapCoords)` | 0x74CCB0 = its twin 0x74CCE0 (byte for byte) | `Hypotenuse(b.x − a.x, b.z − a.z)` |
+| `GetDistanceToCell(MapCoords, JustMapXZ)` | fn_0074CD10, with fn_0074E2D0 = `(short(celda) << 16) + 0x8000` | to the **centre** of the cell |
+| `GetDistanceInMetres(...)` | 0x74CD70 = 0x74CD50 = `MapCoords::GetDistanceInMetres` 0x605CD0 | `ConvertWholeDistanceToMeters(GetDistance(a, b))`. **383 calls** (202 + 62 + 119). Overloads: MapCoords, `vec3`/`vec2` in metres (truncating to 16.16 like 0x603160) and `ivec2` in 16.16 |
 | `GetDistanceInMetresToCell` | fn_0074CD90 | |
-| `GetDistance(vec3, vec3)` | `GUtils::GetDistance(LHPoint, LHPoint)` 0x74CDE0 | las diferencias x/z guardadas como float (0x74CDEC, 0x74CDFA) y luego `Hypotenuse(float, float)`: metros, sin pasar por MapCoords |
-| `GetMetresDistanceSq` | `MapCoords::GetMetresDistanceSq` 0x605FB0 | el cuadrado **exacto** en float: sin tabla, así que **no** es `GetDistanceInMetres` al cuadrado (100 × 100 m da 20000, no 20018) |
-| `FastDistance` | `GUtils::FastDistance` 0x74CE10 | `max + (min >> 1)` (`sar`) en unidades MapCoords: no es una longitud euclídea |
-| `ChebyshevDistance` | fn_0074CED0 (con el `abs` fn_0074DD00) | `max(\|dx\|, \|dz\|)`, comparados **sin signo** (0x74CF05) |
-| `k_Sigmoid`, `detail::k_SigmoidBits` | tabla 0xC23284, 41 floats en .data | se copian **los bits**; T[0] = 0 exacto y T[37..40] = 1 exactos. Es una logística `1/(1+e^(−1,0232·(i−20)))` *(inferido: por ajuste)* |
-| `SigmoidThreshold(a, b)` | `GUtils::SigmoidThreshold` 0x74F170 | `a == 1 → 0` (0x74F174; un NaN en a también); si no `T[min(ftol((clamp(clamp(b,−1,1) − a,−1,1) + 1)·20,5 [0x99A1D0]), 40)]`. **El umbral es el PRIMER argumento** |
-| `GetDistanceModifier(d, max)` | 0x74F290 = su copia fn_005ECA20 (`ret 8`) | `SigmoidThreshold(0,5 [push 0x3F000000], 1 − min(d, max)/max)`: **baja** con la distancia, de T[30] = 0,99996 en d = 0 a T[10] = 3,6e-5 en d ≥ max (21 de los 41 pasos). Con max = 0, `0/0` da NaN y sale T[0] = 0 |
-| `DistanceChangeToBelief(x, y)` | `GBelief::DistanceChangeToBelief` 0x438770 = su copia fn_00657F30 | `SigmoidThreshold(−0,9 [0xBF666666], float(−(x/y)))`: otra curva sobre la misma tabla |
-| `CreatureSigmoidThreshold(a, b)` | `Creature::SigmoidThreshold` 0x4F78C0 | añade `b ≤ 0 → 0` (fcomp 0; test ah, 0x41) |
+| `GetDistance(vec3, vec3)` | `GUtils::GetDistance(LHPoint, LHPoint)` 0x74CDE0 | the x/z differences stored as float (0x74CDEC, 0x74CDFA) and then `Hypotenuse(float, float)`: metres, without going through MapCoords |
+| `GetMetresDistanceSq` | `MapCoords::GetMetresDistanceSq` 0x605FB0 | the **exact** square in float: no table, so it is **not** `GetDistanceInMetres` squared (100 × 100 m gives 20000, not 20018) |
+| `FastDistance` | `GUtils::FastDistance` 0x74CE10 | `max + (min >> 1)` (`sar`) in MapCoords units: it is not a Euclidean length |
+| `ChebyshevDistance` | fn_0074CED0 (with the `abs` fn_0074DD00) | `max(\|dx\|, \|dz\|)`, compared **unsigned** (0x74CF05) |
+| `k_Sigmoid`, `detail::k_SigmoidBits` | table 0xC23284, 41 floats in .data | **the bits** are copied; T[0] = exactly 0 and T[37..40] = exactly 1. It is a logistic `1/(1+e^(−1,0232·(i−20)))` *(inferred: by fitting)* |
+| `SigmoidThreshold(a, b)` | `GUtils::SigmoidThreshold` 0x74F170 | `a == 1 → 0` (0x74F174; a NaN in a too); otherwise `T[min(ftol((clamp(clamp(b,−1,1) − a,−1,1) + 1)·20,5 [0x99A1D0]), 40)]`. **The threshold is the FIRST argument** |
+| `GetDistanceModifier(d, max)` | 0x74F290 = its copy fn_005ECA20 (`ret 8`) | `SigmoidThreshold(0,5 [push 0x3F000000], 1 − min(d, max)/max)`: it **decreases** with distance, from T[30] = 0.99996 at d = 0 to T[10] = 3.6e-5 at d ≥ max (21 of the 41 steps). With max = 0, `0/0` gives NaN and the result is T[0] = 0 |
+| `DistanceChangeToBelief(x, y)` | `GBelief::DistanceChangeToBelief` 0x438770 = its copy fn_00657F30 | `SigmoidThreshold(−0,9 [0xBF666666], float(−(x/y)))`: another curve over the same table |
+| `CreatureSigmoidThreshold(a, b)` | `Creature::SigmoidThreshold` 0x4F78C0 | adds `b ≤ 0 → 0` (fcomp 0; test ah, 0x41) |
 
-**Rutinas que NO se funden** (dan resultados distintos): las dos `hypotenuse`; `GetDistanceInMetres` (cuantizada a
-1/65536 de celda) frente a `GetDistance(LHPoint)` (float directo); la distancia a celda (al centro, +0x8000);
-`GetMetresDistanceSq` (sin tabla); `FastDistance` y Chebyshev; `SigmoidThreshold` frente a la de Creature;
-`GetDistanceModifier` (a = 0,5) frente a `DistanceChangeToBelief` (a = −0,9).
+**Routines that are NOT merged** (they give different results): the two `hypotenuse`; `GetDistanceInMetres` (quantised to
+1/65536 of a cell) versus `GetDistance(LHPoint)` (direct float); the distance to a cell (to the centre, +0x8000);
+`GetMetresDistanceSq` (no table); `FastDistance` and Chebyshev; `SigmoidThreshold` versus the Creature one;
+`GetDistanceModifier` (a = 0.5) versus `DistanceChangeToBelief` (a = −0.9).
 
-**Código muerto que no se porta** (sin `call`, referencias ni punteros): 0x74CDB0, 0x74CE50, 0x74CE80, 0x74F660,
-0x74F720 y 0x74F740. Los símbolos W120 también fallan en dos sitios: 0x74CD50 se llama `ReactionInfo::GetInfo` (es la
-gemela de `GetDistanceInMetres`) y `hypotenuse` 0x74F680 aparece como `void` cuando devuelve un int en eax.
+**Dead code that is not ported** (no `call`, references or pointers): 0x74CDB0, 0x74CE50, 0x74CE80, 0x74F660,
+0x74F720 and 0x74F740. The W120 symbols are also wrong in two places: 0x74CD50 is called `ReactionInfo::GetInfo` (it is the
+twin of `GetDistanceInMetres`) and `hypotenuse` 0x74F680 appears as `void` when it returns an int in eax.
 
-**Arreglos de fidelidad que trajo.**
+**Fidelity fixes it brought.**
 
-1. **`WorshipScore` fn_0073C590 tenía los argumentos de `SigmoidThreshold` al revés** (`WorshipPercentage.cpp`): pasaba
-   `(x, 0,5)` en vez de `(0,5, x)`, con lo que la curva salía **en espejo**. Con d = 0 daba 0 donde el original da
-   0,99996, y con d ≥ max daba 0,99996 donde el original da 3,6e-5. Como `AdjustWorshipersWorshipping` 0x73C0F0 ordena
-   de mayor a menor puntuación (0x73C180..0x73C1A6), openblack mandaba a rezar **primero a los aldeanos más lejanos**;
-   van primero los más cercanos. El error se repetía en `WorshipPercentage.h`, en `test_worship.cpp` y en `magic.md`.
-2. **`WorshipScore` multiplica por vida³, no por vida²** (0x73C63A..0x73C644: `mov eax, 2`, y dos vueltas de
-   `dec eax; fmul vida; jne` sobre st0 = vida; el modificador se multiplica al final, en 0x73C646).
-3. **`VillagerFire::DistanceModifier` era un `smoothstep` inventado**: con max = 400 m daba 0,156 a 250 m donde el
-   original da 0,0444, 0,352 a 220 m (original 0,264) y se saturaba a 1 / 0 en los extremos en vez de
-   0,99996 / 3,6e-5. El umbral que sigue (> 0,1, [0x8AB22C]) cambiaba de sitio. Es `GetDistanceModifier(d, 400)`, con el
-   400 inmediato en 0x765A77 y la distancia de 0x765A81.
-4. **La tabla de `Trees.cpp` estaba redondeada a 4 decimales** (35 de las 41 entradas distintas; 20 de ellas dentro del
-   rango 10..30, el único que usa `GetDistanceModifier`: T[1..10] valían 0 y T[30..36] valían 1).
-5. **La tabla de `WorshipPercentage.cpp` estaba redondeada a 5 decimales** (lo mismo, T[1..8] = 0 y T[32..36] = 1).
-6. **La sigmoide de `AnimalLairs.cpp` se calculaba en double**: en los saltos de la tabla (±40 ulp) salía otro índice en
-   50-60 de 3321 casos, y 1 de 300 000 con valores aleatorios.
-7. **`hypotenuse(int)` en double** (WaterQueries y AnimalLairs): distinta en 31 678 de 200 000 muestras frente a la
-   emulación a 24 bits; casi siempre 1 unidad, pero al cambiar de cubo de la tabla llega a 2431 unidades = **0,37 m a
+1. **`WorshipScore` fn_0073C590 had the arguments of `SigmoidThreshold` reversed** (`WorshipPercentage.cpp`): it passed
+   `(x, 0,5)` instead of `(0,5, x)`, so the curve came out **mirrored**. With d = 0 it gave 0 where the original gives
+   0.99996, and with d ≥ max it gave 0.99996 where the original gives 3.6e-5. Since `AdjustWorshipersWorshipping` 0x73C0F0 sorts
+   from highest to lowest score (0x73C180..0x73C1A6), openblack sent **the farthest villagers to pray first**;
+   the nearest ones go first. The error was repeated in `WorshipPercentage.h`, in `test_worship.cpp` and in `magic.md`.
+2. **`WorshipScore` multiplies by life³, not by life²** (0x73C63A..0x73C644: `mov eax, 2`, and two iterations of
+   `dec eax; fmul vida; jne` over st0 = life; the modifier is multiplied at the end, at 0x73C646).
+3. **`VillagerFire::DistanceModifier` was an invented `smoothstep`**: with max = 400 m it gave 0.156 at 250 m where the
+   original gives 0.0444, 0.352 at 220 m (original 0.264) and it saturated to 1 / 0 at the extremes instead of
+   0.99996 / 3.6e-5. The threshold that follows (> 0.1, [0x8AB22C]) moved. It is `GetDistanceModifier(d, 400)`, with the
+   immediate 400 at 0x765A77 and the distance from 0x765A81.
+4. **The `Trees.cpp` table was rounded to 4 decimals** (35 of the 41 entries different; 20 of them within the
+   range 10..30, the only one `GetDistanceModifier` uses: T[1..10] were 0 and T[30..36] were 1).
+5. **The `WorshipPercentage.cpp` table was rounded to 5 decimals** (the same, T[1..8] = 0 and T[32..36] = 1).
+6. **The `AnimalLairs.cpp` sigmoid was computed in double**: at the table's jumps (±40 ulp) a different index came out in
+   50-60 of 3321 cases, and 1 in 300 000 with random values.
+7. **`hypotenuse(int)` in double** (WaterQueries and AnimalLairs): different in 31 678 of 200 000 samples versus the
+   24-bit emulation; almost always 1 unit, but when changing table bucket it reaches 2431 units = **0.37 m at
    1 km**.
-8. **`TownQueries::GetDistanceInMetres` usaba `std::hypot`** sin la tabla (100 m daban 100 m, no los 100,0244 m del
-   original) y convertía el entero a float **antes** de multiplicar, mientras que el original usa `fimul` sobre el
-   entero exacto (distinto en 22 572 de 100 000 enteros por encima de 2^24, es decir más de 2560 m).
-9. **`AnimalWallHug` `MoveToCircleHug`** hacía la raíz y el ×128 − 1 en double; en el original las dos constantes se
-   cargan como `qword` pero la FPU está a 24 bits, así que es todo float, y la base es `GetMetresDistanceSq` 0x605FB0
-   (0x60D9F0), el cuadrado exacto.
-10. **`FeatureScriptCommands::FindNearestTown`** comparaba **distancias al cuadrado**; el original llama a fn_00605CD0
-    (0x553016, 0x55302E) y compara la distancia, así que con la tabla y la cuantización dos ciudades casi empatadas
-    podían salir al revés.
-11. **`CastRules::FindHealTargets` medía desde el punto del lanzamiento** (el error venía de antes). El original
-    (`GMagicHealInfo::FindTargets` 0x5FBB00) solo tiene un MapCoords en el marco, la copia del argumento
-    ([ebp−0x24], 0x5FBB6B..0x5FBB82), y es el que **anda la espiral** (`operator+=` 0x605470 en 0x5FBCF1). Los dos cortes miden desde él:
-    `GetDistanceInMetres(coords, objeto)` en 0x5FBBEE `< R`, y el cuadrado exacto 0x5FBC54..0x5FBCA3
-    (`fild [ebp−0x24]` / `[ebp−0x20]`; `(coords − objeto)²` `< R²`, `test ah, 0x41`). Así la curación coge cualquier
-    objeto a menos de R del **punto de la espiral** que visita su celda, no del centro del milagro.
-12. **`AnimalFlee` `AnimalReaction`** (`ApplyReactionToLivingObjectsAtSquare` 0x6E3F90, la reacción en curso al
-    comparar con una nueva) medía al iniciador. El original toma `Reaction::GetPos` 0x6E45C0 (0x6E4142), le saca la
-    **celda** con fn_005E17C0 (las palabras altas, 0x6E414C) y mide con fn_0074CD90 (0x6E4157) desde el MapCoords del
-    animal al **centro** de esa celda (`GetDistanceInMetresToCell`): hasta 7,07 m de diferencia en la distancia que
-    alimenta la puntuación fn_006E4620 (0x6E4173).
+8. **`TownQueries::GetDistanceInMetres` used `std::hypot`** without the table (100 m gave 100 m, not the original's 100.0244 m)
+   and converted the integer to float **before** multiplying, whereas the original uses `fimul` on the
+   exact integer (different in 22 572 of 100 000 integers above 2^24, i.e. more than 2560 m).
+9. **`AnimalWallHug` `MoveToCircleHug`** did the root and the ×128 − 1 in double; in the original the two constants are
+   loaded as `qword` but the FPU is at 24 bits, so it is all float, and the base is `GetMetresDistanceSq` 0x605FB0
+   (0x60D9F0), the exact square.
+10. **`FeatureScriptCommands::FindNearestTown`** compared **squared distances**; the original calls fn_00605CD0
+    (0x553016, 0x55302E) and compares the distance, so with the table and the quantisation two almost tied towns
+    could come out the other way round.
+11. **`CastRules::FindHealTargets` measured from the casting point** (the error was older). The original
+    (`GMagicHealInfo::FindTargets` 0x5FBB00) only has one MapCoords in the frame, the copy of the argument
+    ([ebp−0x24], 0x5FBB6B..0x5FBB82), and it is the one that **walks the spiral** (`operator+=` 0x605470 at 0x5FBCF1). Both cutoffs measure from it:
+    `GetDistanceInMetres(coords, objeto)` at 0x5FBBEE `< R`, and the exact square 0x5FBC54..0x5FBCA3
+    (`fild [ebp−0x24]` / `[ebp−0x20]`; `(coords − objeto)²` `< R²`, `test ah, 0x41`). So heal takes any
+    object within R of the **spiral point** that visits its cell, not of the centre of the miracle.
+12. **`AnimalFlee` `AnimalReaction`** (`ApplyReactionToLivingObjectsAtSquare` 0x6E3F90, the ongoing reaction when
+    comparing with a new one) measured to the initiator. The original takes `Reaction::GetPos` 0x6E45C0 (0x6E4142), extracts its
+    **cell** with fn_005E17C0 (the high words, 0x6E414C) and measures with fn_0074CD90 (0x6E4157) from the animal's MapCoords
+    to the **centre** of that cell (`GetDistanceInMetresToCell`): up to 7.07 m of difference in the distance that
+    feeds the score fn_006E4620 (0x6E4173).
 
-**Qué usa ya la API.**
+**What already uses the API.**
 
-- Se borraron las tres copias de la tabla 1/√ y de `InvSqrt` (`WaterQueries.cpp`, `AnimalLairs.cpp`, `CHLApi.cpp`), las
-  cuatro `hypotenuse` y las tres `SigmoidThreshold` privadas (AnimalLairs, Trees, WorshipPercentage).
-- `WaterQueries` (`DistanceInMetres`, el corte de `NearestCoastal` y la distancia a los puntos de río),
-  `AnimalLairs` (`MapDistance` y `ForestScore` fn_0053AD00), `CHLApi` `GET_DISTANCE` (0x6F8CA0 → 0x74CDE0),
-  `TownQueries::GetDistanceInMetres` (y con ella `VillagerDecide` y los radios de búsqueda de ciudad).
-- Sustitutos en float cambiados por la API **solo donde se ha leído la llamada del original**: `FireEffect` y
-  `VillagerFire` (`Distance2D`, sus ocho usos leídos uno a uno: `HeatTransfer` fn_0072F980 0x72FA44,
+- The three copies of the 1/√ table and of `InvSqrt` were deleted (`WaterQueries.cpp`, `AnimalLairs.cpp`, `CHLApi.cpp`), as were the
+  four `hypotenuse` and the three private `SigmoidThreshold` (AnimalLairs, Trees, WorshipPercentage).
+- `WaterQueries` (`DistanceInMetres`, the `NearestCoastal` cutoff and the distance to the river points),
+  `AnimalLairs` (`MapDistance` and `ForestScore` fn_0053AD00), `CHLApi` `GET_DISTANCE` (0x6F8CA0 → 0x74CDE0),
+  `TownQueries::GetDistanceInMetres` (and with it `VillagerDecide` and the town search radii).
+- Float substitutes replaced by the API **only where the original's call has been read**: `FireEffect` and
+  `VillagerFire` (`Distance2D`, its eight uses read one by one: `HeatTransfer` fn_0072F980 0x72FA44,
   `NearestFireToFight` fn_00730070 0x73010A, `IsBesideFire` fn_0075ABA0 0x75ABC7, `OnFire` 0x75B27B,
-  `ReactToFirePriority` 0x765610 en 0x76567E y 0x76582B, `ReactToFire` 0x765870 en 0x7658D9 y 0x765A81), `Reactions` `SpreadReaction` (0x6E3E91), `Climate` `FindWhereToCreateStorm` /
-  `CreateStorm` / fn_00772330 (0x74CDE0), `CastRules` (el radio de curación, 0x5FBBEE, desde la espiral), `SpellFlock::WolfArrived` (0x421300),
+  `ReactToFirePriority` 0x765610 at 0x76567E and 0x76582B, `ReactToFire` 0x765870 at 0x7658D9 and 0x765A81), `Reactions` `SpreadReaction` (0x6E3E91), `Climate` `FindWhereToCreateStorm` /
+  `CreateStorm` / fn_00772330 (0x74CDE0), `CastRules` (the heal radius, 0x5FBBEE, from the spiral), `SpellFlock::WolfArrived` (0x421300),
   `SpellWater::ApplyWaterSpell` (0x7250EC), `EffectValues::ApplyEffectToMapPos` (0x525307), `Trees`
-  (`DistanceToForest` 0x53A890 / 0x53AC20 y el bosque escénico), `AnimalAI` (`PosWithinDomain` 0x5ED010,
+  (`DistanceToForest` 0x53A890 / 0x53AC20 and the scenic forest), `AnimalAI` (`PosWithinDomain` 0x5ED010,
   `SetNewWander` 0x41A3F0, `KeepFlockMemberWithinFlockArea` 0x41ABB0), `AnimalFlee` (`ReactToFoodPriority` 0x5F1710,
-  `SetupReactToFlyingObject` 0x4204A0, `ProcessReaction` 0x5F1270; `AnimalReaction` con `GetDistanceInMetresToCell`
+  `SetupReactToFlyingObject` 0x4204A0, `ProcessReaction` 0x5F1270; `AnimalReaction` with `GetDistanceInMetresToCell`
   0x6E4157), `AnimalPredators` (fn_00419340), `AnimalWallHug` (0x60D9F0), `StreetLantern` (`GStreetLantern::Create`
-  0x7346E0: recorre la celda con `MapCoords::FindType(0x1C)` 0x6045C0 y corta con `d < 0,5` [0x8AA3B4], `test ah, 1`
-  en 0x73470C) y `FeatureScriptCommands::FindNearestTown` (fn_00552FF0). Ojo: `GStreetLantern::IsALaternWithinDistance`
-  0x734A30 es **otra** rutina (la lista global de faroles g_game+0x205C34 y `d <= r`, `test ah, 0x41`), sin portar.
+  0x7346E0: walks the cell with `MapCoords::FindType(0x1C)` 0x6045C0 and cuts off with `d < 0,5` [0x8AA3B4], `test ah, 1`
+  at 0x73470C) and `FeatureScriptCommands::FindNearestTown` (fn_00552FF0). Careful: `GStreetLantern::IsALaternWithinDistance`
+  0x734A30 is a **different** routine (the global list of lanterns g_game+0x205C34 and `d <= r`, `test ah, 0x41`), not ported.
 
-## Ángulos de GUtils
+## GUtils angles
 
-✅ Fiel y portado en `src/ECS/GUtilsAngle.{h,cpp}`, namespace `openblack::gutils` (sesión «sistemas2», 2026-10-02).
-Es la familia de ángulos de la unidad `Utils` (0x74D0C0..0x74E2D0). Va encima de `ecs::map_coords` y de las
-distancias.
+✅ Faithful and ported in `src/ECS/GUtilsAngle.{h,cpp}`, namespace `openblack::gutils` («sistemas2» session, 2026-10-02).
+It is the angle family of the `Utils` unit (0x74D0C0..0x74E2D0). It sits on top of `ecs::map_coords` and the
+distances.
 
-- **Ángulo de juego**: entero de 11 bits, **2048 por vuelta**, guardado como `u16` (MobileWallHug +0x5C). 0 = +x,
-  0x200 = +z, 0x400 = −x, 0x600 = −z. Es `atan2(dz, dx)` en 2048avos con la tabla de arcotangente: como mucho
-  **2,27 pasos** de error (≈ 0,4°; a 10 m, unos 7 cm).
-- **Ángulo 3D**: radianes en float, el mismo sentido, en [0, 2π) cuando sale de GUtils. `Get3DAngleFromXZ` **no** es
-  `atan2` en float: es el ángulo de juego cuantizado y pasado a radianes.
-- **Ángulo «Scawen»**: el 3D + π/2 (criatura, PBall, `Dove::Dying`, `GetFacingDirection`).
-- Las rutinas de ángulo de juego son enteras (`LHArcTan` hace `shl 8; div`). La FPU va a 24 bits, pero **fsin/fcos no
-  los redondea el control de precisión**: salen en extendida y los redondea a float, una sola vez, el `fmul` siguiente.
-  Por eso `GetPosFromAngle`, `AddDistanceFromAngle` y `GetLHPointFromAngle` toman el coseno en **double** y redondean
-  el producto una vez. Con `cosf` se redondea dos veces: con un modelo exacto de fcos, 38 de 20 000 valores (0,19 %)
-  salen 1 unidad MapCoords distintos; con el double, ninguno.
+- **Game angle**: 11-bit integer, **2048 per turn**, stored as `u16` (MobileWallHug +0x5C). 0 = +x,
+  0x200 = +z, 0x400 = −x, 0x600 = −z. It is `atan2(dz, dx)` in 2048ths with the arctangent table: at most
+  **2.27 steps** of error (≈ 0.4°; at 10 m, about 7 cm).
+- **3D angle**: radians in float, the same direction, in [0, 2π) when it comes out of GUtils. `Get3DAngleFromXZ` is **not**
+  `atan2` in float: it is the game angle quantised and converted to radians.
+- **«Scawen» angle**: the 3D one + π/2 (creature, PBall, `Dove::Dying`, `GetFacingDirection`).
+- The game-angle routines are integer (`LHArcTan` does `shl 8; div`). The FPU runs at 24 bits, but **fsin/fcos are not
+  rounded by the precision control**: they come out in extended precision and are rounded to float, only once, by the following `fmul`.
+  That is why `GetPosFromAngle`, `AddDistanceFromAngle` and `GetLHPointFromAngle` take the cosine in **double** and round
+  the product once. With `cosf` it is rounded twice: with an exact model of fcos, 38 of 20 000 values (0.19 %)
+  come out 1 MapCoords unit different; with the double, none.
 
-| API (`openblack::gutils`) | Original | Notas |
+| API (`openblack::gutils`) | Original | Notes |
 |---|---|---|
-| `ArcTanTable()` | tabla 0xC2307C (257 `u16`, .data) | `trunc(atan(i/256)·1024/π)`; en double con trunc da las 257 entradas (con round, 122 distintas). Solo la lee LHArcTan |
-| `SinTable()`, `Sin(a)`, `Cos(a)` | tablas 0xC31614 (2560 `i32`) / 0xC31E14 = SIN + 512 | `trunc(65536·sin(i·2π/2048))`; las 2560 entradas coinciden (con round, 1220 distintas). El original indexa con `a & 0xFFFF`; aquí `a & 0x7FF` *(inferido: igual para todo lo que pasa el juego)* |
-| `LHArcTan(dx, dz)` | `?LHArcTan@@YAXHH@Z` 0x74D0C0 | x = −dx (0x74D0C5); las ocho ramas con comparaciones con signo (`jl`) y divisiones sin signo; los empates a la primera rama; `& 0x7FF` (0x74D1E2). `n << 8` se queda con los 32 bits bajos, como el `shl` |
+| `ArcTanTable()` | table 0xC2307C (257 `u16`, .data) | `trunc(atan(i/256)·1024/π)`; in double with trunc it gives the 257 entries (with round, 122 differ). Only LHArcTan reads it |
+| `SinTable()`, `Sin(a)`, `Cos(a)` | tables 0xC31614 (2560 `i32`) / 0xC31E14 = SIN + 512 | `trunc(65536·sin(i·2π/2048))`; the 2560 entries match (with round, 1220 differ). The original indexes with `a & 0xFFFF`; here `a & 0x7FF` *(inferred: the same for everything the game passes)* |
+| `LHArcTan(dx, dz)` | `?LHArcTan@@YAXHH@Z` 0x74D0C0 | x = −dx (0x74D0C5); the eight branches with signed comparisons (`jl`) and unsigned divisions; ties go to the first branch; `& 0x7FF` (0x74D1E2). `n << 8` keeps the low 32 bits, like the `shl` |
 | `GetAngleFromDXDZ(dx, dz)` | 0x74D200 | `LHArcTan & 0xFFFF` |
-| `GetAngleFromXZ(from, to)` | 0x74D240 (0x74D220 con cuatro enteros) | sobrecargas MapCoords, `ivec2` (16.16) y `vec2` (metros: cada punto pasa a MapCoords **antes** de restar) |
+| `GetAngleFromXZ(from, to)` | 0x74D240 (0x74D220 with four integers) | overloads MapCoords, `ivec2` (16.16) and `vec2` (metres: each point becomes a MapCoords **before** subtracting) |
 | `Get3DAngleFromXZ(from, to)` | 0x74D270 | `ConvertGameAngleTo3D(GetAngleFromDXDZ(to − from))` |
-| `ConvertAngle3DToGame(r)` | 0x74DC30 | `ftol(r · 325,94931 [0x99A1C8]) & 0x7FF`: trunca, y un negativo da la vuelta (−0,5 → 1886). Ida y vuelta pierde 1 en **365 de 2048** ángulos |
-| `ConvertGameAngleTo3D(a)` | 0x74DC50 | `(a & 0x7FF) · 0,0030679617 [0x99A1CC]`, un redondeo; es bit a bit `float(a) · 2π_f / 2048` |
+| `ConvertAngle3DToGame(r)` | 0x74DC30 | `ftol(r · 325,94931 [0x99A1C8]) & 0x7FF`: truncates, and a negative wraps around (−0.5 → 1886). A round trip loses 1 in **365 of 2048** angles |
+| `ConvertGameAngleTo3D(a)` | 0x74DC50 | `(a & 0x7FF) · 0,0030679617 [0x99A1CC]`, one rounding; it is bit for bit `float(a) · 2π_f / 2048` |
 | `ConvertScawenAngleToGameAngle(r)` | 0x74E290 | `ConvertAngle3DToGame(float(r − π/2 [0x8C78D8]))` |
-| `ConvertGameAngleToScawenAngle(a)` | 0x74E2B0 | `float(2a) · 0,0015339808 [0x8C78DC] + π/2`, **sin** `& 0x7FF` |
-| `GetXFromAngle` / `GetZFromAngle(a, int d)` | fn_0074D320 / 0x74D340 | `(C·d) >> 16` con `imul` de 32 bits y `sar` |
+| `ConvertGameAngleToScawenAngle(a)` | 0x74E2B0 | `float(2a) · 0,0015339808 [0x8C78DC] + π/2`, **without** `& 0x7FF` |
+| `GetXFromAngle` / `GetZFromAngle(a, int d)` | fn_0074D320 / 0x74D340 | `(C·d) >> 16` with 32-bit `imul` and `sar` |
 | `GetXFromAngle` / `GetZFromAngle(a, float d)` | fn_0074D360 / 0x74D380 | `float(C) · d · 2^-16` |
-| `StepFromAngle(a, whole)` | fn_0074D3A0 / 0x74D3C0 | `((whole >> 4)·C) >> 12`, los dos `sar` (con signo: `whole` es `int32_t`). El paso de MobileWallHug |
+| `StepFromAngle(a, whole)` | fn_0074D3A0 / 0x74D3C0 | `((whole >> 4)·C) >> 12`, both `sar` (signed: `whole` is `int32_t`). The MobileWallHug step |
 | `StepFromAngle8(a, whole)` | fn_0074D3E0 / 0x74D400 | `((whole >> 8)·C) >> 8` |
 | `GetX/ZByAngleMetersDistance(a, m)` | 0x74D420 / 0x74D450 | `ftol(float(C) · float(m / 10))` |
 | `GetPosFromGameAngle(a, int whole)` | fn_0074D650 | `{StepFromAngle(a, whole), 0}` |
-| `GetPosFromGameAngle(a, float m)` | fn_0074D6A0 | lo mismo con `whole = ConvertMetersToWholeDistance(m)`; el `sar 4` tira los 4 bits bajos |
-| `GetPosFromAngle(r, m)` | 0x74D580 (60 llamadores) | `x = ftol(float(cos(r)·m) · 65536 / 10)`, z con sin, altitude 0 (el literal de `mov [esp+8], 0` 0x74D587); el `GetDistanceInMetres(origen, p)` de 0x74D5F4 se tira, y con él su origen temporal `{ftol(0 / 10), ftol(0 / 10), 0}` |
-| `AddDistanceFromAngle(p, r, m)` | 0x74D510 | `p.x = ftol((float(cos(r)·m) + ToMetres(p.x)) · 65536 / 10)`, igual z; la altitude no cambia |
-| `GetLHPointFromAngle(r, m)` | fn_0074D620 | `(cos(r)·m, 0, sin(r)·m)` en float |
-| `GetAngleDifference(a, b)` *(nombre inferido)* | fn_0074D740 | `d = \|a − b\|`; `d > 0x400 ? 0x800 − d : d` |
-| `GetAngleDirection(from, to)` *(nombre inferido)* | fn_0074D6F0 | `d = to − from`; 0 → 0; si `\|d\| > 0x400` (sin signo) da la vuelta; −1 si d < 0, si no +1. **Con \|d\| == 0x400 no da la vuelta**: +0x400 → +1, −0x400 → −1 |
+| `GetPosFromGameAngle(a, float m)` | fn_0074D6A0 | the same with `whole = ConvertMetersToWholeDistance(m)`; the `sar 4` discards the 4 low bits |
+| `GetPosFromAngle(r, m)` | 0x74D580 (60 callers) | `x = ftol(float(cos(r)·m) · 65536 / 10)`, z with sin, altitude 0 (the literal of `mov [esp+8], 0` 0x74D587); the `GetDistanceInMetres(origen, p)` at 0x74D5F4 is discarded, and with it its temporary origin `{ftol(0 / 10), ftol(0 / 10), 0}` |
+| `AddDistanceFromAngle(p, r, m)` | 0x74D510 | `p.x = ftol((float(cos(r)·m) + ToMetres(p.x)) · 65536 / 10)`, same for z; the altitude does not change |
+| `GetLHPointFromAngle(r, m)` | fn_0074D620 | `(cos(r)·m, 0, sin(r)·m)` in float |
+| `GetAngleDifference(a, b)` *(inferred name)* | fn_0074D740 | `d = \|a − b\|`; `d > 0x400 ? 0x800 − d : d` |
+| `GetAngleDirection(from, to)` *(inferred name)* | fn_0074D6F0 | `d = to − from`; 0 → 0; if `\|d\| > 0x400` (unsigned) it wraps around; −1 if d < 0, otherwise +1. **With \|d\| == 0x400 it does not wrap around**: +0x400 → +1, −0x400 → −1 |
 
-`MapCoords` gana `operator+` 0x605520, `operator-` 0x6055C0, `+=` 0x605410 y `-=` 0x6054A0 (en `ECS/MapCoords.h`):
-suman o restan x, z **y la altitude**.
+`MapCoords` gains `operator+` 0x605520, `operator-` 0x6055C0, `+=` 0x605410 and `-=` 0x6054A0 (in `ECS/MapCoords.h`):
+they add or subtract x, z **and the altitude**.
 
-**Puntos alrededor de un objeto** (`ecs::object`, `ObjectMetrics.h`): todas son `this + GetPosFromAngle(ángulo, r)`
-con `MapCoords::operator+`, así que conservan la **altitude de this**. Cada una tiene su radio, y no se cambian unas por
-otras:
+**Points around an object** (`ecs::object`, `ObjectMetrics.h`): they are all `this + GetPosFromAngle(ángulo, r)`
+with `MapCoords::operator+`, so they keep **this's altitude**. Each one has its own radius, and they are not interchangeable
+with one another:
 
-| API (`ecs::object`) | Original | Ángulo y radio |
+| API (`ecs::object`) | Original | Angle and radius |
 |---|---|---|
-| `MapCoordsOf(e)` | Object +0x14 | `map_coords::FromWorld` de su `Transform` |
-| `GetNearestPosOfObject(this, o)` | 0x636D30 | `G3D(this, o)`, `R2D(o) + R2D(this)` (vt +0x64 de los dos) |
+| `MapCoordsOf(e)` | Object +0x14 | `map_coords::FromWorld` of its `Transform` |
+| `GetNearestPosOfObject(this, o)` | 0x636D30 | `G3D(this, o)`, `R2D(o) + R2D(this)` (vt +0x64 of both) |
 | `GetNearestEdgeToPos(this, p)` | 0x636DA0 | `G3D(this, p)`, `R2D(this)` |
-| `GetNearestEdge(this, ángulo, extra)` | 0x636DF0 | el ángulo lo da quien llama; `R2D(this) + extra` |
+| `GetNearestEdge(this, ángulo, extra)` | 0x636DF0 | the angle is given by the caller; `R2D(this) + extra` |
 | `GetWorkingPos(this, o)` | 0x639550 | `G3D(this, o)`, `R(this) + R(o)` (**GetRadius**, vt +0x60) |
-| `TreeGetWorkingPos(árbol, o)` | `Tree::GetWorkingPos` 0x74C040 | `G3D(árbol, o)`, `R2D(o) + 0,9` [0x8C5844]: solo el radio del otro |
+| `TreeGetWorkingPos(árbol, o)` | `Tree::GetWorkingPos` 0x74C040 | `G3D(árbol, o)`, `R2D(o) + 0,9` [0x8C5844]: only the other's radius |
 | `BigForestGetArrivePos(bosque, v)` | `BigForest::GetArrivePos` 0x439360 | `G3D(bosque, v)`, `R(bosque) · 0,5` [0x8AA3B4] |
 
-**Fuera de la API** (sin llamadores en el original): 0x74D2A0 (el ángulo entre dos LHPoint) y 0x74D770 (girar hacia un
-ángulo con un paso máximo), sin `call`, `jmp`, `jcc` ni punteros en toda la imagen. 0x74D480 (el paso «octogonal») solo
-lo llama fn_005E1890, sin portar. **No son de esta familia**: `LH3DMath::GetYAngle` 0x841290 y fn_007FAA50 (LH3D),
-`Atan2Positive` 0x7DB770 (gestos), la conversión propia de PuzzleGame 0x6F184C.
+**Outside the API** (no callers in the original): 0x74D2A0 (the angle between two LHPoints) and 0x74D770 (turning towards an
+angle with a maximum step), with no `call`, `jmp`, `jcc` or pointers in the whole image. 0x74D480 (the «octagonal» step) is only
+called by fn_005E1890, not ported. **They are not of this family**: `LH3DMath::GetYAngle` 0x841290 and fn_007FAA50 (LH3D),
+`Atan2Positive` 0x7DB770 (gestures), PuzzleGame's own conversion 0x6F184C.
 
-**Arreglos de fidelidad que trajo.**
+**Fidelity fixes it brought.**
 
-1. **`AngleDiff` de los animales a 180°** (`AnimalAI.cpp`): `((b − a + 1024) & 2047) − 1024` daba −0x400 cuando el
-   giro era justo de +0x400, y el original (`GetAngleDirection` 0x74D6F0, `jbe` en 0x74D709) gira en positivo. Un animal
-   que miraba justo al revés de su meta giraba al lado contrario, y el alabeo de los pájaros salía con el signo
-   cambiado. `SetTowardsAngle` (0x418560) usa ahora `GetAngleDirection` y `GetAngleDifference`, como el original.
-2. **`GetPosFromAngle` con el coseno en double** (antes `std::cos(float)`, doble redondeo): llega a todos los
-   llamadores de `town_queries::GetPosFromAngle` (Abode, VillagerDecide, VillagerShield, la congregación).
-3. **Ángulos en float sin cuantizar** pasados a `Get3DAngleFromXZ` + `GetPosFromAngle` sobre MapCoords:
-   `VillagerFire` (`GetFireFightingPos` 0x75AAE2 / 0x75AB59 y la huida de `OnFire` 0x75B368), `Trees` (fn_0053A010
-   0x53A094, `Tree::GetWorkingPos`, el borde del bosque de fn_0053ADB0 = `GetNearestEdgeToPos`,
-   `BigForest::GetArrivePos` y `AddTreeAround` 0x439264), `WorshipSite::GetSpellIconPosFromSlot` 0x77AFC0,
-   `AnimalFlee` (`Object::GetWorkingPos` 0x639550) y `Rock::SplitInTwo` 0x6E75B1 (`pos + o` y `pos − o`, 0x6E76A9 /
-   0x6E76CE, sobre this +0x14: las dos mitades **conservan la altitude de la roca**, `map_coords::FromWorld` /
-   `ToWorld`, como en el árbol y el bosque del punto 5; antes se ponían en el suelo).
-4. **`GetSpellIconPosFromSlot` pone la altitude a 0** con ring > 0 (0x77B002, `mov [esp+0x14], 0` = MapCoords +8)
-   antes del `+=`: el icono queda **en el suelo**. openblack conservaba la altura sobre el suelo del punto especial.
-5. **`Tree::GetWorkingPos` y `BigForest::GetArrivePos` conservan la altitude** del árbol / bosque (`operator+`); antes
-   se tomaba la altura del terreno sin más.
-6. **`IsPosValidForTurnAngle`** (0x41B210): los centros de los dos círculos de giro son `me + fn_0074D6A0(a ± 0x200, R)`
-   en MapCoords, con el `sar 4` que tira los 4 bits bajos de R, y la distancia es `GetDistanceInMetres` 0x74CD70 (con
-   la tabla), no `glm::distance`. R pasa a metros con `ConvertWholeDistanceToMeters` (× 10 / 65536), no con / 6553,6.
-   No hay prueba del giro: con `turnAngle` 0 el cociente es inf (NaN sin velocidad), `__ftol` da 0x80000000,
-   R = −327680 m y las dos distancias lo superan (true); la rama `turn <= 0` que había se quitó (daba lo mismo).
-7. **`CalcRandomPos`** (0x5ED0DB..0x5ED152): el desplazamiento aleatorio es `AddDistanceFromAngle` sobre el MapCoords
-   del centro (antes sumaba en metros float). La salida final ya era la del original: `me + fn_0074D650(+0x5C, 10)` es
-   `me + (0, 0)` porque `10 >> 4 = 0`. Los dos números al azar son `GameFloatRand` (0x5ED0BE el ángulo, 0x5ED0D2 el
-   radio, este **siempre**, sin la rama `range > 0` que había): `GameFloatRand` 0x6DE530 / fn_005106B0 da 0 con 0 y si
-   no `float(LHRand(0xFFFF)) · max · 1/65535` ([0x8D6050] = 0x37800080), también con `max` negativo. `SquarePos`
-   (fn_0074F310) usa el mismo. *(Aproximado)* `LHRand` 0x7DB600 es aquí el generador de openblack (0..0xFFFE). El centro
-   llega en metros, como openblack guarda las posiciones, y pasa a MapCoords con `FromMetres`; el original recibe el
-   MapCoords, así que un centro que no lo fuera ya puede quedar a una unidad (`Quantise` no es idempotente).
-8. **La formación de pájaros** (fn_0041E890, 0x41E96A..0x41EA05) no es `AddDistanceFromAngle`: x usa `row` y z usa
-   `column`, y el orden es `(cos·row)·10` (`fimul` y luego `fmul 10`), dos redondeos, sobre el MapCoords del líder.
-9. **`Dove::Dying`** (0x41F1B0): la velocidad es `(sin(s)·v, 0, −cos(s)·v)` con `s = ConvertGameAngleToScawenAngle`;
-   igual en matemáticas, distinta en bits.
-10. **`AngleOf(vec2)` de los animales** restaba en metros y luego truncaba: ahora cada punto pasa a MapCoords y se resta
-    (`GetAngleFromXZ`), como el original. Nueve usos (AnimalAI, AnimalBirds, AnimalFlee, AnimalPredators,
+1. **The animals' `AngleDiff` at 180°** (`AnimalAI.cpp`): `((b − a + 1024) & 2047) − 1024` gave −0x400 when the
+   turn was exactly +0x400, and the original (`GetAngleDirection` 0x74D6F0, `jbe` at 0x74D709) turns positive. An animal
+   facing exactly opposite its goal turned to the other side, and the birds' banking came out with the sign
+   flipped. `SetTowardsAngle` (0x418560) now uses `GetAngleDirection` and `GetAngleDifference`, like the original.
+2. **`GetPosFromAngle` with the cosine in double** (before, `std::cos(float)`, double rounding): it reaches all the
+   callers of `town_queries::GetPosFromAngle` (Abode, VillagerDecide, VillagerShield, the congregation).
+3. **Unquantised float angles** changed to `Get3DAngleFromXZ` + `GetPosFromAngle` on MapCoords:
+   `VillagerFire` (`GetFireFightingPos` 0x75AAE2 / 0x75AB59 and the flight of `OnFire` 0x75B368), `Trees` (fn_0053A010
+   0x53A094, `Tree::GetWorkingPos`, the forest edge of fn_0053ADB0 = `GetNearestEdgeToPos`,
+   `BigForest::GetArrivePos` and `AddTreeAround` 0x439264), `WorshipSite::GetSpellIconPosFromSlot` 0x77AFC0,
+   `AnimalFlee` (`Object::GetWorkingPos` 0x639550) and `Rock::SplitInTwo` 0x6E75B1 (`pos + o` and `pos − o`, 0x6E76A9 /
+   0x6E76CE, on this +0x14: the two halves **keep the rock's altitude**, `map_coords::FromWorld` /
+   `ToWorld`, as with the tree and the forest of point 5; before they were placed on the ground).
+4. **`GetSpellIconPosFromSlot` sets the altitude to 0** with ring > 0 (0x77B002, `mov [esp+0x14], 0` = MapCoords +8)
+   before the `+=`: the icon ends up **on the ground**. openblack kept the height above the ground of the special point.
+5. **`Tree::GetWorkingPos` and `BigForest::GetArrivePos` keep the altitude** of the tree / forest (`operator+`); before
+   the terrain height was simply taken.
+6. **`IsPosValidForTurnAngle`** (0x41B210): the centres of the two turning circles are `me + fn_0074D6A0(a ± 0x200, R)`
+   in MapCoords, with the `sar 4` that discards the 4 low bits of R, and the distance is `GetDistanceInMetres` 0x74CD70 (with
+   the table), not `glm::distance`. R is converted to metres with `ConvertWholeDistanceToMeters` (× 10 / 65536), not with / 6553.6.
+   There is no turn test: with `turnAngle` 0 the quotient is inf (NaN without speed), `__ftol` gives 0x80000000,
+   R = −327680 m and both distances exceed it (true); the `turn <= 0` branch that was there was removed (it made no difference).
+7. **`CalcRandomPos`** (0x5ED0DB..0x5ED152): the random offset is `AddDistanceFromAngle` on the centre's MapCoords
+   (before it added in float metres). The final output was already the original's: `me + fn_0074D650(+0x5C, 10)` is
+   `me + (0, 0)` because `10 >> 4 = 0`. The two random numbers are `GameFloatRand` (0x5ED0BE the angle, 0x5ED0D2 the
+   radius, the latter **always**, without the `range > 0` branch that was there): `GameFloatRand` 0x6DE530 / fn_005106B0 gives 0 with 0 and
+   otherwise `float(LHRand(0xFFFF)) · max · 1/65535` ([0x8D6050] = 0x37800080), also with a negative `max`. `SquarePos`
+   (fn_0074F310) uses the same one. *(Approximate)* `LHRand` 0x7DB600 is here openblack's generator (0..0xFFFE). The centre
+   arrives in metres, as openblack stores positions, and becomes a MapCoords with `FromMetres`; the original receives the
+   MapCoords, so a centre that was not one may already end up one unit off (`Quantise` is not idempotent).
+8. **The bird formation** (fn_0041E890, 0x41E96A..0x41EA05) is not `AddDistanceFromAngle`: x uses `row` and z uses
+   `column`, and the order is `(cos·row)·10` (`fimul` and then `fmul 10`), two roundings, on the leader's MapCoords.
+9. **`Dove::Dying`** (0x41F1B0): the velocity is `(sin(s)·v, 0, −cos(s)·v)` with `s = ConvertGameAngleToScawenAngle`;
+   the same mathematically, different in bits.
+10. **The animals' `AngleOf(vec2)`** subtracted in metres and then truncated: now each point becomes a MapCoords and they are subtracted
+    (`GetAngleFromXZ`), like the original. Nine uses (AnimalAI, AnimalBirds, AnimalFlee, AnimalPredators,
     AnimalWallHug).
-11. `VillagerFire` `OnFire`: los dos `GameFloatRand` (ángulo y distancia) iban como argumentos de una llamada, sin orden
-    garantizado; ahora el ángulo va primero, como en 0x75B32D..0x75B34A.
-12. **`SetNewWander`** (`Animal::SetNewWander(MapCoords const&, int, int)` 0x41A3F0): la distancia pasa a entero con
-    `__ftol` (0x41A421) y se compara **como int** con `rMax` y `rMin` (0x41A426 `cmp; jle`, 0x41A430 `cmp; jge`). Antes
-    se comparaba el float: con `d` en (rMax, rMax + 1) el animal iba hacia el centro y en el original no.
-13. **`__ftol` 0x7A1400** es una sola función, `map_coords::FtoL` (`MapCoords.h`), usada por `ToFixed`,
-    `ToFixedGUtils`, `CellSpiralSize`, `IncrementSpiralSize`, `ConvertMetersToWholeDistance` y GUtilsAngle (antes
-    `static_cast`, indefinido fuera de rango). Imita la rama SSE2 (`HasSSE2` [0xE83A20], `cvttsd2si`, la que toma toda
-    CPU actual): hacia 0, y 0x80000000 para NaN o fuera del rango de int32. La rama x87 (0x7A141F, `fistp qword` y la
-    corrección hacia 0, los 32 bits bajos del int64) daría otro valor fuera de ese rango; no se reproduce.
-14. Copias que quedaban: `VillagerCore.cpp` `setGameAngle` (la constante 0x99A1CC a mano) usa
-    `gutils::ConvertGameAngleTo3D`, como `SetGameAngle` 0x60DAA1; `SpellFlock.cpp` (las dos orientaciones,
-    0x74D240) usa `gutils::GetAngleFromXZ(created, target)` en vez de `AngleOfMapCoords` con la resta hecha.
+11. `VillagerFire` `OnFire`: the two `GameFloatRand` (angle and distance) were arguments of a single call, with no guaranteed
+    order; now the angle goes first, as at 0x75B32D..0x75B34A.
+12. **`SetNewWander`** (`Animal::SetNewWander(MapCoords const&, int, int)` 0x41A3F0): the distance becomes an integer with
+    `__ftol` (0x41A421) and is compared **as an int** with `rMax` and `rMin` (0x41A426 `cmp; jle`, 0x41A430 `cmp; jge`). Before
+    the float was compared: with `d` in (rMax, rMax + 1) the animal went towards the centre and in the original it does not.
+13. **`__ftol` 0x7A1400** is a single function, `map_coords::FtoL` (`MapCoords.h`), used by `ToFixed`,
+    `ToFixedGUtils`, `CellSpiralSize`, `IncrementSpiralSize`, `ConvertMetersToWholeDistance` and GUtilsAngle (before,
+    `static_cast`, undefined out of range). It imitates the SSE2 branch (`HasSSE2` [0xE83A20], `cvttsd2si`, the one every
+    current CPU takes): towards 0, and 0x80000000 for NaN or outside the int32 range. The x87 branch (0x7A141F, `fistp qword` and the
+    correction towards 0, the low 32 bits of the int64) would give another value outside that range; it is not reproduced.
+14. Remaining copies: `VillagerCore.cpp` `setGameAngle` (the constant 0x99A1CC by hand) uses
+    `gutils::ConvertGameAngleTo3D`, like `SetGameAngle` 0x60DAA1; `SpellFlock.cpp` (the two orientations,
+    0x74D240) uses `gutils::GetAngleFromXZ(created, target)` instead of `AngleOfMapCoords` with the subtraction done.
 
-**Qué usa ya la API.** `town_queries::GetAngleFromXZ` / `Get3DAngleFromXZ` / `GetPosFromAngle` y
-`animal_ai::detail::Cos` / `Sin` / `Step` / `AngleOfMapCoords` son reenvíos de una línea a `gutils` (las copias de las
-tablas y de `LHArcTan` se borraron de `AnimalAI.cpp`). `AngleOf(vec2)` y `AngleDiff` ya no existen.
+**What already uses the API.** `town_queries::GetAngleFromXZ` / `Get3DAngleFromXZ` / `GetPosFromAngle` and
+`animal_ai::detail::Cos` / `Sin` / `Step` / `AngleOfMapCoords` are one-line forwards to `gutils` (the copies of the
+tables and of `LHArcTan` were deleted from `AnimalAI.cpp`). `AngleOf(vec2)` and `AngleDiff` no longer exist.
 
-## Tamaño de los objetos
+## Object size
 
-✅ Fiel y portado en `src/ECS/ObjectMetrics.{h,cpp}`, namespace `openblack::ecs::object` (sesión «sistemas2»,
-2026-10-01). Son las funciones virtuales de `Object` que dan el radio 2D, el radio y la altura de un objeto a partir de
-la caja de su malla: unas **540 llamadas** en el original (151 a vt+0x64, 48 a vt+0x60 y 343 a vt+0x42C, recuento
-heurístico). openblack las tenía escritas a mano 33 veces, con 6 envoltorios, y cada copia conocía como mucho una de las
-redefiniciones de las clases.
+✅ Faithful and ported in `src/ECS/ObjectMetrics.{h,cpp}`, namespace `openblack::ecs::object` («sistemas2» session,
+2026-10-01). These are the virtual functions of `Object` that give the 2D radius, the radius and the height of an object from
+its mesh's box: about **540 calls** in the original (151 to vt+0x64, 48 to vt+0x60 and 343 to vt+0x42C, heuristic
+count). openblack had them hand-written 33 times, with 6 wrappers, and each copy knew at most one of the
+class overrides.
 
-**La caja de la malla.** `LH3DMesh::ComputeBoundingBox` **0x8081B0** (al cargar) une las cajas de todas las submallas y
-guarda en +0x18..+0x20 el centro, en **+0x24 / +0x28 / +0x2C las semiextensiones** `(max − min) × 0,5` [0x8AA3B4]
-(0x80831C..0x80835B) y en **+0x30 la semidiagonal** `√((hz² + hy²) + hx²)` (0x80835E..0x808379). Una malla animada
-(flag +4 bit 0x100) pasa antes por `LH3DAnim::SetTransform` 0x83A1D0; openblack no lo hace (ver Pendiente).
+**The mesh box.** `LH3DMesh::ComputeBoundingBox` **0x8081B0** (on load) joins the boxes of all the submeshes and
+stores in +0x18..+0x20 the centre, in **+0x24 / +0x28 / +0x2C the half-extents** `(max − min) × 0,5` [0x8AA3B4]
+(0x80831C..0x80835B) and in **+0x30 the half-diagonal** `√((hz² + hy²) + hx²)` (0x80835E..0x808379). An animated mesh
+(flag +4 bit 0x100) first goes through `LH3DAnim::SetTransform` 0x83A1D0; openblack does not do this (see Pending).
 
-**Dos niveles.** El original tiene las dos cosas, y no dan lo mismo:
-- **Nivel de malla**: lee los campos en línea, sin pasar por la vtable, así que **no ve ninguna redefinición**.
-  `IsSuitableForFixed` 0x603E1E..0x603E5B, fn_00604020 0x604042, `Scaffold` 0x6E956A y 0x6EAC14..0x6EAC56, 0x7350A5,
-  la criatura 0x4778E9..0x4779B1; semialturas en `Field::Draw` 0x5287B9..0x5287D3, `PhysOb::Initialise` 0x7FB7D9,
+**Two levels.** The original has both, and they do not give the same result:
+- **Mesh level**: reads the fields inline, without going through the vtable, so it **does not see any override**.
+  `IsSuitableForFixed` 0x603E1E..0x603E5B, fn_00604020 0x604042, `Scaffold` 0x6E956A and 0x6EAC14..0x6EAC56, 0x7350A5,
+  the creature 0x4778E9..0x4779B1; half-heights in `Field::Draw` 0x5287B9..0x5287D3, `PhysOb::Initialise` 0x7FB7D9,
   `Tree::Draw` 0x74ABB0, `WorshipTotem::Create` 0x780995, `CitadelHeart` 0x4653FE / 0x467777,
-  `Abode::DrawPercentFull` 0x407111, `TownArtifact::Draw` 0x51C9A3 y otros. Ahí un campo mide lo que su malla.
-- **Nivel de objeto**: la llamada virtual, con la tabla de redefiniciones de las `??_7` de symbols.txt que derivan de
-  `Object` (barrido de las ranuras +0x60, +0x64, +0x120, +0x13C, +0x42C, +0x568, +0x590, +0x5F4, +0x630, +0x64C,
-  +0x6C4, +0x798 y +0x7C4 en todas las vtables, 2026-10-01). Las clases que **no** son `Object` no están cubiertas:
-  la `Citadel` 0x8C7E68 (y los `Planned*`, `SpellSeedGraphic`) se queda con `GameThing` 0x405140 / 0x405150 = 0,
-  `GameThingWithPos::GetHeight` 0x405500 = 0 y `GetScale` 0x4247E0 = 1; `SpellShield` 0x72B440 (`GetSpellMagnitude`
+  `Abode::DrawPercentFull` 0x407111, `TownArtifact::Draw` 0x51C9A3 and others. There a field measures what its mesh measures.
+- **Object level**: the virtual call, with the table of overrides of the `??_7` in symbols.txt that derive from
+  `Object` (sweep of slots +0x60, +0x64, +0x120, +0x13C, +0x42C, +0x568, +0x590, +0x5F4, +0x630, +0x64C,
+  +0x6C4, +0x798 and +0x7C4 in all the vtables, 2026-10-01). The classes that are **not** `Object` are not covered:
+  the `Citadel` 0x8C7E68 (and the `Planned*`, `SpellSeedGraphic`) keeps `GameThing` 0x405140 / 0x405150 = 0,
+  `GameThingWithPos::GetHeight` 0x405500 = 0 and `GetScale` 0x4247E0 = 1; `SpellShield` 0x72B440 (`GetSpellMagnitude`
   0x7202C0) / 0x72B450, `SpellStormAndTornado` 0x72D950 / 0x72D960, `Town` 0x73D6E0, `GArena` 0x424780, `Reaction`
-  0x55C7D0, `BuildingSite` 0x43D050 y `AtomCore` 0x673C70 tienen su propio `GetRadius` / `Get2DRadius`; `GStreetLight`
-  0x735110 (radio 20 [0x8C7658], fn_00735060) y `Mist` 0x6067D0 (`Mist::Get2DRadius` 0x606660) su propio
-  `GetDistanceFromObject(MapCoords)`. Nadie las pide a la API: el templo de openblack es el `CitadelHeart` (`Temple`),
-  que es un `Object`.
+  0x55C7D0, `BuildingSite` 0x43D050 and `AtomCore` 0x673C70 have their own `GetRadius` / `Get2DRadius`; `GStreetLight`
+  0x735110 (radius 20 [0x8C7658], fn_00735060) and `Mist` 0x6067D0 (`Mist::Get2DRadius` 0x606660) their own
+  `GetDistanceFromObject(MapCoords)`. Nobody asks the API for them: openblack's temple is the `CitadelHeart` (`Temple`),
+  which is an `Object`.
 
-Cada sitio se porta **al nivel que usa el original en ese punto**: una API de un solo nivel metería un campo de 5 m en
-`IsSuitableForFixed` o en las obras. Todo va en float (FPU a 24 bits, fn_007DEE00), sin double ni FMA.
+Each place is ported **at the level the original uses at that point**: a single-level API would put a 5 m field into
+`IsSuitableForFixed` or into the construction sites. Everything is in float (FPU at 24 bits, fn_007DEE00), without double or FMA.
 
-| API (`ecs::object`) | Original | Qué hace |
+| API (`ecs::object`) | Original | What it does |
 |---|---|---|
-| **Nivel de malla** | | |
-| `HalfExtents(box)`, `MeshHalfExtents(meshId)` | +0x24/+0x28/+0x2C, 0x80831C..0x80835B | `(max − min) × 0,5`; sin malla, nada |
-| `HalfDiagonal(half)`, `MeshHalfDiagonal(meshId)` | +0x30, 0x80835E..0x808379 | `√((hz² + hy²) + hx²)`, en ese orden |
-| `Radius2D(half, s)`, `MeshRadius2D(meshId, s)` | 0x6381B1..0x6381E2; en línea en 0x603E1E, 0x604042, 0x6E956A, 0x6EAC22, 0x7350A5 | `s × max(hx, hz)` (el `fcompp` toma hx si hz < hx) |
-| `Height(half, s)`, `MeshHeight(meshId, s)` | 0x638136..0x63813D; en línea en `Tree::Draw` 0x74ABA2..0x74ABC0 | `2 × (hy × s)` (`fmul` y luego `fadd st0, st0`) |
-| `MeshHalfHeight(meshId)` | 0x5287C5, 0x7FB7D9, 0x74ABB0 | +0x28, sin escala |
-| **Nivel de objeto** | | |
-| `GetScale(e)` | vt+0x120: Object 0x402520 = el campo +0x50; Creature 0x47B190 → `GetUserSize` 0x4EF4F0 | la escala uniforme del `Transform` (x); la de un `MapShield` es su `objectScale` (`SetScale` 0x639200), no la dibujada. La de la criatura es la del `Transform` **(inferido)** |
-| `GetScaleField(e)` | el campo +0x50 que lee `GetHeight` (0x638139) | no la virtual |
-| `ObjectGet2DRadius(e)` | `Object::Get2DRadius` 0x638180 en sí (la llama directa `PileFood` en 0x66F192) | `GetScale × max(+0x24, +0x2C)`; sin malla 0 (0x6381E9) |
-| `ObjectGetHeight(e)` | `Object::GetHeight` 0x638120 en sí | `2 × +0x28 × [+0x50]`; sin malla 0 (0x638140) |
-| `Get2DRadius(e)` | vt+0x64 | Field 0x528E80 y FishFarm 0x52C470 = **5** [0x8AB6E4]; MagicTeleport 0x5FCCB0 → 0x5FCCA0 = **6** [0x92C108]; MagicFireBall 0x682D20 = `GetScale × 1` [0x935910]; PileFood / MagicFood / PuzzleGrain 0x66F180 = `GetProportionRaised × Object::Get2DRadius`; Creature 0x477F40 (sin portar: ver Pendiente); el resto, 0x638180 |
-| `GetRadius(e)` | vt+0x60: Object 0x638110 = `jmp [vt+0x64]` | igual que `Get2DRadius` (Creature 0x4792C0 repite su lectura) |
-| `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = tamaño × **15** [0x8C2C40] (el tamaño, la escala del `Transform`: **(inferido)**); el resto 0x638120 (Field, FishFarm y PileFood **no** la cambian) |
+| **Mesh level** | | |
+| `HalfExtents(box)`, `MeshHalfExtents(meshId)` | +0x24/+0x28/+0x2C, 0x80831C..0x80835B | `(max − min) × 0,5`; without a mesh, nothing |
+| `HalfDiagonal(half)`, `MeshHalfDiagonal(meshId)` | +0x30, 0x80835E..0x808379 | `√((hz² + hy²) + hx²)`, in that order |
+| `Radius2D(half, s)`, `MeshRadius2D(meshId, s)` | 0x6381B1..0x6381E2; inline at 0x603E1E, 0x604042, 0x6E956A, 0x6EAC22, 0x7350A5 | `s × max(hx, hz)` (the `fcompp` takes hx if hz < hx) |
+| `Height(half, s)`, `MeshHeight(meshId, s)` | 0x638136..0x63813D; inline in `Tree::Draw` 0x74ABA2..0x74ABC0 | `2 × (hy × s)` (`fmul` and then `fadd st0, st0`) |
+| `MeshHalfHeight(meshId)` | 0x5287C5, 0x7FB7D9, 0x74ABB0 | +0x28, unscaled |
+| **Object level** | | |
+| `GetScale(e)` | vt+0x120: Object 0x402520 = the +0x50 field; Creature 0x47B190 → `GetUserSize` 0x4EF4F0 | the uniform scale of the `Transform` (x); that of a `MapShield` is its `objectScale` (`SetScale` 0x639200), not the drawn one. The creature's is that of the `Transform` **(inferred)** |
+| `GetScaleField(e)` | the +0x50 field read by `GetHeight` (0x638139) | not the virtual one |
+| `ObjectGet2DRadius(e)` | `Object::Get2DRadius` 0x638180 itself (called directly by `PileFood` at 0x66F192) | `GetScale × max(+0x24, +0x2C)`; without a mesh 0 (0x6381E9) |
+| `ObjectGetHeight(e)` | `Object::GetHeight` 0x638120 itself | `2 × +0x28 × [+0x50]`; without a mesh 0 (0x638140) |
+| `Get2DRadius(e)` | vt+0x64 | Field 0x528E80 and FishFarm 0x52C470 = **5** [0x8AB6E4]; MagicTeleport 0x5FCCB0 → 0x5FCCA0 = **6** [0x92C108]; MagicFireBall 0x682D20 = `GetScale × 1` [0x935910]; PileFood / MagicFood / PuzzleGrain 0x66F180 = `GetProportionRaised × Object::Get2DRadius`; Creature 0x477F40 (not ported: see Pending); the rest, 0x638180 |
+| `GetRadius(e)` | vt+0x60: Object 0x638110 = `jmp [vt+0x64]` | the same as `Get2DRadius` (Creature 0x4792C0 repeats its read) |
+| `GetHeight(e)` | vt+0x42C | MagicFireBall 0x682D30 = `jmp [vt+0x64]`; Creature 0x477F50 = size × **15** [0x8C2C40] (the size, the scale of the `Transform`: **(inferred)**); the rest 0x638120 (Field, FishFarm and PileFood do **not** change it) |
 | `GetTopPos(e)` | vt+0x630: Object 0x638160; MapShield / MagicShield / PhysicalShield 0x72C1C0 = **0** | `altitud (+0x1C, sobre el suelo) + GetHeight` |
 | `GetHeightForHandAboveInteractObject(e)` | vt+0x64C: Object 0x638150 = `jmp [vt+0x42C]`; FishFarm 0x52C840 = **5** [0x8AB6E4] | |
-| `GetMeshRadius(e)` | vt+0x568: Object 0x636BD0 = +0x30 sin escala; Field 0x528A30 / FishFarm 0x52C480 = 5 | |
-| `PileFoodProportionRaised`, `PileWoodProportionRaised`, `GetProportionRaised(e)` | vt+0x86C: PileFood 0x66EB60, PileWood 0x66F1B0 | ver abajo |
-| **Derivadas** (rutinas propias encima de la API) | | |
-| `GetHoldRadius(e, above)` | Object 0x638C00: ABOVE (`GetHoldType` = 1) → `GetHeight × 0,75` [0x8AB274], si no `Get2DRadius`; Tree 0x74B610 / DeadTree 0x5110E0 = `Get2DRadius × 0,2` [0x8AB244] | el tipo de agarre lo sabe la mano; SpellSeed 0x728640 (`GetScale × info+0x150`) lo pone quien llama |
+| `GetMeshRadius(e)` | vt+0x568: Object 0x636BD0 = +0x30 unscaled; Field 0x528A30 / FishFarm 0x52C480 = 5 | |
+| `PileFoodProportionRaised`, `PileWoodProportionRaised`, `GetProportionRaised(e)` | vt+0x86C: PileFood 0x66EB60, PileWood 0x66F1B0 | see below |
+| **Derived** (own routines on top of the API) | | |
+| `GetHoldRadius(e, above)` | Object 0x638C00: ABOVE (`GetHoldType` = 1) → `GetHeight × 0,75` [0x8AB274], otherwise `Get2DRadius`; Tree 0x74B610 / DeadTree 0x5110E0 = `Get2DRadius × 0,2` [0x8AB244] | the hold type is known by the hand; SpellSeed 0x728640 (`GetScale × info+0x150`) is set by the caller |
 | `GetDefaultFireRadius(e)` | Object 0x639AC0 = `jmp [vt+0x64]`; DeadTree 0x510E10 = `GetHeight × 0,35` [0x8D6974]; WorshipSite 0x77DE10 → 0x77DDD0 = **14** [0x99C9EC] | |
 | `GetVillagerHugRadius(e)` | Object 0x4026B0 = `Get2DRadius × 1,05 + 0,0005` [0x8AA3A0] [0x8AA39C]; Tree 0x74A1A0 = `min(Get2DRadius × 0,1, 0,25)` [0x8AB22C] [0x8AB3D4] | |
-| `GetRoutePlanRadius(e)` | vt+0x7C4: Object 0x6384C0 sin criatura = `Get2DRadius` (0x6384CF); Tree 0x74A140 (copia de 0x74A1A0); CitadelHeart 0x4680C0 = `Get2DRadius × 0,33` [0x8CA268] (en openblack, `Temple`) | la rama con criatura, sin portar |
-| `GetDistanceFromObject(a, b)` | vt+0x6C4: Object 0x637FB0; WorshipSite 0x77DE20 | `GetDistanceInMetres − (R2D(b) + R2D(a))`; el lugar de culto mide desde `CalculateCentrePos` 0x77DD40 y resta `14 + R2D(b)` (`GetRealRadius` 0x77DDD0, 0x77DE36..0x77DE60) |
-| `GetDistanceFromObject(a, punto)` | vt+0x13C: 0x5702B0 (Object 0x4027C0 la llama) | `GetDistanceInMetres − GetRadius`. Ninguna clase `Object` la redefine |
-| `IsTouching(a, b, m)`, `IsTouching(a, punto)` | 0x637E00 (`≤ m`), 0x637E30 (`≤ 0`) | por las dos de arriba, con sus redefiniciones |
-| `GetBoundingSphere(e)` | vt+0x798: Object 0x637730; Living 0x5ED2F0; MobileStatic 0x608F40 | `h = GetHeight × 0,5`; `r = √(R2D² + h²)`; centro = el del MapCoords con `y = (GetAltitude + altitud) + h`. El suelo es el de la isla (`LandIsland::HeightAt`, la U3 de «sistemas», por `map_coords::ToWorld`). Living (aldeanos, animales) y MobileStatic (rocas, árboles muertos y talados, hogueras, fragmentos, piedras de teletransporte) usan `R2D × 0,5` (0x5ED30D / 0x608F5D). Creature 0x479970 → `LH3DCreature::GetBoundingSphere` 0x47F8D0, sin portar: usa la de `Object` **(inferido)** |
-| `WorshipSiteCentre(e)` | `WorshipSite::CalculateCentrePos` 0x77DD40 | `derecha × 12,55 [0x99C9E8] − delante × 26,1 [0x99C9E4] + posición`, por componente (0x77DD61..0x77DDB1). La matriz es la del `Transform` del lugar **(inferido**: `[this+0x40]+0x14`, como ya leía `WorshipScore`, que ahora la llama) |
+| `GetRoutePlanRadius(e)` | vt+0x7C4: Object 0x6384C0 without a creature = `Get2DRadius` (0x6384CF); Tree 0x74A140 (copy of 0x74A1A0); CitadelHeart 0x4680C0 = `Get2DRadius × 0,33` [0x8CA268] (in openblack, `Temple`) | the branch with a creature, not ported |
+| `GetDistanceFromObject(a, b)` | vt+0x6C4: Object 0x637FB0; WorshipSite 0x77DE20 | `GetDistanceInMetres − (R2D(b) + R2D(a))`; the worship site measures from `CalculateCentrePos` 0x77DD40 and subtracts `14 + R2D(b)` (`GetRealRadius` 0x77DDD0, 0x77DE36..0x77DE60) |
+| `GetDistanceFromObject(a, punto)` | vt+0x13C: 0x5702B0 (Object 0x4027C0 calls it) | `GetDistanceInMetres − GetRadius`. No `Object` class overrides it |
+| `IsTouching(a, b, m)`, `IsTouching(a, punto)` | 0x637E00 (`≤ m`), 0x637E30 (`≤ 0`) | through the two above, with their overrides |
+| `GetBoundingSphere(e)` | vt+0x798: Object 0x637730; Living 0x5ED2F0; MobileStatic 0x608F40 | `h = GetHeight × 0,5`; `r = √(R2D² + h²)`; centre = that of the MapCoords with `y = (GetAltitude + altitud) + h`. The ground is the island's (`LandIsland::HeightAt`, the U3 of «sistemas», via `map_coords::ToWorld`). Living (villagers, animals) and MobileStatic (rocks, dead and felled trees, bonfires, fragments, teleport stones) use `R2D × 0,5` (0x5ED30D / 0x608F5D). Creature 0x479970 → `LH3DCreature::GetBoundingSphere` 0x47F8D0, not ported: it uses the `Object` one **(inferred)** |
+| `WorshipSiteCentre(e)` | `WorshipSite::CalculateCentrePos` 0x77DD40 | `derecha × 12,55 [0x99C9E8] − delante × 26,1 [0x99C9E4] + posición`, per component (0x77DD61..0x77DDB1). The matrix is that of the site's `Transform` **(inferred**: `[this+0x40]+0x14`, as `WorshipScore` already read it, which now calls it) |
 
-**GetProportionRaised** (0x66EB60, comida): `p = cantidad / maxAmountInPot` (`fild` de 64 bits sin signo, `fidiv`);
-p < 0 → 0 sin suelo; p > 1 → 1; **p = 0 se queda en 0** (0x66EBB7..0x66EBC2); si no, `p = (1 − 0,05)·p + 0,05`
-[0x933014]. Devuelve `1 − (1 − p)²` recortado a 0..1. La de la madera (0x66F1B0) aplica el suelo si p > 0 y recorta, sin
-el cuadrado. Con `maxAmountInPot = 0` el original da inf (→ 1) o NaN (→ 0), lo mismo que dividir por 1.
+**GetProportionRaised** (0x66EB60, food): `p = cantidad / maxAmountInPot` (unsigned 64-bit `fild`, `fidiv`);
+p < 0 → 0 without a floor; p > 1 → 1; **p = 0 stays at 0** (0x66EBB7..0x66EBC2); otherwise, `p = (1 − 0,05)·p + 0,05`
+[0x933014]. It returns `1 − (1 − p)²` clamped to 0..1. The wood one (0x66F1B0) applies the floor if p > 0 and clamps, without
+the square. With `maxAmountInPot = 0` the original gives inf (→ 1) or NaN (→ 0), the same as dividing by 1.
 
-**Qué se arregló** (los 8 arreglos de fidelidad del plan, §4):
-1. **Field = 5 m** en el fuego (`fire::traits`, y con él FireEffect, FireGraphic, Explosion y VillagerFire), los
-   animales (`GetWorkingPos` 0x639550 usa vt+0x60), el pueblo (`CheckForClearArea` 0x741457), la curación (Heal), los
-   bosques (`AddTreeAround` 0x439220, vt+0x60) y SpellFlock / SpellWater (que ya lo tenía aparte).
-2. **FishFarm = 5 m**: no estaba en ningún sitio.
-3. **PileFood × proporción** en todas las consultas de objeto (antes solo en `pot_resource`).
-4. **MagicFireBall** (radio y altura = escala) fuera del fuego: Heal y todo lo que pasa por la API.
-5. **La pila vacía da 0**, no 0,0975 (`PotResource.cpp`, y su test `test_food_wood`).
-6. **El campo se hundía el doble**: `Fields.cpp` guardaba la altura entera; el original suma `2·v·escala·[m+0x28]` con la
-   **semi**altura (0x5287C2..0x5287D1). Ahora es la semialtura del nivel de malla.
-7. **Sin malla, 0**: la mano (0,5 / 1,0), la pila al hundirse (1,0) y el campo (1,0) daban tamaños inventados.
-8. **El MapShield con una sola escala**: `GetScale` de un escudo es su `objectScale` en todas las consultas.
+**What was fixed** (the plan's 8 fidelity fixes, §4):
+1. **Field = 5 m** in fire (`fire::traits`, and with it FireEffect, FireGraphic, Explosion and VillagerFire), the
+   animals (`GetWorkingPos` 0x639550 uses vt+0x60), the town (`CheckForClearArea` 0x741457), healing (Heal), the
+   forests (`AddTreeAround` 0x439220, vt+0x60) and SpellFlock / SpellWater (which already had it separately).
+2. **FishFarm = 5 m**: it was not anywhere.
+3. **PileFood × proportion** in all the object queries (before only in `pot_resource`).
+4. **MagicFireBall** (radius and height = scale) outside fire: Heal and everything that goes through the API.
+5. **The empty pile gives 0**, not 0.0975 (`PotResource.cpp`, and its test `test_food_wood`).
+6. **The field sank twice as much**: `Fields.cpp` stored the whole height; the original adds `2·v·escala·[m+0x28]` with the
+   **half**-height (0x5287C2..0x5287D1). Now it is the half-height of the mesh level.
+7. **Without a mesh, 0**: the hand (0.5 / 1.0), the pile when sinking (1.0) and the field (1.0) gave invented sizes.
+8. **The MapShield with a single scale**: a shield's `GetScale` is its `objectScale` in all the queries.
 
-Además: `Trees.h` citaba `ComputeBoundingBox` en 0x808180 (es **0x8081B0**). `Tree::Draw` (la copa al doblarse,
-0x74ABA2..0x74ABC2) se porta al nivel de malla; la altura del árbol más alto (fn_0053A740, 0x53A75D), el árbol talado
-(0x5116C2) y el susurro de más de 10 m (0x74B1CF) al de objeto. `GetDefaultFireRadius` de un lugar de culto es 14 m.
+Also: `Trees.h` cited `ComputeBoundingBox` at 0x808180 (it is **0x8081B0**). `Tree::Draw` (the crown when bending,
+0x74ABA2..0x74ABC2) is ported at mesh level; the height of the tallest tree (fn_0053A740, 0x53A75D), the felled tree
+(0x5116C2) and the rustle of more than 10 m (0x74B1CF) at object level. The `GetDefaultFireRadius` of a worship site is 14 m.
 
-Migrados al nivel de objeto: `EffectValues` (ver abajo), `FireObjectTraits`, `PotResource`, `PotArchetype::SetSize`
-(0x66E90A / 0x66E918), `SpellWater`, `SpellFlock` (`fn_006D0C20` con vt+0x60), `Heal` (incluida la escala de regla,
-vt+0x64 en 0x6A0DC3), `OneOffSpellSeed` (el adelanto del Z-sorter, vt+0x60), `SpellDispenser` (0x722B46),
-`TestDispensers`, `TownQueries`, `Trees`, `Rocks` (y con él `LanternSounds` y la física de rocas), `AnimalFlee`,
-`AbodeArchetype` (0x40327E / 0x40329A) y `HandHolding::ComputeHoldParameters` (la altura por vt+0x42C, la de la semilla
-con la malla de su info por `Object::GetHeight` 0x638120; el radio por vt+0x64 como `Object::GetHoldRadius`
-0x638C22..0x638C26, así que una pila de comida cogida, también la HandFood de la mano, lleva su `GetProportionRaised`).
-`HandSystem::Update` ya no repite la proporción con 1600 fijo: solo vuelve a pedir los parámetros cada fotograma
-(info.dat: HandFood es potType 1 = PileFood con `maxAmountInPot` 1600, así que solo cambia la mano vacía, que ahora mide
-0). Al nivel de malla: `Fields` y la copa de `Trees`.
+Migrated to the object level: `EffectValues` (see below), `FireObjectTraits`, `PotResource`, `PotArchetype::SetSize`
+(0x66E90A / 0x66E918), `SpellWater`, `SpellFlock` (`fn_006D0C20` with vt+0x60), `Heal` (including the rule scale,
+vt+0x64 at 0x6A0DC3), `OneOffSpellSeed` (the Z-sorter advance, vt+0x60), `SpellDispenser` (0x722B46),
+`TestDispensers`, `TownQueries`, `Trees`, `Rocks` (and with it `LanternSounds` and the rock physics), `AnimalFlee`,
+`AbodeArchetype` (0x40327E / 0x40329A) and `HandHolding::ComputeHoldParameters` (the height via vt+0x42C, that of the seed
+with the mesh of its info via `Object::GetHeight` 0x638120; the radius via vt+0x64 like `Object::GetHoldRadius`
+0x638C22..0x638C26, so a picked-up food pile, also the hand's HandFood, carries its `GetProportionRaised`).
+`HandSystem::Update` no longer repeats the proportion with a fixed 1600: it only asks for the parameters again every frame
+(info.dat: HandFood is potType 1 = PileFood with `maxAmountInPot` 1600, so only the empty hand changes, which now measures
+0). At mesh level: `Fields` and the crown of `Trees`.
 
-Los envoltorios `effects::ObjectHeight` / `Object2DRadius` (la rutina de `Object` **sin** redefiniciones) ya no
-existen: todos sus llamadores van por la API (2026-10-02).
+The wrappers `effects::ObjectHeight` / `Object2DRadius` (the `Object` routine **without** overrides) no longer
+exist: all their callers go through the API (2026-10-02).
 
-## Reloj del juego
+## Game clock
 
-✅ Fiel y portado en `src/GameClock.{h,cpp}`, namespace `openblack::game_clock` (sesión «sistemas2», 2026-10-02).
-Game lo mueve: lo pone en marcha en `LoadMap`, decide los turnos en `Update` y calcula el reloj del fotograma justo
-después. El original **no tiene una función «dame el tiempo»**: `GGame::Loop` 0x54CF20 calcula el reloj una vez por
-vuelta y lo deja en campos de GGame que cientos de lectores leen en línea (379 referencias al turno, 157 a
-`g_game_time_inc`, 29 a la fracción). openblack lo tenía escrito unas 37 veces, con fidelidades distintas.
+✅ Faithful and ported in `src/GameClock.{h,cpp}`, namespace `openblack::game_clock` («sistemas2» session, 2026-10-02).
+Game drives it: it starts it in `LoadMap`, decides the turns in `Update` and computes the frame clock right
+afterwards. The original **does not have a «give me the time» function**: `GGame::Loop` 0x54CF20 computes the clock once per
+iteration and leaves it in GGame fields that hundreds of readers read inline (379 references to the turn, 157 to
+`g_game_time_inc`, 29 to the fraction). openblack had it written about 37 times, with different fidelities.
 
-**El temporizador de la partida** es un `LHTimer` en g_game +0x205D68 (+0x100 base, +0x104 ms acumulados, +0x108
-factor de velocidad, 0 = parado, +0x10C factor guardado). `MSeconds` 0x43EB70 = `ftol((GetTickCount − base) · factor +
-acumulado)`; `Stop` 0x43E9C0 acumula y pone el factor a 0; `SetSpeedUpFactor` 0x43EBC0 rebasa si está en marcha y, si
-está parado, solo guarda el factor. Para arrancarlo (inicio de Loop 0x54CF93, `ResetLocalGameTimer` 0x54C690, quitar
-la pausa) se pone el factor a 1e-5 (0x3727C5AC) y luego `SetSpeedUpFactor(guardado)`: así se rebasa y **el tiempo
-parado no cuenta**. Todo en float (FPU a 24 bits).
+**The game timer** is an `LHTimer` at g_game +0x205D68 (+0x100 base, +0x104 accumulated ms, +0x108
+speed factor, 0 = stopped, +0x10C saved factor). `MSeconds` 0x43EB70 = `ftol((GetTickCount − base) · factor +
+acumulado)`; `Stop` 0x43E9C0 accumulates and sets the factor to 0; `SetSpeedUpFactor` 0x43EBC0 rebases if it is running and, if
+it is stopped, only saves the factor. To start it (start of Loop 0x54CF93, `ResetLocalGameTimer` 0x54C690, unpausing)
+the factor is set to 1e-5 (0x3727C5AC) and then `SetSpeedUpFactor(guardado)`: that way it rebases and **the stopped
+time does not count**. All in float (FPU at 24 bits).
 
-**Cuándo hay turno** (`LocalTimerSaysDoATurn` 0x54C4A0, llamado desde `ProcessNetworkPackets` 0x54CD45):
-- toca cuando `MSeconds ≥ turno · 100`, con el 100 escrito a mano (0x54C4F0). La comparación es **absoluta**, así que
-  el sobrante de un turno pasa al siguiente;
-- en pausa (un jugador) nunca (0x54C528);
-- con más de 2000 ms (0x7D0) de retraso llama a `ResetLocalGameTimer` 0x54C570, que pone el temporizador en
-  `turno · 100` desde ahora (0x54C615). La respuesta de esa llamada es la de la muestra de antes (`setge` 0x54C567);
-- como mucho **1 turno por fotograma** en un jugador (10 en red): `neg; sbb; and 9; inc` en 0x54CD0F..0x54CD18. El
-  bucle pregunta primero al temporizador y luego el tope (0x54CD52), así que tras el último turno del fotograma el
-  temporizador se consulta una vez más.
+**When there is a turn** (`LocalTimerSaysDoATurn` 0x54C4A0, called from `ProcessNetworkPackets` 0x54CD45):
+- it is due when `MSeconds ≥ turno · 100`, with the 100 hard-coded (0x54C4F0). The comparison is **absolute**, so
+  the leftover of one turn carries over to the next;
+- when paused (single player) never (0x54C528);
+- with more than 2000 ms (0x7D0) of lag it calls `ResetLocalGameTimer` 0x54C570, which sets the timer to
+  `turno · 100` from now (0x54C615). The answer of that call is that of the earlier sample (`setge` 0x54C567);
+- at most **1 turn per frame** in single player (10 in network play): `neg; sbb; and 9; inc` at 0x54CD0F..0x54CD18. The
+  loop asks the timer first and then the cap (0x54CD52), so after the last turn of the frame the
+  timer is queried once more.
 
-**El turno** g_game +0x205A40 sube **al empezar** el turno y solo sin pausa (`GGame::StartTurn` 0x54E4FD..0x54E507),
-antes de `ProcessTurn` 0x54E5C0 y `EndTurn` 0x54E960. Durante el turno todo el juego lee ya el número nuevo.
+**The turn** g_game +0x205A40 goes up **when the turn starts** and only when not paused (`GGame::StartTurn` 0x54E4FD..0x54E507),
+before `ProcessTurn` 0x54E5C0 and `EndTurn` 0x54E960. During the turn the whole game already reads the new number.
 
-**El reloj del fotograma** (`GGame::Loop` 0x54D2A8..0x54D3A6, después de los turnos y antes de dibujar):
-- sin pausa: `Δ = MSeconds − muestra anterior`; con el mismo turno `resto += Δ`; con turno nuevo
-  `resto += Δ − 100` (0x54D316); luego `resto` se limita a 0..99 (0x54D325..0x54D337);
-- `visual = turno · 100 + resto` (0x54D343); si es menor que el anterior, se guarda ese valor menor (0x54D350: el reloj
-  **sí va hacia atrás**) y `resto = 0` (0x54D356); lo que nunca es negativo es el dt, que ese fotograma vale 0;
-- `g_game_time_inc` [0xEA9EC0] = g+0x250540 = g+0x205D48 = `visual − anterior` (0x54D366/0x54D374/0x54D380): **ms
-  enteros**, como mucho 199, que siguen la velocidad;
-- la **fracción** g+0x205D64 = `resto · 0,01` [0x8C4B10] (0x54D392): va de 0 a 0,99 y va un turno por detrás;
-- en pausa solo el dt vale 0 (0x54D39A); **la fracción se conserva**;
-- `NetworkTurnsThisFrame` vuelve a 0 después de dibujar (0x54D3C3).
+**The frame clock** (`GGame::Loop` 0x54D2A8..0x54D3A6, after the turns and before drawing):
+- not paused: `Δ = MSeconds − muestra anterior`; with the same turn `resto += Δ`; with a new turn
+  `resto += Δ − 100` (0x54D316); then `resto` is clamped to 0..99 (0x54D325..0x54D337);
+- `visual = turno · 100 + resto` (0x54D343); if it is lower than the previous one, that lower value is stored (0x54D350: the clock
+  **does go backwards**) and `resto = 0` (0x54D356); what is never negative is the dt, which is 0 that frame;
+- `g_game_time_inc` [0xEA9EC0] = g+0x250540 = g+0x205D48 = `visual − anterior` (0x54D366/0x54D374/0x54D380): **whole
+  ms**, at most 199, which follow the speed;
+- the **fraction** g+0x205D64 = `resto · 0,01` [0x8C4B10] (0x54D392): it goes from 0 to 0.99 and lags one turn behind;
+- when paused only the dt is 0 (0x54D39A); **the fraction is preserved**;
+- `NetworkTurnsThisFrame` goes back to 0 after drawing (0x54D3C3).
 
-**El reloj de pared** `g_delta_time` [0xC38134] es otro `LHTimer` (`LH3DTech::g_timer` 0xEA1B78), leído en
-`LH3DRender::StartFrame` 0x82F14E: ms del fotograma, 1 si sale ≤ 0 (0x82F195), y no se para en pausa. Su constructor
-estático (fn_008189F0, en la tabla `__xc_a` en 0x9C7D60) lo deja **parado** (velocidad 0, guardada 1);
-`LH3DTech::RenderInitialization` 0x818C61..0x818CA3 (llamada por `LH3DRender::Open` en 0x82B540) lo arranca: factor
-1e-5, `elapsed = MSeconds` (≈ 0), base = `GetTickCount`, factor = el guardado (1). Cuenta, pues, los ms **desde que
-arranca el motor**, no desde que arranca la máquina. `SetSpeed` 0x5537F0 pone además [0xD00DA8] = 0 por las dos ramas
-(0x5538AD, 0x5538C8); esa dirección solo se escribe en todo el exe (también en `GNetwork::ProcessOnePacket` 0x634B40),
-nadie la lee: no se porta **(inferido: no se ha visto ningún lector indexado)**.
+**The wall clock** `g_delta_time` [0xC38134] is another `LHTimer` (`LH3DTech::g_timer` 0xEA1B78), read in
+`LH3DRender::StartFrame` 0x82F14E: ms of the frame, 1 if it comes out ≤ 0 (0x82F195), and it does not stop when paused. Its static
+constructor (fn_008189F0, in the `__xc_a` table at 0x9C7D60) leaves it **stopped** (speed 0, saved 1);
+`LH3DTech::RenderInitialization` 0x818C61..0x818CA3 (called by `LH3DRender::Open` at 0x82B540) starts it: factor
+1e-5, `elapsed = MSeconds` (≈ 0), base = `GetTickCount`, factor = the saved one (1). It therefore counts the ms **since the
+engine starts**, not since the machine starts. `SetSpeed` 0x5537F0 additionally sets [0xD00DA8] = 0 in both branches
+(0x5538AD, 0x5538C8); that address is only written in the whole exe (also in `GNetwork::ProcessOnePacket` 0x634B40),
+nobody reads it: it is not ported **(inferred: no indexed reader has been seen)**.
 
-| API (`game_clock`) | Original | Qué hace |
+| API (`game_clock`) | Original | What it does |
 |---|---|---|
-| `k_MsPerTurn` = 100, `MsPerTurn()`, `SetMsPerTurn()` | [0xD01A38]: `GGame::Init` 0x54F4A5, `SET_GAME_TICK_TIME` 0x714DBE | los ms del turno que lee la lógica |
-| `k_SchedulerMsPerTurn` = 100 | literales 0x54C4F0, 0x54D316, 0x54D343, 0x54C615, 0x5550A3, 0x553810 | el 100 del planificador y del reloj del fotograma (no lee [0xD01A38]) |
-| `k_TurnSeconds` = 0,1f | `push 0x3DCCCCCD` en `ProcessTurn` 0x54E5D1, 0x54E6C3, 0x54E775 | los segundos de turno que se pasan a mano |
-| `k_MaxLagMs`, `k_MaxTurnsPerFrame` | 0x54C553, 0x54CD0F | 2000 ms; 1 turno por fotograma |
-| `Timer` (`MSeconds`, `Stop`, `SetSpeedUpFactor`, `Start`) | LHTimer 0x43EB70 / 0x43E9C0 / 0x43EBC0; arranque 0x54CF93 | el temporizador |
-| `Turn()`, `SetTurn()` | g+0x205A40 | el turno |
-| `TimerSaysDoATurn()`, `TurnDue()`, `StartTurn()`, `ResetLocalTimer()` | 0x54C4A0, 0x54CD45, 0x54CD93 + 0x54E507, 0x54C570 | el planificador |
-| `Start(paused)` | Loop 0x54CF6B..0x54D003 y 0x54D1F7 | temporizador desde 0, dt y fracción a 0, `ResetLocalGameTimer` |
-| `OnLoad()` | `ResolveLoad` 0x555080 | dt y fracción a 0, `visual = turno · 100` (los estáticos de Loop no se tocan) |
-| `Pause(bool)`, `IsPaused()` | `PauseGame` 0x54AE20 (0x54AE7C..0x54AEE7) | la bandera g+0x14 bit 2 y el temporizador parado / rearrancado |
-| `SetSpeed(v)`, `Speed()` | `GGame::SetSpeed` 0x5537F0 (0x553800; `SetSpeedUpFactor` en línea en 0x553835) | el factor de velocidad; el tiempo ya pasado se queda con la velocidad de antes |
-| `UpdateFrameClock()` | `GGame::Loop` 0x54D2A8..0x54D3A6, 0x54D3C3 | resto, reloj visual, dt y fracción |
-| `FrameGameMs()`, `FrameGameSeconds()` | [0xEA9EC0]; `· 0,001` [0x8AA3B0] | ms enteros de juego del fotograma |
-| `TurnFraction()` | g+0x205D64 | la fracción del turno |
-| `VisualMs()` | g+0x25053C | el reloj visual |
-| `StartEngineTimer()` | `RenderInitialization` 0x818C61..0x818CA3 (`Reset()` lo deja parado como fn_008189F0) | arranca el reloj de pared desde ≈ 0; lo llama `InitializeEngine` (Locator.cpp) al crear el renderer |
-| `UpdateRealClock()`, `FrameRealMs()`, `EngineMs()` | `StartFrame` 0x82F14E..0x82F195; `g_timer` 0xEA1C78..0xEA1C80 | el reloj de pared |
-| `CameraFrameMs(playingBack)` | `GetCameraTimeInc` 0x555820 | dt de juego al reproducir la interfaz grabada, si no el de pared |
-| `ClampedFrameMs(inTemple)` | fn_005557E0 | pared en el templo, de juego fuera; ≤ 0 → 0, tope 500 |
-| `TicksForSeconds(s)` | `ftol(1000 / [0xD01A38] · s)` (división entera): `NumGameTicksPerSecond` 0x711630 y en línea en 0x70CCDE, 0x711338, 0x5C61F6 y `GetTicksToChangeOver` 0x66CD00 | segundos → turnos; con [0xD01A38] = 0 el original fallaría en el `div` (0x711635, sin comprobar): openblack da 0 **(inferido)** |
+| `k_MsPerTurn` = 100, `MsPerTurn()`, `SetMsPerTurn()` | [0xD01A38]: `GGame::Init` 0x54F4A5, `SET_GAME_TICK_TIME` 0x714DBE | the turn ms that the logic reads |
+| `k_SchedulerMsPerTurn` = 100 | literals 0x54C4F0, 0x54D316, 0x54D343, 0x54C615, 0x5550A3, 0x553810 | the 100 of the scheduler and of the frame clock (does not read [0xD01A38]) |
+| `k_TurnSeconds` = 0,1f | `push 0x3DCCCCCD` in `ProcessTurn` 0x54E5D1, 0x54E6C3, 0x54E775 | the turn seconds passed by hand |
+| `k_MaxLagMs`, `k_MaxTurnsPerFrame` | 0x54C553, 0x54CD0F | 2000 ms; 1 turn per frame |
+| `Timer` (`MSeconds`, `Stop`, `SetSpeedUpFactor`, `Start`) | LHTimer 0x43EB70 / 0x43E9C0 / 0x43EBC0; start 0x54CF93 | the timer |
+| `Turn()`, `SetTurn()` | g+0x205A40 | the turn |
+| `TimerSaysDoATurn()`, `TurnDue()`, `StartTurn()`, `ResetLocalTimer()` | 0x54C4A0, 0x54CD45, 0x54CD93 + 0x54E507, 0x54C570 | the scheduler |
+| `Start(paused)` | Loop 0x54CF6B..0x54D003 and 0x54D1F7 | timer from 0, dt and fraction to 0, `ResetLocalGameTimer` |
+| `OnLoad()` | `ResolveLoad` 0x555080 | dt and fraction to 0, `visual = turno · 100` (the Loop statics are not touched) |
+| `Pause(bool)`, `IsPaused()` | `PauseGame` 0x54AE20 (0x54AE7C..0x54AEE7) | the flag g+0x14 bit 2 and the timer stopped / restarted |
+| `SetSpeed(v)`, `Speed()` | `GGame::SetSpeed` 0x5537F0 (0x553800; `SetSpeedUpFactor` inline at 0x553835) | the speed factor; the time already elapsed keeps the previous speed |
+| `UpdateFrameClock()` | `GGame::Loop` 0x54D2A8..0x54D3A6, 0x54D3C3 | remainder, visual clock, dt and fraction |
+| `FrameGameMs()`, `FrameGameSeconds()` | [0xEA9EC0]; `· 0,001` [0x8AA3B0] | whole game ms of the frame |
+| `TurnFraction()` | g+0x205D64 | the turn fraction |
+| `VisualMs()` | g+0x25053C | the visual clock |
+| `StartEngineTimer()` | `RenderInitialization` 0x818C61..0x818CA3 (`Reset()` leaves it stopped like fn_008189F0) | starts the wall clock from ≈ 0; it is called by `InitializeEngine` (Locator.cpp) when creating the renderer |
+| `UpdateRealClock()`, `FrameRealMs()`, `EngineMs()` | `StartFrame` 0x82F14E..0x82F195; `g_timer` 0xEA1C78..0xEA1C80 | the wall clock |
+| `CameraFrameMs(playingBack)` | `GetCameraTimeInc` 0x555820 | game dt when playing back the recorded interface, otherwise the wall one |
+| `ClampedFrameMs(inTemple)` | fn_005557E0 | wall in the temple, game outside; ≤ 0 → 0, cap 500 |
+| `TicksForSeconds(s)` | `ftol(1000 / [0xD01A38] · s)` (integer division): `NumGameTicksPerSecond` 0x711630 and inline at 0x70CCDE, 0x711338, 0x5C61F6 and `GetTicksToChangeOver` 0x66CD00 | seconds → turns; with [0xD01A38] = 0 the original would fail at the `div` (0x711635, unchecked): openblack gives 0 **(inferred)** |
 
-Ojo con el nombre de 0x711630: en realidad es el `SetTime` de un temporizador del guion (guarda el turno en +0x28 y los
-turnos en +0x2C, fn_00711610); la conversión es la misma que la de las otras cuatro.
+Careful with the name of 0x711630: it is actually the `SetTime` of a script timer (it stores the turn in +0x28 and the
+turns in +0x2C, fn_00711610); the conversion is the same as that of the other four.
 
-Velocidad de openblack: `Game::SetGameSpeed(m)` sigue recibiendo el multiplicador de la duración del turno (2 lento,
-0,5 rápido) y llama a `SetSpeed(1 / m)`.
+openblack speed: `Game::SetGameSpeed(m)` still receives the turn-duration multiplier (2 slow,
+0.5 fast) and calls `SetSpeed(1 / m)`.
 
-**Lo que se arregló** (antes cada cosa llevaba su reloj):
-- **El sobrante del turno.** `GameLogicLoop` hacía un turno si habían pasado 100 ms desde el anterior y ponía la marca
-  en el fotograma del turno: a 30 fps los turnos duraban 133 ms (un 25 % más lentos). Ahora 3 s a 33 ms por fotograma
-  dan 30 turnos.
-- **El turno sube al empezar.** `_turnCount` subía al final; durante el turno se leía uno menos que en el original.
-- **La pausa.** No paraba el reloj: al quitarla hacía un turno en el mismo fotograma y la fracción saltaba a 0,99. La
-  fracción valía 0 en pausa; ahora se congela.
-- **El orden del fotograma.** Los turnos van antes que el reloj del fotograma y que todo lo que se mueve por
-  fotograma (aldeanos, animales, tiburones, barco, anillos, peces, luciérnagas, la pantalla ancha, la magia), como en
-  `GGame::Loop`. Las diez copias de `_paused ? 0 : dt / mult` de Game.cpp leen `FrameGameMs()` / `FrameGameSeconds()`:
-  ms enteros, 0 en pausa, ≤ 199.
-- **El mar.** `RendererSea.cpp` tomaba como dt el tiempo desde el arranque (`desc.time`, que no se rebasa nunca) y
-  `ScrollRows` lo acumulaba otra vez: el mar se desplazaba cada vez más deprisa. Ahora lee `g_game_time_inc`
+**What was fixed** (before, each thing had its own clock):
+- **The turn leftover.** `GameLogicLoop` did a turn if 100 ms had passed since the previous one and set the mark
+  at the frame of the turn: at 30 fps turns lasted 133 ms (25 % slower). Now 3 s at 33 ms per frame
+  give 30 turns.
+- **The turn goes up at the start.** `_turnCount` went up at the end; during the turn one less was read than in the original.
+- **The pause.** It did not stop the clock: when unpausing it did a turn in the same frame and the fraction jumped to 0.99. The
+  fraction was 0 while paused; now it freezes.
+- **The frame order.** The turns go before the frame clock and before everything that moves per
+  frame (villagers, animals, sharks, ship, rings, fish, fireflies, widescreen, magic), as in
+  `GGame::Loop`. The ten copies of `_paused ? 0 : dt / mult` in Game.cpp read `FrameGameMs()` / `FrameGameSeconds()`:
+  whole ms, 0 when paused, ≤ 199.
+- **The sea.** `RendererSea.cpp` took as dt the time since startup (`desc.time`, which is never rebased) and
+  `ScrollRows` accumulated it again: the sea scrolled faster and faster. Now it reads `g_game_time_inc`
   (0x879963, 0x87A130).
-- **Fracciones propias.** HandGrain (0x5B2D41/0x5B2D61), el PSys (0x67370D) y las luciérnagas (0x52ADF6) usaban el
-  reloj de pared o uno propio, sin velocidad ni pausa y con tope 1. Ahora leen `TurnFraction()`.
-- **Relojes propios.** HandFish y HandResources (`ProcessInInteract` una vez por turno) contaban turnos con el dt real
-  de la mano; ahora cuentan los turnos del juego. Los fragmentos de los edificios rotos (`Fragment::ProcessTimer`) van
-  con el turno, y el dt de la física es el de juego. TownBelief usaba el reloj de pared donde el original suma
-  `g_game_time_inc · 0,002` (0x69D855); su paso del PSys, en cambio, **no** usa el tiempo del fotograma (ver
-  «TownBelief» abajo). PetitNavire (`g_carry`) y los tiburones (`s_Clock`) reconstruían los ms
-  enteros: ya llegan enteros.
-- **Conversiones.** Los dispensadores (0x70CCDE, 0x711338), el final de los textos de ayuda (0x5C61F6) y la rampa de
-  coger de un montón (0x66CD00, antes en float y sin truncar) usan `TicksForSeconds`. Cánticos y ayuda leen
-  `MsPerTurn()`. `SET_GAME_TICK_TIME` (antes lanzaba una excepción) escribe [0xD01A38] y nada más.
-- **Las copias del turno** (`reactions::Turn`, `magic::CurrentTurn`, la de la bola de fuego, que no leía nadie, el
-  clima y su bucle, los árboles, los animales, los aldeanos y el humo de chimenea, que no miraba si había Game) leen
-  `Turn()`. `magic::k_TurnMs`, `Chants.h`, `DayNightClock.cpp`, `FireFlies.cpp`, `ChimneySmoke.cpp` y `HelpSystem`
-  toman sus constantes del reloj.
-- **El reloj de los textos de ayuda** (`queries.nowMs`) era un reloj propio aproximado; ahora es `EngineMs()`, el
-  `g_timer` que lee el original en 0x5C6250.
+- **Own fractions.** HandGrain (0x5B2D41/0x5B2D61), the PSys (0x67370D) and the fireflies (0x52ADF6) used the
+  wall clock or their own, without speed or pause and with a cap of 1. Now they read `TurnFraction()`.
+- **Own clocks.** HandFish and HandResources (`ProcessInInteract` once per turn) counted turns with the hand's real
+  dt; now they count the game's turns. The fragments of broken buildings (`Fragment::ProcessTimer`) go
+  with the turn, and the physics dt is the game one. TownBelief used the wall clock where the original adds
+  `g_game_time_inc · 0,002` (0x69D855); its PSys step, on the other hand, does **not** use the frame time (see
+  «TownBelief» below). PetitNavire (`g_carry`) and the sharks (`s_Clock`) reconstructed the whole
+  ms: they now arrive whole.
+- **Conversions.** The dispensers (0x70CCDE, 0x711338), the end of the help texts (0x5C61F6) and the ramp for
+  picking up from a pile (0x66CD00, before in float and without truncating) use `TicksForSeconds`. Chants and help read
+  `MsPerTurn()`. `SET_GAME_TICK_TIME` (it used to throw an exception) writes [0xD01A38] and nothing else.
+- **The copies of the turn** (`reactions::Turn`, `magic::CurrentTurn`, the fireball's one, which nobody read, the
+  weather and its loop, the trees, the animals, the villagers and the chimney smoke, which did not check whether there was a Game) read
+  `Turn()`. `magic::k_TurnMs`, `Chants.h`, `DayNightClock.cpp`, `FireFlies.cpp`, `ChimneySmoke.cpp` and `HelpSystem`
+  take their constants from the clock.
+- **The help texts clock** (`queries.nowMs`) was an approximate clock of its own; now it is `EngineMs()`, the
+  `g_timer` that the original reads at 0x5C6250.
 
-**Arreglos de la auditoría** (2026-10-02):
-- **El reloj de pared no se arrancaba.** `engineTimer` se quedaba con base 0 y velocidad 1: `EngineMs()` y
-  `UpdateRealClock()` daban los ms de `steady_clock` desde su época (el arranque de la máquina). En float, con más de
-  4,6 h de máquina encendida (2^24 ms) los ms iban de 2 en 2 (con días, de 32 en 32: el reloj de los textos y
-  `FrameRealMs` se cuantizaban), y con más de 24,8 días el paso a int32 se desbordaba. Ahora `Reset()` lo deja parado
-  como fn_008189F0 y `StartEngineTimer()` (RenderInitialization 0x818C71) lo arranca desde ≈ 0.
-- **El contador de fotogramas del mar** [0xFA938C] (`(frame + 1) & 15`) avanzaba sin pausa; el original lo avanza solo
-  si `g_game_time_inc != 0` (0x879B0A / 0x879B41).
-- **Direcciones y textos.** `++NetworkTurnsThisFrame` está en 0x54CD93 (en 0x54CE58 está la llamada a
-  `ProcessOneGameTurn`). El reloj visual **sí** puede ir hacia atrás (0x54D350); lo que no es negativo es el dt.
-- **`atmos::UpdateGame`** (WeatherLoop.cpp) lleva `k_TurnSeconds` (0x54E5D1) en lugar del 0,1f a mano.
-- **[0xD01A38] en tiempo de ejecución.** Las luciérnagas (`FireFly::Process` fn_0052AF90, 0x52AF93: `fild [0xD01A38];
-  fmul 0,001`) y el viento de la mano del humo de chimenea (fn_005DBC60 0x5DBD4E: `1000 / [0xD01A38]`) leen la
-  variable cada turno: ahora `MsPerTurn()` (antes la constante `k_MsPerTurn`, y `SET_GAME_TICK_TIME` no les llegaba).
-  `Chants.h` solo tiene el valor por defecto; `Spell.cpp` ya lo rellena con `MsPerTurn()`.
-- **HelpSystem en float.** Los segundos de lectura (0x5C6211..0x5C6225) y `ShownLongEnough` (fn_005C68C0) se
-  calculaban en double; ahora en float (la FPU a 24 bits).
-- **Los fragmentos** (`Fragment::ProcessTimer` 0x76EAF0) los llama `GGame::ProcessTurn` en 0x54E768: ahora van desde
-  `Game::GameLogicLoop` y no desde la física con un `static` del turno (que no se reiniciaba al cargar un mapa).
+**Audit fixes** (2026-10-02):
+- **The wall clock was not started.** `engineTimer` stayed with base 0 and speed 1: `EngineMs()` and
+  `UpdateRealClock()` gave the ms of `steady_clock` since its epoch (machine startup). In float, with more than
+  4.6 h of the machine switched on (2^24 ms) the ms went in steps of 2 (after days, in steps of 32: the texts clock and
+  `FrameRealMs` were quantised), and with more than 24.8 days the conversion to int32 overflowed. Now `Reset()` leaves it stopped
+  like fn_008189F0 and `StartEngineTimer()` (RenderInitialization 0x818C71) starts it from ≈ 0.
+- **The sea frame counter** [0xFA938C] (`(frame + 1) & 15`) advanced without pause; the original only advances it
+  if `g_game_time_inc != 0` (0x879B0A / 0x879B41).
+- **Addresses and texts.** `++NetworkTurnsThisFrame` is at 0x54CD93 (at 0x54CE58 is the call to
+  `ProcessOneGameTurn`). The visual clock **can** go backwards (0x54D350); what is not negative is the dt.
+- **`atmos::UpdateGame`** (WeatherLoop.cpp) uses `k_TurnSeconds` (0x54E5D1) instead of the hand-written 0,1f.
+- **[0xD01A38] at runtime.** The fireflies (`FireFly::Process` fn_0052AF90, 0x52AF93: `fild [0xD01A38];
+  fmul 0,001`) and the hand wind of the chimney smoke (fn_005DBC60 0x5DBD4E: `1000 / [0xD01A38]`) read the
+  variable every turn: now `MsPerTurn()` (before, the constant `k_MsPerTurn`, and `SET_GAME_TICK_TIME` did not reach them).
+  `Chants.h` only has the default value; `Spell.cpp` already fills it with `MsPerTurn()`.
+- **HelpSystem in float.** The reading seconds (0x5C6211..0x5C6225) and `ShownLongEnough` (fn_005C68C0) were
+  computed in double; now in float (the FPU at 24 bits).
+- **The fragments** (`Fragment::ProcessTimer` 0x76EAF0) are called by `GGame::ProcessTurn` at 0x54E768: now they run from
+  `Game::GameLogicLoop` and not from the physics with a `static` of the turn (which was not reset when loading a map).
 
-**Cambios que se ven y hay que comprobar con captura:** a 30 fps la partida va un 25 % más deprisa (los turnos duran
-100 ms); el primer turno se juega en el primer fotograma; al quitar la pausa no hay salto; con la pausa puesta los
-aldeanos y animales se quedan donde estaban (antes volvían a la posición del principio del turno); el mar se desplaza a
-velocidad constante; las pilas que se recogen de piscifactorías, campos y montones siguen la velocidad del juego y se
-paran en pausa; el grano de la mano, las luciérnagas y los efectos de partículas interpolan con la fracción del juego
-(se paran en pausa y siguen la velocidad); los símbolos de creencia de los pueblos se paran en pausa.
+**Visible changes that have to be checked with a screenshot:** at 30 fps the game runs 25 % faster (turns last
+100 ms); the first turn is played in the first frame; when unpausing there is no jump; with the pause on the
+villagers and animals stay where they were (before they went back to the position at the start of the turn); the sea scrolls at
+a constant speed; the piles collected from fish farms, fields and heaps follow the game speed and
+stop when paused; the grain in the hand, the fireflies and the particle effects interpolate with the game fraction
+(they stop when paused and follow the speed); the belief symbols of the towns stop when paused.
 
-## Listas de objetos por celda (`ecs::map_cells`)
+## Object lists per cell (`ecs::map_cells`)
 
-`src/ECS/MapCells.{h,cpp}` (fase A de map_cell_queries, 2026-10-02, milagros2; investigación en
-`dev\documentacion\unify2\map_cell_queries_original.md`, `map_cell_queries_PLAN_A.md` y `map_cell_queries_A_impl.md`). Es la
-rejilla GMap del original (g_game+0x59B8, MapCell de 8 bytes en +0x59FC, 512 × 512 por `GMap::Init(0x200, 0x200)`
-0x6014C0): cada celda tiene **dos listas enlazadas y ordenadas**, +0 la móvil (`SetFirstObjectMobile` 0x601B60) y +4
-la fija (0x601B70).
+`src/ECS/MapCells.{h,cpp}` (phase A of map_cell_queries, 2026-10-02, milagros2; research in
+`dev\documentacion\unify2\map_cell_queries_original.md`, `map_cell_queries_PLAN_A.md` and `map_cell_queries_A_impl.md`). It is the
+original's GMap grid (g_game+0x59B8, 8-byte MapCell at +0x59FC, 512 × 512 by `GMap::Init(0x200, 0x200)`
+0x6014C0): each cell has **two linked and sorted lists**, +0 the mobile one (`SetFirstObjectMobile` 0x601B60) and +4
+the fixed one (0x601B70).
 
-**Qué lista.** La decide el **tipo** de la info (+0x10), no la clase: `DoesObjectTypeCountAsFixed` 0x601510, tabla
-0x60152C (fijos 0, 6-9, 11, 12, 14, 18, 19, 21-26, 28, 29, 31-41, 43, 44; por encima de 0x2C, también −1 y −2 sin
-signo, no). `InitialiseIsFixedForMapList` 0x63A640 lo guarda en el bit 15 de Object +0x24. El tipo se lee de info.dat
-(`map_cells::TypeOf`); lo que openblack no guarda con fila va marcado (inferido) en el código.
+**Which list.** It is decided by the **type** of the info (+0x10), not the class: `DoesObjectTypeCountAsFixed` 0x601510, table
+0x60152C (fixed 0, 6-9, 11, 12, 14, 18, 19, 21-26, 28, 29, 31-41, 43, 44; above 0x2C, also −1 and −2
+unsigned, not). `InitialiseIsFixedForMapList` 0x63A640 stores it in bit 15 of Object +0x24. The type is read from info.dat
+(`map_cells::TypeOf`); what openblack does not store with a row is marked (inferred) in the code.
 
-**Qué extremo.**
+**Which end.**
 
-| Clase (`InsertKind`) | Inserción | Extremo |
+| Class (`InsertKind`) | Insertion | End |
 |---|---|---|
-| SingleMapFixed (Tree, MagicTree, MapShield) | 0x52E620 → `Fixed::InsertMapObjectToCell` 0x52DEA0 | cabeza de la fija, su celda |
-| MultiMapFixed (Abode, Field, Feature, AnimatedStatic, MobileStatic, DeadTree, BigForest, TotemStatue, WorshipSite, Temple, SpellIcon, MagicTeleport, Fragment) | 0x52E650 → `AssumeFixed` 0x52DEE0 en cada celda; hijos ordenados por x y z (`SortChildren` 0x52DC10) | cabeza de la fija, todas sus celdas |
-| FishFarm | 0x52CA10; `GetNextPos` 0x52C940 da **una sola** posición, la suya | cabeza de la fija, su celda |
-| Object (Villager, Animal, Creature, StreetLantern, Pot y pilas, OneOffSpellSeed, MobileObject, Shark) | 0x636740 → `Object::InsertMapObjectToCell` 0x636830 | con el bit 15, **cola** de la fija (ollas y pilas, farolas); sin él, cabeza de la móvil (doble enlace, +0x38; los orbes: su info `GMobileObjectInfo` 25 es del tipo 20) |
-| SpellSeed, MagicFireBall, Town, Forest... | `ret` (0x728F30, 0x682D10) | fuera del mapa |
+| SingleMapFixed (Tree, MagicTree, MapShield) | 0x52E620 → `Fixed::InsertMapObjectToCell` 0x52DEA0 | head of the fixed list, its cell |
+| MultiMapFixed (Abode, Field, Feature, AnimatedStatic, MobileStatic, DeadTree, BigForest, TotemStatue, WorshipSite, Temple, SpellIcon, MagicTeleport, Fragment) | 0x52E650 → `AssumeFixed` 0x52DEE0 in each cell; children sorted by x and z (`SortChildren` 0x52DC10) | head of the fixed list, all its cells |
+| FishFarm | 0x52CA10; `GetNextPos` 0x52C940 gives **a single** position, its own | head of the fixed list, its cell |
+| Object (Villager, Animal, Creature, StreetLantern, Pot and piles, OneOffSpellSeed, MobileObject, Shark) | 0x636740 → `Object::InsertMapObjectToCell` 0x636830 | with bit 15, **tail** of the fixed list (pots and piles, street lamps); without it, head of the mobile list (doubly linked, +0x38; the orbs: their info `GMobileObjectInfo` 25 is of type 20) |
+| SpellSeed, MagicFireBall, Town, Forest... | `ret` (0x728F30, 0x682D10) | off the map |
 
-Borrar (`RemoveMapObjectFromCell` 0x6368D0) no cambia el orden de los demás. Mover (`MoveMapObject` vt+0x55C): un
-objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMapFixed, si cambia su MapCoords
-(0x52E4F0, `operator==` 0x605660). `ActualMoveMapObject` 0x638040 lo deja **en la cabeza**. `SetXYZAnglesAndScale`
-(0x638F80 / 0x6074E0 / 0x608D60) también lo quita y lo vuelve a meter.
+Deleting (`RemoveMapObjectFromCell` 0x6368D0) does not change the order of the others. Moving (`MoveMapObject` vt+0x55C): a
+single-cell object is only reinserted if it changes cell (0x636A40); a MultiMapFixed, if its MapCoords changes
+(0x52E4F0, `operator==` 0x605660). `ActualMoveMapObject` 0x638040 leaves it **at the head**. `SetXYZAnglesAndScale`
+(0x638F80 / 0x6074E0 / 0x608D60) also removes it and puts it back in.
 
-**Celdas de un MultiMapFixed** (`NewCollideDescriptor` 0x46A860 / `Init` 0x46AB10 / `GetNext` 0x46AD80;
+**Cells of a MultiMapFixed** (`NewCollideDescriptor` 0x46A860 / `Init` 0x46AB10 / `GetNext` 0x46AD80;
 `DescriptorCells`):
 
-1. La forma es `map_collide::FromMesh` (NewCollide 0x829390) y `reach = escala · mesh+0x30 + 1` ([0x8AA390]).
-2. Caja `ftol((c ∓ reach) · 0,1)` ([0x8AC404]). Si la esquina baja es negativa pasa a 0, y solo entonces la alta
-   también (0x46ABC9..0x46ABE7).
-3. x por fuera, z por dentro. Se marca la celda cuyo círculo de **7,1 m** (0x40E33333) en `(10i + 5, 10j + 5)` toca la
-   forma, solo si está en el mapa. Si no se marca ninguna, la del medio, `(w/2)·d + d/2` (0x46AD06..0x46AD3B).
-4. La inserción **se corta** en la primera celda marcada fuera del mapa (0x52E70D).
-5. (aproximado) Sin malla en openblack (campos, piedras de teletransporte): la celda de su posición.
+1. The shape is `map_collide::FromMesh` (NewCollide 0x829390) and `reach = escala · mesh+0x30 + 1` ([0x8AA390]).
+2. Box `ftol((c ∓ reach) · 0,1)` ([0x8AC404]). If the low corner is negative it becomes 0, and only then the high one
+   too (0x46ABC9..0x46ABE7).
+3. x outside, z inside. A cell is marked if its **7.1 m** circle (0x40E33333) at `(10i + 5, 10j + 5)` touches the
+   shape, only if it is on the map. If none is marked, the middle one, `(w/2)·d + d/2` (0x46AD06..0x46AD3B).
+4. The insertion **stops** at the first marked cell outside the map (0x52E70D).
+5. (approximate) Without a mesh in openblack (fields, teleport stones): the cell of its position.
 
-**Lecturas de una celda.**
+**Reads of a cell.**
 
-- El recorrido del original (`GetFirstIterator` 0x6034D0 + fn_006827E0, y las copias en línea) es **la fija desde su
-  cabeza y luego la móvil desde la suya** (`ForEachInCell` / `ObjectsInCell`). `MobileInCell` es solo la móvil
+- The original's traversal (`GetFirstIterator` 0x6034D0 + fn_006827E0, and the inline copies) is **the fixed list from its
+  head and then the mobile list from its own** (`ForEachInCell` / `ObjectsInCell`). `MobileInCell` is only the mobile list
   (0x603490).
-- `FindType(celda, t, anterior)` (0x6045C0 → `FindTypeOnMap` 0x6015E0): con −1, la fija y luego la móvil (al acabar la
-  fija salta a la móvil si el tipo del anterior cuenta como fijo, 0x601621); con otro tipo, **solo su lista**
+- `FindType(celda, t, anterior)` (0x6045C0 → `FindTypeOnMap` 0x6015E0): with −1, the fixed list and then the mobile one (when the
+  fixed list ends it jumps to the mobile one if the previous one's type counts as fixed, 0x601621); with another type, **only its list**
   (0x601646).
-- `FindFixedOnMap` 0x601690. `IsFixed` (0x603790 → 0x601EA0) mira **solo la cabeza** de la fija: que sea un
-  MultiMapFixed (+0x24 bit 1). `IsOwnCell` es fn_00604F40.
+- `FindFixedOnMap` 0x601690. `IsFixed` (0x603790 → 0x601EA0) looks **only at the head** of the fixed list: whether it is a
+  MultiMapFixed (+0x24 bit 1). `IsOwnCell` is fn_00604F40.
 
-**Choque con lo que hay en la celda** (fase B, 2026-10-02):
+**Collision with what is in the cell** (phase B, 2026-10-02):
 
-- `ForEachFixed(celda, fn)`: solo la lista fija desde la cabeza (`GetFirstObjectFixed` 0x6034B0 + `GetMapChild`), con
-  el mismo filtro que las demás lecturas. Es la cadena de 0x60CAA0 (ObjectCircleIterator), 0x74B9C0
-  (`Tree::EndPhysics`) y 0x601D56.
+- `ForEachFixed(celda, fn)`: only the fixed list from the head (`GetFirstObjectFixed` 0x6034B0 + `GetMapChild`), with
+  the same filter as the other reads. It is the chain of 0x60CAA0 (ObjectCircleIterator), 0x74B9C0
+  (`Tree::EndPhysics`) and 0x601D56.
 - `Collide(MapCoords)` = `MapCoords::Collide` 0x6033C0 → `MapCell::Collide(MapCoords)` 0x601CE0 → `MapCell::Collide`
   0x601BD0:
-  - fuera de ToMap, `0xFFFFFFFF` (0x6033CC);
-  - si no, la parte del terreno (`sea_cells::CollideLandscape`): 0x10 fuera del mapa de juego (fn_00601E00, y entonces
-    ya no se mira ningún objeto), si no 1 agua (o sin bloque) / 2 tierra (0x601C7D);
-  - luego la **lista fija** desde la cabeza (0x601C78..0x601CAE; la móvil no se lee): tipo 6 `|= 0x20` (0x601C9E),
-    tipo 0x12 `|= 4` (0x601C99);
-  - **el bit 8 no sale nunca**: 0x601CE0 llama a `CollideWithFixe` solo si el resultado de 0x601BD0 tiene el bit 8
-    (`test bl, 8`, 0x601CEB), y 0x601BD0 no lo pone nunca. Esa rama está muerta.
+  - outside ToMap, `0xFFFFFFFF` (0x6033CC);
+  - otherwise, the terrain part (`sea_cells::CollideLandscape`): 0x10 outside the game map (fn_00601E00, and then
+    no object is checked any more), otherwise 1 water (or no block) / 2 land (0x601C7D);
+  - then the **fixed list** from the head (0x601C78..0x601CAE; the mobile one is not read): type 6 `|= 0x20` (0x601C9E),
+    type 0x12 `|= 4` (0x601C99);
+  - **bit 8 never comes out**: 0x601CE0 calls `CollideWithFixe` only if the result of 0x601BD0 has bit 8
+    (`test bl, 8`, 0x601CEB), and 0x601BD0 never sets it. That branch is dead.
 - `CollideWithFixed(MapCoords)` = `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe` 0x601D10:
-  - fuera de ToMap, `0xFFFFFFFF` (0x604FEC);
-  - si no, los bits de 0x601BD0 (0x601D18) y `| 8` (0x601DAD) si un círculo de **0,5 m** (`push 0x3F000000`,
-    `NewCollide::Obj` 0x82AD90) en `(x, z) = MapCoords · 10/65536` ([0x8AA3A4], 0x601D23..0x601D3C) toca el
-    `GetCollideData` (vt+0x858, 0x601D61) de algún objeto de la lista fija (`Obj::Collide` 0x829140).
-- Los datos de choque (`CollideDataOf`) se guardan en el enlace **al insertar**, porque el original los crea ahí:
-  `SingleMapFixed::InsertMapObject` llama a vt+0x864 en 0x52E633 y `MultiMapFixed::InsertMapObject` a vt+0x908 en
-  0x52E669. Leído en las vtables:
+  - outside ToMap, `0xFFFFFFFF` (0x604FEC);
+  - otherwise, the bits of 0x601BD0 (0x601D18) and `| 8` (0x601DAD) if a **0.5 m** circle (`push 0x3F000000`,
+    `NewCollide::Obj` 0x82AD90) at `(x, z) = MapCoords · 10/65536` ([0x8AA3A4], 0x601D23..0x601D3C) touches the
+    `GetCollideData` (vt+0x858, 0x601D61) of some object in the fixed list (`Obj::Collide` 0x829140).
+- The collision data (`CollideDataOf`) are stored in the link **on insertion**, because the original creates them there:
+  `SingleMapFixed::InsertMapObject` calls vt+0x864 at 0x52E633 and `MultiMapFixed::InsertMapObject` vt+0x908 at
+  0x52E669. Read in the vtables:
 
-  | Clase | GetCollideData / CreateCollideData | En openblack |
+  | Class | GetCollideData / CreateCollideData | In openblack |
   |---|---|---|
-  | Object, MobileObject, Pot, GStreetLantern, Villager | `Object::GetCollideData` 0x419B30 = `xor eax, eax` | ninguno: las ollas, pilas y farolas de la cola de la fija no chocan |
-  | Tree, MagicTree | `Tree::CreateCollideData` 0x74C5F0: círculo de 0,3 (`push 0x3E99999A`) en la posición | igual |
-  | MapShield y demás SingleMapFixed | 0x52F510: `NewCollide(LH3DObject)` 0x829390 | `map_collide::FromMesh` de su malla |
-  | MultiMapFixed (casas, campos, rasgos, rocas, tocones, pedazos, tótems, iconos, piedras) | 0x52F550: `NewCollide(LH3DObject)` | `FromMesh`, la misma forma que da sus celdas |
-  | BigForest | 0x439580 = `jmp ReleaseCollideData` | ninguno |
-  | FishFarm | 0x52CA10 no llama a vt+0x908; el ctor de MultiMapFixed pone +0x78 = 0 (0x52E26F) | ninguno |
-  | WorshipSite, CitadelHeart | 0x77E490 / 0x468FB0, formas propias | (aproximado) la de la malla |
+  | Object, MobileObject, Pot, GStreetLantern, Villager | `Object::GetCollideData` 0x419B30 = `xor eax, eax` | none: the pots, piles and street lamps at the tail of the fixed list do not collide |
+  | Tree, MagicTree | `Tree::CreateCollideData` 0x74C5F0: circle of 0.3 (`push 0x3E99999A`) at the position | the same |
+  | MapShield and other SingleMapFixed | 0x52F510: `NewCollide(LH3DObject)` 0x829390 | `map_collide::FromMesh` of its mesh |
+  | MultiMapFixed (houses, fields, features, rocks, stumps, pieces, totems, icons, stones) | 0x52F550: `NewCollide(LH3DObject)` | `FromMesh`, the same shape that gives its cells |
+  | BigForest | 0x439580 = `jmp ReleaseCollideData` | none |
+  | FishFarm | 0x52CA10 does not call vt+0x908; the MultiMapFixed ctor sets +0x78 = 0 (0x52E26F) | none |
+  | WorshipSite, CitadelHeart | 0x77E490 / 0x468FB0, own shapes | (approximate) that of the mesh |
 
-  (aproximado) Un objeto fijo sin malla en openblack no tiene forma.
+  (approximate) A fixed object without a mesh in openblack has no shape.
 
-**Búsquedas.**
+**Searches.**
 
-- `FindNearType` 0x6045F0: una sola lista (−1 es la móvil); no recorta a r.
-- `FindNearForScript` 0x604370: cuadrado ±r con signo, la cuenta de z es `(alto & 0xFFFF) − bajo + 1`, el tótem de un
-  sitio de culto (0x77CF30), `<` estricto desde FLT_MAX.
-- `FindNearestInSpiral` fn_00604AF0 / fn_00604C30: `max(3, ceil(2r/10))²` celdas, `d < r`, corte `1,5·mejor + 10`
+- `FindNearType` 0x6045F0: a single list (−1 is the mobile one); it does not clip to r.
+- `FindNearForScript` 0x604370: signed ±r square, the z count is `(alto & 0xFFFF) − bajo + 1`, the totem of a
+  worship site (0x77CF30), strict `<` from FLT_MAX.
+- `FindNearestInSpiral` fn_00604AF0 / fn_00604C30: `max(3, ceil(2r/10))²` cells, `d < r`, cutoff `1,5·mejor + 10`
   ([0x8AB24C] / [0x930050]).
-- `FindNearInfluenced` 0x604870: `GetDistanceModifier(d, r)` 0x74F290 (r es el último argumento, leído en 0x604A33).
-  Aún no la usa nadie.
+- `FindNearInfluenced` 0x604870: `GetDistanceModifier(d, r)` 0x74F290 (r is the last argument, read at 0x604A33).
+  Nobody uses it yet.
 - `TallestOverlapping` fn_006022C0.
 
-**Ciudades** (no usan celdas):
+**Towns** (they do not use cells):
 
-- `ForEachTown` / `TownsOf` = `GetNextPlayerAndNeutral` 0x550980 (huecos 0..7, el neutral el último) × la lista de cada
-  jugador, que se rellena **por la cola** (fn_0064C090): la más vieja primero ((inferido) por `Town::id`).
-- `GetNearestTown` 0x6020E0 y `GetNearestCitadel` 0x602200: `<` estricto desde r. `GetNearestTownWithCentre`
-  fn_00602160: lo mismo, solo las ciudades con +0x9A4 (0x6021A7) **o**, si no, fn_00741020 (0x6021B3) =
-  `TownHasCentre` (leído entero, 0x741020..0x741070): 1 si entre sus casas (+0x754, siguiente +0x9C) hay una con
-  `IsTownCentre` (vt+0x1E0; solo TownCentre 0x55DB70 da 1) o entre sus planeados (+0x9A8, siguiente +0x44) uno cuya
-  info (+0x40) da `GetAbodeNumber` (vt+0x44, GAbodeInfo 0x401260 = info +0x124) == 0xC (ABODE_NUMBER_TOWN_CENTRE; el
-  «GetComputerSeen» del nombre del hueco era falso). En info.dat las casas de tipo 0x404 son justo las de número 12
-  (prueba `TownCentreInfosAreNumber12`), así que openblack mira el número de la `Abode` de la ciudad (`townId`).
-- `GetNearestTownCells` 0x601F90: distancia octogonal en celdas; (aproximado) sin el rectángulo de la ciudad.
-- `GetNearestTownToPos` 0x73B170: `0x7FFF` es cualquier casa; con otro tipo **acepta las ciudades que no lo tienen**.
-- `FindNearestTownInList` fn_00552FF0: la lista global. **No tiene rama de ID** (leído): la primera siempre y luego
+- `ForEachTown` / `TownsOf` = `GetNextPlayerAndNeutral` 0x550980 (slots 0..7, the neutral one last) × the list of each
+  player, which is filled **from the tail** (fn_0064C090): the oldest first ((inferred) by `Town::id`).
+- `GetNearestTown` 0x6020E0 and `GetNearestCitadel` 0x602200: strict `<` from r. `GetNearestTownWithCentre`
+  fn_00602160: the same, only the towns with +0x9A4 (0x6021A7) **or**, otherwise, fn_00741020 (0x6021B3) =
+  `TownHasCentre` (read in full, 0x741020..0x741070): 1 if among its houses (+0x754, next +0x9C) there is one with
+  `IsTownCentre` (vt+0x1E0; only TownCentre 0x55DB70 gives 1) or among its planned ones (+0x9A8, next +0x44) one whose
+  info (+0x40) gives `GetAbodeNumber` (vt+0x44, GAbodeInfo 0x401260 = info +0x124) == 0xC (ABODE_NUMBER_TOWN_CENTRE; the
+  «GetComputerSeen» of the slot's name was false). In info.dat the houses of type 0x404 are exactly those of number 12
+  (test `TownCentreInfosAreNumber12`), so openblack checks the number of the town's `Abode` (`townId`).
+- `GetNearestTownCells` 0x601F90: octagonal distance in cells; (approximate) without the town's rectangle.
+- `GetNearestTownToPos` 0x73B170: `0x7FFF` is any house; with another type **it accepts the towns that do not have it**.
+- `FindNearestTownInList` fn_00552FF0: the global list. **It has no ID branch** (read): always the first one and then
   `<`.
-- `FindPlayerTownAtPos` = `GScript::FindPlayerTownAtPos` 0x6F72E0 (la usa GET_NEAREST_TOWN_OF_PLAYER, 0x6F2ADD): solo
-  la lista de **ese** jugador (GPlayer+0xA50, siguiente +0x75C), `GetDistanceInMetres` 0x74CD70, mejor = r y
-  **`≤`** (`fcom; test ah, 0x41`, 0x6F7312): en un empate gana la ciudad que va después. No es `GetNearestTown`
+- `FindPlayerTownAtPos` = `GScript::FindPlayerTownAtPos` 0x6F72E0 (used by GET_NEAREST_TOWN_OF_PLAYER, 0x6F2ADD): only
+  the list of **that** player (GPlayer+0xA50, next +0x75C), `GetDistanceInMetres` 0x74CD70, best = r and
+  **`≤`** (`fcom; test ah, 0x41`, 0x6F7312): in a tie the town that comes later wins. It is not `GetNearestTown`
   0x6020E0.
-- Usuarios en `src/Worship`: `Citadel::RequestANewWorshipSite` 0x4633F0 llama a `GetNearestTownToPos(coords de la
-  ciudadela, tribu, 0x7FFF, FLT_MAX)` en 0x46345C. `AssignTownsToWorshipSite` 0x77AF70, `CreateBuiltWorshipSite`
-  0x465110, fn_00464F50 y `GPlayer::PostLoadCleanup` 0x64AB90 recorren `TownsOf(jugador)`.
-- `site::FindAt` = `MapCoords::FindWorshipSite` 0x602460: **un solo** `FindTypeOnMap(8, 0)` (0x602479). Si es un
-  WorshipSite (0x602493), ese; si es un WorshipSpellIcon (0x6024AC), su sitio (vt+0x30C); si es otra cosa (el corazón
-  de la ciudadela, un icono de centro de ciudad), null.
+- Users in `src/Worship`: `Citadel::RequestANewWorshipSite` 0x4633F0 calls `GetNearestTownToPos(coords de la
+  ciudadela, tribu, 0x7FFF, FLT_MAX)` at 0x46345C. `AssignTownsToWorshipSite` 0x77AF70, `CreateBuiltWorshipSite`
+  0x465110, fn_00464F50 and `GPlayer::PostLoadCleanup` 0x64AB90 walk `TownsOf(jugador)`.
+- `site::FindAt` = `MapCoords::FindWorshipSite` 0x602460: **a single** `FindTypeOnMap(8, 0)` (0x602479). If it is a
+  WorshipSite (0x602493), that one; if it is a WorshipSpellIcon (0x6024AC), its site (vt+0x30C); if it is something else (the citadel
+  heart, a town-centre icon), null.
 
-**Mantenimiento en openblack.**
+**Maintenance in openblack.**
 
-- Ganchos `InsertMapObject` / `RemoveMapObject` / `MoveMapObject` / `OnAnglesOrScaleChanged` donde el original llama a
-  la vtable. En la fase A los pone milagros2 en lo suyo: árboles de SpellForest, pilas, pedazos de la tormenta, orbes,
-  MapShield, las piedras y el vivo teletransportado, y lo que lleva el tornado (`SetHeldOutOfMap`).
-- Lo de los demás dueños entra por `Sync()`, que llama `MapProduction::Rebuild` al empezar cada turno, al cargar y en
-  `Reactions`: primero las bajas (destruidos, en la mano, en física, cambio de clase) y luego las altas y los
-  movimientos por índice de creación (inferido).
-- Toda lectura se salta además lo que el original ya habría sacado: no válido, en la mano o volando.
-- **Al acabar la física** (Object::EndPhysics 0x6375A0, 0x637613..0x63763A; `physics::EndPhysics` en
-  PhysicsObjects.cpp): si el objeto sigue disponible, `MapCoords::InBounds` 0x6042C0 de su posición. Dentro de las
-  512 × 512 celdas vuelve a las listas (`InsertMapObject`, vt+0x544); fuera **se borra** (`ToBeDeleted(0)`, vt+0xC).
-  Pasa por ahí todo lo que aterriza: aldeanos, animales, vasijas, andamios, grano y los fijos (rocas, árboles,
-  fragmentos). Es (inferido) que se haga después de la parte de la clase, y no se mira el caso en que el objeto que
-  queda es otro (árbol → árbol muerto).
-- **El ángulo de C22** es el +0x48 del LH3DObject (0x8294A3), la Y de `LHMatrix::GetYXZ` 0x7FAB30 (fila 2), no la
-  fila 0. Lo que sigue (aproximado): el centro de la caja gira solo en xz por esa Y, mientras que el original pasa por
-  la matriz completa (0x8293CE..0x829413).
-- `OPENBLACK_MAPCELLS_CHECK=1` comprueba las listas en cada `Sync` y escribe `map_cells: N objects, M cells, E errors`.
-- La API vieja (`MapInterface` / `MapProduction`, `effects::ObjectsInMapCell`) sigue para quien no ha migrado. Lo que
-  le queda a cada dueño está en `map_cell_queries_A_impl.md` y en `map_cell_queries_PLAN_B.md` (fase B).
+- Hooks `InsertMapObject` / `RemoveMapObject` / `MoveMapObject` / `OnAnglesOrScaleChanged` where the original calls
+  the vtable. In phase A milagros2 puts them in its own code: SpellForest trees, piles, storm pieces, orbs,
+  MapShield, the stones and the teleported living being, and whatever the tornado carries (`SetHeldOutOfMap`).
+- The other owners' objects come in through `Sync()`, which `MapProduction::Rebuild` calls at the start of every turn, on load and in
+  `Reactions`: first the removals (destroyed, in the hand, in physics, class change) and then the additions and the
+  moves by creation index (inferred).
+- Every read also skips what the original would already have taken out: invalid, in the hand or flying.
+- **When physics ends** (Object::EndPhysics 0x6375A0, 0x637613..0x63763A; `physics::EndPhysics` in
+  PhysicsObjects.cpp): if the object is still available, `MapCoords::InBounds` 0x6042C0 of its position. Inside the
+  512 × 512 cells it goes back into the lists (`InsertMapObject`, vt+0x544); outside **it is deleted** (`ToBeDeleted(0)`, vt+0xC).
+  Everything that lands goes through there: villagers, animals, pots, scaffolds, grain and the fixed ones (rocks, trees,
+  fragments). It is (inferred) that this is done after the class part, and the case in which the object that
+  remains is a different one (tree → dead tree) is not looked at.
+- **The C22 angle** is the +0x48 of the LH3DObject (0x8294A3), the Y of `LHMatrix::GetYXZ` 0x7FAB30 (row 2), not
+  row 0. What follows (approximate): the centre of the box rotates only in xz by that Y, whereas the original goes through
+  the full matrix (0x8293CE..0x829413).
+- `OPENBLACK_MAPCELLS_CHECK=1` checks the lists on every `Sync` and writes `map_cells: N objects, M cells, E errors`.
+- The old API (`MapInterface` / `MapProduction`, `effects::ObjectsInMapCell`) remains for whoever has not migrated. What
+  each owner has left is in `map_cell_queries_A_impl.md` and in `map_cell_queries_PLAN_B.md` (phase B).
 
-## Altura del terreno
+## Terrain height
 
-`LH3DIsland::GetAltitude` (0x803090), portado exacto en `LandIsland::GetHeightAt`:
+`LH3DIsland::GetAltitude` (0x803090), ported exactly in `LandIsland::GetHeightAt`:
 
-1. Celda `(x>>16, z>>16)`, fracciones `fx, fz` de 16 bits (se usan `>>8`, 0..255).
-2. Bloques de 17×17 celdas (fila compartida): vecinos `+1` = z+1, `+17` = x+1. Altura de celda en `cell.altitude`.
-3. Si el vértice base ≤ 4, las alturas ≤ 3 cuentan como 0 (borde del mar; global 0xC37BF4 activo).
-4. El bit `split` de la celda (`properties +6 & 0x80`) elige la diagonal. La 4.ª esquina se extrapola de las otras tres
-   para que la mezcla bilineal sea plana en el triángulo:
-   - split y `fz > 0xFFFF - fx`: `c00 = v10 + v01 - v11`; split y no: `c11 = v10 + v01 - v00`
-   - sin split y `fx > fz`: `c01 = v00 + v11 - v10`; sin split y no: `c10 = v00 + v11 - v01`
+1. Cell `(x>>16, z>>16)`, 16-bit fractions `fx, fz` (`>>8` is used, 0..255).
+2. Blocks of 17×17 cells (shared row): neighbours `+1` = z+1, `+17` = x+1. Cell height in `cell.altitude`.
+3. If the base vertex ≤ 4, heights ≤ 3 count as 0 (sea edge; global 0xC37BF4 active).
+4. The cell's `split` bit (`properties +6 & 0x80`) chooses the diagonal. The 4th corner is extrapolated from the other three
+   so that the bilinear blend is flat over the triangle:
+   - split and `fz > 0xFFFF - fx`: `c00 = v10 + v01 - v11`; split and not: `c11 = v10 + v01 - v00`
+   - no split and `fx > fz`: `c01 = v00 + v11 - v10`; no split and not: `c10 = v00 + v11 - v01`
 5. `atX1 = (c11 - c10)*fz + (c10<<8)`, `atX0 = (c01 - c00)*fz + (c00<<8)`,
-   `h = (((atX1 - atX0)*fx) >> 8) + atX0`, resultado `h * 0.67 / 256`.
+   `h = (((atX1 - atX0)*fx) >> 8) + atX0`, result `h * 0.67 / 256`.
 
-Verificado: Land1 en (1788.4, 2710) = **28.9173050**, el valor grabado del original. El render del terreno de openblack
-usa la misma triangulación (coincide con el terreno físico de Bullet hasta el milímetro).
+Verified: Land1 at (1788.4, 2710) = **28.9173050**, the recorded value from the original. openblack's terrain rendering
+uses the same triangulation (it matches Bullet's physical terrain to the millimetre).
 
-## Normal del terreno
+## Terrain normal
 
-**Fiel.** `LH3DIsland::GetNormal(const LH3DMapCoords&, LHPoint*)` 0x803630 (fastcall: ecx = coords, edx = out), portado
-en `land_normal::OfCell` (`src/3D/LandNormal.{h,cpp}`) y llamado desde `LandIsland::GetNormalAt`, al lado de
-`HeightAt`. Todos los llamadores del original construyen el MapCoords con `ftol(x·65536 [0x8AC408]·0,1 [0x8AC404])`
-(fn_004427B0, 0x8126C0, 0x459105, 0x7FCBA2): `65536·0,1f` es exactamente `6553,6f`, así que es `map_coords::ToFixed`.
+**Faithful.** `LH3DIsland::GetNormal(const LH3DMapCoords&, LHPoint*)` 0x803630 (fastcall: ecx = coords, edx = out), ported
+in `land_normal::OfCell` (`src/3D/LandNormal.{h,cpp}`) and called from `LandIsland::GetNormalAt`, next to
+`HeightAt`. All of the original's callers build the MapCoords with `ftol(x·65536 [0x8AC408]·0,1 [0x8AC404])`
+(fn_004427B0, 0x8126C0, 0x459105, 0x7FCBA2): `65536·0,1f` is exactly `6553,6f`, so it is `map_coords::ToFixed`.
 
-1. Celda `(int16)(x >> 16)`, `(int16)(z >> 16)`; fuera de [0, 0x200) → (0, 1, 0) (0x80363B..0x80366B). openblack
-   compara con `GetCellsPerSide()` (512 en los mapas del juego).
-2. `GetCell` 0x516AA0: NULL si no hay bloque (`g_index_block` = 0, 0x516ADC) → (0, 1, 0).
-3. Alturas **en bruto** (sin aplanar junto al mar): h00 = [+4], h01 = [+0xC] (z+1), h10 = [+0x8C] (x+1),
-   h11 = [+0x94], dentro del bloque de 17×17 (la fila del borde es del bloque: la celda 511 se lee).
-4. Triángulo (bit `split` = [+6] & 0x80, 0x803698..0x803752):
-   - con split: B = h11 en (10, 10) si `fz > 0xFFFF − fx`, si no h00 en (0, 0); P = h10 en (10, 0); Q = h01 en (0, 10);
-   - sin split: B = h10 en (10, 0) si `fx > fz`, si no h01 en (0, 10); P = h11 en (10, 10); Q = h00 en (0, 0).
-5. `dP = hP − hB`, `dQ = hQ − hB` en entero; `s = T1[|dP|]·T1[|dQ|]`; `P' = (Px − Bx, dP·0,67 [0xC3720C], Pz − Bz)`,
-   `Q'` igual (Q'x = `−Bx`, un `fchs`).
+1. Cell `(int16)(x >> 16)`, `(int16)(z >> 16)`; outside [0, 0x200) → (0, 1, 0) (0x80363B..0x80366B). openblack
+   compares with `GetCellsPerSide()` (512 in the game's maps).
+2. `GetCell` 0x516AA0: NULL if there is no block (`g_index_block` = 0, 0x516ADC) → (0, 1, 0).
+3. **Raw** heights (without flattening next to the sea): h00 = [+4], h01 = [+0xC] (z+1), h10 = [+0x8C] (x+1),
+   h11 = [+0x94], within the 17×17 block (the edge row belongs to the block: cell 511 is read).
+4. Triangle (`split` bit = [+6] & 0x80, 0x803698..0x803752):
+   - with split: B = h11 at (10, 10) if `fz > 0xFFFF − fx`, otherwise h00 at (0, 0); P = h10 at (10, 0); Q = h01 at (0, 10);
+   - without split: B = h10 at (10, 0) if `fx > fz`, otherwise h01 at (0, 10); P = h11 at (10, 10); Q = h00 at (0, 0).
+5. `dP = hP − hB`, `dQ = hQ − hB` in integer; `s = T1[|dP|]·T1[|dQ|]`; `P' = (Px − Bx, dP·0,67 [0xC3720C], Pz − Bz)`,
+   `Q'` likewise (Q'x = `−Bx`, an `fchs`).
 6. `n = ((P'z·Q'y − P'y·Q'z)·s, (Q'z·P'x − P'z·Q'x)·s, (P'y·Q'x − Q'y·P'x)·s)` (0x8037BA..0x8037F5).
-7. `k = fistp(((nz·nz + nx·nx) + ny·ny)·1023 [0x9A2BE8])` (al más cercano), `n *= T2[k]`; si `n.y < 0`, `n = −n`.
+7. `k = fistp(((nz·nz + nx·nx) + ny·ny)·1023 [0x9A2BE8])` (to nearest), `n *= T2[k]`; if `n.y < 0`, `n = −n`.
 
-Tablas de la inicialización de la isla fn_00803890 (cada paso a 24 bits):
-- T1 en 0xE9B2D8: `T1[i] = 1/√((0,67·i)² + 100)`, i = 0..255 (0x8038E3..0x803934). Las aristas P' y Q' son
-  perpendiculares en xz y miden `√(100 + (0,67·d)²)`, así que `s = 1/(|P'||Q'|)`.
-- T2 en 0xE9A2D8: `T2[0] = 1`, `T2[j] = 1/√(j·0,000977517 [0x9A2BEC = 1/1023])`, j = 1..1023 (0x803936..0x80396F).
+Tables from the island initialisation fn_00803890 (each step at 24 bits):
+- T1 at 0xE9B2D8: `T1[i] = 1/√((0,67·i)² + 100)`, i = 0..255 (0x8038E3..0x803934). The edges P' and Q' are
+  perpendicular in xz and measure `√(100 + (0,67·d)²)`, so `s = 1/(|P'||Q'|)`.
+- T2 at 0xE9A2D8: `T2[0] = 1`, `T2[j] = 1/√(j·0,000977517 [0x9A2BEC = 1/1023])`, j = 1..1023 (0x803936..0x80396F).
 
-El resultado es **casi unitario**: la cuantización de T2 deja un error relativo de hasta ~0,5/k (en una celda muy
-empinada con k = 7, la longitud es 0,998). Nunca es nulo: la comprobación `dot(n, n) <= 0` que tenía PhysOb era código
-muerto. **(port)** Con las altitudes de 16 bits de BWLandEditor, `|d|` puede pasar de 255: se calcula con la misma
-fórmula; y el índice de T2 se limita a 1023 (en el original, `|n|² ≤ 1` lo garantiza).
+The result is **almost unit length**: the quantisation of T2 leaves a relative error of up to ~0.5/k (in a very
+steep cell with k = 7, the length is 0.998). It is never zero: the `dot(n, n) <= 0` check PhysOb had was dead
+code. **(port)** With BWLandEditor's 16-bit altitudes, `|d|` can exceed 255: it is computed with the same
+formula; and the T2 index is clamped to 1023 (in the original, `|n|² ≤ 1` guarantees it).
 
-**Quién la usa:**
-- física (`PhysOb.cpp` `Normal`/`LandscapeNormal`: `AdjustToGroundLevel` 0x7FCBE2, `GroundAndWater` 0x7FD93F);
-- la mano (`HandHolding.cpp`, `InitialisePhysicsFromHand` 0x63729E);
-- la bola de fuego (`Fireball.cpp`, `GravityWithFloor` 0x6A1C7F);
-- las sombras de aldeanos y animales (`Renderer.cpp`, fn_00812170 0x8126FD / 0x812859);
-- la cámara del jugador (`DefaultWorldCameraModel.cpp`, `CameraModeNew3::FindBestAngle` 0x459144).
+**Who uses it:**
+- physics (`PhysOb.cpp` `Normal`/`LandscapeNormal`: `AdjustToGroundLevel` 0x7FCBE2, `GroundAndWater` 0x7FD93F);
+- the hand (`HandHolding.cpp`, `InitialisePhysicsFromHand` 0x63729E);
+- the fireball (`Fireball.cpp`, `GravityWithFloor` 0x6A1C7F);
+- the shadows of villagers and animals (`Renderer.cpp`, fn_00812170 0x8126FD / 0x812859);
+- the player camera (`DefaultWorldCameraModel.cpp`, `CameraModeNew3::FindBestAngle` 0x459144).
 
-Antes, `GetNormalAt` eran diferencias centrales de ±0,1 m sobre `GetHeightAt` (que aplana junto al mar) y la física
-tenía su propia copia (`glm::normalize` en lugar de T2, arriba en la celda 511 y sin mirar si hay bloque). No son
-`GetNormal`, y no se tocan: `Foliage.cpp` `GroundNormal` (mod de plantas: sigue la malla dibujada) y `LandBlock.cpp`
-(normal suave por vértice del render).
+Before, `GetNormalAt` was central differences of ±0.1 m over `GetHeightAt` (which flattens next to the sea) and physics
+had its own copy (`glm::normalize` instead of T2, up in cell 511 and without checking whether there is a block). These are not
+`GetNormal`, and are not touched: `Foliage.cpp` `GroundNormal` (plants mod: follows the drawn mesh) and `LandBlock.cpp`
+(smooth per-vertex normal of the renderer).
 
-## Matrices LH
+## LH matrices
 
-**Convenio.** Un `LHMatrix` son 3 filas + traslación (vector fila, p' = p·M): la fila k es la imagen del eje local k.
-En glm es la **columna** k, con la misma memoria (`glm::mat4x3` son los 12 floats de un LHMatrix). Los giros de LH3D
-van al revés que los de glm: el ángulo a del original es el −a de `glm::rotate`.
+**Convention.** An `LHMatrix` is 3 rows + translation (row vector, p' = p·M): row k is the image of local axis k.
+In glm it is **column** k, with the same memory (`glm::mat4x3` is the 12 floats of an LHMatrix). LH3D rotations
+go the opposite way to glm's: the original's angle a is the −a of `glm::rotate`.
 
-**Precisión.** La FPU va a 24 bits, pero fsin/fcos no los redondea el control de precisión. Lo que el original deja en
-la pila se toma en double y lo redondea una vez el producto que lo usa. Lo que guarda (`fstp dword`) es un float.
-Es la regla de gutils («Ángulos de GUtils»). **(aproximado)** El double no es el registro de 80 bits: en casos raros
-cambia el último bit.
+**Precision.** The FPU runs at 24 bits, but fsin/fcos are not rounded by the precision control. What the original leaves on
+the stack is taken in double and rounded once by the product that uses it. What it stores (`fstp dword`) is a float.
+It is the gutils rule («GUtils angles»). **(approximate)** The double is not the 80-bit register: in rare cases
+the last bit changes.
 
 **API `openblack::lh_matrix`** (`src/3D/ObjectMatrix.{h,cpp}`):
 
-| Función | Original | En glm |
+| Function | Original | In glm |
 |---|---|---|
 | `YXZ(y, x, z)` | `LHMatrix::SetYXZMatrixOnly` 0x7FAC10 | `eulerAngleYXZ(−y, −x, −z)` = `Ry(−y)·Rx(−x)·Rz(−z)` |
-| `AngleY(a)` | `AtomCore::SetAngleY` 0x674360; la rotación de `LH3DObject::SetPosition` 0x423140 y `Object::GetWorldMatrix` 0x638200 | `eulerAngleY(−a)` = `Ry(−a)`; = `YXZ(a, 0, 0)` bit a bit |
-| `AngleXYZ(x, y, z)` | `AtomCore::SetAngleXYZ` 0x674200 | `Rz(−z)·Ry(−y)·Rx(−x)` (no es `eulerAngleXYZ`) |
-| `RotateY(m, a)` | `LHMatrix::RotateY` 0x5198F0, en el sitio | `m·Ry(−a)` (**a la derecha**: los ejes del objeto) |
-| `RotateZ(m, a)` | fn_0086AFA0, en el sitio | `m·Rz(−a)` (a la derecha) |
-| `TurnRows(m, eje, a)` / `(m, eje, c, s)` | `UpdateRuleRotatePrincipalAxis` 0x6A1150, `AppearanceRuleTumble` 0x6A6200 | `R_eje(−a)·m` (**a la izquierda**: el mundo) |
-| `AxisAngle(eje, a)` | fn_007FB180 (Rodrigues por filas) | `rotate(−a, eje)` |
-| `Inverse(m)` | `LHMatrix::SetInverse` 0x7FB290 | inversa, con el tope del determinante |
+| `AngleY(a)` | `AtomCore::SetAngleY` 0x674360; the rotation of `LH3DObject::SetPosition` 0x423140 and `Object::GetWorldMatrix` 0x638200 | `eulerAngleY(−a)` = `Ry(−a)`; = `YXZ(a, 0, 0)` bit for bit |
+| `AngleXYZ(x, y, z)` | `AtomCore::SetAngleXYZ` 0x674200 | `Rz(−z)·Ry(−y)·Rx(−x)` (it is not `eulerAngleXYZ`) |
+| `RotateY(m, a)` | `LHMatrix::RotateY` 0x5198F0, in place | `m·Ry(−a)` (**on the right**: the object's axes) |
+| `RotateZ(m, a)` | fn_0086AFA0, in place | `m·Rz(−a)` (on the right) |
+| `TurnRows(m, eje, a)` / `(m, eje, c, s)` | `UpdateRuleRotatePrincipalAxis` 0x6A1150, `AppearanceRuleTumble` 0x6A6200 | `R_eje(−a)·m` (**on the left**: the world) |
+| `AxisAngle(eje, a)` | fn_007FB180 (Rodrigues by rows) | `rotate(−a, eje)` |
+| `Inverse(m)` | `LHMatrix::SetInverse` 0x7FB290 | inverse, with the determinant floor |
 | `SetPosition(p, a, s)` | `LH3DObject::SetPosition` 0x423140 (vt+0x20) | `T(p)·Ry(−a)·S(s)` |
-| `Model(p, R, s)`, `Model(Transform)` | lo que escriben todos los `Set*` | `T(p)·R·S`, la posición tal cual |
+| `Model(p, R, s)`, `Model(Transform)` | what all the `Set*` write | `T(p)·R·S`, the position as is |
 
-Detalles, celda por celda:
+Details, cell by cell:
 - **SetYXZMatrixOnly 0x7FAC10** (a = Y, b = X, c = Z): `m0 = (ca·cc) − ((sc·sb)·sa)`, `m1 = −(sc·cb)`,
   `m2 = ((sc·sb)·ca) + (sa·cc)`, `m3 = ((sa·cc)·sb) + (sc·ca)`, `m4 = cc·cb`, `m5 = (sc·sa) − ((ca·cc)·sb)`,
-  `m6 = −(cb·sa)`, `m7 = sb`, `m8 = cb·ca`. Se guardan en float `cb` (0x7FAC23), `sc` (0x7FAC39), `ca·cc` (0x7FAC41) y
-  `sa·cc` (0x7FAC4F); `ca`, `sa`, `sb` y `cc` se quedan en la pila. No toca la traslación. CAnim lo llama con el float3
-  guardado (v0, v1, v2) como `YXZ(v1, v0, v2)` (0x85F28E..0x85F29D).
-- **SetAngleY 0x674360**: filas (c, 0, s) / (0, 1, 0) / (−s, 0, c), con `c` y `s` guardados en float.
-- **SetAngleXYZ 0x674200**: filas (1, 0, 0) / (0, cx, −sx) / (0, sx, cx) (cx, sx en float). Luego, en cada fila,
-  `(e0, e2) → (cy·e0 − sy·e2, cy·e2 + sy·e0)` (0x674244..0x6742A2) y `(e0, e1) → (cz·e0 + sz·e1, cz·e1 − sz·e0)`
-  (0x6742D2..0x674330). `AtomCore::RandomiseOrientation` 0x6743E0 saca tres `PSysFloatRand(2π)`: el **primero es z**,
-  el segundo y, el tercero x (cada `fstp [esp]` cae en el hueco del argumento que acaba de empujar).
-- **RotateY 0x5198F0**: `r0' = c·r0 + s·r2`, `r2' = c·r2 − s·r0`; r1 y la traslación igual. **fn_0086AFA0**:
+  `m6 = −(cb·sa)`, `m7 = sb`, `m8 = cb·ca`. `cb` (0x7FAC23), `sc` (0x7FAC39), `ca·cc` (0x7FAC41) and
+  `sa·cc` (0x7FAC4F) are stored in float; `ca`, `sa`, `sb` and `cc` stay on the stack. It does not touch the translation. CAnim calls it with the
+  stored float3 (v0, v1, v2) as `YXZ(v1, v0, v2)` (0x85F28E..0x85F29D).
+- **SetAngleY 0x674360**: rows (c, 0, s) / (0, 1, 0) / (−s, 0, c), with `c` and `s` stored in float.
+- **SetAngleXYZ 0x674200**: rows (1, 0, 0) / (0, cx, −sx) / (0, sx, cx) (cx, sx in float). Then, in each row,
+  `(e0, e2) → (cy·e0 − sy·e2, cy·e2 + sy·e0)` (0x674244..0x6742A2) and `(e0, e1) → (cz·e0 + sz·e1, cz·e1 − sz·e0)`
+  (0x6742D2..0x674330). `AtomCore::RandomiseOrientation` 0x6743E0 draws three `PSysFloatRand(2π)`: the **first is z**,
+  the second y, the third x (each `fstp [esp]` lands in the slot of the argument it has just pushed).
+- **RotateY 0x5198F0**: `r0' = c·r0 + s·r2`, `r2' = c·r2 − s·r0`; r1 and the translation unchanged. **fn_0086AFA0**:
   `r0' = c·r0 − s·r1`, `r1' = c·r1 + s·r0`.
-- **TurnRows**: en cada fila, eje Z (x, y) → (c·x + s·y, c·y − s·x); eje Y (x, z) → (c·x − s·z, c·z + s·x); eje X
-  (y, z) → (c·y + s·z, c·z − s·y); la tercera componente no se toca. 0x6A1150 guarda `c` en float en Z e Y
-  (0x6A117C, 0x6A1229) y deja `s` en la pila; su eje X (fn_006A12F0) y el Tumble 0x6A627E dejan los dos. Por eso hay
-  dos sobrecargas.
+- **TurnRows**: in each row, Z axis (x, y) → (c·x + s·y, c·y − s·x); Y axis (x, z) → (c·x − s·z, c·z + s·x); X axis
+  (y, z) → (c·y + s·z, c·z − s·y); the third component is not touched. 0x6A1150 stores `c` in float for Z and Y
+  (0x6A117C, 0x6A1229) and leaves `s` on the stack; its X axis (fn_006A12F0) and the Tumble 0x6A627E leave both. That is why there are
+  two overloads.
 - **fn_007FB180**: `m0 = ((1 − xx)·c) + xx`, `m3 = (xy − xy·c) + s·z`, `m1 = (xy − xy·c) − s·z`,
   `m6 = (xz − xz·c) − s·y`, `m2 = (xz − xz·c) + s·y`, `m4`, `m7 = (zy − zy·c) + s·x`, `m5 = (zy − zy·c) − s·x`, `m8`;
-  traslación 0. La mano transforma (0, 1, 0) como vector fila (0x5B6EE8): `AxisAngle(eje, a)·v`.
-- **SetInverse 0x7FB290**: `det = ((m2·m7 − m8·m1)·m3 + (m5·m1 − m2·m4)·m6) + (m8·m4 − m7·m5)·m0`. Si
-  `|det| < 1e-10` [0xC371D4], `det = ±1e-10` con el signo de det (+ para 0; 0x7FB2C8..0x7FB2EE). Luego cada cofactor
-  × `1/det`, y la traslación `−(t·A⁻¹)` (0x7FB392..0x7FB3DF).
-- **SetPosition 0x423140**: cuatro ramas por a == 0 y s == 1 (0x423145 / 0x423151); con a ≠ 0, RotateY en línea sobre
-  diag(s) (0x4231B3..0x42321C): filas (c·s, 0, s·s) / (0, s, 0) / (−s·s, 0, c·s). Con s ≠ 1 la traslación es `0 + p`
-  (las celdas puestas a 0 más p: 0x423195..0x4231B0 y 0x423312..0x42332D), que convierte −0 en +0; con s == 1 se copia
-  (mov, 0x42325A..0x423268). `lh_matrix::SetPosition` hace lo mismo.
-- La escala multiplica las filas (en glm, las columnas) y la traslación se escribe tal cual (0x423195, 0x6382B7,
+  translation 0. The hand transforms (0, 1, 0) as a row vector (0x5B6EE8): `AxisAngle(eje, a)·v`.
+- **SetInverse 0x7FB290**: `det = ((m2·m7 − m8·m1)·m3 + (m5·m1 − m2·m4)·m6) + (m8·m4 − m7·m5)·m0`. If
+  `|det| < 1e-10` [0xC371D4], `det = ±1e-10` with the sign of det (+ for 0; 0x7FB2C8..0x7FB2EE). Then each cofactor
+  × `1/det`, and the translation `−(t·A⁻¹)` (0x7FB392..0x7FB3DF).
+- **SetPosition 0x423140**: four branches on a == 0 and s == 1 (0x423145 / 0x423151); with a ≠ 0, inline RotateY on
+  diag(s) (0x4231B3..0x42321C): rows (c·s, 0, s·s) / (0, s, 0) / (−s·s, 0, c·s). With s ≠ 1 the translation is `0 + p`
+  (the cells set to 0 plus p: 0x423195..0x4231B0 and 0x423312..0x42332D), which turns −0 into +0; with s == 1 it is copied
+  (mov, 0x42325A..0x423268). `lh_matrix::SetPosition` does the same.
+- The scale multiplies the rows (in glm, the columns) and the translation is written as is (0x423195, 0x6382B7,
   0x607606): `Model`.
 
-**Qué constructor usa cada objeto** (vt+0x63C, búsqueda en las vtables):
-- `Object::GetWorldMatrix` 0x638200, solo Y (`T(x, GetAltitude + y, z)·Ry(−GetYAngle)·S`): Abode, Windmill, los
-  animales, AnimatedStatic, Feature, BigForest, la criatura (vtable 0x8CCE4C), Field, Tree, Villager, los
-  lugares de culto, los iconos de hechizo, Totem, StoragePit…
-- `MobileObject::GetWorldMatrix` 0x607560 y `MobileStatic::GetWorldMatrix` 0x608DE0, YXZ:
+**Which constructor each object uses** (vt+0x63C, search in the vtables):
+- `Object::GetWorldMatrix` 0x638200, Y only (`T(x, GetAltitude + y, z)·Ry(−GetYAngle)·S`): Abode, Windmill, the
+  animals, AnimatedStatic, Feature, BigForest, the creature (vtable 0x8CCE4C), Field, Tree, Villager, the
+  worship sites, the spell icons, Totem, StoragePit…
+- `MobileObject::GetWorldMatrix` 0x607560 and `MobileStatic::GetWorldMatrix` 0x608DE0, YXZ:
   - MobileObject 0x607560: Arrow, Ball, Pot, PileWood, PileFood, Whale, MagicFood, MagicWood…
   - MobileStatic 0x608DE0: Bonfire, DeadTree, FelledTree, Rock, MagicTeleport, Fragment…
-- `Game3DObject::SetPosition` 0x63B740 (LHPoint) / 0x63B680 (MapCoords): `T(p)·YXZ(y, x, z)·S`, con las 9 celdas × s.
+- `Game3DObject::SetPosition` 0x63B740 (LHPoint) / 0x63B680 (MapCoords): `T(p)·YXZ(y, x, z)·S`, with the 9 cells × s.
 
-**Cómo se usa en openblack.** Las creaciones con `AngleY` son los arquetipos de Abode, AnimatedStatic, BigForest,
-Feature, Tree, Pot, MobileObject y Shark, además de la criatura, `DesignedScenery`, los ríos, los lugares de culto y sus
-iconos, la ciudadela del guion y las marcas del suelo. Lo usan también al moverse: el tiburón, los caminos y el dibujo
-de aldeanos y animales (ángulo «Scawen» = `angle + π/2`). También el escudo físico (`MapShield.cpp`: el RotateY en línea
-de 0x72D4DB..0x72D558 sobre la identidad, con `c` en float, es `AngleY` bit a bit), el brillo que gira de los símbolos
-de creencia (`TownBelief.cpp`: el ángulo del sprite +0x14 de 0x69D8C5 llevado como la matriz de SetAngleY) y
-`billboard::YawToEye`. `YXZ` lo usan MobileStatic, DeadTree y la mano (`HandAnimator`). `AngleXYZ` va en
-`RandomiseOrientation` (PSys). `RotateY`/`RotateZ` van en la luna (`billboard::MoonModel`) y en los barcos
-(`PetitNavire`). `TurnRows` lo usan RotateAxis (PSys), el Tumble (`Sprinkle`) y las partículas de recoger
-(`HandEffects`). `AxisAngle` va en la inclinación de la mano (`HandPlacement`) y en el giro de la física
-(`PhysOb::Integrate`). `Model` lo usan el render y las cajas: `RenderingSystem`, `RenderingSystemTemple`, `Renderer`,
-`CarriedProps`, `FeatureBuild`, `Buildings`, `Sharks` y `Archetypes/Utils`.
+**How it is used in openblack.** The creations with `AngleY` are the archetypes of Abode, AnimatedStatic, BigForest,
+Feature, Tree, Pot, MobileObject and Shark, plus the creature, `DesignedScenery`, the rivers, the worship sites and their
+icons, the script's citadel and the ground marks. They also use it when moving: the shark, the paths and the drawing
+of villagers and animals («Scawen» angle = `angle + π/2`). Also the physical shield (`MapShield.cpp`: the inline RotateY
+of 0x72D4DB..0x72D558 on the identity, with `c` in float, is `AngleY` bit for bit), the rotating glow of the belief
+symbols (`TownBelief.cpp`: the angle of sprite +0x14 of 0x69D8C5 carried as the SetAngleY matrix) and
+`billboard::YawToEye`. `YXZ` is used by MobileStatic, DeadTree and the hand (`HandAnimator`). `AngleXYZ` is in
+`RandomiseOrientation` (PSys). `RotateY`/`RotateZ` are in the moon (`billboard::MoonModel`) and in the ships
+(`PetitNavire`). `TurnRows` is used by RotateAxis (PSys), the Tumble (`Sprinkle`) and the pick-up particles
+(`HandEffects`). `AxisAngle` is in the hand's tilt (`HandPlacement`) and in the physics rotation
+(`PhysOb::Integrate`). `Model` is used by the renderer and the boxes: `RenderingSystem`, `RenderingSystemTemple`, `Renderer`,
+`CarriedProps`, `FeatureBuild`, `Buildings`, `Sharks` and `Archetypes/Utils`.
 
-**Arreglado (2026-10-02, demostrado en el binario):**
-- `PSys.cpp` RandomiseOrientation: era `eulerAngleXYZ(x, y, z)` (la composición transpuesta), con los aleatorios en
-  orden x, y, z. Ahora es `z, y, x` y `AngleXYZ`.
-- `HandEffects.cpp`, el volteo de los pedazos al recoger: iba a la derecha con +a y ahora va a la izquierda con −a,
-  como 0x6A6200 y `Sprinkle.cpp`.
-- `CreatureArchetype.cpp`: `eulerAngleY(+y)` pasa a `AngleY(y)`. Hoy no se ve: el guion pasa π.
-- `RenderingSystem.cpp` / `RenderingSystemTemple.cpp`: el modelo era `R·T(p·R)·S`; ahora es `T(p)·R·S`. La traslación
-  de antes era `R·Rᵀ·p`: a unos ulp de p si R es una rotación, pero lejos de p (proporcional a |p| ≈ 1000-3000 m) si no
-  lo es. Hay tres usuarios cuya R no es una rotación, y en ellos el cambio se ve:
-  - las bandas de la mano mientras vuelan (`HandMagicFX.cpp` SetTransform: `mat3(M)/escala` de una interpolación lineal
-    de dos matrices);
-  - los objetos que llevan los aldeanos en pendiente (`CarriedProps.cpp`: la cizalla shearX/shearZ de fn_0051B220);
-  - el escudo físico entre dos turnos (`MapShield.cpp` DrawPhysical: interpola las filas, 0x72CEEC).
-- `PhysOb::Integrate`, el giro: el sentido ya era el del original y ahora se construye como él. fn_007FE260
-  (0x7FE706..0x7FE748) hace `inv = 1/ángulo` (fdiv), `eje = paso·inv`, `fn_007FB180(eje, ángulo)` y las filas por esa
-  matriz (fn_0046D9D0: `r_k' = r_k·M`). Su par es `F × r` (0x7FE0F9..0x7FE11F y 0x7FD7FD..0x7FD823) y el de openblack
-  `r × F`, así que la ω y el eje del original son los de openblack cambiados de signo: `AxisAngle(−paso·inv, ángulo)·R`.
+**Fixed (2026-10-02, demonstrated in the binary):**
+- `PSys.cpp` RandomiseOrientation: it was `eulerAngleXYZ(x, y, z)` (the transposed composition), with the random numbers in
+  the order x, y, z. Now it is `z, y, x` and `AngleXYZ`.
+- `HandEffects.cpp`, the flipping of the pieces when picking up: it went on the right with +a and now goes on the left with −a,
+  like 0x6A6200 and `Sprinkle.cpp`.
+- `CreatureArchetype.cpp`: `eulerAngleY(+y)` becomes `AngleY(y)`. Not visible today: the script passes π.
+- `RenderingSystem.cpp` / `RenderingSystemTemple.cpp`: the model was `R·T(p·R)·S`; now it is `T(p)·R·S`. The earlier
+  translation was `R·Rᵀ·p`: a few ulp from p if R is a rotation, but far from p (proportional to |p| ≈ 1000-3000 m) if it is
+  not. There are three users whose R is not a rotation, and in them the change is visible:
+  - the hand's bands while they fly (`HandMagicFX.cpp` SetTransform: `mat3(M)/escala` of a linear interpolation
+    of two matrices);
+  - the objects villagers carry on slopes (`CarriedProps.cpp`: the shearX/shearZ shear of fn_0051B220);
+  - the physical shield between two turns (`MapShield.cpp` DrawPhysical: interpolates the rows, 0x72CEEC).
+- `PhysOb::Integrate`, the rotation: the direction was already the original's and now it is built like it. fn_007FE260
+  (0x7FE706..0x7FE748) does `inv = 1/ángulo` (fdiv), `eje = paso·inv`, `fn_007FB180(eje, ángulo)` and the rows by that
+  matrix (fn_0046D9D0: `r_k' = r_k·M`). Its torque is `F × r` (0x7FE0F9..0x7FE11F and 0x7FD7FD..0x7FD823) and openblack's
+  `r × F`, so the original's ω and axis are openblack's with the sign flipped: `AxisAngle(−paso·inv, ángulo)·R`.
   ≈ulp.
-- `PSys/Rules/Shield.cpp` (VapourEndEffect, fn_0057D2B0 en 0x6A3D7C): se ha leído el sentido. Es el cuaternión
-  `(cos(a/2), sin(a/2)·n)` de fn_0057D1D0, su matriz por fn_0057D0B0 (`m1 = xy + wz`: el giro de +a con la regla de la
-  mano derecha, por filas) y las filas por ella (fn_007FAFF0). Gira cada fila +a sobre `n = last × p` (fn_006A3E20),
-  como el `glm::rotate(+a, n)` de openblack. Las celdas no son las del cuaternión **(aproximado)**.
+- `PSys/Rules/Shield.cpp` (VapourEndEffect, fn_0057D2B0 at 0x6A3D7C): the direction has been read. It is the quaternion
+  `(cos(a/2), sin(a/2)·n)` of fn_0057D1D0, its matrix via fn_0057D0B0 (`m1 = xy + wz`: the rotation by +a with the
+  right-hand rule, by rows) and the rows multiplied by it (fn_007FAFF0). It rotates each row by +a about `n = last × p` (fn_006A3E20),
+  like openblack's `glm::rotate(+a, n)`. The cells are not those of the quaternion **(approximate)**.
 
-**Sin fuente, se dejan como estaban y quedan marcadas (inferido):**
-- `HandHolding.cpp` HeldSway: falta leer qué ángulo y qué eje lleva cada fn_007FB180 (0x5B49B6..0x5B4ACE).
-- Las bandas de la mano (`HandMagicFX.cpp`): solo cuadran si el hueso tiene Y y Z cambiados.
-- `HandTrees.cpp`: el árbol tumbado y el tirón (0x5B8700).
-- La flexión del árbol en `RenderingSystem.cpp` (0x74B016).
-- El sol (`Renderer.cpp`, fn_0086C020).
-- `TempleInterior.cpp` (siempre 0) y `HandArchetype.cpp` (`eulerAngleXYZ`, sin efecto: HandPlacement lo reescribe).
-- El ángulo inicial del aldeano (0x74F950).
-- Los montones del almacén: falta la escala en `AbodeArchetype.cpp`.
-- La escala de solo X de los ríos.
-- El sentido del alabeo de la mano (`HandPlacement.cpp`, el Zoomer CHand+0xD4). El original gira con
-  `fn_007FB180(dir, [CHand+0xD4] + vt+0x14 + [esp+0x20])` (0x5B49A0..0x5B49C8, `rotate(−a)`), pero falta leer el eje
-  dir ([esp+0xA4]) y cómo llega esa matriz a la de la mano (fn_007FAFF0 0x5B4AE5). openblack gira +roll de glm sobre
-  `forward`. Hoy no se ve: el destino siempre es 0.
+**Without a source, left as they were and marked (inferred):**
+- `HandHolding.cpp` HeldSway: it remains to read which angle and which axis each fn_007FB180 carries (0x5B49B6..0x5B4ACE).
+- The hand's bands (`HandMagicFX.cpp`): they only fit if the bone has Y and Z swapped.
+- `HandTrees.cpp`: the toppled tree and the tug (0x5B8700).
+- The tree bending in `RenderingSystem.cpp` (0x74B016).
+- The sun (`Renderer.cpp`, fn_0086C020).
+- `TempleInterior.cpp` (always 0) and `HandArchetype.cpp` (`eulerAngleXYZ`, no effect: HandPlacement rewrites it).
+- The villager's initial angle (0x74F950).
+- The storage piles: the scale is missing in `AbodeArchetype.cpp`.
+- The X-only scale of the rivers.
+- The direction of the hand's roll (`HandPlacement.cpp`, the Zoomer CHand+0xD4). The original rotates with
+  `fn_007FB180(dir, [CHand+0xD4] + vt+0x14 + [esp+0x20])` (0x5B49A0..0x5B49C8, `rotate(−a)`), but it remains to read the axis
+  dir ([esp+0xA4]) and how that matrix reaches the hand's (fn_007FAFF0 0x5B4AE5). openblack rotates by glm's +roll about
+  `forward`. Not visible today: the destination is always 0.
 
 ## Zoomer (LH3DLib)
 
-**Fiel, comprobado bit a bit con el original.** API `openblack::Zoomer` y `openblack::Zoomer3d` en
-`src/Common/Zoomer.{h,cpp}` (estructura de 0x30 bytes de bw1-decomp `Lionhead/LH3DLib/development/Zoomer.h`):
+**Faithful, checked bit for bit against the original.** API `openblack::Zoomer` and `openblack::Zoomer3d` in
+`src/Common/Zoomer.{h,cpp}` (0x30-byte structure from bw1-decomp `Lionhead/LH3DLib/development/Zoomer.h`):
 - `value` +0x00;
 - `destination` +0x04;
 - `destinationSpeed` +0x08;
 - `speed` +0x0C;
-- TimeM2 +0x10 (solo se pone a 0; no se guarda);
+- TimeM2 +0x10 (only set to 0; not stored);
 - `time` +0x14;
 - `duration` +0x18;
 - `startValue` +0x1C;
 - `startSpeed` +0x20;
-- `c2`, `c3`, `c4` +0x24..+0x2C (coeficientes de t²/2, t³/6, t⁴/24).
+- `c2`, `c3`, `c4` +0x24..+0x2C (coefficients of t²/2, t³/6, t⁴/24).
 
-Es una cuártica que parte del valor y la velocidad de ahora y llega al destino en T con la velocidad de destino y
-aceleración 0. Todo va en float y en el orden del x87:
-- **`SetPosition(p)` 0x441AC0**: valor = destino = inicio = p, y lo demás a 0.
+It is a quartic that starts from the current value and speed and reaches the destination at T with the destination speed and
+acceleration 0. Everything is in float and in the x87 order:
+- **`SetPosition(p)` 0x441AC0**: value = destination = start = p, and the rest to 0.
 - **`SetDestinationWithSpeedAndTime(dest, vDest, T)` 0x407D60**:
-  - con `T < 0,001` [0x8AA3B0] (o NaN), `SetPosition(dest)`;
-  - si no: `A = (T·T)·0,5`, `B = (A·T)·0,33333334` [0x8AB26C], `C = (A·A)·0,16666667` [0x8AB268];
-  - la matriz M (filas (C, B, A) / (B, A, T) / (A, T, 1)) se invierte con `lh_matrix::Inverse` (0x7FB290);
+  - with `T < 0,001` [0x8AA3B0] (or NaN), `SetPosition(dest)`;
+  - otherwise: `A = (T·T)·0,5`, `B = (A·T)·0,33333334` [0x8AB26C], `C = (A·A)·0,16666667` [0x8AB268];
+  - the matrix M (rows (C, B, A) / (B, A, T) / (A, T, 1)) is inverted with `lh_matrix::Inverse` (0x7FB290);
   - `r1 = (dest − inicio) − T·v_inicio`, `r2 = vDest − v_inicio`;
   - `c4 = (inv10·r2 + inv00·r1) + inv.t.x`, `c3 = (inv01·r1 + inv11·r2) + inv.t.y`,
     `c2 = (inv12·r2 + inv02·r1) + inv.t.z` (0x407E6D..0x407EC5).
-- **El tope del determinante.** Para esta M, `det = −T⁶/144`, que baja de 1e-10 con **T < 0,0493 s**. Entonces los
-  coeficientes salen × `(T⁶/144)/1e-10`. El zoomer casi no se mueve y salta al destino al acabar. Un paso de 0 a 10
-  vale, a T/4: 2,6171875 con T = 2,5 s y 0,7444 con T = 0,04 s (la forma cerrada daría 2,617).
-- **`Update(dt)` 0x442720**: `t = dt + time`. Si `t ≥ duration`, se queda en el destino y su velocidad, con
-  `time = duration`: no extrapola. Si no, con `a = (t·t)·0,5`, `b = (t·a)·0,33333334` y `C = (a·a)·0,16666667`:
+- **The determinant floor.** For this M, `det = −T⁶/144`, which drops below 1e-10 with **T < 0.0493 s**. Then the
+  coefficients come out × `(T⁶/144)/1e-10`. The zoomer barely moves and jumps to the destination at the end. A step from 0 to 10
+  is worth, at T/4: 2.6171875 with T = 2.5 s and 0.7444 with T = 0.04 s (the closed form would give 2.617).
+- **`Update(dt)` 0x442720**: `t = dt + time`. If `t ≥ duration`, it stays at the destination and its speed, with
+  `time = duration`: it does not extrapolate. Otherwise, with `a = (t·t)·0,5`, `b = (t·a)·0,33333334` and `C = (a·a)·0,16666667`:
   - `speed = ((t·c2 + a·c3) + b·c4) + v_inicio`;
   - `value = ((((C·c4) + b·c3) + a·c2) + t·v_inicio) + inicio`.
 - **`Zoomer3d`** (0x90 bytes: x +0x00, y +0x30, z +0x60):
-  - `SetDestinationWithTime` 0x44E760: velocidad de destino 0. No hay `SetDestinationWithSpeedAndTime` de tres ejes:
-    no se ha visto ningún sitio del binario que dé a un Zoomer3d una velocidad de destino distinta de 0. El eje x llama a 0x407D60; y y z son el mismo código en
-    línea, y fn_00418A50 solo suma un 0 de más;
+  - `SetDestinationWithTime` 0x44E760: destination speed 0. There is no three-axis `SetDestinationWithSpeedAndTime`:
+    no place in the binary has been seen that gives a Zoomer3d a destination speed other than 0. The x axis calls 0x407D60; y and z are the same code
+    inline, and fn_00418A50 just adds an extra 0;
   - `GetCurrentValue` 0x4605D0;
-  - `Update`: los tres `Zoomer::Update` (GCamera::Update 0x441FEE..0x442029).
+  - `Update`: the three `Zoomer::Update` (GCamera::Update 0x441FEE..0x442029).
 
-**Usuarios:**
-- La cámara del jugador (`Camera`): `Zoomer3d` de la posición (GCamera +0x118) y del foco (+0x88).
-  - `CameraModeNew3` les da destino cada fotograma con `SetDestinationWithTime` (0x4604A4..0x4604D2).
-  - GCamera::Update llama primero al modo (vt+8, 0x441FD9) y después a `Update(min(dt, 0,1 [0x8AB22C]))`.
-  - `Camera::UpdateZoomers` hace eso.
-- La cámara del guion (`script_camera`: posición, foco y FOV).
-- El alabeo de la mano (`HandPlacement`, CHand+0xD4, 0,4 s) y su distancia (g_HandDistZoomer).
-- Los animales (alabeo), los montones (hundimiento, 1 s), los campos (1 s), el tótem y las palomas y lobos del hechizo
-  (fundido).
-- **Las unidades importan.** El umbral de 0,001 y el tope del determinante dependen de T, así que un Zoomer tiene que
-  ir en la unidad del original. El del tótem (TotemStatue +0x9C) va en **milisegundos**: SetWorshipPercentage 0x738270
-  le da T = |Δ|·5200 [0x999A98] ms (con el umbral en ms, 0x738293, y una copia en línea de 0x407D60 desde 0x7382FC), y
-  TotemStatue::Draw 0x738960 lo actualiza con los ms enteros del reloj (0x738967..0x7389B5). openblack le pasa ms y
-  `segundos·1000` **(aproximado: no son ms enteros)**. En segundos, el tope habría frenado los cambios de |Δ| < 0,0095;
-  en ms solo frena los de |Δ| < 9,5·10⁻⁶.
-- Los llamadores no repiten el umbral: `Animal::SetTowardsAngle` llama a 0x407D60 directamente (0x4185D5), y el umbral
-  de 0x407D67..0x407DA8 ya hace el `SetPosition`.
-- Desaparece `ZoomInterpolator` (la cámara del jugador). Era la misma cuártica con t normalizado, no una quíntica. Sus
-  diferencias eran estas:
-  - con p0 == p1 ignoraba la velocidad;
-  - dividía por p1 − p0;
-  - extrapolaba con t > 1;
-  - no tenía el umbral de 0,001 ni el tope del determinante.
-- El `Vec3Zoomer` de ScriptCamera (sesión asistente) sigue siendo una copia de `Zoomer3d` (SetDestination =
-  `SetDestinationWithTime`, Value / Destination = `GetCurrentValue` / `GetDestination`): pendiente de que su dueño lo
-  migre (ver la Pendiente).
+**Users:**
+- The player camera (`Camera`): `Zoomer3d` of the position (GCamera +0x118) and of the focus (+0x88).
+  - `CameraModeNew3` gives them a destination every frame with `SetDestinationWithTime` (0x4604A4..0x4604D2).
+  - GCamera::Update first calls the mode (vt+8, 0x441FD9) and then `Update(min(dt, 0,1 [0x8AB22C]))`.
+  - `Camera::UpdateZoomers` does that.
+- The script camera (`script_camera`: position, focus and FOV).
+- The hand's roll (`HandPlacement`, CHand+0xD4, 0.4 s) and its distance (g_HandDistZoomer).
+- The animals (roll), the piles (sinking, 1 s), the fields (1 s), the totem and the spell's doves and wolves
+  (fade).
+- **Units matter.** The 0.001 threshold and the determinant floor depend on T, so a Zoomer has to
+  be in the original's unit. The totem's one (TotemStatue +0x9C) is in **milliseconds**: SetWorshipPercentage 0x738270
+  gives it T = |Δ|·5200 [0x999A98] ms (with the threshold in ms, 0x738293, and an inline copy of 0x407D60 from 0x7382FC), and
+  TotemStatue::Draw 0x738960 updates it with the clock's whole ms (0x738967..0x7389B5). openblack passes it ms and
+  `segundos·1000` **(approximate: they are not whole ms)**. In seconds, the floor would have slowed changes of |Δ| < 0.0095;
+  in ms it only slows those of |Δ| < 9.5·10⁻⁶.
+- The callers do not repeat the threshold: `Animal::SetTowardsAngle` calls 0x407D60 directly (0x4185D5), and the threshold
+  at 0x407D67..0x407DA8 already does the `SetPosition`.
+- `ZoomInterpolator` (the player camera) disappears. It was the same quartic with normalised t, not a quintic. Its
+  differences were these:
+  - with p0 == p1 it ignored the speed;
+  - it divided by p1 − p0;
+  - it extrapolated with t > 1;
+  - it did not have the 0.001 threshold or the determinant floor.
+- ScriptCamera's `Vec3Zoomer` (asistente session) is still a copy of `Zoomer3d` (SetDestination =
+  `SetDestinationWithTime`, Value / Destination = `GetCurrentValue` / `GetDestination`): pending migration by its owner
+  (see Pending).
 
-Comprobado: `test_camera` `ZoomerMatchesRecording` recorre las 11 grabaciones del original. Los coeficientes de cada
-curva (51 669) y el valor y la velocidad de cada estado (51 636) salen **bit a bit**.
+Checked: `test_camera` `ZoomerMatchesRecording` goes through the original's 11 recordings. The coefficients of each
+curve (51 669) and the value and speed of each state (51 636) come out **bit for bit**.
 
-## Números aleatorios (`game_random`)
+## Random numbers (`game_random`)
 
-`src/Common/GameRandom.{h,cpp}` (namespace `openblack::game_random`, sesión milagros2, fase A). Un solo estado para
-todo el juego, como el original: las dos semillas de GRand, el flujo activo del PSys y la semilla del `rand()` de la
-CRT. Todo **fiel** (leído en runblack.exe W120), salvo lo marcado.
+`src/Common/GameRandom.{h,cpp}` (namespace `openblack::game_random`, milagros2 session, phase A). A single state for
+the whole game, like the original: the two GRand seeds, the active PSys stream and the seed of the CRT's
+`rand()`. Everything **faithful** (read in runblack.exe W120), except what is marked.
 
-- **`_LHRand` 0x7DB600**: `s = ror32(s·9377 + 0x24DF, 13)`, guardada rotada (0x7DB629), y devuelve `s % n` **sin signo**
-  (`div` 0x7DB62B). Con n = 0 el original divide entre 0: todos los llamadores lo miran antes.
-- **GRand** (las semillas son de `GData`, g_game +0x205A30):
-  - `GameRand(n)` 0x6DE510 → `GData::Rand` 0x510650: 0 para n = 0 sin tirar (0x510693); si no, LHRand sobre la
-    semilla **sincronizada** (+8).
-  - `GameFloatRand(x)` 0x6DE530 → `GData::FloatRand` 0x5106B0: 0 para ±0 y **NaN** sin tirar (`fcomp 0; test ah,0x40`,
-    0x6DE53C / 0x5106FE); si no, `(u·x)·k` con u = LHRand(0xFFFF) y k = [0x8D6050] = **0x37800080** (≈ 1/65535).
-    Sale con el signo de x y |r| ≤ 65534/65535·|x|.
-  - `LocalRand(n)` 0x6DE570 (long, división sin signo) y `LocalFloatRand(x)` 0x6DE590: lo mismo sobre la semilla
-    **local** (+0xC).
-  - `GameFloatRange(a, b)` 0x5E1CE0 (el callback [0xEEA380] de `GLandAlignement::Open`): `GameFloatRand(b − a) + a`,
-    con b − a redondeado antes (`fstp`).
-- **Semillas** (`Init` / `Reset` / `Save` / `Load`):
-  - `GGame::Init` 0x54F4AF pone las dos a **0x88F89F** (local 0x54F4B4, sincronizada 0x54F4BA);
-  - `GData::Reset` 0x510750 (`ResetState` 0x5557A0 ← `ClearMap` 0x552BB0 en 0x552E62 ← `StartPlaygroundGame` en
-    0x552F4F) las pone a **0**: cada LOAD_MAP después de la primera tierra (`GScript::LoadMap` 0x6FB36A) y la partida
-    de escaramuza (`ResetAndStartPlaygroundGame` 0x54F759). Solo la primera tierra de una campaña nueva arranca en
-    0x88F89F: `Init` elige por el modo de arranque GGame +0x25017C (tabla 0x54FF60: 1 = campaña nueva →
-    `GSetup::LoadMapScript` 0x54F7AB sin `ClearMap`; 4 = escaramuza → playground; 0 autoguardado, 2 cargar partida);
-  - `WriteSafe(GData&)` 0x563440 guarda las dos (+8 en 0x56345C, +0xC en 0x563494); `ReadSafe` 0x563620 las lee en el
-    mismo orden. openblack no tiene partidas guardadas: `Save`/`Load` no tienen llamador;
-  - openblack: `Game::LoadMap` llama a `Init()` en la primera carga y a `Reset()` en las demás (miembro
-    `_firstMapLoaded`). **(inferido)** openblack no tiene modo de arranque: «un guion de la carpeta Playgrounds» hace
-    de caso 4 y da `Reset()` también en la primera carga.
-- **PSys** (`game_random::psys`): `PSysFloatRand` 0x6729B0 / `PSysRand` 0x6729E0 llaman a los punteros [0xD4E0C0] /
+- **`_LHRand` 0x7DB600**: `s = ror32(s·9377 + 0x24DF, 13)`, stored rotated (0x7DB629), and returns `s % n` **unsigned**
+  (`div` 0x7DB62B). With n = 0 the original divides by 0: all the callers check it beforehand.
+- **GRand** (the seeds belong to `GData`, g_game +0x205A30):
+  - `GameRand(n)` 0x6DE510 → `GData::Rand` 0x510650: 0 for n = 0 without drawing (0x510693); otherwise, LHRand on the
+    **synchronised** seed (+8).
+  - `GameFloatRand(x)` 0x6DE530 → `GData::FloatRand` 0x5106B0: 0 for ±0 and **NaN** without drawing (`fcomp 0; test ah,0x40`,
+    0x6DE53C / 0x5106FE); otherwise, `(u·x)·k` with u = LHRand(0xFFFF) and k = [0x8D6050] = **0x37800080** (≈ 1/65535).
+    It comes out with the sign of x and |r| ≤ 65534/65535·|x|.
+  - `LocalRand(n)` 0x6DE570 (long, unsigned division) and `LocalFloatRand(x)` 0x6DE590: the same on the **local**
+    seed (+0xC).
+  - `GameFloatRange(a, b)` 0x5E1CE0 (the callback [0xEEA380] of `GLandAlignement::Open`): `GameFloatRand(b − a) + a`,
+    with b − a rounded beforehand (`fstp`).
+- **Seeds** (`Init` / `Reset` / `Save` / `Load`):
+  - `GGame::Init` 0x54F4AF sets both to **0x88F89F** (local 0x54F4B4, synchronised 0x54F4BA);
+  - `GData::Reset` 0x510750 (`ResetState` 0x5557A0 ← `ClearMap` 0x552BB0 at 0x552E62 ← `StartPlaygroundGame` at
+    0x552F4F) sets them to **0**: every LOAD_MAP after the first land (`GScript::LoadMap` 0x6FB36A) and the skirmish
+    game (`ResetAndStartPlaygroundGame` 0x54F759). Only the first land of a new campaign starts at
+    0x88F89F: `Init` chooses by the startup mode GGame +0x25017C (table 0x54FF60: 1 = new campaign →
+    `GSetup::LoadMapScript` 0x54F7AB without `ClearMap`; 4 = skirmish → playground; 0 autosave, 2 load game);
+  - `WriteSafe(GData&)` 0x563440 saves both (+8 at 0x56345C, +0xC at 0x563494); `ReadSafe` 0x563620 reads them in the
+    same order. openblack has no saved games: `Save`/`Load` have no caller;
+  - openblack: `Game::LoadMap` calls `Init()` on the first load and `Reset()` on the others (member
+    `_firstMapLoaded`). **(inferred)** openblack has no startup mode: «a script from the Playgrounds folder» acts
+    as case 4 and gives `Reset()` on the first load too.
+- **PSys** (`game_random::psys`): `PSysFloatRand` 0x6729B0 / `PSysRand` 0x6729E0 call the pointers [0xD4E0C0] /
   [0xD4E0BC]:
-  - fuera de un paso valen 0x672990 / 0x6729A0: **0** sin tirar (inicializador 0x672A80);
-  - `fn_00673340` (el paso de cada efecto) los pone según +0xAC: sincronizados (0x672AB0 / 0x672AF0, por `GameRand`)
-    o locales (0x672B10 / 0x672B40, por `LocalRand`), y al acabar vuelve a los de 0 (0x67349B), **no** a los de antes:
-    el ámbito no se anida (`psys::StepScope`, abierto en `Effect::Step`);
-  - +0xAC = `NET_GAME_TYPE == 1`, el sexto argumento de `GJPSysInterface::Create` 0x68F2F0 (`sete` 0x68F3AE). Es
-    sincronizado el efecto propio de un hechizo (`Spell::InitWithPos`, push 1 en 0x71FF63) y los visuales puntuales
-    (`GParticleContainer::Create` → fn_0063E410, push 1 en 0x63E436); los demás leídos son locales (la mano
-    fn_0046E7B0, MagicTeleport, la bandada, la tormenta, el dispensador, el escudo físico fn_0072CD40 (push 0 en
-    0x72CDA1), las utilidades, la explosión de objetos fn_006718E0, el centro del pueblo 0x69BC31…). openblack:
-    `psys::Effect(…, NetGameType)` y `manager::Start/StartForSpell(…, NetGameType)`, Local por defecto;
-  - el float es `(u·k)·x` (0x672AD7 / 0x672ADD), **en otro orden** que GRand: desde 0x88F89F con x = 2π,
-    GameFloatRand da 4,314674377441406 y el del PSys 4,3146748542785645. Sin «0 para 0»: con x = 0 tira igual;
-  - `PSysRand(n)` es `s % n`, no `floor(PSysFloatRand(n))` (primer sorteo desde 0x88F89F: 8 frente a 6 con n = 10);
-  - `FloatRand(a, b)` 0x6729C0 = `FloatRand(b − a) + a`; `RandR3` 0x6729F0: x, y, z = FloatRand(2) − 1 por ese orden,
-    otra vez mientras `(z² + y²) + x² > 1`. **(aproximado)** fuera de un paso el original no acabaría nunca (−1, −1,
-    −1): aquí devuelve ese punto una vez y avisa (no es alcanzable en el original).
-- **CRT** (`game_random::crt`): `rand()` 0x7C8837 (`s = s·0x343FD + 0x269EC3`, `(s >> 16) & 0x7FFF`), `srand` 0x7C882A y
-  `Random(a, b)` 0x81D180 = `((rand()·k)·(b − a)) + a`, k = [0x9A3700] = **0x38000100**. La semilla es por hilo en el
-  original y empieza en **1** (`__initptd` 0x7D2323); `srand(time)` solo está en fn_005776E0 (al guardar
-  `creature.lhp`), no al arrancar. openblack: una semilla, la del hilo del juego.
-- **Aritmética**: todo en float, una operación por sentencia (la FPU va a 24 bits: fn_007DEE00, `and 0xFCFF` en
-  0x7DEE0D), así que cada `fmul`/`fadd` del x87 redondea como una operación float; las constantes se escriben con
-  `std::bit_cast` de sus bits.
-- **Red de ruido del PSys** 0xD066D8 (fn_00590DF0, desde `GGame::InitOneTimeOnly` 0x54F0F4, antes de Init): 256 ×
-  `1 − GameFloatRand(2)` desde la semilla con que nace g_game, **0 (inferido)**: los mismos valores en cada partida
+  - outside a step they are 0x672990 / 0x6729A0: **0** without drawing (initialiser 0x672A80);
+  - `fn_00673340` (the step of each effect) sets them according to +0xAC: synchronised (0x672AB0 / 0x672AF0, via `GameRand`)
+    or local (0x672B10 / 0x672B40, via `LocalRand`), and when it finishes it goes back to the 0 ones (0x67349B), **not** to the previous ones:
+    the scope does not nest (`psys::StepScope`, opened in `Effect::Step`);
+  - +0xAC = `NET_GAME_TYPE == 1`, the sixth argument of `GJPSysInterface::Create` 0x68F2F0 (`sete` 0x68F3AE). The
+    effect belonging to a spell (`Spell::InitWithPos`, push 1 at 0x71FF63) and the one-off visuals
+    (`GParticleContainer::Create` → fn_0063E410, push 1 at 0x63E436) are synchronised; the others read are local (the hand
+    fn_0046E7B0, MagicTeleport, the flock, the storm, the dispenser, the physical shield fn_0072CD40 (push 0 at
+    0x72CDA1), the utilities, the object explosion fn_006718E0, the town centre 0x69BC31…). openblack:
+    `psys::Effect(…, NetGameType)` and `manager::Start/StartForSpell(…, NetGameType)`, Local by default;
+  - the float is `(u·k)·x` (0x672AD7 / 0x672ADD), **in a different order** from GRand: from 0x88F89F with x = 2π,
+    GameFloatRand gives 4.314674377441406 and the PSys one 4.3146748542785645. Without «0 for 0»: with x = 0 it still draws;
+  - `PSysRand(n)` is `s % n`, not `floor(PSysFloatRand(n))` (first draw from 0x88F89F: 8 versus 6 with n = 10);
+  - `FloatRand(a, b)` 0x6729C0 = `FloatRand(b − a) + a`; `RandR3` 0x6729F0: x, y, z = FloatRand(2) − 1 in that order,
+    again while `(z² + y²) + x² > 1`. **(approximate)** outside a step the original would never finish (−1, −1,
+    −1): here it returns that point once and warns (it is not reachable in the original).
+- **CRT** (`game_random::crt`): `rand()` 0x7C8837 (`s = s·0x343FD + 0x269EC3`, `(s >> 16) & 0x7FFF`), `srand` 0x7C882A and
+  `Random(a, b)` 0x81D180 = `((rand()·k)·(b − a)) + a`, k = [0x9A3700] = **0x38000100**. The seed is per thread in the
+  original and starts at **1** (`__initptd` 0x7D2323); `srand(time)` is only in fn_005776E0 (when saving
+  `creature.lhp`), not at startup. openblack: one seed, that of the game thread.
+- **Arithmetic**: everything in float, one operation per statement (the FPU runs at 24 bits: fn_007DEE00, `and 0xFCFF` at
+  0x7DEE0D), so each x87 `fmul`/`fadd` rounds like a float operation; the constants are written with
+  `std::bit_cast` of their bits.
+- **PSys noise grid** 0xD066D8 (fn_00590DF0, from `GGame::InitOneTimeOnly` 0x54F0F4, before Init): 256 ×
+  `1 − GameFloatRand(2)` from the seed g_game is born with, **0 (inferred)**: the same values in every game
   (`PSys/Noise.cpp`).
-- **Ya migrado** (fase A): Magic (SpellFlock, SpellForest, SpellWater), Worship (FireFlyReward), ECS/Weather (Climate,
+- **Already migrated** (phase A): Magic (SpellFlock, SpellForest, SpellWater), Worship (FireFlyReward), ECS/Weather (Climate,
   Storms, WeatherThing, StormClouds, Rain), VillagerFire, ECS/Fire/FireGraphic, PSys (Effect, Mist, LightMap, Mesh,
-  Gesture, Lightning, Storm, TownBelief, Noise). `villager::GameRand/GameFloatRand/SetRandForTests` reenvían al
-  módulo. El antiguo `graphics::lh3d::Random` / `grand_local::*` (src/3D/LH3DRandom) se ha **quitado**: sus usuarios
-  (CameraShake, MistArchetype, los aldeanos...) llaman ya directamente a `game_random` (`crt::Random` en lugar de
-  `lh3d::Random`, `LocalRand` / `LocalFloatRand` en lugar de `grand_local::*`).
-- **Fase B (2026-10-03)**: todo sorteo de src pasa ya por `game_random`: el GRand sincronizado (`GameRand` /
-  `GameFloatRand`), el GRand local (`LocalRand` / `LocalFloatRand`) o el `rand()` de la CRT (`crt::Random` y
-  compañía), según lo que use el original en cada sitio (animales, árboles, peces, luciérnagas, campos, rocas,
-  fragmentos, polvo, sonido y ayuda, nubes, humos, aldeanos, CHL RANDOM / RANDOM_ULONG...). `Locator::rng`
-  (`RandomNumberManagerInterface`) solo queda para el `TestRng` de las pruebas (test_villager_*, test_camera); ningún
-  código del juego lo usa. La secuencia sigue sin coincidir con una partida del original (no se reproduce el orden
-  exacto de todas las llamadas): lo que es fiel es la fórmula, la resolución y el ciclo de las semillas.
+  Gesture, Lightning, Storm, TownBelief, Noise). `villager::GameRand/GameFloatRand/SetRandForTests` forward to the
+  module. The old `graphics::lh3d::Random` / `grand_local::*` (src/3D/LH3DRandom) has been **removed**: its users
+  (CameraShake, MistArchetype, the villagers...) now call `game_random` directly (`crt::Random` instead of
+  `lh3d::Random`, `LocalRand` / `LocalFloatRand` instead of `grand_local::*`).
+- **Phase B (2026-10-03)**: every draw in src now goes through `game_random`: the synchronised GRand (`GameRand` /
+  `GameFloatRand`), the local GRand (`LocalRand` / `LocalFloatRand`) or the CRT's `rand()` (`crt::Random` and
+  friends), depending on what the original uses at each site (animals, trees, fish, fireflies, fields, rocks,
+  fragments, dust, sound and help, clouds, smoke, villagers, CHL RANDOM / RANDOM_ULONG...). `Locator::rng`
+  (`RandomNumberManagerInterface`) only remains for the tests' `TestRng` (test_villager_*, test_camera); no game code
+  uses it. The sequence still does not match a game of the original (the exact order of all the calls is not
+  reproduced): what is faithful is the formula, the resolution and the cycle of the seeds.
 
-## Pendiente
+## Pending
 
 ### MapCoords
 
-Copias de MapCoords que aún no usan `ecs::map_coords` (estado a 2026-10-02, rama `local/sistemas2`):
+Copies of MapCoords that do not use `ecs::map_coords` yet (status as of 2026-10-02, branch `local/sistemas2`):
 
-**Tanda 2 de los aplazados de milagros2, migrada (2026-10-02, sistemas2):**
-- `PSys/Rules/Storm.cpp`: el polvo del tornado toma la celda de `MapCoords(LHPoint)` (0x6D2BA3; el port conserva la
-  comprobación contra el lado de la isla, que el original no hace); `PotsByCell` usaba `map_coords::CellOf` (se borró en la fase A de map_cell_queries: las ollas van en la cola de la lista fija, y cada celda se recorre fija y luego móvil, 0x6D2327); la búsqueda
-  de lo que el tornado se lleva (fn_006D21B0) recorre `map_coords::Spiral` + `AddCells` desde el MapCoords del tornado
-  (`ToFixed`, 0x6D228D..0x6D22A7), con `InBounds` en cada celda (0x6D2311), la celda propia por el MapCoords del objeto
-  (fn_00604F40), `GetDistanceInMetres` desde el MapCoords **inicial** (0x6D2398, no desde la celda que se recorre) y la
-  posición del evento `CanDestroy` como el MapCoords en metros (0x6D23BA..0x6D2419). Su `SpiralStep` se ha borrado.
-- `Magic/Objects/MagicTeleport.cpp`: `FastDistance` pasa por `gutils::FastDistance` sobre `FromMetres`;
-  `AnyMultiMapFixedNear` (fn_00604C30) recorre `Spiral` + `AddCells` sobre `max(ftol(ceil(2R/10)), 3)²` celdas con
-  `InBounds` (0x604CC9); `k_UnitsPerMetre` y `ToUnits` se han borrado.
-- `Magic/Spells/SpellForest.cpp`: `spell_forest::ToMapCoords` es `ToMetres(FromMetres(p))` (0x725943..0x72595C: el
-  producto por 6553,6 a 24 bits, ya no en double). `CellOf` ya iba por `MapInterface::GetGridCell` (= `map_coords`).
-- `Magic/Core/SpellSeed.cpp` (fn_006022C0): la celda y el desplazamiento dentro de ella salen de `ToFixed`
+**Batch 2 of the items postponed by milagros2, migrated (2026-10-02, sistemas2):**
+- `PSys/Rules/Storm.cpp`: the tornado dust takes the cell from `MapCoords(LHPoint)` (0x6D2BA3; the port keeps the
+  check against the island side, which the original does not do); `PotsByCell` used `map_coords::CellOf` (it was deleted in phase A of map_cell_queries: the pots go at the tail of the fixed list, and each cell is walked fixed then mobile, 0x6D2327); the search
+  for what the tornado carries off (fn_006D21B0) walks `map_coords::Spiral` + `AddCells` from the tornado's MapCoords
+  (`ToFixed`, 0x6D228D..0x6D22A7), with `InBounds` on each cell (0x6D2311), the own cell by the object's MapCoords
+  (fn_00604F40), `GetDistanceInMetres` from the **initial** MapCoords (0x6D2398, not from the cell being walked) and the
+  position of the `CanDestroy` event as the MapCoords in metres (0x6D23BA..0x6D2419). Its `SpiralStep` has been deleted.
+- `Magic/Objects/MagicTeleport.cpp`: `FastDistance` goes through `gutils::FastDistance` on `FromMetres`;
+  `AnyMultiMapFixedNear` (fn_00604C30) walks `Spiral` + `AddCells` over `max(ftol(ceil(2R/10)), 3)²` cells with
+  `InBounds` (0x604CC9); `k_UnitsPerMetre` and `ToUnits` have been deleted.
+- `Magic/Spells/SpellForest.cpp`: `spell_forest::ToMapCoords` is `ToMetres(FromMetres(p))` (0x725943..0x72595C: the
+  product by 6553.6 at 24 bits, no longer in double). `CellOf` already went through `MapInterface::GetGridCell` (= `map_coords`).
+- `Magic/Core/SpellSeed.cpp` (fn_006022C0): the cell and the offset within it come from `ToFixed`
   (0x6022E2..0x602300).
-- `ECS/Systems/Implementations/HandSpellSeed.cpp`: el MapCoords del círculo es `ftol(x·6553,6)`, `ftol(z·6553,6)`,
-  altitud 0 (0x5D33DD..0x5D3400).
-- Paso de double a float (FPU del original a 24 bits, 0x7DEE0D), revisado por milagros2: `CellOffset` de SpellSeed
-  (0x6022E2..0x602300), `TopOfObjectsUnder` (0x602388) y `ToMapCoords` de SpellForest (0x725943).
+- `ECS/Systems/Implementations/HandSpellSeed.cpp`: the circle's MapCoords is `ftol(x·6553,6)`, `ftol(z·6553,6)`,
+  altitude 0 (0x5D33DD..0x5D3400).
+- Change from double to float (the original's FPU at 24 bits, 0x7DEE0D), reviewed by milagros2: SpellSeed's `CellOffset`
+  (0x6022E2..0x602300), `TopOfObjectsUnder` (0x602388) and SpellForest's `ToMapCoords` (0x725943).
 
-**Rayo y explosión, migrados (2026-10-02, sistemas2):** `PSys/Rules/Lightning.cpp` y `PSys/Rules/Explosion.cpp` ya
-recorren sus celdas con `map_coords::Spiral` + `AddCells` desde el MapCoords del origen (`ToFixed`, 0x69024A /
-0x6908B7 / 0x67E56A; ya no `(int)(x·0.1f)`), `InBounds` en cada celda y la celda propia por el MapCoords del objeto
-(fn_00604F40). El rayo mide desde el MapCoords del objeto en metros (`fild · 10/65536`) con sus sumas en el orden del
-x87 (cono 0x690410, círculo 0x690A06, renovar 0x6913BD sin raíz, largo de la rama 0x6923A0), la punta es
-`ToWorld(MapCoordsOf) + object::GetHeight` (fn_00691E00, vt+0x42C), el suelo de los puntos de tierra es el del MapCoords
-fn_004427B0 (= `ToFixed`: 65536·0,1f es 6553,6f exacto) y el enfriamiento `ftol(AverageLightmapLife / ([0xD01A38]·0,001))`
-(0x691072, 0x6928FD) ya no usa el dt. La explosión busca con `gutils::GetDistanceInMetres` (0x74CD70) contra
-`object::Get2DRadius` (vt+0x64), el anillo usa `object::GetRadius` (vt+0x60) y `(dz² + dy²) + dx²` (0x67EA1C), los
-blancos son el MapCoords como punto (0x67E9E1), el turno es `game_clock::Turn()` (+0x205A40) y el humo dura
-`TicksForSeconds(4)` turnos (0x67EEF8). Queda:
-- `Lightning.cpp` `CanBeStruck`: el original pregunta antes `IsAvailable` (vt+0x2C, 0x69038E / 0x690997); el port no
-  (es de milagros2).
-- `Lightning.cpp`: `fn_00690C70` (blancos del gestor), `fn_00691E80` (altura del mapa de luz, ahora `LandAt + 0,1`) sin
-  leer; el enfriamiento usa `effect.Random` en float donde el original llama a `PSysRand(int)` 0x6729E0. El original
-  pasa el `ftol` directo a `PSysRand` (0x691091 / 0x69292F, sin mirar el signo) y el port se salta `PSysRand` con
-  `steps <= 0`; `PSysRand` salta por el puntero [0xD4E0BC], sin leer qué hace con un negativo, así que el comentario
-  de `LightmapSteps` («0 ms da +inf, sin enfriamiento») es *(inferido)*.
-- `Explosion.cpp`: `manager::CreateSpotVisual` recibe segundos y los vuelve a pasar a turnos con `MsPerTurn()`; el
-  original pasa turnos (`CreateSpotVisualWithSpecifiedDuration` 0x63E580, 60 y `TicksForSeconds(4) & 0xFFFF`), así que
-  con un turno distinto de 100 ms la cuenta no es la misma. Su posición tampoco pasa por `MapCoords(LHPoint)` 0x603160.
-  Además 0x67EEF8..0x67EF2C es una **copia en línea** (`div [0xD01A38]; fild qword; fmul 4; ftol; and 0xFFFF`), no una
-  llamada a `NumGameTicksPerSecond` 0x711630; el resultado es el de `TicksForSeconds(4)`, pero el comentario del código
-  debería decirlo (es de milagros2).
+**Lightning and explosion, migrated (2026-10-02, sistemas2):** `PSys/Rules/Lightning.cpp` and `PSys/Rules/Explosion.cpp` now
+walk their cells with `map_coords::Spiral` + `AddCells` from the origin's MapCoords (`ToFixed`, 0x69024A /
+0x6908B7 / 0x67E56A; no longer `(int)(x·0.1f)`), `InBounds` on each cell and the own cell by the object's MapCoords
+(fn_00604F40). Lightning measures from the object's MapCoords in metres (`fild · 10/65536`) with its sums in the
+x87 order (cone 0x690410, circle 0x690A06, renew 0x6913BD without root, branch length 0x6923A0), the tip is
+`ToWorld(MapCoordsOf) + object::GetHeight` (fn_00691E00, vt+0x42C), the ground of the land points is that of the MapCoords
+fn_004427B0 (= `ToFixed`: 65536·0,1f is exactly 6553,6f) and the cooldown `ftol(AverageLightmapLife / ([0xD01A38]·0,001))`
+(0x691072, 0x6928FD) no longer uses the dt. The explosion searches with `gutils::GetDistanceInMetres` (0x74CD70) against
+`object::Get2DRadius` (vt+0x64), the ring uses `object::GetRadius` (vt+0x60) and `(dz² + dy²) + dx²` (0x67EA1C), the
+targets are the MapCoords as a point (0x67E9E1), the turn is `game_clock::Turn()` (+0x205A40) and the smoke lasts
+`TicksForSeconds(4)` turns (0x67EEF8). Remaining:
+- `Lightning.cpp` `CanBeStruck`: the original first asks `IsAvailable` (vt+0x2C, 0x69038E / 0x690997); the port does not
+  (it belongs to milagros2).
+- `Lightning.cpp`: `fn_00690C70` (manager targets), `fn_00691E80` (light map height, now `LandAt + 0,1`) not
+  read; the cooldown uses `effect.Random` in float where the original calls `PSysRand(int)` 0x6729E0. The original
+  passes the `ftol` directly to `PSysRand` (0x691091 / 0x69292F, without checking the sign) and the port skips `PSysRand` with
+  `steps <= 0`; `PSysRand` jumps through the pointer [0xD4E0BC], without it having been read what it does with a negative, so the comment
+  of `LightmapSteps` («0 ms da +inf, sin enfriamiento») is *(inferred)*.
+- `Explosion.cpp`: `manager::CreateSpotVisual` receives seconds and converts them back to turns with `MsPerTurn()`; the
+  original passes turns (`CreateSpotVisualWithSpecifiedDuration` 0x63E580, 60 and `TicksForSeconds(4) & 0xFFFF`), so
+  with a turn other than 100 ms the count is not the same. Its position does not go through `MapCoords(LHPoint)` 0x603160 either.
+  In addition 0x67EEF8..0x67EF2C is an **inline copy** (`div [0xD01A38]; fild qword; fmul 4; ftol; and 0xFFFF`), not a
+  call to `NumGameTicksPerSecond` 0x711630; the result is that of `TicksForSeconds(4)`, but the code comment
+  should say so (it belongs to milagros2).
 
-**Audio** (lo migra «audio» en su B11):
-- `Audio/Services/ThingMusic.cpp:81-87`: la ida y vuelta en double.
-- `Audio/Services/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: ya en float y correctas; solo falta usar la API.
+**Audio** (migrated by «audio» in its B11):
+- `Audio/Services/ThingMusic.cpp:81-87`: the round trip in double.
+- `Audio/Services/SoundMap.cpp:133-137, 156-157, 188-193, 336-337`: already in float and correct; only using the API is missing.
 
-**Dudosas, no migradas:**
-- `CHLApi.cpp:900` (`MOVE_GAME_THING`): truncar ahí haría una segunda conversión al caminar.
-- `SpellResource.cpp:68`: `AddResourceToPos` ya convierte una vez, igual que el original.
-- `Trees.cpp:1179-1186`: las celdas de la flexión de los árboles, con diferencias de celdas con signo.
+**Doubtful, not migrated:**
+- `CHLApi.cpp:900` (`MOVE_GAME_THING`): truncating there would make a second conversion when walking.
+- `SpellResource.cpp:68`: `AddResourceToPos` already converts once, like the original.
+- `Trees.cpp:1179-1186`: the cells of the tree bending, with signed cell differences.
 
-**Fuera de este sistema, encontrado al auditarlo** (no se ha tocado; es de sus dueños):
-- `Climate.cpp:231` (`FindWhereToCreateStorm`) compara con `other.outerRadius`, pero el original compara con el radio
-  del clima que crea la tormenta: `fcomp [ebp+0x24]` en 0x772D9C, con `ebp = this`. En `ProcessAll` (0x771DBF) sí es
-  `[esi+0x24]`, el del otro clima, así que la diferencia entre las dos rutinas es del original.
-- `AnimalAI.cpp` `LookForFoodPos`: el número de celdas es `(radio/10)²` **en entero**; el original divide en float y
-  trunca el cuadrado (`fild; fdiv 10 [0x8AB744]; fld st(0); fmul st(1); __ftol`, 0x41A8B3..0x41A8DD): con radio 35 da 12
-  celdas, no 9.
+**Outside this system, found while auditing it** (not touched; it belongs to its owners):
+- `Climate.cpp:231` (`FindWhereToCreateStorm`) compares with `other.outerRadius`, but the original compares with the radius
+  of the climate that creates the storm: `fcomp [ebp+0x24]` at 0x772D9C, with `ebp = this`. In `ProcessAll` (0x771DBF) it is indeed
+  `[esi+0x24]`, the other climate's, so the difference between the two routines comes from the original.
+- `AnimalAI.cpp` `LookForFoodPos`: the number of cells is `(radio/10)²` **in integer**; the original divides in float and
+  truncates the square (`fild; fdiv 10 [0x8AB744]; fld st(0); fmul st(1); __ftol`, 0x41A8B3..0x41A8DD): with radius 35 it gives 12
+  cells, not 9.
 
-**Otros:**
-- Las posiciones de openblack son float en metros. Mientras no se guarden como MapCoords enteros, cada `ToFixed` de un
-  valor ya cuantizado puede perder una unidad (0,15 mm). Las celdas no cambian: una posición en un múltiplo exacto de
-  0x10000 vuelve intacta.
-- Distancias sobre MapCoords: hechas, en [Distancias de GUtils](#distancias-de-gutils).
-- Revisión de milagros2 (2026-10-01): `WeatherLand.h` y `WorshipSite.cpp` cambian también `floor` por la celda de
-  MapCoords (palabra alta). `PotResource` podría recorrer su espiral con `AddCells` 0x605470, por coherencia con el resto.
-  `Climate::CellCentre` se queda para las dos distancias de ProcessClimate fn_00772330 (palabra alta sin signo × 10,
-  0x7724A6..0x7724DE y 0x772510..0x772548); el resto de los lectores usa `Centre()`.
+**Others:**
+- openblack's positions are float in metres. As long as they are not stored as integer MapCoords, each `ToFixed` of an
+  already quantised value can lose one unit (0.15 mm). The cells do not change: a position at an exact multiple of
+  0x10000 comes back intact.
+- Distances on MapCoords: done, in [GUtils distances](#gutils-distances).
+- milagros2 review (2026-10-01): `WeatherLand.h` and `WorshipSite.cpp` also change `floor` for the MapCoords
+  cell (high word). `PotResource` could walk its spiral with `AddCells` 0x605470, for consistency with the rest.
+  `Climate::CellCentre` stays for the two distances of ProcessClimate fn_00772330 (unsigned high word × 10,
+  0x7724A6..0x7724DE and 0x772510..0x772548); the rest of the readers use `Centre()`.
 
-### Distancias de GUtils
+### GUtils distances
 
-Copias de distancias que aún no usan `openblack::gutils` (estado a 2026-10-02, rama `local/sistemas2`). La regla ha sido
-migrar **solo** donde se ha leído en el binario que el original llama a `GetDistance*` / `hypotenuse`; lo demás se deja.
+Copies of distances that do not use `openblack::gutils` yet (status as of 2026-10-02, branch `local/sistemas2`). The rule has been
+to migrate **only** where it has been read in the binary that the original calls `GetDistance*` / `hypotenuse`; the rest is left.
 
-**Migradas en la tanda 2 (2026-10-02, sistemas2):** `MagicTeleport.cpp` (`Distance2D` = `GetDistanceInMetres`:
-DoTeleport 0x5FC818 / 0x5FC826 por el gemelo 0x74CD50, fn_00604C30 0x604CFD, fn_0064D6B0; `FastDistance` por la API),
+**Migrated in batch 2 (2026-10-02, sistemas2):** `MagicTeleport.cpp` (`Distance2D` = `GetDistanceInMetres`:
+DoTeleport 0x5FC818 / 0x5FC826 via the twin 0x74CD50, fn_00604C30 0x604CFD, fn_0064D6B0; `FastDistance` via the API),
 `MapShield.cpp` (`IsReactionBlockedByShield` 0x72B9B2), `Storm.cpp` (0x6D2398), `SpellStormAndTornado.cpp`
-(`ReactToRainOnFire`, fn_0072DCC0 0x72DCE0), `SpellForest.cpp` (fn_005FADF0 0x5FAE30 y fn_007255C0 0x7255CF),
-`SpellShield.cpp` (`GetNearestTown` 0x602112 / 0x602193, `IsUnder` 0x72BD3C desde castPos +0xCC, `FindShieldAt`
-0x72BA4B desde **originalCastPos +0xC0** y con `Get2DRadius > distancia` estricto: antes medía desde castPos y aceptaba
-`<=`) y
-`ECS/PotResource.cpp` (`IsCloseToEqual` 0x6053C0, desde `Pot::AddResourceToPos` 0x66F375). Con la raíz de tabla de
-GUtils las distancias ya no son exactas (100 m dan 100,02 m: `test_teleport` lo comprueba así).
+(`ReactToRainOnFire`, fn_0072DCC0 0x72DCE0), `SpellForest.cpp` (fn_005FADF0 0x5FAE30 and fn_007255C0 0x7255CF),
+`SpellShield.cpp` (`GetNearestTown` 0x602112 / 0x602193, `IsUnder` 0x72BD3C from castPos +0xCC, `FindShieldAt`
+0x72BA4B from **originalCastPos +0xC0** and with strict `Get2DRadius > distancia`: before it measured from castPos and accepted
+`<=`) and
+`ECS/PotResource.cpp` (`IsCloseToEqual` 0x6053C0, from `Pot::AddResourceToPos` 0x66F375). With the GUtils table
+root the distances are no longer exact (100 m give 100.02 m: `test_teleport` checks it that way).
 
-**De otros dueños, sin autorización todavía:**
-- Milagros: `ECS/Influence/Influence.cpp:118-121` (`detail::DistanceXZ`, `std::hypot`, cita 0x74CD70),
+**From other owners, not authorised yet:**
+- Miracles: `ECS/Influence/Influence.cpp:118-121` (`detail::DistanceXZ`, `std::hypot`, cites 0x74CD70),
   `ECS/Systems/Implementations/VillagerWorship.cpp:161-164` (`FlatDistance`),
   `Worship/WorshipSite.cpp:131, :147`,
-  `Magic/Script/CHLFire.cpp:74` y `Magic/Script/CHLSpells.cpp:185`.
-- «audio» (hito B11): `ECS/Fire/FireSound.cpp:38-52` (`CameraDistance`: además la cámara no pasa por MapCoords) y
-  `Audio/GameQueries.h:47, :72-76` (`nearestTown`, descrito pero sin implementar en `Game.cpp`).
+  `Magic/Script/CHLFire.cpp:74` and `Magic/Script/CHLSpells.cpp:185`.
+- «audio» (milestone B11): `ECS/Fire/FireSound.cpp:38-52` (`CameraDistance`: in addition the camera does not go through MapCoords) and
+  `Audio/GameQueries.h:47, :72-76` (`nearestTown`, described but not implemented in `Game.cpp`).
 
-**Dudosas, no migradas** (no consta en el binario que el original use ahí la rutina):
-- `ECS/Trees.cpp:244, :718, :799, :1038`: sin dirección en la cita. (`Worship/Citadel.cpp` `NearestTownOfTribe` ya
-  no existe: 0x46345C llama a 0x73B170, ahora `map_cells::GetNearestTownToPos`; ver «Listas de objetos por celda».)
-- `ECS/Weather/Climate.cpp:431` (`ProcessAll`): hace `d2 > r²` y luego `sqrt(d2)`, que no es la forma de una llamada a
-  `GetDistance`; `GClimate::ProcessAll` 0x771DBA sí llama una vez a 0x74CDE0, pero no se ha leído dónde.
-- `ECS/AnimalFlee.cpp:596, :619, :653` y `ECS/AnimalPredators.cpp:379, :488, :549, :692`: el informe los marca
-  *(inferido)* por su sitio en el archivo, no por una lectura.
-- `ECS/Systems/Implementations/PathfindingSystem.cpp:100, :218`: portan `MobileWallHug::MoveTo` 0x60AF20, que llama a
-  `GetMetresDistanceSq` 0x605FB0 *(inferido)*; haría falta migrar antes su entrada a MapCoords.
-- `ECS/Effects/EffectValues.cpp` y `ECS/Fire/FireEffect.cpp` usan `gutils::GetDistanceInMetres(vec3, vec3)`, que
-  trunca las posiciones a 16.16 cada vez. Mientras openblack guarde las posiciones en float, eso puede perder una unidad
-  (0,15 mm) respecto a un MapCoords guardado.
+**Doubtful, not migrated** (there is no record in the binary that the original uses the routine there):
+- `ECS/Trees.cpp:244, :718, :799, :1038`: no address in the citation. (`Worship/Citadel.cpp` `NearestTownOfTribe` no longer
+  exists: 0x46345C calls 0x73B170, now `map_cells::GetNearestTownToPos`; see «Object lists per cell».)
+- `ECS/Weather/Climate.cpp:431` (`ProcessAll`): does `d2 > r²` and then `sqrt(d2)`, which is not the shape of a call to
+  `GetDistance`; `GClimate::ProcessAll` 0x771DBA does call 0x74CDE0 once, but it has not been read where.
+- `ECS/AnimalFlee.cpp:596, :619, :653` and `ECS/AnimalPredators.cpp:379, :488, :549, :692`: the report marks them
+  *(inferred)* by their place in the file, not by a reading.
+- `ECS/Systems/Implementations/PathfindingSystem.cpp:100, :218`: they port `MobileWallHug::MoveTo` 0x60AF20, which calls
+  `GetMetresDistanceSq` 0x605FB0 *(inferred)*; their input would have to be migrated to MapCoords first.
+- `ECS/Effects/EffectValues.cpp` and `ECS/Fire/FireEffect.cpp` use `gutils::GetDistanceInMetres(vec3, vec3)`, which
+  truncates the positions to 16.16 each time. As long as openblack stores the positions in float, that can lose one unit
+  (0.15 mm) relative to a stored MapCoords.
 
-**Sin portar todavía en openblack** (no hay copia que migrar, la API ya las tiene listas): `GetDistanceToCell` /
-`GetDistanceInMetresToCell` en `CreatureMental` 0x4D2B3D (la de `ApplyReactionToLivingObjectsAtSquare` 0x6E4157 ya
-la usa, en `AnimalFlee`), `ChebyshevDistance` (fn_0074CED0, un llamador),
-`DistanceChangeToBelief` (0x438770, desde los `GetImpressiveValue`) y `CreatureSigmoidThreshold` (0x4F78C0, desde
+**Not yet ported in openblack** (there is no copy to migrate, the API already has them ready): `GetDistanceToCell` /
+`GetDistanceInMetresToCell` in `CreatureMental` 0x4D2B3D (the one in `ApplyReactionToLivingObjectsAtSquare` 0x6E4157 already
+uses it, in `AnimalFlee`), `ChebyshevDistance` (fn_0074CED0, one caller),
+`DistanceChangeToBelief` (0x438770, from the `GetImpressiveValue`) and `CreatureSigmoidThreshold` (0x4F78C0, from
 `CreatureDesires::GetIncrementFromSources`).
 
-**Cambios que se ven y hay que comprobar con captura:** quién va primero a rezar (`WorshipScore`: ahora los más
-cercanos, y con vida³), quién va a apagar un fuego (`VillagerFire`, 400 m), a quién cura el milagro de curar (ahora
-todo lo que queda a menos de R del punto de la espiral, en un cuadrado de `ceil(2R/10)` celdas de lado), cuándo un
-animal cambia de reacción (distancia al centro de la celda de la reacción en curso), el crecimiento del árbol con el milagro de
-agua (`GetDistanceModifier(tamaño, 3)`) y las guaridas de los depredadores (la sigmoide ya no se calcula en double).
+**Visible changes that have to be checked with a screenshot:** who goes to pray first (`WorshipScore`: now the
+nearest ones, and with life³), who goes to put out a fire (`VillagerFire`, 400 m), whom the heal miracle heals (now
+everything within R of the spiral point, in a square of `ceil(2R/10)` cells per
+side), when an animal changes reaction (distance to the centre of the cell of the ongoing reaction), tree growth with the water
+miracle (`GetDistanceModifier(tamaño, 3)`) and the predators' lairs (the sigmoid is no longer computed in double).
 
-### Ángulos de GUtils
+### GUtils angles
 
-Estado a 2026-10-02, rama `local/sistemas2`. Solo se ha migrado donde se ha leído que el original llama a esa rutina en
-ese punto.
+Status as of 2026-10-02, branch `local/sistemas2`. It has only been migrated where it has been read that the original calls that routine at
+that point.
 
-**Con el dueño del wall hug** (es un cambio de estado):
-- `MobileWallHug::InitStepsXZ` 0x60BFA0 está copiada dos veces, en
-  `ECS/Systems/Implementations/PathfindingSystem.cpp:40-51` (`InitializeStep(ToGoal)`) y
-  `ECS/Villager/VillagerScript.cpp:86-93` (`InitStepsXZ`), con `glm::atan` en float y el paso `(cos, sin) · speed`. El
-  original: `GetAngleFromXZ` → +0x5C y el paso `StepFromAngle(+0x5C, +0x5A)`. Hay que fundirlas y pasarlas a la API,
-  pero `WallHug` guarda la velocidad en metros float y el ángulo en radianes. (PathfindingSystem :59 y :541 tienen
-  además sus ángulos de rodeo propios.)
-- `ECS/Villager/VillagerCore.cpp:959-961` (`LookAtPos`): lee el ángulo de juego como `lround(yAngle · 2048 / 2π)`. Lo
-  fiel es guardar el `u16` +0x5C (`SetGameAngle` 0x60DA90 lo guarda tal cual; `SetYAngle` 0x60DAC0 con
-  `ConvertAngle3DToGame`). Mientras no exista, el `lround` es lo correcto: `ConvertAngle3DToGame` daría a − 1 en 365 de
-  los 2048 ángulos que escribe `setGameAngle`.
+**With the owner of the wall hug** (it is a state change):
+- `MobileWallHug::InitStepsXZ` 0x60BFA0 is copied twice, in
+  `ECS/Systems/Implementations/PathfindingSystem.cpp:40-51` (`InitializeStep(ToGoal)`) and
+  `ECS/Villager/VillagerScript.cpp:86-93` (`InitStepsXZ`), with `glm::atan` in float and the step `(cos, sin) · speed`. The
+  original: `GetAngleFromXZ` → +0x5C and the step `StepFromAngle(+0x5C, +0x5A)`. They have to be merged and moved to the API,
+  but `WallHug` stores the speed in float metres and the angle in radians. (PathfindingSystem :59 and :541 also have
+  their own detour angles.)
+- `ECS/Villager/VillagerCore.cpp:959-961` (`LookAtPos`): reads the game angle as `lround(yAngle · 2048 / 2π)`. The
+  faithful thing is to store the `u16` +0x5C (`SetGameAngle` 0x60DA90 stores it as is; `SetYAngle` 0x60DAC0 with
+  `ConvertAngle3DToGame`). While that does not exist, the `lround` is correct: `ConvertAngle3DToGame` would give a − 1 in 365 of
+  the 2048 angles that `setGameAngle` writes.
 
-**Avisar a «animales»**: los cambios de `AnimalAI.cpp` (`AngleDiff`, `IsPosValidForTurnAngle`, `CalcRandomPos`, los
-usos de `AngleOf`), `AnimalBirds.cpp` (formación y `BirdDying`), `AnimalFlee.cpp`, `AnimalPredators.cpp` y
+**Tell «animales»**: the changes to `AnimalAI.cpp` (`AngleDiff`, `IsPosValidForTurnAngle`, `CalcRandomPos`, the
+uses of `AngleOf`), `AnimalBirds.cpp` (formation and `BirdDying`), `AnimalFlee.cpp`, `AnimalPredators.cpp` and
 `AnimalWallHug.cpp`.
 
-**Revisar con el dueño de Worship**: con la altitude a 0 de `GetSpellIconPosFromSlot`, los iconos de los anillos > 0
-quedan en el suelo (el del anillo 0 conserva la altura del punto especial).
+**Review with the Worship owner**: with the altitude at 0 of `GetSpellIconPosFromSlot`, the icons of rings > 0
+end up on the ground (that of ring 0 keeps the height of the special point).
 
-**Aplazado (dueño)**: `PSys/Rules/Lightning.cpp:212` y `PSys/Rules/Storm.cpp:1504` (atan2 de PSys),
-`Magic/Objects/MapShield.cpp:180` y `Magic/Spells/SpellForest.cpp:422` (la espiral polar de 0x725830): ninguno es copia
-de GUtils, no hace falta tocarlos.
+**Postponed (owner)**: `PSys/Rules/Lightning.cpp:212` and `PSys/Rules/Storm.cpp:1504` (PSys atan2),
+`Magic/Objects/MapShield.cpp:180` and `Magic/Spells/SpellForest.cpp:422` (the polar spiral of 0x725830): none is a copy
+of GUtils, there is no need to touch them.
 
-**Ya exactas, solo estilo**: las conversiones a mano `a · 2π_f / 2048` que quedan en `AnimalAI.cpp` (`FaceAngle`,
-`SetTowardsAngle`) dan bit a bit `ConvertGameAngleTo3D` (sin el `& 0x7FF`). `AngleOfRotation` es la inversa de
-`FaceAngle`, no una rutina del original.
+**Already exact, style only**: the hand-written conversions `a · 2π_f / 2048` remaining in `AnimalAI.cpp` (`FaceAngle`,
+`SetTowardsAngle`) give `ConvertGameAngleTo3D` bit for bit (without the `& 0x7FF`). `AngleOfRotation` is the inverse of
+`FaceAngle`, not a routine of the original.
 
-**Sin copia que migrar**: `GScript::CastSpellAtPos` 0x70BDD1 calcula el ángulo y lo tira;
-`Living::GetFleeingPositionFromStationaryObject` 0x5F2010 normaliza en float también en el original; 0x463670
-(Citadel) es código muerto. FishShoals:207, TestDispensers:281/304, PhysicsObjects:490, Rivers:46,
-FishFarmArchetype:68, WorshipSite:721, Climate:224 y SpellWater:179 hacen su propia trigonometría; Sharks:110 es
+**No copy to migrate**: `GScript::CastSpellAtPos` 0x70BDD1 computes the angle and throws it away;
+`Living::GetFleeingPositionFromStationaryObject` 0x5F2010 normalises in float in the original too; 0x463670
+(Citadel) is dead code. FishShoals:207, TestDispensers:281/304, PhysicsObjects:490, Rivers:46,
+FishFarmArchetype:68, WorshipSite:721, Climate:224 and SpellWater:179 do their own trigonometry; Sharks:110 is
 `LH3DMath::GetYAngle` (LH3D).
 
-**Sin portar** (no hay copia, la API ya los tiene): la sobrecarga de cuatro enteros 0x74D220 (3 llamadores, ninguno
-portado), `GetXByAngleMetersDistance` (`Creature::GetMovementDirection`, `GetRandomLookAhead`,
+**Not ported** (there is no copy, the API already has them): the four-integer overload 0x74D220 (3 callers, none
+ported), `GetXByAngleMetersDistance` (`Creature::GetMovementDirection`, `GetRandomLookAhead`,
 `RunAwayFromObjectReaction`), `StepFromAngle8` (Villager `Approach*`, PuzzleHorse), `GetLHPointFromAngle`
-(`SetupInspectObject`) y las funciones de `ecs::object` que aún no llama nadie.
+(`SetupInspectObject`) and the `ecs::object` functions that nobody calls yet.
 
-**Cambios que se ven y hay que comprobar con captura:** los iconos de hechizo de los anillos exteriores del lugar de
-culto (ahora en el suelo), hacia dónde gira un animal que mira justo al revés de su meta, y las posiciones de trabajo
-junto a árboles y bosques (con la altitude del árbol).
+**Visible changes that have to be checked with a screenshot:** the spell icons of the outer rings of the worship
+site (now on the ground), which way an animal facing exactly opposite its goal turns, and the working positions
+next to trees and forests (with the tree's altitude).
 
-### Tamaño de los objetos
+### Object size
 
-Estado a 2026-10-02, rama `local/sistemas2`. La regla ha sido migrar **solo** donde se ha leído qué nivel usa el
-original (la llamada virtual o la lectura en línea).
+Status as of 2026-10-02, branch `local/sistemas2`. The rule has been to migrate **only** where it has been read which level the
+original uses (the virtual call or the inline read).
 
-**Migradas en la tanda 2 (2026-10-02, sistemas2):** `Storm.cpp` (`CanSuckUp` 0x6D214C y la búsqueda 0x6D238A:
-`object::Get2DRadius`), `SpellForest.cpp` (fn_005FADF0 0x5FAE40: `Get2DRadius`, con el campo de 5 m de la API),
-`SpellSeed.cpp` (fn_006022C0: el radio de la semilla es `MeshRadius2D` de la malla de su info × `GetScale`, 0x6022D9;
-`GetTopPos` vt+0x630 en 0x602388; `Get2DRadius` vt+0x64 en 0x6023E9 / 0x6023F4), `MapShield.cpp` (`Get2DRadius`
-0x72B908 / 0x72B9C2, `GetHeight` 0x72B948; `CollisionScale` es `object::GetScale`; las copias `map_shield::Get2DRadius`
-/ `GetHeight` se han borrado), `MagicTeleport.h` (`k_Radius = object::k_MagicTeleportRadius`) y `EffectValues.cpp`
-(`ApplyEffectToMapPos`: `GetHeight` vt+0x42C en 0x52536E). Los envoltorios `effects::ObjectHeight` / `Object2DRadius`
-se han borrado.
+**Migrated in batch 2 (2026-10-02, sistemas2):** `Storm.cpp` (`CanSuckUp` 0x6D214C and the search 0x6D238A:
+`object::Get2DRadius`), `SpellForest.cpp` (fn_005FADF0 0x5FAE40: `Get2DRadius`, with the API's 5 m field),
+`SpellSeed.cpp` (fn_006022C0: the seed's radius is `MeshRadius2D` of its info's mesh × `GetScale`, 0x6022D9;
+`GetTopPos` vt+0x630 at 0x602388; `Get2DRadius` vt+0x64 at 0x6023E9 / 0x6023F4), `MapShield.cpp` (`Get2DRadius`
+0x72B908 / 0x72B9C2, `GetHeight` 0x72B948; `CollisionScale` is `object::GetScale`; the copies `map_shield::Get2DRadius`
+/ `GetHeight` have been deleted), `MagicTeleport.h` (`k_Radius = object::k_MagicTeleportRadius`) and `EffectValues.cpp`
+(`ApplyEffectToMapPos`: `GetHeight` vt+0x42C at 0x52536E). The wrappers `effects::ObjectHeight` / `Object2DRadius`
+have been deleted.
 
-**Sin migrar (dudosas o con más cambio que una sustitución):**
-- `HandPlacement.cpp:411-422` (pila bloqueada): el original no mide ahí la pila con `GetHeight`. Con
-  `IsLockedInInteract` (vt+0x6A0, 0x5B3EB3) toma la posición guardada en CHand+0x78, la pasa a MapCoords con
-  `ftol(x · 65536 · 0,1)` (0x5B3ECD..0x5B3F26; es `ToFixed`: multiplicar por 2^16 es exacto y 0x3DCCCCCD · 2^16 =
-  0x45CCCCCD = 6553,6f, así que redondea el mismo número real que `x · 6553,6f`, como en fn_004427B0), mide `GetAltitude` (0x5B3F3B) y llama a
-  `GetHeightForHandAboveInteractObject` (vt+0x64C, 0x5B3F49). Falta leer qué hace con eso en 0x5B3FDE; cambiarlo toca
-  el estado de la mano.
-- `HandPlacement.cpp:719-725` (radio del ser vivo bajo la mano) y `:741-749` (radio de lo sostenido): sin dirección.
-- `HandTrees.cpp:202-207` (el tronco del árbol talado: `0,2 × Get2DRadius` = `GetHoldRadius` de Tree, 0,3 sin malla) y
-  `:331-341` (el polvo de las raíces: otra fórmula, semiejes sin escala): sin dirección del original.
-- `3D/Foliage.cpp:506-508` (mod `world.foliage`): no porta nada del original; con `object::Get2DRadius` cambiaría lo
-  que se ve (el campo pasaría a medir 5 m), así que se deja.
+**Not migrated (doubtful or with more change than a substitution):**
+- `HandPlacement.cpp:411-422` (locked pile): the original does not measure the pile there with `GetHeight`. With
+  `IsLockedInInteract` (vt+0x6A0, 0x5B3EB3) it takes the position stored in CHand+0x78, converts it to MapCoords with
+  `ftol(x · 65536 · 0,1)` (0x5B3ECD..0x5B3F26; it is `ToFixed`: multiplying by 2^16 is exact and 0x3DCCCCCD · 2^16 =
+  0x45CCCCCD = 6553.6f, so it rounds the same real number as `x · 6553,6f`, as in fn_004427B0), measures `GetAltitude` (0x5B3F3B) and calls
+  `GetHeightForHandAboveInteractObject` (vt+0x64C, 0x5B3F49). It remains to read what it does with that at 0x5B3FDE; changing it touches
+  the hand's state.
+- `HandPlacement.cpp:719-725` (radius of the living being under the hand) and `:741-749` (radius of what is held): no address.
+- `HandTrees.cpp:202-207` (the trunk of the felled tree: `0,2 × Get2DRadius` = Tree's `GetHoldRadius`, 0.3 without a mesh) and
+  `:331-341` (the root dust: another formula, unscaled half-axes): no address from the original.
+- `3D/Foliage.cpp:506-508` (mod `world.foliage`): it ports nothing from the original; with `object::Get2DRadius` what
+  is seen would change (the field would measure 5 m), so it is left.
 
-**De «audio» (hito B11):** `Audio/Services/LanternSounds.cpp:92, :131` llaman a `Rocks::Height`, que ahora es
-`object::GetHeight`: el valor ya es el de la API; solo falta llamar a la API directamente.
+**From «audio» (milestone B11):** `Audio/Services/LanternSounds.cpp:92, :131` call `Rocks::Height`, which is now
+`object::GetHeight`: the value is already the API's; it only remains to call the API directly.
 
-**PLAUSIBLES sin cerrar, no tocados:**
-- `Physics/PhysicsObjects.cpp:282-284` (`SetUpBody`, R5/H4): el original mezcla la semialtura en línea de
-  `PhysOb::Initialise` 0x7FB7D9 (`escala·[m+0x28]·1000`) con vt+0x42C (`SetUpPhysOb@Villager` 0x5F0007).
-- `HandHolding.cpp:187-192` (coger un árbol: `maxima.y`, no max − min) y `PSys/TownBelief.cpp:191` (`maxima.y` del
-  centro del pueblo): falta leer `UR_TownCentreBelief` 0x69C17A.
-- `ComputeHoldParameters` sigue con su propia tabla de tipos de agarre en vez de `object::GetHoldRadius` (la tabla de
-  la mano trae también la bajada y el tipo; los radios ya son los de la API).
-- MagicFireBall en la física y en Storm: depende de si la bola es una entidad con `Mesh` en esas consultas.
+**PLAUSIBLE, not closed, not touched:**
+- `Physics/PhysicsObjects.cpp:282-284` (`SetUpBody`, R5/H4): the original mixes the inline half-height of
+  `PhysOb::Initialise` 0x7FB7D9 (`escala·[m+0x28]·1000`) with vt+0x42C (`SetUpPhysOb@Villager` 0x5F0007).
+- `HandHolding.cpp:187-192` (picking up a tree: `maxima.y`, not max − min) and `PSys/TownBelief.cpp:191` (`maxima.y` of the
+  town centre): it remains to read `UR_TownCentreBelief` 0x69C17A.
+- `ComputeHoldParameters` still has its own table of hold types instead of `object::GetHoldRadius` (the hand's
+  table also carries the lowering and the type; the radii are already the API's).
+- MagicFireBall in physics and in Storm: it depends on whether the ball is an entity with a `Mesh` in those queries.
 
-**Dudosas, no migradas** (no consta qué hace el original en ese sitio):
-- `HandHolding.cpp` (el anillo de agua de lo lanzado, `0,5 × |Size| × escala`, 1 sin malla) y
-  la sombra de los lanzados (antes `Graphics/PhysicsShadows.cpp:155`; ahora `ShadowList.cpp` usa mesh+0x30 × obj+0x44, el radio de `fn_00874600`): en el original el anillo usa el campo +0x178 del
-  `PhysicsObject` (0x6466AA: `1 / r` y `2 r`), que viene de su inicialización; no se ha leído de dónde sale.
-- `Physics/PhysicsObjects.cpp:302, :308` (`rockHalfHeight = 0,5 × Size().y`): ¿es la semialtura en línea de
-  `PhysOb::Initialise` 0x7FB7D9 (`MeshHalfHeight`, sin escala)? Sin comprobar.
-- `HandTrees.cpp:375, :409` (`0,5 × Size().x`): sin dirección (y el archivo es de «sistemas»).
-- `Physics/PhysicsObjects.cpp:554-563` (`Radius2D`, usado en :638 y :1227): la fase ancha de openblack, sin dirección.
-- `PSys/TownBelief.cpp:183-196` (la altura de la cima del tótem): sin dirección.
-- `ECS/FireFlies.cpp:98-108` (`MeshHeight` + 2 de casas y farolas): fn_0052B1D0 solo es el filtro (`IsAbode` /
-  `IsStreetLight`); no se ha leído dónde se suma la altura.
-- `Physics/PartialBuild.cpp:148` (el corte de la obra): está en fn_00816AD0, sin leer.
-- `ECS/Trees.cpp:1104-1114` (`MeshHalfDiagonal` de las fuentes que doblan árboles): escala × +0x30, y `GetMeshRadius`
-  0x636BD0 no lleva escala; sin dirección.
+**Doubtful, not migrated** (there is no record of what the original does at that place):
+- `HandHolding.cpp` (the water ring of what is thrown, `0,5 × |Size| × escala`, 1 without a mesh) and
+  the shadow of thrown objects (formerly `Graphics/PhysicsShadows.cpp:155`; now `ShadowList.cpp` uses mesh+0x30 × obj+0x44, the radius of `fn_00874600`): in the original the ring uses field +0x178 of the
+  `PhysicsObject` (0x6466AA: `1 / r` and `2 r`), which comes from its initialisation; it has not been read where it comes from.
+- `Physics/PhysicsObjects.cpp:302, :308` (`rockHalfHeight = 0,5 × Size().y`): is it the inline half-height of
+  `PhysOb::Initialise` 0x7FB7D9 (`MeshHalfHeight`, unscaled)? Not checked.
+- `HandTrees.cpp:375, :409` (`0,5 × Size().x`): no address (and the file belongs to «sistemas»).
+- `Physics/PhysicsObjects.cpp:554-563` (`Radius2D`, used at :638 and :1227): openblack's broad phase, no address.
+- `PSys/TownBelief.cpp:183-196` (the height of the top of the totem): no address.
+- `ECS/FireFlies.cpp:98-108` (`MeshHeight` + 2 of houses and street lamps): fn_0052B1D0 is only the filter (`IsAbode` /
+  `IsStreetLight`); it has not been read where the height is added.
+- `Physics/PartialBuild.cpp:148` (the cut of the construction site): it is in fn_00816AD0, not read.
+- `ECS/Trees.cpp:1104-1114` (`MeshHalfDiagonal` of the sources that bend trees): scale × +0x30, and `GetMeshRadius`
+  0x636BD0 has no scale; no address.
 
-**Revisión de milagros2 (2026-10-01):** cambios correctos que salen de la API y no estaban declarados: PileFood ×
-proporción (0x66F180) y MagicTeleport = 6 (0x5FCCB0) cuentan ya en el fuego y en el agua, y el MapShield se mide con su
-`objectScale`. El centro del fuego de un WorshipSite es `GetDefaultFireCentrePos` 0x77DDE0 (= `CalculateCentrePos`
-0x77DD40, altitud sobre la tierra por `Set` 0x603340), junto a su radio de 14 m (0x77DE10). Siguen con
-`effects::Object2DRadius` / `ObjectHeight` (aplazados de milagros2): migrados en la tanda 2.
+**milagros2 review (2026-10-01):** correct changes that come out of the API and had not been declared: PileFood ×
+proportion (0x66F180) and MagicTeleport = 6 (0x5FCCB0) now count in fire and in water, and the MapShield is measured with its
+`objectScale`. The fire centre of a WorshipSite is `GetDefaultFireCentrePos` 0x77DDE0 (= `CalculateCentrePos`
+0x77DD40, altitude above the land via `Set` 0x603340), together with its 14 m radius (0x77DE10). Still using
+`effects::Object2DRadius` / `ObjectHeight` (postponed by milagros2): migrated in batch 2.
 
-**Sin portar:**
-- `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 leen el LH3DCreature (`[[+0x160]+0x58]+0x5228`), que openblack
-  no tiene: por ahora una criatura usa la fórmula de `Object` **(inferido)**. La altura (0x477F50 = tamaño × 15) sí está,
-  tomando la escala del `Transform` como el `GetUserSize` 0x4EF4F0 **(inferido)**.
-- La rama con criatura de `GetRoutePlanRadius` 0x6384D8 (necesita `NavRadius` 0x480A60).
-- `Creature::GetBoundingSphere` 0x479970 (`LH3DCreature::GetBoundingSphere` 0x47F8D0): la criatura usa la de `Object`
-  **(inferido)**.
-- Las clases que no son `Object` (Citadel, SpellShield, SpellStormAndTornado, Town, GArena, Reaction, BuildingSite,
-  AtomCore, GStreetLight, Mist: ver arriba) no pasan por la API; si alguna llega a pedirla, hay que añadir su rama.
-- `GetNearestPosOfObject` 0x636D30: portado (ver [Ángulos de GUtils](#ángulos-de-gutils)); aún no lo llama nadie en
+**Not ported:**
+- `Creature::Get2DRadius` 0x477F40 / `GetRadius` 0x4792C0 read the LH3DCreature (`[[+0x160]+0x58]+0x5228`), which openblack
+  does not have: for now a creature uses the `Object` formula **(inferred)**. The height (0x477F50 = size × 15) is there,
+  taking the scale of the `Transform` as the `GetUserSize` 0x4EF4F0 **(inferred)**.
+- The creature branch of `GetRoutePlanRadius` 0x6384D8 (needs `NavRadius` 0x480A60).
+- `Creature::GetBoundingSphere` 0x479970 (`LH3DCreature::GetBoundingSphere` 0x47F8D0): the creature uses the `Object` one
+  **(inferred)**.
+- The classes that are not `Object` (Citadel, SpellShield, SpellStormAndTornado, Town, GArena, Reaction, BuildingSite,
+  AtomCore, GStreetLight, Mist: see above) do not go through the API; if any of them comes to ask for it, its branch has to be added.
+- `GetNearestPosOfObject` 0x636D30: ported (see [GUtils angles](#gutils-angles)); nobody calls it yet in
   openblack.
-- Los otros `GetScale`: `ShowNeedsVisuals` 0x55DD80 (+0x58), `PlannedMultiMapFixed` 0x4050C0 y `SpellSeedGraphic`
+- The other `GetScale`: `ShowNeedsVisuals` 0x55DD80 (+0x58), `PlannedMultiMapFixed` 0x4050C0 and `SpellSeedGraphic`
   0x727340.
-- Los sitios del nivel de malla que openblack aún no tiene (`IsSuitableForFixed` 0x603E1E, `Scaffold` 0x6E956A /
-  0x6EAC14, 0x7350A5, `PhysOb::Initialise` 0x7FB7D9...): la API está lista para ellos.
-- La caja de una malla animada: el original la calcula después de `LH3DAnim::SetTransform` 0x83A1D0 (bit 0x100);
-  openblack une las cajas de los vértices tal cual. Aldeanos y animales podrían tener semiejes algo distintos (sin medir).
+- The mesh-level places openblack does not have yet (`IsSuitableForFixed` 0x603E1E, `Scaffold` 0x6E956A /
+  0x6EAC14, 0x7350A5, `PhysOb::Initialise` 0x7FB7D9...): the API is ready for them.
+- The box of an animated mesh: the original computes it after `LH3DAnim::SetTransform` 0x83A1D0 (bit 0x100);
+  openblack joins the boxes of the vertices as they are. Villagers and animals could have somewhat different half-axes (not measured).
 
-**Cambios que se ven y hay que comprobar con captura:** el campo se hunde la mitad al vaciarse (con el mod de plantas
-apagado); un campo o una piscifactoría miden 5 m para el fuego, el pueblo (dónde caben los edificios), los animales y los
-milagros; una pila de comida mide según lo llena que está (y vacía, 0) para el fuego y el pueblo; un lugar de culto
-ardiendo usa 14 m; la altura de una criatura para el fuego y la curación es 15 × su escala; una pila de comida cogida
-del mapa (PileFood, MagicFood, PuzzleGrain) abre la mano según lo llena que está, y la HandFood vacía la cierra del todo.
+**Visible changes that have to be checked with a screenshot:** the field sinks half as much when emptied (with the plants mod
+off); a field or a fish farm measures 5 m for fire, the town (where buildings fit), the animals and the
+miracles; a food pile measures according to how full it is (and empty, 0) for fire and the town; a burning worship
+site uses 14 m; the height of a creature for fire and healing is 15 × its scale; a food pile picked up
+from the map (PileFood, MagicFood, PuzzleGrain) opens the hand according to how full it is, and the empty HandFood closes it completely.
 
-### Reloj del juego
+### Game clock
 
-Estado a 2026-10-02, rama `local/sistemas2`.
+Status as of 2026-10-02, branch `local/sistemas2`.
 
-**Migradas en la tanda 2 (2026-10-02, sistemas2):**
-- `MapShield.cpp`: la fracción de `DrawShields` es `game_clock::TurnFraction()` (`PhysicalShield::DrawShield`
-  0x72CEEC / 0x72CF01, g_game +0x205D64); `g_LastTurn` y su reloj de pared se han borrado.
-- `HandSpellSeed.cpp`: `game_clock::Turn()` en vez de su `CurrentTurn()`.
-- `MagicLoop.cpp`: los segundos del turno de `spell_sounds::ProcessTurn` (fn_006D11A0 0x6D11AB..0x6D11C5) y de
-  `hand_grain::GameTurnUpdate` (`CHand::GameTurnUpdate` 0x46E4E3..0x46E4FB) son `MsPerTurn() · 0,001f`: el original
-  lee ahí [0xD01A38], no el 0,1f a mano.
-- `FireGraphic.cpp`: las ráfagas de vapor y humo leen `game_clock::Turn()` (fn_00731AB0 0x731AF8 / 0x731B27,
-  fn_00731E50 0x731E7B / 0x731EAE); `g_Turn` se ha borrado (`SetTurn` queda para la traza).
-- `SpellSeedGraphic.cpp`: el turno de fn_00727350 (0x72736E) es `game_clock::Turn()`.
-- `RendererMists.cpp` (fn_007FA300 0x7FA3BE), `RendererSmoke.cpp` (fn_007F8E00 0x7F8F25) y las nubes y la alineación
-  del cielo de `Renderer.cpp` (fn_005E25C0 0x5E25FD, `GLandAlignement::DrawSky` 0x5E2160) hacen `fild
-  g_game_time_inc`: usan `FrameGameMs()` en vez de su `static lastTime` con tope de 100 ms y la velocidad dividida.
+**Migrated in batch 2 (2026-10-02, sistemas2):**
+- `MapShield.cpp`: the fraction of `DrawShields` is `game_clock::TurnFraction()` (`PhysicalShield::DrawShield`
+  0x72CEEC / 0x72CF01, g_game +0x205D64); `g_LastTurn` and its wall clock have been deleted.
+- `HandSpellSeed.cpp`: `game_clock::Turn()` instead of its `CurrentTurn()`.
+- `MagicLoop.cpp`: the turn seconds of `spell_sounds::ProcessTurn` (fn_006D11A0 0x6D11AB..0x6D11C5) and of
+  `hand_grain::GameTurnUpdate` (`CHand::GameTurnUpdate` 0x46E4E3..0x46E4FB) are `MsPerTurn() · 0,001f`: the original
+  reads [0xD01A38] there, not the hand-written 0,1f.
+- `FireGraphic.cpp`: the bursts of steam and smoke read `game_clock::Turn()` (fn_00731AB0 0x731AF8 / 0x731B27,
+  fn_00731E50 0x731E7B / 0x731EAE); `g_Turn` has been deleted (`SetTurn` remains for the trace).
+- `SpellSeedGraphic.cpp`: the turn of fn_00727350 (0x72736E) is `game_clock::Turn()`.
+- `RendererMists.cpp` (fn_007FA300 0x7FA3BE), `RendererSmoke.cpp` (fn_007F8E00 0x7F8F25) and the clouds and the sky
+  alignment of `Renderer.cpp` (fn_005E25C0 0x5E25FD, `GLandAlignement::DrawSky` 0x5E2160) do `fild
+  g_game_time_inc`: they use `FrameGameMs()` instead of their `static lastTime` with a 100 ms cap and the speed divided.
 
-**Siguen sin migrar:**
-- `Graphics/Renderer.cpp`: el brillo del sol (reloj de pared sin pausa ni velocidad: qué dt usa el original es
-  **(inferido)**).
-- `Magic/MagicLoop.cpp` `magic::Update`: pasa `FrameGameSeconds() · 1000` a `one_off::UpdateFrames`,
-  `mist_atoms::SubmitFrame` y `chain_atoms::AdvanceScroll`; el original les da los ms enteros (`FrameGameMs()`), y la
-  ida y vuelta por 0,001f puede no ser exacta.
-- Los lectores de `magic::k_TurnMs` (13 usos, `SpellSeedGraphic::ProcessTurn` entre ellos): es la constante
-  `k_MsPerTurn`, no `MsPerTurn()`; da lo mismo mientras nadie cambie [0xD01A38].
-- **Hecho en U7** («sistemas»): `Renderer::UpdateClouds` (nubes, alineamiento del cielo y `night_lights::Update`),
-  `CollectChimneySmoke` y `CollectMists` leen `FrameGameMs()` en vez de su `static lastTime` de pared con tope de 100 ms.
-  Lectores de [0xEA9EC0] en el original: DrawSky 0x5E2160, fn_005E25C0 0x5E25FD, fn_00823460 0x8234B6, fn_00823570
-  0x82359F, fn_007F8E00 0x7F8F25 (el humo recorta a 100 **s**) y fn_007FA300 0x7FA3BE. (pendiente) el «rescan» de 1 s
-  de `night_lights::Update` toma el mismo ms; de dónde sale en el original no está leído.
-- `Game.cpp:610/612` (campos y árboles con dt real): **(inferido)**, sin leer en `Field::Draw` 0x5286D7 ni en
-  `Tree::PreDraw`; si es `g_game_time_inc` (0x5286D7 lo lee) hay que pasarles `FrameGameSeconds()`.
+**Still not migrated:**
+- `Graphics/Renderer.cpp`: the sun glare (wall clock without pause or speed: which dt the original uses is
+  **(inferred)**).
+- `Magic/MagicLoop.cpp` `magic::Update`: passes `FrameGameSeconds() · 1000` to `one_off::UpdateFrames`,
+  `mist_atoms::SubmitFrame` and `chain_atoms::AdvanceScroll`; the original gives them the whole ms (`FrameGameMs()`), and the
+  round trip through 0,001f may not be exact.
+- The readers of `magic::k_TurnMs` (13 uses, `SpellSeedGraphic::ProcessTurn` among them): it is the constant
+  `k_MsPerTurn`, not `MsPerTurn()`; it makes no difference as long as nobody changes [0xD01A38].
+- **Done in U7** («sistemas»): `Renderer::UpdateClouds` (clouds, sky alignment and `night_lights::Update`),
+  `CollectChimneySmoke` and `CollectMists` read `FrameGameMs()` instead of their wall-clock `static lastTime` with a 100 ms cap.
+  Readers of [0xEA9EC0] in the original: DrawSky 0x5E2160, fn_005E25C0 0x5E25FD, fn_00823460 0x8234B6, fn_00823570
+  0x82359F, fn_007F8E00 0x7F8F25 (the smoke clips to 100 **s**) and fn_007FA300 0x7FA3BE. (pending) the 1 s «rescan»
+  of `night_lights::Update` takes the same ms; where it comes from in the original has not been read.
+- `Game.cpp:610/612` (fields and trees with real dt): **(inferred)**, not read in `Field::Draw` 0x5286D7 nor in
+  `Tree::PreDraw`; if it is `g_game_time_inc` (0x5286D7 reads it) they have to be passed `FrameGameSeconds()`.
 
-**De audio (hito B11):** `Audio/Services/SoundTags.cpp:145` (`k_MsPerTurn` local, marcado «(inferred)»: es [0xD01A38],
-0x54F4A5) → `game_clock::MsPerTurn()`; la copia doble de `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
+**From audio (milestone B11):** `Audio/Services/SoundTags.cpp:145` (local `k_MsPerTurn`, marked «(inferred)»: it is [0xD01A38],
+0x54F4A5) → `game_clock::MsPerTurn()`; the duplicate copy of `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
 
-**Sin portar o dudosos:**
-- **La física por turno.** `PhysicsObject::GameTurnUpdate` (0x646046) hace los 20 subpasos dentro del turno. openblack
-  los reparte entre los fotogramas con un acumulador (`PhysicsObjects.cpp:1317`), ahora con el dt de juego. Pasarlos
-  al turno pide dibujar los objetos interpolados con la fracción (fn_00646FE0 0x647096 lo hace con sus reflejos).
-- **TownBelief** (leído, ya fiel): `TownCentre::DrawAll` 0x7447F0, desde `Process3dEngine` 0x54E032 en **cada
-  fotograma dibujado (también en pausa)**, llama a `ProcessPSys` 0x69BCC0 → `GJPSysInterface::Process_` 0x673690, que
-  pasa como ms **[0xD01A38]** (los ms de un turno, 100) y no los del fotograma → fn_00673300 → fn_00673340: dt
-  [0xD4E0EC] = ms · 0,001 = 0,1 s (0x673402..0x67340C). Así que el original avanza fase, ángulos y pelea 0,1 s por
-  fotograma (depende de los fps, como en el exe). Antes openblack lo hacía en `Collect`, que corre al dibujar y va
-  **dos veces por fotograma** (CollectSorted y CollectQueued): el doble de rápido y el doble de tiradas del flujo
-  local de GRand. Ahora `town_belief::Step()` (Game.cpp, junto a los demás pasos del fotograma) hace el paso y los
-  sorteos una vez por fotograma con `MsPerTurn() · 0,001`, y `Collect` solo lee el estado. También: `fmod 2π` de
-  fase, a1 y a2 (0x69C4B7 / 0x69C4F0 / 0x69C50B, el double [0x8D45D8]); el orden de DrawAll (lista g_game +0x205CFC,
-  el ctor 0x743AC3 mete por la cabeza: el más nuevo primero; aquí por índice de creación); el primer Process de un
-  efecto da dos pasos (+0xAD = 1 en fn_00672B50 0x672BF7, fn_00673300) y CreatePSys ya lo llama (0x69BC95).
-  (aproximado) openblack crea el estado del centro el primer fotograma que lo ve (el original en MakeFunctional
-  0x743F18 / ResolveLoad 0x7448D8) y no mira `IsAvailable` (0x744808). Los brillos (PlayerSymbolSprite::Draw
-  0x69D7E0, g_game_time_inc) avanzan en el mismo `Step`, una vez por fotograma como Draw_(1) 0x69BF19.
-  (pendiente, de PSys) el doble primer paso de fn_00673300 no está en `psys::Effect` en general.
-- **La cámara** va con el dt del perfilador (µs reales); el original elige con `GetCameraTimeInc` 0x555820
-  (`CameraFrameMs()`, ms enteros de pared). No se ha cambiado.
-- `PSysManager.cpp:242` (`seconds · 1000 / [0xD01A38]`, ahora con `MsPerTurn()`): no se ha leído en qué orden redondea
-  el original al crear un efecto visual puntual; se deja la fórmula.
-- `CHLApi.cpp:802` `DllGettime` (029 DLL_GETTIME) sigue vacía: falta leer qué empuja.
-- `Help/HelpSystem.cpp`: `ReadSpeedFactor` (fn_005C6CB0, devuelve double; la prueba `test_help_system` lo compara
-  en double) y `_endMs = segundos · 1000 + ahora` (0x5C6279..0x5C629B, `fmul; fiadd` a 24 bits) siguen en double:
-  pasarlos a float le toca al dueño del sistema de ayuda (audio).
-- La bandera g+0x14 bit 0x400000 («haz turno siempre», **(inferido)**), el segundo `ProcessNetworkPackets` tras dibujar
-  si g+0x205D58 (0x54D3C9) y el turno propio de 100 ms del templo y la cinemática en pausa (0x54CCA9): no los hay en
+**Not ported or doubtful:**
+- **Per-turn physics.** `PhysicsObject::GameTurnUpdate` (0x646046) does the 20 substeps within the turn. openblack
+  spreads them across frames with an accumulator (`PhysicsObjects.cpp:1317`), now with the game dt. Moving them
+  to the turn requires drawing the objects interpolated with the fraction (fn_00646FE0 0x647096 does it with their reflections).
+- **TownBelief** (read, already faithful): `TownCentre::DrawAll` 0x7447F0, from `Process3dEngine` 0x54E032 on **every
+  drawn frame (also when paused)**, calls `ProcessPSys` 0x69BCC0 → `GJPSysInterface::Process_` 0x673690, which
+  passes as ms **[0xD01A38]** (the ms of one turn, 100) and not those of the frame → fn_00673300 → fn_00673340: dt
+  [0xD4E0EC] = ms · 0.001 = 0.1 s (0x673402..0x67340C). So the original advances phase, angles and fight 0.1 s per
+  frame (it depends on the fps, as in the exe). Before, openblack did it in `Collect`, which runs when drawing and goes
+  **twice per frame** (CollectSorted and CollectQueued): twice as fast and twice as many draws from the local GRand
+  stream. Now `town_belief::Step()` (Game.cpp, next to the other frame steps) does the step and the
+  draws once per frame with `MsPerTurn() · 0,001`, and `Collect` only reads the state. Also: `fmod 2π` of
+  phase, a1 and a2 (0x69C4B7 / 0x69C4F0 / 0x69C50B, the double [0x8D45D8]); the order of DrawAll (list g_game +0x205CFC,
+  the ctor 0x743AC3 inserts at the head: newest first; here by creation index); the first Process of an
+  effect does two steps (+0xAD = 1 in fn_00672B50 0x672BF7, fn_00673300) and CreatePSys already calls it (0x69BC95).
+  (approximate) openblack creates the centre's state the first frame it sees it (the original in MakeFunctional
+  0x743F18 / ResolveLoad 0x7448D8) and does not check `IsAvailable` (0x744808). The glows (PlayerSymbolSprite::Draw
+  0x69D7E0, g_game_time_inc) advance in the same `Step`, once per frame like Draw_(1) 0x69BF19.
+  (pending, from PSys) the double first step of fn_00673300 is not in `psys::Effect` in general.
+- **The camera** runs with the profiler's dt (real µs); the original chooses with `GetCameraTimeInc` 0x555820
+  (`CameraFrameMs()`, whole wall-clock ms). It has not been changed.
+- `PSysManager.cpp:242` (`seconds · 1000 / [0xD01A38]`, now with `MsPerTurn()`): it has not been read in which order the
+  original rounds when creating a one-off visual effect; the formula is left.
+- `CHLApi.cpp:802` `DllGettime` (029 DLL_GETTIME) is still empty: it remains to read what it pushes.
+- `Help/HelpSystem.cpp`: `ReadSpeedFactor` (fn_005C6CB0, returns double; the test `test_help_system` compares it
+  in double) and `_endMs = segundos · 1000 + ahora` (0x5C6279..0x5C629B, `fmul; fiadd` at 24 bits) are still in double:
+  moving them to float is up to the owner of the help system (audio).
+- The flag g+0x14 bit 0x400000 («always do a turn», **(inferred)**), the second `ProcessNetworkPackets` after drawing
+  if g+0x205D58 (0x54D3C9) and the temple's own 100 ms turn and the cinematic while paused (0x54CCA9): they do not exist in
   openblack.
-- `LoadMap` hace a la vez de partida nueva y de `ResolveLoad` (**(inferido)**: openblack no carga partidas guardadas).
-- `ECS/AnimalAnimations.cpp:441` (`movedLastTurn · 10`): los 10 turnos por segundo van implícitos; falta leer el
+- `LoadMap` acts both as a new game and as `ResolveLoad` (**(inferred)**: openblack does not load saved games).
+- `ECS/AnimalAnimations.cpp:441` (`movedLastTurn · 10`): the 10 turns per second are implicit; it remains to read the
   original.
-- `Magic/Objects/ShieldDebugHooks.h:23` dice que el PSys no sigue la velocidad: ya no es así (su fracción es la del
-  juego).
+- `Magic/Objects/ShieldDebugHooks.h:23` says that the PSys does not follow the speed: that is no longer so (its fraction is the
+  game's).
 
-### Matrices, Zoomer y normal
+### Matrices, Zoomer and normal
 
-Estado a 2026-10-02, rama `local/sistemas` (informes `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md`
-y `U8_changes.md`):
-- Las rotaciones sin fuente de [Matrices LH](#matrices-lh) (HeldSway, bandas, árbol tumbado y tirón, flexión, sol,
-  templo, mano, aldeano, almacén, ríos): se dejan como estaban hasta leer sus constructores.
-- `Game3DObject::SetPositionAndXZYScale` 0x63B390 (`T(p)·Ry(−a)·diag(s·xz, (s·xz)·(y/xz), s·xz)`) y
-  `Game3DObject::SetPosition` 0x63B740 no tienen función propia: openblack guarda la rotación y la escala por separado
-  en `Transform`, y ningún sitio las necesita.
-- `script_camera::Vec3Zoomer` (asistente) es una copia de `Zoomer3d` con la misma salida: pendiente de migrar.
-- La cámara del jugador y la del guion tienen cada una sus `Zoomer3d`; en el original son los mismos de GCamera
-  **(inferido)**. El dt de la cámara del jugador es el del fotograma en µs, no los ms enteros de `GetCameraTimeInc`
-  0x555820 **(aproximado)**.
-- `CameraModeNew3`: faltan el segundo ×2 de la duración, el 1,0 de `MaintainSpell & 0x40` y `[esp+0xB8]`
-  (0x4601A9..0x46024A). No es del Zoomer.
-- Mano: el Zoomer3d 0xD13FB0 del «arriba» al sostener (0,4 s), el estiramiento del tirón +0x11C (0,3 s) y las
-  condiciones de 0x5B4251..0x5B42CD del alabeo. El sentido del giro del alabeo **(inferido)**: falta leer el eje de
-  0x5B49C8 y lo que hace fn_007FAFF0 en 0x5B4AE5. La suma de 0x5B42DF pone c4·b antes que c3·a, otro orden que
-  `Zoomer::Update`: el último bit **(aproximado)**.
-- El FOV del jugador (TODO #707) no es un Zoomer.
-- `LandIsland::GetNormalAt` compara con `GetCellsPerSide()` en lugar de 0x200 (igual en los mapas del juego).
-- Las tablas de la normal se calculan como en fn_00803890 suponiendo la FPU a 24 bits durante la inicialización de la
-  isla **(inferido)**.
-- El dt del Zoomer del tótem: `segundos·1000` y no los ms enteros de 0x738967..0x7389B5 **(aproximado)**.
-- `PSys/Rules/Shield.cpp`: las celdas del cuaternión de fn_0057D0B0 (el sentido sí está leído) **(aproximado)**.
-- La interpolación del escudo físico entre turnos: el original interpola la matriz con la escala dentro (0x72CEEC);
-  openblack interpola por separado las filas de la rotación y la escala.
+Status as of 2026-10-02, branch `local/sistemas` (reports `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md`
+and `U8_changes.md`):
+- The rotations without a source in [LH matrices](#lh-matrices) (HeldSway, bands, toppled tree and tug, bending, sun,
+  temple, hand, villager, storage, rivers): left as they were until their constructors are read.
+- `Game3DObject::SetPositionAndXZYScale` 0x63B390 (`T(p)·Ry(−a)·diag(s·xz, (s·xz)·(y/xz), s·xz)`) and
+  `Game3DObject::SetPosition` 0x63B740 do not have their own function: openblack stores the rotation and the scale separately
+  in `Transform`, and no place needs them.
+- `script_camera::Vec3Zoomer` (asistente) is a copy of `Zoomer3d` with the same output: pending migration.
+- The player camera and the script camera each have their own `Zoomer3d`; in the original they are the same ones from GCamera
+  **(inferred)**. The player camera's dt is the frame's in µs, not the whole ms of `GetCameraTimeInc`
+  0x555820 **(approximate)**.
+- `CameraModeNew3`: missing are the second ×2 of the duration, the 1.0 of `MaintainSpell & 0x40` and `[esp+0xB8]`
+  (0x4601A9..0x46024A). It is not part of the Zoomer.
+- Hand: the Zoomer3d 0xD13FB0 of the «up» when holding (0.4 s), the stretch of the tug +0x11C (0.3 s) and the
+  conditions of 0x5B4251..0x5B42CD for the roll. The direction of the roll rotation **(inferred)**: it remains to read the axis of
+  0x5B49C8 and what fn_007FAFF0 does at 0x5B4AE5. The sum at 0x5B42DF puts c4·b before c3·a, a different order from
+  `Zoomer::Update`: the last bit **(approximate)**.
+- The player's FOV (TODO #707) is not a Zoomer.
+- `LandIsland::GetNormalAt` compares with `GetCellsPerSide()` instead of 0x200 (the same in the game's maps).
+- The normal tables are computed as in fn_00803890 assuming the FPU at 24 bits during the island
+  initialisation **(inferred)**.
+- The dt of the totem's Zoomer: `segundos·1000` and not the whole ms of 0x738967..0x7389B5 **(approximate)**.
+- `PSys/Rules/Shield.cpp`: the cells of the quaternion of fn_0057D0B0 (the direction has been read) **(approximate)**.
+- The interpolation of the physical shield between turns: the original interpolates the matrix with the scale inside (0x72CEEC);
+  openblack interpolates the rows of the rotation and the scale separately.
 
-### Números aleatorios
+### Random numbers
 
-- A6: CHL `RANDOM` (`GScript::Random` 0x6F8DA0: `ftol(min + GameFloatRand(max − min + 1))`, empujado como float) y
-  `RANDOM_ULONG` (0x6F8E20: `GameRand(max − min + 1) + min`) ya van por el GRand sincronizado de `game_random`
-  (CHLApi.cpp, fase B).
-- La fase B está hecha (2026-10-03, ver «Fase B» arriba).
-- La traza `OPENBLACK_TRACE_GAME_RAND` toma el sitio con `std::source_location`, no la pila (`GetCurrentStackString`).
-- Hilos: sin mutex; en Debug un `assert` comprueba que solo tira el hilo que llamó a Init/Reset.
+- A6: CHL `RANDOM` (`GScript::Random` 0x6F8DA0: `ftol(min + GameFloatRand(max − min + 1))`, pushed as float) and
+  `RANDOM_ULONG` (0x6F8E20: `GameRand(max − min + 1) + min`) now go through the synchronised GRand of `game_random`
+  (CHLApi.cpp, phase B).
+- Phase B is done (2026-10-03, see «Phase B» above).
+- The trace `OPENBLACK_TRACE_GAME_RAND` takes the place with `std::source_location`, not the stack (`GetCurrentStackString`).
+- Threads: no mutex; in Debug an `assert` checks that only the thread that called Init/Reset draws.
 
-## Ganchos de prueba
+## Test hooks
 
-- `game_random` (`test/test_game_random.cpp`): LHRand desde 0x88F89F y desde 0, GameRand tras Init y tras Reset, los
-  float bit a bit (el orden (u·x)·k frente a (u·k)·x), 0 para 0 / −0 / NaN sin tocar la semilla, x < 0, PSysRand ≠
-  floor(PSysFloatRand), el PSys fuera de un paso (0, sin tirar), RandR3, el ámbito que no se anida, la CRT desde 1,
-  Save/Load y los ganchos. `game_random::testing::ScopedState` guarda y restaura todo el estado;
-  `testing::SetGameRand` es el gancho que antes estaba en VillagerCore.
-- `OPENBLACK_TRACE_GAME_RAND=1`: la traza del original ([0xCD3C80], formatos 0xBE899C / 0xBE89D0: semilla, turno y
-  sitio) por spdlog a nivel trace.
-- `OPENBLACK_TEST_PSYS_RAND_OUTSIDE=1`: cada tirada del PSys fuera del paso de un efecto se cuenta, su sitio sale una
-  vez en el log y el total por sitio al salir. En Land 1 con una tormenta y un agua (2026-10-02, gamerandom): ninguna.
+- `game_random` (`test/test_game_random.cpp`): LHRand from 0x88F89F and from 0, GameRand after Init and after Reset, the
+  floats bit for bit (the order (u·x)·k versus (u·k)·x), 0 for 0 / −0 / NaN without touching the seed, x < 0, PSysRand ≠
+  floor(PSysFloatRand), the PSys outside a step (0, without drawing), RandR3, the scope that does not nest, the CRT from 1,
+  Save/Load and the hooks. `game_random::testing::ScopedState` saves and restores the whole state;
+  `testing::SetGameRand` is the hook that used to be in VillagerCore.
+- `OPENBLACK_TRACE_GAME_RAND=1`: the original's trace ([0xCD3C80], formats 0xBE899C / 0xBE89D0: seed, turn and
+  place) through spdlog at trace level.
+- `OPENBLACK_TEST_PSYS_RAND_OUTSIDE=1`: each PSys draw outside an effect's step is counted, its place appears once
+  in the log and the total per place on exit. In Land 1 with a storm and a water (2026-10-02, gamerandom): none.
 
-**Comprobado en el juego (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
-- Culto (`OPENBLACK_TEST_WORSHIP="1,0.5"` + `OPENBLACK_WORSHIP_TRACE=1`, Land 2): van los 11 aldeanos más cercanos al
-  lugar (232–278 m); con el fallo anterior iban los más lejanos. El desempate por vida³ no se ve (la vida no sale en la
-  traza).
-- Fuego (`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"` + `OPENBLACK_FIRE_TRACE=1`, Land 1): los 12 aldeanos cercanos
-  reaccionan y lo apagan (215 → 220 ⇄ 216). **Sin comprobar en el juego:** el término de 400 m con aldeanos a 150–300 m
-  de su pueblo (no hay gancho; solo `test_gutils_distance`).
-- Curación (`OPENBLACK_TEST_HURT_VILLAGERS="1814.0,2660.5,30,0.3,0,200,1,0"`): cura las celdas que recorre la espiral
-  (aldeanos a 13,3 m con R = 10) y no las que no visita, como el original.
-- Iconos del lugar de culto (`OPENBLACK_TEST_WORSHIP_SITE="NORSE,0,...,11"`): el anillo exterior a ras de suelo
-  (0x77B002), el interior en la plataforma. El paso entre anillos sigue en 7,5 (el original suma 15, 0x77B100): lo
-  arregla milagros2.
-- Reloj (`OPENBLACK_CLOCK_TRACE=1`, 1356 turnos): 10,01 turnos/s, 50 turnos cada 4,995–5,003 s con una sola partida; los
-  tirones de carga se recuperan sin perder turnos.
+**Checked in the game (2026-10-02, sistemas2, build = hand-hbn cc13b6b9, `--mod game.skip-intro=off`):**
+- Worship (`OPENBLACK_TEST_WORSHIP="1,0.5"` + `OPENBLACK_WORSHIP_TRACE=1`, Land 2): the 11 villagers nearest to the
+  site go (232–278 m); with the previous bug the farthest ones went. The tie-break by life³ is not visible (life does not appear in the
+  trace).
+- Fire (`OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"` + `OPENBLACK_FIRE_TRACE=1`, Land 1): the 12 nearby villagers
+  react and put it out (215 → 220 ⇄ 216). **Not checked in the game:** the 400 m term with villagers 150–300 m
+  from their town (there is no hook; only `test_gutils_distance`).
+- Heal (`OPENBLACK_TEST_HURT_VILLAGERS="1814.0,2660.5,30,0.3,0,200,1,0"`): it heals the cells the spiral walks
+  (villagers at 13.3 m with R = 10) and not those it does not visit, like the original.
+- Worship site icons (`OPENBLACK_TEST_WORSHIP_SITE="NORSE,0,...,11"`): the outer ring at ground level
+  (0x77B002), the inner one on the platform. The step between rings is still 7.5 (the original adds 15, 0x77B100): milagros2
+  fixes it.
+- Clock (`OPENBLACK_CLOCK_TRACE=1`, 1356 turns): 10.01 turns/s, 50 turns every 4.995–5.003 s with a single game; the
+  loading hitches recover without losing turns.
 
-- `test_map_coords` (`test/test_map_coords.cpp`) comprueba:
-  - las constantes, por bits;
-  - `ToFixed`, `ToFixedGUtils` y `ToMetres` con los valores de 24 bits (1464 m → 9594471 frente a 9594470;
+- `test_map_coords` (`test/test_map_coords.cpp`) checks:
+  - the constants, by bits;
+  - `ToFixed`, `ToFixedGUtils` and `ToMetres` with the 24-bit values (1464 m → 9594471 versus 9594470;
     16777217 → 0x45200001);
-  - la ida y vuelta que pierde una unidad;
-  - celdas e `InBounds` con negativos;
-  - `AddCells`: la fracción se conserva, la celda da la vuelta por 0xFFFF y, al revés, una espiral que empieza en la
-    celda 0xFFFF (x ∈ (−10, 0)) entra en la celda 0;
-  - las dos tablas de vecinos;
-  - la secuencia exacta de la espiral y el cuadrado de 4×4 que cubre;
-  - `SpiralIncrement` y los dos tamaños.
-- `test_gutils_distance` (`test/test_gutils_distance.cpp`) comprueba:
-  - los 41 dwords de la tabla 0xC23284, por bits, y que `k_Sigmoid` son esos mismos bits;
-  - las entradas 0, 1, 2, 511, 512 (el 0x7FE000 del 1 exacto), 513 y 1023 de la tabla 1/√;
-  - `InvSqrt(1)` = 0x3F7FE000 y el ≈ 2^63 del cero;
-  - `Hypotenuse(int)` con 0, una celda (65568), la diagonal (92691) y el lado del mapa (33570824);
-  - `Hypotenuse(float)` por bits, con el corte de 1e-4 en los dos lados;
-  - las dos conversiones de unidades, incluido el `fimul` por encima de 2^24;
-  - `GetDistanceInMetres` (100 m → 100,0244; 400 m → 400,098), la distancia al centro de una celda,
-    `GetMetresDistanceSq` (sin tabla), `FastDistance` y Chebyshev;
-  - `SigmoidThreshold` con el umbral en el primer argumento, los dos recortes y el caso `a == 1`;
-  - `GetDistanceModifier` con los 400 m de `ReactToFire` y los 3 de `Tree::ApplyWaterSpell`, y el `max = 0`;
+  - the round trip that loses one unit;
+  - cells and `InBounds` with negatives;
+  - `AddCells`: the fraction is preserved, the cell wraps around through 0xFFFF and, conversely, a spiral that starts in
+    cell 0xFFFF (x ∈ (−10, 0)) enters cell 0;
+  - the two neighbour tables;
+  - the exact sequence of the spiral and the 4×4 square it covers;
+  - `SpiralIncrement` and the two sizes.
+- `test_gutils_distance` (`test/test_gutils_distance.cpp`) checks:
+  - the 41 dwords of table 0xC23284, by bits, and that `k_Sigmoid` are those same bits;
+  - entries 0, 1, 2, 511, 512 (the 0x7FE000 of the exact 1), 513 and 1023 of the 1/√ table;
+  - `InvSqrt(1)` = 0x3F7FE000 and the ≈ 2^63 of zero;
+  - `Hypotenuse(int)` with 0, one cell (65568), the diagonal (92691) and the side of the map (33570824);
+  - `Hypotenuse(float)` by bits, with the 1e-4 cutoff on both sides;
+  - the two unit conversions, including the `fimul` above 2^24;
+  - `GetDistanceInMetres` (100 m → 100.0244; 400 m → 400.098), the distance to the centre of a cell,
+    `GetMetresDistanceSq` (no table), `FastDistance` and Chebyshev;
+  - `SigmoidThreshold` with the threshold in the first argument, the two clamps and the case `a == 1`;
+  - `GetDistanceModifier` with the 400 m of `ReactToFire` and the 3 of `Tree::ApplyWaterSpell`, and `max = 0`;
   - `DistanceChangeToBelief`.
-  - el corte de `Hypotenuse(float)` con un lado NaN (devuelve 0, como la comparación no ordenada del original).
-- `test_gutils_angle` (`test/test_gutils_angle.cpp`) comprueba:
-  - las constantes por bits;
-  - las dos tablas contra el volcado del exe (sumas, una suma ponderada y entradas sueltas) y `COS = SIN + 512`;
-  - `LHArcTan` en los ejes, las diagonales, un punto por octante, el desbordamiento del `shl 8` y el error ≤ 2,27
-    pasos frente a atan2;
-  - las conversiones: −0,5 → 1886, el NaN, los 365 ángulos que pierden 1 en la ida y vuelta, y Scawen por bits;
-  - `StepFromAngle` con `whole` negativo (`sar`), el `imul` de 32 bits de 0x74D320, el (0, 0) de
-    `GetPosFromGameAngle(a, 10)` y los 4 bits perdidos de 0x74D6A0;
-  - `GetPosFromAngle` con dos casos en que `cosf` da otra unidad, y `AddDistanceFromAngle`;
-  - `GetAngleDifference` y `GetAngleDirection` en ±0x400;
-  - `MapCoords::operator+` / `operator-` con la altitude.
-- `test_object_metrics` `PointsAroundAnObject`: las seis funciones de puntos alrededor de un objeto, cada una con su
-  radio y la altitude de `this`.
-- `test_worship` llama a `worship::percentage::WorshipScore` de verdad: un aldeano con vida 0,5 en el centro del
-  lugar de culto da 0,5³ · 0,99996 y uno con vida 1 a más de d2 da 3,6e-5 (con los argumentos al revés o con vida²
-  falla).
-- `test_object_metrics` (`test/test_object_metrics.cpp`) comprueba, con cajas de malla de prueba
+  - the cutoff of `Hypotenuse(float)` with a NaN side (returns 0, like the original's unordered comparison).
+- `test_gutils_angle` (`test/test_gutils_angle.cpp`) checks:
+  - the constants by bits;
+  - the two tables against the exe dump (sums, a weighted sum and individual entries) and `COS = SIN + 512`;
+  - `LHArcTan` on the axes, the diagonals, one point per octant, the overflow of the `shl 8` and the error ≤ 2.27
+    steps versus atan2;
+  - the conversions: −0.5 → 1886, the NaN, the 365 angles that lose 1 in the round trip, and Scawen by bits;
+  - `StepFromAngle` with negative `whole` (`sar`), the 32-bit `imul` of 0x74D320, the (0, 0) of
+    `GetPosFromGameAngle(a, 10)` and the 4 lost bits of 0x74D6A0;
+  - `GetPosFromAngle` with two cases in which `cosf` gives a different unit, and `AddDistanceFromAngle`;
+  - `GetAngleDifference` and `GetAngleDirection` at ±0x400;
+  - `MapCoords::operator+` / `operator-` with the altitude.
+- `test_object_metrics` `PointsAroundAnObject`: the six functions for points around an object, each one with its
+  radius and the altitude of `this`.
+- `test_worship` calls the real `worship::percentage::WorshipScore`: a villager with life 0.5 at the centre of the
+  worship site gives 0.5³ · 0.99996 and one with life 1 beyond d2 gives 3.6e-5 (with the arguments reversed or with life²
+  it fails).
+- `test_object_metrics` (`test/test_object_metrics.cpp`) checks, with test mesh boxes
   (`object::detail::SetMeshBoxProviderForTests`):
-  - los campos de la caja (semiejes, semidiagonal), `Radius2D` y `Height`;
-  - que el nivel de malla no ve redefiniciones y da 0 sin malla;
-  - la base de `Object` y el 0 sin malla o sin `Mesh`;
-  - Field y FishFarm = 5 (radio y `GetMeshRadius`, la altura sigue siendo la de la malla), MagicTeleport = 6,
-    MagicFireBall = escala en radio y altura, la escala de objeto del MapShield y la altura de la criatura;
-  - `GetProportionRaised` de comida y de madera, con la pila vacía a 0, y el radio de la pila de comida;
-  - `GetHoldRadius`, `GetDefaultFireRadius` (árbol muerto, lugar de culto), `GetVillagerHugRadius` y
-    `GetRoutePlanRadius` de árbol, las dos distancias, `IsTouching`, `GetBoundingSphere` y `GetTopPos`;
-  - las redefiniciones de las derivadas (`DerivedOverrides`): la esfera de Living y MobileStatic, el `GetTopPos` del
-    escudo, la altura de la mano sobre la piscifactoría, el radio de ruta del `CitadelHeart` y la distancia y el
-    `IsTouching` del lugar de culto con su `WorshipSiteCentre`.
-- `test_food_wood`: `PileFoodProportionRaised(0, 1000)` es 0.
-- `test_game_clock` (`test/test_game_clock.cpp`) mueve el reloj con un `GetTickCount` de prueba
-  (`game_clock::SetTickSource`) y fotogramas de 33 ms. Comprueba:
-  - el primer turno en el primer fotograma, con el turno ya subido, `visual = 100` y dt 100;
-  - 3 s a 33 ms dan 30 turnos (no 22), en los fotogramas 4, 7, 10… con huecos de 3 o 4;
-  - el resto, la fracción y el dt fotograma a fotograma (33, 0,33… 0,99 y, con el turno 2, 32);
-  - el tope de 99 del resto, el dt de 199 y un solo turno por fotograma;
-  - el retraso de más de 2 s: se tira y el siguiente turno espera a `turno · 100`;
-  - la pausa: ningún turno, dt 0, la fracción congelada, y al quitarla el tiempo parado no cuenta (sin turno extra);
-  - la velocidad: el tiempo ya pasado conserva la de antes, el dt la sigue, y en pausa solo se guarda;
-  - `OnLoad` (`visual = turno · 100`) y `Start` (el turno siguiente toca enseguida);
-  - `TicksForSeconds` (trunca; con `SetMsPerTurn(300)`, 1000 / 300 = 3 por segundo);
-  - el reloj de pared (≥ 1), `EngineMs` y los dos selectores (tope de 500); parado (0 y 1 ms) hasta
-    `StartEngineTimer`, y luego cuenta desde ≈ 0;
-  - `EngineTimerAfterLongUptime`: con `GetTickCount` = 0xCE000000 (40 días) los ms del motor son exactos.
-- Variable de entorno: `OPENBLACK_START_PAUSED=1` empieza la partida en pausa (`game_clock::Start(true)`).
-- No tienen variables de entorno propias.
+  - the box fields (half-axes, half-diagonal), `Radius2D` and `Height`;
+  - that the mesh level does not see overrides and gives 0 without a mesh;
+  - the `Object` base and the 0 without a mesh or without `Mesh`;
+  - Field and FishFarm = 5 (radius and `GetMeshRadius`, the height is still the mesh's), MagicTeleport = 6,
+    MagicFireBall = scale in radius and height, the MapShield's object scale and the creature's height;
+  - `GetProportionRaised` of food and wood, with the empty pile at 0, and the food pile's radius;
+  - `GetHoldRadius`, `GetDefaultFireRadius` (dead tree, worship site), `GetVillagerHugRadius` and
+    the tree's `GetRoutePlanRadius`, the two distances, `IsTouching`, `GetBoundingSphere` and `GetTopPos`;
+  - the overrides of the derived ones (`DerivedOverrides`): the sphere of Living and MobileStatic, the shield's
+    `GetTopPos`, the hand's height above the fish farm, the `CitadelHeart`'s route radius and the distance and
+    `IsTouching` of the worship site with its `WorshipSiteCentre`.
+- `test_food_wood`: `PileFoodProportionRaised(0, 1000)` is 0.
+- `test_game_clock` (`test/test_game_clock.cpp`) drives the clock with a test `GetTickCount`
+  (`game_clock::SetTickSource`) and 33 ms frames. It checks:
+  - the first turn in the first frame, with the turn already incremented, `visual = 100` and dt 100;
+  - 3 s at 33 ms give 30 turns (not 22), in frames 4, 7, 10… with gaps of 3 or 4;
+  - the remainder, the fraction and the dt frame by frame (33, 0.33… 0.99 and, with turn 2, 32);
+  - the cap of 99 on the remainder, the dt of 199 and a single turn per frame;
+  - the lag of more than 2 s: it is dropped and the next turn waits for `turno · 100`;
+  - the pause: no turn, dt 0, the fraction frozen, and when unpausing the stopped time does not count (no extra turn);
+  - the speed: the time already elapsed keeps the previous one, the dt follows it, and while paused it is only saved;
+  - `OnLoad` (`visual = turno · 100`) and `Start` (the next turn is due immediately);
+  - `TicksForSeconds` (truncates; with `SetMsPerTurn(300)`, 1000 / 300 = 3 per second);
+  - the wall clock (≥ 1), `EngineMs` and the two selectors (cap of 500); stopped (0 and 1 ms) until
+    `StartEngineTimer`, and then it counts from ≈ 0;
+  - `EngineTimerAfterLongUptime`: with `GetTickCount` = 0xCE000000 (40 days) the engine ms are exact.
+- Environment variable: `OPENBLACK_START_PAUSED=1` starts the game paused (`game_clock::Start(true)`).
+- They do not have environment variables of their own.
 
 - `test_zoomer` (`test/test_zoomer.cpp`):
-  - `SetPosition`, el umbral de 0,001 s (también NaN y negativos) y la llegada en `t ≥ duration` sin extrapolar;
-  - el paso de 0 a 10 en 2,5 s (2,6171875 a T/4) y el tope del determinante con T = 0,05 / 0,04 / 0,02 s, por bits;
-  - velocidades de inicio y destino;
-  - dos fotogramas grabados de la cámara del original;
+  - `SetPosition`, the 0.001 s threshold (also NaN and negatives) and the arrival at `t ≥ duration` without extrapolating;
+  - the step from 0 to 10 in 2.5 s (2.6171875 at T/4) and the determinant floor with T = 0.05 / 0.04 / 0.02 s, by bits;
+  - start and destination speeds;
+  - two recorded frames of the original's camera;
   - `Zoomer3d`.
-- `test_camera` `ZoomerMatchesRecording`: cada estado de zoomer de las 11 grabaciones, coeficientes y valores bit a
-  bit. `ValidateRecordedData` carga los zoomers grabados en la `Camera` y usa `Camera::UpdateZoomers`.
+- `test_camera` `ZoomerMatchesRecording`: each zoomer state of the 11 recordings, coefficients and values bit for
+  bit. `ValidateRecordedData` loads the recorded zoomers into the `Camera` and uses `Camera::UpdateZoomers`.
 - `test_lh_matrix` (`test/test_lh_matrix.cpp`):
-  - adónde va cada eje con un cuarto de vuelta de cada constructor (los signos);
-  - las igualdades bit a bit que salen de las celdas: `YXZ(a, 0, 0) = AngleY(a)`, `RotateY(I, a) = AngleY(a)` y
+  - where each axis goes with a quarter turn of each constructor (the signs);
+  - the bit-for-bit equalities that follow from the cells: `YXZ(a, 0, 0) = AngleY(a)`, `RotateY(I, a) = AngleY(a)` and
     `AxisAngle(X, a) = AngleXYZ(a, 0, 0)`;
-  - la composición en glm de cada uno y las que no son (izquierda / derecha, `eulerAngleXYZ`, los +ángulos);
-  - el tope de `Inverse` (±100 en lugar de 1e4);
-  - `SetPosition` y `Model`.
+  - the glm composition of each one and the ones that are not (left / right, `eulerAngleXYZ`, the +angles);
+  - the floor of `Inverse` (±100 instead of 1e4);
+  - `SetPosition` and `Model`.
 - `test_land_normal` (`test/test_land_normal.cpp`):
-  - las dos tablas, por bits;
-  - una celda llana (1 + 1 ulp) y una pendiente;
-  - los cuatro triángulos (por bits y contra el plano de las tres esquinas);
-  - la cuantización de T2 en una celda empinada (longitud 0,998).
+  - the two tables, by bits;
+  - a flat cell (1 + 1 ulp) and a slope;
+  - the four triangles (by bits and against the plane of the three corners);
+  - the quantisation of T2 in a steep cell (length 0.998).
 
-## Fuentes
+## Sources
 
-- Desensamblado W120 (`dev\herramientas\dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
+- W120 disassembly (`dev\herramientas\dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
   0x5E1860, 0x5E1950, 0x74CA10, 0x74CA60, 0x74D7E0, 0x74D810, 0x74F520, 0x74F540, 0x7A1400, 0x525100..0x525260,
-  0x63AFF2, 0x7204D0 (0x72056B..0x720595), 0x882730 (0x8827C7..0x882810) y 0x7DEE00. De la 2.ª pasada: 0x6014C0,
+  0x63AFF2, 0x7204D0 (0x72056B..0x720595), 0x882730 (0x8827C7..0x882810) and 0x7DEE00. From the 2nd pass: 0x6014C0,
   0x54F650+0x2A0, 0x5FBB40..0x5FBD10, 0x72F5C0..0x72F6E0, 0x725000..0x725180, 0x5ED080, 0x41A8B0, 0x41A640..0x41A780,
-  0x419490, 0x60FC50, 0x7238C0, 0x420E10, 0x771BE0, 0x772BE0, 0x74CDE0 y 0x7409C0..0x740A60.
-- Informes: `dev\documentacion\unify2\PLAN.md` §1, `map_coords_grid_original.md` (sobre todo su «Verificación adversaria»)
-  y `map_coords_grid_openblack.md`.
-- bw1-decomp: `src/Black/MapCoords.h`, `Map.h`, `Utils.h` y `Lionhead/LH3DLib/development/LH3DMapCoords.h`.
-- Distancias de GUtils: desensamblado de 0x74CCA0:1D0, 0x74CE6E:C0, 0x74DCC0:50, 0x74DD00, 0x74E2D0,
+  0x419490, 0x60FC50, 0x7238C0, 0x420E10, 0x771BE0, 0x772BE0, 0x74CDE0 and 0x7409C0..0x740A60.
+- Reports: `dev\documentacion\unify2\PLAN.md` §1, `map_coords_grid_original.md` (above all its «Adversarial verification»)
+  and `map_coords_grid_openblack.md`.
+- bw1-decomp: `src/Black/MapCoords.h`, `Map.h`, `Utils.h` and `Lionhead/LH3DLib/development/LH3DMapCoords.h`.
+- GUtils distances: disassembly of 0x74CCA0:1D0, 0x74CE6E:C0, 0x74DCC0:50, 0x74DD00, 0x74E2D0,
   0x74F170:A0, 0x74F290:40, 0x74F580:1A0, 0x74F620, 0x74F680, 0x74F6C0, 0x605CD0, 0x605FB0, 0x5ECA20, 0x657F30,
-  0x438770, 0x4F78C0, 0x73C5C0..0x73C64E (vida³), 0x552FF0, 0x5252E0, 0x60D9D0 y 0x6E3E60; bytes de 0xC23284
+  0x438770, 0x4F78C0, 0x73C5C0..0x73C64E (life³), 0x552FF0, 0x5252E0, 0x60D9D0 and 0x6E3E60; bytes of 0xC23284
   (164 B), 0x99A1D0, 0x99A1D4, 0x99A1D8, 0x99A1BC, 0x8AC408, 0x8AC41C, 0x8AC400, 0x8AA390, 0x8AA3A4, 0x8AB678,
-  0x8AB680, 0x8AB41C, 0x8BF518 y 0x930670. Informes: `dev\documentacion\unify2\PLAN.md` §6,
-  `gutils_distance_original.md` (con su «Verificación adversaria») y `gutils_distance_openblack.md`.
-- bw1-decomp para las distancias: `src/Black/Utils.h` (solo firmas; `GetDistance` aparece como `void`),
-  `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.
-- Reloj del juego: desensamblado de 0x54C4A0, 0x54C570, 0x54CC30 (0x54CD0F..0x54CD58), 0x54D2A8..0x54D3D3, 0x54AE60:90,
+  0x8AB680, 0x8AB41C, 0x8BF518 and 0x930670. Reports: `dev\documentacion\unify2\PLAN.md` §6,
+  `gutils_distance_original.md` (with its «Adversarial verification») and `gutils_distance_openblack.md`.
+- bw1-decomp for the distances: `src/Black/Utils.h` (signatures only; `GetDistance` appears as `void`),
+  `MapCoords.h:137` and `Lionhead/LH3DLib/development/LH3DMath.h:33`.
+- Game clock: disassembly of 0x54C4A0, 0x54C570, 0x54CC30 (0x54CD0F..0x54CD58), 0x54D2A8..0x54D3D3, 0x54AE60:90,
   0x5557E0:60, 0x555820, 0x82F14E:50, 0x711630:30, 0x711610, 0x711280:F0, 0x70CC30:140, 0x66CD00, 0x66CD30:B0,
-  0x5C6250:50, 0x714DB0 y, en la auditoría, 0x818C60:60, 0x8189F0:190, 0x54CD93, 0x54D338:50, 0x879B0A:40,
-  0x54E5C0, 0x52AF90, 0x5DBD4E, 0x5C61B0:D0, 0x5C68C0:E0, 0x5537F0:E0, 0x634B40, 0x76EAF0 y 0x54E763. Informes: `dev\documentacion\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
-  adversaria») y `game_clock_openblack.md`. bw1-decomp: `src/Black/Game.cpp` (`PauseGame`, `SetSpeed`,
+  0x5C6250:50, 0x714DB0 and, in the audit, 0x818C60:60, 0x8189F0:190, 0x54CD93, 0x54D338:50, 0x879B0A:40,
+  0x54E5C0, 0x52AF90, 0x5DBD4E, 0x5C61B0:D0, 0x5C68C0:E0, 0x5537F0:E0, 0x634B40, 0x76EAF0 and 0x54E763. Reports: `dev\documentacion\unify2\PLAN.md` §2, `game_clock_original.md` (with its «Adversarial
+  verification») and `game_clock_openblack.md`. bw1-decomp: `src/Black/Game.cpp` (`PauseGame`, `SetSpeed`,
   `LocalTimerSaysDoATurn`, `ResetLocalGameTimer`, `ProcessNetworkPackets`, `Loop` l. 1834-1996, `ResolveLoad`).
-- Tamaño de los objetos: desensamblado de 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,
+- Object size: disassembly of 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,
   0x47B190, 0x4EF4F0, 0x638C00, 0x74B610, 0x5110E0, 0x728640, 0x639AC0, 0x510E10, 0x77DE10, 0x77DDD0, 0x4026B0,
-  0x74A1A0, 0x74A140, 0x6384C0, 0x637730, 0x637FB0, 0x5702B0, 0x4027C0, 0x637E00, 0x636D30; los sitios migrados
-  0x53A740, 0x5116A0, 0x74AB80, 0x74B12F, 0x439220, 0x639550, 0x66E900, 0x722B30, 0x403270, 0x6A0D51 y 0x5287A0.
-  Informes: `dev\documentacion\unify2\PLAN.md` §4, `object_radius_height_original.md` (con su «Verificación adversaria»)
-  y `object_radius_height_openblack.md`. bw1-decomp: `src/Black/Object.cpp:1062-1104`; decomp_pickup:
+  0x74A1A0, 0x74A140, 0x6384C0, 0x637730, 0x637FB0, 0x5702B0, 0x4027C0, 0x637E00, 0x636D30; the migrated places
+  0x53A740, 0x5116A0, 0x74AB80, 0x74B12F, 0x439220, 0x639550, 0x66E900, 0x722B30, 0x403270, 0x6A0D51 and 0x5287A0.
+  Reports: `dev\documentacion\unify2\PLAN.md` §4, `object_radius_height_original.md` (with its «Adversarial verification»)
+  and `object_radius_height_openblack.md`. bw1-decomp: `src/Black/Object.cpp:1062-1104`; decomp_pickup:
   `multi.cpp:285-330`.
-- Ángulos de GUtils: desensamblado de 0x74D0C0:120, 0x74D200:A0, 0x74D320:180, 0x74D510:180, 0x74D6F0:80,
+- GUtils angles: disassembly of 0x74D0C0:120, 0x74D200:A0, 0x74D320:180, 0x74D510:180, 0x74D6F0:80,
   0x74DC30:50, 0x74E290:40, 0x605410, 0x6054A0, 0x605520, 0x6055C0, 0x636D30:110, 0x639550:60, 0x74C040:70,
   0x439240:50, 0x439360:70, 0x53A060:70, 0x6E7560:200, 0x77AFC0:C0, 0x75AA90:F0, 0x75B320:80, 0x41B210:140,
-  0x418CD0:60, 0x41E930:F0 y 0x41F1B0:80; tablas 0xC2307C y 0xC31614 volcadas del exe. Informes:
-  `dev\documentacion\unify2\angles_original.md` (con su «Verificación adversaria», que manda) y `angles_openblack.md`.
-- Matrices, Zoomer y normal (2026-10-02, sistemas):
-  - desensamblado de 0x7FAC10:B0, 0x5198F0:70, 0x86AFA0:70, 0x674200:160, 0x674360:50, 0x6743E0:60, 0x6A1150:D0,
+  0x418CD0:60, 0x41E930:F0 and 0x41F1B0:80; tables 0xC2307C and 0xC31614 dumped from the exe. Reports:
+  `dev\documentacion\unify2\angles_original.md` (with its «Adversarial verification», which takes precedence) and `angles_openblack.md`.
+- Matrices, Zoomer and normal (2026-10-02, sistemas):
+  - disassembly of 0x7FAC10:B0, 0x5198F0:70, 0x86AFA0:70, 0x674200:160, 0x674360:50, 0x6743E0:60, 0x6A1150:D0,
     0x6A1218, 0x6A12C7, 0x6A12F0, 0x6A6250:70, 0x7FB180:110, 0x7FB290:160, 0x423140:250, 0x407D60:170, 0x442720:90,
-    0x441F80:C0, 0x5B4200:180, 0x803630:260, 0x803890:F0 y 0x516AA0:50;
-  - constantes leídas del exe: 0x9A2BEC, 0x9A2BE8, 0xC3720C, 0x8AB41C, 0xC371D4, 0x8AA3B0, 0x8AB26C, 0x8AB268 y
+    0x441F80:C0, 0x5B4200:180, 0x803630:260, 0x803890:F0 and 0x516AA0:50;
+  - constants read from the exe: 0x9A2BEC, 0x9A2BE8, 0xC3720C, 0x8AB41C, 0xC371D4, 0x8AA3B0, 0x8AB26C, 0x8AB268 and
     0x8AB414;
-  - informes `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md` y `U8_changes.md`.
+  - reports `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md` and `U8_changes.md`.

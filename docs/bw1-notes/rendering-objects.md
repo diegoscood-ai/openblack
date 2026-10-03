@@ -1,1499 +1,1497 @@
-# Render de los modelos: original frente a openblack
+# Model rendering: original versus openblack
 
-Cómo se dibujan los objetos del mundo: materiales L3D, luz de los modelos, texturas y sprites, manchas de los pies,
-la cola única de transparentes, reflejos en el mar y cortes por el plano del agua, bancos de peces, sombras de los objetos y de la mano, LOD, el humo
-de las chimeneas, los objetos que miran a la cámara (billboards), las texturas animadas por fotogramas, las mallas pegadas al suelo y los modos de render y materiales del original. El render del mundo (terreno, mar, cielo, neblina) está en [rendering.md](rendering.md); el agua
-como juego, en [water.md](water.md).
+How the world's objects are drawn: L3D materials, model lighting, textures and sprites, foot blobs,
+the single transparent queue, sea reflections and cuts by the water plane, fish shoals, object and hand shadows, LOD, chimney
+smoke, objects that face the camera (billboards), frame-animated textures, meshes stuck to the ground and the original's render modes and materials. World rendering (terrain, sea, sky, fog) is in [rendering.md](rendering.md); water
+as gameplay, in [water.md](water.md).
 
-- [Mezcla de materiales L3D](#mezcla-de-materiales-l3d)
-- [Luz de los modelos](#luz-de-los-modelos)
-- [Aritmética de LH3DColor](#aritmética-de-lh3dcolor)
-- [Repetición o recorte de texturas](#repetición-o-recorte-de-texturas)
-- [La cola única de transparentes (LH3DZSorter)](#la-cola-única-de-transparentes-lh3dzsorter)
-- [Manchas de aldeanos, reflejos de objetos y LOD](#manchas-de-aldeanos-reflejos-de-objetos-y-lod)
-- [Submallas de física y de LOD 0](#submallas-de-física-y-de-lod-0)
-- [La pasada bajo el mar (`graphics::sea_pass`)](#la-pasada-bajo-el-mar-graphicssea_pass)
-- [Reflejos de objetos y sombra de la mano sobre objetos](#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos)
-- [Cortar por el plano del agua (`DrawCutByPlane`)](#cortar-por-el-plano-del-agua-drawcutbyplane)
-- [Bancos de peces de las piscifactorías](#bancos-de-peces-de-las-piscifactorías)
-- [Sombras de los objetos físicos](#sombras-de-los-objetos-físicos)
-- [Sombra dinámica de la mano](#sombra-dinámica-de-la-mano)
-- [Animales: manchas y malla](#animales-manchas-y-malla)
-- [Humo de las chimeneas (LH3DSmoke)](#humo-de-las-chimeneas-lh3dsmoke)
-- [Objetos que miran a la cámara (billboards)](#objetos-que-miran-a-la-cámara-billboards)
-- [Texturas animadas por fotogramas](#texturas-animadas-por-fotogramas)
-- [Mallas pegadas al suelo (land_morph)](#mallas-pegadas-al-suelo-land_morph)
-- [Modos de render y materiales (render_modes)](#modos-de-render-y-materiales-render_modes)
-- [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
+- [L3D material blending](#l3d-material-blending)
+- [Model lighting](#model-lighting)
+- [LH3DColor arithmetic](#lh3dcolor-arithmetic)
+- [Texture wrapping or clamping](#texture-wrapping-or-clamping)
+- [The single transparent queue (LH3DZSorter)](#the-single-transparent-queue-lh3dzsorter)
+- [Villager blobs, object reflections and LOD](#villager-blobs-object-reflections-and-lod)
+- [Physics and LOD 0 submeshes](#physics-and-lod-0-submeshes)
+- [The under-sea pass (`graphics::sea_pass`)](#the-under-sea-pass-graphicssea_pass)
+- [Object reflections and hand shadow on objects](#object-reflections-and-hand-shadow-on-objects)
+- [Cutting by the water plane (`DrawCutByPlane`)](#cutting-by-the-water-plane-drawcutbyplane)
+- [Fish-farm fish shoals](#fish-farm-fish-shoals)
+- [Shadows of physics objects](#shadows-of-physics-objects)
+- [Dynamic hand shadow](#dynamic-hand-shadow)
+- [Animals: blobs and mesh](#animals-blobs-and-mesh)
+- [Chimney smoke (LH3DSmoke)](#chimney-smoke-lh3dsmoke)
+- [Objects that face the camera (billboards)](#objects-that-face-the-camera-billboards)
+- [Frame-animated textures](#frame-animated-textures)
+- [Meshes stuck to the ground (land_morph)](#meshes-stuck-to-the-ground-land_morph)
+- [Render modes and materials (render_modes)](#render-modes-and-materials-render_modes)
+- [Pending](#pending), [Test hooks](#test-hooks), [Sources](#sources)
 
-Estado: todo lo de esta página es **fiel** (original, no un mod) salvo lo que se marca **(aproximado)**, las
-desviaciones que se dicen en cada sección y lo que está en [Pendiente](#pendiente).
+Status: everything on this page is **faithful** (original, not a mod) except what is marked **(approximate)**, the
+deviations stated in each section and what is in [Pending](#pending).
 
-## Mezcla de materiales L3D
+## L3D material blending
 
-**Fiel** (del original, no es un mod).
+**Faithful** (from the original, not a mod).
 
-- `L3DSubMesh` traduce el tipo de material a `blend`/`depthWrite`/`thresholdAlpha`, pero el renderizador no usaba
-  `blend`: todo salía opaco. Ahora los materiales con mezcla y sin corte de alfa (`AlphaTextured`, `TexturedAlpha`,
-  `SmoothAlpha`, `*Nz`, aditivos sin chroma) se dibujan con el alfa de la textura (`u_skyAlphaThreshold.w`),
-  `SRCALPHA/INVSRCALPHA` (o `SRCALPHA/ONE` los aditivos), sin escribir Z en los `Nz`, en la vista `MainBlended`
-  (después de todo lo opaco). Los `TexturedChroma` siguen con prueba de alfa. Los estados de cada tipo salen de
-  `render_modes` ([Modos de render y materiales](#modos-de-render-y-materiales-render_modes)).
-- La mano (`Hand_Boned_Base2`, material `AlphaTextured`) tiene en su piel un degradado de alfa en las filas de abajo:
-  la muñeca se desvanece. Antes acababa en un borde blanco duro ([img/hand_zoom.png](img/hand_zoom.png)).
-- Mallas de `AllMeshes.g3d` por tipo de material: `Textured` 512, `TexturedChroma` 217, `Smooth` 181,
-  `AlphaTextured` 116 (casi todos los edificios `MSH_B_*`), `TexturedChromaAlpha` 6 (arbustos, palmeras).
-- Gancho de pruebas `OPENBLACK_MOUSE_AT="fx,fy"`: cursor fijo en fracción de la ventana (la mano aparece en capturas
-  sin ratón real).
+- `L3DSubMesh` translates the material type into `blend`/`depthWrite`/`thresholdAlpha`, but the renderer did not use
+  `blend`: everything came out opaque. Now materials with blending and no alpha cut-out (`AlphaTextured`, `TexturedAlpha`,
+  `SmoothAlpha`, `*Nz`, additives without chroma) are drawn with the texture's alpha (`u_skyAlphaThreshold.w`),
+  `SRCALPHA/INVSRCALPHA` (or `SRCALPHA/ONE` for the additives), without writing Z for the `Nz` ones, in the `MainBlended` view
+  (after everything opaque). `TexturedChroma` keeps the alpha test. The states of each type come from
+  `render_modes` ([Render modes and materials](#render-modes-and-materials-render_modes)).
+- The hand (`Hand_Boned_Base2`, material `AlphaTextured`) has an alpha gradient in the bottom rows of its skin:
+  the wrist fades out. It used to end in a hard white edge ([img/hand_zoom.png](img/hand_zoom.png)).
+- Meshes in `AllMeshes.g3d` by material type: `Textured` 512, `TexturedChroma` 217, `Smooth` 181,
+  `AlphaTextured` 116 (almost all the `MSH_B_*` buildings), `TexturedChromaAlpha` 6 (bushes, palm trees).
+- Test hook `OPENBLACK_MOUSE_AT="fx,fy"`: cursor fixed at a fraction of the window (the hand appears in captures
+  without a real mouse).
 
-## Luz de los modelos
+## Model lighting
 
-**Fiel** (del original, no es un mod).
+**Faithful** (from the original, not a mod).
 
-- **Una sola regla, entera y por CPU** (`fn_0084BA90`, vértices D3DTLVERTEX), la de todos los modelos normales
-  (edificios, aldeanos, árboles, rocas): `I = fistp(255 · N·L)` (0x84BBAF..0x84BBBE, redondeo al más cercano con los
-  empates a par, el modo normal de la FPU), `f = I < 0 ? amb : amb + ((255 − amb)·I >> 8)` (0x84BBC3..0x84BBE5) con
-  `amb` = [0xC39264] = 90, y el difuso por canal `(c·f) >> 8` truncado, con el alfa intacto (0x84BBEA..0x84BC1D). Así
-  que `f` llega como máximo a 254/256, nunca a 1. Variante con truncado `__ftol` en vez de a par: 0x859649
+- **A single rule, integer and on the CPU** (`fn_0084BA90`, D3DTLVERTEX vertices), the one for all normal models
+  (buildings, villagers, trees, rocks): `I = fistp(255 · N·L)` (0x84BBAF..0x84BBBE, round to nearest with
+  ties to even, the FPU's normal mode), `f = I < 0 ? amb : amb + ((255 − amb)·I >> 8)` (0x84BBC3..0x84BBE5) with
+  `amb` = [0xC39264] = 90, and the per-channel diffuse `(c·f) >> 8` truncated, with alpha untouched (0x84BBEA..0x84BC1D). So
+  `f` reaches at most 254/256, never 1. Variant with `__ftol` truncation instead of to-even: 0x859649
   (`fn_00859530`, `fn_00859D90`, `fn_00878C70`).
-- **La fórmula float de 166 no se ejecuta nunca** en esta compilación: es la ruta D3D `fn_0082C680`, a la que solo llega
-  `LH3DObject::DrawTnL`, y `DrawTnL` pide el flag de T&L por hardware [0xECA60C] (0x80DC7A), que `OpenD3D` solo pone a 1
-  si [0xC386E4] es 0 (0x82D0F5); `start_system` le escribe 1 sin condición (0x642EA7). Por eso openblack ya no la tiene.
-- Color base del objeto (`fn_00801C90`), uno por objeto y fotograma: `tabla[luminosidad]` de las 4 celdas alrededor
-  de su origen, bilineal; especular = RGB de esas celdas leído como D3DCOLOR (R y B cambiados; casi siempre 0).
-- **La luz es un punto y se mueve con la hora.** LH3DTech guarda una sola luz, [0xEA9E90] (`SetLight` `fn_0081E1F0`;
-  guardar y restaurar es cosa del llamador, 0x8254A3/0x82551F). `fn_005E5830`, que llama `GLandscape::Draw` (0x5E488E)
-  una vez por fotograma antes de los modelos, la deja en el sol por defecto [0xEA1C88] = (−500000, 500000, −500000)
-  (inicializador `__xc_a` `fn_00818920` 0x818930) salvo en **plena noche**: si el tipo de cielo es > 1,5 (el double de
-  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 del tiempo visual calculado ahí, 0x5E58D1..0x5E58DF, 2 = noche;
-  openblack: `sky_type::At(hora visual)`) la pone a 3 unidades ([0x8C2C50]) de la
-  **mano** hacia la cámara, con la mano subida a por lo menos 10 ([0x8AB414]) sobre el terreno que tiene debajo.
-  - Con el cursor fuera del terreno (en el cielo) el original sigue moviendo la mano por el rayo del ratón a su
-    distancia de la vista (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` se queda con
-    |cámara − posición| si el rayo no toca tierra). En openblack `HandSystem::Place` deja la mano donde se colocó por
-    última vez (o en su sitio inicial), así que de noche la luz se queda allí y las caras de los modelos lejanos pueden
-    quedarse casi solo con el ambiente: **diferencia conocida** (pendiente en el sistema de la mano). Para probar la luz
-    de noche, poner el cursor sobre el terreno (`OPENBLACK_MOUSE_AT`). Sin mano o sin cámara, `Renderer::DrawScene`
-    deja el sol por defecto (la rama de día, 0x5E5B70) **(inferido)**.
-- **N·L va en el espacio de la malla, no con la normal girada**: `fn_00855340` lleva la luz al espacio del objeto con
-  la inversa general de su matriz (`LHMatrix::SetInverse` 0x7FB290) y la normaliza (0xF03140); la rama con huesos hace
-  `SetInverse` de cada matriz de hueso (0x84BD9E) sobre la luz ya pasada a cámara (0x84BDA3), que es lo mismo por
-  hueso si esas matrices van del hueso a la cámara y la cámara se cancela **(inferido)**. La normal del vértice entra
-  cruda, sin girar ni normalizar, y la dirección sale del **origen** del hueso o del objeto. Con escala uniforme da lo
-  mismo que girar la normal; con escala por eje (mecer un árbol, la cizalla de un campo) no.
-- El corte por plano (`DrawCutByPlane`, `fn_00858BA0`) usa la luz [0xF03140] en el espacio del **objeto**: los dos
-  llamadores la ponen una vez con `fn_00855340` sobre obj+0x14 (estático 0x80C0EE, animado 0x811D2F) y `fn_00858BA0`
-  la lee en sus dos ramas (rígida 0x858CB1, con huesos 0x859049); las matrices de hueso (0x858F77) solo mueven las
-  posiciones. `vs_object` modo 4 usa solo la matriz de la instancia.
-- Las nieblas y las nubes suben el ambiente a 210 mientras se dibujan (`fn_007FA300` 0x7FA56D, de vuelta a 90 en
-  0x7FA586; la luz se guarda y se sube en 0x7FA53C..0x7FA563 y se restaura en 0x7FA590). Los objetos «sin luz» van
-  por `fn_00856D40`/`fn_0085BA30`, con el color base [0xC37D8C] tal cual (0x856D89, 0x85BA68): el selector es el
-  argumento edx de `fn_0080D910` (0x80D926 `test edx, edx`: `fn_0084BA90` si no es 0, `fn_00856D40` si es 0); que
-  ese edx venga de la ranura vt+0x5C es **(inferido)**. Las primitivas con el bit 0x1000 (con [0xE9FE44]) no van por
-  ahí: toman el color alternativo [0xC37D98] (`fn_0080AD90` 0x80ADBC, `fn_0080AF80` 0x80AFAC) y se iluminan en
-  `fn_00859530` (la regla con `__ftol`); qué es ese bit está **(no verificado)**.
-- La mano: base × 1,5 (`CHand::AddDrawing` 0x46D135). Primitivas sin textura: color del material × base. Chroma:
-  `ALPHAREF` = el umbral del material, `GREATEREQUAL`; solo los modos 9 / 15 de un objeto con alfa propio usan
-  `umbral · alfa del objeto / 255 − 5` ([Modos de render](#modos-de-render-y-materiales-render_modes)).
-- Las sombras estáticas **no** siguen esta luz: `fn_008721A0` (0x8721E1) y `fn_0080ECB0` (0x80EDA8) leen [0xEA1C88], el
-  sol fijo, así que de noche siguen con el del día (`vs_static_shadow_instanced`).
-- openblack: `LandIsland::CreateCellMap` (textura RGBA por celda: rgb = color leído como D3DCOLOR, a = luminosidad);
-  `vs_object` hace la bilineal y la luz. Un solo sistema con una sola API: `src/Graphics/ModelLight.h`
+- **The float formula from 166 is never executed** in this build: it is the D3D path `fn_0082C680`, which is only reached by
+  `LH3DObject::DrawTnL`, and `DrawTnL` requires the hardware T&L flag [0xECA60C] (0x80DC7A), which `OpenD3D` only sets to 1
+  if [0xC386E4] is 0 (0x82D0F5); `start_system` writes 1 to it unconditionally (0x642EA7). That is why openblack no longer has it.
+- Object base colour (`fn_00801C90`), one per object and frame: `tabla[luminosidad]` of the 4 cells around
+  its origin, bilinear; specular = RGB of those cells read as D3DCOLOR (R and B swapped; almost always 0).
+- **The light is a point and it moves with the time of day.** LH3DTech stores a single light, [0xEA9E90] (`SetLight` `fn_0081E1F0`;
+  saving and restoring is up to the caller, 0x8254A3/0x82551F). `fn_005E5830`, called by `GLandscape::Draw` (0x5E488E)
+  once per frame before the models, leaves it at the default sun [0xEA1C88] = (−500000, 500000, −500000)
+  (`__xc_a` initialiser `fn_00818920` 0x818930) except in **full night**: if the sky type is > 1.5 (the double at
+  [0x8C5838]; `LH3DSky::Time2SkyType` 0x86A1B0 of the visual time computed there, 0x5E58D1..0x5E58DF, 2 = night;
+  openblack: `sky_type::At(hora visual)`) it puts it 3 units ([0x8C2C50]) from the
+  **hand** towards the camera, with the hand raised to at least 10 ([0x8AB414]) above the terrain beneath it.
+  - With the cursor off the terrain (in the sky) the original keeps moving the hand along the mouse ray at its
+    distance from the view (`ObtainRequiredHandPosition` 0x5B5E70; `CHand::fn_0046DF60` keeps
+    |camera − position| if the ray does not touch land). In openblack `HandSystem::Place` leaves the hand where it was last
+    placed (or at its initial spot), so at night the light stays there and the faces of distant models can
+    end up with almost only the ambient: **known difference** (pending in the hand system). To test night
+    lighting, put the cursor over the terrain (`OPENBLACK_MOUSE_AT`). Without a hand or without a camera, `Renderer::DrawScene`
+    leaves the default sun (the daytime branch, 0x5E5B70) **(inferred)**.
+- **N·L is done in mesh space, not with the rotated normal**: `fn_00855340` brings the light into the object's space with
+  the general inverse of its matrix (`LHMatrix::SetInverse` 0x7FB290) and normalises it (0xF03140); the boned branch does
+  `SetInverse` of each bone matrix (0x84BD9E) on the light already transformed to camera space (0x84BDA3), which is the same per
+  bone if those matrices go from the bone to the camera and the camera cancels out **(inferred)**. The vertex normal goes in
+  raw, neither rotated nor normalised, and the direction comes from the **origin** of the bone or the object. With uniform scale it gives the
+  same as rotating the normal; with per-axis scale (swaying a tree, the shear of a field) it does not.
+- The plane cut (`DrawCutByPlane`, `fn_00858BA0`) uses the light [0xF03140] in **object** space: the two
+  callers set it once with `fn_00855340` on obj+0x14 (static 0x80C0EE, animated 0x811D2F) and `fn_00858BA0`
+  reads it in both its branches (rigid 0x858CB1, boned 0x859049); the bone matrices (0x858F77) only move the
+  positions. `vs_object` mode 4 uses only the instance matrix.
+- Mists and clouds raise the ambient to 210 while they are drawn (`fn_007FA300` 0x7FA56D, back to 90 at
+  0x7FA586; the light is saved and raised at 0x7FA53C..0x7FA563 and restored at 0x7FA590). "Unlit" objects go
+  through `fn_00856D40`/`fn_0085BA30`, with the base colour [0xC37D8C] as is (0x856D89, 0x85BA68): the selector is the
+  edx argument of `fn_0080D910` (0x80D926 `test edx, edx`: `fn_0084BA90` if non-zero, `fn_00856D40` if 0); that
+  this edx comes from slot vt+0x5C is **(inferred)**. Primitives with bit 0x1000 (with [0xE9FE44]) do not go
+  that way: they take the alternative colour [0xC37D98] (`fn_0080AD90` 0x80ADBC, `fn_0080AF80` 0x80AFAC) and are lit in
+  `fn_00859530` (the rule with `__ftol`); what that bit is remains **(not verified)**.
+- The hand: base × 1.5 (`CHand::AddDrawing` 0x46D135). Untextured primitives: material colour × base. Chroma:
+  `ALPHAREF` = the material's threshold, `GREATEREQUAL`; only modes 9 / 15 of an object with its own alpha use
+  `umbral · alfa del objeto / 255 − 5` ([Render modes](#render-modes-and-materials-render_modes)).
+- Static shadows do **not** follow this light: `fn_008721A0` (0x8721E1) and `fn_0080ECB0` (0x80EDA8) read [0xEA1C88], the
+  fixed sun, so at night they keep the daytime one (`vs_static_shadow_instanced`).
+- openblack: `LandIsland::CreateCellMap` (RGBA texture per cell: rgb = colour read as D3DCOLOR, a = brightness);
+  `vs_object` does the bilinear filtering and the lighting. A single system with a single API: `src/Graphics/ModelLight.h`
   (`model_light::Light/SetLight/ScopedLight`, `Ambient/ScopedAmbient`, `UpdateFrameLight` = `fn_005E5830`,
-  `LightInMeshSpace` = `fn_00855340`, `Apply` para las rutas por CPU) y su gemelo de GPU
-  `assets/shaders/model_light.sh` (`ModelLightI`, `ModelLightFactor`, `ModelLightDiffuse`, `ModelLightLocal` y el
-  uniforme `u_modelLight`: xyz la luz, w el ambiente). Lo usan `vs_object` (objetos, átomos de malla de PSys y el modo
-  cut), `fs_object` (el mod hd-tweaks, por píxel) y `vs_cloud` (nubes y nieblas). `Renderer::DrawScene` llama a
-  `UpdateFrameLight` una vez por fotograma y `ECS/Trees.cpp` usa `model_light::Light()`.
-- En `fs_object` el mod hd-tweaks usa las mismas funciones, pero con la normal interpolada del mundo contra la
-  dirección del píxel a la luz **(aproximado)**: no queda ninguna varying libre para la luz local. Coincide solo con la
-  luz lejos (de día, el sol a 500000); en plena noche, con la luz a 3 unidades de la mano, la dirección píxel→luz y la
-  de origen→luz difieren mucho en un aldeano cercano (diferencia nocturna conocida del mod).
-- `model_light::Intensity/Factor/Apply` aún no tienen llamador: esperan a las rutas por CPU aplazadas (`FragMesh`,
-  primitivas de `fn_00859530`); `Renderer::DrawCloud` usa `ScopedLight` + `ScopedAmbient(k_MistAmbient)` y pasa
-  `Ambient()` a `u_cloud.z`.
-- **Trampa**: `vs_object` también lo usa el cielo (`fs_sky`); añadirle una varying nueva deja el cielo en blanco. El
-  especular viaja en `v_texcoord0.zw` y `v_position.w` (después de calcular `gl_Position`).
+  `LightInMeshSpace` = `fn_00855340`, `Apply` for the CPU paths) and its GPU twin
+  `assets/shaders/model_light.sh` (`ModelLightI`, `ModelLightFactor`, `ModelLightDiffuse`, `ModelLightLocal` and the
+  uniform `u_modelLight`: xyz the light, w the ambient). It is used by `vs_object` (objects, PSys mesh atoms and the cut
+  mode), `fs_object` (the hd-tweaks mod, per pixel) and `vs_cloud` (clouds and mists). `Renderer::DrawScene` calls
+  `UpdateFrameLight` once per frame and `ECS/Trees.cpp` uses `model_light::Light()`.
+- In `fs_object` the hd-tweaks mod uses the same functions, but with the interpolated world normal against the
+  pixel-to-light direction **(approximate)**: there is no free varying left for the local light. It only matches with the
+  light far away (by day, the sun at 500000); in full night, with the light 3 units from the hand, the pixel→light direction and the
+  origin→light one differ a lot on a nearby villager (known night-time difference of the mod).
+- `model_light::Intensity/Factor/Apply` have no caller yet: they await the deferred CPU paths (`FragMesh`,
+  primitives of `fn_00859530`); `Renderer::DrawCloud` uses `ScopedLight` + `ScopedAmbient(k_MistAmbient)` and passes
+  `Ambient()` to `u_cloud.z`.
+- **Trap**: `vs_object` is also used by the sky (`fs_sky`); adding a new varying to it leaves the sky white. The
+  specular travels in `v_texcoord0.zw` and `v_position.w` (after computing `gl_Position`).
 
-## Aritmética de LH3DColor
+## LH3DColor arithmetic
 
-**Fiel** (del original, no es un mod). Un LH3DColor es un D3DCOLOR, 0xAARRGGBB. El motor combina dos colores con dos
-familias de operaciones, y **todas truncan, ninguna redondea**:
+**Faithful** (from the original, not a mod). An LH3DColor is a D3DCOLOR, 0xAARRGGBB. The engine combines two colours with two
+families of operations, and **they all truncate, none rounds**:
 
-- `(c·t) >> 8` por canal: `imul` sobre el byte enmascarado y `shr 8`. Con t = 0xFF cada canal pierde 1 (0xFF → 0xFE).
-- `c·l / 255` por canal: el truco 0x80808081 (`sar 7` más el bit de signo, o `mul` y `shr 7`), que da exactamente
-  trunc(x/255) para x de 0 a 65025.
+- `(c·t) >> 8` per channel: `imul` on the masked byte and `shr 8`. With t = 0xFF each channel loses 1 (0xFF → 0xFE).
+- `c·l / 255` per channel: the 0x80808081 trick (`sar 7` plus the sign bit, or `mul` and `shr 7`), which gives exactly
+  trunc(x/255) for x from 0 to 65025.
 
-Cada rutina tiene su propia regla para el alfa. Cuando el alfa se **conserva**, es siempre el del **primer**
-argumento:
+Each routine has its own rule for alpha. When alpha is **preserved**, it is always that of the **first**
+argument:
 
-| Rutina | Qué hace | Alfa | openblack |
+| Routine | What it does | Alpha | openblack |
 |---|---|---|---|
-| `fn_0080BF10` difuso (0x80BFA3..0x80C00B) | `(c·t)>>8` → +0x4C | multiplicado (0x80BFC5..0x80BFD3) | `MulShr8_4` |
-| `fn_0080BF10` especular (0x80BF1B..0x80BFB9) | `min(a+b, 255)` → +0x50 | sumado y saturado (`cmp 0xFF`/`jb`) | `AddSat_4` |
-| `fn_00809D80` (solo 0x80A290: color del objeto × parte) | `(a·b)>>8` | el de a (0x809DCF) | `MulShr8_3KeepA` |
-| `fn_00809DE0` (0x80A2A6: especular del objeto + parte) | `min(a+b, 255)` | el de a (0x809E46) | `AddSat_3KeepA` |
-| `fn_0084BA90` 0x84BBEA, `Tree::Draw` 0x74B077, `fn_0074B3A0` | `(c·k)>>8` por un escalar | el del objeto (0x74B0BD, 0x74B4C9) | `ScaleShr8_3KeepA` |
-| `fn_007ACF70` (0x7ACF79..0x7AD03C) | `trunc(a·b/255)` | multiplicado | `Mul255_4` |
-| `LH3DMist` 0x7FA6C8..0x7FA75F | color × luz `/255` | el del color, no el de la luz (0x7FA753) | `Mul255_3KeepA` |
-| `LH3DCreature::DrawNow` 0x48EF00..0x48EF98 | cuerpo × objeto `/255` | 0xFF (0x48EF8F) | `Mul255_3OpaqueA` |
-| `fn_005E25C0` 0x5E2729..0x5E273B | borde de la nube × alfa `/255` | — (escalar) | `Mul255` |
+| `fn_0080BF10` diffuse (0x80BFA3..0x80C00B) | `(c·t)>>8` → +0x4C | multiplied (0x80BFC5..0x80BFD3) | `MulShr8_4` |
+| `fn_0080BF10` specular (0x80BF1B..0x80BFB9) | `min(a+b, 255)` → +0x50 | added and saturated (`cmp 0xFF`/`jb`) | `AddSat_4` |
+| `fn_00809D80` (only 0x80A290: object colour × part) | `(a·b)>>8` | that of a (0x809DCF) | `MulShr8_3KeepA` |
+| `fn_00809DE0` (0x80A2A6: object specular + part) | `min(a+b, 255)` | that of a (0x809E46) | `AddSat_3KeepA` |
+| `fn_0084BA90` 0x84BBEA, `Tree::Draw` 0x74B077, `fn_0074B3A0` | `(c·k)>>8` by a scalar | that of the object (0x74B0BD, 0x74B4C9) | `ScaleShr8_3KeepA` |
+| `fn_007ACF70` (0x7ACF79..0x7AD03C) | `trunc(a·b/255)` | multiplied | `Mul255_4` |
+| `LH3DMist` 0x7FA6C8..0x7FA75F | colour × light `/255` | that of the colour, not the light (0x7FA753) | `Mul255_3KeepA` |
+| `LH3DCreature::DrawNow` 0x48EF00..0x48EF98 | body × object `/255` | 0xFF (0x48EF8F) | `Mul255_3OpaqueA` |
+| `fn_005E25C0` 0x5E2729..0x5E273B | cloud edge × alpha `/255` | — (scalar) | `Mul255` |
 
-Detalles leídos en el binario:
+Details read from the binary:
 
-- Un campo: `Field::Draw` llama a `fn_0080BEC0` con el color del campo (BlendColor, alfa 0xFF en 0x528510), así que su
-  alfa final es (0xFF·0xFF)>>8 = **254**. Con fuego (0x528809..0x528862) el tinte es antes ese color por el gris de
-  carbonizado de `fn_00730570`, en los 4 canales (= `MulShr8_4`).
-- La bola de un uso (0x518DDA y 0x519002): tinte `([0xBE8E8C] & 0xFF) << 24 | 0xFFFFFF` con [0xBE8E8C] = 0x00010196
-  (sin escritor), así que el alfa es (0xFF·0x96)>>8 = 0x95.
-- `SpellWolf::Draw`: +0x4C = `fistp(alpha) << 24 | 0xFFFFFF` (0x51C701..0x51C714) y la translucidez se decide con ese
-  alfa crudo (0x51C71E..0x51C727); ardiendo, +0x4C × carbonizado en los 4 canales (0x51C751..0x51C7B7) y
-  `fn_0080BEC0` con el brillo `fn_00730480`.
-- **`Tree::Draw` no llama a `fn_0080BEC0`**: su +0x4C es `fn_00802120` (0x74AB1B) más la neblina `fn_007FEB30`
-  (0x74AB60), y después el brillo [0xC22FA0] por `(c·k)>>8` con el alfa conservado (0x74B077..0x74B0C4). La neblina va
-  **antes** del brillo, al revés que en `vs_object`.
-- El árbol ardiendo (`fn_0074B3A0`): gris 50, o `ftol(255 − (1 − vida)·2550)` con un mínimo de 50 si vida > 0,9, y
-  luego `min(gris, [0xC22FA0])` sin signo (`jb`, 0x74B47B..0x74B484); el alfa **se conserva** (0x74B4C9, confirmado).
-- El gris de carbonizado `fn_00730570` es `255 − ceil(175k/256)` (0x730585..0x7305D7): k = 255 da 80.
+- A field: `Field::Draw` calls `fn_0080BEC0` with the field's colour (BlendColor, alpha 0xFF at 0x528510), so its
+  final alpha is (0xFF·0xFF)>>8 = **254**. With fire (0x528809..0x528862) the tint is first that colour times the
+  charred grey of `fn_00730570`, on all 4 channels (= `MulShr8_4`).
+- The one-shot ball (0x518DDA and 0x519002): tint `([0xBE8E8C] & 0xFF) << 24 | 0xFFFFFF` with [0xBE8E8C] = 0x00010196
+  (no writer), so the alpha is (0xFF·0x96)>>8 = 0x95.
+- `SpellWolf::Draw`: +0x4C = `fistp(alpha) << 24 | 0xFFFFFF` (0x51C701..0x51C714) and translucency is decided with that
+  raw alpha (0x51C71E..0x51C727); when burning, +0x4C × charred on all 4 channels (0x51C751..0x51C7B7) and
+  `fn_0080BEC0` with the glow `fn_00730480`.
+- **`Tree::Draw` does not call `fn_0080BEC0`**: its +0x4C is `fn_00802120` (0x74AB1B) plus the fog `fn_007FEB30`
+  (0x74AB60), and then the brightness [0xC22FA0] by `(c·k)>>8` with alpha preserved (0x74B077..0x74B0C4). The fog goes
+  **before** the brightness, the other way round from `vs_object`.
+- The burning tree (`fn_0074B3A0`): grey 50, or `ftol(255 − (1 − vida)·2550)` with a minimum of 50 if life > 0.9, and
+  then unsigned `min(gris, [0xC22FA0])` (`jb`, 0x74B47B..0x74B484); alpha **is preserved** (0x74B4C9, confirmed).
+- The charred grey `fn_00730570` is `255 − ceil(175k/256)` (0x730585..0x7305D7): k = 255 gives 80.
 
-openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, sin estado, todo `constexpr`), con la regla del alfa en el
-nombre (`_4`, `_3KeepA`, `_3OpaqueA`), más `Argb`, `Red/Green/Blue/Alpha` y las conversiones de bgfx sin original
-(`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` redondeando y `ToVec4/ToVec3` = byte/255). El gemelo de GPU es
-`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`), que incluyen
-`vs_object.sc` (la columna de colores de la instancia, el color del corte y el color sin luz de `u_objectLight.z`) y
-`vs_foliage.sc` (el color de las cosechas).
-`Lh3dMul255` es floor((c·l + 0,5)/255): la división de un shader no redondea bien (a menudo x·rcp(255)) y un
-floor(x/255) a secas puede dar k − 1 cuando x = 255k; con el + 0,5 la fracción queda en [0,002, 0,998]
-(aproximado hasta probarlo en una GPU). `ScaleShr8_3KeepA` vale para cualquier k: las máscaras van tras cada `imul`
-(0x74B099 / 0x74B09F / 0x74B0B2), así que los canales no se pisan; los llamadores pasan 0..255. `fn_0080BEC0` es
-«dibujar con el color del terreno» por la propiedad `DrawWithLandscapeColor` del PSys (`Particle3DObj::DrawAt`
-0x67A00C); symbols.txt la llama `GetPoisonColor@Pot`, y el nombre es nuestro (inferido). La luz
-de modelos (`model_light::Apply`), el color de las nubes (`Clouds::Colour`, 0x5E1ECE..0x5E1F24), las neblinas
-(`RendererMists`), la bola de un uso y las conversiones de `Renderer`, `RendererBoat`, `RendererSea`,
-`RendererSmoke`, `Dust`, `GameFont` y `ScreenFade` ya lo usan, sin cambio visible. `test_lh3d_colour` compara
-`MulShr8_4` con una emulación instrucción a instrucción de 0x80BFA3..0x80C00B y `Mul255` con las dos formas de
-0x80808081 para todos los productos de dos bytes.
+openblack: `src/Graphics/Lh3dColour.h` (`lh3d_colour::`, stateless, all `constexpr`), with the alpha rule in the
+name (`_4`, `_3KeepA`, `_3OpaqueA`), plus `Argb`, `Red/Green/Blue/Alpha` and the bgfx conversions with no original
+(`ToAbgr(argb)`, `ToAbgr(argb, alfa)`, `ToAbgr(vec4)` rounding and `ToVec4/ToVec3` = byte/255). The GPU twin is
+`assets/shaders/lh3d_colour.sh` (`Lh3dMulShr8`, `Lh3dAddSat`, `Lh3dMul255`, `Lh3dUnpackRgb24`), included by
+`vs_object.sc` (the instance's colour column, the cut colour and the unlit colour from `u_objectLight.z`) and
+`vs_foliage.sc` (the crop colour).
+`Lh3dMul255` is floor((c·l + 0.5)/255): division in a shader does not round well (often x·rcp(255)) and a plain
+floor(x/255) can give k − 1 when x = 255k; with the + 0.5 the fraction stays within [0.002, 0.998]
+(approximate until tested on a GPU). `ScaleShr8_3KeepA` works for any k: the masks come after each `imul`
+(0x74B099 / 0x74B09F / 0x74B0B2), so the channels do not overwrite each other; the callers pass 0..255. `fn_0080BEC0` is
+"draw with the terrain colour" for the PSys property `DrawWithLandscapeColor` (`Particle3DObj::DrawAt`
+0x67A00C); symbols.txt calls it `GetPoisonColor@Pot`, and the name is ours (inferred). Model
+lighting (`model_light::Apply`), the cloud colour (`Clouds::Colour`, 0x5E1ECE..0x5E1F24), the mists
+(`RendererMists`), the one-shot ball and the conversions in `Renderer`, `RendererBoat`, `RendererSea`,
+`RendererSmoke`, `Dust`, `GameFont` and `ScreenFade` already use it, with no visible change. `test_lh3d_colour` compares
+`MulShr8_4` with an instruction-by-instruction emulation of 0x80BFA3..0x80C00B and `Mul255` with the two forms of
+0x80808081 for all products of two bytes.
 
-### Los campos de color del objeto en la instancia
+### The object colour fields in the instance
 
-**Transporte propio de openblack** (sin original): el motor guarda los colores en el LH3DObject (obj+0x4C difuso,
-+0x50 especular, +0x54 ventanas) y los usa la CPU al iluminar; openblack los lleva por instancia a `vs_object`. Cada
-instancia tiene **cinco columnas** (80 bytes, `i_data0..i_data4`): la matriz y una quinta con un float por campo, cada
-uno un entero de como mucho 2^24 que el float guarda exacto. La escriben `lh3d_colour::PackInstance*`
-(`src/Graphics/Lh3dColour.h`) en `RenderContext::instanceColours`, y `RenderingSystemCommon::UploadInstances` intercala
-las dos listas en el búfer.
+**openblack's own transport** (no original): the engine stores the colours in the LH3DObject (obj+0x4C diffuse,
++0x50 specular, +0x54 windows) and the CPU uses them when lighting; openblack carries them per instance to `vs_object`. Each
+instance has **five columns** (80 bytes, `i_data0..i_data4`): the matrix and a fifth one with one float per field, each
+an integer of at most 2^24 that the float holds exactly. It is written by `lh3d_colour::PackInstance*`
+(`src/Graphics/Lh3dColour.h`) into `RenderContext::instanceColours`, and `RenderingSystemCommon::UploadInstances` interleaves
+the two lists in the buffer.
 
-| Campo | Valor | Qué es |
+| Field | Value | What it is |
 |---|---|---|
-| x (+0x4C) | 0 | la luz de tierra sola (`fn_00801C90` sin `fn_0080BF10`) |
-| | −1 − rgb (`PackInstanceTint`) | un tinte t que multiplica la luz de tierra (`(c·t)>>8`): el de `fn_0080BF10`, o el propio de `Tree::Draw` (ver w) |
-| | 1 + rgb (`PackInstanceColour`) | el color de `SetColorSpecular` 0x7F9770 (vt 0x2C), en lugar de la luz de tierra |
-| y (+0x50) | rgb (`PackInstanceSpecular`) | el especular, 8 bits por canal, sumado con saturación al de la tierra (0x80BF1B..0x80BFB9) |
-| z (+0x54) | 0 o 1 + rgb (`PackInstanceWindow`) | el color de las ventanas de `Abode::Draw` (vt 0x30, 0x516068); 0 = apagadas |
-| w | 0 o 1 (`PackInstanceTreeTint`) | 1 = el tinte va después de la neblina: `Tree::Draw` no llama a `fn_0080BF10`, ilumina con `fn_00802120` (0x74AB1B), aplica la neblina (0x74AB60) y luego multiplica el +0x4C (0x74B077..0x74B0C4; ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3) |
+| x (+0x4C) | 0 | the land light alone (`fn_00801C90` without `fn_0080BF10`) |
+| | −1 − rgb (`PackInstanceTint`) | a tint t that multiplies the land light (`(c·t)>>8`): that of `fn_0080BF10`, or `Tree::Draw`'s own (see w) |
+| | 1 + rgb (`PackInstanceColour`) | the colour from `SetColorSpecular` 0x7F9770 (vt 0x2C), instead of the land light |
+| y (+0x50) | rgb (`PackInstanceSpecular`) | the specular, 8 bits per channel, added with saturation to the land one (0x80BF1B..0x80BFB9) |
+| z (+0x54) | 0 or 1 + rgb (`PackInstanceWindow`) | the window colour from `Abode::Draw` (vt 0x30, 0x516068); 0 = off |
+| w | 0 or 1 (`PackInstanceTreeTint`) | 1 = the tint goes after the fog: `Tree::Draw` does not call `fn_0080BF10`, it lights with `fn_00802120` (0x74AB1B), applies the fog (0x74AB60) and then multiplies the +0x4C (0x74B077..0x74B0C4; when burning, `fn_0074B3A0` 0x74B48F..0x74B4D3) |
 
-Así color y especular van a la vez (antes compartían el w de la cuarta columna y ganaba el último). Quién pasa qué
-(`DrawColoursOf` en `RenderingSystem.cpp`, leído en cada Draw):
+This way colour and specular go together (before, they shared the w of the fourth column and the last one won). Who passes what
+(`DrawColoursOf` in `RenderingSystem.cpp`, read in each Draw):
 
-| Objeto | Tinte | Especular | Dirección |
+| Object | Tint | Specular | Address |
 |---|---|---|---|
-| Aldeano | ardiendo: gris de carbonizado; si +0xD0 ≠ 0: blanco 0xFFFFFFFF; envenenado: 0xFFE8FFDD; si no, nada | brillo del fuego / +0xD0 / 0xFF001000 | `fn_0051B3D0` 0x51B402..0x51B488 |
-| Animal | ardiendo: carbonizado; +0xD0 ≠ 0: blanco; si no, nada (no mira el veneno) | brillo / +0xD0 | `Animal::Draw` 0x51C4C6..0x51C51C |
-| Lobo del milagro | siempre blanco (+0x4C = alfa << 24 \| 0xFFFFFF); ardiendo, × carbonizado en los 4 canales | brillo / +0xD0 | 0x51C709..0x51C7E1 |
-| Vasija o pila envenenada sin fuego | 0xFFE8FFDD | 0xFF001000 | `Pot::Draw` 0x51BB8F..0x51BBA3, `PileFood::Draw` 0x51C191..0x51C1B8 |
-| Icono de milagro de un centro (`TownCentreSpellIcon`) | blanco, siempre (con vida del centro > 0) | +0x10C (sin portar: 0) | `TownCentre::Draw` 0x5164A6..0x5164B2 |
-| Icono de milagro de un lugar de culto | blanco solo si +0x10C ≠ 0 (0x519672..0x51967C, 0x5198A8); como +0x10C no está portado, nada | 0 | `SpellIcon::Draw` 0x519650 |
-| Escudo físico | blanco | 0 | `PhysicalShield::DrawShield` 0x72D0D4 |
-| Bola de un uso | blanco (su alfa va en `components::Alpha`) | 0 | 0x519002..0x51901E |
-| Campo | su color; ardiendo, × carbonizado (`MulShr8_4`) | 0 / brillo | `Field::Draw` 0x528809..0x52888A |
-| Árbol | brillo [0xC22FA0]; ardiendo, `TreeDrawColour`; los dos después de la neblina (w = 1) | 0 | `Tree::Draw` 0x74B077..0x74B0C4, `fn_0074B3A0` 0x74B48F..0x74B4D3 |
-| Cualquier otro con fuego (edificios, rocas, árboles muertos, tótems...) | gris de carbonizado `fn_00730570` | brillo `fn_00730480` | `fn_00518050` (11 llamadores) y `DrawBuilding` 0x517FD4 |
-| Bandas de poder | color del jugador (`SetColorSpecular`) | 0x141414 ([0xBE8EA0] = 20) | `DrawSpellGraphic` 0x51A370..0x51A3BE; la de la mano escribe los campos directamente (`PHandFX` Band::Draw +0x4C 0x68D87D / 0x68D8AB, +0x50 0x68D8B1; (inferido) sin `fn_00801C90` detrás) |
-| Átomo de malla PSys | DrawData+8 (tinte con `DrawWithLandscapeColor`, si no `SetColorSpecular`) | 0 (aproximado: falta DrawData+0xC, leído en 0x67A012 y 0x67A023; se pierde en los dos caminos) | `Particle3DObj::DrawAt` 0x67A00C..0x67A02F |
+| Villager | burning: charred grey; if +0xD0 ≠ 0: white 0xFFFFFFFF; poisoned: 0xFFE8FFDD; otherwise, nothing | fire glow / +0xD0 / 0xFF001000 | `fn_0051B3D0` 0x51B402..0x51B488 |
+| Animal | burning: charred; +0xD0 ≠ 0: white; otherwise, nothing (does not check poison) | glow / +0xD0 | `Animal::Draw` 0x51C4C6..0x51C51C |
+| Miracle wolf | always white (+0x4C = alpha << 24 \| 0xFFFFFF); burning, × charred on all 4 channels | glow / +0xD0 | 0x51C709..0x51C7E1 |
+| Poisoned pot or pile without fire | 0xFFE8FFDD | 0xFF001000 | `Pot::Draw` 0x51BB8F..0x51BBA3, `PileFood::Draw` 0x51C191..0x51C1B8 |
+| Town centre miracle icon (`TownCentreSpellIcon`) | white, always (with centre life > 0) | +0x10C (not ported: 0) | `TownCentre::Draw` 0x5164A6..0x5164B2 |
+| Worship site miracle icon | white only if +0x10C ≠ 0 (0x519672..0x51967C, 0x5198A8); since +0x10C is not ported, nothing | 0 | `SpellIcon::Draw` 0x519650 |
+| Physical shield | white | 0 | `PhysicalShield::DrawShield` 0x72D0D4 |
+| One-shot ball | white (its alpha goes in `components::Alpha`) | 0 | 0x519002..0x51901E |
+| Field | its colour; burning, × charred (`MulShr8_4`) | 0 / glow | `Field::Draw` 0x528809..0x52888A |
+| Tree | brightness [0xC22FA0]; burning, `TreeDrawColour`; both after the fog (w = 1) | 0 | `Tree::Draw` 0x74B077..0x74B0C4, `fn_0074B3A0` 0x74B48F..0x74B4D3 |
+| Anything else with fire (buildings, rocks, dead trees, totems...) | charred grey `fn_00730570` | glow `fn_00730480` | `fn_00518050` (11 callers) and `DrawBuilding` 0x517FD4 |
+| Power bands | player colour (`SetColorSpecular`) | 0x141414 ([0xBE8EA0] = 20) | `DrawSpellGraphic` 0x51A370..0x51A3BE; the hand's one writes the fields directly (`PHandFX` Band::Draw +0x4C 0x68D87D / 0x68D8AB, +0x50 0x68D8B1; (inferred) without `fn_00801C90` behind it) |
+| PSys mesh atom | DrawData+8 (tint with `DrawWithLandscapeColor`, otherwise `SetColorSpecular`) | 0 (approximate: DrawData+0xC is missing, read at 0x67A012 and 0x67A023; it is lost on both paths) | `Particle3DObj::DrawAt` 0x67A00C..0x67A02F |
 
-El tinte blanco quita 1 a cada canal (`(c·255)>>8`): antes no se aplicaba. El alfa del tinte no se lleva. El dibujo
-del LH3DObject copia el +0x4C entero a [0xC37D8C] (0x80DEF8; el +0x50 a [0xE9FE2C], 0x80DEFE) para todos los objetos,
-y varias rutinas lo leen (`fn_007A4170` 0x7A6A2C, 0x7A7E85, `fn_00805CD0` 0x805EAA, `fn_00809E50`); que su alfa solo
-cuente en los que se desvanecen es **(inferido)** (no se siguieron esas lecturas hasta el color del vértice). Para
-esos openblack usa `components::Alpha` (aproximado: el escudo debería quedar en 0xFE y el lobo en (A·0xFF)>>8).
-`test_lh3d_colour` comprueba los extremos (−2^24, 2^24, el negro, la ventana negra encendida) y 200 000 colores al azar
-decodificados como en el shader.
+The white tint subtracts 1 from each channel (`(c·255)>>8`): before, it was not applied. The tint's alpha is not carried. The
+LH3DObject draw copies the whole +0x4C to [0xC37D8C] (0x80DEF8; the +0x50 to [0xE9FE2C], 0x80DEFE) for all objects,
+and several routines read it (`fn_007A4170` 0x7A6A2C, 0x7A7E85, `fn_00805CD0` 0x805EAA, `fn_00809E50`); that its alpha only
+counts for the ones that fade out is **(inferred)** (those reads were not followed through to the vertex colour). For
+those openblack uses `components::Alpha` (approximate: the shield should end up at 0xFE and the wolf at (A·0xFF)>>8).
+`test_lh3d_colour` checks the extremes (−2^24, 2^24, black, the black window switched on) and 200 000 random colours
+decoded as in the shader.
 
-**(aproximado)** El especular +0xD0 de los seres vivos: el original mira el dword entero con su alfa (0x51B416 /
-0x51C4D6 `test eax,eax`), y el chakra de curación escribe alfa 0xFF (`fn_006A0E30` 0x6A0EF5), así que sus fotogramas
-con rgb 0 siguen con el tinte blanco; openblack quita `SpecularColour` con rgb 0 (`PSys/Rules/Heal.cpp`) y esos
-fotogramas van con la luz de tierra sola.
+**(approximate)** The +0xD0 specular of living beings: the original checks the whole dword with its alpha (0x51B416 /
+0x51C4D6 `test eax,eax`), and the healing chakra writes alpha 0xFF (`fn_006A0E30` 0x6A0EF5), so its frames
+with rgb 0 keep the white tint; openblack removes `SpecularColour` with rgb 0 (`PSys/Rules/Heal.cpp`) and those
+frames go with the land light alone.
 
-**(inferido)** Toda clase de las instancias que puede arder pasa por `fn_00518050` o `DrawBuilding`, o lleva el mismo
-par en línea (el lobo 0x51C751); faltan por portar los pares en línea del FragMesh de la casa (0x5160AF), de
-`Object::DrawOutOfMap` (0x51C839) y del objeto de predicción de la física (0x646F8C) (ver Pendiente).
+**(inferred)** Every instance class that can burn goes through `fn_00518050` or `DrawBuilding`, or carries the same
+pair inline (the wolf 0x51C751); still to be ported are the inline pairs of the house's FragMesh (0x5160AF), of
+`Object::DrawOutOfMap` (0x51C839) and of the physics prediction object (0x646F8C) (see Pending).
 
-## Repetición o recorte de texturas
+## Texture wrapping or clamping
 
-**Fiel** (hecho).
+**Faithful** (done).
 
-- `fn_00850FC0` 0x851779: tras poner el modo, `SetD3DTillingOn` si `g_b_need_tilling` (0xECA614) o el bit 2 del byte
-  +5 del material; si no, `SetD3DTillingOff` (CLAMP). `g_b_need_tilling` lo copia cada Draw del objeto 3D de su bit
-  0x200 de Flags1 (vt+0xE4 = `fn_007F9B30`), y ese bit solo lo pone el setter vt+0xE0 desde mallas de partículas
-  (`ParticleMeshCreatorAnimTextured`, `ParticleVolBlendMeshCreator`): los objetos del mundo dependen solo del material.
-- `AllMeshes.g3d`: 1675 primitivas con el bit, 161 sin él; ninguna de estas tiene UV fuera de 0..1, así que el recorte
-  solo cambia el filtrado bilineal en los bordes de la textura. openblack: `Primitive::wrap` y flags de sampler en
+- `fn_00850FC0` 0x851779: after setting the mode, `SetD3DTillingOn` if `g_b_need_tilling` (0xECA614) or bit 2 of byte
+  +5 of the material; otherwise `SetD3DTillingOff` (CLAMP). `g_b_need_tilling` is copied on each Draw of the 3D object from its bit
+  0x200 of Flags1 (vt+0xE4 = `fn_007F9B30`), and that bit is only set by the setter vt+0xE0 from particle meshes
+  (`ParticleMeshCreatorAnimTextured`, `ParticleVolBlendMeshCreator`): world objects depend only on the material.
+- `AllMeshes.g3d`: 1675 primitives with the bit, 161 without it; none of the latter has UVs outside 0..1, so clamping
+  only changes bilinear filtering at the texture edges. openblack: `Primitive::wrap` and sampler flags in
   `Renderer::DrawSubMesh`. Script: `documentacion\render\l3d_wrap_scan.py`.
+## The single transparent queue (LH3DZSorter)
 
-## La cola única de transparentes (LH3DZSorter)
-
-**Fiel**, con lo que se marca. API `graphics::zsorter`, en `src/Graphics/ZSorter.{h,cpp}` (núcleo del Renderer, sin
-dueño de área). Informe: `dev\documentacion\unify2\lh3d_zsorter_original.md` (con su verificación); cambios:
+**Faithful**, with what is marked. API `graphics::zsorter`, in `src/Graphics/ZSorter.{h,cpp}` (Renderer core, with no
+area owner). Report: `dev\documentacion\unify2\lh3d_zsorter_original.md` (with its verification); changes:
 `dev\documentacion\unify\U6_changes.md`.
 
-**El original.** Todo lo que se dibuja con mezcla en el mundo pasa por **una sola cola**:
+**The original.** Everything that is drawn with blending in the world goes through **a single queue**:
 
-- `LH3DZSorter::NewZObject` 0x83F310 (32 llamadas en 31 funciones): lista enlazada en un búfer estático de 0x800
-  entradas de 0x18 bytes (0xEDDD30; cuenta 0xEE9D34, cabeza 0xEE9D38). La entrada nueva va **delante de la primera con
-  clave estrictamente menor** (`fld cur.clave; fcomp clave; test ah, 1`, 0x83F36A..0x83F376) o al final (0x83F39A):
-  de lejos a cerca y, con claves iguales, primero la que llegó antes (estable). Con la cola llena se **pierde la
-  nueva**, sea cual sea su clave (0x83F315/0x83F31C). Con una clave NaN, `fcomp` dice «menor» (C0).
-- Reinicio `fn_0083F3B0` desde `StartFrame` 0x82F1F9. Vaciado `fn_0082F280` desde `FinishFrame` 0x82F480, una sola vez
-  ([0xECA610]), de la cabeza al final, copiando el dato de usuario K en [0xEE9D30] (0x82F29D) antes de cada
-  retrollamada. Va **después** de todo lo que se dibuja al momento en el fotograma y **antes** de las retrollamadas de
-  fin de fotograma ([original-frame.md](original-frame.md)).
-- La clave es `LH3DTech::GetValueForZSorter` (en línea en W120; Mac 0x010E7360): |P − g_camera|² en `float`
-  (g_camera 0xEA1DB8). La suma x87 sigue el orden de las cargas, y con la FPU a 24 bits (fn_007DEE00, 0xFCFF en
-  0x7DEE0D; desde `InitOneTimeOnly` y desde `Process3dEngine` tras `FinishFrame`, 0x54E426) cada paso redondea a
-  `float` **(inferido: que nada entre fn_007DEE00 y los AddDrawing vuelva a subir la precisión; D3D7 sin FPUPRESERVE
-  también la deja a 24 bits)**: (x² + y²) + z² en los sprites 0x840C70, las nieblas 0x7FA83C, el humo 0x7F8D3E, los efectos
-  0x6797E5, la mano 0x46D1BD, fn_00813340 y fn_00679F60; **(x² + z²) + y²** en `LH3DObject::AddDrawing` 0x815F0F y en
-  la lluvia 0x834215 (`zsorter::SumOrder`). Solo puede cambiar el último bit.
-- El objeto `g_zsorter` (0xECA648, `fn_0083F2B0` en `OpenD3D` 0x82CDC1) no se lee nunca: no se porta.
+- `LH3DZSorter::NewZObject` 0x83F310 (32 calls in 31 functions): linked list in a static buffer of 0x800
+  entries of 0x18 bytes (0xEDDD30; count 0xEE9D34, head 0xEE9D38). The new entry goes **in front of the first one with a
+  strictly smaller key** (`fld cur.clave; fcomp clave; test ah, 1`, 0x83F36A..0x83F376) or at the end (0x83F39A):
+  from far to near and, with equal keys, the one that arrived first goes first (stable). With the queue full the **new one is
+  lost**, whatever its key (0x83F315/0x83F31C). With a NaN key, `fcomp` says "less" (C0).
+- Reset `fn_0083F3B0` from `StartFrame` 0x82F1F9. Drain `fn_0082F280` from `FinishFrame` 0x82F480, only once
+  ([0xECA610]), from head to end, copying the user datum K into [0xEE9D30] (0x82F29D) before each
+  callback. It goes **after** everything drawn immediately in the frame and **before** the end-of-frame
+  callbacks ([original-frame.md](original-frame.md)).
+- The key is `LH3DTech::GetValueForZSorter` (inline in W120; Mac 0x010E7360): |P − g_camera|² in `float`
+  (g_camera 0xEA1DB8). The x87 sum follows the order of the loads, and with the FPU at 24 bits (fn_007DEE00, 0xFCFF at
+  0x7DEE0D; from `InitOneTimeOnly` and from `Process3dEngine` after `FinishFrame`, 0x54E426) each step rounds to
+  `float` **(inferred: that nothing between fn_007DEE00 and the AddDrawing calls raises the precision again; D3D7 without FPUPRESERVE
+  also leaves it at 24 bits)**: (x² + y²) + z² in the sprites 0x840C70, the mists 0x7FA83C, the smoke 0x7F8D3E, the effects
+  0x6797E5, the hand 0x46D1BD, fn_00813340 and fn_00679F60; **(x² + z²) + y²** in `LH3DObject::AddDrawing` 0x815F0F and in
+  the rain 0x834215 (`zsorter::SumOrder`). Only the last bit can change.
+- The `g_zsorter` object (0xECA648, `fn_0083F2B0` in `OpenD3D` 0x82CDC1) is never read: it is not ported.
 
-**La API.**
+**The API.**
 
-| Función | Original |
+| Function | Original |
 |---|---|
-| `Queue<Item>::Begin()` | `fn_0083F3B0` (y el `[0xECA610] = 0` de `StartFrame` 0x82F123) |
-| `Queue<Item>::Submit(item, key, user = 0)` | `NewZObject` 0x83F310: inserción estable, tope `k_Capacity` = 0x800 |
-| `Queue<Item>::Drain()` | `fn_0082F280`: las entradas de lejos a cerca, con su K; vacío si ya se vació |
-| `Key(p, camera, order)` | `GetValueForZSorter`, en `float`, con el orden de suma del llamador |
-| `PackRainUser` / `UnpackRainUser` | 0x834233..0x834259 / 0x833F83: alfa·65536 + 256·trunc(z/80) + trunc(x/80) |
+| `Queue<Item>::Begin()` | `fn_0083F3B0` (and the `[0xECA610] = 0` of `StartFrame` 0x82F123) |
+| `Queue<Item>::Submit(item, key, user = 0)` | `NewZObject` 0x83F310: stable insertion, cap `k_Capacity` = 0x800 |
+| `Queue<Item>::Drain()` | `fn_0082F280`: the entries from far to near, with their K; empty if already drained |
+| `Key(p, camera, order)` | `GetValueForZSorter`, in `float`, with the caller's summation order |
+| `PackRainUser` / `UnpackRainUser` | 0x834233..0x834259 / 0x833F83: alpha·65536 + 256·trunc(z/80) + trunc(x/80) |
 
-**Qué entra y con qué punto** (`Renderer::DrawPass`, la cola `sorted`, solo en la vista principal):
+**What goes in and with which point** (`Renderer::DrawPass`, the `sorted` queue, only in the main view):
 
-| Qué | Original | Punto de la clave |
+| What | Original | Key point |
 |---|---|---|
-| modelos cuya malla tiene la marca 0x200, enteros (también los que se desvanecen) | `LH3DObject::AddDrawing` 0x815F53 | traslación de la instancia (+0x38), (x² + z²) + y² |
-| la burbuja de la bola de un uso, siempre | 0x815F53 (bit forzado en 0x72A4AA) | `sortPoint` (`OneOffSpellSeed::Draw` 0x518E90) |
-| la mano, entera | `CHand::AddDrawing` 0x46D203 | el origen +0x38 del LH3DObject [CHand+0x482C] (0x46D1B7); aquí la traslación de la instancia **(inferido: que sea ese origen)** |
-| efecto `Sorted`: cada sprite | `LH3DSprite::AddDrawing` 0x840CB3, desde 0x67B0D2 | el sprite (`SortedFrame::sprites`) |
-| efecto `Sorted`: cada átomo de malla, también los opacos y los cortados | `fn_00679F60` 0x679FC7, desde 0x67A246 | la traslación (+0x38..+0x40) |
-| efecto `Sorted`: cada cadena | `fn_0067B380`, desde 0x6798DF | la articulación n/2 |
-| efecto `Sorted`: cada niebla | `LH3DMist::AddDrawing` 0x7FA87B, desde 0x67A782 | la niebla (por `mists::Submit`) |
-| efecto `Queued`, entero | `PSysManager::AddDrawing` 0x679834 | `GetOrigin` del efecto |
-| `components::Sprite` | `LH3DSprite::AddDrawing` 0x840CB3 | el sprite |
-| nieblas del mapa y de `mists::Submit` | `LH3DMist::AddDrawing` 0x7FA87B | la niebla |
-| **nubes** | 0x7FA87B, desde `fn_005E25C0` 0x5E2813 | la nube |
-| humo de chimeneas | `LH3DSmoke::AddDrawing` 0x7F8D8E | la chimenea |
-| **lluvia, una entrada por casilla** | `fn_008341B0` 0x83427F | (x, `GetAltitude`, z) del centro del bloque (+0x90C/+0x910 + 80, 0x8362DB); aquí `tile.origin` con la altura de `LandHeightAt` **(aproximado)** |
-| **sprites del barco, uno a uno** | 0x840CB3 (estela `PetitNavire::PostDraw` 0x5E08D0, bocanadas fn_00823F70 0x82411A) | el sprite |
+| models whose mesh has the 0x200 flag, whole (also those fading out) | `LH3DObject::AddDrawing` 0x815F53 | instance translation (+0x38), (x² + z²) + y² |
+| the one-shot ball's bubble, always | 0x815F53 (bit forced at 0x72A4AA) | `sortPoint` (`OneOffSpellSeed::Draw` 0x518E90) |
+| the hand, whole | `CHand::AddDrawing` 0x46D203 | the origin +0x38 of the LH3DObject [CHand+0x482C] (0x46D1B7); here the instance translation **(inferred: that it is that origin)** |
+| `Sorted` effect: each sprite | `LH3DSprite::AddDrawing` 0x840CB3, from 0x67B0D2 | the sprite (`SortedFrame::sprites`) |
+| `Sorted` effect: each mesh atom, also the opaque and cut ones | `fn_00679F60` 0x679FC7, from 0x67A246 | the translation (+0x38..+0x40) |
+| `Sorted` effect: each chain | `fn_0067B380`, from 0x6798DF | the joint n/2 |
+| `Sorted` effect: each mist | `LH3DMist::AddDrawing` 0x7FA87B, from 0x67A782 | the mist (via `mists::Submit`) |
+| `Queued` effect, whole | `PSysManager::AddDrawing` 0x679834 | the effect's `GetOrigin` |
+| `components::Sprite` | `LH3DSprite::AddDrawing` 0x840CB3 | the sprite |
+| map mists and those of `mists::Submit` | `LH3DMist::AddDrawing` 0x7FA87B | the mist |
+| **clouds** | 0x7FA87B, from `fn_005E25C0` 0x5E2813 | the cloud |
+| chimney smoke | `LH3DSmoke::AddDrawing` 0x7F8D8E | the chimney |
+| **rain, one entry per tile** | `fn_008341B0` 0x83427F | (x, `GetAltitude`, z) of the block centre (+0x90C/+0x910 + 80, 0x8362DB); here `tile.origin` with the height from `LandHeightAt` **(approximate)** |
+| **boat sprites, one by one** | 0x840CB3 (wake `PetitNavire::PostDraw` 0x5E08D0, puffs fn_00823F70 0x82411A) | the sprite |
 
-Las nubes entran con el cielo (como en `GLandscape::Draw`); lo demás, con los modelos. Sin entidades (vista de
-depuración) la cola tiene solo nubes y nieblas y se vacía al final de la pasada.
-Los `components::Sprite` (polvo, partículas de coger, destellos, luciérnagas...) van con los modelos transparentes
-desde antes de U6; hasta entonces se dibujaban antes que todos ellos y un modelo transparente detrás los tapaba.
+Clouds go in with the sky (as in `GLandscape::Draw`); the rest, with the models. Without entities (debug
+view) the queue has only clouds and mists and is drained at the end of the pass.
+The `components::Sprite` (dust, pick-up particles, sparkles, fireflies...) have gone with the transparent models
+since before U6; until then they were drawn before all of them and a transparent model behind covered them.
 
-**Qué entra y qué no: los modelos** (D7). `LH3DObject::AddDrawing` 0x815A70 (vt+0x100 de los objetos estáticos,
-animados y morfables) manda un objeto a la cola **solo** por el bit 0x10 de su +4 (vt+0x44 = `fn_007F97C0`, leído en
-0x815AC2 y probado en 0x815F0B): con él, el objeto **entero** (NewZObject 0x815F53, retrollamada 0x7FA980 → Draw
-vt+0x108); sin él, el Draw **al momento** (0x815F62), primitivas mezcladas incluidas. El bit lo copia `SetMesh` 0x7F9E10
-de la marca 0x200 de la malla (vt+0x3C = `fn_007F9D40`, mesh+4 & 0x200, 0x7F9E48; vt+0x40 = `fn_007F97A0`,
-0x7F9E51..0x7F9E64). mesh+4 son las banderas de la cabecera del L3D (`GetChimneyPos` 0x7F9F17 prueba ahí 0x400,
-HasChimney): `L3DMeshFlags::Unknown10`, `L3DMesh::IsZSorted`. La bola de un uso fuerza el bit (vt+0x40(1) 0x72A4AA,
-tras su `SetMesh` 0x72A49D). `SetGlobalAlpha` (bit 0x80, vt+0x48 = `fn_007F9D60`) **no** cuenta en 0x815A70: solo
-`fn_00813340` (vtable 0x9A3068, la de `Particle3DAnim`) encola por él (vt+0x4C 0x8133B9). Por eso un objeto que se
-funde con una malla sin 0x200 se dibuja al momento con la tabla 0xC387C8 (`render_modes::Table::GlobalAlpha`), en la
-vista principal. Afecta al escudo físico (`PhysicalShield::DrawShield`: `SetGlobalAlpha(1)` 0x72D0CC, `AddForDrawing`
-0x72D0E2): su malla `SpellSolidShield` tiene la marca en `Data\AllMeshes.g3d` (el del juego, leído entero: 626 L3D), así
-que sigue en la cola. Con la marca, en ese fichero, 40 mallas: casi todas las de los milagros (`SpellBlast*`, `SpellPhile*`,
-`SpellRainCone`, `SpellSolidShield`, `SpellSpellBallSurface02`, `SpellSpellDispenser`, `SpellPulseIn/Out`...), las
-cuevas, el foso de almacén azteca, `I_SpellGem`, `ObjectBoxFrame`, `RewardChestExplode`, el buitre y
-`TreeWheatInField`. openblack (`Renderer::DrawPass`): `instancedDrawDescs` y `translucentDrawDescs` por la marca de la
-malla (y la burbuja por su `sortPoint`); los demás modelos, al momento, con todas sus primitivas.
-**(inferido)** que todo modelo pase por 0x815A70 (`Game3DObject::AddForDrawing` 0x63B5D0 → vt+0x100) y que ninguno sea
-de la clase 0x9A3068.
+**What goes in and what does not: the models** (D7). `LH3DObject::AddDrawing` 0x815A70 (vt+0x100 of the static,
+animated and morphable objects) sends an object to the queue **only** because of bit 0x10 of its +4 (vt+0x44 = `fn_007F97C0`, read at
+0x815AC2 and tested at 0x815F0B): with it, the **whole** object (NewZObject 0x815F53, callback 0x7FA980 → Draw
+vt+0x108); without it, the Draw **immediately** (0x815F62), blended primitives included. The bit is copied by `SetMesh` 0x7F9E10
+from the mesh's 0x200 flag (vt+0x3C = `fn_007F9D40`, mesh+4 & 0x200, 0x7F9E48; vt+0x40 = `fn_007F97A0`,
+0x7F9E51..0x7F9E64). mesh+4 are the L3D header flags (`GetChimneyPos` 0x7F9F17 tests 0x400 there,
+HasChimney): `L3DMeshFlags::Unknown10`, `L3DMesh::IsZSorted`. The one-shot ball forces the bit (vt+0x40(1) 0x72A4AA,
+after its `SetMesh` 0x72A49D). `SetGlobalAlpha` (bit 0x80, vt+0x48 = `fn_007F9D60`) does **not** count in 0x815A70: only
+`fn_00813340` (vtable 0x9A3068, that of `Particle3DAnim`) queues because of it (vt+0x4C 0x8133B9). That is why an object that
+fades with a mesh without 0x200 is drawn immediately with the table 0xC387C8 (`render_modes::Table::GlobalAlpha`), in the
+main view. It affects the physical shield (`PhysicalShield::DrawShield`: `SetGlobalAlpha(1)` 0x72D0CC, `AddForDrawing`
+0x72D0E2): its mesh `SpellSolidShield` has the flag in `Data\AllMeshes.g3d` (the game's one, read in full: 626 L3D), so
+it stays in the queue. With the flag, in that file, 40 meshes: almost all the miracle ones (`SpellBlast*`, `SpellPhile*`,
+`SpellRainCone`, `SpellSolidShield`, `SpellSpellBallSurface02`, `SpellSpellDispenser`, `SpellPulseIn/Out`...), the
+caves, the Aztec storage pit, `I_SpellGem`, `ObjectBoxFrame`, `RewardChestExplode`, the vulture and
+`TreeWheatInField`. openblack (`Renderer::DrawPass`): `instancedDrawDescs` and `translucentDrawDescs` by the mesh's
+flag (and the bubble by its `sortPoint`); the other models, immediately, with all their primitives.
+**(inferred)** that every model goes through 0x815A70 (`Game3DObject::AddForDrawing` 0x63B5D0 → vt+0x100) and that none is
+of class 0x9A3068.
 
-**Los tres caminos de un efecto PSys** (`psys::DrawPath`; [particles.md](particles.md), veredicto
-`dev\documentacion\miracles\polish\psys_draw_paths_verdict.md`, interfaz `drawpath_fix.md`). `fn_00679860` copia el +0xAE
-del gestor en [0xC0215D] (0x679884) y cada átomo lo mira:
+**The three paths of a PSys effect** (`psys::DrawPath`; [particles.md](particles.md), verdict
+`dev\documentacion\miracles\polish\psys_draw_paths_verdict.md`, interface `drawpath_fix.md`). `fn_00679860` copies the manager's +0xAE
+into [0xC0215D] (0x679884) and each atom checks it:
 
-- **`Sorted`** (`Draw_(t, 1)` 0x55EDA0 → `fn_00679840`, +0xAE = 1 en 0x67984E; `Spell::Draw` 0x720441, tormenta
-  0x72DCB7, escudo 0x72D160, teletransporte 0x5FCDC5, dispensador 0x722A13, bandada 0x72420D, utilidades de la mano,
-  creencia del pueblo 0x69BF19): el efecto **no tiene Z-objeto**. `manager::CollectSorted` da cada elemento con su
-  punto y `DrawPass` hace un `Submit` por elemento, (x² + y²) + z²: cada sprite (`LH3DSprite::AddDrawing` 0x840C70
-  desde 0x67B0D2, en la posición del LH3DSprite, subida por altura·tamaño·0,5 con `CentreAtBase`, 0x67AFAB..0x67AFD6),
-  cada átomo de malla, **opacos y cortados también** (`fn_00679F60` desde 0x67A246, en su traslación, tras
-  `CheckRegionOnScreen` 0x679F75; aquí la esfera de la caja **(aproximado)**), cada cadena (`fn_0067B380`, en la
-  articulación n/2: base +0x44, paso 0x1C, índice (n − (n >> 31)) >> 1, 0x67B389..0x67B3A1) y cada niebla
-  (`fn_007FA7F0` desde 0x67A782, en mist+0x38: llega por `mists::Submit`). Los discos `ZR_SurfRevol` no miran
-  [0xC0215D] (0x67CBA0 → `RenderParticleGJMesh::DrawAt` 0x67C150 → `Draw3DWorldTriangle` 0x81C090, 0x67C9F2): se
-  dibujan **al momento**, en la vista principal tras los modelos (`Spell::DrawSpells` 0x7203F0 va después de los
-  modelos, desde 0x54E023), sin ordenar. Al vaciar, los sprites seguidos de la cola van en una sola llamada si
-  comparten material (`DrawPSysSprites`: mismo orden y mismos estados, los mismos píxeles).
-- **`Queued`** (`AddDrawing` 0x55EDC0 → `PSysManager::AddDrawing` 0x6797D0, +0xAE = 0 en 0x6797DE; solo la semilla en
-  la bola, el icono, la recompensa o el mapa 0x51A2CA y los contenedores con `GSpotVisualInfo+0x4C == 1` 0x63E26A; y,
-  fuera del PSys, el fuego `FireGraphic` 0x73261D): **un** Z-objeto por efecto con clave = `GetOrigin`
-  (0x6797E5..0x679834). En el vaciado (retrollamada `fn_00679860`) se dibujan todos sus elementos al momento, en el
-  orden de `fn_006798B0` (0x6798B0..0x679912: los átomos de la colección, su cadena, las colecciones hijas;
-  `manager::OrderedEffect::items`): sprites con `LH3DSprite::Draw` (0x67B0DF), mallas con `fn_00679F20` (0x67A458;
-  vt+0x104, o vt+0x11C cortada con el bit 4 de +0x24), nieblas con vt+0x104 = `fn_007FA790` (0x67A78C: la prueba de
-  pantalla y el Draw), discos (0x67CBA0) y cadenas con `fn_0067B370` (0x6798DD).
-- **`Immediate`** (`Draw_(t, 0)`): el efecto de la semilla en la mano. `CHand::Draw` 0x46D210 dibuja, dentro del
-  Z-objeto de la mano, la malla (0x46D258), el objeto sostenido (0x46D27C) y luego `DrawSpellInHand` (0x46D2AE →
-  0x46E680), que hace `Draw_(1.0, 0)` (0x46E76A): `manager::HandEffects`, dibujados como un `Queued` justo detrás de la
-  malla de la mano, en la misma entrada. El objeto sostenido de openblack no se dibuja desde esa entrada **(inferido: no
-  cambia nada, es opaco y va antes)**.
+- **`Sorted`** (`Draw_(t, 1)` 0x55EDA0 → `fn_00679840`, +0xAE = 1 at 0x67984E; `Spell::Draw` 0x720441, storm
+  0x72DCB7, shield 0x72D160, teleport 0x5FCDC5, dispenser 0x722A13, flock 0x72420D, hand utilities,
+  town belief 0x69BF19): the effect **has no Z-object**. `manager::CollectSorted` gives each element with its
+  point and `DrawPass` does one `Submit` per element, (x² + y²) + z²: each sprite (`LH3DSprite::AddDrawing` 0x840C70
+  from 0x67B0D2, at the LH3DSprite's position, raised by height·size·0.5 with `CentreAtBase`, 0x67AFAB..0x67AFD6),
+  each mesh atom, **opaque and cut ones too** (`fn_00679F60` from 0x67A246, at its translation, after
+  `CheckRegionOnScreen` 0x679F75; here the box's sphere **(approximate)**), each chain (`fn_0067B380`, at the
+  joint n/2: base +0x44, stride 0x1C, index (n − (n >> 31)) >> 1, 0x67B389..0x67B3A1) and each mist
+  (`fn_007FA7F0` from 0x67A782, at mist+0x38: it arrives via `mists::Submit`). The `ZR_SurfRevol` discs do not check
+  [0xC0215D] (0x67CBA0 → `RenderParticleGJMesh::DrawAt` 0x67C150 → `Draw3DWorldTriangle` 0x81C090, 0x67C9F2): they are
+  drawn **immediately**, in the main view after the models (`Spell::DrawSpells` 0x7203F0 comes after the
+  models, from 0x54E023), unsorted. When draining, consecutive sprites in the queue go in a single call if they
+  share a material (`DrawPSysSprites`: same order and same states, the same pixels).
+- **`Queued`** (`AddDrawing` 0x55EDC0 → `PSysManager::AddDrawing` 0x6797D0, +0xAE = 0 at 0x6797DE; only the seed in
+  the ball, the icon, the reward or the map 0x51A2CA and the containers with `GSpotVisualInfo+0x4C == 1` 0x63E26A; and,
+  outside PSys, the fire `FireGraphic` 0x73261D): **one** Z-object per effect with key = `GetOrigin`
+  (0x6797E5..0x679834). On draining (callback `fn_00679860`) all its elements are drawn immediately, in the
+  order of `fn_006798B0` (0x6798B0..0x679912: the collection's atoms, its chain, the child collections;
+  `manager::OrderedEffect::items`): sprites with `LH3DSprite::Draw` (0x67B0DF), meshes with `fn_00679F20` (0x67A458;
+  vt+0x104, or vt+0x11C cut with bit 4 of +0x24), mists with vt+0x104 = `fn_007FA790` (0x67A78C: the screen
+  test and the Draw), discs (0x67CBA0) and chains with `fn_0067B370` (0x6798DD).
+- **`Immediate`** (`Draw_(t, 0)`): the effect of the seed in the hand. `CHand::Draw` 0x46D210 draws, inside the
+  hand's Z-object, the mesh (0x46D258), the held object (0x46D27C) and then `DrawSpellInHand` (0x46D2AE →
+  0x46E680), which does `Draw_(1.0, 0)` (0x46E76A): `manager::HandEffects`, drawn like a `Queued` right behind the
+  hand mesh, in the same entry. openblack's held object is not drawn from that entry **(inferred: it does not
+  change anything, it is opaque and goes first)**.
 
-Por eso la lluvia y el fuego de un milagro ya no se pelean con la burbuja de un dispensador: antes el efecto entero iba
-con la clave de su origen, delante o detrás de la burbuja de una vez; ahora cada gota y cada llama van con la suya. El
-disco del dispensador (que es del efecto `Sorted` del dispensador, `Draw_(1.0, 1)` 0x722A13) se dibuja al momento, antes
-de toda la cola, así que la burbuja (modo 12, aditiva y que **escribe Z**, 0x82ECA6) suma su luz encima, como en el
-original. Prueba: `test_psys_sorted_queue` (clave de cada sprite y de la cadena, un `Queued` entre dos sprites de un
-mismo `Sorted`). Traza: `OPENBLACK_ORB_TRACE=1` (los discos con su camino y su sitio).
+That is why the rain and fire of a miracle no longer fight with a dispenser's bubble: before, the whole effect went
+with its origin's key, in front of or behind the bubble all at once; now each drop and each flame goes with its own. The
+dispenser's disc (which belongs to the dispenser's `Sorted` effect, `Draw_(1.0, 1)` 0x722A13) is drawn immediately, before
+the whole queue, so the bubble (mode 12, additive and which **writes Z**, 0x82ECA6) adds its light on top, as in the
+original. Test: `test_psys_sorted_queue` (key of each sprite and of the chain, a `Queued` between two sprites of the
+same `Sorted`). Trace: `OPENBLACK_ORB_TRACE=1` (the discs with their path and their place).
 
-La lluvia, en cambio, **no** pasa por `PSysManager::AddDrawing`: lleva su propia entrada por casilla con su propio
-punto (tabla de arriba); darle la clave de un efecto sería falso.
+Rain, on the other hand, does **not** go through `PSysManager::AddDrawing`: it carries its own entry per tile with its own
+point (table above); giving it an effect's key would be wrong.
 
-**Lo que cambió al unificar** (arreglos leídos en el binario):
+**What changed when unifying** (fixes read from the binary):
 
-1. Todo es estable: la ordenación propia de las nubes y la de las nieblas de reserva eran `std::sort` (0x83F36A).
-2. Tope de 0x800 con pérdida de la nueva (0x83F315/0x83F31C).
-3. Las nubes van en la cola, mezcladas por distancia con todo (antes, siempre encima; 0x7FA87B, 0x5E2813).
-4. Las cintas de las cadenas, ya dentro del objeto de su efecto (`fn_006798B0` 0x6798DD), pasan por la API.
-5. La lluvia va en la cola, una entrada por casilla (antes, un grupo detrás de la lista; 0x83427F).
-6. Los sprites del barco, cada uno en la cola (antes, un lote detrás de la lista; 0x840CB3).
-7. La mano va siempre a la cola y entera (antes, sus partes opacas en la vista principal y solo las mezcladas en la
-   lista, y solo si tenía alguna; 0x46D1B7..0x46D203 no prueba nada).
-8. Los efectos PSys por su camino (arriba); los modelos a la cola solo por la marca 0x200 de su malla, enteros (D7).
+1. Everything is stable: the clouds' own sorting and that of the fallback mists were `std::sort` (0x83F36A).
+2. Cap of 0x800 with the new one lost (0x83F315/0x83F31C).
+3. The clouds go in the queue, mixed by distance with everything (before, always on top; 0x7FA87B, 0x5E2813).
+4. The chain ribbons, now inside their effect's object (`fn_006798B0` 0x6798DD), go through the API.
+5. The rain goes in the queue, one entry per tile (before, a group behind the list; 0x83427F).
+6. The boat sprites, each one in the queue (before, a batch behind the list; 0x840CB3).
+7. The hand always goes to the queue and whole (before, its opaque parts in the main view and only the blended ones in the
+   list, and only if it had any; 0x46D1B7..0x46D203 tests nothing).
+8. PSys effects by their path (above); models to the queue only by their mesh's 0x200 flag, whole (D7).
 
-Además la clave es la distancia al cuadrado en `float` y no la distancia: el mismo orden salvo claves que la raíz
-juntaba.
+In addition the key is the squared distance in `float` and not the distance: the same order except for keys that the square root
+merged.
 
-**Lo que no entra, a propósito.** El orden de bloques del paisaje (`LH3DIsland::PreDraw` 0x7FF2D0, opaco, de cerca a
-lejos), los anillos del agua (`LH3DSprite::Draw` **inmediato**, 0x5E526C), las manchas de los aldeanos, el brillo de la
-mano en el agua (0x5E4D89) y el sol (`fn_0086BB60`, después del vaciado, **(inferido)**). Las sombras proyectadas
-tampoco son Z objects (ninguna rutina de sombra está entre los 32 llamadores): las de tierra van con cada bloque
-(`fn_007FF610` 0x7FF749) y las de objetos al final del Draw de cada receptor (`fn_0080DB30` 0x80E457..0x80E4D7,
-`fn_00812170` 0x81311A..0x81317C), así que van al momento con un objeto dibujado al momento (sin la marca 0x200 de su malla,
-0x815F62) y **dentro de su Z object** con uno encolado (0x7FA980 → vt+0x108). openblack lo hace igual (`Renderer::DrawShadowsOnObject` detrás de su `DrawMesh`, en
-Main o desde el vaciado; ver [Sombra dinámica sobre objetos](#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos)); hasta el punto 5 iban
-todas detrás del vaciado y oscurecían las burbujas, nubes y sprites que había delante. El reflejo no tiene cola (en
-el original no se ha leído **(inferido)**); se queda como estaba.
+**What does not go in, on purpose.** The landscape block order (`LH3DIsland::PreDraw` 0x7FF2D0, opaque, near to
+far), the water rings (`LH3DSprite::Draw` **immediate**, 0x5E526C), the villager blobs, the hand's glow
+in the water (0x5E4D89) and the sun (`fn_0086BB60`, after the drain, **(inferred)**). Projected shadows
+are not Z objects either (no shadow routine is among the 32 callers): the land ones go with each block
+(`fn_007FF610` 0x7FF749) and the object ones at the end of each receiver's Draw (`fn_0080DB30` 0x80E457..0x80E4D7,
+`fn_00812170` 0x81311A..0x81317C), so they go immediately with an object drawn immediately (without its mesh's 0x200 flag,
+0x815F62) and **inside its Z object** with a queued one (0x7FA980 → vt+0x108). openblack does the same (`Renderer::DrawShadowsOnObject` behind its `DrawMesh`, in
+Main or from the drain; see [Dynamic shadow on objects](#object-reflections-and-hand-shadow-on-objects)); until point 5 they all went
+behind the drain and darkened the bubbles, clouds and sprites in front. The reflection has no queue (in
+the original it has not been read **(inferred)**); it stays as it was.
 
-**(aproximado)**:
-- El orden de llegada (el desempate con claves iguales) no es el del original: aquí nubes, modelos por malla (un
-  `std::map`), desvanecidos, sprites, mallas y cadenas de los `Sorted`, efectos `Queued`, sprites, nieblas, humo,
-  lluvia, barco; allí el orden de los AddDrawing del fotograma (`original-frame.md`, pasos 4m..22).
-- El punto de la lluvia es `tile.origin` con la altura de `LandHeightAt` de Rain.cpp, no `GetAltitude` 0x803090 sobre
-  `MapCoords(x × 65536 × 0,1, z × 65536 × 0,1)` (0x8341D2..0x834210): eso es U3.
-- `CheckRegionOnScreen` de una malla `Sorted` (0x679F75) es la esfera de su caja; la de un modelo (0x815AB1) no se
-  hace: un modelo fuera de la vista ocupa un sitio del tope que el original no gasta.
-- Las mallas animadas de un `Sorted` (`Particle3DAnim::DrawAt` 0x67A9D9 → `fn_00813340`: a la cola solo con el bit
-  0x10, el 0x80 o +0xB8, si no al momento) van como las demás mallas **(no portado)**.
-- La lluvia viaja por su índice y no por K: `CollectTiles` ya aplica el fundido por distancia de fn_00834370, así que
-  una K hecha con ese alfa no sería la del original.
-- Las primitivas mezcladas de un modelo dibujado al momento van a la vista `MainBlended` (`DrawSubMesh`), por delante
-  de toda la cola pero detrás de todo lo opaco de la vista principal; en el original, en el sitio de su Draw.
+**(approximate)**:
+- The arrival order (the tie-break with equal keys) is not the original's: here clouds, models per mesh (a
+  `std::map`), faded ones, sprites, meshes and chains of the `Sorted`, `Queued` effects, sprites, mists, smoke,
+  rain, boat; there the order of the frame's AddDrawing calls (`original-frame.md`, steps 4m..22).
+- The rain point is `tile.origin` with the height from Rain.cpp's `LandHeightAt`, not `GetAltitude` 0x803090 on
+  `MapCoords(x × 65536 × 0,1, z × 65536 × 0,1)` (0x8341D2..0x834210): that is U3.
+- `CheckRegionOnScreen` of a `Sorted` mesh (0x679F75) is its box's sphere; that of a model (0x815AB1) is not
+  done: a model outside the view takes up a slot of the cap that the original does not spend.
+- The animated meshes of a `Sorted` (`Particle3DAnim::DrawAt` 0x67A9D9 → `fn_00813340`: to the queue only with bit
+  0x10, 0x80 or +0xB8, otherwise immediately) go like the other meshes **(not ported)**.
+- The rain travels by its index and not by K: `CollectTiles` already applies the distance fade of fn_00834370, so
+  a K built from that alpha would not be the original's.
+- The blended primitives of a model drawn immediately go to the `MainBlended` view (`DrawSubMesh`), in front
+  of the whole queue but behind everything opaque in the main view; in the original, at the place of its Draw.
 
-La traza `OPENBLACK_ORB_TRACE` sigue escribiendo la distancia (la raíz de la clave), como antes. Traza nueva:
+The `OPENBLACK_ORB_TRACE` trace still writes the distance (the square root of the key), as before. New trace:
 `OPENBLACK_ZSORTER_TRACE=1`.
 
-## Manchas de aldeanos, reflejos de objetos y LOD
+## Villager blobs, object reflections and LOD
 
-**Fiel**. Informe: `documentacion\render\misc_*` (con emulación Unicorn de `fn_0081FFF0`).
-- **Manchas** (`fn_0081FFF0`, desde el Draw de objetos animados `fn_00812170`): pies = huesos 21 y 18 (fin de las dos
-  piernas), en el suelo + 0,2; D = O·s − ((O·s)·n)·n con O = (√2, 0, √2), s = escala, n = normal del terreno;
-  quad 1 desde el pie 21 con V = D + (P18 − P21)/2, quad 2 simétrico; esquinas C − 0,02V ± U y C + V ± U con
-  U = 0,2·norm(1, 0, −1) (ancho fijo 0,4); UV (0,0)(1,0)(1,1)(0,1), alfa 1 en los pies y 0 en la punta; modo 6, sin
-  Z, dos caras, `human_shadow.raw` (byte & 0xF0 como alfa). No si y ≤ 0,2 (en el agua), muerto o en la mano de la
-  criatura. Animales: puntos de sus datos EBone (2 o 4 quads). openblack: `Renderer::DrawHumanShadows`;
-  `human_shadow.raw` se corta a 4 bits al cargar (0x81FCDD, [rendering.md](rendering.md#texturas-argb4444)) y
-  `fs_blob` solo lo muestrea.
-- **Reflejos en el mar** (`GLandscape::Draw` 0x5E490F): `DrawUnderWater` dibuja el objeto espejado en y = 0, sin luz,
-  recortado para que solo se refleje lo que está sobre el agua: la mano (0x65A0A0A0) y lo que sostiene, **el cuerpo de
-  la criatura** (0x65A0A0D0 + especular 0x30; no lo que lleva), barcos (0xFF303070), objetos físicos (su color).
-  Tiburones y SuperVillagers nadando se dibujan **cortados bajo el agua** (`DrawCutByPlane`, 0xFF303070); los peces
-  de piscifactoría son sprites. Detalle en las dos secciones siguientes y en
-  [Bancos de peces](#bancos-de-peces-de-las-piscifactorías).
-- **LOD**: `g_last_distance` es la profundidad lineal del centro de la esfera; S = min((importancia + 1) · radio ·
-  LevelOfDetail, 100000). En este ejecutable las dos cargas de LevelOfDetail están anuladas con NOP, S = 100000:
-  **siempre LOD 1**, sin fundido ni impostores (con el valor de diseño 0,5, un aldeano cambiaría a 11,5 / 33 / 43 u).
-- Trampa de las pruebas: `OPENBLACK_MOUSE_AT` en un borde de la ventana activa el desplazamiento por borde y mueve la
-  cámara; usar puntos interiores.
+**Faithful**. Report: `documentacion\render\misc_*` (with Unicorn emulation of `fn_0081FFF0`).
+- **Blobs** (`fn_0081FFF0`, from the Draw of animated objects `fn_00812170`): feet = bones 21 and 18 (end of the two
+  legs), on the ground + 0.2; D = O·s − ((O·s)·n)·n with O = (√2, 0, √2), s = scale, n = terrain normal;
+  quad 1 from foot 21 with V = D + (P18 − P21)/2, quad 2 symmetric; corners C − 0.02V ± U and C + V ± U with
+  U = 0.2·norm(1, 0, −1) (fixed width 0.4); UV (0.0)(1.0)(1.1)(0.1), alpha 1 at the feet and 0 at the tip; mode 6, no
+  Z, two-sided, `human_shadow.raw` (byte & 0xF0 as alpha). Not if y ≤ 0.2 (in the water), dead or in the creature's
+  hand. Animals: points from their EBone data (2 or 4 quads). openblack: `Renderer::DrawHumanShadows`;
+  `human_shadow.raw` is cut to 4 bits on load (0x81FCDD, [rendering.md](rendering.md#argb4444-textures)) and
+  `fs_blob` only samples it.
+- **Sea reflections** (`GLandscape::Draw` 0x5E490F): `DrawUnderWater` draws the object mirrored at y = 0, unlit,
+  clipped so that only what is above the water is reflected: the hand (0x65A0A0A0) and what it holds, **the creature's
+  body** (0x65A0A0D0 + specular 0x30; not what it carries), boats (0xFF303070), physics objects (their colour).
+  Sharks and swimming SuperVillagers are drawn **cut below the water** (`DrawCutByPlane`, 0xFF303070); the fish-farm
+  fish are sprites. Details in the next two sections and in
+  [Fish shoals](#fish-farm-fish-shoals).
+- **LOD**: `g_last_distance` is the linear depth of the sphere centre; S = min((importance + 1) · radius ·
+  LevelOfDetail, 100000). In this executable the two loads of LevelOfDetail are disabled with NOP, S = 100000:
+  **always LOD 1**, with no fading or impostors (with the design value 0.5, a villager would switch at 11.5 / 33 / 43 u).
+- Testing trap: `OPENBLACK_MOUSE_AT` on an edge of the window activates edge scrolling and moves the
+  camera; use interior points.
 
-## Submallas de física y de LOD 0
+## Physics and LOD 0 submeshes
 
-**Fiel** (regla del cargador de L3D: el bit `isPhysics` de la cabecera de submalla y `lodMask`). Una submalla con
-`isPhysics` (o sin el bit 1 de `lodMask`, salvo las ventanas) es solo para las físicas (`BuildFromVertices` 0x7FBAE0
-la usa como casco) y **nunca se dibuja**. Ejemplos: el dispensador de milagros (malla 557 `SpellSpellCreator`, la de
-`ABODE_SPELL_DISPENSER` en info.dat) tiene una submalla 0 de física de 16 vértices, un tronco de prisma de 7 lados
-(radio 1,9 abajo, 1,5 arriba, alto 3,1, UV 0, piel 0x4F), y el orbe `O_Bibble_up` una esfera lisa. En openblack
-todos los caminos la saltan: `Renderer::DrawSubMesh` (todo lo que pasa por `DrawMesh`: objetos, transparentes
-ordenados, átomos de malla del PSys, reflejos, la mano, barcos, tiburones, peces; solo el visor de mallas la pinta
-con `drawAll`), la sombra estática (`DrawStaticShadowPass`), las sombras proyectadas (`ShadowList.cpp`), `FragMesh` (trozos
-de edificios), `PartialBuild` y el picado (`L3DMesh::RayIntersect`). Comprobado el 2026-10-01 (capturas
-`dev\_audit\magic\prism_*.png` con el mod `test.miracle-dispensers`): el prisma no aparece en ningún dispensador.
+**Faithful** (L3D loader rule: the `isPhysics` bit of the submesh header and `lodMask`). A submesh with
+`isPhysics` (or without bit 1 of `lodMask`, except windows) is only for physics (`BuildFromVertices` 0x7FBAE0
+uses it as a hull) and is **never drawn**. Examples: the miracle dispenser (mesh 557 `SpellSpellCreator`, the one of
+`ABODE_SPELL_DISPENSER` in info.dat) has a physics submesh 0 of 16 vertices, a 7-sided prism frustum
+(radius 1.9 at the bottom, 1.5 at the top, height 3.1, UV 0, skin 0x4F), and the orb `O_Bibble_up` a smooth sphere. In openblack
+all paths skip it: `Renderer::DrawSubMesh` (everything that goes through `DrawMesh`: objects, sorted transparents,
+PSys mesh atoms, reflections, the hand, boats, sharks, fish; only the mesh viewer paints it
+with `drawAll`), the static shadow (`DrawStaticShadowPass`), projected shadows (`ShadowList.cpp`), `FragMesh` (building
+pieces), `PartialBuild` and picking (`L3DMesh::RayIntersect`). Checked on 2026-10-01 (captures
+`dev\_audit\magic\prism_*.png` with the mod `test.miracle-dispensers`): the prism does not appear on any dispenser.
 
-## La pasada bajo el mar (`graphics::sea_pass`)
+## The under-sea pass (`graphics::sea_pass`)
 
-**Fiel** salvo lo marcado. Una sola API para todo lo que el original dibuja «debajo» del mar antes de él
-(`GLandscape::Draw` 0x5E48AE..0x5E4E8C): `src/Graphics/SeaPass.h` (CPU, `namespace graphics::sea_pass`) y su gemelo
-`assets/shaders/sea_plane.sh` (GPU, `u_objectClip`, `SeaPlaneDiscard`, `SeaUnmirror`); prueba `test/test_sea_pass.cpp`.
+**Faithful** except what is marked. A single API for everything the original draws "below" the sea before it
+(`GLandscape::Draw` 0x5E48AE..0x5E4E8C): `src/Graphics/SeaPass.h` (CPU, `namespace graphics::sea_pass`) and its twin
+`assets/shaders/sea_plane.sh` (GPU, `u_objectClip`, `SeaPlaneDiscard`, `SeaUnmirror`); test `test/test_sea_pass.cpp`.
 
-El original tiene tres mecanismos y un solo plano:
+The original has three mechanisms and a single plane:
 
-| Mecanismo | Qué hace | Plano | Luz |
+| Mechanism | What it does | Plane | Light |
 |---|---|---|---|
-| A, tierra espejada (`fn_007FF4F0`) | unidad de altura [0xC3720C] = 0,67 × [0x8AB678] = −1,0 (0x7FF515..0x7FF52F), [0xFA92DC] = 1 (los bloques invierten sus índices, 0x7FF535) | — | tabla >> 1 (0x7FF53F..0x7FF564), sin small bump ([0xC37210] = 0, 0x7FF566..0x7FF577), sin escribir Z (0x5E48C5..0x5E4900) |
-| B, `DrawUnderWater` (vt+0x118: `fn_00811010` estático, `fn_00810E20` animado, `fn_00813300` complejo → `fn_00850FC0`) | espeja el objeto en y = 0 (fsubp 0x851094 / 0x8510BD / 0x8510E5) | prueba el punto **espejado**: d > 0 fuera (0x85111C..0x851149) | color constante obj+0x4C / +0x50 (0x811033..0x81103F → [0xC37D8C] / [0xE9FE2C], leídos en 0x851082 / 0x85102F), sin luz |
-| C, `DrawCutByPlane` (vt+0x11C: `fn_0080C050` estático / complejo, `fn_00811C70` animado → `fn_00858BA0`) | **no** espeja (0x858C5D..0x858CAE) | prueba el punto: d < 0 fuera (0x858D49..0x858D80) | 90 + 165·I >> 8 sobre obj+0x4C, + obj+0x50 (ver la sección siguiente) |
+| A, mirrored land (`fn_007FF4F0`) | height unit [0xC3720C] = 0.67 × [0x8AB678] = −1.0 (0x7FF515..0x7FF52F), [0xFA92DC] = 1 (the blocks reverse their indices, 0x7FF535) | — | table >> 1 (0x7FF53F..0x7FF564), no small bump ([0xC37210] = 0, 0x7FF566..0x7FF577), no Z write (0x5E48C5..0x5E4900) |
+| B, `DrawUnderWater` (vt+0x118: `fn_00811010` static, `fn_00810E20` animated, `fn_00813300` complex → `fn_00850FC0`) | mirrors the object at y = 0 (fsubp 0x851094 / 0x8510BD / 0x8510E5) | tests the **mirrored** point: d > 0 out (0x85111C..0x851149) | constant colour obj+0x4C / +0x50 (0x811033..0x81103F → [0xC37D8C] / [0xE9FE2C], read at 0x851082 / 0x85102F), unlit |
+| C, `DrawCutByPlane` (vt+0x11C: `fn_0080C050` static / complex, `fn_00811C70` animated → `fn_00858BA0`) | does **not** mirror (0x858C5D..0x858CAE) | tests the point: d < 0 out (0x858D49..0x858D80) | 90 + 165·I >> 8 on obj+0x4C, + obj+0x50 (see the next section) |
 
-- B y C comparten el recortador de CPU `fn_0081D2C0` (sus únicos llamadores: 0x8515E7 / 0x8516AD y 0x85930E /
-  0x8593C5) y el plano de usuario de `fn_00822560` (mundo [0xF03128], vista [0xF03118]). El plano por defecto
-  (0, 1, 0, 0) lo ponen los inicializadores `fn_0084A380` (0x84A39A: [0xF0312C] = 0x3F800000) y `fn_0084A3C0`; los
-  nadadores ponen (0, −1, 0, 0) (0x5E4C4A..0x5E4C5A, dwords, 0xBF800000) y lo devuelven en 0x5E4D76. El tiburón
-  (`fn_00774E30` 0x774FF5..0x77501A, devuelto en 0x7750E6..0x775106) y la red (`fn_00829BC0` 0x829C91..0x829CB7,
-  devuelto en 0x829D25..0x829D45) ponen **su propio** (0, −1, 0, 0), antes del bucle de los nadadores
-  (`sea_pass::k_SharkPlane`, `k_NetPlane`: los mismos valores que `k_SwimPlane`). Con
-  (0, b, 0, 0) los dos mecanismos dejan el mismo lado de la y **real**: b > 0 → y ≥ 0, b < 0 → y ≤ 0 (el espejo y la
-  prueba contraria se anulan). `sea_pass::Kept(Mechanism, plano)` → `SeaPlane {None, KeepAbove, KeepBelow}`.
-- **Cara**: el material decide en los tres sitios (el Draw 0x84C34A, B 0x851798..0x8517D1, C 0x8594CF..0x8594ED:
-  `((~mat+5) & 1)·2 + 1`, `push 0x16` = CULLMODE). `SeaPassState::FaceCull(Surface, dosCaras, unmirror)` junta los
-  cuatro sitios de openblack: modelos (C1), luna (C2), cielo (C3) y tierra (C4, que en openblack tiene el orden de
-  vértices contrario: es un dato de openblack, sin dirección).
-- **openblack**: la pasada `RenderPass::Reflection` dibuja con la cámara espejada (`ReflectionXZCamera`), que ya da el
-  espejo de B. Lo que C dibuja dentro de esa pasada se **des-espeja** (`SeaDraw::unmirror`, `SeaUnmirror` en
-  `vs_object`, en sus dos ramas), y el plano es un descarte por fragmento sobre la y real (`fs_object`,
-  **(aproximado)**: estricto por píxel, y = 0 se queda en los dos lados; el original recorta triángulos). Lo mismo con
-  los sprites de los peces (`Unmirror` en la CPU) y la vista de la luna (`UnmirrorView`).
-- `sea_pass::ForPass(pase)`: `mirrored`, `landLightScale` 0,5, `landWriteZ` y `smallBump` falsos en Reflection
-  (sustituye a `DrawSceneDesc::cullBack` y al `mirrored` de `DrawMoon`, que ya no existen).
-- `L3DMeshSubmitDesc::sea` (`sea_pass::SeaDraw`: luz, plano, unmirror, argb, especular, color por instancia) sustituye a
-  los seis campos de antes (`unlitColour`, `landColourOnly`, `clipBelowSea`, `cutByPlane`, `cutColour`,
-  `mirrorInSea`). `u_objectLight.x` sale de `SeaDraw::light`: `Normal` 1, `Constant` 2 (B, z = rgb, w = especular),
-  `LastDraw` 3 (B con lo que dejó el último Draw), `Cut` 4 (C, y = alfa, z = rgb o −1 = el de cada instancia,
-  w = especular). `u_objectClip` = `PackClip` (x plano, y unmirror); el cielo escribe 0 (bgfx guarda el último valor de
-  cada uniforme).
-- Entradas de `Renderer` (`RendererCut.cpp`): `DrawUnderWater(vista, malla, …, SeaDraw)` y `DrawUnderWater(vista,
-  entidad, SeaDraw)` (la mano con `UnderWater(k_HandColour, k_HandSpecular)`, lo sostenido y los objetos físicos con
-  `UnderWaterLastDraw()`, el barco con `UnderWater(0xFF303070, 0)`), `DrawCutByPlane(vista, entidad, SeaPlane, argb,
-  especular)` (tiburones: especular 0, `push 0` 0x775027) y `DrawFishPlots(vista, SeaPlane)` (la red: +0x50 = 0 del
-  ctor 0x8164FE). El orden es el del binario: tiburones (`fn_00775120` 0x5E4B26), peces y redes (`fn_00824B90`
-  0x5E4B2B), el sitio de los nadadores (0x5E4B4C..0x5E4D76) y el brillo de la mano (0x5E4D89). El reflejo del barco
-  sigue con `ObjectInstanced`: el casco no tiene `MorphWithTerrain`. Una instancia que se pega al suelo no se dibuja bajo el mar: el `DrawUnderWater` de las vtables
-  morfables (vt+0x118 de 0x9A2E34 / 0x9A2BFC) es un `ret` (0x80BA40), como su `DrawCutByPlane` (0x80BA50).
-- Colores de la pasada (`SetColorSpecular` vt+0x2C antes de la llamada): mano 0x65A0A0A0 / 0 (0x5E496E / 0x5E496C),
-  criatura 0x65A0A0D0 / 0x30 (0x5E4ACF / 0x5E4ACD), nadadores 0xFF303070 / 0 (0x5E4C69 / 0x5E4C68), barco 0xFF303070
-  (`mov [eax+0x4C]` 0x5E016C, sin tocar +0x50: **(inferido)** openblack pone 0).
-- **El alfa 0x65 de la mano no se ve** (D-O3, **(inferido)**): `fn_00811010` solo pone la tabla 0xC387C8 (0x8110CF)
-  si vt+0x4C = `fn_007F9D80` ((+4 >> 7) & 1) devuelve 1 (0x8110BF, `test eax, eax / je 0x81114C` 0x8110C2..0x8110C4).
-  El objeto LH3D de la mano es `LH3DObject::Create(3)` (`Morphable::MorphInit` 0x61731A → 0x80B5B2, vtable compleja
-  0x9A3068, cuyo vt+0x118 es `fn_00813300`: [0xC37D9C] = obj+0x80 y luego `fn_00811010`), sus banderas empiezan en
-  0x10009 (0x816537) y una búsqueda de bytes no encontró ninguna llamada a su vt+0x48 (`fn_007F9D60`, Flags1 | 0x80) en
-  los 0x30 bytes tras una lectura de [x+0x482C] (no descarta un setter por otro camino): su `DrawUnderWater` usa la
-  tabla normal y su material `AlphaTextured` toma el alfa de la textura.
-- Alrededor del `DrawUnderWater` de la mano: vt+0x58(0) 0x5E497E (`fn_008168C0`: quita Flags1 0x20; solo lo pone si
-  [0xC38224] ≠ 0) y vt+0x58(edi) 0x5E4991 lo devuelve. **(no portado)**: no se sabe qué hace Flags1 0x20 en este
-  dibujo (`fn_00811010` no lo prueba).
-- La **luna** sí usa la tabla 0xC387C8: vt+0x48(1) antes de su Draw (0x86AC05) y antes de su `DrawUnderWater`
-  (0x86AC3B). Modo 4 → 5 (0x82DD90: mismo blend y Z, ALPHAOP MODULATE(TEXTURE, DIFFUSE)); `fs_celestial` siempre
-  modula el alfa con `u_colour`, así que `DrawMoon` ya dibuja como el modo 5 en las dos pasadas.
-- **Átomos de malla del PSys con `DrawCutByPlane`** (fidelidad 3): el bit es `+0x24 & 4` del átomo, no `& 0x10`
-  (`fn_00679F20` `test al, 4` 0x679F29; lo pone `CreateParticle` desde +0x5F, 0x6A8B94..0x6A8B9A). Con el bit, vt+0xF8
-  (0x679F2F, devuelve la malla), luego `LH3DBoundingBox::CheckRegionOnScreen` 0x868C80 (llamada directa en 0x679F3C;
-  si da 0 se salta, 0x679F43) y vt+0x11C (0x679F4A) en vez del Draw vt+0x104 (0x679F52); también en el camino
-  ordenado (la vuelta de `fn_00679F60` es `fn_00679F20`, 0x679FBC). openblack: `RenderContext::cutAtomInstances` (con
-  `psys::manager::k_DrawByPath` todos, opacos o no, en `psysAtoms`: con su Z-objeto en un `Sorted`, en su sitio dentro
-  del efecto en un `Queued`), `sea_pass::CutAtoms` (plano por defecto, color y especular de la instancia;
-  **(aproximado)** alfa de vértice 0xFF: `fn_00858BA0` lo toma de obj+0x4C & 0xFF000000, 0x858C42 → [ebp−0x24], OR en
-  0x858D60, es decir el alfa de DrawData+8, que la instancia no lleva).
-  `psys::mesh_atoms::Instance` lleva el bit (`cutByPlane`, desde `MeshCreator::drawCutByPlane`) y el especular
-  DrawData+0xC (`specular`), que `RenderingSystem` lee; el alfa de DrawData+8 (`alpha`) no llega al corte. Un átomo
-  con `DrawCutByPlane` y `DrawWithLandscapeColor` se apunta una vez en el registro y se dibuja sin cortar
-  **(inferido: no se conoce ningún efecto con los dos)**. La prueba de caja en pantalla 0x679F3C la da el recorte de
-  bgfx **(aproximado)**.
-- **Huecos sin usuario** (constantes y un TODO con dirección en `Renderer.cpp`): la criatura (`DrawUnderWater` tras los
-  objetos físicos, 0x5E4A84..0x5E4AE6, si su bloque se ve (+0x920 & 1), el +0x9BC del bloque ≤ [0xC37200] = 100000,
-  y < [0x8AB35C] = 6 y +0xA0 < [0x8AB244] = 0,2) y los SuperVillagers que nadan (lista [0xEB9A08], animación
-  «M_P_Swim2» 0xBF3598, plano de los nadadores, vt+0x11C 0x5E4C77, tras `fn_00824B90` (0x5E4B2B: peces y redes) y
-  antes del brillo de la mano 0x5E4D89).
+- B and C share the CPU clipper `fn_0081D2C0` (its only callers: 0x8515E7 / 0x8516AD and 0x85930E /
+  0x8593C5) and the user plane of `fn_00822560` (world [0xF03128], view [0xF03118]). The default plane
+  (0, 1, 0, 0) is set by the initialisers `fn_0084A380` (0x84A39A: [0xF0312C] = 0x3F800000) and `fn_0084A3C0`; the
+  swimmers set (0, −1, 0, 0) (0x5E4C4A..0x5E4C5A, dwords, 0xBF800000) and restore it at 0x5E4D76. The shark
+  (`fn_00774E30` 0x774FF5..0x77501A, restored at 0x7750E6..0x775106) and the net (`fn_00829BC0` 0x829C91..0x829CB7,
+  restored at 0x829D25..0x829D45) set **their own** (0, −1, 0, 0), before the swimmers' loop
+  (`sea_pass::k_SharkPlane`, `k_NetPlane`: the same values as `k_SwimPlane`). With
+  (0, b, 0, 0) both mechanisms keep the same side of the **real** y: b > 0 → y ≥ 0, b < 0 → y ≤ 0 (the mirror and the
+  opposite test cancel out). `sea_pass::Kept(Mechanism, plano)` → `SeaPlane {None, KeepAbove, KeepBelow}`.
+- **Face**: the material decides in all three places (the Draw 0x84C34A, B 0x851798..0x8517D1, C 0x8594CF..0x8594ED:
+  `((~mat+5) & 1)·2 + 1`, `push 0x16` = CULLMODE). `SeaPassState::FaceCull(Surface, dosCaras, unmirror)` brings together the
+  four places in openblack: models (C1), moon (C2), sky (C3) and land (C4, which in openblack has the opposite vertex
+  order: it is an openblack fact, with no address).
+- **openblack**: the `RenderPass::Reflection` pass draws with the mirrored camera (`ReflectionXZCamera`), which already gives
+  B's mirror. What C draws inside that pass is **un-mirrored** (`SeaDraw::unmirror`, `SeaUnmirror` in
+  `vs_object`, in both its branches), and the plane is a per-fragment discard on the real y (`fs_object`,
+  **(approximate)**: strict per pixel, y = 0 stays on both sides; the original clips triangles). The same with
+  the fish sprites (`Unmirror` on the CPU) and the moon view (`UnmirrorView`).
+- `sea_pass::ForPass(pase)`: `mirrored`, `landLightScale` 0.5, `landWriteZ` and `smallBump` false in Reflection
+  (it replaces `DrawSceneDesc::cullBack` and the `mirrored` of `DrawMoon`, which no longer exist).
+- `L3DMeshSubmitDesc::sea` (`sea_pass::SeaDraw`: light, plane, unmirror, argb, specular, per-instance colour) replaces
+  the six previous fields (`unlitColour`, `landColourOnly`, `clipBelowSea`, `cutByPlane`, `cutColour`,
+  `mirrorInSea`). `u_objectLight.x` comes from `SeaDraw::light`: `Normal` 1, `Constant` 2 (B, z = rgb, w = specular),
+  `LastDraw` 3 (B with what the last Draw left), `Cut` 4 (C, y = alpha, z = rgb or −1 = that of each instance,
+  w = specular). `u_objectClip` = `PackClip` (x plane, y unmirror); the sky writes 0 (bgfx keeps the last value of
+  each uniform).
+- `Renderer` entry points (`RendererCut.cpp`): `DrawUnderWater(vista, malla, …, SeaDraw)` and `DrawUnderWater(vista,
+  entidad, SeaDraw)` (the hand with `UnderWater(k_HandColour, k_HandSpecular)`, what it holds and the physics objects with
+  `UnderWaterLastDraw()`, the boat with `UnderWater(0xFF303070, 0)`), `DrawCutByPlane(vista, entidad, SeaPlane, argb,
+  especular)` (sharks: specular 0, `push 0` 0x775027) and `DrawFishPlots(vista, SeaPlane)` (the net: +0x50 = 0 from the
+  ctor 0x8164FE). The order is the binary's: sharks (`fn_00775120` 0x5E4B26), fish and nets (`fn_00824B90`
+  0x5E4B2B), the swimmers' slot (0x5E4B4C..0x5E4D76) and the hand's glow (0x5E4D89). The boat reflection
+  keeps using `ObjectInstanced`: the hull has no `MorphWithTerrain`. An instance that sticks to the ground is not drawn under the sea: the `DrawUnderWater` of the morphable
+  vtables (vt+0x118 of 0x9A2E34 / 0x9A2BFC) is a `ret` (0x80BA40), like their `DrawCutByPlane` (0x80BA50).
+- Pass colours (`SetColorSpecular` vt+0x2C before the call): hand 0x65A0A0A0 / 0 (0x5E496E / 0x5E496C),
+  creature 0x65A0A0D0 / 0x30 (0x5E4ACF / 0x5E4ACD), swimmers 0xFF303070 / 0 (0x5E4C69 / 0x5E4C68), boat 0xFF303070
+  (`mov [eax+0x4C]` 0x5E016C, without touching +0x50: **(inferred)** openblack sets 0).
+- **The hand's 0x65 alpha is not visible** (D-O3, **(inferred)**): `fn_00811010` only sets the table 0xC387C8 (0x8110CF)
+  if vt+0x4C = `fn_007F9D80` ((+4 >> 7) & 1) returns 1 (0x8110BF, `test eax, eax / je 0x81114C` 0x8110C2..0x8110C4).
+  The hand's LH3D object is `LH3DObject::Create(3)` (`Morphable::MorphInit` 0x61731A → 0x80B5B2, complex vtable
+  0x9A3068, whose vt+0x118 is `fn_00813300`: [0xC37D9C] = obj+0x80 and then `fn_00811010`), its flags start at
+  0x10009 (0x816537) and a byte search found no call to its vt+0x48 (`fn_007F9D60`, Flags1 | 0x80) in
+  the 0x30 bytes after a read of [x+0x482C] (it does not rule out a setter via another path): its `DrawUnderWater` uses the
+  normal table and its `AlphaTextured` material takes the texture's alpha.
+- Around the hand's `DrawUnderWater`: vt+0x58(0) 0x5E497E (`fn_008168C0`: clears Flags1 0x20; only sets it if
+  [0xC38224] ≠ 0) and vt+0x58(edi) 0x5E4991 restores it. **(not ported)**: it is not known what Flags1 0x20 does in this
+  draw (`fn_00811010` does not test it).
+- The **moon** does use the table 0xC387C8: vt+0x48(1) before its Draw (0x86AC05) and before its `DrawUnderWater`
+  (0x86AC3B). Mode 4 → 5 (0x82DD90: same blend and Z, ALPHAOP MODULATE(TEXTURE, DIFFUSE)); `fs_celestial` always
+  modulates alpha with `u_colour`, so `DrawMoon` already draws like mode 5 in both passes.
+- **PSys mesh atoms with `DrawCutByPlane`** (fidelity 3): the bit is the atom's `+0x24 & 4`, not `& 0x10`
+  (`fn_00679F20` `test al, 4` 0x679F29; set by `CreateParticle` from +0x5F, 0x6A8B94..0x6A8B9A). With the bit, vt+0xF8
+  (0x679F2F, returns the mesh), then `LH3DBoundingBox::CheckRegionOnScreen` 0x868C80 (direct call at 0x679F3C;
+  if it gives 0 it is skipped, 0x679F43) and vt+0x11C (0x679F4A) instead of the Draw vt+0x104 (0x679F52); also on the sorted
+  path (the return of `fn_00679F60` is `fn_00679F20`, 0x679FBC). openblack: `RenderContext::cutAtomInstances` (with
+  `psys::manager::k_DrawByPath` all of them, opaque or not, in `psysAtoms`: with their Z-object in a `Sorted`, at their place inside
+  the effect in a `Queued`), `sea_pass::CutAtoms` (default plane, instance colour and specular;
+  **(approximate)** vertex alpha 0xFF: `fn_00858BA0` takes it from obj+0x4C & 0xFF000000, 0x858C42 → [ebp−0x24], OR at
+  0x858D60, that is the alpha of DrawData+8, which the instance does not carry).
+  `psys::mesh_atoms::Instance` carries the bit (`cutByPlane`, from `MeshCreator::drawCutByPlane`) and the specular
+  DrawData+0xC (`specular`), which `RenderingSystem` reads; the alpha of DrawData+8 (`alpha`) does not reach the cut. An atom
+  with `DrawCutByPlane` and `DrawWithLandscapeColor` is registered once and drawn uncut
+  **(inferred: no effect with both is known)**. The on-screen box test 0x679F3C is provided by bgfx's
+  clipping **(approximate)**.
+- **Slots with no user** (constants and a TODO with an address in `Renderer.cpp`): the creature (`DrawUnderWater` after the
+  physics objects, 0x5E4A84..0x5E4AE6, if its block is visible (+0x920 & 1), the block's +0x9BC ≤ [0xC37200] = 100000,
+  and < [0x8AB35C] = 6 and +0xA0 < [0x8AB244] = 0.2) and swimming SuperVillagers (list [0xEB9A08], animation
+  "M_P_Swim2" 0xBF3598, the swimmers' plane, vt+0x11C 0x5E4C77, after `fn_00824B90` (0x5E4B2B: fish and nets) and
+  before the hand's glow 0x5E4D89).
 
-## Reflejos de objetos y sombra de la mano sobre objetos
+## Object reflections and hand shadow on objects
 
-**Fiel** (hechos). Informes: `documentacion\render\objshadow_notes.txt`, `cut_notes.txt`. El código común está en
-[La pasada bajo el mar](#la-pasada-bajo-el-mar-graphicssea_pass).
-- **DrawUnderWater** (estático 0x811010 → `fn_00850FC0` por primitiva; animado 0x810E20; complejo 0x813300): mundo =
-  objeto × vértice, clip = W2C·(x, −y, z), orden de índices invertido, plano (0, 1, 0, 0) que quita lo que tenía y < 0.
-  Difuso = obj+0x4C y especular = obj+0x50, **sin luz**. La tabla de modos alternativa 0xC387C8 solo con Flags1 & 0x80
-  (la mano no la usa: el alfa 0x65 no tiene efecto con su material modo 4).
-  - Mano: omitida si hand+0xAC; 0x65A0A0A0; después lo que sostiene (hand+0x8C) **con su propio color**.
-  - Criatura: su cuerpo LH3D si su bloque se ve, y < 6 y obj+0xA0 < 0,2 (campo sin identificar); 0x65A0A0D0, especular 0x30.
-  - Objetos físicos (`fn_00646FE0`, array 0xD47814, paso 0x1DC): si y > −r (r = distancia máxima de un vértice al
-    centro de masas), sin límite de distancia.
-  - El "color propio" es lo que `fn_00801C90` dejó en obj+0x4C/+0x50 en su último Draw (lo llaman `PhysicsObject::DrawAll`
-    0x646F9F, `MobileObject::Draw`, `Rock::Draw`...): la luz de tierra bilineal y el especular de las celdas, sin N·L ni neblina.
-  - Barcos (`PetitNavire::PreDraw` 0x5DFF20): **un** `DrawUnderWater` por fotograma del casco en 0xFF303070 (luego
-    `fn_00801C90` le devuelve la luz de tierra). Las ramas 0x5E0100-0x5E0190 (modo 0, botadura: además corrige la y con
-    `GetAltitude` y la sombra) y 0x5E0380-0x5E03EE (modo 1, travesía) se excluyen por +0x30, las dos con el espejo
-    diag(−1, 1, 1) sobre la pista del casco (determinante −1) y el `RotateY(π/2)`: no hay segunda parte. openblack:
-    `Renderer::DrawBoatReflection` (modo 2 de `vs_object` con el rgb empaquetado). Ver [water.md](water.md#barco-de-los-misioneros-petitnavire).
-  - openblack: `Renderer::DrawObjectReflections` en la pasada de reflejo (lo que sostiene la mano y **toda** la lista
-    física 0xD47814 por `PhysicsObjects::ForEach`: lanzados, golpeados y los proxies en reposo, con y del centro > −r,
-    r = `PhysOb::Radius`; los lanzados de la mano que no estén en física, con el radio de la caja), cada uno por
-    `Renderer::DrawUnderWater(vista, entidad, sea_pass::UnderWaterLastDraw())` (modo 3 de `u_objectLight` en
-    `vs_object`, plano KeepAbove).
-- **Sombra dinámica sobre objetos**: al final de cada Draw (estático `fn_0080DB30` 0x80E457..0x80E4D7, animado
-  `fn_00812170` 0x81311A..0x81317C, vt+0x15C `fn_00810720` 0x810CD6 y `fn_00817930` 0x8185AB, morfable 0x80E74B...),
-  si el objeto tiene Flags1 0x40 (vt+0x7C), para cada `ShadowInfo` de la lista (de la más nueva a la más vieja) con
-  `fn_00881030`, si+0xC = 0 (la mano, la criatura y el barco, 0x5E11BE; objetos físicos y SuperVillagers ponen 1: solo
-  tierra), que no sea el emisor (si+0x464 ≠ obj) ni la si propia del objeto complejo (vt+0x1A8 / vt+0x1B8), y cuya caja
-  si+0x2C {x0, z0, x1, z1} toque la caja XZ de la malla (centro ± mitad + posición, sin giro ni escala; vt+0x1BC =
-  `fn_007F9E80`): `fn_0080B050` (modo 6 por la tabla actual, que ya vuelve a ser la normal también en un objeto que se
-  funde, 0x80E197; color blanco; `fn_0084E200` con u = (Wx − x0)/(x1 − x0), v = (Wz − z0)/(z1 − z0), `fn_00880770`:
-  **proyección vertical**; todo el oscurecimiento va en el alfa de la textura, con el fundido horneado).
-  - Prueba de Z: el estático y `fn_00810720` ponen ZFUNC EQUAL antes de cada sombra (0x80E484 / 0x810C8F) y LESSEQUAL
-    al acabar (0x80E4CE / 0x810CF2); el animado no toca ZFUNC: queda el LESSEQUAL del fotograma.
-  - **Dónde**: dentro del Draw del receptor, así que al momento con un objeto dibujado al momento (sin la marca 0x200,
-    0x815F62) y en su hueco de la cola con uno encolado (0x7FA980 → vt+0x108); nunca detrás del vaciado ([la cola](#la-cola-única-de-transparentes-lh3dzsorter)).
-  - Reciben (Flags1 0x40, `Object::Create3DObject` 0x6365F0 si ShadowsOnObjects): todos los objetos salvo los que llaman
-    vt+0x78(0) (`xor edx, edx; call [eax+0x78]`): árboles (0x749FA3), bosques (0x439098), flores (0x527A5D), comida
-    mágica (0x5FAAC8), la comida en la mano (pot 12, 0x66D180), los credos (0x50B46E), las banderas del pueblo
-    (`TownDesireFlags`, 0x746DD4), las bolas de un uso (`OneOffSpellSeed`, 0x72A4B4), los escudos (MagicShield
-    0x72C2B4, PhysicalShield 0x72CCF4), la carga de iconos y tótems (`TChargingData` 0x72675F, 0x780BBB) y los cultivos al borrarse (0x607EC5). Al coger
-    un objeto se le quita (`SetHeldObject` 0x816842); al lanzarlo se restaura.
-  - Y no reciben los que no pasan por `Create3DObject`: un LH3DObject nuevo tiene el bit a 0 (el ctor de
-    `LH3DMeshedObject` pone +4 = 0x10009, 0x816537) y vt+0x78 (`fn_008168A0`) solo lo pone con argumento ≠ 0 y
-    [0xC38220] ≠ 0. Así, las bandas de power-up de la mano (`Band`, `fn_0068CA30` → `LH3DObject::Create` 0x68CA98) y la
-    del icono de hechizo (`CreatePUBand` 0x727080 → `Game3DObject::Create` 0x63ABB0, que salta a `LH3DObject::Create`)
-    no reciben. La malla del icono sí (`fn_00727190`, vt+0x78(1) en 0x727245).
-  - Corrección: las mallas PSys no llaman vt+0x78(0), sino vt+0x78 con el byte +0x54 del creador (`mov dl, [edi+0x54]`
-    en 0x6A8ACE / 0x6A8D65; el mismo byte va a vt+0x80). Ese byte vale 0 en los dos ctores (0x6A8986, 0x6A8BDE) y
-    ninguna propiedad lo escribe (`DefineProperties` 0x6B37A0 / 0x6B38B0 / 0x6B3970; no hay otra escritura en
-    0x6A8000..0x6B4000), así que tampoco reciben. `ParticleAnimCreator::CreateLH3DObject` (0x6A9760) no llama vt+0x78.
-  - openblack: `RendererShadows.cpp`. `CollectShadowReceivers` (al empezar los objetos de la vista Main: receptores de
-    `RenderContext::entityInstances` con `receivesDynamicShadow`, sombras con `onObjects`), `DrawShadowsOnObject`
-    (detrás del `DrawMesh` de cada malla opaca en Main, o detrás de su entrada en el vaciado de `graphics::zsorter`, en
-    `MainBlended`; con las matrices con que se dibujó) y `DrawShadowsOnCutObjects` (las partes de los tiburones sobre el agua, justo detrás de
-    `DrawCutAboveWater` y no una a una **(inferido: son opacas y la prueba Z del receptor ya descarta lo que se dibuja
-    delante)**). Un receptor que no se dibujó en el fotograma (fuera de la vista, ya transparente del todo, o pasado el
-    tope 0x800 de la cola) no recibe sombra: `ClearShadowReceivers` vacía la lista al final de los objetos, como la
-    cola de un Draw que no se ejecutó (0x80E457..0x80E4D7). ZFUNC Equal, salvo las mallas con huesos y las
-    morfables (`ZFunc::LessEqualInclusive`: GEQUAL = LESSEQUAL con la Z invertida; **(inferido)** que una malla con huesos es de la clase animada;
-    el Draw morfable `fn_0080E550` no toca ZFUNC alrededor de su bucle 0x80E768..0x80E874).
-    `fs_object_shadow` con `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) deja fuera también las bolas de
-    un uso, los escudos y las bandas de power-up (`HandFxPart` y la malla `Power_Up_Band`). Clave de detalle `shadowsOnObjects` (niveles 3–6).
-  - **Receptores morfables** (hecho, sesión «shaders», 2026-10-02): el Draw morfable (`fn_0080E550`, vt+0x108 de
-    0x9A2E34; en openblack `MorphWithTerrain`) no usa `ContainsThisBoundingBox` sino su propia prueba de círculo
-    (0x80E78E..0x80E857), y dibuja con `fn_0080AE40` (la misma tabla de modos y el mismo CULLMODE que `fn_0080B050`,
-    con los vértices fundidos de [0xF05180]): R = (obj+0x44 · malla+0x30) + máx(x1 − x0, z1 − z0) · 1,4142
-    ([0x932D08] `8104b53f` = 1,41419995, **no** es el float más cercano a √2), el centro de la malla +0x18..0x20 por la
-    matriz del objeto obj+0x14 y la distancia en x, z al centro de la caja ((x0 + x1) · 0,5 [0x8AA3B4]); se dibuja si
-    dx² + dz² < R², estricto (0x80E84E). No mira vt+0x1A8 / vt+0x1B8, solo si+0x464 (0x80E782).
-    `shadow_math::ReachesMorphable`, probado en `test_shadow_math`. **(inferido)** que `MorphWithTerrain` sea la
-    clase morfable (vtable 0x9A2E34, Get3DType 1): la clase CITADEL (Get3DType 8, `CitadelHeart` 0x464B40; vtable
-    0x9A2BFC) dibuja con `fn_00882A40`, que llama al Draw estático `fn_0080DB30` (0x882AB5), con
-    `ContainsThisBoundingBox` y ZFUNC EQUAL; hoy ninguna entidad de tipo 8 lleva el componente (`CitadelArchetype` no lo
-    pone; `CitadelPart` es tipo 1, 0x4694B0). La prueba lee obj+0x14 de la matriz que openblack dibuja; vale mientras
-    ninguna entidad `MorphWithTerrain` reciba los retoques de `RenderingSystem` (vaivén de campos y árboles, la
-    inclinación y el encogimiento de los árboles), que son la matriz de dibujo del original y no obj+0x14 (inferido).
+**Faithful** (done). Reports: `documentacion\render\objshadow_notes.txt`, `cut_notes.txt`. The common code is in
+[The under-sea pass](#the-under-sea-pass-graphicssea_pass).
+- **DrawUnderWater** (static 0x811010 → `fn_00850FC0` per primitive; animated 0x810E20; complex 0x813300): world =
+  object × vertex, clip = W2C·(x, −y, z), index order reversed, plane (0, 1, 0, 0) that removes what had y < 0.
+  Diffuse = obj+0x4C and specular = obj+0x50, **unlit**. The alternative mode table 0xC387C8 only with Flags1 & 0x80
+  (the hand does not use it: the 0x65 alpha has no effect with its mode 4 material).
+  - Hand: skipped if hand+0xAC; 0x65A0A0A0; then what it holds (hand+0x8C) **with its own colour**.
+  - Creature: its LH3D body if its block is visible, y < 6 and obj+0xA0 < 0.2 (unidentified field); 0x65A0A0D0, specular 0x30.
+  - Physics objects (`fn_00646FE0`, array 0xD47814, stride 0x1DC): if y > −r (r = maximum distance from a vertex to the
+    centre of mass), with no distance limit.
+  - The "own colour" is what `fn_00801C90` left in obj+0x4C/+0x50 in its last Draw (called by `PhysicsObject::DrawAll`
+    0x646F9F, `MobileObject::Draw`, `Rock::Draw`...): the bilinear land light and the cells' specular, without N·L or fog.
+  - Boats (`PetitNavire::PreDraw` 0x5DFF20): **one** `DrawUnderWater` per frame of the hull in 0xFF303070 (then
+    `fn_00801C90` gives it back the land light). The branches 0x5E0100-0x5E0190 (mode 0, launch: it also corrects y with
+    `GetAltitude` and the shadow) and 0x5E0380-0x5E03EE (mode 1, voyage) are mutually exclusive via +0x30, both with the mirror
+    diag(−1, 1, 1) on the hull's track (determinant −1) and the `RotateY(π/2)`: there is no second part. openblack:
+    `Renderer::DrawBoatReflection` (mode 2 of `vs_object` with the packed rgb). See [water.md](water.md#the-missionaries-boat-petitnavire).
+  - openblack: `Renderer::DrawObjectReflections` in the reflection pass (what the hand holds and **the whole** physics
+    list 0xD47814 via `PhysicsObjects::ForEach`: thrown, struck and the resting proxies, with centre y > −r,
+    r = `PhysOb::Radius`; those thrown from the hand that are not in physics, with the box radius), each through
+    `Renderer::DrawUnderWater(vista, entidad, sea_pass::UnderWaterLastDraw())` (mode 3 of `u_objectLight` in
+    `vs_object`, plane KeepAbove).
+- **Dynamic shadow on objects**: at the end of each Draw (static `fn_0080DB30` 0x80E457..0x80E4D7, animated
+  `fn_00812170` 0x81311A..0x81317C, vt+0x15C `fn_00810720` 0x810CD6 and `fn_00817930` 0x8185AB, morphable 0x80E74B...),
+  if the object has Flags1 0x40 (vt+0x7C), for each `ShadowInfo` in the list (from newest to oldest) with
+  `fn_00881030`, si+0xC = 0 (the hand, the creature and the boat, 0x5E11BE; physics objects and SuperVillagers set 1: land
+  only), that is not the caster (si+0x464 ≠ obj) nor the complex object's own si (vt+0x1A8 / vt+0x1B8), and whose box
+  si+0x2C {x0, z0, x1, z1} touches the mesh's XZ box (centre ± half + position, without rotation or scale; vt+0x1BC =
+  `fn_007F9E80`): `fn_0080B050` (mode 6 from the current table, which is already back to the normal one also on an object that
+  fades, 0x80E197; colour white; `fn_0084E200` with u = (Wx − x0)/(x1 − x0), v = (Wz − z0)/(z1 − z0), `fn_00880770`:
+  **vertical projection**; all the darkening goes in the texture's alpha, with the fade baked in).
+  - Z test: the static one and `fn_00810720` set ZFUNC EQUAL before each shadow (0x80E484 / 0x810C8F) and LESSEQUAL
+    when done (0x80E4CE / 0x810CF2); the animated one does not touch ZFUNC: the frame's LESSEQUAL remains.
+  - **Where**: inside the receiver's Draw, so immediately with an object drawn immediately (without the 0x200 flag,
+    0x815F62) and in its slot in the queue with a queued one (0x7FA980 → vt+0x108); never behind the drain ([the queue](#the-single-transparent-queue-lh3dzsorter)).
+  - Receivers (Flags1 0x40, `Object::Create3DObject` 0x6365F0 if ShadowsOnObjects): all objects except those that call
+    vt+0x78(0) (`xor edx, edx; call [eax+0x78]`): trees (0x749FA3), forests (0x439098), flowers (0x527A5D), magic
+    food (0x5FAAC8), food in the hand (pot 12, 0x66D180), the creeds (0x50B46E), the town flags
+    (`TownDesireFlags`, 0x746DD4), the one-shot balls (`OneOffSpellSeed`, 0x72A4B4), the shields (MagicShield
+    0x72C2B4, PhysicalShield 0x72CCF4), the charge of icons and totems (`TChargingData` 0x72675F, 0x780BBB) and crops when being deleted (0x607EC5). When an
+    object is picked up it is removed (`SetHeldObject` 0x816842); when it is thrown it is restored.
+  - And those that do not go through `Create3DObject` do not receive: a new LH3DObject has the bit at 0 (the
+    `LH3DMeshedObject` ctor sets +4 = 0x10009, 0x816537) and vt+0x78 (`fn_008168A0`) only sets it with an argument ≠ 0 and
+    [0xC38220] ≠ 0. So the hand's power-up bands (`Band`, `fn_0068CA30` → `LH3DObject::Create` 0x68CA98) and the
+    spell icon's one (`CreatePUBand` 0x727080 → `Game3DObject::Create` 0x63ABB0, which jumps to `LH3DObject::Create`)
+    do not receive. The icon's mesh does (`fn_00727190`, vt+0x78(1) at 0x727245).
+  - Correction: PSys meshes do not call vt+0x78(0), but vt+0x78 with the creator's byte +0x54 (`mov dl, [edi+0x54]`
+    at 0x6A8ACE / 0x6A8D65; the same byte goes to vt+0x80). That byte is 0 in both ctors (0x6A8986, 0x6A8BDE) and
+    no property writes it (`DefineProperties` 0x6B37A0 / 0x6B38B0 / 0x6B3970; there is no other write in
+    0x6A8000..0x6B4000), so they do not receive either. `ParticleAnimCreator::CreateLH3DObject` (0x6A9760) does not call vt+0x78.
+  - openblack: `RendererShadows.cpp`. `CollectShadowReceivers` (when the Main view's objects begin: receivers from
+    `RenderContext::entityInstances` with `receivesDynamicShadow`, shadows with `onObjects`), `DrawShadowsOnObject`
+    (behind the `DrawMesh` of each opaque mesh in Main, or behind its entry in the drain of `graphics::zsorter`, in
+    `MainBlended`; with the matrices it was drawn with) and `DrawShadowsOnCutObjects` (the parts of the sharks above the water, right behind
+    `DrawCutAboveWater` and not one by one **(inferred: they are opaque and the receiver's Z test already discards what is drawn
+    in front)**). A receiver that was not drawn in the frame (outside the view, already fully transparent, or past the
+    0x800 cap of the queue) receives no shadow: `ClearShadowReceivers` empties the list at the end of the objects, like the
+    tail of a Draw that was not executed (0x80E457..0x80E4D7). ZFUNC Equal, except boned meshes and
+    morphable ones (`ZFunc::LessEqualInclusive`: GEQUAL = LESSEQUAL with inverted Z; **(inferred)** that a boned mesh is of the animated class;
+    the morphable Draw `fn_0080E550` does not touch ZFUNC around its loop 0x80E768..0x80E874).
+    `fs_object_shadow` with `shadow.sh`. `ReceivesDynamicShadow` (RenderingSystem.cpp) also leaves out the one-shot
+    balls, the shields and the power-up bands (`HandFxPart` and the `Power_Up_Band` mesh). Detail key `shadowsOnObjects` (levels 3–6).
+  - **Morphable receivers** (done, session "shaders", 2026-10-02): the morphable Draw (`fn_0080E550`, vt+0x108 of
+    0x9A2E34; in openblack `MorphWithTerrain`) does not use `ContainsThisBoundingBox` but its own circle test
+    (0x80E78E..0x80E857), and draws with `fn_0080AE40` (the same mode table and the same CULLMODE as `fn_0080B050`,
+    with the blended vertices of [0xF05180]): R = (obj+0x44 · mesh+0x30) + max(x1 − x0, z1 − z0) · 1.4142
+    ([0x932D08] `8104b53f` = 1.41419995, **not** the float closest to √2), the mesh centre +0x18..0x20 times the
+    object matrix obj+0x14 and the distance in x, z to the box centre ((x0 + x1) · 0.5 [0x8AA3B4]); it is drawn if
+    dx² + dz² < R², strict (0x80E84E). It does not check vt+0x1A8 / vt+0x1B8, only si+0x464 (0x80E782).
+    `shadow_math::ReachesMorphable`, tested in `test_shadow_math`. **(inferred)** that `MorphWithTerrain` is the
+    morphable class (vtable 0x9A2E34, Get3DType 1): the CITADEL class (Get3DType 8, `CitadelHeart` 0x464B40; vtable
+    0x9A2BFC) draws with `fn_00882A40`, which calls the static Draw `fn_0080DB30` (0x882AB5), with
+    `ContainsThisBoundingBox` and ZFUNC EQUAL; today no entity of type 8 carries the component (`CitadelArchetype` does not
+    add it; `CitadelPart` is type 1, 0x4694B0). The test reads obj+0x14 from the matrix openblack draws; it holds as long as
+    no `MorphWithTerrain` entity receives the tweaks of `RenderingSystem` (swaying of fields and trees, the
+    tilting and shrinking of trees), which are the original's draw matrix and not obj+0x14 (inferred).
 
-## Cortar por el plano del agua (`DrawCutByPlane`)
+## Cutting by the water plane (`DrawCutByPlane`)
 
-**Fiel** (hecho, W11).
+**Faithful** (done, W11).
 
-- **DrawCutByPlane** (vt+0x11C: animado `fn_00811C70`; estático `LH3DStaticObject` vt 0x9A2974 = `fn_0080C050`, **no**
-  es un `ret`: el `ret` `fn_00815F90` es solo la vtable base 0x9A2748): plano de `fn_00822560`, (0, −1, 0, 0) → queda
-  lo de **y ≤ 0**, (0, 1, 0, 0) → y ≥ 0; recorte por CPU por triángulo (`fn_0081D2C0`), luz por vértice `fn_00858BA0`:
-  I = 255·(L·n) con la luz 0xF03140 (la de `fn_0084BA90`), I < 0 → 90, si no 90 + (255 − 90)·I >> 8
-  (`[0xC39264]` = 90); rgb = color.rgb·I >> 8, A = color.A, el especular del objeto; el modo del material. Lo usan los
-  SuperVillagers con `M_P_Swim2`, los tiburones (`MSH_SHARK_BONED`: la parte de abajo antes del mar en 0xFF303070 y la
-  de arriba en su Draw con tabla[255]) y la red del puzle de peces (Land 4, estático). **No aplica en Land1**.
-  openblack (W11, con [sea_pass](#la-pasada-bajo-el-mar-graphicssea_pass)): `L3DMeshSubmitDesc::sea =
-  sea_pass::Cut(plano, argb, especular, pase)` → modo 4 de `u_objectLight` en `vs_object` (la misma cuenta entera;
-  I se guarda con `fistp` en 0x858CDF: redondeo al más cercano, mitades a par, no truncado; + el especular en w) y
-  descarte por fragmento en `fs_object` (`SeaPlaneDiscard`) en vez del recorte por CPU; dentro de la pasada Reflection
-  la malla se des-espeja en y = 0 (`unmirror`; el culling vuelve a CCW). `Renderer::DrawCutByPlane(vista, entidad,
-  SeaPlane, argb, especular)` y `DrawCutBelowWater` (en la pasada de reflejo, antes de los peces: las entidades con
-  `components::CutByPlane`, KeepBelow con el plano propio del tiburón `k_SharkPlane`, 0x774FF5..0x77501A). La parte de arriba la llama el dueño del objeto en lugar de
-  su dibujo normal: `CutByPlane::drawAbove` (los tiburones) hace que la pasada normal salte esa instancia y
-  `Renderer::DrawCutAboveWater` la dibuje con KeepAbove y `LandLightTable::GetRaw(255)`, en la pasada principal tras
-  las mallas instanciadas. `DrawCutByPlane` usa la pose de `SkeletalAnimation` si la hay.
-  Gancho: `OPENBLACK_TEST_CUT=1` con `OPENBLACK_TEST_SEA`.
+- **DrawCutByPlane** (vt+0x11C: animated `fn_00811C70`; static `LH3DStaticObject` vt 0x9A2974 = `fn_0080C050`, it is **not**
+  a `ret`: the `ret` `fn_00815F90` is only the base vtable 0x9A2748): plane from `fn_00822560`, (0, −1, 0, 0) → what remains
+  is **y ≤ 0**, (0, 1, 0, 0) → y ≥ 0; CPU clipping per triangle (`fn_0081D2C0`), per-vertex light `fn_00858BA0`:
+  I = 255·(L·n) with the light 0xF03140 (that of `fn_0084BA90`), I < 0 → 90, otherwise 90 + (255 − 90)·I >> 8
+  (`[0xC39264]` = 90); rgb = colour.rgb·I >> 8, A = colour.A, the object's specular; the material's mode. Used by
+  SuperVillagers with `M_P_Swim2`, sharks (`MSH_SHARK_BONED`: the bottom part before the sea in 0xFF303070 and the
+  top part in its Draw with table[255]) and the fish puzzle net (Land 4, static). **It does not apply in Land1**.
+  openblack (W11, with [sea_pass](#the-under-sea-pass-graphicssea_pass)): `L3DMeshSubmitDesc::sea =
+  sea_pass::Cut(plano, argb, especular, pase)` → mode 4 of `u_objectLight` in `vs_object` (the same integer arithmetic;
+  I is stored with `fistp` at 0x858CDF: round to nearest, halves to even, not truncated; + the specular in w) and
+  per-fragment discard in `fs_object` (`SeaPlaneDiscard`) instead of CPU clipping; inside the Reflection pass
+  the mesh is un-mirrored at y = 0 (`unmirror`; culling goes back to CCW). `Renderer::DrawCutByPlane(vista, entidad,
+  SeaPlane, argb, especular)` and `DrawCutBelowWater` (in the reflection pass, before the fish: the entities with
+  `components::CutByPlane`, KeepBelow with the shark's own plane `k_SharkPlane`, 0x774FF5..0x77501A). The top part is called by the object's owner instead of
+  its normal draw: `CutByPlane::drawAbove` (the sharks) makes the normal pass skip that instance and
+  `Renderer::DrawCutAboveWater` draw it with KeepAbove and `LandLightTable::GetRaw(255)`, in the main pass after
+  the instanced meshes. `DrawCutByPlane` uses the `SkeletalAnimation` pose if there is one.
+  Hook: `OPENBLACK_TEST_CUT=1` with `OPENBLACK_TEST_SEA`.
 
-## Bancos de peces de las piscifactorías
+## Fish-farm fish shoals
 
-**Fiel** (hechos), salvo lo que se dice que falta. El puzle de los peces y lo demás del agua están en
-[water.md](water.md); la creación de las granjas desde el guion, en
-[map-loading.md](map-loading.md#piscifactorías-create_fish_farm--create_town_fish_farm).
+**Faithful** (done), except what is said to be missing. The fish puzzle and the rest of the water are in
+[water.md](water.md); creating the farms from the script, in
+[map-loading.md](map-loading.md#fish-farms-create_fish_farm--create_town_fish_farm).
 
-- **Piscifactorías** (`FishFarm::CallVirtualFunctionsForCreation` 0x52CC10): anillos de radio 2, 4... < 50 × 32
-  direcciones, con el aplanado del mar **desactivado** (`[0xC37BF4]` = 0); la primera dirección con altitud 0 en dos
-  radios seguidos da el centro (x', y de la granja, z'). 15 peces (`fn_00824740`): sprite `misc0.raw` horizontal (flag
-  0x40: quad girado en Y con su x local según el rumbo), media anchura 0,8–1,2, posición centro + (±5, −1..0, ±5), rumbo
-  ±π, velocidad 0,5–1,5, giro velocidad·(1 ± 0,1)·0,6283; celdas 8–23 (fotograma += dt·velocidad·25; la celda se toma antes de la vuelta −15·ftol(f/15), así que sale la 23;
+- **Fish farms** (`FishFarm::CallVirtualFunctionsForCreation` 0x52CC10): rings of radius 2, 4... < 50 × 32
+  directions, with the sea flattening **disabled** (`[0xC37BF4]` = 0); the first direction with altitude 0 in two
+  consecutive radii gives the centre (x', y of the farm, z'). 15 fish (`fn_00824740`): horizontal `misc0.raw` sprite (flag
+  0x40: quad rotated in Y with its local x along the heading), half-width 0.8–1.2, position centre + (±5, −1..0, ±5), heading
+  ±π, speed 0.5–1.5, turn speed·(1 ± 0.1)·0.6283; cells 8–23 (frame += dt·speed·25; the cell is taken before the wrap −15·ftol(f/15), so cell 23 shows up;
   `frame_anim::FishFrame`).
-  Movimiento `fn_008248E0` (dt ≤ 0,1 s), objetivo del banco `fn_00824DA0` (centro ± 7, temporizador 0,5·distancia);
-  a más de 300 no se dibuja, alfa desde 200 (con el desbordamiento de byte del original). Dibujo modo 6 antes del mar.
-  - openblack: `FishFarmArchetype`, `ecs::UpdateFishShoals` (tiempo de juego del fotograma), `Renderer::DrawFishShoals`.
-    Como `fs_water` compone el mar opaco con la textura de reflejo, "lo que hay detrás del mar" es la pasada de reflejo:
-    los peces se dibujan ahí **espejados** (y → −y) y sin prueba de Z, sobre la tierra reflejada (que en el original no
-    escribe Z). Lo mismo valdría para los cortes bajo el agua.
-  - **Susto** (informe `documentacion\fish\fish_notes.txt`): el punto de chapoteo global 0xEA9F40 / bandera 0xEB99F0 lo ponen
-    el **inicio del agarre del terreno sobre el agua** (`StartLandscapeGrip` fn_005D1AB0, botón de agarre: anillo de
-    crecimiento 7 y los sonidos `G_HANDINWATER_01..10` por turno), las pisadas de la criatura con el pie bajo y 1
-    (fn_00483290) y un objeto físico que cae al agua (fn_0074F2D0). Cada banco a menos de 300 de la cámara: objetivo =
-    centro + 2·(cos r, 0, −sin r), temporizador 2 s; los peces visibles a menos de 8 (distancia 3D) huyen 2 s con rumbo
-    atan2(fz − sz, fx − sx). La bandera se borra al final del fotograma.
-  - **Pesca**: con el botón de acción sobre el agua sin otro objeto debajo, un pez visible a < 2 (x, z; fn_00824B10) hace
-    de la granja el objeto de la acción; `NetworkFriendlyStartLockedSelect` 0x52D770 pone en la mano un HandFood de
-    amountPickedUpInitially (25) **sin quitarlo de la reserva**, con las partículas `SF_MultiPickUpFoodFish`
-    (`S_Spangle_A` celdas 48–63, 40 fps). `ProcessInInteract` 0x52D950 por turno: n = (int)(8 + 62·t²), t = turnos/60,
-    ≤ 1400 y ≤ 20000 − lo que hay en la mano; `RemoveFood` 0x52CED0 quita n (o lo que quede) y la mano recibe **n**
-    (rareza); 0 → se acaba. No se pueden devolver.
-  - **Reserva**: +0x94, 1400 al crearla (GFishFarmInfo 0: foodValue 1400, 16 turnos por unidad, 4 pescadores); `Process`
-    0x52D130 suma 1 cada 16 turnos. Peces visibles = (int)(15·reserva/1400): los de índice alto desaparecen primero y
-    los ocultos ni se mueven ni se dibujan. El último argumento de `CREATE_TOWN_FISH_FARM` es el índice de GFishFarmInfo.
+  Movement `fn_008248E0` (dt ≤ 0.1 s), shoal target `fn_00824DA0` (centre ± 7, timer 0.5·distance);
+  beyond 300 it is not drawn, alpha from 200 (with the original's byte overflow). Drawn in mode 6 before the sea.
+  - openblack: `FishFarmArchetype`, `ecs::UpdateFishShoals` (frame game time), `Renderer::DrawFishShoals`.
+    Since `fs_water` composes the opaque sea with the reflection texture, "what is behind the sea" is the reflection pass:
+    the fish are drawn there **mirrored** (y → −y) and without a Z test, over the reflected land (which in the original does not
+    write Z). The same would apply to the underwater cuts.
+  - **Scare** (report `documentacion\fish\fish_notes.txt`): the global splash point 0xEA9F40 / flag 0xEB99F0 are set by
+    the **start of the terrain grip over water** (`StartLandscapeGrip` fn_005D1AB0, grip button: growth ring
+    7 and the sounds `G_HANDINWATER_01..10` per turn), the creature's footsteps with the foot below y 1
+    (fn_00483290) and a physics object falling into the water (fn_0074F2D0). Each shoal within 300 of the camera: target =
+    centre + 2·(cos r, 0, −sin r), timer 2 s; visible fish within 8 (3D distance) flee for 2 s with heading
+    atan2(fz − sz, fx − sx). The flag is cleared at the end of the frame.
+  - **Fishing**: with the action button over the water with no other object below, a visible fish at < 2 (x, z; fn_00824B10) makes
+    the farm the object of the action; `NetworkFriendlyStartLockedSelect` 0x52D770 puts in the hand a HandFood of
+    amountPickedUpInitially (25) **without removing it from the stock**, with the particles `SF_MultiPickUpFoodFish`
+    (`S_Spangle_A` cells 48–63, 40 fps). `ProcessInInteract` 0x52D950 per turn: n = (int)(8 + 62·t²), t = turns/60,
+    ≤ 1400 and ≤ 20000 − what is in the hand; `RemoveFood` 0x52CED0 removes n (or whatever is left) and the hand receives **n**
+    (quirk); 0 → it ends. They cannot be returned.
+  - **Stock**: +0x94, 1400 on creation (GFishFarmInfo 0: foodValue 1400, 16 turns per unit, 4 fishermen); `Process`
+    0x52D130 adds 1 every 16 turns. Visible fish = (int)(15·stock/1400): those with a high index disappear first and
+    the hidden ones neither move nor are drawn. The last argument of `CREATE_TOWN_FISH_FARM` is the GFishFarmInfo index.
   - openblack: `ecs::SplashWater` / `ProcessFishFarmsTurn` / `FindFishFarmAt` / `RemoveFishFarmFood` (FishShoals.cpp),
-    `HandFish.cpp` (`SplashHand`, `TryPickUpFish`, `UpdateFishPickUp`), salpicadura al aterrizar los objetos lanzados en
-    `UpdateThrown`. Faltan el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
+    `HandFish.cpp` (`SplashHand`, `TryPickUpFish`, `UpdateFishPickUp`), splash when thrown objects land in
+    `UpdateThrown`. Missing: the pitch of the sounds, the help text ("Pick up") and the fishermen.
 
-- **Puzle de los peces** (Land 4, la red `FishPlot` y sus bancos con cebo): en [water.md](water.md#puzle-de-los-peces).
+- **Fish puzzle** (Land 4, the `FishPlot` net and its baited shoals): in [water.md](water.md#fish-puzzle).
 
-## Sombras de los objetos físicos
+## Shadows of physics objects
 
-**Fiel** (hechas). Informe: `documentacion\render\physshadow\`.
-- `fn_00646FE0` (desde `GLandscape::Draw` 0x5E49DC) → `fn_007FCE80` por objeto físico que no esté en reposo (byte
-  elem+0x19C = PhysOb+0x174) ni con y ≤ −r: si no tiene sombra y proyecta sombra estática (Flags1 0x1000 / 0x2000) o
-  está animado, `fn_008745A0` crea un `ShadowInfo` solo de tierra (si+0xC = 1). No la tienen las vasijas, la comida
-  mágica, flores, cultivos, DeadTree, AnimatedStatic ni los trozos de edificio (`SetShadowOnTexture(0)`). Se libera en
-  `PhysOb::DeInitialise`. Sin límite de número ni clave de detalle.
-- Luz: la posición del objeto + (0, 15000, 0) (0x9A3C10), no el sol: proyección prácticamente vertical. Caja = la
-  mínima de los vértices proyectados (sin margen). Silueta 32×32 con 4×2 submuestras por texel (`fn_00806F60`), alfa =
-  submuestras cubiertas / 15 (máx. 8/15) sin escribir el anillo exterior (`fn_00880FC0`, tabla 0xFA95C4); los árboles
-  por la ruta chroma (textura con alfa y filtro 2×2). Fundido 50–80 radios desde la cámara hasta el suelo bajo el
-  objeto (`fn_00874600`, con la prueba de los 9 bloques), **horneado** a saltos de nibble. Sobre la tierra
-  (`fn_00878350`): t' con H = GetAltitude del emisor (una por sombra), nada en celdas de altitud ≤ 1; modo 6 negro.
-  Todo el detalle, en [rendering.md](rendering.md#sombras-proyectadas-shadowinfo).
-- openblack: una entrada más de `graphics::shadow_list` (`PhysicsObjects::ForEach` + `CastsPhysicsShadow` de
-  `ShadowList.cpp`), rasterizada en la CPU con la pose de cada vértice, sin tope; se dibuja sobre cada bloque que toca
-  (`Renderer::DrawLandShadows`). `Graphics/PhysicsShadows` y su bucle de 16 en `fs_terrain` ya no existen (punto 5).
-- **Sombra estática de lo que no está en el mapa**: el horneado (`fn_008721A0`) toma los emisores de las celdas del mapa
-  (`0x5E2A90` / `0x5E2C30`); coger un objeto (`fn_005DC330`) o darle físicas (`Object::InitialisePhysics*`) lo saca de
-  ellas hasta que aterriza (`EndPhysics` → `InsertMapObject`). openblack: `CastsStaticShadow` excluye el objeto en la
-  mano y los que vuelan. Rareza no reproducida: solo los Fixed/MultiMapFixed vuelven a hornear el bloque al salir; la
-  sombra vieja de un árbol o un MobileObject se queda en el suelo hasta que otro cambio rehornea ese bloque.
-- Prueba: `OPENBLACK_TEST_PHYSICS="1490,2140,760,0,0,0,0.6,3"` con la cámara `1450,60,2095,1492,6,2140` y `-n 4000`
-  (las rocas caen a ~70 u/s; en la captura están a ~110 de altura y sus tres sombras se ven en el suelo).
+**Faithful** (done). Report: `documentacion\render\physshadow\`.
+- `fn_00646FE0` (from `GLandscape::Draw` 0x5E49DC) → `fn_007FCE80` per physics object that is not at rest (byte
+  elem+0x19C = PhysOb+0x174) nor with y ≤ −r: if it has no shadow and casts a static shadow (Flags1 0x1000 / 0x2000) or
+  is animated, `fn_008745A0` creates a land-only `ShadowInfo` (si+0xC = 1). Pots, magic
+  food, flowers, crops, DeadTree, AnimatedStatic and building pieces do not have one (`SetShadowOnTexture(0)`). It is freed in
+  `PhysOb::DeInitialise`. No limit on the number and no detail key.
+- Light: the object's position + (0, 15000, 0) (0x9A3C10), not the sun: practically vertical projection. Box = the
+  minimal one of the projected vertices (no margin). 32×32 silhouette with 4×2 subsamples per texel (`fn_00806F60`), alpha =
+  covered subsamples / 15 (max. 8/15) without writing the outer ring (`fn_00880FC0`, table 0xFA95C4); trees
+  through the chroma path (texture with alpha and 2×2 filter). Fade at 50–80 radii from the camera to the ground under the
+  object (`fn_00874600`, with the 9-block test), **baked** in nibble steps. On the land
+  (`fn_00878350`): t' with H = GetAltitude of the caster (one per shadow), nothing on cells with altitude ≤ 1; mode 6 black.
+  All the detail, in [rendering.md](rendering.md#projected-shadows-shadowinfo).
+- openblack: one more entry of `graphics::shadow_list` (`PhysicsObjects::ForEach` + `CastsPhysicsShadow` from
+  `ShadowList.cpp`), rasterised on the CPU with each vertex's pose, with no cap; it is drawn on each block it touches
+  (`Renderer::DrawLandShadows`). `Graphics/PhysicsShadows` and its loop of 16 in `fs_terrain` no longer exist (point 5).
+- **Static shadow of what is not on the map**: the bake (`fn_008721A0`) takes the casters from the map cells
+  (`0x5E2A90` / `0x5E2C30`); picking up an object (`fn_005DC330`) or giving it physics (`Object::InitialisePhysics*`) removes it from
+  them until it lands (`EndPhysics` → `InsertMapObject`). openblack: `CastsStaticShadow` excludes the object in the
+  hand and those that are flying. Quirk not reproduced: only Fixed/MultiMapFixed rebake the block when they leave; the
+  old shadow of a tree or a MobileObject stays on the ground until another change rebakes that block.
+- Test: `OPENBLACK_TEST_PHYSICS="1490,2140,760,0,0,0,0.6,3"` with the camera `1450,60,2095,1492,6,2140` and `-n 4000`
+  (the rocks fall at ~70 u/s; in the capture they are at a height of ~110 and their three shadows can be seen on the ground).
 
-## Sombra dinámica de la mano
+## Dynamic hand shadow
 
-**Fiel** (S5, hecho; fuente: capturas del original del usuario, 2026-10-02; ver
-[rendering.md](rendering.md#sombras-proyectadas-shadowinfo)).
+**Faithful** (S5, done; source: the user's captures of the original, 2026-10-02; see
+[rendering.md](rendering.md#projected-shadows-shadowinfo)).
 
-- Original: `CHand::CHand` 0x46BC0B → `CreateDynamicShadow` 0x80C020 (si [0xC3820C] ≠ 0, 1 en los datos), una
-  `ShadowInfo` compleja (`fn_00814FD0`) con si+0x3C = 1 (0x80C037: el relleno se salta las subfilas pares, 0x880141,
-  como mucho **4/15**), la luz 200 sobre la mano (0x8151C4, [0x8C7B34]), la base en la y de la mano (0x8152B1), t' = 1
-  sobre la tierra (no hay si+0x464) y el objeto sostenido (si+0, `SetHeldObject` vt+0x234 = `fn_00816830`, solo si
-  `IsG3DObjectDrawnInHand`) dentro de la misma textura a densidad completa (0x807532..0x8075B7). Cae sobre la tierra
-  y sobre los objetos (si+0xC = 0).
-- openblack: la entrada de la mano de `graphics::shadow_list`, con `k_HandShadowAsOriginal = true` (`ShadowList.h`):
-  32×32, 4/15 como mucho, la base en la y de la mano y el objeto sostenido (un orbe cogido del dispensador, por
-  ejemplo) a densidad completa en la misma textura, dibujada como las demás (sobre cada bloque y sobre los objetos en
-  su sitio de la cola). Comparada con cuatro capturas del original
+- Original: `CHand::CHand` 0x46BC0B → `CreateDynamicShadow` 0x80C020 (if [0xC3820C] ≠ 0, 1 in the data), a
+  complex `ShadowInfo` (`fn_00814FD0`) with si+0x3C = 1 (0x80C037: the fill skips the even subrows, 0x880141,
+  at most **4/15**), the light 200 above the hand (0x8151C4, [0x8C7B34]), the base at the hand's y (0x8152B1), t' = 1
+  on the land (there is no si+0x464) and the held object (si+0, `SetHeldObject` vt+0x234 = `fn_00816830`, only if
+  `IsG3DObjectDrawnInHand`) inside the same texture at full density (0x807532..0x8075B7). It falls on the land
+  and on objects (si+0xC = 0).
+- openblack: the hand's entry in `graphics::shadow_list`, with `k_HandShadowAsOriginal = true` (`ShadowList.h`):
+  32×32, at most 4/15, the base at the hand's y and the held object (an orb taken from the dispenser, for
+  example) at full density in the same texture, drawn like the others (on each block and on objects at
+  their place in the queue). Compared against four captures of the original
   ([img/original_hand_shadow_over_dispenser.png](img/original_hand_shadow_over_dispenser.png),
   [img/original_hand_shadow_orb_over_dispenser.png](img/original_hand_shadow_orb_over_dispenser.png),
   [img/original_hand_shadow_red_orb_over_dispenser.png](img/original_hand_shadow_red_orb_over_dispenser.png),
-  [img/original_hand_shadow_orb_over_ground.png](img/original_hand_shadow_orb_over_ground.png)): silueta clara con los
-  dedos, sombra oscura y redonda del orbe sostenido, orbes enteros encima. Con `false` vuelve el aspecto de antes de
-  la lista (64×64, 8/15, sobre el suelo bajo la mano, sin el sostenido; la vieja `DrawHandShadowPass`), solo para
-  comparar.
+  [img/original_hand_shadow_orb_over_ground.png](img/original_hand_shadow_orb_over_ground.png)): light silhouette with the
+  fingers, dark round shadow of the held orb, whole orbs on top. With `false` the look from before
+  the list returns (64×64, 8/15, on the ground under the hand, without the held object; the old `DrawHandShadowPass`), only for
+  comparison.
 
-## Animales: manchas y malla
+## Animals: blobs and mesh
 
-Movido a [animals.md](animals.md#manchas-y-malla-de-los-animales): las manchas de EBone de los animales
-(`fn_0081FFF0`) y la malla / escala de creación.
+Moved to [animals.md](animals.md#blobs-and-mesh-of-the-animals): the animals' EBone blobs
+(`fn_0081FFF0`) and the mesh / creation scale.
 
-## Humo de las chimeneas (LH3DSmoke)
+## Chimney smoke (LH3DSmoke)
 
-**Fiel** (hecho; desviaciones al final). Investigación completa: `dev\documentacion\aldeanos\smoke.md` (scripts en `documentacion\aldeanos\smoke\`). Todo leído en el
-desensamblado de W1.20; los puntos dudosos (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_005DBC60) se volvieron a leer al portarlo.
+**Faithful** (done; deviations at the end). Full research: `dev\documentacion\aldeanos\smoke.md` (scripts in `documentacion\aldeanos\smoke\`). Everything read from the
+W1.20 disassembly; the doubtful points (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_005DBC60) were reread when porting it.
 
-- **Creación** (`Abode::CallVirtualFunctionsForCreation` 0x403200): si la malla tiene el flag 0x400 (en openblack
-  `L3DMeshFlags::HasChimney`, antes `Unknown11`), `LH3DSmoke::Create` 0x7F8B60 en la chimenea = **punto extra [1]** de
-  la malla (el [0] es la puerta) por la matriz 3×3 del objeto (giro y escala) + su posición (con la altitud de los
-  cimientos) (`LH3DStaticObject::GetChimneyPos` 0x7F9F10). Color 0x808080 si es un taller, 0xFFFFFF si no. Casas,
-  guarderías, talleres, almacenes y maravillas; `MSH_B_AMCN_5` tiene el punto en (0,0,0) (humo desde el pie, como el
-  original). ARK, ARK_DRY_DOCK y APPLE_BARREL tienen el flag pero no son Abode.
-- **Cuándo** (`Abode::Draw` 0x516288): solo si el edificio salió en pantalla este fotograma; fuera de pantalla el humo
-  se congela. `PresentAtHome` (+0xB6, aldeanos dentro) ≠ 0, o taller con la cuenta de andamio (+0xC4) ≠ 0 → estado 0;
-  si no, 0 → 2 (se apaga: cada bocanada acaba su vida y renace oculta) y, cuando no se dibuja ninguna, 3 (muerto). Sin
-  condición de día/noche, clima ni fuego.
-- **Partículas** (`fn_007F8E00`, el callback del Z-sorter, que simula mientras dibuja): 10 sprites, edad inicial i·90
-  (en 1/255 s), ocultos; ángulo Random(0, π), sentido de giro al azar, giro ±dt·0,765. Deriva W del fotograma (igual
-  para las 10): la **mano** (a < 15 u de la chimenea y velocidad > 1: `handWind`) o Random(−3, 3) en x y z. Al pasar de
-  900 renace en la chimenea con τ = edad/255; si no τ = dt. v' = v + 1,5·τ·W; p += (v + v')·τ/2; sube 2,55 u/s. Celda
-  (edad/20) & 15 (8 por fila de `smoke.raw`), media anchura edad/450 + 0,5, alfa 79 hasta 225 y luego lineal a 0 en 900
-  (enteros). Material `g_smoke_mat` (modo 6: SRCALPHA/INVSRCALPHA, prueba de Z sin escritura, sin luz ni neblina):
-  **de noche el humo sigue blanco**, como en el original. Vida 3,53 s.
-- **Viento de la mano** (`GLandscape::Draw` 0x5E4310): si el objeto 3D de la mano tiene malla, handPos = su posición,
-  handSpeed = clamp(|v|·0,1, 0,5, 5), handWind = v/|v|·handSpeed (v = 0 → 0), con v = `GInterfaceStatus::HandVelocity`
-  (`fn_005DBC60`: v += 0,6·(Δpos·1000/100 − v), por turno (inferido)). Valores iniciales handPos (−10000, 0, 0),
-  handWind (1, 0, 0). No lee el clima ni LH3DAtmos.
-- **openblack**: `ecs::components::ChimneySmoke` (src/ECS/Components/ChimneySmoke.h, en el Abode desde
+- **Creation** (`Abode::CallVirtualFunctionsForCreation` 0x403200): if the mesh has the flag 0x400 (in openblack
+  `L3DMeshFlags::HasChimney`, formerly `Unknown11`), `LH3DSmoke::Create` 0x7F8B60 at the chimney = **extra point [1]** of
+  the mesh (the [0] is the door) times the object's 3×3 matrix (rotation and scale) + its position (with the altitude of the
+  foundations) (`LH3DStaticObject::GetChimneyPos` 0x7F9F10). Colour 0x808080 if it is a workshop, 0xFFFFFF otherwise. Houses,
+  crèches, workshops, storehouses and wonders; `MSH_B_AMCN_5` has the point at (0,0,0) (smoke from the base, like the
+  original). ARK, ARK_DRY_DOCK and APPLE_BARREL have the flag but are not Abodes.
+- **When** (`Abode::Draw` 0x516288): only if the building appeared on screen this frame; off screen the smoke
+  freezes. `PresentAtHome` (+0xB6, villagers inside) ≠ 0, or a workshop with the scaffold count (+0xC4) ≠ 0 → state 0;
+  otherwise, 0 → 2 (it dies out: each puff finishes its life and is reborn hidden) and, when none is drawn, 3 (dead). No
+  day/night, weather or fire condition.
+- **Particles** (`fn_007F8E00`, the Z-sorter callback, which simulates while drawing): 10 sprites, initial age i·90
+  (in 1/255 s), hidden; angle Random(0, π), random spin direction, spin ±dt·0.765. Frame drift W (the same
+  for all 10): the **hand** (at < 15 u from the chimney and speed > 1: `handWind`) or Random(−3, 3) in x and z. On passing
+  900 it is reborn at the chimney with τ = age/255; otherwise τ = dt. v' = v + 1.5·τ·W; p += (v + v')·τ/2; rises 2.55 u/s. Cell
+  (age/20) & 15 (8 per row of `smoke.raw`), half-width age/450 + 0.5, alpha 79 up to 225 and then linear to 0 at 900
+  (integers). Material `g_smoke_mat` (mode 6: SRCALPHA/INVSRCALPHA, Z test without write, no light or fog):
+  **at night the smoke stays white**, as in the original. Lifetime 3.53 s.
+- **Hand wind** (`GLandscape::Draw` 0x5E4310): if the hand's 3D object has a mesh, handPos = its position,
+  handSpeed = clamp(|v|·0.1, 0.5, 5), handWind = v/|v|·handSpeed (v = 0 → 0), with v = `GInterfaceStatus::HandVelocity`
+  (`fn_005DBC60`: v += 0.6·(Δpos·1000/100 − v), per turn (inferred)). Initial values handPos (−10000, 0, 0),
+  handWind (1, 0, 0). It does not read the weather or LH3DAtmos.
+- **openblack**: `ecs::components::ChimneySmoke` (src/ECS/Components/ChimneySmoke.h, on the Abode from
   `AbodeArchetype::Create`), `ecs::chimney_smoke` (src/ECS/ChimneySmoke.{h,cpp}: Create, Attach, UpdateHandWind,
-  UpdateState, Advance), dibujo en `Renderer::CollectChimneySmoke` / `DrawChimneySmoke` (src/Graphics/RendererSmoke.cpp):
-  un objeto por chimenea en la lista de atrás adelante de la pasada principal (`ZObject::smoke`, clave la
-  distancia al cuadrado a la chimenea), sus bocanadas en orden 0..9 con el shader Sprite (`smokea.raw`, tinte premultiplicado,
-  ONE/INVSRCALPHA = modo 6, giro −ángulo en el plano de la pantalla). `Abode::presentAtHome` existe pero **nada lo sube
-  aún** (los aldeanos no vuelven a casa), así que sin el gancho no sale humo.
-- **Desviaciones**: el paso de edad conserva la fracción (el original trunca `(int)(dt·255)` cada fotograma: vida
-  3,75 s a 60 fps, 6,3 s a 144 fps y humo parado por encima de 255 fps, y openblack va sin vsync), como las nieblas;
-  "en pantalla" es la esfera de la caja del edificio contra el frustum (aproximado); la mano "con malla" = la mano no
-  está en el origen (aproximado); la deriva al azar es por fotograma como el original, así que su amplitud depende de
-  los fps (como en el original). Falta la cuenta de andamio de los talleres (sin talleres que fabriquen).
-- **Gancho**: `OPENBLACK_TEST_CHIMNEY=all` (todas las chimeneas echan humo). Capturas de Land1 de día y de noche en
-  `dev\_scratch\mapa\` (`day_near`, `day_close`, `day_far`, `night_far`; `day_far_nohook` sin gancho: sin humo).
+  UpdateState, Advance), drawing in `Renderer::CollectChimneySmoke` / `DrawChimneySmoke` (src/Graphics/RendererSmoke.cpp):
+  one object per chimney in the back-to-front list of the main pass (`ZObject::smoke`, key the
+  squared distance to the chimney), its puffs in order 0..9 with the Sprite shader (`smokea.raw`, premultiplied tint,
+  ONE/INVSRCALPHA = mode 6, rotation −angle in the screen plane). `Abode::presentAtHome` exists but **nothing raises it
+  yet** (villagers do not go back home), so without the hook no smoke comes out.
+- **Deviations**: the age step keeps the fraction (the original truncates `(int)(dt·255)` every frame: lifetime
+  3.75 s at 60 fps, 6.3 s at 144 fps and smoke stopped above 255 fps, and openblack runs without vsync), like the mists;
+  "on screen" is the sphere of the building's box against the frustum (approximate); the hand "with a mesh" = the hand is not
+  at the origin (approximate); the random drift is per frame like the original, so its amplitude depends on
+  the fps (as in the original). The workshops' scaffold count is missing (no workshops that produce).
+- **Hook**: `OPENBLACK_TEST_CHIMNEY=all` (all chimneys smoke). Captures of Land1 by day and by night in
+  `dev\_scratch\mapa\` (`day_near`, `day_close`, `day_far`, `night_far`; `day_far_nohook` without the hook: no smoke).
 
-## Objetos que miran a la cámara (billboards)
+## Objects that face the camera (billboards)
 
-**Fiel**, salvo lo marcado. Todo lo que se orienta hacia la cámara pasa por una sola API, `graphics::billboard`
-(`src/3D/Billboard.{h,cpp}`, solo matemática glm), con una función por cada modo del original.
+**Faithful**, except what is marked. Everything that orients itself towards the camera goes through a single API, `graphics::billboard`
+(`src/3D/Billboard.{h,cpp}`, glm maths only), with one function for each of the original's modes.
 
-**Convenios.**
-- LH3D usa vector fila (p' = p·M, fn_0084BA90). La fila k es la imagen del eje local k; en glm es la columna k, con la
-  misma memoria.
-- Los giros de LH3D van al revés que `glm::rotate`: `SetAngleY(a)` 0x674360 (filas (c,0,s) / (0,1,0) / (−s,0,c)) es
-  `glm::rotate(−a, Y)`. Los giros en el sitio RotateY 0x5198F0 y fn_0086AFA0 mezclan **filas**: en glm van **a la
-  derecha** (`M·R(−a)`). UpdateRuleRotatePrincipalAxis 0x6A1150 mezcla las componentes de cada fila: va **a la
-  izquierda** (`R(−a)·M`). Todo está en `lh_matrix` ([engine-math.md](engine-math.md#matrices-lh)).
+**Conventions.**
+- LH3D uses row vectors (p' = p·M, fn_0084BA90). Row k is the image of local axis k; in glm it is column k, with the
+  same memory.
+- LH3D rotations go the opposite way from `glm::rotate`: `SetAngleY(a)` 0x674360 (rows (c,0,s) / (0,1,0) / (−s,0,c)) is
+  `glm::rotate(−a, Y)`. The in-place rotations RotateY 0x5198F0 and fn_0086AFA0 mix **rows**: in glm they go **on the
+  right** (`M·R(−a)`). UpdateRuleRotatePrincipalAxis 0x6A1150 mixes the components of each row: it goes **on the
+  left** (`R(−a)·M`). It is all in `lh_matrix` ([engine-math.md](engine-math.md#lh-matrices)).
 
-**Cámara de la pasada.** `CameraFrame::From(camera)` se construye una vez por pasada, con la cámara principal o la
-reflejada. Contiene:
-- el ojo, g_camera 0xEA1DB8;
+**Pass camera.** `CameraFrame::From(camera)` is built once per pass, with the main camera or the
+reflected one. It contains:
+- the eye, g_camera 0xEA1DB8;
 - right / up / forward;
-- la vista, W2C 0xEA1D28 (`UpdateWorldToCamera` 0x819690, el lookAtLH de openblack), su inversa (SetInverse 0x7FB290)
-  y la rotación W2C;
-- el plano cercano [0xE839E0], sacado de la proyección. **(aproximado)** `Game.cpp` lo calcula como
-  `LandFeature::GetNearClipping` 0x5E2F30, pero solo cambia la proyección si se mueve más de 0,01, así que puede ir
-  hasta 0,01 por detrás del original;
-- la matriz de las nieblas 0xEA1C98 = mat3(right, −forward, up) (UpdateCamera 0x819A62..0x819AF3 y fn_00819F50).
+- the view, W2C 0xEA1D28 (`UpdateWorldToCamera` 0x819690, openblack's lookAtLH), its inverse (SetInverse 0x7FB290)
+  and the W2C rotation;
+- the near plane [0xE839E0], taken from the projection. **(approximate)** `Game.cpp` computes it as
+  `LandFeature::GetNearClipping` 0x5E2F30, but only changes the projection if it moves by more than 0.01, so it can lag
+  up to 0.01 behind the original;
+- the mist matrix 0xEA1C98 = mat3(right, −forward, up) (UpdateCamera 0x819A62..0x819AF3 and fn_00819F50).
 
-En la pasada de reflejo, el ojo y right / up / forward siguen siendo los de la cámara principal, porque
-`ReflectionXZCamera` solo refleja `GetViewMatrix`. En cambio, la vista, su inversa, la rotación W2C y la matriz de las
-nieblas sí salen reflejadas. En esa pasada no hay que mezclar los dos grupos. Hoy solo `DrawMoon` y `drawSprite` montan
-un `CameraFrame` en el reflejo, y solo usan la vista y su inversa.
+In the reflection pass, the eye and right / up / forward are still those of the main camera, because
+`ReflectionXZCamera` only reflects `GetViewMatrix`. On the other hand, the view, its inverse, the W2C rotation and the mist
+matrix do come out reflected. In that pass the two groups must not be mixed. Today only `DrawMoon` and `drawSprite` build
+a `CameraFrame` in the reflection, and they only use the view and its inverse.
 
-**`Sprite`.** Son los campos útiles del LH3DSprite de 0x34 bytes, con los valores por defecto de SetToZero 0x8404F0:
+**`Sprite`.** These are the useful fields of the 0x34-byte LH3DSprite, with the default values of SetToZero 0x8404F0:
 
-| Campo | Contenido |
+| Field | Contents |
 |---|---|
-| +0x00 | posición |
-| +0x0C | tamaño (media anchura) |
-| +0x10 | estiramiento (media altura = tamaño × estiramiento) |
-| +0x14 | ángulo |
-| +0x18 / +0x1C | origen, en unidades de mundo; **se resta** |
-| +0x20 | color |
-| +0x28 | celda (bits 0-5) y 0x40 horizontal |
-| +0x30 | celdas por fila (8) |
+| +0x00 | position |
+| +0x0C | size (half-width) |
+| +0x10 | stretch (half-height = size × stretch) |
+| +0x14 | angle |
+| +0x18 / +0x1C | origin, in world units; **it is subtracted** |
+| +0x20 | colour |
+| +0x28 | cell (bits 0-5) and 0x40 horizontal |
+| +0x30 | cells per row (8) |
 
-`SpriteQuad` devuelve las 4 esquinas en el orden v0..v3 de 0x840530 y sus UV. `CellUv` hace col·(1/n) +
-(8/n)·{0, .125, .125, 0} y fila·(1/n) + (8/n)·{0, 0, .125, .125} (0xC390CC / 0xC390DC, 8 = [0x8C2C70]), con la celda
-& 0x3F. Los triángulos son {0,1,2}, {0,2,3}. Los `components::Sprite` (luces de noche, luciérnagas, polvo y los efectos
-de la mano) sacan su `uvMin` de `CellUv(celda, 8)[0]`. Su `Transform::rotation` no se usa, porque el modo A solo tiene
-el ángulo +0x14.
+`SpriteQuad` returns the 4 corners in the v0..v3 order of 0x840530 and their UVs. `CellUv` does col·(1/n) +
+(8/n)·{0, .125, .125, 0} and row·(1/n) + (8/n)·{0, 0, .125, .125} (0xC390CC / 0xC390DC, 8 = [0x8C2C70]), with the cell
+& 0x3F. The triangles are {0,1,2}, {0,2,3}. The `components::Sprite` (night lights, fireflies, dust and the hand's
+effects) take their `uvMin` from `CellUv(celda, 8)[0]`. Their `Transform::rotation` is not used, because mode A only has
+the angle +0x14.
 
-| Modo (función) | Original | Matemática | Usuarios en openblack |
+| Mode (function) | Original | Maths | Users in openblack |
 |---|---|---|---|
-| `Screen` (modo A) | `LH3DSprite::Draw` 0x840530, flag 0x40 = 0 | Cuadrado en el plano de la pantalla a la profundidad del sprite: es paralelo a la pantalla y no gira hacia el ojo. x local = {−s − ox, s − ox}, y = {hs − oy, −hs − oy} (0x840831..0x8408CF). La x local va a (cos, −sin) en la pantalla y la y a (sin, cos) (0x84071D..0x84082B), es decir, giro horario. Ángulo 0 = sin giro (0x840770). Orden TL, TR, BR, BL. No dibuja nada si la profundidad es ≤ near (`InFrontOfNear`, 0x84055D..0x840585) | sprites de PSys (`RendererPSys.cpp`: todos los SF, TownBelief, FireGraphic), bocanadas de SmokyStuff (`RendererBoat.cpp`) y, en la GPU, el humo de las chimeneas y los `components::Sprite` |
-| `ScreenSpriteModel` | el mismo modo A en `vs_sprite.sc` | T(pos)·Rz(−ángulo)·S(media anchura, media altura, 1). El shader suma u_invView·(modelo·(x, y, 0, 0)) en el plano −1..1, con v = 0 arriba: es `Screen` con origen 0. El corte por near se hace en la CPU | `drawSprite` (luces de noche, luciérnagas, polvo, efectos de la mano, brillos del templo, marcadores de cámara) y `DrawChimneySmoke` |
-| `Horizontal` (modo B) | flag 0x40 (0x8405FE..0x840704): `SetHorozontal` 0x6AA093, `GWater::InitialiseCircles` 0x54BA84, fn_00824740 0x8247EF | Ry(ángulo), con filas (c,0,s) / (0,1,0) / (−s,0,c), más la posición. x = {−s − ox, s − ox}, z = {−hs − oy, hs − oy} (0x84085D). No depende de la cámara ni tiene corte por near | estela del barco, peces de las piscifactorías, anillos de agua, la rama horizontal de PSys (SF_ManaPathNew, mapas de luz) |
-| `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | El cuadrado del modo B en el plano XZ de una matriz dada, girado sobre su Y local si el ángulo ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). No usa la posición del sprite | nadie (los 7 anillos de fn_008274A0 están sin portar) |
-| `YawToEye` (modo C) | código inline: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(ojo.z − p.z, ojo.x − p.x) + π/2 ([0x8C78D8]); ejes `lh_matrix::AngleY(θ)` (las filas de SetAngleY 0x674360). El +Z local va del ojo al objeto | nadie (columnas de influencia, banderas de deseo, ShowNeeds y ScriptHighlight están sin portar) |
-| `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), con d = p − ojo en XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | mallas de PSys con FaceCamera (`PSys/Creators/Mesh.cpp`) |
-| `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identidad × escala. Luego cada fila (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), con φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), y después fn_0067A4A0(ψ), con ψ = atan2(d.z, d.x). El +Y local mira al ojo y la Z queda horizontal | `Mesh.cpp`, después de FaceCamera como en el original; ningún SF lo activa |
-| `LookAtCentre` | la burbuja: fn_00518720, desde `OneOffSpellSeed::Draw` 0x518E90 | d = W − ojo, con W = el centro de la caja en el mundo (0x518746..0x5187B8). Si \|d.x\| y \|d.z\| son < 1e-4 (el double [0x8C79D8]), d.x pasa a ±1e-4 (0x518875..0x5188B4). D = normalize(d), U = normalize(Y − (Y·D)D). Las filas (U×D, −D, U) salen de invertir con fn_007FB3F0 (0x518B0C). Luego M = T(−c)·R·s y traslación W − c·R·s (fn_00518B90, fn_00518BF0, fn_0044CF90). Tras el empujón de 1e-4, d y U nunca son cero, así que la prueba de ceros de 0x5188BC..0x5188ED no salta nunca y no se porta | nadie todavía. `Magic/Core/OneOffSpellSeed.cpp` (de Milagros, sin commitear) sigue con su copia sin el empujón; pasará a `LookAtCentre` después de su HEAD |
-| `BandToEye` | las bandas de potencia: fn_0051A830 (si el byte [0xBE8E8E] = 1, que nadie escribe), desde `DrawSpellGraphic` 0x51A773 | d = T − ojo, con T la traslación de la banda; el mismo empujón de 1e-4 que la burbuja; D = d / sqrt(d.y² + d.z² + d.x²), U = normalize(Y − (Y·D)D) con Y = (0, 1, 0) en 0xCC62C0. La matriz de columnas (−D, U, U×D) se invierte con fn_007FB3F0 (0x51AB5A), así que sus filas son −D, U, U×D. Luego M = M·R con fn_0046D9D0 y se repone T. En glm, R·(giro y escala de la banda) | `Worship/SpellSeedGraphic.cpp` (las bandas de la bola y de los iconos) |
-| `MoonBasis` / `MoonModel` / `MoonHalo` (E) | fn_0086AC60 y fn_0086A930, leídas enteras | Ver la luna, debajo | `Renderer::DrawMoon` |
-| `MistBasis` / `MistShrunkSize` (F) | `LH3DMist::Draw` fn_007FA300 0x7FA38F, rama del efecto 0x7FA483..0x7FA539 | Las 9 celdas son 0xEA1C98. Con el efecto, la fila 0 lleva el tamaño y las filas 1-2 tamaño / (1 + (k − 1)(1 − \|d.y\|/\|d\|)), sin límite. **(aproximado)** 1/\|d\| se saca con `std::sqrt` y no con la tabla de InverseSquareRoot 0x841170. **(inferido)** con d = 0 devuelve el tamaño | nieblas (`RendererMists.cpp`, `mists::Submit`) y nubes (`Renderer::DrawCloud`) |
-| `ScreenVelocity` (G) | `UR_OrientSpriteWithVelocity` 0x69A790 (0x69A8ED..0x69A94B) y fn_006840E0 (UR_Flocking) | x = w·right, y = w·up (la rotación W2C); `SetAngleY(atan2(−y, x) + π/2)`. Con `Screen`, el +y del sprite queda a lo largo de la velocidad en pantalla | `PSys/Rules/Orient.cpp`, `PSys/Rules/Flock.cpp` |
-| `RibbonSide` / `RibbonHalfWidth` (H) | fn_0067B3F0 (lee g_camera en 0x67B4BA) | lado de cada extremo del tramo = (ojo − articulación) × (cola − cabeza) (0x67B86C..0x67B924: la vista desde esa articulación, primero la cabeza y luego la cola), que es la misma dirección que normalize(cross(normalize(segmento), normalize(articulación − ojo))). Vértices = articulación ± lado·(+0xC de la articulación)/\|lado\| (0x67B9E6..0x67BA70). Ese +0xC es la escala del PSR (ChainJoint::DrawAt 0x679E9A), la misma que un sprite toma como semitamaño, así que la **semianchura es la escala** | `Graphics/RendererChain.cpp` (rayos, horquillas, rastro del gesto) |
-| `VolBlend` (I) | `RenderParticleVolBlendMesh::DrawAt` 0x67CCB0 ([0xC029C4] = 1) | a = normalize(fila 0), d = normalize(ojo − p), b = normalize(a × d), c = d × b; filas (c, b, d) × escala | nadie (ningún SF usa ParticleVolBlendMeshCreator) |
+| `Screen` (mode A) | `LH3DSprite::Draw` 0x840530, flag 0x40 = 0 | Square in the screen plane at the sprite's depth: it is parallel to the screen and does not turn towards the eye. local x = {−s − ox, s − ox}, y = {hs − oy, −hs − oy} (0x840831..0x8408CF). Local x goes to (cos, −sin) on screen and y to (sin, cos) (0x84071D..0x84082B), that is, a clockwise rotation. Angle 0 = no rotation (0x840770). Order TL, TR, BR, BL. Draws nothing if the depth is ≤ near (`InFrontOfNear`, 0x84055D..0x840585) | PSys sprites (`RendererPSys.cpp`: all the SF, TownBelief, FireGraphic), SmokyStuff puffs (`RendererBoat.cpp`) and, on the GPU, the chimney smoke and the `components::Sprite` |
+| `ScreenSpriteModel` | the same mode A in `vs_sprite.sc` | T(pos)·Rz(−angle)·S(half-width, half-height, 1). The shader adds u_invView·(model·(x, y, 0, 0)) in the −1..1 plane, with v = 0 at the top: it is `Screen` with origin 0. The near cut is done on the CPU | `drawSprite` (night lights, fireflies, dust, hand effects, temple sparkles, camera markers) and `DrawChimneySmoke` |
+| `Horizontal` (mode B) | flag 0x40 (0x8405FE..0x840704): `SetHorozontal` 0x6AA093, `GWater::InitialiseCircles` 0x54BA84, fn_00824740 0x8247EF | Ry(angle), with rows (c,0,s) / (0,1,0) / (−s,0,c), plus the position. x = {−s − ox, s − ox}, z = {−hs − oy, hs − oy} (0x84085D). It does not depend on the camera and has no near cut | boat wake, fish-farm fish, water rings, the horizontal branch of PSys (SF_ManaPathNew, light maps) |
+| `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | The mode B square in the XZ plane of a given matrix, rotated about its local Y if the angle ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). It does not use the sprite's position | nobody (the 7 rings of fn_008274A0 are not ported) |
+| `YawToEye` (mode C) | inline code: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(eye.z − p.z, eye.x − p.x) + π/2 ([0x8C78D8]); axes `lh_matrix::AngleY(θ)` (the rows of SetAngleY 0x674360). Local +Z goes from the eye to the object | nobody (influence columns, desire flags, ShowNeeds and ScriptHighlight are not ported) |
+| `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), with d = p − eye in XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | PSys meshes with FaceCamera (`PSys/Creators/Mesh.cpp`) |
+| `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identity × scale. Then each row (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), with φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), and then fn_0067A4A0(ψ), with ψ = atan2(d.z, d.x). Local +Y faces the eye and Z stays horizontal | `Mesh.cpp`, after FaceCamera as in the original; no SF activates it |
+| `LookAtCentre` | the bubble: fn_00518720, from `OneOffSpellSeed::Draw` 0x518E90 | d = W − eye, with W = the box centre in the world (0x518746..0x5187B8). If \|d.x\| and \|d.z\| are < 1e-4 (the double [0x8C79D8]), d.x becomes ±1e-4 (0x518875..0x5188B4). D = normalize(d), U = normalize(Y − (Y·D)D). The rows (U×D, −D, U) come from inverting with fn_007FB3F0 (0x518B0C). Then M = T(−c)·R·s and translation W − c·R·s (fn_00518B90, fn_00518BF0, fn_0044CF90). After the 1e-4 nudge, d and U are never zero, so the zero test of 0x5188BC..0x5188ED never fires and is not ported | nobody yet. `Magic/Core/OneOffSpellSeed.cpp` (from Milagros, uncommitted) keeps its copy without the nudge; it will move to `LookAtCentre` after its HEAD |
+| `BandToEye` | the power bands: fn_0051A830 (if the byte [0xBE8E8E] = 1, which nobody writes), from `DrawSpellGraphic` 0x51A773 | d = T − eye, with T the band's translation; the same 1e-4 nudge as the bubble; D = d / sqrt(d.y² + d.z² + d.x²), U = normalize(Y − (Y·D)D) with Y = (0, 1, 0) at 0xCC62C0. The column matrix (−D, U, U×D) is inverted with fn_007FB3F0 (0x51AB5A), so its rows are −D, U, U×D. Then M = M·R with fn_0046D9D0 and T is put back. In glm, R·(rotation and scale of the band) | `Worship/SpellSeedGraphic.cpp` (the bands of the ball and the icons) |
+| `MoonBasis` / `MoonModel` / `MoonHalo` (E) | fn_0086AC60 and fn_0086A930, read in full | See the moon, below | `Renderer::DrawMoon` |
+| `MistBasis` / `MistShrunkSize` (F) | `LH3DMist::Draw` fn_007FA300 0x7FA38F, effect branch 0x7FA483..0x7FA539 | The 9 cells are 0xEA1C98. With the effect, row 0 carries the size and rows 1-2 size / (1 + (k − 1)(1 − \|d.y\|/\|d\|)), with no limit. **(approximate)** 1/\|d\| is computed with `std::sqrt` and not with the InverseSquareRoot table 0x841170. **(inferred)** with d = 0 it returns the size | mists (`RendererMists.cpp`, `mists::Submit`) and clouds (`Renderer::DrawCloud`) |
+| `ScreenVelocity` (G) | `UR_OrientSpriteWithVelocity` 0x69A790 (0x69A8ED..0x69A94B) and fn_006840E0 (UR_Flocking) | x = w·right, y = w·up (the W2C rotation); `SetAngleY(atan2(−y, x) + π/2)`. With `Screen`, the sprite's +y lies along the on-screen velocity | `PSys/Rules/Orient.cpp`, `PSys/Rules/Flock.cpp` |
+| `RibbonSide` / `RibbonHalfWidth` (H) | fn_0067B3F0 (reads g_camera at 0x67B4BA) | side of each end of the segment = (eye − joint) × (tail − head) (0x67B86C..0x67B924: the view from that joint, first the head and then the tail), which is the same direction as normalize(cross(normalize(segment), normalize(joint − eye))). Vertices = joint ± side·(+0xC of the joint)/\|side\| (0x67B9E6..0x67BA70). That +0xC is the PSR scale (ChainJoint::DrawAt 0x679E9A), the same that a sprite takes as its half-size, so the **half-width is the scale** | `Graphics/RendererChain.cpp` (lightning, forks, gesture trail) |
+| `VolBlend` (I) | `RenderParticleVolBlendMesh::DrawAt` 0x67CCB0 ([0xC029C4] = 1) | a = normalize(row 0), d = normalize(eye − p), b = normalize(a × d), c = d × b; rows (c, b, d) × scale | nobody (no SF uses ParticleVolBlendMeshCreator) |
 
-**Sprites de PSys** (`Particle3DSprite::DrawAt` 0x67AE80):
-- tamaño = la escala del PSR, con un mínimo de 0,0001 (0x67AEAF);
-- ángulo = atan2(M[0][2], M[0][0]) del PSR, salvo con IgnoreRotation (0x67AF6B..0x67AF87, [0xC029A8] = 1);
-- origen: ox = OriginX·tamaño y oy = OriginY·tamaño·estiramiento (CreateSprite 0x6AA0A8 y 0x67AEC4..0x67AF2D);
-- CentreAtBase: y += estiramiento·tamaño·0,5 (0x67AFB4, [0x8AA3B4]);
-- celda = (FileOffset + fotograma) & 63.
+**PSys sprites** (`Particle3DSprite::DrawAt` 0x67AE80):
+- size = the PSR scale, with a minimum of 0.0001 (0x67AEAF);
+- angle = atan2(M[0][2], M[0][0]) of the PSR, except with IgnoreRotation (0x67AF6B..0x67AF87, [0xC029A8] = 1);
+- origin: ox = OriginX·size and oy = OriginY·size·stretch (CreateSprite 0x6AA0A8 and 0x67AEC4..0x67AF2D);
+- CentreAtBase: y += stretch·size·0.5 (0x67AFB4, [0x8AA3B4]);
+- cell = (FileOffset + frame) & 63.
 
-Todo eso vale también con SetHorozontal. Las llamas de `FireGraphic` usan el origen de su sprite compartido 0xDA09E8:
-+0x1C = −2·tamaño (0x732382..0x732395), es decir, `SpriteOriginY` = −1, y no CentreAtBase. Así la base queda en el
-punto a lo largo del «arriba» de la pantalla.
+All of that also applies with SetHorozontal. The `FireGraphic` flames use the origin of their shared sprite 0xDA09E8:
++0x1C = −2·size (0x732382..0x732395), that is, `SpriteOriginY` = −1, and not CentreAtBase. That way the base stays at the
+point along the screen's "up".
 
-**Luna (modo E).**
-- Base (fn_0086AC60 0x86AC67..0x86AEBD):
-  - v = la posición en la cámara, n = normalize(v), t = normalize(n.z, 0, −n.x), u = n × t;
-  - se lleva al mundo con SetInverse(W2C) (0x86AE64 / 0x86AE6F) y × [0xFA2750] = 4,0 (0x86A3F4, que sobrescribe el
-    3,0 de 0x86A3D6);
-  - el +Z local va del ojo a la luna y la X queda horizontal en la vista.
-- Malla: esa base, inclinada con fn_0086AFA0(α = [0x9A3BF0] = −0,1309), luego RotateY(fase + π) 0x5198F0, luego
-  × 0,65 [0x8AC420]. En glm es Rz(+7,5°)·Ry(−(fase + π)).
+**Moon (mode E).**
+- Basis (fn_0086AC60 0x86AC67..0x86AEBD):
+  - v = the position in the camera, n = normalize(v), t = normalize(n.z, 0, −n.x), u = n × t;
+  - it is brought into the world with SetInverse(W2C) (0x86AE64 / 0x86AE6F) and × [0xFA2750] = 4.0 (0x86A3F4, which overwrites the
+    3.0 of 0x86A3D6);
+  - local +Z goes from the eye to the moon and X stays horizontal in the view.
+- Mesh: that basis, tilted with fn_0086AFA0(α = [0x9A3BF0] = −0.1309), then RotateY(phase + π) 0x5198F0, then
+  × 0.65 [0x8AC420]. In glm it is Rz(+7.5°)·Ry(−(phase + π)).
 - Halo (fn_0086A930):
-  - esquinas p ∓ 500(r0 + r1) y p ± 500(r0 − r1) (500 = [0x8C78EC], con las filas ya × 4);
-  - UV (0,25, 0,25), (0,49375, 0,25), (0,25, 0,49375), (0,49375, 0,49375) (0xEDC304; v0 = abajo a la izquierda);
-  - índices {0,1,3, 3,2,0} (0xEDC310).
-- Reflejo (fn_0086B010 0x86B662..0x86B69C): la segunda llamada, en (x, −y, z) con [0xFA2774] = 1, solo dibuja su halo
-  (0x86AC0F se salta el objeto luna). La luna reflejada es el DrawUnderWater (vt+0x118) de la primera. Con la cámara
-  reflejada de openblack:
-  - el halo se monta con la vista reflejada;
-  - la luna usa la vista principal (`view·mirror(y)`).
+  - corners p ∓ 500(r0 + r1) and p ± 500(r0 − r1) (500 = [0x8C78EC], with the rows already × 4);
+  - UV (0.25, 0.25), (0.49375, 0.25), (0.25, 0.49375), (0.49375, 0.49375) (0xEDC304; v0 = bottom left);
+  - indices {0,1,3, 3,2,0} (0xEDC310).
+- Reflection (fn_0086B010 0x86B662..0x86B69C): the second call, at (x, −y, z) with [0xFA2774] = 1, only draws its halo
+  (0x86AC0F skips the moon object). The reflected moon is the DrawUnderWater (vt+0x118) of the first one. With openblack's
+  reflected camera:
+  - the halo is built with the reflected view;
+  - the moon uses the main view (`view·mirror(y)`).
 
-**Diferencias con lo que había antes en openblack (arreglos de U1).**
-- El giro de los sprites de PSys iba al revés (D1). Lo compensaban dos reglas que también giraban al revés:
-  - `UR_OrientSpriteWithRandomAngle` ahora hace SetAngleY((1 − PSysFloatRand(2))·RandomAngle + DefaultAngle) en cada
-    paso (0x6A2187..0x6A21AC);
-  - `UpdateRuleRotatePrincipalAxis` ahora es `rotate(−dt·AngularVel)` (Z 0x6A116B, Y 0x6A1218, X fn_006A12F0). El
-    original también gira la 4.ª fila de la matriz del AtomCore (+0x68..+0x70), que SetAngleY 0x674360 pone a cero;
-    no se porta (**inferido**: no se usa para dibujar).
+**Differences with what openblack had before (U1 fixes).**
+- The rotation of PSys sprites went the wrong way (D1). It was compensated by two rules that also rotated the wrong way:
+  - `UR_OrientSpriteWithRandomAngle` now does SetAngleY((1 − PSysFloatRand(2))·RandomAngle + DefaultAngle) at every
+    step (0x6A2187..0x6A21AC);
+  - `UpdateRuleRotatePrincipalAxis` is now `rotate(−dt·AngularVel)` (Z 0x6A116B, Y 0x6A1218, X fn_006A12F0). The
+    original also rotates the 4th row of the AtomCore matrix (+0x68..+0x70), which SetAngleY 0x674360 sets to zero;
+    it is not ported (**inferred**: it is not used for drawing).
 
-  Como las dos están arregladas, también giran como el original las mallas que usan la segunda.
-- El origen se sumaba; ahora se resta (V4-b).
-- CentreAtBase sumaba h·s entero; ahora suma h·s·0,5 (D2).
-- La rama horizontal de PSys no tenía origen, IgnoreRotation ni CentreAtBase (D2b), y llevaba las V al revés: v0/v1
-  van a −hs − oy (D2c, 0x84085D..0x840897).
-- Faltaba el corte por near del modo A (0x84055D..0x840590).
-- La luna usaba el plano de la vista y tenía invertidos los signos de la inclinación y de la fase (V4-a).
-- Las V del halo estaban al revés (V4-d).
-- `MistShrunkSize` ya no limita \|d\| a ≥ 1. Solo cambia algo con una niebla o una nube a menos de 1 m del ojo.
+  Since both are fixed, the meshes that use the second one also rotate like the original.
+- The origin was added; now it is subtracted (V4-b).
+- CentreAtBase added the whole h·s; now it adds h·s·0.5 (D2).
+- The horizontal PSys branch had no origin, IgnoreRotation or CentreAtBase (D2b), and had the Vs reversed: v0/v1
+  go to −hs − oy (D2c, 0x84085D..0x840897).
+- Mode A's near cut was missing (0x84055D..0x840590).
+- The moon used the view plane and had the signs of the tilt and the phase inverted (V4-a).
+- The halo's Vs were reversed (V4-d).
+- `MistShrunkSize` no longer clamps \|d\| to ≥ 1. It only changes anything with a mist or a cloud less than 1 m from the eye.
 
-D2b, D2c, los dos arreglos de RotateAxis y RandomAngle y el corte por near no estaban en la lista inicial del plan.
-Están verificados en el binario, pero **falta la aprobación del jefe de sesión**.
+D2b, D2c, the two RotateAxis and RandomAngle fixes and the near cut were not on the plan's initial list.
+They are verified in the binary, but **the session lead's approval is missing**.
 
-Lo demás da los mismos vértices que antes: estela, peces, anillos, SmokyStuff, nieblas y nubes a más de 1 m,
-FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\documentacion\unify\U1_changes.md`.
+Everything else gives the same vertices as before: wake, fish, rings, SmokyStuff, mists and clouds beyond 1 m,
+FaceCamera, chains and the bubble. Details per file: `dev\documentacion\unify\U1_changes.md`.
 
-**Huecos.**
-- (inferido) El vector w de UR_OrientSpriteWithVelocity antes de 0x69A8ED.
-- (inferido) Con IgnoreRotation, +0x14 vale 0 (fn_006A84C0 sin leer).
-- (inferido) El dibujo de los mapas de luz como sprite horizontal.
-- (inferido) La 4.ª fila del AtomCore que gira UR_RotatePrincipalAxis no se usa para dibujar.
-- (aproximado) El near de `CameraFrame` va hasta 0,01 por detrás de [0xE839E0].
-- (aproximado) `MistShrunkSize` usa `std::sqrt`, no la tabla de 128 bytes de InverseSquareRoot 0x841170
-  (MakeInverseSqrtLookupTable 0x8411D0, más un paso de Newton en 0x8411B0..0x8411C2).
-- (aproximado) El vapor y el humo del fuego salen centrados. En el original heredan el oy = −2·tamaño de la última
-  llama dibujada con el sprite 0xDA09E8, porque 0x7323F0..0x7325C5 no escriben +0x18 / +0x1C. fn_00732200 dibuja por
-  cada fuego las llamas, después el vapor y después el humo, así que es la llama más vieja de ese fuego, o la del fuego
-  anterior si no tiene llamas. Así que en el original salen 2 veces ese tamaño más arriba. Para portarlo haría falta un
-  origen por átomo en `psys::manager::DrawAtom` y saber el orden de los fuegos.
-- Sin portar, aunque leído:
-  - el recorte a [0, 639] × [0, 479] de los vértices de un sprite sin recortar (0x840A47 / 0x840A85);
-  - la ruta fn_007A8DB0 con [0xEA9EB4] ≠ 0;
-  - el empujón de 1e-4 de la burbuja en la vertical (0x518875..0x5188B4): está en `LookAtCentre`, pero
-    `OneOffSpellSeed.cpp` es de Milagros y lo tiene sin commitear. Sin él, con la cámara justo en la vertical
-    openblack conserva el giro anterior.
+**Gaps.**
+- (inferred) The w vector of UR_OrientSpriteWithVelocity before 0x69A8ED.
+- (inferred) With IgnoreRotation, +0x14 is 0 (fn_006A84C0 not read).
+- (inferred) The drawing of light maps as a horizontal sprite.
+- (inferred) The 4th row of the AtomCore that UR_RotatePrincipalAxis rotates is not used for drawing.
+- (approximate) The near of `CameraFrame` lags up to 0.01 behind [0xE839E0].
+- (approximate) `MistShrunkSize` uses `std::sqrt`, not the 128-byte InverseSquareRoot table 0x841170
+  (MakeInverseSqrtLookupTable 0x8411D0, plus a Newton step at 0x8411B0..0x8411C2).
+- (approximate) The steam and smoke of fire come out centred. In the original they inherit the oy = −2·size of the last
+  flame drawn with the sprite 0xDA09E8, because 0x7323F0..0x7325C5 do not write +0x18 / +0x1C. fn_00732200 draws, for
+  each fire, the flames, then the steam and then the smoke, so it is that fire's oldest flame, or that of the previous
+  fire if it has no flames. So in the original they come out 2 times that size higher. Porting it would require an
+  origin per atom in `psys::manager::DrawAtom` and knowing the order of the fires.
+- Not ported, though read:
+  - the clamping to [0, 639] × [0, 479] of the vertices of an unclipped sprite (0x840A47 / 0x840A85);
+  - the fn_007A8DB0 path with [0xEA9EB4] ≠ 0;
+  - the bubble's 1e-4 nudge on the vertical (0x518875..0x5188B4): it is in `LookAtCentre`, but
+    `OneOffSpellSeed.cpp` belongs to Milagros and has it uncommitted. Without it, with the camera exactly on the vertical
+    openblack keeps the previous rotation.
 
-## Texturas animadas por fotogramas
+## Frame-animated textures
 
-**Fiel**, salvo lo marcado. **El original nunca mezcla dos fotogramas.** Cada usuario elige un fotograma entero
-(`__ftol`, que trunca, o una división entera; solo el brillo de la mano usa `fistp`, que redondea) y dibuja una sola
-vez. Lo que parece fluido sale de dos cosas: muchos fotogramas, de 15 a 25 por segundo, y los desplazamientos
-continuos de UV (scroll). Las PSys interpolan el **número** de fotograma entre dos pasos y después lo truncan: eso es
-un escalón, no una mezcla. En openblack, fundir dos fotogramas solo existe como opción de mod
-(`AnimatedSprite::blend`), apagada por defecto.
+**Faithful**, except what is marked. **The original never blends two frames.** Each user picks a whole frame
+(`__ftol`, which truncates, or an integer division; only the hand's glow uses `fistp`, which rounds) and draws only
+once. What looks smooth comes from two things: many frames, 15 to 25 per second, and continuous UV
+offsets (scrolling). PSys interpolates the frame **number** between two steps and then truncates it: that is
+a step, not a blend. In openblack, blending two frames exists only as a mod option
+(`AnimatedSprite::blend`), off by default.
 
-Tampoco hay un reloj común: cada usuario guarda su acumulador (por objeto, o global donde el original lo tiene global)
-con sus constantes. Por eso la API tiene **una función por reloj del original** y el estado lo guarda quien llama, en
-el sitio donde lo guarda el original.
+There is no common clock either: each user keeps its own accumulator (per object, or global where the original has it global)
+with its own constants. That is why the API has **one function per original clock** and the state is kept by the caller, in
+the place where the original keeps it.
 
-Los relojes se calculan en float porque el original corre la FPU a 24 bits: `fn_007DEE00` borra los bits de precisión
-(ver [camera-tracks.md](camera-tracks.md)). Así, cada fadd, fmul o fsub de la pila redondea como una operación de float,
-y el valor que queda en la pila entre un `fmod` y el `__ftol` es el de float. Por eso, cuando el `fmod` da un negativo
-diminuto, el «+ 32» de las fiolas redondea a 32.
+The clocks are computed in float because the original runs the FPU at 24 bits: `fn_007DEE00` clears the precision bits
+(see [camera-tracks.md](camera-tracks.md)). So each fadd, fmul or fsub on the stack rounds like a float operation,
+and the value left on the stack between an `fmod` and the `__ftol` is the float one. That is why, when the `fmod` gives a tiny
+negative, the vials' "+ 32" rounds to 32.
 
-**API.** `graphics::frame_anim` (`src/3D/FrameAnim.{h,cpp}`), solo lógica:
-- Primitivas del motor:
-  - `SpriteCell` / `SpriteCellUv`: la celda del LH3DSprite, `flags & 0x3F` (LH3DSprite::Draw 0x840530). Sus UV son las
-    de `billboard::CellUv`, que no se duplica.
-  - `UvOffset` / `IsAnimatedUv` / `OffsetUv`: `SetAnimatedUV_1` (vt +0xE8, 0x7F9B70; +0x68 / +0x6C). Cada dibujo de
-    LH3DObject lo copia a [0xECA62C] / [0xECA630], con [0xECA628] = 1 si no son los dos 0. DrawTriangle 0x82F8BE..0x82F8F7
-    lo suma a cada vértice **salvo** si el material tiene el bit 0x10 del byte +5. fn_0082F920, fn_0082FD70 y
-    fn_00884750 lo suman sin mirar el bit.
-  - `PackUvOffset` (openblack): el transporte a `vs_object.sc`, v + 4·round(256·frac(u)). Es exacto para todos los
-    usuarios del original: los cuartos de la burbuja, los pasos de 32/256 de las fiolas y las celdas de píxeles
-    enteros de AnimTextured. Solo un SlideU de 1000 fotogramas se redondea a 1/256.
-  - `AnimTexturedCell`: Particle3DObjAnimTextured::DrawAt 0x67A530, leído entero. Con celdas, cols = 256 / W (idiv),
-    u = (W/256)·(f % cols) y v = (H/256)·(f / cols), con f sin signo. Con deslizamiento, u = W·f / (N·256) y
-    v = H·f / (N·256) ([0x8D45CC] = 256). openblack añade una guarda: cols ≥ 1.
-- Relojes (tabla de abajo).
-- Cargadores: `LoadBitmapFromFile` (`GJBitmap::LoadBitmapFromFile` 0x57CA90: solo con el tamaño exacto, 0x57CAD2;
-  mín(framesInUse, framesInFile) fotogramas de Pitch × Pitch sacados de la rejilla de √n por fila de `fn_0057CB40`) y
-  `FrameTexels` (un fotograma, `fn_006CA280` 0x6CA2E3); `land_light::LoadBitmapFile` lee el archivo. `LoadGif` y
-  `GifDelayMs` para mods (stb; los retrasos de menos de 20 ms valen 100 ms, como en los navegadores).
-- Mods: `DelayClock` (duraciones por fotograma, en bucle, fotogramas enteros; da también la fracción dentro del
-  fotograma) y `AnimatedSprite` (celdas o capas consecutivas desde `first`, con `blend` apagado por defecto).
+**API.** `graphics::frame_anim` (`src/3D/FrameAnim.{h,cpp}`), logic only:
+- Engine primitives:
+  - `SpriteCell` / `SpriteCellUv`: the LH3DSprite cell, `flags & 0x3F` (LH3DSprite::Draw 0x840530). Its UVs are those
+    of `billboard::CellUv`, which is not duplicated.
+  - `UvOffset` / `IsAnimatedUv` / `OffsetUv`: `SetAnimatedUV_1` (vt +0xE8, 0x7F9B70; +0x68 / +0x6C). Each draw of an
+    LH3DObject copies it to [0xECA62C] / [0xECA630], with [0xECA628] = 1 if they are not both 0. DrawTriangle 0x82F8BE..0x82F8F7
+    adds it to each vertex **except** if the material has bit 0x10 of byte +5. fn_0082F920, fn_0082FD70 and
+    fn_00884750 add it without checking the bit.
+  - `PackUvOffset` (openblack): the transport to `vs_object.sc`, v + 4·round(256·frac(u)). It is exact for all the
+    original's users: the bubble's quarters, the vials' 32/256 steps and the whole-pixel cells of
+    AnimTextured. Only a SlideU of 1000 frames gets rounded to 1/256.
+  - `AnimTexturedCell`: Particle3DObjAnimTextured::DrawAt 0x67A530, read in full. With cells, cols = 256 / W (idiv),
+    u = (W/256)·(f % cols) and v = (H/256)·(f / cols), with f unsigned. With sliding, u = W·f / (N·256) and
+    v = H·f / (N·256) ([0x8D45CC] = 256). openblack adds a guard: cols ≥ 1.
+- Clocks (table below).
+- Loaders: `LoadBitmapFromFile` (`GJBitmap::LoadBitmapFromFile` 0x57CA90: only with the exact size, 0x57CAD2;
+  min(framesInUse, framesInFile) frames of Pitch × Pitch taken from the grid of √n per row of `fn_0057CB40`) and
+  `FrameTexels` (one frame, `fn_006CA280` 0x6CA2E3); `land_light::LoadBitmapFile` reads the file. `LoadGif` and
+  `GifDelayMs` for mods (stb; delays of less than 20 ms count as 100 ms, as in browsers).
+- Mods: `DelayClock` (per-frame durations, looping, whole frames; it also gives the fraction within the
+  frame) and `AnimatedSprite` (consecutive cells or layers from `first`, with `blend` off by default).
 
-| Reloj | Original | Regla | Usuarios en openblack |
+| Clock | Original | Rule | Users in openblack |
 |---|---|---|---|
-| `OneOffFrame` | OneOffSpellSeed::UpdateFrame 0x72A570 | fase = fmod(fase + ms·18·0,001, 16) ([0x981FB4], double [0x982820]); celda (f % 4, f / 4)·0,25 ([0x981FB8]) | la burbuja (`one_off::UpdateFrames`) |
-| `SpellIconFrame` | DrawSpellGraphic 0x519AD0, rama de las fiolas (0x519B79..0x519C1B) | +0x34 = fmod(+0x34 − 15·dt, 32), +32 si < 0 ([0x8D86F0], [0x8D8740], [0x8CF134]); u = (f % 8)·(1/256)·32, v = (f / 8)·(1/256)·32 | las fiolas de hechizo de criatura (`seed_graphic::DrawSpellGraphic`) |
-| `HandFlowFrame` | PHandFX::Draw 0x68D0C0 (0x68D29B..0x68D374) | +0x58 += dt·(−20); con ritmo > 0, fmod(.., 64) si pasa de 64; con ritmo ≤ 0, fmod(.., 64) + 64 si < 0; f = **fistp** (redondea) % 32; (f % 8, f / 8)·0,125 | el brillo de la mano (`hand_fx`, calculado y sin dibujar) |
-| `PSysFrameAdvance` | AtomCore, fn_00673EA0 (0x673FB8..0x6740D8) | prev = cur; **solo con [0xC029DC] y PlayAnim (+0x118) = 1** (si no, 0x673FC6..0x673FDE saltan a 0x67406A: ni paso ni vuelta), cur = dt·ritmo + prev; con ritmo > 0, mientras los dos pasan de 2N, −N; con ritmo ≤ 0, mientras alguno es < 0, +2N | todos los átomos (`Effect::PostUpdate`, con `Atom::playAnim`), el polvo, los granos y los peces de `HandEffects` |
-| `PSysFrameLerp` / `PSysFrameIndex` | fn_00679920 (0x679A7D..0x679B61) | t' = clamp(t, 0, 5) ([0x9357B8]) en bucle y clamp(t, 0, 1) sin él; f = prev + (cur − prev)·t'; en bucle ftol(fmod(f, N)) (+N antes si es negativo), sin bucle ftol(f) en 0..N−1 | sprites de PSys, mallas AnimTextured, TownBelief, FireGraphic, mapas de luz |
-| `MistCell` / `MistCellUv` / `MistAdvance` | LH3DMist, fn_007FA300 | +0x84 += ftol(ms·0,255) ([0x9A2BA8]), %= 900 si > 900 (0x384); celda (c·45/900) & 15; UV ((f & 7)·0,125, (f >> 3)·0,125 (+0,25 en la rama de efecto, 0x7FA466; sin él, 0x7FA69E)) | nieblas del mapa, nubes, bocanadas de tormenta, nieblas de PSys |
-| `MistCell` / `SmokeAgeStep` | LH3DSmoke, fn_007F8E00 | dt = min(ms·0,001, 100) ([0x8AB41C]); edad += ftol(dt·255) ([0x8AB270]); celda = MistCell(edad) | humo de las chimeneas |
-| `FireCell` | fn_007321B0 | ftol(fmod(−25·edad, 32) + 32) ([0x999668]); edad = SpritePos +0x2C | llamas de FireGraphic |
-| `SteamCell` | SteamGetOffsetFromAge 0x7321E0, fn_0073250A | ftol(fmod(25·edad, 32)) ([0x99966C]) | vapor y humo gris de FireGraphic |
-| `FishFrame` | fn_008248E0 (0x824960..0x8249CE) | dt = min(dt, 0,1) ([0x8AB22C]); +0x1C += dt·vel·25 ([0x8C7BD0]); celda (8 + (ftol & 15)) & 63 **antes** de la vuelta; luego −= 15·ftol(+0x1C·(1/15)) | peces de las piscifactorías |
-| `LanternAdvance` / `LanternStart` / `LanternCell` | fn_00823570 (0x823599..0x82362D); fn_00823240 (0x8233E4..0x8233F8) | reloj **global** [0xEB99C4] += ms, %= 700 si > 700 ([0xC383C8]); a = c·31/700; llama i: (10i + 31 − ((inicio[i] + a) & 31)) & 31. Inicio = la tabla **global** 0xC383BC ({0, 13, 0} en el fichero): cada luz nueva escribe ftol(Random(0, 31)) en sus tres entradas, así que todas las luces usan los valores de la última creada | faroles y hogueras (`night_lights`) |
-| `LeashCell` / `LeashScroll` | fn_00466730 (0x46690A..0x466955, 0x466855..0x46687B) | +0x74 += 10·dt, −= 15·ftol(+0x74/15), celda ftol & 63; +0x60 += 0,5·dt, −= ftol | sin portar (correas de la ciudadela) |
-| `GoldenShowerCell` | fn_006CA990 (0x6CAB1F..0x6CAB5B) | (t/50 + base + gota) % 32, con signo | sin portar |
-| `CreatureRoomCell` | CreatureRoom::DrawAdditional 0x788630 (0x7889A5..0x7889CC) | 31 − (((GetTickCount() >> 5) + i) & 31): reloj **real** | sin portar |
-| `CursorCell` | CameraModeNew3 0x456BED | (GetTickCount() / 50) & 15: reloj real, 20 por s | sin portar (cursor 3D) |
-| `HelpSystemCell` | fn_005C0700 (0x5C0A7A..0x5C0AAF) | [0xD15AB0] += fn_005557E0(); (c / 200) & 15 | sin portar (HelpDude) |
-| `JCSpecialCell` | fn_00828A70 (0x828CDE..0x828D7A) | f += ms·0,01; si f > 15, f = 0 (no fmod); ftol & 15 | sin portar |
-| `PlayerSymbolCell` / `PlayerSymbolSpin` | PlayerSymbolSprite::Draw 0x69D7E0 | capa 0: +0xC −= ms·0,02 ([0x937538]); capa 1: +0x10 −= ms·0,023 ([0x937534]); +32 mientras < 0; ftol & 63. Giro del segundo brillo: +0x14 += ms·0,002 ([0x92A544]), −2π mientras > 2π. El ctor fn_0069D5A0 los pone a 0 | los brillos de TownBelief (un acumulador por símbolo) |
-| `SmokyStuffCell` | fn_00823F70 (0x8240F9..0x824115) | ftol(vida·15) & 63 | bocanadas de SmokyStuff |
-| `DustCell` | fn_00846010 (Dust.cpp) | 16 + ((rand % 16 + ftol(2·edad)) & 15) | polvo de los choques |
-| `WaterfallScroll` | DesignedWaterFall 0x5E392E..0x5E3972 | V −= 0,5·dt ([0x8AA3B4]), menos su parte entera; SetAnimatedUV_1(0, V) | la cascada de Land 3 |
-| `GoolooFrame` | fn_005E6390 | t de 500 ms a 0; x = t/500; UV (2·cos x, 1,7·sin(0,7·x)); byte +4 del material = 255 − ftol(255·t/500) | sin portar (fantasma al quitar un objeto) |
-| `RotatingUv` / `RotatingUvClock` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 y GameUpdate 0x6C8BC0 | Dibujo: lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t) con t = DrawData +0x14 (0x67CBA8..0x67CBC1); se resta el periodo (+0x3C, +0x40) mientras lo pasa (0x67CBC8..0x67CBFC; nada si es negativo). Paso: la regla suma dt·SpeedU/V al **destino** +0x34/+0x38 y `GameUpdate`, al final de `PostUpdateAtoms` fn_00673EA0 (0x674080, `vt+0x108`), sube un periodo +0x34 y +0x2C mientras los dos están por debajo de −2·periodo (0x6C8BDF..0x6C8C5A) y los baja mientras los dos pasan +2·periodo (0x6C8C5B..0x6C8CCC) — se mueven en pareja, así que la diferencia que interpola el dibujo no cambia —, y después copia +0x2C → +0x24 y +0x34 → +0x2C (0x6C8CCD..0x6C8CE2) | discos de SurfRevol |
-| `ChainScroll` | fn_0067B3F0 (0x67BE88..0x67BED5) | +0x3C += ms·ritmo·0,001, fmod(FrameHeight/256), + eso si < 0 | cadenas de PSys |
-| `ChainSegmentUv` | fn_006C8920 | ver «Cadenas» abajo | cadenas de PSys |
+| `OneOffFrame` | OneOffSpellSeed::UpdateFrame 0x72A570 | phase = fmod(phase + ms·18·0.001, 16) ([0x981FB4], double [0x982820]); cell (f % 4, f / 4)·0.25 ([0x981FB8]) | the bubble (`one_off::UpdateFrames`) |
+| `SpellIconFrame` | DrawSpellGraphic 0x519AD0, vials branch (0x519B79..0x519C1B) | +0x34 = fmod(+0x34 − 15·dt, 32), +32 if < 0 ([0x8D86F0], [0x8D8740], [0x8CF134]); u = (f % 8)·(1/256)·32, v = (f / 8)·(1/256)·32 | the creature spell vials (`seed_graphic::DrawSpellGraphic`) |
+| `HandFlowFrame` | PHandFX::Draw 0x68D0C0 (0x68D29B..0x68D374) | +0x58 += dt·(−20); with rate > 0, fmod(.., 64) if it exceeds 64; with rate ≤ 0, fmod(.., 64) + 64 if < 0; f = **fistp** (rounds) % 32; (f % 8, f / 8)·0.125 | the hand's glow (`hand_fx`, computed and not drawn) |
+| `PSysFrameAdvance` | AtomCore, fn_00673EA0 (0x673FB8..0x6740D8) | prev = cur; **only with [0xC029DC] and PlayAnim (+0x118) = 1** (otherwise, 0x673FC6..0x673FDE jump to 0x67406A: neither step nor wrap), cur = dt·rate + prev; with rate > 0, while both exceed 2N, −N; with rate ≤ 0, while either is < 0, +2N | all atoms (`Effect::PostUpdate`, with `Atom::playAnim`), the dust, grains and fish of `HandEffects` |
+| `PSysFrameLerp` / `PSysFrameIndex` | fn_00679920 (0x679A7D..0x679B61) | t' = clamp(t, 0, 5) ([0x9357B8]) when looping and clamp(t, 0, 1) without it; f = prev + (cur − prev)·t'; looping ftol(fmod(f, N)) (+N first if negative), without loop ftol(f) in 0..N−1 | PSys sprites, AnimTextured meshes, TownBelief, FireGraphic, light maps |
+| `MistCell` / `MistCellUv` / `MistAdvance` | LH3DMist, fn_007FA300 | +0x84 += ftol(ms·0.255) ([0x9A2BA8]), %= 900 if > 900 (0x384); cell (c·45/900) & 15; UV ((f & 7)·0.125, (f >> 3)·0.125 (+0.25 in the effect branch, 0x7FA466; without it, 0x7FA69E)) | map mists, clouds, storm puffs, PSys mists |
+| `MistCell` / `SmokeAgeStep` | LH3DSmoke, fn_007F8E00 | dt = min(ms·0.001, 100) ([0x8AB41C]); age += ftol(dt·255) ([0x8AB270]); cell = MistCell(age) | chimney smoke |
+| `FireCell` | fn_007321B0 | ftol(fmod(−25·age, 32) + 32) ([0x999668]); age = SpritePos +0x2C | FireGraphic flames |
+| `SteamCell` | SteamGetOffsetFromAge 0x7321E0, fn_0073250A | ftol(fmod(25·age, 32)) ([0x99966C]) | FireGraphic steam and grey smoke |
+| `FishFrame` | fn_008248E0 (0x824960..0x8249CE) | dt = min(dt, 0.1) ([0x8AB22C]); +0x1C += dt·vel·25 ([0x8C7BD0]); cell (8 + (ftol & 15)) & 63 **before** the wrap; then −= 15·ftol(+0x1C·(1/15)) | fish-farm fish |
+| `LanternAdvance` / `LanternStart` / `LanternCell` | fn_00823570 (0x823599..0x82362D); fn_00823240 (0x8233E4..0x8233F8) | **global** clock [0xEB99C4] += ms, %= 700 if > 700 ([0xC383C8]); a = c·31/700; flame i: (10i + 31 − ((start[i] + a) & 31)) & 31. Start = the **global** table 0xC383BC ({0, 13, 0} in the file): each new light writes ftol(Random(0, 31)) into its three entries, so all lights use the values of the last one created | lanterns and bonfires (`night_lights`) |
+| `LeashCell` / `LeashScroll` | fn_00466730 (0x46690A..0x466955, 0x466855..0x46687B) | +0x74 += 10·dt, −= 15·ftol(+0x74/15), cell ftol & 63; +0x60 += 0.5·dt, −= ftol | not ported (citadel leashes) |
+| `GoldenShowerCell` | fn_006CA990 (0x6CAB1F..0x6CAB5B) | (t/50 + base + drop) % 32, signed | not ported |
+| `CreatureRoomCell` | CreatureRoom::DrawAdditional 0x788630 (0x7889A5..0x7889CC) | 31 − (((GetTickCount() >> 5) + i) & 31): **real** clock | not ported |
+| `CursorCell` | CameraModeNew3 0x456BED | (GetTickCount() / 50) & 15: real clock, 20 per s | not ported (3D cursor) |
+| `HelpSystemCell` | fn_005C0700 (0x5C0A7A..0x5C0AAF) | [0xD15AB0] += fn_005557E0(); (c / 200) & 15 | not ported (HelpDude) |
+| `JCSpecialCell` | fn_00828A70 (0x828CDE..0x828D7A) | f += ms·0.01; if f > 15, f = 0 (no fmod); ftol & 15 | not ported |
+| `PlayerSymbolCell` / `PlayerSymbolSpin` | PlayerSymbolSprite::Draw 0x69D7E0 | layer 0: +0xC −= ms·0.02 ([0x937538]); layer 1: +0x10 −= ms·0.023 ([0x937534]); +32 while < 0; ftol & 63. Spin of the second sparkle: +0x14 += ms·0.002 ([0x92A544]), −2π while > 2π. The ctor fn_0069D5A0 sets them to 0 | TownBelief sparkles (one accumulator per symbol) |
+| `SmokyStuffCell` | fn_00823F70 (0x8240F9..0x824115) | ftol(life·15) & 63 | SmokyStuff puffs |
+| `DustCell` | fn_00846010 (Dust.cpp) | 16 + ((rand % 16 + ftol(2·age)) & 15) | impact dust |
+| `WaterfallScroll` | DesignedWaterFall 0x5E392E..0x5E3972 | V −= 0.5·dt ([0x8AA3B4]), minus its integer part; SetAnimatedUV_1(0, V) | the Land 3 waterfall |
+| `GoolooFrame` | fn_005E6390 | t from 500 ms to 0; x = t/500; UV (2·cos x, 1.7·sin(0.7·x)); material byte +4 = 255 − ftol(255·t/500) | not ported (ghost when removing an object) |
+| `RotatingUv` / `RotatingUvClock` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 and GameUpdate 0x6C8BC0 | Draw: lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t) with t = DrawData +0x14 (0x67CBA8..0x67CBC1); the period (+0x3C, +0x40) is subtracted while it exceeds it (0x67CBC8..0x67CBFC; nothing if negative). Step: the rule adds dt·SpeedU/V to the **target** +0x34/+0x38 and `GameUpdate`, at the end of `PostUpdateAtoms` fn_00673EA0 (0x674080, `vt+0x108`), raises +0x34 and +0x2C by one period while both are below −2·period (0x6C8BDF..0x6C8C5A) and lowers them while both exceed +2·period (0x6C8C5B..0x6C8CCC) — they move as a pair, so the difference the draw interpolates does not change —, and then copies +0x2C → +0x24 and +0x34 → +0x2C (0x6C8CCD..0x6C8CE2) | SurfRevol discs |
+| `ChainScroll` | fn_0067B3F0 (0x67BE88..0x67BED5) | +0x3C += ms·rate·0.001, fmod(FrameHeight/256), + that if < 0 | PSys chains |
+| `ChainSegmentUv` | fn_006C8920 | see "Chains" below | PSys chains |
 
-**Las cadenas.** fn_006C8920 da las UV del tramo i de S = articulaciones − 1:
-- k = ((i + 1)·T − 1) / S, b = k·S / T, n = (k + 1)·S / T − b y j = i − b, todo en enteros. T es NumTexturesForWholeChain,
-  o S cuando vale −1 (CreateChain 0x6AA8DC).
+**Chains.** fn_006C8920 gives the UVs of segment i of S = joints − 1:
+- k = ((i + 1)·T − 1) / S, b = k·S / T, n = (k + 1)·S / T − b and j = i − b, all in integers. T is NumTexturesForWholeChain,
+  or S when it is −1 (CreateChain 0x6AA8DC).
 - F = FileOffset + (k = T − 1 ? FrameOfHead : k = 0 ? FrameOfTail : 0).
-- uv0 / uv1 = (F·W, H·j/n) y ((F+1)·W, H·j/n); uv2 / uv3 = lo mismo con j + 1. Todo × 1/256 ([0x938EBC]) y el scroll
-  +0x3C sumado a las cuatro v.
-- Es decir, **la V corre a lo largo de la cadena y la U cruza la cinta** por una columna de W píxeles. Los valores por
-  defecto del creador son FrameHeight 64, FrameWidth 32 y NumTexturesForWholeChain −1 (0x6AA739..0x6AA747).
-- El ritmo del scroll (+0x4C) solo lo ponen UR_SimpleBeam (SpeedV, 0x6762EE) y UR_Plasma (0x676898). Ninguno está
-  portado, así que el scroll de todas las cadenas de openblack vale 0.
-- fn_0067B3F0 hace cuatro vértices por tramo (0x67BA82..0x67BB0D): v0 = cabeza + lado, v1 = cabeza − lado,
-  v2 = cola + lado y v3 = cola − lado. Les da uv0..uv3 (0x67BEE4..0x67BEFD). fn_0081C780 copia la UV de cada vértice
-  tal cual en LH3DP3::Table1 +0x18 / +0x1C (0x81C9C7..0x81C9D0) y dibuja con DrawTriangle 0x82F810 (0x81CCB2). Por
-  eso U = F·W va del lado +lado.
-- Luego 0x67BFAC..0x67BFEE pone el mismo scroll en [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1), y DrawTriangle
-  0x82F8BE lo suma otra vez: el material de fn_006AA800 solo tiene los bits 0 y 2 de +5. (La verificación de animtex,
-  V1-2, decía que la tira usaba fn_0082F920. No es así: la llamada de 0x81D152 está en otra función, la de 0x81CCD0,
-  porque fn_0081C780 acaba en 0x81CCBE.)
+- uv0 / uv1 = (F·W, H·j/n) and ((F+1)·W, H·j/n); uv2 / uv3 = the same with j + 1. All × 1/256 ([0x938EBC]) and the scroll
+  +0x3C added to the four v.
+- That is, **V runs along the chain and U crosses the ribbon** over a column of W pixels. The creator's default
+  values are FrameHeight 64, FrameWidth 32 and NumTexturesForWholeChain −1 (0x6AA739..0x6AA747).
+- The scroll rate (+0x4C) is only set by UR_SimpleBeam (SpeedV, 0x6762EE) and UR_Plasma (0x676898). Neither is
+  ported, so the scroll of all openblack chains is 0.
+- fn_0067B3F0 makes four vertices per segment (0x67BA82..0x67BB0D): v0 = head + side, v1 = head − side,
+  v2 = tail + side and v3 = tail − side. It gives them uv0..uv3 (0x67BEE4..0x67BEFD). fn_0081C780 copies each vertex's UV
+  as is into LH3DP3::Table1 +0x18 / +0x1C (0x81C9C7..0x81C9D0) and draws with DrawTriangle 0x82F810 (0x81CCB2). That is
+  why U = F·W goes on the +side.
+- Then 0x67BFAC..0x67BFEE puts the same scroll in [0xECA630] ([0xECA62C] = 0, [0xECA628] = 1), and DrawTriangle
+  0x82F8BE adds it again: the material of fn_006AA800 only has bits 0 and 2 of +5. (The animtex verification,
+  V1-2, said that the strip used fn_0082F920. That is not so: the call at 0x81D152 is in another function, the one at 0x81CCD0,
+  because fn_0081C780 ends at 0x81CCBE.)
 
-**Arreglos deliberados** (el original es distinto de lo que hacía openblack):
+**Deliberate fixes** (the original is different from what openblack did):
 - PSys:
-  - el fotograma se guarda en [0, 2N) con su anterior (fn_00673EA0), y el índice se elige como en fn_00679920 (fmod y
-    +N una sola vez; antes era fmod(fmod + N));
-  - sin PlayAnim no hay ni paso ni vuelta (0x673FC6..0x673FDE), así que un fotograma negativo se queda como está;
-  - un átomo sin bucle con ritmo negativo salta a ~2N y enseña el último fotograma, no el primero. Ningún .zzz del
-    juego tiene LoopAnim 0 con FrameRate < 0 o con RandomiseFrameDirection, así que en el juego no se ve. Son 169
-    creadores con la propiedad PlayAnim (137 sprites, 21 mapas de luz, 6 mallas AnimTextured, 4 de animación y 1 de
-    animación con cámara), y los diez con ritmo negativo (bolas de fuego, SF_Flash, el tornado y el cono de lluvia)
-    van todos en bucle.
-- Nieblas de PSys: cada átomo lleva su contador (`Atom::mist`). Empieza en ftol(Random(0, 16)) & 15 (0x7F95F8) y solo
-  avanza si la niebla sale en pantalla. Antes había un solo contador global.
-- Bocanadas de tormenta: el contador avanza solo si la bocanada pasa de alfa 5 (AddDrawing) **y** su esfera está en
-  pantalla (`mists::InView`, la prueba de LH3DMist::AddDrawing 0x7FA7F0). Ya no está (aproximado).
-- Peces: la celda se toma antes de la vuelta (puede salir la 23) y la vuelta es −15·ftol(f/15).
-- Faroles: el inicio de cada llama sale de la tabla global 0xC383BC, que reescribe cada luz nueva con
-  ftol(Random(0, 31)). Así, todas las luces van en fase con los valores de la última creada (antes cada luz tenía los
-  suyos). El reloj es entero y solo corre si el alfa del pueblo no es 0 y hay luces (0x82357A..0x823593). El halo es
-  la celda 56 de `smoke` ((flags & ~7) | 0x38, 0x8233BC..0x8233EB).
-- TownBelief: los brillos llevan su acumulador por símbolo (+0xC, +0x10 y el giro +0x14, desde 0), avanzado con los
-  ms enteros de cada fotograma. Antes usaba el tiempo global (−s·20, −s·23).
-- Brillo de la mano: el fotograma se redondea (fistp 0x68D323), no se trunca, y la vuelta es «> 64», no «≥ 64».
-- Cadenas: las UV de fn_006C8920 (antes la U recorría la cadena con la textura entera repetida), los valores por
-  defecto del creador, FileOffset y el scroll. Además, uv0 va del lado +lado (antes del −lado: la U estaba
-  espejada) y la semianchura es la escala, no 0,5·escala, así que **las cintas salen el doble de anchas**.
-- Fiolas de hechizo de criatura: la animación UV de 0x519AD0, que antes no estaba.
-- Bandas de potencia: `billboard::BandToEye`, ver [billboards](#objetos-que-miran-a-la-cámara-billboards).
-- Discos de SurfRevol: el desplazamiento UV se interpola entre dos pasos (`frame_anim::RotatingUvClock`, DrawAt
-  0x67CBA0 con t = DrawData +0x14 y GameUpdate 0x6C8BC0 entero). Antes la regla envolvía el valor en [0, periodo) cada
-  paso y el dibujo lo usaba tal cual, así que el disco giraba a saltos de un paso de PSys.
+  - the frame is kept in [0, 2N) with its previous one (fn_00673EA0), and the index is chosen as in fn_00679920 (fmod and
+    +N only once; before it was fmod(fmod + N));
+  - without PlayAnim there is neither step nor wrap (0x673FC6..0x673FDE), so a negative frame stays as it is;
+  - a non-looping atom with a negative rate jumps to ~2N and shows the last frame, not the first. No .zzz in the
+    game has LoopAnim 0 with FrameRate < 0 or with RandomiseFrameDirection, so it is not seen in the game. There are 169
+    creators with the PlayAnim property (137 sprites, 21 light maps, 6 AnimTextured meshes, 4 animation ones and 1
+    animation-with-camera one), and the ten with a negative rate (fireballs, SF_Flash, the tornado and the rain cone)
+    all loop.
+- PSys mists: each atom carries its own counter (`Atom::mist`). It starts at ftol(Random(0, 16)) & 15 (0x7F95F8) and only
+  advances if the mist appears on screen. Before there was a single global counter.
+- Storm puffs: the counter only advances if the puff exceeds alpha 5 (AddDrawing) **and** its sphere is on
+  screen (`mists::InView`, the test of LH3DMist::AddDrawing 0x7FA7F0). It is no longer (approximate).
+- Fish: the cell is taken before the wrap (cell 23 can show up) and the wrap is −15·ftol(f/15).
+- Lanterns: the start of each flame comes from the global table 0xC383BC, which every new light rewrites with
+  ftol(Random(0, 31)). So all lights run in phase with the values of the last one created (before, each light had
+  its own). The clock is integer and only runs if the town's alpha is not 0 and there are lights (0x82357A..0x823593). The halo is
+  cell 56 of `smoke` ((flags & ~7) | 0x38, 0x8233BC..0x8233EB).
+- TownBelief: the sparkles carry their accumulator per symbol (+0xC, +0x10 and the spin +0x14, from 0), advanced with the
+  whole ms of each frame. Before it used the global time (−s·20, −s·23).
+- Hand glow: the frame is rounded (fistp 0x68D323), not truncated, and the wrap is "> 64", not "≥ 64".
+- Chains: the UVs of fn_006C8920 (before, U ran along the chain with the whole texture repeated), the creator's default
+  values, FileOffset and the scroll. In addition, uv0 goes on the +side (before on the −side: U was
+  mirrored) and the half-width is the scale, not 0.5·scale, so **the ribbons come out twice as wide**.
+- Creature spell vials: the UV animation of 0x519AD0, which was missing before.
+- Power bands: `billboard::BandToEye`, see [billboards](#objects-that-face-the-camera-billboards).
+- SurfRevol discs: the UV offset is interpolated between two steps (`frame_anim::RotatingUvClock`, DrawAt
+  0x67CBA0 with t = DrawData +0x14 and GameUpdate 0x6C8BC0 in full). Before, the rule wrapped the value into [0, period) every
+  step and the draw used it as is, so the disc rotated in jumps of one PSys step.
 
-**Igual que antes, bit a bit:** la burbuja, las llamas y el vapor (la celda 32 en el primer fotograma ya estaba), el
-humo de las chimeneas, SmokyStuff, la estela del barco, los anillos (celda fija `& 63` de la hoja 8×8 de `smoke.raw`,
-fn_005E5100), las nieblas del mapa y las nubes, la cascada, los montones de comida (0x51C0FD), la disposición
-de celdas de AnimTextured, la malla y las UV de los discos de SurfRevol, el polvo, la mano y las mariposas GIF del
-mod. El polvo al
-agarrar tierra y los granos y peces al coger comida van ahora por `PSysFrameAdvance` / `PSysFrameIndex`: dan las
-mismas celdas, salvo el redondeo de sumar dt·ritmo en vez de multiplicar edad·ritmo.
+**Same as before, bit for bit:** the bubble, the flames and the steam (cell 32 on the first frame was already there), the
+chimney smoke, SmokyStuff, the boat wake, the rings (fixed cell `& 63` of the 8×8 sheet of `smoke.raw`,
+fn_005E5100), the map mists and the clouds, the waterfall, the food piles (0x51C0FD), the AnimTextured cell
+layout, the mesh and UVs of the SurfRevol discs, the dust, the hand and the mod's GIF butterflies. The dust when
+gripping land and the grains and fish when picking up food now go through `PSysFrameAdvance` / `PSysFrameIndex`: they give the
+same cells, except for the rounding of adding dt·rate instead of multiplying age·rate.
 
-**Huecos.**
-- (aproximado) Todos los relojes de niebla y humo guardan la fracción de ms·0,255 (o dt·255) de un fotograma al
-  siguiente. El `ftol` del original pararía la animación a más de 250 fps. `MistAdvanceExact` es la fórmula tal cual.
-- (aproximado) Las bocanadas de tormenta empiezan con el contador a 0, no en Random(0, 16) & 15: es la misma celda 0.
-- `graphics::lh3d::Random` (src/3D/LH3DRandom.h) se ha quitado; lo sustituye `game_random::crt::Random` (Random 0x81D180 sobre el
-  `rand()` de la CRT, semilla 1 al arrancar: `__initptd` 0x7D2323; el `srand(time)` de 0x577721 solo corre al guardar
-  `creature.lhp`). Lo comparten las nieblas del mapa, las de PSys, las bocanadas de tormenta, la lluvia y el temblor de
-  cámara. (aproximado) el original tiene una semilla por hilo; aquí una.
-- TownBelief toma g_game_time_inc de `game_clock::FrameGameMs()` (0x69D855; antes, aproximado, del reloj de pared).
-- Los faroles (fn_00823570), las nubes del cielo (su movimiento, su contador de atlas y el alineamiento del cielo,
-  `Renderer::UpdateClouds`), las nieblas del mapa (`CollectMists`, fn_007FA300) y el humo de las chimeneas
-  (`CollectChimneySmoke`, fn_007F8E00) toman también g_game_time_inc de `game_clock::FrameGameMs()` (U7). Antes salía
-  del reloj de pared, escalado por la velocidad del juego y con tope de 100 ms, y los faroles guardaban la fracción de
-  ms (`WholeMilliseconds`, que se quita: el reloj del juego ya da ms enteros y guarda él el resto del turno). Las
-  nieblas y el humo se recogen una vez por fotograma, solo en la vista principal.
-- (inferido) Que S_Fire se dibuje en 8×8 como S_SpriteSheet3.
-- (inferido) GoldenShower: t en milisegundos. Gooloo: que el byte +4 del material sea el ALPHAREF.
-- HandEffects (polvo al agarrar tierra, granos y peces al coger comida) sigue siendo una copia a mano de efectos que en
-  el original son PSys (SF_GripLandscape, ER_MultiPickup). Sus relojes de fotograma ya son los de PSys.
-- Sin portar, con su reloj y su prueba en la API: InfluenceCircle (scroll 0,0001 / −0,0002 por ms, 0x826C90),
-  Gooloo, GoldenShower, las correas, la habitación de la criatura y el mapa del mundo de la ciudadela, HelpDude, el
-  cursor 3D y JCSpecial. También HandGlow / fn_0083F270, el scroll que no es de LightSheet sino del objeto de
-  fn_0083F100 / fn_0083F210, leído por fn_0084F910.
-## Mallas pegadas al suelo (land_morph)
+**Gaps.**
+- (approximate) All the mist and smoke clocks keep the fraction of ms·0.255 (or dt·255) from one frame to the
+  next. The original's `ftol` would stop the animation above 250 fps. `MistAdvanceExact` is the formula as is.
+- (approximate) Storm puffs start with the counter at 0, not at Random(0, 16) & 15: it is the same cell 0.
+- `graphics::lh3d::Random` (src/3D/LH3DRandom.h) has been removed; `game_random::crt::Random` replaces it (Random 0x81D180 on the
+  CRT's `rand()`, seed 1 at startup: `__initptd` 0x7D2323; the `srand(time)` at 0x577721 only runs when saving
+  `creature.lhp`). It is shared by the map mists, the PSys mists, the storm puffs, the rain and the camera
+  shake. (approximate) the original has one seed per thread; here one.
+- TownBelief takes g_game_time_inc from `game_clock::FrameGameMs()` (0x69D855; before, approximately, from the wall clock).
+- The lanterns (fn_00823570), the sky clouds (their movement, their atlas counter and the sky alignment,
+  `Renderer::UpdateClouds`), the map mists (`CollectMists`, fn_007FA300) and the chimney smoke
+  (`CollectChimneySmoke`, fn_007F8E00) also take g_game_time_inc from `game_clock::FrameGameMs()` (U7). Before it came
+  from the wall clock, scaled by the game speed and capped at 100 ms, and the lanterns kept the fraction of
+  ms (`WholeMilliseconds`, which is removed: the game clock already gives whole ms and keeps the rest of the turn itself). The
+  mists and the smoke are collected once per frame, only in the main view.
+- (inferred) That S_Fire is drawn in 8×8 like S_SpriteSheet3.
+- (inferred) GoldenShower: t in milliseconds. Gooloo: that the material's byte +4 is the ALPHAREF.
+- HandEffects (dust when gripping land, grains and fish when picking up food) is still a hand-made copy of effects that in
+  the original are PSys (SF_GripLandscape, ER_MultiPickup). Its frame clocks are already the PSys ones.
+- Not ported, with their clock and their test in the API: InfluenceCircle (scroll 0.0001 / −0.0002 per ms, 0x826C90),
+  Gooloo, GoldenShower, the leashes, the creature room and the citadel world map, HelpDude, the
+  3D cursor and JCSpecial. Also HandGlow / fn_0083F270, the scroll that does not belong to LightSheet but to the object of
+  fn_0083F100 / fn_0083F210, read by fn_0084F910.
+## Meshes stuck to the ground (land_morph)
 
-**Fiel**, salvo lo marcado. Todo lo que se amolda al terreno pasa por una sola API, `openblack::land_morph`
-(`src/3D/LandMorph.{h,cpp}`), y en GPU por un solo include, `assets/shaders/land_altitude.sh`. Toda altura es
-`LH3DIsland::GetAltitude` 0x803090: en CPU `LandIsland::HeightAt` (exacta, 16.16), en GPU `LandAltitude` (la misma
-lógica en float: diagonal `split` y aplanado junto al mar), en el x, z de mundo del punto (`fn_004427B0` /
-`fn_00653150`: x·65536·0,1 truncado, [0x8AC408], [0x8AC404]). En el original no hay una rutina única: hay una
-altura y cuatro algoritmos que la aplican.
+**Faithful**, except what is marked. Everything that conforms to the terrain goes through a single API, `openblack::land_morph`
+(`src/3D/LandMorph.{h,cpp}`), and on the GPU through a single include, `assets/shaders/land_altitude.sh`. Every height is
+`LH3DIsland::GetAltitude` 0x803090: on the CPU `LandIsland::HeightAt` (exact, 16.16), on the GPU `LandAltitude` (the same
+logic in float: `split` diagonal and flattening next to the sea), at the point's world x, z (`fn_004427B0` /
+`fn_00653150`: x·65536·0.1 truncated, [0x8AC408], [0x8AC404]). In the original there is no single routine: there is one
+height and four algorithms that apply it.
 
-| # | Algoritmo | Original | Cuándo | API | Usuarios en openblack |
+| # | Algorithm | Original | When | API | Users in openblack |
 |---|---|---|---|---|---|
-| A | Cortar la malla por el terreno y subir cada vértice `y += H(v) − H(origen)` | `fn_00686980` + corte `fn_00686D90` | una vez al crear (0x6867F9), solo con `DoRaiseAboveLandscape`; sin la «respiración» de cada fotograma (0x686805) | `SplitByPlane`, `CellPlanes`, `RaiseAboveLandscape` | `PSys/Rules/SurfRevol.cpp`: `SF_TeleportVortex`, `SF_SpellDispenserVortex` |
-| B | *Melting*: un delta por vértice `(H(v) − H0) / escala`, en espacio modelo, a lo largo de la Y local | `UpdateMelting` 0x8168F0 + Draw morfable 0x80E550 | al crear (`Snapshot`); `PhysicalShield` en cada dibujo (`Live`) | `components::MorphWithTerrain{mode}`, `Melting`, `MeltingDeltas`, `LandMelting` (GPU), `ObjectProgram` | vs_object_hm_instanced: edificios morfables, campos, montones, BigForest, escudo físico, arca y dinosaurio, marcas del suelo |
-| C | *Bake*: el mismo delta escrito en los vértices | FragMesh `fn_007F72B0`; ClampToLandscape `RenderParticleGJMesh::DrawAt` 0x67C313; MeltBorder 0x816350; ciudadela vt+0x208 `fn_00882B10` | FragMesh al romperse; ClampToLandscape cada fotograma, todas las primitivas, sin corte | `Bake`, `Raised`, `BakeAgainstY` | `ECS/Physics/FragMesh.cpp`; `SurfRevol.cpp` (`SF_LandscapeVolcano*`, `SF_LandscapeVortex*`); llamas de un objeto morfable (`ECS/Fire/FireGraphic.cpp`); el punto del tótem sobre el centro del pueblo (`GetExtraPos` 0x80FF20, `AbodeArchetype.cpp`) |
-| D | Geometría hecha sobre el suelo, `y = H + constante` | manchas `fn_0081FFF0`; InfluenceCircle `fn_008265F0`; correa `fn_008491B0`; quads de la criatura `fn_0081F360` | al crear / cada fotograma | `OnGround`, `k_BlobLift`, `k_LeashRibbonLift`, `k_CreatureQuadLift`, `InfluenceCurtain` | manchas (`Renderer::DrawHumanShadows`); el picking de los morfados (`HandPlacement.cpp`) |
+| A | Cut the mesh by the terrain and raise each vertex `y += H(v) − H(origen)` | `fn_00686980` + cut `fn_00686D90` | once on creation (0x6867F9), only with `DoRaiseAboveLandscape`; without the per-frame "breathing" (0x686805) | `SplitByPlane`, `CellPlanes`, `RaiseAboveLandscape` | `PSys/Rules/SurfRevol.cpp`: `SF_TeleportVortex`, `SF_SpellDispenserVortex` |
+| B | *Melting*: a delta per vertex `(H(v) − H0) / escala`, in model space, along the local Y | `UpdateMelting` 0x8168F0 + morphable Draw 0x80E550 | on creation (`Snapshot`); `PhysicalShield` on every draw (`Live`) | `components::MorphWithTerrain{mode}`, `Melting`, `MeltingDeltas`, `LandMelting` (GPU), `ObjectProgram` | vs_object_hm_instanced: morphable buildings, fields, piles, BigForest, physical shield, ark and dinosaur, ground marks |
+| C | *Bake*: the same delta written into the vertices | FragMesh `fn_007F72B0`; ClampToLandscape `RenderParticleGJMesh::DrawAt` 0x67C313; MeltBorder 0x816350; citadel vt+0x208 `fn_00882B10` | FragMesh when breaking; ClampToLandscape every frame, all primitives, no cut | `Bake`, `Raised`, `BakeAgainstY` | `ECS/Physics/FragMesh.cpp`; `SurfRevol.cpp` (`SF_LandscapeVolcano*`, `SF_LandscapeVortex*`); flames of a morphable object (`ECS/Fire/FireGraphic.cpp`); the totem point over the town centre (`GetExtraPos` 0x80FF20, `AbodeArchetype.cpp`) |
+| D | Geometry made on the ground, `y = H + constante` | blobs `fn_0081FFF0`; InfluenceCircle `fn_008265F0`; leash `fn_008491B0`; creature quads `fn_0081F360` | on creation / every frame | `OnGround`, `k_BlobLift`, `k_LeashRibbonLift`, `k_CreatureQuadLift`, `InfluenceCurtain` | blobs (`Renderer::DrawHumanShadows`); picking of morphed objects (`HandPlacement.cpp`) |
 
-**A, cortar y subir.** `fn_00686980(M, mesh)` pasa la malla al mundo con la matriz del átomo (`fn_00673E40` en
-0x6867E8: el marco local de `fn_00673DB0` en la jerarquía, `fn_006752D0`), saca la caja de todas las primitivas
-(`fn_006C99E0`: centro = (máx + mín)·0,5 y semiejes = (máx − mín)·0,5) y corta **solo la primera primitiva del
-primer grupo**:
+**A, cut and raise.** `fn_00686980(M, mesh)` takes the mesh into the world with the atom's matrix (`fn_00673E40` at
+0x6867E8: the local frame of `fn_00673DB0` in the hierarchy, `fn_006752D0`), gets the box of all the primitives
+(`fn_006C99E0`: centre = (max + min)·0.5 and half-axes = (max − min)·0.5) and cuts **only the first primitive of the
+first group**:
 
-| Paso | Detalle | Dirección |
+| Step | Detail | Address |
 |---|---|---|
-| Índices | x0 = −1 − ftol(−0,1·mín.x), x1 = 1 − ftol(−0,1·máx.x), igual en z (= ⌊mín/10⌋ − 1 .. ⌊máx/10⌋ + 1 con x ≥ 0) | 0x6869EF..0x686A41, [0x8C7B10] |
-| Planos | x = 10i (n = (1,0,0)), z = 10j (n = (0,0,1)), x + z = 10k y x − z = 10k (n = (s,0,±s), s = 1/√2 en double, por (10i, 0, 10·z1); i de x0 − dz a x1 y de x0 a x1 + dz, dz = z1 − z0) | 0x686A53, 0x686AF9, 0x686BDB, 0x686C8B; [0x8AB414], [0x8AC410] |
-| d del plano | −n·p con `fn_00453F50` ((z z' + y y') + x x') | 0x686AB2..0x686ACC |
-| Corte | dist = ((y ny + z nz) + x nx) + w; dist ≤ 0 cuenta como negativo; si los tres signos son iguales no se corta; A = el primer vértice cuyo signo es el producto de los tres | `fn_00686D90` 0x686E3B..0x686F9A |
-| Nuevos vértices | t = −dA/(dO − dA); posición, UV y normal = A + t(O − A) (la normal sin renormalizar); cada byte de color cA + ((cO − cA)·ftol(255t) >> 8); difuso, especular y normales solo si hay uno por posición | 0x686FEB..0x68732B, [0x8AB270] |
-| Triángulos | n1 (arista AB) y n2 (AC) al final; tri := (A, n1, n2), se añaden (B, C, n2) y (B, n2, n1); solo se prueban los triángulos que había | 0x687386..0x687413 |
-| Subir | H0 = H(M+0x24, M+0x2C); y = (H(v) − H0) + y en la primera primitiva | 0x686D01..0x686D55 |
-| Volver | la inversa de M (`SetInverse` 0x7FB290) | 0x686D61..0x686D78 |
+| Indices | x0 = −1 − ftol(−0.1·min.x), x1 = 1 − ftol(−0.1·max.x), likewise in z (= ⌊min/10⌋ − 1 .. ⌊max/10⌋ + 1 with x ≥ 0) | 0x6869EF..0x686A41, [0x8C7B10] |
+| Planes | x = 10i (n = (1,0,0)), z = 10j (n = (0,0,1)), x + z = 10k and x − z = 10k (n = (s,0,±s), s = 1/√2 in double, through (10i, 0, 10·z1); i from x0 − dz to x1 and from x0 to x1 + dz, dz = z1 − z0) | 0x686A53, 0x686AF9, 0x686BDB, 0x686C8B; [0x8AB414], [0x8AC410] |
+| Plane d | −n·p with `fn_00453F50` ((z z' + y y') + x x') | 0x686AB2..0x686ACC |
+| Cut | dist = ((y ny + z nz) + x nx) + w; dist ≤ 0 counts as negative; if the three signs are equal there is no cut; A = the first vertex whose sign is the product of the three | `fn_00686D90` 0x686E3B..0x686F9A |
+| New vertices | t = −dA/(dO − dA); position, UV and normal = A + t(O − A) (the normal not renormalised); each colour byte cA + ((cO − cA)·ftol(255t) >> 8); diffuse, specular and normals only if there is one per position | 0x686FEB..0x68732B, [0x8AB270] |
+| Triangles | n1 (edge AB) and n2 (AC) at the end; tri := (A, n1, n2), (B, C, n2) and (B, n2, n1) are added; only the triangles that already existed are tested | 0x687386..0x687413 |
+| Raise | H0 = H(M+0x24, M+0x2C); y = (H(v) − H0) + y in the first primitive | 0x686D01..0x686D55 |
+| Back | the inverse of M (`SetInverse` 0x7FB290) | 0x686D61..0x686D78 |
 
-Como `GetAltitude` es lineal dentro de cada triángulo de tierra y los cortes siguen las aristas de las celdas y sus dos
-diagonales (sea cual sea el bit `split`), la malla cortada sigue el terreno **exactamente**. openblack lo hace en
-`ZR_SurfRevol::MakeSurface`, al crear la superficie, con el marco del átomo en la jerarquía (`Effect::LocalToGlobal` /
-`GlobalToLocal`), y la deja en espacio local: al dibujar se mueve y escala con el átomo, como los deltas locales del
-original. **(aproximado)** El marco es el que usa `surf_revol::Collect` al dibujar (giro · baseScale · ruleScale, sin
-el estiramiento en Y de `fn_00673DB0`): se toma la M de `fn_00673E40` como la PSR dibujada de `fn_00673EA0`, y
-`Collect` no aplica el estiramiento. Los dos usuarios tienen estiramiento 1 (sin `StretchVertically` ni reglas que lo
-cambien). Antes se subía cada vértice al dibujar y sin cortes, así que las cuerdas del disco atravesaban los pliegues
-del terreno. `HeightAboveLandscape` y `RaiseAboveLandscapeRadius` no los lee nadie (0x6B30EF, 0x6B312A).
+Since `GetAltitude` is linear within each land triangle and the cuts follow the cell edges and their two
+diagonals (whatever the `split` bit), the cut mesh follows the terrain **exactly**. openblack does it in
+`ZR_SurfRevol::MakeSurface`, when creating the surface, with the atom's frame in the hierarchy (`Effect::LocalToGlobal` /
+`GlobalToLocal`), and leaves it in local space: when drawing it moves and scales with the atom, like the original's local
+deltas. **(approximate)** The frame is the one `surf_revol::Collect` uses when drawing (rotation · baseScale · ruleScale, without
+the Y stretch of `fn_00673DB0`): the M of `fn_00673E40` is taken as the drawn PSR of `fn_00673EA0`, and
+`Collect` does not apply the stretch. Both users have stretch 1 (no `StretchVertically` nor rules that
+change it). Before, each vertex was raised when drawing and with no cuts, so the disc's chords cut through the folds
+of the terrain. `HeightAboveLandscape` and `RaiseAboveLandscapeRadius` are not read by anyone (0x6B30EF, 0x6B312A).
 
-**B, melting.** `UpdateMelting` 0x8168F0 sale si no hay búfer de deltas ([+0x80] == 0) o si vt+0x1B0 ≠ 0 (0x7F9BF0 =
-0 en las dos vtables morfables); a0 = H(+0x38, +0x40), inv = 1/[+0x44]; para cada vértice de cada submalla,
-w = v·M + pos y delta = (H(w) − a0)·inv (0x816A5E..0x816A77). El Draw 0x80E550 lo suma a la y del modelo antes de la
-matriz. En openblack lo hace `LandMelting` en vs_object (programas `ObjectHeightMap*`): en el mundo es
-columna 1 · (H(w) − H(origen)) / escala, con la columna 1 de la matriz dibujada (su eje arriba) y la escala de la
-columna 0 (giro por escala uniforme; los vaivenes solo tocan la columna 1). Con la columna (0, s, 0) es
-`y += H(w) − H(origen)` exacto, como antes. El único morfado inclinado es el campo maduro: su vaivén (`Field::Draw`
-0x528570) cizalla la columna 1 a lo largo de z, así que sus vértices suben H − H0 y además se corren
-1,75·vaivén·(H − H0) en z, como en el original (antes solo subían). Las clases morfables (Get3DType
-1 / 8) están en `MorphWithTerrain.h`. El escudo físico es una (Get3DType 0x72CE50 = 1); el mágico no (0x72C340 → el
-estático).
-- **Snapshot / Live (aproximado).** `MorphWithTerrain::mode` guarda cuándo toma el original los deltas: `Snapshot` al
-  crear, `Live` en cada dibujo. `Live` es solo `PhysicalShield`: `CallVirtualFunctionsForCreation` 0x72CD23,
-  `SetUpPhysOb` 0x72CEB8 y `DrawShield` 0x72D01E, tras interpolar la matriz y la escala. El shader los calcula en cada
-  dibujo para los dos: los deltas congelados harían falta por instancia y por vértice, y las instancias comparten la
-  malla. Solo difieren si la tierra cambia después de crear el objeto, y en openblack solo cambia en
-  `FlattenLandUnderTemple` (`CitadelArchetype.cpp`), mientras se carga el mapa.
-- **Un programa.** `land_morph::ObjectProgram(shaders, morph, pass)` es la única elección entre `ObjectInstanced` y
-  `ObjectHeightMapInstanced` (y sus `Shadow`): la pasada principal, la mezclada, el reflejo de objetos y la sombra de la
-  mano sobre objetos.
-- **Corte por el plano.** El `DrawCutByPlane` de las vtables morfables (vt+0x11C) es 0x80BA50, un `ret`: un objeto
-  morfable cortado no se dibuja. `Renderer::DrawCutByPlane` sale igual. Hoy ningún morfado lleva `CutByPlane` salvo el
-  montón de comida de `OPENBLACK_TEST_SEA=...,pot` con `OPENBLACK_TEST_CUT=1`, que ya no se dibuja cortado.
+**B, melting.** `UpdateMelting` 0x8168F0 exits if there is no delta buffer ([+0x80] == 0) or if vt+0x1B0 ≠ 0 (0x7F9BF0 =
+0 in both morphable vtables); a0 = H(+0x38, +0x40), inv = 1/[+0x44]; for each vertex of each submesh,
+w = v·M + pos and delta = (H(w) − a0)·inv (0x816A5E..0x816A77). The Draw 0x80E550 adds it to the model's y before the
+matrix. In openblack it is done by `LandMelting` in vs_object (programs `ObjectHeightMap*`): in the world it is
+column 1 · (H(w) − H(origin)) / scale, with column 1 of the drawn matrix (its up axis) and the scale of
+column 0 (rotation times uniform scale; the sways only touch column 1). With the column (0, s, 0) it is
+exactly `y += H(w) − H(origen)`, as before. The only tilted morphed object is the ripe field: its sway (`Field::Draw`
+0x528570) shears column 1 along z, so its vertices rise H − H0 and also shift
+1.75·sway·(H − H0) in z, as in the original (before they only rose). The morphable classes (Get3DType
+1 / 8) are in `MorphWithTerrain.h`. The physical shield is one (Get3DType 0x72CE50 = 1); the magic one is not (0x72C340 → the
+static one).
+- **Snapshot / Live (approximate).** `MorphWithTerrain::mode` records when the original takes the deltas: `Snapshot` on
+  creation, `Live` on every draw. `Live` is only `PhysicalShield`: `CallVirtualFunctionsForCreation` 0x72CD23,
+  `SetUpPhysOb` 0x72CEB8 and `DrawShield` 0x72D01E, after interpolating the matrix and the scale. The shader computes them on every
+  draw for both: frozen deltas would be needed per instance and per vertex, and instances share the
+  mesh. They only differ if the land changes after the object is created, and in openblack it only changes in
+  `FlattenLandUnderTemple` (`CitadelArchetype.cpp`), while the map is loading.
+- **One program.** `land_morph::ObjectProgram(shaders, morph, pass)` is the only choice between `ObjectInstanced` and
+  `ObjectHeightMapInstanced` (and their `Shadow`): the main pass, the blended one, the object reflection and the hand
+  shadow on objects.
+- **Cut by the plane.** The `DrawCutByPlane` of the morphable vtables (vt+0x11C) is 0x80BA50, a `ret`: a cut morphable
+  object is not drawn. `Renderer::DrawCutByPlane` exits likewise. Today no morphed object carries `CutByPlane` except the
+  food pile of `OPENBLACK_TEST_SEA=...,pot` with `OPENBLACK_TEST_CUT=1`, which is no longer drawn cut.
 
-**C, bake.** `Bake` / `Raised` hacen `y = (H(v) − H0) + y`, el orden de float del original:
-- FragMesh `fn_007F72B0` (v.y − (H0 − H) en cada FragVertex, 0x7F7510..0x7F7563; solo si `IsStaticMorphable`,
+**C, bake.** `Bake` / `Raised` do `y = (H(v) − H0) + y`, the original's float order:
+- FragMesh `fn_007F72B0` (v.y − (H0 − H) on each FragVertex, 0x7F7510..0x7F7563; only if `IsStaticMorphable`,
   vt+0x1F4 → [0xE920E8], 0x7F6FF5): `FragMesh::FromEntity`.
-- **ClampToLandscape** (`RenderParticleGJMesh::DrawAt` 0x67C313..0x67C38C; el byte +0x22 que pone 0x686432 desde la
-  regla +0x6C): cada fotograma, todas las primitivas, **sin corte**, con H0 en la posición de la matriz dibujada. Solo
-  lo llevan los 5 `SF_Landscape*` (volcán y vórtice de terreno, `FunctionIndex` 1-3). Está en `surf_revol::Collect`.
-- Las llamas de un objeto morfable (bit 0 de +0xB5, `fn_00732220` 0x7322A9..0x7322D2 y 0x73230A..0x732366): el mismo
-  delta sobre cada llama.
-- MeltBorder 0x816350 (solo 0x49D303) y la ciudadela `fn_00882B10` (`v.y − (pos.y − H)`, 0x882DBE..0x882DD7; desde
-  0x462FE2 y 0x8829AF): `BakeAgainstY`, sin usuarios todavía.
+- **ClampToLandscape** (`RenderParticleGJMesh::DrawAt` 0x67C313..0x67C38C; the byte +0x22 set by 0x686432 from the
+  rule +0x6C): every frame, all primitives, **no cut**, with H0 at the position of the drawn matrix. Only
+  the 5 `SF_Landscape*` carry it (terrain volcano and vortex, `FunctionIndex` 1-3). It is in `surf_revol::Collect`.
+- The flames of a morphable object (bit 0 of +0xB5, `fn_00732220` 0x7322A9..0x7322D2 and 0x73230A..0x732366): the same
+  delta on each flame.
+- MeltBorder 0x816350 (only 0x49D303) and the citadel `fn_00882B10` (`v.y − (pos.y − H)`, 0x882DBE..0x882DD7; from
+  0x462FE2 and 0x8829AF): `BakeAgainstY`, with no users yet.
 
-**D, sobre el suelo.** `OnGround(ground, xz, k) = H + k`. Las manchas de aldeanos y animales ponen cada punto en
-H + [0xEAA3C4] (= [0xC381DC] = 0,2, de 0x81E350). El picking de `HandPlacement` pone el origen de un morfado en
-H + el hundimiento del montón: **(aproximado)**, porque el origen dibujado es la y guardada; da lo mismo mientras la y
-guardada sea esa. `InfluenceCurtain` es la cortina de `fn_008265F0`, leída entera:
+**D, on the ground.** `OnGround(ground, xz, k) = H + k`. The villager and animal blobs put each point at
+H + [0xEAA3C4] (= [0xC381DC] = 0.2, from 0x81E350). The picking in `HandPlacement` puts the origin of a morphed object at
+H + the pile's sinking: **(approximate)**, because the drawn origin is the stored y; it makes no difference as long as the stored
+y is that one. `InfluenceCurtain` is the curtain of `fn_008265F0`, read in full:
 
-| Dato | Valor | Dirección |
+| Datum | Value | Address |
 |---|---|---|
-| Segmentos N | clamp(ftol(2πr·0,05), 8, 250) | [0x8AB210], [0x8C7BD4], 0x826659..0x826670 |
-| Vértices | 3 por segmento, más 3 que cierran el anillo en el ángulo 0: (cos·r + cx, (H − H0) + H0 + {0, 20, 40}, sin·r + cz) | [0x8C7658], [0x8CF300] |
+| Segments N | clamp(ftol(2πr·0.05), 8, 250) | [0x8AB210], [0x8C7BD4], 0x826659..0x826670 |
+| Vertices | 3 per segment, plus 3 that close the ring at angle 0: (cos·r + cx, (H − H0) + H0 + {0, 20, 40}, sin·r + cz) | [0x8C7658], [0x8CF300] |
 | U | += (1 − ftol(2πr·(−1/111))) / N | [0x9A3930] |
-| V | += min(ftol(r/60), 6) / N; filas v, v + 0,2 y v + 0,4 | [0x8C5818], [0x8AB244], [0x8C7A44] |
-| Color | el del jugador, [0xEA9EFC + 4·jugador] | 0x82695B |
-| Triángulos | (b, b+3, b+4), (b, b+4, b+1), (b+1, b+4, b+5), (b+1, b+5, b+2), b = 3i | 0x8269DA..0x826A34 |
+| V | += min(ftol(r/60), 6) / N; rows v, v + 0.2 and v + 0.4 | [0x8C5818], [0x8AB244], [0x8C7A44] |
+| Colour | the player's, [0xEA9EFC + 4·jugador] | 0x82695B |
+| Triangles | (b, b+3, b+4), (b, b+4, b+1), (b+1, b+4, b+5), (b+1, b+5, b+2), b = 3i | 0x8269DA..0x826A34 |
 
-La correa (`fn_008491B0`: bordes en H + 0,1, [0x8AB22C]) y los quads de la criatura (`fn_0081F360`: H + 0,15,
-[0x8CF110]) solo tienen su constante: no están portados.
+The leash (`fn_008491B0`: edges at H + 0.1, [0x8AB22C]) and the creature quads (`fn_0081F360`: H + 0.15,
+[0x8CF110]) only have their constant: they are not ported.
 
-**Marcas del suelo** (`ecs/GroundMarks`). `fn_00825240` (lista 0xEB9A00) es un `LH3DObject::Create(1)` de la malla
-0x251 (`TreeRootsPile`). Se funde con la tierra una vez (0x8252C3), dura 15000 ms y se desvanece el último segundo:
-`fn_00825350`, desde 0x5E6197, pone alfa ftol(vida·0,255) con vida ≤ 1000 ([0x9A2BA8]), resta `g_game_time_inc` y a 0
-la borra con `fn_00825300`. Tiene dos usuarios:
-- el cráter de un árbol arrancado (`fn_008251F0` ← `fn_0074BD20`, escala (extensión x + z)·escala·0,3, [0x8AB23C]);
-- la marca de una explosión en tierra seca (`fn_008251C0` ← `UR_Explosion::InitCollection` 0x67E395: giro
-  `PSysFloatRand(2π)` con `SetPosition` 0x423140, escala [0x9357D4] = 8).
+**Ground marks** (`ecs/GroundMarks`). `fn_00825240` (list 0xEB9A00) is an `LH3DObject::Create(1)` of mesh
+0x251 (`TreeRootsPile`). It melts into the land once (0x8252C3), lasts 15000 ms and fades out in the last second:
+`fn_00825350`, from 0x5E6197, sets alpha ftol(life·0.255) with life ≤ 1000 ([0x9A2BA8]), subtracts `g_game_time_inc` and at 0
+deletes it with `fn_00825300`. It has two users:
+- the crater of an uprooted tree (`fn_008251F0` ← `fn_0074BD20`, scale (x + z extent)·scale·0.3, [0x8AB23C]);
+- the mark of an explosion on dry land (`fn_008251C0` ← `UR_Explosion::InitCollection` 0x67E395: rotation
+  `PSysFloatRand(2π)` with `SetPosition` 0x423140, scale [0x9357D4] = 8).
 
-La lista se vacía con el mapa (`ClearAllStuff` 0x82AED0, desde `GGame::ClearMap` 0x552F22): `ground_marks::Clear` en
-`Game::LoadMap`. **(aproximado)** `g_game_time_inc` es un entero de ms que se resta tal cual (0x8253B1..0x8253C0); el
-paso de openblack es float, así que la fracción espera al fotograma siguiente.
+The list is emptied with the map (`ClearAllStuff` 0x82AED0, from `GGame::ClearMap` 0x552F22): `ground_marks::Clear` in
+`Game::LoadMap`. **(approximate)** `g_game_time_inc` is an integer of ms that is subtracted as is (0x8253B1..0x8253C0); the
+openblack step is float, so the fraction waits for the next frame.
 
-Sin portar: el `SmokyStuff::Create(pos, 1, 1, 0xFFFFFFFF)` de 0x8252EB, porque el modo 1 de SmokyStuff no está
-portado (el cráter sigue con el polvo del agarre).
+Not ported: the `SmokyStuff::Create(pos, 1, 1, 0xFFFFFFFF)` of 0x8252EB, because SmokyStuff mode 1 is not
+ported (the crater keeps the grip dust).
 
-**No es de esta familia.** Las sombras sobre la tierra (`ShadowInfo`, `fn_008745A0` / `fn_00874850` / `fn_00878350`:
-vuelven a dibujar la propia tierra; ver [Sombras de los objetos físicos](#sombras-de-los-objetos-físicos)), los
-cimientos (`GetAltitudeFondation` 0x63ABC0: un hundimiento rígido), el aplanado bajo el templo (0x882730: edita la
-tierra), la niebla (`LH3DMist`, Draw estático) y los sprites planos (bandera 0x40 de `LH3DSprite::Draw`).
+**Not part of this family.** Shadows on the land (`ShadowInfo`, `fn_008745A0` / `fn_00874850` / `fn_00878350`:
+they redraw the land itself; see [Shadows of physics objects](#shadows-of-physics-objects)), the
+foundations (`GetAltitudeFondation` 0x63ABC0: a rigid sinking), the flattening under the temple (0x882730: it edits the
+land), the mist (`LH3DMist`, static Draw) and flat sprites (flag 0x40 of `LH3DSprite::Draw`).
 
-**Huecos.**
-- (aproximado) Snapshot y Live son iguales en GPU (arriba).
-- (aproximado) `LandAltitude` en float frente a la aritmética 16.16 de 0x803090.
-- (inferido) El orden de las sumas de la x, z de mundo en `fn_00882B10` (`BakeAgainstY`).
-- (inferido) El +0x98 / +0xA0 del fuego, que da el H0 de las llamas, es la posición del objeto.
-- Sin portar: la entrada del templo y el templo a medio hacer (0x4676CD, `DrawPartialyBuilt` 0x816AD0), el andamio
-  (`Scaffold::SetPhantomMesh` 0x6E8B03), los demás usuarios de `GetExtraPos` 0x80FF20 (vt+0x1CC, sin llamadas
-  directas; el único portado es el tótem, que hace la misma suma, (H(p) − H(pos)) + p.y, 0x8100B7..0x8100D0), y la
-  cortina, la correa y los quads de D.
+**Gaps.**
+- (approximate) Snapshot and Live are the same on the GPU (above).
+- (approximate) `LandAltitude` in float versus the 16.16 arithmetic of 0x803090.
+- (inferred) The order of the sums of the world x, z in `fn_00882B10` (`BakeAgainstY`).
+- (inferred) The fire's +0x98 / +0xA0, which gives the flames' H0, is the object's position.
+- Not ported: the temple entrance and the half-built temple (0x4676CD, `DrawPartialyBuilt` 0x816AD0), the scaffold
+  (`Scaffold::SetPhantomMesh` 0x6E8B03), the other users of `GetExtraPos` 0x80FF20 (vt+0x1CC, no direct
+  calls; the only ported one is the totem, which does the same sum, (H(p) − H(pos)) + p.y, 0x8100B7..0x8100D0), and the
+  curtain, the leash and the quads of D.
 
-## Modos de render y materiales (render_modes)
+## Render modes and materials (render_modes)
 
-**Fiel**, salvo lo marcado. En el original toda la mezcla, la prueba de alfa, la escritura de Z y la etapa de textura
-de un dibujo salen de **un material de 16 bytes** (`LH3DMaterial`, `LH3DRender::CreateMaterial` 0x82FD30) y **una de
-19 funciones de modo** (tabla 0xC38728). En openblack todos esos dibujos piden su estado de bgfx a una sola API,
-`openblack::graphics::render_modes` (`src/Graphics/RenderModes.{h,cpp}`); nadie escribe ya la mezcla ni la Z a mano.
+**Faithful**, except what is marked. In the original all the blending, alpha test, Z writing and texture stage
+of a draw come from **a 16-byte material** (`LH3DMaterial`, `LH3DRender::CreateMaterial` 0x82FD30) and **one of
+19 mode functions** (table 0xC38728). In openblack all those draws ask a single API for their bgfx state,
+`openblack::graphics::render_modes` (`src/Graphics/RenderModes.{h,cpp}`); nobody writes the blending or the Z by hand any more.
 
-**El material.** `CreateMaterial(modo, textura)`: `new(0x10)`, `inc [0xECA654]` (0x82FD40), +0 modo, +4 = 0
-(ALPHAREF), +5 = 0 (banderas: bit 0 dos caras, bit 2 repetición, bit 4 sin desplazamiento de UV), +8 textura,
-+0xC = 0xFF0000FF (0x82FD59; nadie lo lee, (inferido)). La textura no es del material: smoke.raw la comparten el modo 6
-[0xEA1ABC] y el modo 13 [0xEA1AC4] (0x80BC7D / 0x80BCB8); atmos.raw, AtmosMaterial (modo 6, +5 |= 1 | 4: 0x835C58,
-0x835C6F..0x835C79) y AdditiveMaterial (modo 13, +5 |= 1: 0x835C61). En la API: `Material` (el modo y las banderas
-+5), `State(material, opciones)` (el culling del material si el dibujo no pone otro) y `materials::k_Smoke`,
-`k_SmokeAdditive`, `k_Misc0`, `k_Atmos`, `k_AtmosAdditive`, que usan sus ocho dibujos. La textura y la repetición
-(+5 bit 2, `SetD3DTillingOn/Off` 0x82FF10 / 0x82FF50 con `g_b_need_tilling` [0xECA614]) las pone cada dibujo; en las
-mallas L3D, `Primitive::wrap`.
+**The material.** `CreateMaterial(modo, textura)`: `new(0x10)`, `inc [0xECA654]` (0x82FD40), +0 mode, +4 = 0
+(ALPHAREF), +5 = 0 (flags: bit 0 two-sided, bit 2 wrapping, bit 4 no UV offset), +8 texture,
++0xC = 0xFF0000FF (0x82FD59; nobody reads it, (inferred)). The texture does not belong to the material: smoke.raw is shared by mode 6
+[0xEA1ABC] and mode 13 [0xEA1AC4] (0x80BC7D / 0x80BCB8); atmos.raw, AtmosMaterial (mode 6, +5 |= 1 | 4: 0x835C58,
+0x835C6F..0x835C79) and AdditiveMaterial (mode 13, +5 |= 1: 0x835C61). In the API: `Material` (the mode and the flags
++5), `State(material, opciones)` (the material's culling if the draw does not set another) and `materials::k_Smoke`,
+`k_SmokeAdditive`, `k_Misc0`, `k_Atmos`, `k_AtmosAdditive`, used by their eight draws. The texture and the wrapping
+(+5 bit 2, `SetD3DTillingOn/Off` 0x82FF10 / 0x82FF50 with `g_b_need_tilling` [0xECA614]) are set by each draw; in the
+L3D meshes, `Primitive::wrap`.
 
-**El SetMaterial en línea** (unas 105 copias, p. ej. `SetupThing::DrawLine` 0x412662..0x4126BD): llama a
-`g_set_render_mode_data[0xECA618][modo].fn(m, etapa 0)`, pone la repetición y `CULLMODE = ((~m[5]) & 1)·2 + 1`
-(1 NONE, 3 CCW). En la API: `Select(modo, tabla)` y `CullFor(dosCaras, espejado)`.
+**The inline SetMaterial** (some 105 copies, e.g. `SetupThing::DrawLine` 0x412662..0x4126BD): calls
+`g_set_render_mode_data[0xECA618][modo].fn(m, etapa 0)`, sets the wrapping and `CULLMODE = ((~m[5]) & 1)·2 + 1`
+(1 NONE, 3 CCW). In the API: `Select(modo, tabla)` and `CullFor(dosCaras, espejado)`.
 
-**Los 19 modos** (`k_Modes`, tabla 0xC38728, volcada del ejecutable; 2, 6, 9, 10, 11, 16 y 18 releídos):
+**The 19 modes** (`k_Modes`, table 0xC38728, dumped from the executable; 2, 6, 9, 10, 11, 16 and 18 reread):
 
-| Modo | Función | Mezcla | ATEST | ZWRITE | Alfa de la etapa 0 | Tipo L3D |
+| Mode | Function | Blend | ATEST | ZWRITE | Stage 0 alpha | L3D type |
 |---|---|---|---|---|---|---|
-| 0 | 0x82D470 | no | no | sí | sin textura | Smooth |
-| 1 | 0x82D5C0 | SA/ISA | no | sí | sin textura (no toca la etapa) | SmoothAlpha |
-| 2 | 0x82D820 | no | no | sí | textura | Textured |
-| 3 | 0x82D920 | SA/ISA | no | sí | textura × difuso | TexturedAlpha |
-| 4 | 0x82DC20 | SA/ISA | no | sí | textura | AlphaTextured |
-| 5 | 0x82DD90 | SA/ISA | no | sí | textura × difuso | AlphaTexturedAlpha |
-| 6 | 0x82DF10 | SA/ISA (0x82DF6A / 0x82DF91) | no | **no** (0x82E063) | textura × difuso | AlphaTexturedAlphaNz |
-| 7 | 0x82D6F0 | SA/ISA | no | no | sin textura | SmoothAlphaNz |
-| 8 | 0x82DAA0 | SA/ISA | no | no | textura × difuso | TexturedAlphaNz |
-| 9 | 0x82E080 | SA/ISA | sí | sí | textura | TexturedChroma |
-| 10 | 0x82E830 | **SA/ONE** (0x82E87C) | sí (0x82E88E) | sí | textura × difuso | …AdditiveChroma |
-| 11 | 0x82E9C0 | SA/ONE | sí | no (0x82EAAF) | textura × difuso | …AdditiveChromaNz |
-| 12 | 0x82EB50 | SA/ONE | no | sí | textura × difuso | …Additive |
-| 13 | 0x82ECD0 | SA/ONE | no | no | textura × difuso | …AdditiveNz |
-| 14 | 0x82DD90 | = 5 | | | | (la tierra) |
-| 15 | 0x82E470 | SA/ISA | sí | sí | textura × difuso | TexturedChromaAlpha |
-| 16 | 0x82E6A0 | SA/ISA | sí | no (0x82E78F) | textura × difuso | TexturedChromaAlphaNz |
+| 0 | 0x82D470 | no | no | yes | no texture | Smooth |
+| 1 | 0x82D5C0 | SA/ISA | no | yes | no texture (does not touch the stage) | SmoothAlpha |
+| 2 | 0x82D820 | no | no | yes | texture | Textured |
+| 3 | 0x82D920 | SA/ISA | no | yes | texture × diffuse | TexturedAlpha |
+| 4 | 0x82DC20 | SA/ISA | no | yes | texture | AlphaTextured |
+| 5 | 0x82DD90 | SA/ISA | no | yes | texture × diffuse | AlphaTexturedAlpha |
+| 6 | 0x82DF10 | SA/ISA (0x82DF6A / 0x82DF91) | no | **no** (0x82E063) | texture × diffuse | AlphaTexturedAlphaNz |
+| 7 | 0x82D6F0 | SA/ISA | no | no | no texture | SmoothAlphaNz |
+| 8 | 0x82DAA0 | SA/ISA | no | no | texture × diffuse | TexturedAlphaNz |
+| 9 | 0x82E080 | SA/ISA | yes | yes | texture | TexturedChroma |
+| 10 | 0x82E830 | **SA/ONE** (0x82E87C) | yes (0x82E88E) | yes | texture × diffuse | …AdditiveChroma |
+| 11 | 0x82E9C0 | SA/ONE | yes | no (0x82EAAF) | texture × diffuse | …AdditiveChromaNz |
+| 12 | 0x82EB50 | SA/ONE | no | yes | texture × diffuse | …Additive |
+| 13 | 0x82ECD0 | SA/ONE | no | no | texture × diffuse | …AdditiveNz |
+| 14 | 0x82DD90 | = 5 | | | | (the land) |
+| 15 | 0x82E470 | SA/ISA | yes | yes | texture × diffuse | TexturedChromaAlpha |
+| 16 | 0x82E6A0 | SA/ISA | yes | no (0x82E78F) | texture × diffuse | TexturedChromaAlphaNz |
 | 17 | 0x82D820 | = 2 | | | | — |
-| 18 | 0x82E2A0 | **ZERO/ONE** (SRCBLEND 5 en 0x82E2F3 y 1 en 0x82E320) | sí | sí | textura | ChromaJustZ |
+| 18 | 0x82E2A0 | **ZERO/ONE** (SRCBLEND 5 at 0x82E2F3 and 1 at 0x82E320) | yes | yes | texture | ChromaJustZ |
 
-ALPHAFUNC es GREATEREQUAL para todos (0x82CBA6). Ningún modo toca ZFUNC, la niebla ni el culling. La palabra de la
-tabla (1 en los mezclados) no la lee nadie.
+ALPHAFUNC is GREATEREQUAL for all of them (0x82CBA6). No mode touches ZFUNC, fog or culling. The table's word
+(1 in the blended ones) is not read by anyone.
 
-**La tabla del alfa global** 0xC387C8 (`k_GlobalAlphaModes`, `Table::GlobalAlpha`): 0, 1 → 1; 2, 3, 17 → 3; 4, 5 → 5;
-9 → 15; los demás, igual. La elige el Draw de un objeto con su propio alfa (vt+0x4C = `fn_007F9D80`, bit 7 de obj+4;
-0x80DF09). En openblack, los objetos con `components::Alpha` (en la cola si su malla tiene la marca 0x200, si no al
-momento) y los átomos de malla translúcidos del PSys (`L3DMeshSubmitDesc::table`).
+**The global alpha table** 0xC387C8 (`k_GlobalAlphaModes`, `Table::GlobalAlpha`): 0, 1 → 1; 2, 3, 17 → 3; 4, 5 → 5;
+9 → 15; the rest, unchanged. It is chosen by the Draw of an object with its own alpha (vt+0x4C = `fn_007F9D80`, bit 7 of obj+4;
+0x80DF09). In openblack, the objects with `components::Alpha` (in the queue if their mesh has the 0x200 flag, otherwise
+immediately) and the translucent PSys mesh atoms (`L3DMeshSubmitDesc::table`).
 
-**ALPHAREF** (`AlphaRef`): el +4 del material, o [0xECA65C] si el interruptor [0xECA658] está puesto. Con la tabla
-0xC387C8, los modos 9 y 15 lo escalan: `max(0, ftol(ref·A·(1/255) − 5))` (0x82E15C..0x82E1CE, 0x82E557..0x82E5C9;
-[0x900058], [0x8AB6E4], [0x8AA398]), con A el alfa del difuso del objeto [0xC37D8C]. D3D prueba el alfa que **sale de
-la etapa 0**: el de la textura en 9 y 18 (SELECTARG1, 0x82E120 / 0x82E384), textura × alfa del objeto en 10, 11, 15 y
-16 (MODULATE, 0x82E510 en el 15). `PrimitiveAlpha(modo dibujado, tabla, ref, A)` da a `fs_object` los dos uniformes:
-`u_skyAlphaThreshold.y` = ALPHAREF / 255 (−1 sin prueba) y `.w` = el alfa de la etapa (0 ninguno: modos sin mezcla ni
-prueba; 1 la textura; 2 textura × difuso). El shader descarta si `round(a·255) < ref`. El modo dibujado es el de
-verdad: el de la primitiva por la tabla, o el forzado (`L3DMeshSubmitDesc::mode`), así que un átomo aditivo (13) o la
-sombra de la mano (6) no tienen prueba de alfa, como en el original. Las sombras estáticas y de física
-(`fs_static_shadow`) usan el mismo `PrimitiveAlpha` con la tabla normal ((inferido)).
+**ALPHAREF** (`AlphaRef`): the material's +4, or [0xECA65C] if the switch [0xECA658] is set. With the table
+0xC387C8, modes 9 and 15 scale it: `max(0, ftol(ref·A·(1/255) − 5))` (0x82E15C..0x82E1CE, 0x82E557..0x82E5C9;
+[0x900058], [0x8AB6E4], [0x8AA398]), with A the alpha of the object's diffuse [0xC37D8C]. D3D tests the alpha that **comes out of
+stage 0**: the texture's in 9 and 18 (SELECTARG1, 0x82E120 / 0x82E384), texture × object alpha in 10, 11, 15 and
+16 (MODULATE, 0x82E510 in 15). `PrimitiveAlpha(modo dibujado, tabla, ref, A)` gives `fs_object` the two uniforms:
+`u_skyAlphaThreshold.y` = ALPHAREF / 255 (−1 without test) and `.w` = the stage alpha (0 none: modes with no blending or
+test; 1 the texture; 2 texture × diffuse). The shader discards if `round(a·255) < ref`. The drawn mode is the real
+one: the primitive's through the table, or the forced one (`L3DMeshSubmitDesc::mode`), so an additive atom (13) or the
+hand shadow (6) has no alpha test, as in the original. Static and physics shadows
+(`fs_static_shadow`) use the same `PrimitiveAlpha` with the normal table ((inferred)).
 
-**Lo que pone cada dibujo** (`StateOptions`): ZFUNC (LESSEQUAL 0x82CCC5, EQUAL de las sombras sobre objetos 0x80E488,
-ALWAYS para dibujar encima), los ZWRITEENABLE 0 escritos a mano (rectángulos 2D 0x81E64C, mar 0x879FD9, tierra
-reflejada 0x5E48C5..0x5E4900) y lo propio de openblack: escribir el alfa del destino, MSAA, la formulación
-premultiplicada ONE/INVSRCALPHA del modo 6 (humo, sprites, tierra; mismo color), el mar que compone el reflejo en su
-shader y el tipo de primitiva. `k_ModelPass` es la pasada de modelos opacos. `ModeFromProperties` es
-`GJUtils::SetMaterialProperties` 0x57E120 (4 → 6; sin alfa → 3; aditivo → 13; con Z 6 → 5, 13 → 12, 8 → 3, 16 → 9; sin Z
-5 → 6, 12 → 13, 3 / 2 → 8, 9 → 16), la usan `L3DSubMesh` y las partículas.
+**What each draw sets** (`StateOptions`): ZFUNC (LESSEQUAL 0x82CCC5, EQUAL for the shadows on objects 0x80E488,
+ALWAYS for drawing on top), the ZWRITEENABLE 0 written by hand (2D rectangles 0x81E64C, sea 0x879FD9, reflected
+land 0x5E48C5..0x5E4900) and openblack's own: writing destination alpha, MSAA, the premultiplied
+ONE/INVSRCALPHA formulation of mode 6 (smoke, sprites, land; same colour), the sea that composes the reflection in its
+shader and the primitive type. `k_ModelPass` is the opaque model pass. `ModeFromProperties` is
+`GJUtils::SetMaterialProperties` 0x57E120 (4 → 6; no alpha → 3; additive → 13; with Z 6 → 5, 13 → 12, 8 → 3, 16 → 9; without Z
+5 → 6, 12 → 13, 3 / 2 → 8, 9 → 16), used by `L3DSubMesh` and the particles.
 
-**Quién la usa.** Las mallas L3D (`L3DSubMesh` y `Renderer::DrawSubMesh`: el tipo de material es el modo); las nubes,
-nieblas, humo, barco, lluvia, manchas, peces, anillos, sol, luna, mar, brillo de la mano en el mar, tierra, texto de la
-mano, fundido de pantalla, sprites y los sprites, cadenas y superficies de PSys, la sombra de la mano sobre objetos (todas
-las primitivas en el modo 6 con ZFUNC EQUAL), los átomos aditivos de PSys (modo 13) y el visor de mallas. Fuera, por
-ser técnicas propias de openblack sin modo del original: las pasadas MAX / MIN de sombras y ríos, las huellas y el mod
-de follaje.
+**Who uses it.** L3D meshes (`L3DSubMesh` and `Renderer::DrawSubMesh`: the material type is the mode); the clouds,
+mists, smoke, boat, rain, blobs, fish, rings, sun, moon, sea, hand glow in the sea, land, hand
+text, screen fade, sprites and the PSys sprites, chains and surfaces, the hand shadow on objects (all
+primitives in mode 6 with ZFUNC EQUAL), the additive PSys atoms (mode 13) and the mesh viewer. Left out, because
+they are openblack's own techniques with no original mode: the MAX / MIN passes of shadows and rivers, the footprints and the foliage
+mod.
 
-**Arreglos al unificar** (antes, la tabla de openblack y las ramas de `DrawSubMesh`):
-1. Los modos 10 y 11 salían SA/ISA (ahora SA/ONE) y el 11 escribía Z.
-2. El modo 16 escribía Z.
-3. El modo 18 pintaba color con SA/ISA; ahora ZERO/ONE, solo Z.
-4. ALPHAREF: el −5 se aplicaba siempre y sin el factor A/255 (`fs_object`, `fs_static_shadow`); ahora es el +4 exacto
-   salvo 9 / 15 con la tabla 0xC387C8.
-5. Las primitivas sin Z (6, 7, 8, 16) de un objeto que se funde escribían Z.
-6. Las entradas 14 y 17 de la tabla eran {sin mezcla, sin Z}; ahora 14 = 5 y 17 = 2 (latente: no hay L3D con esos tipos).
-7. La sombra de la mano sobre objetos ponía SA/ONE en las primitivas aditivas (12, 13); ahora todas van en el modo 6
-   del material de la sombra: `fn_0080B050` 0x80B06A..0x80B08B hace el SetMaterial de [si+0x460] (`CreateMaterial(6)`
-   en `fn_0087FD50` 0x87FE12) por la tabla actual, y `fn_0084E200` dibuja cada primitiva sin estado propio.
-8. Una primitiva chroma con ALPHAREF 0 (o un 9 / 15 que se funde con `ref·A < 1530`, que da 0) mezcla con el alfa de su
-   textura (modo 9: SELECTARG1 0x82E120, SA/ISA); antes salía opaca.
-9. La sombra de la mano sobre objetos con el culling de su material: +5 = 0 (0x87FE12) da CULLMODE CCW
-   (`fn_0080B050` 0x80B0AD..0x80B0E6) en todas las primitivas; antes las de dos caras la recibían también por detrás.
-10. La prueba de alfa y el alfa de la etapa 0 son los del modo dibujado (ver ALPHAREF): un 9 que se funde (→ 15) prueba
-    textura × A (antes, el alfa crudo de la textura: con ref 0x96 y A = 128 se quedaban los texeles desde 70 en vez de
-    desde ~140); un 2 que se funde (→ 3) mezcla con textura × A (antes, solo A); en un átomo aditivo (13) los tipos 0 / 2
-    usan textura × difuso (antes, el quad entero) y los chroma pierden la prueba de alfa, igual que bajo la sombra de la
-    mano (6).
+**Fixes when unifying** (before, openblack's table and the branches of `DrawSubMesh`):
+1. Modes 10 and 11 came out SA/ISA (now SA/ONE) and 11 wrote Z.
+2. Mode 16 wrote Z.
+3. Mode 18 painted colour with SA/ISA; now ZERO/ONE, Z only.
+4. ALPHAREF: the −5 was always applied and without the A/255 factor (`fs_object`, `fs_static_shadow`); now it is the exact +4
+   except 9 / 15 with the table 0xC387C8.
+5. The Z-less primitives (6, 7, 8, 16) of a fading object wrote Z.
+6. Entries 14 and 17 of the table were {no blending, no Z}; now 14 = 5 and 17 = 2 (latent: there are no L3Ds with those types).
+7. The hand shadow on objects set SA/ONE on additive primitives (12, 13); now they all go in mode 6
+   of the shadow's material: `fn_0080B050` 0x80B06A..0x80B08B does the SetMaterial of [si+0x460] (`CreateMaterial(6)`
+   in `fn_0087FD50` 0x87FE12) through the current table, and `fn_0084E200` draws each primitive with no state of its own.
+8. A chroma primitive with ALPHAREF 0 (or a 9 / 15 that fades with `ref·A < 1530`, which gives 0) blends with its
+   texture's alpha (mode 9: SELECTARG1 0x82E120, SA/ISA); before it came out opaque.
+9. The hand shadow on objects with its material's culling: +5 = 0 (0x87FE12) gives CULLMODE CCW
+   (`fn_0080B050` 0x80B0AD..0x80B0E6) on all primitives; before, two-sided ones also received it from behind.
+10. The alpha test and the stage 0 alpha are those of the drawn mode (see ALPHAREF): a fading 9 (→ 15) tests
+    texture × A (before, the texture's raw alpha: with ref 0x96 and A = 128 texels from 70 were kept instead of
+    from ~140); a fading 2 (→ 3) blends with texture × A (before, only A); in an additive atom (13) types 0 / 2
+    use texture × diffuse (before, the whole quad) and the chroma ones lose the alpha test, the same as under the hand
+    shadow (6).
 
-En `AllMeshes.g3d` no hay primitivas de los tipos 10, 11, 16 ni 18 (los recuentos de [Mezcla de materiales
-L3D](#mezcla-de-materiales-l3d)): los arreglos 1-3 se ven en las mallas de los milagros y en las que pasan por
-`SetMaterialProperties` (un `TexturedChroma` sin Z sale 16). El 4 se ve en los bordes de todos los chroma (árboles con
-corte 0x96: un poco más finos).
+In `AllMeshes.g3d` there are no primitives of types 10, 11, 16 or 18 (the counts in [L3D material
+blending](#l3d-material-blending)): fixes 1-3 are seen in the miracle meshes and in those that go through
+`SetMaterialProperties` (a Z-less `TexturedChroma` becomes 16). Fix 4 is seen on the edges of all the chroma ones (trees with
+cut-off 0x96: a little thinner).
 
-**Huecos.**
-- (inferido) El alfa del objeto en byte: `AlphaByte` redondea `1 − [0][3]` de la instancia.
-- (inferido) La comparación de la prueba de alfa en bytes redondeados (`fs_object`, `fs_static_shadow`).
-- (inferido) La luna sin la Z del modo 4 (0x82DC20) y el cielo con los modos de sus mallas.
-- (inferido) Los modos de las cadenas (`fn_006AA860`, sin leer) y de la pasada especular de SurfRevol (13).
-- (inferido) Los anillos del agua y los bancos de peces con [0xEA1AC4] / [0xEA1AB0]: solo las referencias 0x54BA72 y
-  0x8247CC, sin decodificar dentro de la rutina.
-- (aproximado) Los peces con ZFUNC ALWAYS: el original deja LESSEQUAL (0x82CCC5); da lo mismo porque la tierra
-  reflejada de debajo no escribió Z (0x5E48C5).
-- (aproximado) El mar sin culling: su material (+5 = 4, 0x5E5474; `GLandscape::Draw` le pasa [this+4] en 0x5E4E85)
-  da CULLMODE CCW (0x879F54..0x879F86), que deja todas las filas del mar del original; la malla del mar de openblack
-  no son esas filas.
-- (aproximado) Con el alfa de la etapa «textura» (4, 9, 18) `fs_object` lo multiplica aún por el alfa del objeto; en
-  el original es el de la textura solo (SELECTARG1). Es lo mismo mientras el objeto tiene alfa 255 (fuera de los
-  fundidos, que pasan a 5 / 15, y del corte por el plano).
-- Sin portar: el ALPHAREF forzado de sus escritores (árbol que arde `fn_0074B3A0` 0x74B4E0..0x74B51E, que
-  `FireGraphic.cpp` llama «render mode 230»; `TownArtifact::Draw` 0x51CBB3; corte fijo de 10 en `fn_005E6350`
-  0x5E649C, `Scaffold::Draw` 0x6EA730, `fn_00826470` 0x826488; FragMesh `fn_007F7960`). `AlphaRef` ya lo acepta.
-- El fundido de objetos por prueba de alfa (`fn_0080E940` y copias 0x80F0A0 / 0x80F3D0) es otro sistema; openblack hace
-  el patrón de cruces de `fs_object`.
+**Gaps.**
+- (inferred) The object's alpha as a byte: `AlphaByte` rounds `1 − [0][3]` of the instance.
+- (inferred) The alpha test comparison in rounded bytes (`fs_object`, `fs_static_shadow`).
+- (inferred) The moon without the Z of mode 4 (0x82DC20) and the sky with its meshes' modes.
+- (inferred) The modes of the chains (`fn_006AA860`, not read) and of SurfRevol's specular pass (13).
+- (inferred) The water rings and fish shoals with [0xEA1AC4] / [0xEA1AB0]: only the references 0x54BA72 and
+  0x8247CC, not decoded inside the routine.
+- (approximate) The fish with ZFUNC ALWAYS: the original leaves LESSEQUAL (0x82CCC5); it makes no difference because the reflected
+  land below did not write Z (0x5E48C5).
+- (approximate) The sea without culling: its material (+5 = 4, 0x5E5474; `GLandscape::Draw` passes it [this+4] at 0x5E4E85)
+  gives CULLMODE CCW (0x879F54..0x879F86), which keeps all the rows of the original's sea; openblack's sea mesh
+  is not those rows.
+- (approximate) With the "texture" stage alpha (4, 9, 18) `fs_object` still multiplies it by the object's alpha; in
+  the original it is the texture's alone (SELECTARG1). It is the same as long as the object has alpha 255 (outside the
+  fades, which switch to 5 / 15, and the plane cut).
+- Not ported: the forced ALPHAREF of its writers (burning tree `fn_0074B3A0` 0x74B4E0..0x74B51E, which
+  `FireGraphic.cpp` calls "render mode 230"; `TownArtifact::Draw` 0x51CBB3; fixed cut-off of 10 in `fn_005E6350`
+  0x5E649C, `Scaffold::Draw` 0x6EA730, `fn_00826470` 0x826488; FragMesh `fn_007F7960`). `AlphaRef` already accepts it.
+- Object fading by alpha test (`fn_0080E940` and copies 0x80F0A0 / 0x80F3D0) is another system; openblack does
+  the crosshatch pattern of `fs_object`.
 
-## Pendiente
+## Pending
 
-- Luz de los modelos: neblina (`fn_007FEB30`), tintes (veneno, fuego, `fn_0080BF10`), color de ventanas de noche, luz de la mano
-  estampada en la tierra (`light_hand.raw`, `fn_008229B0`). Revisar si sigue vigente: la neblina de los modelos ya se
-  aplica ([rendering.md](rendering.md#neblina-de-distancia-original-detalle-fog-niveles-36)) y las ventanas de noche y
-  la luz de la mano estampada están en [day-night-weather.md](day-night-weather.md).
-- Luz de los modelos, copias que faltan por unificar con `model_light`:
-  - `FragMesh::BuildMesh` (`src/ECS/Physics/FragMesh.h`): el original la hace por cara y a dos caras por CPU
-    (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, las dos ramas de ambiente 0x7F82B1..0x7F82EC); openblack genera la
-    cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
-    compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
-    **En curso, parado (2026-10-03, sesión «shaders», a petición del usuario):** rama `local/fragmesh-wip`
-    (commit `52ef177f`, sobre `ba5e6b64`), compilada pero SIN auditoría, sin tests revisados y sin capturas. Pinta
-    cada fotograma como triángulos de mundo los edificios rotos (Abode::Draw 0x5160E9) y los fragmentos
-    (Fragment::Draw 0x76EC2A, PhysicsObject::DrawAll 0x646E77): L = normalize(luz − posición) con InverseSquareRoot
-    0x841170, luz de tierra fn_00801C90 × tinte (carbonizado / brillo, o 0xFFFFFFFF / 0) y neblina fn_007FEB30 una
-    vez por dibujo, un `fistp` I por cara (0x7F82A8), delante con I y detrás con −I (`model_light::TwoSided`),
-    especular por vértice como fn_0081C780; test `test_fragmesh_light` (emula 0x7F82AA..0x7F8363). Falta: auditoría
-    de suposiciones, revisión, capturas antes/después de fragmentos y edificios rotos, diff a sistemas
-    (`WorldTriangles`, `Renderer.cpp`) y fusión.
-  - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
-- Aritmética de LH3DColor, lo que falta por pasar a `lh3d_colour`:
-  - tras el reempaquetado de la instancia: (el transporte `u_objectLight` ya pasa por `sea_pass::SeaDraw` y
-    `Lh3dUnpackRgb24` en los modos 2 y 4, punto 4 de shaders); el alfa del tinte (el lobo, `SpellFlock.cpp`: (0xFF·a)>>8 con la translucidez decidida con el alfa crudo, 0x51C724;
-    el escudo 0xFE); el especular del átomo PSys (DrawData+0xC, leído en 0x67A012 y 0x67A023: falta en `psys::mesh_atoms::Instance` y se pierde en los dos caminos); el
-    especular +0x10C de los iconos (con él, el tinte blanco de los iconos de los lugares de culto, 0x519672); que
-    `DrawBuilding` no aplica la neblina nunca, arda o no (0x517F90..0x518046 no llama a `fn_007FEB30`: Abode 0x516129,
-    MultiMapFixed 0x5180A6, WorshipSite 0x5193E9, SpellIcon 0x519668, Totem 0x51ABC3; el «arreglo 7» de `LandLightOf`);
-    `LandLightOf` da a todos los `SpellIcon` {Cell, sin neblina}, pero los de un centro (`TownCentre::Draw`
-    0x5164B2 → `fn_0080BEC0`) van con la luz bilineal y neblina; los colores pasados en línea sin portar: el objeto de
-    predicción de la física ardiendo (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: blanco + brillo), el FragMesh de la
-    casa dañada (`Abode::Draw` 0x5160A6..0x5160E9, por `fn_007F7960`: +0x10 = 0xFFFFFFFF / +0x14 = 0 sin fuego,
-    carbonizado / brillo ardiendo), `Object::DrawOutOfMap` (0x51C837..0x51C84F) y `CitadelHeart::DrawNow`
-    (0x4670DD..0x4670EE: tinte +0xA4, especular vt 0x5A4); el especular +0xD0 con alfa (ver arriba, `Heal.cpp`);
-  - en zonas de otras sesiones: las copias de `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
-    0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` y `RendererChain` / `RendererPSys` (`ToAbgr`);
-  - `ECS/Fire/FireGraphic.cpp` (dos arreglos exactos): `TreeDrawColour` debe limitar con `ecs::TreeBrightness()`, no
-    con 255 (0x74B47B); `CharringGrey` debe ser `255 − ceil(175k/256)` (0x730585..0x7305D7; con k = 255 openblack da
-    81 y el original 80);
-  - `fn_00809D80` / `fn_00809DE0` (color por parte de malla, 0x80A290 / 0x80A2A6) y `LH3DCreature::DrawNow` no tienen
-    aún usuario en openblack; `fn_007ACF70` solo existe en GPU (`fs_object.sc`, en float sin truncar).
-- Bancos de peces: el tono de los sonidos, el texto de ayuda ("Pick up") y los pescadores.
-- Sombras de los objetos físicos: el filtro 2×2 de los árboles y el rehorneado de la sombra estática al salir un árbol
-  o un MobileObject.
-- Reflejos y sombras dinámicas de la criatura y de los SuperVillagers (no existen aún en openblack). Sus llamadas de la
-  pasada bajo el mar ya tienen sitio, constantes y TODO con dirección (`sea_pass::k_Creature*`, `k_Swimmer*`,
-  `Renderer.cpp`): ver [La pasada bajo el mar](#la-pasada-bajo-el-mar-graphicssea_pass).
-- Pasada bajo el mar: que milagros2 añada a `psys::mesh_atoms::Instance` el bit `cutByPlane` (`creator->drawCutByPlane`
-  en `Mesh.cpp`, el `push_back` de `Collect`), `specular` (DrawData+0xC) y el alfa de DrawData+8, y corrija el
-  comentario de `Mesh.h` (el bit vale 4, 0x679F29) y el de `Mesh.cpp` («no plane cuts a static mesh»: falso, R4 / R6);
-  entonces la cúpula del escudo y los demás átomos con `DrawCutByPlane` pierden lo que quede bajo y = 0 sin tocar
-  `Renderer` ni los shaders. Captura pendiente: la cúpula más metida en el mar (p. ej. `PHYSICAL_SHIELD,1800,3120`;
-  la de 1825,3140 queda casi toda sobre la playa). El especular +0x50 del casco del barco (lo que dejó su último Draw,
-  **(inferido)** 0).
-- Pasada bajo el mar, pruebas con capturas: que los pasos 1-6 no cambian ningún píxel **no está demostrado** con
-  capturas (el código sí lo da: mano 0xA0/255, especular 0 del modo 4, mismo culling, `UnmirrorView` = vista·diag(1,
-  −1, 1, 1)); dos ejecuciones del mismo exe ya difieren porque el mar y las nubes siguen el reloj real, y algunas
-  vistas (costa, luna, roca cortada, red de Land 4) salen algo por encima de ese ruido medido con solo dos ejecuciones.
-  Hace falta un gancho de paso de tiempo fijo en los dos exes. Faltan también: el reflejo del casco del barco (la vista
-  del plan enseña el arca en tierra, sin mar delante), un BEFORE del tiburón con un exe a b8985c33 (solo hay el de un
-  exe anterior) y por qué el primer BEFORE de la roca física en reposo (y = 0,75) salió sin reflejo y los demás sí
-  (fallo intermitente de `DrawObjectReflections` anterior al punto 4; y si el reflejo debe ser tan claro, S3, luz ½).
-- Humo de las chimeneas y ventanas de noche: `Abode::presentAtHome` ya lo suben y bajan los aldeanos (V4, asistente,
-  ba5e6b64, 0x405FA0 / 0x405FB0) y las ventanas lo leen como el original (Abode::Draw 0x515F78: +0xB6 ≠ 0 y luego
-  IsVisualNight 0x5575E0); falta la cuenta de
-  andamio de los talleres.
-- Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la
-  escala del PSR, fn_0081C780), el aro del orbe que a veces tapa la burbuja según la animación, y que la burbuja ya no
-  parpadea al volver a empezar su atlas.
+- Model lighting: fog (`fn_007FEB30`), tints (poison, fire, `fn_0080BF10`), night window colour, hand light
+  stamped on the land (`light_hand.raw`, `fn_008229B0`). Check whether this still applies: model fog is already
+  applied ([rendering.md](rendering.md#distance-haze-original-fog-detail-levels-36)) and the night windows and
+  the stamped hand light are in [day-night-weather.md](day-night-weather.md).
+- Model lighting, copies still to be unified with `model_light`:
+  - `FragMesh::BuildMesh` (`src/ECS/Physics/FragMesh.h`): the original does it per face and two-sided on the CPU
+    (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, the two ambient branches 0x7F82B1..0x7F82EC); openblack generates the
+    back face as separate geometry and leaves it to the object program, which now does use the integer rule and the shared
+    light. Moving it to `model_light::Apply` requires per-vertex colour in the generated mesh.
+    **In progress, paused (2026-10-03, session "shaders", at the user's request):** branch `local/fragmesh-wip`
+    (commit `52ef177f`, on top of `ba5e6b64`), compiled but WITHOUT audit, without reviewed tests and without captures. It paints
+    broken buildings (Abode::Draw 0x5160E9) and fragments
+    (Fragment::Draw 0x76EC2A, PhysicsObject::DrawAll 0x646E77) every frame as world triangles: L = normalize(light − position) with InverseSquareRoot
+    0x841170, land light fn_00801C90 × tint (charred / glow, or 0xFFFFFFFF / 0) and fog fn_007FEB30 once
+    per draw, one `fistp` I per face (0x7F82A8), front with I and back with −I (`model_light::TwoSided`),
+    per-vertex specular like fn_0081C780; test `test_fragmesh_light` (emulates 0x7F82AA..0x7F8363). Missing: audit
+    of assumptions, review, before/after captures of fragments and broken buildings, diff to systems
+    (`WorldTriangles`, `Renderer.cpp`) and merge.
+  - `RendererSurfRevol.cpp`: the GJ mesh goes unlit (`UseLighting` not ported; that it is active is **(inferred)**).
+- LH3DColor arithmetic, what is still to be moved to `lh3d_colour`:
+  - after the instance repacking: (the `u_objectLight` transport already goes through `sea_pass::SeaDraw` and
+    `Lh3dUnpackRgb24` in modes 2 and 4, shaders point 4); the tint's alpha (the wolf, `SpellFlock.cpp`: (0xFF·a)>>8 with translucency decided with the raw alpha, 0x51C724;
+    the shield 0xFE); the PSys atom's specular (DrawData+0xC, read at 0x67A012 and 0x67A023: missing in `psys::mesh_atoms::Instance` and lost on both paths); the
+    +0x10C specular of the icons (with it, the white tint of the worship site icons, 0x519672); that
+    `DrawBuilding` never applies fog, burning or not (0x517F90..0x518046 does not call `fn_007FEB30`: Abode 0x516129,
+    MultiMapFixed 0x5180A6, WorshipSite 0x5193E9, SpellIcon 0x519668, Totem 0x51ABC3; the "fix 7" of `LandLightOf`);
+    `LandLightOf` gives all `SpellIcon`s {Cell, no fog}, but those of a town centre (`TownCentre::Draw`
+    0x5164B2 → `fn_0080BEC0`) go with bilinear light and fog; the inline colours not ported: the burning physics
+    prediction object (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: white + glow), the damaged house's
+    FragMesh (`Abode::Draw` 0x5160A6..0x5160E9, via `fn_007F7960`: +0x10 = 0xFFFFFFFF / +0x14 = 0 without fire,
+    charred / glow when burning), `Object::DrawOutOfMap` (0x51C837..0x51C84F) and `CitadelHeart::DrawNow`
+    (0x4670DD..0x4670EE: tint +0xA4, specular vt 0x5A4); the +0xD0 specular with alpha (see above, `Heal.cpp`);
+  - in other sessions' areas: the copies in `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
+    0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` and `RendererChain` / `RendererPSys` (`ToAbgr`);
+  - `ECS/Fire/FireGraphic.cpp` (two exact fixes): `TreeDrawColour` must clamp with `ecs::TreeBrightness()`, not
+    with 255 (0x74B47B); `CharringGrey` must be `255 − ceil(175k/256)` (0x730585..0x7305D7; with k = 255 openblack gives
+    81 and the original 80);
+  - `fn_00809D80` / `fn_00809DE0` (colour per mesh part, 0x80A290 / 0x80A2A6) and `LH3DCreature::DrawNow` have no
+    user in openblack yet; `fn_007ACF70` exists only on the GPU (`fs_object.sc`, in float without truncation).
+- Fish shoals: the pitch of the sounds, the help text ("Pick up") and the fishermen.
+- Shadows of physics objects: the 2×2 filter of the trees and the rebaking of the static shadow when a tree
+  or a MobileObject leaves.
+- Reflections and dynamic shadows of the creature and the SuperVillagers (they do not exist yet in openblack). Their calls in the
+  under-sea pass already have a slot, constants and a TODO with an address (`sea_pass::k_Creature*`, `k_Swimmer*`,
+  `Renderer.cpp`): see [The under-sea pass](#the-under-sea-pass-graphicssea_pass).
+- Under-sea pass: that milagros2 adds to `psys::mesh_atoms::Instance` the `cutByPlane` bit (`creator->drawCutByPlane`
+  in `Mesh.cpp`, the `push_back` of `Collect`), `specular` (DrawData+0xC) and the alpha of DrawData+8, and corrects the
+  comment in `Mesh.h` (the bit is 4, 0x679F29) and the one in `Mesh.cpp` ("no plane cuts a static mesh": false, R4 / R6);
+  then the shield dome and the other atoms with `DrawCutByPlane` lose whatever is below y = 0 without touching
+  `Renderer` or the shaders. Pending capture: the dome further into the sea (e.g. `PHYSICAL_SHIELD,1800,3120`;
+  the one at 1825.3140 stays almost entirely on the beach). The +0x50 specular of the boat hull (what its last Draw left,
+  **(inferred)** 0).
+- Under-sea pass, tests with captures: that steps 1-6 do not change any pixel **is not demonstrated** with
+  captures (the code does give it: hand 0xA0/255, specular 0 of mode 4, same culling, `UnmirrorView` = view·diag(1,
+  −1, 1, 1)); two runs of the same exe already differ because the sea and the clouds follow the real clock, and some
+  views (coast, moon, cut rock, Land 4 net) come out somewhat above that noise measured with only two runs.
+  A fixed-time-step hook is needed in both exes. Also missing: the reflection of the boat hull (the plan's view
+  shows the ark on land, with no sea in front), a shark BEFORE with an exe at b8985c33 (there is only one from an
+  earlier exe) and why the first BEFORE of the resting physics rock (y = 0.75) came out without a reflection and the others did
+  (intermittent failure of `DrawObjectReflections` prior to point 4; and whether the reflection should be that light, S3, light ½).
+- Chimney smoke and night windows: `Abode::presentAtHome` is now raised and lowered by the villagers (V4, asistente,
+  ba5e6b64, 0x405FA0 / 0x405FB0) and the windows read it like the original (Abode::Draw 0x515F78: +0xB6 ≠ 0 and then
+  IsVisualNight 0x5575E0); the workshops' scaffold
+  count is missing.
+- Confirmed by the user (2026-10-02): the moon after V4-a/V4-d, the width of the lightning ribbons (half-width = the
+  PSR scale, fn_0081C780), the orb's ring that sometimes covers the bubble depending on the animation, and that the bubble no longer
+  flickers when its atlas starts over.
 - Billboards:
-  - portar los usuarios de `YawToEye` (columnas de influencia, banderas de deseo, ShowNeeds, ScriptHighlight), de
-    `PlaneOfMatrix` (fn_008274A0) y los HelpDude (base (R, U, D), HelpDude::Update1 0x5BE302);
-  - el oy heredado por el vapor y el humo del fuego;
-- Texturas animadas:
-  - portar los usuarios que solo tienen reloj (InfluenceCircle, Gooloo, GoldenShower, las correas y la habitación de
-    la criatura, HelpDude, el cursor 3D, JCSpecial) y HandGlow / fn_0083F270;
-  - el resto de la rama de las fiolas de 0x519AD0 (bote, aplastamientos del switch 0x519D76);
-  - en las cadenas, UseDynamicLighting (el suavizado por puntos medios ya está, de milagros2; la interpolación de
-    SurfRevol también, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 entero);
-  - HandEffects como efectos PSys de verdad;
-- Mallas pegadas al suelo:
-  - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
-    de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\documentacion\unify\U3_changes.md`);
-  - portar la cortina del anillo de influencia (`InfluenceCurtain` ya está), la correa de la criatura (`fn_008491B0`,
-    `fn_00848600` / `fn_00848830`) y los quads de la criatura (`fn_0081F360`) cuando tengan casa en openblack;
-  - la entrada del templo, el templo a medio hacer, el andamio y los demás usuarios de `GetExtraPos`;
-  - el `SmokyStuff` de modo 1 de las marcas del suelo.
-- Modos de render: portar el ALPHAREF forzado del árbol que arde y de sus otros escritores; comprobar con el original
-  si el aro de piedra del dispensador debe tapar la burbuja que se funde (escena 3 de `dev\documentacion\unify\U4_changes.md`).
+  - port the users of `YawToEye` (influence columns, desire flags, ShowNeeds, ScriptHighlight), of
+    `PlaneOfMatrix` (fn_008274A0) and the HelpDude ones (basis (R, U, D), HelpDude::Update1 0x5BE302);
+  - the oy inherited by the fire's steam and smoke;
+- Animated textures:
+  - port the users that only have a clock (InfluenceCircle, Gooloo, GoldenShower, the leashes and the creature
+    room, HelpDude, the 3D cursor, JCSpecial) and HandGlow / fn_0083F270;
+  - the rest of the vials branch of 0x519AD0 (bounce, squashes of the switch 0x519D76);
+  - in the chains, UseDynamicLighting (midpoint smoothing is already done, by milagros2; the SurfRevol
+    interpolation too, `frame_anim::RotatingUvClock`: GameUpdate 0x6C8BC0 in full);
+  - HandEffects as real PSys effects;
+- Meshes stuck to the ground:
+  - before/after captures of the physical shield, the dispenser disc, the teleport, the ark and the dinosaur
+    of Land 4, the lightning explosion mark and the crater (scenes in `dev\documentacion\unify\U3_changes.md`);
+  - port the influence ring curtain (`InfluenceCurtain` is already done), the creature leash (`fn_008491B0`,
+    `fn_00848600` / `fn_00848830`) and the creature quads (`fn_0081F360`) when they have a home in openblack;
+  - the temple entrance, the half-built temple, the scaffold and the other users of `GetExtraPos`;
+  - the mode 1 `SmokyStuff` of the ground marks.
+- Render modes: port the forced ALPHAREF of the burning tree and its other writers; check against the original
+  whether the dispenser's stone ring should cover the fading bubble (scene 3 of `dev\documentacion\unify\U4_changes.md`).
 
-- Cola de transparentes: capturas antes y después de las escenas de `dev\documentacion\unify\U6_changes.md` (nubes
-  contra modelos y nieblas, lluvia, barco, mano); el reflejo (no leído); `CheckRegionOnScreen` antes de encolar un
-  modelo (0x815AB1); las mallas animadas de un `Sorted` (fn_00813340);
-  portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
-  LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
+- Transparent queue: before and after captures of the scenes in `dev\documentacion\unify\U6_changes.md` (clouds
+  against models and mists, rain, boat, hand); the reflection (not read); `CheckRegionOnScreen` before queuing a
+  model (0x815AB1); the animated meshes of a `Sorted` (fn_00813340);
+  port the missing callers (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
+  LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo and the two with key 0) with `Submit`.
 
-- `world_triangles` (sesión «sistemas» cerrada el 2026-10-03): `RendererSurfRevol.cpp` usa ya el culling del
-  material; la luz de los discos (`UseLighting`) y el reparto del especular de fn_0081C780 siguen pendientes
-  ([SF_TeleportVortex y ZR_SurfRevol](miracles.md#sf_teleportvortex-y-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).
-  La luz a dos caras de FragMesh (rama `local/fragmesh-wip`) toca `WorldTriangles` y `Renderer.cpp`: su diff
-  se revisa antes de fusionar (ver arriba).
-- Fotos y guiones de la sesión «sistemas» que cita la wiki: `dev\documentacion\unify\shots\` (u7, drawpath, video,
-  wtri) y `dev\documentacion\unify\scripts\`; el plan y las notas de U1-U9 en `dev\documentacion\unify\` (las rutas
-  `dev\_audit\sistemas\...` que citan esas notas ya no existen).
+- `world_triangles` (session "sistemas" closed on 2026-10-03): `RendererSurfRevol.cpp` already uses the
+  material's culling; the discs' lighting (`UseLighting`) and the specular distribution of fn_0081C780 are still pending
+  ([SF_TeleportVortex and ZR_SurfRevol](miracles.md#sf_teleportvortex-and-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).
+  FragMesh's two-sided lighting (branch `local/fragmesh-wip`) touches `WorldTriangles` and `Renderer.cpp`: its diff
+  is reviewed before merging (see above).
+- Photos and scripts of the "sistemas" session cited by the wiki: `dev\documentacion\unify\shots\` (u7, drawpath, video,
+  wtri) and `dev\documentacion\unify\scripts\`; the plan and the U1-U9 notes in `dev\documentacion\unify\` (the paths
+  `dev\_audit\sistemas\...` cited by those notes no longer exist).
 
-### Dudas para el usuario (sesión «sistemas», cola de transparentes)
+### Questions for the user ("sistemas" session, transparent queue)
 
-- **Llamas detrás de los árboles** (D7: solo van a la cola las mallas con la marca 0x200, SetMesh 0x7F9E48 /
-  AddDrawing 0x815F0B): los árboles se dibujan ahora al momento y con Z, así que las llamas de un árbol de atrás
-  quedan tapadas por el follaje de los de delante, y por encima se ven más claras y sin el humo oscuro
-  (`dev\documentacion\unify\shots\drawpath\fire_tree_*`). ¿Era así en el original?
+- **Flames behind trees** (D7: only meshes with the 0x200 flag go to the queue, SetMesh 0x7F9E48 /
+  AddDrawing 0x815F0B): trees are now drawn immediately and with Z, so the flames of a tree at the back
+  are hidden by the foliage of the ones in front, and above they look lighter and without the dark smoke
+  (`dev\documentacion\unify\shots\drawpath\fire_tree_*`). Was it like that in the original?
 
-### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
+### Questions for the user ("shaders" session, SHADERS_PLAN)
 
-Se implementó todo «como el original» leído en el binario; estas dudas solo dependen de cómo se veía el juego.
-Resueltas por el usuario (2026-10-02, capturas del original `img/original_hand_shadow_*.png`): la sombra de la mano es
-su silueta gris clara y semitransparente (4/15), el orbe sostenido da una sombra más oscura, los orbes se dibujan
-enteros por encima de las sombras (paso S5 aplicado).
+Everything was implemented "as in the original" as read from the binary; these questions depend only on how the game looked.
+Resolved by the user (2026-10-02, captures of the original `img/original_hand_shadow_*.png`): the hand's shadow is
+its light grey, semi-transparent silhouette (4/15), the held orb gives a darker shadow, the orbs are drawn
+whole on top of the shadows (step S5 applied).
 
-- **Luz de los modelos de noche** (`model_light`): con tipo de cielo > 1,5 (double de 0x8C5838) la luz se pone a 3
-  unidades de la mano, del lado de la cámara (fn_005E5830 0x5E5A7D..0x5E5B64). ¿Se parece a lo que recuerdas de noche?
-- **Pasada bajo el mar** (`sea_pass`): (1) ¿la cúpula del escudo y los efectos de malla del PSys junto al mar se
-  cortaban a ras de agua y sin reflejo? (0x679F4A → fn_00858BA0; hecho así); (2) el reflejo de la mano tiene color
-  0x65A0A0A0: ¿gris y semitransparente?; (3) el original mezcla el mar sobre el cielo sin espejarlo y openblack refleja
-  el cielo: ¿se notaba en el agua lejana?; (4) los objetos morfables (casas, campos, arca, escudo físico) no se reflejan
-  (su DrawUnderWater es un `ret`, 0x80BA40; hecho así): ¿lo recuerdas igual?
-- **Sombras proyectadas** (`shadow_list`): (1) el barco de los misioneros de Land 1: ¿su sombra iba en diagonal (sol
-  fijo) y caía sobre el dique y los marineros? (0x5E11B6 / 0x5E11BE); (2) entre 50 y 80 radios, ¿las sombras de los
-  objetos lanzados se aclaraban a saltos o suave? (0x80769A); (3) ¿la sombra de un árbol lanzado era suave y tan oscura
-  como la de una roca?; (4) la sombra del orbe sostenido sale algo más oscura que en las capturas (el máximo 8/15 del
-  código con alfa 255, **(aproximado)**); (5) la sombra propia del dispensador es la estática (Abode, fn_008721A0), que
-  apenas se distingue en las tomas de openblack.
-- ~~Para milagros2: el núcleo blanco quemado del orbe~~ **resuelto** por milagros2 (hand-hbn `78c4cfa8`): el PSys de
-  soporte de la semilla se dibujaba sin el alfa 0x95 del orbe (DrawSpellGraphic 0x51A252 → SetAlpha 0x55ED50 →
-  [0xC0215C], aplicado en fn_00679920 0x679BC2) y la semilla del jugador se ilumina con la celda de tierra
-  (0x803340); la burbuja ya era fiel (textura cian × la luz de la hierba). Comparación con las capturas del original:
+- **Model lighting at night** (`model_light`): with sky type > 1.5 (double at 0x8C5838) the light is placed 3
+  units from the hand, on the camera side (fn_005E5830 0x5E5A7D..0x5E5B64). Does it look like what you remember at night?
+- **Under-sea pass** (`sea_pass`): (1) were the shield dome and the PSys mesh effects next to the sea
+  cut flush with the water and without a reflection? (0x679F4A → fn_00858BA0; done that way); (2) the hand's reflection has colour
+  0x65A0A0A0: grey and semi-transparent?; (3) the original blends the sea over the sky without mirroring it and openblack reflects
+  the sky: was it noticeable in the distant water?; (4) morphable objects (houses, fields, ark, physical shield) are not reflected
+  (their DrawUnderWater is a `ret`, 0x80BA40; done that way): do you remember it the same way?
+- **Projected shadows** (`shadow_list`): (1) the missionaries' boat in Land 1: did its shadow go diagonally (fixed
+  sun) and fall on the dock and the sailors? (0x5E11B6 / 0x5E11BE); (2) between 50 and 80 radii, did the shadows of
+  thrown objects lighten in steps or smoothly? (0x80769A); (3) was the shadow of a thrown tree soft and as dark
+  as that of a rock?; (4) the shadow of the held orb comes out somewhat darker than in the captures (the code's maximum 8/15
+  with alpha 255, **(approximate)**); (5) the dispenser's own shadow is the static one (Abode, fn_008721A0), which
+  can barely be distinguished in openblack's shots.
+- ~~For milagros2: the orb's burnt-out white core~~ **resolved** by milagros2 (hand-hbn `78c4cfa8`): the seed's support
+  PSys was drawn without the orb's 0x95 alpha (DrawSpellGraphic 0x51A252 → SetAlpha 0x55ED50 →
+  [0xC0215C], applied in fn_00679920 0x679BC2) and the player's seed is lit with the land cell
+  (0x803340); the bubble was already faithful (cyan texture × the grass light). Comparison with the original's captures:
   `dev\documentacion\audit_magic\orbcolour_compare.png`.
 
-## Ganchos de prueba
+## Test hooks
 
-En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración):
+In [openblack-internals.md](openblack-internals.md#debug-environment-variables):
 
-- `OPENBLACK_MOUSE_AT="fx,fy"`: cursor fijo en fracción de la ventana (la mano sale en las capturas); usar puntos
-  interiores, en el borde mueve la cámara.
-- `OPENBLACK_TEST_PHYSICS="x,z,altura,vx,vy,vz[,escala[,n]]"`: rocas que caen, con sus sombras físicas.
-- `OPENBLACK_TEST_CUT=1` con `OPENBLACK_TEST_SEA`: corte por el plano del agua.
-- `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH="x,z"`: pesca y susto de los peces.
-- `OPENBLACK_TEST_CHIMNEY=all`: todas las chimeneas echan humo.
-- Billboards: `OPENBLACK_TEST_SEED=FIREBALL` / `LIGHTNING_BOLT` con `OPENBLACK_MOUSE_AT` (sprites de PSys en la mano:
-  origen, CentreAtBase y giro); `OPENBLACK_TEST_FIRE` (llamas); `OPENBLACK_TIME_OF_DAY=22` con `OPENBLACK_CAMERA_LOCK`
-  (la luna, centrada y en un borde); `OPENBLACK_TEST_ONESHOT` (la burbuja). La lista de escenas está en
+- `OPENBLACK_MOUSE_AT="fx,fy"`: cursor fixed at a fraction of the window (the hand shows up in captures); use interior
+  points, on the edge it moves the camera.
+- `OPENBLACK_TEST_PHYSICS="x,z,altura,vx,vy,vz[,escala[,n]]"`: falling rocks, with their physics shadows.
+- `OPENBLACK_TEST_CUT=1` with `OPENBLACK_TEST_SEA`: cut by the water plane.
+- `OPENBLACK_HAND_TEST_FISH=1` and `OPENBLACK_TEST_SPLASH="x,z"`: fishing and scaring the fish.
+- `OPENBLACK_TEST_CHIMNEY=all`: all chimneys smoke.
+- Billboards: `OPENBLACK_TEST_SEED=FIREBALL` / `LIGHTNING_BOLT` with `OPENBLACK_MOUSE_AT` (PSys sprites in the hand:
+  origin, CentreAtBase and rotation); `OPENBLACK_TEST_FIRE` (flames); `OPENBLACK_TIME_OF_DAY=22` with `OPENBLACK_CAMERA_LOCK`
+  (the moon, centred and at an edge); `OPENBLACK_TEST_ONESHOT` (the bubble). The list of scenes is in
   `dev\documentacion\unify\U1_changes.md`.
-- Texturas animadas: `OPENBLACK_TEST_ONESHOT="<semilla>,x,z[,pu]"` (la burbuja; con pu, las bandas que miran a la
-  cámara; con una fiola de criatura, su hoja 8×4), `OPENBLACK_TEST_DISPENSER`, `OPENBLACK_TEST_FIRE` (llamas),
-  `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH` (peces y anillos), `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`
-  (cadenas), `OPENBLACK_TIME_OF_DAY=22` (faroles), `OPENBLACK_TEST_WEATHER` (bocanadas de tormenta),
-  `OPENBLACK_TEST_CHIMNEY=all` (humo). La lista de escenas está en `dev\documentacion\unify\U2_changes.md`.
-- Orden de transparentes y burbuja: `OPENBLACK_ORB_TRACE=1` escribe por fotograma el sitio y la clave de cada disco
-  `ZR_SurfRevol` y de cada burbuja de bola de un uso en la lista ordenada, con la fase, el fotograma, el `[1][3]`
-  empaquetado, el alfa y el recorte de cada burbuja (ver
-  [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)). Escena: un dispensador con
-  `OPENBLACK_TEST_DISPENSER` y la cámara fija con `OPENBLACK_CAMERA_LOCK`.
-- Cola de transparentes: `OPENBLACK_ZSORTER_TRACE=1` escribe una vez por segundo cuántas entradas tiene la cola de
-  cada clase (modelos, nubes, casillas de lluvia, sprites del barco, efectos, superficies, cintas, nieblas, humo,
-  sprites, mano), las perdidas por el tope y las claves extremas. Escenas: el cielo de Land 1 con
-  `OPENBLACK_CLOUD_SEED=7`, una tormenta con `OPENBLACK_TEST_WEATHER="x,z,60"`, el barco con `OPENBLACK_BOAT_TRACE=1`
-  y la mano con `OPENBLACK_MOUSE_AT` (lista en `dev\documentacion\unify\U6_changes.md`).
-- Mallas pegadas al suelo: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` con `OPENBLACK_TEST_SHIELD_SHOT` (el escudo
-  físico se funde con la tierra), `OPENBLACK_TEST_DISPENSER` y `OPENBLACK_TEST_TELEPORT` (los discos cortados),
-  `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` y `OPENBLACK_TEST_EXPLOSION_SHOT` (la marca del suelo; `UR_Explosion` solo
-  está en `SF_BeamExplosion*`), `OPENBLACK_TEST_TUG`
-  (el cráter); `OPENBLACK_SPELL_TRACE=1` escribe `Explosion: ground mark`. La lista de escenas está en
+- Animated textures: `OPENBLACK_TEST_ONESHOT="<semilla>,x,z[,pu]"` (the bubble; with pu, the bands that face the
+  camera; with a creature vial, its 8×4 sheet), `OPENBLACK_TEST_DISPENSER`, `OPENBLACK_TEST_FIRE` (flames),
+  `OPENBLACK_HAND_TEST_FISH=1` and `OPENBLACK_TEST_SPLASH` (fish and rings), `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`
+  (chains), `OPENBLACK_TIME_OF_DAY=22` (lanterns), `OPENBLACK_TEST_WEATHER` (storm puffs),
+  `OPENBLACK_TEST_CHIMNEY=all` (smoke). The list of scenes is in `dev\documentacion\unify\U2_changes.md`.
+- Transparent ordering and bubble: `OPENBLACK_ORB_TRACE=1` writes per frame the place and key of each
+  `ZR_SurfRevol` disc and of each one-shot ball bubble in the sorted list, with the phase, the frame, the packed
+  `[1][3]`, the alpha and the clipping of each bubble (see
+  [openblack-internals.md](openblack-internals.md#debug-environment-variables)). Scene: a dispenser with
+  `OPENBLACK_TEST_DISPENSER` and the camera fixed with `OPENBLACK_CAMERA_LOCK`.
+- Transparent queue: `OPENBLACK_ZSORTER_TRACE=1` writes once per second how many entries the queue has of
+  each class (models, clouds, rain tiles, boat sprites, effects, surfaces, ribbons, mists, smoke,
+  sprites, hand), those lost to the cap and the extreme keys. Scenes: the Land 1 sky with
+  `OPENBLACK_CLOUD_SEED=7`, a storm with `OPENBLACK_TEST_WEATHER="x,z,60"`, the boat with `OPENBLACK_BOAT_TRACE=1`
+  and the hand with `OPENBLACK_MOUSE_AT` (list in `dev\documentacion\unify\U6_changes.md`).
+- Meshes stuck to the ground: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` with `OPENBLACK_TEST_SHIELD_SHOT` (the physical
+  shield melts into the land), `OPENBLACK_TEST_DISPENSER` and `OPENBLACK_TEST_TELEPORT` (the cut discs),
+  `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` and `OPENBLACK_TEST_EXPLOSION_SHOT` (the ground mark; `UR_Explosion` is only
+  in `SF_BeamExplosion*`), `OPENBLACK_TEST_TUG`
+  (the crater); `OPENBLACK_SPELL_TRACE=1` writes `Explosion: ground mark`. The list of scenes is in
   `dev\documentacion\unify\U3_changes.md`.
-- Modos de render: el test `test_render_modes` (las tablas, los estados de cada sitio antes y después y los arreglos);
-  escenas con `OPENBLACK_HAND_TEST_TREE` y `OPENBLACK_CAMERA_LOCK` (bordes chroma), `OPENBLACK_TEST_ONESHOT` y
-  `OPENBLACK_TEST_DISPENSER` (fundidos y aditivos), `OPENBLACK_MOUSE_AT` (sombra de la mano sobre objetos). La lista
-  está en `dev\documentacion\unify\U4_changes.md`.
+- Render modes: the test `test_render_modes` (the tables, the states of each site before and after and the fixes);
+  scenes with `OPENBLACK_HAND_TEST_TREE` and `OPENBLACK_CAMERA_LOCK` (chroma edges), `OPENBLACK_TEST_ONESHOT` and
+  `OPENBLACK_TEST_DISPENSER` (fades and additives), `OPENBLACK_MOUSE_AT` (hand shadow on objects). The list
+  is in `dev\documentacion\unify\U4_changes.md`.
 
-## Fuentes
+## Sources
 
-- `dev\documentacion\render\`: `misc_*` (manchas, reflejos y LOD, con emulación Unicorn de `fn_0081FFF0`),
+- `dev\documentacion\render\`: `misc_*` (blobs, reflections and LOD, with Unicorn emulation of `fn_0081FFF0`),
   `objshadow_notes.txt`, `cut_notes.txt`, `physshadow\`, `l3d_wrap_scan.py`, `animal_notes.txt`, `objlight_*`.
-- `dev\documentacion\fish\fish_notes.txt` (susto y pesca).
-- `dev\documentacion\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
-- `dev\documentacion\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
-  (inventario de openblack) y `U1_changes.md` (la migración).
-- `dev\documentacion\unify\animtex_original.md` (los relojes del original, con su verificación), `animtex_openblack.md`
-  (inventario de openblack) y `U2_changes.md` (la migración).
-- `dev\documentacion\unify2\lh3d_zsorter_original.md` (la cola del original, con su verificación),
-  `lh3d_zsorter_openblack.md` (inventario de openblack) y `dev\documentacion\unify\U6_changes.md` (la migración).
-- `dev\documentacion\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
-  (inventario de openblack) y `U3_changes.md` (la migración); `dev\documentacion\morph\morph_notes.txt` (UpdateMelting).
-- `dev\documentacion\unify2\shader_lh3dcolour_instance_original.md` (las rutinas, con su verificación),
-  `shader_lh3dcolour_instance_openblack.md` (inventario de openblack) y `SHADERS_PLAN.md` §3 (aritmética de LH3DColor).
-- `dev\documentacion\unify2\lh3d_render_modes_original.md` (el original, con su verificación), `lh3d_render_modes_openblack.md`
-  (inventario de openblack) y `dev\documentacion\unify\U4_changes.md` (la migración).
-- `dev\documentacion\unify2\shader_sea_reflection_pass_original.md` (las tres rutas del original, con su verificación),
-  `shader_sea_reflection_pass_openblack.md` (inventario de openblack) y `PLAN_4_sea_pass.md` (las reglas R1-R14
-  comprobadas otra vez y la migración a `sea_pass`).
+- `dev\documentacion\fish\fish_notes.txt` (scaring and fishing).
+- `dev\documentacion\aldeanos\smoke.md` and `smoke\` (chimney smoke).
+- `dev\documentacion\unify\billboard_original.md` (the original's modes, with their verification), `billboard_openblack.md`
+  (openblack inventory) and `U1_changes.md` (the migration).
+- `dev\documentacion\unify\animtex_original.md` (the original's clocks, with their verification), `animtex_openblack.md`
+  (openblack inventory) and `U2_changes.md` (the migration).
+- `dev\documentacion\unify2\lh3d_zsorter_original.md` (the original's queue, with its verification),
+  `lh3d_zsorter_openblack.md` (openblack inventory) and `dev\documentacion\unify\U6_changes.md` (the migration).
+- `dev\documentacion\unify\drape_original.md` (the original's algorithms, with their verification), `drape_openblack.md`
+  (openblack inventory) and `U3_changes.md` (the migration); `dev\documentacion\morph\morph_notes.txt` (UpdateMelting).
+- `dev\documentacion\unify2\shader_lh3dcolour_instance_original.md` (the routines, with their verification),
+  `shader_lh3dcolour_instance_openblack.md` (openblack inventory) and `SHADERS_PLAN.md` §3 (LH3DColor arithmetic).
+- `dev\documentacion\unify2\lh3d_render_modes_original.md` (the original, with its verification), `lh3d_render_modes_openblack.md`
+  (openblack inventory) and `dev\documentacion\unify\U4_changes.md` (the migration).
+- `dev\documentacion\unify2\shader_sea_reflection_pass_original.md` (the original's three paths, with their verification),
+  `shader_sea_reflection_pass_openblack.md` (openblack inventory) and `PLAN_4_sea_pass.md` (rules R1-R14
+  checked again and the migration to `sea_pass`).

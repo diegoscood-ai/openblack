@@ -1,135 +1,135 @@
-# Herramientas y formatos
+# Tools and formats
 
-Cómo se investiga el original (scripts de desensamblado sobre `runblack.exe`), las herramientas de línea de comandos
-de openblack y los formatos de datos del juego: paquetes G3D/L3D, efectos, texturas, guiones, `info.dat` y el LND con
-las extensiones del editor de mapas BWLandEditor.
+How the original is investigated (disassembly scripts over `runblack.exe`), openblack's command-line
+tools and the game's data formats: G3D/L3D packs, effects, textures, scripts, `info.dat` and the LND with
+the extensions of the BWLandEditor map editor.
 
-- [Desensamblado de runblack.exe](#desensamblado-de-runblackexe)
-- [Herramientas de openblack](#herramientas-de-openblack)
-- [Formatos de datos](#formatos-de-datos)
-- [LND y mapas de BWLandEditor](#lnd-y-mapas-de-bwlandeditor)
-  - [Cómo lee el LND](#cómo-lee-el-lnd)
-  - [Bytes de la celda](#bytes-de-la-celda)
-  - [Texturas de baja resolución](#texturas-de-baja-resolución)
-  - [Qué se adapta en openblack](#qué-se-adapta-en-openblack)
-  - [Mapas de prueba y scripts de análisis](#mapas-de-prueba-y-scripts-de-análisis)
-  - [Diferencias sin comprobar en el original](#diferencias-sin-comprobar-en-el-original)
+- [Disassembly of runblack.exe](#disassembly-of-runblackexe)
+- [openblack tools](#openblack-tools)
+- [Data formats](#data-formats)
+- [LND and BWLandEditor maps](#lnd-and-bwlandeditor-maps)
+  - [How it reads the LND](#how-it-reads-the-lnd)
+  - [Cell bytes](#cell-bytes)
+  - [Low-resolution textures](#low-resolution-textures)
+  - [What is adapted in openblack](#what-is-adapted-in-openblack)
+  - [Test maps and analysis scripts](#test-maps-and-analysis-scripts)
+  - [Differences not checked in the original](#differences-not-checked-in-the-original)
 
-## Desensamblado de runblack.exe
+## Disassembly of runblack.exe
 
-Scripts en `C:\Users\diewgarc\dev\documentacion`:
+Scripts in `C:\Users\diewgarc\dev\documentacion`:
 
-- `python bwdis.py ADDR:SIZE [ADDR:SIZE...]` desensambla `runblack.exe` con capstone. Anota símbolos, floats de la
-  sección de datos (`; =0.67`) y cadenas.
-  - Las llamadas virtuales `call [reg + off]` se anotan con la vtable de la clase `VTC` (variable de entorno, por
-    defecto `Tree`). **El nombre anotado solo vale si `VTC` es la clase real del objeto**; si no, ignóralo.
-- `python callers.py ADDR` lista quién llama a una función (busca `call rel32`).
-- `python refs.py ADDR...` lista instrucciones que referencian una dirección (datos o funciones).
-- `multi\vt.py Clase [regex]` imprime la vtable de una clase; `multi\potinfo.py` lee la tabla de vasijas de `info.dat`.
+- `python bwdis.py ADDR:SIZE [ADDR:SIZE...]` disassembles `runblack.exe` with capstone. It annotates symbols, floats from the
+  data section (`; =0.67`) and strings.
+  - Virtual calls `call [reg + off]` are annotated with the vtable of class `VTC` (environment variable, by
+    default `Tree`). **The annotated name is only valid if `VTC` is the object's real class**; otherwise, ignore it.
+- `python callers.py ADDR` lists who calls a function (searches for `call rel32`).
+- `python refs.py ADDR...` lists instructions that reference an address (data or functions).
+- `multi\vt.py Clase [regex]` prints a class's vtable; `multi\potinfo.py` reads the pot table from `info.dat`.
 
-Símbolos y trucos:
+Symbols and tricks:
 
-- Los símbolos vienen de `bw1-decomp\config\BW1W120\symbols.txt`. Algunos nombres están cambiados, por ejemplo:
-  `0x5B3C70` es `HandStateHolding::Update` y `0x5B5E70` es `ObtainRequiredHandPosition`.
-- Para leer tablas que se rellenan al arrancar (en `.data` están a cero), busca el inicializador `crt_xc_fn_*` que
-  escribe en ellas (ej. la tabla de estados de acción de la interfaz, 0x5D7960).
+- The symbols come from `bw1-decomp\config\BW1W120\symbols.txt`. Some names are wrong, for example:
+  `0x5B3C70` is `HandStateHolding::Update` and `0x5B5E70` is `ObtainRequiredHandPosition`.
+- To read tables that are filled in at startup (in `.data` they are zero), look for the `crt_xc_fn_*` initialiser that
+  writes to them (e.g. the interface action state table, 0x5D7960).
 
-## Herramientas de openblack
+## openblack tools
 
-Compiladas en `cmake-build-presets\ninja-multi-vcpkg\bin\Release`:
+Built in `cmake-build-presets\ninja-multi-vcpkg\bin\Release`:
 
-- `packtool -M pack.g3d` lista mallas; `packtool -m N -e out.l3d pack.g3d` extrae la malla N;
-  `packtool -T pack.g3d` lista texturas (**ids en hexadecimal**); `packtool -t IDX -e out.dds` extrae la textura por
-  índice (el id es otro campo).
-- `l3dtool read -H|-m|-P|-V|-I|-s file.l3d`: cabecera, submallas, primitivas (material, skinID), vértices (posiciones
-  con **un decimal**), índices, skins incrustadas.
-- `lndtool write ... --points "x y z"`: genera el terreno de prueba (ver tests en openblack-internals.md).
-- **Shaders con #include**: `bgfx_compile_shaders` solo sigue el fichero de arriba. Las variantes `vs_object_*.sc`
-  (y `vs_static_shadow_instanced_static.sc`) incluyen `vs_object.sc`/otra variante: tras cambiar el incluido hay que
-  tocar (`touch`) las variantes, o el ejecutable se queda con la versión vieja de las mallas estáticas e instanciadas.
+- `packtool -M pack.g3d` lists meshes; `packtool -m N -e out.l3d pack.g3d` extracts mesh N;
+  `packtool -T pack.g3d` lists textures (**ids in hexadecimal**); `packtool -t IDX -e out.dds` extracts the texture by
+  index (the id is a different field).
+- `l3dtool read -H|-m|-P|-V|-I|-s file.l3d`: header, submeshes, primitives (material, skinID), vertices (positions
+  with **one decimal place**), indices, embedded skins.
+- `lndtool write ... --points "x y z"`: generates the test terrain (see tests in openblack-internals.md).
+- **Shaders with #include**: `bgfx_compile_shaders` only follows the top-level file. The `vs_object_*.sc` variants
+  (and `vs_static_shadow_instanced_static.sc`) include `vs_object.sc`/another variant: after changing the included file you have to
+  `touch` the variants, or the executable keeps the old version for static and instanced meshes.
 
-## Formatos de datos
+## Data formats
 
-- **Paquete de mallas** `Data\AllMeshes.g3d`: paquete Lionhead con ~626 mallas L3D y sus texturas DDS. El número de
-  malla es el índice del paquete, que coincide con el enum de `Data\AllMeshes.h` **solo para ese paquete** (Creature
-  Isle y otros paquetes tienen otros índices). El de la instalación está modificado: [mods.md](mods.md).
-- **L3D**: cabecera de 19 u32 (magic, flags, size, submeshCount, submeshOffsets, bbox[8], another, skinCount,
-  skinOffsets, extraCount, extraOffset, footprintOffset). Las skins incrustadas empiezan con un u32 de id seguido de
-  256×256 píxeles de 16 bits.
-- **Efectos**: `Data\Spells\ZSpellFiles\*.zzz` = zlib a partir del byte 4; dentro, un fichero de propiedades de texto
-  (`BEGINCLASS` / `PROPERTY`). Ejemplos: `SF_GripLandscape`, `SF_MultiPickUpWood/Food/FoodFish`, `SF_MultiPutDown*`.
-- **Texturas sueltas** `Data\Textures\X.raw` (256×256 RGB) + `Xa.raw` (alfa R8). Hojas de sprites de 8×8 celdas.
-- **Guiones del mapa** `Scripts\LandN.txt`; la tabla de comandos del ejecutable (0xC21190…) da nombre y tipos de
-  parámetros (`A` posición, `N` entero, `F` float). Ej.: `CREATE_MOBILE_STATIC` = `ANFFFFF` =
-  (pos, tipo, altitud, ángulo X, ángulo Y, ángulo Z, escala).
-- **`Scripts\info.dat`**: tablas de objetos (pots, trees, mobile statics...). openblack lo carga en `InfoConstants`.
+- **Mesh pack** `Data\AllMeshes.g3d`: Lionhead pack with ~626 L3D meshes and their DDS textures. The mesh
+  number is the index in the pack, which matches the enum in `Data\AllMeshes.h` **only for that pack** (Creature
+  Isle and other packs have other indices). The installed one is modified: [mods.md](mods.md).
+- **L3D**: header of 19 u32 (magic, flags, size, submeshCount, submeshOffsets, bbox[8], another, skinCount,
+  skinOffsets, extraCount, extraOffset, footprintOffset). Embedded skins start with a u32 id followed by
+  256×256 16-bit pixels.
+- **Effects**: `Data\Spells\ZSpellFiles\*.zzz` = zlib from byte 4 onwards; inside, a text properties file
+  (`BEGINCLASS` / `PROPERTY`). Examples: `SF_GripLandscape`, `SF_MultiPickUpWood/Food/FoodFish`, `SF_MultiPutDown*`.
+- **Loose textures** `Data\Textures\X.raw` (256×256 RGB) + `Xa.raw` (R8 alpha). Sprite sheets of 8×8 cells.
+- **Map scripts** `Scripts\LandN.txt`; the executable's command table (0xC21190…) gives the name and parameter
+  types (`A` position, `N` integer, `F` float). E.g.: `CREATE_MOBILE_STATIC` = `ANFFFFF` =
+  (pos, type, altitude, X angle, Y angle, Z angle, scale).
+- **`Scripts\info.dat`**: object tables (pots, trees, mobile statics...). openblack loads it into `InfoConstants`.
 
-## LND y mapas de BWLandEditor
+## LND and BWLandEditor maps
 
-`B&W\BWLandEditor-main` es el editor de mapas de Daniels118 (Java, GPL-3). Parte de su código está portado de
-openblack: InfoConstants, L3D/G3D y una versión antigua de `fs_terrain`. Lo que sigue sale del código del editor
-(no del ejecutable original) salvo donde se dice otra cosa.
+`B&W\BWLandEditor-main` is Daniels118's map editor (Java, GPL-3). Part of its code is ported from
+openblack: InfoConstants, L3D/G3D and an old version of `fs_terrain`. What follows comes from the editor's code
+(not from the original executable) except where stated otherwise.
 
-### Cómo lee el LND
+### How it reads the LND
 
-Igual que openblack, más tres extensiones que openblack ya admite (`LNDFile`, `LandIsland`):
+The same as openblack, plus three extensions that openblack already supports (`LNDFile`, `LandIsland`):
 
-- Al final del fichero pueden venir los bloques `EXT0` (u32 tamaño del bloque entero = 10, u8 versión, u8 bits de
-  altitud 8-16) y `META` (u32 tamaño de los datos, datos del editor). Con más de 8 bits, los bits altos de la altitud
-  van en los bits bajos de `saveColor` (`LNDCell::Altitude`, `LandIslandInterface::GetCellAltitude`).
-- La cuadrícula puede tener hasta 128×128 bloques y más de 255 bloques. La tabla de la cabecera solo cubre 32×32 e
-  índices < 256, así que `LandIsland` monta su tabla con `blockX`/`blockZ` de cada bloque. En los 21 `.lnd`
-  originales la tabla coincide con esos campos (`dev\herramientas\lnd\lnd_check.py`).
-- El editor corrige un `mapX`/`mapZ` que no cuadre con `blockX`/`blockZ`, y `LandIsland` hace lo mismo.
+- At the end of the file there may be the blocks `EXT0` (u32 size of the whole block = 10, u8 version, u8 altitude
+  bits 8-16) and `META` (u32 data size, editor data). With more than 8 bits, the high bits of the altitude
+  go in the low bits of `saveColor` (`LNDCell::Altitude`, `LandIslandInterface::GetCellAltitude`).
+- The grid can have up to 128×128 blocks and more than 255 blocks. The header table only covers 32×32 and
+  indices < 256, so `LandIsland` builds its table from each block's `blockX`/`blockZ`. In the 21 original `.lnd`
+  files the table matches those fields (`dev\herramientas\lnd\lnd_check.py`).
+- The editor corrects a `mapX`/`mapZ` that does not agree with `blockX`/`blockZ`, and `LandIsland` does the same.
 
-### Bytes de la celda
+### Cell bytes
 
-- **`flags`, según el editor.** Bit 0 = "transparent"; bits 1-7 = sonido ambiente: 0 nada, 2 chapoteo, 3 océano,
-  4 olas lentas, 5 lago, 6 costa, 7 olas rápidas, 8 jungla, 10 viento, 12 desierto, 14 pájaros, 16 bosque, 18 río.
-  Los impares por encima de 8 son variantes del par anterior. openblack lo usa en los filtros `zone`/`not_zone` de
-  `world.foliage` (**mod**, 1579a51c, ver [mod-library.md](mod-library.md)).
-  El original lee la zona como `(flags >> 2) & 0xF` (`Terrain::GetAtmosType` 0x7352B0): los códigos del editor son
-  `tipo << 1`; tabla y uso en [objects-and-resources.md](objects-and-resources.md) («Ambiente (atmos)»).
+- **`flags`, according to the editor.** Bit 0 = "transparent"; bits 1-7 = ambient sound: 0 nothing, 2 splashing, 3 ocean,
+  4 slow waves, 5 lake, 6 coast, 7 fast waves, 8 jungle, 10 wind, 12 desert, 14 birds, 16 forest, 18 river.
+  The odd ones above 8 are variants of the preceding even one. openblack uses it in the `zone`/`not_zone` filters of
+  `world.foliage` (**mod**, 1579a51c, see [mod-library.md](mod-library.md)).
+  The original reads the zone as `(flags >> 2) & 0xF` (`Terrain::GetAtmosType` 0x7352B0): the editor's codes are
+  `tipo << 1`; table and usage in [objects-and-resources.md](objects-and-resources.md) («Ambience (atmos)»).
 - **`properties` (+6).** Bits 0-3 = country, bit 4 (0x10) = hasWater, bit 5 (0x20) = coastLine, bit 6 (0x40) =
-  fullWater, bit 7 (0x80) = split (diagonal, ver [engine-math.md](engine-math.md#altura-del-terreno)). Para separar
-  el mar abierto del agua interior, `lnd_water.py` agrupa las celdas conectadas con agua o sin bloque: las que tocan
-  el borde del mapa o el vacío son mar; las demás, lagos o charcas.
+  fullWater, bit 7 (0x80) = split (diagonal, see [engine-math.md](engine-math.md#terrain-height)). To separate
+  the open sea from inland water, `lnd_water.py` groups the connected cells with water or without a block: those touching
+  the map edge or the void are sea; the rest, lakes or ponds.
 
-### Texturas de baja resolución
+### Low-resolution textures
 
-Atlas de 4×4 subtexturas de 64×64, una por bloque, 4 texels por celda, con X e Y intercambiadas. El "unknown" de su
-cabecera es el número de bloques del atlas. `iu_lrs`/`iv_lrs` son enteros (0/64/128/192). openblack no las usa (solo
-las lee en `LNDFile`).
+Atlas of 4×4 subtextures of 64×64, one per block, 4 texels per cell, with X and Y swapped. The "unknown" in its
+header is the number of blocks in the atlas. `iu_lrs`/`iv_lrs` are integers (0/64/128/192). openblack does not use them (it only
+reads them in `LNDFile`).
 
-### Qué se adapta en openblack
+### What is adapted in openblack
 
-**Propio** (los mapas originales no cambian):
+**Our own** (the original maps do not change):
 
-- Con más de 8 bits el mapa de alturas pasa de R8 a R32F en la misma escala (1 = altitud 255). Por encima de 255 se
-  usa el último material del país, como hace el editor.
-- Las texturas por isla (huellas, sombras estáticas, alfa) bajan de 256 texels por bloque en cuanto pasarían de 8192.
-- El disco que limita la cámara (centro 2560, radio 5120) crece con el tamaño del mapa.
+- With more than 8 bits the heightmap goes from R8 to R32F on the same scale (1 = altitude 255). Above 255 the
+  country's last material is used, as the editor does.
+- The per-island textures (footprints, static shadows, alpha) drop below 256 texels per block as soon as they would exceed 8192.
+- The disc that limits the camera (centre 2560, radius 5120) grows with the size of the map.
 
-### Mapas de prueba y scripts de análisis
+### Test maps and analysis scripts
 
-`dev\herramientas\lnd\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
-absoluta del `.txt`):
+`dev\herramientas\lnd\lnd_make_tests.py` generates three maps and their scripts in `dev\lnd_test` (start with `-s` and the absolute
+path of the `.txt`):
 
-- `Land1_ext`: Land1 con los bloques del editor al final; idéntico a Land1, altura en (1788.4, 2710) = 28.9173050.
-- `Land1_hi`: 10 bits y altitudes dobladas; altura 57.8346100.
-- `Land5_x2`: Land5 dos veces, cuadrícula de 60, 374 bloques.
+- `Land1_ext`: Land1 with the editor blocks at the end; identical to Land1, height at (1788.4, 2710) = 28.9173050.
+- `Land1_hi`: 10 bits and doubled altitudes; height 57.8346100.
+- `Land5_x2`: Land5 twice, grid of 60, 374 blocks.
 
-Scripts de análisis de `.lnd` (`dev\herramientas\lnd\`): `lnd_check` (tabla de bloques frente a blockX/blockZ),
-`lnd_make_tests` (mapas de prueba), `lnd_beaches` (arena junto al agua, materiales 6 y 11), `lnd_zones` /
-`lnd_countries` / `lnd_find_country <lnd> <n>` (zonas de sonido, countries y posición mediana de un country),
-`lnd_materials` / `lnd_colours` / `lnd_tile_check` / `lnd_decal_metric` (materiales RGB555 de 256×256),
-`lnd_water` (cuerpos de agua), `lnd_hash` (FNV-1a de los materiales).
+`.lnd` analysis scripts (`dev\herramientas\lnd\`): `lnd_check` (block table versus blockX/blockZ),
+`lnd_make_tests` (test maps), `lnd_beaches` (sand next to water, materials 6 and 11), `lnd_zones` /
+`lnd_countries` / `lnd_find_country <lnd> <n>` (sound zones, countries and median position of a country),
+`lnd_materials` / `lnd_colours` / `lnd_tile_check` / `lnd_decal_metric` (256×256 RGB555 materials),
+`lnd_water` (bodies of water), `lnd_hash` (FNV-1a of the materials).
 
-### Diferencias sin comprobar en el original
+### Differences not checked in the original
 
-- El editor elige el material con `min(altitud + ruido/4, 255)`; el original lo hace **por texel** con
-  `min((h >> 8) + ruido, 255)` y la altitud pesada con conos (resuelto, [rendering.md](rendering.md#costa)), y openblack
-  ya lo sigue (`3D/BlockTexture`).
-- El lector L3D de openblack toma ancho y alto de huella de la cabecera; el editor los lee por entrada.
-- El editor lee info.dat de Creature Isle (627250 bytes; tablas más largas en InfoConstants.java L23-33); openblack
-  todavía no.
+- The editor chooses the material with `min(altitud + ruido/4, 255)`; the original does it **per texel** with
+  `min((h >> 8) + ruido, 255)` and the altitude weighted with cones (resolved, [rendering.md](rendering.md#coast)), and openblack
+  already follows it (`3D/BlockTexture`).
+- openblack's L3D reader takes the footprint width and height from the header; the editor reads them per entry.
+- The editor reads Creature Isle's info.dat (627250 bytes; longer tables in InfoConstants.java L23-33); openblack
+  does not yet.

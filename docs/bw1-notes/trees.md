@@ -1,361 +1,361 @@
-# Árboles y bosques
+# Trees and forests
 
-Todo lo de los árboles: arrancar y el tirón, qué se puede coger, soltar y replantar, la madera (info.dat y la API para
-los oficios de aldeano), las búsquedas de árboles y bosques, el crecimiento, el dibujado, el fuego propio del árbol y el
-sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo marcado **(inferido)**, **(aproximado)**,
-[supuesto], *desviación* o **pendiente**. Código de openblack: `src/ECS/Trees.{h,cpp}`, `HandTrees.cpp`.
+Everything about the trees: uprooting and the tug, what can be picked up, dropping and replanting, the wood (info.dat and
+the API for the villager jobs), the searches for trees and forests, the growth, the drawing, the tree's own fire and the
+sacrifice. Everything is **faithful** (read in runblack.exe or in info.dat) except what is marked **(inferred)**,
+**(approximate)**, [assumed], *deviation* or **pending**. openblack code: `src/ECS/Trees.{h,cpp}`, `HandTrees.cpp`.
 
-- [Arrancar y coger](#arrancar-y-coger)
-  - [Tirón](#tirón-handstatetug-enter-0x5b7df0--update-0x5b8070-en-handtreescpp)
-  - [Reglas de coger y BigForest](#reglas-de-coger-y-bigforest)
-- [Soltar y replantar](#soltar-y-replantar)
-- [Alineación](#alineación)
-- [Madera y tabla GTreeInfo](#madera-y-tabla-gtreeinfo)
-- [Árboles para los oficios de aldeano](#árboles-para-los-oficios-de-aldeano-api-srcecstreesh-para-la-sesión-de-aldeanos)
-- [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)
-- [Crecimiento y bosques](#crecimiento-treeprocess-0x74a290-treegrow-0x74a3f0)
-- [Dibujado](#dibujado)
-- [Fuego](#fuego)
-- [Sacrificio](#sacrificio)
-- [Pendiente](#pendiente) · [Ganchos de prueba](#ganchos-de-prueba) · [Fuentes](#fuentes)
+- [Uprooting and picking up](#uprooting-and-picking-up)
+  - [Tug](#tug-handstatetug-enter-0x5b7df0--update-0x5b8070-in-handtreescpp)
+  - [Pick-up rules and BigForest](#pick-up-rules-and-bigforest)
+- [Dropping and replanting](#dropping-and-replanting)
+- [Alignment](#alignment)
+- [Wood and the GTreeInfo table](#wood-and-the-gtreeinfo-table)
+- [Trees for the villager jobs](#trees-for-the-villager-jobs-api-srcecstreesh-for-the-villagers-session)
+- [Searches for trees and forests](#searches-for-trees-and-forests-for-the-villagers-report-documentaciontrees2villager_queriesmd)
+- [Growth and forests](#growth-treeprocess-0x74a290-treegrow-0x74a3f0)
+- [Drawing](#drawing)
+- [Fire](#fire)
+- [Sacrifice](#sacrifice)
+- [Pending](#pending) · [Test hooks](#test-hooks) · [Sources](#sources)
 
-## Arrancar y coger
+## Uprooting and picking up
 
-- Arrancar: el tirón empieza **al pulsar** (StartGrab 0x5D1740 llama a `CHand::PickUp(obj, 1)` en el momento; el umbral
-  de 225 ms es solo para los demás objetos); el árbol se inclina hacia la mano y sale cuando la mano se ha movido más de
-  peso/1000 m en horizontal desde donde lo agarró (detalle y diferencia con el original en
-  [Tirón](#tirón-handstatetug-enter-0x5b7df0--update-0x5b8070-en-handtreescpp)). Sonido TreeBreak, montón de raíces
-  (malla 593, 15 s) y raíces colgando (malla 592).
-- El montón de raíces (el cráter) es un `LH3DObject::Create(1)`, **morfable** (fn_00825240 → UpdateMelting vt+0x1E8 una
-  vez al crearlo): se amolda al terreno como los campos y almacenes (`ecs::ground_marks::Create` desde `HandSystem::Uproot`, ver
-  [rendering-objects.md](rendering-objects.md#mallas-pegadas-al-suelo-land_morph)).
+- Uprooting: the tug starts **on press** (StartGrab 0x5D1740 calls `CHand::PickUp(obj, 1)` immediately; the 225 ms
+  threshold is only for the other objects); the tree leans towards the hand and comes out when the hand has moved more than
+  weight/1000 m horizontally from where it grabbed it (details and difference with the original in
+  [Tug](#tug-handstatetug-enter-0x5b7df0--update-0x5b8070-in-handtreescpp)). TreeBreak sound, pile of roots
+  (mesh 593, 15 s) and dangling roots (mesh 592).
+- The pile of roots (the crater) is an `LH3DObject::Create(1)`, **morphable** (fn_00825240 → UpdateMelting vt+0x1E8 once
+  when created): it moulds itself to the terrain like the fields and stores (`ecs::ground_marks::Create` from `HandSystem::Uproot`, see
+  [rendering-objects.md](rendering-objects.md#meshes-stuck-to-the-ground-land_morph)).
 
-### Tirón (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, en HandTrees.cpp)
+### Tug (`HandStateTug` Enter 0x5B7DF0 / Update 0x5B8070, in HandTrees.cpp)
 
-- **Original**: al empezar, el ancla es la base del
-  árbol y el plano de arrastre pasa por ella con la normal del terreno, a la altura de la mano vista a la distancia del
-  ancla. Tras 0,13 s (el fundido del cambio de estado), cada fotograma la mano va al corte del rayo del ratón con ese
-  plano; el agarre está en `base + arriba × bajada` (bajada = 0,1 × altura, mínimo 3,2 × escala de la mano × 0,3 al
-  empezar); un muelle `F = 1000 × (mano − agarre)` (tope 600000) lo inclina con par `(r × F)/1000` y rozamiento
-  cuadrático 4 alrededor de la base, y el tronco se estira hasta ×1,3 (Zoomer 0,3 s). Sale cuando `|F| > GetWeight`
-  (escala³ × peso de info.dat): agarrado lejos del punto de agarre, sale enseguida. Soltado antes, vuelve a su postura.
-  Al final de cada Update (también en los primeros 0,13 s) la mano se coloca en el agarre del tronco estirado
-  (`CHand+0x78 = matriz × (0, bajada, 0)`); solo se dibuja ahí, el siguiente Update la vuelve a poner en el plano.
-  **Consecuencia (2026-09-30, por confirmar con el original)**: como la mano antes de pulsar está sobre el rayo del
-  ratón, el plano queda a la altura a la que ese rayo cruza el eje del árbol, así que el primer tirón es esa altura menos
-  la bajada: una haya de escala 1 (18 m, agarre a 1,8 m, peso 1000) solo se inclina si se pulsa a menos de ~1 m del
-  agarre (de 0,8 a 2,8 m sobre la base); pulsada en la copa sale a los 0,13 s. El openblack de antes de las físicas
-  medía solo la distancia horizontal del cursor a la base y se inclinaba pulsara donde pulsara.
-  **Lo que hace openblack (2026-09-30, a petición del usuario, que recuerda el original así)**: no se usa el muelle
-  literal (además el estirado ×1,3 hacía que el árbol subiera y bajara). Al pulsar se guarda el punto agarrado y su
-  distancia en el rayo del ratón; el tirón es cuánto se ha movido en horizontal la mano (el rayo a esa distancia) desde
-  entonces. El árbol se inclina hacia ella hasta 0,25 rad y sale cuando pasa de peso/1000 m (escala³ × peso de
-  info.dat). Agarrado en cualquier sitio y sin mover el ratón, no sale. Si algún día se puede probar el original, se
-  puede comprobar con `documentacion\trees2\tugwatch.py` (lee la memoria de runblack.exe: plano, mano, agarre, estado).
-  Gancho: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, el cursor se mueve 0,5 s
-  después), trazas con `OPENBLACK_HAND_TRACE=1`.
+- **Original**: at the start, the anchor is the base of the
+  tree and the drag plane passes through it with the terrain normal, at the height of the hand seen at the anchor's
+  distance. After 0.13 s (the state change fade), every frame the hand goes to the intersection of the mouse ray with that
+  plane; the grip is at `base + arriba × bajada` (drop = 0.1 × height, minimum 3.2 × hand scale × 0.3 at
+  the start); a spring `F = 1000 × (mano − agarre)` (cap 600000) tilts it with torque `(r × F)/1000` and quadratic
+  friction 4 around the base, and the trunk stretches up to ×1.3 (Zoomer 0.3 s). It comes out when `|F| > GetWeight`
+  (scale³ × info.dat weight): grabbed far from the grip point, it comes out straight away. Released earlier, it returns to its posture.
+  At the end of each Update (also in the first 0.13 s) the hand is placed at the grip of the stretched trunk
+  (`CHand+0x78 = matriz × (0, bajada, 0)`); it is only drawn there, the next Update puts it back on the plane.
+  **Consequence (2026-09-30, to be confirmed with the original)**: since the hand before pressing is on the mouse
+  ray, the plane ends up at the height at which that ray crosses the tree's axis, so the first tug is that height minus
+  the drop: a beech of scale 1 (18 m, grip at 1.8 m, weight 1000) only leans if pressed within ~1 m of the
+  grip (from 0.8 to 2.8 m above the base); pressed at the crown it comes out after 0.13 s. The openblack from before physics
+  only measured the horizontal distance from the cursor to the base and leaned wherever it was pressed.
+  **What openblack does (2026-09-30, at the request of the user, who remembers the original that way)**: the literal spring
+  is not used (in addition the ×1.3 stretch made the tree go up and down). On press the grabbed point and its
+  distance along the mouse ray are stored; the tug is how much the hand (the ray at that distance) has moved horizontally since
+  then. The tree leans towards it up to 0.25 rad and comes out when it exceeds weight/1000 m (scale³ × info.dat
+  weight). Grabbed anywhere and without moving the mouse, it does not come out. If one day the original can be tested, it
+  can be checked with `documentacion\trees2\tugwatch.py` (reads the memory of runblack.exe: plane, hand, grip, state).
+  Hook: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, the cursor moves 0.5 s
+  later), traces with `OPENBLACK_HAND_TRACE=1`.
 
-### Reglas de coger y BigForest
+### Pick-up rules and BigForest
 
-- **Reglas de coger**: `Tree::ValidForPlaceInHand` = 1 e `IsTuggable` = 1 para los 22 tipos, a cualquier escala (arbustos,
-  setos, palmeras, bosquecillos, dentro o fuera de pueblos). Solo lo impiden la bandera 0x2000 (partidas guardadas y
-  puzles), estar fuera de la influencia o una selección bloqueada; entonces va por el camino de "tocar", que para
-  árboles no hace nada. `BigForest` (portado): no se tira; al agarrar (225 ms) `InterfaceSetInMagicHand` 0x4393C0
-  hace `RemoveResource(WOOD, 350)` (madera del Conifer) y pone en la mano un Conifer nuevo (escala 1, ángulo 0).
-  `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, `Create` 0x438EC0) baja 350 y
-  **solo** cuando su madera se aleja más de 250 de vida × escala × woodValue se reescala a madera/woodValue y planta en el
-  borde; sin madera suficiente da lo que queda y el bosque se borra (detalle en
-  [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)).
-  `AddTreeAround` 0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto de la celda con distancia + radio
-  menor de 4, un Pine de su bosque (+0x80), escala 0,05, ángulo al azar y tamaño máximo 0,75 + azar(0,5). openblack:
-  `HandSystem::TakeTreeFromForest` (HandTrees.cpp), `BigForest::wood`, gancho `OPENBLACK_HAND_TEST_FOREST=1` (Land1:
-  15000 → 14650, escala 0,977). DeadTree/FelledTree: se cogen sin tirón. Arrancar: `G_TREEBREAK` + 1 empujón de
-  alineación malvada (`GAlignment::Update`); replantar, bueno ([Alineación](#alineación)).
+- **Pick-up rules**: `Tree::ValidForPlaceInHand` = 1 and `IsTuggable` = 1 for the 22 types, at any scale (bushes,
+  hedges, palm trees, copses, inside or outside villages). Only the flag 0x2000 (saved games and
+  puzzles), being outside the influence or a locked selection prevent it; then it goes through the "tap" path, which for
+  trees does nothing. `BigForest` (ported): it is not tugged; on grabbing (225 ms) `InterfaceSetInMagicHand` 0x4393C0
+  does `RemoveResource(WOOD, 350)` (the Conifer's wood) and puts a new Conifer in the hand (scale 1, angle 0).
+  `RemoveResource` 0x4390D0: the forest's wood (+0x84; on creation woodValue × scale, `Create` 0x438EC0) goes down by 350 and
+  **only** when its wood drifts more than 250 away from life × scale × woodValue is it rescaled to wood/woodValue and plants at the
+  edge; without enough wood it gives what is left and the forest is deleted (details in
+  [Searches for trees and forests](#searches-for-trees-and-forests-for-the-villagers-report-documentaciontrees2villager_queriesmd)).
+  `AddTreeAround` 0x439220: up to 10 random angles at its radius; on land and without an object in the cell with distance + radius
+  less than 4, a Pine of its forest (+0x80), scale 0.05, random angle and maximum size 0.75 + random(0.5). openblack:
+  `HandSystem::TakeTreeFromForest` (HandTrees.cpp), `BigForest::wood`, hook `OPENBLACK_HAND_TEST_FOREST=1` (Land1:
+  15000 → 14650, scale 0.977). DeadTree/FelledTree: picked up without a tug. Uprooting: `G_TREEBREAK` + 1 evil
+  alignment push (`GAlignment::Update`); replanting, good ([Alignment](#alignment)).
 
-## Soltar y replantar
+## Dropping and replanting
 
-- **Soltar** (`Object::InitialisePhysicsFromHand` 0x636F00 + `Tree::EndPhysics` 0x74B830): el árbol cuenta como «dejado
-  con cuidado» (bandera 8 LANDED del objeto físico) si no se lanza y no hubo que subirlo (`IsDryLand` o altitud de la
-  celda > 1). La prueba de la normal (y < 0,7 ⇒ no aterriza) es **solo** para seres vivos y vallas, no para árboles
-  (bw1-decomp `src/Black/Object.cpp:539`; la versión anterior de esta nota la aplicaba también a los árboles). Un árbol
-  LANDED sin `FireEffect` sobre `IsLand` sale de la física en el acto si llega casi derecho (los ángulos x y z de su
-  matriz YXZ ≤ 0,2 rad ≈ 11,5°; un árbol en la mano toma el «arriba» de la mano, que sigue la superficie, así que en una
-  ladera va inclinado) y `Tree::EndPhysics` lo replanta; inclinado (o `dont_replant`) sigue en física sin LANDED, cae y
-  acaba como árbol muerto. Caliente o ardiendo, o LANDED en una celda de agua: sigue en física con LANDED y al pararse
-  `Tree::EndPhysics` lo hace árbol muerto (conserva su fuego). Todo pasa por las físicas
-  (`HandSystem::InitialisePhysicsFromHand`, `HandPhysics.cpp`). «Derecho» = `LHMatrix::GetYXZ` 0x7FAB30 de su matriz
-  con |x| ≤ 0,2 y |z| ≤ 0,2 rad (x = asin(fila2.y), z = atan2(−fila0.y, fila1.y), comprobado emulando). Soltado sobre el mar (ni `IsDryLand` ni altitud de la celda > 1)
-  **no aterriza**: flota ~19 s hasta hundirse (ver [physics.md](physics.md#el-agua-en-los-golpes-y-al-soltar)). El sonido
-  (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) lo lanza `PhysicsObject::RemoveObject` 0x646B44 en **todo** soltado
-  con cuidado que acabe en tierra, replantado o no. Lanzado = árbol muerto siempre.
-- **Bosque al replantar** (0x74B8BF): espiral por las celdas del mapa hasta 25 + 10 m; por cada objeto fijo
-  `d = distancia − su radio 2D`. Un objeto de un pueblo (o parte del templo) a menos de 25 m ⇒ el árbol es «de pueblo»
-  (bit 1 de +0x5E = `isNonScenic`, ¡se pone a **1** dentro del pueblo!) y se une al bosque **del pueblo**, que gana a
-  cualquier otro; si no, hereda el bosque del árbol con bosque más cercano (sin límite propio, solo los 35 m de la
-  búsqueda); sin ninguno y fuera de pueblo, crea un bosque nuevo. Efectos: humo blanco `SmokyStuff` en el suelo (en
-  openblack, el polvo del agarre), `SPOT_VISUAL_FOREST_CREATED` (0x2C) **siempre que no sea en pueblo**,
-  `StartImmersion(0x2E)` y mímica de criatura (sin portar) y alineación buena (ver [Alineación](#alineación)).
-  El original saca el bosque del pueblo de una lista que el pueblo guarda (Town +0x608): el último bosque escénico de
-  la lista (detalle en «Replantar en un pueblo», en
-  [Búsquedas](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)); en un pueblo
-  sin bosque escénico se queda el bosque del árbol más cercano y, sin ninguno, el árbol queda **sin bosque**. openblack
-  ya lo hace igual (`ecs::TownForestId` recorre esa lista, `HandTrees.cpp`). *Antes* openblack no modelaba la lista y
-  el primer árbol plantado en un pueblo creaba su bosque.
+- **Dropping** (`Object::InitialisePhysicsFromHand` 0x636F00 + `Tree::EndPhysics` 0x74B830): the tree counts as "put down
+  carefully" (flag 8 LANDED of the physics object) if it is not thrown and it did not have to be raised (`IsDryLand` or cell
+  altitude > 1). The normal test (y < 0.7 ⇒ it does not land) is **only** for living beings and fences, not for trees
+  (bw1-decomp `src/Black/Object.cpp:539`; the previous version of this note applied it to trees too). A
+  LANDED tree without `FireEffect` over `IsLand` leaves the physics at once if it arrives almost upright (the x and z angles of its
+  YXZ matrix ≤ 0.2 rad ≈ 11.5°; a tree in the hand takes the hand's "up", which follows the surface, so on a
+  slope it is tilted) and `Tree::EndPhysics` replants it; tilted (or `dont_replant`) it stays in physics without LANDED, falls and
+  ends up as a dead tree. Hot or burning, or LANDED on a water cell: it stays in physics with LANDED and when it stops
+  `Tree::EndPhysics` turns it into a dead tree (it keeps its fire). Everything goes through the physics
+  (`HandSystem::InitialisePhysicsFromHand`, `HandPhysics.cpp`). "Upright" = `LHMatrix::GetYXZ` 0x7FAB30 of its matrix
+  with |x| ≤ 0.2 and |z| ≤ 0.2 rad (x = asin(row2.y), z = atan2(−row0.y, row1.y), checked by emulation). Dropped over the sea (neither `IsDryLand` nor cell altitude > 1)
+  it **does not land**: it floats ~19 s until it sinks (see [physics.md](physics.md#water-in-impacts-and-when-dropping)). The sound
+  (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) is played by `PhysicsObject::RemoveObject` 0x646B44 on **every** careful
+  drop that ends on land, replanted or not. Thrown = always a dead tree.
+- **Forest on replanting** (0x74B8BF): a spiral over the map cells up to 25 + 10 m; for each fixed object
+  `d = distancia − su radio 2D`. An object of a village (or part of the temple) closer than 25 m ⇒ the tree is "of a village"
+  (bit 1 of +0x5E = `isNonScenic`, it is set to **1** inside the village!) and joins the forest **of the village**, which beats
+  any other; otherwise, it inherits the forest of the nearest tree with a forest (with no limit of its own, only the 35 m of the
+  search); with none and outside a village, it creates a new forest. Effects: white smoke `SmokyStuff` on the ground (in
+  openblack, the grab dust), `SPOT_VISUAL_FOREST_CREATED` (0x2C) **whenever it is not in a village**,
+  `StartImmersion(0x2E)` and creature mimicry (not ported) and good alignment (see [Alignment](#alignment)).
+  The original takes the village's forest from a list that the village keeps (Town +0x608): the last scenic forest of
+  the list (details in "Replanting in a village", in
+  [Searches](#searches-for-trees-and-forests-for-the-villagers-report-documentaciontrees2villager_queriesmd)); in a village
+  without a scenic forest it keeps the nearest tree's forest and, with none, the tree is left **without a forest**. openblack
+  already does the same (`ecs::TownForestId` walks that list, `HandTrees.cpp`). *Before*, openblack did not model the list and
+  the first tree planted in a village created its forest.
 
-## Alineación
+## Alignment
 
-Arrancar un árbol con la mano es un acto **malo** (`Tree::InterfaceSetInMagicHand`) y replantarlo (`Tree::EndPhysics`)
-o el árbol que planta el agua (`Tree::ApplyWaterSpell`) son **buenos**: ±`treePullPutAlignmentChange` por
-`GAlignment::Update` 0x4145A0. El valor (`GAlignment`, GPlayer +0x60), el peso por la alineación actual, el ritmo por
-turno, los guiones y lo que falta están en
-[magic.md](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)
+Uprooting a tree with the hand is an **evil** act (`Tree::InterfaceSetInMagicHand`) and replanting it (`Tree::EndPhysics`)
+or the tree that the water plants (`Tree::ApplyWaterSpell`) are **good**: ±`treePullPutAlignmentChange` via
+`GAlignment::Update` 0x4145A0. The value (`GAlignment`, GPlayer +0x60), the weight by the current alignment, the rate per
+turn, the scripts and what is missing are in
+[magic.md](magic.md#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)
 (`src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`).
 
-## Madera y tabla GTreeInfo
+## Wood and the GTreeInfo table
 
-- Sobre un almacén = madera `woodValue·escala·GLandBalance[5]` (`Tree::GetDefaultResource` 0x74B7A0, × vida). Un **árbol
-  muerto** da menos: `DeadTree::GetDefaultResource` 0x511330 = `woodValue·escala` sin vida ni balance de tierra.
-- Tabla GTreeInfo (info.dat, runtime = registro + 0x10, paso 0x140): madera 800 Oak (roble), 700 Beech/Cedar/Copse
-  (haya, cedro, bosquecillo), 500 Birch/Olive (abedul, olivo), 400 Cypress (ciprés), 350 Conifer/Pine (conífera, pino),
-  300 palmeras, 100 setos, 15 arbustos; peso 1000 (arbustos 20, setos 100);
-  capacidad calorífica 1000 (arbustos 100, setos 200); sacrificio 400/500/1000 (Oak)/250/350/100/200/110; temperatura
-  de combustión 110 para todos.
+- Over a store = wood `woodValue·escala·GLandBalance[5]` (`Tree::GetDefaultResource` 0x74B7A0, × life). A **dead
+  tree** gives less: `DeadTree::GetDefaultResource` 0x511330 = `woodValue·escala` without life or land balance.
+- GTreeInfo table (info.dat, runtime = record + 0x10, stride 0x140): wood 800 Oak, 700 Beech/Cedar/Copse,
+  500 Birch/Olive, 400 Cypress, 350 Conifer/Pine,
+  300 palm trees, 100 hedges, 15 bushes; weight 1000 (bushes 20, hedges 100);
+  heat capacity 1000 (bushes 100, hedges 200); sacrifice 400/500/1000 (Oak)/250/350/100/200/110; combustion
+  temperature 110 for all.
 
-## Árboles para los oficios de aldeano (API `src/ECS/Trees.h`, para la sesión de aldeanos)
+## Trees for the villager jobs (API `src/ECS/Trees.h`, for the villagers session)
 
-- **Borrar** (`DeleteTree` = `Tree::ToBeDeleted` 0x74A210 / `DeadTree::ToBeDeleted` 0x510C90): fuera del bosque y de las
-  físicas, avisa a los oyentes (`AddTreeDeletedListener`: fuego, reacciones, mano) y se borra. `DeleteForest` =
-  `Forest::ToBeDeleted` 0x539C60: borra cada árbol de sus dos listas y sale de la lista de bosques (también el bosque
-  vacío a los 2000 turnos). `ShrinkAllTrees` usa `DeleteTree` para el árbol que llegaría a 0 (fn_0074A3A0).
-  El borrado genérico `ecs::ToBeDeleted` (`src/ECS/ToBeDeleted.cpp`; lo usan las físicas, p. ej. código 4 = hundido
-  en el mar) también manda Tree y DeadTree a `DeleteTree` (b6cbcc74).
-- **Madera**: `TreeWoodValue` = `Tree::GetWoodValue` 0x74B7B0 (vida × 1 × woodValue × escala × GLandBalance[5]) o
-  `DeadTree::GetWoodValue` 0x511AD0 (vida × woodValue × escala³: el original eleva la escala al cubo ahí); `TreeWood` =
-  `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × escala), lo
-  que recibe un almacén (`DepositInStore` lo usa).
-- **Quitar madera a un tronco** (`RemoveWood` = `DeadTree::RemoveResource` 0x511370): si le quedan ≤ n, se borra y da lo
-  que tenía; si no, **encoge**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Su recurso es su
-  `GetDefaultResource` (`Object::GetResource` 0x639520: el suyo si el tipo coincide, 0 si no). Comprobado:
-  haya muerta de escala 1, 700 → quitar 100 → 600, escala 0,857.
-- **Tipo de tronco al cargarlo** (`TreeCarriedType`): `Tree::GetCarriedTreeType` 0x55D900 = `carriedType` de info.dat;
-  `DeadTree::GetCarriedTreeType` 0x511A20 = 0-3 si su malla es uno de los 4 troncos de `CarriedObject::Init` 0x462600
-  (MeshPack 406, 347, 348, 349), si no el `carriedType` de su árbol (haya = 3, madera dura).
-- **Talar** (`FellTree` = `FelledTree::Create` 0x5116A0, que solo llama `Villager::ForesterChopsTree` 0x75FAC0): el árbol
-  pasa a `DeadTree` + `FelledTree` con su malla (sin soltar las raíces: esa bandera solo la pone `Tree::EndPhysics`) y
-  entra en las físicas lanzado por el leñador: `k = 0,4 × altura × 0,5`, `a = atan2(x, −z)` de la dirección
-  leñador→árbol (fn_007FAA50; 0 si mide menos de √0,001), velocidad `(sin a, 0, −cos a)·k` (a lo largo de esa
-  dirección), giro `0,4·(cos a, 0, sin a)` rad/s **en espacio del cuerpo** (`PhysicsObject::AddObject` 0x6443A0 hace
-  `L = Σ (w·I)_i · fila_i` con la matriz del árbol, con su giro Y): en mundo `R·(cos a, 0, sin a)·0,4`, así que cómo cae
-  depende de la orientación del árbol. En openblack el eje va **negado**: `PhysOb::Integrate` 0x7FE260 gira las filas con
-  `R(ŵ, ángulo)`, que en el `PhysOb` diestro de openblack es girar −ángulo (`documentacion\physics\physob.md`, «Sign
-  convention»). Después `Villager::ForesterChopsTree` borra el árbol (`ToBeDeleted`): en openblack es la misma entidad,
-  así que se avisa a los oyentes de borrado y el fuego pasa al tronco (fn_00730960). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
-  **Sin portar**: `flags |= 2` y `+0x1A4 = 2` del objeto físico (sin identificar), `RaiseUntilNotIntersecting` 0x644800 y
-  las dos reacciones 0x0C («aquí hay madera»: una del constructor de DeadTree 0x510957 y otra de `FelledTree::Create`
-  0x511889; `FelledTree::EndPhysics` 0x511970 no añade la del posarse). `FelledTree::Draw`
-  0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
-  Gancho `OPENBLACK_TEST_FELL="x,z"`.
+- **Deleting** (`DeleteTree` = `Tree::ToBeDeleted` 0x74A210 / `DeadTree::ToBeDeleted` 0x510C90): out of the forest and the
+  physics, notifies the listeners (`AddTreeDeletedListener`: fire, reactions, hand) and is deleted. `DeleteForest` =
+  `Forest::ToBeDeleted` 0x539C60: deletes each tree from its two lists and leaves the forest list (also the empty
+  forest after 2000 turns). `ShrinkAllTrees` uses `DeleteTree` for the tree that would reach 0 (fn_0074A3A0).
+  The generic deletion `ecs::ToBeDeleted` (`src/ECS/ToBeDeleted.cpp`; used by the physics, e.g. code 4 = sunk
+  in the sea) also sends Tree and DeadTree to `DeleteTree` (b6cbcc74).
+- **Wood**: `TreeWoodValue` = `Tree::GetWoodValue` 0x74B7B0 (life × 1 × woodValue × scale × GLandBalance[5]) or
+  `DeadTree::GetWoodValue` 0x511AD0 (life × woodValue × scale³: the original cubes the scale there); `TreeWood` =
+  `GetDefaultResource(WOOD)`: `Tree` 0x74B7A0 = (int)GetWoodValue, `DeadTree` 0x511330 = (int)(woodValue × 1 × scale), what
+  a store receives (`DepositInStore` uses it).
+- **Removing wood from a trunk** (`RemoveWood` = `DeadTree::RemoveResource` 0x511370): if it has ≤ n left, it is deleted and gives what
+  it had; otherwise, it **shrinks**: `escala = (madera − n)/(woodValue × multiplicador 1)`. Its resource is its
+  `GetDefaultResource` (`Object::GetResource` 0x639520: its own if the type matches, 0 otherwise). Checked:
+  dead beech of scale 1, 700 → remove 100 → 600, scale 0.857.
+- **Trunk type when carrying it** (`TreeCarriedType`): `Tree::GetCarriedTreeType` 0x55D900 = info.dat `carriedType`;
+  `DeadTree::GetCarriedTreeType` 0x511A20 = 0-3 if its mesh is one of the 4 trunks of `CarriedObject::Init` 0x462600
+  (MeshPack 406, 347, 348, 349), otherwise its tree's `carriedType` (beech = 3, hardwood).
+- **Felling** (`FellTree` = `FelledTree::Create` 0x5116A0, which only `Villager::ForesterChopsTree` 0x75FAC0 calls): the tree
+  becomes `DeadTree` + `FelledTree` with its mesh (without releasing the roots: that flag is only set by `Tree::EndPhysics`) and
+  enters the physics thrown by the woodcutter: `k = 0,4 × altura × 0,5`, `a = atan2(x, −z)` of the direction
+  woodcutter→tree (fn_007FAA50; 0 if it measures less than √0.001), velocity `(sin a, 0, −cos a)·k` (along that
+  direction), spin `0,4·(cos a, 0, sin a)` rad/s **in body space** (`PhysicsObject::AddObject` 0x6443A0 does
+  `L = Σ (w·I)_i · fila_i` with the tree's matrix, with its Y rotation): in world space `R·(cos a, 0, sin a)·0,4`, so how it falls
+  depends on the tree's orientation. In openblack the axis is **negated**: `PhysOb::Integrate` 0x7FE260 rotates the rows with
+  `R(ŵ, ángulo)`, which in openblack's right-handed `PhysOb` is rotating by −angle (`documentacion\physics\physob.md`, "Sign
+  convention"). Then `Villager::ForesterChopsTree` deletes the tree (`ToBeDeleted`): in openblack it is the same entity,
+  so the deletion listeners are notified and the fire passes to the trunk (fn_00730960). Then `PhysOb::AdjustToGroundLevel(false, true)`.
+  **Not ported**: `flags |= 2` and `+0x1A4 = 2` of the physics object (unidentified), `RaiseUntilNotIntersecting` 0x644800 and
+  the two reactions 0x0C ("there is wood here": one from the DeadTree constructor 0x510957 and another from `FelledTree::Create`
+  0x511889; `FelledTree::EndPhysics` 0x511970 does not add the landing one). `FelledTree::Draw`
+  0x511990 adds the trunk to the drawing twice without fire (a `return` is missing in the original): no visible effect.
+  Hook `OPENBLACK_TEST_FELL="x,z"`.
 
-## Búsquedas de árboles y bosques para los aldeanos (informe `documentacion\trees2\villager_queries.md`)
+## Searches for trees and forests for the villagers (report `documentacion\trees2\villager_queries.md`)
 
-- **Árboles de una celda** (`TreesInCell`; `MapCoords::FindType(6)` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0): el
-  tipo 6 (`OBJECT_TYPE_FOREST_TREE`) va en la lista de **fijos** de la celda (MapCell +4), y `Fixed::InsertMapObjectToCell`
-  0x52DEA0 mete cada objeto **en cabeza**: el primero es el último insertado. openblack no tiene listas por celda:
-  `Tree::mapInsertion` guarda ese orden (al crear el árbol y al replantarlo, `InsertMapObject` en `Fixed::EndPhysics`).
-- **Buscar árbol para talar** (`FindTreeNearVillager` = `Villager::FindTreeNearVillager` 0x75FD00): las 9 celdas de
-  alrededor en el orden de `GUtils::Spiral` (0x74D7E0, tabla 0xDA59FC, empezando con dir 1 y pasos 1: (0,0) (−1,0)
-  (−1,−1) (0,−1) (1,−1) (1,0) (1,1) (0,1) (−1,1)), en cada una **solo el primer árbol** que no sea
-  INDESTRUCTIBLE (bit 0x4000 de +0x24: solo lo ponen los objetos de puzle y `LandscapeVortexOut`; ningún árbol en una
-  partida normal); el más cercano por `Dist2D(aldeano, posición de trabajo)` desde 99999. Sin más reglas: ni distancia
-  máxima, ni el bit «de pueblo» (+0x5E & 2), ni tamaño, ni bosque. El original devuelve 0/1/10 (10 = ya lo toca,
-  `IsTouching`): eso lo decide el lado del aldeano.
-- **Posición de trabajo** (`TreeWorkingPos` = `Tree::GetWorkingPos` 0x74C040): la del árbol más, hacia el aldeano,
-  `Get2DRadius(aldeano) + 0,9` (0x8C5844). El radio es el **del aldeano**. `Object2DRadius` = `Object::Get2DRadius`
-  0x638180 = escala × max(semiejes x, z de su caja).
-- **Bosques** (Forest, 0x58 bytes): +0x34 cuenta atrás de vacío, +0x38 BigForest, +0x3C = 1 bosque «de pueblo»
-  (escénico), +0x40 id. Un **BigForest** tiene su Forest (su ctor 0x438CE0 lo crea en +0x80 y le pone +0x38): ahora en
-  openblack también, así que el Conifer que da al cogerlo y el Pine que planta en su borde son de ese bosque.
-  `Forest::Process`: solo cuenta como vacío sin BigForest y sin árboles; **un bosque escénico no se procesa** (sus árboles
-  no crecen y no planta).
-- **Bosque escénico del pueblo** (`MakeScenicForest` = `Town::MakeScenicForest` 0x741B40): toma los árboles a menos de
-  250 + 10 m del centro del pueblo que no tienen bosque, o cuyo bosque es escénico y están más cerca del centro del
-  pueblo que del de ese bosque (distancias 2D); si el pueblo no tenía, lo crea en el centro **solo si hay algún árbol**. Las
-  celdas son las de la espiral de `GUtils::Spiral` desde la celda del centro, que para en la primera celda a más de R
-  (1369 celdas, radio de Chebyshev 18: no todo el disco de 260 m).
-- **Lista de bosques del pueblo** (`AssignForestsToTown` = `Town::AssignForestsToTown` 0x73EB00, Town +0x608): se vacía y se
-  llena con cada bosque cuyo punto más cercano (el borde de su BigForest o su centro, fn_0053ADB0) está a menos de
-  `GTownInfo::maxDistanceForTownForest` (250, +0x164) del almacén (o del punto temporal) y que tiene madera
-  (`ForestWood` = fn_0053B280: la de su BigForest más la de cada árbol). La llama `Town::AsssignTownFeature` 0x73EAC0 (para
-  cada pueblo, tras `MakeScenicForest`) y `Scaffold::BuildBuilding`; no se toca al crear o replantar árboles.
-  El borde es `Object::GetNearestEdgeToPos` 0x636DA0 (vt+0x83C de BigForest): pos + GetPosFromAngle(ángulo hacia
+- **Trees in a cell** (`TreesInCell`; `MapCoords::FindType(6)` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0): type
+  6 (`OBJECT_TYPE_FOREST_TREE`) goes in the cell's list of **fixed** objects (MapCell +4), and `Fixed::InsertMapObjectToCell`
+  0x52DEA0 puts each object **at the head**: the first is the last one inserted. openblack has no per-cell lists:
+  `Tree::mapInsertion` stores that order (when creating the tree and when replanting it, `InsertMapObject` in `Fixed::EndPhysics`).
+- **Finding a tree to fell** (`FindTreeNearVillager` = `Villager::FindTreeNearVillager` 0x75FD00): the 9 cells
+  around in the order of `GUtils::Spiral` (0x74D7E0, table 0xDA59FC, starting with dir 1 and steps 1: (0.0) (−1.0)
+  (−1,−1) (0,−1) (1,−1) (1.0) (1.1) (0.1) (−1.1)), in each one **only the first tree** that is not
+  INDESTRUCTIBLE (bit 0x4000 of +0x24: only set by puzzle objects and `LandscapeVortexOut`; no tree in a
+  normal game); the nearest by `Dist2D(aldeano, posición de trabajo)` from 99999. No more rules: no maximum
+  distance, no "of a village" bit (+0x5E & 2), no size, no forest. The original returns 0/1/10 (10 = already touching it,
+  `IsTouching`): that is decided by the villager side.
+- **Working position** (`TreeWorkingPos` = `Tree::GetWorkingPos` 0x74C040): the tree's plus, towards the villager,
+  `Get2DRadius(aldeano) + 0,9` (0x8C5844). The radius is **the villager's**. `Object2DRadius` = `Object::Get2DRadius`
+  0x638180 = scale × max(x, z half-axes of its box).
+- **Forests** (Forest, 0x58 bytes): +0x34 empty countdown, +0x38 BigForest, +0x3C = 1 "village" forest
+  (scenic), +0x40 id. A **BigForest** has its Forest (its ctor 0x438CE0 creates it at +0x80 and sets +0x38 on it): now in
+  openblack too, so the Conifer it gives when picked up and the Pine it plants at its edge belong to that forest.
+  `Forest::Process`: it only counts as empty without a BigForest and without trees; **a scenic forest is not processed** (its trees
+  do not grow and it does not plant).
+- **Scenic village forest** (`MakeScenicForest` = `Town::MakeScenicForest` 0x741B40): takes the trees closer than
+  250 + 10 m from the village centre that have no forest, or whose forest is scenic and that are closer to the village
+  centre than to that forest's centre (2D distances); if the village had none, it creates it at the centre **only if there is any tree**. The
+  cells are those of the `GUtils::Spiral` spiral from the centre cell, which stops at the first cell further than R
+  (1369 cells, Chebyshev radius 18: not the whole 260 m disc).
+- **Village forest list** (`AssignForestsToTown` = `Town::AssignForestsToTown` 0x73EB00, Town +0x608): it is emptied and
+  filled with each forest whose nearest point (the edge of its BigForest or its centre, fn_0053ADB0) is closer than
+  `GTownInfo::maxDistanceForTownForest` (250, +0x164) to the store (or the temporary point) and that has wood
+  (`ForestWood` = fn_0053B280: its BigForest's plus that of each tree). It is called by `Town::AsssignTownFeature` 0x73EAC0 (for
+  each village, after `MakeScenicForest`) and `Scaffold::BuildBuilding`; it is not touched when creating or replanting trees.
+  The edge is `Object::GetNearestEdgeToPos` 0x636DA0 (vt+0x83C of BigForest): pos + GetPosFromAngle(angle towards
   `pos`, Get2DRadius).
-- **Replantar en un pueblo** (`TownForestId`): el árbol se une al **último bosque escénico** de la lista del pueblo
-  (`Tree::EndPhysics` 0x74BA2B); si no hay ninguno se queda con el bosque del árbol más cercano ya encontrado, y sin
-  ninguno de los dos, **sin bosque** (antes openblack creaba uno).
-- **Bosque más cercano** (`FindNearestForestToPos` = `Town::FindNearestForestToPos` 0x73EC10): en la lista del pueblo, el
-  de punto más cercano (0 si se está dentro del radio del BigForest) a menos de 250; gana uno no escénico, el escénico solo
-  si no hay otro. `FindForest(pos, max, soloVacíos)` = fn_0053A1A0: por la lista global, el de **centro** más cercano
-  (vacío = sin árboles y sin BigForest). `ForestCentreTree` = `Forest::GetForestCentreTree` 0x53ABF0.
-- **BigForest para los leñadores**: `BigForestArrivePos` = `GetArrivePos` 0x439360 (su posición más, hacia el aldeano,
-  0,5 × su radio 2D); los árboles en la mano o en vuelo no están en ninguna celda (en el original salen del mapa);
-  `BigForestRemoveWood` = `RemoveResource` 0x4390D0: pide n / vida; si no llega, da lo que tiene y
-  se borra; si llega, resta y **solo cuando** su madera se aleja más de 250,0 (0x8C6210) de vida × escala × woodValue se
-  reescala y planta un Pine en el borde (`AddTreeAround` 0x439220: tamaño 0,05, máximo **0,75** (0x8AC3F8) + azar(0,5);
-  antes openblack ponía 0,5). La mano usa lo mismo (350 por árbol, así que siempre reescala). Ganchos
-  `OPENBLACK_TEST_TREE_QUERIES="x,z"` y `OPENBLACK_HAND_TEST_FOREST=1`.
-- **Quién llama a `MakeScenicForest` y `AssignForestsToTown`**: en el original, `Town::AsssignTownFeature` (carga del mapa) y
-  los edificios terminados; en openblack, de momento nadie (la sesión de aldeanos lo enganchará; solo el gancho
-  `OPENBLACK_TEST_TREE_QUERIES`): hasta entonces los pueblos no tienen lista de bosques y un árbol replantado en un pueblo
-  queda sin bosque. **Pendiente**.
+- **Replanting in a village** (`TownForestId`): the tree joins the **last scenic forest** of the village's list
+  (`Tree::EndPhysics` 0x74BA2B); if there is none it keeps the forest of the nearest tree already found, and with
+  neither of the two, **no forest** (before, openblack created one).
+- **Nearest forest** (`FindNearestForestToPos` = `Town::FindNearestForestToPos` 0x73EC10): in the village's list, the
+  one with the nearest point (0 if inside the BigForest's radius) closer than 250; a non-scenic one wins, the scenic one only
+  if there is no other. `FindForest(pos, max, soloVacíos)` = fn_0053A1A0: over the global list, the one with the nearest **centre**
+  (empty = without trees and without a BigForest). `ForestCentreTree` = `Forest::GetForestCentreTree` 0x53ABF0.
+- **BigForest for the woodcutters**: `BigForestArrivePos` = `GetArrivePos` 0x439360 (its position plus, towards the villager,
+  0.5 × its 2D radius); the trees in the hand or in flight are not in any cell (in the original they leave the map);
+  `BigForestRemoveWood` = `RemoveResource` 0x4390D0: asks for n / life; if it does not have enough, it gives what it has and
+  is deleted; if it does, it subtracts and **only when** its wood drifts more than 250.0 (0x8C6210) away from life × scale × woodValue is it
+  rescaled and plants a Pine at the edge (`AddTreeAround` 0x439220: size 0.05, maximum **0.75** (0x8AC3F8) + random(0.5);
+  before, openblack used 0.5). The hand uses the same (350 per tree, so it always rescales). Hooks
+  `OPENBLACK_TEST_TREE_QUERIES="x,z"` and `OPENBLACK_HAND_TEST_FOREST=1`.
+- **Who calls `MakeScenicForest` and `AssignForestsToTown`**: in the original, `Town::AsssignTownFeature` (map load) and
+  the finished buildings; in openblack, nobody for now (the villagers session will hook it up; only the hook
+  `OPENBLACK_TEST_TREE_QUERIES`): until then the villages have no forest list and a tree replanted in a village
+  is left without a forest. **Pending**.
 
-## Crecimiento (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
+## Growth (`Tree::Process` 0x74A290, `Tree::Grow` 0x74A3F0)
 
-- Solo crecen los árboles **de un bosque**: en el original únicamente `Forest::Process` 0x539DA0 recorre sus árboles, así
-  que los árboles sueltos del guion (todos los de Land 1 y Land 2, que llevan bosque −1) no crecen nunca. Los de Land 3
-  (65), Land 4 (82) y Land 5 (164) sí.
-- Un árbol nace «creciendo» (bit 0 de +0x5E) solo si su `maxSize` es distinto del tamaño con el que se crea, y su
-  contador (+0x60) arranca en un turno al azar de [0, growTurns) (ctor 0x749E00).
-- Cada `growTurns` turnos (10 en los 22 tipos, o sea 1 s): `amt = growAmt · (1 + 0,01·rainMultiplier·lluvia) ·
-  (1 + 0,5·alineación del terreno)`, y `escala = min(escala + amt, maxSize)`. `growAmt` 0,01 (0,02 conífera/pino, 0,005
-  roble/olivo/palmera). Al llegar al máximo deja de crecer. `SetScale` es virtual y rehace la colisión: el círculo de
-  obstáculo sigue al tamaño.
-- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), llamado desde el turno del mundo (`src/Magic/MagicLoop.cpp`). **Sin
-  clima ni alineación de terreno todavía** (el clima ya existe en `src/ECS/Weather`, pero `GrowTree` aún no lo lee):
-  lluvia 0 y alineación 0, así que `amt = growAmt`. Ganchos
-  `OPENBLACK_TEST_TREE_GROWTH="x,z"` (dos brotes, uno con bosque y otro sin), `OPENBLACK_TREE_TRACE=1` (cada paso
-  de crecimiento y el brillo) y `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"` (suelta un árbol ahí y dice si se
-  replanta, cae o queda muerto).
-- **Bosques** (`Forest`, ctor 0x539BD0; `ECS/Trees.cpp`): un bosque es un objeto con centro e id (CREATE_FOREST, o
-  `new Forest(pos, 0)` al replantar fuera de todo bosque; id 0 = el siguiente libre). CREATE_TREE y CREATE_NEW_TREE
-  buscan el id del guion en la lista de bosques y, si no existe, el árbol **no tiene bosque** (0x7162BE): los ids 0-6
-  de Land5 y el −1 de Land1/Land2 quedan sin bosque. Cada turno (`Forest::Process` 0x539DA0): un bosque vacío espera
-  2000 turnos y se borra; si no, crecen sus árboles y puede plantar uno nuevo: `r = 2000 + azar(1000)`,
-  `f = min(1, 0,05·crecidos)`, `T` = turnos desde el último árbol que plantó cualquier bosque (global 0xCD04C8),
-  `c` = intentos del bosque (+1 por turno); si `c·f·T/300 > r`, planta junto a uno de los `azar(n/2+1)` crecidos más
-  cercanos a su centro (`Forest::CreateNewTree` 0x539FD0) y `c` vuelve a 0. **Plantar junto a un árbol**
-  (fn_0053A010): 32 ángulos desde uno al azar (2π/32 entre ellos) × 5 radios (entero 5-9 al azar, luego `(r+2) % 10`),
-  el primer sitio libre; el árbol nuevo es del tipo del padre, tamaño 0,1, máximo `0,8 + azar(0,4)` y ángulo al azar.
-  «Libre» (fn_0074C180) = sin objeto fijo (círculo de 0,5) y en tierra; el original lee `(collide & 8) == 0 || IsWater`,
-  la parte del agua parece invertida y se ha tomado como «no en agua» [supuesto]. Con un bosque de 20 árboles crecidos
-  sale más o menos un árbol nuevo en el mundo cada minuto y medio (comprobado en Land3: el bosque 19 plantó uno).
-- **Agua sobre un árbol** (`Tree::ApplyWaterSpell` 0x74C390, `ecs::ApplyWaterSpell`, para la sesión de milagros): uno
-  que crece crece `waterMultiplier·growAmt`; con el subtipo de hechizo 0x17 también uno adulto, la mitad por
-  `GetDistanceModifier(tamaño, 3)` (= `SigmoidThreshold(0,5, 1 − min(tamaño,3)/3)`, tabla de 41 pasos en 0xC23284), por
-  encima de su máximo. Uno adulto de un bosque regado sin 0x17, pasados 40 turnos del último árbol del mundo, planta
-  otro a su lado (el llamador da la alineación buena y la estadística 0xE). Suena 0x78 + tick%9 (`G_TreeGrow`).
+- Only the trees **of a forest** grow: in the original only `Forest::Process` 0x539DA0 walks its trees, so
+  the loose trees of the script (all those of Land 1 and Land 2, which have forest −1) never grow. Those of Land 3
+  (65), Land 4 (82) and Land 5 (164) do.
+- A tree is born "growing" (bit 0 of +0x5E) only if its `maxSize` differs from the size it is created with, and its
+  counter (+0x60) starts at a random turn in [0, growTurns) (ctor 0x749E00).
+- Every `growTurns` turns (10 in the 22 types, i.e. 1 s): `amt = growAmt · (1 + 0,01·rainMultiplier·lluvia) ·
+  (1 + 0,5·alineación del terreno)`, and `escala = min(escala + amt, maxSize)`. `growAmt` 0.01 (0.02 conifer/pine, 0.005
+  oak/olive/palm). On reaching the maximum it stops growing. `SetScale` is virtual and rebuilds the collision: the obstacle
+  circle follows the size.
+- openblack: `src/ECS/Trees.cpp` (`ProcessTreesTurn`, `GrowTree`), called from the world turn (`src/Magic/MagicLoop.cpp`). **No
+  weather nor terrain alignment yet** (the weather already exists in `src/ECS/Weather`, but `GrowTree` does not read it yet):
+  rain 0 and alignment 0, so `amt = growAmt`. Hooks
+  `OPENBLACK_TEST_TREE_GROWTH="x,z"` (two saplings, one with a forest and another without), `OPENBLACK_TREE_TRACE=1` (each growth
+  step and the brightness) and `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"` (drops a tree there and says whether it is
+  replanted, falls or stays dead).
+- **Forests** (`Forest`, ctor 0x539BD0; `ECS/Trees.cpp`): a forest is an object with a centre and an id (CREATE_FOREST, or
+  `new Forest(pos, 0)` when replanting outside any forest; id 0 = the next free one). CREATE_TREE and CREATE_NEW_TREE
+  look up the script's id in the forest list and, if it does not exist, the tree **has no forest** (0x7162BE): ids 0-6
+  of Land5 and the −1 of Land1/Land2 are left without a forest. Every turn (`Forest::Process` 0x539DA0): an empty forest waits
+  2000 turns and is deleted; otherwise, its trees grow and it can plant a new one: `r = 2000 + azar(1000)`,
+  `f = min(1, 0,05·crecidos)`, `T` = turns since the last tree that any forest planted (global 0xCD04C8),
+  `c` = attempts of the forest (+1 per turn); if `c·f·T/300 > r`, it plants next to one of the `azar(n/2+1)` grown trees nearest
+  to its centre (`Forest::CreateNewTree` 0x539FD0) and `c` goes back to 0. **Planting next to a tree**
+  (fn_0053A010): 32 angles from a random one (2π/32 between them) × 5 radii (random integer 5-9, then `(r+2) % 10`),
+  the first free spot; the new tree is of the parent's type, size 0.1, maximum `0,8 + azar(0,4)` and random angle.
+  "Free" (fn_0074C180) = without a fixed object (0.5 circle) and on land; the original reads `(collide & 8) == 0 || IsWater`,
+  the water part seems inverted and has been taken as "not in water" [assumed]. With a forest of 20 grown trees
+  roughly one new tree appears in the world every minute and a half (checked in Land3: forest 19 planted one).
+- **Water on a tree** (`Tree::ApplyWaterSpell` 0x74C390, `ecs::ApplyWaterSpell`, for the miracles session): one
+  that is growing grows `waterMultiplier·growAmt`; with spell subtype 0x17 an adult one too, half via
+  `GetDistanceModifier(tamaño, 3)` (= `SigmoidThreshold(0,5, 1 − min(tamaño,3)/3)`, 41-step table at 0xC23284),
+  above its maximum. An adult one of a watered forest without 0x17, 40 turns after the last tree in the world, plants
+  another next to it (the caller gives the good alignment and statistic 0xE). It sounds 0x78 + tick%9 (`G_TreeGrow`).
 
-## Dibujado
+## Drawing
 
-- **Mecido** (el mismo viento que los campos maduros, tabla `T0` y `Tree::PreDraw` 0x74A7C0 en
-  [objects-and-resources.md](objects-and-resources.md#campos-field-informe-documentacionfieldfield_notestxt)): los árboles
-  (`Tree::Draw` 0x74B016) usan la misma tabla con factor 1: x de la columna 1 = 0, z = escala × T0[i], `i` = bits 2-5 de
-  +0x5C; portado en RenderingSystem salvo con el árbol inclinado por la mano. La curva junto a lo que pasa cerca (bits
-  6-9 de +0x5C, tabla 0xD19A48) ya está portada para la mano y los objetos físicos (ver «Curvado», abajo); falta solo la
-  criatura (ranura 2), que aún no existe.
-- **Ranura de viento**: `round(yAngle·16/2π) & 15` (0x74A0E7), guardada al crear el árbol, así que los árboles orientados
-  igual se mecen juntos (`components::Tree::windSlot`; antes openblack usaba un hash de la entidad).
-- **Brillo por cámara** (`Tree::PreDraw` 0x74A883 → global 0xC22FA0, leído solo por código de árboles):
+- **Swaying** (the same wind as the ripe fields, table `T0` and `Tree::PreDraw` 0x74A7C0 in
+  [objects-and-resources.md](objects-and-resources.md#fields-field-report-documentacionfieldfield_notestxt)): the trees
+  (`Tree::Draw` 0x74B016) use the same table with factor 1: x of column 1 = 0, z = scale × T0[i], `i` = bits 2-5 of
+  +0x5C; ported in RenderingSystem except with the tree tilted by the hand. The bending next to what passes nearby (bits
+  6-9 of +0x5C, table 0xD19A48) is already ported for the hand and the physics objects (see "Bending", below); only the
+  creature (slot 2) is missing, which does not exist yet.
+- **Wind slot**: `round(yAngle·16/2π) & 15` (0x74A0E7), stored when the tree is created, so trees with the same
+  orientation sway together (`components::Tree::windSlot`; before, openblack used a hash of the entity).
+- **Brightness by camera** (`Tree::PreDraw` 0x74A883 → global 0xC22FA0, read only by tree code):
   `d = normalize(foco de la cámara − posición de la luz)`, `v = normalize_xz(dirección de vista)`,
-  `b = dot < 0 ? 200 : 200 + 55·dot`, y `Tree::Draw` 0x74B077 multiplica cada canal RGB del color del árbol por `b/256`
-  (0,781 … 0,996). La luz es la única que guarda LH3D, [0xEA9E90], la misma de todos los modelos
-  ([Luz de los modelos](rendering-objects.md#luz-de-los-modelos), `src/Graphics/ModelLight.h`): de día el sol por
-  defecto [0xEA1C88] = (−500000, 500000, −500000), que sí se inicializa (`fn_00818920` 0x818930; lo de «(0,0,0) porque su
-  `setter` es código muerto» era un error de trees2 §A.3). Solo en **plena noche** (tipo de cielo > 1,5, el double de
-  [0x8C5838]; `fn_005E5830`, que coloca la luz después de `Tree::PreDraw`, así que los árboles usan la del fotograma
-  anterior) la luz va a 3 unidades de la **mano** hacia la cámara, con la mano subida al menos a 10 sobre el terreno:
-  entonces `dot ≈ cos(inclinación de la cámara)` y los árboles se ven más claros.
-- **Color propio del árbol**: `fn_00802120` en `Tree::Draw` 0x74AB1B toma las 4 celdas con pesos `CellX >> 8` y
-  `CellZ >> 8` (0x802206, 0x802237; SSE 0x7A42AC / 0x7A42BC), no la fracción: en la práctica, la celda sola (mismas
-  tablas 0xEDD90C y celdas +3/+0xB/+0x8B/+0x93). Luego la neblina (0x74AB60). openblack:
-  `land_light::ObjectMode::CellShift` (`vs_object`, `LandLightCellShift` de `land_light.sh`); ver
-  [rendering.md](rendering.md#neblina-y-luz-de-la-tierra-la-api-común).
-  openblack: `ecs::TreeBrightness()` en `ECS/Trees.cpp`, llevado como tinte en la x de la quinta columna de la
-  instancia con w = 1 (`lh3d_colour::PackInstanceTreeTint`, [rendering-objects.md](rendering-objects.md#los-campos-de-color-del-objeto-en-la-instancia)): `vs_object` lo aplica después de la neblina, como
-  `Tree::Draw`, que no llama a `fn_0080BF10` sino que multiplica el +0x4C ya con neblina (0x74AB60 → 0x74B077..0x74B0C4;
-  ardiendo, `fn_0074B3A0` 0x74B48F..0x74B4D3).
-- **Sonido ambiente de hojas** (0x74B111): los árboles de más de 10 de alto con la cámara a ≤ 10 en x y z (y < 18 en y)
-  suenan ~1 vez por segundo (`LocalRand(1000/msFotograma) == 1`): fila `{*,*,20,*,70}` de `editor.sad` =
+  `b = dot < 0 ? 200 : 200 + 55·dot`, and `Tree::Draw` 0x74B077 multiplies each RGB channel of the tree's colour by `b/256`
+  (0.781 … 0.996). The light is the only one LH3D keeps, [0xEA9E90], the same one for all models
+  ([Model light](rendering-objects.md#model-lighting), `src/Graphics/ModelLight.h`): by day the default sun
+  [0xEA1C88] = (−500000, 500000, −500000), which is indeed initialised (`fn_00818920` 0x818930; the "(0,0,0) because its
+  `setter` is dead code" was a mistake of trees2 §A.3). Only in **deep night** (sky type > 1.5, the double at
+  [0x8C5838]; `fn_005E5830`, which places the light after `Tree::PreDraw`, so the trees use that of the previous
+  frame) does the light go 3 units from the **hand** towards the camera, with the hand raised at least 10 above the terrain:
+  then `dot ≈ cos(inclinación de la cámara)` and the trees look lighter.
+- **The tree's own colour**: `fn_00802120` in `Tree::Draw` 0x74AB1B takes the 4 cells with weights `CellX >> 8` and
+  `CellZ >> 8` (0x802206, 0x802237; SSE 0x7A42AC / 0x7A42BC), not the fraction: in practice, the cell alone (same
+  tables 0xEDD90C and cells +3/+0xB/+0x8B/+0x93). Then the haze (0x74AB60). openblack:
+  `land_light::ObjectMode::CellShift` (`vs_object`, `LandLightCellShift` of `land_light.sh`); see
+  [rendering.md](rendering.md#haze-and-land-light-the-common-api).
+  openblack: `ecs::TreeBrightness()` in `ECS/Trees.cpp`, carried as a tint in the x of the instance's fifth column
+  with w = 1 (`lh3d_colour::PackInstanceTreeTint`, [rendering-objects.md](rendering-objects.md#the-object-colour-fields-in-the-instance)): `vs_object` applies it after the haze, like
+  `Tree::Draw`, which does not call `fn_0080BF10` but multiplies the +0x4C already hazed (0x74AB60 → 0x74B077..0x74B0C4;
+  burning, `fn_0074B3A0` 0x74B48F..0x74B4D3).
+- **Ambient leaf sound** (0x74B111): trees taller than 10 with the camera at ≤ 10 in x and z (and < 18 in y)
+  sound ~once per second (`LocalRand(1000/msFotograma) == 1`): row `{*,*,20,*,70}` of `editor.sad` =
   `G_TreeRustle_01..11` + `G_TreeCreak_01/02`. openblack: `ecs::UpdateTrees` + `AnimationSounds::PlayFromTable`.
-- **Curvado junto a lo que pasa cerca** (`Tree::Draw` 0x74AB8B, `fn_005DF1B0`, tabla 0xD19A48): cada fotograma se apuntan
-  en la tabla el objeto que lleva la mano (ranura 1: todo objeto en la mano se «dibuja en la mano»), los objetos físicos
-  en vuelo (ranuras 3-13 por turno, `fn_00646FE0`) y la criatura del jugador (ranura 2; aún no hay), cada uno con su
-  posición y un radio = escala × la semidiagonal de su malla (LH3DMesh +0x30). Cada fuente marca los árboles de las 3 × 3
-  celdas de 10 m a su alrededor (gana la última). Un árbol marcado se curva si su copa no está por debajo de la fuente
-  (base + altura ≥ y de la fuente) y la distancia horizontal `d` es menor que el radio `r`:
-  `ángulo = 0,471239 · (1 − ((r − 0,75)·d/r + 0,75)/r)` (27° como mucho), alrededor del eje horizontal perpendicular a la
-  dirección fuente→árbol, la copa **alejándose** de la fuente; solo la matriz dibujada, y en ese fotograma sin vaivén.
-  Sonido al empezar a curvarse: clave `{c, *, *, 10, 75}` de `editor.sad` con `c = 3` si la curva es < 0,3 (sin
-  muestras), 2 si < 0,67, 1 si no: `G_Crash_Tree_M_01..08` («rubbing trees»). openblack: `ecs::UpdateTrees`
-  (`UpdateTreeBends`, `Tree::bendAngle/bendDirection`) y `RenderingSystem.cpp`. Comprobado con una roca en la mano
-  (`OPENBLACK_HAND_TEST_HOLD=1.5`): los árboles cercanos se apartan y suenan `G_Crash_Tree_M_05/07`.
+- **Bending next to what passes nearby** (`Tree::Draw` 0x74AB8B, `fn_005DF1B0`, table 0xD19A48): every frame the table
+  records the object the hand carries (slot 1: every object in the hand is "drawn in the hand"), the physics objects
+  in flight (slots 3-13 per turn, `fn_00646FE0`) and the player's creature (slot 2; there is none yet), each with its
+  position and a radius = scale × the half-diagonal of its mesh (LH3DMesh +0x30). Each source marks the trees of the 3 × 3
+  10 m cells around it (the last one wins). A marked tree bends if its crown is not below the source
+  (base + height ≥ y of the source) and the horizontal distance `d` is less than the radius `r`:
+  `ángulo = 0,471239 · (1 − ((r − 0,75)·d/r + 0,75)/r)` (27° at most), around the horizontal axis perpendicular to the
+  source→tree direction, the crown **moving away** from the source; only the drawn matrix, and in that frame without swaying.
+  Sound on starting to bend: key `{c, *, *, 10, 75}` of `editor.sad` with `c = 3` if the bend is < 0.3 (no
+  samples), 2 if < 0.67, 1 otherwise: `G_Crash_Tree_M_01..08` ("rubbing trees"). openblack: `ecs::UpdateTrees`
+  (`UpdateTreeBends`, `Tree::bendAngle/bendDirection`) and `RenderingSystem.cpp`. Checked with a rock in the hand
+  (`OPENBLACK_HAND_TEST_HOLD=1.5`): the nearby trees move aside and play `G_Crash_Tree_M_05/07`.
 
-## Fuego
+## Fire
 
-El modelo de calor común a todos los objetos (`FireEffect`, `SpreadEffect.cpp`, `src/ECS/Fire`) está en
-[magic.md](magic.md#fuego-m5-srcecsfire); la bola de fuego y el rayo, en
-[miracles.md](miracles.md#bola-de-fuego-y-rayo-m5-magicobjectsmagicfireball-psysrulesfireballlightning). Aquí, lo que
-toca al árbol (valores de la tabla GTreeInfo, arriba):
+The heat model common to all objects (`FireEffect`, `SpreadEffect.cpp`, `src/ECS/Fire`) is in
+[magic.md](magic.md#fire-m5-srcecsfire); the fireball and the lightning bolt, in
+[miracles.md](miracles.md#fireball-and-lightning-m5-magicobjectsmagicfireball-psysrulesfireballlightning). Here, what
+concerns the tree (values of the GTreeInfo table, above):
 
-- **Fuego** (`SpreadEffect.cpp` / FireEffect en Object+0x44; turno 0,1 s; **fiel**, portado en `src/ECS/Fire`):
-  temperatura T, Tc = max(110, 40); arde si T ≥ Tc. Ardiendo T += 0,1·T/(2Tc) hasta 2Tc; enfriando (T ≤ anterior)
-  T −= (T + 10 − amb)·4·H·R·0,1·k/capacidad (k = 50 sobre agua con y < 2, 1 + 0,01·lluvia). Daño: vida −=
-  (T − Tc)/Tc·0,001 por turno (muere en ~100 s; magic.md lo escribe `(T − Tc)/(2·Tc − Tc) · defenceMultiplierBurn ·
-  0,1`, con defenceMultiplierBurn = 0,01 en los 22 tipos de árbol y en Tree Logs (info.dat,
-  `documentacion\miracles\infodump\info_dump.txt`) y Tmax = 2·Tc: es la misma fórmula); carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
-  1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
-  arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
-  lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
-  max(50, 255 − (1 − vida)·2550)/256 (casi negro al perder un 8 %; tope el brillo [0xC22FA0]), ALPHAREF forzado
-  230 + calor·25/255 (tope 254, `OverrideRenderMode`, sin portar: [magic.md](magic.md#fuego-m5-srcecsfire)), escala × 5·vida por
-  debajo de 0,2; llamas `FireGraphic` (sprites `S_Fire.raw`, humo `S_SpriteSheet3.raw`, luz `S_LMFireBall.raw`),
-  2 llamas por árbol de 0,2·alto; sonido de fuego en bucle.
+- **Fire** (`SpreadEffect.cpp` / FireEffect at Object+0x44; turn 0.1 s; **faithful**, ported in `src/ECS/Fire`):
+  temperature T, Tc = max(110, 40); it burns if T ≥ Tc. Burning T += 0.1·T/(2Tc) up to 2Tc; cooling (T ≤ previous)
+  T −= (T + 10 − amb)·4·H·R·0.1·k/capacity (k = 50 over water with y < 2, 1 + 0.01·rain). Damage: life −=
+  (T − Tc)/Tc·0.001 per turn (dies in ~100 s; magic.md writes it as `(T − Tc)/(2·Tc − Tc) · defenceMultiplierBurn ·
+  0,1`, with defenceMultiplierBurn = 0.01 in the 22 tree types and in Tree Logs (info.dat,
+  `documentacion\miracles\infodump\info_dump.txt`) and Tmax = 2·Tc: it is the same formula); charred with life < 0.6. At life 0 the tree disappears. Spreading: every turn it searches within R + 10 m, R =
+  1.25·radius2D·clamp((T − 0.8Tc)/1.2Tc); heat q = min(10·dT, 0.5·(Ts − amb)·cap_s) → the target gains q/cap_t (the
+  bushes catch fire ~10× sooner). A burning tree can be picked up and keeps burning; held over something that is burning, or
+  thrown, it sets fire to what it touches; when it falls it becomes a burning DeadTree. No lightning nor random fire. Visual: colour ×
+  max(50, 255 − (1 − life)·2550)/256 (almost black on losing 8 %; capped by the brightness [0xC22FA0]), ALPHAREF forced
+  230 + heat·25/255 (cap 254, `OverrideRenderMode`, not ported: [magic.md](magic.md#fire-m5-srcecsfire)), scale × 5·life
+  below 0.2; flames `FireGraphic` (sprites `S_Fire.raw`, smoke `S_SpriteSheet3.raw`, light `S_LMFireBall.raw`),
+  2 flames per tree of 0.2·height; looping fire sound.
 
-## Sacrificio
+## Sacrifice
 
-- **Sacrificio** (aplazado por el usuario): soltar un árbol apuntando al **WorshipTotem** (CitadelPart del sitio de
-  culto; `ValidToApplyThisToObject` 0x74BD50): v = sacrificeValue·vida·(0,5 + 0,5·vida) al maná del sitio
-  (+0xF0) y al total (+0xF4), fantasma del árbol (`GoolooGooloo`), `G_SACRIFICE_01`, número flotante rojo "%3.0f".
-  Aldeanos ×1,25; comida, rocas y vasijas no. **Pendiente**: el sacrificio no está portado (`GET_SACRIFICE_TOTAL` da 0
-  en `CHLApi.cpp`). Los sitios de culto que necesita ya existen (`src/Worship`; `CREATE_WORSHIP_SITE` llama a
-  `magic::script::CreateWorshipSite`, ver
-  [magic.md](magic.md#culto-de-dónde-salen-los-milagros-m7-srcworship-ecssystemsimplementationsvillagerworship)).
+- **Sacrifice** (postponed by the user): dropping a tree aimed at the **WorshipTotem** (CitadelPart of the worship
+  site; `ValidToApplyThisToObject` 0x74BD50): v = sacrificeValue·life·(0.5 + 0.5·life) to the site's mana
+  (+0xF0) and to the total (+0xF4), ghost of the tree (`GoolooGooloo`), `G_SACRIFICE_01`, red floating number "%3.0f".
+  Villagers ×1.25; food, rocks and pots no. **Pending**: the sacrifice is not ported (`GET_SACRIFICE_TOTAL` gives 0
+  in `CHLApi.cpp`). The worship sites it needs already exist (`src/Worship`; `CREATE_WORSHIP_SITE` calls
+  `magic::script::CreateWorshipSite`, see
+  [magic.md](magic.md#worship-where-miracles-come-from-m7-srcworship-ecssystemsimplementationsvillagerworship)).
 
-## Pendiente
+## Pending
 
-- Tirón: comprobar con el original la altura del plano (la «Consecuencia» del Tirón) con `documentacion\trees2\tugwatch.py`;
-  openblack usa la distancia horizontal de la mano.
-- Replantar: `StartImmersion(0x2E)` y la mímica de la criatura.
-- `MakeScenicForest` y `AssignForestsToTown` sin llamador (carga del mapa y edificios terminados): los pueblos no tienen
-  lista de bosques.
-- Talar: `flags |= 2` y `+0x1A4 = 2` del objeto físico, `RaiseUntilNotIntersecting` 0x644800 y las dos reacciones 0x0C.
-- Crecimiento y campos: la lluvia y la alineación del terreno (`MapCoords::GetAlignment`).
-- Curvado: la criatura del jugador (ranura 2).
-- Sacrificio (aplazado por el usuario).
-- Meter un árbol en un solar en construcción (`Scaffold`): faltan los solares.
-- Árbol muerto y talado: la reacción 0x0C «aquí hay madera» (constructor de DeadTree 0x510957, `FelledTree::Create`
-  0x511889) espera el sistema de reacciones; los leñadores (sesión de aldeanos, V9) usarán la API de arriba.
-- Criatura: esquivar los árboles al andar (sin criatura todavía).
-- Sonidos: la sesión de audio (fase B) pasa el rumor, el roce y `G_TreeGrow` de `Trees.cpp` a su motor sin cambiar
-  la elección de la muestra; comprobarlo con `OPENBLACK_HAND_TEST_HOLD=1.5` y `OPENBLACK_TEST_TREE_GROWTH`.
+- Tug: check with the original the height of the plane (the Tug's "Consequence") with `documentacion\trees2\tugwatch.py`;
+  openblack uses the horizontal distance of the hand.
+- Replanting: `StartImmersion(0x2E)` and the creature's mimicry.
+- `MakeScenicForest` and `AssignForestsToTown` without a caller (map load and finished buildings): the villages have no
+  forest list.
+- Felling: `flags |= 2` and `+0x1A4 = 2` of the physics object, `RaiseUntilNotIntersecting` 0x644800 and the two reactions 0x0C.
+- Growth and fields: the rain and the terrain alignment (`MapCoords::GetAlignment`).
+- Bending: the player's creature (slot 2).
+- Sacrifice (postponed by the user).
+- Putting a tree into a building site under construction (`Scaffold`): the building sites are missing.
+- Dead and felled tree: the reaction 0x0C "there is wood here" (DeadTree constructor 0x510957, `FelledTree::Create`
+  0x511889) awaits the reaction system; the woodcutters (villagers session, V9) will use the API above.
+- Creature: avoiding the trees when walking (no creature yet).
+- Sounds: the audio session (phase B) moves the rustle, the rubbing and `G_TreeGrow` of `Trees.cpp` to its engine without changing
+  the choice of sample; check it with `OPENBLACK_HAND_TEST_HOLD=1.5` and `OPENBLACK_TEST_TREE_GROWTH`.
 
-## Ganchos de prueba
+## Test hooks
 
-- `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`) y `OPENBLACK_HAND_TRACE=1`: el tirón.
-- `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"`: suelta un árbol y dice si se replanta, cae o queda muerto.
-- `OPENBLACK_TEST_FELL="x,z"`: talar.
-- `OPENBLACK_TEST_TREE_QUERIES="x,z"`: búsquedas de árboles y bosques, `MakeScenicForest`, `AssignForestsToTown`.
-- `OPENBLACK_HAND_TEST_FOREST=1`: coger de un BigForest.
-- `OPENBLACK_TEST_TREE_GROWTH="x,z"` y `OPENBLACK_TREE_TRACE=1`: crecimiento y brillo.
-- `OPENBLACK_HAND_TEST_HOLD=1.5`: curvado de los árboles junto a lo que lleva la mano.
-- Fuego: los ganchos de [magic.md](magic.md#ganchos-de-prueba) (`OPENBLACK_TEST_FIRE`).
+- `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`) and `OPENBLACK_HAND_TRACE=1`: the tug.
+- `OPENBLACK_TEST_REPLANT="x,z,gradosDeInclinación"`: drops a tree and says whether it is replanted, falls or stays dead.
+- `OPENBLACK_TEST_FELL="x,z"`: felling.
+- `OPENBLACK_TEST_TREE_QUERIES="x,z"`: searches for trees and forests, `MakeScenicForest`, `AssignForestsToTown`.
+- `OPENBLACK_HAND_TEST_FOREST=1`: taking from a BigForest.
+- `OPENBLACK_TEST_TREE_GROWTH="x,z"` and `OPENBLACK_TREE_TRACE=1`: growth and brightness.
+- `OPENBLACK_HAND_TEST_HOLD=1.5`: bending of the trees next to what the hand carries.
+- Fire: the hooks of [magic.md](magic.md#test-hooks) (`OPENBLACK_TEST_FIRE`).
 
-## Fuentes
+## Sources
 
 - `C:\Users\diewgarc\dev\documentacion\trees2\`: `pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`,
   `villager_queries.md`, `gap_hand_physics.md`, `gap_life_draw.md`, `gap_brightness_sound.md`, `tree_draw_bend.txt`,
-  `tugwatch.py`. Relevo para quien continúe con los árboles: `documentacion\trees2\HANDOVER.md`.
-- `C:\Users\diewgarc\dev\documentacion\miracles\infodump\info_dump.txt`: los valores de info.dat de los árboles (madera,
-  peso, `defenceMultiplierBurn` 0,01…).
-- `C:\Users\diewgarc\dev\documentacion\physics\physob.md` («Sign convention»): el giro del árbol talado.
-- `C:\Users\diewgarc\dev\documentacion\field\draw_colour_sway_notes.txt`: la tabla del mecido.
-- bw1-decomp `src/Black/Object.cpp:539`: la prueba de la normal al soltar (solo seres vivos y vallas).
+  `tugwatch.py`. Handover for whoever continues with the trees: `documentacion\trees2\HANDOVER.md`.
+- `C:\Users\diewgarc\dev\documentacion\miracles\infodump\info_dump.txt`: the info.dat values of the trees (wood,
+  weight, `defenceMultiplierBurn` 0.01…).
+- `C:\Users\diewgarc\dev\documentacion\physics\physob.md` ("Sign convention"): the spin of the felled tree.
+- `C:\Users\diewgarc\dev\documentacion\field\draw_colour_sway_notes.txt`: the sway table.
+- bw1-decomp `src/Black/Object.cpp:539`: the normal test on dropping (only living beings and fences).

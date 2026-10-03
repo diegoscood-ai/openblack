@@ -1,144 +1,144 @@
-# Paquetes modificados
+# Modified packs
 
-El `AllMeshes.g3d` de la instalación es un mod del usuario, no el paquete original: aquí están sus diferencias con el
-original (texturas incrustadas, origen de las rocas, texturas de aldeanos), lo averiguado sobre las mallas de aldeanos
-y el mod de openblack **HD-Tweaks** que las mejora. La librería de mods en general está en
+The `AllMeshes.g3d` of the installation is a mod by the user, not the original pack: here are its differences from the
+original (embedded textures, rock origins, villager textures), what was found out about the villager meshes
+and the openblack **HD-Tweaks** mod that improves them. The mod library in general is in
 [mod-library.md](mod-library.md).
 
-- [El paquete de la instalación](#el-paquete-de-la-instalación)
-- [Texturas incrustadas](#texturas-incrustadas)
-- [Origen de las mallas (rocas flotantes)](#origen-de-las-mallas-rocas-flotantes)
-- [Aldeanos: mallas y texturas](#aldeanos-mallas-y-texturas)
-- [Mod HD-Tweaks](#mod-hd-tweaks)
-  - [Opciones](#opciones)
-  - [Recarga en vivo y detalles técnicos](#recarga-en-vivo-y-detalles-técnicos)
-  - [Pruebas](#pruebas)
-  - [Estado](#estado)
+- [The installation's pack](#the-installations-pack)
+- [Embedded textures](#embedded-textures)
+- [Mesh origin (floating rocks)](#mesh-origin-floating-rocks)
+- [Villagers: meshes and textures](#villagers-meshes-and-textures)
+- [HD-Tweaks mod](#hd-tweaks-mod)
+  - [Options](#options)
+  - [Live reload and technical details](#live-reload-and-technical-details)
+  - [Tests](#tests)
+  - [Status](#status)
 
-## El paquete de la instalación
+## The installation's pack
 
-- El `Data\AllMeshes.g3d` actual es un mod del usuario (626 mallas, texturas 0x01–0x70). No hay copia del paquete
-  base.
-- Referencias de mallas originales: el paquete de Creature Isle (`...\CreatureIsle\Data\AllMeshes.g3d`, **otros
-  índices**: consultar su `AllMeshes.h`).
-- El paquete `Ultimate\Data\AllMeshes.g3d` es otro mod (704 mallas).
+- The current `Data\AllMeshes.g3d` is a mod by the user (626 meshes, textures 0x01–0x70). There is no copy of the base
+  pack.
+- References for original meshes: the Creature Isle pack (`...\CreatureIsle\Data\AllMeshes.g3d`, **different
+  indices**: check its `AllMeshes.h`).
+- The `Ultimate\Data\AllMeshes.g3d` pack is another mod (704 meshes).
 
-## Texturas incrustadas
+## Embedded textures
 
-- Las palmeras (mallas 586–589) llevan su textura incrustada con id **0x1001**, pero su material pide 0x85–0x88, que no
-  existen en el paquete. Ultimate repite el patrón. En el juego original se ven bien; openblack usa la skin
-  incrustada de la malla cuando el material no encuentra su textura.
-- En `LH3DMesh::Create` (0x806460) las skins incrustadas se registran con `fn_008379E0`, y el valor 0x1001 podría ser
-  formato + id (**inferido**).
-- Escáner: `python C:\Users\diewgarc\dev\documentacion\mod\scan_skins.py <pack.g3d> <salida.txt>` lista las mallas cuyos
-  materiales piden texturas que no están ni en el paquete ni incrustadas.
+- The palm trees (meshes 586–589) carry their texture embedded with id **0x1001**, but their material asks for 0x85–0x88, which do not
+  exist in the pack. Ultimate repeats the pattern. In the original game they look fine; openblack uses the mesh's embedded
+  skin when the material does not find its texture.
+- In `LH3DMesh::Create` (0x806460) the embedded skins are registered with `fn_008379E0`, and the value 0x1001 could be
+  format + id (**inferred**).
+- Scanner: `python C:\Users\diewgarc\dev\documentacion\mod\scan_skins.py <pack.g3d> <salida.txt>` lists the meshes whose
+  materials ask for textures that are neither in the pack nor embedded.
 
-## Origen de las mallas (rocas flotantes)
+## Mesh origin (floating rocks)
 
-- Las mallas de rocas del mod tienen el origen desplazado respecto a las originales:
-  `MSH_Z_SPELLROCK01` vértice más bajo +0.8 (original −0.6), `MSH_BOULDER3_LIME` +0.2 (original −0.2).
-- Las altitudes de los scripts están pensadas para las mallas originales, así que con el mod quedan en el aire (en
-  Land1, 74 de 243 objetos estáticos flotan más de 5 cm). El original no lo corrige.
-- Además, muchas rocas del mod quedan apoyadas en una punta por su giro: aunque el vértice más bajo toque el suelo,
-  parecen flotar. Solución prevista: físicas (**sin comprobar** si ya se hizo).
+- The mod's rock meshes have their origin shifted relative to the original ones:
+  `MSH_Z_SPELLROCK01` lowest vertex +0.8 (original −0.6), `MSH_BOULDER3_LIME` +0.2 (original −0.2).
+- The script altitudes are designed for the original meshes, so with the mod they end up in the air (in
+  Land1, 74 of 243 static objects float more than 5 cm). The original does not correct it.
+- In addition, many of the mod's rocks end up resting on a tip because of their rotation: even though the lowest vertex touches the ground,
+  they seem to float. Planned solution: physics (**not checked** whether it has already been done).
 
-## Aldeanos: mallas y texturas
+## Villagers: meshes and textures
 
-Investigación del mod "hd people" (2026-09-29). Scripts en `C:\Users\diewgarc\dev\documentacion\hdpeople\` (compare.py,
+Research for the "hd people" mod (2026-09-29). Scripts in `C:\Users\diewgarc\dev\documentacion\hdpeople\` (compare.py,
 anims.py, summary.txt).
 
-**Mallas**
+**Meshes**
 
-- Mallas `MSH_P_*` 413–524 del paquete base (geometría igual a la de Creature Isle, así que no las toca el mod del
-  usuario). Cada tribu y sexo tiene **su propia malla**, en 3 niveles: `_1` ~260–300 vértices, `_2` ~110–150, `_3`
-  26–40. La textura es una por tribu, compartida por hombre y mujer (0x4E–0x5C). Algunas mallas repiten geometría con
-  otra textura (TIBETAN=TIBT, JAPANESE=JAPN, SHAOLIN_MONK=JAPN_M_A_1, niñas TAN/WHITE, INTRO_M=CULT_PRIEST).
-- `MSH_P_INTRO_M`/`_F` (483/484) **no tienen más polígonos**: 258 v / 348 t, como un aldeano normal. INTRO_M es la
-  geometría de CULT_PRIEST con la textura 0x59; INTRO_F usa el esqueleto de las aldeanas. Sus texturas son de 256².
-  `INTRO.bik` es un vídeo prerenderizado: sus modelos no están en los archivos.
-- Esqueleto: 110 de las 112 mallas tienen la misma jerarquía de 22 huesos (EGPT_M_B_2 tiene 21), y todas las
-  animaciones `M_P_*` de AllAnims.anm (232) son de 22 huesos. Las poses de reposo varían un poco (grupos: 85 mallas,
-  12 femeninas, 10, CULT_PRIEST+INTRO_M).
-- Qué malla se dibuja: el original, siempre el LOD 1 (las cargas de LevelOfDetail están anuladas): `stdDetail` /
-  `childMeshMedium` para aldeanos (unos 5,7 KB de malla frente a 12 KB de la alta) y `std` para animales. openblack
-  hace lo mismo desde 2026-09-30 (**fiel**); la malla alta, el doble de triángulos, solo con el mod HD-Tweaks
-  `detail = high` (`ECS/DetailMeshes`). Historia: antes openblack usaba solo `highDetail` (sin LOD) y dibujaba a los
-  aldeanos en pose de reposo (Renderer.cpp, "Get animation frame instead of default"; L3DAnim cargaba AllAnims pero
-  no había reproducción, hoy ver [animation.md](animation.md)).
+- `MSH_P_*` meshes 413–524 of the base pack (geometry identical to Creature Isle's, so the user's mod does not touch
+  them). Each tribe and sex has **its own mesh**, in 3 levels: `_1` ~260–300 vertices, `_2` ~110–150, `_3`
+  26–40. There is one texture per tribe, shared by man and woman (0x4E–0x5C). Some meshes repeat geometry with
+  another texture (TIBETAN=TIBT, JAPANESE=JAPN, SHAOLIN_MONK=JAPN_M_A_1, TAN/WHITE girls, INTRO_M=CULT_PRIEST).
+- `MSH_P_INTRO_M`/`_F` (483/484) **do not have more polygons**: 258 v / 348 t, like a normal villager. INTRO_M is the
+  CULT_PRIEST geometry with texture 0x59; INTRO_F uses the female villagers' skeleton. Their textures are 256².
+  `INTRO.bik` is a pre-rendered video: its models are not in the files.
+- Skeleton: 110 of the 112 meshes have the same 22-bone hierarchy (EGPT_M_B_2 has 21), and all the
+  `M_P_*` animations of AllAnims.anm (232) are 22-bone. The rest poses vary a little (groups: 85 meshes,
+  12 female, 10, CULT_PRIEST+INTRO_M).
+- Which mesh is drawn: the original, always LOD 1 (the LevelOfDetail loads are disabled): `stdDetail` /
+  `childMeshMedium` for villagers (about 5.7 KB of mesh versus 12 KB for the high one) and `std` for animals. openblack
+  does the same since 2026-09-30 (**faithful**); the high mesh, with twice the triangles, only with the HD-Tweaks mod
+  `detail = high` (`ECS/DetailMeshes`). History: previously openblack used only `highDetail` (no LOD) and drew the
+  villagers in the rest pose (Renderer.cpp, "Get animation frame instead of default"; L3DAnim loaded AllAnims but
+  there was no playback, today see [animation.md](animation.md)).
 
-**Texturas** (hoja de contacto en `dev\documentacion\hdpeople\tex\sheet.png`)
+**Textures** (contact sheet in `dev\documentacion\hdpeople\tex\sheet.png`)
 
-- Todas son atlas de 256² **nativos**. Las que el paquete del usuario tiene a 512 o 1024 son ampliaciones con
-  píxeles duplicados (el error frente a doblar su mitad es < 1,5 niveles), salvo 0x5A y 0x47 (512 nativas).
-- INTRO_M/F se ven más finos porque su textura de 256² es de **un solo** personaje (los aldeanos: 4 por atlas).
-  Ningún paquete (base, Creature Isle, Ultimate) trae mejores.
-- **El atlas de los nórdicos del paquete del usuario (0x5A, 1024 px) no es el original**: tiene pintados los
-  personajes de la intro (la cara de la mujer rubia de INTRO_F, el hombre de barba, uno con camisa roja y vaqueros).
-  El atlas nórdico de Creature Isle (skin 0x74 de su paquete, `MSH_P_NORS_F_A_1` = 580 allí) tiene la ropa original
-  (vestido oscuro, hombres de negro con cinturón). Por eso las aldeanas de Land1 (pueblo nórdico) parecen "las de la
-  intro": la malla (`NORS_F_A_1`, 498) y el clip (`M_P_Walk_Woman`) son los correctos. Las texturas HD de
-  graphics.hd-tweaks salieron de ese atlas. Comparación en `dev\documentacion\hdpeople\tex\norse_cmp.png`.
+- All are **native** 256² atlases. The ones the user's pack has at 512 or 1024 are upscales with
+  duplicated pixels (the error versus doubling their half is < 1.5 levels), except 0x5A and 0x47 (native 512).
+- INTRO_M/F look finer because their 256² texture is of **a single** character (the villagers: 4 per atlas).
+  No pack (base, Creature Isle, Ultimate) comes with better ones.
+- **The Norse atlas of the user's pack (0x5A, 1024 px) is not the original**: it has the intro characters
+  painted on it (the face of the blonde woman of INTRO_F, the bearded man, one with a red shirt and jeans).
+  The Creature Isle Norse atlas (skin 0x74 of its pack, `MSH_P_NORS_F_A_1` = 580 there) has the original clothing
+  (dark dress, men in black with a belt). That is why the female villagers of Land1 (Norse village) look like "the ones from the
+  intro": the mesh (`NORS_F_A_1`, 498) and the clip (`M_P_Walk_Woman`) are the correct ones. The HD textures of
+  graphics.hd-tweaks came from that atlas. Comparison in `dev\documentacion\hdpeople\tex\norse_cmp.png`.
 
-## Mod HD-Tweaks
+## HD-Tweaks mod
 
-**Mod/propio**: `graphics.hd-tweaks` (2026-09-29/30), antes `graphics.hd-people`; renombrado porque ya no es solo para
-aldeanos. Tabla de opciones en [mod-library.md](mod-library.md). Todo se aplica **en vivo** (sin reiniciar),
-desactivado por defecto como todo mod.
+**Mod/own**: `graphics.hd-tweaks` (2026-09-29/30), formerly `graphics.hd-people`; renamed because it is no longer only for
+villagers. Options table in [mod-library.md](mod-library.md). Everything is applied **live** (without restarting),
+disabled by default like every mod.
 
-### Opciones
+### Options
 
-- `textures` hd/original: los 18 atlas de aldeanos y los 5 de animales (0x2-0x5, 0x64; 2026-09-30) ×4
-  (Real-ESRGAN), `Resources/HdTextures` + `textures.json` (hash FNV-1a del DDS de origen: con otro AllMeshes.g3d no se
-  usan). Los atlas de animales los comparten algunos objetos (lápidas, una puerta, un tipi...), que también salen en
+- `textures` hd/original: the 18 villager atlases and the 5 animal ones (0x2-0x5, 0x64; 2026-09-30) ×4
+  (Real-ESRGAN), `Resources/HdTextures` + `textures.json` (FNV-1a hash of the source DDS: with another AllMeshes.g3d they are not
+  used). The animal atlases are shared by some objects (gravestones, a gate, a tipi...), which also come out in
   HD.
-  - Generación: Real-ESRGAN `realesrgan-x4plus` (el modelo anime aplana la pintura) desde la resolución nativa, con
+  - Generation: Real-ESRGAN `realesrgan-x4plus` (the anime model flattens the painting) from the native resolution, with
     `python assets\mods\graphics.hd-tweaks\tools\make_textures.py <AllMeshes.g3d> <AllMeshes.h> <carpeta del mod>`
-    (Real-ESRGAN portable en `C:\Users\diewgarc\dev\herramientas\realesrgan`, ~3 min con la GPU); no están en git. El
-    generador lee las mallas `MSH_P_*` y `MSH_A_*` del AllMeshes.h del juego y reutiliza las imágenes ya hechas cuyo
-    hash sigue siendo el del paquete.
-- `smooth` off/soft/round: triángulos PN (`3D/PnTessellation`, Vlachos 2001) partidos en 4 o 9 sobre las mallas de
-  aldeanos y animales (con huesos y todas sus texturas en la lista) **y la mano** (`Hand_Boned_Base2`).
+    (portable Real-ESRGAN in `C:\Users\diewgarc\dev\herramientas\realesrgan`, ~3 min with the GPU); they are not in git. The
+    generator reads the `MSH_P_*` and `MSH_A_*` meshes from the game's AllMeshes.h and reuses the images already made whose
+    hash is still that of the pack.
+- `smooth` off/soft/round: PN triangles (`3D/PnTessellation`, Vlachos 2001) split into 4 or 9 on the
+  villager and animal meshes (with bones and all their textures in the list) **and the hand** (`Hand_Boned_Base2`).
   `L3DSubMesh::IsHdTweaked`.
-  - Los **triángulos de articulación** (esquinas en huesos distintos) no se curvan por dentro: son un abanico sobre
-    su arista de un solo hueso y se estiran como los del original (con puntos interiores pegados a un hueso se
-    doblaban al animar).
-  - La colisión (mano, físicas) sigue siendo la malla original.
-- `light` smooth/original: la luz del original (la regla entera de `fn_0084BA90` con las mismas funciones de
-  `assets/shaders/model_light.sh`, el mismo ambiente y la misma luz; ver
-  [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) calculada por píxel en `fs_object` con las normales
-  suaves (`u_window.y`), solo en instancias iluminadas como el original (no reflejos ni sombras). Por píxel la dirección
-  se toma en el mundo, del píxel a la luz, en vez de en el espacio de la malla desde el origen del hueso
-  **(aproximado)**: no queda varying libre. Coincide solo con la luz lejos (de día, el sol a 500000); en plena noche la
-  luz está a 3 unidades de la mano y en un aldeano cercano el sombreado cambia de forma visible (diferencia nocturna
-  conocida del mod).
-  **Probado y descartado**: un borde de luz en la silueta, 0,8·(1−N·V)² ("rim"); al usuario le pareció feo.
-- `sharp` on/off: sesgo de mip −1 en esas texturas (`u_window.z`).
-- `detail` high/original: aldeanos y animales con su malla alta (`ECS/DetailMeshes`); sin el mod, el LOD 1 del
-  original (ver [Aldeanos: mallas y texturas](#aldeanos-mallas-y-texturas)).
+  - The **joint triangles** (corners on different bones) are not curved inside: they are a fan over
+    their single-bone edge and stretch like the original ones (with interior points stuck to one bone they
+    bent when animating).
+  - Collision (hand, physics) is still the original mesh.
+- `light` smooth/original: the original's lighting (the entire rule of `fn_0084BA90` with the same functions from
+  `assets/shaders/model_light.sh`, the same ambient and the same light; see
+  [Model lighting](rendering-objects.md#model-lighting)) computed per pixel in `fs_object` with the smooth
+  normals (`u_window.y`), only on lit instances like the original (not reflections or shadows). Per pixel the direction
+  is taken in the world, from the pixel to the light, instead of in mesh space from the bone origin
+  **(approximate)**: there is no free varying left. It only matches with a distant light (by day, the sun at 500000); in the middle of the night the
+  light is 3 units from the hand and on a nearby villager the shading changes visibly (known night-time difference
+  of the mod).
+  **Tried and discarded**: a rim of light on the silhouette, 0.8·(1−N·V)² ("rim"); the user found it ugly.
+- `sharp` on/off: mip bias −1 on those textures (`u_window.z`).
+- `detail` high/original: villagers and animals with their high mesh (`ECS/DetailMeshes`); without the mod, the original's
+  LOD 1 (see [Villagers: meshes and textures](#villagers-meshes-and-textures)).
 
-### Recarga en vivo y detalles técnicos
+### Live reload and technical details
 
-- **Recarga en vivo** (`resources::hd_tweaks::Update`, al principio de `Game::Update`): si cambian las opciones relee
-  AllMeshes.g3d y recarga solo las texturas de aldeanos, las mallas con huesos que las usan y la mano (~0,6 s al
-  activar, ~0,15 s al desactivar; las PNG se decodifican en paralelo, también al arrancar). `detail_meshes::Update`
-  cambia la malla de los aldeanos y animales que ya existen.
-- **Visibilidad a distancia**: a 20-40 m un aldeano mide 40-70 px y las texturas ×4 solas casi no se notan; lo que se
-  nota es la forma redonda + luz por píxel + `sharp`.
-- **Variantes de shader de 32 huesos** (sesión mapa, `vs_object_instanced_b32.sc`): incluyen `vs_object.sc` y usan
-  `fs_object`, así que el mod funciona igual por ese camino (comprobado con capturas).
-- **Carpeta antigua**: si aparece `Mods/graphics.hd-people` (un exe viejo o una copia de `Mods`), `ModRegistry`
-  (`MigrateRenamedFolder`) pasa a `graphics.hd-tweaks` lo que le falte y la borra; nunca sale como mod de datos.
+- **Live reload** (`resources::hd_tweaks::Update`, at the start of `Game::Update`): if the options change it rereads
+  AllMeshes.g3d and reloads only the villager textures, the boned meshes that use them and the hand (~0.6 s when
+  enabling, ~0.15 s when disabling; the PNGs are decoded in parallel, also at startup). `detail_meshes::Update`
+  changes the mesh of the villagers and animals that already exist.
+- **Visibility at a distance**: at 20-40 m a villager measures 40-70 px and the ×4 textures alone are barely noticeable; what is
+  noticeable is the round shape + per-pixel lighting + `sharp`.
+- **32-bone shader variants** (map session, `vs_object_instanced_b32.sc`): they include `vs_object.sc` and use
+  `fs_object`, so the mod works the same way through that path (checked with screenshots).
+- **Old folder**: if `Mods/graphics.hd-people` appears (an old exe or a copy of `Mods`), `ModRegistry`
+  (`MigrateRenamedFolder`) moves into `graphics.hd-tweaks` whatever it is missing and deletes it; it never shows up as a data mod.
 
-### Pruebas
+### Tests
 
-- `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` cambia las opciones a mitad de partida.
-- `dev\herramientas\shot_villager.sh`, `dev\herramientas\shot_hand.sh` y `dev\herramientas\shot_animal.sh <n,distancia,ángulo,1>` (copia
-  privada en `dev\hdp_run`; los animales solo se siguen con el juego en marcha, sin START_PAUSED).
-- `OPENBLACK_START_PAUSED=1` deja a los aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una
-  pose (sentado 369, rezar 343).
-- Las capturas en el fotograma 2900 fallan a veces: repetir.
+- `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` changes the options mid-game.
+- `dev\herramientas\shot_villager.sh`, `dev\herramientas\shot_hand.sh` and `dev\herramientas\shot_animal.sh <n,distancia,ángulo,1>` (private
+  copy in `dev\hdp_run`; animals are only followed with the game running, without START_PAUSED).
+- `OPENBLACK_START_PAUSED=1` keeps the villagers still for A/B comparison; `OPENBLACK_TEST_ANIM=<clip>,<ms>` for a
+  pose (sitting 369, praying 343).
+- Screenshots at frame 2900 sometimes fail: repeat.
 
-### Estado
+### Status
 
-- **Comprobado por el usuario** (2026-09-30): con `round` las animaciones ya no se rompen, tampoco las de los animales.
-- **Pendiente**: comprobar en juego si `sharp` parpadea en movimiento.
+- **Checked by the user** (2026-09-30): with `round` the animations no longer break, nor do the animals' ones.
+- **Pending**: check in game whether `sharp` flickers in motion.

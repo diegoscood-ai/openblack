@@ -1,640 +1,639 @@
-# El agua en el juego
+# Water in the game
 
-Todo lo del agua que no es el dibujo del mar: qué celda es agua, las consultas de agua y la máscara `LandAvoid`, el
-agua en los guiones, los golpes y las caídas al agua, hundirse y ahogarse, los anillos, los tiburones, el puzle de los
-peces, el barco de los misioneros, el decorado fijo (cascada, arca) y qué suena en el agua. El mar, la costa y los
-ríos se dibujan en [rendering.md](rendering.md); los reflejos y los cortes bajo el agua, en
+Everything about water that is not the drawing of the sea: which cell is water, the water queries and the `LandAvoid` mask, the
+water in the scripts, impacts and falls into the water, sinking and drowning, the rings, the sharks, the fish
+puzzle, the missionaries' boat, the fixed scenery (waterfall, ark) and what sounds in the water. The sea, the coast and the
+rivers are drawn in [rendering.md](rendering.md); the reflections and the underwater cuts, in
 [rendering-objects.md](rendering-objects.md).
 
-- [Celdas de agua (SeaCells)](#celdas-de-agua-seacells)
-- [Consultas de agua](#consultas-de-agua-gutils-gstream-abode)
-- [Máscara `LandAvoid` de la criatura](#máscara-landavoid-de-la-criatura)
-- [El agua en los guiones (CHL)](#el-agua-en-los-guiones-chl)
-- [Golpes y objetos que caen al agua](#golpes-y-objetos-que-caen-al-agua)
-- [Hundirse, ahogarse y borrarse](#hundirse-ahogarse-y-borrarse)
-- [Anillos de agua](#anillos-de-agua)
-- [Tiburones (clase `Whale`)](#tiburones-clase-whale)
-- [Puzle de los peces](#puzle-de-los-peces)
-- [Barco de los misioneros (PetitNavire)](#barco-de-los-misioneros-petitnavire)
-- [Decorado fijo: cascada de Land 3, arca y dinosaurio de Land 4](#decorado-fijo-por-tierra-cascada-de-land-3-arca-y-dinosaurio-de-land-4)
-- [Audio del agua](#audio-del-agua)
-- [El agua en otras páginas](#el-agua-en-otras-páginas)
-- [Pendiente](#pendiente), [Ganchos de prueba](#ganchos-de-prueba), [Fuentes](#fuentes)
+- [Water cells (SeaCells)](#water-cells-seacells)
+- [Water queries](#water-queries-gutils-gstream-abode)
+- [The creature's `LandAvoid` mask](#the-creatures-landavoid-mask)
+- [Water in the scripts (CHL)](#water-in-the-scripts-chl)
+- [Impacts and objects that fall into the water](#impacts-and-objects-that-fall-into-the-water)
+- [Sinking, drowning and being deleted](#sinking-drowning-and-being-deleted)
+- [Water rings](#water-rings)
+- [Sharks (class `Whale`)](#sharks-class-whale)
+- [Fish puzzle](#fish-puzzle)
+- [The missionaries' boat (PetitNavire)](#the-missionaries-boat-petitnavire)
+- [Fixed scenery: Land 3 waterfall, Land 4 ark and dinosaur](#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur)
+- [Water audio](#water-audio)
+- [Water in other pages](#water-in-other-pages)
+- [Pending](#pending), [Test hooks](#test-hooks), [Sources](#sources)
 
-## Celdas de agua (SeaCells)
+## Water cells (SeaCells)
 
-Toda la tierra/agua del original se decide con cinco predicados sobre la **celda de terreno** (8 bytes; byte +4 =
-altitud cruda, byte +6 = propiedades del LND: 0x10 `hasWater`, 0x20 `coastLine`). Antes cada módulo tenía su regla
-(banderas, altura ≤ 0, borde recortado); ahora hay un solo módulo con la tabla exacta, **incluido el borde del mapa**:
+All of the original's land/water is decided with five predicates on the **terrain cell** (8 bytes; byte +4 =
+raw altitude, byte +6 = LND properties: 0x10 `hasWater`, 0x20 `coastLine`). Previously each module had its own rule
+(flags, height ≤ 0, clipped edge); now there is a single module with the exact table, **including the map edge**:
 
-| Función de openblack | Original | Regla | Sin celda (fuera del mapa o sin bloque) |
+| openblack function | Original | Rule | No cell (outside the map or no block) |
 |---|---|---|---|
-| `sea_cells::IsWater` | `MapCoords::IsWater` 0x6035B0 | `propiedades & 0x10` | **agua** (1) |
+| `sea_cells::IsWater` | `MapCoords::IsWater` 0x6035B0 | `propiedades & 0x10` | **water** (1) |
 | `sea_cells::IsLand` | `MapCoords::IsLand` 0x603720 | `!(propiedades & 0x10)` | 0 |
-| `sea_cells::IsDryLand` | `MapCoords::IsDryLand` 0x603620 | **altitud ≥ 4**, no mira las banderas | 0 |
+| `sea_cells::IsDryLand` | `MapCoords::IsDryLand` 0x603620 | **altitude ≥ 4**, does not look at the flags | 0 |
 | `sea_cells::IsCoastal` | `MapCoords::IsCoastal` 0x6036A0 | `!(propiedades & 0x10) && (propiedades & 0x20)` | 0 |
-| `sea_cells::InBounds` | `MapCoords::InBounds` 0x6042C0 | la celda cae dentro del mapa de juego (comparación sin signo) | — |
-| `sea_cells::CollideLandscape` | parte de terreno de `MapCell::Collide` 0x601BD0 | 0x10 fuera del mapa (fn_00601E00), si no 1 agua / 2 tierra | 0x10 / 1 |
-| `sea_cells::GetSurfaceType` | `GSoundMap::GetSurfaceType` 0x71D8E0 | 6 sin celda, 7 si `!IsLand`, si no el `surfaceSound` del material (3 si no es 1..8) | 6 |
+| `sea_cells::InBounds` | `MapCoords::InBounds` 0x6042C0 | the cell falls inside the game map (unsigned comparison) | — |
+| `sea_cells::CollideLandscape` | terrain part of `MapCell::Collide` 0x601BD0 | 0x10 outside the map (fn_00601E00), otherwise 1 water / 2 land | 0x10 / 1 |
+| `sea_cells::GetSurfaceType` | `GSoundMap::GetSurfaceType` 0x71D8E0 | 6 with no cell, 7 if `!IsLand`, otherwise the material's `surfaceSound` (3 if it is not 1..8) | 6 |
 
-- La celda de un punto es `MapCoords` = `ftol(mundo·6553,6) >> 16` (10 unidades por celda, truncado; una x negativa
-  sale del mapa por el word alto sin signo, no se recorta a 0). El golpe contra el agua y la regla de soltar usan
-  además la celda **redondeada al más cercano** (`fistp` en el original, `std::lrint`), media celda de diferencia.
-- Los bits 0x04 (campo), 0x08 (fijo) y 0x20 (árbol) de `MapCell::Collide` salen de los objetos de la celda del mapa,
-  que openblack todavía no lista: `CollideLandscape` solo da la parte de terreno.
-- Consumidores hoy: `CollisionSounds` (golpe contra el agua), `AnimationSounds` (superficie de los clips),
-  `HandSystem::IsLand` (y con él los peces, los árboles y las vasijas de la mano), `HandHolding` (soltar suave),
-  `ecs::pot_resource::IsWater` (recursos perdidos en el mar), `FishShoals::IsOkToCreateFishFarmAt`, `WaterQueries` y `LandAvoid`.
-- **Piscifactorías**: `GFishFarmInfo::IsOkToCreateAtPos` 0x52D100 = `IsCoastal` **y** que no haya ya una granja en esa
-  celda (`MapCoords::FindType(0x21)` 0x6045C0). Ni pueblo, ni profundidad, ni distancia. Hoy solo el guion crea
-  granjas, así que la regla está portada (`IsOkToCreateFishFarmAt`) pero sin usar.
-- Prueba unitaria: `test/test_sea_cells.cpp` (isla de dos bloques hecha a mano + `Land1.lnd` real si está instalado:
-  mar abierto 1464,2016; orilla de altitud 1 en 1485,2015; tierra seca de altitud 44 en 1788,4/2710).
+- The cell of a point is `MapCoords` = `ftol(mundo·6553,6) >> 16` (10 units per cell, truncated; a negative x
+  goes off the map through the unsigned high word, it is not clamped to 0). The impact against the water and the drop rule also use
+  the cell **rounded to the nearest** (`fistp` in the original, `std::lrint`), half a cell of difference.
+- Bits 0x04 (field), 0x08 (fixed) and 0x20 (tree) of `MapCell::Collide` come from the objects of the map cell,
+  which openblack does not list yet: `CollideLandscape` only gives the terrain part.
+- Consumers today: `CollisionSounds` (impact against the water), `AnimationSounds` (surface of the clips),
+  `HandSystem::IsLand` (and with it the fish, the trees and the hand pots), `HandHolding` (gentle drop),
+  `ecs::pot_resource::IsWater` (resources lost in the sea), `FishShoals::IsOkToCreateFishFarmAt`, `WaterQueries` and `LandAvoid`.
+- **Fish farms**: `GFishFarmInfo::IsOkToCreateAtPos` 0x52D100 = `IsCoastal` **and** that there is not already a farm in that
+  cell (`MapCoords::FindType(0x21)` 0x6045C0). No town, no depth, no distance. Today only the script creates
+  farms, so the rule is ported (`IsOkToCreateFishFarmAt`) but unused.
+- Unit test: `test/test_sea_cells.cpp` (hand-made two-block island + real `Land1.lnd` if installed:
+  open sea 1464.2016; shore of altitude 1 at 1485.2015; dry land of altitude 44 at 1788.4/2710).
 
-## Consultas de agua (`GUtils`, `GStream`, `Abode`)
+## Water queries (`GUtils`, `GStream`, `Abode`)
 
-Las posiciones del original son `MapCoords`: x y z en 16.16 de celda (mundo × 6553,6 truncado, 10 unidades de mundo
-por celda) e y = altura **sobre el suelo**, no altitud del mundo. El puerto mantiene ese detalle dentro del módulo y
-expone `glm::vec3` en unidades de mundo.
+The original's positions are `MapCoords`: x and z in cell 16.16 (world × 6553.6 truncated, 10 world units
+per cell) and y = height **above the ground**, not world altitude. The port keeps that detail inside the module and
+exposes `glm::vec3` in world units.
 
-Desde la sesión «sistemas2» la raíz de tabla, `hypotenuse` y `GetDistanceInMetres` ya no están copiadas en
-`WaterQueries.cpp`: salen de `src/ECS/GUtilsDistance.{h,cpp}` (`openblack::gutils`), en float y no en double, ver
-[engine-math.md](engine-math.md#distancias-de-gutils).
+Since the «sistemas2» session the table root, `hypotenuse` and `GetDistanceInMetres` are no longer copied in
+`WaterQueries.cpp`: they come from `src/ECS/GUtilsDistance.{h,cpp}` (`openblack::gutils`), in float and not in double, see
+[engine-math.md](engine-math.md#gutils-distances).
 
-| Función | Dirección | Qué hace |
+| Function | Address | What it does |
 |---|---|---|
-| `GUtils::GetDistanceInMetres` | 0x74CD70 | distancia xz de dos `MapCoords`: `hypotenuse(int,int)` 0x74F680 (16.16) × 10/65536 |
-| `hypotenuse` / raíz inversa | 0x74F680 / 0x74F620 | raíz inversa por tabla de 1024 mantisas (`crt_xc_fn_atexitCleanupReg_Utils_0074F580`): ~10 bits, error ≈ 0,1 % |
-| `GUtils::FindNearestCoastalTo` | 0x74E2E0 | espiral cuadrada de celdas desde el punto hasta encontrar una celda **dentro del mapa de juego** y `MapCoords::IsCoastal`, o hasta que la espiral se aleja más que el radio (máx. 999999 pasos) |
-| `GUtils::Spiral` | 0x74D7E0 | el paso de la espiral: tabla 0xDA59FC = (+1,0), (0,+1), (−1,0), (0,−1), con `dir/2` pasos por tramo; suma **al word alto**, así que la fracción de celda del punto de partida no se pierde (`operator+=` 0x605470) |
-| `GStream::FindNearestPosTo` | 0x733D30 | el punto de río (`CREATE_STREAM_POINT`) más cercano en xz, **estrictamente** más cerca que el radio; la y del resultado es la altitud del punto menos el suelo allí |
-| `GUtils::FindNearestDrinkingWater` | 0x74E3A0 | primero el río; si lo hay, busca además una costa que no esté más lejos **del punto de partida** que ese río (si la encuentra, gana la costa) y devuelve "encontrado" en cualquier caso; sin río, la costa dentro del radio |
-| `Abode::FindNearestDrinkingWater` | 0x407020 | lo anterior desde la casa a su caché: bit 0 de +0x7C = encontrado, +0x80 = la posición (**solo cambia si encuentra algo**) |
-| `Abode::GetNearestWaterPos` | 0x405FC0 | lee esa caché (falso si el bit está a 0) |
+| `GUtils::GetDistanceInMetres` | 0x74CD70 | xz distance of two `MapCoords`: `hypotenuse(int,int)` 0x74F680 (16.16) × 10/65536 |
+| `hypotenuse` / inverse root | 0x74F680 / 0x74F620 | inverse root by a table of 1024 mantissas (`crt_xc_fn_atexitCleanupReg_Utils_0074F580`): ~10 bits, error ≈ 0.1 % |
+| `GUtils::FindNearestCoastalTo` | 0x74E2E0 | square spiral of cells from the point until finding a cell **inside the game map** and `MapCoords::IsCoastal`, or until the spiral moves further away than the radius (max. 999999 steps) |
+| `GUtils::Spiral` | 0x74D7E0 | the spiral step: table 0xDA59FC = (+1.0), (0,+1), (−1.0), (0,−1), with `dir/2` steps per stretch; it adds **to the high word**, so the cell fraction of the starting point is not lost (`operator+=` 0x605470) |
+| `GStream::FindNearestPosTo` | 0x733D30 | the river point (`CREATE_STREAM_POINT`) closest in xz, **strictly** closer than the radius; the y of the result is the point's altitude minus the ground there |
+| `GUtils::FindNearestDrinkingWater` | 0x74E3A0 | first the river; if there is one, it also looks for a coast that is no further **from the starting point** than that river (if it finds one, the coast wins) and returns "found" in any case; without a river, the coast within the radius |
+| `Abode::FindNearestDrinkingWater` | 0x407020 | the above from the house into its cache: bit 0 of +0x7C = found, +0x80 = the position (**it only changes if it finds something**) |
+| `Abode::GetNearestWaterPos` | 0x405FC0 | reads that cache (false if the bit is 0) |
 
-Radios del original: **200** al crear la casa (`Abode::Abode` 0x4013E0), **400** el pastor cuando la casa aún no tiene
-agua (`Villager::ShepherdMoveFlockToWater` 0x768CC0), **500** el tigre (`Tiger::CalculeLairPos` 0x4214DD).
+The original's radii: **200** when creating the house (`Abode::Abode` 0x4013E0), **400** the shepherd when the house does not yet have
+water (`Villager::ShepherdMoveFlockToWater` 0x768CC0), **500** the tiger (`Tiger::CalculeLairPos` 0x4214DD).
 
-Detalles que importan:
+Details that matter:
 
-- La espiral **para en cuanto se aleja del radio**, no recorre el cuadrado completo: por eso no siempre devuelve la
-  costa estrictamente más cercana, sino la primera de la espiral.
-- `IsCoastal` (0x6036A0) es **tierra** en la línea de costa (`!hasWater && coastLine`), no agua: el agua potable es una
-  celda de tierra junto al mar, y el bebedor se acerca a ella. Los predicados están en `ECS/SeaCells`.
-- `Tiger::CalculeLairPos` (0x421470) llama a `FindNearestDrinkingWater(pos, 500)` **para cada bosque** pero no usa el
-  resultado para colocar la guarida: la respuesta solo fija la distancia que compara con la puntuación del bosque
-  (`fn_0053AD00`, `SigmoidThreshold` de árboles y distancia), y esa distancia no se lee después. La guarida sigue
-  siendo el bosque mejor puntuado, así que `ECS/AnimalPredators.cpp` no cambia (solo lo anota).
+- The spiral **stops as soon as it moves beyond the radius**, it does not cover the whole square: that is why it does not always return the
+  strictly closest coast, but the first one in the spiral.
+- `IsCoastal` (0x6036A0) is **land** on the coastline (`!hasWater && coastLine`), not water: the drinking water is a
+  land cell next to the sea, and the drinker approaches it. The predicates are in `ECS/SeaCells`.
+- `Tiger::CalculeLairPos` (0x421470) calls `FindNearestDrinkingWater(pos, 500)` **for each forest** but does not use the
+  result to place the lair: the answer only sets the distance it compares with the forest's score
+  (`fn_0053AD00`, `SigmoidThreshold` of trees and distance), and that distance is not read afterwards. The lair is still
+  the best-scored forest, so `ECS/AnimalPredators.cpp` does not change (it only notes it).
 
-## Máscara `LandAvoid` de la criatura
+## The creature's `LandAvoid` mask
 
-`LandAvoid` (0xD559B0) son 512×512 bytes `[z][x]`, uno por celda del terreno, que se construyen **una vez por paisaje**
-en `GLandscape::Open` (0x5E5541) con `ValidateLandAvoid` (0x6E7BA0) y `FloodAnalyse` (0x6E7FA0, `RoutePlan.cpp`):
+`LandAvoid` (0xD559B0) is 512×512 bytes `[z][x]`, one per terrain cell, built **once per landscape**
+in `GLandscape::Open` (0x5E5541) with `ValidateLandAvoid` (0x6E7BA0) and `FloodAnalyse` (0x6E7FA0, `RoutePlan.cpp`):
 
-1. Para cada celda, las altitudes de sus **cuatro esquinas** (`(x,z)`, `(x,z+1)`, `(x+1,z)`, `(x+1,z+1)`; 0 fuera del
-   mapa o sin bloque) × 0,67: si `max − min > 10` → **1** (demasiado inclinada); si las cuatro son 0 → **1** (mar
-   profundo); si no → **4** (candidata andable).
-2. La semilla del flood es la última celda 4 de la última tirada de celdas 4 que termina en un 1 (por filas: el
-   contador se reinicia en cada fila; una tirada que llega al final de la fila no cuenta). En Land1 sale **(191, 362)**.
-3. `FloodAnalyse` inunda los 4 vecinos ((−1,0), (0,−1), (+1,0), (0,+1)): las 4 alcanzadas pasan a **0** y las 1
-   vecinas del flood a 5. Al final 1 → **2**, 4 → **2** (no alcanzables) y 5 → **1**.
-4. Las celdas 0 cuyo terreno tiene el bit de agua (o no tiene bloque) pasan a **6**: agua por la que se puede andar.
+1. For each cell, the altitudes of its **four corners** (`(x,z)`, `(x,z+1)`, `(x+1,z)`, `(x+1,z+1)`; 0 outside the
+   map or with no block) × 0.67: if `max − min > 10` → **1** (too steep); if all four are 0 → **1** (deep
+   sea); otherwise → **4** (walkable candidate).
+2. The flood seed is the last 4 cell of the last run of 4 cells that ends in a 1 (by rows: the
+   counter is reset on each row; a run that reaches the end of the row does not count). In Land1 it comes out as **(191, 362)**.
+3. `FloodAnalyse` floods the 4 neighbours ((−1.0), (0,−1), (+1.0), (0,+1)): the reached 4s become **0** and the 1s
+   neighbouring the flood become 5. At the end 1 → **2**, 4 → **2** (unreachable) and 5 → **1**.
+4. The 0 cells whose terrain has the water bit (or has no block) become **6**: water that can be walked through.
 
-Valores finales: **0** tierra alcanzable, **6** agua andable, **1** celda a evitar pegada a la zona alcanzable, **2**
-inalcanzable. `fn_00483890(pos, r)` (r = 7,1 en `fn_00483850`; 7,05 en `fn_00483870`, giro) acepta la posición si su
-celda es 0 o 6 y ningún centro de celda `(10i+5, 10j+5)` del 3×3 vecino que no sea 0/6 queda a menos de r.
+Final values: **0** reachable land, **6** walkable water, **1** cell to avoid next to the reachable area, **2**
+unreachable. `fn_00483890(pos, r)` (r = 7.1 in `fn_00483850`; 7.05 in `fn_00483870`, turning) accepts the position if its
+cell is 0 or 6 and no cell centre `(10i+5, 10j+5)` of the neighbouring 3×3 that is not 0/6 lies closer than r.
 
-La criatura, por tanto, **vadea** hasta donde las cuatro esquinas de la celda tienen altitud 0 y no nada (en
-`ctrspec27.txt` no hay animación de nadar). Los lagos de Land1 (altitud 1 con agua) también salen **6**: se puede
-entrar en ellos.
+The creature therefore **wades** as far as where all four corners of the cell have altitude 0 and does not swim (in
+`ctrspec27.txt` there is no swimming animation). The Land1 lakes (altitude 1 with water) also come out as **6**: they can be
+entered.
 
-En openblack: `land_avoid::Validate(island)` se llama al cargar el paisaje (`Game::LoadLandscape`), `At(x, z)` da el
-valor y `IsPosValid(pos, radio)` es `fn_00483890`. Recuento en Land1: 12 949 celdas 0, **1866** celdas 6 (el anillo de
-agua somera y los lagos), 3671 celdas 1 y 243 658 celdas 2.
+In openblack: `land_avoid::Validate(island)` is called when loading the landscape (`Game::LoadLandscape`), `At(x, z)` gives the
+value and `IsPosValid(pos, radio)` is `fn_00483890`. Count in Land1: 12 949 cells 0, **1866** cells 6 (the ring of
+shallow water and the lakes), 3671 cells 1 and 243 658 cells 2.
 
-**Gancho** `OPENBLACK_DUMP_LAND_AVOID=1` (o `=<fichero>.png`) vuelca la máscara al cargar el paisaje: un píxel por
-celda, x a la derecha y z hacia abajo, **verde** 0, **azul** 6, **rojo** 1, **gris** 2 (magenta = valor imposible), y
-escribe en el log la semilla y los recuentos. Comprobado con los puntos de Land1: `(146,201)` mar abierto → rojo (mar
-profundo junto a la zona alcanzable), `(147-148,201)` costa somera → azul, `(149,201)` y `(178,271)` tierra → verde,
-los lagos `(213,241)` y `(216,309)` → azul.
+**Hook** `OPENBLACK_DUMP_LAND_AVOID=1` (or `=<fichero>.png`) dumps the mask when loading the landscape: one pixel per
+cell, x to the right and z downwards, **green** 0, **blue** 6, **red** 1, **grey** 2 (magenta = impossible value), and
+writes the seed and the counts to the log. Checked with the Land1 points: `(146,201)` open sea → red (deep
+sea next to the reachable area), `(147-148,201)` shallow coast → blue, `(149,201)` and `(178,271)` land → green,
+the lakes `(213,241)` and `(216,309)` → blue.
 
-## El agua en los guiones (CHL)
+## Water in the scripts (CHL)
 
-- **`GET_LAND_HEIGHT`** (`GScript::GetLandHeight` 0x6FB1F0): celda `(int)(x·0,1)`, `(int)(z·0,1)` (truncado hacia 0, así
-  que −10 < x < 0 sigue siendo la celda 0); fuera de 0..511, sin bloque o **altitud 0** devuelve **−10,0**
-  (0xC1200000, "está en el mar"); si no, la altura interpolada (`LH3DIsland::GetAltitude`). openblack devolvía siempre
-  la altura: ahora `sea_cells::ScriptLandHeight` hace la regla completa (`CHLApi.cpp`, `GET_LAND_HEIGHT` 151). Lo usan
-  los retos `Baywatch` (Land2) y `LostBrother` (Land1). Comprobado: mar abierto de Land1 (1464, 2016) → −10, tierra seca
-  (1788,4; 2710) → 28,917.
-- **`GET_PROPERTY`** (`GScript::GetProperty` 0x70DAE0, tabla de saltos 0x70E78C sobre `propiedad − 1`): de momento están
-  las dos del agua, las demás siguen sin implementar.
-  - `FLYING` (5, 0x70DCF8) = bit 6 (0x40) de `Object+0x24` = **el objeto tiene un `PhysicsObject`** (también los
-    obstáculos en reposo, igual que `Object::IsActuallyInTheAir` 0x639410).
-  - `DROWNING` (6, 0x70DD0A) = la virtual `IsDrowning` (vt +0x17C): `Villager` 0x756B30 = estado **16** DROWNING;
-    `Object` 0x63A780 = tiene `PhysicsObject` **y** el centro de masas (po +0xCC) está por debajo de y = 0;
-    `GameThingWithPos` 0x4052D0 = 0. En openblack es `ecs::IsDrowning` (`ECS/VillagerDrowning`). La usan los retos
-    `CreatureSavingPeopleDrowningMan` y `PiperSetFree` (Land1) y `ThrowBlokeMain` / `EndOfFlyingNutter` (Land3).
-  - Con una cosa que ya no existe el original escribe "Thing no longer valid" y apila un **float 0**; openblack hace lo
-    mismo (sale a menudo en el log porque los guiones referencian objetos que openblack aún no crea).
-- **`SET_PROPERTY`** (0x70F380 → fn_0070E820, tabla 0x70F2BC): `FLYING`, `DROWNING` y `MOVING` van al caso de error
-  ("Cannot Set Property %d") y **no cambian nada**; portado así.
-- **Enum arreglado**: `ObjectPropertyType` de `src/ScriptHeaders/ScriptEnums.h` juntaba dos entradas en
-  `InHandGrabypeSpeed`, así que desde `IN_HAND_GRAB` (10) todo iba desplazado un valor (`SPEED` 11 … `BUILT_PERCENTAGE`
-  22, `ZPOS` 25). Ahora son `InHandGrab` y `Speed` como en `bw1-decomp include/chlasm/ScriptEnums.h`. Nadie usaba los
-  números antes (comprobado con grep), así que el arreglo no rompe nada.
+- **`GET_LAND_HEIGHT`** (`GScript::GetLandHeight` 0x6FB1F0): cell `(int)(x·0,1)`, `(int)(z·0,1)` (truncated towards 0, so
+  −10 < x < 0 is still cell 0); outside 0..511, with no block or **altitude 0** it returns **−10.0**
+  (0xC1200000, "it is in the sea"); otherwise, the interpolated height (`LH3DIsland::GetAltitude`). openblack always returned
+  the height: now `sea_cells::ScriptLandHeight` applies the full rule (`CHLApi.cpp`, `GET_LAND_HEIGHT` 151). It is used by
+  the challenges `Baywatch` (Land2) and `LostBrother` (Land1). Checked: Land1 open sea (1464, 2016) → −10, dry land
+  (1788.4; 2710) → 28.917.
+- **`GET_PROPERTY`** (`GScript::GetProperty` 0x70DAE0, jump table 0x70E78C on `propiedad − 1`): for now the
+  two water ones are there, the others are still unimplemented.
+  - `FLYING` (5, 0x70DCF8) = bit 6 (0x40) of `Object+0x24` = **the object has a `PhysicsObject`** (also the
+    obstacles at rest, just like `Object::IsActuallyInTheAir` 0x639410).
+  - `DROWNING` (6, 0x70DD0A) = the virtual `IsDrowning` (vt +0x17C): `Villager` 0x756B30 = state **16** DROWNING;
+    `Object` 0x63A780 = has a `PhysicsObject` **and** the centre of mass (po +0xCC) is below y = 0;
+    `GameThingWithPos` 0x4052D0 = 0. In openblack it is `ecs::IsDrowning` (`ECS/VillagerDrowning`). It is used by the challenges
+    `CreatureSavingPeopleDrowningMan` and `PiperSetFree` (Land1) and `ThrowBlokeMain` / `EndOfFlyingNutter` (Land3).
+  - With a thing that no longer exists the original writes "Thing no longer valid" and pushes a **float 0**; openblack does the
+    same (it often appears in the log because the scripts reference objects that openblack does not create yet).
+- **`SET_PROPERTY`** (0x70F380 → fn_0070E820, table 0x70F2BC): `FLYING`, `DROWNING` and `MOVING` go to the error case
+  ("Cannot Set Property %d") and **change nothing**; ported that way.
+- **Enum fixed**: `ObjectPropertyType` in `src/ScriptHeaders/ScriptEnums.h` merged two entries into
+  `InHandGrabypeSpeed`, so from `IN_HAND_GRAB` (10) onwards everything was shifted by one value (`SPEED` 11 … `BUILT_PERCENTAGE`
+  22, `ZPOS` 25). Now they are `InHandGrab` and `Speed` as in `bw1-decomp include/chlasm/ScriptEnums.h`. Nobody used the
+  numbers before (checked with grep), so the fix breaks nothing.
 
-## Golpes y objetos que caen al agua
+## Impacts and objects that fall into the water
 
-- **Golpe contra el agua** (`AttemptToAddSoundEvent` 0x6465B7): `!IsDryLand` (altitud < 4) → **anillo** en (x; 0,1; z)
-  de crecimiento 2R, ritmo 1/R, celda **0x3F**, 0xFFFFFFFF; además, si en la celda redondeada no hay celda o la
-  altitud es < 3 → tipo de colisión WATER, polvo de espuma 0x28C8F0F4 y `fn_0074F2D0` (que **solo** pone la bandera
-  global de chapoteo que asusta a los peces: no hay efecto de fichero de hechizo, las 6 "partículas" de espuma son el
-  polvo normal de `fn_00845C20`). Altitud 3 = orilla: anillo + polvo marrón con el sonido del suelo.
-  - Las 6 partículas (0x646776..0x646854; openblack `ECS/Physics/Dust`): en (x, `GetAltitude`, z), velocidad
-    (rand(201) − 100)·0,02 por eje, tamaño min(2R, 5), tipo 4 de las "liquid particles" (`fn_00845D30`, cupo 0x400;
-    `fn_00846010`: tipo 4 = 1 s sin gravedad, tipo 0 = 3 s, otros 2 s; se quitan cuando la edad **pasa** de la vida,
-    antes de moverse). El color pasa antes por `fn_004ED180`: k = clamp(ftol(nieve en el punto), 0, 255) con la
-    rejilla `SnowCover` [0xEDC344] (128×128, 40 unidades por celda, bilineal, `fn_0086CA80`) y cada canal
-    c += floor((base − c)·k/256) hacia el color base de la luz [0xFA26A4], alfa igual. Sin nieve k = 0 y el color no
-    cambia; aquí no hay `SnowCover` (clima de openblack-magic), así que no se aplica.
-- **Onda al cabecear en el agua** (0x645A5E): mismo anillo pero **celda 0x30** (la del chapoteo de la mano), no 0x3F.
-- **Soltar sobre el agua** (`Object::InitialisePhysicsFromHand` 0x636F00, portado entero; el algoritmo está en
-  [physics.md](physics.md#el-agua-en-los-golpes-y-al-soltar)): solo "aterriza" con `IsDryLand` o con la altitud de la
-  celda redondeada (fistp) > 1, así que sobre el mar el objeto se queda en física y flota o se hunde
-  ([abajo](#hundirse-ahogarse-y-borrarse)); una vasija de la mano soltada despacio pierde su recurso (siguiente punto).
-  La flotación (densidad que sube 6,67e-5 por subpaso, arrastre ×100, borrado por debajo de −4R) está en
-  [physics.md](physics.md#motor-physob-0x7fb7300x7fe7b0). **fiel**
-- **Recursos que caen al mar** (`Pot::AddResourceToPos` 0x66F270): fuera del mapa no hace nada, y lo que sobra tras
-  fundirse con montones/almacenes **se pierde** si la celda es de agua (0x66F42D): ni montón nuevo ni sonido.
-  openblack: una sola regla, `ecs::pot_resource::AddResourceToPos` (`ECS/PotResource.cpp`, exacta a 0x66F270, ver
-  [magic.md](magic.md)); la mano (`HandResources.cpp`) ya no tiene regla propia y `pot_resource::IsWater` llama a
-  `ecs::sea_cells::IsWater` (única copia de `MapCoords::IsWater` 0x6035B0).
+- **Impact against the water** (`AttemptToAddSoundEvent` 0x6465B7): `!IsDryLand` (altitude < 4) → **ring** at (x; 0.1; z)
+  with growth 2R, rate 1/R, cell **0x3F**, 0xFFFFFFFF; also, if in the rounded cell there is no cell or the
+  altitude is < 3 → collision type WATER, foam dust 0x28C8F0F4 and `fn_0074F2D0` (which **only** sets the
+  global splash flag that scares the fish: there is no spell file effect, the 6 foam "particles" are the
+  normal dust of `fn_00845C20`). Altitude 3 = shore: ring + brown dust with the ground sound.
+  - The 6 particles (0x646776..0x646854; openblack `ECS/Physics/Dust`): at (x, `GetAltitude`, z), velocity
+    (rand(201) − 100)·0.02 per axis, size min(2R, 5), type 4 of the "liquid particles" (`fn_00845D30`, quota 0x400;
+    `fn_00846010`: type 4 = 1 s without gravity, type 0 = 3 s, others 2 s; they are removed when the age **exceeds** the life,
+    before moving). The colour first goes through `fn_004ED180`: k = clamp(ftol(snow at the point), 0, 255) with the
+    `SnowCover` grid [0xEDC344] (128×128, 40 units per cell, bilinear, `fn_0086CA80`) and each channel
+    c += floor((base − c)·k/256) towards the base colour of the light [0xFA26A4], alpha the same. Without snow k = 0 and the colour does not
+    change; here there is no `SnowCover` (openblack-magic weather), so it is not applied.
+- **Wave when bobbing in the water** (0x645A5E): same ring but **cell 0x30** (the one of the hand splash), not 0x3F.
+- **Dropping over the water** (`Object::InitialisePhysicsFromHand` 0x636F00, fully ported; the algorithm is in
+  [physics.md](physics.md#water-in-impacts-and-when-dropping)): it only "lands" with `IsDryLand` or with the altitude of the
+  rounded cell (fistp) > 1, so over the sea the object stays in physics and floats or sinks
+  ([below](#sinking-drowning-and-being-deleted)); a hand pot dropped slowly loses its resource (next point).
+  Buoyancy (density that rises 6,67e-5 per substep, drag ×100, deletion below −4R) is in
+  [physics.md](physics.md#engine-physob-0x7fb7300x7fe7b0). **faithful**
+- **Resources that fall into the sea** (`Pot::AddResourceToPos` 0x66F270): outside the map it does nothing, and what is left after
+  merging with piles/storehouses **is lost** if the cell is water (0x66F42D): neither a new pile nor a sound.
+  openblack: a single rule, `ecs::pot_resource::AddResourceToPos` (`ECS/PotResource.cpp`, exact to 0x66F270, see
+  [magic.md](magic.md)); the hand (`HandResources.cpp`) no longer has its own rule and `pot_resource::IsWater` calls
+  `ecs::sea_cells::IsWater` (the only copy of `MapCoords::IsWater` 0x6035B0).
 
-## Hundirse, ahogarse y borrarse
+## Sinking, drowning and being deleted
 
-Código: `src/ECS/VillagerDrowning.{h,cpp}` y `src/ECS/ToBeDeleted.{h,cpp}`. **Fiel** salvo lo que se marca
-pendiente (la muerte completa del aldeano, ver [Pendiente](#pendiente)).
+Code: `src/ECS/VillagerDrowning.{h,cpp}` and `src/ECS/ToBeDeleted.{h,cpp}`. **Faithful** except what is marked
+pending (the villager's complete death, see [Pending](#pending)).
 
-- **`HasSunk`** (vt +0x7B8), preguntado en cada subpaso desde 0x645A01 cuando el cuerpo está despierto, su centro está
-  por debajo de `R/2` y su **densidad > 1**; si dice que sí, el cuerpo se para (v = 0, L = 0) y se ejecuta `EndPhysics`
-  como si hubiera quedado en reposo (código 2):
-  - `Object::HasSunk` 0x637470 → **no**: rocas, árboles, vasijas, montones y trozos siguen bajando hasta `T.y < −4R`
-    (código 4) y ahí se **borran** con el `ToBeDeleted(0)` de su clase. Tiempos medidos: roca al momento, aldeano ~4
-    turnos, vasija de ofrenda ~64, animal ~75, objeto normal ~150, árbol ~194, vasija ~298, balón ~525.
-    Mientras bajan se dibujan enteros con su Draw normal, después de la tierra: la parte bajo y = 0 queda tapada por la
-    Z de las celdas dibujadas (que la escriben aunque sean transparentes) y se ve sobre las celdas de mar abierto 0x02
-    (que no se dibujan). Un árbol que se hunde junto a esas celdas sale **cortado en rectángulos**, también en el
-    original ([rendering.md](rendering.md#costa)); el usuario lo recuerda así (2026-10-01): un árbol o una roca
-    lanzados al mar se veían cortados.
-  - `Living::HasSunk` 0x5ED370 (animales) → `SetDying`, estado LIVING_DEAD 15 y `ToBeDeleted(0)`: el animal desaparece.
-  - `Villager::HasSunk` 0x750AB0 → `stateCounter = GVillagerInfo::drowningTime` (**600** turnos = 60 s) y estado
-    **DROWNING (16)**. (Si el aldeano ya estaba muerto: estado DYING 14 con `dyingTimeWithoutGraveyard`, rama que
-    openblack no alcanza porque un aldeano sin vida se quita al momento.)
-  - Falta en los dos `Living`: avisar a la criatura para que aprenda del jugador que lo soltó
-    (`ConsiderMakingCreatureMimicPlayer`, `DETECTED_PLAYER_ACTION_THROW_IN_THE_SEA` 0x15) — depende de la criatura.
-- **`Villager::EndPhysics` 0x5F0A60, rama del agua** (0x5F0BAF): todo aldeano que **acaba la física en una celda con el
-  bit de agua** se ahoga, también en la orilla somera; no hay LANDED. Con vida > 0 → DROWNING con `drowningTime`
-  (y `lastPlayerToInteract` = quien lo lanzó, pendiente); si no, `VillagerDead(6 PLAYER_INTERACTION_DROWN)`. Se llega
-  aquí por `HasSunk` (lo normal en el mar) o al pararse con contactos en una celda de agua de altitud ≥ 2; en Land1 **no
-  hay ninguna celda de agua con altitud > 1** (comprobado recorriendo el mapa en `test_sea_cells`), así que en esa isla
-  siempre se llega por `HasSunk`. openblack usaba `po.body.inWater` (la física) en vez de `IsWater(Pos)` (la celda).
-- **Estado DROWNING (16)**, `Villager::Drowning` 0x76A780, una vez por turno: `--stateCounter` y, a 0, muerte con
-  motivo 6. Clip por defecto del estado **252 `P_DROWNING`** (bucle de 2233 ms) y sus eventos de sonido: 30 ms y 1590 ms
-  chapoteo de nadar 157 (`editor.sad` 559-562), 257 ms voz de ahogarse 134 (hombre 563-570, mujer 571-578, el niño no
-  grita) — ya suenan porque `AnimationSounds` resuelve la superficie 7 (agua) del clip.
-  `EnterDrowning` 0x767410 / `ExitDrowning` 0x767420 devuelven 1 (no hacen nada).
-  - **Corre cada turno**: `GGame::ProcessTurn` → `Living::ProcessLiving` 0x5EC810 → `ProcessState` (vt +0x620,
-    `Villager::ProcessState` 0x74FF70) → `CallState` 0x7521D0. `GVillagerInfo::processChecksEvery` (+0x2DC) solo
-    espacia el bloque periódico de `CheckEveryTime` (0x750518: vejez, hambre…), no la función de estado.
-  - **Bit 0x4000 de `Flags` +0x24 = INDESTRUCTIBLE**: lo ponen y quitan `SET_INDESTRUCTABLE` (`GScript::
-    SetIndestructable` 0x6FDE20, objetos que no son contenedores de guion), los puzles (PuzzleGame, HanoiBlock,
-    PuzzlePig) y `GameOSFile::LoadInstance`. `Drowning` 0x76A783 fija el contador en 10 antes de restarle: **un
-    aldeano indestructible no se ahoga nunca**. openblack: componente `Indestructible` y `SET_INDESTRUCTABLE` en
+- **`HasSunk`** (vt +0x7B8), asked on every substep from 0x645A01 when the body is awake, its centre is
+  below `R/2` and its **density > 1**; if it says yes, the body stops (v = 0, L = 0) and `EndPhysics` runs
+  as if it had come to rest (code 2):
+  - `Object::HasSunk` 0x637470 → **no**: rocks, trees, pots, piles and pieces keep going down until `T.y < −4R`
+    (code 4) and there they are **deleted** with their class's `ToBeDeleted(0)`. Measured times: rock immediately, villager ~4
+    turns, offering pot ~64, animal ~75, normal object ~150, tree ~194, pot ~298, ball ~525.
+    While going down they are drawn whole with their normal Draw, after the land: the part below y = 0 is hidden by the
+    Z of the drawn cells (which write it even though they are transparent) and is visible over the open-sea 0x02 cells
+    (which are not drawn). A tree that sinks next to those cells comes out **cut into rectangles**, also in the
+    original ([rendering.md](rendering.md#coast)); the user remembers it that way (2026-10-01): a tree or a rock
+    thrown into the sea looked cut off.
+  - `Living::HasSunk` 0x5ED370 (animals) → `SetDying`, state LIVING_DEAD 15 and `ToBeDeleted(0)`: the animal disappears.
+  - `Villager::HasSunk` 0x750AB0 → `stateCounter = GVillagerInfo::drowningTime` (**600** turns = 60 s) and state
+    **DROWNING (16)**. (If the villager was already dead: state DYING 14 with `dyingTimeWithoutGraveyard`, a branch that
+    openblack does not reach because a lifeless villager is removed immediately.)
+  - Missing in both `Living`s: notifying the creature so that it learns from the player who dropped it
+    (`ConsiderMakingCreatureMimicPlayer`, `DETECTED_PLAYER_ACTION_THROW_IN_THE_SEA` 0x15) — depends on the creature.
+- **`Villager::EndPhysics` 0x5F0A60, water branch** (0x5F0BAF): every villager that **ends physics in a cell with the
+  water bit** drowns, also on the shallow shore; there is no LANDED. With life > 0 → DROWNING with `drowningTime`
+  (and `lastPlayerToInteract` = whoever threw it, pending); otherwise, `VillagerDead(6 PLAYER_INTERACTION_DROWN)`. This is reached
+  through `HasSunk` (the normal case in the sea) or when stopping with contacts in a water cell of altitude ≥ 2; in Land1 **there is no
+  water cell with altitude > 1** (checked by walking the map in `test_sea_cells`), so on that island
+  it is always reached through `HasSunk`. openblack used `po.body.inWater` (physics) instead of `IsWater(Pos)` (the cell).
+- **DROWNING state (16)**, `Villager::Drowning` 0x76A780, once per turn: `--stateCounter` and, at 0, death with
+  reason 6. Default clip of the state **252 `P_DROWNING`** (2233 ms loop) and its sound events: 30 ms and 1590 ms
+  swimming splash 157 (`editor.sad` 559-562), 257 ms drowning voice 134 (man 563-570, woman 571-578, the child does not
+  scream) — they already play because `AnimationSounds` resolves surface 7 (water) of the clip.
+  `EnterDrowning` 0x767410 / `ExitDrowning` 0x767420 return 1 (they do nothing).
+  - **Runs every turn**: `GGame::ProcessTurn` → `Living::ProcessLiving` 0x5EC810 → `ProcessState` (vt +0x620,
+    `Villager::ProcessState` 0x74FF70) → `CallState` 0x7521D0. `GVillagerInfo::processChecksEvery` (+0x2DC) only
+    spaces out the periodic block of `CheckEveryTime` (0x750518: old age, hunger…), not the state function.
+  - **Bit 0x4000 of `Flags` +0x24 = INDESTRUCTIBLE**: it is set and cleared by `SET_INDESTRUCTABLE` (`GScript::
+    SetIndestructable` 0x6FDE20, objects that are not script containers), the puzzles (PuzzleGame, HanoiBlock,
+    PuzzlePig) and `GameOSFile::LoadInstance`. `Drowning` 0x76A783 sets the counter to 10 before decrementing it: **an
+    indestructible villager never drowns**. openblack: `Indestructible` component and `SET_INDESTRUCTABLE` in
     `CHLApi.cpp`.
-  - **`lastPlayerToInteract` (+0x104)** = `PhysicsObject::GetPlayer` 0x647460 (el jugador del `GInterfaceStatus` de
-    po+0x24: la mano que lo soltó o lanzó, heredado por lo que golpea; 0 sin físicas), puesto en la rama del agua de
-    `EndPhysics`. Solo lo lee el `VillagerDead` de `Drowning` (el `GetPlayerWhoLastDroppedMe` del aldeano es el de
-    `GameThing`, que devuelve NULL, 0x4018B0). openblack aún no tiene jugadores donde guardarlo.
-  - **Rescatar con la mano**: cogerlo lo pone IN_HAND (la función de ahogarse deja de correr) y soltarlo en tierra seca
-    lo saca de la física en el acto → `Villager::EndPhysics` sin `IsWater` → LANDED. Tras LANDED solo vuelve al
-    estado anterior (+0x8E) si tiene la bandera 0x400 (controlado por guion) o si ese estado tiene +0x104 en su
-    `GVillagerStateTableInfo` (fichero +0xF4): solo `InScript` (4) e `In Script Dance` (5); DROWNING no. Queda
-    rescatado.
-- **Clips de morir en el agua**: `DyingAnimation` 0x423770 → **283 `P_INTO_DEAD_DROWNED`** si `IsWater(Pos)`, y
-  `DeadAnimation` 0x4237A0 → **249 `P_DEAD_DROWNED`** (`VillagerAnimations`); en tierra 253 y 243.
-- **`ToBeDeleted`** común (`ECS/ToBeDeleted`): la limpieza de cada clase antes de quitar la entidad — aldeano
-  (`Villager::DeleteDependancys` 0x74FD60: casa y lista de sin techo), animal (`Animal::DeleteDependancys` 0x417BA0:
-  la IA lo olvida), y luego fuera de la física y del registro. Lo usan el borrado a −4R (antes `registry.Destroy`
-  directo), el hundimiento de animales y la muerte del ahogado.
-- **Guiones**: `GET_PROPERTY(DROWNING)` (y `FLYING`) ya responden con `ecs::IsDrowning`; ver
-  [El agua en los guiones](#el-agua-en-los-guiones-chl).
+  - **`lastPlayerToInteract` (+0x104)** = `PhysicsObject::GetPlayer` 0x647460 (the player of the `GInterfaceStatus` of
+    po+0x24: the hand that dropped or threw it, inherited by what it hits; 0 without physics), set in the water branch of
+    `EndPhysics`. It is only read by the `VillagerDead` of `Drowning` (the villager's `GetPlayerWhoLastDroppedMe` is the one from
+    `GameThing`, which returns NULL, 0x4018B0). openblack does not yet have players to store it in.
+  - **Rescuing with the hand**: picking it up puts it IN_HAND (the drowning function stops running) and dropping it on dry land
+    takes it out of physics on the spot → `Villager::EndPhysics` without `IsWater` → LANDED. After LANDED it only goes back to the
+    previous state (+0x8E) if it has the 0x400 flag (script-controlled) or if that state has +0x104 in its
+    `GVillagerStateTableInfo` (file +0xF4): only `InScript` (4) and `In Script Dance` (5); DROWNING does not. It stays
+    rescued.
+- **Clips for dying in the water**: `DyingAnimation` 0x423770 → **283 `P_INTO_DEAD_DROWNED`** if `IsWater(Pos)`, and
+  `DeadAnimation` 0x4237A0 → **249 `P_DEAD_DROWNED`** (`VillagerAnimations`); on land 253 and 243.
+- Common **`ToBeDeleted`** (`ECS/ToBeDeleted`): the clean-up of each class before removing the entity — villager
+  (`Villager::DeleteDependancys` 0x74FD60: house and homeless list), animal (`Animal::DeleteDependancys` 0x417BA0:
+  the AI forgets it), and then out of physics and of the registry. It is used by the deletion at −4R (previously a direct
+  `registry.Destroy`), the sinking of animals and the death of the drowned.
+- **Scripts**: `GET_PROPERTY(DROWNING)` (and `FLYING`) now answer with `ecs::IsDrowning`; see
+  [Water in the scripts](#water-in-the-scripts-chl).
 
-## Anillos de agua
+## Water rings
 
-- **Fiel** (`fn_005E5100`, tras la tierra y antes de los modelos): por anillo, edad += (int)(ms de
-  juego · ritmo), fuera a 700; media anchura max(edad·crecimiento/700, 0,0001) (z × aspecto, +0x28); alfa (int)((255 − 0,364286·
-  (edad % 700))·A) >> 8, RGB del color; giro en Y, celda & 63 de la hoja 8×8 de `smoke.raw`/`smokea.raw`, modo 13
-  (SRCALPHA/ONE, sin Z); deriva con el viento si +0x1C. Chapoteo de la mano: (x, 0,2, z), crecimiento 7, ángulo al azar,
-  celda 0x30, 0xB0 + tabla de luz[255]. Objeto físico en el agua (0x6466D2): (x, 0,1, z), crecimiento 2·radio, ritmo
-  1/radio, celda 0x3F, blanco. openblack: `ecs/WaterRings`, `Renderer::DrawWaterRings`; gancho `OPENBLACK_TEST_SPLASH="x,z"`
-  (un chapoteo por segundo; los anillos solo avanzan con el juego en marcha). El color +0x34 se fija **al crear** el
-  anillo (tabla[255] de ese fotograma para la mano y la cascada, tabla[200] para la lluvia): `AddWaterRing` resuelve
-  `seaLight` una vez y el dibujo usa +0x34 tal cual, así un anillo hecho al anochecer o en un relámpago no cambia.
-  Anillos de partículas (`PSys/PSysWaterRings`, llamados por las reglas de
-  [particles.md](particles.md#el-psys-en-el-mundo-formato-paso-dibujo-y-reglas-del-agua)): explosión
-  (`UR_Explosion` 0x67E347: en agua o altitud < 4 tres anillos de crecimiento 5, 7 y 10, celda 0x30, blanco, en
-  (x, altitud, z); en tierra seca el chamuscado 0x251) y onda de partícula (`fn_006A1630`: solo en agua y a más de 2
-  (rule+0x40) en xz de la última, crecimiento 4·radio del átomo, en el suelo).
-- Cupo del original: 1024 anillos de 0x38 bytes en 0xEAB7C8. Los crean el chapoteo de la mano, los objetos que caen
-  al agua ([arriba](#golpes-y-objetos-que-caen-al-agua)), la estela de los [tiburones](#tiburones-clase-whale), el
-  pie de la [cascada](#decorado-fijo-por-tierra-cascada-de-land-3-arca-y-dinosaurio-de-land-4), los peces del
-  [puzle](#puzle-de-los-peces), la lluvia y las partículas; los nadadores (SuperVillagers) aún no existen en openblack.
-  El agua que asusta a los peces: [rendering-objects.md](rendering-objects.md#bancos-de-peces-de-las-piscifactorías).
+- **Faithful** (`fn_005E5100`, after the land and before the models): per ring, age += (int)(game
+  ms · rate), removed at 700; half width max(age·growth/700, 0.0001) (z × aspect, +0x28); alpha (int)((255 − 0.364286·
+  (age % 700))·A) >> 8, RGB from the colour; rotation in Y, cell & 63 of the 8×8 sheet of `smoke.raw`/`smokea.raw`, mode 13
+  (SRCALPHA/ONE, no Z); drifts with the wind if +0x1C. Hand splash: (x, 0,2, z), growth 7, random angle,
+  cell 0x30, 0xB0 + light table[255]. Physics object in the water (0x6466D2): (x, 0,1, z), growth 2·radius, rate
+  1/radius, cell 0x3F, white. openblack: `ecs/WaterRings`, `Renderer::DrawWaterRings`; hook `OPENBLACK_TEST_SPLASH="x,z"`
+  (one splash per second; the rings only advance with the game running). The colour +0x34 is fixed **on creating** the
+  ring (table[255] of that frame for the hand and the waterfall, table[200] for the rain): `AddWaterRing` resolves
+  `seaLight` once and the drawing uses +0x34 as is, so a ring made at nightfall or during a lightning flash does not change.
+  Particle rings (`PSys/PSysWaterRings`, called by the rules of
+  [particles.md](particles.md#the-psys-in-the-world-format-step-drawing-and-water-rules)): explosion
+  (`UR_Explosion` 0x67E347: in water or altitude < 4 three rings of growth 5, 7 and 10, cell 0x30, white, at
+  (x, altitude, z); on dry land the scorch mark 0x251) and particle ripple (`fn_006A1630`: only in water and more than 2
+  (rule+0x40) in xz from the last one, growth 4·atom radius, on the ground).
+- The original's quota: 1024 rings of 0x38 bytes at 0xEAB7C8. They are created by the hand splash, the objects that fall
+  into the water ([above](#impacts-and-objects-that-fall-into-the-water)), the wake of the [sharks](#sharks-class-whale), the
+  foot of the [waterfall](#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur), the fish of the
+  [puzzle](#fish-puzzle), the rain and the particles; the swimmers (SuperVillagers) do not exist in openblack yet.
+  The water that scares the fish: [rendering-objects.md](rendering-objects.md#fish-farm-fish-shoals).
 
-## Tiburones (clase `Whale`)
+## Sharks (class `Whale`)
 
-- **Fiel** (clase `Whale`, Whale.cpp; hecho en W12, `src/ECS/Sharks.{h,cpp}`,
+- **Faithful** (class `Whale`, Whale.cpp; done in W12, `src/ECS/Sharks.{h,cpp}`,
   `ECS/Archetypes/SharkArchetype.*`, `ECS/Components/Shark.h`). `CREATE(Whale = 26, 5000, pos)` → `Whale::Create`
-  0x774C50 (`GMobileObjectInfo[24]`; la malla 370 de info.dat no se usa) → `CallVirtualFunctionsForCreation` 0x774CA0:
-  **escala ×2**, malla 31 `MSH_SHARK_BONED`, clip 129 `ANM_SHARK_BONED_SWIM` en bucle, +0x6C (rumbo) = 0. Sin IA: por
-  turno `Whale::Process` 0x775280 solo copia Pos en +0x2C (lo mueve el `WALK_PATH` del guion por el foco de las
-  pistas `Track21`/`Track20` de `camera.edt`: [camera-tracks.md](camera-tracks.md), `ECS/MobileWalkPaths.*`). Por fotograma `fn_00774E30` (desde `GLandscape::Draw` 0x5E4B26, antes del mar):
-  tiempo del clip += ms; rumbo = `LH3DMath::GetYAngle` 0x841290 = atan2(dz, dx) en [0, 2π) de Pos − +0x2C (el
-  anterior si no se movió); posición interpolada con la fracción del turno (cada extremo en GetAltitude + relY);
-  parte de abajo en 0xFF303070; estela `fn_00775170`; la parte de arriba es `Whale::Draw` 0x774E10 (tabla[255], plano
-  por defecto). Sin sombra, sin reflejo, no se coge.
-  Estela: un temporizador **global** 0xDCB984 para todos los tiburones (cada uno le suma los ms del fotograma): si
-  pasa de 50, `%= 50` y un anillo en (p.x, 0, p.z), crecimiento 10, aspecto 0,5, ritmo 0,5, celda 0x31, 0x90FFFFFF,
-  ángulo = rumbo, sin escribir +0x1C. p = la posición de `EBone.matrices[0]` por la matriz del hueso `EBone.bones[0]`
-  (0x77507D, `fn_007FAE60`; en la malla 31 el hueso 0 y (−0,079, −0,003, 0,304)): `L3DMesh::GetEBonePoint0`.
-  El temporizador suma ms enteros (`g_game+0x250540`, 0x775265: la diferencia de dos lecturas enteras del reloj de
-  juego, `GGame::Loop` 0x54D374); openblack lo lleva igual (reloj en double y ms enteros por fotograma, sin perder
-  tiempo a muchos fps). Espacio de `[0xC37D9C]`: el que acaba de llenar el `DrawCutByPlane` del propio tiburón
-  (`fn_00811C70` → `fn_00839980`/`fn_00839BC0` mezclan los fotogramas del clip y `fn_00839F10` multiplica cada hueso
-  por su padre y la raíz por la matriz de mundo del objeto, +0x14): **espacio de mundo**, sin cámara. openblack:
-  modelo × pose (huesos en espacio de modelo) × punto, el mismo producto. Captura `_audit/agua/re_shark.png`. Gancho `OPENBLACK_TEST_SHARK=1` (los dos tiburones de
-  `FollowUs` con sus `WALK_PATH`; captura `_audit/agua/paths_sharks1.png`).
-  Captura `_audit/agua/w12_shark_noon.png`: aleta y cola claras sobre el agua, cuerpo azul oscuro a través del mar,
-  anillos blancos saliendo del lomo hacia la cola.
+  0x774C50 (`GMobileObjectInfo[24]`; mesh 370 from info.dat is not used) → `CallVirtualFunctionsForCreation` 0x774CA0:
+  **scale ×2**, mesh 31 `MSH_SHARK_BONED`, clip 129 `ANM_SHARK_BONED_SWIM` looping, +0x6C (heading) = 0. No AI: per
+  turn `Whale::Process` 0x775280 only copies Pos into +0x2C (it is moved by the script's `WALK_PATH` along the focus of the
+  tracks `Track21`/`Track20` of `camera.edt`: [camera-tracks.md](camera-tracks.md), `ECS/MobileWalkPaths.*`). Per frame `fn_00774E30` (from `GLandscape::Draw` 0x5E4B26, before the sea):
+  clip time += ms; heading = `LH3DMath::GetYAngle` 0x841290 = atan2(dz, dx) in [0, 2π) of Pos − +0x2C (the
+  previous one if it did not move); position interpolated with the turn fraction (each end at GetAltitude + relY);
+  bottom part in 0xFF303070; wake `fn_00775170`; the top part is `Whale::Draw` 0x774E10 (table[255], default
+  plane). No shadow, no reflection, cannot be picked up.
+  Wake: a **global** timer 0xDCB984 for all sharks (each one adds the frame's ms to it): if
+  it exceeds 50, `%= 50` and a ring at (p.x, 0, p.z), growth 10, aspect 0,5, rate 0,5, cell 0x31, 0x90FFFFFF,
+  angle = heading, without writing +0x1C. p = the position of `EBone.matrices[0]` times the matrix of bone `EBone.bones[0]`
+  (0x77507D, `fn_007FAE60`; in mesh 31 bone 0 and (−0,079, −0,003, 0.304)): `L3DMesh::GetEBonePoint0`.
+  The timer adds integer ms (`g_game+0x250540`, 0x775265: the difference between two integer readings of the game
+  clock, `GGame::Loop` 0x54D374); openblack does the same (clock in double and integer ms per frame, without losing
+  time at high fps). Space of `[0xC37D9C]`: the one just filled by the shark's own `DrawCutByPlane`
+  (`fn_00811C70` → `fn_00839980`/`fn_00839BC0` blend the clip's frames and `fn_00839F10` multiplies each bone
+  by its parent and the root by the object's world matrix, +0x14): **world space**, no camera. openblack:
+  model × pose (bones in model space) × point, the same product. Screenshot `_audit/agua/re_shark.png`. Hook `OPENBLACK_TEST_SHARK=1` (the two sharks of
+  `FollowUs` with their `WALK_PATH`; screenshot `_audit/agua/paths_sharks1.png`).
+  Screenshot `_audit/agua/w12_shark_noon.png`: light fin and tail above the water, dark blue body through the sea,
+  white rings coming off the back towards the tail.
 
-## Puzle de los peces
+## Fish puzzle
 
-Land 4, `PuzzleGame` 14: hay que meter 30 peces a la vez en la red durante 0,5 s. **Fiel**; faltan el pescador y el
-pergamino. Los bancos de peces normales (piscifactorías: dibujo, susto, pesca, reserva) están en
-[rendering-objects.md](rendering-objects.md#bancos-de-peces-de-las-piscifactorías); su creación desde el guion, en
-[map-loading.md](map-loading.md#piscifactorías-create_fish_farm--create_town_fish_farm).
+Land 4, `PuzzleGame` 14: 30 fish have to be in the net at the same time for 0.5 s. **Faithful**; the fisherman and the
+scroll are missing. The normal fish shoals (fish farms: drawing, scaring, fishing, stock) are in
+[rendering-objects.md](rendering-objects.md#fish-farm-fish-shoals); their creation from the script, in
+[map-loading.md](map-loading.md#fish-farms-create_fish_farm--create_town_fish_farm).
 
-### La red, el cebo y los bancos
+### The net, the bait and the shoals
 
-- **Fiel** (Land 4, `PuzzleGame` 14, `fn_006D7480` rama 0x6D7FCD): cebo `{pos, radio 11, need 30,
-  500 ms}` + red `FishPlot` (ctor 0x829A30: `Data\MISC\Fishplot.l3d`, un flotador estático con luz dinámica, dibujado
-  en 7 puntos `pos + 11·(cos(i·2π/7), 0, sin(i·2π/7))`, fase 0, cierre 1) + 2 bancos de 15 (rango 7) en `pos + (±12, 0,
-  12)` con `+0x5C = cebo`. `fn_00824B90` cada fotograma: `inside = 0` en todos los cebos; por banco, `n =
-  fn_00824DA0` (0 y el banco ya no se mueve ni se dibuja si el cebo está `done`; si no, los peces visibles con
-  `dx² + dz² < r²` tras moverse, 0x824AB8), y si tiene cebo: la red bajo el agua (`fn_00829BC0`), `inside += n` y, con
-  `inside ≥ 30` y sin `done`, `timer += g_game_time_inc`; a 500 ms `done = 1`, la red se cierra y **cada uno de los 15
-  peces de cada banco de ese cebo** suelta un anillo (su posición, crecimiento 2, ritmo 1, +0x24/+0x28 = 1, celda
-  0x30, blanco; +0x1C sin escribir). Al final, el cebo con `inside < 30` vuelve el temporizador a 0 (0x824D2E): los 30
-  tienen que estar dentro a la vez 0,5 s seguidos. `fn_00829BC0` (dt = ms·0,001): si se cierra y `k ≠ 0`, `k =
-  max(k − 2·dt, 0)`, radio `1 + 10·k` y se recolocan los puntos; `fase += 2·dt`; `SetClipPlane(0, −1, 0, 0)`, por
-  flotador `SetPosition((x, y + 0,5·cos(i² + fase), z), 0, 1)` + `DrawCutByPlane` (vt+0x11C, fn_0080C050), y
-  `SetClipPlane(0, 1, 0, 0)`. Como se llama **una vez por banco**, con los dos bancos la fase avanza 4/s y la red se
-  cierra en 0,25 s, no en 0,5 (se replica). Encima del agua `fn_00829B50` (desde `fn_00824D60`, 0x5E6296): los mismos
-  flotadores con el plano por defecto. Los bancos del puzle no se pescan (`fn_00824B10` salta `+0x5C ≠ 0`).
-  - openblack: `components::FishBait` / `FishPlot` y `FishShoal::bait` (FishFarm.h), `ecs/FishPuzzle`
-    (`CreateFishPuzzle`: los bancos son `FishFarm` de reserva llena sin `Transform`), la regla en
-    `ecs::UpdateFishShoals`, `Renderer::DrawFishPlots` (`RendererFishPlot.cpp`; instancias propias, modo de corte de
-    `vs_object`): la parte de abajo en la pasada de reflejo, espejada, tras los peces; la de arriba en la principal
-    tras los anillos. La red se dibuja una vez por fotograma (el original la dibuja dos veces, una por banco, con la
-    fase de cada llamada: no se ve). El color del corte es el `+0x4C` por defecto, 0xFFFFFFFF (ctor de
-    `LH3DMeshedObject` 0x8164F7): el ctor de `FishPlot` no llama a `SetColour` (vt+0x2C); `UseDynamicLighting`
-    (vt+0x58, `fn_008168C0`) solo pone el bit 0x20 de +4, y los únicos que escriben +0x4C son los dibujos de vt+0x100,
-    +0x110, +0x130 y +0x154, por los que la red no pasa (`fn_00829B50`/`fn_00829BC0` solo llaman a vt+0x20 y
-    vt+0x11C). El lado del guion (`CREATE_WITH_ANGLE_AND_SCALE` 32/14 y `PLAYED`) está hecho: ver
-    [abajo](#el-lado-del-guion-puzzlegame-14-y-played). Faltan el pescador y el pergamino.
-    Gancho `OPENBLACK_TEST_FISH_PUZZLE` ([Ganchos de prueba](#ganchos-de-prueba)).
+- **Faithful** (Land 4, `PuzzleGame` 14, `fn_006D7480` branch 0x6D7FCD): bait `{pos, radio 11, need 30,
+  500 ms}` + net `FishPlot` (ctor 0x829A30: `Data\MISC\Fishplot.l3d`, a static float with dynamic lighting, drawn
+  at 7 points `pos + 11·(cos(i·2π/7), 0, sin(i·2π/7))`, phase 0, closure 1) + 2 shoals of 15 (range 7) at `pos + (±12, 0,
+  12)` with `+0x5C = cebo`. `fn_00824B90` every frame: `inside = 0` on all baits; per shoal, `n =
+  fn_00824DA0` (0 and the shoal no longer moves or is drawn if the bait is `done`; otherwise, the visible fish with
+  `dx² + dz² < r²` after moving, 0x824AB8), and if it has a bait: the net under the water (`fn_00829BC0`), `inside += n` and, with
+  `inside ≥ 30` and not `done`, `timer += g_game_time_inc`; at 500 ms `done = 1`, the net closes and **each of the 15
+  fish of each shoal of that bait** releases a ring (its position, growth 2, rate 1, +0x24/+0x28 = 1, cell
+  0x30, white; +0x1C unwritten). At the end, a bait with `inside < 30` resets the timer to 0 (0x824D2E): the 30
+  have to be inside at the same time for 0.5 s in a row. `fn_00829BC0` (dt = ms·0.001): if it is closing and `k ≠ 0`, `k =
+  max(k − 2·dt, 0)`, radius `1 + 10·k` and the points are repositioned; `fase += 2·dt`; `SetClipPlane(0, −1, 0, 0)`, per
+  float `SetPosition((x, y + 0,5·cos(i² + fase), z), 0, 1)` + `DrawCutByPlane` (vt+0x11C, fn_0080C050), and
+  `SetClipPlane(0, 1, 0, 0)`. Since it is called **once per shoal**, with the two shoals the phase advances 4/s and the net
+  closes in 0.25 s, not in 0.5 (this is replicated). Above the water `fn_00829B50` (from `fn_00824D60`, 0x5E6296): the same
+  floats with the default plane. The puzzle shoals are not fished (`fn_00824B10` skips `+0x5C ≠ 0`).
+  - openblack: `components::FishBait` / `FishPlot` and `FishShoal::bait` (FishFarm.h), `ecs/FishPuzzle`
+    (`CreateFishPuzzle`: the shoals are `FishFarm`s with a full stock and no `Transform`), the rule in
+    `ecs::UpdateFishShoals`, `Renderer::DrawFishPlots` (`RendererFishPlot.cpp`; own instances, cut mode of
+    `vs_object`): the bottom part in the reflection pass, mirrored, after the fish; the top part in the main pass
+    after the rings. The net is drawn once per frame (the original draws it twice, once per shoal, with the
+    phase of each call: it is not noticeable). The colour of the cut is the default `+0x4C`, 0xFFFFFFFF (ctor of
+    `LH3DMeshedObject` 0x8164F7): the `FishPlot` ctor does not call `SetColour` (vt+0x2C); `UseDynamicLighting`
+    (vt+0x58, `fn_008168C0`) only sets bit 0x20 of +4, and the only ones that write +0x4C are the drawings of vt+0x100,
+    +0x110, +0x130 and +0x154, which the net does not go through (`fn_00829B50`/`fn_00829BC0` only call vt+0x20 and
+    vt+0x11C). The script side (`CREATE_WITH_ANGLE_AND_SCALE` 32/14 and `PLAYED`) is done: see
+    [below](#the-script-side-puzzlegame-14-and-played). The fisherman and the scroll are missing.
+    Hook `OPENBLACK_TEST_FISH_PUZZLE` ([Test hooks](#test-hooks)).
 
-### El lado del guion (`PuzzleGame` 14 y `PLAYED`)
+### The script side (`PuzzleGame` 14 and `PLAYED`)
 
-- `CREATE_WITH_ANGLE_AND_SCALE(32, 14, PuzzlePos, …)` → `fn_006D6680` (puzzlegame.cpp, 0x588 bytes, lista
-  g_game+0x205D14). No hace nada hasta que `GlobalGameLists::Process` 0x591449 llama cada turno a `fn_006D7480`:
-  0x6D74C3 nada si +0x3C; si la prueba de "jugado" (`fn_006D66E0`) da 1, +0x3C = 1 y fuera; si no, el paso del tipo. El
-  tipo 14 (0x6D7FCD) crea la primera vez el cebo en `ConvertToLHPoint(+0x14)` 0x6041C0 (altitud + y del guion), su red
-  y los dos bancos (ver [arriba](#la-red-el-cebo-y-los-bancos)).
-- `PLAYED` (64) = `GScript::Played` 0x6F9DC0: criatura → su plan (0x6F9DF4); Living → `IsScriptAnimationComplete` o su
-  estado; tiempo → +0x78 == 0; **PuzzleGame** (vt+0x498) → `fn_006D66E0`, switch 0x6D6C94 sobre tipo − 1: el 14
-  (0x6D6A32) da 0 sin cebo, 1 si `cebo+0x18` (done) —y pone +0x3C = 1—, 0 si no. Objeto perdido o "Thing not living"
-  → 1 (openblack: todo lo que no es aldeano, animal, criatura ni puzle da 1 con "Thing not living"; los Living y la
-  criatura siguen sin portar). El `done` lo pone `fn_00824B90` cuando los 30 peces llevan 500 ms dentro del radio 11 (los bancos solo cuentan
-  a menos de 300 de la cámara, como se dibujan).
-- `PuzzleGame::ToBeDeleted` 0x6D6FF0: borra el cebo con su `FishPlot` (fn_00829B20) y los dos bancos (fuera de la lista
-  0xEB99F4, con sus 15 peces).
-- openblack: `components::PuzzleGame`, `src/ECS/PuzzleGames.{h,cpp}` (creación, turno, `PLAYED`, limpieza de los
-  borrados), `CreateScriptObject` tipo 32 y `PLAYED` en `CHLApi`. Solo el tipo 14; los demás puzles (Hanoi,
-  laberintos, tótems, ajedrez...) no están portados y su `PLAYED` da 0.
+- `CREATE_WITH_ANGLE_AND_SCALE(32, 14, PuzzlePos, …)` → `fn_006D6680` (puzzlegame.cpp, 0x588 bytes, list
+  g_game+0x205D14). It does nothing until `GlobalGameLists::Process` 0x591449 calls `fn_006D7480` every turn:
+  0x6D74C3 nothing if +0x3C; if the "played" test (`fn_006D66E0`) gives 1, +0x3C = 1 and out; otherwise, the type's step. The
+  type 14 (0x6D7FCD) creates the first time the bait at `ConvertToLHPoint(+0x14)` 0x6041C0 (altitude + the script's y), its net
+  and the two shoals (see [above](#the-net-the-bait-and-the-shoals)).
+- `PLAYED` (64) = `GScript::Played` 0x6F9DC0: creature → its plan (0x6F9DF4); Living → `IsScriptAnimationComplete` or its
+  state; weather → +0x78 == 0; **PuzzleGame** (vt+0x498) → `fn_006D66E0`, switch 0x6D6C94 on type − 1: type 14
+  (0x6D6A32) gives 0 without a bait, 1 if `cebo+0x18` (done) —and sets +0x3C = 1—, 0 otherwise. Lost object or "Thing not living"
+  → 1 (openblack: everything that is not a villager, animal, creature or puzzle gives 1 with "Thing not living"; the Living and the
+  creature are still not ported). The `done` is set by `fn_00824B90` when the 30 fish have been inside radius 11 for 500 ms (the shoals only count
+  when less than 300 from the camera, as they are drawn).
+- `PuzzleGame::ToBeDeleted` 0x6D6FF0: deletes the bait with its `FishPlot` (fn_00829B20) and the two shoals (out of the list
+  0xEB99F4, with their 15 fish).
+- openblack: `components::PuzzleGame`, `src/ECS/PuzzleGames.{h,cpp}` (creation, turn, `PLAYED`, clean-up of the
+  deleted ones), `CreateScriptObject` type 32 and `PLAYED` in `CHLApi`. Only type 14; the other puzzles (Hanoi,
+  mazes, totems, chess...) are not ported and their `PLAYED` gives 0.
 
-## Barco de los misioneros (PetitNavire)
+## The missionaries' boat (PetitNavire)
 
-`PLAY_JC_SPECIAL(6)` en Land 1 (`TheMissionaries`): la botadura del arca de los misioneros y su travesía. **Fiel**,
-con las diferencias que se dicen al final. El reflejo del casco se dibuja como los demás reflejos
-([rendering-objects.md](rendering-objects.md#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos)); el porcentaje
-de construcción del arca en el dique (`BUILT_PERCENTAGE`) está en
-[map-loading.md](map-loading.md#porcentaje-de-construcción-de-un-feature-built_percentage-propiedad-chl-22).
+`PLAY_JC_SPECIAL(6)` in Land 1 (`TheMissionaries`): the launch of the missionaries' ark and its voyage. **Faithful**,
+with the differences stated at the end. The reflection of the hull is drawn like the other reflections
+([rendering-objects.md](rendering-objects.md#object-reflections-and-hand-shadow-on-objects)); the build
+percentage of the ark in the dry dock (`BUILT_PERCENTAGE`) is in
+[map-loading.md](map-loading.md#build-percentage-of-a-feature-built_percentage-chl-property-22).
 
-Scripts de RE en `documentacion\agua\re\` (`emu_navire_pre.py`, `emu_navire_post.py`: Unicorn con objetos LH3D falsos que
-registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode CHL, tabla 0xC0DB98 + 0x90·opcode).
-- **CHL**: `PLAY_JC_SPECIAL` (326) = `GScript::PlayJCSpecial` 0x708ED0, tabla 0x708F74 sobre el valor entero (0..15):
-  0, 1, 2, 4, 5, 6 → `fn_005DF9C0(n)`; 3 → un objeto de 0x2C de ScriptGFX (0x828DB0); 14/15 → [0x9CD384] = 1/0. En
-  `fn_005DF9C0` el caso 6 (0x5DFBF8) es `new PetitNavire(0)` (0x68 bytes). `IS_PLAYING_JC_SPECIAL` (327) 0x708FC0 saca
-  un **float** (ftol) y devuelve 1 salvo con 13, que da [0xD19C94] (solo lo pone la intro de la mano, `fn_005DF640`
-  0x5DF807; sin portar → 0).
-- **Un solo barco** [0xD19CB4]; el ctor 0x5E1020 libera el que haya (`fn_005E13C0`: suelta Boat1/Boat2 y los objetos y
-  pone el global a 0). Constantes (inicializadores `crt_xc_fn_JCMisc_005DFED0/005DFF00`): dique [0xD19A08] =
-  (1881,0833; 8,1316; 3154,1094), salida en el mar [0xD199F8] = (1456,54; 0; 3263,06).
-- **Objetos**: casco MSH_O_ARK (339) estático, `SetPosition(dique, 0, 1)`; marinero MSH_P_NORS_SAILOR (504) animado con
-  ANM_P_PUSH_OBJECT (346). Animaciones +0x08..+0x20 = 346, 332 OVERWORKED1, 235 CROWD_WON_2, 333 OVERWORKED2, 406
-  TITANIC, 378 SITTING_SWINGING_LEGS, 359 SCRUBBS. Modo 0: sombra dinámica propia (`fn_008745A0`, holder+4 = 1 y
-  ShadowInfo+0xC = **0**: también cae sobre objetos). Modo 1: vaca MSH_A_COW_1 (16) con ANM_A_COW_EAT_2 (36), montón de
-  grano MSH_S_GRAIN_PILE (533) y `LH3DSprite::Create(5)` con el material de humo [0xEA1ABC] (`smoke.raw`, **modo 6**,
-  0x80BC7D), +0x14 = 3,92699 (5π/4), bandera 0x40 (plano en XZ), celda 0x31; fases +0x50[i] = i·1200 ms.
-- **Pistas del casco**: `Data\MISC\boat1.anm` ("beach04", 158 fotogramas, 15833 ms, banderas 0x501 = en bucle) y
-  `boat2.anm` ("beach_sailing", 44 fotogramas, 4466 ms, 0x501). Una sola matriz por fotograma con **determinante −1**;
-  `fn_0083AC70` interpola los 12 floats (como `LH3DAnim::GetPose`) y la compone con la matriz padre M (`fn_007FAFF0`:
-  pista·M). Después `RotateY(π/2)` 0x5198F0 y `fn_007FAE60(diag(−1, 1, 1))`, que **multiplican por delante** (espacio
-  local): casco = espejo·RotY(π/2)·pista(t)·M, determinante +1. En glm: `M · pista · eulerAngleY(−π/2) · scale(−1, 1, 1)`.
-- **PreDraw 0x5DFF20** (desde `GLandscape::Draw` 0x5E490F, antes del mar), con dt = `g_game_time_inc` entero:
-  - Modo 0: +0x34 += dt; +0x64 = +0x24; si `!+0x48 || +0x34 > 3000`, +0x24 += dt. Si +0x24 > 15833 − 400 se borra,
-    hace `new PetitNavire(1)` y **vuelve**: ese fotograma el barco nuevo no tiene PreDraw y su PostDraw lo dibuja una vez
-    en el dique sin girar. Si no: M = Translate(dique); y del casco += `GetAltitude(casco.xz)` − `GetAltitude(dique.xz)`
-    (0x5E00EB..0x5E0154); `fn_00874850` (sombra); +0x4C = 0xFF303070 y `DrawUnderWater` (vt+0x118, el reflejo);
-    `fn_00801C90` le devuelve la luz de tierra.
-  - Modo 1: +0x24 = (+0x24 + dt) % 4466 (en bucle; si no, min(…, dur − 1)); +0x34 += dt; a los 60000 ms se borra. M =
-    RotY(π/4) (0x92B210) en (1456,54; 0; 3263,06) + (−k, 0, −k)·0,005·+0x34, con k = `InverseSquareRoot(2)` 0x841170
-    (tabla 0xEEA394 más un paso de Newton = 0,70710659): **5 u/s** hacia −x −z, 300 unidades en total. Casco como
-    arriba (sin corrección de altura ni sombra), 0xFF303070 y `DrawUnderWater`.
-  - **Resuelta la duda B4**: no hay "dos partes" ni dos dibujos por fotograma. 0x5E0100-0x5E0190 (modo 0) y
-    0x5E0380-0x5E03EE (modo 1) son ramas **excluyentes** (0x5E0195: `cmp +0x30, 1`); **las dos** montan el espejo
-    diag(−1, 1, 1) (0x5E00C1-0x5E00D9 y 0x5E0350-0x5E03B6) y el π/2 es el `RotateY` del casco. Cada fotograma hay un
-    solo `DrawUnderWater`, en 0xFF303070.
-- **PostDraw 0x5E03F0** (desde `fn_005E5CD0` 0x5E6250, después de `fn_00824140`):
-  - Modo 0, sonidos 2D (`GAudio::PlaySoundEffect` 0x429E30, banco GGlobal+0x3BC = `Scriptsfx.sad`, opciones +0xBC = 2,
-    es decir +0x50 = modo 2, dueño 0, is3D 0; en openblack por `sample_play`, uno de los 16 canales)
-    cuando el tiempo del casco cruza el umbral (+0x64 < umbral < +0x24): 100 → 62 `MissionaryBoatCreak_01`, 1500 → 61
+RE scripts in `documentacion\agua\re\` (`emu_navire_pre.py`, `emu_navire_post.py`: Unicorn with fake LH3D objects that
+log every call; `rd.py`; `chlfn.py` gives the GScript function of a CHL opcode, table 0xC0DB98 + 0x90·opcode).
+- **CHL**: `PLAY_JC_SPECIAL` (326) = `GScript::PlayJCSpecial` 0x708ED0, table 0x708F74 on the integer value (0..15):
+  0, 1, 2, 4, 5, 6 → `fn_005DF9C0(n)`; 3 → a 0x2C ScriptGFX object (0x828DB0); 14/15 → [0x9CD384] = 1/0. In
+  `fn_005DF9C0` case 6 (0x5DFBF8) is `new PetitNavire(0)` (0x68 bytes). `IS_PLAYING_JC_SPECIAL` (327) 0x708FC0 pops
+  a **float** (ftol) and returns 1 except with 13, which gives [0xD19C94] (only set by the hand intro, `fn_005DF640`
+  0x5DF807; not ported → 0).
+- **A single boat** [0xD19CB4]; the ctor 0x5E1020 frees whatever is there (`fn_005E13C0`: releases Boat1/Boat2 and the objects and
+  sets the global to 0). Constants (initialisers `crt_xc_fn_JCMisc_005DFED0/005DFF00`): dry dock [0xD19A08] =
+  (1881.0833; 8.1316; 3154.1094), exit at sea [0xD199F8] = (1456.54; 0; 3263.06).
+- **Objects**: hull MSH_O_ARK (339) static, `SetPosition(dique, 0, 1)`; sailor MSH_P_NORS_SAILOR (504) animated with
+  ANM_P_PUSH_OBJECT (346). Animations +0x08..+0x20 = 346, 332 OVERWORKED1, 235 CROWD_WON_2, 333 OVERWORKED2, 406
+  TITANIC, 378 SITTING_SWINGING_LEGS, 359 SCRUBBS. Mode 0: its own dynamic shadow (`fn_008745A0`, holder+4 = 1 and
+  ShadowInfo+0xC = **0**: it also falls on objects). Mode 1: cow MSH_A_COW_1 (16) with ANM_A_COW_EAT_2 (36), grain
+  pile MSH_S_GRAIN_PILE (533) and `LH3DSprite::Create(5)` with the smoke material [0xEA1ABC] (`smoke.raw`, **mode 6**,
+  0x80BC7D), +0x14 = 3.92699 (5π/4), flag 0x40 (flat in XZ), cell 0x31; phases +0x50[i] = i·1200 ms.
+- **Hull tracks**: `Data\MISC\boat1.anm` ("beach04", 158 frames, 15833 ms, flags 0x501 = looping) and
+  `boat2.anm` ("beach_sailing", 44 frames, 4466 ms, 0x501). A single matrix per frame with **determinant −1**;
+  `fn_0083AC70` interpolates the 12 floats (like `LH3DAnim::GetPose`) and composes it with the parent matrix M (`fn_007FAFF0`:
+  track·M). Then `RotateY(π/2)` 0x5198F0 and `fn_007FAE60(diag(−1, 1, 1))`, which **multiply in front** (local
+  space): hull = mirror·RotY(π/2)·track(t)·M, determinant +1. In glm: `M · pista · eulerAngleY(−π/2) · scale(−1, 1, 1)`.
+- **PreDraw 0x5DFF20** (from `GLandscape::Draw` 0x5E490F, before the sea), with dt = integer `g_game_time_inc`:
+  - Mode 0: +0x34 += dt; +0x64 = +0x24; if `!+0x48 || +0x34 > 3000`, +0x24 += dt. If +0x24 > 15833 − 400 it is deleted,
+    does `new PetitNavire(1)` and **returns**: that frame the new boat has no PreDraw and its PostDraw draws it once
+    at the dry dock without rotating. Otherwise: M = Translate(dry dock); hull y += `GetAltitude(casco.xz)` − `GetAltitude(dique.xz)`
+    (0x5E00EB..0x5E0154); `fn_00874850` (shadow); +0x4C = 0xFF303070 and `DrawUnderWater` (vt+0x118, the reflection);
+    `fn_00801C90` gives it back the land light.
+  - Mode 1: +0x24 = (+0x24 + dt) % 4466 (looping; otherwise, min(…, dur − 1)); +0x34 += dt; at 60000 ms it is deleted. M =
+    RotY(π/4) (0x92B210) at (1456.54; 0; 3263.06) + (−k, 0, −k)·0.005·+0x34, with k = `InverseSquareRoot(2)` 0x841170
+    (table 0xEEA394 plus one Newton step = 0.70710659): **5 u/s** towards −x −z, 300 units in total. Hull as
+    above (no height correction or shadow), 0xFF303070 and `DrawUnderWater`.
+  - **Question B4 resolved**: there are no "two parts" or two drawings per frame. 0x5E0100-0x5E0190 (mode 0) and
+    0x5E0380-0x5E03EE (mode 1) are **mutually exclusive** branches (0x5E0195: `cmp +0x30, 1`); **both** set up the mirror
+    diag(−1, 1, 1) (0x5E00C1-0x5E00D9 and 0x5E0350-0x5E03B6) and the π/2 is the hull's `RotateY`. Each frame there is a
+    single `DrawUnderWater`, in 0xFF303070.
+- **PostDraw 0x5E03F0** (from `fn_005E5CD0` 0x5E6250, after `fn_00824140`):
+  - Mode 0, 2D sounds (`GAudio::PlaySoundEffect` 0x429E30, bank GGlobal+0x3BC = `Scriptsfx.sad`, options +0xBC = 2,
+    that is +0x50 = mode 2, owner 0, is3D 0; in openblack through `sample_play`, one of the 16 channels)
+    when the hull time crosses the threshold (+0x64 < threshold < +0x24): 100 → 62 `MissionaryBoatCreak_01`, 1500 → 61
     `MissionaryBoatSlide_01`, 3900 → 60 `MissionaryBoatSplash_01`.
-  - Modo 0, cada 200 ms (+0x38 += ftol(dt); > 200 → acción y +0x38 = 0): si 3900 < t < 6500, 2 `SmokyStuff::Create`
-    (casco + (r2 − 10, **7**, r1), modo 0, tamaño 7, 0xFEFFFFFF); si 1130 < t ≤ 3900, 2 × (casco + (r2, 0, r1), 0, 5,
-    0xFFB88C38, arena), con r1 = Random(−20, 20) y r2 = Random(−2, 2) en ese orden (corrige el informe: el ±20 va en z y
-    el −10 / +7 en x / y). Después el casco (vt+0x100).
-  - Modo 0, marineros (el mismo objeto dibujado 5 veces): si t > 850: si +0x48, +0x34 = 0; animación +0x0C + (i % 3)·4
-    y +0x48 = 0. Posición (dique.x + {5,2; 5,3; 5,5; 5; 5}[i], suelo, dique.z + (i − 2,5)·3 + {1; −0,7; 0; 0,4; −0,2}[i]
-    + 10) (0xBF2B1C, 0xBF2B44), ángulo −π/2, fotograma ({5, 500, 1500, 455, 2000}[i] + +0x34) % duración (0xBF2B30),
-    color = luz de tierra en su sitio.
-  - Modo 1, estela (0x5E0785): fase = (fase + dt) % 6000, t = fase/6000; posición = casco·(0, 0, 100t − 15) con
-    **y = 0,2**; media anchura +0xC = 30t + 10, aspecto +0x10 = 0,5; alfa = ftol((1 − f)·255) con f = (t − u)/(1 − u)
-    si t ≥ u (si no, u) y u = [0xD19CB8]: **nadie escribe ese float** (solo lecturas en 0x5E086E..0x5E0893, ningún
-    inicializador), así que u = 0 y f = t; solo se dibuja si f > 0,2 (doble 0,2 en 0x8C7C68).
-  - Modo 1, cubierta (0x5E08E7..0x5E1015, emulado): la matriz de cada uno es L·casco (`fn_007FAFF0` y copia a
-    obj+0x14), L = RotY(a)·escala + t en el marco del casco; color = el +0x4C del casco. Vaca (a = −1,
-    t = (−1,778; 10,78; 1,83), fotograma +0x34 % dur) y otra vez (a = −0,7, t = (−1,778; 10,78; 3,83), +0x34 + 1255);
-    grano (escala 0,26, t = (−5,708; 10,854; 3,199)); el objeto marinero con MSH_P_NORS_F_A_1 (498) y TITANIC en
-    (−0,14; 13,213; −19,657) (+0x34), con 504 y TITANIC en (−0,14; 13,213; −18,9) (+0x34 + 500), SITTING girado π en
-    (−6,25; 11,424; −7,227) (+0x34) y en (−5,25; 11,424; −7,227) (+0x34 + 2345), SCRUBBS girado π en
-    (5,881; 10,741; 0,174) (+0x34).
-- **SmokyStuff** (0xCC bytes, lista 0xEB99CC): `Create` 0x823C90(pos, modo, tamaño, color) = 15 sprites de humo modo
-  6 que miran a la cámara; cada uno en pos + (c, b, a) con a, b, c = Random(−tam, tam), giro Random(0, 2π), celda 0x10,
-  velocidad norm(e, tam, d)·Random(0,3; 1)·tam (modo 0). `fn_00824140` (0x5E619C, dt = ms·0,001) → `fn_00823F70`:
-  vida −= dt/3 (modo 0), nada si vida ≤ 0; color (vida·100)<<24 | 0x808080 con el rgb del argumento; giro ±5·vida + v.x;
-  media anchura ((1 − vida)·2 + 1)·tam/2; pos += v·dt; celda (int)(vida·15); se libera con vida < 0. `Random` 0x81D180
-  = a + (b − a)·rand()/32768 (stdcall). Billboard de `LH3DSprite::Draw` 0x84071D: x local → (cos, −sin) en pantalla,
-  y local → (sin, cos).
-- openblack: `src/ECS/PetitNavire.{h,cpp}` (estado, entidades, PreDraw y PostDraw en `Update` con el tiempo entero y el
-  resto guardado), `src/ECS/SmokyStuff.{h,cpp}` (el mismo módulo que el humo del cadáver de
-  [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (la sombra del casco entra en
-  `graphics::shadow_list` con el sol fijo, `useSun`, y cae también sobre objetos), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; el
-  reflejo en 0x303070 es `Renderer::DrawUnderWater(vista, casco, sea_pass::UnderWater(0xFF303070, 0))`, el modo 2 de
-  `vs_object` con el rgb empaquetado; los sprites, uno a uno en la
-  cola común de transparentes, LH3DSprite::AddDrawing 0x840CB3). Diferencias que quedan: la cubierta toma la luz de tierra de su
-  propio sitio (no la del casco); la sombra del casco sale con la visibilidad de la cámara normal (el original lee la del espejo, (inferido) D-O5);
-  el modo ≠ 0 de `SmokyStuff::Create` (0x823DA7) no tiene llamadas aquí y no está portado.
+  - Mode 0, every 200 ms (+0x38 += ftol(dt); > 200 → action and +0x38 = 0): if 3900 < t < 6500, 2 `SmokyStuff::Create`
+    (hull + (r2 − 10, **7**, r1), mode 0, size 7, 0xFEFFFFFF); if 1130 < t ≤ 3900, 2 × (hull + (r2, 0, r1), 0, 5,
+    0xFFB88C38, sand), with r1 = Random(−20, 20) and r2 = Random(−2, 2) in that order (corrects the report: the ±20 goes in z and
+    the −10 / +7 in x / y). Then the hull (vt+0x100).
+  - Mode 0, sailors (the same object drawn 5 times): if t > 850: if +0x48, +0x34 = 0; animation +0x0C + (i % 3)·4
+    and +0x48 = 0. Position (dry dock.x + {5.2; 5.3; 5.5; 5; 5}[i], ground, dry dock.z + (i − 2.5)·3 + {1; −0.7; 0; 0.4; −0.2}[i]
+    + 10) (0xBF2B1C, 0xBF2B44), angle −π/2, frame ({5, 500, 1500, 455, 2000}[i] + +0x34) % duration (0xBF2B30),
+    colour = land light at its place.
+  - Mode 1, wake (0x5E0785): phase = (phase + dt) % 6000, t = phase/6000; position = hull·(0, 0, 100t − 15) with
+    **y = 0.2**; half width +0xC = 30t + 10, aspect +0x10 = 0.5; alpha = ftol((1 − f)·255) with f = (t − u)/(1 − u)
+    if t ≥ u (otherwise, u) and u = [0xD19CB8]: **nobody writes that float** (only reads at 0x5E086E..0x5E0893, no
+    initialiser), so u = 0 and f = t; it is only drawn if f > 0.2 (double 0.2 at 0x8C7C68).
+  - Mode 1, deck (0x5E08E7..0x5E1015, emulated): the matrix of each one is L·hull (`fn_007FAFF0` and copy to
+    obj+0x14), L = RotY(a)·scale + t in the hull's frame; colour = the hull's +0x4C. Cow (a = −1,
+    t = (−1.778; 10.78; 1.83), frame +0x34 % dur) and again (a = −0,7, t = (−1.778; 10.78; 3.83), +0x34 + 1255);
+    grain (scale 0,26, t = (−5.708; 10.854; 3.199)); the sailor object with MSH_P_NORS_F_A_1 (498) and TITANIC at
+    (−0.14; 13.213; −19.657) (+0x34), with 504 and TITANIC at (−0.14; 13.213; −18.9) (+0x34 + 500), SITTING rotated π at
+    (−6.25; 11.424; −7.227) (+0x34) and at (−5.25; 11.424; −7.227) (+0x34 + 2345), SCRUBBS rotated π at
+    (5.881; 10.741; 0.174) (+0x34).
+- **SmokyStuff** (0xCC bytes, list 0xEB99CC): `Create` 0x823C90(pos, mode, size, colour) = 15 mode-6 smoke sprites
+  that face the camera; each one at pos + (c, b, a) with a, b, c = Random(−size, size), rotation Random(0, 2π), cell 0x10,
+  velocity norm(e, size, d)·Random(0.3; 1)·size (mode 0). `fn_00824140` (0x5E619C, dt = ms·0.001) → `fn_00823F70`:
+  life −= dt/3 (mode 0), nothing if life ≤ 0; colour (life·100)<<24 | 0x808080 with the argument's rgb; rotation ±5·life + v.x;
+  half width ((1 − life)·2 + 1)·size/2; pos += v·dt; cell (int)(life·15); it is freed with life < 0. `Random` 0x81D180
+  = a + (b − a)·rand()/32768 (stdcall). Billboard of `LH3DSprite::Draw` 0x84071D: local x → (cos, −sin) on screen,
+  local y → (sin, cos).
+- openblack: `src/ECS/PetitNavire.{h,cpp}` (state, entities, PreDraw and PostDraw in `Update` with the integer time and the
+  remainder kept), `src/ECS/SmokyStuff.{h,cpp}` (the same module as the smoke of the corpse in
+  [animals.md](animals.md), `Object::CreateSmokyStuff` 0x63A810), `components::DynamicShadow` (the hull shadow goes into
+  `graphics::shadow_list` with the fixed sun, `useSun`, and also falls on objects), `Renderer::DrawBoatReflection` / `CollectBoatSprites` / `DrawBoatSprite` (`RendererBoat.cpp`; the
+  reflection in 0x303070 is `Renderer::DrawUnderWater(vista, casco, sea_pass::UnderWater(0xFF303070, 0))`, mode 2 of
+  `vs_object` with the packed rgb; the sprites, one by one in the
+  common transparent queue, LH3DSprite::AddDrawing 0x840CB3). Remaining differences: the deck takes the land light of its
+  own place (not the hull's); the hull shadow comes out with the visibility of the normal camera (the original reads the mirror's, (inferred) D-O5);
+  the mode ≠ 0 of `SmokyStuff::Create` (0x823DA7) has no calls here and is not ported.
 
-## Decorado fijo por tierra: cascada de Land 3, arca y dinosaurio de Land 4
+## Fixed scenery per land: Land 3 waterfall, Land 4 ark and dinosaur
 
-Informes: `documentacion\agua\sealife_features.md` §2.6 y §3, `documentacion\agua\audio.md` §6. **Fiel** (hecho), con las
-diferencias que se dicen en el punto de openblack.
+Reports: `documentacion\agua\sealife_features.md` §2.6 and §3, `documentacion\agua\audio.md` §6. **Faithful** (done), with the
+differences stated in the openblack point.
 
-- `GWaterfall` (`CREATE_WATERFALL`, comando 68 de Land, 0x7175D1; ctor 0x734130, vtable 0x8EC14C) es un objeto
-  **vacío**: `CallVirtualFunctionsForCreation` 0x7341B0 = `ret 4`, no dibuja ni suena, y ninguna tierra lo usa.
-- `DesignedWaterFall` 0x5E3770 (LandFeature.cpp), cada fotograma desde fn_005E5CD0 (0x5E5CDA), según el número de
-  tierra (`SET_LAND_NUMBER`, g_game+0x205A08). Al cambiar de número (última tierra en 0xBF34E4, 74 al arrancar) borra
-  los dos objetos (0xD1A31C / 0xD1A324), el `ScriptMarker` 0xD1A32C, su `SoundTag` 0xD1A330 (ToBeDeleted: el bucle
-  termina la pasada) y suelta las mallas. No son objetos de juego: `LH3DObject` sueltos (sin sombra, sin celda).
-  - **Land 3**: `Data\MISC\waterfall3.l3d` (`LH3DObject::Create(0)`, estático) en (3059,23; **0**; 3145,33), ángulo
-    4,7, escala 1, luz dinámica, +0x10 = 1. Cada fotograma `V = V − 0,5·dt` y `V −= (int)V` (queda en −1..0) con
-    `SetUVOffset(0, V)` (vt+0xE8 fn_007F9B70: +0x68/+0x6C y bandera 0x400); dt = `g_game_time_inc`·0,001. Cada 0,7 s
-    de juego (temporizador 0xD1A338, se reinicia aunque el cupo esté lleno) un anillo en (3018,8; 0,2; 3130,15):
-    crecimiento 30, +0x24 = 1, aspecto 1, ritmo 0,3, celda 0x30, ángulo 0, color `0x80 << 24 | tabla[255].rgb`; el
-    campo de deriva +0x1C no se escribe. `SoundTag::Create(marcador, 12 G_WaterFlow, false, modo 2, bucles −1, 0,
+- `GWaterfall` (`CREATE_WATERFALL`, Land command 68, 0x7175D1; ctor 0x734130, vtable 0x8EC14C) is an
+  **empty** object: `CallVirtualFunctionsForCreation` 0x7341B0 = `ret 4`, it neither draws nor sounds, and no land uses it.
+- `DesignedWaterFall` 0x5E3770 (LandFeature.cpp), every frame from fn_005E5CD0 (0x5E5CDA), according to the land
+  number (`SET_LAND_NUMBER`, g_game+0x205A08). When the number changes (last land at 0xBF34E4, 74 at startup) it deletes
+  the two objects (0xD1A31C / 0xD1A324), the `ScriptMarker` 0xD1A32C, its `SoundTag` 0xD1A330 (ToBeDeleted: the loop
+  finishes its pass) and releases the meshes. They are not game objects: loose `LH3DObject`s (no shadow, no cell).
+  - **Land 3**: `Data\MISC\waterfall3.l3d` (`LH3DObject::Create(0)`, static) at (3059.23; **0**; 3145.33), angle
+    4,7, scale 1, dynamic lighting, +0x10 = 1. Every frame `V = V − 0,5·dt` and `V −= (int)V` (it stays in −1..0) with
+    `SetUVOffset(0, V)` (vt+0xE8 fn_007F9B70: +0x68/+0x6C and flag 0x400); dt = `g_game_time_inc`·0.001. Every 0.7 s
+    of game time (timer 0xD1A338, reset even if the quota is full) a ring at (3018.8; 0.2; 3130.15):
+    growth 30, +0x24 = 1, aspect 1, rate 0,3, cell 0x30, angle 0, colour `0x80 << 24 | tabla[255].rgb`; the
+    drift field +0x1C is not written. `SoundTag::Create(marcador, 12 G_WaterFlow, false, modo 2, bucles −1, 0,
     3D, InGame, 0)` (0x5E3921).
-  - **Land 4**: `Data\MISC\arche.l3d` (Create(1)) en (3538, altitud, 2129), ángulo 8,9728, escala 1,1, +0x10 = 10,
-    con el mismo SoundTag de `G_WaterFlow` en (3538, 0, 2129); `Data\MISC\dinosaur.l3d` en (2690, altitud, 2590)
-    (≈ 138,7: tierra alta), ángulo 1,57, escala 1, +0x10 = 10, con su huella de terreno (fn_0081E9E0, la lista de
-    huellas de los edificios). `dinosaur.l3d` es la única de las tres con `ContainsLandscapeFeature` (0x8000);
-    `waterfall3.l3d` trae un bloque de huella pero sin esa bandera y nadie la estampa.
-  - El marcador se crea con `MapCoords(LHPoint)` (0x603340 guarda y − altitud) y `Get3DSoundPos` 0x56FE20 le vuelve a
-    sumar la altitud: el sonido sale en y = 0 exacto. `G_WaterFlow` (InGame 12; el banco lo describe como "Citadel
-    waterfall", pero solo lo usan esta cascada y el arca): volumen 50, bucle, min 60, **max 110**, escala 6, modo 2.
-- openblack: `ECS/DesignedScenery` (`designed_scenery::Update` cada fotograma tras los anillos, `OnLoadMap` antes del
-  reset del registro): entidades `Transform` + `Mesh` (mallas `misc/<fichero>` cargadas al usarse), `UvScroll` en la
-  cascada, `AddWaterRing` con `seaLight`. La huella del dinosaurio sale sola en la pasada de huellas (malla con
-  `ContainsLandscapeFeature`). Sonido: `Audio/SoundTags` (ver [Audio del agua](#audio-del-agua)). El +0x10 de los objetos (float 1 / 10) es el factor k de
-  distancia del LOD de `fn_00815A70` (vt+0x100): D = min((k + 1)·[0xC37EA0]·[0xC3813C], 100000) (0xC3813C lo mueve
-  `LevelOfDetail`), LOD 1/2/3/4 por debajo de 23,33·D / 66,67·D / 86,67·D / más allá (`g_last_distance` 0xEA1AF4) y
-  cada submalla se dibuja si los bits 29..31 de sus banderas contienen el LOD: las tres mallas los tienen todos
-  (0xE0000800), así que k no cambia nada en pantalla y no se guarda. Diferencias: la luz dinámica es la de todos los objetos; al cargar
-  un mapa el registro se borra, así que el bucle se corta en seco en vez de acabar la pasada.
-- **Qué se desplaza (hecho)**: la bandera 0x400 no la lee nadie. El `Draw` estático 0x80DB30 lee U y V con vt+0x8 /
-  vt+0xC (0x80DE86) y los deja en 0xECA62C / 0xECA630 (0xECA628 = 1 si no son los dos 0); el envío de triángulos por
-  defecto (`[0xC386EC]` = `LH3DRender::DrawTriangle` 0x82F810) los suma a las UV **salvo si el byte +5 del material
-  tiene el bit 0x10** (0x82F8CC). En `waterfall3.l3d` la roca (submalla 0, `Textured`, +5 = 0x14) lo tiene y el agua
-  (submalla 1, `TexturedChroma`, 0x04) no: **solo corre el agua**. (Otras rutas, `fn_0082FD70` de `fn_00812170` /
-  `fn_00817930` y `fn_00884750`, lo suman siempre; el estático no pasa por ellas.) En `AllMeshes.g3d` solo las
-  mallas `S_PHILE*` tienen ese bit, ninguna pila de comida. openblack: `L3DSubMesh::Primitive::uvOffset` y
-  `u_window.w` en `vs_object`; captura `_audit/agua/re_waterfall_diff.png` (diferencia de dos fotogramas: solo cambia
-  la lámina de agua, y las palmas por el viento).
-- **Anillos del pie**: se dibujan con `LH3DSprite::Draw` en modo 13 (`fn_0082ECD0`: mezcla SRCALPHA/ONE, sin prueba
-  de alfa, ZWRITEENABLE 0 y sin tocar ZFUNC): con prueba de Z contra la tierra, como en openblack. Los anillos del pie quedan casi enterrados: el suelo está a 0 en el punto y
-  sube a 1,7 en 7 unidades, así que con la prueba de Z solo se ve un brillo tenue.
+  - **Land 4**: `Data\MISC\arche.l3d` (Create(1)) at (3538, altitude, 2129), angle 8,9728, scale 1,1, +0x10 = 10,
+    with the same `G_WaterFlow` SoundTag at (3538, 0, 2129); `Data\MISC\dinosaur.l3d` at (2690, altitude, 2590)
+    (≈ 138.7: high ground), angle 1,57, scale 1, +0x10 = 10, with its terrain footprint (fn_0081E9E0, the buildings'
+    footprint list). `dinosaur.l3d` is the only one of the three with `ContainsLandscapeFeature` (0x8000);
+    `waterfall3.l3d` has a footprint block but without that flag and nobody stamps it.
+  - The marker is created with `MapCoords(LHPoint)` (0x603340 stores y − altitude) and `Get3DSoundPos` 0x56FE20 adds the
+    altitude back: the sound comes out at exactly y = 0. `G_WaterFlow` (InGame 12; the bank describes it as "Citadel
+    waterfall", but it is only used by this waterfall and the ark): volume 50, loop, min 60, **max 110**, scale 6, mode 2.
+- openblack: `ECS/DesignedScenery` (`designed_scenery::Update` every frame after the rings, `OnLoadMap` before the
+  registry reset): `Transform` + `Mesh` entities (meshes `misc/<fichero>` loaded on use), `UvScroll` on the
+  waterfall, `AddWaterRing` with `seaLight`. The dinosaur's footprint comes out by itself in the footprint pass (mesh with
+  `ContainsLandscapeFeature`). Sound: `Audio/SoundTags` (see [Water audio](#water-audio)). The objects' +0x10 (float 1 / 10) is the LOD
+  distance factor k of `fn_00815A70` (vt+0x100): D = min((k + 1)·[0xC37EA0]·[0xC3813C], 100000) (0xC3813C is moved by
+  `LevelOfDetail`), LOD 1/2/3/4 below 23.33·D / 66.67·D / 86.67·D / beyond (`g_last_distance` 0xEA1AF4) and
+  each submesh is drawn if bits 29..31 of its flags contain the LOD: all three meshes have them all
+  (0xE0000800), so k changes nothing on screen and is not stored. Differences: the dynamic lighting is the same as for all objects; when loading
+  a map the registry is cleared, so the loop is cut abruptly instead of finishing its pass.
+- **What scrolls (done)**: nobody reads the 0x400 flag. The static `Draw` 0x80DB30 reads U and V with vt+0x8 /
+  vt+0xC (0x80DE86) and leaves them at 0xECA62C / 0xECA630 (0xECA628 = 1 if they are not both 0); the default triangle
+  submission (`[0xC386EC]` = `LH3DRender::DrawTriangle` 0x82F810) adds them to the UVs **unless byte +5 of the material
+  has bit 0x10** (0x82F8CC). In `waterfall3.l3d` the rock (submesh 0, `Textured`, +5 = 0x14) has it and the water
+  (submesh 1, `TexturedChroma`, 0x04) does not: **only the water flows**. (Other paths, `fn_0082FD70` from `fn_00812170` /
+  `fn_00817930` and `fn_00884750`, always add it; the static one does not go through them.) In `AllMeshes.g3d` only the
+  `S_PHILE*` meshes have that bit, no food pile. openblack: `L3DSubMesh::Primitive::uvOffset` and
+  `u_window.w` in `vs_object`; screenshot `_audit/agua/re_waterfall_diff.png` (difference of two frames: only
+  the sheet of water changes, and the palms because of the wind).
+- **Rings at the foot**: they are drawn with `LH3DSprite::Draw` in mode 13 (`fn_0082ECD0`: SRCALPHA/ONE blending, no alpha
+  test, ZWRITEENABLE 0 and without touching ZFUNC): with Z test against the land, as in openblack. The rings at the foot end up almost buried: the ground is at 0 at the point and
+  rises to 1.7 within 7 units, so with the Z test only a faint glow is visible.
 
-## Audio del agua
+## Water audio
 
-Qué suena con el agua y cuándo. El motor (canales, modos, distancias, bancos) está en [audio.md](audio.md); el
-ambiente y la mano en el agua están, de momento, en
-[objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt) («Mano en el agua / agarrar
-tierra» y «Ambiente (atmos)»). Todo **fiel**.
+What sounds with the water and when. The engine (channels, modes, distances, banks) is in [audio.md](audio.md); the
+ambience and the hand in the water are, for now, in
+[objects-and-resources.md](objects-and-resources.md#sounds-report-documentacionsoundnotestxt) («Hand in the water / gripping
+the land» and «Ambience (atmos)»). All **faithful**.
 
-- **Mano en el agua**: al empezar a agarrar el terreno sobre una celda de agua (`StartLandscapeGrip` fn_005D1AB0), un
-  `G_HandInWater_01..10` (InGame 99 + contador) 3D en (x; 0,2; z), uno a la vez (grupo de clones 4, modo 3), con el
-  anillo del chapoteo y el susto de los peces; no suena en pausa ni con algo en la mano.
-- **Golpes contra el agua**: con altitud < 3 en la celda redondeada el tipo de colisión es WATER y suena la muestra de
-  `editor.sad` de la tabla de choques ([physics.md](physics.md#sonidos-polvo-y-aspecto-de-los-golpes)); `G_BigSplash`
-  (modo 2) no se repite mientras suene el mismo sample del mismo objeto.
-- **Ahogarse**: los eventos del clip 252 `P_DROWNING` (chapoteo 157 y voz 134,
-  [arriba](#hundirse-ahogarse-y-borrarse)).
-- **Barco de los misioneros**: tres sonidos 2D de `Scriptsfx.sad` en la botadura (62, 61, 60;
-  [arriba](#barco-de-los-misioneros-petitnavire)).
-- **Cascada de Land 3 y arca de Land 4**: `G_WaterFlow` (InGame 12) en bucle por una `SoundTag`
-  ([arriba](#decorado-fijo-por-tierra-cascada-de-land-3-arca-y-dinosaurio-de-land-4)).
-- **Partículas que caen al agua**: el rebote y la onda de `UpdateRuleGravityWithFloor`
-  ([particles.md](particles.md#el-psys-en-el-mundo-formato-paso-dibujo-y-reglas-del-agua)).
-- **Ambiente**: por el tipo ATMOS de las celdas cercanas a la cámara: 1 SEA `ocean.sad`, 3 COASTAL `shore.sad`, 2
-  STILL_FRESH_WATER `lake.sad` (y 9 RUNNING_WATER `stream.sad`, que ningún mapa base usa); el mar calla a menos de 20
-  de una celda COASTAL. Los ríos no tienen sonido propio (`ATMOS_TYPE_RUNNING_WATER` sin analizar, ver
-  [rendering.md](rendering.md#ríos)).
+- **Hand in the water**: when starting to grip the terrain over a water cell (`StartLandscapeGrip` fn_005D1AB0), a
+  `G_HandInWater_01..10` (InGame 99 + counter) in 3D at (x; 0.2; z), one at a time (clone group 4, mode 3), with the
+  splash ring and the fish scare; it does not sound when paused or with something in the hand.
+- **Impacts against the water**: with altitude < 3 in the rounded cell the collision type is WATER and the
+  `editor.sad` sample from the collision table plays ([physics.md](physics.md#sounds-dust-and-the-look-of-impacts)); `G_BigSplash`
+  (mode 2) does not repeat while the same sample of the same object is playing.
+- **Drowning**: the events of clip 252 `P_DROWNING` (splash 157 and voice 134,
+  [above](#sinking-drowning-and-being-deleted)).
+- **The missionaries' boat**: three 2D sounds from `Scriptsfx.sad` at the launch (62, 61, 60;
+  [above](#the-missionaries-boat-petitnavire)).
+- **Land 3 waterfall and Land 4 ark**: `G_WaterFlow` (InGame 12) looping through a `SoundTag`
+  ([above](#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur)).
+- **Particles that fall into the water**: the bounce and the ripple of `UpdateRuleGravityWithFloor`
+  ([particles.md](particles.md#the-psys-in-the-world-format-step-drawing-and-water-rules)).
+- **Ambience**: by the ATMOS type of the cells near the camera: 1 SEA `ocean.sad`, 3 COASTAL `shore.sad`, 2
+  STILL_FRESH_WATER `lake.sad` (and 9 RUNNING_WATER `stream.sad`, which no base map uses); the sea goes quiet within 20
+  of a COASTAL cell. Rivers have no sound of their own (`ATMOS_TYPE_RUNNING_WATER` not analysed, see
+  [rendering.md](rendering.md#rivers)).
 
-El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [audio.md](audio.md)):
+The sound tag engine used by the waterfall and the ark (it is not in [audio.md](audio.md)):
 
-- **SoundTags** (`Audio/SoundTags`, SoundTag.cpp 0x71E300..0x71ED90): etiqueta {cosa o punto fijo, desplazamiento,
-  muestra, bucle, activa}. `ProcessTurn` = `SoundTag::ProcessSoundTags` 0x71E5F0 una vez por turno (GGame::EndTurn):
-  si la cosa ya no existe → ToBeDeleted; si está activa, `fn_0071E680` llama a `GAudio::PlaySoundEffect` 0x42A100 con
-  **la propia etiqueta como dueño** del canal (+0x20), el punto (`Get3DSoundPos` de la cosa), el desplazamiento +0x1C,
-  muestra +0x28, seguir +0x30 (solo con cosa; `false` en las del decorado), modo +0x38, bucles +0x3C, is3D +0x44 y su
-  banco (`SoundTag::Set` 0x71E4F0); 0x429E30 solo la arranca con la cámara a ≤ maxDist (.sad +0x26C) del punto y el
-  modo 2 deja el canal que ya suena. En openblack va por `sample_play` (dueño `Owner::Tag`), así cuenta en los 16
-  canales de LHaudio; `IsPlaying` = `LHSampleIsPlaying` (fn_0042A2D0) y `ReleaseLoop` = 0x42A310. `SetActive(0)` corta
-  en seco (LHSampleStop); `Delete` suelta el bucle (LHSampleReleaseLoop) y la etiqueta muere al terminar la pasada.
-  `Clear` en `Game::LoadMap` antes del reset del registro (los emisores son entidades). Desde B3 del audio es el
-  SoundTag completo (`audio::tags`, [audio.md](audio.md#b3-soundtag-completo)): `Delete` = ToBeDeleted 0x71ECB0 →
-  CreateSoundTagForDeadObject 0x71ECD0 (suelta el bucle solo si suena con vueltas), y las farolas (`LanternSounds`)
-  son tags de este módulo.
+- **SoundTags** (`Audio/SoundTags`, SoundTag.cpp 0x71E300..0x71ED90): tag {thing or fixed point, offset,
+  sample, loop, active}. `ProcessTurn` = `SoundTag::ProcessSoundTags` 0x71E5F0 once per turn (GGame::EndTurn):
+  if the thing no longer exists → ToBeDeleted; if it is active, `fn_0071E680` calls `GAudio::PlaySoundEffect` 0x42A100 with
+  **the tag itself as owner** of the channel (+0x20), the point (`Get3DSoundPos` of the thing), the offset +0x1C,
+  sample +0x28, follow +0x30 (only with a thing; `false` for the scenery ones), mode +0x38, loops +0x3C, is3D +0x44 and its
+  bank (`SoundTag::Set` 0x71E4F0); 0x429E30 only starts it with the camera ≤ maxDist (.sad +0x26C) from the point and
+  mode 2 leaves the channel that is already playing. In openblack it goes through `sample_play` (owner `Owner::Tag`), so it counts towards the 16
+  LHaudio channels; `IsPlaying` = `LHSampleIsPlaying` (fn_0042A2D0) and `ReleaseLoop` = 0x42A310. `SetActive(0)` cuts
+  abruptly (LHSampleStop); `Delete` releases the loop (LHSampleReleaseLoop) and the tag dies when the pass finishes.
+  `Clear` in `Game::LoadMap` before the registry reset (the emitters are entities). Since B3 of the audio it is the
+  complete SoundTag (`audio::tags`, [audio.md](audio.md#b3-full-soundtag)): `Delete` = ToBeDeleted 0x71ECB0 →
+  CreateSoundTagForDeadObject 0x71ECD0 (releases the loop only if it is playing with loops), and the street lanterns (`LanternSounds`)
+  are tags of this module.
 
-## El agua en otras páginas
+## Water in other pages
 
-- Dibujo del mar (filas, ondulación, deriva, lo que hay bajo el mar), la costa y su alfa, los ríos y el brillo de la
-  mano de noche sobre el agua: [rendering.md](rendering.md#mar-skyraw--skyaraw),
-  [Costa](rendering.md#costa), [Ríos](rendering.md#ríos), [Cielo](rendering.md#cielo-sol-luna-y-nubes-original).
-- Reflejos de la mano, los objetos, la criatura y los barcos; los cortes bajo el agua (`DrawCutByPlane`); los bancos
-  de peces de las piscifactorías. Desde el punto 4 de shaders, todo lo de la zona de agua que se dibuja bajo el mar
-  (`RendererBoat`, `RendererFishPlot`, `RendererCut`, los peces y la luna reflejada) pasa por `graphics::sea_pass`
-  (plano, espejo, cara y luz en un solo sitio):
-  [La pasada bajo el mar](rendering-objects.md#la-pasada-bajo-el-mar-graphicssea_pass),
-  [rendering-objects.md](rendering-objects.md#reflejos-de-objetos-y-sombra-de-la-mano-sobre-objetos),
-  [DrawCutByPlane](rendering-objects.md#cortar-por-el-plano-del-agua-drawcutbyplane),
-  [bancos de peces](rendering-objects.md#bancos-de-peces-de-las-piscifactorías).
-- Creación de las piscifactorías desde el guion:
-  [map-loading.md](map-loading.md#piscifactorías-create_fish_farm--create_town_fish_farm).
-- Flotación y hundimiento en el motor de física: [physics.md](physics.md#motor-physob-0x7fb7300x7fe7b0); soltar desde
-  la mano: [physics.md](physics.md#el-agua-en-los-golpes-y-al-soltar).
-- Recorridos de los tiburones (`WALK_PATH`, pistas de `camera.edt`): [camera-tracks.md](camera-tracks.md).
-- Partículas sobre el agua (rebote, ondas, vapor de la explosión): [particles.md](particles.md#el-psys-en-el-mundo-formato-paso-dibujo-y-reglas-del-agua).
-- Animales en el mar: [animals.md](animals.md#mano-vuelo-y-muerte); dejar algo sobre el mar con la mano:
+- Drawing of the sea (rows, undulation, drift, what is under the sea), the coast and its alpha, the rivers and the glow of the
+  hand at night over the water: [rendering.md](rendering.md#sea-skyraw--skyaraw),
+  [Coast](rendering.md#coast), [Rivers](rendering.md#rivers), [Sky](rendering.md#sky-sun-moon-and-clouds-original).
+- Reflections of the hand, the objects, the creature and the boats; the underwater cuts (`DrawCutByPlane`); the fish
+  shoals of the fish farms. Since point 4 of shaders, everything in the water zone that is drawn under the sea
+  (`RendererBoat`, `RendererFishPlot`, `RendererCut`, the fish and the reflected moon) goes through `graphics::sea_pass`
+  (plane, mirror, face and light in a single place):
+  [The under-sea pass](rendering-objects.md#the-under-sea-pass-graphicssea_pass),
+  [rendering-objects.md](rendering-objects.md#object-reflections-and-hand-shadow-on-objects),
+  [DrawCutByPlane](rendering-objects.md#cutting-by-the-water-plane-drawcutbyplane),
+  [fish shoals](rendering-objects.md#fish-farm-fish-shoals).
+- Creation of the fish farms from the script:
+  [map-loading.md](map-loading.md#fish-farms-create_fish_farm--create_town_fish_farm).
+- Buoyancy and sinking in the physics engine: [physics.md](physics.md#engine-physob-0x7fb7300x7fe7b0); dropping from
+  the hand: [physics.md](physics.md#water-in-impacts-and-when-dropping).
+- Shark routes (`WALK_PATH`, `camera.edt` tracks): [camera-tracks.md](camera-tracks.md).
+- Particles over the water (bounce, ripples, explosion steam): [particles.md](particles.md#the-psys-in-the-world-format-step-drawing-and-water-rules).
+- Animals in the sea: [animals.md](animals.md#hand-flight-and-death); leaving something over the sea with the hand:
   [hand-and-interface.md](hand-and-interface.md).
-- Mods: `water.living` y el agua de `world.foliage` en [mod-library.md](mod-library.md#waterliving).
+- Mods: `water.living` and the water of `world.foliage` in [mod-library.md](mod-library.md#waterliving).
 
-## Pendiente
+## Pending
 
-Estado a 2026-10-01 (hand-hbn `43054fb0` y siguientes). Todo lo demás del agua está hecho y es fiel al original; el
-plan y los informes están en `dev\documentacion\agua\PLAN.md`.
+Status as of 2026-10-01 (hand-hbn `43054fb0` and later). Everything else about water is done and faithful to the original; the
+plan and the reports are in `dev\documentacion\agua\PLAN.md`.
 
-**Se puede hacer ya (área del agua):**
-- Barco de los misioneros (`ecs/PetitNavire`): sus sprites (estela, `SmokyStuff`) ya van uno a uno en la cola común
-  de transparentes (U6: `Renderer::CollectBoatSprites` / `DrawBoatSprite`, LH3DSprite::AddDrawing 0x840CB3; ver
-  [rendering-objects.md](rendering-objects.md#la-cola-única-de-transparentes-lh3dzsorter)); falta la luz de la
-  cubierta, que en el original copia el color +0x4C del casco a cada pasajero (openblack ilumina cada instancia por su
-  posición); la sombra del casco también sobre objetos (su `ShadowInfo` +0xC = 0); el modo ≠ 0 de
-  `SmokyStuff::Create` (rama 0x823DA7). Se cruza con la unificación de sprites de la sesión «sistemas».
-- Espuma de los golpes contra el agua (`fn_0074F2D0`): el tinte hacia la luz base según la nieve (`SnowCover`
-  [0xEDC344], `fn_004ED180`), ahora que el clima está en hand-hbn.
-- Comprobar que el ambiente sonoro y su grupo por alineación leen ya los valores reales (`CameraWeather` →
-  `weather::atmos::GetWeatherSmooth`, `atmos_banks::Alignment` → `Clouds::InfluentialPlayerAlignment`) y no 0.
-- Capturas que faltan por ver: la luna reflejada en el mar; que las vasijas de comida y los orbes siguen animando su
-  textura con la puerta del bit 0x10 del material (hace falta comparar dos fotogramas); los anillos de la lluvia
-  (`water_drop_cb` 0x54EEA0) y del milagro del agua (`SpellWater`) sobre el mar.
-- `GET_PROPERTY` / `SET_PROPERTY`: solo `FLYING` y `DROWNING`; las demás propiedades siguen sin implementar (no son del
-  agua).
+**Can be done now (water area):**
+- The missionaries' boat (`ecs/PetitNavire`): its sprites (wake, `SmokyStuff`) already go one by one in the common
+  transparent queue (U6: `Renderer::CollectBoatSprites` / `DrawBoatSprite`, LH3DSprite::AddDrawing 0x840CB3; see
+  [rendering-objects.md](rendering-objects.md#the-single-transparent-queue-lh3dzsorter)); missing: the light of the
+  deck, which in the original copies the hull's +0x4C colour to each passenger (openblack lights each instance by its
+  position); the hull shadow also on objects (its `ShadowInfo` +0xC = 0); the mode ≠ 0 of
+  `SmokyStuff::Create` (branch 0x823DA7). It overlaps with the sprite unification of the «sistemas» session.
+- Foam of impacts against the water (`fn_0074F2D0`): the tint towards the base light according to the snow (`SnowCover`
+  [0xEDC344], `fn_004ED180`), now that the weather is in hand-hbn.
+- Check that the sound ambience and its group by alignment now read the real values (`CameraWeather` →
+  `weather::atmos::GetWeatherSmooth`, `atmos_banks::Alignment` → `Clouds::InfluentialPlayerAlignment`) and not 0.
+- Screenshots still to be seen: the moon reflected in the sea; that the food pots and the orbs still animate their
+  texture with the material's bit 0x10 gate (two frames need comparing); the rings of the rain
+  (`water_drop_cb` 0x54EEA0) and of the water miracle (`SpellWater`) over the sea.
+- `GET_PROPERTY` / `SET_PROPERTY`: only `FLYING` and `DROWNING`; the other properties are still unimplemented (they are not
+  water-related).
 
-**Bloqueado por otras áreas:**
-- Criatura (no existe): pisadas en el agua y susto de los peces (`fn_00483290`), meterse en el agua y sus límites,
-  su reflejo (0x5E4A02, 0x65A0A0D0), imitar al jugador que tira algo al mar (`ConsiderMakingCreatureMimicPlayer`,
-  mimetismo 0x15 desde `HasSunk`), `CheckAllCreaturesForCatching`, beber del mar, y ser el consumidor de la máscara
-  `LandAvoid`.
-- Aldeanos (sesión «mapas»): pescadores (`FishermanLookForWater` 0x75B4C0 y su máquina de estados, con
-  `RemoveFishFarmFood`), beber (`FindNearestDrinkingWater`, `CREATE_DRINK_WAYPOINT`), el pastor que lleva el rebaño
-  al agua (`ShepherdMoveFlockToWater` 0x768CC0), `Villager::CreateDroppedResource` y la reacción 9
-  `REACT_TO_FLYING_OBJECT` al soltar con la mano, y la muerte completa: `VillagerDead` 0x7506C0 ya se llama con
-  motivo 6, pero el estado DEAD (`Villager::Dead` 0x76A5E0: humo, esqueleto 0x1FF y, fuera del agua, el alma de
-  `fn_00828790`: un registro de 12 bytes en la lista 0xEB9A7C con un `LH3DObject` nuevo de la malla del aldeano, la de
-  niño `GVillagerInfo`+0x204 por debajo de la edad +0x138, que toca el clip del alma P_DEAD1/2_GOTO_HEAVEN o _HELL,
-  244/245 o 247/248, y luego la malla pasa a la 0x1FF `PersonSkeletonMale` [0xDCB164]; en el agua, humo y esqueleto
-  sin alma) es del hito de muerte de «mapas».
-- `lastPlayerToInteract` (+0x104) y `GetPlayerWhoLastDroppedMe`: con un solo jugador, la mano da PLAYER_ONE
-  (inferido) hasta que haya varios jugadores.
-- Nadadores SuperVillager (`M_P_Swim2`, `DrawCutByPlane` y su anillo cada 1000 ms): necesitan los guiones de Land 1-2
+**Blocked by other areas:**
+- Creature (does not exist): footsteps in the water and fish scare (`fn_00483290`), going into the water and its limits,
+  its reflection (0x5E4A02, 0x65A0A0D0), imitating the player who throws something into the sea (`ConsiderMakingCreatureMimicPlayer`,
+  mimicry 0x15 from `HasSunk`), `CheckAllCreaturesForCatching`, drinking from the sea, and being the consumer of the
+  `LandAvoid` mask.
+- Villagers («mapas» session): fishermen (`FishermanLookForWater` 0x75B4C0 and its state machine, with
+  `RemoveFishFarmFood`), drinking (`FindNearestDrinkingWater`, `CREATE_DRINK_WAYPOINT`), the shepherd who takes the flock
+  to the water (`ShepherdMoveFlockToWater` 0x768CC0), `Villager::CreateDroppedResource` and reaction 9
+  `REACT_TO_FLYING_OBJECT` when dropping with the hand, and the complete death: `VillagerDead` 0x7506C0 is already called with
+  reason 6, but the DEAD state (`Villager::Dead` 0x76A5E0: smoke, skeleton 0x1FF and, out of the water, the soul from
+  `fn_00828790`: a 12-byte record in the list 0xEB9A7C with a new `LH3DObject` of the villager's mesh, the
+  child one `GVillagerInfo`+0x204 below age +0x138, which plays the soul clip P_DEAD1/2_GOTO_HEAVEN or _HELL,
+  244/245 or 247/248, and then the mesh becomes 0x1FF `PersonSkeletonMale` [0xDCB164]; in the water, smoke and skeleton
+  without a soul) belongs to the «mapas» death milestone.
+- `lastPlayerToInteract` (+0x104) and `GetPlayerWhoLastDroppedMe`: with a single player, the hand gives PLAYER_ONE
+  (inferred) until there are several players.
+- SuperVillager swimmers (`M_P_Swim2`, `DrawCutByPlane` and their ring every 1000 ms): they need the Land 1-2 scripts
   (Baywatch, FollowUs).
-- `WALK_PATH` de los Living (0x5EE100, `Living::MoveAlongPath` 0x5EE230): necesita los caminos (footpaths) de los
-  aldeanos.
-- Puzle de los peces: el pescador y el pergamino del reto (`FishPuzzle.txt`); el resto de tipos de `PuzzleGame`.
+- `WALK_PATH` of the Livings (0x5EE100, `Living::MoveAlongPath` 0x5EE230): needs the villagers' paths (footpaths).
+- Fish puzzle: the fisherman and the challenge scroll (`FishPuzzle.txt`); the rest of the `PuzzleGame` types.
 
-**En manos de otra sesión:**
-- «sistemas»: los anillos de agua, los peces de piscifactoría y los sprites del barco ya van por `graphics::billboard`
-  y `graphics::frame_anim` (mismas celdas y fórmulas, sin fundido entre fotogramas; U1 y U2). La luna (signo de la
-  inclinación y de la fase, V del halo 0xEDC304) está hecha en U1, y la celda de los peces (8 + (ftol(frame) & 15),
-  tomada antes de la vuelta, dt ≤ 0,1 s, `fn_008248E0`) en U2. El morfado al suelo del arca y el dinosaurio
-  (`UpdateMelting` 0x5E3C55 / 0x5E3DBE) está en U3 (`MorphWithTerrain` en `ECS/DesignedScenery`). Además, leído en U2 y sin tocar: `fn_008248E0` descuenta el tiempo de
-  huida con el dt sin limitar y calcula el empuje después de restarlo (0x82490D..0x82495A); openblack lo hace con
-  el dt limitado y antes de restar.
-- «audio» (**hecho**, [audio.md](audio.md#fases-b-y-c)): los sonidos que no iban por los 16 canales
-  (AnimationSounds B2, rocas, el silbido de la cámara, `G_RockPast` y los `PlaySample` de la mano B4/B8) y las farolas
-  como `SoundTags` (B3); desde B11b el audio no lee el ECS y `audio::GetSurfaceType` ya no existe (todos usan
+**In the hands of another session:**
+- «sistemas»: the water rings, the fish farm fish and the boat sprites already go through `graphics::billboard`
+  and `graphics::frame_anim` (same cells and formulas, no blending between frames; U1 and U2). The moon (sign of the
+  tilt and of the phase, halo V 0xEDC304) is done in U1, and the fish cell (8 + (ftol(frame) & 15),
+  taken before the wrap, dt ≤ 0.1 s, `fn_008248E0`) in U2. The morphing of the ark and the dinosaur to the ground
+  (`UpdateMelting` 0x5E3C55 / 0x5E3DBE) is in U3 (`MorphWithTerrain` in `ECS/DesignedScenery`). Also, read in U2 and left untouched: `fn_008248E0` deducts the
+  flee time with the unclamped dt and computes the push after subtracting it (0x82490D..0x82495A); openblack does it with
+  the clamped dt and before subtracting.
+- «audio» (**done**, [audio.md](audio.md#phases-b-and-c)): the sounds that did not go through the 16 channels
+  (AnimationSounds B2, rocks, the camera whoosh, `G_RockPast` and the hand's `PlaySample`s B4/B8) and the street lanterns
+  as `SoundTags` (B3); since B11b the audio does not read the ECS and `audio::GetSurfaceType` no longer exists (everyone uses
   `sea_cells::GetSurfaceType`).
 
-**Dudas que solo puede aclarar el usuario** (memoria del original):
-- ¿El mar estaba quieto con la cámara parada? El código dice que sí (viento ambiente 0, sin deriva).
-- El escalón del horizonte: unos 25 px de cielo espejado sobre el borde del cuadrado de 30000 del mar.
-- La luna reflejada en el mar y la mancha cálida de la mano de noche sobre el agua (120 × 120).
-- Un aldeano dejado suave en la orilla somera también se ahoga (60 s de clip `P_DROWNING`), y se puede rescatar con la
-  mano: ¿era así?
-- La cascada de Land 3: solo corre el agua (bit 0x10 del material); ¿se veían los anillos al pie?
-- El arca varada de Land 4 lleva el bucle `G_WaterFlow`: ¿sonaba a agua?
-- Calibrar de oído: el chapoteo de la mano a 40 / 100 / 150 unidades y el mar, la costa y las olas sueltas.
-- Una bola de fuego que cae al mar: ¿tres anillos finos y luego vapor blanco?
-- La botadura del barco: densidad del polvo de arena y volumen de los crujidos.
+**Questions only the user can answer** (memory of the original):
+- Was the sea still with the camera stopped? The code says yes (ambient wind 0, no drift).
+- The horizon step: about 25 px of mirrored sky above the edge of the sea's 30000 square.
+- The moon reflected in the sea and the warm patch of the hand at night over the water (120 × 120).
+- A villager dropped gently on the shallow shore also drowns (60 s of the `P_DROWNING` clip), and can be rescued with the
+  hand: was it like that?
+- The Land 3 waterfall: only the water flows (material bit 0x10); were the rings at the foot visible?
+- The beached ark of Land 4 carries the `G_WaterFlow` loop: did it sound like water?
+- Calibrate by ear: the hand splash at 40 / 100 / 150 units and the sea, the coast and the loose waves.
+- A fireball that falls into the sea: three thin rings and then white steam?
+- The launch of the boat: density of the sand dust and volume of the creaks.
 
-Confirmado por el usuario (2026-10-01): un árbol o una roca lanzados al mar se veían cortados; el moteado de la orilla
-puede venir del `smallbump.raw` del pack de texturas; y se prefiere todo como el original, sin mods (sin el mod de
-8 bits del mar ni otros).
+Confirmed by the user (2026-10-01): a tree or a rock thrown into the sea looked cut off; the mottling of the shore
+may come from the texture pack's `smallbump.raw`; and everything is preferred as in the original, without mods (without the
+8-bit sea mod or others).
 
-## Ganchos de prueba
+## Test hooks
 
-Todos en [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración) (y los de física en
-[physics.md](physics.md#ganchos-de-prueba)):
+All in [openblack-internals.md](openblack-internals.md#debug-environment-variables) (and the physics ones in
+[physics.md](physics.md#test-hooks)):
 
-- `OPENBLACK_DUMP_LAND_AVOID=1` (o `=<fichero>.png`): la máscara `LandAvoid` (colores [arriba](#máscara-landavoid-de-la-criatura)).
-- `OPENBLACK_TEST_SEA="x,z,tipo[,altura]"` (+ `OPENBLACK_PHYSICS_TRACE=1`): un objeto en el agua que flota, se hunde o
-  se ahoga; con `OPENBLACK_TEST_CUT=1` además su parte bajo el agua se dibuja cortada.
-- `OPENBLACK_HAND_TEST_DROP="x,z,segundos[,tipo]"`: la mano suelta suave algo en (x, z), p. ej. un aldeano en el mar
+- `OPENBLACK_DUMP_LAND_AVOID=1` (or `=<fichero>.png`): the `LandAvoid` mask (colours [above](#the-creatures-landavoid-mask)).
+- `OPENBLACK_TEST_SEA="x,z,tipo[,altura]"` (+ `OPENBLACK_PHYSICS_TRACE=1`): an object in the water that floats, sinks or
+  drowns; with `OPENBLACK_TEST_CUT=1` its part under the water is also drawn cut.
+- `OPENBLACK_HAND_TEST_DROP="x,z,segundos[,tipo]"`: the hand gently drops something at (x, z), e.g. a villager in the sea
   (1464; 2016).
-- `OPENBLACK_TEST_SPLASH="x,z"`: un chapoteo de la mano por segundo (anillos, sonido, susto de los peces).
-- `OPENBLACK_TEST_SHARK=1` (o `="pista,cámara[,adelante[,desde[,hasta]]]"`) y `OPENBLACK_WALK_PATH_TRACE=1`: los tiburones.
-- `OPENBLACK_TEST_FISH_PUZZLE="x,z[,dentro]"` (+ `OPENBLACK_HAND_TRACE=1`): el puzle de los peces.
-- `OPENBLACK_TEST_JC_SPECIAL="6[,modo[,fotogramas[,ms]]]"` y `OPENBLACK_BOAT_TRACE=1`: el barco de los misioneros.
-- `OPENBLACK_SCENERY_TRACE=1` y `OPENBLACK_SOUND_TAG_TRACE=1`: el decorado fijo de Land 3/4 y sus etiquetas de sonido.
-- `OPENBLACK_AUDIO_TRACE=1` (canales) y `OPENBLACK_ATMOS_TRACE=<n>` (ambiente).
-- Tests: `test_sea_cells`, `test_water_queries` y `test_psys_water`.
+- `OPENBLACK_TEST_SPLASH="x,z"`: one hand splash per second (rings, sound, fish scare).
+- `OPENBLACK_TEST_SHARK=1` (or `="pista,cámara[,adelante[,desde[,hasta]]]"`) and `OPENBLACK_WALK_PATH_TRACE=1`: the sharks.
+- `OPENBLACK_TEST_FISH_PUZZLE="x,z[,dentro]"` (+ `OPENBLACK_HAND_TRACE=1`): the fish puzzle.
+- `OPENBLACK_TEST_JC_SPECIAL="6[,modo[,fotogramas[,ms]]]"` and `OPENBLACK_BOAT_TRACE=1`: the missionaries' boat.
+- `OPENBLACK_SCENERY_TRACE=1` and `OPENBLACK_SOUND_TAG_TRACE=1`: the fixed scenery of Land 3/4 and its sound tags.
+- `OPENBLACK_AUDIO_TRACE=1` (channels) and `OPENBLACK_ATMOS_TRACE=<n>` (ambience).
+- Tests: `test_sea_cells`, `test_water_queries` and `test_psys_water`.
 
-`test_water_queries` (Land1 real, ver [openblack-internals.md](openblack-internals.md#tests-y-datos-de-prueba)):
-máscara coherente con los predicados de celda, costa más cercana (y que la espiral conserva la fracción de celda),
-punto de río más cercano y su y, agua potable no más lejos que el río, caché de la casa y distancia con la raíz inversa
-del original.
+`test_water_queries` (real Land1, see [openblack-internals.md](openblack-internals.md#tests-and-test-data)):
+mask consistent with the cell predicates, nearest coast (and that the spiral keeps the cell fraction),
+nearest river point and its y, drinking water no further than the river, the house's cache and distance with the original's
+inverse root.
 
-## Fuentes
+## Sources
 
-- `dev\documentacion\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
-  `sea_render.md`; scripts de RE en `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
-  `scan_tree5c.py`) y `re\NOTES.md`.
-- `dev\documentacion\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
-  `map_around.py`: el alfa costero frente a las celdas 0x02 en las 6 tierras) y `HANDOVER.md` (cómo continuar el área
-  del agua: worktree `dev\openblack-agua`, rama `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` y `agua_shot.sh`).
-- `dev\documentacion\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
-- `dev\documentacion\fish\fish_notes.txt` (susto y pesca), `dev\documentacion\render\cut_notes.txt` y `objshadow_notes.txt`.
+- `dev\documentacion\agua\`: `sealife_features.md` (sharks, puzzle, scenery), `audio.md` (ambience, waterfall),
+  `sea_render.md`; RE scripts in `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
+  `scan_tree5c.py`) and `re\NOTES.md`.
+- `dev\documentacion\agua\PLAN.md` (status per milestone W1..W18, questions for the user), `shore\` (`edge_stats.py`,
+  `map_around.py`: the coastal alpha against the 0x02 cells in the 6 lands) and `HANDOVER.md` (how to continue the water
+  area: worktree `dev\openblack-agua`, branch `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` and `agua_shot.sh`).
+- `dev\documentacion\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): buoyancy, impacts and sinking.
+- `dev\documentacion\fish\fish_notes.txt` (scare and fishing), `dev\documentacion\render\cut_notes.txt` and `objshadow_notes.txt`.
 - `bw1-decomp` (`src/Black/Object.cpp`, `include/chlasm/ScriptEnums.h`).
-- Capturas en `_audit/agua/` (`re_shark.png`, `paths_sharks1.png`, `w12_shark_noon.png`, `re_waterfall_diff.png`).
+- Screenshots in `_audit/agua/` (`re_shark.png`, `paths_sharks1.png`, `w12_shark_noon.png`, `re_waterfall_diff.png`).

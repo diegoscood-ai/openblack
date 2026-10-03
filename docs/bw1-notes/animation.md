@@ -1,205 +1,206 @@
-# Animación esquelética (aldeanos y animales)
+# Skeletal animation (villagers and animals)
 
-Cómo anima el original a aldeanos y animales y cómo lo reproduce openblack: formato de los clips ANM, reproducción,
-qué clip toca en cada estado, velocidad de marcha, tamaño por edad, índice de creación, dibujo entre turnos, objetos
-en la mano y sonidos de los clips. Todo lo descrito del original es **fiel** (verificado en `runblack.exe`) salvo
-donde se marca otra cosa; lo que falta en openblack está reunido en [Pendiente](#pendiente).
+How the original animates villagers and animals and how openblack reproduces it: format of the ANM clips, playback,
+which clip plays in each state, walking speed, size by age, creation index, drawing between turns, objects
+in the hand and clip sounds. Everything described about the original is **faithful** (verified in `runblack.exe`) except
+where marked otherwise; what is missing in openblack is gathered in [Pending](#pending).
 
-- [Fuentes](#fuentes)
+- [Sources](#sources)
 - [Clips (`Data\AllAnims.anm`)](#clips-dataallanimsanm)
-- [Reproducción](#reproducción)
-- [Qué clip toca](#qué-clip-toca)
-- [Aldeanos ocultos](#aldeanos-ocultos)
-- [Tamaño y malla por edad](#tamaño-y-malla-por-edad)
-- [Velocidad de marcha](#velocidad-de-marcha)
-- [Índice de creación](#índice-de-creación)
-- [Dibujo entre turnos](#dibujo-entre-turnos)
-- [Objetos en la mano](#objetos-en-la-mano)
-- [Sonidos de los clips](#sonidos-de-los-clips)
-- [Render y ganchos de prueba](#render-y-ganchos-de-prueba)
-- [Animales](#animales)
-- [Pendiente](#pendiente)
+- [Playback](#playback)
+- [Which clip plays](#which-clip-plays)
+- [Hidden villagers](#hidden-villagers)
+- [Size and mesh by age](#size-and-mesh-by-age)
+- [Walking speed](#walking-speed)
+- [Creation index](#creation-index)
+- [Drawing between turns](#drawing-between-turns)
+- [Objects in the hand](#objects-in-the-hand)
+- [Clip sounds](#clip-sounds)
+- [Rendering and test hooks](#rendering-and-test-hooks)
+- [Animals](#animals)
+- [Pending](#pending)
 
-## Fuentes
+## Sources
 
-Informes completos con direcciones en `C:\Users\diewgarc\dev\documentacion\anim\`:
+Full reports with addresses in `C:\Users\diewgarc\dev\documentacion\anim\`:
 
-- `anm_format.md` (formato y reproducción), `villager_anims.md` (qué clip toca en cada estado; tabla de los 255
-  estados, animales, bailes).
-- `speed_units.md` y `speed_exact.md` (velocidad), `creation_index.md` y el simulador `creation_sim.py` (índice de
-  creación), `draw_interp.md` (dibujo entre turnos), `sounds_props.md` (sonidos), `animal_table.txt` (funciones de
-  los animales).
-- Scripts de lectura: `anm.py`, `pack.py`, `l3d.py`, `gen_state_fns.py`.
+- `anm_format.md` (format and playback), `villager_anims.md` (which clip plays in each state; table of the 255
+  states, animals, dances).
+- `speed_units.md` and `speed_exact.md` (speed), `creation_index.md` and the simulator `creation_sim.py` (creation
+  index), `draw_interp.md` (drawing between turns), `sounds_props.md` (sounds), `animal_table.txt` (functions of
+  the animals).
+- Reading scripts: `anm.py`, `pack.py`, `l3d.py`, `gen_state_fns.py`.
 
 ## Clips (`Data\AllAnims.anm`)
 
-- Índice del clip = enum `ANM_*` de `Data\AllMeshes.h` del juego (441 clips; el `AllMeshes.h` de bw1-decomp es el de
-  Creature Isle y tiene otros números). En openblack: `ecs::ClipId(índice)` (el gestor guarda ids con hash).
-- Cabecera (0x54): 0x20 **duración en ms** de tiempo de juego; 0x28 **zancada** (metros de un ciclo; walk man 1,16);
-  0x2C..0x34 vector de desplazamiento; 0x38 fotogramas; 0x40 tamaño del clip en bytes (openblack lo llamaba
-  `animationDuration`); 0x50 flags: byte bajo = huesos, **0x100 bucle**, 0x200 (en ejecución) sin sincronía por
-  distancia (zancada < 0,05). `LoadAllAnimations` (0x550180) quita el bucle a 323 `P_OUT_OF_PRAY`.
-- Fotograma: punteros y cuenta + huesos × 12 floats. **No hay tiempos por fotograma** (lo que openblack leía como
-  tiempo es un puntero): las claves están equiespaciadas. Bucle: periodo = duración y la última clave vuelve a la
-  primera; sin bucle: periodo = duración·n/(n−1) (enteros) y se queda en la última.
-- Matrices: filas (ejes x, y, z, traslación), vectores fila; cada hueso **relativo a su padre** (misma convención que
-  los huesos de la malla). Sin desplazamiento de la raíz (el avance solo está en la cabecera).
+- Clip index = enum `ANM_*` from the game's `Data\AllMeshes.h` (441 clips; the `AllMeshes.h` in bw1-decomp is the
+  Creature Isle one and has other numbers). In openblack: `ecs::ClipId(índice)` (the manager stores hashed ids).
+- Header (0x54): 0x20 **duration in ms** of game time; 0x28 **stride** (metres of one cycle; walk man 1.16);
+  0x2C..0x34 displacement vector; 0x38 frames; 0x40 clip size in bytes (openblack called it
+  `animationDuration`); 0x50 flags: low byte = bones, **0x100 loop**, 0x200 (at runtime) no distance sync
+  (stride < 0.05). `LoadAllAnimations` (0x550180) removes the loop from 323 `P_OUT_OF_PRAY`.
+- Frame: pointers and count + bones × 12 floats. **There are no per-frame times** (what openblack read as
+  time is a pointer): the keys are evenly spaced. Loop: period = duration and the last key returns to the
+  first; no loop: period = duration·n/(n−1) (integers) and it stays on the last one.
+- Matrices: rows (x, y, z axes, translation), row vectors; each bone **relative to its parent** (same convention as
+  the mesh bones). No root displacement (the advance is only in the header).
 
-## Reproducción
+## Playback
 
-- Pose (`LH3DAnim::GetPose` 0x839980): i = n·t/periodo; interpolación **lineal de los 12 floats** entre la clave i y
-  la siguiente, sin cuaterniones ni re-ortonormalizar; W = L · W(padre) (la raíz bajo la matriz del objeto).
+- Pose (`LH3DAnim::GetPose` 0x839980): i = n·t/period; **linear interpolation of the 12 floats** between key i and
+  the next one, without quaternions or re-orthonormalising; W = L · W(parent) (the root under the object's matrix).
   openblack: `L3DAnim::SampleLocal`, `graphics::ComputePose` (`3D/SkeletalPose`).
-- Tiempo (fn_005167D0): + ms de tiempo de juego del fotograma (0 en pausa); con bucle módulo duración, sin bucle se
-  queda al final. Estados que se mueven (info `field0x14`): avanza por distancia, metros / escala / zancada ×
-  duración (fn_0051AF00).
-- Cambio de clip (`Living::SetAnim` 0x5ECBA0): **corte instantáneo** (no hay mezcla aunque el motor la tenga), el
-  mismo clip no reinicia. Estado por objeto: clip y tiempo en ms.
+- Time (fn_005167D0): + ms of game time of the frame (0 when paused); with loop modulo duration, without loop it
+  stays at the end. States that move (info `field0x14`): advances by distance, metres / scale / stride ×
+  duration (fn_0051AF00).
+- Clip change (`Living::SetAnim` 0x5ECBA0): **instant cut** (there is no blending even though the engine has it), the
+  same clip does not restart. Per-object state: clip and time in ms.
 
-## Qué clip toca
+## Which clip plays
 
 `Villager::GetAnimId` (0x750110):
 
-- Estado 0 o ≥ 255: `P_STAND` 385. Si el estado tiene función de animación (tabla fija 0xD09198, ranura 0x60) manda
-  ella; si no, el clip del estado en info.dat (`villagerStateTable.field0x0`; −4 = no se dibuja).
-- Andar (`MoveToPosAnimation` 0x423400): vida ≤ 0,15 gatea, ≤ 0,30 cojea; por velocidad (umbral info.dat
-  `speedThreshold` 1 hombres 3/4 m/s, 0 mujeres 2/3): WALK / RUN / SPRINT `_MAN`/`_WOMAN`; llevando herramienta o
-  carga `CARRY_AXE` / `CARRY_OBJECT_RUN`.
-- Cambio de estado (`SetTopState` 0x5F28E0): clip de salida del estado anterior (salvo `field0xf0`), si no el del
-  estado nuevo y su clip de entrada. Mientras suena uno de esos la lógica del estado espera (turnos × 100 ms ≥
-  duración). Rareza del original: tras un clip de salida el de entrada no se ve, se repite el del estado.
+- State 0 or ≥ 255: `P_STAND` 385. If the state has an animation function (fixed table 0xD09198, slot 0x60) it
+  decides; if not, the state's clip in info.dat (`villagerStateTable.field0x0`; −4 = not drawn).
+- Walking (`MoveToPosAnimation` 0x423400): life ≤ 0.15 crawls, ≤ 0.30 limps; by speed (info.dat threshold
+  `speedThreshold` 1 men 3/4 m/s, 0 women 2/3): WALK / RUN / SPRINT `_MAN`/`_WOMAN`; carrying a tool or
+  load `CARRY_AXE` / `CARRY_OBJECT_RUN`.
+- State change (`SetTopState` 0x5F28E0): exit clip of the previous state (except `field0xf0`), otherwise that of the
+  new state and its entry clip. While one of those plays the state logic waits (turns × 100 ms ≥
+  duration). Quirk of the original: after an exit clip the entry clip is not seen, the state's clip is repeated.
 
-openblack: `ECS/VillagerAnimations` (tabla generada `VillagerAnimationTable.h`), llamado desde
-`LivingActionSystem::VillagerSetState` y `Update`. Las funciones que necesitan lo que aún no existe (tipo de
-aterrizaje, agua, vórtices, bailes, peleas, fútbol, criaturas) toman la rama del original para su ausencia.
+openblack: `ECS/VillagerAnimations` (generated table `VillagerAnimationTable.h`), called from
+`LivingActionSystem::VillagerSetState` and `Update`. The functions that need what does not exist yet (landing
+type, water, vortices, dances, fights, football, creatures) take the original's branch for its absence.
 
-## Aldeanos ocultos
+## Hidden villagers
 
-`Villager::Draw` no dibuja al aldeano si el clip de info.dat de su estado actual es −4 (`ANM_DONT_DRAW`, p. ej.
-AT_HOME) ni con la marca de estar en casa (+0xE0 & 4, `ArriveHome` / `LeaveHome`): openblack le quita la malla mientras
-tanto (`SkeletalAnimation::hiddenMesh`), así tampoco se puede coger.
+`Villager::Draw` does not draw the villager if the info.dat clip of its current state is −4 (`ANM_DONT_DRAW`, e.g.
+AT_HOME) nor with the at-home flag (+0xE0 & 4, `ArriveHome` / `LeaveHome`): openblack removes its mesh in the
+meantime (`SkeletalAnimation::hiddenMesh`), so it cannot be picked up either.
 
-## Tamaño y malla por edad
+## Size and mesh by age
 
-`Villager::SetAge` (0x7528C0): niño si la edad es menor que `grownUpAge` (13; openblack usaba 18), con las mallas
-`childMeshHigh..Low`; un adulto tiene al menos 18 años. Escala (`InitialiseScale` + `SetScaleForAge`): adulto 0,9 y
-luego 1,05 − rand(0,1) (en (0,95, 1,05]); niño `ageToScale[edad − 1]` + rand(0,75 × la distancia a
-`ageToScale[edad + 1]`). Qué nivel de malla se dibuja (LOD 1): [mods.md](mods.md#aldeanos-mallas-y-texturas).
+`Villager::SetAge` (0x7528C0): child if the age is less than `grownUpAge` (13; openblack used 18), with the meshes
+`childMeshHigh..Low`; an adult is at least 18 years old. Scale (`InitialiseScale` + `SetScaleForAge`): adult 0.9 and
+then 1.05 − rand(0.1) (in (0.95, 1.05]); child `ageToScale[edad − 1]` + rand(0.75 × the distance to
+`ageToScale[edad + 1]`). Which mesh level is drawn (LOD 1): [mods.md](mods.md#villagers-meshes-and-textures).
 
-## Velocidad de marcha
+## Walking speed
 
-**Unidades** (`speed_units.md`): 1 unidad del mundo = 1 m (MapCoords 6553,6 por metro). El u16 de velocidad (+0x5A)
-es lo que avanza **por turno** en MapCoords (`GetSpeedInMetres` 0x60C070 = u16 / 6553,6), y las tablas de info.dat
-(speedGroup) están en esas unidades: 1475 = 0,225 m/turno = 2,25 m/s. openblack movía `WallHug::speed` = 2,25 por
-turno (10 veces demasiado rápido): ahora es m/s × 0,1. Un hombre normal da 2,25 / 1,16 ≈ 1,94 ciclos de paso por
-segundo, con los pies sincronizados (el clip avanza con la misma distancia).
+**Units** (`speed_units.md`): 1 world unit = 1 m (MapCoords 6553.6 per metre). The speed u16 (+0x5A)
+is what it advances **per turn** in MapCoords (`GetSpeedInMetres` 0x60C070 = u16 / 6553.6), and the info.dat tables
+(speedGroup) are in those units: 1475 = 0.225 m/turn = 2.25 m/s. openblack moved `WallHug::speed` = 2.25 per
+turn (10 times too fast): now it is m/s × 0.1. A normal man does 2.25 / 1.16 ≈ 1.94 step cycles per
+second, with the feet synchronised (the clip advances with the same distance).
 
-**Cálculo** (`ECS/VillagerSpeed`, `speed_exact.md`):
+**Computation** (`ECS/VillagerSpeed`, `speed_exact.md`):
 
-1. En cada cambio de estado (`SetStateSpeed` 0x753760) la velocidad sale de la entrada del speedGroup que pide el
-   estado final (índice en `villagerStateTable.field0x24`), × 0,85 si tiene pueblo (base de las necesidades del
-   pueblo) × las cargas de leña y comida (sin carga: 1); herido: 0,4-0,6 × speed4 o 0,5-0,75 × speedDefault.
-2. `SetSpeed` (0x750ED0) la multiplica por f = 1 + ((índice de creación × 47) % 31 − 16) × 0,01, menos: niño
-   min((13 − edad) × 0,02, 0,4); viejo (> 60) min((edad − 60) × 0,02, 0,4); adulto 0,1 × vida (y el hambre al cubo)
-   y 0,2 las mujeres; se trunca a u16.
-3. La escala del mapa (`GLandBalance::Values[4]`, `SET_GLOBAL_LAND_BALANCE`, `LandBalance.h`: 1,5 en Land2, 1,25 en
-   Land3) multiplica todo.
+1. On each state change (`SetStateSpeed` 0x753760) the speed comes from the speedGroup entry requested by the
+   final state (index in `villagerStateTable.field0x24`), × 0.85 if it has a town (base of the town's
+   needs) × the wood and food loads (no load: 1); injured: 0.4-0.6 × speed4 or 0.5-0.75 × speedDefault.
+2. `SetSpeed` (0x750ED0) multiplies it by f = 1 + ((creation index × 47) % 31 − 16) × 0.01, minus: child
+   min((13 − age) × 0.02, 0.4); old (> 60) min((age − 60) × 0.02, 0.4); adult 0.1 × life (and hunger cubed)
+   and 0.2 for women; it is truncated to u16.
+3. The map scale (`GLandBalance::Values[4]`, `SET_GLOBAL_LAND_BALANCE`, `LandBalance.h`: 1.5 in Land2, 1.25 in
+   Land3) multiplies everything.
 
-Resultado: un hombre normal va a ~1,7-1,9 m/s y una mujer a ~1,4-1,6. Lo que openblack aún no tiene (deseos del
-pueblo, hambre, cargas, creencia, maravilla) cuenta como neutro: ver [Pendiente](#pendiente).
+Result: a normal man goes at ~1.7-1.9 m/s and a woman at ~1.4-1.6. What openblack does not have yet (town
+desires, hunger, loads, belief, wonder) counts as neutral: see [Pending](#pending).
 
-## Índice de creación
+## Creation index
 
-`ECS/ObjectCreationIndex` (`creation_index.md`, simulador `creation_sim.py`): el contador de `Object::Object`
-(0x636520, g_game+0x205A48) que usa `SetSpeed`.
+`ECS/ObjectCreationIndex` (`creation_index.md`, simulator `creation_sim.py`): the counter of `Object::Object`
+(0x636520, g_game+0x205A48) used by `SetSpeed`.
 
-- Cada cosa derivada de Object toma el siguiente número al crearse (edificios, árboles, rasgos, rocas, aldeanos,
-  animales, vasijas, la criatura, faroles; el TotemStatue es uno); no cuentan pueblos, bosques, nieblas, caminos,
-  ríos, planos ni la mano.
-- Lo que openblack aún no crea reserva su número: 7 TownDesireFlags por CREATE_TOWN, el ScriptHighlight de almacén /
-  guardería / taller / maravilla / cementerio (salvo los africanos), ShowNeedsVisuals y montón de leña del taller, los
-  iconos de hechizo del centro del pueblo (uno por semilla distinta, hasta 6), dispensador + semilla, y corazón +
-  objeto visual + TempleLeash del templo (sus lugares de culto aún no) (**sin comprobar** que siga faltando cada uno).
-- **Mods** (propio de openblack): lo que crea un mod y no existe en el original se crea dentro de un
-  `object_index::ModScope`, que da índices de un rango aparte (desde `k_ModBase` = 0x40000000, `IsModObject`) sin mover
-  el contador del original (`Skip` también va al rango del mod). Lo usa
-  [test.miracle-dispensers](mod-library.md#testmiracle-dispensers) para sus dispensadores y sus orbes.
-- Vuelve a 0 al cargar un mapa (ClearMap → GData::Reset 0x510750) y empieza en 2 en el primero de la sesión (dos
-  HelpSpirits).
-- Comprobado: los 55 aldeanos de Land1 tienen el mismo índice que el simulador. Traza
+- Every thing derived from Object takes the next number when created (buildings, trees, features, rocks, villagers,
+  animals, pots, the creature, lanterns; the TotemStatue is one); towns, forests, fogs, roads,
+  rivers, planes and the hand do not count.
+- What openblack does not create yet reserves its number: 7 TownDesireFlags per CREATE_TOWN, the ScriptHighlight of
+  storehouse / creche / workshop / wonder / graveyard (except the African ones), ShowNeedsVisuals and the workshop's
+  woodpile, the spell icons of the town centre (one per distinct seed, up to 6), dispenser + seed, and heart +
+  visual object + TempleLeash of the temple (its places of worship not yet) (**not checked** that each one is still
+  missing).
+- **Mods** (openblack-specific): what a mod creates and does not exist in the original is created inside an
+  `object_index::ModScope`, which gives indices from a separate range (from `k_ModBase` = 0x40000000, `IsModObject`)
+  without moving the original's counter (`Skip` also goes to the mod range). It is used by
+  [test.miracle-dispensers](mod-library.md#testmiracle-dispensers) for its dispensers and its orbs.
+- Resets to 0 when loading a map (ClearMap → GData::Reset 0x510750) and starts at 2 on the first one of the session
+  (two HelpSpirits).
+- Checked: the 55 villagers of Land1 have the same index as the simulator. Trace
   `OPENBLACK_OBJECT_INDEX_TRACE=1`.
 
-## Dibujo entre turnos
+## Drawing between turns
 
-`ECS/MobileDrawing` (`draw_interp.md`): la simulación mueve a aldeanos y animales una vez por turno; cada fotograma
-el original los dibuja entre su posición al empezar el turno (Living +0x2C, copiada en `Living::ProcessLiving`
-0x5EC810) y la del final, con la fracción del turno (0..0,99; fn_0051AF00): un turno por detrás, sin extrapolar,
-con las dos alturas interpoladas. La fracción y los ms del fotograma salen de `game_clock`
-([engine-math.md](engine-math.md#reloj-del-juego)): en pausa la fracción se congela y los ms valen 0.
+`ECS/MobileDrawing` (`draw_interp.md`): the simulation moves villagers and animals once per turn; every frame
+the original draws them between their position at the start of the turn (Living +0x2C, copied in `Living::ProcessLiving`
+0x5EC810) and the one at the end, with the turn fraction (0..0.99; fn_0051AF00): one turn behind, without extrapolating,
+with both heights interpolated. The fraction and the frame ms come from `game_clock`
+([engine-math.md](engine-math.md#game-clock)): when paused the fraction freezes and the ms are 0.
 
-- Solo en los estados que se mueven para la animación y con clip de zancada (los animales: si se movieron).
-- Giro: el aldeano gira su yaw dibujado hacia el real a 0,003 rad/ms (más de 90°: 0,012·|d|/π rad/ms;
-  `Villager::Draw` +0x108); los animales giran por turno (su IA limita el giro, [animals.md](animals.md)). Las aves
-  se alabean en los giros (`Dove::Draw`, también en `ECS/MobileDrawing`).
-- Pendiente del terreno: en el suelo (altitud ≤ 0,2) se cizalla con la pendiente: fila0 += a·fila1, fila2 +=
-  b·fila1 con a, b la subida del terreno a una unidad por sus ejes x, z (±0,3; fn_0051B220).
-- `components::DrawPosition` solo cambia el dibujo (RenderingSystem, objeto en la mano, sombras de los pies con la
-  pose animada); la lógica usa el Transform. Al coger o aterrizar se ajusta sin deslizar.
-- Traza `OPENBLACK_DRAW_TRACE=1`.
+- Only in the states that move for the animation and with a stride clip (animals: if they moved).
+- Turning: the villager turns its drawn yaw towards the real one at 0.003 rad/ms (more than 90°: 0.012·|d|/π rad/ms;
+  `Villager::Draw` +0x108); animals turn per turn (their AI limits turning, [animals.md](animals.md)). Birds
+  bank in turns (`Dove::Draw`, also in `ECS/MobileDrawing`).
+- Terrain slope: on the ground (altitude ≤ 0.2) it is sheared with the slope: row0 += a·row1, row2 +=
+  b·row1 with a, b the rise of the terrain at one unit along its x, z axes (±0.3; fn_0051B220).
+- `components::DrawPosition` only changes the drawing (RenderingSystem, object in the hand, foot shadows with the
+  animated pose); the logic uses the Transform. When picking up or landing it is adjusted without sliding.
+- Trace `OPENBLACK_DRAW_TRACE=1`.
 
-## Objetos en la mano
+## Objects in the hand
 
-`ECS/CarriedProps`: el `CARRIED_OBJECT` del aldeano (+0xF1, `SkeletalAnimation::carriedObject`, puesto por
-`SetStateCarriedObject` y por `BuildingAnimation`: martillo, sierra o mazo) se dibuja con su malla (tabla de
-`CarriedObject::Init` 0x462530: hacha 342, caña 355, cayado 354, sierra 383, bolsa 343, pelota 344, martillo 367,
-mazo 378, guadaña 384, pala 390, leña 406, ramas 347-349) pegada al hueso 15 de la pose (el agarre al final del brazo
-−X), con los ejes −X, −Z, −Y del hueso y sin desplazamiento (`SetLinkedPosition` 0x815FC0).
+`ECS/CarriedProps`: the villager's `CARRIED_OBJECT` (+0xF1, `SkeletalAnimation::carriedObject`, set by
+`SetStateCarriedObject` and by `BuildingAnimation`: hammer, saw or mallet) is drawn with its mesh (table of
+`CarriedObject::Init` 0x462530: axe 342, fishing rod 355, crook 354, saw 383, bag 343, ball 344, hammer 367,
+mallet 378, scythe 384, shovel 390, wood 406, branches 347-349) attached to bone 15 of the pose (the grip at the end
+of the arm −X), with the bone's −X, −Z, −Y axes and no offset (`SetLinkedPosition` 0x815FC0).
 
-- Es una entidad propia (Transform + Mesh + `CarriedProp`) que se mueve cada fotograma. No se dibuja en la mano ni en
-  los estados ocultos.
-- Gancho `OPENBLACK_TEST_CARRY=<tipo>`. Hoy casi ningún estado de openblack pone objeto (faltan los oficios).
+- It is an entity of its own (Transform + Mesh + `CarriedProp`) that moves every frame. It is not drawn in the hand
+  nor in the hidden states.
+- Hook `OPENBLACK_TEST_CARRY=<tipo>`. Today almost no openblack state sets an object (the jobs are missing).
 
-## Sonidos de los clips
+## Clip sounds
 
-`Audio/AnimationSounds` (`sounds_props.md`): `Data\SmallSounds.SAS` da a 115 clips un grupo de sonido (1 personas,
-18 vaca, 36 cerdo, 39 oveja, 40 caballo...) y eventos `ms soundId acción`.
+`Audio/AnimationSounds` (`sounds_props.md`): `Data\SmallSounds.SAS` gives 115 clips a sound group (1 people,
+18 cow, 36 pig, 39 sheep, 40 horse...) and events `ms soundId acción`.
 
-- Al cruzar un evento, la clave {voz (1 hombre, 2 mujer, 3 niño), 2, grupo, superficie, soundId} elige una fila de la
-  `LHAudioAnimArrayTable` de editor.sad (la de más columnas exactas; empate: la última) y una muestra al azar de su
-  lista de `LHAudioWaveNumTable`.
-- Solo suena a menos del `maxDist` de la muestra desde la cámara (pasos: 20 m; los NULL.wav de relleno tienen 0 y
-  nunca suenan).
-- Superficie: 7 bajo el agua; si no, el `surfaceSound` de info.dat del segundo material de la celda a su altitud
-  (1 hierba, 2 grava, 3 duro, 4 barro, 5 nieve, 8 hojarasca).
-- Los gritos de THROWN solo en los primeros 15 turnos (10 en el vórtice).
-- También hechos (08b51da4): los de VillagersBanter.sad (0x92-0x94; 0x92 suena en la casa del aldeano), parar la
-  sierra (acción 1) y que el sonido siga al objeto.
-- Desde B2 del audio ([audio.md](audio.md#b2-los-anim-effects-en-el-núcleo)) van por `audio::SamplePlayAnimEffect`
-  0x42A4B0 en los 16 canales, como fn_00516510: la distancia y la superficie son siempre las del aldeano (también para
-  el banter que suena en su casa; sin casa, en la cámara), la distancia tope 800 y los filtros de GAudio (el banter y
-  los susurros de árbol son de userParam 1: callan con la pantalla ancha del guion), y un paso (4) con esa pantalla
-  ancha descarta el resto de los eventos del clip.
+- When crossing an event, the key {voice (1 man, 2 woman, 3 child), 2, group, surface, soundId} chooses a row of the
+  `LHAudioAnimArrayTable` of editor.sad (the one with the most exact columns; tie: the last one) and a random sample
+  from its `LHAudioWaveNumTable` list.
+- It only sounds within the sample's `maxDist` from the camera (footsteps: 20 m; the padding NULL.wav have 0 and
+  never sound).
+- Surface: 7 under water; otherwise the info.dat `surfaceSound` of the cell's second material at its altitude
+  (1 grass, 2 gravel, 3 hard, 4 mud, 5 snow, 8 leaf litter).
+- The THROWN screams only in the first 15 turns (10 in the vortex).
+- Also done (08b51da4): those of VillagersBanter.sad (0x92-0x94; 0x92 sounds in the villager's house), stopping the
+  saw (action 1) and the sound following the object.
+- Since audio B2 ([audio.md](audio.md#b2-the-anim-effects-in-the-core)) they go through `audio::SamplePlayAnimEffect`
+  0x42A4B0 on the 16 channels, like fn_00516510: the distance and the surface are always those of the villager (also
+  for the banter that sounds in its house; without a house, at the camera), the maximum distance 800 and the GAudio
+  filters (the banter and the tree whispers are userParam 1: they go silent with the script's widescreen), and a
+  footstep (4) with that widescreen discards the rest of the clip's events.
 
-## Render y ganchos de prueba
+## Rendering and test hooks
 
-Cada aldeano con pose (`components::SkeletalAnimation`) se dibuja por separado con sus huesos (`ecs::PosesByInstance`
-en el bucle de instancias de `Renderer.cpp`); el resto sigue instanciado. Los reflejos de objetos
-(`DrawObjectReflections`: lo que sostiene la mano y lo lanzado) también usan la pose.
+Each villager with a pose (`components::SkeletalAnimation`) is drawn separately with its bones (`ecs::PosesByInstance`
+in the instance loop of `Renderer.cpp`); the rest is still instanced. Object reflections
+(`DrawObjectReflections`: what the hand holds and what is thrown) also use the pose.
 
-- `OPENBLACK_TEST_ANIM="clip[,ms]"`: ese clip en todos los aldeanos (bloqueado; con ms, quieto en ese instante; con
-  `OPENBLACK_START_PAUSED=1` no se mueven).
-- Traza: `OPENBLACK_ANIM_TRACE=1`.
+- `OPENBLACK_TEST_ANIM="clip[,ms]"`: that clip on all villagers (locked; with ms, frozen at that instant; with
+  `OPENBLACK_START_PAUSED=1` they do not move).
+- Trace: `OPENBLACK_ANIM_TRACE=1`.
 
-## Animales
+## Animals
 
-Su IA, sus estados y el clip de cada estado por especie están en [animals.md](animals.md) (`ECS/AnimalAI`,
-`ECS/AnimalAnimations`); usan la misma reproducción, sincronía por distancia, dibujo entre turnos y sonidos que los
-aldeanos.
+Their AI, their states and the clip of each state per species are in [animals.md](animals.md) (`ECS/AnimalAI`,
+`ECS/AnimalAnimations`); they use the same playback, distance sync, drawing between turns and sounds as the
+villagers.
 
-## Pendiente
+## Pending
 
-- Velocidad: los deseos del pueblo, el hambre (al cubo), las cargas de leña y comida, la creencia del pueblo en el
-  jugador y el bonus de maravilla del jugador (openblack usa el valor neutro).
-- Edad: el crecimiento cada 375 turnos (openblack no envejece a los aldeanos).
-- Clips: los oficios (objetos en la mano) y las ramas de `GetAnimId` que dependen de lo que aún no existe (ver
-  [Qué clip toca](#qué-clip-toca)).
+- Speed: town desires, hunger (cubed), wood and food loads, the town's belief in the
+  player and the player's wonder bonus (openblack uses the neutral value).
+- Age: growth every 375 turns (openblack does not age the villagers).
+- Clips: the jobs (objects in the hand) and the `GetAnimId` branches that depend on what does not exist yet (see
+  [Which clip plays](#which-clip-plays)).

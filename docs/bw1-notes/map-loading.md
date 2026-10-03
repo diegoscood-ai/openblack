@@ -1,568 +1,568 @@
-# Carga del mapa y funciones del guion
+# Map loading and script functions
 
-Qué hace el guion del mapa (`Land*.txt`, LHScriptX) y los CREATE de CHL al cargar una tierra: creación de objetos,
-nieblas, rebaños y animales, datos de simulación (pueblos, clima, arenas), piscifactorías, objetos del guion (farolas,
-hogueras, árboles muertos, puertas, ciudadela planeada), `IsOkToCreateAtPos` y `BUILT_PERCENTAGE`. Todo **fiel** (leído
-en runblack.exe) salvo lo marcado **(inferido)**, *desviación* o **pendiente**.
+What the map script (`Land*.txt`, LHScriptX) and the CHL CREATEs do when loading a land: object creation,
+mists, flocks and animals, simulation data (towns, climate, arenas), fish farms, script objects (street lanterns,
+bonfires, dead trees, gates, planned citadel), `IsOkToCreateAtPos` and `BUILT_PERCENTAGE`. All **faithful** (read
+in runblack.exe) except what is marked **(inferred)**, *deviation* or **pending**.
 
-- [Creación desde CHL](#creación-desde-chl-create-27--create_with_angle_and_scale-252)
-- [Niebla del mapa (CREATE_MIST)](#niebla-del-mapa-create_mist)
-  - [Dibujo (LH3DMist)](#dibujo-lh3dmist-fn_007fa300)
-- [Animales y rebaños](#animales-y-rebaños-create_flock-create_new_animal)
-- [Datos de simulación del mapa](#datos-de-simulación-del-mapa-solo-datos-nada-se-dibuja)
-- [Piscifactorías](#piscifactorías-create_fish_farm--create_town_fish_farm)
-- [Porcentaje de construcción de un Feature](#porcentaje-de-construcción-de-un-feature-built_percentage-propiedad-chl-22)
-- [Objetos del guion del mapa](#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas)
-- [Ciudades y ciudadela](#ciudades-y-ciudadela)
-- [Órdenes de guion que mueven cosas](#órdenes-de-guion-que-mueven-cosas-move_game_thing-033-y-compañía)
-- [Pendiente](#pendiente) · [Ganchos de prueba](#ganchos-de-prueba) · [Fuentes](#fuentes)
+- [Creation from CHL](#creation-from-chl-create-27--create_with_angle_and_scale-252)
+- [Map mist (CREATE_MIST)](#map-mist-create_mist)
+  - [Drawing (LH3DMist)](#drawing-lh3dmist-fn_007fa300)
+- [Animals and flocks](#animals-and-flocks-create_flock-create_new_animal)
+- [Map simulation data](#map-simulation-data-data-only-nothing-is-drawn)
+- [Fish farms](#fish-farms-create_fish_farm--create_town_fish_farm)
+- [Build percentage of a Feature](#build-percentage-of-a-feature-built_percentage-chl-property-22)
+- [Map script objects](#map-script-objects-street-lanterns-bonfires-dead-trees-gates)
+- [Towns and citadel](#towns-and-citadel)
+- [Script commands that move things](#script-commands-that-move-things-move_game_thing-033-and-friends)
+- [Pending](#pending) · [Test hooks](#test-hooks) · [Sources](#sources)
 
-## Creación desde CHL (CREATE 27 / CREATE_WITH_ANGLE_AND_SCALE 252)
+## Creation from CHL (CREATE 27 / CREATE_WITH_ANGLE_AND_SCALE 252)
 
-Desensamblado en `documentacion\mapa\chl_creatething_6F11A0.txt`.
-- `GScript::CreateThing` 0x6F1B20 y `CreateWithAngleAndScale` 0x6F2E10 (ángulo en grados, ×0,0174533) solo aceptan
-  los tipos 1..41 y llaman al switch `fn_006F11A0` (tabla 0x6F1A70). Si no se crea nada, el guion recibe **0**
-  ("Thing not created"). openblack devolvía la entidad 0 (una entidad válida) para todo lo no soportado.
-- El subtipo 5000 solo vale para Timer, SpellDispenser, Whale, Ark, Marker, Ball, Poo y Scaffold.
-- **Marker** (`fn_0070D8D0`): un `ScriptMarker` con solo la posición. `MapCoords::Set` 0x603340 guarda
-  `y − GetAltitude`, `GET_POSITION` 0x6F88A0 devuelve `GetAltitude + relY` y `ScriptMarker::PhysicsEditorCreate`
-  0x561030 no hace nada, así que el marcador devuelve exactamente el vector con que se creó (y = 0 en CHL).
-- Los demás objetos se quedan en el suelo: `PhysicsEditorCreate` (GameThingWithPos 0x401980, MobileStatic 0x55D720,
-  Bonfire 0x4397C0) pone relY = 0; tras crear, 0x6F1591-0x6F1A42 rehace la matriz en `GetAltitude(pos) + relY` con
-  solo el ángulo Y y la escala del objeto (sin inclinación X/Z).
-- Casos: Feature `fn_00527350`(ángulo, escala); Villager `Villager::Create` 0x74FBE0 con edad grownUpAge + 1,
-  VillagerChild con edad 10 (sin pueblo ni casa); Animal y Bird `fn_00419C20`; MobileStatic y Rock: subtipo 6 →
-  GBaseOnly `fn_00609340` (sin ángulo ni escala), 7 y 59 → `GStreetLantern::Create`, el resto `fn_00608770` (info 8 →
-  Bonfire, rocas con info +0x128 = 2); MobileObject `0x607000`, Poo = MobileObject 5, Ark = 23; Tree
-  `Tree::Create` 0x749EE0 (sin bosque); AnimatedStatic `0x421F50`. Abode, Town, Dance, Flock, InfluenceRing, Citadel,
-  WorshipSite, SpellSeed, Mist, Field, ComputerPlayer y TotemStatue dan "Invalid create type" también en el original.
-  PuzzleGame (tipo 32, 0x6F184C): `fn_006D6680(pos, subtipo, ftol(ángulo·2048·0,159155), escala)` (ver «Puzle de los
-  peces» en [water.md](water.md#puzle-de-los-peces)). Pendientes en openblack: Reward, Creature, DeadTree, Store,
-  Timer, Vortex, Ball, Totem, Highlight y Scaffold. Ya portados: WeatherThing (`magic::script::CreateWeatherThing`),
-  OneShotSpell, OneShotSpellInHand y SpellDispenser (`Magic/Script/CHLWorship.cpp`) y Whale (el tiburón).
-- openblack: `CreateScriptObject` (CHLApi.cpp), `MarkerArchetype`. El círculo de Singing Stones ya se monta en
-  (2496,67, 2246,33) sobre el suelo. Las funciones CHL sin implementar se registran una sola vez por función.
+Disassembly in `documentacion\mapa\chl_creatething_6F11A0.txt`.
+- `GScript::CreateThing` 0x6F1B20 and `CreateWithAngleAndScale` 0x6F2E10 (angle in degrees, ×0.0174533) only accept
+  types 1..41 and call the switch `fn_006F11A0` (table 0x6F1A70). If nothing is created, the script receives **0**
+  ("Thing not created"). openblack returned entity 0 (a valid entity) for everything unsupported.
+- Subtype 5000 is only valid for Timer, SpellDispenser, Whale, Ark, Marker, Ball, Poo and Scaffold.
+- **Marker** (`fn_0070D8D0`): a `ScriptMarker` with only the position. `MapCoords::Set` 0x603340 stores
+  `y − GetAltitude`, `GET_POSITION` 0x6F88A0 returns `GetAltitude + relY` and `ScriptMarker::PhysicsEditorCreate`
+  0x561030 does nothing, so the marker returns exactly the vector it was created with (y = 0 in CHL).
+- The other objects stay on the ground: `PhysicsEditorCreate` (GameThingWithPos 0x401980, MobileStatic 0x55D720,
+  Bonfire 0x4397C0) sets relY = 0; after creating, 0x6F1591-0x6F1A42 rebuilds the matrix at `GetAltitude(pos) + relY` with
+  only the Y angle and the object's scale (no X/Z tilt).
+- Cases: Feature `fn_00527350`(angle, scale); Villager `Villager::Create` 0x74FBE0 with age grownUpAge + 1,
+  VillagerChild with age 10 (no town or house); Animal and Bird `fn_00419C20`; MobileStatic and Rock: subtype 6 →
+  GBaseOnly `fn_00609340` (no angle or scale), 7 and 59 → `GStreetLantern::Create`, the rest `fn_00608770` (info 8 →
+  Bonfire, rocks with info +0x128 = 2); MobileObject `0x607000`, Poo = MobileObject 5, Ark = 23; Tree
+  `Tree::Create` 0x749EE0 (no forest); AnimatedStatic `0x421F50`. Abode, Town, Dance, Flock, InfluenceRing, Citadel,
+  WorshipSite, SpellSeed, Mist, Field, ComputerPlayer and TotemStatue give "Invalid create type" in the original too.
+  PuzzleGame (type 32, 0x6F184C): `fn_006D6680(pos, subtipo, ftol(ángulo·2048·0,159155), escala)` (see «Fish
+  puzzle» in [water.md](water.md#fish-puzzle)). Pending in openblack: Reward, Creature, DeadTree, Store,
+  Timer, Vortex, Ball, Totem, Highlight and Scaffold. Already ported: WeatherThing (`magic::script::CreateWeatherThing`),
+  OneShotSpell, OneShotSpellInHand and SpellDispenser (`Magic/Script/CHLWorship.cpp`) and Whale (the shark).
+- openblack: `CreateScriptObject` (CHLApi.cpp), `MarkerArchetype`. The Singing Stones circle is now assembled at
+  (2496,67, 2246.33) on the ground. Unimplemented CHL functions are logged only once per function.
 
-## Niebla del mapa (CREATE_MIST)
+## Map mist (CREATE_MIST)
 
-- `CREATE_MIST` "AFNFF" (0x7155C9) → `Mist::Create` 0x6063D0(pos con relY = F1, tamaño F3, color N2, k F4) →
-  `CallVirtualFunctionsForCreation` 0x606420: `LH3DObject::Create(7)` (LH3DMist) en `GetAltitude(x, z) + F1`,
-  +0x88 = F3, +0x90 = N2 >> 24 (alfa), bandera +0x80 bit 1; solo si F4 ≠ 1, +0x8C = F4 y bit 2. El constructor de
-  LH3DMist 0x7F9560 pone +0x88 = 1, +0x8C = 3, +0x90 = 0x80 y el contador +0x84 = Random(0, 16) & 15.
-- `Mist::SetFade` 0x606800(tamaño inicial, tamaño final, alfa inicial, alfa final, segundos): pone ya el tamaño y el
-  alfa iniciales y `fn_00606880` suma un paso por turno de 0,1 s durante segundos × 10 turnos (alfa limitado a
-  0..255); `Get2DRadius` 0x606660 = escala × la mayor semiextensión x/z de la malla. Lo usan `CREATE_MIST` 263 y
-  `SET_MIST_FADE` 264 de CHL (una llamada de cada en challenge.chl; aún sin hacer).
-- Land1 tiene 17 (pantano, cueva del flautista...). openblack: `MistArchetype`, `components::Mist`,
-  `Renderer::CollectMists` / `DrawMist` (dibujo más abajo).
+- `CREATE_MIST` "AFNFF" (0x7155C9) → `Mist::Create` 0x6063D0(pos with relY = F1, size F3, colour N2, k F4) →
+  `CallVirtualFunctionsForCreation` 0x606420: `LH3DObject::Create(7)` (LH3DMist) at `GetAltitude(x, z) + F1`,
+  +0x88 = F3, +0x90 = N2 >> 24 (alpha), flag +0x80 bit 1; only if F4 ≠ 1, +0x8C = F4 and bit 2. The constructor of
+  LH3DMist 0x7F9560 sets +0x88 = 1, +0x8C = 3, +0x90 = 0x80 and the counter +0x84 = Random(0, 16) & 15.
+- `Mist::SetFade` 0x606800(initial size, final size, initial alpha, final alpha, seconds): sets the initial size and
+  alpha right away and `fn_00606880` adds one step per 0.1 s turn for seconds × 10 turns (alpha limited to
+  0..255); `Get2DRadius` 0x606660 = scale × the largest x/z half-extent of the mesh. It is used by `CREATE_MIST` 263 and
+  `SET_MIST_FADE` 264 of CHL (one call of each in challenge.chl; not done yet).
+- Land1 has 17 (swamp, the piper's cave...). openblack: `MistArchetype`, `components::Mist`,
+  `Renderer::CollectMists` / `DrawMist` (drawing further below).
 
-### Dibujo (LH3DMist, `fn_007FA300`)
+### Drawing (LH3DMist, `fn_007FA300`)
 
 
-- **Otras nieblas** (API `mists::Submit(const MistDesc&)`, `src/Graphics/Mists.h`): quien tenga sus propios objetos
-  LH3DMist (las bocanadas de tormenta de `GWeather::DrawClouds` 0x83FC90) los envía cada fotograma con posición,
-  tamaño, color ARGB, rama efecto/normal, k y su contador; `CollectMists` los recorta con la misma esfera y van a la
-  misma lista de atrás adelante que las del mapa y los modelos con mezcla (`_frameMists`, `DrawMist(índice)`).
+- **Other mists** (API `mists::Submit(const MistDesc&)`, `src/Graphics/Mists.h`): whoever has their own
+  LH3DMist objects (the storm puffs of `GWeather::DrawClouds` 0x83FC90) sends them every frame with position,
+  size, ARGB colour, effect/normal branch, k and its counter; `CollectMists` clips them with the same sphere and they go into the
+  same back-to-front list as the map ones and the blended models (`_frameMists`, `DrawMist(índice)`).
 
-- Misma malla `mist.l3d` (cúpula de radio 20, base en el origen), material de humo 0xEA1ABC (`fn_0080BBD0`, modo 6:
-  mezcla SRCALPHA/INVSRCALPHA, color y alfa = textura × difuso, sin escritura de Z, dos caras) y atlas 8×8 que las
-  nubes. Creación (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 siempre; si F4 ≠ 1, +0x8C = F4 y
-  +0x80 |= 2 (rama "efecto"). Color N2 en +0x4C (ARGB), +0x50 (especular) = 0.
-- **Rotación** (clave): 0x7FA38F copia a la matriz del objeto la 0xEA1C98, que `UpdateCamera` 0x819A62 monta en dos
-  pasos. Primero permuta las columnas de la mundo→cámara A = 0xEA1D28: fila i = (A[3i], −A[3i+2], A[3i+1]),
-  traslación 0. Y **después** (0x819AC5 `mov ecx, 0xEA1C98`, 0x819AF3 `call fn_007FB3F0`; la otra copia de
-  `UpdateCamera`, 0x81A1AD, hace lo mismo en 0x81A265) la **invierte en su sitio**: `fn_007FB3F0` es la inversa de
-  la matriz 4×3 (cofactores / determinante, traslación = −t·M⁻¹). Al ser ortonormal, la inversa es la transpuesta, así
-  que las filas finales son derecha, −delante y arriba. A usa vectores fila y la matriz del objeto se aplica igual
-  (x' = m0 x + m3 y + m6 z, `fn_0084BA90`), luego la fila k es la imagen del eje local k: en glm
-  **mat3(derecha, −delante, arriba)**, es decir un **billboard**. X local = derecha de la pantalla, Y local (el eje de
-  la cúpula) hacia la cámara, Z local = arriba, así que la cúpula siempre se ve de cara, como un disco del humo, y
-  nunca de canto (comprobado emulando 0x819690 + la permutación + 0x7FB3F0 con varias cámaras,
-  `documentacion\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
-  en el original).
-- **Rama efecto** (bit 2; en Land1 todas tienen k = 1, en Land4/Land5 k = 3,78 / 2,64): s = tamaño/(1 + (k − 1)
-  (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 escalan la fila 0 (X local) por el tamaño y las filas 1 y 2 (Y, Z) por s: **escala
-  no uniforme**. Luz en (0, 500000, 0), ambiente 0xD2, sin luz de la tierra, atlas V + 0,25 (0x7FA44D: filas 2-3).
-- **Rama normal** (0x7FA5B0): las 9 celdas × tamaño. `fn_00801C90` da la luz (tabla[lum] bilineal de las 4 celdas)
-  y deja en +0x50 el RGB bilineal de esas celdas (el primer dword leído como D3DCOLOR: rojo = byte azul). `fn_007FEB30`
-  aplica la neblina: luz × (256 − trunc((256 − k) t)) >> 8 y especular += round(color de neblina × t). Luego cada
-  canal = floor(N2 × luz / 255), alfa = alfa de N2, y la luz de los modelos (luz en (−500000, 500000, −500000),
-  ambiente 90). **Sin** el + 0,25 del atlas (0x7FA675: filas 0-1 de `smokea.raw`, picos 171-197; las filas 2-3 llegan
-  a 228-248).
-- Luz por vértice (`fn_0084BA90`): I = round(255 · n_local · L_local), L_local = normalize(M⁻¹ (Lpos − pos)); con
-  escala no uniforme no es la luz de la normal girada.
-- Contador +0x84 += ftol(g_game_time_inc · 0,255), módulo 900 solo si pasa de 900; fotograma (contador/20) & 15. Solo
-  avanza dentro de Draw, es decir, con la niebla en pantalla.
-- Orden: `LH3DMist::AddDrawing` 0x7FA7F0 descarta con `CheckRegionOnScreen` (radio = radio de la malla × tamaño ×
-  0,55) y manda la niebla al `LH3DZSorter` (clave |pos − cámara|², callback 0x7FA980), junto a los modelos
-  transparentes y los sprites.
-- openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) entran en la lista de atrás adelante de la
-  pasada principal (`DrawPass`, `ZObject::mist` de la cola `graphics::zsorter`); sin entidades las nieblas van a la
-  misma cola con las nubes (ya no hay `DrawMists`). `vs_cloud`
-  recibe `u_cloudLight` (L_local) y `fs_cloud` suma `u_cloudSpecular` (0 en las nubes y en la rama efecto).
-  Desviación: el contador conserva la fracción (como `Clouds.cpp`), porque sin vsync openblack pasa de 250 fps y
-  el paso truncado del original sería 0. La textura alfa `smokea.raw` se corta a 4 bits al cargar, como en el
-  original (ARGB4444, `a.raw` 0x8375C1: 228 → 238/255; ver
-  [rendering.md](rendering.md#texturas-argb4444)). El mod `graphics.smooth-smoke` (desactivado por defecto) la deja
-  con sus 8 bits, que es como se veía antes.
+- Same mesh `mist.l3d` (dome of radius 20, base at the origin), smoke material 0xEA1ABC (`fn_0080BBD0`, mode 6:
+  SRCALPHA/INVSRCALPHA blending, colour and alpha = texture × diffuse, no Z write, two-sided) and 8×8 atlas as the
+  clouds. Creation (`CallVirtualFunctionsForCreation` 0x606420): +0x80 |= 1 always; if F4 ≠ 1, +0x8C = F4 and
+  +0x80 |= 2 ("effect" branch). Colour N2 at +0x4C (ARGB), +0x50 (specular) = 0.
+- **Rotation** (key): 0x7FA38F copies into the object's matrix the one at 0xEA1C98, which `UpdateCamera` 0x819A62 builds in two
+  steps. First it permutes the columns of the world→camera A = 0xEA1D28: row i = (A[3i], −A[3i+2], A[3i+1]),
+  translation 0. And **then** (0x819AC5 `mov ecx, 0xEA1C98`, 0x819AF3 `call fn_007FB3F0`; the other copy of
+  `UpdateCamera`, 0x81A1AD, does the same at 0x81A265) it **inverts it in place**: `fn_007FB3F0` is the inverse of
+  the 4×3 matrix (cofactors / determinant, translation = −t·M⁻¹). Being orthonormal, the inverse is the transpose, so
+  the final rows are right, −forward and up. A uses row vectors and the object's matrix is applied the same way
+  (x' = m0 x + m3 y + m6 z, `fn_0084BA90`), so row k is the image of local axis k: in glm
+  **mat3(right, −forward, up)**, that is, a **billboard**. Local X = screen right, local Y (the axis of
+  the dome) towards the camera, local Z = up, so the dome is always seen face-on, like a smoke disc, and
+  never edge-on (checked by emulating 0x819690 + the permutation + 0x7FB3F0 with several cameras,
+  `documentacion\mapa\emu_inv.py`). Its centre is on the ground, so the Z test cuts off the lower half of the disc (also
+  in the original).
+- **Effect branch** (bit 2; in Land1 they all have k = 1, in Land4/Land5 k = 3.78 / 2.64): s = size/(1 + (k − 1)
+  (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 scale row 0 (local X) by the size and rows 1 and 2 (Y, Z) by s: **non-uniform
+  scale**. Light at (0, 500000, 0), ambient 0xD2, no land light, atlas V + 0.25 (0x7FA44D: rows 2-3).
+- **Normal branch** (0x7FA5B0): the 9 cells × size. `fn_00801C90` gives the light (table[lum] bilinear over the 4 cells)
+  and leaves at +0x50 the bilinear RGB of those cells (the first dword read as D3DCOLOR: red = blue byte). `fn_007FEB30`
+  applies the haze: light × (256 − trunc((256 − k) t)) >> 8 and specular += round(haze colour × t). Then each
+  channel = floor(N2 × light / 255), alpha = alpha of N2, and the model lighting (light at (−500000, 500000, −500000),
+  ambient 90). **Without** the + 0.25 of the atlas (0x7FA675: rows 0-1 of `smokea.raw`, peaks 171-197; rows 2-3 reach
+  228-248).
+- Per-vertex light (`fn_0084BA90`): I = round(255 · n_local · L_local), L_local = normalize(M⁻¹ (Lpos − pos)); with
+  non-uniform scale it is not the light of the rotated normal.
+- Counter +0x84 += ftol(g_game_time_inc · 0.255), modulo 900 only if it goes past 900; frame (counter/20) & 15. It only
+  advances inside Draw, that is, with the mist on screen.
+- Order: `LH3DMist::AddDrawing` 0x7FA7F0 discards with `CheckRegionOnScreen` (radius = mesh radius × size ×
+  0.55) and sends the mist to the `LH3DZSorter` (key |pos − camera|², callback 0x7FA980), together with the transparent
+  models and the sprites.
+- openblack: `Renderer::CollectMists` / `DrawMist` (RendererMists.cpp) enter the back-to-front list of the
+  main pass (`DrawPass`, `ZObject::mist` of the `graphics::zsorter` queue); without entities the mists go into the
+  same queue as the clouds (there is no `DrawMists` any more). `vs_cloud`
+  receives `u_cloudLight` (L_local) and `fs_cloud` adds `u_cloudSpecular` (0 in the clouds and in the effect branch).
+  Deviation: the counter keeps the fraction (like `Clouds.cpp`), because without vsync openblack goes over 250 fps and
+  the original's truncated step would be 0. The alpha texture `smokea.raw` is cut to 4 bits on load, as in the
+  original (ARGB4444, `a.raw` 0x8375C1: 228 → 238/255; see
+  [rendering.md](rendering.md#argb4444-textures)). The `graphics.smooth-smoke` mod (disabled by default) leaves it
+  with its 8 bits, which is how it looked before.
 
-## Animales y rebaños (CREATE_FLOCK, CREATE_NEW_ANIMAL)
+## Animals and flocks (CREATE_FLOCK, CREATE_NEW_ANIMAL)
 
-Desensamblado en `documentacion\mapa\all_cases.txt` (casos 24, 25 y 49).
-- **CREATE_FLOCK** "NAANNN" (0x71634A): `Flock::Flock` 0x52F780(A1, el jugador actual, id N0) → id en +0x8C, +0x60/+0x6C
-  = A1, +0x50 = 0x50, +0x52 = 0x1E, en la lista g_game+0x205C44 (se inserta delante); `SetDomainCentrePos`(A2) → +0x14.
-  Radio del dominio +0x50 = N3 (0 → 0x50). Con `VERSION` ≥ 2,1 (0xD9957C; todas las tierras traen 2,3): distancia del
-  rebaño +0x52 = N4 y pueblo N5; antes, pueblo N4 y +0x52 se queda en 0x1E. Con pueblo: +0x34 y la lista del pueblo
-  +0xF08. Invisible (solo simulación).
-- **CREATE_NEW_ANIMAL** (0x716543; CREATE_ANIMAL 0x71649F igual con edad 0): busca el rebaño por +0x8C en esa lista
-  (el más nuevo con ese id) y el pueblo con `FindTownWithID` → `fn_00419D10`(pos, info, pueblo, rebaño, edad).
-  - Con rebaño: edad 0 → GameRand(20) + 5; crea el animal (`fn_00419E00`) y lo une (`fn_0052FA50`: lista +0x3C
-    ordenada por el byte +0xD4 del ser, +0x48 miembros, `Living::SetFlock`); si el animal no se puede pastorear y el
-    rebaño tiene pueblo, el rebaño sale de la lista del pueblo y +0x34 = 0; +0x88 = máximo de miembros.
-  - Sin rebaño (`fn_00419C20`, también el CREATE de CHL): edad 0 → **GameRand(40)** + 5; el animal recibe un rebaño
-    propio (`Flock(Living*)` 0x52F950, en su posición, sin id de guion, +0x50 = info.domainRadius (+0x25C),
-    +0x52 = (int)info.flockDistance (+0x21C), sin pueblo).
-  - Pueblo del animal (`fn_00417C50`, +0xE0 y la lista +0x984 del pueblo): solo lo guardan los que se pueden pastorear
-    (`IsOkToBeShepherd`, vtable +0xBA4 = 0x41D0E0 → 1); los demás, ninguno.
-- **Clases** (`fn_00419E00`, salto por info.animalInfo +0x1F4, 27 casos): terrestres (león, tigre, lobo, leopardo,
-  SpellWolf, PieceLion/Wolf/Villager; ctor 0x41FD30 o 0x416EB0), de pasto (oveja, tortuga, vaca, caballo, cerdo,
-  PieceSheep; ctor 0x41D0B0, se pueden pastorear) y voladores (cuervo, paloma, golondrina, pichón, gaviota, murciélago,
-  SpellDove y SpellBat; ctor `Dove` 0x41DCF0). Los tipos 5 (cabra), 7 (cebra), 17-19 y > 26 (caballo, vaca, tortuga y
-  cerdo de puzle) **no crean nada**.
-- **Voladores**: el ctor `Dove` 0x41DCF0 llama al de Animal (0x416EB0, que llama a `Living::SetState` 0x5F2A80),
-  reinicia campos (`fn_00417900`) y pone la altitud de su MapCoords (+0x1C) = info.altitudeNormal (+0x278: paloma,
-  pichón y murciélago 20, cuervo, golondrina y gaviota 40); `Game3DObject::SetPosition` 0x63B680 los pone en
-  `GetAltitude + altitudeNormal`. `CallVirtualFunctionsForCreation` es 0x41F240 (la de Animal más una llamada al
-  objeto 3D). `StandAnimation`: paloma 8 (DOVE_FLAP), golondrina 27 (SWALLOW_FLAP), gaviota 22 (SEAGULL_TAKEOFF),
-  murciélago 2 (BAT_GLIDE). Su vuelo ya está decodificado y portado (commit e3a9d81f, «Birds fly like the original»;
-  `AnimalClass::Flying` en `AnimalArchetype.cpp`, detalle en
-  [animals.md](animals.md#aves-cuervo-paloma-golondrina-paloma-bravía-gaviota-murciélago)).
-  *Antes* openblack no los creaba (81 de los 116 animales de Land1); cuentan como Object en el contador de creación.
+Disassembly in `documentacion\mapa\all_cases.txt` (cases 24, 25 and 49).
+- **CREATE_FLOCK** "NAANNN" (0x71634A): `Flock::Flock` 0x52F780(A1, the current player, id N0) → id at +0x8C, +0x60/+0x6C
+  = A1, +0x50 = 0x50, +0x52 = 0x1E, in the list g_game+0x205C44 (inserted at the front); `SetDomainCentrePos`(A2) → +0x14.
+  Domain radius +0x50 = N3 (0 → 0x50). With `VERSION` ≥ 2.1 (0xD9957C; all lands have 2.3): flock
+  distance +0x52 = N4 and town N5; before that, town N4 and +0x52 stays at 0x1E. With a town: +0x34 and the town's list
+  +0xF08. Invisible (simulation only).
+- **CREATE_NEW_ANIMAL** (0x716543; CREATE_ANIMAL 0x71649F the same with age 0): looks for the flock by +0x8C in that list
+  (the newest with that id) and the town with `FindTownWithID` → `fn_00419D10`(pos, info, town, flock, age).
+  - With a flock: age 0 → GameRand(20) + 5; creates the animal (`fn_00419E00`) and joins it (`fn_0052FA50`: list +0x3C
+    sorted by the creature's byte +0xD4, +0x48 members, `Living::SetFlock`); if the animal cannot be herded and the
+    flock has a town, the flock leaves the town's list and +0x34 = 0; +0x88 = maximum number of members.
+  - Without a flock (`fn_00419C20`, also the CHL CREATE): age 0 → **GameRand(40)** + 5; the animal receives its own
+    flock (`Flock(Living*)` 0x52F950, at its position, without a script id, +0x50 = info.domainRadius (+0x25C),
+    +0x52 = (int)info.flockDistance (+0x21C), no town).
+  - Town of the animal (`fn_00417C50`, +0xE0 and the town's list +0x984): only those that can be herded keep it
+    (`IsOkToBeShepherd`, vtable +0xBA4 = 0x41D0E0 → 1); the others, none.
+- **Classes** (`fn_00419E00`, jump on info.animalInfo +0x1F4, 27 cases): ground animals (lion, tiger, wolf, leopard,
+  SpellWolf, PieceLion/Wolf/Villager; ctor 0x41FD30 or 0x416EB0), grazing animals (sheep, tortoise, cow, horse, pig,
+  PieceSheep; ctor 0x41D0B0, can be herded) and flying animals (crow, dove, swallow, pigeon, seagull, bat,
+  SpellDove and SpellBat; ctor `Dove` 0x41DCF0). Types 5 (goat), 7 (zebra), 17-19 and > 26 (puzzle horse, cow, tortoise and
+  pig) **create nothing**.
+- **Flying animals**: the `Dove` ctor 0x41DCF0 calls the Animal one (0x416EB0, which calls `Living::SetState` 0x5F2A80),
+  resets fields (`fn_00417900`) and sets the altitude of its MapCoords (+0x1C) = info.altitudeNormal (+0x278: dove,
+  pigeon and bat 20, crow, swallow and seagull 40); `Game3DObject::SetPosition` 0x63B680 places them at
+  `GetAltitude + altitudeNormal`. `CallVirtualFunctionsForCreation` is 0x41F240 (the Animal one plus a call to the
+  3D object). `StandAnimation`: dove 8 (DOVE_FLAP), swallow 27 (SWALLOW_FLAP), seagull 22 (SEAGULL_TAKEOFF),
+  bat 2 (BAT_GLIDE). Their flight is already decoded and ported (commit e3a9d81f, «Birds fly like the original»;
+  `AnimalClass::Flying` in `AnimalArchetype.cpp`, details in
+  [animals.md](animals.md#birds-crow-dove-swallow-rock-dove-seagull-bat)).
+  *Previously* openblack did not create them (81 of the 116 animals of Land1); they count as Object in the creation counter.
 - openblack: `components::Flock`, `Animal::flock/town`, `Town::flocks`, `RegistryContext::flocks`, `AnimalArchetype`.
 
-## Datos de simulación del mapa (solo datos, nada se dibuja)
+## Map simulation data (data only, nothing is drawn)
 
-- **SET_TOWN_UNINHABITABLE** (caso 5, 0x715542): pueblo +0x5F4 = 1 (`Town::uninhabitable`).
-- **CREATE_TOWN_CENTRE** (caso 9, 0x71577C): pueblo o el más cercano (`fn_00552FF0`); `IsOkToCreateAtPos` 0x404B10;
-  `Abode::Create`; si es un TownCentre: pueblo +0x9A4 = el centro si estaba vacío (`Town::centre`) y
-  `Town::SetWorshipPercentage`(N5·0,001) 0x73C060, que guarda +0x5C0 **solo si el pueblo tiene lugar de culto** (si no,
-  0) y lo pasa a la estatua tótem. Sin pueblo, `TotemStatue::SetWorshipPercentage` 0x738270. Todas las tierras pasan 0.
-- **CREATE_PLANNED_ABODE** (caso 8, comparte código con CREATE_ABODE): pueblo o el más cercano, si no nada; tipo de
-  abode 0x404 (TownCentre) → `PlannedTownCentre::Create` 0x7444D0, si no `PlannedAbode::Create` 0x405600 (pos, info,
-  pueblo, ángulo N4·0,001, escala N5·0,001; comida y madera no se usan); invisibles (`PlannedMultiMapFixed::Draw`
+- **SET_TOWN_UNINHABITABLE** (case 5, 0x715542): town +0x5F4 = 1 (`Town::uninhabitable`).
+- **CREATE_TOWN_CENTRE** (case 9, 0x71577C): town or the nearest one (`fn_00552FF0`); `IsOkToCreateAtPos` 0x404B10;
+  `Abode::Create`; if it is a TownCentre: town +0x9A4 = the centre if it was empty (`Town::centre`) and
+  `Town::SetWorshipPercentage`(N5·0.001) 0x73C060, which stores +0x5C0 **only if the town has a worship site** (otherwise,
+  0) and passes it to the totem statue. Without a town, `TotemStatue::SetWorshipPercentage` 0x738270. All lands pass 0.
+- **CREATE_PLANNED_ABODE** (case 8, shares code with CREATE_ABODE): town or the nearest one, otherwise nothing; abode
+  type 0x404 (TownCentre) → `PlannedTownCentre::Create` 0x7444D0, otherwise `PlannedAbode::Create` 0x405600 (pos, info,
+  town, angle N4·0,001, scale N5·0.001; food and wood are not used); invisible (`PlannedMultiMapFixed::Draw`
   0x648930 = `ret`). openblack: `Town::plannedAbodes`.
-- **CREATE_ARENA** (caso 69) → `fn_00424820` → GArena 0x4246F0 (pos, radio +0x30, lista g_game+0x205C7C); su
-  GLightSheet solo se dibuja durante un combate. openblack: `components::Arena`.
-- **Clima** (casos 60-63): `CREATE_WEATHER_CLIMATE`(id, info, pos, r1, r2) → `fn_00771300`: id 0 = `GClimate(0)`
-  0x771020 (ignora el resto); si no, GClimate 0x771170 (pos +0x14, radios ordenados +0x20/+0x24, id +0x28, info +0x2C;
-  lluvia y temperatura iniciales del rango de la estación, no portado), lista g_game+0x205CF4 (GClimate en
-  [day-night-weather.md](day-night-weather.md#gclimate-los-climas-climatecpp)). `_RAIN`(id, F1, N2, N3,
-  N4) → +0x34 {F1, N2, N3, (u8)N4}; `_TEMP`(id, F1, F2) → +0x44/+0x48; `_WIND`(id, F1, F2, F3) → +0x4C..; el clima se
-  busca por id (`fn_007731B0`, el más nuevo); id 0 usa el clima del mundo g_game+0x250534, creado al vuelo; id
-  desconocido no hace nada. Land1: zonas 1 (2701, 2567; −35/−32 grados, nieve), 2 y 3. openblack:
+- **CREATE_ARENA** (case 69) → `fn_00424820` → GArena 0x4246F0 (pos, radius +0x30, list g_game+0x205C7C); its
+  GLightSheet is only drawn during a fight. openblack: `components::Arena`.
+- **Climate** (cases 60-63): `CREATE_WEATHER_CLIMATE`(id, info, pos, r1, r2) → `fn_00771300`: id 0 = `GClimate(0)`
+  0x771020 (ignores the rest); otherwise, GClimate 0x771170 (pos +0x14, sorted radii +0x20/+0x24, id +0x28, info +0x2C;
+  initial rain and temperature from the season's range, not ported), list g_game+0x205CF4 (GClimate in
+  [day-night-weather.md](day-night-weather.md#gclimate-the-climates-climatecpp)). `_RAIN`(id, F1, N2, N3,
+  N4) → +0x34 {F1, N2, N3, (u8)N4}; `_TEMP`(id, F1, F2) → +0x44/+0x48; `_WIND`(id, F1, F2, F3) → +0x4C..; the climate is
+  looked up by id (`fn_007731B0`, the newest); id 0 uses the world climate g_game+0x250534, created on the fly; an unknown
+  id does nothing. Land1: zones 1 (2701, 2567; −35/−32 degrees, snow), 2 and 3. openblack:
   `components::Climate`.
-- **CREATE_DRINK_WAYPOINT** (caso 95) → 0x770BC0 (WayPoint.cpp, lista g_game+0x205C74): punto donde bebe la criatura.
-  Land1 tiene 47. openblack: `components::DrinkWaypoint`.
-- **FIRE_FLY_SPELL_REWARD_PROB** (caso 88): `GMagicInfo::GetInfoFromText` 0x5FB3B0 compara sin mayúsculas con el nombre
-  de los 42 efectos de magia (el primero que coincide; "NONE" siempre es el 0; si no hay, 42) → 0x52B630: fuera de
-  rango no hace nada; si no, tabla 0xCCFBAC[i] = p y rehace las sumas acumuladas en 0xCCFB04. No se reinicia entre
-  tierras.
-- **Globales**: `VERSION` → 0xD9957C; `SET_LAND_NUMBER` → g_game+0x205A08 (0 en el ctor de GGame; openblack no lo reinicia al cargar un mapa; lo lee
-  `DesignedWaterFall` 0x5E3770 para el decorado de Land 3/4, ver rendering.md);
-  `SET_TOWN_INFLUENCE_MULTIPLIER` / `SET_PLAYER_INFLUENCE_MULTIPLIER` → g_game+0x250078 / +0x25007C, que
-  `GGame::Init` 0x54F66F pone a 1 antes del guion. openblack: `Game::GetMapScriptGlobals`.
+- **CREATE_DRINK_WAYPOINT** (case 95) → 0x770BC0 (WayPoint.cpp, list g_game+0x205C74): point where the creature drinks.
+  Land1 has 47. openblack: `components::DrinkWaypoint`.
+- **FIRE_FLY_SPELL_REWARD_PROB** (case 88): `GMagicInfo::GetInfoFromText` 0x5FB3B0 compares case-insensitively with the name
+  of the 42 magic effects (the first that matches; "NONE" is always 0; if there is none, 42) → 0x52B630: out of
+  range it does nothing; otherwise, table 0xCCFBAC[i] = p and rebuilds the cumulative sums at 0xCCFB04. It is not reset between
+  lands.
+- **Globals**: `VERSION` → 0xD9957C; `SET_LAND_NUMBER` → g_game+0x205A08 (0 in the GGame ctor; openblack does not reset it when loading a map; it is read by
+  `DesignedWaterFall` 0x5E3770 for the Land 3/4 scenery, see rendering.md);
+  `SET_TOWN_INFLUENCE_MULTIPLIER` / `SET_PLAYER_INFLUENCE_MULTIPLIER` → g_game+0x250078 / +0x25007C, which
+  `GGame::Init` 0x54F66F sets to 1 before the script. openblack: `Game::GetMapScriptGlobals`.
 
-## Piscifactorías (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM)
+## Fish farms (CREATE_FISH_FARM / CREATE_TOWN_FISH_FARM)
 
-- Caso 31 (0x7166E1): 0x52C7B0(pos, GFishFarmInfo[N1] (0xCCFC78 + 0x128·i; info.dat solo trae el 0), sin pueblo).
-  Caso 32 (0x716722): sin el pueblo no crea nada; si no, lo mismo con él. El ctor 0x52C360 guarda en +0x8C **siempre
-  el pueblo más cercano** (`Town::GetNearestTownToPos` 0x73B170, cualquier tribu), sea cual sea el del guion.
-- Banco de peces (`CallVirtualFunctionsForCreation` 0x52CC10, revisado): con [0xC37BF4] = 0 (sin aplanar el mar,
-  `GetAltitude` 0x803090 usa la altura cruda), anillos de radio 2, 4... < 50 y 32 direcciones; la primera dirección con
-  altura exactamente 0 en dos radios seguidos da el centro. openblack ya lo hacía igual (`GetUnflattenedHeightAt`), así
-  que los 9 de Land1 sin banco (los del lago del pueblo 2 y otros) salen igual que en el original con los mismos
-  datos; no se cambió la búsqueda.
+- Case 31 (0x7166E1): 0x52C7B0(pos, GFishFarmInfo[N1] (0xCCFC78 + 0x128·i; info.dat only has entry 0), no town).
+  Case 32 (0x716722): without the town it creates nothing; otherwise, the same with it. The ctor 0x52C360 stores at +0x8C **always
+  the nearest town** (`Town::GetNearestTownToPos` 0x73B170, any tribe), whatever the script's one is.
+- Fish shoal (`CallVirtualFunctionsForCreation` 0x52CC10, reviewed): with [0xC37BF4] = 0 (without flattening the sea,
+  `GetAltitude` 0x803090 uses the raw height), rings of radius 2, 4... < 50 and 32 directions; the first direction with
+  height exactly 0 at two consecutive radii gives the centre. openblack already did it the same way (`GetUnflattenedHeightAt`), so
+  the 9 of Land1 without a shoal (those of the lake of town 2 and others) come out the same as in the original with the same
+  data; the search was not changed.
 
-## Porcentaje de construcción de un Feature (`BUILT_PERCENTAGE`, propiedad CHL 22)
+## Build percentage of a Feature (`BUILT_PERCENTAGE`, CHL property 22)
 
-Estado: **fiel** y portado.
+Status: **faithful** and ported.
 
-- **Guion** (Land 1): `TheMissionaries` crea `GArk = CREATE(3, 69 = ArkDryDock, (1881,083; 8,1316; 3154,109))` y pone
-  `BUILT_PERCENTAGE of GArk = 0,2` (el patrón `GET_PROPERTY; POPI 0; PUSHF v; SET_PROPERTY` es una asignación);
-  `TheMissionariesBuildingBoat` suma 0,03 por golpe (con `PLAY_SOUND_EFFECT(RANDOM_ULONG(92, 97))`) hasta
-  `ArkIncrement`. La numeración de openblack es la buena: 22 = `BuiltPercentage`.
-- `GET_PROPERTY` 22 (0x70E1A9): `dynamic_cast<MultiMapFixed>` → `GetPercentBuilt` (vt+0x880 = 0x4014F0, +0x5C); si no
-  es MultiMapFixed, **1**. `SET_PROPERTY` 22 (0x70EC69): MultiMapFixed → `fn_0052EDD0`: +0x5C = valor (0 si es
-  negativo, **sin tope**) y, si ≥ 1, `MultiMapFixed::Built` 0x52EBB0 (+0x5C = 1, +0x58 pierde 0x02 y gana 0x08, suelta
-  el sitio de obra +0x74, reacción 0xF si tiene pueblo, `RequestChangeTexture`); después la lista de edificios del
-  pueblo (0x70EC9B..0x70ECD4), que un Feature no tiene.
-- **Valor inicial**: `fn_00527350` → ctor de `MultiMapFixed` 0x52E1E0(pos, info, ángulo, escala, porcentaje,
-  planeado): planeado → bit 0x02 y +0x5C = 0; si no, +0x5C = porcentaje y bit 0x08. El `CREATE` del guion pasa 1:
-  construido.
-- **Dibujo**: `Feature::Draw` 0x518690 = `MultiMapFixed::Draw` 0x518090: si `IsDrawBuilding` (vt+0x8A4), `DrawBuilding`
-  0x517F90. `Feature::IsDrawBuilding` 0x527790: **solo para GFeatureInfo 69** (ArkDryDock) es `!IsBuilt()` (0x422110:
-  bit 0x02 libre y +0x5C ≥ 1); los demás Features usan `MultiMapFixed::IsDrawBuilding` 0x52F0C0 = "tiene sitio de obra"
-  (+0x74), que un Feature nunca tiene: se dibujan siempre enteros. `DrawBuilding`: p = `GetPercentForDrawBuilding`
-  0x52EFD0 = min(GetPercentBuilt, GetPercentRepairedFromWhenDamaged 0x52F010 = 1 si no está construido); con p = 0 no
-  se dibuja nada; si no, vt+0x110 del objeto estático = `fn_00816AD0` (el dibujo a medio construir de las casas: malla
-  principal cortada en pos.y + 2·ext.y·escala·p con paredes interiores y tapa, y el andamio que sube (p < 0,2), entero o
-  cortado desde arriba (p > 0,8)).
-- openblack: `components::Feature::percentBuilt`, `src/ECS/FeatureBuild.{h,cpp}` (`physics::PartialBuild` pasado a la
-  malla local del Feature; sin malla con p = 0; la huella del terreno se mantiene), `GET/SET_PROPERTY` 22 en `CHLApi`.
-  El guion de Land 1 no llega aún a `TheMissionaries` (va detrás de elegir criatura): se prueba con
-  `OPENBLACK_TEST_BUILT_PERCENTAGE`. A 0,2 se ve el andamio entero y el arca cortada a un quinto; a 1, el arca sobre
-  sus puntales.
+- **Script** (Land 1): `TheMissionaries` creates `GArk = CREATE(3, 69 = ArkDryDock, (1881,083; 8,1316; 3154,109))` and sets
+  `BUILT_PERCENTAGE of GArk = 0,2` (the pattern `GET_PROPERTY; POPI 0; PUSHF v; SET_PROPERTY` is an assignment);
+  `TheMissionariesBuildingBoat` adds 0.03 per hit (with `PLAY_SOUND_EFFECT(RANDOM_ULONG(92, 97))`) up to
+  `ArkIncrement`. openblack's numbering is the right one: 22 = `BuiltPercentage`.
+- `GET_PROPERTY` 22 (0x70E1A9): `dynamic_cast<MultiMapFixed>` → `GetPercentBuilt` (vt+0x880 = 0x4014F0, +0x5C); if it is not
+  a MultiMapFixed, **1**. `SET_PROPERTY` 22 (0x70EC69): MultiMapFixed → `fn_0052EDD0`: +0x5C = value (0 if
+  negative, **no cap**) and, if ≥ 1, `MultiMapFixed::Built` 0x52EBB0 (+0x5C = 1, +0x58 loses 0x02 and gains 0x08, releases
+  the building site +0x74, reaction 0xF if it has a town, `RequestChangeTexture`); then the town's list of buildings
+  (0x70EC9B..0x70ECD4), which a Feature does not have.
+- **Initial value**: `fn_00527350` → `MultiMapFixed` ctor 0x52E1E0(pos, info, angle, scale, percentage,
+  planned): planned → bit 0x02 and +0x5C = 0; otherwise, +0x5C = percentage and bit 0x08. The script's `CREATE` passes 1:
+  built.
+- **Drawing**: `Feature::Draw` 0x518690 = `MultiMapFixed::Draw` 0x518090: if `IsDrawBuilding` (vt+0x8A4), `DrawBuilding`
+  0x517F90. `Feature::IsDrawBuilding` 0x527790: **only for GFeatureInfo 69** (ArkDryDock) is it `!IsBuilt()` (0x422110:
+  bit 0x02 clear and +0x5C ≥ 1); the other Features use `MultiMapFixed::IsDrawBuilding` 0x52F0C0 = "has a building site"
+  (+0x74), which a Feature never has: they are always drawn whole. `DrawBuilding`: p = `GetPercentForDrawBuilding`
+  0x52EFD0 = min(GetPercentBuilt, GetPercentRepairedFromWhenDamaged 0x52F010 = 1 if it is not built); with p = 0
+  nothing is drawn; otherwise, vt+0x110 of the static object = `fn_00816AD0` (the half-built drawing of the houses: main
+  mesh cut at pos.y + 2·ext.y·scale·p with inner walls and cap, and the scaffolding that rises (p < 0.2), whole or
+  cut from above (p > 0.8)).
+- openblack: `components::Feature::percentBuilt`, `src/ECS/FeatureBuild.{h,cpp}` (`physics::PartialBuild` applied to the
+  Feature's local mesh; no mesh with p = 0; the terrain footprint is kept), `GET/SET_PROPERTY` 22 in `CHLApi`.
+  The Land 1 script does not reach `TheMissionaries` yet (it comes after choosing a creature): it is tested with
+  `OPENBLACK_TEST_BUILT_PERCENTAGE`. At 0.2 the whole scaffolding is visible and the ark cut at one fifth; at 1, the ark on
+  its props.
 
-## Objetos del guion del mapa (farolas, hogueras, árboles muertos, puertas)
+## Map script objects (street lanterns, bonfires, dead trees, gates)
 
-Desensamblado en `documentacion\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` y `d_animstatic_cvffc.txt`.
-- **Parámetros**: en el bloque de argumentos del guion, el entero del parámetro i está en +0x6000 + 4i y el float en
-  +0x6030 + 4i. `GMobileStaticInfo` ocupa 300 bytes en memoria (0xD3A6D8 + 300·i: MS[6] = 0xD3ADE0, MS[7] = 0xD3AF0C,
-  MS[8] = 0xD3B038) y 284 en `info.dat`: en memoria el registro de info.dat empieza en +0x10 (el tipo de objeto está en
-  info +0x10 y el clip de un AnimatedStatic en +0x128, que es +0x118 en `GAnimatedStaticInfo` de openblack). Las 61
-  infos de MobileStatic tienen el tipo de objeto 0x1C (MOBILE_STATIC).
-- **CREATE_STREET_LANTERN** (caso 80, 0x717720) → `GStreetLantern::Create` 0x7346E0(pos, &MS[N1]): no crea nada si en la
-  celda del mapa de la posición (`MapCoords::FindType` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0; celdas de 10
-  unidades) hay un objeto de tipo 0x1C a menos de 0,5 m en x/z (`GUtils::GetDistanceInMetres` 0x74CD70); cualquier
-  cosa hecha con una info de MobileStatic: rocas, hogueras, farolas, árboles muertos. +0x58 = (info ≠ MS[7]).
-  `CallVirtualFunctionsForCreation` 0x734810: malla 148 (MSH_B_CAMPFIRE) si +0x58, si no 398 (MSH_O_TOWNLIGHT);
-  `SetPosition((x, GetAltitude + y, z), ángulo 0, escala 1)` (sin giro de 180°), la luz `fn_00823240`(ese punto,
-  +0x58) en +0x5C y, **en las dos clases** (no mira +0x58, corregido: antes esta nota decía "solo en la de pueblo"), el
-  sonido 0x93 en +0x60 (`fn_0071E8C0` = `SoundTag::Create`), salvo si el objeto lleva la marca UNAVAILABLE (+0xA & 1);
-  detalle del sonido en [day-night-weather.md](day-night-weather.md). Land1: 8 de tipo 7 y 4 de tipo 59
-  (farolillos de campo con la malla de la hoguera, **no** hogueras). El CREATE de CHL con 7 o 59 va por el mismo sitio.
-  openblack: `StreetLanternArchetype`, `components::StreetLantern` / `LanternLight`; `night_lights` pone las luces
-  según `LanternLight` (antes por la malla, y las hogueras de verdad salían con luz de farolillo).
-- **CREATE_BONFIRE** "AFFF" (caso 73, 0x7176AE) → `fn_00439850`(pos, F1 temperatura, F2 ángulo Y, F3 escala) → ctor
-  0x4395C0: `Rock`(pos, MS[8], ángulo, escala) y `CreateSpotVisualWithSpecifiedDuration`(pos, 25 SF_Bonfire, 1,0, −1 =
-  siempre, la hoguera); la temperatura no se usa al crear (Land1 trae 24,7, que openblack tomaba por el ángulo). Sin
-  luz de farolillo. openblack: `BonfireArchetype`.
-- **MobileStatic**: `CREATE_MOBILESTATIC` "ANFF" (caso 41) → `fn_00608770`(pos, info, 0, 0, F2 ángulo, F3 escala):
-  MS[8] → `Bonfire::Create` con temperatura 100; info +0x128 = 2 → `Rock`; MS[6] → nada; el resto `MobileStatic`.
-  `CREATE_MOBILE_STATIC` "ANFFFFF" (caso 42) → `fn_00608840`(pos con relY = F2, info, 0, 0, F3, F4, F5, F6): MS[6] →
-  GBaseOnly `fn_00609340`; MS[7] → nada; el resto `fn_00608770`(…, F4, F6); después `SetXYZAnglesAndScale`(F3, F4, F5,
-  F6) sobre lo creado (también la base y la hoguera). openblack: `MobileStaticArchetype::CreateFromInfo` /
+Disassembly in `documentacion\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` and `d_animstatic_cvffc.txt`.
+- **Parameters**: in the script's argument block, the integer of parameter i is at +0x6000 + 4i and the float at
+  +0x6030 + 4i. `GMobileStaticInfo` takes 300 bytes in memory (0xD3A6D8 + 300·i: MS[6] = 0xD3ADE0, MS[7] = 0xD3AF0C,
+  MS[8] = 0xD3B038) and 284 in `info.dat`: in memory the info.dat record starts at +0x10 (the object type is at
+  info +0x10 and the clip of an AnimatedStatic at +0x128, which is +0x118 in openblack's `GAnimatedStaticInfo`). The 61
+  MobileStatic infos have object type 0x1C (MOBILE_STATIC).
+- **CREATE_STREET_LANTERN** (case 80, 0x717720) → `GStreetLantern::Create` 0x7346E0(pos, &MS[N1]): creates nothing if in the
+  map cell of the position (`MapCoords::FindType` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0; cells of 10
+  units) there is an object of type 0x1C less than 0.5 m away in x/z (`GUtils::GetDistanceInMetres` 0x74CD70); any
+  thing made with a MobileStatic info: rocks, bonfires, street lanterns, dead trees. +0x58 = (info ≠ MS[7]).
+  `CallVirtualFunctionsForCreation` 0x734810: mesh 148 (MSH_B_CAMPFIRE) if +0x58, otherwise 398 (MSH_O_TOWNLIGHT);
+  `SetPosition((x, GetAltitude + y, z), ángulo 0, escala 1)` (no 180° turn), the light `fn_00823240`(that point,
+  +0x58) at +0x5C and, **in both classes** (it does not check +0x58, corrected: this note used to say "only in the village one"), the
+  sound 0x93 at +0x60 (`fn_0071E8C0` = `SoundTag::Create`), unless the object carries the UNAVAILABLE mark (+0xA & 1);
+  details of the sound in [day-night-weather.md](day-night-weather.md). Land1: 8 of type 7 and 4 of type 59
+  (field lanterns with the bonfire mesh, **not** bonfires). The CHL CREATE with 7 or 59 goes through the same place.
+  openblack: `StreetLanternArchetype`, `components::StreetLantern` / `LanternLight`; `night_lights` sets the lights
+  according to `LanternLight` (previously by the mesh, and the real bonfires came out with lantern light).
+- **CREATE_BONFIRE** "AFFF" (case 73, 0x7176AE) → `fn_00439850`(pos, F1 temperature, F2 Y angle, F3 scale) → ctor
+  0x4395C0: `Rock`(pos, MS[8], angle, scale) and `CreateSpotVisualWithSpecifiedDuration`(pos, 25 SF_Bonfire, 1,0, −1 =
+  forever, the bonfire); the temperature is not used on creation (Land1 has 24,7, which openblack took as the angle). No
+  lantern light. openblack: `BonfireArchetype`.
+- **MobileStatic**: `CREATE_MOBILESTATIC` "ANFF" (case 41) → `fn_00608770`(pos, info, 0, 0, F2 angle, F3 scale):
+  MS[8] → `Bonfire::Create` with temperature 100; info +0x128 = 2 → `Rock`; MS[6] → nothing; the rest `MobileStatic`.
+  `CREATE_MOBILE_STATIC` "ANFFFFF" (case 42) → `fn_00608840`(pos with relY = F2, info, 0, 0, F3, F4, F5, F6): MS[6] →
+  GBaseOnly `fn_00609340`; MS[7] → nothing; the rest `fn_00608770`(…, F4, F6); then `SetXYZAnglesAndScale`(F3, F4, F5,
+  F6) on what was created (also the base and the bonfire). openblack: `MobileStaticArchetype::CreateFromInfo` /
   `CreateWithXYZAngles`.
-- **CREATE_DEAD_TREE** "ALNFFFF" (caso 43, 0x716E64) → `fn_00510BB0`(pos, GTreeInfo[N2], jugador, F3, F4, F5, F6, 0):
-  ctor 0x510A30 = `Rock`(MS[3], ángulo 0, escala 1) + `SetLife`(F3); con 0xCC5F10 = 0, `GetDeadTreeMesh` 0x510C60 es la
-  malla normal del tipo; luego `SetXYZAnglesAndScale`(F4, F5, F6, 1), la matriz de MobileStatic (x = F4, y = F5,
-  z = F6). Land1: 3 (tipos 12, 4 y 4, vida 1, ángulos pequeños). openblack hacía un árbol quemado vivo; ahora
-  `DeadTreeArchetype` (`components::DeadTree`, sin Tree ni bosque, se puede coger).
-- **CREATE_POT** (caso 38): `IsOkToCreateAtPos` y, si la cantidad N3 ≤ 0 (0x716B19), nada. Quita los 4 montones de
-  madera vacíos de Land1.
-- **CREATE_NEW_FEATURE** (caso 75): con N5 ≠ 0 crea un `PlannedFeature` 0x527440 (no se dibuja); ninguna tierra lo usa.
-- **Nombres**: features `fn_00527740` y animated statics `fn_00422600` comparan con `_stricmp` (si no hay, devuelven el
-  número de infos, 0x4C / 0x10); `GAbodeInfo::GetInfoFromText` 0x405A70 recorre las 9 tribus, compara el prefijo con
-  `_strnicmp`, exige '_' y la descripción con `_stricmp` (16 por tribu); si no, −1. El original usa el resultado sin
-  comprobarlo; openblack registra el fallo y se salta el comando (desviación de robustez deliberada; antes lanzaba).
-- **AnimatedStatic** (`CallVirtualFunctionsForCreation` 0x422300): pone el clip de info +0x128 (Norse Gate 191, Gate
-  Stone Plinth 195, Piper Cave Entrance 189); `Draw` 0x422770 lo avanza o retrocede según esté abierta, limitado a su
-  duración: cerrada es t = 0 (openblack: `SkeletalAnimation` parada en 0). Con malla 212 (Norse Gate, `fn_004230D0`)
-  crea 2 `Game3DObject` con la malla 398 en (∓15, 30, 0) de la matriz de la puerta (filas con escala + traslación),
-  ángulo 0 y escala 1, cada uno con la luz `fn_00823240`(su posición, 0).
-- **CREATE_PLANNED_CITADEL** (caso 20): pueblo y jugador obligatorios; `fn_00467DD0` (PlannedTownCitadelHeart en el
-  pueblo) y guarda la posición en 0xC5E258. El templo de verdad sale de `PlannedTownCitadelHeart::CreatePlannedNoFixedCheck`
-  0x467EF0 (vtable +0x504: la `Citadel` del jugador si no tiene, `fn_00462B10`, y `CitadelHeart::Create` 0x464E20), que
-  llama `Town::AddBuildingSiteNoFixedCheck` 0x73B8A0 desde `Town::RequestBestPlanned`, `Town::ForceBuildingOfPlannedAtPos`
-  0x73E560 (`GScript::BuildBuilding` 0x6FAB30 de CHL, y 0x641774 tras `StartPlaygroundGame` con 0xC5E258) y
-  `Scaffold::TryToBuildPlannedBuilding`. `GGame::Birthday` → `GPlayer::Birthday` → `Town::Birthday` solo rehace
-  estadísticas. Al cargar el mapa **no hay templo**, solo el plan (GameThingWithPos 0x4C, sin malla, sin celda, sin
-  índice de creación, sin aplanado; `Draw` 0x648930 = `ret`). Info "Citadel Heart" (info.dat 0x115C0): madera 5,
-  timeToBuild 150, desireToBeBuilt 1,0, malla 564 BuildingDummyCitadel; tipo de abode del plan 0x804 (cívico).
-  - Conversión 0x467EF0 (arg `float life`): el jugador es el **dueño del pueblo** (`Town+0x2C`, el de CREATE_TOWN o el
-    neutral), no el del script (ese solo se valida). `CitadelHeart::Create`(pos, info, citadel, ángulo del plan, escala
-    del plan, life, 1): el 1 marca "en construcción" (MultiMapFixed 0x52E1E0, +0x58 bit 1, +0x5C = 0).
-    `CallVirtualFunctionsForCreation` 0x4675A0 crea el LH3D tipo 8 a **escala 1** con y = altitud(origen) + alt y llama
-    0x882730 (malla B_FIRST_TEMPLE, % construido, **aplana la tierra**): el aplanado es al convertir. Lugares de culto
-    (`fn_00464F50`) solo si life ≥ 1. Luego heart+0x94 = pueblo, `PostCreatePlanned` 0x648C50 y se borra el plan.
-  - `AddBuildingSiteNoFixedCheck` pasa siempre life 0,0 y crea un `CitadelBuildingSite` (0x468DC0 → 0x43D1E0); lo
-    terminan los aldeanos (`CitadelHeart::Built` 0x465000). Con vida < 1 `Draw` 0x882A40 usa `DrawPartialyBuilt`
-    0x816AD0 (sin decodificar).
-  - Disparadores: **Land 1** = CHL `FollowUs`: `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)` (la pos del plan de
-    Land1.txt:95; `GetPlannedAtPos` 0x73E4C0 coge el plan más cercano a menos de radio de la malla 564 × escala + 1 m),
-    luego `CALL_NEAR(Citadel 18)` + `SET_PROPERTY(22, 0.375)`; `PreventCitadelCompletion` lo limita a 0,9 y
-    `CheckCitadel` espera 1. **Lands 2-5** = IA: `Villager::CheckSatisfyCivicBuildings` 0x758E90 (deseo del pueblo
-    FOR_CIVIC_BUILDING 6, 0x748330) → `RequestBestPlanned` 0x73A650 → `GetBestPlanned` 0x73A140 (máscara 4).
-  - **CREATE_CITADEL** (`Citadel::CreateCitadel` 0x463240) pasa (ángulo, 1,0, 1,0, 0) a `CitadelHeart::Create`: la
-    escala del script se **ignora** (Kapa's Land1 Playground pasa 0, otros mapas 300 o 4121) y sale construido.
-  - openblack: CREATE_CITADEL dibuja a escala 1 (antes usaba la del script: en Kapa's Land1 Playground el templo era
-    invisible). CREATE_PLANNED_CITADEL exige pueblo y jugador válidos (si no, nada), el templo es del dueño del pueblo
-    (`Town::owner`) y se dibuja a escala 1. **Desviación pendiente**: como no hay deseos de pueblo, sitios de
-    construcción, BUILD_BUILDING/SET_PROPERTY 22/CALL_NEAR ni dibujo parcial, el templo se sigue creando ya construido
-    (y aplanando) al cargar, para que no desaparezca de Land 1-5. Hacerlo fiel requiere portar todo lo anterior.
-- **IsOkToCreateAtPos** 0x638C40: falla si `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe`
-  0x601D10 da el bit 8 y la celda no es agua. El bit 8 sale de un círculo `NewCollide::Obj` de radio 0,5 (0x82AD90)
-  contra el `GetCollideData` (vtable +0x858) de cada objeto fijo de la lista +4 de la celda (`Obj::Collide` 0x829140);
-  los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Informe
-  completo: `documentacion\mapa\flecos_isok.md` (simulación `isok\sim.py`).
-  - **Quién lo llama**: solo CREATE_TREE (27, 0x716235), CREATE_NEW_TREE (28, 0x7162EE), CREATE_POT (38, 0x716B0C, antes
-    de mirar la cantidad) y CREATE_MOBILEOBJECT (40, 0x716C71). Si falla, no crea nada, no escribe nada y el guion sigue.
-    Ángulo y escala no se usan. Los handlers CHL no lo llaman. CREATE_TOWN_CENTRE usa otro (`GAbodeInfo::IsOkToCreateAtPos`
-    0x404B10, sin portar: en Land1-5 no rechaza ninguno). Abodes, campos, features, mobile statics, hogueras y árboles
-    muertos se crean sin mirar nada.
-  - **La prueba**: círculo de 0,5 en (x, z) del guion (la altura no cuenta, `MapCoords(char*)` deja y = 0) contra los
-    objetos de **su celda**; prueba 2D `dx² + dz² <= (ra + rb)²` y luego los hijos. Con agua en la celda (bit 0x10,
-    `hasWater`) se crea siempre; fuera del mapa (o en un bloque vacío) también. En openblack esa prueba es
-    `ecs::sea_cells::IsWater` (`MapCoords::IsWater` 0x6035B0, `ECS/SeaCells.h`, la celda de las MapCoords 16.16), la
-    misma de la física, la mano y la IA (2026-10-01; antes leía la celda a mano). Land1 sigue con 1351 árboles y 51
+- **CREATE_DEAD_TREE** "ALNFFFF" (case 43, 0x716E64) → `fn_00510BB0`(pos, GTreeInfo[N2], player, F3, F4, F5, F6, 0):
+  ctor 0x510A30 = `Rock`(MS[3], angle 0, scale 1) + `SetLife`(F3); with 0xCC5F10 = 0, `GetDeadTreeMesh` 0x510C60 is the
+  normal mesh of the type; then `SetXYZAnglesAndScale`(F4, F5, F6, 1), the MobileStatic matrix (x = F4, y = F5,
+  z = F6). Land1: 3 (types 12, 4 and 4, life 1, small angles). openblack made a live burnt tree; now
+  `DeadTreeArchetype` (`components::DeadTree`, no Tree or forest, can be picked up).
+- **CREATE_POT** (case 38): `IsOkToCreateAtPos` and, if the quantity N3 ≤ 0 (0x716B19), nothing. Removes the 4 empty wood
+  piles of Land1.
+- **CREATE_NEW_FEATURE** (case 75): with N5 ≠ 0 it creates a `PlannedFeature` 0x527440 (not drawn); no land uses it.
+- **Names**: features `fn_00527740` and animated statics `fn_00422600` compare with `_stricmp` (if there is none, they return the
+  number of infos, 0x4C / 0x10); `GAbodeInfo::GetInfoFromText` 0x405A70 walks the 9 tribes, compares the prefix with
+  `_strnicmp`, requires '_' and the description with `_stricmp` (16 per tribe); otherwise, −1. The original uses the result without
+  checking it; openblack logs the failure and skips the command (deliberate robustness deviation; it used to throw).
+- **AnimatedStatic** (`CallVirtualFunctionsForCreation` 0x422300): sets the clip from info +0x128 (Norse Gate 191, Gate
+  Stone Plinth 195, Piper Cave Entrance 189); `Draw` 0x422770 advances or rewinds it depending on whether it is open, limited to its
+  duration: closed is t = 0 (openblack: `SkeletalAnimation` stopped at 0). With mesh 212 (Norse Gate, `fn_004230D0`)
+  it creates 2 `Game3DObject` with mesh 398 at (∓15, 30, 0) of the gate's matrix (rows with scale + translation),
+  angle 0 and scale 1, each with the light `fn_00823240`(its position, 0).
+- **CREATE_PLANNED_CITADEL** (case 20): town and player mandatory; `fn_00467DD0` (PlannedTownCitadelHeart in the
+  town) and stores the position at 0xC5E258. The real temple comes from `PlannedTownCitadelHeart::CreatePlannedNoFixedCheck`
+  0x467EF0 (vtable +0x504: the player's `Citadel` if it has none, `fn_00462B10`, and `CitadelHeart::Create` 0x464E20), which
+  is called by `Town::AddBuildingSiteNoFixedCheck` 0x73B8A0 from `Town::RequestBestPlanned`, `Town::ForceBuildingOfPlannedAtPos`
+  0x73E560 (`GScript::BuildBuilding` 0x6FAB30 of CHL, and 0x641774 after `StartPlaygroundGame` with 0xC5E258) and
+  `Scaffold::TryToBuildPlannedBuilding`. `GGame::Birthday` → `GPlayer::Birthday` → `Town::Birthday` only rebuilds
+  statistics. When the map loads **there is no temple**, only the plan (GameThingWithPos 0x4C, no mesh, no cell, no
+  creation index, no flattening; `Draw` 0x648930 = `ret`). Info "Citadel Heart" (info.dat 0x115C0): wood 5,
+  timeToBuild 150, desireToBeBuilt 1,0, mesh 564 BuildingDummyCitadel; abode type of the plan 0x804 (civic).
+  - Conversion 0x467EF0 (arg `float life`): the player is the **owner of the town** (`Town+0x2C`, the one from CREATE_TOWN or the
+    neutral one), not the script's (that one is only validated). `CitadelHeart::Create`(pos, info, citadel, plan angle, plan
+    scale, life, 1): the 1 marks "under construction" (MultiMapFixed 0x52E1E0, +0x58 bit 1, +0x5C = 0).
+    `CallVirtualFunctionsForCreation` 0x4675A0 creates the LH3D type 8 at **scale 1** with y = altitude(origin) + alt and calls
+    0x882730 (mesh B_FIRST_TEMPLE, % built, **flattens the land**): the flattening happens on conversion. Worship sites
+    (`fn_00464F50`) only if life ≥ 1. Then heart+0x94 = town, `PostCreatePlanned` 0x648C50 and the plan is deleted.
+  - `AddBuildingSiteNoFixedCheck` always passes life 0.0 and creates a `CitadelBuildingSite` (0x468DC0 → 0x43D1E0); it is
+    finished by the villagers (`CitadelHeart::Built` 0x465000). With life < 1 `Draw` 0x882A40 uses `DrawPartialyBuilt`
+    0x816AD0 (not decoded).
+  - Triggers: **Land 1** = CHL `FollowUs`: `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)` (the plan pos from
+    Land1.txt:95; `GetPlannedAtPos` 0x73E4C0 takes the nearest plan less than the radius of mesh 564 × scale + 1 m away),
+    then `CALL_NEAR(Citadel 18)` + `SET_PROPERTY(22, 0.375)`; `PreventCitadelCompletion` limits it to 0.9 and
+    `CheckCitadel` waits for 1. **Lands 2-5** = AI: `Villager::CheckSatisfyCivicBuildings` 0x758E90 (town desire
+    FOR_CIVIC_BUILDING 6, 0x748330) → `RequestBestPlanned` 0x73A650 → `GetBestPlanned` 0x73A140 (mask 4).
+  - **CREATE_CITADEL** (`Citadel::CreateCitadel` 0x463240) passes (angle, 1,0, 1,0, 0) to `CitadelHeart::Create`: the
+    script's scale is **ignored** (Kapa's Land1 Playground passes 0, other maps 300 or 4121) and it comes out built.
+  - openblack: CREATE_CITADEL draws at scale 1 (it used to use the script's: in Kapa's Land1 Playground the temple was
+    invisible). CREATE_PLANNED_CITADEL requires a valid town and player (otherwise, nothing), the temple belongs to the town's owner
+    (`Town::owner`) and is drawn at scale 1. **Pending deviation**: since there are no town desires, building
+    sites, BUILD_BUILDING/SET_PROPERTY 22/CALL_NEAR or partial drawing, the temple is still created already built
+    (and flattening) on load, so that it does not disappear from Land 1-5. Making it faithful requires porting all of the above.
+- **IsOkToCreateAtPos** 0x638C40: fails if `MapCoords::CollideCollideWithFixe` 0x604FE0 → `MapCell::CollideWithFixe`
+  0x601D10 gives bit 8 and the cell is not water. Bit 8 comes from a `NewCollide::Obj` circle of radius 0.5 (0x82AD90)
+  against the `GetCollideData` (vtable +0x858) of each fixed object in the cell's list +4 (`Obj::Collide` 0x829140);
+  the other bits come from `MapCell::Collide` 0x601BD0 (bit 0x10 of the land block, outside the map). Full
+  report: `documentacion\mapa\flecos_isok.md` (simulation `isok\sim.py`).
+  - **Who calls it**: only CREATE_TREE (27, 0x716235), CREATE_NEW_TREE (28, 0x7162EE), CREATE_POT (38, 0x716B0C, before
+    looking at the quantity) and CREATE_MOBILEOBJECT (40, 0x716C71). If it fails, it creates nothing, writes nothing and the script continues.
+    Angle and scale are not used. The CHL handlers do not call it. CREATE_TOWN_CENTRE uses another one (`GAbodeInfo::IsOkToCreateAtPos`
+    0x404B10, not ported: in Land1-5 it rejects none). Abodes, fields, features, mobile statics, bonfires and dead
+    trees are created without checking anything.
+  - **The test**: circle of 0.5 at the script's (x, z) (the height does not count, `MapCoords(char*)` leaves y = 0) against the
+    objects of **its cell**; 2D test `dx² + dz² <= (ra + rb)²` and then the children. With water in the cell (bit 0x10,
+    `hasWater`) it is always created; outside the map (or in an empty block) too. In openblack that test is
+    `ecs::sea_cells::IsWater` (`MapCoords::IsWater` 0x6035B0, `ECS/SeaCells.h`, the cell of the 16.16 MapCoords), the
+    same as for physics, the hand and the AI (2026-10-01; previously it read the cell by hand). Land1 still has 1351 trees and 51
     mobile objects (`OPENBLACK_DUMP_ENTITY_COUNTS=600`, `_scratch\mapa\int_counts.log`).
-  - **Formas**: árbol = círculo de 0,3 en su posición, solo en su celda (0x74C5F0). MultiMapFixed (abode, centro,
-    campo 594, feature, animated static, mobile static, roca, hoguera, árbol muerto, dispensador) = `NewCollide(LH3DObject)`
-    0x829390 desde el bbox de la malla: centro del bbox girado con `x' = x·cos a − z·sin a`, `z' = x·sin a + z·cos a`;
-    semiejes `max(1, escala·mitad)` en x y z; si largo/corto > 1,4, círculo exterior `sqrt(ex²+ez²)` con
-    `int(largo/corto)+1` hijos de radio corto en fila por el eje largo (0x82ADD0 / 0x828F40); si no, un círculo de
-    `max(ex, ez)`. Se mete en cada celda cuyo círculo (centro de la celda, 7,1) la toca. El bbox (0x8081B0) pasa las
-    mallas con huesos (flag 0x100) por `LH3DAnim::SetTransform`, como el de openblack. Sin collide data: BigForest,
-    vasijas, mobile objects, aldeanos, animales, farolas y planificados.
-  - **openblack** (`ECS/MapCollide.h/.cpp`, `openblack::ecs::map_collide`): rejilla de celdas que se vacía en
-    LOAD_LANDSCAPE y se llena con los parámetros del guion (malla del `Mesh` del objeto creado, ángulo Y y escala del
-    guion, no el Transform). Sin registrar aún: piscifactorías, CitadelHeart (0x468FB0) y WorshipSite (0x77E490), sin
-    decodificar. `OPENBLACK_LOG_ISOK=1` escribe una línea por rechazo (orden, posición, qué lo tapa).
-  - **Resultado** (comprobado con `OPENBLACK_DUMP_ENTITY_COUNTS`): Land1 1395 → 1351 árboles (44 rechazos: los 43 de
-    `sim.py` − 2 bajo la Piper Cave Entrance + 3 bajo los árboles muertos), mobile objects 51; Land2 921 → 915 (+1
-    vasija); Land3 1397 → 1373 y 26 → 20 mobile objects; Land4 799 → 764 y 1 → 0 (+1 vasija); Land5 804 → 782 y
-    19 → 13; LandT 341 → 316. Diferencias con `sim.py`: la Piper Cave Entrance es una malla con huesos y `sim.py` usaba
-    los vértices sin transformar; los árboles muertos `sim.py` no los modelaba (son Rock con la malla normal del tipo,
-    creados con ángulo 0 y escala 1, y los ángulos del guion son casi 0). Captura: Land1 junto al Boulder1 Lime
-    (2120, 2494), ya sin los árboles de encima.
+  - **Shapes**: tree = circle of 0.3 at its position, only in its cell (0x74C5F0). MultiMapFixed (abode, centre,
+    field 594, feature, animated static, mobile static, rock, bonfire, dead tree, dispenser) = `NewCollide(LH3DObject)`
+    0x829390 from the mesh's bbox: bbox centre rotated with `x' = x·cos a − z·sin a`, `z' = x·sin a + z·cos a`;
+    half-axes `max(1, escala·mitad)` in x and z; if long/short > 1,4, outer circle `sqrt(ex²+ez²)` with
+    `int(largo/corto)+1` children of the short radius in a row along the long axis (0x82ADD0 / 0x828F40); otherwise, one circle of
+    `max(ex, ez)`. It is put into every cell whose circle (cell centre, 7.1) it touches. The bbox (0x8081B0) passes the
+    boned meshes (flag 0x100) through `LH3DAnim::SetTransform`, like openblack's. Without collide data: BigForest,
+    pots, mobile objects, villagers, animals, street lanterns and planned buildings.
+  - **openblack** (`ECS/MapCollide.h/.cpp`, `openblack::ecs::map_collide`): grid of cells that is emptied on
+    LOAD_LANDSCAPE and filled with the script's parameters (mesh from the created object's `Mesh`, Y angle and scale from the
+    script, not the Transform). Not registered yet: fish farms, CitadelHeart (0x468FB0) and WorshipSite (0x77E490), not
+    decoded. `OPENBLACK_LOG_ISOK=1` writes one line per rejection (command, position, what blocks it).
+  - **Result** (checked with `OPENBLACK_DUMP_ENTITY_COUNTS`): Land1 1395 → 1351 trees (44 rejections: the 43 of
+    `sim.py` − 2 under the Piper Cave Entrance + 3 under the dead trees), mobile objects 51; Land2 921 → 915 (+1
+    pot); Land3 1397 → 1373 and 26 → 20 mobile objects; Land4 799 → 764 and 1 → 0 (+1 pot); Land5 804 → 782 and
+    19 → 13; LandT 341 → 316. Differences from `sim.py`: the Piper Cave Entrance is a boned mesh and `sim.py` used
+    the untransformed vertices; `sim.py` did not model the dead trees (they are Rocks with the type's normal mesh,
+    created with angle 0 and scale 1, and the script's angles are almost 0). Screenshot: Land1 next to the Boulder1 Lime
+    (2120, 2494), now without the trees on top.
 
-## Ciudades y ciudadela
+## Towns and citadel
 
-Resumen de lo que la wiki ya dice de pueblos, templo y ciudadela, con enlaces (no se ha movido texto):
+Summary of what the wiki already says about towns, temple and citadel, with links (no text has been moved):
 
-- **Datos del pueblo al cargar**: `SET_TOWN_UNINHABITABLE`, `CREATE_TOWN_CENTRE` (centro y porcentaje de culto) y
-  `CREATE_PLANNED_ABODE`, en [Datos de simulación del mapa](#datos-de-simulación-del-mapa-solo-datos-nada-se-dibuja).
-  El tótem del centro del pueblo (`components::TotemStatue`) y el hundimiento de los abodes hasta su cimiento, en
+- **Town data on load**: `SET_TOWN_UNINHABITABLE`, `CREATE_TOWN_CENTRE` (centre and worship percentage) and
+  `CREATE_PLANNED_ABODE`, in [Map simulation data](#map-simulation-data-data-only-nothing-is-drawn).
+  The totem of the town centre (`components::TotemStatue`) and the sinking of the abodes down to their foundation, in
   [openblack-internals.md](openblack-internals.md#render).
-- **`Town::owner`** (`Town+0x2C`, el jugador de `CREATE_TOWN` o el neutral): es el dueño del templo que sale de
-  `CREATE_PLANNED_CITADEL`, no el jugador del guion
-  ([Objetos del guion del mapa](#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas)).
-- **Templo**: al cargar solo hay el plan (`PlannedTownCitadelHeart`); `CitadelHeart::Create` lo convierte y aplana la
-  tierra (0x882730), y `CREATE_CITADEL` ignora la escala del guion (misma sección). openblack lo crea ya construido en
-  `CitadelArchetype` (*desviación* pendiente); el aplanado (plano hasta 35 unidades, mezcla hasta 70) está en
+- **`Town::owner`** (`Town+0x2C`, the player from `CREATE_TOWN` or the neutral one): it is the owner of the temple that comes from
+  `CREATE_PLANNED_CITADEL`, not the script's player
+  ([Map script objects](#map-script-objects-street-lanterns-bonfires-dead-trees-gates)).
+- **Temple**: on load there is only the plan (`PlannedTownCitadelHeart`); `CitadelHeart::Create` converts it and flattens the
+  land (0x882730), and `CREATE_CITADEL` ignores the script's scale (same section). openblack creates it already built in
+  `CitadelArchetype` (pending *deviation*); the flattening (flat up to 35 units, blend up to 70) is in
   [openblack-internals.md](openblack-internals.md#render).
-- **Ciudadela y culto**: los seis huecos de lugares de culto en la entidad del templo (`components::Temple`) en
-  [magic.md](magic.md#la-ciudadela-y-sus-seis-huecos-worshipcitadelcpp); su influencia y la diferencia heredada del
-  templo ya construido en [magic.md](magic.md#influencia-m1i-srcecsinfluence).
-- **Colisión (`MapCollide`)**: `IsOkToCreateAtPos` y la rejilla `ecs::map_collide`, en
-  [Objetos del guion del mapa](#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas); CitadelHeart y
-  WorshipSite aún no se registran en ella.
-- **Dentro de la ciudadela** (`g_game+0x205A28 == 1`): qué suena en [audio.md](audio.md#original-gaudio-lhaudio-y-qmixer)
-  y [objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt); el fotograma en
-  [original-frame.md](original-frame.md#otros-casos-templo-vídeo-y-2d); la paridad gráfica en [parity.md](parity.md).
-- Árboles del pueblo (bosque escénico, lista de bosques Town +0x608):
-  [trees.md](trees.md#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd).
+- **Citadel and worship**: the six worship site slots in the temple entity (`components::Temple`) in
+  [magic.md](magic.md#the-citadel-and-its-six-slots-worshipcitadelcpp); its influence and the difference inherited from the
+  already-built temple in [magic.md](magic.md#influence-m1i-srcecsinfluence).
+- **Collision (`MapCollide`)**: `IsOkToCreateAtPos` and the `ecs::map_collide` grid, in
+  [Map script objects](#map-script-objects-street-lanterns-bonfires-dead-trees-gates); CitadelHeart and
+  WorshipSite are not yet registered in it.
+- **Inside the citadel** (`g_game+0x205A28 == 1`): what plays in [audio.md](audio.md#original-gaudio-lhaudio-and-qmixer)
+  and [objects-and-resources.md](objects-and-resources.md#sounds-report-documentacionsoundnotestxt); the frame in
+  [original-frame.md](original-frame.md#other-cases-temple-video-and-2d); graphical parity in [parity.md](parity.md).
+- Town trees (scenic forest, list of forests Town +0x608):
+  [trees.md](trees.md#searches-for-trees-and-forests-for-the-villagers-report-documentaciontrees2villager_queriesmd).
 
-## Órdenes de guion que mueven cosas (MOVE_GAME_THING 033 y compañía)
+## Script commands that move things (MOVE_GAME_THING 033 and friends)
 
-La intro de **Land 1** (CHL `FollowUs`, `Scripts\Quests\challenge.chl`; código en `documentacion\mapa\rt_chl_code.txt`
-desde la línea 49528) crea a la familia (madre = VILLAGER 49, padre = 53, hijo = 52, CREATE 027), la lleva con
-`MOVE_GAME_THING(cosa, punto, 0.0)` y espera con `GET_DISTANCE(GET_POSITION(cosa), punto) == 0` (`FollowUs_loop_4` y
-`_loop_6`) o `< 1` (`_loop_5`, `_loop_77..79`). Luego les hace actuar con `SET_SCRIPT_ULONG(cosa, clip, veces)` +
-`SET_SCRIPT_STATE(cosa, 200)` y espera `PLAYED(cosa)` (`_loop_8`, 11, 17, 45, 48, 49, 74, 80..82). Todo esto era stub.
+The **Land 1** intro (CHL `FollowUs`, `Scripts\Quests\challenge.chl`; code in `documentacion\mapa\rt_chl_code.txt`
+from line 49528) creates the family (mother = VILLAGER 49, father = 53, son = 52, CREATE 027), moves it with
+`MOVE_GAME_THING(cosa, punto, 0.0)` and waits with `GET_DISTANCE(GET_POSITION(cosa), punto) == 0` (`FollowUs_loop_4` and
+`_loop_6`) or `< 1` (`_loop_5`, `_loop_77..79`). Then it makes them act with `SET_SCRIPT_ULONG(cosa, clip, veces)` +
+`SET_SCRIPT_STATE(cosa, 200)` and waits for `PLAYED(cosa)` (`_loop_8`, 11, 17, 45, 48, 49, 74, 80..82). All of this was a stub.
 
 ### MOVE_GAME_THING (GScript::MoveGameThing 0x6F8E80)
 
-Saca radio, z, y, x y la cosa (0x6F8E91..0x6F8EE9); `GetScriptGameThing` 0x70D220 (si no: "Thing no longer valid"
-0xC0C258). `MapCoords(pos)` 0x603160 (x / z; la y queda relativa a la tierra). Por tipo, en este orden:
+It pops radius, z, y, x and the thing (0x6F8E91..0x6F8EE9); `GetScriptGameThing` 0x70D220 (otherwise: "Thing no longer valid"
+0xC0C258). `MapCoords(pos)` 0x603160 (x / z; y stays relative to the land). By type, in this order:
 
-| prueba (vtable) | qué hace | openblack |
+| test (vtable) | what it does | openblack |
 |---|---|---|
-| IsCreature (+0x34) | `dynamic_cast<Creature*>` ("no creature for script" 0xC0D598), IsObjectInMap (+0x178) → fn_004F6B60(pos, radio): `PrepareCreatureForScriptedAction` 0x4F6A90 y subacciones (`AddSubAction` 0x4FF240). Solo aquí se usa el radio | **pendiente** (no hay IA de criatura) |
-| IsLiving (+0x3C4) | IsObjectInMap y !IsDrowning (+0x17C), si no nada; `AreWeThere(coords, 0.0)` (+0x85C, 0x60AD60) == 0 → `Living::SetupMoveToPos(coords, 4 IN_SCRIPT)` 0x5F2830 (0x6F8FCA); si ya está → `GScript::SetScriptState(cosa, 4)` 0x6F82E0 (0x6F8FD7) | aldeanos exacto; animales **(aproximado)**, abajo |
-| IsFlock (+0x3EC) | `Flock::SetDomainCentrePos` 0x52FC20: destino (+0x80) del primer miembro y centro (+0x14) del rebaño | `AnimalBrain::goal` del primero y `Flock::domainCentre` |
-| IsWeather (+0x3FC) | fn_00774550: +0x78 (su sistema) +0x5C = pos | no hay cosas de clima |
-| IsComputerPlayer (+0x4B8) | fn_00658510(pos, 60,0) | no hay jugadores de la CPU |
-| resto | "Jonty - Thing must be living to move it!" (0xC0D56C) y `SetPos(coords)` (+0xFC, 0x401940) | solo se mueve el `Transform` **(aproximado)** |
+| IsCreature (+0x34) | `dynamic_cast<Creature*>` ("no creature for script" 0xC0D598), IsObjectInMap (+0x178) → fn_004F6B60(pos, radius): `PrepareCreatureForScriptedAction` 0x4F6A90 and subactions (`AddSubAction` 0x4FF240). Only here is the radius used | **pending** (there is no creature AI) |
+| IsLiving (+0x3C4) | IsObjectInMap and !IsDrowning (+0x17C), otherwise nothing; `AreWeThere(coords, 0.0)` (+0x85C, 0x60AD60) == 0 → `Living::SetupMoveToPos(coords, 4 IN_SCRIPT)` 0x5F2830 (0x6F8FCA); if already there → `GScript::SetScriptState(cosa, 4)` 0x6F82E0 (0x6F8FD7) | villagers exact; animals **(approximate)**, below |
+| IsFlock (+0x3EC) | `Flock::SetDomainCentrePos` 0x52FC20: destination (+0x80) of the first member and centre (+0x14) of the flock | `AnimalBrain::goal` of the first one and `Flock::domainCentre` |
+| IsWeather (+0x3FC) | fn_00774550: +0x78 (its system) +0x5C = pos | there are no weather things |
+| IsComputerPlayer (+0x4B8) | fn_00658510(pos, 60.0) | there are no CPU players |
+| rest | "Jonty - Thing must be living to move it!" (0xC0D56C) and `SetPos(coords)` (+0xFC, 0x401940) | only the `Transform` is moved **(approximate)** |
 
-- **Living::SetupMoveToPos** 0x5F2830 (pos, final): estado de movimiento = byte de GLivingInfo +0x124 (1 MOVE_TO_POS
-  en todos los aldeanos), o 3 MOVE_ON_STRUCTURE si GameThingWithPos +0x24 & 0x80 (solo lo pone `Living::MoveOnStructure`;
-  openblack no lo tiene: nunca); `SetCurrentAndDestinationState(movimiento, final)` (+0x8DC) y, solo si da 1,
-  `MobileWallHug::SetupMobileMoveToPos(pos)` 0x60AAD0: destino +0x80 = pos, `InitStepsXZ` 0x60BFA0, fuera de las listas
-  de rodeo (fn_00611AC0 / 00611610 / 00612BB0 / 00610590, +0x76 = 0), y `AreWeThere(0)` → +0x5E = 1 ARRIVED; si no,
-  `CircleHugInfo::Reset`, +0x78 = 1, +0x5E = 0xB **STEP_THROUGH** (recto, sin rodear: no es el LINEAR de
-  `SetupMoveToWithHug` 0x5F2890). openblack: `ecs::villager::SetupMoveToPos` (`src/ECS/Villager/VillagerScript.*`), con
-  la marca `MoveStateStepThroughTag` o `MoveStateArrivedTag` del PathfindingSystem.
-- **MobileWallHug::AreWeThere(pos, r)** 0x60AD60: `dx² + dz² < (velocidad u16 +0x5A + r)²` (estricto, en MapCoords);
-  `AreWeThere(r)` 0x60AD40 = `AreWeThere(GetDestPos() (+0x860), r)`. openblack en metros con `WallHug::speed`
-  **(aproximado: flotantes en vez de enteros 16.16)**.
-- Animales **(aproximado)**: `animal_ai::MoveTo(…, IN_SCRIPT)` (Living::SetupMoveToPos), la altitud del destino sobre
-  la tierra (+0x88) se toma 0 y, si ya está, `animal_ai::SetState(IN_SCRIPT)` en lugar de SetScriptState.
+- **Living::SetupMoveToPos** 0x5F2830 (pos, final): movement state = byte of GLivingInfo +0x124 (1 MOVE_TO_POS
+  for all villagers), or 3 MOVE_ON_STRUCTURE if GameThingWithPos +0x24 & 0x80 (only set by `Living::MoveOnStructure`;
+  openblack does not have it: never); `SetCurrentAndDestinationState(movimiento, final)` (+0x8DC) and, only if it gives 1,
+  `MobileWallHug::SetupMobileMoveToPos(pos)` 0x60AAD0: destination +0x80 = pos, `InitStepsXZ` 0x60BFA0, out of the
+  detour lists (fn_00611AC0 / 00611610 / 00612BB0 / 00610590, +0x76 = 0), and `AreWeThere(0)` → +0x5E = 1 ARRIVED; otherwise,
+  `CircleHugInfo::Reset`, +0x78 = 1, +0x5E = 0xB **STEP_THROUGH** (straight, without going around: it is not the LINEAR of
+  `SetupMoveToWithHug` 0x5F2890). openblack: `ecs::villager::SetupMoveToPos` (`src/ECS/Villager/VillagerScript.*`), with
+  the PathfindingSystem's `MoveStateStepThroughTag` or `MoveStateArrivedTag` mark.
+- **MobileWallHug::AreWeThere(pos, r)** 0x60AD60: `dx² + dz² < (velocidad u16 +0x5A + r)²` (strict, in MapCoords);
+  `AreWeThere(r)` 0x60AD40 = `AreWeThere(GetDestPos() (+0x860), r)`. openblack in metres with `WallHug::speed`
+  **(approximate: floats instead of 16.16 integers)**.
+- Animals **(approximate)**: `animal_ai::MoveTo(…, IN_SCRIPT)` (Living::SetupMoveToPos), the destination's altitude above
+  the land (+0x88) is taken as 0 and, if already there, `animal_ai::SetState(IN_SCRIPT)` instead of SetScriptState.
 
-### Lo que el guion consulta después
+### What the script queries afterwards
 
-- **GET_POSITION** (GScript::GetPosition 0x6F88A0): rebaño → Pos del primer miembro o `GetFlockPos` 0x530570 (el
-  centre +0x14); **un MobileWallHug que no es criatura (+0x408, +0x34) devuelve su destino (+0x80) si
-  `AreWeThere(0)`** (0x6F8977..0x6F89AF), si no su Pos. Altura = `GetAltitude` + la +8 de esas MapCoords; openblack da la
-  de la tierra en el destino **(aproximado: WallHug guarda solo x / z; GET_DISTANCE no mira la y)**.
+- **GET_POSITION** (GScript::GetPosition 0x6F88A0): flock → Pos of the first member or `GetFlockPos` 0x530570 (the
+  centre +0x14); **a MobileWallHug that is not a creature (+0x408, +0x34) returns its destination (+0x80) if
+  `AreWeThere(0)`** (0x6F8977..0x6F89AF), otherwise its Pos. Height = `GetAltitude` + the +8 of those MapCoords; openblack gives the
+  land height at the destination **(approximate: WallHug only stores x / z; GET_DISTANCE does not look at y)**.
 - **GET_DISTANCE** (GScript::GetDistance 0x6F8CA0): `GUtils::GetDistance(LHPoint, LHPoint)` 0x74CDE0 =
-  `hypotenuse(dx, dz)` 0x74F6C0: **solo x y z**; 0 si |dx| y |dz| ≤ 0,0001 (0x8BF518), si no `1 / InvSqrt(dx²+dz²)` con la
-  raíz aproximada por tabla `_FUN_0074f620` (tabla 0xDA5A10, la misma que `AnimalLairs.cpp`); **por debajo de 0,5
-  (0x8AA3B4) da 0**. Antes openblack medía en 3D y sin el corte, así que `== 0` no se cumplía nunca.
+  `hypotenuse(dx, dz)` 0x74F6C0: **only x and z**; 0 if |dx| and |dz| ≤ 0.0001 (0x8BF518), otherwise `1 / InvSqrt(dx²+dz²)` with the
+  root approximated by the table `_FUN_0074f620` (table 0xDA5A10, the same as `AnimalLairs.cpp`); **below 0.5
+  (0x8AA3B4) it gives 0**. Previously openblack measured in 3D and without the cut-off, so `== 0` was never met.
 
-### SET_SCRIPT_STATE 017, SET_SCRIPT_ULONG 020, PLAYED 064 y los estados de guion
+### SET_SCRIPT_STATE 017, SET_SCRIPT_ULONG 020, PLAYED 064 and the script states
 
-- **SET_SCRIPT_STATE** 0x6F8370: estado (primer pop) y cosa ("Object no longer valid" 0xC0D428). Contenedor de guion
-  (+0x3F8: g_game +0x250090 +0x24 y la función de bucle de la tabla 0xC0C73C) **pendiente**; `dynamic_cast<Living*>` y
-  !IsDrowning → `GScript::SetScriptState(living, estado)` 0x6F82E0; si no, "Object not living for set state" 0xC0D440.
-- **GScript::SetScriptState** 0x6F82E0, no criatura: IsAvailable (+0x2C; Villager 0x751D50: no borrándose y final ≠ 14
-  DYING) e IsObjectInMap (+0x178: +0x24 & 1; openblack: no está en la mano, **(aproximado)**) → `StorePreviousState`
-  (+0x8EC, 0x763470), `CallExitStateFunction(estado)` (+0x904) y `CallEntryStateFunction(estado)` (+0x90C) sin mirar
-  el resultado, `Living::SetAnim(1)` (+0x8FC, 0x5ECB80 → SetAnim(GetAnimId(), 1) 0x5ECBA0: el clip del estado desde 0) y
-  +0x58 = 0. La rama de criatura (fn_0047B140 / 004F6E30 / 004F6F10) **pendiente**.
-- **SET_SCRIPT_ULONG** 0x6F8770: veces (primer pop), clip, cosa. Villager: +0x120 = veces, +0x11C = clip
-  (`Villager::scriptAnimLoops` / `scriptAnim`); criatura +0x1290 / +0x128C **pendiente**; si no, "setting the state of
+- **SET_SCRIPT_STATE** 0x6F8370: state (first pop) and thing ("Object no longer valid" 0xC0D428). Script container
+  (+0x3F8: g_game +0x250090 +0x24 and the loop function from table 0xC0C73C) **pending**; `dynamic_cast<Living*>` and
+  !IsDrowning → `GScript::SetScriptState(living, estado)` 0x6F82E0; otherwise, "Object not living for set state" 0xC0D440.
+- **GScript::SetScriptState** 0x6F82E0, not a creature: IsAvailable (+0x2C; Villager 0x751D50: not being deleted and final ≠ 14
+  DYING) and IsObjectInMap (+0x178: +0x24 & 1; openblack: not in the hand, **(approximate)**) → `StorePreviousState`
+  (+0x8EC, 0x763470), `CallExitStateFunction(estado)` (+0x904) and `CallEntryStateFunction(estado)` (+0x90C) without looking at
+  the result, `Living::SetAnim(1)` (+0x8FC, 0x5ECB80 → SetAnim(GetAnimId(), 1) 0x5ECBA0: the state's clip from 0) and
+  +0x58 = 0. The creature branch (fn_0047B140 / 004F6E30 / 004F6F10) **pending**.
+- **SET_SCRIPT_ULONG** 0x6F8770: times (first pop), clip, thing. Villager: +0x120 = times, +0x11C = clip
+  (`Villager::scriptAnimLoops` / `scriptAnim`); creature +0x1290 / +0x128C **pending**; otherwise, "setting the state of
   something neither a creature nor a villager" (0xC0D484).
-- **PLAYED** 0x6F9DC0 en un aldeano: `Villager::IsScriptAnimationComplete` 0x7689D0: TOP 23 WAIT_FOR_ANIMATION → 0; TOP
-  200 → veces == 0; si no 1. Otro Living: GetFinalState == 4 (0x6F9EC4) **pendiente**.
-- Fila **4 IN_SCRIPT**: estado `StateInScript` 0x5ED9A0 (crea DataForScriptRemind si no hay; 1), entrada
-  `EnterInScript` 0x5ED7E0 (vt +0x940: 1 si `IsStateEntryFunctionSameAs(final, next)` 0x7524D0 o no hay recuerdo de
-  guion), salida `ExitInScript` 0x5ED9C0 (vt +0x914: `CircleHugInfo::Reset`; `IsScriptState(next)` (+0x960, fichero
-  0x18) → 1; si no guarda el recuerdo y `ExitNoChangeState(next)` 0x768780 = 1 si next es interrumpible por guion
-  (fichero 0x1C), IN_HAND (`IsStateForInterface` 0x417070) o `IsStateExitFunctionSameAs`).
-- Fila **200 SCRIPT_PLAY_ANIM**: `ScriptPlayAnim` 0x768970: con veces > 0, una menos y `PlayAnimThenSetState(veces ?
-  200 : 4)`; entrada `EnterPlayAnim` 0x768840 (como EnterInScript), salida `ExitPlayAnim` 0x7689C0 = ExitInScript; clip
-  `ScriptAnimation` 0x768A00 = +0x11C (`AnimFn::Script` de `VillagerAnimations.cpp`).
-- **Living::PlayAnimThenSetState** 0x5ECAC0: `CallExitStateFunction(s)` y, si 1, `CallEntryStateFunction(23, s)`: TOP 23
-  y FINAL s, el clip no cambia. Fila **23 WAIT_FOR_ANIMATION**: `WaitForAnimation` 0x5EC990: `IsReadyForNewAnimation(1)`
-  → `SetTopStateToFinal` y 0, si no 1.
-- **No portado**: `DataForScriptRemind` (Living +0xB0, `Create` 0x5EF190, `KeepThatInMind` 0x5EF1D0, fn_005EF2A0), con el
-  que un aldeano sacado de un estado de guion recuerda su paseo y lo retoma al volver. Sin él, las ramas de
-  EnterInScript / EnterPlayAnim que lo retoman no se toman nunca **(inferido)**.
-- **(aproximado)** En el original el paseo solo avanza desde la función de MOVE_TO_POS (`Living::MoveToPos` 0x5EC270 →
-  `MobileWallHug::MoveTo` 0x60AF20); el PathfindingSystem de openblack mueve toda entidad con marca, sea cual sea su
-  estado. Por eso `SetScriptState` quita las marcas si el aldeano ya no está en MOVE_TO_POS: sin ello el padre seguía
-  andando (y se pasaba del destino) mientras actuaba en 200.
+- **PLAYED** 0x6F9DC0 on a villager: `Villager::IsScriptAnimationComplete` 0x7689D0: TOP 23 WAIT_FOR_ANIMATION → 0; TOP
+  200 → times == 0; otherwise 1. Another Living: GetFinalState == 4 (0x6F9EC4) **pending**.
+- Row **4 IN_SCRIPT**: state `StateInScript` 0x5ED9A0 (creates DataForScriptRemind if there is none; 1), entry
+  `EnterInScript` 0x5ED7E0 (vt +0x940: 1 if `IsStateEntryFunctionSameAs(final, next)` 0x7524D0 or there is no script
+  memory), exit `ExitInScript` 0x5ED9C0 (vt +0x914: `CircleHugInfo::Reset`; `IsScriptState(next)` (+0x960, file
+  0x18) → 1; otherwise it stores the memory and `ExitNoChangeState(next)` 0x768780 = 1 if next is interruptible by script
+  (file 0x1C), IN_HAND (`IsStateForInterface` 0x417070) or `IsStateExitFunctionSameAs`).
+- Row **200 SCRIPT_PLAY_ANIM**: `ScriptPlayAnim` 0x768970: with times > 0, one less and `PlayAnimThenSetState(veces ?
+  200 : 4)`; entry `EnterPlayAnim` 0x768840 (like EnterInScript), exit `ExitPlayAnim` 0x7689C0 = ExitInScript; clip
+  `ScriptAnimation` 0x768A00 = +0x11C (`AnimFn::Script` of `VillagerAnimations.cpp`).
+- **Living::PlayAnimThenSetState** 0x5ECAC0: `CallExitStateFunction(s)` and, if 1, `CallEntryStateFunction(23, s)`: TOP 23
+  and FINAL s, the clip does not change. Row **23 WAIT_FOR_ANIMATION**: `WaitForAnimation` 0x5EC990: `IsReadyForNewAnimation(1)`
+  → `SetTopStateToFinal` and 0, otherwise 1.
+- **Not ported**: `DataForScriptRemind` (Living +0xB0, `Create` 0x5EF190, `KeepThatInMind` 0x5EF1D0, fn_005EF2A0), with
+  which a villager taken out of a script state remembers its walk and resumes it on returning. Without it, the branches of
+  EnterInScript / EnterPlayAnim that resume it are never taken **(inferred)**.
+- **(approximate)** In the original the walk only advances from the MOVE_TO_POS function (`Living::MoveToPos` 0x5EC270 →
+  `MobileWallHug::MoveTo` 0x60AF20); openblack's PathfindingSystem moves every entity with a mark, whatever its
+  state. That is why `SetScriptState` removes the marks if the villager is no longer in MOVE_TO_POS: without that the father kept
+  walking (and overshot the destination) while acting in 200.
 
-### CAST de la máquina virtual
+### Virtual machine CAST
 
-En el `ScriptLibraryR.dll` original (`Plug Ins`), el opcode 23 INTCAST (0x10008EE0, tabla 0x100090E4 por tipo − 1)
-**convierte**: CASTI lee los bits como float y hace `__ftol` (0x1001568C, trunca; la palabra baja del entero de 64 bits),
-CASTF lee los bits como entero sin signo de 32 bits (fild qword con la parte alta 0); CASTV, CASTO y CASTB solo cambian
-el tipo y el tipo 5 no hace nada. openblack solo cambiaba el tipo, así que `PUSHF 1.0 CASTI` llegaba a SET_SCRIPT_ULONG
-como 0x3F800000 veces. Corregido en `components/ScriptLibrary/src/LHVM.cpp` (`Opcode23Cast`).
+In the original `ScriptLibraryR.dll` (`Plug Ins`), opcode 23 INTCAST (0x10008EE0, table 0x100090E4 by type − 1)
+**converts**: CASTI reads the bits as a float and does `__ftol` (0x1001568C, truncates; the low word of the 64-bit integer),
+CASTF reads the bits as an unsigned 32-bit integer (fild qword with the high part 0); CASTV, CASTO and CASTB only change
+the type and type 5 does nothing. openblack only changed the type, so `PUSHF 1.0 CASTI` reached SET_SCRIPT_ULONG
+as 0x3F800000 times. Fixed in `components/ScriptLibrary/src/LHVM.cpp` (`Opcode23Cast`).
 
-### En juego (Land 1)
+### In game (Land 1)
 
-Con `OPENBLACK_TEST_TEXT_CLICK=1` (los textos con interacción 1 esperan un clic, como en el original) `FollowUs` pasa
-`_loop_4` a los ~15 s (la familia llega a las marcas del beso), anda a la playa, el hijo corre al mar, la cámara salta
-con los SET_CAMERA_POSITION del guion, salen los textos (`¡Has salvado a nuestro hijo!` … `Te enseñaré cómo seguirlos.`)
-y la familia pasa `_loop_77..79` (llega a `StartPath`). **Se para en `HAS_CAMERA_ARRIVED` (035)**, stub que da 0: en el
-original es `GCamera::Arrived` 0x443050 (el modo de cámara activo, +0x58 / +0x28, vt +0x34; sin modo, 1) tras
-`IsMultiplayerGame` 0x552F80 (multijugador → 1) y el aviso de ciudadela (g_game +0x205A28 == 1). Necesita el modo de
-cámara de guion (`START_CAMERA_CONTROL`) y `MOVE_CAMERA_POSITION` / `MOVE_CAMERA_FOCUS` (003 / 004, también stubs:
-por eso la cámara no se desliza). `END_CAMERA_CONTROL` está al final de `FollowUs` (tras `RUN Drag`), aún lejos.
-Además, tras el `SET_FADE` a negro de 4 s (línea 51012) la pantalla queda negra: viene `SET_AVI_SEQUENCE(1, 1)` (203,
-stub) y no hay `SET_FADE_IN` en `FollowUs`.
+With `OPENBLACK_TEST_TEXT_CLICK=1` (the texts with interaction 1 wait for a click, as in the original) `FollowUs` passes
+`_loop_4` at ~15 s (the family reaches the kiss markers), walks to the beach, the son runs into the sea, the camera jumps
+with the script's SET_CAMERA_POSITION calls, the texts appear (`¡Has salvado a nuestro hijo!` … `Te enseñaré cómo seguirlos.`)
+and the family passes `_loop_77..79` (reaches `StartPath`). **It stops at `HAS_CAMERA_ARRIVED` (035)**, a stub that returns 0: in the
+original it is `GCamera::Arrived` 0x443050 (the active camera mode, +0x58 / +0x28, vt +0x34; with no mode, 1) after
+`IsMultiplayerGame` 0x552F80 (multiplayer → 1) and the citadel notice (g_game +0x205A28 == 1). It needs the script
+camera mode (`START_CAMERA_CONTROL`) and `MOVE_CAMERA_POSITION` / `MOVE_CAMERA_FOCUS` (003 / 004, also stubs:
+that is why the camera does not glide). `END_CAMERA_CONTROL` is at the end of `FollowUs` (after `RUN Drag`), still far away.
+Also, after the 4 s `SET_FADE` to black (line 51012) the screen stays black: `SET_AVI_SEQUENCE(1, 1)` comes next (203,
+stub) and there is no `SET_FADE_IN` in `FollowUs`.
 
-### Saltar el tutorial (SkipBox y CAN_SKIP_TUTORIAL)
+### Skipping the tutorial (SkipBox and CAN_SKIP_TUTORIAL)
 
-**Fiel** (runblack.exe v1.42, leído con `bwdis.py`):
+**Faithful** (runblack.exe v1.42, read with `bwdis.py`):
 
-- `GGame::OnNewGame` 0x553900: si hay guion y es Land 1 arranca `LandControlAll` y, siempre, llama a
-  `DoYesNoSkipTutorialRequestersIfNecessary` 0x54CBD0 (0x55395B). Esta borra los bits 23, 24 y 25 de `g_game+0x14`
-  (0x54CBD5 / 0x54CBE1 / 0x54CBED); la condición que había antes de enseñar el cuadro está anulada con 25 NOP
-  (0x54CBF4..0x54CC0C), así que **siempre** hace `PauseGame(1)` y `SkipBox::Show` (vt +0x0C, `DialogBoxBase::Show`
-  0x5135F0) sobre el SkipBox de `FrontEnd::Init` (0x53B844, puntero en 0xCD0634, callback 0x544480 en 0x53BB9D).
-- `SkipBox::Init` 0x5441C0: un título, un botón (id 0xB, texto 0xA24 de `HelpTextDatabase`) y cuatro casillas (ids
-  0x3C..0x3F) con los textos 5..8 de la tabla de textos de 0xD17CA0 (no leídos); la elegida está en `+0x20`, 0 por
-  defecto (0x544206). `SkipBox::CanESCOut` 0x53BD60 da 0: no se cierra con ESC.
-- Callback 0x544480: al pulsar el botón 0xB, según la casilla (tabla de saltos 0x5445A0): 0 borra 23, 24 y 25;
-  1 pone 23 y borra 24 y 25; 2 pone 23 y 24 y borra 25; 3 pone los tres. Luego `PauseGame(0)` y
+- `GGame::OnNewGame` 0x553900: if there is a script and it is Land 1 it starts `LandControlAll` and, always, calls
+  `DoYesNoSkipTutorialRequestersIfNecessary` 0x54CBD0 (0x55395B). This clears bits 23, 24 and 25 of `g_game+0x14`
+  (0x54CBD5 / 0x54CBE1 / 0x54CBED); the condition that used to come before showing the box is nulled out with 25 NOPs
+  (0x54CBF4..0x54CC0C), so it **always** does `PauseGame(1)` and `SkipBox::Show` (vt +0x0C, `DialogBoxBase::Show`
+  0x5135F0) on the SkipBox from `FrontEnd::Init` (0x53B844, pointer at 0xCD0634, callback 0x544480 at 0x53BB9D).
+- `SkipBox::Init` 0x5441C0: a title, a button (id 0xB, text 0xA24 from `HelpTextDatabase`) and four checkboxes (ids
+  0x3C..0x3F) with texts 5..8 of the text table at 0xD17CA0 (not read); the selected one is at `+0x20`, 0 by
+  default (0x544206). `SkipBox::CanESCOut` 0x53BD60 returns 0: it does not close with ESC.
+- Callback 0x544480: when button 0xB is pressed, depending on the checkbox (jump table 0x5445A0): 0 clears 23, 24 and 25;
+  1 sets 23 and clears 24 and 25; 2 sets 23 and 24 and clears 25; 3 sets all three. Then `PauseGame(0)` and
   `DialogBoxBase::Hide`.
-- Los guiones lo leen con `CAN_SKIP_TUTORIAL` (460, `GScript::CanSkipTutorial` 0x6FFEF0, bit 23),
-  `CAN_SKIP_CREATURE_TRAINING` (461, 0x6FFF10, bit 24) e `IS_KEEPING_OLD_CREATURE` (462, 0x6FFF30, bit 25), que
-  empujan el bit como booleano (VMType 6). Nadie más escribe esos bits (búsqueda de `or`/`and` con 0x800000,
-  0x1000000, 0x2000000 en todo `.text`).
-- challenge.chl: solo `SetupLand1` los llama. `CAN_SKIP_TUTORIAL` → global `IsSkippingToCreatureSelect` = 1;
-  `CAN_SKIP_CREATURE_TRAINING` → `IsSkippingCreatureGuide` = 1; `IS_KEEPING_OLD_CREATURE` y
-  `CURRENT_PROFILE_HAS_CREATURE` → `IsKeepingOldCreature` = 1 y los otros dos también.
-- `LandControl1`: con `IsSkippingToCreatureSelect` no corren `FollowUs` (la intro) ni `CitadelGuide`: hace
-  `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)`, coge con `CALL_NEAR(18, 5000, ese punto, 5)` el objeto creado (la
-  ciudadela, (inferido) por el tipo) y le pone `BUILT_PERCENTAGE` (propiedad 22) = 1; tampoco corre `ChooseYourCreature`: crea las tres piedras de la puerta (`GateKey1`, `GateKey2`,
-  `QuarryRock`) y corre `CreaturesInGlade` (que coge la cámara para elegir criatura y, en ese caso, se salta al
-  guardián y hace un `SET_FADE_IN` de 2 s tras 2 s). Con `IsKeepingOldCreature` en vez de eso pone la hora (`SET_GAME_TIME 15.4`,
-  `GAME_TIME_ON_OFF 1`), abre la puerta de las criaturas (`SET_OPEN_CLOSE`), da `ChooseYourCreatureFinished` y
-  carga la criatura del perfil (`LOAD_MY_CREATURE`). Con `IsSkippingCreatureGuide` no corren `MoveTheGuideAround`,
+- The scripts read it with `CAN_SKIP_TUTORIAL` (460, `GScript::CanSkipTutorial` 0x6FFEF0, bit 23),
+  `CAN_SKIP_CREATURE_TRAINING` (461, 0x6FFF10, bit 24) and `IS_KEEPING_OLD_CREATURE` (462, 0x6FFF30, bit 25), which
+  push the bit as a boolean (VMType 6). Nobody else writes those bits (search for `or`/`and` with 0x800000,
+  0x1000000, 0x2000000 in the whole `.text`).
+- challenge.chl: only `SetupLand1` calls them. `CAN_SKIP_TUTORIAL` → global `IsSkippingToCreatureSelect` = 1;
+  `CAN_SKIP_CREATURE_TRAINING` → `IsSkippingCreatureGuide` = 1; `IS_KEEPING_OLD_CREATURE` and
+  `CURRENT_PROFILE_HAS_CREATURE` → `IsKeepingOldCreature` = 1 and the other two as well.
+- `LandControl1`: with `IsSkippingToCreatureSelect` neither `FollowUs` (the intro) nor `CitadelGuide` run: it does
+  `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)`, takes with `CALL_NEAR(18, 5000, ese punto, 5)` the created object (the
+  citadel, (inferred) from the type) and sets its `BUILT_PERCENTAGE` (property 22) = 1; `ChooseYourCreature` does not run either: it creates the three gate stones (`GateKey1`, `GateKey2`,
+  `QuarryRock`) and runs `CreaturesInGlade` (which takes the camera to choose a creature and, in that case, skips the
+  guardian and does a 2 s `SET_FADE_IN` after 2 s). With `IsKeepingOldCreature` it instead sets the time (`SET_GAME_TIME 15.4`,
+  `GAME_TIME_ON_OFF 1`), opens the creature gate (`SET_OPEN_CLOSE`), sets `ChooseYourCreatureFinished` and
+  loads the profile's creature (`LOAD_MY_CREATURE`). With `IsSkippingCreatureGuide` none of `MoveTheGuideAround`,
   `CreatureDevLearnToEat`, `CreatureDevPunishment`, `CreatureDevLeashIntro`, `CreatureDevLeashAttachToHouse`,
-  `MeetTheGuide`, `GuideAsksToMeetYourCreature`, `GuideImpressTown*`, `CreatureDevGuideTeachesFight` ni `TheStorm`
-  (espera a `LeaveLandNow`).
-- No hay otra forma original de saltar la intro: `FollowUs` no llama a `KEY_DOWN` ni mira ESC; el clic solo pasa los
-  textos.
+  `MeetTheGuide`, `GuideAsksToMeetYourCreature`, `GuideImpressTown*`, `CreatureDevGuideTeachesFight` or `TheStorm` run
+  (it waits for `LeaveLandNow`).
+- There is no other original way to skip the intro: `FollowUs` does not call `KEY_DOWN` or check ESC; the click only advances the
+  texts.
 
-**Qué corre con cada respuesta** (leído en `dev\documentacion\mapa\rt_chl_code.txt`, que es pseudoensamblador: los nativos
-salen como `CALL <n>`; extensiones: `SetupLand1` 25357-25622, `LandControl1` 74956-75239, `LandControlAll`
+**What runs with each answer** (read in `dev\documentacion\mapa\rt_chl_code.txt`, which is pseudo-assembly: the natives
+appear as `CALL <n>`; extents: `SetupLand1` 25357-25622, `LandControl1` 74956-75239, `LandControlAll`
 171106-171139, `CreaturesInGlade` 43862-46096, `CreatureDevSeeHome` 6932-7814, `FollowUs` 49528-53196):
 
-- `SetupLand1` 25398-25455: los tres globales son independientes, pero `IsKeepingOldCreature` =
-  `IS_KEEPING_OLD_CREATURE and CURRENT_PROFILE_HAS_CREATURE` (25432-25435) y, cuando se pone, **fuerza** los otros dos
-  a 1 (25440-25447). Ni `SetupLand1` ni `LandControlAll` tienen música, cámara, diálogo o fundido antes de
-  `LandControl1` (el `SET_FADE_IN(3.0)` de 171120 es ya la transición a Land 2).
-- `LandControl1`: con `IsSkippingToCreatureSelect` no corren `FollowUs` (74982), `CitadelGuide` (74983) ni
-  `ChooseYourCreature` (75037), y en su lugar hace `BUILD_BUILDING` + `CALL_NEAR(18, 5000, …)` +
-  `SET_PROPERTY(22, ciudadela, 1.0)` (74988-75017) y borra `GateKey1`, `GateKey2` y `QuarryRock` (75042-75083).
-  `CreaturesInGlade` (75088) solo se salta con `IsKeepingOldCreature`: entonces corre el bloque 75093-75125
-  (`SET_GAME_TIME(15.4)`, `GAME_TIME_ON_OFF(1)`, `SET_CAMERA_ZONE(3436)`, `SET_OPEN_CLOSE` de las puertas de las
-  criaturas, `ChooseYourCreatureFinished = 1`, `LOAD_MY_CREATURE(1850, 1300)`).
-- **`CreatureDevSeeHome` (75141) corre siempre**, con las tres respuestas. Con `IsSkippingCreatureGuide` toma la rama
+- `SetupLand1` 25398-25455: the three globals are independent, but `IsKeepingOldCreature` =
+  `IS_KEEPING_OLD_CREATURE and CURRENT_PROFILE_HAS_CREATURE` (25432-25435) and, when it is set, it **forces** the other two
+  to 1 (25440-25447). Neither `SetupLand1` nor `LandControlAll` have music, camera, dialogue or fade before
+  `LandControl1` (the `SET_FADE_IN(3.0)` at 171120 is already the transition to Land 2).
+- `LandControl1`: with `IsSkippingToCreatureSelect` neither `FollowUs` (74982), `CitadelGuide` (74983) nor
+  `ChooseYourCreature` (75037) run, and instead it does `BUILD_BUILDING` + `CALL_NEAR(18, 5000, …)` +
+  `SET_PROPERTY(22, ciudadela, 1.0)` (74988-75017) and deletes `GateKey1`, `GateKey2` and `QuarryRock` (75042-75083).
+  `CreaturesInGlade` (75088) is only skipped with `IsKeepingOldCreature`: then the block 75093-75125 runs
+  (`SET_GAME_TIME(15.4)`, `GAME_TIME_ON_OFF(1)`, `SET_CAMERA_ZONE(3436)`, `SET_OPEN_CLOSE` of the creature
+  gates, `ChooseYourCreatureFinished = 1`, `LOAD_MY_CREATURE(1850, 1300)`).
+- **`CreatureDevSeeHome` (75141) always runs**, with all three answers. With `IsSkippingCreatureGuide` it takes the branch
   7056-7085: `loop { START_CAMERA_CONTROL }`, `loop { START_DIALOGUE }`, `START_GAME_SPEED`, `SET_WIDESCREEN(1)`,
   `SET_CAMERA_POSITION(1891.039, 31.693, 2520.674)`, `SET_CAMERA_FOCUS(1899.053, 30.312, 2518.680)`,
-  `SET_WIDESCREEN(0)`, `END_GAME_SPEED`, `END_CAMERA_CONTROL`, `END_DIALOGUE`, `SET_FADE_IN(2.0)`; sin `SLEEP` por medio,
-  así que el candado dura un turno y la cámara se **clava** (no se desliza) sobre el poblado. Antes, sin condición,
-  `SET_GAME_TIME(4.59)` + `GAME_TIME_ON_OFF(1)` (7000-7003): amanece.
-- `CreaturesInGlade` (respuestas 2 y 3, no la 4) sí secuestra el principio: `START_CAMERA_CONTROL` 44028,
-  `START_DIALOGUE` 44031, `SET_WIDESCREEN(1)` 44035, `SET_FADE(0,0,0,2.0)` 44295 (rama de salto), `SET_FADE_IN(2.0)`
+  `SET_WIDESCREEN(0)`, `END_GAME_SPEED`, `END_CAMERA_CONTROL`, `END_DIALOGUE`, `SET_FADE_IN(2.0)`; with no `SLEEP` in between,
+  so the lock lasts one turn and the camera **snaps** (does not glide) onto the village. Before that, unconditionally,
+  `SET_GAME_TIME(4.59)` + `GAME_TIME_ON_OFF(1)` (7000-7003): dawn breaks.
+- `CreaturesInGlade` (answers 2 and 3, not 4) does hijack the beginning: `START_CAMERA_CONTROL` 44028,
+  `START_DIALOGUE` 44031, `SET_WIDESCREEN(1)` 44035, `SET_FADE(0,0,0,2.0)` 44295 (skip branch), `SET_FADE_IN(2.0)`
   44326, `SET_CAMERA_POSITION/FOCUS` 44303/44310 (1753.3, 49.5, 2811.1), `MOVE_CAMERA_*` 44339-44403,
-  `HAS_CAMERA_ARRIVED` 44404/44415/44422, `START_MUSIC(63)` 44419, `RUN_CAMERA_PATH(13)` 44421, y no suelta hasta
-  44684-44691. En openblack `MOVE_CAMERA_*` y `HAS_CAMERA_ARRIVED` son stubs, así que el guion **se quedaba colgado ahí
-  para siempre con la cámara, el diálogo y la pantalla ancha cogidos**.
-- `START_MUSIC(54)`, la música de la intro, aparece **una sola vez en todo el challenge.chl**: línea 50114, dentro de
-  `FollowUs`. Con cualquier respuesta de salto nunca suena. Otras de Land 1: 67 en `ChooseYourCreature` (42493) y en
-  `CreatureDevSeeHome` sin salto (7117), 63 y 65 en `CreaturesInGlade` (44419, 45644/45813/45985), 67 y 69 en
-  `TheStorm`. `SET_AVI_SEQUENCE` (51024), `CAMERA_PROPERTIES` (50444), `SET_FOCUS_AND_POSITION_FOLLOW` (50439) y
-  `SET_INTERFACE_INTERACTION` de Land 1 están todos dentro de `FollowUs`: con el salto no se ejecutan nunca.
-- Los 13 guiones de fondo (`SingingStoneCircle`, `ThrowingStones`, `TheLostFlock`, `TheMissionaries`, `MagicMushroom`,
-  `HermitMain`, `CreatureSavingPeople`, `PiedPiper`, `CreatureGuardian`, `LeaveThroughVortexL1`…) esperan en un
-  `ChallengeHighlightNotify` / `QuestHighlightNotify` / `SingingStonesNotify` antes de tocar la cámara, así que ninguno
-  molesta al empezar. Con `IsSkippingCreatureGuide`, `LeaveThroughVortexL1` abre el vórtice de salida desde el principio
+  `HAS_CAMERA_ARRIVED` 44404/44415/44422, `START_MUSIC(63)` 44419, `RUN_CAMERA_PATH(13)` 44421, and it does not let go until
+  44684-44691. In openblack `MOVE_CAMERA_*` and `HAS_CAMERA_ARRIVED` are stubs, so the script **got stuck there
+  forever with the camera, the dialogue and the widescreen held**.
+- `START_MUSIC(54)`, the intro music, appears **only once in the whole challenge.chl**: line 50114, inside
+  `FollowUs`. With any skip answer it never plays. Others in Land 1: 67 in `ChooseYourCreature` (42493) and in
+  `CreatureDevSeeHome` without skipping (7117), 63 and 65 in `CreaturesInGlade` (44419, 45644/45813/45985), 67 and 69 in
+  `TheStorm`. `SET_AVI_SEQUENCE` (51024), `CAMERA_PROPERTIES` (50444), `SET_FOCUS_AND_POSITION_FOLLOW` (50439) and
+  `SET_INTERFACE_INTERACTION` of Land 1 are all inside `FollowUs`: with the skip they are never executed.
+- The 13 background scripts (`SingingStoneCircle`, `ThrowingStones`, `TheLostFlock`, `TheMissionaries`, `MagicMushroom`,
+  `HermitMain`, `CreatureSavingPeople`, `PiedPiper`, `CreatureGuardian`, `LeaveThroughVortexL1`…) wait on a
+  `ChallengeHighlightNotify` / `QuestHighlightNotify` / `SingingStonesNotify` before touching the camera, so none of them
+  gets in the way at the start. With `IsSkippingCreatureGuide`, `LeaveThroughVortexL1` opens the exit vortex from the beginning
   (53845-53876).
 
-**openblack:** sin SkipBox. `Game::Run`, tras arrancar `LandControlAll`, borra los tres bits (`TutorialSkipFlags` de
-`Game`) y pone los de la respuesta del mod [game.skip-intro](mod-library.md#gameskip-intro) (sin el mod, ninguno: la
-respuesta por defecto). El mod está **activado por defecto** con la cuarta respuesta, así que no corren ni `FollowUs`
-ni `CreaturesInGlade`; para que esa respuesta valga, el mod contesta también `CURRENT_PROFILE_HAS_CREATURE` (CHL 463),
-que openblack no puede saber porque no tiene perfiles. Lo único que queda del principio, el turno de cámara y diálogo de
-`CreatureDevSeeHome`, lo come la opción `free start` del mod (no es del original): ver
+**openblack:** no SkipBox. `Game::Run`, after starting `LandControlAll`, clears the three bits (`TutorialSkipFlags` of
+`Game`) and sets those of the answer of the [game.skip-intro](mod-library.md#gameskip-intro) mod (without the mod, none: the
+default answer). The mod is **enabled by default** with the fourth answer, so neither `FollowUs`
+nor `CreaturesInGlade` run; for that answer to be valid, the mod also answers `CURRENT_PROFILE_HAS_CREATURE` (CHL 463),
+which openblack cannot know because it has no profiles. The only thing left of the beginning, the camera and dialogue turn of
+`CreatureDevSeeHome`, is eaten by the mod's `free start` option (not from the original): see
 [mod-library.md](mod-library.md#gameskip-intro).
 
-## Pendiente
+## Pending
 
-- SkipBox: openblack no lo enseña (lo sustituye el mod `game.skip-intro`); faltan sus textos (tabla 0xD17CA0).
-- CREATE de CHL sin portar: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight y Scaffold.
-- `CREATE_MIST` 263 y `SET_MIST_FADE` 264 de CHL (`CHLApi.cpp`, sin implementar).
-- Lluvia y temperatura iniciales de `GClimate` (rango de la estación): aquí consta como no portado; comprobar con
-  [day-night-weather.md](day-night-weather.md#gclimate-los-climas-climatecpp).
-- `GAbodeInfo::IsOkToCreateAtPos` 0x404B10 de `CREATE_TOWN_CENTRE`; registrar en `MapCollide` las piscifactorías,
-  CitadelHeart (0x468FB0) y WorshipSite (0x77E490).
-- Ciudadela fiel: deseos del pueblo, sitios de construcción, `BUILD_BUILDING`, `CALL_NEAR`, dibujo parcial
-  (`DrawPartialyBuilt` 0x816AD0); hasta entonces el templo sale construido al cargar.
-- `SET_LAND_NUMBER` no se reinicia al cargar un mapa en openblack.
+- SkipBox: openblack does not show it (replaced by the `game.skip-intro` mod); its texts are missing (table 0xD17CA0).
+- CHL CREATE not ported: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight and Scaffold.
+- `CREATE_MIST` 263 and `SET_MIST_FADE` 264 of CHL (`CHLApi.cpp`, not implemented).
+- Initial rain and temperature of `GClimate` (season range): recorded here as not ported; check against
+  [day-night-weather.md](day-night-weather.md#gclimate-the-climates-climatecpp).
+- `GAbodeInfo::IsOkToCreateAtPos` 0x404B10 of `CREATE_TOWN_CENTRE`; register in `MapCollide` the fish farms,
+  CitadelHeart (0x468FB0) and WorshipSite (0x77E490).
+- Faithful citadel: town desires, building sites, `BUILD_BUILDING`, `CALL_NEAR`, partial drawing
+  (`DrawPartialyBuilt` 0x816AD0); until then the temple comes out built on load.
+- `SET_LAND_NUMBER` is not reset when loading a map in openblack.
 
-## Ganchos de prueba
+## Test hooks
 
-- `OPENBLACK_TEST_BUILT_PERCENTAGE`: `BUILT_PERCENTAGE` del arca de Land 1.
-- `OPENBLACK_LOG_ISOK=1`: una línea por rechazo de `IsOkToCreateAtPos`.
-- `OPENBLACK_DUMP_ENTITY_COUNTS`: cuenta de entidades por tipo tras cargar (resultado de `IsOkToCreateAtPos`).
-- `OPENBLACK_SCRIPT_THING_TRACE=1`: una línea por MOVE_GAME_THING, SET_SCRIPT_STATE, SET_SCRIPT_ULONG y por PLAYED
-  verdadero (para seguir `FollowUs`).
-- `OPENBLACK_TEST_TEXT_CLICK=1`: cada turno, si un texto espera el clic (RUN_TEXT con interacción 1), hace el clic
-  izquierdo (`HelpSystem::ProcessInterface(true)`, que lo ignora hasta 1 s de texto).
+- `OPENBLACK_TEST_BUILT_PERCENTAGE`: `BUILT_PERCENTAGE` of the Land 1 ark.
+- `OPENBLACK_LOG_ISOK=1`: one line per `IsOkToCreateAtPos` rejection.
+- `OPENBLACK_DUMP_ENTITY_COUNTS`: entity count by type after loading (result of `IsOkToCreateAtPos`).
+- `OPENBLACK_SCRIPT_THING_TRACE=1`: one line per MOVE_GAME_THING, SET_SCRIPT_STATE, SET_SCRIPT_ULONG and per true PLAYED
+  (to follow `FollowUs`).
+- `OPENBLACK_TEST_TEXT_CLICK=1`: every turn, if a text is waiting for the click (RUN_TEXT with interaction 1), it does the left
+  click (`HelpSystem::ProcessInterface(true)`, which ignores it until 1 s of text).
 
-## Fuentes
+## Sources
 
 - `C:\Users\diewgarc\dev\documentacion\mapa\`: `chl_creatething_6F11A0.txt`, `all_cases.txt`, `d_streetlantern.txt`,
   `d_deadtree_isok.txt`, `d_animstatic_cvffc.txt`, `flecos_isok.md`, `isok\sim.py`.
-- Órdenes de guion: `documentacion\miracles\all.asm` (GScript::MoveGameThing 0x6F8E80, SetScriptState 0x6F8370,
+- Script commands: `documentacion\miracles\all.asm` (GScript::MoveGameThing 0x6F8E80, SetScriptState 0x6F8370,
   SetScriptUlong 0x6F8770, Played 0x6F9DC0, GetPosition 0x6F88A0, GetDistance 0x6F8CA0, HasCameraArrived 0x6ED170),
-  `bwdis.py` en las funciones de Living / Villager / MobileWallHug citadas, y `_scratch\mapa\sldis.py` sobre
+  `bwdis.py` on the cited Living / Villager / MobileWallHug functions, and `_scratch\mapa\sldis.py` on
   `Plug Ins\ScriptLibraryR.dll` (INTCAST).

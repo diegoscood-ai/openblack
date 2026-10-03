@@ -1,1339 +1,1358 @@
-# Magia: el núcleo de los milagros
+# Magic: the core of the miracles
 
-Núcleo del sistema de magia del original y de su port: las tablas de info.dat, el ciclo de vida de los hechizos, los
-cánticos, los eventos y efectos, las reglas de lanzamiento, las semillas y los milagros de un uso, lanzar desde la mano
-y los gestos, el culto y el poder de oración, la influencia, la alineación, las reacciones, la vida, el modelo del
-fuego, el orden en el turno y los ganchos. Cada milagro tiene su sección en [miracles.md](miracles.md); el motor de
-partículas (PSys) está en [particles.md](particles.md), y el tiempo y el clima en
-[day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather).
+Core of the original's magic system and of its port: the info.dat tables, the spell life cycle, the chants, events and
+effects, the cast rules, seeds and one-off miracles, casting from the hand and gestures, worship and prayer power,
+influence, alignment, reactions, life, the fire model, the order within the turn and the hooks. Each miracle has its own
+section in [miracles.md](miracles.md); the particle engine (PSys) is in [particles.md](particles.md), and time and weather
+in [day-night-weather.md](day-night-weather.md#weather-and-climate-m6a-srcecsweather).
 
-Plan e informes: `dev\documentacion\miracles\` (`PLAN.md` y los informes que cita: `core.md`, `casting.md`, `sources.md`,
-`destructive.md`, `resources.md`, `protect_creature.md`, `visuals_sound.md`). Direcciones W120. Esta página recoge lo
-verificado en `runblack.exe` al portarlo, por hitos.
+Plan and reports: `dev\documentacion\miracles\` (`PLAN.md` and the reports it cites: `core.md`, `casting.md`, `sources.md`,
+`destructive.md`, `resources.md`, `protect_creature.md`, `visuals_sound.md`). W120 addresses. This page collects what was
+verified in `runblack.exe` while porting it, by milestone.
 
-- [Tablas de info.dat](#tablas-de-infodat-m0-srcmagicmagictables)
-- [Núcleo de los hechizos](#núcleo-de-los-hechizos-m1-srcmagiccore-srcmagicspells-srcecseffects)
-- [Lanzar desde la mano, gestos y efectos de la mano](#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)
-- [Culto: de dónde salen los milagros](#culto-de-dónde-salen-los-milagros-m7-srcworship-ecssystemsimplementationsvillagerworship)
-- [Influencia](#influencia-m1i-srcecsinfluence)
-- [Alineación del jugador](#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)
-- [Reacciones](#reacciones-ecseffectsreactions)
-- [Vida de los objetos](#vida-de-los-objetos-m0-srcecslife)
-- [Fuego](#fuego-m5-srcecsfire)
-- [Tiempo y clima](#tiempo-y-clima)
-- [Milagros uno a uno](#milagros-uno-a-uno)
-- [Revisión de la ola 2](#revisión-de-la-ola-2-lane-review2-m2-m3-m5-m6a-m7-juntos)
-- [Suposiciones auditadas](#suposiciones-auditadas-2026-10-01)
-- [Pendiente](#pendiente)
-- [Ganchos de prueba](#ganchos-de-prueba)
-- [Fuentes](#fuentes)
+- [info.dat tables](#infodat-tables-m0-srcmagicmagictables)
+- [Spell core](#spell-core-m1-srcmagiccore-srcmagicspells-srcecseffects)
+- [Casting from the hand, gestures and hand effects](#casting-from-the-hand-gestures-and-hand-effects-m2-srcmagicgestures-srcmagichand-handspellseedcpp)
+- [Worship: where miracles come from](#worship-where-miracles-come-from-m7-srcworship-ecssystemsimplementationsvillagerworship)
+- [Influence](#influence-m1i-srcecsinfluence)
+- [Player alignment](#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)
+- [Reactions](#reactions-ecseffectsreactions)
+- [Object life](#object-life-m0-srcecslife)
+- [Fire](#fire-m5-srcecsfire)
+- [Time and weather](#time-and-weather)
+- [Miracles one by one](#miracles-one-by-one)
+- [Wave 2 review](#wave-2-review-lane-review2-m2-m3-m5-m6a-m7-together)
+- [Audited assumptions](#audited-assumptions-2026-10-01)
+- [Pending](#pending)
+- [Test hooks](#test-hooks)
+- [Sources](#sources)
 
-## Tablas de info.dat (M0, `src/Magic/MagicTables`)
+## info.dat tables (M0, `src/Magic/MagicTables`)
 
-- `GMagicInfo*` por MAGIC_TYPE en `0xD37D10` (42), `GMagicEffectInfo[42]` en `0xCC6630` (0x11C en memoria),
-  `GSpellSeedInfo[30]` en `0xD9D678` (0x190). En memoria cada registro va 0x10 bytes detrás del archivo (vtable y
-  cabecera): offset exe = offset archivo + 0x10.
-- `load_variables` crea un objeto por registro, una clase por sección, en orden de MAGIC_TYPE. Las secciones en el
-  orden del archivo dan exactamente 0..41: general 10 (0-9), heal 2, teleport 1, forest 1, food 2, storm/tornado 3,
-  shield 2, wood 1, water 2, flock flying 1, flock ground 1, creature 16. Comprobado con el info.dat real: el campo
-  `magicType` de cada registro coincide con su posición (`test_magic_tables`, `realInfoDat`).
-- `GetMagicInfoAs<T>` devuelve el registro con su clase (`GMagicResourceInfo` vale para food y wood,
-  `GMagicRadiusSpellInfo` para storm y shield).
-- `timerWhen{OneShot,PlayerCasting,CreatureCasting,ComputerPlayerCasting}` son **float** (segundos, -1 = sin
-  límite; los getters 0x5FB7A0..0x5FB7D0 hacen `fld`). MAGIC_TYPE 0 lleva el entero 10 ahí (basura). Tormenta: 40 s.
-- `GWorshipSiteInfo::chantsToReserveForMaintaining` es float en el código pero el archivo trae un entero: se lee como
-  ~7e-43 (fallo del original, se conserva).
-- Nombres de la cola de `GSpellSeedInfo` (archivo 0xF0..0x17C): `selectionGesture` (1 SPIRAL / 2 INVERSE_SPIRAL),
-  `gesture`, `gestureStage2` (0), `sizingGesture` (4 CIRCLE en STORM, SHIELD, PHYSICAL_SHIELD), `castType`
-  (SPELL_CAST_TYPE), `isKeptInHand`, `castOnObject`, `seedFollowsSpell`, `magicTypes[4]` (sin PU, PU 0, 1, 2),
+- `GMagicInfo*` per MAGIC_TYPE at `0xD37D10` (42), `GMagicEffectInfo[42]` at `0xCC6630` (0x11C in memory),
+  `GSpellSeedInfo[30]` at `0xD9D678` (0x190). In memory each record sits 0x10 bytes behind the file (vtable and
+  header): exe offset = file offset + 0x10.
+- `load_variables` creates one object per record, one class per section, in MAGIC_TYPE order. The sections in file
+  order give exactly 0..41: general 10 (0-9), heal 2, teleport 1, forest 1, food 2, storm/tornado 3, shield 2, wood 1,
+  water 2, flock flying 1, flock ground 1, creature 16. Checked against the real info.dat: the `magicType` field of each
+  record matches its position (`test_magic_tables`, `realInfoDat`).
+- `GetMagicInfoAs<T>` returns the record with its class (`GMagicResourceInfo` works for food and wood,
+  `GMagicRadiusSpellInfo` for storm and shield).
+- `timerWhen{OneShot,PlayerCasting,CreatureCasting,ComputerPlayerCasting}` are **float** (seconds, -1 = no limit; the
+  getters 0x5FB7A0..0x5FB7D0 do `fld`). MAGIC_TYPE 0 carries the integer 10 there (garbage). Storm: 40 s.
+- `GWorshipSiteInfo::chantsToReserveForMaintaining` is a float in the code but the file holds an integer: it is read as
+  ~7e-43 (bug in the original, kept).
+- Names of the tail of `GSpellSeedInfo` (file 0xF0..0x17C): `selectionGesture` (1 SPIRAL / 2 INVERSE_SPIRAL),
+  `gesture`, `gestureStage2` (0), `sizingGesture` (4 CIRCLE on STORM, SHIELD, PHYSICAL_SHIELD), `castType`
+  (SPELL_CAST_TYPE), `isKeptInHand`, `castOnObject`, `seedFollowsSpell`, `magicTypes[4]` (no PU, PU 0, 1, 2),
   `powerUpGestures[3]`, `mesh`, `scale`, `holdLoweringMultiplier`, `holdRadius`, `holdYRotate`, `holdType`,
-  `attachInHandEffectToBone`, `deleteSeedOnceCast`, `holderParticle`, `exists`, `iconIndex`, `tooltip`. Sin significado
-  aún: 0x10C, 0x138 (igual a la escala salvo en las bandadas), 0x150/0x154, 0x15C (0.1), 0x160 (1), 0x168, 0x178,
-  0x17C (1 en FIRE, LIGHTNING_BOLT, HEAL, WEAK, STRONG).
+  `attachInHandEffectToBone`, `deleteSeedOnceCast`, `holderParticle`, `exists`, `iconIndex`, `tooltip`. No meaning
+  yet: 0x10C, 0x138 (equal to the scale except on the flocks), 0x150/0x154, 0x15C (0.1), 0x160 (1), 0x168, 0x178,
+  0x17C (1 on FIRE, LIGHTNING_BOLT, HEAL, WEAK, STRONG).
 
-### Ayudantes portados
+### Ported helpers
 
-| Función | Dirección | Detalle |
+| Function | Address | Detail |
 |---|---|---|
-| `GMagicInfo::GetInfoFromText` | 0x5FB3B0 | stricmp con el `debugString` del efecto ("STORM_PU2"); 42 = no encontrado |
+| `GMagicInfo::GetInfoFromText` | 0x5FB3B0 | stricmp against the effect's `debugString` ("STORM_PU2"); 42 = not found |
 | `IsMaintainedSpell` | 0x5FB810 | FOREST (13), SHIELD, PHYSICAL_SHIELD (19, 20) |
-| `GetChantsRequiredToCreate` | 0x5FB830 | `costToCreate` (FIRE 3500, STORM 8000); `GScript::GetManaForSpell` usa lo mismo (0x5FB800) |
+| `GetChantsRequiredToCreate` | 0x5FB830 | `costToCreate` (FIRE 3500, STORM 8000); `GScript::GetManaForSpell` uses the same (0x5FB800) |
 | `IsCreatureCastFromAbove` | 0x5FB7E0 | `== 1` |
-| `IsInAggressiveRange` | 0x5FB840 | 1.0 si min ≤ d ≤ max, si no 0.0 |
-| `GMagicEffectInfo::GetTribalPower` | 0x5FB6A0 | producto de `TribalPower[t]` del jugador (GPlayer+0x68) en las tribus marcadas; <0 → 0.5, >100 → 100, ≤0.5 → 0.5; sin jugador 1 |
-| `GetTribalPowerTribe` | 0x5FB710 | la primera tribu marcada con poder > 1, si no -1 |
-| `GSpellSeedInfo::GetPowerUpFromMagicType` | 0x72AF70 | -1 para `magicTypes[0]`, 0/1/2 para `[1..3]`, -1 si no está. Rareza: con `[3] = 0`, MAGIC_TYPE NONE da 2 |
-| `fn_0072AFA0` | | niveles = 1 + `powerUpGestures` no nulos |
-| `GetMagicTypeFromPULevel` | 0x72AFC0 | -1 → `[0]`, pu → `[pu+1]` (sin comprobar límites) |
-| `GetMagicInfoFromPULevel` | 0x72AFE0 | el de ese nivel; si su tipo es 0, el base |
-| `fn_0072B010` | | el gesto de power-up del tipo y su nivel (el tipo base: 0 y -1) |
-| `SpellSeedIsOfMagicType` | 0x72B060 | cualquiera de `magicTypes[0..3]` (NONE casa con la primera semilla con un 0: STORM) |
-| `GetFirstSpellSeedForMagicType` | 0x72B090 | -1 si ninguna (no 30) |
-| `fn_0072B100` | | `fn_0072B010` sobre la primera semilla del tipo |
-| `fn_0072B0D0` | | la primera semilla con `exists` e `iconIndex` igual; si no -1 |
-| `fn_0072B170` | | semilla por nombre (stricmp con el `debugString`: "HEAL"); 30 = ninguna |
-| `fn_0072B1C0` | | la primera semilla del tipo; 30 = ninguna |
+| `IsInAggressiveRange` | 0x5FB840 | 1.0 if min ≤ d ≤ max, otherwise 0.0 |
+| `GMagicEffectInfo::GetTribalPower` | 0x5FB6A0 | product of the player's `TribalPower[t]` (GPlayer+0x68) over the flagged tribes; <0 → 0.5, >100 → 100, ≤0.5 → 0.5; no player 1 |
+| `GetTribalPowerTribe` | 0x5FB710 | the first flagged tribe with power > 1, otherwise -1 |
+| `GSpellSeedInfo::GetPowerUpFromMagicType` | 0x72AF70 | -1 for `magicTypes[0]`, 0/1/2 for `[1..3]`, -1 if not there. Oddity: with `[3] = 0`, MAGIC_TYPE NONE gives 2 |
+| `fn_0072AFA0` | | levels = 1 + non-null `powerUpGestures` |
+| `GetMagicTypeFromPULevel` | 0x72AFC0 | -1 → `[0]`, pu → `[pu+1]` (no bounds check) |
+| `GetMagicInfoFromPULevel` | 0x72AFE0 | the one for that level; if its type is 0, the base one |
+| `fn_0072B010` | | the power-up gesture of the type and its level (the base type: 0 and -1) |
+| `SpellSeedIsOfMagicType` | 0x72B060 | any of `magicTypes[0..3]` (NONE matches the first seed with a 0: STORM) |
+| `GetFirstSpellSeedForMagicType` | 0x72B090 | -1 if none (not 30) |
+| `fn_0072B100` | | `fn_0072B010` on the first seed of the type |
+| `fn_0072B0D0` | | the first seed with `exists` and an equal `iconIndex`; otherwise -1 |
+| `fn_0072B170` | | seed by name (stricmp against the `debugString`: "HEAL"); 30 = none |
+| `fn_0072B1C0` | | the first seed of the type; 30 = none |
 
-- `GMagicInfo::powerupType` vale -1 en todos los registros y nadie lo escribe. `MagicTables::GetPowerUpLevel` da el
-  nivel derivado de la semilla (`GetPowerUpFromMagicType` en la primera semilla del tipo: TORNADO 1, rayo de tormenta
+- `GMagicInfo::powerupType` is -1 in every record and nobody writes it. `MagicTables::GetPowerUpLevel` gives the
+  level derived from the seed (`GetPowerUpFromMagicType` on the first seed of the type: TORNADO 1, storm lightning
   0).
-  **Sin verificar** (PLAN R3).
+  **Unverified** (PLAN R3).
 
-## Núcleo de los hechizos (M1, `src/Magic/Core`, `src/Magic/Spells`, `src/ECS/Effects`)
+## Spell core (M1, `src/Magic/Core`, `src/Magic/Spells`, `src/ECS/Effects`)
 
-Cada hechizo es una entidad con `components::Spell` (el `Spell` de 0xEC bytes); las funciones virtuales del original son
-una tabla `SpellOps` por clase (`SpellClass`, la clase de `GMagicInfo` que lo reserva con vt 0x34), cada clase en su
-archivo de `Spells/`. Una clase sin registrar corre como `Spell` normal (M1 registra General y Heal).
+Each spell is an entity with `components::Spell` (the 0xEC-byte `Spell`); the original's virtual functions are a
+`SpellOps` table per class (`SpellClass`, the class of the `GMagicInfo` that allocates it with vt 0x34), each class in
+its own file under `Spells/`. An unregistered class runs as a plain `Spell` (M1 registers General and Heal).
 
-### Ciclo de vida (Spell.cpp 0x71FB40..)
+### Life cycle (Spell.cpp 0x71FB40..)
 
-- Constructor 0x71FB40: sin creador no pone ni creador ni jugador; con él, `player = creator->GetPlayer()` (o el
-  jugador neutral), entra **al principio** de la lista (`g_game+0x205BC4`), `+0x48 = IsCreature`, `+0x4C` = el jugador
-  del creador (o del SpellIcon) tiene +0x8E0 == 1.
-- `GMagicInfo::CastAtPos` fn_005FB490: sin creador usa el jugador neutral; `AllocSpell`, `InitWithPos`; si no devuelve 1
-  el hechizo se borra. fn_005FB520 hace lo mismo con `InitWithObject` si el flag `castOnObject` que lee vale 1. Ese flag
-  lo lee en `GetSpellSeedInfo(spellSeedType = -1) + 0x118` = 0xD9D600, dentro de GSpellIconInfo[1] (R2 sin resolver);
-  aquí se usa el `castOnObject` de la primera semilla de ese tipo de magia.
-- `Spell::InitWithPos` 0x71FE50, en orden: deseos de la criatura (fn_00721730, M8), `originalCastPos`, estadística del
-  jugador, `SetChants(castData.chants)` (+0x38 = +0x3C), `maxObjects`, `duration`, pos y castPos, copia del
-  PSysProcessInfo, `dir = info+0x24`, magnitud (`castData.magnitude`, 40 sin castData), `PSysInterface::Create` en
-  `(x, altura del suelo + pos.y, z)`, el registro del jugador +0xDC {castPos, magia (+0xC), turno (+0x10)}. Con PSys:
-  `psys->SetPlayer`. **Sin PSys y con `particleType != 0` devuelve 0**: el hechizo no se lanza, y tampoco hay
-  reacción. Sin PSys y con `particleType == 0`: `SpellEvent{11}`. Después, la reacción `createReactionOnCast`.
-- `Spell::ProcessSpells` 0x720300, una vez por turno: decaimiento de la rejilla de hechizos, lugares de culto
-  (fn_0072BF80, M6/M7), iconos (fn_00727350, M7), `GPlayer::ProcessSpellIcons` (M7), **primero todos los
-  `ProcessMaintainRequest`**, y luego, por hechizo, `ProcessSpellSeed` (vt 0x500) y `Process` (vt 0x528); un 5 lo
-  borra.
-- `ProcessMaintainRequest` 0x7204D0 (siempre 1): edad += 0,1 s; `edad > duración` (con duración ≥ 0) → CloseDown;
-  un creador que no es funcional → CloseDown y creador = NULL; `enabled = 1`; `creator->UpdateSpellInfo`; los hechizos
-  de mano (castType IN_HAND) mueven castPos a la mano. Si está abierto, **la fuerza se lee antes de pagar el turno**
-  (`psInfo.power` es la fuerza previa), paga el turno y marca la rejilla. Si está cerrado: `enabled = 0`, `power = 0`.
-- `CoreProcess` 0x720660: si está abierto, `Recharge` y, con `power <= 0`, CloseDown. Luego un paso del PSys con el
-  PSysProcessInfo; si devuelve 5, se van sus reacciones y el PSys. `Process` 0x720710 devuelve 5 cuando ya no hay PSys.
-- `CoreCloseDown` 0x720160: `closedDown = 1` y CloseDown del PSys (vt 0x118).
-- `ToBeDeleted` 0x71FD90: sale de la lista, borra el PSys y las reacciones, **borra también la semilla enlazada**
-  (vt 0xC sobre +0xAC) y luego CloseDown.
+- Constructor 0x71FB40: without a creator it sets neither creator nor player; with one, `player = creator->GetPlayer()`
+  (or the neutral player), it goes **at the start** of the list (`g_game+0x205BC4`), `+0x48 = IsCreature`, `+0x4C` = the
+  player of the creator (or of the SpellIcon) has +0x8E0 == 1.
+- `GMagicInfo::CastAtPos` fn_005FB490: without a creator it uses the neutral player; `AllocSpell`, `InitWithPos`; if it
+  does not return 1 the spell is deleted. fn_005FB520 does the same with `InitWithObject` if the `castOnObject` flag it
+  reads is 1. It reads that flag at `GetSpellSeedInfo(spellSeedType = -1) + 0x118` = 0xD9D600, inside GSpellIconInfo[1]
+  (R2 unresolved); here the `castOnObject` of the first seed of that magic type is used.
+- `Spell::InitWithPos` 0x71FE50, in order: creature desires (fn_00721730, M8), `originalCastPos`, player statistic,
+  `SetChants(castData.chants)` (+0x38 = +0x3C), `maxObjects`, `duration`, pos and castPos, copy of the
+  PSysProcessInfo, `dir = info+0x24`, magnitude (`castData.magnitude`, 40 without castData), `PSysInterface::Create` at
+  `(x, altura del suelo + pos.y, z)`, the player record +0xDC {castPos, magic (+0xC), turn (+0x10)}. With a PSys:
+  `psys->SetPlayer`. **Without a PSys and with `particleType != 0` it returns 0**: the spell is not cast, and there is
+  no reaction either. Without a PSys and with `particleType == 0`: `SpellEvent{11}`. Afterwards, the reaction
+  `createReactionOnCast`.
+- `Spell::ProcessSpells` 0x720300, once per turn: decay of the spell grid, worship sites (fn_0072BF80, M6/M7), icons
+  (fn_00727350, M7), `GPlayer::ProcessSpellIcons` (M7), **first all the `ProcessMaintainRequest`**, and then, per
+  spell, `ProcessSpellSeed` (vt 0x500) and `Process` (vt 0x528); a 5 deletes it.
+- `ProcessMaintainRequest` 0x7204D0 (always 1): age += 0.1 s; `edad > duración` (with duration ≥ 0) → CloseDown; a
+  creator that is not functional → CloseDown and creator = NULL; `enabled = 1`; `creator->UpdateSpellInfo`; hand spells
+  (castType IN_HAND) move castPos to the hand. If it is open, **the strength is read before paying for the turn**
+  (`psInfo.power` is the previous strength), it pays for the turn and marks the grid. If it is closed: `enabled = 0`,
+  `power = 0`.
+- `CoreProcess` 0x720660: if it is open, `Recharge` and, with `power <= 0`, CloseDown. Then one PSys step with the
+  PSysProcessInfo; if it returns 5, its reactions and the PSys go away. `Process` 0x720710 returns 5 when there is no
+  PSys left.
+- `CoreCloseDown` 0x720160: `closedDown = 1` and CloseDown of the PSys (vt 0x118).
+- `ToBeDeleted` 0x71FD90: leaves the list, deletes the PSys and the reactions, **also deletes the linked seed** (vt 0xC
+  on +0xAC) and then CloseDown.
 
-### Cánticos (`Magic/Core/Chants`, 0x720750..0x720A90)
+### Chants (`Magic/Core/Chants`, 0x720750..0x720A90)
 
-Verificado instrucción a instrucción:
-- Nivel de seguridad 0x720880: los mantenidos (FOREST, SHIELD, PHYSICAL_SHIELD) → `initialChants`; los demás
+Verified instruction by instruction:
+- Safety level 0x720880: the maintained ones (FOREST, SHIELD, PHYSICAL_SHIELD) → `initialChants`; the others
   `max(min(coste/turno × (1000/ms por turno) × 5, initialChants), costPerEvent)`.
-- Fuerza 0x720750: sin creador, 0. Con `S > 0`, `chants/S` recortado a 0..1; con `S <= 0`, 1 si quedan cánticos. Luego
-  × `GetTribalPower` (0x7216F0, del jugador del hechizo) × `+0x8C` de la semilla × `+0xE4`.
-- `PayFor(coste, forzado)` 0x720990: sin creador, 0; gratis (+0x5C), 1. Con `divideCostsByTribalPower == 1`,
-  coste / max(poder tribal, 1). Resta el coste; si queda por debajo del nivel y `isSpellRecharged`, el creador repone
-  todo el déficit (forzado) o como mucho el coste. Devuelve la fuerza.
-- fn_00720830 (pagar el turno): **con coste 0 devuelve 1 sin llamar a PayFor**. `PayForOneEvent` 0x720A90 paga
-  `costPerEvent` (sin creador devuelve 0 sin crear el punto del camino de maná). `Recharge` fn_00720910 repone el
-  déficit completo.
-- Quién paga (`MaintainSpell`, vt 0x58): `GPlayer` 0x64C430 lo da todo **solo si es el jugador neutral**; si no, 0, así
-  que los hechizos de una semilla sin icono viven de sus cánticos iniciales. `GameThing` 0x56FED0 lo da todo. El icono
-  de culto y la criatura son M7 y M8.
-- Rayo lanzado por un jugador (traza real): 5000 cánticos, −50 por turno, fuerza 1 hasta bajar de 2500 (turno 50),
-  0,98 en el 51 y 0,8 en el 60. Se cierra en el turno 61 (la edad es una suma de floats de 0,1 y en el 60 aún no pasa
-  de 6,0) y el PSys termina en ese mismo turno.
+- Strength 0x720750: without a creator, 0. With `S > 0`, `chants/S` clamped to 0..1; with `S <= 0`, 1 if there are
+  chants left. Then × `GetTribalPower` (0x7216F0, of the spell's player) × the seed's `+0x8C` × `+0xE4`.
+- `PayFor(coste, forzado)` 0x720990: without a creator, 0; free (+0x5C), 1. With `divideCostsByTribalPower == 1`,
+  cost / max(tribal power, 1). Subtracts the cost; if it ends up below the level and `isSpellRecharged`, the creator
+  refills the whole deficit (forced) or at most the cost. Returns the strength.
+- fn_00720830 (pay for the turn): **with cost 0 it returns 1 without calling PayFor**. `PayForOneEvent` 0x720A90 pays
+  `costPerEvent` (without a creator it returns 0 without creating the mana path point). `Recharge` fn_00720910 refills
+  the full deficit.
+- Who pays (`MaintainSpell`, vt 0x58): `GPlayer` 0x64C430 gives everything **only if it is the neutral player**;
+  otherwise 0, so the spells of a seed without an icon live off their initial chants. `GameThing` 0x56FED0 gives
+  everything. The worship icon and the creature are M7 and M8.
+- Lightning cast by a player (real trace): 5000 chants, −50 per turn, strength 1 until it drops below 2500 (turn 50),
+  0.98 on turn 51 and 0.8 on turn 60. It closes on turn 61 (the age is a sum of 0.1 floats and on turn 60 it still does
+  not exceed 6.0) and the PSys ends on that same turn.
 
-### Eventos y efectos (`SpellEvent`, `ECS/Effects`)
+### Events and effects (`SpellEvent`, `ECS/Effects`)
 
-- `Spell::SpellEvent` 0x720F40 ignora los tipos 1 y 11. `ApplyDefaultSpellEffect` 0x720C30:
-  - si está cerrado, nada;
-  - el hechizo se mueve al evento (y 0);
-  - EffectValues del efecto × la fuerza que devuelve `PayForOneEvent` (con 0 no se aplica y devuelve 0), × poder
-    tribal × `event.strength`;
-  - tipo 4: `SpellHitSpell` con el objetivo; si el otro no cae, devuelve 0;
-  - tipo 7 (después de pagar el evento): con objetivo, `CanBeDestroyedBySpell == 1`, sin reacción ni dirección; **sin
-    objetivo no aplica nada pero sigue a la reacción y devuelve 1** (0x720DB4 salta a 0x720EBC);
-  - tipo 5 con objetivo: si lo acepta, `ApplyEffect` (y el de curar quita el veneno);
-  - los demás (y el 5 sin objetivo): `ApplyEffectToMapPos` en la posición del hechizo;
-  - al final, la reacción `createReactionOnEvent` y `+0x2C = event.velocity`.
-- Con `checkShields` busca un escudo (fn_006D0BC0) y se manda **a sí mismo** un evento de tipo 4 con él mismo como
-  objetivo (0x720D84). Pendiente con los escudos (M6).
-- `SpellHitSpell` fn_00720B70: coste = fuerza propia × `costPerShieldCollide`. Si el otro tiene fuerza 0 → 1. El otro
-  paga forzado y este paga un evento. Si el otro queda sin fuerza y este con fuerza → `SetUpDestroyedReaction` y 1; si
-  no, `UpdateStruckReaction` y 0.
-- `EffectValues` (0x40 bytes): +0x08 los 7 números (quemar, aplastar, golpear, curar, empujar, alineamiento, creencia),
-  +0x24 el radio, +0x28 quién lo aplica (el creador del hechizo), +0x3C el jugador. `*=` (0x525720) solo escala los 7
-  números. `IsDestructive` 0x5258C0: quemar, aplastar, golpear o empujar > 0.
-- `ApplyEffectToMapPos` 0x525100: celdas de pos ± R; cada objeto disponible que acepta el efecto, con
-  `dist(pos, centro de fuego) ≤ R + radio de fuego` y `|alt(pos) + pos.y − (alt(obj) + obj.y)| ≤ altura + R`. Sin
-  atenuación. En `Object` el centro de fuego es la posición (0x639AA0) y el radio es `Get2DRadius` (0x639AC0 → vt
+- `Spell::SpellEvent` 0x720F40 ignores types 1 and 11. `ApplyDefaultSpellEffect` 0x720C30:
+  - if it is closed, nothing;
+  - the spell moves to the event (and 0);
+  - EffectValues of the effect × the strength returned by `PayForOneEvent` (with 0 it is not applied and returns 0),
+    × tribal power × `event.strength`;
+  - type 4: `SpellHitSpell` with the target; if the other one does not fall, it returns 0;
+  - type 7 (after paying for the event): with a target, `CanBeDestroyedBySpell == 1`, no reaction and no direction;
+    **without a target it applies nothing but still goes on to the reaction and returns 1** (0x720DB4 jumps to 0x720EBC);
+  - type 5 with a target: if it accepts it, `ApplyEffect` (and the heal one removes poison);
+  - the others (and 5 without a target): `ApplyEffectToMapPos` at the spell's position;
+  - at the end, the reaction `createReactionOnEvent` and `+0x2C = event.velocity`.
+- With `checkShields` it looks for a shield (fn_006D0BC0) and sends **itself** a type 4 event with itself as the
+  target (0x720D84). Pending with the shields (M6).
+- `SpellHitSpell` fn_00720B70: cost = own strength × `costPerShieldCollide`. If the other one has strength 0 → 1. The
+  other one pays forced and this one pays one event. If the other one is left without strength and this one with
+  strength → `SetUpDestroyedReaction` and 1; otherwise `UpdateStruckReaction` and 0.
+- `EffectValues` (0x40 bytes): +0x08 the 7 numbers (burn, crush, hit, heal, push, alignment, belief), +0x24 the radius,
+  +0x28 who applies it (the spell's creator), +0x3C the player. `*=` (0x525720) only scales the 7 numbers.
+  `IsDestructive` 0x5258C0: burn, crush, hit or push > 0.
+- `ApplyEffectToMapPos` 0x525100: cells of pos ± R; every available object that accepts the effect, with
+  `dist(pos, centro de fuego) ≤ R + radio de fuego` and `|alt(pos) + pos.y − (alt(obj) + obj.y)| ≤ altura + R`. No
+  attenuation. In `Object` the fire centre is the position (0x639AA0) and the radius is `Get2DRadius` (0x639AC0 → vt
   0x64).
-- `Object::ApplyEffect` 0x637980 (los aldeanos no lo redefinen):
-  - daño = aplastar y golpear positivos × los multiplicadores de defensa (0x637D00; antes pasa el calor al fuego, M5);
-    curación = curar × su multiplicador;
-  - curar → `IncreaseLife`, daño → `ReduceLife`; si la vida pasa a 0 → `DestroyedByEffect` (un aldeano muere);
-  - aplastar > 0,01 en algo que se puede aplastar y sin reacción propia → REACT_TO_OBJECT_CRUSHED (18), iniciada por
-    quien lo aplica (o el propio objeto) y con el jugador **del objeto** (vt 0x1C; en un aldeano, el dueño de su
-    ciudad);
-  - devuelve `(1 − vida0)/curación + vida0/daño`.
-- `FireEffect::ConvertTemperatureToDamage` 0x72EEC0: 0 por debajo de Tc; si no, `(T − Tc)/Tc ×
+- `Object::ApplyEffect` 0x637980 (villagers do not override it):
+  - damage = positive crush and hit × the defence multipliers (0x637D00; before that it passes the heat to the fire,
+    M5); healing = heal × its multiplier;
+  - heal → `IncreaseLife`, damage → `ReduceLife`; if life drops to 0 → `DestroyedByEffect` (a villager dies);
+  - crush > 0.01 on something that can be crushed and without its own reaction → REACT_TO_OBJECT_CRUSHED (18), started
+    by whoever applies it (or the object itself) and with the player **of the object** (vt 0x1C; for a villager, the
+    owner of its town);
+  - returns `(1 − vida0)/curación + vida0/daño`.
+- `FireEffect::ConvertTemperatureToDamage` 0x72EEC0: 0 below Tc; otherwise `(T − Tc)/Tc ×
   defenceMultiplierBurn × 0,1`.
-- `GAlignment::Update` 0x414410, el cambio de alineación que dejan los efectos: en
-  [Los efectos de los hechizos](magic.md#los-efectos-de-los-hechizos-galignmentupdate-0x414410).
-- Las reacciones (`CreateReaction` 0x6E3D70, `SpreadReaction` 0x6E3E10): en [Reacciones](magic.md#reacciones-ecseffectsreactions).
+- `GAlignment::Update` 0x414410, the alignment change left by the effects: in
+  [Spell effects](magic.md#spell-effects-galignmentupdate-0x414410).
+- The reactions (`CreateReaction` 0x6E3D70, `SpreadReaction` 0x6E3E10): in [Reactions](magic.md#reactions-ecseffectsreactions).
 
-### Reglas de lanzamiento (`Magic/CastRules`)
+### Cast rules (`Magic/CastRules`)
 
-- En la vtable de `GMagicInfo` los símbolos tienen los nombres cambiados:
-  - **vt 0x30 es la comprobación en una posición**: base 0x5FB420 = 1; curar 0x5FBD20 = `FindTargets`; recursos
-    0x5FBA00 = tierra; criatura 0x5FA7E0 = 0; bosque 0x5FAE80; teletransporte 0x5FBE50;
-  - **vt 0x2C es la de un objeto**: base 0x5FB430 = vt 0x30 en su posición; recursos 0x5FAC00; bosque 0x42D8E0 = 0;
-    criatura 0x5FA7F0.
-- La regla fn_005FB5D0: dentro del mapa (celda de 10 m < tamaño) y, según `castRuleType`: 0 siempre, 1 tierra, 2
-  influencia `> 0`, 3 las dos.
-- `GMagicHealInfo::FindTargets` 0x5FBB00: R = `dummyVar` (10 / 35) y máximo `maxToHeal` (20 / 100), ambos × el poder
-  tribal si hay hechizo. Recorre en espiral `ceil(2R/10)²` celdas (GUtils::Spiral 0x74D7E0, tabla +x, +z, −x, −z) y
-  cuenta sus objetos móviles vivos que aceptan el efecto y `CanBeHealedByHealSpell`, a menos de R. **No mira si les
-  falta vida**: vale cualquier vivo. Con hechizo, cada uno pasa a ser un objetivo de su PSys.
-- **`SPELL_AT_POS` no comprueba nada**: el creador es el neutral y la bandera de comprobación va a 0. Además
-  `SpellHeal::InitWithPos` 0x72D870 no mira cuántos encontró. Así que una curación del guion se lanza aunque no haya
-  nadie (el PLAN esperaba que fallase). Solo la mano pregunta (`SpellSeed::CanCast` 0x729150: la regla y luego vt 0x30).
+- In the `GMagicInfo` vtable the symbols have swapped names:
+  - **vt 0x30 is the check at a position**: base 0x5FB420 = 1; heal 0x5FBD20 = `FindTargets`; resources
+    0x5FBA00 = land; creature 0x5FA7E0 = 0; forest 0x5FAE80; teleport 0x5FBE50;
+  - **vt 0x2C is the one for an object**: base 0x5FB430 = vt 0x30 at its position; resources 0x5FAC00; forest
+    0x42D8E0 = 0; creature 0x5FA7F0.
+- The rule fn_005FB5D0: inside the map (10 m cell < size) and, depending on `castRuleType`: 0 always, 1 land, 2
+  influence `> 0`, 3 both.
+- `GMagicHealInfo::FindTargets` 0x5FBB00: R = `dummyVar` (10 / 35) and maximum `maxToHeal` (20 / 100), both × the
+  tribal power if there is a spell. It walks `ceil(2R/10)²` cells in a spiral (GUtils::Spiral 0x74D7E0, table +x, +z,
+  −x, −z) and counts their living mobile objects that accept the effect and `CanBeHealedByHealSpell`, closer than R.
+  **It does not check whether they are missing life**: any living one counts. With a spell, each one becomes a target
+  of its PSys.
+- **`SPELL_AT_POS` checks nothing**: the creator is the neutral one and the check flag goes to 0. Moreover
+  `SpellHeal::InitWithPos` 0x72D870 does not look at how many it found. So a script heal is cast even if there is
+  nobody (the PLAN expected it to fail). Only the hand asks (`SpellSeed::CanCast` 0x729150: the rule and then vt 0x30).
 
-### Semillas y milagros de un uso (`SpellSeed`, `OneOffSpellSeed`)
+### Seeds and one-off miracles (`SpellSeed`, `OneOffSpellSeed`)
 
-- **fn_00729900 está al revés de lo que dice el PLAN §4.1.1**: con 0 → `+0x90 = 1` (lista); con otro valor →
-  `+0x90 = 0, +0x94 = 0`. Los iconos de culto pasan 1 (la semilla espera `delayBeforeSeedActive` = 1,5 s) y
-  `CreateSpellIntoHand` pasa 0: **una semilla de un uso está lista en cuanto llega a la mano**. Además
-  `InterfaceSetInMagicHand` 0x728810 ya pone +0x90 = 1.
-- `CreateSpellIntoHand` 0x72A730: con la mano libre, busca el icono de culto del jugador para esa semilla
-  (`GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40, que pide un icono al que se le pueda pedir el hechizo **con
-  cánticos disponibles** en su lugar) y, si lo hay, crea la semilla de ese icono (fn_007282A0: su creador es el icono,
-  `worship::icon::CreateSeed`); si no, la semilla suelta (fn_00728300). La marca «alguna vez activada»; `+0x72 = 1`; la
-  carga gratis con todo su coste; la pone en la mano, lista. En Land1 no hay iconos, así que siempre sale suelta.
-- `InterfaceSetInMagicHand` 0x728810: `SetPowerUp` del nivel actual. Sin cánticos para relanzar (o con el bit 1 de
-  +0x54) la semilla se borra (3); si no, limpia +0x98, +0x70 y +0x94 y queda lista.
-- `ProcessInHand` 0x729930 (cada turno en la mano): +0x94++; lista cuando `turnos × 0,1 > 1,5`; si su hechizo se cerró,
-  la semilla se borra.
-- También portados: `StoreChantsAndAgeFromSpell` 0x728780, `ClearSpellLink` 0x728200 (si el hechizo sigue atado a esta
-  semilla, CloseDown del hechizo; si no, solo de su PSys), `ProcessFromSpell` 0x728F70 (siempre 1) y `Cast` 0x729520.
-  El lanzamiento desde la mano es M2.
-- `OneOffSpellSeed::Create` 0x72A2F0: semilla 0..29; `MobileObject(pos, info 0xD39F3C, 0, 0, escala 1)`. La bola se
-  dibuja siempre a escala 1 y +0x6C guarda la escala que se pasará a la semilla.
-  - Malla compartida `.\data\spells\meshes\O_Bibble_up.l3d`: una cúpula de 0 a 4,5 m sobre el suelo, con UV en 0..0,25
-    (un atlas de 4×4).
-  - `UpdateFrame` 0x72A570: `fase = fmod(fase + ms × 18 × 0,001, 16)`, cuadro = int(fase), desplazamiento
-    `u = (cuadro % 4)/4`, `v = (cuadro / 4)/4` (vt 0xE8 recibe (u, v)). En openblack el desplazamiento va en
-    `UvScroll {u, v}` y el sombreador suma `u` en cuartos.
-  - **La bola es aditiva (fiel, corregido el 2026-10-01 con la captura del original).** La malla tiene una submalla
-    física (`Smooth`, no se dibuja) y la visible, el casquete, una primitiva `AlphaTextured` (tipo 4, byte +5 = 5: dos
-    caras y repetición) cuya piel 0xF49809BD ARGB4444 es una bola turquesa oscura (51, 119, 136) con un brillo blanco
-    arriba a la izquierda, casi opaca (alfa 13-15 de 15, o 0 fuera).
-    - Pero el archivo no manda: `CallVirtualFunctionsForCreation` 0x72A450 la carga con
-      `GJUtils::GetSharedMesh` 0x57DFB0 y `MaterialProperties` {1, 1, 0, 1, 1} (bytes en 0x72A474..0x72A485). El byte
-      +3 = 1 hace que `PGetSharedMesh` (0x57DF18) llame a fn_0057E1D0, que pasa `GJUtils::SetMaterialProperties`
-      0x57E120 a todas las primitivas al cargar la malla:
-      - tipo 4 → 6; si +4 = 0 → 3; si +0 (aditivo) = 1 → 13; si +1 (escribe Z) = 1: 6→5, 13→12, 8→3, 16→9; si no:
-        5→6, 12→13, 2 o 3→8, 9→16;
-      - +2 (dos caras) pone o quita el bit 0 del byte +5.
-      - Para la bola: **modo 12** (`fn_0082EB50`: `SRCALPHA / ONE`, color y alfa = textura × difuso, escribe Z) y **una
-        sola cara** (byte +5 = 4).
-    - `Draw` 0x518E90 tiñe el objeto con `0x96FFFFFF` (byte de [0xBE8E8C]; fn_0080BF10 multiplica el difuso: alfa
-      0xFF × 0x96 >> 8 = 0x95) y llama a `SetGlobalAlpha(1)` (LH3DObject vt 0x48, bit 0x80 de las banderas), que pasa a
-      la tabla de modos alternativa 0xC387C8. Esa tabla **deja igual** los modos aditivos 10-13 (leída del ejecutable).
-    - Resultado: la bola **suma** a lo que tiene detrás su textura × luz × (0,58 × alfa de la textura). Sobre la
-      arena de día sale casi blanca y nacarada: la textura turquesa se vuelve celeste y el brillo, blanco saturado.
-      El fondo se ve a través con tonos verdes y rosas.
-    - Antes openblack la mezclaba como modo 5 (`SRCALPHA / INVSRCALPHA`, dos caras). Eso tapaba la mitad del fondo con
-      el turquesa oscuro: una bola verdosa y oscura. La investigación anterior (luz N·L, ambiente 90/256, alfa 0x95)
-      era correcta, pero se le escapó este cambio de material al cargar.
+- **fn_00729900 is the reverse of what PLAN §4.1.1 says**: with 0 → `+0x90 = 1` (ready); with another value →
+  `+0x90 = 0, +0x94 = 0`. The worship icons pass 1 (the seed waits `delayBeforeSeedActive` = 1.5 s) and
+  `CreateSpellIntoHand` passes 0: **a one-off seed is ready as soon as it reaches the hand**. Moreover
+  `InterfaceSetInMagicHand` 0x728810 already sets +0x90 = 1.
+- `CreateSpellIntoHand` 0x72A730: with the hand free, it looks for the player's worship icon for that seed
+  (`GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40, which asks for an icon from which the spell can be requested **with
+  chants available** at its site) and, if there is one, creates that icon's seed (fn_007282A0: its creator is the icon,
+  `worship::icon::CreateSeed`); otherwise, the loose seed (fn_00728300). It marks it "ever enabled"; `+0x72 = 1`; it
+  charges it for free with its whole cost; it puts it in the hand, ready. In Land1 there are no icons, so it always comes
+  out loose.
+- `InterfaceSetInMagicHand` 0x728810: `SetPowerUp` of the current level. Without chants to recast (or with bit 1 of
+  +0x54) the seed is deleted (3); otherwise it clears +0x98, +0x70 and +0x94 and is left ready.
+- `ProcessInHand` 0x729930 (every turn in the hand): +0x94++; ready when `turnos × 0,1 > 1,5`; if its spell has closed,
+  the seed is deleted.
+- Also ported: `StoreChantsAndAgeFromSpell` 0x728780, `ClearSpellLink` 0x728200 (if the spell is still tied to this
+  seed, CloseDown of the spell; otherwise, only of its PSys), `ProcessFromSpell` 0x728F70 (always 1) and `Cast` 0x729520.
+  Casting from the hand is M2.
+- `OneOffSpellSeed::Create` 0x72A2F0: seed 0..29; `MobileObject(pos, info 0xD39F3C, 0, 0, escala 1)`. The orb is always
+  drawn at scale 1 and +0x6C keeps the scale that will be passed to the seed.
+  - Shared mesh `.\data\spells\meshes\O_Bibble_up.l3d`: a dome from 0 to 4.5 m above the ground, with UVs in 0..0.25
+    (a 4×4 atlas).
+  - `UpdateFrame` 0x72A570: `fase = fmod(fase + ms × 18 × 0,001, 16)`, frame = int(phase), offset
+    `u = (cuadro % 4)/4`, `v = (cuadro / 4)/4` (vt 0xE8 receives (u, v)). In openblack the offset goes in
+    `UvScroll {u, v}` and the shader adds `u` in quarters.
+  - **The orb is additive (faithful, corrected on 2026-10-01 with the capture of the original).** The mesh has a
+    physics submesh (`Smooth`, not drawn) and the visible one, the cap, an `AlphaTextured` primitive (type 4, byte
+    +5 = 5: two-sided and repeat) whose skin 0xF49809BD ARGB4444 is a dark turquoise orb (51, 119, 136) with a white
+    highlight at the top left, almost opaque (alpha 13-15 of 15, or 0 outside).
+    - But the file is not what decides: `CallVirtualFunctionsForCreation` 0x72A450 loads it with
+      `GJUtils::GetSharedMesh` 0x57DFB0 and `MaterialProperties` {1, 1, 0, 1, 1} (bytes at 0x72A474..0x72A485). Byte
+      +3 = 1 makes `PGetSharedMesh` (0x57DF18) call fn_0057E1D0, which applies `GJUtils::SetMaterialProperties`
+      0x57E120 to all the primitives when the mesh is loaded:
+      - type 4 → 6; if +4 = 0 → 3; if +0 (additive) = 1 → 13; if +1 (writes Z) = 1: 6→5, 13→12, 8→3, 16→9; otherwise:
+        5→6, 12→13, 2 or 3→8, 9→16;
+      - +2 (two-sided) sets or clears bit 0 of byte +5.
+      - For the orb: **mode 12** (`fn_0082EB50`: `SRCALPHA / ONE`, colour and alpha = texture × diffuse, writes Z) and
+        **single-sided** (byte +5 = 4).
+    - `Draw` 0x518E90 tints the object with `0x96FFFFFF` (byte from [0xBE8E8C]; fn_0080BF10 multiplies the diffuse:
+      alpha 0xFF × 0x96 >> 8 = 0x95) and calls `SetGlobalAlpha(1)` (LH3DObject vt 0x48, bit 0x80 of the flags), which
+      switches to the alternative mode table 0xC387C8. That table **leaves unchanged** the additive modes 10-13 (read
+      from the executable).
+    - Result: the orb **adds** its texture × light × (0.58 × texture alpha) to whatever is behind it. Over the sand by
+      day it comes out almost white and pearly: the turquoise texture turns sky blue and the highlight, saturated
+      white. The background shows through with green and pink tones.
+    - Before, openblack blended it as mode 5 (`SRCALPHA / INVSRCALPHA`, two-sided). That covered half the background
+      with the dark turquoise: a dark greenish orb. The earlier investigation (N·L light, ambient 90/256, alpha 0x95)
+      was correct, but it missed this material change at load time.
     - openblack:
-      - `graphics::MaterialProperties` y `L3DSubMesh::SetMaterialProperties` (el cambio de tipo de 0x57E120, con el
-        tipo guardado en `Primitive::materialType`) y `L3DMesh::SetMaterialProperties` (fn_0057E1D0), en
-        `src/3D/L3DSubMesh.*` y `L3DMesh.h`;
-      - `Game.cpp` lo aplica a `O_Bibble_up` al cargarla;
-      - `Renderer::DrawSubMesh`: un objeto con `components::Alpha` (la tabla 0xC387C8) conserva la mezcla aditiva de sus
-        primitivas aditivas, y sin escribir Z las de los modos 11 y 13.
-    - Capturas: `dev\_audit\magic\orbref_a.png` (antes), `orbref_b.png` y `orbref_c.png` (después), y la comparación
-      `dev\documentacion\audit_magic\ref\orb_compare.png` con la captura del original del usuario (`ref\dispenser_original.png`).
-    - Diferencias que quedan con esa captura, **pendientes**:
-      - en el original la bola flota más alta sobre el dispensador y se ve más grande;
-      - en openblack el efecto de la semilla de FUEGO se ve como un núcleo amarillo dentro de la bola, y en el
-        original no se ve (en su centro hay una mancha celeste);
-      - la arena del original es más clara, y como la bola es aditiva el fondo cambia mucho su aspecto.
-    - Para ordenarla en el Z-sorter, `Draw` adelanta su posición hacia la cámara su radio (vt 0x60) y luego la
-      restaura. Así la bola se pinta después de la semilla de dentro. `DrawSpellGraphic` recibe como alfa el byte alto
-      del difuso (0x95). openblack: `components::Alpha` = 149/255 en `OneOffSpellSeedArchetype` (pasada `MainBlended`).
-      El adelanto por el radio sí está (lane «seed»): `one_off::UpdateFrames` guarda `OneOffSpellSeed::sortPoint` = centro de
-      la caja + normalize(cámara − centro) × radio (`Get2DRadius`: media extensión mayor en x/z × escala, 2,3 m) y
-      `RenderingSystem` / `Renderer` ordenan la bola por ese punto (`RenderContext::sortPoints`).
-  - **La bola mira siempre a la cámara.** `Draw` llama cada fotograma a fn_00518720, activa mientras el byte
-    [0xBE8E8D] valga 1 (lo vale). Esta gira la matriz 3D del objeto alrededor del centro `c` de la caja de la malla
-    (`LH3DMesh::ComputeBoundingBox` 0x8081B0 al cargar, todas las submallas; aquí (0; 2,23; 0)):
-    - `D = normalize(centro − cámara)` y `U = normalize(Y − (Y·D)·D)` (Gram-Schmidt con (0, 1, 0), estático 0xCC62D0);
-    - monta la matriz con filas (U×D, −D, U), la invierte (fn_007FB3F0), la escala por +0x44 y pone la posición en
-      `centro − M·c`. Así el +Y de la malla apunta a la cámara.
-    - La submalla visible es solo el casquete de arriba (y de 2,18 a 4,46, radio 2,28), así que se ve una burbuja
-      redonda desde cualquier lado. La física es una esfera entera de 0 a 4,37 y no cambia al girar.
-    - Solo se mueve la matriz del objeto 3D, no la posición del objeto. La animación 4×4 no depende del giro.
-    - `Draw` no dibuja nada si +0x70 (la SpellSeedGraphic) es 0. `CallVirtualFunctionsForCreation` 0x72A450 la crea
-      (salvo con la bandera de objeto 0x100, que una bola nueva no tiene): `SpellSeedGraphic::Create(pos, semilla, el
-      jugador local, 1, pu)` y `SetAutoUpdate(0)`; `ToBeDeleted` la borra. En openblack lo hacen
-      `OneOffSpellSeedArchetype` y `one_off::InterfaceTap` (captura `review2_orb_graphic.png`: la semilla de FUEGO y su
-      efecto dentro de la bola del dispensador).
-    - openblack: `one_off::UpdateFrames` calcula `OneOffSpellSeed::facing` y `facingOffset`, y `RenderingSystem`
-      dibuja la bola con ellos. `Transform` no cambia: el dispensador compara su posición y la física usa la esfera.
-      Capturas `orb_face_low.png` (de lado) y `orb_face_top.png` (desde arriba).
-- `InterfaceTap` 0x72A640: `CreateSpellIntoHand`, inmersión 0xE, muestra 0x6D (`G_SpellBubblePop_04`) y la bola se
-  borra (3).
-- **Con la mano de verdad** (fiel, lane «grab», `HandSystem.cpp` / `HandPlacement.cpp`):
-  - El objeto bajo el cursor (`SendObjectDrawCollision` 0x5D56C0, triángulo exacto) llega a `ActionPressed`
-    fn_005D1330 → `StartGrab` 0x5D1740 si `ValidForPlaceInHand` (vt 0x6FC) o `InterfaceValidToTap` (vt 0x740). La bola
-    tiene las dos: es un `MobileObject` (`Mobile::ValidForPlaceInHand` 0x425B00 = 1) y `InterfaceValidToTap` 0x72A630 = 1.
-  - Pulsar sobre ella empieza el agarre (estado 13). Si se suelta antes de 225 ms (`State_Grab` 0x5D5250, 0xE1) es un
-    **toque**: `Tap` 0x5D3930 → 0x5D38A0 → paquete 0x20 → 0x5DA650 → `InterfaceTap`, y la semilla cargada pasa a la mano.
-  - Si se mantiene pulsado, **se coge la bola misma**: `GenericPickup` 0x5D2800 (paquete 0x13) → `PlaceObjectInMagicHand`
-    → `InterfaceSetInMagicHand` 0x72A530 (solo marca la magia como habilitada). Se lleva como un `MobileObject`
-    (`GetHoldType` 0x607120 = 6, `Object::GetHoldRadius` 0x638C00) y se suelta o se lanza con física: constantes 9
-    (`GetPhysicsConstantsType` 0x72A920) y la info `GMobileObjectInfo` 25 (0xD39F3C; **(inferido)** que sea la 25, por
-    el paso 0x114 desde la de WHALE). El dispensador ya no la ve en su sitio y hace otra al recargar.
-  - El toque y el agarre piden la mano dentro de la influencia del jugador (`InterfaceMustBeInInfluenceForInteraction`
-    0x4028A0 = 1; `m_InInfluence` de fn_005D1120, tipo 1). Fuera de ella no pasa nada.
-  - Volumen de selección: la malla tal como se dibuja, girada hacia la cámara (fn_00518720), así que vale la cúpula
-    que se ve desde cualquier lado. **(inferido)**: si el rayo da en la semilla de dentro (`SpellSeedGraphic`, que no es
-    un `Object`), cuenta como si diera en su bola o icono.
-  - Los iconos de los lugares de culto y de los centros de pueblo (`Object::ValidForPlaceInHand` 0x402870 = 0) se tocan
-    al pulsar (`StartGrab` → `Tap` al momento), con la misma regla de influencia.
-  - **Pendiente**: el texto de ayuda al pasar por encima (fn_005D6D70: en una bola, `GetOverwritePickUpToolTip` 0x72AC50
-    = el texto de su magia +0x110; el de tocar es 0xEF7). Tampoco están `GInterface::StartImmersion(0xE)` ni el registro
-    `GameThingClicked` de fn_005D36D0.
-  - Gancho: `OPENBLACK_MOUSE_AT=0.5,0.5 OPENBLACK_CAMERA_LOCK=1948,40,2550,1939.2,33,2537.7` con
-    `--mod test.miracle-dispensers` (la bola de FUEGO en el centro). Toque: `OPENBLACK_TEST_CAST="press@5,release@5.1"`.
-    Coger la bola: `"press@5,release@5.6"`. Dejarla: añadir `",press@7,release@7.2"`. Capturas `grab_tap.png`,
-    `grab_hold.png` y `grab_drop.png` en `dev\_audit\magic`.
-- Guion del mapa (fn_00715150):
-  - caso 83, `CREATE_ONE_SHOT_SPELL(pos, semilla)` → Create(pos, la semilla por nombre, −1, 1);
-  - caso 84, `CREATE_ONE_SHOT_SPELL_PU(pos, magia)` → la primera semilla de esa magia y su nivel
+      - `graphics::MaterialProperties` and `L3DSubMesh::SetMaterialProperties` (the type change of 0x57E120, with the
+        type stored in `Primitive::materialType`) and `L3DMesh::SetMaterialProperties` (fn_0057E1D0), in
+        `src/3D/L3DSubMesh.*` and `L3DMesh.h`;
+      - `Game.cpp` applies it to `O_Bibble_up` when loading it;
+      - `Renderer::DrawSubMesh`: an object with `components::Alpha` (the 0xC387C8 table) keeps the additive blending
+        of its additive primitives, and those in modes 11 and 13 without writing Z.
+    - Captures: `dev\_audit\magic\orbref_a.png` (before), `orbref_b.png` and `orbref_c.png` (after), and the comparison
+      `dev\documentacion\audit_magic\ref\orb_compare.png` with the user's capture of the original (`ref\dispenser_original.png`).
+    - Differences remaining against that capture, **pending**:
+      - in the original the orb floats higher above the dispenser and looks bigger;
+      - in openblack the effect of the FIRE seed is seen as a yellow core inside the orb, and in the original it is not
+        seen (at its centre there is a sky-blue blotch);
+      - the original's sand is lighter, and since the orb is additive the background changes its look a lot.
+    - To sort it in the Z-sorter, `Draw` moves its position forward towards the camera by its radius (vt 0x60) and
+      then restores it. That way the orb is painted after the seed inside. `DrawSpellGraphic` receives the high byte
+      of the diffuse (0x95) as alpha. openblack: `components::Alpha` = 149/255 in `OneOffSpellSeedArchetype` (pass
+      `MainBlended`). The forward shift by the radius is there (lane "seed"): `one_off::UpdateFrames` stores
+      `OneOffSpellSeed::sortPoint` = box centre + normalize(camera − centre) × radius (`Get2DRadius`: largest half
+      extent in x/z × scale, 2.3 m) and `RenderingSystem` / `Renderer` sort the orb by that point
+      (`RenderContext::sortPoints`).
+  - **The orb always faces the camera.** `Draw` calls fn_00518720 every frame, active while the byte [0xBE8E8D] is 1
+    (it is). This rotates the object's 3D matrix around the centre `c` of the mesh's box
+    (`LH3DMesh::ComputeBoundingBox` 0x8081B0 at load time, all submeshes; here (0; 2.23; 0)):
+    - `D = normalize(centro − cámara)` and `U = normalize(Y − (Y·D)·D)` (Gram-Schmidt with (0, 1, 0), static 0xCC62D0);
+    - it builds the matrix with rows (U×D, −D, U), inverts it (fn_007FB3F0), scales it by +0x44 and sets the position
+      to `centro − M·c`. That way the mesh's +Y points at the camera.
+    - The visible submesh is only the top cap (y from 2.18 to 4.46, radius 2.28), so a round bubble is seen from any
+      side. The physics one is a whole sphere from 0 to 4.37 and does not change when rotating.
+    - Only the 3D object's matrix moves, not the object's position. The 4×4 animation does not depend on the rotation.
+    - `Draw` draws nothing if +0x70 (the SpellSeedGraphic) is 0. `CallVirtualFunctionsForCreation` 0x72A450 creates it
+      (except with object flag 0x100, which a new orb does not have): `SpellSeedGraphic::Create(pos, semilla, el
+      jugador local, 1, pu)` and `SetAutoUpdate(0)`; `ToBeDeleted` deletes it. In openblack this is done by
+      `OneOffSpellSeedArchetype` and `one_off::InterfaceTap` (capture `review2_orb_graphic.png`: the FIRE seed and its
+      effect inside the dispenser's orb).
+    - openblack: `one_off::UpdateFrames` computes `OneOffSpellSeed::facing` and `facingOffset`, and `RenderingSystem`
+      draws the orb with them. `Transform` does not change: the dispenser compares its position and the physics uses
+      the sphere. Captures `orb_face_low.png` (from the side) and `orb_face_top.png` (from above).
+- `InterfaceTap` 0x72A640: `CreateSpellIntoHand`, immersion 0xE, sample 0x6D (`G_SpellBubblePop_04`) and the orb is
+  deleted (3).
+- **With the real hand** (faithful, lane "grab", `HandSystem.cpp` / `HandPlacement.cpp`):
+  - The object under the cursor (`SendObjectDrawCollision` 0x5D56C0, exact triangle) reaches `ActionPressed`
+    fn_005D1330 → `StartGrab` 0x5D1740 if `ValidForPlaceInHand` (vt 0x6FC) or `InterfaceValidToTap` (vt 0x740). The orb
+    has both: it is a `MobileObject` (`Mobile::ValidForPlaceInHand` 0x425B00 = 1) and `InterfaceValidToTap` 0x72A630 = 1.
+  - Pressing on it starts the grab (state 13). If it is released before 225 ms (`State_Grab` 0x5D5250, 0xE1) it is a
+    **tap**: `Tap` 0x5D3930 → 0x5D38A0 → packet 0x20 → 0x5DA650 → `InterfaceTap`, and the charged seed goes to the hand.
+  - If it is held down, **the orb itself is picked up**: `GenericPickup` 0x5D2800 (packet 0x13) → `PlaceObjectInMagicHand`
+    → `InterfaceSetInMagicHand` 0x72A530 (it only marks the magic as enabled). It is carried as a `MobileObject`
+    (`GetHoldType` 0x607120 = 6, `Object::GetHoldRadius` 0x638C00) and is dropped or thrown with physics: constants 9
+    (`GetPhysicsConstantsType` 0x72A920) and the `GMobileObjectInfo` info 25 (0xD39F3C; **(inferred)** that it is 25,
+    from the 0x114 step from WHALE's). The dispenser no longer sees it in its place and makes another one when
+    recharging.
+  - The tap and the grab require the hand to be inside the player's influence
+    (`InterfaceMustBeInInfluenceForInteraction` 0x4028A0 = 1; `m_InInfluence` from fn_005D1120, type 1). Outside it
+    nothing happens.
+  - Selection volume: the mesh as it is drawn, rotated towards the camera (fn_00518720), so the dome that is seen from
+    any side counts. **(inferred)**: if the ray hits the seed inside (`SpellSeedGraphic`, which is not an `Object`), it
+    counts as if it hit its orb or icon.
+  - The icons of the worship sites and of the town centres (`Object::ValidForPlaceInHand` 0x402870 = 0) are tapped on
+    press (`StartGrab` → `Tap` immediately), with the same influence rule.
+  - **Pending**: the hover tooltip text (fn_005D6D70: on an orb, `GetOverwritePickUpToolTip` 0x72AC50 = the text of
+    its magic +0x110; the tap one is 0xEF7). Neither `GInterface::StartImmersion(0xE)` nor the `GameThingClicked`
+    record of fn_005D36D0 are there.
+  - Hook: `OPENBLACK_MOUSE_AT=0.5,0.5 OPENBLACK_CAMERA_LOCK=1948,40,2550,1939.2,33,2537.7` with
+    `--mod test.miracle-dispensers` (the FIRE orb in the centre). Tap: `OPENBLACK_TEST_CAST="press@5,release@5.1"`.
+    Pick up the orb: `"press@5,release@5.6"`. Drop it: add `",press@7,release@7.2"`. Captures `grab_tap.png`,
+    `grab_hold.png` and `grab_drop.png` in `dev\_audit\magic`.
+- Map script (fn_00715150):
+  - case 83, `CREATE_ONE_SHOT_SPELL(pos, semilla)` → Create(pos, the seed by name, −1, 1);
+  - case 84, `CREATE_ONE_SHOT_SPELL_PU(pos, magia)` → the first seed of that magic and its level
     (`GetPowerUpFromMagicType`).
 
-### Guion CHL (`Magic/Script/CHLSpells.cpp`)
+### CHL script (`Magic/Script/CHLSpells.cpp`)
 
-- `SPELL_AT_POS` 0x70C190 saca curl, duración, radio, desde, destino y magia. `CastSpellAtPos` 0x70BD60 arma castData
-  {radio, initialChants, duración, −1} y el PSysProcessInfo {+0x0C desde, +0x18 destino − desde, +0x24 dir (0),
-  potencia 1, +0x34 curl, activo}. `SPELL_AT_THING` 0x70BFA0: con un Object, lanzamiento sobre el objeto.
-- `SPELL_AT_POINT` 0x70C560 no lanza nada: devuelve el primer hechizo de esa magia a menos del radio (fn_007217A0). Para
-  los escudos llama a fn_0072BA00 (M6).
-- `SET_PLAYER_MAGIC` 0x70C6C0 (jugador, magia, activar) → `SetMagicTypeEnabled` (el contador de quién la tiene).
-  `HAS_PLAYER_MAGIC` 0x70C750 → «alguna vez activada», y **1 si el jugador no existe**. Los jugadores del guion son
-  n − 1 (0 = el neutral; `ConvertScriptPlayerToGamePlayer` 0x6EB9A0).
-- `PLAYER_SPELL_CAST_TIME` 0x70C9A0: segundos desde el último lanzamiento (FLT_MAX sin jugador).
-  `PLAYER_SPELL_LAST_CAST` 0x70CA50: su magia. `GET_LAST_SPELL_CAST_POS` 0x70CAB0: su punto. `GET_MANA_FOR_SPELL`
+- `SPELL_AT_POS` 0x70C190 pops curl, duration, radius, from, to and magic. `CastSpellAtPos` 0x70BD60 builds castData
+  {radius, initialChants, duration, −1} and the PSysProcessInfo {+0x0C from, +0x18 to − from, +0x24 dir (0),
+  power 1, +0x34 curl, active}. `SPELL_AT_THING` 0x70BFA0: with an Object, cast on the object.
+- `SPELL_AT_POINT` 0x70C560 casts nothing: it returns the first spell of that magic closer than the radius
+  (fn_007217A0). For the shields it calls fn_0072BA00 (M6).
+- `SET_PLAYER_MAGIC` 0x70C6C0 (player, magic, enable) → `SetMagicTypeEnabled` (the counter of who has it).
+  `HAS_PLAYER_MAGIC` 0x70C750 → "ever enabled", and **1 if the player does not exist**. The script's players are
+  n − 1 (0 = the neutral one; `ConvertScriptPlayerToGamePlayer` 0x6EB9A0).
+- `PLAYER_SPELL_CAST_TIME` 0x70C9A0: seconds since the last cast (FLT_MAX without a player).
+  `PLAYER_SPELL_LAST_CAST` 0x70CA50: its magic. `GET_LAST_SPELL_CAST_POS` 0x70CAB0: its point. `GET_MANA_FOR_SPELL`
   0x70CD40: `costToCreate`.
 
-### PSys enlazado al hechizo (`PSys/SpellLink.h`)
+### PSys linked to the spell (`PSys/SpellLink.h`)
 
-Cómo el hechizo es dueño de su efecto y lo avanza (`StrengthFloatProvider`, `EventConditionTrueWhenEnabled`, el
-evento 3 de `LandscapeCollide`): en [PSys enlazado al hechizo](particles.md#psys-enlazado-al-hechizo-psysspelllinkh).
+How the spell owns its effect and advances it (`StrengthFloatProvider`, `EventConditionTrueWhenEnabled`, event 3 of
+`LandscapeCollide`): in [PSys linked to the spell](particles.md#psys-linked-to-the-spell-psysspelllinkh).
 
-### Rejilla de hechizos (`SpellGrid`)
+### Spell grid (`SpellGrid`)
 
-`u8[64][64]` en 0xD9C370 (celdas de 80 m). `MarkSpellGrid` fn_00721570 pone 0xFF donde hay un hechizo abierto;
-fn_007215C0 la hace bajar 0x20 por turno cuando `g_game+0x205A28 == 1` (bandera sin identificar; aquí siempre).
+`u8[64][64]` at 0xD9C370 (80 m cells). `MarkSpellGrid` fn_00721570 sets 0xFF where there is an open spell;
+fn_007215C0 lowers it by 0x20 per turn when `g_game+0x205A28 == 1` (unidentified flag; here always).
 
-### Orden en el turno (`Magic/MagicLoop.cpp`)
+### Order within the turn (`Magic/MagicLoop.cpp`)
 
-`GGame::ProcessTurn` 0x54E5C0 llama, en este orden: atmósfera (1), anillos de influencia (2), jugadores (3), danzas
-(4), bosques (5), los vivos, fuego (6), reacciones (7), `Spell::ProcessSpells` (8), los contenedores de partículas
-(9), la física (10), los sonidos del PSys (11), `GScript::Process`, el clima (12), `CHand::GameTurnUpdate` (13) y las
-recompensas (14). En openblack `Game.cpp` llama a `magic::ProcessTurn` (1..8) tras `livingActionSystem`, luego corre el
-bloque de scripts, que acaba con `psys::manager::ProcessTurn` (9), y después `magic::ProcessTurnEnd` (11..14). La única
-diferencia de orden es que los scripts van antes de la 9 y no entre la 11 y la 12. Los PSys de los hechizos no los
-avanza el gestor: los avanza su hechizo en la 8.
+`GGame::ProcessTurn` 0x54E5C0 calls, in this order: atmosphere (1), influence rings (2), players (3), dances (4),
+forests (5), the living, fire (6), reactions (7), `Spell::ProcessSpells` (8), the particle containers (9), physics
+(10), the PSys sounds (11), `GScript::Process`, weather (12), `CHand::GameTurnUpdate` (13) and the rewards (14). In
+openblack `Game.cpp` calls `magic::ProcessTurn` (1..8) after `livingActionSystem`, then runs the scripts block, which
+ends with `psys::manager::ProcessTurn` (9), and afterwards `magic::ProcessTurnEnd` (11..14). The only difference in
+order is that the scripts go before 9 and not between 11 and 12. The spells' PSys are not advanced by the manager:
+they are advanced by their spell in 8.
 
-### Ganchos y trazas
+### Hooks and traces
 
-`OPENBLACK_TEST_SPELL`, `OPENBLACK_TEST_SEED`, `OPENBLACK_TEST_ONESHOT` y `OPENBLACK_SPELL_TRACE` están en
-[openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración). Capturas y registros en
+`OPENBLACK_TEST_SPELL`, `OPENBLACK_TEST_SEED`, `OPENBLACK_TEST_ONESHOT` and `OPENBLACK_SPELL_TRACE` are in
+[openblack-internals.md](openblack-internals.md#debug-environment-variables). Captures and logs in
 `dev\_audit\magic\`:
-- `m1_oneshot_orb.png` y `m1_oneshot_orb_close.png`: la bola junto al almacén de Land1;
-- `orb_translucent_open.png` (bola en 1790, 2625) y `orb_translucent.png` (en el almacén): la bola translúcida;
-- `m1_heal_trace.log`: curar en el almacén; 0 objetivos, se lanza igual, se cierra a los 20 s y se borra en el turno 200;
-- `m1_lightning_player.log`: la tabla del rayo de arriba;
-- `m1_seed_hand.log` y `m1_oneshot_tap.log`: una semilla de FIRE en la mano con 3500 cánticos, lista.
+- `m1_oneshot_orb.png` and `m1_oneshot_orb_close.png`: the orb next to Land1's store;
+- `orb_translucent_open.png` (orb at 1790, 2625) and `orb_translucent.png` (at the store): the translucent orb;
+- `m1_heal_trace.log`: heal at the store; 0 targets, it is cast anyway, closes after 20 s and is deleted on turn 200;
+- `m1_lightning_player.log`: the lightning table above;
+- `m1_seed_hand.log` and `m1_oneshot_tap.log`: a FIRE seed in the hand with 3500 chants, ready.
 
-## Lanzar desde la mano, gestos y efectos de la mano (M2, `src/Magic/Gestures`, `src/Magic/Hand`, `HandSpellSeed.cpp`)
+## Casting from the hand, gestures and hand effects (M2, `src/Magic/Gestures`, `src/Magic/Hand`, `HandSpellSeed.cpp`)
 
-Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo está leído en el exe; lo que no, se dice.
+Reports: `casting.md` (§2-5) and `visuals_sound.md` (§1.4, §4.13). What is below was read in the exe; what was not is
+stated.
 
-### Gestos: el búfer y el reconocedor (`GestureBuffer`, `GestureMatch`, `GestureTemplates`)
+### Gestures: the buffer and the recogniser (`GestureBuffer`, `GestureMatch`, `GestureTemplates`)
 
-- **Entrada** (`GestureInput.cpp`): la muestra la da el ratón **sin botón**. Es el mensaje 0 de CMouse, cada 28 ms de
-  eventos de ratón (`fn_005CEAD0`), con el punto del terreno bajo el cursor, o el de la última muestra si está fuera.
-  No hay muestras en pausa ni durante los 0,4 s que siguen a un reconocimiento. Si la cámara cambió de posición en el
-  fotograma (`GCamera::IsMoving`), **el búfer se borra** en cada `ProcessPowerUpSystem`.
-- `GestureSystem::AddSample` 0x57BBC0: 80 muestras en anillo.
-  - Una muestra quieta se compara con la de **dos mensajes antes** (0x57BC3A: head − 2, porque la cabeza aún no ha
-    avanzado). 70 seguidas así borran el búfer, y esa muestra lo empieza de nuevo: es la 72.ª muestra quieta.
-  - `ProcessNewSample` 0x57C3F0 busca las esquinas sobre la marcha:
-    - esquina = giro ≥ π/8·¾ (`FindCorner` 0x57BFE0);
-    - fusión o rechazo por longitud (`MergeOrReject` 0x57C200; `LongEnough` fn_0057C630: 12 px, o entre 4 y 12 si la
-      caja reciente mide menos de 50 px);
-    - rumbo y octante de la salida (`UpdateHeading` 0x57C710). El octante redondea un ,5 exacto hacia abajo
-      (fn_00578700).
-- `Gestures.jty` (`GestureSystemDataList::Load` 0x579AF0): 81 plantillas de 0x65C bytes.
-- `MatchGesture` 0x579F10 → `Match` 0x57A050: primero `MatchForward` 0x57A1A0 y, si la plantilla lo permite,
-  `MatchMirror` 0x57A3E0 (giros negados, error sin envolver). Solo se comparan tres cosas:
-  - la secuencia de giros (un giro menor que T1 = 21π/128 se puede absorber; error máximo T2 = 3π/16);
-  - la primera dirección;
-  - la clase de aspecto (0,15 / 4, fn_00579FA0).
-- Paquete (fn_0057A5E0), en modo 2 (el de todas las plantillas):
-  - el punto es el del terreno bajo el centro de la caja de las muestras encajadas;
-  - el tamaño es 1,05 × la media anchura de esa caja en el mundo, a esa distancia.
+- **Input** (`GestureInput.cpp`): the sample is given by the mouse **with no button**. It is CMouse message 0, every
+  28 ms of mouse events (`fn_005CEAD0`), with the terrain point under the cursor, or that of the last sample if it is
+  outside. There are no samples while paused nor during the 0.4 s following a recognition. If the camera changed
+  position in the frame (`GCamera::IsMoving`), **the buffer is cleared** on every `ProcessPowerUpSystem`.
+- `GestureSystem::AddSample` 0x57BBC0: 80 samples in a ring.
+  - A still sample is compared with the one from **two messages before** (0x57BC3A: head − 2, because the head has not
+    advanced yet). 70 in a row like this clear the buffer, and that sample starts it again: it is the 72nd still
+    sample.
+  - `ProcessNewSample` 0x57C3F0 finds the corners on the fly:
+    - corner = turn ≥ π/8·¾ (`FindCorner` 0x57BFE0);
+    - merge or rejection by length (`MergeOrReject` 0x57C200; `LongEnough` fn_0057C630: 12 px, or between 4 and 12 if
+      the recent box measures less than 50 px);
+    - heading and octant of the exit (`UpdateHeading` 0x57C710). The octant rounds an exact .5 down (fn_00578700).
+- `Gestures.jty` (`GestureSystemDataList::Load` 0x579AF0): 81 templates of 0x65C bytes.
+- `MatchGesture` 0x579F10 → `Match` 0x57A050: first `MatchForward` 0x57A1A0 and, if the template allows it,
+  `MatchMirror` 0x57A3E0 (negated turns, error without wrapping). Only three things are compared:
+  - the sequence of turns (a turn smaller than T1 = 21π/128 can be absorbed; maximum error T2 = 3π/16);
+  - the first direction;
+  - the aspect class (0.15 / 4, fn_00579FA0).
+- Packet (fn_0057A5E0), in mode 2 (the one of all the templates):
+  - the point is the terrain point under the centre of the box of the matched samples;
+  - the size is 1.05 × the half width of that box in the world, at that distance.
 
-  Es el `size` del círculo de la tormenta y de los escudos (la magnitud del lanzamiento).
-- Los gestos de milagro del jugador (selección SPIRAL) son **14**, no 12: FORK_DOWN, CYRILLIC_L, VERTICAL_SCRIBBLE,
-  S_SHAPE, FORK_RIGHT, FORK_LEFT, FORK_UP, HEART, THREE, W_SHAPE, SQUARE_SPIRAL, INVERSE_SQUARE_SPIRAL, HOUSE y STAR.
-  Cada uno reconoce su trazo y ninguno de los otros 13 (`test_gestures`, `realData`).
+  It is the `size` of the circle of the storm and of the shields (the magnitude of the cast).
+- The player's miracle gestures (SPIRAL selection) are **14**, not 12: FORK_DOWN, CYRILLIC_L, VERTICAL_SCRIBBLE,
+  S_SHAPE, FORK_RIGHT, FORK_LEFT, FORK_UP, HEART, THREE, W_SHAPE, SQUARE_SPIRAL, INVERSE_SQUARE_SPIRAL, HOUSE and STAR.
+  Each one recognises its stroke and none of the other 13 (`test_gestures`, `realData`).
 
-### Qué se busca y cuándo (`PowerUpSystem.cpp`, `GInterface::ProcessPowerUpSystem` 0x5CF300)
+### What is looked for and when (`PowerUpSystem.cpp`, `GInterface::ProcessPowerUpSystem` 0x5CF300)
 
-- Corre al final de cada `InterfaceActionProcess`: una vez por fotograma (`ProcessFrameInputs`) y otra por turno
-  (`GInterface::Process`, con el tiempo del último fotograma). Así queda resuelta R6. Siguen sin encontrarse quién
-  pone el bit 0x02 de m_Buttons y quién lee el tope de 40 s de la repetición.
-- Orden de cada llamada:
-  1. el borrado por la cámara, la espera de 0,4 s y la caducidad del círculo pendiente (5 s);
-  2. **el círculo**: con la acción pulsada (m_Buttons 0x200) y una semilla con `sizingGesture` (CIRCLE: tormenta,
-     escudo y escudo físico), el círculo guarda posición y tamaño;
-  3. con una semilla **de icono** que carga (`HoldingChargingSeed` fn_005CEF50), los gestos de power-up de la semilla
-     (fn_005D0000); si ya tiene un power-up, SCRIBBLE lo quita (paquete 0x6A). Si no hay tal semilla, la etapa de la
-     selección abierta (`SelectionStage` 0x5CFAE0, tope `selectionSystemTimeOut` = 30 s);
-  4. **SCRIBBLE cancela**:
-     - sacude lo que haya en la mano, si está en la influencia y es `ValidToShakeFromHand`
-       (`DoRemoveFromHandVisual` + `ForceDropHeld`; una semilla vuelve a su lugar de culto o se borra);
-     - o, con la mano vacía, anula la carga del icono más cargado (paquete 0x1E);
-  5. con la mano libre, SPIRAL / INVERSE_SPIRAL abren la selección si hay un icono pedible de esa categoría
+- It runs at the end of each `InterfaceActionProcess`: once per frame (`ProcessFrameInputs`) and again per turn
+  (`GInterface::Process`, with the time of the last frame). That resolves R6. Still not found: who sets bit 0x02 of
+  m_Buttons and who reads the 40 s cap of the repeat.
+- Order of each call:
+  1. the clearing by the camera, the 0.4 s wait and the expiry of the pending circle (5 s);
+  2. **the circle**: with the action pressed (m_Buttons 0x200) and a seed with `sizingGesture` (CIRCLE: storm,
+     shield and physical shield), the circle stores position and size;
+  3. with an **icon** seed that is charging (`HoldingChargingSeed` fn_005CEF50), the seed's power-up gestures
+     (fn_005D0000); if it already has a power-up, SCRIBBLE removes it (packet 0x6A). If there is no such seed, the
+     stage of the open selection (`SelectionStage` 0x5CFAE0, cap `selectionSystemTimeOut` = 30 s);
+  4. **SCRIBBLE cancels**:
+     - it shakes off whatever is in the hand, if it is in the influence and is `ValidToShakeFromHand`
+       (`DoRemoveFromHandVisual` + `ForceDropHeld`; a seed goes back to its worship site or is deleted);
+     - or, with the hand empty, it cancels the charge of the most charged icon (packet 0x1E);
+  5. with the hand free, SPIRAL / INVERSE_SPIRAL open the selection if there is a requestable icon of that category
      (`OpenSelection` 0x5CF010);
-  6. R_SHAPE repite el último milagro (paquete 0x26), si el jugador puede.
-- **Las semillas de un uso** no tienen icono, así que con ellas no hay gestos de power-up (solo con las de un icono de
-  culto, M7). SCRIBBLE sí las sacude.
-- **API para M7** (`PowerUpSystem.h`): `gestures::SetIconProvider(IconProvider*)`. Sin proveedor la selección no se
-  abre nunca; `Worship/GestureIconProvider.cpp` registra el suyo. El proveedor responde:
-  - `AnyRequestableIconOfCategory` (fn_0064BE40), `ForEachRequestableIcon` (el recorrido de OpenSelection) e
+  6. R_SHAPE repeats the last miracle (packet 0x26), if the player can.
+- **One-off seeds** have no icon, so with them there are no power-up gestures (only with those of a worship icon, M7).
+  SCRIBBLE does shake them off.
+- **API for M7** (`PowerUpSystem.h`): `gestures::SetIconProvider(IconProvider*)`. Without a provider the selection
+  never opens; `Worship/GestureIconProvider.cpp` registers its own. The provider answers:
+  - `AnyRequestableIconOfCategory` (fn_0064BE40), `ForEachRequestableIcon` (the walk of OpenSelection) and
     `IconValidForRequest` (fn_0064BEC0);
-  - `RequestSpell` (paquete 0x25), `CanRepeat` / `RepeatLast` (0x26) y `CancelMostChargedIcon` (0x1E);
-  - `AnyIconChargingForHand` / `MaxChargeFraction` (las bandas de carga de PHandFX);
+  - `RequestSpell` (packet 0x25), `CanRepeat` / `RepeatLast` (0x26) and `CancelMostChargedIcon` (0x1E);
+  - `AnyIconChargingForHand` / `MaxChargeFraction` (the PHandFX charge bands);
   - `PowerUpAvailable` / `SetPowerUpCharge` (0x6A).
-- No están portados:
-  - la ayuda (`HelpProfile::Trigger` 0xE..0x17): con `OPENBLACK_GESTURE_TRACE=1` sus eventos van al registro;
-  - la inmersión (force feedback 3, 8, 9, 10);
-  - los iconos de gesto del HUD (`DisplayGesture` fn_0068ABA0, `S_Gesture0/1.raw`, R17 sin leer). La tabla
-    `LookingFor` sí se rellena.
+- Not ported:
+  - the help (`HelpProfile::Trigger` 0xE..0x17): with `OPENBLACK_GESTURE_TRACE=1` its events go to the log;
+  - the immersion (force feedback 3, 8, 9, 10);
+  - the HUD gesture icons (`DisplayGesture` fn_0068ABA0, `S_Gesture0/1.raw`, R17 not read). The `LookingFor` table is
+    filled in.
 
-### Lanzar desde la mano (`HandSpellSeed.cpp`)
+### Casting from the hand (`HandSpellSeed.cpp`)
 
-- `ActionPressedHolding` 0x5D1560 con una semilla: sobre un objeto válido (en la influencia) aplica al objeto; si no,
-  al suelo bajo la mano, que debe estar en la influencia del jugador. Según el `castType`:
-  - **HAND_GESTURE** (tormenta, fuego, escudos, bandadas): arma al pulsar si allí se puede lanzar
-    (`ValidToApplyThisToMapCoord` 0x728720 = lista y `CanCast`); si no, `FailApply`. Armar
-    (`BeginApplyOnRelease` fn_005D2730) reinicia el búfer con la muestra actual y arranca el bucle IN_GAME 3
-    `G_HandGesture_02`. Lanza al soltar (estados 8/9, 0x5D48D0).
-  - **HAND_POSITION** (bosque, curar, teletransporte, rayo destructor): lanza al pulsar (`DropOnMapCoord` fn_005D1850).
-  - **IN_HAND** (comida, madera, agua, rayo): estado 10/11. Mientras se mantiene, un apply por turno
-    (0x5D4C10 / 0x5D4D00); al soltar, `ApplyUnlockProcess` 0x728EB0.
+- `ActionPressedHolding` 0x5D1560 with a seed: over a valid object (in the influence) it applies to the object;
+  otherwise, to the ground under the hand, which must be in the player's influence. Depending on the `castType`:
+  - **HAND_GESTURE** (storm, fire, shields, flocks): it arms on press if it can be cast there
+    (`ValidToApplyThisToMapCoord` 0x728720 = ready and `CanCast`); otherwise, `FailApply`. Arming
+    (`BeginApplyOnRelease` fn_005D2730) resets the buffer with the current sample and starts the IN_GAME 3 loop
+    `G_HandGesture_02`. It casts on release (states 8/9, 0x5D48D0).
+  - **HAND_POSITION** (forest, heal, teleport, destroying lightning): it casts on press (`DropOnMapCoord` fn_005D1850).
+  - **IN_HAND** (food, wood, water, lightning): state 10/11. While it is held, one apply per turn
+    (0x5D4C10 / 0x5D4D00); on release, `ApplyUnlockProcess` 0x728EB0.
 - `SendApplyToMapCoord` 0x5D3340:
-  - un paquete por turno (`m_ApplySentTurn`);
-  - con un círculo pendiente, el punto y el gesto son los del círculo;
-  - **fn_00729AF0: una semilla con `sizingGesture` necesita ese gesto en el paquete**; si no, `FailApply`;
-  - un nivel de power-up en carga va con el lanzamiento;
-  - luego `SpellSeed::ApplyThisToMapCoord` 0x728E20 (la magnitud es el tamaño del gesto) y el resultado
-    (fn_005DA100): la semilla se queda en la mano si el hechizo se mantiene en ella; si no, sale (0x16) con la visual
+  - one packet per turn (`m_ApplySentTurn`);
+  - with a pending circle, the point and the gesture are those of the circle;
+  - **fn_00729AF0: a seed with `sizingGesture` needs that gesture in the packet**; otherwise, `FailApply`;
+  - a power-up level being charged goes with the cast;
+  - then `SpellSeed::ApplyThisToMapCoord` 0x728E20 (the magnitude is the size of the gesture) and the result
+    (fn_005DA100): the seed stays in the hand if the spell is kept in it; otherwise it leaves (0x16) with the visual
     SUCEED_CAST (3).
-- `FailApply` fn_005D18F0: la visual 4 (`SF_FailedApply`) en el punto y `G_SpellCastFailure`.
-- Parámetros de sujeción (0x728640..0x728680): MAGIC hasta que la semilla está lista (`Cwiggle` a media longitud) y
-  luego su `holdType`; radio `holdRadius × escala`, más `holdLoweringMultiplier`. La malla de la semilla solo se dibuja
-  en la mano con `isSpellSeedDrawnInHand`: fuego, rayo, curar y tormenta son solo su efecto en la mano.
+- `FailApply` fn_005D18F0: visual 4 (`SF_FailedApply`) at the point and `G_SpellCastFailure`.
+- Hold parameters (0x728640..0x728680): MAGIC until the seed is ready (`Cwiggle` at half length) and then its
+  `holdType`; radius `holdRadius × escala`, plus `holdLoweringMultiplier`. The seed's mesh is only drawn in the hand
+  with `isSpellSeedDrawnInHand`: fire, lightning, heal and storm are only their effect in the hand.
 
-### La mano (`HandMagicFX.cpp`: PHandFX y el efecto en la mano)
+### The hand (`HandMagicFX.cpp`: PHandFX and the effect in the hand)
 
-- **Efecto en la mano** (CHand fn_0046E7B0 / `DrawSpellInHand` 0x46E680):
-  - es el `particleTypeInHand` del nivel, y `SetPowerUp` lo vuelve a crear;
-  - se avanza cada fotograma con `max(1, g_game_time_inc)` ms, fuerza = la del PSys de la semilla, magnitud = la escala
-    de la mano, y solo con la semilla lista;
-  - `UR_FollowLocalHand` 0x69A6A0 y `UR_FollowCastPosn` 0x69FE30 (`Rules/HandFollow.cpp`) lo llevan a la mano;
-  - los efectos que avanzan por fotograma se dibujan donde los dejó el último paso (`manager::SetPerFrame`), sin
-    interpolar por turno.
-- **PHandFX** (ctor 0x68CB10, `Draw` 0x68D0C0, `Band::Draw` 0x68D6D0): bandas `Power_Up_Band.L3d` de escala 10 en el
-  hueso raíz, a 10 + 40·índice, girando a (1 + 0,2·índice)·12 rad/s.
-  - **Matriz** (`Band::Draw` 0x68D8BB..0x68D9EA): la local es 10·I con la traslación (0, 0, +0x18 + índice·+0x1C)
-    (0x68D900..0x68D909), es decir, a lo largo del **eje Z propio del hueso raíz** (el antebrazo). Solo cuando ha
-    llegado (f ≥ 1, 0x68D90D) cada fila gira su (x, y) por el ángulo +0x20 alrededor de esa Z (0x68D922..0x68D9DB:
-    (x, y) → (c x + s y, c y − s x), c guardado como float en 0x68D929, s en la pila; `lh_matrix::TurnRows(2)`).
-    Después fn_007FAFF0 0x68D9EA = local × hueso (filas; en glm hueso · local). El hueso son los 0x30 primeros bytes
-    de la matriz apuntada por CHand +0x47F0 (copiados en 0x68D0F2..0x68D100; `PrepareForDrawing` 0x46CAE5 copia la
-    misma en la matriz del objeto de la mano). Resultado: una pulsera que rodea la muñeca y gira sobre el eje del
-    antebrazo. openblack lo tenía a lo largo de la Y y girando sobre la Y (el anillo colgaba bajo la mano y daba
-    vueltas de canto); corregido (`DrawBand`, capturas `documentacion/audit_magic/wristring_{before,after}_1500{0,1}.png`).
-  - Permanentes: `SetPULevel(pu + 1, 1)` desde `SpellSeed::SetPowerUp` 0x729BFC..0x729BFE (pu = POWER_UP_TYPE: −1 sin
-    power-up, 0 = PU1, 1 = PU2), así que 0 / 1 / 2 anillos (máximo 5); empiezan a los 2,4 s; alfa 20→130 en 0,85 s,
-    con lerp de matrices. Vuelan desde delante de la cámara hasta el hueso raíz de la mano (la muñeca).
-  - Color (`Band::Draw` 0x68D849..0x68D8B1, en cada dibujo): +0x4C = `GetPlayerColour` 0x64D800 del jugador local
-    (g_game +0x205A59) con el alfa de la banda; +0x50 = lerp por canal de los colores +0x34 / +0x38 del ctor
-    (fn_0068CA30, args 8 y 9), 0 en todos los llamantes. Un solo dibujo por banda (0x68DD46 vt+0x104). Recuerdo del
-    usuario: un anillo rojo translúcido llega a la muñeca al coger un milagro (el exe lo confirma: rojo del jugador 1).
+- **Effect in the hand** (CHand fn_0046E7B0 / `DrawSpellInHand` 0x46E680):
+  - it is the level's `particleTypeInHand`, and `SetPowerUp` creates it again;
+  - it is advanced every frame by `max(1, g_game_time_inc)` ms, strength = that of the seed's PSys, magnitude = the
+    hand's scale, and only with the seed ready;
+  - `UR_FollowLocalHand` 0x69A6A0 and `UR_FollowCastPosn` 0x69FE30 (`Rules/HandFollow.cpp`) carry it to the hand;
+  - effects that advance per frame are drawn where the last step left them (`manager::SetPerFrame`), without
+    per-turn interpolation.
+- **PHandFX** (ctor 0x68CB10, `Draw` 0x68D0C0, `Band::Draw` 0x68D6D0): `Power_Up_Band.L3d` bands at scale 10 on the
+  root bone, at 10 + 40·index, spinning at (1 + 0.2·index)·12 rad/s.
+  - **Matrix** (`Band::Draw` 0x68D8BB..0x68D9EA): the local one is 10·I with the translation (0, 0, +0x18 + index·+0x1C)
+    (0x68D900..0x68D909), that is, along the **root bone's own Z axis** (the forearm). Only once it has arrived
+    (f ≥ 1, 0x68D90D) each row rotates its (x, y) by the angle +0x20 around that Z (0x68D922..0x68D9DB:
+    (x, y) → (c x + s y, c y − s x), c stored as a float at 0x68D929, s on the stack; `lh_matrix::TurnRows(2)`).
+    Afterwards fn_007FAFF0 0x68D9EA = local × bone (rows; in glm bone · local). The bone is the first 0x30 bytes of
+    the matrix pointed to by CHand +0x47F0 (copied at 0x68D0F2..0x68D100; `PrepareForDrawing` 0x46CAE5 copies the
+    same one into the matrix of the hand object). Result: a bracelet that goes around the wrist and spins about the
+    forearm's axis. openblack had it along Y and spinning about Y (the ring hung below the hand and turned edge-on);
+    corrected (`DrawBand`, captures `documentacion/audit_magic/wristring_{before,after}_1500{0,1}.png`).
+  - Permanent: `SetPULevel(pu + 1, 1)` from `SpellSeed::SetPowerUp` 0x729BFC..0x729BFE (pu = POWER_UP_TYPE: −1 no
+    power-up, 0 = PU1, 1 = PU2), so 0 / 1 / 2 rings (maximum 5); they start at 2.4 s; alpha 20→130 in 0.85 s, with
+    matrix lerp. They fly from in front of the camera to the root bone of the hand (the wrist).
+  - Colour (`Band::Draw` 0x68D849..0x68D8B1, on every draw): +0x4C = `GetPlayerColour` 0x64D800 of the local player
+    (g_game +0x205A59) with the band's alpha; +0x50 = per-channel lerp of the ctor's colours +0x34 / +0x38
+    (fn_0068CA30, args 8 and 9), 0 in all callers. A single draw per band (0x68DD46 vt+0x104). User's recollection:
+    a translucent red ring reaches the wrist when picking up a miracle (the exe confirms it: player 1's red).
     openblack: `components::ObjectColour`.
-  - Temporales: 5 al ganar un nivel, 0,1 s entre ellas; alfa 20→120, con slerp.
-  - De carga: duración lerp(3,5; 1; c), una cada lerp(6; 0,3; c) s.
-  - Llegan volando desde 4 m delante de la cámara, a media escala (la matriz 0xEA1CF8 es la de la cámara, inf).
-  - `AddSpellToHandVisuals` suena `G_SpellPowerUpBand`; el sacudido, `G_ShakeHand_01` y una banda que se va.
-- **El brillo de la mano** (una segunda pasada con `S_Hand_Flow` aditivo, color del jugador, alfa 0,8, atlas 8×4 a
-  −20 cuadros/s) se calcula (`hand_fx::GetGlow`) pero **no se dibuja**: hace falta un sombreador de malla con huesos y
-  dos texturas (color y `S_Hand_Flowa`).
+  - Temporary: 5 on gaining a level, 0.1 s between them; alpha 20→120, with slerp.
+  - Charge ones: duration lerp(3.5; 1; c), one every lerp(6; 0.3; c) s.
+  - They arrive flying from 4 m in front of the camera, at half scale (the matrix 0xEA1CF8 is the camera's, inf).
+  - `AddSpellToHandVisuals` plays `G_SpellPowerUpBand`; the shake, `G_ShakeHand_01` and a band that leaves.
+- **The hand glow** (a second pass with additive `S_Hand_Flow`, player colour, alpha 0.8, 8×4 atlas at
+  −20 frames/s) is computed (`hand_fx::GetGlow`) but **not drawn**: it needs a skinned mesh shader with two textures
+  (colour and `S_Hand_Flowa`).
 
-### Efectos de utilidad (`PSys/Utility.cpp`, PSysUtilityPSys 0xD4E0E8)
+### Utility effects (`PSys/Utility.cpp`, PSysUtilityPSys 0xD4E0E8)
 
-- **La estela** (PT 48 `SF_GestureChain`) está activa cuando el juego espera un gesto: semilla de icono cargando,
-  semilla con m_Held & 8, selección abierta con la mano libre o semilla con círculo. Va en la mano, con magnitud
-  `escala de la mano × f(distancia)` ({0, 50, 500, 1500} → {0,2; 1; 1; 1,5}). Sus reglas `ZR_ChainGesture` 0x68A080
-  (emisión fn_0068A330) y `CreateRuleMakeChain` 0x69FD10 están en `PSys/Rules/Gesture.cpp`, y la cinta se dibuja con
-  el `ParticleChainCreator` de M5 (`Graphics/RendererChain.cpp`). Color: fn_00671110 la crea con
-  `PSysInterface::Create` y le hace `SetPlayer` (vt 0x20) del jugador local (g_game +0x205A59, 0x671172..0x671197);
-  `ParticleChainCreator0` de `SF_GestureChain` tiene `UsePlayerColor 1` (blanco 255 × el color del jugador, alfa 10),
-  así que la estela sale en el color del jugador (rojo para el 1). Lo mismo hace fn_00671260 con PT 35 (0x6712CD..
-  0x6712EA); la selección (fn_006711D0) no recibe jugador.
-- **La selección** (PT 28 `SF_SpellSelection`), mientras está abierta.
-- **El gesto reconocido** (`fn_00689790` desde `Success(1)`; PT 35 `SF_Gesture`; `UR_GesturingRecognised`
+- **The trail** (PT 48 `SF_GestureChain`) is active when the game is waiting for a gesture: icon seed charging, seed
+  with m_Held & 8, selection open with the hand free, or seed with a circle. It goes in the hand, with magnitude
+  `escala de la mano × f(distancia)` ({0, 50, 500, 1500} → {0.2; 1; 1; 1.5}). Its rules `ZR_ChainGesture` 0x68A080
+  (emission fn_0068A330) and `CreateRuleMakeChain` 0x69FD10 are in `PSys/Rules/Gesture.cpp`, and the ribbon is drawn
+  with M5's `ParticleChainCreator` (`Graphics/RendererChain.cpp`). Colour: fn_00671110 creates it with
+  `PSysInterface::Create` and does `SetPlayer` (vt 0x20) on it with the local player (g_game +0x205A59,
+  0x671172..0x671197); `ParticleChainCreator0` of `SF_GestureChain` has `UsePlayerColor 1` (white 255 × the player's
+  colour, alpha 10), so the trail comes out in the player's colour (red for player 1). fn_00671260 does the same with
+  PT 35 (0x6712CD..0x6712EA); the selection (fn_006711D0) gets no player.
+- **The selection** (PT 28 `SF_SpellSelection`), while it is open.
+- **The recognised gesture** (`fn_00689790` from `Success(1)`; PT 35 `SF_Gesture`; `UR_GesturingRecognised`
   0x6884F0 / 0x688910):
-  - El registro (0x48 bytes, lista 0xD4EB10) lleva el trazo (los puntos de terreno de todo el búfer) y la forma ideal
-    del gesto (`PathSymbol<n>.cam`, o la del círculo) puesta sobre la caja de píxeles de lo encajado:
-    - la caja conserva el centro y divide sus medias medidas por las de la forma (fn_0068C140);
-    - cada punto va al terreno bajo su píxel, a su altitud, o a 400 m por el rayo (fn_00689F20);
-    - si en el suelo la forma sale **más del doble de honda que de ancha** (ejes de la cámara en horizontal), se aplasta
-      en vertical ×0,75 y se repite, 15 veces como mucho;
-    - la ideal se remuestrea a tantos puntos como tiene el trazo.
-  - La regla toma un registro por paso: un átomo (PCreator) y **IN_GAME 36 `G_SpellGestureRecognise`**. En su
-    subcolección pone `NumAtoms` (234) sprites del color del jugador, con escala × (longitud de la ideal / 100):
-    - la ideal se acerca a la cámara hasta subir esa escala (como mucho a media distancia);
-    - cada sprite va del trazo a la ideal (t sobre `TimeToIdeal`, mezclado con smoothstep por `InterpGain`) y se
-      enciende desde los extremos (alfa `t × MaxAlpha`);
-    - tiembla con ruido de valor de fase barajada, que se apaga tras `DispersalTime`. El ruido es `Noise::VSNoise1To1`
-      0x590BB0: la red de Ebert, tabla de permutación 0xBEFDBC y spline de Catmull-Rom 0x590010 (`PSys/Noise.cpp`);
-    - la colección pulsa de `CollectionAlphaPulse` a 0 entre 2,4 y 4,5 s, y el átomo muere a `DieAge` (7 s).
-  - No están portados:
-    - el dibujo de la `LightSheet` de LH3D (50 puntos en la ideal, altura escala × 9, alfa 1 − (2f − 1)²); los datos
-      sí están;
-    - el pulso de color de la mano (vt 0x2C del objeto de la mano, sin identificar).
-  - La red de ruido: 256 × `1 − GameFloatRand(2)` (fn_00590DF0) desde la semilla 0 (inferido: antes de
-    `GGame::Init`), los mismos valores en cada partida (`PSys/Noise.cpp`, game_random).
-- Sin portar: alimentar una bola de fuego en vuelo con una semilla de fuego en la mano (el principio de
-  `ProcessPowerUpSystem`); necesita que el cursor pueda señalar la MagicFireBall.
+  - The record (0x48 bytes, list 0xD4EB10) carries the stroke (the terrain points of the whole buffer) and the ideal
+    shape of the gesture (`PathSymbol<n>.cam`, or the circle's) placed over the pixel box of what was matched:
+    - the box keeps the centre and divides its half sizes by those of the shape (fn_0068C140);
+    - each point goes to the terrain under its pixel, at its altitude, or at 400 m along the ray (fn_00689F20);
+    - if on the ground the shape comes out **more than twice as deep as it is wide** (camera axes in the horizontal),
+      it is squashed vertically ×0.75 and this is repeated, 15 times at most;
+    - the ideal one is resampled to as many points as the stroke has.
+  - The rule takes one record per step: one atom (PCreator) and **IN_GAME 36 `G_SpellGestureRecognise`**. In its
+    subcollection it places `NumAtoms` (234) sprites in the player's colour, with scale × (length of the ideal / 100):
+    - the ideal approaches the camera until that scale rises (at most to half distance);
+    - each sprite goes from the stroke to the ideal (t over `TimeToIdeal`, blended with smoothstep by `InterpGain`)
+      and lights up from the ends (alpha `t × MaxAlpha`);
+    - it jitters with shuffled-phase value noise, which fades out after `DispersalTime`. The noise is
+      `Noise::VSNoise1To1` 0x590BB0: Ebert's lattice, permutation table 0xBEFDBC and Catmull-Rom spline 0x590010
+      (`PSys/Noise.cpp`);
+    - the collection pulses from `CollectionAlphaPulse` to 0 between 2.4 and 4.5 s, and the atom dies at `DieAge`
+      (7 s).
+  - Not ported:
+    - the drawing of LH3D's `LightSheet` (50 points on the ideal, height scale × 9, alpha 1 − (2f − 1)²); the data
+      are there;
+    - the colour pulse of the hand (vt 0x2C of the hand object, unidentified).
+  - The noise lattice: 256 × `1 − GameFloatRand(2)` (fn_00590DF0) from seed 0 (inferred: before `GGame::Init`), the
+    same values in every game (`PSys/Noise.cpp`, game_random).
+- Not ported: feeding a fireball in flight with a fire seed in the hand (the start of `ProcessPowerUpSystem`); it needs
+  the cursor to be able to point at the MagicFireBall.
 
-### Ganchos, pruebas y capturas
+### Hooks, tests and captures
 
-- Ganchos, en [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración):
+- Hooks, in [openblack-internals.md](openblack-internals.md#debug-environment-variables):
   `OPENBLACK_TEST_CAST`, `OPENBLACK_TEST_CAST_PATH`, `OPENBLACK_TEST_THROW_VEL`, `OPENBLACK_TEST_SHOT_PATH`,
-  `OPENBLACK_TEST_GESTURE` y `OPENBLACK_GESTURE_TRACE`.
-- **Para las otras lanes**:
-  - `OPENBLACK_TEST_SEED` + `OPENBLACK_TEST_CAST` lanza por el camino real de la mano;
-  - `_CAST_PATH` arrastra la mano durante la primera pulsación (comida, madera, agua);
-  - `_THROW_VEL` es la velocidad de la mano que recibe el hechizo (la bola de fuego).
+  `OPENBLACK_TEST_GESTURE` and `OPENBLACK_GESTURE_TRACE`.
+- **For the other lanes**:
+  - `OPENBLACK_TEST_SEED` + `OPENBLACK_TEST_CAST` casts through the real hand path;
+  - `_CAST_PATH` drags the hand during the first press (food, wood, water);
+  - `_THROW_VEL` is the hand velocity the spell receives (the fireball).
 - `test_gestures`:
-  - octantes y redondeo de ,5; esquinas de un cuadrado; el borrado tras las muestras quietas;
-  - plantillas sintéticas (reconoce la suya y no las otras; el espejo, solo con `allowReverse`);
-  - la selección con un icono falso: SPIRAL abre y FORK_RIGHT pide la semilla 4;
-  - con `OPENBLACK_GAME_PATH`, `Gestures.jty` (81 × 1628), los 14 gestos del jugador, y CIRCLE y STAR en espejo con
+  - octants and rounding of .5; corners of a square; the clearing after the still samples;
+  - synthetic templates (it recognises its own and not the others; the mirror, only with `allowReverse`);
+  - the selection with a fake icon: SPIRAL opens and FORK_RIGHT requests seed 4;
+  - with `OPENBLACK_GAME_PATH`, `Gestures.jty` (81 × 1628), the player's 14 gestures, and CIRCLE and STAR mirrored with
     `reversed`.
 
-## Culto: de dónde salen los milagros (M7, `src/Worship`, `ECS/Systems/Implementations/VillagerWorship`)
+## Worship: where miracles come from (M7, `src/Worship`, `ECS/Systems/Implementations/VillagerWorship`)
 
-Investigación: `dev\documentacion\miracles\sources.md` (§1-§8). La cadena del original es: una **ciudad** guarda tipos de
-magia → su **centro del pueblo** enseña un icono por semilla → la **ciudadela** del jugador tiene un **lugar de culto**
-por tribu, con un icono por semilla → los **aldeanos** bailan allí y llenan su **batería** de poder de oración → al
-tocar un icono este se **carga** y la semilla aparece en la mano. Aparte están los **dispensadores** de milagros de un
-uso y las **luciérnagas**.
+Research: `dev\documentacion\miracles\sources.md` (§1-§8). The original's chain is: a **town** stores magic types → its
+**village centre** shows one icon per seed → the player's **citadel** has one **worship site** per tribe, with one icon
+per seed → the **villagers** dance there and fill its **battery** of prayer power → when an icon is tapped it
+**charges** and the seed appears in the hand. Separately there are the one-off miracle **dispensers** and the
+**fireflies**.
 
-### Estructura y datos
+### Structure and data
 
-- `GWorshipSiteInfo[9]`, uno por tribu (`GTribeInfo.worshipSiteInfo`): `chantsPerVillager` 3 (celta 4, tibetano 5),
+- `GWorshipSiteInfo[9]`, one per tribe (`GTribeInfo.worshipSiteInfo`): `chantsPerVillager` 3 (Celtic 4, Tibetan 5),
   `maxDancersVisible` 20, `chantsToFillBattery` 9000, `eachVillagerAddToFillBattery` 300, `prayerSiteDistance` 44,
-  `radiusFromCitadel` 37.5, `artifactPowerupMultiplier` 1e-5, y la malla del altar por tribu (101
-  `BuildingCitadelNorseAltar`, 93 indio, 94 azteca, 95 celta, 98 africano/egipcio, 99 griego, 100 japonés, 103
-  tibetano).
-  - **Fallo conservado:** `chantsToReserveForMaintaining` está en el archivo como el entero **500** y el ejecutable lo
-    lee con `fld` (`fn_0077A950`), así que vale ~7e-43 ≈ 0: la reserva para mantener hechizos no existe en la práctica.
-- `GSpellIconInfo[2]`: [0] "Spell Icon" (lugar de culto), [1] "TownSpell Icon" (centro del pueblo). Las dos usan la
-  malla **203** `BuildingVillageCentreSpellHand` y `gatheringChantAddPerGameTurn` 61.
-- **Puntos especiales** (las métricas extra del L3D; `Game3DObject::GetSpecialPos` 0x63B040 / 0x63B0B0 = la matriz de
-  la métrica por la del objeto; `src/Worship/SpecialPoints.cpp`):
-  - la malla `b_worship.l3d` del lugar de culto tiene **16**: 7 escondite, 8 centro del baile y tótem, 9 llegada,
-    **10..15 los seis huecos de icono**;
-  - la malla del centro del pueblo (p. ej. 179 `BuildingNorseVillageCentre`) tiene **14**: **0..5 los seis huecos de
-    icono** (todos a y = 2,781, en corro) y 6 el tótem (y = 4,613, en el centro);
-  - la malla 203 del icono tiene 1: el punto donde flota el `SpellSeedGraphic` (+1 en y).
-- Coste de carga = `GMagicEffectInfo.costToCreate` (FUEGO 3500 / PU1 7000 / PU2 10000, RAYO 5000/7500/10000,
-  CURAR 6000/9000, COMIDA 7000/10000, MADERA 7000, AGUA 5000/7000, NATURALEZA 13000, RAYO EN HAZ 16000/32000/60000...).
+  `radiusFromCitadel` 37.5, `artifactPowerupMultiplier` 1e-5, and the altar mesh per tribe (101
+  `BuildingCitadelNorseAltar`, 93 Indian, 94 Aztec, 95 Celtic, 98 African/Egyptian, 99 Greek, 100 Japanese, 103
+  Tibetan).
+  - **Bug kept:** `chantsToReserveForMaintaining` is in the file as the integer **500** and the executable reads it
+    with `fld` (`fn_0077A950`), so it is ~7e-43 ≈ 0: the reserve for maintaining spells does not exist in practice.
+- `GSpellIconInfo[2]`: [0] "Spell Icon" (worship site), [1] "TownSpell Icon" (village centre). Both use mesh
+  **203** `BuildingVillageCentreSpellHand` and `gatheringChantAddPerGameTurn` 61.
+- **Special points** (the L3D's extra metrics; `Game3DObject::GetSpecialPos` 0x63B040 / 0x63B0B0 = the metric's
+  matrix times the object's; `src/Worship/SpecialPoints.cpp`):
+  - the worship site's mesh `b_worship.l3d` has **16**: 7 hiding place, 8 dance centre and totem, 9 arrival,
+    **10..15 the six icon slots**;
+  - the village centre's mesh (e.g. 179 `BuildingNorseVillageCentre`) has **14**: **0..5 the six icon slots** (all at
+    y = 2.781, in a ring) and 6 the totem (y = 4.613, in the centre);
+  - the icon's mesh 203 has 1: the point where the `SpellSeedGraphic` floats (+1 in y).
+- Charge cost = `GMagicEffectInfo.costToCreate` (FIRE 3500 / PU1 7000 / PU2 10000, LIGHTNING 5000/7500/10000,
+  HEAL 6000/9000, FOOD 7000/10000, WOOD 7000, WATER 5000/7000, NATURE 13000, LIGHTNING BEAM 16000/32000/60000...).
 
-### La ciudadela y sus seis huecos (`Worship/Citadel.cpp`)
+### The citadel and its six slots (`Worship/Citadel.cpp`)
 
-`CitadelWorship` va en la entidad del templo (`components::Temple`), que openblack crea en `CitadelArchetype`. Seis
-huecos (`sites[6]`); el ángulo del hueco *n* es **el ángulo del corazón + n × 2π/7** (`Citadel::GetWorshipSiteAngle`
-0x463610) y el lugar se coloca a `radiusFromCitadel` del origen de la ciudadela.
+`CitadelWorship` goes in the temple's entity (`components::Temple`), which openblack creates in `CitadelArchetype`. Six
+slots (`sites[6]`); the angle of slot *n* is **the heart's angle + n × 2π/7** (`Citadel::GetWorshipSiteAngle`
+0x463610) and the site is placed at `radiusFromCitadel` from the citadel's origin.
 
-- `Citadel::AddTown` 0x463130 → `FindOrCreateWorshipSite` 0x4631D0 / 0x463220 → `FindTribeWorshipSite` 0x463190 o
-  `RequestANewWorshipSite` 0x4633F0 (el hueco libre más cercano a la ciudad más próxima de esa tribu, si no a la
-  ciudadela).
-- `CitadelHeart::CreateBuiltWorshipSite` 0x465110 es el `CREATE_WORSHIP_SITE` del guion: crea el lugar de esa tribu
-  **sin comprobar la ciudad** y le añade las ciudades del jugador de esa tribu. La posición y el número de sitio que
-  trae el guion **no se usan**.
-- `GPlayer::PostLoadCleanup` 0x64AB90 (justo después del guion de la tierra; en openblack, en el primer turno): por
-  cada jugador con ciudadela, cada una de sus ciudades sin lugar de culto → `Citadel::AddTown`.
-- `Town::IsAllowedToCreateWorshipSite` 0x740BB0: **nunca en la tierra 1**, ni si el guion lo prohíbe
-  (`SET_CAN_BUILD_WORSHIPSITE`), ni sin población. Por eso en Land1 solo hay dispensadores y luciérnagas.
-- **Lo que lee el audio** (`GGuidance::CheckWorshipSiteDesiresSFX` 0x71B270). Recorre `GPlayer+0xA48` →
-  `Citadel+0x34..+0x48` en orden de hueco (`citadel::WorshipSitesOf`). Se salta los lugares sin bailarines: fn_0077B960
-  salta a 0x77CFB0, que da `Dance+0x90` o 0 sin baile (`site::DancerCount`). De los demás se queda con el más cercano
-  a la cámara, a menos de 200 m (0x980130). Luego pide su `CalculateDesireForFood` (vt+0x420 de `??_7WorshipSite`
-  0x8F2840 = 0x77C310; `site::CalculateDesireForFood`), que vale `1 − min((comida + 0,0001) / (necesaria + 0,0001), 1)`.
-  - La comida es la de la olla del lugar (+0xB4, `Pot::JustGetResource` 0x66D390).
-  - La necesaria sale de `Dance::CalculateFoodNeededByDancers` 0x50BF20: la suma, por bailarín, de
+- `Citadel::AddTown` 0x463130 → `FindOrCreateWorshipSite` 0x4631D0 / 0x463220 → `FindTribeWorshipSite` 0x463190 or
+  `RequestANewWorshipSite` 0x4633F0 (the free slot closest to the nearest town of that tribe, otherwise to the
+  citadel).
+- `CitadelHeart::CreateBuiltWorshipSite` 0x465110 is the script's `CREATE_WORSHIP_SITE`: it creates the site of that
+  tribe **without checking the town** and adds the player's towns of that tribe to it. The position and site number
+  that the script brings **are not used**.
+- `GPlayer::PostLoadCleanup` 0x64AB90 (right after the land's script; in openblack, on the first turn): for each player
+  with a citadel, each of its towns without a worship site → `Citadel::AddTown`.
+- `Town::IsAllowedToCreateWorshipSite` 0x740BB0: **never on land 1**, nor if the script forbids it
+  (`SET_CAN_BUILD_WORSHIPSITE`), nor without population. That is why in Land1 there are only dispensers and fireflies.
+- **What the audio reads** (`GGuidance::CheckWorshipSiteDesiresSFX` 0x71B270). It walks `GPlayer+0xA48` →
+  `Citadel+0x34..+0x48` in slot order (`citadel::WorshipSitesOf`). It skips the sites without dancers: fn_0077B960
+  jumps to 0x77CFB0, which gives `Dance+0x90` or 0 without a dance (`site::DancerCount`). Of the others it keeps the
+  one closest to the camera, closer than 200 m (0x980130). Then it asks for its `CalculateDesireForFood` (vt+0x420 of
+  `??_7WorshipSite` 0x8F2840 = 0x77C310; `site::CalculateDesireForFood`), which is
+  `1 − min((comida + 0,0001) / (necesaria + 0,0001), 1)`.
+  - The food is that of the site's pot (+0xB4, `Pot::JustGetResource` 0x66D390).
+  - The needed amount comes from `Dance::CalculateFoodNeededByDancers` 0x50BF20: the sum, per dancer, of
     `(1 − comida en la barriga +0xE8) × foodReqiredForDinner` (+0x2D8).
-  - Lee también `Citadel+0x70`, la fracción del sonido de tensión del culto, limitada a 1 en 0x71B31C
-    (`citadel::StrainSoundFractionAtMostOne`). Solo la escribe `SetWorshipStrainSoundFrac` 0x463850 (desde
-    `ProcessSpellIcons` 0x46396C) y se guarda y carga con la partida (0x463D6A / 0x463FB9).
-  - **(aproximado)** openblack suma los bailarines en el orden en que se unieron, no grupo a grupo; solo cambia el
-    redondeo.
-  - **(inferido)** El valor inicial de +0x70 es 0: no se ha leído el constructor de Citadel.
+  - It also reads `Citadel+0x70`, the fraction of the worship strain sound, limited to 1 at 0x71B31C
+    (`citadel::StrainSoundFractionAtMostOne`). Only `SetWorshipStrainSoundFrac` 0x463850 writes it (from
+    `ProcessSpellIcons` 0x46396C) and it is saved and loaded with the game (0x463D6A / 0x463FB9).
+  - **(approximate)** openblack sums the dancers in the order in which they joined, not group by group; only the
+    rounding changes.
+  - **(inferred)** The initial value of +0x70 is 0: Citadel's constructor has not been read.
 
-### La batería y el turno del lugar (`Worship/WorshipSite.cpp`)
+### The battery and the site's turn (`Worship/WorshipSite.cpp`)
 
-`WorshipSite::ProcessSpellIcons` 0x77B4D0, una vez por turno desde `Citadel::ProcessSpellIcons` 0x463920 (que sale de
-`GPlayer::ProcessSpellIcons` 0x64AEE0, dentro de `Spell::ProcessSpells`):
+`WorshipSite::ProcessSpellIcons` 0x77B4D0, once per turn from `Citadel::ProcessSpellIcons` 0x463920 (which comes from
+`GPlayer::ProcessSpellIcons` 0x64AEE0, inside `Spell::ProcessSpells`):
 
-1. **Tensión** (+0x114) = `(pedido − capacidad) / capacidad`, con capacidad = `N × chantsPerVillager × poder tribal[2]`
-   (`fn_0077E060`). Sin capacidad, 1 si se pidió algo y 0 si no.
-2. Si la tensión **no** es positiva, los iconos que se están cargando se reparten lo que sobra:
-   `min(disponible, necesitado) / cuántos` a cada uno (`fn_0077CBC0` resta la reserva de mantenimiento, ~0 por el fallo
-   de arriba). Lo que cada icono acepta se cobra al lugar.
-3. `WorshipSpellIcon::Process` de cada icono.
-4. **Fin de turno** `fn_0077B6A0`: `k = min(1, usado/capacidad + empuje)` con
-   `empuje = max(0,2; 0,5 − batería/máximo × 0,5)` (0 si sale ≤ 0); producido = `capacidad × k`;
-   `chantDamage` = producido / N (lo que cuesta de vida a cada bailarín); `batería -= usado − producido` (nunca menos
-   de 0); `disponible = batería + capacidad`. Esa `k` es también la intensidad del baile (`fn_0077B8D0` →
+1. **Strain** (+0x114) = `(pedido − capacidad) / capacidad`, with capacity = `N × chantsPerVillager × poder tribal[2]`
+   (`fn_0077E060`). Without capacity, 1 if something was requested and 0 if not.
+2. If the strain is **not** positive, the icons that are being charged share out what is left over:
+   `min(disponible, necesitado) / cuántos` to each one (`fn_0077CBC0` subtracts the maintenance reserve, ~0 because of the
+   bug above). What each icon accepts is charged to the site.
+3. `WorshipSpellIcon::Process` of each icon.
+4. **End of turn** `fn_0077B6A0`: `k = min(1, usado/capacidad + empuje)` with
+   `empuje = max(0,2; 0,5 − batería/máximo × 0,5)` (0 if it comes out ≤ 0); produced = `capacidad × k`;
+   `chantDamage` = produced / N (what it costs each dancer in life); `batería -= usado − producido` (never below 0);
+   `disponible = batería + capacidad`. That `k` is also the intensity of the dance (`fn_0077B8D0` →
    `fn_0050C340`).
-   - Cada 1000 turnos los artefactos del lugar darían un extra; openblack no tiene artefactos (informe R12).
-- `UseChants` 0x77BBB0 apunta lo pedido, cobra como mucho lo disponible y suma a la estadística del jugador.
-  `MaintainSpell` 0x77BC50 y `fn_0077CC50` son las variantes de los trucos (cánticos infinitos, mantenimiento gratis).
-- `MaxBattery` = `chantsToFillBattery + N × eachVillagerAddToFillBattery` (9000 sin bailarines).
-- **Tensión visual** `fn_0077B3B0` (por fotograma): `fase = fmod(fase + (5 + 5·clamp(tensión,0,1))·dt, 2π)`,
+   - Every 1000 turns the site's artifacts would give an extra; openblack has no artifacts (report R12).
+- `UseChants` 0x77BBB0 records what was requested, charges at most what is available and adds to the player's
+  statistic. `MaintainSpell` 0x77BC50 and `fn_0077CC50` are the variants for the cheats (infinite chants, free
+  maintenance).
+- `MaxBattery` = `chantsToFillBattery + N × eachVillagerAddToFillBattery` (9000 without dancers).
+- **Visual strain** `fn_0077B3B0` (per frame): `fase = fmod(fase + (5 + 5·clamp(tensión,0,1))·dt, 2π)`,
   `pulso = (cos fase + 1)/2`.
-- El **baile** real sale de su `.DAN` (`GDanceInfo[19 + hueco]`, `GroupBehaviour::CalculateDancePosition` 0x597F20). No
-  está portado: los bailarines se reparten en un anillo de 6 m alrededor del punto 8, a 256/N cada uno (la parte de
-  anillo de esa función). **UNVERIFIED**: la forma exacta del baile.
+- The real **dance** comes from its `.DAN` (`GDanceInfo[19 + hueco]`, `GroupBehaviour::CalculateDancePosition` 0x597F20).
+  It is not ported: the dancers are spread over a 6 m ring around point 8, at 256/N each (the ring part of that
+  function). **UNVERIFIED**: the exact shape of the dance.
 
-### Los iconos y la carga (`Worship/WorshipSpellIcon.cpp`, `Worship/TownCentreSpellIcon.cpp`)
+### The icons and the charge (`Worship/WorshipSpellIcon.cpp`, `Worship/TownCentreSpellIcon.cpp`)
 
-- `WorshipSpellIcon::Create` 0x77F2B0 pone la malla 203 en el hueco 10..15 con la escala y el ángulo del lugar, y su
-  `SpellSeedGraphic` encima (`SpellIcon::Create3DSpellObject` 0x726210). `UpdateGraphicsWithPULevels` 0x77F320 muestra
-  el nivel de mejora más alto que el jugador tiene habilitado y pone +0x58 = 0,5. **+0x58 no es un alfa**: solo lo lee
-  `DrawSpellGraphic` 0x51A712 como tamaño de la banda (0,2 × +0x58 × escala). La semilla del icono se pinta opaca
-  (el icono pasa alfa 0xFF). Antes openblack la pintaba a medias: corregido.
+- `WorshipSpellIcon::Create` 0x77F2B0 places mesh 203 in slot 10..15 with the site's scale and angle, and its
+  `SpellSeedGraphic` above it (`SpellIcon::Create3DSpellObject` 0x726210). `UpdateGraphicsWithPULevels` 0x77F320 shows
+  the highest upgrade level the player has enabled and sets +0x58 = 0.5. **+0x58 is not an alpha**: it is only read by
+  `DrawSpellGraphic` 0x51A712 as the band size (0.2 × +0x58 × scale). The icon's seed is painted opaque (the icon
+  passes alpha 0xFF). Before, openblack painted it half transparent: corrected.
 
-### SpellSeedGraphic: la semilla que flota en la bola y en los iconos (`Worship/SpellSeedGraphic.cpp`, fiel salvo lo marcado)
+### SpellSeedGraphic: the seed that floats in the orb and in the icons (`Worship/SpellSeedGraphic.cpp`, faithful except where marked)
 
-Objeto de `SpellIcon.cpp` (no es un `Object`; lista 0xD9D3D0). Campos: +0x14 MapCoords de la malla, +0x2C la malla
-(Game3DObject), +0x30 la banda, +0x34/+0x38 fases de las fiolas, +0x3C ángulo y, +0x40/+0x44 ángulos de la banda,
-+0x48 semilla, +0x50 PSys de soporte, +0x54 escala, +0x58 tamaño de la banda, +0x5C auto-update, +0x60 PU, +0x64 el
-punto dado. Fila de semilla = 0xD9D678 + tipo × 0x190 (offsets de memoria = fichero + 0x10).
+Object from `SpellIcon.cpp` (it is not an `Object`; list 0xD9D3D0). Fields: +0x14 MapCoords of the mesh, +0x2C the mesh
+(Game3DObject), +0x30 the band, +0x34/+0x38 phases of the vials, +0x3C y angle, +0x40/+0x44 band angles, +0x48 seed,
++0x50 holder PSys, +0x54 scale, +0x58 band size, +0x5C auto-update, +0x60 PU, +0x64 the given point. Seed row =
+0xD9D678 + type × 0x190 (memory offsets = file + 0x10).
 
-- `Create` 0x726F60 → fn_00727190: la malla `GSpellSeedInfo.mesh` (+0x130 del fichero) y `ReplaceMeshGivenSeedType`
-  0x728450 (tabla 0x72854C por semilla − 3): FLYING_FLOCK pone la malla 1 (AnimalBat1) si la alineación del jugador
-  (GPlayer+0x60 → +8) < `alignmentSwitch` (fn_00723140), si no la 11 (AnimalSpellDove), y fn_00727440 lo rehace cada
-  30 turnos (`g_game +0x205A40 % 0x1E` en fn_00727350; openblack usa `Game::GetTurn`, **(inferido)** que ese campo
-  sea el contador de turnos); FOOD y las fiolas de criatura llevan el envmap 0 (`envmap.raw`) y BEAM_EXPLOSION propiedades
-  {1,0,1,1,0}: **no portado** (openblack no tiene envmap por objeto). El PSys de soporte (+0x164 del fichero) se crea
-  en el punto + `unknown0x154` × escala con magnitud = escala; la banda (`CreatePUBand` 0x727080) si pu ≠ −1.
-- fn_007270E0: +0x64 = punto, malla en punto + `unknown0x150` × escala (−1,5 casi siempre: las mallas I_* tienen el
-  origen abajo y ~3 m de alto, así quedan centradas), efecto en punto + `unknown0x154` × escala.
-- La bola (`OneOffSpellSeed::Draw` 0x518E90), cada fotograma que se ve: `GetSpellGraphicPos` 0x72A840 = la matriz
-  dibujada aplicada al punto de malla `ResolveLoad()+0x18` (el centro de la caja, **(inferido)** por ser el punto en
-  que gira fn_00518720) y escala = escala del objeto 3D × 0,6 ([0x8C7BDC]); `DrawUpdateAtPos` 0x727630 (+0x54 =
-  escala, fn_007270E0, fn_007274D0: PSys a su punto, magnitud = escala, `Process_` con la info a cero, poder 1,
-  activo) y `DrawSpellGraphic(bola, 0, 1, 0x95)`.
-- Los iconos (`SpellIcon::Draw` 0x5198D2, `TownCentre::Draw` 0x5164D4 → `DrawSpellSeedGraphic` 0x726D30):
-  `UpdateOnly(ms)` y `DrawSpellGraphic(icono, 0, 1, 0xFF)` (los dos tiñen el icono con 0xFFFFFFFF). La semilla queda
-  donde la creó `Create3DSpellObject` (punto especial 0 + 1, escala 1).
-- `DrawSpellGraphic` 0x519AD0 (leído entero en la parte de semillas del jugador):
-  - solo si `useMesh` (+0x168 del fichero, fn_00727690) vale 1. **STORM, FIRE, LIGHTNING_BOLT, WATER y TELEPORT tienen
-    0**: en la bola y en el icono solo se ve su efecto de soporte (LIGHTNING_STORM / FIREBALL / LIGHTNING_BOLT / WATER /
-    TELEPORT_ON_HOLDER). openblack pintaba sus mallas (I_Lightning2, I_Blast, I_Lightning, el cuerno para el agua y
-    el escudo para el teletransporte): eran los «iconos equivocados».
-  - tamaño = `GSpellSeedInfo.scale` (+0x134) × +0x54; ángulo +0x3C += 2 rad/s × dt ([0x8D8700]), fmod 2π (double
-    [0x8D45D8]); `SetPosition` 0x423140: filas X = (cos, 0, sin), Z = (−sin, 0, cos). **Sin bote ni pulso** para las
-    semillas del jugador: `AsMagicCreatureSpellInfo` (vt 0x38) de su magia base es NULL y salta a 0x51A0B3. El bote
-    (+0x38 a 0,35/0,5 por s, `0,5(1 + sin 2π f)`), los cuadros UV 8×4 a −15 por s (+0x34) y los aplastamientos
-    0,7/0,8/1,5 del switch 0x519D76 (por GMagicCreatureSpellInfo+0x58) son de las fiolas 12..27. Portados solo los
-    cuadros UV (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, ver
-    [rendering-objects.md](rendering-objects.md#texturas-animadas-por-fotogramas)); el bote y los aplastamientos no.
-  - alfa difuso = el del dueño (0x51A0B3..0x51A0E1) y `SetGlobalAlpha(alfa ≠ 0xFF)` (0x51A0EB), pero con arg 2 = 0
-    `GetAltitudeAndSetColorSpecular` (0x51A187) reescribe todo +0x4C con tabla[luminosidad] (0x803409..0x803413) o
-    tabla[255] (0x803365 / 0x8033DA), de alfa 0xFF (todo `palette.raw` tiene alfa 0xFF): en la bola la semilla va por
-    la tabla 0xC387C8 con alfa 0xFF ([0xC37D8C], 0x80DEF8), **opaca** (no 0x95). openblack: `components::Alpha` = 1.
-  - con arg 2 = 0 (todas las llamadas del mundo) `GetAltitudeAndSetColorSpecular` 0x803340 (0x51A187, en +0x14) pone
-    la luz de la casilla en la malla, sin neblina después: el modo `land_light::ObjectMode::Cell` de `SpellIcon::Draw`
-    (`SpellSeedGraphic::landCellLight`, `LandLightOf` de `RenderingSystem.cpp`). Las fiolas de criatura van por
-    fn_00801C90 + fn_007FEB30 (0x519D90 / 0x519D9E), la luz de los modelos.
-  - el PSys recibe el alfa: `GJPSysInterface::SetAlpha` 0x55ED50 (vt 0x12C) escribe el byte +0x6C del gestor;
-    fn_00679860 0x679875 lo copia en [0xC0215C] y fn_00679920 0x679BC2..0x679BDF hace alfa del átomo × él >> 8 si no
-    es 0xFF. En la bola (0x95) el efecto aditivo de la semilla suma 149/256 de su luz: sin eso (antes) el centro de la
-    burbuja salía blanco quemado y tapaba el icono (`orbcolour_compare.png`). Luego se pinta tal como se dio el último
-    paso.
-  - la banda si pu ≠ −1: +0x44 += 10,3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 dibujos en +0x64 con tamaño
-    0,2 × +0x58 × +0x54, filas: identidad con la fila 1 y la 2 cambiadas (la vieja 1 negada), giro (x, z) por base
-    + +0x44, (x, y) por 0,3, (x, z) por k, (x, y) por 0,2; base, k = 0, −1 la primera y 0,5, 1 las demás. Después
-    fn_0051A830 la gira hacia la cámara ([0xBE8E8E] = 1; `billboard::BandToEye`, ver
-    [rendering-objects.md](rendering-objects.md#objetos-que-miran-a-la-cámara-billboards)).
-  - **Color de la banda** (`SetColour` 0x7F9770 en 0x51A3BE: edx → +0x4C, el argumento → +0x50): +0x4C =
-    `GetPlayerColour` 0x64D800 (tabla 0xBFF0B8 por `GetRemapedPlayer`) del dueño (vt 0x1C), o del jugador local
-    (g_game +0x205A59) si el dueño es el neutral (g_game +0x205A5B) (0x51A322..0x51A36D); su rgb con alfa
-    (+0x70 × alfa del llamante) >> 8 (0x51A397..0x51A3B9); +0x70 = 0x3C (fn_00726F10 0x726F4E, único escritor), así que
-    en un icono (alfa 0xFF) el alfa es 59 y en la bola (0x95) 34. +0x50 (especular) = 0x141414 (byte [0xBE8EA0] = 20).
-    Rojo para el jugador 1. openblack: `components::ObjectColour` (nuevo) + `Alpha`; **(aproximado)**: el especular no
-    se pinta (la ruta de color de vs_object no lo tiene) y la luz del modelo (90 + 166 N·L) es la de los átomos de
-    malla del PSys. **(inferido)**: el jugador local es PLAYER_ONE.
-  - **Cada nivel se dibuja dos veces** con la misma matriz y color: 0x51A780 vt+0x104 y luego 0x51A7A3 vt+0x104 o, en
-    el último nivel con arg 1 = 0 (todas las llamadas: iconos y bolas), 0x51A796 vt+0x100. El objeto es un
-    `LH3DStaticObject` (LH3DObject::Create(0) 0x80B4F8, vtable 0x9A2974). vt+0x104 = fn_00815980: prueba de pantalla
-    (CheckRegionOnScreen 0x868C80) y de distancia, luego dibuja ya (vt+0x108 = fn_0080DB30). vt+0x100 = fn_00815A70:
-    la misma prueba, LOD por distancia (vt+0x1D0), apunta g_last_distance / g_last_selected_box y, si el objeto tiene
-    el bit 0x10 de +4 (vt+0x44 = fn_007F97C0), lo mete en el Z-sorter (`NewZObject` 0x83F310 con fn_007FA980 → vt+0x108,
-    clave = distancia² a la cámara, 0x815F0F..0x815F53); si no, dibuja ya. Ese bit lo pone `SetMesh` (vt+0xF4 =
-    fn_007F9E10 → vt+0x40 = fn_007F97A0) cuando la malla tiene el bit 0x200 en sus flags (fn_007F9D40), y
-    `Power_Up_Band.L3d` lo tiene (flags 0xA2200). Así que: todos los dibujos son inmediatos salvo el segundo del último
-    nivel, que va ordenado con los transparentes (con el estado del objeto al vaciarse el sorter, que es el del último
-    nivel: nada lo cambia después). Mismo material y mismo modo de cara en las dos pasadas (las dos acaban en
-    fn_0080DB30): no hay pasada de caras traseras ni media banda. Aditivo, así que cada banda suma su luz dos veces.
-    openblack: dos entidades por nivel (`k_DrawsPerBand`, `extraBands` = 2 (pu + 1) − 1). **(aproximado)**: el orden
-    respecto a la burbuja (inmediatos antes, el del Z-sorter entre los transparentes) no se reproduce: las 2 (pu + 1)
-    van en la pasada de translúcidos de openblack.
+- `Create` 0x726F60 → fn_00727190: the mesh `GSpellSeedInfo.mesh` (+0x130 of the file) and `ReplaceMeshGivenSeedType`
+  0x728450 (table 0x72854C per seed − 3): FLYING_FLOCK sets mesh 1 (AnimalBat1) if the player's alignment
+  (GPlayer+0x60 → +8) < `alignmentSwitch` (fn_00723140), otherwise 11 (AnimalSpellDove), and fn_00727440 redoes it
+  every 30 turns (`g_game +0x205A40 % 0x1E` in fn_00727350; openblack uses `Game::GetTurn`, **(inferred)** that this
+  field is the turn counter); FOOD and the creature vials carry envmap 0 (`envmap.raw`) and BEAM_EXPLOSION properties
+  {1,0,1,1,0}: **not ported** (openblack has no per-object envmap). The holder PSys (+0x164 of the file) is created at
+  the point + `unknown0x154` × scale with magnitude = scale; the band (`CreatePUBand` 0x727080) if pu ≠ −1.
+- fn_007270E0: +0x64 = point, mesh at point + `unknown0x150` × scale (−1.5 almost always: the I_* meshes have their
+  origin at the bottom and are ~3 m tall, so this centres them), effect at point + `unknown0x154` × scale.
+- The orb (`OneOffSpellSeed::Draw` 0x518E90), every frame it is visible: `GetSpellGraphicPos` 0x72A840 = the drawn
+  matrix applied to the mesh point `ResolveLoad()+0x18` (the box centre, **(inferred)** because it is the point
+  fn_00518720 rotates about) and scale = scale of the 3D object × 0.6 ([0x8C7BDC]); `DrawUpdateAtPos` 0x727630 (+0x54 =
+  scale, fn_007270E0, fn_007274D0: PSys to its point, magnitude = scale, `Process_` with the info zeroed, power 1,
+  active) and `DrawSpellGraphic(bola, 0, 1, 0x95)`.
+- The icons (`SpellIcon::Draw` 0x5198D2, `TownCentre::Draw` 0x5164D4 → `DrawSpellSeedGraphic` 0x726D30):
+  `UpdateOnly(ms)` and `DrawSpellGraphic(icono, 0, 1, 0xFF)` (both tint the icon with 0xFFFFFFFF). The seed stays where
+  `Create3DSpellObject` created it (special point 0 + 1, scale 1).
+- `DrawSpellGraphic` 0x519AD0 (read in full in the part for the player's seeds):
+  - only if `useMesh` (+0x168 of the file, fn_00727690) is 1. **STORM, FIRE, LIGHTNING_BOLT, WATER and TELEPORT have
+    0**: in the orb and in the icon only their holder effect is seen (LIGHTNING_STORM / FIREBALL / LIGHTNING_BOLT / WATER /
+    TELEPORT_ON_HOLDER). openblack painted their meshes (I_Lightning2, I_Blast, I_Lightning, the horn for water and
+    the shield for teleport): those were the "wrong icons".
+  - size = `GSpellSeedInfo.scale` (+0x134) × +0x54; angle +0x3C += 2 rad/s × dt ([0x8D8700]), fmod 2π (double
+    [0x8D45D8]); `SetPosition` 0x423140: rows X = (cos, 0, sin), Z = (−sin, 0, cos). **No bounce or pulse** for the
+    player's seeds: `AsMagicCreatureSpellInfo` (vt 0x38) of its base magic is NULL and it jumps to 0x51A0B3. The bounce
+    (+0x38 at 0.35/0.5 per s, `0,5(1 + sin 2π f)`), the 8×4 UV frames at −15 per s (+0x34) and the squashes
+    0.7/0.8/1.5 of the switch 0x519D76 (by GMagicCreatureSpellInfo+0x58) belong to the vials 12..27. Only the UV
+    frames are ported (0x519B79..0x519C1B, `frame_anim::SpellIconFrame`, see
+    [rendering-objects.md](rendering-objects.md#frame-animated-textures)); the bounce and the squashes are not.
+  - diffuse alpha = the owner's (0x51A0B3..0x51A0E1) and `SetGlobalAlpha(alfa ≠ 0xFF)` (0x51A0EB), but with arg 2 = 0
+    `GetAltitudeAndSetColorSpecular` (0x51A187) rewrites all of +0x4C with table[brightness] (0x803409..0x803413) or
+    table[255] (0x803365 / 0x8033DA), with alpha 0xFF (all of `palette.raw` has alpha 0xFF): in the orb the seed goes
+    through the 0xC387C8 table with alpha 0xFF ([0xC37D8C], 0x80DEF8), **opaque** (not 0x95). openblack:
+    `components::Alpha` = 1.
+  - with arg 2 = 0 (all the world calls) `GetAltitudeAndSetColorSpecular` 0x803340 (0x51A187, at +0x14) puts the
+    cell's light on the mesh, with no haze afterwards: the `land_light::ObjectMode::Cell` mode of `SpellIcon::Draw`
+    (`SpellSeedGraphic::landCellLight`, `LandLightOf` from `RenderingSystem.cpp`). The creature vials go through
+    fn_00801C90 + fn_007FEB30 (0x519D90 / 0x519D9E), the model light.
+  - the PSys receives the alpha: `GJPSysInterface::SetAlpha` 0x55ED50 (vt 0x12C) writes byte +0x6C of the manager;
+    fn_00679860 0x679875 copies it into [0xC0215C] and fn_00679920 0x679BC2..0x679BDF does atom alpha × it >> 8 if it
+    is not 0xFF. In the orb (0x95) the seed's additive effect adds 149/256 of its light: without that (before) the
+    centre of the bubble came out burnt white and covered the icon (`orbcolour_compare.png`). Then it is painted as the
+    last step left it.
+  - the band if pu ≠ −1: +0x44 += 10.3 × dt ([0xBE8E94]), +0x40 += dt; pu + 1 draws at +0x64 with size
+    0.2 × +0x58 × +0x54, rows: identity with row 1 and row 2 swapped (the old 1 negated), rotation (x, z) by base
+    + +0x44, (x, y) by 0.3, (x, z) by k, (x, y) by 0.2; base, k = 0, −1 for the first and 0.5, 1 for the others.
+    Afterwards fn_0051A830 turns it towards the camera ([0xBE8E8E] = 1; `billboard::BandToEye`, see
+    [rendering-objects.md](rendering-objects.md#objects-that-face-the-camera-billboards)).
+  - **Band colour** (`SetColour` 0x7F9770 at 0x51A3BE: edx → +0x4C, the argument → +0x50): +0x4C =
+    `GetPlayerColour` 0x64D800 (table 0xBFF0B8 by `GetRemapedPlayer`) of the owner (vt 0x1C), or of the local player
+    (g_game +0x205A59) if the owner is the neutral one (g_game +0x205A5B) (0x51A322..0x51A36D); its rgb with alpha
+    (+0x70 × the caller's alpha) >> 8 (0x51A397..0x51A3B9); +0x70 = 0x3C (fn_00726F10 0x726F4E, only writer), so in
+    an icon (alpha 0xFF) the alpha is 59 and in the orb (0x95) 34. +0x50 (specular) = 0x141414 (byte [0xBE8EA0] = 20).
+    Red for player 1. openblack: `components::ObjectColour` (new) + `Alpha`; **(approximate)**: the specular is not
+    painted (the colour path of vs_object does not have it) and the model light (90 + 166 N·L) is that of the PSys
+    mesh atoms. **(inferred)**: the local player is PLAYER_ONE.
+  - **Each level is drawn twice** with the same matrix and colour: 0x51A780 vt+0x104 and then 0x51A7A3 vt+0x104 or, on
+    the last level with arg 1 = 0 (all calls: icons and orbs), 0x51A796 vt+0x100. The object is an
+    `LH3DStaticObject` (LH3DObject::Create(0) 0x80B4F8, vtable 0x9A2974). vt+0x104 = fn_00815980: screen test
+    (CheckRegionOnScreen 0x868C80) and distance test, then it draws right away (vt+0x108 = fn_0080DB30). vt+0x100 =
+    fn_00815A70: the same test, LOD by distance (vt+0x1D0), records g_last_distance / g_last_selected_box and, if the
+    object has bit 0x10 of +4 (vt+0x44 = fn_007F97C0), puts it in the Z-sorter (`NewZObject` 0x83F310 with fn_007FA980
+    → vt+0x108, key = distance² to the camera, 0x815F0F..0x815F53); otherwise, it draws right away. That bit is set by
+    `SetMesh` (vt+0xF4 = fn_007F9E10 → vt+0x40 = fn_007F97A0) when the mesh has bit 0x200 in its flags (fn_007F9D40),
+    and `Power_Up_Band.L3d` has it (flags 0xA2200). So: all draws are immediate except the second one of the last
+    level, which goes sorted with the transparent ones (with the object's state when the sorter is flushed, which is
+    that of the last level: nothing changes it afterwards). Same material and same face mode in both passes (both end
+    in fn_0080DB30): there is no back-face pass and no half band. Additive, so each band adds its light twice.
+    openblack: two entities per level (`k_DrawsPerBand`, `extraBands` = 2 (pu + 1) − 1). **(approximate)**: the order
+    relative to the bubble (immediate ones before, the Z-sorter one among the transparent ones) is not reproduced: the
+    2 (pu + 1) go in openblack's translucent pass.
 - openblack: `seed_graphic::DrawUpdateAtPos` / `UpdateOnly` / `DrawSpellGraphic` / `UpdateIconGraphics`;
-  `one_off::UpdateFrames` (bola) y `worship::Update` (iconos) los llaman cada fotograma. **(inferido)**: también
-  cuando no están en pantalla.
-- Capturas (`dev\_audit\magic\`, `--mod test.miracle-dispensers` con `level=all`): `seed_<semilla>_a/_b.png` (dos
-  cuadros, 10 fotogramas de diferencia) y `seed_grid1.png` / `seed_grid2.png` (recortes aclarados), y
-  `seed_land2_icons_650/660.png` (iconos del lugar de culto de Land 2).
-- `TownCentre::AddSpell` 0x744050 crea un icono por semilla en el primer hueco libre 0..5 del centro del pueblo;
-  `TownCentre::MakeFunctional` 0x743E80 lo hace para toda la magia que la ciudad ya tenía y luego llama a
-  `WorshipSite::AddTownSpells`. Cada icono del pueblo pide al lugar de culto un icono de su semilla
-  (`fn_0073D1C0` → `WorshipSite::AddSpellIconIfNecessary` 0x77C9E0); al quitarlo, el del lugar solo desaparece si
-  ninguna otra ciudad del lugar tiene esa semilla (`fn_0077CAA0`).
-- **Tocar** (`SpellIcon::InterfaceTap` 0x726430 → `WorshipSpellIcon::ActualInterfaceTap` 0x77F880): si ya está lleno, la
-  semilla a la mano; si se está cargando, se cancela; si no, empieza a cargarse. Un icono del centro del pueblo reenvía
-  el toque al icono del lugar de culto de su misma semilla (`TownSpellIcon::GetWorshipSpellIcon` 0x748F30). El sonido
-  del toque es `G_ClickOnSpell_01` a un tono de {100, 115, 130, 145, 155, 175} % según el hueco (`fn_00726490`).
-- **Carga** `StartCharge` 0x77FA00 / `ValidForStartCharge` 0x77FAB0 / `fn_0077FB40` (paquete 0x25). Al llenarse
-  (`GetChantNeeded` ≤ 0): si ya hay semilla en la mano se le sube el nivel de mejora; si no,
-  `PutFullyChargedPowerUpSeedInHand` 0x77F8F0 la pone en la mano **ya lista** (`fn_00729900(1)`, la corrección de M1) y
-  suena la voz del milagro (`PlayFullyChargedSoundFX` 0x77F4E0, banco `SpellDialogue.sad`).
-- **Fallo conservado de `AddToChantStore` 0x77FDA0:** por debajo del requisito devuelve lo que ha metido; por encima
-  deja el almacén en el requisito y devuelve el **exceso** `x − (requisito − almacén)`, y es ese exceso lo que se le
-  cobra al lugar de culto.
-- Devolver la semilla: `CancelCharge` 0x77F9A0 y `ReturnAllChantsToWorshipSite` 0x77FD60 devuelven el almacén a la
-  batería; `SpellSeed::ApplyToWorshipSite` 0x7289C0 / 0x728B30 / 0x729A80 devuelve los cánticos de la semilla al lugar
-  de su icono (soltarla en el suelo del lugar, dársela al tótem o a un icono, o sacudirla de la mano). Si se le da a un
-  icono **de otra semilla** del mismo jugador, ese icono entrega su semilla cargada (el intercambio). Un dispensador,
-  un `WorshipTotem` y cualquier icono son "puntos de devolución" (`IsSpellSeedReturnPoint`), así que
-  `SpellSeed::CanCast(objeto)` 0x729190 les deja dar la semilla aunque la magia no se pueda lanzar sobre objetos.
-- Con la marca de partida 0x2000 (`OPENBLACK_INFLUENCE_EVERYWHERE`) los iconos neutrales se cargan solos a
-  `gatheringChantAddPerGameTurn` (61) por turno.
-- El **anillo de carga** (malla 561 `MSH_S_PULSE_IN`, `TChargingData::Draw` 0x7267A0) usa la fracción
-  `almacén/requisito` (1 con semilla en la mano), mostrada como `(f+0,2)/1,2`, y al llenarse pulsa con
+  `one_off::UpdateFrames` (orb) and `worship::Update` (icons) call them every frame. **(inferred)**: also when they are
+  not on screen.
+- Captures (`dev\_audit\magic\`, `--mod test.miracle-dispensers` with `level=all`): `seed_<semilla>_a/_b.png` (two
+  frames, 10 frames apart) and `seed_grid1.png` / `seed_grid2.png` (brightened crops), and
+  `seed_land2_icons_650/660.png` (icons of the Land 2 worship site).
+- `TownCentre::AddSpell` 0x744050 creates one icon per seed in the first free slot 0..5 of the village centre;
+  `TownCentre::MakeFunctional` 0x743E80 does it for all the magic the town already had and then calls
+  `WorshipSite::AddTownSpells`. Each village icon asks the worship site for an icon of its seed
+  (`fn_0073D1C0` → `WorshipSite::AddSpellIconIfNecessary` 0x77C9E0); when it is removed, the site's one only
+  disappears if no other town of the site has that seed (`fn_0077CAA0`).
+- **Tapping** (`SpellIcon::InterfaceTap` 0x726430 → `WorshipSpellIcon::ActualInterfaceTap` 0x77F880): if it is already
+  full, the seed goes to the hand; if it is being charged, it is cancelled; otherwise, it starts charging. A village
+  centre icon forwards the tap to the worship site icon of its same seed (`TownSpellIcon::GetWorshipSpellIcon`
+  0x748F30). The tap sound is `G_ClickOnSpell_01` at a pitch of {100, 115, 130, 145, 155, 175} % depending on the slot
+  (`fn_00726490`).
+- **Charge** `StartCharge` 0x77FA00 / `ValidForStartCharge` 0x77FAB0 / `fn_0077FB40` (packet 0x25). When it fills
+  (`GetChantNeeded` ≤ 0): if there is already a seed in the hand its upgrade level is raised; otherwise,
+  `PutFullyChargedPowerUpSeedInHand` 0x77F8F0 puts it in the hand **already ready** (`fn_00729900(1)`, the M1
+  correction) and the miracle's voice plays (`PlayFullyChargedSoundFX` 0x77F4E0, bank `SpellDialogue.sad`).
+- **Bug kept in `AddToChantStore` 0x77FDA0:** below the requirement it returns what it put in; above it, it leaves the
+  store at the requirement and returns the **excess** `x − (requisito − almacén)`, and it is that excess that is
+  charged to the worship site.
+- Returning the seed: `CancelCharge` 0x77F9A0 and `ReturnAllChantsToWorshipSite` 0x77FD60 return the store to the
+  battery; `SpellSeed::ApplyToWorshipSite` 0x7289C0 / 0x728B30 / 0x729A80 returns the seed's chants to the site of its
+  icon (dropping it on the site's ground, giving it to the totem or to an icon, or shaking it off the hand). If it is
+  given to an icon **of another seed** of the same player, that icon hands over its charged seed (the exchange). A
+  dispenser, a `WorshipTotem` and any icon are "return points" (`IsSpellSeedReturnPoint`), so
+  `SpellSeed::CanCast(objeto)` 0x729190 lets the seed be given to them even if the magic cannot be cast on objects.
+- With the game flag 0x2000 (`OPENBLACK_INFLUENCE_EVERYWHERE`) the neutral icons charge by themselves at
+  `gatheringChantAddPerGameTurn` (61) per turn.
+- The **charge ring** (mesh 561 `MSH_S_PULSE_IN`, `TChargingData::Draw` 0x7267A0) uses the fraction
+  `almacén/requisito` (1 with a seed in the hand), shown as `(f+0,2)/1,2`, and when it fills it pulses with
   `alfa = 255·(0,1 + 0,5·(sin(4π t)+1)/2)`.
 
-### El porcentaje de culto y los aldeanos (`Worship/WorshipPercentage.cpp`, `VillagerWorship.cpp`)
+### The worship percentage and the villagers (`Worship/WorshipPercentage.cpp`, `VillagerWorship.cpp`)
 
-- `Town::SetWorshipPercentage` 0x73C060 (arrastrar el tótem, `TotemStatue::NetworkUnfriendlyLockedSelect` 0x7386A0:
-  `pct = clamp(pct + dy × 0,1; 0; 1)`): 0 sin lugar de culto; si no, se guarda, se le pasa al tótem
-  (`TotemStatue::SetWorshipPercentage` 0x738270, que lo sube 8 m con un *Zoomer* de |Δ|·5200 ms, que va en ms:
-  [engine-math.md](engine-math.md#zoomer-lh3dlib)) y se manda a los aldeanos
-  que falten.
+- `Town::SetWorshipPercentage` 0x73C060 (dragging the totem, `TotemStatue::NetworkUnfriendlyLockedSelect` 0x7386A0:
+  `pct = clamp(pct + dy × 0,1; 0; 1)`): 0 without a worship site; otherwise it is stored, passed to the totem
+  (`TotemStatue::SetWorshipPercentage` 0x738270, which raises it 8 m with a *Zoomer* of |Δ|·5200 ms, which is in ms:
+  [engine-math.md](engine-math.md#zoomer-lh3dlib)) and sent to the villagers
+  that are missing.
 - `Town::GetWorshipersNeeded` 0x73C860: `objetivo = pct > 0 ? max(1; int(población × pct + 0,5)) : 0`;
   `resultado = objetivo − (adorando + en camino) + los que piden volver a casa`.
-- `Town::AdjustWorshipersWorshipping` 0x73C0F0: dos pasadas (la segunda acepta también los marcados 0x200); para
-  mandar, los aldeanos disponibles **más cerca** del centro del baile primero
-  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida³`); para retirar, los
-  que están o van al lugar, los **más lejanos** primero (estado 163).
-  - `GetDistanceModifier` 0x74F290 es `SigmoidThreshold(0,5; 1 − min(d; max)/max)`, con el umbral en el **primer**
-    argumento (`push 0x3F000000` en 0x74F2B7): **baja** con la distancia, de 0,99996 en d = 0 a 3,6e-5 en d ≥ max (ver
-    [engine-math.md](engine-math.md#distancias-de-gutils)). openblack los pasaba al revés y mandaba primero a los más
-    lejanos; corregido en la sesión «sistemas2».
-  - Es **vida³**, no vida²: tras `GetLife` (0x73C630) el bucle 0x73C63A..0x73C644 (`mov eax, 2`, y dos vueltas de
-    `dec eax; fmul vida; jne`) multiplica la vida dos veces más, y el modificador entra al final (0x73C646).
-- Estados del aldeano (tabla de `LivingActionSystem.cpp`): **59** llega al lugar (0x76BE00; a 10 m del punto 9 entra al
-  baile si `N < maxDancersVisible`, si no al escondite), **60** bailando (0x76C680), **213** escondido (0x76C5E0) y
-  **248** vuelve a casa (0x761B70). Salidas `ExitMoveToWorshipSite` 0x76C170 y `ExitAtWorshipSite` 0x76C1F0. El 58 del
-  original es la marcha por el camino (`SetupMoveToOnFootpath`); openblack camina con el WallHug dentro del 59, así que
-  el 58 no se usa. `Villager::CheckNeededForWorship` 0x76BA60 entra desde `DECIDE_WHAT_TO_DO`.
-  - **Ojo:** el `k_VillagerStateStrings` de openblack se equivoca en los índices 248..254 (dice `RESTART_MEETING`...);
-    el enum `VillagerStates` sí coincide con el original y es el que indexa la tabla.
-- `Villager::ProcessInWorship` 0x76C890 cada turno: `CheckVillagerGoBackToTownFromWorship` 0x76BEC0,
-  `CheckRequestGoHome` 0x76C8D0 (con vida < `damageThresholdToGoHome` 0,3 se apunta en la cola, ordenada por el deseo
-  de vida `GetLifeDesireFromLife` 0x75BBC0) y `ReduceVillagerLifeByChant` 0x76C800
-  (`vida -= chantDamage × chantLifeRate`, 5e-6; al llegar a 0 muere con motivo 4 y lo cuenta
+- `Town::AdjustWorshipersWorshipping` 0x73C0F0: two passes (the second also accepts those flagged 0x200); to send, the
+  available villagers **closest** to the dance centre first
+  (`fn_0073C590` = `GetDistanceModifier(distancia; distancia del centro a la ciudad + 100) × vida³`); to withdraw,
+  those who are at or going to the site, the **farthest** first (state 163).
+  - `GetDistanceModifier` 0x74F290 is `SigmoidThreshold(0,5; 1 − min(d; max)/max)`, with the threshold in the **first**
+    argument (`push 0x3F000000` at 0x74F2B7): it **decreases** with distance, from 0.99996 at d = 0 to 3.6e-5 at
+    d ≥ max (see [engine-math.md](engine-math.md#gutils-distances)). openblack passed them the other way round and
+    sent the farthest ones first; corrected in the "sistemas2" session.
+  - It is **life³**, not life²: after `GetLife` (0x73C630) the loop 0x73C63A..0x73C644 (`mov eax, 2`, and two rounds
+    of `dec eax; fmul vida; jne`) multiplies the life twice more, and the modifier comes in at the end (0x73C646).
+- Villager states (table in `LivingActionSystem.cpp`): **59** arrives at the site (0x76BE00; within 10 m of point 9 it
+  joins the dance if `N < maxDancersVisible`, otherwise the hiding place), **60** dancing (0x76C680), **213** hidden
+  (0x76C5E0) and **248** goes back home (0x761B70). Exits `ExitMoveToWorshipSite` 0x76C170 and `ExitAtWorshipSite`
+  0x76C1F0. The original's 58 is the walk along the path (`SetupMoveToOnFootpath`); openblack walks with the WallHug
+  inside 59, so 58 is not used. `Villager::CheckNeededForWorship` 0x76BA60 enters from `DECIDE_WHAT_TO_DO`.
+  - **Watch out:** openblack's `k_VillagerStateStrings` is wrong at indices 248..254 (it says `RESTART_MEETING`...);
+    the `VillagerStates` enum does match the original and is what indexes the table.
+- `Villager::ProcessInWorship` 0x76C890 every turn: `CheckVillagerGoBackToTownFromWorship` 0x76BEC0,
+  `CheckRequestGoHome` 0x76C8D0 (with life < `damageThresholdToGoHome` 0.3 it signs up in the queue, sorted by the
+  life desire `GetLifeDesireFromLife` 0x75BBC0) and `ReduceVillagerLifeByChant` 0x76C800
+  (`vida -= chantDamage × chantLifeRate`, 5e-6; on reaching 0 it dies with reason 4 and is counted by
   `GET_TOWN_WORSHIP_DEATHS`).
-- `Villager::CanIGetToTheWorshipSite` 0x76BC20: dentro de `maxDistanceThatVillagersWillGoToWorship` (500).
-- Sin portar: comer en el lugar (estado 241, hace falta el estómago del aldeano) y llevar suministros (estados 42-46).
+- `Villager::CanIGetToTheWorshipSite` 0x76BC20: within `maxDistanceThatVillagersWillGoToWorship` (500).
+- Not ported: eating at the site (state 241, needs the villager's stomach) and carrying supplies (states 42-46).
 
-### Dispensadores y luciérnagas (`Worship/SpellDispenser.cpp`, `Worship/FireFlyReward.cpp`)
+### Dispensers and fireflies (`Worship/SpellDispenser.cpp`, `Worship/FireFlyReward.cpp`)
 
-- `SpellDispenser` es un Abode con su magia y su periodo. `SpellDispenser::Process` 0x722A70: mientras su orbe siga
-  existiendo y tocándolo, espera; si no, cada `periodo` turnos crea otro (`CreateOneOffSpellSeed` 0x722B80 →
-  `OneOffSpellSeed::Create` en su posición + 1,2 × su altura, visual de sitio 9). El periodo por defecto es
-  `timeEachMobileObjectTakesToProduce` = **300** turnos; `SET_MAGIC_PROPERTIES` 0x70CC30 y `SET_TIMER_TIME` 0x711280 lo
-  cambian en segundos (× turnos por segundo) y un periodo 0 lo desactiva. Darle una semilla no lanzada lo convierte en
-  un orbe allí, perdiendo sus cánticos (`fn_00728C50`, visual 0x1B).
-- En **Land1** los dispensadores no salen del guion de la tierra, sino del guion del desafío
+- `SpellDispenser` is an Abode with its magic and its period. `SpellDispenser::Process` 0x722A70: while its orb still
+  exists and touches it, it waits; otherwise, every `periodo` turns it creates another (`CreateOneOffSpellSeed` 0x722B80
+  → `OneOffSpellSeed::Create` at its position + 1.2 × its height, site visual 9). The default period is
+  `timeEachMobileObjectTakesToProduce` = **300** turns; `SET_MAGIC_PROPERTIES` 0x70CC30 and `SET_TIMER_TIME` 0x711280
+  change it in seconds (× turns per second) and a period of 0 disables it. Giving it an uncast seed turns it into an
+  orb there, losing its chants (`fn_00728C50`, visual 0x1B).
+- In **Land1** the dispensers do not come from the land's script, but from the challenge script
   (`GiveSpellDispenserReward`: `CREATE_WITH_ANGLE_AND_SCALE(SPELL_DISPENSER)`, `SET_MAGIC_PROPERTIES`, `SET_ACTIVE`,
-  `SET_TIMER_TIME`). `CREATE_SPELL_DISPENSER` solo aparece en Land3, Land5 y los patios de recreo.
-- **Luciérnagas** (`FireFly.cpp` 0x52B5A0..0x52B790): al coger con la mano un objeto sobre el que dormía una luciérnaga
-  (`fn_0052B600`, desde `GInterface::PlaceObjectInMagicHand` 0x5DA6F0) se sortea un milagro de un uso con las
-  probabilidades de `FIRE_FLY_SPELL_REWARD_PROB`, que **solo usa Land1.txt** (CURAR 20; FUEGO, RAYO, NATURALEZA,
-  COMIDA, MADERA y AGUA 1 cada uno): `r = GameFloatRand(total)`, el primer milagro cuya suma acumulada llega a `r`, su
-  primera semilla y nivel, y un orbe si esa semilla existe (`GSpellSeedInfo.exists`).
+  `SET_TIMER_TIME`). `CREATE_SPELL_DISPENSER` only appears in Land3, Land5 and the playgrounds.
+- **Fireflies** (`FireFly.cpp` 0x52B5A0..0x52B790): when picking up with the hand an object on which a firefly was
+  sleeping (`fn_0052B600`, from `GInterface::PlaceObjectInMagicHand` 0x5DA6F0) a one-off miracle is drawn with the
+  probabilities of `FIRE_FLY_SPELL_REWARD_PROB`, which **only Land1.txt uses** (HEAL 20; FIRE, LIGHTNING, NATURE,
+  FOOD, WOOD and WATER 1 each): `r = GameFloatRand(total)`, the first miracle whose cumulative sum reaches `r`, its
+  first seed and level, and an orb if that seed exists (`GSpellSeedInfo.exists`).
 
-### Guion (`Magic/Script/CHLWorship.cpp`, la parte de culto de `MapScriptMagic.cpp`)
+### Script (`Magic/Script/CHLWorship.cpp`, the worship part of `MapScriptMagic.cpp`)
 
-- Comandos del mapa: `CREATE_TOWN_SPELL` / `CREATE_TOWN_CENTRE_SPELL_ICON` (10 y 12, el mismo manejador),
-  `CREATE_NEW_TOWN_SPELL` (11), `CREATE_SPELL_ICON` (13, no hace nada ni en el original),
-  `CREATE_PLANNED_SPELL_ICON` (14, solo el tipo de magia de la ciudad), `CREATE_WORSHIP_SITE` (19),
-  `FIRE_FLY_SPELL_REWARD_PROB` (88) y `CREATE_SPELL_DISPENSER` (90).
-- Natives CHL: 330 `IS_SPELL_CHARGING` 0x70CB80, 331 `IS_THAT_SPELL_CHARGING` 0x70CBD0, 355 `GAME_SET_MANA` 0x6FE800,
+- Map commands: `CREATE_TOWN_SPELL` / `CREATE_TOWN_CENTRE_SPELL_ICON` (10 and 12, the same handler),
+  `CREATE_NEW_TOWN_SPELL` (11), `CREATE_SPELL_ICON` (13, does nothing, not even in the original),
+  `CREATE_PLANNED_SPELL_ICON` (14, only the town's magic type), `CREATE_WORSHIP_SITE` (19),
+  `FIRE_FLY_SPELL_REWARD_PROB` (88) and `CREATE_SPELL_DISPENSER` (90).
+- CHL natives: 330 `IS_SPELL_CHARGING` 0x70CB80, 331 `IS_THAT_SPELL_CHARGING` 0x70CBD0, 355 `GAME_SET_MANA` 0x6FE800,
   356 `SET_MAGIC_PROPERTIES` 0x70CC30, 376 `SET_CAN_BUILD_WORSHIPSITE` 0x6FEC40, 386 `SET_MAGIC_IN_OBJECT` 0x6FF0B0,
-  410 `GET_TOWN_WORSHIP_DEATHS` 0x6FF640, 422 `GET_MANA` 0x6FE8C0, 423 `CLEAR_PLAYER_SPELL_CHARGING` 0x70CD80 y
-  453 `GET_SPELL_ICON_IN_TEMPLE` 0x6F3590; más las ramas de dispensador de `SET_ACTIVE` (255) y `SET_TIMER_TIME` (145)
-  y los tipos de `CREATE` 30 `ONE_SHOT_SPELL`, 31 `ONE_SHOT_SPELL_IN_HAND` y 36 `SPELL_DISPENSER` (`GScript`
+  410 `GET_TOWN_WORSHIP_DEATHS` 0x6FF640, 422 `GET_MANA` 0x6FE8C0, 423 `CLEAR_PLAYER_SPELL_CHARGING` 0x70CD80 and
+  453 `GET_SPELL_ICON_IN_TEMPLE` 0x6F3590; plus the dispenser branches of `SET_ACTIVE` (255) and `SET_TIMER_TIME` (145)
+  and the `CREATE` types 30 `ONE_SHOT_SPELL`, 31 `ONE_SHOT_SPELL_IN_HAND` and 36 `SPELL_DISPENSER` (`GScript`
   0x6F1010).
 
-### Selección por gesto
+### Selection by gesture
 
-Los iconos que ve el sistema de selección de M2 se registran con `gestures::SetIconProvider`
-(`Worship/GestureIconProvider.cpp`): los del jugador de la interfaz, en el orden de las listas de sus seis lugares
-(`GPlayer` 0x64BAB0..0x64BF40). `GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40 elige, entre los iconos válidos de esa
-semilla, el del lugar con más cánticos disponibles.
+The icons seen by M2's selection system are registered with `gestures::SetIconProvider`
+(`Worship/GestureIconProvider.cpp`): those of the interface's player, in the order of the lists of its six sites
+(`GPlayer` 0x64BAB0..0x64BF40). `GPlayer::FindBestSpellIconForSpellSeed` 0x64BF40 chooses, among the valid icons of that
+seed, the one of the site with the most chants available.
 
-### Capturas
+### Captures
 
-En `dev\_audit\magic\` (Land2 con `-s Land2.txt`, Land1 con `-s Land1.txt`; los ganchos están en
-[openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)):
+In `dev\_audit\magic\` (Land2 with `-s Land2.txt`, Land1 with `-s Land1.txt`; the hooks are in
+[openblack-internals.md](openblack-internals.md#debug-environment-variables)):
 
-- `m7_land2_site.png`: la ciudadela de PLAYER_TWO con sus dos lugares de culto (el norso de
-  `CREATE_WORSHIP_SITE` en el hueco 5 y el griego que `PostLoadCleanup` añade por la ciudad 2 en el hueco 0), los dos en
-  el origen de la ciudadela y girados a su hueco, con su caldero de comida y su altar.
-- `m7_land2_icons.png`: los cuatro iconos de hechizo del lugar (FUEGO, NATURALEZA, COMIDA, MADERA de la ciudad 1) en los
-  puntos 10..13 de la malla `b_worship`, con su `SpellSeedGraphic` y su efecto encima.
-- `m7_land2_dance.png` (`OPENBLACK_TEST_WORSHIP="1,0.5"`): 11 de los 22 aldeanos de la ciudad 1 en el lugar de culto. El
-  registro da `site 149 icons 4 N 11 C 33.0 k 0.223 strain -1.000 battery 6824 / 12300 available 6857 damage 0.67`:
-  capacidad 11 × 3, máximo 9000 + 11 × 300 y el daño por bailarín exactamente como el original.
-- `m7_land2_totem.png` (lo mismo): el tótem de la ciudad 1 subido sobre su plinto (8 × 0,5 = 4 m) y los iconos del centro
-  del pueblo a su alrededor.
+- `m7_land2_site.png`: PLAYER_TWO's citadel with its two worship sites (the Norse one from `CREATE_WORSHIP_SITE` in
+  slot 5 and the Greek one that `PostLoadCleanup` adds for town 2 in slot 0), both at the citadel's origin and rotated
+  to their slot, with their food cauldron and their altar.
+- `m7_land2_icons.png`: the site's four spell icons (FIRE, NATURE, FOOD, WOOD from town 1) at points 10..13 of the
+  `b_worship` mesh, with their `SpellSeedGraphic` and their effect above.
+- `m7_land2_dance.png` (`OPENBLACK_TEST_WORSHIP="1,0.5"`): 11 of the 22 villagers of town 1 at the worship site. The
+  log gives `site 149 icons 4 N 11 C 33.0 k 0.223 strain -1.000 battery 6824 / 12300 available 6857 damage 0.67`:
+  capacity 11 × 3, maximum 9000 + 11 × 300 and the damage per dancer exactly as in the original.
+- `m7_land2_totem.png` (the same): town 1's totem raised on its plinth (8 × 0.5 = 4 m) and the village centre's icons
+  around it.
 - `m7_land2_charge.png` (`OPENBLACK_TEST_WORSHIP_SITE="NORSE,FIRE,HEAL,FOOD,WOOD"`,
-  `OPENBLACK_TEST_TOWN_SPELL="0,FIRE;..."`, `OPENBLACK_TEST_MANA=40`, `OPENBLACK_TEST_TAP_ICON="FIRE,5"`): el anillo de
-  carga encendido sobre el icono de FUEGO mientras se llena a 40 cánticos por turno.
-- `m7_land2_seed_hand.png` / su registro (con `OPENBLACK_TEST_MANA=20000`): con la batería llena el icono se llena en un
-  turno y `Worship: seed 3093 of icon 3086 in the hand with 7000 chants` (COMIDA cuesta 7000).
+  `OPENBLACK_TEST_TOWN_SPELL="0,FIRE;..."`, `OPENBLACK_TEST_MANA=40`, `OPENBLACK_TEST_TAP_ICON="FIRE,5"`): the charge
+  ring lit over the FIRE icon while it fills at 40 chants per turn.
+- `m7_land2_seed_hand.png` / its log (with `OPENBLACK_TEST_MANA=20000`): with the battery full the icon fills in one
+  turn and `Worship: seed 3093 of icon 3086 in the hand with 7000 chants` (FOOD costs 7000).
 - `m7_land1_dispenser.png` (`OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1826,2670,WOOD"`,
-  `OPENBLACK_TEST_FIREFLY_REWARD="1846,2670,3"`): el dispensador de milagros de Land1 con su orbe de MADERA y tres
-  recompensas de luciérnaga. El total de probabilidades es 26 (CURAR 20 + seis de 1), como en Land1.txt, y salieron
-  CURAR, AGUA y COMIDA.
+  `OPENBLACK_TEST_FIREFLY_REWARD="1846,2670,3"`): Land1's miracle dispenser with its WOOD orb and three firefly
+  rewards. The total of the probabilities is 26 (HEAL 20 + six of 1), as in Land1.txt, and HEAL, WATER and FOOD came
+  out.
 
-Fallo de dibujo conocido: la malla `b_worship` del lugar de culto (una `ContainsLandscapeFeature`) sale **negra**,
-porque openblack no le pone la textura del terreno que usa. No es del sistema de culto.
+Known drawing bug: the worship site's `b_worship` mesh (a `ContainsLandscapeFeature`) comes out **black**, because
+openblack does not give it the terrain texture it uses. It is not part of the worship system.
 
-### Diferencias con el original y lo que falta
+### Differences from the original and what is missing
 
-- Los lugares de culto de openblack nacen **construidos**: no hay obras ni `BuildingSite`, así que
-  `CREATE_PLANNED_WORSHIP_SITE` no hace nada y una ciudadela planeada recibe igual sus seis huecos.
-- **El arrastre del tótem con la mano no está conectado** (`percentage::TotemTown` está listo para ello): el porcentaje
-  se prueba con `OPENBLACK_TEST_WORSHIP`.
-- No está portado: el baile real de los `.DAN`, los artefactos del lugar, el sprite del camino de maná
-  (`CreateManaPathSprite` 0x77B2C0, del lado del lanzamiento), los suministros al lugar, los cofres de recompensa (M7b)
-  y el robo de hechizos por la criatura (con M8).
-- **Sin verificar:** el tipo de jugador 3 que no puede tener lugar de culto; el bit 0x200 del aldeano que la segunda
-  pasada de `AdjustWorshipersWorshipping` acepta; `maxDistanceForVillagersToGoToTheWorshipsite` (1000) y
-  `minLifeForVillagersToGoToTheWorshipsite` (0,4), que no se leen en las funciones portadas; el contador
-  `WorshipSpellIcon +0x114` (nadie lo activa en el ejecutable).
+- openblack's worship sites are born **built**: there is no construction work and no `BuildingSite`, so
+  `CREATE_PLANNED_WORSHIP_SITE` does nothing and a planned citadel gets its six slots anyway.
+- **Dragging the totem with the hand is not wired up** (`percentage::TotemTown` is ready for it): the percentage is
+  tested with `OPENBLACK_TEST_WORSHIP`.
+- Not ported: the real dance of the `.DAN` files, the site's artifacts, the mana path sprite
+  (`CreateManaPathSprite` 0x77B2C0, on the casting side), the supplies to the site, the reward chests (M7b) and the
+  stealing of spells by the creature (with M8).
+- **Unverified:** player type 3 that cannot have a worship site; the villager's bit 0x200 that the second pass of
+  `AdjustWorshipersWorshipping` accepts; `maxDistanceForVillagersToGoToTheWorshipsite` (1000) and
+  `minLifeForVillagersToGoToTheWorshipsite` (0.4), which are not read in the ported functions; the counter
+  `WorshipSpellIcon +0x114` (nobody activates it in the executable).
 
-## Influencia (M1i, `src/ECS/Influence`)
+## Influence (M1i, `src/ECS/Influence`)
 
-Investigación completa en `dev\documentacion\miracles\influence.md`. Todas las distancias son en x,z
+Full research in `dev\documentacion\miracles\influence.md`. All distances are in x,z
 (`GetDistanceInMetres` 0x74CD70).
 
-- **Consulta.** `Influence::CalculatePlayerInfluence(pos, jugador, 0, tipo, aliados)` 0x5CD170 devuelve de -1 a 1; "en
-  la influencia" es `> 0`.
-  - Sin jugador da 0.
-  - Con la marca de partida 0x2000 (el valor de registro "GatheringFlag", `start_system` 0x6433B1) da 1 en todas
-    partes. En openblack es `OPENBLACK_INFLUENCE_EVERYWHERE`.
-  - Luego mira la influencia virtual (`SET_VIRTUAL_INFLUENCE`, sin portar; es la única que lee `tipo`) y después
-    `CalculatePlayerRawInfluence`.
-  - Si esa da ≤ 0 y se piden aliados, devuelve la del primer aliado con influencia (`IsAllied` y +0x950 > 0.1). Si no
-    hay aliado, 0.
-  - Quién llama y con qué argumentos:
-    - las reglas de lanzamiento 2 y 3 (fn_005FB5D0): aliados = 1;
-    - la mano, `m_InInfluence` (GInterface+0x48, fn_005D1120): con la posición de la mano, tipo 1 y aliados = 1;
-    - `GInterfaceStatus::Process` 0x5DC558: suelta el objeto bloqueado (coger por tandas) fuera de la influencia. Ya
-      está en `HandResources.cpp`.
+- **Query.** `Influence::CalculatePlayerInfluence(pos, jugador, 0, tipo, aliados)` 0x5CD170 returns -1 to 1; "in the
+  influence" is `> 0`.
+  - Without a player it gives 0.
+  - With the game flag 0x2000 (the registry value "GatheringFlag", `start_system` 0x6433B1) it gives 1 everywhere. In
+    openblack it is `OPENBLACK_INFLUENCE_EVERYWHERE`.
+  - Then it looks at the virtual influence (`SET_VIRTUAL_INFLUENCE`, not ported; it is the only one that reads `tipo`)
+    and afterwards `CalculatePlayerRawInfluence`.
+  - If that gives ≤ 0 and allies are requested, it returns that of the first ally with influence (`IsAllied` and
+    +0x950 > 0.1). If there is no ally, 0.
+  - Who calls and with which arguments:
+    - cast rules 2 and 3 (fn_005FB5D0): allies = 1;
+    - the hand, `m_InInfluence` (GInterface+0x48, fn_005D1120): with the hand's position, type 1 and allies = 1;
+    - `GInterfaceStatus::Process` 0x5DC558: drops the locked object (picking up in batches) outside the influence. It
+      is already in `HandResources.cpp`.
 - **`CalculatePlayerRawInfluence`** 0x5CD230:
-  - suma la ciudadela, las ciudades del jugador (GPlayer+0xA50) y los anillos, y la deja entre -1 y 1;
-  - un anillo anti del mismo jugador que cubra el punto devuelve 0;
-  - un anillo pegado a un objeto que está en la mano no cuenta;
-  - `CameraExclusion::InsideInclusion` siempre es cierta en una partida normal (solo la usa el campo de fuerza de
-    cámara de una partida guardada).
-- **Ciudadela y ciudades: todo o nada.** Aportan su radio si el punto está dentro, así que la suma pasa de 1 y se queda
-  en 1. Para la ciudadela, dentro es `r > d` (fn_004630F0); para la ciudad, `d < r` (fn_007479E0).
-  - **Ciudadela.** `Citadel::GetInfluence` 0x464090 = `playerInfluenceMultiplier × Citadel+0x6C`.
-    - +0x6C se fija una vez, al crear el primer CitadelHeart (0x4649B0): `M2 × (tierra ? storyInfluence[tierra-1] :
-      influence)` de GCitadelHeartInfo, es decir 125, o 750/450/250/450/450 en las tierras 1 a 5.
-    - M2 vale 1 con `CREATE_CITADEL` y la escala del plano con la ciudadela planeada. En Land1 la construye el guion
-      del desafío: `BUILD_BUILDING(1915.05, 2508.89, 1.0)` → `ForceBuildingOfPlannedAtPos` →
+  - it sums the citadel, the player's towns (GPlayer+0xA50) and the rings, and clamps it between -1 and 1;
+  - an anti ring of the same player covering the point returns 0;
+  - a ring attached to an object that is in the hand does not count;
+  - `CameraExclusion::InsideInclusion` is always true in a normal game (it is only used by the camera force field of a
+    saved game).
+- **Citadel and towns: all or nothing.** They contribute their radius if the point is inside, so the sum goes past 1
+  and stays at 1. For the citadel, inside is `r > d` (fn_004630F0); for the town, `d < r` (fn_007479E0).
+  - **Citadel.** `Citadel::GetInfluence` 0x464090 = `playerInfluenceMultiplier × Citadel+0x6C`.
+    - +0x6C is set once, when the first CitadelHeart is created (0x4649B0): `M2 × (tierra ? storyInfluence[tierra-1] :
+      influence)` from GCitadelHeartInfo, that is 125, or 750/450/250/450/450 on lands 1 to 5.
+    - M2 is 1 with `CREATE_CITADEL` and the blueprint's scale with the planned citadel. In Land1 it is built by the
+      challenge script: `BUILD_BUILDING(1915.05, 2508.89, 1.0)` → `ForceBuildingOfPlannedAtPos` →
       `CreatePlannedNoFixedCheck`.
-    - Resultado: **750 m en Land1**, 450 en Land2 y 250 en Land3 (por eso en Land3 se empieza con tan poca).
-  - **Ciudad.** `Town::Process` 0x747380 recalcula el radio (+0x5C8) cada turno:
-    - la base es `Town::GetBaseInfluence` 0x73FD40: la `influence` de GTownInfo (25), o su `storyInfluence[tierra-1]`
+    - Result: **750 m in Land1**, 450 in Land2 and 250 in Land3 (which is why in Land3 you start with so little).
+  - **Town.** `Town::Process` 0x747380 recalculates the radius (+0x5C8) every turn:
+    - the base is `Town::GetBaseInfluence` 0x73FD40: GTownInfo's `influence` (25), or its `storyInfluence[tierra-1]`
       (25/25/25/50/25);
-    - a eso se suma, cada `processAbodeEvery` (1) turnos, el `GetInfluence` de cada edificio de la ciudad, salvo si
-      Town+0x5F8 (último argumento del constructor, 0 en `CREATE_TOWN`; no es `SET_TOWN_UNINHABITABLE`, que escribe
-      +0x5F4);
-    - el total se multiplica por `townInfluenceMultiplier`;
-    - solo cuentan las ciudades del propio jugador: una NEUTRAL solo cuenta para el jugador neutral.
-  - **Edificio.** `Abode::GetInfluence` 0x4072A0 =
+    - to that is added, every `processAbodeEvery` (1) turns, the `GetInfluence` of each building in the town, except
+      if Town+0x5F8 (last argument of the constructor, 0 in `CREATE_TOWN`; it is not `SET_TOWN_UNINHABITABLE`, which
+      writes +0x5F4);
+    - the total is multiplied by `townInfluenceMultiplier`;
+    - only the player's own towns count: a NEUTRAL one only counts for the neutral player.
+  - **Building.** `Abode::GetInfluence` 0x4072A0 =
     `% construido × escala × vida × GAbodeInfo::influence × (adultos +0xB4 + niños +0xB7 + 1)`
-    (`MultiMapFixed::GetInfluence` 0x52ECA0 por ese factor).
-    - Valores de `influence`: casas 5, tótem y centro del pueblo 90, almacén 45, taller y dispensador 25, cementerio
-      30, guardería y campo de fútbol 20, maravilla 150, campo 5.
-    - Los campos también son Abode.
-    - `GAbodeInfo::Find` de openblack devolvería los registros sin tribu del final (arca 1, tótem 120), así que el
-      registro se busca por la malla.
-  - **Globales de la tierra.**
-    - Los multiplicadores valen 1 por defecto (GGame::Init). Los cambian `SET_TOWN_INFLUENCE_MULTIPLIER` (caso 96:
-      Land3 0.5, Land4 0.8, Land5 0.6) y `SET_PLAYER_INFLUENCE_MULTIPLIER` (caso 97).
-    - `SET_LAND_NUMBER` escribe g_game+0x205A08.
-    - La tierra 6 lee el float que va detrás del array de historia.
-- **Anillos** (`InfluenceRing`, 0x44 bytes; lista g_game+0x205C4C, el más nuevo primero):
-  - Campos: posición, objeto seguido (+0x28), jugador (+0x34), radio (+0x38) y anti (+0x3C).
-  - Aportan `Influence::CalculateInfluenceOnRange(d, r)` 0x5CD560, con GInfluenceInfo 0.4 / 0.2 / 0.2:
-    - 1 hasta 0.4·r;
-    - de 0.8 a 0 hasta 0.6·r;
-    - de **0.2** a 0 hasta r. El 0.2 es un double en 0x8C7C68, y el salto de 0 a 0.2 en 0.6·r se conserva.
-  - `ProcessRings` 0x5CDB90: el anillo sigue a su objeto, y si el objeto desaparece se borra con él.
-  - `IsInAntiInfluence` 0x5CD490: el punto está dentro de un anillo anti de ese jugador (`d ≤ r`).
-- **Guiones.**
-  - `CREATE_INFLUENCE_RING(pos, jugador, radio, anti)` (caso 59).
-  - CHL `INFLUENCE_OBJECT` (60) e `INFLUENCE_POSITION` (61): en la pila van anti, jugador (índice de juego, sin
-    convertir), radio y objeto o posición; devuelven el anillo.
-  - CHL `GET_INFLUENCE` (62): en la pila van posición, `raw` y jugador (de guion: 0 = el local, n = n − 1). Aliados =
-    `raw == 0`.
-  - El guion de LandT abre un anillo de 1000 m en (2185.6, 2409.5).
-- **Dibujo** (`GGame::Update3DInfluence` 0x555280, cada 10 turnos si ha cambiado algo más de 0.01):
-  - un círculo por ciudadela y por ciudad, con el color del jugador (los anillos no se dibujan);
-  - solo con la opción `WorldRoom::ShowInfluence`;
-  - no está portado.
-- **Sin portar:**
-  - la influencia virtual;
-  - los aliados (openblack no tiene alianzas);
-  - la regla de multijugador (sin ciudadela, 0);
-  - el dibujo;
-  - `CalculateMostInfluentialPlayer` y sus ayudantes 0x5CD4F0 / 0x5CD600 / 0x5CD6C0.
-- **Diferencia heredada.** openblack crea el templo de `CREATE_PLANNED_CITADEL` ya construido. El original le da la
-  influencia cuando el guion de Land1 lo construye, a los pocos segundos.
+    (`MultiMapFixed::GetInfluence` 0x52ECA0 times that factor).
+    - `influence` values: houses 5, totem and village centre 90, store 45, workshop and dispenser 25, graveyard
+      30, crèche and football pitch 20, wonder 150, field 5.
+    - Fields are also Abodes.
+    - openblack's `GAbodeInfo::Find` would return the tribeless records at the end (ark 1, totem 120), so the record
+      is looked up by the mesh.
+  - **Land globals.**
+    - The multipliers are 1 by default (GGame::Init). They are changed by `SET_TOWN_INFLUENCE_MULTIPLIER` (case 96:
+      Land3 0.5, Land4 0.8, Land5 0.6) and `SET_PLAYER_INFLUENCE_MULTIPLIER` (case 97).
+    - `SET_LAND_NUMBER` writes g_game+0x205A08.
+    - Land 6 reads the float that comes after the story array.
+- **Rings** (`InfluenceRing`, 0x44 bytes; list g_game+0x205C4C, newest first):
+  - Fields: position, followed object (+0x28), player (+0x34), radius (+0x38) and anti (+0x3C).
+  - They contribute `Influence::CalculateInfluenceOnRange(d, r)` 0x5CD560, with GInfluenceInfo 0.4 / 0.2 / 0.2:
+    - 1 up to 0.4·r;
+    - from 0.8 to 0 up to 0.6·r;
+    - from **0.2** to 0 up to r. The 0.2 is a double at 0x8C7C68, and the jump from 0 to 0.2 at 0.6·r is kept.
+  - `ProcessRings` 0x5CDB90: the ring follows its object, and if the object disappears it is deleted with it.
+  - `IsInAntiInfluence` 0x5CD490: the point is inside an anti ring of that player (`d ≤ r`).
+- **Scripts.**
+  - `CREATE_INFLUENCE_RING(pos, jugador, radio, anti)` (case 59).
+  - CHL `INFLUENCE_OBJECT` (60) and `INFLUENCE_POSITION` (61): on the stack go anti, player (game index, not
+    converted), radius and object or position; they return the ring.
+  - CHL `GET_INFLUENCE` (62): on the stack go position, `raw` and player (script one: 0 = the local one, n = n − 1).
+    Allies = `raw == 0`.
+  - LandT's script opens a 1000 m ring at (2185.6, 2409.5).
+- **Drawing** (`GGame::Update3DInfluence` 0x555280, every 10 turns if something has changed by more than 0.01):
+  - one circle per citadel and per town, in the player's colour (the rings are not drawn);
+  - only with the `WorldRoom::ShowInfluence` option;
+  - it is not ported.
+- **Not ported:**
+  - the virtual influence;
+  - the allies (openblack has no alliances);
+  - the multiplayer rule (without a citadel, 0);
+  - the drawing;
+  - `CalculateMostInfluentialPlayer` and its helpers 0x5CD4F0 / 0x5CD600 / 0x5CD6C0.
+- **Inherited difference.** openblack creates the temple of `CREATE_PLANNED_CITADEL` already built. The original gives
+  it the influence when Land1's script builds it, a few seconds in.
 
-## Alineación del jugador (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
+## Player alignment (`GAlignment`, GPlayer +0x60; `src/ECS/Effects/Alignment.*`, `components::PlayerAlignment`)
 
-- Valor de −1 (malvado) a +1 (bueno) en +0x08 y un cambio pendiente en +0x0C. Partida nueva: 0 (`GGame::Init`
-  0x54FEA0 toma el del perfil, 0 sin él). Vive con el jugador, no con la tierra (no se borra al cargar
-  mapa): en openblack, un `components::PlayerAlignment` por `PlayerNames` fuera del registro de la tierra
-  (`Magic/Core/Players`, `AlignmentOf`), el mismo que usan los milagros con `GAlignment::Update` 0x414410.
-- **Actos** (`GAlignment::Update` 0x4145A0 para árboles): ±`GPlayerInfo::treePullPutAlignmentChange` (0,005), pesado por
-  la alineación actual (fn_00414660): hacia donde ya se inclina cuenta `v·(1 − |a|/2)`, en contra `v·(1 + |a|/2)`; se suma
-  al pendiente. Arrancar con la mano (`Tree::InterfaceSetInMagicHand`) es malo; replantar (`Tree::EndPhysics`) y el árbol
-  que planta el agua (`Tree::ApplyWaterSpell`) son buenos.
-- **Cada turno** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140; en openblack la ranura 3 de
-  `Magic/MagicLoop.cpp`, `GPlayer::ProcessPlayers`): el pendiente, limitado a −1..1,
-  por `maxAlignmentChangePerGameTurn` (0,0019444 = 0,7 por hora de juego) se suma (`CrudeUpdate`, limitado a −1..1) y el
-  pendiente vuelve a 0. O sea, el pendiente es una **fracción del ritmo máximo** de ese turno: un árbol arrancado mueve la
-  alineación unas 10⁻⁵ (−0,005 × 0,0019444). Es lo que dice el código; otros actos (efectos, milagros, muertes) aportan
-  mucho más.
-- Guion: `GET_ALIGNMENT(jugador)` devuelve el valor; `SET_ALIGNMENT(jugador, v)` **suma** v (`CrudeUpdate`, pese al
-  nombre) y fuera de −1..1 da el error «Alignment out of range» sin hacer nada (`GScript::SetAlignment` 0x6F99C0).
-- Sin portar: el historial (`CAlignmentHistory::Add` 0x415260, que leen los consejeros y la vista bueno/malo) y
-  `GGuidance::HelpSpritesAlignmentProcess`. La alineación del **terreno** (`MapCoords::GetAlignment`, la del crecimiento y
-  los campos) es otra cosa, de la influencia de cada celda, y sigue sin portar. Traza: `OPENBLACK_ALIGNMENT_TRACE=1`.
+- Value from −1 (evil) to +1 (good) at +0x08 and a pending change at +0x0C. New game: 0 (`GGame::Init` 0x54FEA0
+  takes the one from the profile, 0 without one). It lives with the player, not with the land (it is not cleared when
+  loading a map): in openblack, one `components::PlayerAlignment` per `PlayerNames` outside the land's registry
+  (`Magic/Core/Players`, `AlignmentOf`), the same one the miracles use with `GAlignment::Update` 0x414410.
+- **Acts** (`GAlignment::Update` 0x4145A0 for trees): ±`GPlayerInfo::treePullPutAlignmentChange` (0.005), weighted by
+  the current alignment (fn_00414660): towards where it already leans it counts `v·(1 − |a|/2)`, against it
+  `v·(1 + |a|/2)`; it is added to the pending change. Uprooting with the hand (`Tree::InterfaceSetInMagicHand`) is
+  evil; replanting (`Tree::EndPhysics`) and the tree that water plants (`Tree::ApplyWaterSpell`) are good.
+- **Every turn** (`GPlayer::Process` → `ProcessForPlayer` 0x4141A0 → `Process` 0x414140; in openblack slot 3 of
+  `Magic/MagicLoop.cpp`, `GPlayer::ProcessPlayers`): the pending change, clamped to −1..1,
+  times `maxAlignmentChangePerGameTurn` (0.0019444 = 0.7 per game hour) is added (`CrudeUpdate`, clamped to −1..1) and
+  the pending change goes back to 0. In other words, the pending change is a **fraction of the maximum rate** of that
+  turn: an uprooted tree moves the alignment by about 10⁻⁵ (−0.005 × 0.0019444). That is what the code says; other acts
+  (effects, miracles, deaths) contribute much more.
+- Script: `GET_ALIGNMENT(jugador)` returns the value; `SET_ALIGNMENT(jugador, v)` **adds** v (`CrudeUpdate`, despite the
+  name) and outside −1..1 gives the error "Alignment out of range" without doing anything (`GScript::SetAlignment`
+  0x6F99C0).
+- Not ported: the history (`CAlignmentHistory::Add` 0x415260, read by the advisors and the good/evil view) and
+  `GGuidance::HelpSpritesAlignmentProcess`. The **terrain** alignment (`MapCoords::GetAlignment`, the one for growth
+  and the fields) is something else, from the influence of each cell, and is still not ported. Trace:
+  `OPENBLACK_ALIGNMENT_TRACE=1`.
 
-### Los efectos de los hechizos (`GAlignment::Update` 0x414410)
+### Spell effects (`GAlignment::Update` 0x414410)
 
-- `GAlignment::Update` 0x414410 (R7 resuelta): nada si la vida no cambió. `K = |Δvida| +
-  GPlayerInfo.applyEffectAlignmentChangeAddition`: el jugador 0 guarda en +0x64 el puntero a `GPlayerInfo` 0xD47988,
-  y +0x1C en memoria es el archivo +0x0C. Para aplastar, golpear, curar y empujar, `pendiente += f(v ×
-  GAlignmentInfo[i][col] × K)`; para quemar, lo mismo con `ConvertTemperatureToDamage`. **fn_00414660 compara el
-  signo del cambio con el de A** (0 cuenta como positivo): mismo signo `v(1 − |A|/2)`, signo contrario `v(1 + |A|/2)`
-  (leído de nuevo en 0x414660..0x4146AD: `je 0x414696` si A ≥ 0; en cada rama `jne` si v < 0; corregido el
-  2026-09-30, la primera lectura de M1 decía que solo miraba el signo de v).
+- `GAlignment::Update` 0x414410 (R7 resolved): nothing if the life did not change. `K = |Δvida| +
+  GPlayerInfo.applyEffectAlignmentChangeAddition`: player 0 stores at +0x64 the pointer to `GPlayerInfo` 0xD47988,
+  and +0x1C in memory is file +0x0C. For crush, hit, heal and push, `pendiente += f(v ×
+  GAlignmentInfo[i][col] × K)`; for burn, the same with `ConvertTemperatureToDamage`. **fn_00414660 compares the sign
+  of the change with that of A** (0 counts as positive): same sign `v(1 − |A|/2)`, opposite sign `v(1 + |A|/2)`
+  (read again at 0x414660..0x4146AD: `je 0x414696` if A ≥ 0; in each branch `jne` if v < 0; corrected on
+  2026-09-30, the first M1 reading said it only looked at the sign of v).
 
-### La alineación del cielo (`alignment::GetInterfaceAlignment`)
+### The sky alignment (`alignment::GetInterfaceAlignment`)
 
-`fn_0064AC30`, una vez por turno al final de `GPlayer::ProcessPlayers` (0x64A697; aquí en el hueco 3 del turno, después
-de `alignment::ProcessPlayers`): el jugador con más influencia (`Influence::CalculateMostInfluentialPlayer` 0x5CD630: el
-primero, en el orden de los jugadores, cuya influencia supera la de los anteriores y 0; si ninguno, el neutral) en la
-posición de la interfaz, **GInterfaceStatus +0xB0 = la posición de la cámara** (lo dice `UpdateSpellInfo` 0x5DC948,
-que calcula el frente de la cámara como +0xBC − +0xB0), y `x = clamp((alineación + 1)/2, 0, 1)` es lo que recibe
-`fn_005E2240`. Empieza en 0,5; `DoCitadelMultiplayer` la fija a 0,5 (no hay multijugador).
-`Clouds::InfluentialPlayerAlignment` (de mapa) devuelve `2x − 1`, salvo el gancho `OPENBLACK_TEST_SKY_ALIGNMENT` o el
-deslizador de depuración movido de 0.
+`fn_0064AC30`, once per turn at the end of `GPlayer::ProcessPlayers` (0x64A697; here in slot 3 of the turn, after
+`alignment::ProcessPlayers`): the player with the most influence (`Influence::CalculateMostInfluentialPlayer` 0x5CD630:
+the first, in player order, whose influence exceeds that of the previous ones and 0; if none, the neutral one) at the
+interface's position, **GInterfaceStatus +0xB0 = the camera's position** (as shown by `UpdateSpellInfo` 0x5DC948,
+which computes the camera's front as +0xBC − +0xB0), and `x = clamp((alineación + 1)/2, 0, 1)` is what
+`fn_005E2240` receives. It starts at 0.5; `DoCitadelMultiplayer` fixes it at 0.5 (there is no multiplayer).
+`Clouds::InfluentialPlayerAlignment` (map one) returns `2x − 1`, except with the `OPENBLACK_TEST_SKY_ALIGNMENT` hook
+or the debug slider moved off 0.
 
-## Reacciones (`ECS/Effects/Reactions`)
+## Reactions (`ECS/Effects/Reactions`)
 
-- Reacciones (`ECS/Effects/Reactions`, el único módulo, unido al de los animales): `CreateReaction` 0x6E3D70 crea
-  el objeto de 0x44 bytes (radio del ctor 0x6E39D0: 1 si la reacción crece, si no `maxReactionDistance`) y lo reparte
-  una vez (`SpreadReaction` 0x6E3E10, la espiral de [animals.md](animals.md#reacciones)): cada vivo de la celda, en el
-  orden de la celda, va al manejador de su clase (`SetLivingReactionHandler`: animales en `ECS/AnimalFlee.cpp`,
-  aldeanos en `VillagerReactions.cpp`, que despacha fuego y teletransporte). Lo común a los vivos también está ahí:
-  los registros (+0x98, `components::ReactionRecords`), la puntuación fn_006E4620 y la regla de cambio. Antes el
-  fuego repartía con `maxReactionDistance` siempre (inf) y ordenaba los aldeanos de la celda por entidad; ahora usa el
-  radio del ctor (en info.dat REACT_TO_FIRE no crece: 35 m, el mismo) y el orden de la celda, como los animales
-  (aproximado: el de la rejilla de openblack, que se rehace una vez por turno y antes de un reparto fuera del turno, no
-  las listas del original). El reloj es uno, el turno de juego fijado al principio del turno (`BeginTurn`, que además
-  quita las reacciones cuyo iniciador ya no existe); los registros de los animales también lo usan.
+- Reactions (`ECS/Effects/Reactions`, the only module, merged with the animals' one): `CreateReaction` 0x6E3D70 creates
+  the 0x44-byte object (radius of the ctor 0x6E39D0: 1 if the reaction grows, otherwise `maxReactionDistance`) and
+  spreads it once (`SpreadReaction` 0x6E3E10, the spiral from [animals.md](animals.md#reactions)): each living thing
+  in the cell, in the cell's order, goes to the handler of its class (`SetLivingReactionHandler`: animals in
+  `ECS/AnimalFlee.cpp`, villagers in `VillagerReactions.cpp`, which dispatches fire and teleport). What is common to the
+  living is also there: the records (+0x98, `components::ReactionRecords`), the score fn_006E4620 and the switch rule.
+  Before, fire always spread with `maxReactionDistance` (inf) and sorted the cell's villagers by entity; now it uses the
+  ctor's radius (in info.dat REACT_TO_FIRE does not grow: 35 m, the same) and the cell's order, like the animals
+  (approximate: that of openblack's grid, which is rebuilt once per turn and before an out-of-turn spread, not the
+  original's lists). There is one clock, the game turn fixed at the start of the turn (`BeginTurn`, which also removes
+  the reactions whose initiator no longer exists); the animals' records also use it.
 
-## Vida de los objetos (M0, `src/ECS/Life`)
+## Object life (M0, `src/ECS/Life`)
 
-- Vida en 0..1 (Object+0x48). Los aldeanos la guardan ahora como float (`Villager::life`, antes un porcentaje entero
-  que perdía los cambios pequeños de fuego o del cántico); rocas y animales en `components::Life`.
-- `Living::Living` 0x5EBEC0 empieza con `SetLife(GLivingInfo::life)`; `Object::Object` 0x636520 con 1.0.
-- `Object::ReduceLife` 0x637810: si la vida es menor que la cantidad, 0; si no, vida − cantidad. Devuelve la nueva.
-  Aldeanos y animales no la redefinen. No mata: los estados de muerte no están portados, así que el choque físico
-  (`HurtByImpact`) mata al llegar a 0 como antes.
-- `Object::IncreaseLife` 0x637870 (y `Villager::IncreaseLife` 0x753460, que la llama): hasta 1.
-- `Villager::SetLife` 0x756B40 cuenta en el pueblo (Town+0x714) los aldeanos por debajo de 0.7 de vida
-  (fn_00756BC0 / fn_00756BD0); el `Town` de openblack aún no tiene esa cuenta. `Object::SetLife` 0x63A140 no deja bajar
-  de 0.01 a los objetos con la marca 0x40 (o 0x200 en cierto estado de la interfaz): sin verificar cuáles, no portado.
+- Life in 0..1 (Object+0x48). Villagers now store it as a float (`Villager::life`, before an integer percentage that
+  lost small changes from fire or chanting); rocks and animals in `components::Life`.
+- `Living::Living` 0x5EBEC0 starts with `SetLife(GLivingInfo::life)`; `Object::Object` 0x636520 with 1.0.
+- `Object::ReduceLife` 0x637810: if the life is less than the amount, 0; otherwise life − amount. Returns the new one.
+  Villagers and animals do not override it. It does not kill: the death states are not ported, so the physical impact
+  (`HurtByImpact`) kills on reaching 0 as before.
+- `Object::IncreaseLife` 0x637870 (and `Villager::IncreaseLife` 0x753460, which calls it): up to 1.
+- `Villager::SetLife` 0x756B40 counts in the town (Town+0x714) the villagers below 0.7 life
+  (fn_00756BC0 / fn_00756BD0); openblack's `Town` does not have that count yet. `Object::SetLife` 0x63A140 does not let
+  objects with flag 0x40 (or 0x200 in a certain interface state) drop below 0.01: which ones is unverified, not ported.
 
-## Fuego (M5, `src/ECS/Fire`)
+## Fire (M5, `src/ECS/Fire`)
 
-Informes: `destructive.md` §2-4 y §7, `visuals_sound.md` §4.1-4.2, `psys/part_render.md` §8 y §10. Todo lo de abajo está
-leído en el exe (W120) salvo lo marcado UNVERIFIED o «(inf)».
+Reports: `destructive.md` §2-4 and §7, `visuals_sound.md` §4.1-4.2, `psys/part_render.md` §8 and §10. Everything below
+was read in the exe (W120) except what is marked UNVERIFIED or "(inf)".
 
-La bola de fuego y el rayo, que son los que encienden la mayoría de los fuegos, están en
-[Bola de fuego y rayo](miracles.md#bola-de-fuego-y-rayo-m5-magicobjectsmagicfireball-psysrulesfireballlightning).
+The fireball and the lightning, which are what start most fires, are in
+[Fireball and lightning](miracles.md#fireball-and-lightning-m5-magicobjectsmagicfireball-psysrulesfireballlightning).
 
-### El modelo de calor (`FireEffect`, `SpreadEffect.cpp` 0x72E940-0x7310F0)
+### The heat model (`FireEffect`, `SpreadEffect.cpp` 0x72E940-0x7310F0)
 
-Cada objeto más caliente que el aire lleva un `FireEffect` (0x50 bytes, tipo de guardado 0x29). Hay una lista global, la
-más nueva primero, y `FireEffect::ProcessList` 0x730760 la recorre una vez por turno (0,1 s; hueco 6 de
-`GGame::ProcessTurn`).
+Every object hotter than the air carries a `FireEffect` (0x50 bytes, save type 0x29). There is a global list, newest
+first, and `FireEffect::ProcessList` 0x730760 walks it once per turn (0.1 s; slot 6 of `GGame::ProcessTurn`).
 
-- **Valores del objeto** (`GObjectInfo` +0xB0 heatCapacity, +0xB4 combustionTemperature, +0x80.. multiplicadores de
-  defensa; `FireObjectTraits.cpp`): `Tc = max(combustionTemperature, 40)` (fn_00730180), `Tmax = 2·Tc` (fn_007301B0),
-  capacidad `max(heatCapacity, 1)` (fn_007301D0), ambiente `MapCoords::GetTemperature` 0x605CC0 = **24,7 en todo el
-  mapa** (fld 0x930080).
-- **Arde** cuando `T >= Tc` (`IsOnFire` 0x730360); reacciona con `T >= 100` o `T >= Tc`
-  (`IsAboveReactionTemperature` 0x730380). La fracción de fuego (0x7303E0) es `(T - 0,8·Tc)/(2·Tc - 0,8·Tc)` limitada a
-  `2·vida` y a 0..1; el radio del fuego es `1,25 ·` el radio del objeto `·` la fracción (0x72FF10) y la altura de la
-  llama `1,25 · altura · (T - Tamb)/(2·Tc - Tamb)` (fn_0072FF70).
-- **Por turno** (`fn_0072F5B0`, dentro de ProcessList):
-  - en agua enfría 50 veces más rápido; con lluvia o nieve el multiplicador es `rainCoolingMultiplier·lluvia + 1`;
-  - si le dieron calor este turno: `T += 0,1·T/(2·Tc)` con techo `2·Tc`;
-  - si no: `T -= (T + 10 - Tamb)·(4·altura·radio)·0,1·multiplicador/capacidad` (el «área» 4·H·r);
-  - ardiendo: daño `(T - Tc)/(2·Tc - Tc) · defenceMultiplierBurn · 0,1` a la vida (0x72EEC0), y **carbonizado** +0,04 por
-    turno mientras la vida < 0,6, con tope `(0,6 - vida)/0,6`; al enfriarse baja 0,02 por turno;
-  - al morir: `DestroyedByEffect` (una criatura no se destruye);
-  - **propagación**: espiral de celdas de 10 m mientras la celda esté a `radio del fuego + 10 m` del centro del fuego;
-    cada objeto de esas celdas recibe calor (`fn_0072F980`). El viento (fn_00771B10) **se calcula y se descarta**: no
-    mueve la búsqueda. Un objeto en la mano solo propaga dentro de la influencia de quien lo sostiene (0x730860);
-  - la reacción `REACT_TO_FIRE` (10) se crea al pasar la temperatura de reacción y se borra al bajar; en la mano es
-    `REACT_TO_BURNING_OBJECT_IN_HAND` (33), `FireEffect::StartedMoving` 0x730A60;
-  - **grupos**: cada fuego nace raíz de su grupo (+0x40 raíz, +0x44 siguiente); `AddToMyFireGroup` 0x72FBE0 encadena el
-    fuego nuevo justo detrás del que lo encendió, y una raíz que deja de arder pasa el grupo al primer miembro que arde.
-    La lista de bomberos (+0x48) la guarda solo la raíz.
-- **Sonido** (`FireSound.cpp`): solo los **2** fuegos más cercanos a la cámara con fracción > 0,1 suenan (tabla de 2
-  ranuras 0xDA09CC), un `G_Fire` en bucle sobre el objeto.
-- **Visual** (`FireGraphic.cpp`, `PSysBase` 0xD0, fn_00731160/1560/2200): llamas `S_Fire.raw` en modo 13 naranja
-  0xFF713C con celda `int(fmod(-25·edad, 32) + 32)`, vapor blanco aditivo y humo gris `S_SpriteSheet3` (celda
-  `int(fmod(25·edad, 32))`) en rachas de 30 turnos; tinte del árbol ardiendo (fn_0074B3A0: gris 50, o
-  `max(50, 255 − (1 − vida)·2550)` con vida > 0,9, **con tope sin signo en el brillo de los árboles del fotograma
-  [0xC22FA0]** (0x74B47B, `ecs::TreeBrightness`, el mismo que multiplica a un árbol sin fuego en 0x74B077; antes el port
-  ponía 255, y de noche el árbol quemado salía más claro), gris del carbonizado (fn_00730570: `k = ftol(c·255) & 0xFF`
-  y cada canal `((unsigned)(−175k) >> 8) − 1` (0x730585..0x7305D7) = **`255 − ceil(175k/256)`**: 255 con k = 0, **80**
-  con k = 255; antes el port truncaba y daba 81; `test_fire` lo compara con el código entero del exe para los 256 k) y
-  brillo `GetFireEffectCharingColor` 0x730480. El mapa de luz `S_LMFireBall` del objeto ardiendo (bit 4 de +0xB5,
-  sesión sistemas U5) **solo existe bajo los MultiMapFixed**: la marca `Object +0x24 & 2` (0x7312D5) la pone solo el ctor
-  de `MultiMapFixed` (0x52E207: casas, BigForest, Feature...), no un árbol suelto.
-  - **Pendiente (render)**: mientras dibuja el árbol ardiendo, 0x74B4D6..0x74B51E ponen `OverrideMaterial` [0xECA658] = 1
-    y `OverrideRenderMode` [0xECA65C] = `ftol(min(254, 230 + calor·25/255))` (calor 255 si T > 1,5·Tc, si no
-    `ftol((T − Tc)·255/(0,5·Tc))`; tope 254 [0x99A17C]), y lo quitan tras `AddForDrawing` (0x74B5D8). No es un material de
-    brillo: las funciones de modo 0x82E080.. lo leen como **ALPHAREF** de las primitivas con prueba de alfa
-    (`render_modes::AlphaRef` `forced`), así que el follaje del árbol ardiendo se recorta (solo pasan los texeles casi
-    opacos). Sin portar: los árboles van instanciados y `fs_object` toma el ALPHAREF por dibujo
-    (`u_skyAlphaThreshold.y`), así que hace falta un dibujo propio para cada árbol ardiendo (`FireGraphic.cpp`, TODO).
-- **Aldeanos** (`VillagerFire.cpp`, `VillagerFireman.cpp` 0x75A3D0-0x75B460 y `ReactToFire` 0x765870): estados 215
-  `REACT_TO_FIRE`, 216 `PUT_OUT_FIRE_BY_BEATING`, 219 `ON_FIRE` y 220 `MOVE_AROUND_FIRE`. Los de agua (217, 218) **en
-  W120 se rinden en el acto** (`DECIDE_WHAT_TO_DO`), así que nadie acarrea agua. Un aldeano que apaga no recibe calor
-  (fn_0072F980). `SetupOnFire` 0x75B170 guarda el estado y el destino anteriores y pasa a `ON_FIRE` con el fuego que lo
-  calienta. **R10** (la decisión de 0x765870) queda leída en `ReactToFire`: el aldeano busca el fuego del grupo más
-  cercano a él que esté por encima de la temperatura de reacción (`fn_00730070`).
-  - Sitio del bombero (`GetFireFightingPos` 0x75AA90): en la recta del fuego al aldeano, a `max(radio seguro, radio
-    del objeto)` (0x75AAF2..0x75AB16; antes el port tomaba el mínimo, y el aldeano iba y venía 216 ⇄ 220 cada turno) +
-    el radio del aldeano (0x75AB23) + `GameFloatRand(1)`. La llegada de `MOVE_AROUND_FIRE` y de `GO_TOWARDS_TELEPORT`
-    es `MobileWallHug::AreWeThere` 0x60AD60: `d² < (paso +0x5A + extra)²` estricto, el paso de `RebuildMoveByStep`
-    0x609D10 = `WallHug::speed` (antes, 1 m). Comprobado: Land1, `OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`,
-    `OPENBLACK_VILLAGER_TRACE=1` (`dev\_audit\magic\fix_firemen.log`): 13 cambios 216 → 220 y 25 220 → 216 en toda la
-    vida del fuego (antes 3213 en 650 turnos), cada aldeano decenas de turnos en cada estado.
-  - `Villager::ReactionValidate` 0x756A00 (`villager_reactions::ReactionValidate`): la columna «validate» (+0x80) de la
-    tabla de estados 0xD09198 en las filas de reacción (201, 202, 251, 215-218, 220, 6-30, 140-146), que
-    `Villager::ProcessState` 0x74FF91/0x74FFD9 corre cada turno para el estado de arriba (+0x8C) y el guardado (+0x8D)
-    antes del estado: `PopFromPrevious` 0x751E50 si el objeto de la reacción (+0xBC) no existe o no está disponible
-    (`GameThing::IsAvailable` 0x401810, vt 0x2C), o si la fila de `ReactionInfo` (0xD4F6B0, `Reaction::GetInfo`
-    0x6E4709) pide `whetherReactionFinishesIfInitiatorInHand` (+0x28) y el objeto está en la mano (+0x24 & 4).
-    `ReactToFire` 0x765870 y `GoToTeleportReaction` 0x7662F0 no comprueban nada más (el primero solo devuelve 0 si el
-    objeto no es un `Object` o no tiene fuego, sin cambiar de estado). Conectada (2026-10-01, fusión de V2):
-    `LivingActionSystem::VillagerCallValidate` la llama en toda fila sin validate propio cuyo validate original es
-    0x756A00 (`VillagerOriginalFns.h`); las salidas propias (inferido) de `ReactToFire` y `GoToTeleportReaction` ya no
-    están (detalle en [villagers.md](villagers.md)).
-  - **Qué saca al aldeano de 215 cuando el objeto deja de arder** (2026-10-02): no es el estado. El fuego quita su
-    `REACT_TO_FIRE` al bajar de la temperatura de reacción (fn_0072EFB0 0x72F781), al borrarse (`FireEffect::ToBeDeleted`
-    0x72EC4C) o al moverse, con `RemoveAllReactionsOfTypeInitiatedByObject` 0x6E4780, que llama a `Reaction::ShutDown`
-    0x6E4720 de cada una: +0x34 = 1 y, mientras quede algún seguidor (+0x1C), `StopReactingAndSetState` (vt +0x99C,
-    0x5F11C0: `ResetStateAfterReacting` 0x751E10 = `PopFromPrevious` y `DECIDE_WHAT_TO_DO` si el estado final es de
-    reacción; luego `StopReacting`) del primero de la lista +0x18 (0x6E4731..0x6E4743). Así el aldeano vuelve a lo que
-    hacía en el mismo turno, esté en 215, huyendo hacia 215 o apagando. Portado: `villager_fire::ShutDownReaction`,
-    llamado por `RemoveReactions` de `FireEffect.cpp` antes de quitar la reacción (el orden de los seguidores es
-    (inferido): por entidad). Para una `REACT_TO_FIRE` quitada por otra vía (`Pot::RemoveReaction` 0x66D6A0 quita todas
-    las de un objeto; las reacciones de openblack no guardan la lista de seguidores), `ReactToFire` hace el mismo
-    `StopReactingAndSetState` al ver que su reacción ya no está (aproximado: un turno más tarde). Sigue sin portar
-    `Living::ProcessReaction` 0x5F1270 (cada turno: reacción no disponible → `StopReacting`; objeto +0xBC nulo o no
-    disponible, o pasados los turnos de la tabla 0xC09CF0 de su tipo → `StopReactingAndSetState`), `TODO` en
-    `VillagerCore.cpp` (sesión mapas).
+- **Object values** (`GObjectInfo` +0xB0 heatCapacity, +0xB4 combustionTemperature, +0x80.. defence multipliers;
+  `FireObjectTraits.cpp`): `Tc = max(combustionTemperature, 40)` (fn_00730180), `Tmax = 2·Tc` (fn_007301B0),
+  capacity `max(heatCapacity, 1)` (fn_007301D0), ambient `MapCoords::GetTemperature` 0x605CC0 = **24.7 across the whole
+  map** (fld 0x930080).
+- It **burns** when `T >= Tc` (`IsOnFire` 0x730360); it reacts with `T >= 100` or `T >= Tc`
+  (`IsAboveReactionTemperature` 0x730380). The fire fraction (0x7303E0) is `(T - 0,8·Tc)/(2·Tc - 0,8·Tc)` limited to
+  `2·vida` and to 0..1; the fire radius is `1,25 ·` the object's radius `·` the fraction (0x72FF10) and the flame height
+  `1,25 · altura · (T - Tamb)/(2·Tc - Tamb)` (fn_0072FF70).
+- **Per turn** (`fn_0072F5B0`, inside ProcessList):
+  - in water it cools 50 times faster; with rain or snow the multiplier is `rainCoolingMultiplier·lluvia + 1`;
+  - if it was given heat this turn: `T += 0,1·T/(2·Tc)` with a ceiling of `2·Tc`;
+  - otherwise: `T -= (T + 10 - Tamb)·(4·altura·radio)·0,1·multiplicador/capacidad` (the "area" 4·H·r);
+  - while burning: damage `(T - Tc)/(2·Tc - Tc) · defenceMultiplierBurn · 0,1` to the life (0x72EEC0), and **charring**
+    +0.04 per turn while life < 0.6, capped at `(0,6 - vida)/0,6`; when cooling it drops 0.02 per turn;
+  - on death: `DestroyedByEffect` (a creature is not destroyed);
+  - **spreading**: spiral of 10 m cells while the cell is within `radio del fuego + 10 m` of the fire centre; each object in
+    those cells receives heat (`fn_0072F980`). The wind (fn_00771B10) **is computed and discarded**: it does not move
+    the search. An object in the hand only spreads inside the influence of whoever holds it (0x730860);
+  - the reaction `REACT_TO_FIRE` (10) is created when passing the reaction temperature and deleted when dropping below
+    it; in the hand it is `REACT_TO_BURNING_OBJECT_IN_HAND` (33), `FireEffect::StartedMoving` 0x730A60;
+  - **groups**: each fire is born as the root of its group (+0x40 root, +0x44 next); `AddToMyFireGroup` 0x72FBE0 chains
+    the new fire right behind the one that lit it, and a root that stops burning passes the group to the first member
+    that is burning. The firefighters list (+0x48) is kept only by the root.
+- **Sound** (`FireSound.cpp`): only the **2** fires closest to the camera with fraction > 0.1 make sound (2-slot table
+  0xDA09CC), a looping `G_Fire` on the object.
+- **Visual** (`FireGraphic.cpp`, `PSysBase` 0xD0, fn_00731160/1560/2200): `S_Fire.raw` flames in mode 13 orange
+  0xFF713C with cell `int(fmod(-25·edad, 32) + 32)`, additive white steam and grey smoke `S_SpriteSheet3` (cell
+  `int(fmod(25·edad, 32))`) in bursts of 30 turns; tint of the burning tree (fn_0074B3A0: grey 50, or
+  `max(50, 255 − (1 − vida)·2550)` with life > 0.9, **capped unsigned at the frame's tree brightness
+  [0xC22FA0]** (0x74B47B, `ecs::TreeBrightness`, the same one that multiplies a tree without fire at 0x74B077; before,
+  the port used 255, and at night the burnt tree came out lighter), grey of the charring (fn_00730570:
+  `k = ftol(c·255) & 0xFF` and each channel `((unsigned)(−175k) >> 8) − 1` (0x730585..0x7305D7) =
+  **`255 − ceil(175k/256)`**: 255 with k = 0, **80** with k = 255; before, the port truncated and gave 81; `test_fire`
+  compares it with the exe's integer code for all 256 k) and brightness `GetFireEffectCharingColor` 0x730480. The light
+  map `S_LMFireBall` of the burning object (bit 4 of +0xB5, sistemas session U5) **only exists under the
+  MultiMapFixed objects**: the flag `Object +0x24 & 2` (0x7312D5) is set only by the `MultiMapFixed` ctor (0x52E207:
+  houses, BigForest, Feature...), not by a standalone tree.
+  - **Pending (render)**: while it draws the burning tree, 0x74B4D6..0x74B51E set `OverrideMaterial` [0xECA658] = 1
+    and `OverrideRenderMode` [0xECA65C] = `ftol(min(254, 230 + calor·25/255))` (heat 255 if T > 1.5·Tc, otherwise
+    `ftol((T − Tc)·255/(0,5·Tc))`; cap 254 [0x99A17C]), and remove them after `AddForDrawing` (0x74B5D8). It is not a
+    glow material: the mode functions 0x82E080.. read it as the **ALPHAREF** of the alpha-tested primitives
+    (`render_modes::AlphaRef` `forced`), so the burning tree's foliage gets cut out (only the almost opaque texels pass).
+    Not ported: the trees are instanced and `fs_object` takes the ALPHAREF per draw (`u_skyAlphaThreshold.y`), so a
+    separate draw is needed for each burning tree (`FireGraphic.cpp`, TODO).
+- **Villagers** (`VillagerFire.cpp`, `VillagerFireman.cpp` 0x75A3D0-0x75B460 and `ReactToFire` 0x765870): states 215
+  `REACT_TO_FIRE`, 216 `PUT_OUT_FIRE_BY_BEATING`, 219 `ON_FIRE` and 220 `MOVE_AROUND_FIRE`. The water ones (217, 218)
+  **in W120 give up on the spot** (`DECIDE_WHAT_TO_DO`), so nobody carries water. A villager who is putting out a fire
+  receives no heat (fn_0072F980). `SetupOnFire` 0x75B170 stores the previous state and destination and switches to
+  `ON_FIRE` with the fire that heats it. **R10** (the decision at 0x765870) is read in `ReactToFire`: the villager looks
+  for the fire of the group closest to it that is above the reaction temperature (`fn_00730070`).
+  - Firefighter's spot (`GetFireFightingPos` 0x75AA90): on the line from the fire to the villager, at `max(radio seguro, radio
+    del objeto)` (0x75AAF2..0x75AB16; before, the port took the minimum, and the villager went back and forth
+    216 ⇄ 220 every turn) + the villager's radius (0x75AB23) + `GameFloatRand(1)`. The arrival of `MOVE_AROUND_FIRE` and
+    of `GO_TOWARDS_TELEPORT` is `MobileWallHug::AreWeThere` 0x60AD60: strict `d² < (paso +0x5A + extra)²`, the step of
+    `RebuildMoveByStep` 0x609D10 = `WallHug::speed` (before, 1 m). Checked: Land1,
+    `OPENBLACK_TEST_FIRE="1785.2,2652.6,450,abode,20"`, `OPENBLACK_VILLAGER_TRACE=1` (`dev\_audit\magic\fix_firemen.log`):
+    13 changes 216 → 220 and 25 220 → 216 over the whole life of the fire (before, 3213 in 650 turns), each villager
+    dozens of turns in each state.
+  - `Villager::ReactionValidate` 0x756A00 (`villager_reactions::ReactionValidate`): the "validate" column (+0x80) of the
+    state table 0xD09198 in the reaction rows (201, 202, 251, 215-218, 220, 6-30, 140-146), which
+    `Villager::ProcessState` 0x74FF91/0x74FFD9 runs every turn for the top state (+0x8C) and the saved one (+0x8D)
+    before the state: `PopFromPrevious` 0x751E50 if the reaction's object (+0xBC) does not exist or is not available
+    (`GameThing::IsAvailable` 0x401810, vt 0x2C), or if the `ReactionInfo` row (0xD4F6B0, `Reaction::GetInfo`
+    0x6E4709) asks for `whetherReactionFinishesIfInitiatorInHand` (+0x28) and the object is in the hand (+0x24 & 4).
+    `ReactToFire` 0x765870 and `GoToTeleportReaction` 0x7662F0 check nothing more (the first only returns 0 if the
+    object is not an `Object` or has no fire, without changing state). Wired up (2026-10-01, V2 merge):
+    `LivingActionSystem::VillagerCallValidate` calls it on every row without its own validate whose original validate
+    is 0x756A00 (`VillagerOriginalFns.h`); the custom (inferred) exits of `ReactToFire` and `GoToTeleportReaction` are
+    gone (details in [villagers.md](villagers.md)).
+  - **What takes the villager out of 215 when the object stops burning** (2026-10-02): it is not the state. The fire
+    removes its `REACT_TO_FIRE` when dropping below the reaction temperature (fn_0072EFB0 0x72F781), when being deleted
+    (`FireEffect::ToBeDeleted` 0x72EC4C) or when moving, with `RemoveAllReactionsOfTypeInitiatedByObject` 0x6E4780,
+    which calls `Reaction::ShutDown` 0x6E4720 on each one: +0x34 = 1 and, while there is any follower left (+0x1C),
+    `StopReactingAndSetState` (vt +0x99C, 0x5F11C0: `ResetStateAfterReacting` 0x751E10 = `PopFromPrevious` and
+    `DECIDE_WHAT_TO_DO` if the final state is a reaction one; then `StopReacting`) of the first in list +0x18
+    (0x6E4731..0x6E4743). That way the villager goes back to what it was doing in the same turn, whether it is in 215,
+    fleeing towards 215 or putting out the fire. Ported: `villager_fire::ShutDownReaction`, called by `RemoveReactions`
+    in `FireEffect.cpp` before removing the reaction (the order of the followers is (inferred): by entity). For a
+    `REACT_TO_FIRE` removed some other way (`Pot::RemoveReaction` 0x66D6A0 removes all those of an object; openblack's
+    reactions do not keep the list of followers), `ReactToFire` does the same `StopReactingAndSetState` when it sees
+    that its reaction is gone (approximate: one turn later). Still not ported: `Living::ProcessReaction` 0x5F1270
+    (every turn: reaction not available → `StopReacting`; object +0xBC null or not available, or past the turns of table
+    0xC09CF0 for its type → `StopReactingAndSetState`), `TODO` in `VillagerCore.cpp` (mapas session).
 
-### Natives CHL (`Magic/Script/CHLFire.cpp`)
+### CHL natives (`Magic/Script/CHLFire.cpp`)
 
-170 `IS_ON_FIRE` 0x6FB4C0, 171 `IS_FIRE_NEAR` 0x6F7910 (`FindNearForScript` con el predicado 0x6F7100; una bola de fuego
-no está en las celdas, así que no la encuentra), 174 `SET_TEMPERATURE` 0x6FB840, 175 `SET_ON_FIRE` 0x6FB780, 321
-`SET_HURT_BY_FIRE` 0x6FDF40 y 426 `SET_SET_ON_FIRE` 0x6FDEE0 (los dos últimos, bits 2 y 3 de Object +0x0A).
+170 `IS_ON_FIRE` 0x6FB4C0, 171 `IS_FIRE_NEAR` 0x6F7910 (`FindNearForScript` with the predicate 0x6F7100; a fireball is
+not in the cells, so it does not find it), 174 `SET_TEMPERATURE` 0x6FB840, 175 `SET_ON_FIRE` 0x6FB780, 321
+`SET_HURT_BY_FIRE` 0x6FDF40 and 426 `SET_SET_ON_FIRE` 0x6FDEE0 (the last two, bits 2 and 3 of Object +0x0A).
 
-### Captura
+### Capture
 
-- Capturas en `dev\_audit\magic\`:
-  - `m5_tree_fire.png` (`OPENBLACK_TEST_FIRE="1818.6,2628.4,500,tree,110"`): el árbol ardiendo, carbonizado y con
-    llamas, y aldeanos alrededor; el registro muestra la propagación al aldeano 30, que huye en estado 219 y muere, y de
-    ahí al objeto 52. `m5_gfx.log` tiene la traza del gráfico (2 llamas vivas de las 2 que permite el árbol, escala 0,25).
+- Captures in `dev\_audit\magic\`:
+  - `m5_tree_fire.png` (`OPENBLACK_TEST_FIRE="1818.6,2628.4,500,tree,110"`): the tree burning, charred and with
+    flames, and villagers around it; the log shows the spread to villager 30, who flees in state 219 and dies, and from
+    there to object 52. `m5_gfx.log` has the trace of the graphic (2 live flames out of the 2 the tree allows, scale
+    0.25).
 
-## Tiempo y clima
+## Time and weather
 
-Está en [day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather) (LH3DAtmos, GClimate, tormentas, lluvia y consultas `Weather.h`).
+It is in [day-night-weather.md](day-night-weather.md#weather-and-climate-m6a-srcecsweather) (LH3DAtmos, GClimate, storms, rain and `Weather.h` queries).
 
-## Milagros uno a uno
+## Miracles one by one
 
-Cada milagro tiene su sección en [miracles.md](miracles.md):
+Each miracle has its own section in [miracles.md](miracles.md):
 
-- [Comida y madera](miracles.md#comida-y-madera-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)
-- [Agua](miracles.md#agua-m4a-magicspellsspellwater-psyscreatorsmist)
-- [Curar](miracles.md#curar-m4-m4h-magicspellsspellhealcpp-psysruleshealcpp)
-- [Bosque](miracles.md#bosque-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)
-- [Bandadas](miracles.md#bandadas-m4c-magicspellsspellflock-psysrulesflockcpp)
-- [Bola de fuego y rayo](miracles.md#bola-de-fuego-y-rayo-m5-magicobjectsmagicfireball-psysrulesfireballlightning)
-- [Escudos](miracles.md#escudos-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)
-- [Teletransporte](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)
-- [Tormenta, tormenta eléctrica y tornado](miracles.md#tormenta-tormenta-eléctrica-y-tornado-m6-storm-magicspellsspellstormandtornado-psysrulesstorm-ecsweatherlightningflashstormclouds)
-- [Explosión de rayo y clases de PSys que faltaban](miracles.md#explosión-de-rayo-y-clases-de-psys-que-faltaban-m6b-psysrulesexplosionkeypointsorientforestcpp)
-- [Milagros de la criatura](miracles.md#milagros-de-la-criatura-m8-pendiente)
+- [Food and wood](miracles.md#food-and-wood-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)
+- [Water](miracles.md#water-m4a-magicspellsspellwater-psyscreatorsmist)
+- [Heal](miracles.md#heal-m4-m4h-magicspellsspellhealcpp-psysruleshealcpp)
+- [Forest](miracles.md#forest-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)
+- [Flocks](miracles.md#flocks-m4c-magicspellsspellflock-psysrulesflockcpp)
+- [Fireball and lightning](miracles.md#fireball-and-lightning-m5-magicobjectsmagicfireball-psysrulesfireballlightning)
+- [Shields](miracles.md#shields-m6-shield-magicspellsspellshield-magicobjectsmapshield-psysrulesshield)
+- [Teleport](miracles.md#teleport-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)
+- [Storm, lightning storm and tornado](miracles.md#storm-electric-storm-and-tornado-m6-storm-magicspellsspellstormandtornado-psysrulesstorm-ecsweatherlightningflashstormclouds)
+- [Lightning explosion and missing PSys classes](miracles.md#lightning-explosion-and-missing-psys-classes-m6b-psysrulesexplosionkeypointsorientforestcpp)
+- [Creature miracles](miracles.md#creature-miracles-m8-pending)
 
-El motor de partículas (tipos de partícula, registro de clases, creadores, sonido e índice de reglas) está en
+The particle engine (particle types, class registry, creators, sound and rule index) is in
 [particles.md](particles.md).
 
-## Revisión de la ola 2 (lane «review2»: M2, M3, M5, M6a, M7 juntos)
+## Wave 2 review (lane "review2": M2, M3, M5, M6a, M7 together)
 
-Comprobado contra el ejecutable (`dev\documentacion\miracles\impl\review2\`) y con las cadenas completas en el juego.
+Checked against the executable (`dev\documentacion\miracles\impl\review2\`) and with the complete chains in the game.
 
-### Fórmulas releídas en el exe (coinciden)
+### Formulas re-read in the exe (they match)
 
-- Gestos: `MatchForward` 0x57A1A0 (giros alineados desde cualquier punto de partida, absorción de esquinas pequeñas,
-  error envuelto con fn_0057A150, las dos constantes de `crt_xc` 0x579DC0/0x579DF0 = 3π/32 × 7/4 y × 2).
-- Lanzar: `SpellSeed::ApplyThisToMapCoord` 0x728E20, `Cast` 0x729520, `DoPreCastThings` 0x729460 (la rama «semilla de
-  tipo 2 → magnitud 1» mira `GMagicInfo +0x28`, que es −1 en todas las filas: muerta) y `SendApplyToMapCoord` 0x5D3340.
-- `Pot::AddResourceToPos` 0x66F270: la espiral de 9 celdas, primero la lista +4 y luego la +0, `IsCloseToEqual` con
-  `Get2DRadius × GetRadiusMultiplierForApplyingPotToPos`, envenenado en arg5 y aceleración en arg6.
-- Calor: fn_0072F980 (inmune el bombero, radio, la comprobación de altura solo si alguno de los dos está a 3 m o más
-  sobre el suelo, `min(10·ΔT, 0,5·calor de la fuente)`, la fuente pierde calor si no arde, el grupo, `SetupOnFire` si el
-  aldeano no está en el estado 219).
-- `UpdateRuleGravityWithFloor` 0x6A1880 (la gravedad en el aire `clamp(v.y + MaxSpeed, 0, 1) × g × gravedad del átomo
-  × dt` y la vuelta al suelo).
-- `GWeather::CalcAtmos` 0x8400E0 (caja, radio², caída entre los dos radios, `ftol(f × fundido × 256)`, temperatura con
-  suma de byte que da la vuelta y los otros cinco bytes con saturación).
-- La batería del lugar de culto (fn_0077B6A0: intensidad `usado/capacidad + max(0,2; 0,5 − batería/máx × 0,5)` hasta
-  1, `batería − (usado − producido)` sin tope superior, disponible = batería + capacidad) y el toque de un icono
+- Gestures: `MatchForward` 0x57A1A0 (turns aligned from any starting point, absorption of small corners, error wrapped
+  with fn_0057A150, the two constants of `crt_xc` 0x579DC0/0x579DF0 = 3π/32 × 7/4 and × 2).
+- Casting: `SpellSeed::ApplyThisToMapCoord` 0x728E20, `Cast` 0x729520, `DoPreCastThings` 0x729460 (the branch "type 2
+  seed → magnitude 1" looks at `GMagicInfo +0x28`, which is −1 in every row: dead) and `SendApplyToMapCoord` 0x5D3340.
+- `Pot::AddResourceToPos` 0x66F270: the 9-cell spiral, first list +4 and then +0, `IsCloseToEqual` with
+  `Get2DRadius × GetRadiusMultiplierForApplyingPotToPos`, poisoned in arg5 and acceleration in arg6.
+- Heat: fn_0072F980 (the firefighter immune, radius, the height check only if either of the two is 3 m or more above
+  the ground, `min(10·ΔT, 0,5·calor de la fuente)`, the source loses heat if it is not burning, the group,
+  `SetupOnFire` if the villager is not in state 219).
+- `UpdateRuleGravityWithFloor` 0x6A1880 (gravity in the air `clamp(v.y + MaxSpeed, 0, 1) × g × gravedad del átomo
+  × dt` and the return to the ground).
+- `GWeather::CalcAtmos` 0x8400E0 (box, radius², falloff between the two radii, `ftol(f × fundido × 256)`, temperature with
+  a wrapping byte add and the other five bytes with saturation).
+- The worship site's battery (fn_0077B6A0: intensity `usado/capacidad + max(0,2; 0,5 − batería/máx × 0,5)` up to
+  1, `batería − (usado − producido)` with no upper cap, available = battery + capacity) and the tap on an icon
   (`SpellIcon::InterfaceTap` 0x726430 → `ActualInterfaceTap` 0x77F880).
 
-### Arreglado en la revisión
+### Fixed in the review
 
-- `Pot::AddResourceToPos` devuelve `cantidad − lo que quedó` en todos los caminos (0x66F511), también cuando hace una
-  pila nueva; antes devolvía la cantidad entera. Solo lo usaba el registro de la mano.
-- `MapCoords::IsWater` 0x6035B0 responde **1** fuera del mapa y donde no hay bloque de tierra (0x603617); la copia de
-  `ECS/PotResource.cpp` respondía 0, así que la comida o la madera echadas sobre mar abierto sin bloque hacían una pila.
-- La semilla de un uso se ata al mejor icono del jugador (`CreateSpellIntoHand` 0x72A730 → fn_007282A0), como arriba.
-- La bola de un uso tiene su `SpellSeedGraphic` dentro (0x72A450) y se borra con ella.
+- `Pot::AddResourceToPos` returns `cantidad − lo que quedó` on every path (0x66F511), also when it makes a new pile;
+  before it returned the whole amount. Only the hand's log used it.
+- `MapCoords::IsWater` 0x6035B0 answers **1** outside the map and where there is no land block (0x603617); the copy in
+  `ECS/PotResource.cpp` answered 0, so food or wood dropped on open sea without a block made a pile.
+- The one-off seed is tied to the player's best icon (`CreateSpellIntoHand` 0x72A730 → fn_007282A0), as above.
+- The one-off orb has its `SpellSeedGraphic` inside (0x72A450) and is deleted with it.
 
-### El tamaño de la bola de fuego lanzada con la mano (inferido, recuerdo del usuario)
+### The size of the fireball cast with the hand (inferred, user's recollection)
 
-`Spell::InitWithPos` 0x71FE50 da al PSys la magnitud `SpellCastData[0]` sin comprobar si es 0 (`PSysInterface::Create`
-0x68E910 → `GJPSysInterface::Create` 0x68F3DA la guarda en el manager +0xA0, que lee `MagnitudeFloatProvider`
-0x69DA90). En `SpellSeed::Cast` 0x729520 ese valor sale del paquete de gesto (+0x14, fn_0071FA10), que es
-`GInterface` +0x1B8 copiado entero en el paquete 0x12 (`SendApplyToMapCoord` 0x5D362D → fn_00550E90 → formato 15 de
-`SendPacketCompressed`, un bloque de 0x18 bytes, sin cuantizar) y que **solo escribe el círculo** (0x5CF57A y 0x5D33BA;
-el `GInterface` nace a cero). Pero justo después, `SpellSeed::DoPreCastThings` 0x729460 hace
-`if (magicInfo.spellSeedType == FIRE) castData.magnitude = 1.0` (0x729502..0x72950B): los programadores fijaron la
-bola de fuego a magnitud 1 fuera cual fuera el gesto. Leído al pie de la letra esa rama está muerta: info.dat deja
-`GMagicInfo` +0x28 (`spellSeedType`) a −1 en todas las filas y nada lo escribe en el juego, así que la bola saldría con
-el tamaño del último círculo, o 0 → 0,01 (4 cm, casi no calienta) si nunca se dibujó uno. El usuario recuerda (2026-10-01)
-que una bola lanzada desde la mano salía **siempre grande**, con cualquier gesto: manda su recuerdo, y el port aplica la
-rama con el tipo de la propia semilla (`GSpellSeedInfo`, semilla +0x6C) cuando la fila deja el campo a −1
-(**inferido**, `SpellSeed.cpp` `DoPreCastThings`). Resultado: escala de átomo 1 × 4,0168 del sprite raíz, la bola se ve
-en vuelo y prende la casa y el árbol donde cae (`fix_fireball_flight.png`, `fix_fireball_hut.png`). Con `SPELL_AT_POS` la
-magnitud sigue siendo el radio del guion (10 en `m5_fireball.png`), porque no pasa por la semilla.
+`Spell::InitWithPos` 0x71FE50 gives the PSys the magnitude `SpellCastData[0]` without checking whether it is 0
+(`PSysInterface::Create` 0x68E910 → `GJPSysInterface::Create` 0x68F3DA stores it in the manager +0xA0, which
+`MagnitudeFloatProvider` 0x69DA90 reads). In `SpellSeed::Cast` 0x729520 that value comes from the gesture packet (+0x14,
+fn_0071FA10), which is `GInterface` +0x1B8 copied whole into packet 0x12 (`SendApplyToMapCoord` 0x5D362D → fn_00550E90 →
+format 15 of `SendPacketCompressed`, a 0x18-byte block, not quantised) and which **only the circle writes** (0x5CF57A
+and 0x5D33BA; the `GInterface` is born zeroed). But right afterwards, `SpellSeed::DoPreCastThings` 0x729460 does
+`if (magicInfo.spellSeedType == FIRE) castData.magnitude = 1.0` (0x729502..0x72950B): the programmers fixed the
+fireball at magnitude 1 whatever the gesture. Read literally, that branch is dead: info.dat leaves `GMagicInfo` +0x28
+(`spellSeedType`) at −1 in every row and nothing writes it in the game, so the fireball would come out with the size of
+the last circle, or 0 → 0.01 (4 cm, it barely heats) if one was never drawn. The user remembers (2026-10-01) that a
+fireball cast from the hand **always came out big**, with any gesture: their recollection rules, and the port applies
+the branch with the type of the seed itself (`GSpellSeedInfo`, seed +0x6C) when the row leaves the field at −1
+(**inferred**, `SpellSeed.cpp` `DoPreCastThings`). Result: atom scale 1 × 4.0168 of the root sprite, the fireball is
+visible in flight and sets fire to the house and the tree where it lands (`fix_fireball_flight.png`,
+`fix_fireball_hut.png`). With `SPELL_AT_POS` the magnitude is still the script's radius (10 in `m5_fireball.png`),
+because it does not go through the seed.
 
-### Cadenas probadas en el juego (capturas en `dev\_audit\magic\`)
+### Chains tested in the game (captures in `dev\_audit\magic\`)
 
-- Land1, dispensador → bola → semilla → lanzar: `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1812,2652,1"`,
+- Land1, dispenser → orb → seed → cast: `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1812,2652,1"`,
   `OPENBLACK_TEST_TAP="1812,2652,200"`, `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"`,
-  `OPENBLACK_TEST_THROW_VEL`: la bola da la semilla FIRE lista (3500 cánticos), se arma (estado 8) y al soltar sale el
-  hechizo con su `MagicFireBall` (T 6000). Con la bola de 0,01 de antes el granero no llegaba a prender
-  (`review2_disp_fireball.log`); con la magnitud 1 de la semilla FIRE arden la casa, un árbol y los aldeanos de al lado
-  (`fix_fireball_hut.png`, con `OPENBLACK_CAMERA_FLY=1800,75,2600,1826,30,2641`, `OPENBLACK_MOUSE_AT=0.5,0.55` y
+  `OPENBLACK_TEST_THROW_VEL`: the orb gives the FIRE seed ready (3500 chants), it arms (state 8) and on release the
+  spell comes out with its `MagicFireBall` (T 6000). With the earlier 0.01 fireball the barn did not catch fire
+  (`review2_disp_fireball.log`); with the FIRE seed's magnitude 1 the house, a tree and the villagers next to it burn
+  (`fix_fireball_hut.png`, with `OPENBLACK_CAMERA_FLY=1800,75,2600,1826,30,2641`, `OPENBLACK_MOUSE_AT=0.5,0.55` and
   `OPENBLACK_TEST_THROW_VEL=0,2,6`).
-- Land1, comida junto al almacén: el mismo dispensador con `FOOD`: dentro del radio del almacén (18,5 m) todo entra en
-  él (`review2_disp_food.log`); un poco más allá (`review2_disp_food_pour.png`) hace una `MagicFood` de 200 que crece
-  18 por grano, con la mano alzada 16 m y el chorro de 4 s.
-- Land2, icono → carga → semilla → lanzar: `OPENBLACK_TEST_WORSHIP_SITE="NORSE,FIRE,HEAL,FOOD,WOOD"`,
-  `OPENBLACK_TEST_TOWN_SPELL="0,FIRE"`, `OPENBLACK_TEST_MANA=20000`, `OPENBLACK_TEST_TAP_ICON="FIRE,200"` y
-  `OPENBLACK_TEST_CAST`: `seed 3120 of icon 3082 in the hand with 3500 chants`, armada y lanzada
-  (`review2_land2_cast.png`, `review2_land2_seed.log`). Con 3000 cánticos el icono se queda cargando con la batería a 0
-  (`review2_land2_charge.log`). Una bola de un uso tocada con cánticos en el lugar sale atada al icono 3081
+- Land1, food next to the store: the same dispenser with `FOOD`: inside the store's radius (18.5 m) everything goes into
+  it (`review2_disp_food.log`); a little further away (`review2_disp_food_pour.png`) it makes a `MagicFood` of 200 that
+  grows 18 per grain, with the hand raised 16 m and the 4 s stream.
+- Land2, icon → charge → seed → cast: `OPENBLACK_TEST_WORSHIP_SITE="NORSE,FIRE,HEAL,FOOD,WOOD"`,
+  `OPENBLACK_TEST_TOWN_SPELL="0,FIRE"`, `OPENBLACK_TEST_MANA=20000`, `OPENBLACK_TEST_TAP_ICON="FIRE,200"` and
+  `OPENBLACK_TEST_CAST`: `seed 3120 of icon 3082 in the hand with 3500 chants`, armed and cast
+  (`review2_land2_cast.png`, `review2_land2_seed.log`). With 3000 chants the icon stays charging with the battery at 0
+  (`review2_land2_charge.log`). A one-off orb tapped with chants at the site comes out tied to icon 3081
   (`review2_land2_oneshot_icon.log`).
 
-## Suposiciones auditadas (2026-10-01)
+## Audited assumptions (2026-10-01)
 
-Auditoría de TEAM_GUIDELINES §1.7 sobre todo lo que añade local/magic: 245 hallazgos, 41 corregidos para igualar el
-original, 52 con la fuente añadida, 139 marcados en el código y 13 sin cambio (ya fieles o de otra sesión). Tabla por
-fichero: `dev\documentacion\audit_magic\assumptions_audit.md`. Lo que queda marcado, por tema:
+TEAM_GUIDELINES §1.7 audit of everything local/magic adds: 245 findings, 41 corrected to match the original, 52 with the
+source added, 139 marked in the code and 13 unchanged (already faithful or from another session). Table per file:
+`dev\documentacion\audit_magic\assumptions_audit.md`. What remains marked, by topic:
 
-- **Corregido para igualar el original:**
-  - Hechizos: un hechizo sin PSys se lanza igual y acaba al turno siguiente (0x71FE50, paso 8).
-  - Semillas y lanzadores: `ProcessSpellSeed` devuelve siempre 1 (0x721370); un creador sin objeto no es funcional
-    (0x405240); la selección de milagro pone a 0 el gesto de potenciación (0x5CF010).
-  - Mano: el fotograma del brillo se redondea (`fistp` 0x68D323, no `__ftol`) y la vuelta es «> 64» (0x68D0C0).
-  - Teletransporte: los destellos SPOT_VISUAL 14 duran lo que su entrada.
-  - Jugador del guion: el byte g_game+0x205A5B es el hueco del **jugador neutral** (7; GGame::SetupPlayers 0x550458,
-    GPlayer::IsNeutral 0x64AC00). Por eso el jugador 0 del guion y una pila mágica sin dueño son neutrales.
-  - Bola de fuego: la bola rebota en los escudos (DoAnyShieldDeflections 0x6A1FA0 desde GravityWithFloor 0x6A1F48);
-    el lanzamiento no humano se vuelve a resolver si v² > **0,01** (el double [0x8C7620] de `fcomp qword` en 0x69EC60;
-    leído como float parecía 89129, corregido el 2026-10-02) y la subida pasa de 30° (el double [0x9375F0] =
-    0,52370351552963257, `fptan` 0x69EC77).
-  - Rayo: los modos van por orden (mano, gestor, padre; 0x690F88) y el del padre usa un círculo, sin cono; las
-    horquillas solo se actualizan con el efecto activo.
-  - UR_WillowWisp: la edad de cada átomo es fracción·dt (0x6A70CC).
-  - Fuego:
-    - La reacción de fuego no sale ni en la mano ni en vuelo (+0x24 & 0x44, 0x72F729).
-    - Una Feature quemada se borra (0x6378E0); un campo quemado pone T = 0 y borra su fuego (0x52A010).
-    - StartOnFire incluye campo, estático móvil, estático animado y fragmento (0x52EC60).
-    - El bit 0 del gráfico de fuego es IsMorphWithLand.
-    - La lluvia se corta solo por debajo de 0 (fn_008341B0).
-  - Aldeanos:
-    - Las funciones de salida reciben el estado siguiente (ExitPutOutFire 0x752530, ExitReaction 0x7527A0,
+- **Corrected to match the original:**
+  - Spells: a spell without a PSys is cast anyway and ends on the next turn (0x71FE50, step 8).
+  - Seeds and casters: `ProcessSpellSeed` always returns 1 (0x721370); a creator without an object is not functional
+    (0x405240); the miracle selection sets the power-up gesture to 0 (0x5CF010).
+  - Hand: the glow frame is rounded (`fistp` 0x68D323, not `__ftol`) and the wrap is "> 64" (0x68D0C0).
+  - Teleport: the SPOT_VISUAL 14 flashes last as long as their entry.
+  - Script player: the byte g_game+0x205A5B is the slot of the **neutral player** (7; GGame::SetupPlayers 0x550458,
+    GPlayer::IsNeutral 0x64AC00). That is why the script's player 0 and an ownerless magic pile are neutral.
+  - Fireball: the fireball bounces off the shields (DoAnyShieldDeflections 0x6A1FA0 from GravityWithFloor 0x6A1F48);
+    the non-human cast is resolved again if v² > **0.01** (the double [0x8C7620] of `fcomp qword` at 0x69EC60; read as
+    a float it looked like 89129, corrected on 2026-10-02) and the climb exceeds 30° (the double [0x9375F0] =
+    0.52370351552963257, `fptan` 0x69EC77).
+  - Lightning: the modes go in order (hand, manager, parent; 0x690F88) and the parent's uses a circle, without a cone;
+    the forks are only updated with the effect active.
+  - UR_WillowWisp: the age of each atom is fraction·dt (0x6A70CC).
+  - Fire:
+    - The fire reaction does not come out either in the hand or in flight (+0x24 & 0x44, 0x72F729).
+    - A burnt Feature is deleted (0x6378E0); a burnt field sets T = 0 and deletes its fire (0x52A010).
+    - StartOnFire includes field, mobile static, animated static and fragment (0x52EC60).
+    - Bit 0 of the fire graphic is IsMorphWithLand.
+    - The rain is cut off only below 0 (fn_008341B0).
+  - Villagers:
+    - The exit functions receive the next state (ExitPutOutFire 0x752530, ExitReaction 0x7527A0,
       ExitMoveToWorshipSite, ExitAtWorshipSite 0x76C1F0).
-    - El escudo bloquea la reacción de fuego (fn_0072B990).
-    - Un aldeano que va a adorar no lucha contra el fuego (0x765A6A).
-    - Ya no se cuenta dos veces a quien adora: el lugar de culto lleva la lista de sus aldeanos (+0xD4, fn_0077D040).
-    - `SetupMoveToWithHug` (0x5F2890) pone TOP y luego FINAL (0x752440) en una sola función compartida
+    - The shield blocks the fire reaction (fn_0072B990).
+    - A villager going to worship does not fight the fire (0x765A6A).
+    - Worshippers are no longer counted twice: the worship site keeps the list of its villagers (+0xD4, fn_0077D040).
+    - `SetupMoveToWithHug` (0x5F2890) sets TOP and then FINAL (0x752440) in a single shared function
       (`VillagerMove.cpp`).
-  - Culto: la semilla entra en la mano solo si `InterfaceSetInMagicHand` devuelve 1 (0x5DA77C); la ciudadela influye
-    con factor 1 (0x463240).
-- **(aproximado):**
-  - Reacciones: la rejilla de celdas de openblack y su orden; `InBounds` usa la extensión de la tierra, no
+  - Worship: the seed goes into the hand only if `InterfaceSetInMagicHand` returns 1 (0x5DA77C); the citadel
+    influences with factor 1 (0x463240).
+- **(approximate):**
+  - Reactions: openblack's cell grid and its order; `InBounds` uses the land's extent, not
     MapCoords::InBounds 0x6042C0.
-  - EffectValues: `ReduceLife` de Object para todas las clases.
-  - Rayo: la segunda horquilla en lugar del árbol fn_00691F30.
-  - Mapas de luz: alfa = máximo RGB, sin nivel ×190.
-  - Gráfico de fuego: el ruido del carbonizado es de dos senos (no VLNoise 0x590C30); se actualizan todos los fuegos.
-  - Números aleatorios: las tormentas, la lluvia, el fuego y los milagros ya van por `game_random` (GRand, el PSys y la
-    CRT del original); las luciérnagas y otros sistemas siguen con los de openblack (fase B).
-  - Aldeanos: MOVE_AROUND_FIRE va recto (GetViaPoint 0x75A440 sin portar); la decisión de luchar contra el fuego
-    (0x765870: fórmula leída, sin término aleatorio) toma fn_00730290 / fn_007302E0 sin trazar; FLYING / LANDED no se
-    ejecutan al aterrizar tras un teletransporte.
-  - Gestos: los fotogramas con ratón hacen de mensajes de ratón.
-  - Culto: la cuenta de los que vuelven a casa (vt 0x8C8 sin identificar).
-- **(inferido):**
-  - Reacciones: GetReactionPower = 1 para todos (Spell 0x55CF10 y Tree 0x55D8D0 sin portar).
-  - EffectValues: un golpe por objeto en ApplyEffectToMapPos 0x525100.
-  - Semillas: la mano derecha para la semilla de un uso; el jugador local para comprobar la influencia de lo que
-    se lleva en la mano.
-  - Valores por defecto de las reglas de PSys cuyo ctor no se leyó (Gravity 10, giros, rastro, malla, gesto 5 s,
-    cadena de 0,5·escala).
-  - Escudo: el castData por defecto (40).
-  - Culto: el anillo de baile de 6 m y el punto de icono de reserva.
-  - Muchos valores de defensa de openblack: índices fuera de rango, topes, 0,0001.
-- **Pendiente (TODO con dirección en el código):**
-  - Rayo: la rama de un solo objetivo (0x691CF5), el corte por escudo fn_006D0BC0 y el sonido por estado.
-  - Reacciones: la rama sigilosa de 0x6E3E10.
-  - Criatura: contador de muertes y alineamiento (+0x11C0, +0x168).
-  - Semillas: el objetivo MagicFireBall (0x728A20).
-  - Culto: el camino por sendero (58).
-  - Fuego: la ruta alrededor del fuego.
-  - Clase de hechizo sin portar (criatura, M8), que corre como un Spell simple (tormenta, agua y bandadas ya tienen
-    la suya, oleada 4).
+  - EffectValues: Object's `ReduceLife` for all classes.
+  - Lightning: the second fork instead of the tree fn_00691F30.
+  - Light maps: alpha = RGB maximum, without the ×190 level.
+  - Fire graphic: the charring noise is made of two sines (not VLNoise 0x590C30); all fires are updated.
+  - Random numbers: storms, rain, fire and the miracles now go through `game_random` (GRand, the PSys and the
+    original's CRT); the fireflies and other systems still use openblack's (phase B).
+  - Villagers: MOVE_AROUND_FIRE goes straight (GetViaPoint 0x75A440 not ported); the decision to fight the fire
+    (0x765870: formula read, without a random term) takes fn_00730290 / fn_007302E0 untraced; FLYING / LANDED are not
+    run when landing after a teleport.
+  - Gestures: frames with the mouse act as mouse messages.
+  - Worship: the count of those going back home (vt 0x8C8 unidentified).
+- **(inferred):**
+  - Reactions: GetReactionPower = 1 for all (Spell 0x55CF10 and Tree 0x55D8D0 not ported).
+  - EffectValues: one hit per object in ApplyEffectToMapPos 0x525100.
+  - Seeds: the right hand for the one-off seed; the local player to check the influence of what is carried in the
+    hand.
+  - Default values of the PSys rules whose ctor was not read (Gravity 10, turns, trail, mesh, gesture 5 s,
+    chain of 0.5·scale).
+  - Shield: the default castData (40).
+  - Worship: the 6 m dance ring and the fallback icon point.
+  - Many of openblack's defensive values: out-of-range indices, caps, 0.0001.
+- **Pending (TODO with an address in the code):**
+  - Lightning: the single-target branch (0x691CF5), the cut-off by shield fn_006D0BC0 and the per-state sound.
+  - Reactions: the stealthy branch of 0x6E3E10.
+  - Creature: death counter and alignment (+0x11C0, +0x168).
+  - Seeds: the MagicFireBall target (0x728A20).
+  - Worship: the path along the footpath (58).
+  - Fire: the route around the fire.
+  - Spell class not ported (creature, M8), which runs as a plain Spell (storm, water and flocks already have theirs,
+    wave 4).
 
-### Oleada 4 (agua, bandadas, tormenta, explosión de rayo; lane audit4)
+### Wave 4 (water, flocks, storm, lightning explosion; lane audit4)
 
-25 hallazgos (tabla en `dev\documentacion\audit_magic\assumptions_audit.md`, sección «Wave 4»): 4 corregidos, 1 comentario, 7
-marcados, 11 comprobados con el desensamblado y 2 sin cambio.
+25 findings (table in `dev\documentacion\audit_magic\assumptions_audit.md`, section "Wave 4"): 4 corrected, 1 comment, 7
+marked, 11 checked against the disassembly and 2 unchanged.
 
-- **Corregido para igualar el original:**
-  - Bandadas: al final de `SpellFlock::Process` la posición del jefe va a la **bandada** (+0x14, el centro del
-    dominio), no al hechizo (0x7234F2..0x723519).
-  - Tornado: la espiral de la recogida es GUtils::Spiral 0x74D7E0 empezada con dirección 1 (0x6D22E9); el port
-    recorría la simétrica.
-  - Tormenta: la reacción de apagar fuegos se olvida cuando no está disponible (vt 0x2C, 0x72DBA2), no solo cuando
-    desaparece.
-  - Bucle: fn_0064AC30 (alineamiento del cielo) va tras los viajeros de los teletransportes, al final de
+- **Corrected to match the original:**
+  - Flocks: at the end of `SpellFlock::Process` the leader's position goes to the **flock** (+0x14, the centre of the
+    domain), not to the spell (0x7234F2..0x723519).
+  - Tornado: the pick-up spiral is GUtils::Spiral 0x74D7E0 started with direction 1 (0x6D22E9); the port walked the
+    mirror-image one.
+  - Storm: the fire-extinguishing reaction is forgotten when it is not available (vt 0x2C, 0x72DBA2), not only when it
+    disappears.
+  - Loop: fn_0064AC30 (sky alignment) goes after the teleport travellers, at the end of
     GPlayer::ProcessPlayers (0x64A697).
-- **(aproximado):** la subcolección añadida a mitad de paso se actualiza ese paso (PSys.cpp); `MoveToBaseGroup` sin
-  colección raíz borra el átomo; las vasijas por celda del tornado salen del registro; el color base de las nieblas
-  es el del fotograma anterior; la salida de `UR_ForestPath` sin claves es 0.
-- **(inferido):** el +0x80 de `EventConditionAtomNearVillagers` en metros; el destino del jefe lobo antes de su
-  primer turno.
-- **Sin cambio:** `FixedObjectsInMapCell` recorre todo el registro por celda (lento con muchos objetos fijos);
-  `SetDeathCallback` de animales tiene una sola ranura (solo la usan las bandadas).
+- **(approximate):** the subcollection added mid-step is updated in that step (PSys.cpp); `MoveToBaseGroup` without a
+  root collection deletes the atom; the tornado's per-cell vessels come from the registry; the base colour of the mists
+  is that of the previous frame; the output of `UR_ForestPath` without keys is 0.
+- **(inferred):** the +0x80 of `EventConditionAtomNearVillagers` in metres; the wolf leader's destination before its
+  first turn.
+- **Unchanged:** `FixedObjectsInMapCell` walks the whole registry per cell (slow with many fixed objects);
+  `SetDeathCallback` for animals has a single slot (only the flocks use it).
 
-## Pendiente
+## Pending
 
-Lo que falta está en cada tema, al final de su sección:
+What is missing is in each topic, at the end of its section:
 
-- Culto: de dónde salen los milagros: [Diferencias con el original y lo que falta](#diferencias-con-el-original-y-lo-que-falta)
-- Influencia: la influencia virtual, los aliados, la regla de multijugador, el dibujo y `CalculateMostInfluentialPlayer` ([Influencia](magic.md#influencia-m1i-srcecsinfluence)).
-- Lanzar desde la mano: la ayuda, la inmersión, los iconos de gesto del HUD, el brillo de la mano y alimentar una bola de fuego en vuelo ([Lanzar desde la mano, gestos y efectos de la mano](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
-- Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
-- Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
-- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\documentacion\audit_magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
-- Dispensador roto por una roca lanzada: openblack lo parte en trozos como una casa; el original lo dibuja con `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). Falta leer `Abode::ReactToPhysicsImpact` 0x406240 y qué le pasa a su orbe.
-- Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
-- Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
-- Lluvia en el crecimiento de los árboles (`GrowTree`, fórmula en [trees.md](trees.md)): el clima es de Milagros.
-- Árbol ardiendo: el ALPHAREF forzado 230..254 (`OverrideRenderMode`, 0x74B4D6..0x74B51E) necesita un dibujo propio
-  por árbol ([Fuego](magic.md#fuego-m5-srcecsfire)). `Living::ProcessReaction` 0x5F1270 de los aldeanos (mapas).
-- `OPENBLACK_TIME_OF_DAY` no se aplica ya en Land 1 (el guion controla el reloj).
-- Relevo para una sesión nueva de milagros: `Desktop\B&W\Prompts y detalles.md`, sección MILAGROS.
-- Fuego: el mapa de luz `S_LMFireBall` del objeto ardiendo, solo bajo los MultiMapFixed (sistemas U5,
-  [Fuego](magic.md#fuego-m5-srcecsfire)).
-- Lo marcado en el código por la auditoría y el tamaño (inferido) de la bola de fuego: [Suposiciones auditadas](magic.md#suposiciones-auditadas-2026-10-01), [El tamaño de la bola de fuego lanzada con la mano](magic.md#el-tamaño-de-la-bola-de-fuego-lanzada-con-la-mano-inferido-recuerdo-del-usuario).
+- Worship: where miracles come from: [Differences from the original and what is missing](#differences-from-the-original-and-what-is-missing)
+- Influence: the virtual influence, the allies, the multiplayer rule, the drawing and `CalculateMostInfluentialPlayer` ([Influence](magic.md#influence-m1i-srcecsinfluence)).
+- Casting from the hand: the help, the immersion, the HUD gesture icons, the hand glow and feeding a fireball in flight ([Casting from the hand, gestures and hand effects](magic.md#casting-from-the-hand-gestures-and-hand-effects-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
+- Alignment: the history (`CAlignmentHistory::Add` 0x415260) and the terrain alignment ([Player alignment](magic.md#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
+- Life: the town's count of injured villagers (Town+0x714) and the 0x40 flag of `Object::SetLife` 0x63A140 ([Object life](magic.md#object-life-m0-srcecslife)).
+- Dispenser orb: the user accepts the size of the seeds and the height of the bubble (2026-10-01). The reference capture of the original (`dev\documentacion\audit_magic\ref\dispenser_original.png`) is a WATER orb, not a fire one: its sky-blue blotch is the effect of the water seed. What remains (approximate) is that the terrain light and the haze are taken at `posición + facingOffset` and not at the point moved forward towards the camera (Draw 0x518FCD..0x518FF2) ([Seeds and one-off miracles](#seeds-and-one-off-miracles-spellseed-oneoffspellseed)).
+- Dispenser broken by a thrown rock: openblack breaks it into pieces like a house; the original draws it with `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). `Abode::ReactToPhysicsImpact` 0x406240 and what happens to its orb still have to be read.
+- FOOD and BEAM_EXPLOSION seeds: they are also loaded with material properties (`{1,0,1,1,0}`); apply `L3DMesh::SetMaterialProperties` as for the bubble.
+- Vortex between lands (`MagicVortex`, CREATE VORTEX): not ported; on release, fn_005FE3B0 marks `thing+0x25 |= 0x40` at 0x5FE5DD (`script_held::SetCannotBeEaten`).
+- Rain in the growth of the trees (`GrowTree`, formula in [trees.md](trees.md)): the weather belongs to Milagros.
+- Burning tree: the forced ALPHAREF 230..254 (`OverrideRenderMode`, 0x74B4D6..0x74B51E) needs a separate draw
+  per tree ([Fire](magic.md#fire-m5-srcecsfire)). The villagers' `Living::ProcessReaction` 0x5F1270 (mapas).
+- `OPENBLACK_TIME_OF_DAY` is no longer applied in Land 1 (the script controls the clock).
+- Handover for a new miracles session: `Desktop\B&W\Prompts y detalles.md`, section MILAGROS.
+- Fire: the light map `S_LMFireBall` of the burning object, only under the MultiMapFixed objects (sistemas U5,
+  [Fire](magic.md#fire-m5-srcecsfire)).
+- What the audit marked in the code and the (inferred) size of the fireball: [Audited assumptions](magic.md#audited-assumptions-2026-10-01), [The size of the fireball cast with the hand](magic.md#the-size-of-the-fireball-cast-with-the-hand-inferred-users-recollection).
 
-Lo pendiente de cada milagro está en [Pendiente](miracles.md#pendiente).
+What is pending for each miracle is in [Pending](miracles.md#pending).
 
-## Ganchos de prueba
+## Test hooks
 
-Todos los `OPENBLACK_*` están en [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración).
-Por tema:
+All the `OPENBLACK_*` are in [openblack-internals.md](openblack-internals.md#debug-environment-variables).
+By topic:
 
-- Núcleo de los hechizos: [Ganchos y trazas](#ganchos-y-trazas)
-- Lanzar desde la mano, gestos y efectos de la mano: [Ganchos, pruebas y capturas](#ganchos-pruebas-y-capturas)
-- Culto: de dónde salen los milagros: [Capturas](#capturas)
-- Fuego: [Captura](#captura)
+- Spell core: [Hooks and traces](#hooks-and-traces)
+- Casting from the hand, gestures and hand effects: [Hooks, tests and captures](#hooks-tests-and-captures)
+- Worship: where miracles come from: [Captures](#captures)
+- Fire: [Capture](#capture)
 
-## Fuentes
+## Sources
 
 - `dev\documentacion\miracles\`: `PLAN.md`, `core.md`, `casting.md`, `sources.md`, `influence.md`, `destructive.md`,
-  `resources.md`, `protect_creature.md`, `visuals_sound.md`, y `impl\review2\` (revisión de la ola 2).
-- `dev\_audit\magic\`: capturas y registros citados, y `assumptions_audit.md` (la auditoría de suposiciones).
+  `resources.md`, `protect_creature.md`, `visuals_sound.md`, and `impl\review2\` (wave 2 review).
+- `dev\_audit\magic\`: the captures and logs cited, and `assumptions_audit.md` (the assumptions audit).

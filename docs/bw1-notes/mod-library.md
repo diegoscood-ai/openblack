@@ -1,34 +1,34 @@
-# Librería de mods
+# Mod library
 
-Todo lo que cambia el juego original es un **mod**, desactivado por defecto (la única excepción, pedida por el usuario,
-es [`game.skip-intro`](#gameskip-intro)). Un mod es una **carpeta** de `Mods/` con un **`mod.json`**: lo que el mod
-es (nombre, versión, categoría, imagen…), sus opciones y qué cambia. Puede no tener código (solo datos), tener un
-script **Lua** o una librería **nativa** (DLL / .so, en C). Los mods pueden ser **librerías** para otros mods y se
-agrupan en **modpacks**. La librería (`src/Mods/`) los descubre solos al arrancar, resuelve dependencias y orden de
-carga, dibuja la ventana **Mods** y guarda el estado de cada uno en su `settings.cfg`. Todo lo de esta página es
-**mod/propio** salvo que se diga lo contrario (**fiel**, **(aproximado)**).
+Everything that changes the original game is a **mod**, disabled by default (the only exception, requested by the user,
+is [`game.skip-intro`](#gameskip-intro)). A mod is a **folder** in `Mods/` with a **`mod.json`**: what the mod
+is (name, version, category, image…), its options and what it changes. It may have no code (data only), have a
+**Lua** script or a **native** library (DLL / .so, in C). Mods can be **libraries** for other mods and are
+grouped into **modpacks**. The library (`src/Mods/`) discovers them on its own at startup, resolves dependencies and
+load order, draws the **Mods** window and stores the state of each one in its `settings.cfg`. Everything on this page is
+**mod/own** unless stated otherwise (**faithful**, **(approximate)**).
 
-- [Para el jugador](#para-el-jugador)
-  - [Ventana Mods](#ventana-mods)
-  - [Carpeta Mods](#carpeta-mods)
-  - [Línea de comandos](#línea-de-comandos)
-- [Para crear mods](#para-crear-mods)
-  - [Estructura de un mod](#estructura-de-un-mod)
+- [For the player](#for-the-player)
+  - [Mods window](#mods-window)
+  - [Mods folder](#mods-folder)
+  - [Command line](#command-line)
+- [For making mods](#for-making-mods)
+  - [Structure of a mod](#structure-of-a-mod)
   - [mod.json](#modjson)
-  - [Opciones e interruptores](#opciones-e-interruptores)
-  - [Reemplazar mallas, texturas, objetos y archivos](#reemplazar-mallas-texturas-objetos-y-archivos)
-  - [Mods Lua](#mods-lua)
-  - [Mods nativos (DLL)](#mods-nativos-dll)
-  - [Mods librería](#mods-librería)
+  - [Options and switches](#options-and-switches)
+  - [Replacing meshes, textures, objects and files](#replacing-meshes-textures-objects-and-files)
+  - [Lua mods](#lua-mods)
+  - [Native mods (DLL)](#native-mods-dll)
+  - [Library mods](#library-mods)
   - [Modpacks](#modpacks)
-  - [Dependencias y orden de carga](#dependencias-y-orden-de-carga)
-  - [Carpetas antiguas (mod.cfg)](#carpetas-antiguas-modcfg)
-- [Referencia](#referencia)
-  - [Interruptores del motor](#interruptores-del-motor)
-  - [Enumeraciones](#enumeraciones)
-  - [API: JSON, Lua y C](#api-json-lua-y-c)
-- [Cómo está hecho (src/Mods)](#cómo-está-hecho-srcmods)
-- [Catálogo de mods](#catálogo-de-mods)
+  - [Dependencies and load order](#dependencies-and-load-order)
+  - [Old folders (mod.cfg)](#old-folders-modcfg)
+- [Reference](#reference)
+  - [Engine switches](#engine-switches)
+  - [Enumerations](#enumerations)
+  - [API: JSON, Lua and C](#api-json-lua-and-c)
+- [How it is built (src/Mods)](#how-it-is-built-srcmods)
+- [Mod catalogue](#mod-catalogue)
   - [graphics.msaa](#graphicsmsaa)
   - [graphics.mipmaps](#graphicsmipmaps)
   - [graphics.anisotropic](#graphicsanisotropic)
@@ -39,43 +39,43 @@ carga, dibuja la ventana **Mods** y guarda el estado de cada uno en su `settings
   - [world.ground-statics](#worldground-statics)
   - [world.crops](#worldcrops)
   - [world.foliage](#worldfoliage)
-  - [Módulo world.foliage.beach](#módulo-worldfoliagebeach)
-  - [Módulo world.foliage.butterflies](#módulo-worldfoliagebutterflies)
+  - [Module world.foliage.beach](#module-worldfoliagebeach)
+  - [Module world.foliage.butterflies](#module-worldfoliagebutterflies)
   - [test.miracle-dispensers](#testmiracle-dispensers)
   - [game.skip-intro](#gameskip-intro)
   - [Modpack examples](#modpack-examples)
-- [Pendiente](#pendiente)
-- [Ganchos de prueba](#ganchos-de-prueba)
-- [Fuentes](#fuentes)
+- [Pending](#pending)
+- [Test hooks](#test-hooks)
+- [Sources](#sources)
 
-## Para el jugador
+## For the player
 
-### Ventana Mods
+### Mods window
 
-El botón **Mods** de la barra de menú abre la ventana de mods (`src/Debug/ModsWindow.*`), estilo Project Zomboid, con
-cuatro pestañas:
+The **Mods** button in the menu bar opens the mods window (`src/Debug/ModsWindow.*`), Project Zomboid style, with
+four tabs:
 
-- **Modpacks**: cada pack con su imagen, nombre, versión, autor y descripción, y una casilla para encender o apagar
-  todos sus mods. Al pulsar un pack se va a la pestaña Mods filtrada, «Mods (<nombre del pack>)».
-- **Mods**: a la izquierda la lista (imagen, casilla, nombre; `*` = hace falta reiniciar; en rojo los bloqueados),
-  agrupada por categoría, con los módulos sangrados bajo su mod y un buscador. Sin filtro salen los mods sueltos; con
-  filtro, los del pack (y «< All loose mods» para volver). A la derecha, el mod elegido: imagen grande, nombre, id,
-  versión, autores, categoría, pack, estado (activo / apagado / **bloqueado: por qué** / esperando a su padre),
-  descripción, **ajustes**, lo que necesita (con su estado), lo que ofrece a otros mods y su carpeta. Debajo, las
-  carpetas de `Mods/` que no se pudieron leer, con el error.
-- **Load order**: el orden de carga resuelto (de arriba abajo; con dos mods cambiando lo mismo gana el de abajo), con
-  el estado y de quién depende cada uno, y flechas para subir o bajar un mod. Las dependencias siempre mandan. Se
-  guarda en `Mods/load_order.cfg`.
-- **Reinicio**: al encender, apagar o cambiar un mod que necesita reiniciar (`*`), la ventana pregunta «Restart
-  needed» con **Restart openblack now** / **Later**, y mientras quede alguno pendiente muestra arriba «Takes effect
-  after a restart: …» con el mismo botón. Reiniciar cierra openblack como «Quit» y lo vuelve a abrir con la misma línea
-  de comandos (`Mods/Restart.*`, `main.cpp`); la ventana está en inglés.
-- **Log**: los mensajes de la librería de mods (mods encontrados, errores de manifiesto, bloqueos, conflictos de
-  reemplazos, errores de Lua y de los DLL, y lo que los mods escriben), con filtro por nivel y por mod.
+- **Modpacks**: each pack with its image, name, version, author and description, and a checkbox to switch all its mods
+  on or off. Clicking a pack goes to the filtered Mods tab, «Mods (<pack name>)».
+- **Mods**: on the left the list (image, checkbox, name; `*` = needs a restart; blocked ones in red),
+  grouped by category, with the modules indented under their mod and a search box. Without a filter the loose mods are
+  shown; with a filter, those of the pack (and «< All loose mods» to go back). On the right, the chosen mod: large image,
+  name, id, version, authors, category, pack, state (active / off / **blocked: why** / waiting for its parent),
+  description, **settings**, what it needs (with its state), what it offers to other mods and its folder. Below, the
+  folders in `Mods/` that could not be read, with the error.
+- **Load order**: the resolved load order (top to bottom; with two mods changing the same thing the lower one wins), with
+  the state and what each one depends on, and arrows to move a mod up or down. Dependencies always take precedence. It is
+  stored in `Mods/load_order.cfg`.
+- **Restart**: when switching on, switching off or changing a mod that needs a restart (`*`), the window asks «Restart
+  needed» with **Restart openblack now** / **Later**, and while any remains pending it shows «Takes effect
+  after a restart: …» at the top with the same button. Restarting closes openblack like «Quit» and reopens it with the
+  same command line (`Mods/Restart.*`, `main.cpp`); the window is in English.
+- **Log**: the messages of the mod library (mods found, manifest errors, blocks, replacement conflicts, Lua and
+  DLL errors, and what the mods write), with a filter by level and by mod.
 
-### Carpeta Mods
+### Mods folder
 
-Todo está en `Mods/` junto al ejecutable:
+Everything is in `Mods/` next to the executable:
 
 ```
 Mods/
@@ -87,31 +87,33 @@ Mods/
   load_order.cfg                           el orden de carga del usuario
 ```
 
-- Cada mod guarda su estado en su `settings.cfg` (lo escribe openblack al arrancar si falta y al cambiarlo en la
-  ventana; un `settings.cfg` que ya existe **manda** sobre los valores por defecto del `mod.json`):
+- Each mod stores its state in its `settings.cfg` (openblack writes it at startup if missing and when it is changed in
+  the window; a `settings.cfg` that already exists **takes precedence** over the default values of the `mod.json`):
   ```
   # Anti-aliasing (MSAA) (graphics.msaa). For one session only: --mod graphics.msaa[=off], --mod graphics.msaa.<option>=<choice>
   enabled = on
   samples = 4x  # Samples: 2x, 4x, 8x, 16x
   ```
-- Los mods que vienen con openblack tienen su `mod.json` compilado dentro del exe (`assets/mods/<id>/mod.json`), así
-  que existen aunque su carpeta solo tenga el `settings.cfg`; un `mod.json` en la carpeta con el mismo id lo sustituye.
-  El build copia `assets/mods` y `mods/examples` junto al exe (`bin/<config>/Mods`), sin tocar los `settings.cfg`.
-- El antiguo `mods.cfg` único se reparte solo en los `settings.cfg` y se borra (`ModRegistry::ImportLegacySettings`).
+- The mods that come with openblack have their `mod.json` compiled into the exe (`assets/mods/<id>/mod.json`), so
+  they exist even if their folder only has the `settings.cfg`; a `mod.json` in the folder with the same id replaces it.
+  The build copies `assets/mods` and `mods/examples` next to the exe (`bin/<config>/Mods`), without touching the
+  `settings.cfg` files.
+- The old single `mods.cfg` is split automatically into the `settings.cfg` files and deleted
+  (`ModRegistry::ImportLegacySettings`).
 
-### Línea de comandos
+### Command line
 
-- Solo para esa sesión (no se guarda): `--mod water.living`, `--mod graphics.msaa=off`,
+- For that session only (not saved): `--mod water.living`, `--mod graphics.msaa=off`,
   `--mod graphics.msaa.samples=8x`, `--mod "game.skip-intro.free start=off"`.
-- Atajos antiguos (`src/main.cpp`): `--msaa N`, `--mipmaps`, `--anisotropic`, `--enhanced-graphics` (= MSAA 4× +
-  anisótropo), `--living-water`, `--ground-static-objects`.
+- Old shortcuts (`src/main.cpp`): `--msaa N`, `--mipmaps`, `--anisotropic`, `--enhanced-graphics` (= MSAA 4× +
+  anisotropic), `--living-water`, `--ground-static-objects`.
 
-## Para crear mods
+## For making mods
 
-La forma rápida: copiar una carpeta del [modpack examples](#modpack-examples) (`Mods/examples/`), cambiarle el id y
-el nombre, y editar. Hay uno de cada tipo.
+The quick way: copy a folder from the [modpack examples](#modpack-examples) (`Mods/examples/`), change its id and
+name, and edit. There is one of each type.
 
-### Estructura de un mod
+### Structure of a mod
 
 ```
 Mods/<id>/                  la carpeta se llama como el id (minúsculas, cifras, . - _; 2-64 caracteres)
@@ -127,35 +129,35 @@ Mods/<id>/                  la carpeta se llama como el id (minúsculas, cifras,
 
 ### mod.json
 
-| Campo | Tipo | Qué es |
+| Field | Type | What it is |
 |---|---|---|
-| `schema` | número | versión del formato (1) |
-| `id` | texto | identificador estable, igual que la carpeta (`world.foliage`) |
-| `name`, `description` | texto o `{"en": …, "es": …}` | nombre y descripción (por idioma) |
-| `version` | texto | versión semver, `"1.2.0"` |
-| `category` | texto | sección de la ventana (`Graphics`, `World`, `Game`…) |
-| `authors` | lista de textos | |
-| `icon` | ruta | su imagen (por defecto `icon.png` si existe) |
-| `url` | texto | página del mod (opcional) |
-| `api` | rango | versión de la API de mods para la que se hizo, `">=1.0 <2.0"` (hoy openblack ofrece la 1.2.0: la 1.1 añade la geometría y el reloj del juego, la 1.2 el sonido) |
-| `enabled_by_default` | sí/no | encendido la primera vez (solo si el usuario lo pide; lo normal es `false`) |
-| `restart_required` | sí/no | sus cambios cuentan al reiniciar |
-| `parent` | id | módulo de otro mod: sale debajo y solo cuenta si el padre está activo |
-| `dependencies` / `optional` / `incompatible` | `{"id": "rango"}` | ver [Dependencias](#dependencias-y-orden-de-carga) |
-| `load_after` / `load_before` | lista de ids | pistas de orden (el otro no tiene que existir) |
-| `provides` | lista | interfaces que ofrece a otros mods (`"foliage.v1"`) |
-| `entry` | `{"lua": ruta, "native": {"windows": ruta, "linux": ruta}}` | su código |
-| `switches` | `{"interruptor": valor}` | interruptores que pone mientras está activo |
-| `options` | lista | sus ajustes ([Opciones](#opciones-e-interruptores)) |
-| `replace` | objeto | lo que sustituye ([Reemplazar](#reemplazar-mallas-texturas-objetos-y-archivos)) |
+| `schema` | number | format version (1) |
+| `id` | text | stable identifier, same as the folder (`world.foliage`) |
+| `name`, `description` | text or `{"en": …, "es": …}` | name and description (per language) |
+| `version` | text | semver version, `"1.2.0"` |
+| `category` | text | section of the window (`Graphics`, `World`, `Game`…) |
+| `authors` | list of texts | |
+| `icon` | path | its image (by default `icon.png` if it exists) |
+| `url` | text | the mod's page (optional) |
+| `api` | range | version of the mod API it was made for, `">=1.0 <2.0"` (today openblack offers 1.2.0: 1.1 adds geometry and the game clock, 1.2 sound) |
+| `enabled_by_default` | yes/no | switched on the first time (only if the user asks for it; the normal is `false`) |
+| `restart_required` | yes/no | its changes take effect on restart |
+| `parent` | id | module of another mod: shown underneath and only counts if the parent is active |
+| `dependencies` / `optional` / `incompatible` | `{"id": "rango"}` | see [Dependencies](#dependencies-and-load-order) |
+| `load_after` / `load_before` | list of ids | ordering hints (the other one does not have to exist) |
+| `provides` | list | interfaces it offers to other mods (`"foliage.v1"`) |
+| `entry` | `{"lua": ruta, "native": {"windows": ruta, "linux": ruta}}` | its code |
+| `switches` | `{"interruptor": valor}` | switches it sets while active |
+| `options` | list | its settings ([Options](#options-and-switches)) |
+| `replace` | object | what it replaces ([Replace](#replacing-meshes-textures-objects-and-files)) |
 
-Se admiten comentarios `//` en el JSON. Un error de formato deja el mod fuera (sale en la pestaña Mods, «Could not be
-read», y en el Log); un interruptor o un valor desconocido solo quita esa parte, con un aviso.
+`//` comments are allowed in the JSON. A format error leaves the mod out (it appears in the Mods tab, «Could not be
+read», and in the Log); an unknown switch or value only removes that part, with a warning.
 
-### Opciones e interruptores
+### Options and switches
 
-El motor nunca decide por su cuenta: todo lo que no es original lee un **interruptor** de `EngineConfig`, y los mods
-ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.json` no necesita código para eso:
+The engine never decides on its own: everything that is not original reads a **switch** from `EngineConfig`, and the
+mods set switches by name ([list](#engine-switches)). A `mod.json` needs no code for that:
 
 ```json
 "switches": { "world.crops.without-farmers": true },
@@ -170,17 +172,17 @@ ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.j
 ]
 ```
 
-- `type`: `choice` (lista, por defecto), `slider` (deslizador sobre los valores) o `bool` (valores `on` / `off`).
-- `values` y `default` (el valor o su número de orden); `label` y `description` por idioma.
-- `bind`: por cada interruptor, el valor de cada elección (las que no salen dejan el valor por defecto); o un nombre de
-  interruptor solo: en `bool` vale 1 con `on`, y en las demás el número que haya en el texto de la elección
+- `type`: `choice` (list, the default), `slider` (slider over the values) or `bool` (values `on` / `off`).
+- `values` and `default` (the value or its ordinal number); `label` and `description` per language.
+- `bind`: for each switch, the value of each choice (those not listed keep the default value); or just a switch
+  name: in `bool` it is 1 with `on`, and in the others the number in the choice's text
   (`"x10"` → 10, `"4x"` → 4, `"10s"` → 10).
-- Con el mod apagado o bloqueado sus interruptores vuelven al valor por defecto (el del original). Con dos mods
-  poniendo el mismo, gana el que va después en el orden de carga.
-- Cada interruptor dice cuándo cuenta (`live` al momento, `map` al cargar una tierra, `restart` al reiniciar): si el
-  mod tiene alguno de reinicio, pon `"restart_required": true`.
+- With the mod off or blocked its switches return to the default value (the original's). With two mods
+  setting the same one, the one later in the load order wins.
+- Each switch says when it takes effect (`live` immediately, `map` when loading a land, `restart` on restart): if the
+  mod has any restart one, set `"restart_required": true`.
 
-### Reemplazar mallas, texturas, objetos y archivos
+### Replacing meshes, textures, objects and files
 
 ```json
 "replace": {
@@ -191,67 +193,67 @@ ponen interruptores por su nombre ([lista](#interruptores-del-motor)). Un `mod.j
 }
 ```
 
-- **meshes**: una malla de `AllMeshes.g3d` por su nombre (la [enumeración `meshes`](#enumeraciones), sin mayúsculas
-  que importen) o `#<número>`, cambiada por un `.l3d` (o `.zzz`) del mod. Se carga en lugar de la del pack (la caché
-  de recursos guarda la primera carga, `Game::Initialize`) por el mismo `L3DLoader`, así que hereda lo que el motor
-  aplica después a esa malla por su id: p. ej. la burbuja (`O_Bibble_up`) y las bandas de power-up
-  (`Power_Up_Band`) quedan con el material aditivo sin Z del original, y los modos de render de `render_modes` (nota
-  de la sesión sistemas). Un mod que quiera otro material para esas tendrá que pedirlo cuando el SDK lo ofrezca.
-- **textures**: `pack:<id hex>` una textura de `AllMeshes.g3d` (los ids de HD-Tweaks, `textures.json`) por un PNG;
-  `raw:<nombre>` un `Data/Textures/<nombre>.raw` por un PNG o un `.raw` (si el juego no lo tiene, se añade).
-- **objects**: propiedades de los objetos de `info.dat` por tabla y por su nombre de depuración (`debugString`; en
-  `abode` también `<TRIBU>_<nombre>`, como los guiones, `GAbodeInfo::GetInfoFromText` 0x405A70: el nombre solo cambia
-  el edificio de todas las tribus): tablas
+- **meshes**: a mesh of `AllMeshes.g3d` by its name (the [`meshes` enumeration](#enumerations), case-insensitive)
+  or `#<número>`, replaced by a `.l3d` (or `.zzz`) of the mod. It is loaded instead of the pack's one (the resource cache
+  stores the first load, `Game::Initialize`) by the same `L3DLoader`, so it inherits what the engine
+  applies afterwards to that mesh by its id: e.g. the bubble (`O_Bibble_up`) and the power-up bands
+  (`Power_Up_Band`) keep the original's additive material without Z, and the render modes of `render_modes` (note
+  from the sistemas session). A mod that wants another material for those will have to request it when the SDK offers it.
+- **textures**: `pack:<id hex>` a texture of `AllMeshes.g3d` (the HD-Tweaks ids, `textures.json`) by a PNG;
+  `raw:<nombre>` a `Data/Textures/<nombre>.raw` by a PNG or a `.raw` (if the game does not have it, it is added).
+- **objects**: properties of the `info.dat` objects per table and by their debug name (`debugString`; in
+  `abode` also `<TRIBU>_<nombre>`, like the scripts, `GAbodeInfo::GetInfoFromText` 0x405A70: the name alone changes
+  the building of all tribes): tables
   `feature`, `abode`, `mobileStatic`, `mobileObject`, `pot`, `tree`, `animatedStatic`, `animal`, `bigForest`,
-  `fieldType`; campos comunes (`foodValue`, `woodValue`, `weight`, `heatCapacity`, `combustionTemperature`,
-  `sacrificeValue`, `impressiveValue`, `drawImportance`, los `defenceEffect*` / `defenceMultiplier*`, los
-  `canCreature*`…) y de malla o escala donde la tabla los tiene (`meshId`, `normal`, `growing`, `burning`, `high`,
-  `std`, `low`, `startScale`, `finalScale`; una malla por nombre o número). También `"objects": "data/objects.json"`
-  con lo mismo en un archivo. Se aplica a `info.dat` antes de publicarlo (`Game.cpp`, tras `InfoFile::LoadFromFile`).
-- **replace/**: cualquier archivo del juego con su misma ruta dentro de la carpeta `replace/` del mod (`replace/Data/
-  Sky.raw`, `replace/Scripts/Land1.txt`…) lo sustituye; los que solo tiene el mod también se ven
-  (`FileSystemInterface::AddOverridePath`, en orden de carga: gana el último).
-- Todo esto se lee **al arrancar** (`mods::replace::Collect`): los mods con `replace` deben llevar
-  `"restart_required": true`. Si dos mods sustituyen lo mismo, gana el último y el Log lo dice.
+  `fieldType`; common fields (`foodValue`, `woodValue`, `weight`, `heatCapacity`, `combustionTemperature`,
+  `sacrificeValue`, `impressiveValue`, `drawImportance`, the `defenceEffect*` / `defenceMultiplier*`, the
+  `canCreature*`…) and mesh or scale fields where the table has them (`meshId`, `normal`, `growing`, `burning`, `high`,
+  `std`, `low`, `startScale`, `finalScale`; a mesh by name or number). Also `"objects": "data/objects.json"`
+  with the same in a file. It is applied to `info.dat` before publishing it (`Game.cpp`, after `InfoFile::LoadFromFile`).
+- **replace/**: any game file with its same path inside the mod's `replace/` folder (`replace/Data/
+  Sky.raw`, `replace/Scripts/Land1.txt`…) replaces it; those that only the mod has are also visible
+  (`FileSystemInterface::AddOverridePath`, in load order: the last one wins).
+- All this is read **at startup** (`mods::replace::Collect`): mods with `replace` must carry
+  `"restart_required": true`. If two mods replace the same thing, the last one wins and the Log says so.
 
-### Mods Lua
+### Lua mods
 
-`"entry": {"lua": "scripts/main.lua"}`. El script corre una vez al arrancar el motor (antes de la primera tierra), en
-un **entorno propio** por mod: sin `io`, `os` (salvo `os.time`, `os.clock`, `os.date`), `package`, `debug`, `load` ni
-`dofile`; `string.dump`; las librerías `string`, `table`, `math`, `utf8` y `coroutine` son copias propias de cada mod;
-`require("a.b")` carga `scripts/a/b.lua` del mismo mod (sin rutas, unidades ni `..`); `print` escribe en el Log; solo
-se ejecuta código fuente, nunca Lua precompilado). Un error de un script se apunta en el Log y nunca para el juego;
-tras 10 errores se quitan sus funciones de eventos, y una llamada que pase de unos 20 millones de instrucciones se
-corta (reglas del anfitrión, no del original). Un mod apagado o bloqueado no recibe eventos, y como el script se carga
-al arrancar, un mod con `entry` o `replace` es siempre de reinicio. No hay que cambiar la metatabla de las cadenas
-(`getmetatable("")`): es la única tabla que comparten todos los mods. Tabla `ob`:
+`"entry": {"lua": "scripts/main.lua"}`. The script runs once when the engine starts (before the first land), in
+an **environment of its own** per mod: without `io`, `os` (except `os.time`, `os.clock`, `os.date`), `package`, `debug`,
+`load` or `dofile`; `string.dump`; the `string`, `table`, `math`, `utf8` and `coroutine` libraries are each mod's own
+copies; `require("a.b")` loads `scripts/a/b.lua` of the same mod (no paths, drives or `..`); `print` writes to the Log;
+only source code is executed, never precompiled Lua). A script error is recorded in the Log and never stops the game;
+after 10 errors its event functions are removed, and a call that exceeds about 20 million instructions is
+cut off (host rules, not from the original). A mod that is off or blocked receives no events, and since the script is
+loaded at startup, a mod with `entry` or `replace` always requires a restart. Do not change the string metatable
+(`getmetatable("")`): it is the only table shared by all mods. Table `ob`:
 
-| Función | Qué hace |
+| Function | What it does |
 |---|---|
-| `ob.log.info(t)`, `.warn(t)`, `.error(t)` | escribe en el Log |
-| `ob.mod.id`, `.name`, `.version`, `.folder`, `ob.mod.option(id)` | el mod y la elección de una opción |
-| `ob.switch.get(nombre)`, `ob.switch.set(nombre, valor)`, `ob.switch.list()` | interruptores (los que pone un script cuentan mientras el mod está activo) |
-| `ob.on("turn" \| "frame" \| "land_loaded", función)` | eventos: el número de turno, los segundos del fotograma, el nombre de la tierra |
-| `ob.interfaces.provide(nombre, tabla)`, `ob.interfaces.get(nombre)` | [mods librería](#mods-librería) |
-| `ob.enums.meshes`, `ob.enums.magic`…, `ob.enum(nombre)` | [enumeraciones](#enumeraciones) como tablas nombre → número |
-| `ob.game.turn()`, `ob.game.hour()` | turno y hora del reloj de la tierra |
-| `ob.game.ground_height(x, z)` | altura del terreno (nil sin tierra) |
-| `ob.game.camera()`, `ob.game.set_camera(x, y, z, fx, fy, fz)` | la cámara (posición y foco) |
-| `ob.game.cast_miracle(nombre, x, z [, radio, segundos])` | un milagro en el suelo, del jugador neutral, por el camino de `SPELL_AT_POS` |
-| `ob.game.turn_fraction()`, `ob.game.paused()`, `ob.game.speed()` | (1.1) fracción del turno 0..0,99, pausa y velocidad (`game_clock`) |
-| `ob.map.distance(x1, z1, x2, z2)` | (1.1) distancia en el suelo como la mide el juego (`GUtils::GetDistanceInMetres` 0x74CD70, la que más usa el juego: solo x y z, en coma fija 16.16) |
-| `ob.map.angle(x1, z1, x2, z2)`, `ob.map.angle_to_radians(a)`, `ob.map.radians_to_angle(r)` | (1.1) ángulos del juego: 0..2047 es una vuelta (`gutils::GetAngleFromXZ`, `ConvertGameAngleTo3D`, `ConvertAngle3DToGame`) |
-| `ob.map.point_at(x, z, ángulo, metros)` | (1.1) el punto a esa distancia y ángulo (`gutils::GetXFromAngle` / `GetZFromAngle`) |
-| `ob.map.cell(x, z)` | (1.1) la celda de 10 m y si está dentro del mapa de 512 x 512 (`map_coords::CellOf`, `InBounds`) |
-| `ob.mesh.radius(nombre [, escala])`, `ob.mesh.height(nombre [, escala])` | (1.1) radio 2D y altura entera de una malla (`object::MeshRadius2D`, `MeshHeight`); nil si no está cargada |
-| `ob.sound.play(banco, muestra [, x, y, z])` | (1.2) un efecto de sonido como los del juego: banco por nombre (`ob.enums.sound_banks`: `InGame`, `Spells`, `Creature`, `ScriptSfx` (el de los guiones)…), muestra por su nombre del `.sad` (`"G_PickUpFood.wav"`) o su número; sin posición 2D, con ella 3D quieto en ese punto. Modo 3 sin bucle (lo de un efecto suelto del original, `LH_SamplePlayOptions` 0x10010E90) y el volumen, tono y distancias de la propia muestra. Devuelve si sonó |
-| `ob.sound.stop()` | (1.2) para todos los sonidos del mod (`audio::StopOwner`, con la rampa de 20 ms) |
+| `ob.log.info(t)`, `.warn(t)`, `.error(t)` | writes to the Log |
+| `ob.mod.id`, `.name`, `.version`, `.folder`, `ob.mod.option(id)` | the mod and the choice of an option |
+| `ob.switch.get(nombre)`, `ob.switch.set(nombre, valor)`, `ob.switch.list()` | switches (those set by a script count while the mod is active) |
+| `ob.on("turn" \| "frame" \| "land_loaded", función)` | events: the turn number, the seconds of the frame, the name of the land |
+| `ob.interfaces.provide(nombre, tabla)`, `ob.interfaces.get(nombre)` | [library mods](#library-mods) |
+| `ob.enums.meshes`, `ob.enums.magic`…, `ob.enum(nombre)` | [enumerations](#enumerations) as name → number tables |
+| `ob.game.turn()`, `ob.game.hour()` | turn and time of the land's clock |
+| `ob.game.ground_height(x, z)` | terrain height (nil without a land) |
+| `ob.game.camera()`, `ob.game.set_camera(x, y, z, fx, fy, fz)` | the camera (position and focus) |
+| `ob.game.cast_miracle(nombre, x, z [, radio, segundos])` | a miracle on the ground, from the neutral player, via the `SPELL_AT_POS` path |
+| `ob.game.turn_fraction()`, `ob.game.paused()`, `ob.game.speed()` | (1.1) turn fraction 0..0.99, pause and speed (`game_clock`) |
+| `ob.map.distance(x1, z1, x2, z2)` | (1.1) distance on the ground as the game measures it (`GUtils::GetDistanceInMetres` 0x74CD70, the one the game uses most: only x and z, in 16.16 fixed point) |
+| `ob.map.angle(x1, z1, x2, z2)`, `ob.map.angle_to_radians(a)`, `ob.map.radians_to_angle(r)` | (1.1) game angles: 0..2047 is one revolution (`gutils::GetAngleFromXZ`, `ConvertGameAngleTo3D`, `ConvertAngle3DToGame`) |
+| `ob.map.point_at(x, z, ángulo, metros)` | (1.1) the point at that distance and angle (`gutils::GetXFromAngle` / `GetZFromAngle`) |
+| `ob.map.cell(x, z)` | (1.1) the 10 m cell and whether it is inside the 512 x 512 map (`map_coords::CellOf`, `InBounds`) |
+| `ob.mesh.radius(nombre [, escala])`, `ob.mesh.height(nombre [, escala])` | (1.1) 2D radius and integer height of a mesh (`object::MeshRadius2D`, `MeshHeight`); nil if it is not loaded |
+| `ob.sound.play(banco, muestra [, x, y, z])` | (1.2) a sound effect like those of the game: bank by name (`ob.enums.sound_banks`: `InGame`, `Spells`, `Creature`, `ScriptSfx` (the scripts' one)…), sample by its name in the `.sad` (`"G_PickUpFood.wav"`) or its number; without a position 2D, with one 3D, fixed at that point. Mode 3 without loop (that of a standalone effect in the original, `LH_SamplePlayOptions` 0x10010E90) and the sample's own volume, pitch and distances. Returns whether it played |
+| `ob.sound.stop()` | (1.2) stops all of the mod's sounds (`audio::StopOwner`, with the 20 ms ramp) |
 
-### Mods nativos (DLL)
+### Native mods (DLL)
 
-`"entry": {"native": {"windows": "bin/<id>.dll", "linux": "bin/<id>.so"}}`. Una librería en C (o en cualquier lenguaje
-que haga una librería C) que incluye **una sola cabecera**, `components/modsdk/include/openblack/mod_api.h`, y no
-enlaza nada de openblack: el motor le pasa sus funciones al cargarla (`SDL_LoadObject`). Exporta:
+`"entry": {"native": {"windows": "bin/<id>.dll", "linux": "bin/<id>.so"}}`. A library in C (or in any language
+that makes a C library) that includes **a single header**, `components/modsdk/include/openblack/mod_api.h`, and does not
+link anything from openblack: the engine passes it its functions when loading it (`SDL_LoadObject`). It exports:
 
 ```c
 OB_MOD_EXPORT const ob_mod_info* ob_mod_query(void);           // versión de API e id, sin efectos
@@ -259,302 +261,305 @@ OB_MOD_EXPORT int32_t ob_mod_load(const ob_host_api* host, ob_mod* self);  // 0 
 OB_MOD_EXPORT void ob_mod_unload(void);                         // opcional
 ```
 
-- openblack comprueba `ob_mod_query` (misma versión mayor de API, mismo id que su `mod.json`) antes de ejecutar nada
-  más de la librería.
+- openblack checks `ob_mod_query` (same API major version, same id as its `mod.json`) before executing anything
+  else from the library.
 - `ob_host_api`: `log`, `get_option`, `set_switch`, `get_switch`, `on_event` (`OB_EVENT_TURN`, `_FRAME`,
   `_LAND_LOADED`), `provide_interface`, `get_interface`, `enumeration`, `game_turn`, `game_hour`, `ground_height`,
-  `camera`, `set_camera`, `cast_miracle`, `land_name`; y desde la 1.1 `game_turn_fraction`, `game_paused`,
+  `camera`, `set_camera`, `cast_miracle`, `land_name`; and since 1.1 `game_turn_fraction`, `game_paused`,
   `game_speed`, `map_cell`, `map_distance`, `map_angle`, `map_angle_to_radians`, `map_radians_to_angle`,
-  `map_point_at`, `mesh_radius`, `mesh_height`; desde la 1.2 `play_sound` y `stop_sounds` (las de la tabla de Lua). Empieza por su tamaño: las funciones nuevas
-  solo se añaden al final (`OB_HOST_HAS(host, función)` para saber si el openblack que corre la tiene; así lo hace
-  `example.native-hello` con `map_distance`).
-- Reglas: todo en el hilo del juego; ninguna excepción C++ sale de la librería; los textos que da openblack valen
-  durante la llamada, los que se le piden van a un búfer del mod. Un mod nativo no se puede aislar como uno Lua: solo
-  hay que instalar los de confianza.
-- Compilar uno en el repo: `openblack_add_native_mod(<target> <id> <carpeta> <fuentes>)` en `mods/CMakeLists.txt`
-  (lo deja en `Mods/<carpeta>/bin`).
+  `map_point_at`, `mesh_radius`, `mesh_height`; since 1.2 `play_sound` and `stop_sounds` (those of the Lua table). It starts with its size: new functions
+  are only added at the end (`OB_HOST_HAS(host, función)` to know whether the running openblack has it; that is how
+  `example.native-hello` does it with `map_distance`).
+- Rules: everything on the game thread; no C++ exception leaves the library; the strings openblack gives are valid
+  during the call, those requested from it go to a buffer of the mod. A native mod cannot be sandboxed like a Lua one:
+  only install trusted ones.
+- Building one in the repo: `openblack_add_native_mod(<target> <id> <carpeta> <fuentes>)` in `mods/CMakeLists.txt`
+  (it puts it in `Mods/<carpeta>/bin`).
 
-### Mods librería
+### Library mods
 
-Un mod que no cambia nada por sí mismo y ofrece funciones a otros, como las librerías de mods de Minecraft:
+A mod that changes nothing by itself and offers functions to others, like Minecraft's mod libraries:
 
-- Lo declara en `"provides": ["<nombre>.v1"]` y lo publica al cargar: en Lua `ob.interfaces.provide("x.v1", tabla)`;
-  en C `host->provide_interface(self, "x.v1", &tabla, sizeof tabla)` con una tabla de punteros a funciones que empieza
-  por su tamaño (y una cabecera pública `include/x_v1.h` para quien la use).
-- Quien la usa la pone en `"dependencies"` (así carga después y se bloquea si falta) y la pide:
+- It declares it in `"provides": ["<nombre>.v1"]` and publishes it when loading: in Lua `ob.interfaces.provide("x.v1", tabla)`;
+  in C `host->provide_interface(self, "x.v1", &tabla, sizeof tabla)` with a table of function pointers that starts
+  with its size (and a public header `include/x_v1.h` for whoever uses it).
+- Whoever uses it puts it in `"dependencies"` (so it loads afterwards and is blocked if missing) and requests it:
   `ob.interfaces.get("x.v1")` / `host->get_interface("x.v1", sizeof(x_v1))`.
-- Una interfaz solo crece al final; un cambio incompatible es otro nombre (`x.v2`). Las tablas de Lua son para mods Lua
-  y las nativas para mods nativos.
-- Ejemplos: `example.lua-library` + `example.lua-consumer`, `example.native-library` + `example.native-consumer`.
+- An interface only grows at the end; an incompatible change is another name (`x.v2`). Lua tables are for Lua mods
+  and native ones for native mods.
+- Examples: `example.lua-library` + `example.lua-consumer`, `example.native-library` + `example.native-consumer`.
 
 ### Modpacks
 
-Una carpeta de `Mods/` con un **`modpack.json`** (`schema`, `id`, `name`, `version`, `category`, `description`,
-`authors`, `icon`, como un `mod.json`) y sus mods dentro, cada uno en su subcarpeta con su `mod.json`. Los ids de los
-mods son globales. La casilla del pack enciende o apaga todos sus mods; cada uno se ajusta por separado. Ejemplo:
+A folder in `Mods/` with a **`modpack.json`** (`schema`, `id`, `name`, `version`, `category`, `description`,
+`authors`, `icon`, like a `mod.json`) and its mods inside, each in its subfolder with its `mod.json`. Mod ids are
+global. The pack's checkbox switches all its mods on or off; each one is configured separately. Example:
 [examples](#modpack-examples).
 
-### Dependencias y orden de carga
+### Dependencies and load order
 
-- `"dependencies": {"lib.x": "^1.2"}`: hace falta, encendido y en ese rango; si no, este mod se **bloquea** (sale en rojo
-  con el porqué: «needs lib.x ^1.2, found 1.0.0», «needs X, which is off»…), y lo que depende de él también.
-- `"optional"`: si está, carga antes; si no, nada. `"incompatible"`: este mod se bloquea mientras el otro esté activo.
-- `"api"` fuera del rango de openblack → bloqueado.
-- Rangos: `*`, `1.2.3` / `=1.2.3`, `>`, `>=`, `<`, `<=`, `^1.2` (misma mayor, al menos 1.2), `~1.2` (misma mayor y
-  menor), varios separados por espacios (`">=1.0 <2.0"`).
-- Orden: primero lo que cada mod necesita (dependencias, opcionales presentes, `load_after`, `load_before`, el padre),
-  luego el orden del usuario (`Mods/load_order.cfg`) y luego el id. Un círculo de dependencias carga por id y lo dice
-  el Log.
+- `"dependencies": {"lib.x": "^1.2"}`: required, switched on and within that range; otherwise, this mod is **blocked**
+  (shown in red with the reason: «needs lib.x ^1.2, found 1.0.0», «needs X, which is off»…), and so is whatever depends
+  on it.
+- `"optional"`: if present, it loads first; if not, nothing. `"incompatible"`: this mod is blocked while the other one is
+  active.
+- `"api"` outside openblack's range → blocked.
+- Ranges: `*`, `1.2.3` / `=1.2.3`, `>`, `>=`, `<`, `<=`, `^1.2` (same major, at least 1.2), `~1.2` (same major and
+  minor), several separated by spaces (`">=1.0 <2.0"`).
+- Order: first what each mod needs (dependencies, present optionals, `load_after`, `load_before`, the parent),
+  then the user's order (`Mods/load_order.cfg`) and then the id. A dependency cycle loads by id and the Log
+  says so.
 
-### Carpetas antiguas (mod.cfg)
+### Old folders (mod.cfg)
 
-Se siguen leyendo, traducidas al formato nuevo:
+They are still read, translated to the new format:
 
-- Una carpeta con `mod.cfg` sin `module_of` es un **mod de datos** `data.<carpeta>`: sus archivos con la ruta del juego
-  lo sustituyen (como `replace/` de un `mod.json`), con reinicio.
-- Con `module_of = <id>` es un **módulo** de ese mod: `name`, `description` y opciones
+- A folder with `mod.cfg` without `module_of` is a **data mod** `data.<carpeta>`: its files with the game's path
+  replace it (like `replace/` of a `mod.json`), with restart.
+- With `module_of = <id>` it is a **module** of that mod: `name`, `description` and options
   `option.<id> = <etiqueta> | <opción>, <opción>... | <por defecto> [| slider]`.
-- Un `mod.json` en la carpeta manda sobre su `mod.cfg`.
+- A `mod.json` in the folder takes precedence over its `mod.cfg`.
 
-## Referencia
+## Reference
 
-### Interruptores del motor
+### Engine switches
 
-La tabla está en `src/Mods/EngineSwitches.cpp` (cada uno un campo de `EngineConfig`; los campos y quién los lee no
-cambian). Valor por defecto = el original.
+The table is in `src/Mods/EngineSwitches.cpp` (each one a field of `EngineConfig`; the fields and who reads them do not
+change). Default value = the original.
 
-| Interruptor | Tipo | Cuándo | Qué hace |
+| Switch | Type | When | What it does |
 |---|---|---|---|
-| `graphics.msaa.samples` | int 0-16 | live | MSAA del búfer (0 = el original); al cambiar se rehace el búfer |
-| `graphics.mipmaps` | bool | restart | mipmaps y filtrado trilineal |
-| `graphics.anisotropic` | bool | restart | filtrado anisótropo |
-| `graphics.smooth-smoke` | bool | restart | `smokea.raw` con su alfa de 8 bits (sin el corte ARGB4444 del original) |
-| `graphics.terrain.upscale` | bool | map | texturas del terreno ampliadas x2 (Lanczos-3) |
-| `graphics.terrain.repeat` | float 1-4 | map | repeticiones de la textura del terreno por bloque |
-| `graphics.terrain.triplanar` | bool | map | acantilados con la textura de lado |
-| `graphics.hd-tweaks.textures` | bool | live | texturas HD de aldeanos y animales |
-| `graphics.hd-tweaks.smooth` | int 0-3 | live | nivel de redondeo PN (0 = no) |
-| `graphics.hd-tweaks.lighting` | int 0-1 | live | 1 = luz por píxel |
-| `graphics.hd-tweaks.mip-bias` | float -4-0 | live | sesgo de mip (negativo = más nítido) |
-| `graphics.hd-tweaks.high-detail` | bool | live | mallas de alto detalle |
-| `water.living` | bool | live | el mar lo refleja todo y ondula |
-| `world.ground-statics` | bool | live | baja al suelo los estáticos que flotan (mueve también los que ya existen) |
-| `world.foliage.density` | float 0-8 | live | plantas por celda (0 = sin hierba) |
-| `world.foliage.distance` | float 50-1000 | live | distancia de dibujo de la hierba |
-| `world.foliage.fields` | bool | live | campos como plantas que crecen |
-| `world.crops.without-farmers` | bool | live | campos que se siembran solos |
-| `world.crops.growth` | float 1-100 | live | velocidad de crecimiento |
-| `game.skip-tutorial` | int 0-3 | restart | respuesta al SkipBox (0 jugar todo … 3 sin el claro) |
-| `game.free-start` | bool | map | **no original**: el principio de la tierra no mueve la cámara ni bloquea |
-| `test.dispensers` | bool | map | dispensadores de prueba junto al templo |
-| `test.dispensers.level` | int 0-3 | map | su nivel |
-| `test.dispensers.seconds` | float 1-600 | live | su recarga |
-| `test.dispensers.seed` | bool | live | bola de fuego en la mano al empezar |
+| `graphics.msaa.samples` | int 0-16 | live | MSAA of the buffer (0 = the original); when changed the buffer is rebuilt |
+| `graphics.mipmaps` | bool | restart | mipmaps and trilinear filtering |
+| `graphics.anisotropic` | bool | restart | anisotropic filtering |
+| `graphics.smooth-smoke` | bool | restart | `smokea.raw` with its 8-bit alpha (without the original's ARGB4444 cut) |
+| `graphics.terrain.upscale` | bool | map | terrain textures upscaled x2 (Lanczos-3) |
+| `graphics.terrain.repeat` | float 1-4 | map | repetitions of the terrain texture per block |
+| `graphics.terrain.triplanar` | bool | map | cliffs with the side texture |
+| `graphics.hd-tweaks.textures` | bool | live | HD textures for villagers and animals |
+| `graphics.hd-tweaks.smooth` | int 0-3 | live | PN rounding level (0 = no) |
+| `graphics.hd-tweaks.lighting` | int 0-1 | live | 1 = per-pixel lighting |
+| `graphics.hd-tweaks.mip-bias` | float -4-0 | live | mip bias (negative = sharper) |
+| `graphics.hd-tweaks.high-detail` | bool | live | high-detail meshes |
+| `water.living` | bool | live | the sea reflects everything and ripples |
+| `world.ground-statics` | bool | live | lowers floating statics to the ground (also moves those that already exist) |
+| `world.foliage.density` | float 0-8 | live | plants per cell (0 = no grass) |
+| `world.foliage.distance` | float 50-1000 | live | grass draw distance |
+| `world.foliage.fields` | bool | live | fields as growing plants |
+| `world.crops.without-farmers` | bool | live | fields that sow themselves |
+| `world.crops.growth` | float 1-100 | live | growth speed |
+| `game.skip-tutorial` | int 0-3 | restart | answer to the SkipBox (0 play everything … 3 without the glade) |
+| `game.free-start` | bool | map | **not original**: the start of the land does not move the camera nor lock |
+| `test.dispensers` | bool | map | test dispensers next to the temple |
+| `test.dispensers.level` | int 0-3 | map | their level |
+| `test.dispensers.seconds` | float 1-600 | live | their recharge |
+| `test.dispensers.seed` | bool | live | fireball in the hand at the start |
 
-Añadir uno: el campo en `EngineConfig` (apagado = el original), leerlo en el motor y una línea en `EngineSwitches.cpp`.
+Adding one: the field in `EngineConfig` (off = the original), read it in the engine and a line in `EngineSwitches.cpp`.
 
-### Enumeraciones
+### Enumerations
 
-`ob.enums.<nombre>` (Lua) y `host->enumeration("<nombre>", i, …)` (C): `meshes` (los 626 nombres de `k_MeshNames`),
-`magic` (los `MagicType` por el nombre de su efecto en `info.dat`, tras cargar los datos), `object_tables` y
-`object_fields` (lo que `replace.objects` admite), `switches`.
+`ob.enums.<nombre>` (Lua) and `host->enumeration("<nombre>", i, …)` (C): `meshes` (the 626 names of `k_MeshNames`),
+`magic` (the `MagicType` by the name of their effect in `info.dat`, after loading the data), `object_tables` and
+`object_fields` (what `replace.objects` accepts), `switches`.
 
-### API: JSON, Lua y C
+### API: JSON, Lua and C
 
-Una sola implementación, `src/Mods/Api.h`; JSON, Lua (`Mods/Lua/LuaHost.cpp`) y C (`Mods/Native/NativeHost.cpp`) son
-traducciones de ella. Solo usa la API pública de cada área, acordada con su dueño: altura `LandIsland`, milagros
-`magic::script::CastSpellAtPos` (por las reglas del juego, como `SPELL_AT_POS`, con la comprobación de la clase; el
-«desde» 30 m sobre el punto, como `OPENBLACK_TEST_SPELL` **(inferido)**), cámara, reloj e interruptores. Pendiente:
-el sonido va solo por `src/Audio/Audio.h` (acordado con la sesión audio): cada mod tiene su dueño (`audio::NewOwner`) y sus
-sonidos se paran juntos (`audio::StopOwner`) al apagarlo, bloquearlo o cerrar openblack.
+A single implementation, `src/Mods/Api.h`; JSON, Lua (`Mods/Lua/LuaHost.cpp`) and C (`Mods/Native/NativeHost.cpp`) are
+translations of it. It only uses the public API of each area, agreed with its owner: height `LandIsland`, miracles
+`magic::script::CastSpellAtPos` (by the game's rules, like `SPELL_AT_POS`, with the class check; the
+«from» 30 m above the point, like `OPENBLACK_TEST_SPELL` **(inferred)**), camera, clock and switches. Pending:
+sound goes only through `src/Audio/Audio.h` (agreed with the audio session): each mod has its owner (`audio::NewOwner`)
+and its sounds are stopped together (`audio::StopOwner`) when it is switched off, blocked or openblack is closed.
 
-## Cómo está hecho (src/Mods)
+## How it is built (src/Mods)
 
-| Archivo | Qué |
+| File | What |
 |---|---|
-| `Mod.h` | `Mod` (Info, opciones, estado, bloqueo), `Modpack`, `Dependency` |
-| `Manifest.*` | lee `mod.json` / `modpack.json` (nlohmann-json); `PackageMod`: opciones atadas a interruptores |
-| `Semver.*` | versiones y rangos |
-| `Switches.*`, `EngineSwitches.cpp` | registro de interruptores con nombre y la tabla de `EngineConfig` |
-| `ModRegistry.*` | descubrir carpetas, ajustes, dependencias, orden de carga, aplicar, modpacks, montar `replace/` |
-| `BuiltinManifests.h` | los `mod.json` de `assets/mods` compilados en el exe (generado por `src/CMakeLists.txt`) |
-| `Replacements.*` | `replace`: mallas, texturas, objetos de `info.dat`, carpetas `replace/` |
-| `Api.*` | las funciones simplificadas |
-| `Lua/LuaHost.*` | mods Lua (Lua 5.4 + sol2) |
-| `Native/NativeHost.*` | mods nativos; la cabecera C en `components/modsdk/include/openblack/mod_api.h` |
-| `ModLog.*` | los mensajes de la pestaña Log |
-| `Debug/ModsWindow.*` | la ventana Mods |
+| `Mod.h` | `Mod` (Info, options, state, block), `Modpack`, `Dependency` |
+| `Manifest.*` | reads `mod.json` / `modpack.json` (nlohmann-json); `PackageMod`: options bound to switches |
+| `Semver.*` | versions and ranges |
+| `Switches.*`, `EngineSwitches.cpp` | registry of named switches and the `EngineConfig` table |
+| `ModRegistry.*` | discovering folders, settings, dependencies, load order, applying, modpacks, mounting `replace/` |
+| `BuiltinManifests.h` | the `mod.json` of `assets/mods` compiled into the exe (generated by `src/CMakeLists.txt`) |
+| `Replacements.*` | `replace`: meshes, textures, `info.dat` objects, `replace/` folders |
+| `Api.*` | the simplified functions |
+| `Lua/LuaHost.*` | Lua mods (Lua 5.4 + sol2) |
+| `Native/NativeHost.*` | native mods; the C header in `components/modsdk/include/openblack/mod_api.h` |
+| `ModLog.*` | the messages of the Log tab |
+| `Debug/ModsWindow.*` | the Mods window |
 
-Arranque (`Game::Game`): `switches::RegisterEngineSwitches` → `ModRegistry::Discover(<exe>/Mods)` → legacy →
-`LoadSettings` → `--mod` → `ApplyAll` (resolver, interruptores, `Apply`) → `replace::Collect`. `Game::Initialize`
-monta `replace/` y los mods de datos, y carga mallas, texturas e `info.dat` con los reemplazos. `Game::Run` arranca Lua
-y los nativos antes de la primera tierra; `land_loaded` al final de `LoadMap`, `turn` al final de cada turno, `frame`
-en cada `Update`. Tests: `test/test_mods.cpp`.
+Startup (`Game::Game`): `switches::RegisterEngineSwitches` → `ModRegistry::Discover(<exe>/Mods)` → legacy →
+`LoadSettings` → `--mod` → `ApplyAll` (resolve, switches, `Apply`) → `replace::Collect`. `Game::Initialize`
+mounts `replace/` and the data mods, and loads meshes, textures and `info.dat` with the replacements. `Game::Run` starts
+Lua and the native mods before the first land; `land_loaded` at the end of `LoadMap`, `turn` at the end of each turn,
+`frame` in each `Update`. Tests: `test/test_mods.cpp`.
 
-## Catálogo de mods
+## Mod catalogue
 
-Los que vienen con openblack (`assets/mods/<id>/mod.json`, sin código propio: solo opciones atadas a
-[interruptores](#interruptores-del-motor); antes eran clases C++ en `src/Mods/Builtin/`, con los mismos ids, opciones y
-valores, comprobado en `test_mods` `BuiltinModsSetTheOldValues`):
-
-| Id | Opciones (por defecto en negrita) | Resumen | Reinicio |
+Those that come with openblack (`assets/mods/<id>/mod.json`, without code of their own: only options bound to
+[switches](#engine-switches); they used to be C++ classes in `src/Mods/Builtin/`, with the same ids, options and
+values, checked in `test_mods` `BuiltinModsSetTheOldValues`):
+| Id | Options (default in bold) | Summary | Restart |
 |---|---|---|---|
-| [`graphics.msaa`](#graphicsmsaa) | `samples` 2x/**4x**/8x/16x | Antialiasing multimuestreo | no |
-| [`graphics.mipmaps`](#graphicsmipmaps) | — | Mipmaps y filtrado trilineal | sí |
-| [`graphics.anisotropic`](#graphicsanisotropic) | — | Filtrado anisótropo (incluye los mipmaps) | sí |
-| [`graphics.terrain-x2`](#graphicsterrain-x2) | `repeat` x1/**x2**/x3/x4, `upscale` **off**/on, `cliffs` **triplanar**/stretched | Terreno y mar más nítidos | sí |
-| [`graphics.smooth-smoke`](#graphicssmooth-smoke) | — | Todo lo que usa `smokea.raw` (humo, nubes, nieblas, anillos de agua, bocanadas de barco, brillo de las luces nocturnas) con el alfa de 8 bits (sin el corte a 16 niveles) | sí |
-| [`graphics.hd-tweaks`](#graphicshd-tweaks) | `textures` **hd**/original, `smooth` off/soft/**round**, `light` **smooth**/original, `sharp` **on**/off, `detail` **high**/original | Aldeanos, animales y mano mejor vistos | no |
-| [`water.living`](#waterliving) | — | Mar que refleja todo y deriva | no |
-| [`world.ground-statics`](#worldground-statics) | — | Baja al suelo los estáticos que flotan | no |
-| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (deslizador) | Campos que se siembran solos (apagado ya no deja su velocidad puesta: la clase C++ antigua la ponía aunque estuviera apagado, un fallo de fidelidad) | no |
-| [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Hierba, flores, juncos, matorrales y trigo | no |
-| [`world.foliage.beach`](#módulo-worldfoliagebeach) | `density` very low…**medium**…very high | Módulo: playa | no |
-| [`world.foliage.butterflies`](#módulo-worldfoliagebutterflies) | — | Módulo: mariposas | no |
-| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s, `seed` **on**/off | Dispensadores de milagros de prueba | no |
-| [`game.skip-intro`](#gameskip-intro) (**activado por defecto**) | `skip` tutorial/tutorial and creature training/**tutorial, creature training and the glade**, `free start` **on**/off | Empieza Land 1 sin la intro | sí |
+| [`graphics.msaa`](#graphicsmsaa) | `samples` 2x/**4x**/8x/16x | Multisample anti-aliasing | no |
+| [`graphics.mipmaps`](#graphicsmipmaps) | — | Mipmaps and trilinear filtering | yes |
+| [`graphics.anisotropic`](#graphicsanisotropic) | — | Anisotropic filtering (includes the mipmaps) | yes |
+| [`graphics.terrain-x2`](#graphicsterrain-x2) | `repeat` x1/**x2**/x3/x4, `upscale` **off**/on, `cliffs` **triplanar**/stretched | Sharper terrain and sea | yes |
+| [`graphics.smooth-smoke`](#graphicssmooth-smoke) | — | Everything that uses `smokea.raw` (smoke, clouds, fogs, water rings, boat puffs, glow of the night lights) with the 8-bit alpha (without the cut to 16 levels) | yes |
+| [`graphics.hd-tweaks`](#graphicshd-tweaks) | `textures` **hd**/original, `smooth` off/soft/**round**, `light` **smooth**/original, `sharp` **on**/off, `detail` **high**/original | Better-looking villagers, animals and hand | no |
+| [`water.living`](#waterliving) | — | Sea that reflects everything and drifts | no |
+| [`world.ground-statics`](#worldground-statics) | — | Lowers floating statics to the ground | no |
+| [`world.crops`](#worldcrops) | `speed` **x1**/x2/x5/x10/x20/x50/x100 (slider) | Fields that sow themselves (when off it no longer leaves its speed set: the old C++ class set it even when off, a fidelity bug) | no |
+| [`world.foliage`](#worldfoliage) | `density` low/**medium**/high/very high, `distance` near/**medium**/far, `fields` **wheat**/original | Grass, flowers, reeds, bushes and wheat | no |
+| [`world.foliage.beach`](#module-worldfoliagebeach) | `density` very low…**medium**…very high | Module: beach | no |
+| [`world.foliage.butterflies`](#module-worldfoliagebutterflies) | — | Module: butterflies | no |
+| [`test.miracle-dispensers`](#testmiracle-dispensers) | `level` **base**/pu1/pu2/all, `recharge` 2s/5s/**10s**/20s/30s/60s, `seed` **on**/off | Test miracle dispensers | no |
+| [`game.skip-intro`](#gameskip-intro) (**enabled by default**) | `skip` tutorial/tutorial and creature training/**tutorial, creature training and the glade**, `free start` **on**/off | Starts Land 1 without the intro | yes |
 
 ### graphics.msaa
 
-- Opción `samples` 2x/4x/8x/16x (por defecto 4x). Sin reinicio.
-- Antialiasing multimuestreo y alpha to coverage en hojas y vallas (y en las plantas de `world.foliage`).
-- Atajo `--msaa 0/2/4/8/16`. Backbuffer multimuestreado (`BGFX_RESET_MSAA_*`). En las pasadas opacas los cut-outs
-  usan **alpha to coverage**: `fs_object` convierte el corte en una rampa de ~1 píxel con `fwidth`
+- Option `samples` 2x/4x/8x/16x (default 4x). No restart.
+- Multisample anti-aliasing and alpha to coverage on leaves and fences (and on the plants of `world.foliage`).
+- Shortcut `--msaa 0/2/4/8/16`. Multisampled backbuffer (`BGFX_RESET_MSAA_*`). In the opaque passes the cut-outs
+  use **alpha to coverage**: `fs_object` turns the cut into a ramp of ~1 pixel with `fwidth`
   (`u_skyAlphaThreshold.z`).
 
 ### graphics.mipmaps
 
-- Sin opciones. Hace falta reiniciar.
-- Mipmaps y filtrado trilineal. Atajo `--mipmaps`. Se aplica a las texturas de modelos, pieles L3D, materiales y
-  bump del terreno y texturas `.raw` sueltas (el original no tiene mips: ver
-  [rendering.md](rendering.md#estados-de-direct3d-7-del-original)).
-- Implementación (`Graphics/TextureMipmaps.cpp`, `BuildRgba8MipChain`):
-  - decodifica el nivel 0 a RGBA8 con `bimg::imageDecodeToRgba8` (DXT1/3/5, BGRA4, BGR5A1, R8…);
-  - hace una media 2×2 **ponderada por alfa**, para que los texels transparentes no oscurezcan los bordes;
-  - en texturas de alfa casi binaria (≥85 % de texels con alfa <32 o >223) **conserva la cobertura** en cada nivel
-    respecto a la referencia 0x96, para que los árboles no adelgacen a lo lejos (sin esto se veían mucho más finos).
-- `Texture2D::Create`: con `Filter::LinearMipmapLinear` construye la cadena y crea la textura en RGBA8 con mips.
-  Libera el `bgfx::Memory` original con `bgfx::release`, que bgfx exporta pero no declara en `bgfx.h`.
-- `graphics::SurfaceTextureFilter()` devuelve `Linear` o `LinearMipmapLinear` según los mods. No se aplica al
-  heightmap, las huellas, el ruido ni el cielo.
-- `fs_terrain`: el small bump se muestrea fuera del `if` de distancia, porque con mips hacen falta derivadas en flujo
-  uniforme.
-- Coste: unos segundos más de carga y más memoria de vídeo (RGBA8 en lugar de DXT).
-- Verificación (de `msaa`, `mipmaps` y `anisotropic`): capturas (estaban en `dev\gfx\`, borradas en la limpieza del
-  2026-09-30; se regeneran con estas cámaras y opciones):
-  - `base_*` frente a `enh_*` / `enh2_*`: aldea `1818,75,2612,1824,44,2636` y panorámica
-    `1600,160,2350,1900,40,2750`, con `-n 14000 --screenshot-frame 13900`. Con mips la carga es más lenta y a 8000
-    fotogramas el vuelo aún no ha terminado.
-  - [img/crop_trees_zoom.png](img/crop_trees_zoom.png), rejilla de cuatro: original, mips, MSAA y todo.
+- No options. Requires a restart.
+- Mipmaps and trilinear filtering. Shortcut `--mipmaps`. It is applied to model textures, L3D skins, terrain materials
+  and bump and standalone `.raw` textures (the original has no mips: see
+  [rendering.md](rendering.md#the-originals-direct3d-7-states)).
+- Implementation (`Graphics/TextureMipmaps.cpp`, `BuildRgba8MipChain`):
+  - decodes level 0 to RGBA8 with `bimg::imageDecodeToRgba8` (DXT1/3/5, BGRA4, BGR5A1, R8…);
+  - does a 2×2 **alpha-weighted** average, so that transparent texels do not darken the edges;
+  - in textures with almost binary alpha (≥85 % of texels with alpha <32 or >223) it **preserves coverage** at each level
+    relative to the 0x96 reference, so that trees do not get thinner in the distance (without this they looked much
+    thinner).
+- `Texture2D::Create`: with `Filter::LinearMipmapLinear` it builds the chain and creates the texture in RGBA8 with mips.
+  It frees the original `bgfx::Memory` with `bgfx::release`, which bgfx exports but does not declare in `bgfx.h`.
+- `graphics::SurfaceTextureFilter()` returns `Linear` or `LinearMipmapLinear` depending on the mods. It is not applied to
+  the heightmap, the footprints, the noise or the sky.
+- `fs_terrain`: the small bump is sampled outside the distance `if`, because with mips derivatives are needed in uniform
+  control flow.
+- Cost: a few more seconds of loading and more video memory (RGBA8 instead of DXT).
+- Verification (of `msaa`, `mipmaps` and `anisotropic`): screenshots (they were in `dev\gfx\`, deleted in the clean-up of
+  2026-09-30; they are regenerated with these cameras and options):
+  - `base_*` versus `enh_*` / `enh2_*`: village `1818,75,2612,1824,44,2636` and panorama
+    `1600,160,2350,1900,40,2750`, with `-n 14000 --screenshot-frame 13900`. With mips loading is slower and at 8000
+    frames the fly-in has not finished yet.
+  - [img/crop_trees_zoom.png](img/crop_trees_zoom.png), grid of four: original, mips, MSAA and everything.
 
 ### graphics.anisotropic
 
-- Sin opciones. Hace falta reiniciar.
-- Filtrado anisótropo (incluye los mipmaps). Atajo `--anisotropic`: añade `BGFX_SAMPLER_*_ANISOTROPIC` y
-  `BGFX_RESET_MAXANISOTROPY`. `--enhanced-graphics` equivale a `--msaa 4 --anisotropic`.
+- No options. Requires a restart.
+- Anisotropic filtering (includes the mipmaps). Shortcut `--anisotropic`: adds `BGFX_SAMPLER_*_ANISOTROPIC` and
+  `BGFX_RESET_MAXANISOTROPY`. `--enhanced-graphics` is equivalent to `--msaa 4 --anisotropic`.
 
 ### graphics.terrain-x2
 
-Opciones `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. Hace falta reiniciar.
+Options `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. Requires a restart.
 
-- **Repetición** (`repeat`): terreno más nítido, cada material repetido 1-4 veces por bloque (por defecto x2; wrap
-  Repeat). Solo escalar apenas se nota: cada material de 256 px cubre un bloque de 160 unidades.
-- **Escalado** (`upscale`): ×2 con Lanczos-3 al cargar (`Graphics/TextureUpscale`, con wrap: los materiales del LND
-  son tileables, primera y última fila/columna idénticas).
-- **Acantilados** (`cliffs`): el original proyecta todo desde arriba (uv = posición xz del bloque) y en las pendientes
-  la textura se estira en rayas; con `triplanar` se mezclan también las proyecciones a lo largo de x y z (pesos
-  \|n\|⁴, normal suave por vértice de diferencias centrales de altitud, `LandVertex::normal`).
-- **Materiales dibujo**: los materiales que son un dibujo único por bloque y no una textura (el geoglifo de la figura:
-  Land1 material 10 y Land5 material 5; el laberinto: Land5 material 1) se quedan en ×1. Nada en el LND los marca (su
-  `type` 18/11 lo comparten hierbas normales, y la métrica de contraste a gran escala no los separa de una roca
-  nevada), así que se reconocen por hash FNV-1a de sus texels (`IsPictureMaterial` en LandIsland.cpp) y viajan en el
-  byte `w` de los ids de material del vértice (bits 0-2). Si un mod de datos trae otro dibujo, hay que añadir su hash
+- **Repetition** (`repeat`): sharper terrain, each material repeated 1-4 times per block (default x2; wrap
+  Repeat). Only scaling is barely noticeable: each 256 px material covers a block of 160 units.
+- **Upscaling** (`upscale`): ×2 with Lanczos-3 when loading (`Graphics/TextureUpscale`, with wrap: the LND materials
+  are tileable, first and last row/column identical).
+- **Cliffs** (`cliffs`): the original projects everything from above (uv = xz position of the block) and on the slopes
+  the texture stretches into stripes; with `triplanar` the projections along x and z are also blended (weights
+  \|n\|⁴, smooth per-vertex normal from central differences of altitude, `LandVertex::normal`).
+- **Picture materials**: the materials that are a single picture per block and not a texture (the figure geoglyph:
+  Land1 material 10 and Land5 material 5; the maze: Land5 material 1) stay at ×1. Nothing in the LND marks them (their
+  `type` 18/11 is shared by normal grasses, and the large-scale contrast metric does not separate them from a snowy
+  rock), so they are recognised by the FNV-1a hash of their texels (`IsPictureMaterial` in LandIsland.cpp) and travel in
+  the `w` byte of the vertex material ids (bits 0-2). If a data mod brings another picture, its hash has to be added
   (`dev\herramientas\lnd\lnd_hash.py`).
-- **El mar** también: su periodo de repetición (560 a nivel de detalle 4) se divide por las repeticiones, la
-  ondulación por filas del original se divide igual (si no, mueve la textura el triple y deja bandas) y con `upscale`
-  `sky.raw`/`skya.raw` se escalan ×2 con Lanczos al cargarse (`Texture2DLoader`, que además copia los datos: antes
-  pasaba a bgfx una referencia a un vector local). Después del escalado se cortan a ARGB4444 como en el original
-  ([rendering.md](rendering.md#texturas-argb4444)).
+- **The sea** too: its repetition period (560 at detail level 4) is divided by the repetitions, the original's per-row
+  ripple is divided the same way (otherwise, it moves the texture three times as much and leaves bands) and with
+  `upscale` `sky.raw`/`skya.raw` are upscaled ×2 with Lanczos when loaded (`Texture2DLoader`, which also copies the data:
+  before it passed bgfx a reference to a local vector). After upscaling they are cut to ARGB4444 as in the original
+  ([rendering.md](rendering.md#argb4444-textures)).
 
 ### graphics.smooth-smoke
 
-- Sin opciones. Hace falta reiniciar.
-- `smokea.raw` conserva sus 8 bits de alfa en todo lo que lo usa: humo de chimeneas, nubes, nieblas, anillos de agua,
-  bocanadas de barco y el brillo de las luces nocturnas (`NightLights`). El original lo corta a 16 niveles (ARGB4444,
-  `fn_00837400`; ver [rendering.md](rendering.md#texturas-argb4444)), por ejemplo 228 → 238/255.
-- Implementación: `assets/mods/graphics.smooth-smoke/mod.json` pone el interruptor `graphics.smooth-smoke` (`EngineConfig::smoothSmokeAlpha`, reinicio), y `Texture2DLoader` se
-  salta el corte de `smokea`. Era el aspecto de openblack antes de que existiera el corte al cargar.
+- No options. Requires a restart.
+- `smokea.raw` keeps its 8 bits of alpha in everything that uses it: chimney smoke, clouds, fogs, water rings,
+  boat puffs and the glow of the night lights (`NightLights`). The original cuts it to 16 levels (ARGB4444,
+  `fn_00837400`; see [rendering.md](rendering.md#argb4444-textures)), for example 228 → 238/255.
+- Implementation: `assets/mods/graphics.smooth-smoke/mod.json` sets the switch `graphics.smooth-smoke` (`EngineConfig::smoothSmokeAlpha`, restart), and `Texture2DLoader`
+  skips the `smokea` cut. It was openblack's look before the cut on load existed.
 
 ### graphics.hd-tweaks
 
-"HD-Tweaks" (antes `graphics.hd-people`, renombrado 2026-09-30). Opciones `textures` hd/original, `smooth`
-off/soft/round, `light` smooth/original, `sharp` on/off, `detail` high/original. Sin reinicio: todo en vivo. Aldeanos,
-animales y mano mejor vistos. Sección completa (paquete, pruebas, estado) en [mods.md](mods.md#mod-hd-tweaks).
+"HD-Tweaks" (formerly `graphics.hd-people`, renamed 2026-09-30). Options `textures` hd/original, `smooth`
+off/soft/round, `light` smooth/original, `sharp` on/off, `detail` high/original. No restart: everything live.
+Better-looking villagers, animals and hand. Full section (package, tests, state) in [mods.md](mods.md#hd-tweaks-mod).
 
-- **Texturas** (`textures`): los atlas de 256² (4 aldeanos cada uno, unos 30 px por cara) sustituidos por imágenes ×4
-  de Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.json`; `Resources/HdTextures`,
-  `Texture2DLoader::FromImageTag`, siempre con mipmaps). Cada imagen lleva el hash FNV-1a del DDS del que salió: con
-  otro AllMeshes.g3d no se usa.
-- **Animales** (2026-09-30): sus 5 atlas en HD, así que también se suavizan y usan la luz por píxel y `sharp`.
-- **Mano**: también se suaviza (`L3DSubMesh::IsHdTweaked`, malla `Hand_Boned_Base2`) y usa la luz por píxel; se
-  recarga en vivo con las demás.
-- **Formas** (`smooth`): las mallas con huesos cuyas texturas son todas de esa lista (los nombres de malla de openblack
-  van desplazados respecto al paquete del usuario) pasan a triángulos PN curvos (`3D/PnTessellation`, Vlachos 2001)
-  partidos en 4 (`soft`) o 9 (`round`); los vértices se sueldan por posición en la pose de reposo (normal media) y cada
-  vértice nuevo vuelve al hueso de la esquina más cercana, así que sirve con animaciones rígidas. La colisión (mano,
-  físicas) sigue siendo la malla original.
-- **Formas y animaciones**: los triángulos de articulación (esquinas en huesos distintos) ya no se curvan por dentro
-  (se doblaban al animar): abanico sobre su arista de un solo hueso, se estiran como los del original.
-- **En vivo** (2026-09-30): al cambiar el mod o sus opciones en el menú, `Resources/HdTweaks` (`hd_tweaks::Update`, al
-  principio de `Game::Update`) relee AllMeshes.g3d y recarga solo las 18 texturas de aldeanos y las 113 mallas con
-  huesos que las usan (~0,6 s al activar, ~0,15 s al desactivar; las PNG se decodifican en paralelo, también al
-  arrancar). Gancho `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>`.
-- **Visible a distancia de juego** (2026-09-30; a 20-40 m un aldeano mide 40-70 px y las texturas ×4 solas no se
-  notan):
-  - `light` = `smooth` (por defecto: la misma luz del original, la regla entera de `fn_0084BA90` con las funciones de
-    `assets/shaders/model_light.sh`, pero por píxel en `fs_object` con las normales suaves y con la dirección tomada en
-    el mundo, (aproximado): coincide solo con la luz lejos, de día; de noche, con la luz a 3 unidades de la mano,
-    difiere de forma visible en un aldeano cercano; ver [Luz de los modelos](rendering-objects.md#luz-de-los-modelos)) u `original` (por
-    vértice). Un borde de luz en la silueta (0,8·(1-N·V)²) se probó y quedaba feo (usuario, 2026-09-30).
-  - `sharp` = sesgo de mip −1 en sus texturas.
-  - `L3DSubMesh::IsPerson`, `u_window.y/z` (Renderer::DrawSubMesh, solo instancias iluminadas como el original, no
-    reflejos ni la mano).
-- **Detalle** (`detail`): `high` = aldeanos y animales con su malla de detalle alto (el original dibuja siempre la std,
-  LOD 1; `ECS/DetailMeshes`, cambia la malla de los que ya existen al cambiar la opción).
+- **Textures** (`textures`): the 256² atlases (4 villagers each, about 30 px per face) replaced by ×4 images
+  from Real-ESRGAN (`Mods/graphics.hd-tweaks/textures/<id>.png` + `textures.json`; `Resources/HdTextures`,
+  `Texture2DLoader::FromImageTag`, always with mipmaps). Each image carries the FNV-1a hash of the DDS it came from: with
+  another AllMeshes.g3d it is not used.
+- **Animals** (2026-09-30): their 5 atlases in HD, so they are also smoothed and use per-pixel lighting and `sharp`.
+- **Hand**: it is also smoothed (`L3DSubMesh::IsHdTweaked`, mesh `Hand_Boned_Base2`) and uses per-pixel lighting; it is
+  reloaded live along with the others.
+- **Shapes** (`smooth`): the boned meshes whose textures are all from that list (openblack's mesh names
+  are shifted relative to the user's package) become curved PN triangles (`3D/PnTessellation`, Vlachos 2001)
+  split into 4 (`soft`) or 9 (`round`); the vertices are welded by position in the rest pose (average normal) and each
+  new vertex goes back to the bone of the nearest corner, so it works with rigid animations. The collision (hand,
+  physics) is still the original mesh.
+- **Shapes and animations**: the joint triangles (corners on different bones) are no longer curved inside
+  (they bent when animating): fan over their single-bone edge, they stretch like the original's.
+- **Live** (2026-09-30): when changing the mod or its options in the menu, `Resources/HdTweaks` (`hd_tweaks::Update`, at
+  the start of `Game::Update`) rereads AllMeshes.g3d and reloads only the 18 villager textures and the 113 boned meshes
+  that use them (~0.6 s when enabling, ~0.15 s when disabling; the PNGs are decoded in parallel, also at
+  startup). Hook `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>`.
+- **Visible at gameplay distance** (2026-09-30; at 20-40 m a villager measures 40-70 px and the ×4 textures alone are not
+  noticeable):
+  - `light` = `smooth` (default: the same lighting as the original, the whole rule of `fn_0084BA90` with the functions of
+    `assets/shaders/model_light.sh`, but per pixel in `fs_object` with the smooth normals and with the direction taken in
+    world space, (approximate): it only matches with the light far away, by day; at night, with the light 3 units from
+    the hand, it differs visibly on a nearby villager; see [Model lighting](rendering-objects.md#model-lighting)) or
+    `original` (per vertex). A rim light on the silhouette (0.8·(1-N·V)²) was tried and looked ugly (user, 2026-09-30).
+  - `sharp` = mip bias −1 on its textures.
+  - `L3DSubMesh::IsPerson`, `u_window.y/z` (Renderer::DrawSubMesh, only lit instances like the original, not
+    reflections or the hand).
+- **Detail** (`detail`): `high` = villagers and animals with their high-detail mesh (the original always draws the std,
+  LOD 1; `ECS/DetailMeshes`, changes the mesh of those that already exist when changing the option).
 
 ### water.living
 
-- Sin opciones ni reinicio.
-- El mar refleja todo, el reflejo ondula despacio en bucle y la superficie deriva (sin la ondulación por filas).
-- Atajo `--living-water`. "Agua viva": el reflejo del mar incluye modelos y sprites (el original solo refleja cielo y
-  tierra) y ondula en bucle con dos capas de `skya.raw` que se desplazan (mapa de olas), más fuerte cerca y nula a
-  1500 de profundidad; además quita la ondulación por filas del original (líneas fijas en pausa, temblor a fps
-  modernos) y hace derivar `sky.raw` y `skya.raw` juntos (0,020 / 0,012 texturas por unidad de tiempo). Usa tiempo
-  real a un cuarto de velocidad (también en pausa) que da la vuelta cada 1000 unidades (4000 s); las velocidades son
-  múltiplos de 1/1000 textura/s, así el bucle no salta. El mar del original: [rendering.md](rendering.md#mar-skyraw--skyaraw).
+- No options or restart.
+- The sea reflects everything, the reflection ripples slowly in a loop and the surface drifts (without the per-row
+  ripple).
+- Shortcut `--living-water`. "Living water": the sea reflection includes models and sprites (the original only reflects
+  sky and land) and ripples in a loop with two layers of `skya.raw` that scroll (wave map), stronger nearby and zero at
+  a depth of 1500; it also removes the original's per-row ripple (fixed lines when paused, jitter at modern
+  fps) and makes `sky.raw` and `skya.raw` drift together (0.020 / 0.012 textures per time unit). It uses real
+  time at a quarter speed (also when paused) that wraps every 1000 units (4000 s); the speeds are
+  multiples of 1/1000 texture/s, so the loop does not jump. The original's sea: [rendering.md](rendering.md#sea-skyraw--skyaraw).
 
 ### world.ground-statics
 
-- Sin opciones ni reinicio.
-- Baja las rocas y objetos estáticos que flotan hasta el suelo.
+- No options or restart.
+- Lowers floating rocks and static objects to the ground.
 
 ### world.crops
 
-- Opción `speed` x1..x100 (x1, x2, x5, x10, x20, x50, x100), deslizador. Sin reinicio.
-- Los campos se siembran solos y se vuelven a sembrar al cosecharlos, y crecen ese múltiplo más rápido.
-- Sin él el motor es **fiel** al original: el constructor del campo lo deja vacío y solo los granjeros lo siembran, y
-  openblack aún no tiene oficios, así que los campos se quedan vacíos.
+- Option `speed` x1..x100 (x1, x2, x5, x10, x20, x50, x100), slider. No restart.
+- Fields sow themselves and are resown when harvested, and grow that multiple faster.
+- Without it the engine is **faithful** to the original: the field's constructor leaves it empty and only farmers sow
+  it, and openblack does not have jobs yet, so the fields stay empty.
 
 ### world.foliage
 
-"Grass and flowers": hierba, flores, juncos y matorrales sobre el terreno (billboards instanciados, `3D/Foliage`;
-voladores en `3D/FoliageFlyers.cpp`). Sin reinicio. Reglas e imágenes en `<exe>/Mods/world.foliage/` (`foliage.json`;
-en el repo `assets/mods/world.foliage/`; imágenes originales del usuario en `B&W/Asstes_mods`).
+"Grass and flowers": grass, flowers, reeds and bushes on the terrain (instanced billboards, `3D/Foliage`;
+flyers in `3D/FoliageFlyers.cpp`). No restart. Rules and images in `<exe>/Mods/world.foliage/` (`foliage.json`;
+in the repo `assets/mods/world.foliage/`; the user's original images in `B&W/Asstes_mods`).
 
-**Formato (desde 2026-10-02): `foliage.json`**, JSON con comentarios `//`. Es el mismo contenido que el antiguo
-`foliage.cfg`, que se sigue leyendo si no hay `.json`. Cada sección `[nombre]` es un objeto de la lista `rules`, con
-`"section": "<nombre>"` y sus claves; las listas (`images`, `texture`, `terrain`, `zone`, `not_zone`, `near`, `over`)
-van como `["a", "b"]`, los números como números y los rangos como texto (`"0.68-1.2"`):
+**Format (since 2026-10-02): `foliage.json`**, JSON with `//` comments. It is the same content as the old
+`foliage.cfg`, which is still read if there is no `.json`. Each `[nombre]` section is an object of the `rules` list,
+with `"section": "<nombre>"` and its keys; the lists (`images`, `texture`, `terrain`, `zone`, `not_zone`, `near`, `over`)
+go as `["a", "b"]`, the numbers as numbers and the ranges as text (`"0.68-1.2"`):
 
 ```jsonc
 { "schema": 1, "rules": [
@@ -562,428 +567,434 @@ van como `["a", "b"]`, los números como números y los rangos como texto (`"0.6
     { "section": "field_stage brote", "growth": "0-80", "colour": "90,120,40 - 120,150,60" } ] }
 ```
 
-`Mods/RuleFiles.h` convierte el JSON en las mismas líneas `clave = valor` que leía el `.cfg` y se las pasa al mismo
-intérprete, así que el resultado es idéntico. `tools/mod_cfg_to_json.py <foliage.cfg>` convierte un archivo antiguo:
-comprueba antes de escribir que las reglas salen iguales, conserva los comentarios y guarda el `.cfg` como `.cfg.old`.
-Lo que sigue describe las claves por su nombre, igual en los dos formatos.
+`Mods/RuleFiles.h` converts the JSON into the same `clave = valor` lines that the `.cfg` read and passes them to the same
+interpreter, so the result is identical. `tools/mod_cfg_to_json.py <foliage.cfg>` converts an old file:
+before writing it checks that the rules come out the same, keeps the comments and saves the `.cfg` as `.cfg.old`.
+What follows describes the keys by their name, the same in both formats.
 
-**Opciones**
+**Options**
 
-| Opción | Elecciones | Efecto |
+| Option | Choices | Effect |
 |---|---|---|
-| `density` | low/medium/high/very high = ×0.5/1/2/4 (por defecto medium) | Multiplica los `per_cell` |
-| `distance` | near/medium/far = 120/200/320 (por defecto medium) | Distancia de dibujo (`foliageDistance`) |
-| `fields` | wheat (por defecto) / `original` = la malla | [Campos de cultivo](#campos-de-cultivo) |
+| `density` | low/medium/high/very high = ×0.5/1/2/4 (default medium) | Multiplies the `per_cell` |
+| `distance` | near/medium/far = 120/200/320 (default medium) | Draw distance (`foliageDistance`) |
+| `fields` | wheat (default) / `original` = the mesh | [Crop fields](#crop-fields) |
 
-#### Especies: claves de foliage.json
+#### Species: foliage.json keys
 
-- Una sección `[nombre]` por planta en `foliage.json`: `images` (png, uno al azar por planta), `texture` (aspecto de la
-  textura: green/dry/sand/rock/snow), `terrain` (tipo del LND, `TerrainMaterialType`), `per_cell` (por celda de 10×10
-  con densidad media), `size` (ancho mín-máx; el alto sale de la proporción de la imagen), `altitude`, `slope`
-  (grados), `patches` (0 uniforme .. 1 solo en manchas, ruido de valor a escala 45), `sway` (viento), `lean`
-  (inclinación máxima al azar) y `tint` (grey/all/none). Crece si cumple `texture` o `terrain`.
-- `cross = on`: la especie se dibuja con los dos planos cruzados (los matorrales secos); en cada bloque esas
-  instancias van al final (`Chunk::crossStart`) y se dibujan con los 12 índices del quad.
-- Claves nuevas para las especies de los módulos (valen en cualquier `foliage.json`):
-  - `flat = on`: la imagen va **tumbada en el suelo**, centrada en el punto, con lo alto de la imagen a lo largo del
-    `side` del giro e inclinada como el suelo (pendiente a lo ancho y a lo largo en `i_data4.xy`, `i_data4.z = 2`). Se
-    mezcla por su alfa sin escribir profundidad (las plantas la tapan igual) y se desvanece con la distancia en vez de
-    encogerse. En cada bloque van al final (`Chunk::flatStart`). `lift` = altura sobre el suelo (0,04).
-  - `coast = on`: puede estar en las celdas de costa o con agua (la `altitude` la deja fuera del agua).
-  - `share = 0..1`: parte mínima del suelo dibujado en el punto que es de sus texturas (las cuatro esquinas por su peso
-    bilineal y los dos materiales de cada una por su mezcla, como el shader). El material elegido al azar para el
-    punto (una esquina y uno de sus dos materiales) puede ser arena aunque casi todo lo que se ve sea roca: con
-    `share = 0.8` la playa solo sale donde casi todo es arena (el usuario veía manchas y huellas en suelo gris).
-  - `opacity` (0-1, 1 por defecto): las planas se mezclan con esa opacidad (`i_data4.w`, que antes era 1 = mezclada; 0
-    sigue siendo con alfa probado). Las huellas de la playa van a 0,45 y la arena mojada a 0,6.
-  - `shade`: con `tint` all/grey, escala del color del suelo que toma (va en `i_data3.z` de las planas): la arena
-    mojada (`tint = all`, `shade = 0.7`) es la arena de debajo, más oscura, en vez del naranja de la imagen.
-- Tamaños: el 29-09-2026 todos los `size` se redujeron un 25 % (el usuario las veía muy grandes).
-- Módulos: su `foliage.json` se lee después del del mod con el mismo parser; las imágenes se buscan junto a cada
-  `foliage.json`, y un `.gif` animado da una capa por fotograma (`stbi_load_gif`; las plantas muestran el primero). Se
-  recarga al encender o apagar un módulo (`Renderer::DrawFoliage`, `_foliageLoadKey`).
+- One `[nombre]` section per plant in `foliage.json`: `images` (png, one at random per plant), `texture` (look of the
+  texture: green/dry/sand/rock/snow), `terrain` (LND type, `TerrainMaterialType`), `per_cell` (per 10×10 cell
+  at medium density), `size` (min-max width; the height comes from the image's proportions), `altitude`, `slope`
+  (degrees), `patches` (0 uniform .. 1 only in patches, value noise at scale 45), `sway` (wind), `lean`
+  (maximum random tilt) and `tint` (grey/all/none). It grows if it meets `texture` or `terrain`.
+- `cross = on`: the species is drawn with the two crossed planes (the dry bushes); in each block those
+  instances go at the end (`Chunk::crossStart`) and are drawn with the 12 indices of the quad.
+- New keys for the module species (valid in any `foliage.json`):
+  - `flat = on`: the image goes **lying on the ground**, centred on the point, with the top of the image along the
+    `side` of the rotation and tilted like the ground (slope across and along in `i_data4.xy`, `i_data4.z = 2`). It is
+    blended by its alpha without writing depth (the plants still cover it) and fades with distance instead of
+    shrinking. In each block they go at the end (`Chunk::flatStart`). `lift` = height above the ground (0.04).
+  - `coast = on`: it can be on coast cells or cells with water (the `altitude` keeps it out of the water).
+  - `share = 0..1`: minimum part of the ground drawn at the point that belongs to its textures (the four corners by their
+    bilinear weight and the two materials of each one by their blend, like the shader). The material chosen at random
+    for the point (a corner and one of its two materials) can be sand even if almost everything visible is rock: with
+    `share = 0.8` the beach only appears where almost everything is sand (the user saw patches and footprints on grey
+    ground).
+  - `opacity` (0-1, 1 by default): the flat ones are blended with that opacity (`i_data4.w`, which used to be 1 =
+    blended; 0 is still alpha-tested). The beach footprints go at 0.45 and the wet sand at 0.6.
+  - `shade`: with `tint` all/grey, scale of the ground colour it takes (goes in `i_data3.z` of the flat ones): the wet
+    sand (`tint = all`, `shade = 0.7`) is the sand underneath, darker, instead of the image's orange.
+- Sizes: on 29-09-2026 all the `size` values were reduced by 25 % (the user found them too big).
+- Modules: their `foliage.json` is read after the mod's one with the same parser; the images are looked up next to each
+  `foliage.json`, and an animated `.gif` gives one layer per frame (`stbi_load_gif`; the plants show the first one). It
+  is reloaded when a module is switched on or off (`Renderer::DrawFoliage`, `_foliageLoadKey`).
 
-#### Aspecto del suelo: texture y terrain
+#### Ground appearance: texture and terrain
 
-- **El `type` del LND no describe el aspecto** (**fiel**, datos del LND): en Land1 las texturas 0 y 8 son hierba verde
-  con tipo 5 `Earth` y la 11 es arena con tipo `Earth`; sirve para sonidos/pasos.
-- Por eso `texture` clasifica cada material por su color medio (`Foliage::ClassifyTexture`, medido en Land1-5): verde
-  = tono 50-100° y saturación ≥ 0,55; nieve = saturación < 0,15 y valor > 0,55; arena = valor ≥ 0,6; seca = tono
-  < 50° y saturación ≥ 0,5; el resto roca (misma gama de tono que la hierba pero saturación 0,29-0,45). La isla
-  expone tipo, "dibujo" y color medio con `LandIslandInterface::GetMaterialInfo`.
+- **The LND `type` does not describe the appearance** (**faithful**, LND data): in Land1 textures 0 and 8 are green grass
+  with type 5 `Earth` and 11 is sand with type `Earth`; it is used for sounds/footsteps.
+- That is why `texture` classifies each material by its mean colour (`Foliage::ClassifyTexture`, measured on Land1-5):
+  green = hue 50-100° and saturation ≥ 0.55; snow = saturation < 0.15 and value > 0.55; sand = value ≥ 0.6; dry = hue
+  < 50° and saturation ≥ 0.5; the rest rock (same hue range as grass but saturation 0.29-0.45). The island
+  exposes type, "picture" and mean colour with `LandIslandInterface::GetMaterialInfo`.
 
-#### Zonas (biomas): zone y not_zone
+#### Zones (biomes): zone and not_zone
 
-- `zone` / `not_zone` filtran por la zona de ambiente de la celda, el código de sonido que el diseñador pintó en cada
-  celda (`LNDCell::flags >> 1`, los impares > 8 cuentan como el par anterior; `Foliage::ZoneOf`). Los datos son
-  **fiel** (zonas de sonido del LND); usarlas como biomas es **mod/propio**.
-- Es lo único del LND que forma regiones limpias: los `country` son solo la paleta de texturas por altura y están
-  muy fragmentados (Land1: 10 mezclados por todo el mapa).
-- Zonas en la tierra de Land1-5: 14 pájaros (`meadow`, casi todo), 6 costa (franja junto al mar), 8 jungla (manchas
-  compactas: Land1 noroeste ~1620,2290 y este ~2550,2550; Land5 5-6 manchas), 16 bosque (Land1 ~2160,3100), 10 viento
-  = nieve y montaña (Land2 todo el suroeste, Land3, Land5 noreste), 4 olas lentas (`swamp`: charcas interiores, muchas
-  en Land5) y 5 lago (Land2 centro). 12 desierto no lo usa ningún mapa original.
-- Mapas en `dev\documentacion\biomes\Land*_snd.png` (`dev\herramientas\lnd\lnd_zones.py`; `dev\herramientas\lnd\lnd_countries.py` para
-  los country).
-- Uso actual: `water_plant` en jungla, lago y charcas; `jungle_grass` en la jungla; `wildflowers` en prado y bosque;
-  `poppies` en prado; `dead_bush_barren` en viento/desierto (solo roca, tierra seca o arena). Todas con `tint = grey`.
+- `zone` / `not_zone` filter by the cell's ambient zone, the sound code the designer painted on each
+  cell (`LNDCell::flags >> 1`, odd ones > 8 count as the previous even one; `Foliage::ZoneOf`). The data is
+  **faithful** (LND sound zones); using them as biomes is **mod/own**.
+- It is the only thing in the LND that forms clean regions: the `country` values are only the per-height texture
+  palette and are very fragmented (Land1: 10 mixed all over the map).
+- Zones on the land of Land1-5: 14 birds (`meadow`, almost everything), 6 coast (strip next to the sea), 8 jungle
+  (compact patches: Land1 north-west ~1620.2290 and east ~2550.2550; Land5 5-6 patches), 16 forest (Land1 ~2160.3100),
+  10 wind = snow and mountain (Land2 all the south-west, Land3, Land5 north-east), 4 slow waves (`swamp`: inland ponds,
+  many in Land5) and 5 lake (Land2 centre). 12 desert is not used by any original map.
+- Maps in `dev\documentacion\biomes\Land*_snd.png` (`dev\herramientas\lnd\lnd_zones.py`; `dev\herramientas\lnd\lnd_countries.py` for
+  the countries).
+- Current use: `water_plant` in jungle, lake and ponds; `jungle_grass` in the jungle; `wildflowers` in meadow and forest;
+  `poppies` in meadow; `dead_bush_barren` in wind/desert (only rock, dry earth or sand). All with `tint = grey`.
 
-#### Altura y agua
+#### Height and water
 
-- **Altura** (29-09-2026, estudio en `dev\documentacion\heights`): `GetHeightAt` **aplana** junto al mar
-  (si la esquina base de la celda vale ≤ 4, las esquinas ≤ 3 cuentan como 0: lo que usan las físicas y vs_object;
-  `GetNormalAt` ya no aplana desde 2026-10-02: es `LH3DIsland::GetNormal` 0x803630, con las alturas en bruto),
-  pero la malla del terreno que se dibuja no. Las plantas usan `GetUnflattenedHeightAt` y una normal por diferencias
-  centrales de esa altura (`GroundNormal`): antes quedaban hasta 2 unidades bajo el suelo dibujado en la primera
-  franja de tierra y toda la playa daba altura 0.
-- Datos del LND (**fiel**): byte de altitud × 0,67; en Land1-5 las celdas con agua valen 0-1 (0-0,67, terreno
-  transparente), las de costa siempre 2 (1,34, alfa 0,5) y la tierra opaca empieza en 3 (2,01); el máximo es 255
-  (170,85). Por eso todas las `altitude` de las plantas pasan a `0-175` (los mínimos 1-2 ya no hacen falta: la costa
-  está excluida; los máximos 120/150 cortaban los prados altos de Land3).
-- **Agua**: el mar es el plano y = 0 (y es también el agua de los ríos, ver [rendering.md](rendering.md#ríos) "Ríos"); las
-  celdas de costa (`coastLine`, altitud 2-3 en Land1) se dibujan con alfa 0,5 sobre el mar y las de agua con alfa 0,
-  así que nada crece en una celda con alguna esquina de agua o costa.
-- `near = lake, stream, sea` + `water_distance` limitan una planta a esa distancia de agua (mapa de distancias 3-4
-  chamfer a 5 unidades, `FoliageWaterMap`): celda de agua = `sea_cells::IsWater` (bit 0x10; una celda sin bloque
-  también es agua, MapCoords::IsWater 0x6035B0) o `fullWater`; lago = celdas de agua 4-conectadas que no llegan al borde del mapa (Land1:
-  una charca de 10 celdas en x 2130-2160, z 2400-2450 y una celda suelta); río = segmentos entre los puntos de cada
-  `Stream` (Land1: 11 ríos, 187 puntos). En B&W1 no hay agua a otra altura: los ríos son esos caminos (openblack los
-  dibuja como el original desde 101dd844, `ECS/Rivers`, ver [rendering.md](rendering.md#ríos)).
-- Los juncos usan `near = lake, stream` a 3-9 unidades. Ninguna planta a menos de 3 unidades de la línea de un río (el
-  canal de river.l3d mide unas 4; distancia exacta a los tramos en cubos de 20 unidades).
-- La base de cada planta sigue el suelo: altura en sus dos extremos (i_data4) y cizalla en el vertex shader, hundida
-  un 6 %.
+- **Height** (29-09-2026, study in `dev\documentacion\heights`): `GetHeightAt` **flattens** next to the sea
+  (if the cell's base corner is ≤ 4, the corners ≤ 3 count as 0: what physics and vs_object use;
+  `GetNormalAt` no longer flattens since 2026-10-02: it is `LH3DIsland::GetNormal` 0x803630, with the raw heights),
+  but the terrain mesh that is drawn does not. The plants use `GetUnflattenedHeightAt` and a normal from central
+  differences of that height (`GroundNormal`): before they ended up as much as 2 units below the drawn ground in the
+  first strip of land and the whole beach gave height 0.
+- LND data (**faithful**): altitude byte × 0.67; in Land1-5 the cells with water are 0-1 (0-0.67, transparent
+  terrain), the coast ones always 2 (1.34, alpha 0.5) and opaque land starts at 3 (2.01); the maximum is 255
+  (170.85). That is why all plant `altitude` values become `0-175` (the minimums 1-2 are no longer needed: the coast
+  is excluded; the maximums 120/150 cut off the high meadows of Land3).
+- **Water**: the sea is the plane y = 0 (and it is also the water of the rivers, see [rendering.md](rendering.md#rivers) "Rivers"); the
+  coast cells (`coastLine`, altitude 2-3 in Land1) are drawn with alpha 0.5 over the sea and the water ones with alpha 0,
+  so nothing grows in a cell with any water or coast corner.
+- `near = lake, stream, sea` + `water_distance` limit a plant to that distance from water (3-4 chamfer distance map
+  at 5 units, `FoliageWaterMap`): water cell = `sea_cells::IsWater` (bit 0x10; a cell without a block
+  is also water, MapCoords::IsWater 0x6035B0) or `fullWater`; lake = 4-connected water cells that do not reach the map edge (Land1:
+  a pond of 10 cells at x 2130-2160, z 2400-2450 and a single loose cell); river = segments between the points of each
+  `Stream` (Land1: 11 rivers, 187 points). In B&W1 there is no water at another height: the rivers are those paths
+  (openblack draws them like the original since 101dd844, `ECS/Rivers`, see [rendering.md](rendering.md#rivers)).
+- The reeds use `near = lake, stream` at 3-9 units. No plant within 3 units of a river's line (the
+  river.l3d channel measures about 4; exact distance to the segments in buckets of 20 units).
+- The base of each plant follows the ground: height at its two ends (i_data4) and shear in the vertex shader, sunk
+  by 6 %.
 
-#### Colocación
+#### Placement
 
-- Determinista por bloque de terreno, **solo cerca de la cámara** (hasta 6 bloques por fotograma; se liberan al
-  alejarse un bloque más allá): por celda y planta, `per_cell × densidad` candidatos; en cada punto se elige una
-  esquina de la celda por su peso bilineal y uno de sus dos materiales por el coeficiente de mezcla (como el shader del
-  terreno).
-- Nada en celdas de agua, en materiales dibujo (geoglifo), fuera de la altura o pendiente, ni a menos de 1 unidad de
-  entidades `Fixed` que no sean árboles, ni de campos, rocas móviles, pilas, almacén, templo o piscifactoría (caja de
-  la malla).
-- Todo se rehace al cambiar de isla o densidad y cuando existen los objetos.
+- Deterministic per terrain block, **only near the camera** (up to 6 blocks per frame; they are freed when
+  moving one block further away): per cell and plant, `per_cell × densidad` candidates; at each point a corner of the
+  cell is chosen by its bilinear weight and one of its two materials by the blend coefficient (like the terrain
+  shader).
+- Nothing in water cells, in picture materials (geoglyph), outside the height or slope, nor within 1 unit of
+  `Fixed` entities that are not trees, nor of fields, mobile rocks, piles, storehouse, temple or fish farm (box of
+  the mesh).
+- Everything is redone when changing island or density and when the objects exist.
 
-#### Tinte por el suelo
+#### Ground tint
 
-- Los texeles grises (saturación < 0,1-0,2) toman el color de la textura del terreno bajo la planta: el vertex shader
-  muestrea el array de materiales en el mismo material y uv que el terreno (uv del bloque × repeticiones del mod
-  terrain-x2, mip 3); gris 0,5 = el suelo tal cual, más oscuro en la base y más claro en la punta. Los texeles de
-  color (pétalos, espigas) no cambian. `tint = all` tinta toda la imagen; `none` usa sus colores.
-- **Suelo oscuro o sin color**: el tinte toma la textura del material a baja resolución, y algunas tienen manchas muy
-  oscuras (Land1 material 5, brezo, tipo 25: 46 % de sus texeles de 32×32 con brillo < 0,3) o grises (material 10
-  un 13 % con saturación < 0,3), que daban plantas grises. `LandMaterialInfo::small` guarda cada material en 32×32
-  (media de cajas de 8×8, como el mip 3 que muestrea el shader) y `ground_value` / `ground_saturation` filtran por el
-  color de ese texel (mismo uv que el terreno, con las repeticiones de terrain-x2). Las plantas tintadas piden
-  brillo ≥ 0,28 y saturación ≥ 0,3; `dead_bush_dark` / `dead_bush_grey` (con sus colores, `tint = none`) ocupan las
-  manchas.
+- The grey texels (saturation < 0.1-0.2) take the colour of the terrain texture under the plant: the vertex shader
+  samples the material array at the same material and uv as the terrain (block uv × repetitions of the
+  terrain-x2 mod, mip 3); grey 0.5 = the ground as it is, darker at the base and lighter at the tip. The colour
+  texels (petals, ears) do not change. `tint = all` tints the whole image; `none` uses its own colours.
+- **Dark or colourless ground**: the tint takes the material's texture at low resolution, and some have very dark
+  patches (Land1 material 5, heather, type 25: 46 % of its 32×32 texels with brightness < 0.3) or grey ones (material 10
+  13 % with saturation < 0.3), which gave grey plants. `LandMaterialInfo::small` stores each material at 32×32
+  (average of 8×8 boxes, like the mip 3 the shader samples) and `ground_value` / `ground_saturation` filter by the
+  colour of that texel (same uv as the terrain, with the terrain-x2 repetitions). The tinted plants require
+  brightness ≥ 0.28 and saturation ≥ 0.3; `dead_bush_dark` / `dead_bush_grey` (with their own colours, `tint = none`)
+  fill the patches.
 
-#### Dibujo
+#### Drawing
 
-- Un plano por planta con orientación fija al azar (no mira a cámara) e inclinado al azar hasta `lean` para que se vea
-  desde arriba (dos planos cruzados se veían como cruces desde arriba); hundido un 12 % de su alto para que no se vea
-  el borde inferior.
-- Las plantas se hunden en el último 20 % de la distancia (120/200/320).
-- Luz = tabla de luz del terreno[luminosidad de la celda] y la misma neblina; alpha test con borde nítido (alpha to
-  coverage con MSAA). Solo en la pasada principal (no en el reflejo).
-- Capas de 256×512 apoyadas abajo, con mipmaps; el color de los texeles transparentes es la media de los opacos.
+- One plane per plant with a fixed random orientation (it does not face the camera) and tilted at random up to `lean` so
+  that it is visible from above (two crossed planes looked like crosses from above); sunk by 12 % of its height so that
+  the bottom edge is not visible.
+- The plants sink in the last 20 % of the distance (120/200/320).
+- Light = terrain light table[cell brightness] and the same haze; alpha test with a sharp edge (alpha to
+  coverage with MSAA). Only in the main pass (not in the reflection).
+- 256×512 layers resting at the bottom, with mipmaps; the colour of the transparent texels is the average of the opaque
+  ones.
 
 #### Sprites
 
-- Los `mono_*` (salvo `dead_bush_dark` / `dead_bush_grey`, que usan `dead_bush_*.png` con sus colores): las imágenes
-  del usuario (`B&W/Asstes_mods/Plants`, las de la v2; los `mono_*` actuales están en
-  `B&W/BnW_openblack/Mods/world.foliage`) pasadas a gris con
+- The `mono_*` ones (except `dead_bush_dark` / `dead_bush_grey`, which use `dead_bush_*.png` with their colours): the
+  user's images (`B&W/Asstes_mods/Plants`, those of v2; the current `mono_*` are in
+  `B&W/BnW_openblack/Mods/world.foliage`) converted to grey with
   `assets/mods/world.foliage/tools/mono_sprites.py --width=128`:
-  - hierba, hierba alta, matorrales y trigo con `--min-hue=0` (todo a gris);
-  - juncos, plantas de agua y flores con `--min-hue=50 --open=1`: lo verde (tono 50-170°) a gris con media 0,62 y del
-    resto solo quedan en color las manchas que sobreviven a una apertura morfológica de 3×3 (pétalos, cabezas de los
-    juncos, penachos); las vetas finas amarillo-marrón y los brillos casi blancos de las hojas también a gris (con
-    `--min-hue=50` sin apertura salían vetas naranjas sin tintar);
-  - los brillos y bordes poco saturados (s <= 0,12, v < 0,85) también a gris y solo los casi blancos (v >= 0,85) con
-    un toque crema para que no se tinten.
-- Los `gen_*` generados por `tools/gen_grass_sprites.py` (en el repo) ya no se usan.
-- La base de cada imagen se recorta irregular por columnas (hasta el 9 % del alto) para que no se vea el borde recto.
+  - grass, tall grass, bushes and wheat with `--min-hue=0` (everything to grey);
+  - reeds, water plants and flowers with `--min-hue=50 --open=1`: the green (hue 50-170°) to grey with mean 0.62 and of
+    the rest only the patches that survive a 3×3 morphological opening remain in colour (petals, reed heads,
+    plumes); the thin yellow-brown streaks and the almost white highlights of the leaves also to grey (with
+    `--min-hue=50` without the opening, untinted orange streaks came out);
+  - the poorly saturated highlights and edges (s <= 0.12, v < 0.85) also to grey and only the almost white ones (v >= 0.85)
+    with a cream touch so that they are not tinted.
+- The `gen_*` generated by `tools/gen_grass_sprites.py` (in the repo) are no longer used.
+- The base of each image is trimmed irregularly by columns (up to 9 % of the height) so that the straight edge is not
+  visible.
 
-#### Campos de cultivo
+#### Crop fields
 
-Opción `fields` = wheat (por defecto); `original` = la malla.
+Option `fields` = wheat (default); `original` = the mesh.
 
-- **Plantas**: la malla del campo se oculta (`Alpha` 0 en `ecs::UpdateFields`; sigue ahí para la mano y los instantes
-  con alfa 0 ya no se dibujan: escribían profundidad) y `Foliage::UpdateFields` pone en su huella (caja de la malla con
-  su giro y escala) una rejilla con ruido cada `[field] spacing` unidades. Cada fotograma, por campo al alcance: nada
-  sin sembrar; la etapa `[field_stage ...]` según el crecimiento (0-1200) ± `stagger` al azar por planta (cambio
-  gradual); ancho y tinte interpolados dentro de la etapa (el tinte sustituye al color del suelo: `i_data4.z` = 1, `w`
-  = r·65536 + g·256 + b); solo quedan las plantas con `keep` < comida / comida esperada a ese crecimiento, así que la
-  cosecha lo aclara. Instancias transitorias cada fotograma.
-- Etapas actuales: brote (hierba baja, 0-80), hierba alta (80-350), trigo verde (350-750), trigo secándose hasta
-  marrón maduro (750-1200). Gancho `OPENBLACK_TEST_FIELD_GROWTH=0..1200` (todos los campos empiezan con ese
-  crecimiento y su comida).
-- **Tierra de cultivo**: `[field] soil` (`field_soil.png`, de `tools/gen_field_soil.py`: surcos marrones con borde
-  irregular que se desvanece) se pinta en la textura de huellas (`Foliage::DrawFieldFootprints`, desde
-  `Renderer::DrawFootprintPass`, con el programa FootprintInstanced) sobre la caja del campo + `soil_margin` por lado.
-- **De lejos**: la malla del campo vuelve con alfa `(d − 0,8·D) / (0,2·D)` (d = distancia a la cámara, D =
-  `foliageDistance`), el mismo tramo en que las plantas se hunden en el suelo, sin hundirse con la comida (en el
-  original un campo joven casi no se ve) y solo si está sembrado y con comida. Aparece **disolviéndose**: una trama
-  de pantalla de cruces que crecen en celdas de 8×8 píxeles (fs_object, descarta en vez de mezclar).
-- **Tinte de la malla** (`components::MeshTint`, puesto por `Foliage::UpdateFields`): como las plantas, sus texeles
-  pasan a gris × color medio del suelo bajo el campo (`GroundColourAt`, 9 puntos, color medio de los materiales de
-  la celda para su altitud), mezclado hacia su propio color según `[field] ripening` (350-1200). Viaja en el w de la
-  tercera columna de la instancia: 1e6 (2e6 disolviendo) + 5 bits por canal del suelo y de `own`; el sombreador de
-  mapa de alturas ya no suma ese w como desplazamiento si pasa de 500000 (los campos son MorphWithTerrain, así que
-  pierden el desplazamiento de hundirse, que con el mod no usan). vs_object lo pasa a fs_object en `v_normal`
-  (fs_object no ilumina con la normal): 1000 + 2·own en x y el color en las fracciones. Tras tocar vs_object hay que
-  hacer `touch` de los vs_object_*instanced*.sc (openblack-internals.md).
-- **Ojo**: la malla del campo (MSH_T_WHEAT) tiene huella propia, y `vs_footprint_instanced` usaba las columnas de la
-  instancia enteras: el w del tinte (> 1e6) rompía la proyección y su huella tapaba toda la textura de huellas
-  (terreno verde oliva liso, sin caminos ni huellas de edificios, solo con la malla del campo opaca, de lejos). Ahora
-  ese sombreador toma solo xyz de las tres primeras columnas, como vs_object (le pasaba igual al alfa de una malla con
-  huella que se desvanece).
+- **Plants**: the field mesh is hidden (`Alpha` 0 in `ecs::UpdateFields`; it is still there for the hand, and instances
+  with alpha 0 are no longer drawn: they wrote depth) and `Foliage::UpdateFields` puts on its footprint (box of the mesh
+  with its rotation and scale) a noisy grid every `[field] spacing` units. Every frame, per field in range: nothing
+  if not sown; the `[field_stage ...]` stage according to growth (0-1200) ± `stagger` at random per plant (gradual
+  change); width and tint interpolated within the stage (the tint replaces the ground colour: `i_data4.z` = 1, `w`
+  = r·65536 + g·256 + b); only the plants with `keep` < food / expected food at that growth remain, so the
+  harvest thins it out. Transient instances every frame.
+- Current stages: sprout (low grass, 0-80), tall grass (80-350), green wheat (350-750), wheat drying until
+  ripe brown (750-1200). Hook `OPENBLACK_TEST_FIELD_GROWTH=0..1200` (all fields start with that
+  growth and its food).
+- **Farmland**: `[field] soil` (`field_soil.png`, from `tools/gen_field_soil.py`: brown furrows with an irregular edge
+  that fades out) is painted onto the footprint texture (`Foliage::DrawFieldFootprints`, from
+  `Renderer::DrawFootprintPass`, with the FootprintInstanced program) over the field's box + `soil_margin` per side.
+- **From afar**: the field mesh comes back with alpha `(d − 0,8·D) / (0,2·D)` (d = distance to the camera, D =
+  `foliageDistance`), the same stretch in which the plants sink into the ground, without sinking with the food (in the
+  original a young field is barely visible) and only if it is sown and has food. It appears **dissolving**: a screen
+  pattern of crosses that grow in 8×8-pixel cells (fs_object, discards instead of blending).
+- **Mesh tint** (`components::MeshTint`, set by `Foliage::UpdateFields`): like the plants, its texels
+  become grey × mean colour of the ground under the field (`GroundColourAt`, 9 points, mean colour of the cell's
+  materials for its altitude), blended towards its own colour according to `[field] ripening` (350-1200). It travels in
+  the w of the instance's third column: 1e6 (2e6 when dissolving) + 5 bits per channel of the ground and of `own`; the
+  heightmap shader no longer adds that w as an offset if it exceeds 500000 (the fields are MorphWithTerrain, so they
+  lose the sinking offset, which they do not use with the mod). vs_object passes it to fs_object in `v_normal`
+  (fs_object does not light with the normal): 1000 + 2·own in x and the colour in the fractions. After touching vs_object
+  you have to `touch` the vs_object_*instanced*.sc (openblack-internals.md).
+- **Beware**: the field mesh (MSH_T_WHEAT) has its own footprint, and `vs_footprint_instanced` used the whole instance
+  columns: the tint's w (> 1e6) broke the projection and its footprint covered the whole footprint texture
+  (plain olive-green terrain, without paths or building footprints, only with the opaque field mesh, from afar). Now
+  that shader takes only xyz of the first three columns, like vs_object (the same happened with the alpha of a mesh with
+  a footprint that fades out).
 
-#### Voladores: [flyer nombre]
+#### Flyers: [flyer name]
 
-- **`[flyer nombre]`** (`FoliageFlyers.cpp`): voladores sobre las plantas de las especies de `over` (por nombre, de
-  cualquier `foliage.json`). Al colocar un bloque, cada planta de esas tiene una mariposa con probabilidad `per_plant`
+- **`[flyer nombre]`** (`FoliageFlyers.cpp`): flyers over the plants of the species in `over` (by name, from
+  any `foliage.json`). When a block is placed, each of those plants has a butterfly with probability `per_plant`
   (`Chunk::homes`).
-- **Vuelo**: cada fotograma, hasta 110 unidades de la cámara: vuela `flight` s en un lazo de dos senos por eje
-  alrededor de su flor (radio `range`, altura `height` sobre la flor, aleteo de ±0,12 rad), despega de la flor y
-  vuelve a ella, y luego se posa `rest` s aleteando a 1/4 de velocidad. Fotograma según los tiempos del gif (los de
-  menos de 20 ms cuentan 100 ms, como los navegadores). Planas y con alpha test (escriben profundidad,
-  `v_texcoord0.w = 5`), en instancias transitorias como las de los campos. Todo sale del tiempo real y de la semilla
-  de la planta.
-- **Huida de la mano**: solo guarda su huida (`FlyerHome::fleeTime/away/offset`), como los peces con un chapoteo
-  (`FishShoals.cpp`) pero por cercanía: con la mano (`HandSystemInterface::GetPlayerHandPositions`) a menos de `flee`
-  (5) en horizontal y de `2·flee` en altura sale disparada en línea recta lejos de ella 2 s, ×4 su velocidad
-  (`0,6·range·speed`, mínimo 1) y frenando en el último segundo, subiendo `0,4` de lo que avanza; si la mano sigue
-  cerca cuando frena, vuelve a salir. Luego regresa a su camino a su velocidad normal, mirando hacia él, y espera
-  donde está mientras la mano siga a menos de `1,5·flee` (`OPENBLACK_HAND_TRACE=1` escribe `Flyer trace`).
-- **Alas plegables** (`fold`, 0,7 por defecto): el gif se sigue reproduciendo (sus fotogramas cambian la pose de las
-  alas, no solo el ancho) sobre un cuadrado partido por el cuerpo (`_foldQuad`, x = -0,5/0/0,5), y cada mitad sube
-  girando sobre él `fold · acos(ancho del fotograma / el más ancho)` (`Animation::folds`, medido por el píxel opaco
-  más alejado de la columna central), interpolando al del fotograma siguiente; en el shader `i_data4.z = 3`, `w` = el
-  pliegue.
-- **De día solamente** (`night = off`): con la hora del juego (`SkyInterface::GetTime`) la luz del día va de 0 a las
-  20:00-5:30 a 1 a las 7:00-18:30 y cada mariposa se va cuando baja de su umbral al azar, así que desaparecen una a
-  una.
+- **Flight**: every frame, up to 110 units from the camera: it flies `flight` s in a loop of two sines per axis
+  around its flower (radius `range`, height `height` above the flower, flapping of ±0.12 rad), takes off from the flower
+  and returns to it, and then lands for `rest` s flapping at 1/4 speed. Frame according to the gif's timings (those of
+  less than 20 ms count as 100 ms, like browsers). Flat and alpha-tested (they write depth,
+  `v_texcoord0.w = 5`), in transient instances like those of the fields. Everything comes from real time and from the
+  plant's seed.
+- **Fleeing from the hand**: it only stores its flight (`FlyerHome::fleeTime/away/offset`), like the fish with a splash
+  (`FishShoals.cpp`) but by proximity: with the hand (`HandSystemInterface::GetPlayerHandPositions`) within `flee`
+  (5) horizontally and `2·flee` in height it shoots off in a straight line away from it for 2 s, ×4 its speed
+  (`0,6·range·speed`, minimum 1) and braking in the last second, rising `0,4` of what it advances; if the hand is still
+  close when it brakes, it shoots off again. Then it returns to its path at its normal speed, facing it, and waits
+  where it is while the hand is still within `1,5·flee` (`OPENBLACK_HAND_TRACE=1` writes `Flyer trace`).
+- **Folding wings** (`fold`, 0.7 by default): the gif keeps playing (its frames change the pose of the
+  wings, not only the width) on a square split by the body (`_foldQuad`, x = -0.5/0/0.5), and each half rises
+  rotating about it `fold · acos(ancho del fotograma / el más ancho)` (`Animation::folds`, measured by the opaque pixel
+  furthest from the central column), interpolating to that of the next frame; in the shader `i_data4.z = 3`, `w` = the
+  fold.
+- **Daytime only** (`night = off`): with the game time (`SkyInterface::GetTime`) daylight goes from 0 at
+  20:00-5:30 to 1 at 7:00-18:30 and each butterfly leaves when it drops below its random threshold, so they disappear one
+  by one.
 
-### Módulo world.foliage.beach
+### Module world.foliage.beach
 
-- "Beach": algas, arena mojada, conchas, estrellas de mar, coral y huellas, todas `flat` y `coast` en arena
-  (`texture = sand`, `terrain = Sand, WetSand`). Opción `density` (deslizador, very low..very high, por defecto
-  medium; ver [Módulos con option.\<id\>](#módulos-con-optionid)).
-- La orilla la marca la altura dibujada: algas 1,1-2 y arena mojada 0,9-1,7 (la fila de costa), el resto hasta 2,2-6.
-  `water_distance` mide desde las esquinas de las celdas con agua, así que la orilla visible queda a 6-10 unidades.
-- Dos franjas (30-09-2026, el usuario: la orilla cargada y la arena limpia): la orilla (`coast`, hasta ~20: algas
-  7-16, arena mojada, estrellas, conchas) con poca densidad, y la arena seca detrás (`sand_*`, coral y huellas, 14-80,
-  altura hasta 40, `share` 0,7, sin `coast`) con más (conchas 1,1, piedras 0,6 por celda en medium); las huellas solo
-  ahí, desde 20.
-- En Land1, playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\herramientas\lnd\lnd_beaches.py` lista la
-  arena junto al agua).
-- Imágenes del usuario en `B&W/Asstes_mods/Beach`; `.cfg` en `assets/mods/world.foliage.beach`.
+- "Beach": seaweed, wet sand, shells, starfish, coral and footprints, all `flat` and `coast` on sand
+  (`texture = sand`, `terrain = Sand, WetSand`). Option `density` (slider, very low..very high, default
+  medium; see [Modules with option.\<id\>](#módulos-con-optionid)).
+- The shoreline is marked by the drawn height: seaweed 1.1-2 and wet sand 0.9-1.7 (the coast row), the rest up to 2.2-6.
+  `water_distance` measures from the corners of the cells with water, so the visible shoreline ends up at 6-10 units.
+- Two strips (30-09-2026, the user: the busy shoreline and the clean sand): the shoreline (`coast`, up to ~20: seaweed
+  7-16, wet sand, starfish, shells) with low density, and the dry sand behind (`sand_*`, coral and footprints, 14-80,
+  height up to 40, `share` 0.7, without `coast`) with more (shells 1.1, stones 0.6 per cell at medium); the footprints
+  only there, from 20.
+- In Land1, sandy beach at `1700,2000` (camera `1702,7,1992,1706,0.5,2004`; `dev\herramientas\lnd\lnd_beaches.py` lists the
+  sand next to the water).
+- The user's images in `B&W/Asstes_mods/Beach`; `.cfg` in `assets/mods/world.foliage.beach`.
 
-### Módulo world.foliage.butterflies
+### Module world.foliage.butterflies
 
-- `world.foliage.butterflies` ("Butterflies"): los 3 gif del usuario (`B&W/Asstes_mods/Buterfly`) sobre
-  `wildflowers` y `poppies`, 0,04 por flor, 0,7-1 de ancho (más grandes que de verdad para que se vean junto a la
-  hierba de 0,7-1,2). Sin opciones. Cómo vuelan: [Voladores](#voladores-flyer-nombre).
-- En Land1 hay unas 70 cerca de `1434,57.8,2232` (cámara `1428,61.5,2226,1434,57.5,2233`, `OPENBLACK_TIME_OF_DAY=13`).
+- `world.foliage.butterflies` ("Butterflies"): the user's 3 gifs (`B&W/Asstes_mods/Buterfly`) over
+  `wildflowers` and `poppies`, 0.04 per flower, 0.7-1 wide (bigger than in reality so that they are visible next to the
+  0.7-1.2 grass). No options. How they fly: [Flyers](#flyers-flyer-name).
+- In Land1 there are about 70 near `1434,57.8,2232` (camera `1428,61.5,2226,1434,57.5,2233`, `OPENBLACK_TIME_OF_DAY=13`).
 
 ### test.miracle-dispensers
 
-«Máquinas de milagros de prueba» (categoría **Test**). **No existe en el original**: es una ayuda para probar los
-milagros, desactivada por defecto. Código: `assets/mods/test.miracle-dispensers/mod.json` (el mod, que pone
-`EngineConfig::testDispensers*`) y `src/Worship/TestDispensers.cpp` (lo que hace en el juego). Todo es **mod**; solo
-los dispensadores son los del original ([magic.md](magic.md#dispensadores-y-luciérnagas-worshipspelldispensercpp-worshipfireflyrewardcpp)).
+«Test miracle machines» (category **Test**). **It does not exist in the original**: it is an aid for testing the
+miracles, disabled by default. Code: `assets/mods/test.miracle-dispensers/mod.json` (the mod, which sets
+`EngineConfig::testDispensers*`) and `src/Worship/TestDispensers.cpp` (what it does in the game). Everything is **mod**;
+only the dispensers are the original's ([magic.md](magic.md#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp)).
 
-- **Activarlo**: menú **Mods** → sección *Test* → casilla «Máquinas de milagros de prueba» (y sus dos deslizadores
-  debajo); se guarda en `Mods/test.miracle-dispensers/settings.cfg` (`enabled = on`, `level = base`,
-  `recharge = 10s`). Solo para una sesión: `--mod test.miracle-dispensers` (más
-  `--mod test.miracle-dispensers.level=all`, `--mod test.miracle-dispensers.recharge=5s`). Sin reinicio, pero los
-  dispensadores salen **al cargar una tierra** (o en el turno siguiente si se enciende con la tierra cargada); al
-  apagarlo se quedan hasta la próxima carga. La recarga sí se cambia en vivo en los ya puestos.
-- **Qué hace**: cuando ha corrido el guion de la tierra (después de `PostLoadCleanup`, en `worship::ProcessTurn`) y el
-  jugador humano tiene ciudadela (`citadel::Of`; se busca su posición en la entidad, no está escrita en el código),
-  pone un dispensador `NORSE_ABODE_SPELL_DISPENSER` (el del desafío de Land 1) por milagro, como
-  `GiveSpellDispenserReward`: `dispenser::Create` (pueblo más cercano del jugador, mirando al templo),
-  `SetMagicProperties(magia, recarga)` y `SetActive` (orbe al momento). Cuando se coge el orbe, a los `recharge`
-  segundos sale otro.
-- **Dónde**: en anillos alrededor del templo, el primero a radio del templo (mitad mayor de su malla en x/z, 25,6 m en
-  Land 1) + 12 m y los siguientes cada 13 m, puestos cada 13 m de arco (los anillos impares desplazados medio paso). Un
-  sitio vale si un cuadrado de 8 × 8 m (9 puntos) es tierra seca sin agua (`sea_cells::IsWater` / `IsDryLand`), con
-  menos de 2,5 m de desnivel, dentro de la influencia del jugador (`CalculatePlayerInfluence > 0`, la regla de
-  lanzamiento), a más de 4 m de cualquier objeto fijo (`Fixed`, edificios, árboles, rasgos, rocas, ollas, campos,
-  farolas, tótem, lugares de culto) y lo acepta `map_collide::IsOkToCreateAtPos`. Constantes elegidas por openblack
+- **Enabling it**: **Mods** menu → *Test* section → checkbox «Test miracle machines» (and its two sliders
+  below); it is saved in `Mods/test.miracle-dispensers/settings.cfg` (`enabled = on`, `level = base`,
+  `recharge = 10s`). For one session only: `--mod test.miracle-dispensers` (plus
+  `--mod test.miracle-dispensers.level=all`, `--mod test.miracle-dispensers.recharge=5s`). No restart, but the
+  dispensers appear **when a land is loaded** (or on the next turn if it is switched on with the land loaded); when
+  switched off they stay until the next load. The recharge is changed live on those already placed.
+- **What it does**: when the land's script has run (after `PostLoadCleanup`, in `worship::ProcessTurn`) and the
+  human player has a citadel (`citadel::Of`; its position is looked up in the entity, it is not hard-coded),
+  it places a `NORSE_ABODE_SPELL_DISPENSER` dispenser (the one from the Land 1 challenge) per miracle, like
+  `GiveSpellDispenserReward`: `dispenser::Create` (the player's nearest town, facing the temple),
+  `SetMagicProperties(magia, recarga)` and `SetActive` (orb immediately). When the orb is taken, another one appears
+  after `recharge` seconds.
+- **Where**: in rings around the temple, the first one at the temple's radius (larger half of its mesh in x/z, 25.6 m in
+  Land 1) + 12 m and the following ones every 13 m, placed every 13 m of arc (the odd rings shifted half a step). A
+  spot is valid if an 8 × 8 m square (9 points) is dry land without water (`sea_cells::IsWater` / `IsDryLand`), with
+  less than 2.5 m of height difference, within the player's influence (`CalculatePlayerInfluence > 0`, the casting
+  rule), more than 4 m from any fixed object (`Fixed`, buildings, trees, features, rocks, pots, fields,
+  street lamps, totem, places of worship) and `map_collide::IsOkToCreateAtPos` accepts it. Constants chosen by openblack
   (mod).
-- **Milagros** (las 14 semillas del jugador de `GSpellSeedInfo`, en su orden; las de la criatura, 12..27, no): STORM
-  (tormenta), NATURE (bosque), FIRE (bola de fuego), FOOD (comida), SHIELD (escudo), PHYSICAL_SHIELD (escudo físico),
-  LIGHTNING_BOLT (rayo), HEAL (curar), WOOD (madera), WATER (agua), FLYING_FLOCK (bandada de palomas), GROUND_FLOCK
-  (manada de lobos), TELEPORT (teletransporte) y BEAM_EXPLOSION (explosión de rayo). La tormenta eléctrica y el
-  tornado no son semillas: son los power-ups de STORM.
-- **Opción `level`** (deslizador): `base` la magia base de cada semilla; `pu1` / `pu2` su power-up 1 / 2 (si la
-  semilla no lo tiene, el más alto que tenga); `all` un dispensador por cada nivel distinto (25 en total: STORM,
-  STORM_PU1 = tormenta eléctrica, STORM_PU2 = tornado; FIRE ×3; FOOD ×2; LIGHTNING_BOLT ×3; HEAL ×2; WATER ×2;
-  BEAM_EXPLOSION ×3; el resto ×1). El orbe sale con el nivel de su magia (`GetPowerUpGesture`, como el original).
-- **Opción `recharge`** (deslizador): segundos hasta el siguiente orbe (`SET_MAGIC_PROPERTIES` en segundos × 10
-  turnos); el original usa 300 turnos (`timeEachMobileObjectTakesToProduce`).
-- **Máquina vacía** (siempre): un dispensador más en el siguiente sitio libre del anillo (en Land 1 con `base`,
-  (1878,0, 2515,4)), creado solo con `dispenser::Create`, como un `CREATE(SPELL_DISPENSER)` sin
-  `SET_MAGIC_PROPERTIES` ni `SET_ACTIVE`: queda inactivo y sin magia, así que nunca da orbe
-  (`SpellDispenser::Process` 0x722A70 solo produce si está activo). Sirve para comparar la máquina sola con las que
-  tienen orbe. Registro: `Mod test.miracle-dispensers: empty dispenser <entidad> at (x, z)`.
-- **Opción `seed`** (`on` por defecto): 10 turnos después de poner los dispensadores (para que el guion de la tierra
-  y su intro ya hayan empezado) pone una semilla de FIRE (bola de fuego, sin power-up) en la mano del jugador humano
-  por el camino de un uso, `OneOffSpellSeed::CreateSpellIntoHand` 0x72A730 (el mismo que `OPENBLACK_TEST_SEED`). Si la
-  mano está ocupada lo reintenta cada turno (hasta 600). Así se comparan la transparencia de un orbe, la de la
-  máquina vacía y la de la semilla en la mano. `--mod test.miracle-dispensers.seed=off` la quita. Registro:
-  `Mod test.miracle-dispensers: fire seed into the hand -> <entidad>`. Turnos y reintentos elegidos por openblack
+- **Miracles** (the player's 14 seeds of `GSpellSeedInfo`, in their order; the creature's, 12..27, not): STORM
+  (storm), NATURE (forest), FIRE (fireball), FOOD (food), SHIELD (shield), PHYSICAL_SHIELD (physical shield),
+  LIGHTNING_BOLT (lightning bolt), HEAL (heal), WOOD (wood), WATER (water), FLYING_FLOCK (flock of doves), GROUND_FLOCK
+  (pack of wolves), TELEPORT (teleport) and BEAM_EXPLOSION (beam explosion). The electric storm and the
+  tornado are not seeds: they are STORM's power-ups.
+- **Option `level`** (slider): `base` the base magic of each seed; `pu1` / `pu2` its power-up 1 / 2 (if the
+  seed does not have it, the highest it has); `all` one dispenser for each distinct level (25 in total: STORM,
+  STORM_PU1 = electric storm, STORM_PU2 = tornado; FIRE ×3; FOOD ×2; LIGHTNING_BOLT ×3; HEAL ×2; WATER ×2;
+  BEAM_EXPLOSION ×3; the rest ×1). The orb comes out with the level of its magic (`GetPowerUpGesture`, like the original).
+- **Option `recharge`** (slider): seconds until the next orb (`SET_MAGIC_PROPERTIES` in seconds × 10
+  turns); the original uses 300 turns (`timeEachMobileObjectTakesToProduce`).
+- **Empty machine** (always): one more dispenser at the next free spot of the ring (in Land 1 with `base`,
+  (1878.0, 2515.4)), created only with `dispenser::Create`, like a `CREATE(SPELL_DISPENSER)` without
+  `SET_MAGIC_PROPERTIES` or `SET_ACTIVE`: it stays inactive and without magic, so it never gives an orb
+  (`SpellDispenser::Process` 0x722A70 only produces if it is active). It serves to compare the machine alone with those
+  that have an orb. Log: `Mod test.miracle-dispensers: empty dispenser <entidad> at (x, z)`.
+- **Option `seed`** (`on` by default): 10 turns after placing the dispensers (so that the land's script
+  and its intro have already started) it puts a FIRE seed (fireball, without power-up) in the human player's hand
+  via the one-off path, `OneOffSpellSeed::CreateSpellIntoHand` 0x72A730 (the same as `OPENBLACK_TEST_SEED`). If the
+  hand is busy it retries every turn (up to 600). This way the transparency of an orb, that of the
+  empty machine and that of the seed in the hand can be compared. `--mod test.miracle-dispensers.seed=off` removes it.
+  Log: `Mod test.miracle-dispensers: fire seed into the hand -> <entidad>`. Turns and retries chosen by openblack
   (mod).
-- **Orden de creación**: los dispensadores y sus orbes no existen en el original, así que se crean dentro de un
-  `ecs::object_index::ModScope`: toman índices de un rango aparte (desde `k_ModBase` = 0x40000000) y el contador del
-  original no se mueve (las velocidades de los aldeanos, `Villager::SetSpeed`, y los órdenes de animales y bosques
-  quedan iguales). `SpellDispenser::CreateOneOffSpellSeed` / `ApplySeed` abren el mismo ámbito si el dispensador es
-  de un mod (`IsModObject`). No consumen números aleatorios del juego. Sí son abodes del pueblo y obstáculos fijos,
-  como el dispensador de Land 1. La semilla que da el orbe al tocarlo y lo que crea el hechizo cuentan como siempre
-  (son acciones del jugador).
-- **Registro**: una línea por dispensador:
+- **Creation order**: the dispensers and their orbs do not exist in the original, so they are created inside an
+  `ecs::object_index::ModScope`: they take indices from a separate range (from `k_ModBase` = 0x40000000) and the
+  original's counter does not move (the villagers' speeds, `Villager::SetSpeed`, and the orders of animals and forests
+  stay the same). `SpellDispenser::CreateOneOffSpellSeed` / `ApplySeed` open the same scope if the dispenser belongs to
+  a mod (`IsModObject`). They do not consume the game's random numbers. They are town abodes and fixed obstacles,
+  like the Land 1 dispenser. The seed the orb gives when touched and what the spell creates count as always
+  (they are player actions).
+- **Log**: one line per dispenser:
   `Mod test.miracle-dispensers: dispenser <entidad> seed <n> (<SEMILLA>) pu <nivel> magic <n> (<MAGIA>) at (x, z)`.
-- **Land 1** (`level = base`; templo en (1915,1, 2508,9), anillo de 37,6 m, los 14 caben en el primero):
+- **Land 1** (`level = base`; temple at (1915.1, 2508.9), ring of 37.6 m, all 14 fit in the first one):
 
-  | Semilla | Posición (x, z) |
+  | Seed | Position (x, z) |
   |---|---|
-  | STORM | 1915,1, 2546,5 |
-  | NATURE | 1927,9, 2544,2 |
-  | FIRE | 1939,2, 2537,7 |
-  | FOOD | 1947,6, 2527,7 |
-  | SHIELD | 1952,1, 2515,4 |
-  | PHYSICAL_SHIELD | 1952,1, 2502,4 |
-  | LIGHTNING_BOLT | 1947,6, 2490,1 |
-  | HEAL | 1939,2, 2480,1 |
-  | WOOD | 1927,9, 2473,6 |
-  | WATER | 1915,1, 2471,3 |
-  | FLYING_FLOCK | 1902,2, 2473,6 |
-  | GROUND_FLOCK | 1890,9, 2480,1 |
-  | TELEPORT | 1882,5, 2490,1 |
-  | BEAM_EXPLOSION | 1878,0, 2502,4 |
+  | STORM | 1915.1, 2546.5 |
+  | NATURE | 1927.9, 2544.2 |
+  | FIRE | 1939.2, 2537.7 |
+  | FOOD | 1947.6, 2527.7 |
+  | SHIELD | 1952.1, 2515.4 |
+  | PHYSICAL_SHIELD | 1952.1, 2502.4 |
+  | LIGHTNING_BOLT | 1947.6, 2490.1 |
+  | HEAL | 1939.2, 2480.1 |
+  | WOOD | 1927.9, 2473.6 |
+  | WATER | 1915.1, 2471.3 |
+  | FLYING_FLOCK | 1902.2, 2473.6 |
+  | GROUND_FLOCK | 1890.9, 2480.1 |
+  | TELEPORT | 1882.5, 2490.1 |
+  | BEAM_EXPLOSION | 1878.0, 2502.4 |
 
-  Con `all` los 25 ocupan el primer anillo (18 sitios) y 7 del segundo (radio 50,6 m).
-- **Probado** (2026-10-01, capturas en `dev\_audit\magic\`): `dispmod_ring.png` (el anillo en Land 1),
-  `dispmod_cast.png` (el orbe de FIRE tocado, `seed (FIRE, pu -1) in the hand with 3500 chants`, armado y lanzado:
-  la bola de fuego en el suelo y su dispensador vacío) y `dispmod_all.png` (`level = all`, 25 dispensadores). A los
-  10 s del toque el dispensador hace otro orbe. Gancho de cámara: `OPENBLACK_CAMERA_LOCK=1960,85,2580,1915,32,2508`
-  (ver [Ganchos de prueba](#ganchos-de-prueba)).
-- **Probado** (2026-10-01, máquina vacía y semilla): `prism_empty.png` (la máquina vacía en primer plano, sin orbe;
-  `OPENBLACK_CAMERA_LOCK=1872,40,2528,1878,33,2515.4`), `prism_seed_hand.png` / `prism_seed_hand2.png` (la semilla
-  de fuego en la mano junto al orbe de FIRE; `seed 2752 (FIRE, pu -1) in the hand with 3500 chants`).
-- **El «prisma» oscuro junto a un dispensador** (captura del usuario, 2026-10-01 12:41): no es la submalla de física
-  de la malla 557 (ningún camino de dibujo la pinta, ver
-  [rendering-objects.md](rendering-objects.md#submallas-de-física-y-de-lod-0)). El registro de esa partida dice que el
-  usuario rompió con una roca lanzada los dispensadores de TELEPORT y BEAM_EXPLOSION (`Buildings: 2602 hit, life 1.00
-  -> 0.00`, `4 pieces`, `2602 destroyed`, y lo mismo 2606): el orbe de BEAM_EXPLOSION (la estrella de `I_Blast`) se
-  quedó flotando y lo de alrededor son los trozos (`Fragment`) de la máquina rota. **(inferido)** En el original
-  `SpellDispenser::Draw` 0x722940 llama a `MultiMapFixed::Draw` 0x518090 y no a `Abode::Draw`, así que nunca dibuja la
-  FragMesh de un dispensador dañado; falta leer si `Abode::ReactToPhysicsImpact` 0x406240 lo rompe (pendiente).
+  With `all` the 25 occupy the first ring (18 spots) and 7 of the second (radius 50.6 m).
+- **Tested** (2026-10-01, screenshots in `dev\_audit\magic\`): `dispmod_ring.png` (the ring in Land 1),
+  `dispmod_cast.png` (the FIRE orb touched, `seed (FIRE, pu -1) in the hand with 3500 chants`, charged and cast:
+  the fireball on the ground and its empty dispenser) and `dispmod_all.png` (`level = all`, 25 dispensers). 10 s after
+  the touch the dispenser makes another orb. Camera hook: `OPENBLACK_CAMERA_LOCK=1960,85,2580,1915,32,2508`
+  (see [Test hooks](#test-hooks)).
+- **Tested** (2026-10-01, empty machine and seed): `prism_empty.png` (the empty machine in the foreground, without an orb;
+  `OPENBLACK_CAMERA_LOCK=1872,40,2528,1878,33,2515.4`), `prism_seed_hand.png` / `prism_seed_hand2.png` (the fire seed
+  in the hand next to the FIRE orb; `seed 2752 (FIRE, pu -1) in the hand with 3500 chants`).
+- **The dark «prism» next to a dispenser** (user's screenshot, 2026-10-01 12:41): it is not the physics submesh
+  of mesh 557 (no drawing path paints it, see
+  [rendering-objects.md](rendering-objects.md#physics-and-lod-0-submeshes)). The log of that game says that the
+  user broke the TELEPORT and BEAM_EXPLOSION dispensers with a thrown rock (`Buildings: 2602 hit, life 1.00
+  -> 0.00`, `4 pieces`, `2602 destroyed`, and the same for 2606): the BEAM_EXPLOSION orb (the `I_Blast` star) was
+  left floating and what is around it are the pieces (`Fragment`) of the broken machine. **(inferred)** In the original
+  `SpellDispenser::Draw` 0x722940 calls `MultiMapFixed::Draw` 0x518090 and not `Abode::Draw`, so it never draws the
+  FragMesh of a damaged dispenser; it remains to be read whether `Abode::ReactToPhysicsImpact` 0x406240 breaks it
+  (pending).
 
 ### game.skip-intro
 
-**Único mod activado por defecto** (pedido por el usuario, 2026-10-01; el resto siguen apagados). Lo hace el campo
-nuevo `Mod::Info::enabledByDefault`, que el constructor de `Mod` copia a `_enabled`. Ojo: si ya existe
-`Mods/game.skip-intro/settings.cfg`, **manda ese archivo** (como en cualquier mod), así que un cambio de valor por
-defecto no llega a una instalación que ya haya arrancado una vez; hay que editar su `settings.cfg`.
+**The only mod enabled by default** (requested by the user, 2026-10-01; the rest remain off). This is done by the new
+field `Mod::Info::enabledByDefault`, which the `Mod` constructor copies to `_enabled`. Beware: if
+`Mods/game.skip-intro/settings.cfg` already exists, **that file takes precedence** (as in any mod), so a change of
+default value does not reach an installation that has already started once; its `settings.cfg` has to be edited.
 
-- Opción `skip`: `tutorial`, `tutorial and creature training` o `tutorial, creature training and the glade`
-  (**por defecto**). Opción `free start`: `on` (por defecto) u `off`. Con reinicio (la respuesta cuenta al empezar la
-  partida). Para una sola vez: `--mod game.skip-intro.skip=tutorial`, `--mod game.skip-intro.free start=off`,
+- Option `skip`: `tutorial`, `tutorial and creature training` or `tutorial, creature training and the glade`
+  (**default**). Option `free start`: `on` (default) or `off`. With restart (the answer counts when the game
+  starts). For a single time: `--mod game.skip-intro.skip=tutorial`, `--mod game.skip-intro.free start=off`,
   `--mod game.skip-intro=off`.
-- El salto en sí no se inventa: da la respuesta que el original pedía al jugador. En runblack.exe v1.42, al empezar cada
-  partida, `GGame::OnNewGame` (0x55395B) llama a `GGame::DoYesNoSkipTutorialRequestersIfNecessary` (0x54CBD0), que
-  borra los bits 23, 24 y 25 de `g_game+0x14`, pausa el juego y enseña el **SkipBox** (cuatro casillas, la primera
-  marcada por defecto; sin ESC, `SkipBox::CanESCOut` 0x53BD60 da 0). openblack no dibuja ese cuadro y juega todo, como
-  la respuesta por defecto; con el mod, `Game::Run` pone los bits de la segunda (`tutorial`, bit 23), la tercera
-  (`tutorial and creature training`, bits 23 y 24) o la cuarta respuesta (`…and the glade`, bits 23, 24 y 25), y el
-  guion se salta la intro por su cuenta.
-- Qué salta el guion (`SetupLand1` / `LandControl1` de challenge.chl): con `CAN_SKIP_TUTORIAL` no corren `FollowUs` (la
-  intro: la cámara del guion y `START_MUSIC 54`), `CitadelGuide` (la ciudadela se construye al momento) ni
-  `ChooseYourCreature`. Con `CAN_SKIP_CREATURE_TRAINING` además no corren las lecciones del guía de la criatura. Con
-  `IS_KEEPING_OLD_CREATURE` tampoco corre `CreaturesInGlade`, que es **la que coge la cámara y el diálogo, funde a
-  negro, vuela la cámara y pone `START_MUSIC(63)`** (challenge.chl 44028..44691): por eso la cuarta respuesta es la
-  que deja el principio al jugador. Detalle en
-  [map-loading.md](map-loading.md#saltar-el-tutorial-skipbox-y-can_skip_tutorial).
-- La cuarta respuesta necesita además `CURRENT_PROFILE_HAS_CREATURE` (`SetupLand1` lo hace `and` con el bit 25,
-  challenge.chl 25432..25434) y openblack no tiene perfiles de jugador: el mod **contesta por el perfil** (CHL 463 da
-  verdadero cuando `skipTutorialChoice` es 3). Lo que el guion hace entonces en vez del claro es cargar la criatura del
-  perfil (`LOAD_MY_CREATURE`, sin portar: no sale criatura, como hoy).
-- **`free start` (no es del original).** Aun con la cuarta respuesta el guion corre `CreatureDevSeeHome`, que en su rama
-  de salto (challenge.chl 7056..7085) coge la cámara y el diálogo un turno, enciende y apaga la pantalla ancha, **clava
-  la cámara sobre el poblado** (`SET_CAMERA_POSITION(1891.04, 31.69, 2520.67)`) y hace `SET_FADE_IN(2.0)`. Con
-  `free start` el motor **se come eso**: la **primera tarea del guion que coge la cámara en una partida nueva** es «el
-  principio de la tierra», y mientras la tenga, `SET_CAMERA_POSITION` (001), `SET_CAMERA_FOCUS` (002),
-  los demás opcodes de cámara (003, 004, 093, 094, 095, 105, 119, 142, 201, 209, 279, 280, 284, 286, 287), `SET_WIDESCREEN` (032), `SET_FADE` (241),
-  `SET_FADE_IN` (242), `START_MUSIC` (044) y `STOP_MUSIC` (045) no hacen nada y `HAS_CAMERA_ARRIVED` (035) contesta «ya
-  ha llegado». `START_CAMERA_CONTROL` **sí se concede** y crea el modo de cámara del guion como en el original (así
-  ninguna otra tarea coge la cámara mientras la tiene la apertura), para que el `loop { START_CAMERA_CONTROL }` del
-  guion pase y suelte la cámara como siempre; pero ese modo no mueve la cámara del jugador (`script_camera::Drives`,
-  [script-camera.md](script-camera.md)). En cuanto esa tarea hace `END_CAMERA_CONTROL` (o se para)
-  todo vuelve a la normalidad: las escenas de los milagros, las misiones y los vórtices siguen igual. Estado:
-  `CameraControl::freeStartTask` / `freeStartArmed` (`Help/ScriptControl.h`), armado en `CameraControl::Reset` (cada
-  carga de mapa).
-- Lo que **no** toca el mod: la hora del día que pone el guion (`SET_GAME_TIME(4.59)` de `CreatureDevSeeHome`: amanece,
-  como en el original) y la música de alineamiento/tribu, que en el original también suena desde el principio cuando se
-  salta el tutorial (el `ENABLE_DISABLE_ALIGNMENT_MUSIC(false)` está dentro de `FollowUs`, challenge.chl 50102).
+- The skip itself is not invented: it gives the answer the original asked the player for. In runblack.exe v1.42, at the
+  start of each game, `GGame::OnNewGame` (0x55395B) calls `GGame::DoYesNoSkipTutorialRequestersIfNecessary` (0x54CBD0),
+  which clears bits 23, 24 and 25 of `g_game+0x14`, pauses the game and shows the **SkipBox** (four checkboxes, the
+  first checked by default; no ESC, `SkipBox::CanESCOut` 0x53BD60 gives 0). openblack does not draw that box and plays
+  everything, like the default answer; with the mod, `Game::Run` sets the bits of the second (`tutorial`, bit 23), the
+  third (`tutorial and creature training`, bits 23 and 24) or the fourth answer (`…and the glade`, bits 23, 24 and 25),
+  and the script skips the intro on its own.
+- What the script skips (`SetupLand1` / `LandControl1` of challenge.chl): with `CAN_SKIP_TUTORIAL` `FollowUs` (the
+  intro: the script camera and `START_MUSIC 54`), `CitadelGuide` (the citadel is built immediately) and
+  `ChooseYourCreature` do not run. With `CAN_SKIP_CREATURE_TRAINING` the creature guide's lessons do not run either.
+  With `IS_KEEPING_OLD_CREATURE` `CreaturesInGlade` does not run either, which is **the one that takes the camera and the
+  dialogue, fades to black, flies the camera and sets `START_MUSIC(63)`** (challenge.chl 44028..44691): that is why the
+  fourth answer is the one that leaves the start to the player. Details in
+  [map-loading.md](map-loading.md#skipping-the-tutorial-skipbox-and-can_skip_tutorial).
+- The fourth answer also needs `CURRENT_PROFILE_HAS_CREATURE` (`SetupLand1` `and`s it with bit 25,
+  challenge.chl 25432..25434) and openblack has no player profiles: the mod **answers on behalf of the profile** (CHL 463
+  gives true when `skipTutorialChoice` is 3). What the script then does instead of the glade is load the profile's
+  creature (`LOAD_MY_CREATURE`, not ported: no creature appears, as today).
+- **`free start` (not from the original).** Even with the fourth answer the script runs `CreatureDevSeeHome`, which in
+  its skip branch (challenge.chl 7056..7085) takes the camera and the dialogue for one turn, switches the widescreen on
+  and off, **pins the camera over the village** (`SET_CAMERA_POSITION(1891.04, 31.69, 2520.67)`) and does
+  `SET_FADE_IN(2.0)`. With `free start` the engine **swallows that**: the **first script task that takes the camera in a
+  new game** is «the start of the land», and while it has it, `SET_CAMERA_POSITION` (001), `SET_CAMERA_FOCUS` (002),
+  the other camera opcodes (003, 004, 093, 094, 095, 105, 119, 142, 201, 209, 279, 280, 284, 286, 287), `SET_WIDESCREEN` (032), `SET_FADE` (241),
+  `SET_FADE_IN` (242), `START_MUSIC` (044) and `STOP_MUSIC` (045) do nothing and `HAS_CAMERA_ARRIVED` (035) answers «it
+  has already arrived». `START_CAMERA_CONTROL` **is granted** and creates the script camera mode as in the original (so
+  no other task takes the camera while the opening has it), so that the script's `loop { START_CAMERA_CONTROL }`
+  passes and releases the camera as always; but that mode does not move the player's camera (`script_camera::Drives`,
+  [script-camera.md](script-camera.md)). As soon as that task does `END_CAMERA_CONTROL` (or stops)
+  everything goes back to normal: the miracle scenes, the quests and the vortices stay the same. State:
+  `CameraControl::freeStartTask` / `freeStartArmed` (`Help/ScriptControl.h`), armed in `CameraControl::Reset` (every
+  map load).
+- What the mod does **not** touch: the time of day set by the script (`SET_GAME_TIME(4.59)` of `CreatureDevSeeHome`:
+  dawn, as in the original) and the alignment/tribe music, which in the original also plays from the start when the
+  tutorial is skipped (the `ENABLE_DISABLE_ALIGNMENT_MUSIC(false)` is inside `FollowUs`, challenge.chl 50102).
 
 ### Modpack examples
 
-`mods/examples/` en el repo, `Mods/examples/` junto al exe (el build copia los archivos y compila los nativos en sus
-`bin/`). Apagado por defecto. No cambian nada del juego salvo `example.data-only` (agua viva mientras está encendido);
-escriben en la pestaña Log. Son las plantillas.
+`mods/examples/` in the repo, `Mods/examples/` next to the exe (the build copies the files and compiles the native ones
+into their `bin/`). Off by default. They change nothing in the game except `example.data-only` (living water while it
+is on); they write to the Log tab. They are the templates.
 
-| Mod | Tipo | Qué enseña |
+| Mod | Type | What it teaches |
 |---|---|---|
-| `example.data-only` | solo `mod.json` | `switches`, una opción con `bind`, `replace` vacío |
-| `example.lua-hello` | Lua | `require` de un módulo propio, opción, interruptor, enumeraciones, eventos `land_loaded` y `turn`, cámara y altura |
-| `example.lua-library` | Lua, librería | `provides` + `ob.interfaces.provide("example.places.v1", tabla)` |
+| `example.data-only` | only `mod.json` | `switches`, an option with `bind`, empty `replace` |
+| `example.lua-hello` | Lua | `require` of its own module, option, switch, enumerations, `land_loaded` and `turn` events, camera and height |
+| `example.lua-library` | Lua, library | `provides` + `ob.interfaces.provide("example.places.v1", tabla)` |
 | `example.lua-consumer` | Lua | `dependencies` + `ob.interfaces.get` |
-| `example.native-hello` | C | `ob_mod_query` / `ob_mod_load` / `ob_mod_unload`, opción, eventos, enumeración, altura, hora |
-| `example.native-library` | C, librería | `provide_interface("example.counter.v1")` con su cabecera pública `include/example_counter_v1.h` |
+| `example.native-hello` | C | `ob_mod_query` / `ob_mod_load` / `ob_mod_unload`, option, events, enumeration, height, time |
+| `example.native-library` | C, library | `provide_interface("example.counter.v1")` with its public header `include/example_counter_v1.h` |
 | `example.native-consumer` | C | `dependencies` + `get_interface` |
 
-## Pendiente
+## Pending
 
-- SDK de mods (2026-10-01), lo que falta: sonidos en bucle o que sigan a un objeto (hoy solo efectos sueltos), lanzar orbes (cuando la API `one_off::` de milagros sea estable), medidas de un objeto concreto (hacen falta
-  identificadores de objetos en la API; hoy solo por malla),
-  límite de memoria por script Lua, recarga en caliente de scripts, reemplazar bancos de sonido (con
-  audio, B11), reemplazar mallas en vivo (hoy al arrancar: las formas físicas se toman al crear cada objeto), texturas
-  incrustadas en un `.l3d` (`L3DMesh::_skins`) y materiales sueltos del `.lnd`, traducciones `lang/<idioma>.json`
-  (hoy los textos por idioma van dentro del `mod.json`), y el idioma de la ventana (hoy inglés; `mods::SetLanguage`).
-- `world.crops`: sin el mod los campos se quedan vacíos hasta que openblack tenga oficios (granjeros).
-- HD-Tweaks: lo que queda por comprobar está en [mods.md](mods.md#mod-hd-tweaks).
-- Revisión de todos los mods tras la base 0e10b735 (2026-10-01): todos compilan, leen su `settings.cfg` y funcionan
-  encendidos y apagados; `world.foliage` lee el agua con `sea_cells::IsWater`. `world.ground-statics` no se vio
-  bajar nada: en los sitios mirados de Land 1 (1327,2432 y 1342,2406) ningún estático flota con el AllMeshes.g3d actual.
+- Mod SDK (2026-10-01), what is missing: looping sounds or sounds that follow an object (today only standalone effects), casting orbs (when the miracles `one_off::` API is stable), measurements of a specific object (object
+  identifiers are needed in the API; today only by mesh),
+  memory limit per Lua script, hot reloading of scripts, replacing sound banks (with
+  audio, B11), replacing meshes live (today at startup: the physics shapes are taken when each object is created),
+  textures embedded in a `.l3d` (`L3DMesh::_skins`) and standalone materials of the `.lnd`, translations
+  `lang/<idioma>.json` (today the per-language texts go inside the `mod.json`), and the window's language (today
+  English; `mods::SetLanguage`).
+- `world.crops`: without the mod the fields stay empty until openblack has jobs (farmers).
+- HD-Tweaks: what remains to be checked is in [mods.md](mods.md#hd-tweaks-mod).
+- Review of all mods after base 0e10b735 (2026-10-01): all compile, read their `settings.cfg` and work
+  on and off; `world.foliage` reads the water with `sea_cells::IsWater`. `world.ground-statics` was not seen
+  lowering anything: at the spots looked at in Land 1 (1327.2432 and 1342.2406) no static floats with the current
+  AllMeshes.g3d.
 
-## Ganchos de prueba
+## Test hooks
 
-| Gancho | Qué hace |
+| Hook | What it does |
 |---|---|
-| `--mod <id>`, `--mod <id>=off`, `--mod <id>.<opción>=<elección>` | Activa un mod u opción solo para esa sesión |
-| `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` | Cambia HD-Tweaks en ese fotograma (recarga en vivo) |
-| `OPENBLACK_TEST_FIELD_GROWTH=0..1200` | Todos los campos empiezan con ese crecimiento y su comida |
-| `OPENBLACK_HAND_TRACE=1` | Escribe `Flyer trace` (huida de las mariposas) |
-| `OPENBLACK_TIME_OF_DAY=13` | Hora del juego para ver las mariposas (solo de día) |
-| `OPENBLACK_CAMERA_LOCK="ox,oy,oz,fx,fy,fz"` | Pone la cámara ahí cada turno (`WorshipDebugHooks.cpp`): en Land 1 el guion mueve la cámara y `OPENBLACK_CAMERA_FLY` ya no llega |
-| `--mod test.miracle-dispensers` + `OPENBLACK_TEST_TAP="1939.2,2537.7,200"` + `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"` | Toca el orbe de FIRE de Land 1 y lo lanza |
+| `--mod <id>`, `--mod <id>=off`, `--mod <id>.<opción>=<elección>` | Enables a mod or option only for that session |
+| `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` | Changes HD-Tweaks on that frame (live reload) |
+| `OPENBLACK_TEST_FIELD_GROWTH=0..1200` | All fields start with that growth and its food |
+| `OPENBLACK_HAND_TRACE=1` | Writes `Flyer trace` (butterflies fleeing) |
+| `OPENBLACK_TIME_OF_DAY=13` | Game time for seeing the butterflies (daytime only) |
+| `OPENBLACK_CAMERA_LOCK="ox,oy,oz,fx,fy,fz"` | Puts the camera there every turn (`WorshipDebugHooks.cpp`): in Land 1 the script moves the camera and `OPENBLACK_CAMERA_FLY` no longer gets through |
+| `--mod test.miracle-dispensers` + `OPENBLACK_TEST_TAP="1939.2,2537.7,200"` + `OPENBLACK_TEST_CAST="press@30,release@31,shot@33"` | Touches the FIRE orb of Land 1 and casts it |
 
-Cámaras: playa de Land1 `1702,7,1992,1706,0.5,2004`; mariposas de Land1 `1428,61.5,2226,1434,57.5,2233`.
+Cameras: Land1 beach `1702,7,1992,1706,0.5,2004`; Land1 butterflies `1428,61.5,2226,1434,57.5,2233`.
 
-## Fuentes
+## Sources
 
-- Código: `src/Mods/` ([Cómo está hecho](#cómo-está-hecho-srcmods)), `src/Debug/ModsWindow.*`,
-  `components/modsdk/include/openblack/mod_api.h`, `mods/` (ejemplos y su CMake), `test/test_mods.cpp`;
-  `game.skip-intro` en `Game::Run` y `CHLApi.cpp` (`CanSkipTutorial`, `FreeStart`), `src/Worship/TestDispensers.cpp`,
-  `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`, `src/Resources/HdTweaks`, `src/main.cpp` (atajos).
-- Manifiestos en el repo: `assets/mods/<id>/mod.json` (los 13 que vienen con openblack) y sus datos:
+- Code: `src/Mods/` ([How it is built](#how-it-is-built-srcmods)), `src/Debug/ModsWindow.*`,
+  `components/modsdk/include/openblack/mod_api.h`, `mods/` (examples and their CMake), `test/test_mods.cpp`;
+  `game.skip-intro` in `Game::Run` and `CHLApi.cpp` (`CanSkipTutorial`, `FreeStart`), `src/Worship/TestDispensers.cpp`,
+  `src/3D/Foliage.*`, `src/3D/FoliageFlyers.cpp`, `src/Resources/HdTweaks`, `src/main.cpp` (shortcuts).
+- Manifests in the repo: `assets/mods/<id>/mod.json` (the 13 that come with openblack) and their data:
   `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`, `assets/mods/world.foliage.butterflies`,
   `assets/mods/graphics.hd-tweaks`.
-- Diseño del SDK: `dev\documentacion\modding\PLAN.md` (con lo que se tomó de Factorio, Fabric, RimWorld, SKSE y Luanti).
-- Imágenes del usuario: `B&W/Asstes_mods/{Plants,Beach,Buterfly}`; `mono_*` en `B&W/BnW_openblack/Mods/world.foliage`.
-- Estudios: `dev\documentacion\heights` (altura junto al mar), `dev\documentacion\biomes` (mapas de zonas `Land*_snd.png`).
-- Scripts del LND: `dev\herramientas\lnd\` (`lnd_hash.py`, `lnd_zones.py`, `lnd_countries.py`, `lnd_beaches.py`).
+- SDK design: `dev\documentacion\modding\PLAN.md` (with what was taken from Factorio, Fabric, RimWorld, SKSE and Luanti).
+- User's images: `B&W/Asstes_mods/{Plants,Beach,Buterfly}`; `mono_*` in `B&W/BnW_openblack/Mods/world.foliage`.
+- Studies: `dev\documentacion\heights` (height next to the sea), `dev\documentacion\biomes` (zone maps `Land*_snd.png`).
+- LND scripts: `dev\herramientas\lnd\` (`lnd_hash.py`, `lnd_zones.py`, `lnd_countries.py`, `lnd_beaches.py`).

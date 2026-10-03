@@ -164,11 +164,21 @@ void CheckTownDesires(uint32_t& sample, float& value, std::optional<glm::vec3>& 
 			continue;
 		}
 		const float d = Distance(*town.storagePit, camera); // GetInfo 0x74CD50 (pit +0x14, the camera's MapCoords)
+		if (Trace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: town {} pit ({:.0f}, {:.0f}) pop {} at {:.1f}", town.id,
+			                   town.storagePit->x, town.storagePit->z, town.population, d);
+		}
 		if (d < best)
 		{
 			best = d;
 			chosen = &town;
 		}
+	}
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: town desires: {} towns, nearest pit {} at {:.1f}", towns.size(),
+		                   chosen != nullptr ? chosen->id : 0, best);
 	}
 	if (chosen == nullptr)
 	{
@@ -620,6 +630,10 @@ void guidance::ProcessTownDesireSFX()
 	std::optional<glm::vec3> thing;
 	CheckTownDesires(sample, value, thing, *camera);
 	CheckWorshipSiteDesires(sample, value, thing, *camera);
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: desire sample {} value {:.3f}", sample, value);
+	}
 	if (!(value > k_DesireThreshold)) // 0x71B09F: test ah, 0x41; jne
 	{
 		return;

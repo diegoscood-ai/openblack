@@ -140,35 +140,11 @@ uint32_t OfferTo(entt::entity object, const glm::vec3& position, ResourceType ty
 		                   type == ResourceType::Wood ? "wood" : "food", store || owner != entt::null ? "the store of" : "pile",
 		                   static_cast<uint32_t>(store ? object : (owner != entt::null ? owner : object)), distance, radius);
 	}
-	if (store || owner != entt::null)
+	if (store)
 	{
-		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store.
-		// 0x732F67..0x732F99: before anything else, if the pit's +0x74 is not null and the type is WOOD (1) or ANY (-2),
-		// the whole call is forwarded to that object's AddResource (vt 0x9C) and this function returns its answer.
-		// +0x74 is MultiMapFixed::building_site, a BuildingSite* (bw1-decomp src/Black/MultiMapFixed.h; StoragePit
-		// derives from Abode, whose own fields only start at 0x7C): a pit that is being built sends its wood to its
-		// building site. (pendiente) openblack has no building sites and nothing builds abodes (ECS/Components/Town.h),
-		// so no pit can ever have one and the redirect is unreachable; port it with the building sites.
-		return StoragePitStore::AddResource(store ? object : owner, type, left);
+		return StoragePitStore::AddResource(object, type, left);
 	}
-	// PotStructure::AddResource -> JustAddResource (vt 0x8C). PileResource::JustAddResource 0x66D330 plays the pile sound
-	// with the amount added (not for the hand's pots, infos 11 and 12); Pot::JustAddResource 0x66D2B0 clips at maxInPot
-	// only when nextPotForResource < 19 (no magic or loose pile), SetPoisoned(poisoned || IsPoisoned), SetSize (vt 0x85C)
-	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
-	if (info.potType != PotType::Pot && pot->type != PotInfo::HandWood && pot->type != PotInfo::HandFood)
-	{
-		pot_resource::PlayPileSound(object, transform->position, type, left);
-	}
-	uint32_t add = left;
-	if (static_cast<int32_t>(info.nextPotForResource) < 19 && pot->amount + add > info.maxAmountInPot)
-	{
-		add = info.maxAmountInPot > pot->amount ? info.maxAmountInPot - pot->amount : 0u;
-	}
-	add = std::min<uint32_t>(add, 65535u - pot->amount); // openblack's guard: Pot::amount is a uint16 here
-	pot->amount = static_cast<uint16_t>(pot->amount + add);
-	pot->poisoned = poisoned || pot->poisoned;
-	archetypes::PotArchetype::SetSize(object, true);
-	return add;
+	return pot_resource::PotStructureAddResource(object, type, left, poisoned);
 }
 
 /// A cell's lists in the order Pot::AddResourceToPos walks them (the inline iterator at 0x66F2CA: the fixed list +4,
@@ -267,6 +243,48 @@ void pot_resource::SetSpeedUp(entt::entity pile, bool on)
 		const auto position = registry.Get<const Transform>(pile).position;
 		pot->speedUpVisual = psys::manager::CreateSpotVisual(46, position, -1.0f, pile);
 	}
+}
+
+uint32_t pot_resource::PotStructureAddResource(entt::entity object, ResourceType type, uint32_t amount, bool poisoned)
+{
+	// PotStructure::AddResource 0x66ED70 (Object vt 0x9C of a pot or a pile)
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* pot = registry.TryGet<Pot>(object);
+	const auto* transform = registry.TryGet<const Transform>(object);
+	if (pot == nullptr || transform == nullptr)
+	{
+		return 0;
+	}
+	const auto owner = StoragePitStore::OwnerOf(object);
+	if (owner != entt::null)
+	{
+		// StoragePit::AddResource 0x732F60 / PotStructure::AddResource 0x66ED70 -> the store.
+		// 0x732F67..0x732F99: before anything else, if the pit's +0x74 is not null and the type is WOOD (1) or ANY (-2),
+		// the whole call is forwarded to that object's AddResource (vt 0x9C) and this function returns its answer.
+		// +0x74 is MultiMapFixed::building_site, a BuildingSite* (bw1-decomp src/Black/MultiMapFixed.h; StoragePit
+		// derives from Abode, whose own fields only start at 0x7C): a pit that is being built sends its wood to its
+		// building site. (pendiente) openblack has no building sites and nothing builds abodes (ECS/Components/Town.h),
+		// so no pit can ever have one and the redirect is unreachable; port it with the building sites.
+		return StoragePitStore::AddResource(owner, type, amount);
+	}
+	// PotStructure::AddResource -> JustAddResource (vt 0x8C). PileResource::JustAddResource 0x66D330 plays the pile sound
+	// with the amount added (not for the hand's pots, infos 11 and 12); Pot::JustAddResource 0x66D2B0 clips at maxInPot
+	// only when nextPotForResource < 19 (no magic or loose pile), SetPoisoned(poisoned || IsPoisoned), SetSize (vt 0x85C)
+	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
+	if (info.potType != PotType::Pot && pot->type != PotInfo::HandWood && pot->type != PotInfo::HandFood)
+	{
+		pot_resource::PlayPileSound(object, transform->position, type, amount);
+	}
+	uint32_t add = amount;
+	if (static_cast<int32_t>(info.nextPotForResource) < 19 && pot->amount + add > info.maxAmountInPot)
+	{
+		add = info.maxAmountInPot > pot->amount ? info.maxAmountInPot - pot->amount : 0u;
+	}
+	add = std::min<uint32_t>(add, 65535u - pot->amount); // openblack's guard: Pot::amount is a uint16 here
+	pot->amount = static_cast<uint16_t>(pot->amount + add);
+	pot->poisoned = poisoned || pot->poisoned;
+	archetypes::PotArchetype::SetSize(object, true);
+	return add;
 }
 
 uint32_t pot_resource::AddResourceToPos(const glm::vec3& position, const Dropper& dropper, ResourceType type, uint32_t amount,

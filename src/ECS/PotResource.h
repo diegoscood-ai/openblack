@@ -41,6 +41,11 @@ struct Dropper
 uint32_t AddResourceToPos(const glm::vec3& position, const Dropper& dropper, ResourceType type, uint32_t amount,
                           bool poisoned, bool speedUp, entt::entity* newPile = nullptr);
 
+/// PotStructure::AddResource 0x66ED70 (Object vt 0x9C of a pot or a pile): a pot of a storage pit gives it to the pit
+/// (StoragePit::AddResource 0x732F60), any other takes it itself (JustAddResource vt 0x8C: the pile sound, the cap at
+/// maxAmountInPot, poisoned, the size). Returns what was taken; 0 for an object that is not a pot.
+uint32_t PotStructureAddResource(entt::entity object, ResourceType type, uint32_t amount, bool poisoned = false);
+
 /// fn_0066D1A0: the pile sound at pos, by type and amount (food < 200: G_PileFoodSmall_01..06 (77 + t % 6), else
 /// G_PileFood_01/02 (75 + (t & 1)); wood < 200: G_PileWoodSmall_01..06 (92 + t % 6), else G_PileWood_01..06 (86 + t % 6))
 void PlayPileSound(entt::entity pile, const glm::vec3& position, ResourceType type, uint32_t amount);

@@ -109,6 +109,16 @@ private:
 	void MakeDeadTree(entt::entity tree, glm::vec3 direction, bool placeLying = true) noexcept;
 	/// The hand's part of the physics system: EndPhysics and ReactToPhysicsImpact of trees, pots and stores.
 	void RegisterPhysicsHandlers() noexcept;
+	/// The tap handlers (ecs::hand_tap) of the classes whose owners have not registered them yet: rocks, abodes, spell
+	/// icons and one-shot orbs, through their public APIs
+	void RegisterTapHandlers() noexcept;
+	/// GInterface +0x48 m_InInfluence: the action position inside the player's influence (fn_005D1120)
+	[[nodiscard]] bool InInfluence() const noexcept;
+	/// vt 0x6FC ValidForPlaceInHand for the hovered classes: false for rocks too big to lift and tap-only spell icons
+	[[nodiscard]] bool ValidForPlaceInHand(entt::entity object) const noexcept;
+	/// GInterface::SendTap 0x5D38A0: in the influence (or not InterfaceMustBeInInfluenceForInteraction), the class
+	/// valid to tap and not IsCannotBePickedUp -> packet 0x20 -> 0x5DA650 -> InterfaceTap. True when it tapped.
+	bool SendTap(entt::entity object) noexcept;
 	/// Wood store (village store pit) under the point, if any.
 	[[nodiscard]] std::optional<entt::entity> FindWoodStore(glm::vec3 point) const noexcept;
 	/// DeleteObjectAndTakeResource: the store takes the tree's wood and the tree is deleted.

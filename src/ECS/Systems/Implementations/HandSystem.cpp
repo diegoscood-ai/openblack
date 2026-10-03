@@ -52,6 +52,7 @@
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/OneOffSpellSeed.h"
+#include "ECS/Components/SpellIcon.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
@@ -71,6 +72,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Abodes.h"
 #include "ECS/Rocks.h"
+#include "ECS/Systems/HandTap.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Game.h"
@@ -128,7 +130,70 @@ bool HandSystem::Initialize() noexcept
 
 	LoadAnimations();
 	RegisterPhysicsHandlers();
+	RegisterTapHandlers();
 	return false;
+}
+
+void HandSystem::RegisterTapHandlers() noexcept
+{
+	// Rock::InterfaceValidToTap 0x6E7450 (taller than 0.7) / Rock::InterfaceTap 0x6E7480 (SplitInTwo, G_RockTap)
+	hand_tap::Register(
+	    &Rocks::IsRock, [](entt::entity rock, const pot_resource::Dropper&) { return Rocks::ValidToTap(rock); },
+	    [](entt::entity rock, const pot_resource::Dropper&, glm::vec3 handPos) -> uint32_t {
+		    Rocks::Tap(rock, handPos);
+		    return 1;
+	    });
+	// Abode::InterfaceValidToTap 0x406820 (always 1) / Abode::InterfaceTap 0x406830 (knocking on the roof)
+	hand_tap::Register<Abode>(
+	    [](entt::entity abode, const pot_resource::Dropper&) { return abodes::InterfaceValidToTap(abode); },
+	    [](entt::entity abode, const pot_resource::Dropper&, glm::vec3 handPos) -> uint32_t {
+		    abodes::InterfaceTap(abode, handPos);
+		    return 1;
+	    });
+	// SpellIcon::InterfaceValidToTap 0x7263C0 / InterfaceTap 0x726430 and OneOffSpellSeed 0x72A630 / 0x72A640
+	const auto worshipValid = [](entt::entity object, const pot_resource::Dropper& is) {
+		return worship::InterfaceValidToTap(object, is.player);
+	};
+	const auto worshipTap = [](entt::entity object, const pot_resource::Dropper& is, glm::vec3) -> uint32_t {
+		return static_cast<uint32_t>(worship::InterfaceTap(object, is.player));
+	};
+	hand_tap::Register<SpellIcon>(worshipValid, worshipTap);
+	hand_tap::Register<OneOffSpellSeed>(worshipValid, worshipTap);
+}
+
+bool HandSystem::InInfluence() const noexcept
+{
+	// GInterface +0x48 m_InInfluence (InterfaceActionProcess fn_005D1120: CalculatePlayerInfluence(action position, type
+	// 1, allies) > 0)
+	return _interactionPoint.has_value() &&
+	       influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, *_interactionPoint, influence::CalcType::Interface) > 0.0f;
+}
+
+bool HandSystem::ValidForPlaceInHand(entt::entity object) const noexcept
+{
+	// Rock::ValidForPlaceInHand 0x6E7030 (2D radius <= 3.6); a spell icon keeps Object::ValidForPlaceInHand 0x402870 = 0
+	// (a one-shot orb is Mobile::ValidForPlaceInHand 0x425B00 = 1)
+	if (Rocks::IsRock(object))
+	{
+		return Rocks::ValidForPlaceInHand(object);
+	}
+	return !Locator::entitiesRegistry::value().AllOf<SpellIcon>(object);
+}
+
+bool HandSystem::SendTap(entt::entity object) noexcept
+{
+	// GInterface::SendTap 0x5D38A0: (m_InInfluence || !InterfaceMustBeInInfluenceForInteraction) && InterfaceValidToTap(IS)
+	// == 1 && !IsCannotBePickedUp -> packet 0x20 -> 0x5DA650, which checks InterfaceValidToTap again and calls InterfaceTap.
+	// InterfaceMustBeInInfluenceForInteraction is Object's 0x4028A0 = 1 for every ported class (only ScriptHighlight
+	// 0x709840 overrides it, not ported). (not ported) IsCannotBePickedUp 0x401A10 (flag 0x2000): openblack has none of
+	// its setters (GameOSFile::LoadInstance 0x559999, the puzzles fn_006D71D0, HanoiBlock), so no object has it.
+	const pot_resource::Dropper is {true, PlayerNames::PLAYER_ONE, true};
+	if (!InInfluence() || !hand_tap::ValidToTap(object, is))
+	{
+		return false;
+	}
+	hand_tap::Tap(object, is, _interactionPoint.value_or(glm::vec3(0.0f)));
+	return true;
 }
 
 std::array<entt::entity, static_cast<size_t>(HandSystemInterface::Side::_Count)> HandSystem::GetPlayerHands() const noexcept
@@ -320,51 +385,36 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	const bool actionPressed = actionHeld && !_actionWasHeld;
 	const bool actionReleased = !actionHeld && _actionWasHeld;
 	_actionWasHeld = actionHeld;
-	// GInterface +0x48 m_InInfluence (InterfaceActionProcess fn_005D1120: CalculatePlayerInfluence(action position, type
-	// 1, allies) > 0), which taps and pick-ups of objects with InterfaceMustBeInInfluenceForInteraction need
-	const auto TapInInfluence = [this]() {
-		return _interactionPoint.has_value() &&
-		       influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, *_interactionPoint, influence::CalcType::Interface) >
-		           0.0f;
-	};
+	// GInterface +0x48 m_InInfluence: every ported class needs it for taps, locked selects and pick-ups
+	// (Object::InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1, vt 0x714)
+	const auto TapInInfluence = [this]() { return InInfluence(); };
 	if (actionPressed && _hovered && !_held && Locator::entitiesRegistry::value().AllOf<Field>(*_hovered))
 	{
-		// fields are a locked select (ValidForLockedSelectProcess 0x5299E0): the scooping starts at once
-		_pickPressHeld = TryPickUpField(*_hovered);
+		// fields are a locked select (ValidForLockedSelectProcess 0x5299E0): ActionPressed fn_005D1330 starts the scooping
+		// at once (StartTapOrLockedSelect 0x5D1A00) in the influence (m_InInfluence || !vt 0x714). Out of it the field
+		// goes on to the pick-up / tap path, where it is neither placeable (Object 0x402870) nor tappable (Object
+		// 0x4196B0): nothing.
+		_pickPressHeld = TapInInfluence() && TryPickUpField(*_hovered);
 	}
 	else if (actionPressed && _hovered && !_held)
 	{
-		// Piles cannot be tapped, so the locked select (scooping) starts at once (StartGrab -> packet 0x1B).
+		// Piles cannot be tapped, so the locked select (scooping) starts at once (StartGrab -> packet 0x1B), in the
+		// influence as above; out of it nothing happens (StartGrab 0x5D1740 taps, and a pile is not tappable).
 		const auto source = PotInfoOf(*_hovered);
 		if (source != PotInfo::_COUNT && source != PotInfo::HandWood && source != PotInfo::HandFood)
 		{
-			PickUp(*_hovered);
-			_pickPressHeld = _held.has_value();
-		}
-		else if (Rocks::IsRock(*_hovered) && !Rocks::ValidForPlaceInHand(*_hovered))
-		{
-			// StartGrab 0x5D1740: an object that cannot be placed in the hand is tapped at once (Rock::InterfaceTap splits it)
-			if (Rocks::ValidToTap(*_hovered))
-			{
-				Rocks::Tap(*_hovered, _interactionPoint.value_or(glm::vec3(0.0f)));
-			}
-			_hovered.reset();
-		}
-		else if (!Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_hovered) &&
-		         worship::InterfaceValidToTap(*_hovered, PlayerNames::PLAYER_ONE))
-		{
-			// the same StartGrab branch: a spell icon cannot go in the hand (Object::ValidForPlaceInHand 0x402870 = 0), so
-			// it is tapped at once (Tap 0x5D3930 -> 0x5D38A0, packet 0x20 -> 0x5DA650 -> SpellIcon::InterfaceTap 0x726430)
-			// if the hand is in the player's influence (InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1)
 			if (TapInInfluence())
 			{
-				worship::InterfaceTap(*_hovered, PlayerNames::PLAYER_ONE);
+				PickUp(*_hovered);
 			}
-			_hovered.reset();
+			_pickPressHeld = _held.has_value();
 		}
-		else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_hovered) && !TapInInfluence())
+		else if (!ValidForPlaceInHand(*_hovered) || !TapInInfluence())
 		{
-			// StartGrab 0x5D1740 out of the influence: Tap 0x5D3930, which 0x5D38A0 refuses (vt 0x714 = 1): nothing
+			// StartGrab 0x5D1740: an object that cannot go into the hand (a rock too big to lift, a spell icon) or out of
+			// the influence is tapped at once: Tap 0x5D3930 -> SendTap 0x5D38A0 (refused out of the influence) -> packet
+			// 0x20 -> InterfaceTap (Rock::InterfaceTap splits it, SpellIcon::InterfaceTap 0x726430)
+			SendTap(*_hovered);
 			_hovered.reset();
 		}
 		else if (Locator::entitiesRegistry::value().AllOf<Tree>(*_hovered) && _interactionPoint &&
@@ -389,14 +439,12 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// 0x402870 = 0), so StartGrab taps it at once -> Tap 0x5D3930 -> SendTap 0x5D38A0, which needs the hand inside the
 		// influence (Object::InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1) -> packet 0x20 ->
 		// Abode::InterfaceTap 0x406830: knocking on the roof.
-		if (TapInInfluence())
-		{
-			abodes::InterfaceTap(*_cursorObject, _interactionPoint.value_or(glm::vec3(0.0f)));
-		}
+		SendTap(*_cursorObject);
 	}
-	else if (actionPressed && !_held && !_hovered && !gripping && _interactionPoint && TryPickUpFish(*_interactionPoint))
+	else if (actionPressed && !_held && !_hovered && !gripping && _interactionPoint && TapInInfluence() &&
+	         TryPickUpFish(*_interactionPoint))
 	{
-		// fish: the locked select starts at once, like piles
+		// fish: the locked select starts at once, like piles, in the influence (ActionPressed fn_005D1330)
 		_pickPressHeld = true;
 	}
 	else if (actionPressed && IsHoldingSeed())
@@ -435,8 +483,9 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	if (_pendingPick)
 	{
 		// The grab completes after 225 ms of holding the action button (State_Grab 0x5D5250). Released earlier it is a
-		// tap, which does nothing for most objects (Object::InterfaceValidToTap returns false) and splits rocks taller
-		// than 0.7 (Rock::InterfaceTap).
+		// tap (Tap 0x5D3930 -> SendTap), which does nothing for most objects (Object::InterfaceValidToTap 0x4196B0 = 0),
+		// splits rocks taller than 0.7 (Rock::InterfaceTap) and puts a one-shot orb's charged seed in the hand
+		// (OneOffSpellSeed::InterfaceTap 0x72A640).
 		constexpr float k_PickUpHoldSeconds = 0.225f;
 		_pendingPickTime += seconds;
 		if (!Locator::entitiesRegistry::value().Valid(*_pendingPick))
@@ -445,23 +494,19 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		}
 		else if (!actionHeld)
 		{
-			if (Rocks::IsRock(*_pendingPick) && Rocks::ValidToTap(*_pendingPick))
-			{
-				Rocks::Tap(*_pendingPick, _interactionPoint.value_or(glm::vec3(0.0f)));
-			}
-			else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(*_pendingPick) && TapInInfluence())
-			{
-				// a one-shot orb clicked (released within the 225 ms): Tap 0x5D3930 -> packet 0x20 -> 0x5DA650 ->
-				// OneOffSpellSeed::InterfaceTap 0x72A640, the fully charged seed in the hand and the orb gone
-				worship::InterfaceTap(*_pendingPick, PlayerNames::PLAYER_ONE);
-			}
+			SendTap(*_pendingPick);
 			_pendingPick.reset();
 		}
 		else if (_pendingPickTime >= k_PickUpHoldSeconds)
 		{
 			const auto entity = *_pendingPick;
 			_pendingPick.reset();
-			if (Locator::entitiesRegistry::value().AllOf<BigForest>(entity))
+			if (!TapInInfluence())
+			{
+				// GenericPickup 0x5D2800 out of the influence (m_InInfluence 0, vt 0x714 = 1) returns 0: State_Grab
+				// resets the action, nothing is picked up
+			}
+			else if (Locator::entitiesRegistry::value().AllOf<BigForest>(entity))
 			{
 				// not tuggable: the grab takes a tree out of the forest straight into the hand
 				_pickPressHeld = TakeTreeFromForest(entity);
@@ -472,11 +517,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 				// a standing tree is tugged; one in physics (thrown, not landed yet) is caught like any flying object
 				BeginTug(entity);
 			}
-			else if (Locator::entitiesRegistry::value().AllOf<OneOffSpellSeed>(entity) && !TapInInfluence())
-			{
-				// GenericPickup 0x5D2800 out of the influence (vt 0x714 = 1): not picked up
-			}
-			else if (PickUpSeedOrStone(entity, TapInInfluence()))
+			else if (PickUpSeedOrStone(entity, true))
 			{
 				// a spell seed over its spell or a teleport stone: GenericPickup 0x5D2800 -> PlaceObjectInMagicHand
 				// 0x5DA6F0, the seed in the hand and its spell closed (HandApplyToObject.cpp)

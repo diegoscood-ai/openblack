@@ -632,7 +632,7 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   `GetCycleTimeFromFrame` 0x6C85F0). Detalle y lo que queda en
   [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
   Antes de U7 se dibujaban como malla quieta en su pose de reposo (`polish_fix_bosque2_forest_dry.png`). Capturas del
-  aleteo en `dev\_audit\sistemas\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
+  aleteo en `dev\tmp_dis\unify\shots\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
   de caer la semilla) y `close_t80/_t81/_t110.png` (cámara `1782,40,2612,1790,36,2625`, entre los árboles).
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
@@ -1589,8 +1589,13 @@ comentario viejo): ya van por `audio::tags::CreateAtMapCoords`, no por un emisor
   `MaterialUseTextureAlpha` 1, `UseAdditiveAlpha` 0, `MaterialSetDoubleSided` **0** y `UseLighting` **1**; escala 5 por
   `UR_ChangeScale` sobre el átomo padre (`InitialScale` 2); bucle de sonido `SOUND_SPELL_TELEPORT_POOL` en el
   `SoundOfCreate` del `CreateRuleAnAtom` del grupo 0 (LOOPING 1, SOFTRELEASE 1).
-  **(pendiente)** `UseLighting 1` y `MaterialSetDoubleSided 0`: openblack dibuja la piscina sin luz y siempre a dos
-  caras (`RendererSurfRevol.cpp`), por lo que se ve más tenue que en el original. `UseLighting` (+0x88) pide las
+  `MaterialSetDoubleSided 0` ya se cumple (8b31e44d, sistemas): fn_0081C780 pone CULLMODE ((~mat+5)&1)·2+1
+  (0x81CC5E..0x81CC6E) y `RendererSurfRevol.cpp` usa `render_modes::CullFor(surface.doubleSided, false)`; que el
+  Ccw de bgfx sea el D3DCULL_CCW de estos vértices es **(inferido)** (vértices en el mundo, sin espejo, como los
+  modelos; la piscina se sigue viendo desde arriba). Los discos **no** van por `world_triangles`: con tantos
+  especulares (+0x30, cuenta +0x38) como colores DrawAt toma fn_0081C780 (0x67CAEE), Draw3DWorldTriangle con
+  especular por vértice (0x81C9B9..0x81C9C4), y ZR_SurfRevol dimensiona los dos a NumU×NumV (0x685A0E..0x685A3D).
+  **(pendiente)** `UseLighting 1`: openblack dibuja la piscina sin luz, por lo que se ve más tenue que en el original. `UseLighting` (+0x88) pide las
   normales de la malla (`fn_006C9340`) y una luz de D3D que el programa `WorldQuad` no tiene, y el culling pide saber el
   sentido de los triángulos: es trabajo del renderizador de partículas (lane m7/sistemas), no de esta lane, y hacerlo a
   medias dejaría la piscina invisible desde arriba. La `S_TileLandscape.raw` instalada es de 2021 (parche), así que el
@@ -2221,8 +2226,8 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
     `RenderPass::Main` detrás de los modelos y antes de la cola (hunk marcado en `Renderer.cpp::DrawPass`, de
     sistemas). Ya no hay una malla bgfx por pedazo ni el tope `GpuBuffersLeft`: 6000 pedazos vivos a la vez en
     BEAM_EXPLOSION_PU2 sin cuelgue. El camino viejo (malla generada por pedazo) sigue detrás de
-    `explode_object::k_PiecesAsWorldTriangles` (= true) hasta que sistemas acepte el hunk de `Renderer.cpp`; se borra
-    entonces.
+    `explode_object::k_PiecesAsWorldTriangles` (= true). Sistemas ya aceptó el hunk de `Renderer.cpp` (b67cc5a5):
+    **(pendiente, milagros2)** borrar el camino viejo y la constante.
   - **(aproximado)** la luz de la tierra de la CPU no lleva el tope de las sombras de las nubes que el port aplica en la
     GPU a los demás objetos; tampoco la ruta alternativa [0xEA9EB4] → fn_007ACD90 (no leída). Las operaciones en coma
     flotante son de 32 bits (no se imita la x87). En la última fila / columna del mapa el original lee la celda 17 del
@@ -2239,9 +2244,14 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
     (DrawLoop va una vez por fotograma).
   - (openblack guard) si el transient vertex buffer (32 MB, `init.limits.transientVbSize` del hunk de `Renderer.cpp`)
     no basta, los últimos lotes no se dibujan ese fotograma (aviso único `world_triangles: ...`).
-  - Los caminos Queued / Immediate (pedazos de un efecto con un solo objeto Z o de la mano) tienen `gj_mesh::BuildAtom`
-    y la etiqueta del lote (`Submit(..., only)`), pero ningún efecto de los datos los usa y el vaciado de sistemas aún no
-    los llama.
+  - Los caminos Queued / Immediate (pedazos de un efecto con un solo objeto Z o de la mano): `Renderer.cpp` construye
+    una vez por fotograma un `world_triangles::Frame` con `gj_mesh::Build(Queued)` y `gj_mesh::Build(Immediate)` y
+    `drawOrderedEffect` (rama `Kind::GJMesh`) dibuja cada átomo en su sitio del orden de fn_006798B0 con
+    `world_triangles::Submit(..., atom)` (DrawAt 0x67C150 no lee [0xC0215D]; 8b31e44d). Hoy ningún efecto de los
+    datos los usa: EXPLODE_OBJECT es Sorted **(inferido**: no se recorrieron todos los ficheros de efectos).
+  - La textura de una primitiva la da `world_triangles::PrimitiveTexture(mesh, skinId)` (antes `GetTexture` de
+    `Renderer.cpp`): skins de la malla o de su SetSkinSource, el gestor de texturas, el skin 0x1001 de los packs con
+    mod y el error una sola vez; la usan también `DrawSubMesh` y `DrawStaticShadowPass`.
 - Capturas (`dev\_audit\magic\`, `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,1825,2632"
   OPENBLACK_CAMERA_FLY="1790,58,2592,1825,30,2632"`, `--mod game.skip-intro=off`, `-n 14000`):
   `polish_fix_beam2_house_t6.png` (los pedazos del almacén y de las rocas saltando), `_t14.png` (los 490 pedazos del

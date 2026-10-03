@@ -1360,7 +1360,9 @@ corte 0x96: un poco más finos).
   del plan enseña el arca en tierra, sin mar delante), un BEFORE del tiburón con un exe a b8985c33 (solo hay el de un
   exe anterior) y por qué el primer BEFORE de la roca física en reposo (y = 0,75) salió sin reflejo y los demás sí
   (fallo intermitente de `DrawObjectReflections` anterior al punto 4; y si el reflejo debe ser tan claro, S3, luz ½).
-- Humo de las chimeneas: nada sube `Abode::presentAtHome` (los aldeanos no vuelven a casa) y falta la cuenta de
+- Humo de las chimeneas y ventanas de noche: `Abode::presentAtHome` ya lo suben y bajan los aldeanos (V4, asistente,
+  ba5e6b64, 0x405FA0 / 0x405FB0) y las ventanas lo leen como el original (Abode::Draw 0x515F78: +0xB6 ≠ 0 y luego
+  IsVisualNight 0x5575E0); falta la cuenta de
   andamio de los talleres.
 - Confirmado por el usuario (2026-10-02): la luna tras V4-a/V4-d, el ancho de las cintas del rayo (semianchura = la
   escala del PSR, fn_0081C780), el aro del orbe que a veces tapa la burbuja según la animación, y que la burbuja ya no
@@ -1392,12 +1394,21 @@ corte 0x96: un poco más finos).
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo y los dos de clave 0) con `Submit`.
 
+- `world_triangles` (sesión «sistemas» cerrada el 2026-10-03): `RendererSurfRevol.cpp` usa ya el culling del
+  material; la luz de los discos (`UseLighting`) y el reparto del especular de fn_0081C780 siguen pendientes
+  ([SF_TeleportVortex y ZR_SurfRevol](miracles.md#sf_teleportvortex-y-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).
+  La luz a dos caras de FragMesh (rama `local/fragmesh-wip`) toca `WorldTriangles` y `Renderer.cpp`: su diff
+  se revisa antes de fusionar (ver arriba).
+- Fotos y guiones de la sesión «sistemas» que cita la wiki: `dev\tmp_dis\unify\shots\` (u7, drawpath, video,
+  wtri) y `dev\tmp_dis\unify\scripts\`; el plan y las notas de U1-U9 en `dev\tmp_dis\unify\` (las rutas
+  `dev\_audit\sistemas\...` que citan esas notas ya no existen).
+
 ### Dudas para el usuario (sesión «sistemas», cola de transparentes)
 
 - **Llamas detrás de los árboles** (D7: solo van a la cola las mallas con la marca 0x200, SetMesh 0x7F9E48 /
   AddDrawing 0x815F0B): los árboles se dibujan ahora al momento y con Z, así que las llamas de un árbol de atrás
   quedan tapadas por el follaje de los de delante, y por encima se ven más claras y sin el humo oscuro
-  (`dev\_audit\sistemas\drawpath\fire_tree_*`). ¿Era así en el original?
+  (`dev\tmp_dis\unify\shots\drawpath\fire_tree_*`). ¿Era así en el original?
 
 ### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
 

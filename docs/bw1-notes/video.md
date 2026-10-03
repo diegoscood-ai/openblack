@@ -460,7 +460,7 @@ ve ya con `OPENBLACK_TEST_VIDEO=intro`.
   contra los `.bin` de oro de la DLL (sólo los CRC están en el test).
 - Juego: `OPENBLACK_TEST_VIDEO=<intro|fall|ruta>` (Game.cpp, al cargar el mapa): `intro` = `Data\intro.bik` +
   `ScheduleIntro()` (60 s), `fall` = `video::GetFallingSpell().Start()` (KickOff sin la prueba de la criatura:
-  modo 2, alfa 0x50 sin mundo, estados, blanco y fin; V6), si no la ruta dada. Fotos de V3: `dev\_audit\sistemas\video\intro_mid.png`
+  modo 2, alfa 0x50 sin mundo, estados, blanco y fin; V6), si no la ruta dada. Fotos de V3: `dev\tmp_dis\unify\shots\video\intro_mid.png`
   (frame 1800, el vídeo tapa la pantalla) y `fall_mid.png` (frame 1500, el mundo × 0,686).
 
 ## Fuentes

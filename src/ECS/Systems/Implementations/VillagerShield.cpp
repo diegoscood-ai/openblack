@@ -27,6 +27,7 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerStateInfo.h"
@@ -127,9 +128,10 @@ glm::ivec2 ShieldPos(entt::entity spell)
 	return tq::ToMapCoords(glm::vec2(component.position.x, component.position.z));
 }
 
-/// OPENBLACK_TEST_SHIELD_REACTION=1: the two town inputs the original reads and openblack does not keep (the town's
-/// desire for protection and its aggressor's turn) are taken as "it wants protection and was just attacked", so the
-/// reaction can be seen in game. Off by default: nothing changes for a villager with a town
+/// OPENBLACK_TEST_SHIELD_REACTION=1: takes the town as "it wants protection and was just attacked", so the reaction
+/// can be seen in game while what feeds those two inputs is not ported (the protection desire's function reads Town
+/// +0xEC0, which ProcessPlayerInteract 0x73DEC0 writes and openblack does not yet; only a script boost moves it; and
+/// the aggressor's turn only comes from the physical shield's impacts). Off by default: the original's reads
 bool TestForceTownGates()
 {
 	static const bool forced = [] {
@@ -139,13 +141,16 @@ bool TestForceTownGates()
 	return forced;
 }
 
-/// TownDesire::GetDesireSignificanceToVillager(town +0x34, TOWN_DESIRE_FOR_PROTECTION 3) 0x746660 =
-/// max(0, TD[0x118 + 4 d] + TD[0xD4 + 4 d] + TD[0x90 + 4 d] - GTownDesireInfo[d] +0x18). (pendiente, dueño: towns)
-/// None of the three desire arrays is ported (components::TownDesire only keeps Villager::AdjustTownModifier's), so
-/// there is no significance to compute: without the test hook it is 0 and no villager with a town reacts to a shield
-float ProtectionDesireSignificance(entt::entity /*town*/)
+/// TownDesire::GetDesireSignificanceToVillager(town +0x34, TOWN_DESIRE_FOR_PROTECTION 3) 0x746660 (0x765C0A..0x765C0F
+/// and 0x765E4A..0x765E4F: `push 3; lea ecx, [town + 0x34]; call`) = max(0, TD[0x118 + 4 d] + TD[0xD4 + 4 d] +
+/// TD[0x90 + 4 d] - GTownDesireInfo[d] +0x18): ecs::town_desire
+float ProtectionDesireSignificance(entt::entity town)
 {
-	return TestForceTownGates() ? 1.0f : 0.0f;
+	if (TestForceTownGates())
+	{
+		return 1.0f;
+	}
+	return town_desire::GetDesireSignificanceToVillager(town, TownDesireInfo::ForProtection);
 }
 
 /// 0x765C21..0x765C46: game turn - town +0xEB0 (the turn of its last aggressor, Town::UpdateAggressor 0x73C9B0)

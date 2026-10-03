@@ -24,6 +24,7 @@
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Magic/Core/Players.h"
 #include "Magic/Core/Spell.h"
@@ -192,10 +193,11 @@ void citadel::ProcessSpellIcons(entt::entity citadelEntity)
 	{
 		return;
 	}
-	constexpr float k_Step = static_cast<float>(magic::k_TurnMs) * 0.001f;
+	// 0x4638A4..0x4638B9: mov eax, [0xD01A38]; fild qword (zero high half); fmul [0x8C7E30] = 0.001f, read every turn
+	const float step = static_cast<float>(game_clock::MsPerTurn()) * 0.001f;
 	if (worship.strainSoundFraction > strain)
 	{
-		worship.strainSoundFraction -= k_Step;
+		worship.strainSoundFraction -= step;
 		if (worship.strainSoundFraction <= strain)
 		{
 			worship.strainSoundFraction = strain;
@@ -203,7 +205,7 @@ void citadel::ProcessSpellIcons(entt::entity citadelEntity)
 	}
 	else
 	{
-		worship.strainSoundFraction += k_Step;
+		worship.strainSoundFraction += step;
 		if (!(worship.strainSoundFraction < strain))
 		{
 			worship.strainSoundFraction = strain;

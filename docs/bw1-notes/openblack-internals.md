@@ -243,7 +243,7 @@ lista de atrás a delante), dos clases de línea en el registro con el logger `g
 Sirve para dos cosas: comprobar que el disco del dispensador se dibuja **antes** que la burbuja y
 seguir la burbuja en la vuelta 15 → 0 de su hoja. La escena es
 `OPENBLACK_TEST_DISPENSER="NORSE_ABODE_SPELL_DISPENSER,1826,2670,10,2"` con
-`OPENBLACK_CAMERA_LOCK="1816,52,2656,1826,37,2670"` (guion en `dev\_scratch\sistemas\orbfix\shot_orb.sh`). Son unas 2
+`OPENBLACK_CAMERA_LOCK="1816,52,2656,1826,37,2670"` (guion en `dev\tmp_dis\unify\scripts\shot_orb.sh`, con `RUN_DIR` = una copia privada del exe). Son unas 2
 líneas por fotograma, así que conviene limitar los fotogramas con `-n`.
 
 Teletransporte ([miracles.md](miracles.md#teletransporte-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)): `OPENBLACK_TEST_TELEPORT="x0,z0,x1,z1[,jugador[,modo]]"` planta dos piedras de teletransporte como `SPELL_AT_POS` (la B en x1,z1 y la A en x0,z0; jugador 7 = neutral y gratis, 0 = PLAYER_ONE gasta cánticos). `modo`: `walk` (por defecto, el aldeano más cercano a A anda hacia B dos turnos antes y la reacción de A lo desvía por las piedras), `drop` (un segundo después se suelta el aldeano sobre A, salto forzado como `fn_005FC4F0`), `none` (solo las piedras). `OPENBLACK_TEST_TELEPORT_TURN=<n>` retrasa el inicio (el vuelo de una captura tarda ~160 turnos). `OPENBLACK_TELEPORT_TRACE=1` (o `OPENBLACK_SPELL_TRACE=1`) escribe las piedras, el reparto de la reacción, los saltos (de qué piedra a cuál, el ahorro en metros) y el `PayFor` del hechizo (un salto útil suma cánticos, uno forzado hacia atrás cuesta, R13). Los discos usan `ZR_SurfRevol` (`RendererSurfRevol.cpp`).

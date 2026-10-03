@@ -556,6 +556,15 @@ Shuffle); tests `test/test_villager_food.cpp`, `test_villager_home.cpp`, `test_v
   coge a un aldeano de dentro (P-9); las ventanas de noche siguen con `inhabitants` hasta que sistemas aplique
   `presentAtHome` (Abode::Draw 0x515F78); las capturas en el juego (V4_spec §13).
 
+## Llevar recursos y el almacén (V5)
+
+**Pendiente** (2026-10-03: la investigación se paró por decisión del usuario antes de escribir la especificación; no hay
+código de V5). Lo que ya existe de V4: `Villager/VillagerResources.{h,cpp}` con los estados 33/34 (comer del almacén).
+Falta: coger y soltar recursos (PickupResource / Drop*), las capacidades por tipo de aldeano, la vasija temporal
+(Town::GetTemporaryResourceStorePotOrPos 0x73E900), llevar comida y madera al almacén (StoragePit::AddResource 0x732F60,
+Abode::DoResourceAdding 0x404DF0), CheckSatisfyFoodDesire 0x759F30, el objeto llevado (SetStateCarriedObject
+0x7501A0), CreateDroppedResource 0x750940 y la reacción 9. Volcados para retomarlo: `dev\tmp_dis\aldeanos\v5\README.md`.
+
 ## Culto: vuelta a casa
 
 CheckVillagerGoBackToTownFromWorship 0x76BEC0 (fichero de Milagros) devuelve el código de SetTopState(248) == 1

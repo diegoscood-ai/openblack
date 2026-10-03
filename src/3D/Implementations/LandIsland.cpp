@@ -768,16 +768,6 @@ constexpr float k_RayDiagonalHigh = 0.9f;   ///< [0x8C5844]: the second one, u +
 constexpr float k_RayMinDrop = 0.0001f;     ///< [0x8BF518]: a ray flatter than this never meets y = 0
 constexpr float k_RaySeaDistanceSq = 5.625e7f; ///< [0x9A2BD4] = 7500^2: the y = 0 point counts this close to the camera
 
-/// __ftol 0x7A1400: towards 0, 0x80000000 out of range (ecs::map_coords::FtoL, inlined to keep 3D free of ECS)
-int32_t RayFtoL(float value)
-{
-	if (!(value > -2147483648.0f && value < 2147483648.0f))
-	{
-		return static_cast<int32_t>(0x80000000u);
-	}
-	return static_cast<int32_t>(value);
-}
-
 /// fn_0083AE80 (ecx = cell x, edx = cell z; the segment p0 -> p1 as x, z, y in cell units): the two triangles of the
 /// cell, (0,0) (1,0) (0,1) then (1,1) (1,0) (0,1), as planes through its corner altitudes. A hit must lie in front of p0
 /// (dot with the segment >= 0) but may be past p1: only the cell's altitude range bounds it
@@ -1017,11 +1007,11 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 		}
 	}
 	// 0x802AF1..0x802B43: the cells of both ends (__ftol, towards 0), and the start as the first piece's start
-	int32_t xi = RayFtoL(x0);          // esi, [esp + 0x10]
-	int32_t zi = RayFtoL(z0);          // edi, [esp + 0x14]
-	const int32_t lastZ = RayFtoL(z1); // ebp, [esp + 0x24]
-	const int32_t lastX = RayFtoL(x1); // ebx, [esp + 0x2C]
-	glm::vec3 previous(x0, z0, y0);    // x, z, y: [esp + 0x20], [esp + 0x1C], [esp + 0x18]
+	int32_t xi = ecs::map_coords::FtoL(x0);          // esi, [esp + 0x10]
+	int32_t zi = ecs::map_coords::FtoL(z0);          // edi, [esp + 0x14]
+	const int32_t lastZ = ecs::map_coords::FtoL(z1); // ebp, [esp + 0x24]
+	const int32_t lastX = ecs::map_coords::FtoL(x1); // ebx, [esp + 0x2C]
+	glm::vec3 previous(x0, z0, y0);                   // x, z, y: [esp + 0x20], [esp + 0x1C], [esp + 0x18]
 	const glm::vec3 start(x0, z0, y0);
 	const auto test = [&](int32_t cx, int32_t cz, const glm::vec3& from, float tx, float tz, float ty) {
 		return RayCellTest(*this, cx, cz, from.x, from.y, from.z, tx, tz, ty, hit);
@@ -1096,7 +1086,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 			const auto edge = static_cast<float>(zi);
 			const float toEdge = z0 - edge;
 			const float xAt = x0 - toEdge * kxz;
-			if (RayFtoL(xAt) == xi)
+			if (ecs::map_coords::FtoL(xAt) == xi)
 			{
 				// 0x802D63 / 0x802E3F
 				x0 = xAt;
@@ -1111,7 +1101,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 				const auto edgeX = static_cast<float>(xi);
 				const float across = edgeX - x0;
 				z0 = z0 + across * kzx;
-				zi = RayFtoL(z0);
+				zi = ecs::map_coords::FtoL(z0);
 				y0 = y0 + across * kyx;
 				x0 = edgeX;
 			}
@@ -1121,7 +1111,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 				const auto edgeX = static_cast<float>(xi);
 				const float across = x0 - edgeX;
 				z0 = z0 - across * kzx;
-				zi = RayFtoL(z0);
+				zi = ecs::map_coords::FtoL(z0);
 				--xi;
 				y0 = y0 - across * kyx;
 				x0 = edgeX;
@@ -1134,7 +1124,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 			const auto edge = static_cast<float>(zi);
 			const float toEdge = edge - z0;
 			const float xAt = x0 + toEdge * kxz;
-			if (RayFtoL(xAt) == xi)
+			if (ecs::map_coords::FtoL(xAt) == xi)
 			{
 				// 0x802F2D / 0x80300B
 				x0 = xAt;
@@ -1148,7 +1138,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 				const auto edgeX = static_cast<float>(xi);
 				const float across = edgeX - x0;
 				z0 = z0 + across * kzx;
-				zi = RayFtoL(z0);
+				zi = ecs::map_coords::FtoL(z0);
 				y0 = y0 + across * kyx;
 				x0 = edgeX;
 			}
@@ -1158,7 +1148,7 @@ bool LandIslandInterface::RayCastCells(float x0, float z0, float y0, float x1, f
 				const auto edgeX = static_cast<float>(xi);
 				const float across = x0 - edgeX;
 				z0 = z0 - across * kzx;
-				zi = RayFtoL(z0);
+				zi = ecs::map_coords::FtoL(z0);
 				--xi;
 				y0 = y0 - across * kyx;
 				x0 = edgeX;

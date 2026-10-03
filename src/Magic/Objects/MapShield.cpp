@@ -445,6 +445,7 @@ void map_shield::ToBeDeleted(entt::entity shield)
 	}
 	Unlink(shield); // MapShield::ToBeDeleted 0x72C0F0
 	ecs::physics::PhysicsObjects::RemoveObject(shield);
+	ecs::map_cells::RemoveMapObject(shield); // CleanupWhenDeleted 0x6377F0: vt +0x548 SingleMapFixed 0x52E600
 	registry.Destroy(shield); // Object::ToBeDeleted
 	registry.SetDirty();
 }

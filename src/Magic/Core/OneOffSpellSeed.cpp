@@ -135,6 +135,7 @@ int one_off::InterfaceTap(entt::entity orb, PlayerNames player)
 		audio::PlaySoundEffect(options);
 	}
 	worship::seed_graphic::Delete(component.graphic); // ToBeDeleted 0x72A420: the seed graphic inside goes with it
+	ecs::map_cells::RemoveMapObject(orb); // CleanupWhenDeleted 0x6377F0: vt +0x548 Object 0x6367A0
 	registry.Destroy(orb);
 	registry.SetDirty();
 	return 3;

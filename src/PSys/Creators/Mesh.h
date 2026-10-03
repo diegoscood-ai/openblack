@@ -60,13 +60,16 @@ struct MeshCreator: Creator
 	mutable bool materialsSet {false};
 	bool neverClip {false};           ///< +0x5B
 	/// +0x5D CastHumanShadow (DefineProperties 0x6B393E; ParticleMeshCreator only: AnimTextured's +0x5D is its NeverClip,
-	/// vt+0x98 0x6A8D7C). CreateParticle 0x6A8B55..0x6A8B7F makes a ShadowInfo for each atom (fn_006CA340 ->
-	/// fn_008745A0 -> fn_0087FD50, whose +0xC = 1 at 0x8745C8) and Particle3DObj::DrawAt puts the particle's object
-	/// (+0x20) in its +0xC and pushes it on the list [0xD4EDCC] (0x67A45D..0x67A494); every frame GGame::Process3dEngine
-	/// 0x54DEAD -> PSysLightMaps::AddDrawing 0x6CA6E0 -> fn_006CA540 (0xD4EDB0, its +0x1C is that list) walks it and
-	/// updates each shadow with its object (fn_006CA3D0 0x6CA5A9 -> fn_00874850). So the original does cast one, but the
-	/// property is 0 in all 20 mesh creators of the spell files (tmp_dis\psys\stats.txt). (pendiente) read and not
-	/// ported: no shadow list entry, a warning once if a file sets it
+	/// vt+0x98 0x6A8D7C). CreateParticle 0x6A8B55..0x6A8B7F gives each atom's particle a node of 0x10 bytes (+0x1C;
+	/// fn_006CA340: +0 / +4 the links, +8 the holder of fn_008745A0 -> fn_0087FD50, whose si+0xC = 1 at 0x8745C8 and
+	/// holder+4 = 0 at 0x8745C1, +0xC 0); every Particle3DObj::DrawAt puts the particle's object (+0x20) in the node's +0xC
+	/// and pushes the node on the list [0xD4EDCC] (0x67A45D..0x67A494, on every path of DrawAt); every frame GGame::
+	/// Process3dEngine 0x54DEAD -> PSysLightMaps::AddDrawing 0x6CA6E0 -> fn_006CA540 (0xD4EDB0, its +0x1C is that list)
+	/// updates each node's shadow with its object (fn_006CA3D0 0x6CA5A9 -> fn_00874850, the generic update of the
+	/// physics objects) and fn_006CA660 empties the list (0x6CA69E..0x6CA6CC). The particle's dtor fn_006C7A80 0x6C7AA6
+	/// takes the shadow out (fn_006CA370 -> fn_008745E0 -> fn_0087FF10). Here: mesh_atoms::HumanShadows, the list of the
+	/// last Collect, which graphics::shadow_list reads. The property is 0 in all 20 mesh creators of the spell files
+	/// (tmp_dis\psys\stats.txt)
 	bool castHumanShadow {false};
 	/// +0x54, the argument of vt+0x78 / vt+0x80 (CreateLH3DObject 0x6A8ACE / 0x6A8D65; fn_008168A0: obj+4 bit 0x40, the
 	/// receiver of the projected shadows): 0 from the ctors (0x6A8986, 0x6A8BDE), no property. The atoms never receive
@@ -154,6 +157,19 @@ struct Instance
 [[nodiscard]] std::vector<Instance> Collect();
 /// Whether any effect has a mesh atom (without interpolating them or working out their poses)
 [[nodiscard]] bool Any();
+/// One node of the list [0xD4EDCC] (CastHumanShadow, MeshCreator::castHumanShadow): an atom drawn this frame whose
+/// particle's object casts a shadow list shadow, updated as the physics objects' (fn_00874850 with holder+4 = 0: the
+/// light straight above, si+0xC = 1: not over the objects)
+struct HumanShadow
+{
+	const Atom* atom;     ///< the key of its ShadowInfo (the particle, CreateParticle 0x6A8B7F .. dtor 0x6C7AA6)
+	entt::id_type meshId; ///< the particle's object's mesh (radius mesh+0x30)
+	glm::mat4 model;      ///< obj+0x14..0x43 as DrawAt leaves it (Instance::model): the vertices and obj+0x38..0x40
+	float scale;          ///< obj+0x44 = the drawn PSR's +0x30 (0x67A000..0x67A009 / 0x67A445..0x67A44E)
+};
+/// The atoms of the last Collect with CastHumanShadow, in Collect's order (fn_006CA540 walks [0xD4EDCC] from its head,
+/// the last pushed first: (aproximado) the order only changes which shadow is updated first)
+[[nodiscard]] const std::vector<HumanShadow>& HumanShadows();
 } // namespace mesh_atoms
 
 } // namespace openblack::psys

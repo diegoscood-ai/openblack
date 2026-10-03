@@ -632,7 +632,7 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   `GetCycleTimeFromFrame` 0x6C85F0). Detalle y lo que queda en
   [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
   Antes de U7 se dibujaban como malla quieta en su pose de reposo (`polish_fix_bosque2_forest_dry.png`). Capturas del
-  aleteo en `dev\_audit\sistemas\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
+  aleteo en `dev\tmp_dis\unify\shots\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
   de caer la semilla) y `close_t80/_t81/_t110.png` (cámara `1782,40,2612,1790,36,2625`, entre los árboles).
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
@@ -1589,8 +1589,13 @@ comentario viejo): ya van por `audio::tags::CreateAtMapCoords`, no por un emisor
   `MaterialUseTextureAlpha` 1, `UseAdditiveAlpha` 0, `MaterialSetDoubleSided` **0** y `UseLighting` **1**; escala 5 por
   `UR_ChangeScale` sobre el átomo padre (`InitialScale` 2); bucle de sonido `SOUND_SPELL_TELEPORT_POOL` en el
   `SoundOfCreate` del `CreateRuleAnAtom` del grupo 0 (LOOPING 1, SOFTRELEASE 1).
-  **(pendiente)** `UseLighting 1` y `MaterialSetDoubleSided 0`: openblack dibuja la piscina sin luz y siempre a dos
-  caras (`RendererSurfRevol.cpp`), por lo que se ve más tenue que en el original. `UseLighting` (+0x88) pide las
+  `MaterialSetDoubleSided 0` ya se cumple (8b31e44d, sistemas): fn_0081C780 pone CULLMODE ((~mat+5)&1)·2+1
+  (0x81CC5E..0x81CC6E) y `RendererSurfRevol.cpp` usa `render_modes::CullFor(surface.doubleSided, false)`; que el
+  Ccw de bgfx sea el D3DCULL_CCW de estos vértices es **(inferido)** (vértices en el mundo, sin espejo, como los
+  modelos; la piscina se sigue viendo desde arriba). Los discos **no** van por `world_triangles`: con tantos
+  especulares (+0x30, cuenta +0x38) como colores DrawAt toma fn_0081C780 (0x67CAEE), Draw3DWorldTriangle con
+  especular por vértice (0x81C9B9..0x81C9C4), y ZR_SurfRevol dimensiona los dos a NumU×NumV (0x685A0E..0x685A3D).
+  **(pendiente)** `UseLighting 1`: openblack dibuja la piscina sin luz, por lo que se ve más tenue que en el original. `UseLighting` (+0x88) pide las
   normales de la malla (`fn_006C9340`) y una luz de D3D que el programa `WorldQuad` no tiene, y el culling pide saber el
   sentido de los triángulos: es trabajo del renderizador de partículas (lane m7/sistemas), no de esta lane, y hacerlo a
   medias dejaría la piscina invisible desde arriba. La `S_TileLandscape.raw` instalada es de 2021 (parche), así que el
@@ -2221,8 +2226,8 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
     `RenderPass::Main` detrás de los modelos y antes de la cola (hunk marcado en `Renderer.cpp::DrawPass`, de
     sistemas). Ya no hay una malla bgfx por pedazo ni el tope `GpuBuffersLeft`: 6000 pedazos vivos a la vez en
     BEAM_EXPLOSION_PU2 sin cuelgue. El camino viejo (malla generada por pedazo) sigue detrás de
-    `explode_object::k_PiecesAsWorldTriangles` (= true) hasta que sistemas acepte el hunk de `Renderer.cpp`; se borra
-    entonces.
+    `explode_object::k_PiecesAsWorldTriangles` (= true). Sistemas ya aceptó el hunk de `Renderer.cpp` (b67cc5a5):
+    **(pendiente, milagros2)** borrar el camino viejo y la constante.
   - **(aproximado)** la luz de la tierra de la CPU no lleva el tope de las sombras de las nubes que el port aplica en la
     GPU a los demás objetos; tampoco la ruta alternativa [0xEA9EB4] → fn_007ACD90 (no leída). Las operaciones en coma
     flotante son de 32 bits (no se imita la x87). En la última fila / columna del mapa el original lee la celda 17 del
@@ -2239,9 +2244,14 @@ Revisado en la lane «rayo3» de milagros2 (`Creators/Mesh.{h,cpp}`, el camino d
     (DrawLoop va una vez por fotograma).
   - (openblack guard) si el transient vertex buffer (32 MB, `init.limits.transientVbSize` del hunk de `Renderer.cpp`)
     no basta, los últimos lotes no se dibujan ese fotograma (aviso único `world_triangles: ...`).
-  - Los caminos Queued / Immediate (pedazos de un efecto con un solo objeto Z o de la mano) tienen `gj_mesh::BuildAtom`
-    y la etiqueta del lote (`Submit(..., only)`), pero ningún efecto de los datos los usa y el vaciado de sistemas aún no
-    los llama.
+  - Los caminos Queued / Immediate (pedazos de un efecto con un solo objeto Z o de la mano): `Renderer.cpp` construye
+    una vez por fotograma un `world_triangles::Frame` con `gj_mesh::Build(Queued)` y `gj_mesh::Build(Immediate)` y
+    `drawOrderedEffect` (rama `Kind::GJMesh`) dibuja cada átomo en su sitio del orden de fn_006798B0 con
+    `world_triangles::Submit(..., atom)` (DrawAt 0x67C150 no lee [0xC0215D]; 8b31e44d). Hoy ningún efecto de los
+    datos los usa: EXPLODE_OBJECT es Sorted **(inferido**: no se recorrieron todos los ficheros de efectos).
+  - La textura de una primitiva la da `world_triangles::PrimitiveTexture(mesh, skinId)` (antes `GetTexture` de
+    `Renderer.cpp`): skins de la malla o de su SetSkinSource, el gestor de texturas, el skin 0x1001 de los packs con
+    mod y el error una sola vez; la usan también `DrawSubMesh` y `DrawStaticShadowPass`.
 - Capturas (`dev\_audit\magic\`, `OPENBLACK_TEST_MAGIC_TURN=300 OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,1825,2632"
   OPENBLACK_CAMERA_FLY="1790,58,2592,1825,30,2632"`, `--mod game.skip-intro=off`, `-n 14000`):
   `polish_fix_beam2_house_t6.png` (los pedazos del almacén y de las rocas saltando), `_t14.png` (los 490 pedazos del
@@ -2345,7 +2355,34 @@ actualización 0x526E00). Lanzar: CHL 203 `SET_AVI_SEQUENCE(on, 2)`; en pruebas 
   el resto usa la parte entera del paso, así que la fracción pasa de 1 a partir de unos 2,9 s y la cámara del original
   **extrapola** desde la clave (portado igual); a·(1−f) + b·f para posición, foco y matriz. La actualización
   (0x526E9B..0x526F1C) e `Init` (0x526259..0x5262BF) dan posición y foco ×0,8 y la matriz a fn_00819F50, y
-  `ChangeFov(π/4)`. En openblack: cargada y muestreada cada frame (`FallingSpell::CameraNow()`).
+  `ChangeFov(π/4)` (sólo la actualización; `Init` no cambia el FOV).
+- **fn_00819F50** (0x819F50..0x81A74B, sólo la llaman `Init` 0x5262BF y la actualización 0x526F1C; ecx = posición,
+  edx = foco, pila = matriz, `ret 4`) es **`LH3DTech::UpdateCamera` 0x819920 con la rotación de la ruta**: el mismo
+  principio (cámara de depuración [0xEA9EC8] / [0xEA9ECC], la sacudida fn_008210C0, g_camera 0xEA1DB8 y su foco
+  0xEA1DC4, el mirar-a de `UpdateWorldToCamera` 0x81A10D) y el mismo final (la matriz B 0xEA1C98, g_world_to_clipping
+  0xEA9E40 escalada por [0xE83A00] / [0xE83A04], su inversa, el octante [0xEA9EBC], el plano [0xF03128] → [0xF03118],
+  la matriz de giro en Y 0xEA1D88 de `GetYAngle` + π/2, la luz [0xEA9E90] → [0xEA9E80], `SetD3DMatrix` y
+  `SetTransform(VIEW)`, la inversa 0xEA1CF8). Lo distinto: de los nueve primeros floats a0..a8 de la matriz
+  (0x81A075..0x81A0F5) hace (a0, a3, −a6, a1, a4, −a7, a2, a5, −a8), normaliza cada fila de tres (fn_007FB5C0, con
+  `InverseSquareRoot` 0x841170 de tabla) y **la copia sobre el mirar-a** en 0xEA1D28..0xEA1D48; la traslación
+  0xEA1D4C..0xEA1D54 = −(columna · posición) (0x81A112..0x81A22F). Así la derecha, el arriba y el adelante de la
+  cámara son las filas 0, 1 y −2 de la matriz de la ruta; el foco no la gira (sólo cuenta para el octante, el giro en
+  Y y la sacudida); a9..a11 no se leen.
+- **Quién pone la cámara del juego.** `GCamera::Update` (0x44233C..0x4423F4) con `g_game+0x205A28` = 1 o 2 toma
+  g_camera (la del frame anterior, aquí la de la ruta) como su cámara dibujada, y con ≠ 0 se salta `ChangeFov`
+  (0x4424F0) y `UpdateCamera` (0x4425F6..0x442602); los zoomers de GCamera siguen a lo suyo. `Close` no toca la
+  cámara: **nada la devuelve**, el primer frame en modo 0 vuelve a dibujar la de GCamera (`ChangeFov` 0x4425D3 con su
+  FOV, `UpdateCamera` 0x442622). En openblack: `FallingSpell::Hooks::applyCamera` cada actualización con la cámara
+  de la ruta y vacío en `Close` (el equivalente del modo 0): el FOV con `SetProjectionMatrixPerspective` (π/4 en
+  horizontal, como `cameraXFov`; al cerrar el `cameraXFov` de la configuración) y la vista
+  `falling_spell::WorldToCamera` con `Camera::SetDrawnView`, que `GetViewMatrix` da mientras está puesta sin tocar
+  los zoomers. **Pendiente (dueño de la cámara)**: `SetDrawnView` está en `dev\_scratch\Milagros\fallspell_camera.diff`
+  (Camera.{h,cpp} y la línea del gancho); hasta aplicarlo sólo cambia el FOV. Sin tierra ni criatura en modo 2 no se
+  ve nada (pendiente: la criatura). **(aproximado)** 1/√ exacta y no la tabla de `InverseSquareRoot`; `Init` y la
+  primera actualización en el mismo frame. **(inferido)** el plano cercano sigue siendo el de openblack
+  (`GetNearClipping` 0x4424AF corre en todos los modos desde la cámara de GCamera). **No portado**: la cámara de
+  depuración y la sacudida sobre la cámara de la ruta, y los lectores de g_camera en modo 2 (`GetWeatherSmooth`
+  0x4426BA, GCamera +0x74).
 
 **(aproximado)** `Get3DPointFromScreen` sin pasar por el plano cercano (se cancela; el original redondea con él); la
 clave del Z-sorter calculada en espacio de cámara; `Init` corre en el primer frame del vídeo y no en el turno del
@@ -2363,13 +2400,13 @@ al azar A = 0xFF, R = 0x20 + LocalRand(32), G = 8 + LocalRand(8), B = LocalRand(
 las ventanas de `SetScalePowerTime` de los brillos de mano (16 350..19 350 y 31 650..32 650 ms el 0; 17 200..20 200 y
 36 500..37 500 el 2); su avance `UpdateTime(t − +0xC)` en la actualización; las teclas de depuración
 0xE85376..0xE85379 que la giran (0, π/2, π, 3π/2); **el centro de los destellos** (sin criatura no hay centro: ni se
-dibujan ni avanzan); aplicar la cámara de `fall.cm2` (fn_00819F50, 0x800 bytes, sólo la llama FallingSpell, sin leer;
-la rama de modo 2 de `GCamera::Update` 0x44233C sin leer; sin tierra ni criatura no se vería nada).
+dibujan ni avanzan); que la cámara de `fall.cm2` (ya aplicada, ver arriba) se vea, porque sólo la criatura la usa.
 
-**Pruebas y capturas.** `test_falling_spell` (13): índices y geometría del abanico, rangos de `LightBurst::Init`,
+**Pruebas y capturas.** `test_falling_spell` (15): índices y geometría del abanico, rangos de `LightBurst::Init`,
 la luz guardada y devuelta, `Init` de las bocanadas, sin `+0x1C` nada, posición/tamaño/ángulo/celda/alfa en pantalla
 y orden de lejos a cerca, el fundido y el `+0x1C` reescrito, destellos sólo desde el estado 2 y con centro (alfa,
-+0x28, +0x30), la fracción de fn_0086D760 y su deriva (t = 48 000: f = 16,36), la cámara ×0,8 y el `fall.cm2` real.
++0x28, +0x30), la fracción de fn_0086D760 y su deriva (t = 48 000: f = 16,36), la cámara ×0,8 y el `fall.cm2` real,
+la cámara aplicada cada actualización y devuelta en `Close`, y `WorldToCamera` como fn_00819F50.
 Ganchos: `OPENBLACK_TEST_FALL_LOG=1` (una línea por segundo de vídeo: estado, bocanadas, destellos) y
 `OPENBLACK_TEST_FALL_BURST_AT=fx,fy` (prueba: un centro en esa fracción de pantalla en lugar de la criatura). Fotos
 (`dev\_audit\magic\`): `polish_fix_fallspell_sparks.png` (15,6 s: las bocanadas naranjas sobre el vídeo al 31 %) y

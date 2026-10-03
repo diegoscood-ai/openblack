@@ -30,6 +30,7 @@
 
 using namespace openblack;
 using namespace openblack::magic::falling_spell;
+using FallCamera = openblack::magic::falling_spell::Camera; // not openblack::Camera
 
 namespace
 {
@@ -353,6 +354,48 @@ TEST(FallingSpell, CameraFollowsTheFilm)
 	EXPECT_FLOAT_EQ(spell.CameraNow()->fov, k_FallFov);
 	spell.Close();
 	EXPECT_FALSE(spell.CameraNow().has_value());
+}
+
+TEST(FallingSpell, CameraAppliedEveryUpdateAndGivenBackAtClose)
+{
+	FallingSpell::Hooks hooks;
+	std::vector<std::optional<FallCamera>> applied;
+	hooks.applyCamera = [&applied](const std::optional<FallCamera>& camera) { applied.push_back(camera); };
+	FallingSpell spell(std::move(hooks));
+	spell.UpdateCamera(5); // not open: nothing
+	EXPECT_TRUE(applied.empty());
+	spell.Init(CameraPath::Parse(PathBytes(10, {0.0f, 1.0f, 2.0f, 3.0f})));
+	spell.UpdateCamera(5);
+	spell.UpdateCamera(6);
+	ASSERT_EQ(applied.size(), 2u);
+	ASSERT_TRUE(applied[1].has_value());
+	EXPECT_FLOAT_EQ(applied[1]->position.x, spell.CameraNow()->position.x);
+	EXPECT_FLOAT_EQ(applied[1]->fov, k_FallFov);
+	spell.Close();
+	ASSERT_EQ(applied.size(), 3u);
+	EXPECT_FALSE(applied[2].has_value()); // the game camera back
+	spell.Close(); // closed: nothing
+	EXPECT_EQ(applied.size(), 3u);
+}
+
+TEST(FallingSpell, WorldToCameraLikeFn00819F50)
+{
+	// fn_00819F50: (a0, a3, -a6, a1, a4, -a7, a2, a5, -a8), each row normalised, translation -(column . position)
+	FallCamera camera;
+	camera.position = {1.0f, 2.0f, 3.0f};
+	camera.matrix = {2.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f, 4.0f, 7.0f, 8.0f, 9.0f};
+	const glm::mat4 view = WorldToCamera(camera);
+	EXPECT_EQ(view[0], glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	EXPECT_EQ(view[1], glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+	EXPECT_EQ(view[2], glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+	EXPECT_EQ(view[3], glm::vec4(-1.0f, -2.0f, 3.0f, 1.0f)); // m9..m11 of the path are not read
+	EXPECT_EQ(glm::vec3(view * glm::vec4(camera.position, 1.0f)), glm::vec3(0.0f));
+	// rows: right +z, up +y, back +x: a point ahead (-x) is at +z in camera space, +z is to the right
+	camera.position = glm::vec3(0.0f);
+	camera.matrix = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	const glm::mat4 turned = WorldToCamera(camera);
+	EXPECT_EQ(glm::vec3(turned * glm::vec4(-5.0f, 0.0f, 0.0f, 1.0f)), glm::vec3(0.0f, 0.0f, 5.0f));
+	EXPECT_EQ(glm::vec3(turned * glm::vec4(0.0f, 0.0f, 2.0f, 1.0f)), glm::vec3(2.0f, 0.0f, 0.0f));
 }
 
 TEST(FallingSpell, RealFallCm2)

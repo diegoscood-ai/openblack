@@ -54,6 +54,7 @@
 #include "Graphics/Argb4444.h"
 #include "Graphics/Haze.h"
 #include "Locator.h"
+#include "PSys/Creators/Mesh.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
@@ -427,6 +428,23 @@ void List::Frame(const FrameInputs& inputs)
 		    want(entity, Update::Generic, dynamic.useSun ? LightKind::Sun : LightKind::Vertical, dynamic.onObjects, false,
 		         shadow_math::k_Texels);
 	    });
+	// the PSys mesh atoms with CastHumanShadow: the node of CreateParticle 0x6A8B5C..0x6A8B7F (fn_006CA340 ->
+	// fn_008745A0: si+0xC = 1 0x8745C8, holder+4 = 0 0x8745C1), its object given by DrawAt (0x67A464..0x67A467) and
+	// taken out with the particle (fn_006C7A80 0x6C7AA6 -> fn_006CA370 -> fn_0087FF10); the atoms Collect met this frame
+	for (const auto& atom : psys::mesh_atoms::HumanShadows())
+	{
+		auto found = std::ranges::find(_shadows, static_cast<const void*>(atom.atom), &ShadowInfo::psysAtom);
+		ShadowInfo* shadow = found != _shadows.end() ? &*found : nullptr;
+		if (shadow == nullptr)
+		{
+			shadow = &Add(entt::null, Update::Generic, LightKind::Vertical, false, false, shadow_math::k_Texels);
+			shadow->psysAtom = atom.atom;
+		}
+		shadow->psysMesh = atom.meshId;
+		shadow->psysMatrix = atom.model;
+		shadow->psysScale = atom.scale;
+		shadow->seen = true;
+	}
 	for (auto it = _shadows.begin(); it != _shadows.end();)
 	{
 		if (!it->seen)
@@ -459,9 +477,12 @@ void List::Frame(const FrameInputs& inputs)
 	for (auto& shadow : _shadows)
 	{
 		++index;
-		const auto instance = renderCtx.entityInstances.find(shadow.caster);
-		if (instance == renderCtx.entityInstances.end() || !meshes.Contains(instance->second.meshId) ||
-		    instance->second.index >= renderCtx.instanceUniforms.size())
+		// a PSys atom's node: fn_006CA3D0 0x6CA3D5..0x6CA3E1 updates it with its object (+0xC), never an entity's
+		const bool atomCaster = shadow.psysAtom != nullptr;
+		const auto instance = atomCaster ? renderCtx.entityInstances.end() : renderCtx.entityInstances.find(shadow.caster);
+		if (atomCaster ? !meshes.Contains(shadow.psysMesh)
+		               : instance == renderCtx.entityInstances.end() || !meshes.Contains(instance->second.meshId) ||
+		                     instance->second.index >= renderCtx.instanceUniforms.size())
 		{
 			shadow.active = false; // (inferido) not drawn this frame: like obj+0xAC of fn_00814FD0 (D-B1)
 			if (trace)
@@ -472,12 +493,14 @@ void List::Frame(const FrameInputs& inputs)
 			continue;
 		}
 		shadow.active = true;
-		const auto mesh = meshes.Handle(instance->second.meshId);
-		const auto matrix = InstanceMatrix(renderCtx.instanceUniforms[instance->second.index]);
+		const auto meshId = atomCaster ? shadow.psysMesh : instance->second.meshId;
+		const auto mesh = meshes.Handle(meshId);
+		const auto matrix = atomCaster ? shadow.psysMatrix : InstanceMatrix(renderCtx.instanceUniforms[instance->second.index]);
 		const glm::vec3 position(matrix[3]); // obj+0x38..0x40, the drawn (interpolated, 0x7FCED2) matrix
-		const auto* transform = registry.TryGet<const ecs::components::Transform>(shadow.caster);
-		const float scale = transform != nullptr ? transform->scale.x : 1.0f;         // obj+0x44
-		const float radius = ecs::object::MeshHalfDiagonal(instance->second.meshId); // mesh+0x30
+		const auto* transform = atomCaster ? nullptr : registry.TryGet<const ecs::components::Transform>(shadow.caster);
+		// obj+0x44 (a PSys atom's: its PSR's +0x30, Particle3DObj::DrawAt 0x67A009)
+		const float scale = atomCaster ? shadow.psysScale : transform != nullptr ? transform->scale.x : 1.0f;
+		const float radius = ecs::object::MeshHalfDiagonal(meshId); // mesh+0x30
 		const float ground = island.GetHeightAt(glm::vec2(position.x, position.z));   // GetAltitude 0x874789
 
 		// fn_00874850 0x874872 / fn_00814FD0 0x815002
@@ -528,7 +551,9 @@ void List::Frame(const FrameInputs& inputs)
 		// mesh's rest pose
 		const glm::mat4* bones = nullptr;
 		size_t boneCount = 0;
-		if (mesh->IsBoned())
+		// a PSys atom's object is an LH3DStaticObject (CreateLH3DObject 0x6A8AA6, LH3DObject::Create(0) 0x80B4F8): vt+0x1AC
+		// is 0, so fn_00874850 skips the pose (0x8748A2..0x8748AA) and its vertices take the matrix alone
+		if (mesh->IsBoned() && !atomCaster)
 		{
 			const std::vector<glm::mat4>* handBones = nullptr;
 			if (shadow.light == LightKind::Hand && Locator::handSystem::has_value())
@@ -598,7 +623,9 @@ void List::Frame(const FrameInputs& inputs)
 			}
 		};
 		std::vector<uint16_t> rendered; // the 0x800 bytes of 0x807339, cleared
-		const bool chroma = IsChroma(registry, shadow.caster);
+		// a PSys atom's object never gets vt+0x90(1) (CreateLH3DObject 0x6A8AA0..0x6A8AFD: vt+0xF4, +0x58, +0x78, +0x80,
+		// +0x98 only; the ctor's +4 = 0x10009 leaves bit 13 clear)
+		const bool chroma = !atomCaster && IsChroma(registry, shadow.caster);
 		if (chroma)
 		{
 			rendered.assign(static_cast<size_t>(shadow.texels) * static_cast<size_t>(shadow.texels), 0);

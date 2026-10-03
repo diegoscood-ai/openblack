@@ -41,8 +41,8 @@ entt::entity objects::CreateMagicResourcePile(const glm::vec3& position, std::op
 	// 0x80E457, vt+0x7C fn_007F9870), and bit 0x1000 cleared. (aproximado) bw1-decomp names the slots
 	// SetCastDynamicShadow / SetShadowOnTexture; both take their argument in edx (0x5FAAD0 `xor edx, edx`).
 	// Nothing to do here: RenderingSystem.cpp's ReceivesDynamicShadow names this very call (0x5FAAC8) for the MagicFood
-	// and HandFood pot types, CastsStaticShadow rejects every Pot, and Graphics/PhysicsShadows.cpp's CastsPhysicsShadow
-	// (graphics::shadow_list's in local/shaders) rejects every Pot too.
+	// and HandFood pot types, CastsStaticShadow rejects every Pot, and Graphics/ShadowList.cpp's CastsPhysicsShadow
+	// rejects every Pot too.
 	switch (type)
 	{
 	case ResourceType::Food:

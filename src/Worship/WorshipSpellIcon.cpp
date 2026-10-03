@@ -28,6 +28,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
@@ -221,7 +222,8 @@ void icon::ToBeDeleted(entt::entity iconEntity)
 	{
 		magic::seed::ToBeDeleted(seed); // vt 0xC on every seed of the icon
 	}
-	// SpellIcon::ToBeDeleted 0x7260A0: the graphic goes
+	// SpellIcon::ToBeDeleted 0x7260A0: out of the map (0x7260B3: vt +0x548 MultiMapFixed 0x52E7B0), the graphic goes
+	ecs::map_cells::RemoveMapObject(iconEntity);
 	const auto& spellIcon = registry.Get<const SpellIcon>(iconEntity);
 	seed_graphic::Delete(spellIcon.graphic);
 	if (spellIcon.chargeRing != entt::null && registry.Valid(spellIcon.chargeRing))

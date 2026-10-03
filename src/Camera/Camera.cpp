@@ -52,6 +52,11 @@ glm::mat4 Camera::GetRotationMatrix() const
 
 glm::mat4 Camera::GetViewMatrix(Interpolation interpolation) const
 {
+	// fn_00819F50: the falling spell's drawn camera, over the look-at (UpdateWorldToCamera 0x81A10D, overwritten)
+	if (_drawnView.has_value())
+	{
+		return *_drawnView;
+	}
 	// Invert the camera's rotation (transposed) and position (negated) to get the view matrix.
 	return glm::lookAt(GetOrigin(interpolation), GetFocus(interpolation), glm::vec3(0.0f, 1.0f, 0.0f));
 }

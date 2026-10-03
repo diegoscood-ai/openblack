@@ -18,7 +18,10 @@ En openblack:
 - `ECS/Components/Villager.h` (los campos), `LivingAction.h` (los tres estados y los contadores), `Town.h`
   (`TownDesire`), `ECS/Villager/VillagerAge.h` (edad), `ECS/Archetypes/VillagerArchetype.cpp` (la creación),
   `ECS/VillagerSpeed.*` (velocidad), `ECS/VillagerAnimations.*` (clips de los cambios de estado);
-- `test/test_villager_core.cpp`: 20 casos (ver [Pruebas](#pruebas)).
+- `test/test_villager_core.cpp`: 20 casos (ver [Pruebas](#pruebas));
+- V4: `ECS/Villager/VillagerHome.*`, `VillagerFood.*`, `VillagerAge.*`, `VillagerResources.*`, `ECS/Town/AbodeVillagers.*`,
+  `ECS/Town/TownVillagers.*`; `test/test_villager_food.cpp`, `test_villager_home.cpp`, `test_villager_age.cpp` (V4,
+  ver [Casa, comida, sueño, sin techo y edad (V4)](#casa-comida-sueño-sin-techo-y-edad-v4)).
 
 ## Campos (Villager.h)
 
@@ -323,9 +326,8 @@ Spec completa: `dev\tmp_dis\aldeanos\V2_spec.md`. Código: `Villager/VillagerDec
   (CheckForClearArea con 1,2·radio): LookAtPos un paso y 246; ocupado: FindClearArea(5, 1)). **246** SitAndChillout
   0x76B4E0: entrada 500 turnos (+0x394), luego un chequeo cada 101 llamadas (+0x396 = 100): emergencia, CheckNeededFor
   Something, GameRand(10) == 0 → SetupNothingToDo sin pasar por 163. Clip SitDown: el bit 0x800 antes del clip actual.
-- **36 GO_HOME** (parcial) = DoGoingHome(37, 238): con casa, anda a la puerta con FINAL 37 (37 ARRIVES_HOME es V4: el
-  aldeano queda quieto en la puerta). Sin casa: nada (tienda / vagabundo V4). La regla "herido → 36" de CheckEveryTime
-  está encendida en el juego.
+- **36 GO_HOME** = DoGoingHome(37, 238): con casa, anda a la puerta con FINAL 37 (V4: 37 la hace entrar). Sin casa: la
+  tienda o 130 (V4). La regla "herido → 36" de CheckEveryTime está encendida en el juego.
 - **114 CHILD_FOLLOWS_MOTHER** 0x7578C0: CheckChild, reparto, guardería; si no, anda a la madre (o a la casa) + 5 m en
   un ángulo al azar (GameFloatRand(2π), VillagerChild.cpp 0x39) si el punto es navegable; sin madre ni casa,
   CheckNeedNewAbode (neutro V4). La fila 114 lleva +0x50 AlwaysReactToTownEmergency (0xD0D208 = 0x5AC990), como 36 y
@@ -431,9 +433,9 @@ un caso nuevo en `test/test_villager_decide.cpp`.
 
 ### Desviaciones y efectos visibles hasta V4
 
-- **De noche los aldeanos con casa van a 36 y se quedan en la puerta** (aceptado, P-1): Sleep es el primero (bruto
-  hasta 6,25, deseo 1), CheckSatisfySleep manda a 36 y 37 ARRIVES_HOME llega en V4 (**pendiente V4**). De día el reparto
-  corta en Relaxation/Playtime (CheckSatisfy 0) y todo sigue como en V2.
+- De noche Sleep es el primero (bruto hasta 6,25, deseo 1) y CheckSatisfySleep manda a 36; V4 los mete en casa (37 → 38
+  → 119 → 120, ver [V4](#casa-comida-sueño-sin-techo-y-edad-v4)). De día el reparto corta en Relaxation/Playtime
+  (CheckSatisfy 0) y todo sigue como en V2.
 - El culto de milagros2 recibe ahora, cada 10 turnos, el ajuste de adoradores de Town::Process (fn_7489F0).
 - **(aproximado)** TownStats se recalcula al empezar Town::Process desde las entidades (el original suma al añadir y
   quitar); mismos recuentos, las sumas de float en otro orden. **(aproximado hasta V6)** todas las casas del guion
@@ -450,6 +452,103 @@ un caso nuevo en `test/test_villager_decide.cpp`.
   `OPENBLACK_TOWN_TRACE`) y las funciones sin llamadas (0x745E80, 0x745FA0, 0x7461E0, 0x746220, 0x7465F0, 0x7466B0,
   0x7468E0).
 
+## Casa, comida, sueño, sin techo y edad (V4)
+
+Spec completa: `dev\tmp_dis\aldeanos\V4_spec.md` (desensamblados en `v4\`: `home.txt`, `homeless.txt`, `food.txt`,
+`age.txt`, `abode.txt`, `town.txt`, `misc*.txt`, `helpers.txt`, `scanline.txt`; valores de los tests en `v4\v4calc.py`).
+Código: `Villager/VillagerHome.{h,cpp}` (36/37/38, 119/120/121, 129, 130, 234, 238, la tienda, las mudanzas),
+`Villager/VillagerFood.{h,cpp}` (CheckHungry, cantidades, 117/118/212, 33/34/35), `Villager/VillagerAge.{h,cpp}` (crecer,
+escala, vejez, embarazo), `Villager/VillagerResources.{h,cpp}` (lo que lleva y coge: la mitad de comida de V5),
+`Town/AbodeVillagers.{h,cpp}` (la lista de la casa, PresentAtHome, la puntuación, Abode::Process, las mudanzas del
+Shuffle), `Town/TownVillagers.{h,cpp}` (sin techo, vagabundos, AddVillagerToTown, FindAbodeWithSpaceInTown, UseFood,
+Shuffle); tests `test/test_villager_food.cpp`, `test_villager_home.cpp`, `test_villager_age.cpp`.
+
+- **La noche** (fiel): Sleep (16) arriba → reparto → CheckSatisfySleep 0x761490 → 36 → puerta → **37** ArrivesHome
+  0x760930 → `Villager::ArriveHome` 0x751FA0 (bit 4 de +0xE0, `Abode::presentAtHome` +0xB6 `inc`, malla oculta por el
+  clip −4) → **38** AtHome 0x760B10 = HomeDecideWhatToDo 0x75FEA0 → CheckSatisfySleep dentro → CheckWhenGoingToBed 0x760B60
+  (devuelve 1 salvo que muera de viejo; una vez por estancia, bit 0x2000) → **119** GotoBedAtHome 0x760B30 → **120**
+  SleepingAtHome 0x760D70 (contador RestAtHomeTime 100; sin pueblo no cuenta) → DoSleeping 0x760DB0 cada 100 turnos
+  (+0,05 de vida salvo envenenado; sigue mientras Sleep es el primero del orden 1 o la vida < 0,7: de 0,4 a 0,70000005 en
+  6 ciclos). De día DoSleeping da 0 → 38 → reparto u ocio → la salida **ExitAtHome** 0x761B40 de 35..38 y 118..121 hace
+  LeaveHome (0x751FD0: bits 4 y 0x2000 fuera, `presentAtHome` `dec`) si el estado siguiente no se queda en casa (fila de
+  info.dat, fichero 0xC0). 121 WakeUpAtHome 0x760E50 = GoHome (ningún código lo pone).
+- **37** (fiel): no ha llegado (AreWeThere(puerta, 0)) → otra vez a la puerta con FINAL 37 (literal, también desde 249);
+  construida y reparada (vida ≥ 1, IsRepaired 0x4016A0) → dentro; herida (< 0,3): casa funcional → dentro, si no tienda
+  (238); con hambre (food < 0,5 estricto): `SetTopState(163)` si no es funcional y dentro en el mismo turno (literal);
+  si no SetupBuildingObject 0x758530 (neutro: V7/V11) y dentro. Sin casa → 129 y 0.
+- **38** (fiel): emergencia → 119; CheckNeedsAtHome 0x760110 (la embarazada se queda; umbral
+  `0,9·max(GetLifeDesireFromLife(0,7), POWER(0,5))` = 0,7875, el mayor, no el menor; 0,9 para el discípulo que ignora
+  necesidades; el niño pasa por CheckChildActivity = ChildDecideWhatToDo, siempre 1); el discípulo; CheckNeededForSomething
+  (también el culto de milagros2 cada turno); HomeNothingToDo 0x75FFB0 (dentro, GameRand(4) == 0 → 119 con contador 0).
+- **Sin casa** (fiel): DoGoingHome 0x760280 sin pueblo → 130; a más de 100 m de su pueblo → paseo a 10..35 m de él, de su
+  lado (FINAL el TOP); cerca → GetTentPos 0x7604F0 → 238, o un paseo de 10..30 m. La tienda: el árbol más cercano en 50 m
+  (fn_00604AF0 con IsTree) si fn_0074C650 le encuentra sitio (2 m del árbol, al otro lado del ocupante; un aldeano en 238 o
+  un MultiMapFixed a menos de 4 m cuenta; dos = lleno, y no se prueba otro árbol); si no, 3 intentos: celda libre
+  (`Collide & 0x19 == 0`) y ningún aldeano en 238 a menos de 5 m en las 9 celdas de una espiral que **mueve el punto**: la
+  tienda queda en (−20 m, +10 m) del sitio probado (rareza literal). **238** SleepInTent 0x761AE0, **129** HomelessStart
+  0x761320, **130** VagrantStart 0x76A8D0 (un pueblo de su tribu a menos de 200 m → AddVillagerToTown y 163; herido →
+  tienda; si no un paseo de 10..30 m hacia delante).
+- **Comer** (fiel; P-1: los 33/34 del almacén entran en V4): **CheckHungry** 0x75BCC0 (lote = turnos·9e-5 entre
+  TribalPower[3] (player +0x74) y por la velocidad si pasa de 1 y se mueve; daño 0,001 con hambre (food < 0,5,
+  estricto: IsHungry usa ≤) o veneno: el `max(…, 1)` deja el factor en 1; interrupciones 0xD0 / 0xD4 de la fila del
+  estado final; vida 0 → STARVING, o CHANT desde el culto); la cantidad GetAmountOfFoodToEat 0x75BC20 =
+  `ftol((1 − 0,3·clamp(deseo de Food del pueblo))·(float)(POWER(food)·85))` (74 con food 0,5);
+  **ChangeStateToFindFoodToEat** 0x75B990 (necesita 0 → 117, o 118 dentro; su casa funcional con bastante → 36 / 118; el
+  almacén —el del pueblo o, si no hay, su casa— funcional con bastante → 33; sin almacén funcional → al punto de entrega
+  con FINAL 34; si lleva algo, lo come; si no 0); **117 / 118** EatFoodHeld 0x75BF20 (`comido/aComer·1,2 + food`,
+  recortado a [0, 1], NaN → 0; Town::UseFood 0x73B5E0 suma a `Town::foodUsed` +0x6F8); **GetFoodFromHome 0x75C040 coge
+  dos veces** (GetResourceFrom ya hace PickupResource: la casa pierde n y el aldeano gana 2n, rareza literal); **34**
+  ArrivesAtStoragePitForResource 0x7698D0 (coge min(lo que necesita, lo que hay) y vuelve a la puerta con FINAL 163;
+  luego come lo que lleva); **212** ShowPoisoned 0x75B940; **35** ArrivesAtHomeWithFood 0x769B30 (de la ama de casa,
+  V14). La casa resta su comida con DoResourceRemoving 0x404F60 (CallDesireFunction del pueblo antes,
+  `town_desire::CallDesireFunctionNow`).
+- **Edad** (fiel): CheckChildGrownUp 0x751050 a los 13 → bit 8 fuera, edad 18, ChildToAdult de la casa (o del pueblo) y
+  ChildBecomesAdult 0x757F10 (madre 0, CheckNeedNewAbode, **234** GoHomeAndChange 0x761810); la malla de adulto llega en la
+  salida de 234 (ExitGoHomeAndChange 0x761980 → ChangeTribeIfRequired 0x7618C0 → ChangeInfo 0x761A00), no en SetAge. Si
+  no, reescala cada 375 turnos (solo los niños cuyo check cae en esos turnos: mcd(9, 375) = 3, **(inferido)**). Vejez
+  CheckDeathFromOldAge 0x760CA0 (en el check periódico, ≈ cada 800 turnos, y en CheckWhenGoingToBed): edad > 60,
+  `n = ftol(r³·40)` (el cubo, no el cuadrado), `GameRand(n)`, muere si edad + d > 100: nadie antes de los 63.
+  WomanSpecial 0x752240 (la cuenta atrás del embarazo) es literal; el parto es V14. La escala del constructor y de
+  SetScaleForAge usa ahora el GameFloatRand sincronizado (V1 usaba el generador de openblack: cambia el orden de las
+  tiradas del constructor).
+- **Casa y pueblo** (fiel): `Abode::inhabitants` es la lista ordenada +0xA0 (la cabeza, la más reciente: decide quién se
+  muda en el Shuffle y la pareja a la hora de dormir), `maleFemale` +0xA8 / +0xAC, `adultCount` / `adultMaleCount` /
+  `childCount` +0xB4 / +0xB5 / +0xB7, `emptyTimer` +0xB0; `Town::homelessVillagers` +0x768, ordenada. AddVillagerToAbode
+  0x404060, RemoveAliveVillagerFromAbode 0x404340 (dentro → 163; su salida hace el LeaveHome; la pareja no se toca),
+  RemoveDeletedVillagerFromAbode 0x404220 (borra las dos parejas), RemoveAllVillagersFromAbode 0x404560 (la casa
+  destruida, Buildings.cpp → HomeDeleted → MakeHomeless), la puntuación 0x404B40, FindAbodeWithSpaceInTown 0x73B370 (la
+  más nueva gana los empates), AddVillagerToTown 0x73A090 (CheckAddWorshipSite de milagros2 con el primer aldeano),
+  CheckNeedNewAbode 0x757F90 (con percentTooCrowded 0,5, un adulto solo en una casa de 2 ya es «demasiado»: se muda si
+  hay algo mejor o queda sin techo, literal). Town::Process paso 4 (Abode::Process 0x404440: una casa vacía y construida
+  pierde 0,0001 de vida cada 1001 turnos procesados, en float) y paso 24 (ShuffleVillagersAroundAbodes 0x741540 con el
+  `_qsort` de VC6, un movimiento por llamada).
+- **Creación por guion** (fiel; P-6): CREATE_VILLAGER_POS ("AALN", 0x715A4C) crea el aldeano en el segundo argumento y
+  busca el pueblo con FindTownWithID de la ranura entera 0. LHScriptX::ScanLine 0x7E7540 solo escribe la ranura de un
+  argumento 'N' (atol), así que vale el id del último comando con un 'N' primero (en las tierras, el CREATE_ABODE o
+  CREATE_TOWN de justo antes: `lhscriptx::Script::IntSlot`); sin ese pueblo, el más cercano a la posición del aldeano
+  (fn_00552FF0). Luego AddVillagerToTown elige la casa. Se quitó la regla de openblack «la casa a 1 m² de la posición
+  del guion».
+- **APIs** para otras sesiones: `villager::IsAtHome`, `IsReachable` (0x756460: disponible, no en casa, TOP ≠ 236; la usa
+  AnimalPredators en vez de su prueba de los estados 13..18), `LeaveHome`; `abode_villagers::VillagersOf`,
+  `PresentAtHome`, `RemoveAllVillagersFromAbode`; `town_villagers::Homeless`, `AddVillagerToTown`;
+  `town_desire::CallDesireFunctionNow`.
+- **(inferido)**: TribalPower[3] vale 1,0 (nadie lo escribe); la lista de vagabundos está vacía (sus escritores son
+  V12/V14); el ocupante no aldeano de fn_0074C650 (+0x24 & 2) es un MultiMapFixed (+0x24 & 4 de IsReachable e
+  IsAvailableForStateChange es «en la mano», PlaceObjectInMagicHand 0x5FB014: `fire::traits::InHand`); 115 solo por
+  guion; IsInScript de una casa (+0x24 & 0x200) vale 0; IsTree = el componente Tree.
+- **(aproximado)**: la velocidad +0x5A sale de `WallHug::speed`; IsMoving = el último paso del WallHug no es cero;
+  TownStats recalculadas en cada Town::Process (V3) con `males` / `females`, y AddVillagerToTown, Town::RemoveVillager y
+  ChildToAdult tocan al momento adultos, niños y sexos; la influencia de las casas va en el gancho de milagros2, no en el
+  paso 4; Abode::ReduceLife 0x405D90 no tiene punto de entrada (se usa Object::ReduceLife de `ecs::life`); el Kill
+  provisional hace LeaveHome antes (hasta V12); los tipos de las firmas de openblack hacen de las cadenas de tipos del exe
+  para las ranuras enteras; sin la vasija temporal (V5), el punto de entrega es la posición del aldeano.
+- **Pendiente**: CheckGetPregnantAtHome neutro y sin partos (V14, P-2: una embarazada sin parto se quedaría en casa para
+  siempre); la vasija temporal (V5); SetupBuildingObject al llegar (V7/V11); el baile en DoGoingHome; SetVillagerDisciple
+  en 234 y HousewifeStartsGivingBirth (V14); Town::RemoveVillager solo con listas y cuentas (V12); las filas 248-250 del
+  culto (`DoGoingHome(249, 250)`, ArrivesHome, SleepInTent, ExitAtHome) esperan el visto bueno de milagros2; la mano que
+  coge a un aldeano de dentro (P-9); las ventanas de noche siguen con `inhabitants` hasta que sistemas aplique
+  `presentAtHome` (Abode::Draw 0x515F78); las capturas en el juego (V4_spec §13).
+
 ## Culto: vuelta a casa
 
 CheckVillagerGoBackToTownFromWorship 0x76BEC0 (fichero de Milagros) devuelve el código de SetTopState(248) == 1
@@ -461,7 +560,8 @@ vuelta, un adorador más pedido, daño del canto de más y una entrada vieja al 
 
 `villager::VillagerDead` marca al aldeano, escribe `Villager <n> died (<motivo>)` y `FlushDeaths` lo mata al final del
 turno (`ecs::life::Kill`). El original lo deja vivo (SetDying → 13) y sigue llamando a CallState; aquí ya no
-**(aproximado hasta V12)**.
+**(aproximado hasta V12)**. V4: antes del Kill, `LeaveHome` (si estaba dentro), para que `presentAtHome` no se quede
+alto (en el original lo haría la salida del estado hacia 13).
 
 ## Ganchos de prueba
 
@@ -483,6 +583,15 @@ turno (`ecs::life::Kill`). El original lo deja vivo (SetDying → 13) y sigue ll
   cut|cs=0|cs=1`.
 - `OPENBLACK_TEST_TOWN_DESIRE="<d>,<boost>[,<pueblo>]"` (V3): en el turno 2, SetBoost como SET_TOWN_DESIRE_BOOST (reordena
   el orden 1) en todos los pueblos o en el de ese id.
+- `OPENBLACK_TEST_VILLAGER_AGE="<edad>[,<n>]"` (V4): en el turno 2, solo Living::SetAge (el turno de nacimiento), sin
+  mallas ni bits (12,99 → 13 y la vejez). `OPENBLACK_TEST_HOMELESS=<n>` (V4): en el turno 2, MakeHomeless del aldeano n.
+- `OPENBLACK_VILLAGER_TRACE` (V4) añade `home 36: …` (to the door / no abode -> far / tent / wander / vagrant 130),
+  `home 37: not there|arrive (present <n>)|tent|hungry 163+arrive|repair TODO(V7)`, `home 38: emergency|needs(t=…)|
+  disciple|something|nothing r4=<r>`, `exit-home <s> -> <next> (stay|leave, present <n>)`, `sleep 120: life <l> ->
+  keep|wake`, `tent: tree|spiral try|fail`, `food: …`, `eat: …`, `home-food: took <m> held <h>`, `age: grown|rescale|
+  old age r= n= d= -> die|live`, `homeless: into abode|list`, `abode: moves|too crowded`, `vagrant 130: …` y, cada 100
+  turnos, `home: town <id> inside <n> asleep <m> tents <k> homeless <h> vagrants <v>`. `OPENBLACK_TOWN_TRACE`:
+  `shuffle: <casa> -> <casa> (swap|take …) = <r>`.
 
 Comprobado (2026-10-01): Land1, 58 aldeanos, todos 85 → 163 con código 1, checks cada 9 turnos, desgaste 2e-6 por turno
 al andar; con `LIFE=0.2` y `STATE=246`, 14 de 55 pausan (239 → 246; se esperaba ~27 %) y en el siguiente check van a
@@ -536,6 +645,17 @@ pausa (con y sin veneno, sin tirada en 239 o sin la marca), 239 → FINAL, check
 CHANT (también con `WorshipVillager::atSite`), herido → 36 (encendido desde V2; apagado en un caso; 19 con comida,
 derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo), POWER.
 
+`test/test_villager_food.cpp` (V4): el lote de hambre (0,79919), el daño estricto, las interrupciones (0xD0 / 0xD4,
+el discípulo, STARVING / CHANT), las cantidades de `v4calc.py` (74, 65, 63, 54, 83, 85), ChangeStateToFindFoodToEat
+(117 / 118 / 36 / 33 / lo que lleva / 0), EatFoodHeld (1,0 y 0,9864865, NaN → 0), la doble cogida de GetFoodFromHome,
+117 / 118 / 212 y 34. `test/test_villager_home.cpp`: 37, ExitAtHome con PresentAtHome, HomeDecideWhatToDo (0,7875,
+GameRand(4)), embarazo y niño, dormir (6 ciclos de 0,4 a 0,70000005), CheckWhenGoingToBed una vez por estancia, la
+tienda (árbol, el otro lado, lleno → (−20 m, +10 m)), DoGoingHome sin casa, la puntuación y FindAbodeWithSpaceInTown,
+la lista de la casa, CheckNeedNewAbode → 129 → 36, 130, 238, 234, el Shuffle y Abode::Process (1001 turnos).
+`test/test_villager_age.cpp`: la capa pura (63 años, r³), SetScaleForAge con GameFloatRand guionizado, el niño de 13
+(18 años, cuentas, 234), la vejez y WomanSpecial. En `test_villager_decide.cpp` cambian dos casos de V2 (un aldeano con
+hambre come al momento, 117; uno sin casa ni pueblo va a 130).
+
 ## Supuestos (inferido / aproximado)
 
 1. **(aproximado)** "Bailando" (Living +0xD8, el DanceGroup) se aproxima con `WorshipVillager::dancing` (lo ponen
@@ -567,12 +687,13 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
 15. **(aproximado)** El bit 0x2 de +0xE0 (en el sitio de culto) se lee de `flags` o de `WorshipVillager::atSite`
     (Milagros) hasta que pase a `flags`.
 16. (V2: ya no es supuesto.) La regla "herido → 36 GO_HOME" de CheckEveryTime (0x7505C3) está encendida: 36 anda a la
-    puerta. **(aproximado hasta V4)** Al llegar, 37 ARRIVES_HOME no está portado: el aldeano queda quieto en la puerta.
-17. Neutros hasta su hito (no inventan conducta): CheckHungry (solo el reinicio de lastCheckTurn; la comida no baja),
-    CheckChildGrownUp, WomanSpecial, CheckDeathFromOldAge (V4), ProcessReaction (Milagros M-5), Town +0x5E8 (V3),
-    SpecialVillager (V14), contador de aldeanos y esqueleto (V12), DROWNING 16 (agua).
-18. Neutros de V2 (devuelven 0 / no hacen nada, con TODO y dirección): CheckHomelessMoveIntoAbode 0x761360,
-    ChangeStateToFindFoodToEat 0x75B990, CheckWhenGoingToBed 0x760B60, CheckNeedNewAbode 0x757F90 (V4);
+    puerta. (V4: 37 ARRIVES_HOME ya está portado.)
+17. Neutros hasta su hito (no inventan conducta): ProcessReaction (Milagros M-5), Town +0x5E8 (V3), SpecialVillager
+    (V14), contador de aldeanos y esqueleto (V12), DROWNING 16 (agua). (V4: CheckHungry, CheckChildGrownUp, WomanSpecial y
+    CheckDeathFromOldAge ya están.)
+18. Neutros de V2 (devuelven 0 / no hacen nada, con TODO y dirección) (V4: CheckHomelessMoveIntoAbode,
+    ChangeStateToFindFoodToEat, CheckWhenGoingToBed, CheckNeedNewAbode, la rama sin casa de DoGoingHome y ExitAtHome
+    ya están);
     (V3: TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 ya está, deja 0 o 1 en eax, 0x7460EB / 0x7460F7);
     DiscipleDecideWhatToDo 0x751720, IsMotherAlive 0x757F40 (deja la madre), ChildGotoCreche 0x7579F0, RemoveFromDance
     (V14); la rama sin casa de DoGoingHome (tienda 238 / 130, V4); Town +0xF1C (lo escribirá ProcessTownEmergency,

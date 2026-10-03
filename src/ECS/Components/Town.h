@@ -60,6 +60,8 @@ struct TownStats
 	uint32_t totalPlaces {0};      ///< +0x30 (Town +0x640): sum of max villagers + max children of every abode
 	uint32_t adultPlaces {0};      ///< +0x34 (Town +0x644): sum of MaxVillagers (info +0x174) of the abodes with places
 	uint32_t childPlaces {0};      ///< +0x40 (Town +0x650): sum of MaxChildren (info +0x178) of the abodes with places
+	uint32_t males {0};            ///< +0x54 (Town +0x664): +0x54[info +0x1F8 sex]++ for every villager, children too
+	uint32_t females {0};          ///< +0x58 (Town +0x668) (TownStats::Add 0x749315; ShuffleVillagersAroundAbodes reads them)
 	std::array<uint8_t, 13> disciples {}; ///< +0xC8 NumDisciples[VillagerDisciple] (CRAFTSMAN 8: +0xD0, Town +0x6E0)
 	float foodForDinner {0.0f};    ///< +0xE4 (Town +0x6F4): sum of GVillagerInfo +0x2D8 foodReqiredForDinner
 	float foodCarried {0.0f};      ///< +0xF8 (Town +0x708): sum of the villagers' +0xF4 (FOOD carried)
@@ -110,7 +112,9 @@ struct Town
 	PlayerNames owner {PlayerNames::NEUTRAL};
 	std::unordered_map<std::string, float> beliefs;
 	bool uninhabitable = false; ///< +0x5F4, SET_TOWN_UNINHABITABLE (0x715542)
-	std::set<entt::entity> homelessVillagers;
+	/// +0x768 / +0x76C: the town's homeless, the head first (MakeHomelessNoStateChange 0x7612F9 inserts at the head, next
+	/// = villager +0xE4). Changed only by ecs::town_villagers
+	std::vector<entt::entity> homelessVillagers;
 	/// +0x9A4: the first town centre made for it (CREATE_TOWN_CENTRE 0x71577C sets it only while empty)
 	entt::entity centre {entt::null};
 	/// +0x5C0, Town::SetWorshipPercentage 0x73C060 (CREATE_TOWN_CENTRE's N5 * 0.001; all the shipped lands pass 0).
@@ -159,6 +163,8 @@ struct Town
 	float mercyDesire {0.0f};
 	/// +0x610 TownStats (this turn's, ecs::town_stats)
 	TownStats stats;
+	/// +0x6F8 (TownStats +0xE8): the food the villagers have eaten (Town::UseFood 0x73B5E0), kept: it cannot be recomputed
+	float foodUsed {0.0f};
 };
 
 } // namespace openblack::ecs::components

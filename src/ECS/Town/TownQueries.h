@@ -93,6 +93,9 @@ using ClearAreaFilter = std::function<bool(entt::entity)>;
                                      entt::entity* blocker = nullptr);
 /// Get2DRadius (vt +0x64, Object 0x638180 and the class overrides): ecs::object::Get2DRadius, or the tests'
 [[nodiscard]] float Get2DRadius(entt::entity object);
+/// The objects of one map cell as Town::CheckForClearArea walks them (the fixed list, then the mobile one:
+/// map_cells::ObjectsInCell), or the tests'
+[[nodiscard]] std::vector<entt::entity> ObjectsInCell(glm::ivec2 cell);
 /// Town::FindClearArea 0x7412F0: GetIncrementSpiralSizeFromRadius(a, b) points from `start` (SpiralIncrement, steps of
 /// b metres, dir = count = 1), the first one with CheckForClearArea(p, r) goes to `result` (true). None: `result` is
 /// left as it was (0x741390 only resets the local) and false

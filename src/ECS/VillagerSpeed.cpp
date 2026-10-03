@@ -180,23 +180,9 @@ void SetVillagerStateSpeed(entt::entity entity)
 
 float VillagerScaleForAge(const GVillagerInfo& info, uint32_t age)
 {
-	const auto& table = info.ageToScale.values;
-	if (age < info.grownUpAge)
-	{
-		// InitialiseScale: ageToScale[age - 1] (at age 0 the original reads the float before the table: about 0)
-		float scale = age >= 1 && age - 1 < table.size() ? table[age - 1] : 0.0f;
-		const float next = age + 1 < table.size() ? table[age + 1] : table.back();
-		scale += FloatRand((next - scale) * 0.75f);
-		return scale;
-	}
-	// adult: 0.9, then 1.05 - rand(0.1) twice if the first is above the current scale
-	float scale = 0.9f;
-	const float a = 1.05f - FloatRand(0.1f);
-	if (scale < a)
-	{
-		scale = 1.05f - FloatRand(0.1f);
-	}
-	return scale;
+	// InitialiseScale 0x74FB80, then SetScaleForAge 0x752A90 from it: GameFloatRand (Villager.cpp 0x92F / 0x933), the
+	// game's synced draws in the constructor's order (V4; before, openblack's own generator)
+	return villager::ScaleForAge(info, age, villager::InitialScaleForAge(info, age));
 }
 
 } // namespace openblack::ecs

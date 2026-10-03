@@ -27,8 +27,10 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Registry.h"
 #include "ECS/VillagerAnimations.h"
+#include "ECS/Villager/VillagerAge.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDecide.h"
+#include "ECS/Villager/VillagerFood.h"
 #include "ECS/Villager/VillagerHome.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerScript.h"
@@ -267,17 +269,43 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FLEEING_AND_LOOKING_AT_OBJECT_REACTION */ k_TodoEntry,
     /* GOTO_STORAGE_PIT_FOR_DROP_OFF */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF */ k_TodoEntry,
-    /* GOTO_STORAGE_PIT_FOR_FOOD */ k_TodoEntry,
-    /* ARRIVES_AT_STORAGE_PIT_FOR_FOOD */ k_TodoEntry,
-    /* ARRIVES_AT_HOME_WITH_FOOD */ k_TodoEntry,
-    /* GO_HOME: Villager::GoHome 0x760270 = DoGoingHome(37, 238) (VillagerHome.cpp; the walk to the door, 37 is V4).
-       Its exit ExitAtHome 0x761B40 is V4 (warned once, taken as 1); +0x50 AlwaysReactToTownEmergency */
+    // V4, the food (VillagerFood.cpp, P-1: the storage pit): no entry; +0x50 AlwaysReactToTownEmergency (0x5AC990)
+    /* GOTO_STORAGE_PIT_FOR_FOOD: Villager::GotoStoragePitForFood 0x769830 */
     VillagerStateTableEntry {
-        .state = &ecs::villager::GoHomeState,
+        .state = &ecs::villager::GotoStoragePitForFood,
         .field0x50 = k_TodoEntry.field0x50,
     },
-    /* ARRIVES_HOME */ k_TodoEntry,
-    /* AT_HOME */ k_TodoEntry,
+    /* ARRIVES_AT_STORAGE_PIT_FOR_FOOD: Villager::ArrivesAtStoragePitForFood 0x7698B0 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesAtStoragePitForFood,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* ARRIVES_AT_HOME_WITH_FOOD: Villager::ArrivesAtHomeWithFood 0x769B30 (the housewife's, V14); exit ExitAtHome
+       0x761B40 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesAtHomeWithFood,
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    // V4, the home (VillagerHome.cpp): the exit of 35..38, 118..121 is ExitAtHome 0x761B40 (LeaveHome unless the next
+    // state stays at home, file 0xC0)
+    /* GO_HOME: Villager::GoHome 0x760270 = DoGoingHome(37, 238); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoHomeState,
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* ARRIVES_HOME: Villager::ArrivesHome 0x760930; +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesHomeState,
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* AT_HOME: Villager::AtHome 0x760B10 = HomeDecideWhatToDo (clip -4: not drawn) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::AtHome,
+        .exitState = &ecs::villager::ExitAtHome,
+    },
     /* ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS */ k_TodoEntry,
     /* ARRIVES_AT_BUILDING_SITE */ k_TodoEntry,
     /* BUILDING */ k_TodoEntry,
@@ -376,13 +404,37 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
         .state = &ecs::villager::ChildFollowsMother,
         .field0x50 = k_TodoEntry.field0x50,
     },
-    /* CHILD_BECOMES_ADULT */ k_TodoEntry,
+    /* CHILD_BECOMES_ADULT: Villager::ChildBecomesAdult 0x757F10 (VillagerAge.cpp; (inferido) only a script sets 115) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ChildBecomesAdultState,
+    },
     /* SITS_DOWN_TO_DINNER */ k_TodoEntry,
-    /* EAT_FOOD */ k_TodoEntry,
-    /* EAT_FOOD_AT_HOME */ k_TodoEntry,
-    /* GOTO_BED_AT_HOME */ k_TodoEntry,
-    /* SLEEPING_AT_HOME */ k_TodoEntry,
-    /* WAKE_UP_AT_HOME */ k_TodoEntry,
+    /* EAT_FOOD: Villager::EatFood 0x75C000 (VillagerFood.cpp; clip 254 EatDinner); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::EatFood,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* EAT_FOOD_AT_HOME: Villager::EatFoodAtHome 0x75C090 (clip -4) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::EatFoodAtHome,
+        .exitState = &ecs::villager::ExitAtHome,
+    },
+    /* GOTO_BED_AT_HOME: Villager::GotoBedAtHome 0x760B30 (clip -4) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GotoBedAtHome,
+        .exitState = &ecs::villager::ExitAtHome,
+    },
+    /* SLEEPING_AT_HOME: Villager::SleepingAtHome 0x760D70 (clip -4) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::SleepingAtHome,
+        .exitState = &ecs::villager::ExitAtHome,
+    },
+    /* WAKE_UP_AT_HOME: Villager::WakeUpAtHome 0x760E50 = jmp GoHome (no code sets 121); +0x50 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::WakeUpAtHome,
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* START_HAVING_SEX */ k_TodoEntry,
     /* HAVING_SEX */ k_TodoEntry,
     /* STOP_HAVING_SEX */ k_TodoEntry,
@@ -390,8 +442,16 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* HAVING_SEX_AT_HOME */ k_TodoEntry,
     /* STOP_HAVING_SEX_AT_HOME */ k_TodoEntry,
     /* WAIT_FOR_DINNER */ k_TodoEntry,
-    /* HOMELESS_START */ k_TodoEntry,
-    /* VAGRANT_START */ k_TodoEntry,
+    /* HOMELESS_START: Villager::HomelessStart 0x761320 (VillagerHome.cpp); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::HomelessStart,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* VAGRANT_START: Villager::VagrantStart 0x76A8D0; +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::VagrantStartState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* MORN_DEATH */ k_TodoEntry,
     /* PERFORM_INSPECTION_REACTION */ k_TodoEntry,
     /* APPROACH_OBJECT_REACTION */ k_TodoEntry,
@@ -492,7 +552,10 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     },
     /* ARRIVES_AT_WORKSHOP_FOR_DROP_OFF */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_WORKSHOP_MATERIALS */ k_TodoEntry,
-    /* SHOW_POISONED */ k_TodoEntry,
+    /* SHOW_POISONED: Villager::ShowPoisoned 0x75B940 (VillagerFood.cpp; clip 342) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ShowPoisoned,
+    },
     /* HIDING_AT_WORSHIP_SITE */
     {.state = &ecs::villager_worship::HidingAtWorshipSite,
      .exitState = [](LivingAction& a, VillagerStates n) { return OldExit(ecs::villager_worship::ExitAtWorshipSite(a, n)); }},
@@ -535,11 +598,22 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FLEEING_FROM_PREDATOR_REACTION */ k_TodoEntry,
     /* WAIT_FOR_WOOD */ k_TodoEntry,
     /* INSPECT_OBJECT */ k_TodoEntry,
-    /* GO_HOME_AND_CHANGE */ k_TodoEntry,
+    /* GO_HOME_AND_CHANGE: Villager::GoHomeAndChange 0x761810, exit ExitGoHomeAndChange 0x761980 (VillagerHome.cpp: the
+       grown-up child's adult mesh); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoHomeAndChange,
+        .exitState = &ecs::villager::ExitGoHomeAndChange,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* WAIT_FOR_MATE */ k_TodoEntry,
     /* GO_AND_HIDE_IN_NEARBY_BUILDING */ k_TodoEntry,
     /* LOOK_TO_SEE_IF_IT_IS_SAFE */ k_TodoEntry,
-    /* SLEEP_IN_TENT */ k_TodoEntry,
+    /* SLEEP_IN_TENT: Villager::SleepInTent 0x761AE0 (VillagerHome.cpp; clip 381 and the in / out clip
+       SleepInTentIntoOutofAnimation 0x424290 of VillagerAnimationTable.h); +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::SleepInTentState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* PAUSE_FOR_A_SECOND: Villager::PauseForASecond 0x76B0B0 (no entry, exit, save or load; +0x50
        AlwaysReactToTownEmergency; its clip function +0x60 PauseForASecondAnimation 0x424080 is in
        VillagerAnimationTable.h) */
@@ -564,9 +638,27 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     },
     /* SCRIPT_GO_AND_MOVE_ALONG_PATH */ k_TodoEntry,
     // (k_VillagerStateStrings mislabels 248..254; the names here are the enum's / info.dat's)
-    /* 248 GO_HOME_FROM_WORSHIP */ {.state = &ecs::villager_worship::GoHomeFromWorship},
-    /* 249 ARRIVES_HOME_FROM_WORSHIP */ k_TodoEntry,
-    /* 250 SLEEP_IN_TENT_FROM_WORSHIP */ k_TodoEntry,
+    /* 248 GO_HOME_FROM_WORSHIP: Villager::GoHomeFromWorship 0x761B70 = DoGoingHome(249, 250) (VillagerHome.cpp); exit
+       ExitAtHome 0x761B40; +0x50 AlwaysReactToTownEmergency */
+    VillagerStateTableEntry {
+        .state = [](LivingAction& action) -> uint32_t {
+            return ecs::villager::DoGoingHome(Locator::entitiesRegistry::value().ToEntity(action),
+                                              VillagerStates::ArrivesHomeFromWorship, VillagerStates::SleepInTentFromWorship);
+        },
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* 249 ARRIVES_HOME_FROM_WORSHIP: ArrivesHomeFromWorship 0x76B7E0 = jmp ArrivesHome 0x760930; exit ExitAtHome */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesHomeState,
+        .exitState = &ecs::villager::ExitAtHome,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* 250 SLEEP_IN_TENT_FROM_WORSHIP: SleepInTentFromWorship 0x76B7F0 = jmp SleepInTent 0x761AE0 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::SleepInTentState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* 251 GO_TOWARDS_TELEPORT_REACTION_QUICKLY (0x766380 = a jmp to 201's; exit ExitReactToTeleport 0x766390) */
     {.state = &ecs::villager_teleport::GoToTeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
     /* 252 GO_AND_CHILLOUT_IN_TOWN: Villager::GoAndChilloutInTown 0x76B590 (VillagerDecide.cpp; only scripts set it) */

@@ -33,6 +33,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Physics/PhysicsObjects.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
 #include "ECS/WaterQueries.h"
@@ -196,13 +197,11 @@ bool IsVillagerPrey(const Context& ctx, entt::entity entity)
 	{
 		return false;
 	}
-	if (const auto* action = registry.TryGet<const LivingAction>(entity); action != nullptr)
+	// fn_004196D0 0x419702: target.IsReachable() (vt +0x530) = Villager::IsReachable 0x756460 (IsAvailable, not at home,
+	// not +0x24 & 4, TOP != 236); it replaces openblack's own test of the states 13..18 (V4)
+	if (!ecs::villager::IsReachable(entity))
 	{
-		const auto state = action->states[0];
-		if (state >= static_cast<uint8_t>(VillagerStates::SetDying) && state <= static_cast<uint8_t>(VillagerStates::BeingEaten))
-		{
-			return false;
-		}
+		return false;
 	}
 	const glm::vec2 p = Xz(transform);
 	if (!IsPosValidForTurnAngle(ctx, p) || (IsChild(ctx) && !IsDowned(entity)))

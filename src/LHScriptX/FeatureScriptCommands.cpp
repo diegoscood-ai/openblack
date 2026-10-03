@@ -26,6 +26,8 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
+#include "ECS/Town/TownVillagers.h"
+#include "LHScriptX/Script.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
@@ -477,7 +479,30 @@ void FeatureScriptCommands::CreateVillagerPos(glm::vec3 abodePosition, glm::vec3
                                               int32_t age)
 {
 	auto [tribe, number] = GetVillagerTribeAndNumber(tribeAndNumber);
-	VillagerArchetype::Create(abodePosition, position, GVillagerInfo::Find(tribe, number), age);
+	// GSetup::MapCommands case CREATE_VILLAGER_POS 0x715A4C..0x715AF7 ("AALN", 0xC21020): Villager::Create(GetScriptPos(
+	// arg 1) (edi = Pram +0x800, the villager's position), GetInfoFromText(arg 2), arg 3 the age); the first argument is
+	// not read as a position
+	const auto villager = VillagerArchetype::Create(abodePosition, position, GVillagerInfo::Find(tribe, number), age, false);
+	if (villager == entt::null)
+	{
+		return; // 0x715AA2: no villager -> 0x717E8A
+	}
+	// 0x715AA8..0x715AB5: GGame::FindTownWithID([ebp + 0x6000]): the integer slot 0, which ScanLine 0x7E7540 does not
+	// write for this command (its first argument is an 'A'): the town id of the last command whose first argument was
+	// an 'N' (the CREATE_ABODE / CREATE_TOWN before it in the shipped lands)
+	auto town = FindTown(Script::IntSlot(0));
+	// 0x715ABE..0x715ADD: none -> fn_00552FF0(GetScriptPos(arg 1)), the town nearest to the villager's position; none ->
+	// nothing (0x717E8A)
+	if (town == entt::null)
+	{
+		town = FindNearestTown(position);
+	}
+	if (town == entt::null)
+	{
+		return;
+	}
+	// 0x715AE3..0x715AE6: Town::AddVillagerToTown 0x73A090 (the abode: FindAbodeWithSpaceInTown)
+	ecs::town_villagers::AddVillagerToTown(town, villager);
 }
 
 void FeatureScriptCommands::CreateCitadel(glm::vec3 position, int32_t, const std::string& playerOwner, int32_t rotation,

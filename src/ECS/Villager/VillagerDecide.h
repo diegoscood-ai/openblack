@@ -17,6 +17,8 @@
 #include <glm/vec2.hpp>
 
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Villager/VillagerFood.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "Enums.h"
 
 // The villager's decision (state 163 DECIDE_WHAT_TO_DO, Villager::DecideWhatToDo 0x7515C0) and its idle states (209
@@ -47,11 +49,9 @@ uint32_t ChildFollowsMother(components::LivingAction& action);
 
 // ---- DecideWhatToDo's checks ---------------------------------------------------------------------------------------
 
-/// Villager::CheckNeededForSomething 0x75FF80: homeless -> CheckHomelessMoveIntoAbode; then CheckNeededForSpecial == 1
+/// Villager::CheckNeededForSomething 0x75FF80: homeless -> CheckHomelessMoveIntoAbode 0x761360 (VillagerHome.h); then
+/// CheckNeededForSpecial == 1
 uint32_t CheckNeededForSomething(entt::entity villager);
-/// Villager::CheckHomelessMoveIntoAbode 0x761360. TODO(V4): neutral 0 (FindAbodeWithSpaceInTown, the homeless list
-/// +0x768, AddVillagerToAbode 0x404060 and SetTopState(36))
-uint32_t CheckHomelessMoveIntoAbode(entt::entity villager);
 /// Villager::CheckNeededForSpecial 0x760010: worship (Milagros' CheckNeededForWorship 0x76BA60), civic, own desires
 uint32_t CheckNeededForSpecial(entt::entity villager);
 /// Villager::CheckNeededForCivic 0x758180: with a town, fn_7581A0 == 1
@@ -67,14 +67,9 @@ uint32_t CheckNeededForTownDesire(entt::entity villager);
 [[nodiscard]] float GetLifeDesireFromLife(entt::entity villager, float life);
 /// Villager::CheckSatisfyOwnDesire 0x760050: the larger of food and life desire (minus the trigger) served first
 uint32_t CheckSatisfyOwnDesire(entt::entity villager, float trigger);
-/// Villager::CheckSatisfyOwnFoodDesire 0x75BF00: IsHungry ? ChangeStateToFindFoodToEat : 0
-uint32_t CheckSatisfyOwnFoodDesire(entt::entity villager);
-/// Villager::ChangeStateToFindFoodToEat 0x75B990. TODO(V4): neutral 0
-uint32_t ChangeStateToFindFoodToEat(entt::entity villager);
-/// Villager::CheckSatisfySleep 0x761490
+/// CheckSatisfyOwnFoodDesire 0x75BF00 and ChangeStateToFindFoodToEat 0x75B990 are in VillagerFood.h (V4)
+/// Villager::CheckSatisfySleep 0x761490 (inside: CheckWhenGoingToBed 0x760B60, VillagerHome.h, then 119)
 uint32_t CheckSatisfySleep(entt::entity villager);
-/// Villager::CheckWhenGoingToBed 0x760B60. TODO(V4): neutral 0
-uint32_t CheckWhenGoingToBed(entt::entity villager);
 /// Villager::CheckTakeResourcesToStoragePit 0x7516E0: wood (+0xF6) > minWoodToShowGraphic or food (+0xF4) >
 /// minFoodToShowGraphic (signed, jg) -> SetTopState(31); 1
 uint32_t CheckTakeResourcesToStoragePit(entt::entity villager);
@@ -88,8 +83,7 @@ uint32_t CheckChild(entt::entity villager);
 uint32_t IsMotherAlive(entt::entity villager);
 /// Villager::ChildGotoCreche 0x7579F0. TODO(V14): openblack's towns have no creche (+0x744): 0
 uint32_t ChildGotoCreche(entt::entity villager);
-/// Villager::CheckNeedNewAbode 0x757F90. TODO(V4): neutral 0
-uint32_t CheckNeedNewAbode(entt::entity villager);
+/// Villager::CheckNeedNewAbode 0x757F90 is in VillagerHome.h (V4)
 
 // ---- the idle branch ---------------------------------------------------------------------------------------------
 

@@ -172,16 +172,9 @@ uint32_t VillagerCreated(components::LivingAction& action);
 /// State 239 PAUSE_FOR_A_SECOND: Villager::PauseForASecond 0x76B0B0
 uint32_t PauseForASecond(components::LivingAction& action);
 
-// ---- checks that are neutral until their milestone ---------------------------------------------------------------
-
-/// Villager::CheckHungry 0x75BCC0. TODO(V4): only its reset of lastCheckTurn (0x75BEDF; 0 turns -> 0, 0x75BCD0)
-bool CheckHungry(entt::entity villager, uint32_t turn);
-/// Villager::CheckChildGrownUp 0x751050. TODO(V4)
-bool CheckChildGrownUp(entt::entity villager);
-/// Villager::WomanSpecial 0x752240. TODO(V4)
-bool WomanSpecial(entt::entity villager);
-/// Villager::CheckDeathFromOldAge 0x760CA0. TODO(V4) (read in dev\tmp_dis\aldeanos\core\d_age.txt)
-bool CheckDeathFromOldAge(entt::entity villager);
+// ---- the periodic checks (V4) ------------------------------------------------------------------------------------
+// CheckHungry 0x75BCC0 is in VillagerFood.h; CheckChildGrownUp 0x751050, WomanSpecial 0x752240 and
+// CheckDeathFromOldAge 0x760CA0 are in VillagerAge.h (included above)
 
 // ---- death (provisional until V12) -------------------------------------------------------------------------------
 

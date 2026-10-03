@@ -712,27 +712,6 @@ uint32_t villager_worship::HidingAtWorshipSite(LivingAction& action)
 	return 0;
 }
 
-uint32_t villager_worship::GoHomeFromWorship(LivingAction& action)
-{
-	// DoGoingHome(249, 250) 0x760280: home (ArrivesHome 0x760930 is not ported: the villager decides again there).
-	// (inferido) the walk is set up on the state's first turn only; after it, or without a home, DECIDE_WHAT_TO_DO
-	const auto villager = EntityOf(action);
-	if (Walking(villager))
-	{
-		return 0;
-	}
-	const auto* component = Entities().TryGet<const Villager>(villager);
-	auto& state = StateOf(villager);
-	if (component != nullptr && component->abode != entt::null && Entities().Valid(component->abode) &&
-	    !state.walking && action.turnsSinceStateChange == 0)
-	{
-		WalkTo(villager, Entities().Get<const Transform>(component->abode).position);
-		return 0;
-	}
-	SetState(villager, VillagerStates::DecideWhatToDo);
-	return 0;
-}
-
 bool villager_worship::ExitMoveToWorshipSite(LivingAction& action, VillagerStates next)
 {
 	// Villager::ExitMoveToWorshipSite 0x76C170: leaving for a state with another exit (vt 0x96C) that is not a teleport

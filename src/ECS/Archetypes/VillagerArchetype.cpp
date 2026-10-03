@@ -42,8 +42,8 @@ using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 
-entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm::vec3& position,
-                                       VillagerInfo type, uint32_t age, bool joinTown)
+entt::entity VillagerArchetype::Create([[maybe_unused]] const glm::vec3& abodePosition, const glm::vec3& position,
+                                       VillagerInfo type, uint32_t age, [[maybe_unused]] bool joinTown)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
@@ -86,40 +86,9 @@ entt::entity VillagerArchetype::Create(const glm::vec3& abodePosition, const glm
 	const auto resourceId = resources::HashIdentifier(ecs::detail_meshes::Villager(info, child));
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
 
-	// The town and the house, as openblack had them (the original does it after the constructor:
-	// CallVirtualFunctionsForCreation vt +0x658 and the creators' AddVillagerToAbode; V4 ports those)
-	// TODO(bwrsandman): Might be better to make a FindClosestAbode
-	// fn_00552FF0 on the abode position (the land script's villager, Villager::Create 0x715A90 / 0x715B33: 0x715AD6 /
-	// 0x715B79): the global town list, the first always taken, then GetDistanceInMetres < best. (aproximado) the
-	// script's FindTownWithID([ebp+0x6000]) before it (0x715AB5 / 0x715B58) is not here (villagers V4)
-	const auto abodeCoords = ecs::map_coords::FromMetres(glm::vec2(abodePosition.x, abodePosition.z));
-	const entt::entity town = joinTown ? ecs::map_cells::FindNearestTownInList(abodeCoords) : entt::null;
-	entt::entity abode = entt::null;
-	if (town != entt::null)
-	{
-		// the villager lives in the house at the script's abode position (the nearest one), else any with space
-		float nearest = 1.0f;
-		registry.Each<const Abode, const Transform>([&](entt::entity candidate, const Abode& /*unused*/, const Transform& transform) {
-			const glm::vec2 d(transform.position.x - abodePosition.x, transform.position.z - abodePosition.z);
-			const float distance2 = glm::dot(d, d);
-			if (distance2 < nearest)
-			{
-				nearest = distance2;
-				abode = candidate;
-			}
-		});
-		if (abode == entt::null)
-		{
-			abode = Locator::townSystem::value().FindAbodeWithSpace(town);
-		}
-		if (abode != entt::null)
-		{
-			registry.Get<Abode>(abode).inhabitants.insert(entity);
-		}
-	}
-	auto& made = registry.Get<Villager>(entity);
-	made.town = town;
-	made.abode = abode;
+	// Villager::Create 0x74FBE0 houses no one: the map script's handler (CREATE_VILLAGER_POS 0x715AA8..0x715AE6,
+	// FeatureScriptCommands.cpp) finds the town and calls Town::AddVillagerToTown 0x73A090, which picks the abode
+	// (FindAbodeWithSpaceInTown 0x73B370, ecs::town_villagers). The constructor left town and abode at 0 (SetToZero)
 
 	if (std::getenv("OPENBLACK_OBJECT_INDEX_TRACE") != nullptr)
 	{

@@ -308,12 +308,13 @@ TEST_F(VillagerDecideTest, CheckSatisfyOwnDesire)
 	EXPECT_EQ(villager::CheckSatisfyOwnDesire(a, 0.3f), 0u);
 	EXPECT_EQ(Top(a), 163u);
 	EXPECT_TRUE(Table().calls.empty());
-	// food 0.5, life 1: food (neutral until V4), not sleep
+	// food 0.5, life 1: food (V4: ChangeStateToFindFoodToEat 0x75B990; the fixture's dinner of 0 needs nothing, so it
+	// eats what it carries at once: 117 EAT_FOOD), not sleep
 	auto b = MakeVillager();
 	V(b).food = 0.5f;
 	V(b).abode = abode;
-	EXPECT_EQ(villager::CheckSatisfyOwnDesire(b, 0.3f), 0u);
-	EXPECT_EQ(Top(b), 163u);
+	EXPECT_EQ(villager::CheckSatisfyOwnDesire(b, 0.3f), 1u);
+	EXPECT_EQ(Top(b), 117u);
 	// food 0.95, life 0.5, with an abode: sleep -> 36
 	auto c = MakeVillager();
 	V(c).food = 0.95f;
@@ -352,7 +353,7 @@ TEST_F(VillagerDecideTest, CheckNeededForCivic)
 TEST_F(VillagerDecideTest, CheckNeededForTownDesireSleep)
 {
 	// V3: fn_7581A0 -> TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 with Sleep (16) first in the town's
-	// order 1 (night) and an abode: CheckSatisfySleep -> 36 (37 ARRIVES_HOME is V4)
+	// order 1 (night) and an abode: CheckSatisfySleep -> 36 (V4: 36 takes it in)
 	const auto town = MakeTown();
 	const auto abode = MakeAbode({60.0f, 60.0f});
 	auto& t = Reg().Get<Town>(town);
@@ -685,10 +686,10 @@ TEST_F(VillagerDecideTest, GoHome)
 	Table().calls.clear();
 	EXPECT_EQ(villager::GoHome(a), 1u);
 	EXPECT_TRUE(Table().calls.empty());
-	// no abode: nothing (TODO(V4) the tent)
+	// no abode and no town: 130 VAGRANT_START (V4, DoGoingHome 0x7604CD)
 	auto b = MakeVillager({90.0f, 60.0f}, 36);
 	EXPECT_EQ(villager::GoHomeState(Action(b)), 1u);
-	EXPECT_EQ(Top(b), 36u);
+	EXPECT_EQ(Top(b), 130u);
 }
 
 TEST_F(VillagerDecideTest, NothingToDo)

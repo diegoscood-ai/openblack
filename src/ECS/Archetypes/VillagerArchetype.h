@@ -21,8 +21,8 @@ namespace openblack::ecs::archetypes
 class VillagerArchetype
 {
 public:
-	/// @param joinTown false for the villagers made by CHL CREATE: Villager::Create 0x74FBE0 gives them no town or home
-	/// (the map script's CREATE_VILLAGER_POS handler is the one that houses them)
+	/// @param joinTown kept for the callers: Villager::Create 0x74FBE0 gives no villager a town or a home; the map
+	/// script's CREATE_VILLAGER_POS handler adds it to its town (V4: Town::AddVillagerToTown, town_villagers)
 	static entt::entity Create(const glm::vec3& abodePosition, const glm::vec3& position, VillagerInfo type, uint32_t age,
 	                           bool joinTown = true);
 	VillagerArchetype() = delete;

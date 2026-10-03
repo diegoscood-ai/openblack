@@ -75,6 +75,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "3D/ScreenFade.h"
@@ -839,6 +840,13 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 		}
 		// Animal::ValidForPlaceInHand (0x419B40): the species' playerCanPickUp
 		else if (registry.AllOf<Animal>(*best) && !ecs::animal_ai::ValidForPlaceInHand(*best))
+		{
+			best.reset();
+		}
+		// Villager::ValidForPlaceInHand 0x7564A0 = IsReachable 0x756460 (vt 0x530): not at home (+0xE0 & 4), not in
+		// a hand, not 236 GO_AND_HIDE; Villager's InterfaceValidToTap (vt 0x740) is Object's 0x4196B0 = 0, so an
+		// unreachable villager is not the target at all (V4: a villager inside its abode)
+		else if (registry.AllOf<Villager>(*best) && !ecs::villager::IsReachable(*best))
 		{
 			best.reset();
 		}

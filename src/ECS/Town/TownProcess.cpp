@@ -19,8 +19,11 @@
 #include "ECS/Components/Town.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeVillagers.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownStats.h"
+#include "ECS/Town/TownVillagers.h"
+#include "InfoConstants.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "Locator.h"
 #include "Worship/WorshipPercentage.h"
@@ -96,11 +99,23 @@ void ProcessTown(entt::entity town)
 	// 1 0x747390: +0x5E4 = 0
 	t->requestedPlanThisTurn = false;
 	// 2 0x747396 fn_43BD00(&+0x790): the building sites' pruning. TODO(V6)
-	// 3 0x7473A0 +0x5C8 = GetBaseInfluence 0x73FD40; 4 0x7473AD fn_747600: every processAbodeEvery (+0x4C) turns,
-	//   Abode::Process (vt +0x5FC) of each abode +0x754 (TODO(V4, R6)) and, unless +0x5F8, +0x5C8 += GetInfluence
-	//   (vt +0x868); 5 0x7473BD with a player +0x5C8 x= g_game +0x250078. The influence part is milagros2's
-	//   influence::ProcessTowns (InfluenceSources.cpp), which their influence::ProcessTurn runs every turn: not called
-	//   here (see ProcessPlayers)
+	// 3 0x7473A0 +0x5C8 = GetBaseInfluence 0x73FD40; 4 0x7473AD fn_747600: turn % GTownInfo +0x4C processAbodeEvery == 0
+	//   (0x747615 unsigned div) -> for each structure +0x754 (newest first) its Process (vt +0x5FC) and, unless +0x5F8,
+	//   +0x5C8 += GetInfluence (vt +0x868); 5 0x7473BD with a player +0x5C8 x= g_game +0x250078. (aproximado) the
+	//   influence part is milagros2's influence::ProcessTowns (InfluenceSources.cpp), which their influence::ProcessTurn
+	//   runs every turn (see ProcessPlayers): here only the Process part, in the same order. Abode::Process 0x404440 for
+	//   the classes that do not override it (the Field 0x529020, TownCentre 0x743DF0, Workshop 0x7797F0 and
+	//   SpellDispenser 0x722A70 overrides are their owners')
+	if (const auto every = Locator::infoConstants::value().town.processAbodeEvery; every != 0 && turn % every == 0)
+	{
+		for (const auto abode : town_stats::AbodesOf(town))
+		{
+			if (abode_villagers::RunsAbodeProcess(abode))
+			{
+				abode_villagers::ProcessAbode(abode);
+			}
+		}
+	}
 	// 6 0x7473D7: TownDesire::Process 0x745AE0
 	town_desire::Process(town);
 	// 7 0x7473DE fn_747780: TownArtifact::Process 0x425FB0 of the artifacts +0x994 (next +0x20). TODO(artefactos)
@@ -156,8 +171,12 @@ void ProcessTown(entt::entity town)
 	}
 	// 23 0x747574..0x74759E: not neutral: fn_555240(+0x5C8, +0xF24): |a - b| > 0.01 -> g_game +0x250174 = 1 (the
 	//    drawn influence). (inferido) milagros2's influence drawing recomputes it: nothing to call
-	// 24 0x7475A3..0x7475E8: ftol(20 x +0x5B4 + turn) % info +0x168 shuffleVillagersEvery == 0 ->
-	//    ShuffleVillagersAroundAbodes 0x741540. TODO(V4, R6)
+	// 24 0x7475A3..0x7475E8: ftol(20 x +0x5B4 (the town id) + turn) % info +0x168 shuffleVillagersEvery == 0 ->
+	//    ShuffleVillagersAroundAbodes 0x741540 (one move a call)
+	if (auto* again = registry.TryGet<Town>(town); again != nullptr && town_villagers::ShuffleDue(*again, turn))
+	{
+		town_villagers::ShuffleVillagersAroundAbodes(town);
+	}
 }
 
 void ProcessPlayers()

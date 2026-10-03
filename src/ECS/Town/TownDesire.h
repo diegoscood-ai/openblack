@@ -260,6 +260,10 @@ enum class Field
 float CalculateDesireForFood(entt::entity town);
 /// openblack: the same value without the warning (for readers)
 [[nodiscard]] float FoodDesireValue(entt::entity town);
+/// TownDesire::CallDesireFunction 0x745D80 now, on a town entity (Abode::DoResourceRemoving 0x404FA0 / DoResourceAdding
+/// 0x404E22 call it before the resource changes): +0x168[d] (the raw) is rewritten and the function's warning may play
+/// (HelpSpritesLowOnFood / LowOnWood); returns clamp(raw x modification, -1, 1). 0 without a town
+float CallDesireFunctionNow(entt::entity town, TownDesireInfo d);
 /// TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 (town +0x34, the villager, its trigger): 0 or 1
 uint32_t CheckVillagerNeededForTownDesire(entt::entity town, entt::entity villager, float trigger);
 /// The scripts' boost (+0xD4[d] = boost); `resort`: fn_746140 (order 1 only, as SET_TOWN_DESIRE_BOOST 0x6FE73E)

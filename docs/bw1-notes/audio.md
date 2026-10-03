@@ -2159,7 +2159,13 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   0x71B5F0: Town +0xC4/+0x108/+0x19C… = TownDesire +0x90/+0xD4/+0x168 de los deseos 0, 1 y 10) salen de
   `ecs::town_desire::GetField` (Raw + Boost + BoostA, en ese orden y en float). `desireTowns`: los pueblos de
   `map_cells::ForEachTown` con `GetSortedRawDesires` (+0x378: valor +0x37C, tipo +0x380) y `GetRawDesire` 0x73E420.
-  Sin asignar todavía: `worshipSites` (los deseos del templo, de milagros2) y `heartBeat`.
+  `worshipSites`: la ciudadela de PLAYER_ONE (`worship::citadel::Of`), sus seis huecos (`WorshipSitesOf`), +0x70
+  (`StrainSoundFraction`; el tope de 0x71B319 deja pasar un NaN, test ah, 1), DancerCount > 0 y
+  `worship::site::CalculateDesireForFood` 0x77C310 (milagros2). Sin asignar todavía: `heartBeat`.
+- Comprobación del templo (2026-10-03): en Land 2 la ciudadela del humano empieza sin lugares de culto, así que se
+  prueba como el jugador 1: `-s Land2.txt OPENBLACK_TEST_WORSHIP_PLAYER=1 OPENBLACK_TEST_WORSHIP="1,0.5"
+  OPENBLACK_CAMERA_FLY="2540,150,1740,2540,100,1800" OPENBLACK_GUIDANCE_TRACE=1` → el sitio 148 con bailarines y
+  comida 1,0 → `text 4993 3D -> Guidance.sad 24` y `4992 -> 23` (NEEDWORSHIPPERS_FOOD).
 - Comprobación de los deseos (2026-10-03): en Land 1 no suena nada, como el original (PlayNow 0x71AF6F..0x71AF8F:
   TownDesire no es «always» en la tierra 1 sin multijugador). `-s Land2.txt OPENBLACK_GUIDANCE_TRACE=1
   OPENBLACK_CAMERA_FLY="2187,120,2200,2187,20,2260"` (almacén del pueblo 94 a 59,9) → `desire sample 4982 value

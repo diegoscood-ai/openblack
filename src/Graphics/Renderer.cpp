@@ -72,6 +72,8 @@
 #include "Common/HelpText.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GameFont.h"
+#include "Help/HelpSystem.h"
+#include "Help/HelpTextDisplay.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Lh3dColour.h"
@@ -371,7 +373,10 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 Renderer::~Renderer() noexcept
 {
 	_clouds.reset();
-	_font.reset(); // its texture before bgfx::shutdown
+	for (auto& font : _fonts)
+	{
+		font.reset(); // its texture before bgfx::shutdown
+	}
 	_foliage.reset();
 	_shadows.reset(); // its textures before bgfx::shutdown
 	if (bgfx::isValid(_landLightTexture))
@@ -1909,10 +1914,13 @@ void Renderer::DrawFinishFrameOverlays() const
 		DrawVideoOverlay();
 		DrawFallingSpellOverlay();
 		DrawScreenOverlay(false);
+		DrawHelpText(); // HelpText's callback 0x5CD020, as in the other branch
 		DrawScreenOverlay(true);
 		return;
 	}
 	DrawScreenOverlay(false);
+	// HelpText's callback 0x5CD020 (priority 20000, 0x5CAD74) runs after the bars and before the film (bit 0x80000000)
+	DrawHelpText();
 	DrawVideoOverlay();
 	DrawScreenOverlay(true);
 }
@@ -2044,18 +2052,8 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	{
 		return;
 	}
-	if (!_fontLoadTried)
-	{
-		_fontLoadTried = true;
-		auto font = std::make_unique<GameFont>();
-		auto& fileSystem = Locator::filesystem::value();
-		const auto base = fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / "j0.met").replace_extension();
-		if (font->Load(base))
-		{
-			_font = std::move(font);
-		}
-	}
-	if (!_font)
+	const GameFont* font = GameFontAt(help::TextFont::J0);
+	if (font == nullptr)
 	{
 		return;
 	}
@@ -2079,7 +2077,7 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	const float h = height / 25.0f;
 	const float size = h * 2.0f / 3.0f;
 	const auto text = helptext::Format(helptext::k_ToolTipAmountInHand, static_cast<double>(*amount));
-	const float textWidth = _font->GetStringWidth(text, size);
+	const float textWidth = font->GetStringWidth(text, size);
 	const float boxWidth = textWidth + h;
 	float x = screen.x;
 	const float y = std::clamp(screen.y, 0.0f, height - h); // ProjectWorldToScreen: y from the top
@@ -2097,25 +2095,54 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	}
 	x = std::clamp(x, 0.0f, std::max(0.0f, width - boxWidth));
 
+	// no box: the text alone over the scene (transparent background)
+	// the text: DrawTextRaw three times, black copies 1 px to each side, then yellow (LH3DColor b0 g255 r255 a255)
+	std::vector<GameFont::Vertex> glyphs;
+	const float tx = x + h * 0.5f; // just right of the hand
+	const float ty = y + (h - size) * 0.5f;
+	font->AddText(glyphs, text, tx - 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	font->AddText(glyphs, text, tx + 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	font->AddText(glyphs, text, tx, ty, size, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+	SubmitScreenText(*font, glyphs);
+}
+
+const GameFont* Renderer::GameFontAt(help::TextFont font) const
+{
+	// HelpText ctor fn_005CADC0: +0xC j0, +0x14 f1 if loaded, else j0, +0x10 f3 if loaded, else j0 (table 0xECCD08)
+	const auto index = static_cast<size_t>(font);
+	if (!_fontLoadTried.at(index))
+	{
+		_fontLoadTried.at(index) = true;
+		static constexpr std::array<std::string_view, 3> k_Names {"j0.met", "f1.met", "f3.met"};
+		auto loaded = std::make_unique<GameFont>();
+		auto& fileSystem = Locator::filesystem::value();
+		const auto base = fileSystem.FindPath(fileSystem.GetPath<filesystem::Path::Data>() / k_Names.at(index)).replace_extension();
+		if (loaded->Load(base))
+		{
+			_fonts.at(index) = std::move(loaded);
+		}
+	}
+	if (_fonts.at(index))
+	{
+		return _fonts.at(index).get();
+	}
+	return font == help::TextFont::J0 ? nullptr : GameFontAt(help::TextFont::J0);
+}
+
+void Renderer::SubmitScreenText(const GameFont& font, const std::vector<GameFont::Vertex>& glyphs) const
+{
+	if (glyphs.empty() || _resolution.x == 0 || _resolution.y == 0)
+	{
+		return;
+	}
+	const float width = _resolution.x;
+	const float height = _resolution.y;
 	const auto toClip = [width, height](float px, float py) {
 		return glm::vec2(2.0f * px / width - 1.0f, 1.0f - 2.0f * py / height);
 	};
 	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
 	const glm::mat4 identity(1.0f);
 	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
-
-	// no box: the text alone over the scene (transparent background)
-	// the text: DrawTextRaw three times, black copies 1 px to each side, then yellow (LH3DColor b0 g255 r255 a255)
-	std::vector<GameFont::Vertex> glyphs;
-	const float tx = x + h * 0.5f; // just right of the hand
-	const float ty = y + (h - size) * 0.5f;
-	_font->AddText(glyphs, text, tx - 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-	_font->AddText(glyphs, text, tx + 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-	_font->AddText(glyphs, text, tx, ty, size, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-	if (glyphs.empty())
-	{
-		return;
-	}
 	struct TextVertex
 	{
 		float x, y, z, u, v;
@@ -2143,7 +2170,7 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
 	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(TextVertex));
 	const auto* program = _shaderManager->GetShader("Text");
-	program->SetTextureSampler("s_diffuse", 0, _font->GetTexture());
+	program->SetTextureSampler("s_diffuse", 0, font.GetTexture());
 	bgfx::setVertexBuffer(0, &buffer);
 	// mode 16 (CachePage::Init 0x830244): SRCALPHA / INVSRCALPHA, no Z write, ZFUNC ALWAYS (depthTest 0); its alpha test
 	// (+4 = 5) is fs_text's
@@ -2166,23 +2193,9 @@ void Renderer::DrawScreenOverlay(bool drawFade) const
 	{
 		return;
 	}
-	struct Vertex
-	{
-		float x, y, z;
-		uint32_t abgr;
-	};
-	std::vector<Vertex> vertices;
-	// pre-transformed rectangles in pixels (FVF 0x1C4, rhw 1), here straight to clip space
-	const auto addRect = [&vertices, width, height](int x0, int y0, int x1, int y1, uint32_t argb) {
-		const uint32_t abgr = lh3d_colour::ToAbgr(argb);
-		const float l = 2.0f * static_cast<float>(x0) / static_cast<float>(width) - 1.0f;
-		const float r = 2.0f * static_cast<float>(x1) / static_cast<float>(width) - 1.0f;
-		const float t = 1.0f - 2.0f * static_cast<float>(y0) / static_cast<float>(height);
-		const float b = 1.0f - 2.0f * static_cast<float>(y1) / static_cast<float>(height);
-		for (const auto& [x, y] : {std::pair {l, t}, {r, t}, {r, b}, {l, t}, {r, b}, {l, b}})
-		{
-			vertices.push_back({x, y, 0.5f, abgr});
-		}
+	std::vector<ScreenRectVertex> vertices;
+	const auto addRect = [this, &vertices](int x0, int y0, int x1, int y1, uint32_t argb) {
+		AddScreenRect(vertices, x0, y0, x1, y1, argb);
 	};
 	// (e) the bars, 0xFF000000, at the top and the bottom
 	const auto addBars = [&]() {
@@ -2199,6 +2212,15 @@ void Renderer::DrawScreenOverlay(bool drawFade) const
 		addRect(0, inset, width - 1, height - 1 - inset, colour);
 	}
 	addBars();
+	SubmitScreenRects(vertices);
+}
+
+void Renderer::SubmitScreenRects(const std::vector<ScreenRectVertex>& vertices) const
+{
+	if (vertices.empty())
+	{
+		return;
+	}
 	bgfx::VertexLayout layout;
 	layout.begin()
 	    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
@@ -2211,15 +2233,106 @@ void Renderer::DrawScreenOverlay(bool drawFade) const
 	}
 	bgfx::TransientVertexBuffer buffer;
 	bgfx::allocTransientVertexBuffer(&buffer, count, layout);
-	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(Vertex));
+	std::memcpy(buffer.data, vertices.data(), vertices.size() * sizeof(ScreenRectVertex));
 	const auto viewId = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
 	const glm::mat4 identity(1.0f);
 	bgfx::setViewTransform(viewId, glm::value_ptr(identity), glm::value_ptr(identity));
 	bgfx::setVertexBuffer(0, &buffer);
-	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS and ZWRITEENABLE 0 by hand (fn_0081E590 0x81E64C)
+	// mode 1 (untextured, SRCALPHA / INVSRCALPHA), ZFUNC ALWAYS and ZWRITEENABLE 0 by hand (fn_0081E590 0x81E64C; the
+	// 2D rectangle queue fn_0081E3C0 the same)
 	bgfx::setState(render_modes::State(render_modes::Mode::SmoothAlpha,
 	                                   {.zFunc = render_modes::ZFunc::Always, .zWrite = false}));
 	bgfx::submit(viewId, toBgfx(_shaderManager->GetShader("DebugLine")->GetRawHandle()));
+}
+
+void Renderer::AddScreenRect(std::vector<ScreenRectVertex>& out, int x0, int y0, int x1, int y1, uint32_t argb) const
+{
+	// pre-transformed rectangles in pixels (FVF 0x1C4, rhw 1), here straight to clip space
+	const float width = _resolution.x;
+	const float height = _resolution.y;
+	const uint32_t abgr = lh3d_colour::ToAbgr(argb);
+	const float l = 2.0f * static_cast<float>(x0) / width - 1.0f;
+	const float r = 2.0f * static_cast<float>(x1) / width - 1.0f;
+	const float t = 1.0f - 2.0f * static_cast<float>(y0) / height;
+	const float b = 1.0f - 2.0f * static_cast<float>(y1) / height;
+	for (const auto& [x, y] : {std::pair {l, t}, {r, t}, {r, b}, {l, t}, {r, b}, {l, b}})
+	{
+		out.push_back({x, y, 0.5f, abgr});
+	}
+}
+
+void Renderer::DrawHelpText() const
+{
+	// fn_005CCAB0: nothing while g_game+0x250188 != 0 (pending: that front-end state is not ported)
+	auto* helpSystem = help::Get();
+	if (helpSystem == nullptr || Game::Instance() == nullptr || _resolution.x == 0 || _resolution.y == 0)
+	{
+		return;
+	}
+	const int width = _resolution.x;
+	const int height = _resolution.y;
+	const int bar = ScreenFade::LetterboxHeight(width, height, Game::Instance()->GetScreenFade().GetWideScreenFraction());
+	const auto widthOf = [this](help::TextFont font, std::u16string_view text, float size) {
+		const GameFont* gameFont = GameFontAt(font);
+		return gameFont != nullptr ? gameFont->GetStringWidth(std::u16string(text), size) : 0.0f;
+	};
+	const auto frame = helpSystem->GetDisplay().Layout(width, height, bar, helpSystem->GetTextDraw(),
+	                                                  helpSystem->GetTextTopToBottom(), widthOf);
+
+	// fn_005CCE60: the box, {b, g, r of +0x1C, a 0x80} in the 2D rectangle queue (flushed before this callback runs)
+	if (frame.boxShown)
+	{
+		std::vector<ScreenRectVertex> box;
+		AddScreenRect(box, frame.box.left, frame.box.top, frame.box.right, frame.box.bottom,
+		              static_cast<uint32_t>(frame.boxAlpha) << 24);
+		SubmitScreenRects(box);
+	}
+	// fn_005CC760: one DrawTextRaw per word, here one submit per font
+	for (const auto font : {help::TextFont::J0, help::TextFont::F1, help::TextFont::F3})
+	{
+		const GameFont* gameFont = GameFontAt(font);
+		if (gameFont == nullptr)
+		{
+			continue;
+		}
+		std::vector<GameFont::Vertex> glyphs;
+		for (const auto& run : frame.runs)
+		{
+			if (run.font == font)
+			{
+				gameFont->AddText(glyphs, run.text, run.x, run.y, run.size,
+				                  glm::vec4(run.r, run.g, run.b, run.a) / 255.0f, run.clipTop, run.clipBottom);
+			}
+		}
+		SubmitScreenText(*gameFont, glyphs);
+	}
+
+	// Draw3D 0x5C59D0..0x5C5ACE: while the text waits for a click, the KMIcon of BINDABLE_ACTION 1 with
+	// HELP_TEXT_TOOLTIP_07 (0xE79 "Continuar") in yellow, right-aligned at W - 4 (align 0x11), its vertical centre at
+	// fn_005C5970, height trunc((boxH + 1) / 3), fading in over 1.0 s ([0x92A444]); the text as CameraHelp::DrawKeyOrMouse
+	// 0x447EA0 draws it: font j0 at 2/3 of the height with black copies 1 px to each side (as DrawHandToolTip).
+	// (pending) the KMIcon's mouse button / key picture (DrawKeyOrMouse's icon branch, mousehelp.raw), its box at alpha
+	// 0x80 and its second colour (white); (inferred) with no picture the text's right edge is at W - 4; (inferred) the
+	// cue is drawn whatever TEXT_DRAW and the hidden flag say (Draw3D creates it without reading them)
+	const float cueAlpha = helpSystem->GetClickCueAlpha();
+	if (helpSystem->IsWaitingForClick() && cueAlpha > 0.0f)
+	{
+		const GameFont* font = GameFontAt(help::TextFont::J0);
+		if (font != nullptr)
+		{
+			const auto region = help::ComputeTextRegion(width, height, bar);
+			const float h = static_cast<float>(help::ClickCueHeight(region));
+			const float size = h * 2.0f / 3.0f;
+			const auto& text = helptext::Get(helptext::k_ToolTipContinue);
+			const float x = static_cast<float>(width - 4) - font->GetStringWidth(text, size);
+			const float y = static_cast<float>(help::ClickCueY(region)) - size * 0.5f;
+			std::vector<GameFont::Vertex> glyphs;
+			font->AddText(glyphs, text, x - 1.0f, y, size, glm::vec4(0.0f, 0.0f, 0.0f, cueAlpha));
+			font->AddText(glyphs, text, x + 1.0f, y, size, glm::vec4(0.0f, 0.0f, 0.0f, cueAlpha));
+			font->AddText(glyphs, text, x, y, size, glm::vec4(1.0f, 1.0f, 0.0f, cueAlpha));
+			SubmitScreenText(*font, glyphs);
+		}
+	}
 }
 
 namespace

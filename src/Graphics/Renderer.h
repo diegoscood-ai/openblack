@@ -34,6 +34,7 @@
 #include "3D/Clouds.h"
 #include "ECS/ChimneySmoke.h"
 #include "ECS/Weather/Rain.h"
+#include "Graphics/GameFont.h"
 #include "Graphics/Haze.h"
 #include "Graphics/Mists.h"
 #include "Graphics/RenderPass.h"
@@ -54,6 +55,11 @@ class Clouds;
 class Foliage;
 class Game;
 
+namespace help
+{
+enum class TextFont : uint8_t;
+}
+
 namespace ecs
 {
 class Registry;
@@ -68,7 +74,6 @@ class List;
 struct ShadowInfo;
 }
 class Mesh;
-class GameFont;
 
 class Renderer final: public RendererInterface
 {
@@ -205,8 +210,28 @@ class Renderer final: public RendererInterface
 	void DrawScreenOverlay(bool drawFade) const;
 	/// HelpSystem::Draw3D -> CameraHelp::DrawKeyOrMouse 0x447EA0: the tooltip next to the hand (the amount in the hand)
 	void DrawHandToolTip(const Camera& camera) const;
-	mutable std::unique_ptr<GameFont> _font; ///< Data\j0, font 0 of the tooltips
-	mutable bool _fontLoadTried {false};
+	/// The fonts of HelpText (+0xC..+0x18, table 0xECCD08): Data\j0, f1 and f3, loaded on first use (f1 / f3 fall back
+	/// to j0 when they are missing, as the HelpText ctor does); nullptr when not even j0 loads
+	[[nodiscard]] const GameFont* GameFontAt(help::TextFont font) const;
+	mutable std::array<std::unique_ptr<GameFont>, 3> _fonts;
+	mutable std::array<bool, 3> _fontLoadTried {};
+	/// Glyph quads (pixels from the top left) in the ScreenOverlay view: the Text program, mode 16 (CachePage::Init
+	/// 0x830244), ZFUNC ALWAYS
+	void SubmitScreenText(const GameFont& font, const std::vector<GameFont::Vertex>& glyphs) const;
+	/// A pre-transformed rectangle vertex (FVF 0x1C4, rhw 1), already in clip space
+	struct ScreenRectVertex
+	{
+		float x, y, z;
+		uint32_t abgr;
+	};
+	/// Two triangles of the pixel rectangle [x0, x1] x [y0, y1] in colour argb
+	void AddScreenRect(std::vector<ScreenRectVertex>& out, int x0, int y0, int x1, int y1, uint32_t argb) const;
+	/// Untextured rectangles in the ScreenOverlay view, mode 1 (SmoothAlpha), ZFUNC ALWAYS, no Z write
+	void SubmitScreenRects(const std::vector<ScreenRectVertex>& vertices) const;
+	/// HelpText's draw callback 0x5CD020 (RegisterFinishFrameCallback(20000) 0x5CAD74: after the bars, before the film
+	/// and the fade): the box (fn_005CCE60), the dialogue texts (fn_005CC760) and the click cue (KMIcon of Draw3D
+	/// 0x5C59D0)
+	void DrawHelpText() const;
 	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
 	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
 	void DrawVideoOverlay() const;

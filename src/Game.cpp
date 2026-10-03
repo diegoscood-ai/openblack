@@ -104,6 +104,7 @@
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 #include "Input/GameActionMapInterface.h"
+#include "Input/InterfaceActive.h"
 #include "Input/HandDemo.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
@@ -802,6 +803,13 @@ bool Game::Update() noexcept
 
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));
+	// HelpSystem::Draw3D 0x5C59A0: the texts' slide-in and the click cue's fade, with g_game_time_inc, or g_delta_time
+	// in the citadel (g_game+0x205A28 == 1, fn_005CC760 0x5CC7BE; inferred: openblack's temple interior stands for it)
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		const bool citadel = Locator::temple::has_value() && Locator::temple::value().Active();
+		helpSystem->Draw3D(static_cast<float>(citadel ? game_clock::FrameRealMs() : game_clock::FrameGameMs()));
+	}
 
 	// Update Uniforms
 	{
@@ -1326,6 +1334,12 @@ bool Game::Initialize() noexcept
 		queries.isPlaying = [](audio::SfxBank bank, audio::VoiceOwner owner, uint32_t sample) {
 			return audio::IsPlaying(audio::Owner::Key(static_cast<uint32_t>(owner)), static_cast<int>(sample), bank);
 		};
+		// the HelpText ctor's screen height (fn_005CADC0, +0xA0 = H / 30)
+		queries.screenHeight = []() {
+			return Locator::windowing::has_value() ? Locator::windowing::value().GetSize().y : 480;
+		};
+		// GGame::MyInterface()->IsPlayBack(0) (ProcessInterface 0x5C69ED: no click on a text during a hand demo)
+		queries.playBack = []() { return hand_demo::IsPlaying(0); };
 		help::HelpSystem::Hooks hooks;
 		// fn_005C5F90's voice (0x5C6025..0x5C60DB)
 		hooks.sayVoice = [](uint32_t textId, help::VoiceRoute /*route*/, audio::TextVoice voice) {
@@ -1339,11 +1353,13 @@ bool Game::Initialize() noexcept
 			audio::advisor::Interrupt(spirit == 1 ? audio::advisor::k_GoodSpirit : audio::advisor::k_EvilSpirit, arg);
 		};
 		// HelpSystem::SetWideScreen 0x5C6AD0: the bars slide in HelpSystemInfo.wideScreenTime (0xD16174) seconds from
-		// where they are (0x5C6B3F..0x5C6B4E); DialogBoxBase::HideAll and GInterface::SetActive are not ported
+		// where they are (0x5C6B3F..0x5C6B4E); GInterface::SetActive(!(on && owner)) (0x5C6AF4 / 0x5C6B01, the owner
+		// stored as +0x45EC is on ? owner : 0); DialogBoxBase::HideAll is not ported
 		// and +0x45EC (the owning task while on) is what GAudio::PlaySoundEffect reads to skip the user-param-1 samples
 		hooks.wideScreen = [this, time = helpInfo.wideScreenTime](bool on) {
 			GetScreenFade().SetWideScreen(on, time);
 			const auto* helpSystem = help::Get();
+			interface_active::SetActive(!(on && helpSystem != nullptr && helpSystem->GetWideScreenOwner() != 0));
 			audio::SetScriptWideScreen(helpSystem != nullptr && helpSystem->IsScriptWideScreen());
 		};
 		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries),
@@ -1720,6 +1736,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
+	// GScript::Reset -> CleanGameForScriptReboot 0x6EB330: a hand demo still playing ends (EndPlayBack 0x5DB3F0)
+	hand_demo::End();
 	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
 	if (video::Get().IsPlaying())
 	{

@@ -51,6 +51,9 @@
 #include "Video/VideoPlayer.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
+#include "ECS/ThingFlags.h"
+#include "ECS/ToBeDeleted.h"
+#include "Input/HandDemo.h"
 #include "ECS/Archetypes/AnimatedStaticArchetype.h"
 #include "ECS/Archetypes/BonfireArchetype.h"
 #include "ECS/Archetypes/FeatureArchetype.h"
@@ -889,8 +892,10 @@ void Random() // 028 RANDOM
 
 void DllGettime() // 029 DLL_GETTIME
 {
-	// TODO(Daniels118): need a way to access Game::GetTurn()
-	// Pushf(static_cast<float>(_turnCount) / 10.0f); // TODO(Daniels118): should it be divided by 10 or not?
+	// The game's table has a NULL handler here ({NULL, 0, 1}, 0x70041E..0x70042A); ScriptLibraryR.dll's Initialise
+	// (0x10002308) puts its own 0x1000ABD0 in, LHVM::PushElaspedTime (the VM tick count, one a game turn outside the
+	// citadel, x 0.1f)
+	Locator::vm::value().PushElaspedTime();
 }
 
 void StartCameraControl() // 030 START_CAMERA_CONTROL
@@ -1222,10 +1227,53 @@ void DetachMusic() // 047 DETACH_MUSIC
 
 void ObjectDelete() // 048 OBJECT_DELETE
 {
-	// const auto withFade = Pop().intVal;
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::DeleteObject 0x6F92D0: the mode, then the object (0x6F92E1); nothing for a thing no longer there
+	// (GetScriptGameThing 0x70D220)
+	const auto mode = Pop().intVal;
+	const auto object = Pop().uintVal;
+	const auto entity = static_cast<entt::entity>(object);
+	auto& registry = Locator::entitiesRegistry::value();
+	if (object == 0 || !registry.Valid(entity))
+	{
+		return;
+	}
+	// (pending) RemoveScriptGameThing 0x70D1A0 on every path: openblack's script slots go with the entity, and a
+	// container (town, dance, flock: vt +0x3F8) is also disbanded there (GScript::DisbandId 0x6EFDC0), not ported
+	// IsPuzzleGame (vt +0x498): RemoveScriptGameThing and fn_006D6CC0(thing, 0), whatever the mode; never deleted here
+	if (registry.AllOf<ecs::components::PuzzleGame>(entity))
+	{
+		NotImplemented("ObjectDelete (puzzle game: fn_006D6CC0)"); // (pending)
+		return;
+	}
+	const bool creature = registry.AllOf<ecs::components::Creature>(entity);
+	switch (mode) // jump table 0x6F9490
+	{
+	case 0: // 0x6F9344: GameThing::ToBeDeleted(0) (vt +0xC) (pending, Personas: villager::Delete when it exists)
+		ecs::ToBeDeleted(entity);
+		break;
+	case 1: // 0x6F935D, only IsObject (vt +0x460)
+		if (creature)
+		{
+			// Creature::SetFizz(1.0, 2.0, true) 0x47AB90, not deleted here (pending, creature)
+			NotImplemented("ObjectDelete (creature fizz)");
+		}
+		else
+		{
+			// GoolooGooloo 0x5E6540, a 500 ms ghost of its mesh in the landscape fade list (pending: the ghost is not
+			// drawn), then ToBeDeleted(0)
+			ecs::ToBeDeleted(entity);
+		}
+		break;
+	case 2: // 0x6F93DA, only IsObject: fn_00681230(obj, 0), the mesh broken up (15.0, 3.0) (pending: not drawn), then
+	        // ToBeDeleted(0)
+		ecs::ToBeDeleted(entity);
+		break;
+	case 3: // 0x6F9410: CitadelHeart only, fn_00681260(heart, pos, 80.0, 3.0, 0) or DestructionSequenceStart 0x465AB0
+		NotImplemented("ObjectDelete (citadel heart)"); // (pending)
+		break;
+	default: // past 3: only RemoveScriptGameThing, the thing stays
+		break;
+	}
 }
 
 void FocusFollow() // 049 FOCUS_FOLLOW
@@ -1448,9 +1496,9 @@ void RandomUlong() // 065 RANDOM_ULONG
 
 void SetGamespeed() // 066 SET_GAMESPEED
 {
-	// const auto speed = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetGameSpeed 0x6FAAE0 (Help/ScriptControl.cpp)
+	const auto speed = Popf();
+	help::script_control::SetGameSpeed(help::script_control::GetCameraControl(), ScriptVm(), speed);
 }
 
 void CallInNear() // 067 CALL_IN_NEAR
@@ -2028,14 +2076,14 @@ void SetHeadingAndSpeed() // 127 SET_HEADING_AND_SPEED
 
 void StartGameSpeed() // 128 START_GAME_SPEED
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartGameSpeed 0x6FA9E0 (Help/ScriptControl.cpp)
+	help::script_control::StartGameSpeed(help::script_control::GetCameraControl(), ScriptVm());
 }
 
 void EndGameSpeed() // 129 END_GAME_SPEED
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::EndGameSpeed 0x6FAAB0 (Help/ScriptControl.cpp)
+	help::script_control::EndGameSpeed(help::script_control::GetCameraControl(), ScriptVm());
 }
 
 void BuildBuilding() // 130 BUILD_BUILDING
@@ -2380,18 +2428,31 @@ void FlySpirit() // 167 FLY_SPIRIT
 
 void SetIdMoveable() // 168 SET_ID_MOVEABLE
 {
-	// const auto obj = Pop().uintVal;
-	// const auto moveable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetIdMoveable 0x6FB3E0: the object (GetScriptGameThing 0x70D220), then the bool; no object: "Thing not
+	// valid" (0x6FB411); +0x24 bit 0x1000 = (moveable == 0) (0x6FB421..0x6FB43C)
+	const auto object = Pop().uintVal;
+	const auto moveable = Pop().intVal != 0;
+	const auto entity = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_ID_MOVEABLE: Thing not valid");
+		return;
+	}
+	ecs::thing_flags::SetMoveable(entity, moveable);
 }
 
 void SetIdPickupable() // 169 SET_ID_PICKUPABLE
 {
-	// const auto obj = Pop().uintVal;
-	// const auto pickupable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetIdPickupable 0x6FB450: as 168, with +0x24 bit 0x2000 = (pickupable == 0)
+	const auto object = Pop().uintVal;
+	const auto pickupable = Pop().intVal != 0;
+	const auto entity = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_ID_PICKUPABLE: Thing not valid");
+		return;
+	}
+	ecs::thing_flags::SetPickupable(entity, pickupable);
 }
 
 void IsOnFire() // 170 IS_ON_FIRE
@@ -3375,18 +3436,19 @@ void GetObjectFade() // 265 GET_OBJECT_FADE
 
 void PlayHandDemo() // 266 PLAY_HAND_DEMO
 {
-	// const auto withoutHandModify = static_cast<bool>(Pop().intVal);
-	// const auto withPause = static_cast<bool>(Pop().intVal);
-	// const auto string = PopString();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::PlayHandDemo 0x6FDAD0: pops withoutHandModify, then the wait-for-trigger flag, then the demo's name
+	// (Input/HandDemo.h: StartPlayBack 0x5DAD60 for the running task, script +0x8C / +0x88)
+	const auto withoutHandModify = Pop().intVal != 0;
+	const auto waitTrigger = Pop().intVal != 0;
+	const auto name = PopString();
+	hand_demo::Play(name, Locator::vm::value().GetCurrentTaskNumber(), waitTrigger, withoutHandModify);
 }
 
 void IsPlayingHandDemo() // 267 IS_PLAYING_HAND_DEMO
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsPlayingHandDemo 0x6FDB80: the negation of IsPlayBack(0) (0x6FDB9A..0x6FDB9E), so the scripts'
+	// `CALL 267; JZ loop` wait until the demo has finished
+	Pushb(!hand_demo::IsPlaying(0));
 }
 
 void GetArsePosition() // 268 GET_ARSE_POSITION
@@ -4036,9 +4098,8 @@ void LastMusicLine() // 335 LAST_MUSIC_LINE
 
 void HandDemoTrigger() // 336 HAND_DEMO_TRIGGER
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript 0x6FE280: the script's pending trigger (+0x88), cleared as it is read (Input/HandDemo.h)
+	Pushb(hand_demo::ConsumeTrigger());
 }
 
 void GetBellyPosition() // 337 GET_BELLY_POSITION
@@ -5089,9 +5150,8 @@ void SaySoundEffectPlaying() // 458 SAY_SOUND_EFFECT_PLAYING
 
 void SetHandDemoKeys() // 459 SET_HAND_DEMO_KEYS
 {
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// 0x709540 is a bare `ret`: it does nothing and pops nothing (no script calls it). openblack's VM drops the
+	// declared argument when a native pops nothing (LHVM Opcode05Sys), which the original would leave on the stack
 }
 
 // The three push a bit of g_game+0x14 as a boolean (VMType 6); the bits are set at each new game by the SkipBox answer

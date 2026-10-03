@@ -447,13 +447,23 @@ as 0x3F800000 times. Fixed in `components/ScriptLibrary/src/LHVM.cpp` (`Opcode23
 With `OPENBLACK_TEST_TEXT_CLICK=1` (the texts with interaction 1 wait for a click, as in the original) `FollowUs` passes
 `_loop_4` at ~15 s (the family reaches the kiss markers), walks to the beach, the son runs into the sea, the camera jumps
 with the script's SET_CAMERA_POSITION calls, the texts appear (`¡Has salvado a nuestro hijo!` … `Te enseñaré cómo seguirlos.`)
-and the family passes `_loop_77..79` (reaches `StartPath`). **It stops at `HAS_CAMERA_ARRIVED` (035)**, a stub that returns 0: in the
-original it is `GCamera::Arrived` 0x443050 (the active camera mode, +0x58 / +0x28, vt +0x34; with no mode, 1) after
-`IsMultiplayerGame` 0x552F80 (multiplayer → 1) and the citadel notice (g_game +0x205A28 == 1). It needs the script
-camera mode (`START_CAMERA_CONTROL`) and `MOVE_CAMERA_POSITION` / `MOVE_CAMERA_FOCUS` (003 / 004, also stubs:
-that is why the camera does not glide). `END_CAMERA_CONTROL` is at the end of `FollowUs` (after `RUN Drag`), still far away.
-Also, after the 4 s `SET_FADE` to black (line 51012) the screen stays black: `SET_AVI_SEQUENCE(1, 1)` comes next (203,
-stub) and there is no `SET_FADE_IN` in `FollowUs`.
+and the family passes `_loop_77..79` (reaches `StartPath`).
+
+**State on 2026-10-03 (session Intro, run `_audit\Intro\base_100k`, `--mod game.skip-intro=off`,
+`OPENBLACK_TEST_TEXT_CLICK=1`):** the script camera (035 `HAS_CAMERA_ARRIVED`, 003 / 004, see
+[script-camera.md](script-camera.md)) and `SET_AVI_SEQUENCE` (203, `INTRO.bik`, see [video.md](video.md)) are ported, so
+`FollowUs` now runs through the film (~frame 20000), the rescue, the advisors' texts 4431..4437 and 5189..5192 and
+`RUN Drag` (52154). In `Drag` (12627..12722), after `PLAY_HAND_DEMO(279, 1, 0)` (12663, 266) the script waits
+`HAND_DEMO_TRIGGER` (336) three times (12672 / 12682 / 12692) and then `IS_PLAYING_HAND_DEMO` (267, 12699; it pushes
+`!IsPlayBack(0)` 0x6FDB9A, so it waits for the demo to end).
+
+**State on 2026-10-04 (session Intro, run `_audit\Intro\drag_140k`):** with the hand demo (`Input/HandDemo.h`, session
+Mano) and the opcodes 266 / 267 / 336 wired, `drag.hnd` plays its 590 records, text 5219 follows and the hand-over at
+52172..52175 runs (`SET_WIDESCREEN 0`, `END_GAME_SPEED`, `END_CAMERA_CONTROL`, `END_DIALOGUE`): the bars go, the camera
+and the dialogue are released, about 4 min of game after the start. The dialogue texts are drawn (HelpText display,
+`Help/HelpTextDisplay.h`, Renderer::DrawHelpText; not verified yet against the original's look). Still missing: the
+advisors (pending: HelpDude), the welcome crowd and dance, the villagers' focus and override animations (session
+Personas), the intro's JC specials and the high-detail family models.
 
 ### Skipping the tutorial (SkipBox and CAN_SKIP_TUTORIAL)
 

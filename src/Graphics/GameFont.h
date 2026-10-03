@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -45,8 +46,10 @@ public:
 
 	/// GetStringWidth 0x831130: sum of (left + width + right) x size / 80
 	[[nodiscard]] float GetStringWidth(const std::u16string& text, float size) const;
-	/// DrawTextRaw: two triangles per glyph at (x, y) (top left) of `size` pixels; rgba 0..1
-	void AddText(std::vector<Vertex>& out, const std::u16string& text, float x, float y, float size, const glm::vec4& rgba) const;
+	/// DrawTextRaw: two triangles per glyph at (x, y) (top left) of `size` pixels; rgba 0..1. clipTop / clipBottom: its
+	/// height clip (0x832DAB..0x832E20; HelpText passes the box's top and bottom, 0x5CBE04..0x5CBE7F)
+	void AddText(std::vector<Vertex>& out, const std::u16string& text, float x, float y, float size, const glm::vec4& rgba,
+	             float clipTop = -std::numeric_limits<float>::max(), float clipBottom = std::numeric_limits<float>::max()) const;
 
 private:
 	struct Glyph

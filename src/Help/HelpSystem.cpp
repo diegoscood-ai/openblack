@@ -11,12 +11,14 @@
 
 #include <cstdlib>
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
 #include <spdlog/spdlog.h>
 
 #include "GameClock.h"
+#include "TextSplitter.h"
 
 namespace openblack::help
 {
@@ -55,181 +57,20 @@ std::string Utf8(std::u16string_view text)
 	}
 	return out;
 }
-
-// fn_005CB0F0
-bool IsBlank(char16_t c)
-{
-	return c == 0x20 || c == 0x09 || c == 0x0D || c == 0x0A || c == 0xF8FE;
-}
-
-// fn_005CB190
-bool IsEscape(char16_t c)
-{
-	return c == u'$' || c == u'\\';
-}
-
-// fn_005CB1B0
-bool IsDigit(char16_t c)
-{
-	return c >= u'0' && c <= u'9';
-}
-
-// fn_005CB1D0: a digit, or fn_005CB220: C/c (fn_005CB200) or one of DFMNPdfmnp (the byte table 0x5CB26C over 'D'..'p')
-bool IsCode(char16_t c)
-{
-	return IsDigit(c) || std::u16string_view(u"CDFMNPcdfmnp").find(c) != std::u16string_view::npos;
-}
-
-class Splitter
-{
-public:
-	explicit Splitter(std::u16string_view text)
-	    : _text(text)
-	{
-	}
-
-	[[nodiscard]] bool AtEnd() const { return At(_pos) == 0; }
-
-	/// fn_005CB590(&text, word, 0): the length of the next piece (0 = empty)
-	uint32_t Next()
-	{
-		uint32_t length = 0;
-		if (IsBlank(At(_pos)) && SkipBlanks() != 3) // 0x5CB5B3..0x5CB5E2
-		{
-			return 0;
-		}
-		if (IsEscape(At(_pos))) // 0x5CB5F9
-		{
-			if (IsEscape(At(_pos + 1))) // 0x5CB613, 0x5CB68B: the second one is a character of the word
-			{
-				_pos += 2;
-				length = 1;
-			}
-			else
-			{
-				const int result = CodeResult(); // fn_005CB2A0
-				SkipCode();                      // fn_005CB4E0
-				if (result == 0 && IsBlank(At(_pos)))
-				{
-					SkipBlanks(); // 0x5CB653..0x5CB675
-				}
-				return 0;
-			}
-		}
-		// 0x5CB6A9..0x5CB703
-		while (!IsBlank(At(_pos)) && !IsEscape(At(_pos)) && At(_pos) != 0 && length < 0x2F)
-		{
-			++length;
-			++_pos;
-		}
-		return length;
-	}
-
-private:
-	[[nodiscard]] char16_t At(size_t i) const { return i < _text.size() ? _text[i] : u'\0'; }
-
-	/// fn_005CB120: 1 when it went past a line feed, 3 otherwise
-	int SkipBlanks()
-	{
-		if (!IsBlank(At(_pos)))
-		{
-			return 3;
-		}
-		while (IsBlank(At(_pos)))
-		{
-			if (At(_pos) == u'\n')
-			{
-				++_pos;
-				return 1;
-			}
-			++_pos;
-		}
-		return 3;
-	}
-
-	/// fn_005CB2A0(text, 0) at an escape: 1 for N, 4 for P, 5 for D, 2 for the number 1, 0 for C, F, M, other numbers or
-	/// no code (the calls it makes to set colours and fonts change only the display)
-	[[nodiscard]] int CodeResult() const
-	{
-		const char16_t code = At(_pos + 1);
-		if (!IsCode(code))
-		{
-			return 0;
-		}
-		switch (code)
-		{
-		case u'N':
-		case u'n':
-			return 1; // 0x5CB317
-		case u'P':
-		case u'p':
-			return 4; // 0x5CB322
-		case u'D':
-		case u'd':
-			return 5; // 0x5CB32D
-		case u'C':
-		case u'c':
-		case u'F':
-		case u'f':
-		case u'M':
-		case u'm':
-			return 0; // 0x5CB2FB, 0x5CB35C, 0x5CB338
-		default:
-		{
-			// 0x5CB378: _wtoi of the digits, fn_005CB4C0 (2 for 1)
-			int value = 0;
-			for (size_t i = _pos + 1; IsDigit(At(i)); ++i)
-			{
-				value = value * 10 + (At(i) - u'0');
-			}
-			return value == 1 ? 2 : 0;
-		}
-		}
-	}
-
-	/// fn_005CB4E0: past the escape, its code and the code's digits (and one more character after C)
-	void SkipCode()
-	{
-		++_pos; // 0x5CB501
-		const char16_t code = At(_pos);
-		if (code == u'C' || code == u'c') // fn_005CB200 0x5CB507
-		{
-			++_pos;
-			while (IsDigit(At(_pos)))
-			{
-				++_pos;
-			}
-			// 0x5CB53A skips one more character (the original reads past a terminating 0 here; not done)
-			if (_pos < _text.size())
-			{
-				++_pos;
-			}
-			return;
-		}
-		if (!IsCode(code)) // 0x5CB54C: only the escape is skipped
-		{
-			return;
-		}
-		++_pos;
-		while (IsDigit(At(_pos)))
-		{
-			++_pos;
-		}
-	}
-
-	std::u16string_view _text;
-	size_t _pos {0};
-};
 } // namespace
 
 uint32_t CountWords(std::u16string_view text)
 {
-	// fn_005CBEC0: while (*text) { fn_005CB590(&text, word, 0); if (word[0]) ++n; }
-	Splitter splitter(text);
+	// fn_005CBEC0: while (*text) { fn_005CB590(&text, word, 0); if (word[0]) ++n; }. Flag 0: no $M icon; the colour and
+	// font codes only change a state nobody reads here.
+	text_splitter::Splitter splitter(text);
+	text_splitter::DrawState state;
+	std::u16string word;
 	uint32_t words = 0;
 	while (!splitter.AtEnd())
 	{
-		if (splitter.Next() != 0)
+		splitter.Next(word, state, false);
+		if (!word.empty())
 		{
 			++words;
 		}
@@ -302,7 +143,18 @@ HelpSystem::HelpSystem(Info info, Queries queries, Hooks hooks)
     : _info(info)
     , _queries(std::move(queries))
     , _hooks(std::move(hooks))
+    // (pending) NeedsBiggerText 0x4079C0 (g_game+0x250080, the language, in {6, 10, 11, 13, 14}): H / 28; openblack has
+    // no language setting, so always H / 30. (pending) ReInitialiseText 0x5C7A80 after a resolution change
+    , _display(_queries.screenHeight ? _queries.screenHeight() : 480)
 {
+}
+
+void HelpSystem::Draw3D(float frameMs)
+{
+	_display.Advance(frameMs, _textDraw);
+	// the KMIcon is created when the text starts waiting (0x5C59D0: no icon at +0x24 yet) and fades in over 1.0 s
+	// (inferred: by the frame's game time, as the text's slide-in)
+	_clickCueAlpha = _waitClick ? std::min(1.0f, _clickCueAlpha + frameMs / 1000.0f) : 0.0f;
 }
 
 void HelpSystem::RunText(bool singleLine, uint32_t textId, int32_t withInteraction)
@@ -320,11 +172,11 @@ void HelpSystem::RunTextWithNumber(bool singleLine, uint32_t textId, float numbe
 		}
 		textId = 0;
 	}
-	if (singleLine || _singleLine) // 0x6F7CFF..0x6F7D21
+	if (singleLine || _display.IsSingleLine()) // 0x6F7CFF..0x6F7D21
 	{
 		ClearAllText();
 	}
-	_singleLine = singleLine; // 0x6F7D37
+	_display.SetSingleLine(singleLine); // 0x6F7D37
 	SayText(textId, withInteraction, number);
 }
 
@@ -339,11 +191,11 @@ void HelpSystem::TempTextWithNumber(bool singleLine, std::u16string_view text, f
 	// TempText also reports "Development text being used in game!" (0xC0D3F8, 0x6F7E9E) and the string (0x6F7EE8)
 	// (ScriptErrorMessage / ScriptWarningMessage: debug output, not ported)
 	const std::u16string shown = u"*" + std::u16string(text);
-	if (singleLine || _singleLine) // 0x6F7EF5..0x6F7F12
+	if (singleLine || _display.IsSingleLine()) // 0x6F7EF5..0x6F7F12
 	{
 		ClearAllText();
 	}
-	_singleLine = singleLine;
+	_display.SetSingleLine(singleLine);
 	AddText(shown, withInteraction, number, 1, 0); // 0x6F7F25..0x6F7F43: narrator 1, text id 0
 }
 
@@ -354,6 +206,7 @@ void HelpSystem::ClearDialogue()
 
 void HelpSystem::CloseDialogue()
 {
+	_display.Close(); // fn_005CB010 (0x6FF700)
 	ClearAllText();
 }
 
@@ -381,10 +234,15 @@ void HelpSystem::SayText(uint32_t textId, int32_t withInteraction, float number)
 
 void HelpSystem::AddText(const std::u16string& text, int32_t withInteraction, float number, int32_t narrator, uint32_t textId)
 {
-	if (_hooks.showText) // HelpText fn_005CCED0 (0x5C6116)
+	// HelpText fn_005CCED0 (0x5C6116); the TEXT_DRAW gate of fn_005C6E60 reads HelpTextData[+0x584].arg0, the text being
+	// made current here (inferred: TEMP_TEXT's id 0 reads entry 0)
+	const auto entry = _queries.textEntry ? _queries.textEntry(textId) : helptext::GetEntry(textId);
+	_display.Add(text, number, narrator, entry.arg0 != 0);
+	if (_hooks.showText)
 	{
 		_hooks.showText(text, number, narrator);
 	}
+	_clickCueAlpha = 0.0f; // 0x5C615E..0x5C6196 delete the KMIcons
 	StartReadingTime(text);                        // 0x5C611E
 	_waitClick = withInteraction == 1;             // 0x5C6129, 0x5C6140
 	_noClick = withInteraction == 2;               // 0x5C6131, 0x5C614D
@@ -393,7 +251,7 @@ void HelpSystem::AddText(const std::u16string& text, int32_t withInteraction, fl
 		_texts[i] = _texts[i - 1];
 	}
 	_texts[0] = textId; // 0x5C615C
-	// 0x5C615E..0x5C6196 delete the KMIcons +0x24 / +0x28 (display only: not ported)
+	// 0x5C615E..0x5C6196 delete the KMIcons +0x24 / +0x28 (above; +0x28, the $M key combination, is not ported)
 	if (Tracing())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Text: show {} narrator {} interaction {} words {} turns {}..{} \"{}\"", textId,
@@ -462,7 +320,7 @@ bool HelpSystem::IsTextRead() const
 
 void HelpSystem::ClearAllText()
 {
-	_singleLine = false; // HelpText::Reset 0x5CB053
+	_display.Reset(true); // HelpText::Reset(1) 0x5CB020 (+0xB0 = 0 at 0x5CB053)
 	_texts.fill(0);      // 0x5C556F
 	ClearTextDisplayed();
 	if (Tracing())
@@ -515,7 +373,7 @@ bool HelpSystem::DialogueControlRequest(uint32_t task)
 void HelpSystem::ClearDialogueControl()
 {
 	_dialogueOwner = 0; // 0x5C67E0
-	// 0x5C67EA..0x5C67F1: HelpText (+0x14) fn_005CB010, display only (not ported)
+	_display.Close();   // 0x5C67EA..0x5C67F1: HelpText (+0x14) fn_005CB010
 }
 
 void HelpSystem::ReleaseDialogueControl(uint32_t task)

@@ -239,7 +239,10 @@ TEST(HelpSystem, TempText)
 		shown = text;
 		EXPECT_EQ(narrator, 1);
 	};
-	HelpSystem help({8, 5}, {}, std::move(hooks));
+	// the display's TEXT_DRAW gate reads the current text's entry (fn_005C6E60): an empty database here
+	HelpSystem::Queries queries;
+	queries.textEntry = [](uint32_t) { return helptext::Entry {}; };
+	HelpSystem help({8, 5}, std::move(queries), std::move(hooks));
 	help.TempText(false, u"dev text", 0);
 	EXPECT_EQ(shown, u"*dev text");
 	EXPECT_EQ(help.GetTexts()[0], 0u);

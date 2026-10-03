@@ -431,9 +431,10 @@ Differences:
 
 **V4 (done):** `SET_AVI_SEQUENCE(on, 1)` calls `video::Get().Play(FindPath("Data/intro.bik"))` and `ScheduleIntro()` (58/60 s)
 and removes the fade (0x68F477..0x68F4E9); a map load for the movie to play (`GGame::ClearVariables` 0x54BF28). With
-the "free start" of the `game.skip-intro` mod there is no movie. **Pending a test in the game:** in Land 1 without the mod,
-FollowUs does not reach 203 yet (in 4 min of play it stops before, with unported opcodes such as DANCE_CREATE); the movie
-can already be seen with `OPENBLACK_TEST_VIDEO=intro`.
+the "free start" of the `game.skip-intro` mod there is no movie. **Checked in the game (2026-10-03, session Intro):** in Land 1
+without the mod, FollowUs reaches 203 and `INTRO.bik` plays (on screen at frame ~19900 of `_audit\Intro\base_20k`); the
+intro then goes on to `Drag` (map-loading.md, "In game (Land 1)"). The movie can also be seen alone with
+`OPENBLACK_TEST_VIDEO=intro`.
 
 ## Pending
 

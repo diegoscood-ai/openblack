@@ -16,7 +16,9 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/ScriptAudioState.h"
+#include "GameClock.h"
 #include "HelpSystem.h"
+#include "Input/HandDemo.h"
 
 namespace openblack::help::script_control
 {
@@ -282,6 +284,52 @@ bool RunMessage(HelpSystem& help, uint32_t first, uint32_t last, std::string_vie
 	return true;
 }
 
+namespace
+{
+/// GScript::ActualEndGameSpeed 0x6FAA60: GCamera::SetScriptSlomoControl(0) when there is a camera (not ported, see
+/// StartGameSpeed), GGame::SetSpeed(1.0) 0x5537F0 and +0xAC = 0
+void ActualEndGameSpeed(CameraControl& camera)
+{
+	game_clock::SetSpeed(1.0f);
+	camera.gameSpeedOwner = 0;
+}
+} // namespace
+
+void StartGameSpeed(CameraControl& camera, const Vm& vm)
+{
+	const uint32_t task = vm.taskNumber ? vm.taskNumber() : 0; // ScriptDLL::TaskNumber 0x6F69F0
+	if (camera.gameSpeedOwner == 0 || camera.gameSpeedOwner == task)
+	{
+		camera.gameSpeedOwner = task;
+	}
+}
+
+void EndGameSpeed(CameraControl& camera, const Vm& vm)
+{
+	const uint32_t task = vm.taskNumber ? vm.taskNumber() : 0;
+	if (camera.gameSpeedOwner == 0 || camera.gameSpeedOwner == task)
+	{
+		ActualEndGameSpeed(camera);
+	}
+}
+
+void SetGameSpeed(const CameraControl& camera, const Vm& vm, float speed)
+{
+	const uint32_t task = vm.taskNumber ? vm.taskNumber() : 0;
+	if (camera.gameSpeedOwner == task)
+	{
+		game_clock::SetSpeed(speed);
+	}
+}
+
+void ReleaseGameSpeedOf(CameraControl& camera, uint32_t task)
+{
+	if (camera.gameSpeedOwner == task)
+	{
+		ActualEndGameSpeed(camera);
+	}
+}
+
 void OnTaskStopped(uint32_t task, HelpSystem* help, CameraControl& camera, audio::ScriptAudioState& audio)
 {
 	if (help == nullptr) // 0x6EC6D5 / 0x6EC6DF
@@ -290,6 +338,8 @@ void OnTaskStopped(uint32_t task, HelpSystem* help, CameraControl& camera, audio
 	}
 	help->ReleaseDialogueControl(task);  // 0x6EC6E9
 	ReleaseCameraOf(camera, audio, task); // 0x6EC70C
+	ReleaseGameSpeedOf(camera, task);     // 0x6EC71E
+	hand_demo::EndIfTask(task);           // 0x6EC72A..0x6EC748: GInterface::EndPlayBack when IsPlayBack(task)
 }
 
 } // namespace openblack::help::script_control

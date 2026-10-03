@@ -91,6 +91,10 @@ struct CameraControl
 	/// +0x80: the highlights are drawn (SET_DRAW_HIGHLIGHT 0x708CCD; read by ScriptHighlight::Draw 0x709C9D). Not
 	/// ported either
 	int32_t drawHighlight {1};
+	/// +0xAC: the task that controls the game speed (StartGameSpeed 0x6FA9E0; 0 in ActualEndGameSpeed 0x6FAA60).
+	/// GScript::Reset 0x6EB2D0 does not write it (0x6EB2D6..0x6EB318; 0 from the constructor: inferred); a stopped task
+	/// gives it back (the task-stop callback 0x6EC71E). (pending) its save and load with the GScript state
+	uint32_t gameSpeedOwner {0};
 
 	/// **Not original**, mod game.skip-intro option "free start" (EngineConfig::skipIntroFreeStart): the task of the
 	/// land's opening, i.e. the first one that takes the camera after a new game, while it still holds it. 0 = none
@@ -132,10 +136,22 @@ void ReleaseCameraControl(CameraControl& camera, audio::ScriptAudioState& audio)
 /// fn_006ECF20(task) (GScript method, from the task-stop callback 0x6EC70C): fn_006ECD70 when the task has the camera
 bool ReleaseCameraOf(CameraControl& camera, audio::ScriptAudioState& audio, uint32_t task);
 
+/// GScript::StartGameSpeed 0x6FA9E0 (CHL 128 START_GAME_SPEED): when nobody or this task controls the game speed,
+/// GCamera::SetScriptSlomoControl(1) 0x441F40 (GCamera+0x70 = 1: no reader found besides Save/Load, not ported) and
+/// the task takes it
+void StartGameSpeed(CameraControl& camera, const Vm& vm);
+/// GScript::EndGameSpeed 0x6FAAB0 (CHL 129 END_GAME_SPEED): ActualEndGameSpeed when nobody or this task controls it
+void EndGameSpeed(CameraControl& camera, const Vm& vm);
+/// GScript::SetGameSpeed 0x6FAAE0 (CHL 066 SET_GAMESPEED), after the pop: GGame::SetSpeed only for the task that
+/// controls the game speed (an owner of 0 matches no running task)
+void SetGameSpeed(const CameraControl& camera, const Vm& vm, float speed);
+/// fn_006FAA40(task) (from the task-stop callback 0x6EC71E): ActualEndGameSpeed when the task controls the game speed
+void ReleaseGameSpeedOf(CameraControl& camera, uint32_t task);
+
 /// The task-stop callback 0x6EC6D0 (fn_006EB1D0 passes it to ScriptDLL at 0x6EB1F1), for the parts ported: nothing
-/// without a game or HelpSystem (0x6EC6D5 / 0x6EC6DF); HelpSystem fn_005C6800(task) (0x6EC6E9) and GScript
-/// fn_006ECF20(task) (0x6EC70C). Not ported: HelpSystem fn_005C78C0(task) (0x6EC6FA), GScript fn_006FAA40(task)
-/// (0x6EC71E) and GInterface::EndPlayBack when IsPlayBack(task) (0x6EC72A..0x6EC748). ScriptLibraryR.dll calls it
+/// without a game or HelpSystem (0x6EC6D5 / 0x6EC6DF); HelpSystem fn_005C6800(task) (0x6EC6E9), GScript
+/// fn_006ECF20(task) (0x6EC70C), fn_006FAA40(task) (0x6EC71E) and GInterface::EndPlayBack when IsPlayBack(task) (0x6EC72A..0x6EC748,
+/// Input/HandDemo.h). Not ported: HelpSystem fn_005C78C0(task) (0x6EC6FA). ScriptLibraryR.dll calls it
 /// before the task leaves the list (StopTask 0x100065B0: the callback 0x1003BDD0 at 0x100065CD, the unlink from
 /// 0x10006612), so GetScriptType(task) in fn_005C6800 still sees it, as LHVM::StopTask does (InvokeStopTaskCallback
 /// before the erase)

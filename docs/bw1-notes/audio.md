@@ -905,9 +905,9 @@ already reads the script widescreen (0x4279E9).
 
 In game (Land 1, `FollowUs`): START_CAMERA_CONTROL → START_DIALOGUE → START_GAME_SPEED → SET_WIDESCREEN →
 **START_MUSIC 54** (intro.sad plays). With `MOVE_GAME_THING` (033) from maps (b17111c6) `FollowUs_loop_4` passes, the
-family walks and the singing stones sound (PLAY_SOUND_EFFECT 49/50/54); the following blocks are camera ones, without
-an owner: HAS_CAMERA_ARRIVED (035, GCamera::Arrived 0x443050), MOVE_CAMERA_POSITION/FOCUS (003/004) and SET_AVI_SEQUENCE
-(203, black screen after the SET_FADE). Since B7 the intro speaks: see [B7 in game](#b7-in-game).
+family walks and the singing stones sound (PLAY_SOUND_EFFECT 49/50/54). The camera blocks (035, 003/004) and
+SET_AVI_SEQUENCE (203) have been ported since (script-camera.md, video.md); the intro now stops in `Drag` at the hand demo
+(map-loading.md, "In game (Land 1)"). Since B7 the intro speaks: see [B7 in game](#b7-in-game).
 
 ## Phase A implemented
 
@@ -1267,9 +1267,9 @@ misericordia!" (woman, villagers 119/120), "¡Te alabamos!" (with click) and the
 conciencia.", "Bueno.", "Y malo.", "Yin y Yang.", "Blanco y Negro.", "Como parte de ti, te guiaremos por este mundo."
 (HelpSprites, owner 0x270C); then "Nuestra gente te rendirá culto.", "Ten la bondad de acompañarnos a nuestro
 Pueblo." and "Te enseñaré cómo seguirlos.". The texts with a click are passed with `OPENBLACK_TEST_TEXT_CLICK=1` (the click, with
-the widescreen, cuts the villagers voice, as in the original). It stops at **HAS_CAMERA_ARRIVED (035)**: after
-GAME_CLEAR_DIALOGUE, FollowUs does `RUN Drag`, and Drag moves the camera (MOVE_CAMERA_POSITION/FOCUS 003/004, not
-implemented) and waits `wait until HAS_CAMERA_ARRIVED` (a stub that returns false). It is the camera, without an owner.
+the widescreen, cuts the villagers voice, as in the original). In 2026-10-01 it stopped at HAS_CAMERA_ARRIVED (035);
+since the script camera was ported it goes on into `Drag` and says text 5128 (HELP_TEXT_HAND_DEMO_DRAG_01, sample 497)
+before stopping at the hand demo (HAND_DEMO_TRIGGER 336, pending; map-loading.md, "In game (Land 1)").
 
 ### (Approximate), (inferred) and pending for B7
 

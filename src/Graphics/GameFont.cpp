@@ -220,7 +220,8 @@ float GameFont::GetStringWidth(const std::u16string& text, float size) const
 	return width * size / static_cast<float>(k_CellHeight);
 }
 
-void GameFont::AddText(std::vector<Vertex>& out, const std::u16string& text, float x, float y, float size, const glm::vec4& rgba) const
+void GameFont::AddText(std::vector<Vertex>& out, const std::u16string& text, float x, float y, float size, const glm::vec4& rgba,
+                       float clipTop, float clipBottom) const
 {
 	if (!IsLoaded())
 	{
@@ -228,6 +229,28 @@ void GameFont::AddText(std::vector<Vertex>& out, const std::u16string& text, flo
 	}
 	const float s = size / static_cast<float>(k_CellHeight);
 	const bool small = size < 26.0f;
+	// the height clip 0x832DAB..0x832E20: above clipTop the cut goes off the top (y = clipTop, h -= cut); past
+	// clipBottom h = clipBottom - y; nothing when h <= 0. The v range of the cell is cut in the same ratio of the
+	// unclipped size: vTop = cut / size * vext, vBottom = (size - over) / size * vext (0x832E07..0x832E20)
+	float top = y;
+	float height = size;
+	float cut = 0.0f;
+	float kept = size;
+	if (top < clipTop)
+	{
+		cut = clipTop - top;
+		top = clipTop;
+		height -= cut;
+	}
+	if (top + height > clipBottom)
+	{
+		kept -= top + height - clipBottom;
+		height = clipBottom - top;
+	}
+	if (height <= 0.0f)
+	{
+		return;
+	}
 	const uint32_t abgr = lh3d_colour::ToAbgr(rgba);
 	const auto w = static_cast<float>(_atlasSize.x);
 	const auto h = static_cast<float>(_atlasSize.y);
@@ -252,12 +275,14 @@ void GameFont::AddText(std::vector<Vertex>& out, const std::u16string& text, flo
 		// (/ 4 small), v over 39 texels from the line (19.5 from row 40 small)
 		const float x0 = x + pen + glyph->left * s;
 		const float x1 = x0 + (static_cast<float>(glyph->bitmapWidth) + 2.0f) * s;
-		const float y0 = y;
-		const float y1 = y + size;
+		const float y0 = top;
+		const float y1 = top + height;
 		const float u0 = (static_cast<float>(glyph->slotX) + 0.5f) / w;
 		const float u1 = u0 + (static_cast<float>(glyph->bitmapWidth) + 2.0f) / (small ? 4.0f : 2.0f) / w;
-		const float v0 = (static_cast<float>(glyph->line * k_LineRows) + (small ? 40.0f : 0.0f) + 0.5f) / h;
-		const float v1 = v0 + (small ? 19.5f : 39.0f) / h;
+		const float vBase = (static_cast<float>(glyph->line * k_LineRows) + (small ? 40.0f : 0.0f) + 0.5f) / h;
+		const float vExtent = (small ? 19.5f : 39.0f) / h;
+		const float v0 = vBase + cut / size * vExtent;
+		const float v1 = vBase + kept / size * vExtent;
 		for (const auto& [px, py, pu, pv] : {std::array {x0, y0, u0, v0}, std::array {x1, y0, u1, v0}, std::array {x1, y1, u1, v1},
 		                                     std::array {x0, y0, u0, v0}, std::array {x1, y1, u1, v1}, std::array {x0, y1, u0, v1}})
 		{

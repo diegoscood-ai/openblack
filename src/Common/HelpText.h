@@ -69,5 +69,6 @@ struct Entry
 /// Tooltip ids (HELP_TEXT_TOOLTIP_*, the tooltip table starts at 0xE73)
 constexpr uint32_t k_ToolTipPickUp = 0xE73;       ///< "Recoger" / "Pick up"
 constexpr uint32_t k_ToolTipAmountInHand = 0xEEA; ///< "Cantidad: %3.0f"
+constexpr uint32_t k_ToolTipContinue = 0xE79;     ///< HELP_TEXT_TOOLTIP_07 "Continuar", the click cue (Draw3D 0x5C59D0)
 
 } // namespace openblack::helptext

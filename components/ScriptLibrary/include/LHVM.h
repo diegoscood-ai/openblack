@@ -101,7 +101,6 @@ protected:
 	const VMScript* GetScript(const std::string& name);
 	bool TaskExists(uint32_t taskId);
 	uint32_t GetTicksCount();
-	void PushElaspedTime();
 	VMVar& GetVar(VMTask& task, uint32_t id);
 	uint32_t GetExceptionHandlersCount();
 	uint32_t GetCurrentExceptionHandlerIp(uint32_t index);
@@ -113,6 +112,10 @@ protected:
 
 public:
 	LHVM();
+
+	/// ScriptLibraryR.dll's DLL_GETTIME handler 0x1000ABD0 (CHL 029): the tick count [0x1003BDB4] x 0.1f [0x1001F140],
+	/// type 2
+	void PushElaspedTime();
 
 	~LHVM();
 

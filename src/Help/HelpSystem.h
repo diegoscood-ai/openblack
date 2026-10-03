@@ -18,12 +18,13 @@
 
 #include "Audio/Services/Voices.h"
 #include "Common/HelpText.h"
+#include "HelpTextDisplay.h"
 
 // The text part of HelpSystem (runblack.exe W120, g_game+0x25005C), milestone A11 of dev\tmp_dis\audio\PLAN.md: the
 // current text and the five before it, the history, ClearAllText, IsTextRead, the click that ends a text, and the CHL
 // functions RUN_TEXT, RUN_TEXT_WITH_NUMBER, TEMP_TEXT, TEMP_TEXT_WITH_NUMBER, TEXT_READ, GAME_CLEAR_DIALOGUE and
-// GAME_CLOSE_DIALOGUE. Nothing is drawn (the HelpText display, fn_005CCED0, is not ported): OPENBLACK_TEXT_TRACE logs
-// each text. The voices (milestone B7) plug in through the hooks and queries below (Game.cpp: audio::voices and
+// GAME_CLOSE_DIALOGUE. The HelpText display (+0x14) is HelpTextDisplay, drawn by Renderer::DrawHelpText;
+// OPENBLACK_TEXT_TRACE logs each text. The voices (milestone B7) plug in through the hooks and queries below (Game.cpp: audio::voices and
 // audio::advisor); with Queries::voiceBankLoaded unset no text has a voice, so IsTextRead takes the reading-time branch,
 // as the original does when the dialogue banks are not registered.
 // Sources: dev\tmp_dis\audio\voices.md §2.3-2.4, script.md §2.3 and the disassembly of 0x5C5550..0x5C6E00,
@@ -120,6 +121,8 @@ public:
 		std::function<bool()> advisorsTalking;
 		/// GAudio fn_0042A280(owner, sample, bank) = LHSampleIsPlaying (0x5C63CA). Unset: false.
 		std::function<bool(audio::SfxBank, audio::VoiceOwner, uint32_t sample)> isPlaying;
+		/// The screen height the HelpText ctor reads once (fn_005CADC0: +0xA0 = H / 30). Unset: 480 (inferred)
+		std::function<int()> screenHeight;
 	};
 
 	/// Where the parts that are not ported plug in
@@ -179,6 +182,20 @@ public:
 	void Reset();
 	/// HelpSystem::IsTextRead 0x5C64E0 (CHL 15 TEXT_READ)
 	[[nodiscard]] bool IsTextRead() const;
+	/// The text part of HelpSystem::Draw3D 0x5C59A0, once a frame with the frame's game time in ms (g_game_time_inc;
+	/// g_delta_time in the citadel): the slide-in of the newest text (fn_005CC760 0x5CC7BE) and the fade-in of the
+	/// "click to continue" KMIcon (0x5C59D0..0x5C5ACE, alpha 0 -> 1 in 1.0 s [0x92A444])
+	void Draw3D(float frameMs);
+	/// HelpSystem+0x14, the HelpText display
+	[[nodiscard]] const HelpTextDisplay& GetDisplay() const { return _display; }
+	/// fn_005C6E60's profile value TEXT_DRAW (+0x4604, fn_005C6CF0 0x5C6D4B: 1 when the profile has none; openblack has no
+	/// profiles)
+	[[nodiscard]] int GetTextDraw() const { return _textDraw; }
+	/// The profile's TEXT_TOPTOBOTTOM ([0xD16180], 0 when missing, 0x5C6D28..0x5C6D46)
+	[[nodiscard]] bool GetTextTopToBottom() const { return _textTopToBottom; }
+	/// The alpha of the "click to continue" KMIcon, 0..1 (0 when no text waits for a click)
+	[[nodiscard]] float GetClickCueAlpha() const { return _clickCueAlpha; }
+
 	/// HelpSystem::ProcessInterface 0x5C69B0 from GInterface (0x5D11C0: `click` is bit 5 of GInterface+0x39) (inferred:
 	/// that bit is the left button going down; openblack calls it on that event). 1, or k_ClickTaken.
 	int ProcessInterface(bool click);
@@ -264,7 +281,10 @@ private:
 	Queries _queries;
 	Hooks _hooks;
 
-	bool _singleLine {false};                            ///< HelpText +0xB0 (helpText = HelpSystem+0x14)
+	HelpTextDisplay _display;                            ///< +0x14 (HelpText::Create 0x5CB090)
+	int _textDraw {1};                                   ///< +0x4604
+	bool _textTopToBottom {false};                       ///< [0xD16180]
+	float _clickCueAlpha {0.0f};                         ///< the KMIcon +0x24's alpha
 	bool _waitClick {false};                             ///< +0x57C
 	bool _noClick {false};                               ///< +0x580: withInteraction == 2, a click does nothing
 	std::array<uint32_t, 6> _texts {};                   ///< +0x584..+0x598

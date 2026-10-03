@@ -628,7 +628,9 @@ uint32_t LHVM::GetTicksCount()
 
 void LHVM::PushElaspedTime()
 {
-	const float time = GetTicksCount() * 10.0f;
+	// fild of the tick count (+1 at the end of every LookIn, 0x10008217; 0 on Reboot; saved) times 0.1f. (approximate)
+	// x87 rounds the 80-bit product once; the double product rounds the same for any count below 2^24
+	const auto time = static_cast<float>(static_cast<double>(GetTicksCount()) * static_cast<double>(0.1f));
 	Pushf(time);
 }
 

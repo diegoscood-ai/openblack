@@ -12,6 +12,9 @@
 #include <array>
 
 #include "ECS/Components/Player.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 #include "Magic/MagicTables.h"
@@ -122,6 +125,46 @@ void magic::players::SetMagicTypeEverBeenEnabled(PlayerNames player, MagicType t
 bool magic::players::HasMagicTypeEverBeenEnabled(PlayerNames player, MagicType type)
 {
 	return MagicOf(player).everEnabled[TypeIndex(type)];
+}
+
+uint32_t magic::players::WorldPopulation()
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return 0;
+	}
+	uint32_t count = 0;
+	Locator::entitiesRegistry::value().Each<const Villager>([&count](const Villager&) { ++count; });
+	return count;
+}
+
+float magic::players::ProportionOfWorldPopulationWhoBelieveInMe(PlayerNames player)
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return 0.0f;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	// 0x64B680..0x64B6A8: the town list (+0xA50, next +0x75C): edx += +0x668 (women), esi += +0x664 (men), as integers
+	uint32_t women = 0;
+	uint32_t men = 0;
+	for (const auto entity : ecs::map_cells::TownsOf(player))
+	{
+		if (const auto* town = registry.TryGet<const Town>(entity); town != nullptr)
+		{
+			women += town->stats.females;
+			men += town->stats.males;
+		}
+	}
+	// 0x64B6AA..0x64B6E1: world (g_game+0x205A54) != 0 and men + women != 0 -> fild qword / fild qword (the FPU at 24
+	// bits: a float division of the exact counts)
+	const uint32_t world = WorldPopulation();
+	const uint32_t believers = men + women;
+	if (world == 0 || believers == 0)
+	{
+		return 0.0f; // 0x64B6E7
+	}
+	return static_cast<float>(believers) / static_cast<float>(world);
 }
 
 void magic::players::Reset()

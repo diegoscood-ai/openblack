@@ -92,12 +92,27 @@ struct HeartBeatInput
 {
 	float protectionDesire {0.0f}; ///< the sum of Town::GetRawDesire(3) over the player's towns (+0xA50, +0x75C)
 	float believers {0.0f};        ///< GPlayer::GetProportionOfWorldPopulationWhoBelieveInMe 0x64B680
-	float beliefShare {0.0f};      ///< fn_0064B700: GPlayer+0x8C over the sum of the active players' (0 for 0)
+	/// fn_0064B700: the sum of the active players' (and the neutral one's) GPlayer+0x8C (CalculateInfluencePower
+	/// 0x64AD00) over the player's own (fdivr 0x64B74F: sum / own; 0 when the own is 0)
+	float beliefShare {0.0f};
 	/// For each other player's creature (GPlayer+0xA4C, whose interface is not the local one) whose nearest town
 	/// (MapCoords::GetNearestTown 0x601F90) is the local player's: that distance
 	std::vector<uint32_t> enemyCreatureDistances;
 	/// The local citadel (GPlayer+0xA48) +0x14 when its +0x30 (the heart) answers vt +0x890 and has life (GetLife > 0)
 	std::optional<glm::vec3> citadelHeart;
+};
+
+/// The worship site whose dance GAudio::ProcessChantMusic 0x427790 hears: MapCoords::GetNearestCitadel 0x602200(150)
+/// at the camera's MapCoords (GetCamera()+0x14), then fn_004639A0(camera, 100): its nearest site with dancers
+struct ChantSite
+{
+	int tribe {0};        ///< fn_0077C2E0: site +0x8C (GTribeInfo) +0x10, the index of the table 0x9C9A30
+	uint32_t dancers {0}; ///< the dance (site +0xA0) +0x90
+	/// fn_0077CD90 (GetSpecialPos 8, the dance centre) as GetLHPoint: x, z x 10 / 65536 (0x4278BD..0x4278D5), y =
+	/// GetAltitude + its altitude (0x4278A0..0x4278B9)
+	glm::vec3 position {0.0f};
+	float ground {0.0f};       ///< LH3DIsland::GetAltitude 0x803090 of that MapCoords (0x42784A)
+	float cameraGround {0.0f}; ///< LH3DIsland::GetAltitude of the camera's MapCoords (0x427821)
 };
 
 /// What fn_00516510 (the sound events of an animation clip, audio::AnimationSounds::Fire) reads of the animated thing
@@ -201,8 +216,10 @@ struct GameQueries
 	/// function returned non-zero" (it took the music); unset = false, so ProcessMusic goes on to the next one.
 	/// fn_00427660 (the local creature fighting; milestone C1)
 	std::function<bool()> creatureFightMusic;
-	/// ProcessChantMusic 0x427790 (a worship site's dance near the camera; milestone C3)
-	std::function<bool()> chantMusic;
+	/// ProcessChantMusic 0x427790's worship site (GameMusic::ProcessChantMusic plays it; milestone C3). Game:
+	/// ecs::audio_queries (map_cells::GetNearestCitadel, worship::citadel::FindNearestWorshipSite). Unset: nullopt (no
+	/// chant)
+	std::function<std::optional<ChantSite>()> chantSite;
 	/// ProcessCreatureDanceMusic 0x427EC0 (a creature leading a dance; milestone C1)
 	std::function<bool()> creatureDanceMusic;
 

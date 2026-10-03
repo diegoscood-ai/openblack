@@ -46,6 +46,9 @@ struct ScriptAudioState;
 /// fn_00427410: the tribe music, 5 (CELTIC_TOWN_NEUTRAL) from tribe 9 on, else the table 0x9C9A0C
 /// {4, 4, 7, 10, 13, 16, 19, 22, 25} + alignment index
 [[nodiscard]] int TribeMusicType(int alignmentIndex, int tribe);
+/// fn_00427430: the chant of a tribe, 5 (CELTIC_TOWN_NEUTRAL) from tribe 9 on, else the table 0x9C9A30
+/// {28, 28, 30, 32, 34, 36, 38, 40, 42} (*_CHANT), + 1 (*_CHANT_VOX) with more than 8 dancers
+[[nodiscard]] int ChantMusicType(int tribe, uint32_t dancers);
 
 class GameMusic
 {
@@ -148,6 +151,9 @@ private:
 	bool ProcessCitadelMusic();
 	/// fn_00427CA0
 	bool ProcessScriptMusic();
+	/// ProcessChantMusic 0x427790: the chant of the worship site near the camera (GameQueries::chantSite), 3D at its
+	/// dance centre
+	bool ProcessChantMusic();
 	/// fn_00429790
 	bool ProcessThingMusic();
 	/// fn_00429500

@@ -77,6 +77,24 @@ void ProcessTowns();
 /// Citadel::GetInfluence 0x464090 of a temple entity
 [[nodiscard]] float CitadelRadius(entt::entity temple);
 
+// ---- the player's influence power (GPlayer +0x8C; InfluenceSources.cpp) ----
+
+/// GPlayer::CalculateInfluencePower 0x64AD00: +0x8C = Citadel::GetInfluence of the player's citadel (+0xA48, with its
+/// heart +0x30), + each town's +0x5C8 (fn_0073FBC0, the town list +0xA50), + the radius +0x38 of every influence ring of
+/// the player (g_game+0x205C4C, anti rings too), each a float sum; stored and returned. The rest of the function (+0x90
+/// = (+0x90 + +0x8C) x 0.5 and the GameStats history +0xAC) has no reader in openblack and is not ported.
+float CalculateInfluencePower(PlayerNames player);
+/// GPlayer::Process 0x64971D for every player and the neutral one (GetNextPlayerAndNeutral, GPlayer::ProcessPlayers
+/// 0x649B1D), after its alignment: MagicLoop's slot 3
+void CalculateInfluencePowers();
+/// GPlayer +0x8C as the last CalculateInfluencePower left it (0 before the first one of the land)
+[[nodiscard]] float InfluencePower(PlayerNames player);
+/// fn_0064B700: the sum (from 0, in float) of +0x8C over GGame::GetNextActivePlayerAndNeutral 0x550930 (the players of
+/// type +0x8E0 != 0, then the neutral one), divided by the player's own +0x8C (fdivr 0x64B74F); 0 when the own is 0
+/// (fcom 0; test ah, 0x40). (inferido) a player is active when the land made it (magic::players::EntityOf): openblack
+/// keeps +0x8E0 only for the human one
+[[nodiscard]] float InfluencePowerRatio(PlayerNames player);
+
 /// What the original does in GGame::ProcessTurn at the influence slot: InfluenceRing::ProcessRings, plus the towns'
 /// influence (Town::Process, run in the towns' own loop in the original)
 void ProcessTurn();

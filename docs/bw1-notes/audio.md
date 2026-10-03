@@ -221,7 +221,7 @@ Reglas:
    `audio::GameQueries` (`src/Audio/GameQueries.h`), unas `std::function` que registran `Game.cpp` y
    `ecs::audio_queries` (`src/ECS/AudioQueries.cpp`). Una consulta sin dueño devuelve el valor
    de un juego sin ese sistema: sin vídeo, tierra 0, sin cámara, sin pantalla ancha, alineamiento 0, sin pueblos, fuera de la ciudadela y las
-   ramas de música de pelea, cántico y baile en false.
+   ramas de música de pelea y baile en false (el cántico, sin lugar de culto: `chantSite` vacío).
 6. **La lógica es pura y se prueba sin AL**, con sinks falsos.
 7. **Un solo motor (B11a).** Un solo dispositivo OpenAL (`src/Audio/Device/Device.{h,cpp}`, `audio::device`): los canales
    (`AlSampleOutput`), los búferes (`WaveBuffers`) y la música (`MusicStream`) le piden fuentes y búferes; nadie más
@@ -618,8 +618,10 @@ Las fuentes:
   vol 127, sync 1, fundido 1).
 - **Pelea** 0x427660 / 0x427590 (estado de interfaz 0x10 o una `GArena` a < 100; 75 BIG_FIGHT si `g_game+0x205A0C`, si
   es multijugador o si `LandNumber ≥ 4`; si no, 74).
-- **Cántico** 0x427790 (lugar de culto a ≤ 100, ciudadela a ≤ 150; tabla 0x9C9A30 `{28,28,30,…,42}` + (bailarines > 8)
-  = la versión _vox; 3D en `GetSpecialPos(8)`).
+- **Cántico** 0x427790 (ciudadela a < 150 de la cámara, `GetNearestCitadel` 0x602200; de sus seis lugares, el que tiene
+  bailarines con el centro del baile más cerca a < 100, fn_004639A0; |altura de la cámara − suelo del centro| < 100;
+  tabla 0x9C9A30 `{28,28,30,…,42}` + (bailarines > 8) = la versión _vox, fn_00427430; vol 127, sync 1, sin fundido,
+  3D en `GetSpecialPos(8)`). Detalle en [C3](#fase-c-c3-cánticos-y-latido).
 - **Baile de la criatura** 0x427EC0 (acción 0x17 a < 75, Δaltura < 60; la acción 0x17 es **(inferido)**).
 
 openblack:
@@ -632,8 +634,8 @@ openblack:
 - `ThingMusicList` (`src/Audio/Services/ThingMusic.{h,cpp}`): 0x429180, 0x429230, 0x429340, 0x4291B0, fn_00429880,
   fn_004298A0, 0x4298C0, 0x4298F0, y la ida y vuelta de `MapCoords` (0x603340, 6553.6 en 0x8AC400, 10/65536 en 0x8AA3A4).
 - Ganchos de `Game.cpp`: `GAudio::ProcessAudioGameTurn` después del turno 5 (0x54E997) y `Reset` en `LoadMap`.
-- Las ramas de pelea, cántico y baile son consultas sin dueño (false) hasta C1/C3; la de la ciudadela es
-  `GameMusic::ProcessCitadelMusic` desde C4. El alineamiento de la
+- Las ramas de pelea y baile son consultas sin dueño (false) hasta C1; la del cántico es
+  `GameMusic::ProcessChantMusic` desde C3 y la de la ciudadela `GameMusic::ProcessCitadelMusic` desde C4. El alineamiento de la
   cámara (GAudio+0x190) lo da C2 y el pueblo con su tribu `ecs::map_cells` (ver [C2](#fase-c-c2-clima-y-alineamiento)):
   con la cámara sobre un pueblo con centro suena la de su tribu, si no la genérica del alineamiento, a volumen 80, a
   partir del turno 20 en las tierras ≠ 6.
@@ -1537,7 +1539,7 @@ original; el generador es el de openblack **(aproximado)** salvo en los tests, q
 
 **Consultas nuevas** (`GameQueries.h`): `playgroundGame`, `multiplayerGame` (falso), `helpLevel` (HelpSystem; 3 sin él),
 `localPlayerNumber` (PLAYER_ONE), `visualNight`, `handPosition` (la mano, **(inferido)** GInterface+0x3B8), `pointOnScreen`
-(sin ella: falso), `desireTowns`, `worshipSites`, `nearestTownAt` (asignada: `map_cells::GetNearestTown`), `townResourceNeeds`, `heartBeat` (sin ellas: nada), `helpRunMessage`,
+(sin ella: falso), `desireTowns`, `worshipSites`, `nearestTownAt` (asignada: `map_cells::GetNearestTown`), `townResourceNeeds`, `heartBeat` (sin ellas: nada; `heartBeat` asignada desde C3, ver [C3](#fase-c-c3-cánticos-y-latido)), `helpRunMessage`,
 `helpTriggerCategory`, `profileName`.
 
 **HelpSystem** (A11/B7, de audio): `+0x45F8` interruptor (Reset 0x5C55FC = 1; **SET_HELP_SYSTEM 253** hecho), `+0x45F4`
@@ -1550,7 +1552,7 @@ float y arranca el guion con los tipos 0x7F. `chlapi::ScriptVm` sale en `CHLApi.
 `LoadMap`; las listas de info.dat al arrancar; `ResourceDropSFX` en `pot_resource::AddResourceToPos` (montón nuevo de la
 mano local: RESOURCE_TYPE 1 → 2, 0 → 1) y en `HandSystem::DepositInStore` (con el punto y el GetGuidanceResourceType del **receptor**, el almacén: StoragePit hereda el 0 de GameThing 0x71BDD0, así que el original corre PlayNow y GetNearestTown y no dice nada). Hoy no suena nada
 de esto en Land 1: los tipos no «siempre» callan en el Land 1 de la campaña, los pueblos no tienen deseos ni valores de
-recursos (consultas neutras) y no hay corazón de ciudadela.
+recursos (consultas neutras). El latido sí suena desde C3 (el corazón es el templo).
 
 ### GSpookyVoices (`src/Audio/Services/SpookyVoices.{h,cpp}`, `audio::spooky`)
 
@@ -1602,7 +1604,7 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
   - `Town::UpdateAggressor` 0x73C9B0 (TownAttackSFX, fn_0071C960, fn_0071C9F0), `Town::CalculateDesireForFood`
     0x747FA0 / 0x7481BC (LowOnFood/Wood), `TownDesire::Process` 0x745C8A (VillagerUnhappy), los deseos de los pueblos
     (hecho con la V3 de asistente: `desireTowns` y `townResourceNeeds` sobre `ecs::town_desire`, y las tres
-    llamadas van dentro de TownDesire.cpp; falta `heartBeat`), el corazón de la ciudadela;
+    llamadas van dentro de TownDesire.cpp; `heartBeat` y el corazón de la ciudadela, hechos en C3);
   - `Abode::ApplyEffectsDueToPhysicalDestruction` 0x406781 (DestroyBuilding: +0x90 +0x18 < 0,4 y el jugador que lo
     rompió), `Object::InitialisePhysicsFromHand` 0x6372EA (MakeDiscipleSFX, TODO de HandHolding.cpp), el tótem
     0x738620/0x738666, `GBelief::AddToBelief` 0x437F2A, la criatura (0x45A772, 0x5039E7), fn_0071D100 (otras manos,
@@ -1657,7 +1659,7 @@ nuevos.
 | B12 | **hecho** ([abajo](#fase-b-b12-pulido)): `audio::StopOwner` y `audio::NewOwner` para el SDK de mods; auditoría de las constantes double (y de la FPU a 24 bits) en `src/Audio` |
 | C1 | Criatura: cola de eventos, clave de 5 columnas, bancos por especie, filtro de jugador local / SET_CREATURE_SOUND; baile y pelea en GameMusic |
 | C2 | **hecho** ([abajo](#fase-c-c2-clima-y-alineamiento)): `weatherSmooth` (el `weatherAt` del plan) desde `weather::atmos`, GAudio+0x190 (`cameraAlignment`, fn_005E2240) para el grupo del ambiente (0x428FE0) y la música de alineamiento (0x4279C0); la tribu del pueblo (`nearestTown` / `town`) por `ecs::map_cells` |
-| C3 | Aldeanos, edificios y cánticos |
+| C3 | Cánticos **hechos** ([abajo](#fase-c-c3-cánticos-y-latido)): `ProcessChantMusic` 0x427790 con `chantSite`; y el latido (`heartBeat`). Aldeanos y edificios, **pendientes** |
 | C4 | **hecho** ([abajo](#fase-c-c4-el-interior-de-la-ciudadela)): `insideCitadel` desde el interior del templo, `ProcessCitadelMusic` 0x427B60 con su `LHSampleStopAll`, `audio::LeaveCitadel` (fn_00793D00); y el tope de 5000 de fn_00427200 y `ReadSpeedFactor` en float. Los sonidos de las salas, **pendientes** (el interior de openblack no tiene salas, puertas ni cámara) |
 | C5 | Vídeos (tráiler, `PlayFullScreenMovie`) |
 | C6 | Guardar y cargar: `GAudio::Save` 0x428310 / `Load` 0x428480, `ThingMusicInfo::Save` 0x429950 / `Load` 0x429AE0, `PSysSound::Save` 0x6D14A0 / `Load` 0x6D13A0 |
@@ -2001,11 +2003,12 @@ Sin dueño desde ahora: quien toque `src/Audio` lee primero esta página y `docu
   / `worship::site`), azar local único (`game_random`), regla de la FPU a 24 bits.
 
 **Pendiente** (por orden; cada punto con su dueño o dependencia)
-1. `heartBeat` (ProcessHeartBeatSFX 0x71C190): faltan creyentes (0x64B680), reparto de creencia (fn_0064B700),
-   criaturas enemigas cerca y el corazón de la ciudadela; sin dueño.
+1. ~~`heartBeat`~~: **hecho** por milagros2 ([C3](#fase-c-c3-cánticos-y-latido)) salvo las criaturas enemigas cerca
+   (pendiente: criatura, suman 0); sin probar en el juego.
 2. La voz al soltar recursos (ResourceDropSFX 0x71B570): conectada, sin probar en el juego (hace falta soltar comida o
    madera con la mano sobre un pueblo de Land 2+).
-3. C1 criatura (sin dueño), C3 aldeanos/obras/cánticos (con `_vox` solo), C6 partidas guardadas, C7 GConfirmation.
+3. C1 criatura (sin dueño), C3 aldeanos y obras (los cánticos ya están: [C3](#fase-c-c3-cánticos-y-latido)), C6
+   partidas guardadas, C7 GConfirmation.
 4. Interior de la ciudadela: puertas 60/61, botones 62/63, pergaminos 54, sala de la criatura 175/177, chispas del
    corazón 206, cuando existan esas piezas.
 5. Música `trailer.sad` del pre-intro cuando alguien reproduzca pre_intro.bik; el menú del original (autoguardado 20 y
@@ -2204,7 +2207,7 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   `map_cells::ForEachTown` con `GetSortedRawDesires` (+0x378: valor +0x37C, tipo +0x380) y `GetRawDesire` 0x73E420.
   `worshipSites`: la ciudadela de PLAYER_ONE (`worship::citadel::Of`), sus seis huecos (`WorshipSitesOf`), +0x70
   (`StrainSoundFraction`; el tope de 0x71B319 deja pasar un NaN, test ah, 1), DancerCount > 0 y
-  `worship::site::CalculateDesireForFood` 0x77C310 (milagros2). Sin asignar todavía: `heartBeat`.
+  `worship::site::CalculateDesireForFood` 0x77C310 (milagros2). `heartBeat`: asignada en C3.
 - Comprobación del templo (2026-10-03): en Land 2 la ciudadela del humano empieza sin lugares de culto, así que se
   prueba como el jugador 1: `-s Land2.txt OPENBLACK_TEST_WORSHIP_PLAYER=1 OPENBLACK_TEST_WORSHIP="1,0.5"
   OPENBLACK_CAMERA_FLY="2540,150,1740,2540,100,1800" OPENBLACK_GUIDANCE_TRACE=1` → el sitio 148 con bailarines y
@@ -2246,6 +2249,57 @@ lee solo en el hilo del juego (ni el hilo de la música ni sus retrollamadas la 
 ciudadela el original corre el turno del audio desde Temple::ProcessGameTurn sin fn_0064AC30 (+0x190 se queda con el
 último valor; C4); `GetDiscreteAlignmentValue` con un NaN (0x414756 lo deja pasar a `__ftol`) no está igualado (no
 llega: +0x190 nunca es NaN).
+
+## Fase C: C3, cánticos y latido
+
+Hecho por milagros2 (2026-10-03). El audio sigue sin incluir el ECS: el juego
+contesta por `GameQueries` (`src/ECS/AudioQueries.cpp`).
+
+**Cánticos** (`GAudio::ProcessChantMusic` 0x427790, rama 6 de `ProcessMusic` 0x427E4D). Lo llama solo `ProcessMusic`;
+el culto no llama al audio (el baile, `Dance::ProcessDances` 0x50BB60, no toca la música).
+- Lado del juego (`GameQueries::chantSite`, `ChantSite()` en AudioQueries.cpp):
+  `map_cells::GetNearestCitadel` 0x602200 (150, 0x43160000) en las MapCoords de la cámara;
+  `worship::citadel::FindNearestWorshipSite` = fn_004639A0 (100, 0x42C80000): de los seis huecos en orden, el que tiene
+  bailarines (fn_0077B960) con el centro del baile (fn_0077CD90 = `GetSpecialPos(8)`) más cerca,
+  `GetDistanceInMetres` < mejor (estricto). Devuelve la tribu (fn_0077C2E0: +0x8C → +0x10), los bailarines
+  (Dance +0x90), el centro como `GetLHPoint` y `GetAltitude` del centro y de la cámara.
+- Lado del audio (`GameMusic::ProcessChantMusic`): altura de la cámara = `GetAltitude(cámara)` + MapCoords+8;
+  |altura − suelo del centro| < 100 (0x427855; un NaN pasa, `test ah, 1`); tipo = `ChantMusicType` (fn_00427430:
+  tabla 0x9C9A30 `{28,28,30,32,34,36,38,40,42}`, el africano con el celta, + 1 con más de 8 bailarines (`jbe`, sin
+  signo), 5 desde la tribu 9); sin banco, nada; opciones: vol 127, inicio GAudio+0x18[grupo − 1] leído antes de
+  `SavePositions` (0x4278FF / 0x42792D), sync 1, **sin fundido**, 3D, tono 100, la posición; `LHMusicPlay` cada turno y
+  `Set3DPosition` si dio canal; «Music Playing=…»; luego `ProcessMusic` pone NONE (0x427E95).
+- `_vox` se toca solo (el cántico entero con voces; el usuario, 2026-10-03): es otro banco, no una capa encima.
+- **(inferido)**: todo lugar de culto de openblack tiene su baile (se crea con él), así que +0xA0 nunca es nulo; un
+  centro sin punto de malla queda en MapCoords 0, como las MapCoords puestas a cero del original.
+- **(aproximado)**: sin cámara no hay cántico (el original siempre la tiene).
+- Tests: `ChantMusic.Table`, `GameMusicTest.ChantMusicAtTheDance` (test_game_music.cpp).
+
+**Latido** (`GameQueries::heartBeat`, `HeartBeat()` en AudioQueries.cpp; el cálculo ya estaba en `guidance`).
+- `protectionDesire`: Σ `Town::GetRawDesire(3)` 0x73E420 de los pueblos de PLAYER_ONE (`map_cells::TownsOf`, el
+  orden de la lista +0xA50), sumado en float.
+- `believers` = `magic::players::ProportionOfWorldPopulationWhoBelieveInMe` 0x64B680: hombres + mujeres (TownStats
+  +0x54/+0x58 = Town +0x664/+0x668) de sus pueblos entre `WorldPopulation` (g_game+0x205A54: +1 en el ctor de Villager
+  0x74FAFF, −1 en SetDying 0x76A552 o en el dtor 0x74FBD4); 0 si alguno es 0. **(aproximado)**: openblack no lleva el
+  contador y cuenta las entidades Villager (un aldeano que muere se borra en el acto).
+- `beliefShare` = `influence::InfluencePowerRatio` = fn_0064B700: **Σ +0x8C de los jugadores activos y el neutral
+  entre el +0x8C propio** (`fdivr` 0x64B74F; 0 si el propio es 0). La consulta decía lo contrario (propio entre la
+  suma); corregido el comentario, Guidance no cambia. **(inferido)**: activo (+0x8E0 ≠ 0,
+  GetNextActivePlayerAndNeutral 0x550930) = el jugador tiene entidad (`magic::players::EntityOf`).
+- GPlayer +0x8C = `influence::CalculateInfluencePower` 0x64AD00 (desde GPlayer::Process 0x64971D, tras el
+  alineamiento; en openblack `influence::CalculateInfluencePowers` en el hueco 3 de `magic::ProcessTurnStart`):
+  `Citadel::GetInfluence` (con corazón) + Σ Town +0x5C8 + Σ radio +0x38 de los anillos del jugador (también los anti),
+  en float. +0x90 y la historia de GameStats no tienen lector: no portados. **(aproximado)**: se guarda con la tierra
+  (`InfluenceGlobals::power`), no en el GPlayer.
+- `citadelHeart`: la ciudadela (+0xA48) con corazón construido y vivo (`worship::citadel::HasLivingHeart`; 0x71C574..
+  0x71C5A6) → su posición. **(inferido)**: el corazón de openblack es el propio templo, construido con él; su vida es
+  `ecs::life::LifeOf` del templo (1).
+- Criaturas enemigas cerca (0x71C2A6..0x71C379): **pendiente: criatura**, la lista va vacía (suman 0).
+- Test: `InfluenceTest.influencePowerAndRatio` (test_influence.cpp).
+
+**Resto de C3, pendiente**: aldeanos (bebé 20 + rand 10, sacrificio 179 y los gritos del editor, con la rareza de
+ScriptSfx 179), edificios (molino 13, taller 74/150, tótem 11 y campana 30, andamio, tejado) y los demás llamadores de
+`tags::Create`/`Remove` (molino, taller, tótem, credo, caída de árboles).
 
 ## Fase C: C4, el interior de la ciudadela
 

@@ -270,6 +270,7 @@ protected:
 			const auto it = things.find(thing);
 			return it != things.end() ? std::optional<glm::vec3>(it->second) : std::nullopt;
 		};
+		queries.chantSite = [this]() { return chant; };
 		music = std::make_unique<GameMusic>(
 		    withEngine ? &engine : nullptr,
 		    [this](MusicType type) -> MusicBank* {
@@ -322,6 +323,7 @@ protected:
 	float lastTownSearch {0.0f};
 	std::map<uint32_t, MusicTown> towns;
 	std::map<ThingId, glm::vec3> things;
+	std::optional<ChantSite> chant;
 };
 } // namespace
 
@@ -712,6 +714,62 @@ TEST(AlignmentMusic, DiscreteAlignmentAndTables)
 	EXPECT_EQ(TribeMusicType(1, 7), 23); // NORSE_TOWN_NEUTRAL (celt_neutral.sad)
 	EXPECT_EQ(TribeMusicType(2, 8), 27); // TIBETAN_TOWN_GOOD
 	EXPECT_EQ(TribeMusicType(0, 9), 5);  // from 9 on: CELTIC_TOWN_NEUTRAL
+}
+
+// --- C3: the worship chants ----------------------------------------------------------------------------------------
+
+TEST(ChantMusic, Table)
+{
+	// fn_00427430 with the table 0x9C9A30; + 1 (the _vox version) above 8 dancers (jbe 0x42744D)
+	EXPECT_EQ(ChantMusicType(0, 1), static_cast<int>(MusicType::CelticChant));
+	EXPECT_EQ(ChantMusicType(1, 8), static_cast<int>(MusicType::CelticChant)); // African: the Celtic chant
+	EXPECT_EQ(ChantMusicType(1, 9), static_cast<int>(MusicType::CelticChantVox));
+	EXPECT_EQ(ChantMusicType(2, 20), static_cast<int>(MusicType::AztecChantVox));
+	EXPECT_EQ(ChantMusicType(7, 3), static_cast<int>(MusicType::NorseChant));
+	EXPECT_EQ(ChantMusicType(8, 9), static_cast<int>(MusicType::TibetanChantVox));
+	EXPECT_EQ(ChantMusicType(9, 20), 5); // from 9 on: CELTIC_TOWN_NEUTRAL
+}
+
+TEST_F(GameMusicTest, ChantMusicAtTheDance)
+{
+	// ProcessChantMusic 0x427790, after the script music and before the thing music (0x427E4D)
+	AddBank(MusicType::GenericNeutral, BankSpec {.segments = 20, .group = 1});
+	AddBank(MusicType::NorseChant, BankSpec {.segments = 20, .group = 2});
+	AddBank(MusicType::NorseChantVox, BankSpec {.segments = 20, .group = 2});
+	Make();
+	camera = CameraState {glm::vec3(0.0f, 60.0f, 0.0f), 40.0f};
+	chant = ChantSite {.tribe = 7, .dancers = 5, .position = glm::vec3(30.0f, 25.0f, 40.0f), .ground = 20.0f,
+	                   .cameraGround = 20.0f};
+	music->ProcessMusic();
+	const int channel = ChannelOf(MusicType::NorseChant);
+	ASSERT_NE(channel, k_NoMusicChannel);
+	const auto& ch = engine.GetChannel(channel);
+	EXPECT_EQ(ch.target, 127); // 0x4278F7
+	EXPECT_EQ(ch.sync, 1);     // 0x4278E7
+	EXPECT_EQ(ch.fade, 0);     // 0x427915
+	EXPECT_EQ(ch.is3D, 1);     // 0x427919
+	EXPECT_EQ(sink.positions[static_cast<size_t>(channel)], glm::vec3(30.0f, 25.0f, 40.0f)); // LHMusicSet3DPosition
+	EXPECT_EQ(music->GetPlayingMessage(), "Music Playing=NONE"); // 0x427E95 after it
+	EXPECT_EQ(ChannelOf(MusicType::GenericNeutral), k_NoMusicChannel);
+
+	// more than 8 dancers: the _vox chant alone
+	chant->dancers = 9;
+	music->ProcessMusic();
+	EXPECT_NE(ChannelOf(MusicType::NorseChantVox), k_NoMusicChannel);
+
+	// the camera's height against the dance's ground: 20 + 80 - 20 = 80 < 100 plays; 20 + 100 - 20 does not
+	camera->heightAboveGround = 80.0f;
+	music->ProcessMusic();
+	EXPECT_EQ(music->GetAlignmentType(), -1);
+	camera->heightAboveGround = 100.0f;
+	music->ProcessMusic();
+	EXPECT_EQ(music->GetAlignmentType(), 2); // the alignment music again
+
+	// no bank for the tribe's chant: nothing (0x427882)
+	camera->heightAboveGround = 40.0f;
+	chant->tribe = 3;
+	music->ProcessMusic();
+	EXPECT_EQ(music->GetAlignmentType(), 2);
 }
 
 TEST_F(GameMusicTest, AlignmentMusicGenericAt80WithFade)

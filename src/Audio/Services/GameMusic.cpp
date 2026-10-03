@@ -9,6 +9,7 @@
 
 #include "GameMusic.h"
 
+#include <cmath>
 #include <cstdlib>
 
 #include <algorithm>
@@ -118,6 +119,24 @@ int TribeMusicType(int alignmentIndex, int tribe)
 		return 5;
 	}
 	return k_Table[static_cast<size_t>(tribe)] + alignmentIndex;
+}
+
+int ChantMusicType(int tribe, uint32_t dancers)
+{
+	// fn_00427430: from tribe 9 on (signed, jl 0x427437) 5 = CELTIC_TOWN_NEUTRAL; else the table 0x9C9A30 (the African
+	// tribe shares the Celtic chant), + 1 when the dancers are more than 8 (cmp 8; jbe 0x42744D, unsigned): the _vox
+	// version, the whole chant with the voices, played alone (the user, 2026-10-03)
+	constexpr std::array<int, 9> k_Table = {28, 28, 30, 32, 34, 36, 38, 40, 42};
+	if (tribe >= 9)
+	{
+		return 5;
+	}
+	// below 0 the original reads before the table (approximated: as from 9 on; a site always has a tribe)
+	if (tribe < 0)
+	{
+		return 5;
+	}
+	return k_Table[static_cast<size_t>(tribe)] + (dancers > 8 ? 1 : 0);
 }
 
 GameMusic::GameMusic(MusicEngine* engine, const BankProvider& banks, ScriptAudioState& script, GameQueries queries,
@@ -272,7 +291,7 @@ void GameMusic::ProcessMusic()
 		return;
 	}
 	if ((_queries.creatureFightMusic && _queries.creatureFightMusic()) || // 0x427E42 fn_00427660
-	    (_queries.chantMusic && _queries.chantMusic()) ||                 // 0x427E4D ProcessChantMusic
+	    ProcessChantMusic() ||                                            // 0x427E4D ProcessChantMusic
 	    (_queries.creatureDanceMusic && _queries.creatureDanceMusic()) || // 0x427E58 ProcessCreatureDanceMusic
 	    ProcessThingMusic())                                              // 0x427E63 fn_00429790
 	{
@@ -342,6 +361,52 @@ bool GameMusic::ProcessCitadelMusic()
 	SavePositions();                      // 0x427C28 fn_004281C0
 	_engine->Play(options);               // 0x427C35 LHMusicPlay, every turn (the engine re-triggers the same bank)
 	SetPlaying(PlayingMessage(type));     // 0x427C3B..0x427C4F "Music Playing=%s"
+	return true;
+}
+
+bool GameMusic::ProcessChantMusic()
+{
+	// 0x4277A3..0x4277F6: MapCoords::GetNearestCitadel(150) at GetCamera()+0x14, its fn_004639A0(camera, 100) (the
+	// nearest of its sites with dancers) and that site's dance (+0xA0): the game's side (GameQueries::chantSite)
+	const auto site = _queries.chantSite ? _queries.chantSite() : std::nullopt;
+	const auto camera = _queries.camera ? _queries.camera() : std::nullopt;
+	if (!site || !camera) // (approximated) without a camera there is no chant; the original always has one
+	{
+		return false;
+	}
+	// 0x4277FC..0x427860: the camera's height (GetAltitude of its MapCoords + their altitude +8, fstp: a float) against
+	// the ground of the dance centre (GetAltitude only, its altitude left out): |h - ground| < 100 (0x8AB41C; fcomp,
+	// test ah, 1: below or unordered)
+	const float height = site->cameraGround + camera->heightAboveGround;
+	const float difference = std::fabs(height - site->ground);
+	if (!(difference < 100.0f) && !std::isnan(difference))
+	{
+		return false;
+	}
+	const int type = ChantMusicType(site->tribe, site->dancers); // 0x427866..0x427877 fn_00427430
+	auto* bank = GetBank(type);                                  // 0x42787E GAudio+0x2C + 4 type
+	if (bank == nullptr)
+	{
+		return false; // 0x427882
+	}
+	const int group = bank->GetGroupId(); // 0x4278D9 LHBankGetMusicGroupId
+	MusicPlayOptions options;             // LH_MusicPlayOptions ctor (0x42779D)
+	options.bank = bank;                  // 0x4278EF opts+0x00
+	options.volume = 0x7F;                // 0x4278F7 opts+0x04
+	// 0x4278FF: GAudio+0x18[group - 1] -> opts+0x14, read before fn_004281C0 saves the positions (0x42792D)
+	options.startChunk = GroupPosition(group);
+	options.sync = 1;                     // 0x4278E7 opts+0x1C
+	options.fade = 0;                     // 0x427915 opts+0x20
+	options.is3D = 1;                     // 0x427919 opts+0x24
+	options.pitch = 0x64;                 // 0x42791D opts+0x28
+	options.position = site->position;    // 0x42790F..0x427929 opts+0x38..+0x40
+	SavePositions();                      // 0x42792D fn_004281C0
+	const int channel = _engine->Play(options); // 0x42793A LHMusicPlay, every turn (the same bank is re-triggered)
+	if (channel != k_NoMusicChannel)            // 0x427940
+	{
+		_engine->Set3DPosition(channel, site->position); // 0x427957 LHMusicSet3DPosition(x, y, z)
+	}
+	SetPlaying(PlayingMessage(type)); // 0x42795D..0x427970 "Music Playing=%s"
 	return true;
 }
 

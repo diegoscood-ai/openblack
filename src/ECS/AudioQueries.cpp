@@ -32,8 +32,10 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/Influence/Influence.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectMetrics.h"
@@ -44,6 +46,7 @@
 #include "ECS/Weather/Atmos.h"
 #include "Enums.h"
 #include "Locator.h"
+#include "Magic/Core/Players.h"
 #include "Resources/ResourcesInterface.h"
 #include "Video/VideoPlayer.h"
 #include "Worship/Citadel.h"
@@ -335,6 +338,82 @@ std::optional<audio::WorshipDesire> WorshipSites()
 	return desire;
 }
 
+/// GGuidance::ProcessHeartBeatSFX 0x71C190's values and fn_0071C460's heart, for the local player (GInterfaceStatus
+/// +0xCC's GetPlayer: openblack's PLAYER_ONE)
+audio::HeartBeatInput HeartBeat()
+{
+	audio::HeartBeatInput input;
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return input;
+	}
+	constexpr auto k_Player = PlayerNames::PLAYER_ONE;
+	// 0x71C1B6..0x71C1FF: the town list (+0xA50, next +0x75C): Town::GetRawDesire(3) 0x73E420 + the sum (fadd, fstp)
+	for (const auto town : ecs::map_cells::TownsOf(k_Player))
+	{
+		input.protectionDesire =
+		    ecs::town_desire::GetRawDesire(town, TownDesireInfo::ForProtection) + input.protectionDesire;
+	}
+	// 0x71C20E GetProportionOfWorldPopulationWhoBelieveInMe 0x64B680, 0x71C224 fn_0064B700 (the influence power +0x8C of
+	// this turn's GPlayer::Process)
+	input.believers = magic::players::ProportionOfWorldPopulationWhoBelieveInMe(k_Player);
+	input.beliefShare = influence::InfluencePowerRatio(k_Player);
+	// 0x71C2A6..0x71C379: the other players' creatures (GPlayer +0xA4C) near the local player's towns. Pendiente:
+	// criatura (openblack's creatures are not the players' GPlayer +0xA4C yet): none, so they add nothing
+	// 0x71C566..0x71C5A6: GPlayer +0xA48 with a built, living heart; PlaySample at the citadel's +0x14
+	const auto citadel = worship::citadel::Of(k_Player);
+	if (worship::citadel::HasLivingHeart(citadel))
+	{
+		if (const auto* transform = Locator::entitiesRegistry::value().TryGet<const Transform>(citadel);
+		    transform != nullptr)
+		{
+			input.citadelHeart = transform->position;
+		}
+	}
+	return input;
+}
+
+/// GAudio::ProcessChantMusic 0x427790's game side: the citadel within 150 of the camera's MapCoords (GetNearestCitadel
+/// 0x602200, 0x4277A9: 0x43160000), its nearest site with dancers within 100 (fn_004639A0, 0x4277CF: 0x42C80000) and
+/// that site's dance (+0xA0; (inferido) every openblack site has its dance, made with it)
+std::optional<audio::ChantSite> ChantSite()
+{
+	const auto camera = CameraMapCoords();
+	if (!camera || !Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto citadel = ecs::map_cells::GetNearestCitadel(*camera, 150.0f);
+	if (citadel == entt::null)
+	{
+		return std::nullopt; // 0x4277C3
+	}
+	const auto site = worship::citadel::FindNearestWorshipSite(citadel, *camera, 100.0f);
+	if (site == entt::null)
+	{
+		return std::nullopt; // 0x4277E8
+	}
+	const auto* component = Locator::entitiesRegistry::value().TryGet<const WorshipSite>(site);
+	if (component == nullptr)
+	{
+		return std::nullopt;
+	}
+	audio::ChantSite chant;
+	chant.tribe = static_cast<int>(component->tribe);                              // fn_0077C2E0
+	chant.dancers = static_cast<uint32_t>(worship::site::DancerCount(site)); // Dance +0x90 (0x42786D)
+	// fn_0077CD90 (0x427841 / 0x42789B): the dance centre's MapCoords (zero without the mesh's point, as fn_004639A0)
+	ecs::map_coords::MapCoords centre {};
+	if (const auto point = worship::site::GetSpecialPos(site, worship::site::Point::DanceCentre); point)
+	{
+		centre = ecs::map_coords::FromWorld(*point);
+	}
+	chant.position = ecs::map_coords::ToWorld(centre); // 0x4278A0..0x4278D5: GetAltitude + altitude; x, z x 10 / 65536
+	// LH3DIsland::GetAltitude 0x803090 of the centre (0x42784A) and of the camera's MapCoords (0x427821)
+	chant.ground = ecs::map_coords::ToWorld(ecs::map_coords::MapCoords {centre.x, centre.z, 0.0f}).y;
+	chant.cameraGround = ecs::map_coords::ToWorld(ecs::map_coords::MapCoords {camera->x, camera->z, 0.0f}).y;
+	return chant;
+}
+
 void RunViewHook(uint32_t turn)
 {
 	const char* view = std::getenv("OPENBLACK_AUDIO_TEST_VIEW");
@@ -477,10 +556,13 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	queries.nearestTownAt = &NearestTownAt;
 	queries.townResourceNeeds = &TownResourceNeeds;
 	// CheckTownDesiresSFX 0x71B130: every town's sorted raw desires (ecs::town_desire); CheckWorshipSiteDesiresSFX
-	// 0x71B270: the citadel's sites (milagros2's worship::citadel / worship::site). The heart beat's values are not
-	// ported yet: left unset
+	// 0x71B270: the citadel's sites (milagros2's worship::citadel / worship::site)
 	queries.desireTowns = &DesireTowns;
 	queries.worshipSites = &WorshipSites;
+	// ProcessHeartBeatSFX 0x71C190: the protection desires, 0x64B680, fn_0064B700 (influence power) and the heart
+	queries.heartBeat = &HeartBeat;
+	// ProcessChantMusic 0x427790: the worship site near the camera (GameMusic plays its chant)
+	queries.chantSite = &ChantSite;
 }
 
 void ecs::audio_queries::RunTestHooks(uint32_t turn)

@@ -15,6 +15,7 @@
 
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/InfluenceRing.h"
+#include "ECS/Components/Player.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
@@ -171,4 +172,32 @@ TEST_F(InfluenceTest, everywhere)
 	EXPECT_FLOAT_EQ(influence::CalculatePlayerInfluence(PlayerNames::PLAYER_THREE, glm::vec3(0.0f)), 1.0f);
 	influence::SetInfluenceEverywhere(false);
 	EXPECT_FLOAT_EQ(influence::CalculatePlayerInfluence(PlayerNames::PLAYER_THREE, glm::vec3(0.0f)), 0.0f);
+}
+
+TEST_F(InfluenceTest, influencePowerAndRatio)
+{
+	// GPlayer::CalculateInfluencePower 0x64AD00: the citadel's GetInfluence + the towns' +0x5C8 + the player's rings'
+	// radius (anti ones too); fn_0064B700: the active players' and the neutral one's sum over the own
+	auto& registry = Locator::entitiesRegistry::value();
+	SetLand(1);
+	const auto temple = registry.Create();
+	registry.Assign<Temple>(temple, PlayerNames::PLAYER_ONE);
+	registry.Assign<Transform>(temple, glm::vec3(2000.0f, 0.0f, 2000.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	influence::CreateRing(glm::vec3(0.0f), PlayerNames::PLAYER_ONE, 100.0f, false);
+	influence::CreateRing(glm::vec3(0.0f), PlayerNames::PLAYER_ONE, 10.0f, true);
+	influence::CreateRing(glm::vec3(0.0f), PlayerNames::PLAYER_TWO, 40.0f, false);
+	influence::CreateRing(glm::vec3(0.0f), PlayerNames::PLAYER_THREE, 1000.0f, false);
+	for (const auto name : {PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_TWO})
+	{
+		registry.Assign<Player>(registry.Create(), name); // the land made them: active (+0x8E0 != 0)
+	}
+	EXPECT_FLOAT_EQ(influence::InfluencePower(PlayerNames::PLAYER_ONE), 0.0f); // before the first turn
+	influence::CalculateInfluencePowers();
+	EXPECT_FLOAT_EQ(influence::InfluencePower(PlayerNames::PLAYER_ONE), 860.0f); // 750 (Land 1) + 100 + 10
+	EXPECT_FLOAT_EQ(influence::InfluencePower(PlayerNames::PLAYER_TWO), 40.0f);
+	EXPECT_FLOAT_EQ(influence::InfluencePower(PlayerNames::PLAYER_THREE), 1000.0f);
+	// PLAYER_THREE was not made: not summed (GetNextActivePlayerAndNeutral 0x550930)
+	EXPECT_FLOAT_EQ(influence::InfluencePowerRatio(PlayerNames::PLAYER_ONE), 900.0f / 860.0f);
+	EXPECT_FLOAT_EQ(influence::InfluencePowerRatio(PlayerNames::PLAYER_TWO), 900.0f / 40.0f);
+	EXPECT_FLOAT_EQ(influence::InfluencePowerRatio(PlayerNames::PLAYER_FOUR), 0.0f); // its own is 0
 }

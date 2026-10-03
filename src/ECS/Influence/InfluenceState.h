@@ -11,6 +11,7 @@
 
 #include <cstdint>
 
+#include <array>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -27,6 +28,9 @@ struct InfluenceGlobals
 {
 	/// g_game+0x205C4C: the rings, newest first (the ctor pushes at the head of the list)
 	std::vector<entt::entity> rings;
+	/// GPlayer +0x8C of each player (PlayerNames), CalculateInfluencePower 0x64AD00. (aproximado) kept with the land:
+	/// the original keeps it in the GPlayer, but recomputes it every turn before anyone reads it
+	std::array<float, 8> power {};
 };
 
 /// The land's globals (made on first use)

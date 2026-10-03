@@ -15,6 +15,7 @@
 #include <entt/entity/entity.hpp>
 
 #include "ECS/Components/Abode.h"
+#include "ECS/Components/InfluenceRing.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
@@ -22,10 +23,13 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Life.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "Influence.h"
+#include "InfluenceState.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Magic/Core/Players.h"
 #include "Resources/ResourceManager.h"
 
 using namespace openblack;
@@ -171,5 +175,82 @@ float CitadelRadius(entt::entity temple)
 		stored = &registry.Assign<CitadelInfluence>(temple, scale * story);
 	}
 	return PlayerInfluenceMultiplier() * stored->value;
+}
+
+float CalculateInfluencePower(PlayerNames player)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x64AD0E: +0x8C = 0; 0x64AD04..0x64AD26: GPlayer +0xA48 with its heart (+0x30) -> Citadel::GetInfluence 0x464090.
+	// openblack's heart is made with the temple (CitadelArchetype), so a temple of the player is a citadel with a heart
+	// (one per player: the first one, as CitadelInfluenceAt)
+	float power = 0.0f;
+	bool citadel = false;
+	registry.Each<const Temple, const Transform>([&](entt::entity entity, const Temple& temple, const Transform&) {
+		if (!citadel && temple.owner == player)
+		{
+			citadel = true;
+			power = CitadelRadius(entity);
+		}
+	});
+	// 0x64AD2C..0x64AD57: the town list (+0xA50, next +0x75C): fn_0073FBC0 (+0x5C8) + +0x8C
+	for (const auto town : ecs::map_cells::TownsOf(player))
+	{
+		power = TownRadius(town) + power;
+	}
+	// 0x64AD59..0x64AD9B: the rings (g_game+0x205C4C, next +0x40) whose GetPlayer (vt +0x1C) is this one: +0x38 + +0x8C
+	for (const auto entity : detail::GlobalsOrDefault().rings)
+	{
+		const auto* ring = registry.TryGet<const InfluenceRing>(entity);
+		if (ring != nullptr && ring->player == player)
+		{
+			power = ring->radius + power;
+		}
+	}
+	const auto index = static_cast<size_t>(player);
+	if (index < detail::Globals().power.size())
+	{
+		detail::Globals().power.at(index) = power;
+	}
+	// 0x64AD9D..0x64AE86: +0x90 and the GameStats history (no reader in openblack: not ported)
+	return power; // 0x64AE8F
+}
+
+void CalculateInfluencePowers()
+{
+	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
+	{
+		CalculateInfluencePower(static_cast<PlayerNames>(p));
+	}
+}
+
+float InfluencePower(PlayerNames player)
+{
+	const auto index = static_cast<size_t>(player);
+	const auto& power = detail::GlobalsOrDefault().power;
+	return index < power.size() ? power.at(index) : 0.0f;
+}
+
+float InfluencePowerRatio(PlayerNames player)
+{
+	// fn_0064B700: GetNextActivePlayerAndNeutral 0x550930 from the first slot: a player of type +0x8E0 == 0 is skipped
+	// (0x550943..0x550966), the neutral one (slot 7) is always given. The sum starts at 0 and each +0x8C is added in
+	// float (fld +0x8C; fadd [esp + 4]; fstp)
+	float sum = 0.0f;
+	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
+	{
+		const auto other = static_cast<PlayerNames>(p);
+		if (other != PlayerNames::NEUTRAL && magic::players::EntityOf(other) == entt::null)
+		{
+			continue;
+		}
+		sum = InfluencePower(other) + sum;
+	}
+	// 0x64B73B..0x64B75D: own == 0 (fcom 0; test ah, 0x40) -> 0; else sum / own (fdivr [esp])
+	const float own = InfluencePower(player);
+	if (own == 0.0f)
+	{
+		return 0.0f;
+	}
+	return sum / own;
 }
 } // namespace openblack::influence

@@ -100,6 +100,9 @@ void magic::ProcessTurnStart(uint32_t turn)
 	ecs::town_process::ProcessPlayers(); // ECS/Town/TownProcess.cpp
 	teleport::ProcessPlayers(); // Objects/MagicTeleport.cpp
 	ecs::effects::alignment::ProcessPlayers(); // ECS/Effects/Alignment.cpp
+	//    then the influence power +0x8C (GPlayer::CalculateInfluencePower 0x64AD00, at 0x64971D; the heart beat and
+	//    fn_0064B700 read it)
+	influence::CalculateInfluencePowers(); // ECS/Influence/InfluenceSources.cpp
 	teleport::RunDebugHooks();  // OPENBLACK_TEST_TELEPORT (Objects/TeleportDebugHooks.cpp)
 	// fn_0064AC30 on the local player, after the GetNextActivePlayer loop of GPlayer::Process (0x64A666..0x64A697)
 	ecs::effects::alignment::UpdateInterfaceAlignment();

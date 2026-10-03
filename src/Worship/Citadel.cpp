@@ -21,6 +21,8 @@
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/Life.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
@@ -90,6 +92,49 @@ float citadel::StrainSoundFractionAtMostOne(entt::entity citadelEntity)
 	const float fraction = StrainSoundFraction(citadelEntity);
 	// 0x71B319..0x71B332: fld +0x70; fcomp 1.0 (0x8AA390); C0 (below or unordered) -> +0x70, else 1.0 (0x3F800000)
 	return fraction < 1.0f || std::isnan(fraction) ? fraction : 1.0f;
+}
+
+entt::entity citadel::FindNearestWorshipSite(entt::entity citadelEntity, const ecs::map_coords::MapCoords& coords,
+                                             float maxDistance)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return entt::null;
+	}
+	const auto& worship = Registry().Get<const CitadelWorship>(citadelEntity);
+	entt::entity best = entt::null;
+	float bestDistance = maxDistance; // [esp + 0x24], the argument
+	// 0x4639A9..0x463A07: +0x34 + 4 i, i = 0..5
+	for (const auto site : worship.sites)
+	{
+		// 0x4639B3..0x4639C0: a site, and fn_0077B960 (the dance's +0x90) != 0
+		if (site == entt::null || !Registry().Valid(site) || !Registry().AllOf<WorshipSite>(site) ||
+		    site::DancerCount(site) == 0)
+		{
+			continue;
+		}
+		// 0x4639C2..0x4639D7: a zeroed MapCoords filled by fn_0077CD90 (GetSpecialPos 8); (inferido) a mesh without
+		// the point leaves it at 0, as the original's zeroed MapCoords
+		ecs::map_coords::MapCoords centre {};
+		if (const auto point = site::GetSpecialPos(site, site::Point::DanceCentre); point)
+		{
+			centre = ecs::map_coords::FromWorld(*point);
+		}
+		// 0x4639DC..0x4639F7: GetDistanceInMetres(centre, coords) < best (fcom; test ah, 1)
+		const float distance = gutils::GetDistanceInMetres(centre, coords);
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			best = site;
+		}
+	}
+	return best;
+}
+
+bool citadel::HasLivingHeart(entt::entity citadelEntity)
+{
+	// 0x71C56E..0x71C5A6: the heart (+0x30), IsBuilt, GetLife > 0 (fcomp 0; test ah, 0x41: not below nor equal)
+	return IsCitadel(citadelEntity) && ecs::life::LifeOf(citadelEntity) > 0.0f;
 }
 
 void citadel::Initialise(entt::entity temple, float heartYAngle)

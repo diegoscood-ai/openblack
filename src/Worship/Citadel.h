@@ -16,6 +16,11 @@
 
 #include "Enums.h"
 
+namespace openblack::ecs::map_coords
+{
+struct MapCoords;
+} // namespace openblack::ecs::map_coords
+
 // The citadel as the container of the worship sites (Citadel.cpp 0x463130..0x465200): up to 6 sites, one per tribe,
 // around the heart at heart angle + slot x 2 pi / 7. The citadel entity is the temple (components::Temple).
 
@@ -34,6 +39,17 @@ namespace openblack::worship::citadel
 /// +0x70 as GGuidance::CheckWorshipSiteDesiresSFX reads it (0x71B319..0x71B332): below 1 (fcomp 0x8AA390) it is
 /// kept (a NaN too: C0 set when unordered), else 1
 [[nodiscard]] float StrainSoundFractionAtMostOne(entt::entity citadel);
+
+/// fn_004639A0 (GAudio::ProcessChantMusic 0x4277DF: the camera's MapCoords, 100): of the six slots in order, the site
+/// with dancers (fn_0077B960) whose dance centre (fn_0077CD90, special point 8) is nearest, GetDistanceInMetres
+/// 0x74CD70 < best (strictly; best starts at maxDistance); entt::null for none or when it is not a citadel
+[[nodiscard]] entt::entity FindNearestWorshipSite(entt::entity citadel, const ecs::map_coords::MapCoords& coords,
+                                                  float maxDistance);
+
+/// Citadel +0x30 (the CitadelHeart) with IsBuilt (vt +0x890, CitadelPart::IsBuilt) and GetLife (vt +0x11C) > 0, as
+/// GGuidance's fn_0071C460 tests it (0x71C574..0x71C5A6) before the heart beat plays. (inferido) openblack's heart is
+/// the temple itself, made built with it: a citadel with life (ecs::life::LifeOf of the temple)
+[[nodiscard]] bool HasLivingHeart(entt::entity citadel);
 
 /// The citadel's worship part, from CitadelArchetype (the heart's Y angle from the script's rotation)
 void Initialise(entt::entity temple, float heartYAngle);

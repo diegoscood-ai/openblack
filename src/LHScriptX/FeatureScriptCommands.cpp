@@ -24,6 +24,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AnimalArchetype.h"
@@ -1000,10 +1001,12 @@ void FeatureScriptCommands::CreateFireFly([[maybe_unused]] glm::vec3 position)
 	// __func__);
 }
 
-void FeatureScriptCommands::TownDesireBoost([[maybe_unused]] int32_t townId, const std::string&, float)
+void FeatureScriptCommands::TownDesireBoost(int32_t townId, const std::string& desire, float boost)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// command 86 of GSetup::MapCommands (0x7179EC): GGame::FindTownWithID 0x552FA0 and fn_747270 (the desire's name,
+	// _stricmp); both found -> town +0xD4[d] = boost (0x717A26), without re-sorting nor a range check (Land2.txt:
+	// "Abodes" / "Civic_Buildings" -0.75). ecs::town_desire::MapTownDesireBoost
+	ecs::town_desire::MapTownDesireBoost(FindTown(townId), desire, boost);
 }
 
 void FeatureScriptCommands::CreateAnimatedStatic(glm::vec3 position, const std::string& type, int32_t rotation, int32_t scale)

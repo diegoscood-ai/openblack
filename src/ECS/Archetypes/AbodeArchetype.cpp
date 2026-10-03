@@ -25,6 +25,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/TotemStatue.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
@@ -218,6 +219,24 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	{
 	case AbodeType::StoragePit:
 		AddStoragePitComponents(entity, mesh, info, position, yAngleRadians, foodAmount, woodAmount);
+		// StoragePit::MakeFunctional 0x732F30 -> Town::SetStoragePit 0x73EA60: town +0x30 = this (the last one wins).
+		// (aproximado hasta V6) here, when the script makes it whole
+		if (const auto town = registry.Context().towns.find(townId); town != registry.Context().towns.end())
+		{
+			registry.Get<Town>(town->second).storagePit = entity;
+		}
+		break;
+	case AbodeType::Creche:
+		// Creche::MakeFunctional 0x50AB50: town +0x744 = this when it is still null (0x50AB72; the first one wins).
+		// (aproximado hasta V6) here, when the script makes it whole
+		if (const auto town = registry.Context().towns.find(townId); town != registry.Context().towns.end())
+		{
+			auto& component = registry.Get<Town>(town->second);
+			if (component.creche == entt::null)
+			{
+				component.creche = entity;
+			}
+		}
 		break;
 	case AbodeType::TownCentre:
 		CreateTotemStatue(entity, info, yAngleRadians, scale);

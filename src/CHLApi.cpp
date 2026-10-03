@@ -82,6 +82,7 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/VillagerDrowning.h"
 #include "EngineConfig.h"
@@ -3049,11 +3050,18 @@ void CreatureSpellReversion() // 233 CREATURE_SPELL_REVERSION
 
 void GetDesire() // 234 GET_DESIRE
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetDesire 0x6FCCA0 (ecs::town_desire::ScriptGetDesire): POP the desire; out of [0, 17) -> "Invalid
+	// desire" and PUSH 0 without the second POP (literal: the object stays on the stack); else POP the object
+	// (GetScriptGameThing 0x70D220), PUSH the town's GetRawDesire 0x73E420 (0 if it is not a town)
+	const auto desire = Pop().intVal;
+	std::vector<std::string> errors;
+	const float value = ecs::town_desire::ScriptGetDesire(
+	    desire, [] { return static_cast<entt::entity>(Pop().uintVal); }, &errors);
+	for (const auto& error : errors)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_DESIRE: {}", error);
+	}
+	Pushf(value);
 }
 
 void GetEventsPerSecond() // 235 GET_EVENTS_PER_SECOND
@@ -4069,11 +4077,18 @@ void GamePlaySaySoundEffect() // 340 GAME_PLAY_SAY_SOUND_EFFECT
 
 void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
 {
-	// const auto boost = Popf();
-	// const auto desire = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetTownDesireBoost 0x6FE650: POP the boost (0x6FE660), the desire (0x6FE674), the thing (0x6FE686,
+	// GetScriptGameThing 0x70D220); a town and desire < 17 and -1 <= boost <= 1 -> +0xD4[desire] = boost and the
+	// re-sort of order 1 (fn_746140 0x6FE73E) (ecs::town_desire::ScriptSetTownDesireBoost)
+	const auto boost = Popf();
+	const auto desire = Pop().intVal;
+	const auto object = Pop().uintVal;
+	std::vector<std::string> errors;
+	ecs::town_desire::ScriptSetTownDesireBoost(static_cast<entt::entity>(object), desire, boost, &errors);
+	for (const auto& error : errors)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_TOWN_DESIRE_BOOST: {}", error);
+	}
 }
 
 void IsLockedInteraction() // 342 IS_LOCKED_INTERACTION

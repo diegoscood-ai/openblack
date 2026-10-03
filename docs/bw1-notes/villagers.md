@@ -309,7 +309,7 @@ Spec completa: `dev\tmp_dis\aldeanos\V2_spec.md`. Código: `Villager/VillagerDec
   `Town::emergencyStartTurn`, nadie lo escribe aún: TODO(Milagros)) → 242; discípulo / seguidor (DiscipleDecideWhatToDo
   neutro, V14); `SetTopState(163)`; niño → ChildDecideWhatToDo (CheckChild, reparto del pueblo neutro, guardería neutra,
   → 114); CheckNeededForSomething (sin techo: neutro V4 → CheckNeededForSpecial: **culto de Milagros**, cívico (V3:
-  calcula el trigger y borra `flags & 1`, reparto 0), deseos propios con umbral 0,3) → CheckTakeResourcesToStoragePit
+  calcula el trigger y borra `flags & 1`; el reparto, desde V3, en [Deseos del pueblo y reparto (V3)](#deseos-del-pueblo-y-reparto-v3)), deseos propios con umbral 0,3) → CheckTakeResourcesToStoragePit
   (→ 31) → SetupNothingToDo. El culto ya no va al principio de 163: está en su sitio (0x760013), antes de la rama ociosa
   y también se mira desde 246.
 - Deseos: comida = 1 − min(food, 1)³, vida = 1 − ((vida − min(0,3, vida)) / 0,7)²; el mayor primero, comparaciones
@@ -367,6 +367,89 @@ los pueblos 0 (1789,3, 2681,3) y 4 (2479,1, 2542,7) por la media. Land2 con `OPE
 turnos: r = 0..8 repartidas (30..45 cada una), 1734 chequeos de 246 "otra vez" y 185 "nada", 10 pueblos con punto de
 reunión, el culto sigue (11 adoradores en 59/60).
 
+## Deseos del pueblo y reparto (V3)
+
+Spec completa: `dev\tmp_dis\aldeanos\V3_spec.md` (desensamblados `town_dis\desire.txt`, `desire_fns.txt`, `rep.txt`;
+`v3\emu_dtab_all.py` saca la tabla, `v3\emu_qsort.py` ejecuta el `_qsort` del exe). Código: `Town/TownDesire.{h,cpp}`
+(tabla, funciones, Process, órdenes, reparto, API de lectura, guiones), `Town/TownProcess.{h,cpp}` (Town::Process y el
+bucle de jugadores), `Town/TownStats.{h,cpp}`, `Villager/VillagerSatisfy.{h,cpp}` (los CheckSatisfy), `Components/Town.h`
+(`TownDesire`, `DesireSort`, `TownStats` y los campos nuevos del pueblo); tests `test/test_town_desire.cpp` (16 casos) y
+un caso nuevo en `test/test_villager_decide.cpp`.
+
+- **Tabla** (fiel): 0xDA32C8 + d·0x68, rellena por crt_xc 0x744BD0: nombre, función (+0x10), Amount/Desired (+0x20/+0x30,
+  solo 5, 6, 7; solo los lee la traza 0x745EC0), CheckSatisfy del aldeano (+0x40), modificación (+0x50), niños (+0x60:
+  2, 3, 4, 15, 16) y +0x64 (sin lector). Info por deseo 0xDA2930 + d·0x90 (+0x18 trigger, +0x58 TribeMultiplier[9]).
+  Nombres para `TOWN_DESIRE_BOOST`: fn_747270 (`_stricmp`).
+- **Funciones** (fiel, x87 en double, ver supuestos): Food = `Town::CalculateDesireForFood` 0x747F00 (thunk 0x747340):
+  `1 − (comida + 1e-4)/(5·Σ foodReqiredForDinner + 1e-4)`, con el aviso `HelpSpritesLowOnFood(min(v,2) − 0,9)`
+  (0x747FA0) si v ≥ 0,95 y el pueblo es del jugador local; Wood 0x747FF0 con S = min(R5+R6+R9+R12, 3), a = (artesanos +
+  0,001)/(adultos + 0,001) + S, **k = max(abodes/10, 1)**, B = 500k, C = 5000k y el aviso LowOnWood (0x7481BC,
+  min(v,2) − 1); Abodes 0x748210 (max(a, c)⁴·(1 − R9)(1 − D6)); Civic 0x748330 (PopulationWhenNeeded de GAbodeInfo::Find
+  0x405B30, la primera coincidencia); For_Children 0x748430 (alineamiento de milagros2 y TribalPower[4] de
+  `PlayerMagic`, 1,0); To_Build 0x748640 y Repair_Town 0x7486B0 (Abode::GetDesireToBeRepaired 0x406970 con la vida
+  `ecs::life`); Playtime 0x7487B0 (0,1 si D0, D1, D5, D6, D9 < trigger y turno > 4000); Relaxation 0x7488C0 y Sleep
+  0x748960 (`sky_type::At` y `EveningRamp` sobre la hora visual del reloj de `Game`; Sleep llega a 6,25 de noche).
+  Protection 0x7488A0 / Mercy 0x7488B0 leen Town +0xEC0 / +0xEBC, que valen 0 hasta las agresiones (**pendiente**);
+  For_Wonder 0x748740 = 0 sin `GetBeliefInPlayer` (**pendiente**, milagros2); Supply_Worship, For_Rain, For_Sun,
+  Suppy_Workshop = 0 (literal).
+- **TownDesire::Process** 0x745AE0 (fiel): +0x164, los 17 en orden 0..16 (un deseo que lee otro de índice mayor ve el
+  del turno anterior), `CallDesireFunction` 0x745D80 (bruto +0x168 = f·TribeMultiplier sin recortar; deseo +0x118 =
+  clamp(bruto·modificación, −1, 1)), modificaciones 0x746490 / 0x7462A0 (150 = GVillagerInfo[10] maxFoodCarried) /
+  0x746350 (250) / 0x746400, los dos órdenes y, cada 50 turnos, `(2R0 + R1 + max(R3,R4) + max(R5,R6))/5` con
+  `HelpSpritesVillagerUnhappy` (0x745C8A) si pasa de 0,6 y es del jugador local. La estadística del jugador
+  (GPlayer +0xA44) es **pendiente**.
+- **Órdenes** (fiel): orden 1 (+0x278, valor GetDesire, +0 = refuerzos A + guion) y orden 2 (+0x344, GetRawDesire, +0 =
+  refuerzo A) con el `_qsort` de la CRT VC6 0x7C7E64 portado literal (CUTOFF 8, `_shortsort` 0x7C7FB8, pivote al medio;
+  no es estable: con todo a 0 queda `8 1 2 3 4 5 6 7 0 9 … 16`). Los tests comparan con `emu_qsort.py`.
+- **Reparto** `CheckVillagerNeededForTownDesire` 0x745FF0 (fiel): trigger 0 → 0,001; t = min(trigger + info +0x18, 1);
+  las entradas sin CheckSatisfy y, para un niño, las sin +0x60 se saltan sin cortar; corta (0) en la primera elegible con
+  `TempMod(k)·valor ≤ t` y devuelve 1 cuando un CheckSatisfy da 1. **Rareza conservada**: `TempMod` se pide con el índice
+  del bucle k, no con el del deseo. Lo llama fn_7581A0 (`villager::CheckNeededForTownDesire`, VillagerDecide.cpp).
+- **CheckSatisfy** (V3): Sleep es el de V2; Playtime 0 y Relaxation 0 (literal: sin fútbol, criatura ni artefactos);
+  Food (V8), Wood (V9), Abodes / Civic (V6/V7), Supply_Worship (milagros2), To_Build (V7), Repair (V11) y Workshop
+  devuelven 0 (**pendiente**). Consecuencia: en V3 solo Sleep produce conducta.
+- **Town::Process** 0x747380 (`town_process::ProcessTown`): TownStats del turno, +0x5E4 = 0, TownDesire::Process, cada
+  10 turnos `worship::percentage::GetWorshipersNeeded(1, 0)` / `AdjustWorshipersWorshipping(n, 1, 0)` de milagros2
+  (fn_7489F0; antes nadie lo llamaba), el pulso +0x5E8/+0x5EC y la cuenta atrás +0xF20; los demás pasos con TODO y su
+  dirección (solares V6, casas V4, artefactos, banderas, agresiones, reparaciones V11, emergencia, criatura, vasijas
+  V5, misioneros, creencia, alineamiento por deseos, Shuffle V4). `town_process::ProcessPlayers` recorre
+  `map_cells::ForEachTown` y se llama en `Game::GameLogicLoop` entre los tiburones y los PuzzleGames, antes de los
+  aldeanos (GPlayer::ProcessPlayers 0x54E641 va antes que Living::ProcessLiving 0x54E65B). La influencia (+0x5C8, pasos
+  3-5 del original: 0x7473A0 / 0x7473AD / 0x7473BD) no se llama aquí: la calcula cada turno `influence::ProcessTowns` de
+  milagros2 desde su propio gancho (`influence::ProcessTurn`, dentro de `magic::ProcessTurn`).
+- **Guion** (fiel): CHL `SET_TOWN_DESIRE_BOOST` (341) = GScript::SetTownDesireBoost 0x6FE650 (pueblo, d < 17, −1 ≤ v ≤ 1 →
+  +0xD4[d] = v y reordena solo el orden 1; "Thing not valid!" / "Invalid Params"); CHL `GET_DESIRE` (234) = 0x6FCCA0
+  (d inválido → "Invalid desire" y 0 **sin sacar el objeto**; si no, GetRawDesire); el comando de mapa
+  `TOWN_DESIRE_BOOST` 0x7179EC escribe +0xD4 sin reordenar ni comprobar el rango (Land2.txt: "Abodes" /
+  "Civic_Buildings" −0,75).
+- **API para otras sesiones** (`ECS/Town/TownDesire.h`): `GetDesire` / `GetRawDesire`, `GetSortedDesires` (+0x278),
+  `GetSortedRawDesires` (+0x344 = Town +0x37C valor / +0x380 tipo, lo que lee CheckTownDesiresSFX 0x71B130), `GetField`
+  (+0x90 / +0xD4 / +0x118 / +0x168), `GetDesireSignificanceToVillager` 0x746660, `GetMostDesired` 0x745E50,
+  `GetMostSignificantRawDesire` 0x745EA0, `CalculateDesireForFood` (con aviso) / `FoodDesireValue` (sin aviso),
+  `SetBoost`, `AlignmentTurns` (+0x410, solo milagros2). Rellenar `desireTowns` / `townResourceNeeds` de audio queda
+  para audio (**pendiente**, P-2).
+
+### Desviaciones y efectos visibles hasta V4
+
+- **De noche los aldeanos con casa van a 36 y se quedan en la puerta** (aceptado, P-1): Sleep es el primero (bruto
+  hasta 6,25, deseo 1), CheckSatisfySleep manda a 36 y 37 ARRIVES_HOME llega en V4 (**pendiente V4**). De día el reparto
+  corta en Relaxation/Playtime (CheckSatisfy 0) y todo sigue como en V2.
+- El culto de milagros2 recibe ahora, cada 10 turnos, el ajuste de adoradores de Town::Process (fn_7489F0).
+- **(aproximado)** TownStats se recalcula al empezar Town::Process desde las entidades (el original suma al añadir y
+  quitar); mismos recuentos, las sumas de float en otro orden. **(aproximado hasta V6)** todas las casas del guion
+  cuentan como funcionales, y `Town::storagePit` (+0x30) / `Town::creche` (+0x744) los pone la creación por guion
+  (AbodeArchetype) en vez de StoragePit / Creche::MakeFunctional (el último almacén gana; la primera guardería).
+- **(aproximado)** las cadenas x87 (80 bits) se calculan en double y se guardan en float donde el original hace
+  `fstp dword`.
+- **(aproximado)** la influencia del turno (milagros2, `magic::ProcessTurn`) se calcula después de los deseos y no dentro
+  de cada Town::Process (los deseos no la leen).
+- **(aproximado)** `SET_TOWN_DESIRE_BOOST` con d negativo no escribe (el original escribe fuera del array).
+- **(inferido)** +0x90 vale 0 en partida nueva (solo lo escribe Load); TRIBE_TYPE = el enum `Tribe` para
+  TribeMultiplier; "jugador local" = PLAYER_ONE; la lista +0x770 está vacía; fn_555240 (paso 23) no necesita llamada.
+- No portado (sin conducta): la suma de control de red [0xDA2770], la traza de depuración 0x7457C0 (la sustituye
+  `OPENBLACK_TOWN_TRACE`) y las funciones sin llamadas (0x745E80, 0x745FA0, 0x7461E0, 0x746220, 0x7465F0, 0x7466B0,
+  0x7468E0).
+
 ## Culto: vuelta a casa
 
 CheckVillagerGoBackToTownFromWorship 0x76BEC0 (fichero de Milagros) devuelve el código de SetTopState(248) == 1
@@ -393,6 +476,13 @@ turno (`ecs::life::Kill`). El original lo deja vivo (SetDying → 13) y sigue ll
 - `OPENBLACK_TEST_VILLAGER_STATE="<estado>[,<n>]"`: en el turno 2 llama a `villager::SetTopState` y escribe el código.
 - `OPENBLACK_TEST_VILLAGER_BORN_IN_WATER="x,z"`: en el turno 2 crea una celta (Housewife, 25 años) ahí.
 - `OPENBLACK_TEST_VILLAGER_POISONED=<n>`: en el turno 2 envenena al aldeano n.
+- `OPENBLACK_TOWN_TRACE=1[,<cada>][,raw]` (V3): por pueblo, cada `<cada>` turnos (50) y siempre que cambie el primero del
+  orden 1: `town <id> turn <t> pop <p>: [16 Sleep 1.000 raw 6.250] [15 Relaxation 0.100] …` (los 17, orden 1) y
+  `avg <a>` en los turnos de 50; con `,raw` también el orden 2.
+- `OPENBLACK_VILLAGER_TRACE` (V3): el reparto escribe `civic: t=<t> k=<k> d=<d> v=<v> tmp=<m> -> skip(child)|skip(nocs)|
+  cut|cs=0|cs=1`.
+- `OPENBLACK_TEST_TOWN_DESIRE="<d>,<boost>[,<pueblo>]"` (V3): en el turno 2, SetBoost como SET_TOWN_DESIRE_BOOST (reordena
+  el orden 1) en todos los pueblos o en el de ese id.
 
 Comprobado (2026-10-01): Land1, 58 aldeanos, todos 85 → 163 con código 1, checks cada 9 turnos, desgaste 2e-6 por turno
 al andar; con `LIFE=0.2` y `STATE=246`, 14 de 55 pausan (239 → 246; se esperaba ~27 %) y en el siguiente check van a
@@ -483,7 +573,7 @@ derribado), SetupMoveToWithHug con `moveState` conserva FINAL (y 0x2F sin paseo)
     SpecialVillager (V14), contador de aldeanos y esqueleto (V12), DROWNING 16 (agua).
 18. Neutros de V2 (devuelven 0 / no hacen nada, con TODO y dirección): CheckHomelessMoveIntoAbode 0x761360,
     ChangeStateToFindFoodToEat 0x75B990, CheckWhenGoingToBed 0x760B60, CheckNeedNewAbode 0x757F90 (V4);
-    TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 (V3: devuelve 0; qué deja en eax está sin leer, P-11);
+    (V3: TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 ya está, deja 0 o 1 en eax, 0x7460EB / 0x7460F7);
     DiscipleDecideWhatToDo 0x751720, IsMotherAlive 0x757F40 (deja la madre), ChildGotoCreche 0x7579F0, RemoveFromDance
     (V14); la rama sin casa de DoGoingHome (tienda 238 / 130, V4); Town +0xF1C (lo escribirá ProcessTownEmergency,
     Milagros); ExitAtHome 0x761B40 (V4, vale 1).

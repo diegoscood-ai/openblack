@@ -66,6 +66,7 @@
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Town/TownProcess.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
@@ -537,6 +538,9 @@ bool Game::GameLogicLoop() noexcept
 	ecs::BeginMobileTurn();
 	// fn_00775140 (0x54E5C7): the sharks' turn (Whale::Process), then the WALK_PATH list (GlobalGameLists::Process)
 	ecs::ProcessSharksTurn();
+	// GPlayer::ProcessPlayers 0x54E641: Town::Process 0x747380 for each player's towns (the desires, ECS/Town), before
+	// the villagers (Living::ProcessLiving 0x54E65B)
+	ecs::town_process::ProcessPlayers();
 	// GlobalGameLists::Process 0x591449: the PuzzleGames (fn_006D7480), before the scripts
 	ecs::ProcessPuzzleGamesTurn();
 

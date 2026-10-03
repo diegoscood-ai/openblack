@@ -57,7 +57,7 @@ uint32_t CheckNeededForSpecial(entt::entity villager);
 /// Villager::CheckNeededForCivic 0x758180: with a town, fn_7581A0 == 1
 uint32_t CheckNeededForCivic(entt::entity villager);
 /// fn_7581A0 (also Villager::CheckNeededForTownDesire 0x757C80, a jmp): GetOwnDesiresTrigger, the town desire's
-/// CheckVillagerNeededForTownDesire 0x745FF0 (TODO(V3): neutral, its eax taken as 0) and flags &= ~1 (0x7581CF)
+/// CheckVillagerNeededForTownDesire 0x745FF0 (town_desire, V3; 0 or 1) and flags &= ~1 (0x7581CF)
 uint32_t CheckNeededForTownDesire(entt::entity villager);
 /// Villager::GetOwnDesiresTrigger 0x7581E0
 [[nodiscard]] float GetOwnDesiresTrigger(entt::entity villager);

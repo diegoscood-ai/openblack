@@ -467,24 +467,19 @@ TEST(Explosion, explodeObjectQueueToPieces)
 	effect.Step(0.1f);
 	EXPECT_EQ(psys::explode_object::QueuedCount(), 0u);
 	std::vector<psys::Effect::DrawAtom> atoms;
-	effect.Collect(1.0f, atoms,
-	               psys::explode_object::k_PiecesAsWorldTriangles ? psys::Creator::Kind::GJMesh : psys::Creator::Kind::Mesh);
+	effect.Collect(1.0f, atoms, psys::Creator::Kind::GJMesh);
 	ASSERT_EQ(atoms.size(), 2u);
 	for (const auto& atom : atoms)
 	{
 		ASSERT_NE(atom.atom, nullptr);
 		const auto* piece = psys::explode_object::PieceOf(*atom.atom);
 		ASSERT_NE(piece, nullptr);
-		EXPECT_EQ(piece->meshId, 0u); // no renderer in the tests (and none at all for the world triangles)
 		EXPECT_EQ(piece->source, mesh); // GJMesh +0: the source primitive (0x680C49)
 		EXPECT_EQ(piece->subMesh, 0u);
 		EXPECT_EQ(piece->primitive, 0u);
-		if constexpr (psys::explode_object::k_PiecesAsWorldTriangles)
-		{
-			EXPECT_EQ(piece->positions.size(), 3u * piece->triangles); // three vertices per triangle (fn_0057D630)
-			EXPECT_EQ(piece->uvs.size(), piece->positions.size());
-			EXPECT_EQ(piece->normals.size(), piece->positions.size());
-		}
+		EXPECT_EQ(piece->positions.size(), 3u * piece->triangles); // three vertices per triangle (fn_0057D630)
+		EXPECT_EQ(piece->uvs.size(), piece->positions.size());
+		EXPECT_EQ(piece->normals.size(), piece->positions.size());
 	}
 	EXPECT_EQ(psys::explode_object::PieceOf(*atoms[0].atom)->triangles + psys::explode_object::PieceOf(*atoms[1].atom)->triangles, 20u);
 	// the first piece (triangles 0..15 of the strip, 48 vertices) at its centroid: the strip's points k / 2, k % 2 through

@@ -373,12 +373,6 @@ void RemoveFromCell(entt::entity object, glm::ivec2 cellXZ)
 	SetChildOf(object, cellXZ, entt::null);
 }
 
-/// The y angle of an openblack Transform (the archetypes' eulerAngleY(-a)): the sign map_collide::FromMesh turns by
-float YAngleOf(const glm::mat3& rotation)
-{
-	return std::atan2(rotation[0][2], rotation[0][0]);
-}
-
 /// What the readers skip: what the original has already taken out of the map (Object::RemoveMapObject from
 /// InitialisePhysics 0x637480+0x3A, InitialisePhysicsFromHand +0x63, the hand's pick-up, CleanupWhenDeleted 0x6377F0)
 struct ReadFilter
@@ -793,7 +787,7 @@ bool MeshShape(entt::entity object, const Transform& transform, map_collide::Sha
 	const auto* mesh = Locator::entitiesRegistry::value().TryGet<const Mesh>(object);
 	const float scale = object::GetScale(object);
 	if (mesh == nullptr || !map_collide::FromMesh(mesh->id, glm::vec2(transform.position.x, transform.position.z),
-	                                              YAngleOf(transform.rotation), scale, shape))
+	                                              map_cells::detail::YAngleOf(transform.rotation), scale, shape))
 	{
 		return false;
 	}
@@ -1883,4 +1877,11 @@ entt::entity map_cells::FindNearestTownInList(const map_coords::MapCoords& coord
 void map_cells::detail::SetShapeProviderForTests(ShapeProvider provider)
 {
 	g_ShapeProvider = provider;
+}
+
+float map_cells::detail::YAngleOf(const glm::mat3& rotation)
+{
+	// GetYXZ 0x7FAB30: y = fn_007FA990(m8, -m6) (0x7FAB42..0x7FAB5F); glm's column 2 is the LHMatrix's row 2.
+	// (aproximado) std::atan2, not fn_007FA990's fpatan of the ratio by octant: the last bit may differ
+	return std::atan2(-rotation[2][0], rotation[2][2]);
 }

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string_view>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -26,6 +27,12 @@ class PartialBuild
 public:
 	[[nodiscard]] static std::vector<graphics::L3DSubMesh::GeneratedPrimitive> Build(entt::entity building, entt::id_type mesh,
 	                                                                                 float percent);
+	/// Build, moved into the building's own space (its Transform) and loaded as a mesh named "<tag>/<n>", with the intact
+	/// model as its mark on the landscape: what DrawBuilding 0x517F90 draws for pct != 0. 0 when nothing is left.
+	[[nodiscard]] static entt::id_type BuildMesh(entt::entity building, entt::id_type intactMesh, float percent,
+	                                             std::string_view tag);
+	/// Erases a mesh BuildMesh made (0: nothing)
+	static void EraseMesh(entt::id_type id);
 	PartialBuild() = delete;
 };
 } // namespace openblack::ecs::physics

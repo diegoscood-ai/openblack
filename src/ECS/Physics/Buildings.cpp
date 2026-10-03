@@ -34,6 +34,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "CollisionSounds.h"
 #include "Dust.h"
@@ -160,12 +161,24 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 	{
 		return true;
 	}
-	// TODO: ConsiderMakingCreatureMimicPlayer(DAMAGE_BY_THROWING_AT) when the hand threw it
+	// 0x406261: player = hb->GetPlayer() (PhysicsObject::GetPlayer 0x647460: the GInterfaceStatus +0x24 of the hand that
+	// threw it, inherited by what it hit; openblack's byPlayer, the local player's hand)
+	const std::optional<PlayerNames> player = hit->byPlayer ? std::optional(PlayerNames::PLAYER_ONE) : std::nullopt;
+	// (not ported, no creature) 0x406273..0x406286: with the player and the proxy's FROM_HAND flag,
+	// ConsiderMakingCreatureMimicPlayer(status, DAMAGE_BY_THROWING_AT 16, this, 0)
+	// (not ported, no creature) 0x4064BA..0x4064DA: the thrower (po +0x1C, else hb +0x1C) is a Creature -> byCreature
+	constexpr bool byCreature = false;
 	const float p = glm::length(hit->body.velocity) * hit->body.Mass();
 	if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr)
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} hit by {} p {:.0f} (v {:.1f}, m {:.0f})", static_cast<uint32_t>(building),
 		                   static_cast<uint32_t>(hit->entity), p, glm::length(hit->body.velocity), hit->body.Mass());
+	}
+	if (p > 2000.0f && !ecs::abode_queries::IsBuilt(building))
+	{
+		// 0x4062E8: not built (IsBuilt vt +0x890 = 0, a building site): no DestructionMesh, straight to
+		// ApplyEffectsDueToPhysicalDestruction 0x406640 (EffectValues preset 3 x defence crush 0.2 -> ReduceLife 0x52F5E0)
+		return ecs::abodes::OnPhysicalDamage(building, {std::nullopt, hit->entity, player, byCreature});
 	}
 	if (p > 2000.0f)
 	{
@@ -224,9 +237,8 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 			return true;
 		}
 		// the life (and the repair baseline) first: the redraw's partly built percent comes from them.
-		// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640 (Edificios). TODO(Fisicas): the player
-		// (PhysicsObject::GetPlayer 0x647460, 0x406261) and the creature thrower (0x4064BA..)
-		if (!ecs::abodes::OnPhysicalDamage(building, {remaining, hit->entity, std::nullopt, false}))
+		// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640 (Edificios)
+		if (!ecs::abodes::OnPhysicalDamage(building, {remaining, hit->entity, player, byCreature}))
 		{
 			return false;
 		}

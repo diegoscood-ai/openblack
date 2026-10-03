@@ -72,45 +72,8 @@ void Redraw(entt::entity entity, Feature& feature)
 	if (drawBuilding)
 	{
 		shown = 0; // DrawBuilding 0x517FE0: nothing at 0
-		auto primitives = percent > 0.0f ? physics::PartialBuild::Build(entity, feature.intactMesh, percent)
-		                                 : std::vector<graphics::L3DSubMesh::GeneratedPrimitive> {};
-		if (!primitives.empty())
-		{
-			// PartialBuild works in world space: back into the Feature's own
-			const auto& transform = registry.Get<const Transform>(entity);
-			const glm::mat4 toWorld = lh_matrix::Model(transform);
-			const glm::mat4 toLocal = glm::inverse(toWorld);
-			const glm::mat3 normals(glm::transpose(glm::inverse(glm::mat3(toLocal))));
-			for (auto& p : primitives)
-			{
-				for (auto& v : p.positions)
-				{
-					v = glm::vec3(toLocal * glm::vec4(v, 1.0f));
-				}
-				for (auto& n : p.normals)
-				{
-					const auto m = normals * n;
-					n = glm::dot(m, m) > 0.0f ? glm::normalize(m) : glm::vec3(0.0f, 1.0f, 0.0f);
-				}
-			}
-			static uint32_t s_Next = 0;
-			const auto id = entt::hashed_string(("feature-built/" + std::to_string(s_Next++)).c_str()).value();
-			try
-			{
-				meshes.Load(id, resources::L3DLoader::FromGeneratedTag {}, "feature-built", primitives);
-				if (meshes.Contains(feature.intactMesh))
-				{
-					// the Feature's mark on the landscape stays
-					meshes.Handle(id)->SetFootprintSource(meshes.Handle(feature.intactMesh).handle());
-				}
-				feature.builtMesh = id;
-				shown = id;
-			}
-			catch (const std::exception& e)
-			{
-				SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Feature built percentage: {}", e.what());
-			}
-		}
+		feature.builtMesh = physics::PartialBuild::BuildMesh(entity, feature.intactMesh, percent, "feature-built");
+		shown = feature.builtMesh;
 	}
 	if (shown == 0)
 	{

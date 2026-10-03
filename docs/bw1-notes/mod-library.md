@@ -964,6 +964,9 @@ is on); they write to the Log tab. They are the templates.
   textures embedded in a `.l3d` (`L3DMesh::_skins`) and standalone materials of the `.lnd`, translations
   `lang/<idioma>.json` (today the per-language texts go inside the `mod.json`), and the window's language (today
   English; `mods::SetLanguage`).
+- **better physics** (pending, requested by the user, to be made later and disabled by default): building pieces that
+  collide with each other and with other objects, and that the hand can pick up ([physics.md](physics.md#pending)). Not
+  designed yet: new mods are only noted for now (user, 2026-10-04).
 - `world.crops`: without the mod the fields stay empty until openblack has jobs (farmers).
 - HD-Tweaks: what remains to be checked is in [mods.md](mods.md#hd-tweaks-mod).
 - Review of all mods after base 0e10b735 (2026-10-01): all compile, read their `settings.cfg` and work

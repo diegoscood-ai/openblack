@@ -150,8 +150,10 @@ turn, the scripts and what is missing are in
   `R(ŵ, ángulo)`, which in openblack's right-handed `PhysOb` is rotating by −angle (`documentacion\physics\physob.md`, "Sign
   convention"). Then `Villager::ForesterChopsTree` deletes the tree (`ToBeDeleted`): in openblack it is the same entity,
   so the deletion listeners are notified and the fire passes to the trunk (fn_00730960). Then `PhysOb::AdjustToGroundLevel(false, true)`.
-  **Not ported**: `flags |= 2` and `+0x1A4 = 2` of the physics object (unidentified), `RaiseUntilNotIntersecting` 0x644800 and
-  the two reactions 0x0C ("there is wood here": one from the DeadTree constructor 0x510957 and another from `FelledTree::Create`
+  Then flag 2 (0x51186B, "pushed by a Living": a villager's body does not hit it, `GameTurnUpdate` 0x64583E),
+  `RaiseUntilNotIntersecting` 0x644800 and kind +0x1A4 = 2 (0x511883, a felled tree): when it has toppled (row 1's
+  y < 0.98, 0x6460A8) and is taller than 10 it sounds once, `SoundTag::Create(MapCoords, GetRandomSample(31, 1), track 0,
+  mode 3, 3D, InGame)` (0x6460D5..0x6460F0), and becomes kind 3. **Not ported**: the two reactions 0x0C ("there is wood here": one from the DeadTree constructor 0x510957 and another from `FelledTree::Create`
   0x511889; `FelledTree::EndPhysics` 0x511970 does not add the landing one). `FelledTree::Draw`
   0x511990 adds the trunk to the drawing twice without fire (a `return` is missing in the original): no visible effect.
   Hook `OPENBLACK_TEST_FELL="x,z"`.
@@ -327,7 +329,7 @@ concerns the tree (values of the GTreeInfo table, above):
 - Replanting: `StartImmersion(0x2E)` and the creature's mimicry.
 - `MakeScenicForest` and `AssignForestsToTown` without a caller (map load and finished buildings): the villages have no
   forest list.
-- Felling: `flags |= 2` and `+0x1A4 = 2` of the physics object, `RaiseUntilNotIntersecting` 0x644800 and the two reactions 0x0C.
+- Felling: the two reactions 0x0C (0x510957, 0x511889).
 - Growth and fields: the rain and the terrain alignment (`MapCoords::GetAlignment`).
 - Bending: the player's creature (slot 2).
 - Sacrifice (postponed by the user).

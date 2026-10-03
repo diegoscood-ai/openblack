@@ -115,9 +115,14 @@ Code: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, components `BuildingDamage` a
   building is still standing stays as rubble of the building.
 - Quirk of the original: the rubble counts again as building triangles, and if after a hit the count
   reaches 1 the FragMesh is deleted and the house is drawn whole. It is left like this on purpose (the user prefers it as in the original, 2026-09-29).
-- Pending: repair by villagers (the
-  "half-built" drawing over the rubble), creature hits, village alignment and aggressor, buildings under
-  construction (−0.2 per hit).
+- A building that is not built (`IsBuilt` vt +0x890 = 0 at 0x4062E8, a building site) gets no FragMesh: the hit goes
+  straight to `ApplyEffectsDueToPhysicalDestruction` 0x406640 (session Edificios, `abodes::OnPhysicalDamage`, where the
+  effect preset × defence crush 0.2 takes 0.2 off the percent built), with the player of what hit it
+  (`PhysicsObject::GetPlayer` 0x647460: the hand's status +0x24, inherited) and whether a creature threw it (0x4064BA;
+  not ported, no creature). openblack's `abode_queries::IsBuilt` is 1 until building sites exist.
+- Pending: repair by villagers (the "half-built" drawing over the rubble; the FragMesh made anew when the draw percent
+  is in [0.2, 1), 0x4062FA..0x40633C, waits for `abodes::GetPercentForDrawBuilding`), creature hits
+  (`ConsiderMakingCreatureMimicPlayer` 0x406286).
 
 ## Sounds, dust and the look of impacts
 
@@ -215,6 +220,9 @@ The hand calls `physics::from_hand::Throw(object, spring velocity, dont_replant)
 0x6385E0, after it took the object out of the hand) and `ForceDrop` (`GInterface::ForceDropHeld` 0x5D4350); what the
 throw needs from the hand (putting a hand pot down, wood stores, dead trees, roots) comes through
 `from_hand::SetHandHooks`. A building that is deleted calls `physics::Buildings::OnBuildingDeleted` first.
+A building site (session Edificios) gets its partly built mesh from `PartialBuild::BuildMesh(building, intact mesh,
+percent, tag)` (fn_816AD0 in the building's own space; Feature::Redraw uses it too) and frees it with
+`PartialBuild::EraseMesh`.
 
 **Rows of PhysicsConstants** (`GetPhysicsConstantsType` vt +0x788): a fence (`IsFence` 0x609110) is row 18, tested
 after the three "rock" tests and before the toys (`MobileStatic` 0x609270); anything else with no override takes
@@ -232,8 +240,8 @@ openblack cannot make a body for (no mesh; the original would crash in `PhysOb::
 
 - Snow on the FragMesh (needs the weather: snow storms and the 128×128 snow map) and charring/glow from
   fire (needs the fire system); the 0.75 colour of the cap of the "half-built".
-- Buildings: repair by villagers (building site, wood), creature hits, village alignment and aggressor,
-  the inhabitants coming out when dropping below 0,75, half-built buildings (−0.2 per hit).
+- Buildings: repair by villagers (building site, wood), creature hits; what happens to the building itself (alignment,
+  aggressor, inhabitants, the town's emergency, −0.2 of a building site) is session Edificios' (`ECS/Abodes`).
 - Villagers and animals on landing: the original's three postures and the corpses (today they get up or disappear).
 - Complete villager death (`VillagerDead` 0x7506C0) and the creature's mimicry when something dropped by the
   player sinks: in [water.md](water.md#pending).

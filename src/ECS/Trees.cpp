@@ -39,6 +39,7 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/ThingFlags.h"
 #include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsAngle.h"
@@ -594,15 +595,21 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	registry.Remove<Tree>(tree);
 	registry.Assign<DeadTree>(tree, type, multiplier);
 	registry.AssignOrReplace<FelledTree>(tree, chopper);
+	// (inferred) the DeadTree is a new object in the original (fn_00510BB0 -> ctor 0x510880), so it does not carry the
+	// tree's IMMOVABLE flag (+0x24 & 0x1000, SET_ID_MOVEABLE) that would keep it out of the physics
+	ecs::thing_flags::SetMoveable(tree, true);
 	registry.SetDirty();
 	auto* po = ecs::physics::PhysicsObjects::AddObject(tree, velocity, spin, chopper, false);
 	if (po != nullptr)
 	{
-		// PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80
+		// FelledTree::Create 0x5116A0 after InitialisePhysics: PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80, flag 2
+		// (0x51186B: what a Living set moving; a villager's body does not hit it, Substep 0x64583E),
+		// RaiseUntilNotIntersecting 0x644800 and +0x1A4 = 2 (0x511883: a felled tree, its fall sounds at 0x6460D5)
 		po->body.AdjustToGroundLevel(false, true);
-		// TODO: po->flags |= 2, PhysicsObject::RaiseUntilNotIntersecting 0x644800, po +0x1A4 = 2 (flag 2 and +0x1A4
-		// unidentified), and the two REACTION 0x0C "wood here" (one from the DeadTree ctor 0x510957, one from
-		// FelledTree::Create 0x511889): reactions not ported for trees
+		po->flags |= ecs::physics::PhysicsObject::PushedByLiving;
+		ecs::physics::PhysicsObjects::RaiseUntilNotIntersecting(*po);
+		po->kind = 2;
+		// (pending) the two REACTION 0x0C "wood here" (the DeadTree ctor 0x510957, FelledTree::Create 0x511889)
 	}
 	return tree;
 }

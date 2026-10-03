@@ -54,6 +54,9 @@ struct PhysicsObject
 	bool turnStarted {false};
 	uint32_t flags {0};
 	bool villager {false};
+	/// +0x1A4: 1 a villager (AddObject 0x64476D, AddProxy 0x644E67), 2 a felled tree (FelledTree::Create 0x511883), 3 a
+	/// felled tree that has toppled (GameTurnUpdate 0x6460F8), else 0
+	uint8_t kind {0};
 	/// the player's hand threw it, directly or through what it hit (GInterfaceStatus +0x24, inherited by proxies)
 	bool byPlayer {false};
 	glm::vec3 forceSum {0.0f}; ///< +0x0C: the force of the touched substeps of this turn

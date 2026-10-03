@@ -12,13 +12,21 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <exception>
+#include <string>
 
+#include <entt/core/hashed_string.hpp>
 #include <glm/geometric.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
+#include <spdlog/spdlog.h>
 
 #include "3D/L3DMesh.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
+#include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -229,4 +237,57 @@ std::vector<graphics::L3DSubMesh::GeneratedPrimitive> PartialBuild::Build(entt::
 		}
 	}
 	return result;
+}
+
+entt::id_type PartialBuild::BuildMesh(entt::entity building, entt::id_type intactMesh, float percent, std::string_view tag)
+{
+	auto primitives = percent > 0.0f ? Build(building, intactMesh, percent) : std::vector<graphics::L3DSubMesh::GeneratedPrimitive> {};
+	if (primitives.empty())
+	{
+		return 0;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	auto& meshes = Locator::resources::value().GetMeshes();
+	// Build works in world space: back into the building's own
+	const glm::mat4 toLocal = glm::inverse(lh_matrix::Model(registry.Get<const Transform>(building)));
+	const glm::mat3 normals(glm::transpose(glm::inverse(glm::mat3(toLocal))));
+	for (auto& p : primitives)
+	{
+		for (auto& v : p.positions)
+		{
+			v = glm::vec3(toLocal * glm::vec4(v, 1.0f));
+		}
+		for (auto& n : p.normals)
+		{
+			const auto m = normals * n;
+			n = glm::dot(m, m) > 0.0f ? glm::normalize(m) : glm::vec3(0.0f, 1.0f, 0.0f);
+		}
+	}
+	static uint32_t s_Next = 0;
+	const std::string name(tag);
+	const auto id = entt::hashed_string((name + "/" + std::to_string(s_Next++)).c_str()).value();
+	try
+	{
+		meshes.Load(id, resources::L3DLoader::FromGeneratedTag {}, name, primitives);
+		if (meshes.Contains(intactMesh))
+		{
+			// the building's mark on the landscape stays
+			meshes.Handle(id)->SetFootprintSource(meshes.Handle(intactMesh).handle());
+		}
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Partly built mesh ({}): {}", name, e.what());
+		return 0;
+	}
+	return id;
+}
+
+void PartialBuild::EraseMesh(entt::id_type id)
+{
+	auto& meshes = Locator::resources::value().GetMeshes();
+	if (id != 0 && meshes.Contains(id))
+	{
+		meshes.Erase(id);
+	}
 }

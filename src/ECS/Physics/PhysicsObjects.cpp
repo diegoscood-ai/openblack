@@ -58,9 +58,11 @@
 #include "ECS/Life.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
 #include "ECS/SeaCells.h"
+#include "ECS/ThingFlags.h"
 #include "ECS/ToBeDeleted.h"
 #include "ECS/VillagerDrowning.h"
 #include "ECS/WaterRings.h"
@@ -547,6 +549,7 @@ void AddProxy(entt::entity entity)
 	auto po = std::make_unique<PhysicsObject>();
 	po->entity = entity;
 	po->villager = Locator::entitiesRegistry::value().AllOf<Villager>(entity);
+	po->kind = po->villager ? 1 : 0; // 0x644E67..0x644EAD
 	const bool dynamic = PhysicsObjects::CanBecomeAPhysicsObject(entity);
 	if (!SetUpBody(entity, po->body, dynamic))
 	{
@@ -579,7 +582,7 @@ void BeginTurn()
 		}
 		if (LifeOf(po.entity) < 0.01f)
 		{
-			po.body.density += 0.01f; // corpses sink
+			po.body.density += 0.01f; // GameTurnUpdate housekeeping: GetLife() < 0.01 -> sink factor +0.01 a turn (corpses sink)
 		}
 		po.forceSum = glm::vec3(0.0f);
 		// 0x645187..0x64519B: the end matrix (PhysOb +0x7C) becomes the turn-start one (+0xAC)
@@ -849,6 +852,18 @@ void EndTurn()
 	{
 		po->body.externalForce = glm::vec3(0.0f);
 		po->body.externalTorque = glm::vec3(0.0f);
+		// 0x64609F..0x6460F8: a felled tree (kind 2) that has toppled (its row 1's y, PhysOb +0x8C, < 0.98 [0x8CF3FC])
+		// sounds once when taller than 10 [0x8AB414] (GetHeight vt +0x42C): SoundTag::Create(its MapCoords +0x14,
+		// GetRandomSample(31, 1), track 0, mode 3, loops 0, 0, is3D 1, InGame, delay 0) 0x71EB60; then kind 3
+		if (po->kind == 2 && po->body.Rotation()[1].y < 0.98f && registry.Valid(po->entity))
+		{
+			if (ecs::object::GetHeight(po->entity) > 10.0f)
+			{
+				audio::tags::CreateAtMapCoords(ecs::object::MapCoordsOf(po->entity), audio::tags::RandomSample(31, 1), false, 3,
+				                               0, false, true, audio::SfxBank::InGame, 0);
+			}
+			po->kind = 3;
+		}
 		const float sum2 = glm::dot(po->forceSum, po->forceSum);
 		po->impact = sum2 > 0.0001f ? std::sqrt(sum2) * 0.05f : 0.0f;
 		if (std::getenv("OPENBLACK_PHYSICS_TRACE") != nullptr && !po->body.resting)
@@ -1179,6 +1194,12 @@ PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVel
 	{
 		return nullptr;
 	}
+	// Object::InitialisePhysics 0x637480 (bw1-decomp src/Black/Object.cpp:620): an IMMOVABLE object (GameThingWithPos
+	// +0x24 & 0x1000, SET_ID_MOVEABLE) gets no physics
+	if (thing_flags::IsImmovable(entity))
+	{
+		return nullptr;
+	}
 	if (auto* existing = PhysicsObjects::Find(entity))
 	{
 		if (!existing->body.resting)
@@ -1191,6 +1212,7 @@ PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVel
 	po->entity = entity;
 	po->thrower = thrower;
 	po->villager = registry.AllOf<Villager>(entity);
+	po->kind = po->villager ? 1 : 0; // 0x64476D..0x64479F
 	if (!SetUpBody(entity, po->body, true))
 	{
 		return nullptr;
